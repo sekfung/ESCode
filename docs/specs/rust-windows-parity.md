@@ -67,3 +67,23 @@ cp target/x86_64-pc-windows-gnu/debug/zcode-cli-rust.exe target/debug/zcode-cli-
 
 实测：首个请求 1830ms → **35ms**（36/34 ms）；provider 的 stop 用例由必然失败变为 515ms 通过；
 prompt 用例（含 `OS Version: win32 10.0.26100 x64`）保持通过。
+
+## Linux 验证（2026-09-24）
+
+把 Linux 目标依赖（`linux-raw-sys` 等）先在 Windows 上 `cargo fetch --target x86_64-unknown-linux-gnu` 取进共享的
+cargo 缓存，WSL Ubuntu 即可离线构建并运行整套 Rust 测试：
+
+```
+# Windows 侧取依赖（一次性）
+cargo fetch --target x86_64-unknown-linux-gnu
+# WSL 侧运行
+CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/zcode-target \
+  cargo test --offline --workspace -- --test-threads=1
+```
+
+结果：**29 个测试二进制的 Rust 测试全部通过、0 失败**（含 `crates/tools` 的 git 安全语料与 POSIX 分支、
+`crates/domain` 的权限/规则/代理解析差分，以及 app-server/core/state/model/host）。
+这覆盖了 POSIX 专属路径（进程组回收、`/bin/bash` 选择、`uname` 版本探测）。
+
+跨平台现状：Windows（MSVC 目标未跑，用 GNU 目标）与 Linux 均已通过 Rust 测试与（Windows 侧）App 集成套件；
+**macOS 未验证**（本机无 macOS 环境），发布验收仍须在 MSVC 目标与三平台原生环境重跑。

@@ -50,3 +50,10 @@ sequenceDiagram
   读取层与输出缓冲策略上重新设计（例如独立的 EOF 探测或受限的缓冲增长），不在本次改动范围内。
 - TS 侧对照：Node 的 stdout 写入在内存中排队，Host 不读取时不会阻塞事件循环，因此能读到 EOF 后退出；
   Rust 当前的有界输出通道是更严格的背压策略，代价是上述场景下无法退出。
+
+## 2026-09-24：Node/Rust 同口径实测
+
+用仓库自带 `bench-zcode-cli-node-rust.mjs` 在 WSL2（Linux x64）跑 5 次配对：Rust 启动 15.7ms vs Node 3305ms、
+空闲 RSS 11.3MiB vs 339MiB、峰值 19.5MiB vs 394MiB、同一 workload 墙钟 0.18s vs 15.9s。
+完整数据、读法与仍缺的口径（三平台原生、真实供应商、大历史、p95/p99）见
+[性能报告](../reports/rust-perf-2026-09-24.md)。
