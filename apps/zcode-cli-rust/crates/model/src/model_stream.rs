@@ -58,8 +58,8 @@ impl Assembly {
             self.finish = Some(reason.into());
         }
         let delta = &choice["delta"];
-        for (key, reasoning) in [("reasoning_content", true), ("content", false)] {
-            if let Some(part) = string(&delta[key])?
+        for (field, reasoning) in [(reasoning_field(delta), true), ("content", false)] {
+            if let Some(part) = string(&delta[field])?
                 && !part.is_empty()
             {
                 self.count(part.len())?;
@@ -220,5 +220,36 @@ impl<'a> TextBuffer<'a> {
             .map_err(|_| ModelFailure::cancelled())?;
         self.committed = true;
         Ok(())
+    }
+}
+
+/// 推理增量字段，对齐 TS 使用的 AI SDK（openai-compatible）：`reasoning_content ?? reasoning`。
+/// 修复：原先只认 `reasoning_content`；vLLM 等新版服务把推理流放在 `delta.reasoning`，
+/// Rust 因此既不显示也不保留推理，推理阶段界面长时间无内容。
+fn reasoning_field(delta: &Value) -> &'static str {
+    if delta.get("reasoning_content").is_some_and(|v| !v.is_null()) {
+        "reasoning_content"
+    } else {
+        "reasoning"
+    }
+}
+
+#[cfg(test)]
+mod reasoning_field_tests {
+    use super::reasoning_field;
+    use serde_json::json;
+
+    #[test]
+    fn reasoning_content_wins_and_reasoning_is_the_fallback() {
+        assert_eq!(
+            reasoning_field(&json!({"reasoning_content":"a","reasoning":"b"})),
+            "reasoning_content"
+        );
+        assert_eq!(reasoning_field(&json!({"reasoning":"b"})), "reasoning");
+        assert_eq!(
+            reasoning_field(&json!({"reasoning_content":null,"reasoning":"b"})),
+            "reasoning"
+        );
+        assert_eq!(reasoning_field(&json!({"content":"x"})), "reasoning");
     }
 }

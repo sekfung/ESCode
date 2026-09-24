@@ -37,3 +37,11 @@ sequenceDiagram
 协议依据：当前 TS adapters/model 与公开协议：[OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)、[Responses migration](https://developers.openai.com/api/docs/guides/migrate-to-responses)、[Anthropic streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)。正文/工具核心不等于完整供应商 hosted tools、websocket、batch 或多媒体支持。
 
 性能验收：保留固定每轮文本片段与轮次数，为 Responses/Anthropic 只替换 SSE 协议封装；两端 contextWindow 均为 256000，避免摘要改变负载。release 同机串行交替各五次，比较 Chat 新旧版本以及同产物三协议，记录启动/首段/总耗时/RPC p95/RSS/存储；协议传输字节数不同，结果只代表本地 fixture 的 adapter 开销。
+
+## Chat Completions 推理字段（2026-09-25，真实服务基准发现）
+
+对齐 TS 所用 AI SDK（`@ai-sdk/openai-compatible`）：流式推理增量取 `delta.reasoning_content ?? delta.reasoning`。
+vLLM 等新版 OpenAI 兼容服务只发 `delta.reasoning`（自建 DeepSeek 实测 36 个分片中 30 个是 `reasoning`、0 个
+`reasoning_content`）。Rust 原先只认 `reasoning_content`，推理既不显示也不写入历史：用户在推理阶段看到数秒空白
+（热轮首个可见内容 3.8s，Node 0.49s）。修复后首个推理行约 0.3s 出现（`model_stream.rs::reasoning_field`，含单测；
+基准 trace 复核）。回传历史时仍写 `reasoning_content`，与 AI SDK 一致。

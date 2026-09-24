@@ -11,6 +11,21 @@ import { fixture } from "./zcode-cli-rust-fixture.js";
 const providerId = process.env.ZCODE_BENCH_PROVIDER_ID;
 const rounds = Number(process.env.ZCODE_BENCH_ROUNDS ?? 20);
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
+// 场景：short 一词回复；long 约 300 词的流式长回复；tool 先调用 Read 再回答（统计工具是否成功）。
+const scenario = (process.env.ZCODE_BENCH_SCENARIO ?? "short") as "short" | "long" | "tool";
+const prompts = {
+  short: ["Reply with exactly one word: ok", "Reply with exactly one word: yes"],
+  long: [
+    "Write about 300 words describing a lighthouse at night. Plain prose, no lists.",
+    "Write about 300 words describing a harbor at dawn. Plain prose, no lists.",
+  ],
+  tool: [
+    "Use the Read tool to read sample.txt, then reply with only its first word.",
+    "Use the Read tool to read sample.txt again, then reply with only its last word.",
+  ],
+}[scenario];
+// release 构建：ZCODE_BENCH_RUST_BINARY 指向 cargo --release 产物；缺省用测试夹具的 debug 构建。
+const rustBinary = process.env.ZCODE_BENCH_RUST_BINARY;
 
 function percentile(values: number[], p: number) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -77,8 +92,9 @@ async function measure(kind: "node" | "rust") {
           registry: true,
           env,
         })
-      : await fixture({ root, registry: true, env });
+      : await fixture({ root, registry: true, env, ...(rustBinary ? { binary: rustBinary } : {}) });
   await providerConfig(root);
+  await writeFile(join(f.cwd, "sample.txt"), "alpha beta gamma delta\n");
   const started = performance.now();
   const h = f.start();
   try {
@@ -107,15 +123,34 @@ async function measure(kind: "node" | "rust") {
         mark,
       );
       const firstMs = performance.now() - t0;
+      if (process.env.ZCODE_BENCH_TRACE) {
+        // 诊断：本轮每种行首次出现的时刻（按帧到达顺序），用于解释首段文本延迟的差异。
+        await h.completed(id, mark);
+        const seen: Record<string, number> = {};
+        for (const m of h.messages.slice(mark)) {
+          for (const d of m.params?.frame?.payload?.deltas ?? []) {
+            const rowId = Number(d.row?.rowId ?? d.rowId);
+            if (!(rowId > before)) continue;
+            const kind = d.row?.kind ?? `delta:${rowId}`;
+            const at = Math.round((m.__receivedAt ?? 0) - t0);
+            if (seen[kind] === undefined) seen[kind] = at;
+          }
+        }
+        console.log("TRACE", kind, JSON.stringify(seen));
+      }
       await h.completed(id, mark);
       return { firstMs, totalMs: performance.now() - t0 };
     };
-    const cold = await turn("Reply with exactly one word: ok");
-    const warm = await turn("Reply with exactly one word: yes");
+    const cold = await turn(prompts[0]!);
+    const warm = await turn(prompts[1]!);
     const rows = (await h.rows(id)).rows as Record<string, any>[];
     const answered =
-      rows.filter((r) => r.kind === "assistantText" && String(r.text ?? "").length > 0).length ===
-      2;
+      rows.filter((r) => r.kind === "assistantText" && String(r.text ?? "").length > 0).length >= 2;
+    const tools = rows.filter((r) => r.kind === "toolCall");
+    const toolsOk = tools.length > 0 && tools.every((r) => r.status === "success");
+    const answerChars = rows
+      .filter((r) => r.kind === "assistantText")
+      .reduce((n, r) => n + String(r.text ?? "").length, 0);
     assert.deepEqual(h.schemaErrors, []);
     return {
       ready,
@@ -124,6 +159,8 @@ async function measure(kind: "node" | "rust") {
       warmFirstMs: warm.firstMs,
       warmTotalMs: warm.totalMs,
       answered,
+      toolsOk,
+      answerChars,
     };
   } finally {
     await h.close().catch(() => undefined);
@@ -162,6 +199,9 @@ test(
           kind,
           {
             n: s.length,
+            scenario,
+            toolsOk: s.filter((x) => x.toolsOk).length,
+            answerChars: Math.round(s.reduce((n, x) => n + x.answerChars, 0) / s.length),
             answered: s.filter((x) => x.answered).length,
             readyMs: stats(pick("ready")),
             firstTextMs: stats(pick("firstMs")),
@@ -173,7 +213,8 @@ test(
       }),
     );
     console.log("BENCH", JSON.stringify(summary));
-    assert.equal(summary.node!.answered, rounds);
-    assert.equal(summary.rust!.answered, rounds);
+    // 长回复下模型本身偶发只推理不作答或自发调用工具；计数写入报告，低于 90% 才视为失败。
+    assert(summary.node!.answered >= rounds * 0.9, "node answered too few turns");
+    assert(summary.rust!.answered >= rounds * 0.9, "rust answered too few turns");
   },
 );

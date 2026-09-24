@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { withDefaultMode } from "./zcode-cli-rust-fixture-mode.js";
 import { createServer, type ServerResponse } from "node:http";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -283,6 +284,8 @@ export class Harness {
                 : workspaceConfigTopicWireFrameSchema;
             schema.parse(wire);
           }
+          // 到达时刻供性能诊断使用；不可枚举，不影响任何比较或序列化。
+          Object.defineProperty(message, "__receivedAt", { value: performance.now() });
           this.messages.push(message);
         } catch (error) {
           this.schemaErrors.push(String(error));
@@ -316,20 +319,9 @@ export class Harness {
       clientId: "fixture-client",
       sessionId,
       type,
-      payload: this.withDefaultMode(type, payload),
+      payload: withDefaultMode(type, payload, this.defaultMode),
       issuedAt: Date.now(),
     };
-  }
-  /** 只补输入类命令；显式 mode（含测试刻意传入的非法值）原样保留。 */
-  private withDefaultMode(type: string, payload: Message): Message {
-    if (!this.defaultMode) return payload;
-    const fill = (input: Message) =>
-      "mode" in input ? input : { ...input, mode: this.defaultMode };
-    if (type === "sendText" || type === "sendGoalCommand") return fill(payload);
-    if (type === "createSession" && payload.firstInput) {
-      return { ...payload, firstInput: fill(payload.firstInput) };
-    }
-    return payload;
   }
   command(command: Message) {
     return this.client.request("v4/command", command, commandAckSchema);
@@ -370,10 +362,14 @@ export class Harness {
           resolveWait(message);
         }
       };
-      const timer = setTimeout(() => {
-        cleanup();
-        reject(new Error(`Timed out; schema errors: ${this.schemaErrors.join("\n")}`));
-      }, 8000);
+      const timer = setTimeout(
+        () => {
+          cleanup();
+          reject(new Error(`Timed out; schema errors: ${this.schemaErrors.join("\n")}`));
+          // 真实模型服务的长回复可能超过默认 8s；只有显式设置时才放宽，普通用例保持原超时。
+        },
+        Number(process.env.ZCODE_TEST_WAIT_MS ?? 8000),
+      );
       const cleanup = () => {
         clearTimeout(timer);
         this.waiters.delete(wake);
