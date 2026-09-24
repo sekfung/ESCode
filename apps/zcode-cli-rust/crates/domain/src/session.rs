@@ -29,6 +29,9 @@ pub struct Session {
     pub children: std::collections::BTreeMap<String, super::subagent::Task>,
     #[serde(default)]
     pub mailbox: Vec<Value>,
+    /// plan 审批后待追加的消息（退出 reminder / 用户反馈）；StepBoundary 写入历史并交给 loop。
+    #[serde(skip)]
+    pub plan_followups: Vec<Value>,
     #[serde(default)]
     pub goal: Option<super::goal::Goal>,
     #[serde(default)]
@@ -157,6 +160,7 @@ impl Session {
             agent_profile: None,
             children: Default::default(),
             mailbox: vec![],
+            plan_followups: vec![],
             goal: None,
             skills: None,
             shared_context: None,

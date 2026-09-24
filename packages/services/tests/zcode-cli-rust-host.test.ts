@@ -147,9 +147,9 @@ test("Desktop storage preparation and Host service use the real native runtime",
     const workspace = { workspacePath: f.cwd };
     assert.equal((await service.initialize(workspace)).available, true);
     assert.deepEqual((await service.readWorkspacePresentation(workspace)).executionCapabilities, {
-      // build/edit 已实现并通过 App 集成验收；plan 仍需计划审批交互。
+      // build/edit 与独立 plan 状态均已实现（plan 审批与 Node 差分一致，见 rust-plan-mode.md）。
       permissionModes: ["yolo", "build", "edit"],
-      independentPlanState: false,
+      independentPlanState: true,
     });
     const envelope = (
       type: CommandEnvelope["type"],
@@ -174,9 +174,9 @@ test("Desktop storage preparation and Host service use the real native runtime",
     assert(submission, "Real App composer must permit the selected model");
     const capabilities = {
       permissionModes: ["yolo" as const, "build" as const, "edit" as const],
-      independentPlanState: false,
+      independentPlanState: true,
     };
-    // build/edit 已宣告，Composer 允许提交；plan 未宣告，planEnabled 仍被拒。
+    // build/edit 与独立 plan 状态均已宣告，真实 App Composer 允许提交 planEnabled。
     assert.equal(
       createComposerSubmissionConfig({ ...submission, mode: "build" }, view, capabilities)?.mode,
       "build",
@@ -186,8 +186,9 @@ test("Desktop storage preparation and Host service use the real native runtime",
       "edit",
     );
     assert.equal(
-      createComposerSubmissionConfig({ ...submission, planEnabled: true }, view, capabilities),
-      null,
+      createComposerSubmissionConfig({ ...submission, planEnabled: true }, view, capabilities)
+        ?.planEnabled,
+      true,
     );
     assert.equal(createComposerSubmissionConfig(submission, view, capabilities)?.mode, "yolo");
     const created = await service.sendConversationCommandV4({

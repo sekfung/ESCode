@@ -27,6 +27,7 @@ pub mod option_map;
 pub mod permission;
 pub mod permission_options;
 mod permission_rules;
+pub mod plan_mode;
 pub mod prompt;
 pub mod question;
 mod question_answer;

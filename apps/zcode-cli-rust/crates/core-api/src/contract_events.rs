@@ -103,6 +103,15 @@ pub enum Event {
         input: Box<zcode_cli_domain::question::QuestionInput>,
         reply: oneshot::Sender<zcode_cli_domain::question::QuestionAnswer>,
     },
+    /// EnterPlanMode / ExitPlanMode：由会话 owner 改变 plan 状态并（退出时）发起审批交互。
+    PlanEnter {
+        reply: oneshot::Sender<ToolOutput>,
+    },
+    PlanExit {
+        call_id: String,
+        input: Value,
+        reply: oneshot::Sender<ToolOutput>,
+    },
     ToolDone {
         id: String,
         result: String,

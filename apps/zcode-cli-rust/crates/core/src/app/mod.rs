@@ -4,6 +4,8 @@ mod engine;
 mod event_projection;
 mod model_config;
 mod permission_flow;
+mod plan_mode;
+mod plan_tool;
 mod queries;
 mod shell_preferences;
 mod subscriptions;

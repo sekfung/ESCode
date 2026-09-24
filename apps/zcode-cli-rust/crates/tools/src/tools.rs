@@ -156,6 +156,9 @@ impl ToolPort for WorkspaceTools {
         self.mcp.inherit(parent, child);
         Ok(())
     }
+    async fn write_plan_file(&self, file_name: &str, plan: &str) -> Result<()> {
+        super::plan_tools::write_plan_file(&self.cwd, file_name, plan).await
+    }
     async fn agent_output(&self, session: &str, text: &str) -> Result<String> {
         let dir = self.artifacts.join(format!(
             "{:x}",
@@ -234,6 +237,7 @@ impl ToolPort for WorkspaceTools {
         for name in ["Agent", "SendMessage"] {
             definitions.push(json!({"type":"function","function":{"name":name,"description":descriptions[name],"parameters":schemas[name]}}));
         }
+        definitions.extend(super::plan_tools::definitions(&schemas));
         definitions
     }
     fn requires_permission(&self, _name: &str) -> bool {

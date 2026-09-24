@@ -81,7 +81,19 @@ impl Engine {
                 .register_question(&id, &event.run_id, &call_id, *input, reply)
                 .await;
         }
+        if matches!(
+            event.event,
+            Event::PlanEnter { .. } | Event::PlanExit { .. }
+        ) {
+            return self
+                .plan_event(&id, &event.run_id, &turn, event.event)
+                .await;
+        }
         if let Event::StepBoundary { committed } = event.event {
+            if let Some(messages) = self.drain_plan_followups(&id).await? {
+                let _ = committed.send(Some(messages));
+                return Ok(());
+            }
             if let Some(messages) = self.drain_mailbox(&id, &turn).await? {
                 let _ = committed.send(Some(messages));
                 return Ok(());
@@ -129,6 +141,8 @@ impl Engine {
             | Event::SkillsInitialized { .. }
             | Event::TodoReminder { .. }
             | Event::Question { .. }
+            | Event::PlanEnter { .. }
+            | Event::PlanExit { .. }
             | Event::ToolCleanupFailed(_)
             | Event::StepBoundary { .. }
             | Event::Background { .. }
@@ -321,6 +335,7 @@ impl Engine {
                         .map(|r| json!({"op":"row.upserted","row":r})),
                 );
                 self.waiting_permissions.retain(|_, w| w.session != id);
+                self.plan_exits.retain(|_, w| w.session != id);
                 self.questions.retain(|_, q| q.session != id);
                 self.active.remove(&id);
             }

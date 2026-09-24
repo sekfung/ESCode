@@ -47,6 +47,8 @@ pub struct Engine {
     pub(super) active: BTreeMap<String, Active>,
     /// 挂起中的权限确认（等待 resolveInteraction）。
     pub(super) waiting_permissions: BTreeMap<String, super::permission_flow::WaitingPermission>,
+    /// 挂起中的 ExitPlanMode 审批。
+    pub(super) plan_exits: BTreeMap<String, super::plan_mode::WaitingPlan>,
     /// 项目权限规则：允许「总是允许」在项目内跨会话生效。
     pub(super) project_rules: Option<crate::domain::permission::Ruleset>,
     pub(super) project_rules_persistent: bool,
@@ -117,6 +119,7 @@ impl Engine {
             acks: BTreeMap::new(),
             active: BTreeMap::new(),
             waiting_permissions: BTreeMap::new(),
+            plan_exits: BTreeMap::new(),
             project_rules: project_rules_json
                 .as_ref()
                 .map(crate::domain::permission::Ruleset::from_json),
@@ -203,6 +206,7 @@ impl Engine {
             session.queued_now = None;
         }
         self.waiting_permissions.clear();
+        self.plan_exits.clear();
         self.questions.clear();
         self.auth.clear();
         for id in self.sessions.keys() {

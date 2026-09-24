@@ -57,12 +57,12 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 `packages/services/tests/zcode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）
 分别驱动 Node 与 Rust，比对协议投影。结论：
 
-| 字段                             | Node   | Rust                      | 说明                                                                         |
-| -------------------------------- | ------ | ------------------------- | ---------------------------------------------------------------------------- |
-| `independentPlanState`           | `true` | 不声明（false）           | Node 支持独立 plan 状态；Rust 未实现 plan，Host 因此不会给 Rust 走 plan 流程 |
-| `permissionModes`                | 不声明 | `["yolo","build","edit"]` | Rust 显式声明支持的模式；Node 省略，Host 对缺席字段按「都支持」处理          |
-| `workspaceExecutionCapabilities` | 不声明 | `true`                    | Rust 能提供 workspace 执行能力块（`includeExecutionCapabilities`）           |
-| `accountProviderConfig`          | 不声明 | `true`（有 registry 时）  | Rust 显式声明账号 provider 配置能力                                          |
+| 字段                             | Node   | Rust                      | 说明                                                                        |
+| -------------------------------- | ------ | ------------------------- | --------------------------------------------------------------------------- |
+| `independentPlanState`           | `true` | `true`（2026-09-24 起）   | 两侧一致；plan 审批三种应答与 EnterPlanMode 已差分对齐（rust-plan-mode.md） |
+| `permissionModes`                | 不声明 | `["yolo","build","edit"]` | Rust 显式声明支持的模式；Node 省略，Host 对缺席字段按「都支持」处理         |
+| `workspaceExecutionCapabilities` | 不声明 | `true`                    | Rust 能提供 workspace 执行能力块（`includeExecutionCapabilities`）          |
+| `accountProviderConfig`          | 不声明 | `true`（有 registry 时）  | Rust 显式声明账号 provider 配置能力                                         |
 
 行级投影（行种类、工具名、工具状态）两侧完全一致，schema 校验两侧均无错误。
 

@@ -10,7 +10,7 @@ impl Engine {
     fn execution_capabilities(&self) -> Value {
         // build/edit 的判定、确认交互与项目规则持久化已实现并通过 App 集成验收；
         // plan 仍需计划审批交互，auto 在 TS 同样是保留未实现，故暂不宣告。
-        json!({"permissionModes":["yolo","build","edit"],"independentPlanState":false})
+        json!({"permissionModes":["yolo","build","edit"],"independentPlanState":true})
     }
 
     pub(super) fn workspace_config(&self) -> Value {
@@ -51,7 +51,7 @@ impl Engine {
                 Ok(json!({"operationId":operation,"cancelled":!ids.is_empty()}))
             }
             "runtime/capabilities" => Ok(
-                json!({"workspaceExecutionCapabilities":true,"independentPlanState":false,"accountProviderConfig":self.registry.is_some()}),
+                json!({"workspaceExecutionCapabilities":true,"independentPlanState":true,"accountProviderConfig":self.registry.is_some()}),
             ),
             "process/childProcesses" => Ok(json!({"processes":[]})),
             "workspace/readPresentation" => {

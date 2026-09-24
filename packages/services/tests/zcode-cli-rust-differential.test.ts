@@ -100,14 +100,14 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
   // 能力位是可选字段，两侧的「声明策略」不同，且已逐个确认过含义（见 rust-release-rollback.md）：
   // - Rust 显式声明自己的能力（支持哪些权限模式、能否提供 workspace 执行能力、是否有账号 provider 配置）；
   // - Node 省略这些可选位，Host 对缺席字段按「都支持」处理；
-  // - plan 状态相反：Node 声明 independentPlanState，Rust 未实现 plan 故不声明，Host 因此不会给 Rust 走 plan 流程。
+  // - plan：两侧都声明 independentPlanState（Rust 的 plan 审批与 Node 差分一致，见 rust-plan-mode.md）。
   // 这里把已知差异写成契约：出现新的差异键就失败。
   const rustOnly = new Set([
     "permissionModes",
     "workspaceExecutionCapabilities",
     "accountProviderConfig",
   ]);
-  const nodeOnly = new Set(["independentPlanState"]);
+  const nodeOnly = new Set<string>();
   const extraOnRust = rust.capabilityKeys.filter((k) => !node.capabilityKeys.includes(k));
   const extraOnNode = node.capabilityKeys.filter((k) => !rust.capabilityKeys.includes(k));
   assert.deepEqual(

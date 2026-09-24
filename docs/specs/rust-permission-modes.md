@@ -97,7 +97,7 @@ Rust：`permission_flow.rs` 仅在 `parent_id` 为空时投放 `fullAccessOption
 | 带工作目录的 git 运行时检查（hooks/config 信任）                                       | 已实现 `crates/tools/src/bash_git_safety.rs`（IO 在 adapter，domain 只做纯决策）                                                            | 15 例目录树语料；差分测试待可构建环境运行        |
 | 工具能力表                                                                             | 由 TS 工具元数据导出 `tool_capabilities.json`（`--check` 防漂移）                                                                           | 40 个内置工具                                    |
 | ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 已实现 `core/src/app/permission_flow.rs`；allowAlways 写入项目规则表                                                                        | App 集成 4 条用例（允许/拒绝/yolo/项目规则复用） |
-| 能力宣告 `permissionModes` / `independentPlanState`                                    | `["yolo","build","edit"]` / false（plan 需计划审批交互，auto 在 TS 同样保留）                                                               | 编译验证；声明本身未跑构建                       |
+| 能力宣告 `permissionModes` / `independentPlanState`                                    | `["yolo","build","edit"]` / true（plan 以独立状态实现，见 rust-plan-mode.md；auto 在 TS 同样保留）                                          | App 集成（host、execution-modes、plan 差分）     |
 
 ## Bash 只读分类移植方案
 

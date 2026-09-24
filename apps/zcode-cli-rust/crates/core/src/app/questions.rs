@@ -87,6 +87,9 @@ impl Engine {
             let _ = q.reply.send(answer);
             return Ok(ack);
         }
+        if self.plan_exits.contains_key(interaction) {
+            return self.resolve_plan_exit(c, id, interaction).await;
+        }
         if let Some(waiting) = self.waiting_permissions.get(interaction)
             && waiting.session == id
         {
@@ -159,7 +162,11 @@ impl Engine {
         }
         Ok(c.ack("noop", revision, Some("proto.alreadyResolved")))
     }
-    async fn commit_interaction(&mut self, c: &Command, deltas: Vec<Value>) -> Result<Value> {
+    pub(super) async fn commit_interaction(
+        &mut self,
+        c: &Command,
+        deltas: Vec<Value>,
+    ) -> Result<Value> {
         let id = c.session_id.as_deref().unwrap();
         let s = self.sessions.get_mut(id).unwrap();
         s.revision += 1;

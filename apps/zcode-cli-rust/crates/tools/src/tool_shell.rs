@@ -73,6 +73,7 @@ impl ShellTasks {
                             json!({"kind":"task_stop","taskId":id,"taskType":"bash","command":job.command,"message":message}),
                         ),
                         data,
+                        control: Default::default(),
                     });
                 }
                 let timeout = uint(args, "timeout", 30000)?;
@@ -128,6 +129,7 @@ impl ShellTasks {
                     content: serde_json::to_string(&data)?,
                     data,
                     display: Some(display),
+                    control: Default::default(),
                 })
             }
             _ => bail!("Unsupported shell tool"),

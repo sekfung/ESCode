@@ -13,6 +13,14 @@ import { buildSubagentCommonNotes } from "../apps/zcode-cli/packages/core/src/su
 import { buildPersistentAgentMemoryPrompt } from "../apps/zcode-cli/packages/core/src/subagent/persistent-memory-prompt.ts";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "../apps/zcode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts";
 import {
+  enterPlanModeToolEntry,
+  exitPlanModeToolEntry,
+} from "../apps/zcode-cli/packages/core/src/tool/handlers/plan-mode.ts";
+import {
+  buildPlanModeExitReminderBody,
+  buildRuntimeModeReminderBody,
+} from "../apps/zcode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts";
+import {
   todoReadToolEntry,
   todoWriteToolEntry,
 } from "../apps/zcode-cli/packages/core/src/tool/handlers/todo.ts";
@@ -31,7 +39,19 @@ const tools = [
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
   ["TaskStop", "task-stop", "TaskStopInputJsonSchema"],
   ["AskUserQuestion", "ask-user-question", "AskUserQuestionInputJsonSchema"],
+  ["EnterPlanMode", "plan-mode", "EnterPlanModeInputJsonSchema"],
+  ["ExitPlanMode", "plan-mode", "ExitPlanModeInputJsonSchema"],
 ];
+// plan 模式 reminder：直接调用 TS 的节奏函数取完整版（首次）与精简版（第 2 次、间隔 5 个真实用户轮次后）。
+const realUser = { message: { role: "user", content: "u" }, metadata: { source: "real_user" } };
+const modeReminder = { message: { role: "user", content: "r" }, metadata: { source: "runtime_mode" } };
+const planModeReminders = {
+  full: buildRuntimeModeReminderBody([], "build", true),
+  sparse: buildRuntimeModeReminderBody([modeReminder, ...Array(5).fill(realUser)], "build", true),
+  exit: buildPlanModeExitReminderBody(),
+};
+if (!planModeReminders.full || !planModeReminders.sparse || planModeReminders.full === planModeReminders.sparse)
+  throw new Error("Unexpected TS plan mode reminder cadence");
 const schemas = {};
 for (const [name, file, key] of tools) {
   schemas[name] = (await import(`../apps/zcode-cli/packages/contracts/src/tools/${file}.ts`))[key];
@@ -106,8 +126,16 @@ for (const [file, data] of [
     },
   ],
   ["question_description.json", askUserQuestionToolEntry.metadata.description],
+  [
+    "plan_mode_descriptions.json",
+    {
+      EnterPlanMode: enterPlanModeToolEntry.metadata.description,
+      ExitPlanMode: exitPlanModeToolEntry.metadata.description,
+    },
+  ],
+  ["../domain/plan_mode_reminders.json", planModeReminders],
 ]) {
-  const directory = file === "../domain/agent_profiles.json" ? "domain" : "tools";
+  const directory = file.startsWith("../domain/") ? "domain" : "tools";
   const name = file.replace("../domain/", "");
   const path = new URL(`../apps/zcode-cli-rust/crates/${directory}/src/${name}`, import.meta.url);
   const formatted = await format(path.pathname, `${JSON.stringify(data, null, 2)}\n`);

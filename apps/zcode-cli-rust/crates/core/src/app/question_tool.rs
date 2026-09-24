@@ -32,5 +32,6 @@ pub(super) async fn execute(
         data: answer.data,
         failed: answer.failed,
         display: None,
+        control: Default::default(),
     })
 }

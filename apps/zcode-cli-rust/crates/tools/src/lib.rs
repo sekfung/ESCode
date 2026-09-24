@@ -12,6 +12,7 @@ mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
 mod mcp_sse;
+mod plan_tools;
 #[cfg(unix)]
 mod process_tree;
 mod shell_select;

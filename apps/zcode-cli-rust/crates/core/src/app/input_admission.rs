@@ -54,8 +54,11 @@ impl Engine {
             s.mode = mode.into();
             s.revision += 1;
         }
-        if c.payload["planEnabled"] == false {
-            s.plan_enabled = false;
+        if let Some(plan) = c.payload["planEnabled"].as_bool()
+            && s.plan_enabled != plan
+        {
+            s.plan_enabled = plan;
+            s.revision += 1;
         }
         let boundary = (
             s.rows.len(),
@@ -141,6 +144,11 @@ impl Engine {
                 .map(|t| json!({"task_id":t.id,"status":t.status,"outputFile":t.output_file}))
                 .collect::<Vec<_>>();
             s.append_message(json!({"role":"user","content":format!("<task-notification>{}</task-notification>", serde_json::to_string(&statuses)?)}));
+        }
+        // TS buildRuntimeModeReminderBody：plan 开启时按节奏在用户正文前插入模式 reminder。
+        if let Some(reminder) = crate::domain::plan_mode::mode_reminder(&s.messages, s.plan_enabled)
+        {
+            s.append_message(reminder);
         }
         s.append_message(json!({"role":"user","content":content}));
         let mut payload = c.payload.clone();

@@ -234,6 +234,10 @@ pub trait ToolPort: Send + Sync {
     async fn inherit_session(&self, _parent: &str, _child: &str) -> Result<()> {
         Ok(())
     }
+    /// 批准的计划写入 `<workspace>/.zcode/plans/<file_name>`；无文件系统时与 TS 一样跳过。
+    async fn write_plan_file(&self, _file_name: &str, _plan: &str) -> Result<()> {
+        Ok(())
+    }
     async fn agent_output(&self, _session: &str, _text: &str) -> Result<String> {
         anyhow::bail!("Agent artifact storage unavailable")
     }
@@ -320,6 +324,15 @@ pub struct ToolOutput {
     pub content: String,
     pub data: Value,
     pub display: Option<Value>,
+    pub control: ToolControl,
+}
+/// 工具结果对本轮的控制（TS ToolExecutionResult.turnControl / 拒绝投影）。
+#[derive(Default, Clone, Copy)]
+pub struct ToolControl {
+    /// 按被拒收口：行 cancelled，不写输出（与权限拒绝一致）。
+    pub denied: bool,
+    /// 写入工具结果后结束本轮，不再请求模型。
+    pub stop_turn: bool,
 }
 impl ToolOutput {
     pub fn text(content: String) -> Self {
@@ -328,6 +341,7 @@ impl ToolOutput {
             content,
             data: Value::Null,
             display: None,
+            control: ToolControl::default(),
         }
     }
     pub fn new(content: String, data: Value) -> Self {
@@ -336,6 +350,7 @@ impl ToolOutput {
             content,
             data,
             display: None,
+            control: ToolControl::default(),
         }
     }
 }

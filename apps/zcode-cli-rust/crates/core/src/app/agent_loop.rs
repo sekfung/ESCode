@@ -180,6 +180,7 @@ pub(super) async fn run(
         }
         continuations = 0;
         let has_tools = !output.calls.is_empty();
+        let mut stop_turn = false;
         let mut calls = output.calls.into_iter().peekable();
         while let Some(first) = calls.next() {
             let mut group = vec![first];
@@ -210,6 +211,7 @@ pub(super) async fn run(
                 .buffered(4);
             while let Some(result) = results.next().await {
                 let (id, output, failed, denied) = result?;
+                stop_turn |= output.control.stop_turn;
                 let content = output.content;
                 history.push(json!({"role":"tool","tool_call_id":id,"content":content,"_zcode_tool_failed":failed}));
                 let (committed, receipt) = oneshot::channel();
@@ -224,6 +226,11 @@ pub(super) async fn run(
                 .await?;
                 durable(receipt, cancel).await?;
             }
+        }
+        // TS turnControl.stopTurnAfterResult（ExitPlanMode 被拒）：结果已提交，不再请求模型；
+        // 在 StepBoundary 之前结束，排队的引导输入留给下一轮而不是并入本轮。
+        if stop_turn {
+            return Ok(());
         }
         let (committed, receipt) = oneshot::channel();
         sink.send(Event::StepBoundary { committed }).await?;
@@ -295,9 +302,7 @@ async fn execute(
                 crate::domain::permission_options::denied_content(None))),
         }
     };
-    let profile_blocked = profile.is_some_and(|p| !p.allows(name));
-    let denied = !profile_blocked && !outcome.allowed;
-    let result = if profile_blocked {
+    let result = if profile.is_some_and(|p| !p.allows(name)) {
         Err(anyhow::anyhow!(
             "Tool is not allowed by this subagent profile"
         ))
@@ -308,6 +313,10 @@ async fn execute(
             content: outcome.denial.unwrap_or_else(|| "Permission denied".into()),
             data: Value::Null,
             display: None,
+            control: crate::contract::ToolControl {
+                denied: true,
+                stop_turn: false,
+            },
         })
     } else {
         match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) {
@@ -328,6 +337,10 @@ async fn execute(
                     cancel,
                 )
                 .await
+            }
+            Ok(args) if matches!(name, "EnterPlanMode" | "ExitPlanMode") => {
+                super::plan_tool::execute(name, call["id"].as_str().unwrap(), args, sink, cancel)
+                    .await
             }
             Ok(args) if name == "AskUserQuestion" => {
                 super::question_tool::execute(call["id"].as_str().unwrap(), args, sink, cancel)
@@ -352,6 +365,7 @@ async fn execute(
         return Err(result.err().unwrap());
     }
     let failed = result.as_ref().map_or(true, |output| output.failed);
+    let denied = result.as_ref().is_ok_and(|output| output.control.denied);
     let content = result
         .unwrap_or_else(|error| crate::contract::ToolOutput::text(format!("Tool failed: {error}")));
     Ok((

@@ -422,5 +422,45 @@
     "required": ["questions"],
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "EnterPlanMode": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ExitPlanMode": {
+    "type": "object",
+    "properties": {
+      "plan": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000,
+        "description": "The implementation plan to present to the user for approval."
+      },
+      "allowedPrompts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "enum": ["Bash"],
+              "description": "The tool this prompt applies to"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "Semantic description of the action, e.g. \"run tests\", \"install dependencies\""
+            }
+          },
+          "required": ["tool", "prompt"],
+          "additionalProperties": false
+        },
+        "description": "Prompt-based permissions needed to implement the plan. These describe categories of actions rather than specific commands."
+      }
+    },
+    "required": ["plan"],
+    "additionalProperties": {},
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
   }
 }
