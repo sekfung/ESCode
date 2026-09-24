@@ -7,6 +7,11 @@ import { createHash } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { z } from "zod";
 import { fixture, event, end, waitForFile } from "./zcode-cli-rust-fixture.js";
+import {
+  assertBeatStopped,
+  shellHeartbeatCommand,
+  waitForBeat,
+} from "./zcode-cli-rust-shell-probe.js";
 
 test("closing drafts clears both delivery subscriptions and is idempotent without creating history", async () => {
   const f = await fixture();
@@ -112,50 +117,44 @@ test("closing persisted history removes runtime only; cold subscribe restores a 
   }
 });
 
-test(
-  "close cancels foreground Shell, discards queued ACK and preserves another session",
-  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
-  { skip: process.platform === "win32" },
-  async () => {
-    const f = await fixture();
-    try {
-      const h = f.start();
-      const sid = await h.create();
-      const other = await h.create();
-      await h.subscribe(`conversation/${sid}`);
-      await h.subscribe(`conversation/${other}`);
-      await h.command(h.envelope("sendText", sid, { text: "slow-shell" }));
-      await h.wait((m) =>
-        m.params?.frame?.payload?.deltas?.some((d: any) => d.row?.toolName === "Bash"),
-      );
-      // 工具 start 事件早于 Shell spawn，等真实 pid 文件后才能证明取消了运行中的进程。
-      const pid = Number(await waitForFile(join(f.cwd, "shell.pid")));
-      const stale = { ...h.envelope("deleteSession", sid), baseRevision: 999999 };
-      assert.equal((await h.command(stale)).status, "stale");
-      process.kill(pid, 0);
-      const queued = h.envelope("sendText", sid, { text: "write" });
-      assert.equal((await h.command(queued)).result?.type, "inputAccepted");
-      assert.equal((await h.command(h.envelope("deleteSession", sid))).status, "accepted");
-      assert.throws(() => process.kill(pid, 0));
-      const ack = await h.command(queued);
-      assert.equal(ack.status, "failed");
-      assert.equal(ack.reasonCode, "fault.input.discardedOnClose");
-      await h.subscribe(`conversation/${sid}`);
-      const rows = await h.rows(sid);
-      assert.equal(rows.rows.filter((r) => r.kind === "toolCall").at(-1)?.status, "cancelled");
-      assert.equal(
-        rows.rows.some((r) => r.kind === "userInput" && r.text === "write"),
-        false,
-      );
-      await h.command(h.envelope("sendText", other, { text: "hello" }));
-      await h.completed(other);
-      await assert.rejects(access(join(f.cwd, "result.txt")));
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      await f.close();
-    }
-  },
-);
+test("close cancels foreground Shell, discards queued ACK and preserves another session", async () => {
+  const f = await fixture();
+  try {
+    const h = f.start();
+    const sid = await h.create();
+    const other = await h.create();
+    await h.subscribe(`conversation/${sid}`);
+    await h.subscribe(`conversation/${other}`);
+    await h.command(h.envelope("sendText", sid, { text: "slow-shell" }));
+    await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some((d: any) => d.row?.toolName === "Bash"),
+    );
+    // 工具 start 事件早于 Shell spawn，等心跳开始后才能证明取消的是运行中的进程。
+    await waitForBeat(f.cwd);
+    const stale = { ...h.envelope("deleteSession", sid), baseRevision: 999999 };
+    assert.equal((await h.command(stale)).status, "stale");
+    const queued = h.envelope("sendText", sid, { text: "write" });
+    assert.equal((await h.command(queued)).result?.type, "inputAccepted");
+    assert.equal((await h.command(h.envelope("deleteSession", sid))).status, "accepted");
+    await assertBeatStopped(f.cwd);
+    const ack = await h.command(queued);
+    assert.equal(ack.status, "failed");
+    assert.equal(ack.reasonCode, "fault.input.discardedOnClose");
+    await h.subscribe(`conversation/${sid}`);
+    const rows = await h.rows(sid);
+    assert.equal(rows.rows.filter((r) => r.kind === "toolCall").at(-1)?.status, "cancelled");
+    assert.equal(
+      rows.rows.some((r) => r.kind === "userInput" && r.text === "write"),
+      false,
+    );
+    await h.command(h.envelope("sendText", other, { text: "hello" }));
+    await h.completed(other);
+    await assert.rejects(access(join(f.cwd, "result.txt")));
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
 
 test("close clears session upload transactions while retaining committed history attachments", async () => {
   const f = await fixture();
@@ -224,62 +223,56 @@ test("close clears session upload transactions while retaining committed history
   }
 });
 
-test(
-  "close waits for background Shell cleanup and keeps its durable terminal state",
-  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
-  { skip: process.platform === "win32" },
-  async () => {
-    const f = await fixture({
-      respond(request, response) {
-        response.writeHead(200, { "Content-Type": "text/event-stream" });
-        if (request.messages.at(-1).role !== "tool") {
-          event(response, {
-            tool_calls: [
-              {
-                index: 0,
-                id: "background-close",
-                type: "function",
-                function: {
-                  name: "Bash",
-                  arguments: JSON.stringify({
-                    command: "echo $$ > background.pid; sleep 30",
-                    run_in_background: true,
-                  }),
-                },
+test("close waits for background Shell cleanup and keeps its durable terminal state", async () => {
+  const f = await fixture({
+    respond(request, response) {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      if (request.messages.at(-1).role !== "tool") {
+        event(response, {
+          tool_calls: [
+            {
+              index: 0,
+              id: "background-close",
+              type: "function",
+              function: {
+                name: "Bash",
+                arguments: JSON.stringify({
+                  command: shellHeartbeatCommand("background.beat", "background-leaked.txt"),
+                  run_in_background: true,
+                }),
               },
-            ],
-          });
-          end(response, "tool_calls");
-        } else {
-          event(response, { content: "background registered" });
-          end(response, "stop");
-        }
-      },
-    });
-    try {
-      const h = f.start();
-      const sid = await h.create();
-      await h.subscribe(`conversation/${sid}`);
-      await h.command(h.envelope("sendText", sid, { text: "background" }));
-      await h.completed(sid);
-      const pid = Number(await waitForFile(join(f.cwd, "background.pid")));
-      process.kill(pid, 0);
-      assert.equal((await h.command(h.envelope("deleteSession", sid))).status, "accepted");
-      assert.throws(() => process.kill(pid, 0));
-      const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"), { readOnly: true });
-      const saved = JSON.parse(
-        String(db.prepare("SELECT body FROM rust_session WHERE id=?").get(sid)?.body),
-      );
-      assert.deepEqual(
-        Object.values(saved.background).map((v: any) => v.status),
-        ["cancelled"],
-      );
-      db.close();
-    } finally {
-      await f.close();
-    }
-  },
-);
+            },
+          ],
+        });
+        end(response, "tool_calls");
+      } else {
+        event(response, { content: "background registered" });
+        end(response, "stop");
+      }
+    },
+  });
+  try {
+    const h = f.start();
+    const sid = await h.create();
+    await h.subscribe(`conversation/${sid}`);
+    await h.command(h.envelope("sendText", sid, { text: "background" }));
+    await h.completed(sid);
+    await waitForBeat(f.cwd, "background.beat");
+    assert.equal((await h.command(h.envelope("deleteSession", sid))).status, "accepted");
+    await assertBeatStopped(f.cwd, "background.beat");
+    const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"), { readOnly: true });
+    const saved = JSON.parse(
+      String(db.prepare("SELECT body FROM rust_session WHERE id=?").get(sid)?.body),
+    );
+    assert.deepEqual(
+      Object.values(saved.background).map((v: any) => v.status),
+      ["cancelled"],
+    );
+    db.close();
+  } finally {
+    await f.close();
+  }
+});
 
 test("a failed close commit never acknowledges success or emits removal and stops the actor", async () => {
   const f = await fixture();

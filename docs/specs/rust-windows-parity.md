@@ -30,9 +30,12 @@ reqwest 默认读取 `HTTP(S)_PROXY`，开发机设置代理且无 `NO_PROXY` �
 - Rust 测试：`cargo +…-gnu test --workspace -- --test-threads=1` 全部通过（0 失败）。
   并发跑同一套会出现超时假失败（每文件起一个 runtime + HTTP fixture，本机 3s 的 receive 超时会被压满）。
 - App 集成：`node --import tsx --test --test-concurrency=1 packages/services/tests/zcode-cli-rust-*.test.ts`
-  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@zcode/*` 解析失败）→ **196 用例：183 通过、13 跳过、0 失败**。
-- 跳过用例：13 条 `skip: win32`，均为用例本身依赖 POSIX 断言（`$$` 与 Node `process.kill` 的 PID 空间、
-  shell 脚本伪造 git、SIGTERM/进程组语义），已在用例内注明原因，待改写为跨平台断言。
+  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@zcode/*` 解析失败）→ **196 用例：194 通过、2 跳过、0 失败**。
+- 跳过用例：**2 条**（原 13 条）。改写方式：用「心跳文件」替代 POSIX PID 断言——shell 循环追加时间戳，
+  进程（含子进程）被回收后文件不再增长；`GIT_TRACE2_EVENT` 替代无扩展名的伪造 git 脚本；
+  Windows 上没有 SIGTERM 的用例改用 stdin EOF 或 Job Object 语义。仍跳过的两条：
+  1. prompt 的慢 git 探测：需要伪造 PATH 上的 `git`，而 Windows 的 CreateProcess 只解析 `.exe`，属测试夹具限制；
+  2. transport 的输出背压：EOF 在背压下不可观测，属已确认缺陷（见 rust-runtime-performance.md）。
 - 本轮修复：`os_release` 不再 spawn PowerShell（首个请求 1830ms → 35ms，见下节）；
   导入源库的 busy timeout 由 20ms 放宽到 5s（两个 runtime 同时启动时的瞬时锁竞争）；
   权限确认相关的既有用例按 build/edit 新契约改写（stdio / migration / host）。

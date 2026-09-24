@@ -29,6 +29,24 @@ export async function waitForBeat(cwd: string, beats = "shell.beat", min = 2): P
   }
 }
 
+/** 当前心跳条数，用于区分同一文件里的多次启动。 */
+export async function beatCount(cwd: string, beats = "shell.beat"): Promise<number> {
+  return readFile(join(cwd, beats), "utf8").then(
+    (text) => text.split("\n").filter(Boolean).length,
+    () => 0,
+  );
+}
+
+/** 等到心跳相对先前条数继续增长，证明新一次启动已在运行。 */
+export async function waitForBeatGrowth(cwd: string, beats: string, from: number): Promise<void> {
+  const started = Date.now();
+  while (true) {
+    if ((await beatCount(cwd, beats)) > from) return;
+    assert.ok(Date.now() - started < 5000, `No heartbeat growth from shell in ${cwd}`);
+    await delay(20);
+  }
+}
+
 /** 断言心跳已停止增长（进程或其子进程仍在跑时会增长）。 */
 export async function assertBeatStopped(cwd: string, beats = "shell.beat"): Promise<void> {
   const size = await readFile(join(cwd, beats), "utf8").then(

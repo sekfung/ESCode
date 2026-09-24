@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { event, end, fixture, waitForFile, type Harness } from "./zcode-cli-rust-fixture.js";
+import {
+  assertBeatStopped,
+  shellHeartbeatCommand,
+  waitForBeat,
+} from "./zcode-cli-rust-shell-probe.js";
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -251,64 +256,55 @@ test("Subagent profile constrains dispatched tools and maxTurns, and foreign ses
   }
 });
 
-test(
-  "Stopping the parent waits for its foreground child Shell to exit and cold history marks the child cancelled",
-  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
-  { skip: process.platform === "win32" },
-  async () => {
-    const f = await fixture({
-      respond(request, response) {
-        response.writeHead(200, { "Content-Type": "text/event-stream" });
-        const last = request.messages.at(-1);
-        if (last.content === "delegate shell")
-          call(response, [
-            {
-              id: "shell-agent",
-              name: "Agent",
-              args: { description: "long shell", prompt: "shell child" },
-            },
-          ]);
-        else if (last.content === "shell child")
-          call(response, [
-            {
-              id: "long-shell",
-              name: "Bash",
-              args: { command: "echo $$ > subagent.pid; sleep 30" },
-            },
-          ]);
-        else text(response, "done");
-      },
-    });
-    try {
-      const h = f.start();
-      const sid = await h.create();
-      await h.subscribe(`conversation/${sid}`);
-      await h.command(h.envelope("sendText", sid, { text: "delegate shell" }));
-      const pid = Number(await waitForFile(join(f.cwd, "subagent.pid")));
-      process.kill(pid, 0);
-      assert.equal((await listing(h, sid)).running.length, 1);
-      await h.command(h.envelope("stop", sid));
-      await h.wait((m) =>
-        m.params?.frame?.payload?.deltas?.some(
-          (d: any) => d.patch?.control?.phase === "completedInterrupted",
-        ),
-      );
-      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
-      assert.equal((await listing(h, sid)).ended.items[0]?.status, "cancelled");
-      assert.equal(
-        (await h.rows(sid)).rows.find((r) => r.kind === "subagent")?.status,
-        "cancelled",
-      );
-      assert.equal(f.requests.length, 2);
-      await h.close();
-      const cold = f.start();
-      assert.equal((await listing(cold, sid)).ended.items[0]?.status, "cancelled");
-      await cold.close();
-    } finally {
-      await f.close();
-    }
-  },
-);
+test("Stopping the parent waits for its foreground child Shell to exit and cold history marks the child cancelled", async () => {
+  const f = await fixture({
+    respond(request, response) {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      const last = request.messages.at(-1);
+      if (last.content === "delegate shell")
+        call(response, [
+          {
+            id: "shell-agent",
+            name: "Agent",
+            args: { description: "long shell", prompt: "shell child" },
+          },
+        ]);
+      else if (last.content === "shell child")
+        call(response, [
+          {
+            id: "long-shell",
+            name: "Bash",
+            args: { command: shellHeartbeatCommand("subagent.beat", "subagent-leaked.txt") },
+          },
+        ]);
+      else text(response, "done");
+    },
+  });
+  try {
+    const h = f.start();
+    const sid = await h.create();
+    await h.subscribe(`conversation/${sid}`);
+    await h.command(h.envelope("sendText", sid, { text: "delegate shell" }));
+    await waitForBeat(f.cwd, "subagent.beat");
+    assert.equal((await listing(h, sid)).running.length, 1);
+    await h.command(h.envelope("stop", sid));
+    await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some(
+        (d: any) => d.patch?.control?.phase === "completedInterrupted",
+      ),
+    );
+    await assertBeatStopped(f.cwd, "subagent.beat");
+    assert.equal((await listing(h, sid)).ended.items[0]?.status, "cancelled");
+    assert.equal((await h.rows(sid)).rows.find((r) => r.kind === "subagent")?.status, "cancelled");
+    assert.equal(f.requests.length, 2);
+    await h.close();
+    const cold = f.start();
+    assert.equal((await listing(cold, sid)).ended.items[0]?.status, "cancelled");
+    await cold.close();
+  } finally {
+    await f.close();
+  }
+});
 
 test("Background Agent completion is delivered through the parent continuation and SendMessage resumes the same child", async () => {
   let agentId = "";
