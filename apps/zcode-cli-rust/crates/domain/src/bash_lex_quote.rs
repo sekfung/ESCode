@@ -57,10 +57,12 @@ impl Lexer<'_> {
         match self.peek(1) {
             Some('\'') => {
                 // $'..'：ANSI-C 引号，静态。
+                w.quoted = true;
                 self.i += 2;
                 self.quoted_until('\'', w, true);
             }
             Some('"') => {
+                w.quoted = true;
                 self.i += 2;
                 self.double_quoted(w);
             }

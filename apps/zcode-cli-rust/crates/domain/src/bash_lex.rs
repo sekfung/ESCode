@@ -7,6 +7,8 @@ pub(crate) struct Word {
     pub dynamic: bool,
     /// 未加引号的字面前缀（用于识别 `NAME=` 赋值前缀）。
     pub raw_prefix: String,
+    /// 含引号部件（单/双引号、$'..'、$"..."）。unbash 对纯字面词不拆部件，value 直接取原文（保留反斜杠）。
+    pub quoted: bool,
     pub start: usize,
     pub end: usize,
 }
@@ -245,11 +247,13 @@ impl Lexer<'_> {
                 }
                 '\'' => {
                     literal_prefix = false;
+                    w.quoted = true;
                     self.i += 1;
                     self.quoted_until('\'', &mut w, false);
                 }
                 '"' => {
                     literal_prefix = false;
+                    w.quoted = true;
                     self.i += 1;
                     self.double_quoted(&mut w);
                 }
@@ -285,6 +289,10 @@ impl Lexer<'_> {
             w.dynamic = true;
         }
         w.end = self.pos();
+        if !w.quoted && !w.dynamic {
+            // 与 unbash 一致：纯字面词的 value 即源文本（保留反斜杠），因此双反斜杠开头的 UNC 路径仍能被识别。
+            w.value = self.src[w.start..w.end].to_owned();
+        }
         w
     }
 }
