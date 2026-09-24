@@ -75,8 +75,8 @@ test("Rust stdio bounds malformed requests, handles split Unicode and closes on 
 
 test(
   "Rust signals cancel a saturated output channel without hanging the Host",
-  // Windows：没有 SIGTERM（Node 的 kill 即 TerminateProcess），EOF 变体实测不退出——
-  // 背压下 stdin 读取线程被满队列挡住，运行时无法观测 EOF。属已知缺陷，见 docs/specs/rust-runtime-performance.md。
+  // Windows 没有 SIGTERM（Node 的 kill 即 TerminateProcess），本用例只在 POSIX 有意义；
+  // Windows 的背压退出由下方 EOF 变体覆盖（见 docs/specs/rust-runtime-performance.md）。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture();
@@ -114,3 +114,36 @@ test(
     }
   },
 );
+
+// docs/specs/rust-runtime-performance.md：Host 停止读取 stdout、灌入大量请求后关闭 stdin。
+// 原先读取线程被满队列挡住看不到 EOF，进程只能被看门狗杀掉；现在各平台都必须自行退出。
+test("Rust observes EOF under output backpressure and exits without the watchdog", async () => {
+  const f = await fixture();
+  try {
+    const child = spawn(
+      binary,
+      ["app-server", "--stdio", "--cwd", f.cwd, "--data-dir", f.dataDir, "--config", f.config],
+      {
+        env: {
+          ...process.env,
+          ZCODE_SESSION_DB_PATH: `${f.root}/ts.sqlite`,
+          ZCODE_WORKSPACE_IDENTITY: "",
+        },
+      },
+    );
+    const closed = once(child, "close");
+    child.stderr.resume();
+    child.stdin.on("error", () => {});
+    child.stdout.pause();
+    child.stdin.end(
+      (JSON.stringify({ id: 1, method: "runtime/capabilities", params: {} }) + "\n").repeat(12000),
+    );
+    const watchdog = setTimeout(() => child.kill("SIGKILL"), 8000);
+    const [code, exitSignal] = await closed;
+    clearTimeout(watchdog);
+    assert.equal(exitSignal, null, "must exit on its own, not by the watchdog");
+    assert([0, 1].includes(code));
+  } finally {
+    await f.close();
+  }
+});

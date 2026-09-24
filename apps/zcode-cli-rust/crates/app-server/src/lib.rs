@@ -3,6 +3,7 @@ use tokio::sync::mpsc;
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 pub mod stdio;
+mod stdio_input;
 pub use stdio::{finish, start, storage_prepare};
 
 /// App Server projection over the shared core runtime. Framing stays in

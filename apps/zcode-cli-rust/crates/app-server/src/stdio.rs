@@ -1,7 +1,7 @@
 use crate::domain::{MAX_REQUEST_BYTES, protocol::Request};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
-use std::io::{BufRead, Write};
+use std::io::Write;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -13,42 +13,15 @@ pub fn start(
 ) -> (mpsc::Receiver<Input>, Output, std::thread::JoinHandle<()>) {
     let (in_tx, in_rx) = mpsc::channel(64);
     let (out_tx, mut out_rx) = mpsc::channel::<Vec<Value>>(64);
-    std::thread::spawn(move || {
-        let stdin = std::io::stdin();
-        let mut reader = stdin.lock();
-        let mut line = Vec::new();
-        while let Ok(available) = reader.fill_buf() {
-            if available.is_empty() {
-                if !line.is_empty() {
-                    dispatch(&in_tx, &line);
-                }
-                break;
-            }
-            let take = available
-                .iter()
-                .position(|b| *b == b'\n')
-                .map_or(available.len(), |i| i + 1);
-            if line.len() + take > MAX_REQUEST_BYTES {
-                let _ = in_tx.blocking_send(Input::TooLarge);
-                break;
-            }
-            line.extend_from_slice(&available[..take]);
-            reader.consume(take);
-            if line.last() == Some(&b'\n') {
-                if !dispatch(&in_tx, &line) {
-                    return;
-                }
-                line.clear();
-            }
-        }
-        input_closed.cancel();
-        let _ = in_tx.blocking_send(Input::Eof);
-    });
+    super::stdio_input::spawn_reader(in_tx, input_closed.clone(), dispatch);
+    let progress = super::stdio_input::WriteProgress::default();
+    super::stdio_input::watch_stalled_output(progress.clone(), input_closed, cancel.clone());
     let writer = std::thread::spawn(move || {
         let stdout = std::io::stdout();
         let mut writer = stdout.lock();
         while let Some(batch) = out_rx.blocking_recv() {
             for message in batch {
+                progress.begin();
                 let result = (|| -> Result<()> {
                     let bytes = serde_json::to_vec(&message)?;
                     if bytes.len() + 1 > MAX_REQUEST_BYTES {
@@ -59,12 +32,15 @@ pub fn start(
                     writer.flush()?;
                     Ok(())
                 })();
+                progress.end();
                 if result.is_err() {
                     cancel.cancel();
+                    progress.finish();
                     return;
                 }
             }
         }
+        progress.finish();
     });
     (in_rx, out_tx, writer)
 }

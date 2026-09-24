@@ -37,7 +37,7 @@ sequenceDiagram
 - 性能 profile 只输出阶段计时与计数，不输出用户数据或配置；不接入默认生产日志。
 - Rust 测试/fmt/Clippy、App 集成/typecheck/lint/架构检查。所有 Cargo 构建关闭 incremental，不删除用户数据库或运行所需二进制。
 
-## 已知缺陷：输出背压下的 EOF/退出（2026-09-24 实测）
+## 已修复：输出背压下的 EOF/退出（2026-09-24 发现，2026-09-25 修复）
 
 场景：Host 停止读取 stdout 并写入大量请求（如 12k 条）后关闭 stdin。
 
@@ -50,6 +50,12 @@ sequenceDiagram
   读取层与输出缓冲策略上重新设计（例如独立的 EOF 探测或受限的缓冲增长），不在本次改动范围内。
 - TS 侧对照：Node 的 stdout 写入在内存中排队，Host 不读取时不会阻塞事件循环，因此能读到 EOF 后退出；
   Rust 当前的有界输出通道是更严格的背压策略，代价是上述场景下无法退出。
+
+修复（`crates/app-server/src/stdio_input.rs`）：
+
+- 读取线程不再直接向容量 64 的输入队列阻塞入队，而是写入按字节限额（64 MiB）的中间队列，由转发线程承担阻塞；EOF 因此总能被及时观测并取消 `input_closed`。
+- 区分「仍在读取的 Host」与「已离开的 Host」看写出进展，而不是看输入是否关闭：EOF 之后写出照常排空；只有单次写出卡住超过 1s 才取消运行时，走与 POSIX SIGTERM 相同的收尾路径。在途响应因此不会丢（EOF/EPIPE 用例保持通过），之前失败的修法正是缺了这一区分。
+- 验收：新增 `Rust observes EOF under output backpressure and exits without the watchdog`（全平台）：旧代码在 Windows 上被看门狗杀死（16.6s），新代码约 3s 自行退出。SIGTERM 变体仍只在 POSIX 运行（Windows 没有 SIGTERM），Windows 由 EOF 变体覆盖。
 
 ## 2026-09-24：Node/Rust 同口径实测
 

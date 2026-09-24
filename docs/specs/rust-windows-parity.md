@@ -35,7 +35,7 @@ reqwest 默认读取 `HTTP(S)_PROXY`，开发机设置代理且无 `NO_PROXY` �
   进程（含子进程）被回收后文件不再增长；`GIT_TRACE2_EVENT` 替代无扩展名的伪造 git 脚本；
   Windows 上没有 SIGTERM 的用例改用 stdin EOF 或 Job Object 语义。仍跳过的两条：
   1. prompt 的慢 git 探测：需要伪造 PATH 上的 `git`，而 Windows 的 CreateProcess 只解析 `.exe`，属测试夹具限制；
-  2. transport 的输出背压：EOF 在背压下不可观测，属已确认缺陷（见 rust-runtime-performance.md）。
+  2. transport 的 SIGTERM 背压用例：Windows 没有 SIGTERM，只在 POSIX 运行；背压下的 EOF 退出缺陷已于 2026-09-25 修复，Windows 由新增的 EOF 变体覆盖（见 rust-runtime-performance.md）。
 - 本轮修复：`os_release` 不再 spawn PowerShell（首个请求 1830ms → 35ms，见下节）；
   导入源库的 busy timeout 由 20ms 放宽到 5s（两个 runtime 同时启动时的瞬时锁竞争）；
   权限确认相关的既有用例按 build/edit 新契约改写（stdio / migration / host）。
