@@ -6,6 +6,7 @@ import { askUserQuestionToolEntry } from "../apps/zcode-cli/packages/core/src/to
 import { skillToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/skill.ts";
 import { createAgentToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/agent.ts";
 import { sendMessageToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts";
+import { builtInTools } from "../apps/zcode-cli/packages/core/src/tool/handlers/index.ts";
 import { normalizeAgentProfiles } from "../apps/zcode-cli/packages/core/src/subagent/profile.ts";
 import { buildExploreAgentPrompt } from "../apps/zcode-cli/packages/core/src/subagent/explore.ts";
 import { buildSubagentCommonNotes } from "../apps/zcode-cli/packages/core/src/subagent/system-prompt.ts";
@@ -35,7 +36,33 @@ const schemas = {};
 for (const [name, file, key] of tools) {
   schemas[name] = (await import(`../apps/zcode-cli/packages/contracts/src/tools/${file}.ts`))[key];
 }
+// 权限判定所需的工具能力表：逐项来自 TS 工具元数据，避免 Rust 侧硬编码再次漂移。
+const capabilities = Object.fromEntries(
+  builtInTools
+    .map((entry) => [entry.metadata.name, entry])
+    .map(([name, entry]) => {
+      const m = entry.metadata;
+      return [
+        name,
+        {
+          allowedInPlanMode: m.allowedInPlanMode ?? false,
+          readOnly: m.readOnly,
+          destructive: m.destructive,
+          requiresUserInteraction: m.requiresUserInteraction === true,
+          sideEffectScope: m.sideEffectScope,
+          riskLevel: m.riskLevel,
+          needsApproval: m.needsApproval,
+          // permission 声明在 entry 上（不在 metadata），permission 字段即规则匹配用的能力名。
+          ...(entry.permission?.permission ? { permissionName: entry.permission.permission } : {}),
+          ...(entry.permission?.alwaysAsk === true ? { alwaysAsk: true } : {}),
+        },
+      ];
+    })
+    .sort(([a], [b]) => (a < b ? -1 : 1)),
+);
+
 for (const [file, data] of [
+  ["tool_capabilities.json", capabilities],
   [
     "agent_memory_templates.json",
     Object.fromEntries(

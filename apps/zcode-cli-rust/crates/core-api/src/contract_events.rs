@@ -96,7 +96,7 @@ pub enum Event {
     },
     Permission {
         call: Value,
-        reply: oneshot::Sender<bool>,
+        reply: oneshot::Sender<PermissionOutcome>,
     },
     Question {
         call_id: String,
@@ -125,6 +125,29 @@ pub struct ModelOutput {
     pub usage: Value,
     pub output_limit: bool,
 }
+/// 权限判定结果：不允许时带拒绝文案（对应 TS `buildPermissionDeniedContent`），
+/// 由工具结果逐字回给模型。
+#[derive(Clone, Debug)]
+pub struct PermissionOutcome {
+    pub allowed: bool,
+    pub denial: Option<String>,
+}
+
+impl PermissionOutcome {
+    pub fn allow() -> Self {
+        Self {
+            allowed: true,
+            denial: None,
+        }
+    }
+    pub fn deny(content: String) -> Self {
+        Self {
+            allowed: false,
+            denial: Some(content),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct EventSink {
     pub session_id: String,

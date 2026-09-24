@@ -29,6 +29,15 @@ impl Engine {
         }
         self.apply_selection(id, selected)?;
         let s = self.sessions.get_mut(id).context("Session unavailable")?;
+        // 输入携带的协作模式即会话模式（TS resolveExecutionState）；缺省保持会话现值。
+        if let Some(mode) = c.payload["mode"]
+            .as_str()
+            .filter(|mode| matches!(*mode, "yolo" | "build" | "edit"))
+            && s.mode != mode
+        {
+            s.mode = mode.into();
+            s.revision += 1;
+        }
         if c.payload["planEnabled"] == false {
             s.plan_enabled = false;
         }

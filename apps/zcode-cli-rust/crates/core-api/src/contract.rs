@@ -56,7 +56,7 @@ pub enum Input {
     Eof,
 }
 
-pub use crate::contract_events::{Event, EventSink, ModelOutput, RunEvent};
+pub use crate::contract_events::{Event, EventSink, ModelOutput, PermissionOutcome, RunEvent};
 #[async_trait]
 pub trait SessionStore: Send + Sync {
     /// Startup reads only the lightweight persisted index, never every transcript or ACK.
@@ -74,6 +74,13 @@ pub trait SessionStore: Send + Sync {
     /// Load one persisted conversation without activating a runtime or enumerating other history.
     async fn load_session(&self, _workspace: &str, _id: &str) -> Result<Option<Session>> {
         anyhow::bail!("Single session loading unavailable")
+    }
+    /// 项目权限规则：缺省表示该实现不持久化，「总是允许」选项因此不可用。
+    async fn load_project_rules(&self, _workspace: &str) -> Result<Option<Value>> {
+        Ok(None)
+    }
+    async fn save_project_rules(&self, _workspace: &str, _rules: &Value) -> Result<()> {
+        anyhow::bail!("Project permission rules are not persisted by this store")
     }
     /// Reclaim only a draft with no history, atomically with the close receipt.
     async fn discard_draft(
@@ -269,6 +276,14 @@ pub trait ToolPort: Send + Sync {
     }
     fn definitions(&self) -> Vec<Value>;
     fn requires_permission(&self, name: &str) -> bool;
+    /// 工具的权限能力（只读/破坏性/风险级别/作用域等）；缺省表示未知，按需确认处理。
+    fn permission_capability(
+        &self,
+        _name: &str,
+        _input: &Value,
+    ) -> Option<zcode_cli_domain::permission::Capability> {
+        None
+    }
     fn concurrent_safe(&self, _name: &str) -> bool {
         false
     }

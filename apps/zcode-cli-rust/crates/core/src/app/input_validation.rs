@@ -5,8 +5,12 @@ use serde_json::Value;
 
 impl Engine {
     pub(super) fn validate_selection(&self, p: &Value) -> Result<()> {
-        if p["planEnabled"] == true
-            || p["mode"].as_str().is_some_and(|mode| mode != "yolo")
+        // yolo/build/edit 已实现；plan（需计划审批交互）与 auto（TS 同样保留未实现）继续拒绝，
+        // 显式拒绝而不是静默忽略，避免 App 以为计划模式已经生效。
+        if p["mode"]
+            .as_str()
+            .is_some_and(|mode| !matches!(mode, "yolo" | "build" | "edit"))
+            || p["planEnabled"] == true
             || p["followupMode"]
                 .as_str()
                 .is_some_and(|mode| !matches!(mode, "queue" | "guide"))

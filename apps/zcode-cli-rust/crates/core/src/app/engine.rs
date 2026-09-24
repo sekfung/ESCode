@@ -45,7 +45,12 @@ pub struct Engine {
     pub(super) durable_acks: std::collections::BTreeSet<String>,
     pub(super) acks: BTreeMap<String, Value>,
     pub(super) active: BTreeMap<String, Active>,
-    pub(super) permissions: BTreeMap<String, (String, oneshot::Sender<bool>)>,
+    /// 挂起中的权限确认（等待 resolveInteraction）。
+    pub(super) waiting_permissions: BTreeMap<String, super::permission_flow::WaitingPermission>,
+    /// 项目权限规则：允许「总是允许」在项目内跨会话生效。
+    pub(super) project_rules: Option<crate::domain::permission::Ruleset>,
+    pub(super) project_rules_persistent: bool,
+    pub(super) project_rules_json: Option<Value>,
     pub(super) subscriptions: BTreeMap<String, Subscription>,
     pub(super) epoch: String,
     pub(super) index_seq: u64,
@@ -79,6 +84,12 @@ impl Engine {
                     .await?;
             }
         }
+        // 项目权限规则：「总是允许」的作用域；store 不支持持久化时该选项不投放。
+        let (project_rules_json, project_rules_persistent) =
+            match store.load_project_rules(&workspace).await {
+                Ok(rules) => (rules, true),
+                Err(_) => (None, false),
+            };
         let index = store.load_index(&workspace).await?;
         let (events, event_rx) = mpsc::channel(128);
         Ok(Self {
@@ -87,6 +98,7 @@ impl Engine {
             auxiliary: BTreeMap::new(),
             registry: None,
             workspace_path: workspace.clone(),
+            project_rules_json: project_rules_json.clone(),
             auth: BTreeMap::new(),
             shell: Default::default(),
             workspace,
@@ -104,7 +116,11 @@ impl Engine {
             durable_acks: Default::default(),
             acks: BTreeMap::new(),
             active: BTreeMap::new(),
-            permissions: BTreeMap::new(),
+            waiting_permissions: BTreeMap::new(),
+            project_rules: project_rules_json
+                .as_ref()
+                .map(crate::domain::permission::Ruleset::from_json),
+            project_rules_persistent,
             subscriptions: BTreeMap::new(),
             epoch: clock.id(),
             index_seq: 0,
@@ -186,7 +202,7 @@ impl Engine {
             session.auto_drain = false;
             session.queued_now = None;
         }
-        self.permissions.clear();
+        self.waiting_permissions.clear();
         self.questions.clear();
         self.auth.clear();
         for id in self.sessions.keys() {

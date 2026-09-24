@@ -41,6 +41,24 @@ impl crate::contract::SessionStore for Store {
             .await?;
         rx.await?
     }
+    async fn load_project_rules(&self, workspace: &str) -> Result<Option<Value>> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(Operation::ProjectRules(workspace.into(), tx))
+            .await?;
+        rx.await?
+    }
+    async fn save_project_rules(&self, workspace: &str, rules: &Value) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(Operation::SaveProjectRules(
+                workspace.into(),
+                rules.clone(),
+                tx,
+            ))
+            .await?;
+        rx.await?
+    }
     async fn discard_draft(&self, workspace: &str, id: &str, ack: (String, Value)) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         self.tx

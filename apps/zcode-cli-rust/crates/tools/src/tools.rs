@@ -239,6 +239,34 @@ impl ToolPort for WorkspaceTools {
     fn requires_permission(&self, _name: &str) -> bool {
         false
     }
+    /// 能力表来自 TS 工具元数据（生成资产，见 scripts/generate-zcode-cli-rust-tool-schemas.mjs）。
+    fn permission_capability(
+        &self,
+        name: &str,
+        _input: &Value,
+    ) -> Option<zcode_cli_domain::permission::Capability> {
+        let table: Value = serde_json::from_str(include_str!("tool_capabilities.json"))
+            .expect("generated tool capabilities");
+        let entry = table.get(name)?;
+        let risk = |s: &str| match s {
+            "low" => zcode_cli_domain::permission::Risk::Low,
+            "medium" => zcode_cli_domain::permission::Risk::Medium,
+            "high" => zcode_cli_domain::permission::Risk::High,
+            _ => zcode_cli_domain::permission::Risk::Critical,
+        };
+        Some(zcode_cli_domain::permission::Capability {
+            allowed_in_plan_mode: entry["allowedInPlanMode"].as_bool(),
+            always_ask: entry["alwaysAsk"].as_bool(),
+            read_only: entry["readOnly"].as_bool(),
+            destructive: entry["destructive"].as_bool(),
+            requires_user_interaction: entry["requiresUserInteraction"].as_bool(),
+            side_effect_scope: entry["sideEffectScope"].as_str().map(str::to_owned),
+            risk_level: entry["riskLevel"].as_str().map(risk),
+            needs_approval: entry["needsApproval"].as_bool(),
+            permission_name: entry["permissionName"].as_str().map(str::to_owned),
+            permission_capability_group: None,
+        })
+    }
     fn concurrent_safe(&self, name: &str) -> bool {
         matches!(
             name,

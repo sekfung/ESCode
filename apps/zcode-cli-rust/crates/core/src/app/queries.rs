@@ -8,7 +8,9 @@ impl Engine {
     }
 
     fn execution_capabilities(&self) -> Value {
-        json!({"permissionModes":["yolo"],"independentPlanState":false})
+        // build/edit 的判定、确认交互与项目规则持久化已实现并通过 App 集成验收；
+        // plan 仍需计划审批交互，auto 在 TS 同样是保留未实现，故暂不宣告。
+        json!({"permissionModes":["yolo","build","edit"],"independentPlanState":false})
     }
 
     pub(super) fn workspace_config(&self) -> Value {

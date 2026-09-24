@@ -200,6 +200,17 @@ impl ToolPort for Tools {
     fn requires_permission(&self, name: &str) -> bool {
         name == "GuardedWrite"
     }
+    /// GuardedWrite 声明 alwaysAsk：按 TS 判定顺序，它压过 yolo 直通，必须经用户确认。
+    fn permission_capability(
+        &self,
+        name: &str,
+        _input: &Value,
+    ) -> Option<zcode_cli_domain::permission::Capability> {
+        (name == "GuardedWrite").then(|| zcode_cli_domain::permission::Capability {
+            always_ask: Some(true),
+            ..Default::default()
+        })
+    }
     fn concurrent_safe(&self, name: &str) -> bool {
         name == "Read"
     }

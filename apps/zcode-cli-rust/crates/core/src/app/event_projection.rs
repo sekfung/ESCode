@@ -215,18 +215,9 @@ impl Engine {
                 deltas.push(json!({"op":"row.appended","row":row}));
             }
             Event::Permission { call, reply } => {
-                let interaction = self.clock.id();
-                let row = s
-                    .rows
-                    .iter_mut()
-                    .find(|r| r["turnId"] == turn && r["toolCallId"] == call["id"])
-                    .unwrap();
-                row["status"] = "pendingApproval".into();
-                row["approvalInteractionId"] = interaction.clone().into();
-                s.pending.push(json!({"interactionId":interaction,"kind":"permission","anchorRowId":row["rowId"],"createdAt":now,
-                    "payload":{"kind":"permission","toolCallId":call["id"],"toolName":call["function"]["name"],"summary":format!("Allow {}?",call["function"]["name"].as_str().unwrap()),"detail":call["function"]["arguments"],"options":[{"optionId":"allowOnce","label":"Allow once","kind":"allowOnce"},{"optionId":"deny","label":"Deny","kind":"deny"}]}}));
-                deltas.push(json!({"op":"row.upserted","row":row}));
-                self.permissions.insert(interaction, (id.clone(), reply));
+                self.ask_permission(&id, &event.run_id, &turn, &call, reply)
+                    .await?;
+                return Ok(());
             }
             Event::ToolDone {
                 id: call_id,
@@ -323,7 +314,7 @@ impl Engine {
                         .filter(|r| r["turnId"] == turn)
                         .map(|r| json!({"op":"row.upserted","row":r})),
                 );
-                self.permissions.retain(|_, (session, _)| session != &id);
+                self.waiting_permissions.retain(|_, w| w.session != id);
                 self.questions.retain(|_, q| q.session != id);
                 self.active.remove(&id);
             }

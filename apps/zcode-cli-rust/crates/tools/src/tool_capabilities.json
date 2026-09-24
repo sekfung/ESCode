@@ -1,0 +1,405 @@
+{
+  "Agent": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "subagent"
+  },
+  "AmendWorkflow": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "createWorkflow",
+    "alwaysAsk": true
+  },
+  "AskUserQuestion": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": true,
+    "sideEffectScope": "userInteraction",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "userInteraction.askQuestion"
+  },
+  "Bash": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "system",
+    "riskLevel": "high",
+    "needsApproval": true,
+    "permissionName": "bash"
+  },
+  "CreateWorkflow": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "createWorkflow",
+    "alwaysAsk": true
+  },
+  "CronCreate": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "automation.create"
+  },
+  "CronDelete": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": true,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "automation.delete"
+  },
+  "CronList": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "automation.read"
+  },
+  "CronUpdate": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "automation.update"
+  },
+  "Edit": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "edit"
+  },
+  "EnterPlanMode": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "plan.enter"
+  },
+  "EvalWorkflowSnippet": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "evalWorkflowSnippet"
+  },
+  "ExitPlanMode": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": true,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "plan.exit"
+  },
+  "GetWorkflowRun": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "getWorkflowRun"
+  },
+  "Glob": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "read"
+  },
+  "Grep": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "read"
+  },
+  "ListModels": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "listModels"
+  },
+  "ListSavedWorkflows": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "listSavedWorkflows"
+  },
+  "ListWorkflowRuns": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "listWorkflowRuns"
+  },
+  "OffPeakCreate": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "offpeak.create"
+  },
+  "OffPeakList": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "offpeak.read"
+  },
+  "Read": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "read"
+  },
+  "ReadSessionContext": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "session.context.read"
+  },
+  "ResolveWorkflowQuestion": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "resolveWorkflowQuestion"
+  },
+  "RespondToCoordinator": {
+    "allowedInPlanMode": true,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "agent.message.respond"
+  },
+  "ResumeWorkflowRun": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "resumeWorkflowRun"
+  },
+  "SaveWorkflow": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "saveWorkflow",
+    "alwaysAsk": true
+  },
+  "SendMessage": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "agent.message.send"
+  },
+  "Skill": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "skill"
+  },
+  "Task": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "subagent"
+  },
+  "TaskOutput": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "taskOutput"
+  },
+  "TaskStop": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "backgroundTask.stop"
+  },
+  "TodoRead": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "todo.read"
+  },
+  "TodoWrite": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "todo.write"
+  },
+  "WebFetch": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "network",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "webfetch"
+  },
+  "WebSearch": {
+    "allowedInPlanMode": false,
+    "readOnly": true,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "network",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "websearch"
+  },
+  "Write": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "workspace",
+    "riskLevel": "medium",
+    "needsApproval": true,
+    "permissionName": "edit"
+  },
+  "escalate": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "workflow.escalate"
+  },
+  "js": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "system",
+    "riskLevel": "high",
+    "needsApproval": true,
+    "permissionName": "node_repl"
+  },
+  "submit_result": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "session",
+    "riskLevel": "low",
+    "needsApproval": false,
+    "permissionName": "workflow.submitResult"
+  }
+}

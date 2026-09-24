@@ -3,7 +3,7 @@ use crate::domain::{
     protocol::Command,
     question::{QuestionAnswer, QuestionInput},
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
@@ -87,27 +87,55 @@ impl Engine {
             let _ = q.reply.send(answer);
             return Ok(ack);
         }
-        if self
-            .permissions
-            .get(interaction)
-            .is_some_and(|(owner, _)| owner == id)
+        if let Some(waiting) = self.waiting_permissions.get(interaction)
+            && waiting.session == id
         {
+            // 运行已结束（stop/取消）时不再放行：迟到的应答按已解决处理，工具不会执行。
+            let owned = self
+                .active
+                .get(id)
+                .is_some_and(|a| a.run_id == waiting.run && !a.cancel.is_cancelled());
+            if !owned {
+                return Ok(c.ack("noop", revision, Some("proto.alreadyResolved")));
+            }
+            let call_id = waiting.call_id.clone();
             let option = c.payload["answer"]["optionId"]
                 .as_str()
                 .context("Permission option required")?;
-            ensure!(
-                matches!(option, "allowOnce" | "deny"),
-                "Unsupported permission option"
-            );
-            self.sessions
-                .get_mut(id)
-                .unwrap()
-                .pending
-                .retain(|p| p["interactionId"] != interaction);
+            let feedback = c.payload["answer"]["freeText"].as_str();
+            let outcome = match option {
+                "allowOnce" | "allowSession" => crate::contract::PermissionOutcome::allow(),
+                "allowAlways" => {
+                    let rules = waiting.suggested.clone();
+                    let merged = self.merge_project_rules(&rules).await;
+                    if merged {
+                        crate::contract::PermissionOutcome::allow()
+                    } else {
+                        crate::contract::PermissionOutcome::deny(
+                            crate::domain::permission_options::denied_content(None),
+                        )
+                    }
+                }
+                "deny" => crate::contract::PermissionOutcome::deny(
+                    crate::domain::permission_options::denied_content(feedback),
+                ),
+                other => anyhow::bail!("Unsupported permission option: {other}"),
+            };
+            let s = self.sessions.get_mut(id).unwrap();
+            s.pending.retain(|p| p["interactionId"] != interaction);
+            // 行回到执行态：工具即将执行，最终状态由 ToolDone 落定；拒绝同样经 ToolDone。
+            if let Some(row) = s
+                .rows
+                .iter_mut()
+                .find(|r| r["toolCallId"] == call_id.as_str())
+            {
+                row["status"] = "running".into();
+                row.as_object_mut().unwrap().remove("approvalInteractionId");
+            }
             self.activate_question_head(id);
             let ack = self.commit_interaction(c, vec![]).await?;
-            let (_, reply) = self.permissions.remove(interaction).unwrap();
-            let _ = reply.send(option == "allowOnce");
+            let waiting = self.waiting_permissions.remove(interaction).unwrap();
+            let _ = waiting.reply.send(outcome);
             return Ok(ack);
         }
         Ok(c.ack("noop", revision, Some("proto.alreadyResolved")))

@@ -280,23 +280,32 @@ async fn execute(
     let name = call["function"]["name"]
         .as_str()
         .context("Tool name missing")?;
-    let allowed = if tools.requires_permission(name) {
+    // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
+    let outcome = {
         let (reply, receipt) = oneshot::channel();
         sink.send(Event::Permission {
             call: call.clone(),
             reply,
         })
         .await?;
-        tokio::select! {biased; _=cancel.cancelled()=>bail!("Cancelled"), result=receipt=>result.unwrap_or(false)}
-    } else {
-        true
+        tokio::select! {biased;
+            _=cancel.cancelled()=>bail!("Cancelled"),
+            result=receipt=>result.unwrap_or_else(|_| crate::contract::PermissionOutcome::deny(
+                crate::domain::permission_options::denied_content(None))),
+        }
     };
     let result = if profile.is_some_and(|p| !p.allows(name)) {
         Err(anyhow::anyhow!(
             "Tool is not allowed by this subagent profile"
         ))
-    } else if !allowed {
-        Err(anyhow::anyhow!("Permission denied"))
+    } else if !outcome.allowed {
+        // 拒绝文案与 TS 逐字一致（不套 "Tool failed:" 前缀），模型据此停止并等待用户指示。
+        Ok(crate::contract::ToolOutput {
+            failed: true,
+            content: outcome.denial.unwrap_or_else(|| "Permission denied".into()),
+            data: Value::Null,
+            display: None,
+        })
     } else {
         match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) {
             Ok(args)

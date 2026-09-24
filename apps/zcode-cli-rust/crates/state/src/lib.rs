@@ -13,6 +13,7 @@ mod storage_history;
 mod storage_index;
 mod storage_listing;
 mod storage_ports;
+mod storage_project_rules;
 mod storage_read;
 pub use storage::Store;
 use zcode_cli_host::id;

@@ -28,6 +28,9 @@ pub(super) enum Operation {
         Option<(String, Value)>,
         oneshot::Sender<Result<()>>,
     ),
+    /// 项目权限规则（按 workspace 作用域），「总是允许」写入后由后续判定读取。
+    ProjectRules(String, oneshot::Sender<Result<Option<Value>>>),
+    SaveProjectRules(String, Value, oneshot::Sender<Result<()>>),
 }
 
 #[derive(Clone)]
@@ -74,7 +77,8 @@ impl Store {
                     CREATE TABLE IF NOT EXISTS rust_started(workspace TEXT NOT NULL,session TEXT NOT NULL,command TEXT NOT NULL,PRIMARY KEY(workspace,session,command));
                     CREATE TABLE IF NOT EXISTS rust_command(workspace TEXT NOT NULL,key TEXT NOT NULL,ack TEXT NOT NULL,PRIMARY KEY(workspace,key));
                     CREATE TABLE IF NOT EXISTS rust_row(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));
-                    CREATE TABLE IF NOT EXISTS rust_message(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));")?;
+                    CREATE TABLE IF NOT EXISTS rust_message(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));
+                    CREATE TABLE IF NOT EXISTS rust_project_rule(workspace TEXT NOT NULL,rules TEXT NOT NULL,PRIMARY KEY(workspace));")?;
                 super::storage_listing::prepare(&conn)?;
                 conn.execute_batch("CREATE INDEX IF NOT EXISTS rust_row_command ON rust_row(workspace,session,CASE WHEN json_valid(body) THEN json_extract(body,'$.sourceCommandId') END);")?;
                 Ok(conn)
@@ -118,6 +122,14 @@ impl Store {
                     }
                     Operation::Commit(workspace, session, ack, reply) => {
                         let _ = reply.send(commit(&mut conn, &workspace, session.map(|s| *s), ack));
+                    }
+                    Operation::ProjectRules(workspace, reply) => {
+                        let _ = reply.send(super::storage_project_rules::load(&conn, &workspace));
+                    }
+                    Operation::SaveProjectRules(workspace, rules, reply) => {
+                        let _ = reply.send(super::storage_project_rules::save(
+                            &mut conn, &workspace, &rules,
+                        ));
                     }
                 }
             }

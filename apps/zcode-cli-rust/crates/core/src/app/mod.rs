@@ -3,6 +3,7 @@ mod commands;
 mod engine;
 mod event_projection;
 mod model_config;
+mod permission_flow;
 mod queries;
 mod shell_preferences;
 mod subscriptions;

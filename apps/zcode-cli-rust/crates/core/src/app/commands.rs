@@ -138,11 +138,17 @@ impl Engine {
                 self.sessions.get_mut(&id).unwrap().revision += 1;
             }
             "switchCollaborationMode" => {
-                if c.payload["mode"] != "yolo" || s.running() {
+                let Some(mode) = c.payload["mode"]
+                    .as_str()
+                    .filter(|mode| matches!(*mode, "yolo" | "build" | "edit"))
+                else {
+                    return Ok(c.ack("rejected", s.revision, Some("guard.capabilityUnsupported")));
+                };
+                if s.running() {
                     return Ok(c.ack("rejected", s.revision, Some("guard.capabilityUnsupported")));
                 }
                 let session = self.sessions.get_mut(&id).unwrap();
-                session.mode = "yolo".into();
+                session.mode = mode.into();
                 session.revision += 1;
             }
             "cancelBackgroundWork" => {
