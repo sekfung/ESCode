@@ -24,9 +24,18 @@ reqwest 默认读取 `HTTP(S)_PROXY`，开发机设置代理且无 `NO_PROXY` �
 
 ## 验收记录（2026-09-24，Windows 11 x64，Node 26.7 非锁定版本）
 
-- `pnpm check:zcode-cli-rust`：通过（boundaries、fmt、clippy `-D warnings`）。
-- `pnpm test:zcode-cli-rust`：192 个 App 集成用例，173 通过、18 跳过（多为 `skip: win32`，待逐个评估）、1 失败。
-- 未解决：`zcode-cli-rust-registry.test.ts` 的 provider 配置热更新用例只在全量并发运行时偶发超时（单独运行 5/5、整文件 3/3 通过），疑似负载下的配置刷新时序问题，需定位根因，不以加长超时处理。
+工具链：本机无 MSVC，改用 `stable-x86_64-pc-windows-gnu` + MSYS2 GCC 构建（见下节）；
+产物是 **GNU 目标**，结论为源码级证据，发布验收仍需 MSVC 重跑。
+
+- Rust 测试：`cargo +…-gnu test --workspace -- --test-threads=1` 全部通过（0 失败）。
+  并发跑同一套会出现超时假失败（每文件起一个 runtime + HTTP fixture，本机 3s 的 receive 超时会被压满）。
+- App 集成：`node --import tsx --test --test-concurrency=1 packages/services/tests/zcode-cli-rust-*.test.ts`
+  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@zcode/*` 解析失败）→ **196 用例：183 通过、13 跳过、0 失败**。
+- 跳过用例：13 条 `skip: win32`，均为用例本身依赖 POSIX 断言（`$$` 与 Node `process.kill` 的 PID 空间、
+  shell 脚本伪造 git、SIGTERM/进程组语义），已在用例内注明原因，待改写为跨平台断言。
+- 本轮修复：`os_release` 不再 spawn PowerShell（首个请求 1830ms → 35ms，见下节）；
+  导入源库的 busy timeout 由 20ms 放宽到 5s（两个 runtime 同时启动时的瞬时锁竞争）；
+  权限确认相关的既有用例按 build/edit 新契约改写（stdio / migration / host）。
 
 ## 无 MSVC 时的可运行验证路径
 

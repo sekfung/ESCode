@@ -138,5 +138,6 @@ sequenceDiagram
 
 - 可运行：`cargo clippy --all-targets -D warnings`（覆盖全部改动）；WSL Linux 下 `cargo test -p zcode-cli-domain`
   （权限矩阵 34,700 条、Bash 语料 5,098 条、规则语料、解析 oracle 全部通过）。
-- 不可运行：本机缺 MSVC/Windows SDK 链接器，`cargo build`（bin）与 App 集成测试无法重跑；
-  `crates/tools` 的 git 安全差分用例需要 Linux 侧缺失的依赖，暂不能在 WSL 运行。
+- 已运行（GNU 目标，Windows）：`cargo test --workspace -- --test-threads=1` 全部通过；
+  App 集成套件 196 用例 183 通过、13 跳过、0 失败——包含 build/edit 模式、权限确认允许/拒绝/会话免确认、
+  项目规则跨会话复用、git 安全语料与 AskUserQuestion 全量用例。
