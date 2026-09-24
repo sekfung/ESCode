@@ -92,3 +92,34 @@ toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方
 **修复**：导入事务改为 `TransactionBehavior::Immediate`（一开始就取写锁，冲突时按 busy_timeout 排队）。
 `crates/state/src/legacy_storage.rs` 就地注明原因。修复前整文件运行 5 次里 4 次失败，修复后 5/5 通过。
 这类失败对真实用户同样可达：同 workspace 两个窗口/Host，或导入期间另一个会话在写。
+
+## 真实数据演练发现：model_change 时间线字段（2026-09-25）
+
+用户授权的真实数据只读演练（`~/.zcode/cli/db` 备份副本导入临时目录）发现：TS 自 migration 0020 起把
+model_change 的真实选择写在 `toModelSelection` / `fromModelSelection`，`toModel` 只保留给旧 Reader 的
+兼容对象（`providerID`/`modelID`/`variant`）。Rust 导入读的是 `toModel.providerId`，得到 null，
+产出的 `timelineMarker` 不满足任何 `modelChange` 变体，App schema 拒绝整页 rows。
+
+规则（对齐 TS `decodeStoredPart`）：只读 `toModelSelection` / `fromModelSelection`（`providerId`、`modelId`、
+`options.reasoningLevel`），忽略存储的 `toModel`/`fromModel`；`toModelSelection` 缺失或无效时不产出该标记
+（TS 解码后没有 `toModel`，Node 投影同样跳过）；`fromModelSelection` 不完整时按 ∅→X 标记处理。
+既有合成用例使用 0020 之前的形状，因此一直未暴露。
+
+### 同次演练发现的其余差异（均已修复，2026-09-25）
+
+以 Node runtime 打开同一数据的独立副本作为 oracle，逐会话比较行种类计数、附件与 todo：
+
+| 问题                     | Node（oracle）                                                                                                                                             | Rust 原行为                                                              | 修复                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| conversation_rewind 分支 | 活跃分支 = `keptMessageIDs` + `branchCutAfterMessageID` 之后追加的消息（`@zcode/contracts` `selectActiveConversationBranch`）；无 `targetMessageID` 不过滤 | 按旧式 `messageID`/`partID` 截断；`messageID` 指向首条消息时整段历史丢失 | `domain/rewind_branch.rs` 逐行移植，750 条 TS 语料校验（`--check`）                     |
+| 空文本推理               | `reasoning` part 文本为空时不成行（部分供应商只在 metadata 保存加密推理）                                                                                  | 产生空 `reasoning` 行                                                    | 空文本的 text/reasoning part 不成行；模型上下文不受影响                                 |
+| model_change 标记        | 无来源的 ∅→X 边界总是落；有来源时首轮之前不落（silentInitial），之后仅在模型身份改变时落                                                                   | 每个 part 都落                                                           | 按 Node 规则；首轮之前的标记归属随后的第一轮（否则 `productTurnId` 为空被 schema 拒绝） |
+| 无思考深度的会话         | 省略 `modelSelection.options`                                                                                                                              | `reasoningLevel: ""`，App schema 拒绝整份快照                            | 为空时省略 options，`thoughtLevels` 取空表                                              |
+
+回归：`zcode-cli-rust-migration-shapes.test.ts` 用真实 TS store 写出上述形态（不依赖用户数据），Node 与 Rust 打开结果逐行一致。
+
+### 演练工具与结果
+
+`zcode-cli-rust-real-data-rehearsal.test.ts`：默认跳过；`ZCODE_REHEARSAL_DB=<db.sqlite>` 时以 SQLite backup 取副本、复制附件目录，Node 与 Rust 各开一份，逐会话比较行种类计数、附件数、todo 数，只输出计数；并断言原库与副本哈希不变。
+
+本机实测（Windows，GNU 目标，用户授权）：3 个会话（3 个 workspace，43 条消息、126 个 part，含 2 个 conversation_rewind、6 个附件、6 个 todo、0 条工作流数据）全部一致；原库哈希前后不变。样本小，只能证明上述形态；其他机器与更大的真实库仍需用同一工具复核。

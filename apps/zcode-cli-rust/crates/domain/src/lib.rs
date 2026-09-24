@@ -32,6 +32,7 @@ pub mod plan_mode;
 pub mod prompt;
 pub mod question;
 mod question_answer;
+pub mod rewind_branch;
 pub mod row_page;
 pub mod session;
 pub mod session_listing;

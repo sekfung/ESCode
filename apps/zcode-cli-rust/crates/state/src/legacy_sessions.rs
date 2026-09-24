@@ -138,33 +138,28 @@ pub(super) fn project(
             .map(serde_json::from_str)
             .transpose()?
             .unwrap_or(Value::Null);
+        // 修复：原先按旧式 revert（messageID/partID）截断，真实数据的 conversation_rewind 记录
+        // messageID 可指向首条消息，导致整段历史被丢弃。对齐 TS selectActiveConversationBranch：
+        // 活跃分支 = keptMessageIDs + branchCutAfterMessageID 之后追加的消息；无 targetMessageID 不过滤。
+        let ids: Vec<String> = messages.iter().map(|(id, _)| id.clone()).collect();
+        let mut slots: Vec<Option<(String, Value)>> = messages.into_iter().map(Some).collect();
+        let messages: Vec<(String, Value)> =
+            crate::domain::rewind_branch::active_branch(&ids, &revert)
+                .into_iter()
+                .filter_map(|i| slots[i].take())
+                .collect();
         for (mid, message) in messages {
             check(cancel)?;
-            // TS revert 后隐藏的后缀属于回退源，不进入新的模型上下文。
-            if revert["messageID"] == mid && revert["partID"].is_null() {
-                break;
-            }
-            let mut parts = items(
+            let parts = items(
                 snapshot,
                 "SELECT id,data FROM part WHERE message_id=?1 ORDER BY sequence,time_created,id",
                 &mid,
             )?;
-            let stop = revert["messageID"] == mid;
-            if stop && let Some(part) = revert["partID"].as_str() {
-                let end = parts
-                    .iter()
-                    .position(|(id, _)| id == part)
-                    .context("Legacy revert part missing")?;
-                parts.truncate(end);
-            }
             super::legacy_projection::validate_parts(&parts)?;
             let shared_start = session.messages.len();
             if super::legacy_shared_context::project(&mut session, &message, &parts, &entries, dir)?
             {
                 positions.insert(mid, (shared_start, session.messages.len()));
-                if stop {
-                    break;
-                }
                 continue;
             }
             for (_, part) in &parts {
@@ -209,6 +204,12 @@ pub(super) fn project(
                     );
                 if visible || turn.is_empty() {
                     turn = mid.clone();
+                    // 首轮之前的边界标记（如 ∅→X 模型标记）在 Node 中属于它之后的第一轮；
+                    // 未分配轮次时 turnId 为空，App schema 会拒绝整页 rows。
+                    for row in session.rows.iter_mut().filter(|r| r["turnId"] == "") {
+                        row["turnId"] = turn.clone().into();
+                        row["productTurnId"] = turn.clone().into();
+                    }
                     let mut header = session.row("turnHeader", &turn, &turn, now);
                     header["origin"] = "userInput".into();
                     header["state"] = "completedSuccess".into();
@@ -280,9 +281,12 @@ pub(super) fn project(
                     .collect::<Vec<_>>()
                     .join("\n");
                 for (pid, p) in &parts {
+                    // 与 Node 冷恢复一致：空文本的 text/reasoning part 不成行（部分供应商只在
+                    // metadata 保存加密推理，text 为空）；模型上下文仍由下方 canonical 消息承载。
                     if matches!(p["type"].as_str(), Some("text" | "reasoning"))
                         && p["ignored"] != true
                         && message["summary"] != true
+                        && p["text"].as_str().is_some_and(|t| !t.is_empty())
                     {
                         let kind = if p["type"] == "reasoning" {
                             "reasoning"
@@ -372,9 +376,6 @@ pub(super) fn project(
             }
             super::legacy_projection::timeline(&mut session, &parts, &turn, now);
             positions.insert(mid, (start, session.messages.len()));
-            if stop {
-                break;
-            }
         }
         super::legacy_projection::ledger(snapshot, &id, &mut session)?;
         super::legacy_shared_context::validate(&session, &entries)?;

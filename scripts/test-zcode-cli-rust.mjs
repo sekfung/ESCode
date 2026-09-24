@@ -52,6 +52,12 @@ await run(process.execPath, [
 await run(process.execPath, [
   "--import",
   "tsx",
+  "scripts/generate-zcode-cli-rust-rewind-branch-corpus.mjs",
+  "--check",
+]);
+await run(process.execPath, [
+  "--import",
+  "tsx",
   "scripts/generate-zcode-cli-rust-bash-readonly-corpus.mjs",
   "--check",
 ]);

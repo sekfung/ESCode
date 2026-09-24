@@ -291,6 +291,16 @@ impl Session {
                 .as_object_mut()
                 .unwrap()
                 .remove("modelSelection");
+        } else if self.reasoning_level.is_empty() {
+            // 修复：导入的旧会话可能没有思考深度；App schema 要求 reasoningLevel 非空，
+            // 空值会让整份快照被拒。无深度时与 TS 一样省略 options，thoughtLevels 取默认空表。
+            patch["config"]["modelSelection"]
+                .as_object_mut()
+                .unwrap()
+                .remove("options");
+            if self.thought_levels.is_empty() {
+                patch["config"]["thoughtLevels"] = json!([]);
+            }
         }
         if let Some(context) = &self.shared_context {
             patch["sharedContextImport"] = context.projection(&self.title);

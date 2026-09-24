@@ -67,14 +67,32 @@ pub(super) fn timeline(session: &mut Session, parts: &[(String, Value)], turn: &
                 json!({"type":"retryNotice","attempt":p["attempt"],"reasonCode":"provider.retry"}),
             ),
             Some("timeline") => match p["timelineType"].as_str() {
-                Some("model_change") if p["toModel"].is_object() => {
-                    let to = &p["toModel"];
-                    let mut m = json!({"type":"modelChange","toProvider":to["providerId"],"toModel":to["modelId"],"toThought":to["options"]["reasoningLevel"].as_str().unwrap_or("")});
-                    if p["fromModel"].is_object() {
-                        m["fromProvider"] = p["fromModel"]["providerId"].clone();
-                        m["fromModel"] = p["fromModel"]["modelId"].clone();
+                // 修复：TS 自 migration 0020 起真实选择在 *Selection 字段，toModel 只是给旧 Reader 的
+                // providerID/modelID 兼容对象；原先读 toModel.providerId 得到 null，标记不满足任何
+                // modelChange 变体，App schema 拒绝整页 rows。对齐 TS decodeStoredPart：只读 *Selection。
+                // Node 投影：没有来源的显式边界（∅→X，sourceLess）总会落 marker；有来源时，首轮之前
+                // 为 silentInitial 不落，之后只在模型身份确实改变时落（思考深度变化不算）。
+                Some("model_change")
+                    if match (
+                        model_selection(&p["fromModelSelection"]),
+                        model_selection(&p["toModelSelection"]),
+                    ) {
+                        (None, _) => true,
+                        (Some(from), Some(to)) => {
+                            session.rows.iter().any(|r| r["kind"] == "turnHeader")
+                                && (from.0, from.1) != (to.0, to.1)
+                        }
+                        (Some(_), None) => false,
+                    } =>
+                {
+                    model_selection(&p["toModelSelection"]).map(|(provider, model, thought)| {
+                    let mut m = json!({"type":"modelChange","toProvider":provider,"toModel":model,"toThought":thought});
+                    if let Some((provider, model, _)) = model_selection(&p["fromModelSelection"]) {
+                        m["fromProvider"] = provider.into();
+                        m["fromModel"] = model.into();
                     }
-                    Some(m)
+                    m
+                    })
                 }
                 Some("context_compaction") => Some(
                     json!({"type":"compact","origin":if p["trigger"]=="manual"{"manual"}else{"auto"},"status":if p["status"]=="completed"{"success"}else{"cancelled"}}),
@@ -104,6 +122,16 @@ pub(super) fn timeline(session: &mut Session, parts: &[(String, Value)], turn: &
             session.rows.push(row);
         }
     }
+}
+
+/// TS `decodeTimelineSelection`：providerId/modelId 必须是非空字符串，否则视为无选择。
+fn model_selection(value: &Value) -> Option<(String, String, String)> {
+    let provider = value["providerId"]
+        .as_str()
+        .filter(|v| !v.trim().is_empty())?;
+    let model = value["modelId"].as_str().filter(|v| !v.trim().is_empty())?;
+    let thought = value["options"]["reasoningLevel"].as_str().unwrap_or("");
+    Some((provider.to_owned(), model.to_owned(), thought.to_owned()))
 }
 
 pub(super) fn reasoning(message: &mut Value, parts: &[(String, Value)]) {
@@ -142,4 +170,101 @@ pub(super) fn items(conn: &Connection, sql: &str, id: &str) -> Result<Vec<(Strin
         Ok((id, serde_json::from_str(&data)?))
     })
     .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session() -> Session {
+        Session::new(
+            "s".into(),
+            "w".into(),
+            "p".into(),
+            "m".into(),
+            "none".into(),
+            "e".into(),
+            0,
+        )
+    }
+
+    /// 真实 TS（0020 之后）写出的形状：toModel 为旧 Reader 兼容对象，真实值在 *Selection。
+    fn stored(to: Value, from: Value) -> Value {
+        json!({"type":"timeline","timelineType":"model_change","status":"completed",
+            "toModel":{"providerID":"legacy","modelID":"legacy","variant":"high","label":"x"},
+            "fromModel":{"providerID":"legacy","modelID":"legacy","label":"x"},
+            "toModelSelection":to,"fromModelSelection":from})
+    }
+
+    fn after_a_turn() -> Session {
+        let mut s = session();
+        s.rows.push(json!({"kind":"turnHeader"}));
+        s
+    }
+
+    #[test]
+    fn model_change_reads_the_selection_fields_like_ts() {
+        let mut s = after_a_turn();
+        let part = stored(
+            json!({"providerId":"zai","modelId":"glm-5","options":{"reasoningLevel":"high"},"label":"GLM"}),
+            json!({"providerId":"zai","modelId":"glm-4","label":"GLM"}),
+        );
+        timeline(&mut s, &[("p1".into(), part)], "t", 1);
+        assert_eq!(
+            s.rows[1]["marker"],
+            json!({"type":"modelChange","toProvider":"zai","toModel":"glm-5","toThought":"high","fromProvider":"zai","fromModel":"glm-4"})
+        );
+    }
+
+    #[test]
+    fn model_change_without_a_valid_selection_is_skipped_and_partial_source_is_empty_origin() {
+        let mut s = after_a_turn();
+        timeline(
+            &mut s,
+            &[("p1".into(), stored(Value::Null, Value::Null))],
+            "t",
+            1,
+        );
+        assert_eq!(
+            s.rows.len(),
+            1,
+            "TS decode drops toModel, Node projection skips the marker"
+        );
+        let part = stored(
+            json!({"providerId":"zai","modelId":"glm-5"}),
+            json!({"providerId":"zai"}),
+        );
+        timeline(&mut s, &[("p2".into(), part)], "t", 1);
+        let marker = &s.rows[1]["marker"];
+        assert!(marker.get("fromProvider").is_none() && marker.get("fromModel").is_none());
+        assert_eq!(marker["toThought"], "");
+    }
+
+    #[test]
+    fn model_change_before_the_first_turn_or_to_the_same_model_has_no_marker() {
+        let mut s = session();
+        let change = stored(
+            json!({"providerId":"zai","modelId":"glm-5"}),
+            json!({"providerId":"zai","modelId":"glm-4"}),
+        );
+        timeline(&mut s, &[("p1".into(), change)], "t", 1);
+        assert!(
+            s.rows.is_empty(),
+            "first turn with a known source is silentInitial in Node"
+        );
+        let source_less = stored(json!({"providerId":"zai","modelId":"glm-5"}), Value::Null);
+        timeline(&mut s, &[("p0".into(), source_less)], "t", 1);
+        assert_eq!(s.rows.len(), 1, "an explicit ∅→X boundary always renders");
+        let mut s = after_a_turn();
+        let same = stored(
+            json!({"providerId":"zai","modelId":"glm-5","options":{"reasoningLevel":"high"}}),
+            json!({"providerId":"zai","modelId":"glm-5"}),
+        );
+        timeline(&mut s, &[("p1".into(), same)], "t", 1);
+        assert_eq!(
+            s.rows.len(),
+            1,
+            "a thought-only change is not a model identity change"
+        );
+    }
 }
