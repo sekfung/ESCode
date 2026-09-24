@@ -3,7 +3,8 @@ import test from "node:test";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { assertBeatStopped, fixture, waitForBeat } from "./zcode-cli-rust-fixture.js";
+import { fixture } from "./zcode-cli-rust-fixture.js";
+import { assertBeatStopped, waitForBeat } from "./zcode-cli-rust-shell-probe.js";
 import { commandsQueryResultSchema } from "@zcode/shared/zcode-protocol-v4";
 
 test("Rust stop reaps an yolo running shell and accepts the next turn", async () => {
