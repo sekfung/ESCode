@@ -69,3 +69,10 @@ sequenceDiagram
 | Bash rulePolicy（复合命令拆分）与只读分类                                              | 未实现                                                                               | —                                  |
 | ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 未实现                                                                               | —                                  |
 | 能力宣告 `permissionModes` / `independentPlanState`                                    | 仍为 `[yolo]` / false；以上完成前不打开                                              | —                                  |
+
+## Bash 只读分类移植方案
+
+- Oracle：`scripts/generate-zcode-cli-rust-bash-readonly-corpus.mjs` 以 TS `isRuntimeReadOnlyBashCommand` 为准，从 TS 策略表派生 5,098 条语料（3,311 条只读），产物 `crates/domain/tests/fixtures/bash_readonly_corpus.json`，runner 中 `--check` 防漂移。xargs 走 TS 平台分支，排除出语料。
+- 解析：TS 依赖 `unbash`（4.4k 行），但分类只消费简单命令、管道、`&&`/`||`/`;`、重定向与动态词判定；其余节点一律视为不支持→非只读。Rust 实现该子集的保守解析器，超出子集的输入按不支持处理，由语料差分确认不存在「Rust 判只读而 TS 不判」的放宽。
+- 策略表：`READONLY_COMMAND_POLICIES`、git/多词子命令、safeFlags 等数据经生成器导出为 JSON 资产；回调（sed/find/date/docker/gh 等）逐个移植。
+- 验收：语料一致率 100%；任何差异先判定方向，放宽方向视为阻断缺陷。
