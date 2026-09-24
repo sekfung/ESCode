@@ -180,7 +180,7 @@ test(
   },
 );
 
-test("Rust old native build sessions require explicit yolo selection after cold recovery", async () => {
+test("Rust old native build sessions without a mode require approval before writing after cold recovery", async () => {
   const f = await fixture();
   try {
     const h = f.start();
@@ -196,19 +196,30 @@ test("Rust old native build sessions require explicit yolo selection after cold 
     }
     const restored = f.start();
     await restored.subscribe(`conversation/${id}`);
-    assert.equal(
-      (await restored.command(restored.envelope("sendText", id, { text: "write" }))).status,
-      "rejected",
-    );
-    await assert.rejects(access(join(f.cwd, "result.txt")));
-    assert.equal(
-      (await restored.command(restored.envelope("switchCollaborationMode", id, { mode: "yolo" })))
-        .status,
-      "accepted",
-    );
+    // 缺 mode 的旧会话回落 build；写入必须经用户确认，而不是被静默放行或直接拒绝。
     const after = restored.messages.length;
     const command = restored.envelope("sendText", id, { text: "write" });
     assert.equal((await restored.command(command)).status, "accepted");
+    const pending = await restored.wait(
+      (m) =>
+        m.params?.topic === `conversation/${id}` &&
+        m.params.frame?.payload?.deltas?.some((d: any) =>
+          d.patch?.pendingInteractions?.some((p: any) => p.kind === "permission"),
+        ),
+      after,
+    );
+    const interaction = pending.params.frame.payload.deltas
+      .flatMap((d: any) => d.patch?.pendingInteractions ?? [])
+      .find((p: any) => p.kind === "permission");
+    assert.equal(interaction.payload.toolName, "Write");
+    await assert.rejects(access(join(f.cwd, "result.txt")));
+    const resolvedAt = restored.messages.length;
+    await restored.command(
+      restored.envelope("resolveInteraction", id, {
+        interactionId: interaction.interactionId,
+        answer: { optionId: "allowOnce" },
+      }),
+    );
     await restored.wait(
       (m) =>
         m.params?.frame?.payload?.deltas?.some(
@@ -217,7 +228,7 @@ test("Rust old native build sessions require explicit yolo selection after cold 
             d.row.sourceCommandId === command.commandId &&
             d.row.state === "completedSuccess",
         ),
-      after,
+      resolvedAt,
     );
     assert.equal(await readFile(join(f.cwd, "result.txt"), "utf8"), "written by Rust");
     assert.deepEqual(restored.schemaErrors, []);
