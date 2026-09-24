@@ -281,3 +281,75 @@ test("Node and Rust resync an existing subscription the same way", async () => {
   if (process.env.ZCODE_RESUME_DUMP) console.log("DUMP-RUST resync", JSON.stringify(rust));
   assert.deepEqual(rust, node);
 });
+
+/** 流控：连接 saturated 期间产生增量，drained 后补发的形态（快照还是增量）。 */
+async function observeDrain(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-drain-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    const topic = `conversation/${id}`;
+    const sub = (await h.subscribe(topic, "phone-1", "web-remote-replayable")) as any;
+    const subscriptionId = (sub.ack ?? sub).subscriptionId;
+    const initial = await h.wait(
+      (m) => m.method === "v4/conversation/frame" && m.params?.topic === topic,
+    );
+    await h.client.request(
+      "v4/connection/flow",
+      { connectionId: "phone-1", state: "saturated" },
+      z.any(),
+    );
+    const paused = h.messages.length;
+    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
+    // 自己的订阅被暂停，用另一连接观察本轮完成。
+    await h.subscribe(topic, "observer", "desktop-continuous");
+    await h.completed(id, paused);
+    const duringPause = h.messages
+      .slice(paused)
+      .filter(
+        (m) => m.method === "v4/conversation/frame" && m.params?.subscriptionId === subscriptionId,
+      ).length;
+    const mark = h.messages.length;
+    await h.client.request(
+      "v4/connection/flow",
+      { connectionId: "phone-1", state: "drained" },
+      z.any(),
+    );
+    const frame = await h.wait(
+      (m) => m.method === "v4/conversation/frame" && m.params?.subscriptionId === subscriptionId,
+      mark,
+    );
+    const observation = {
+      framesWhilePaused: duringPause,
+      payloadKind: frame.params.frame.payload.kind,
+      deliveryKind: frame.params.deliveryKind,
+      continuous:
+        frame.params.frame.payload.kind === "deltas"
+          ? frame.params.frame.fromSeq === initial.params.frame.toSeq
+          : null,
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust resend after a saturated connection drains the same way", async () => {
+  const node = await observeDrain("node");
+  if (process.env.ZCODE_RESUME_DUMP) console.log("DUMP drain", JSON.stringify(node));
+  const rust = await observeDrain("rust");
+  if (process.env.ZCODE_RESUME_DUMP) console.log("DUMP-RUST drain", JSON.stringify(rust));
+  assert.deepEqual(rust, node);
+});

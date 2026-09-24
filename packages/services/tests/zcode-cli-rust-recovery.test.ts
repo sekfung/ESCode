@@ -8,6 +8,7 @@ import {
   conversationTopicFrameSchema,
 } from "@zcode/shared/zcode-protocol-v4";
 import { z } from "zod";
+import { applyConversationDeltas } from "@zcode/shared/zcode-protocol-v4";
 
 test("Rust queues execute FIFO, require CAS, and keep drained/create ACKs on restart", async () => {
   const f = await fixture();
@@ -134,10 +135,10 @@ test("Rust backpressure and large history recover through the real App frame ass
       { connectionId: "mobile", state: "drained" },
       z.object({}).strict(),
     );
+    // 与 Node 一致（rust-resume-replay.md「流控恢复」）：drained 后只续传暂停期间的增量，
+    // 订阅方在已持有的快照上归约即得到权威状态。
     await h.wait(
-      (m) =>
-        m.params?.subscriptionId === sub.ack.subscriptionId &&
-        m.params.fragmentIndex === m.params.fragmentCount - 1,
+      (m) => m.params?.subscriptionId === sub.ack.subscriptionId && m.params.kind === "complete",
       after,
     );
     const recovery = h.messages
@@ -145,9 +146,19 @@ test("Rust backpressure and large history recover through the real App frame ass
       .filter((m) => m.params?.subscriptionId === sub.ack.subscriptionId)
       .flatMap((m) => assembler.accept(m.params));
     assert.equal(recovery[0]?.kind, "complete");
-    if (recovery[0]?.kind === "complete" && recovery[0].frame.payload.kind === "snapshot")
-      assert.equal(recovery[0].frame.payload.snapshot.meta.title, "renamed during backpressure");
-    else assert.fail("Missing authoritative snapshot after flow drained");
+    const held = assembled[0]!.kind === "complete" ? assembled[0].frame.payload : undefined;
+    if (
+      recovery[0]?.kind === "complete" &&
+      recovery[0].frame.payload.kind === "deltas" &&
+      held?.kind === "snapshot"
+    ) {
+      assert.equal(
+        recovery[0].frame.fromSeq,
+        assembled[0]!.kind === "complete" ? assembled[0].frame.toSeq : -1,
+      );
+      const state = applyConversationDeltas(held.snapshot, recovery[0].frame.payload.deltas);
+      assert.equal(state.meta.title, "renamed during backpressure");
+    } else assert.fail("Missing continuous deltas recovery after flow drained");
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();

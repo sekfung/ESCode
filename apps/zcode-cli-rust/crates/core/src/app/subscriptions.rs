@@ -10,6 +10,8 @@ pub(super) struct Subscription {
     pub ordinal: u64,
     pub paused: bool,
     pub needs_resync: bool,
+    /// 已发给该订阅的最新 seq；流控恢复时从这里续传。
+    pub delivered: u64,
 }
 impl Engine {
     pub(super) async fn subscribe(&mut self, p: &Value) -> Result<Value> {
@@ -37,6 +39,7 @@ impl Engine {
                 ordinal: 0,
                 paused: false,
                 needs_resync: false,
+                delivered: 0,
             },
         );
         let (epoch, _, _) = self.topic_snapshot(&topic)?;
@@ -135,9 +138,24 @@ impl Engine {
                     .filter(|s| s.connection == connection && s.needs_resync)
                     .map(|s| s.id.clone())
                     .collect::<Vec<_>>();
-                // 没有保留暂停区间的增量时，用完整 snapshot 原子补齐；不能伪造连续水位。
+                // 与 Node 一致：从该订阅已送达的 seq 续传暂停期间的增量；日志不再覆盖时
+                // 才用完整 snapshot 原子补齐，不能伪造连续水位。
                 for id in ids {
-                    self.snapshot_frame(&id, "online")?;
+                    let sub = &self.subscriptions[&id];
+                    let (topic, delivered) = (sub.topic.clone(), sub.delivered);
+                    let (epoch, _, _) = self.topic_snapshot(&topic)?;
+                    let base = json!({"logEpoch": epoch, "seq": delivered});
+                    match self.replay_since(&topic, &base, &epoch) {
+                        Some((from, to, deltas)) if from < to => self.push_frame(
+                            &id,
+                            "online",
+                            from,
+                            to,
+                            json!({"kind":"deltas","deltas":deltas}),
+                        )?,
+                        Some(_) => {}
+                        None => self.snapshot_frame(&id, "online")?,
+                    }
                     self.subscriptions.get_mut(&id).unwrap().needs_resync = false;
                 }
             }
@@ -200,6 +218,7 @@ impl Engine {
             .get_mut(id)
             .context("Subscription unavailable")?;
         sub.ordinal += 1;
+        sub.delivered = to;
         let frame = json!({"topic":sub.topic,"subscriptionId":sub.id,"fromSeq":from,"toSeq":to,"sentAt":self.clock.now(),"payload":payload});
         let wire = json!({"wireVersion":3,"kind":"complete","deliveryKind":delivery,"logicalFrameId":self.clock.id(),"logicalFrameOrdinal":sub.ordinal,
             "topic":sub.topic,"subscriptionId":sub.id,"frame":frame});
