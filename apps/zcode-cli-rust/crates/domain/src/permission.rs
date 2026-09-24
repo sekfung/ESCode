@@ -1,6 +1,9 @@
 //! 权限判定纯函数：逐位对应 TS `core/src/permission/service.ts::checkPermission`，
-//! 见 docs/specs/rust-permission-modes.md。规则集（项目/会话/WebFetch 预批）在后续步骤接入，
-//! 当前入口只覆盖模式与工具能力分支，差分 oracle 为 tests/fixtures/permission_matrix.json。
+//! 见 docs/specs/rust-permission-modes.md。差分 oracle 为 tests/fixtures/permission_matrix.json。
+//! 规则匹配见 permission_rules.rs；Bash rulePolicy 与 disallowed/allowedTools 配置尚未接入（均为空）。
+pub use crate::permission_rules::{Rule, RuleBehavior, Ruleset};
+use crate::permission_rules::{RuleBehavior as B, matches, webfetch_preapproved};
+use serde_json::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -62,6 +65,8 @@ pub struct Capability {
     pub needs_approval: Option<bool>,
     /// 对应 TS `permission.permission`（如 `edit`、`mcp`）。
     pub permission_name: Option<String>,
+    /// 对应 TS `permissionCapabilityGroup`；仅 Host 验证过的官方 CUA 工具携带。
+    pub permission_capability_group: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +74,11 @@ pub struct Context<'a> {
     pub tool_name: &'a str,
     pub mode: Mode,
     pub plan_enabled: Option<bool>,
+    pub input: &'a Value,
+    /// 项目规则（TS `loadProjectPermissionRuleset`）。
+    pub project: Option<&'a Ruleset>,
+    /// 会话免确认规则，只服务 alwaysAsk 门（TS `sessionRules`）。
+    pub session: Option<&'a Ruleset>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -159,12 +169,21 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     if ctx.tool_name == "ExitPlanMode" && !plan_enabled {
         return d(Deny, "mode.plan.exitOnly");
     }
+    let group = cap.and_then(|c| c.permission_capability_group.as_deref());
+    let rule =
+        |set: Option<&Ruleset>, behavior| matches(set, behavior, ctx.tool_name, ctx.input, group);
     if c.requires_user_interaction {
         return d(Ask, "tool.userInteraction");
     }
     if c.always_ask {
         if ctx.mode == Mode::Auto {
             return d(Deny, "mode.auto.unimplemented");
+        }
+        if rule(ctx.project, B::Deny) {
+            return d(Deny, "rule.project.deny");
+        }
+        if rule(ctx.session, B::Allow) {
+            return d(Allow, "rule.session.allow");
         }
         return d(Ask, "tool.alwaysAsk");
     }
@@ -174,8 +193,20 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     if ctx.mode == Mode::Auto {
         return d(Deny, "mode.auto.unimplemented");
     }
+    if rule(ctx.project, B::Deny) {
+        return d(Deny, "rule.project.deny");
+    }
+    if rule(ctx.project, B::Ask) {
+        return d(Ask, "rule.project.ask");
+    }
     if plan_enabled {
         return check_plan(&c);
+    }
+    if rule(ctx.project, B::Allow) {
+        return d(Allow, "rule.project.allow");
+    }
+    if webfetch_preapproved(ctx.tool_name, ctx.input) {
+        return d(Allow, "tool.webfetch.preapproved");
     }
     if ctx.mode == Mode::Edit
         && c.permission_name.as_deref() == Some("edit")

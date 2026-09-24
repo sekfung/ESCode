@@ -1,7 +1,7 @@
 //! 差分：Rust permission::check 与 TS PermissionService 的判定矩阵逐条一致。
 //! 产物由 scripts/generate-zcode-cli-rust-permission-matrix.mjs 生成，枚举顺序以其注释为准。
 use serde_json::Value;
-use zcode_cli_domain::permission::{Capability, Context, Mode, Risk, check};
+use zcode_cli_domain::permission::{Capability, Context, Mode, Risk, Ruleset, check};
 
 fn strings(v: &Value) -> Vec<String> {
     v.as_array()
@@ -59,6 +59,7 @@ fn rust_matches_ts_permission_matrix() {
                         side_effect_scope: Some(scope.clone()),
                         risk_level: Some(risk(&r)),
                         permission_name: name.as_str().map(str::to_owned),
+                        permission_capability_group: None,
                     });
                 }
             }
@@ -87,6 +88,9 @@ fn rust_matches_ts_permission_matrix() {
                     tool_name: tool,
                     mode: *mode,
                     plan_enabled: *plan,
+                    input: &Value::Null,
+                    project: None,
+                    session: None,
                 },
                 *cap,
             );
@@ -97,6 +101,95 @@ fn rust_matches_ts_permission_matrix() {
     assert!(
         mismatches.is_empty(),
         "{} mismatches, first: {:#?}",
+        mismatches.len(),
+        &mismatches[..mismatches.len().min(5)]
+    );
+}
+
+#[test]
+fn rust_matches_ts_permission_rules() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/permission_matrix.json")).unwrap();
+    let outcomes = strings(&fixture["outcomes"]);
+    let expected: Vec<&str> = fixture["ruleDecisions"]
+        .as_str()
+        .unwrap()
+        .chars()
+        .map(|c| outcomes[(c as u32 - 48) as usize].as_str())
+        .collect();
+    let axes = &fixture["ruleAxes"];
+    let sets = |v: &Value| -> Vec<Option<Ruleset>> {
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|r| (!r.is_null()).then(|| Ruleset::from_json(r)))
+            .collect()
+    };
+    let projects = sets(&axes["rulesets"]);
+    let sessions = sets(&axes["sessionRules"]);
+    let mut got = Vec::new();
+    let mut labels = Vec::new();
+    // 顺序与生成器一致：project → session → input → mode →（CuaTool）official。
+    for project in &projects {
+        for session in &sessions {
+            for pair in axes["inputs"].as_array().unwrap() {
+                let tool = pair[0].as_str().unwrap();
+                let input = &pair[1];
+                for mode in strings(&axes["ruleModes"]) {
+                    let officials: &[bool] = if tool == "CuaTool" {
+                        &[false, true]
+                    } else {
+                        &[false]
+                    };
+                    for official in officials {
+                        let cap = match tool {
+                            "AlwaysAskTool" => Some(Capability {
+                                always_ask: Some(true),
+                                ..Default::default()
+                            }),
+                            "CuaTool" => Some(Capability {
+                                side_effect_scope: Some("workspace".into()),
+                                permission_capability_group: official
+                                    .then(|| "official_cua".to_owned()),
+                                ..Default::default()
+                            }),
+                            _ => None,
+                        };
+                        let decision = check(
+                            &Context {
+                                tool_name: tool,
+                                mode: Mode::parse(&mode).unwrap(),
+                                plan_enabled: None,
+                                input,
+                                project: project.as_ref(),
+                                session: session.as_ref(),
+                            },
+                            cap.as_ref(),
+                        );
+                        got.push(format!(
+                            "{}:{}",
+                            decision.behavior.as_str(),
+                            decision.rule_id
+                        ));
+                        labels.push(format!(
+                            "{tool} {mode} {input} official={official} project={project:?}"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(got.len(), expected.len(), "rule matrix size");
+    let mismatches: Vec<String> = got
+        .iter()
+        .zip(&expected)
+        .zip(&labels)
+        .filter(|((g, w), _)| g != *w)
+        .map(|((g, w), l)| format!("{l}: {g} != {w}"))
+        .collect();
+    assert!(
+        mismatches.is_empty(),
+        "{} mismatches: {:#?}",
         mismatches.len(),
         &mismatches[..mismatches.len().min(5)]
     );

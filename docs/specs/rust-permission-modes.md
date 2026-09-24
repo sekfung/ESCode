@@ -57,3 +57,15 @@ sequenceDiagram
 2. Bash 语料差分：≥2000 条命令（fig registry 覆盖的主命令 + git 子命令 + 管道/重定向），分类一致率 100%。
 3. App 集成：build 模式 Write 弹确认 → 允许/拒绝/会话免确认；plan 模式写入被拒；stop 期间 pending 转终态；冷恢复。
 4. `desktop-continuous` 与 `web-remote-replayable` 两种订阅都能看到并解决 pendingInteraction。
+
+## 实现状态（2026-09-24）
+
+| 部分                                                                                   | 状态                                                                                 | 差分证据                           |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------- |
+| 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                             | 34,700 条与 TS 一致                |
+| 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                         | 1,344 条规则用例与 TS 一致         |
+| WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移） | 含编码路径、多重编码、前缀边界用例 |
+| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                          | —                                  |
+| Bash rulePolicy（复合命令拆分）与只读分类                                              | 未实现                                                                               | —                                  |
+| ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 未实现                                                                               | —                                  |
+| 能力宣告 `permissionModes` / `independentPlanState`                                    | 仍为 `[yolo]` / false；以上完成前不打开                                              | —                                  |

@@ -12,6 +12,7 @@ pub mod legacy_snapshot;
 pub mod model;
 pub mod option_map;
 pub mod permission;
+mod permission_rules;
 pub mod prompt;
 pub mod question;
 mod question_answer;
