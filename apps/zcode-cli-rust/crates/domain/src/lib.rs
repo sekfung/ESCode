@@ -21,6 +21,7 @@ pub mod history;
 mod json_size;
 pub mod legacy_snapshot;
 pub mod model;
+pub mod net_proxy;
 pub mod option_map;
 pub mod permission;
 pub mod permission_options;

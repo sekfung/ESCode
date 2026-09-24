@@ -45,12 +45,29 @@ impl HttpModel {
         self.client
             .get_or_try_init(|| async {
                 // 系统证书读取含阻塞 IO；首次请求按需初始化，不能阻塞 stdio actor 的启动与取消。
-                tokio::task::spawn_blocking(|| {
-                    reqwest::Client::builder()
+                let target = self.url.clone();
+                tokio::task::spawn_blocking(move || {
+                    let mut builder = reqwest::Client::builder()
                         .redirect(reqwest::redirect::Policy::none())
                         .pool_idle_timeout(Duration::from_secs(90))
-                        .tcp_nodelay(true)
-                        .build()
+                        .tcp_nodelay(true);
+                    // 代理解析与 TS `resolveWebFetchProxyForRequest` 一致（显式配置、ZCODE_HTTP_PROXY、
+                    // ZCODE_NO_PROXY 与捕获的宿主代理），不依赖 reqwest 默认读取的 HTTP(S)_PROXY。
+                    // 见 docs/specs/rust-net-proxy.md；此处只处理环境变量来源，Host 下发配置待接入。
+                    let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
+                        &target,
+                        &zcode_cli_domain::net_proxy::ProxyOptions {
+                            http_proxy: None,
+                            no_proxy: None,
+                            env: std::env::vars().collect(),
+                        },
+                    );
+                    if let Some(proxy) = resolution.proxy_url {
+                        builder = builder.proxy(reqwest::Proxy::all(proxy)?);
+                    } else if resolution.no_proxy_matched {
+                        builder = builder.no_proxy();
+                    }
+                    builder.build()
                 })
                 .await
                 .map_err(|_| ModelFailure::new("invalid_request", false))?
