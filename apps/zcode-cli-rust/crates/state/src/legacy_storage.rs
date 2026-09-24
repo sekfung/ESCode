@@ -54,7 +54,10 @@ pub(super) fn import(dest: &mut Connection, request: ImportRequest) -> Result<()
     let snapshot =
         Connection::open_with_flags(attempt.snapshot(), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     // 原先逐会话提交会在失败时留下半份历史，重启再次复制整个大库。标记和历史必须原子提交。
-    let tx = dest.transaction()?;
+    // 必须 IMMEDIATE：默认 DEFERRED 先取读快照、写时再升级，期间另一进程（同 data dir 的另一个 runtime）
+    // 写入会让升级直接失败（SQLITE_BUSY_SNAPSHOT，busy_timeout 对它是无效的，表现为「database is locked」
+    // 且几乎立刻返回）。IMMEDIATE 一开始就取写锁，冲突时按 busy_timeout 排队。
+    let tx = dest.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     super::legacy_sessions::project(
         &tx,
         &snapshot,

@@ -27,6 +27,7 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 - Rust 导入 TS 数据时只读源库并以备份方式复制（`crates/state/src/legacy_storage.rs`），源库与 TS 附件目录逐字节不变，因此回退无损。
 - Rust 自己的会话写在 `<dataDir>/rust-sessions.sqlite`。**回退到 Node 后这些会话在 Node 侧不可见**（Node 不读该库）；数据仍在磁盘上，重新启用 Rust 即可再次打开。若产品要求回退后仍能看到 Rust 期会话，需要新增导出/反向迁移，当前未实现，属已知限制。
 - workspace 独占锁（`workspace-<hash>.lock`）在进程退出后释放；回退或重启后另一 runtime 可立即接管同一 workspace。
+- 同 data dir 的并发导入/写入已修复：导入事务改为 IMMEDIATE，避免 DEFERRED 升级失败（SQLITE_BUSY_SNAPSHOT）。
 
 ## 发布门槛（全部通过才切换默认 runtime）
 

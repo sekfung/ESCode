@@ -75,7 +75,7 @@ Write 工具调用与助手回复；再用 Rust runtime 导入同一目录，逐
 toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方持有生命周期，不被清理）、
 `command`/`args`（可指向 Node CLI，忽略 Rust 专属参数）与幂等的 workspace 创建。
 
-## 已知偶发：并发启动时的导入 BUSY（2026-09-24）
+## 已修复：并发写入下的导入 BUSY（2026-09-24）
 
 `zcode-cli-rust-migration.test.ts` 的「TS migration preserves workspace identity…」用例偶发失败，
 报 `TS history import failed; source remains unchanged: database is locked: Error code 5`：
@@ -85,5 +85,10 @@ toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方
   两者共享 `rust-sessions.sqlite` 并对同一份 TS 源库导入，属用例自身的并发场景；
   源库读的 busy timeout 已从 20ms 放宽到 5s（见 rust-state 注释），仍不足以覆盖极端竞争。
 - 属**既有偶发**：在本轮改动之前的同一套件运行里也出现过同样报错，与 fixture 的 root/command/args 改动无关。
-- 未用「再加长超时」掩盖：需要的是跨进程导入串行化（例如按 data dir 的导入锁），
-  与「大库/多 runtime 并发导入」一并列入数据迁移的后续工作。
+  **根因**：导入事务用默认 DEFERRED，先取读快照、写入时再升级；期间同 data dir 的另一个 runtime
+  写入会让升级直接失败为 `SQLITE_BUSY_SNAPSHOT`（同样是 `database is locked`）——**这种失败不受
+  busy_timeout 约束**，所以表现是「几乎立刻报错」而不是等满 5s。
+
+**修复**：导入事务改为 `TransactionBehavior::Immediate`（一开始就取写锁，冲突时按 busy_timeout 排队）。
+`crates/state/src/legacy_storage.rs` 就地注明原因。修复前整文件运行 5 次里 4 次失败，修复后 5/5 通过。
+这类失败对真实用户同样可达：同 workspace 两个窗口/Host，或导入期间另一个会话在写。
