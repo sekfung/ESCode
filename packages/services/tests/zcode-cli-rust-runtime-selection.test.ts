@@ -34,6 +34,7 @@ test("selecting zcode-cli-rust uses the bundled binary with Host-supplied cwd an
     resolveDefaultZCodeAgentCommand(context, bundled),
   );
   assert.deepEqual(command, {
+    runtime: "zcode-cli-rust",
     command: "/res/glm/zcode-cli-rust",
     storagePreparationMode: "process",
     supportsStorageStartup: true,
@@ -137,4 +138,23 @@ test("the Host resolves a staged bundled Rust binary and it completes a turn", a
   } finally {
     await f.close();
   }
+});
+
+test("after a Rust startup failure the resolver ignores both the bundled and the explicit Rust command", () => {
+  const failed = { ...context, rustRuntimeFailed: true };
+  const bundledRust = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
+    resolveDefaultZCodeAgentCommand(failed, bundled),
+  );
+  assert.notEqual(bundledRust?.command, "/res/glm/zcode-cli-rust");
+  assert.equal(bundledRust?.runtime, undefined);
+  const explicitRust = withEnv(
+    { ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust", ZCODE_AGENT_SERVER_COMMAND: "/custom/rust" },
+    () => resolveDefaultZCodeAgentCommand(failed, bundled),
+  );
+  assert.notEqual(explicitRust?.command, "/custom/rust");
+  // Rust 命令都带标记，manager 据此判断失败的是 Rust。
+  const rust = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
+    resolveDefaultZCodeAgentCommand(context, bundled),
+  );
+  assert.equal(rust?.runtime, "zcode-cli-rust");
 });

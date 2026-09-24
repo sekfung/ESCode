@@ -19,7 +19,27 @@
 
 - 用户/运维回退：移除 `ZCODE_AGENT_SERVER_RUNTIME` 即回到 Node（见 rust-release-rollback.md）。
 - 随包二进制缺失：自动回退 Node 并记录原因。
-- 未实现：握手失败后的同次启动自动回退（需要进程管理器在 `initialize` 失败时重试 Node 并上报 lifecycle），另行设计。
+- 启动失败自动回退（2026-09-25）：
+  - 所有者：`ZCodeAgentProcessManager`（每个 manager 实例，即每个窗口的 Local Host 泳道）持有 `rustRuntimeFailed`；只增不减，进程生命周期内不再尝试 Rust。
+  - 判定：以 Rust 命令（resolver 标记 `runtime: "zcode-cli-rust"`）启动的进程在 `markReady`（首次通过 provider/model 门禁，即握手成功）之前发生 spawn error 或非预期退出。
+  - 生效：manager 把该事实经 `ZCodeAgentCommandResolverContext.rustRuntimeFailed` 交给 resolver；默认 resolver 此时忽略 Rust 选择（含指向 Rust 的显式命令），走 Node 链并 `warn`。自定义 resolver 同样拿到该事实。
+  - 时序：不在同一次启动内重试——失败进程照旧走既有 exit/lifecycle 上报，订阅方重连触发的下一次 `getClient` 解析到 Node。这样不改变启动代际、存储握手与 restart 语义。
+  - 已就绪后的崩溃不触发回退（那是运行期故障，按现有重启处理）。
+
+```mermaid
+sequenceDiagram
+  participant M as ProcessManager
+  participant R as resolver
+  participant P as Rust 进程
+  M->>R: resolve(ctx.rustRuntimeFailed=false)
+  R-->>M: Rust 命令(runtime=zcode-cli-rust)
+  M->>P: spawn
+  P--xM: 未 markReady 即退出 / spawn error
+  M->>M: rustRuntimeFailed = true（error 日志 + lifecycle）
+  Note over M: 订阅方重连 → getClient
+  M->>R: resolve(ctx.rustRuntimeFailed=true)
+  R-->>M: Node 命令（warn）
+```
 
 ## 验收
 

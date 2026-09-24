@@ -44,6 +44,8 @@ export interface ZCodeAgentCommand {
   storagePreparationMode?: "process";
   /** 本次部署的 Agent 支持迁移前的启动通知；旧自定义命令保持原协议。 */
   supportsStorageStartup?: boolean;
+  /** 由 resolver 标记的 Rust runtime 命令；启动失败时 manager 据此回退 Node（rust-packaging.md）。 */
+  runtime?: "zcode-cli-rust";
   command: string;
   args?: string[];
   cwd?: string;
@@ -52,6 +54,8 @@ export interface ZCodeAgentCommand {
 
 export interface ZCodeAgentCommandResolverContext {
   presentationSurface?: ZCodeAgentPresentationSurface;
+  /** 本 manager 此前以 Rust 启动且在就绪前失败；resolver 应改用 Node。 */
+  rustRuntimeFailed?: boolean;
   workspacePath: string;
   workspaceIdentity?: string;
   workspaceKey: string;
@@ -460,19 +464,27 @@ export function resolveDefaultZCodeAgentCommand(
   if (runtime && runtime !== "zcode-cli-rust" && runtime !== "node") {
     throw new Error("Unsupported ZCODE_AGENT_SERVER_RUNTIME");
   }
-  const rust = runtime === "zcode-cli-rust";
+  const rustFailed = runtime === "zcode-cli-rust" && context.rustRuntimeFailed === true;
+  const rust = runtime === "zcode-cli-rust" && !rustFailed;
+  if (rustFailed) {
+    warnLog("zcode-cli-rust runtime failed before becoming ready; using Node", {
+      event: "zcode_agent.runtime.rust_fallback",
+    });
+  }
   const baseArgs = parseArgsJson(process.env.ZCODE_AGENT_SERVER_ARGS_JSON) ?? [
     "app-server",
     "--stdio",
   ];
   const rustCommand = (command: string, cwd: string): ZCodeAgentCommand => ({
+    runtime: "zcode-cli-rust",
     command,
     storagePreparationMode: "process",
     supportsStorageStartup: true,
     args: rustRuntimeArgs(baseArgs, context.workspacePath),
     cwd,
   });
-  const command = process.env.ZCODE_AGENT_SERVER_COMMAND?.trim();
+  // 显式命令在 Rust 启动失败后同样让位给 Node 链：该命令本身就是失败的 Rust 二进制。
+  const command = rustFailed ? undefined : process.env.ZCODE_AGENT_SERVER_COMMAND?.trim();
   if (command) {
     const cwd = process.env.ZCODE_AGENT_SERVER_CWD?.trim() || context.workspacePath;
     return applyPresentationSurfaceToCommand(
@@ -610,6 +622,8 @@ export class ZCodeAgentProcessManager {
   }
 
   private readonly commandResolver: ZCodeAgentCommandResolver;
+  /** 以 Rust 启动的进程在就绪前失败过；只增不减，之后解析一律走 Node（rust-packaging.md）。 */
+  private rustRuntimeFailed = false;
   private readonly presentationSurface: ZCodeAgentProcessManagerOptions["presentationSurface"];
   private readonly requestTimeoutMs: number | undefined;
   private readonly processLifecycleReporter: RuntimeProcessLifecycleReporter | undefined;
@@ -747,6 +761,24 @@ export class ZCodeAgentProcessManager {
       workspaceKey,
       runtimeIdentity: managed.runtimeIdentity,
       state: "unavailable",
+    });
+  }
+
+  /** Rust 进程就绪前失败：记录一次并让后续解析回退 Node；已就绪后的故障按普通重启处理。 */
+  private noteRustStartupFailure(
+    command: ZCodeAgentCommand,
+    managed: ManagedZCodeAgentProcess,
+    reason: "spawn_error" | "exit_before_ready",
+  ): void {
+    if (command.runtime !== "zcode-cli-rust" || managed.readyAt != null || this.rustRuntimeFailed) {
+      return;
+    }
+    this.rustRuntimeFailed = true;
+    warnLog("ZCode agent Rust runtime failed before ready; later starts use Node", {
+      event: "zcode_agent.runtime.rust_startup_failed",
+      reason,
+      workspaceKey: managed.runtimeIdentity.workspaceKey,
+      runtimeIdentity: managed.runtimeIdentity.identity,
     });
   }
 
@@ -1000,6 +1032,7 @@ export class ZCodeAgentProcessManager {
     const command = await this.commandResolver({
       ...params,
       ...(this.presentationSurface ? { presentationSurface: this.presentationSurface } : {}),
+      ...(this.rustRuntimeFailed ? { rustRuntimeFailed: true } : {}),
       workspaceKey,
     });
     const resolveCommandDurationMs = Date.now() - resolveCommandStartedAt;
@@ -1252,6 +1285,7 @@ export class ZCodeAgentProcessManager {
           occurredAt: Date.now(),
         }),
       );
+      this.noteRustStartupFailure(effectiveCommand, managed, "spawn_error");
       if (child.pid == null) {
         this.ownedProcesses.delete(managed);
       }
@@ -1261,6 +1295,9 @@ export class ZCodeAgentProcessManager {
       this.clearIdleTimer(managed);
       const endedAt = Date.now();
       const terminationKind = managed.terminationIntent?.kind ?? "unexpected";
+      if (terminationKind === "unexpected") {
+        this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready");
+      }
       // 协议解析/stream 故障会先触发 protocol-close，再由 Host 用 SIGTERM
       // 回收仍存活的进程。若只透传主动 termination intent，desktop 只能看到最终信号，
       // 无法区分协议故障与受控退出；保留首次 cleanup 原因作为结构化根因。
@@ -1361,6 +1398,11 @@ export class ZCodeAgentProcessManager {
         runtimeIdentity: runtimeIdentity.identity,
         wasActiveClient,
       });
+      // 协议关闭先于 child exit 事件到达，且会立即移除登记；若只在 exit 里判定，
+      // 订阅方紧接着的重连仍会解析到失败的 Rust。非主动终止的关闭在这里就记下。
+      if (!managed.terminationIntent) {
+        this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready");
+      }
       if (wasActiveClient) {
         this.processesByWorkspaceKey.delete(workspaceKey);
       }
@@ -1402,6 +1444,7 @@ export class ZCodeAgentProcessManager {
       const command = await this.commandResolver({
         ...params,
         ...(this.presentationSurface ? { presentationSurface: this.presentationSurface } : {}),
+        ...(this.rustRuntimeFailed ? { rustRuntimeFailed: true } : {}),
         workspaceKey,
       });
       return command
