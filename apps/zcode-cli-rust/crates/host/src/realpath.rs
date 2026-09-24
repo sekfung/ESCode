@@ -21,30 +21,14 @@ fn simplify(path: PathBuf) -> PathBuf {
     }
 }
 
-/// `\\?\C:\x` → `C:\x`，`\\?\UNC\srv\share\x` → `\\srv\share\x`；其他 verbatim 形态（如 `\\?\Volume{..}`）
-/// 没有等价的普通路径，保持原样。
-pub fn simplify_verbatim(path: &str) -> Option<String> {
-    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
-        return Some(format!(r"\\{rest}"));
-    }
-    let rest = path.strip_prefix(r"\\?\")?;
-    let bytes = rest.as_bytes();
-    (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
-        .then(|| rest.to_owned())
-}
+// verbatim 前缀归一由展示层共用（domain 的 git 安全判定也要比较路径），实现放在 protocol。
+pub use zcode_cli_protocol::simplify_verbatim;
 
 #[cfg(test)]
 mod tests {
-    use super::simplify_verbatim;
-
     #[test]
-    fn strips_verbatim_prefix_like_node_realpath() {
-        assert_eq!(simplify_verbatim(r"\\?\C:\a\b").as_deref(), Some(r"C:\a\b"));
-        assert_eq!(
-            simplify_verbatim(r"\\?\UNC\srv\share\x").as_deref(),
-            Some(r"\\srv\share\x")
-        );
-        assert_eq!(simplify_verbatim(r"\\?\Volume{1}\x"), None);
-        assert_eq!(simplify_verbatim(r"C:\plain"), None);
+    fn realpath_resolves_the_current_directory() {
+        let resolved = super::realpath_sync(".").unwrap();
+        assert!(resolved.is_absolute());
     }
 }

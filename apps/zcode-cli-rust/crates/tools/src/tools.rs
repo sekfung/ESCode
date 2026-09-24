@@ -243,8 +243,25 @@ impl ToolPort for WorkspaceTools {
     fn permission_capability(
         &self,
         name: &str,
-        _input: &Value,
+        input: &Value,
     ) -> Option<zcode_cli_domain::permission::Capability> {
+        use zcode_cli_domain::permission::{Capability, Risk};
+        // 与 TS resolveBashPermissionCapability 一致：只读命令（含 git 上下文安全判定）
+        // 降级为 low/none/无需确认，build 模式可直接执行；否则回落到静态能力表。
+        if name == "Bash"
+            && let Some(command) = input["command"].as_str()
+            && crate::bash_git_safety::is_readonly_in_context(command, Some(&self.cwd))
+        {
+            return Some(Capability {
+                read_only: Some(true),
+                destructive: Some(false),
+                needs_approval: Some(false),
+                risk_level: Some(Risk::Low),
+                side_effect_scope: Some("none".into()),
+                permission_name: Some("bash".into()),
+                ..Default::default()
+            });
+        }
         let table: Value = serde_json::from_str(include_str!("tool_capabilities.json"))
             .expect("generated tool capabilities");
         let entry = table.get(name)?;

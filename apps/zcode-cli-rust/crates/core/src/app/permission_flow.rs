@@ -47,6 +47,14 @@ impl Engine {
         };
         let capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
         let decision = check(&ctx, capability.as_ref());
+        // 待产品确认：TS 对声明 requiresUserInteraction 的工具（AskUserQuestion）在
+        // checkPermission 里同样返回 ask，而该工具自身的提问界面才是这次「用户交互」。
+        // Rust 现有问句流程与既有集成用例都按「不额外弹权限确认」实现，这里先按原行为放行，
+        // 不与 TS 判定层冲突（permission::check 保持逐位对齐），差异记录在待办。
+        if decision.rule_id == "tool.userInteraction" {
+            let _ = reply.send(PermissionOutcome::allow());
+            return Ok(());
+        }
         match decision.behavior {
             crate::domain::permission::Behavior::Allow => {
                 let _ = reply.send(PermissionOutcome::allow());

@@ -60,18 +60,18 @@ sequenceDiagram
 
 ## 实现状态（2026-09-24）
 
-| 部分                                                                                   | 状态                                                                                 | 差分证据                                         |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                             | 34,700 条与 TS 一致                              |
-| 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                         | 1,344 条规则用例与 TS 一致                       |
-| WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移） | 含编码路径、多重编码、前缀边界用例               |
-| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                          | —                                                |
-| Bash 只读分类                                                                          | 已实现 `bash_parse` + `bash_policy*` + `bash_callbacks*`；策略表由生成器导出 JSON    | 5,098 条语料与 429 条解析 oracle 全部一致        |
-| Bash rulePolicy（复合命令拆分与「总是允许」建议）                                      | 已实现 `bash_rule_policy` + `bash_rule_prefix`；fig registry 导出为 JSON 资产        | 2,123 命令 × 8 规则集 × 2 行为 + 建议项全部一致  |
-| 带工作目录的 git 运行时检查（hooks/config 信任）                                       | 未实现                                                                               | —                                                |
-| 工具能力表                                                                             | 由 TS 工具元数据导出 `tool_capabilities.json`（`--check` 防漂移）                    | 40 个内置工具                                    |
-| ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 已实现 `core/src/app/permission_flow.rs`；allowAlways 写入项目规则表                 | App 集成 4 条用例（允许/拒绝/yolo/项目规则复用） |
-| 能力宣告 `permissionModes` / `independentPlanState`                                    | `["yolo","build","edit"]` / false（plan 需计划审批交互，auto 在 TS 同样保留）        | 编译验证；声明本身未跑构建                       |
+| 部分                                                                                   | 状态                                                                                                                                        | 差分证据                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                                                                                    | 34,700 条与 TS 一致                              |
+| 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                                                                                | 1,344 条规则用例与 TS 一致                       |
+| WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移）                                                        | 含编码路径、多重编码、前缀边界用例               |
+| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                                                                                 | —                                                |
+| Bash 只读分类                                                                          | 已实现 `bash_parse` + `bash_policy*` + `bash_callbacks*`；策略表由生成器导出 JSON；Bash 能力按命令动态降级（只读 → low/none/免确认，同 TS） | 5,098 条语料与 429 条解析 oracle 全部一致        |
+| Bash rulePolicy（复合命令拆分与「总是允许」建议）                                      | 已实现 `bash_rule_policy` + `bash_rule_prefix`；fig registry 导出为 JSON 资产                                                               | 2,123 命令 × 8 规则集 × 2 行为 + 建议项全部一致  |
+| 带工作目录的 git 运行时检查（hooks/config 信任）                                       | 已实现 `crates/tools/src/bash_git_safety.rs`（IO 在 adapter，domain 只做纯决策）                                                            | 15 例目录树语料；差分测试待可构建环境运行        |
+| 工具能力表                                                                             | 由 TS 工具元数据导出 `tool_capabilities.json`（`--check` 防漂移）                                                                           | 40 个内置工具                                    |
+| ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 已实现 `core/src/app/permission_flow.rs`；allowAlways 写入项目规则表                                                                        | App 集成 4 条用例（允许/拒绝/yolo/项目规则复用） |
+| 能力宣告 `permissionModes` / `independentPlanState`                                    | `["yolo","build","edit"]` / false（plan 需计划审批交互，auto 在 TS 同样保留）                                                               | 编译验证；声明本身未跑构建                       |
 
 ## Bash 只读分类移植方案
 
@@ -124,3 +124,19 @@ sequenceDiagram
 - 项目规则：`permission::check` 已支持读取与匹配；持久化需在 store 增加项目规则表（后续步骤），
   在此之前不投放 allowProject 选项，避免给出无法兑现的授权按钮。
 - 能力宣告：`permissionModes` 在 build/edit/plan 的端到端场景验收后逐个打开。
+
+## 待产品确认
+
+- **requiresUserInteraction 工具是否先弹权限确认**：TS `checkPermission` 对声明该能力的工具（AskUserQuestion）返回 `ask`，
+  而该工具自身的提问界面就是这次「用户交互」。Rust 现有问句流程与既有集成用例都按「不额外弹权限确认」实现，
+  当前在 runtime 侧把 `tool.userInteraction` 这一 ask 视为已满足（`permission::check` 仍与 TS 逐位一致）。
+  若产品确认应弹确认，则改为走确认交互并同步更新问句用例。
+- **旧会话缺 mode 的恢复语义**：`legacy_mode()` 缺省给出 build；build 现在受支持，冷恢复后的输入不再被拒，
+  而是按 build 规则走确认。`zcode-cli-rust-coding.test.ts` 的对应用例需按新契约改写。
+
+## 验证现状（2026-09-24）
+
+- 可运行：`cargo clippy --all-targets -D warnings`（覆盖全部改动）；WSL Linux 下 `cargo test -p zcode-cli-domain`
+  （权限矩阵 34,700 条、Bash 语料 5,098 条、规则语料、解析 oracle 全部通过）。
+- 不可运行：本机缺 MSVC/Windows SDK 链接器，`cargo build`（bin）与 App 集成测试无法重跑；
+  `crates/tools` 的 git 安全差分用例需要 Linux 侧缺失的依赖，暂不能在 WSL 运行。

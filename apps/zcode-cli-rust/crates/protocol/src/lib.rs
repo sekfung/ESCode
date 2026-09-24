@@ -1,6 +1,34 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+/// `\\?\C:\x` → `C:\x`，`\\?\UNC\srv\share\x` → `\\srv\share\x`；其他 verbatim 形态
+/// （如 `\\?\Volume{..}`）没有等价的普通路径，返回 None。Node `fs.realpath` 不产生 verbatim 前缀，
+/// Rust `canonicalize` 会产生；凡是把路径写进协议或与 Host 比较的地方都要归一。
+pub fn simplify_verbatim(path: &str) -> Option<String> {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        return Some(format!(r"\\{rest}"));
+    }
+    let rest = path.strip_prefix(r"\\?\")?;
+    let bytes = rest.as_bytes();
+    (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':').then(|| rest.to_owned())
+}
+
+#[cfg(test)]
+mod simplify_verbatim_tests {
+    use super::simplify_verbatim;
+
+    #[test]
+    fn strips_verbatim_prefix_like_node_realpath() {
+        assert_eq!(simplify_verbatim(r"\\?\C:\a\b").as_deref(), Some(r"C:\a\b"));
+        assert_eq!(
+            simplify_verbatim(r"\\?\UNC\srv\share\x").as_deref(),
+            Some(r"\\srv\share\x")
+        );
+        assert_eq!(simplify_verbatim(r"\\?\Volume{1}\x"), None);
+        assert_eq!(simplify_verbatim(r"C:\plain"), None);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttachmentRef {

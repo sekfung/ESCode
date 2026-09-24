@@ -7,15 +7,17 @@ import {
 } from "@zcode/shared";
 import { fixture } from "./zcode-cli-rust-fixture.js";
 
+// build/edit 的判定、确认交互与项目规则持久化已实现；plan 需计划审批交互，auto 在 TS 同样保留。
 const native = runtimeExecutionCapabilitiesSchema.parse({
-  permissionModes: ["yolo"],
+  permissionModes: ["yolo", "build", "edit"],
   independentPlanState: false,
 });
 
 test("Execution capabilities gate permissions and Plan without changing the user's intent", () => {
   const build = { mode: "build", planEnabled: false };
-  assert.equal(supportsRuntimeExecution(build, native), false);
+  assert.equal(supportsRuntimeExecution(build, native), true);
   assert.deepEqual(build, { mode: "build", planEnabled: false });
+  assert.equal(supportsRuntimeExecution({ mode: "edit", planEnabled: false }, native), true);
   assert.equal(supportsRuntimeExecution({ mode: "yolo", planEnabled: false }, native), true);
   assert.equal(supportsRuntimeExecution({ mode: "yolo", planEnabled: true }, native), false);
   assert.equal(supportsRuntimeExecution({ mode: "plan" }, native), false);
@@ -31,7 +33,7 @@ test("Execution capabilities gate permissions and Plan without changing the user
   );
 });
 
-test("Native workspace presentation and both delivery subscriptions expose the same yolo-only capability", async () => {
+test("Native workspace presentation and both delivery subscriptions expose the same capability set", async () => {
   const f = await fixture();
   try {
     const h = f.start();
@@ -62,11 +64,19 @@ test("Native workspace presentation and both delivery subscriptions expose the s
       assert.deepEqual(frame.params.frame.payload.snapshot.config.executionCapabilities, native);
     }
     assert.equal(f.requests.length, 0);
+    // build/edit 已支持：建会话不再被拒；plan 与 auto 仍按未实现显式拒绝。
+    const created = await h.command(
+      h.envelope("createSession", null, {
+        workspaceId: f.cwd,
+        config: { mode: "build" },
+      }),
+    );
+    assert.equal(created.status, "accepted");
     await assert.rejects(
       h.command(
         h.envelope("createSession", null, {
           workspaceId: f.cwd,
-          config: { mode: "build" },
+          config: { mode: "plan" },
           firstInput: { text: "never execute" },
         }),
       ),

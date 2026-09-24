@@ -96,6 +96,12 @@ pub(crate) fn tables() -> &'static Tables {
 
 /// TS `isRuntimeReadOnlyBashCommand(command)`（无运行时上下文）。
 pub fn is_readonly(command: &str) -> bool {
+    is_readonly_with_git_context(command, false)
+}
+
+/// 带运行时上下文的分类：`git_context_unsafe` 由 adapter（需要文件系统）判定后传入，
+/// domain 只做纯决策（TS `isRuntimeReadOnlyBashCommand(command, context)` 把两者合在一起）。
+pub fn is_readonly_with_git_context(command: &str, git_context_unsafe: bool) -> bool {
     let analysis = analyze(command);
     if !analysis.permission_safe() || analysis.commands.is_empty() {
         return false;
@@ -109,8 +115,12 @@ pub fn is_readonly(command: &str) -> bool {
                 .map_or(c.name.as_str(), String::as_str)
         })
         .collect();
+    let has_git = names.contains(&"git");
     // git 可能在目标目录加载 hooks/config；与 cd/pushd/popd 同时出现时不放行。
-    if names.contains(&"git") && names.iter().any(|n| matches!(*n, "cd" | "pushd" | "popd")) {
+    if has_git && names.iter().any(|n| matches!(*n, "cd" | "pushd" | "popd")) {
+        return false;
+    }
+    if has_git && git_context_unsafe {
         return false;
     }
     let mut any = false;
