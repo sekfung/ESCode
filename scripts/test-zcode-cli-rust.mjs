@@ -20,6 +20,17 @@ async function run(command, args) {
   });
 }
 await run(process.execPath, ["apps/zcode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs"]);
+// 差分与导入用例直接 import TS bootstrap 源码，其依赖包走 dist 入口；干净检出时必须先构建，
+// 否则只报 ERR_MODULE_NOT_FOUND。经 npm_execpath 调 pnpm，避免 Windows 上 pnpm.cmd 需要 shell。
+if (!process.env.npm_execpath) throw new Error("Run via `pnpm test:zcode-cli-rust`");
+await run(process.execPath, [
+  process.env.npm_execpath,
+  "--dir",
+  "apps/zcode-cli",
+  "--filter",
+  "@zcode/bootstrap^...",
+  "build",
+]);
 await run(process.execPath, [
   "--import",
   "tsx",
@@ -33,11 +44,23 @@ await run(process.execPath, [
   "--check",
 ]);
 await run(process.execPath, [
+  "--import",
+  "tsx",
+  "scripts/generate-zcode-cli-rust-permission-matrix.mjs",
+  "--check",
+]);
+await run(process.execPath, [
   "node_modules/typescript/bin/tsc",
   "-p",
   "packages/services/tests/tsconfig.zcode-cli-rust.json",
 ]);
-await run("cargo", ["test", "--locked", "--manifest-path", "apps/zcode-cli-rust/Cargo.toml"]);
+await run("cargo", [
+  "test",
+  "--locked",
+  "--workspace",
+  "--manifest-path",
+  "apps/zcode-cli-rust/Cargo.toml",
+]);
 await run("cargo", [
   "build",
   "--examples",

@@ -1,0 +1,59 @@
+# Rust 权限模式与 Plan 对齐（WP3）
+
+2026-09-24。当前 Rust 只宣告 `permissionModes=[yolo]`、`independentPlanState=false`，`requires_permission` 恒为 false，UI 据此禁用其他模式。App 默认模式不是 yolo，因此这是 Rust 成为默认 runtime 的 P0 前置。基准实现为 TS `apps/zcode-cli/packages/core/src/permission/service.ts::checkPermission`。
+
+## 判定顺序（必须逐位一致）
+
+1. plan 模式切换工具（EnterPlanMode/ExitPlanMode，`plan-mode-policy.ts`）→ allow/deny
+2. `requiresUserInteraction`：disallowed → deny，否则 ask
+3. `alwaysAsk` → `checkAlwaysAsk`（auto deny → disallowed deny → 项目 deny → 会话免确认 allow → ask）
+4. `yolo` 且未开 plan → allow
+5. `auto` → deny（`mode.auto.unimplemented`，与 TS 保持同样的保留语义）
+6. disallowedTools → deny；项目 deny → deny；项目 ask → ask
+7. plan 开启 → `checkPlanMode`（只读非破坏、非破坏 MCP、会话作用域的 allowedInPlanMode 放行，其余拒绝）
+8. 项目 allow → allow；WebFetch 预批 URL → allow；workflow 草稿写入 → allow（Rust 无工作流时不可达，保留位次）
+9. allowedTools → allow
+10. `edit`：workspace 文件编辑 allow，其余同 build
+11. `build`：只读非破坏且无需审批 allow；critical → ask；high 且未 autoApproveHighRisk → ask；其余按 TS
+
+每个分支的 `ruleId`（如 `mode.build.highRisk`）原样输出，用于 App 展示和差分比对。
+
+## 所有者与时序
+
+```mermaid
+sequenceDiagram
+  participant M as Model
+  participant L as Rust agent loop（会话 owner）
+  participant P as permission::check（纯函数）
+  participant H as Host/UI
+  M->>L: tool_call
+  L->>P: check(mode, planEnabled, capability, rules, sessionGrants)
+  alt allow / deny
+    P-->>L: decision + ruleId
+  else ask
+    L->>L: 持久化 pendingInteraction（先落盘再投影）
+    L-->>H: snapshot.pendingInteractions / interaction/requestPermission
+    H->>L: v4/command resolveInteraction（ACK 幂等，按 commandId）
+    L->>L: 记录会话免确认（仅内存，与 TS 一致）→ 执行或拒绝
+  end
+```
+
+- 唯一状态所有者：会话 actor 持有 mode、planEnabled、会话免确认；权限判定是无状态纯函数。
+- ask 期间 stop/cancel：pending 转终态并投影，迟到的 resolveInteraction 返回 `stale`，不执行工具。
+- 冷恢复：pending ask 与 TS 一致按中断处理（会话免确认不持久化）。
+
+## 工具能力表
+
+- 每个内置工具的 `readOnly/destructive/riskLevel/sideEffectScope/permissionName/allowedInPlanMode/alwaysAsk/requiresUserInteraction` 从 TS 工具定义导出为 JSON 资产（同 `generate-zcode-cli-rust-tool-schemas.mjs`，`--check` 防漂移）。
+- Bash 只读分类（`core/src/tool/handlers/bash-readonly-policy-*.ts` + fig registry）必须移植，不能把 Bash 一律视为写入，否则 build 模式确认频率与 TS 不同。先导出 TS 对命令语料的分类结果作为差分 oracle。
+
+## 能力宣告
+
+实现一档宣告一档：`permissionModes` 按实际支持追加 `build`/`edit`/`plan`，`independentPlanState=true` 仅在 plan 状态独立持久化后打开。未宣告的模式 UI 继续禁用，不在 Rust 内做静默降级。
+
+## 验收
+
+1. 差分：TS 导出 `(mode, planEnabled, tool, input, rules) → {decision, ruleId}` 矩阵（覆盖全部分支），Rust 单测逐条比对。
+2. Bash 语料差分：≥2000 条命令（fig registry 覆盖的主命令 + git 子命令 + 管道/重定向），分类一致率 100%。
+3. App 集成：build 模式 Write 弹确认 → 允许/拒绝/会话免确认；plan 模式写入被拒；stop 期间 pending 转终态；冷恢复。
+4. `desktop-continuous` 与 `web-remote-replayable` 两种订阅都能看到并解决 pendingInteraction。
