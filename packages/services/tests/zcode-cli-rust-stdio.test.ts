@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture } from "./zcode-cli-rust-fixture.js";
@@ -91,34 +91,63 @@ test("Rust stdio: current App schemas, streaming, idempotency, resume and worksp
   }
 });
 
-test("Rust yolo executes writes without approvals and rejects other modes", async () => {
+test("Rust yolo executes writes without approvals, build asks first and plan stays unsupported", async () => {
   const f = await fixture();
   try {
     const h = f.start();
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
-    for (const mode of ["build", "edit", "plan"]) {
-      await assert.rejects(
-        h.command(h.envelope("sendText", id, { text: "write", mode })),
-        /Unsupported/,
-      );
-    }
-    const command = h.envelope("sendText", id, { text: "write", mode: "yolo" });
+    // plan 需要计划审批交互，仍未实现；显式拒绝而不是静默按 build 处理。
+    await assert.rejects(
+      h.command(h.envelope("sendText", id, { text: "write", mode: "plan" })),
+      /Unsupported/,
+    );
+    // build 已支持：写入前必须经用户确认，拒绝后文件不存在。
+    const build = h.envelope("sendText", id, { text: "write", mode: "build" });
+    assert.equal((await h.command(build)).status, "accepted");
+    const pending = await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some((d: any) =>
+        d.patch?.pendingInteractions?.some((p: any) => p.kind === "permission"),
+      ),
+    );
+    const interaction = pending.params.frame.payload.deltas
+      .flatMap((d: any) => d.patch?.pendingInteractions ?? [])
+      .find((p: any) => p.kind === "permission");
+    await h.command(
+      h.envelope("resolveInteraction", id, {
+        interactionId: interaction.interactionId,
+        answer: { optionId: "deny" },
+      }),
+    );
+    await h.completed(id);
+    assert.equal(
+      await access(join(f.cwd, "result.txt")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    // yolo 在同一 workspace 的另一个会话里：不弹确认、直接写入。
+    const yolo = await h.create();
+    await h.subscribe(`conversation/${yolo}`);
+    const afterBuild = h.messages.length;
+    const command = h.envelope("sendText", yolo, { text: "write", mode: "yolo" });
     assert.equal((await h.command(command)).status, "accepted");
     assert.equal((await h.command(command)).status, "duplicate");
-    await h.completed(id);
+    await h.completed(yolo);
     assert.equal(await readFile(join(f.cwd, "result.txt"), "utf8"), "written by Rust");
     assert(
-      !h.messages.some((m) =>
-        m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.pendingInteractions?.length),
-      ),
+      !h.messages
+        .slice(afterBuild)
+        .some((m) =>
+          m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.pendingInteractions?.length),
+        ),
     );
     assert(
       h.messages.some((m) =>
         m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.config?.mode === "yolo"),
       ),
     );
-    assert.equal(f.requests.length, 2);
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();

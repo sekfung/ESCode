@@ -183,7 +183,7 @@ test("Real TS storage imports identity, attachments, tools and interrupted outco
   }
 });
 
-test("TS migration preserves workspace identity, blocks non-yolo execution and retains discarded input ACKs", async () => {
+test("TS migration preserves workspace identity, runs imported build sessions and retains discarded input ACKs", async () => {
   const f = await fixture({ legacy: true });
   try {
     const store = createSqliteSessionStore({ dbPath: join(f.root, "ts.sqlite") });
@@ -245,11 +245,16 @@ test("TS migration preserves workspace identity, blocks non-yolo execution and r
     const local = f.start();
     await local.subscribe("conversation/local");
     await assert.rejects(local.rows("remote"), /Session unavailable/);
-    const blocked = await local.command(
+    // 导入的 build 会话现在按 build 规则执行（写入需确认），不再被拒；
+    // 但旧存储里排队、重启时丢弃的输入绝不能被执行。
+    const accepted = await local.command(
       local.envelope("sendText", "local", { text: "no elevation" }),
     );
-    assert.equal(blocked.status, "rejected");
-    assert.equal(f.requests.length, 0);
+    assert.equal(accepted.status, "accepted");
+    await local.completed("local");
+    assert(
+      !f.requests.some((r: any) => JSON.stringify(r.messages ?? r).includes("must not execute")),
+    );
     const duplicate = await local.command({
       ...local.envelope("sendText", "local", { text: "must not execute" }),
       commandId: "local-command",

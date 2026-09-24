@@ -147,7 +147,8 @@ test("Desktop storage preparation and Host service use the real native runtime",
     const workspace = { workspacePath: f.cwd };
     assert.equal((await service.initialize(workspace)).available, true);
     assert.deepEqual((await service.readWorkspacePresentation(workspace)).executionCapabilities, {
-      permissionModes: ["yolo"],
+      // build/edit 已实现并通过 App 集成验收；plan 仍需计划审批交互。
+      permissionModes: ["yolo", "build", "edit"],
       independentPlanState: false,
     });
     const envelope = (
@@ -171,10 +172,18 @@ test("Desktop storage preparation and Host service use the real native runtime",
       view,
     );
     assert(submission, "Real App composer must permit the selected model");
-    const capabilities = { permissionModes: ["yolo" as const], independentPlanState: false };
+    const capabilities = {
+      permissionModes: ["yolo" as const, "build" as const, "edit" as const],
+      independentPlanState: false,
+    };
+    // build/edit 已宣告，Composer 允许提交；plan 未宣告，planEnabled 仍被拒。
     assert.equal(
-      createComposerSubmissionConfig({ ...submission, mode: "build" }, view, capabilities),
-      null,
+      createComposerSubmissionConfig({ ...submission, mode: "build" }, view, capabilities)?.mode,
+      "build",
+    );
+    assert.equal(
+      createComposerSubmissionConfig({ ...submission, mode: "edit" }, view, capabilities)?.mode,
+      "edit",
     );
     assert.equal(
       createComposerSubmissionConfig({ ...submission, planEnabled: true }, view, capabilities),
