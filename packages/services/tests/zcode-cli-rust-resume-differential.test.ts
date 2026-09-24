@@ -139,3 +139,73 @@ test("Node and Rust fall back to a snapshot when the base epoch is stale", async
   assert.deepEqual(rust, node);
   assert.equal(rust.ackMode, "snapshot");
 });
+
+// 续传的正确性：base 快照 + 续传增量，经 App 自己的归约器（@zcode/shared applyConversationDeltas）
+// 必须得到与同一时刻全新快照相同的状态。两个 runtime 用同一规则检验。
+for (const kind of ["node", "rust"] as const) {
+  test(`${kind}: base snapshot plus resumed deltas reduces to the fresh snapshot`, async () => {
+    const { applyConversationDeltas } = await import("@zcode/shared/zcode-protocol-v4");
+    const root = await mkdtemp(join(tmpdir(), `zcode-resume-reduce-${kind}-`));
+    const f =
+      kind === "node"
+        ? await fixture({
+            root,
+            command: process.execPath,
+            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            registry: true,
+          })
+        : await fixture({ root, registry: true });
+    try {
+      await configureRegistry(f);
+      const h = f.start();
+      const id = await h.create();
+      const topic = `conversation/${id}`;
+      await h.subscribe(topic, "phone-1", "web-remote-replayable");
+      const initial = await h.wait(
+        (m) => m.method === "v4/conversation/frame" && m.params?.topic === topic,
+      );
+      const base = initial.params.frame.payload.snapshot;
+      const baseSeq = initial.params.frame.toSeq;
+      await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
+      await h.completed(id);
+      const open = async (connectionId: string, withBase: boolean) => {
+        const mark = h.messages.length;
+        const reply = (await h.client.request(
+          "v4/conversation/subscribe",
+          {
+            topic,
+            connectionId,
+            clientMode: "web-remote-replayable",
+            ...(withBase ? { base: { logEpoch: base.logEpoch, seq: baseSeq } } : {}),
+          },
+          z.any(),
+        )) as any;
+        const ack = reply.ack ?? reply;
+        return (
+          await h.wait(
+            (m) =>
+              m.method === "v4/conversation/frame" &&
+              m.params?.subscriptionId === ack.subscriptionId,
+            mark,
+          )
+        ).params.frame;
+      };
+      const resumed = await open("phone-2", true);
+      const fresh = await open("phone-3", false);
+      assert.equal(resumed.payload.kind, "deltas");
+      assert.equal(fresh.payload.kind, "snapshot");
+      assert.equal(resumed.toSeq, fresh.toSeq, "resume and snapshot describe the same point");
+      const reduced = applyConversationDeltas(base, resumed.payload.deltas);
+      // seq 由帧携带、快照内另记；两者都指向同一时刻时比较其余全部状态。
+      const strip = (s: Record<string, unknown>) => {
+        const { seq: _seq, ...rest } = s;
+        return rest;
+      };
+      assert.deepEqual(strip(reduced as any), strip(fresh.payload.snapshot));
+      assert.deepEqual(h.schemaErrors, []);
+      await h.close();
+    } finally {
+      await f.close();
+    }
+  });
+}
