@@ -4,6 +4,7 @@
 // xargs 在 Windows 上走平台分支（TS 读 process.platform），不纳入语料以保证产物与生成机平台无关。
 import { readFile, writeFile } from "node:fs/promises";
 import { isRuntimeReadOnlyBashCommand } from "../apps/zcode-cli/packages/core/src/tool/handlers/bash-semantics.ts";
+import { analyzeBashCommand } from "../apps/zcode-cli/packages/core/src/tool/handlers/bash-command-parser.ts";
 import {
   GIT_READONLY_SUBCOMMAND_POLICIES,
   READONLY_MULTIWORD_COMMAND_POLICIES,
@@ -138,11 +139,32 @@ for (const edge of [
   add(edge);
 }
 
+// 解析层 oracle：只覆盖语法形态（模板、边界、写命令），逐字段比对 Rust 子集解析器。
+const syntaxCases = new Set([...writes, ...readers.flatMap((r) => templates.map((t) => t(r)))]);
+const parseOracle = [...commands]
+  .filter((command) => syntaxCases.has(command) || !/^[\w.-]+( |$)/.test(command))
+  .sort()
+  .map((command) => {
+    const a = analyzeBashCommand(command);
+    return [
+      command,
+      [a.hasParseErrors, a.hasUnsupportedSyntax, a.hasDynamicWords, a.hasRedirects]
+        .map(Number)
+        .join(""),
+      a.commands.map((c) => [
+        c.argv,
+        c.operatorBefore ?? "",
+        c.commandText,
+        c.envAssignments.map((e) => `${e.name}=${e.value ?? ""}`),
+        c.redirects.map((r) => `${r.fileDescriptor ?? ""}${r.operator}${r.target}`),
+      ]),
+    ];
+  });
 const corpus = [...commands].sort();
 const results = corpus
   .map((command) => (isRuntimeReadOnlyBashCommand(command) ? "1" : "0"))
   .join("");
-const content = `${JSON.stringify({ commands: corpus, readOnly: results })}\n`;
+const content = `${JSON.stringify({ commands: corpus, readOnly: results, parseOracle })}\n`;
 const target = new URL(
   "../apps/zcode-cli-rust/crates/domain/tests/fixtures/bash_readonly_corpus.json",
   import.meta.url,
