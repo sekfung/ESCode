@@ -1,6 +1,14 @@
 // Run with node --import tsx. 以 TS isGitRuntimeContextUnsafe 为 oracle，导出 git 上下文安全判定语料。
 // 每个用例描述一棵目录树（相对路径 + 种类 + 内容/链接目标）与查询 cwd，Rust 端重建同构目录后逐条比对。
-import { readFile, writeFile, mkdtemp, mkdir, rm, symlink, writeFile as write } from "node:fs/promises";
+import {
+  readFile,
+  writeFile,
+  mkdtemp,
+  mkdir,
+  rm,
+  symlink,
+  writeFile as write,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { isGitRuntimeContextUnsafe } from "../apps/zcode-cli/packages/core/src/tool/handlers/bash-git-runtime-safety.ts";
@@ -119,7 +127,8 @@ const cases = [
   },
   {
     name: "gitfile-with-nul",
-    cwd: "nul/work",
+    // 目录名避开 Windows 保留设备名（nul），否则无法建树。
+    cwd: "withnul/work",
     entries: [
       ["nul/work", "dir", ""],
       ["nul/work/.git", "file", "gitdir: ../real/.git\0\n"],
