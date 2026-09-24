@@ -3,45 +3,40 @@ import test from "node:test";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fixture } from "./zcode-cli-rust-fixture.js";
+import { assertBeatStopped, fixture, waitForBeat } from "./zcode-cli-rust-fixture.js";
 import { commandsQueryResultSchema } from "@zcode/shared/zcode-protocol-v4";
 
-test(
-  "Rust stop reaps an yolo running shell and accepts the next turn",
-  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
-  { skip: process.platform === "win32" },
-  async () => {
-    const f = await fixture();
-    try {
-      const h = f.start();
-      const id = await h.create();
-      await h.subscribe(`conversation/${id}`);
-      await h.command(h.envelope("sendText", id, { text: "slow-shell" }));
-      let shellPid: number | undefined;
-      for (let attempts = 0; attempts < 100 && !shellPid; attempts++) {
-        shellPid = await readFile(join(f.cwd, "shell.pid"), "utf8")
-          .then(Number)
-          .catch(() => undefined);
-        if (!shellPid) await delay(10);
-      }
-      assert(shellPid);
-      process.kill(shellPid, 0);
-      await h.command(h.envelope("stop", id));
-      await h.wait((m) =>
-        m.params?.frame?.payload?.deltas?.some(
-          (d: any) => d.patch?.control?.phase === "completedInterrupted",
-        ),
-      );
-      assert.throws(() => process.kill(shellPid!, 0), { code: "ESRCH" });
-      const after = h.messages.length;
-      await h.command(h.envelope("sendText", id, { text: "hello" }));
-      await h.completed(id, after);
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      await f.close();
-    }
-  },
-);
+test("Rust stop reaps an yolo running shell and accepts the next turn", async () => {
+  const f = await fixture();
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "slow-shell" }));
+    // 心跳证明 shell 正在运行；stop 之后不再增长即已回收（不依赖 PID 语义）。
+    await waitForBeat(f.cwd);
+    await h.command(h.envelope("stop", id));
+    await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some(
+        (d: any) => d.patch?.control?.phase === "completedInterrupted",
+      ),
+    );
+    await assertBeatStopped(f.cwd);
+    assert.equal(
+      await access(join(f.cwd, "leaked.txt")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    const after = h.messages.length;
+    await h.command(h.envelope("sendText", id, { text: "hello" }));
+    await h.completed(id, after);
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
 
 test("Rust stdio: current App schemas, streaming, idempotency, resume and workspace isolation", async () => {
   const f = await fixture();

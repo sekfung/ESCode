@@ -36,3 +36,17 @@ sequenceDiagram
 - 测试请求编码/三协议/附件/reasoning/取消、事务失败屏障、编辑/fork/冷恢复及双连接仍保持现有语义。
 - 性能 profile 只输出阶段计时与计数，不输出用户数据或配置；不接入默认生产日志。
 - Rust 测试/fmt/Clippy、App 集成/typecheck/lint/架构检查。所有 Cargo 构建关闭 incremental，不删除用户数据库或运行所需二进制。
+
+## 已知缺陷：输出背压下的 EOF/退出（2026-09-24 实测）
+
+场景：Host 停止读取 stdout 并写入大量请求（如 12k 条）后关闭 stdin。
+
+- 运行时先因 stdout 管道满而阻塞在写响应上；stdin 读取线程随后因输入队列（容量 64）已满而阻塞在入队上，
+  **因此连 EOF 都观测不到**，`stdio::finish` 只能等 2s 后超时报错；实测进程直到测试看门狗 SIGKILL（5s）才结束。
+- 相关用例 `zcode-cli-rust-transport.test.ts` 的 Windows 变体（用 EOF 代替 SIGTERM）因此保持跳过，
+  跳过理由已写明指向本条。
+- 曾尝试的修法（输入关闭时取消一个 shutdown token，让被背压挡住的写入放弃）已回退：仅在「输入已关闭」时放弃输出
+  会丢掉仍在读取的 Host 的在途响应（EOF/EPIPE 用例立刻失败）；根因是 EOF 检测本身被满队列挡住，需要在 stdio
+  读取层与输出缓冲策略上重新设计（例如独立的 EOF 探测或受限的缓冲增长），不在本次改动范围内。
+- TS 侧对照：Node 的 stdout 写入在内存中排队，Host 不读取时不会阻塞事件循环，因此能读到 EOF 后退出；
+  Rust 当前的有界输出通道是更严格的背压策略，代价是上述场景下无法退出。

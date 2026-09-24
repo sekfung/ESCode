@@ -67,48 +67,40 @@ test("A single oversized idle session is evicted by bytes even below the count l
   }
 });
 
-test(
-  "Non-repository context skips Git spawn but explicit GIT_DIR still invokes discovery",
-  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
-  { skip: process.platform === "win32" },
-  async () => {
-    for (const kind of ["absent", "explicit", "nested-symlink"]) {
-      const env: Record<string, string> = {};
-      const f = await fixture({ env });
-      try {
-        const bin = join(f.cwd, "bin"),
-          marker = join(f.cwd, "git-invoked");
-        await mkdir(bin);
-        await writeFile(
-          join(bin, "git"),
-          '#!/bin/sh\nprintf called >> "$GIT_TEST_MARKER"\nexit 1\n',
-          { mode: 0o755 },
-        );
-        env.PATH = bin + delimiter + process.env.PATH;
-        env.GIT_TEST_MARKER = marker;
-        if (kind === "explicit") env.GIT_DIR = join(f.cwd, "explicit-repo");
-        if (kind === "nested-symlink") {
-          const physical = join(f.root, "repo");
-          await mkdir(join(physical, "nested"), { recursive: true });
-          await writeFile(join(physical, ".git"), "gitdir: fixture");
-          // Git 按物理 cwd 查找父目录；符号链接路径不能造成错误的非仓库判定。
-          const { rename, rm } = await import("node:fs/promises");
-          await rename(bin, join(f.root, "bin"));
-          env.PATH = join(f.root, "bin") + delimiter + process.env.PATH;
-          await rm(f.cwd, { recursive: true });
-          await symlink(join(physical, "nested"), f.cwd, "dir");
-        }
-        const h = f.start(),
-          id = await h.create();
-        await h.subscribe(`conversation/${id}`);
-        await h.command(h.envelope("sendText", id, { text: "seed" }));
-        await h.completed(id);
-        if (kind !== "absent") await access(marker);
-        else await assert.rejects(access(marker));
-        assert.deepEqual(h.schemaErrors, []);
-      } finally {
-        await f.close();
+test("Non-repository context skips Git spawn but explicit GIT_DIR still invokes discovery", async () => {
+  // nested-symlink 需要创建目录符号链接，Windows 上通常需要开发者模式/管理员权限，保留在 POSIX 验证。
+  const kinds =
+    process.platform === "win32"
+      ? ["absent", "explicit"]
+      : ["absent", "explicit", "nested-symlink"];
+  for (const kind of kinds) {
+    const env: Record<string, string> = {};
+    const f = await fixture({ env });
+    try {
+      const marker = join(f.cwd, "git-invoked");
+      // 用 git 自身的 trace 输出判断是否被调用：Windows 上无法用无扩展名的 shell 脚本伪造 git，
+      // 而 git.exe 会遵守 GIT_TRACE2_EVENT，两端语义一致。
+      env.GIT_TRACE2_EVENT = marker;
+      if (kind === "explicit") env.GIT_DIR = join(f.cwd, "explicit-repo");
+      if (kind === "nested-symlink") {
+        const physical = join(f.root, "repo");
+        await mkdir(join(physical, "nested"), { recursive: true });
+        await writeFile(join(physical, ".git"), "gitdir: fixture");
+        // Git 按物理 cwd 查找父目录；符号链接路径不能造成错误的非仓库判定。
+        const { rm } = await import("node:fs/promises");
+        await rm(f.cwd, { recursive: true });
+        await symlink(join(physical, "nested"), f.cwd, "dir");
       }
+      const h = f.start(),
+        id = await h.create();
+      await h.subscribe(`conversation/${id}`);
+      await h.command(h.envelope("sendText", id, { text: "seed" }));
+      await h.completed(id);
+      if (kind !== "absent") await access(marker);
+      else await assert.rejects(access(marker));
+      assert.deepEqual(h.schemaErrors, []);
+    } finally {
+      await f.close();
     }
-  },
-);
+  }
+});
