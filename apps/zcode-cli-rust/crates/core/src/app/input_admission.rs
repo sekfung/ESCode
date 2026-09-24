@@ -10,7 +10,9 @@ impl Engine {
         c: &Command,
         shared: Option<String>,
     ) -> Result<(String, String)> {
-        if c.kind == "sendText"
+        // `/init` 与 TS 一样展开成普通用户提示词（builtin-prompt-command.ts），不改变其余 admission 语义。
+        let expanded;
+        let c = if c.kind == "sendText"
             && let Some(text) = c.payload["text"].as_str()
         {
             let text = text.trim();
@@ -19,7 +21,21 @@ impl Engine {
                 compact.payload = json!({"text":text.strip_prefix("/compact").unwrap().trim()});
                 return self.admit_compact(id, &compact);
             }
-        }
+            match crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
+                text,
+                std::path::Path::new(&self.workspace_path),
+            ) {
+                Some(prompt) => {
+                    let mut owned = c.clone();
+                    owned.payload["text"] = prompt.into();
+                    expanded = owned;
+                    &expanded
+                }
+                None => c,
+            }
+        } else {
+            c
+        };
         let selected = self.select(&c.payload, Some(self.session_selection(id)?))?;
         let mut content = self.input_content(id, &c.payload)?;
         if c.payload["_userSteer"] == true

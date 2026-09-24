@@ -14,6 +14,7 @@ mod bash_policy_argv;
 mod bash_policy_git;
 pub mod bash_rule_policy;
 mod bash_rule_prefix;
+pub mod builtin_prompt_command;
 pub mod context;
 pub mod file_checkpoint;
 pub mod goal;
