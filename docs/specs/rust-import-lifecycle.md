@@ -66,3 +66,24 @@ sequenceDiagram
 
 验证：`zcode-cli-rust-migration-scale.test.ts` 导入 120 会话（含 1.5 MiB 未支持 MIME 附件）约 0.9s 完成，
 且 1 个会话的占位文本出现在 provider 请求中；导入幂等（`rust_legacy_import` 仅 1 行，二次启动行数不变）。
+
+## 真实 runtime 产出的数据（2026-09-24）
+
+`zcode-cli-rust-migration-live.test.ts`：先用 **Node runtime** 在 fixture 环境里真实跑一轮
+（`node zcode.cjs app-server --stdio`，registry 模式指向本地 provider），写出会话、用户输入、
+Write 工具调用与助手回复；再用 Rust runtime 导入同一目录，逐行核对 turnHeader / userInput /
+toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方持有生命周期，不被清理）、
+`command`/`args`（可指向 Node CLI，忽略 Rust 专属参数）与幂等的 workspace 创建。
+
+## 已知偶发：并发启动时的导入 BUSY（2026-09-24）
+
+`zcode-cli-rust-migration.test.ts` 的「TS migration preserves workspace identity…」用例偶发失败，
+报 `TS history import failed; source remains unchanged: database is locked: Error code 5`：
+
+- 单独运行（`--test-name-pattern`）稳定通过；整文件运行时约 1/3–4/5 概率失败，与机器负载相关。
+- 该用例会先后在同一 data dir 启动两个 runtime（本地 workspace 与 `ssh://` workspace），
+  两者共享 `rust-sessions.sqlite` 并对同一份 TS 源库导入，属用例自身的并发场景；
+  源库读的 busy timeout 已从 20ms 放宽到 5s（见 rust-state 注释），仍不足以覆盖极端竞争。
+- 属**既有偶发**：在本轮改动之前的同一套件运行里也出现过同样报错，与 fixture 的 root/command/args 改动无关。
+- 未用「再加长超时」掩盖：需要的是跨进程导入串行化（例如按 data dir 的导入锁），
+  与「大库/多 runtime 并发导入」一并列入数据迁移的后续工作。

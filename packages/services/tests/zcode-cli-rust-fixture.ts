@@ -42,6 +42,14 @@ type Message = Record<string, any>;
 export async function fixture(
   options: {
     binary?: string;
+    /** 自定义 spawn 命令（Node runtime 用 process.execPath + bundle 路径）。 */
+    command?: string;
+    /** 自定义 argv；可传函数以便使用 fixture 生成的路径（Node runtime 不接受 Rust 专属参数）。 */
+    args?:
+      | string[]
+      | ((paths: { cwd: string; dataDir: string; root: string; config: string }) => string[]);
+    /** 复用已有目录（例如先由 Node runtime 落一份 TS 数据，再用 Rust 导入）。 */
+    root?: string;
     respond?: (request: Message, response: ServerResponse, attempt: number) => void | Promise<void>;
     config?: Message;
     env?: Record<string, string>;
@@ -50,11 +58,12 @@ export async function fixture(
     surface?: "desktop" | "terminal";
   } = {},
 ) {
-  const root = await mkdtemp(join(tmpdir(), "zcode-cli-rust-test-"));
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), "zcode-cli-rust-test-")));
   const cwd = join(root, "workspace");
   const dataDir = join(root, "data");
   const config = join(root, "model.json");
-  await mkdir(cwd);
+  // 复用已有 root（Node → Rust 导入）时 workspace 可能已存在。
+  await mkdir(cwd, { recursive: true });
   const requests: Message[] = [];
   const requestBodies: string[] = [];
   const connectionPorts: number[] = [];
@@ -159,8 +168,10 @@ export async function fixture(
   const children: Harness[] = [];
   const start = (identity?: string) => {
     const child = spawn(
-      options.binary ?? binary,
-      [
+      options.command ?? options.binary ?? binary,
+      (typeof options.args === "function"
+        ? options.args({ cwd, dataDir, root, config })
+        : options.args) ?? [
         "app-server",
         "--stdio",
         "--surface",
@@ -213,7 +224,8 @@ export async function fixture(
       const exits = await Promise.allSettled(children.map((child) => child.close()));
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
-      await rm(root, { recursive: true, force: true });
+      // 调用方自带 root 时由调用方拥有生命周期：数据要在多个 runtime 之间传递（见 migration-live 用例）。
+      if (!options.root) await rm(root, { recursive: true, force: true });
       const failure = exits.find((result) => result.status === "rejected");
       if (failure?.status === "rejected") throw failure.reason;
     },
