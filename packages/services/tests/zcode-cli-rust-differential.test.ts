@@ -3,6 +3,7 @@ import test from "node:test";
 import { join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 import { z } from "zod";
@@ -362,7 +363,12 @@ test("Node and Rust list a finished session with the same shape", async () => {
 });
 
 /** 带文本附件的输入：比对发给模型的附件 reminder 原文（归一化临时路径）与它相对用户正文的位置。 */
-async function observeAttachment(kind: Runtime, body: string) {
+async function observeAttachment(
+  kind: Runtime,
+  body: string | Buffer,
+  fileName = "notes.txt",
+  mime = "text/plain",
+) {
   const root = await mkdtemp(join(tmpdir(), `zcode-diff-att-${kind}-`));
   const f =
     kind === "node"
@@ -376,7 +382,7 @@ async function observeAttachment(kind: Runtime, body: string) {
   try {
     await configureRegistry(f);
     const { writeFile } = await import("node:fs/promises");
-    const file = join(f.cwd, "notes.txt");
+    const file = join(f.cwd, fileName);
     await writeFile(file, body);
     const h = f.start();
     const id = await h.create();
@@ -388,8 +394,8 @@ async function observeAttachment(kind: Runtime, body: string) {
         attachments: [
           {
             ref: file,
-            fileName: "notes.txt",
-            mime: "text/plain",
+            fileName,
+            mime,
             bytes: Buffer.byteLength(body),
           },
         ],
@@ -400,11 +406,36 @@ async function observeAttachment(kind: Runtime, body: string) {
       text.split(JSON.stringify(f.cwd).slice(1, -1)).join("<CWD>").split(f.cwd).join("<CWD>");
     const messages = f.requests.at(-1)!.messages as { role: string; content: unknown }[];
     const texts = messages.map((m) =>
-      typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      // 对象键顺序不属于请求语义（serde 与 JS 序列化顺序不同），按排序后的键比较。
+      typeof m.content === "string"
+        ? m.content
+        : JSON.stringify(m.content, (_k, v) =>
+            v && typeof v === "object" && !Array.isArray(v)
+              ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
+              : v,
+          ),
     );
     const reminderAt = texts.findIndex((t) => t.includes("Called the Read tool"));
     const promptAt = texts.findIndex((t, i) => messages[i]!.role === "user" && t === "summarize");
+    // 与附件相关的全部 user 侧消息（排除技能/日期等与附件无关的 reminder），按原文比较。
+    const attachmentMessages = messages
+      .map((m, i) => ({ role: m.role, text: normalize(texts[i]!) }))
+      .filter(
+        (m) =>
+          m.role === "user" &&
+          !m.text.includes("skills are available") &&
+          !m.text.includes("# currentDate"),
+      )
+      .map((m) => m.text);
+    // 展示时省略长消息中段；逐字比较由完整原文摘要保证。
+    const attachmentDigest = createHash("sha256")
+      .update(JSON.stringify(attachmentMessages))
+      .digest("hex");
     const observation = {
+      attachmentDigest,
+      attachmentMessages: attachmentMessages.map((t) =>
+        t.length > 400 ? `${t.slice(0, 200)}…${t.slice(-200)}` : t,
+      ),
       reminder: reminderAt >= 0 ? normalize(texts[reminderAt]!) : undefined,
       reminderBeforePrompt: reminderAt >= 0 && promptAt === reminderAt + 1,
       promptIsPlainString: promptAt >= 0,
@@ -428,6 +459,11 @@ for (const [label, body] of [
   test(`Node and Rust put a text attachment (${label}) into the model request the same way`, async () => {
     const node = await observeAttachment("node", body);
     const rust = await observeAttachment("rust", body);
+    assert.deepEqual(
+      rust.attachmentMessages,
+      node.attachmentMessages,
+      "attachment messages differ",
+    );
     assert.equal(rust.reminder, node.reminder, "attachment reminder text differs");
     assert.equal(rust.reminderBeforePrompt, node.reminderBeforePrompt, "reminder position differs");
     assert.equal(
@@ -435,6 +471,37 @@ for (const [label, body] of [
       node.promptIsPlainString,
       "prompt content shape differs",
     );
+    assert.deepEqual(node.schemaErrors, []);
+    assert.deepEqual(rust.schemaErrors, []);
+  });
+}
+
+// 非文本扩展名、二进制内容与超过 256 KiB 的文本：TS 走路径引用或部分读取，Rust 必须给模型同样的内容。
+for (const [label, fileName, mime, body] of [
+  ["binary file", "data.bin", "application/octet-stream", Buffer.from([0, 1, 2, 3, 255, 0, 7])],
+  ["text in an unknown extension", "notes.dat", "text/plain", "plain words\n"],
+  [
+    "text larger than 256 KiB",
+    "big.txt",
+    "text/plain",
+    Array.from({ length: 3000 }, (_, i) => `line ${i} ${"x".repeat(100)}`).join("\n"),
+  ],
+] as const) {
+  test(`Node and Rust describe a ${label} attachment to the model the same way`, async () => {
+    const node = await observeAttachment("node", body, fileName, mime);
+    const rust = await observeAttachment("rust", body, fileName, mime);
+    if (process.env.ZCODE_ATT_DUMP)
+      console.log(
+        "DUMP",
+        label,
+        JSON.stringify({ node: node.attachmentMessages, rust: rust.attachmentMessages }, null, 1),
+      );
+    assert.deepEqual(
+      rust.attachmentMessages,
+      node.attachmentMessages,
+      "attachment messages differ",
+    );
+    assert.equal(rust.attachmentDigest, node.attachmentDigest, "full attachment content differs");
     assert.deepEqual(node.schemaErrors, []);
     assert.deepEqual(rust.schemaErrors, []);
   });

@@ -3,32 +3,23 @@
 //! 见 docs/specs/rust-attachment-prompt.md。
 use serde_json::{Value, json};
 
-/// TS `READ_MAX_FILE_SIZE_BYTES`：超过即只读前 `READ_DEFAULT_MAX_LINES` 行。
-pub(super) const READ_MAX_FILE_SIZE_BYTES: usize = 256 * 1024;
-/// TS `READ_DEFAULT_MAX_LINES`。
-pub(super) const READ_DEFAULT_MAX_LINES: usize = 2_000;
-
 /// 返回 reminder 正文（未包裹标签）。`label` 是用户提交的附件引用（TS `source.text.value`）。
-pub(super) fn read_like_body(label: &str, text: &str) -> String {
+/// TS 的截断说明只在 `truncated && !partialViewNotice` 时出现；读取器对整文件读取从不置 truncated，
+/// 超限内容一律以部分视图提示表达，因此这里不再追加截断说明。
+pub(super) fn read_like_body(label: &str, text: &str, size_bytes: usize) -> String {
     let label = sanitize_label(label);
-    let (content, truncated) = if text.len() > READ_MAX_FILE_SIZE_BYTES {
-        (first_lines(text, READ_DEFAULT_MAX_LINES), true)
-    } else {
-        (text, false)
-    };
-    let mut bodies = vec![
+    let read = super::attachment_read::read(text, size_bytes);
+    [
         format!(
             "Called the Read tool with the following input: {}",
             json!({ "file_path": label })
         ),
-        format!("Result of calling the Read tool:\n{}", read_output(content)),
-    ];
-    if truncated {
-        bodies.push(format!(
-            "Note: The file {label} was too large and has been truncated to the first {READ_DEFAULT_MAX_LINES} lines. Don't tell the user about this truncation. Use Read to read more of the file if you need."
-        ));
-    }
-    bodies.join("\n")
+        format!(
+            "Result of calling the Read tool:\n{}",
+            read_output(&read.content, read.partial_view_notice.as_deref())
+        ),
+    ]
+    .join("\n")
 }
 
 /// TS `wrapSystemReminderForSource("prompt_attachment", body)`：中和嵌套标签后按行包裹，无尾随换行。
@@ -39,32 +30,29 @@ pub(super) fn wrap(body: &str) -> String {
     )
 }
 
-pub(super) fn reminder_message(label: &str, text: &str) -> Value {
-    json!({"role": "user", "content": wrap(&read_like_body(label, text))})
+pub(super) fn reminder_message(label: &str, text: &str, size_bytes: usize) -> Value {
+    json!({"role": "user", "content": wrap(&read_like_body(label, text, size_bytes))})
 }
 
-/// TS `formatReadTextOutput`（无 offset、无部分视图）：逐行编号（按 /\r?\n/ 切分）。
-fn read_output(content: &str) -> String {
+/// TS `formatReadTextOutput`（从第 1 行起）：可选的部分视图提示 + 逐行编号（内容已 CRLF 归一）。
+fn read_output(content: &str, partial_view_notice: Option<&str>) -> String {
+    let prefix = partial_view_notice
+        .map(|n| format!("<system-reminder>{n}</system-reminder>\n\n"))
+        .unwrap_or_default();
     if content.is_empty() {
         // 与 TS 实测一致（差分用例 empty）：TS 读取器对空文件报告 totalLines=1，
         // formatReadTextOutput 因此走「短于 offset」分支，而不是 EMPTY_FILE_REMINDER。
-        return "<system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.</system-reminder>"
-            .to_owned();
+        return format!(
+            "{prefix}<system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.</system-reminder>"
+        );
     }
-    content
+    let numbered = content
         .split('\n')
-        .map(|line| line.strip_suffix('\r').unwrap_or(line))
         .enumerate()
         .map(|(i, line)| format!("{}\t{line}", i + 1))
         .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn first_lines(text: &str, limit: usize) -> &str {
-    match text.match_indices('\n').nth(limit - 1) {
-        Some((at, _)) => &text[..at],
-        None => text,
-    }
+        .join("\n");
+    format!("{prefix}{numbered}")
 }
 
 /// TS `sanitizeAttachmentLabel`：折叠空白、去首尾，超过 200 字符截为 197 + "..."。
@@ -117,7 +105,7 @@ mod tests {
     #[test]
     fn numbers_lines_like_ts_and_keeps_the_trailing_empty_line() {
         assert_eq!(
-            read_like_body("C:/w/notes.txt", "attached body\n"),
+            read_like_body("C:/w/notes.txt", "attached body\n", 14),
             "Called the Read tool with the following input: {\"file_path\":\"C:/w/notes.txt\"}\nResult of calling the Read tool:\n1\tattached body\n2\t"
         );
     }

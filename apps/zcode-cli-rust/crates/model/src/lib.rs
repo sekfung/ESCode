@@ -1,6 +1,7 @@
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 mod anthropic_stream;
+mod attachment_read;
 mod attachment_reminder;
 pub mod config;
 mod model_failure;

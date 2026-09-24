@@ -79,15 +79,20 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                     .filter(|s| !s.contains('\0'));
                 // 修复：原先把文本附件拼进用户消息（自拟文案、64 KiB 截断）；TS 以一次 Read 调用
                 // 结果的 system-reminder 独立成条放在用户正文之前（见 attachment_reminder.rs）。
-                match text {
-                    Some(text) => {
-                        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-                        json!({"type":"_zcode_reminder","message":super::attachment_reminder::reminder_message(name, text)})
+                // TS 先按扩展名判定（isTextLikePath），非文本扩展名只交付路径引用、不读正文。
+                if !super::attachment_read::is_text_like_path(name) {
+                    json!({"type":"text","text":super::attachment_read::path_reference(name)})
+                } else {
+                    match text {
+                        Some(text) => {
+                            let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+                            json!({"type":"_zcode_reminder","message":super::attachment_reminder::reminder_message(name, text, bytes.len())})
+                        }
+                        None => json!({"type":"text","text":format!(
+                            "Attached binary file: {name} ({mime}, {} bytes). The contents are not text and have not been included in this model request.",
+                            asset.total_bytes
+                        )}),
                     }
-                    None => json!({"type":"text","text":format!(
-                        "Attached binary file: {name} ({mime}, {} bytes). The contents are not text and have not been included in this model request.",
-                        asset.total_bytes
-                    )}),
                 }
             };
         }

@@ -24,8 +24,13 @@
 
 差分用例五种形态逐字一致：末尾换行、无末尾换行、CRLF、空文件、正文含 reminder 标签。
 
-## 仍未对齐（未纳入差分）
+## 大文件与非文本（2026-09-24 已对齐）
 
-- 超过 256 KiB 的文件：Rust 取前 2000 行并附 TS 的截断说明；TS 走 Read 读取器的部分视图（可能带 `partialViewNotice` 与 token 上限截断），文案未经差分验证。
-- 非文本扩展名：TS 按扩展名（`isTextLikePath`）判定，非文本给路径引用说明；Rust 按客户端 MIME 与内容是否为 UTF-8 判定，二进制给自拟占位文案。
-- 剪贴板长文本（`sourceKind: "clipboard-text"`）：TS 只给路径引用、不预读正文；Rust 未区分。
+- 读取语义对齐 TS `readTextFileForModel` + adapters `readTextFileRange` 快路径（`crates/model/src/attachment_read.rs`）：CRLF 归一后按换行符切行；文件超过 256 KiB 只取前 2000 行；估算 token（UTF-16 长度，`[一-鿿]` 计 2，除以 3 向上取整）超过 25000 时，二分取不超过 21250 的最长行前缀，并以 `The file is too large to display in full (…)` 部分视图提示开头。
+- 按扩展名（TS `isTextLikePath`）判定是否读入正文；非文本扩展名交付路径引用说明（`Attached <按扩展名推断的 mime>: <引用>` + 固定两行），留在用户消息内、位于正文之后。媒体（image/pdf/video）仍先按 MIME 走媒体分支。
+- 差分用例：二进制文件、未知扩展名的文本、超过 256 KiB 的文本，与 Node 逐字一致（完整原文 sha256）。
+
+## 仍未对齐
+
+- 文本扩展名但内容无法按 UTF-8 解码：TS 按编码探测解码（可能读出 latin1/UTF-16 文本）；Rust 给自拟的二进制占位文案。
+- V4 附件引用（`attachmentRefSchema`）不携带来源类型，TS 的剪贴板长文本（`sourceKind: "clipboard-text"`）延迟读取分支在 App 协议下不可达，无需对齐。
