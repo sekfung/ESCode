@@ -27,4 +27,5 @@ snapshot 在协议上合法（server 可判定 base 无效），状态仍正确�
 - `crates/domain/src/delta_log.rs`（纯逻辑 + 单测：批内切分、窗口外/超前/断档回落、超预算丢弃最旧批）；`subscriptions.rs::publish` 记录每批，`subscribe` 命中窗口时 ACK `resume`。
 - 差分：两种 clientMode 的续传（ACK、首帧种类、`fromSeq`、到达最新、恰好覆盖 `(base, current]`、变更种类）与 Node 一致；过期 `logEpoch` 两侧都回落 snapshot。
 - 已知差异（不属于续传语义）：流式发布粒度不同——Rust 以 `row.delta` 推送文本分片，Node 以 `row.upserted` 覆盖；续传内容因此逐条不同；但正确性已按 App 自己的归约器验证：base 快照 + 续传增量经 `@zcode/shared` 的 `applyConversationDeltas` 归约后，与同一时刻的全新快照（除 `seq` 外）完全相等，Node 与 Rust 用同一规则均通过。
-- 未覆盖：`v4/conversation/resync`（同订阅恢复）与流控 `drained` 后的补发仍用 snapshot；Rust 的 resync 入参形状与 `conversationResyncParamsSchema` 不同，需单独对齐。
+- 同订阅恢复 `v4/conversation/resync`（2026-09-25）：CLI 侧入参为共享 schema 加 Host 注入的 `topic`/`connectionId`，Rust 原本就能解析，但忽略了 `base`/`forceSnapshot`。现按 Node 实测对齐：`base` 有效且未 `forceSnapshot` → `resume` + 一个 `deltas` 帧（`deliveryKind: "recovery"`）；`forceSnapshot` 或 `base: null` → snapshot。差分用例三种情况与 Node 一致。
+- 未覆盖：流控 `drained` 后的补发仍用 snapshot，尚未与 Node 比对。

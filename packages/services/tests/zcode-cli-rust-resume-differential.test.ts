@@ -209,3 +209,75 @@ for (const kind of ["node", "rust"] as const) {
     }
   });
 }
+
+/** 同一订阅恢复（resync）：带 base 与 forceSnapshot 两种情况的 ACK 与首帧。 */
+async function observeResync(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-resync-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    const topic = `conversation/${id}`;
+    const sub = (await h.subscribe(topic, "phone-1", "web-remote-replayable")) as any;
+    const subscriptionId = (sub.ack ?? sub).subscriptionId;
+    const initial = await h.wait(
+      (m) => m.method === "v4/conversation/frame" && m.params?.topic === topic,
+    );
+    const base = initial.params.frame.payload.snapshot;
+    const baseSeq = initial.params.frame.toSeq;
+    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
+    await h.completed(id);
+    const resync = async (extra: Record<string, unknown>) => {
+      const mark = h.messages.length;
+      const reply = (await h.client.request(
+        "v4/conversation/resync",
+        { subscriptionId, topic, connectionId: "phone-1", ...extra },
+        z.any(),
+      )) as any;
+      const frame = await h.wait(
+        (m) => m.method === "v4/conversation/frame" && m.params?.subscriptionId === subscriptionId,
+        mark,
+      );
+      return {
+        ackMode: (reply.ack ?? reply).mode,
+        payloadKind: frame.params.frame.payload.kind,
+        deliveryKind: frame.params.deliveryKind,
+        // 只有增量帧的 fromSeq 有意义；快照帧的 fromSeq 取决于各自的建会话初始 seq。
+        fromBase:
+          frame.params.frame.payload.kind === "deltas"
+            ? frame.params.frame.fromSeq === baseSeq
+            : null,
+      };
+    };
+    const observation = {
+      withBase: await resync({ base: { logEpoch: base.logEpoch, seq: baseSeq } }),
+      forced: await resync({
+        base: { logEpoch: base.logEpoch, seq: baseSeq },
+        forceSnapshot: true,
+      }),
+      nullBase: await resync({ base: null }),
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust resync an existing subscription the same way", async () => {
+  const node = await observeResync("node");
+  if (process.env.ZCODE_RESUME_DUMP) console.log("DUMP resync", JSON.stringify(node));
+  const rust = await observeResync("rust");
+  if (process.env.ZCODE_RESUME_DUMP) console.log("DUMP-RUST resync", JSON.stringify(rust));
+  assert.deepEqual(rust, node);
+});

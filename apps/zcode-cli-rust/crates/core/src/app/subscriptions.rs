@@ -82,6 +82,19 @@ impl Engine {
         sub.needs_resync = false;
         sub.paused = false;
         let (epoch, _, _) = self.topic_snapshot(topic)?;
+        // TS 同订阅恢复：base 有效且未要求强制快照时只补发 base 之后的增量。
+        if p["forceSnapshot"] != true
+            && let Some((from, to, deltas)) = self.replay_since(topic, &p["base"], &epoch)
+        {
+            self.push_frame(
+                id,
+                "recovery",
+                from,
+                to,
+                json!({"kind":"deltas","deltas":deltas}),
+            )?;
+            return Ok(json!({"ack":{"subscriptionId":id,"mode":"resume","logEpoch":epoch}}));
+        }
         self.snapshot_frame(id, "recovery")?;
         Ok(json!({"ack":{"subscriptionId":id,"mode":"snapshot","logEpoch":epoch}}))
     }
