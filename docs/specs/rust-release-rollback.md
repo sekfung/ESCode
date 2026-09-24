@@ -76,6 +76,11 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 | 权限弹窗「完全访问」 | 主会话提供 `fullAccessOption`，选中后会话切 yolo 并放行      | 无该选项                  | 实现（排队输入一并切 yolo，与 ACK 同一次提交）           |
 | 被拒工具行           | `cancelled`，无输出/错误                                     | `error` + 拒绝文案输出    | `ToolDone.denied` 收口为 `cancelled`；模型侧拒绝文案不变 |
 
+| session/list `traceId` | 会话创建即分配 | 仅 shared context 会话有 | 新会话与子代理创建即分配 |
+| 文本附件进入模型请求 | 伪 Read 调用的独立 system-reminder，位于正文之前 | 拼进用户消息、自拟文案、64 KiB 截断 | 对齐 TS 形态，五种文件形态逐字一致（rust-attachment-prompt.md） |
+
+stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一致（无需修复）。
+
 ### 仍存在、未纳入断言的差异
 
 - 工具行字段：Node 带 `visibility`、`assistantResponseId`、结构化 `input`；Rust 只有 `inputText`。
