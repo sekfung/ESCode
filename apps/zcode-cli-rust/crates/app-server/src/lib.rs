@@ -1,9 +1,9 @@
-use zcode_cli_core_api as contract;
-use zcode_cli_domain as domain;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use zcode_cli_core_api as contract;
+use zcode_cli_domain as domain;
 pub mod stdio;
-pub use stdio::{start, finish, storage_prepare};
+pub use stdio::{finish, start, storage_prepare};
 
 /// App Server projection over the shared core runtime. Framing stays in
 /// `stdio`; this type owns no session, queue, model or tool facts.

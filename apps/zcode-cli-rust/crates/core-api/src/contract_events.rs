@@ -42,6 +42,10 @@ pub enum Event {
     TodoReminder {
         reply: oneshot::Sender<Value>,
     },
+    /// 会话终端 shell 偏好（Host `integratedTerminalShell` 原值）；会话 owner 负责请求与缓存。
+    ShellPreference {
+        reply: oneshot::Sender<Option<Value>>,
+    },
     ToolCleanupFailed(String),
     PromptInitialized {
         snapshot: Box<zcode_cli_domain::prompt::PromptSnapshot>,

@@ -184,12 +184,22 @@ impl ShellTasks {
                 }))
             }
         };
+        let shell = shell_override(sink).await;
         tokio::fs::create_dir_all(artifacts).await?;
         let id = super::id();
         let path = artifacts.join(format!("{id}.output"));
         let combined = Arc::new(Mutex::new(tokio::fs::File::create(&path).await?));
         if !background {
-            let data = run(cwd, &command, &path, combined, timeout, cancel).await?;
+            let data = run(
+                cwd,
+                &command,
+                &path,
+                combined,
+                timeout,
+                cancel,
+                shell.as_ref(),
+            )
+            .await?;
             return Ok(shell_output(data));
         }
         let sink = sink
@@ -270,7 +280,16 @@ impl ShellTasks {
         let command_copy = command.clone();
         let path_copy = path.clone();
         tokio::spawn(async move {
-            let result = run(&cwd, &command_copy, &path_copy, combined, timeout, &token).await;
+            let result = run(
+                &cwd,
+                &command_copy,
+                &path_copy,
+                combined,
+                timeout,
+                &token,
+                shell.as_ref(),
+            )
+            .await;
             if let Err(error) = &result
                 && error.is::<crate::contract::ProcessCleanupFailure>()
             {
@@ -356,4 +375,17 @@ fn shell_output(data: Value) -> ToolOutput {
     let mut output = ToolOutput::new(serde_json::to_string(&data).unwrap(), data);
     output.failed = failed;
     output
+}
+
+/// 首个 Bash 前向会话 owner 请求用户终端偏好（TS `resolveInitialBashShellSelection`）；
+/// 无 owner（fixture/测试）、Host 不支持或超时时按自动探测处理，见 docs/specs/rust-shell-selection.md。
+async fn shell_override(sink: Option<&EventSink>) -> Option<crate::shell_select::Override> {
+    let sink = sink?;
+    let (reply, rx) = oneshot::channel();
+    sink.send(Event::ShellPreference { reply }).await.ok()?;
+    let value = tokio::time::timeout(Duration::from_millis(15_000), rx)
+        .await
+        .ok()?
+        .ok()??;
+    crate::shell_select::parse_override(&value)
 }

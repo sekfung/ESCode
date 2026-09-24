@@ -54,7 +54,7 @@ pub(super) async fn project_directories(cwd: &Path) -> Vec<PathBuf> {
     vec![cwd.to_owned()]
 }
 pub(super) async fn load(cwd: &Path) -> Result<Value> {
-    let mut config = json_file(&home().join(".zcode/cli/config.json")).await?;
+    let mut config = json_file(&home().join(".zcode").join("cli").join("config.json")).await?;
     for dir in project_directories(cwd).await.into_iter().rev() {
         for file in ["zcode.json", ".zcode/config.json"] {
             let mut next = json_file(&dir.join(file)).await?;
@@ -100,7 +100,7 @@ pub(super) fn storage(config: &Value) -> PathBuf {
     if base.file_name().is_some_and(|p| p == "cli") {
         base.join("plugins")
     } else {
-        base.join("cli/plugins")
+        base.join("cli").join("plugins")
     }
 }
 pub(super) fn strings(value: &Value) -> Vec<&str> {

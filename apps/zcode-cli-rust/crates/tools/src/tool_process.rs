@@ -71,17 +71,19 @@ pub(super) async fn run(
     combined: Arc<Mutex<tokio::fs::File>>,
     timeout: Option<Duration>,
     cancel: &CancellationToken,
+    shell: Option<&crate::shell_select::Override>,
 ) -> Result<Value> {
     check_cancel(cancel)?;
-    let mut command = if cfg!(windows) {
-        let mut c = Command::new("cmd.exe");
-        c.args(["/D", "/S", "/C", text]);
-        c
-    } else {
-        let mut c = Command::new("/bin/bash");
-        c.args(["-c", text]);
-        c
-    };
+    // 原实现在 Windows 固定 cmd.exe、POSIX 固定 /bin/bash，与 TS 自动选择 Git Bash / $SHELL 的语义不一致；
+    // 改为复用 shell_select（对应 TS bash-shell-provider），见 docs/specs/rust-shell-selection.md。
+    let platform = crate::shell_select::Platform::current();
+    let env: Vec<(String, String)> = std::env::vars().collect();
+    let selection = crate::shell_select::resolve(platform, &env, shell, &|p| {
+        std::path::Path::new(p).is_file()
+    });
+    let plan = crate::shell_select::spawn_plan(platform, &env, &selection, text);
+    let mut command = Command::new(&plan.file);
+    command.args(&plan.args).envs(plan.env_overlay);
     command
         .current_dir(cwd)
         .stdin(std::process::Stdio::null())
@@ -92,6 +94,9 @@ pub(super) async fn run(
     command.process_group(0);
     let mut child = command.spawn().context("Cannot start shell")?;
     let pid = child.id().context("Missing child pid")?;
+    // Windows 上把 shell 放进 Job，终止时连同 MSYS 后代一起回收；附加失败时退回 taskkill。
+    #[cfg(windows)]
+    let job = super::win_job::Job::attach(pid);
     let overflow = CancellationToken::new();
     let mut out = tokio::spawn(capture(
         child.stdout.take().unwrap(),
@@ -120,7 +125,14 @@ pub(super) async fn run(
         result=child.wait()=>(Some(result?),"completed"),
     };
     let captured = async {
-        terminate(&mut child, pid, status.is_none()).await?;
+        kill_tree(
+            &mut child,
+            pid,
+            status.is_none(),
+            #[cfg(windows)]
+            job.as_ref(),
+        )
+        .await?;
         let streams = async { tokio::join!(&mut out, &mut err) };
         tokio::pin!(streams);
         if reason != "completed" {
@@ -139,7 +151,14 @@ pub(super) async fn run(
         if let Some(result) = ready {
             return Ok(result);
         }
-        terminate(&mut child, pid, true).await?;
+        kill_tree(
+            &mut child,
+            pid,
+            true,
+            #[cfg(windows)]
+            job.as_ref(),
+        )
+        .await?;
         // 期限只用于报告无法确认回收的错误，绝不把未关闭的 pipe 当作成功。
         tokio::time::timeout(Duration::from_secs(1), &mut streams)
             .await
@@ -175,6 +194,18 @@ pub(super) async fn run(
     Ok(data)
 }
 
+async fn kill_tree(
+    child: &mut tokio::process::Child,
+    pid: u32,
+    graceful: bool,
+    #[cfg(windows)] job: Option<&super::win_job::Job>,
+) -> Result<()> {
+    #[cfg(windows)]
+    if let Some(job) = job {
+        job.terminate();
+    }
+    terminate(child, pid, graceful).await
+}
 pub(super) async fn terminate(
     child: &mut tokio::process::Child,
     pid: u32,

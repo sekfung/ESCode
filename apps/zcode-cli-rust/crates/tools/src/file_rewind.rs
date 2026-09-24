@@ -113,11 +113,12 @@ pub(super) async fn preview(root: &Path, changes: &[FileCheckpoint]) -> Result<V
     Ok(plan(root, changes).await?.0)
 }
 fn journal_path(root: &Path, session: &str) -> PathBuf {
-    root.join("checkpoints/journals")
+    root.join("checkpoints")
+        .join("journals")
         .join(format!("{}.json", blobs::hash(session.as_bytes())))
 }
 pub(super) async fn pending(root: &Path) -> Result<Vec<String>> {
-    let mut dir = match tokio::fs::read_dir(root.join("checkpoints/journals")).await {
+    let mut dir = match tokio::fs::read_dir(root.join("checkpoints").join("journals")).await {
         Ok(d) => d,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
         Err(e) => return Err(e.into()),

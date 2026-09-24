@@ -27,7 +27,7 @@ async fn run() -> Result<()> {
     let args = Args::parse();
     let question_timing = zcode_cli_host::question_timing()?;
     let requested_cwd = args.cwd.unwrap_or(std::env::current_dir()?);
-    let cwd = tokio::fs::canonicalize(&requested_cwd)
+    let cwd = zcode_cli_host::realpath(&requested_cwd)
         .await
         .context("Workspace unavailable")?;
     let requested_data = args.data_dir.unwrap_or_else(|| {
@@ -39,7 +39,8 @@ async fn run() -> Result<()> {
                         .or_else(|| std::env::var_os("USERPROFILE"))
                         .unwrap_or_default(),
                 )
-                .join(".zcode/rust")
+                .join(".zcode")
+                .join("rust")
             })
     });
     let data_dir = if requested_data.is_absolute() {
@@ -48,7 +49,7 @@ async fn run() -> Result<()> {
         std::env::current_dir()?.join(requested_data)
     };
     tokio::fs::create_dir_all(&data_dir).await?;
-    let data_dir = tokio::fs::canonicalize(data_dir).await?;
+    let data_dir = zcode_cli_host::realpath(data_dir).await?;
     let path = data_dir.join("rust-sessions.sqlite");
     // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
     let workspace = zcode_cli_host::workspace_identity(

@@ -48,7 +48,9 @@ impl SessionRuntime for CoreRuntime {
         let event_command = command.clone();
         let payload = self.engine.lock().await.dispatch_command(command).await?;
         let ack: CommandAck = serde_json::from_value(payload.clone())?;
-        let _ = self.events.send(Self::command_event(&event_command, payload.clone()));
+        let _ = self
+            .events
+            .send(Self::command_event(&event_command, payload.clone()));
         Ok(ack)
     }
 

@@ -32,7 +32,7 @@ pub async fn resolve(
         return Ok(None);
     }
     let home = home()?;
-    let mut paths = vec![home.join(".zcode/cli/config.json")];
+    let mut paths = vec![home.join(".zcode").join("cli").join("config.json")];
     let mut dirs = vec![];
     let mut found = false;
     for dir in cwd.ancestors() {
@@ -46,7 +46,10 @@ pub async fn resolve(
         dirs = vec![cwd];
     }
     for dir in dirs.into_iter().rev() {
-        paths.extend([dir.join("zcode.json"), dir.join(".zcode/config.json")]);
+        paths.extend([
+            dir.join("zcode.json"),
+            dir.join(".zcode").join("config.json"),
+        ]);
     }
     let mut database = "~/.zcode/cli/db/db.sqlite".to_owned();
     let mut root = "~/.zcode".to_owned();
@@ -85,7 +88,7 @@ pub async fn resolve(
     }
     Ok(Some(LegacySource {
         database: expand(&database, cwd, &home),
-        artifacts: expand(&root, cwd, &home).join("cli/artifacts"),
+        artifacts: expand(&root, cwd, &home).join("cli").join("artifacts"),
         required,
     }))
 }

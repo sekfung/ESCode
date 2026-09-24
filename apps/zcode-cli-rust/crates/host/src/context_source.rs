@@ -56,7 +56,7 @@ impl ContextPort for WorkspaceContext {
 }
 async fn read_instructions(cwd: &Path, home: &Path) -> Vec<InstructionSource> {
     // TS 只选择最近文件，并在最近 Git 根停止；不能把父目录或隐藏候选全量拼接进请求。
-    let mut candidates = vec![(home.join(".zcode/AGENTS.md"), true)];
+    let mut candidates = vec![(home.join(".zcode").join("AGENTS.md"), true)];
     for directory in cwd.ancestors() {
         let candidate = directory.join("AGENTS.md");
         if tokio::fs::metadata(&candidate)

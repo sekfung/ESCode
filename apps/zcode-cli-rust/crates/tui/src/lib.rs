@@ -23,11 +23,18 @@ where
         self.runtime.dispatch(command).await
     }
 
-    pub async fn query(&self, method: &str, params: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    pub async fn query(
+        &self,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
         self.runtime.query(method, params).await
     }
 
-    pub async fn subscribe(&self, session_id: &str) -> anyhow::Result<mpsc::Receiver<RuntimeEvent>> {
+    pub async fn subscribe(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<mpsc::Receiver<RuntimeEvent>> {
         self.runtime.subscribe(session_id).await
     }
 }

@@ -41,6 +41,8 @@ impl Attempt {
     pub fn new(dir: &Path) -> Result<Self> {
         let id = super::id();
         let root = dir.join(format!("ts-import-{id}"));
+        // 只有 unix 分支会设置目录权限；Windows 上 mut 未被使用，clippy -D warnings 会失败。
+        #[cfg_attr(not(unix), allow(unused_mut))]
         let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
         {

@@ -16,7 +16,7 @@ pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<V
         .or_else(|| config["storage"]["dir"].as_str().map(str::to_owned))
         .map(|p| config::resolve(&config::home(), &p))
         .unwrap_or_else(|| config::home().join(".zcode"));
-    let state = config::json_file(&root.join("v2/agents-state.json")).await?;
+    let state = config::json_file(&root.join("v2").join("agents-state.json")).await?;
     let mut result = builtins()
         .into_iter()
         .map(|mut p| {
@@ -28,7 +28,7 @@ pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<V
         .collect::<BTreeMap<_, _>>();
     for (dir, source) in [
         (root.join("agents"), "user"),
-        (cwd.join(".zcode/agents"), "project"),
+        (cwd.join(".zcode").join("agents"), "project"),
     ] {
         for path in markdown(&dir, cancel).await? {
             if let Some(profile) = read(&path, source, cancel).await? {
@@ -155,8 +155,8 @@ pub(super) async fn memory(
         .collect::<String>();
     let root = match scope.as_str() {
         "user" => storage.join("agent-memory"),
-        "project" => cwd.join(".zcode/agent-memory"),
-        _ => cwd.join(".zcode/agent-memory-local"),
+        "project" => cwd.join(".zcode").join("agent-memory"),
+        _ => cwd.join(".zcode").join("agent-memory-local"),
     }
     .join(key);
     super::tools::check_cancel(cancel)?;
@@ -176,7 +176,10 @@ pub(super) async fn memory(
         templates[scope]
             .as_str()
             .unwrap()
-            .replace("{memoryRoot}", &root.to_string_lossy())
+            .replace(
+                "{memoryRoot}{sep}",
+                &memory_root_with_sep(&root.to_string_lossy()),
+            )
             .replace(
                 "{memoryIndex}",
                 if index.is_empty() {
@@ -186,4 +189,27 @@ pub(super) async fn memory(
                 },
             ),
     ))
+}
+
+/// 对应 TS `persistent-memory-prompt.ts`：rootDir 未以本机分隔符结尾时补一个。
+fn memory_root_with_sep(root: &str) -> String {
+    let sep = std::path::MAIN_SEPARATOR;
+    if root.ends_with(sep) {
+        root.to_owned()
+    } else {
+        format!("{root}{sep}")
+    }
+}
+
+#[cfg(test)]
+mod memory_root_tests {
+    #[test]
+    fn appends_platform_separator_once() {
+        let sep = std::path::MAIN_SEPARATOR;
+        assert_eq!(super::memory_root_with_sep("mem"), format!("mem{sep}"));
+        assert_eq!(
+            super::memory_root_with_sep(&format!("mem{sep}")),
+            format!("mem{sep}")
+        );
+    }
 }

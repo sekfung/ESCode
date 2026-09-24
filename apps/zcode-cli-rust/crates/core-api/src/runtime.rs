@@ -19,14 +19,8 @@ pub struct RuntimeEvent {
 /// Stable command/query/event boundary shared by App Server and TUI.
 #[async_trait]
 pub trait SessionRuntime: Send + Sync {
-    async fn dispatch(
-        &self,
-        command: zcode_cli_protocol::Command,
-    ) -> anyhow::Result<CommandAck>;
+    async fn dispatch(&self, command: zcode_cli_protocol::Command) -> anyhow::Result<CommandAck>;
     async fn query(&self, method: &str, params: &Value) -> anyhow::Result<Value>;
-    async fn subscribe(
-        &self,
-        session_id: &str,
-    ) -> anyhow::Result<mpsc::Receiver<RuntimeEvent>>;
+    async fn subscribe(&self, session_id: &str) -> anyhow::Result<mpsc::Receiver<RuntimeEvent>>;
     async fn shutdown(&self) -> anyhow::Result<()>;
 }

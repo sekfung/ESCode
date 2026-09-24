@@ -174,6 +174,9 @@ export async function fixture(
         stdio: ["pipe", "pipe", "pipe"],
         env: {
           ...process.env,
+          // 模型 fixture 在 127.0.0.1；开发机的 HTTP(S)_PROXY 会让 reqwest 把本地请求转给代理而挂起。
+          NO_PROXY: "127.0.0.1,localhost",
+          no_proxy: "127.0.0.1,localhost",
           HOME: root,
           USERPROFILE: root,
           ZCODE_SESSION_DB_PATH: join(root, "ts.sqlite"),
@@ -272,7 +275,21 @@ export class Harness {
       requireStorageStartup: true,
       requestTimeoutMs: 5000,
     });
+    // 与真实 Host（zcodeAgentService 的 onRequest）一致应答运行时偏好；不应答时 Rust 首个 Bash 会等满 15s 超时。
+    this.client.onRequest((request) => {
+      if (request.method !== "session/requestRuntimePreferences") return;
+      this.runtimePreferenceRequests.push(request.params);
+      void this.client.respond(request.id, {
+        nativeSearchEnhancementsEnabled: true,
+        ...(this.integratedTerminalShell
+          ? { integratedTerminalShell: this.integratedTerminalShell }
+          : {}),
+      });
+    });
   }
+  /** 模拟设置页的终端 shell 选择；缺省表示 auto。 */
+  integratedTerminalShell?: Message;
+  readonly runtimePreferenceRequests: unknown[] = [];
   envelope(type: string, sessionId: string | null, payload: Message = {}) {
     return {
       commandId: randomUUID(),

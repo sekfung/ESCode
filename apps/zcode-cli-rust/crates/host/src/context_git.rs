@@ -79,7 +79,7 @@ async fn may_have_git(cwd: &Path, cancel: &CancellationToken) -> bool {
     if std::env::var_os("GIT_DIR").is_some() || std::env::var_os("GIT_WORK_TREE").is_some() {
         return true;
     }
-    let cwd = match tokio::fs::canonicalize(cwd).await {
+    let cwd = match crate::realpath(cwd).await {
         Ok(path) => path,
         Err(_) => return true,
     };
@@ -185,7 +185,9 @@ pub(super) async fn os_release(cwd: &Path, cancel: &CancellationToken) -> String
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "[Environment]::OSVersion.Version.ToString()",
+            // Node os.release() 在 Windows 为 major.minor.build（如 10.0.26100），不含 revision；
+            // Version.ToString() 会多出 ".0"，导致 prompt 与 TS 不一致。
+            "$v=[Environment]::OSVersion.Version; \"$($v.Major).$($v.Minor).$($v.Build)\"",
         ],
         cancel,
     )

@@ -18,6 +18,7 @@ ZCode 是 AI 编程工作台，提供桌面应用、浏览器界面和终端 Age
 ## 更新
 
 - 2026-9-23：更新至 ZCode v3.14.3 版本。
+- Rust runtime 迁移（进行中，默认仍为 Node runtime）：见 [docs/rust-migration.md](docs/rust-migration.md)。
 
 ## 初始化
 

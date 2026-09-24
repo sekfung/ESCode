@@ -88,6 +88,10 @@ impl Engine {
             }
             return self.drain_guide(&id, &turn, committed).await;
         }
+        if let Event::ShellPreference { reply } = event.event {
+            self.request_shell_preference(&id, reply);
+            return Ok(());
+        }
         if let Event::RequestAuth {
             provider,
             selection,
@@ -131,6 +135,7 @@ impl Engine {
             | Event::PromptInitialized { .. }
             | Event::AuxiliaryDone { .. }
             | Event::RequestAuth { .. }
+            | Event::ShellPreference { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
             | Event::CompactDone { .. } => unreachable!(),

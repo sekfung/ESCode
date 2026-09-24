@@ -80,7 +80,7 @@ async fn discover_inner(cwd: &Path, cancel: &CancellationToken) -> Result<SkillC
             for (path, value) in entries {
                 if value["enable"] == false {
                     let path = config::resolve(cwd, path);
-                    if let Ok(real) = tokio::fs::canonicalize(&path).await {
+                    if let Ok(real) = zcode_cli_host::realpath(&path).await {
                         disabled.insert(real);
                     }
                     disabled.insert(path);
@@ -127,7 +127,7 @@ async fn discover_inner(cwd: &Path, cancel: &CancellationToken) -> Result<SkillC
             {
                 continue;
             }
-            if tokio::fs::canonicalize(&path)
+            if zcode_cli_host::realpath(&path)
                 .await
                 .is_ok_and(|p| disabled.contains(&p))
             {

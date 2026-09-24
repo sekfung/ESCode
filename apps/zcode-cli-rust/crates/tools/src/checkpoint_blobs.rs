@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
@@ -10,7 +10,7 @@ pub(super) fn path(root: &Path, hash: &str) -> Result<PathBuf> {
         hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit()),
         "Invalid checkpoint hash"
     );
-    Ok(root.join("checkpoints/blobs").join(hash))
+    Ok(root.join("checkpoints").join("blobs").join(hash))
 }
 pub(super) async fn save(root: &Path, bytes: &[u8]) -> Result<String> {
     let key = hash(bytes);
@@ -54,14 +54,19 @@ pub(super) async fn current(path: &Path) -> Result<Option<Vec<u8>>> {
         "File is not a bounded regular file"
     );
     ensure!(
-        tokio::fs::canonicalize(path).await? == path,
+        zcode_cli_host::realpath(path).await? == path,
         "File parent changed or is a symlink"
     );
     Ok(Some(tokio::fs::read(path).await?))
 }
 pub(super) async fn sync_parent(path: &Path) -> Result<()> {
+    // Windows 不支持对目录句柄 fsync，父目录同步只在 unix 执行；
+    // 显式忽略参数，避免 Windows 上 unused 告警让 clippy -D warnings 失败。
+    #[cfg(not(unix))]
+    let _ = path;
     #[cfg(unix)]
     {
+        use anyhow::Context;
         let parent = path.parent().context("Missing parent")?.to_owned();
         tokio::task::spawn_blocking(move || std::fs::File::open(parent)?.sync_all()).await??;
     }

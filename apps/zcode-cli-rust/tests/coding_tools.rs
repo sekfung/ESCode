@@ -2,6 +2,21 @@ use serde_json::json;
 use tokio_util::sync::CancellationToken;
 use zcode_cli_tools::tools::WorkspaceTools;
 
+/// 测试充当会话 owner：Bash 启动前会请求终端偏好（Event::ShellPreference），
+/// 这里按 Host 未设置（auto）应答，再返回下一个业务事件。
+async fn recv(
+    rx: &mut tokio::sync::mpsc::Receiver<zcode_cli_core_api::RunEvent>,
+) -> Option<zcode_cli_core_api::RunEvent> {
+    loop {
+        let event = rx.recv().await?;
+        if let zcode_cli_core_api::Event::ShellPreference { reply } = event.event {
+            let _ = reply.send(None);
+            continue;
+        }
+        return Some(event);
+    }
+}
+
 #[tokio::test]
 async fn files_are_paged_fresh_and_session_scoped() {
     let root = tempfile::tempdir().unwrap();
@@ -153,7 +168,7 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
                 .await
         })
     };
-    let event = rx.recv().await.unwrap();
+    let event = recv(&mut rx).await.unwrap();
     assert!(!root.path().join("effect").exists());
     match event.event {
         Event::Background { committed, .. } => drop(committed),
@@ -161,7 +176,7 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
     }
     assert!(task.await.unwrap().is_err());
     assert!(!root.path().join("effect").exists());
-    match rx.recv().await.unwrap().event {
+    match recv(&mut rx).await.unwrap().event {
         Event::Background { task, committed } => {
             assert_eq!(task.status, "failed");
             assert!(committed.is_none());
@@ -182,7 +197,7 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
                 .await
         })
     };
-    match rx.recv().await.unwrap().event {
+    match recv(&mut rx).await.unwrap().event {
         Event::Background { committed, .. } => {
             committed.unwrap().send(()).unwrap();
         }
@@ -197,6 +212,9 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
     })
     .await
     .unwrap();
+    // Windows 进程树清理尚未实现（process_tree 仅 unix，WP2），pid 只在 unix 断言中使用；
+    // 显式放行，避免 clippy -D warnings 在 Windows 上阻断整个检查。
+    #[cfg_attr(not(unix), allow(unused_variables))]
     let pid: i32 = tokio::fs::read_to_string(root.path().join("pid"))
         .await
         .unwrap()
@@ -218,7 +236,7 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
     assert_eq!(unsafe { libc::kill(-pid, 0) }, -1);
     #[cfg(unix)]
     assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
-    match rx.recv().await.unwrap().event {
+    match recv(&mut rx).await.unwrap().event {
         Event::Background { task, .. } => assert_eq!(task.status, "cancelled"),
         _ => panic!(),
     }
@@ -253,13 +271,13 @@ async fn cancelled_background_registration_has_terminal_event_without_spawning()
                 .await
         })
     };
-    let (id, receipt) = match rx.recv().await.unwrap().event {
+    let (id, receipt) = match recv(&mut rx).await.unwrap().event {
         Event::Background { task, committed } => (task.id, committed),
         _ => panic!("expected registration"),
     };
     cancel.cancel();
     assert!(running.await.unwrap().is_err());
-    let event = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), recv(&mut rx))
         .await
         .unwrap()
         .unwrap();

@@ -7,7 +7,7 @@ async fn fixture() -> (tempfile::TempDir, Vec<FileCheckpoint>, Arc<Mutex<()>>) {
         .unwrap();
     let after = blobs::save(root.path(), b"changed\r\n").await.unwrap();
     tokio::fs::write(&path, b"changed\r\n").await.unwrap();
-    let path = tokio::fs::canonicalize(path).await.unwrap();
+    let path = zcode_cli_host::realpath(path).await.unwrap();
     (
         root,
         vec![FileCheckpoint {

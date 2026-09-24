@@ -24,7 +24,7 @@ pub(super) fn import(dest: &mut Connection, request: ImportRequest) -> Result<()
     let _lock = super::legacy_attempt::lock(&dir, &cancel)?;
     dest.execute_batch("CREATE TABLE IF NOT EXISTS rust_legacy_import(source TEXT NOT NULL,workspace TEXT NOT NULL,backup TEXT NOT NULL,PRIMARY KEY(source,workspace));")?;
     super::legacy_attempt::recover(dest, &dir, &cancel)?;
-    let source = std::fs::canonicalize(source)?;
+    let source = zcode_cli_host::realpath_sync(source)?;
     let source_id = format!("{:x}", Sha256::digest(source.to_string_lossy().as_bytes()));
     let imported: bool = dest.query_row(
         "SELECT EXISTS(SELECT 1 FROM rust_legacy_import WHERE source=?1 AND workspace=?2)",

@@ -1,5 +1,6 @@
 // Run with node --import tsx. Input schemas are generated from current TS contracts.
 import { readFile, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 import { format } from "oxfmt";
 import { askUserQuestionToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/ask-user-question.ts";
 import { skillToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/skill.ts";
@@ -38,13 +39,15 @@ for (const [file, data] of [
   [
     "agent_memory_templates.json",
     Object.fromEntries(
+      // TS 在 rootDir 后追加宿主平台的 path.sep；生成资产若直接落 sep，会随生成机器变化，
+      // 在 Windows 上 --check 必然漂移。改写成 {sep} 占位，由 Rust 运行时按本机分隔符填充。
       ["user", "project", "local"].map((scope) => [
         scope,
         buildPersistentAgentMemoryPrompt({
           rootDir: "{memoryRoot}",
           indexContent: "{memoryIndex}",
           scope,
-        }),
+        }).replaceAll(`{memoryRoot}${sep}`, "{memoryRoot}{sep}"),
       ]),
     ),
   ],

@@ -13,11 +13,14 @@ mod mcp_hub;
 mod mcp_sse;
 #[cfg(unix)]
 mod process_tree;
+mod shell_select;
 mod tool_files;
 mod tool_process;
 mod tool_search;
 mod tool_shell;
 mod tool_skills;
 pub mod tools;
-use zcode_cli_host::{id, now};
+#[cfg(windows)]
+mod win_job;
 pub use tools::WorkspaceTools;
+use zcode_cli_host::{id, now};

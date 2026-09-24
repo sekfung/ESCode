@@ -67,7 +67,7 @@ impl FileTools<'_> {
         args: &Value,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let path = tokio::fs::canonicalize(path).await?;
+        let path = zcode_cli_host::realpath(path).await?;
         if !tokio::fs::metadata(&path).await?.is_file() {
             bail!("Read requires a regular file");
         }
@@ -171,7 +171,7 @@ impl FileTools<'_> {
         args: &Value,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let path = match tokio::fs::canonicalize(input).await {
+        let path = match zcode_cli_host::realpath(input).await {
             Ok(p) => p,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => input.to_owned(),
             Err(e) => return Err(e.into()),
@@ -283,7 +283,7 @@ impl FileTools<'_> {
             .await?;
         }
         atomic_write(&path, &bytes, original.as_deref(), cancel).await?;
-        let path = tokio::fs::canonicalize(path).await?;
+        let path = zcode_cli_host::realpath(path).await?;
         self.remember(path.clone(), Sha256::digest(&bytes).to_vec(), true)
             .await;
         let (patch, additions, deletions) = patch(&old, &new);

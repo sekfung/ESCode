@@ -7,11 +7,13 @@ fn resolved(p: &Value, cwd: &str, artifacts: &Path) -> Result<String> {
     let original = p["url"].as_str().context("Missing legacy attachment URL")?;
     let artifact = if original.starts_with("zcode-artifact:") {
         let parsed = reqwest::Url::parse(original)?;
+        // 对应 TS decodeURIComponent。原先借 file:/// URL 转路径解码，Windows 上无盘符路径
+        // 转换必然失败（Invalid artifact identity），导入含工具产物的历史整体回滚。
         let decode = |s: &str| -> Result<String> {
-            let bytes = reqwest::Url::parse(&format!("file:///{s}"))?
-                .to_file_path()
-                .map_err(|_| anyhow::anyhow!("Invalid artifact identity"))?;
-            Ok(bytes.to_string_lossy().trim_start_matches('/').to_owned())
+            Ok(percent_encoding::percent_decode_str(s)
+                .decode_utf8()
+                .map_err(|_| anyhow::anyhow!("Invalid artifact identity"))?
+                .into_owned())
         };
         let session = decode(parsed.host_str().context("Missing artifact session")?)?;
         let id = decode(parsed.path().trim_start_matches('/'))?;
@@ -146,13 +148,17 @@ pub(super) fn snapshot_bytes(
     let path = root.join(format!("{:x}", Sha256::digest(bytes)));
     if !path.exists() {
         let temp = root.join(super::id());
-        std::fs::write(&temp, bytes)?;
+        // 用同一个可写句柄写入并落盘：Windows 的 FlushFileBuffers 要求写权限，
+        // 原先以只读 File::open 再 sync_all 在 Windows 上返回 os error 5，整个 TS 导入失败。
+        let mut file = std::fs::File::create_new(&temp)?;
+        std::io::Write::write_all(&mut file, bytes)?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&temp, std::fs::Permissions::from_mode(0o600))?;
         }
-        std::fs::File::open(&temp)?.sync_all()?;
+        file.sync_all()?;
+        drop(file);
         std::fs::rename(temp, &path)?;
         #[cfg(unix)]
         std::fs::File::open(&root)?.sync_all()?;
