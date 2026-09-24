@@ -92,6 +92,8 @@ impl Engine {
             now,
         );
         session.parent_id = Some(parent.into());
+        // TS 会话创建即分配 traceID，session/list 据此关联遥测。
+        session.trace_id = Some(self.clock.id());
         session.task_type = "subagent_child".into();
         session.listed = false;
         session.title = args["description"].as_str().unwrap().into();

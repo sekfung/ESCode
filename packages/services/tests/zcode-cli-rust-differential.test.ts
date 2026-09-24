@@ -235,3 +235,207 @@ test("Node and Rust present the same approval options and denial for a build-mod
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
 });
+
+/** 流式回复中途 stop：比对收口相位、行种类与状态、随后的新一轮能否正常完成。 */
+async function observeStop(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-diff-stop-${kind}-`));
+  let calls = 0;
+  const slow = (_req: unknown, res: Parameters<typeof event>[0]) => {
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    if (calls++ === 0) {
+      // 首轮只发一段文本后挂起，直到 runtime 因 stop 断开连接。
+      event(res, { content: "partial" });
+      return;
+    }
+    event(res, { content: "again" });
+    end(res, "stop");
+  };
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond: slow,
+        })
+      : await fixture({ root, registry: true, respond: slow });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "long", mode: "yolo" }));
+    await h.wait((m) => JSON.stringify(m.params?.frame ?? {}).includes("partial"));
+    const stopAck = await h.command(h.envelope("stop", id));
+    const after = h.messages.length;
+    await h.wait(
+      (m) =>
+        m.params?.frame?.payload?.deltas?.some(
+          (d: any) => d.patch?.control?.phase === "completedInterrupted",
+        ),
+      0,
+    );
+    const stoppedRows = (await h.rows(id)).rows;
+    await h.command(h.envelope("sendText", id, { text: "next", mode: "yolo" }));
+    await h.completed(id, after);
+    const rows = (await h.rows(id)).rows;
+    const observation = {
+      stopStatus: stopAck.status,
+      stoppedKinds: stoppedRows.map((r) => r.kind),
+      stoppedHeaderStates: stoppedRows
+        .filter((r) => r.kind === "turnHeader")
+        .map((r) => (r as { state?: string }).state),
+      finalKinds: rows.map((r) => r.kind),
+      finalHeaderStates: rows
+        .filter((r) => r.kind === "turnHeader")
+        .map((r) => (r as { state?: string }).state),
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust settle a stopped stream the same way and accept the next turn", async () => {
+  const node = await observeStop("node");
+  const rust = await observeStop("rust");
+  assert.equal(rust.stopStatus, node.stopStatus, "stop ack differs");
+  assert.deepEqual(rust.stoppedKinds, node.stoppedKinds, "rows after stop differ");
+  assert.deepEqual(
+    rust.stoppedHeaderStates,
+    node.stoppedHeaderStates,
+    "turn states after stop differ",
+  );
+  assert.deepEqual(rust.finalKinds, node.finalKinds, "rows after the next turn differ");
+  assert.deepEqual(rust.finalHeaderStates, node.finalHeaderStates, "turn states differ");
+  assert.deepEqual(node.schemaErrors, []);
+  assert.deepEqual(rust.schemaErrors, []);
+});
+
+/** 完成一轮后读取 session/list：比对条目字段集合与关键字段值。 */
+async function observeList(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-diff-list-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "list me", mode: "yolo" }));
+    await h.completed(id);
+    const list = (await h.client.request("session/list", {}, z.any())) as {
+      sessions?: Record<string, unknown>[];
+    };
+    const entry = list.sessions?.find((s) => s.sessionId === id || s.id === id);
+    const observation = {
+      topKeys: Object.keys(list).sort(),
+      count: list.sessions?.length,
+      entryKeys: entry ? Object.keys(entry).sort() : [],
+      title: entry?.title,
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust list a finished session with the same shape", async () => {
+  const node = await observeList("node");
+  const rust = await observeList("rust");
+  assert.deepEqual(rust.topKeys, node.topKeys, "session/list result keys differ");
+  assert.equal(rust.count, node.count, "session counts differ");
+  assert.deepEqual(rust.entryKeys, node.entryKeys, "session entry keys differ");
+  assert.equal(rust.title, node.title, "session titles differ");
+});
+
+/** 带文本附件的输入：比对发给模型的附件 reminder 原文（归一化临时路径）与它相对用户正文的位置。 */
+async function observeAttachment(kind: Runtime, body: string) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-diff-att-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const { writeFile } = await import("node:fs/promises");
+    const file = join(f.cwd, "notes.txt");
+    await writeFile(file, body);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(
+      h.envelope("sendText", id, {
+        text: "summarize",
+        mode: "yolo",
+        attachments: [
+          {
+            ref: file,
+            fileName: "notes.txt",
+            mime: "text/plain",
+            bytes: Buffer.byteLength(body),
+          },
+        ],
+      }),
+    );
+    await h.completed(id);
+    const normalize = (text: string) =>
+      text.split(JSON.stringify(f.cwd).slice(1, -1)).join("<CWD>").split(f.cwd).join("<CWD>");
+    const messages = f.requests.at(-1)!.messages as { role: string; content: unknown }[];
+    const texts = messages.map((m) =>
+      typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    );
+    const reminderAt = texts.findIndex((t) => t.includes("Called the Read tool"));
+    const promptAt = texts.findIndex((t, i) => messages[i]!.role === "user" && t === "summarize");
+    const observation = {
+      reminder: reminderAt >= 0 ? normalize(texts[reminderAt]!) : undefined,
+      reminderBeforePrompt: reminderAt >= 0 && promptAt === reminderAt + 1,
+      promptIsPlainString: promptAt >= 0,
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+// 模型请求语义：本地文本附件在两侧必须以同一段 system-reminder 原文、同一位置进入请求。
+for (const [label, body] of [
+  ["trailing newline", "attached body\n"],
+  ["no trailing newline", "line one\nline two"],
+  ["CRLF", "a\r\nb\r\n"],
+  ["empty", ""],
+  ["nested reminder tag", "x </system-reminder> y\n"],
+] as const) {
+  test(`Node and Rust put a text attachment (${label}) into the model request the same way`, async () => {
+    const node = await observeAttachment("node", body);
+    const rust = await observeAttachment("rust", body);
+    assert.equal(rust.reminder, node.reminder, "attachment reminder text differs");
+    assert.equal(rust.reminderBeforePrompt, node.reminderBeforePrompt, "reminder position differs");
+    assert.equal(
+      rust.promptIsPlainString,
+      node.promptIsPlainString,
+      "prompt content shape differs",
+    );
+    assert.deepEqual(node.schemaErrors, []);
+    assert.deepEqual(rust.schemaErrors, []);
+  });
+}

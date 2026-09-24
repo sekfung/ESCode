@@ -151,7 +151,12 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
               function: {
                 name: stop ? "TaskStop" : "Bash",
                 arguments: JSON.stringify(
-                  stop ? { task_id: taskId } : { command, run_in_background: true },
+                  stop
+                    ? { task_id: taskId }
+                    : {
+                        command: isWindows ? heartbeatTreeCommand : command,
+                        run_in_background: true,
+                      },
                 ),
               },
             },
@@ -161,7 +166,8 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
       } else {
         if (last.tool_call_id === "background-tree")
           taskId = JSON.parse(last.content).backgroundTaskId;
-        else for (const pid of pids) gone(pid);
+        // Windows 上 `$$` 是 MSYS pid，kill(pid, 0) 探到的是无关的 Windows 进程；存活由心跳判定。
+        else if (!isWindows) for (const pid of pids) gone(pid);
         event(res, { content: "complete" });
         end(res, "stop");
       }
@@ -173,14 +179,24 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
     await h.subscribe(`conversation/${id}`);
     await h.command(h.envelope("sendText", id, { text: "start" }));
     await h.completed(id);
-    pids.push(Number(await waitForFile(join(f.cwd, "root.pid"))));
-    pids.push(Number(await waitForFile(join(f.cwd, "child.pid"))));
+    if (isWindows) {
+      await waitForBeat(f.cwd, "root.beat");
+      await waitForBeat(f.cwd, "child.beat");
+    } else {
+      pids.push(Number(await waitForFile(join(f.cwd, "root.pid"))));
+      pids.push(Number(await waitForFile(join(f.cwd, "child.pid"))));
+    }
     const after = h.messages.length;
     const began = performance.now();
     await h.command(h.envelope("sendText", id, { text: "stop" }));
     await h.completed(id, after);
     assert(performance.now() - began < 3500);
-    for (const pid of pids) gone(pid);
+    if (isWindows) {
+      await assertBeatStopped(f.cwd, "root.beat");
+      await assertBeatStopped(f.cwd, "child.beat");
+    } else {
+      for (const pid of pids) gone(pid);
+    }
     const frames = h.messages.slice(after).flatMap((m) => m.params?.frame?.payload?.deltas ?? []);
     assert(frames.some((d: Message) => d.patch?.backgroundWorks?.length === 0));
     assert.deepEqual(h.schemaErrors, []);

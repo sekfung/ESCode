@@ -29,6 +29,8 @@ impl Engine {
         );
         session.workspace_path = Some(self.workspace_path.clone());
         session.workspace_directory = Some(self.workspace_path.clone());
+        // 修复：原先只有 shared context 会话带 traceId；TS 会话创建即分配 traceID（session/list 可见）。
+        session.trace_id = Some(self.clock.id());
         if let Some(mode) = c.payload["config"]["followupMode"].as_str() {
             session.followup_mode = mode.into();
         }
