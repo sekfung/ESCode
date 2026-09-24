@@ -27,3 +27,31 @@ reqwest 默认读取 `HTTP(S)_PROXY`，开发机设置代理且无 `NO_PROXY` �
 - `pnpm check:zcode-cli-rust`：通过（boundaries、fmt、clippy `-D warnings`）。
 - `pnpm test:zcode-cli-rust`：192 个 App 集成用例，173 通过、18 跳过（多为 `skip: win32`，待逐个评估）、1 失败。
 - 未解决：`zcode-cli-rust-registry.test.ts` 的 provider 配置热更新用例只在全量并发运行时偶发超时（单独运行 5/5、整文件 3/3 通过），疑似负载下的配置刷新时序问题，需定位根因，不以加长超时处理。
+
+## 无 MSVC 时的可运行验证路径
+
+本机 2026-09-24 缺 MSVC/SDK（`VC\Tools\MSVC`、`Windows Kits\10\Lib` 均不在），`link.exe` 不可用；
+而 rustup 装了 `stable-x86_64-pc-windows-gnu`，MSYS2 提供 mingw64 的 gcc/ld，因此可以：
+
+```
+PATH=/c/msys64/mingw64/bin:$PATH cargo +stable-x86_64-pc-windows-gnu build --locked --offline --target x86_64-pc-windows-gnu
+cp target/x86_64-pc-windows-gnu/debug/zcode-cli-rust.exe target/debug/zcode-cli-rust.exe
+```
+
+`packages/services/tests/zcode-cli-rust-fixture.ts` 固定读取 `target/debug/zcode-cli-rust.exe`，替换后即可跑 App 集成套件。
+
+注意：这是 GNU 目标产物，与发行用的 MSVC 目标不同（CRT 与部分平台行为有差异）。用它得出的是**源码级**结论，
+不能替代 MSVC 构建的发布验收；MSVC 环境恢复后必须重跑并以此为准。
+
+## 性能：prompt 快照不再启动 PowerShell
+
+`os_release` 原先在 Windows 上 spawn `powershell.exe` 取版本号。本机一次 PowerShell 启动约 1.5s，
+而这段位于 prompt 快照的关键路径，导致**首个模型请求延迟约 1.83s**（实测三次 1830/1827/1830 ms），
+并使「1s 内发出首个请求」的用例必然超时。
+
+改为读注册表 `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` 的
+`CurrentMajorVersionNumber` / `CurrentMinorVersionNumber` / `CurrentBuildNumber`，
+输出仍是 Node `os.release()` 的 `major.minor.build`（如 `10.0.26100`）。
+
+实测：首个请求 1830ms → **35ms**（36/34 ms）；provider 的 stop 用例由必然失败变为 515ms 通过；
+prompt 用例（含 `OS Version: win32 10.0.26100 x64`）保持通过。

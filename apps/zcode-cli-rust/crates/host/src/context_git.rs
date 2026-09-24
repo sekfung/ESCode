@@ -175,22 +175,86 @@ async fn main_branch(cwd: &Path, cancel: &CancellationToken) -> String {
     "main".into()
 }
 pub(super) async fn os_release(cwd: &Path, cancel: &CancellationToken) -> String {
-    #[cfg(not(windows))]
-    let result = command(cwd, "uname", &["-r"], cancel).await;
     #[cfg(windows)]
-    let result = command(
-        cwd,
-        "powershell.exe",
-        &[
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            // Node os.release() 在 Windows 为 major.minor.build（如 10.0.26100），不含 revision；
-            // Version.ToString() 会多出 ".0"，导致 prompt 与 TS 不一致。
-            "$v=[Environment]::OSVersion.Version; \"$($v.Major).$($v.Minor).$($v.Build)\"",
-        ],
-        cancel,
-    )
-    .await;
-    result.unwrap_or_else(|| "unknown".into())
+    {
+        // Windows 不 spawn 子进程，参数只为与 POSIX 分支保持同一签名。
+        let _ = (cwd, cancel);
+        windows_os_release().unwrap_or_else(|| "unknown".into())
+    }
+    #[cfg(not(windows))]
+    {
+        command(cwd, "uname", &["-r"], cancel)
+            .await
+            .unwrap_or_else(|| "unknown".into())
+    }
+}
+
+/// 与 Node `os.release()` 一致：major.minor.build（如 10.0.26100）。
+/// 读注册表而不是启动 PowerShell：本机一次 PowerShell 启动约 1.5s，而这段在 prompt 快照的关键路径上，
+/// 会让首个模型请求延迟到秒级（也让依赖「1s 内发出请求」的用例必然超时）。
+#[cfg(windows)]
+fn windows_os_release() -> Option<String> {
+    use windows_sys::Win32::System::Registry::{
+        HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RRF_RT_REG_SZ, RegGetValueW,
+    };
+    const SUBKEY: &str = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+    fn wide(text: &str) -> Vec<u16> {
+        text.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+    let read_dword = |name: &str| -> Option<u32> {
+        let (subkey, value) = (wide(SUBKEY), wide(name));
+        let mut data = 0u32;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                subkey.as_ptr(),
+                value.as_ptr(),
+                RRF_RT_REG_DWORD,
+                std::ptr::null_mut(),
+                (&raw mut data).cast(),
+                &mut size,
+            )
+        };
+        (status == 0).then_some(data)
+    };
+    let read_string = |name: &str| -> Option<String> {
+        let (subkey, value) = (wide(SUBKEY), wide(name));
+        let mut size = 0u32;
+        let probe = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                subkey.as_ptr(),
+                value.as_ptr(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut size,
+            )
+        };
+        if probe != 0 || size == 0 {
+            return None;
+        }
+        let mut buffer = vec![0u16; size.div_ceil(2) as usize];
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                subkey.as_ptr(),
+                value.as_ptr(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                buffer.as_mut_ptr().cast(),
+                &mut size,
+            )
+        };
+        if status != 0 {
+            return None;
+        }
+        let end = buffer.iter().position(|c| *c == 0).unwrap_or(buffer.len());
+        String::from_utf16(&buffer[..end]).ok()
+    };
+    let major = read_dword("CurrentMajorVersionNumber")?;
+    let minor = read_dword("CurrentMinorVersionNumber")?;
+    let build = read_string("CurrentBuildNumber")?;
+    (!build.is_empty()).then(|| format!("{major}.{minor}.{build}"))
 }

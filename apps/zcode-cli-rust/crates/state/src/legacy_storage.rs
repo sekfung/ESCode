@@ -35,7 +35,10 @@ pub(super) fn import(dest: &mut Connection, request: ImportRequest) -> Result<()
         return super::legacy_todos::backfill(dest, &source_id, &workspace, &cancel);
     }
     let conn = Connection::open_with_flags(&source, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    conn.busy_timeout(std::time::Duration::from_millis(20))?;
+    // 原先 20ms：同一 workspace 目录下两个 runtime 同时启动导入时，SQLite 建立/读取 WAL 需要短暂独占，
+    // 20ms 内拿不到就报 "database is locked"，整个导入回滚并报「source remains unchanged」。
+    // 与状态库一致放宽到 5s，让瞬时竞争等待而不是失败。
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
     let has_sequence: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM pragma_table_info('message') WHERE name='sequence')",
         [],
