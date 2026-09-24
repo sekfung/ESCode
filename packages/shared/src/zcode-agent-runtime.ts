@@ -17,6 +17,12 @@ export interface ZCodeAgentRuntimeDescriptor {
    */
   nodeBundleEntryFile: string;
   resolveNodeBundleSegments(): string[];
+  /**
+   * Rust runtime（apps/zcode-cli-rust）的原生二进制名，与 Node bundle 同放 glm 资源目录。
+   * 仅在 ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust 时被选用，默认 runtime 仍是 Node。
+   */
+  rustBinaryName: string;
+  resolveRustBinarySegments(platform: string): string[];
 }
 
 export function resolvePlatformBinaryName(binaryName: string, platform: string): string {
@@ -37,6 +43,10 @@ export const ZCODE_AGENT_RUNTIME: ZCodeAgentRuntimeDescriptor = {
   nodeBundleEntryFile: "zcode.cjs",
   resolveNodeBundleSegments() {
     return [this.nodeBundleEntryFile];
+  },
+  rustBinaryName: "zcode-cli-rust",
+  resolveRustBinarySegments(platform) {
+    return [resolvePlatformBinaryName(this.rustBinaryName, platform)];
   },
 };
 

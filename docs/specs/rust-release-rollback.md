@@ -6,13 +6,13 @@
 
 App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-agent/zcodeAgentProcessManager.ts`）：
 
-| 变量                           | 作用                                                                                                                               |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `ZCODE_AGENT_SERVER_COMMAND`   | Agent 可执行文件；指向 Rust 二进制即启用 Rust runtime                                                                              |
-| `ZCODE_AGENT_SERVER_RUNTIME`   | 仅接受 `zcode-cli-rust`；设它才会附加 `--cwd <workspacePath>`、`storagePreparationMode: "process"`、`supportsStorageStartup: true` |
-| `ZCODE_AGENT_SERVER_ARGS_JSON` | 附加参数；Rust 模式下不允许自带 `--cwd`（Host 注入）                                                                               |
+| 变量                           | 作用                                                                                                                                                                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZCODE_AGENT_SERVER_COMMAND`   | Agent 可执行文件；指向 Rust 二进制即启用 Rust runtime                                                                                                                                                                                  |
+| `ZCODE_AGENT_SERVER_RUNTIME`   | `zcode-cli-rust`：有 `ZCODE_AGENT_SERVER_COMMAND` 时用该命令，否则用随包 `resources/glm/zcode-cli-rust[.exe]`（缺失则回退 Node 并告警）；均附加 `--cwd <workspacePath>` 与 process 存储握手。`node`：显式使用 Node（回退）。其他值报错 |
+| `ZCODE_AGENT_SERVER_ARGS_JSON` | 附加参数；Rust 模式下不允许自带 `--cwd`（Host 注入）                                                                                                                                                                                   |
 
-未设置这些变量时，Host 启动随包分发的 Node CLI——这就是回退路径。
+未设置这些变量（或设为 `node`）时，Host 启动随包分发的 Node CLI——这就是回退路径。随包 Rust 二进制由 `ZCODE_BUNDLE_RUST_AGENT=1` 的打包流程产出（见 rust-packaging.md），默认不随包。
 
 ## 回退步骤（可执行）
 

@@ -25,6 +25,7 @@ import {
 import {
   findZCodeAgentRuntimeBinary,
   findZCodeAgentRuntimeNodeBundle,
+  findZCodeAgentRustBinary,
 } from "../runtime-tools/providerRuntimeResolver.js";
 import { isEffectiveDevelopmentNodeEnv } from "#src/runtime-tools/nodeEnv.js";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
@@ -437,38 +438,60 @@ function resolveElectronRuntimeZCodeAgentCommand(
   };
 }
 
+/** Rust runtime 的启动参数：Host 注入原始 workspacePath（OS cwd 会 realpath 化，丢失本地 identity fallback）。 */
+function rustRuntimeArgs(args: string[], workspacePath: string): string[] {
+  if (args.some((arg) => arg === "--cwd" || arg.startsWith("--cwd=")))
+    throw new Error(
+      "zcode-cli-rust --cwd is supplied by the Host; remove it from ZCODE_AGENT_SERVER_ARGS_JSON",
+    );
+  return [...args, "--cwd", workspacePath];
+}
+
+export interface ZCodeAgentCommandResolverDeps {
+  findRustBinary(): string | null;
+}
+
 export function resolveDefaultZCodeAgentCommand(
   context: ZCodeAgentCommandResolverContext,
+  deps: ZCodeAgentCommandResolverDeps = { findRustBinary: () => findZCodeAgentRustBinary() },
 ): ZCodeAgentCommand | null {
+  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：node 为默认，zcode-cli-rust 为显式选择。
+  const runtime = process.env.ZCODE_AGENT_SERVER_RUNTIME?.trim() || undefined;
+  if (runtime && runtime !== "zcode-cli-rust" && runtime !== "node") {
+    throw new Error("Unsupported ZCODE_AGENT_SERVER_RUNTIME");
+  }
+  const rust = runtime === "zcode-cli-rust";
+  const baseArgs = parseArgsJson(process.env.ZCODE_AGENT_SERVER_ARGS_JSON) ?? [
+    "app-server",
+    "--stdio",
+  ];
+  const rustCommand = (command: string, cwd: string): ZCodeAgentCommand => ({
+    command,
+    storagePreparationMode: "process",
+    supportsStorageStartup: true,
+    args: rustRuntimeArgs(baseArgs, context.workspacePath),
+    cwd,
+  });
   const command = process.env.ZCODE_AGENT_SERVER_COMMAND?.trim();
   if (command) {
-    const runtime = process.env.ZCODE_AGENT_SERVER_RUNTIME?.trim();
-    if (runtime && runtime !== "zcode-cli-rust") {
-      throw new Error("Unsupported ZCODE_AGENT_SERVER_RUNTIME");
-    }
-    const args = parseArgsJson(process.env.ZCODE_AGENT_SERVER_ARGS_JSON) ?? [
-      "app-server",
-      "--stdio",
-    ];
-    if (runtime === "zcode-cli-rust") {
-      if (args.some((arg) => arg === "--cwd" || arg.startsWith("--cwd=")))
-        throw new Error(
-          "zcode-cli-rust --cwd is supplied by the Host; remove it from ZCODE_AGENT_SERVER_ARGS_JSON",
-        );
-      // OS cwd 会 realpath 化；显式传 Host 原始 workspacePath 才能保留本地 identity fallback。
-      args.push("--cwd", context.workspacePath);
-    }
+    const cwd = process.env.ZCODE_AGENT_SERVER_CWD?.trim() || context.workspacePath;
     return applyPresentationSurfaceToCommand(
-      {
-        command,
-        ...(runtime === "zcode-cli-rust"
-          ? { storagePreparationMode: "process" as const, supportsStorageStartup: true }
-          : {}),
-        args,
-        cwd: process.env.ZCODE_AGENT_SERVER_CWD?.trim() || context.workspacePath,
-      },
+      rust ? rustCommand(command, cwd) : { command, args: baseArgs, cwd },
       context.presentationSurface,
     );
+  }
+  if (rust) {
+    const binary = deps.findRustBinary();
+    if (binary) {
+      return applyPresentationSurfaceToCommand(
+        rustCommand(binary, context.workspacePath),
+        context.presentationSurface,
+      );
+    }
+    // 显式选了 Rust 但安装包没有随包二进制：回退 Node 保证可用，同时留下可诊断的记录。
+    warnLog("zcode-cli-rust runtime selected but no bundled binary was found; using Node", {
+      event: "zcode_agent.runtime.rust_binary_missing",
+    });
   }
 
   // 顺序：env 显式覆盖 → monorepo dev 源码/dist（dev 改源码立刻生效，不会被远端历史装的 native binary

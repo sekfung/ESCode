@@ -95,3 +95,24 @@ export function findZCodeAgentRuntimeNodeBundle(): string | null {
   ];
   return resolveExistingPath(candidates);
 }
+
+/**
+ * 查找随包的 Rust runtime 二进制（resources/glm/zcode-cli-rust[.exe]）。
+ * 候选目录与 Node bundle 完全平行；只在显式选择 zcode-cli-rust runtime 时使用（docs/specs/rust-packaging.md）。
+ */
+export function findZCodeAgentRustBinary(platform: string = process.platform): string | null {
+  const runtime = ZCODE_AGENT_RUNTIME;
+  const entrySegments = runtime.resolveRustBinarySegments(platform);
+  const resourceSegments = [runtime.bundledResourceDir, ...entrySegments];
+  const moduleDir: string | undefined = import.meta.dirname;
+  const platformScopedRoots = resolvePlatformScopedBundledAgentRoots(moduleDir);
+  const legacyRoots = resolveLegacyBundledResourceRoots(moduleDir);
+  return resolveExistingPath([
+    packagedResourcesPath ? resolvePath(packagedResourcesPath, ...resourceSegments) : null,
+    resolvePath(homedir(), ".zcode", "server", "agents", ...resourceSegments),
+    ...platformScopedRoots.map((root) =>
+      root ? resolvePath(root, runtime.bundledResourceDir, ...entrySegments) : null,
+    ),
+    ...legacyRoots.map((root) => (root ? resolvePath(root, ...resourceSegments) : null)),
+  ]);
+}
