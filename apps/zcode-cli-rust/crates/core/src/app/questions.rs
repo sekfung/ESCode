@@ -103,6 +103,7 @@ impl Engine {
                 .as_str()
                 .context("Permission option required")?;
             let feedback = c.payload["answer"]["freeText"].as_str();
+            let waiting_parent = self.sessions[id].parent_id.clone();
             let outcome = match option {
                 "allowOnce" | "allowSession" => crate::contract::PermissionOutcome::allow(),
                 "allowAlways" => {
@@ -115,6 +116,18 @@ impl Engine {
                             crate::domain::permission_options::denied_content(None),
                         )
                     }
+                }
+                // 完全访问：会话与已接纳的排队输入一起切到 yolo，再放行本次调用（TS
+                // commitPermissionFullAccess）。模式变更随下方 commit_interaction 与 ACK 同一次提交。
+                super::permission_flow::FULL_ACCESS_OPTION_ID if waiting_parent.is_none() => {
+                    let s = self.sessions.get_mut(id).unwrap();
+                    s.mode = "yolo".into();
+                    for item in s.queue.iter_mut() {
+                        if item.get("mode").is_some_and(|m| !m.is_null()) {
+                            item["mode"] = "yolo".into();
+                        }
+                    }
+                    crate::contract::PermissionOutcome::allow()
                 }
                 "deny" => crate::contract::PermissionOutcome::deny(
                     crate::domain::permission_options::denied_content(feedback),
@@ -129,7 +142,13 @@ impl Engine {
                 .iter_mut()
                 .find(|r| r["toolCallId"] == call_id.as_str())
             {
-                row["status"] = "running".into();
+                // TS settlePermission：拒绝立即收口为 cancelled，其余回到 running。
+                row["status"] = if outcome.allowed {
+                    "running"
+                } else {
+                    "cancelled"
+                }
+                .into();
                 row.as_object_mut().unwrap().remove("approvalInteractionId");
             }
             self.activate_question_head(id);
@@ -190,7 +209,7 @@ impl Engine {
         row["output"] = json!({"text":answer.content});
         row["endedAt"] = self.clock.now().into();
         if answer.failed {
-            row["error"] = json!({"code":"fault.tool.failed","message":answer.content});
+            row["error"] = json!({"code":"tool_execution_failed","message":answer.content});
         }
         row.as_object_mut().unwrap().remove("approvalInteractionId");
         let deltas = vec![json!({"op":"row.upserted","row":row})];

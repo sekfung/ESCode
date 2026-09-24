@@ -30,7 +30,7 @@ function respond(request: any, response: any) {
 }
 
 test("MCP stdio discovery and execution use session isolation, explicit workspace reuse and status-only observation", async () => {
-  const f = await fixture({ respond });
+  const f = await fixture({ mode: "yolo", respond });
   try {
     const server = await stdioServer(f.root);
     const h = f.start();
@@ -75,7 +75,7 @@ test("MCP stdio discovery and execution use session isolation, explicit workspac
 
 for (const transport of ["http", "sse"] as const)
   test(`MCP ${transport} uses configured headers and carries tool results into the next model request`, async () => {
-    const f = await fixture({ respond });
+    const f = await fixture({ mode: "yolo", respond });
     const server = await httpServer(transport);
     try {
       const h = f.start();
@@ -102,7 +102,7 @@ for (const transport of ["http", "sse"] as const)
   });
 
 test("MCP handshake does not block the actor; stop cancels discovery and reaps the server before finishing", async () => {
-  const f = await fixture({ respond });
+  const f = await fixture({ mode: "yolo", respond });
   try {
     const server = await stdioServer(f.root, "slow-connect");
     const h = f.start();
@@ -134,7 +134,7 @@ test("MCP handshake does not block the actor; stop cancels discovery and reaps t
 });
 
 test("MCP cancellation after dispatch does not replay the tool and waits for process cleanup", async () => {
-  const f = await fixture({ respond });
+  const f = await fixture({ mode: "yolo", respond });
   try {
     const server = await stdioServer(f.root, "slow-call");
     const h = f.start();
@@ -170,7 +170,7 @@ test("MCP cancellation after dispatch does not replay the tool and waits for pro
 });
 
 test("MCP status classifies unsupported authentication without exposing credentials or connecting", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const result = await listMcp(h, f.cwd, [
@@ -195,6 +195,7 @@ test("Invalid persisted MCP configuration reports config_invalid without blockin
   const { mkdir, writeFile } = await import("node:fs/promises");
   const { join } = await import("node:path");
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       event(res, { content: "normal model remains available" });

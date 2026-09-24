@@ -39,6 +39,7 @@ test("Rust guide continues text-only steps in the same turn, bypasses future que
   const gate = Promise.withResolvers<void>();
   const started = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res, n) {
       if (n === 1) {
         started.resolve();
@@ -102,6 +103,7 @@ test("Rust guide waits for all tool results including failures before continuing
   const gate = Promise.withResolvers<void>();
   const started = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res, n) {
       if (n > 1) {
         response(res);
@@ -168,6 +170,7 @@ test("Rust startNow cancels streaming, retains prior output and preserves the or
   const first = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res, n) {
       if (n !== 1) {
         response(res, `answer-${n}`);
@@ -218,6 +221,7 @@ test("Rust startNow cancels streaming, retains prior output and preserves the or
 test("Rust startNow waits for foreground Shell cancellation before the next request", async () => {
   let workdir = "";
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res, n) {
       if (n > 1) {
         const pid = Number((await readFile(join(workdir, "shell.pid"), "utf8")).trim());
@@ -268,6 +272,7 @@ test("Rust followup mode persists, guide attachments fall back and stopped guide
   const started = Promise.withResolvers<void>();
   const gate = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res) {
       started.resolve();
       await gate.promise;
@@ -330,6 +335,7 @@ test("Rust guide freezes model selection until its durable continuation boundary
   const gate = Promise.withResolvers<void>();
   const started = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     registry: true,
     async respond(_req, res, n) {
       if (n === 1) {
@@ -385,6 +391,7 @@ test("Rust failed model request falls pending guides back without consuming or l
   const gate = Promise.withResolvers<void>();
   const started = Promise.withResolvers<void>();
   const f = await fixture({
+    mode: "yolo",
     async respond(_req, res) {
       started.resolve();
       await gate.promise;

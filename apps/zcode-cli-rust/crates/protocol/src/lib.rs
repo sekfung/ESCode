@@ -10,7 +10,8 @@ pub fn simplify_verbatim(path: &str) -> Option<String> {
     }
     let rest = path.strip_prefix(r"\\?\")?;
     let bytes = rest.as_bytes();
-    (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':').then(|| rest.to_owned())
+    (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+        .then(|| rest.to_owned())
 }
 
 #[cfg(test)]

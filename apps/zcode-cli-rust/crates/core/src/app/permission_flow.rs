@@ -4,7 +4,7 @@ use super::Engine;
 use crate::contract::PermissionOutcome;
 use crate::domain::permission::Rule;
 use crate::domain::permission::{Capability, Context as PermissionContext, Mode, Ruleset, check};
-use crate::domain::permission_options::{default_updates, denied_content, options};
+use crate::domain::permission_options::{ask_reason, default_updates, denied_content, options};
 use anyhow::Result;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
@@ -65,7 +65,8 @@ impl Engine {
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {
-                self.register_permission(id, run, turn, call, &tool, &input, reply)
+                let reason = ask_reason(decision.rule_id, &tool);
+                self.register_permission(id, run, turn, call, &tool, &input, reason, reply)
                     .await
             }
         }
@@ -80,6 +81,7 @@ impl Engine {
         call: &Value,
         tool: &str,
         input: &Value,
+        reason: String,
         reply: oneshot::Sender<PermissionOutcome>,
     ) -> Result<()> {
         if reply.is_closed() {
@@ -103,20 +105,26 @@ impl Engine {
             row["status"] = "pendingApproval".into();
             row["approvalInteractionId"] = interaction.clone().into();
         }
+        let mut payload = json!({
+            "kind": "permission",
+            "toolCallId": call["id"],
+            "toolName": tool,
+            // 与 TS 一致：summary 是判定原因（原先是自拟的 "Allow {tool}?"）。
+            "summary": reason,
+            "detail": input,
+            "freeText": true,
+            "options": options_with_persistence(&suggested, persistent),
+        });
+        // TS 仅对主会话的确认提供「完全访问」（子代理来源的确认不带该选项）。
+        if s.parent_id.is_none() {
+            payload["fullAccessOption"] = full_access_option();
+        }
         s.pending.push(json!({
             "interactionId": interaction,
             "kind": "permission",
             "anchorRowId": s.rows.iter().find(|r| r["toolCallId"] == call["id"]).map(|r| r["rowId"].clone()).unwrap_or(Value::Null),
             "createdAt": now,
-            "payload": {
-                "kind": "permission",
-                "toolCallId": call["id"],
-                "toolName": tool,
-                "summary": format!("Allow {tool}?"),
-                "detail": input,
-                "freeText": true,
-                "options": options_with_persistence(&suggested, persistent),
-            }
+            "payload": payload,
         }));
         s.revision += 1;
         s.updated_at = now;
@@ -143,6 +151,18 @@ impl Engine {
         self.persist(id, None).await
     }
 }
+
+/// 形状与 TS product-projection 一致；response 是旧客户端的兼容兜底，真正语义由 optionId 决定。
+fn full_access_option() -> Value {
+    json!({
+        "optionId": FULL_ACCESS_OPTION_ID,
+        "label": "Full access",
+        "kind": "custom",
+        "response": {"decision": "deny", "reason": "Full access requires V4 approval"},
+    })
+}
+
+pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
 
 fn options_with_persistence(suggested: &[Rule], persistent: bool) -> Vec<Value> {
     let mut list = options(suggested, !persistent);

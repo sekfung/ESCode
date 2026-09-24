@@ -35,7 +35,14 @@ fn build_init_agents_prompt(args: &str, working_directory: &Path) -> String {
     let additional = if args.is_empty() {
         String::new()
     } else {
-        ["", "Additional user instructions supplied with /init:", "```text", args, "```"].join("\n")
+        [
+            "",
+            "Additional user instructions supplied with /init:",
+            "```text",
+            args,
+            "```",
+        ]
+        .join("\n")
     };
     [
         "You are running ZCode's built-in /init command.".into(),

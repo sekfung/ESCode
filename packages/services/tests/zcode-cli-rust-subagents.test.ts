@@ -37,6 +37,7 @@ function listing(h: Harness, sid: string) {
 test("Agent creates isolated real child sessions, runs foreground siblings concurrently and commits results in call order", async () => {
   const children: any[] = [];
   const f = await fixture({
+    mode: "yolo",
     respond(request, response) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = request.messages.at(-1);
@@ -181,6 +182,7 @@ test("Agent creates isolated real child sessions, runs foreground siblings concu
 test("Subagent profile constrains dispatched tools and maxTurns, and foreign sessions cannot address it", async () => {
   let agentId = "";
   const f = await fixture({
+    mode: "yolo",
     respond(request, response) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = request.messages.at(-1);
@@ -258,6 +260,7 @@ test("Subagent profile constrains dispatched tools and maxTurns, and foreign ses
 
 test("Stopping the parent waits for its foreground child Shell to exit and cold history marks the child cancelled", async () => {
   const f = await fixture({
+    mode: "yolo",
     respond(request, response) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = request.messages.at(-1);
@@ -310,6 +313,7 @@ test("Background Agent completion is delivered through the parent continuation a
   let agentId = "";
   let resumed = false;
   const f = await fixture({
+    mode: "yolo",
     respond(request, response) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = request.messages.at(-1);
@@ -402,6 +406,7 @@ test("Custom child inherits one live MCP connection and preloads only its declar
   const { stdioServer } = await import("./zcode-cli-rust-mcp-fixture.js");
   const { readFile } = await import("node:fs/promises");
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       const last = req.messages.at(-1);
@@ -469,6 +474,7 @@ test("Parent file rewind includes its owned child write checkpoint", async () =>
   const { v4ConversationFileRewindPreviewResultSchema } =
     await import("@zcode/shared/zcode-protocol-v4");
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       const last = req.messages.at(-1);

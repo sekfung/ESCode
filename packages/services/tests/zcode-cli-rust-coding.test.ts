@@ -35,6 +35,7 @@ test("Rust coding path searches, reads, edits and runs a background test through
   let step = 0;
   let taskId = "";
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = req.messages.at(-1);
@@ -104,6 +105,7 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
   let outputFile = "";
   let output: any;
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = req.messages.at(-1);
@@ -179,6 +181,7 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
 });
 
 test("Rust old native build sessions without a mode require approval before writing after cold recovery", async () => {
+  // 不设 harness 默认模式：本用例验证的正是「未指定 mode」时 runtime 自己的回落。
   const f = await fixture();
   try {
     const h = f.start();
@@ -237,6 +240,7 @@ test("Rust old native build sessions without a mode require approval before writ
 
 test("Rust EOF reaps background tasks and persists terminal state for cold history", async () => {
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       if (req.messages.at(-1).role !== "tool")

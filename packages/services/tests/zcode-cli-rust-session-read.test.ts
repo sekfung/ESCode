@@ -4,7 +4,7 @@ import { zcodeSessionStateSnapshotSchema } from "@zcode/shared";
 import { fixture } from "./zcode-cli-rust-fixture.js";
 
 test("Host session/read projects tools and visible content without changing delivery, executing or losing cold history", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();

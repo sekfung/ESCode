@@ -26,6 +26,7 @@ async function failed(h: Harness) {
 
 test("Rust retries rate limits with identical bytes, reuses HTTP connections and exposes App retry state", async () => {
   const f = await fixture({
+    mode: "yolo",
     config: { retry },
     respond(_req, res, attempt) {
       if (attempt === 1) {
@@ -67,6 +68,7 @@ test("Rust classifies terminal business errors ahead of generic HTTP retries", a
     [401, "unknown", "provider_not_configured"],
   ] as const) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry },
       respond(_req, res) {
         res.writeHead(status, { "Content-Type": "application/json" });
@@ -95,6 +97,7 @@ test("Rust classifies terminal business errors ahead of generic HTTP retries", a
 test("Rust retries incomplete tool prelude, but never replays committed text or reasoning", async () => {
   for (const kind of ["prelude", "content", "reasoning_content"] as const) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry },
       async respond(_req, res, attempt) {
         res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -143,6 +146,7 @@ test("Rust retries incomplete tool prelude, but never replays committed text or 
 test("Rust empty completion retry is capped and usage-only completion is accepted", async () => {
   for (const usage of [false, true]) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry },
       respond(_req, res) {
         res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -167,6 +171,7 @@ test("Rust empty completion retry is capped and usage-only completion is accepte
 
 test("Rust preserves reasoning and tool order across the next request and cold history", async () => {
   const f = await fixture({
+    mode: "yolo",
     config: { retry },
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -220,6 +225,7 @@ test("Rust preserves reasoning and tool order across the next request and cold h
 test("Rust stop cancels header wait, idle stream and long Retry-After immediately", async () => {
   for (const mode of ["headers", "idle", "backoff"] as const) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry, streamIdleTimeoutMs: 1000 },
       respond(_req, res) {
         if (mode === "backoff") {
@@ -259,6 +265,7 @@ test("Rust stop cancels header wait, idle stream and long Retry-After immediatel
 test("Rust idle timeout and explicit total timeout recover before output", async () => {
   for (const config of [{ streamIdleTimeoutMs: 40 }, { requestTimeoutSeconds: 1 }]) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry, ...config },
       respond(_req, res, attempt) {
         res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -290,6 +297,7 @@ test("Rust flushes coalesced text while provider is idle and preserves mixed rea
   let finish: (() => void) | undefined;
   let ended = false;
   const f = await fixture({
+    mode: "yolo",
     config: { retry },
     async respond(_req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -328,6 +336,7 @@ test("Rust flushes coalesced text while provider is idle and preserves mixed rea
 test("Rust rejects duplicate and unfinished tool calls without executing them", async () => {
   for (const invalid of ["duplicate", "missing-name", "bad-json", "length"] as const) {
     const f = await fixture({
+      mode: "yolo",
       config: { retry },
       respond(_req, res) {
         res.writeHead(200, { "Content-Type": "text/event-stream" });

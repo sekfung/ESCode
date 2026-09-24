@@ -12,7 +12,8 @@ impl TempDir {
     fn new(tag: &str) -> Self {
         static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("zcode-git-safety-{tag}-{}-{n}", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("zcode-git-safety-{tag}-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
@@ -91,5 +92,9 @@ fn rust_git_safety_matches_ts_corpus() {
         checked >= 10,
         "too few cases checked: {checked}, skipped: {skipped:?}"
     );
-    assert!(failures.is_empty(), "{} mismatches: {failures:?}", failures.len());
+    assert!(
+        failures.is_empty(),
+        "{} mismatches: {failures:?}",
+        failures.len()
+    );
 }

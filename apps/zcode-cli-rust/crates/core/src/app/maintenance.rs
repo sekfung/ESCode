@@ -6,9 +6,8 @@ impl Engine {
     pub(super) async fn compact_command(&mut self, c: &Command) -> Result<Value> {
         let id = c.session_id.as_deref().context("Session id required")?;
         let session = self.sessions.get(id).context("Session unavailable")?;
-        if (session.mode != "yolo" || session.plan_enabled)
-            || (self.model.is_none() && self.registry.is_none())
-        {
+        // 修复：原先只允许 yolo（权限模式未实现时的限制）；TS 中与模式无关，Rust 仅不支持 plan。
+        if session.plan_enabled || (self.model.is_none() && self.registry.is_none()) {
             return Ok(c.ack(
                 "rejected",
                 session.revision,

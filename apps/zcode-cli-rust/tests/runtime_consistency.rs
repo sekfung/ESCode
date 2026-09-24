@@ -272,9 +272,13 @@ async fn start_with_input(
 async fn start_timed(
     calls: Vec<Value>,
     gates: Option<mpsc::UnboundedSender<ToolStart>>,
-    first: Value,
+    mut first: Value,
     timing: (u64, u64),
 ) -> Runtime {
+    // 这些用例验证运行时一致性而非权限：新会话默认 build 后，假工具会先等确认，这里显式 yolo。
+    if first.get("mode").is_none() {
+        first["mode"] = json!("yolo");
+    }
     let (tx, commits) = mpsc::unbounded_channel();
     let store = Arc::new(Store {
         calls: AtomicUsize::new(0),

@@ -20,7 +20,8 @@ fn rust_init_prompt_matches_ts() {
         let got = resolve_builtin_prompt_command(input, cwd).map(|p| normalize(&p));
         if got != want {
             let describe = |v: &Option<String>| {
-                v.as_ref().map_or("null".to_owned(), |p| format!("{} chars", p.len()))
+                v.as_ref()
+                    .map_or("null".to_owned(), |p| format!("{} chars", p.len()))
             };
             failures.push(format!(
                 "{input:?}: rust {} != ts {}",

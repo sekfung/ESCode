@@ -14,6 +14,7 @@ async function turn(h: Harness, id: string, text: string) {
 for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
   test(`Rust ${protocol} streams tools, preserves reasoning metadata and resumes through App schemas`, async () => {
     const f = await fixture({
+      mode: "yolo",
       config: {
         apiType: protocol,
         apiKeyEnv: "RUST_FIXTURE_KEY",
@@ -158,6 +159,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
   test(`Rust ${protocol} retries only before visible output with identical encoded bytes`, async () => {
     for (const visible of [false, true]) {
       const f = await fixture({
+        mode: "yolo",
         config,
         respond(_req, res, attempt) {
           if (attempt === 1) prefix(res, protocol, visible);
@@ -187,6 +189,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
   });
   test(`Rust ${protocol} rejects invalid tool termination before effects and compacts using the same protocol`, async () => {
     const f = await fixture({
+      mode: "yolo",
       config,
       respond(_req, res) {
         const events = frames(protocol, true);
@@ -213,6 +216,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
       await f.close();
     }
     const good = await fixture({
+      mode: "yolo",
       config,
       respond(_req, res) {
         (protocol === "openai-responses" ? responses : anthropic)(res);
@@ -245,6 +249,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
       observed = r;
     });
     const f = await fixture({
+      mode: "yolo",
       config: { apiType: protocol, reasoningParameters: {} },
       respond(_req, res) {
         res.writeHead(200, { "content-type": "text/event-stream" });
@@ -278,6 +283,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
   });
   test(`Rust ${protocol} applies the shared one-retry budget to empty completions`, async () => {
     const f = await fixture({
+      mode: "yolo",
       config: {
         apiType: protocol,
         reasoningParameters: {},
@@ -312,6 +318,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
 
 test("Rust Responses rejects an item still in progress even when its response says completed", async () => {
   const f = await fixture({
+    mode: "yolo",
     config: { apiType: "openai-responses", reasoningParameters: {}, retry: { maxRetries: 0 } },
     respond(_req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });

@@ -224,6 +224,7 @@ impl Engine {
                 result,
                 display,
                 failed,
+                denied,
                 committed,
             } => {
                 receipt = Some(committed);
@@ -233,17 +234,22 @@ impl Engine {
                     .iter_mut()
                     .find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)
                 {
-                    row["status"] = if failed { "error" } else { "success" }.into();
-                    row["endedAt"] = now.into();
-                    row["output"] = json!({"text":result});
-                    if let Some(display) = display {
-                        row["output"]["display"] = display;
+                    // 修复：原先拒绝按工具失败投影（error + 输出拒绝文案）；TS settlePermission
+                    // 把被拒的调用收口为 cancelled，且不产生工具结果行字段。
+                    if denied {
+                        row["status"] = "cancelled".into();
+                    } else {
+                        row["status"] = if failed { "error" } else { "success" }.into();
+                        row["endedAt"] = now.into();
+                        row["output"] = json!({"text":result});
+                        if let Some(display) = display {
+                            row["output"]["display"] = display;
+                        }
+                        if failed {
+                            row["error"] = json!({"code":"tool_execution_failed","message":"Tool execution failed"});
+                        }
                     }
                     row.as_object_mut().unwrap().remove("approvalInteractionId");
-                    if failed {
-                        row["error"] =
-                            json!({"code":"fault.tool.failed","message":"Tool execution failed"});
-                    }
                     deltas.push(json!({"op":"row.upserted","row":row}));
                 }
             }

@@ -209,7 +209,7 @@ pub(super) async fn run(
                 })
                 .buffered(4);
             while let Some(result) = results.next().await {
-                let (id, output, failed) = result?;
+                let (id, output, failed, denied) = result?;
                 let content = output.content;
                 history.push(json!({"role":"tool","tool_call_id":id,"content":content,"_zcode_tool_failed":failed}));
                 let (committed, receipt) = oneshot::channel();
@@ -218,6 +218,7 @@ pub(super) async fn run(
                     result: content,
                     display: output.display,
                     failed,
+                    denied,
                     committed,
                 })
                 .await?;
@@ -266,7 +267,7 @@ async fn execute(
     call: Value,
     sink: &EventSink,
     cancel: &CancellationToken,
-) -> Result<(String, crate::contract::ToolOutput, bool)> {
+) -> Result<(String, crate::contract::ToolOutput, bool, bool)> {
     let ExecutionContext {
         skills,
         profile,
@@ -294,7 +295,9 @@ async fn execute(
                 crate::domain::permission_options::denied_content(None))),
         }
     };
-    let result = if profile.is_some_and(|p| !p.allows(name)) {
+    let profile_blocked = profile.is_some_and(|p| !p.allows(name));
+    let denied = !profile_blocked && !outcome.allowed;
+    let result = if profile_blocked {
         Err(anyhow::anyhow!(
             "Tool is not allowed by this subagent profile"
         ))
@@ -355,5 +358,6 @@ async fn execute(
         call["id"].as_str().context("Tool id missing")?.into(),
         content,
         failed,
+        denied,
     ))
 }

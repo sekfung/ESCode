@@ -11,8 +11,12 @@ const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 
 type Runtime = "node" | "rust";
 
-/** 两侧共用同一个模型应答：先要一次 Read，拿到工具结果后收尾。 */
-function respond(req: { messages: { role: string }[] }, res: Parameters<typeof event>[0]) {
+/** 两侧共用同一个模型应答：先要一次工具调用，拿到工具结果后收尾。 */
+function respond(
+  req: { messages: { role: string }[] },
+  res: Parameters<typeof event>[0],
+  tool: { name: string; args: unknown } = { name: "Read", args: { file_path: "sample.txt" } },
+) {
   res.writeHead(200, { "content-type": "text/event-stream" });
   if (req.messages.at(-1)?.role === "tool") {
     event(res, { content: "done" });
@@ -23,9 +27,9 @@ function respond(req: { messages: { role: string }[] }, res: Parameters<typeof e
     tool_calls: [
       {
         index: 0,
-        id: "diff-read",
+        id: "diff-call",
         type: "function",
-        function: { name: "Read", arguments: JSON.stringify({ file_path: "sample.txt" }) },
+        function: { name: tool.name, arguments: JSON.stringify(tool.args) },
       },
     ],
   });
@@ -33,7 +37,11 @@ function respond(req: { messages: { role: string }[] }, res: Parameters<typeof e
 }
 
 /** 同一场景在两侧各跑一遍，只保留语义字段（id/时间戳/路径逐次不同，不参与比较）。 */
-async function observe(kind: Runtime) {
+async function observe(
+  kind: Runtime,
+  tool: { name: string; args: unknown } = { name: "Read", args: { file_path: "sample.txt" } },
+  text = "read it",
+) {
   const root = await mkdtemp(join(tmpdir(), `zcode-diff-${kind}-`));
   const f =
     kind === "node"
@@ -42,9 +50,9 @@ async function observe(kind: Runtime) {
           command: process.execPath,
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
-          respond,
+          respond: (req, res) => respond(req, res, tool),
         })
-      : await fixture({ root, registry: true, respond });
+      : await fixture({ root, registry: true, respond: (req, res) => respond(req, res, tool) });
   try {
     // 两侧都要有同一份 provider 配置：Node 从环境变量读，Rust 也从同一组环境键读。
     await configureRegistry(f);
@@ -52,7 +60,7 @@ async function observe(kind: Runtime) {
     const h = f.start();
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
-    await h.command(h.envelope("sendText", id, { text: "read it", mode: "yolo" }));
+    await h.command(h.envelope("sendText", id, { text, mode: "yolo" }));
     await h.completed(id);
     const rows = (await h.rows(id)).rows;
     const capabilities = (await h.client.request("runtime/capabilities", {}, z.any())) as
@@ -69,6 +77,12 @@ async function observe(kind: Runtime) {
       toolStatuses: rows
         .filter((r) => r.kind === "toolCall")
         .map((r) => (r as { status?: string }).status),
+      toolErrorCodes: rows
+        .filter((r) => r.kind === "toolCall")
+        .map((r) => (r as { error?: { code?: string } }).error?.code ?? null),
+      rowTexts: rows
+        .filter((r) => r.kind === "assistantText")
+        .map((r) => (r as { text?: string }).text),
       capabilityKeys: capabilities ? Object.keys(capabilities).sort() : [],
       schemaErrors: h.schemaErrors,
     };
@@ -114,6 +128,110 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
   assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ");
   assert.deepEqual(node.toolNames, rust.toolNames, "tool names differ");
   assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ");
+  assert.deepEqual(node.schemaErrors, []);
+  assert.deepEqual(rust.schemaErrors, []);
+});
+
+// 工具失败与「工具未找到」的投影也必须一致：错误行、错误码、助手收尾文本。
+test("Node and Rust project the same rows when a tool call fails", async () => {
+  const missing = { name: "Read", args: { file_path: "does-not-exist.txt" } };
+  const node = await observe("node", missing, "read a missing file");
+  const rust = await observe("rust", missing, "read a missing file");
+  assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ on tool failure");
+  assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ on tool failure");
+  assert.deepEqual(node.toolErrorCodes, rust.toolErrorCodes, "tool error codes differ");
+  assert.deepEqual(node.rowTexts, rust.rowTexts, "assistant texts differ on tool failure");
+  assert.deepEqual(node.schemaErrors, []);
+  assert.deepEqual(rust.schemaErrors, []);
+});
+
+/** build 模式下写文件：等确认弹窗，记录选项与载荷键，再拒绝，记录工具行结果。 */
+async function observePermission(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-diff-perm-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond: (req, res) =>
+            respond(req, res, {
+              name: "Write",
+              args: { file_path: "perm.txt", content: "x" },
+            }),
+        })
+      : await fixture({
+          root,
+          registry: true,
+          respond: (req, res) =>
+            respond(req, res, {
+              name: "Write",
+              args: { file_path: "perm.txt", content: "x" },
+            }),
+        });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    // 不传 mode：两侧默认都是 build，写文件必须经用户确认。
+    await h.command(h.envelope("sendText", id, { text: "write it" }));
+    const frame = await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some((d: any) =>
+        d.patch?.pendingInteractions?.some((p: any) => p.kind === "permission"),
+      ),
+    );
+    const interaction = frame.params.frame.payload.deltas
+      .flatMap((d: any) => d.patch?.pendingInteractions ?? [])
+      .find((p: any) => p.kind === "permission");
+    const observation = {
+      payloadKeys: Object.keys(interaction.payload).sort(),
+      optionIds: interaction.payload.options.map((o: any) => o.optionId),
+      optionKinds: interaction.payload.options.map((o: any) => o.kind),
+      optionLabels: interaction.payload.options.map((o: any) => o.label),
+      toolName: interaction.payload.toolName,
+      summary: interaction.payload.summary,
+      fullAccessOption: interaction.payload.fullAccessOption,
+    };
+    await h.command(
+      h.envelope("resolveInteraction", id, {
+        interactionId: interaction.interactionId,
+        answer: { optionId: "deny" },
+      }),
+    );
+    await h.completed(id);
+    const rows = (await h.rows(id)).rows;
+    const denied = {
+      ...observation,
+      toolStatuses: rows
+        .filter((r) => r.kind === "toolCall")
+        .map((r) => (r as { status?: string }).status),
+      denialText: rows.find((r) => r.kind === "toolCall")
+        ? (rows.find((r) => r.kind === "toolCall") as { output?: { text?: string } }).output?.text
+        : undefined,
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return denied;
+  } finally {
+    await f.close();
+  }
+}
+
+// 权限确认是 Rust 本轮新实现的部分：两侧的选项集合、载荷键与拒绝结果必须一致。
+test("Node and Rust present the same approval options and denial for a build-mode write", async () => {
+  const node = await observePermission("node");
+  const rust = await observePermission("rust");
+  assert.equal(node.toolName, rust.toolName);
+  assert.equal(rust.summary, node.summary, "permission summary differs");
+  assert.deepEqual(rust.fullAccessOption, node.fullAccessOption, "full access option differs");
+  assert.deepEqual(rust.optionIds, node.optionIds, `option ids differ: rust=${rust.optionIds}`);
+  assert.deepEqual(rust.optionKinds, node.optionKinds, "option kinds differ");
+  assert.deepEqual(rust.optionLabels, node.optionLabels, "option labels differ");
+  assert.deepEqual(rust.payloadKeys, node.payloadKeys, "permission payload keys differ");
+  assert.deepEqual(rust.toolStatuses, node.toolStatuses, "denied tool row status differs");
+  assert.deepEqual(rust.denialText, node.denialText, "denial text differs");
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
 });

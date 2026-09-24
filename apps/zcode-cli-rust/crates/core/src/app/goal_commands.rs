@@ -54,9 +54,10 @@ impl Engine {
         }
         if !pause {
             self.select(&json!({}), Some(self.session_selection(id)?))?;
+            // 修复：原先要求 yolo；TS 中 goal 只与 plan 互斥（guard.planGoalMutuallyExclusive）。
             ensure!(
-                s.mode == "yolo" && !s.plan_enabled,
-                "Unsupported goal execution mode"
+                !s.plan_enabled,
+                "Plan and Goal cannot be active at the same time."
             );
         }
         let now = self.clock.now();

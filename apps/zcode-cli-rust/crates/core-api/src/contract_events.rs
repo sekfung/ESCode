@@ -108,6 +108,8 @@ pub enum Event {
         result: String,
         display: Option<Value>,
         failed: bool,
+        /// 权限被拒（用户或规则）：模型仍收到拒绝文案，但行按 TS 收口为 cancelled、不带输出。
+        denied: bool,
         committed: oneshot::Sender<()>,
     },
     StepBoundary {

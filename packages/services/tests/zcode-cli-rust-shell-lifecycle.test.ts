@@ -26,6 +26,7 @@ for (const action of ["stop", "startNow", "EOF", "EPIPE"] as const) {
   test(`Rust ${action} waits for TERM-ignoring descendants before settling`, async () => {
     const pids: number[] = [];
     const f = await fixture({
+      mode: "yolo",
       respond(_req, res, n) {
         res.writeHead(200, { "content-type": "text/event-stream" });
         if (n === 1) {
@@ -135,6 +136,7 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
   const pids: number[] = [];
   let taskId = "";
   const f = await fixture({
+    mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       const last = req.messages.at(-1);

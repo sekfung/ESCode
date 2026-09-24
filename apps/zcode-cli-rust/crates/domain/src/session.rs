@@ -172,7 +172,9 @@ impl Session {
             compact_instructions: None,
             queued_now: None,
             pending_acks: Default::default(),
-            mode: "yolo".into(),
+            // 修复：原先是只支持 yolo 时的默认值，漏传模式的新会话会直接放行写操作。
+            // TS 所有默认都是 build（见 docs/specs/rust-permission-modes.md「默认模式」）。
+            mode: legacy_mode(),
             plan_enabled: false,
             parent_id: None,
             task_type: interactive(),

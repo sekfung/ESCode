@@ -156,7 +156,7 @@ async fn child_start_and_result_require_both_owners_to_commit_and_failure_releas
             let (out, mut output) = mpsc::channel(32);
             let running = tokio::spawn(engine.serve(rx, out, CancellationToken::new()));
             let drain = tokio::spawn(async move { while output.recv().await.is_some() {} });
-            tx.send(Input::Request(serde_json::from_value(json!({"id":1,"method":"v4/command","params":{"commandId":"parent-input","clientId":"test","sessionId":"parent","type":"sendText","issuedAt":1,"payload":{"text":"delegate"}}})).unwrap())).await.unwrap();
+            tx.send(Input::Request(serde_json::from_value(json!({"id":1,"method":"v4/command","params":{"commandId":"parent-input","clientId":"test","sessionId":"parent","type":"sendText","issuedAt":1,"payload":{"text":"delegate","mode":"yolo"}}})).unwrap())).await.unwrap();
             let gate = tokio::time::timeout(std::time::Duration::from_secs(3), gates.recv())
                 .await
                 .unwrap()

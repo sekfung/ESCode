@@ -30,8 +30,7 @@ fn same(got: &zcode_cli_domain::net_proxy::ProxyResolution, want: &Value) -> boo
 
 #[test]
 fn rust_proxy_resolution_matches_ts() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("fixtures/proxy_corpus.json")).unwrap();
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/proxy_corpus.json")).unwrap();
     let mut failures = vec![];
     for case in fixture["cases"].as_array().unwrap() {
         let (url, oi, ei) = (
@@ -42,11 +41,17 @@ fn rust_proxy_resolution_matches_ts() {
         let opts = options(&fixture, oi, ei);
         let got = resolve_proxy_for_request(url, &opts);
         if !same(&got, &case[3]) {
-            failures.push(format!("{url} options#{oi} env#{ei}: {got:?} != {}", case[3]));
+            failures.push(format!(
+                "{url} options#{oi} env#{ei}: {got:?} != {}",
+                case[3]
+            ));
         }
         let got = resolve_webfetch_proxy_for_request(url, &opts);
         if !same(&got, &case[4]) {
-            failures.push(format!("webfetch {url} options#{oi} env#{ei}: {got:?} != {}", case[4]));
+            failures.push(format!(
+                "webfetch {url} options#{oi} env#{ei}: {got:?} != {}",
+                case[4]
+            ));
         }
     }
     assert!(

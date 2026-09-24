@@ -99,6 +99,15 @@ impl Engine {
         session.workspace_path = Some(self.workspace_path.clone());
         session.skills = self.sessions[parent].skills.clone();
         session.prompt_snapshot = self.sessions[parent].prompt_snapshot.clone();
+        // TS resolveSubagentPermissionMode：子会话继承父会话的执行模式（含 plan）；
+        // 内置 Explore（按 name + source 判定，同名用户 profile 不算）未声明时以 yolo 运行。
+        // profile 的 permissionMode（auto/plan）Rust 尚未支持，见 rust-permission-modes.md。
+        if profile.name == "Explore" && profile.source == "built-in" {
+            session.mode = "yolo".into();
+        } else {
+            session.mode = self.sessions[parent].mode.clone();
+            session.plan_enabled = self.sessions[parent].plan_enabled;
+        }
         session.agent_profile = Some(profile.clone());
         self.sessions.insert(child.clone(), session);
         let c = child_command(&child, &self.clock.id(), args["prompt"].as_str().unwrap());

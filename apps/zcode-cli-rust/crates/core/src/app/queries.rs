@@ -56,7 +56,7 @@ impl Engine {
             "process/childProcesses" => Ok(json!({"processes":[]})),
             "workspace/readPresentation" => {
                 // 旧 App 使用 strict schema；未协商的客户端不能收到新增字段。
-                let mut presentation = json!({"workspace":p["workspace"],"mode":"yolo","slashCommands":[{"name":"compact","description":"Compact conversation context","source":"builtin"}]});
+                let mut presentation = json!({"workspace":p["workspace"],"mode":"build","slashCommands":[{"name":"compact","description":"Compact conversation context","source":"builtin"}]});
                 if p["includeExecutionCapabilities"] == true {
                     presentation["executionCapabilities"] = self.execution_capabilities();
                 }

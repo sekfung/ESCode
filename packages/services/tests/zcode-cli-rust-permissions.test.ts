@@ -122,7 +122,10 @@ test("Rust build mode denial keeps the file unwritten and returns the TS denial 
     const row = (await h.rows(id)).rows.find(
       (r: Message) => r.kind === "toolCall" && r.toolName === "Write",
     );
-    assert.equal(row.status, "error");
+    // 与 TS settlePermission 一致：被拒调用收口为 cancelled，不带工具输出/错误。
+    assert.equal(row.status, "cancelled");
+    assert.equal(row.output, undefined);
+    assert.equal(row.error, undefined);
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();
@@ -171,6 +174,73 @@ test("Rust always-allow writes a project rule that later sessions reuse without 
     await h.command(h.envelope("sendText", second, { text: "write", mode: "build" }));
     await h.completed(second);
     assert.equal(await exists(join(f.cwd, "out.txt")), true);
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
+
+// rust-permission-modes.md「默认模式」：漏传 mode 必须偏向确认（与 TS 默认 build 一致），不能直接放行。
+test("Rust sessions without an explicit mode default to build and ask before Write", async () => {
+  const f = await writeFixture();
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "write" }));
+    const p = await pendingPermission(h, id);
+    assert.equal(p.payload.toolName, "Write");
+    assert.equal(p.payload.summary, "Tool has side effects and requires approval");
+    assert.equal(await exists(join(f.cwd, "out.txt")), false);
+    await h.command(
+      h.envelope("resolveInteraction", id, {
+        interactionId: p.interactionId,
+        answer: { optionId: "deny" },
+      }),
+    );
+    await h.completed(id);
+    assert.equal(await exists(join(f.cwd, "out.txt")), false);
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
+
+// TS commitPermissionFullAccess：「完全访问」放行本次调用，并把会话切到 yolo，后续不再询问。
+test("Rust full access runs the pending Write and switches the session to yolo", async () => {
+  const f = await writeFixture();
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "write", mode: "build" }));
+    const p = await pendingPermission(h, id);
+    assert.deepEqual(p.payload.fullAccessOption, {
+      optionId: "fullAccess",
+      label: "Full access",
+      kind: "custom",
+      response: { decision: "deny", reason: "Full access requires V4 approval" },
+    });
+    const mark = h.messages.length;
+    assert.equal(
+      (
+        await h.command(
+          h.envelope("resolveInteraction", id, {
+            interactionId: p.interactionId,
+            answer: { optionId: "fullAccess" },
+          }),
+        )
+      ).status,
+      "accepted",
+    );
+    await h.completed(id);
+    assert.equal(await readFile(join(f.cwd, "out.txt"), "utf8"), "written");
+    await h.wait(
+      (m) =>
+        m.params?.topic === `conversation/${id}` &&
+        m.params.frame?.payload?.deltas?.some((d: Message) => d.patch?.config?.mode === "yolo"),
+      mark,
+    );
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();

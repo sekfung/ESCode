@@ -123,7 +123,9 @@ pub(super) fn file_content(p: &Value, cwd: &str, artifacts: &Path) -> Result<Vec
         .as_str()
         .or_else(|| p["url"].as_str())
         .unwrap_or("attachment");
-    Ok(vec![json!({"type":"text","text":format!("[Attached {mime}: {label}]")})])
+    Ok(vec![
+        json!({"type":"text","text":format!("[Attached {mime}: {label}]")}),
+    ])
 }
 
 // 导入侧把可用附件字节快照进 Rust 目录；重启和回退均不依赖 TS 后续的缓存清理。

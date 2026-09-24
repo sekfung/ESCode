@@ -8,7 +8,7 @@ import { assertBeatStopped, waitForBeat } from "./zcode-cli-rust-shell-probe.js"
 import { commandsQueryResultSchema } from "@zcode/shared/zcode-protocol-v4";
 
 test("Rust stop reaps an yolo running shell and accepts the next turn", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();
@@ -40,7 +40,7 @@ test("Rust stop reaps an yolo running shell and accepts the next turn", async ()
 });
 
 test("Rust stdio: current App schemas, streaming, idempotency, resume and workspace isolation", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();
@@ -88,7 +88,7 @@ test("Rust stdio: current App schemas, streaming, idempotency, resume and worksp
 });
 
 test("Rust yolo executes writes without approvals, build asks first and plan stays unsupported", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();
@@ -151,7 +151,7 @@ test("Rust yolo executes writes without approvals, build asks first and plan sta
 });
 
 test("Rust cancellation remains responsive while awaiting provider and preserves queued input disposition", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();
@@ -181,7 +181,7 @@ test("Rust cancellation remains responsive while awaiting provider and preserves
 });
 
 test("Rust runs yolo shell and keeps desktop/mobile subscriptions separate", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const id = await h.create();

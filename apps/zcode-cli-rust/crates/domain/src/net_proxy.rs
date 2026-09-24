@@ -95,7 +95,12 @@ fn resolve(url: &str, options: &ProxyOptions, captured_fallback: bool) -> ProxyR
         return ProxyResolution::none();
     }
     let captured = captured_env(env(TOOL_ENV_PASSTHROUGH_KEY).as_deref());
-    let captured_value = |key: &str| captured.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+    let captured_value = |key: &str| {
+        captured
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
     if should_bypass_proxy(
         &parsed,
         normalize_path_like(captured_value("no_proxy").as_deref())
@@ -135,7 +140,10 @@ fn captured_env(raw: Option<&str>) -> Vec<(String, String)> {
 }
 
 fn normalize_path_like(value: Option<&str>) -> Option<String> {
-    value.map(str::trim).filter(|v| !v.is_empty()).map(str::to_owned)
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(str::to_owned)
 }
 
 /// 缺少 scheme 时按 http 处理；解析失败视为无值。
@@ -158,7 +166,10 @@ fn has_scheme(value: &str) -> bool {
     };
     let scheme = &value[..idx];
     !scheme.is_empty()
-        && scheme.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+        && scheme
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic())
         && scheme
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'))
@@ -172,10 +183,13 @@ fn should_bypass_proxy(url: &url::Url, no_proxy: Option<String>) -> bool {
     if host.is_empty() {
         return false;
     }
-    let port = url
-        .port()
-        .map(|p| p.to_string())
-        .unwrap_or_else(|| if url.scheme() == "https" { "443".into() } else { "80".into() });
+    let port = url.port().map(|p| p.to_string()).unwrap_or_else(|| {
+        if url.scheme() == "https" {
+            "443".into()
+        } else {
+            "80".into()
+        }
+    });
     for raw in no_proxy.split(',') {
         let Some((token_host, token_port)) = parse_no_proxy_token(raw) else {
             continue;
@@ -205,7 +219,10 @@ fn parse_no_proxy_token(raw: &str) -> Option<(String, Option<String>)> {
         let parsed = url::Url::parse(&trimmed).ok()?;
         return Some((
             normalize_no_proxy_host(parsed.host_str().unwrap_or("")),
-            parsed.port().map(|p| p.to_string()).filter(|p| !p.is_empty()),
+            parsed
+                .port()
+                .map(|p| p.to_string())
+                .filter(|p| !p.is_empty()),
         ));
     }
     // `[ipv6]` / `[ipv6]:port`：取括号内主机。TS 在缺少 `]` 时 slice(1, -1)，此处同样以末字符为界。

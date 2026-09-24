@@ -51,6 +51,32 @@ sequenceDiagram
 
 实现一档宣告一档：`permissionModes` 按实际支持追加 `build`/`edit`/`plan`，`independentPlanState=true` 仅在 plan 状态独立持久化后打开。未宣告的模式 UI 继续禁用，不在 Rust 内做静默降级。
 
+## 默认模式与 yolo 时代的遗留门禁（2026-09-24 差分发现）
+
+差分用例（build 模式下 Write，不传 `mode`）发现：Node 弹出确认，Rust 直接写入。原因是 Rust 仍保留只支持 yolo 时的默认值与门禁：
+
+| 位置                                     | Rust 原值                          | TS 基准                                                                       | 处理                            |
+| ---------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
+| 新会话 `mode`（`domain/src/session.rs`） | `yolo`                             | `build`（`contracts/src/config`、`projection-state.ts`、`runtime/methods/*`） | 改为 `build`                    |
+| `workspace/readPresentation.mode`        | `yolo`                             | `build`（`workspace-model-runtime.ts`）                                       | 改为 `build`                    |
+| compact / sendQueuedNow                  | 非 yolo 即 `capabilityUnsupported` | 与模式无关                                                                    | 只拒绝 plan（Rust 未实现 plan） |
+| goal 执行                                | 要求 yolo                          | 只与 plan 互斥（`guard.planGoalMutuallyExclusive`）                           | 只拒绝 plan                     |
+
+规则：未显式指定模式的会话一律按 `build` 处理——漏传模式时必须偏向「需要确认」，不能偏向「全部放行」。
+已持久化为 `yolo` 的旧 Rust 会话保持原值（那是当时用户可见的真实模式），不做迁移改写。
+
+验收：`zcode-cli-rust-differential.test.ts` 的「build 模式写文件」用例，两侧确认选项、载荷键、summary、完全访问选项与拒绝结果一致。
+
+## 完全访问（fullAccess）
+
+TS 语义（`interaction-registry.resolveFullAccess` → `commitPermissionFullAccess`）：只对主会话的确认提供；选中后在一个事务里把会话执行模式与已接纳的排队输入改为 `yolo`，再按 allowOnce 放行本次调用。
+
+Rust：`permission_flow.rs` 仅在 `parent_id` 为空时投放 `fullAccessOption`（形状与 TS 相同）；`questions.rs` 选中时把 `session.mode` 与队列项 `mode` 改为 `yolo`，随 `commit_interaction` 与 ACK 同一次持久化后才释放 waiter。子代理会话选择 `fullAccess` 按未知选项拒绝。
+
+## 被拒调用的行投影
+
+与 TS `settlePermission` 一致：拒绝在应答时立即把行收口为 `cancelled`；随后的 `ToolDone { denied: true }` 保持 `cancelled`，不写 `output`/`error`/`endedAt`。模型侧仍收到逐字一致的拒绝文案。
+
 ## 验收
 
 1. 差分：TS 导出 `(mode, planEnabled, tool, input, rules) → {decision, ruleId}` 矩阵（覆盖全部分支），Rust 单测逐条比对。
@@ -141,3 +167,13 @@ sequenceDiagram
 - 已运行（GNU 目标，Windows）：`cargo test --workspace -- --test-threads=1` 全部通过；
   App 集成套件 196 用例 183 通过、13 跳过、0 失败——包含 build/edit 模式、权限确认允许/拒绝/会话免确认、
   项目规则跨会话复用、git 安全语料与 AskUserQuestion 全量用例。
+
+## 子代理的执行模式
+
+与 TS `resolveSubagentPermissionMode` 一致：子会话继承父会话的 `mode` 与 plan 状态；内置 Explore（`name == "Explore"` 且 `source == "built-in"`，同名用户 profile 不算）以 `yolo` 运行。原先 Rust 子会话取 `Session::new` 的默认值，默认值改为 build 后会让 yolo 父会话的子代理意外停在确认弹窗。
+
+已知差异：TS profile 的 `permissionMode: auto|plan`（仅非 project 来源）会覆盖继承值；Rust 尚不支持这两种模式，按继承处理。
+
+## 集成测试约定
+
+`packages/services/tests/zcode-cli-rust-fixture.ts` 提供 `fixture({ mode })`：输入命令未写 `mode` 时由 harness 补上。验证运行时一致性（Shell 生命周期、MCP、回退、队列等）而非权限的用例显式声明 `mode: "yolo"`；验证默认回落的用例（本文档「默认模式」、coding 的旧会话冷恢复）不设置，以保证测到的是 runtime 的真实默认。

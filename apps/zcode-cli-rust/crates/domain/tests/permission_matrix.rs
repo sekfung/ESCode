@@ -194,3 +194,19 @@ fn rust_matches_ts_permission_rules() {
         &mismatches[..mismatches.len().min(5)]
     );
 }
+
+#[test]
+fn ask_reasons_match_ts() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/permission_matrix.json")).unwrap();
+    let reasons = fixture["askReasons"].as_object().unwrap();
+    assert!(!reasons.is_empty(), "fixture must export ask reasons");
+    for (rule, template) in reasons {
+        let want = template.as_str().unwrap().replace("{tool}", "SomeTool");
+        assert_eq!(
+            zcode_cli_domain::permission_options::ask_reason(rule, "SomeTool"),
+            want,
+            "{rule}"
+        );
+    }
+}

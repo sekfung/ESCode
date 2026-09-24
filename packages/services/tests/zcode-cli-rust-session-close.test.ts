@@ -14,7 +14,7 @@ import {
 } from "./zcode-cli-rust-shell-probe.js";
 
 test("closing drafts clears both delivery subscriptions and is idempotent without creating history", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const sid = await h.create();
@@ -61,7 +61,7 @@ test("closing drafts clears both delivery subscriptions and is idempotent withou
 });
 
 test("closing persisted history removes runtime only; cold subscribe restores a fresh epoch without model calls", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const sid = await h.create();
@@ -118,7 +118,7 @@ test("closing persisted history removes runtime only; cold subscribe restores a 
 });
 
 test("close cancels foreground Shell, discards queued ACK and preserves another session", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const sid = await h.create();
@@ -157,7 +157,7 @@ test("close cancels foreground Shell, discards queued ACK and preserves another 
 });
 
 test("close clears session upload transactions while retaining committed history attachments", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const sid = await h.create();
@@ -225,6 +225,7 @@ test("close clears session upload transactions while retaining committed history
 
 test("close waits for background Shell cleanup and keeps its durable terminal state", async () => {
   const f = await fixture({
+    mode: "yolo",
     respond(request, response) {
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       if (request.messages.at(-1).role !== "tool") {
@@ -275,7 +276,7 @@ test("close waits for background Shell cleanup and keeps its durable terminal st
 });
 
 test("a failed close commit never acknowledges success or emits removal and stops the actor", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
     const sid = await h.create();
@@ -320,6 +321,7 @@ test("a failed close commit never acknowledges success or emits removal and stop
 test("closing a partial stream preserves displayed content and isolates late provider output after reopening", async () => {
   const pending: ServerResponse[] = [];
   const f = await fixture({
+    mode: "yolo",
     respond(_request, response) {
       pending.push(response);
       response.writeHead(200, { "Content-Type": "text/event-stream" });

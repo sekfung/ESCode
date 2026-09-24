@@ -89,3 +89,18 @@ pub fn options(suggested: &[Rule], session_scope: bool) -> Vec<Value> {
         }),
     ]
 }
+
+/// ask 判定的原因文本，与 TS `PermissionService` 逐字一致；作为权限弹窗的 summary。
+/// 由 permission_matrix 夹具的 `askReasons` 校验（生成器从 TS 实跑导出）。
+pub fn ask_reason(rule_id: &str, tool: &str) -> String {
+    match rule_id {
+        "mode.build.criticalRisk" => "Critical risk tools require explicit approval".into(),
+        "mode.build.highRisk" => "High risk tools require explicit approval".into(),
+        "mode.build.sideEffect" => "Tool has side effects and requires approval".into(),
+        "rule.project.ask" => format!("Tool {tool} requires approval by project permission rules"),
+        "tool.alwaysAsk" => format!("Tool {tool} always requires explicit approval"),
+        "tool.userInteraction" => format!("Tool {tool} requires user interaction"),
+        // TS 事件层的兜底文案（executor/events.ts：`reason ?? Tool X requires approval`）。
+        _ => format!("Tool {tool} requires approval"),
+    }
+}

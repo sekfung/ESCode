@@ -66,5 +66,20 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 
 行级投影（行种类、工具名、工具状态）两侧完全一致，schema 校验两侧均无错误。
 
+### 差分用例发现并已修复的不一致（2026-09-24）
+
+| 场景                 | Node                                                         | Rust 原行为               | 处理                                                     |
+| -------------------- | ------------------------------------------------------------ | ------------------------- | -------------------------------------------------------- |
+| 工具失败的错误码     | `tool_execution_failed`（contracts `ToolExecutionFailed`）   | `fault.tool.failed`       | 改用 TS 码                                               |
+| 未指定 mode 的会话   | 默认 `build`，写文件先确认                                   | 默认 `yolo`，**直接写入** | 默认 `build`；移除 yolo 时代的 compact/队列/goal 门禁    |
+| 权限弹窗 `summary`   | 判定原因（如 `Tool has side effects and requires approval`） | `Allow {tool}?`           | `ask_reason` 按 ruleId 取 TS 原文，矩阵生成器导出 oracle |
+| 权限弹窗「完全访问」 | 主会话提供 `fullAccessOption`，选中后会话切 yolo 并放行      | 无该选项                  | 实现（排队输入一并切 yolo，与 ACK 同一次提交）           |
+| 被拒工具行           | `cancelled`，无输出/错误                                     | `error` + 拒绝文案输出    | `ToolDone.denied` 收口为 `cancelled`；模型侧拒绝文案不变 |
+
+### 仍存在、未纳入断言的差异
+
+- 工具行字段：Node 带 `visibility`、`assistantResponseId`、结构化 `input`；Rust 只有 `inputText`。
+  前端以 `inputText` 为准时无影响，但严格对齐前不能宣称行投影逐字段一致（待逐字段差分）。
+
 该用例把上述差异写成**契约**：出现新的差异键即失败，从而在后续改动中持续守住功能对齐。
 新增能力位必须同步更新本表与用例。

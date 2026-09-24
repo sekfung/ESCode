@@ -139,14 +139,19 @@ fn has_valid_git_head(directory: &Path) -> bool {
         return false;
     };
     let head: String = head.chars().take(255).collect();
-    head.starts_with("ref:") && head[4..].trim_start_matches([' ', '\t']).starts_with("refs/")
+    head.starts_with("ref:")
+        && head[4..]
+            .trim_start_matches([' ', '\t'])
+            .starts_with("refs/")
         || is_hex_object_id(&head)
 }
 
 fn is_hex_object_id(text: &str) -> bool {
     let text = text.trim_end_matches([' ', '\t', '\n', '\r']);
     (text.len() == 40 || text.len() == 64)
-        && text.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        && text
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn has_bare_git_indicators(directory: &Path) -> bool {
@@ -155,7 +160,9 @@ fn has_bare_git_indicators(directory: &Path) -> bool {
     {
         return true;
     }
-    ["objects", "refs"].iter().any(|c| directory.join(c).exists())
+    ["objects", "refs"]
+        .iter()
+        .any(|c| directory.join(c).exists())
 }
 
 /// 对应 TS `canonicalPath`：realpath → `\` 归一为 `/` → NFC → 小写。

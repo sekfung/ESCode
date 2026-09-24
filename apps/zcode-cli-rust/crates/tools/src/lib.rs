@@ -1,7 +1,7 @@
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
-pub mod bash_git_safety;
 mod agent_profiles;
+pub mod bash_git_safety;
 mod checkpoint_blobs;
 mod extension_config;
 mod extension_plugins;

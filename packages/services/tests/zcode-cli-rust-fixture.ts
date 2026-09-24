@@ -56,6 +56,11 @@ export async function fixture(
     registry?: boolean;
     legacy?: boolean;
     surface?: "desktop" | "terminal";
+    /**
+     * 输入未写 mode 时由 harness 补上的协作模式。runtime 默认 build（写/Shell 先确认），
+     * 验证运行时一致性而非权限的用例在此显式声明 yolo；不设置时保持 runtime 真实默认。
+     */
+    mode?: "yolo" | "build" | "edit";
   } = {},
 ) {
   const root = options.root ?? (await mkdtemp(join(tmpdir(), "zcode-cli-rust-test-")));
@@ -204,7 +209,7 @@ export async function fixture(
         },
       },
     );
-    const harness = new Harness(child, identity ?? cwd);
+    const harness = new Harness(child, identity ?? cwd, options.mode);
     children.push(harness);
     return harness;
   };
@@ -253,6 +258,7 @@ export class Harness {
   constructor(
     readonly child: ChildProcessWithoutNullStreams,
     readonly workspace: string,
+    private readonly defaultMode?: string,
   ) {
     this.exited = once(child, "close");
     child.stderr.setEncoding("utf8").on("data", (data: string) => {
@@ -310,9 +316,20 @@ export class Harness {
       clientId: "fixture-client",
       sessionId,
       type,
-      payload,
+      payload: this.withDefaultMode(type, payload),
       issuedAt: Date.now(),
     };
+  }
+  /** 只补输入类命令；显式 mode（含测试刻意传入的非法值）原样保留。 */
+  private withDefaultMode(type: string, payload: Message): Message {
+    if (!this.defaultMode) return payload;
+    const fill = (input: Message) =>
+      "mode" in input ? input : { ...input, mode: this.defaultMode };
+    if (type === "sendText" || type === "sendGoalCommand") return fill(payload);
+    if (type === "createSession" && payload.firstInput) {
+      return { ...payload, firstInput: fill(payload.firstInput) };
+    }
+    return payload;
   }
   command(command: Message) {
     return this.client.request("v4/command", command, commandAckSchema);

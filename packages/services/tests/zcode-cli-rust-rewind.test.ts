@@ -34,7 +34,7 @@ async function preview(h: Harness, id: string) {
   );
 }
 test("Rust file rewind restores tracked files, refuses external changes, survives restart and is idempotent", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     let h = f.start();
     const id = await h.create();
@@ -106,7 +106,7 @@ test("Rust file rewind restores tracked files, refuses external changes, survive
   }
 });
 test("Rust edit with workspace rewind restores files and cuts conversation before starting the replacement", async () => {
-  const f = await fixture();
+  const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start(),
       id = await h.create();
@@ -132,7 +132,7 @@ test("Rust edit with workspace rewind restores files and cuts conversation befor
 test("Rust checkpoint storage failure prevents file mutation; rewind commit failure compensates files and preserves original history", async () => {
   const { DatabaseSync } = await import("node:sqlite");
   for (const stage of ["prepare", "commit"]) {
-    const f = await fixture();
+    const f = await fixture({ mode: "yolo" });
     try {
       let h = f.start();
       const id = await h.create();
