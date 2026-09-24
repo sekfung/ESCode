@@ -62,6 +62,12 @@ await run(process.execPath, [
   "--check",
 ]);
 await run(process.execPath, [
+  "--import",
+  "tsx",
+  "scripts/generate-zcode-cli-rust-bash-rule-corpus.mjs",
+  "--check",
+]);
+await run(process.execPath, [
   "node_modules/typescript/bin/tsc",
   "-p",
   "packages/services/tests/tsconfig.zcode-cli-rust.json",

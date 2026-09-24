@@ -127,7 +127,7 @@ fn domain_subject(url: &str) -> Option<String> {
     (!host.is_empty()).then(|| format!("domain:{host}"))
 }
 
-fn content_matches(subject: &str, content: &str) -> bool {
+pub(crate) fn content_matches(subject: &str, content: &str) -> bool {
     if let Some(prefix) = content.strip_suffix(":*") {
         return subject == prefix
             || subject

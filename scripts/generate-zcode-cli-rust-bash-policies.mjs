@@ -1,6 +1,7 @@
 // Run with node --import tsx. 把 TS Bash 只读策略表导出为 Rust 内嵌资产。
 // 回调以函数名导出，Rust 按名实现；新增回调或改动表项时 --check 会失败，迫使 Rust 同步。
 import { readFile, writeFile } from "node:fs/promises";
+import { BASH_COMMAND_REGISTRY } from "../apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts";
 import {
   GIT_READONLY_SUBCOMMAND_POLICIES,
   READONLY_MULTIWORD_COMMAND_POLICIES,
@@ -65,12 +66,23 @@ const target = new URL(
   "../apps/zcode-cli-rust/crates/domain/src/bash_policies.json",
   import.meta.url,
 );
+// fig 命令树：Bash 规则匹配与「总是允许」建议用它解析稳定命令前缀（TS resolveStableCommandPrefix）。
+const registry = `${JSON.stringify(BASH_COMMAND_REGISTRY)}
+`;
+const registryTarget = new URL(
+  "../apps/zcode-cli-rust/crates/domain/src/bash_command_registry.json",
+  import.meta.url,
+);
 if (process.argv.includes("--check")) {
-  if ((await readFile(target, "utf8")) !== content) {
+  if (
+    (await readFile(target, "utf8")) !== content ||
+    (await readFile(registryTarget, "utf8")) !== registry
+  ) {
     throw new Error(
       "Rust Bash policies differ from TS; run node --import tsx scripts/generate-zcode-cli-rust-bash-policies.mjs",
     );
   }
 } else {
   await writeFile(target, content);
+  await writeFile(registryTarget, registry);
 }

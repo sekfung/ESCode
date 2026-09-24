@@ -60,16 +60,17 @@ sequenceDiagram
 
 ## 实现状态（2026-09-24）
 
-| 部分                                                                                   | 状态                                                                                 | 差分证据                                  |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- |
-| 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                             | 34,700 条与 TS 一致                       |
-| 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                         | 1,344 条规则用例与 TS 一致                |
-| WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移） | 含编码路径、多重编码、前缀边界用例        |
-| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                          | —                                         |
-| Bash 只读分类                                                                          | 已实现 `bash_parse` + `bash_policy*` + `bash_callbacks*`；策略表由生成器导出 JSON    | 5,098 条语料与 429 条解析 oracle 全部一致 |
-| Bash rulePolicy（复合命令拆分）与带工作目录的 git 运行时检查                           | 未实现                                                                               | —                                         |
-| ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 未实现                                                                               | —                                         |
-| 能力宣告 `permissionModes` / `independentPlanState`                                    | 仍为 `[yolo]` / false；以上完成前不打开                                              | —                                         |
+| 部分                                                                                   | 状态                                                                                 | 差分证据                                        |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                             | 34,700 条与 TS 一致                             |
+| 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                         | 1,344 条规则用例与 TS 一致                      |
+| WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移） | 含编码路径、多重编码、前缀边界用例              |
+| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                          | —                                               |
+| Bash 只读分类                                                                          | 已实现 `bash_parse` + `bash_policy*` + `bash_callbacks*`；策略表由生成器导出 JSON    | 5,098 条语料与 429 条解析 oracle 全部一致       |
+| Bash rulePolicy（复合命令拆分与「总是允许」建议）                                      | 已实现 `bash_rule_policy` + `bash_rule_prefix`；fig registry 导出为 JSON 资产        | 2,123 命令 × 8 规则集 × 2 行为 + 建议项全部一致 |
+| 带工作目录的 git 运行时检查（hooks/config 信任）                                       | 未实现                                                                               | —                                               |
+| ask 交互（pendingInteraction、resolveInteraction、stop/冷恢复）                        | 未实现                                                                               | —                                               |
+| 能力宣告 `permissionModes` / `independentPlanState`                                    | 仍为 `[yolo]` / false；以上完成前不打开                                              | —                                               |
 
 ## Bash 只读分类移植方案
 
