@@ -40,8 +40,33 @@ impl Engine {
             },
         );
         let (epoch, _, _) = self.topic_snapshot(&topic)?;
+        // TS 续传：base 与当前 logEpoch 一致且落在保留窗口内时，只补发 base 之后的增量。
+        if let Some((from, to, deltas)) = self.replay_since(&topic, &p["base"], &epoch) {
+            self.push_frame(
+                &id,
+                "initial",
+                from,
+                to,
+                json!({"kind":"deltas","deltas":deltas}),
+            )?;
+            return Ok(json!({"ack":{"subscriptionId":id,"mode":"resume","logEpoch":epoch}}));
+        }
         self.snapshot_frame(&id, "initial")?;
         Ok(json!({"ack":{"subscriptionId":id,"mode":"snapshot","logEpoch":epoch}}))
+    }
+    fn replay_since(
+        &self,
+        topic: &str,
+        base: &Value,
+        epoch: &str,
+    ) -> Option<(u64, u64, Vec<Value>)> {
+        let session = self.sessions.get(topic.strip_prefix("conversation/")?)?;
+        if base["logEpoch"].as_str()? != epoch {
+            return None;
+        }
+        let from = base["seq"].as_u64()?;
+        let deltas = session.delta_log.replay(from, session.seq)?;
+        Some((from, session.seq, deltas))
     }
     pub(super) fn resync(&mut self, p: &Value) -> Result<Value> {
         let id = string(p, "subscriptionId")?;
@@ -177,6 +202,7 @@ impl Engine {
         let from = session.seq;
         session.seq += deltas.len() as u64;
         let to = session.seq;
+        session.delta_log.push(from, &deltas);
         let summary = session.summary();
         let listed = session.listed && !session.archived;
         let topic = format!("conversation/{id}");

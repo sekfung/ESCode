@@ -91,6 +91,9 @@ pub struct Session {
     pub thought_levels: Vec<String>,
     pub epoch: String,
     pub seq: u64,
+    /// 已发布增量的内存日志，供带 base 的订阅续传；不持久化（冷启动后回落 snapshot）。
+    #[serde(skip)]
+    pub delta_log: super::delta_log::DeltaLog,
     pub revision: u64,
     pub created_at: u64,
     pub updated_at: u64,
@@ -197,6 +200,7 @@ impl Session {
             title: String::new(),
             title_source: "default".into(),
             seq: 0,
+            delta_log: Default::default(),
             revision: 0,
             created_at: now,
             updated_at: now,

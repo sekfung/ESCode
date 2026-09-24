@@ -16,6 +16,7 @@ pub mod bash_rule_policy;
 mod bash_rule_prefix;
 pub mod builtin_prompt_command;
 pub mod context;
+pub mod delta_log;
 pub mod file_checkpoint;
 pub mod goal;
 pub mod history;
