@@ -115,64 +115,59 @@ test("Goal queued in guide mode preserves its intent and replaces the target onl
   }
 });
 
-test(
-  "Goal waits for background completion, receives terminal facts and then verifies",
-  { skip: process.platform === "win32" },
-  async () => {
-    const f = await fixture({
-      respond(request, response, attempt) {
-        response.writeHead(200, { "Content-Type": "text/event-stream" });
-        if (attempt === 1) {
-          event(response, {
-            tool_calls: [
-              {
-                index: 0,
-                id: "background-goal",
-                type: "function",
-                function: {
-                  name: "Bash",
-                  arguments: JSON.stringify({
-                    command: "sleep 0.35; echo checked",
-                    run_in_background: true,
-                  }),
-                },
-              },
-            ],
-          });
-          end(response, "tool_calls");
-          return;
-        }
-        const verify = request.messages.at(-1).content.includes("Verify whether");
+test("Goal waits for background completion, receives terminal facts and then verifies", async () => {
+  const f = await fixture({
+    respond(request, response, attempt) {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      if (attempt === 1) {
         event(response, {
-          content: verify
-            ? '{"passed":true,"reason":"background checked","nextAction":""}'
-            : "work done",
+          tool_calls: [
+            {
+              index: 0,
+              id: "background-goal",
+              type: "function",
+              function: {
+                name: "Bash",
+                arguments: JSON.stringify({
+                  command: "sleep 0.35; echo checked",
+                  run_in_background: true,
+                }),
+              },
+            },
+          ],
         });
-        end(response, "stop");
-      },
-    });
-    try {
-      const h = f.start();
-      const sid = await h.create();
-      await h.subscribe(`conversation/${sid}`);
-      assert.equal(
-        (await h.command(h.envelope("sendGoalCommand", sid, { text: "check in background" })))
-          .status,
-        "accepted",
-      );
-      await h.completed(sid);
-      assert.equal(f.requests.length, 2);
-      await goal(h, sid, "verified");
-      assert.equal(f.requests.length, 4);
-      assert.match(f.requests[2]!.messages.at(-1).content, /task-notification/);
-      assert.match(f.requests[2]!.messages.at(-1).content, /completed/);
-      assert.deepEqual(h.schemaErrors, []);
-      await h.close();
-    } finally {
-      await f.close();
-    }
-  },
-);
+        end(response, "tool_calls");
+        return;
+      }
+      const verify = request.messages.at(-1).content.includes("Verify whether");
+      event(response, {
+        content: verify
+          ? '{"passed":true,"reason":"background checked","nextAction":""}'
+          : "work done",
+      });
+      end(response, "stop");
+    },
+  });
+  try {
+    const h = f.start();
+    const sid = await h.create();
+    await h.subscribe(`conversation/${sid}`);
+    assert.equal(
+      (await h.command(h.envelope("sendGoalCommand", sid, { text: "check in background" }))).status,
+      "accepted",
+    );
+    await h.completed(sid);
+    assert.equal(f.requests.length, 2);
+    await goal(h, sid, "verified");
+    assert.equal(f.requests.length, 4);
+    assert.match(f.requests[2]!.messages.at(-1).content, /task-notification/);
+    assert.match(f.requests[2]!.messages.at(-1).content, /completed/);
+    assert.deepEqual(h.schemaErrors, []);
+    await h.close();
+  } finally {
+    await f.close();
+  }
+});
 
 test("Goal invalid verifier output retains a resumable goal and does not claim success", async () => {
   let malformed = true;

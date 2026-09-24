@@ -215,58 +215,54 @@ test("Rust startNow cancels streaming, retains prior output and preserves the or
   }
 });
 
-test(
-  "Rust startNow waits for foreground Shell cancellation before the next request",
-  { skip: process.platform === "win32" },
-  async () => {
-    let workdir = "";
-    const f = await fixture({
-      async respond(_req, res, n) {
-        if (n > 1) {
-          const pid = Number((await readFile(join(workdir, "shell.pid"), "utf8")).trim());
-          assert.throws(() => process.kill(pid, 0), /ESRCH/);
-          response(res);
-          return;
-        }
-        res.writeHead(200, { "content-type": "text/event-stream" });
-        event(res, {
-          tool_calls: [
-            {
-              index: 0,
-              id: "slow-shell",
-              type: "function",
-              function: {
-                name: "Bash",
-                arguments: JSON.stringify({
-                  command: "echo $$ > shell.pid; sleep 30; echo leaked > leaked.txt",
-                }),
-              },
+test("Rust startNow waits for foreground Shell cancellation before the next request", async () => {
+  let workdir = "";
+  const f = await fixture({
+    async respond(_req, res, n) {
+      if (n > 1) {
+        const pid = Number((await readFile(join(workdir, "shell.pid"), "utf8")).trim());
+        assert.throws(() => process.kill(pid, 0), /ESRCH/);
+        response(res);
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      event(res, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "slow-shell",
+            type: "function",
+            function: {
+              name: "Bash",
+              arguments: JSON.stringify({
+                command: "echo $$ > shell.pid; sleep 30; echo leaked > leaked.txt",
+              }),
             },
-          ],
-        });
-        end(res, "tool_calls");
-      },
-    });
-    workdir = f.cwd;
-    try {
-      const h = f.start();
-      const id = await h.create();
-      await h.subscribe(`conversation/${id}`);
-      await h.command(h.envelope("sendText", id, { text: "old tools" }));
-      await waitForFile(join(f.cwd, "shell.pid"));
-      const now = h.envelope("sendText", id, { text: "new task", requestedDelivery: "startNow" });
-      assert.equal((await h.command(now)).status, "accepted");
-      await finished(h, now.commandId);
-      assert.equal(f.requests.length, 2);
-      const result = f.requests[1]!.messages.find((m: Message) => m.tool_call_id === "slow-shell");
-      assert.match(result.content, /Interrupted/);
-      await assert.rejects(readFile(join(f.cwd, "leaked.txt")), /ENOENT/);
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      await f.close();
-    }
-  },
-);
+          },
+        ],
+      });
+      end(res, "tool_calls");
+    },
+  });
+  workdir = f.cwd;
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "old tools" }));
+    await waitForFile(join(f.cwd, "shell.pid"));
+    const now = h.envelope("sendText", id, { text: "new task", requestedDelivery: "startNow" });
+    assert.equal((await h.command(now)).status, "accepted");
+    await finished(h, now.commandId);
+    assert.equal(f.requests.length, 2);
+    const result = f.requests[1]!.messages.find((m: Message) => m.tool_call_id === "slow-shell");
+    assert.match(result.content, /Interrupted/);
+    await assert.rejects(readFile(join(f.cwd, "leaked.txt")), /ENOENT/);
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
 
 test("Rust followup mode persists, guide attachments fall back and stopped guides are held", async () => {
   const started = Promise.withResolvers<void>();

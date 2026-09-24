@@ -253,6 +253,7 @@ test("Subagent profile constrains dispatched tools and maxTurns, and foreign ses
 
 test(
   "Stopping the parent waits for its foreground child Shell to exit and cold history marks the child cancelled",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture({

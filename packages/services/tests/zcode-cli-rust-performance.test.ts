@@ -69,6 +69,7 @@ test("A single oversized idle session is evicted by bytes even below the count l
 
 test(
   "Non-repository context skips Git spawn but explicit GIT_DIR still invokes discovery",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     for (const kind of ["absent", "explicit", "nested-symlink"]) {

@@ -24,80 +24,77 @@ function prompt(req: any) {
   )?.content;
 }
 
-test(
-  "Rust coding path searches, reads, edits and runs a background test through App schemas",
-  { skip: process.platform === "win32" },
-  async () => {
-    let step = 0;
-    let taskId = "";
-    const f = await fixture({
-      respond(req, res) {
-        res.writeHead(200, { "Content-Type": "text/event-stream" });
-        const last = req.messages.at(-1);
-        assert(!last?.content?.startsWith("Tool failed"), last?.content);
-        switch (step++) {
-          case 0:
-            call(res, "Glob", { pattern: "**/*.txt" });
-            break;
-          case 1:
-            assert.match(last.content, /sample.txt/);
-            call(res, "Grep", { pattern: "wrong", glob: "*.txt", output_mode: "content" });
-            break;
-          case 2:
-            assert.match(last.content, /sample.txt:1:wrong/);
-            call(res, "Read", { file_path: "sample.txt" });
-            break;
-          case 3:
-            assert.match(last.content, /1\twrong/);
-            call(res, "Edit", {
-              file_path: "sample.txt",
-              old_string: "wrong",
-              new_string: "right",
-            });
-            break;
-          case 4:
-            call(res, "Bash", {
-              command: 'test "$(cat sample.txt)" = right && printf passed',
-              run_in_background: true,
-              description: "Check edited file",
-            });
-            break;
-          case 5:
-            taskId = JSON.parse(last.content).backgroundTaskId;
-            assert(taskId);
-            call(res, "TaskOutput", { task_id: taskId, block: true, timeout: 5000 });
-            break;
-          default: {
-            const result = JSON.parse(last.content);
-            assert.equal(result.retrieval_status, "success");
-            assert.equal(result.task.exitCode, 0);
-            assert.match(result.task.output, /passed/);
-            done(res);
-          }
+test("Rust coding path searches, reads, edits and runs a background test through App schemas", async () => {
+  let step = 0;
+  let taskId = "";
+  const f = await fixture({
+    respond(req, res) {
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      const last = req.messages.at(-1);
+      assert(!last?.content?.startsWith("Tool failed"), last?.content);
+      switch (step++) {
+        case 0:
+          call(res, "Glob", { pattern: "**/*.txt" });
+          break;
+        case 1:
+          assert.match(last.content, /sample.txt/);
+          call(res, "Grep", { pattern: "wrong", glob: "*.txt", output_mode: "content" });
+          break;
+        case 2:
+          assert.match(last.content, /sample.txt:1:wrong/);
+          call(res, "Read", { file_path: "sample.txt" });
+          break;
+        case 3:
+          assert.match(last.content, /1\twrong/);
+          call(res, "Edit", {
+            file_path: "sample.txt",
+            old_string: "wrong",
+            new_string: "right",
+          });
+          break;
+        case 4:
+          call(res, "Bash", {
+            command: 'test "$(cat sample.txt)" = right && printf passed',
+            run_in_background: true,
+            description: "Check edited file",
+          });
+          break;
+        case 5:
+          taskId = JSON.parse(last.content).backgroundTaskId;
+          assert(taskId);
+          call(res, "TaskOutput", { task_id: taskId, block: true, timeout: 5000 });
+          break;
+        default: {
+          const result = JSON.parse(last.content);
+          assert.equal(result.retrieval_status, "success");
+          assert.equal(result.task.exitCode, 0);
+          assert.match(result.task.output, /passed/);
+          done(res);
         }
-      },
-    });
-    try {
-      await writeFile(join(f.cwd, "sample.txt"), "wrong\n");
-      const h = f.start();
-      const id = await h.create();
-      await h.subscribe(`conversation/${id}`);
-      await h.subscribe(`conversation/${id}`, "mobile", "web-remote-replayable");
-      await h.command(h.envelope("sendText", id, { text: "fix and test", mode: "yolo" }));
-      await h.completed(id);
-      assert.equal(await readFile(join(f.cwd, "sample.txt"), "utf8"), "right\n");
-      const rows = (await h.rows(id)).rows;
-      assert(rows.some((r) => r.kind === "toolCall" && r.output?.display?.kind === "file_diff"));
-      assert(rows.some((r) => r.kind === "toolCall" && r.output?.display?.kind === "task_output"));
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      await f.close();
-    }
-  },
-);
+      }
+    },
+  });
+  try {
+    await writeFile(join(f.cwd, "sample.txt"), "wrong\n");
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.subscribe(`conversation/${id}`, "mobile", "web-remote-replayable");
+    await h.command(h.envelope("sendText", id, { text: "fix and test", mode: "yolo" }));
+    await h.completed(id);
+    assert.equal(await readFile(join(f.cwd, "sample.txt"), "utf8"), "right\n");
+    const rows = (await h.rows(id)).rows;
+    assert(rows.some((r) => r.kind === "toolCall" && r.output?.display?.kind === "file_diff"));
+    assert(rows.some((r) => r.kind === "toolCall" && r.output?.display?.kind === "task_output"));
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+  }
+});
 
 test(
   "Rust background tasks survive foreground completion, isolate sessions and stop process trees",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     let taskId = "";
@@ -231,6 +228,7 @@ test("Rust old native build sessions require explicit yolo selection after cold 
 
 test(
   "Rust EOF reaps background tasks and persists terminal state for cold history",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture({

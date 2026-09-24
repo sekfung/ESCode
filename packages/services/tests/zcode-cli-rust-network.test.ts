@@ -55,69 +55,64 @@ test("Rust retries socket failures, server errors and SSE network errors within 
   }
 });
 
-test(
-  "Rust TLS certificate failure is terminal and redacted",
-  { skip: process.platform === "win32" },
-  async () => {
-    const temp = await mkdtemp(join(tmpdir(), "rust-tls-"));
-    const key = join(temp, "key.pem"),
-      cert = join(temp, "cert.pem");
-    // 测试期生成自签名证书；不在仓库保存私钥，也不请求外部供应商。
-    await promisify(execFile)("openssl", [
-      "req",
-      "-x509",
-      "-newkey",
-      "rsa:2048",
-      "-nodes",
-      "-keyout",
-      key,
-      "-out",
-      cert,
-      "-days",
-      "1",
-      "-subj",
-      "/CN=localhost",
-    ]);
-    let handshakes = 0;
-    const server = createServer({ key: await readFile(key), cert: await readFile(cert) });
-    server.on("tlsClientError", () => {
-      handshakes++;
-    });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
-    const address = server.address();
-    assert(address && typeof address !== "string");
-    const f = await fixture();
-    try {
-      const config = JSON.parse(await readFile(f.config, "utf8"));
-      await writeFile(
-        f.config,
-        JSON.stringify({
-          ...config,
-          baseUrl: `https://127.0.0.1:${address.port}/v1`,
-          retry: { maxRetries: 2, baseDelayMs: 1, jitter: false },
-        }),
-      );
-      const h = f.start(),
-        id = await h.create();
-      await h.subscribe(`conversation/${id}`);
-      await h.command(h.envelope("sendText", id, { text: "tls" }));
-      const failure = await h.wait((m) =>
-        m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.control?.phase === "error"),
-      );
-      const error = failure.params.frame.payload.deltas.find(
-        (d: any) => d.patch?.control?.lastError,
-      ).patch.control.lastError;
-      assert.equal(error.attribution.reason, "tls_error");
-      assert.equal(error.attribution.retryable, false);
-      assert.equal(handshakes, 1);
-      assert(!JSON.stringify(h.messages).includes(String(address.port)));
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      await f.close();
-      server.closeAllConnections();
-      await new Promise<void>((r) => server.close(() => r()));
-      await rm(temp, { recursive: true, force: true });
-    }
-  },
-);
+test("Rust TLS certificate failure is terminal and redacted", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "rust-tls-"));
+  const key = join(temp, "key.pem"),
+    cert = join(temp, "cert.pem");
+  // 测试期生成自签名证书；不在仓库保存私钥，也不请求外部供应商。
+  await promisify(execFile)("openssl", [
+    "req",
+    "-x509",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    key,
+    "-out",
+    cert,
+    "-days",
+    "1",
+    "-subj",
+    "/CN=localhost",
+  ]);
+  let handshakes = 0;
+  const server = createServer({ key: await readFile(key), cert: await readFile(cert) });
+  server.on("tlsClientError", () => {
+    handshakes++;
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert(address && typeof address !== "string");
+  const f = await fixture();
+  try {
+    const config = JSON.parse(await readFile(f.config, "utf8"));
+    await writeFile(
+      f.config,
+      JSON.stringify({
+        ...config,
+        baseUrl: `https://127.0.0.1:${address.port}/v1`,
+        retry: { maxRetries: 2, baseDelayMs: 1, jitter: false },
+      }),
+    );
+    const h = f.start(),
+      id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "tls" }));
+    const failure = await h.wait((m) =>
+      m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.control?.phase === "error"),
+    );
+    const error = failure.params.frame.payload.deltas.find((d: any) => d.patch?.control?.lastError)
+      .patch.control.lastError;
+    assert.equal(error.attribution.reason, "tls_error");
+    assert.equal(error.attribution.retryable, false);
+    assert.equal(handshakes, 1);
+    assert(!JSON.stringify(h.messages).includes(String(address.port)));
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    await f.close();
+    server.closeAllConnections();
+    await new Promise<void>((r) => server.close(() => r()));
+    await rm(temp, { recursive: true, force: true });
+  }
+});

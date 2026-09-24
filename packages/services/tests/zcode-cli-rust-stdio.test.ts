@@ -8,6 +8,7 @@ import { commandsQueryResultSchema } from "@zcode/shared/zcode-protocol-v4";
 
 test(
   "Rust stop reaps an yolo running shell and accepts the next turn",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture();

@@ -114,6 +114,7 @@ test("closing persisted history removes runtime only; cold subscribe restores a 
 
 test(
   "close cancels foreground Shell, discards queued ACK and preserves another session",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture();
@@ -225,6 +226,7 @@ test("close clears session upload transactions while retaining committed history
 
 test(
   "close waits for background Shell cleanup and keeps its durable terminal state",
+  // Windows：用例本身依赖 POSIX（$$ 与 Node process.kill 的 PID 空间不同、shell 脚本伪造 git、SIGTERM 语义），待改写为跨平台断言。
   { skip: process.platform === "win32" },
   async () => {
     const f = await fixture({

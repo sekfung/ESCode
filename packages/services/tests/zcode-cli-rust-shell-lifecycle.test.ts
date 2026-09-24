@@ -20,6 +20,7 @@ function clean(pids: number[]) {
 for (const action of ["stop", "startNow", "EOF", "EPIPE"] as const) {
   test(
     `Rust ${action} waits for TERM-ignoring job-control descendants before settling`,
+    // Windows：用例依赖 POSIX 进程组与 SIGTERM 语义，待改写为跨平台断言。
     { skip: process.platform === "win32" },
     async () => {
       const pids: number[] = [];
@@ -110,63 +111,59 @@ for (const action of ["stop", "startNow", "EOF", "EPIPE"] as const) {
   );
 }
 
-test(
-  "Rust TaskStop waits for cross-group workers and exposes the committed background terminal state",
-  { skip: process.platform === "win32" },
-  async () => {
-    const pids: number[] = [];
-    let taskId = "";
-    const f = await fixture({
-      respond(req, res) {
-        res.writeHead(200, { "content-type": "text/event-stream" });
-        const last = req.messages.at(-1);
-        if (last.role === "user") {
-          const stop = last.content === "stop";
-          event(res, {
-            tool_calls: [
-              {
-                index: 0,
-                id: stop ? "stop-tree" : "background-tree",
-                type: "function",
-                function: {
-                  name: stop ? "TaskStop" : "Bash",
-                  arguments: JSON.stringify(
-                    stop ? { task_id: taskId } : { command, run_in_background: true },
-                  ),
-                },
+test("Rust TaskStop waits for cross-group workers and exposes the committed background terminal state", async () => {
+  const pids: number[] = [];
+  let taskId = "";
+  const f = await fixture({
+    respond(req, res) {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      const last = req.messages.at(-1);
+      if (last.role === "user") {
+        const stop = last.content === "stop";
+        event(res, {
+          tool_calls: [
+            {
+              index: 0,
+              id: stop ? "stop-tree" : "background-tree",
+              type: "function",
+              function: {
+                name: stop ? "TaskStop" : "Bash",
+                arguments: JSON.stringify(
+                  stop ? { task_id: taskId } : { command, run_in_background: true },
+                ),
               },
-            ],
-          });
-          end(res, "tool_calls");
-        } else {
-          if (last.tool_call_id === "background-tree")
-            taskId = JSON.parse(last.content).backgroundTaskId;
-          else for (const pid of pids) gone(pid);
-          event(res, { content: "complete" });
-          end(res, "stop");
-        }
-      },
-    });
-    try {
-      const h = f.start();
-      const id = await h.create();
-      await h.subscribe(`conversation/${id}`);
-      await h.command(h.envelope("sendText", id, { text: "start" }));
-      await h.completed(id);
-      pids.push(Number(await waitForFile(join(f.cwd, "root.pid"))));
-      pids.push(Number(await waitForFile(join(f.cwd, "child.pid"))));
-      const after = h.messages.length;
-      const began = performance.now();
-      await h.command(h.envelope("sendText", id, { text: "stop" }));
-      await h.completed(id, after);
-      assert(performance.now() - began < 3500);
-      for (const pid of pids) gone(pid);
-      const frames = h.messages.slice(after).flatMap((m) => m.params?.frame?.payload?.deltas ?? []);
-      assert(frames.some((d: Message) => d.patch?.backgroundWorks?.length === 0));
-      assert.deepEqual(h.schemaErrors, []);
-    } finally {
-      clean(pids);
-      await f.close();
-    }
-  },
-);
+            },
+          ],
+        });
+        end(res, "tool_calls");
+      } else {
+        if (last.tool_call_id === "background-tree")
+          taskId = JSON.parse(last.content).backgroundTaskId;
+        else for (const pid of pids) gone(pid);
+        event(res, { content: "complete" });
+        end(res, "stop");
+      }
+    },
+  });
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "start" }));
+    await h.completed(id);
+    pids.push(Number(await waitForFile(join(f.cwd, "root.pid"))));
+    pids.push(Number(await waitForFile(join(f.cwd, "child.pid"))));
+    const after = h.messages.length;
+    const began = performance.now();
+    await h.command(h.envelope("sendText", id, { text: "stop" }));
+    await h.completed(id, after);
+    assert(performance.now() - began < 3500);
+    for (const pid of pids) gone(pid);
+    const frames = h.messages.slice(after).flatMap((m) => m.params?.frame?.payload?.deltas ?? []);
+    assert(frames.some((d: Message) => d.patch?.backgroundWorks?.length === 0));
+    assert.deepEqual(h.schemaErrors, []);
+  } finally {
+    clean(pids);
+    await f.close();
+  }
+});
