@@ -46,3 +46,23 @@ sequenceDiagram
 - 真子进程在等待导入锁时 SIGTERM / EOF 能退出、不 ready、无新导入；锁释放后可重启成功。
 - SQLite 分步备份取消有确定性的 Rust 测试，验证清理和原库可读。
 - 保持 App 协议版本、desktop 连续 / mobile replay 语义不变。大历史按需加载、跨导入备份去重、成功备份保留策略及附件 GC 仍为后续范围。
+
+## 附件 MIME 的降级规则（2026-09-24）
+
+对应 TS `core/src/agent/file-part-hydration.ts::filePartToContentBlock`：
+
+| MIME                              | 投影                                            |
+| --------------------------------- | ----------------------------------------------- |
+| `image/*`                         | image_url                                       |
+| `video/*`                         | video_url（原先缺该分支，会落到 ensure! 失败）  |
+| `text/*`（有 preview）            | 该 preview 文本                                 |
+| `text/*`（data URL）              | 解码后的文本                                    |
+| `application/pdf`                 | file（`file_data`）                             |
+| 其他（audio、zip、octet-stream…） | 文本占位 `[Attached <mime>: <filename \| url>]` |
+
+其他 MIME **不再让整份导入失败**：此前 `ensure!(mime == "application/pdf")` 会把「历史里有一个 zip/音频附件」
+变成硬失败（`source remains unchanged`），真实用户因此完全无法迁移；TS 对同类输入只产出文本占位。
+只读文件的解析改为惰性（`resolve()`），占位分支不再读取大附件字节。
+
+验证：`zcode-cli-rust-migration-scale.test.ts` 导入 120 会话（含 1.5 MiB 未支持 MIME 附件）约 0.9s 完成，
+且 1 个会话的占位文本出现在 provider 请求中；导入幂等（`rust_legacy_import` 仅 1 行，二次启动行数不变）。

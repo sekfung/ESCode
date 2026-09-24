@@ -84,11 +84,17 @@ pub(super) fn file_content(p: &Value, cwd: &str, artifacts: &Path) -> Result<Vec
         return Ok(vec![json!({"type":"text","text":text})]);
     }
     let mime = p["mime"].as_str().unwrap_or("application/octet-stream");
-    let resolved = resolved(p, cwd, artifacts)?;
-    let url = resolved.as_str();
+    // 只在实际需要字节时才解析：未支持类型要走 TS 的文本占位分支，不应先读一遍大文件。
+    let resolve = || resolved(p, cwd, artifacts);
     if mime.starts_with("image/") {
         return Ok(vec![
-            json!({"type":"image_url","image_url":{"url":resolved}}),
+            json!({"type":"image_url","image_url":{"url":resolve()?}}),
+        ]);
+    }
+    // TS `filePartToContentBlock` 对 video/* 产出 video 块，Rust 之前没有该分支，会落到 ensure! 失败。
+    if mime.starts_with("video/") {
+        return Ok(vec![
+            json!({"type":"video_url","video_url":{"url":resolve()?}}),
         ]);
     }
     if mime.starts_with("text/")
@@ -97,7 +103,7 @@ pub(super) fn file_content(p: &Value, cwd: &str, artifacts: &Path) -> Result<Vec
         return Ok(vec![json!({"type":"text","text":preview})]);
     }
     if mime.starts_with("text/")
-        && let Some(data) = url.strip_prefix("data:")
+        && let Some(data) = resolve()?.strip_prefix("data:")
     {
         let (_, data) = data
             .split_once(";base64,")
@@ -106,13 +112,18 @@ pub(super) fn file_content(p: &Value, cwd: &str, artifacts: &Path) -> Result<Vec
             json!({"type":"text","text":String::from_utf8(base64::engine::general_purpose::STANDARD.decode(data)?)?}),
         ]);
     }
-    ensure!(
-        mime == "application/pdf",
-        "Unsupported legacy attachment MIME; original history was preserved"
-    );
-    Ok(vec![
-        json!({"type":"file","file":{"filename":p["filename"].as_str().unwrap_or("attachment.pdf"),"file_data":resolved}}),
-    ])
+    if mime == "application/pdf" {
+        return Ok(vec![
+            json!({"type":"file","file":{"filename":p["filename"].as_str().unwrap_or("attachment.pdf"),"file_data":resolve()?}}),
+        ]);
+    }
+    // 与 TS `filePartToContentBlock` 一致：其余 MIME 退化成文本占位，绝不因为一个附件
+    // 让整份历史导入失败（audio/zip 等真实附件曾导致 source remains unchanged）。
+    let label = p["filename"]
+        .as_str()
+        .or_else(|| p["url"].as_str())
+        .unwrap_or("attachment");
+    Ok(vec![json!({"type":"text","text":format!("[Attached {mime}: {label}]")})])
 }
 
 // 导入侧把可用附件字节快照进 Rust 目录；重启和回退均不依赖 TS 后续的缓存清理。
