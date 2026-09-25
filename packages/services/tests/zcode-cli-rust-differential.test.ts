@@ -14,7 +14,7 @@ type Runtime = "node" | "rust";
 
 /** 两侧共用同一个模型应答：先要一次工具调用，拿到工具结果后收尾。 */
 function respond(
-  req: { messages: { role: string }[] },
+  req: Record<string, any>,
   res: Parameters<typeof event>[0],
   tool: { name: string; args: unknown } = { name: "Read", args: { file_path: "sample.txt" } },
 ) {

@@ -3,6 +3,8 @@ import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
+// CI 与慢机器：每个用例都会起 runtime + 本地模型服务，并发跑会被接收超时误伤；ZCODE_TEST_SERIAL=1 时串行。
+const serial = process.env.ZCODE_TEST_SERIAL === "1";
 async function run(command, args) {
   await new Promise((done, fail) => {
     const child = spawn(command, args, {
@@ -102,6 +104,7 @@ await run("cargo", [
   "--workspace",
   "--manifest-path",
   "apps/zcode-cli-rust/Cargo.toml",
+  ...(serial ? ["--", "--test-threads=1"] : []),
 ]);
 await run("cargo", [
   "build",
@@ -115,4 +118,10 @@ const tests = (await readdir(resolve(root, "packages/services/tests")))
   .filter((name) => /^zcode-cli-rust-.*\.test\.ts$/.test(name))
   .map((name) => `packages/services/tests/${name}`);
 if (!tests.length) throw new Error("Rust App integration tests are missing");
-await run(process.execPath, ["--import", "tsx", "--test", ...tests]);
+await run(process.execPath, [
+  "--import",
+  "tsx",
+  "--test",
+  ...(serial ? ["--test-concurrency=1"] : []),
+  ...tests,
+]);

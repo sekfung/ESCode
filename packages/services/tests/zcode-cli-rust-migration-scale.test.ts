@@ -57,7 +57,7 @@ test("Rust imports a large TS history once, stays idempotent and preserves large
           role: m % 2 === 0 ? "user" : "assistant",
           time: { created: m + 1 },
           agent: "main",
-        });
+        } as Parameters<typeof store.saveMessage>[0]);
         await store.savePart({
           id: `${id}-p${m}` as PartId,
           sessionID: id,

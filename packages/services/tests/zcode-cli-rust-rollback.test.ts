@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createSqliteSessionStore } from "../../../apps/zcode-cli/packages/adapters/src/storage/session-store.js";
-import type { MessageId, ProjectId, SessionId, WorkspaceId } from "@zcode/contracts";
+import type { MessageId, PartId, ProjectId, SessionId, WorkspaceId } from "@zcode/contracts";
 import { fixture } from "./zcode-cli-rust-fixture.js";
 
 /** 源库与 TS 侧文件的字节指纹：回退的前提是 Rust 只读、不改写 TS 的数据。 */
@@ -54,7 +54,7 @@ test("Rust import leaves TS storage byte-identical and frees the workspace for r
       agent: "main",
     });
     await store.savePart({
-      id: "rollback-text",
+      id: "rollback-text" as PartId,
       sessionID: id,
       messageID,
       type: "text",

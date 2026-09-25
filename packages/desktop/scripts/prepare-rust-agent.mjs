@@ -37,10 +37,18 @@ async function main() {
   const workspace = resolve(desktopRoot, "..", "..", "apps", "zcode-cli-rust");
   const target = getTargetPlatform();
   const triple = resolveRustTarget(target.key, process.env.ZCODE_RUST_TARGET);
-  const identity = process.env.ZCODE_RUST_CODESIGN_IDENTITY?.trim();
-  if (target.os === "darwin" && !identity) {
-    // glm 目录被 electron-builder signIgnore；未签名的 Mach-O 无法通过公证，不能产出这样的包。
-    throw new Error("Bundling the Rust agent for macOS requires ZCODE_RUST_CODESIGN_IDENTITY");
+  // 与应用本身的签名开关一致：ZCODE_ENABLE_MAC_SIGN=1 时应用会签名并公证，glm 目录却被
+  // electron-builder signIgnore，Rust 二进制必须用同一身份自行签名，否则公证失败；
+  // 未开启时整个应用都不签名（CI 未签名包），二进制保持未签名。
+  const signMac = target.os === "darwin" && process.env.ZCODE_ENABLE_MAC_SIGN === "1";
+  const identity = (
+    process.env.ZCODE_RUST_CODESIGN_IDENTITY ||
+    process.env.APPLE_SIGNING_IDENTITY ||
+    process.env.CSC_NAME ||
+    ""
+  ).trim();
+  if (signMac && !identity) {
+    throw new Error("Signed macOS builds need APPLE_SIGNING_IDENTITY/CSC_NAME for the Rust agent");
   }
   const cargoArgs = ["build", "--release", "--locked", "--target", triple, "-p", "zcode-cli-rust"];
   if (process.env.ZCODE_RUST_OFFLINE === "1") cargoArgs.push("--offline");
@@ -53,7 +61,7 @@ async function main() {
   const destination = resolve(destinationDir, file);
   await copyFile(source, destination);
   if (target.os !== "win32") await chmod(destination, 0o755);
-  if (target.os === "darwin") {
+  if (signMac) {
     runCommand(
       "codesign",
       ["--force", "--options", "runtime", "--timestamp", "--sign", identity, destination],

@@ -1,0 +1,78 @@
+# Rust runtime 的跨平台验证：Windows（MSVC）、macOS、Linux 上跑同一套 Rust 与 App 集成测试。
+# 见 docs/specs/rust-ci.md。默认 runtime 仍是 Node；这里只验证 Rust runtime 与其接入。
+name: rust-runtime-ci
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: rust-runtime-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # 测试只需要 Node 侧依赖，不需要 Electron 运行时。
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  # 每个用例都会起 runtime + 本地模型服务；runner 上并发易被接收超时误伤。
+  ZCODE_TEST_SERIAL: "1"
+
+jobs:
+  checks:
+    name: checks (lint, typecheck, fmt, clippy, boundaries)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/zcode-cli-rust
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:zcode-cli-rust
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm architecture:check
+
+  test:
+    name: test (${{ matrix.os }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      # windows-latest 默认即 MSVC 工具链（x86_64-pc-windows-msvc），补上本仓库此前无法在本机验证的 MSVC 目标。
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/zcode-cli-rust
+      - run: pnpm install --frozen-lockfile
+      # 生成资产漂移检查、cargo test、App 集成套件（针对 Rust 二进制）。
+      - run: pnpm test:zcode-cli-rust
+        shell: bash

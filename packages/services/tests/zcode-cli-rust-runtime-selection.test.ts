@@ -25,7 +25,7 @@ function withEnv<T>(env: Partial<Record<(typeof KEYS)[number], string>>, run: ()
   }
 }
 
-const context = { workspacePath: "/work/space" };
+const context = { workspacePath: "/work/space", workspaceKey: "/work/space" };
 const bundled = { findRustBinary: () => "/res/glm/zcode-cli-rust" };
 const missing = { findRustBinary: () => null };
 
@@ -123,7 +123,7 @@ test("the Host resolves a staged bundled Rust binary and it completes a turn", a
     return;
   }
   const resolved = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
-    resolveDefaultZCodeAgentCommand({ workspacePath: process.cwd() }),
+    resolveDefaultZCodeAgentCommand({ workspacePath: process.cwd(), workspaceKey: process.cwd() }),
   );
   assert.equal(resolved?.command, findZCodeAgentRustBinary());
   const { fixture } = await import("./zcode-cli-rust-fixture.js");

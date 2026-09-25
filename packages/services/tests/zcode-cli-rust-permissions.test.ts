@@ -91,7 +91,7 @@ test("Rust build mode asks before Write and runs it after Allow once", async () 
     assert.equal(await readFile(join(f.cwd, "out.txt"), "utf8"), "written");
     const row = (await h.rows(id)).rows.find(
       (r: Message) => r.kind === "toolCall" && r.toolName === "Write",
-    );
+    ) as Message;
     assert.equal(row.status, "success");
     assert.deepEqual(h.schemaErrors, []);
   } finally {
@@ -121,7 +121,7 @@ test("Rust build mode denial keeps the file unwritten and returns the TS denial 
     assert.doesNotMatch(output, /Tool failed/);
     const row = (await h.rows(id)).rows.find(
       (r: Message) => r.kind === "toolCall" && r.toolName === "Write",
-    );
+    ) as Message;
     // 与 TS settlePermission 一致：被拒调用收口为 cancelled，不带工具输出/错误。
     assert.equal(row.status, "cancelled");
     assert.equal(row.output, undefined);

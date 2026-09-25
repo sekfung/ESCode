@@ -146,7 +146,8 @@ test("Rust backpressure and large history recover through the real App frame ass
       .filter((m) => m.params?.subscriptionId === sub.ack.subscriptionId)
       .flatMap((m) => assembler.accept(m.params));
     assert.equal(recovery[0]?.kind, "complete");
-    const held = assembled[0]!.kind === "complete" ? assembled[0].frame.payload : undefined;
+    const heldFrame = assembled[0];
+    const held = heldFrame?.kind === "complete" ? heldFrame.frame.payload : undefined;
     if (
       recovery[0]?.kind === "complete" &&
       recovery[0].frame.payload.kind === "deltas" &&
@@ -154,7 +155,7 @@ test("Rust backpressure and large history recover through the real App frame ass
     ) {
       assert.equal(
         recovery[0].frame.fromSeq,
-        assembled[0]!.kind === "complete" ? assembled[0].frame.toSeq : -1,
+        heldFrame?.kind === "complete" ? heldFrame.frame.toSeq : -1,
       );
       const state = applyConversationDeltas(held.snapshot, recovery[0].frame.payload.deltas);
       assert.equal(state.meta.title, "renamed during backpressure");

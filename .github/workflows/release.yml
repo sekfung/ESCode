@@ -1,0 +1,149 @@
+# 发布：Rust runtime 二进制（6 个目标）与桌面安装包（内置 Rust runtime，默认仍用 Node）。
+# 触发：推送 v* 标签，或手动运行（手动运行只上传构建产物，不创建 Release）。
+# 当前不签名（macOS 未签名、未公证；Windows 未签名）。见 docs/specs/rust-ci.md。
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # 仓库默认的 Electron 镜像面向国内网络；GitHub runner 直接用官方地址。
+  ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+
+jobs:
+  rust-runtime:
+    name: rust runtime (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, exe: "" }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm, exe: "" }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, exe: .exe }
+          - { target: aarch64-pc-windows-msvc, os: windows-latest, exe: .exe }
+          - { target: x86_64-apple-darwin, os: macos-latest, exe: "" }
+          - { target: aarch64-apple-darwin, os: macos-latest, exe: "" }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/zcode-cli-rust
+          key: ${{ matrix.target }}
+      - name: build
+        run: cargo build --release --locked --target ${{ matrix.target }} -p zcode-cli-rust
+        working-directory: apps/zcode-cli-rust
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="zcode-cli-rust-${GITHUB_REF_NAME//\//-}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp "apps/zcode-cli-rust/target/${{ matrix.target }}/release/zcode-cli-rust${{ matrix.exe }}" "dist/$name/"
+          cd dist
+          if [[ "${{ matrix.exe }}" == ".exe" ]]; then 7z a -tzip "$name.zip" "$name" > /dev/null; archive="$name.zip";
+          else tar -czf "$name.tar.gz" "$name"; archive="$name.tar.gz"; fi
+          if command -v sha256sum > /dev/null; then sha256sum "$archive" > "$archive.sha256";
+          else shasum -a 256 "$archive" > "$archive.sha256"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-runtime-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+  desktop:
+    name: desktop (${{ matrix.os }}-${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: win, arch: x64, runner: windows-latest }
+          - { os: mac, arch: arm64, runner: macos-latest }
+          - { os: mac, arch: x64, runner: macos-latest }
+          - { os: linux, arch: x64, runner: ubuntu-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      # 安装包内置 Rust runtime（resources/glm/zcode-cli-rust[.exe]），通过 ZCODE_AGENT_SERVER_RUNTIME 选用。
+      ZCODE_BUNDLE_RUST_AGENT: "1"
+      # 远程部署资产（mock-cdn 跨平台包）不进桌面安装包。
+      ZCODE_SKIP_REMOTE_ASSETS: "1"
+      ZCODE_TARGET_OS: ${{ matrix.os }}
+      ZCODE_TARGET_ARCH: ${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: rust target
+        shell: bash
+        run: |
+          case "${{ matrix.os }}-${{ matrix.arch }}" in
+            win-x64) echo "RUST_TARGET=x86_64-pc-windows-msvc" >> "$GITHUB_ENV" ;;
+            mac-arm64) echo "RUST_TARGET=aarch64-apple-darwin" >> "$GITHUB_ENV" ;;
+            mac-x64) echo "RUST_TARGET=x86_64-apple-darwin" >> "$GITHUB_ENV" ;;
+            linux-x64) echo "RUST_TARGET=x86_64-unknown-linux-gnu" >> "$GITHUB_ENV" ;;
+          esac
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.RUST_TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/zcode-cli-rust
+          key: desktop-${{ env.RUST_TARGET }}
+      - name: linux packaging tools
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm libarchive-tools
+      - run: pnpm install --frozen-lockfile
+      - name: bundle desktop
+        run: pnpm bundle:desktop -- --os ${{ matrix.os }} --arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.AppImage
+            packages/desktop/dist/*.deb
+            packages/desktop/dist/*.rpm
+            packages/desktop/dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  publish:
+    name: publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [rust-runtime, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: artifacts/*
+          body: |
+            Unsigned build. The desktop app still defaults to the Node runtime;
+            set ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust to use the bundled Rust runtime.
