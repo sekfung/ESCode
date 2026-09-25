@@ -21,6 +21,7 @@ import {
   v4ConversationRowsRangeResultSchema,
 } from "@zcode/shared/zcode-protocol-v4";
 import { shellHeartbeatCommand } from "./zcode-cli-rust-shell-probe.js";
+import { titleReply, titleRequest } from "./zcode-cli-rust-title-fixture.js";
 
 export const binary = resolve(
   `apps/zcode-cli-rust/target/debug/zcode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
@@ -53,6 +54,11 @@ export async function fixture(
     /** 复用已有目录（例如先由 Node runtime 落一份 TS 数据，再用 Rust 导入）。 */
     root?: string;
     respond?: (request: Message, response: ServerResponse, attempt: number) => void | Promise<void>;
+    /**
+     * 会话标题 sidecar 请求（docs/specs/rust-session-title.md）默认由 fixture 以空标题应答且不计入 requests，
+     * 用例的请求下标/条数只反映主循环；"respond" 时交给 respond 并记录（标题差分用例）。
+     */
+    titleRequests?: "respond";
     config?: Message;
     env?: Record<string, string>;
     registry?: boolean;
@@ -82,6 +88,8 @@ export async function fixture(
     let body = "";
     for await (const chunk of req) body += chunk;
     const request = JSON.parse(body);
+    if (options.titleRequests !== "respond" && titleRequest(request))
+      return titleReply(res, request, "");
     requests.push(request);
     requestPaths.push(req.url ?? "");
     requestHeaders.push(req.headers);

@@ -5,6 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { crc32, deflateSync } from "node:zlib";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
+import { titleReply, titleRequest } from "./zcode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 import { anthropic, responses } from "./zcode-cli-rust-protocol-fixture.js";
 
@@ -83,23 +84,8 @@ async function observe(kind: "node" | "rust", apiType: string, image: Buffer | T
   const requests: any[] = [];
   let step = 0;
   const respond = (req: any, res: any) => {
-    const first = JSON.stringify(req.messages ?? req.input ?? []);
-    if (first.includes("Generate a concise title")) {
-      if (req.stream === false || req.stream === undefined) {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(
-          JSON.stringify({
-            id: "t",
-            object: "chat.completion",
-            choices: [
-              { index: 0, message: { role: "assistant", content: "Title" }, finish_reason: "stop" },
-            ],
-            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-          }),
-        );
-        return;
-      }
-    }
+    // 标题 sidecar 请求不入用例的 requests 记录：Node 非流式、Rust 流式，两种形态都要应答。
+    if (titleRequest(req)) return titleReply(res, req);
     requests.push(req);
     const call =
       step++ === 0

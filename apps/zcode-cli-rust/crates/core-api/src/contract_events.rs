@@ -69,6 +69,13 @@ pub enum Event {
     },
     /// 冻结会话标题（CronCreate 成功后以 automation 标题为准，titleSource=custom）。
     FreezeTitle(String),
+    /// 标题 sidecar 的候选标题（docs/specs/rust-session-title.md）：由会话 owner 校验后写回，
+    /// 携带首条输入的实体 id，会话回退后不再写回。
+    SessionTitle {
+        session: String,
+        entity: String,
+        title: String,
+    },
     ToolCleanupFailed(String),
     PromptInitialized {
         snapshot: Box<zcode_cli_domain::prompt::PromptSnapshot>,

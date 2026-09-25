@@ -118,14 +118,15 @@ await run(process.execPath, [
   "scripts/generate-zcode-cli-rust-official-plugins.mjs",
   "--check",
 ]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
+// 修复：这里过去把多个生成脚本串在一次 node 调用里，node 只执行第一个（其余成为 argv），
+// custom-commands 与 memory 的漂移检查实际从未运行。逐个运行。
+for (const script of [
   "scripts/generate-zcode-cli-rust-cron-corpus.mjs",
   "scripts/generate-zcode-cli-rust-custom-commands.mjs",
   "scripts/generate-zcode-cli-rust-memory-corpus.mjs",
-  "--check",
-]);
+  "scripts/generate-zcode-cli-rust-title-corpus.mjs",
+])
+  await run(process.execPath, ["--import", "tsx", script, "--check"]);
 // 测试导入的工作区包（@zcode/rpc 等）类型入口指向 dist/*.d.ts；干净检出（CI）没有 dist 时，tsc 会退回按源码
 // 以测试的严格配置编译这些包而报错。先按 pnpm typecheck 的同一组项目构建声明。
 await run(process.execPath, [

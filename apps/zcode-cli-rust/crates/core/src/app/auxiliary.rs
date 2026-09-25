@@ -87,7 +87,7 @@ impl Engine {
         });
         Ok(())
     }
-    pub(super) fn auxiliary_event(&mut self, event: RunEvent) -> Result<()> {
+    pub(super) async fn auxiliary_event(&mut self, event: RunEvent) -> Result<()> {
         let id = event.session_id;
         if event.run_id != id {
             return Ok(());
@@ -117,9 +117,28 @@ impl Engine {
                     let _ = reply.send(None);
                 }
             },
+            // 标题 sidecar 的候选：由会话 owner 校验后写回（docs/specs/rust-session-title.md）。
+            Event::SessionTitle {
+                session,
+                entity,
+                title,
+            } => {
+                if !self.auxiliary[&id].cancel.is_cancelled() {
+                    self.apply_session_title(&session, &entity, &title).await?;
+                }
+            }
             Event::AuxiliaryDone { result } => {
                 self.cancel_auth(&id);
                 let job = self.auxiliary.remove(&id).unwrap();
+                // 标题作业结束即释放登记（否则 map 随会话数无界增长）。
+                if let Some(session) = job.session.as_deref()
+                    && self
+                        .title_jobs
+                        .get(session)
+                        .is_some_and(|title_job| title_job == &id)
+                {
+                    self.title_jobs.remove(session);
+                }
                 let result = if job.cancel.is_cancelled() {
                     Err(ModelFailure::cancelled())
                 } else {

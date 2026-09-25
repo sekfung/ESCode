@@ -84,6 +84,11 @@ pub struct Session {
     pub workspace: String,
     pub title: String,
     pub title_source: String,
+    /// 标题 sidecar 的 seed 与尝试标记（内存态；重启不补跑，见 docs/specs/rust-session-title.md）。
+    #[serde(skip)]
+    pub title_seed: Option<super::session_title::TitleSeed>,
+    #[serde(skip)]
+    pub title_attempted: bool,
     pub provider: String,
     pub model: String,
     pub reasoning_level: String,
@@ -197,6 +202,8 @@ impl Session {
             reasoning_level,
             thought_levels: vec![],
             epoch,
+            title_seed: None,
+            title_attempted: false,
             title: String::new(),
             title_source: "default".into(),
             seq: 0,

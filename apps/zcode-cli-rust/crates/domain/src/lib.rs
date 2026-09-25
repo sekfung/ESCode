@@ -57,6 +57,9 @@ mod session_context_text;
 pub mod session_listing;
 mod session_memory;
 mod session_recovery;
+pub mod session_title;
+#[cfg(test)]
+mod session_title_tests;
 pub mod shared_context;
 pub mod shared_import;
 pub mod skills;

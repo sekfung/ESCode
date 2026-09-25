@@ -33,6 +33,7 @@ mod input_attachments;
 mod session_close;
 mod session_read;
 mod session_residency;
+mod session_title;
 
 mod busy_input;
 mod input_admission;

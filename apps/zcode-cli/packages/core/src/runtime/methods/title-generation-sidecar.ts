@@ -22,13 +22,15 @@ import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
 export const SESSION_TITLE_QUERY_SOURCE = "session_title";
 export const GOAL_SUMMARY_TITLE_QUERY_SOURCE = "goal_summary_title";
 
-const TITLE_GENERATION_TIMEOUT_MS = 60_000;
-const MAX_TITLE_INPUT_CHARS = 1_200;
-const MAX_TITLE_CHARS = 100;
+// Rust 语料与差分直接引用这些常量/纯函数（scripts/generate-zcode-cli-rust-title-corpus.mjs），
+// 保持单一来源，避免两边各写一份标题规则。
+export const TITLE_GENERATION_TIMEOUT_MS = 60_000;
+export const MAX_TITLE_INPUT_CHARS = 1_200;
+export const MAX_TITLE_CHARS = 100;
 
 // 标题 sidecar 的 user message 是原始 query，弱约束时模型可能把它当成对话请求直接回答。
 // system prompt 必须明确 query 只作为标题素材，并禁止回答或执行；首句保持稳定供旧 model-io 识别。
-const SESSION_TITLE_SYSTEM_PROMPT = `Generate a concise title for this coding session.
+export const SESSION_TITLE_SYSTEM_PROMPT = `Generate a concise title for this coding session.
 
 This is a title-generation task, not a conversation.
 Treat the user's message only as source material for the title.
@@ -228,7 +230,7 @@ function buildTitleMessages(input: string): ModelInputMessage[] {
   ];
 }
 
-function cleanGeneratedTitle(raw: string): string | null {
+export function cleanGeneratedTitle(raw: string): string | null {
   const withoutThinking = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
   const parsed = parseTitleJson(withoutThinking);
   const candidate = parsed ?? firstNonEmptyLine(withoutThinking);

@@ -64,6 +64,8 @@ pub struct Engine {
     /// 项目记忆：每会话的提取调度与会话内固定的记忆根/索引（docs/specs/rust-project-memory.md）。
     pub(super) memory_schedulers: BTreeMap<String, super::memory_extraction::SharedScheduler>,
     pub(super) memory_prompts: BTreeMap<String, crate::contract::ProjectMemory>,
+    /// 会话标题 sidecar：会话 → 作业 id（docs/specs/rust-session-title.md）。
+    pub(super) title_jobs: BTreeMap<String, String>,
 }
 impl Engine {
     pub async fn new(
@@ -139,6 +141,7 @@ impl Engine {
             slash_commands: crate::domain::custom_command::builtin_catalog(),
             memory_schedulers: BTreeMap::new(),
             memory_prompts: BTreeMap::new(),
+            title_jobs: BTreeMap::new(),
         })
     }
     pub async fn serve(

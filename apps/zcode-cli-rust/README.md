@@ -15,6 +15,7 @@ crate 边界见 [架构规格](../../docs/specs/rust-cli-architecture.md)：`pro
 - 会话创建、重命名、历史读取、FIFO 输入/compact 维护队列、队列编辑、held queue 保留/清空发送、sendQueuedNow、stop 和幂等 ACK 查询。
 - 手动 /compact、自动预算压缩、超限后的单次反应式压缩、旧工具结果 microcompact；摘要边界与时间线同事务保存，完整历史保留；每次请求刷新根 AGENTS.md。
 - 会话 SQLite 持久化、崩溃中断恢复、workspace identity 隔离、进程 owner 锁、旧 run 事件丢弃。
+- 会话标题：首条输入按 TS 公式生成 `first_input` 标题，随后由辅助模型补齐 `generated` 标题（`custom` 优先、首条输入回退后不写回）。
 - V4 conversation/sessions-index/workspace-config 投影、desktop/mobile 独立订阅、分片校验和 snapshot 恢复。
 - App 原生存储准备、能力协商和显式 runtime 选择。
 - 直接读取 App Provider Registry、个人设置及账号 overlay；热更新、模型/档位切换、每请求 Host 鉴权、连通性测试和 workspace 文本生成/取消。

@@ -4,7 +4,7 @@ use serde_json::json;
 impl Engine {
     pub(super) async fn apply_event(&mut self, mut event: RunEvent) -> Result<()> {
         if self.auxiliary.contains_key(&event.session_id) {
-            return self.auxiliary_event(event);
+            return self.auxiliary_event(event).await;
         }
         if let Event::ToolCleanupFailed(message) = event.event {
             let owned = self
@@ -154,7 +154,7 @@ impl Engine {
             | Event::HostRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
-            | Event::CompactDone { .. } => unreachable!(),
+            | Event::CompactDone { .. } | Event::SessionTitle { .. } => unreachable!(),
             Event::Retry(state) => {
                 s.api_retry = state;
             }
@@ -392,6 +392,7 @@ impl Engine {
             self.promote(&id).await?;
             self.deliver_children(&id).await?;
             self.finish_child(&id).await?;
+            self.finish_session_title(&id);
         }
         Ok(())
     }

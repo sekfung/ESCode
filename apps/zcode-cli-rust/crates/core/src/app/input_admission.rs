@@ -120,17 +120,31 @@ impl Engine {
         s.updated_at = now;
         s.revision += 1;
         if s.title.is_empty() {
-            s.title = if text.trim().is_empty() {
+            // TS `titleFromInput(displayInput)`（docs/specs/rust-session-title.md）；附件为空文本时
+            // 沿用既有回退（首个附件名），其余规则与 Node 逐字一致。
+            let title_text = if text.trim().is_empty() {
                 c.payload["attachments"][0]["fileName"]
                     .as_str()
                     .unwrap_or("Attachment")
-                    .chars()
-                    .take(80)
-                    .collect()
+                    .to_owned()
             } else {
-                text.chars().take(80).collect()
+                text.to_owned()
             };
-            s.title_source = "generated".into();
+            s.title = crate::domain::session_title::title_from_input(&title_text);
+            s.title_source = "first_input".into();
+            // TS 对 automation 执行会话传 titleGenerationEnabled=false：不给 seed，标题停在 first_input。
+            if crate::domain::cron::turn_automation_id(
+                c.payload["automationId"].as_str(),
+                &c.command_id,
+            )
+            .is_none()
+            {
+                s.title_seed = Some(crate::domain::session_title::TitleSeed {
+                    entity: input.clone(),
+                    text: title_text,
+                    bypass_short_guard: c.kind == "sendGoalCommand",
+                });
+            }
         }
         let mut header = s.row("turnHeader", &turn, &turn, now);
         header["origin"] = if c.payload["_historyRerun"] == true {
