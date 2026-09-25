@@ -37,14 +37,11 @@ pub(super) fn keys(args: &Value, allowed: &[&str]) -> Result<()> {
     }
     Ok(())
 }
+/// TS `resolveWorkspacePath`：绝对输入按自身归一，相对输入接到 cwd 后再归一；全是词法操作，
+/// 结果会原样进入模型可见的工具结果，不能换成 realpath（见 `super::lexical_path`）。
 pub(super) fn resolve(cwd: &Path, input: &str) -> Result<PathBuf> {
     if input.trim().is_empty() || input.contains('\0') {
         bail!("Tool path must not be empty or contain NUL");
     }
-    let p = Path::new(input);
-    Ok(if p.is_absolute() {
-        p.to_owned()
-    } else {
-        cwd.join(p)
-    })
+    Ok(super::lexical_path::resolve(cwd, Path::new(input)))
 }

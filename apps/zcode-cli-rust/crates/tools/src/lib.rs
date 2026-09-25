@@ -17,6 +17,7 @@ mod file_atomic;
 mod file_changes;
 mod file_checkpoints;
 mod file_rewind;
+mod lexical_path;
 mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;

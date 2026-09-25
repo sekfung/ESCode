@@ -5,6 +5,7 @@
 | 问题           | TS 行为                              | Rust 原行为                                                                                       | 处理                                                                                                                   |
 | -------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | realpath 形态  | `fs.realpath` 返回 `C:\...`          | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                 | 统一走 `zcode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`             |
+| 模型可见路径   | 工具 `file_path` 只做词法归一（`resolveWorkspacePath`：折叠 `.`/`..`，不解析软链接/8.3 短名） | 工具结果 `filePath` 与媒体 Read 文案走 realpath，Windows（`RUNNER~1`→`runneradmin`）与 macOS（`/var`→`/private/var`）下与 Node 不一致 | 词法解析收敛到 `crates/tools/src/lexical_path.rs`（Node `path.resolve` 语义），模型可见路径一律用它；realpath 仅保留给状态键与检查点 |
 | 路径拼接       | `path.join` 使用平台分隔符           | `join(".zcode/AGENTS.md")` 生成 `\.zcode/AGENTS.md` 混合分隔符                                    | 所有多段字面量改为逐段 `join`                                                                                          |
 | OS Version     | `os.release()` = `10.0.26100`        | `Version.ToString()` = `10.0.26100.0`                                                             | 输出 `major.minor.build`                                                                                               |
 | 生成资产换行   | —                                    | `core.autocrlf` 检出 CRLF，漂移检查误报                                                           | `.gitattributes` 固定 LF                                                                                               |
@@ -87,3 +88,17 @@ CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/zcode-target \
 
 跨平台现状：Windows（MSVC 目标未跑，用 GNU 目标）与 Linux 均已通过 Rust 测试与（Windows 侧）App 集成套件；
 **macOS 未验证**（本机无 macOS 环境），发布验收仍须在 MSVC 目标与三平台原生环境重跑。
+
+## 模型可见路径改回词法解析（2026-09-26）
+
+媒体 Read 的差分用例在 CI 的 Windows 与 macOS runner 上同时失败：Rust 把请求路径 realpath 后写进
+`filePath` 与媒体文案，Windows 展开 8.3 短名（`RUNNER~1`→`runneradmin`）、macOS 展开 `/var`→`/private/var`，
+而 TS 的 `resolveWorkspacePath` 只做词法归一，两侧文本不同。
+
+处理：新增 `crates/tools/src/lexical_path.rs`（`normalize`/`resolve` 复刻 Node `path.resolve`），
+`tool_args::resolve` 与 `extension_config::resolve`、官方插件根探测共用它；`crates/tools/src/tool_files.rs` 的
+Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点仍用 realpath。
+本地回归：`zcode-cli-rust-tool-parity.test.ts` 新增「Node 与 Rust 回显同一词法请求路径」用例
+（绝对/相对 + `.`/`..` 折叠、目录 junction/软链接原样回显、Write 的相对路径回显），
+用旧 `join` 实现构建 fixture 时该用例失败、换成词法实现后通过。
+差异只剩绝对路径的尾部分隔符（Node `normalize` 保留、这里去掉），工具路径不靠它区分实体。

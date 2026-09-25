@@ -6,12 +6,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import { once } from "node:events";
 import { NodeFileSystemAdapter } from "../../../apps/zcode-cli/packages/adapters/src/fs/index.js";
 import { readTextFileForModel } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/read-text.js";
+import { resolveWorkspacePath } from "../../../apps/zcode-cli/packages/core/src/tool/path-policy.js";
 import { globToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/glob.js";
 import { grepToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/grep.js";
 import { writeToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/write.js";
@@ -87,6 +88,88 @@ async function driver() {
     },
   };
 }
+
+test("Node and Rust echo the requested lexical tool path (dots, separators, links)", async (t) => {
+  const d = await driver();
+  try {
+    const adapter = new NodeFileSystemAdapter();
+    await mkdir(join(d.root, "sub", "deep"), { recursive: true });
+    await writeFile(join(d.root, "sub", "a.txt"), "hello\n");
+    await writeFile(join(d.root, "up.txt"), "up\n");
+    const expected = (inputPath: string, operation: "read" | "write") =>
+      resolveWorkspacePath({
+        inputPath,
+        workingDirectory: d.root,
+        workspaceRoot: d.root,
+        operation,
+      });
+    // TS `resolveWorkspacePath` 只做词法归一：折叠 `.`/`..`、统一分隔符，不解析符号链接与 8.3 短名。
+    // 这些路径会原样进入模型可见的 `filePath`、App 展示与错误文案，两侧必须逐字一致。
+    const readCases = [
+      `${d.root}${sep}sub${sep}..${sep}sub${sep}a.txt`,
+      `${d.root}/sub/deep/.././a.txt`,
+      `sub${sep}..${sep}sub${sep}a.txt`,
+      "./sub/a.txt",
+      `sub${sep}..${sep}up.txt`,
+      // 上溯到工作区外再折回（两侧都必须折叠 `..` 而不是解析符号链接）。
+      `${d.root}${sep}..${sep}${basename(d.root)}${sep}sub${sep}a.txt`,
+    ];
+    for (const inputPath of readCases) {
+      const ts = await readTextFileForModel({
+        filePath: expected(inputPath, "read"),
+        fileSystemPort: adapter,
+      });
+      const rust = await d.call("Read", { file_path: inputPath });
+      assert.equal(rust.error, undefined, `Read ${inputPath}: ${rust.error}`);
+      ReadOutputSchema.parse(rust.data);
+      assert.equal(rust.data.filePath, ts.filePath, `Read ${inputPath}`);
+      assert.equal(rust.data.content, ts.content, `Read ${inputPath} content`);
+    }
+    // 目录软链接（Windows 用无需特权的 junction）：请求路径原样回显，不解析到真实目标。
+    const mirror = join(d.root, "mirror");
+    try {
+      await symlink(join(d.root, "sub"), mirror, process.platform === "win32" ? "junction" : "dir");
+      const rust = await d.call("Read", { file_path: join(mirror, "a.txt") });
+      assert.equal(rust.data.filePath, expected(join(mirror, "a.txt"), "read"));
+      assert.equal(rust.data.content, "hello\n");
+      const written = join(mirror, "linked.txt");
+      const rustWrite = await d.call("Write", { file_path: written, content: "via link\n" });
+      assert.equal(rustWrite.data.filePath, expected(written, "write"));
+      assert.equal(await readFile(join(d.root, "sub", "linked.txt"), "utf8"), "via link\n");
+    } catch (error) {
+      // 权限不足以创建链接时只跳过这一子用例，其余词法断言仍必须成立。
+      t.diagnostic(`link case skipped: ${error}`);
+    }
+    // 相对路径写入（含 `..`）的 `filePath` 与结构化输出必须与 TS 同形。
+    const rustWrite = await d.call("Write", {
+      file_path: `sub${sep}..${sep}sub${sep}written.txt`,
+      content: "written\n",
+    });
+    WriteOutputSchema.parse(rustWrite.data);
+    assert.equal(rustWrite.data.filePath, expected(`sub${sep}..${sep}sub${sep}written.txt`, "write"));
+    const tsWritePath = expected(`sub${sep}..${sep}sub${sep}ts-written.txt`, "write");
+    const tsWrite = (await writeToolEntry.handler(
+      { file_path: tsWritePath, content: "written\n" },
+      {
+        workingDirectory: d.root,
+        workspaceRoot: d.root,
+        sessionId: "fixture",
+        toolCallId: "fixture",
+        traceId: "fixture",
+        abortSignal: new AbortController().signal,
+        fileSystemPort: adapter,
+        readFileState: new Map(),
+      } as unknown as ToolExecutionContext,
+    )) as any;
+    for (const key of ["type", "content", "additions", "deletions"] as const)
+      assert.equal(rustWrite.data[key], tsWrite[key], `Write ${key}`);
+    const inside = (path: string) => path.slice(d.root.length);
+    assert.equal(inside(rustWrite.data.filePath), `${sep}sub${sep}written.txt`);
+    assert.equal(inside(tsWrite.filePath), `${sep}sub${sep}ts-written.txt`);
+  } finally {
+    await d.close();
+  }
+});
 
 test("Rust tool definitions use current TS schemas and real TS file/search handlers agree on representative calls", async () => {
   const d = await driver();

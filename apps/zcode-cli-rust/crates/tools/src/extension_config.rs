@@ -1,6 +1,6 @@
 use anyhow::{Result, ensure};
 use serde_json::{Value, json};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 
 pub(super) fn home() -> PathBuf {
@@ -15,17 +15,7 @@ pub(super) fn resolve(base: &Path, path: &str) -> PathBuf {
         .strip_prefix("~/")
         .map(|p| home().join(p))
         .unwrap_or_else(|| base.join(path));
-    let mut result = PathBuf::new();
-    for part in raw.components() {
-        match part {
-            Component::CurDir => (),
-            Component::ParentDir => {
-                result.pop();
-            }
-            other => result.push(other),
-        }
-    }
-    result
+    super::lexical_path::normalize(&raw)
 }
 pub(super) async fn json_file(path: &Path) -> Result<Value> {
     let file = match tokio::fs::File::open(path).await {

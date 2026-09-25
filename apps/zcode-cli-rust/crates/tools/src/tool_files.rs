@@ -85,20 +85,23 @@ impl FileTools<'_> {
         args: &Value,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let path = zcode_cli_host::realpath(path).await?;
+        // 修复：模型可见路径沿用 TS `resolveWorkspacePath` 的词法结果（不解析符号链接与 8.3 短名），
+        // 此前整条链路 realpath，Windows（RUNNER~1→runneradmin）与 macOS（/var→/private/var）下
+        // PDF 等输出里的路径与 Node 不一致，差分测试在两侧失败；realpath 只保留给读写状态键。
+        let state_key = zcode_cli_host::realpath(path).await?;
         // TS 先按扩展名分派媒体（docs/specs/rust-media-read.md）。
-        if let Some(mime) = super::read_image::mime_from_path(&path) {
-            return super::read_image::read(&path, mime, cancel).await;
+        if let Some(mime) = super::read_image::mime_from_path(path) {
+            return super::read_image::read(path, mime, cancel).await;
         }
-        if let Some(mime) = super::read_image::video_mime_from_path(&path) {
-            return super::read_image::read_video(&path, mime, cancel).await;
+        if let Some(mime) = super::read_image::video_mime_from_path(path) {
+            return super::read_image::read_video(path, mime, cancel).await;
         }
         if super::read_pdf::supports(&self.input_format, "supportsPdf")
             && path.to_string_lossy().to_lowercase().ends_with(".pdf")
         {
             let pages = args["pages"].as_str();
             let image = super::read_pdf::supports(&self.input_format, "supportsImage");
-            return super::read_pdf::read(&path, pages, image, cancel).await;
+            return super::read_pdf::read(path, pages, image, cancel).await;
         }
         if !tokio::fs::metadata(&path).await?.is_file() {
             bail!("Read requires a regular file");
@@ -165,7 +168,7 @@ impl FileTools<'_> {
             content.split('\n').count()
         };
         let full = start == 1 && !truncated && count as u64 >= total;
-        self.remember(path.clone(), hash.finalize().to_vec(), full)
+        self.remember(state_key, hash.finalize().to_vec(), full)
             .await;
         let numbered = content
             .split('\n')
@@ -324,14 +327,17 @@ impl FileTools<'_> {
             .await?;
         }
         super::file_atomic::atomic_write(&path, &bytes, original.as_deref(), cancel).await?;
+        // 模型可见路径用词法请求路径（TS `resolveWorkspacePath` 不解析符号链接/短名）；
+        // realpath 后的 path 只用于读状态键与检查点（checkpoint 恢复要求已归一）。
+        let requested = input.to_owned();
         let path = zcode_cli_host::realpath(path).await?;
         self.remember(path.clone(), Sha256::digest(&bytes).to_vec(), true)
             .await;
         let (patch, additions, deletions) = patch(&old, &new);
         let mut data = if name == "Write" {
-            json!({"type":if original.is_some(){"update"}else{"create"},"filePath":path,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
+            json!({"type":if original.is_some(){"update"}else{"create"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
         } else {
-            let mut data = json!({"filePath":path,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all});
+            let mut data = json!({"filePath":requested,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all});
             // 与 TS 一致：新建/空文件（old_string 为空）不带匹配策略字段。
             if let Some((strategy, candidates)) = matched {
                 data["matchStrategy"] = strategy.into();
@@ -339,14 +345,14 @@ impl FileTools<'_> {
             }
             data
         };
-        let mut display = json!({"kind":"file_diff","filePath":path,"additions":additions,"deletions":deletions,"structuredPatch":data["structuredPatch"]});
+        let mut display = json!({"kind":"file_diff","filePath":requested,"additions":additions,"deletions":deletions,"structuredPatch":data["structuredPatch"]});
         if serde_json::to_vec(&display)?.len() > 32 * 1024 {
             display["structuredPatch"] = json!([]);
             display["truncated"] = true.into();
         }
         let mut content = format!(
             "The file {} has been {} successfully.",
-            path.display(),
+            requested.display(),
             if name == "Edit" { "updated" } else { "written" }
         );
         if serde_json::to_vec(&data)?.len() > 64 * 1024 {

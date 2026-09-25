@@ -184,28 +184,13 @@ pub(crate) fn seed(storage: &Path, bases: &[PathBuf], host: Option<&Host>) -> Re
 fn find_root(definition: &Definition, bases: &[PathBuf]) -> Option<PathBuf> {
     bases.iter().find_map(|base| {
         definition.root_candidates.iter().find_map(|relative| {
-            let root = normalize(&base.join(relative));
+            let root = super::lexical_path::normalize(&base.join(relative));
             root.join(".zcode-plugin")
                 .join("plugin.json")
                 .is_file()
                 .then_some(root)
         })
     })
-}
-
-/// `path.resolve` 的 `..` / `.` 折叠（不解析符号链接）。
-fn normalize(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::ParentDir => {
-                out.pop();
-            }
-            std::path::Component::CurDir => {}
-            other => out.push(other.as_os_str()),
-        }
-    }
-    out
 }
 
 fn collect_files(root: &Path, definition: &Definition, assets: &Assets) -> Result<Vec<SeedFile>> {

@@ -8,6 +8,10 @@
 - Read 使用 file_path/offset/limit，1-based 行号（0 同 1），分页、有界内存、特殊/二进制文件拒绝。Write 使用 file_path/content；Edit 使用 file_path/old_string/new_string/replace_all。支持父目录创建、原子替换、UTF-8/BOM/CRLF、已有文件先读与新鲜度检查。常用确定性匹配先对齐，未实现的宽松匹配不得冒充成功。
 - Glob/Grep 提供 TS 同名字段及结构化结果，原生执行并响应取消；Glob 最近修改优先最多 100 项；Grep 提供正则、glob/type、大小写、上下文、only-matching、多行和 offset/head_limit。尊重 ignore，不跟随目录 symlink，结果有界。未实现的方言/文件类型必须明确错误。
 - 普通工具路径按 TS path-policy 解析：相对 cwd、可显式访问工作区外路径；yolo 不构成 OS sandbox。会话 identity 只用于状态隔离。
+  解析是**词法**的（`crates/tools/src/lexical_path.rs` 复刻 Node `path.resolve`/`normalize`：折叠 `.`/`..`、统一平台分隔符），
+  不做 realpath：`filePath`、媒体 Read 的展示路径与错误文案会原样进入模型上下文和 App，必须与 TS 逐字一致；
+  realpath 只用于读写状态键与文件检查点（需要归一实体）。同一文件经不同别名（软链接、8.3 短名）访问时，
+  状态键因此按实体合并，而模型可见路径保留请求形态。
 - Bash 使用 command/timeout/description/run_in_background/dangerouslyDisableSandbox，支持结构化退出码、取消/超时与大输出文件。TaskOutput 支持 task_id/block/timeout；TaskStop 支持 task_id/shell_id。非零退出是执行结果，不因解析成功当作命令成功。
 - 后台任务可跨模型回合和正常前台结束；任务 ID 绑定 session，不能跨 session 查询/停止。上限每会话 16 个运行任务及 128 条任务记录，输出落独立数据目录并限制磁盘和内存占用。TaskOutput 等待可取消，TaskStop 等待进程树退出后返回。进程关闭、故障、显式 stop 收口所属任务；冷恢复不重启未知副作用，状态标 interrupted。
 - App 复用 backgroundWorks 和 cancelBackgroundWork；任务完成后状态持久化，下一次用户输入可携带任务状态。此包不自动发起额外模型回合，也不扩展子代理任务。
