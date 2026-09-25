@@ -12,7 +12,9 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
         let Some(parts) = message["content"].as_array_mut() else {
             continue;
         };
-        for part in parts {
+        // TS projectMessagesWithMediaAttachmentPaths：用户本地文件媒体在消息末尾附 `[Image: source: <path>]`。
+        let mut sources = vec![];
+        for part in parts.iter_mut() {
             if part["type"] != "_zcode_attachment" {
                 continue;
             }
@@ -75,6 +77,44 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                 return Err(ModelFailure::new("attachment_unavailable", false));
             }
             let name = part["name"].as_str().unwrap_or("attachment");
+            // TS projectMessagesWithMediaAttachmentPaths：本地文件用其路径；上传附件派生一份本地副本
+            // （原始字节、原 MIME 扩展名）。派生失败与 TS 一样使请求失败，不静默丢掉路径。
+            let source = if tool || capability.is_none() {
+                None
+            } else if let Some(path) = asset.source_path.as_deref() {
+                Some(path.to_owned())
+            } else if let Some(uri) = part["ref"].as_str().filter(|r| r.starts_with("zcode-artifact://")) {
+                super::attachment_image::derived_media_path(uri, mime, &bytes)
+                    .await
+                    .map_err(|_| ModelFailure::new("attachment_unavailable", false))?
+            } else {
+                None
+            };
+            // 工具结果媒体已由工具按同一预算准备；用户图片在此准备（TS prepareImageDataUrl）。
+            let prepared;
+            let (mime, bytes) = if mime.starts_with("image/") && !tool {
+                let key = format!("{}:{}", asset.path, asset.total_bytes);
+                prepared = super::attachment_image::prepare(key, bytes, mime).await;
+                match prepared.as_ref() {
+                    Some(prepared) => (prepared.media_type.as_str(), prepared.data.clone()),
+                    None => {
+                        // TS resolvedPlaceholderAttachment：无法解码/压缩时以占位文本交付，不中断请求。
+                        let label = asset.source_path.as_deref().unwrap_or(name);
+                        *part = json!({"type":"text","text":format!("[Attached {mime}: {label}]")});
+                        continue;
+                    }
+                }
+            } else {
+                (mime, bytes)
+            };
+            if let Some(path) = source {
+                let label = match capability {
+                    Some("supportsImage") => "Image",
+                    Some("supportsVideo") => "Video",
+                    _ => "PDF",
+                };
+                sources.push(format!("[{label}: source: {path}]"));
+            }
             *part = if capability.is_some() {
                 if mime == "application/pdf" && !bytes.starts_with(b"%PDF-") {
                     return Err(ModelFailure::new("attachment_unavailable", false));
@@ -115,6 +155,7 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                 }
             };
         }
+        parts.extend(sources.into_iter().map(|text| json!({"type":"text","text":text})));
     }
     if expanded {
         hoist_reminders(messages);

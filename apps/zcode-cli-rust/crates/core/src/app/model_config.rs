@@ -23,6 +23,9 @@ impl ModelPort for LiveModel {
     fn context_policy(&self) -> crate::domain::context::ContextPolicy {
         self.bind().unwrap().context_policy()
     }
+    fn native_web_search(&self) -> bool {
+        self.bind().unwrap().native_web_search()
+    }
     /// 当前选型的最低推理档位（TS auxiliaryModelOptions 取 optionSpecs.reasoningLevel.values[0]）。
     fn auxiliary(&self) -> Option<Arc<dyn ModelPort>> {
         let selection = self.selection.borrow().clone();

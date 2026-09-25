@@ -31,6 +31,7 @@ pub struct InstructionSource {
 #[serde(rename_all = "camelCase")]
 struct Templates {
     user_steer: String,
+    date_change: String,
     cli: String,
     identity: String,
     desktop: String,
@@ -48,6 +49,20 @@ pub fn user_steer(text: &str) -> String {
     templates()
         .user_steer
         .replacen("{zcode_input_text}", text, 1)
+}
+/// TS `injectDateChangeReminderIntoMessageHistory`：同一运行时内本地日期变化后，下一轮次前插入的
+/// reminder（docs/specs/rust-date-change.md）。首轮只记录日期；日期未变时不插入。
+pub fn date_change_reminder(previous: Option<&str>, current: &str) -> Option<Value> {
+    let previous = previous.filter(|p| *p != current)?;
+    let body = templates()
+        .date_change
+        .replacen("{previous}", previous, 1)
+        .replacen("{date}", current, 1);
+    Some(serde_json::json!({
+        "role": "user",
+        "content": super::plan_mode::wrap(&body),
+        "_zcode_source": "date_change",
+    }))
 }
 pub fn prefix(
     snapshot: &PromptSnapshot,
@@ -165,4 +180,28 @@ pub fn prefix(
         messages.push(json!({"role":"user","content":format!("<system-reminder>\n{escaped}\n</system-reminder>\n")}));
     }
     messages
+}
+
+#[cfg(test)]
+mod date_change_tests {
+    use super::date_change_reminder;
+
+    #[test]
+    fn first_turn_and_same_day_do_not_remind() {
+        assert!(date_change_reminder(None, "2026-09-26").is_none());
+        assert!(date_change_reminder(Some("2026-09-26"), "2026-09-26").is_none());
+    }
+
+    #[test]
+    fn date_change_uses_ts_body_wrapped_as_system_reminder() {
+        let message = date_change_reminder(Some("2026-09-26"), "2026-09-27").unwrap();
+        assert_eq!(message["role"], "user");
+        assert_eq!(message["_zcode_source"], "date_change");
+        assert_eq!(
+            message["content"],
+            "<system-reminder>
+The date has changed. Today's date is now 2026-09-27. DO NOT mention this to the user explicitly because they are already aware.
+</system-reminder>"
+        );
+    }
 }

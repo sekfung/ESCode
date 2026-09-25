@@ -82,6 +82,7 @@ impl HttpModel {
         attempt: u32,
         output: &mut TextBuffer<'_>,
         auth: &Value,
+        native_search: bool,
     ) -> Result<ModelOutput> {
         let idle_ms = if self.config.stream_idle_timeout_ms == 0 {
             0
@@ -103,8 +104,24 @@ impl HttpModel {
         if let Some(seconds) = self.config.request_timeout_seconds {
             request = request.timeout(Duration::from_secs(seconds));
         }
+        // provider-native 搜索需要 beta（docs/specs/rust-websearch.md），与配置中已有的 beta 合并。
+        let beta = native_search.then(|| {
+            let existing = self
+                .config
+                .headers
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case("anthropic-beta"))
+                .map(|(_, value)| value.as_str());
+            super::web_search::merge_beta(existing)
+        });
         for (key, value) in &self.config.headers {
+            if beta.is_some() && key.eq_ignore_ascii_case("anthropic-beta") {
+                continue;
+            }
             request = request.header(key, value);
+        }
+        if let Some(beta) = &beta {
+            request = request.header("anthropic-beta", beta);
         }
         let key = if self.config.account_access.is_some() {
             auth["requestAuth"]["apiKey"].as_str().map(str::to_owned)
@@ -202,6 +219,7 @@ impl HttpModel {
         let encoded = Bytes::from(
             serde_json::to_vec(&body).map_err(|_| ModelFailure::new("invalid_request", false))?,
         );
+        let native_search = super::web_search::needs_beta(&body);
         // 大附件仅保留重试所需的已编码字节，不能在整个流期间保留多份 base64 请求树。
         drop(body);
         if encoded.len()
@@ -240,7 +258,7 @@ impl HttpModel {
                 Value::Null
             };
             let result = self
-                .request(encoded.clone(), attempt, &mut output, &auth)
+                .request(encoded.clone(), attempt, &mut output, &auth, native_search)
                 .await;
             output.flush().await?;
             match result {
@@ -305,6 +323,9 @@ impl ModelPort for HttpModel {
             model_id: self.config.model_id.clone(),
             reasoning_level: self.config.reasoning_level.clone(),
         })
+    }
+    fn native_web_search(&self) -> bool {
+        self.config.native_web_search
     }
     fn format_properties(&self) -> Value {
         self.config.format_properties.clone().unwrap_or_else(|| serde_json::json!({"inputFormat":{"supportsText":true,"supportsImage":false,"supportsVideo":false,"supportsAudio":false,"supportsPdf":false},"outputFormat":{"supportsText":true}}))

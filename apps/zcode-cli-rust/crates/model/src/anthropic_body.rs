@@ -82,19 +82,20 @@ pub(super) fn body(
             ));
         }
     }
-    let tools=tools.iter().map(|t|json!({"name":t["function"]["name"],"description":t["function"]["description"],"input_schema":t["function"]["parameters"]})).collect::<Vec<_>>();
+    let tools = tools
+        .iter()
+        .map(|t| match super::web_search::anthropic_tool(t) {
+            Some(native) => native,
+            None => json!({"name":t["function"]["name"],"description":t["function"]["description"],"input_schema":t["function"]["parameters"]}),
+        })
+        .collect::<Vec<_>>();
     let mut body =
         json!({"model":config.model_id,"stream":true,"max_tokens":config.max_output_tokens});
-    body["system"] = if cache_system {
-        system.into()
-    } else {
-        system
-            .iter()
-            .filter_map(|b| b["text"].as_str())
-            .collect::<Vec<_>>()
-            .join("\n\n")
-            .into()
-    };
+    // 修复：非缓存请求（标题、WebFetch 处理、WebSearch、压缩摘要）此前把 system 拼成字符串，空时还会发 `""`；
+    // AI SDK 始终发送文本块数组（每条 system 消息一块），没有 system 时省略该字段。
+    if !system.is_empty() {
+        body["system"] = system.into();
+    }
     // TS finalizeLatestNonSystemMessageCacheControl：主请求把最新的非 system 消息设为缓存断点，
     // Anthropic 落在其最后一个内容块上（摘要等不带系统缓存前缀的请求不设）。
     if cache_system && let Some((message, block)) = cache_target {

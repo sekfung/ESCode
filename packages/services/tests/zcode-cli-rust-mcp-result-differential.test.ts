@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { join, resolve } from "node:path";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
@@ -43,6 +43,8 @@ const shapes: Record<string, unknown> = {
     ],
   },
   empty: { content: [] },
+  // 超过 200KiB inline 预算：App 中 TS 写二进制 artifact 并告知路径与 URI（第 2 期）。
+  big: { content: [{ type: "image", mimeType: "image/png", data: "QUJD".repeat(52 * 1024) }] },
 };
 const kinds = Object.keys(shapes);
 
@@ -148,7 +150,31 @@ async function observe(kind: "node" | "rust", apiType: string) {
       );
       return body.slice(at);
     });
-    const observation = { results, schemaErrors: h.schemaErrors };
+    // artifact 目录、会话与 uuid 因运行时而异：核对文件内容后归一化，只比对格式。
+    const artifacts: boolean[] = [];
+    const normalized = JSON.parse(
+      JSON.stringify(results).replace(
+        /Artifact: ((?:[^"\\]|\\.)+?)[\\/]+([A-Za-z0-9._-]+)-tool-result-[0-9a-f-]{36}\.png\\nArtifact URI: zcode-artifact:\/\/[A-Za-z0-9._-]+\/tool-result-[0-9a-f-]{36}/g,
+        (_all, dir: string, call: string) => {
+          artifacts.push(dir.length > 0);
+          return `Artifact: <artifacts>/<session>/${call}-tool-result-<uuid>.png\\nArtifact URI: zcode-artifact://<session>/tool-result-<uuid>`;
+        },
+      ),
+    );
+    const paths = [...JSON.stringify(results).matchAll(/Artifact: ((?:[^"\\]|\\.)+?\.png)/g)].map(
+      (m) => JSON.parse(`"${m[1]}"`) as string,
+    );
+    const written = await Promise.all(
+      paths.map(async (path) =>
+        (await readFile(path)).equals(Buffer.from("QUJD".repeat(52 * 1024), "base64")),
+      ),
+    );
+    const observation = {
+      results: normalized,
+      artifacts,
+      written,
+      schemaErrors: h.schemaErrors,
+    };
     await h.close();
     return observation;
   } finally {
@@ -160,6 +186,9 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Node and Rust format MCP tool results the same way (${apiType})`, async () => {
     const node = await observe("node", apiType);
     const rust = await observe("rust", apiType);
+    // 自检：Node 为超预算图片写了 artifact，且文件内容就是解码后的图片字节。
+    assert.ok(node.written.length > 0 && node.written.every(Boolean), JSON.stringify(node));
+    assert.deepEqual(rust.written, node.written);
     for (const [index, name] of kinds.entries())
       assert.deepEqual(rust.results[index], node.results[index], name);
     assert.deepEqual(node.schemaErrors, []);

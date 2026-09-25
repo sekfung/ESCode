@@ -137,6 +137,10 @@ pub trait ModelPort: Send + Sync {
     fn format_properties(&self) -> Value {
         serde_json::json!({"inputFormat":{"supportsText":true,"supportsImage":false,"supportsVideo":false,"supportsAudio":false,"supportsPdf":false},"outputFormat":{"supportsText":true}})
     }
+    /// 模型是否声明 provider-native 搜索（TS `properties.supportsNativeWebSearch`）。
+    fn native_web_search(&self) -> bool {
+        false
+    }
     fn with_max_output_tokens(&self, _max: usize) -> Result<Option<Arc<dyn ModelPort>>> {
         Ok(None)
     }
@@ -347,6 +351,18 @@ pub trait ToolPort: Send + Sync {
             self.execute(name, arguments, cancel).await?,
         ))
     }
+    /// MCP 工具调用：带模型 tool call id（超预算图片 artifact 文件名与 TS 相同）。
+    async fn execute_mcp(
+        &self,
+        name: &str,
+        arguments: &Value,
+        call_id: &str,
+        sink: &EventSink,
+        cancel: &CancellationToken,
+    ) -> Result<ToolOutput> {
+        let _ = call_id;
+        self.execute_scoped(name, arguments, sink, cancel).await
+    }
     async fn cancel_session(&self, _session: &str, _task: Option<&str>) -> Result<()> {
         Ok(())
     }
@@ -358,36 +374,7 @@ pub trait ToolPort: Send + Sync {
     }
 }
 pub use super::tool_output::{ToolControl, ToolOutput};
-pub trait RuntimeClock: Send + Sync {
-    fn now(&self) -> u64;
-    fn id(&self) -> String;
-}
-pub use RuntimeClock as Clock;
-
-/// Request-scoped authentication. Implementations must never persist the
-/// returned value in a session, queue, ACK or diagnostic record.
-#[async_trait]
-pub trait AuthPort: Send + Sync {
-    async fn credentials(
-        &self,
-        session_id: &str,
-        request_id: &str,
-        workspace: &str,
-    ) -> Result<Value>;
-}
-
-#[async_trait]
-pub trait ContextPort: Send + Sync {
-    fn desktop(&self) -> bool;
-    async fn snapshot(
-        &self,
-        cancel: &CancellationToken,
-    ) -> Result<zcode_cli_domain::prompt::PromptSnapshot>;
-    async fn instructions(
-        &self,
-        cancel: &CancellationToken,
-    ) -> Result<Vec<zcode_cli_domain::prompt::InstructionSource>>;
-}
+pub use super::environment_ports::{AuthPort, Clock, ContextPort, RuntimeClock};
 pub struct RuntimePorts {
     pub context: Arc<dyn ContextPort>,
     pub store: Arc<dyn SessionStore>,

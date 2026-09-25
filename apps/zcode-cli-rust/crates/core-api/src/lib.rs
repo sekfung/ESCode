@@ -1,5 +1,6 @@
 mod contract;
 mod contract_events;
+mod environment_ports;
 mod failures;
 mod memory;
 mod runtime;

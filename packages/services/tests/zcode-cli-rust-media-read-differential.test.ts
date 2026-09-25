@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { join, resolve } from "node:path";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+  v4AttachmentBeginResultSchema,
+  v4AttachmentChunkResultSchema,
+  v4AttachmentCommitResultSchema,
+} from "@zcode/shared/zcode-protocol-v4";
 import { tmpdir } from "node:os";
 import { crc32, deflateSync } from "node:zlib";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
@@ -231,3 +237,168 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
     assert.deepEqual(rust.schemaErrors, []);
   });
 }
+
+// 第 4 期：Composer 图片附件与 Read 图片走同一预算（TS prepareImageDataUrl → prepareForModel，
+// 2000 边长 / 3.75MB 原始字节）；无法解码时以 `[Attached <mime>: <path>]` 占位，不中断请求。
+async function observeAttachment(kind: "node" | "rust", name: string, bytes: Buffer) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-att-${kind}-`));
+  const requests: any[] = [];
+  const respond = (req: any, res: any) => {
+    requests.push(req);
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    event(res, { content: "seen" });
+    end(res, "stop");
+  };
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond,
+          mode: "yolo",
+        })
+      : await fixture({ root, registry: true, respond, mode: "yolo" });
+  try {
+    await configureRegistry(f, false, { apiType: "openai-chat-completions", properties });
+    const file = join(f.cwd, name);
+    await writeFile(file, bytes);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(
+      h.envelope("sendText", id, {
+        text: "describe",
+        attachments: [{ ref: file, fileName: name, mime: "image/png", bytes: bytes.length }],
+      }),
+    );
+    await h.completed(id);
+    const user = (requests[0]?.messages ?? []).findLast((m: any) => m.role === "user");
+    const escaped = JSON.stringify(f.cwd).slice(1, -1);
+    const content = Array.isArray(user?.content)
+      ? user.content.map((p: any) =>
+          p.image_url
+            ? describe(p.image_url.url)
+            : JSON.parse(JSON.stringify(p).replaceAll(escaped, "<cwd>")),
+        )
+      : user?.content;
+    const observation = { content, schemaErrors: h.schemaErrors };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+for (const [label, name, bytes] of [
+  ["within budget", "small.png", png],
+  ["oversized", "wide.png", wide],
+  ["undecodable", "broken.png", Buffer.from("not really a png")],
+] as const) {
+  test(`Node and Rust prepare ${label} image attachments the same way`, async () => {
+    const node = await observeAttachment("node", name, bytes);
+    const rust = await observeAttachment("rust", name, bytes);
+    assert.deepEqual(node.schemaErrors, []);
+    if (label === "oversized")
+      assert.ok(
+        JSON.stringify(node.content).includes('"width":2000'),
+        JSON.stringify(node.content),
+      );
+    assert.deepEqual(rust.content, node.content);
+    assert.deepEqual(rust.schemaErrors, []);
+  });
+}
+
+// 上传的图片附件：TS ensureMediaAttachmentPath 把原始字节派生到
+// `<storageRoot>/cli/image-cache/<session>/image-<sha256(ref)[..32]>.<ext>`，并在用户消息末尾告知模型该路径。
+async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-upload-${kind}-`));
+  const requests: any[] = [];
+  const respond = (req: any, res: any) => {
+    requests.push(req);
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    event(res, { content: "seen" });
+    end(res, "stop");
+  };
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond,
+          mode: "yolo",
+        })
+      : await fixture({ root, registry: true, respond, mode: "yolo" });
+  try {
+    await configureRegistry(f, false, { apiType: "openai-chat-completions", properties });
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    const p = {
+      connectionId: "fixture-desktop",
+      sessionId: id,
+      uploadId: "upload-1",
+      fileName: "pasted.png",
+      mime: "image/png",
+      totalBytes: bytes.length,
+      totalChunks: 1,
+      checksum: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+    };
+    const terminal = { connectionId: p.connectionId, sessionId: id, uploadId: p.uploadId };
+    await h.client.request("v4/attachment/begin", p, v4AttachmentBeginResultSchema);
+    await h.client.request(
+      "v4/attachment/chunk",
+      { ...terminal, chunkIndex: 0, dataBase64: bytes.toString("base64") },
+      v4AttachmentChunkResultSchema,
+    );
+    const { ref } = await h.client.request(
+      "v4/attachment/commit",
+      terminal,
+      v4AttachmentCommitResultSchema,
+    );
+    await h.command(
+      h.envelope("sendText", id, {
+        text: "describe",
+        attachments: [{ ref, fileName: "pasted.png", mime: "image/png", bytes: bytes.length }],
+      }),
+    );
+    await h.completed(id);
+    const user = (requests[0]?.messages ?? []).findLast((m: any) => m.role === "user");
+    const segment = id.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+    const derived = join(
+      root,
+      ".zcode",
+      "cli",
+      "image-cache",
+      segment,
+      `image-${createHash("sha256").update(ref).digest("hex").slice(0, 32)}.png`,
+    );
+    const content = (Array.isArray(user?.content) ? user.content : [user?.content]).map((p: any) =>
+      p?.image_url
+        ? describe(p.image_url.url)
+        : p?.text === `[Image: source: ${derived}]`
+          ? { type: "text", text: "[Image: source: <derived>]" }
+          : p,
+    );
+    const stored = await readFile(derived).catch(() => null);
+    const observation = {
+      content,
+      derivedMatchesUpload: stored?.equals(bytes) ?? false,
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust derive the same local path for uploaded image attachments", async () => {
+  const node = await observeUpload("node", wide);
+  const rust = await observeUpload("rust", wide);
+  assert.equal(node.derivedMatchesUpload, true, JSON.stringify(node.content));
+  assert.deepEqual(rust, node);
+});

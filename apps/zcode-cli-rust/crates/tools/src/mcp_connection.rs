@@ -239,6 +239,7 @@ impl Connection {
         &self,
         name: &str,
         args: &Value,
+        artifacts: Option<ImageArtifacts<'_>>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         let text = self
@@ -246,9 +247,19 @@ impl Connection {
             .await?;
         let result: Value = serde_json::from_str(&text)?;
         let ordered = crate::domain::json_order::Json::parse(&text);
+        // 修复：此前超过 inline 预算的图片一律给出「无 artifact store」说明；App 中 TS 有 artifact store，
+        // 会写二进制 artifact 并告知模型路径与 URI（docs/specs/rust-mcp-parity.md 第 2 期）。
+        let mut saved = crate::domain::mcp_result::SavedImages::new();
+        if let Some(target) = artifacts {
+            for (index, mime, payload) in crate::domain::mcp_result::oversized_images(&result) {
+                use base64::Engine as _;
+                let bytes = base64::engine::general_purpose::STANDARD.decode(payload.trim())?;
+                saved.insert(index, target.write(&mime, &bytes).await?);
+            }
+        }
         // 修复：此前按换行拼接文本、图片/音频/resource 整块 JSON 化且无错误前缀；
         // 按 TS formatMcpToolResult 生成模型内容（docs/specs/rust-mcp-parity.md）。
-        let formatted = crate::domain::mcp_result::format(&result, ordered.as_ref());
+        let formatted = crate::domain::mcp_result::format(&result, ordered.as_ref(), &saved);
         let mut content = formatted.text;
         if content.len() > crate::domain::MAX_TOOL_BYTES {
             super::tools::truncate_utf8(&mut content, crate::domain::MAX_TOOL_BYTES);
@@ -282,4 +293,49 @@ async fn cleanup_child(child: &mut Option<(Child, u32)>) -> Result<()> {
         return Err(error.context(ProcessCleanupFailure));
     }
     Ok(())
+}
+
+/// MCP 超预算图片的二进制 artifact 目标（TS `writeToolResultBinaryArtifact`）：
+/// `<root>/<session>/<toolCallId>-tool-result-<uuid><ext>`，URI `zcode-artifact://<session>/tool-result-<uuid>`。
+#[derive(Clone, Copy)]
+pub struct ImageArtifacts<'a> {
+    pub root: &'a std::path::Path,
+    pub session: &'a str,
+    pub call_id: &'a str,
+}
+/// TS `sanitizePathSegment`（存储版）：非 `[A-Za-z0-9._-]` 换成 `_`，最长 120，空串为 unknown。
+fn sanitize(value: &str) -> String {
+    let out: String = value
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(120)
+        .collect();
+    if out.is_empty() {
+        "unknown".to_owned()
+    } else {
+        out
+    }
+}
+impl ImageArtifacts<'_> {
+    async fn write(&self, mime: &str, bytes: &[u8]) -> Result<(String, String)> {
+        let artifact = format!("tool-result-{}", zcode_cli_host::id());
+        let dir = self.root.join(sanitize(self.session));
+        let path = dir.join(format!(
+            "{}-{artifact}{}",
+            sanitize(self.call_id),
+            crate::domain::mcp_result::image_extension(mime)
+        ));
+        tokio::fs::create_dir_all(&dir).await?;
+        tokio::fs::write(&path, bytes).await?;
+        Ok((
+            path.to_string_lossy().into_owned(),
+            format!("zcode-artifact://{}/{artifact}", self.session),
+        ))
+    }
 }

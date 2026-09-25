@@ -7,6 +7,9 @@ use std::path::PathBuf;
 pub struct ModelConfig {
     #[serde(default)]
     pub format_properties: Option<serde_json::Value>,
+    /// 模型 `properties.supportsNativeWebSearch`（docs/specs/rust-websearch.md）。
+    #[serde(default)]
+    pub native_web_search: bool,
     #[serde(skip)]
     pub max_output_map: Option<String>,
     #[serde(skip)]

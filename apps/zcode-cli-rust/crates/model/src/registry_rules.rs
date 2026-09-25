@@ -192,6 +192,7 @@ pub(super) fn resolve(
                     c.format_properties = Some(
                         json!({"inputFormat":mc["properties"]["inputFormat"],"outputFormat":mc["properties"]["outputFormat"]}),
                     );
+                    c.native_web_search = mc["properties"]["supportsNativeWebSearch"] == true;
                     for (name, input) in [
                         ("reasoningLevel", json!(level)),
                         ("maxOutputTokens", json!(max)),

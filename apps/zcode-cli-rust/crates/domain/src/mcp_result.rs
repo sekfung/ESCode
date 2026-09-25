@@ -51,7 +51,36 @@ fn payload(data: &str) -> &str {
         None => data,
     }
 }
-fn image_block(block: &Value) -> Block {
+/// 超过 inline 预算、已由工具 adapter 写成二进制 artifact 的图片（按 `content` 下标）：`(path, uri)`。
+pub type SavedImages = std::collections::BTreeMap<usize, (String, String)>;
+/// 超过 inline 预算的图片 payload（base64，不含 data URL 头）；adapter 据此写 artifact。
+pub fn oversized_images(result: &Value) -> Vec<(usize, String, String)> {
+    let Some(content) = result["content"].as_array() else {
+        return vec![];
+    };
+    content
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b["type"] == "image")
+        .filter_map(|(i, b)| {
+            let (data, mime) = (b["data"].as_str()?, b["mimeType"].as_str()?);
+            let payload = payload(data);
+            (payload.len() > IMAGE_INLINE_BASE64_BYTES)
+                .then(|| (i, mime.to_owned(), payload.to_owned()))
+        })
+        .collect()
+}
+/// TS `extensionForMimeType`（MCP 图片 artifact）。
+pub fn image_extension(mime: &str) -> &'static str {
+    match mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase().as_str() {
+        "image/png" => ".png",
+        "image/jpeg" | "image/jpg" => ".jpg",
+        "image/gif" => ".gif",
+        "image/webp" => ".webp",
+        _ => ".bin",
+    }
+}
+fn image_block(block: &Value, saved: Option<&(String, String)>) -> Block {
     let mime = block["mimeType"].as_str();
     let (Some(data), Some(mime)) = (block["data"].as_str(), mime) else {
         return Block::Text(format!(
@@ -60,8 +89,20 @@ fn image_block(block: &Value) -> Block {
         ));
     };
     let base64 = payload(data).len();
+    if base64 > IMAGE_INLINE_BASE64_BYTES
+        && let Some((path, uri)) = saved
+    {
+        // TS writeMcpImageArtifact（二进制 artifact 分支）。
+        return Block::Text(format!(
+            "MCP image content saved instead of being inlined: {mime}, base64={}, inlineLimit={}.
+Artifact: {path}
+Artifact URI: {uri}",
+            byte_size(base64),
+            byte_size(IMAGE_INLINE_BASE64_BYTES)
+        ));
+    }
     if base64 > IMAGE_INLINE_BASE64_BYTES {
-        // TS 无 artifact store 时的省略文案（Rust 暂不落 MCP 图片 artifact）。
+        // TS 无 artifact store 时的省略文案（adapter 未能提供 artifact 时）。
         return Block::Text(format!(
             "MCP image content omitted: {mime}, base64={} exceeds inline limit {}.\nNo artifact store is configured, so the original image could not be saved.",
             byte_size(base64),
@@ -78,13 +119,17 @@ fn image_block(block: &Value) -> Block {
         url,
     }
 }
-fn content_block(block: &Value, ordered: Option<&Json>) -> Option<Block> {
+fn content_block(
+    block: &Value,
+    ordered: Option<&Json>,
+    saved: Option<&(String, String)>,
+) -> Option<Block> {
     match block["type"].as_str() {
         Some("text") if block["text"].is_string() => {
             let text = block["text"].as_str().unwrap_or_default();
             (!text.is_empty()).then(|| Block::Text(text.to_owned()))
         }
-        Some("image") => Some(image_block(block)),
+        Some("image") => Some(image_block(block, saved)),
         Some("audio") => Some(Block::Text(format!(
             "[MCP audio content omitted: {}]",
             block["mimeType"].as_str().unwrap_or("unknown")
@@ -123,7 +168,7 @@ fn textify(blocks: &[Block]) -> String {
         .join("\n\n")
 }
 
-pub fn format(result: &Value, ordered: Option<&Json>) -> Formatted {
+pub fn format(result: &Value, ordered: Option<&Json>, saved: &SavedImages) -> Formatted {
     let text_only = |text: String| Formatted {
         text,
         media: vec![],
@@ -137,7 +182,9 @@ pub fn format(result: &Value, ordered: Option<&Json>) -> Formatted {
     let mut blocks: Vec<Block> = content
         .iter()
         .enumerate()
-        .filter_map(|(i, block)| content_block(block, ordered_content.and_then(|c| c.get(i))))
+        .filter_map(|(i, block)| {
+            content_block(block, ordered_content.and_then(|c| c.get(i)), saved.get(&i))
+        })
         .collect();
     if let Some(structured) = result.get("structuredContent").filter(|v| informative(v)) {
         let ordered = ordered.and_then(|o| o.get("structuredContent"));

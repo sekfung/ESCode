@@ -45,6 +45,7 @@ const tools = [
   ["Edit", "edit", "EditInputJsonSchema"],
   ["Glob", "glob", "GlobInputJsonSchema"],
   ["WebFetch", "webfetch", "WebFetchInputJsonSchema"],
+  ["WebSearch", "websearch", "WebSearchInputJsonSchema"],
   ["ReadSessionContext", "read-session-context", "ReadSessionContextInputJsonSchema"],
   ["CronCreate", "automation", "CronCreateInputJsonSchema"],
   ["CronList", "automation", "CronListInputJsonSchema"],

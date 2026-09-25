@@ -46,7 +46,8 @@ const WEBSEARCH_MONTH_NAMES = [
   "December",
 ] as const;
 
-function buildWebSearchProviderDescription(now: Date = new Date()): string {
+// Rust 语料引用（scripts/generate-zcode-cli-rust-websearch-corpus.mjs）。
+export function buildWebSearchProviderDescription(now: Date = new Date()): string {
   const currentMonth = `${WEBSEARCH_MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
   return [
     "Search the web. Returns result blocks with titles and URLs. US-only.",

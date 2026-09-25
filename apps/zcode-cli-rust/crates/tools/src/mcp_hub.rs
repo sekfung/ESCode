@@ -258,6 +258,7 @@ impl Hub {
         session: &str,
         name: &str,
         args: &Value,
+        artifacts: Option<super::mcp_connection::ImageArtifacts<'_>>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         let binding = self
@@ -271,7 +272,7 @@ impl Hub {
             .context("MCP tool unavailable in this session")?;
         binding
             .connection
-            .call(&binding.original, args, cancel)
+            .call(&binding.original, args, artifacts, cancel)
             .await
     }
     pub async fn close_session(&self, session: &str, forget: bool) -> Result<()> {

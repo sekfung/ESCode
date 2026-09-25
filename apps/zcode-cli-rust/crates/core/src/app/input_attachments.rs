@@ -105,7 +105,8 @@ impl Engine {
                 .attachments
                 .get(item["ref"].as_str().unwrap())
                 .context("Attachment snapshot unavailable")?;
-            content.push(json!({"type":"_zcode_attachment","asset":asset,"name":item["fileName"]}));
+            // `ref` 供模型请求派生上传媒体的本地路径（TS ensureMediaAttachmentPath）。
+            content.push(json!({"type":"_zcode_attachment","asset":asset,"name":item["fileName"],"ref":item["ref"]}));
         }
         Ok(content.into())
     }

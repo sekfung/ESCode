@@ -506,3 +506,68 @@ for (const [label, fileName, mime, body] of [
     assert.deepEqual(rust.schemaErrors, []);
   });
 }
+
+/**
+ * session/list 限额之外的活跃会话（TS listSessions 追加 context.sessions 中已持久化的 runtime）：
+ * 两个会话都跑过一轮，`limit: 1` 只取回最新一条；更早但仍活跃的会话由运行时追加。
+ * App 的 share-import 去重依赖该行为（按 id 在前 100 条中查找已导入会话）。
+ */
+async function observeListAppend(kind: Runtime) {
+  const root = await mkdtemp(join(tmpdir(), `zcode-diff-list-live-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const ids: string[] = [];
+    for (const text of ["older live session", "newer live session"]) {
+      const id = await h.create();
+      await h.subscribe(`conversation/${id}`);
+      await h.command(h.envelope("sendText", id, { text, mode: "yolo" }));
+      await h.completed(id);
+      ids.push(id);
+    }
+    const draft = await h.create();
+    const list = (await h.client.request(
+      "session/list",
+      { workspace: { workspacePath: f.cwd, workspaceKey: f.cwd }, limit: 1 },
+      z.any(),
+    )) as { sessions: Record<string, any>[] };
+    const alias = (id: string) =>
+      id === ids[0] ? "older" : id === ids[1] ? "newer" : id === draft ? "draft" : "other";
+    const now = Date.now();
+    const observation = {
+      order: list.sessions.map((s) => alias(String(s.sessionId))),
+      entries: list.sessions.map((s) => ({
+        ...s,
+        sessionId: alias(String(s.sessionId)),
+        traceId: typeof s.traceId,
+        createdAt: typeof s.createdAt,
+        updatedAt: typeof s.updatedAt,
+        // 追加条目的时间取自调用时刻（TS 无持久化行时间）；只核对是否接近当前时间。
+        fresh: Math.abs(now - Number(s.updatedAt)) < 60_000,
+        workspace: { ...s.workspace, workspacePath: "<cwd>", workspaceKey: "<cwd>" },
+      })),
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust append live sessions beyond the session/list limit the same way", async () => {
+  const node = await observeListAppend("node");
+  const rust = await observeListAppend("rust");
+  // 自检：Node 按限额取最新一条，再追加更早但仍活跃的会话；未持久化的 draft 不出现。
+  assert.deepEqual(node.order, ["newer", "older"], JSON.stringify(node.entries));
+  assert.deepEqual(rust.entries, node.entries);
+});

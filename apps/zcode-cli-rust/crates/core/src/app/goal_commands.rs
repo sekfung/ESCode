@@ -10,6 +10,17 @@ pub(super) fn validate_objective(text: &str) -> Result<()> {
     );
     Ok(())
 }
+/// TS `injectDateChangeReminderIntoMessageHistory`：每个新轮次前记录本地日期，跨日时插入 reminder
+/// （docs/specs/rust-date-change.md）。只在从会话消息重建的新 run 前调用。
+pub(super) fn date_change(session: &mut Session, date: Option<String>) {
+    let Some(date) = date else {
+        return;
+    };
+    let previous = session.last_local_date.replace(date.clone());
+    if let Some(reminder) = crate::domain::prompt::date_change_reminder(previous.as_deref(), &date) {
+        session.append_message(reminder);
+    }
+}
 pub(super) fn continuation(
     session: &mut Session,
     goal: &Goal,
@@ -76,6 +87,7 @@ impl Engine {
             } else {
                 let goal = goal.clone();
                 let turn = self.clock.id();
+                date_change(s, self.clock.local_date());
                 continuation(s, &goal, None, &turn, now);
                 s.run_id = Some(self.clock.id());
                 s.phase = "running".into();

@@ -197,6 +197,8 @@ impl Engine {
         if let Some(body) = crate::domain::session_context::referenced_reminder_body(text) {
             s.append_message(json!({"role":"user","content":crate::domain::plan_mode::wrap(&body),"_zcode_source":"referenced_session_context"}));
         }
+        // TS 在 referenced reminder 之后注入跨日 reminder（docs/specs/rust-date-change.md）。
+        super::goal_commands::date_change(s, self.clock.local_date());
         // TS buildRuntimeModeReminderBody：plan 开启时按节奏在用户正文前插入模式 reminder。
         if let Some(reminder) = crate::domain::plan_mode::mode_reminder(&s.messages, s.plan_enabled)
         {

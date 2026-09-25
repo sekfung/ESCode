@@ -42,6 +42,7 @@ import {
 } from "../../../apps/zcode-cli/packages/contracts/src/tools/automation.js";
 import { ReadSessionContextInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/read-session-context.js";
 import { WebFetchInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/webfetch.js";
+import { WebSearchInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/websearch.js";
 import { AgentInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/agent.js";
 import { SendMessageInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/send-message.js";
 import { skillToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/skill.js";
@@ -146,7 +147,10 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
       content: "written\n",
     });
     WriteOutputSchema.parse(rustWrite.data);
-    assert.equal(rustWrite.data.filePath, expected(`sub${sep}..${sep}sub${sep}written.txt`, "write"));
+    assert.equal(
+      rustWrite.data.filePath,
+      expected(`sub${sep}..${sep}sub${sep}written.txt`, "write"),
+    );
     const tsWritePath = expected(`sub${sep}..${sep}sub${sep}ts-written.txt`, "write");
     const tsWrite = (await writeToolEntry.handler(
       { file_path: tsWritePath, content: "written\n" },
@@ -206,6 +210,7 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       EnterPlanMode: EnterPlanModeInputJsonSchema,
       ExitPlanMode: ExitPlanModeInputJsonSchema,
       WebFetch: WebFetchInputJsonSchema,
+      WebSearch: WebSearchInputJsonSchema,
       ReadSessionContext: ReadSessionContextInputJsonSchema,
       CronCreate: CronCreateInputJsonSchema,
       CronList: CronListInputJsonSchema,

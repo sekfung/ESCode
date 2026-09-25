@@ -89,6 +89,9 @@ pub struct Session {
     pub title_seed: Option<super::session_title::TitleSeed>,
     #[serde(skip)]
     pub title_attempted: bool,
+    /// 本运行时上一次轮次的本地日期（TS `lastEmittedLocalDate`；冷加载即重置，与 TS resume 相同）。
+    #[serde(skip)]
+    pub last_local_date: Option<String>,
     pub provider: String,
     pub model: String,
     pub reasoning_level: String,
@@ -204,6 +207,7 @@ impl Session {
             epoch,
             title_seed: None,
             title_attempted: false,
+            last_local_date: None,
             title: String::new(),
             title_source: "default".into(),
             seq: 0,

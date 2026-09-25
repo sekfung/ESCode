@@ -52,6 +52,10 @@ pub(super) async fn run(
             &properties["inputFormat"],
         )
         .await;
+    // TS shouldExposeWebSearch：只有声明 provider-native 搜索的模型才看到 WebSearch（rust-websearch.md）。
+    if !model.native_web_search() {
+        definitions.retain(|d| d["function"]["name"] != "WebSearch");
+    }
     // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
     let turn_facts = std::mem::take(&mut history.turn);
     super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());

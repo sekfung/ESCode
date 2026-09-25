@@ -3,6 +3,7 @@ import test from "node:test";
 import { writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { crc32, deflateSync } from "node:zlib";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { responses, anthropic } from "./zcode-cli-rust-protocol-fixture.js";
 
@@ -16,10 +17,29 @@ const properties = {
   },
   outputFormat: { supportsText: true },
 };
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
-  "base64",
-);
+// 1×1 灰度+alpha PNG。修复：原 fixture 的 IDAT CRC 错误，Jimp 与 Rust 都无法解码；附件图片现在按 TS 预算
+// 解码/压缩（docs/specs/rust-media-read.md 第 4 期），坏图会变成占位文本，因此换成合法 PNG。
+function grayPng(): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(1, 0);
+  header.writeUInt32BE(1, 4);
+  header.set([8, 4, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(Buffer.from([0, 0xff, 0xff]))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+const png = grayPng();
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Rust ${apiType} preserves the TS gateway video content shape`, async () => {
     const f = await fixture({
@@ -53,18 +73,23 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
       // Anthropic 合并相邻 user 消息，context reminder 位于实际附件文本之前。
       if (apiType === "anthropic-messages") assert.match(content[0].text, /^<system-reminder>/);
       const video = content[apiType === "anthropic-messages" ? 2 : 1];
-      // 视频是最新消息的最后一块：TS finalizeLatestNonSystemMessageCacheControl 在其上设缓存断点。
       if (apiType === "anthropic-messages")
         assert.deepEqual(video, {
           type: "video",
           source: { type: "base64", media_type: "video/mp4", data: bytes.toString("base64") },
-          cache_control: { type: "ephemeral" },
         });
       else
         assert.deepEqual(video, {
           type: "video_url",
           video_url: { url: `data:video/mp4;base64,${bytes.toString("base64")}` },
         });
+      // TS projectMessagesWithMediaAttachmentPaths：本地媒体在消息末尾附来源路径；它是最新消息的最后一块，
+      // TS finalizeLatestNonSystemMessageCacheControl 的缓存断点因此落在这段文本上。
+      assert.deepEqual(content.at(-1), {
+        type: "text",
+        text: `[Video: source: ${path}]`,
+        ...(apiType === "anthropic-messages" ? { cache_control: { type: "ephemeral" } } : {}),
+      });
       assert.deepEqual(h.schemaErrors, []);
     } finally {
       await f.close();
@@ -172,10 +197,14 @@ for (const apiType of ["openai-chat-completions", "openai-responses", "anthropic
       assert.deepEqual(
         content.map((p: any) => p.type),
         apiType === "openai-responses"
-          ? ["input_text", "input_image", "input_file"]
+          ? ["input_text", "input_image", "input_file", "input_text", "input_text"]
           : apiType === "anthropic-messages"
-            ? ["text", "image", "document"]
-            : ["text", "image_url", "file"],
+            ? ["text", "image", "document", "text", "text"]
+            : ["text", "image_url", "file", "text", "text"],
+      );
+      assert.deepEqual(
+        content.slice(-2).map((p: any) => p.text),
+        [`[Image: source: ${path}]`, `[PDF: source: ${pdf}]`],
       );
       assert.match(
         JSON.stringify(content),

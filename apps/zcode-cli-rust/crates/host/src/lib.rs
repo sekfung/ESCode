@@ -3,6 +3,7 @@ use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 mod context_git;
 pub mod context_source;
+pub mod image_budget;
 pub mod legacy_paths;
 mod realpath;
 pub use realpath::{realpath, realpath_sync, simplify_verbatim};
@@ -25,6 +26,12 @@ pub fn workspace_identity(identity: Option<&str>, workspace_path: &Path) -> Stri
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| workspace_path.to_string_lossy().into_owned())
 }
+/// 本地年月（WebSearch 描述中的当前月份，TS 每次读取描述时按本地时间重新生成）。
+pub fn local_year_month() -> (i32, u32) {
+    use chrono::Datelike;
+    let now = chrono::Local::now();
+    (now.year(), now.month())
+}
 pub struct SystemClock;
 impl contract::RuntimeClock for SystemClock {
     fn now(&self) -> u64 {
@@ -32,6 +39,9 @@ impl contract::RuntimeClock for SystemClock {
     }
     fn id(&self) -> String {
         id()
+    }
+    fn local_date(&self) -> Option<String> {
+        Some(chrono::Local::now().format("%Y-%m-%d").to_string())
     }
 }
 

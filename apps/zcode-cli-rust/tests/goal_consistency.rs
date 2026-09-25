@@ -82,6 +82,18 @@ impl ModelPort for Model {
         _: &EventSink,
         _: &CancellationToken,
     ) -> std::result::Result<ModelOutput, ModelFailure> {
+        // /goal 立即启动的标题 sidecar（docs/specs/rust-session-title.md）不属于目标循环的请求序列。
+        if messages[0]["content"]
+            .as_str()
+            .is_some_and(|c| c.starts_with("Generate a concise title"))
+        {
+            return Ok(ModelOutput {
+                output_limit: false,
+                message: json!({"role":"assistant","content":""}),
+                calls: vec![],
+                usage: json!({}),
+            });
+        }
         let verify = messages.last().unwrap()["content"]
             .as_str()
             .unwrap()

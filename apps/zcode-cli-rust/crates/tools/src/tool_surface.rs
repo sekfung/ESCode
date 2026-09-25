@@ -30,6 +30,9 @@ pub(super) fn definitions() -> Vec<Value> {
     for name in ["Agent", "SendMessage"] {
         definitions.push(json!({"type":"function","function":{"name":name,"description":descriptions[name],"parameters":schemas[name]}}));
     }
+    // WebSearch 描述带当前月份，按 TS 每次构造时重新生成；可见性由会话按模型能力过滤。
+    let (year, month) = zcode_cli_host::local_year_month();
+    definitions.push(json!({"type":"function","function":{"name":"WebSearch","description":crate::domain::web_search::description(year, month),"parameters":schemas["WebSearch"]}}));
     // 非参考集合的工具按 TS 注册顺序排列：ReadSessionContext 在 SendMessage 之后。
     definitions.push(json!({"type":"function","function":{"name":"ReadSessionContext","description":surface["descriptions"]["ReadSessionContext"],"parameters":schemas["ReadSessionContext"]}}));
     definitions.extend(super::plan_tools::definitions(

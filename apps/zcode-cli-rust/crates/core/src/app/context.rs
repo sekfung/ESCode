@@ -230,13 +230,23 @@ pub(super) async fn hidden_summary(
     sink: &EventSink,
     cancel: &CancellationToken,
 ) -> Result<ModelOutput> {
+    hidden_complete(model, messages, &[], sink, cancel).await
+}
+/// 不进入会话投影的模型调用：只转发重试与鉴权事件（WebSearch 需要携带 provider-native 工具）。
+pub(super) async fn hidden_complete(
+    model: &dyn ModelPort,
+    messages: Vec<Value>,
+    tools: &[Value],
+    sink: &EventSink,
+    cancel: &CancellationToken,
+) -> Result<ModelOutput> {
     let (tx, mut rx) = mpsc::channel(32);
     let hidden = EventSink {
         session_id: sink.session_id.clone(),
         run_id: sink.run_id.clone(),
         tx,
     };
-    let request = model.complete(messages, &[], &hidden, cancel);
+    let request = model.complete(messages, tools, &hidden, cancel);
     tokio::pin!(request);
     loop {
         tokio::select! {biased;

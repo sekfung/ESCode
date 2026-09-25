@@ -27,7 +27,7 @@
 | P1       | 大历史与磁盘容量                      | 单会话分页/按需投影、已提交备份跨 workspace 去重和保留策略、未引用附件/checkpoint GC；大库实测                       |
 | P1       | 主代理上下文扩展                      | 记忆索引/提取、output style、自定义 system、插件 hooks，与已有 Skill/profile 区分                                    |
 | P1       | 附件与工具细节                        | 大图缩放、媒体 Read、完整文本预览、音频/部分视频、Edit 宽松匹配、Web 工具及工具装配开关                              |
-| P1       | App 生命周期完整矩阵                  | session/list limit 后 live runtime 追加、TS/Rust 切换、带 Plan 导入、远端/手机双语义、账号供应商多协议回归           |
+| P1       | App 生命周期完整矩阵                  | TS/Rust 切换、带 Plan 导入、远端/手机双语义、账号供应商多协议回归           |
 | P2       | 工作流、自动任务、OffPeak、浏览器工具 | 真实执行与持久化投影；App workflowRuns 目前仍会报告 unsupported，不能以空结果伪装完成                                |
 | 发布门槛 | 三平台发行与回退                      | macOS/Windows/Linux 原生进程、打包升级、历史兼容；TS/Rust release 与真实供应商对比                                   |
 

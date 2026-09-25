@@ -163,6 +163,10 @@ async fn run() -> Result<()> {
             ])
             .await?;
     } else {
+        // TS 派生媒体缓存位于 `<storageRoot>/cli/{image,pdf,video}-cache`（docs/specs/rust-media-read.md 第 4 期）。
+        if let Ok(root) = legacy_paths::storage_root(&requested_cwd).await {
+            zcode_cli_model::set_media_cache_root(root.join("cli"));
+        }
         let config = ModelConfig::load(args.config.as_ref()).await?;
         let registry = if config.is_none() {
             Registry::from_env()

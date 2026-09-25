@@ -70,7 +70,7 @@ impl WorkspaceTools {
             <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
         ));
         match name {
-            name if name.starts_with("mcp__") => self.mcp.call(session, name, args, cancel).await,
+            name if name.starts_with("mcp__") => self.mcp.call(session, name, args, None, cancel).await,
             "Read" | "Write" | "Edit" => {
                 let state = self
                     .reads
@@ -305,6 +305,7 @@ impl ToolPort for WorkspaceTools {
             name,
             "Read"
                 | "WebFetch"
+                | "WebSearch"
                 | "ReadSessionContext"
                 | "List"
                 | "Glob"
@@ -332,6 +333,24 @@ impl ToolPort for WorkspaceTools {
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         self.call_inner(&sink.session_id, name, args, Some(sink), cancel)
+            .await
+    }
+    async fn execute_mcp(
+        &self,
+        name: &str,
+        args: &Value,
+        call_id: &str,
+        sink: &EventSink,
+        cancel: &CancellationToken,
+    ) -> Result<ToolOutput> {
+        check_cancel(cancel)?;
+        let artifacts = super::mcp_connection::ImageArtifacts {
+            root: &self.artifacts,
+            session: &sink.session_id,
+            call_id,
+        };
+        self.mcp
+            .call(&sink.session_id, name, args, Some(artifacts), cancel)
             .await
     }
     async fn cancel_session(&self, session: &str, task: Option<&str>) -> Result<()> {

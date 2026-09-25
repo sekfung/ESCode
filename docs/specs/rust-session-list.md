@@ -31,7 +31,14 @@ SessionStore 增加有类型的只读 listing 端口，SQLite adapter 负责查�
 
 新增 metadata workspacePath/workspaceDirectory/traceId，由原生创建和 TS 导入填写。directory 用于普通查询，path 用于返回真实操作路径，两者不能合并。已知 directory 且 traceId=null 的新记录不读旧备份；旧记录每次查询按 workspace 复用只读备份连接，补全不写回生产库、不产生新备份。本包不改变启动时 Engine 仍加载历史的现有行为；全量按需加载继续单列。
 
-与 TS 保留的边界差异：无 workspace 查询仍保留远端 identity；workspace identity 在 limit 前过滤，避免其他身份占用限额；不把启动时加载的所有历史误当 TS live runtime 追加到 limit 后。TS 的限额后追加 live runtime 语义需随按需加载、显式 runtime 生命周期一起对齐，不能据此宣称整个旧列表行为完全等价。
+与 TS 保留的边界差异：无 workspace 查询仍保留远端 identity；workspace identity 在 limit 前过滤，避免其他身份占用限额。
+
+限额后追加活跃会话（2026-09-26 对齐 TS `listSessions` 的 `context.sessions` 追加）：非 `sessionIds` 查询在存储结果之后，
+追加当前常驻（按需加载后仍在内存）、已持久化（非 draft）、类型属于 interactive/fork/workflow_parent、且不在存储结果中的会话；
+workspace 查询时只追加本 runtime 的 workspaceKey。条目按 TS `mapSessionInfo({app})`：`title` 为空、`createdAt`/`updatedAt`
+为当前时刻、`mode`/`model`/`traceId` 取运行时、不带 `titleSource`，不按归档过滤。App 的 share-import 去重（`limit: 100`
+后按 id 查找）依赖该行为。多条追加时 TS 按 runtime 建立顺序，Rust 以创建时间近似。
+差分：`zcode-cli-rust-differential.test.ts`「append live sessions beyond the session/list limit」。
 
 ## 验收
 

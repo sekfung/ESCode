@@ -46,6 +46,10 @@ pub(super) fn body(
     mut messages: Vec<Value>,
     tools: &[Value],
 ) -> Result<Value, ModelFailure> {
+    // TS toAiSdkProviderNativeTool：只有 Anthropic 协议编码 provider-native WebSearch，其余协议拒绝请求。
+    if config.api_type != ApiType::Anthropic && tools.iter().any(super::web_search::is_native) {
+        return Err(ModelFailure::new("invalid_request", false));
+    }
     // 签名/加密推理绑定请求模型；跨模型续聊保留正文与工具，不能回放另一个模型的私有块。
     let foreign = |m: &Value| {
         m.get("_zcode_origin")

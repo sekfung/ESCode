@@ -77,6 +77,9 @@ impl Anthropic {
                         .await?
                     }
                     "redacted_thinking" => self.inner.count(required(&block["data"])?.len())?,
+                    // provider-native 搜索的服务端块（docs/specs/rust-websearch.md）：不是客户端工具调用，
+                    // TS 流式收集也只保留文本，这里只登记块以校验起止顺序。
+                    "server_tool_use" | "web_search_tool_result" => {}
                     _ => return Err(ModelFailure::invalid()),
                 }
                 self.blocks.insert(
@@ -127,6 +130,8 @@ impl Anthropic {
                         thinking.push_str(text);
                         delta(&mut self.inner, output, json!({"reasoning_content":text})).await?;
                     }
+                    "input_json_delta" if block.value["type"] == "server_tool_use" => {}
+                    "citations_delta" if block.value["type"] == "text" => {}
                     "signature_delta" if block.value["type"] == "thinking" => {
                         let signature = required(&d["signature"])?;
                         self.inner.count(signature.len())?;
@@ -178,7 +183,8 @@ impl Anthropic {
                 }
                 if let Some(reason) = value["delta"]["stop_reason"].as_str() {
                     let finish = match reason {
-                        "end_turn" | "stop_sequence" => "stop",
+                        // AI SDK mapAnthropicStopReason：pause_turn（服务端工具暂停）同样视为正常结束。
+                        "end_turn" | "stop_sequence" | "pause_turn" => "stop",
                         "tool_use" => "tool_calls",
                         "max_tokens" | "model_context_window_exceeded" => "length",
                         _ => return Err(ModelFailure::invalid()),

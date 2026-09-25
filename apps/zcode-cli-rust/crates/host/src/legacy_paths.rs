@@ -20,17 +20,8 @@ fn expand(path: &str, cwd: &Path, home: &Path) -> PathBuf {
         cwd.join(path)
     }
 }
-pub async fn resolve(
-    explicit: Option<PathBuf>,
-    cwd: &Path,
-    automatic: bool,
-) -> Result<Option<LegacySource>> {
-    let env = std::env::var_os("ZCODE_SESSION_DB_PATH")
-        .or_else(|| std::env::var_os("ZCODE_SESSION_DB"))
-        .map(PathBuf::from);
-    if explicit.is_none() && env.is_none() && !automatic {
-        return Ok(None);
-    }
+/// TS 存储配置（`storage.sessionDbPath` / `storage.dir`，按 TS 配置文件优先级；未展开）。
+async fn storage_config(cwd: &Path) -> Result<(String, String, PathBuf)> {
     let home = home()?;
     let mut paths = vec![home.join(".zcode").join("cli").join("config.json")];
     let mut dirs = vec![];
@@ -79,12 +70,31 @@ pub async fn resolve(
             root = value.to_owned();
         }
     }
+    if let Ok(value) = std::env::var("ZCODE_STORAGE_DIR") {
+        root = value;
+    }
+    Ok((database, root, home))
+}
+/// TS `storageRoot`（`storage.dir`，默认 `~/.zcode`）：派生媒体缓存等与 TS 同址的目录以此为根。
+pub async fn storage_root(cwd: &Path) -> Result<PathBuf> {
+    let (_, root, home) = storage_config(cwd).await?;
+    Ok(expand(&root, cwd, &home))
+}
+pub async fn resolve(
+    explicit: Option<PathBuf>,
+    cwd: &Path,
+    automatic: bool,
+) -> Result<Option<LegacySource>> {
+    let env = std::env::var_os("ZCODE_SESSION_DB_PATH")
+        .or_else(|| std::env::var_os("ZCODE_SESSION_DB"))
+        .map(PathBuf::from);
+    if explicit.is_none() && env.is_none() && !automatic {
+        return Ok(None);
+    }
+    let (mut database, root, home) = storage_config(cwd).await?;
     let required = explicit.is_some();
     if let Some(value) = explicit.or(env) {
         database = value.to_string_lossy().into_owned();
-    }
-    if let Ok(value) = std::env::var("ZCODE_STORAGE_DIR") {
-        root = value;
     }
     Ok(Some(LegacySource {
         database: expand(&database, cwd, &home),

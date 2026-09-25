@@ -9,6 +9,7 @@ import {
 } from "../apps/zcode-cli/packages/core/src/context/dynamic-sections.ts";
 
 import { formatIncomingMessage } from "../apps/zcode-cli/packages/core/src/system-reminder/incoming-message.ts";
+import { buildDateChangeReminderBody } from "../apps/zcode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts";
 import {
   formatGoalContinuationPrompt,
   formatGoalCompletionVerificationPrompt,
@@ -29,6 +30,8 @@ const goal = {
 const content = `${JSON.stringify(
   {
     userSteer: formatIncomingMessage("{zcode_input_text}", "user_steer"),
+    // docs/specs/rust-date-change.md：跨日后的首个轮次提醒模型当前日期。
+    dateChange: buildDateChangeReminderBody("{previous}", "{date}"),
     goalContinue: formatGoalContinuationPrompt(goal),
     goalVerify: formatGoalCompletionVerificationPrompt(goal),
     goalState: formatGoalStateForModel(goal),
