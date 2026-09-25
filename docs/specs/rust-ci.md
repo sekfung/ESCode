@@ -49,6 +49,15 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   修复：缺失时用 `scripts/build-desktop-agent-cli.mjs` 构建；对照表补 EnterPlanMode/ExitPlanMode。
 - 第三次（36098587168）：checks 与 Windows（MSVC）/ macOS（arm64）/ Linux 测试**全部通过**。
 
+## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
+
+- 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。
+- 4 个桌面安装包全部成功：win-x64（148 MB）、mac-arm64（362 MB）、mac-x64（373 MB）、linux-x64（deb/rpm/AppImage/pacman，共 572 MB）。
+- 抽查：linux pacman 包 `resources/glm/` 同时含 `zcode-cli-rust` 与 Node `zcode.cjs`；
+  `x86_64-pc-windows-msvc` 压缩包 sha256 校验通过，在本机 Windows 11 运行 `--help` 与 `app-server --stdio` 启动握手正常。
+- `publish` 按设计跳过（非标签）。
+
 ## 未验证
 
-`release.yml` 尚未运行（需推送 `v*` 标签或手动触发）：6 个目标的 release 构建、4 个桌面安装包的打包环境依赖仍待实测。
+- 标签触发的草稿 Release 未实际创建（打版本标签由维护者决定）。
+- 安装包未在 macOS/Linux 真机上安装运行；macOS 未签名包需用户手动放行。
