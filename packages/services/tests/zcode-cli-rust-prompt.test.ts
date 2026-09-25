@@ -10,6 +10,7 @@ import { fixture, event, end, waitForFile, type Harness } from "./zcode-cli-rust
 import { responses, anthropic } from "./zcode-cli-rust-protocol-fixture.js";
 import { NodeContextSourceAdapter } from "../../../apps/zcode-cli/packages/adapters/src/context/index.js";
 import { ContextBuilder } from "../../../apps/zcode-cli/packages/core/src/context/builder.js";
+import { resolveEffectiveBashShellSelection } from "../../../apps/zcode-cli/packages/adapters/src/exec/bash-shell-provider.js";
 import { wrapSystemReminderForSource } from "../../../apps/zcode-cli/packages/core/src/system-reminder/source.js";
 import type { Model } from "../../../apps/zcode-cli/packages/contracts/src/index.js";
 
@@ -19,6 +20,20 @@ async function send(h: Harness, id: string, text: string) {
   await h.completed(id, after);
 }
 const git = promisify(execFile);
+// Chat Completions 按 TS 适配器把开头多段 system 合并为一条（docs/specs/rust-request-context.md）。
+const systemText = (messages: any[]) =>
+  messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("");
+const afterSystem = (messages: any[], index: number) =>
+  messages.filter((m) => m.role !== "system")[index];
+const environment = (text: string) => text.slice(text.indexOf("# Environment"));
+// 提示词里的 Shell 名称取 TS 会话 shell 选择的显示名（与 Rust 子进程同一环境）。
+const shellDisplayName = resolveEffectiveBashShellSelection({
+  platform: process.platform,
+  env: process.env,
+}).selection.display.name;
 
 test("cold request uses the current presentation surface with the retained environment snapshot", async () => {
   const options: Parameters<typeof fixture>[0] = { surface: "desktop" };
@@ -28,14 +43,17 @@ test("cold request uses the current presentation surface with the retained envir
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
     await send(h, id, "desktop");
-    assert.match(f.requests[0]!.messages[1].content, /# ZCode Desktop Context/);
+    assert.match(systemText(f.requests[0]!.messages), /# ZCode Desktop Context/);
     await h.close();
     options.surface = "terminal";
     const resumed = f.start();
     await resumed.subscribe(`conversation/${id}`);
     await send(resumed, id, "terminal");
-    assert(!f.requests[1]!.messages[1].content.includes("# ZCode Desktop Context"));
-    assert.equal(f.requests[1]!.messages[2].content, f.requests[0]!.messages[2].content);
+    assert(!systemText(f.requests[1]!.messages).includes("# ZCode Desktop Context"));
+    assert.equal(
+      environment(systemText(f.requests[1]!.messages)),
+      environment(systemText(f.requests[0]!.messages)),
+    );
   } finally {
     await f.close();
   }
@@ -76,7 +94,7 @@ test("native desktop and terminal request prefixes match the current TS ContextB
         const cwd = await realpath(f.cwd);
         const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
           workingDirectory: cwd,
-          effectiveShellDisplayName: process.platform === "win32" ? "cmd.exe" : "bash",
+          effectiveShellDisplayName: shellDisplayName,
           userInstructions: { workingDirectory: cwd },
         });
         const expected = new ContextBuilder({
@@ -94,14 +112,20 @@ test("native desktop and terminal request prefixes match the current TS ContextB
           apiType === "anthropic-messages"
             ? request.system.map((m: any) => m.text)
             : messages.filter((m: any) => m.role === "system").map((m: any) => m.content),
-          expected.systemMessages.map((m) => m.content),
+          apiType === "openai-chat-completions"
+            ? [expected.systemMessages.map((m) => m.content).join("")]
+            : expected.systemMessages.map((m) => m.content),
         );
         assert.equal(
-          apiType === "anthropic-messages" ? messages[0].content[0].text : messages[3].content,
+          apiType === "anthropic-messages"
+            ? messages[0].content[0].text
+            : afterSystem(messages, 0).content,
           wrapSystemReminderForSource("context_prefix", expected.metaUserAttachments[0]!.content),
         );
         assert.equal(
-          apiType === "anthropic-messages" ? messages[0].content[1].text : messages[4].content,
+          apiType === "anthropic-messages"
+            ? messages[0].content[1].text
+            : afterSystem(messages, 1).content,
           "hello",
         );
         if (apiType === "anthropic-messages")
@@ -139,7 +163,7 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
     const cwd = await realpath(f.cwd);
     const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
       workingDirectory: cwd,
-      effectiveShellDisplayName: process.platform === "win32" ? "cmd.exe" : "bash",
+      effectiveShellDisplayName: shellDisplayName,
       userInstructions: { workingDirectory: cwd },
     });
     const expected = new ContextBuilder({
@@ -153,24 +177,24 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
     const first = f.requests[0]!.messages;
     assert.deepEqual(
       first.filter((m: any) => m.role === "system").map((m: any) => m.content),
-      expected.systemMessages.map((m) => m.content),
+      [expected.systemMessages.map((m) => m.content).join("")],
     );
-    assert.match(first[2].content, /Main branch \(you will usually use this for PRs\): develop/);
-    assert.match(first[2].content, /Current branch: main/);
-    assert.match(first[2].content, /Git user: Fixture User/);
-    assert.match(first[2].content, /Status:\n\(clean\)/);
-    assert.match(first[2].content, /fixture initial/);
+    assert.match(systemText(first), /Main branch \(you will usually use this for PRs\): develop/);
+    assert.match(systemText(first), /Current branch: main/);
+    assert.match(systemText(first), /Git user: Fixture User/);
+    assert.match(systemText(first), /Status:\n\(clean\)/);
+    assert.match(systemText(first), /fixture initial/);
     await writeFile(join(f.cwd, "AGENTS.md"), "REFRESHED_RULE");
     await send(h, id, "second");
-    assert.equal(f.requests[1]!.messages[2].content, first[2].content);
-    assert.match(f.requests[1]!.messages[3].content, /REFRESHED_RULE/);
+    assert.equal(environment(systemText(f.requests[1]!.messages)), environment(systemText(first)));
+    assert.match(afterSystem(f.requests[1]!.messages, 0).content, /REFRESHED_RULE/);
     await h.close();
     await writeFile(join(f.cwd, "AGENTS.md"), "COLD_RULE");
     const resumed = f.start();
     await resumed.subscribe(`conversation/${id}`);
     await send(resumed, id, "third");
-    assert.equal(f.requests[2]!.messages[2].content, first[2].content);
-    assert.match(f.requests[2]!.messages[3].content, /COLD_RULE/);
+    assert.equal(environment(systemText(f.requests[2]!.messages)), environment(systemText(first)));
+    assert.match(afterSystem(f.requests[2]!.messages, 0).content, /COLD_RULE/);
     const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"));
     const row = db.prepare("SELECT body FROM rust_session WHERE id=?").get(id)!;
     assert.equal(JSON.parse(String(row.body)).promptSnapshot.git.branch, "main");
@@ -213,18 +237,21 @@ test("instruction sources match TS nearest-file, Git boundary and bounded UTF-8 
     await send(h, id, "before child Git boundary");
     const built = new ContextBuilder({ ...expected }).build();
     assert.equal(
-      f.requests[0]!.messages[3].content,
+      afterSystem(f.requests[0]!.messages, 0).content,
       wrapSystemReminderForSource("context_prefix", built.metaUserAttachments[0]!.content),
     );
-    assert.match(f.requests[0]!.messages[3].content, /�\n\n\[File truncated: AGENTS.md\]/);
+    assert.match(
+      afterSystem(f.requests[0]!.messages, 0).content,
+      /�\n\n\[File truncated: AGENTS.md\]/,
+    );
     await mkdir(join(f.cwd, ".git"));
     await send(h, id, "after child Git boundary");
-    assert.match(f.requests[1]!.messages[3].content, /default instructions/);
-    assert(!f.requests[1]!.messages[3].content.includes("xxxxx"));
+    assert.match(afterSystem(f.requests[1]!.messages, 0).content, /default instructions/);
+    assert(!afterSystem(f.requests[1]!.messages, 0).content.includes("xxxxx"));
     await writeFile(join(f.cwd, "AGENTS.md"), "NEAREST_FILE");
     await send(h, id, "nearest rule");
-    assert.match(f.requests[2]!.messages[3].content, /NEAREST_FILE/);
-    assert(!f.requests[2]!.messages[3].content.includes("xxxxx"));
+    assert.match(afterSystem(f.requests[2]!.messages, 0).content, /NEAREST_FILE/);
+    assert(!afterSystem(f.requests[2]!.messages, 0).content.includes("xxxxx"));
   } finally {
     await f.close();
   }

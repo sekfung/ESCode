@@ -51,7 +51,12 @@ pub(super) async fn initialize(
     };
     let (reply, receipt) = tokio::sync::oneshot::channel();
     if history.prompt_snapshot.is_none() {
-        let snapshot = context.snapshot(cancel).await?;
+        let mut snapshot = context.snapshot(cancel).await?;
+        // 修复：原先 Windows 固定写 cmd.exe、POSIX 固定 bash；TS 用会话 shell 选择的显示名（如 Git Bash），
+        // 与 Bash 实际执行一致（docs/specs/rust-request-context.md）。
+        if let Some(name) = tools.shell_display_name(sink).await {
+            snapshot.shell = name;
+        }
         sink.send(Event::PromptInitialized {
             snapshot: Box::new(snapshot.clone()),
             skills: catalog,

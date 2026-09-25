@@ -64,6 +64,7 @@ pub(super) fn body(
     }
     let mut body = match config.api_type {
         ApiType::Chat => {
+            merge_leading_system(&mut messages);
             for message in &mut messages {
                 if let Some(obj) = message.as_object_mut() {
                     obj.retain(|k, _| !k.starts_with("_zcode_"));
@@ -367,4 +368,28 @@ mod tests {
         assert!(anthropic.get("tools").is_none());
         assert!(!anthropic.to_string().contains("opaque"));
     }
+}
+
+/// TS `normalizeOpenAiCompatibleSystemMessages`：Chat Completions 只保留一条开头 system，
+/// 多段按原顺序直接拼接（每段自带左边界，不补写空白）。
+fn merge_leading_system(messages: &mut Vec<Value>) {
+    let count = messages
+        .iter()
+        .take_while(|m| m["role"] == "system")
+        .count();
+    if count <= 1 {
+        return;
+    }
+    let text: String = messages[..count]
+        .iter()
+        .map(|m| match &m["content"] {
+            Value::String(text) => text.clone(),
+            Value::Array(parts) => parts
+                .iter()
+                .filter_map(|p| p["text"].as_str())
+                .collect::<String>(),
+            _ => String::new(),
+        })
+        .collect();
+    messages.splice(..count, [json!({"role": "system", "content": text})]);
 }

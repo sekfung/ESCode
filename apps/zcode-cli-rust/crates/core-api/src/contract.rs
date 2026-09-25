@@ -61,7 +61,7 @@ pub trait SessionStore: Send + Sync {
         anyhow::bail!("Single session loading unavailable")
     }
     /// 项目权限规则：缺省表示该实现不持久化，「总是允许」选项因此不可用。
-    /// ReadSessionContext：按 id 跨 workspace 读已提交历史（TS 形态），含 TS 库只读回落。
+    /// ReadSessionContext：跨 workspace 读已提交历史（TS 形态，含 TS 库回落）。
     async fn session_context(
         &self,
         _id: &str,
@@ -112,7 +112,6 @@ pub trait SessionStore: Send + Sync {
         session: Option<&mut Session>,
         ack: Option<(String, Value)>,
     ) -> Result<()>;
-
     async fn commit_receipt(
         &self,
         workspace: &str,
@@ -213,7 +212,6 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<Box<dyn RewindTransaction>> {
         anyhow::bail!("File rewind unavailable")
     }
-
     async fn agent_memory(
         &self,
         _profile: &zcode_cli_domain::subagent::Profile,
@@ -248,6 +246,10 @@ pub trait ToolPort: Send + Sync {
         anyhow::bail!("MCP unavailable")
     }
     /// WebFetch 的抓取阶段（网络、缓存、正文抽取）；模型处理由会话侧完成。见 docs/specs/rust-webfetch.md。
+    /// 系统提示词 Shell 名（TS 会话 shell 的 display.name）；None 沿用上下文默认。
+    async fn shell_display_name(&self, _sink: &EventSink) -> Option<String> {
+        None
+    }
     async fn web_fetch(
         &self,
         _args: &Value,

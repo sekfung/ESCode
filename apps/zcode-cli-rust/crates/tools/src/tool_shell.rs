@@ -381,7 +381,9 @@ impl ShellTasks {
 }
 /// 首个 Bash 前向会话 owner 请求用户终端偏好（TS `resolveInitialBashShellSelection`）；
 /// 无 owner（fixture/测试）、Host 不支持或超时时按自动探测处理，见 docs/specs/rust-shell-selection.md。
-async fn shell_override(sink: Option<&EventSink>) -> Option<crate::shell_select::Override> {
+pub(super) async fn shell_override(
+    sink: Option<&EventSink>,
+) -> Option<crate::shell_select::Override> {
     let sink = sink?;
     let (reply, rx) = oneshot::channel();
     sink.send(Event::ShellPreference { reply }).await.ok()?;

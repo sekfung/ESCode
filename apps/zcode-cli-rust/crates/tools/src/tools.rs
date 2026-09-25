@@ -177,6 +177,18 @@ impl ToolPort for WorkspaceTools {
     async fn mcp_list(&self, params: &Value, cancel: &CancellationToken) -> Result<Value> {
         self.mcp.list(params, cancel).await
     }
+    /// 会话 shell 的显示名（与 Bash 执行使用同一选择与 Host 偏好）。
+    async fn shell_display_name(&self, sink: &crate::contract::EventSink) -> Option<String> {
+        let over = super::tool_shell::shell_override(Some(sink)).await;
+        let env: Vec<(String, String)> = std::env::vars().collect();
+        let selection = crate::shell_select::resolve(
+            crate::shell_select::Platform::current(),
+            &env,
+            over.as_ref(),
+            &|p| std::path::Path::new(p).is_file(),
+        );
+        Some(crate::shell_select::display_name(&selection))
+    }
     async fn web_fetch(
         &self,
         args: &Value,

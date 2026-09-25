@@ -6,6 +6,9 @@
 
 - 默认主会话按 TS 的 CLI prefix、稳定身份/桌面说明、动态行为/环境/上下文管理/Git 顺序组装三段 system。静态文案由当前 TS 构造器生成，检查模式发现漂移立即失败；运行时不依赖 Node。
 - `--surface desktop` 启用真实桌面说明；terminal 不注入桌面内容。surface 来自当前进程，不能从持久化历史沿用，跨入口冷恢复需要重新选择该文案。环境显示实际文件 cwd、原生平台、工具实际使用的 shell、OS，以及本步骤已绑定的 provider/model，不能用 workspace identity 或历史模型替代。
+- 序列化边界（2026-09-25 修订，对齐 TS `normalizeOpenAiCompatibleSystemMessages`）：OpenAI Chat Completions
+  （TS providerKind=openai-compatible）把开头连续的多段 system 按原顺序直接拼接（不插入分隔符）为一条；
+  Responses 与 Anthropic 保持多段。此前 Rust 在 Chat 协议也发三段，与 Node 实际请求不一致。
 - AGENTS 与日期在独立 user `<system-reminder>` 请求前缀中，不拼入 system、不计为用户输入。转义嵌套 reminder 标签，保持 TS 格式和三协议正文语义；Anthropic 保留三段 system 和 ephemeral cache hints。
 - 用户默认 `~/.zcode/AGENTS.md` 在前。从 cwd 向上选择最近的 AGENTS，遇最近 Git 根停止；无 Git 根可查到文件系统根。用户和工作区路径重复时去重。只选实际文件，单文件最多读取 100 KiB，超过时提供 TS 截断标记，缺失/不可读视作缺少该 source。不能误实现为自动加载所有后代目录或父子文件全拼接。
 - 保留已交付 Rust 的每模型步骤 AGENTS 动态刷新；日期和 Git 是会话首次普通请求的快照，持久化后跨后续轮、压缩及冷恢复复用。模型名称每步骤刷新，不落入该静态快照。旧 native 会话缺少快照时在下一轮初始化。

@@ -186,7 +186,8 @@ test("App provider files drive model selection, hot switch after tools, queue an
     assert.equal(f.requestHeaders[0]!.authorization, "Bearer fixture-personal-key");
     for (const request of f.requests) {
       assert.match(
-        request.messages[2].content,
+        // Chat 协议合并为一条 system（docs/specs/rust-request-context.md）。
+        request.messages.find((m: any) => m.role === "system").content,
         new RegExp(`model named personal:fixture/${request.model}\\.`),
       );
     }

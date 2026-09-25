@@ -232,6 +232,21 @@ fn resolve_posix(env: &[(String, String)], exists: &dyn Fn(&str) -> bool) -> Sel
         .unwrap_or_else(legacy)
 }
 
+/// TS `ExecutionShellSelection.display.name`：进入系统提示词的 Shell 名称。
+pub fn display_name(selection: &Selection) -> String {
+    match selection.dialect {
+        Dialect::GitBash => "Git Bash".into(),
+        Dialect::Cmd => "CMD".into(),
+        Dialect::Posix => selection
+            .path
+            .as_deref()
+            .and_then(posix_kind)
+            .unwrap_or("bash")
+            .into(),
+        Dialect::Legacy => "system shell".into(),
+    }
+}
+
 fn posix_kind(path: &str) -> Option<&'static str> {
     let name = path.rsplit('/').next().unwrap_or(path);
     if name.contains("bash") {
