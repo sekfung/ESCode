@@ -40,7 +40,15 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   已修复，否则 CI 在 `test:zcode-cli-rust` 的 tsc 步骤就会失败。
 - 本机已验证：YAML 语法、全仓 `architecture:check`、`lint`、`typecheck`、测试 tsconfig 类型检查、受影响用例。
 
+## GitHub 实测结果（2026-09-25）
+
+- 首次运行（36096673890）：init-prompt 语料在 Linux/macOS 上路径分隔符漂移、Windows 上 rpc 源码类型错误（干净检出缺少 `dist/*.d.ts`）。
+  修复：语料统一 `/`；测试前 `tsc -b` 构建依赖包。
+- 第二次（36097526844）：三平台均 210/243，27 个失败原因相同，无平台特有失败——干净检出没有
+  `apps/zcode-cli/packages/cli/dist/zcode.cjs`（差分用例的 Node 一侧），以及工具定义对照表缺 plan 工具。
+  修复：缺失时用 `scripts/build-desktop-agent-cli.mjs` 构建；对照表补 EnterPlanMode/ExitPlanMode。
+- 第三次（36098587168）：checks 与 Windows（MSVC）/ macOS（arm64）/ Linux 测试**全部通过**。
+
 ## 未验证
 
-工作流本身尚未在 GitHub 上运行过（本机无法执行 Actions）。首次运行可能暴露：Linux/macOS 上此前从未跑过的 App 集成用例的平台差异、
-MSVC 目标的编译差异、桌面打包在各 runner 上的环境依赖。首次推送后应以实际运行结果为准逐项修正。
+`release.yml` 尚未运行（需推送 `v*` 标签或手动触发）：6 个目标的 release 构建、4 个桌面安装包的打包环境依赖仍待实测。
