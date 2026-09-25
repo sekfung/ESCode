@@ -16,7 +16,7 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - `ZCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
 - `ELECTRON_SKIP_BINARY_DOWNLOAD=1`：测试不需要 Electron 运行时。
 
-### `.github/workflows/release.yml`（推送 `v*` 标签或手动）
+### `.github/workflows/release.yml`（推送 `v*` 标签、手动，或 `feat/**` 上改动发布链路时）
 
 - `rust-runtime`：6 个目标（`x86_64/aarch64` × `linux-gnu / windows-msvc / apple-darwin`）的 release 二进制，打包为
   `.tar.gz` / `.zip` 并附 sha256。Linux arm64 用 `ubuntu-24.04-arm`；macOS x64 在 arm64 runner 上交叉编译。

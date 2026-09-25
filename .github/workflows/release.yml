@@ -1,11 +1,17 @@
 # 发布：Rust runtime 二进制（6 个目标）与桌面安装包（内置 Rust runtime，默认仍用 Node）。
-# 触发：推送 v* 标签，或手动运行（手动运行只上传构建产物，不创建 Release）。
+# 触发：推送 v* 标签；手动运行；或在 feat/** 分支上改动发布链路本身（后两者只上传构建产物，不创建 Release）。
 # 当前不签名（macOS 未签名、未公证；Windows 未签名）。见 docs/specs/rust-ci.md。
 name: release
 
 on:
   push:
     tags: ["v*"]
+    # workflow_dispatch 要求工作流已在默认分支；合入前用分支推送验证发布链路。
+    branches: ["feat/**"]
+    paths:
+      - .github/workflows/release.yml
+      - packages/desktop/scripts/**
+      - packages/desktop/electron-builder.config.js
   workflow_dispatch:
 
 permissions:
