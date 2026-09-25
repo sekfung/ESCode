@@ -1,9 +1,11 @@
 mod contract;
 mod contract_events;
 mod failures;
+mod memory;
 mod runtime;
 mod tool_output;
 mod web_fetch;
 pub use contract::*;
+pub use memory::{MemorySnapshot, ProjectMemory};
 pub use runtime::*;
 pub use web_fetch::WebFetchPage;

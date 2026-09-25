@@ -46,6 +46,14 @@ pub enum Event {
     ShellPreference {
         reply: oneshot::Sender<Option<Value>>,
     },
+    /// Host 记忆开关与本会话已解析的记忆（docs/specs/rust-project-memory.md）；会话 owner 负责请求与缓存。
+    MemoryPreference {
+        reply: oneshot::Sender<(bool, Option<crate::ProjectMemory>)>,
+    },
+    /// 本会话首次解析出的记忆根与索引，由会话 owner 缓存供后续轮次复用。
+    MemoryResolved(crate::ProjectMemory),
+    /// 主轮次成功完成后的记忆提取快照，由会话 owner 的提取调度处理。
+    MemoryExtract(Box<crate::MemorySnapshot>),
     /// ReadSessionContext 读取目标会话的已提交历史（会话 owner 负责访问存储）。
     SessionContext {
         id: String,
@@ -111,6 +119,8 @@ pub enum Event {
     },
     Permission {
         call: Value,
+        /// 主会话启用记忆时的记忆根：写入其中的 Markdown 放行（TS applyMemoryFilePermission）。
+        memory_root: Option<String>,
         reply: oneshot::Sender<PermissionOutcome>,
     },
     Question {

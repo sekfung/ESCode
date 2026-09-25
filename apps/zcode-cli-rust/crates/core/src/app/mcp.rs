@@ -18,6 +18,7 @@ impl Engine {
                 request: request.id.clone(),
                 cancel: cancel.clone(),
                 operation: None,
+                session: None,
             },
         );
         let sink = EventSink {

@@ -8,22 +8,29 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::Mutex,
-};
+use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_util::sync::CancellationToken;
 const READ_BYTES: usize = 64 * 1024;
 const EDIT_BYTES: u64 = 8 * 1024 * 1024;
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct FileState {
     entries: HashMap<PathBuf, Observation>,
 }
+impl FileState {
+    /// 记为已读取（MEMORY.md 已注入上下文，TS 在加载索引时写入 readFileState）。
+    pub(super) fn observe(&mut self, path: PathBuf, bytes: &[u8], full: bool) {
+        let hash = Sha256::digest(bytes).to_vec();
+        self.entries.insert(path, Observation { hash, full });
+    }
+}
+#[derive(Clone)]
 struct Observation {
     hash: Vec<u8>,
     full: bool,
 }
 pub struct FileTools<'a> {
+    /// 启用记忆时的（记忆根, 来源会话）：写入记忆 Markdown 时补写 originSessionId。
+    pub memory: Option<(&'a str, &'a str)>,
     pub sink: Option<&'a crate::contract::EventSink>,
     pub checkpoint_root: &'a Path,
     pub cwd: &'a Path,
@@ -258,6 +265,16 @@ impl FileTools<'_> {
                 (applied.content, applied.actual_old, applied.actual_new)
             }
         };
+        let new = match self.memory {
+            Some((root, origin)) => crate::domain::memory::stamp_origin(
+                &new,
+                root,
+                &path.to_string_lossy(),
+                origin,
+                &self.cwd.to_string_lossy(),
+            ),
+            None => new,
+        };
         if new.len() as u64 > EDIT_BYTES {
             bail!("Write exceeds native edit budget (8 MiB)");
         }
@@ -281,7 +298,7 @@ impl FileTools<'_> {
             )
             .await?;
         }
-        atomic_write(&path, &bytes, original.as_deref(), cancel).await?;
+        super::file_atomic::atomic_write(&path, &bytes, original.as_deref(), cancel).await?;
         let path = zcode_cli_host::realpath(path).await?;
         self.remember(path.clone(), Sha256::digest(&bytes).to_vec(), true)
             .await;
@@ -318,47 +335,6 @@ impl FileTools<'_> {
         result.display = Some(display);
         Ok(result)
     }
-}
-pub(super) async fn atomic_write(
-    path: &Path,
-    bytes: &[u8],
-    expected: Option<&[u8]>,
-    cancel: &CancellationToken,
-) -> Result<()> {
-    check_cancel(cancel)?;
-    let parent = path.parent().context("File requires a parent directory")?;
-    tokio::fs::create_dir_all(parent).await?;
-    let temp = parent.join(format!(".zcode-{}.tmp", super::id()));
-    let result = async {
-        let mut file = tokio::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp)
-            .await?;
-        if let Ok(meta) = tokio::fs::metadata(path).await {
-            file.set_permissions(meta.permissions()).await?;
-        }
-        file.write_all(bytes).await?;
-        file.sync_all().await?;
-        drop(file);
-        check_cancel(cancel)?;
-        let actual = match tokio::fs::read(path).await {
-            Ok(v) => Some(v),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(e) => return Err(e.into()),
-        };
-        // 原子替换前再次核对观察版本，避免等待 IO 时覆盖外部写入。
-        if actual.as_deref() != expected {
-            bail!("stale_file: changed before atomic commit");
-        }
-        tokio::fs::rename(&temp, path).await?;
-        Ok::<_, anyhow::Error>(())
-    }
-    .await;
-    if result.is_err() {
-        let _ = tokio::fs::remove_file(temp).await;
-    }
-    result
 }
 pub(super) fn patch(old: &str, new: &str) -> (Value, usize, usize) {
     if old == new {

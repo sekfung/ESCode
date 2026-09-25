@@ -307,6 +307,7 @@ export class Harness {
   readonly hostRequests: { method: string; params: unknown }[] = [];
   /** 模拟设置页的终端 shell 选择；缺省表示 auto。 */
   integratedTerminalShell?: Message;
+  memoryEnabled?: boolean;
   readonly runtimePreferenceRequests: unknown[] = [];
   envelope(type: string, sessionId: string | null, payload: Message = {}) {
     return {

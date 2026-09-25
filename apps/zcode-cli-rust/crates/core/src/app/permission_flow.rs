@@ -26,6 +26,7 @@ impl Engine {
         run: &str,
         turn: &str,
         call: &Value,
+        memory_root: Option<&str>,
         reply: oneshot::Sender<PermissionOutcome>,
     ) -> Result<()> {
         let tool = call["function"]["name"].as_str().unwrap_or("").to_owned();
@@ -46,7 +47,14 @@ impl Engine {
             session: None,
         };
         let capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
-        let decision = check(&ctx, capability.as_ref());
+        // 主会话记忆 Markdown 写入放行（docs/specs/rust-project-memory.md）。
+        let decision = crate::domain::memory::permission_override(
+            check(&ctx, capability.as_ref()),
+            &tool,
+            &input,
+            memory_root,
+            &self.workspace_path,
+        );
         // 待产品确认：TS 对声明 requiresUserInteraction 的工具（AskUserQuestion）在
         // checkPermission 里同样返回 ask，而该工具自身的提问界面才是这次「用户交互」。
         // Rust 现有问句流程与既有集成用例都按「不额外弹权限确认」实现，这里先按原行为放行，

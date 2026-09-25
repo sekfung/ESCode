@@ -2,7 +2,7 @@
 //! 见 docs/specs/rust-cron.md。
 
 use super::Engine;
-use crate::contract::HostReply;
+use crate::contract::{Event, HostReply};
 use serde_json::{Value, json};
 
 impl Engine {
@@ -33,6 +33,51 @@ impl Engine {
             let _ = reply.send(result);
         } else {
             self.resolve_shell_preference(id, &result);
+        }
+    }
+}
+
+impl Engine {
+    /// 会话 owner 代为完成的请求类事件（Host 反向请求、存储读取、偏好、记忆、鉴权），不改变会话投影。
+    pub(super) fn owner_request(&mut self, id: &str, run_id: &str, turn: &str, event: Event) {
+        match event {
+            Event::HostRequest {
+                method,
+                params,
+                reply,
+            } => self.request_host(method, params, reply),
+            Event::SessionContext { id: target, reply } => {
+                // 存储读取不阻塞会话 actor。
+                let store = self.store.clone();
+                tokio::spawn(async move {
+                    let _ = reply.send(store.session_context(&target).await);
+                });
+            }
+            Event::ShellPreference { reply } => self.request_shell_preference(id, reply),
+            Event::MemoryPreference { reply } => {
+                let cached = self.memory_prompts.get(id).cloned();
+                self.request_memory_preference(id, reply, cached);
+            }
+            Event::MemoryResolved(memory) => {
+                self.memory_prompts.insert(id.to_owned(), memory);
+            }
+            Event::MemoryExtract(snapshot) => self.schedule_memory(id, *snapshot),
+            Event::RequestAuth {
+                provider,
+                selection,
+                access,
+                reply,
+            } if !reply.is_closed() => {
+                let request_id = format!("rust-auth-{}", self.clock.id());
+                let workspace = json!({"workspaceKey":self.workspace,"workspacePath":self.workspace_path,"workspaceIdentity":self.workspace});
+                let params = json!({"requestId":request_id,"sessionId":id,"turnId":turn,"workspace":workspace,"providerId":provider,"modelSelection":selection,"accountAccess":access,"reason":"model-request"});
+                self.auth.insert(
+                    request_id.clone(),
+                    (id.to_owned(), run_id.to_owned(), workspace, reply),
+                );
+                self.outbox.push(json!({"id":request_id,"method":"interaction/requestProviderRuntimeHeaders","params":params}));
+            }
+            _ => {}
         }
     }
 }

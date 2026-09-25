@@ -10,6 +10,8 @@ use std::{
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
+mod support;
+use support::answer_runtime_preferences;
 use zcode_cli_rust::{
     app::Engine,
     contract::*,
@@ -173,7 +175,8 @@ async fn check_commit_barrier(continuation: bool) {
         .await
         .unwrap();
         let (tx, rx) = mpsc::channel(10);
-        let (out, mut output) = mpsc::channel(20);
+        let (out, raw_output) = mpsc::channel(20);
+        let mut output = answer_runtime_preferences(raw_output, tx.clone());
         let running = tokio::spawn(engine.serve(rx, out, CancellationToken::new()));
         tx.send(Input::Request(serde_json::from_value(json!({"id":1,"method":"v4/command","params":{"commandId":"next","clientId":"test","sessionId":"session","type":"sendText","issuedAt":1,"payload":{"text":"continue"}}})).unwrap())).await.unwrap();
         let summary = tokio::time::timeout(std::time::Duration::from_secs(2), requests.recv())

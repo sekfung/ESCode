@@ -7,6 +7,8 @@ export interface HostRequestResponder {
   hostHandlers: Record<string, (params: any) => unknown>;
   readonly hostRequests: { method: string; params: unknown }[];
   integratedTerminalShell?: Message;
+  /** 模拟 Memory Settings 总开关（runtime-materialization 偏好）；缺省关闭，与产品默认一致。 */
+  memoryEnabled?: boolean;
   readonly runtimePreferenceRequests: unknown[];
 }
 
@@ -33,6 +35,7 @@ export function answerHostRequest(
   harness.runtimePreferenceRequests.push(request.params);
   void harness.client.respond(request.id, {
     nativeSearchEnhancementsEnabled: true,
+    ...(harness.memoryEnabled ? { memoryEnabled: true } : {}),
     ...(harness.integratedTerminalShell
       ? { integratedTerminalShell: harness.integratedTerminalShell }
       : {}),

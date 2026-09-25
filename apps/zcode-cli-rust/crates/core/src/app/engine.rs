@@ -61,6 +61,9 @@ pub struct Engine {
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
     /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
     pub(super) slash_commands: Vec<Value>,
+    /// 项目记忆：每会话的提取调度与会话内固定的记忆根/索引（docs/specs/rust-project-memory.md）。
+    pub(super) memory_schedulers: BTreeMap<String, super::memory_extraction::SharedScheduler>,
+    pub(super) memory_prompts: BTreeMap<String, crate::contract::ProjectMemory>,
 }
 impl Engine {
     pub async fn new(
@@ -134,19 +137,9 @@ impl Engine {
             events,
             event_rx,
             slash_commands: crate::domain::custom_command::builtin_catalog(),
+            memory_schedulers: BTreeMap::new(),
+            memory_prompts: BTreeMap::new(),
         })
-    }
-    pub fn with_registry(
-        mut self,
-        registry: Option<Arc<dyn crate::contract::ModelRegistry>>,
-        workspace_path: String,
-    ) -> Self {
-        self.registry = registry;
-        self.workspace_path = workspace_path;
-        if let Some(registry) = &self.registry {
-            self.config = registry.default_selection();
-        }
-        self
     }
     pub async fn serve(
         mut self,

@@ -13,6 +13,7 @@ mod edit_quotes;
 mod embedded_search;
 mod extension_config;
 mod extension_plugins;
+mod file_atomic;
 mod file_changes;
 mod file_checkpoints;
 mod file_rewind;
@@ -27,7 +28,9 @@ mod official_plugins_marketplace;
 mod plan_tools;
 #[cfg(unix)]
 mod process_tree;
+mod project_memory;
 mod shell_select;
+mod tool_capability;
 mod tool_files;
 mod tool_process;
 mod tool_search;

@@ -22,6 +22,14 @@ pub(super) async fn run(
     let root_model = model;
     let mut reactive_compacted = false;
     let mut continuations = 0;
+    // 主会话的项目记忆：会话内首次解析后由 owner 缓存（docs/specs/rust-project-memory.md）。
+    // 须先于技能初始化：后者会为提示词 Shell 名请求 user-execution 偏好，TS 在会话物化时先请求
+    // runtime-materialization。
+    history.memory = if history.agent_profile.is_none() {
+        super::memory_run::resolve(tools, sink, cancel).await?
+    } else {
+        None
+    };
     super::skills::initialize(tools, context, history, sink, cancel).await?;
     let skills = history.skills.clone().unwrap_or_default();
     let profile = history.agent_profile.clone();
@@ -52,6 +60,12 @@ pub(super) async fn run(
         .iter()
         .map(|d| d.to_string().encode_utf16().count().div_ceil(3))
         .sum();
+    let memory_index = history.memory.as_ref().and_then(|m| {
+        m.index
+            .as_deref()
+            .and_then(|index| crate::domain::memory::index_block(&m.index_path, index))
+    });
+    let memory_root = history.memory.as_ref().map(|m| m.root.clone());
     let mut turns = 0;
     loop {
         if profile
@@ -101,6 +115,10 @@ pub(super) async fn run(
             context.desktop(),
             // 主会话暴露 Skill 且目录非空时才有该段（子代理与 TS 工作流 actor 不输出）。
             history.agent_profile.is_none() && skills.enabled && !skills.skills.is_empty(),
+            history
+                .memory
+                .as_ref()
+                .map(|m| (m.root.as_str(), memory_index.as_deref())),
         );
         if let Some(reminder) = skills.reminder() {
             prefix.push(reminder);
@@ -116,6 +134,10 @@ pub(super) async fn run(
         } else {
             usize::MAX
         };
+        // 记忆提取快照复用本轮最后一次请求的系统前缀与工具目录。
+        if memory_root.is_some() {
+            history.memory_request = Some((prefix.clone(), definitions.clone()));
+        }
         let (mut messages, mut tokens) = history.projection(&prefix, tool_tokens, micro_threshold);
         if policy.automatic && tokens >= policy.threshold() {
             history.compact(model, sink, cancel, None).await?;
@@ -197,15 +219,16 @@ pub(super) async fn run(
             // 只读工具并发执行，但按原始 call 顺序持久化结果；写/Shell 不跨越该屏障。
             let mut results = stream::iter(group)
                 .map(|call| {
-                    execute(
+                    super::tool_dispatch::execute(
                         tools,
-                        ExecutionContext {
+                        super::tool_dispatch::ExecutionContext {
                             skills: &skills,
                             profile: profile.as_ref(),
                             profiles: &profiles,
                             selection: identity.clone(),
                             model: root_model,
                             turn: &turn_facts,
+                            memory_root: memory_root.as_deref(),
                         },
                         call,
                         sink,
@@ -265,130 +288,4 @@ pub(super) async fn durable(
         _=cancel.cancelled()=>bail!("Cancelled"),
         result=receipt=>result.context("Session owner stopped before durable commit"),
     }
-}
-struct ExecutionContext<'a> {
-    skills: &'a crate::domain::skills::SkillCatalog,
-    profile: Option<&'a crate::domain::subagent::Profile>,
-    profiles: &'a [crate::domain::subagent::Profile],
-    selection: Option<crate::contract::ModelIdentity>,
-    model: &'a dyn ModelPort,
-    turn: &'a super::context::TurnFacts,
-}
-async fn execute(
-    tools: &dyn ToolPort,
-    context: ExecutionContext<'_>,
-    call: Value,
-    sink: &EventSink,
-    cancel: &CancellationToken,
-) -> Result<(String, crate::contract::ToolOutput, bool, bool)> {
-    let ExecutionContext {
-        skills,
-        profile,
-        profiles,
-        selection,
-        model,
-        turn,
-    } = context;
-    if cancel.is_cancelled() {
-        bail!("Cancelled");
-    }
-    sink.send(Event::ToolStart { call: call.clone() }).await?;
-    let name = call["function"]["name"]
-        .as_str()
-        .context("Tool name missing")?;
-    // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
-    let outcome = {
-        let (reply, receipt) = oneshot::channel();
-        sink.send(Event::Permission {
-            call: call.clone(),
-            reply,
-        })
-        .await?;
-        tokio::select! {biased;
-            _=cancel.cancelled()=>bail!("Cancelled"),
-            result=receipt=>result.unwrap_or_else(|_| crate::contract::PermissionOutcome::deny(
-                crate::domain::permission_options::denied_content(None))),
-        }
-    };
-    let result = if profile.is_some_and(|p| !p.allows(name)) {
-        Err(anyhow::anyhow!(
-            "Tool is not allowed by this subagent profile"
-        ))
-    } else if !outcome.allowed {
-        // 拒绝文案与 TS 逐字一致（不套 "Tool failed:" 前缀），模型据此停止并等待用户指示。
-        Ok(crate::contract::ToolOutput {
-            failed: true,
-            content: outcome.denial.unwrap_or_else(|| "Permission denied".into()),
-            data: Value::Null,
-            display: None,
-            control: crate::contract::ToolControl {
-                denied: true,
-                stop_turn: false,
-            },
-        })
-    } else {
-        match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) {
-            Ok(args)
-                if matches!(name, "Agent" | "Task" | "SendMessage")
-                    || matches!(name, "TaskOutput" | "TaskStop")
-                        && args["task_id"]
-                            .as_str()
-                            .is_some_and(|id| id.starts_with("agent_")) =>
-            {
-                super::subagent_tools::execute(
-                    (tools, profiles, skills),
-                    name,
-                    &args,
-                    call["id"].as_str().unwrap(),
-                    selection,
-                    sink,
-                    cancel,
-                )
-                .await
-            }
-            Ok(args) if matches!(name, "EnterPlanMode" | "ExitPlanMode") => {
-                super::plan_tool::execute(name, call["id"].as_str().unwrap(), args, sink, cancel)
-                    .await
-            }
-            Ok(args) if name == "AskUserQuestion" => {
-                super::question_tool::execute(call["id"].as_str().unwrap(), args, sink, cancel)
-                    .await
-            }
-            Ok(args) if matches!(name, "TodoRead" | "TodoWrite") => {
-                super::todos::execute(name, call["id"].as_str().unwrap(), args, sink, cancel).await
-            }
-            Ok(args) if name.starts_with("Cron") => {
-                super::cron_tool::execute(name, &args, turn, sink, cancel).await
-            }
-            Ok(args) if name == "ReadSessionContext" => {
-                super::session_context_tool::execute(model, &args, sink, cancel).await
-            }
-            Ok(args) if name == "WebFetch" => {
-                super::web_fetch_tool::execute(tools, model, &args, sink, cancel).await
-            }
-            Ok(args) if name == "Skill" => {
-                super::skills::execute(tools, skills, &args, cancel).await
-            }
-            Ok(args) => tools.execute_scoped(name, &args, sink, cancel).await,
-            Err(_) => Err(anyhow::anyhow!("Invalid tool JSON arguments")),
-        }
-    };
-    if let Err(error) = &result
-        && error.is::<crate::contract::ProcessCleanupFailure>()
-    {
-        // 进程未确认回收时不能包装成普通工具失败再发请求；由 owner 终止本 runtime。
-        sink.send(Event::ToolCleanupFailed(format!("{error:#}")))
-            .await?;
-        return Err(result.err().unwrap());
-    }
-    let failed = result.as_ref().map_or(true, |output| output.failed);
-    let denied = result.as_ref().is_ok_and(|output| output.control.denied);
-    let content = result
-        .unwrap_or_else(|error| crate::contract::ToolOutput::text(format!("Tool failed: {error}")));
-    Ok((
-        call["id"].as_str().context("Tool id missing")?.into(),
-        content,
-        failed,
-        denied,
-    ))
 }

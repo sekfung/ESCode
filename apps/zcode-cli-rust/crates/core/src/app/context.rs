@@ -23,6 +23,9 @@ pub(super) struct RunContext {
     pub goal: Option<crate::domain::goal::Goal>,
     pub skills: Option<crate::domain::skills::SkillCatalog>,
     pub prompt_snapshot: Option<crate::domain::prompt::PromptSnapshot>,
+    /// 主会话启用的项目记忆与最后一次请求的（前缀, 工具目录），用于轮次后的提取快照。
+    pub memory: Option<crate::contract::ProjectMemory>,
+    pub memory_request: Option<(Vec<Value>, Vec<Value>)>,
     pub state: ContextState,
     pub messages: Vec<Value>,
     pub manual: Option<String>,
@@ -47,6 +50,8 @@ impl RunContext {
             goal: None,
             skills: None,
             prompt_snapshot: None,
+            memory: None,
+            memory_request: None,
             state,
             messages,
             manual,

@@ -28,6 +28,13 @@ pub mod history;
 pub mod json_order;
 mod json_size;
 pub mod legacy_snapshot;
+pub mod memory;
+mod memory_markdown;
+mod memory_policy;
+mod memory_stamp;
+#[cfg(test)]
+mod memory_tests;
+mod memory_yaml;
 pub mod model;
 pub mod net_proxy;
 pub mod option_map;

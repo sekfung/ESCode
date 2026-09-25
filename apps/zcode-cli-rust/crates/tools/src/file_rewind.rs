@@ -225,7 +225,7 @@ async fn restore(root: &Path, file: &File) -> Result<()> {
     match &file.before {
         Some(key) => {
             let bytes = blobs::load(root, key).await?;
-            super::tool_files::atomic_write(
+            super::file_atomic::atomic_write(
                 path,
                 &bytes,
                 current.as_deref(),
@@ -254,7 +254,7 @@ async fn rollback(root: &Path, files: &[File]) -> Result<()> {
             file.path
         );
         let bytes = blobs::load(root, &file.after).await?;
-        super::tool_files::atomic_write(
+        super::file_atomic::atomic_write(
             path,
             &bytes,
             current.as_deref(),

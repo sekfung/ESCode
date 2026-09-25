@@ -264,6 +264,29 @@ pub trait ToolPort: Send + Sync {
     async fn evict_session(&self, session: &str) -> Result<()> {
         self.close_session(session).await
     }
+    /// 按配置解析项目记忆根（创建目录并读取 MEMORY.md）；配置关闭时 None。见 rust-project-memory.md。
+    async fn project_memory(&self) -> Option<crate::ProjectMemory> {
+        None
+    }
+    /// 记忆目录 manifest（mtime 倒序前 200 个 `.md`，不含 MEMORY.md）。
+    async fn memory_manifest(&self, _root: &str) -> Vec<zcode_cli_domain::memory::ManifestEntry> {
+        vec![]
+    }
+    /// 会话的记忆写入上下文：Write/Edit 对记忆根内 `.md` 补写 originSessionId；`inherit` 复制其读取状态，
+    /// `seed` 记为已完整读取（MEMORY.md 已注入上下文）。
+    async fn memory_context(
+        &self,
+        _session: &str,
+        _root: &str,
+        _origin: &str,
+        _inherit: Option<&str>,
+        _seed: Option<&str>,
+    ) {
+    }
+    /// 带运行时 git 上下文的只读 Bash 分类（记忆提取的工具策略使用）。
+    fn readonly_bash(&self, command: &str) -> bool {
+        zcode_cli_domain::bash_policy::is_readonly(command)
+    }
     /// 自定义 slash 命令展开（docs/specs/rust-custom-commands.md）；None 表示按原文发送。
     async fn resolve_command(
         &self,

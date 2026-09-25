@@ -10,6 +10,8 @@ use std::{
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
+mod support;
+use support::answer_runtime_preferences;
 use zcode_cli_rust::{app::Engine, contract::*, domain::session::Session};
 
 struct Store {
@@ -153,7 +155,8 @@ async fn child_start_and_result_require_both_owners_to_commit_and_failure_releas
             .await
             .unwrap();
             let (tx, rx) = mpsc::channel(8);
-            let (out, mut output) = mpsc::channel(32);
+            let (out, raw_output) = mpsc::channel(32);
+            let mut output = answer_runtime_preferences(raw_output, tx.clone());
             let running = tokio::spawn(engine.serve(rx, out, CancellationToken::new()));
             let drain = tokio::spawn(async move { while output.recv().await.is_some() {} });
             tx.send(Input::Request(serde_json::from_value(json!({"id":1,"method":"v4/command","params":{"commandId":"parent-input","clientId":"test","sessionId":"parent","type":"sendText","issuedAt":1,"payload":{"text":"delegate","mode":"yolo"}}})).unwrap())).await.unwrap();

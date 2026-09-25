@@ -100,44 +100,17 @@ impl Engine {
             }
             return self.drain_guide(&id, &turn, committed).await;
         }
-        if let Event::HostRequest {
-            method,
-            params,
-            reply,
-        } = event.event
-        {
-            self.request_host(method, params, reply);
-            return Ok(());
-        }
-        if let Event::SessionContext { id: target, reply } = event.event {
-            // 存储读取不阻塞会话 actor。
-            let store = self.store.clone();
-            tokio::spawn(async move {
-                let _ = reply.send(store.session_context(&target).await);
-            });
-            return Ok(());
-        }
-        if let Event::ShellPreference { reply } = event.event {
-            self.request_shell_preference(&id, reply);
-            return Ok(());
-        }
-        if let Event::RequestAuth {
-            provider,
-            selection,
-            access,
-            reply,
-        } = event.event
-        {
-            if !reply.is_closed() {
-                let request_id = format!("rust-auth-{}", self.clock.id());
-                let workspace = json!({"workspaceKey":self.workspace,"workspacePath":self.workspace_path,"workspaceIdentity":self.workspace});
-                let params = json!({"requestId":request_id,"sessionId":id,"turnId":turn,"workspace":workspace,"providerId":provider,"modelSelection":selection,"accountAccess":access,"reason":"model-request"});
-                self.auth.insert(
-                    request_id.clone(),
-                    (id.clone(), event.run_id, workspace, reply),
-                );
-                self.outbox.push(json!({"id":request_id,"method":"interaction/requestProviderRuntimeHeaders","params":params}));
-            }
+        if matches!(
+            event.event,
+            Event::HostRequest { .. }
+                | Event::SessionContext { .. }
+                | Event::ShellPreference { .. }
+                | Event::MemoryPreference { .. }
+                | Event::MemoryResolved(_)
+                | Event::MemoryExtract(_)
+                | Event::RequestAuth { .. }
+        ) {
+            self.owner_request(&id, &event.run_id, &turn, event.event);
             return Ok(());
         }
         if matches!(event.event, Event::Finished { .. }) {
@@ -167,6 +140,9 @@ impl Engine {
             | Event::AuxiliaryDone { .. }
             | Event::RequestAuth { .. }
             | Event::ShellPreference { .. }
+            | Event::MemoryPreference { .. }
+            | Event::MemoryResolved(_)
+            | Event::MemoryExtract(_)
             | Event::SessionContext { .. }
             | Event::HostRequest { .. }
             | Event::ContextUsage(_)
@@ -253,9 +229,20 @@ impl Engine {
                 s.rows.push(row.clone());
                 deltas.push(json!({"op":"row.appended","row":row}));
             }
-            Event::Permission { call, reply } => {
-                self.ask_permission(&id, &event.run_id, &turn, &call, reply)
-                    .await?;
+            Event::Permission {
+                call,
+                memory_root,
+                reply,
+            } => {
+                self.ask_permission(
+                    &id,
+                    &event.run_id,
+                    &turn,
+                    &call,
+                    memory_root.as_deref(),
+                    reply,
+                )
+                .await?;
                 return Ok(());
             }
             Event::ToolDone {

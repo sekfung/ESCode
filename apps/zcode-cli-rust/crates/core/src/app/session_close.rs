@@ -40,6 +40,8 @@ impl Engine {
             self.apply_event(event).await?;
         }
         self.tools.close_session(id).await?;
+        self.shutdown_memory(id);
+        self.forget_runtime_preferences(id);
         let s = self.sessions.get_mut(id).unwrap();
         if let Some(context) = &mut s.shared_context {
             context.release(None);

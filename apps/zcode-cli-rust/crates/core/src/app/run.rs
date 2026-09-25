@@ -94,6 +94,21 @@ impl Engine {
                 .err()
                 .and_then(|e| e.downcast_ref::<crate::contract::ModelFailure>())
                 .cloned();
+            // 主轮次成功完成后调度记忆提取（TS scheduleProjectMemoryExtraction），先于 Finished 入队。
+            if result.is_ok()
+                && !cancel.is_cancelled()
+                && let (Some(memory), Some((prefix, definitions))) =
+                    (history.memory.clone(), history.memory_request.take())
+            {
+                let messages = history.projection(&prefix, 0, usize::MAX).0;
+                let snapshot = crate::contract::MemorySnapshot {
+                    memory,
+                    messages,
+                    definitions,
+                    model: model.clone(),
+                };
+                let _ = sink.send(Event::MemoryExtract(Box::new(snapshot))).await;
+            }
             let error = result.err().map(|e| e.to_string());
             let _ = sink
                 .send(Event::Finished {

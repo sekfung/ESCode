@@ -182,7 +182,9 @@ impl Engine {
         {
             s.append_message(reminder);
         }
-        s.append_message(json!({"role":"user","content":content}));
+        // `_zcode_input`：真实用户输入及其是否满足记忆提取的散文门槛（按模型实际收到的正文计词）。
+        let prose = crate::domain::memory::is_prose(model_text.as_deref().unwrap_or(text));
+        s.append_message(json!({"role":"user","content":content,"_zcode_input":prose}));
         let mut payload = c.payload.clone();
         payload.as_object_mut().unwrap().remove("context_refs");
         // TS prompt-turn：本轮 automation 身份（显式或 automation- 前缀 commandId）与禁用工具面随输入固化。

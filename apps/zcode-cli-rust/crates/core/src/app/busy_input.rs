@@ -172,7 +172,9 @@ impl Engine {
         row["sourceCommandId"] = item["sourceCommandId"].clone();
         row["clientId"] = item["clientId"].clone();
         s.rows.push(row.clone());
-        let message = json!({"role":"user","content":crate::domain::prompt::user_steer(item["text"].as_str().context("Guide text missing")?)});
+        let text = item["text"].as_str().context("Guide text missing")?;
+        // `_zcode_input`：真实用户输入及其是否满足记忆提取的散文门槛（docs/specs/rust-project-memory.md）。
+        let message = json!({"role":"user","content":crate::domain::prompt::user_steer(text),"_zcode_input":crate::domain::memory::is_prose(text)});
         s.append_message(message.clone());
         messages.push(message);
         s.history.inputs.push(crate::domain::history::InputBoundary {entity:row["entityId"].as_str().unwrap().into(),turn:turn.into(),row:boundary.0,user_row:boundary.0,message:retained_messages,state:boundary.2,kind:"sendText".into(),payload:json!({"text":item["text"],"modelSelection":item["modelSelection"],"_userSteer":true})});

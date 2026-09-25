@@ -16,6 +16,9 @@ pub use engine::Engine;
 mod input_validation;
 
 mod agent_loop;
+mod memory_extraction;
+mod memory_run;
+mod tool_dispatch;
 
 mod context;
 mod context_projection;

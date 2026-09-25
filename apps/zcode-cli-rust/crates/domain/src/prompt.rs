@@ -55,6 +55,7 @@ pub fn prefix(
     model: Option<(&str, &str)>,
     desktop: bool,
     skill_guidance: bool,
+    memory: Option<(&str, Option<&str>)>,
 ) -> Vec<Value> {
     let templates = templates();
     let stable = if desktop {
@@ -81,8 +82,12 @@ pub fn prefix(
     } else {
         ""
     };
+    // TS builder：Memory 段位于 Session-specific guidance 之后、Environment 之前（docs/specs/rust-project-memory.md）。
+    let memory_section = memory
+        .map(|(root, _)| format!("\n\n{}", super::memory::section(root)))
+        .unwrap_or_default();
     let mut dynamic = format!(
-        "\n\n{}{guidance}\n\n{env}\n\n{}",
+        "\n\n{}{guidance}{memory_section}\n\n{env}\n\n{}",
         templates.behavior, templates.context_management
     );
     if let Some(git) = &snapshot.git {
@@ -131,6 +136,10 @@ pub fn prefix(
                 }
             ));
         }
+    }
+    // MEMORY.md 索引与 AGENTS.md 同处 agentsMd 块末尾（TS buildRequestUserContextContent）。
+    if let Some(index) = memory.and_then(|(_, index)| index) {
+        sections.push(index.to_owned());
     }
     let mut context = vec![];
     if !sections.is_empty() {

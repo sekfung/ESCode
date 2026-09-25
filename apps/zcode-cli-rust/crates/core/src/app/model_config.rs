@@ -234,3 +234,18 @@ impl Engine {
         }
     }
 }
+
+impl super::Engine {
+    pub fn with_registry(
+        mut self,
+        registry: Option<Arc<dyn crate::contract::ModelRegistry>>,
+        workspace_path: String,
+    ) -> Self {
+        self.registry = registry;
+        self.workspace_path = workspace_path;
+        if let Some(registry) = &self.registry {
+            self.config = registry.default_selection();
+        }
+        self
+    }
+}

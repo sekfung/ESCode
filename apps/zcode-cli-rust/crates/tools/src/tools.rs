@@ -17,6 +17,8 @@ pub struct WorkspaceTools {
     cwd: PathBuf,
     artifacts: PathBuf,
     reads: Mutex<HashMap<String, Arc<Mutex<FileState>>>>,
+    /// 会话的记忆上下文（记忆根, 来源会话），Write/Edit 据此补写 originSessionId。
+    memory: Mutex<HashMap<String, (String, String)>>,
     // File writes from different sessions share one commit gate; reads remain concurrent.
     writes: Arc<Mutex<()>>,
     shell: ShellTasks,
@@ -29,6 +31,7 @@ impl WorkspaceTools {
             cwd,
             artifacts,
             reads: Mutex::new(HashMap::new()),
+            memory: Mutex::new(HashMap::new()),
             writes: Arc::new(Mutex::new(())),
             shell: ShellTasks::default(),
         }
@@ -68,7 +71,11 @@ impl WorkspaceTools {
                     .entry(session.to_owned())
                     .or_default()
                     .clone();
+                let memory = self.memory.lock().await.get(session).cloned();
                 let files = FileTools {
+                    memory: memory
+                        .as_ref()
+                        .map(|(root, origin)| (root.as_str(), origin.as_str())),
                     sink,
                     checkpoint_root: &self.artifacts,
                     cwd: &self.cwd,
@@ -211,6 +218,7 @@ impl ToolPort for WorkspaceTools {
     async fn evict_session(&self, session: &str) -> Result<()> {
         self.shell.close_session(session).await?;
         self.reads.lock().await.remove(session);
+        self.memory.lock().await.remove(session);
         self.mcp.close_session(session, false).await
     }
     async fn resolve_command(
@@ -250,44 +258,27 @@ impl ToolPort for WorkspaceTools {
         name: &str,
         input: &Value,
     ) -> Option<zcode_cli_domain::permission::Capability> {
-        use zcode_cli_domain::permission::{Capability, Risk};
-        // 与 TS resolveBashPermissionCapability 一致：只读命令（含 git 上下文安全判定）
-        // 降级为 low/none/无需确认，build 模式可直接执行；否则回落到静态能力表。
-        if name == "Bash"
-            && let Some(command) = input["command"].as_str()
-            && crate::bash_git_safety::is_readonly_in_context(command, Some(&self.cwd))
-        {
-            return Some(Capability {
-                read_only: Some(true),
-                destructive: Some(false),
-                needs_approval: Some(false),
-                risk_level: Some(Risk::Low),
-                side_effect_scope: Some("none".into()),
-                permission_name: Some("bash".into()),
-                ..Default::default()
-            });
-        }
-        let table: Value = serde_json::from_str(include_str!("tool_capabilities.json"))
-            .expect("generated tool capabilities");
-        let entry = table.get(name)?;
-        let risk = |s: &str| match s {
-            "low" => zcode_cli_domain::permission::Risk::Low,
-            "medium" => zcode_cli_domain::permission::Risk::Medium,
-            "high" => zcode_cli_domain::permission::Risk::High,
-            _ => zcode_cli_domain::permission::Risk::Critical,
-        };
-        Some(zcode_cli_domain::permission::Capability {
-            allowed_in_plan_mode: entry["allowedInPlanMode"].as_bool(),
-            always_ask: entry["alwaysAsk"].as_bool(),
-            read_only: entry["readOnly"].as_bool(),
-            destructive: entry["destructive"].as_bool(),
-            requires_user_interaction: entry["requiresUserInteraction"].as_bool(),
-            side_effect_scope: entry["sideEffectScope"].as_str().map(str::to_owned),
-            risk_level: entry["riskLevel"].as_str().map(risk),
-            needs_approval: entry["needsApproval"].as_bool(),
-            permission_name: entry["permissionName"].as_str().map(str::to_owned),
-            permission_capability_group: None,
-        })
+        super::tool_capability::capability(&self.cwd, name, input)
+    }
+    async fn project_memory(&self) -> Option<crate::contract::ProjectMemory> {
+        super::project_memory::resolve(&self.cwd).await
+    }
+    async fn memory_manifest(&self, root: &str) -> Vec<crate::domain::memory::ManifestEntry> {
+        super::project_memory::manifest(root).await
+    }
+    async fn memory_context(
+        &self,
+        session: &str,
+        root: &str,
+        origin: &str,
+        inherit: Option<&str>,
+        seed: Option<&str>,
+    ) {
+        let context = (session, root, origin, inherit, seed);
+        super::project_memory::set_context(&self.memory, &self.reads, context).await;
+    }
+    fn readonly_bash(&self, command: &str) -> bool {
+        crate::bash_git_safety::is_readonly_in_context(command, Some(&self.cwd))
     }
     fn concurrent_safe(&self, name: &str) -> bool {
         matches!(
@@ -329,6 +320,7 @@ impl ToolPort for WorkspaceTools {
     async fn close_session(&self, session: &str) -> Result<()> {
         self.shell.close_session(session).await?;
         self.reads.lock().await.remove(session);
+        self.memory.lock().await.remove(session);
         self.mcp.close_session(session, true).await?;
         Ok(())
     }

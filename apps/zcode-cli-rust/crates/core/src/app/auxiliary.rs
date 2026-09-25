@@ -10,6 +10,8 @@ pub(super) struct Auxiliary {
     pub request: Option<RequestId>,
     pub cancel: CancellationToken,
     pub operation: Option<String>,
+    /// 代表某个会话运行的后台作业（记忆提取）：shell 偏好转给该会话。
+    pub session: Option<String>,
 }
 impl Engine {
     pub(super) fn start_auxiliary(&mut self, request: &Request) -> Result<()> {
@@ -68,6 +70,7 @@ impl Engine {
                 request: request.id.clone(),
                 cancel: cancel.clone(),
                 operation,
+                session: None,
             },
         );
         let sink = EventSink {
@@ -104,6 +107,16 @@ impl Engine {
                     .insert(request_id.clone(), (id.clone(), id, workspace, reply));
                 self.outbox.push(json!({"id":request_id,"method":"interaction/requestProviderRuntimeHeaders","params":params}));
             }
+            // 后台作业不做文件 checkpoint（记忆写入不进入会话回退），直接确认提交。
+            Event::FilePrepared { committed, .. } => {
+                let _ = committed.send(());
+            }
+            Event::ShellPreference { reply } => match self.auxiliary[&id].session.clone() {
+                Some(session) => self.request_shell_preference(&session, reply),
+                None => {
+                    let _ = reply.send(None);
+                }
+            },
             Event::AuxiliaryDone { result } => {
                 self.cancel_auth(&id);
                 let job = self.auxiliary.remove(&id).unwrap();

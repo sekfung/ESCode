@@ -64,7 +64,11 @@ test(
       path: "cmd.exe",
     });
     assert.match(outputs[0]!, /Windows_NT/);
-    assert.deepEqual(requests, [{ sessionId: id, scope: "user-execution" }]);
+    // 与 Node 一致：会话物化时先请求一次 runtime-materialization（记忆开关），首个 Bash 前再请求 user-execution。
+    assert.deepEqual(requests, [
+      { sessionId: id, scope: "runtime-materialization" },
+      { sessionId: id, scope: "user-execution" },
+    ]);
   },
 );
 
