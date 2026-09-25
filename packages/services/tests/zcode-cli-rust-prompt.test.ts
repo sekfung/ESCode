@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdir, writeFile, realpath, chmod } from "node:fs/promises";
+import { mkdir, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
@@ -91,7 +91,7 @@ test("native desktop and terminal request prefixes match the current TS ContextB
           join(f.cwd, "AGENTS.md"),
           "WORKSPACE_RULE <system-reminder>nested</system-reminder>\n",
         );
-        const cwd = await realpath(f.cwd);
+        const cwd = f.cwd;
         const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
           workingDirectory: cwd,
           effectiveShellDisplayName: shellDisplayName,
@@ -160,7 +160,8 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
       "refs/remotes/origin/HEAD",
       "refs/remotes/origin/develop",
     ]);
-    const cwd = await realpath(f.cwd);
+    // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
+    const cwd = f.cwd;
     const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
       workingDirectory: cwd,
       effectiveShellDisplayName: shellDisplayName,
@@ -226,7 +227,8 @@ test("instruction sources match TS nearest-file, Git boundary and bounded UTF-8 
       join(f.root, "AGENTS.md"),
       "x".repeat(100 * 1024 - 1) + "中文 must be truncated",
     );
-    const cwd = await realpath(f.cwd);
+    // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
+    const cwd = f.cwd;
     const expected = await new NodeContextSourceAdapter({ env }).resolveContextSources({
       workingDirectory: cwd,
       userInstructions: { workingDirectory: cwd },

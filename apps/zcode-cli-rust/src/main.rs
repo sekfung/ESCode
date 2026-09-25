@@ -183,8 +183,10 @@ async fn run() -> Result<()> {
             workspace,
             identity,
             RuntimePorts {
+                // 修复：提示词里的工作目录与 AGENTS/Git 查找用 Host 提交的路径（TS 同样不 realpath）；
+                // 原先用 realpath，macOS /var→/private/var、Windows 8.3 短名会与 Node 不一致。
                 context: Arc::new(WorkspaceContext::new(
-                    cwd.clone(),
+                    std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
                     std::env::var_os("HOME")
                         .filter(|s| !s.is_empty())
                         .or_else(|| std::env::var_os("USERPROFILE"))
