@@ -27,6 +27,16 @@ pub(super) async fn enabled(
         .map(|p| (resolve(cwd, p), "inline".to_owned(), true, false))
         .collect::<Vec<_>>();
     let official = "zcode-plugins-official";
+    // 修复：Rust 此前只读缓存，从未 seed 随包官方插件；仅运行 Rust 的环境因此没有任何官方插件与技能。
+    // 与 TS resolveOfficialPluginRoots 一样在发现前 seed（进程内每个 storage 一次），失败插件回落旧版本缓存。
+    let seed_root = storage.clone();
+    let fallback =
+        tokio::task::spawn_blocking(move || super::official_plugins::seed_once(&seed_root))
+            .await
+            .unwrap_or_default();
+    for root in fallback {
+        candidates.push((root, official.into(), false, true));
+    }
     let partition =
         json_file(&storage.join(format!("marketplaces/{official}/bundled-marketplace.json")))
             .await?;

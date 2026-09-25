@@ -16,6 +16,10 @@ mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
 mod mcp_sse;
+mod official_plugins;
+mod official_plugins_cache;
+mod official_plugins_lock;
+mod official_plugins_marketplace;
 mod plan_tools;
 #[cfg(unix)]
 mod process_tree;

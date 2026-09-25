@@ -1,0 +1,488 @@
+{
+  "marketplace": "zcode-plugins-official",
+  "hostCommand": "__zcode-plugin-host",
+  "pluginIdEnvKey": "ZCODE_PLUGIN_ID",
+  "includedTopLevelPaths": [
+    ".mcp.json",
+    ".zcode-plugin",
+    "README.md",
+    "agents",
+    "commands",
+    "dist",
+    "docs",
+    "hooks",
+    "output-styles",
+    "package.json",
+    "scripts",
+    "skills",
+    "templates"
+  ],
+  "collation": [
+    " ",
+    "_",
+    "-",
+    ",",
+    ";",
+    ":",
+    "!",
+    "?",
+    ".",
+    "'",
+    "\"",
+    "(",
+    ")",
+    "[",
+    "]",
+    "{",
+    "}",
+    "@",
+    "*",
+    "/",
+    "\\",
+    "&",
+    "#",
+    "%",
+    "`",
+    "^",
+    "+",
+    "<",
+    "=",
+    ">",
+    "|",
+    "~",
+    "$",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z"
+  ],
+  "definitions": [
+    {
+      "name": "node-repl-host",
+      "version": "0.6.0",
+      "rootCandidates": [
+        "packages/node-repl-host",
+        "../node-repl-host",
+        "../../node-repl-host",
+        "../../../node-repl-host"
+      ],
+      "requiredSeedPaths": ["dist/mcp/server.js"],
+      "runtimeTopLevelPaths": []
+    },
+    {
+      "name": "android-emulator",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/android-emulator-plugin",
+        "../android-emulator-plugin",
+        "../../android-emulator-plugin",
+        "../../../android-emulator-plugin"
+      ],
+      "requiredSeedPaths": [],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "developer-tools",
+        "displayName": "Android Emulator",
+        "displayName_i18n": {
+          "zh-CN": "Android 模拟器"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/android-emulator/icon.png",
+        "description_i18n": {
+          "zh-CN": "提供 Android 开发工作流与模拟器自动化能力。"
+        }
+      }
+    },
+    {
+      "name": "browser-use",
+      "version": "0.5.1",
+      "rootCandidates": [
+        "packages/browser-use-plugin",
+        "../browser-use-plugin",
+        "../../browser-use-plugin",
+        "../../../browser-use-plugin"
+      ],
+      "requiredSeedPaths": [
+        "docs/api.json",
+        "docs/documents.json",
+        "docs/overview.md",
+        "docs/recording.md",
+        "docs/workflow.md",
+        "scripts/browser-client.mjs",
+        "skills/control-browser/SKILL.md",
+        "skills/web-gui-tester/SKILL.md"
+      ],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Browser Use",
+        "displayName_i18n": {
+          "zh-CN": "浏览器操作"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/browser-use/icon.png",
+        "description_i18n": {
+          "zh-CN": "操作 ZCode 内置浏览器，检查网页并验证交互。"
+        }
+      }
+    },
+    {
+      "name": "documents",
+      "version": "0.1.7",
+      "rootCandidates": [
+        "packages/documents-plugin",
+        "../documents-plugin",
+        "../../documents-plugin",
+        "../../../documents-plugin"
+      ],
+      "requiredSeedPaths": ["agents/visual-judge.md", "skills/docx/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Documents",
+        "displayName_i18n": {
+          "zh-CN": "Word文档"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+        "description_i18n": {
+          "zh-CN": "创建、编辑与审阅Word文档（DOCX）。"
+        }
+      }
+    },
+    {
+      "name": "pdf",
+      "version": "0.1.7",
+      "rootCandidates": [
+        "packages/pdf-plugin",
+        "../pdf-plugin",
+        "../../pdf-plugin",
+        "../../../pdf-plugin"
+      ],
+      "requiredSeedPaths": ["agents/visual-judge.md", "skills/pdf/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "PDF",
+        "displayName_i18n": {
+          "zh-CN": "PDF"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+        "description_i18n": {
+          "zh-CN": "创建、编辑与审阅PDF（PDF）。"
+        }
+      }
+    },
+    {
+      "name": "presentations",
+      "version": "0.1.7",
+      "rootCandidates": [
+        "packages/presentations-plugin",
+        "../presentations-plugin",
+        "../../presentations-plugin",
+        "../../../presentations-plugin"
+      ],
+      "requiredSeedPaths": ["agents/visual-judge.md", "skills/pptx/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Presentations",
+        "displayName_i18n": {
+          "zh-CN": "演示文档"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+        "description_i18n": {
+          "zh-CN": "创建、编辑与审阅演示文档（PPTX）。"
+        }
+      }
+    },
+    {
+      "name": "spreadsheets",
+      "version": "0.1.7",
+      "rootCandidates": [
+        "packages/spreadsheets-plugin",
+        "../spreadsheets-plugin",
+        "../../spreadsheets-plugin",
+        "../../../spreadsheets-plugin"
+      ],
+      "requiredSeedPaths": ["agents/visual-judge.md", "skills/xlsx/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Spreadsheets",
+        "displayName_i18n": {
+          "zh-CN": "电子表格"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+        "description_i18n": {
+          "zh-CN": "创建、编辑与审阅电子表格（XLSX）。"
+        }
+      }
+    },
+    {
+      "name": "image-search",
+      "version": "0.1.1",
+      "rootCandidates": [
+        "packages/image-search-plugin",
+        "../image-search-plugin",
+        "../../image-search-plugin",
+        "../../../image-search-plugin"
+      ],
+      "requiredSeedPaths": [".mcp.json"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Image Search",
+        "displayName_i18n": {
+          "zh-CN": "搜图"
+        },
+        "description_i18n": {
+          "zh-CN": "查找插图与参考配图。"
+        }
+      }
+    },
+    {
+      "name": "ios-simulator",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/ios-simulator-plugin",
+        "../ios-simulator-plugin",
+        "../../ios-simulator-plugin",
+        "../../../ios-simulator-plugin"
+      ],
+      "requiredSeedPaths": [],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "developer-tools",
+        "displayName": "iOS Simulator",
+        "displayName_i18n": {
+          "zh-CN": "iOS 模拟器"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/ios-simulator/icon.png",
+        "description_i18n": {
+          "zh-CN": "提供 iOS 开发工作流与模拟器自动化能力。"
+        }
+      }
+    },
+    {
+      "name": "restore-legacy-sessions",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/restore-legacy-sessions-plugin",
+        "../restore-legacy-sessions-plugin",
+        "../../restore-legacy-sessions-plugin",
+        "../../../restore-legacy-sessions-plugin"
+      ],
+      "requiredSeedPaths": [],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "utilities",
+        "displayName": "Restore Legacy Sessions",
+        "displayName_i18n": {
+          "zh-CN": "恢复旧版会话"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/restore-legacy-sessions/icon.png",
+        "description_i18n": {
+          "zh-CN": "将旧版会话恢复为 ZCode 任务与会话记录。"
+        }
+      }
+    },
+    {
+      "name": "plugin-creator",
+      "version": "0.1.1",
+      "rootCandidates": [
+        "packages/plugin-creator-plugin",
+        "../plugin-creator-plugin",
+        "../../plugin-creator-plugin",
+        "../../../plugin-creator-plugin"
+      ],
+      "requiredSeedPaths": [
+        "skills/plugin-creator/SKILL.md",
+        "skills/plugin-creator/scripts/create-basic-plugin.mjs",
+        "skills/plugin-creator/scripts/marketplace-files.mjs",
+        "skills/plugin-creator/scripts/upsert-dev-marketplace.mjs",
+        "skills/plugin-creator/scripts/scaffold-files.mjs",
+        "skills/plugin-creator/scripts/validate-plugin.mjs",
+        "skills/plugin-creator/references/plugin-json-spec.md",
+        "skills/plugin-creator/references/installing-and-updating.md"
+      ],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "utilities",
+        "displayName": "Plugin Creator",
+        "displayName_i18n": {
+          "zh-CN": "插件创建器"
+        },
+        "description_i18n": {
+          "zh-CN": "开发、校验 ZCode 插件，完成本地 dev 市场安装、试用与更新。"
+        }
+      }
+    },
+    {
+      "name": "skill-creator",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/skill-creator-plugin",
+        "../skill-creator-plugin",
+        "../../skill-creator-plugin",
+        "../../../skill-creator-plugin"
+      ],
+      "requiredSeedPaths": [],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "utilities",
+        "displayName": "Skill Creator",
+        "displayName_i18n": {
+          "zh-CN": "技能创建器"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/skill-creator/icon.png",
+        "description_i18n": {
+          "zh-CN": "创建、编辑和验证可复用的 ZCode 技能。"
+        }
+      }
+    },
+    {
+      "name": "zcode-guide",
+      "version": "0.2.0",
+      "rootCandidates": [
+        "packages/zcode-guide-plugin",
+        "../zcode-guide-plugin",
+        "../../zcode-guide-plugin",
+        "../../../zcode-guide-plugin"
+      ],
+      "requiredSeedPaths": [
+        "commands/workflow.md",
+        "skills/dynamic-workflows/SKILL.md",
+        "skills/dynamic-workflows/examples.md",
+        "skills/dynamic-workflows/patterns.md"
+      ],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "utilities",
+        "displayName": "ZCode Guide",
+        "displayName_i18n": {
+          "zh-CN": "ZCode 使用指南"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/zcode-guide/icon.png",
+        "description_i18n": {
+          "zh-CN": "提供 ZCode 配置指南与插件、技能、MCP、命令和钩子诊断。"
+        },
+        "examplePrompts": [
+          "How do I configure MCP servers in ZCode?",
+          "Diagnose my current ZCode setup"
+        ],
+        "examplePrompts_i18n": {
+          "zh-CN": ["ZCode 里怎么配置 MCP 服务器？", "帮我诊断当前的 ZCode 配置"]
+        }
+      }
+    },
+    {
+      "name": "computer-use",
+      "version": "0.6.3",
+      "rootCandidates": [
+        "packages/zcode-cua-plugin",
+        "../zcode-cua-plugin",
+        "../../zcode-cua-plugin",
+        "../../../zcode-cua-plugin"
+      ],
+      "requiredSeedPaths": [
+        "docs/computer-use.md",
+        "scripts/computer-use-client.mjs",
+        "skills/computer-use/SKILL.md"
+      ],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Computer Use",
+        "displayName_i18n": {
+          "zh-CN": "电脑控制"
+        },
+        "description_i18n": {
+          "zh-CN": "自动化桌面应用：智能体驱动鼠标、键盘与界面元素，代你完成实际任务。"
+        },
+        "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/zcode-cua/icon.png"
+      }
+    }
+  ]
+}

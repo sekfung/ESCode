@@ -13,6 +13,9 @@
   4. 其余情况维持现有顺序（dev 源码 → Electron Node bundle → 已部署二进制）。
      `ZCODE_AGENT_SERVER_RUNTIME` 接受 `node`（显式回退，与未设置等价）与 `zcode-cli-rust`；其他值抛错（此前只在设置了命令时校验）。
 - 构建（`packages/desktop/scripts/prepare-rust-agent.mjs`，由 `prepare-runtime-assets` 在 `ZCODE_BUNDLE_RUST_AGENT=1` 时调用）：按目标平台映射 Rust target triple（`win32-x64 → x86_64-pc-windows-msvc`、`win32-arm64 → aarch64-pc-windows-msvc`、`darwin-* → *-apple-darwin`、`linux-* → *-unknown-linux-gnu`；`ZCODE_RUST_TARGET` 可覆盖，例如本机无 MSVC 时用 GNU），`cargo build --release --locked --target <triple> -p zcode-cli-rust`，复制到 `bundled-agents/<platform>/glm/`。
+- 官方插件宿主（2026-09-25，rust-official-plugin-seed.md）：Rust 命令额外带 `ZCODE_PLUGIN_HOST_EXEC_PATH` 与
+  `ZCODE_PLUGIN_HOST_ENTRYPOINT`（与 Node 链同一 Electron-as-Node 与 `zcode.cjs`），Rust seed 官方插件时据此改写
+  插件 MCP 的启动命令；开发态 tsx 源码入口不传。
 - macOS 签名（2026-09-25 修订，见 rust-ci.md）：`glm/` 在 electron-builder 中被 `signIgnore`。Rust 二进制跟随应用的签名开关：`ZCODE_ENABLE_MAC_SIGN=1` 时用同一身份（`ZCODE_RUST_CODESIGN_IDENTITY` / `APPLE_SIGNING_IDENTITY` / `CSC_NAME`，缺失即失败）以 hardened runtime 签名；未开启时整个应用都不签名，二进制保持未签名。
 
 ## 回退

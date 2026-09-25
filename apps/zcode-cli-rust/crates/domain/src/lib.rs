@@ -21,6 +21,7 @@ pub mod delta_log;
 pub mod file_checkpoint;
 pub mod goal;
 pub mod history;
+pub mod json_order;
 mod json_size;
 pub mod legacy_snapshot;
 pub mod model;

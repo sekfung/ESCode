@@ -54,6 +54,7 @@ pub fn prefix(
     sources: &[InstructionSource],
     model: Option<(&str, &str)>,
     desktop: bool,
+    skill_guidance: bool,
 ) -> Vec<Value> {
     let templates = templates();
     let stable = if desktop {
@@ -74,8 +75,14 @@ pub fn prefix(
             "\n- You are powered by the model named {provider}/{model}."
         ));
     }
+    // TS buildSessionGuidanceSection：有 Skill 工具且存在技能时，在行为段后插入 Session-specific guidance。
+    let guidance = if skill_guidance {
+        "\n\n# Session-specific guidance\n- When the user types `/<skill-name>`, invoke it via Skill. Only use skills listed in the user-invocable skills section \u{2014} don't guess."
+    } else {
+        ""
+    };
     let mut dynamic = format!(
-        "\n\n{}\n\n{env}\n\n{}",
+        "\n\n{}{guidance}\n\n{env}\n\n{}",
         templates.behavior, templates.context_management
     );
     if let Some(git) = &snapshot.git {

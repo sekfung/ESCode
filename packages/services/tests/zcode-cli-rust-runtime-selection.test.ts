@@ -30,9 +30,11 @@ const bundled = { findRustBinary: () => "/res/glm/zcode-cli-rust" };
 const missing = { findRustBinary: () => null };
 
 test("selecting zcode-cli-rust uses the bundled binary with Host-supplied cwd and storage startup", () => {
-  const command = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
+  const resolved = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
     resolveDefaultZCodeAgentCommand(context, bundled),
   );
+  // 插件宿主 env 另有用例覆盖（取决于本机是否有 Node 入口产物）。
+  const { env: _pluginHost, ...command } = resolved ?? ({} as any);
   assert.deepEqual(command, {
     runtime: "zcode-cli-rust",
     command: "/res/glm/zcode-cli-rust",
@@ -40,6 +42,23 @@ test("selecting zcode-cli-rust uses the bundled binary with Host-supplied cwd an
     supportsStorageStartup: true,
     args: ["app-server", "--stdio", "--cwd", "/work/space"],
     cwd: "/work/space",
+  });
+});
+
+test("the Rust command carries the Node plugin host used by official plugin seeding", () => {
+  // docs/specs/rust-official-plugin-seed.md：与 Node runtime 相同的 Electron-as-Node 与 zcode.cjs 入口。
+  const node = withEnv({}, () => resolveDefaultZCodeAgentCommand(context, bundled));
+  const rust = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
+    resolveDefaultZCodeAgentCommand(context, bundled),
+  );
+  const entrypoint = node?.args?.[0];
+  if (!entrypoint?.endsWith(".cjs")) {
+    assert.equal(rust?.env, undefined);
+    return;
+  }
+  assert.deepEqual(rust?.env, {
+    ZCODE_PLUGIN_HOST_EXEC_PATH: node!.command,
+    ZCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
   });
 });
 

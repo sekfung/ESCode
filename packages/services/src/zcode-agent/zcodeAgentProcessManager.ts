@@ -451,6 +451,27 @@ function rustRuntimeArgs(args: string[], workspacePath: string): string[] {
   return [...args, "--cwd", workspacePath];
 }
 
+/**
+ * Rust runtime 自行 seed 官方插件时，插件 MCP 服务仍由 Node 插件宿主运行（docs/specs/rust-official-plugin-seed.md）：
+ * 传入与 Node runtime 相同的 Electron-as-Node 可执行文件与 zcode.cjs 入口，Rust 据此改写 plugin.json，
+ * 与 Node seed 的结果逐字节一致。开发态 tsx 源码入口不传（TS 在该形态同样不产出可复用的前缀）。
+ */
+function rustPluginHostEnv(
+  context: ZCodeAgentCommandResolverContext,
+): Pick<ZCodeAgentCommand, "env"> {
+  const node =
+    resolveBundledWorkspaceZCodeAgentCommand(context) ??
+    resolveElectronRuntimeZCodeAgentCommand(context);
+  const entrypoint = node?.args?.[0];
+  if (!node || !entrypoint?.endsWith(".cjs")) return {};
+  return {
+    env: {
+      ZCODE_PLUGIN_HOST_EXEC_PATH: node.command,
+      ZCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
+    },
+  };
+}
+
 export interface ZCodeAgentCommandResolverDeps {
   findRustBinary(): string | null;
 }
@@ -482,6 +503,7 @@ export function resolveDefaultZCodeAgentCommand(
     supportsStorageStartup: true,
     args: rustRuntimeArgs(baseArgs, context.workspacePath),
     cwd,
+    ...rustPluginHostEnv(context),
   });
   // 显式命令在 Rust 启动失败后同样让位给 Node 链：该命令本身就是失败的 Rust 二进制。
   const command = rustFailed ? undefined : process.env.ZCODE_AGENT_SERVER_COMMAND?.trim();

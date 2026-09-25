@@ -96,6 +96,8 @@ pub(super) async fn run(
                 .as_ref()
                 .map(|id| (id.provider_id.as_str(), id.model_id.as_str())),
             context.desktop(),
+            // 主会话暴露 Skill 且目录非空时才有该段（子代理与 TS 工作流 actor 不输出）。
+            history.agent_profile.is_none() && skills.enabled && !skills.skills.is_empty(),
         );
         if let Some(reminder) = skills.reminder() {
             prefix.push(reminder);
