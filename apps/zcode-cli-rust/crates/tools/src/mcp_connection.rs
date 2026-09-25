@@ -208,6 +208,17 @@ impl Connection {
         params: Value,
         cancel: &CancellationToken,
     ) -> Result<Value> {
+        Ok(serde_json::from_str(
+            &self.request_text(method, params, cancel).await?,
+        )?)
+    }
+    /// 应答的 JSON 文本（按 rmcp 类型的字段顺序），供需要保持键序的格式化使用。
+    async fn request_text(
+        &self,
+        method: &str,
+        params: Value,
+        cancel: &CancellationToken,
+    ) -> Result<String> {
         let request: ClientRequest =
             serde_json::from_value(json!({"method":method,"params":params}))?;
         let handle = tokio::select! {biased;_=cancel.cancelled()=>bail!("Cancelled"),result=self.peer.send_cancellable_request(request,PeerRequestOptions::with_timeout(self.timeout))=>result.context("MCP request dispatch failed")?};
@@ -222,7 +233,7 @@ impl Connection {
         if result.is_err() && method == "tools/call" {
             self.close().await?;
         }
-        Ok(serde_json::to_value(result?)?)
+        Ok(serde_json::to_string(&result?)?)
     }
     pub async fn call(
         &self,
@@ -230,29 +241,21 @@ impl Connection {
         args: &Value,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let result = self
-            .request("tools/call", json!({"name":name,"arguments":args}), cancel)
+        let text = self
+            .request_text("tools/call", json!({"name":name,"arguments":args}), cancel)
             .await?;
-        let mut content = vec![];
-        for part in result["content"].as_array().into_iter().flatten() {
-            if let Some(text) = part["text"]
-                .as_str()
-                .or_else(|| part["resource"]["text"].as_str())
-            {
-                content.push(text.to_owned());
-            } else {
-                content.push(serde_json::to_string(part)?);
-            }
-        }
-        if let Some(structured) = result.get("structuredContent") {
-            content.push(serde_json::to_string(structured)?);
-        }
-        let mut content = content.join("\n");
+        let result: Value = serde_json::from_str(&text)?;
+        let ordered = crate::domain::json_order::Json::parse(&text);
+        // 修复：此前按换行拼接文本、图片/音频/resource 整块 JSON 化且无错误前缀；
+        // 按 TS formatMcpToolResult 生成模型内容（docs/specs/rust-mcp-parity.md）。
+        let formatted = crate::domain::mcp_result::format(&result, ordered.as_ref());
+        let mut content = formatted.text;
         if content.len() > crate::domain::MAX_TOOL_BYTES {
             super::tools::truncate_utf8(&mut content, crate::domain::MAX_TOOL_BYTES);
             content.push_str("\n[MCP result truncated]");
         }
         let mut output = ToolOutput::text(content);
+        output.media = formatted.media;
         output.failed = result["isError"] == true;
         Ok(output)
     }

@@ -28,6 +28,7 @@ pub mod history;
 pub mod json_order;
 mod json_size;
 pub mod legacy_snapshot;
+pub mod mcp_result;
 pub mod memory;
 mod memory_markdown;
 mod memory_policy;
