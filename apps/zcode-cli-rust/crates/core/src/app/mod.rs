@@ -7,6 +7,7 @@ mod permission_flow;
 mod plan_mode;
 mod plan_tool;
 mod queries;
+mod session_context_tool;
 mod shell_preferences;
 mod subscriptions;
 pub use crate::contract::{Event, RunEvent};

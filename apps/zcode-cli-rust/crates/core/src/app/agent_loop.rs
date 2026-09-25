@@ -349,6 +349,9 @@ async fn execute(
             Ok(args) if matches!(name, "TodoRead" | "TodoWrite") => {
                 super::todos::execute(name, call["id"].as_str().unwrap(), args, sink, cancel).await
             }
+            Ok(args) if name == "ReadSessionContext" => {
+                super::session_context_tool::execute(model, &args, sink, cancel).await
+            }
             Ok(args) if name == "WebFetch" => {
                 super::web_fetch_tool::execute(tools, model, &args, sink, cancel).await
             }

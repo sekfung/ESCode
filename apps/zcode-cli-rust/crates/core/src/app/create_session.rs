@@ -18,8 +18,10 @@ impl Engine {
             );
             self.select(input, Some(config.clone()))?;
         }
+        // 修复：会话 id 原为裸 UUID，TS createSessionId 为 `sess_<uuid>`；#sess_* 引用与 ReadSessionContext
+        // 只接受该格式，否则 Rust 会话无法被引用（docs/specs/rust-read-session-context.md）。
         let mut session = Session::new(
-            self.clock.id(),
+            format!("sess_{}", self.clock.id()),
             self.workspace.clone(),
             config.provider_id.clone(),
             config.model_id.clone(),

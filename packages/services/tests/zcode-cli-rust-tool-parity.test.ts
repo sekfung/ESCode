@@ -33,6 +33,7 @@ import {
   EnterPlanModeInputJsonSchema,
   ExitPlanModeInputJsonSchema,
 } from "../../../apps/zcode-cli/packages/contracts/src/tools/plan-mode.js";
+import { ReadSessionContextInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/read-session-context.js";
 import { WebFetchInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/webfetch.js";
 import { AgentInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/agent.js";
 import { SendMessageInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/send-message.js";
@@ -116,6 +117,7 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       EnterPlanMode: EnterPlanModeInputJsonSchema,
       ExitPlanMode: ExitPlanModeInputJsonSchema,
       WebFetch: WebFetchInputJsonSchema,
+      ReadSessionContext: ReadSessionContextInputJsonSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),

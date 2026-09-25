@@ -7,6 +7,7 @@ import { skillToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handler
 import { createAgentToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/agent.ts";
 import { sendMessageToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts";
 import { builtInTools } from "../apps/zcode-cli/packages/core/src/tool/handlers/index.ts";
+import { createToolRegistry } from "../apps/zcode-cli/packages/core/src/tool/registry.ts";
 import { normalizeAgentProfiles } from "../apps/zcode-cli/packages/core/src/subagent/profile.ts";
 import { buildExploreAgentPrompt } from "../apps/zcode-cli/packages/core/src/subagent/explore.ts";
 import { buildSubagentCommonNotes } from "../apps/zcode-cli/packages/core/src/subagent/system-prompt.ts";
@@ -40,6 +41,7 @@ const tools = [
   ["Edit", "edit", "EditInputJsonSchema"],
   ["Glob", "glob", "GlobInputJsonSchema"],
   ["WebFetch", "webfetch", "WebFetchInputJsonSchema"],
+  ["ReadSessionContext", "read-session-context", "ReadSessionContextInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -95,14 +97,25 @@ const capabilities = Object.fromEntries(
 );
 
 // 模型可见工具面（docs/specs/rust-tool-surface.md）：描述取 TS provider 描述，embedded search 分支与直接分支各一份。
+// 与 provider 请求一致：经 TS ToolRegistry 投影（modelInstructions 会拼成 "Usage:" 列表）。
+const providerRegistry = createToolRegistry();
+for (const entry of builtInTools)
+  providerRegistry.register(entry, { silentDuplicateWarning: true });
+const providerDescriptions = Object.fromEntries(
+  providerRegistry.toContracts().map((contract) => [contract.name, contract.description]),
+);
 const staticDescriptions = Object.fromEntries(
-  builtInTools
-    .filter((entry) =>
-      ["Read", "Write", "Edit", "Glob", "Grep", "TaskOutput", "TaskStop", "WebFetch"].includes(
-        entry.metadata.name,
-      ),
-    )
-    .map((entry) => [entry.metadata.name, entry.metadata.description]),
+  [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "TaskOutput",
+    "TaskStop",
+    "WebFetch",
+    "ReadSessionContext",
+  ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };
 const agentTemplate = Object.fromEntries(

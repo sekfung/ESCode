@@ -61,6 +61,13 @@ pub trait SessionStore: Send + Sync {
         anyhow::bail!("Single session loading unavailable")
     }
     /// 项目权限规则：缺省表示该实现不持久化，「总是允许」选项因此不可用。
+    /// ReadSessionContext：按 id 跨 workspace 读已提交历史（TS 形态），含 TS 库只读回落。
+    async fn session_context(
+        &self,
+        _id: &str,
+    ) -> Result<Option<zcode_cli_domain::session_context::SessionSource>> {
+        Ok(None)
+    }
     async fn load_project_rules(&self, _workspace: &str) -> Result<Option<Value>> {
         Ok(None)
     }

@@ -41,6 +41,16 @@ impl crate::contract::SessionStore for Store {
             .await?;
         rx.await?
     }
+    async fn session_context(
+        &self,
+        id: &str,
+    ) -> Result<Option<zcode_cli_domain::session_context::SessionSource>> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(Operation::SessionContext(id.into(), tx))
+            .await?;
+        rx.await?
+    }
     async fn load_project_rules(&self, workspace: &str) -> Result<Option<Value>> {
         let (tx, rx) = oneshot::channel();
         self.tx

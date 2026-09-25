@@ -46,6 +46,13 @@ pub enum Event {
     ShellPreference {
         reply: oneshot::Sender<Option<Value>>,
     },
+    /// ReadSessionContext 读取目标会话的已提交历史（会话 owner 负责访问存储）。
+    SessionContext {
+        id: String,
+        reply: oneshot::Sender<
+            anyhow::Result<Option<zcode_cli_domain::session_context::SessionSource>>,
+        >,
+    },
     ToolCleanupFailed(String),
     PromptInitialized {
         snapshot: Box<zcode_cli_domain::prompt::PromptSnapshot>,

@@ -145,6 +145,11 @@ impl Engine {
                 .collect::<Vec<_>>();
             s.append_message(json!({"role":"user","content":format!("<task-notification>{}</task-notification>", serde_json::to_string(&statuses)?)}));
         }
+        // TS injectReferencedSessionContextReminderIntoMessageHistory：输入含 #sess_* 引用时提示可用
+        // ReadSessionContext（docs/specs/rust-read-session-context.md）。
+        if let Some(body) = crate::domain::session_context::referenced_reminder_body(text) {
+            s.append_message(json!({"role":"user","content":crate::domain::plan_mode::wrap(&body),"_zcode_source":"referenced_session_context"}));
+        }
         // TS buildRuntimeModeReminderBody：plan 开启时按节奏在用户正文前插入模式 reminder。
         if let Some(reminder) = crate::domain::plan_mode::mode_reminder(&s.messages, s.plan_enabled)
         {

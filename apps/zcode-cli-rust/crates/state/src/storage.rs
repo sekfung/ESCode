@@ -1,6 +1,6 @@
 use crate::domain::session::Session;
 use anyhow::{Context, Result};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use serde_json::Value;
 use std::{collections::BTreeMap, path::PathBuf};
 use tokio::sync::{mpsc, oneshot};
@@ -31,7 +31,12 @@ pub(super) enum Operation {
     /// 项目权限规则（按 workspace 作用域），「总是允许」写入后由后续判定读取。
     ProjectRules(String, oneshot::Sender<Result<Option<Value>>>),
     SaveProjectRules(String, Value, oneshot::Sender<Result<()>>),
+    SessionContext(
+        String,
+        oneshot::Sender<Result<Option<SessionContextSource>>>,
+    ),
 }
+pub(super) type SessionContextSource = zcode_cli_domain::session_context::SessionSource;
 
 #[derive(Clone)]
 pub struct Store {
@@ -93,6 +98,8 @@ impl Store {
                     return;
                 }
             };
+            // 最近一次导入的 TS 库：ReadSessionContext 对未导入会话只读回落。
+            let mut legacy_source: Option<PathBuf> = None;
             while let Some(op) = rx.blocking_recv() {
                 match op {
                     Operation::Index(workspace, reply) => {
@@ -109,13 +116,20 @@ impl Store {
                         ));
                     }
                     Operation::Import(request, reply) => {
+                        legacy_source = Some(request.source.clone());
                         let _ = reply.send(super::legacy_storage::import(&mut conn, request));
                     }
                     Operation::Load(workspace, reply) => {
                         let _ = reply.send(super::storage_read::load(&conn, &workspace));
                     }
+                    Operation::SessionContext(id, reply) => {
+                        let source = legacy_source.as_deref();
+                        let _ =
+                            reply.send(super::storage_session_context::read(&conn, source, &id));
+                    }
                     Operation::LoadSession(workspace, id, reply) => {
-                        let _ = reply.send(load_session(&conn, &workspace, &id));
+                        let _ =
+                            reply.send(super::storage_read::load_session(&conn, &workspace, &id));
                     }
                     Operation::DiscardDraft(workspace, id, ack, reply) => {
                         let _ = reply.send(discard_draft(&mut conn, &workspace, &id, ack));
@@ -331,30 +345,6 @@ pub(super) fn load_items(
         .collect()
 }
 
-fn load_session(conn: &Connection, workspace: &str, id: &str) -> Result<Option<Session>> {
-    let body: Option<String> = conn
-        .query_row(
-            "SELECT body FROM rust_session WHERE workspace=?1 AND id=?2",
-            params![workspace, id],
-            |row| row.get(0),
-        )
-        .optional()?;
-    let Some(body) = body else { return Ok(None) };
-    let mut session: Session = serde_json::from_str(&body)?;
-    if session.rows.is_empty() {
-        session.rows = load_items(conn, "rust_row", workspace, id)?;
-        session.messages = load_items(conn, "rust_message", workspace, id)?;
-        session.saved_rows = session.rows.len();
-        session.saved_messages = session.messages.len();
-    }
-    if session.history.inputs.is_empty() && session.history.responses.is_empty() {
-        session.history = super::storage_history::load(conn, workspace, id)?;
-        session.saved_inputs = session.history.inputs.len();
-        session.saved_responses = session.history.responses.len();
-    }
-    Ok(Some(session))
-}
-
 fn discard_draft(
     conn: &mut Connection,
     workspace: &str,
@@ -363,7 +353,7 @@ fn discard_draft(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     // 关闭草稿不是真删历史；存储边界再次核查，避免 future caller 用过期 draft 状态误删首发。
-    let Some(session) = load_session(&tx, workspace, id)? else {
+    let Some(session) = super::storage_read::load_session(&tx, workspace, id)? else {
         // 预热草稿只活在内存；关闭不应为每次界面切换增加永久 ACK 或 WAL 写入。
         return Ok(());
     };

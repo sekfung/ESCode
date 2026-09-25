@@ -100,6 +100,14 @@ impl Engine {
             }
             return self.drain_guide(&id, &turn, committed).await;
         }
+        if let Event::SessionContext { id: target, reply } = event.event {
+            // 存储读取不阻塞会话 actor。
+            let store = self.store.clone();
+            tokio::spawn(async move {
+                let _ = reply.send(store.session_context(&target).await);
+            });
+            return Ok(());
+        }
         if let Event::ShellPreference { reply } = event.event {
             self.request_shell_preference(&id, reply);
             return Ok(());
@@ -150,6 +158,7 @@ impl Engine {
             | Event::AuxiliaryDone { .. }
             | Event::RequestAuth { .. }
             | Event::ShellPreference { .. }
+            | Event::SessionContext { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
             | Event::CompactDone { .. } => unreachable!(),

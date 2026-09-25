@@ -30,6 +30,8 @@ pub(super) fn definitions() -> Vec<Value> {
     for name in ["Agent", "SendMessage"] {
         definitions.push(json!({"type":"function","function":{"name":name,"description":descriptions[name],"parameters":schemas[name]}}));
     }
+    // 非参考集合的工具按 TS 注册顺序排列：ReadSessionContext 在 SendMessage 之后。
+    definitions.push(json!({"type":"function","function":{"name":"ReadSessionContext","description":surface["descriptions"]["ReadSessionContext"],"parameters":schemas["ReadSessionContext"]}}));
     definitions.extend(super::plan_tools::definitions(
         &schemas,
         &surface["EnterPlanMode"]["embedded"],

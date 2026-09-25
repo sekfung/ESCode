@@ -203,6 +203,37 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "ReadSessionContext": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "pattern": "^sess_[A-Za-z0-9._-]+$",
+        "description": "Target ZCode session id to read from persisted session history."
+      },
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000,
+        "description": "Focused natural-language description of the context needed from the target session."
+      },
+      "strategy": {
+        "type": "string",
+        "enum": ["relevant", "handoff"],
+        "default": "relevant",
+        "description": "Use relevant for focused retrieval, or handoff for a bounded continuation summary."
+      },
+      "maxTokens": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 12000,
+        "description": "Approximate maximum tokens to return to the model."
+      }
+    },
+    "required": ["sessionId", "query"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "Grep": {
     "type": "object",
     "properties": {

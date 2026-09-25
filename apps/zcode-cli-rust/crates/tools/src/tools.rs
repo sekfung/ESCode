@@ -271,6 +271,7 @@ impl ToolPort for WorkspaceTools {
             name,
             "Read"
                 | "WebFetch"
+                | "ReadSessionContext"
                 | "List"
                 | "Glob"
                 | "Grep"
