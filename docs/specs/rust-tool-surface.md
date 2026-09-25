@@ -12,7 +12,7 @@
 | 工具描述                      | TS 元数据描述（Read 784 字符等）；Bash、EnterPlanMode、Agent 按 embedded 分支取变体 | Read/Write/Edit/Glob/Grep/Bash/TaskOutput/TaskStop 为手写短句 |
 | Agent 描述                    | TS 模板内联 profile 列表（Explore 工具按 embedded 分支）                            | 追加一段 Rust 自拟的 “Current profile catalog”                |
 | 顺序                          | TS provider 排序                                                                    | Rust 自定顺序                                                 |
-| WebFetch                      | 暴露                                                                                | 无（阶段 2）                                                  |
+| WebFetch                      | 暴露                                                                                | 已实现（阶段 2，rust-webfetch.md）                            |
 | ReadSessionContext            | 暴露                                                                                | 无（阶段 3）                                                  |
 | CronCreate/Delete/List/Update | 暴露                                                                                | 无（与自动任务一并，待用户确定范围）                          |
 | 参数 schema                   | —                                                                                   | 语义一致，仅 JSON 键顺序不同（serde_json 排序）               |
@@ -43,4 +43,4 @@
 
 - prelude：生成器以 TS 函数为 oracle 导出 backend × 方言 语料，Rust 逐条逐字比对。
 - 工具面：请求差分用例断言两侧工具**名称与顺序**、**描述**逐字一致，参数 schema 语义一致；
-  未实现的工具（WebFetch、ReadSessionContext、Cron\*）写成显式白名单，实现后移出。
+  未实现的工具（ReadSessionContext、Cron\*）写成显式白名单，实现后移出。

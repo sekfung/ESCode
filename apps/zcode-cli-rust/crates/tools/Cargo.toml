@@ -17,6 +17,7 @@ futures-util.workspace = true
 globset.workspace = true
 ignore.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 reqwest_mcp.workspace = true
 rmcp.workspace = true
 rustls.workspace = true

@@ -37,6 +37,7 @@ mod question_tool;
 mod questions;
 
 mod todos;
+mod web_fetch_tool;
 
 mod goal_commands;
 mod goal_events;

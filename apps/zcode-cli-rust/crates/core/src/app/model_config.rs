@@ -23,6 +23,22 @@ impl ModelPort for LiveModel {
     fn context_policy(&self) -> crate::domain::context::ContextPolicy {
         self.bind().unwrap().context_policy()
     }
+    /// 当前选型的最低推理档位（TS auxiliaryModelOptions 取 optionSpecs.reasoningLevel.values[0]）。
+    fn auxiliary(&self) -> Option<Arc<dyn ModelPort>> {
+        let selection = self.selection.borrow().clone();
+        let lowest = self.registry.model_options().into_iter().find(|o| {
+            o["modelProviderId"] == selection.provider_id.as_str()
+                && o["value"] == selection.model_id.as_str()
+        })?["modelThoughtLevels"][0]
+            .as_str()?
+            .to_owned();
+        self.registry
+            .resolve(&ModelIdentity {
+                reasoning_level: lowest,
+                ..selection
+            })
+            .ok()
+    }
     async fn complete(
         &self,
         messages: Vec<Value>,

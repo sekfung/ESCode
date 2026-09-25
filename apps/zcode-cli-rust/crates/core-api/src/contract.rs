@@ -21,22 +21,7 @@ pub struct ChildHandle {
     pub message_id: Option<String>,
     pub delivery: Option<String>,
 }
-#[derive(Debug)]
-pub struct StorageCommitFailure;
-impl std::fmt::Display for StorageCommitFailure {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("fault.storage.commit")
-    }
-}
-impl std::error::Error for StorageCommitFailure {}
-#[derive(Debug)]
-pub struct ProcessCleanupFailure;
-impl std::fmt::Display for ProcessCleanupFailure {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("fault.runtime.processCleanup")
-    }
-}
-impl std::error::Error for ProcessCleanupFailure {}
+pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure};
 
 /// Receipt returned after the storage transaction is durable. The core uses
 /// this boundary before advancing the model/tool loop or publishing facts.
@@ -158,6 +143,10 @@ pub trait ModelPort: Send + Sync {
     fn bind(&self) -> Option<Arc<dyn ModelPort>> {
         None
     }
+    /// 辅助调用用的最低推理档位绑定（TS `auxiliaryModelOptions`）；无注册表时为 None，沿用当前模型。
+    fn auxiliary(&self) -> Option<Arc<dyn ModelPort>> {
+        None
+    }
     fn context_policy(&self) -> zcode_cli_domain::context::ContextPolicy {
         Default::default()
     }
@@ -250,6 +239,14 @@ pub trait ToolPort: Send + Sync {
     }
     async fn mcp_list(&self, _params: &Value, _cancel: &CancellationToken) -> Result<Value> {
         anyhow::bail!("MCP unavailable")
+    }
+    /// WebFetch 的抓取阶段（网络、缓存、正文抽取）；模型处理由会话侧完成。见 docs/specs/rust-webfetch.md。
+    async fn web_fetch(
+        &self,
+        _args: &Value,
+        _cancel: &CancellationToken,
+    ) -> Result<crate::WebFetchPage> {
+        anyhow::bail!("WebFetch unavailable")
     }
     async fn scoped_definitions(
         &self,

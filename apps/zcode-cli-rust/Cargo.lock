@@ -2434,6 +2434,7 @@ dependencies = [
  "ignore",
  "libc",
  "regex",
+ "reqwest 0.12.28",
  "reqwest 0.13.5",
  "rmcp",
  "rustls",

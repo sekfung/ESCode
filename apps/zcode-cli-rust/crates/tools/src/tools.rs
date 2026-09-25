@@ -177,6 +177,13 @@ impl ToolPort for WorkspaceTools {
     async fn mcp_list(&self, params: &Value, cancel: &CancellationToken) -> Result<Value> {
         self.mcp.list(params, cancel).await
     }
+    async fn web_fetch(
+        &self,
+        args: &Value,
+        cancel: &CancellationToken,
+    ) -> Result<crate::contract::WebFetchPage> {
+        super::web_fetch::fetch(&super::web_fetch::HttpTransport, args, cancel).await
+    }
     async fn scoped_definitions(
         &self,
         session: &str,
@@ -263,6 +270,7 @@ impl ToolPort for WorkspaceTools {
         matches!(
             name,
             "Read"
+                | "WebFetch"
                 | "List"
                 | "Glob"
                 | "Grep"

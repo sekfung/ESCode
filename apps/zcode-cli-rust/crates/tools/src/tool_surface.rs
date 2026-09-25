@@ -9,7 +9,7 @@ pub(super) fn definitions() -> Vec<Value> {
     // Rust 不支持会话级工具白名单，Bash 恒可用，因此与 TS 默认一致走 embedded search 分支，
     // 不暴露 Glob/Grep（仍可执行，只是不再提供给模型），Bash/EnterPlanMode 取该分支的描述。
     let surface = tool_surface();
-    let mut definitions: Vec<Value> = ["Read", "Write", "Edit", "TaskOutput", "TaskStop"]
+    let mut definitions: Vec<Value> = ["Read", "Write", "Edit", "TaskOutput", "TaskStop", "WebFetch"]
         .into_iter()
         .map(|name| json!({"type":"function","function":{"name":name,"description":surface["descriptions"][name],"parameters":schemas[name]}}))
         .collect();

@@ -45,6 +45,8 @@ pub mod skills;
 pub mod subagent;
 mod subagent_row;
 pub mod todo;
+pub mod web_fetch;
+mod web_fetch_ip;
 
 pub const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 pub const MAX_TEXT_BYTES: usize = 256 * 1024;

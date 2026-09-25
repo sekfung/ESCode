@@ -39,6 +39,7 @@ const tools = [
   ["Write", "write", "WriteInputJsonSchema"],
   ["Edit", "edit", "EditInputJsonSchema"],
   ["Glob", "glob", "GlobInputJsonSchema"],
+  ["WebFetch", "webfetch", "WebFetchInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -97,7 +98,7 @@ const capabilities = Object.fromEntries(
 const staticDescriptions = Object.fromEntries(
   builtInTools
     .filter((entry) =>
-      ["Read", "Write", "Edit", "Glob", "Grep", "TaskOutput", "TaskStop"].includes(
+      ["Read", "Write", "Edit", "Glob", "Grep", "TaskOutput", "TaskStop", "WebFetch"].includes(
         entry.metadata.name,
       ),
     )

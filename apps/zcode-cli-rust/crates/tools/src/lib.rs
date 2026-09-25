@@ -27,6 +27,7 @@ mod tool_shell;
 mod tool_skills;
 mod tool_surface;
 pub mod tools;
+mod web_fetch;
 #[cfg(windows)]
 mod win_job;
 pub use tools::WorkspaceTools;

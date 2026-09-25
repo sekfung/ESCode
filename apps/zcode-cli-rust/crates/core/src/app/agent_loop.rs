@@ -18,6 +18,8 @@ pub(super) async fn run(
             .compact(model, sink, cancel, Some(&instructions))
             .await;
     }
+    // 工具执行（WebFetch 的辅助模型）需要未绑定的模型，才能按注册表取最低推理档位。
+    let root_model = model;
     let mut reactive_compacted = false;
     let mut continuations = 0;
     super::skills::initialize(tools, context, history, sink, cancel).await?;
@@ -197,6 +199,7 @@ pub(super) async fn run(
                             profile: profile.as_ref(),
                             profiles: &profiles,
                             selection: identity.clone(),
+                            model: root_model,
                         },
                         call,
                         sink,
@@ -262,6 +265,7 @@ struct ExecutionContext<'a> {
     profile: Option<&'a crate::domain::subagent::Profile>,
     profiles: &'a [crate::domain::subagent::Profile],
     selection: Option<crate::contract::ModelIdentity>,
+    model: &'a dyn ModelPort,
 }
 async fn execute(
     tools: &dyn ToolPort,
@@ -275,6 +279,7 @@ async fn execute(
         profile,
         profiles,
         selection,
+        model,
     } = context;
     if cancel.is_cancelled() {
         bail!("Cancelled");
@@ -343,6 +348,9 @@ async fn execute(
             }
             Ok(args) if matches!(name, "TodoRead" | "TodoWrite") => {
                 super::todos::execute(name, call["id"].as_str().unwrap(), args, sink, cancel).await
+            }
+            Ok(args) if name == "WebFetch" => {
+                super::web_fetch_tool::execute(tools, model, &args, sink, cancel).await
             }
             Ok(args) if name == "Skill" => {
                 super::skills::execute(tools, skills, &args, cancel).await
