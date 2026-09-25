@@ -38,7 +38,8 @@ const cases = inputs.map((input) => {
       }) ?? null
     );
   }
-  return [input, prompt];
+  // TS 用 path.join 拼路径，分隔符随生成机平台；统一成 `/`，否则 POSIX CI 上 --check 必然漂移（Rust 端比较前同样归一）。
+  return [input, prompt === null ? null : prompt.replaceAll("\\", "/")];
 });
 if (!cases.some(([, prompt]) => prompt)) throw new Error("corpus has no expanded case");
 
