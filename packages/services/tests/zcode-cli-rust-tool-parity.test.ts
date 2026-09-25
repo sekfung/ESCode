@@ -187,6 +187,63 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       delete b.structuredPatch;
       assert.deepEqual(a, b);
     }
+    // 宽松匹配（docs/specs/rust-edit-matching.md）：同一文件与参数交给 TS 与 Rust，逐项比对结果与写入内容。
+    const fuzzyCases: Array<[string, Record<string, unknown>]> = [
+      ["say “hi” it’s\n", { old_string: 'say "hi"', new_string: 'say "yo" it\'s' }],
+      ["a\nb\nc\n", { old_string: "2: b\n3\tc", new_string: "B\nC" }],
+      ["x\ty\n", { old_string: "x\\ty", new_string: "x\\ny" }],
+      ["café\n", { old_string: "caf\\u00e9", new_string: "cafe" }],
+      ["  keep  \n  me\nrest\n", { old_string: "keep\nme", new_string: "kept" }],
+      [
+        "start\n  middle line one\nend\n",
+        { old_string: "start\nmiddle line onx\nend", new_string: "s" },
+      ],
+      ["drop\nstay\n", { old_string: "drop", new_string: "" }],
+      [" a\nb\n  a\nb\n", { old_string: "a \nb", new_string: "z" }],
+      ["dup dup\n", { old_string: "dup", new_string: "d" }],
+      ["dup dup\n", { old_string: "du\\u0070", new_string: "d", replace_all: true }],
+      ["  a\n b\n", { old_string: "a\nb", new_string: "z", replace_all: true }],
+      ["nothing\n", { old_string: "missing", new_string: "x" }],
+    ];
+    // 每个用例的预期结果（策略名或失败），防止两侧同样失败时用例空转。
+    const expected = [
+      "quote_normalized",
+      "line_number_prefix_stripped",
+      "escape_normalized",
+      "unicode_escape_normalized",
+      "line_trimmed",
+      "block_anchor",
+      "exact",
+      "failed",
+      "failed",
+      "unicode_escape_normalized",
+      "failed",
+      "failed",
+    ];
+    for (const [index, [initial, args]] of fuzzyCases.entries()) {
+      const tsFile = join(d.root, `fuzzy-ts-${index}.txt`);
+      const rustFile = join(d.root, `fuzzy-rust-${index}.txt`);
+      // 经各自的 Write 建立文件，两侧都记下读取状态（编辑前必须已读）。
+      await writeToolEntry.handler({ file_path: tsFile, content: initial }, context);
+      await d.call("Write", { file_path: rustFile, content: initial });
+      const ts = (await editToolEntry.handler({ file_path: tsFile, ...args }, context)) as any;
+      const native = await d.call("Edit", { file_path: rustFile, ...args });
+      const label = `fuzzy case ${index} ${JSON.stringify(args)}`;
+      assert.equal(ts.result === false ? "failed" : ts.matchStrategy, expected[index], label);
+      assert.equal(await readFile(rustFile, "utf8"), await readFile(tsFile, "utf8"), label);
+      if (ts.result === false) {
+        assert.ok(native.error, `${label}: Rust should fail like TS (${ts.message})`);
+        assert.ok(String(native.error).endsWith(ts.message), `${label}: ${native.error}`);
+        continue;
+      }
+      assert.equal(native.error, undefined, `${label}: ${native.error}`);
+      EditOutputSchema.parse(native.data);
+      const a = normalize(native.data),
+        b = normalize(ts);
+      delete a.structuredPatch;
+      delete b.structuredPatch;
+      assert.deepEqual(a, b, label);
+    }
     if (process.platform !== "win32") {
       for (const [command, status] of [
         ["printf hello", "completed"],

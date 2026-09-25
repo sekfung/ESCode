@@ -54,7 +54,7 @@ Rust 的启动中位数受本机文件缓存影响：5 次为 21.4、8.1、8.2�
 - [ ] **权限模式**：Rust 当前只支持 yolo；补齐 build/edit/Plan 等模式、模式切换和通用审批规则，或继续保持明确的能力拒绝并完成产品入口隐藏。
 - [ ] **MCP 完整兼容**：OAuth、完整插件 options/template/hooks、legacy SSE 自动重连，以及在用真实服务器的兼容矩阵。
 - [ ] **上下文和主代理记忆**：目录级 rules、完整 system prompt/记忆、output style、自定义 system、插件 hooks 与主代理记忆索引/提取。
-- [ ] **附件和工具细节**：大图缩放、媒体 Read、完整文本预览、音频和部分视频、Edit 的宽松匹配、Web 工具和工具装配开关。
+- [ ] **附件和工具细节**：大图缩放、媒体 Read、完整文本预览、音频和部分视频、Web 工具和工具装配开关。
 - [ ] **会话和文件边界**：单个超大会话分页/按需投影、备份跨 workspace 去重和保留策略、未引用附件/checkpoint GC；Shell 或外部 MCP 任意写入的回退范围。
 - [ ] **扩展执行能力**：工作流、自动任务、OffPeak、浏览器/CUA、Cron，以及完整 JSONL 子代理 transcript 和子树预算聚合。当前 `workflowRuns` 仍会返回 unsupported。
 - [ ] **历史迁移和生命周期矩阵**：带 Plan 的旧历史导入、TS/Rust 热切换、远端/手机 `web-remote-replayable` 恢复、账号多协议回归和跨窗口/多 session 组合。

@@ -1,3 +1,4 @@
+use super::edit_apply;
 use super::tools::{boolean, check_cancel, keys, resolve, string, uint};
 use crate::contract::ToolOutput;
 use anyhow::{Context, Result, bail};
@@ -220,7 +221,7 @@ impl FileTools<'_> {
                 .as_str()
                 .is_some_and(|s| s.contains("\r\n")));
         let old = raw.trim_start_matches('\u{feff}').replace("\r\n", "\n");
-        let mut match_count = 0;
+        let mut matched: Option<(&str, usize)> = None;
         let replace_all = if name == "Edit" {
             boolean(args, "replace_all", false)?
         } else {
@@ -238,26 +239,24 @@ impl FileTools<'_> {
             if search == replacement {
                 bail!("edit_no_change: old_string and new_string are identical");
             }
-            let value = if search.is_empty() {
+            if search.is_empty() {
                 if !old.trim().is_empty() {
                     bail!("edit_file_exists_no_old_string");
                 }
-                replacement.clone()
+                (replacement.clone(), search, replacement)
             } else {
-                match_count = old.matches(&search).count();
-                if match_count == 0 {
-                    bail!("edit_old_string_not_found: String to replace not found in file");
-                }
-                if !replace_all && match_count > 1 {
-                    bail!("edit_ambiguous_replace: Provide more context or replace_all");
-                }
-                if replace_all {
-                    old.replace(&search, &replacement)
-                } else {
-                    old.replacen(&search, &replacement, 1)
-                }
-            };
-            (value, search, replacement)
+                // 修复：此前只做精确匹配，模型带弯引号/行号前缀/转义/缩进差异时 Node 能改而 Rust 失败；
+                // 按 TS edit-matchers 的策略顺序匹配（docs/specs/rust-edit-matching.md）。
+                let applied = edit_apply::apply(
+                    &old,
+                    &search,
+                    &replacement,
+                    string(args, "old_string")?,
+                    replace_all,
+                )?;
+                matched = Some((applied.strategy.as_str(), applied.candidates));
+                (applied.content, applied.actual_old, applied.actual_new)
+            }
         };
         if new.len() as u64 > EDIT_BYTES {
             bail!("Write exceeds native edit budget (8 MiB)");
@@ -290,7 +289,13 @@ impl FileTools<'_> {
         let mut data = if name == "Write" {
             json!({"type":if original.is_some(){"update"}else{"create"},"filePath":path,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
         } else {
-            json!({"filePath":path,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all,"matchStrategy":"exact","matchCandidateCount":match_count})
+            let mut data = json!({"filePath":path,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all});
+            // 与 TS 一致：新建/空文件（old_string 为空）不带匹配策略字段。
+            if let Some((strategy, candidates)) = matched {
+                data["matchStrategy"] = strategy.into();
+                data["matchCandidateCount"] = candidates.into();
+            }
+            data
         };
         let mut display = json!({"kind":"file_diff","filePath":path,"additions":additions,"deletions":deletions,"structuredPatch":data["structuredPatch"]});
         if serde_json::to_vec(&display)?.len() > 32 * 1024 {
