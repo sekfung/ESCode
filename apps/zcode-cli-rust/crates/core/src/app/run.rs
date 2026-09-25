@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 impl Engine {
     pub(super) fn start_run(&mut self, id: &str, turn_id: String) -> Result<()> {
+        let turn_id_for_facts = turn_id.clone();
         let identity = self.session_selection(id)?;
         let (selection, updates) = tokio::sync::watch::channel(identity.clone());
         let model: Arc<dyn ModelPort> = if let Some(registry) = &self.registry {
@@ -45,6 +46,32 @@ impl Engine {
         history.skills = session.skills.clone();
         history.goal = session.goal.clone();
         history.agent_profile = session.agent_profile.clone();
+        let input = session
+            .history
+            .inputs
+            .iter()
+            .rev()
+            .find(|i| i.turn == turn_id_for_facts)
+            .map(|i| i.payload.clone())
+            .unwrap_or_default();
+        history.turn = super::context::TurnFacts {
+            automation_id: input["automationId"].as_str().map(str::to_owned),
+            disallowed: input["toolDisallowlist"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|t| t.as_str().map(str::to_owned))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            bot_delivery_target: Some(input["botDeliveryTarget"].clone()).filter(|v| v.is_object()),
+            mode: session.mode.clone(),
+            model_selection: Some(if session.reasoning_level.is_empty() {
+                serde_json::json!({"providerId": session.provider, "modelId": session.model})
+            } else {
+                serde_json::json!({"providerId": session.provider, "modelId": session.model, "options": {"reasoningLevel": session.reasoning_level}})
+            }),
+        };
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {

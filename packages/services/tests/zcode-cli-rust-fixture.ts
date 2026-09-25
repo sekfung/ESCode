@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { answerHostRequest } from "./zcode-cli-rust-fixture-host.js";
 import { withDefaultMode } from "./zcode-cli-rust-fixture-mode.js";
 import { createServer, type ServerResponse } from "node:http";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
@@ -298,18 +299,12 @@ export class Harness {
       requireStorageStartup: true,
       requestTimeoutMs: 5000,
     });
-    // 与真实 Host（zcodeAgentService 的 onRequest）一致应答运行时偏好；不应答时 Rust 首个 Bash 会等满 15s 超时。
-    this.client.onRequest((request) => {
-      if (request.method !== "session/requestRuntimePreferences") return;
-      this.runtimePreferenceRequests.push(request.params);
-      void this.client.respond(request.id, {
-        nativeSearchEnhancementsEnabled: true,
-        ...(this.integratedTerminalShell
-          ? { integratedTerminalShell: this.integratedTerminalShell }
-          : {}),
-      });
-    });
+    // 与真实 Host（zcodeAgentService 的 onRequest）一致应答运行时偏好与脚本化反向请求。
+    this.client.onRequest((request) => answerHostRequest(this, request));
   }
+  /** 用例脚本化的 Host 反向请求应答（method → 结果或 {error:{code,message}}）。 */
+  hostHandlers: Record<string, (params: any) => unknown> = {};
+  readonly hostRequests: { method: string; params: unknown }[] = [];
   /** 模拟设置页的终端 shell 选择；缺省表示 auto。 */
   integratedTerminalShell?: Message;
   readonly runtimePreferenceRequests: unknown[] = [];

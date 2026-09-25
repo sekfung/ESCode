@@ -7,7 +7,18 @@ use serde_json::{Value, json};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
+/// 本轮来自输入的事实与会话配置（Cron 守卫与参数，docs/specs/rust-cron.md）。
+#[derive(Default)]
+pub(super) struct TurnFacts {
+    pub automation_id: Option<String>,
+    pub disallowed: Vec<String>,
+    pub bot_delivery_target: Option<Value>,
+    pub mode: String,
+    pub model_selection: Option<Value>,
+}
+
 pub(super) struct RunContext {
+    pub turn: TurnFacts,
     pub agent_profile: Option<crate::domain::subagent::Profile>,
     pub goal: Option<crate::domain::goal::Goal>,
     pub skills: Option<crate::domain::skills::SkillCatalog>,
@@ -31,6 +42,7 @@ impl RunContext {
         estimated: usize,
     ) -> Self {
         Self {
+            turn: TurnFacts::default(),
             agent_profile: None,
             goal: None,
             skills: None,

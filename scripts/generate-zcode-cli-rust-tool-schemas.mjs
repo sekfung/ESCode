@@ -42,6 +42,10 @@ const tools = [
   ["Glob", "glob", "GlobInputJsonSchema"],
   ["WebFetch", "webfetch", "WebFetchInputJsonSchema"],
   ["ReadSessionContext", "read-session-context", "ReadSessionContextInputJsonSchema"],
+  ["CronCreate", "automation", "CronCreateInputJsonSchema"],
+  ["CronList", "automation", "CronListInputJsonSchema"],
+  ["CronUpdate", "automation", "CronUpdateInputJsonSchema"],
+  ["CronDelete", "automation", "CronDeleteInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -115,6 +119,10 @@ const staticDescriptions = Object.fromEntries(
     "TaskStop",
     "WebFetch",
     "ReadSessionContext",
+    "CronCreate",
+    "CronList",
+    "CronUpdate",
+    "CronDelete",
   ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };

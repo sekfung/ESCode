@@ -56,10 +56,18 @@ fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
         && let Some(id) = value["id"].as_str()
         && (value.get("result").is_some() ^ value.get("error").is_some())
     {
+        // 原始 result 文本：部分工具（Cron）需要按 Host 原键顺序重新解析。
+        let raw_result = serde_json::from_slice::<
+            std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
+        >(line)
+        .ok()
+        .and_then(|reply| reply.get("result").map(|raw| raw.get().to_owned()));
         return tx
             .blocking_send(Input::Response {
                 id: id.into(),
                 result: value.get("result").cloned().unwrap_or(Value::Null),
+                error: value.get("error").cloned(),
+                raw_result,
             })
             .is_ok();
     }

@@ -158,6 +158,26 @@ impl Engine {
         s.append_message(json!({"role":"user","content":content}));
         let mut payload = c.payload.clone();
         payload.as_object_mut().unwrap().remove("context_refs");
+        // TS prompt-turn：本轮 automation 身份（显式或 automation- 前缀 commandId）与禁用工具面随输入固化。
+        let automation = crate::domain::cron::turn_automation_id(
+            c.payload["automationId"].as_str(),
+            &c.command_id,
+        );
+        let requested: Vec<String> = c.payload["toolDisallowlist"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|t| t.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let disallowed = crate::domain::cron::turn_disallowlist(&requested, automation.as_deref());
+        if let Some(id) = &automation {
+            payload["automationId"] = id.clone().into();
+        }
+        if !disallowed.is_empty() {
+            payload["toolDisallowlist"] = disallowed.into();
+        }
         s.history
             .inputs
             .push(crate::domain::history::InputBoundary {

@@ -32,6 +32,9 @@ pub(super) async fn run(
     if !skills.enabled {
         definitions.retain(|d| d["function"]["name"] != "Skill");
     }
+    // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
+    let turn_facts = std::mem::take(&mut history.turn);
+    super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
     let profiles = if definitions.iter().any(|d| d["function"]["name"] == "Agent") {
         tools.agent_profiles(cancel).await?
     } else {
@@ -202,6 +205,7 @@ pub(super) async fn run(
                             profiles: &profiles,
                             selection: identity.clone(),
                             model: root_model,
+                            turn: &turn_facts,
                         },
                         call,
                         sink,
@@ -268,6 +272,7 @@ struct ExecutionContext<'a> {
     profiles: &'a [crate::domain::subagent::Profile],
     selection: Option<crate::contract::ModelIdentity>,
     model: &'a dyn ModelPort,
+    turn: &'a super::context::TurnFacts,
 }
 async fn execute(
     tools: &dyn ToolPort,
@@ -282,6 +287,7 @@ async fn execute(
         profiles,
         selection,
         model,
+        turn,
     } = context;
     if cancel.is_cancelled() {
         bail!("Cancelled");
@@ -350,6 +356,9 @@ async fn execute(
             }
             Ok(args) if matches!(name, "TodoRead" | "TodoWrite") => {
                 super::todos::execute(name, call["id"].as_str().unwrap(), args, sink, cancel).await
+            }
+            Ok(args) if name.starts_with("Cron") => {
+                super::cron_tool::execute(name, &args, turn, sink, cancel).await
             }
             Ok(args) if name == "ReadSessionContext" => {
                 super::session_context_tool::execute(model, &args, sink, cancel).await

@@ -55,16 +55,23 @@ impl Engine {
                 );
             }
         }
-        for key in ["toolDisallowlist"] {
-            if p.get(key)
-                .is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty()))
-            {
-                bail!("Unsupported input field: {key}");
-            }
+        // Cron 定时任务派发的本轮事实（docs/specs/rust-cron.md）；OffPeak 仍不支持。
+        if p.get("toolDisallowlist").is_some_and(|v| {
+            v.as_array()
+                .is_none_or(|a| a.iter().any(|t| t.as_str().is_none_or(str::is_empty)))
+        }) {
+            bail!("Invalid toolDisallowlist");
+        }
+        if p.get("automationId")
+            .is_some_and(|v| v.as_str().is_none_or(str::is_empty))
+        {
+            bail!("Invalid automationId");
+        }
+        if p.get("botDeliveryTarget").is_some_and(|v| !v.is_object()) {
+            bail!("Invalid botDeliveryTarget");
         }
         for key in [
             "modelExecution",
-            "automationId",
             "offPeakTaskId",
             "offPeakRunType",
             "browserAmbientContext",

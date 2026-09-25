@@ -187,7 +187,7 @@ test("Node and Rust send the same conversation to the model when continuing an i
   assert.deepEqual(rust.conversation, node.conversation);
   // 模型可见工具面（docs/specs/rust-tool-surface.md）：名称、顺序、描述逐字一致，参数 schema 语义一致。
   // 尚未实现的工具显式列出，实现后移出。
-  const pending = new Set(["CronCreate", "CronDelete", "CronList", "CronUpdate"]);
+  const pending = new Set<string>();
   const canonical = (value: any): any =>
     Array.isArray(value)
       ? value.map(canonical)

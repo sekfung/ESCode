@@ -53,6 +53,14 @@ pub enum Event {
             anyhow::Result<Option<zcode_cli_domain::session_context::SessionSource>>,
         >,
     },
+    /// 工具经会话 owner 向 Host 发起反向请求（automation/* 等）。
+    HostRequest {
+        method: String,
+        params: Value,
+        reply: HostReply,
+    },
+    /// 冻结会话标题（CronCreate 成功后以 automation 标题为准，titleSource=custom）。
+    FreezeTitle(String),
     ToolCleanupFailed(String),
     PromptInitialized {
         snapshot: Box<zcode_cli_domain::prompt::PromptSnapshot>,
@@ -183,4 +191,21 @@ impl EventSink {
             .await?;
         Ok(())
     }
+}
+
+/// Host 反向请求的应答：原始结果 JSON 文本，或 (code, message)。
+pub type HostReply = oneshot::Sender<std::result::Result<String, (i64, String)>>;
+
+pub enum Input {
+    Request(zcode_cli_domain::protocol::Request),
+    /// Host 对 runtime 反向请求的应答；`raw_result` 保留原始 JSON 文本（需要键顺序时重新解析）。
+    Response {
+        id: String,
+        result: Value,
+        error: Option<Value>,
+        raw_result: Option<String>,
+    },
+    Invalid,
+    TooLarge,
+    Eof,
 }

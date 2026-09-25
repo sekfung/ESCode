@@ -234,6 +234,136 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "CronCreate": {
+    "type": "object",
+    "properties": {
+      "cron": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Standard 5-field cron expression in the user's local timezone: minute hour day-of-month month day-of-week. Use it only for an absolute named date/time or a recurring schedule; required unless delayMinutes is set. For any relative delay such as 'in 8 minutes'/'8分钟后' or 'in 2 hours'/'2小时后', omit cron and use delayMinutes instead — never convert a relative phrase into a fixed clock time or calendar date, because a just-passed one-shot time silently rolls a full year forward. Examples: '*/20 * * * *' means every 20 minutes, '0 * * * *' means hourly, and '0 9 * * 1-5' means weekdays at 09:00. Do not convert to UTC."
+      },
+      "delayMinutes": {
+        "description": "For any relative delay from now — 'in 3 minutes' (3), '8分钟后' (8), 'in 2 hours' (120), 'later'/'稍后' — set the exact positive delay in whole minutes and omit cron. The host calculates the future local schedule from its real current clock, so never compute an absolute time or cron yourself. For an absolute named date/time or a recurring schedule, omit it (or set null) and provide cron.",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 525600
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Complete prompt to send at every scheduled fire. Include all instructions needed when the automation runs. Describe the final work directly; do not ask it to create or schedule another automation or call CronCreate."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Concise automation title that preserves the user's natural-language schedule phrase verbatim. For example, for '每20分钟提醒我喝水', use '每20分钟喝水提醒', not '喝水提醒'."
+      },
+      "recurring": {
+        "type": "boolean",
+        "description": "true (default) repeats until paused or deleted. false creates a finite automation; without maxRuns it runs once."
+      },
+      "maxRuns": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Maximum successful scheduled dispatch count. Use only with recurring=false; omit for a one-shot automation (defaults to 1)."
+      },
+      "intervalUnit": {
+        "type": "string",
+        "enum": ["minute", "hourly", "daily", "weekly", "monthly", "yearly"],
+        "description": "Custom recurring interval unit for every N minutes/hours/days/weeks/months/years. Pair with interval (1-200) for every N-unit request, even if cron can express N; submit a legal compatible cron whose time/day slots are used by the scheduleRule. Omit both for ordinary calendar cron schedules."
+      },
+      "interval": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "description": "Integer interval from 1 to 200 paired with intervalUnit. The host carries the real interval via scheduleRule; the compatible cron is only a legal display expression. Must be set together with intervalUnit."
+      }
+    },
+    "required": ["prompt", "title"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronList": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronUpdate": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Automation id returned by CronCreate or CronList"
+      },
+      "cron": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Replacement standard 5-field cron expression in the user's local timezone. Omit to preserve the existing schedule. Do not convert to UTC."
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Replacement prompt for future scheduled fires. Omit to preserve the existing prompt."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Required synchronized automation title describing the task after this update. Keep the user's natural-language schedule phrase consistent with cron (for example, changing every 5 minutes to every 6 minutes must also change the title), and update the title when the prompt meaning changes."
+      },
+      "recurring": {
+        "type": "boolean",
+        "description": "Replacement recurrence mode. true repeats indefinitely and clears any old finite maxRuns limit; false is finite. Do not combine true with a numeric maxRuns."
+      },
+      "maxRuns": {
+        "description": "Replacement maximum successful scheduled dispatch count for recurring=false. null clears the existing limit and is valid only when recurring=true is included in the same update; when recurring=true is supplied without maxRuns, the service clears the old limit automatically.",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "intervalUnit": {
+        "type": "string",
+        "enum": ["minute", "hourly", "daily", "weekly", "monthly", "yearly"],
+        "description": "Switch this automation to a long recurring interval whose step exceeds a cron field ceiling (hourly N>24, daily N>31, etc.). Pair with interval and submit a legal compatible cron (omit cron to keep the existing schedule's minute)."
+      },
+      "interval": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "description": "Positive integer interval paired with intervalUnit. Must be set together with intervalUnit."
+      }
+    },
+    "required": ["id", "title"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronDelete": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Automation id returned by CronCreate or CronList"
+      }
+    },
+    "required": ["id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "Grep": {
     "type": "object",
     "properties": {

@@ -2,6 +2,7 @@ mod auxiliary;
 mod commands;
 mod engine;
 mod event_projection;
+mod host_requests;
 mod model_config;
 mod permission_flow;
 mod plan_mode;
@@ -19,6 +20,7 @@ mod agent_loop;
 mod context;
 mod context_projection;
 mod create_session;
+mod cron_tool;
 mod maintenance;
 mod queue_control;
 

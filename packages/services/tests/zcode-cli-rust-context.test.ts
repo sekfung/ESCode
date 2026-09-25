@@ -175,7 +175,8 @@ test("Rust automatic and reactive compaction preserve the current input and comp
       config: reactive
         ? {}
         : // Agent/SendMessage 定义也计入上下文；首轮需容纳完整工具，长回复仍须触发压缩。
-          { contextWindow: 18000, maxOutputTokens: 1000, contextBufferTokens: 2000 },
+          // 工具面补齐 Cron 四个工具后定义增加约 2.5k token，窗口相应从 18000 调到 21000。
+          { contextWindow: 21000, maxOutputTokens: 1000, contextBufferTokens: 2000 },
       respond(req, res, attempt) {
         if (summaryRequest(req)) return reply(res, "small durable summary");
         if (reactive && attempt === 2 && !rejected) {

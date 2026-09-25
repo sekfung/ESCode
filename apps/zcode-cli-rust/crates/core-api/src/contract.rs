@@ -33,15 +33,9 @@ pub struct DurableCommitReceipt {
     pub sequence: u64,
 }
 
-pub enum Input {
-    Request(zcode_cli_domain::protocol::Request),
-    Response { id: String, result: Value },
-    Invalid,
-    TooLarge,
-    Eof,
-}
-
-pub use crate::contract_events::{Event, EventSink, ModelOutput, PermissionOutcome, RunEvent};
+pub use crate::contract_events::{
+    Event, EventSink, HostReply, Input, ModelOutput, PermissionOutcome, RunEvent,
+};
 #[async_trait]
 pub trait SessionStore: Send + Sync {
     /// Startup reads only the lightweight persisted index, never every transcript or ACK.

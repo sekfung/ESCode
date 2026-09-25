@@ -100,6 +100,15 @@ impl Engine {
             }
             return self.drain_guide(&id, &turn, committed).await;
         }
+        if let Event::HostRequest {
+            method,
+            params,
+            reply,
+        } = event.event
+        {
+            self.request_host(method, params, reply);
+            return Ok(());
+        }
         if let Event::SessionContext { id: target, reply } = event.event {
             // 存储读取不阻塞会话 actor。
             let store = self.store.clone();
@@ -159,11 +168,18 @@ impl Engine {
             | Event::RequestAuth { .. }
             | Event::ShellPreference { .. }
             | Event::SessionContext { .. }
+            | Event::HostRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
             | Event::CompactDone { .. } => unreachable!(),
             Event::Retry(state) => {
                 s.api_retry = state;
+            }
+            // TS setCustomSessionTitle：CronCreate 成功后标题固定为 automation 标题，阻止后续生成标题覆盖。
+            Event::FreezeTitle(title) => {
+                s.title = title;
+                s.title_source = "custom".into();
+                s.revision += 1;
             }
             Event::Text {
                 response_id,
