@@ -175,6 +175,7 @@ impl Engine {
         if let Some(tx) = &transaction {
             self.mark_rewind(id, &c.command_id, tx.as_ref());
         }
+        let command = self.command_prompt(id, &replay).await?;
         let s = self.sessions.get_mut(id).unwrap();
         s.cut_history(b.row, b.message, &b.state);
         s.epoch = self.clock.id();
@@ -182,7 +183,7 @@ impl Engine {
         s.revision += 1;
         // 重跑不自动执行已有排队输入；保留队列由用户按原协议恢复。
         replay.payload["_historyRerun"] = true.into();
-        let (turn, _) = self.admit_input(id, &replay, None)?;
+        let (turn, _) = self.admit_input(id, &replay, None, command)?;
         self.sessions.get_mut(id).unwrap().history_actions();
         let mut ack = c.ack("accepted", self.sessions[id].revision, None);
         if c.kind == "editUserQuery" {

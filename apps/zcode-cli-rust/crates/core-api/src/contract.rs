@@ -264,6 +264,19 @@ pub trait ToolPort: Send + Sync {
     async fn evict_session(&self, session: &str) -> Result<()> {
         self.close_session(session).await
     }
+    /// 自定义 slash 命令展开（docs/specs/rust-custom-commands.md）；None 表示按原文发送。
+    async fn resolve_command(
+        &self,
+        _session: Option<&str>,
+        _text: &str,
+        _cancel: &CancellationToken,
+    ) -> Result<Option<String>> {
+        Ok(None)
+    }
+    /// 协议 `slashCommands` 目录（内置段 + 自定义命令）。
+    async fn slash_commands(&self, _cancel: &CancellationToken) -> Vec<Value> {
+        zcode_cli_domain::custom_command::builtin_catalog()
+    }
     async fn discover_skills(
         &self,
         _cancel: &CancellationToken,
@@ -319,41 +332,7 @@ pub trait ToolPort: Send + Sync {
         Ok(())
     }
 }
-pub struct ToolOutput {
-    pub failed: bool,
-    pub content: String,
-    pub data: Value,
-    pub display: Option<Value>,
-    pub control: ToolControl,
-}
-/// 工具结果对本轮的控制（TS ToolExecutionResult.turnControl / 拒绝投影）。
-#[derive(Default, Clone, Copy)]
-pub struct ToolControl {
-    /// 按被拒收口：行 cancelled，不写输出（与权限拒绝一致）。
-    pub denied: bool,
-    /// 写入工具结果后结束本轮，不再请求模型。
-    pub stop_turn: bool,
-}
-impl ToolOutput {
-    pub fn text(content: String) -> Self {
-        Self {
-            failed: false,
-            content,
-            data: Value::Null,
-            display: None,
-            control: ToolControl::default(),
-        }
-    }
-    pub fn new(content: String, data: Value) -> Self {
-        Self {
-            failed: false,
-            content,
-            data,
-            display: None,
-            control: ToolControl::default(),
-        }
-    }
-}
+pub use super::tool_output::{ToolControl, ToolOutput};
 pub trait RuntimeClock: Send + Sync {
     fn now(&self) -> u64;
     fn id(&self) -> String;

@@ -213,6 +213,17 @@ impl ToolPort for WorkspaceTools {
         self.reads.lock().await.remove(session);
         self.mcp.close_session(session, false).await
     }
+    async fn resolve_command(
+        &self,
+        session: Option<&str>,
+        text: &str,
+        cancel: &CancellationToken,
+    ) -> Result<Option<String>> {
+        super::custom_command_shell::resolve(&self.cwd, session, text, cancel).await
+    }
+    async fn slash_commands(&self, cancel: &CancellationToken) -> Vec<Value> {
+        super::custom_command_shell::catalog(&self.cwd, cancel).await
+    }
     async fn discover_skills(
         &self,
         cancel: &CancellationToken,

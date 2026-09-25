@@ -1,0 +1,449 @@
+{
+  "templates": [
+    {
+      "content": "Review $ARGUMENTS now",
+      "args": " a  b ",
+      "body": "Review a  b now",
+      "argumentCount": 2,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nReview a  b now"
+    },
+    {
+      "content": "First $1 second $2 third $3",
+      "args": "one \"two words\" 'three\\'s'",
+      "body": "First one second two words third three's",
+      "argumentCount": 3,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nFirst one second two words third three's"
+    },
+    {
+      "content": "No placeholders",
+      "args": "extra args",
+      "body": "No placeholders\n\nUser arguments:\nextra args",
+      "argumentCount": 2,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nNo placeholders\n\nUser arguments:\nextra args"
+    },
+    {
+      "content": "No placeholders\n\n",
+      "args": "",
+      "body": "No placeholders\n\n",
+      "argumentCount": 0,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nNo placeholders"
+    },
+    {
+      "content": "$10 and $1",
+      "args": "a b c d e f g h i j",
+      "body": "j and a",
+      "argumentCount": 10,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nj and a"
+    },
+    {
+      "content": "Escaped \\ and $2",
+      "args": "a\\ b c\\",
+      "body": "Escaped \\ and c\\",
+      "argumentCount": 2,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\nEscaped \\ and c\\"
+    },
+    {
+      "content": "Body",
+      "args": "x",
+      "skills": [
+        "pdf",
+        "docx"
+      ],
+      "scope": "system",
+      "source": "plugin",
+      "body": "Body\n\nUser arguments:\nx",
+      "argumentCount": 1,
+      "prompt": "Run custom command /review.\nCommand source: system/plugin.\nRequired skills: `pdf`, `docx`.\nBefore following the command body, call the Skill tool for `pdf`, `docx`.\n\nBody\n\nUser arguments:\nx"
+    },
+    {
+      "content": "  \n trimmed body \n",
+      "args": "",
+      "body": "  \n trimmed body \n",
+      "argumentCount": 0,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\ntrimmed body"
+    },
+    {
+      "content": "$ARGUMENTS$ARGUMENTS",
+      "args": "中文 参数",
+      "body": "中文 参数中文 参数",
+      "argumentCount": 2,
+      "prompt": "Run custom command /review.\nCommand source: project/zcode.\n\n中文 参数中文 参数"
+    }
+  ],
+  "splits": [
+    {
+      "input": "",
+      "args": []
+    },
+    {
+      "input": "a b",
+      "args": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "input": " \"a b\" c ",
+      "args": [
+        "a b",
+        "c"
+      ]
+    },
+    {
+      "input": "it\\'s 'q \"x\"' \"\\\"y\"",
+      "args": [
+        "it's",
+        "q \"x\"",
+        "\"y"
+      ]
+    },
+    {
+      "input": "tab\tsep\nline",
+      "args": [
+        "tab",
+        "sep",
+        "line"
+      ]
+    },
+    {
+      "input": "unterminated \"quote",
+      "args": [
+        "unterminated",
+        "quote"
+      ]
+    },
+    {
+      "input": "trailing\\",
+      "args": [
+        "trailing\\"
+      ]
+    }
+  ],
+  "shells": [
+    {
+      "content": "Status: !`git status`\nDone",
+      "runs": [
+        {
+          "command": "git status",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        }
+      ],
+      "output": "Status: [git status]\nDone"
+    },
+    {
+      "content": "A !`one` B !`two` C",
+      "runs": [
+        {
+          "command": "one",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        },
+        {
+          "command": "two",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        }
+      ],
+      "output": "A [one] B [two] C"
+    },
+    {
+      "content": "```!\nls -la\n```\nafter",
+      "runs": [
+        {
+          "command": "ls -la",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        }
+      ],
+      "output": "[ls -la]\nafter"
+    },
+    {
+      "content": "```! echo fenced ```x !`inline`",
+      "runs": [
+        {
+          "command": "echo fenced",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        },
+        {
+          "command": "inline",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        }
+      ],
+      "output": "[echo fenced]x [inline]"
+    },
+    {
+      "content": "empty !`` stays",
+      "runs": [],
+      "output": "empty  stays"
+    },
+    {
+      "content": "!`echo ${ZCODE_PROJECT_DIR} ${ZCODE_SESSION_ID}`",
+      "sessionId": "sess_1",
+      "runs": [
+        {
+          "command": "echo ${ZCODE_PROJECT_DIR} ${ZCODE_SESSION_ID}",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work",
+            "CLAUDE_CODE_SESSION_ID": "sess_1",
+            "CLAUDE_SESSION_ID": "sess_1",
+            "ZCODE_SESSION_ID": "sess_1"
+          }
+        }
+      ],
+      "output": "[echo ${ZCODE_PROJECT_DIR} ${ZCODE_SESSION_ID}]"
+    },
+    {
+      "content": "!`echo ${ZCODE_SESSION_ID}`",
+      "runs": [],
+      "error": "Custom command /review variable requires a runtime session context: ZCODE_SESSION_ID"
+    },
+    {
+      "content": "!`echo ${CLAUDE_SKILL_DIR}`",
+      "sessionId": "sess_1",
+      "runs": [],
+      "error": "Custom command /review variable requires a skill context: CLAUDE_SKILL_DIR"
+    },
+    {
+      "content": "!`echo ${ZCODE_PLUGIN_ROOT}`",
+      "sessionId": "sess_1",
+      "runs": [],
+      "error": "Custom command /review variable requires a plugin context: ZCODE_PLUGIN_ROOT"
+    },
+    {
+      "content": "!`echo ${CLAUDE_PLUGIN_ROOT}`",
+      "sessionId": "sess_1",
+      "source": "plugin",
+      "rootPath": "/plugins/demo/commands",
+      "runs": [
+        {
+          "command": "echo ${CLAUDE_PLUGIN_ROOT}",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work",
+            "CLAUDE_CODE_SESSION_ID": "sess_1",
+            "CLAUDE_SESSION_ID": "sess_1",
+            "ZCODE_SESSION_ID": "sess_1",
+            "CLAUDE_PLUGIN_DATA": "/plugins/demo",
+            "CLAUDE_PLUGIN_ROOT": "/plugins/demo",
+            "ZCODE_PLUGIN_DATA": "/plugins/demo",
+            "ZCODE_PLUGIN_ID": "demo",
+            "ZCODE_PLUGIN_NAME": "demo",
+            "ZCODE_PLUGIN_ROOT": "/plugins/demo"
+          }
+        }
+      ],
+      "output": "[echo ${CLAUDE_PLUGIN_ROOT}]"
+    },
+    {
+      "content": "!`fail`",
+      "fail": true,
+      "runs": [
+        {
+          "command": "fail",
+          "cwd": "/work",
+          "env": {
+            "CLAUDE_PROJECT_DIR": "/work",
+            "ZCODE_PROJECT_DIR": "/work"
+          }
+        }
+      ],
+      "error": "Custom command /review shell expansion failed.\nCommand: fail\nExit: 2\nDetails: boom"
+    },
+    {
+      "content": "no shell here",
+      "runs": [],
+      "output": "no shell here"
+    }
+  ],
+  "discovery": {
+    "tree": {
+      "home/.zcode/commands/user-only.md": "---\ndescription: From user\n---\nUser body",
+      "home/.zcode/commands/shared.md": "User shared wins by priority",
+      "home/.agents/commands/agents-cmd.md": "# Heading line\nbody",
+      "repo/.git/HEAD": "ref: refs/heads/main",
+      "repo/.zcode/commands/shared.md": "Project duplicate ignored",
+      "repo/.zcode/commands/Nested/Deep.MD": "﻿---\r\ndescription: 'Quoted desc'\r\nargument-hint: <file>\r\nallowed-tools: [Read, Bash]\r\nskills: pdf, docx\r\ndisable-noninteractive: yes\r\nmodel: m1\r\nunknown: 1\r\n  indented: skip\r\n# comment\r\nbadline\r\n---\r\nDeep body\r\n",
+      "repo/.zcode/commands/bad name.md": "invalid name",
+      "repo/.zcode/commands/-dash.md": "invalid leading dash",
+      "repo/.zcode/commands/empty.md": "---\ndescription:\n---\n\n",
+      "repo/.zcode/commands/disabled.md": "disabled body",
+      "repo/.zcode/commands/list.md": "- bullet first line\n\nmore",
+      "repo/.zcode/commands/notes.txt": "not markdown",
+      "repo/.agents/commands/agent-proj.md": "---\ndescription: \"double\"\n---\nA $ARGUMENTS",
+      "repo/sub/.zcode/commands/sub-cmd.md": "Sub level command",
+      "repo/sub/.zcode/commands/unterminated.md": "---\ndescription: never closed\nbody",
+      "repo/sub/.zcode/commands/long.md": "---\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nbody"
+    },
+    "home": "home",
+    "cwd": "repo/sub",
+    "disabled": [
+      "repo/.zcode/commands/disabled.md"
+    ],
+    "commands": [
+      {
+        "allowedTools": [],
+        "description": "double",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [
+          "description"
+        ],
+        "name": "agent-proj",
+        "path": "repo/.agents/commands/agent-proj.md",
+        "rootPath": "repo/.agents/commands",
+        "scope": "project",
+        "skills": [],
+        "source": "agents",
+        "content": "A $ARGUMENTS"
+      },
+      {
+        "allowedTools": [],
+        "description": "Heading line",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [],
+        "name": "agents-cmd",
+        "path": "home/.agents/commands/agents-cmd.md",
+        "rootPath": "home/.agents/commands",
+        "scope": "user",
+        "skills": [],
+        "source": "agents",
+        "content": "# Heading line\nbody"
+      },
+      {
+        "allowedTools": [],
+        "description": "bullet first line",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [],
+        "name": "list",
+        "path": "repo/.zcode/commands/list.md",
+        "rootPath": "repo/.zcode/commands",
+        "scope": "project",
+        "skills": [],
+        "source": "zcode",
+        "content": "- bullet first line\n\nmore"
+      },
+      {
+        "allowedTools": [],
+        "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [
+          "description"
+        ],
+        "name": "long",
+        "path": "repo/sub/.zcode/commands/long.md",
+        "rootPath": "repo/sub/.zcode/commands",
+        "scope": "project",
+        "skills": [],
+        "source": "zcode",
+        "content": "body"
+      },
+      {
+        "allowedTools": [
+          "Read",
+          "Bash"
+        ],
+        "argumentHint": "<file>",
+        "description": "Quoted desc",
+        "disableNonInteractive": true,
+        "frontmatterKeys": [
+          "description",
+          "argument-hint",
+          "allowed-tools",
+          "skills",
+          "disable-noninteractive",
+          "model",
+          "unknown"
+        ],
+        "model": "m1",
+        "name": "nested:deep",
+        "path": "repo/.zcode/commands/Nested/Deep.MD",
+        "rootPath": "repo/.zcode/commands",
+        "scope": "project",
+        "skills": [
+          "pdf",
+          "docx"
+        ],
+        "source": "zcode",
+        "content": "Deep body"
+      },
+      {
+        "allowedTools": [],
+        "description": "User shared wins by priority",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [],
+        "name": "shared",
+        "path": "home/.zcode/commands/shared.md",
+        "rootPath": "home/.zcode/commands",
+        "scope": "user",
+        "skills": [],
+        "source": "zcode",
+        "content": "User shared wins by priority"
+      },
+      {
+        "allowedTools": [],
+        "description": "Sub level command",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [],
+        "name": "sub-cmd",
+        "path": "repo/sub/.zcode/commands/sub-cmd.md",
+        "rootPath": "repo/sub/.zcode/commands",
+        "scope": "project",
+        "skills": [],
+        "source": "zcode",
+        "content": "Sub level command"
+      },
+      {
+        "allowedTools": [],
+        "description": "--",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [],
+        "name": "unterminated",
+        "path": "repo/sub/.zcode/commands/unterminated.md",
+        "rootPath": "repo/sub/.zcode/commands",
+        "scope": "project",
+        "skills": [],
+        "source": "zcode",
+        "content": "---\ndescription: never closed\nbody"
+      },
+      {
+        "allowedTools": [],
+        "description": "From user",
+        "disableNonInteractive": false,
+        "frontmatterKeys": [
+          "description"
+        ],
+        "name": "user-only",
+        "path": "home/.zcode/commands/user-only.md",
+        "rootPath": "home/.zcode/commands",
+        "scope": "user",
+        "skills": [],
+        "source": "zcode",
+        "content": "User body"
+      }
+    ],
+    "totalDiscovered": 10
+  }
+}

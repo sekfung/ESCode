@@ -53,7 +53,8 @@ impl Engine {
             let mut input_command = c.clone();
             input_command.payload = input;
             input_command.session_id = Some(id.clone());
-            let (t, input_id) = self.admit_input(&id, &input_command, None)?;
+            let command = self.command_prompt(&id, &input_command).await?;
+            let (t, input_id) = self.admit_input(&id, &input_command, None, command)?;
             turn = Some(t);
             ack["result"]["input"] = json!({"delivery":"startNow","inputId":input_id});
         }

@@ -137,6 +137,27 @@ impl Engine {
         let shared = self
             .shared_input(id, &c.payload, item["queueItemId"].as_str())
             .await?;
+        let command = if item["kind"] == "compact" {
+            None
+        } else {
+            match self.command_prompt(id, &c).await {
+                Ok(command) => command,
+                Err(error) => {
+                    // 出队时展开失败：保留输入并暂停自动出队，由用户移除或重试，不能让 actor 退出。
+                    let s = self.sessions.get_mut(id).unwrap();
+                    s.auto_drain = false;
+                    s.queued_now = None;
+                    s.queue[pos]["dispatch"] = json!({"state":"queued"});
+                    s.last_error = Some(
+                        json!({"code":"custom_command_failed","message":error.to_string(),"recoverable":true,"source":"runtime","at":self.clock.now()}),
+                    );
+                    s.revision += 1;
+                    self.publish(id, vec![])?;
+                    self.persist(id, None).await?;
+                    return Ok(());
+                }
+            }
+        };
         let s = self.sessions.get_mut(id).unwrap();
         s.queue.remove(pos);
         s.queued_now = None;
@@ -147,7 +168,7 @@ impl Engine {
                 vec![json!({"op":"row.appended","row":self.sessions[id].rows.last().unwrap()})],
             )
         } else {
-            let (turn, _) = self.admit_input(id, &c, shared)?;
+            let (turn, _) = self.admit_input(id, &c, shared, command)?;
             (turn, self.new_turn_rows(id))
         };
         self.publish(id, deltas)?;

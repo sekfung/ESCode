@@ -4,15 +4,39 @@ use anyhow::{Context, Result};
 use serde_json::{Value, json};
 
 impl Engine {
+    /// 自定义 slash 命令在 admission 前异步展开（TS runPromptTurn 的 customCommandPromptResolver）；
+    /// 内置 `/compact`、`/init` 由 admission 自行处理。见 docs/specs/rust-custom-commands.md。
+    pub(super) async fn command_prompt(&self, id: &str, c: &Command) -> Result<Option<String>> {
+        let Some(text) = c.payload["text"].as_str().filter(|_| c.kind == "sendText") else {
+            return Ok(None);
+        };
+        let trimmed = text.trim();
+        if trimmed == "/compact"
+            || trimmed.starts_with("/compact ")
+            || crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
+                trimmed,
+                std::path::Path::new(&self.workspace_path),
+            )
+            .is_some()
+        {
+            return Ok(None);
+        }
+        self.tools
+            .resolve_command(Some(id), text, &tokio_util::sync::CancellationToken::new())
+            .await
+    }
+    /// `command` 为已展开的自定义命令提示词：模型收到展开结果，userInput 行、标题与 `#sess_*` 解析
+    /// 仍用原文（TS displayInput）。
     pub(super) fn admit_input(
         &mut self,
         id: &str,
         c: &Command,
         shared: Option<String>,
+        command: Option<String>,
     ) -> Result<(String, String)> {
         // `/init` 与 TS 一样展开成普通用户提示词（builtin-prompt-command.ts），不改变其余 admission 语义。
-        let expanded;
-        let c = if c.kind == "sendText"
+        let mut model_text = command;
+        if c.kind == "sendText"
             && let Some(text) = c.payload["text"].as_str()
         {
             let text = text.trim();
@@ -21,23 +45,26 @@ impl Engine {
                 compact.payload = json!({"text":text.strip_prefix("/compact").unwrap().trim()});
                 return self.admit_compact(id, &compact);
             }
-            match crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
-                text,
-                std::path::Path::new(&self.workspace_path),
-            ) {
-                Some(prompt) => {
-                    let mut owned = c.clone();
-                    owned.payload["text"] = prompt.into();
-                    expanded = owned;
-                    &expanded
-                }
-                None => c,
+            // 修复：此前 `/init` 把展开后的提示词写回 payload，userInput 行与标题显示整段提示词；
+            // TS 以 displayInput 保留原文，只有模型消息使用展开结果。
+            if let Some(prompt) =
+                crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
+                    text,
+                    std::path::Path::new(&self.workspace_path),
+                )
+            {
+                model_text = Some(prompt);
             }
-        } else {
-            c
-        };
+        }
         let selected = self.select(&c.payload, Some(self.session_selection(id)?))?;
-        let mut content = self.input_content(id, &c.payload)?;
+        let mut content = match &model_text {
+            Some(prompt) => {
+                let mut payload = c.payload.clone();
+                payload["text"] = prompt.clone().into();
+                self.input_content(id, &payload)?
+            }
+            None => self.input_content(id, &c.payload)?,
+        };
         if c.payload["_userSteer"] == true
             && let Some(text) = content.as_str()
         {

@@ -1,0 +1,58 @@
+{
+  "builtins": [
+    {
+      "description": "Show or set the current session goal.",
+      "inputHint": "/goal [pause|resume|clear|replace <objective>|<objective>]",
+      "name": "goal",
+      "source": "builtin"
+    },
+    {
+      "description": "Compact the current conversation with optional instructions.",
+      "inputHint": "/compact [instructions]",
+      "name": "compact",
+      "source": "builtin"
+    },
+    {
+      "description": "Create or update workspace AGENTS.md instructions.",
+      "inputHint": "/init [notes]",
+      "name": "init",
+      "source": "builtin"
+    },
+    {
+      "description": "Switch to Plan mode and optionally send a task.",
+      "inputHint": "/plan [task]",
+      "name": "plan",
+      "source": "builtin"
+    }
+  ],
+  "reserved": [
+    "help",
+    "login",
+    "logout",
+    "compact",
+    "init",
+    "expert",
+    "effort",
+    "variant",
+    "dwf",
+    "fork",
+    "locale",
+    "language",
+    "mcp",
+    "plugins",
+    "plugin",
+    "mode",
+    "model",
+    "new",
+    "clear",
+    "resume",
+    "continue",
+    "rewind",
+    "skill",
+    "goal",
+    "target",
+    "workflow",
+    "compress",
+    "plan"
+  ]
+}

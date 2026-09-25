@@ -7,6 +7,17 @@ impl Engine {
         self.query(method, params)
     }
 
+    /// 快照、订阅与展示查询前按磁盘现状刷新 `slashCommands`（TS 每次读取时重新发现）。
+    pub(super) async fn refresh_slash_commands(&mut self, method: &str) {
+        if matches!(
+            method,
+            "v4/conversation/subscribe" | "session/read" | "workspace/readPresentation"
+        ) {
+            let cancel = tokio_util::sync::CancellationToken::new();
+            self.slash_commands = self.tools.slash_commands(&cancel).await;
+        }
+    }
+
     fn execution_capabilities(&self) -> Value {
         // build/edit 的判定、确认交互与项目规则持久化已实现并通过 App 集成验收；
         // plan 仍需计划审批交互，auto 在 TS 同样是保留未实现，故暂不宣告。
@@ -15,7 +26,7 @@ impl Engine {
 
     pub(super) fn workspace_config(&self) -> Value {
         let options = self.catalog();
-        json!({"executionCapabilities":self.execution_capabilities(),"configOptions":if options.is_empty(){vec![]}else{vec![json!({"id":"model","name":"Model","type":"select","currentValue":self.config.as_ref().map(|c|c.model_id.as_str()).unwrap_or(""),"options":options})]},"slashCommands":[{"name":"compact","description":"Compact conversation context","source":"builtin"}]})
+        json!({"executionCapabilities":self.execution_capabilities(),"configOptions":if options.is_empty(){vec![]}else{vec![json!({"id":"model","name":"Model","type":"select","currentValue":self.config.as_ref().map(|c|c.model_id.as_str()).unwrap_or(""),"options":options})]},"slashCommands":self.slash_commands})
     }
 
     pub(super) fn validate_workspace(&self, p: &Value) -> Result<()> {
@@ -56,7 +67,7 @@ impl Engine {
             "process/childProcesses" => Ok(json!({"processes":[]})),
             "workspace/readPresentation" => {
                 // 旧 App 使用 strict schema；未协商的客户端不能收到新增字段。
-                let mut presentation = json!({"workspace":p["workspace"],"mode":"build","slashCommands":[{"name":"compact","description":"Compact conversation context","source":"builtin"}]});
+                let mut presentation = json!({"workspace":p["workspace"],"mode":"build","slashCommands":self.slash_commands});
                 if p["includeExecutionCapabilities"] == true {
                     presentation["executionCapabilities"] = self.execution_capabilities();
                 }

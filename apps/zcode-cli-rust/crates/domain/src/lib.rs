@@ -19,6 +19,8 @@ pub mod builtin_prompt_command;
 pub mod context;
 pub mod cron;
 mod cron_input;
+pub mod custom_command;
+mod custom_command_template;
 pub mod delta_log;
 pub mod file_checkpoint;
 pub mod goal;

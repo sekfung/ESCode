@@ -12,6 +12,7 @@ pub(super) struct Plugin {
     pub root: PathBuf,
     pub name: String,
     pub manifest: Value,
+    pub official: bool,
 }
 pub(super) async fn enabled(
     cwd: &Path,
@@ -137,6 +138,7 @@ pub(super) async fn enabled(
             root,
             name: name.into(),
             manifest,
+            official: official_source,
         });
     }
     Ok(plugins)

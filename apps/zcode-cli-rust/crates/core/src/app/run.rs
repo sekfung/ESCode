@@ -1,4 +1,4 @@
-use super::{Engine, engine::Active};
+use super::Engine;
 use crate::contract::{Event, EventSink as Sink, ModelPort};
 use anyhow::{Context, Result};
 use std::sync::Arc;
@@ -105,4 +105,12 @@ impl Engine {
         });
         Ok(())
     }
+}
+
+/// 会话当前运行（模型选型通道、取消与 run/turn 标识）。
+pub(crate) struct Active {
+    pub selection: tokio::sync::watch::Sender<crate::contract::ModelIdentity>,
+    pub cancel: tokio_util::sync::CancellationToken,
+    pub run_id: String,
+    pub turn_id: String,
 }

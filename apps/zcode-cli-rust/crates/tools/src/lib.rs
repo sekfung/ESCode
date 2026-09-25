@@ -3,6 +3,10 @@ use zcode_cli_domain as domain;
 mod agent_profiles;
 pub mod bash_git_safety;
 mod checkpoint_blobs;
+mod custom_command_shell;
+mod custom_commands;
+#[cfg(test)]
+mod custom_commands_tests;
 mod edit_apply;
 mod edit_match;
 mod edit_quotes;

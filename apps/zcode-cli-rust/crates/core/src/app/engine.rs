@@ -15,12 +15,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
-pub(super) struct Active {
-    pub selection: tokio::sync::watch::Sender<ModelIdentity>,
-    pub cancel: CancellationToken,
-    pub run_id: String,
-    pub turn_id: String,
-}
+pub(super) use super::run::Active;
 pub struct Engine {
     pub(super) child_updates:
         BTreeMap<String, tokio::sync::watch::Sender<crate::domain::subagent::Task>>,
@@ -64,6 +59,8 @@ pub struct Engine {
     pub(super) question_timing: (u64, u64),
     pub(super) events: mpsc::Sender<RunEvent>,
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
+    /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
+    pub(super) slash_commands: Vec<Value>,
 }
 impl Engine {
     pub async fn new(
@@ -136,6 +133,7 @@ impl Engine {
             question_timing: (60_000, 300_000),
             events,
             event_rx,
+            slash_commands: crate::domain::custom_command::builtin_catalog(),
         })
     }
     pub fn with_registry(
@@ -282,6 +280,7 @@ impl Engine {
             }
             return Ok(());
         }
+        self.refresh_slash_commands(&request.method).await;
         let result = match request.method.as_str() {
             "v4/command" => match serde_json::from_value(request.params.clone()) {
                 Ok(command) => self.command(command).await,

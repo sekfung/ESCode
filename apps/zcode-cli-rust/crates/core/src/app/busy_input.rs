@@ -25,6 +25,24 @@ impl Engine {
         } else {
             self.shared_input(&id, &c.payload, None).await?
         };
+        // 排队输入在出队执行时才展开（与 TS runPromptTurn 时机一致）。
+        let command = if s.running() {
+            None
+        } else {
+            match self.command_prompt(&id, &c).await {
+                Ok(command) => command,
+                // 与 TS 一致：展开失败（如 shell 非零退出）以 failed ACK 回复，不创建轮次。
+                Err(error) => {
+                    let mut ack = c.ack(
+                        "failed",
+                        self.sessions[&id].revision,
+                        Some("fault.command.executionFailed"),
+                    );
+                    ack["message"] = error.to_string().into();
+                    return Ok(ack);
+                }
+            }
+        };
         let start_now = s.running() && c.payload["requestedDelivery"] == "startNow";
         if start_now && s.queued_now.is_some() {
             return Ok(c.ack("rejected", s.revision, Some("guard.queuePromotionBusy")));
@@ -70,7 +88,7 @@ impl Engine {
             self.publish(&id, vec![])?;
             None
         } else {
-            let (turn, input_id) = self.admit_input(&id, &c, shared)?;
+            let (turn, input_id) = self.admit_input(&id, &c, shared, command)?;
             ack["result"] =
                 json!({"type":"inputAccepted","delivery":"startNow","inputId":input_id});
             self.publish(&id, self.new_turn_rows(&id))?;
