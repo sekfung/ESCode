@@ -6,6 +6,7 @@ mod checkpoint_blobs;
 mod edit_apply;
 mod edit_match;
 mod edit_quotes;
+mod embedded_search;
 mod extension_config;
 mod extension_plugins;
 mod file_changes;
@@ -24,6 +25,7 @@ mod tool_process;
 mod tool_search;
 mod tool_shell;
 mod tool_skills;
+mod tool_surface;
 pub mod tools;
 #[cfg(windows)]
 mod win_job;

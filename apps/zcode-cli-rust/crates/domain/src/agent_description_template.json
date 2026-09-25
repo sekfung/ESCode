@@ -1,0 +1,11 @@
+{
+  "frame": {
+    "head": "Launch a new agent to handle complex, multi-step tasks. Each agent type has specific capabilities and tools available to it.\n\n",
+    "tail": "\n\nWhen using the Agent tool, specify a subagent_type parameter to select which agent type to use. If omitted, the general-purpose agent is used.\n\n## When to use\n\nReach for this when the task matches an available agent type, when you have independent work to run in parallel, or when answering would mean reading across several files — delegate it and you keep the conclusion, not the file dumps. For a single-fact lookup where you already know the file, symbol, or value, search directly. Once you've delegated a search, don't also run it yourself — wait for the result.\n\n- The agent's final message is returned to you as the tool result; it is not shown to the user — relay what matters.\n- A new Agent call starts fresh, so the prompt must be self-contained.\n- `run_in_background: true` runs the agent asynchronously; you'll be notified when it completes.\n- When you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.",
+    "listHeader": "Available agent types and the tools they have access to:"
+  },
+  "exploreTools": {
+    "embedded": "Read, Bash, WebFetch, WebSearch, TodoWrite",
+    "direct": "Glob, Grep, Read, Bash, WebFetch, WebSearch, TodoWrite"
+  }
+}

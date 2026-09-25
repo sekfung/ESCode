@@ -17,15 +17,15 @@ pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<V
         .map(|p| config::resolve(&config::home(), &p))
         .unwrap_or_else(|| config::home().join(".zcode"));
     let state = config::json_file(&root.join("v2").join("agents-state.json")).await?;
-    let mut result = builtins()
-        .into_iter()
-        .map(|mut p| {
-            if let Some(selection) = state["builtInModelSelectionOverrides"].get(&p.name) {
-                p.model_selection = Some(selection.clone());
-            }
-            (p.name.clone(), p)
-        })
-        .collect::<BTreeMap<_, _>>();
+    // 修复：此前用 BTreeMap 按名称排序，Agent 描述里 Explore 排在 general-purpose 之前；
+    // TS normalizeAgentProfiles 用插入有序的 Map（同名覆盖保留原位置），这里保持同一顺序。
+    let mut result = Profiles::default();
+    for mut p in builtins() {
+        if let Some(selection) = state["builtInModelSelectionOverrides"].get(&p.name) {
+            p.model_selection = Some(selection.clone());
+        }
+        result.insert(p.name.clone(), p);
+    }
     for (dir, source) in [
         (root.join("agents"), "user"),
         (cwd.join(".zcode").join("agents"), "project"),
@@ -74,7 +74,24 @@ pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<V
         }
         result.insert(p.name.clone(), p);
     }
-    Ok(result.into_values().collect())
+    Ok(result.0.into_iter().map(|(_, profile)| profile).collect())
+}
+
+/// 插入有序、同名覆盖保留位置（JS `Map.set` 语义）。
+#[derive(Default)]
+struct Profiles(Vec<(String, Profile)>);
+
+impl Profiles {
+    fn insert(&mut self, name: String, profile: Profile) {
+        match self.0.iter_mut().find(|(existing, _)| *existing == name) {
+            Some(slot) => slot.1 = profile,
+            None => self.0.push((name, profile)),
+        }
+    }
+
+    fn contains_key(&self, name: &str) -> bool {
+        self.0.iter().any(|(existing, _)| existing == name)
+    }
 }
 async fn markdown(root: &Path, cancel: &CancellationToken) -> Result<Vec<PathBuf>> {
     let mut stack = vec![root.to_owned()];

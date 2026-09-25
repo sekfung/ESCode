@@ -2,13 +2,14 @@
 use serde_json::{Value, json};
 use std::path::Path;
 
-pub(super) fn definitions(schemas: &Value) -> Vec<Value> {
+/// EnterPlanMode 描述随搜索分支变化，由调用方按工具面传入（docs/specs/rust-tool-surface.md）。
+pub(super) fn definitions(schemas: &Value, enter_description: &Value) -> Vec<Value> {
     let descriptions: Value = serde_json::from_str(include_str!("plan_mode_descriptions.json"))
         .expect("validated plan mode descriptions");
-    ["EnterPlanMode", "ExitPlanMode"]
-        .into_iter()
-        .map(|name| json!({"type":"function","function":{"name":name,"description":descriptions[name],"parameters":schemas[name]}}))
-        .collect()
+    vec![
+        json!({"type":"function","function":{"name":"EnterPlanMode","description":enter_description,"parameters":schemas["EnterPlanMode"]}}),
+        json!({"type":"function","function":{"name":"ExitPlanMode","description":descriptions["ExitPlanMode"],"parameters":schemas["ExitPlanMode"]}}),
+    ]
 }
 
 /// TS writeApprovedPlanFile：`<workspace>/.zcode/plans/<file_name>`，建父目录后原子替换。

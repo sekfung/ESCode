@@ -1,4 +1,4 @@
-use super::tool_process::{INLINE, run};
+use super::tool_process::{INLINE, ShellContext, run, shell_output};
 use super::tools::{boolean, keys, string, truncate_utf8, uint};
 use crate::{
     contract::{Event, EventSink, ToolOutput},
@@ -199,7 +199,11 @@ impl ShellTasks {
                 combined,
                 timeout,
                 cancel,
-                shell.as_ref(),
+                ShellContext {
+                    over: shell.as_ref(),
+                    startup_root: artifacts,
+                    session,
+                },
             )
             .await?;
             return Ok(shell_output(data));
@@ -279,6 +283,8 @@ impl ShellTasks {
             token.cancel();
         }
         let cwd = cwd.to_owned();
+        let startup_root = artifacts.to_owned();
+        let session_copy = session.to_owned();
         let command_copy = command.clone();
         let path_copy = path.clone();
         tokio::spawn(async move {
@@ -289,7 +295,11 @@ impl ShellTasks {
                 combined,
                 timeout,
                 &token,
-                shell.as_ref(),
+                ShellContext {
+                    over: shell.as_ref(),
+                    startup_root: &startup_root,
+                    session: &session_copy,
+                },
             )
             .await;
             if let Err(error) = &result
@@ -369,16 +379,6 @@ impl ShellTasks {
         Ok(())
     }
 }
-fn shell_output(data: Value) -> ToolOutput {
-    let failed = matches!(
-        data["status"].as_str(),
-        Some("failed" | "timed_out" | "cancelled" | "spawn_error")
-    );
-    let mut output = ToolOutput::new(serde_json::to_string(&data).unwrap(), data);
-    output.failed = failed;
-    output
-}
-
 /// 首个 Bash 前向会话 owner 请求用户终端偏好（TS `resolveInitialBashShellSelection`）；
 /// 无 owner（fixture/测试）、Host 不支持或超时时按自动探测处理，见 docs/specs/rust-shell-selection.md。
 async fn shell_override(sink: Option<&EventSink>) -> Option<crate::shell_select::Override> {

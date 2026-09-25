@@ -24,6 +24,11 @@ import {
   todoReadToolEntry,
   todoWriteToolEntry,
 } from "../apps/zcode-cli/packages/core/src/tool/handlers/todo.ts";
+import { createBashProviderDescription } from "../apps/zcode-cli/packages/core/src/tool/handlers/bash-prompt.ts";
+import { createEnterPlanModeProviderDescription } from "../apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts";
+import { formatAgentProfilesForPrompt } from "../apps/zcode-cli/packages/core/src/subagent/profile.ts";
+import { formatExploreAllowedToolsForAgentDescription } from "../apps/zcode-cli/packages/core/src/subagent/explore-tools.ts";
+import { orderProviderVisibleToolContracts } from "../apps/zcode-cli/packages/core/src/tool/provider-visible-order.ts";
 const tools = [
   ["Agent", "agent", "AgentInputJsonSchema"],
   ["SendMessage", "send-message", "SendMessageInputJsonSchema"],
@@ -44,13 +49,20 @@ const tools = [
 ];
 // plan 模式 reminder：直接调用 TS 的节奏函数取完整版（首次）与精简版（第 2 次、间隔 5 个真实用户轮次后）。
 const realUser = { message: { role: "user", content: "u" }, metadata: { source: "real_user" } };
-const modeReminder = { message: { role: "user", content: "r" }, metadata: { source: "runtime_mode" } };
+const modeReminder = {
+  message: { role: "user", content: "r" },
+  metadata: { source: "runtime_mode" },
+};
 const planModeReminders = {
   full: buildRuntimeModeReminderBody([], "build", true),
   sparse: buildRuntimeModeReminderBody([modeReminder, ...Array(5).fill(realUser)], "build", true),
   exit: buildPlanModeExitReminderBody(),
 };
-if (!planModeReminders.full || !planModeReminders.sparse || planModeReminders.full === planModeReminders.sparse)
+if (
+  !planModeReminders.full ||
+  !planModeReminders.sparse ||
+  planModeReminders.full === planModeReminders.sparse
+)
   throw new Error("Unexpected TS plan mode reminder cadence");
 const schemas = {};
 for (const [name, file, key] of tools) {
@@ -80,6 +92,71 @@ const capabilities = Object.fromEntries(
     })
     .sort(([a], [b]) => (a < b ? -1 : 1)),
 );
+
+// 模型可见工具面（docs/specs/rust-tool-surface.md）：描述取 TS provider 描述，embedded search 分支与直接分支各一份。
+const staticDescriptions = Object.fromEntries(
+  builtInTools
+    .filter((entry) =>
+      ["Read", "Write", "Edit", "Glob", "Grep", "TaskOutput", "TaskStop"].includes(
+        entry.metadata.name,
+      ),
+    )
+    .map((entry) => [entry.metadata.name, entry.metadata.description]),
+);
+const branches = { embedded: true, direct: false };
+const agentTemplate = Object.fromEntries(
+  Object.entries(branches).map(([branch, embeddedSearchEnabled]) => {
+    const description = createAgentToolEntry({
+      embeddedSearchEnabled,
+      dynamicWorkflowEnabled: false,
+    }).metadata.description;
+    const list = formatAgentProfilesForPrompt([], { embeddedSearchEnabled });
+    const index = description.indexOf(list);
+    if (index < 0) throw new Error("Agent description no longer embeds the profile list");
+    return [
+      branch,
+      {
+        head: description.slice(0, index),
+        tail: description.slice(index + list.length),
+        listHeader: list.split("\n")[0],
+        exploreTools: formatExploreAllowedToolsForAgentDescription({ embeddedSearchEnabled }),
+      },
+    ];
+  }),
+);
+if (
+  agentTemplate.embedded.head !== agentTemplate.direct.head ||
+  agentTemplate.embedded.tail !== agentTemplate.direct.tail
+)
+  throw new Error("Agent description frame now depends on the search branch");
+// TS 排序：参考集合内按 localeCompare，其余保持注册顺序。逐个探测集合成员，避免复制 TS 常量。
+const providerOrder = builtInTools
+  .map((entry) => entry.metadata.name)
+  .filter(
+    (name) =>
+      orderProviderVisibleToolContracts([{ name: "~probe-local-tool" }, { name }])[0].name === name,
+  )
+  .sort((left, right) => left.localeCompare(right));
+const toolSurface = {
+  descriptions: staticDescriptions,
+  Bash: Object.fromEntries(
+    Object.entries(branches).map(([branch, embeddedSearchEnabled]) => [
+      branch,
+      createBashProviderDescription({
+        defaultTimeoutMs: 120000,
+        maxTimeoutMs: 600000,
+        embeddedSearchEnabled,
+      }),
+    ]),
+  ),
+  EnterPlanMode: Object.fromEntries(
+    Object.entries(branches).map(([branch, embeddedSearchEnabled]) => [
+      branch,
+      createEnterPlanModeProviderDescription({ embeddedSearchEnabled }),
+    ]),
+  ),
+  providerOrder,
+};
 
 for (const [file, data] of [
   ["tool_capabilities.json", capabilities],
@@ -134,6 +211,21 @@ for (const [file, data] of [
     },
   ],
   ["../domain/plan_mode_reminders.json", planModeReminders],
+  ["tool_surface.json", toolSurface],
+  [
+    "../domain/agent_description_template.json",
+    {
+      frame: {
+        head: agentTemplate.embedded.head,
+        tail: agentTemplate.embedded.tail,
+        listHeader: agentTemplate.embedded.listHeader,
+      },
+      exploreTools: {
+        embedded: agentTemplate.embedded.exploreTools,
+        direct: agentTemplate.direct.exploreTools,
+      },
+    },
+  ],
 ]) {
   const directory = file.startsWith("../domain/") ? "domain" : "tools";
   const name = file.replace("../domain/", "");

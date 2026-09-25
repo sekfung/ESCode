@@ -1,0 +1,216 @@
+{
+ "cases": [
+  {
+   "env": {},
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {},
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {},
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {},
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "/opt/zcode/bfs",
+    "ZCODE_UGREP_BINARY": "/opt/zcode/ugrep",
+    "ZCODE_RG_BINARY": "/opt/zcode/rg"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v /opt/zcode/bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command /opt/zcode/bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/zcode/ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/zcode/ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v /opt/zcode/rg >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command /opt/zcode/rg \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "/opt/zcode/bfs",
+    "ZCODE_UGREP_BINARY": "/opt/zcode/ugrep",
+    "ZCODE_RG_BINARY": "/opt/zcode/rg"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/zcode/ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/zcode/ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v /opt/zcode/rg >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command /opt/zcode/rg \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "/opt/zcode/bfs",
+    "ZCODE_UGREP_BINARY": "/opt/zcode/ugrep",
+    "ZCODE_RG_BINARY": "/opt/zcode/rg"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "/opt/zcode/bfs",
+    "ZCODE_UGREP_BINARY": "/opt/zcode/ugrep",
+    "ZCODE_RG_BINARY": "/opt/zcode/rg"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "C:\\Program Files\\ZCode\\bfs.exe",
+    "ZCODE_UGREP_BINARY": "C:\\Program Files\\ZCode\\ugrep.exe",
+    "ZCODE_RG_BINARY": "C:\\Program Files\\ZCode\\rg.exe"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v 'C:\\Program Files\\ZCode\\bfs.exe' >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command 'C:\\Program Files\\ZCode\\bfs.exe' -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v 'C:\\Program Files\\ZCode\\ugrep.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command 'C:\\Program Files\\ZCode\\ugrep.exe' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v 'C:\\Program Files\\ZCode\\rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command 'C:\\Program Files\\ZCode\\rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "C:\\Program Files\\ZCode\\bfs.exe",
+    "ZCODE_UGREP_BINARY": "C:\\Program Files\\ZCode\\ugrep.exe",
+    "ZCODE_RG_BINARY": "C:\\Program Files\\ZCode\\rg.exe"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/c/Program Files/ZCode/ugrep.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/c/Program Files/ZCode/ugrep.exe' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v '/c/Program Files/ZCode/rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command '/c/Program Files/ZCode/rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "C:\\Program Files\\ZCode\\bfs.exe",
+    "ZCODE_UGREP_BINARY": "C:\\Program Files\\ZCode\\ugrep.exe",
+    "ZCODE_RG_BINARY": "C:\\Program Files\\ZCode\\rg.exe"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_BFS_BINARY": "C:\\Program Files\\ZCode\\bfs.exe",
+    "ZCODE_UGREP_BINARY": "C:\\Program Files\\ZCode\\ugrep.exe",
+    "ZCODE_RG_BINARY": "C:\\Program Files\\ZCode\\rg.exe"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ZCODE_RG_BINARY": "rg"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/it'\\''s/ugrep' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/it'\\''s/ugrep' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ZCODE_RG_BINARY": "rg"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/it'\\''s/ugrep' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/it'\\''s/ugrep' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ZCODE_RG_BINARY": "rg"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ZCODE_RG_BINARY": "rg"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v '\\\\server\\share\\rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command '\\\\server\\share\\rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v //server/share/rg.exe >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command //server/share/rg.exe \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ZCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "/opt/zcode/zcode"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v /opt/zcode/zcode >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command /opt/zcode/zcode __internal-search find \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/zcode/zcode >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/zcode/zcode __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "/opt/zcode/zcode"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/zcode/zcode >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/zcode/zcode __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "/opt/zcode/zcode"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "/opt/zcode/zcode"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ZCode\\zcode.exe",
+    "ZCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v 'C:\\ZCode\\zcode.exe' >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command 'C:\\ZCode\\zcode.exe' __internal-search find \"$@\"\n}\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v 'C:\\ZCode\\zcode.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command 'C:\\ZCode\\zcode.exe' __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ZCode\\zcode.exe",
+    "ZCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _zcode_grep_arg\n  for _zcode_grep_arg in \"$@\"; do\n    case \"$_zcode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /c/ZCode/zcode.exe >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /c/ZCode/zcode.exe __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ZCode\\zcode.exe",
+    "ZCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ZCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ZCode\\zcode.exe",
+    "ZCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  }
+ ]
+}

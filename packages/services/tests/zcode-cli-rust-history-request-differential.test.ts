@@ -154,6 +154,7 @@ async function observe(kind: "node" | "rust", source: string) {
     const request = f.requests[0]!;
     const observation = {
       conversation: conversation(request.messages),
+      tools: (request.tools ?? []).map((t: any) => t.function ?? t),
       schemaErrors: h.schemaErrors,
     };
     await h.close();
@@ -170,10 +171,47 @@ test("Node and Rust send the same conversation to the model when continuing an i
   const node = await observe("node", source);
   const rust = await observe("rust", source);
   if (process.env.ZCODE_HREQ_DUMP)
-    console.log("DUMP", JSON.stringify({ node: node.conversation, rust: rust.conversation }));
+    console.log(
+      "DUMP",
+      JSON.stringify({
+        node: node.conversation,
+        rust: rust.conversation,
+        nodeTools: node.tools,
+        rustTools: rust.tools,
+      }),
+    );
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
   // 自检：历史确实进入了请求（6 轮问答 + 本轮问题）。
   assert(node.conversation.some((m) => m.content === "question 0"));
   assert.deepEqual(rust.conversation, node.conversation);
+  // 模型可见工具面（docs/specs/rust-tool-surface.md）：名称、顺序、描述逐字一致，参数 schema 语义一致。
+  // 尚未实现的工具显式列出，实现后移出。
+  const pending = new Set([
+    "WebFetch",
+    "ReadSessionContext",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "CronUpdate",
+  ]);
+  const canonical = (value: any): any =>
+    Array.isArray(value)
+      ? value.map(canonical)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((key) => [key, canonical(value[key])]),
+          )
+        : value;
+  const surface = (tools: any[]) =>
+    tools
+      .filter((tool) => !pending.has(tool.name))
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: canonical(tool.parameters),
+      }));
+  assert.deepEqual(surface(rust.tools), surface(node.tools));
 });

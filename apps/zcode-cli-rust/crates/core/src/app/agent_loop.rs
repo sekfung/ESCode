@@ -39,14 +39,9 @@ pub(super) async fn run(
         .iter_mut()
         .find(|d| d["function"]["name"] == "Agent")
     {
-        let descriptions = profiles
-            .iter()
-            .map(|p| format!("- {}: {}", p.name, p.description))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let base = agent["function"]["description"].as_str().unwrap_or("");
+        // 按 TS 模板内联当前 profile 目录（此前追加的自拟 catalog 段 Node 没有，见 rust-tool-surface.md）。
         agent["function"]["description"] =
-            format!("{base}\n\nCurrent profile catalog (authoritative):\n{descriptions}").into();
+            crate::domain::agent_description::render(&profiles, true).into();
     }
     let tool_tokens = definitions
         .iter()

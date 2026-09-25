@@ -71,17 +71,39 @@ pub(super) async fn run(
     combined: Arc<Mutex<tokio::fs::File>>,
     timeout: Option<Duration>,
     cancel: &CancellationToken,
-    shell: Option<&crate::shell_select::Override>,
+    shell: ShellContext<'_>,
 ) -> Result<Value> {
     check_cancel(cancel)?;
     // 原实现在 Windows 固定 cmd.exe、POSIX 固定 /bin/bash，与 TS 自动选择 Git Bash / $SHELL 的语义不一致；
     // 改为复用 shell_select（对应 TS bash-shell-provider），见 docs/specs/rust-shell-selection.md。
     let platform = crate::shell_select::Platform::current();
     let env: Vec<(String, String)> = std::env::vars().collect();
-    let selection = crate::shell_select::resolve(platform, &env, shell, &|p| {
+    let selection = crate::shell_select::resolve(platform, &env, shell.over, &|p| {
         std::path::Path::new(p).is_file()
     });
-    let plan = crate::shell_select::spawn_plan(platform, &env, &selection, text);
+    // 与 TS 默认 embedded search 分支一致：posix / git-bash 会话在命令前 source find/grep prelude
+    // （模型工具面不再暴露 Glob/Grep，见 docs/specs/rust-tool-surface.md）；cmd / legacy 不注入。
+    let dialect = match selection.dialect {
+        crate::shell_select::Dialect::Posix => "posix",
+        crate::shell_select::Dialect::GitBash => "git-bash",
+        crate::shell_select::Dialect::Cmd => "cmd",
+        crate::shell_select::Dialect::Legacy => "legacy-shell",
+    };
+    let text =
+        match crate::embedded_search::prelude(&crate::embedded_search::backend(&env), dialect) {
+            Some(content) => {
+                crate::embedded_search::prepend_source(
+                    text,
+                    &content,
+                    shell.startup_root,
+                    shell.session,
+                    dialect == "git-bash",
+                )
+                .await?
+            }
+            None => text.to_owned(),
+        };
+    let plan = crate::shell_select::spawn_plan(platform, &env, &selection, &text);
     let mut command = Command::new(&plan.file);
     command.args(&plan.args).envs(plan.env_overlay);
     command
@@ -232,4 +254,22 @@ pub(super) async fn terminate(
         }
         Ok(())
     }
+}
+
+/// Bash 执行的会话上下文：用户选择的 shell，以及 prelude 落盘位置（会话维度）。
+#[derive(Clone, Copy)]
+pub(super) struct ShellContext<'a> {
+    pub over: Option<&'a crate::shell_select::Override>,
+    pub startup_root: &'a Path,
+    pub session: &'a str,
+}
+
+pub(super) fn shell_output(data: Value) -> crate::contract::ToolOutput {
+    let failed = matches!(
+        data["status"].as_str(),
+        Some("failed" | "timed_out" | "cancelled" | "spawn_error")
+    );
+    let mut output = crate::contract::ToolOutput::new(serde_json::to_string(&data).unwrap(), data);
+    output.failed = failed;
+    output
 }
