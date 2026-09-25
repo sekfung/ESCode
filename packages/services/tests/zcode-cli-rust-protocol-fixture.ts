@@ -4,7 +4,13 @@ export function sse(res: ServerResponse, value: Message) {
   res.write(`data: ${JSON.stringify(value)}\n\n`);
 }
 const input = JSON.stringify({ file_path: "protocol.txt", content: "native protocol" });
-export function responses(res: ServerResponse, tool = false) {
+/** 工具调用：`true` 为默认 Write 调用，或指定工具名与入参。 */
+type ToolCall = boolean | { name: string; input: Message };
+const callName = (tool: ToolCall) => (typeof tool === "object" ? tool.name : "Write");
+const callInput = (tool: ToolCall) =>
+  typeof tool === "object" ? JSON.stringify(tool.input) : input;
+export function responses(res: ServerResponse, tool: ToolCall = false) {
+  const input = callInput(tool);
   res.writeHead(200, { "content-type": "text/event-stream" });
   sse(res, { type: "response.created", response: { id: "resp-1" } });
   const reasoning = {
@@ -30,7 +36,7 @@ export function responses(res: ServerResponse, tool = false) {
         type: "function_call",
         id: "fc-1",
         call_id: "call-1",
-        name: "Write",
+        name: callName(tool),
         arguments: input,
         status: "completed",
       }
@@ -82,7 +88,8 @@ export function responses(res: ServerResponse, tool = false) {
   });
   res.end();
 }
-export function anthropic(res: ServerResponse, tool = false) {
+export function anthropic(res: ServerResponse, tool: ToolCall = false) {
+  const input = callInput(tool);
   res.writeHead(200, { "content-type": "text/event-stream" });
   sse(res, {
     type: "message_start",
@@ -113,7 +120,7 @@ export function anthropic(res: ServerResponse, tool = false) {
     type: "content_block_start",
     index: 1,
     content_block: tool
-      ? { type: "tool_use", id: "call-1", name: "Write", input: {} }
+      ? { type: "tool_use", id: "call-1", name: callName(tool), input: {} }
       : { type: "text", text: "" },
   });
   if (tool)

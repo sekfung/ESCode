@@ -21,6 +21,7 @@ pub(super) struct WaitingPlan {
 
 fn failed(content: String, control: ToolControl) -> ToolOutput {
     ToolOutput {
+        media: Vec::new(),
         failed: true,
         content,
         data: Value::Null,

@@ -40,6 +40,18 @@ pub(super) async fn run(
     if !skills.enabled {
         definitions.retain(|d| d["function"]["name"] != "Skill");
     }
+    // 模型输入能力决定 Read 的 PDF 分支与 schema（rust-media-read.md）。
+    let properties = model
+        .bind()
+        .map(|m| m.format_properties())
+        .unwrap_or_else(|| model.format_properties());
+    tools
+        .adapt_to_model(
+            &sink.session_id,
+            &mut definitions,
+            &properties["inputFormat"],
+        )
+        .await;
     // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
     let turn_facts = std::mem::take(&mut history.turn);
     super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
@@ -237,14 +249,22 @@ pub(super) async fn run(
                 })
                 .buffered(4);
             while let Some(result) = results.next().await {
-                let (id, output, failed, denied) = result?;
+                let (id, tool, output, failed, denied) = result?;
                 stop_turn |= output.control.stop_turn;
                 let content = output.content;
-                history.push(json!({"role":"tool","tool_call_id":id,"content":content,"_zcode_tool_failed":failed}));
+                // 含媒体的结果以 part 数组入史，由 model 协议层按 API 格式投影（rust-media-read.md）。
+                let body = if output.media.is_empty() {
+                    Value::String(content.clone())
+                } else {
+                    Value::Array(output.media.clone())
+                };
+                history.push(json!({"role":"tool","tool_call_id":id,"content":body,"_zcode_tool_failed":failed,"_zcode_tool_name":tool}));
                 let (committed, receipt) = oneshot::channel();
                 sink.send(Event::ToolDone {
                     id,
+                    tool,
                     result: content,
+                    media: output.media,
                     display: output.display,
                     failed,
                     denied,

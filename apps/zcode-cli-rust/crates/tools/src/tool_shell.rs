@@ -67,6 +67,7 @@ impl ShellTasks {
                     let message = format!("Task {id} stopped");
                     let data = json!({"message":message,"task_id":id,"task_type":"bash","command":job.command});
                     return Ok(ToolOutput {
+                        media: Vec::new(),
                         failed: false,
                         content: message.clone(),
                         display: Some(
@@ -125,6 +126,7 @@ impl ShellTasks {
                     display["truncated"] = true.into();
                 }
                 Ok(ToolOutput {
+                    media: Vec::new(),
                     failed: false,
                     content: serde_json::to_string(&data)?,
                     data,

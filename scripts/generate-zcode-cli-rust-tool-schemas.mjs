@@ -30,6 +30,10 @@ import { createEnterPlanModeProviderDescription } from "../apps/zcode-cli/packag
 import { formatAgentProfilesForPrompt } from "../apps/zcode-cli/packages/core/src/subagent/profile.ts";
 import { formatExploreAllowedToolsForAgentDescription } from "../apps/zcode-cli/packages/core/src/subagent/explore-tools.ts";
 import { orderProviderVisibleToolContracts } from "../apps/zcode-cli/packages/core/src/tool/provider-visible-order.ts";
+import {
+  resolveReadInputSchema,
+  resolveReadProviderDescription,
+} from "../apps/zcode-cli/packages/core/src/tool/handlers/read-pdf.ts";
 const tools = [
   ["Agent", "agent", "AgentInputJsonSchema"],
   ["SendMessage", "send-message", "SendMessageInputJsonSchema"],
@@ -178,6 +182,14 @@ const toolSurface = {
     ]),
   ),
   providerOrder,
+  // 模型支持 PDF 时 Read 的 schema（含 pages）与描述（插入 PDF 行），见 docs/specs/rust-media-read.md。
+  readPdf: (() => {
+    const context = { model: { properties: { inputFormat: { supportsPdf: true } } } };
+    return {
+      description: resolveReadProviderDescription(staticDescriptions.Read, context),
+      parameters: resolveReadInputSchema(context),
+    };
+  })(),
 };
 
 for (const [file, data] of [

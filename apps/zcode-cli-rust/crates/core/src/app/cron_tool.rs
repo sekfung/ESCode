@@ -60,6 +60,7 @@ pub(super) async fn execute(
     if outcome.limit {
         // TS withAutomationCreateLimitTurnStop：隐藏原始错误（含删除诱导），结束本轮后续工具。
         return Ok(ToolOutput {
+            media: Vec::new(),
             failed: true,
             content: cron::LIMIT_MODEL_MESSAGE.into(),
             data: Value::Null,

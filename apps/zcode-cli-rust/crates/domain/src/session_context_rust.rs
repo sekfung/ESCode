@@ -113,11 +113,11 @@ fn assistant_message(
         match result {
             Some(result) if result["_zcode_tool_failed"] == true => {
                 state["status"] = "error".into();
-                state["error"] = result["content"].clone();
+                state["error"] = tool_text(&result["content"]);
             }
             Some(result) => {
                 state["status"] = "completed".into();
-                state["output"] = result["content"].clone();
+                state["output"] = tool_text(&result["content"]);
             }
             None => state["status"] = "running".into(),
         }
@@ -201,4 +201,27 @@ impl<'a> RowClock<'a> {
             .and_then(|row| row["createdAt"].as_i64())
             .unwrap_or(self.fallback)
     }
+}
+
+/// 工具结果文本：媒体结果（附件引用数组）按 TS modelMessageContentToText 的占位形式呈现。
+fn tool_text(content: &Value) -> Value {
+    let Some(parts) = content.as_array() else {
+        return content.clone();
+    };
+    parts
+        .iter()
+        .map(|p| match p["type"].as_str() {
+            Some("text") => p["text"].as_str().unwrap_or_default().to_owned(),
+            _ => {
+                let mime = p["asset"]["mediaType"].as_str().unwrap_or_default();
+                match p["name"].as_str().filter(|n| !n.is_empty()) {
+                    Some(name) => format!("[Attached {mime}: {name}]"),
+                    None => format!("[Attached {mime}]"),
+                }
+            }
+        })
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
+        .into()
 }

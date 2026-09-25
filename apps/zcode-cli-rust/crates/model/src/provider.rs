@@ -195,6 +195,8 @@ impl HttpModel {
         let has_attachments =
             super::request_attachments::materialize(&mut messages, &self.format_properties())
                 .await?;
+        let messages =
+            super::tool_media::project(messages, self.config.api_type, &self.format_properties())?;
         let body = model_protocol::body(&self.config, messages, tools)?;
         // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
         let encoded = Bytes::from(

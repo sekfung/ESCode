@@ -8,6 +8,7 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
     let mut expanded = false;
     let mut total = 0u64;
     for message in messages.iter_mut() {
+        let tool = message["role"] == "tool";
         let Some(parts) = message["content"].as_array_mut() else {
             continue;
         };
@@ -32,8 +33,25 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
             } else {
                 None
             };
-            if capability.is_some_and(|key| properties["inputFormat"][key] != true) {
-                return Err(ModelFailure::new("attachment_unsupported", false));
+            if let Some(key) = capability.filter(|key| properties["inputFormat"][key] != true) {
+                // 工具结果媒体在模型不支持时以占位文本交付（TS createUnsupportedModelInputMediaText），
+                // 用户附件仍拒绝请求。
+                if !tool {
+                    return Err(ModelFailure::new("attachment_unsupported", false));
+                }
+                let kind = match key {
+                    "supportsImage" => "image input",
+                    "supportsPdf" => "PDF input",
+                    _ => "video input",
+                };
+                let name = part["name"].as_str().unwrap_or_default();
+                let placeholder = if name.is_empty() {
+                    format!("[Attached {mime}]")
+                } else {
+                    format!("[Attached {mime}: {name}]")
+                };
+                *part = json!({"type":"text","text":format!("{placeholder}\n[Media omitted from provider request because the selected model does not support {kind}.]")});
+                continue;
             }
             let mut file = tokio::fs::File::open(&asset.path)
                 .await
@@ -65,12 +83,13 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                     "data:{mime};base64,{}",
                     base64::engine::general_purpose::STANDARD.encode(bytes)
                 );
+                // `_zcode_name` 供工具结果文本化占位使用，协议层发送前剥离。
                 if mime.starts_with("image/") {
-                    json!({"type":"image_url","image_url":{"url":data}})
+                    json!({"type":"image_url","image_url":{"url":data},"_zcode_name":name})
                 } else if mime.starts_with("video/") {
-                    json!({"type":"video_url","video_url":{"url":data}})
+                    json!({"type":"video_url","video_url":{"url":data},"_zcode_name":name})
                 } else {
-                    json!({"type":"file","file":{"filename":name,"file_data":data}})
+                    json!({"type":"file","file":{"filename":name,"file_data":data},"_zcode_name":name})
                 }
             } else {
                 let name = asset.source_path.as_deref().unwrap_or(name);

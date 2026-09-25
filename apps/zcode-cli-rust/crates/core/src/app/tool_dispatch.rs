@@ -21,7 +21,7 @@ pub(super) async fn execute(
     call: Value,
     sink: &EventSink,
     cancel: &CancellationToken,
-) -> Result<(String, crate::contract::ToolOutput, bool, bool)> {
+) -> Result<(String, String, crate::contract::ToolOutput, bool, bool)> {
     let ExecutionContext {
         skills,
         profile,
@@ -60,6 +60,7 @@ pub(super) async fn execute(
     } else if !outcome.allowed {
         // 拒绝文案与 TS 逐字一致（不套 "Tool failed:" 前缀），模型据此停止并等待用户指示。
         Ok(crate::contract::ToolOutput {
+            media: Vec::new(),
             failed: true,
             content: outcome.denial.unwrap_or_else(|| "Permission denied".into()),
             data: Value::Null,
@@ -130,6 +131,7 @@ pub(super) async fn execute(
         .unwrap_or_else(|error| crate::contract::ToolOutput::text(format!("Tool failed: {error}")));
     Ok((
         call["id"].as_str().context("Tool id missing")?.into(),
+        name.to_owned(),
         content,
         failed,
         denied,

@@ -31,6 +31,8 @@ struct Observation {
 pub struct FileTools<'a> {
     /// 启用记忆时的（记忆根, 来源会话）：写入记忆 Markdown 时补写 originSessionId。
     pub memory: Option<(&'a str, &'a str)>,
+    /// 本轮模型的 inputFormat（PDF/图片能力）。
+    pub input_format: Value,
     pub sink: Option<&'a crate::contract::EventSink>,
     pub checkpoint_root: &'a Path,
     pub cwd: &'a Path,
@@ -47,7 +49,15 @@ impl FileTools<'_> {
     ) -> Result<ToolOutput> {
         let path = resolve(self.cwd, string(args, "file_path")?)?;
         if name == "Read" {
-            keys(args, &["file_path", "offset", "limit"])?;
+            let pdf = super::read_pdf::supports(&self.input_format, "supportsPdf");
+            keys(
+                args,
+                if pdf {
+                    &["file_path", "offset", "limit", "pages"]
+                } else {
+                    &["file_path", "offset", "limit"]
+                },
+            )?;
             return self.read(&path, args, cancel).await;
         }
         keys(
@@ -76,6 +86,20 @@ impl FileTools<'_> {
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         let path = zcode_cli_host::realpath(path).await?;
+        // TS 先按扩展名分派媒体（docs/specs/rust-media-read.md）。
+        if let Some(mime) = super::read_image::mime_from_path(&path) {
+            return super::read_image::read(&path, mime, cancel).await;
+        }
+        if let Some(mime) = super::read_image::video_mime_from_path(&path) {
+            return super::read_image::read_video(&path, mime, cancel).await;
+        }
+        if super::read_pdf::supports(&self.input_format, "supportsPdf")
+            && path.to_string_lossy().to_lowercase().ends_with(".pdf")
+        {
+            let pages = args["pages"].as_str();
+            let image = super::read_pdf::supports(&self.input_format, "supportsImage");
+            return super::read_pdf::read(&path, pages, image, cancel).await;
+        }
         if !tokio::fs::metadata(&path).await?.is_file() {
             bail!("Read requires a regular file");
         }
@@ -266,10 +290,11 @@ impl FileTools<'_> {
             }
         };
         let new = match self.memory {
+            // 按未 realpath 的请求路径判定（TS resolveWorkspacePath 不解析符号链接/短文件名）。
             Some((root, origin)) => crate::domain::memory::stamp_origin(
                 &new,
                 root,
-                &path.to_string_lossy(),
+                &input.to_string_lossy(),
                 origin,
                 &self.cwd.to_string_lossy(),
             ),

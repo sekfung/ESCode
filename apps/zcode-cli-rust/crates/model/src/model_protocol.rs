@@ -97,13 +97,13 @@ pub(super) fn body(
                     }
                 }
             }
-            let tools=tools.iter().map(|t|json!({"type":"function","name":t["function"]["name"],"description":t["function"]["description"],"parameters":t["function"]["parameters"],"strict":false})).collect::<Vec<_>>();
+            let tools=tools.iter().map(|t|json!({"type":"function","name":t["function"]["name"],"description":t["function"]["description"],"parameters":t["function"]["parameters"]})).collect::<Vec<_>>();
             let mut body = json!({"model":config.model_id,"stream":true,"store":false,"include":["reasoning.encrypted_content"],"max_output_tokens":config.max_output_tokens});
             body["input"] = input.into();
             body["tools"] = tools.into();
             body
         }
-        ApiType::Anthropic => anthropic_body(config, &messages, tools)?,
+        ApiType::Anthropic => super::anthropic_body::body(config, &messages, tools)?,
     };
     if tools.is_empty() {
         body.as_object_mut().unwrap().remove("tools");
@@ -118,89 +118,6 @@ pub(super) fn body(
     for patch in &config.option_patches {
         crate::domain::option_map::merge_patch(&mut body, patch);
     }
-    Ok(body)
-}
-fn anthropic_body(
-    config: &ModelConfig,
-    messages: &[Value],
-    tools: &[Value],
-) -> Result<Value, ModelFailure> {
-    let mut system = vec![];
-    let cache_system = messages
-        .iter()
-        .any(|m| m["role"] == "system" && m["_zcode_cache_control"].is_object());
-    let mut output: Vec<Value> = vec![];
-    for message in messages {
-        let mut content = vec![];
-        let role = message["role"].as_str().ok_or_else(ModelFailure::invalid)?;
-        if role == "system" {
-            let text = message["content"]
-                .as_str()
-                .ok_or_else(ModelFailure::invalid)?;
-            let mut block = json!({"type":"text","text":text});
-            if message["_zcode_cache_control"].is_object() {
-                block["cache_control"] = message["_zcode_cache_control"].clone();
-            }
-            system.push(block);
-            continue;
-        }
-        if let Some(blocks) = message["_zcode_anthropic_thinking"].as_array() {
-            content.extend_from_slice(blocks);
-        }
-        if role == "tool" {
-            content.push(json!({"type":"tool_result","tool_use_id":message["tool_call_id"],"content":message["content"],"is_error":message["_zcode_tool_failed"].as_bool().unwrap_or(false)}));
-        } else if message["content"].is_array() {
-            content.extend(super::model_media::anthropic(&message["content"])?);
-        } else if message["content"].as_str().is_some_and(|s| !s.is_empty()) {
-            content.push(json!({"type":"text","text":message["content"]}));
-        }
-        if let Some(calls) = message["tool_calls"].as_array() {
-            for call in calls {
-                let input: Value = serde_json::from_str(
-                    call["function"]["arguments"]
-                        .as_str()
-                        .ok_or_else(ModelFailure::invalid)?,
-                )
-                .map_err(|_| ModelFailure::invalid())?;
-                if !input.is_object() {
-                    return Err(ModelFailure::invalid());
-                }
-                content.push(json!({"type":"tool_use","id":call["id"],"name":call["function"]["name"],"input":input}));
-            }
-        }
-        let role = if role == "tool" { "user" } else { role };
-        // 对齐 TS reasoning-history-normalization；仅推理截断仍保留 canonical，请求不回放孤立 thinking。
-        if content.is_empty()
-            || (role == "assistant"
-                && content
-                    .iter()
-                    .all(|b| matches!(b["type"].as_str(), Some("thinking" | "redacted_thinking"))))
-        {
-            continue;
-        }
-        if let Some(last) = output.last_mut().filter(|m| m["role"] == role) {
-            last["content"].as_array_mut().unwrap().extend(content);
-        } else {
-            let mut message = json!({"role":role});
-            message["content"] = content.into();
-            output.push(message);
-        }
-    }
-    let tools=tools.iter().map(|t|json!({"name":t["function"]["name"],"description":t["function"]["description"],"input_schema":t["function"]["parameters"]})).collect::<Vec<_>>();
-    let mut body =
-        json!({"model":config.model_id,"stream":true,"max_tokens":config.max_output_tokens});
-    body["system"] = if cache_system {
-        system.into()
-    } else {
-        system
-            .iter()
-            .filter_map(|b| b["text"].as_str())
-            .collect::<Vec<_>>()
-            .join("\n\n")
-            .into()
-    };
-    body["messages"] = output.into();
-    body["tools"] = tools.into();
     Ok(body)
 }
 pub(super) enum ProtocolStream {

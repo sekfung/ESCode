@@ -62,3 +62,15 @@ fn order_like_provider(definitions: Vec<Value>, surface: &Value) -> Vec<Value> {
     reference.extend(local);
     reference
 }
+
+/// 模型支持 PDF 时 Read 改用 TS resolveReadInputSchema / resolveReadProviderDescription 的结果。
+pub(super) fn apply_pdf_read(definitions: &mut [Value]) {
+    let variant = &tool_surface()["readPdf"];
+    if let Some(read) = definitions
+        .iter_mut()
+        .find(|d| d["function"]["name"] == "Read")
+    {
+        read["function"]["description"] = variant["description"].clone();
+        read["function"]["parameters"] = variant["parameters"].clone();
+    }
+}

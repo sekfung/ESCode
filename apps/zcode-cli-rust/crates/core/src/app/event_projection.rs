@@ -2,7 +2,7 @@ use super::{Engine, Event, RunEvent};
 use anyhow::{Result, bail};
 use serde_json::json;
 impl Engine {
-    pub(super) async fn apply_event(&mut self, event: RunEvent) -> Result<()> {
+    pub(super) async fn apply_event(&mut self, mut event: RunEvent) -> Result<()> {
         if self.auxiliary.contains_key(&event.session_id) {
             return self.auxiliary_event(event);
         }
@@ -116,6 +116,13 @@ impl Engine {
         if matches!(event.event, Event::Finished { .. }) {
             self.cancel_auth(&id);
         }
+        // 工具结果媒体先落附件存储，会话消息只保留引用（base64 不进入会话库）。
+        let stored = match &mut event.event {
+            Event::ToolDone { media, .. } if !media.is_empty() => {
+                Some(self.store_tool_media(std::mem::take(media)).await?)
+            }
+            _ => None,
+        };
         let now = self.clock.now();
         let s = self.sessions.get_mut(&id).unwrap();
         let mut deltas = vec![];
@@ -247,14 +254,21 @@ impl Engine {
             }
             Event::ToolDone {
                 id: call_id,
+                tool,
                 result,
                 display,
                 failed,
                 denied,
                 committed,
+                ..
             } => {
                 receipt = Some(committed);
-                s.append_message(json!({"role":"tool","tool_call_id":call_id,"content":result,"_zcode_tool_failed":failed}));
+                let mut message = json!({"role":"tool","tool_call_id":call_id,"content":result,"_zcode_tool_failed":failed});
+                if let Some(parts) = stored {
+                    message["content"] = parts.into();
+                    message["_zcode_tool_name"] = tool.into();
+                }
+                s.append_message(message);
                 if let Some(row) = s
                     .rows
                     .iter_mut()

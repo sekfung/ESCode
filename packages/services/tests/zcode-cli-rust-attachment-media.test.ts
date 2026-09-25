@@ -53,10 +53,12 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
       // Anthropic 合并相邻 user 消息，context reminder 位于实际附件文本之前。
       if (apiType === "anthropic-messages") assert.match(content[0].text, /^<system-reminder>/);
       const video = content[apiType === "anthropic-messages" ? 2 : 1];
+      // 视频是最新消息的最后一块：TS finalizeLatestNonSystemMessageCacheControl 在其上设缓存断点。
       if (apiType === "anthropic-messages")
         assert.deepEqual(video, {
           type: "video",
           source: { type: "base64", media_type: "video/mp4", data: bytes.toString("base64") },
+          cache_control: { type: "ephemeral" },
         });
       else
         assert.deepEqual(video, {

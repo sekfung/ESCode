@@ -7,6 +7,9 @@ pub struct ToolOutput {
     pub data: Value,
     pub display: Option<Value>,
     pub control: ToolControl,
+    /// 工具结果中的媒体（chat 形态 part：image_url / video_url / file）。模型可见内容为这些 part；
+    /// `content` 为其文本化结果（行展示与不支持媒体时）。见 docs/specs/rust-media-read.md。
+    pub media: Vec<Value>,
 }
 /// 工具结果对本轮的控制（TS ToolExecutionResult.turnControl / 拒绝投影）。
 #[derive(Default, Clone, Copy)]
@@ -24,6 +27,7 @@ impl ToolOutput {
             data: Value::Null,
             display: None,
             control: ToolControl::default(),
+            media: Vec::new(),
         }
     }
     pub fn new(content: String, data: Value) -> Self {
@@ -33,6 +37,7 @@ impl ToolOutput {
             data,
             display: None,
             control: ToolControl::default(),
+            media: Vec::new(),
         }
     }
 }

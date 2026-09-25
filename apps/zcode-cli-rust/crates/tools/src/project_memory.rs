@@ -4,14 +4,17 @@ use crate::domain::memory::{self, ManifestEntry};
 use std::path::{Path, PathBuf};
 
 /// TS resolveEnabledProjectMemoryRoot + loadProjectMemoryRoot + loadProjectMemoryIndexContent。
-pub(crate) async fn resolve(cwd: &Path) -> Option<crate::contract::ProjectMemory> {
+pub(crate) async fn resolve(
+    cwd: &Path,
+    workspace: &Path,
+) -> Option<crate::contract::ProjectMemory> {
     let settings = config::load(cwd).await.unwrap_or_default();
     if settings["features"]["memory"] == false || settings["memory"]["use"] == false {
         return None;
     }
     // 与插件存储同源：storage() 为 <base>/cli/plugins，记忆位于 <base>/cli/memories。
     let cli_root = config::storage(&settings).parent()?.to_owned();
-    let workspace = std::path::absolute(cwd).ok()?;
+    let workspace = std::path::absolute(workspace).ok()?;
     let path = workspace.to_string_lossy().into_owned();
     // TS：无 identity 时以绝对路径为 key，Windows 下转小写。
     let key = if cfg!(windows) {

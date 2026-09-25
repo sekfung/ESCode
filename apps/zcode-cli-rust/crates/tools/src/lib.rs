@@ -29,7 +29,10 @@ mod plan_tools;
 #[cfg(unix)]
 mod process_tree;
 mod project_memory;
+mod read_image;
+mod read_pdf;
 mod shell_select;
+mod tool_args;
 mod tool_capability;
 mod tool_files;
 mod tool_process;

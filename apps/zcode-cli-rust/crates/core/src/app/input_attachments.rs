@@ -109,4 +109,30 @@ impl Engine {
         }
         Ok(content.into())
     }
+    /// 工具结果媒体（data URL part）写入附件存储，换成与用户附件相同的 `_zcode_attachment` 引用。
+    pub(super) async fn store_tool_media(&self, parts: Vec<Value>) -> Result<Vec<Value>> {
+        use base64::Engine as _;
+        let mut stored = Vec::with_capacity(parts.len());
+        for part in parts {
+            // 文本 part（如 PDF 说明）原样保留。
+            if part["type"] == "text" {
+                stored.push(part);
+                continue;
+            }
+            let url = part["image_url"]["url"]
+                .as_str()
+                .or_else(|| part["video_url"]["url"].as_str())
+                .or_else(|| part["file"]["file_data"].as_str())
+                .context("Tool media part missing data")?;
+            let (mime, data) = url
+                .strip_prefix("data:")
+                .and_then(|rest| rest.split_once(";base64,"))
+                .context("Tool media must be a base64 data URL")?;
+            let bytes = base64::engine::general_purpose::STANDARD.decode(data)?;
+            let asset = self.store.put_attachment(&[bytes], mime).await?;
+            stored
+                .push(json!({"type":"_zcode_attachment","asset":asset,"name":part["_zcode_name"]}));
+        }
+        Ok(stored)
+    }
 }

@@ -3,22 +3,22 @@ use super::{
     tool_shell::ShellTasks,
 };
 use crate::contract::{EventSink, ToolOutput, ToolPort};
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use serde_json::Value;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 pub struct WorkspaceTools {
     cwd: PathBuf,
+    /// Host 提交的 workspace 绝对路径（不解析符号链接/短文件名），记忆根按它哈希，与 Node 一致。
+    workspace_path: PathBuf,
     artifacts: PathBuf,
     reads: Mutex<HashMap<String, Arc<Mutex<FileState>>>>,
     /// 会话的记忆上下文（记忆根, 来源会话），Write/Edit 据此补写 originSessionId。
     memory: Mutex<HashMap<String, (String, String)>>,
+    /// 会话本轮模型的 inputFormat（Read 的 PDF/图片分支据此判定）。
+    models: Mutex<HashMap<String, Value>>,
     // File writes from different sessions share one commit gate; reads remain concurrent.
     writes: Arc<Mutex<()>>,
     shell: ShellTasks,
@@ -28,13 +28,21 @@ impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
         Self {
             mcp: super::mcp_hub::Hub::new(cwd.clone()),
+            workspace_path: cwd.clone(),
             cwd,
             artifacts,
             reads: Mutex::new(HashMap::new()),
             memory: Mutex::new(HashMap::new()),
+            models: Mutex::new(HashMap::new()),
             writes: Arc::new(Mutex::new(())),
             shell: ShellTasks::default(),
         }
+    }
+    /// 修复：记忆根此前按 realpath 后的 cwd 哈希，macOS `/var`→`/private/var`、Windows 8.3 短名展开后
+    /// 与 Node（按 Host 路径 resolve）不同，两侧记忆不共享；改用 Host 路径。
+    pub fn with_workspace_path(mut self, path: PathBuf) -> Self {
+        self.workspace_path = path;
+        self
     }
     pub async fn call(
         &self,
@@ -72,10 +80,12 @@ impl WorkspaceTools {
                     .or_default()
                     .clone();
                 let memory = self.memory.lock().await.get(session).cloned();
+                let input_format = self.models.lock().await.get(session).cloned();
                 let files = FileTools {
                     memory: memory
                         .as_ref()
                         .map(|(root, origin)| (root.as_str(), origin.as_str())),
+                    input_format: input_format.unwrap_or_default(),
                     sink,
                     checkpoint_root: &self.artifacts,
                     cwd: &self.cwd,
@@ -219,6 +229,7 @@ impl ToolPort for WorkspaceTools {
         self.shell.close_session(session).await?;
         self.reads.lock().await.remove(session);
         self.memory.lock().await.remove(session);
+        self.models.lock().await.remove(session);
         self.mcp.close_session(session, false).await
     }
     async fn resolve_command(
@@ -261,7 +272,7 @@ impl ToolPort for WorkspaceTools {
         super::tool_capability::capability(&self.cwd, name, input)
     }
     async fn project_memory(&self) -> Option<crate::contract::ProjectMemory> {
-        super::project_memory::resolve(&self.cwd).await
+        super::project_memory::resolve(&self.cwd, &self.workspace_path).await
     }
     async fn memory_manifest(&self, root: &str) -> Vec<crate::domain::memory::ManifestEntry> {
         super::project_memory::manifest(root).await
@@ -276,6 +287,15 @@ impl ToolPort for WorkspaceTools {
     ) {
         let context = (session, root, origin, inherit, seed);
         super::project_memory::set_context(&self.memory, &self.reads, context).await;
+    }
+    async fn adapt_to_model(&self, session: &str, definitions: &mut [Value], input: &Value) {
+        self.models
+            .lock()
+            .await
+            .insert(session.into(), input.clone());
+        if input["supportsPdf"] == true {
+            super::tool_surface::apply_pdf_read(definitions);
+        }
     }
     fn readonly_bash(&self, command: &str) -> bool {
         crate::bash_git_safety::is_readonly_in_context(command, Some(&self.cwd))
@@ -321,6 +341,7 @@ impl ToolPort for WorkspaceTools {
         self.shell.close_session(session).await?;
         self.reads.lock().await.remove(session);
         self.memory.lock().await.remove(session);
+        self.models.lock().await.remove(session);
         self.mcp.close_session(session, true).await?;
         Ok(())
     }
@@ -329,51 +350,7 @@ impl ToolPort for WorkspaceTools {
         self.mcp.shutdown().await
     }
 }
-pub(super) fn string<'a>(args: &'a Value, key: &str) -> Result<&'a str> {
-    args[key]
-        .as_str()
-        .with_context(|| format!("{key} must be a string"))
-}
-pub(super) fn uint(args: &Value, key: &str, default: u64) -> Result<u64> {
-    match args.get(key) {
-        None => Ok(default),
-        Some(v) => v
-            .as_u64()
-            .filter(|n| *n <= 9_007_199_254_740_991)
-            .with_context(|| format!("{key} must be a nonnegative integer")),
-    }
-}
-pub(super) fn boolean(args: &Value, key: &str, default: bool) -> Result<bool> {
-    match args.get(key) {
-        None => Ok(default),
-        Some(Value::Bool(v)) => Ok(*v),
-        Some(v) => match v.as_str().map(|s| s.trim().to_lowercase()).as_deref() {
-            Some("true" | "1" | "yes" | "y" | "on") => Ok(true),
-            Some("false" | "0" | "no" | "n" | "off") => Ok(false),
-            _ if v == 1 => Ok(true),
-            _ if v == 0 => Ok(false),
-            _ => bail!("{key} must be boolean"),
-        },
-    }
-}
-pub(super) fn keys(args: &Value, allowed: &[&str]) -> Result<()> {
-    let object = args.as_object().context("Tool arguments must be object")?;
-    if let Some(key) = object.keys().find(|k| !allowed.contains(&k.as_str())) {
-        bail!("Unsupported argument: {key}");
-    }
-    Ok(())
-}
-pub(super) fn resolve(cwd: &Path, input: &str) -> Result<PathBuf> {
-    if input.trim().is_empty() || input.contains('\0') {
-        bail!("Tool path must not be empty or contain NUL");
-    }
-    let p = Path::new(input);
-    Ok(if p.is_absolute() {
-        p.to_owned()
-    } else {
-        cwd.join(p)
-    })
-}
+pub(super) use super::tool_args::{boolean, keys, resolve, string, uint};
 pub(super) fn check_cancel(cancel: &CancellationToken) -> Result<()> {
     if cancel.is_cancelled() {
         bail!("Cancelled")

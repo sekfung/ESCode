@@ -65,6 +65,15 @@ fn chars(value: &Value) -> usize {
                             .unwrap_or(0)
                             .min(64 * 1024) as usize
                     }
+                } else if part["type"] == "image_url" {
+                    // 本轮工具结果的内联媒体（data URL）按附件同口径估算，base64 长度不计入上下文。
+                    3072
+                } else if matches!(part["type"].as_str(), Some("video_url" | "file")) {
+                    let url = part["video_url"]["url"]
+                        .as_str()
+                        .or_else(|| part["file"]["file_data"].as_str())
+                        .unwrap_or_default();
+                    (url.len() * 3 / 4).min(64 * 1024)
                 } else {
                     chars(part)
                 }

@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture } from "./zcode-cli-rust-fixture.js";
-export async function configureRegistry(f: Awaited<ReturnType<typeof fixture>>, account = false) {
+export async function configureRegistry(
+  f: Awaited<ReturnType<typeof fixture>>,
+  account = false,
+  /** 个人 provider 的 API 类型与模型属性（如 inputFormat），供媒体/协议差分使用。 */
+  options: { apiType?: string; properties?: Record<string, unknown> } = {},
+) {
   const builtin = JSON.parse(await readFile(resolve("config/provider/zcode-builtin.json"), "utf8"));
   builtin.config.providerConfigRules.providerRules = account
     ? [
@@ -31,7 +36,7 @@ export async function configureRegistry(f: Awaited<ReturnType<typeof fixture>>, 
                 config: {
                   group: "standard-personal",
                   access: { type: "api-key", apiKey: "fixture-personal-key" },
-                  api: { type: "openai-chat-completions", baseUrl: f.baseUrl },
+                  api: { type: options.apiType ?? "openai-chat-completions", baseUrl: f.baseUrl },
                   personalModelIds: ["model-a", "model-b"],
                 },
               },
@@ -42,6 +47,7 @@ export async function configureRegistry(f: Awaited<ReturnType<typeof fixture>>, 
           providerId: account ? "account:fixture" : "personal:fixture",
           modelId,
           config: {
+            ...(options.properties ? { properties: options.properties } : {}),
             optionSpecs: {
               reasoningLevel: {
                 values: ["low", "high"],

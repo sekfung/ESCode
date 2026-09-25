@@ -283,6 +283,8 @@ pub trait ToolPort: Send + Sync {
         _seed: Option<&str>,
     ) {
     }
+    /// 按本轮模型的输入能力调整工具面并记录（PDF 能力改变 Read 的 schema 与执行分支，rust-media-read.md）。
+    async fn adapt_to_model(&self, _session: &str, _definitions: &mut [Value], _input: &Value) {}
     /// 带运行时 git 上下文的只读 Bash 分类（记忆提取的工具策略使用）。
     fn readonly_bash(&self, command: &str) -> bool {
         zcode_cli_domain::bash_policy::is_readonly(command)

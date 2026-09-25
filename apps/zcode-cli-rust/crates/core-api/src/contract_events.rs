@@ -139,7 +139,10 @@ pub enum Event {
     },
     ToolDone {
         id: String,
+        tool: String,
         result: String,
+        /// 工具结果媒体（chat 形态 part，含 data URL）；会话 owner 落附件存储后以引用入史。
+        media: Vec<Value>,
         display: Option<Value>,
         failed: bool,
         /// 权限被拒（用户或规则）：模型仍收到拒绝文案，但行按 TS 收口为 cancelled、不带输出。

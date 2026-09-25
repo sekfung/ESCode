@@ -196,7 +196,12 @@ async fn run() -> Result<()> {
                 )),
                 store: Arc::new(store),
                 model,
-                tools: Arc::new(WorkspaceTools::new(cwd, data_dir.join("tool-results"))),
+                tools: Arc::new(
+                    WorkspaceTools::new(cwd.clone(), data_dir.join("tool-results"))
+                        .with_workspace_path(
+                            std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
+                        ),
+                ),
                 clock: Arc::new(SystemClock),
             },
         )
