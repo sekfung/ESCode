@@ -119,32 +119,38 @@ impl Engine {
         s.last_error = None;
         s.updated_at = now;
         s.revision += 1;
-        if s.title.is_empty() {
+        // TS 对 automation 执行会话传 titleGenerationEnabled=false：不请求模型，标题停在 first_input。
+        let automation = crate::domain::cron::turn_automation_id(
+            c.payload["automationId"].as_str(),
+            &c.command_id,
+        )
+        .is_some();
+        let first_input = s.title.is_empty();
+        if first_input {
             // TS `titleFromInput(displayInput)`（docs/specs/rust-session-title.md）；附件为空文本时
             // 沿用既有回退（首个附件名），其余规则与 Node 逐字一致。
             let title_text = if text.trim().is_empty() {
                 c.payload["attachments"][0]["fileName"]
                     .as_str()
                     .unwrap_or("Attachment")
-                    .to_owned()
             } else {
-                text.to_owned()
+                text
             };
-            s.title = crate::domain::session_title::title_from_input(&title_text);
+            s.title = crate::domain::session_title::title_from_input(title_text);
             s.title_source = "first_input".into();
-            // TS 对 automation 执行会话传 titleGenerationEnabled=false：不给 seed，标题停在 first_input。
-            if crate::domain::cron::turn_automation_id(
-                c.payload["automationId"].as_str(),
-                &c.command_id,
-            )
-            .is_none()
-            {
-                s.title_seed = Some(crate::domain::session_title::TitleSeed {
-                    entity: input.clone(),
-                    text: title_text,
-                    bypass_short_guard: c.kind == "sendGoalCommand",
-                });
-            }
+        }
+        // `/goal` 另需目标摘要标题（生成或兜底），即使不是首条输入。
+        let goal_target = (c.kind == "sendGoalCommand")
+            .then(|| s.goal.as_ref().map(|g| g.target_id.clone()))
+            .flatten();
+        if first_input || goal_target.is_some() {
+            s.title_seed = Some(crate::domain::session_title::TitleSeed {
+                entity: input.clone(),
+                text: text.to_owned(),
+                session: first_input,
+                goal_target,
+                automation,
+            });
         }
         let mut header = s.row("turnHeader", &turn, &turn, now);
         header["origin"] = if c.payload["_historyRerun"] == true {

@@ -18,6 +18,8 @@ impl Engine {
         } else {
             self.model.clone().context("Model configuration required")?
         };
+        // `/goal` 的标题 sidecar 不等主轮次（TS control-only turn 边界即启动）。
+        self.start_goal_title(id);
         let session = self.sessions.get_mut(id).context("Session unavailable")?;
         let estimated = session.active_context_tokens();
         let run_id = session.run_id.clone().context("Run reservation required")?;

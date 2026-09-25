@@ -288,7 +288,8 @@ async function generateAndPersistGoalSummaryTitle(
   });
 }
 
-function fallbackGoalSummaryTitle(objective: string): string | null {
+// Rust 语料直接引用（scripts/generate-zcode-cli-rust-title-corpus.mjs）。
+export function fallbackGoalSummaryTitle(objective: string): string | null {
   const normalized = normalizeTitleInput(objective);
   if (!normalized) return null;
   if (normalized.length <= FALLBACK_GOAL_SUMMARY_TITLE_MAX_CHARS) return normalized;

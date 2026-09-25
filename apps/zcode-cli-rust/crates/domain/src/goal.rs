@@ -16,6 +16,9 @@ pub struct Goal {
     pub time_used_ms: u64,
     pub active_run_started_at_ms: Option<u64>,
     pub last_seen: Option<u64>,
+    /// 目标摘要标题（TS `target.summaryTitle`，docs/specs/rust-session-title.md）；旧数据缺省为空。
+    #[serde(default)]
+    pub summary_title: Option<String>,
 }
 #[derive(Clone)]
 pub struct Verdict {
@@ -70,6 +73,7 @@ impl Goal {
             time_used_ms: 0,
             active_run_started_at_ms: Some(now),
             last_seen: Some(now),
+            summary_title: None,
         }
     }
     pub fn active(&self) -> bool {
@@ -111,7 +115,7 @@ impl Goal {
             .is_some_and(|budget| self.tokens_used >= budget)
     }
     pub fn projection(&self) -> Value {
-        json!({"targetId":self.target_id,"objective":self.objective,"summaryTitle":null,
+        json!({"targetId":self.target_id,"objective":self.objective,"summaryTitle":self.summary_title,
             "status":self.status,"iteration":self.iteration,"verifications":self.verifications,"iterations":self.iterations,
             "timeUsedSeconds":self.time_used_ms / 1000,"activeRunStartedAtMs":self.active_run_started_at_ms})
     }

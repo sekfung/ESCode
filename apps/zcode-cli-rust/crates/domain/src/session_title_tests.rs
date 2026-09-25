@@ -68,3 +68,16 @@ fn cleaned_titles_match_ts() {
         );
     }
 }
+
+#[test]
+fn goal_fallback_titles_match_ts() {
+    for case in corpus()["goalFallback"].as_array().unwrap() {
+        assert_eq!(
+            session_title::fallback_goal_summary_title(case["objective"].as_str().unwrap())
+                .as_deref(),
+            case["title"].as_str(),
+            "{:?}",
+            case["objective"]
+        );
+    }
+}

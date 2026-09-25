@@ -69,12 +69,15 @@ pub enum Event {
     },
     /// 冻结会话标题（CronCreate 成功后以 automation 标题为准，titleSource=custom）。
     FreezeTitle(String),
-    /// 标题 sidecar 的候选标题（docs/specs/rust-session-title.md）：由会话 owner 校验后写回，
-    /// 携带首条输入的实体 id，会话回退后不再写回。
+    /// 标题 sidecar 的结果（docs/specs/rust-session-title.md）：由会话 owner 校验后写回。
+    /// `title` 为空表示跳过（失败/空标题/工具调用）；有目标时 owner 改写兜底摘要标题。
     SessionTitle {
         session: String,
+        /// 首条输入实体 id：会话回退后不再写回会话标题。
         entity: String,
-        title: String,
+        title: Option<String>,
+        write_session: bool,
+        goal_target: Option<String>,
     },
     ToolCleanupFailed(String),
     PromptInitialized {

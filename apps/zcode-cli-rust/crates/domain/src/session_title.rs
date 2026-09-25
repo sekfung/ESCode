@@ -18,14 +18,39 @@ pub const MIN_GENERATED_TITLE_INPUT_CHARS: usize = 10;
 pub struct TitleSeed {
     pub entity: String,
     pub text: String,
-    /// `/goal` 等外部输入入口同为用户真实意图，不受 10 字符门槛限制。
-    pub bypass_short_guard: bool,
+    /// 本次输入是否可写会话标题（首条输入且非自动化会话）。
+    pub session: bool,
+    /// `/goal` 设置的目标 id：生成结果同时写入目标摘要标题，失败时写兜底。
+    pub goal_target: Option<String>,
+    /// 自动化执行会话（TS `titleGeneration.enabled=false`）：不请求模型，目标摘要只写兜底。
+    pub automation: bool,
 }
 
 /// `shouldAttemptSessionTitleGeneration` 的纯规则部分；parent/taskType/尝试次数由会话 owner 判定。
+/// 注意 `/goal` 也走这条 10 字符门槛（TS 的豁免入口没有协议调用方）。
 pub fn should_generate(seed: &TitleSeed) -> bool {
     let normalized = normalize_title_input(&seed.text);
-    !normalized.is_empty() && (seed.bypass_short_guard || passes_short_guard(&normalized))
+    seed.session && !seed.automation && passes_short_guard(&normalized)
+}
+
+/// `shouldAttemptGoalSummaryTitleGeneration` 的纯规则部分（无长度门槛）。
+pub fn should_generate_goal_summary(seed: &TitleSeed) -> bool {
+    seed.goal_target.as_deref().is_some_and(|t| !t.trim().is_empty())
+        && !seed.automation
+        && !normalize_title_input(&seed.text).is_empty()
+}
+
+/// `fallbackGoalSummaryTitle`：归一后的目标文本，超过 100 个 UTF-16 码元时截断加 `...`。
+pub fn fallback_goal_summary_title(objective: &str) -> Option<String> {
+    let normalized = normalize_title_input(objective);
+    if normalized.is_empty() {
+        return None;
+    }
+    if normalized.encode_utf16().count() <= MAX_TITLE_CHARS {
+        return Some(normalized);
+    }
+    let truncated = truncate_utf16(&normalized, MAX_TITLE_CHARS - 3);
+    Some(format!("{}...", js_trim(&truncated)))
 }
 
 /// 生成请求的 messages（TS `buildTitleMessages`）。

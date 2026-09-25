@@ -17,12 +17,18 @@
 
 ### generated（辅助模型生成）
 
-- 触发：首条输入落库并完成其首个 run 之后，且满足全部条件：
-  会话无 parent、`taskType` 为 `interactive`、标题生成未被显式关闭、尚未尝试过、
-  `normalizeTitleInput(displayInput)` 非空、按 code point 计 ≥ 10 字符
-  （`/goal` 这类外部输入入口不受 10 字符门槛限制）。
+- 触发（普通输入）：首条输入落库并完成其首个 run 之后，且满足全部条件：
+  会话无 parent、`taskType` 为 `interactive`、非自动化会话、尚未尝试过、
+  `normalizeTitleInput(displayInput)` 按 code point 计 ≥ 10 字符。
   TS 对需要请求期刷新 runtime headers 的 provider 会推迟到主轮次之后，Rust 的账号链路同样要求
-  主请求先发出，因此统一在首个 run 收口后触发，不并发占用鉴权窗口。
+  主请求先发出，因此统一在首个 run 成功收口后触发，不并发占用鉴权窗口。
+- 触发（`/goal`）：TS 在 control-only turn 边界立即启动，不等主轮次；Rust 在该 run 启动时处理：
+  - 首条输入且满足上面的会话条件（同样有 10 字符门槛：TS 的豁免入口没有协议调用方）→ 一次请求，
+    结果同时写会话标题与目标摘要标题；
+  - 否则只要目标文本非空且非自动化会话 → 生成目标摘要标题（无长度门槛）；
+  - 都不满足，或请求失败/空标题/返回工具调用 → 目标摘要写兜底：`normalizeTitleInput(objective)`，
+    超过 100 个 UTF-16 码元时前 97 去尾空白 + `...`；已有非空摘要时不覆盖。
+  - 目标摘要只写入目标 id 未变的 Goal（`summaryTitle` 持久化在 Goal，旧数据缺省为空）。
 - 请求：`messages = [{role:"system",content:<固定 system prompt>}, {role:"user",content:<normalizeTitleInput(displayInput)>}]`，
   无工具；模型为会话当前选型绑定最低推理档位（`auxiliary()`）并限制 `maxOutputTokens = min(5000, 模型上限)`；
   单次调用，60 秒超时且随会话关闭取消。
@@ -36,12 +42,17 @@
 
 ### 边界
 
-- 目标（Goal）摘要标题（`summaryTitle`）不在本包范围：Rust 仍投影 `null`，见「剩余边界」。
 - TS 另行持久化 `titleMessageID`（用于用量归因与编辑判定）；Rust 不新增该字段，编辑/回退判定直接查
   `history.inputs` 的输入实体，两者对 App 可见行为一致。
 - 会话创建即持久化的 draft、导入历史与子代理会话不触发生成；自动化执行会话与 TS 相同地不生成标题
   （TS 在 session/create 传 `titleGenerationEnabled=false`，Rust 以「首条输入带 automation 身份」表达），
   标题停在 `first_input`。
+
+### 已知差异
+
+- 截断（首条输入 57、生成标题/目标兜底 97 个 UTF-16 码元）恰好落在代理对中间时，TS 保留孤立代理项，
+  Rust `String` 无法表示，按 `from_utf16_lossy` 得到 U+FFFD。只影响以 emoji 等非 BMP 字符跨越截断点的标题；
+  语料只覆盖截断点位于代理对边界的情形。
 
 ## 所有者与顺序
 
@@ -76,4 +87,5 @@ sequenceDiagram
   - 生成的标题请求（system 首段、user 内容、无工具、思考档位与输出上限）；
   - 清洗后的标题与 meta（含 JSON/围栏/首行三种返回形态）；
   - 不触发的情形：短输入（<10 字符）、第二轮输入、`renameSession` 之后的 `custom` 标题不被覆盖、
-    工具调用返回、空标题、会话被回退。
+    工具调用返回、空标题。
+  - `/goal`：首条目标同时写会话标题与摘要、已有标题的会话只写摘要、空标题回落兜底摘要。

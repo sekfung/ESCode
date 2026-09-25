@@ -187,3 +187,108 @@ test("Node and Rust generate session titles the same way", async () => {
   assert.deepEqual(rust.schemaErrors, []);
   assert.deepEqual(node.schemaErrors, []);
 });
+
+// `/goal`：TS 在 control-only turn 边界立即启动标题 sidecar；首条输入同时写会话标题与目标摘要，
+// 已有标题的会话只生成目标摘要（无 10 字符门槛），空标题时写兜底摘要（归一后的目标文本）。
+const GOAL_FIRST = "refactor the parser module for clarity";
+const GOAL_LATER = "fix it";
+const GOAL_EMPTY = "tidy up";
+function goalOf(h: Harness, sessionId: string) {
+  let goal: any = null;
+  for (const message of h.messages) {
+    if (message.params?.topic !== `conversation/${sessionId}`) continue;
+    const payload = message.params.frame?.payload;
+    if (payload?.snapshot && "goal" in payload.snapshot) goal = payload.snapshot.goal;
+    for (const delta of payload?.deltas ?? []) {
+      if (delta.patch && "goal" in delta.patch) goal = delta.patch.goal;
+    }
+  }
+  return goal;
+}
+
+async function observeGoals(kind: "node" | "rust") {
+  const root = await mkdtemp(join(tmpdir(), `zcode-goal-title-${kind}-`));
+  const titles: string[] = [];
+  const respond = (req: any, res: any) => {
+    const first = text(req.messages?.[0] ?? {});
+    if (first.startsWith("Generate a concise title")) {
+      const user = text(req.messages?.[1] ?? {});
+      titles.push(user);
+      const reply_ =
+        user === GOAL_FIRST
+          ? '{"title":"Parser refactor"}'
+          : user === GOAL_LATER
+            ? '{"title":"Quick fix"}'
+            : user === GOAL_EMPTY
+              ? ""
+              : '{"title":"Warmup session"}';
+      return reply(req, res, { content: reply_ });
+    }
+    const verify = text(req.messages?.at(-1) ?? {}).includes(
+      "Verify whether the active session goal",
+    );
+    return reply(req, res, {
+      content: verify ? '{"passed":true,"reason":"done","nextAction":""}' : "ok",
+    });
+  };
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond,
+          mode: "yolo",
+          titleRequests: "respond",
+        })
+      : await fixture({ root, registry: true, respond, mode: "yolo", titleRequests: "respond" });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const settle = async (id: string, goalText: string) => {
+      await h.command(h.envelope("sendGoalCommand", id, { text: goalText }));
+      for (let i = 0; i < 200 && goalOf(h, id)?.status !== "verified"; i++) await delay(50);
+      await delay(800);
+    };
+    const first = await h.create();
+    await h.subscribe(`conversation/${first}`);
+    await settle(first, GOAL_FIRST);
+    const later = await h.create();
+    await h.subscribe(`conversation/${later}`);
+    await h.command(h.envelope("sendText", later, { text: "warm up the session first" }));
+    await h.completed(later);
+    await delay(800);
+    await settle(later, GOAL_LATER);
+    const empty = await h.create();
+    await h.subscribe(`conversation/${empty}`);
+    await settle(empty, GOAL_EMPTY);
+    const pick = (id: string) => {
+      const goal = goalOf(h, id);
+      return { meta: metaOf(h, id), status: goal?.status, summaryTitle: goal?.summaryTitle };
+    };
+    const observation = {
+      titles: [...titles].sort(),
+      first: pick(first),
+      later: pick(later),
+      empty: pick(empty),
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
+test("Node and Rust title goals and their summaries the same way", async () => {
+  const node = await observeGoals("node");
+  const rust = await observeGoals("rust");
+  // 自检：Node 为首条 /goal 同时写会话标题与目标摘要；已有标题时只写摘要；空标题回落目标文本。
+  assert.equal(node.first.summaryTitle, "Parser refactor", JSON.stringify(node.first));
+  assert.equal(node.first.meta.title, "Parser refactor");
+  assert.equal(node.later.summaryTitle, "Quick fix", JSON.stringify(node.later));
+  assert.equal(node.later.meta.title, "Warmup session");
+  assert.equal(node.empty.summaryTitle, GOAL_EMPTY, JSON.stringify(node.empty));
+  assert.deepEqual(rust, node);
+});

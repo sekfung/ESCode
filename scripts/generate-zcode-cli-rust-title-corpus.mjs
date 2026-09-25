@@ -11,6 +11,7 @@ import {
   cleanGeneratedTitle,
   normalizeTitleInput,
 } from "../apps/zcode-cli/packages/core/src/runtime/methods/title-generation-sidecar.ts";
+import { fallbackGoalSummaryTitle } from "../apps/zcode-cli/packages/core/src/runtime/methods/goal-summary-title.ts";
 
 // TS `session-title.ts` 的短输入门槛：按 code point 计。
 const MIN_GENERATED_TITLE_INPUT_CHARS = 10;
@@ -102,6 +103,19 @@ const cleaned = [
   '{"title":"a"}',
 ].map((raw) => ({ raw, title: cleanGeneratedTitle(raw) }));
 
+const goalFallback = [
+  "",
+  "   ",
+  "fix it",
+  "  重构   解析器  ",
+  "a".repeat(100),
+  "a".repeat(101),
+  "word ".repeat(40),
+  // 截断点落在代理对中间时 JS 会留下孤立代理项，Rust String 无法表示（见 spec「已知差异」）；
+  // 语料只取截断点在代理对边界上的情形。
+  "a" + "😀".repeat(60),
+].map((objective) => ({ objective, title: fallbackGoalSummaryTitle(objective) }));
+
 const content = `${JSON.stringify(
   {
     systemPrompt: SESSION_TITLE_SYSTEM_PROMPT,
@@ -115,6 +129,7 @@ const content = `${JSON.stringify(
     normalized,
     shortGuard,
     cleaned,
+    goalFallback,
   },
   null,
   1,
