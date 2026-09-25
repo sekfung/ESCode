@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -125,6 +126,10 @@ await run("cargo", [
   "apps/zcode-cli-rust/Cargo.toml",
 ]);
 await run("cargo", ["build", "--locked", "--manifest-path", "apps/zcode-cli-rust/Cargo.toml"]);
+// Node 与 Rust 的差分用例直接运行 Node CLI 产物；干净检出（CI）没有它时用桌面打包同一脚本构建。
+if (!existsSync(resolve(root, "apps/zcode-cli/packages/cli/dist/zcode.cjs"))) {
+  await run(process.execPath, ["scripts/build-desktop-agent-cli.mjs"]);
+}
 const tests = (await readdir(resolve(root, "packages/services/tests")))
   .filter((name) => /^zcode-cli-rust-.*\.test\.ts$/.test(name))
   .map((name) => `packages/services/tests/${name}`);

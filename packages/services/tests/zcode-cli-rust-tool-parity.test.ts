@@ -29,6 +29,10 @@ import { TaskOutputInputJsonSchema } from "../../../apps/zcode-cli/packages/cont
 import { TaskStopInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/task-stop.js";
 import { AskUserQuestionInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/ask-user-question.js";
 import { SkillInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/skill.js";
+import {
+  EnterPlanModeInputJsonSchema,
+  ExitPlanModeInputJsonSchema,
+} from "../../../apps/zcode-cli/packages/contracts/src/tools/plan-mode.js";
 import { AgentInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/agent.js";
 import { SendMessageInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/send-message.js";
 import { skillToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/skill.js";
@@ -107,6 +111,9 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       TaskOutput: TaskOutputInputJsonSchema,
       TaskStop: TaskStopInputJsonSchema,
       AskUserQuestion: AskUserQuestionInputJsonSchema,
+      // plan 模式工具（docs/specs/rust-plan-mode.md）。
+      EnterPlanMode: EnterPlanModeInputJsonSchema,
+      ExitPlanMode: ExitPlanModeInputJsonSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),
