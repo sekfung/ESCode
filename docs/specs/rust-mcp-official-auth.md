@@ -83,3 +83,31 @@ sequenceDiagram
 - 不受信任时网络请求数为 0；
 - 状态、stderr 与日志中不出现身份头的值；
 - Node 与 Rust 在同一 fixture 上的请求与状态序列一致。
+
+## 进度
+
+- 第 1 期（已完成）：`crates/domain/src/mcp_official_auth.rs`，TS oracle 语料
+  `generate-zcode-cli-rust-mcp-official-auth-corpus.mjs` 纳入 `--check`。
+- 第 2 期（已完成）：
+  - 插件解析：`mcp_config.rs` 的 `official_plugin` 负责严格校验，并写入 provenance。
+    配置自带的 `official` 字段在 `Server::parse` 中丢弃；
+  - Host 通道：`HOST_CHANNEL`、`ToolPort::attach_host`，以及 `apply_event` 中的转发；
+  - http client：`mcp_official_client.rs`；
+  - `zcode-cli-rust-mcp-official-auth.test.ts` 在 ok、401、untrusted 三个场景下与 Node 逐项一致，比较：
+    - Host 请求参数（`pluginId` 为 `<name>@inline`）；
+    - 服务端收到的身份头与静态头；
+    - 401 重试一次；
+    - `failureKind` 与 `serverRequestId`；
+    - untrusted 时服务端请求数为 0。
+  - 去掉 401 重试时，rejected 用例稳定失败。
+- 差分中发现并已对齐的两处：
+  - 插件 `.mcp.json` 的 `protocolVersion`、`isolation` 不生效。TS 只取白名单字段，Rust 之前原样保留；
+  - 官方 client 关闭时不发送 DELETE（Node SDK 2.0 的 `transport.close` 不终止会话）。
+- 已知差异：
+  - 非官方 HTTP MCP 关闭时，Rust（rmcp）仍会发送 DELETE，Node 不发送。另行对齐；
+  - tools/call 的服务端 request id 投影到工具结果（按 span 关联）尚未实现：Rust 目前没有 tool call span。
+- 第 3 期（已完成）：`mcp_official_stdio.rs` 用异步 sink 适配器，在每条出站请求与通知上改写 `params._meta`。
+  - 目标 origin 为 ZCode API origin，仍经过信任判定；
+  - 失败时下发 `{ok:false, reason}`；
+  - 差分覆盖 ok 与 `official_auth_plan_required` 两个场景，比较服务端收到的每条消息的载荷，以及 Host 请求；
+  - 去掉注入时差分稳定失败。

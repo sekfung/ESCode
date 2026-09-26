@@ -20,6 +20,10 @@ pub(super) struct Server {
 }
 impl Server {
     pub fn parse(name: &str, mut raw: Value, cwd: &Path) -> Result<Self> {
+        // 官方 provenance 只能由插件加载器写入（见 official_plugin）；配置自带的 official 字段一律丢弃。
+        if let Some(object) = raw.as_object_mut() {
+            object.remove("official");
+        }
         ensure!(
             !name.trim().is_empty() && name.len() <= 256,
             "Invalid MCP name"
@@ -175,11 +179,18 @@ pub(super) async fn configured(
             };
             definitions.extend(shape(&value).clone());
         }
-        for (name, mut raw) in definitions {
-            let name = format!("plugin:{}:{name}", plugin.name);
+        for (key, mut raw) in definitions {
+            let name = format!("plugin:{}:{key}", plugin.name);
             let root = plugin.root.to_string_lossy();
             replace_root(&mut raw, &root);
-            merged.insert(name.clone(), Server::configured(&name, raw, cwd));
+            // TS resolveMcpServerConfig 只取白名单字段，插件里的 protocolVersion/isolation 不生效（走默认协商与隔离）；
+            // 之前 Rust 原样保留，官方 MCP 差分中出现请求序列分叉（docs/specs/rust-mcp-official-auth.md）。
+            if let Some(object) = raw.as_object_mut() {
+                object.remove("protocolVersion");
+                object.remove("isolation");
+            }
+            let server = official_plugin(Server::configured(&name, raw, cwd), &plugin.id, &key);
+            merged.insert(name.clone(), server);
         }
     }
     if overrides.is_none() {
@@ -207,6 +218,31 @@ pub(super) async fn configured(
     }
     ensure!(merged.len() <= 64, "Too many configured MCP servers");
     Ok(merged.into_values().collect())
+}
+/// TS `resolveMcpServerConfig` 的官方鉴权分支（docs/specs/rust-mcp-official-auth.md）：严格解析 `auth`，
+/// 合法时写入宿主生成的 provenance；sse、同时声明 oauth、静态保留头都使该 MCP 失效。
+fn official_plugin(mut server: Server, plugin_id: &str, mcp_key: &str) -> Server {
+    use crate::domain::mcp_official_auth as rules;
+    if server.invalid {
+        return server;
+    }
+    let valid = match rules::parse_auth(server.raw.get("auth"), mcp_key) {
+        Ok(false) => return server,
+        Ok(true) => {
+            let headers = server.raw["headers"].as_object();
+            let reserved = rules::reserved_headers(headers.into_iter().flat_map(|h| h.keys().map(String::as_str)));
+            server.transport != "sse"
+                && server.raw.get("oauth").is_none()
+                && (server.transport == "stdio" || reserved.is_empty())
+        }
+        Err(_) => false,
+    };
+    if valid {
+        server.raw["official"] = serde_json::json!({"mcpKey": mcp_key, "pluginId": plugin_id, "source": "plugin"});
+    } else {
+        server.invalid = true;
+    }
+    server
 }
 fn replace_root(value: &mut Value, root: &str) {
     match value {

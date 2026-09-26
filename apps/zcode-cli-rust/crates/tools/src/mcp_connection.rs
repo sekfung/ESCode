@@ -37,10 +37,18 @@ impl Connection {
         oauth: Option<super::mcp_oauth_credentials::Auth>,
         cancel: &CancellationToken,
     ) -> Result<Self> {
+        use super::mcp_oauth_credentials::Auth;
+        let official = match &oauth {
+            Some(Auth::Official(official)) => Some(official.clone()),
+            _ => None,
+        };
         let auth = http
             .clone()
-            .zip(oauth)
+            .zip(oauth.filter(|a| !matches!(a, Auth::Official(_))))
             .map(|(http, oauth)| super::mcp_oauth_client::AuthClient::new(http, oauth));
+        let official_failure = || -> Option<anyhow::Error> {
+            Some(official.as_ref()?.connect_failure()?.into())
+        };
         // TS resolveVersionNegotiationMode：未写或 auto 时协商（先 server/discover），SSE 只承载 legacy；
         // 之前未写时直接 initialize，与 Node 的默认请求序列不同（docs/specs/rust-mcp-parity.md「协议协商默认值」）。
         let mode = match config.raw["protocolVersion"].as_str() {
@@ -90,9 +98,17 @@ impl Connection {
                 .filter_map(|r| std::future::ready(r.ok()));
                 let writer = FramedWrite::new(
                     input,
-                    rmcp::transport::async_rw::JsonRpcMessageCodec::<
-                        rmcp::model::ClientJsonRpcMessage,
-                    >::new_with_max_length(8 * 1024 * 1024),
+                    rmcp::transport::async_rw::JsonRpcMessageCodec::<Value>::new_with_max_length(
+                        8 * 1024 * 1024,
+                    ),
+                );
+                let meta = official.clone();
+                let writer = futures_util::SinkExt::with(
+                    writer,
+                    move |message: rmcp::model::ClientJsonRpcMessage| {
+                        // SinkStream 传输要求 Unpin：异步取身份载荷的 future 需装箱。
+                        Box::pin(super::mcp_official_stdio::with_meta(meta.clone(), message))
+                    },
                 );
                 Ok::<Service, anyhow::Error>(
                     serve_client_with_lifecycle_and_ct(
@@ -138,12 +154,17 @@ impl Connection {
                     }
                 }
                 let http = http.context("HTTP client missing")?;
-                let service = match auth.clone() {
-                    Some(auth) => {
+                let service = match (auth.clone(), official.clone()) {
+                    (_, Some(official)) => {
+                        let official_client = super::mcp_official_client::OfficialClient::new(http, official);
+                        let transport = StreamableHttpClientTransport::with_client(official_client, options);
+                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                    }
+                    (Some(auth), None) => {
                         let transport = StreamableHttpClientTransport::with_client(auth, options);
                         serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
                     }
-                    None => {
+                    (None, None) => {
                         let transport = StreamableHttpClientTransport::with_client(http, options);
                         serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
                     }
@@ -163,7 +184,7 @@ impl Connection {
                 {
                     return Err(required.into());
                 }
-                return Err(error);
+                return Err(official_failure().unwrap_or(error));
             }
         };
         let modern = service
@@ -181,7 +202,7 @@ impl Connection {
             Ok(tools) => connection.tools = tools,
             Err(error) => {
                 connection.close().await?;
-                return Err(error.context("tool_list_failed"));
+                return Err(official_failure().unwrap_or_else(|| error.context("tool_list_failed")));
             }
         }
         Ok(connection)

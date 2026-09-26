@@ -36,7 +36,15 @@ pub(super) struct Task {
 
 /// TS `createOAuthClientProvider`：authorization_code（含未写 oauth 的 http/sse）走共享凭据，
 /// client_credentials 走内存 token；官方鉴权仍为 not_authenticated。
-pub(super) fn oauth_for(server: &Server, store: impl FnOnce() -> Arc<CredentialStore>) -> Result<Option<Auth>> {
+pub(super) fn oauth_for(
+    server: &Server,
+    store: impl FnOnce() -> Arc<CredentialStore>,
+    official: impl FnOnce() -> Option<Arc<super::super::mcp_official_client::Official>>,
+) -> Result<Option<Auth>> {
+    // 官方鉴权与 OAuth 互斥：只有插件加载器写入 provenance 的 http/stdio server 走官方身份（rust-mcp-official-auth.md）。
+    if server.raw.get("official").is_some() {
+        return official().map(|o| Some(Auth::Official(o))).ok_or_else(|| anyhow::anyhow!("config_invalid"));
+    }
     if server.transport == "stdio" {
         return Ok(None);
     }
@@ -177,7 +185,10 @@ impl Hub {
         let task = match running.filter(|t| t.raw == server.raw) {
             Some(task) => task,
             None => {
-                let oauth = oauth_for(server, credentials)?;
+                let official = || {
+                    super::super::mcp_official_client::Official::from_server(server, &self.cwd, self.host.get().cloned())
+                };
+                let oauth = oauth_for(server, credentials, official)?;
                 match Connection::open(server, http.clone(), oauth.clone(), cancel).await {
                     Ok(connection) => return Ok(Some(Arc::new(connection))),
                     Err(error) => match (error.downcast::<AuthorizationRequired>(), oauth) {

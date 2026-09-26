@@ -13,18 +13,22 @@ use tokio::sync::Mutex;
 pub(super) enum Auth {
     Code(Arc<OAuth>),
     Credentials(Arc<ClientCredentials>),
+    /// 官方 MCP：身份头由 `OfficialClient` 逐请求向 Host 取得，不经过 OAuth token 路径。
+    Official(Arc<super::mcp_official_client::Official>),
 }
 impl Auth {
     pub fn name(&self) -> &str {
         match self {
             Self::Code(oauth) => &oauth.name,
             Self::Credentials(credentials) => &credentials.name,
+            Self::Official(official) => &official.name,
         }
     }
     pub async fn token(&self) -> Result<Option<String>> {
         match self {
             Self::Code(oauth) => oauth.token().await,
             Self::Credentials(credentials) => Ok(credentials.token().await),
+            Self::Official(_) => Ok(None),
         }
     }
     /// `challenge` 为 401 响应的 `WWW-Authenticate`。
@@ -32,6 +36,7 @@ impl Auth {
         match self {
             Self::Code(oauth) => oauth.on_unauthorized().await,
             Self::Credentials(credentials) => credentials.authorize(challenge).await,
+            Self::Official(_) => Ok(()),
         }
     }
 }

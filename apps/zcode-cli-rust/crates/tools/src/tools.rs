@@ -122,6 +122,9 @@ impl WorkspaceTools {
 }
 #[async_trait::async_trait]
 impl ToolPort for WorkspaceTools {
+    fn attach_host(&self, host: crate::contract::EventSink) {
+        self.mcp.attach_host(host);
+    }
     async fn file_changes(
         &self,
         changes: &[crate::domain::file_checkpoint::FileCheckpoint],

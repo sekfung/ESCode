@@ -26,6 +26,8 @@ mod mcp_oauth_credentials;
 mod mcp_oauth_flow;
 mod mcp_oauth_http;
 mod mcp_oauth_store;
+mod mcp_official_client;
+mod mcp_official_stdio;
 mod mcp_sse;
 mod official_plugins;
 mod official_plugins_cache;

@@ -36,11 +36,16 @@ pub(super) struct Hub {
     cwd: PathBuf,
     http: std::sync::OnceLock<reqwest_mcp::Client>,
     credentials: std::sync::OnceLock<Arc<zcode_cli_host::credential_store::CredentialStore>>,
+    /// Engine 交给工具层的 Host 通道（官方 MCP 身份头）。
+    host: std::sync::OnceLock<crate::contract::EventSink>,
     state: Arc<RwLock<State>>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
 }
 impl Hub {
+    pub fn attach_host(&self, host: crate::contract::EventSink) {
+        let _ = self.host.set(host);
+    }
     pub fn inherit(&self, parent: &str, child: &str) {
         let mut state = self.state.write().unwrap();
         let bindings = state.bindings.get(parent).cloned().unwrap_or_default();
@@ -54,6 +59,7 @@ impl Hub {
             cwd,
             http: Default::default(),
             credentials: Default::default(),
+            host: Default::default(),
             state: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
@@ -212,7 +218,16 @@ impl Hub {
                             pending.insert(server.name.clone(), key);
                             status
                         }
-                        Err(error) => mcp_config::status(&server, "failed", 0, Some(failure_kind(&error))),
+                        Err(error) => match error.downcast::<super::mcp_official_client::OfficialFailure>() {
+                            Ok(official) => {
+                                let mut status = mcp_config::status(&server, "failed", 0, Some(official.kind));
+                                if let Some(id) = official.server_request_id {
+                                    status["serverRequestId"] = id.into();
+                                }
+                                status
+                            }
+                            Err(error) => mcp_config::status(&server, "failed", 0, Some(failure_kind(&error))),
+                        },
                     };
                     statuses.insert(server.name.clone(), status);
                 }

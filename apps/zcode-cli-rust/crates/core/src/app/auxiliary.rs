@@ -87,7 +87,15 @@ impl Engine {
         });
         Ok(())
     }
+    /// 辅助请求与工具层 Host 通道的事件都不依附会话，由 `auxiliary_event` 处理。
+    pub(super) fn auxiliary_owned(&self, id: &str) -> bool {
+        id == crate::contract::HOST_CHANNEL || self.auxiliary.contains_key(id)
+    }
     pub(super) async fn auxiliary_event(&mut self, event: RunEvent) -> Result<()> {
+        if event.session_id == crate::contract::HOST_CHANNEL {
+            self.host_channel_event(event.event);
+            return Ok(());
+        }
         let id = event.session_id;
         if event.run_id != id {
             return Ok(());

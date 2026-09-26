@@ -4,16 +4,16 @@
 
 ## 现状差距（按 TS `core/src/mcp/index.ts` `formatMcpToolResult` 与 `adapters/src/mcp/*` 对照）
 
-| 项                     | TS                                                                                             | Rust 现状                                                                                                             |
-| ---------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 文本块拼接             | 跳过空文本，以 `\n\n` 连接；全是文本时收成字符串                                               | 以 `\n` 连接，不跳过空文本                                                                                            |
-| structuredContent      | 有内容时追加 `Structured content:\n<两空格缩进 JSON>`                                          | 追加紧凑 JSON                                                                                                         |
-| isError                | `MCP tool returned an error:\n<文本>`（server 声明 message-only 时除外）                       | 无前缀                                                                                                                |
-| image                  | 转为 image 块（占位名 `MCP image`），并经 `image-normalization` 做 inline 预算（200KiB）与压缩 | 已对齐（第 2 期）                                                                                                     |
-| audio                  | `[MCP audio content omitted: <mime>]`                                                          | 整块 JSON 文本                                                                                                        |
-| resource               | `MCP resource content:\n<JSON>`                                                                | 整块 JSON 文本                                                                                                        |
-| 截图 artifact / CUA 帧 | 浏览器截图落 artifact；官方 CUA 帧走 integrity 通道                                            | 无                                                                                                                    |
-| OAuth                  | 交互式授权（浏览器回调）、凭据存储、刷新、租约、官方账号授权（约 2200 行）                     | 授权码 + PKCE 与 client_credentials 已实现并与 Node 差分一致（rust-mcp-oauth.md）；官方账号授权仍为 not_authenticated |
+| 项                     | TS                                                                                             | Rust 现状                                                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 文本块拼接             | 跳过空文本，以 `\n\n` 连接；全是文本时收成字符串                                               | 以 `\n` 连接，不跳过空文本                                                                                                                                                     |
+| structuredContent      | 有内容时追加 `Structured content:\n<两空格缩进 JSON>`                                          | 追加紧凑 JSON                                                                                                                                                                  |
+| isError                | `MCP tool returned an error:\n<文本>`（server 声明 message-only 时除外）                       | 无前缀                                                                                                                                                                         |
+| image                  | 转为 image 块（占位名 `MCP image`），并经 `image-normalization` 做 inline 预算（200KiB）与压缩 | 已对齐（第 2 期）                                                                                                                                                              |
+| audio                  | `[MCP audio content omitted: <mime>]`                                                          | 整块 JSON 文本                                                                                                                                                                 |
+| resource               | `MCP resource content:\n<JSON>`                                                                | 整块 JSON 文本                                                                                                                                                                 |
+| 截图 artifact / CUA 帧 | 浏览器截图落 artifact；官方 CUA 帧走 integrity 通道                                            | 无                                                                                                                                                                             |
+| OAuth                  | 交互式授权（浏览器回调）、凭据存储、刷新、租约、官方账号授权（约 2200 行）                     | 授权码 + PKCE 与 client_credentials 已实现并与 Node 差分一致（rust-mcp-oauth.md）；官方 MCP 的 http 身份头与 stdio `_meta` 载荷已与 Node 差分一致（rust-mcp-official-auth.md） |
 
 ## 分期
 

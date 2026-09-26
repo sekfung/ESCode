@@ -34,7 +34,7 @@ pub struct DurableCommitReceipt {
 }
 
 pub use crate::contract_events::{
-    Event, EventSink, HostReply, Input, ModelOutput, PermissionOutcome, RunEvent,
+    Event, EventSink, HOST_CHANNEL, HostReply, Input, ModelOutput, PermissionOutcome, RunEvent,
 };
 #[async_trait]
 pub trait SessionStore: Send + Sync {
@@ -184,6 +184,8 @@ pub trait RewindTransaction: Send {
 }
 #[async_trait]
 pub trait ToolPort: Send + Sync {
+    /// Engine 启动时交给工具层的 Host 通道（`HOST_CHANNEL`）；默认不使用。
+    fn attach_host(&self, _host: EventSink) {}
     async fn file_changes(
         &self,
         _changes: &[zcode_cli_domain::file_checkpoint::FileCheckpoint],

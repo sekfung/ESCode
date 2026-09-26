@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use serde_json::json;
 impl Engine {
     pub(super) async fn apply_event(&mut self, mut event: RunEvent) -> Result<()> {
-        if self.auxiliary.contains_key(&event.session_id) {
+        if self.auxiliary_owned(&event.session_id) {
             return self.auxiliary_event(event).await;
         }
         if let Event::ToolCleanupFailed(message) = event.event {

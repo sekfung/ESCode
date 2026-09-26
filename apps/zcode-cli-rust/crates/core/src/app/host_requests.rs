@@ -6,6 +6,12 @@ use crate::contract::{Event, HostReply};
 use serde_json::{Value, json};
 
 impl Engine {
+    /// 工具层 Host 通道不依附会话（如 mcp/list 期间的官方 MCP 身份头），直接转发，应答按请求 id 路由。
+    pub(super) fn host_channel_event(&mut self, event: Event) {
+        if let Event::HostRequest { method, params, reply } = event {
+            self.request_host(method, params, reply);
+        }
+    }
     pub(super) fn request_host(&mut self, method: String, params: Value, reply: HostReply) {
         let request_id = format!("rust-host-{}", self.clock.id());
         self.host_requests.insert(request_id.clone(), reply);

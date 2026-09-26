@@ -97,6 +97,11 @@ impl Engine {
             };
         let index = store.load_index(&workspace).await?;
         let (events, event_rx) = mpsc::channel(128);
+        tools.attach_host(crate::contract::EventSink {
+            session_id: crate::contract::HOST_CHANNEL.into(),
+            run_id: crate::contract::HOST_CHANNEL.into(),
+            tx: events.clone(),
+        });
         Ok(Self {
             child_updates: BTreeMap::new(),
             uploads: Default::default(),

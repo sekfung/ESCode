@@ -216,6 +216,10 @@ impl EventSink {
     }
 }
 
+/// 工具层的长期 Host 通道（不依附会话）：该 id 上的 `Event::HostRequest` 由 Engine 直接转发给 Host。
+/// 见 docs/specs/rust-mcp-official-auth.md「所有者与事件顺序」。
+pub const HOST_CHANNEL: &str = "rust-host-channel";
+
 /// Host 反向请求的应答：原始结果 JSON 文本，或 (code, message)。
 pub type HostReply = oneshot::Sender<std::result::Result<String, (i64, String)>>;
 
