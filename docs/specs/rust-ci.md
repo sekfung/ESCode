@@ -60,6 +60,9 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   因此 `kill(pid, 0)` 的 ESRCH 断言会在碰到无关进程时偶发失败。改为优先写入 `/proc/$$/winpid`。
 - 36214138039（含重跑）：Windows 上 PDF anthropic pages=1 的 Node 一侧两次超时，原始错误被关闭断言掩盖；
   改为保留原始错误、超时附带 stderr 之后，36216871411 未复现，继续观察。
+- 36218149923（提交 bb0ba94）：checks、Linux、macOS 通过。
+  Windows 首次运行 account-host 用例 5s 内未收到 completedSuccess（该用例在 Windows 上通常约 2s），重跑后全部通过。
+  暂按偶发处理；若再次出现，按真实挂起排查（需 Host 侧 stderr）。
 
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
