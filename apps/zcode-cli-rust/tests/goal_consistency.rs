@@ -88,6 +88,7 @@ impl ModelPort for Model {
             .is_some_and(|c| c.starts_with("Generate a concise title"))
         {
             return Ok(ModelOutput {
+                response_id: String::new(),
                 output_limit: false,
                 message: json!({"role":"assistant","content":""}),
                 calls: vec![],
@@ -106,6 +107,7 @@ impl ModelPort for Model {
             "work".into()
         };
         Ok(ModelOutput {
+            response_id: String::new(),
             output_limit: false,
             message: json!({"role":"assistant","content":content}),
             calls: vec![],

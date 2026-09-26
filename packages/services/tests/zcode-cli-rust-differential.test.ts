@@ -68,6 +68,20 @@ async function observe(
       | Record<string, unknown>
       | undefined;
     const observation = {
+      // docs/specs/rust-row-projection.md：逐行字段集合与关键字段取值（id/时间戳只比较存在性与关系）。
+      rowFields: rows.map((r) => [r.kind, Object.keys(r).sort()]),
+      rowFacts: rows.map((r: any) => ({
+        kind: r.kind,
+        visibility: r.visibility,
+        executionKind: r.executionKind,
+        historyRoundCount: r.historyRoundCount,
+        activeMs: typeof r.activeMs,
+        rootIsSource:
+          r.kind === "userInput" ? r.rootSourceCommandId === r.sourceCommandId : undefined,
+        input: r.input,
+        responseLinked:
+          r.kind === "toolCall" ? typeof r.assistantResponseId === "string" : undefined,
+      })),
       rowKinds: rows
         .map((r) => r.kind)
         .filter((k, i, all) => all.indexOf(k) === i)
@@ -127,6 +141,8 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
     "两侧共同声明的能力键必须一致",
   );
   assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ");
+  assert.deepEqual(rust.rowFields, node.rowFields, "row field sets differ");
+  assert.deepEqual(rust.rowFacts, node.rowFacts, "row field values differ");
   assert.deepEqual(node.toolNames, rust.toolNames, "tool names differ");
   assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ");
   assert.deepEqual(node.schemaErrors, []);

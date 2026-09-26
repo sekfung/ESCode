@@ -169,7 +169,7 @@ impl Engine {
             )
         } else {
             let (turn, _) = self.admit_input(id, &c, shared, command)?;
-            (turn, self.new_turn_rows(id))
+            (turn, self.new_input_rows(id))
         };
         self.publish(id, deltas)?;
         self.persist(id, None).await?;

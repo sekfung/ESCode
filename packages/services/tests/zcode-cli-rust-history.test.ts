@@ -195,7 +195,9 @@ test("Rust editing a Goal preserves canonical Goal intent and a failed fork tran
     await h.subscribe(`conversation/${id}`);
     const initial = h.envelope("sendGoalCommand", id, { text: "original goal" });
     await h.command(initial);
-    await done(h, id, initial.commandId, 0);
+    // /goal 的 query 轮在接纳时即 controlOnly 收口，执行在随后的 goalContinuation 轮
+    // （rust-row-projection.md）：等会话整体完成，而不是等带本命令 id 的 header。
+    await h.completed(id);
     const user = (await h.rows(id)).rows.findLast((r) => r.kind === "userInput")!;
     const edit = await action(h, id, "editUserQuery", {
       target: target(user),
@@ -203,7 +205,7 @@ test("Rust editing a Goal preserves canonical Goal intent and a failed fork tran
     });
     const at = h.messages.length;
     await h.command(edit);
-    await done(h, id, edit.commandId, at);
+    await h.completed(id, at);
     assert.match(JSON.stringify(f.requests.at(-1)), /changed goal/);
     assert(!JSON.stringify(f.requests.at(-1)).includes("original goal"));
     const rows = (await h.rows(id)).rows;

@@ -104,6 +104,7 @@ impl ModelPort for Model {
         self.calls.send(messages.to_vec()).unwrap();
         let limited = self.continuation && self.count.fetch_add(1, Ordering::SeqCst) == 0;
         Ok(ModelOutput {
+            response_id: String::new(),
             output_limit: limited,
             message: json!({"role":"assistant","content":if limited {"partial"} else {"summary"}}),
             calls: vec![],

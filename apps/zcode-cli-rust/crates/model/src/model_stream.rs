@@ -147,6 +147,7 @@ impl Assembly {
             message["tool_calls"] = calls.clone().into();
         }
         Ok(ModelOutput {
+            response_id: String::new(),
             message,
             calls,
             usage: self.usage,
@@ -171,6 +172,9 @@ pub struct TextBuffer<'a> {
     pub committed: bool,
 }
 impl<'a> TextBuffer<'a> {
+    pub fn response_id(&self) -> &str {
+        &self.response
+    }
     pub fn new(sink: &'a EventSink) -> Self {
         Self {
             sink,

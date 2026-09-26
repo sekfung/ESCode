@@ -198,6 +198,7 @@ pub(super) async fn run(
         }
         let (committed, receipt) = oneshot::channel();
         sink.send(Event::ModelDone {
+            response_id: output.response_id.clone(),
             stable: !output.output_limit && output.calls.is_empty(),
             message: persist.then_some(output.message),
             usage: output.usage,

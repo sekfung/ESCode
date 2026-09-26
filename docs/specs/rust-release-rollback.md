@@ -95,8 +95,12 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 
 ### 仍存在、未纳入断言的差异
 
-- 工具行字段：Node 带 `visibility`、`assistantResponseId`、结构化 `input`；Rust 只有 `inputText`。
-  前端以 `inputText` 为准时无影响，但严格对齐前不能宣称行投影逐字段一致（待逐字段差分）。
+- 行投影字段已逐字段对齐（rust-row-projection.md，2026-09-26）。包括：
+  - `visibility`、turnHeader 的 `executionKind`/`activeMs`/`historyRoundCount`；
+  - userInput 的 `rootSourceCommandId`；
+  - toolCall 的 `assistantResponseId`/`input`；
+  - `/goal` 的 controlOnly query 轮与 goalContinuation 执行轮。
+    仍存在的差异只剩 id 的取值方式：Node 的 userInput 与 assistantText 的 `entityId` 分别取 turn id 与响应 id。
 
 该用例把上述差异写成**契约**：出现新的差异键即失败，从而在后续改动中持续守住功能对齐。
 新增能力位必须同步更新本表与用例。

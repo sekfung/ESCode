@@ -91,7 +91,7 @@ impl Engine {
             let (turn, input_id) = self.admit_input(&id, &c, shared, command)?;
             ack["result"] =
                 json!({"type":"inputAccepted","delivery":"startNow","inputId":input_id});
-            self.publish(&id, self.new_turn_rows(&id))?;
+            self.publish(&id, self.new_input_rows(&id))?;
             Some(turn)
         };
         ack["revisionAtDecision"] = self.sessions[&id].revision.into();
@@ -170,6 +170,7 @@ impl Engine {
         row["origin"] = "realUser".into();
         row["guided"] = true.into();
         row["sourceCommandId"] = item["sourceCommandId"].clone();
+        row["rootSourceCommandId"] = item["sourceCommandId"].clone();
         row["clientId"] = item["clientId"].clone();
         s.rows.push(row.clone());
         let text = item["text"].as_str().context("Guide text missing")?;

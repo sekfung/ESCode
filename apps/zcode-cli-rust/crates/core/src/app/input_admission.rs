@@ -162,6 +162,14 @@ impl Engine {
         header["state"] = "running".into();
         header["startedAt"] = now.into();
         header["sourceCommandId"] = c.command_id.clone().into();
+        // TS：`/goal` 的可见 query 是 controlOnly 轮（无工时），真实执行属于随后的 goalContinuation 轮
+        // （rust-row-projection.md）；之前 Rust 在同一 agent 轮里执行，轮次与「已工作」展示都与 Node 不同。
+        let goal = c.kind == "sendGoalCommand";
+        if goal {
+            header["executionKind"] = "controlOnly".into();
+            header["state"] = "completedSuccess".into();
+            header["endedAt"] = now.into();
+        }
         s.rows.push(header);
         let mut row = s.row("userInput", &turn, &input, now);
         row["text"] = text.into();
@@ -174,16 +182,25 @@ impl Engine {
         }
         row["origin"] = "realUser".into();
         row["sourceCommandId"] = c.command_id.clone().into();
+        // Rust 没有派生输入的 provenance，root 即本命令（TS buildUserInputRow）。
+        row["rootSourceCommandId"] = c.command_id.clone().into();
         row["clientId"] = c.client_id.clone().into();
         if let Some(refs) = c.payload.get("attachments") {
             row["attachments"] = refs.clone();
         }
         s.rows.push(row);
-        if c.kind == "sendGoalCommand" {
-            let mut marker = s.row("timelineMarker", &turn, &self.clock.id(), now);
-            marker["marker"] = json!({"type":"goalSet","objective":text});
-            s.rows.push(marker);
-        }
+        // goalSet 在 TS 是 stateOnly，不产时间线行（隐形行会污染轮次分组）。
+        let run_turn = if goal {
+            let continuation = self.clock.id();
+            let mut header = s.row("turnHeader", &continuation, &continuation, now);
+            header["origin"] = "goalContinuation".into();
+            header["state"] = "running".into();
+            header["startedAt"] = now.into();
+            s.rows.push(header);
+            continuation
+        } else {
+            turn.clone()
+        };
         if !s.background.is_empty() {
             let statuses = s
                 .background
@@ -241,7 +258,16 @@ impl Engine {
                 kind: c.kind.clone(),
                 payload,
             });
-        Ok((turn, input))
+        Ok((run_turn, input))
+    }
+    /// 本次输入产生的行（从输入所在轮的 header 起）；`/goal` 的 query 轮与续跑轮一并发布。
+    pub(super) fn new_input_rows(&self, id: &str) -> Vec<Value> {
+        let s = &self.sessions[id];
+        let start = s.history.inputs.last().map_or(s.current_rows_start(), |b| b.row);
+        s.rows[start.min(s.current_rows_start())..]
+            .iter()
+            .map(|row| json!({"op":"row.appended","row":row}))
+            .collect()
     }
     pub(super) fn new_turn_rows(&self, id: &str) -> Vec<Value> {
         let rows = &self.sessions[id].rows;

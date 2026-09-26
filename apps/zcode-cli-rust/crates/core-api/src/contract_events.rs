@@ -119,6 +119,7 @@ pub enum Event {
         reasoning: bool,
     },
     ModelDone {
+        response_id: String,
         stable: bool,
         message: Option<Value>,
         usage: Value,
@@ -169,6 +170,8 @@ pub enum Event {
     },
 }
 pub struct ModelOutput {
+    /// 本次（最终成功那次尝试的）模型响应 id；与 Text 事件的 response_id 相同，供工具行 `assistantResponseId`。
+    pub response_id: String,
     pub message: Value,
     pub calls: Vec<Value>,
     pub usage: Value,

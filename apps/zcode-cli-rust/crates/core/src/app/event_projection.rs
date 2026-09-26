@@ -200,12 +200,16 @@ impl Engine {
                 }
             }
             Event::ModelDone {
+                response_id,
                 stable,
                 message,
                 usage,
                 committed,
             } => {
                 receipt = Some(committed);
+                if let Some(active) = self.active.get_mut(&id) {
+                    active.response_id = Some(response_id);
+                }
                 if let Some(message) = message {
                     s.append_message(message);
                 }
@@ -226,13 +230,8 @@ impl Engine {
                 }
             }
             Event::ToolStart { call } => {
-                let call_id = call["id"].as_str().unwrap();
-                let mut row = s.row("toolCall", &turn, call_id, now);
-                row["toolCallId"] = call["id"].clone();
-                row["toolName"] = call["function"]["name"].clone();
-                row["inputText"] = call["function"]["arguments"].clone();
-                row["status"] = "running".into();
-                row["startedAt"] = now.into();
+                let response = self.active[&id].response_id.clone();
+                let row = s.tool_call_row(&turn, &call, response, now);
                 s.rows.push(row.clone());
                 deltas.push(json!({"op":"row.appended","row":row}));
             }

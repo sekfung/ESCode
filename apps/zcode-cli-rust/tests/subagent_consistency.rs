@@ -89,6 +89,7 @@ impl ModelPort for Model {
             message["tool_calls"] = json!(calls);
         }
         Ok(ModelOutput {
+            response_id: String::new(),
             message,
             calls,
             usage: json!({}),

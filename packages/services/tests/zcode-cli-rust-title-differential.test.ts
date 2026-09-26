@@ -101,7 +101,8 @@ async function observe(kind: "node" | "rust") {
         calls: [{ id: "t1", name: "Read", input: { file_path: "parser.ts" } }],
       });
     }
-    if (user === LONG) return reply(req, res, { content: '```json\n{"title":"Login validation refactor"}\n```' });
+    if (user === LONG)
+      return reply(req, res, { content: '```json\n{"title":"Login validation refactor"}\n```' });
     return reply(req, res, { content: '"Plain first line" trailing' });
   };
   const f =
@@ -267,7 +268,28 @@ async function observeGoals(kind: "node" | "rust") {
       const goal = goalOf(h, id);
       return { meta: metaOf(h, id), status: goal?.status, summaryTitle: goal?.summaryTitle };
     };
+    // rust-row-projection.md：/goal 的可见 query 轮为 controlOnly（无工时），执行属于随后的 goalContinuation 轮。
+    const headers = (await h.rows(first)).rows
+      .filter((r: any) => r.kind === "turnHeader")
+      .map((r: any) => ({
+        origin: r.origin,
+        executionKind: r.executionKind,
+        activeMs: typeof r.activeMs,
+        historyRoundCount: r.historyRoundCount,
+      }));
+    const all = (await h.rows(first)).rows as any[];
+    const turns = [...new Set(all.map((r) => r.turnId))];
+    const goalRows = all.map((r) => [
+      turns.indexOf(r.turnId),
+      r.kind,
+      r.origin ?? r.marker?.type ?? "",
+      r.executionKind ?? "",
+      r.state ?? r.status ?? "",
+      r.actions ?? null,
+    ]);
     const observation = {
+      headers,
+      goalRows,
       titles: [...titles].sort(),
       first: pick(first),
       later: pick(later),

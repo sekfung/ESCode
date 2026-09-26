@@ -31,6 +31,7 @@ impl Engine {
                 cancel: cancel.clone(),
                 run_id: run_id.clone(),
                 turn_id,
+                response_id: None,
             },
         );
         let manual = session
@@ -130,4 +131,6 @@ pub(crate) struct Active {
     pub cancel: tokio_util::sync::CancellationToken,
     pub run_id: String,
     pub turn_id: String,
+    /// 最近一次提交的模型响应 id：随后的工具调用行归属到该响应（TS toolCall `assistantResponseId`）。
+    pub response_id: Option<String>,
 }

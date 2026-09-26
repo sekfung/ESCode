@@ -61,6 +61,7 @@ impl ModelPort for Model {
     ) -> std::result::Result<ModelOutput, ModelFailure> {
         self.0.send(messages).unwrap();
         Ok(ModelOutput {
+            response_id: String::new(),
             output_limit: false,
             message: json!({"role":"assistant","content":"ok"}),
             calls: vec![],

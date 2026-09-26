@@ -278,8 +278,8 @@ impl Session {
                 .and_then(|r| r["rowId"].as_u64())
                 .unwrap_or(0),
         ) + 1;
-        json!({"rowId":self.row_highwater,
-            "turnId":turn,"productTurnId":turn,"entityId":entity,"kind":kind,"createdAt":now,"createdAtSeq":self.seq+1})
+        super::session_recovery::row_base(json!({"rowId":self.row_highwater,
+            "turnId":turn,"productTurnId":turn,"entityId":entity,"kind":kind,"createdAt":now,"createdAtSeq":self.seq+1}))
     }
     pub fn patch(&self) -> Value {
         let mut patch = json!({"revision":self.revision,

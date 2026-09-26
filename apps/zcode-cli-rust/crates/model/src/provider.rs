@@ -263,6 +263,7 @@ impl HttpModel {
             output.flush().await?;
             match result {
                 Ok(mut result) => {
+                    result.response_id = output.response_id().to_owned();
                     result.message["_zcode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
                     return Ok(result);
                 }

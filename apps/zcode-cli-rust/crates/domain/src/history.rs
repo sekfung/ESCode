@@ -145,6 +145,15 @@ impl Session {
                     .any(|i| Some(i.turn.as_str()) == latest_turn)
             });
         let mut wanted = Vec::new();
+        // 续跑轮（如 goalContinuation）没有输入边界：稳定回复只能 fork，不能 retry（与 Node 一致）。
+        if response.is_none()
+            && let Some(row) = self.rows.iter().rposition(|r| {
+                r["kind"] == "assistantText" && r["turnId"].as_str() == latest_turn
+            })
+            && self.history.responses.iter().any(|b| b.row == row)
+        {
+            wanted.push((row, json!({"canFork":true})));
+        }
         if let Some(b) = input {
             wanted.push((
                 b.user_row,

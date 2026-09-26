@@ -45,7 +45,8 @@ test("Goal verifies hidden history without tools, continues the gap and persists
     assert.equal(f.requests.length, 4);
     assert.match(JSON.stringify(f.requests[2]!.messages), /Run the check/);
     const rows = (await h.rows(sid)).rows;
-    assert.equal(rows.filter((r: any) => r.kind === "turnHeader").length, 2);
+    // controlOnly 的 /goal query 轮 + 两个 goalContinuation 轮（与 Node 一致，rust-row-projection.md）。
+    assert.equal(rows.filter((r: any) => r.kind === "turnHeader").length, 3);
     assert.ok(!rows.some((r: any) => r.kind === "assistantText" && r.text.includes('"passed"')));
     assert.equal(rows.filter((r: any) => r.marker?.type === "goalVerify").length, 2);
     await h.close();
