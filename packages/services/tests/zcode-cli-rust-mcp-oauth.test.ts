@@ -9,7 +9,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture } from "./zcode-cli-rust-fixture.js";
 import { zcodeMcpListResultSchema } from "@zcode/shared";
-import { closeRuntime, tools } from "./zcode-cli-rust-mcp-fixture.js";
+import { tools } from "./zcode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
 // docs/specs/rust-mcp-oauth.md「验收（第 2 层）」：本地授权服务器 + 需要 Bearer 的 MCP server 上，
@@ -194,7 +194,7 @@ async function authorize(kind: Kind, root: string, as: Awaited<ReturnType<typeof
     const callback = await fetch(url);
     const page = { status: callback.status, text: await callback.text() };
     const settled = await waitStatus(h, f.cwd, as.config, (s) => s.status !== "connecting");
-    await closeRuntime(h, kind);
+    await h.close();
     const parsed = new URL(url);
     pending.authorization.authorizationUrl = {
       endpoint: `${parsed.origin}${parsed.pathname}`,
@@ -212,7 +212,7 @@ async function reuse(kind: Kind, root: string, as: Awaited<ReturnType<typeof oau
   try {
     const h = f.start();
     const status = (await listMcp(h, f.cwd, [as.config])).statuses.secure;
-    await closeRuntime(h, kind);
+    await h.close();
     return {
       status: status?.status,
       toolCount: status?.toolCount,

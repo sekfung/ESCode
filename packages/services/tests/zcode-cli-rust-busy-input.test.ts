@@ -239,7 +239,10 @@ test("Rust startNow waits for foreground Shell cancellation before the next requ
             function: {
               name: "Bash",
               arguments: JSON.stringify({
-                command: "echo $$ > shell.pid; sleep 30; echo leaked > leaked.txt",
+                // Windows 的 Git Bash 中 $$ 是 MSYS pid，与 Windows pid 不同址；用它做 kill(pid, 0) 会碰到无关进程，
+                // ESRCH 断言随 pid 是否恰好被占用而偶发失败（CI 36216871411）。优先写入 /proc/$$/winpid。
+                command:
+                  "(cat /proc/$$/winpid 2>/dev/null || echo $$) > shell.pid; sleep 30; echo leaked > leaked.txt",
               }),
             },
           },

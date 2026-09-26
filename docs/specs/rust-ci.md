@@ -53,7 +53,13 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - 2026-09-26（36213030115，提交 cdf9783）：checks、Linux、macOS 通过；Windows 上新增的两个 MCP 差分用例失败。
   原因是 **Node** 子进程在退出时触发 libuv 断言 `UV_HANDLE_CLOSING`（退出码 0xC0000409），Rust 一侧正常；
   该崩溃只在 Node 持有过 MCP HTTP 连接后偶发，本机未复现。
-  处理：由 `closeRuntime` 只对 Windows 上 Node 一侧容忍这一种退出，Rust 仍要求干净退出。
+  后续运行（36216871411）在未使用 MCP 的 WebSearch 差分中复现，说明它是 Node 在 Windows 上的通用退出崩溃。
+  处理：`Harness.close` 只在 Windows、退出码 0xC0000409 且 stderr 含该 libuv 断言时放行；该文本只可能来自 Node，
+  其余非零退出照常失败。
+- 同一运行中的 busy-input 用例：Windows Git Bash 的 `$$` 是 MSYS pid，而不是 Windows pid，
+  因此 `kill(pid, 0)` 的 ESRCH 断言会在碰到无关进程时偶发失败。改为优先写入 `/proc/$$/winpid`。
+- 36214138039（含重跑）：Windows 上 PDF anthropic pages=1 的 Node 一侧两次超时，原始错误被关闭断言掩盖；
+  改为保留原始错误、超时附带 stderr 之后，36216871411 未复现，继续观察。
 
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
