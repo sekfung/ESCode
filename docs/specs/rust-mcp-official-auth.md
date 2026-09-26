@@ -104,7 +104,7 @@ sequenceDiagram
   - 插件 `.mcp.json` 的 `protocolVersion`、`isolation` 不生效。TS 只取白名单字段，Rust 之前原样保留；
   - 官方 client 关闭时不发送 DELETE（Node SDK 2.0 的 `transport.close` 不终止会话）。
 - 已知差异：
-  - 非官方 HTTP MCP 关闭时，Rust（rmcp）仍会发送 DELETE，Node 不发送。另行对齐；
+  - 非官方 HTTP MCP 关闭时发送 DELETE 的差异已对齐（rust-mcp-parity.md「关闭语义」）；
   - tools/call 的服务端 request id 投影到工具结果（按 span 关联）尚未实现：Rust 目前没有 tool call span。
 - 第 3 期（已完成）：`mcp_official_stdio.rs` 用异步 sink 适配器，在每条出站请求与通知上改写 `params._meta`。
   - 目标 origin 为 ZCode API origin，仍经过信任判定；

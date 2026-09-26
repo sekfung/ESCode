@@ -42,10 +42,11 @@ impl Connection {
             Some(Auth::Official(official)) => Some(official.clone()),
             _ => None,
         };
-        let auth = http
-            .clone()
-            .zip(oauth.filter(|a| !matches!(a, Auth::Official(_))))
-            .map(|(http, oauth)| super::mcp_oauth_client::AuthClient::new(http, oauth));
+        // 非官方 HTTP/SSE 一律经 AuthClient（无鉴权时为 Plain），统一 401 处理与关闭语义（不发 DELETE）。
+        let auth = http.clone().map(|http| {
+            let oauth = oauth.clone().filter(|a| !matches!(a, Auth::Official(_)));
+            super::mcp_oauth_client::AuthClient::new(http, oauth.unwrap_or(Auth::Plain))
+        });
         let official_failure = || -> Option<anyhow::Error> {
             Some(official.as_ref()?.connect_failure()?.into())
         };

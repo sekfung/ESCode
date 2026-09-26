@@ -75,6 +75,9 @@ impl AuthClient {
         F: Fn(Option<String>) -> Fut,
         Fut: Future<Output = Result<T, HttpError>>,
     {
+        if matches!(self.oauth, Auth::Plain) {
+            return op(None).await;
+        }
         let result = op(self.token().await?).await;
         let challenge = match &result {
             Err(StreamableHttpError::AuthRequired(e)) => e.www_authenticate_header.clone(),
@@ -112,6 +115,9 @@ impl AuthClient {
             Some(token) => build().bearer_auth(token),
             None => build(),
         };
+        if matches!(self.oauth, Auth::Plain) {
+            return Ok(build().send().await?);
+        }
         let first = match self.oauth.token().await {
             Ok(token) => with_token(token).send().await?,
             Err(error) => {
@@ -175,18 +181,16 @@ impl StreamableHttpClient for AuthClient {
         })
         .await
     }
+    /// Node（SDK 2.0 `transport.close`）关闭连接时不终止会话、不发 DELETE；rmcp 默认会发。
+    /// 对齐 Node：官方 MCP 差分中发现该差异（docs/specs/rust-mcp-parity.md「关闭语义」）。
     async fn delete_session(
         &self,
-        uri: Arc<str>,
-        session_id: Arc<str>,
+        _uri: Arc<str>,
+        _session_id: Arc<str>,
         _auth: Option<String>,
-        headers: Headers,
+        _headers: Headers,
     ) -> Result<(), HttpError> {
-        self.authorized(|token| {
-            self.inner
-                .delete_session(uri.clone(), session_id.clone(), token, headers.clone())
-        })
-        .await
+        Ok(())
     }
     async fn get_stream(
         &self,

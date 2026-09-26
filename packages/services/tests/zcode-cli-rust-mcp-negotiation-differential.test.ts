@@ -38,6 +38,8 @@ async function methods(kind: "node" | "rust", transport: "http" | "sse", protoco
       status: listed.statuses.remote?.status,
       protocolEra: listed.statuses.remote?.protocolEra,
       methods: server.calls.map((c) => c.method),
+      // Node SDK 2.0 关闭 transport 时不发 DELETE；Rust 对齐（rust-mcp-parity.md「关闭语义」）。
+      deletes: server.deletes.length,
     };
   } finally {
     try {

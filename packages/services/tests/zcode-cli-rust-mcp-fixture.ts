@@ -66,8 +66,10 @@ export function listMcp(
 export async function httpServer(transport: "http" | "sse") {
   let stream: ServerResponse | undefined;
   const calls: any[] = [];
+  const deletes: string[] = [];
   const server = createServer(async (req, res) => {
     if (req.method === "DELETE") {
+      deletes.push(String(req.headers["mcp-session-id"] ?? ""));
       res.writeHead(204).end();
       return;
     }
@@ -131,6 +133,7 @@ export async function httpServer(transport: "http" | "sse") {
       headers: [{ name: "X-Fixture", value: "configured" }],
     },
     calls,
+    deletes,
     async close() {
       stream?.end();
       server.closeAllConnections();

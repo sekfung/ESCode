@@ -11,6 +11,8 @@ use tokio::sync::Mutex;
 /// 运行期 token 来源：authorization_code 走共享凭据与刷新锁；client_credentials 在内存中按 401 重新取。
 #[derive(Clone)]
 pub(super) enum Auth {
+    /// 无鉴权的 HTTP/SSE：直接发送，不取 token、不重试（统一经 `AuthClient` 以对齐关闭语义）。
+    Plain,
     Code(Arc<OAuth>),
     Credentials(Arc<ClientCredentials>),
     /// 官方 MCP：身份头由 `OfficialClient` 逐请求向 Host 取得，不经过 OAuth token 路径。
@@ -19,6 +21,7 @@ pub(super) enum Auth {
 impl Auth {
     pub fn name(&self) -> &str {
         match self {
+            Self::Plain => "",
             Self::Code(oauth) => &oauth.name,
             Self::Credentials(credentials) => &credentials.name,
             Self::Official(official) => &official.name,
@@ -26,6 +29,7 @@ impl Auth {
     }
     pub async fn token(&self) -> Result<Option<String>> {
         match self {
+            Self::Plain => Ok(None),
             Self::Code(oauth) => oauth.token().await,
             Self::Credentials(credentials) => Ok(credentials.token().await),
             Self::Official(_) => Ok(None),
@@ -34,6 +38,7 @@ impl Auth {
     /// `challenge` 为 401 响应的 `WWW-Authenticate`。
     pub async fn on_unauthorized(&self, challenge: &str) -> Result<()> {
         match self {
+            Self::Plain => Ok(()),
             Self::Code(oauth) => oauth.on_unauthorized().await,
             Self::Credentials(credentials) => credentials.authorize(challenge).await,
             Self::Official(_) => Ok(()),

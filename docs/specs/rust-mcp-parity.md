@@ -53,3 +53,10 @@ TS `resolveVersionNegotiationMode` 的规则：
   - 在未写 `protocolVersion` 的 HTTP fixture 上，Node 与 Rust 的请求方法序列一致（先 `server/discover`，再 `initialize`）；
   - SSE 的 `auto` 不发 `server/discover`；
   - 现有 MCP 用例不回归。
+
+## 关闭语义（2026-09-26）
+
+- Node（SDK 2.0 `transport.close`）关闭 Streamable HTTP 连接时不终止会话，不发送 `DELETE`。
+- rmcp 的 reqwest client 默认在关闭时发送 `DELETE`。
+- Rust 的所有 HTTP 连接（无鉴权、OAuth、client_credentials、官方）都经自有 client，其 `delete_session` 为空操作，与 Node 一致。
+- 验收：`zcode-cli-rust-mcp-negotiation-differential.test.ts` 比较服务端收到的 `DELETE` 次数（两侧均为 0）。
