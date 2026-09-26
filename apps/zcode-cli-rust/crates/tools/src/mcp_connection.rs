@@ -71,6 +71,8 @@ impl Connection {
         let init = async {
             if config.transport == "stdio" {
                 let mut command = Command::new(config.raw["command"].as_str().unwrap());
+                // TS buildMcpStdioEnv：清洗后恢复出网配置，server 自身 env 最后覆盖（node_repl 定向凭据由此送达）。
+                zcode_cli_host::child_env::apply(&mut command, true);
                 command
                     .args(super::extension_config::strings(&config.raw["args"]))
                     .current_dir(&config.cwd)
@@ -307,6 +309,8 @@ impl Connection {
         let mut output = ToolOutput::text(content);
         output.media = formatted.media;
         output.failed = result["isError"] == true;
+        // 原始结果交给 hub 推导工具卡与 node_repl 轮尾截图候选；不进入模型内容。
+        output.data = result;
         Ok(output)
     }
     pub async fn close(&self) -> Result<()> {

@@ -31,10 +31,26 @@ pub struct Prepared {
     pub size: Option<(u32, u32)>,
 }
 
-/// TS fitsImageBudget：原始字节、base64 字节与 token（base64 × 0.125 向上取整）三道预算。
-fn fits(len: usize) -> bool {
+/// TS `ImageBudget` 与 `maxDimension`：调用方可给出更紧的预算（如 node_repl 轮尾截图 200 KiB、无 token 上限）。
+#[derive(Clone, Copy)]
+pub struct Budget {
+    pub max_base64: usize,
+    pub max_raw: usize,
+    pub max_tokens: Option<usize>,
+    pub max_dimension: u32,
+}
+pub const MODEL_BUDGET: Budget = Budget {
+    max_base64: MAX_BASE64,
+    max_raw: MAX_RAW,
+    max_tokens: Some(MAX_TOKENS),
+    max_dimension: MAX_DIMENSION,
+};
+/// TS fitsImageBudget：原始字节、base64 字节与可选 token（base64 × 0.125 向上取整）预算。
+fn fits(len: usize, budget: &Budget) -> bool {
     let base64 = len.div_ceil(3) * 4;
-    len <= MAX_RAW && base64 <= MAX_BASE64 && base64.div_ceil(8) <= MAX_TOKENS
+    len <= budget.max_raw
+        && base64 <= budget.max_base64
+        && budget.max_tokens.is_none_or(|max| base64.div_ceil(8) <= max)
 }
 /// TS detectImageMediaType（文件头）。
 pub fn detect(bytes: &[u8]) -> Option<&'static str> {
@@ -106,69 +122,70 @@ fn candidate(
     media_type: &'static str,
     quality: u8,
     strategy: &'static str,
+    budget: &Budget,
 ) -> Result<Option<Candidate>> {
     let data = encode(image, media_type, quality)?;
-    Ok(fits(data.len()).then(|| Candidate {
+    Ok(fits(data.len(), budget).then(|| Candidate {
         data,
         media_type,
         strategy,
         size: (image.width(), image.height()),
     }))
 }
-fn jpeg_quality(image: &DynamicImage) -> Result<Option<Candidate>> {
+fn jpeg_quality(image: &DynamicImage, budget: &Budget) -> Result<Option<Candidate>> {
     for quality in JPEG_QUALITY {
-        if let Some(found) = candidate(image, "image/jpeg", quality, "jpeg-quality")? {
+        if let Some(found) = candidate(image, "image/jpeg", quality, "jpeg-quality", budget)? {
             return Ok(Some(found));
         }
     }
     Ok(None)
 }
-fn format_preserving(image: &DynamicImage, source: &'static str) -> Result<Option<Candidate>> {
+fn format_preserving(image: &DynamicImage, source: &'static str, budget: &Budget) -> Result<Option<Candidate>> {
     match source {
-        "image/png" => candidate(image, "image/png", 0, "png-optimized"),
-        "image/jpeg" => jpeg_quality(image),
-        "image/gif" => candidate(image, "image/gif", 0, "preserve-format"),
+        "image/png" => candidate(image, "image/png", 0, "png-optimized", budget),
+        "image/jpeg" => jpeg_quality(image, budget),
+        "image/gif" => candidate(image, "image/gif", 0, "preserve-format", budget),
         _ => Ok(None),
     }
 }
 /// TS findFirstFittingCandidate（顺序逐条对应）。
-fn first_fitting(image: &DynamicImage, source: &'static str) -> Result<Option<Candidate>> {
-    let within = longest(image) <= MAX_DIMENSION;
+fn first_fitting(image: &DynamicImage, source: &'static str, budget: &Budget) -> Result<Option<Candidate>> {
+    let within = longest(image) <= budget.max_dimension;
     // PNG 只在原尺寸尝试一次无损优化，失败后单向转 JPEG。
     let preserve = source != "image/png";
-    if within && let Some(found) = format_preserving(image, source)? {
+    if within && let Some(found) = format_preserving(image, source, budget)? {
         return Ok(Some(found));
     }
-    let bounded = resize_to_max_edge(image, MAX_DIMENSION);
+    let bounded = resize_to_max_edge(image, budget.max_dimension);
     let same = bounded.width() == image.width() && bounded.height() == image.height();
     if preserve && !same {
         let quality = JPEG_DEFAULT_QUALITY;
-        if let Some(found) = candidate(&bounded, output_type(source), quality, "resized")? {
+        if let Some(found) = candidate(&bounded, output_type(source), quality, "resized", budget)? {
             return Ok(Some(found));
         }
     }
     if !within
         && preserve
-        && let Some(found) = format_preserving(&bounded, source)?
+        && let Some(found) = format_preserving(&bounded, source, budget)?
     {
         return Ok(Some(found));
     }
-    if let Some(found) = jpeg_quality(&bounded)? {
+    if let Some(found) = jpeg_quality(&bounded, budget)? {
         return Ok(Some(found));
     }
     for scale in SCALES {
         let edge = js_round(f64::from(longest(&bounded)) * scale).max(1);
         let scaled = resize_to_max_edge(&bounded, edge);
-        if preserve && let Some(found) = format_preserving(&scaled, source)? {
+        if preserve && let Some(found) = format_preserving(&scaled, source, budget)? {
             return Ok(Some(found));
         }
-        if let Some(found) = jpeg_quality(&scaled)? {
+        if let Some(found) = jpeg_quality(&scaled, budget)? {
             return Ok(Some(found));
         }
     }
     for edge in AGGRESSIVE {
-        let scaled = resize_to_max_edge(image, edge.min(MAX_DIMENSION));
-        if let Some(found) = candidate(&scaled, "image/jpeg", 20, "jpeg-fallback")? {
+        let scaled = resize_to_max_edge(image, edge.min(budget.max_dimension));
+        if let Some(found) = candidate(&scaled, "image/jpeg", 20, "jpeg-fallback", budget)? {
             return Ok(Some(found));
         }
     }
@@ -184,12 +201,16 @@ fn output_type(source: &'static str) -> &'static str {
 
 /// TS prepareJimpImageForModel。错误文案与 TS 相同，调用方包装为工具失败。
 pub fn prepare(input: Vec<u8>, requested: &str) -> Result<Prepared> {
+    prepare_within(input, requested, &MODEL_BUDGET)
+}
+/// 同 `prepare`，但使用调用方给出的预算。
+pub fn prepare_within(input: Vec<u8>, requested: &str, budget: &Budget) -> Result<Prepared> {
     if input.is_empty() {
         bail!("Image file is empty (0 bytes)");
     }
     let source = detect(&input).unwrap_or_else(|| normalize(requested));
     if source == "image/webp" {
-        if !fits(input.len()) {
+        if !fits(input.len(), budget) {
             bail!(
                 "WebP image exceeds the model image budget and the current image adapter cannot transcode WebP"
             );
@@ -208,7 +229,7 @@ pub fn prepare(input: Vec<u8>, requested: &str) -> Result<Prepared> {
         bail!("Unable to decode image data");
     };
     let original = (image.width(), image.height());
-    if longest(&image) <= MAX_DIMENSION && fits(input.len()) {
+    if longest(&image) <= budget.max_dimension && fits(input.len(), budget) {
         return Ok(Prepared {
             data: input,
             media_type: source,
@@ -219,7 +240,7 @@ pub fn prepare(input: Vec<u8>, requested: &str) -> Result<Prepared> {
             size: Some(original),
         });
     }
-    let Some(found) = first_fitting(&image, source)? else {
+    let Some(found) = first_fitting(&image, source, budget)? else {
         bail!(
             "Unable to compress image ({} bytes) within the requested model image budget",
             input.len()

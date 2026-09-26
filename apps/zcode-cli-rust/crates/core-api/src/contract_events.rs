@@ -125,8 +125,15 @@ pub enum Event {
         usage: Value,
         committed: oneshot::Sender<()>,
     },
+    /// 成功轮次收尾的浏览器截图卡（TS `browser_turn_end` 工具行）。
+    BrowserTurnScreenshot {
+        display: Value,
+        committed: oneshot::Sender<()>,
+    },
     ToolStart {
         call: Value,
+        /// MCP 工具卡的展示元数据（TS `createMcpToolDisplay`，kind=mcp_tool）；非 MCP 为 None。
+        display: Option<Value>,
     },
     Permission {
         call: Value,

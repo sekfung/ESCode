@@ -74,10 +74,22 @@ impl Engine {
             "modelExecution",
             "offPeakTaskId",
             "offPeakRunType",
-            "browserAmbientContext",
         ] {
             if p.get(key).is_some() {
                 bail!("Unsupported input field: {key}");
+            }
+        }
+        // 协议 zcodeBrowserAmbientContextSchema（strict）：tabCount 为 1..=100 的整数，currentUrl 非空且 ≤4096。
+        if let Some(ambient) = p.get("browserAmbientContext") {
+            let valid = ambient.as_object().is_some_and(|o| {
+                o.keys().all(|k| k == "tabCount" || k == "currentUrl")
+                    && o.get("tabCount").and_then(Value::as_u64).is_some_and(|c| (1..=100).contains(&c))
+                    && o.get("currentUrl").is_none_or(|u| {
+                        u.as_str().is_some_and(|u| !u.trim().is_empty() && u.trim().chars().count() <= 4096)
+                    })
+            });
+            if !valid {
+                bail!("Invalid browserAmbientContext");
             }
         }
         if p.get("heldQueueDisposition")

@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone)]
 struct Binding {
     name: String,
+    server: String,
     original: String,
     key: String,
     safe: bool,
@@ -45,17 +46,6 @@ pub(super) struct Hub {
     stop: CancellationToken,
 }
 impl Hub {
-    fn broker(&self) -> Option<Arc<super::browser_broker::Broker>> {
-        self.broker
-            .get_or_init(|| super::browser_broker::Broker::start(self.host.clone()))
-            .clone()
-    }
-    /// turn 结束或会话关闭时的浏览器生命周期（TS BrowserControlPort.turnEnded / closeSession）。
-    pub async fn browser_lifecycle(&self, session: &str, turn: Option<&str>, close: bool) {
-        if let Some(Some(broker)) = self.broker.get() {
-            broker.lifecycle(session, turn, close).await;
-        }
-    }
     pub fn attach_host(&self, host: crate::contract::EventSink) {
         let _ = self.host.set(host);
     }
@@ -302,10 +292,24 @@ impl Hub {
         if let Some(Some(broker)) = self.broker.get() {
             broker.remember(session, meta);
         }
-        binding
+        let mut output = binding
             .connection
             .call(&binding.original, args, meta, artifacts, cancel)
-            .await
+            .await?;
+        // TS createToolResultDisplay：node_repl 图片优先，否则 MCP 工具卡（docs/specs/rust-browser-use.md 第 3 期）。
+        let raw = std::mem::take(&mut output.data);
+        let node_repl = binding.server == super::mcp_node_repl::NAME && binding.original == "js";
+        output.display = node_repl
+            .then(|| crate::domain::tool_display::node_repl_images(&raw))
+            .flatten()
+            .or_else(|| binding.display());
+        if node_repl
+            && let Some(Some(broker)) = self.broker.get()
+            && let Some(turn) = meta["turn_id"].as_str()
+        {
+            broker.record_turn_screenshot(session, turn, &raw["_meta"]["zcode/browserTurnScreenshot"]);
+        }
+        Ok(output)
     }
     pub async fn close_session(&self, session: &str, forget: bool) -> Result<()> {
         let _gate = self.gate.lock().await;
@@ -354,6 +358,8 @@ impl Hub {
         self.prune().await
     }
 }
+#[path = "mcp_hub_browser.rs"]
+mod browser;
 #[path = "mcp_hub_oauth.rs"]
 mod oauth;
 fn bind(
@@ -378,6 +384,7 @@ fn bind(
         );
         bindings.push(Binding {
             name,
+            server: server.name.clone(),
             original: original.into(),
             key: key.into(),
             safe: tool["annotations"]["readOnlyHint"] == true

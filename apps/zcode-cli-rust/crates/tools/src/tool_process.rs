@@ -2,7 +2,7 @@ use super::tools::check_cancel;
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -13,22 +13,16 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 pub(super) const INLINE: usize = 24 * 1024;
+/// TS Bash `MAX_INLINE_OUTPUT_BYTES`：结果 stdout 取合并输出文件的前这么多字节。
+const MODEL_INLINE: u64 = 30_000;
 const MAX_STREAM: u64 = 16 * 1024 * 1024;
-struct Captured {
-    text: String,
-    bytes: u64,
-    truncated: bool,
-    path: PathBuf,
-}
+/// 两路输出都只写入合并输出文件（TS `BashFileOutput`：stdout/stderr 共用一个文件）。
 async fn capture(
     mut stream: impl AsyncRead + Unpin,
-    path: PathBuf,
     combined: Arc<Mutex<tokio::fs::File>>,
     cancel: CancellationToken,
-) -> Result<Captured> {
+) -> Result<()> {
     let result = async {
-        let mut file = tokio::fs::File::create(&path).await?;
-        let mut preview = vec![];
         let mut bytes = 0u64;
         let mut buf = [0u8; 8192];
         loop {
@@ -38,24 +32,15 @@ async fn capture(
             }
             let write = n.min(MAX_STREAM.saturating_sub(bytes) as usize);
             if write > 0 {
-                file.write_all(&buf[..write]).await?;
                 combined.lock().await.write_all(&buf[..write]).await?;
             }
-            let take = n.min(INLINE.saturating_sub(preview.len()));
-            preview.extend_from_slice(&buf[..take]);
             bytes += n as u64;
             if bytes > MAX_STREAM {
                 cancel.cancel();
                 break;
             }
         }
-        file.flush().await?;
-        Ok(Captured {
-            text: String::from_utf8_lossy(&preview).into_owned(),
-            bytes,
-            truncated: bytes > preview.len() as u64,
-            path,
-        })
+        Ok(())
     }
     .await;
     // 输出落盘失败必须停止进程树，不能让已丢失输出的后台任务继续运行。
@@ -74,6 +59,7 @@ pub(super) async fn run(
     shell: ShellContext<'_>,
 ) -> Result<Value> {
     check_cancel(cancel)?;
+    let command_text = text;
     // 原实现在 Windows 固定 cmd.exe、POSIX 固定 /bin/bash，与 TS 自动选择 Git Bash / $SHELL 的语义不一致；
     // 改为复用 shell_select（对应 TS bash-shell-provider），见 docs/specs/rust-shell-selection.md。
     let platform = crate::shell_select::Platform::current();
@@ -105,6 +91,8 @@ pub(super) async fn run(
         };
     let plan = crate::shell_select::spawn_plan(platform, &env, &selection, &text);
     let mut command = Command::new(&plan.file);
+    // 先清洗运行时环境并恢复出网配置（TS execution-command），再叠加 shell 计划自身的变量。
+    zcode_cli_host::child_env::apply(&mut command, true);
     command.args(&plan.args).envs(plan.env_overlay);
     command
         .current_dir(cwd)
@@ -122,13 +110,11 @@ pub(super) async fn run(
     let overflow = CancellationToken::new();
     let mut out = tokio::spawn(capture(
         child.stdout.take().unwrap(),
-        path.with_extension("stdout"),
         combined.clone(),
         overflow.clone(),
     ));
     let mut err = tokio::spawn(capture(
         child.stderr.take().unwrap(),
-        path.with_extension("stderr"),
         combined.clone(),
         overflow.clone(),
     ));
@@ -194,24 +180,53 @@ pub(super) async fn run(
         return Err(captured.err().unwrap());
     }
     let (out, err) = captured.unwrap();
-    let out = out??;
-    let err = err??;
-    combined.lock().await.flush().await?;
+    out??;
+    err??;
+    let size = {
+        let mut file = combined.lock().await;
+        file.flush().await?;
+        file.metadata().await?.len()
+    };
+    let mut head = vec![];
+    tokio::fs::File::open(path)
+        .await?
+        .take(MODEL_INLINE)
+        .read_to_end(&mut head)
+        .await?;
     let reason = if reason == "completed" && !status.as_ref().unwrap().success() {
         "failed"
     } else {
         reason
     };
-    let mut data = json!({"stdout":out.text,"stderr":err.text,"status":reason,"interrupted":reason=="cancelled"||reason=="timed_out","timedOut":reason=="timed_out","cancelled":reason=="cancelled","stdoutTruncated":out.truncated,"stderrTruncated":err.truncated,"stdoutBytes":out.bytes,"stderrBytes":err.bytes,"persistedOutputPath":path,"stdoutPersistedOutputPath":out.path,"stderrPersistedOutputPath":err.path,"persistedOutputSize":out.bytes.min(MAX_STREAM)+err.bytes.min(MAX_STREAM)});
-    if let Some(code) = status.and_then(|s| s.code()) {
+    let exit_code = status.and_then(|s| s.code());
+    let truncated = size > head.len() as u64;
+    // TS BashFileOutput：两路输出共用一个文件，stdout 为文件开头、stderr 为空（docs/specs/rust-bash-model-content.md）。
+    let mut data = json!({"stdout":String::from_utf8_lossy(&head),"stderr":"","interrupted":reason=="cancelled"||reason=="timed_out","isImage":false,"noOutputExpected":crate::domain::bash_model_content::is_silent(command_text),"status":reason,"timedOut":reason=="timed_out","cancelled":reason=="cancelled","stdoutTruncated":truncated,"stderrTruncated":false,"stdoutBytes":size,"stderrBytes":0});
+    if let Some(code) = exit_code {
         data["exitCode"] = code.into();
     }
-    if overflow.is_cancelled() {
-        data["stderr"] = format!(
-            "{}\nOutput limit exceeded (16 MiB per stream); process stopped",
-            data["stderr"].as_str().unwrap()
-        )
-        .into();
+    let rules = crate::domain::bash_model_content::stop_message;
+    if let Some(message) = rules(reason, timeout.map(|t| t.as_millis() as u64), overflow.is_cancelled()) {
+        data["stderr"] = message.into();
+    }
+    let interpretation = if overflow.is_cancelled() {
+        Some("Command stopped because output exceeded the configured limit".to_owned())
+    } else {
+        crate::domain::bash_model_content::return_code_interpretation(command_text, reason, exit_code.map(i64::from))
+    };
+    if let Some(interpretation) = interpretation {
+        data["returnCodeInterpretation"] = interpretation.into();
+    }
+    // 前台只在截断时保留输出文件（TS persistOutput: on_truncate）；后台任务始终保留，TaskOutput 从中读取。
+    if truncated || !shell.foreground {
+        let path = path.to_string_lossy();
+        for key in ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath"] {
+            data[key] = path.as_ref().into();
+        }
+        data["persistedOutputSize"] = size.into();
+        data["stdoutPersistedOutputSize"] = size.into();
+    } else {
+        let _ = tokio::fs::remove_file(path).await;
     }
     Ok(data)
 }
@@ -262,6 +277,8 @@ pub(super) struct ShellContext<'a> {
     pub over: Option<&'a crate::shell_select::Override>,
     pub startup_root: &'a Path,
     pub session: &'a str,
+    /// 前台 Bash：未截断时删除输出文件、结果不带落盘路径。
+    pub foreground: bool,
 }
 
 pub(super) fn shell_output(data: Value) -> crate::contract::ToolOutput {
@@ -269,7 +286,9 @@ pub(super) fn shell_output(data: Value) -> crate::contract::ToolOutput {
         data["status"].as_str(),
         Some("failed" | "timed_out" | "cancelled" | "spawn_error")
     );
-    let mut output = crate::contract::ToolOutput::new(serde_json::to_string(&data).unwrap(), data);
+    // 模型可见正文按 TS formatBashModelContent 格式化；结构化结果留给行投影。
+    let content = crate::domain::bash_model_content::format(&data);
+    let mut output = crate::contract::ToolOutput::new(content, data);
     output.failed = failed;
     output
 }

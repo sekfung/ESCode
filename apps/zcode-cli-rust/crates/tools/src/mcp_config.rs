@@ -159,9 +159,9 @@ pub(super) async fn configured(
     }
     let mut merged = BTreeMap::new();
     let loaded = plugins::enabled(cwd, &config, cancel).await?;
-    if let Some(server) = super::mcp_node_repl::server(&loaded, cwd) {
-        merged.insert(server.name.clone(), server);
-    }
+    // 内置 node_repl 最后合并（TS builtInMcpServers 最后 spread），同名用户/插件/会话配置不能劫持它。
+    let node_repl = super::mcp_node_repl::server(&loaded, cwd);
+    let data_root = config::storage(&config).join("data");
     for plugin in loaded {
         let file = config::json_file(&plugin.root.join(".mcp.json")).await?;
         let mut definitions = shape(&file).clone();
@@ -187,6 +187,7 @@ pub(super) async fn configured(
             let name = format!("plugin:{}:{key}", plugin.name);
             let root = plugin.root.to_string_lossy();
             replace_root(&mut raw, &root);
+            plugin_stdio_env(&mut raw, cwd, &plugin, &data_root);
             // TS resolveMcpServerConfig 只取白名单字段，插件里的 protocolVersion/isolation 不生效（走默认协商与隔离）；
             // 之前 Rust 原样保留，官方 MCP 差分中出现请求序列分叉（docs/specs/rust-mcp-official-auth.md）。
             if let Some(object) = raw.as_object_mut() {
@@ -220,6 +221,11 @@ pub(super) async fn configured(
             merged.insert(server.name.clone(), server);
         }
     }
+    if let Some(server) = node_repl {
+        merged.insert(server.name.clone(), server);
+    }
+    // 退役的 CUA 形态 MCP 不连接、不列出（TS isRetiredCuaMcpServer）；CUA 只经 node_repl 承载。
+    merged.retain(|name, server| !crate::domain::mcp_cua::is_retired(name, &server.raw));
     ensure!(merged.len() <= 64, "Too many configured MCP servers");
     Ok(merged.into_values().collect())
 }
@@ -247,6 +253,28 @@ fn official_plugin(mut server: Server, plugin_id: &str, mcp_key: &str) -> Server
         server.invalid = true;
     }
     server
+}
+/// TS plugins/mcp.ts 的 stdio env：宿主默认值在前，manifest env 覆盖，插件 id 最后由宿主写入且不可伪造。
+fn plugin_stdio_env(raw: &mut Value, cwd: &Path, plugin: &plugins::Plugin, data_root: &Path) {
+    let stdio = match raw["type"].as_str() {
+        Some(kind) => kind == "stdio",
+        None => raw["command"].is_string(),
+    };
+    let Some(object) = raw.as_object_mut().filter(|_| stdio) else {
+        return;
+    };
+    let (project, root) = (cwd.to_string_lossy(), plugin.root.to_string_lossy());
+    let data = data_root.join(crate::domain::custom_command::sanitize_plugin_id(&plugin.id));
+    let data = data.to_string_lossy();
+    let mut env = json!({
+        "CLAUDE_PROJECT_DIR": project, "ZCODE_PLUGIN_DATA": data, "ZCODE_PLUGIN_ROOT": root,
+        "ZCODE_PROJECT_DIR": project, "CLAUDE_PLUGIN_DATA": data, "CLAUDE_PLUGIN_ROOT": root,
+    });
+    if let Some(manifest) = object.get("env").and_then(Value::as_object) {
+        env.as_object_mut().unwrap().extend(manifest.clone());
+    }
+    env["ZCODE_PLUGIN_ID"] = plugin.id.clone().into();
+    object.insert("env".into(), env);
 }
 fn replace_root(value: &mut Value, root: &str) {
     match value {

@@ -136,8 +136,11 @@ pub(super) async fn run(
                 .as_ref()
                 .map(|m| (m.root.as_str(), memory_index.as_deref())),
         );
+        // Node 的请求里技能提醒位于上下文提醒（As you answer the user…）之前；之前追加在末尾，
+        // 有插件技能时两条 reminder 顺序与 Node 相反（node_repl 差分发现）。
         if let Some(reminder) = skills.reminder() {
-            prefix.push(reminder);
+            let at = prefix.iter().position(|m| m["role"] == "user").unwrap_or(prefix.len());
+            prefix.insert(at, reminder);
         }
         if let Some(profile) = &profile {
             prefix.push(json!({"role":"system","content":profile.system_prompt}));
@@ -297,6 +300,13 @@ pub(super) async fn run(
         } else if !has_tools
             && !super::goal_loop::advance(model, history, &prefix, sink, cancel).await?
         {
+            // TS appendBrowserTurnScreenshot：成功收尾且本轮用过浏览器时追加轮尾截图（docs/specs/rust-browser-use.md 第 3 期）。
+            let turn = turn_facts.mcp_meta["turn_id"].as_str().unwrap_or_default().to_owned();
+            if let Some(display) = tools.browser_turn_screenshot(&sink.session_id, &turn).await {
+                let (committed, receipt) = oneshot::channel();
+                sink.send(Event::BrowserTurnScreenshot { display, committed }).await?;
+                durable(receipt, cancel).await?;
+            }
             return Ok(());
         }
     }

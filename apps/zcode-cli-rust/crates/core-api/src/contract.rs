@@ -184,6 +184,16 @@ pub trait RewindTransaction: Send {
 }
 #[async_trait]
 pub trait ToolPort: Send + Sync {
+    /// 成功轮次收尾：本轮用过浏览器时对 active tab 截图，返回 `browser_turn_end` 图片卡；默认无。
+    async fn browser_turn_screenshot(&self, _session: &str, _turn: &str) -> Option<Value> {
+        None
+    }
+    /// 任一 turn 收尾：浏览器等会话资源的轮次生命周期（TS BrowserControlPort.turnEnded）；默认无操作。
+    async fn turn_ended(&self, _session: &str, _turn: &str) {}
+    /// MCP 工具在会话中的展示元数据（serverName / 原始 toolName / description）；默认无。
+    fn mcp_display(&self, _session: &str, _name: &str) -> Option<Value> {
+        None
+    }
     /// Engine 启动时交给工具层的 Host 通道（`HOST_CHANNEL`）；默认不使用。
     fn attach_host(&self, _host: EventSink) {}
     async fn file_changes(

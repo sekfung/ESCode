@@ -115,6 +115,7 @@ impl Engine {
         }
         if matches!(event.event, Event::Finished { .. }) {
             self.cancel_auth(&id);
+            self.notify_turn_ended(&id, &turn);
         }
         // 工具结果媒体先落附件存储，会话消息只保留引用（base64 不进入会话库）。
         let stored = match &mut event.event {
@@ -229,9 +230,12 @@ impl Engine {
                     self.active[&id].cancel.cancel();
                 }
             }
-            Event::ToolStart { call } => {
+            Event::ToolStart { call, display } => {
                 let response = self.active[&id].response_id.clone();
-                let row = s.tool_call_row(&turn, &call, response, now);
+                let mut row = s.tool_call_row(&turn, &call, response, now);
+                if let Some(display) = display {
+                    row["display"] = display;
+                }
                 s.rows.push(row.clone());
                 deltas.push(json!({"op":"row.appended","row":row}));
             }
@@ -268,29 +272,15 @@ impl Engine {
                     message["_zcode_tool_name"] = tool.into();
                 }
                 s.append_message(message);
-                if let Some(row) = s
-                    .rows
-                    .iter_mut()
-                    .find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)
-                {
-                    // 修复：原先拒绝按工具失败投影（error + 输出拒绝文案）；TS settlePermission
-                    // 把被拒的调用收口为 cancelled，且不产生工具结果行字段。
-                    if denied {
-                        row["status"] = "cancelled".into();
-                    } else {
-                        row["status"] = if failed { "error" } else { "success" }.into();
-                        row["endedAt"] = now.into();
-                        row["output"] = json!({"text":result});
-                        if let Some(display) = display {
-                            row["output"]["display"] = display;
-                        }
-                        if failed {
-                            row["error"] = json!({"code":"tool_execution_failed","message":"Tool execution failed"});
-                        }
-                    }
-                    row.as_object_mut().unwrap().remove("approvalInteractionId");
+                let done = crate::domain::ToolResult { result, display, failed, denied };
+                if let Some(row) = s.finish_tool_row(&turn, &call_id, done, now) {
                     deltas.push(json!({"op":"row.upserted","row":row}));
                 }
+            }
+            Event::BrowserTurnScreenshot { display, committed } => {
+                receipt = Some(committed);
+                let row = s.turn_screenshot_row(&turn, self.active[&id].response_id.clone(), display, &self.clock.id(), now);
+                deltas.push(json!({"op":"row.appended","row":row}));
             }
             Event::Finished {
                 error,

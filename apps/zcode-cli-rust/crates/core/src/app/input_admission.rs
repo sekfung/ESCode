@@ -63,7 +63,18 @@ impl Engine {
                 payload["text"] = prompt.clone().into();
                 self.input_content(id, &payload)?
             }
-            None => self.input_content(id, &c.payload)?,
+            None => match c.payload["text"]
+                .as_str()
+                .and_then(|t| crate::domain::browser_ambient::format(t, &c.payload["browserAmbientContext"]))
+            {
+                // TS formatBrowserAmbientUserInput：只改模型可见正文，userInput 行与标题保持原文。
+                Some(text) => {
+                    let mut payload = c.payload.clone();
+                    payload["text"] = text.into();
+                    self.input_content(id, &payload)?
+                }
+                None => self.input_content(id, &c.payload)?,
+            },
         };
         if c.payload["_userSteer"] == true
             && let Some(text) = content.as_str()

@@ -27,6 +27,18 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
     }
     if let Some(cua) = cua {
         env["ZCODE_CUA_PLUGIN_ROOT"] = Value::from(cua.to_string_lossy().into_owned());
+        // TS injectCuaCredentialsIntoNodeRepl（docs/specs/rust-browser-use.md 第 4 期）：凭据成组才注入，
+        // 且只进 node_repl；其他子进程的环境里这些键已由 host::child_env 删除。
+        if let Some(credentials) = zcode_cli_host::child_env::cua_credentials() {
+            use crate::domain::runtime_env as keys;
+            env[keys::CUA_SOCKET_KEY] = credentials.socket.into();
+            if let Some(marker) = credentials.refresh_marker {
+                env[keys::CUA_REFRESH_MARKER_KEY] = marker.into();
+            }
+            env[keys::CUA_AUTHORITY_KEY] = credentials.authority.into();
+            env["ZCODE_CUA_NODE_REPL_HOST"] = "1".into();
+            env["ZCODE_PLUGIN_ID"] = COMPUTER_USE.into();
+        }
     }
     let script = host.join("dist").join("mcp").join("server.js");
     let raw = json!({

@@ -24,11 +24,15 @@ export function answerHostRequest(
   const handler = harness.hostHandlers[request.method];
   if (handler) {
     harness.hostRequests.push({ method: request.method, params: request.params });
-    void Promise.resolve(handler(request.params)).then((result: any) =>
-      result && typeof result === "object" && "error" in result
-        ? harness.client.respondError(request.id, result.error)
-        : harness.client.respond(request.id, result),
-    );
+    // 生命周期类反向请求（如 turn 收尾的 browser turnEnded）可能在 runtime 退出后才应答；
+    // 此时传输已关闭，丢弃应答而不是让未处理的 rejection 打断用例。
+    void Promise.resolve(handler(request.params))
+      .then((result: any) =>
+        result && typeof result === "object" && "error" in result
+          ? harness.client.respondError(request.id, result.error)
+          : harness.client.respond(request.id, result),
+      )
+      .catch(() => undefined);
     return;
   }
   if (request.method !== "session/requestRuntimePreferences") return;

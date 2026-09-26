@@ -326,3 +326,18 @@ fn search_sync(
     }
     Ok(ToolOutput::new(model, output))
 }
+/// 旧版 List 工具（只为既有转录保留，不再暴露给模型）。
+pub(super) async fn list(cwd: &std::path::Path, args: &Value, cancel: &CancellationToken) -> Result<ToolOutput> {
+    let path = resolve(cwd, string(args, "path")?)?;
+    let mut dir = tokio::fs::read_dir(path).await?;
+    let mut entries = vec![];
+    while let Some(entry) = dir.next_entry().await? {
+        check_cancel(cancel)?;
+        entries.push(entry.file_name().to_string_lossy().into_owned());
+        if entries.len() >= 1000 {
+            break;
+        }
+    }
+    entries.sort();
+    Ok(ToolOutput::text(entries.join("\n")))
+}

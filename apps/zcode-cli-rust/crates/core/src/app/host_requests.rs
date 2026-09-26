@@ -6,6 +6,11 @@ use crate::contract::{Event, HostReply};
 use serde_json::{Value, json};
 
 impl Engine {
+    /// turn 收尾后通知工具层（浏览器 turnEnded，只覆盖 runtime 自己操作过的 browser）；失败不影响已完成的 turn（TS 同）。
+    pub(super) fn notify_turn_ended(&self, id: &str, turn: &str) {
+        let (tools, id, turn) = (self.tools.clone(), id.to_owned(), turn.to_owned());
+        tokio::spawn(async move { tools.turn_ended(&id, &turn).await });
+    }
     /// 工具层 Host 通道不依附会话（如 mcp/list 期间的官方 MCP 身份头），直接转发，应答按请求 id 路由。
     pub(super) fn host_channel_event(&mut self, event: Event) {
         if let Event::HostRequest { method, params, reply } = event {

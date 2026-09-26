@@ -85,6 +85,7 @@ fn failure(message: String) -> crate::contract::ToolOutput {
 }
 async fn run(file: &str, args: &[String], timeout: Duration) -> Option<std::process::Output> {
     let mut command = tokio::process::Command::new(file);
+    zcode_cli_host::child_env::apply(&mut command, false);
     command
         .args(args)
         .stdin(std::process::Stdio::null())

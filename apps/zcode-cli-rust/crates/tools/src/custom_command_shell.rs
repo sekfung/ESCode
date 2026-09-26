@@ -141,6 +141,7 @@ async fn run(
         crate::shell_select::resolve(platform, &env, None, &|p| std::path::Path::new(p).is_file());
     let plan = crate::shell_select::spawn_plan(platform, &env, &selection, shell);
     let mut process = tokio::process::Command::new(&plan.file);
+    zcode_cli_host::child_env::apply(&mut process, true);
     process
         .args(&plan.args)
         .envs(plan.env_overlay)

@@ -72,6 +72,15 @@ pub(super) fn body(
             for message in &mut messages {
                 if let Some(obj) = message.as_object_mut() {
                     obj.retain(|k, _| !k.starts_with("_zcode_"));
+                    // AI SDK openai-compatible：只有工具调用的 assistant 消息 content 为 null（Node 请求实测），
+                    // Rust 之前发空串；部分兼容端对「空串 + tool_calls」更严格（docs/specs/rust-browser-use.md）。
+                    let calls = obj.get("tool_calls").and_then(Value::as_array).is_some_and(|c| !c.is_empty());
+                    if obj.get("role").and_then(Value::as_str) == Some("assistant")
+                        && calls
+                        && obj.get("content").and_then(Value::as_str) == Some("")
+                    {
+                        obj.insert("content".into(), Value::Null);
+                    }
                 }
             }
             let mut body = json!({"model":config.model_id,"stream":true,"stream_options":{"include_usage":true},"max_tokens":config.max_output_tokens,"tools":tools});

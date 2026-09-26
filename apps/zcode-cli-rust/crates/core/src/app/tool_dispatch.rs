@@ -34,7 +34,11 @@ pub(super) async fn execute(
     if cancel.is_cancelled() {
         bail!("Cancelled");
     }
-    sink.send(Event::ToolStart { call: call.clone() }).await?;
+    let display = call["function"]["name"]
+        .as_str()
+        .filter(|n| n.starts_with("mcp__"))
+        .and_then(|n| tools.mcp_display(&sink.session_id, n));
+    sink.send(Event::ToolStart { call: call.clone(), display }).await?;
     let name = call["function"]["name"]
         .as_str()
         .context("Tool name missing")?;
@@ -131,6 +135,16 @@ pub(super) async fn execute(
         sink.send(Event::ToolCleanupFailed(format!("{error:#}")))
             .await?;
         return Err(result.err().unwrap());
+    }
+    // TS serializeOutput：模型可见内容为空白时换成通用占位，避免模型把静默成功误读成缺失结果
+    // （docs/specs/rust-bash-model-content.md；Rust 之前直接发空串）。
+    let mut result = result;
+    if let Ok(output) = &mut result
+        && !output.control.denied
+        && output.media.is_empty()
+        && output.content.trim().is_empty()
+    {
+        output.content = format!("({name} completed with no output)");
     }
     let failed = result.as_ref().map_or(true, |output| output.failed);
     let denied = result.as_ref().is_ok_and(|output| output.control.denied);

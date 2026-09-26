@@ -205,6 +205,7 @@ impl ShellTasks {
                     over: shell.as_ref(),
                     startup_root: artifacts,
                     session,
+                    foreground: true,
                 },
             )
             .await?;
@@ -301,6 +302,7 @@ impl ShellTasks {
                     over: shell.as_ref(),
                     startup_root: &startup_root,
                     session: &session_copy,
+                    foreground: false,
                 },
             )
             .await;
@@ -330,7 +332,7 @@ impl ShellTasks {
             let _ = tx.send(Some(result));
         });
         Ok(shell_output(
-            json!({"stdout":"","stderr":"","status":"backgrounded","interrupted":false,"backgroundTaskId":id,"persistedOutputPath":path,"backgroundedByUser":false}),
+            json!({"stdout":"","stderr":"","status":"backgrounded","interrupted":false,"backgroundTaskId":id,"rawOutputPath":path,"persistedOutputPath":path,"backgroundedByUser":false}),
         ))
     }
     pub async fn cancel(&self, session: &str, id: Option<&str>) -> Result<()> {

@@ -97,20 +97,7 @@ impl WorkspaceTools {
             }
             "Glob" | "Grep" => super::tool_search::search(&self.cwd, name, args, cancel).await,
             // Kept for existing native transcripts, but no longer advertised to the model.
-            "List" => {
-                let path = resolve(&self.cwd, string(args, "path")?)?;
-                let mut dir = tokio::fs::read_dir(path).await?;
-                let mut entries = vec![];
-                while let Some(entry) = dir.next_entry().await? {
-                    check_cancel(cancel)?;
-                    entries.push(entry.file_name().to_string_lossy().into_owned());
-                    if entries.len() >= 1000 {
-                        break;
-                    }
-                }
-                entries.sort();
-                Ok(ToolOutput::text(entries.join("\n")))
-            }
+            "List" => super::tool_search::list(&self.cwd, args, cancel).await,
             "Bash" | "TaskOutput" | "TaskStop" => {
                 self.shell
                     .call((&self.cwd, &artifacts), session, name, args, sink, cancel)
@@ -122,6 +109,15 @@ impl WorkspaceTools {
 }
 #[async_trait::async_trait]
 impl ToolPort for WorkspaceTools {
+    async fn browser_turn_screenshot(&self, session: &str, turn: &str) -> Option<Value> {
+        self.mcp.browser_turn_screenshot(session, turn).await
+    }
+    async fn turn_ended(&self, session: &str, turn: &str) {
+        self.mcp.browser_lifecycle(session, Some(turn), false).await;
+    }
+    fn mcp_display(&self, session: &str, name: &str) -> Option<Value> {
+        self.mcp.display(session, name)
+    }
     fn attach_host(&self, host: crate::contract::EventSink) {
         self.mcp.attach_host(host);
     }

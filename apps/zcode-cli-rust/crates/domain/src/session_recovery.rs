@@ -1,6 +1,50 @@
 use super::session::Session;
 use serde_json::{Value, json};
+/// 工具结果（`finish_tool_row` 的输入）。
+pub struct ToolResult {
+    pub result: String,
+    pub display: Option<Value>,
+    pub failed: bool,
+    pub denied: bool,
+}
 impl Session {
+    /// 工具结果收口到行。被拒收口为 cancelled 且不写结果字段（TS settlePermission）；node_repl 图片只走行级 display，
+    /// 行级 display 只接受 TS `toProtocolToolCallDisplay` 白名单中的 kind。
+    pub fn finish_tool_row(&mut self, turn: &str, call_id: &str, done: ToolResult, now: u64) -> Option<Value> {
+        let row = self.rows.iter_mut().find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)?;
+        if done.denied {
+            row["status"] = "cancelled".into();
+        } else {
+            row["status"] = if done.failed { "error" } else { "success" }.into();
+            row["endedAt"] = now.into();
+            row["output"] = json!({"text": done.result});
+            if let Some(display) = done.display {
+                if display["kind"] != "node_repl_images" {
+                    row["output"]["display"] = display.clone();
+                }
+                if super::tool_display::row_display_kind(&display) {
+                    row["display"] = display;
+                }
+            }
+            if done.failed {
+                row["error"] = json!({"code":"tool_execution_failed","message":"Tool execution failed"});
+            }
+        }
+        row.as_object_mut()?.remove("approvalInteractionId");
+        Some(row.clone())
+    }
+    /// TS appendBrowserTurnScreenshot 的工具行：`mcp__node_repl__js`，input `{source: browser_turn_end}`，空输出，图片卡。
+    pub fn turn_screenshot_row(&mut self, turn: &str, response: Option<String>, display: Value, id: &str, now: u64) -> Value {
+        let input = json!({"source": "browser_turn_end"});
+        let call = json!({"id": format!("tool_{id}"), "function": {"name": "mcp__node_repl__js", "arguments": input.to_string()}});
+        let mut row = self.tool_call_row(turn, &call, response, now);
+        row["status"] = "success".into();
+        row["endedAt"] = now.into();
+        row["output"] = json!({"text": ""});
+        row["display"] = display;
+        self.rows.push(row.clone());
+        row
+    }
     /// 运行中的工具行；带发出调用的模型响应 id 与结构化 input（TS toolCall，rust-row-projection.md）。
     pub fn tool_call_row(&mut self, turn: &str, call: &Value, response_id: Option<String>, now: u64) -> Value {
         let mut row = self.row("toolCall", turn, call["id"].as_str().unwrap_or_default(), now);

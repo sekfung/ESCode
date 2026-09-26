@@ -20,7 +20,10 @@ pub(super) struct Broker {
     host: Arc<OnceLock<EventSink>>,
     /// 会话的请求上下文（来自该会话 MCP 调用的 `_meta`）：Host 请求的 workspace 与 clientMode 取自这里。
     sessions: Mutex<BTreeMap<String, Value>>,
-    /// 会话用过的 (browserId, generation)：turn 结束与关闭会话时发送生命周期命令。
+    /// 本轮轮尾截图候选（TS browser-turn-state：node_repl 结果 `_meta["zcode/browserTurnScreenshot"]`），按 (session, turn)。
+    candidates: Mutex<BTreeMap<(String, String), (String, u64)>>,
+    /// runtime 自己操作过的 (browserId, generation)（轮尾截图）：此后每个 turn 结束发 turnEnded、关闭会话发
+    /// closeSession。TS 中 node_repl broker 与会话 runtime 各持一个 BrowserControlPort，生命周期只覆盖后者的连接。
     connections: Mutex<BTreeMap<String, BTreeSet<(String, u64)>>>,
 }
 
@@ -38,6 +41,7 @@ impl Broker {
             token,
             host,
             sessions: Mutex::default(),
+            candidates: Mutex::default(),
             connections: Mutex::default(),
         });
         super::browser_broker_listen::listen(broker.clone()).ok()?;
@@ -47,6 +51,12 @@ impl Broker {
         if meta.is_object() {
             self.sessions.lock().unwrap().insert(session.into(), meta.clone());
         }
+    }
+    pub fn record_turn_screenshot(&self, session: &str, turn: &str, candidate: &Value) {
+        let (Some(browser), Some(generation)) = (candidate["browserId"].as_str(), candidate["browserGeneration"].as_u64()) else {
+            return;
+        };
+        self.candidates.lock().unwrap().insert((session.into(), turn.into()), (browser.into(), generation));
     }
     pub fn env(&self) -> Value {
         json!({SOCKET_ENV: self.socket, TOKEN_ENV: self.token})
@@ -105,7 +115,6 @@ impl Broker {
                 let browser = request["browserId"].as_str().filter(|b| !b.trim().is_empty());
                 let browser = browser.ok_or_else(|| anyhow::anyhow!("Browser request is missing browserId"))?;
                 let generation = request["browserGeneration"].as_u64().unwrap_or(0);
-                self.connections.lock().unwrap().entry(session.into()).or_default().insert((browser.into(), generation));
                 params["browserId"] = browser.into();
                 params["browserGeneration"] = generation.into();
                 params["command"] = request["command"].clone();
@@ -150,7 +159,36 @@ impl Broker {
         }
     }
 
-    /// turn 结束 / 关闭会话：对会话用过的每个 browser 发生命周期命令（TS `sendLifecycle`，失败不影响主流程）。
+    /// TS `appendBrowserTurnScreenshot`：本轮有候选时对 active tab 截图，超 200 KiB 按统一图片处理压缩，
+    /// 返回 `browser_turn_end` 图片卡；无候选、无 active tab 或截图失败返回 None。
+    pub async fn turn_screenshot(&self, session: &str, turn: &str) -> Option<Value> {
+        let (browser, generation) = self.candidates.lock().unwrap().remove(&(session.into(), turn.into()))?;
+        self.connections.lock().unwrap().entry(session.into()).or_default().insert((browser.clone(), generation));
+        let command = |command: Value| {
+            let mut params = self.context(session, Some(turn)).ok()?;
+            params["browserId"] = browser.clone().into();
+            params["browserGeneration"] = generation.into();
+            params["command"] = command;
+            Some(params)
+        };
+        let listed = self.host_request("interaction/browserExecute", command(json!({"method": "list"}))?).await.ok()?;
+        let tabs = listed["tabs"].as_array().filter(|_| listed["ok"] == true)?;
+        let active = tabs.iter().find(|t| t["active"] == true)?;
+        let captured = self
+            .host_request("interaction/browserExecute", command(json!({"method": "screenshot", "tabId": active["tabId"]}))?)
+            .await
+            .ok()?;
+        let image = captured["image"].as_object().filter(|_| captured["ok"] == true)?;
+        let (mut base64, mut mime) = (image.get("base64")?.as_str()?.to_owned(), image.get("mimeType")?.as_str()?.to_owned());
+        if base64.len() > crate::domain::tool_display::MAX_NODE_REPL_IMAGE_BASE64_BYTES {
+            (base64, mime) = compress(&base64, &mime)?;
+        }
+        let mut display = crate::domain::tool_display::node_repl_images(&json!({"images": [{"base64": base64, "mimeType": mime}]}))?;
+        display["source"] = "browser_turn_end".into();
+        Some(display)
+    }
+
+    /// turn 结束 / 关闭会话：对 runtime 操作过的每个 browser 发生命周期命令（TS `sendLifecycle`，失败不影响主流程）。
     pub async fn lifecycle(&self, session: &str, turn: Option<&str>, close: bool) {
         let connections: Vec<_> = if close {
             self.connections.lock().unwrap().remove(session).into_iter().flatten().collect()
@@ -223,6 +261,22 @@ async fn closed<R: AsyncRead + Unpin>(mut reader: R) {
     }
 }
 
+/// 复杂页面的原始 PNG 常超过 node_repl 的 200 KiB 展示预算：按 TS 同一预算（最长边 2048、无 token 上限）压缩。
+fn compress(base64_image: &str, mime: &str) -> Option<(String, String)> {
+    use base64::Engine as _;
+    let engine = base64::engine::general_purpose::STANDARD;
+    let bytes = engine.decode(base64_image).ok()?;
+    let max = crate::domain::tool_display::MAX_NODE_REPL_IMAGE_BASE64_BYTES;
+    let budget = zcode_cli_host::image_budget::Budget {
+        max_base64: max,
+        max_raw: max * 3 / 4,
+        max_tokens: None,
+        max_dimension: 2048,
+    };
+    let prepared = zcode_cli_host::image_budget::prepare_within(bytes, mime, &budget).ok()?;
+    Some((engine.encode(prepared.data), prepared.media_type.to_owned()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,6 +287,7 @@ mod tests {
             token: "a".repeat(64),
             host: Arc::default(),
             sessions: Mutex::default(),
+            candidates: Mutex::default(),
             connections: Mutex::default(),
         }
     }

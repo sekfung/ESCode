@@ -24,6 +24,7 @@ async fn command(
         return None;
     }
     let mut command = Command::new(program);
+    crate::child_env::apply(&mut command, false);
     command
         .args(args)
         .current_dir(cwd)
