@@ -369,7 +369,12 @@ export class Harness {
       const timer = setTimeout(
         () => {
           cleanup();
-          reject(new Error(`Timed out; schema errors: ${this.schemaErrors.join("\n")}`));
+          // 超时时附带子进程 stderr 末尾，便于在 CI 上定位卡住的一侧。
+          reject(
+            new Error(
+              `Timed out; schema errors: ${this.schemaErrors.join("\n")}; stderr tail: ${this.stderr.slice(-2000)}`,
+            ),
+          );
           // 真实模型服务的长回复可能超过默认 8s；只有显式设置时才放宽，普通用例保持原超时。
         },
         Number(process.env.ZCODE_TEST_WAIT_MS ?? 8000),
