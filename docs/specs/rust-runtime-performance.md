@@ -63,3 +63,24 @@ sequenceDiagram
 空闲 RSS 11.3MiB vs 339MiB、峰值 19.5MiB vs 394MiB、同一 workload 墙钟 0.18s vs 15.9s。
 完整数据、读法与仍缺的口径（三平台原生、真实供应商、大历史、p95/p99）见
 [性能报告](../reports/rust-perf-2026-09-24.md)。
+
+## 2026-09-26：三平台原生 release 基准
+
+`bench-zcode-cli-node-rust.mjs` 改为三平台可运行：
+
+- Windows 用 `Get-Process` 取工作集与累计 CPU，其余平台仍用 `ps`；
+- 两侧都设置 `NO_PROXY`：runner 或开发机的代理会把本地 fixture 请求转走，Rust 会一直重试；
+- 会话标题 sidecar 请求不计入主循环请求数（按请求的 `stream` 应答）。
+
+CI 新增 `bench (ubuntu/windows/macos)` job：release 二进制与 Node bundle 在同一 workload 下交错 5 次，
+取中位数写入 job summary，并作为 artifact 上传。该 job 不作为失败门槛。
+
+本机 Windows x64（Xeon Gold 5218R，3 次配对，中位数）：
+
+| 指标                              | Node    | Rust     |
+| --------------------------------- | ------- | -------- |
+| 启动（到 `runtime/capabilities`） | 1892 ms | 32 ms    |
+| 空闲工作集                        | 275 MiB | 9.3 MiB  |
+| 峰值工作集                        | 302 MiB | 19.8 MiB |
+| 8 轮 workload 墙钟                | 3.33 s  | 0.18 s   |
+| CPU                               | 2.73 s  | 0.13 s   |

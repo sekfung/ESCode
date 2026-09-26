@@ -76,3 +76,46 @@ jobs:
       # 生成资产漂移检查、cargo test、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:zcode-cli-rust
         shell: bash
+
+  # 三平台原生 release 延迟与内存（发布门槛「性能」：三平台 release 延迟，docs/specs/rust-runtime-performance.md）。
+  # 同一本地 SSE workload 下 Node 与 Rust 交错 5 次配对；结果写入 job summary 与 artifact，不作为失败门槛。
+  bench:
+    name: bench (${{ matrix.os }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/zcode-cli-rust
+          key: release
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - run: cargo build --release --locked --manifest-path apps/zcode-cli-rust/Cargo.toml --bin zcode-cli-rust
+      - name: Node vs Rust paired benchmark
+        shell: bash
+        run: |
+          node scripts/bench-zcode-cli-node-rust.mjs apps/zcode-cli/packages/cli/dist/zcode.cjs "" bench-results 5
+          {
+            echo "### Node vs Rust (${{ matrix.os }}, median of 5)"
+            echo '```json'
+            cat bench-results/summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.os }}
+          path: bench-results

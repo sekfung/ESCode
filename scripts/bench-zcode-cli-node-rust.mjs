@@ -11,7 +11,10 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const run = promisify(execFile);
 const nodeBundle = resolve(process.argv[2] ?? "apps/zcode-cli/packages/cli/dist/zcode.cjs");
-const rustBinary = resolve(process.argv[3] ?? "apps/zcode-cli-rust/target/release/zcode-cli-rust");
+const rustBinary = resolve(
+  process.argv[3] ||
+    `apps/zcode-cli-rust/target/release/zcode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
+);
 const output = resolve(process.argv[4] ?? ".zcode-runtime/node-rust-bench");
 const repetitions = Number(process.argv[5] ?? 5);
 if (!Number.isInteger(repetitions) || repetitions < 1) throw new Error("Invalid repetitions");
@@ -32,6 +35,20 @@ function parseCpuTime(value) {
 }
 
 async function processStats(pid) {
+  // Windows 没有 ps：用 Get-Process 取工作集与累计 CPU（三平台 CI 同口径，docs/specs/rust-ci.md）。
+  if (process.platform === "win32") {
+    const script = `$p = Get-Process -Id ${pid}; "$($p.WorkingSet64) $($p.TotalProcessorTime.TotalSeconds)"`;
+    const { stdout } = await run("powershell", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      script,
+    ]);
+    const [bytes, seconds] = stdout.trim().split(/\s+/u).map(Number);
+    if (!Number.isFinite(bytes) || !Number.isFinite(seconds))
+      throw new Error(`Unexpected Get-Process output: ${stdout}`);
+    return { rssKiB: Math.round(bytes / 1024), cpuSeconds: seconds };
+  }
   const { stdout } = await run("ps", ["-o", "rss=", "-o", "time=", "-p", String(pid)]);
   const match = stdout.trim().match(/^(\d+)\s+(\S+)$/u);
   if (!match) throw new Error(`Unexpected ps output: ${stdout}`);
@@ -46,8 +63,25 @@ async function runSample(kind, repetition) {
   await Promise.all([mkdir(home), mkdir(workspace), mkdir(storage)]);
   let requestCount = 0;
   const server = createServer(async (request, response) => {
-    for await (const _ of request) {
-      // Consume the full request before returning the deterministic stream.
+    let body = "";
+    for await (const part of request) body += part;
+    // 会话标题 sidecar（两侧首条输入都会发）不计入主循环请求数，也不做流式负载。
+    if (body.includes("Generate a concise title for this coding session")) {
+      // Node 的标题请求非流式，Rust 始终流式：按请求的 stream 应答。
+      if (JSON.parse(body).stream === true) {
+        response.writeHead(200, { "Content-Type": "text/event-stream" });
+        response.end(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "Bench" } }] })}\n\n${finish}`,
+        );
+        return;
+      }
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(
+        JSON.stringify({
+          choices: [{ message: { role: "assistant", content: "Bench" }, finish_reason: "stop" }],
+        }),
+      );
+      return;
     }
     requestCount++;
     response.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -138,6 +172,9 @@ async function runSample(kind, repetition) {
     stdio: ["pipe", "pipe", "pipe"],
     env: {
       ...process.env,
+      // fixture 在 127.0.0.1：开发机/runner 的 HTTP(S)_PROXY 会让 reqwest 把本地请求转给代理而一直重试。
+      NO_PROXY: "127.0.0.1,localhost",
+      no_proxy: "127.0.0.1,localhost",
       HOME: home,
       USERPROFILE: home,
       XDG_CONFIG_HOME: join(home, ".config"),
