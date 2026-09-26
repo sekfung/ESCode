@@ -22,6 +22,7 @@ import {
 } from "@zcode/shared/zcode-protocol-v4";
 import { shellHeartbeatCommand } from "./zcode-cli-rust-shell-probe.js";
 import { titleReply, titleRequest } from "./zcode-cli-rust-title-fixture.js";
+import { isKnownNodeExitCrash } from "./zcode-cli-rust-exit.js";
 
 export const binary = resolve(
   `apps/zcode-cli-rust/target/debug/zcode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
@@ -415,16 +416,7 @@ export class Harness {
     const status = await this.exited;
     clearTimeout(timer);
     this.client.dispose();
-    // Node 24 在 Windows 上退出时偶发 libuv 断言 `!(handle->flags & UV_HANDLE_CLOSING)`（src/win/async.c，
-    // 退出码 0xC0000409），差分用例的 Node 一侧因此失败（CI 36213030115、36216871411）。该断言文本只可能来自
-    // Node/libuv，Rust 子进程不会输出；只容忍这一种退出，其余非零退出照常失败。
-    if (
-      process.platform === "win32" &&
-      (status as unknown[])[0] === 0xc0000409 &&
-      this.stderr.includes("UV_HANDLE_CLOSING") &&
-      expectedExit === 0
-    )
-      return;
+    if (expectedExit === 0 && isKnownNodeExitCrash(status, this.stderr)) return;
     assert.deepEqual(
       status,
       [expectedExit, null],
