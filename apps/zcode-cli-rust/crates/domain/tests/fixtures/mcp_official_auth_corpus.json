@@ -1,0 +1,337 @@
+{
+ "trust": [
+  {
+   "origin": "https://zcode.z.ai",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "https://zcode.z.ai:443",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "https://zcode.z.ai/mcp/path",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "https://user:pass@zcode.z.ai",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "http://zcode.z.ai",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "https://evil.example",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "https://ZCODE.Z.AI",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "  ",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "invalid_input",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "not a url",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "https://zcode.z.ai",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": null,
+   "result": {
+    "detail": "zcode_origin_unresolved",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "https://zcode.z.ai",
+   "devTrustedOriginsRaw": null,
+   "zcodeApiOrigin": "http://zcode.z.ai",
+   "result": {
+    "detail": "zcode_origin_unresolved",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "http://127.0.0.1:3999",
+   "devTrustedOriginsRaw": "http://127.0.0.1:3999",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "http://127.0.0.1:3999",
+   "devTrustedOriginsRaw": " http://localhost:1 , http://127.0.0.1:3999 ",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "http://127.0.0.1:4000",
+   "devTrustedOriginsRaw": "http://127.0.0.1:3999",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "http://localhost:3999",
+   "devTrustedOriginsRaw": "http://localhost:3999",
+   "zcodeApiOrigin": null,
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "http://[::1]:3999",
+   "devTrustedOriginsRaw": "http://[::1]:3999",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "ok",
+    "trusted": true
+   }
+  },
+  {
+   "origin": "https://evil.example",
+   "devTrustedOriginsRaw": "https://evil.example",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "http://evil.example",
+   "devTrustedOriginsRaw": "http://evil.example",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  },
+  {
+   "origin": "http://u:p@127.0.0.1:3999",
+   "devTrustedOriginsRaw": "http://127.0.0.1:3999",
+   "zcodeApiOrigin": "https://zcode.z.ai",
+   "result": {
+    "detail": "origin_mismatch",
+    "trusted": false
+   }
+  }
+ ],
+ "reserved": [
+  {
+   "headers": {},
+   "result": []
+  },
+  {
+   "headers": {
+    "X-Custom": "1"
+   },
+   "result": []
+  },
+  {
+   "headers": {
+    "Authorization": "x",
+    "x-custom": "1"
+   },
+   "result": [
+    "authorization"
+   ]
+  },
+  {
+   "headers": {
+    " MCP-Session-Id ": "s",
+    "Bigmodel-Target-Type": "t",
+    "authorization": "a",
+    "AUTHORIZATION": "b"
+   },
+   "result": [
+    "authorization",
+    "bigmodel-target-type",
+    "mcp-session-id"
+   ]
+  },
+  {
+   "headers": {
+    "x-coding-plan-api-key": "k",
+    "X-Bigmodel-Authorization": "j",
+    "bigmodel-project": "p"
+   },
+   "result": [
+    "bigmodel-project",
+    "x-bigmodel-authorization",
+    "x-coding-plan-api-key"
+   ]
+  },
+  {
+   "headers": {
+    "Bigmodel-Organization": "o",
+    "mcp-protocol-version": "v",
+    "x-request-id": "r"
+   },
+   "result": [
+    "bigmodel-organization",
+    "mcp-protocol-version"
+   ]
+  }
+ ],
+ "origins": [
+  {
+   "baseUrl": null,
+   "endpointOrigin": null,
+   "result": {
+    "ok": "https://zcode.z.ai"
+   }
+  },
+  {
+   "baseUrl": "https://zcode.test.example/api/",
+   "endpointOrigin": null,
+   "result": {
+    "ok": "https://zcode.test.example"
+   }
+  },
+  {
+   "baseUrl": "  ",
+   "endpointOrigin": "http://127.0.0.1:8080/x",
+   "result": {
+    "ok": "http://127.0.0.1:8080"
+   }
+  },
+  {
+   "baseUrl": null,
+   "endpointOrigin": "https://Other.Example:443",
+   "result": {
+    "ok": "https://other.example"
+   }
+  },
+  {
+   "baseUrl": "https://a.example",
+   "endpointOrigin": "https://b.example",
+   "result": {
+    "ok": "https://a.example"
+   }
+  }
+ ],
+ "auth": [
+  {
+   "value": "<undefined>",
+   "result": {
+    "ok": null
+   }
+  },
+  {
+   "value": {
+    "type": "zcode_official",
+    "provider": "jwt_token"
+   },
+   "result": {
+    "ok": {
+     "type": "zcode_official",
+     "provider": "jwt_token"
+    }
+   }
+  },
+  {
+   "value": {
+    "type": "zcode_official",
+    "provider": "jwt_token",
+    "extra": 1
+   },
+   "result": {
+    "ok": {
+     "type": "zcode_official",
+     "provider": "jwt_token"
+    }
+   }
+  },
+  {
+   "value": {
+    "type": "zcode-official",
+    "provider": "jwt_token"
+   },
+   "result": {
+    "error": "MCP server plugin:server: unsupported auth type: zcode-official"
+   }
+  },
+  {
+   "value": {
+    "type": "zcode_official"
+   },
+   "result": {
+    "error": "MCP server plugin:server: unsupported auth provider: undefined"
+   }
+  },
+  {
+   "value": "zcode_official",
+   "result": {
+    "error": "MCP server plugin:server: auth must be an object"
+   }
+  },
+  {
+   "value": null,
+   "result": {
+    "error": "MCP server plugin:server: auth must be an object"
+   }
+  },
+  {
+   "value": [],
+   "result": {
+    "error": "MCP server plugin:server: auth must be an object"
+   }
+  }
+ ]
+}

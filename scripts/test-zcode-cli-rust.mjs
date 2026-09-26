@@ -127,6 +127,7 @@ for (const script of [
   "scripts/generate-zcode-cli-rust-title-corpus.mjs",
   "scripts/generate-zcode-cli-rust-websearch-corpus.mjs",
   "scripts/generate-zcode-cli-rust-mcp-oauth-corpus.mjs",
+  "scripts/generate-zcode-cli-rust-mcp-official-auth-corpus.mjs",
 ])
   await run(process.execPath, ["--import", "tsx", script, "--check"]);
 // 测试导入的工作区包（@zcode/rpc 等）类型入口指向 dist/*.d.ts；干净检出（CI）没有 dist 时，tsc 会退回按源码

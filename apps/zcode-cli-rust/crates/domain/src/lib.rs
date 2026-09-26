@@ -29,6 +29,7 @@ pub mod json_order;
 mod json_size;
 pub mod legacy_snapshot;
 pub mod mcp_oauth;
+pub mod mcp_official_auth;
 mod mcp_oauth_pair;
 pub mod mcp_result;
 pub mod memory;
