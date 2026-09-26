@@ -37,11 +37,20 @@ pub(super) async fn execute(
     let display = call["function"]["name"]
         .as_str()
         .filter(|n| n.starts_with("mcp__"))
-        .and_then(|n| tools.mcp_display(&sink.session_id, n));
+        .and_then(|n| tools.mcp_tool(&sink.session_id, n)?.display);
     sink.send(Event::ToolStart { call: call.clone(), display }).await?;
     let name = call["function"]["name"]
         .as_str()
         .context("Tool name missing")?;
+    // TS validateInitialModelToolInput：MCP 入参先按 inputSchema 校验，失败时不请求权限、不调用工具，
+    // 把问题回传模型（docs/specs/rust-tool-input-validation.md；Rust 之前原样交给 MCP server）。
+    if let Some(content) = invalid_mcp_input(tools, &sink.session_id, name, &call) {
+        let output = crate::contract::ToolOutput {
+            failed: true,
+            ..crate::contract::ToolOutput::text(content)
+        };
+        return Ok((call["id"].as_str().context("Tool id missing")?.into(), name.to_owned(), output, true, false));
+    }
     // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
     let outcome = {
         let (reply, receipt) = oneshot::channel();
@@ -157,4 +166,16 @@ pub(super) async fn execute(
         failed,
         denied,
     ))
+}
+
+fn invalid_mcp_input(tools: &dyn ToolPort, session: &str, name: &str, call: &Value) -> Option<String> {
+    use crate::domain::{json_order::Json, tool_input_validation as validation};
+    if !name.starts_with("mcp__") {
+        return None;
+    }
+    let schema = Json::parse(&tools.mcp_tool(session, name)?.input_schema.to_string())?;
+    // 参数按原文解析以保留键顺序（多余参数按模型给出的顺序列出）。
+    let args = Json::parse(call["function"]["arguments"].as_str()?)?;
+    let issues = validation::validate(&args, &schema);
+    (!issues.is_empty()).then(|| validation::model_content(name, &issues))
 }

@@ -115,8 +115,8 @@ impl ToolPort for WorkspaceTools {
     async fn turn_ended(&self, session: &str, turn: &str) {
         self.mcp.browser_lifecycle(session, Some(turn), false).await;
     }
-    fn mcp_display(&self, session: &str, name: &str) -> Option<Value> {
-        self.mcp.display(session, name)
+    fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> {
+        self.mcp.tool(session, name)
     }
     fn attach_host(&self, host: crate::contract::EventSink) {
         self.mcp.attach_host(host);

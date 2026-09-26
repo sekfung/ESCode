@@ -190,8 +190,8 @@ pub trait ToolPort: Send + Sync {
     }
     /// 任一 turn 收尾：浏览器等会话资源的轮次生命周期（TS BrowserControlPort.turnEnded）；默认无操作。
     async fn turn_ended(&self, _session: &str, _turn: &str) {}
-    /// MCP 工具在会话中的展示元数据（serverName / 原始 toolName / description）；默认无。
-    fn mcp_display(&self, _session: &str, _name: &str) -> Option<Value> {
+    /// 会话中 MCP 工具的工具卡与 inputSchema（ToolStart 展示与执行前入参校验）；默认无。
+    fn mcp_tool(&self, _session: &str, _name: &str) -> Option<McpTool> {
         None
     }
     /// Engine 启动时交给工具层的 Host 通道（`HOST_CHANNEL`）；默认不使用。
@@ -386,7 +386,7 @@ pub trait ToolPort: Send + Sync {
         Ok(())
     }
 }
-pub use super::tool_output::{ToolControl, ToolOutput};
+pub use super::tool_output::{McpTool, ToolControl, ToolOutput};
 pub use super::environment_ports::{AuthPort, Clock, ContextPort, RuntimeClock};
 pub struct RuntimePorts {
     pub context: Arc<dyn ContextPort>,

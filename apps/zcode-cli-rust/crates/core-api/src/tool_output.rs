@@ -41,3 +41,11 @@ impl ToolOutput {
         }
     }
 }
+
+/// 会话中一个 MCP 工具的元数据（docs/specs/rust-browser-use.md 第 3 期、rust-tool-input-validation.md）。
+pub struct McpTool {
+    /// `mcp_tool` 工具卡（serverName / 原始 toolName / description）。
+    pub display: Option<Value>,
+    /// 工具声明的 inputSchema。
+    pub input_schema: Value,
+}

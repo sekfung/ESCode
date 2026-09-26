@@ -27,9 +27,14 @@ impl Hub {
             broker.lifecycle(session, turn, close).await;
         }
     }
-    /// 会话中 MCP 工具的工具卡（ToolStart 时投影到行级 display）。
-    pub fn display(&self, session: &str, name: &str) -> Option<Value> {
+    /// 会话中 MCP 工具的工具卡（ToolStart 时投影到行级 display）与 inputSchema（执行前入参校验，
+    /// docs/specs/rust-tool-input-validation.md）。
+    pub fn tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> {
         let state = self.state.read().unwrap();
-        state.bindings.get(session)?.iter().find(|b| b.name == name)?.display()
+        let binding = state.bindings.get(session)?.iter().find(|b| b.name == name)?;
+        Some(crate::contract::McpTool {
+            display: binding.display(),
+            input_schema: binding.definition["function"]["parameters"].clone(),
+        })
     }
 }
