@@ -1,0 +1,558 @@
+{
+ "keyPrefixes": [
+  {
+   "name": "linear",
+   "url": "https://mcp.linear.app/sse",
+   "config": {},
+   "prefix": "mcp:oauth:7c092dd570accc8782943413",
+   "sanitized": "mcp-oauth-7c092dd570accc8782943413"
+  },
+  {
+   "name": "notion",
+   "url": "https://mcp.notion.com/mcp",
+   "config": {
+    "clientId": "cid",
+    "scope": "read write"
+   },
+   "prefix": "mcp:oauth:4611146990e53243c0cae641",
+   "sanitized": "mcp-oauth-4611146990e53243c0cae641"
+  },
+  {
+   "name": "名字",
+   "url": "http://127.0.0.1:9/mcp?x=1",
+   "config": {
+    "redirectPath": "/cb"
+   },
+   "prefix": "mcp:oauth:aba40d0cfc3dc5bdccd319f0",
+   "sanitized": "mcp-oauth-aba40d0cfc3dc5bdccd319f0"
+  }
+ ],
+ "pairInputs": [
+  {
+   "input": {},
+   "pair": null
+  },
+  {
+   "input": {
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "legacyTokensRaw": "{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"}"
+   },
+   "pair": {
+    "source": "legacy",
+    "tokens": {
+     "access_token": "a1",
+     "token_type": "Bearer",
+     "refresh_token": "r1"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}"
+   },
+   "pair": {
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}",
+    "legacyTokensRaw": "{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "generation": "g1",
+    "raw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "source": "canonical",
+    "tokens": {
+     "access_token": "a1",
+     "token_type": "Bearer",
+     "refresh_token": "r1"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}",
+    "legacyTokensRaw": "{\"access_token\":\"a2\",\"token_type\":\"Bearer\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "source": "legacy",
+    "tokens": {
+     "access_token": "a2",
+     "token_type": "Bearer"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "legacyClientRaw": "{\"client_id\":\"other\"}",
+    "legacyTokensRaw": "{\"access_token\":\"a2\",\"token_type\":\"Bearer\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "other"
+    },
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":1}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "generation": "legacy-09a73e28d673bfb42ae5ed346d737af8",
+    "raw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":1}",
+    "source": "canonical",
+    "tokens": {
+     "access_token": "a1",
+     "token_type": "Bearer",
+     "refresh_token": "r1"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":1}",
+    "legacyTokensRaw": "{\"access_token\":\"a2\",\"token_type\":\"Bearer\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "source": "legacy",
+    "tokens": {
+     "access_token": "a2",
+     "token_type": "Bearer"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":3}",
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "not json",
+    "legacyTokensRaw": "{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"}"
+   },
+   "pair": {
+    "source": "legacy",
+    "tokens": {
+     "access_token": "a1",
+     "token_type": "Bearer",
+     "refresh_token": "r1"
+    }
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"generation\":\"g1\",\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2,\"expires_at\":5,\"obtained_at\":1,\"issuer\":\"i\"}"
+   },
+   "pair": {
+    "source": "legacy"
+   }
+  },
+  {
+   "input": {
+    "canonicalRaw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "legacyClientRaw": "{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"}",
+    "legacyTokensRaw": "{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"}"
+   },
+   "pair": {
+    "clientInformation": {
+     "client_id": "c1",
+     "issuer": "https://as.example"
+    },
+    "generation": "legacy-a28baf01ae7ae5943ea3542d6527e4b6",
+    "raw": "{\"client_information\":{\"client_id\":\"c1\",\"issuer\":\"https://as.example\"},\"published_by\":\"tx\",\"tokens\":{\"access_token\":\"a1\",\"token_type\":\"Bearer\",\"refresh_token\":\"r1\"},\"version\":2}",
+    "source": "canonical",
+    "tokens": {
+     "access_token": "a1",
+     "token_type": "Bearer",
+     "refresh_token": "r1"
+    }
+   }
+  }
+ ],
+ "scopeUnions": [
+  {
+   "scopes": [
+    null,
+    null
+   ],
+   "union": null
+  },
+  {
+   "scopes": [
+    "a b",
+    "b c"
+   ],
+   "union": "a b c"
+  },
+  {
+   "scopes": [
+    "  a  ",
+    null,
+    "c a d"
+   ],
+   "union": "a c d"
+  },
+  {
+   "scopes": [
+    "",
+    "x"
+   ],
+   "union": "x"
+  }
+ ],
+ "wwwAuthenticate": [
+  {
+   "header": "Bearer resource_metadata=\"https://mcp.example/.well-known/oauth-protected-resource\"",
+   "params": {
+    "resourceMetadataUrl": "https://mcp.example/.well-known/oauth-protected-resource",
+    "scope": null,
+    "error": null,
+    "errorDescription": null
+   }
+  },
+  {
+   "header": "Bearer error=\"insufficient_scope\", scope=\"read write\", resource_metadata=\"https://x/meta\"",
+   "params": {
+    "resourceMetadataUrl": "https://x/meta",
+    "scope": "read write",
+    "error": "insufficient_scope",
+    "errorDescription": null
+   }
+  },
+  {
+   "header": "Bearer realm=example, scope=single",
+   "params": {
+    "resourceMetadataUrl": null,
+    "scope": "single",
+    "error": null,
+    "errorDescription": null
+   }
+  },
+  {
+   "header": "Basic realm=\"x\"",
+   "params": {
+    "resourceMetadataUrl": null,
+    "scope": null,
+    "error": null,
+    "errorDescription": null
+   }
+  },
+  {
+   "header": "Bearer",
+   "params": {
+    "resourceMetadataUrl": null,
+    "scope": null,
+    "error": null,
+    "errorDescription": null
+   }
+  },
+  {
+   "header": "bearer error=invalid_token, error_description=\"expired token\"",
+   "params": {
+    "resourceMetadataUrl": null,
+    "scope": null,
+    "error": "invalid_token",
+    "errorDescription": "expired token"
+   }
+  },
+  {
+   "header": "Bearer resource_metadata=\"not a url\"",
+   "params": {
+    "resourceMetadataUrl": null,
+    "scope": null,
+    "error": null,
+    "errorDescription": null
+   }
+  }
+ ],
+ "discoveryUrls": [
+  {
+   "url": "https://as.example",
+   "urls": [
+    {
+     "url": "https://as.example/.well-known/oauth-authorization-server",
+     "type": "oauth"
+    },
+    {
+     "url": "https://as.example/.well-known/openid-configuration",
+     "type": "oidc"
+    }
+   ]
+  },
+  {
+   "url": "https://as.example/",
+   "urls": [
+    {
+     "url": "https://as.example/.well-known/oauth-authorization-server",
+     "type": "oauth"
+    },
+    {
+     "url": "https://as.example/.well-known/openid-configuration",
+     "type": "oidc"
+    }
+   ]
+  },
+  {
+   "url": "https://as.example/tenant/x/",
+   "urls": [
+    {
+     "url": "https://as.example/.well-known/oauth-authorization-server/tenant/x",
+     "type": "oauth"
+    },
+    {
+     "url": "https://as.example/.well-known/openid-configuration/tenant/x",
+     "type": "oidc"
+    },
+    {
+     "url": "https://as.example/tenant/x/.well-known/openid-configuration",
+     "type": "oidc"
+    }
+   ]
+  },
+  {
+   "url": "https://as.example/tenant?y=1",
+   "urls": [
+    {
+     "url": "https://as.example/.well-known/oauth-authorization-server/tenant",
+     "type": "oauth"
+    },
+    {
+     "url": "https://as.example/.well-known/openid-configuration/tenant",
+     "type": "oidc"
+    },
+    {
+     "url": "https://as.example/tenant/.well-known/openid-configuration",
+     "type": "oidc"
+    }
+   ]
+  }
+ ],
+ "resources": [
+  {
+   "requested": "https://mcp.example/mcp#frag",
+   "configured": "https://mcp.example/",
+   "resource": "https://mcp.example/mcp",
+   "allowed": true
+  },
+  {
+   "requested": "https://mcp.example/mcp",
+   "configured": "https://mcp.example/mcp",
+   "resource": "https://mcp.example/mcp",
+   "allowed": true
+  },
+  {
+   "requested": "https://mcp.example/mcp",
+   "configured": "https://mcp.example/mcp/",
+   "resource": "https://mcp.example/mcp",
+   "allowed": false
+  },
+  {
+   "requested": "https://mcp.example/mcpx",
+   "configured": "https://mcp.example/mcp",
+   "resource": "https://mcp.example/mcpx",
+   "allowed": false
+  },
+  {
+   "requested": "https://mcp.example/a/b",
+   "configured": "https://mcp.example/a",
+   "resource": "https://mcp.example/a/b",
+   "allowed": true
+  },
+  {
+   "requested": "https://mcp.example/a",
+   "configured": "https://mcp.example/a/b",
+   "resource": "https://mcp.example/a",
+   "allowed": false
+  },
+  {
+   "requested": "https://mcp.example:8443/a",
+   "configured": "https://mcp.example/a",
+   "resource": "https://mcp.example:8443/a",
+   "allowed": false
+  }
+ ],
+ "authMethods": [
+  {
+   "clientInformation": {
+    "client_id": "c"
+   },
+   "supported": [],
+   "method": "none"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "client_secret": "s"
+   },
+   "supported": [],
+   "method": "client_secret_basic"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "client_secret": "s"
+   },
+   "supported": [
+    "client_secret_post"
+   ],
+   "method": "client_secret_post"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "client_secret": "s"
+   },
+   "supported": [
+    "client_secret_basic",
+    "client_secret_post"
+   ],
+   "method": "client_secret_basic"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c"
+   },
+   "supported": [
+    "client_secret_basic"
+   ],
+   "method": "none"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c"
+   },
+   "supported": [
+    "none",
+    "client_secret_basic"
+   ],
+   "method": "none"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "client_secret": "s"
+   },
+   "supported": [
+    "private_key_jwt"
+   ],
+   "method": "client_secret_post"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "token_endpoint_auth_method": "client_secret_post",
+    "client_secret": "s"
+   },
+   "supported": [
+    "client_secret_basic"
+   ],
+   "method": "client_secret_basic"
+  },
+  {
+   "clientInformation": {
+    "client_id": "c",
+    "token_endpoint_auth_method": "none"
+   },
+   "supported": [],
+   "method": "none"
+  }
+ ],
+ "clientMetadata": [
+  {
+   "redirectUrl": "http://127.0.0.1:5000/oauth/callback/mcp/x",
+   "config": {},
+   "metadata": {
+    "client_name": "ZCode srv",
+    "grant_types": [
+     "authorization_code",
+     "refresh_token"
+    ],
+    "redirect_uris": [
+     "http://127.0.0.1:5000/oauth/callback/mcp/x"
+    ],
+    "response_types": [
+     "code"
+    ],
+    "application_type": "native"
+   }
+  },
+  {
+   "redirectUrl": "https://app.example/cb",
+   "config": {
+    "scope": "read",
+    "clientSecret": "s",
+    "clientName": "Mine"
+   },
+   "metadata": {
+    "client_name": "Mine",
+    "grant_types": [
+     "authorization_code",
+     "refresh_token"
+    ],
+    "redirect_uris": [
+     "https://app.example/cb"
+    ],
+    "response_types": [
+     "code"
+    ],
+    "token_endpoint_auth_method": "client_secret_basic",
+    "scope": "read",
+    "application_type": "web"
+   }
+  }
+ ]
+}
