@@ -1,6 +1,8 @@
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 mod agent_profiles;
+mod browser_broker;
+mod browser_broker_listen;
 pub mod bash_git_safety;
 mod checkpoint_blobs;
 mod custom_command_shell;
@@ -21,6 +23,8 @@ mod lexical_path;
 mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
+mod mcp_node_repl;
+mod mcp_request_meta;
 mod mcp_oauth_client;
 mod mcp_oauth_credentials;
 mod mcp_oauth_flow;

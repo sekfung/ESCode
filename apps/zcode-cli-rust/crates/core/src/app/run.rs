@@ -69,6 +69,30 @@ impl Engine {
                 .unwrap_or_default(),
             bot_delivery_target: Some(input["botDeliveryTarget"].clone()).filter(|v| v.is_object()),
             mode: session.mode.clone(),
+            mcp_meta: {
+                let client = self
+                    .subscriptions
+                    .values()
+                    .rev()
+                    .find(|s| s.topic == format!("conversation/{id}"))
+                    .map(|s| s.client_mode.clone())
+                    .unwrap_or_else(|| "desktop-continuous".into());
+                let mut meta = serde_json::json!({
+                    "trace_id": session.trace_id.clone().unwrap_or_else(|| self.clock.id()),
+                    "parent_span_id": self.clock.id().chars().take(16).collect::<String>(),
+                    "session_id": id,
+                    "turn_id": turn_id_for_facts,
+                    "runtime_scope": if session.task_type == "subagent_child" { "subagent" } else { "main" },
+                    "workspace_path": self.workspace_path,
+                    "workspace_key": self.workspace,
+                    "client_mode": client,
+                    "delivery_kind": client,
+                });
+                if self.workspace != self.workspace_path {
+                    meta["workspace_identity"] = self.workspace.clone().into();
+                }
+                meta
+            },
             model_selection: Some(if session.reasoning_level.is_empty() {
                 serde_json::json!({"providerId": session.provider, "modelId": session.model})
             } else {

@@ -15,6 +15,8 @@ pub(super) struct TurnFacts {
     pub bot_delivery_target: Option<Value>,
     pub mode: String,
     pub model_selection: Option<Value>,
+    /// MCP tools/call 的请求上下文（TS `mcpRequestMeta`，不含逐次调用的 span_id；docs/specs/rust-browser-use.md 第 1 期）。
+    pub mcp_meta: Value,
 }
 
 pub(super) struct RunContext {

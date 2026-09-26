@@ -118,7 +118,7 @@ pub(super) async fn execute(
             }
             Ok(args) if name.starts_with("mcp__") => {
                 let call_id = call["id"].as_str().unwrap();
-                tools.execute_mcp(name, &args, call_id, sink, cancel).await
+                tools.execute_mcp(name, &args, call_id, &turn.mcp_meta, sink, cancel).await
             }
             Ok(args) => tools.execute_scoped(name, &args, sink, cancel).await,
             Err(_) => Err(anyhow::anyhow!("Invalid tool JSON arguments")),

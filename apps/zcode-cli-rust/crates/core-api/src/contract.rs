@@ -359,10 +359,11 @@ pub trait ToolPort: Send + Sync {
         name: &str,
         arguments: &Value,
         call_id: &str,
+        meta: &Value,
         sink: &EventSink,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let _ = call_id;
+        let _ = (call_id, meta);
         self.execute_scoped(name, arguments, sink, cancel).await
     }
     async fn cancel_session(&self, _session: &str, _task: Option<&str>) -> Result<()> {

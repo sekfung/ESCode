@@ -275,12 +275,15 @@ impl Connection {
         &self,
         name: &str,
         args: &Value,
+        meta: &Value,
         artifacts: Option<ImageArtifacts<'_>>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let text = self
-            .request_text("tools/call", json!({"name":name,"arguments":args}), cancel)
-            .await?;
+        let mut params = json!({"name":name,"arguments":args});
+        if let Some(meta) = super::mcp_request_meta::request_meta(meta) {
+            params["_meta"] = meta;
+        }
+        let text = self.request_text("tools/call", params, cancel).await?;
         let result: Value = serde_json::from_str(&text)?;
         let ordered = crate::domain::json_order::Json::parse(&text);
         // 修复：此前超过 inline 预算的图片一律给出「无 artifact store」说明；App 中 TS 有 artifact store，
@@ -375,3 +378,4 @@ impl ImageArtifacts<'_> {
         ))
     }
 }
+

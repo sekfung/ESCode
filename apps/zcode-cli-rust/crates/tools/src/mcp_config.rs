@@ -158,7 +158,11 @@ pub(super) async fn configured(
         return Ok(vec![]);
     }
     let mut merged = BTreeMap::new();
-    for plugin in plugins::enabled(cwd, &config, cancel).await? {
+    let loaded = plugins::enabled(cwd, &config, cancel).await?;
+    if let Some(server) = super::mcp_node_repl::server(&loaded, cwd) {
+        merged.insert(server.name.clone(), server);
+    }
+    for plugin in loaded {
         let file = config::json_file(&plugin.root.join(".mcp.json")).await?;
         let mut definitions = shape(&file).clone();
         for spec in plugin

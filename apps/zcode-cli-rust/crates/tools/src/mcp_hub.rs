@@ -37,12 +37,25 @@ pub(super) struct Hub {
     http: std::sync::OnceLock<reqwest_mcp::Client>,
     credentials: std::sync::OnceLock<Arc<zcode_cli_host::credential_store::CredentialStore>>,
     /// Engine 交给工具层的 Host 通道（官方 MCP 身份头）。
-    host: std::sync::OnceLock<crate::contract::EventSink>,
+    host: Arc<std::sync::OnceLock<crate::contract::EventSink>>,
+    /// node_repl 浏览器 broker（首次出现 node_repl 配置时启动，docs/specs/rust-browser-use.md 第 2 期）。
+    broker: std::sync::OnceLock<Option<Arc<super::browser_broker::Broker>>>,
     state: Arc<RwLock<State>>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
 }
 impl Hub {
+    fn broker(&self) -> Option<Arc<super::browser_broker::Broker>> {
+        self.broker
+            .get_or_init(|| super::browser_broker::Broker::start(self.host.clone()))
+            .clone()
+    }
+    /// turn 结束或会话关闭时的浏览器生命周期（TS BrowserControlPort.turnEnded / closeSession）。
+    pub async fn browser_lifecycle(&self, session: &str, turn: Option<&str>, close: bool) {
+        if let Some(Some(broker)) = self.broker.get() {
+            broker.lifecycle(session, turn, close).await;
+        }
+    }
     pub fn attach_host(&self, host: crate::contract::EventSink) {
         let _ = self.host.set(host);
     }
@@ -60,6 +73,7 @@ impl Hub {
             http: Default::default(),
             credentials: Default::default(),
             host: Default::default(),
+            broker: Default::default(),
             state: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
@@ -146,6 +160,21 @@ impl Hub {
         cancel: &CancellationToken,
     ) -> Result<()> {
         let configs = tokio::select! {biased;_=cancel.cancelled()=>anyhow::bail!("Cancelled"),result=mcp_config::configured(&self.cwd,overrides,cancel)=>result?};
+        // 内置 node_repl 只属于会话运行时；设置页 mcp/list 不列出、也不为此启动宿主（TS 同）。
+        let configs: Vec<_> = configs
+            .into_iter()
+            .filter(|c| session != "mcp-status" || c.name != super::mcp_node_repl::NAME)
+            .map(|mut c| {
+                // node_repl 经私有 broker 访问浏览器：socket 与 token 只注入它的 env。
+                if c.name == super::mcp_node_repl::NAME
+                    && let Some(broker) = self.broker()
+                    && let (Some(env), Some(extra)) = (c.raw["env"].as_object_mut(), broker.env().as_object())
+                {
+                    env.extend(extra.clone());
+                }
+                c
+            })
+            .collect();
         let mut bindings = vec![];
         let mut statuses = BTreeMap::new();
         let mut names = BTreeSet::new();
@@ -257,6 +286,7 @@ impl Hub {
         session: &str,
         name: &str,
         args: &Value,
+        meta: &Value,
         artifacts: Option<super::mcp_connection::ImageArtifacts<'_>>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
@@ -269,9 +299,12 @@ impl Hub {
             .and_then(|bs| bs.iter().find(|b| b.name == name))
             .cloned()
             .context("MCP tool unavailable in this session")?;
+        if let Some(Some(broker)) = self.broker.get() {
+            broker.remember(session, meta);
+        }
         binding
             .connection
-            .call(&binding.original, args, artifacts, cancel)
+            .call(&binding.original, args, meta, artifacts, cancel)
             .await
     }
     pub async fn close_session(&self, session: &str, forget: bool) -> Result<()> {

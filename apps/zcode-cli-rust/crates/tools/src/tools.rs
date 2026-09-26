@@ -70,7 +70,7 @@ impl WorkspaceTools {
             <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
         ));
         match name {
-            name if name.starts_with("mcp__") => self.mcp.call(session, name, args, None, cancel).await,
+            name if name.starts_with("mcp__") => self.mcp.call(session, name, args, &Value::Null, None, cancel).await,
             "Read" | "Write" | "Edit" => {
                 let state = self
                     .reads
@@ -343,6 +343,7 @@ impl ToolPort for WorkspaceTools {
         name: &str,
         args: &Value,
         call_id: &str,
+        meta: &Value,
         sink: &EventSink,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
@@ -353,13 +354,14 @@ impl ToolPort for WorkspaceTools {
             call_id,
         };
         self.mcp
-            .call(&sink.session_id, name, args, Some(artifacts), cancel)
+            .call(&sink.session_id, name, args, meta, Some(artifacts), cancel)
             .await
     }
     async fn cancel_session(&self, session: &str, task: Option<&str>) -> Result<()> {
         self.shell.cancel(session, task).await
     }
     async fn close_session(&self, session: &str) -> Result<()> {
+        self.mcp.browser_lifecycle(session, None, true).await;
         self.shell.close_session(session).await?;
         self.reads.lock().await.remove(session);
         self.memory.lock().await.remove(session);

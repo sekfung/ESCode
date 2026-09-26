@@ -7,6 +7,8 @@ pub(super) struct Subscription {
     pub id: String,
     pub topic: String,
     pub connection: String,
+    /// 订阅的客户端形态（desktop-continuous / web-remote-replayable），MCP 请求上下文透传。
+    pub client_mode: String,
     pub ordinal: u64,
     pub paused: bool,
     pub needs_resync: bool,
@@ -36,6 +38,7 @@ impl Engine {
                 id: id.clone(),
                 topic: topic.clone(),
                 connection,
+                client_mode: p["clientMode"].as_str().unwrap_or_default().to_owned(),
                 ordinal: 0,
                 paused: false,
                 needs_resync: false,
