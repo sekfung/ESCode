@@ -37,6 +37,7 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
   - 影响：
     - 模型看到的属性顺序不同；
     - 多个问题同属一类时，校验问题的顺序可能不同。
-  - 修复需要全局开启 `preserve_order`，或让工具定义链路改用保序 JSON；涉及面广，单独决定。
+  - 用户决定只修工具定义链路：stdio MCP 已按声明顺序发给模型，见 rust-tool-schema-order.md；
+    HTTP/SSE 传输与校验问题的顺序仍按排序。
 - 内置工具：TS 另有 runtime schema（zod）问题与 JSON 问题的投影合并；Rust 内置工具保持现有校验文案，
   待差分确认后再定范围。

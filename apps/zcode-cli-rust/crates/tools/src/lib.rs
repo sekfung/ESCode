@@ -24,6 +24,7 @@ mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
 mod mcp_node_repl;
+mod mcp_raw_capture;
 mod mcp_request_meta;
 mod mcp_oauth_client;
 mod mcp_oauth_credentials;

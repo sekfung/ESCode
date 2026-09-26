@@ -29,6 +29,7 @@ pub(super) struct Connection {
     timeout: Duration,
     service: Mutex<Option<Service>>,
     child: Mutex<Option<(Child, u32)>>,
+    raw: super::mcp_raw_capture::Responses,
 }
 impl Connection {
     pub async fn open(
@@ -68,6 +69,7 @@ impl Connection {
         client.client_info.version = env!("CARGO_PKG_VERSION").into();
         let lifecycle = CancellationToken::new();
         let mut owned = None;
+        let raw = super::mcp_raw_capture::Responses::default();
         let init = async {
             if config.transport == "stdio" {
                 let mut command = Command::new(config.raw["command"].as_str().unwrap());
@@ -88,7 +90,8 @@ impl Connection {
                 let mut child = command.spawn().context("process_start_failed")?;
                 let pid = child.id().context("process_start_failed")?;
                 let input = child.stdin.take().unwrap();
-                let output = child.stdout.take().unwrap();
+                // 旁路保存 tools/list 原文，保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
+                let output = super::mcp_raw_capture::Tee::new(child.stdout.take().unwrap(), raw.clone());
                 owned = Some((child, pid));
                 // SDK 默认读行无界；使用有界 codec，坏帧立即断开而非无限缓存或跳过。
                 let reader = FramedRead::new(
@@ -200,6 +203,7 @@ impl Connection {
             timeout: config.timeout,
             service: Mutex::new(Some(service)),
             child: Mutex::new(owned),
+            raw,
         };
         match connection.discover(cancel).await {
             Ok(tools) => connection.tools = tools,
@@ -263,11 +267,14 @@ impl Connection {
         let id = handle.id.clone();
         let result = tokio::select! {biased;
             _=cancel.cancelled()=>{
-                let _=tokio::time::timeout(Duration::from_secs(2),self.peer.notify_cancelled(rmcp::model::CancelledNotificationParam::new(Some(id),Some("Cancelled".into())))).await;
+                let _=tokio::time::timeout(Duration::from_secs(2),self.peer.notify_cancelled(rmcp::model::CancelledNotificationParam::new(Some(id.clone()),Some("Cancelled".into())))).await;
                 Err(anyhow::anyhow!("Cancelled"))
             },
             result=handle.await_response()=>result.map_err(|_|anyhow::anyhow!("MCP request failed or timed out")),
         };
+        if result.is_ok() && method == "tools/list" {
+            self.raw.register(&id);
+        }
         if result.is_err() && method == "tools/call" {
             self.close().await?;
         }
