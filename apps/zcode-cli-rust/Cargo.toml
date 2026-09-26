@@ -41,6 +41,7 @@ rmcp = { version = "3.4", default-features = false, features = [
   "transport-streamable-http-client-reqwest",
   "reqwest-tls-no-provider",
 ] }
+sse-stream = "0.2"
 reqwest_mcp = { package = "reqwest", version = "0.13", default-features = false, features = [
   "json",
   "stream",

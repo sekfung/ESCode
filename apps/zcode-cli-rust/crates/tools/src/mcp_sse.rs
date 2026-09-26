@@ -9,8 +9,10 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::{CancellationToken, DropGuard};
 
+type Auth = Option<super::mcp_oauth_client::AuthClient>;
 pub(super) struct Transport {
     client: reqwest_mcp::Client,
+    auth: Auth,
     endpoint: Arc<str>,
     headers: reqwest_mcp::header::HeaderMap,
     rx: mpsc::Receiver<ServerJsonRpcMessage>,
@@ -22,6 +24,7 @@ impl Transport {
     pub async fn open(
         config: &Server,
         client: reqwest_mcp::Client,
+        auth: Auth,
         stop: &CancellationToken,
     ) -> Result<Self> {
         let url = url::Url::parse(config.raw["url"].as_str().unwrap())?;
@@ -34,7 +37,7 @@ impl Transport {
                 );
             }
         }
-        let response = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"),response=client.get(url.clone()).headers(headers.clone()).header("Accept","text/event-stream").send()=>response.context("network_unreachable")?.error_for_status().context("network_unreachable")?};
+        let response = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"),response=send(&auth,||client.get(url.clone()).headers(headers.clone()).header("Accept","text/event-stream"))=>response.context("network_unreachable")?.error_for_status().context("network_unreachable")?};
         let (tx, rx) = mpsc::channel(32);
         let (endpoint, ready) = oneshot::channel();
         let cancel = CancellationToken::new();
@@ -69,6 +72,7 @@ impl Transport {
         let endpoint = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"), result=ready=>result.context("protocol_negotiation_failed")?};
         Ok(Self {
             client,
+            auth,
             endpoint: endpoint.into(),
             headers,
             rx,
@@ -88,9 +92,11 @@ impl rmcp::transport::Transport<RoleClient> for Transport {
         let endpoint = self.endpoint.clone();
         let headers = self.headers.clone();
         let cancel = self.cancel.clone();
+        let auth = self.auth.clone();
         async move {
-            tokio::select! {biased;_=cancel.cancelled()=>Err(std::io::Error::other("MCP SSE closed")),result=client.post(endpoint.as_ref()).headers(headers).json(&item).send()=>{
-                result.and_then(reqwest_mcp::Response::error_for_status).map(|_|()).map_err(|_|std::io::Error::other("MCP SSE post failed"))
+            let post = || client.post(endpoint.as_ref()).headers(headers.clone()).json(&item);
+            tokio::select! {biased;_=cancel.cancelled()=>Err(std::io::Error::other("MCP SSE closed")),result=send(&auth,post)=>{
+                result.and_then(|r|Ok(r.error_for_status()?)).map(|_|()).map_err(|_|std::io::Error::other("MCP SSE post failed"))
             }}
         }
     }
@@ -103,6 +109,16 @@ impl rmcp::transport::Transport<RoleClient> for Transport {
             worker.await.map_err(std::io::Error::other)?;
         }
         Ok(())
+    }
+}
+/// 有 OAuth 时带 Bearer 并按 401 → 刷新 → 重试一次发送；否则直接发送。
+async fn send(
+    auth: &Auth,
+    build: impl Fn() -> reqwest_mcp::RequestBuilder,
+) -> Result<reqwest_mcp::Response> {
+    match auth {
+        Some(auth) => auth.send(build).await,
+        None => Ok(build().send().await?),
     }
 }
 #[derive(Default)]

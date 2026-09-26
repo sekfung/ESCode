@@ -3,7 +3,7 @@
 //!
 //! 锁是 `<file>.lock` 目录，内含唯一 `owner-<token>.json`（`{pid, createdAt, token}`）。owner 进程已退出，
 //! 或无 PID 且超过 grace，才可回收；等待上限 8s，重试间隔 25/50/100/200/400ms。
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -11,9 +11,29 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-const RETRY_DELAYS_MS: [u64; 5] = [25, 50, 100, 200, 400];
-const OWNERLESS_GRACE_MS: u64 = 100;
-const MAX_WAIT_MS: u64 = 8_000;
+/// 等待策略（TS `acquireFileLock(file, retryDelaysMs, ownerlessGraceMs, maxWaitMs)`）。
+#[derive(Clone, Copy)]
+pub struct Timing {
+    pub retry_delays_ms: &'static [u64],
+    pub ownerless_grace_ms: u64,
+    pub max_wait_ms: u64,
+}
+/// TS `withFileLock` 默认值。
+pub const DEFAULT_TIMING: Timing = Timing {
+    retry_delays_ms: &[25, 50, 100, 200, 400],
+    ownerless_grace_ms: 100,
+    max_wait_ms: 8_000,
+};
+
+/// 等锁超时（TS `ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE`）：调用方据此区分「被占用」与 IO 失败。
+#[derive(Debug)]
+pub struct LockTimeout(pub String);
+impl std::fmt::Display for LockTimeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for LockTimeout {}
 const MAX_CLOCK_SKEW_MS: u64 = 5 * 60_000;
 
 fn now_ms() -> u64 {
@@ -74,7 +94,7 @@ fn first_seen(path: &Path, observed: u64) -> u64 {
         .or_insert(observed)
 }
 
-async fn owner_reclaimable(owner: &Path) -> Result<bool> {
+async fn owner_reclaimable(owner: &Path, grace: u64) -> Result<bool> {
     let observed = now_ms();
     let raw = tokio::fs::read_to_string(owner).await?;
     let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or_default();
@@ -97,7 +117,7 @@ async fn owner_reclaimable(owner: &Path) -> Result<bool> {
         }
     };
     let exited = pid.is_some_and(|pid| u32::try_from(pid).map_or(true, |pid| !process_alive(pid)));
-    let stale = pid.is_none() && observed.saturating_sub(created) >= OWNERLESS_GRACE_MS;
+    let stale = pid.is_none() && observed.saturating_sub(created) >= grace;
     Ok(exited || stale)
 }
 
@@ -106,7 +126,7 @@ fn is_owner(name: &str) -> bool {
 }
 
 /// TS `removeAbandonedLock`：只回收可证明已放弃的锁；返回是否删除。
-async fn remove_abandoned(lock: &Path) -> Result<bool> {
+async fn remove_abandoned(lock: &Path, grace: u64) -> Result<bool> {
     let meta = match tokio::fs::metadata(lock).await {
         Ok(meta) => meta,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
@@ -115,7 +135,7 @@ async fn remove_abandoned(lock: &Path) -> Result<bool> {
     if !meta.is_dir() {
         // 兼容升级前的单文件锁。
         let raw = tokio::fs::read_to_string(lock).await?;
-        if !owner_reclaimable(lock).await? || tokio::fs::read_to_string(lock).await? != raw {
+        if !owner_reclaimable(lock, grace).await? || tokio::fs::read_to_string(lock).await? != raw {
             return Ok(false);
         }
         tokio::fs::remove_file(lock).await?;
@@ -129,7 +149,7 @@ async fn remove_abandoned(lock: &Path) -> Result<bool> {
     let owners: Vec<&String> = entries.iter().filter(|e| is_owner(e)).collect();
     if owners.len() == 1 {
         let owner = lock.join(owners[0]);
-        if !owner_reclaimable(&owner).await? {
+        if !owner_reclaimable(&owner, grace).await? {
             return Ok(false);
         }
         let _ = tokio::fs::remove_file(&owner).await;
@@ -138,11 +158,11 @@ async fn remove_abandoned(lock: &Path) -> Result<bool> {
     let observed = now_ms();
     let stamp =
         valid_timestamp(mtime_ms(&meta), observed).unwrap_or_else(|| first_seen(lock, observed));
-    if observed.saturating_sub(stamp) < OWNERLESS_GRACE_MS {
+    if observed.saturating_sub(stamp) < grace {
         return Ok(false);
     }
     for owner in &owners {
-        if !owner_reclaimable(&lock.join(owner)).await? {
+        if !owner_reclaimable(&lock.join(owner), grace).await? {
             return Ok(false);
         }
     }
@@ -170,6 +190,14 @@ static LOCAL: LazyLock<Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>> =
 
 /// TS `withFileLock` 的获取部分；调用方完成后必须 `release`。
 pub async fn acquire(file: &Path) -> Result<FileLockGuard> {
+    acquire_with(file, DEFAULT_TIMING).await
+}
+/// 指定等待策略的获取；超时返回可 downcast 的 [`LockTimeout`]。
+pub async fn acquire_with(file: &Path, timing: Timing) -> Result<FileLockGuard> {
+    // TS acquireFileLock：有效 grace 不超过等待上限的一半。
+    let grace = timing
+        .ownerless_grace_ms
+        .min(timing.max_wait_ms / 2);
     let local = LOCAL
         .lock()
         .unwrap()
@@ -228,17 +256,19 @@ pub async fn acquire(file: &Path) -> Result<FileLockGuard> {
             Err(e) => return Err(e).context("Unable to create ZCode file lock"),
         }
         let elapsed = now_ms().saturating_sub(started);
-        if elapsed >= MAX_WAIT_MS {
-            bail!(
+        if elapsed >= timing.max_wait_ms {
+            return Err(LockTimeout(format!(
                 "Timed out after {elapsed}ms waiting for the ZCode file lock: {}",
                 lock.display()
-            );
+            ))
+            .into());
         }
-        if remove_abandoned(&lock).await.unwrap_or(false) {
+        if remove_abandoned(&lock, grace).await.unwrap_or(false) {
             continue;
         }
-        let delay = RETRY_DELAYS_MS[attempt.min(RETRY_DELAYS_MS.len() - 1)];
-        tokio::time::sleep(Duration::from_millis(delay.min(MAX_WAIT_MS - elapsed))).await;
+        let delays = timing.retry_delays_ms;
+        let delay = delays[attempt.min(delays.len() - 1)];
+        tokio::time::sleep(Duration::from_millis(delay.min(timing.max_wait_ms - elapsed))).await;
     }
     unreachable!()
 }

@@ -2,6 +2,7 @@ use super::{
     mcp_config::{self, Server},
     mcp_connection::Connection,
 };
+use oauth::{PendingAuthorization, failure_kind};
 use crate::contract::{ProcessCleanupFailure, ToolOutput};
 use anyhow::{Context, Result, ensure};
 use futures_util::{StreamExt, stream};
@@ -29,11 +30,13 @@ struct State {
     connections: BTreeMap<String, Arc<Connection>>,
     bindings: BTreeMap<String, Vec<Binding>>,
     statuses: BTreeMap<String, Value>,
+    auth: BTreeMap<String, Arc<oauth::Task>>,
 }
 pub(super) struct Hub {
     cwd: PathBuf,
     http: std::sync::OnceLock<reqwest_mcp::Client>,
-    state: RwLock<State>,
+    credentials: std::sync::OnceLock<Arc<zcode_cli_host::credential_store::CredentialStore>>,
+    state: Arc<RwLock<State>>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
 }
@@ -50,6 +53,7 @@ impl Hub {
         Self {
             cwd,
             http: Default::default(),
+            credentials: Default::default(),
             state: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
@@ -152,29 +156,13 @@ impl Hub {
                 {
                     Ok(Some(previous))
                 } else {
-                    let http = if server.transport == "stdio" {
-                        None
-                    } else {
-                        Some(
-                            self.http
-                                .get_or_init(|| {
-                                    reqwest_mcp::Client::builder()
-                                        .redirect(reqwest_mcp::redirect::Policy::none())
-                                        .connect_timeout(std::time::Duration::from_secs(15))
-                                        .build()
-                                        .expect("MCP HTTP client")
-                                })
-                                .clone(),
-                        )
-                    };
-                    Connection::open(&server, http, cancel)
-                        .await
-                        .map(|c| Some(Arc::new(c)))
+                    self.open(&server, &key, refresh, cancel).await
                 };
                 (server, key, result)
             })
             .buffered(4);
         let mut cleanup_failure = None;
+        let mut pending = BTreeMap::new();
         while let Some((server, key, result)) = futures.next().await {
             match result {
                 Ok(None) => {
@@ -187,14 +175,7 @@ impl Hub {
                     let discovered = bind(&server, &key, &connection, &mut names);
                     match discovered {
                         Ok(entries) => {
-                            let mut status =
-                                mcp_config::status(&server, "connected", entries.len(), None);
-                            status["protocolEra"] = if connection.modern {
-                                "modern"
-                            } else {
-                                "legacy"
-                            }
-                            .into();
+                            let status = oauth::connected(&server, &connection, entries.len());
                             statuses.insert(server.name, status);
                             let old = self
                                 .state
@@ -226,25 +207,28 @@ impl Hub {
                         cleanup_failure = Some(error);
                         continue;
                     }
-                    let reason = error.to_string();
-                    let kind = match reason.as_str() {
-                        "config_invalid" => "config_invalid",
-                        "not_authenticated" => "not_authenticated",
-                        "connection_timeout" => "connection_timeout",
-                        "process_start_failed" => "process_start_failed",
-                        "tool_list_failed" => "tool_list_failed",
-                        _ => "protocol_negotiation_failed",
+                    let status = match error.downcast::<PendingAuthorization>() {
+                        Ok(PendingAuthorization(status)) => {
+                            pending.insert(server.name.clone(), key);
+                            status
+                        }
+                        Err(error) => mcp_config::status(&server, "failed", 0, Some(failure_kind(&error))),
                     };
-                    statuses.insert(
-                        server.name.clone(),
-                        mcp_config::status(&server, "failed", 0, Some(kind)),
-                    );
+                    statuses.insert(server.name.clone(), status);
                 }
             }
         }
         {
             let mut state = self.state.write().unwrap();
             state.bindings.insert(session.into(), bindings);
+            // 等待期间后台授权已结束时，保留任务在锁内写入的最终状态，不用本次的 connecting 快照覆盖。
+            for (name, key) in &pending {
+                if !state.auth.contains_key(key)
+                    && let Some(latest) = state.statuses.get(name)
+                {
+                    statuses.insert(name.clone(), latest.clone());
+                }
+            }
             state.statuses = statuses;
         }
         self.prune().await?;
@@ -322,6 +306,8 @@ impl Hub {
         self.prune().await
     }
 }
+#[path = "mcp_hub_oauth.rs"]
+mod oauth;
 fn bind(
     server: &Server,
     key: &str,

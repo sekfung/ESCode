@@ -90,6 +90,12 @@ export async function httpServer(transport: "http" | "sse") {
       res.writeHead(202).end();
       return;
     }
+    if (m.method === "server/discover") {
+      // legacy server：未知方法回 -32601，客户端回落 initialize（与 stdio fixture 相同）。
+      const error = { jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "legacy" } };
+      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(error));
+      return;
+    }
     const result =
       m.method === "initialize"
         ? {

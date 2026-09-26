@@ -179,7 +179,12 @@ test("MCP status classifies unsupported authentication without exposing credenti
         type: "http",
         url: "http://127.0.0.1:1/mcp",
         headers: [],
-        oauth: { type: "authorization_code", clientSecret: "fixture-secret-never-echo" },
+        // authorization_code 已支持（rust-mcp-oauth.md）；client_credentials 仍未实现，保持 not_authenticated。
+        oauth: {
+          type: "client_credentials",
+          clientId: "fixture-client",
+          clientSecret: "fixture-secret-never-echo",
+        },
       },
     ]);
     assert.equal(result.statuses.oauth?.failureKind, "not_authenticated");

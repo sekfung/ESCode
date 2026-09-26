@@ -18,6 +18,15 @@ pub struct CredentialCipher {
     key: LessSafeKey,
 }
 
+/// 密码学安全随机字节（OAuth state、PKCE verifier、凭据 generation）。
+pub fn random_bytes(len: usize) -> Vec<u8> {
+    let mut bytes = vec![0u8; len];
+    SystemRandom::new()
+        .fill(&mut bytes)
+        .expect("system randomness unavailable");
+    bytes
+}
+
 /// Node `os.platform()`。
 pub fn node_platform() -> &'static str {
     if cfg!(windows) {

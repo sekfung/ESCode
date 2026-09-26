@@ -48,6 +48,8 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   `apps/zcode-cli/packages/cli/dist/zcode.cjs`（差分用例的 Node 一侧），以及工具定义对照表缺 plan 工具。
   修复：缺失时用 `scripts/build-desktop-agent-cli.mjs` 构建；对照表补 EnterPlanMode/ExitPlanMode。
 - 第三次（36098587168）：checks 与 Windows（MSVC）/ macOS（arm64）/ Linux 测试**全部通过**。
+- 2026-09-26（36209338763，提交 3b9b23b）：checks 与三平台测试全部通过。
+  前一次运行在 Windows/macOS 上，因 PDF 路径未做 realpath 失败，已由 2b74cfe 修复。
 
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 

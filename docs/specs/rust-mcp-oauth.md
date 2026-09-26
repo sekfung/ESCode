@@ -7,7 +7,18 @@
 - 第 1 层（已完成）：共享凭据存储。`crates/host/src/{credential_cipher,file_lock,credential_store}.rs`
   对齐 TS cipher、`atomicFileLock` 协议与 `shared-credentials.ts`；`zcode-cli-rust-credentials.test.ts` 验证默认 secret 推导、
   双向解密、同一路径与跨进程锁（Node/Rust 交错独立写入各 25 次无丢失；去掉 Rust 锁时该用例稳定失败）。
-- 第 2 层（进行中）：OAuth 流程（discovery、DCR、PKCE、回调、刷新、租约）与 `mcp/list` 授权状态。
+- 第 2 层（已完成）：OAuth 流程与 `mcp/list` 授权状态。
+  - 纯规则：`crates/domain/src/mcp_oauth{,_pair}.rs`（TS oracle 语料）。
+  - 存储与 HTTP：`crates/tools/src/mcp_oauth_{store,http}.rs`。
+  - 刷新、租约与 leader：`mcp_oauth_{flow,lead}.rs`。
+  - 运行期 transport：`mcp_oauth_client.rs`，包装 rmcp `StreamableHttpClient`；旧版 SSE 共用同一重试逻辑。
+  - 编排：`mcp_hub_oauth.rs`。
+  - `zcode-cli-rust-mcp-oauth.test.ts` 在同一 fixture 上比较 Node 与 Rust：
+    - 首次授权的状态、回调页和请求序列（metadata、DCR、authorize 参数、token）；
+    - 对方 runtime 写入的凭据可直接复用；
+    - access token 作废后的 refresh；
+    - refresh 被拒（`invalid_grant`）后重新进入授权。
+  - 把 Rust 的 `invalid_grant` 分支改坏时，该用例稳定失败。
 
 TS 基线：
 
@@ -74,7 +85,8 @@ sequenceDiagram
 
 ## 实现选择
 
-- OAuth 协议部分使用 rmcp `auth` feature（AuthorizationManager：metadata discovery、DCR、PKCE、换 token、刷新），`CredentialStore`/`StateStore` 自实现为上述共享存储。
+- OAuth 协议按 TS/SDK 逐步自实现（discovery、DCR、PKCE、换 token、刷新），不使用 rmcp `auth` feature：
+  其 AuthorizationManager 的 discovery 顺序、client metadata 与存储形态和 SDK 不同，无法与 Node 共用凭据。
 - 加密使用已随 rustls 引入的 `ring`（AES-256-GCM），不新增依赖；锁、原子写与存储在 host crate（domain 不做 IO）。
 - 锁实例观察（TS `lockInstanceObserver`）在时间戳不可用时以首次观察时刻近似。
 
@@ -90,6 +102,12 @@ sequenceDiagram
   - 回调后连接成功；
   - 两侧可用对方写入的凭据直接连接。
 - 已知限制：
+  - 未覆盖协议默认值：未写 `protocolVersion` 时，TS 走 `auto`（SSE 除外），Rust 走 legacy `initialize`。
+    这是 MCP 连接层的既有差异，与 OAuth 无关，单独修复；OAuth 差分固定为 `legacy`。
+  - 凭据目录前提：Node 的授权租约锁 `mkdir` 不带 recursive，因此要求 `~/.zcode/v2` 已存在。
+    真实安装中该目录总是存在，差分 fixture 会预先创建。Rust 会自行创建该目录，不依赖这个前提。
+  - 403 `insufficient_scope` step-up 已按 TS 实现（scope 并集、强制重新授权），但没有差分用例；
+  - `oauth.type=client_credentials` 仍返回 `not_authenticated`；
   - `official-auth.ts`（官方账号授权）需要 Host 账号能力，单独评估；
   - enterprise-managed 授权不在本期范围。
 

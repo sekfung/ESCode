@@ -143,6 +143,13 @@ impl CredentialStore {
         .await?;
         Ok(())
     }
+    pub async fn save(&self, key: &str, value: &str) -> Result<()> {
+        self.save_many(&[(key.to_owned(), value.to_owned())]).await
+    }
+    /// TS `deleteIfValue`：当前值等于期望值才删除。
+    pub async fn delete_if_value(&self, key: &str, expected: &str) -> Result<bool> {
+        self.delete_many_if_value(key, expected, &[key.to_owned()]).await
+    }
     /// TS `deleteManyIfValue`：guard 当前值等于期望值才整体删除，否则一个都不删。
     pub async fn delete_many_if_value(
         &self,

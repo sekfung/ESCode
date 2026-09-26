@@ -34,21 +34,25 @@ impl Connection {
     pub async fn open(
         config: &Server,
         http: Option<reqwest_mcp::Client>,
+        oauth: Option<std::sync::Arc<super::mcp_oauth_flow::OAuth>>,
         cancel: &CancellationToken,
     ) -> Result<Self> {
-        ensure!(
-            config.raw.get("oauth").is_none() && config.raw.get("auth").is_none(),
-            "not_authenticated"
-        );
+        let auth = http
+            .clone()
+            .zip(oauth)
+            .map(|(http, oauth)| super::mcp_oauth_client::AuthClient::new(http, oauth));
+        // TS resolveVersionNegotiationMode：未写或 auto 时协商（先 server/discover），SSE 只承载 legacy；
+        // 之前未写时直接 initialize，与 Node 的默认请求序列不同（docs/specs/rust-mcp-parity.md「协议协商默认值」）。
         let mode = match config.raw["protocolVersion"].as_str() {
             Some("2026-07-28") => ClientLifecycleMode::Discover {
                 preferred_versions: vec![ProtocolVersion::V_2026_07_28],
             },
-            Some("auto") => ClientLifecycleMode::Auto {
+            _ if config.transport == "sse" => ClientLifecycleMode::Initialize,
+            Some("legacy") => ClientLifecycleMode::Initialize,
+            _ => ClientLifecycleMode::Auto {
                 preferred_versions: vec![ProtocolVersion::V_2026_07_28],
                 legacy_version: Some(ProtocolVersion::LATEST),
             },
-            _ => ClientLifecycleMode::Initialize,
         };
         let mut client = ClientConfig::default();
         client.client_info.name = "zcode-cli-rust".into();
@@ -104,6 +108,7 @@ impl Connection {
                 let transport = super::mcp_sse::Transport::open(
                     config,
                     http.context("HTTP client missing")?,
+                    auth.clone(),
                     cancel,
                 )
                 .await?;
@@ -132,15 +137,18 @@ impl Connection {
                         );
                     }
                 }
-                let transport = StreamableHttpClientTransport::with_client(
-                    http.context("HTTP client missing")?,
-                    options,
-                );
-                Ok(
-                    serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone())
-                        .await
-                        .context("protocol_negotiation_failed")?,
-                )
+                let http = http.context("HTTP client missing")?;
+                let service = match auth.clone() {
+                    Some(auth) => {
+                        let transport = StreamableHttpClientTransport::with_client(auth, options);
+                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                    }
+                    None => {
+                        let transport = StreamableHttpClientTransport::with_client(http, options);
+                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                    }
+                };
+                Ok(service.context("protocol_negotiation_failed")?)
             }
         };
         let result = tokio::select! {biased; _=cancel.cancelled()=>Err(anyhow::anyhow!("Cancelled")), result=tokio::time::timeout(config.timeout,init)=>result.unwrap_or_else(|_|Err(anyhow::anyhow!("connection_timeout")))};
@@ -149,6 +157,12 @@ impl Connection {
             Err(error) => {
                 lifecycle.cancel();
                 cleanup_child(&mut owned).await?;
+                // 需要交互授权时以分类结果替换握手错误，交给 hub 发起授权（TS openServerConnection catch 分支）。
+                if let Some(super::mcp_oauth_client::Failure::Required(required)) =
+                    auth.as_ref().and_then(|a| a.take_failure())
+                {
+                    return Err(required.into());
+                }
                 return Err(error);
             }
         };
