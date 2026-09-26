@@ -16,6 +16,8 @@ const CALLS: Record<string, unknown>[] = [
   { command: "mkdir -p made", description: "silent" },
   // 以 sleep 开头的命令不转后台（TS isBashAutoBackgroundEligible），超时后被终止。
   { command: "sleep 5", timeout: 1000, description: "timeout" },
+  // 非 sleep 开头的前台命令超时后转为后台任务（docs/specs/rust-bash-auto-background.md）。
+  { command: "echo started; sleep 3", timeout: 1000, description: "auto background" },
   { command: "sleep 1", run_in_background: true, description: "background" },
   { command: `node -e "process.stdout.write('line\\n'.repeat(8000))"`, description: "large" },
 ];
@@ -79,7 +81,7 @@ test("Bash results reach the model with the same text as Node", async () => {
   const rust = await observe("rust");
   assert.equal(node.length, CALLS.length);
   assert.equal(node[0], "hello\n  world");
-  assert.match(node[6]!, /^<persisted-output>\nOutput too large \(39\.1KB\)/);
+  assert.match(node[7]!, /^<persisted-output>\nOutput too large \(39\.1KB\)/);
   for (const [index, call] of CALLS.entries()) {
     assert.equal(rust[index], node[index], String(call.description));
   }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
+import { backgroundNotice } from "./zcode-cli-rust-bash-notice.js";
 import { fixture, event, end, waitForFile } from "./zcode-cli-rust-fixture.js";
 import {
   assertBeatStopped,
@@ -68,7 +69,7 @@ test("Rust coding path searches, reads, edits and runs a background test through
           });
           break;
         case 5:
-          taskId = JSON.parse(last.content).backgroundTaskId;
+          taskId = backgroundNotice(last.content).taskId;
           assert(taskId);
           call(res, "TaskOutput", { task_id: taskId, block: true, timeout: 5000 });
           break;
@@ -120,9 +121,9 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
         else call(res, "TaskOutput", { task_id: taskId, block: action === "wait", timeout: 25 });
       } else {
         if (action === "start") {
-          const result = JSON.parse(last.content);
-          taskId = result.backgroundTaskId;
-          outputFile = result.persistedOutputPath;
+          const notice = backgroundNotice(last.content);
+          taskId = notice.taskId;
+          outputFile = notice.outputFile!;
         } else output = last.content;
         done(res);
       }

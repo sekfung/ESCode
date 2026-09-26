@@ -1,15 +1,16 @@
-use super::tool_process::{INLINE, ShellContext, run, shell_output};
+use super::tool_process::{BACKGROUNDED, FOREGROUND, INLINE, ShellContext, run, shell_output};
+#[path = "tool_shell_jobs.rs"]
+mod jobs;
 use super::tools::{boolean, keys, string, truncate_utf8, uint};
 use crate::{
     contract::{Event, EventSink, ToolOutput},
-    domain::background::BackgroundTask,
 };
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, atomic::AtomicU8},
     time::Duration,
 };
 use tokio::{
@@ -193,147 +194,50 @@ impl ShellTasks {
         let id = super::id();
         let path = artifacts.join(format!("{id}.output"));
         let combined = Arc::new(Mutex::new(tokio::fs::File::create(&path).await?));
-        if !background {
-            let data = run(
-                cwd,
-                &command,
-                &path,
-                combined,
-                timeout,
-                cancel,
-                ShellContext {
-                    over: shell.as_ref(),
+        let lifecycle = if background { BACKGROUNDED } else { FOREGROUND };
+        let launch = Arc::new(jobs::Launch {
+            cwd: cwd.to_owned(),
+            artifacts: artifacts.to_owned(),
+            session: session.to_owned(),
+            id,
+            path,
+            combined,
+            shell,
+            command,
+            description,
+            lifecycle: AtomicU8::new(lifecycle),
+        });
+        // TS isBashAutoBackgroundEligible：以 sleep 开头的命令超时即终止，不转后台。
+        let auto = launch.command.split_whitespace().next() != Some("sleep");
+        match (background, sink) {
+            (true, sink) => {
+                let sink = sink.context("Background execution requires a session owner")?;
+                self.start_background(launch, sink, timeout, cancel).await
+            }
+            (false, Some(sink)) if auto => {
+                self.start_auto(launch, sink, timeout.context("Invalid Bash timeout")?, cancel)
+                    .await
+            }
+            (false, _) => {
+                let context = ShellContext {
+                    over: launch.shell.as_ref(),
                     startup_root: artifacts,
                     session,
-                    foreground: true,
-                },
-            )
-            .await?;
-            return Ok(shell_output(data));
+                    lifecycle: &launch.lifecycle,
+                };
+                let data = run(
+                    cwd,
+                    &launch.command,
+                    &launch.path,
+                    launch.combined.clone(),
+                    timeout,
+                    cancel,
+                    context,
+                )
+                .await?;
+                Ok(shell_output(data))
+            }
         }
-        let sink = sink
-            .context("Background execution requires a session owner")?
-            .clone();
-        let task = BackgroundTask {
-            id: id.clone(),
-            run_id: sink.run_id.clone(),
-            title: description.clone(),
-            status: "running".into(),
-            started_at: super::now(),
-            ended_at: None,
-            output_file: path.to_string_lossy().into_owned(),
-        };
-        let token = CancellationToken::new();
-        let (tx, state) = watch::channel(None);
-        let job = Arc::new(Job {
-            cancel: token.clone(),
-            state,
-            path: path.clone(),
-            command: command.clone(),
-            description,
-        });
-        {
-            let mut all = self.jobs.lock().await;
-            let jobs = all.entry(session.to_owned()).or_default();
-            if jobs.values().filter(|j| j.state.borrow().is_none()).count() >= 16 {
-                bail!("Background task limit (16) reached");
-            }
-            if jobs.len() >= 128
-                && let Some(old) = jobs
-                    .iter()
-                    .find(|(_, j)| j.state.borrow().is_some())
-                    .map(|(id, _)| id.clone())
-            {
-                jobs.remove(&old);
-            }
-            jobs.insert(id.clone(), job);
-        }
-        let (committed, receipt) = oneshot::channel();
-        let registered = async {
-            sink.send(Event::Background {
-                task: task.clone(),
-                committed: Some(committed),
-            })
-            .await?;
-            receipt
-                .await
-                .context("Background registration was not committed")?;
-            Ok::<_, anyhow::Error>(())
-        };
-        let registered = tokio::select! {_=cancel.cancelled()=>Err(anyhow::anyhow!("Cancelled")),r=registered=>r};
-        if let Err(e) = registered {
-            // owner 可能已经提交 running、但工具尚未收到回执；取消时也要投递终态，
-            // 否则 close/EOF 会永远等待一个从未 spawn 的后台任务。
-            let mut terminal = task;
-            terminal.status = if cancel.is_cancelled() {
-                "cancelled"
-            } else {
-                "failed"
-            }
-            .into();
-            terminal.ended_at = Some(super::now());
-            let _ = sink
-                .send(Event::Background {
-                    task: terminal,
-                    committed: None,
-                })
-                .await;
-            let _ = tx.send(Some(json!({"status":"cancelled","interrupted":true})));
-            self.jobs.lock().await.get_mut(session).unwrap().remove(&id);
-            return Err(e);
-        }
-        if cancel.is_cancelled() {
-            token.cancel();
-        }
-        let cwd = cwd.to_owned();
-        let startup_root = artifacts.to_owned();
-        let session_copy = session.to_owned();
-        let command_copy = command.clone();
-        let path_copy = path.clone();
-        tokio::spawn(async move {
-            let result = run(
-                &cwd,
-                &command_copy,
-                &path_copy,
-                combined,
-                timeout,
-                &token,
-                ShellContext {
-                    over: shell.as_ref(),
-                    startup_root: &startup_root,
-                    session: &session_copy,
-                    foreground: false,
-                },
-            )
-            .await;
-            if let Err(error) = &result
-                && error.is::<crate::contract::ProcessCleanupFailure>()
-            {
-                let _ = sink
-                    .send(Event::ToolCleanupFailed(format!("{error:#}")))
-                    .await;
-            }
-            let result = result.unwrap_or_else(|e|json!({"stdout":"","stderr":e.to_string(),"status":"spawn_error","interrupted":false}));
-            let mut task = task;
-            task.ended_at = Some(super::now());
-            task.status = match result["status"].as_str() {
-                Some("completed") => "completed",
-                Some("cancelled") => "cancelled",
-                _ => "failed",
-            }
-            .into();
-            // 先排入 owner 的终态事件，再允许 TaskOutput/TaskStop 返回；同一通道保持提交先于工具结果。
-            let _ = sink
-                .send(Event::Background {
-                    task,
-                    committed: None,
-                })
-                .await;
-            let _ = tx.send(Some(result));
-        });
-        Ok(shell_output(
-            json!({"stdout":"","stderr":"","status":"backgrounded","interrupted":false,"backgroundTaskId":id,"rawOutputPath":path,"persistedOutputPath":path,"backgroundedByUser":false}),
-        ))
     }
     pub async fn cancel(&self, session: &str, id: Option<&str>) -> Result<()> {
         let all = self.jobs.lock().await;

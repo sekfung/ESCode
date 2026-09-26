@@ -3,11 +3,14 @@ use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::{
     path::Path,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU8, Ordering},
+    },
     time::Duration,
 };
 use tokio::{
-    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
     sync::Mutex,
 };
@@ -16,38 +19,43 @@ pub(super) const INLINE: usize = 24 * 1024;
 /// TS Bash `MAX_INLINE_OUTPUT_BYTES`：结果 stdout 取合并输出文件的前这么多字节。
 const MODEL_INLINE: u64 = 30_000;
 const MAX_STREAM: u64 = 16 * 1024 * 1024;
-/// 两路输出都只写入合并输出文件（TS `BashFileOutput`：stdout/stderr 共用一个文件）。
-async fn capture(
-    mut stream: impl AsyncRead + Unpin,
-    combined: Arc<Mutex<tokio::fs::File>>,
+/// 两路输出共用一个 OS 管道（TS `BashFileOutput` 让 stdout/stderr 共用同一个 fd）：内核按写入顺序交付，
+/// 合并文件中的交错顺序与进程实际输出一致。之前分别读两条管道，Linux CI 上 stderr 先于 stdout 落盘。
+/// 读取在阻塞线程中进行：Windows 匿名管道不支持异步读。
+fn capture(
+    mut reader: std::io::PipeReader,
+    mut file: std::fs::File,
     cancel: CancellationToken,
-) -> Result<()> {
-    let result = async {
-        let mut bytes = 0u64;
-        let mut buf = [0u8; 8192];
-        loop {
-            let n = stream.read(&mut buf).await?;
-            if n == 0 {
-                break;
+) -> tokio::task::JoinHandle<Result<()>> {
+    tokio::task::spawn_blocking(move || {
+        use std::io::{Read, Write};
+        let mut copy = || -> Result<()> {
+            let mut bytes = 0u64;
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = reader.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                let write = n.min(MAX_STREAM.saturating_sub(bytes) as usize);
+                if write > 0 {
+                    file.write_all(&buf[..write])?;
+                }
+                bytes += n as u64;
+                if bytes > MAX_STREAM {
+                    cancel.cancel();
+                    break;
+                }
             }
-            let write = n.min(MAX_STREAM.saturating_sub(bytes) as usize);
-            if write > 0 {
-                combined.lock().await.write_all(&buf[..write]).await?;
-            }
-            bytes += n as u64;
-            if bytes > MAX_STREAM {
-                cancel.cancel();
-                break;
-            }
+            Ok(())
+        };
+        let result = copy();
+        // 输出落盘失败必须停止进程树，不能让已丢失输出的后台任务继续运行。
+        if result.is_err() {
+            cancel.cancel();
         }
-        Ok(())
-    }
-    .await;
-    // 输出落盘失败必须停止进程树，不能让已丢失输出的后台任务继续运行。
-    if result.is_err() {
-        cancel.cancel();
-    }
-    result
+        result
+    })
 }
 pub(super) async fn run(
     cwd: &Path,
@@ -90,6 +98,8 @@ pub(super) async fn run(
             None => text.to_owned(),
         };
     let plan = crate::shell_select::spawn_plan(platform, &env, &selection, &text);
+    let (reader, writer) = std::io::pipe()?;
+    let file = combined.lock().await.try_clone().await?.into_std().await;
     let mut command = Command::new(&plan.file);
     // 先清洗运行时环境并恢复出网配置（TS execution-command），再叠加 shell 计划自身的变量。
     zcode_cli_host::child_env::apply(&mut command, true);
@@ -97,27 +107,20 @@ pub(super) async fn run(
     command
         .current_dir(cwd)
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stdout(writer.try_clone()?)
+        .stderr(writer)
         .kill_on_drop(true);
     #[cfg(unix)]
     command.process_group(0);
     let mut child = command.spawn().context("Cannot start shell")?;
+    // 父进程持有的写端必须随 Command 释放，否则管道永远等不到 EOF。
+    drop(command);
     let pid = child.id().context("Missing child pid")?;
     // Windows 上把 shell 放进 Job，终止时连同 MSYS 后代一起回收；附加失败时退回 taskkill。
     #[cfg(windows)]
     let job = super::win_job::Job::attach(pid);
     let overflow = CancellationToken::new();
-    let mut out = tokio::spawn(capture(
-        child.stdout.take().unwrap(),
-        combined.clone(),
-        overflow.clone(),
-    ));
-    let mut err = tokio::spawn(capture(
-        child.stderr.take().unwrap(),
-        combined.clone(),
-        overflow.clone(),
-    ));
+    let mut out = capture(reader, file, overflow.clone());
     let timer = async {
         if let Some(t) = timeout {
             tokio::time::sleep(t).await
@@ -141,8 +144,7 @@ pub(super) async fn run(
             job.as_ref(),
         )
         .await?;
-        let streams = async { tokio::join!(&mut out, &mut err) };
-        tokio::pin!(streams);
+        let mut streams = &mut out;
         if reason != "completed" {
             // 首次 wait 就被取消时也必须验证管道关闭，不能只在 leader 已退出的分支限时。
             return tokio::time::timeout(Duration::from_secs(1), &mut streams)
@@ -176,12 +178,9 @@ pub(super) async fn run(
     .context(crate::contract::ProcessCleanupFailure);
     if captured.is_err() {
         out.abort();
-        err.abort();
         return Err(captured.err().unwrap());
     }
-    let (out, err) = captured.unwrap();
-    out??;
-    err??;
+    captured.unwrap()??;
     let size = {
         let mut file = combined.lock().await;
         file.flush().await?;
@@ -218,7 +217,11 @@ pub(super) async fn run(
         data["returnCodeInterpretation"] = interpretation.into();
     }
     // 前台只在截断时保留输出文件（TS persistOutput: on_truncate）；后台任务始终保留，TaskOutput 从中读取。
-    if truncated || !shell.foreground {
+    let backgrounded = shell
+        .lifecycle
+        .compare_exchange(FOREGROUND, SETTLED, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err();
+    if truncated || backgrounded {
         let path = path.to_string_lossy();
         for key in ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath"] {
             data[key] = path.as_ref().into();
@@ -277,9 +280,13 @@ pub(super) struct ShellContext<'a> {
     pub over: Option<&'a crate::shell_select::Override>,
     pub startup_root: &'a Path,
     pub session: &'a str,
-    /// 前台 Bash：未截断时删除输出文件、结果不带落盘路径。
-    pub foreground: bool,
+    /// 前台/后台归属（docs/specs/rust-bash-auto-background.md）：进程结束时由 FOREGROUND 原子地
+    /// 结算为 SETTLED；超时转后台时由 FOREGROUND 改为 BACKGROUNDED。两者只有一方成功。
+    pub lifecycle: &'a AtomicU8,
 }
+pub(super) const FOREGROUND: u8 = 0;
+pub(super) const BACKGROUNDED: u8 = 1;
+pub(super) const SETTLED: u8 = 2;
 
 pub(super) fn shell_output(data: Value) -> crate::contract::ToolOutput {
     let failed = matches!(

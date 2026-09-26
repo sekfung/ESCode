@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { join } from "node:path";
 import { access } from "node:fs/promises";
+import { backgroundNotice } from "./zcode-cli-rust-bash-notice.js";
 import { fixture, event, end, waitForFile } from "./zcode-cli-rust-fixture.js";
 import { assertBeatStopped, waitForBeat } from "./zcode-cli-rust-shell-probe.js";
 
@@ -164,8 +165,7 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
         });
         end(res, "tool_calls");
       } else {
-        if (last.tool_call_id === "background-tree")
-          taskId = JSON.parse(last.content).backgroundTaskId;
+        if (last.tool_call_id === "background-tree") taskId = backgroundNotice(last.content).taskId;
         // Windows 上 `$$` 是 MSYS pid，kill(pid, 0) 探到的是无关的 Windows 进程；存活由心跳判定。
         else if (!isWindows) for (const pid of pids) gone(pid);
         event(res, { content: "complete" });

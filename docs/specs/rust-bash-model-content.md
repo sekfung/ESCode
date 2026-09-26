@@ -42,6 +42,8 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
    - 结果的 `stdout` 为文件前 30,000 字节（TS `MAX_INLINE_OUTPUT_BYTES`），`stderr` 为空；
    - `stdoutBytes` 为文件大小，超过内联上限时 `stdoutTruncated` 为真；
    - Rust 之前分别捕获两路（24 KiB），并额外写 `.stdout`/`.stderr` 文件，改为只写合并文件。
+   - Rust 让 stdout 与 stderr 共用一个 OS 管道，由单一读取方写入合并文件，交错顺序与进程实际写入一致。
+     分开读两条管道会产生顺序竞争，Linux/macOS CI 上 stderr 曾先于 stdout 落盘。
 7. 落盘路径：
    - 前台结果只在输出被截断时保留输出文件，并设置 `persistedOutputPath`、`rawOutputPath`、
      `stdoutPersistedOutputPath` 与对应大小；
@@ -66,7 +68,7 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
 11. 通用空结果占位（TS `serializeOutput`）：任何工具的模型可见内容为空白且没有媒体时，改为
     `(<工具名> completed with no output)`；被拒绝的调用除外。Rust 在 core 工具分发处统一处理。
 12. 后续单独对齐：TS 前台 Bash 超时后不终止，而是转为后台任务（`auto_on_timeout`；以 `sleep` 开头的命令除外），
-    模型收到后台说明。Rust 仍按超时终止。本差分只用 `sleep` 开头的超时命令。
+    模型收到后台说明。见 rust-bash-auto-background.md。
 
 ## 验收
 
