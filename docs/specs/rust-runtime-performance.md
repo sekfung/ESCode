@@ -84,3 +84,13 @@ CI 新增 `bench (ubuntu/windows/macos)` job：release 二进制与 Node bundle 
 | 峰值工作集                        | 302 MiB | 19.8 MiB |
 | 8 轮 workload 墙钟                | 3.33 s  | 0.18 s   |
 | CPU                               | 2.73 s  | 0.13 s   |
+
+CI 三平台（run 36237407731，提交 ac2d0db，5 次配对中位数，GitHub 托管 runner）：
+
+| 平台        | 启动 Node / Rust | 空闲内存 Node / Rust | 峰值内存 Node / Rust | 8 轮墙钟 Node / Rust |
+| ----------- | ---------------- | -------------------- | -------------------- | -------------------- |
+| Linux x64   | 990 ms / 8 ms    | 362 / 12.7 MiB       | 475 / 24.6 MiB       | 2.03 s / 0.06 s      |
+| macOS arm64 | 1310 ms / 28 ms  | 401 / 11.5 MiB       | 499 / 25.6 MiB       | 2.58 s / 0.33 s      |
+| Windows x64 | 1604 ms / 114 ms | 264 / 8.6 MiB        | 356 / 19.3 MiB       | 4.58 s / 0.36 s      |
+
+三平台上 Rust 的启动、内存与同一 workload 墙钟均显著低于 Node，满足发布门槛中「性能」的同口径对比要求。

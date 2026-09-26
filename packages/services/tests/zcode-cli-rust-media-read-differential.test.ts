@@ -162,6 +162,9 @@ async function observe(kind: "node" | "rust", apiType: string, image: Buffer | T
     return observation;
   } catch (error) {
     failure = error;
+    // Windows CI 偶发超时时区分是哪一侧、卡在第几次模型请求（CI 36237407731）。
+    if (error instanceof Error)
+      error.message = `[${kind}] model requests=${requests.length}: ${error.message}`;
     throw error;
   } finally {
     await f.close().catch((error) => {
@@ -297,6 +300,9 @@ async function observeAttachment(kind: "node" | "rust", name: string, bytes: Buf
     return observation;
   } catch (error) {
     failure = error;
+    // Windows CI 偶发超时时区分是哪一侧、卡在第几次模型请求（CI 36237407731）。
+    if (error instanceof Error)
+      error.message = `[${kind}] model requests=${requests.length}: ${error.message}`;
     throw error;
   } finally {
     await f.close().catch((error) => {
@@ -408,6 +414,9 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
     return observation;
   } catch (error) {
     failure = error;
+    // Windows CI 偶发超时时区分是哪一侧、卡在第几次模型请求（CI 36237407731）。
+    if (error instanceof Error)
+      error.message = `[${kind}] model requests=${requests.length}: ${error.message}`;
     throw error;
   } finally {
     await f.close().catch((error) => {
