@@ -34,7 +34,7 @@ impl Connection {
     pub async fn open(
         config: &Server,
         http: Option<reqwest_mcp::Client>,
-        oauth: Option<std::sync::Arc<super::mcp_oauth_flow::OAuth>>,
+        oauth: Option<super::mcp_oauth_credentials::Auth>,
         cancel: &CancellationToken,
     ) -> Result<Self> {
         let auth = http

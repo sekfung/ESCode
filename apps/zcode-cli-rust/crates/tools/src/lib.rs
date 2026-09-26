@@ -22,6 +22,7 @@ mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
 mod mcp_oauth_client;
+mod mcp_oauth_credentials;
 mod mcp_oauth_flow;
 mod mcp_oauth_http;
 mod mcp_oauth_store;

@@ -1,7 +1,8 @@
 //! 带 OAuth 的 Streamable HTTP client（docs/specs/rust-mcp-oauth.md 第 2 层，对齐 TS 运行期 `AuthProvider`）：
 //! 每个请求前取共享凭据中的 token（临期先刷新），401 在跨进程锁内刷新后重试一次。
 //! 需要交互授权或刷新失败时原样返回 401/403，并把分类结果记在 `last`，由连接编排读取。
-use super::mcp_oauth_flow::{AuthorizationRequired, OAuth};
+use super::mcp_oauth_credentials::Auth;
+use super::mcp_oauth_flow::AuthorizationRequired;
 use crate::domain::mcp_oauth as rules;
 use futures_util::stream::BoxStream;
 use rmcp::model::ClientJsonRpcMessage;
@@ -29,11 +30,11 @@ pub(super) enum Failure {
 #[derive(Clone)]
 pub(super) struct AuthClient {
     inner: reqwest_mcp::Client,
-    pub oauth: Arc<OAuth>,
+    pub oauth: Auth,
     pub last: Arc<Mutex<Option<Failure>>>,
 }
 impl AuthClient {
-    pub fn new(inner: reqwest_mcp::Client, oauth: Arc<OAuth>) -> Self {
+    pub fn new(inner: reqwest_mcp::Client, oauth: Auth) -> Self {
         Self {
             inner,
             oauth,
@@ -62,7 +63,7 @@ impl AuthClient {
         self.record(match error.downcast::<AuthorizationRequired>() {
             Ok(required) => Failure::Required(required),
             Err(error) => {
-                eprintln!("zcode-cli-rust: MCP server {} OAuth token unavailable: {error:#}", self.oauth.name);
+                eprintln!("zcode-cli-rust: MCP server {} OAuth token unavailable: {error:#}", self.oauth.name());
                 Failure::Other
             }
         });
@@ -75,8 +76,12 @@ impl AuthClient {
         Fut: Future<Output = Result<T, HttpError>>,
     {
         let result = op(self.token().await?).await;
-        match &result {
-            Err(StreamableHttpError::AuthRequired(_)) => {}
+        let challenge = match &result {
+            Err(StreamableHttpError::AuthRequired(e)) => e.www_authenticate_header.clone(),
+            // client_credentials 按 SDK：403 以 challenge scope 重新取 token 后重试一次，没有交互授权。
+            Err(StreamableHttpError::InsufficientScope(e)) if matches!(self.oauth, Auth::Credentials(_)) => {
+                e.www_authenticate_header.clone()
+            }
             Err(StreamableHttpError::InsufficientScope(e)) => {
                 let challenge = rules::parse_challenge(&e.www_authenticate_header);
                 self.record(Failure::Required(AuthorizationRequired {
@@ -87,8 +92,8 @@ impl AuthClient {
                 return result;
             }
             _ => return result,
-        }
-        if let Err(error) = self.oauth.on_unauthorized().await {
+        };
+        if let Err(error) = self.oauth.on_unauthorized(&challenge).await {
             self.classify(error);
             return result;
         }
@@ -118,7 +123,13 @@ impl AuthClient {
         if first.status() != reqwest_mcp::StatusCode::UNAUTHORIZED {
             return Ok(first);
         }
-        if let Err(error) = self.oauth.on_unauthorized().await {
+        let challenge = first
+            .headers()
+            .get(reqwest_mcp::header::WWW_AUTHENTICATE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
+        if let Err(error) = self.oauth.on_unauthorized(&challenge).await {
             self.classify(error);
             return Ok(first);
         }

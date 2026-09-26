@@ -4,6 +4,7 @@
 use super::super::{
     mcp_config::{self, Server},
     mcp_connection::Connection,
+    mcp_oauth_credentials::{Auth, ClientCredentials},
     mcp_oauth_flow::{AuthorizationRequired, OAuth, Outcome},
 };
 use super::{Hub, State};
@@ -33,18 +34,21 @@ pub(super) struct Task {
     pub phase: watch::Receiver<Phase>,
 }
 
-/// 按 TS `resolveAuthorizationCodeOAuthConfig` 决定是否走 OAuth；官方鉴权与 client_credentials 仍为 not_authenticated。
-pub(super) fn oauth_for(server: &Server, store: impl FnOnce() -> Arc<CredentialStore>) -> Result<Option<Arc<OAuth>>> {
+/// TS `createOAuthClientProvider`：authorization_code（含未写 oauth 的 http/sse）走共享凭据，
+/// client_credentials 走内存 token；官方鉴权仍为 not_authenticated。
+pub(super) fn oauth_for(server: &Server, store: impl FnOnce() -> Arc<CredentialStore>) -> Result<Option<Auth>> {
     if server.transport == "stdio" {
         return Ok(None);
     }
-    match rules::code_config(&server.raw, &server.transport) {
-        Some(config) => {
-            let url = server.raw["url"].as_str().unwrap_or_default();
-            Ok(Some(Arc::new(OAuth::new(store(), &server.name, url, config))))
-        }
-        None if server.raw.get("oauth").is_some() || server.raw.get("auth").is_some() => bail!("not_authenticated"),
-        None => Ok(None),
+    if let Some(config) = rules::code_config(&server.raw, &server.transport) {
+        let url = server.raw["url"].as_str().unwrap_or_default();
+        return Ok(Some(Auth::Code(Arc::new(OAuth::new(store(), &server.name, url, config)))));
+    }
+    let official = server.raw.get("auth").is_some();
+    match ClientCredentials::from_config(&server.name, &server.raw) {
+        Some(credentials) if !official => Ok(Some(Auth::Credentials(Arc::new(credentials)))),
+        _ if official || server.raw.get("oauth").is_some() => bail!("not_authenticated"),
+        _ => Ok(None),
     }
 }
 
@@ -86,7 +90,7 @@ pub(super) fn start(
         };
         let result = match oauth.authorize(&trigger, on_url, &stop).await {
             // 授权后只重连一次（TS oauthAuthorizationAttempted）；仍失败按普通连接失败分类。
-            Outcome::Authorized | Outcome::AlreadyAuthorized => Connection::open(&server, http, Some(oauth), &stop)
+            Outcome::Authorized | Outcome::AlreadyAuthorized => Connection::open(&server, http, Some(Auth::Code(oauth)), &stop)
                 .await
                 .map(Arc::new)
                 .map_err(|error| failure_kind(&error).into()),
@@ -177,7 +181,7 @@ impl Hub {
                 match Connection::open(server, http.clone(), oauth.clone(), cancel).await {
                     Ok(connection) => return Ok(Some(Arc::new(connection))),
                     Err(error) => match (error.downcast::<AuthorizationRequired>(), oauth) {
-                        (Ok(trigger), Some(oauth)) => start(
+                        (Ok(trigger), Some(Auth::Code(oauth))) => start(
                             self.state.clone(),
                             server.clone(),
                             key.into(),
@@ -186,7 +190,7 @@ impl Hub {
                             trigger,
                             self.stop.child_token(),
                         ),
-                        (Ok(_), None) => anyhow::bail!("not_authenticated"),
+                        (Ok(_), _) => anyhow::bail!("not_authenticated"),
                         (Err(error), _) => return Err(error),
                     },
                 }

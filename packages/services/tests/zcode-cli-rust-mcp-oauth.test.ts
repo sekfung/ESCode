@@ -48,7 +48,7 @@ async function oauthServer() {
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token"],
         code_challenge_methods_supported: ["S256"],
-        token_endpoint_auth_methods_supported: ["none"],
+        token_endpoint_auth_methods_supported: ["client_secret_basic", "none"],
       });
     }
     if (url.pathname === "/register") {
@@ -69,8 +69,14 @@ async function oauthServer() {
     }
     if (url.pathname === "/token") {
       const params = Object.fromEntries(new URLSearchParams(body));
-      log.push({ kind: "token", params });
-      if (params.grant_type === "authorization_code") {
+      log.push({ kind: "token", params, auth: req.headers.authorization ?? null });
+      if (params.grant_type === "client_credentials") {
+        if (
+          req.headers.authorization !==
+          `Basic ${Buffer.from("cc-client:cc-secret").toString("base64")}`
+        )
+          return json(res, 401, { error: "invalid_client" });
+      } else if (params.grant_type === "authorization_code") {
         const expected = challenges.get(params.code!);
         const actual = createHash("sha256").update(params.code_verifier!).digest("base64url");
         if (expected !== actual) return json(res, 400, { error: "invalid_grant" });
@@ -272,4 +278,51 @@ test("MCP OAuth authorization, cross-runtime credential reuse and refresh match 
   assert.equal(node.rejected.authorization, "oauth_authorization_code");
   assert.deepEqual(rust.rejected, node.rejected);
   assert.deepEqual(rust.rejectedLog, node.rejectedLog);
+});
+
+/** client_credentials：无交互、token 只在内存中；首个请求 401 后取 token 并重试。 */
+async function credentials(kind: Kind) {
+  const root = await mkdtemp(join(tmpdir(), "zcode-mcp-cc-"));
+  await mkdir(join(root, ".zcode", "v2"), { recursive: true });
+  const as = await oauthServer();
+  try {
+    const f = await runtime(kind, root);
+    try {
+      const h = f.start();
+      const config = {
+        ...as.config,
+        name: "machine",
+        oauth: {
+          type: "client_credentials" as const,
+          clientId: "cc-client",
+          clientSecret: "cc-secret",
+          scope: "mcp.read",
+        },
+      };
+      const listed = await listMcp(h, f.cwd, [config]);
+      const status = listed.statuses.machine;
+      await h.close();
+      assert.ok(!JSON.stringify(listed).includes("cc-secret"));
+      assert.ok(!h.stderr.includes("cc-secret"));
+      return normalize(
+        { status: status?.status, toolCount: status?.toolCount, log: as.log.splice(0) },
+        as.base,
+      );
+    } finally {
+      await f.close();
+    }
+  } finally {
+    await as.close();
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+test("MCP OAuth client_credentials token acquisition matches Node", async () => {
+  const node = await credentials("node");
+  const rust = await credentials("rust");
+  assert.equal(node.status, "connected");
+  assert.ok(
+    node.log.some((e: any) => e.kind === "token" && e.params.grant_type === "client_credentials"),
+  );
+  assert.deepEqual(rust, node);
 });

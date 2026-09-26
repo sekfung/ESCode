@@ -169,7 +169,7 @@ test("MCP cancellation after dispatch does not replay the tool and waits for pro
   }
 });
 
-test("MCP status classifies unsupported authentication without exposing credentials or connecting", async () => {
+test("MCP client_credentials failure does not expose the client secret", async () => {
   const f = await fixture({ mode: "yolo" });
   try {
     const h = f.start();
@@ -179,7 +179,7 @@ test("MCP status classifies unsupported authentication without exposing credenti
         type: "http",
         url: "http://127.0.0.1:1/mcp",
         headers: [],
-        // authorization_code 已支持（rust-mcp-oauth.md）；client_credentials 仍未实现，保持 not_authenticated。
+        // client_credentials 已支持（rust-mcp-oauth.md）；server 不可达时连接失败，状态与 stderr 都不能带出 secret。
         oauth: {
           type: "client_credentials",
           clientId: "fixture-client",
@@ -187,7 +187,7 @@ test("MCP status classifies unsupported authentication without exposing credenti
         },
       },
     ]);
-    assert.equal(result.statuses.oauth?.failureKind, "not_authenticated");
+    assert.equal(result.statuses.oauth?.status, "failed");
     assert.ok(!JSON.stringify(result).includes("fixture-secret-never-echo"));
     assert.ok(!h.stderr.includes("fixture-secret-never-echo"));
     await h.close();

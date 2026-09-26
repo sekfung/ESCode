@@ -107,7 +107,6 @@ sequenceDiagram
   - 凭据目录前提：Node 的授权租约锁 `mkdir` 不带 recursive，因此要求 `~/.zcode/v2` 已存在。
     真实安装中该目录总是存在，差分 fixture 会预先创建。Rust 会自行创建该目录，不依赖这个前提。
   - 403 `insufficient_scope` step-up 已按 TS 实现（scope 并集、强制重新授权），但没有差分用例；
-  - `oauth.type=client_credentials` 仍返回 `not_authenticated`；
   - `official-auth.ts`（官方账号授权）需要 Host 账号能力，单独评估；
   - enterprise-managed 授权不在本期范围。
 
@@ -118,7 +117,7 @@ sequenceDiagram
 ### 适用范围（对齐 `resolveAuthorizationCodeOAuthConfig`）
 
 - 仅 http/sse。stdio、ZCode 官方鉴权（`auth.type=zcode_official` 且带 provenance）不走 OAuth。
-- `oauth.type=authorization_code` 使用配置；`oauth.type=client_credentials` 暂不支持（保持 `not_authenticated`，另行评估）。
+- `oauth.type=authorization_code` 使用配置；`oauth.type=client_credentials` 见文末专节（非交互、token 仅在内存中）。
 - 配置了 `Authorization` 头时不走 OAuth。
 - 其余 http/sse（包括只配置 URL 的 server）隐式视为 authorization_code：只有服务器回 401/403 才会进入授权。
 
@@ -155,3 +154,26 @@ sequenceDiagram
   client 认证方式、deriveCredentialPair。
 - App 差分：本地授权服务器 + 需要 Bearer 的 MCP server fixture 上，Node 与 Rust 的 DCR/authorize/token 请求、状态序列、
   写入的 canonical 记录一致；任一方授权后另一方直接连接成功；refresh 与 invalid_grant 路径一致。
+
+## client_credentials（2026-09-26）
+
+以 TS `createOAuthClientProvider` 的 `ClientCredentialsProvider`（SDK 2.0.0）与 SDK `auth()` 的非交互分支为 oracle。
+
+- 适用：http/sse 且 `oauth.type=client_credentials`（`clientId`、`clientSecret` 必填，`clientName`、`scope` 可选）；
+  官方鉴权优先，与 authorization_code 互斥。
+- token 只在连接内存中保存，不写共享凭据：SDK provider 没有持久化，Node 与 Rust 都在每个进程内重新取 token。
+- 首个请求不带 Authorization。收到 401 后按以下步骤取 token：
+  1. 解析 `WWW-Authenticate` 中的 `resource_metadata` 与 `scope`；
+  2. 全量 discovery（无缓存，SDK provider 没有 `discoveryState`）；
+  3. `resource` 按 RFC 8707 选择；
+  4. scope = determineScope（challenge scope → resource `scopes_supported` → 配置 scope）。
+     grant_types 只有 `client_credentials`，因此不追加 `offline_access`；
+  5. 以 `grant_type=client_credentials`（有 scope 时附带 `scope`）请求 token endpoint；
+     客户端认证方式按 SDK `selectClientAuthMethod` 选择，默认 `client_secret_basic`；
+  6. 以新 token 重试一次。仍然 401 时连接失败，不进入交互授权。
+- 验收：本地授权服务器 fixture 上，Node 与 Rust 的 discovery、token 请求（grant、scope、resource、Basic 认证头）
+  与最终状态一致；client secret 不出现在状态、日志与 stderr 中。
+- 进度（已完成）：
+  - 实现在 `crates/tools/src/mcp_oauth_credentials.rs`；
+  - 运行期 transport 的 token 来源统一为 `Auth::{Code, Credentials}`；
+  - `zcode-cli-rust-mcp-oauth.test.ts` 的 client_credentials 用例与 Node 请求序列逐项一致。
