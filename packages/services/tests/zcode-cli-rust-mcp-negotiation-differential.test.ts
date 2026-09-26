@@ -3,7 +3,7 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { zcodeMcpListResultSchema } from "@zcode/shared";
 import { fixture } from "./zcode-cli-rust-fixture.js";
-import { httpServer } from "./zcode-cli-rust-mcp-fixture.js";
+import { closeRuntime, httpServer } from "./zcode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
 // docs/specs/rust-mcp-parity.md「协议协商默认值」：未写 protocolVersion 的 HTTP 先 server/discover 再回落 initialize；
@@ -33,7 +33,7 @@ async function methods(kind: "node" | "rust", transport: "http" | "sse", protoco
       },
       zcodeMcpListResultSchema,
     );
-    await h.close();
+    await closeRuntime(h, kind);
     return {
       status: listed.statuses.remote?.status,
       protocolEra: listed.statuses.remote?.protocolEra,

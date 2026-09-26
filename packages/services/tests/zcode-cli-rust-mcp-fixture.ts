@@ -138,3 +138,19 @@ export async function httpServer(transport: "http" | "sse") {
     },
   };
 }
+/**
+ * 关闭差分用例中的 runtime。Node 24 在 Windows 上持有过 MCP HTTP 连接后，退出时偶发 libuv 断言
+ * `!(handle->flags & UV_HANDLE_CLOSING)`（src\win\async.c，退出码 0xC0000409）。这是 Node 自身的关闭崩溃，
+ * 不属于被比较的行为：只对 Node 一侧容忍这一种退出；Rust 仍要求干净退出。
+ */
+export async function closeRuntime(h: Harness, kind: "node" | "rust") {
+  try {
+    await h.close();
+  } catch (error) {
+    const known =
+      kind === "node" &&
+      process.platform === "win32" &&
+      String(error).includes("UV_HANDLE_CLOSING");
+    if (!known) throw error;
+  }
+}

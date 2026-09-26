@@ -50,6 +50,10 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - 第三次（36098587168）：checks 与 Windows（MSVC）/ macOS（arm64）/ Linux 测试**全部通过**。
 - 2026-09-26（36209338763，提交 3b9b23b）：checks 与三平台测试全部通过。
   前一次运行在 Windows/macOS 上，因 PDF 路径未做 realpath 失败，已由 2b74cfe 修复。
+- 2026-09-26（36213030115，提交 cdf9783）：checks、Linux、macOS 通过；Windows 上新增的两个 MCP 差分用例失败。
+  原因是 **Node** 子进程在退出时触发 libuv 断言 `UV_HANDLE_CLOSING`（退出码 0xC0000409），Rust 一侧正常；
+  该崩溃只在 Node 持有过 MCP HTTP 连接后偶发，本机未复现。
+  处理：由 `closeRuntime` 只对 Windows 上 Node 一侧容忍这一种退出，Rust 仍要求干净退出。
 
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
