@@ -268,6 +268,7 @@ async function observeAttachment(kind: "node" | "rust", name: string, bytes: Buf
           mode: "yolo",
         })
       : await fixture({ root, registry: true, respond, mode: "yolo" });
+  let failure: unknown;
   try {
     await configureRegistry(f, false, { apiType: "openai-chat-completions", properties });
     const file = join(f.cwd, name);
@@ -345,6 +346,7 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
           mode: "yolo",
         })
       : await fixture({ root, registry: true, respond, mode: "yolo" });
+  let failure: unknown;
   try {
     await configureRegistry(f, false, { apiType: "openai-chat-completions", properties });
     const h = f.start();
