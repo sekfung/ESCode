@@ -1,6 +1,13 @@
 # Rust MCP OAuth（授权码 + PKCE）
 
-2026-09-26 草案。承接 rust-mcp-parity.md 第 3 期。
+2026-09-26。承接 rust-mcp-parity.md 第 3 期。用户确认按本文实施（与 Node 共用加密凭据存储）。
+
+进度：
+
+- 第 1 层（已完成）：共享凭据存储。`crates/host/src/{credential_cipher,file_lock,credential_store}.rs`
+  对齐 TS cipher、`atomicFileLock` 协议与 `shared-credentials.ts`；`zcode-cli-rust-credentials.test.ts` 验证默认 secret 推导、
+  双向解密、同一路径与跨进程锁（Node/Rust 交错独立写入各 25 次无丢失；去掉 Rust 锁时该用例稳定失败）。
+- 第 2 层（进行中）：OAuth 流程（discovery、DCR、PKCE、回调、刷新、租约）与 `mcp/list` 授权状态。
 
 TS 基线：
 
@@ -68,7 +75,8 @@ sequenceDiagram
 ## 实现选择
 
 - OAuth 协议部分使用 rmcp `auth` feature（AuthorizationManager：metadata discovery、DCR、PKCE、换 token、刷新），`CredentialStore`/`StateStore` 自实现为上述共享存储。
-- 加密依赖 `aes-gcm` crate；锁与原子写在 tools crate 实现（domain 不做 IO）。
+- 加密使用已随 rustls 引入的 `ring`（AES-256-GCM），不新增依赖；锁、原子写与存储在 host crate（domain 不做 IO）。
+- 锁实例观察（TS `lockInstanceObserver`）在时间戳不可用时以首次观察时刻近似。
 
 ## 验收
 

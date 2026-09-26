@@ -46,6 +46,7 @@ reqwest_mcp = { package = "reqwest", version = "0.13", default-features = false,
   "stream",
   "rustls-no-provider",
 ] }
+ring = "0.17"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 clap = { version = "4", features = ["derive"] }
 crc32fast = "1"
@@ -64,7 +65,7 @@ tokio-util = "0.7"
 uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
 percent-encoding = "2"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Registry", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Registry", "Win32_System_Threading", "Win32_System_WindowsProgramming"] }
 
 libc = "0.2"
 tempfile = "3"
