@@ -131,6 +131,9 @@ async function observe(kind: "node" | "rust", apiType: string, image: Buffer | T
           mode: "yolo",
         })
       : await fixture({ root, registry: true, respond, mode: "yolo" });
+  // 原因：观察过程失败时，finally 中 f.close() 会因子进程未退出被 SIGKILL 而抛出，掩盖真正的失败（CI 36214138039）。
+  // 依据：先记录原始错误，关闭失败只在没有原始错误时上抛。
+  let failure: unknown;
   try {
     await configureRegistry(f, false, { apiType, properties: target.props ?? properties });
     await writeFile(join(f.cwd, target.name), target.bytes);
@@ -157,8 +160,13 @@ async function observe(kind: "node" | "rust", apiType: string, image: Buffer | T
     const observation = { tail, read, schemaErrors: h.schemaErrors };
     await h.close();
     return observation;
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
-    await f.close();
+    await f.close().catch((error) => {
+      if (failure === undefined) throw error;
+    });
   }
 }
 
@@ -286,8 +294,13 @@ async function observeAttachment(kind: "node" | "rust", name: string, bytes: Buf
     const observation = { content, schemaErrors: h.schemaErrors };
     await h.close();
     return observation;
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
-    await f.close();
+    await f.close().catch((error) => {
+      if (failure === undefined) throw error;
+    });
   }
 }
 
@@ -391,8 +404,13 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
     };
     await h.close();
     return observation;
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
-    await f.close();
+    await f.close().catch((error) => {
+      if (failure === undefined) throw error;
+    });
   }
 }
 
