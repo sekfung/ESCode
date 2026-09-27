@@ -32,17 +32,16 @@ pub struct ShellTasks {
 impl ShellTasks {
     pub async fn call(
         &self,
-        paths: (&Path, &Path),
+        paths: (&Path, &Path, &Path),
         session: &str,
         name: &str,
         args: &Value,
         sink: Option<&EventSink>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        let (cwd, artifacts) = paths;
         match name {
             "Bash" => {
-                self.start(cwd, artifacts, session, args, sink, cancel)
+                self.start(paths, session, args, sink, cancel)
                     .await
             }
             "TaskOutput" | "TaskStop" => {
@@ -143,13 +142,13 @@ impl ShellTasks {
     }
     async fn start(
         &self,
-        cwd: &Path,
-        artifacts: &Path,
+        paths: (&Path, &Path, &Path),
         session: &str,
         args: &Value,
         sink: Option<&EventSink>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
+        let (cwd, artifacts, workspace) = paths;
         keys(
             args,
             &[
@@ -201,6 +200,7 @@ impl ShellTasks {
         let launch = Arc::new(jobs::Launch {
             cwd: cwd.to_owned(),
             artifacts: artifacts.to_owned(),
+            workspace: workspace.to_owned(),
             session: session.to_owned(),
             id,
             path,
@@ -227,6 +227,7 @@ impl ShellTasks {
                     startup_root: artifacts,
                     session,
                     lifecycle: &launch.lifecycle,
+                    workspace: &launch.workspace,
                 };
                 let data = run(
                     cwd,

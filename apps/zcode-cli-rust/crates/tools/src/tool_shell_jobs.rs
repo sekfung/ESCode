@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 pub(in super::super) struct Launch {
     pub cwd: PathBuf,
     pub artifacts: PathBuf,
+    pub workspace: PathBuf,
     pub session: String,
     pub id: String,
     pub path: PathBuf,
@@ -46,6 +47,7 @@ impl Launch {
                 startup_root: &launch.artifacts,
                 session: &launch.session,
                 lifecycle: &launch.lifecycle,
+                workspace: &launch.workspace,
             };
             run(&launch.cwd, &launch.command, &launch.path, launch.combined.clone(), timeout, &token, context).await
         })

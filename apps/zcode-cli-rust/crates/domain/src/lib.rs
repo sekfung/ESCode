@@ -67,6 +67,7 @@ mod session_memory;
 mod session_recovery;
 pub use session_recovery::ToolResult;
 pub mod session_title;
+pub mod shell_snapshot;
 #[cfg(test)]
 mod session_title_tests;
 pub mod shared_context;

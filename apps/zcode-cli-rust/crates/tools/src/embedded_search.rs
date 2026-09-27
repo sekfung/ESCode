@@ -217,7 +217,7 @@ fn is_windows_absolute(value: &str) -> bool {
 }
 
 /// TS `windowsPathToGitBashPath`。
-fn windows_path_to_git_bash(value: &str) -> String {
+pub(crate) fn windows_path_to_git_bash(value: &str) -> String {
     if value.starts_with("\\\\") {
         return value.replace('\\', "/");
     }
@@ -238,7 +238,7 @@ fn windows_path_to_git_bash(value: &str) -> String {
     value.replace('\\', "/")
 }
 
-fn quote(value: &str) -> String {
+pub(crate) fn quote(value: &str) -> String {
     let plain = !value.is_empty()
         && value
             .chars()
@@ -250,7 +250,7 @@ fn quote(value: &str) -> String {
     }
 }
 
-fn quote_always(value: &str) -> String {
+pub(crate) fn quote_always(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 

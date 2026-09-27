@@ -47,6 +47,7 @@ mod project_memory;
 mod read_image;
 mod read_pdf;
 mod shell_select;
+mod shell_snapshot;
 mod tool_args;
 mod tool_capability;
 mod tool_files;

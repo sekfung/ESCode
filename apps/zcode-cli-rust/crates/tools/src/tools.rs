@@ -102,7 +102,7 @@ impl WorkspaceTools {
             "List" => super::tool_search::list(&self.cwd, args, cancel).await,
             "Bash" | "TaskOutput" | "TaskStop" => {
                 self.shell
-                    .call((&self.cwd, &artifacts), session, name, args, sink, cancel)
+                    .call((&self.cwd, &artifacts, &self.workspace_path), session, name, args, sink, cancel)
                     .await
             }
             _ => bail!("Unsupported tool: {name}"),
@@ -369,6 +369,8 @@ impl ToolPort for WorkspaceTools {
     }
     async fn shutdown(&self) -> Result<()> {
         self.shell.shutdown().await?;
+        // 本进程创建的 shell 初始化快照随 runtime 关闭删除（TS cleanupRegistry）。
+        super::shell_snapshot::cleanup().await;
         self.mcp.shutdown().await
     }
 }

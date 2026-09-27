@@ -97,7 +97,35 @@ pub(super) async fn run(
             }
             None => text.to_owned(),
         };
-    let plan = crate::shell_select::spawn_plan(platform, &env, &selection, &text);
+    // TS applyBashSourcesToExecutionRequest：先 source 用户 shell 初始化快照（可选），再 source prelude；
+    // 有快照时以非 login shell 运行（docs/specs/rust-bash-shell-snapshot.md）。
+    let git_bash = dialect == "git-bash";
+    let snapshot = match (&selection.path, matches!(dialect, "posix" | "git-bash")) {
+        (Some(shell_path), true) => {
+            let overlay = crate::shell_select::spawn_plan(platform, &env, &selection, "").env_overlay;
+            crate::shell_snapshot::get(shell.startup_root, git_bash, shell_path, &overlay).await
+        }
+        _ => None,
+    };
+    let text = match &snapshot {
+        Some(snapshot) => format!("{}\n{text}", snapshot.source_line()),
+        None => text,
+    };
+    // TS createCwdCapturePlan：前台 Bash 成功后记录物理 cwd，用于「离开工作区」提示。
+    let cwd_capture = (shell.lifecycle.load(Ordering::SeqCst) == FOREGROUND).then(crate::shell_snapshot::cwd_file);
+    let text = match &cwd_capture {
+        Some(file) => {
+            let native = file.to_string_lossy();
+            let shown = if git_bash { crate::embedded_search::windows_path_to_git_bash(&native) } else { native.into_owned() };
+            let cmd = dialect == "cmd" || (dialect == "legacy-shell" && cfg!(windows));
+            crate::domain::shell_snapshot::cwd_capture(&text, &shown, cmd)
+        }
+        None => text,
+    };
+    let mut plan = crate::shell_select::spawn_plan(platform, &env, &selection, &text);
+    if snapshot.is_some() && plan.args.get(1).is_some_and(|arg| arg == "-l") {
+        plan.args.remove(1);
+    }
     let (reader, writer) = std::io::pipe()?;
     let file = combined.lock().await.try_clone().await?.into_std().await;
     let mut command = Command::new(&plan.file);
@@ -221,6 +249,20 @@ pub(super) async fn run(
         .lifecycle
         .compare_exchange(FOREGROUND, SETTLED, Ordering::SeqCst, Ordering::SeqCst)
         .is_err();
+    // TS decideBashCwdPolicy：前台成功且最终物理 cwd 离开工作区时，stderr 追加重置提示。
+    if let Some(file) = &cwd_capture {
+        let succeeded = reason == "completed" && exit_code == Some(0);
+        let resolved = if succeeded { crate::shell_snapshot::read_cwd(file, git_bash).await } else { None };
+        let _ = tokio::fs::remove_file(file).await;
+        if let Some(resolved) = resolved
+            && !backgrounded
+            && crate::shell_snapshot::outside(&resolved, shell.workspace).await
+        {
+            let stderr = data["stderr"].as_str().unwrap_or_default().to_owned();
+            let root = shell.workspace.to_string_lossy();
+            data["stderr"] = crate::domain::shell_snapshot::reset_suffix(&stderr, root.trim_end_matches(['/', '\\'])).into();
+        }
+    }
     if truncated || backgrounded {
         let path = path.to_string_lossy();
         for key in ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath"] {
@@ -283,6 +325,8 @@ pub(super) struct ShellContext<'a> {
     /// 前台/后台归属（docs/specs/rust-bash-auto-background.md）：进程结束时由 FOREGROUND 原子地
     /// 结算为 SETTLED；超时转后台时由 FOREGROUND 改为 BACKGROUNDED。两者只有一方成功。
     pub lifecycle: &'a AtomicU8,
+    /// 词法工作区根（TS workspaceRoot），用于「离开工作区」提示。
+    pub workspace: &'a Path,
 }
 pub(super) const FOREGROUND: u8 = 0;
 pub(super) const BACKGROUNDED: u8 = 1;
