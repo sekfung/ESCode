@@ -18,7 +18,8 @@ const CALLS: [string, unknown][] = [
   ["Write", { file_path: "empty.txt", content: "filled\n" }],
   // 读过的文件被格式化/修复类命令改写：提示重新 Read。
   ["Read", { file_path: "existing.txt" }],
-  ["Bash", { command: "sed --in-place 's/edited/fixed/' existing.txt", description: "fix" }],
+  // 可移植的改写（BSD sed 没有 --in-place）；命令里带 `--fix` 标记即算格式化/修复类命令。
+  ["Bash", { command: "echo fixed > existing.txt && echo applied --fix", description: "fix" }],
   ["Bash", { command: "echo unrelated --fix", description: "marker without change" }],
   // 重复 Read：同一范围且文件未变时返回未变提示；换范围则给出正文。
   ["Read", { file_path: "existing.txt", offset: 1, limit: 1 }],
@@ -88,9 +89,10 @@ test("Bash reads and rewrites update read state the same way as Node", async () 
   const node = await observe("node");
   const rust = await observe("rust");
   assert.equal(node.seen.length, CALLS.length);
-  assert.match(node.seen[1]!, /has been updated successfully/);
-  assert.match(node.seen[5]!, /you've previously read: existing\.txt/);
+  // 先比较两侧，再确认用例确实覆盖到回填与过期提示（CI 上 Node 的行为因环境而异时，先看到两侧差异）。
   for (const [index, [name, args]] of CALLS.entries()) {
     assert.equal(rust.seen[index], node.seen[index], `${name} ${JSON.stringify(args)}`);
   }
+  assert.match(node.seen[1]!, /has been updated successfully/);
+  assert.match(node.seen[5]!, /you've previously read: existing\.txt/);
 });
