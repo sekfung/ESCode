@@ -19,7 +19,7 @@ const MAX_PENDING: usize = 16;
 pub(super) struct Responses(Arc<Mutex<HashMap<String, String>>>);
 
 impl Responses {
-    fn offer(&self, line: &[u8]) {
+    pub(super) fn offer(&self, line: &[u8]) {
         if !line.windows(7).any(|w| w == b"\"tools\"") {
             return;
         }

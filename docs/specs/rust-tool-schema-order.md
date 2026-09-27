@@ -30,8 +30,10 @@ JSON 语义相同，但属性顺序对模型可见。用户决定：只修工具
    - 查到登记时，把该工具序列化文本中的排序 schema 原位换成保序文本；查不到则保持现状（排序）。
    - 其余 JSON 仍由 `serde_json` 序列化。
    - 纯函数：`domain::schema_order::splice`。
-4. 暂不覆盖（保持排序）：
-   - streamable HTTP 与 SSE 传输的 MCP server；
+4. SSE 传输：事件数据在 Rust 自有的 SSE 解析处（`mcp_sse.rs`）同样交给捕获表，规则与 stdio 相同。
+5. 暂不覆盖（保持排序）：
+   - streamable HTTP 传输：rmcp 的 HTTP 客户端只交出解析后的消息，reqwest 也没有响应体中间件；
+     要取得原文只能重写 rmcp 的 HTTP 应答处理，暂不做；
    - 内置工具定义，这些本来就由 Rust 内置 JSON 生成，与 Node 的差异另行差分确认。
 
 ## 验收
@@ -39,5 +41,5 @@ JSON 语义相同，但属性顺序对模型可见。用户决定：只修工具
 - 单测：
   - 保序文本的数值与转义格式与 JS 一致；
   - 工具中 schema 能原位替换；查不到登记时字节不变。
-- App 差分：非字母序声明的 stdio MCP 工具，两侧模型请求里的该工具定义序列化后逐字一致
+- App 差分：非字母序声明的 stdio 与 SSE MCP 工具，两侧模型请求里的该工具定义序列化后逐字一致
   （比较 `parameters` 的 `JSON.stringify` 结果）。

@@ -132,6 +132,7 @@ impl Connection {
                     http.context("HTTP client missing")?,
                     auth.clone(),
                     cancel,
+                    raw.clone(),
                 )
                 .await?;
                 Ok(

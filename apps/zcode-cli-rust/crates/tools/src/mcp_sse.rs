@@ -26,6 +26,7 @@ impl Transport {
         client: reqwest_mcp::Client,
         auth: Auth,
         stop: &CancellationToken,
+        raw: super::mcp_raw_capture::Responses,
     ) -> Result<Self> {
         let url = url::Url::parse(config.raw["url"].as_str().unwrap())?;
         let mut headers = reqwest_mcp::header::HeaderMap::new();
@@ -60,6 +61,8 @@ impl Transport {
                                 let _ = endpoint.send(parsed.to_string());
                             }
                         } else if kind == "message" || kind.is_empty() {
+                            // tools/list 原文保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
+                            raw.offer(data.as_bytes());
                             tx.send(serde_json::from_str::<ServerJsonRpcMessage>(&data)?)
                                 .await?;
                         }
