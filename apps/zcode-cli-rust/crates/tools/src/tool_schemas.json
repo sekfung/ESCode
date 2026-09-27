@@ -391,6 +391,45 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "OffPeakCreate": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Concise idle-time task title describing the deferred work, for example '重构 utils 目录' or 'Fix flaky auth tests'. Keep it short and do not include file paths."
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Instructions for the deferred run, which later continues THIS conversation unattended with the full history available, so it may refer to context already established here. State the expected deliverable explicitly (nobody will answer questions during the run); never ask the run to create, schedule, or configure another idle-time task or automation."
+      },
+      "permissionMode": {
+        "type": "string",
+        "enum": ["build", "edit", "plan", "yolo"],
+        "description": "Unattended run permission mode. Omit for the default full-automatic mode (yolo). Set only when the user explicitly asks for confirmation-gated execution: 'build' pauses for approval before changes, 'edit' auto-applies edits, 'plan' is read-only planning."
+      },
+      "model": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Idle-plan model id. Must be one of the idle-time allowed models; omit to use the default (the newest allowed model). Set only when the user names a specific model."
+      },
+      "thoughtLevel": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Reasoning effort level for the chosen model. Omit to use the default (the highest level). Set only when the user explicitly asks for a lower reasoning effort."
+      }
+    },
+    "required": ["title", "prompt"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "OffPeakList": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "Grep": {
     "type": "object",
     "properties": {

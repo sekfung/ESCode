@@ -250,9 +250,21 @@ impl Engine {
                     .collect()
             })
             .unwrap_or_default();
-        let disallowed = crate::domain::cron::turn_disallowlist(&requested, automation.as_deref());
+        // 闲时派发身份（显式或 offpeak- 前缀 commandId，docs/specs/rust-offpeak.md 第二期）随输入固化。
+        let off_peak = crate::domain::off_peak::turn_task_id(
+            c.payload["offPeakTaskId"].as_str(),
+            &c.command_id,
+        );
+        let disallowed = crate::domain::cron::turn_disallowlist(
+            &requested,
+            automation.as_deref(),
+            off_peak.as_deref(),
+        );
         if let Some(id) = &automation {
             payload["automationId"] = id.clone().into();
+        }
+        if let Some(id) = &off_peak {
+            payload["offPeakTaskId"] = id.clone().into();
         }
         if !disallowed.is_empty() {
             payload["toolDisallowlist"] = disallowed.into();

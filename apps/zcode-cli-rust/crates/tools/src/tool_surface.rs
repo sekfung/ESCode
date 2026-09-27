@@ -34,6 +34,10 @@ pub(super) fn definitions() -> Vec<Value> {
     for name in ["TodoRead", "TodoWrite"] {
         definitions.push(json!({"type":"function","function":{"name":name,"description":descriptions[name],"parameters":schemas[name]}}));
     }
+    // OffPeak 在 TS 注册顺序中位于 SendMessage 之前；是否可见由会话工具面开关决定（docs/specs/rust-offpeak.md）。
+    for name in ["OffPeakCreate", "OffPeakList"] {
+        definitions.push(json!({"type":"function","function":{"name":name,"description":surface["descriptions"][name],"parameters":schemas[name]}}));
+    }
     let descriptions: Value =
         serde_json::from_str(include_str!("agent_descriptions.json")).expect("agent descriptions");
     for name in ["Agent", "SendMessage"] {

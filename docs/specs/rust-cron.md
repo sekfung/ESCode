@@ -31,7 +31,7 @@ sequenceDiagram
   Host 返回创建上限错误（`AUTOMATION_CREATE_LIMIT_REACHED`）时给模型固定文案并结束本轮后续工具。
 - 输出与模型可见内容：`JSON.stringify(output)`，automation 字段按 TS `toModelAutomation` 顺序，嵌套 `scheduleRule` 保持 Host 原始键顺序。
 - 已知差异：Node 以 strict 协议 schema 校验 Host 应答（多余字段即报错），Rust 不校验应答形态；同版本 Host 不会产出非法应答。
-- OffPeak 字段（`offPeakTaskId` / `offPeakRunType`）仍不支持（不在用户选定范围）。
+- OffPeak 字段（`offPeakTaskId` / `offPeakRunType`）见 rust-offpeak.md（2026-09-27 用户决定原生实现）。
 
 ## refine 文案（2026-09-27）
 

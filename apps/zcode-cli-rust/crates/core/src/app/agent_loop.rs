@@ -59,6 +59,7 @@ pub(super) async fn run(
     // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
     let turn_facts = std::mem::take(&mut history.turn);
     super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
+    super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
     let profiles = if definitions.iter().any(|d| d["function"]["name"] == "Agent") {
         tools.agent_profiles(cancel).await?
     } else {

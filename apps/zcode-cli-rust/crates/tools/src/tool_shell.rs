@@ -157,8 +157,11 @@ impl ShellTasks {
                 "timeout",
                 "run_in_background",
                 "dangerouslyDisableSandbox",
+                crate::domain::off_peak::FOREGROUND_ONLY_ARG,
             ],
         )?;
+        // core 在闲时受限轮加入的内部参数：关闭超时自动转后台（docs/specs/rust-offpeak.md 第二期）。
+        let foreground_only = args[crate::domain::off_peak::FOREGROUND_ONLY_ARG] == true;
         let command = string(args, "command")?.to_owned();
         if command.trim().is_empty() {
             bail!("command must not be empty");
@@ -211,7 +214,7 @@ impl ShellTasks {
             lifecycle: AtomicU8::new(lifecycle),
         });
         // TS isBashAutoBackgroundEligible：以 sleep 开头的命令超时即终止，不转后台。
-        let auto = launch.command.split_whitespace().next() != Some("sleep");
+        let auto = !foreground_only && launch.command.split_whitespace().next() != Some("sleep");
         match (background, sink) {
             (true, sink) => {
                 let sink = sink.context("Background execution requires a session owner")?;

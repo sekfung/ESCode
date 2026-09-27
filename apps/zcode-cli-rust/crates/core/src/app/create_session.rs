@@ -45,6 +45,8 @@ impl Engine {
             self.tools.configure_mcp(&id, servers).await?;
         }
         self.sessions.insert(id.clone(), session);
+        // OffPeak 工具面开关随会话创建固化（docs/specs/rust-offpeak.md 第一期）。
+        self.fix_off_peak(&id, c.payload["offPeakToolEnabled"] == true);
         self.apply_selection(&id, config)?;
         let mut ack = c.ack("accepted", 0, None);
         ack["result"] = json!({"type":"createSession","sessionId":id});

@@ -98,7 +98,13 @@ impl Engine {
             } else {
                 serde_json::json!({"providerId": session.provider, "modelId": session.model, "options": {"reasoningLevel": session.reasoning_level}})
             }),
+            ..Default::default()
         };
+        // 闲时派发事实（docs/specs/rust-offpeak.md 第二期）：admission 固化的闲时身份；禁用列表含 OffPeakCreate 视为受限轮。
+        history.turn.off_peak_task_id = input["offPeakTaskId"].as_str().map(str::to_owned);
+        history.turn.off_peak_restricted = history.turn.off_peak_task_id.is_some()
+            || history.turn.disallowed.iter().any(|t| t == "OffPeakCreate");
+        history.turn.off_peak_tools = self.off_peak_enabled(id);
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {

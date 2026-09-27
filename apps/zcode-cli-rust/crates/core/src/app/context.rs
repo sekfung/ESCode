@@ -17,6 +17,12 @@ pub(super) struct TurnFacts {
     pub model_selection: Option<Value>,
     /// MCP tools/call 的请求上下文（TS `mcpRequestMeta`，不含逐次调用的 span_id；docs/specs/rust-browser-use.md 第 1 期）。
     pub mcp_meta: Value,
+    /// 本会话是否注册 OffPeak 工具（docs/specs/rust-offpeak.md 第一期）。
+    pub off_peak_tools: bool,
+    /// 本轮闲时派发身份（第二期）。
+    pub off_peak_task_id: Option<String>,
+    /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。
+    pub off_peak_restricted: bool,
 }
 
 pub(super) struct RunContext {

@@ -95,6 +95,21 @@ pub(super) async fn execute(
         })
     } else {
         match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) {
+            // 闲时受限轮（docs/specs/rust-offpeak.md 第二期）：SendMessage 会绕开本轮执行模型续跑子代理；
+            // Bash 后台命令完成后的通知轮会落到用户套餐，拒绝显式后台并关闭超时自动转后台。
+            Ok(_) if turn.off_peak_restricted && name == "SendMessage" => Err(anyhow::anyhow!(
+                crate::domain::off_peak::off_peak_turn_denial(
+                    name,
+                    Some(crate::domain::off_peak::SEND_MESSAGE_HINT)
+                )
+            )),
+            Ok(args) if turn.off_peak_restricted && name == "Bash" && args["run_in_background"] == true => {
+                Err(anyhow::anyhow!(crate::domain::off_peak::BASH_BACKGROUND_DENIED))
+            }
+            Ok(mut args) if turn.off_peak_restricted && name == "Bash" => {
+                args[crate::domain::off_peak::FOREGROUND_ONLY_ARG] = true.into();
+                tools.execute_scoped(name, &args, sink, cancel).await
+            }
             Ok(args)
                 if matches!(name, "Agent" | "Task" | "SendMessage")
                     || matches!(name, "TaskOutput" | "TaskStop")
@@ -123,6 +138,9 @@ pub(super) async fn execute(
             }
             Ok(args) if matches!(name, "TodoRead" | "TodoWrite") => {
                 super::todos::execute(name, call["id"].as_str().unwrap(), args, sink, cancel).await
+            }
+            Ok(args) if name.starts_with("OffPeak") => {
+                super::off_peak::execute(name, &args, turn, sink, cancel).await
             }
             Ok(args) if name.starts_with("Cron") => {
                 super::cron_tool::execute(name, &args, turn, sink, cancel).await

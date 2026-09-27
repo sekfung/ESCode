@@ -55,7 +55,7 @@ impl Engine {
                 );
             }
         }
-        // Cron 定时任务派发的本轮事实（docs/specs/rust-cron.md）；OffPeak 仍不支持。
+        // Cron 定时任务与闲时任务派发的本轮事实（docs/specs/rust-cron.md、rust-offpeak.md）。
         if p.get("toolDisallowlist").is_some_and(|v| {
             v.as_array()
                 .is_none_or(|a| a.iter().any(|t| t.as_str().is_none_or(str::is_empty)))
@@ -70,14 +70,21 @@ impl Engine {
         if p.get("botDeliveryTarget").is_some_and(|v| !v.is_object()) {
             bail!("Invalid botDeliveryTarget");
         }
-        for key in [
-            "modelExecution",
-            "offPeakTaskId",
-            "offPeakRunType",
-        ] {
-            if p.get(key).is_some() {
-                bail!("Unsupported input field: {key}");
-            }
+        if p.get("offPeakTaskId").is_some_and(|v| v.as_str().is_none_or(|s| s.trim().is_empty())) {
+            bail!("Invalid offPeakTaskId");
+        }
+        if p.get("offPeakRunType").is_some_and(|v| !matches!(v.as_str(), Some("init" | "resume"))) {
+            bail!("Invalid offPeakRunType");
+        }
+        // 协议 superRefine：两类派发身份互斥；runType 需要闲时身份。
+        if p.get("automationId").is_some() && p.get("offPeakTaskId").is_some() {
+            bail!("automationId and offPeakTaskId are mutually exclusive");
+        }
+        if p.get("offPeakRunType").is_some() && p.get("offPeakTaskId").is_none() {
+            bail!("offPeakRunType requires offPeakTaskId");
+        }
+        if p.get("modelExecution").is_some() {
+            bail!("Unsupported input field: modelExecution");
         }
         // 协议 zcodeBrowserAmbientContextSchema（strict）：tabCount 为 1..=100 的整数，currentUrl 非空且 ≤4096。
         if let Some(ambient) = p.get("browserAmbientContext") {

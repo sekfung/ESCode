@@ -47,6 +47,7 @@ impl Engine {
         self.validate_workspace(p)?;
         match method {
             "session/read" => self.read_session(p),
+            "workspace/updateOffPeakToolPolicy" => self.update_off_peak_policy(p),
             "workspace/cancelGenerateText" => {
                 let operation = p["operationId"].as_str().context("Operation id required")?;
                 let ids = self

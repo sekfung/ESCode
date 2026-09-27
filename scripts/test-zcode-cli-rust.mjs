@@ -122,6 +122,7 @@ await run(process.execPath, [
 // custom-commands 与 memory 的漂移检查实际从未运行。逐个运行。
 for (const script of [
   "scripts/generate-zcode-cli-rust-cron-corpus.mjs",
+  "scripts/generate-zcode-cli-rust-offpeak-corpus.mjs",
   "scripts/generate-zcode-cli-rust-custom-commands.mjs",
   "scripts/generate-zcode-cli-rust-memory-corpus.mjs",
   "scripts/generate-zcode-cli-rust-title-corpus.mjs",

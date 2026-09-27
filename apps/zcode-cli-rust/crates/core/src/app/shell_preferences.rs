@@ -17,6 +17,10 @@ pub(super) struct ShellPreferences {
     cache: BTreeMap<Key, Value>,
     waiters: BTreeMap<Key, Vec<Waiter>>,
     requests: BTreeMap<String, Key>,
+    /// 进程级 OffPeak 工具面结论（`workspace/updateOffPeakToolPolicy`，docs/specs/rust-offpeak.md）。
+    pub(super) off_peak_policy: bool,
+    /// 各会话固化的 OffPeak 工具面开关。
+    pub(super) off_peak: BTreeMap<String, bool>,
 }
 
 impl Engine {
