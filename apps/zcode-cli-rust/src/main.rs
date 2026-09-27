@@ -155,67 +155,75 @@ async fn run() -> Result<()> {
         }
     }
     output.send(vec![progress("ready", 2)]).await?;
-    if args.prepare_storage {
+    let served: Result<()> = if args.prepare_storage {
         drop(store);
         output
             .send(vec![
                 json!({"method":"startup/storagePrepared","params":{}}),
             ])
-            .await?;
+            .await
+            .map_err(Into::into)
     } else {
-        // TS 派生媒体缓存位于 `<storageRoot>/cli/{image,pdf,video}-cache`（docs/specs/rust-media-read.md 第 4 期）。
-        if let Ok(root) = legacy_paths::storage_root(&requested_cwd).await {
-            zcode_cli_model::set_media_cache_root(root.join("cli"));
+        async {
+            // TS 派生媒体缓存位于 `<storageRoot>/cli/{image,pdf,video}-cache`（docs/specs/rust-media-read.md 第 4 期）。
+            if let Ok(root) = legacy_paths::storage_root(&requested_cwd).await {
+                zcode_cli_model::set_media_cache_root(root.join("cli"));
+            }
+            let config = ModelConfig::load(args.config.as_ref()).await?;
+            let registry = if config.is_none() {
+                Registry::from_env()
+                    .await?
+                    .map(|r| r as Arc<dyn ModelRegistry>)
+            } else {
+                None
+            };
+            let identity = config.as_ref().map(|c| ModelIdentity {
+                provider_id: c.provider_id.clone(),
+                model_id: c.model_id.clone(),
+                reasoning_level: c.reasoning_level.clone(),
+            });
+            let model = config
+                .map(HttpModel::new)
+                .map(|m| Arc::new(m) as Arc<dyn ModelPort>);
+            Engine::new(
+                workspace,
+                identity,
+                RuntimePorts {
+                    // 修复：提示词里的工作目录与 AGENTS/Git 查找用 Host 提交的路径（TS 同样不 realpath）；
+                    // 原先用 realpath，macOS /var→/private/var、Windows 8.3 短名会与 Node 不一致。
+                    context: Arc::new(WorkspaceContext::new(
+                        std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
+                        std::env::var_os("HOME")
+                            .filter(|s| !s.is_empty())
+                            .or_else(|| std::env::var_os("USERPROFILE"))
+                            .map(std::path::PathBuf::from)
+                            .unwrap_or_default(),
+                        args.surface == "desktop",
+                    )),
+                    store: Arc::new(store),
+                    model,
+                    tools: Arc::new(
+                        WorkspaceTools::new(cwd.clone(), data_dir.join("tool-results"))
+                            .with_workspace_path(
+                                std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
+                            ),
+                    ),
+                    clock: Arc::new(SystemClock),
+                },
+            )
+            .await?
+            .with_question_timing(question_timing.0, question_timing.1)
+            .with_registry(registry, requested_cwd.to_string_lossy().into_owned())
+            .serve(input, output.clone(), cancel)
+            .await
         }
-        let config = ModelConfig::load(args.config.as_ref()).await?;
-        let registry = if config.is_none() {
-            Registry::from_env()
-                .await?
-                .map(|r| r as Arc<dyn ModelRegistry>)
-        } else {
-            None
-        };
-        let identity = config.as_ref().map(|c| ModelIdentity {
-            provider_id: c.provider_id.clone(),
-            model_id: c.model_id.clone(),
-            reasoning_level: c.reasoning_level.clone(),
-        });
-        let model = config
-            .map(HttpModel::new)
-            .map(|m| Arc::new(m) as Arc<dyn ModelPort>);
-        Engine::new(
-            workspace,
-            identity,
-            RuntimePorts {
-                // 修复：提示词里的工作目录与 AGENTS/Git 查找用 Host 提交的路径（TS 同样不 realpath）；
-                // 原先用 realpath，macOS /var→/private/var、Windows 8.3 短名会与 Node 不一致。
-                context: Arc::new(WorkspaceContext::new(
-                    std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
-                    std::env::var_os("HOME")
-                        .filter(|s| !s.is_empty())
-                        .or_else(|| std::env::var_os("USERPROFILE"))
-                        .map(std::path::PathBuf::from)
-                        .unwrap_or_default(),
-                    args.surface == "desktop",
-                )),
-                store: Arc::new(store),
-                model,
-                tools: Arc::new(
-                    WorkspaceTools::new(cwd.clone(), data_dir.join("tool-results"))
-                        .with_workspace_path(
-                            std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
-                        ),
-                ),
-                clock: Arc::new(SystemClock),
-            },
-        )
-        .await?
-        .with_question_timing(question_timing.0, question_timing.1)
-        .with_registry(registry, requested_cwd.to_string_lossy().into_owned())
-        .serve(input, output.clone(), cancel)
-        .await?;
-    }
+        .await
+    };
+    // 修复：服务以错误结束（如 fault.storage.commit）时也先排空 writer 再退出。之前 `?` 直接返回，
+    // 跳过 writer 收尾，main 随即 process::exit(1)，已入队的错误应答偶发丢失（macOS CI 复现）。
     drop(output);
-    stdio::finish(writer).await?;
+    let finished = stdio::finish(writer).await;
+    served?;
+    finished?;
     Ok(())
 }

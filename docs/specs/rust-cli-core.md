@@ -69,6 +69,8 @@ sequenceDiagram
 - 模型配置保存 endpoint/provider/model、固定 reasoningLevel/参数映射和密钥环境变量名；密钥从该变量读取，模型适配器不将其写入 stdout、数据库、测试 fixture 或错误。该配置是第一阶段边界，完整 Registry 迁移前不能宣称支持当前所有模型设置。
 - stdout 只写协议帧；stderr 诊断。UTF-8 跨块、CRLF、坏 JSON、超大请求必须有界处理。BrokenPipe/EOF 导致统一取消和退出。
 - 单 stdout writer 保证响应和随附 initial/recovery frame 原子排序；有界通道传播背压。
+- 服务循环以错误结束（如 `fault.storage.commit`）时，先排空 stdout writer，再以非零码退出：已入队的错误应答必须送达
+  （2026-09-27 macOS CI 发现：之前错误路径跳过 writer 收尾，`process::exit(1)` 偶发丢掉该应答）。
 - `startup/storagePath -> startup/storagePathReady -> startup/storageState -> startup/storagePrepared` 用于桌面存储准备。普通启动发送 storageState checking/ready；失败报告分类错误后退出。
 - SQLite 通过专属阻塞任务执行，不阻塞 async executor；会话输入事实与 ACK 在同一事务保存。
 - 新进程生成新 logEpoch；冷恢复把 running/streaming 转为 interrupted，不自动重新运行 Shell/模型。
