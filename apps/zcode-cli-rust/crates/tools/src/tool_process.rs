@@ -227,6 +227,13 @@ pub(super) async fn run(
     };
     let exit_code = status.and_then(|s| s.code());
     let truncated = size > head.len() as u64;
+    // TS diagnoseLostBashOutput：输出为空且非 0 退出（137 除外）时，文件系统满或 inode 耗尽则给出诊断作为 stdout。
+    if size == 0
+        && exit_code.is_some_and(|code| code != 0 && code != 137)
+        && let Some(diagnostic) = super::disk_space::lost_output_diagnostic(path)
+    {
+        head = diagnostic.into_bytes();
+    }
     // TS BashFileOutput：两路输出共用一个文件，stdout 为文件开头、stderr 为空（docs/specs/rust-bash-model-content.md）。
     let mut data = json!({"stdout":String::from_utf8_lossy(&head),"stderr":"","interrupted":reason=="cancelled"||reason=="timed_out","isImage":false,"noOutputExpected":crate::domain::bash_model_content::is_silent(command_text),"status":reason,"timedOut":reason=="timed_out","cancelled":reason=="cancelled","stdoutTruncated":truncated,"stderrTruncated":false,"stdoutBytes":size,"stderrBytes":0});
     if let Some(code) = exit_code {

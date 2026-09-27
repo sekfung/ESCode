@@ -71,6 +71,9 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
      - TS 还要求晚于读取时的 mtime；读取总在命令之前，二者等价。
    - 读取状态回填：cat/head/tail/sed -n/单条 grep 读过的文件记为已读（非 partial view），之后可直接 Edit/Write；
      同一范围的 Read 返回未变提示（见 rust-file-tool-results.md）。识别规则按 TS oracle 语料逐项校验。
+   - 输出丢失诊断（TS `diagnoseLostBashOutput`）：输出为空、非 0 退出且不是 137 时，
+     检查输出目录所在文件系统，可用空间 < 10 MB 或 inode 剩余 < 1000（Windows 不报告 inode）时，stdout 为 ENOSPC 诊断文案。
+     无法在测试中构造磁盘满，只做了代码审查；Unix 用 `statvfs`，Windows 用 `GetDiskFreeSpaceExW`。
    - 暂不移植：工作目录变化后追加到 stderr 的提示以外的 cwd 持久化（App 模式下 TS 也不保留）。
 10. 结果对象另外带 `returnCodeInterpretation` 与 `noOutputExpected`（TS `isSilentBashCommand`：
     解析成功、无动态词，且每条命令都属于静默命令集，`||` 之后的中性命令除外）。

@@ -25,6 +25,7 @@ mod mcp_connection;
 mod mcp_hub;
 mod bash_image;
 mod bash_read_state;
+mod disk_space;
 mod file_missing;
 mod file_state;
 mod file_patch;
