@@ -17,6 +17,8 @@ import { anthropic, responses } from "./zcode-cli-rust-protocol-fixture.js";
 
 // docs/specs/rust-media-read.md：Read 图片后，Node 与 Rust 在三种协议下发给模型的工具结果与
 // 媒体消息形态一致（预算内原图字节一致）。
+// Node 一侧渲染 PDF 在 Windows CI 上多次超过 fixture 默认 8s 的等待（docs/specs/rust-ci.md 记录的超时）。
+process.env.ZCODE_TEST_WAIT_MS ??= "30000";
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 const properties = {
   contextWindow: 200000,

@@ -64,6 +64,13 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   Windows 首次运行 account-host 用例 5s 内未收到 completedSuccess（该用例在 Windows 上通常约 2s），重跑后全部通过。
   暂按偶发处理；若再次出现，按真实挂起排查（需 Host 侧 stderr）。
 
+- 2026-09-27 多次运行，Windows 上的等待超时，均为 fixture 默认 8s 的 `Timed out`，不是结果不一致：
+  - 36261737439：定时任务差分在首个命令上超时，重跑通过；
+  - 36291966777：child-env 与跨工作区 session-context 超时，重跑通过；
+    重跑中 PDF 差分的 Node 一侧超时（第三次出现）；
+  - 处理：这些每例多次冷启动 Node/Shell 的差分改为 30s 等待上限（与其他多步差分一致）。
+    同批 macOS/Linux 全部通过。
+
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
 - 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。

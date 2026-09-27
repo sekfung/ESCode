@@ -7,6 +7,8 @@ import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
 // docs/specs/rust-browser-use.md「第 4 期细则」：子进程环境清洗、出网配置恢复与 CUA 凭据定向注入。
+// 每个用例多次冷启动 Node 与 shell，Windows CI 上超过 fixture 默认 8s 的等待（CI 实测超时，本地通过）。
+process.env.ZCODE_TEST_WAIT_MS ??= "30000";
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 const PROBE_KEYS = [
   "NODE_ENV",

@@ -9,6 +9,8 @@ import { zcodeSessionListResultSchema } from "@zcode/shared";
 import { createSqliteSessionStore } from "../../../apps/zcode-cli/packages/adapters/src/storage/session-store.js";
 import type { SessionId, MessageId, ProjectId, WorkspaceId, PartId } from "@zcode/contracts";
 
+// 每个用例多次冷启动 Node 与 shell，Windows CI 上超过 fixture 默认 8s 的等待（CI 实测超时，本地通过）。
+process.env.ZCODE_TEST_WAIT_MS ??= "30000";
 const SEEDED = "sess_seeded-other-workspace";
 
 /** 另一个 workspace 的 TS 会话：Rust 不会导入它，只能经 TS 库只读回落读取。 */
