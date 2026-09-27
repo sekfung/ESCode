@@ -26,9 +26,10 @@ const CALLS: Record<string, unknown>[] = [
       "printf 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='",
     description: "image",
   },
-  // GitHub 限流提示（进程内 60s 冷却，每个进程只出现一次）。
+  // GitHub 限流提示（进程内 60s 冷却，每个进程只出现一次）。gh 不实际执行（`true ||` 短路）：
+  // 之前真实调用 gh，两侧是否联网成功各不相同，stdout 时有时无，差分不稳定。
   {
-    command: "gh api repos/x/y 2>/dev/null || echo 'API rate limit exceeded for user'",
+    command: "true || gh api repos/x/y; echo 'API rate limit exceeded for user'",
     description: "gh",
   },
 ];
