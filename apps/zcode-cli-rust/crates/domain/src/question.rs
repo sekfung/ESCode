@@ -75,31 +75,59 @@ pub struct QuestionInput {
 }
 impl QuestionInput {
     pub fn parse(value: Value) -> Result<Self> {
+        let input = Self::structural(value)?;
+        input.refine()?;
+        Ok(input)
+    }
+    /// 结构与数量约束（TS 中由 JSON Schema 拦截，以工具错误收口）。
+    pub fn structural(value: Value) -> Result<Self> {
         let input: Self = serde_json::from_value(value)?;
         ensure!(
             (1..=4).contains(&input.questions.len()),
             "Expected 1-4 questions"
         );
-        let mut questions = std::collections::BTreeSet::new();
         for q in &input.questions {
-            ensure!(
-                questions.insert(&q.question),
-                "Question texts must be unique"
-            );
             ensure!((2..=4).contains(&q.options.len()), "Expected 2-4 options");
-            let mut labels = std::collections::BTreeSet::new();
+        }
+        Ok(input)
+    }
+    /// TS zod refine（交互 broker 以拒绝收口）。
+    pub fn refine(&self) -> Result<()> {
+        self.refine_questions()?;
+        self.refine_input()
+    }
+    /// 各题的 refine（zod 解析 `questions` 字段时报出，先于 annotations）。
+    pub fn refine_questions(&self) -> Result<()> {
+        let input = self;
+        // 与 zod 遍历顺序一致、文案逐字取自 TS（docs/specs/rust-user-questions.md「入参 refine 失败」）：
+        // 逐题先查各选项预览，再查本题选项重名与显式 Other；全部题目之后查问题重复。之前顺序与文案不同，
+        // Node 回给模型的首条 issue 与 Rust 不一致。
+        for q in &input.questions {
             for option in &q.options {
-                ensure!(labels.insert(&option.label), "Option labels must be unique");
-                ensure!(
-                    !option.label.trim().eq_ignore_ascii_case("other"),
-                    "Do not include an Other option"
-                );
                 if let Some(preview) = &option.preview {
                     validate_preview(preview)?;
                 }
             }
+            let labels: std::collections::BTreeSet<_> = q.options.iter().map(|o| &o.label).collect();
+            ensure!(
+                labels.len() == q.options.len(),
+                "Option labels must be unique within each question"
+            );
+            ensure!(
+                !q.options.iter().any(|o| o.label.trim().to_lowercase() == "other"),
+                "Do not include an Other option; clients provide it automatically"
+            );
         }
-        Ok(input)
+        Ok(())
+    }
+    /// 输入层 refine（对象其余字段都通过后才执行）。
+    pub fn refine_input(&self) -> Result<()> {
+        let questions: std::collections::BTreeSet<_> = self.questions.iter().map(|q| &q.question).collect();
+        ensure!(
+            questions.len() == self.questions.len(),
+            "Question texts must be unique"
+        );
+        Ok(())
     }
     pub fn payload(&self, call_id: &str) -> Value {
         let questions = self.questions.iter().map(|q| json!({"question":q.question,"header":q.header,"multiSelect":q.multi_select,"options":q.options.iter().map(|o|{
@@ -110,6 +138,39 @@ impl QuestionInput {
         json!({"kind":"userInput","prompt":"AskUserQuestion pauses execution to collect answers from the user","freeText":true,"toolCallId":call_id,"toolName":"AskUserQuestion","input":self,"schema":{"toolName":"AskUserQuestion"},"questions":questions})
     }
 }
+/// annotations 各值的 zod 首条问题（TS `AskUserQuestionAnnotationSchema`，strict）。JSON Schema 校验不检查
+/// `additionalProperties` 子 schema，这类问题在 TS 中由交互 broker 的 zod 解析报出（以拒绝收口）；之前 Rust 在
+/// 反序列化时以工具错误结束，文案也不同。
+pub fn annotation_issue(input: &Value) -> Option<String> {
+    let kind = |v: &Value| match v {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    };
+    for value in input.get("annotations")?.as_object()?.values() {
+        let Some(entry) = value.as_object() else {
+            return Some(format!("Expected object, received {}", kind(value)));
+        };
+        for key in ["preview", "notes"] {
+            if let Some(field) = entry.get(key).filter(|f| !f.is_string()) {
+                return Some(format!("Expected string, received {}", kind(field)));
+            }
+        }
+        let unknown: Vec<String> = entry
+            .keys()
+            .filter(|k| !matches!(k.as_str(), "preview" | "notes"))
+            .map(|k| format!("'{k}'"))
+            .collect();
+        if !unknown.is_empty() {
+            return Some(format!("Unrecognized key(s) in object: {}", unknown.join(", ")));
+        }
+    }
+    None
+}
+
 fn validate_preview(preview: &str) -> Result<()> {
     static PATTERNS: OnceLock<[regex::Regex; 4]> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
@@ -150,4 +211,22 @@ pub(super) fn optional<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
 ) -> std::result::Result<Option<T>, D::Error> {
     T::deserialize(deserializer).map(Some)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn annotation_issue_matches_zod_first_issue() {
+        let issue = |v: Value| annotation_issue(&json!({ "annotations": v }));
+        assert_eq!(issue(json!({"Q?": {"notes": null}})).as_deref(), Some("Expected string, received null"));
+        assert_eq!(issue(json!({"Q?": "x"})).as_deref(), Some("Expected object, received string"));
+        assert_eq!(
+            issue(json!({"Q?": {"notes": "n", "a": 1, "b": 2}})).as_deref(),
+            Some("Unrecognized key(s) in object: 'a', 'b'")
+        );
+        assert_eq!(issue(json!({"Q?": {"preview": "p", "notes": "n"}})), None);
+        assert_eq!(annotation_issue(&json!({})), None);
+    }
 }

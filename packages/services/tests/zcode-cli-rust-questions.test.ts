@@ -225,13 +225,19 @@ test("Rust question validation agrees with TS and never announces invalid questi
       await h.subscribe(`conversation/${id}`);
       await h.command(h.envelope("sendText", id, { text: "ask" }));
       await h.completed(id);
-      // 无效问题以工具失败收口：JSON Schema 校验（InputValidationError）或 TS 细化规则的错误文案。
+      // 结构问题以工具失败收口（JSON Schema 校验）；JSON Schema 查不到的问题（refine 与 annotations 的值）
+      // 与 TS 交互 broker 一样直接拒绝（docs/specs/rust-user-questions.md「入参 refine 失败」）。
+      const refineOnly = AskUserQuestionInputSchema.safeParse(input).error!.issues.every(
+        (issue) => issue.code === "custom" || issue.path[0] === "annotations",
+      );
+      const content = f.requests[1]!.messages.at(-1).content;
       const rows = (await h.rows(id)).rows.filter((r) => r.kind === "toolCall");
       assert.deepEqual(
         rows.map((r) => r.status),
-        ["error"],
-        f.requests[1]!.messages.at(-1).content,
+        [refineOnly ? "cancelled" : "error"],
+        content,
       );
+      if (refineOnly) assert.match(content, /^Invalid AskUserQuestion input: /);
       assert(
         !h.messages.some((m) =>
           m.params?.frame?.payload?.deltas?.some(

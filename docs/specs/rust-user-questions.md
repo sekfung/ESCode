@@ -31,6 +31,23 @@ sequenceDiagram
     Loop->>Loop: next model request
 ```
 
+## 入参 refine 失败（2026-09-27 差分）
+
+- Node：入参违反 refine（选项重名、问题重复、显式 Other、预览 HTML 约束）时，交互 broker 直接拒绝，
+  模型看到 `Invalid AskUserQuestion input: <首条 zod issue 文案>`，行状态 cancelled，不等待用户。
+- Rust 之前：工具报错，文案为自拟缩写（如 "Option labels must be unique"），行状态为 error。
+- 规则：
+  - 检查顺序与 zod 遍历一致，取首条：逐题先查各选项的预览（document → script/style → 必须含标签），
+    再查本题选项重名、显式 Other；全部题目之后查问题重复；
+  - 文案逐字取自 TS（"Option labels must be unique within each question"、
+    "Do not include an Other option; clients provide it automatically" 等）；
+  - 以拒绝收口：内容为 `Invalid AskUserQuestion input: <文案>`，与权限拒绝同一路径（行 cancelled）。
+  - annotations 的值：两侧的 JSON Schema 校验都不检查 `additionalProperties` 子 schema，由 zod 报出首条问题
+    （`Expected string, received null`、`Expected object, received string`、`Unrecognized key(s) in object: 'a'`），
+    同样以拒绝收口；顺序为各题 refine → annotations → 问题重复。
+  - 结构问题（缺字段、类型、数量）仍由 JSON Schema 校验以工具错误收口，两侧一致。
+- 已知差异：Node 在拒绝前会短暂投影一条 userInput 待办交互；Rust 不投影。
+
 ## 验收
 
 TS schema/格式差分与真实 Rust 子进程覆盖：输入拒绝、多题/多选/自定义/预览注解、部分和零回答、拒绝、旧路径、无回答不得调用模型、同批并发题顺序、双连接快照/断开、重复及迟到应答、stop/startNow/EOF/close/冷恢复、自动继续/队首/永久 snooze/关闭重开。可控 Store 验证注册、答案、timer、工具结果提交失败以及答案提交后的崩溃窗口。使用真实 App 提问、回答、取消和恢复，不只跑 schema fixture。必须通过 Rust/App tests、fmt/Clippy、typecheck/lint 和架构检查，单列已有警告，继续关闭增量缓存。

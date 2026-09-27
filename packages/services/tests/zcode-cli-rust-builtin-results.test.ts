@@ -49,6 +49,66 @@ const CALLS: [string, unknown][] = [
   // 只违反 refine：全部失败 issue 的 ZodError 文案。
   ["CronCreate", { prompt: "x", title: "t", delayMinutes: 5, cron: "* * * * *", recurring: true }],
   ["CronUpdate", { id: "nope", title: "t", maxRuns: null }],
+  // AskUserQuestion 的 refine 失败：broker 直接拒绝，首条 issue 文案（顺序与 zod 遍历一致）。
+  [
+    "AskUserQuestion",
+    {
+      questions: [
+        {
+          question: "Q?",
+          header: "H",
+          multiSelect: false,
+          options: [
+            { label: "A", description: "a" },
+            { label: "A", description: "b" },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    "AskUserQuestion",
+    {
+      questions: [
+        {
+          question: "Q?",
+          header: "H",
+          multiSelect: false,
+          options: [
+            { label: "Other", description: "a", preview: "<html>x</html>" },
+            { label: "B", description: "b" },
+          ],
+        },
+      ],
+    },
+  ],
+  // annotations 值只由 zod 检查；问题重复（输入层 refine）排在它之后。
+  [
+    "AskUserQuestion",
+    {
+      questions: [
+        {
+          question: "Q?",
+          header: "H",
+          multiSelect: false,
+          options: [
+            { label: "A", description: "a" },
+            { label: "B", description: "b" },
+          ],
+        },
+        {
+          question: "Q?",
+          header: "H2",
+          multiSelect: false,
+          options: [
+            { label: "A", description: "a" },
+            { label: "B", description: "b" },
+          ],
+        },
+      ],
+      annotations: { "Q?": { notes: null } },
+    },
+  ],
   // 先判模型能力，再校验入参。
   ["WebSearch", { query: "abc", allowed_domains: ["a.com"], blocked_domains: ["b.com"] }],
   // TS runtime schema 的宽松写法（preprocess/transform）：转换后执行，与 Node 相同。
