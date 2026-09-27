@@ -10,7 +10,9 @@ fn matches_ts_oracle_corpus() {
         let kind = ShellKind::detect(&text(case, "shell"));
         let exists = matches!(case.get("exists"), Some(Json::Bool(true)));
         let script = creation_script(exists, &text(case, "configPath"), &text(case, "pathValue"), kind, &text(case, "snapshotPath"));
-        assert_eq!(script, text(case, "script"), "{} exists={exists}", text(case, "shell"));
+        // 唯一有意差异：`set -o` 选项过滤（见 TS_SET_O_LINE_FIXED）。
+        let expected = text(case, "script").replace(TS_SET_O_LINE, TS_SET_O_LINE_FIXED);
+        assert_eq!(script, expected, "{} exists={exists}", text(case, "shell"));
     }
     for case in corpus.get("captures").and_then(Json::as_array).unwrap() {
         let cmd = text(case, "dialect") == "cmd";

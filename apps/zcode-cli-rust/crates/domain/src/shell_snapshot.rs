@@ -78,6 +78,11 @@ pub fn creation_script(config_exists: bool, config_path: &str, path_value: &str,
     lines.join("\n")
 }
 
+/// TS 原文：`set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE"`。
+pub const TS_SET_O_LINE: &str = r##"set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
+/// 只写入状态为 on 的选项（docs/specs/rust-bash-shell-snapshot.md 的有意差异）。
+pub const TS_SET_O_LINE_FIXED: &str = r##"set -o | awk '$2 == "on" {print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
+
 const ALIAS_LINES: [&str; 9] = [
     r##"echo "# Aliases" >> "$SNAPSHOT_FILE""##,
     r##"# Filter out winpty aliases on Windows to avoid "stdin is not a tty" errors"##,
@@ -126,7 +131,9 @@ fn export_lines(kind: ShellKind) -> Vec<&'static str> {
             "",
             r##"echo "# Shell Options" >> "$SNAPSHOT_FILE""##,
             r##"shopt -p | head -n 1000 >> "$SNAPSHOT_FILE""##,
-            r##"set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##,
+            // 有意差异：TS 用 `grep "on"` 过滤，会匹配选项名（monitor、onecmd 等处于 off 也被写入），
+            // 使每条命令开启作业控制，后台任务脱离命令的进程组而残留。这里只写入真正为 on 的选项。
+            TS_SET_O_LINE_FIXED,
             r##"echo "shopt -s expand_aliases" >> "$SNAPSHOT_FILE""##,
         ]
     };

@@ -47,6 +47,16 @@
        先去掉 stderr 末尾的换行，stderr 为空时只有这一行；
    - App 模式下 TS 不保留会话 cwd（差分实测：`cd sub` 后下一次 `pwd` 仍在工作区根），Rust 同样不保留。
 
+## 有意差异：`set -o` 选项过滤
+
+- TS 快照脚本用 `set -o | grep "on" | awk '{print "set -o " $1}'` 记录选项。
+- `grep "on"` 匹配的是整行，所以名字里含 on 的选项即使为 off 也会被写入。
+  实测 Git Bash 输出 `set -o monitor` 与 `set -o onecmd`。
+- 结果：每条命令都开启作业控制。`cmd &` 的后台任务进入独立进程组，命令结束后不再随进程组被回收；
+  Linux/macOS CI 上 `shell_lifecycle::normal_leader_exit_reaps_workers_that_hold_output_pipes` 因此超时。
+- Rust 改为只写入状态为 on 的选项：`awk '$2 == "on" {...}'`。这显然是 TS 的原意，该行以外的快照脚本仍与 TS 逐字一致。
+- 已向用户报告这一 TS 缺陷；如需严格一致，可改回并改用跨进程组的回收。
+
 ## 验收
 
 - 差分（Node vs Rust，同一 fixture）：
