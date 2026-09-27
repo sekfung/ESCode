@@ -16,30 +16,36 @@ const PATHS: [(&str, &str); 10] = [
     ("Write", ""),
 ];
 
+/// runtime schema 认识、但发给模型的定义里可能没有的顶层键：zod 不丢弃，随后按定义校验报多余参数。
+/// Read 的 runtime schema 总含 `pages`，模型不支持 PDF 时定义里没有它（差分发现：之前 Rust 丢弃后照常读取）。
+const RUNTIME_KEYS: &[(&str, &[&str])] = &[("Read", &["pages"])];
+
 /// 按 zod 语义丢弃未知键；没有需要丢弃的键时返回原值的克隆。
 pub fn strip(tool: &str, value: &Json, schema: &Json) -> Json {
     let mut value = value.clone();
+    let runtime = RUNTIME_KEYS.iter().find(|(name, _)| *name == tool).map_or(&[][..], |(_, keys)| *keys);
     for (_, path) in PATHS.iter().filter(|(name, _)| *name == tool) {
         let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
-        strip_at(&mut value, schema, &segments);
+        let keep = if segments.is_empty() { runtime } else { &[] };
+        strip_at(&mut value, schema, &segments, keep);
     }
     value
 }
 
-fn strip_at(value: &mut Json, schema: &Json, path: &[&str]) {
+fn strip_at(value: &mut Json, schema: &Json, path: &[&str], keep: &[&str]) {
     match path.split_first() {
         None => {
             // schema 未声明 properties 时无从判断哪些键未知，保持原样。
             let (Json::Object(entries), Some(Json::Object(properties))) = (value, schema.get("properties")) else {
                 return;
             };
-            entries.retain(|(key, _)| properties.iter().any(|(k, _)| k == key));
+            entries.retain(|(key, _)| keep.contains(&key.as_str()) || properties.iter().any(|(k, _)| k == key));
         }
         Some((&"*", rest)) => {
             let (Json::Array(items), Some(item_schema)) = (value, schema.get("items")) else {
                 return;
             };
-            items.iter_mut().for_each(|item| strip_at(item, item_schema, rest));
+            items.iter_mut().for_each(|item| strip_at(item, item_schema, rest, keep));
         }
         Some((key, rest)) => {
             let (Some(child), Some(child_schema)) = (
@@ -48,7 +54,7 @@ fn strip_at(value: &mut Json, schema: &Json, path: &[&str]) {
             ) else {
                 return;
             };
-            strip_at(child, child_schema, rest);
+            strip_at(child, child_schema, rest, keep);
         }
     }
 }
@@ -154,6 +160,9 @@ mod tests {
         assert_eq!(strip("Read", &input, &read).compact(), r#"{"file_path":"a"}"#);
         assert_eq!(strip("Bash", &input, &read), input);
         assert_eq!(strip("Read", &input, &Json::parse(r#"{"type":"object"}"#).unwrap()), input);
+        // runtime schema 认识的 `pages` 不因定义里缺失而丢弃。
+        let pdf = Json::parse(r#"{"file_path":"a","pages":"1","bogus":1}"#).unwrap();
+        assert_eq!(strip("Read", &pdf, &read).compact(), r#"{"file_path":"a","pages":"1"}"#);
     }
 
     #[test]

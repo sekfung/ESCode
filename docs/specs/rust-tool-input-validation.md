@@ -38,7 +38,7 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
     - 模型看到的属性顺序不同；
     - 多个问题同属一类时，校验问题的顺序可能不同。
   - 用户决定只修工具定义链路：stdio MCP 已按声明顺序发给模型，见 rust-tool-schema-order.md；
-    HTTP/SSE 传输与校验问题的顺序仍按排序。
+    SSE 与 streamable HTTP（SSE 应答）也已覆盖；streamable HTTP 以 JSON 直接应答的 server 与 MCP 工具校验问题的顺序仍按排序。
 
 ## 内置工具（2026-09-27）
 
@@ -51,6 +51,9 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
     - 以下内置工具丢弃未知键：
       - 顶层：Agent、Edit、ExitPlanMode、Glob、Grep、Read、Skill、WebFetch、Write；
       - 嵌套：TodoWrite 的 `todos/*`（逐个遍历 zod v3 schema 实测）；
+      - "未知"以 runtime schema 为准，不以发给模型的定义为准：Read 的 runtime schema 总含 `pages`，
+        模型不支持 PDF 时发给模型的定义里没有它；此时 `pages` 不被丢弃，按定义校验报"unexpected parameter"
+        （差分发现：之前 Rust 丢弃 `pages` 后照常读取）；
       - 去掉未知键后校验通过，则按去掉后的参数执行；
       - 否则按原始参数报告问题，多余参数也一并列出（TS 投影保留 unrecognized_keys）；
     - 其余内置工具（strict）与 MCP 工具（无 runtime schema）按原始参数校验，参数原样传递。
