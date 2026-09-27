@@ -94,3 +94,12 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
 - Node 对 Rust 差分：
   - 以下命令的模型可见 tool 消息逐字一致：成功、失败、grep 无匹配、stderr、超时、后台；
   - 大输出落盘的模型正文结构一致（路径不同，按占位比较）。
+
+## 实测记录：Windows CI 上 Node 的读取状态回填（2026-09-27）
+
+- CI run 36303238291（Windows runner）：`cat existing.txt` 之后，Node 的 Edit 报「File has not been read yet」，
+  即回填未生效；Rust 正常回填并完成 Edit。同一用例在本机 Windows 与 Linux/macOS CI 上 Node 都生效。
+- runner 的临时目录为 8.3 短名（`C:\Users\RUNNER~1\...`）。推测是 TS 的读取状态键在短名与长名之间不一致，
+  但未取得 Node 侧日志，原因**未确认**。
+- Rust 按 realpath 记录读取状态，不受短名影响，不复制这一环境相关的失败。差分在短名临时目录下跳过，
+  待确认原因后再决定是否需要处理。
