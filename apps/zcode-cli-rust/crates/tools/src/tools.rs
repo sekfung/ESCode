@@ -101,9 +101,15 @@ impl WorkspaceTools {
             // Kept for existing native transcripts, but no longer advertised to the model.
             "List" => super::tool_search::list(&self.cwd, args, cancel).await,
             "Bash" | "TaskOutput" | "TaskStop" => {
-                self.shell
-                    .call((&self.cwd, &artifacts, &self.workspace_path), session, name, args, sink, cancel)
-                    .await
+                let started = std::time::SystemTime::now();
+                let paths = (self.cwd.as_path(), artifacts.as_path(), self.workspace_path.as_path());
+                let mut output = self.shell.call(paths, session, name, args, sink, cancel).await?;
+                if name == "Bash" {
+                    let state = self.reads.lock().await.entry(session.to_owned()).or_default().clone();
+                    let command = args["command"].as_str().unwrap_or_default();
+                    super::bash_read_state::apply(&state, &self.workspace_path, &mut output, command, started).await;
+                }
+                Ok(output)
             }
             _ => bail!("Unsupported tool: {name}"),
         }

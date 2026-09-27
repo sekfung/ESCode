@@ -144,6 +144,10 @@ pub fn format(data: &Value) -> String {
     }
     parts.push(stderr);
     parts.push(background_section(data));
+    // TS：过期读取提示与 GitHub 限流提示依次附在最后（去首尾空白）。
+    for key in ["staleReadFileStateHint", "ghRateLimitHint"] {
+        parts.push(data[key].as_str().unwrap_or_default().trim().to_owned());
+    }
     parts.retain(|p| !p.is_empty());
     parts.join("\n")
 }

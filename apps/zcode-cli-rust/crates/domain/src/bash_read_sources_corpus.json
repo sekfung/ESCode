@@ -1,0 +1,362 @@
+{
+  "content": "one\ntwo\nthree\nfour\n",
+  "cases": [
+    {
+      "command": "cat a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt"
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "cat -n src/main.rs",
+      "sources": [
+        {
+          "filePath": "src/main.rs"
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "cat --number x",
+      "sources": [
+        {
+          "filePath": "x"
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "cat -A x",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cat a b",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cat -",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "head a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 1,
+          "endLine": 10
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "head -n 5 a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 1,
+          "endLine": 5
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "head -n5 a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 1,
+          "endLine": 5
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "head -20 a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 1,
+          "endLine": 20
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "head --lines=3 a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 1,
+          "endLine": 3
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree"
+      ]
+    },
+    {
+      "command": "head -n 0 a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "head -c 10 a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "tail a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "tailLines": 10
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour"
+      ]
+    },
+    {
+      "command": "tail -n 3 log.txt",
+      "sources": [
+        {
+          "filePath": "log.txt",
+          "tailLines": 3
+        }
+      ],
+      "selected": [
+        "two\nthree\nfour"
+      ]
+    },
+    {
+      "command": "sed -n '5,10p' a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 5,
+          "endLine": 10
+        }
+      ],
+      "selected": [
+        ""
+      ]
+    },
+    {
+      "command": "sed -n 7p a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 7,
+          "endLine": 7
+        }
+      ],
+      "selected": [
+        null
+      ]
+    },
+    {
+      "command": "sed '5,10p' a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "sed -n -e 5p a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "sed -i 's/a/b/' a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "sed --quiet 2p a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "startLine": 2,
+          "endLine": 2
+        }
+      ],
+      "selected": [
+        "two"
+      ]
+    },
+    {
+      "command": "grep foo a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "requiresExitZero": true
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "grep -n foo a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "requiresExitZero": true
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "grep -A 2 foo a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "requiresExitZero": true
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "grep -C3 foo a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "requiresExitZero": true
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "grep --context=2 foo a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "requiresExitZero": true
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "grep -r foo .",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "grep foo '*.txt'",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "grep foo a.txt b.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "echo hi && cat a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt"
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "cat a.txt; head -n 2 b.txt",
+      "sources": [
+        {
+          "filePath": "a.txt"
+        },
+        {
+          "filePath": "b.txt",
+          "startLine": 1,
+          "endLine": 2
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n",
+        "one\ntwo"
+      ]
+    },
+    {
+      "command": "echo hi && grep foo a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cd x && cat a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cat a.txt | head",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cat a.txt > b.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "cat $FILE",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": ": && cat a.txt",
+      "sources": [],
+      "selected": []
+    },
+    {
+      "command": "true; cat a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt"
+        }
+      ],
+      "selected": [
+        "one\ntwo\nthree\nfour\n"
+      ]
+    },
+    {
+      "command": "printf x; tail -n 1 a.txt",
+      "sources": [
+        {
+          "filePath": "a.txt",
+          "tailLines": 1
+        }
+      ],
+      "selected": [
+        "four"
+      ]
+    }
+  ]
+}

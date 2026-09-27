@@ -263,6 +263,11 @@ pub(super) async fn run(
             data["stderr"] = crate::domain::shell_snapshot::reset_suffix(&stderr, root.trim_end_matches(['/', '\\'])).into();
         }
     }
+    // TS toBashOutput：提供方错误时不识别图片、不给 GitHub 限流提示；提示按原始 stdout 判断。
+    if !crate::domain::bash_model_content::is_provider_error(&data) {
+        super::bash_image::apply_gh_hint(&mut data, command_text);
+        super::bash_image::apply_image(&mut data, truncated.then_some(path)).await;
+    }
     if truncated || backgrounded {
         let path = path.to_string_lossy();
         for key in ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath"] {
@@ -339,7 +344,11 @@ pub(super) fn shell_output(data: Value) -> crate::contract::ToolOutput {
     );
     // 模型可见正文按 TS formatBashModelContent 格式化；结构化结果留给行投影。
     let content = crate::domain::bash_model_content::format(&data);
+    // TS maybeImageContent：图片 stdout 以图片块进入模型（模型不支持图片时由请求投影换成占位文本）。
+    let media = (data["isImage"] == true)
+        .then(|| serde_json::json!({"type": "image_url", "image_url": {"url": data["stdout"]}}));
     let mut output = crate::contract::ToolOutput::new(content, data);
+    output.media.extend(media);
     output.failed = failed;
     output
 }

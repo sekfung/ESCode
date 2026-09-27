@@ -1,33 +1,18 @@
 use super::edit_apply;
+pub use super::file_state::FileState;
 use super::tools::{boolean, check_cancel, keys, resolve, string, uint};
 use crate::contract::ToolOutput;
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+
     path::{Path, PathBuf},
 };
 use tokio::{io::AsyncReadExt, sync::Mutex};
 use tokio_util::sync::CancellationToken;
 const READ_BYTES: usize = 64 * 1024;
 const EDIT_BYTES: u64 = 8 * 1024 * 1024;
-#[derive(Default, Clone)]
-pub struct FileState {
-    entries: HashMap<PathBuf, Observation>,
-}
-impl FileState {
-    /// 记为已读取（MEMORY.md 已注入上下文，TS 在加载索引时写入 readFileState）。
-    pub(super) fn observe(&mut self, path: PathBuf, bytes: &[u8], full: bool) {
-        let hash = Sha256::digest(bytes).to_vec();
-        self.entries.insert(path, Observation { hash, full });
-    }
-}
-#[derive(Clone)]
-struct Observation {
-    hash: Vec<u8>,
-    full: bool,
-}
 pub struct FileTools<'a> {
     /// 启用记忆时的（记忆根, 来源会话）：写入记忆 Markdown 时补写 originSessionId。
     pub memory: Option<(&'a str, &'a str)>,
@@ -72,12 +57,7 @@ impl FileTools<'_> {
         self.write(name, &path, args, cancel).await
     }
     async fn remember(&self, path: PathBuf, hash: Vec<u8>, full: bool) {
-        let mut state = self.state.lock().await;
-        // 读取观察缓存有界；淘汰只会要求重新 Read，不会跳过新鲜度检查。
-        if state.entries.len() >= 1024 && !state.entries.contains_key(&path) {
-            state.entries.clear();
-        }
-        state.entries.insert(path, Observation { hash, full });
+        self.state.lock().await.remember(path, hash, full);
     }
     async fn read(
         &self,
@@ -113,6 +93,15 @@ impl FileTools<'_> {
         }
         if !tokio::fs::metadata(&path).await?.is_file() {
             bail!("Read requires a regular file");
+        }
+        // TS：同一路径与范围（offset ?? 1, limit）的上次读取后文件未变，返回提示而不是重复正文。
+        let range = (args["offset"].as_u64().unwrap_or(1), args["limit"].as_u64());
+        let stamp = super::file_state::Stamp::of(&state_key).await;
+        if let Some(stamp) = stamp
+            && self.state.lock().await.range_fresh(&state_key, range.0, range.1, stamp)
+        {
+            let data = json!({"type": "file_unchanged", "filePath": path});
+            return Ok(ToolOutput::new(crate::domain::file_tool_text::FILE_UNCHANGED.into(), data));
         }
         let mut file = tokio::fs::File::open(&path).await?;
         let metadata = file.metadata().await?;
@@ -177,6 +166,9 @@ impl FileTools<'_> {
             content.split('\n').count()
         };
         let full = start == 1 && !truncated && count as u64 >= total;
+        if let Some(stamp) = stamp.filter(|_| !truncated) {
+            self.state.lock().await.record_range(state_key.clone(), range.0, range.1, stamp);
+        }
         self.remember(state_key, hash.finalize().to_vec(), full)
             .await;
         let numbered = content
@@ -257,7 +249,7 @@ impl FileTools<'_> {
                 if edit { Failure(message.into()).into() } else { anyhow::anyhow!(message.to_owned()) }
             };
             let state = self.state.lock().await;
-            match state.entries.get(&path) {
+            match state.observation(&path) {
                 Some(read) if read.full || edit => {
                     if read.hash != Sha256::digest(bytes).as_slice() {
                         return Err(fail(text::STALE));
@@ -355,9 +347,13 @@ impl FileTools<'_> {
         let path = zcode_cli_host::realpath(path).await?;
         self.remember(path.clone(), Sha256::digest(&bytes).to_vec(), true)
             .await;
+        // TS updateReadFileStateAfterWrite：写后按整文件读取记录，紧接着的 Read 返回未变提示。
+        if let Some(stamp) = super::file_state::Stamp::of(&path).await {
+            self.state.lock().await.record_range(path.clone(), 1, None, stamp);
+        }
         let (patch, additions, deletions) = super::file_patch::patch(&old, &new);
         let mut data = if name == "Write" {
-            json!({"type":if original.is_some(){"update"}else{"create"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
+            json!({"type":if old.is_empty(){"create"}else{"update"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
         } else {
             let mut data = json!({"filePath":requested,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all});
             // 与 TS 一致：新建/空文件（old_string 为空）不带匹配策略字段。
@@ -376,7 +372,8 @@ impl FileTools<'_> {
         let mut content = if edit {
             text::edit_success(&shown, replace_all)
         } else {
-            text::write_success(&shown, original.is_none())
+            // TS `if (originalFile)`：已存在但为空的文件按新建处理。
+            text::write_success(&shown, old.is_empty())
         };
         if serde_json::to_vec(&data)?.len() > 64 * 1024 {
             tokio::fs::create_dir_all(self.artifacts).await?;

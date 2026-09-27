@@ -20,6 +20,17 @@ const CALLS: Record<string, unknown>[] = [
   { command: "echo started; sleep 3", timeout: 1000, description: "auto background" },
   { command: "sleep 1", run_in_background: true, description: "background" },
   { command: `node -e "process.stdout.write('line\\n'.repeat(8000))"`, description: "large" },
+  // 图片 stdout（1x1 PNG）：以图片块进入模型；fixture 模型不支持图片，两侧都换成占位文本。
+  {
+    command:
+      "printf 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='",
+    description: "image",
+  },
+  // GitHub 限流提示（进程内 60s 冷却，每个进程只出现一次）。
+  {
+    command: "gh api repos/x/y 2>/dev/null || echo 'API rate limit exceeded for user'",
+    description: "gh",
+  },
 ];
 
 function normalize(content: string) {

@@ -4,6 +4,9 @@
 pub const NOT_READ: &str = "File has not been read yet. Read it first before writing to it.";
 pub const STALE: &str =
     "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.";
+/// TS `FILE_UNCHANGED_STUB`（重复 Read 同一未变范围）。
+pub const FILE_UNCHANGED: &str =
+    "Wasted call \u{2014} file unchanged since your last Read. Refer to that earlier tool_result instead.";
 pub const NO_CHANGE: &str = "No changes to make: old_string and new_string are exactly the same.";
 pub const EXISTS_NO_OLD_STRING: &str = "Cannot create new file - file already exists.";
 const FRESH: &str = " (file state is current in your context \u{2014} no need to Read it back)";

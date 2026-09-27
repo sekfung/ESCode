@@ -51,6 +51,14 @@
      - 先取主名相同（去扩展名，按 Node `extname` 规则）的第一个；
      - 否则取 Levenshtein 距离 ≤ 3 的第一个（按 UTF-16 码元计算）。
 
+7. 重复 Read（TS `isCachedReadFresh`）：
+   - 按（路径、offset ?? 1、limit）记录上次非 partial view 读取时的 mtime（整数毫秒）与大小；
+   - 再次读同一范围且二者都未变时，返回
+     `Wasted call — file unchanged since your last Read. Refer to that earlier tool_result instead.`；
+   - Write/Edit 之后按整文件记录（TS `updateReadFileStateAfterWrite`），Bash 回填按其范围记录；
+   - 图片、视频、PDF 在去重之前按媒体分支处理。
+8. Write 覆盖已存在但为空的文件时按新建处理（TS `if (originalFile)`），文案与 `type` 都为 create。
+
 ## 不在本次范围
 
 - `userModified`（用户在确认时改写内容）：Rust 没有这一交互，文案按未改写处理。

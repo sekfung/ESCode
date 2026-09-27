@@ -115,12 +115,14 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
       // 上溯到工作区外再折回（两侧都必须折叠 `..` 而不是解析符号链接）。
       `${d.root}${sep}..${sep}${basename(d.root)}${sep}sub${sep}a.txt`,
     ];
-    for (const inputPath of readCases) {
+    for (const [index, inputPath] of readCases.entries()) {
       const ts = await readTextFileForModel({
         filePath: expected(inputPath, "read"),
         fileSystemPort: adapter,
       });
-      const rust = await d.call("Read", { file_path: inputPath });
+      // 各写法都指向同一文件：同会话重复 Read 会得到「未变」提示（TS 同，见 rust-file-tool-results.md），
+      // 这里比较正文，所以每种写法用独立会话。
+      const rust = await d.call("Read", { file_path: inputPath }, `lexical-${index}`);
       assert.equal(rust.error, undefined, `Read ${inputPath}: ${rust.error}`);
       ReadOutputSchema.parse(rust.data);
       assert.equal(rust.data.filePath, ts.filePath, `Read ${inputPath}`);

@@ -57,11 +57,21 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
    - 非 0 退出码：`Command exited with code <n>`；
      - 例外：最后一条命令为 grep/rg 等且退出码为 1 时，使用语义解释，例如 `No matches found`；
    - 信号：`Command exited due to signal <sig>`。
-9. 暂不移植，保持现状并在差分中排除：
-   - `isImage`（stdout 为图片 data URL 时转图片内容）；
-   - `ghRateLimitHint`；
-   - `staleReadFileStateHint`；
-   - 工作目录变化后追加到 stderr 的提示（`appendBashCwdStderrSuffix`）。
+9. 附加信息（2026-09-27 补齐）：
+   - 图片 stdout（TS `prepareBashImageOutput`）：
+     - 非提供方错误、stdout 为严格的图片 data URL 时（已落盘则取完整文件，≤20 MiB），最长边缩到 2000；
+     - 结果标 `isImage`，以图片块进入模型；
+     - 缩放失败而原图 magic 与声明一致时保留原图，否则按文本处理。
+   - GitHub 限流提示（TS `getGhRateLimitHint`）：
+     - 命令中有非管理类 `gh` 子命令，且 stdout 含限流文案时，末尾附 `<system-reminder>`；
+     - 全进程 60s 冷却。
+   - 过期读取提示（TS `applyBashReadFileStateEffects`）：
+     - 格式化/修复类命令（`--write`、`cargo fmt` 等）之后，已读文件中在命令开始后被改动的，附
+       `[This command modified N file(s) you've previously read: … Call Read before editing.]`；
+     - TS 还要求晚于读取时的 mtime；读取总在命令之前，二者等价。
+   - 读取状态回填：cat/head/tail/sed -n/单条 grep 读过的文件记为已读（非 partial view），之后可直接 Edit/Write；
+     同一范围的 Read 返回未变提示（见 rust-file-tool-results.md）。识别规则按 TS oracle 语料逐项校验。
+   - 暂不移植：工作目录变化后追加到 stderr 的提示以外的 cwd 持久化（App 模式下 TS 也不保留）。
 10. 结果对象另外带 `returnCodeInterpretation` 与 `noOutputExpected`（TS `isSilentBashCommand`：
     解析成功、无动态词，且每条命令都属于静默命令集，`||` 之后的中性命令除外）。
 
