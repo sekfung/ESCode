@@ -10,7 +10,7 @@ pub mod file_lock;
 pub mod image_budget;
 pub mod legacy_paths;
 mod realpath;
-pub use realpath::{realpath, realpath_sync, simplify_verbatim};
+pub use realpath::{realpath, realpath_for_create, realpath_sync, simplify_verbatim};
 mod question_timing;
 pub use context_source::WorkspaceContext;
 pub use question_timing::question_timing;

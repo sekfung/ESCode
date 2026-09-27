@@ -224,7 +224,8 @@ impl FileTools<'_> {
         }
         let path = match zcode_cli_host::realpath(input).await {
             Ok(p) => p,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => input.to_owned(),
+            // 新文件：规范化最近的已存在祖先，检查点与回退按同一工作区形态比较（文件工具的 cwd 为词法路径）。
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => zcode_cli_host::realpath_for_create(input).await,
             Err(e) => return Err(e.into()),
         };
         let original = match tokio::fs::metadata(&path).await {
