@@ -1,0 +1,49 @@
+# Rust 动态工作流
+
+2026-09-28。用户决定在 Rust 原生实现工作流，目标是之后以 Rust 作为默认 runtime（此前 Rust 声明不支持：
+不宣告 `workflowRunDeltas`、不暴露 `/workflow` 与工作流工具，见 rust-v3.14.3-drift.md）。
+
+## 边界决定
+
+工作流脚本是模型写的 JavaScript。TS 的做法是：对脚本的 JS AST 做静态分析与 lowering，再在 Node 子进程的
+`vm` 独立 realm 里执行，脚本经 NDJSON 调用宿主 `__host.*`，由引擎（WorkflowEngine）裁决。
+
+- Rust 负责：引擎、调度、持久化（journal）、工具、静态分析（JS 解析用 Rust 解析器）、协议与 V4 投影、Host 方法。
+- 脚本执行器：放在 `ScriptExecutor` 接口之后。第一个实现是 Node `vm` 沙箱子进程（与 TS 同一隔离模型；
+  桌面端复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`，与现有 TS agent 相同）。
+  远程/无界面环境需要可用的 node；之后可以换成内嵌 JS 引擎实现同一接口，彻底去掉 Node，其余部分不变。
+- 选择依据：用户目标是 Rust 作为 runtime 进程；执行器只是运行脚本的沙箱，同 Bash 运行命令。
+
+## 现状清单（TS，约 5.7 万行，不含测试）
+
+| 区域                                                         | 位置                                                                                 | 规模      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------ | --------- |
+| 分析、lowering、引擎、调度、facade                           | `dynamic-workflow/src`（analysis/compiler/engine/facade/lowering/schema）            | ~2.1 万行 |
+| 沙箱执行 harness 与子进程源                                  | `dynamic-workflow-runtime/src`                                                       | ~1.3 千行 |
+| 定义、expert、生命周期、调度                                 | `core/src/workflow`                                                                  | ~5.3 千行 |
+| 工作流工具与已保存工作流                                     | `core/src/tool/handlers`（create/save/amend/list/eval/runs/resume、saved-workflows） | ~6.3 千行 |
+| 运行服务、提交、观测、导入、产物、git world read、驱动与并发 | `bootstrap/src/app`                                                                  | ~1.4 万行 |
+| 契约与端口                                                   | `contracts/src`（workflow、dynamic-workflow-run.port、tools）                        | ~4.7 千行 |
+
+协议面：`workspace/updateDynamicWorkflowPolicy`、`createSession/resume.dynamicWorkflowEnabled`、
+`workflows/list|get|updateMeta|delete|runs|move`、V4 `workflowRun.updated|removed` 增量与 `workflowRunDeltas` 能力位、
+`/workflow` 内置斜杠命令、内置技能包 `dynamic-workflows`。
+
+## 分期（每期独立验收，按顺序推进）
+
+1. 开关与工具面：`workspace/updateDynamicWorkflowPolicy` 与 `dynamicWorkflowEnabled`（同 OffPeak 的读法，fail-closed）；
+   未实现的工作流工具在实现前不注册（保持现状），开关只决定之后各期工具的可见性。
+2. 已保存工作流：存储格式与解析/序列化（TS 只有一份，Rust 逐字对齐），`workflows/*` 管理方法，
+   ListSavedWorkflows / SaveWorkflow。验收：TS 存储 oracle 语料 + App 差分。
+3. 静态分析与 lowering：以 TS 分析器为 oracle，逐阶段语料（诊断、lowered 输出、taint/causality 结论）逐字比对。
+4. 引擎、调度与 journal：run 状态机、actor、ask、结算与持久化；以 TS 引擎为 oracle 的事件序列语料。
+5. 执行器：`ScriptExecutor` 接口与 Node vm 子进程实现（子进程源由 TS 生成为资产），NDJSON 桥接与超时/取消/崩溃结算。
+6. 运行工具：CreateWorkflow、EvalWorkflowSnippet、ListWorkflowRuns、GetWorkflowRun、ResumeWorkflowRun、AmendWorkflow、ListModels；
+   actor 的 ask 以子会话执行；App 差分。
+7. 投影与入口：V4 `workflowRuns` 状态键与增量、`workflowRunDeltas` 能力位、`/workflow` 命令、`dynamic-workflows` 技能、
+   run 观测、产物发布、导入。
+
+## 验收总则
+
+- 每期先有 TS oracle（真实 TS 模块 + 脚本化依赖）或 App 差分，再实现；不以 Rust 自测代替对齐。
+- 全部完成前 Rust 继续不宣告 `workflowRunDeltas`、不注册未实现的工具，不以空结果冒充完成。

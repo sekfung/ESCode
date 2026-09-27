@@ -39,3 +39,5 @@
 ## 决策：动态工作流（2026-09-24，用户确认）
 
 Rust runtime 暂不支持动态工作流，继续声明不支持（不宣告 `workflowRunDeltas`、不暴露 `/workflow` 与相关工具）；先完成打包与发布回退路径，工作流方案（Node sidecar 或原生重写）后续再定。切换默认 runtime 前需要重新评估：默认切到 Rust 会让工作流在该路径下不可用。
+
+2026-09-28 更新：用户决定在 Rust 原生实现工作流（Rust 编排，脚本执行器可替换），分期见 rust-dynamic-workflow.md。
