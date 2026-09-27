@@ -1,7 +1,42 @@
-//! MCP 工具定义的属性顺序（docs/specs/rust-tool-schema-order.md）：serde_json 排序键，模型请求里的工具 schema
-//! 按登记的原文顺序原位替换。纯函数；登记表由 `host::schema_order` 持有。
+//! 工具定义的属性顺序（docs/specs/rust-tool-schema-order.md）：serde_json 排序键，模型请求与入参校验里的工具
+//! schema 按登记的声明顺序使用。登记表是按排序文本内容寻址的进程级缓存（只存 schema 文本，无 IO，重复登记幂等）。
 use crate::json_order::Json;
 use serde_json::Value;
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
+
+/// 远超单进程可能的不同 schema 数；超出时整表清空而不是无界增长（查不到只会回落为排序输出）。
+const LIMIT: usize = 20_000;
+
+fn table() -> &'static Mutex<HashMap<String, String>> {
+    static TABLE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    TABLE.get_or_init(Default::default)
+}
+
+/// 登记一份声明顺序的 schema（排序与声明顺序相同时无需登记）。
+pub fn remember(ordered: &Json) {
+    let Some((sorted, ordered)) = entry(ordered) else {
+        return;
+    };
+    let mut table = table().lock().unwrap_or_else(|e| e.into_inner());
+    if table.len() >= LIMIT && !table.contains_key(&sorted) {
+        table.clear();
+    }
+    table.insert(sorted, ordered);
+}
+
+/// 按排序文本查声明顺序的文本。
+pub fn lookup(sorted: &str) -> Option<String> {
+    table().lock().unwrap_or_else(|e| e.into_inner()).get(sorted).cloned()
+}
+
+/// schema 的声明顺序形式：有登记时用登记文本，否则为排序形式。
+pub fn ordered(schema: &Value) -> Option<Json> {
+    let sorted = serde_json::to_string(schema).ok()?;
+    Json::parse(&lookup(&sorted).unwrap_or(sorted))
+}
 
 /// 由原文顺序的 schema 生成登记项：（排序后的紧凑文本，JS `JSON.stringify` 规则的保序紧凑文本）。
 /// 排序文本由同一份数值直接转换得到，与请求体中 serde_json 的序列化逐字一致。

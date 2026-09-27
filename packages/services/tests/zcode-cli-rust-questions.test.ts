@@ -225,7 +225,13 @@ test("Rust question validation agrees with TS and never announces invalid questi
       await h.subscribe(`conversation/${id}`);
       await h.command(h.envelope("sendText", id, { text: "ask" }));
       await h.completed(id);
-      assert.match(f.requests[1]!.messages.at(-1).content, /Tool failed/);
+      // 无效问题以工具失败收口：JSON Schema 校验（InputValidationError）或 TS 细化规则的错误文案。
+      const rows = (await h.rows(id)).rows.filter((r) => r.kind === "toolCall");
+      assert.deepEqual(
+        rows.map((r) => r.status),
+        ["error"],
+        f.requests[1]!.messages.at(-1).content,
+      );
       assert(
         !h.messages.some((m) =>
           m.params?.frame?.payload?.deltas?.some(

@@ -147,10 +147,9 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
       content: "written\n",
     });
     WriteOutputSchema.parse(rustWrite.data);
-    assert.equal(
-      rustWrite.data.filePath,
-      expected(`sub${sep}..${sep}sub${sep}written.txt`, "write"),
-    );
+    // TS write.ts 返回 `filePath: file_path`（模型给出的原样路径，docs/specs/rust-file-tool-results.md）；
+    // 下方 TS 对照以解析后的路径调用，所以回显解析后的路径。
+    assert.equal(rustWrite.data.filePath, `sub${sep}..${sep}sub${sep}written.txt`);
     const tsWritePath = expected(`sub${sep}..${sep}sub${sep}ts-written.txt`, "write");
     const tsWrite = (await writeToolEntry.handler(
       { file_path: tsWritePath, content: "written\n" },
@@ -168,7 +167,6 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
     for (const key of ["type", "content", "additions", "deletions"] as const)
       assert.equal(rustWrite.data[key], tsWrite[key], `Write ${key}`);
     const inside = (path: string) => path.slice(d.root.length);
-    assert.equal(inside(rustWrite.data.filePath), `${sep}sub${sep}written.txt`);
     assert.equal(inside(tsWrite.filePath), `${sep}sub${sep}ts-written.txt`);
   } finally {
     await d.close();

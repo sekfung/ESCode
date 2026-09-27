@@ -52,9 +52,7 @@ impl Responses {
         };
         let tools = json.get("result").and_then(|r| r.get("tools")).and_then(Json::as_array);
         for schema in tools.unwrap_or_default().iter().filter_map(|t| t.get("inputSchema")) {
-            if let Some((sorted, ordered)) = crate::domain::schema_order::entry(schema) {
-                zcode_cli_host::schema_order::remember(sorted, ordered);
-            }
+            crate::domain::schema_order::remember(schema);
         }
     }
 }

@@ -39,5 +39,28 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
     - 多个问题同属一类时，校验问题的顺序可能不同。
   - 用户决定只修工具定义链路：stdio MCP 已按声明顺序发给模型，见 rust-tool-schema-order.md；
     HTTP/SSE 传输与校验问题的顺序仍按排序。
-- 内置工具：TS 另有 runtime schema（zod）问题与 JSON 问题的投影合并；Rust 内置工具保持现有校验文案，
-  待差分确认后再定范围。
+
+## 内置工具（2026-09-27）
+
+- 差分探测（Read/Edit/Write/Bash/TodoWrite/WebFetch/Skill 的缺参、类型错误、多余参数）结论：
+  - Node 的模型文案都来自同一 JSON Schema 格式化，即发给模型的工具定义里的 `parameters`；
+  - Rust 用各工具自己的 `Tool failed: …` 文案。
+- 规则：
+  - 所有工具，含内置与会话侧工具，在权限请求之前按发给模型的定义 `parameters` 校验，失败文案同 MCP；
+  - 未知键的处理取决于 TS runtime schema（zod）是否 strict，由 zod 实测得出：
+    - 以下内置工具丢弃未知键：
+      - 顶层：Agent、Edit、ExitPlanMode、Glob、Grep、Read、Skill、WebFetch、Write；
+      - 嵌套：TodoWrite 的 `todos/*`（逐个遍历 zod v3 schema 实测）；
+      - 去掉未知键后校验通过，则按去掉后的参数执行；
+      - 否则按原始参数报告问题，多余参数也一并列出（TS 投影保留 unrecognized_keys）；
+    - 其余内置工具（strict）与 MCP 工具（无 runtime schema）按原始参数校验，参数原样传递。
+  - 默认值：内置工具缺失且 schema 声明了 `default` 的属性，先按默认值补齐再校验（TS zod `.default()`；
+    问题投影也不报有默认值的缺失属性）。例如 AskUserQuestion 的 `multiSelect` 标为必填、默认 false。
+    MCP 工具不补。
+  - 属性顺序：内置工具 schema（`tool_schemas.json`）按声明顺序登记到 `host::schema_order`，
+    校验问题顺序与发给模型的定义都与 Node 一致，经 `ToolPort::ordered_schema` 查询。
+  - 定义中没有该工具时（如 ToolSearch 尚未加载的延迟工具）不校验。
+- 已知未覆盖：
+  - zod 的类型转换；
+  - 只在 runtime schema 中存在的细化约束（refine）。
+  - 这两类情况下 Rust 仍用工具自身的错误文案。

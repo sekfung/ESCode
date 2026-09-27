@@ -21,7 +21,7 @@ pub struct ChildHandle {
     pub message_id: Option<String>,
     pub delivery: Option<String>,
 }
-pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure};
+pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure, ToolHandlerFailure};
 
 /// Receipt returned after the storage transaction is durable. The core uses
 /// this boundary before advancing the model/tool loop or publishing facts.
@@ -190,7 +190,7 @@ pub trait ToolPort: Send + Sync {
     }
     /// 任一 turn 收尾：浏览器等会话资源的轮次生命周期（TS BrowserControlPort.turnEnded）；默认无操作。
     async fn turn_ended(&self, _session: &str, _turn: &str) {}
-    /// 会话中 MCP 工具的工具卡与 inputSchema（ToolStart 展示与执行前入参校验）；默认无。
+    /// 会话中 MCP 工具的元数据（ToolStart 时的工具卡）；默认无。
     fn mcp_tool(&self, _session: &str, _name: &str) -> Option<McpTool> {
         None
     }

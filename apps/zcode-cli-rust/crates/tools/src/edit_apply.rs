@@ -1,6 +1,6 @@
 //! Edit 的匹配结果落到文件内容，对齐 TS edit handler（docs/specs/rust-edit-matching.md）。
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 
 use super::edit_match::{MatchResult, Strategy, find, normalize_replacement};
 use super::edit_quotes::preserve_quote_style;
@@ -27,20 +27,18 @@ pub(super) fn apply(
             strategy,
             candidates,
         } => (actual, strategy, candidates),
-        MatchResult::Ambiguous { candidates } => bail!(
-            "edit_ambiguous_replace: {}",
-            ambiguous_message(candidates, raw_search)
-        ),
-        MatchResult::NotFound => bail!(
-            "edit_old_string_not_found: String to replace not found in file.\nString: {raw_search}"
-        ),
+        MatchResult::Ambiguous { candidates } => {
+            return Err(failure(ambiguous_message(candidates, raw_search)));
+        }
+        MatchResult::NotFound => {
+            return Err(failure(format!(
+                "String to replace not found in file.\nString: {raw_search}"
+            )));
+        }
     };
     let occurrences = content.matches(actual.as_str()).count();
     if !replace_all && occurrences > 1 {
-        bail!(
-            "edit_ambiguous_replace: {}",
-            ambiguous_message(occurrences, raw_search)
-        );
+        return Err(failure(ambiguous_message(occurrences, raw_search)));
     }
     let actual_new = preserve_quote_style(
         search,
@@ -80,4 +78,9 @@ String: {old_string}"
     } else {
         "old_string is not unique in the file. Provide more surrounding context or set replace_all to true.".to_owned()
     }
+}
+
+/// Edit 的匹配失败是 TS 处理器失败（`<tool_use_error>`），见 docs/specs/rust-file-tool-results.md。
+fn failure(message: String) -> anyhow::Error {
+    crate::contract::ToolHandlerFailure(message).into()
 }

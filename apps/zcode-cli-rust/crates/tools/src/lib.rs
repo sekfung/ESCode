@@ -23,6 +23,8 @@ mod lexical_path;
 mod mcp_config;
 mod mcp_connection;
 mod mcp_hub;
+mod file_missing;
+mod file_patch;
 mod mcp_node_repl;
 mod mcp_raw_capture;
 mod mcp_request_meta;

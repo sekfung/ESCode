@@ -5,6 +5,15 @@ use serde_json::{Value, json};
 pub(super) fn definitions() -> Vec<Value> {
     let schemas: Value =
         serde_json::from_str(include_str!("tool_schemas.json")).expect("validated tool schemas");
+    // 内置 schema 按声明顺序登记：发给模型的定义与入参校验的问题顺序同 Node（docs/specs/rust-tool-schema-order.md）。
+    static ORDERED: std::sync::Once = std::sync::Once::new();
+    ORDERED.call_once(|| {
+        if let Some(crate::domain::json_order::Json::Object(entries)) =
+            crate::domain::json_order::Json::parse(include_str!("tool_schemas.json"))
+        {
+            entries.iter().for_each(|(_, schema)| crate::domain::schema_order::remember(schema));
+        }
+    });
     // 模型可见工具面与 Node 对齐（docs/specs/rust-tool-surface.md）：描述取 TS provider 描述；
     // Rust 不支持会话级工具白名单，Bash 恒可用，因此与 TS 默认一致走 embedded search 分支，
     // 不暴露 Glob/Grep（仍可执行，只是不再提供给模型），Bash/EnterPlanMode 取该分支的描述。

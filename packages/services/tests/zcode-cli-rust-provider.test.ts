@@ -206,7 +206,8 @@ test("Rust preserves reasoning and tool order across the next request and cold h
       messages.filter((m: any) => m.role === "tool").map((m: any) => m.tool_call_id),
       ["read", "list"],
     );
-    assert.match(messages.at(-2).content, /Tool failed/);
+    // 读取不存在的文件：TS 文案（docs/specs/rust-file-tool-results.md），不再带 "Tool failed:" 前缀。
+    assert.match(messages.at(-2).content, /^File does not exist\. /);
     await h.close();
     const recovered = f.start();
     await recovered.subscribe(`conversation/${id}`);

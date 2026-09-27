@@ -14,6 +14,8 @@ pub(super) struct ExecutionContext<'a> {
     pub turn: &'a super::context::TurnFacts,
     /// 主会话启用记忆时的记忆根（权限放行记忆 Markdown 写入）。
     pub memory_root: Option<&'a str>,
+    /// 本轮发给模型的工具定义；执行前按其 parameters 校验入参。
+    pub definitions: &'a [Value],
 }
 pub(super) async fn execute(
     tools: &dyn ToolPort,
@@ -30,6 +32,7 @@ pub(super) async fn execute(
         model,
         turn,
         memory_root,
+        definitions,
     } = context;
     if cancel.is_cancelled() {
         bail!("Cancelled");
@@ -39,17 +42,24 @@ pub(super) async fn execute(
         .filter(|n| n.starts_with("mcp__"))
         .and_then(|n| tools.mcp_tool(&sink.session_id, n)?.display);
     sink.send(Event::ToolStart { call: call.clone(), display }).await?;
-    let name = call["function"]["name"]
+    let tool_name = call["function"]["name"]
         .as_str()
-        .context("Tool name missing")?;
-    // TS validateInitialModelToolInput：MCP 入参先按 inputSchema 校验，失败时不请求权限、不调用工具，
-    // 把问题回传模型（docs/specs/rust-tool-input-validation.md；Rust 之前原样交给 MCP server）。
-    if let Some(content) = invalid_mcp_input(tools, &sink.session_id, name, &call) {
-        let output = crate::contract::ToolOutput {
-            failed: true,
-            ..crate::contract::ToolOutput::text(content)
-        };
-        return Ok((call["id"].as_str().context("Tool id missing")?.into(), name.to_owned(), output, true, false));
+        .context("Tool name missing")?
+        .to_owned();
+    let name = tool_name.as_str();
+    let mut call = call;
+    // TS validateInitialModelToolInput：入参先按发给模型的定义 parameters 校验，失败时不请求权限、不调用工具，
+    // 把问题回传模型（docs/specs/rust-tool-input-validation.md；Rust 之前 MCP 原样透传、内置工具用各自文案）。
+    match checked_input(definitions, name, &call) {
+        Err(content) => {
+            let output = crate::contract::ToolOutput {
+                failed: true,
+                ..crate::contract::ToolOutput::text(content)
+            };
+            return Ok((call["id"].as_str().context("Tool id missing")?.into(), tool_name, output, true, false));
+        }
+        Ok(Some(arguments)) => call["function"]["arguments"] = arguments.into(),
+        Ok(None) => {}
     }
     // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
     let outcome = {
@@ -158,7 +168,14 @@ pub(super) async fn execute(
     let failed = result.as_ref().map_or(true, |output| output.failed);
     let denied = result.as_ref().is_ok_and(|output| output.control.denied);
     let content = result
-        .unwrap_or_else(|error| crate::contract::ToolOutput::text(format!("Tool failed: {error}")));
+        // TS createErrorResult：处理器失败套 <tool_use_error>，其余错误为消息原文（Rust 之前统一加 "Tool failed: "
+        // 前缀，docs/specs/rust-file-tool-results.md）。
+        .unwrap_or_else(|error| {
+            crate::contract::ToolOutput::text(match error.downcast_ref::<crate::contract::ToolHandlerFailure>() {
+                Some(failure) => format!("<tool_use_error>{failure}</tool_use_error>"),
+                None => error.to_string(),
+            })
+        });
     Ok((
         call["id"].as_str().context("Tool id missing")?.into(),
         name.to_owned(),
@@ -168,14 +185,38 @@ pub(super) async fn execute(
     ))
 }
 
-fn invalid_mcp_input(tools: &dyn ToolPort, session: &str, name: &str, call: &Value) -> Option<String> {
-    use crate::domain::{json_order::Json, tool_input_validation as validation};
-    if !name.starts_with("mcp__") {
-        return None;
+/// `Err(文案)`：校验失败；`Ok(Some(参数原文))`：去掉未知键后的参数；`Ok(None)`：原样执行。
+/// 定义中没有该工具时不校验。
+fn checked_input(definitions: &[Value], name: &str, call: &Value) -> Result<Option<String>, String> {
+    use crate::domain::{json_order::Json, schema_order, tool_input_validation as validation};
+    let Some(schema) = definitions
+        .iter()
+        .find(|d| d["function"]["name"] == name)
+        .and_then(|d| schema_order::ordered(&d["function"]["parameters"]))
+    else {
+        return Ok(None);
+    };
+    // 参数按原文解析以保留键顺序（多余参数按模型给出的顺序列出）；非法 JSON 交给原有路径报错。
+    let Some(args) = call["function"]["arguments"].as_str().and_then(Json::parse) else {
+        return Ok(None);
+    };
+    use crate::domain::tool_input_strip::{fill_defaults, strip};
+    // TS：内置工具先经 runtime schema（丢弃未知键、填默认值），通过后再按 JSON Schema 校验；
+    // runtime 失败时按原始参数报告（有默认值的缺失属性不报）。MCP 工具按原始参数校验。
+    let builtin = !name.starts_with("mcp__");
+    let normalize = |value: &Json| {
+        let mut value = value.clone();
+        if builtin {
+            fill_defaults(&mut value, &schema);
+        }
+        value
+    };
+    let stripped = strip(name, &args, &schema);
+    if !validation::validate(&normalize(&stripped), &schema).is_empty() {
+        let issues = validation::validate(&normalize(&args), &schema);
+        if !issues.is_empty() {
+            return Err(validation::model_content(name, &issues));
+        }
     }
-    let schema = Json::parse(&tools.mcp_tool(session, name)?.input_schema.to_string())?;
-    // 参数按原文解析以保留键顺序（多余参数按模型给出的顺序列出）。
-    let args = Json::parse(call["function"]["arguments"].as_str()?)?;
-    let issues = validation::validate(&args, &schema);
-    (!issues.is_empty()).then(|| validation::model_content(name, &issues))
+    Ok((stripped != args).then(|| stripped.compact()))
 }

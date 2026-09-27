@@ -88,6 +88,14 @@ impl FileTools<'_> {
         // 修复：模型可见路径沿用 TS `resolveWorkspacePath` 的词法结果（不解析符号链接与 8.3 短名），
         // 此前整条链路 realpath，Windows（RUNNER~1→runneradmin）与 macOS（/var→/private/var）下
         // PDF 等输出里的路径与 Node 不一致，差分测试在两侧失败；realpath 只保留给读写状态键。
+        // TS：不存在给出带相近文件名建议的文案；目录给出 adapter 文案（docs/specs/rust-file-tool-results.md）。
+        match tokio::fs::metadata(path).await {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                bail!(super::file_missing::message(self.cwd, path).await)
+            }
+            Ok(meta) if meta.is_dir() => bail!("Cannot read directory as text file: {}", path.display()),
+            _ => {}
+        }
         let state_key = zcode_cli_host::realpath(path).await?;
         // TS 先按扩展名分派媒体（docs/specs/rust-media-read.md）。
         if let Some(mime) = super::read_image::mime_from_path(path) {
@@ -147,7 +155,8 @@ impl FileTools<'_> {
                 }
             }
         }
-        let total = if size == 0 { 0 } else { line };
+        // TS adapter 把空文件计为 1 行（提醒为 offset 超出而非空文件），Rust 之前计 0 行。
+        let total = line;
         let content = match String::from_utf8(selected) {
             Ok(text) => text,
             Err(e) if truncated && e.utf8_error().error_len().is_none() => {
@@ -206,6 +215,13 @@ impl FileTools<'_> {
         args: &Value,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
+        use crate::contract::ToolHandlerFailure as Failure;
+        use crate::domain::file_tool_text as text;
+        let edit = name == "Edit";
+        // TS edit handler 先判断 old_string 与 new_string 相同，再解析路径与读文件。
+        if edit && args["old_string"] == args["new_string"] {
+            return Err(Failure(text::NO_CHANGE.into()).into());
+        }
         let path = match zcode_cli_host::realpath(input).await {
             Ok(p) => p,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => input.to_owned(),
@@ -225,18 +241,28 @@ impl FileTools<'_> {
             Err(e) => return Err(e.into()),
         };
         check_cancel(cancel)?;
+        let empty_old = args["old_string"].as_str() == Some("");
+        if edit && original.is_none() && !empty_old {
+            return Err(Failure(super::file_missing::message(self.cwd, input).await).into());
+        }
+        // TS：old_string 为空而文件已有内容时，先于读状态检查报错。
+        let blank = |b: &Vec<u8>| String::from_utf8_lossy(b).trim().is_empty();
+        if edit && empty_old && original.as_ref().is_some_and(|b| !blank(b)) {
+            return Err(Failure(text::EXISTS_NO_OLD_STRING.into()).into());
+        }
         if let Some(bytes) = &original {
+            // TS：Write 的未读/过期为普通错误，Edit 的为处理器失败（<tool_use_error>）。
+            let fail = |message: &str| -> anyhow::Error {
+                if edit { Failure(message.into()).into() } else { anyhow::anyhow!(message.to_owned()) }
+            };
             let state = self.state.lock().await;
-            let read = state.entries.get(&path).context(if name == "Write" {
-                "write_file_not_read: Read the file before overwriting"
-            } else {
-                "edit_file_not_read: Read the file before editing"
-            })?;
-            if name == "Write" && !read.full {
-                bail!("write_partial_read: Read the complete file before overwriting");
-            }
-            if read.hash != Sha256::digest(bytes).as_slice() {
-                bail!("{name}: stale_file; file changed since Read, read it again");
+            match state.entries.get(&path) {
+                Some(read) if read.full || edit => {
+                    if read.hash != Sha256::digest(bytes).as_slice() {
+                        return Err(fail(text::STALE));
+                    }
+                }
+                _ => return Err(fail(text::NOT_READ)),
             }
         }
         let raw = std::str::from_utf8(original.as_deref().unwrap_or_default())
@@ -270,13 +296,7 @@ impl FileTools<'_> {
         } else {
             let search = string(args, "old_string")?.replace("\r\n", "\n");
             let replacement = string(args, "new_string")?.replace("\r\n", "\n");
-            if search == replacement {
-                bail!("edit_no_change: old_string and new_string are identical");
-            }
             if search.is_empty() {
-                if !old.trim().is_empty() {
-                    bail!("edit_file_exists_no_old_string");
-                }
                 (replacement.clone(), search, replacement)
             } else {
                 // 修复：此前只做精确匹配，模型带弯引号/行号前缀/转义/缩进差异时 Node 能改而 Rust 失败；
@@ -329,11 +349,12 @@ impl FileTools<'_> {
         super::file_atomic::atomic_write(&path, &bytes, original.as_deref(), cancel).await?;
         // 模型可见路径用词法请求路径（TS `resolveWorkspacePath` 不解析符号链接/短名）；
         // realpath 后的 path 只用于读状态键与检查点（checkpoint 恢复要求已归一）。
-        let requested = input.to_owned();
+        // TS 的 filePath 与成功文案都用模型给出的原始 file_path（docs/specs/rust-file-tool-results.md）。
+        let requested = std::path::PathBuf::from(string(args, "file_path")?);
         let path = zcode_cli_host::realpath(path).await?;
         self.remember(path.clone(), Sha256::digest(&bytes).to_vec(), true)
             .await;
-        let (patch, additions, deletions) = patch(&old, &new);
+        let (patch, additions, deletions) = super::file_patch::patch(&old, &new);
         let mut data = if name == "Write" {
             json!({"type":if original.is_some(){"update"}else{"create"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
         } else {
@@ -350,11 +371,12 @@ impl FileTools<'_> {
             display["structuredPatch"] = json!([]);
             display["truncated"] = true.into();
         }
-        let mut content = format!(
-            "The file {} has been {} successfully.",
-            requested.display(),
-            if name == "Edit" { "updated" } else { "written" }
-        );
+        let shown = requested.to_string_lossy();
+        let mut content = if edit {
+            text::edit_success(&shown, replace_all)
+        } else {
+            text::write_success(&shown, original.is_none())
+        };
         if serde_json::to_vec(&data)?.len() > 64 * 1024 {
             tokio::fs::create_dir_all(self.artifacts).await?;
             let artifact = self.artifacts.join(format!("{}.json", super::id()));
@@ -366,30 +388,4 @@ impl FileTools<'_> {
         result.display = Some(display);
         Ok(result)
     }
-}
-pub(super) fn patch(old: &str, new: &str) -> (Value, usize, usize) {
-    if old == new {
-        return (json!([]), 0, 0);
-    }
-    let a: Vec<_> = old.lines().collect();
-    let b: Vec<_> = new.lines().collect();
-    let prefix = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
-    let suffix = a[prefix..]
-        .iter()
-        .rev()
-        .zip(b[prefix..].iter().rev())
-        .take_while(|(x, y)| x == y)
-        .count();
-    let removed = &a[prefix..a.len() - suffix];
-    let added = &b[prefix..b.len() - suffix];
-    let lines: Vec<_> = removed
-        .iter()
-        .map(|s| format!("-{s}"))
-        .chain(added.iter().map(|s| format!("+{s}")))
-        .collect();
-    (
-        json!([{"oldStart":prefix+1,"oldLines":removed.len(),"newStart":prefix+1,"newLines":added.len(),"lines":lines}]),
-        added.len(),
-        removed.len(),
-    )
 }

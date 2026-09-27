@@ -218,7 +218,7 @@ impl HttpModel {
         // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
         // MCP 工具 schema 按登记的声明顺序编码（docs/specs/rust-tool-schema-order.md），其余与 serde_json 相同。
         let encoded = Bytes::from(
-            crate::domain::schema_order::encode(&body, zcode_cli_host::schema_order::lookup).into_bytes(),
+            crate::domain::schema_order::encode(&body, crate::domain::schema_order::lookup).into_bytes(),
         );
         let native_search = super::web_search::needs_beta(&body);
         // 大附件仅保留重试所需的已编码字节，不能在整个流期间保留多份 base64 请求树。
