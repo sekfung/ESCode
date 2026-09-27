@@ -80,6 +80,20 @@ const webSearchHandler: ToolHandler<WebSearchInput, WebSearchOutput> = async (in
     );
   }
 
+  // 修复：runtime schema 的 refine（allowed_domains 与 blocked_domains 不能同传）只在 JSON Schema 也失败时
+  // 才回传模型；JSON Schema 通过时这里收到原始入参，两个列表会一起发给 provider。发起内部搜索前显式校验。
+  const parsed = WebSearchInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw createCoreError(
+      CoreErrorType.InvalidInput,
+      parsed.error.issues[0]?.message ?? "Invalid WebSearch input",
+      {
+        context: { toolCallId: context.toolCallId, toolName: WEBSEARCH_TOOL_NAME },
+        recoverable: true,
+      },
+    );
+  }
+
   const request: Parameters<typeof model.streamText>[0] = {
     messages: [
       {

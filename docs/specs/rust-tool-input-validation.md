@@ -74,6 +74,6 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
   - Cron：handler 抛出的 ZodError 文案，见 rust-cron.md「refine 文案」；
   - AskUserQuestion：交互 broker 拒绝，见 rust-user-questions.md「入参 refine 失败」；
   - ExitPlanMode：非 plan 模式的策略拒绝先于入参，见 rust-permission-modes.md；
-  - WebSearch：先判模型能力，refine 的 TS 缺陷见 rust-websearch.md；
+  - WebSearch：先判模型能力，再在 handler 内执行 refine（TS 缺陷已修复），见 rust-websearch.md；
   - Read：`pages` 按 runtime schema 视为已知键（见上文）。
   - 未逐项差分的：工作流类工具（Rust 未实现）与 Read 的 `validateReadInputSemantics`（PDF pages 语义）。

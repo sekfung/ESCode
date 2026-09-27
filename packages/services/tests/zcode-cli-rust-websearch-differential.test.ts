@@ -116,7 +116,11 @@ function searchStream(res: any) {
   finish(res, "end_turn", { server_tool_use: { web_search_requests: 1 } });
 }
 
-async function observe(kind: "node" | "rust", native: boolean) {
+async function observe(
+  kind: "node" | "rust",
+  native: boolean,
+  args: unknown = { query: "rust async" },
+) {
   const root = await mkdtemp(join(tmpdir(), `zcode-websearch-${kind}-`));
   // 关闭插件：官方插件 seed 的 MCP 工具两侧环境不同，与 WebSearch 无关。
   await mkdir(join(root, "workspace", ".zcode"), { recursive: true });
@@ -144,7 +148,7 @@ async function observe(kind: "node" | "rust", native: boolean) {
       sse(res, {
         type: "content_block_delta",
         index: 0,
-        delta: { type: "input_json_delta", partial_json: '{"query":"rust async"}' },
+        delta: { type: "input_json_delta", partial_json: JSON.stringify(args) },
       });
       sse(res, { type: "content_block_stop", index: 0 });
       finish(res, "tool_use");
@@ -215,6 +219,21 @@ test("Node and Rust expose and run provider-native WebSearch the same way", asyn
   assert.deepEqual(rust.toolResult, node.toolResult);
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
+});
+
+// 两个域名列表同传：两侧都在内部搜索前拒绝，文案一致（修复 TS refine 不生效的缺陷，docs/specs/rust-websearch.md）。
+test("Node and Rust reject allowed_domains with blocked_domains before searching", async () => {
+  const args = {
+    query: "rust async",
+    allowed_domains: ["tokio.rs"],
+    blocked_domains: ["example.com"],
+  };
+  const node = await observe("node", true, args);
+  const rust = await observe("rust", true, args);
+  assert.equal(node.inner, undefined, "Node must not issue the internal search request");
+  assert.match(text(node.toolResult?.content), /cannot both be specified/);
+  assert.equal(rust.inner, undefined);
+  assert.deepEqual(rust.toolResult, node.toolResult);
 });
 
 test("Node and Rust hide WebSearch when the model has no native search", async () => {
