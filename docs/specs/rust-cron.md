@@ -33,6 +33,15 @@ sequenceDiagram
 - 已知差异：Node 以 strict 协议 schema 校验 Host 应答（多余字段即报错），Rust 不校验应答形态；同版本 Host 不会产出非法应答。
 - OffPeak 字段（`offPeakTaskId` / `offPeakRunType`）仍不支持（不在用户选定范围）。
 
+## refine 文案（2026-09-27）
+
+- 差分发现：入参只违反 refine 时，Node 的模型可见错误是 handler 抛出的 ZodError 文案，即全部失败 issue 的
+  `JSON.stringify(issues, null, 2)`（经错误文案规整折叠空白）。zod 按声明顺序执行每条 refine，失败不中断后续 refine。
+  Rust 之前只报第一条，且文案是自拟缩写。
+- 规则：`cron_input::refine` 按 TS 声明顺序逐条判定，输出 `{code:"custom", message, path}` 列表，文案与 path 逐字取自 TS；
+  CronUpdate "至少一个字段" 的 path 为空数组。
+- 验收：`cron_corpus.json` 的失败用例中只含 refine 问题的，记录 TS `message`，Rust 单测逐字比对；语料含多条同时失败的用例。
+
 ## 验收
 
 - `scripts/generate-zcode-cli-rust-cron-corpus.mjs`：真实 handler + 真实协议端口 + 脚本化 Host 的 21 个流程与 39 个校验用例，

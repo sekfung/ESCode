@@ -117,58 +117,85 @@ pub fn parse(tool: &str, input: &Value) -> Result<Map<String, Value>, String> {
     Ok(out)
 }
 
+/// TS 各条 `.refine` 按声明顺序全部执行（zod 的 refine 失败不中断后续 refine），失败时 handler 抛出的
+/// ZodError 文案（`JSON.stringify(issues, null, 2)`）即模型可见的工具错误。之前 Rust 只报第一条、文案为自拟缩写，
+/// 与 Node 不同（docs/specs/rust-cron.md「refine 文案」；TS oracle 见 cron_corpus.json 的 `message`）。
 fn refine(tool: &str, p: &Map<String, Value>) -> Result<(), String> {
     let has = |key: &str| p.contains_key(key);
     let relative = p.get("delayMinutes").is_some_and(Value::is_number);
     let carrier = has("intervalUnit");
-    if has("intervalUnit") != has("interval") {
-        return Err("intervalUnit and interval must be set together".into());
-    }
-    if carrier && p.get("recurring") == Some(&Value::Bool(false)) {
-        return Err("intervalUnit is a recurring carrier and requires recurring=true".into());
-    }
-    if tool == "CronCreate" {
-        if !relative && !has("cron") {
-            return Err("cron is required when delayMinutes is not set".into());
-        }
-        if relative && has("cron") {
-            return Err("a relative delay must omit cron".into());
-        }
-        if relative && p.get("recurring") == Some(&Value::Bool(true)) {
-            return Err("a relative delay cannot use recurring=true".into());
-        }
-        if relative && has("maxRuns") {
-            return Err("a relative delay cannot use maxRuns".into());
-        }
-        if carrier && relative {
-            return Err("intervalUnit cannot combine with a relative delayMinutes".into());
-        }
-        if carrier && has("maxRuns") {
-            return Err("intervalUnit cannot combine with maxRuns".into());
-        }
+    let paired = has("intervalUnit") == has("interval");
+    let recurring_true = p.get("recurring") == Some(&Value::Bool(true));
+    let recurring_false = p.get("recurring") == Some(&Value::Bool(false));
+    let rules: Vec<(bool, &str, &str)> = if tool == "CronCreate" {
+        vec![
+            (!relative && !has("cron"), "cron is required when delayMinutes is not set", "cron"),
+            (
+                relative && has("cron"),
+                "a relative delay must omit cron; the host computes the schedule from its real clock",
+                "cron",
+            ),
+            (
+                relative && recurring_true,
+                "a relative delay creates a one-shot automation and cannot use recurring=true",
+                "recurring",
+            ),
+            (relative && has("maxRuns"), "a relative delay runs once and cannot use maxRuns", "maxRuns"),
+            (
+                carrier && relative,
+                "intervalUnit is a recurring carrier and cannot combine with a relative delayMinutes",
+                "intervalUnit",
+            ),
+            (!paired, "intervalUnit and interval must be set together", "interval"),
+            (
+                carrier && recurring_false,
+                "intervalUnit is a recurring carrier and requires recurring=true",
+                "recurring",
+            ),
+            (
+                carrier && has("maxRuns"),
+                "intervalUnit is a recurring carrier and cannot combine with maxRuns",
+                "maxRuns",
+            ),
+        ]
+    } else {
+        let fields = ["cron", "prompt", "title", "recurring", "maxRuns", "intervalUnit", "interval"];
+        let clearing = p.get("maxRuns") == Some(&Value::Null);
+        vec![
+            (!fields.iter().any(|f| has(f)), "CronUpdate requires at least one field to update", ""),
+            (
+                clearing && !recurring_true,
+                "Clearing maxRuns requires recurring=true in the same update",
+                "maxRuns",
+            ),
+            (
+                recurring_true && p.get("maxRuns").is_some_and(Value::is_number),
+                "recurring=true cannot be combined with a numeric maxRuns",
+                "maxRuns",
+            ),
+            (!paired, "intervalUnit and interval must be set together", "interval"),
+            (
+                carrier && recurring_false,
+                "intervalUnit is a recurring carrier and cannot combine with recurring=false",
+                "recurring",
+            ),
+            (
+                carrier && has("maxRuns") && !(clearing && recurring_true),
+                "intervalUnit is a recurring carrier and only allows maxRuns=null with recurring=true",
+                "maxRuns",
+            ),
+        ]
+    };
+    let issues: Vec<Value> = rules
+        .into_iter()
+        .filter(|(failed, ..)| *failed)
+        .map(|(_, message, path)| {
+            let path: Vec<&str> = if path.is_empty() { vec![] } else { vec![path] };
+            serde_json::json!({"code": "custom", "message": message, "path": path})
+        })
+        .collect();
+    if issues.is_empty() {
         return Ok(());
     }
-    let fields = [
-        "cron",
-        "prompt",
-        "title",
-        "recurring",
-        "maxRuns",
-        "intervalUnit",
-        "interval",
-    ];
-    if !fields.iter().any(|f| has(f)) {
-        return Err("CronUpdate requires at least one field to update".into());
-    }
-    let recurring_true = p.get("recurring") == Some(&Value::Bool(true));
-    if p.get("maxRuns") == Some(&Value::Null) && !recurring_true {
-        return Err("Clearing maxRuns requires recurring=true in the same update".into());
-    }
-    if recurring_true && p.get("maxRuns").is_some_and(Value::is_number) {
-        return Err("recurring=true cannot be combined with a numeric maxRuns".into());
-    }
-    if carrier && has("maxRuns") && !(p.get("maxRuns") == Some(&Value::Null) && recurring_true) {
-        return Err("intervalUnit cannot combine with maxRuns".into());
-    }
-    Ok(())
+    Err(serde_json::to_string_pretty(&issues).unwrap_or_default())
 }

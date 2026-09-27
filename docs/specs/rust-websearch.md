@@ -46,6 +46,10 @@
 - App 数据中的 `webSearchRequests`（TS 取自 usage 的 `server_tool_use.web_search_requests`）暂不填写；模型可见结果不受影响。
 - 声明了 native 搜索却不是 Anthropic 协议的模型：TS 抛出「does not encode provider-native WebSearch」，Rust 以
   `invalid_model_request` 失败，二者都是工具失败，文案不同。
+- 判定顺序（2026-09-27 差分）：先判模型是否支持 native 搜索，再校验入参，与 TS handler 一致。
+- 待与产品对齐（TS 缺陷）：`allowed_domains` 与 `blocked_domains` 同传时，TS 的 refine 只在 JSON Schema 也失败时
+  才回传模型；JSON Schema 通过时 handler 收到原始入参，两个列表都发给 provider。Rust 在支持 native 搜索的模型上
+  保留该约束，报 "allowed_domains and blocked_domains cannot both be specified"。
 
 ## 所有者
 

@@ -98,10 +98,26 @@ const validation = [
   ["CronDelete", {}],
   ["CronList", {}],
   ["CronList", { x: 1 }],
+  // 多条 refine 同时失败：zod 逐条执行，全部报出。
+  [
+    "CronCreate",
+    { delayMinutes: 5, cron: "* * * * *", recurring: true, maxRuns: 2, prompt: "p", title: "t" },
+  ],
+  ["CronCreate", { delayMinutes: 5, prompt: "p", title: "t", intervalUnit: "daily", maxRuns: 2 }],
+  ["CronUpdate", { id: "a1", title: "t", intervalUnit: "hourly", recurring: false, maxRuns: 2 }],
 ];
+// 只剩 refine（custom）问题时，handler 抛出的 ZodError 文案原样成为模型可见的工具错误
+// （类型与结构问题先由 JSON Schema 校验拦下，见 rust-tool-input-validation.md）。
 const validationCases = validation.map(([tool, input]) => {
   const result = schemas[tool].safeParse(input);
-  return { tool, input, ok: result.success, ...(result.success ? { data: result.data } : {}) };
+  const refineOnly = !result.success && result.error.issues.every((issue) => issue.code === "custom");
+  return {
+    tool,
+    input,
+    ok: result.success,
+    ...(result.success ? { data: result.data } : {}),
+    ...(refineOnly ? { message: result.error.message } : {}),
+  };
 });
 
 const flowCases = [];

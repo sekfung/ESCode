@@ -33,6 +33,9 @@ fn validation_matches_ts() {
             "{tool} {}: {parsed:?}",
             case["input"]
         );
+        if let Some(message) = case["message"].as_str() {
+            assert_eq!(parsed.as_ref().err().map(String::as_str), Some(message), "{tool} {}", case["input"]);
+        }
         if let Ok(data) = parsed {
             assert_eq!(
                 Value::Object(data),

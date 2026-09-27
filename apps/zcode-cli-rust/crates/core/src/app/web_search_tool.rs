@@ -19,10 +19,12 @@ pub(super) async fn execute(
     cancel: &CancellationToken,
 ) -> Result<ToolOutput> {
     let started = Instant::now();
-    let input = rules::validate(args).map_err(|error| anyhow!(error))?;
+    // TS handler 先判模型能力：JSON Schema 通过后 runtime refine 不拦截，handler 收到原始入参（差分发现：
+    // 两个域名列表同传且模型不支持时，Node 报能力错误，之前 Rust 报 refine 错误）。
     if !model.native_web_search() {
         bail!("Current model does not support native WebSearch");
     }
+    let input = rules::validate(args).map_err(|error| anyhow!(error))?;
     // TS auxiliaryModelOptions：最低推理档位。
     let auxiliary = model.auxiliary().or_else(|| model.bind());
     let base = auxiliary.as_deref().unwrap_or(model);

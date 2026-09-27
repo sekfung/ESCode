@@ -46,6 +46,11 @@ const CALLS: [string, unknown][] = [
   ["Read", { file_path: "existing.txt", pages: "1-2" }],
   // 策略拒绝发 TS reason 原文，而不是用户拒绝文案。
   ["ExitPlanMode", { plan: "p" }],
+  // 只违反 refine：全部失败 issue 的 ZodError 文案。
+  ["CronCreate", { prompt: "x", title: "t", delayMinutes: 5, cron: "* * * * *", recurring: true }],
+  ["CronUpdate", { id: "nope", title: "t", maxRuns: null }],
+  // 先判模型能力，再校验入参。
+  ["WebSearch", { query: "abc", allowed_domains: ["a.com"], blocked_domains: ["b.com"] }],
   // TS runtime schema 的宽松写法（preprocess/transform）：转换后执行，与 Node 相同。
   // 依赖读取状态的 Edit 放在 Bash 之前：Windows CI（8.3 短名临时目录）上 Node 在 Bash 之后会丢失读取状态
   // （原因未确认，见 rust-bash-model-content.md 实测记录）。
