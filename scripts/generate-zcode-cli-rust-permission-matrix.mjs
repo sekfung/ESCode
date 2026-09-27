@@ -65,16 +65,19 @@ function capabilities() {
 
 const service = new PermissionService();
 const outcomes = [];
-// ask 的 reason 会成为权限弹窗的 summary；按 ruleId 收集，工具名替换为 {tool} 占位。
+// ask 的 reason 会成为权限弹窗的 summary，deny 的 reason 是发给模型的工具结果；
+// 按 ruleId 收集，工具名替换为 {tool} 占位。
 const askReasons = {};
+const denyReasons = {};
 function recordReason(result, toolName) {
-  if (result.decision !== "ask") return;
+  const reasons = { ask: askReasons, deny: denyReasons }[result.decision];
+  if (!reasons) return;
   const template = (result.reason ?? "").split(toolName).join("{tool}");
-  const known = askReasons[result.ruleId];
+  const known = reasons[result.ruleId];
   if (known !== undefined && known !== template) {
-    throw new Error(`ask reason for ${result.ruleId} depends on more than the tool name`);
+    throw new Error(`${result.decision} reason for ${result.ruleId} depends on more than the tool name`);
   }
-  askReasons[result.ruleId] = template;
+  reasons[result.ruleId] = template;
 }
 let decisions = "";
 function record(toolName, [mode, planEnabled], capability) {
@@ -206,6 +209,7 @@ const content = `${JSON.stringify({
   ruleAxes: { rulesets, sessionRules, inputs, ruleModes },
   ruleDecisions,
   askReasons: Object.fromEntries(Object.entries(askReasons).sort(([a], [b]) => a.localeCompare(b))),
+  denyReasons: Object.fromEntries(Object.entries(denyReasons).sort(([a], [b]) => a.localeCompare(b))),
 })}\n`;
 const target = new URL(
   "../apps/zcode-cli-rust/crates/domain/tests/fixtures/permission_matrix.json",

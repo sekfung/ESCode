@@ -210,3 +210,19 @@ fn ask_reasons_match_ts() {
         );
     }
 }
+
+#[test]
+fn deny_reasons_match_ts() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/permission_matrix.json")).unwrap();
+    let reasons = fixture["denyReasons"].as_object().unwrap();
+    assert!(!reasons.is_empty(), "fixture must export deny reasons");
+    for (rule, template) in reasons {
+        let want = template.as_str().unwrap().replace("{tool}", "SomeTool");
+        assert_eq!(
+            zcode_cli_domain::permission_options::deny_reason(rule, "SomeTool"),
+            want,
+            "{rule}"
+        );
+    }
+}

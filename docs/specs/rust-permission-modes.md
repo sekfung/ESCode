@@ -18,6 +18,16 @@
 
 每个分支的 `ruleId`（如 `mode.build.highRisk`）原样输出，用于 App 展示和差分比对。
 
+## 策略拒绝发给模型的文案（2026-09-27）
+
+- TS 对判定为 deny 的调用返回 `createPermissionErrorResult(reason)`：模型看到的是该规则的 reason 原文；
+  用户在确认界面拒绝时才是 "The user doesn't want to proceed…"。
+- 差分发现：Rust 对策略拒绝也发用户拒绝文案（如非 plan 模式调用 ExitPlanMode，Node 为
+  "ExitPlanMode can only be used while plan mode is active"）。
+- 规则：策略拒绝按 ruleId 取 TS reason（`permission_options::deny_reason`，模板由
+  `scripts/generate-zcode-cli-rust-permission-matrix.mjs` 从 TS 导出到 `denyReasons`，单测逐条比对）；
+  未知 ruleId 用 TS 兜底 `Permission denied for <tool>`。行状态不变（两侧均为 cancelled）。
+
 ## 所有者与时序
 
 ```mermaid

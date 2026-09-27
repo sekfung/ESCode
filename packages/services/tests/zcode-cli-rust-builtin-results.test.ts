@@ -42,6 +42,10 @@ const CALLS: [string, unknown][] = [
   ["TaskStop", { task_id: "nope" }],
   ["Skill", { skill: "does-not-exist" }],
   ["WebFetch", { url: "not a url", prompt: "x" }],
+  // runtime schema 认识 `pages`，定义里没有（fixture 模型不支持 PDF）：不丢弃，报多余参数。
+  ["Read", { file_path: "existing.txt", pages: "1-2" }],
+  // 策略拒绝发 TS reason 原文，而不是用户拒绝文案。
+  ["ExitPlanMode", { plan: "p" }],
   // TS runtime schema 的宽松写法（preprocess/transform）：转换后执行，与 Node 相同。
   // 依赖读取状态的 Edit 放在 Bash 之前：Windows CI（8.3 短名临时目录）上 Node 在 Bash 之后会丢失读取状态
   // （原因未确认，见 rust-bash-model-content.md 实测记录）。

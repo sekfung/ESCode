@@ -69,7 +69,8 @@ impl Engine {
                 Ok(())
             }
             crate::domain::permission::Behavior::Deny => {
-                let _ = reply.send(PermissionOutcome::deny(denied_content(None)));
+                let reason = crate::domain::permission_options::deny_reason(decision.rule_id, &tool);
+                let _ = reply.send(PermissionOutcome::deny(reason));
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {

@@ -104,3 +104,17 @@ pub fn ask_reason(rule_id: &str, tool: &str) -> String {
         _ => format!("Tool {tool} requires approval"),
     }
 }
+
+/// 策略拒绝发给模型的文案：TS `createPermissionErrorResult(reason)` 用判定的 reason 原文
+/// （docs/specs/rust-permission-modes.md「策略拒绝发给模型的文案」）。之前一律发用户拒绝文案，与 Node 不同。
+pub fn deny_reason(rule_id: &str, tool: &str) -> String {
+    match rule_id {
+        "mode.auto.unimplemented" => "Auto mode is reserved but not implemented yet".into(),
+        "mode.plan.exitOnly" => format!("{tool} can only be used while plan mode is active"),
+        "mode.plan.nonReadOnly" => "Plan mode only allows read-only, non-destructive tools".into(),
+        "rule.project.deny" => format!("Tool {tool} is denied by project permission rules"),
+        "rule.disallowedTools" => format!("Tool {tool} is explicitly disallowed"),
+        // TS createPermissionErrorResult 的兜底文案。
+        _ => format!("Permission denied for {tool}"),
+    }
+}
