@@ -58,7 +58,10 @@ impl ShellTasks {
                     .as_str()
                     .or_else(|| args["shell_id"].as_str())
                     .context("task_id required")?;
-                let job=self.jobs.lock().await.get(session).and_then(|jobs|jobs.get(id)).cloned().context("Task unavailable in this session (tasks are not restarted after process recovery)")?;
+                // TS：进程恢复后任务不重启，注册表里也就没有它；文案同 TS task-output / task-stop。
+                let Some(job) = self.jobs.lock().await.get(session).and_then(|jobs| jobs.get(id)).cloned() else {
+                    return Err(crate::domain::file_tool_text::task_not_found(name, id));
+                };
                 let mut state = job.state.clone();
                 if name == "TaskStop" {
                     job.cancel.cancel();

@@ -147,7 +147,8 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
     const other = await h.create();
     await h.subscribe(`conversation/${other}`);
     await send(other, "foreign");
-    assert.match(output, /Task unavailable in this session/);
+    // 其他会话看不到本会话的任务：TS task-output 文案（docs/specs/rust-file-tool-results.md）。
+    assert.match(output, /No task found with ID: /);
     await send(id, "stop");
     assert.match(output, /stopped/);
     assert(

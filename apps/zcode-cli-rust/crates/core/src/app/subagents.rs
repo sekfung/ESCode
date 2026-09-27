@@ -182,11 +182,10 @@ impl Engine {
             "task_id"
         };
         let agent = args[key].as_str().context("Agent ID required")?;
-        let task = self.sessions[parent]
-            .children
-            .get(agent)
-            .context("Task unavailable in this session")?
-            .clone();
+        let Some(task) = self.sessions[parent].children.get(agent).cloned() else {
+            // TS task-output / task-stop 的未找到文案（docs/specs/rust-file-tool-results.md）。
+            return Err(crate::domain::file_tool_text::task_not_found(name, agent));
+        };
         let mut message_id = None;
         let mut delivery = None;
         if name == "TaskStop" && task.running() {

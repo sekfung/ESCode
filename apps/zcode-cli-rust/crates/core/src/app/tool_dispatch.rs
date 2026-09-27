@@ -173,7 +173,7 @@ pub(super) async fn execute(
         .unwrap_or_else(|error| {
             crate::contract::ToolOutput::text(match error.downcast_ref::<crate::contract::ToolHandlerFailure>() {
                 Some(failure) => format!("<tool_use_error>{failure}</tool_use_error>"),
-                None => error.to_string(),
+                None => crate::domain::tool_failure::plain_error_text(&error.to_string()),
             })
         });
     Ok((

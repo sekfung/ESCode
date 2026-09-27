@@ -77,6 +77,7 @@ mod subagent_row;
 pub mod browser_ambient;
 pub mod todo;
 pub mod tool_display;
+pub mod tool_failure;
 pub mod tool_input_strip;
 pub mod tool_input_validation;
 pub mod web_fetch;

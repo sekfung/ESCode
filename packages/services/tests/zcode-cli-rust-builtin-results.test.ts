@@ -36,6 +36,12 @@ const CALLS: [string, unknown][] = [
   ["Read", { file_path: "." }],
   ["Read", { file_path: "empty.txt" }],
   ["Edit", { file_path: "fresh.txt", old_string: "", new_string: "created" }],
+  ["TodoWrite", { todos: [{ content: "a", status: "pending", priority: "high", id: "1" }] }],
+  ["TodoRead", {}],
+  ["TaskOutput", { task_id: "nope" }],
+  ["TaskStop", { task_id: "nope" }],
+  ["Skill", { skill: "does-not-exist" }],
+  ["WebFetch", { url: "not a url", prompt: "x" }],
 ];
 
 async function observe(kind: "node" | "rust") {

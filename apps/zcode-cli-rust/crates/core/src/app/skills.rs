@@ -93,6 +93,7 @@ pub(super) async fn execute(
         .skills
         .iter()
         .find(|s| s.name == name || s.qualified_name() == name)
-        .context("Skill not in this session's catalog")?;
+        // TS adapters/skills 的未找到文案（docs/specs/rust-file-tool-results.md）。
+        .with_context(|| format!("Skill not found: {name}"))?;
     tools.load_skill(skill, name, cancel).await
 }

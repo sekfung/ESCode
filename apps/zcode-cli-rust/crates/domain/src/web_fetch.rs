@@ -19,6 +19,16 @@ pub const MAX_PROCESSING_OUTPUT_TOKENS: usize = 4_096;
 pub const EMPTY_RESULT: &str = "WebFetch completed, but the extraction model returned no text.";
 const TRUNCATION_SUFFIX: &str = "\n\n[WebFetch content truncated before prompt processing]";
 
+/// TS 处理器入口的 zod `z.string().url()`（v3：`new URL()` 失败即报）：模型看到 ZodError 的消息，
+/// 即 `JSON.stringify(issues, null, 2)`，先于 `normalizeWebFetchUrl`（docs/specs/rust-file-tool-results.md）。
+pub fn zod_url_error(value: &str) -> Option<String> {
+    if Url::parse(value).is_ok() {
+        return None;
+    }
+    let issue = crate::json_order::Json::parse(r#"[{"validation":"url","code":"invalid_string","message":"Invalid url","path":["url"]}]"#)?;
+    Some(issue.pretty())
+}
+
 /// TS `normalizeWebFetchUrl`：长度、解析、协议、凭据、http→https、主机形态。错误为 TS 文案。
 pub fn normalize_url(value: &str) -> Result<Url, String> {
     if value.encode_utf16().count() > MAX_URL_CHARS {

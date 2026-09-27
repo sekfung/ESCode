@@ -88,7 +88,9 @@ impl WorkspaceTools {
                     input_format: input_format.unwrap_or_default(),
                     sink,
                     checkpoint_root: &self.artifacts,
-                    cwd: &self.cwd,
+                    // TS resolveWorkspacePath 以词法 workingDirectory 为基准（不 realpath），模型可见的路径与
+                    // 「current working directory」文案同 Node；读写状态键仍在 tool_files 内 realpath。
+                    cwd: &self.workspace_path,
                     artifacts: &artifacts,
                     state: &state,
                     writes: &self.writes,

@@ -55,6 +55,9 @@ pub(crate) async fn fetch(
     let url = super::tools::string(args, "url")?.to_owned();
     let prompt = super::tools::string(args, "prompt")?.to_owned();
     let started = Instant::now();
+    if let Some(message) = rules::zod_url_error(&url) {
+        return Err(anyhow!(message));
+    }
     let normalized = rules::normalize_url(&url).map_err(|message| anyhow!(message))?;
     let preapproved = rules::is_preapproved(&url);
     let cached = cache_get(&url);

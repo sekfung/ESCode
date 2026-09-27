@@ -35,6 +35,16 @@ pub fn missing_file(cwd: &str, suggestion: Option<&str>) -> String {
     text
 }
 
+/// TS task-output（处理器失败）与 task-stop（普通错误）的未找到文案；其余工具沿用 Rust 文案。
+pub fn task_not_found(tool: &str, id: &str) -> anyhow::Error {
+    let message = format!("No task found with ID: {id}");
+    match tool {
+        "TaskOutput" => crate::tool_failure::ToolHandlerFailure(message).into(),
+        "TaskStop" => anyhow::anyhow!(message),
+        _ => anyhow::anyhow!("Task unavailable in this session"),
+    }
+}
+
 /// TS `findSimilarFilename`：候选为同目录文件（不含目标），按名称排序；先取主名相同者，否则取距离 ≤ 3 者。
 pub fn similar_filename(target: &str, names: &[String]) -> Option<String> {
     let mut entries: Vec<&String> = names.iter().filter(|n| n.as_str() != target).collect();

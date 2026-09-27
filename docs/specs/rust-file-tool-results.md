@@ -14,7 +14,15 @@
 
 1. 工具错误的模型可见形式（TS `createErrorResult` / `stringifyToolResultOutput`）：
    - 工具处理器失败（TS `ToolHandlerFailure`）：`<tool_use_error>{message}</tool_use_error>`；
-   - 其余抛出的错误：错误消息原文，不加前缀。
+   - 其余抛出的错误：错误消息，不加前缀，经 TS `sanitizeText` 处理：
+     - 折叠连续空白、去掉首尾空白；
+     - 超过 500 个 UTF-16 码元时截为 497 加 `...`。
+   - 同批对齐的其他工具文案：
+     - TaskOutput 找不到任务：`No task found with ID: {id}`，处理器失败；
+     - TaskStop 找不到任务：同一文案，普通错误；
+     - Skill 找不到：`Skill not found: {name}`；
+     - WebFetch 的 URL 无法解析：zod `url()` 的 issue JSON，先于 URL 规范化检查。
+   - Todo 结果的 JSON 键顺序同 TS 对象字面量：`oldTodos, todos, summary`，条目为 `content, status, priority`。
    - Rust：工具以 `core_api::ToolHandlerFailure(message)` 表达处理器失败，`tool_dispatch` 按上面两种形式输出。
 2. 路径：成功文案与 `filePath` 使用模型给出的原始 `file_path`（TS `filePath: file_path`）。读写状态与检查点仍用归一化路径。
 3. Write：

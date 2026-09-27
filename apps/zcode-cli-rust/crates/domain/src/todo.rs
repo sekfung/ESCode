@@ -46,16 +46,43 @@ pub fn validate(todos: &[TodoItem]) -> Result<()> {
     );
     Ok(())
 }
-pub fn result(old: &[TodoItem], next: Option<&[TodoItem]>) -> Value {
-    match next {
-        None => json!({"todos":old}),
-        Some(todos) => json!({"oldTodos":old,"todos":todos,"summary":{
-            "total":todos.len(),
-            "pending":todos.iter().filter(|t|matches!(t.status,Status::Pending)).count(),
-            "inProgress":todos.iter().filter(|t|matches!(t.status,Status::InProgress)).count(),
-            "completed":todos.iter().filter(|t|matches!(t.status,Status::Completed)).count(),
-        }}),
+/// TS TodoRead/TodoWrite 的结果对象。按结构体字段顺序序列化（与 TS 对象字面量同序）；此前经 `Value`
+/// 序列化后键被排序，模型看到的顺序与 Node 不同（docs/specs/rust-file-tool-results.md）。
+pub fn result(old: &[TodoItem], next: Option<&[TodoItem]>) -> String {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Summary {
+        total: usize,
+        pending: usize,
+        in_progress: usize,
+        completed: usize,
     }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Written<'a> {
+        old_todos: &'a [TodoItem],
+        todos: &'a [TodoItem],
+        summary: Summary,
+    }
+    #[derive(Serialize)]
+    struct Listed<'a> {
+        todos: &'a [TodoItem],
+    }
+    let count = |todos: &[TodoItem], f: fn(&Status) -> bool| todos.iter().filter(|t| f(&t.status)).count();
+    let text = match next {
+        None => serde_json::to_string(&Listed { todos: old }),
+        Some(todos) => serde_json::to_string(&Written {
+            old_todos: old,
+            todos,
+            summary: Summary {
+                total: todos.len(),
+                pending: count(todos, |s| matches!(s, Status::Pending)),
+                in_progress: count(todos, |s| matches!(s, Status::InProgress)),
+                completed: count(todos, |s| matches!(s, Status::Completed)),
+            },
+        }),
+    };
+    text.unwrap_or_default()
 }
 pub fn plan(todos: &[TodoItem], updated_at: u64) -> Value {
     let items = todos.iter().filter_map(|t| {
@@ -70,8 +97,8 @@ pub fn plan(todos: &[TodoItem], updated_at: u64) -> Value {
         json!({"items":items,"updatedAt":updated_at})
     }
 }
-pub fn model_content(value: &Value) -> String {
-    let mut text = value.to_string();
+pub fn model_content(text: &str) -> String {
+    let mut text = text.to_owned();
     if text.len() > 100_000 {
         let suffix = format!(
             "\n\n[Tool output truncated by resultBudget: originalBytes={}, maxModelBytes=100000, strategy=truncate]",
