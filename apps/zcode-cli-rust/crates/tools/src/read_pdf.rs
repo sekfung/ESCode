@@ -77,7 +77,7 @@ pub(crate) fn pages_validation(path: &str, pages: Option<&str>) -> Option<String
 }
 
 /// TS ToolHandlerFailure：以 `<tool_use_error>` 包裹后回给模型。
-fn failure(message: String) -> crate::contract::ToolOutput {
+pub(crate) fn failure(message: String) -> crate::contract::ToolOutput {
     let mut output =
         crate::contract::ToolOutput::text(format!("<tool_use_error>{message}</tool_use_error>"));
     output.failed = true;

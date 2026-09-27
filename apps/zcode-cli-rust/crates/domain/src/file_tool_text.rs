@@ -83,6 +83,28 @@ fn levenshtein(left: &str, right: &str) -> usize {
     previous[right.len()]
 }
 
+/// TS `validateReadPathSemantics`：阻塞设备与不支持的二进制扩展名先于任何文件访问拒绝
+/// （docs/specs/rust-file-tool-results.md「Read 入参语义检查」；之前 Rust 先查存在性，文案不同）。
+pub fn read_path_refusal(file_path: &str) -> Option<String> {
+    const DEVICES: [&str; 12] = [
+        "/dev/console", "/dev/fd/0", "/dev/fd/1", "/dev/fd/2", "/dev/full", "/dev/random",
+        "/dev/stderr", "/dev/stdin", "/dev/stdout", "/dev/tty", "/dev/urandom", "/dev/zero",
+    ];
+    const BINARY: [&str; 19] = [
+        ".7z", ".a", ".bin", ".bz2", ".class", ".dll", ".dmg", ".dylib", ".exe", ".gz", ".jar", ".o",
+        ".pyc", ".rar", ".so", ".tar", ".tgz", ".wasm", ".zip",
+    ];
+    let lower = file_path.to_lowercase();
+    if DEVICES.contains(&lower.as_str()) {
+        return Some(format!("Cannot read '{file_path}': this device file would block or produce infinite output."));
+    }
+    let basename = lower.rsplit(['/', '\\']).next().unwrap_or_default();
+    let extension = basename.rfind('.').filter(|&i| i > 0).map(|i| &basename[i..])?;
+    BINARY.contains(&extension).then(|| {
+        format!("This tool cannot read binary files. The file appears to be a binary {extension} file. Please use appropriate tools for binary file analysis.")
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +130,14 @@ mod tests {
         assert!(write_success("a.txt", false).starts_with("The file a.txt has been updated successfully. ("));
         assert!(edit_success("a.txt", true).starts_with("The file a.txt has been updated. All occurrences were successfully replaced. ("));
         assert_eq!(missing_file("/w", Some("b.txt")), "File does not exist. Note: your current working directory is /w. Did you mean b.txt?");
+    }
+
+    #[test]
+    fn read_path_refusal_matches_ts() {
+        assert!(read_path_refusal("/dev/ZERO").unwrap().starts_with("Cannot read '/dev/ZERO': this device"));
+        assert!(read_path_refusal("C:\\x\\App.EXE").unwrap().contains("binary .exe file"));
+        assert!(read_path_refusal("dir.zip/a.txt").is_none());
+        assert!(read_path_refusal(".zip").is_none());
+        assert!(read_path_refusal("a.txt").is_none());
     }
 }

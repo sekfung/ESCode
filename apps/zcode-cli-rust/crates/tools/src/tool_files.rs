@@ -43,6 +43,12 @@ impl FileTools<'_> {
                     &["file_path", "offset", "limit"]
                 },
             )?;
+            // TS superRefine 先于文件访问：PDF 页码，再阻塞设备与二进制扩展名。
+            let raw = string(args, "file_path")?;
+            let pages = super::read_pdf::pages_validation(raw, args["pages"].as_str());
+            if let Some(message) = pages.or_else(|| crate::domain::file_tool_text::read_path_refusal(raw)) {
+                return Ok(super::read_pdf::failure(message));
+            }
             return self.read(&path, args, cancel).await;
         }
         keys(

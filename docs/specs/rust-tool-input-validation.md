@@ -70,4 +70,10 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
   - TaskOutput `block` 的 "true"/"false"；
   - Skill 旧写法 `{name, args}` 转 `{skill, args}`。
   - 转换先于丢弃未知键与 JSON 校验，执行使用转换后的参数；只用于内置工具。差分见 builtin-results。
-- 已知未覆盖：只在 runtime schema 中存在的细化约束（refine）。这类情况下 Rust 仍用工具自身的错误文案。
+- 只在 runtime schema 中存在的细化约束（refine），2026-09-27 差分逐项对齐：
+  - Cron：handler 抛出的 ZodError 文案，见 rust-cron.md「refine 文案」；
+  - AskUserQuestion：交互 broker 拒绝，见 rust-user-questions.md「入参 refine 失败」；
+  - ExitPlanMode：非 plan 模式的策略拒绝先于入参，见 rust-permission-modes.md；
+  - WebSearch：先判模型能力，refine 的 TS 缺陷见 rust-websearch.md；
+  - Read：`pages` 按 runtime schema 视为已知键（见上文）。
+  - 未逐项差分的：工作流类工具（Rust 未实现）与 Read 的 `validateReadInputSemantics`（PDF pages 语义）。

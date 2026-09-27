@@ -44,6 +44,9 @@ const CALLS: [string, unknown][] = [
   ["WebFetch", { url: "not a url", prompt: "x" }],
   // runtime schema 认识 `pages`，定义里没有（fixture 模型不支持 PDF）：不丢弃，报多余参数。
   ["Read", { file_path: "existing.txt", pages: "1-2" }],
+  // Read 的语义检查先于文件访问：阻塞设备、二进制扩展名（文件不存在也先报这些）。
+  ["Read", { file_path: "/dev/zero" }],
+  ["Read", { file_path: "missing.EXE" }],
   // 策略拒绝发 TS reason 原文，而不是用户拒绝文案。
   ["ExitPlanMode", { plan: "p" }],
   // 只违反 refine：全部失败 issue 的 ZodError 文案。

@@ -68,3 +68,15 @@
 
 - 单测：相近文件名规则；成功文案的四种变体。
 - App 差分：探测脚本中的 15 个 Read/Write/Edit 场景在两侧逐字一致（临时目录路径按占位比较）。
+
+## Read 入参语义检查（2026-09-27 差分）
+
+- TS `ReadInputSchema` 的 superRefine（`validateReadInputSemantics`）先于任何文件访问：
+  1. `pages` 为字符串且路径以 `.pdf` 结尾（不区分大小写）时，页码无效或超过单次上限即失败，不再做后续检查；
+  2. 小写后的路径属于阻塞设备（`/dev/zero`、`/dev/stdin`、`/dev/fd/0` 等 12 个）：
+     `Cannot read '<原路径>': this device file would block or produce infinite output.`；
+  3. 小写后的扩展名（取最后一段文件名中最后一个 `.` 起，文件名以 `.` 开头时视为无扩展名）属于不支持的二进制
+     （`.7z .a .bin .bz2 .class .dll .dmg .dylib .exe .gz .jar .o .pyc .rar .so .tar .tgz .wasm .zip`）：
+     `This tool cannot read binary files. The file appears to be a binary <ext> file. Please use appropriate tools for binary file analysis.`
+- 文案以 `<tool_use_error>` 包裹，行状态 error。
+- 差分发现：Rust 之前不做 2、3，先查文件是否存在（报"File does not exist"）；1 在大小检查之后才做。
