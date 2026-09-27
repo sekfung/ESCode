@@ -74,6 +74,72 @@ pub fn fill_defaults(value: &mut Json, schema: &Json) {
     }
 }
 
+/// TS runtime schema 的 preprocess/transform（zod 实测）：在 JSON 校验之前把常见的宽松写法转成声明类型。
+/// - Bash `timeout`：数字字符串转数字；Bash `run_in_background`/`dangerouslyDisableSandbox` 与 Edit `replace_all`：
+///   true/1/yes/y/on 与 false/0/no/n/off（不区分大小写）及数字 1/0 转布尔；
+/// - TaskOutput `block`：只认 "true"/"false"；
+/// - Skill：旧写法 `{name, args}`（无 `skill`）转为 `{skill, args}`。
+pub fn coerce(tool: &str, value: &Json) -> Json {
+    let mut value = value.clone();
+    let Json::Object(entries) = &mut value else {
+        return value;
+    };
+    let mut apply = |key: &str, f: fn(&Json) -> Option<Json>| {
+        if let Some((_, field)) = entries.iter_mut().find(|(k, _)| k == key)
+            && let Some(converted) = f(field)
+        {
+            *field = converted;
+        }
+    };
+    match tool {
+        "Bash" => {
+            apply("timeout", semantic_number);
+            apply("run_in_background", semantic_boolean);
+            apply("dangerouslyDisableSandbox", semantic_boolean);
+        }
+        "Edit" => apply("replace_all", semantic_boolean),
+        "TaskOutput" => apply("block", |v| match v.as_str() {
+            Some("true") => Some(Json::Bool(true)),
+            Some("false") => Some(Json::Bool(false)),
+            _ => None,
+        }),
+        "Skill" if !entries.iter().any(|(k, _)| k == "skill") => {
+            let name = entries.iter().find(|(k, _)| k == "name").and_then(|(_, v)| v.as_str()).filter(|n| !n.is_empty());
+            if let Some(name) = name.map(str::to_owned) {
+                let args = entries.iter().find(|(k, _)| k == "args").map(|(_, v)| v.clone());
+                entries.clear();
+                if let Some(args) = args {
+                    entries.push(("args".into(), args));
+                }
+                entries.push(("skill".into(), Json::String(name)));
+            }
+        }
+        _ => {}
+    }
+    value
+}
+
+/// TS `semanticNumber`：去空白后非空、`Number()` 为有限数时转换。
+fn semantic_number(value: &Json) -> Option<Json> {
+    let trimmed = value.as_str()?.trim();
+    let parsed: f64 = trimmed.parse().ok().filter(|n: &f64| n.is_finite() && !trimmed.is_empty())?;
+    serde_json::Number::from_f64(parsed).map(Json::Number)
+}
+
+/// TS Bash/Edit 的 `semanticBoolean`。
+fn semantic_boolean(value: &Json) -> Option<Json> {
+    match value {
+        Json::Number(n) if n.as_f64() == Some(1.0) => Some(Json::Bool(true)),
+        Json::Number(n) if n.as_f64() == Some(0.0) => Some(Json::Bool(false)),
+        Json::String(text) => match text.trim().to_lowercase().as_str() {
+            "true" | "1" | "yes" | "y" | "on" => Some(Json::Bool(true)),
+            "false" | "0" | "no" | "n" | "off" => Some(Json::Bool(false)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +154,20 @@ mod tests {
         assert_eq!(strip("Read", &input, &read).compact(), r#"{"file_path":"a"}"#);
         assert_eq!(strip("Bash", &input, &read), input);
         assert_eq!(strip("Read", &input, &Json::parse(r#"{"type":"object"}"#).unwrap()), input);
+    }
+
+    #[test]
+    fn coerces_like_ts_runtime_schemas() {
+        let bash = Json::parse(r#"{"command":"x","timeout":" 5000 ","run_in_background":"Yes","dangerouslyDisableSandbox":0}"#).unwrap();
+        assert_eq!(coerce("Bash", &bash).compact(), r#"{"command":"x","timeout":5000,"run_in_background":true,"dangerouslyDisableSandbox":false}"#);
+        let bad = Json::parse(r#"{"command":"x","timeout":"abc","run_in_background":"maybe"}"#).unwrap();
+        assert_eq!(coerce("Bash", &bad), bad);
+        let task = Json::parse(r#"{"task_id":"t","block":"false"}"#).unwrap();
+        assert_eq!(coerce("TaskOutput", &task).compact(), r#"{"task_id":"t","block":false}"#);
+        let legacy = Json::parse(r#"{"name":"pdf","args":"x"}"#).unwrap();
+        assert_eq!(coerce("Skill", &legacy).compact(), r#"{"args":"x","skill":"pdf"}"#);
+        let current = Json::parse(r#"{"skill":"pdf","name":"ignored"}"#).unwrap();
+        assert_eq!(coerce("Skill", &current), current);
     }
 
     #[test]

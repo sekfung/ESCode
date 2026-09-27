@@ -42,6 +42,11 @@ const CALLS: [string, unknown][] = [
   ["TaskStop", { task_id: "nope" }],
   ["Skill", { skill: "does-not-exist" }],
   ["WebFetch", { url: "not a url", prompt: "x" }],
+  // TS runtime schema 的宽松写法（preprocess/transform）：转换后执行，与 Node 相同。
+  ["Bash", { command: "echo coerced", timeout: " 5000 ", run_in_background: "No" }],
+  ["TaskOutput", { task_id: "nope", block: "false" }],
+  ["Skill", { name: "does-not-exist" }],
+  ["Edit", { file_path: "existing.txt", old_string: "two", new_string: "2", replace_all: "yes" }],
 ];
 
 async function observe(kind: "node" | "rust") {

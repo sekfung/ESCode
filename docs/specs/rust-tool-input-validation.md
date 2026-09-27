@@ -57,10 +57,14 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
   - 默认值：内置工具缺失且 schema 声明了 `default` 的属性，先按默认值补齐再校验（TS zod `.default()`；
     问题投影也不报有默认值的缺失属性）。例如 AskUserQuestion 的 `multiSelect` 标为必填、默认 false。
     MCP 工具不补。
-  - 属性顺序：内置工具 schema（`tool_schemas.json`）按声明顺序登记到 `host::schema_order`，
-    校验问题顺序与发给模型的定义都与 Node 一致，经 `ToolPort::ordered_schema` 查询。
+  - 属性顺序：内置工具 schema（`tool_schemas.json`）按声明顺序登记到 `domain::schema_order`（内容寻址缓存），
+    校验时用 `schema_order::ordered` 取声明顺序，问题顺序与发给模型的定义都与 Node 一致。
   - 定义中没有该工具时（如 ToolSearch 尚未加载的延迟工具）不校验。
-- 已知未覆盖：
-  - zod 的类型转换；
-  - 只在 runtime schema 中存在的细化约束（refine）。
-  - 这两类情况下 Rust 仍用工具自身的错误文案。
+- 宽松写法（TS runtime schema 的 preprocess/transform，按 contracts 源码逐项移植）：
+  - Bash `timeout` 的数字字符串转数字；
+  - Bash `run_in_background`/`dangerouslyDisableSandbox` 与 Edit `replace_all` 的
+    true/1/yes/y/on、false/0/no/n/off（及数字 1/0）转布尔；
+  - TaskOutput `block` 的 "true"/"false"；
+  - Skill 旧写法 `{name, args}` 转 `{skill, args}`。
+  - 转换先于丢弃未知键与 JSON 校验，执行使用转换后的参数；只用于内置工具。差分见 builtin-results。
+- 已知未覆盖：只在 runtime schema 中存在的细化约束（refine）。这类情况下 Rust 仍用工具自身的错误文案。

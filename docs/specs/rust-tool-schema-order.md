@@ -21,7 +21,7 @@ JSON 语义相同，但属性顺序对模型可见。用户决定：只修工具
 2. 登记：
    - 按内容寻址登记：键为该 schema 经 `serde_json` 排序后的紧凑文本，值为按原文顺序、JS `JSON.stringify` 规则的紧凑文本；
    - 相同内容重复登记幂等。
-   - 所有者：`host::schema_order`（进程级缓存，只存 schema 文本，无会话语义）。
+   - 所有者：`domain::schema_order`（进程级缓存，只存 schema 文本，无会话语义，无 IO）。
 3. 编码：
    - 模型请求体序列化时（`provider.rs` 唯一编码点），逐个工具取其 schema：
      - chat 为 `function.parameters`；

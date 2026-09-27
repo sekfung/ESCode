@@ -211,7 +211,9 @@ fn checked_input(definitions: &[Value], name: &str, call: &Value) -> Result<Opti
         }
         value
     };
-    let stripped = strip(name, &args, &schema);
+    // TS runtime schema 的 preprocess/transform 先于丢弃未知键与 JSON 校验；执行也用转换后的参数。
+    let coerced = if builtin { crate::domain::tool_input_strip::coerce(name, &args) } else { args.clone() };
+    let stripped = strip(name, &coerced, &schema);
     if !validation::validate(&normalize(&stripped), &schema).is_empty() {
         let issues = validation::validate(&normalize(&args), &schema);
         if !issues.is_empty() {
