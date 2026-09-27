@@ -77,6 +77,9 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   - builtin-results 的 Edit 用例：Node 在执行过 Bash 之后丢失读取状态（见 rust-bash-model-content.md 实测记录），
     已把依赖读取状态的用例排在 Bash 之前。
 
+- 36317829803（提交 ff32f5d，Windows）：Bash 正文差分中 Node 一侧多记录一条结果（11 对 10）。
+  原因：后台任务完成后多出一次模型请求，fixture 按请求追加记录。已改为按结果序号记录。
+
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
 - 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。

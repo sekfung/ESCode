@@ -45,7 +45,8 @@ async function observe(kind: "node" | "rust") {
   const respond = (req: any, res: any) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
     const results = req.messages.filter((m: any) => m.role === "tool");
-    if (results.length) seen.push(normalize(String(results.at(-1).content)));
+    // 按结果序号记录：后台任务完成后可能多一次模型请求（Windows CI 较慢时出现），重复记录会多出一条。
+    if (results.length) seen[results.length - 1] = normalize(String(results.at(-1).content));
     const next = CALLS[results.length];
     if (next) {
       event(res, {
