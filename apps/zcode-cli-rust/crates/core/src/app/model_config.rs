@@ -190,6 +190,10 @@ impl Engine {
     }
     pub(super) fn notify_selection(&self, id: &str) -> Result<()> {
         if let Some(active) = self.active.get(id) {
+            // 执行作用域的本轮模型不能被同轮 guide 改写（TS modelSelectionScope "execution"）。
+            if self.live_execution(id, &active.run_id).is_some() {
+                return Ok(());
+            }
             active.selection.send_replace(self.session_selection(id)?);
         }
         Ok(())

@@ -83,8 +83,12 @@ impl Engine {
         if p.get("offPeakRunType").is_some() && p.get("offPeakTaskId").is_none() {
             bail!("offPeakRunType requires offPeakTaskId");
         }
-        if p.get("modelExecution").is_some() {
-            bail!("Unsupported input field: modelExecution");
+        // 单次执行约束（docs/specs/rust-offpeak.md 第三期）：strict 形态，且需要同时给出 modelSelection。
+        if let Some(execution) = p.get("modelExecution") {
+            crate::domain::model_execution::parse(execution).map_err(anyhow::Error::msg)?;
+            if p.get("modelSelection").is_none_or(Value::is_null) {
+                bail!("modelExecution requires modelSelection");
+            }
         }
         // 协议 zcodeBrowserAmbientContextSchema（strict）：tabCount 为 1..=100 的整数，currentUrl 非空且 ≤4096。
         if let Some(ambient) = p.get("browserAmbientContext") {

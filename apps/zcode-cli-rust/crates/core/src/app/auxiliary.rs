@@ -102,6 +102,11 @@ impl Engine {
         }
         match event.event {
             Event::ToolCleanupFailed(message) => anyhow::bail!("{message}"),
+            // off-peak 账号模型只认单次执行凭据；辅助作业没有执行材料，直接鉴权失败，不向 Host 请求 header
+            // （TS ModelRequestAuthMissing，docs/specs/rust-offpeak.md 第三期）。
+            Event::RequestAuth { access, reply, .. } if access["mode"] == "off-peak" => {
+                let _ = reply.send(json!({"headersApplied": false}));
+            }
             Event::RequestAuth {
                 provider,
                 selection,

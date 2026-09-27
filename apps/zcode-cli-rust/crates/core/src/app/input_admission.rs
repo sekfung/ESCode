@@ -81,7 +81,11 @@ impl Engine {
         {
             content = crate::domain::prompt::user_steer(text).into();
         }
-        self.apply_selection(id, selected)?;
+        // 执行作用域的选择只属于本轮，不写入会话模型（TS selectionScope "execution"，rust-offpeak.md 第三期）。
+        let execution = c.payload.get("modelExecution").map(crate::domain::model_execution::parse).transpose().map_err(anyhow::Error::msg)?;
+        if execution.is_none() {
+            self.apply_selection(id, selected)?;
+        }
         let s = self.sessions.get_mut(id).context("Session unavailable")?;
         // 输入携带的协作模式即会话模式（TS resolveExecutionState）；缺省保持会话现值。
         if let Some(mode) = c.payload["mode"]
@@ -266,6 +270,11 @@ impl Engine {
         if let Some(id) = &off_peak {
             payload["offPeakTaskId"] = id.clone().into();
         }
+        // 凭据只在内存：payload（会持久化）去掉 modelExecution，只留无秘密的标记。
+        if let Some(execution) = &execution {
+            payload.as_object_mut().unwrap().remove("modelExecution");
+            payload[super::model_execution::MARKER] = serde_json::json!({"skipMemory": execution.skip_memory, "subagents": execution.subagents});
+        }
         if !disallowed.is_empty() {
             payload["toolDisallowlist"] = disallowed.into();
         }
@@ -281,6 +290,9 @@ impl Engine {
                 kind: c.kind.clone(),
                 payload,
             });
+        if let Some(execution) = execution {
+            self.stash_execution(&turn, execution);
+        }
         Ok((run_turn, input))
     }
     /// 本次输入产生的行（从输入所在轮的 header 起）；`/goal` 的 query 轮与续跑轮一并发布。

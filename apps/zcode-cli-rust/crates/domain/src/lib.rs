@@ -22,6 +22,7 @@ pub mod builtin_prompt_command;
 pub mod context;
 pub mod cron;
 pub mod off_peak;
+pub mod model_execution;
 mod cron_input;
 pub mod custom_command;
 mod custom_command_template;

@@ -31,6 +31,10 @@ import { TaskStopInputJsonSchema } from "../../../apps/zcode-cli/packages/contra
 import { AskUserQuestionInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/ask-user-question.js";
 import { SkillInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/skill.js";
 import {
+  OffPeakCreateInputJsonSchema,
+  OffPeakListInputJsonSchema,
+} from "../../../apps/zcode-cli/packages/contracts/src/tools/off-peak.js";
+import {
   EnterPlanModeInputJsonSchema,
   ExitPlanModeInputJsonSchema,
 } from "../../../apps/zcode-cli/packages/contracts/src/tools/plan-mode.js";
@@ -216,6 +220,9 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       CronList: CronListInputJsonSchema,
       CronUpdate: CronUpdateInputJsonSchema,
       CronDelete: CronDeleteInputJsonSchema,
+      // 闲时任务工具（docs/specs/rust-offpeak.md）。
+      OffPeakCreate: OffPeakCreateInputJsonSchema,
+      OffPeakList: OffPeakListInputJsonSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),

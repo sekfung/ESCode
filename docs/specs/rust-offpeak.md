@@ -74,6 +74,14 @@ sequenceDiagram
 - `memoryExtraction: "skip"`：本轮结束不触发记忆提取。
 - `subagents`：前台子代理沿用本轮提交的模型（含凭据）；后台子代理拒绝。
 
+- 实现要点（2026-09-28）：
+  - admission 把凭据按 turn 暂存在 Engine 内存，payload（会持久化）只留无秘密标记 `_modelExecution {skipMemory, subagents}`；
+    运行开始按 (会话, run) 取出；进程重启后凭据不在，off-peak 模型该轮鉴权失败（与 TS 缺失凭据同义）。
+  - 辅助作业（标题、记忆等）没有执行材料：off-peak 模型直接鉴权失败，不向 Host 请求 header（差分：两侧都不请求）。
+  - 执行作用域的本轮模型不被同轮 guide 改写。
+  - 会话忙时收到 modelExecution 输入：TS core admission 拒绝（不排队、不 steer）；Rust 以 rejected ACK
+    （`guard.turnNotSteerable`）回复。V4 层对应的 ACK 原因码尚未差分确认。
+
 ## 验收
 
 - TS oracle 语料：真实 handler + 协议端口 + 脚本化 Host（与 cron 语料同法），覆盖成功、各失败分类、绑定、递归、fail-closed。

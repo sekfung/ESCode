@@ -25,6 +25,7 @@ mod context_projection;
 mod create_session;
 mod cron_tool;
 mod off_peak;
+mod model_execution;
 mod maintenance;
 mod queue_control;
 

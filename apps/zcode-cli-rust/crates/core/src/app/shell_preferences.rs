@@ -21,6 +21,8 @@ pub(super) struct ShellPreferences {
     pub(super) off_peak_policy: bool,
     /// 各会话固化的 OffPeak 工具面开关。
     pub(super) off_peak: BTreeMap<String, bool>,
+    /// 单次执行作用域材料（modelExecution，只在内存）。
+    pub(super) executions: super::model_execution::Executions,
 }
 
 impl Engine {

@@ -69,14 +69,24 @@ impl Engine {
             ensure!(depth <= 4, "Subagent depth limit reached");
             ancestor = self.sessions.get(id).and_then(|s| s.parent_id.as_deref());
         }
-        let selection = self.select(
-            &profile
-                .model_selection
-                .as_ref()
-                .map(|s| json!({"modelSelection":s}))
-                .unwrap_or(json!({})),
-            selection.or(Some(self.session_selection(parent)?)),
-        )?;
+        // 执行作用域的子代理策略（TS subagentModelOverride）：后台拒绝；前台沿用本轮提交的模型与凭据。
+        let parent_run = self.active.get(parent).map(|a| a.run_id.clone()).unwrap_or_default();
+        let execution = self.live_execution(parent, &parent_run).filter(|l| l.execution.subagents).cloned();
+        if execution.is_some() && (args["run_in_background"] == true || profile.background) {
+            anyhow::bail!("Idle-time tasks do not support background agents. Run this agent in the foreground.");
+        }
+        // TS：执行作用域的 override 优先于 profile 自带模型与父模型继承。
+        let selection = match execution {
+            Some(live) => live.selection,
+            None => self.select(
+                &profile
+                    .model_selection
+                    .as_ref()
+                    .map(|s| json!({"modelSelection":s}))
+                    .unwrap_or(json!({})),
+                selection.or(Some(self.session_selection(parent)?)),
+            )?,
+        };
         let now = self.clock.now();
         let agent = format!("agent_{}", self.clock.id());
         let child = format!("subagent_{agent}");
@@ -92,6 +102,7 @@ impl Engine {
             now,
         );
         session.parent_id = Some(parent.into());
+        self.inherit_execution(parent, &child);
         // TS 会话创建即分配 traceID，session/list 据此关联遥测。
         session.trace_id = Some(self.clock.id());
         session.task_type = "subagent_child".into();

@@ -72,7 +72,18 @@ impl Engine {
             Event::MemoryResolved(memory) => {
                 self.memory_prompts.insert(id.to_owned(), memory);
             }
+            // 执行作用域 memoryExtraction "skip"：本轮不触发项目记忆提取（rust-offpeak.md 第三期）。
+            Event::MemoryExtract(_)
+                if self.live_execution(id, run_id).is_some_and(|l| l.execution.skip_memory) => {}
             Event::MemoryExtract(snapshot) => self.schedule_memory(id, *snapshot),
+            // off-peak 账号模型只用本轮执行凭据，不向 Host 请求 header；缺失即鉴权失败（TS ModelRequestAuthMissing）。
+            Event::RequestAuth { access, reply, .. } if access["mode"] == "off-peak" => {
+                let auth = self.live_execution(id, run_id).and_then(|l| l.execution.request_auth.clone());
+                let _ = reply.send(match auth {
+                    Some(auth) => json!({"headersApplied": true, "requestAuth": auth}),
+                    None => json!({"headersApplied": false}),
+                });
+            }
             Event::RequestAuth {
                 provider,
                 selection,

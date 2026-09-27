@@ -6,7 +6,12 @@ export async function configureRegistry(
   f: Awaited<ReturnType<typeof fixture>>,
   account = false,
   /** 个人 provider 的 API 类型与模型属性（如 inputFormat），供媒体/协议差分使用。 */
-  options: { apiType?: string; properties?: Record<string, unknown> } = {},
+  options: {
+    apiType?: string;
+    properties?: Record<string, unknown>;
+    /** 账号 provider 的访问模式（off-peak 模型只用单次执行凭据，docs/specs/rust-offpeak.md 第三期）。 */
+    accountMode?: string;
+  } = {},
 ) {
   const builtin = JSON.parse(await readFile(resolve("config/provider/zcode-builtin.json"), "utf8"));
   builtin.config.providerConfigRules.providerRules = account
@@ -16,7 +21,11 @@ export async function configureRegistry(
           config: {
             group: "zai-family",
             api: { type: "openai-chat-completions", baseUrl: f.baseUrl },
-            access: { type: "zhipu-account", accountType: "zai", mode: "individual-coding-plan" },
+            access: {
+              type: "zhipu-account",
+              accountType: "zai",
+              mode: options.accountMode ?? "individual-coding-plan",
+            },
             builtinModelIds: ["model-a"],
           },
         },

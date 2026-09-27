@@ -43,6 +43,11 @@ impl Engine {
                 }
             }
         };
+        // TS prompt-admission：带 modelExecution 的输入只在空闲时开新轮，忙时拒绝（不排队、不 steer），
+        // 单次执行凭据不能进入队列（docs/specs/rust-offpeak.md 第三期）。
+        if s.running() && c.payload.get("modelExecution").is_some() {
+            return Ok(c.ack("rejected", s.revision, Some("guard.turnNotSteerable")));
+        }
         let start_now = s.running() && c.payload["requestedDelivery"] == "startNow";
         if start_now && s.queued_now.is_some() {
             return Ok(c.ack("rejected", s.revision, Some("guard.queuePromotionBusy")));

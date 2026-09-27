@@ -7,7 +7,17 @@ use tokio_util::sync::CancellationToken;
 impl Engine {
     pub(super) fn start_run(&mut self, id: &str, turn_id: String) -> Result<()> {
         let turn_id_for_facts = turn_id.clone();
-        let identity = self.session_selection(id)?;
+        let payload = self
+            .sessions
+            .get(id)
+            .and_then(|s| s.history.inputs.iter().rev().find(|i| i.turn == turn_id).map(|i| i.payload.clone()))
+            .unwrap_or_default();
+        // 执行作用域：本轮模型取输入的 modelSelection，不读写会话选择（docs/specs/rust-offpeak.md 第三期）。
+        let identity = if payload.get(super::model_execution::MARKER).is_some() {
+            self.select(&payload, Some(self.session_selection(id)?))?
+        } else {
+            self.session_selection(id)?
+        };
         let (selection, updates) = tokio::sync::watch::channel(identity.clone());
         let model: Arc<dyn ModelPort> = if let Some(registry) = &self.registry {
             registry.resolve(&identity)?;
@@ -23,6 +33,8 @@ impl Engine {
         let session = self.sessions.get_mut(id).context("Session unavailable")?;
         let estimated = session.active_context_tokens();
         let run_id = session.run_id.clone().context("Run reservation required")?;
+        self.begin_execution(id, &run_id, &turn_id_for_facts, &payload, &identity);
+        let session = self.sessions.get_mut(id).context("Session unavailable")?;
         let cancel = CancellationToken::new();
         self.active.insert(
             id.into(),
