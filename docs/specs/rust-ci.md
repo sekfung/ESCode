@@ -71,6 +71,12 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   - 处理：这些每例多次冷启动 Node/Shell 的差分改为 30s 等待上限（与其他多步差分一致）。
     同批 macOS/Linux 全部通过。
 
+- 36309417875（提交 14a0d0b，Windows）：
+  - 标题差分中是 Node 一侧未生成标题（回落为用户原文，`node.longMeta.title` 断言失败），Rust 未参与判定；
+    上一运行同一用例通过，按 Node 侧偶发处理。
+  - builtin-results 的 Edit 用例：Node 在执行过 Bash 之后丢失读取状态（见 rust-bash-model-content.md 实测记录），
+    已把依赖读取状态的用例排在 Bash 之前。
+
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
 - 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。

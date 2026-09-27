@@ -104,5 +104,8 @@ Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每
   即回填未生效；Rust 正常回填并完成 Edit。同一用例在本机 Windows 与 Linux/macOS CI 上 Node 都生效。
 - runner 的临时目录为 8.3 短名（`C:\Users\RUNNER~1\...`）。推测是 TS 的读取状态键在短名与长名之间不一致，
   但未取得 Node 侧日志，原因**未确认**。
+- CI run 36309417875 再次观测到：只要执行过一次 Bash，Node 之后对先前已读文件的 Edit 就报「File has not been read yet」。
+  本机验证：App 模式下 Node 不会因 Bash `cd` 改变文件工具的工作目录。因此「Bash 后工作目录变为长名路径」的推测不成立，
+  原因仍未确认。
 - Rust 按 realpath 记录读取状态，不受短名影响，不复制这一环境相关的失败。差分在短名临时目录下跳过，
   待确认原因后再决定是否需要处理。

@@ -43,10 +43,12 @@ const CALLS: [string, unknown][] = [
   ["Skill", { skill: "does-not-exist" }],
   ["WebFetch", { url: "not a url", prompt: "x" }],
   // TS runtime schema 的宽松写法（preprocess/transform）：转换后执行，与 Node 相同。
-  ["Bash", { command: "echo coerced", timeout: " 5000 ", run_in_background: "No" }],
+  // 依赖读取状态的 Edit 放在 Bash 之前：Windows CI（8.3 短名临时目录）上 Node 在 Bash 之后会丢失读取状态
+  // （原因未确认，见 rust-bash-model-content.md 实测记录）。
+  ["Edit", { file_path: "existing.txt", old_string: "two", new_string: "2", replace_all: "yes" }],
   ["TaskOutput", { task_id: "nope", block: "false" }],
   ["Skill", { name: "does-not-exist" }],
-  ["Edit", { file_path: "existing.txt", old_string: "two", new_string: "2", replace_all: "yes" }],
+  ["Bash", { command: "echo coerced", timeout: " 5000 ", run_in_background: "No" }],
 ];
 
 async function observe(kind: "node" | "rust") {
