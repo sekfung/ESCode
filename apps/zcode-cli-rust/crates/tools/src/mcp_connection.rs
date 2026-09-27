@@ -161,18 +161,20 @@ impl Connection {
                     }
                 }
                 let http = http.context("HTTP client missing")?;
+                // SSE 事件原文交给捕获表，保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
+                use super::mcp_http_capture::Capture;
                 let service = match (auth.clone(), official.clone()) {
                     (_, Some(official)) => {
                         let official_client = super::mcp_official_client::OfficialClient::new(http, official);
-                        let transport = StreamableHttpClientTransport::with_client(official_client, options);
+                        let transport = StreamableHttpClientTransport::with_client(Capture::new(official_client, raw.clone()), options);
                         serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
                     }
                     (Some(auth), None) => {
-                        let transport = StreamableHttpClientTransport::with_client(auth, options);
+                        let transport = StreamableHttpClientTransport::with_client(Capture::new(auth, raw.clone()), options);
                         serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
                     }
                     (None, None) => {
-                        let transport = StreamableHttpClientTransport::with_client(http, options);
+                        let transport = StreamableHttpClientTransport::with_client(Capture::new(http, raw.clone()), options);
                         serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
                     }
                 };

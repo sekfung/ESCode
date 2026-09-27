@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
-// docs/specs/rust-tool-schema-order.md：stdio 与 SSE MCP 工具的 inputSchema 按声明顺序发给模型（Node 保留原文顺序；
+// docs/specs/rust-tool-schema-order.md：stdio、SSE 与 streamable HTTP MCP 工具的 inputSchema 按声明顺序发给模型（Node 保留原文顺序；
 // Rust 之前经 rmcp 与 serde_json 排序）。fixture 用 JSON.parse 读取请求体，保留线上键顺序。
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 const schema = {
@@ -70,7 +70,47 @@ async function sseServer(rawSchema: string) {
   };
 }
 
-async function observe(kind: "node" | "rust", transport: "stdio" | "sse") {
+/** 最小 streamable HTTP MCP server：POST 以 SSE 应答（TS SDK 默认方式），tools/list 逐字写出 schema 原文。 */
+async function httpServer(rawSchema: string) {
+  const server = createServer(async (req, res) => {
+    if (req.method !== "POST") return void res.writeHead(405).end();
+    let body = "";
+    for await (const part of req) body += part;
+    const m = JSON.parse(body);
+    if (m.id === undefined) return void res.writeHead(202).end();
+    const payload =
+      m.method === "tools/list"
+        ? `{"jsonrpc":"2.0","id":${JSON.stringify(m.id)},"result":{"tools":[{"name":"run","description":"Run","inputSchema":${rawSchema}}]}}`
+        : JSON.stringify(
+            m.method === "initialize"
+              ? {
+                  jsonrpc: "2.0",
+                  id: m.id,
+                  result: {
+                    protocolVersion: "2025-11-25",
+                    serverInfo: { name: "ordered", version: "1" },
+                    capabilities: { tools: {} },
+                  },
+                }
+              : { jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "no" } },
+          );
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Mcp-Session-Id": "s1" });
+    res.end(`event: message\ndata: ${payload}\n\n`);
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No fixture port");
+  return {
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    async close() {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+async function observe(kind: "node" | "rust", transport: "stdio" | "sse" | "http") {
   let parameters = "";
   const respond = (req: any, res: any) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -106,10 +146,15 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 });
 `,
     );
-    const sse = transport === "sse" ? await sseServer(rawSchema) : undefined;
+    const sse =
+      transport === "sse"
+        ? await sseServer(rawSchema)
+        : transport === "http"
+          ? await httpServer(rawSchema)
+          : undefined;
     const h = f.start();
     const mcpServers = sse
-      ? [{ name: "ordered", type: "sse", url: sse.url, headers: [] }]
+      ? [{ name: "ordered", type: transport, url: sse.url, headers: [] }]
       : [
           {
             name: "ordered",
@@ -135,7 +180,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   }
 }
 
-for (const transport of ["stdio", "sse"] as const) {
+for (const transport of ["stdio", "sse", "http"] as const) {
   test(`${transport} MCP tool schemas reach the model in declaration order as in Node`, async () => {
     const node = await observe("node", transport);
     const rust = await observe("rust", transport);

@@ -54,6 +54,24 @@ TS `resolveVersionNegotiationMode` 的规则：
   - SSE 的 `auto` 不发 `server/discover`；
   - 现有 MCP 用例不回归。
 
+## SSE 应答的 `server/discover` 错误（2026-09-27）
+
+schema 顺序差分发现：legacy streamable HTTP server 以 SSE（`text/event-stream`）应答 POST，
+对 `server/discover` 回 JSON-RPC 错误（如 -32601）时，两边的行为不同：
+
+- Node 把该错误判为 legacy，回落 `initialize`，连接正常；
+- rmcp 在启动阶段读 SSE 应答时（`expect_initialized`）只接受 `Response`，会跳过 `Error`，
+  随后以 "empty sse stream" 结束 worker。连接失败，该 server 的工具不出现。
+
+修复规则：
+
+- 所有 HTTP client 外面的统一包装层（`mcp_http_capture.rs`）处理 `server/discover` 的 SSE 应答：
+  读到第一条 `Response` 或 `Error` 即转为 JSON 应答交给 rmcp（保留 session id），由 rmcp 的 Auto 协商判为 legacy 后回落；
+- 其它请求的 SSE 应答不变；流结束仍未读到应答时，按 rmcp 原语义报 "empty sse stream"。
+
+验收：以 SSE 应答、对 `server/discover` 回 -32601 的 HTTP fixture，两侧都回落 `initialize` 并把工具发给模型
+（`zcode-cli-rust-tool-schema-order.test.ts` 的 http 用例）。
+
 ## 关闭语义（2026-09-26）
 
 - Node（SDK 2.0 `transport.close`）关闭 Streamable HTTP 连接时不终止会话，不发送 `DELETE`。
