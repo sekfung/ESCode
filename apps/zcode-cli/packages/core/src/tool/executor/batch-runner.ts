@@ -79,6 +79,9 @@ export async function* executeToolSchedule(
 
     const groupResults = await executeBatch(groupTools, {
       automationTurn: options?.automationTurn,
+      // 修复：这里原先漏转 offPeakTurn，handler 收到的值恒为 undefined，闲时派发轮的 handler 层守卫
+      // （OffPeakCreate / SendMessage 拒绝、Bash 禁止后台）从未生效（docs/specs/rust-offpeak.md 第二期）。
+      offPeakTurn: options?.offPeakTurn,
       signal: options?.signal,
       traceContext: options?.traceContext,
       subagentModelOverride: options?.subagentModelOverride,
