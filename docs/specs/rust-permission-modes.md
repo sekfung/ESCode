@@ -192,7 +192,17 @@ sequenceDiagram
 
 ### 未决项：策略拒绝的工具行投影（2026-09-30 差分发现）
 
-上例暴露出一条与本条无关的既有差异：**策略拒绝**（`check` 直接 deny，没有确认交互）时，Node 的工具行除了 `cancelled` 还写入 `error` 与 `output.text`（拒绝原因），Rust 的 `Session::finish_tool_row` 只收口为 `cancelled`、不写输出与错误。用户拒绝（走确认交互、`settlePermission`）两侧一致，即本文「被拒调用的行投影」的「不带工具输出/错误」只对交互拒绝成立。该差异影响所有模式级/规则级拒绝（父会话同样可复现），需要单独定 oracle 后修复；新差分用例只断言 `status`，不把现状固化成期望。
+上例暴露出一条约与本条无关的既有差异，范围比初判更窄。实测（同一组 fixture，`rowsRange` 逐行比对）：
+
+| 场景 | Node 行 | Rust 行 |
+| --- | --- | --- |
+| 子会话被 profile 切到 plan/auto 后写文件（子会话自身模式拒绝） | `cancelled` + `output.text`=拒绝原因 + `error{code:"fault.runtime.toolFailed", message:拒绝原因}` + `endedAt` | 仅 `cancelled` |
+| 父会话 plan 未开启时调用 ExitPlanMode（模式拒绝） | 仅 `cancelled` | 仅 `cancelled` |
+| 父会话 build 模式写文件后用户拒绝（交互拒绝） | 仅 `cancelled` | 仅 `cancelled` |
+
+即差异只出现在**子会话**里由子会话自身模式/规则产生的拒绝上，父会话的模式/规则拒绝与两侧的交互拒绝都一致（本文「被拒调用的行投影」只描述了后者）。Rust 的 `Session::finish_tool_row` 对 `denied` 一律不写 `output`/`error`/`endedAt`。
+
+暂不修改：Node 自身在两种模式拒绝间就不自洽（子会话记录结果、父会话不记录），要对齐必须先定清是哪条链路（子会话镜像/中断语义）负责补写，否则等于照抄一个未定事实。新差分用例只断言 `status` + 模型可见正文，不把现状固化成期望。
 
 ## 集成测试约定
 
