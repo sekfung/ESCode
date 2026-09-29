@@ -12,6 +12,8 @@
 - 脚本执行器：放在 `ScriptExecutor` 接口之后。第一个实现是 Node `vm` 沙箱子进程（与 TS 同一隔离模型；
   桌面端复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`，与现有 TS agent 相同）。
   远程/无界面环境需要可用的 node；之后可以换成内嵌 JS 引擎实现同一接口，彻底去掉 Node，其余部分不变。
+- 远程/无界面环境的 Node（2026-09-28 用户决定 B）：随 Rust 二进制附带 Node，只供工作流脚本执行器使用；
+  桌面端仍复用 Electron 内置 Node。发布与打包在第 5 期（执行器）一并落地。
 - 选择依据：用户目标是 Rust 作为 runtime 进程；执行器只是运行脚本的沙箱，同 Bash 运行命令。
 
 ## 现状清单（TS，约 5.7 万行，不含测试）

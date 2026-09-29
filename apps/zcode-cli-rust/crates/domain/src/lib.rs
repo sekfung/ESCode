@@ -23,6 +23,8 @@ pub mod context;
 pub mod cron;
 pub mod off_peak;
 pub mod model_execution;
+pub mod saved_workflow;
+pub mod yaml_emit;
 mod cron_input;
 pub mod custom_command;
 mod custom_command_template;

@@ -28,6 +28,8 @@ unsafe_op_in_unsafe_fn = "deny"
 anyhow = "1"
 async-trait = "0.1"
 base64 = "0.22"
+# 已保存工作流 frontmatter：与 TS `yaml` 同为 YAML 1.2 core schema（docs/specs/rust-dynamic-workflow.md 第 2 期）。
+saphyr = { version = "0.1", default-features = false }
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 httpdate = "1"
