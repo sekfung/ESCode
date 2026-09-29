@@ -45,5 +45,17 @@ sequenceDiagram
 - 已实现：`crates/tools/src/shell_select.rs`（解析与 spawn 参数）、`crates/core/src/app/shell_preferences.rs`（Engine 按会话请求一次 `session/requestRuntimePreferences{scope:"user-execution"}` 并缓存，并发首批 Bash 共用一个请求）、Bash 工具在启动 shell 前经 `Event::ShellPreference` 取偏好（15s 超时，同 `ZCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS`）。
 - 已知差异，待对齐：
   - TS 对 -32601/-32020 以外的错误和超时会让会话 runtime 创建失败；Rust 传输层把错误回包归一为 `Null`，统一回退自动探测。
-  - TS 子代理继承父会话的 shell 选择；Rust 子会话以自己的 sessionId 请求 Host，Host 不认识时回退自动探测。
   - TS 会把选择结果作为快照持久化（`source != user-config` 的恢复路径）；Rust 仅进程内缓存，冷恢复后重新请求。
+
+### 子代理继承父会话的 shell 选择（2026-09-30）
+
+TS `subagent.ts` 把父会话已解析的 `bashShellSelection` 直接传给子 runtime，子会话**不**以自己的
+sessionId 发 `session/requestRuntimePreferences{scope:"user-execution"}`。Rust 对齐：子会话沿
+`parent_id` 上溯到根会话，请求与缓存都记在根会话上（Rust 是首个 Bash 前懒解析，若子会话先跑 Bash
+就替根会话取一次；否则会退化成自动探测，拿到与 App 里显式选择不同的 shell）。上溯深度与子代理
+嵌套上限一致，父链异常时不会死循环。
+
+验收：App 差分 `packages/services/tests/zcode-cli-rust-subagent-shell.test.ts`——Host 指定 CMD 时，
+父会话发 `runtime-materialization` + `user-execution` 各一次，**子会话不再发请求**，且子会话的
+Bash 实际走 cmd（`ver` 输出 Windows 版本；不能用 `echo %OS%`，该变量在清洗后的子进程环境里为空，
+两种 shell 都会原样输出）。

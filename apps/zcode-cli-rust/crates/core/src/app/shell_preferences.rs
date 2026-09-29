@@ -54,8 +54,13 @@ impl Engine {
         session: &str,
         reply: oneshot::Sender<Option<Value>>,
     ) {
+        // TS 子代理继承父会话已解析的 shell 选择（subagent.ts 把父的 bashShellSelection 传给 child），
+        // 不再以自己的 sessionId 请求 user-execution。子会话沿 parent 链上溯到根会话，请求与缓存
+        // 都挂在根上：Rust 是首个 Bash 前懒解析，而 TS 在会话物化时就解析，所以子会话先跑 Bash 时
+        // 必须替根会话取一次，否则会退化成自动探测、与 App 里父会话的显式选择不一致。
+        let owner = self.shell_owner_session(session);
         self.request_runtime_preferences(
-            session,
+            &owner,
             "user-execution",
             Box::new(move |result| {
                 let value = result
@@ -65,6 +70,23 @@ impl Engine {
                 let _ = reply.send(value);
             }),
         );
+    }
+
+    /// `user-execution` 偏好的归属会话：子会话归其根会话（TS 的继承语义），主会话归自己。
+    fn shell_owner_session(&self, session: &str) -> String {
+        let mut current = session;
+        // 深度上限与子代理嵌套上限一致，父链异常时不至于死循环。
+        for _ in 0..8 {
+            match self
+                .sessions
+                .get(current)
+                .and_then(|s| s.parent_id.as_deref())
+            {
+                Some(parent) => current = parent,
+                None => break,
+            }
+        }
+        current.to_owned()
     }
 
     /// Host Memory Settings 总开关；缺省与旧 Host（错误回包归一为 Null）均为关闭（TS memoryEnabled 默认 false）。
