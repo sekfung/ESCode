@@ -38,6 +38,8 @@
 2. 已保存工作流：存储格式与解析/序列化（TS 只有一份，Rust 逐字对齐），`workflows/*` 管理方法，
    ListSavedWorkflows / SaveWorkflow。验收：TS 存储 oracle 语料 + App 差分。
 3. 静态分析与 lowering：以 TS 分析器为 oracle，逐阶段语料（诊断、lowered 输出、taint/causality 结论）逐字比对。
+   **前置待决**：诊断与类型结论来自 TypeScript **类型检查器**（见下节），不是"Rust JS 解析器"能对齐的；
+   本期的实现形态需要先在两条路线里选定（随二进制附带 Node 运行既有分析器，或自研 TS 兼容检查器）。
 4. 引擎、调度与 journal：run 状态机、actor、ask、结算与持久化；以 TS 引擎为 oracle 的事件序列语料。
 5. 执行器：`ScriptExecutor` 接口与 Node vm 子进程实现（子进程源由 TS 生成为资产），NDJSON 桥接与超时/取消/崩溃结算。
 6. 运行工具：CreateWorkflow、EvalWorkflowSnippet、ListWorkflowRuns、GetWorkflowRun、ResumeWorkflowRun、AmendWorkflow、ListModels；
@@ -49,6 +51,30 @@
 
 - 每期先有 TS oracle（真实 TS 模块 + 脚本化依赖）或 App 差分，再实现；不以 Rust 自测代替对齐。
 - 全部完成前 Rust 继续不宣告 `workflowRunDeltas`、不注册未实现的工具，不以空结果冒充完成。
+
+## 第 3 期前置：诊断与类型结论来自 TS 类型检查器（2026-09-30 复核）
+
+原始分期把第 3 期写成"JS 解析用 Rust 解析器"，复核源码后这条前提不成立：
+
+- `dynamic-workflow/src/compiler/compile.ts`：`createWorkflowProgram` 建的是 **TS Program**
+  （虚拟 host：包裹后的脚本文本 + facade `.d.ts` + 内嵌 stdlib `TS_LIBS`），
+  `collectDiagnostics = getSyntacticDiagnostics() + getSemanticDiagnostics()`，即**语义诊断**（类型检查），
+  且带自定义改写（如 TS1184 的 `declare`/`export` 文案）。
+- 分析层直接读**类型检查器**：`checker.` 出现在 facade-misuse(15)、artifact-types(7)、schema/emit(7)、
+  taint(5)、callbacks(4)、sites/state/assign/interpret 等；`getTypeAtLocation` 用于站点与产物类型判定。
+- 因此"诊断与 lowered 输出逐字对齐"要求复刻 TS 的语义检查与 `.d.ts` 环境（lib.es2022 + facade），
+  这是 Rust JS 解析器（oxc/swc 等）不提供的能力。
+
+两条路线（需要用户决定，因为这会改动"Rust 原生实现工作流"的边界）：
+
+1. **随二进制附带 Node 跑既有 TS 分析器**（推荐）：与第 5 期执行器同一条边界决定（2026-09-28 用户决定 B：
+   远程/无界面环境随二进制附带 Node，只供工作流脚本使用；桌面端复用 Electron 内置 Node）。Rust 侧仍是
+   runtime 进程与唯一的状态所有者，分析器/执行器是**子进程沙箱**，像 Bash 跑命令一样；NDJSON 桥接，
+   诊断/降低/taint 结论天然逐字等于 TS（同一份代码）。代价：JS 脚本路径仍要求 Node 在场（执行器已如此）。
+2. **自研 TS 兼容检查器**：等价于重写 TS 的类型检查器 + lib.es2022 + 诊断码/文案，工作量与风险都远超本项目
+   其余各期之和，且与"以 TS 为 oracle 逐字对比"的验收方式天然冲突（两边都会漂移）。
+
+在决定落地前，第 3 期不开工；不因此改动 App 可见行为（今日工作流工具仍按未实现处理）。
 
 ## 进度
 
