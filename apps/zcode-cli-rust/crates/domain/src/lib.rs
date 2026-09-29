@@ -44,6 +44,7 @@ mod mcp_oauth_pair;
 pub mod mcp_cua;
 pub mod mcp_result;
 pub mod memory;
+pub mod model_catalog;
 mod memory_markdown;
 mod memory_policy;
 mod memory_stamp;
