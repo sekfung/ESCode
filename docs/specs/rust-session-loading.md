@@ -35,6 +35,36 @@ sequenceDiagram
     Owner->>Owner: evict unpinned LRU when over limit
 ```
 
+## `session/resume`（2026-09-30）
+
+App 的任务列表/会话恢复走 `session/resume`（TS `server-operations.ts::resumeSession` +
+`activateSessionForResume`）；Rust 此前没有该方法，App 直接拿到 -32601“Unsupported method”。
+
+Rust 实现（`core/src/app/session_resume.rs`）：
+
+1. 校验 workspace → `ensure_session`：已在内存则 touch，否则从 Store 物化（校验边界、recover、
+   水合文件改动并提交）、发布 index——与 TS materialize 的等价物。
+2. **仅冷恢复时**应用请求参数（TS 命中 existing 会直接返回，不重放参数）：`offPeakToolEnabled` /
+   `dynamicWorkflowEnabled` 按 create 的同一套 `fix_*` 固化；`mcpServers` 交 `configure_mcp`；
+   `thoughtLevel` 只作为旧会话的迁移 hint——仅在会话没有持久化推理档位时写入，已有档位以持久化为准
+   （TS `model: undefined`、由单向迁移/entry 恢复的同一条规则）。
+3. 返回 `read_session` 的 snapshot（与 `session/read` 同一 schema 与投影）。
+
+已知差异（不影响 App 的恢复链路）：
+
+- `toolAllowlist` / `toolDenylist` 被忽略：Rust 不支持会话级工具白名单（既有差异，见
+  rust-tool-surface.md），恢复时沿用会话原本的持久化约束。
+- 冷恢复 snapshot 的 `projection.mode`：Node 会回落成 `build`（`derivePersistedSessionMode` 从
+  persisted assistant 消息取 hint，取不到就用默认），而 `settings.mode.current` 是会话真实模式；
+  Rust 两处都按持久化模式，因此与 Node 的 `projection.mode` 可能不同。App 的权威模式来源是
+  `settings.mode.current`，该字段本身两侧一致。
+- TS 的 legacy remote workspace 修复（WSL/远端 identity 回填）未移植；Rust 的远端会话由导入侧处理。
+
+验收：`packages/services/tests/zcode-cli-rust-session-resume.test.ts`——同一会话在 Node/Rust 上
+热恢复（同进程）与冷恢复（新进程）的 snapshot 投影逐字段一致（除上面记录的 `projection.mode`，
+以及 Node 独有的 `step-start/step-finish` part），恢复后可直接续聊（消息数与用户轮数一致），
+且冷恢复参数 `dynamicWorkflowEnabled: true` 让两侧都看到工作流只读工具。
+
 ## 验收
 
 - 用禁止会话写入的 trigger、损坏的未打开 transcript/ACK，证明启动和 index 不访问它们；坏历史只影响读取该会话。
