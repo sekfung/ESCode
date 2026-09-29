@@ -52,6 +52,18 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
 4. 没有 `plugin.json` 的选项 schema（`userConfig`）与 `packageStatus`。
 5. 没有市场元数据（`marketplace` 目前只能从 id 的 `@` 后缀推，TS 还会读市场索引里的 listing）。
 
+已核对（实现前不必重查）：
+
+- marketplace 常量两边一致：inline 目录 = `inline`（`ZCODE_INLINE_PLUGIN_MARKETPLACE`），
+  官方 = `zcode-plugins-official`（`ZCODE_OFFICIAL_PLUGIN_MARKETPLACE`），Rust 现有 id 形如
+  `name@<marketplace>` 与 TS 相同，所以 `enabledPlugins` / `suppressedBuiltins` 的键能对上。
+- defaultEnabled：inline 目录 = true，官方 root/cache = false，市场安装（`installed_plugins.json`）= false；
+  实际值 = `plugins.enabledPlugins[id] ?? defaultEnabled || plugin_defaults 含该 id`（Rust 已按此实现）。
+- `source` 取值：inline 目录 `"inline"`、官方 `"official"`、市场缓存 `"cache"`，另有 `"missing"`
+  （仅用于 `createMissingConfiguredPluginInfos` 生成的占位行）。
+- `skillRootCount` / `commandRootCount` = 组件根数量（默认目录 + manifest 声明的根），
+  `skillCount` = 这些根下 SKILL.md 的数量（不是声明数）。
+
 ## 分期
 
 1. **发现层 + `plugins/list`（读）**：拆出 `all()`（带 `enabled`/来源），输出全部必填字段 +
