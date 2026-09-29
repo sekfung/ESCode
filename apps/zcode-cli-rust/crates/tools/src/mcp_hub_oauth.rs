@@ -164,17 +164,24 @@ impl Hub {
         until_url: bool,
         cancel: &CancellationToken,
     ) -> Result<Option<Arc<Connection>>> {
-        let http = (server.transport != "stdio").then(|| {
-            self.http
-                .get_or_init(|| {
-                    reqwest_mcp::Client::builder()
-                        .redirect(reqwest_mcp::redirect::Policy::none())
-                        .connect_timeout(std::time::Duration::from_secs(15))
-                        .build()
-                        .expect("MCP HTTP client")
+        let http = match server.transport != "stdio" {
+            false => None,
+            true => {
+                let target = server.raw["url"].as_str().unwrap_or_default().to_owned();
+                let cached = self.http.read().unwrap().get(&target).cloned();
+                Some(match cached {
+                    Some(client) => client,
+                    None => {
+                        let client = crate::mcp_http::client(&target)?;
+                        self.http
+                            .write()
+                            .unwrap()
+                            .insert(target, client.clone());
+                        client
+                    }
                 })
-                .clone()
-        });
+            }
+        };
         let credentials = || {
             self.credentials
                 .get_or_init(|| Arc::new(zcode_cli_host::credential_store::CredentialStore::from_environment()))

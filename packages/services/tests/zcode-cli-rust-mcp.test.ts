@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { createServer, request as httpRequest } from "node:http";
+import { once } from "node:events";
+import { resolve } from "node:path";
 import { z } from "zod";
 import { event, end, fixture, waitForFile } from "./zcode-cli-rust-fixture.js";
 import { httpServer, listMcp, stdioServer } from "./zcode-cli-rust-mcp-fixture.js";
+
+const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 
 function respond(request: any, response: any) {
   response.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -100,6 +105,83 @@ for (const transport of ["http", "sse"] as const)
       }
     }
   });
+// MCP HTTP 传输必须走与模型/WebFetch 同一套代理解析（docs/specs/rust-net-proxy.md）。
+// 本地 forward 代理转发所有请求并统计 MCP 路径：两侧的 MCP 握手都必须经它过去。
+// 模型 fixture 仍在 127.0.0.1，由 ZCODE_NO_PROXY 显式绕过，所以这里只观察 MCP 流量。
+test("MCP HTTP transport goes through the configured proxy in both runtimes", async () => {
+  const server = await httpServer("http");
+  const mcpConfig = { ...server.config, url: server.config.url.replace("127.0.0.1", "localhost") };
+  let mcpRequests = 0;
+  const proxy = createServer((req, res) => {
+    const target = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (target.pathname.includes("/http")) mcpRequests += 1;
+    const upstream = httpRequest(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method: req.method,
+        headers: req.headers,
+      },
+      (reply) => {
+        res.writeHead(reply.statusCode ?? 502, reply.headers);
+        reply.pipe(res);
+      },
+    );
+    upstream.on("error", () => res.destroy());
+    req.pipe(upstream);
+  });
+  proxy.listen(0, "127.0.0.1");
+  await once(proxy, "listening");
+  const proxyAddress = proxy.address();
+  assert(proxyAddress && typeof proxyAddress !== "string");
+  const proxyUrl = `http://127.0.0.1:${proxyAddress.port}`;
+  const observed: string[] = [];
+  try {
+    for (const kind of ["node", "rust"] as const) {
+      const f = await fixture(
+        kind === "node"
+          ? {
+              mode: "yolo",
+              respond,
+              command: process.execPath,
+              args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+              env: { ZCODE_HTTP_PROXY: proxyUrl, ZCODE_NO_PROXY: "127.0.0.1" },
+            }
+          : {
+              mode: "yolo",
+              respond,
+              env: { ZCODE_HTTP_PROXY: proxyUrl, ZCODE_NO_PROXY: "127.0.0.1" },
+            },
+      );
+      try {
+        const before = mcpRequests;
+        const h = f.start();
+        // createSession 即触发 MCP 连接；握手经代理过去就算这条传输走了代理。
+        const ack = await h.command(
+          h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [mcpConfig] }),
+        );
+        const sid = (ack.result as { sessionId: string }).sessionId;
+        assert.ok(sid);
+        // TS 在 createSession 就连 MCP；Rust 在首轮装配工具面时才连——两侧都发一轮再等代理计数。
+        await h.subscribe(`conversation/${sid}`);
+        await h.command(h.envelope("sendText", sid, { text: "MCP proxied" }));
+        const deadline = Date.now() + 15000;
+        while (mcpRequests === before && Date.now() < deadline)
+          await new Promise((r) => setTimeout(r, 100));
+        observed.push(`${kind}:${mcpRequests > before ? "proxied" : "direct"}`);
+      } finally {
+        await f.close();
+      }
+    }
+    assert.deepEqual(observed, ["node:proxied", "rust:proxied"]);
+  } finally {
+    proxy.closeAllConnections();
+    await new Promise<void>((r) => proxy.close(() => r()));
+    await server.close();
+  }
+});
+
 
 test("MCP handshake does not block the actor; stop cancels discovery and reaps the server before finishing", async () => {
   const f = await fixture({ mode: "yolo", respond });

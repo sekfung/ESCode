@@ -23,6 +23,7 @@ mod lexical_path;
 mod mcp_config;
 mod mcp_connection;
 mod mcp_http_capture;
+mod mcp_http;
 mod mcp_hub;
 mod bash_image;
 mod bash_read_state;

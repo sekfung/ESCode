@@ -31,7 +31,10 @@
   模型客户端与 WebFetch 客户端把 PEM（可含多张）/DER 证书加进根证书。设置页注入时两个变量都在
   （`services/src/runtime-tools/agentProxyEnv.ts`），独立 CLI 只设后者——两条都要认。
 - MCP 客户端（`mcp_hub.rs`）仍用 reqwest 默认行为，待与 TS MCP 传输路径一并核对（同下一条）。
-- MCP 客户端（`mcp_hub.rs`）仍用 reqwest 默认行为，待与 TS MCP 传输路径一并核对。
+- MCP 网络已接入（2026-09-30）：`tools/src/mcp_http.rs` 按目标 URL 解析代理（显式/`ZCODE_HTTP_PROXY`/
+  `ZCODE_NO_PROXY`/捕获环境）并信任自定义 CA；MCP streamable HTTP / SSE 传输按 URL 缓存客户端，
+  OAuth 发现与令牌端点（`mcp_oauth_http.rs`，整请求 60s）走同一条构造。TS 侧是 `createMcpTransportFetch`
+  的 per-request fetch，两侧判定同源。
 
 ## 验收
 
@@ -43,3 +46,6 @@
    Node 带 `NODE_EXTRA_CA_CERTS`+`ZCODE_AGENT_CA_CERT`、Rust 只带 `ZCODE_AGENT_CA_CERT`，两者都必须
    成功收到模型回复（叶子不能是 `CA:TRUE`：rustls 明确拒绝把 CA 当服务端实体，Node/OpenSSL 宽容——
    单张自签证书会造出假差异）。
+4. 差分（2026-09-30）：`packages/services/tests/zcode-cli-rust-mcp.test.ts` 的
+   「MCP HTTP transport goes through the configured proxy in both runtimes」——本地 forward 代理统计
+   MCP 路径请求，Node 与 Rust 的 MCP 握手都必须经代理过去（模型 fixture 由 `ZCODE_NO_PROXY` 绕过）。

@@ -35,7 +35,9 @@ struct State {
 }
 pub(super) struct Hub {
     cwd: PathBuf,
-    http: std::sync::OnceLock<reqwest_mcp::Client>,
+    /// 每个 HTTP/SSE MCP 端点的客户端：代理与 CA 按目标 URL 解析（TS 是每次请求解析的 fetch），
+    /// 所以按 URL 缓存而不是全局一份。
+    http: std::sync::RwLock<std::collections::BTreeMap<String, reqwest_mcp::Client>>,
     credentials: std::sync::OnceLock<Arc<zcode_cli_host::credential_store::CredentialStore>>,
     /// Engine 交给工具层的 Host 通道（官方 MCP 身份头）。
     host: Arc<std::sync::OnceLock<crate::contract::EventSink>>,
