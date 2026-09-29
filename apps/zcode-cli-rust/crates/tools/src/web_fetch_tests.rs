@@ -50,6 +50,7 @@ async fn run(transport: &Fake, url: &str) -> Result<WebFetchPage> {
     fetch(
         transport,
         &json!({"url": url, "prompt": "p"}),
+        None,
         &CancellationToken::new(),
     )
     .await
@@ -152,4 +153,53 @@ async fn fetch_pipeline_matches_ts_rules() {
     let error = run(&t, "https://localhost/").await.unwrap_err().to_string();
     assert_eq!(error, "WebFetch requires a public hostname");
     assert!(t.seen.lock().unwrap().is_empty());
+}
+
+/// TS `maybePersistRawContent`：抽取后的正文（UTF-8 字节）超过 100k 时写 tool-result artifact，
+/// 文件名与 URI 同 `writeToolResultArtifact`；命中缓存复用同一 artifact，不重复落盘。
+#[tokio::test]
+async fn oversized_content_writes_a_tool_result_artifact() {
+    clear_cache();
+    let body: &'static str =
+        Box::leak(format!("<p>{}</p>", "x".repeat(120_000)).into_boxed_str());
+    let t = fake(vec![(
+        "https://big.example.com/",
+        200,
+        vec![("content-type", "text/html; charset=utf-8")],
+        body,
+    )]);
+    let root = std::env::temp_dir().join(format!("zcode-webfetch-artifact-{}", zcode_cli_host::id()));
+    let target = ArtifactTarget {
+        root: &root,
+        session: "sess_test",
+        call_id: "call-1",
+    };
+    let args = json!({"url": "https://big.example.com/", "prompt": "p"});
+    let page = fetch(&t, &args, Some(target), &CancellationToken::new())
+        .await
+        .unwrap();
+    let uri = page.output["artifactUri"].as_str().unwrap().to_owned();
+    assert!(uri.starts_with("zcode-artifact://sess_test/tool-result-"), "{uri}");
+    let path = page.output["artifactPath"].as_str().unwrap().to_owned();
+    let name = std::path::Path::new(&path)
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    assert!(name.starts_with("call-1-tool-result-"), "{name}");
+    assert!(name.ends_with(".md"), "{name}");
+    // 落盘内容就是抽取后的正文（HTML 转 Markdown）。
+    assert_eq!(
+        tokio::fs::read_to_string(&path).await.unwrap(),
+        page.content.clone().unwrap()
+    );
+    // 同一 URL 第二次命中缓存：artifact 字段复用，不再请求也不新增文件。
+    let again = fetch(&t, &args, Some(target), &CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(again.output["cacheHit"], true);
+    assert_eq!(again.output["artifactUri"], Value::from(uri));
+    assert_eq!(again.output["artifactPath"], Value::from(path));
+    assert_eq!(t.seen.lock().unwrap().len(), 1);
+    let _ = tokio::fs::remove_dir_all(&root).await;
 }

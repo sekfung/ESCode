@@ -30,6 +30,10 @@ import { TaskOutputInputJsonSchema } from "../../../apps/zcode-cli/packages/cont
 import { TaskStopInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/task-stop.js";
 import { AskUserQuestionInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/ask-user-question.js";
 import { SkillInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/skill.js";
+// 工作流只读发现面（docs/specs/rust-dynamic-workflow.md 第 2/6 期）：工具定义同样要与 TS 逐字一致。
+import { ListSavedWorkflowsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-saved-workflows.js";
+import { ListModelsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-models.js";
+import { ListWorkflowRunsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-workflow-runs.js";
 import {
   OffPeakCreateInputJsonSchema,
   OffPeakListInputJsonSchema,
@@ -223,6 +227,9 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       // 闲时任务工具（docs/specs/rust-offpeak.md）。
       OffPeakCreate: OffPeakCreateInputJsonSchema,
       OffPeakList: OffPeakListInputJsonSchema,
+      ListSavedWorkflows: ListSavedWorkflowsInputJsonSchema,
+      ListModels: ListModelsInputJsonSchema,
+      ListWorkflowRuns: ListWorkflowRunsInputJsonSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),

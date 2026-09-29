@@ -268,7 +268,9 @@ pub trait ToolPort: Send + Sync {
     async fn mcp_list(&self, _params: &Value, _cancel: &CancellationToken) -> Result<Value> {
         anyhow::bail!("MCP unavailable")
     }
-    /// WebFetch 的抓取阶段（网络、缓存、正文抽取）；模型处理由会话侧完成。见 docs/specs/rust-webfetch.md。
+    /// WebFetch 的抓取阶段（网络、缓存、正文抽取、超预算正文的 artifact）；模型处理由会话侧完成。
+    /// `session`/`call_id` 只用于 artifact 文件名与 URI（与 TS `writeToolResultArtifact` 同形）。
+    /// 见 docs/specs/rust-webfetch.md。
     /// 系统提示词 Shell 名（TS 会话 shell 的 display.name）；None 沿用上下文默认。
     async fn shell_display_name(&self, _sink: &EventSink) -> Option<String> {
         None
@@ -276,6 +278,8 @@ pub trait ToolPort: Send + Sync {
     async fn web_fetch(
         &self,
         _args: &Value,
+        _session: &str,
+        _call_id: &str,
         _cancel: &CancellationToken,
     ) -> Result<crate::WebFetchPage> {
         anyhow::bail!("WebFetch unavailable")

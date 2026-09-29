@@ -161,7 +161,15 @@ pub(super) async fn execute(
                 super::web_search_tool::execute(model, &args, sink, cancel).await
             }
             Ok(args) if name == "WebFetch" => {
-                super::web_fetch_tool::execute(tools, model, &args, sink, cancel).await
+                super::web_fetch_tool::execute(
+                    tools,
+                    model,
+                    &args,
+                    call["id"].as_str().unwrap_or_default(),
+                    sink,
+                    cancel,
+                )
+                .await
             }
             Ok(args) if name == "Skill" => {
                 super::skills::execute(tools, skills, &args, cancel).await

@@ -230,9 +230,21 @@ impl ToolPort for WorkspaceTools {
     async fn web_fetch(
         &self,
         args: &Value,
+        session: &str,
+        call_id: &str,
         cancel: &CancellationToken,
     ) -> Result<crate::contract::WebFetchPage> {
-        super::web_fetch::fetch(&super::web_fetch::HttpTransport, args, cancel).await
+        super::web_fetch::fetch(
+            &super::web_fetch::HttpTransport,
+            args,
+            Some(super::web_fetch::ArtifactTarget {
+                root: &self.artifacts,
+                session,
+                call_id,
+            }),
+            cancel,
+        )
+        .await
     }
     async fn scoped_definitions(
         &self,

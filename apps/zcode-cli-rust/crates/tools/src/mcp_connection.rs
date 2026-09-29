@@ -357,7 +357,7 @@ pub struct ImageArtifacts<'a> {
     pub call_id: &'a str,
 }
 /// TS `sanitizePathSegment`（存储版）：非 `[A-Za-z0-9._-]` 换成 `_`，最长 120，空串为 unknown。
-fn sanitize(value: &str) -> String {
+pub(crate) fn sanitize(value: &str) -> String {
     let out: String = value
         .chars()
         .map(|c| {
@@ -392,4 +392,3 @@ impl ImageArtifacts<'_> {
         ))
     }
 }
-

@@ -34,7 +34,14 @@ sequenceDiagram
 
 ## 已知差异
 
-- 大正文不写 artifact（TS 在有 artifactStore 时写入并返回 `artifactUri/artifactPath`，两字段为可选）。
+- 大正文 artifact 已实现（2026-09-30）：抽取后的正文按 UTF-8 字节数超过 `MAX_MODEL_INPUT_CHARS`（100k）
+  时写 tool-result artifact，形状与 TS `maybePersistRawContent` + `writeToolResultArtifact` 相同——
+  `<artifacts>/<session>/<toolCallId>-tool-result-<uuid>.md|.txt`（响应含 `html` 记 `text/markdown`，
+  其余 `text/plain`），URI `zcode-artifact://<session>/tool-result-<uuid>`，`cacheHit` 复用同一 artifact
+  不重复落盘；`artifactUri`/`artifactPath` 随工具数据一起给 App。artifact 根目录仍是 Rust 自己的
+  工具产物目录（与 TS 的 `<storageRoot>/cli/artifacts` 不同址，路径本就各自独立，文件名与 URI 格式一致）。
+  验收：`crates/tools` 单测 `oversized_content_writes_a_tool_result_artifact`（注入传输层：阈值、文件名、
+  扩展名、URI、落盘内容、缓存复用）；App 差分需要公网，沿用本文件既有 live 用例。
 - 不发 `networkRequestStatus` 进度事件。
 - `statusText` 取 HTTP 规范原因短语（Node 为响应行原文，HTTP/2 下为空时回落 `STATUS_CODES`）。
 - 截断在 UTF-16 边界切开代理对时，TS 留下孤立代理项，Rust 以 U+FFFD 代替（语料按 `toWellFormed()` 比对）。

@@ -12,11 +12,14 @@ pub(super) async fn execute(
     tools: &dyn ToolPort,
     model: &dyn ModelPort,
     args: &Value,
+    call_id: &str,
     sink: &EventSink,
     cancel: &CancellationToken,
 ) -> Result<ToolOutput> {
     let started = Instant::now();
-    let page = tools.web_fetch(args, cancel).await?;
+    let page = tools
+        .web_fetch(args, &sink.session_id, call_id, cancel)
+        .await?;
     let mut output = page.output;
     let Some(content) = page.content else {
         return Ok(finish(output));
