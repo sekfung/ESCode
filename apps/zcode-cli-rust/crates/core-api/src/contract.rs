@@ -65,6 +65,14 @@ pub trait SessionStore: Send + Sync {
     async fn load_project_rules(&self, _workspace: &str) -> Result<Option<Value>> {
         Ok(None)
     }
+    /// `workflows/runs` 的 journal 读面（docs/specs/rust-dynamic-workflow.md 第 4 期前置）。
+    /// 缺省表示这个 store 没有 dwf journal——TS 在 journal 缺席时同样回空页而不是报错。
+    async fn workflow_runs(
+        &self,
+        _query: &zcode_cli_domain::dwf_journal::RunQuery,
+    ) -> Result<Vec<zcode_cli_domain::dwf_journal::JournalRun>> {
+        Ok(Vec::new())
+    }
     async fn save_project_rules(&self, _workspace: &str, _rules: &Value) -> Result<()> {
         anyhow::bail!("Project permission rules are not persisted by this store")
     }

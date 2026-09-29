@@ -104,3 +104,11 @@
   依赖第 4 期的 journal，**暂不实现**（未知方法照旧报错，不用空页冒充）。验收：App 差分
   `packages/services/tests/zcode-cli-rust-saved-workflow-hub.test.ts`（五方法逐字一致 + 落盘文件
   与目录状态一致）。
+- 2026-09-30 `workflows/runs` 与 dwf journal 读面提前落地（第 4 期的存储底座）：`state` 建
+  `0019_dwf_journal` 的四张表与索引（与 TS 同一 DDL），`domain::dwf_journal` 负责物理列→逻辑
+  记录的解码（stopped/errored/interrupted、信封嗅探失败退化成 user）、产物归并（同 id 版本、
+  失败发布、预置看板 itemCount、primary 置前）与协议行投影，core 在 `workflows/runs` 里按
+  scope 决定是否下推 cwd、多取一条判 `truncated`。验收语料
+  `scripts/generate-zcode-cli-rust-dwf-journal-corpus.mjs` 用**真实 TS session store 建库**（迁移即
+  DDL）、插行、再跑真实 `listSavedWorkflowRunsOp`，Rust 用同一份 DDL/行重建库后逐字比对 7 组查询。
+  写入方（引擎）与其余 run 内省方法（ListWorkflowRuns / GetWorkflowRun）仍属第 4 期。

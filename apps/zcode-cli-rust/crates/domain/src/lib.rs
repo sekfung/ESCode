@@ -22,6 +22,7 @@ pub mod builtin_prompt_command;
 pub mod context;
 pub mod cron;
 pub mod dynamic_workflow;
+pub mod dwf_journal;
 pub mod off_peak;
 pub mod model_execution;
 pub mod saved_workflow;

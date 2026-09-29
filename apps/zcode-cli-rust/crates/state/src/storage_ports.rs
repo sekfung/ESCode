@@ -81,6 +81,17 @@ impl crate::contract::SessionStore for Store {
             .await?;
         rx.await?
     }
+    /// `workflows/runs` 的 journal 读面（docs/specs/rust-dynamic-workflow.md 第 4 期前置）。
+    async fn workflow_runs(
+        &self,
+        query: &crate::domain::dwf_journal::RunQuery,
+    ) -> Result<Vec<crate::domain::dwf_journal::JournalRun>> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(Operation::WorkflowRuns(query.clone(), tx))
+            .await?;
+        rx.await?
+    }
     async fn put_attachment(
         &self,
         chunks: &[Vec<u8>],

@@ -35,6 +35,12 @@ pub(super) enum Operation {
         String,
         oneshot::Sender<Result<Option<SessionContextSource>>>,
     ),
+    /// 动态工作流 run journal 的读面（docs/specs/rust-dynamic-workflow.md 第 4 期前置）：
+    /// `workflows/runs` 与将来的引擎共用同一份 dwf_* 表。
+    WorkflowRuns(
+        crate::domain::dwf_journal::RunQuery,
+        oneshot::Sender<Result<Vec<crate::domain::dwf_journal::JournalRun>>>,
+    ),
 }
 pub(super) type SessionContextSource = zcode_cli_domain::session_context::SessionSource;
 
@@ -84,6 +90,7 @@ impl Store {
                     CREATE TABLE IF NOT EXISTS rust_row(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));
                     CREATE TABLE IF NOT EXISTS rust_message(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));
                     CREATE TABLE IF NOT EXISTS rust_project_rule(workspace TEXT NOT NULL,rules TEXT NOT NULL,PRIMARY KEY(workspace));")?;
+                super::dwf_journal::ensure_schema(&conn)?;
                 super::storage_listing::prepare(&conn)?;
                 conn.execute_batch("CREATE INDEX IF NOT EXISTS rust_row_command ON rust_row(workspace,session,CASE WHEN json_valid(body) THEN json_extract(body,'$.sourceCommandId') END);")?;
                 Ok(conn)
@@ -144,6 +151,9 @@ impl Store {
                         let _ = reply.send(super::storage_project_rules::save(
                             &mut conn, &workspace, &rules,
                         ));
+                    }
+                    Operation::WorkflowRuns(query, reply) => {
+                        let _ = reply.send(super::dwf_journal::journal_runs(&conn, &query));
                     }
                 }
             }

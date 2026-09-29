@@ -1,6 +1,7 @@
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 mod input_attachments;
+mod dwf_journal;
 mod legacy_attachments;
 mod legacy_attempt;
 mod legacy_projection;

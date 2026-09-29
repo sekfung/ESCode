@@ -332,9 +332,14 @@ impl Engine {
             | "workflows/get"
             | "workflows/updateMeta"
             | "workflows/delete"
-            | "workflows/move" => {
+            | "workflows/move"
+            | "workflows/runs" => {
                 let op = request.method.trim_start_matches("workflows/").to_owned();
-                self.saved_workflow_op(&op, &request.params).await
+                if op == "runs" {
+                    self.saved_workflow_runs(&request.params).await
+                } else {
+                    self.saved_workflow_op(&op, &request.params).await
+                }
             }
             "session/create" => self.import_shared_context(&request.params).await,
             "provider/updateAccountConfig" => self.update_account(&request.params).await,
