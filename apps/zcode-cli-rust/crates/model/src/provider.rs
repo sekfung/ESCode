@@ -15,6 +15,22 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 type Result<T> = std::result::Result<T, ModelFailure>;
+
+/// 把设置页注入的 CA 加进客户端根证书（PEM 可含多张；失败再按 DER 试一次）。
+/// 读文件失败（`ZCODE_AGENT_CA_CERT` 配错）即让本次请求以配置错误收口，与 TS `readFileSync` 同路。
+fn add_extra_ca_certificates(mut builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder> {
+    let misplaced = || ModelFailure::new("invalid_request", false);
+    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates().map_err(|_| misplaced())? {
+        let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
+            Ok(certificates) => certificates,
+            Err(_) => vec![reqwest::Certificate::from_der(&bytes).map_err(|_| misplaced())?],
+        };
+        for certificate in certificates {
+            builder = builder.add_root_certificate(certificate);
+        }
+    }
+    Ok(builder)
+}
 pub struct HttpModel {
     config: ModelConfig,
     client: std::sync::Arc<tokio::sync::OnceCell<reqwest::Client>>,
@@ -64,15 +80,19 @@ impl HttpModel {
                             },
                         );
                     if let Some(proxy) = resolution.proxy_url {
-                        builder = builder.proxy(reqwest::Proxy::all(proxy)?);
+                        builder = builder.proxy(
+                            reqwest::Proxy::all(proxy).map_err(|error| model_failure::network(&error))?,
+                        );
                     } else if resolution.no_proxy_matched {
                         builder = builder.no_proxy();
                     }
-                    builder.build()
+                    // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 Node 的 `NODE_EXTRA_CA_CERTS`）：
+                    // TS 经 @zcode/adapters 的 TLS 配置信任它，Rust 侧必须显式加进根证书。
+                    builder = add_extra_ca_certificates(builder)?;
+                    builder.build().map_err(|error| model_failure::network(&error))
                 })
                 .await
                 .map_err(|_| ModelFailure::new("invalid_request", false))?
-                .map_err(|e| model_failure::network(&e))
             })
             .await
     }
@@ -147,8 +167,8 @@ impl HttpModel {
                 );
             }
         }
-        let response = tokio::select! {
-            result=request.send()=>result.map_err(|e| model_failure::network(&e))?,
+            let response = tokio::select! {
+                result=request.send()=>result.map_err(|e| model_failure::network(&e))?,
             _=deadline(after(idle_ms))=>return Err(ModelFailure::new("stream_idle_timeout",true)),
         };
         if !response.status().is_success() {

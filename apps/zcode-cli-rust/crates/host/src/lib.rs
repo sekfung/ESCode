@@ -9,6 +9,7 @@ pub mod credential_store;
 pub mod file_lock;
 pub mod image_budget;
 pub mod legacy_paths;
+pub mod tls_ca;
 mod realpath;
 pub use realpath::{realpath, realpath_for_create, realpath_sync, simplify_verbatim};
 mod question_timing;

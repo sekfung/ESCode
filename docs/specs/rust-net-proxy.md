@@ -26,7 +26,11 @@
   不产出该变量，因此不会把不该捕获的键写进去。
 - Host 下发配置（`network.httpProxy` / `noProxy` / CA）尚未接入：Rust 目前的 `httpProxy`/`noProxy` 恒为 None，
   即只走环境变量来源。接入时填充 `ProxyOptions` 的这两个字段即可，判定不需改动。
-- CA 文件（`ZCODE_AGENT_CA_CERT` / `loadTlsCaCertificates`）未接入，随 Host 配置一并处理。
+- CA 文件已接入（2026-09-30）：`host::tls_ca` 读 `ZCODE_AGENT_CA_CERT`（显式来源，读不到即失败，
+  与 TS `readFileSync` 同路），缺席时回落 `NODE_EXTRA_CA_CERTS`（Node 原生行为：文件不存在只忽略）；
+  模型客户端与 WebFetch 客户端把 PEM（可含多张）/DER 证书加进根证书。设置页注入时两个变量都在
+  （`services/src/runtime-tools/agentProxyEnv.ts`），独立 CLI 只设后者——两条都要认。
+- MCP 客户端（`mcp_hub.rs`）仍用 reqwest 默认行为，待与 TS MCP 传输路径一并核对（同下一条）。
 - MCP 客户端（`mcp_hub.rs`）仍用 reqwest 默认行为，待与 TS MCP 传输路径一并核对。
 
 ## 验收
@@ -34,3 +38,8 @@
 1. 差分：`scripts/generate-zcode-cli-rust-proxy-corpus.mjs` 以 TS 两个入口为 oracle，导出
    2,464 条（url × 17 种显式配置 × 14 种环境变量），Rust 逐条比对 `noProxyMatched`/`proxySource`/`proxyUrl`。
 2. 实机：设置 `ZCODE_HTTP_PROXY` 后请求走代理、`ZCODE_NO_PROXY` 命中时直连；未设变量且无捕获环境时不影响本地地址。
+3. 差分（2026-09-30）：`packages/services/tests/zcode-cli-rust-network.test.ts` 的
+   「settings-page CA is trusted by Node and Rust」——同一份 CA→叶子证书链的本地 TLS 模型服务，
+   Node 带 `NODE_EXTRA_CA_CERTS`+`ZCODE_AGENT_CA_CERT`、Rust 只带 `ZCODE_AGENT_CA_CERT`，两者都必须
+   成功收到模型回复（叶子不能是 `CA:TRUE`：rustls 明确拒绝把 CA 当服务端实体，Node/OpenSSL 宽容——
+   单张自签证书会造出假差异）。

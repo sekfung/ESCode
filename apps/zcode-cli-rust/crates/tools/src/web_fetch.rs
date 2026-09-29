@@ -280,7 +280,7 @@ impl Transport for HttpTransport {
     async fn get(&self, url: &Url, cancel: &CancellationToken) -> Result<Response> {
         let target = url.to_string();
         // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
-        let client = tokio::task::spawn_blocking(move || {
+        let client = tokio::task::spawn_blocking(move || -> anyhow::Result<reqwest::Client> {
             let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
                 &target,
                 &zcode_cli_domain::net_proxy::ProxyOptions {
@@ -289,14 +289,24 @@ impl Transport for HttpTransport {
                     env: std::env::vars().collect(),
                 },
             );
-            let builder = reqwest::Client::builder()
+            let mut builder = reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_millis(rules::TIMEOUT_MS));
-            let builder = match resolution.proxy_url {
+            builder = match resolution.proxy_url {
                 Some(proxy) => builder.proxy(reqwest::Proxy::all(proxy)?),
                 None => builder.no_proxy(),
             };
-            builder.build()
+            // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 `NODE_EXTRA_CA_CERTS`）：与模型请求同一份来源。
+            for bytes in zcode_cli_host::tls_ca::extra_ca_certificates()? {
+                let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
+                    Ok(certificates) => certificates,
+                    Err(_) => vec![reqwest::Certificate::from_der(&bytes)?],
+                };
+                for certificate in certificates {
+                    builder = builder.add_root_certificate(certificate);
+                }
+            }
+            Ok(builder.build()?)
         })
         .await??;
         let request = client
