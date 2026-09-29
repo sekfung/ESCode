@@ -119,3 +119,11 @@
   按 TS 的 `model_catalog_unavailable` 报业务失败，不静默回空列表）。可见性仍由第 1 期开关裁剪。
   验收：App 差分 `packages/services/tests/zcode-cli-rust-list-models-tool.test.ts`（灰度为开、注册表
   两个模型带档位表与上下文窗时，模型面、display 与行状态逐字/逐值一致）。
+- 2026-09-30 `ListWorkflowRuns` 的读面已落地（第 6 期前置）：journal 查询补 `script_text` /
+  `resumed_from`，`domain::workflow_run_list` 实现标签派生（name → 脚本首个非空行截 80 UTF-16 且不留
+  孤立代理项 → runId，来源恒 name/script）、归属与 `possiblyInterrupted`（journal 说没结束且非本会话）、
+  停止原因与 lineage（只对 stopped 生效）、ISO 时间戳与属性式模型面 + `list_workflow_runs` 透传
+  display。实现的是**注册表为空**那一支（活 run 注册表随引擎第 4 期）。
+  验收：语料在既有 TS 建库基础上，新增「内省端口（`createRunIntrospectionMethods`）→ 真实工具
+  handler → 模型面/display」的 `listCases`，Rust 用同一份 DDL/行重建库后逐条比对。
+  工具定义/派发与 `statuses` 过滤、App 差分下一步做。

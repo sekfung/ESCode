@@ -97,8 +97,8 @@ pub fn list_runs(conn: &Connection, query: &RunQuery) -> Result<Vec<RunRow>> {
         return Ok(Vec::new());
     }
     let mut sql = String::from(
-        "select id, parent_session_id, cwd, name, tool_call_id, args_json, spent_tokens, status, \
-         failure_json, time_created, time_updated from dwf_run where 1 = 1",
+        "select id, parent_session_id, cwd, name, script_text, resumed_from, tool_call_id, args_json, \
+         spent_tokens, status, failure_json, time_created, time_updated from dwf_run where 1 = 1",
     );
     let mut values: Vec<SqlValue> = Vec::new();
     if let Some(cwd) = &query.cwd {
@@ -118,13 +118,15 @@ pub fn list_runs(conn: &Connection, query: &RunQuery) -> Result<Vec<RunRow>> {
             parent_session_id: row.get(1)?,
             cwd: row.get(2)?,
             name: row.get(3)?,
-            tool_call_id: row.get(4)?,
-            args_json: row.get(5)?,
-            spent_tokens: row.get(6)?,
-            status: row.get(7)?,
-            failure_json: row.get(8)?,
-            time_created: row.get(9)?,
-            time_updated: row.get(10)?,
+            script_text: row.get(4)?,
+            resumed_from: row.get(5)?,
+            tool_call_id: row.get(6)?,
+            args_json: row.get(7)?,
+            spent_tokens: row.get(8)?,
+            status: row.get(9)?,
+            failure_json: row.get(10)?,
+            time_created: row.get(11)?,
+            time_updated: row.get(12)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)

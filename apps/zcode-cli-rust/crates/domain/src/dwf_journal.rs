@@ -23,6 +23,10 @@ pub struct RunRow {
     pub parent_session_id: Option<String>,
     pub cwd: Option<String>,
     pub name: Option<String>,
+    /// 脚本原文（`ListWorkflowRuns` 的标签派生要用首个非空行）。
+    pub script_text: Option<String>,
+    /// 修订前驱（lineage 读面的 `resumedFrom`）。
+    pub resumed_from: Option<String>,
     pub tool_call_id: Option<String>,
     pub args_json: Option<String>,
     pub spent_tokens: i64,

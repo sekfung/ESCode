@@ -91,6 +91,7 @@ pub mod tool_failure;
 pub mod tool_input_strip;
 pub mod tool_input_validation;
 pub mod web_fetch;
+pub mod workflow_run_list;
 pub mod web_search;
 mod web_fetch_ip;
 

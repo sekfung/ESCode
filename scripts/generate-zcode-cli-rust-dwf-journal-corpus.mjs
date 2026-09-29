@@ -8,6 +8,9 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createSqliteSessionStore } from "../apps/zcode-cli/packages/adapters/src/storage/session-store/sqlite-session-store.ts";
 import { listSavedWorkflowRunsOp } from "../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/saved-workflows.ts";
+import { createRunIntrospectionMethods } from "../apps/zcode-cli/packages/bootstrap/src/app/dynamic-workflow-run-introspection.ts";
+import { listWorkflowRunsToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/list-workflow-runs.ts";
+import { createWorkflowObservationDisplay } from "../apps/zcode-cli/packages/core/src/tool/executor/workflow-observation-display.ts";
 
 const check = process.argv.includes("--check");
 const target = new URL(
@@ -17,6 +20,8 @@ const target = new URL(
 const CWD = "/work/project-a";
 const OTHER = "/work/project-b";
 const NOW = 1_700_000_000_000;
+/** 语料固定的"本会话"id：`ownedByThisSession` 与 `possiblyInterrupted` 的判据。 */
+const OWNER = "sess_owner";
 
 const run = (overrides) => ({
   id: "run-1",
@@ -38,12 +43,14 @@ const run = (overrides) => ({
   ...overrides,
 });
 const runs = [
-  run({ id: "run-completed", time_updated: NOW + 10 }),
+  run({ id: "run-completed", time_updated: NOW + 10, script_text: "return 1;" }),
   run({
     id: "run-stopped-user",
     status: "cancelled",
     failure_json: '{"stopReason":"user"}',
     name: null,
+    // 标签派生：首个非空行（trim 后）。
+    script_text: "\n\n  Triage the issue  \nrest of script\n",
     args_json: null,
     tool_call_id: null,
     time_updated: NOW + 20,
@@ -52,6 +59,9 @@ const runs = [
     id: "run-stopped-superseded",
     status: "cancelled",
     failure_json: '{"stopReason":"superseded","supersededBy":"run-completed"}',
+    name: null,
+    // 超长首行 + 一个跨 80 字符边界的 emoji：标签必须截到 80 个 UTF-16 单元且不留孤立代理项。
+    script_text: `${"a".repeat(79)}😀tail`,
     time_updated: NOW + 30,
   }),
   run({
@@ -59,26 +69,49 @@ const runs = [
     status: "cancelled",
     // 信封里没有 stopReason：嗅探失败 → 退化成 user。
     failure_json: '{"supersededBy":"run-completed"}',
+    script_text: "run 4",
     time_updated: NOW + 40,
   }),
   run({
     id: "run-errored",
     status: "failed",
     failure_json: '{"code":"ModelFailure","message":"boom"}',
+    // 全空白的 name 与没起名等价；脚本也没有非空行 → 标签回落 runId，来源仍是 script。
+    name: "   ",
+    script_text: "\n\n",
     time_updated: NOW + 50,
   }),
   run({
     id: "run-interrupted",
     status: "failed",
     failure_json: '{"code":"Interrupted","message":"stopped"}',
+    resumed_from: "run-completed",
     time_updated: NOW + 60,
   }),
-  run({ id: "run-running", status: "running", failure_json: null, time_updated: NOW + 70 }),
+  // 本会话自己的在飞 run：owned 为真，因此**不**带 possiblyInterrupted。
+  run({
+    id: "run-running",
+    status: "running",
+    failure_json: null,
+    parent_session_id: OWNER,
+    time_updated: NOW + 70,
+  }),
+  // 兄弟会话在飞的 run：journal 说它没结束，而本会话无法证实 → possiblyInterrupted。
+  run({
+    id: "run-pending-sibling",
+    status: "pending",
+    failure_json: null,
+    parent_session_id: "sess_sibling",
+    name: null,
+    script_text: "return 3;",
+    time_updated: NOW + 75,
+  }),
   run({
     id: "run-pending-other-project",
     status: "pending",
     cwd: OTHER,
     name: "triage",
+    script_text: "return 2;",
     parent_session_id: null,
     args_json: "[]",
     spent_tokens: 0,
@@ -198,10 +231,38 @@ try {
     { label: "name", params: { name: "review" }, result: await ask({ name: "review" }) },
     { label: "name-missing", params: { name: "nope" }, result: await ask({ name: "nope" }) },
   ].map(({ label, params, result }) => ({ label, params, result }));
+
+  // `ListWorkflowRuns`（第 6 期）：同一份 journal、注册表为空的读面——端口（内省实现）→ 工具
+  // handler → 模型面与 display，全部走真实 TS 代码。
+  const methods = createRunIntrospectionMethods({
+    introspection: store.workflowJournalStore(),
+    journal: store.workflowJournalStore(),
+    parentSessionId: OWNER,
+    runs: new Map(),
+    escalations: new Map(),
+    concurrencyCeiling: () => 4,
+  });
+  const listCases = [];
+  for (const params of [{}, { limit: 3 }, { limit: 1 }]) {
+    const input = { limit: 20, ...params };
+    const result = await listWorkflowRunsToolEntry.handler(input, {
+      dynamicWorkflowRunPort: methods,
+      workingDirectory: CWD,
+    });
+    listCases.push({
+      label: `list-${params.limit ?? "default"}`,
+      input,
+      // 端口入参 = 输入 schema 钳制后的 limit（缺省 20），截断探测行由端口自己多取。
+      portInput: { cwd: CWD, limit: (input.limit ?? 20) + 1 },
+      result,
+      modelContent: listWorkflowRunsToolEntry.formatModelContent(result),
+      display: createWorkflowObservationDisplay("ListWorkflowRuns", result) ?? null,
+    });
+  }
   db.close();
   store.close?.();
 
-  const content = `${JSON.stringify({ cwd: CWD, ddl, rows, cases })}\n`;
+  const content = `${JSON.stringify({ cwd: CWD, owner: OWNER, ddl, rows, cases, listCases })}\n`;
   if (check) {
     if ((await readFile(target, "utf8").catch(() => "")) !== content)
       throw new Error("Rust dwf journal corpus differs from TS");
