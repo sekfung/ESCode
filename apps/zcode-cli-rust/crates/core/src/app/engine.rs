@@ -326,6 +326,16 @@ impl Engine {
             "session/list" => self.list_sessions(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,
             "skills/referenceCatalog" => self.skill_catalog(&request.params).await,
+            // 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）：
+            // workspace 级、无会话；`workflows/runs` 是第 4 期的 journal。
+            "workflows/list"
+            | "workflows/get"
+            | "workflows/updateMeta"
+            | "workflows/delete"
+            | "workflows/move" => {
+                let op = request.method.trim_start_matches("workflows/").to_owned();
+                self.saved_workflow_op(&op, &request.params).await
+            }
             "session/create" => self.import_shared_context(&request.params).await,
             "provider/updateAccountConfig" => self.update_account(&request.params).await,
             _ => self.query(&request.method, &request.params),

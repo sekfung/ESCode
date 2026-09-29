@@ -324,6 +324,11 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<zcode_cli_domain::skills::SkillCatalog> {
         Ok(Default::default())
     }
+    /// 已保存工作流的 GUI 中枢（`workflows/list|get|updateMeta|delete|move`，workspace 级、无会话；
+    /// docs/specs/rust-dynamic-workflow.md 第 2 期）。`workflows/runs` 需要 journal（第 4 期）。
+    async fn saved_workflow_op(&self, op: &str, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Unsupported saved workflow operation: {op}")
+    }
     async fn load_skill(
         &self,
         _skill: &zcode_cli_domain::skills::Skill,

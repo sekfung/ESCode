@@ -650,3 +650,143 @@ fn escape_attribute(value: &str) -> String {
 pub fn to_value(value: &Json) -> serde_json::Value {
     serde_json::from_str(&value.compact()).unwrap_or(serde_json::Value::Null)
 }
+
+/// 失败结果（TS `toFailure` / `zcodeSavedWorkflowFailureSchema`）：`parse_error` 与 `read_error`
+/// 只带 detail——协议面**不**回文件路径，避免把中枢变成路径探测口。
+fn failure(reason: &str, detail: Option<String>) -> Json {
+    let mut value = Json::object();
+    value.set("ok", Json::Bool(false));
+    value.set("reason", Json::str(reason));
+    if let Some(detail) = detail {
+        value.set("detail", Json::str(detail));
+    }
+    value
+}
+
+fn resolve_failure(resolved: Resolve) -> Json {
+    match resolved {
+        Resolve::InvalidName { detail } => failure("invalid_name", Some(detail)),
+        Resolve::NotFound => failure("not_found", None),
+        Resolve::ParseError { detail, .. } => failure("parse_error", Some(detail)),
+        Resolve::ReadError { detail, .. } => failure("read_error", Some(detail)),
+        Resolve::Found(_) => unreachable!("调用方已处理成功分支"),
+    }
+}
+
+/// `workflows/list`（TS `listSavedWorkflowsOp`）：**定向** scope 的枚举 + 扫过的目录（即使不存在也回，
+/// GUI 的文件监听靠它 watch）。与工具输出不同，`invalid` 在这里恒在场。
+pub fn hub_list(cwd: &Path, home: &Path, scope: Scope) -> Json {
+    let listed = list(cwd, home, Some(scope));
+    let mut value = Json::object();
+    value.set(
+        "workflows",
+        Json::Array(listed.entries.iter().map(entry_json).collect()),
+    );
+    value.set(
+        "invalid",
+        Json::Array(
+            listed
+                .invalid
+                .iter()
+                .map(|invalid| {
+                    let mut entry = Json::object();
+                    entry.set("path", Json::str(invalid.path.to_string_lossy().into_owned()));
+                    entry.set("reason", Json::str(&invalid.reason));
+                    entry
+                })
+                .collect(),
+        ),
+    );
+    value.set(
+        "dir",
+        Json::str(root(cwd, scope, home).dir.to_string_lossy().into_owned()),
+    );
+    value
+}
+
+/// `workflows/get`（TS `getSavedWorkflowOp`）：定向 scope 解析；成功带 meta 与脚本正文。
+pub fn hub_get(cwd: &Path, home: &Path, name: &str, scope: Scope) -> Json {
+    match resolve(cwd, home, name, Some(scope)) {
+        Resolve::Found(resolved) => {
+            let mut value = Json::object();
+            value.set("ok", Json::Bool(true));
+            value.set("name", Json::str(resolved.name));
+            value.set("path", Json::str(resolved.path.to_string_lossy().into_owned()));
+            value.set("scope", Json::str(resolved.scope.as_str()));
+            value.set("meta", resolved.meta);
+            value.set("script", Json::str(resolved.script));
+            value
+        }
+        failure => resolve_failure(failure),
+    }
+}
+
+/// `workflows/updateMeta`（TS `updateSavedWorkflowMetaOp`）：读回当前脚本正文，整文件覆写为
+/// `serialize(newMeta, script)`。读-改-写在同一次调用内完成（文件小、单机、用户自己在改）。
+pub fn hub_update_meta(cwd: &Path, home: &Path, name: &str, meta: &Json, scope: Scope) -> Result<Json, Vec<String>> {
+    let issues = codec::validate(meta);
+    if !issues.is_empty() {
+        return Err(issues);
+    }
+    let resolved = match resolve(cwd, home, name, Some(scope)) {
+        Resolve::Found(resolved) => resolved,
+        failure => return Ok(resolve_failure(failure)),
+    };
+    let text = codec::serialize(meta, &resolved.script);
+    if let Err(error) = std::fs::write(&resolved.path, text) {
+        return Ok(failure("read_error", Some(describe(&error))));
+    }
+    let mut value = Json::object();
+    value.set("ok", Json::Bool(true));
+    value.set("path", Json::str(resolved.path.to_string_lossy().into_owned()));
+    Ok(value)
+}
+
+/// `workflows/delete`（TS `deleteSavedWorkflowOp`）：只按名字删，名字先验后拼路径（路径穿越的防线）。
+pub fn hub_delete(cwd: &Path, home: &Path, name: &str, scope: Scope) -> Json {
+    if !is_valid_name(name) {
+        // TS 这一步**不带** detail：删除的非法名字不给任何额外信息。
+        return failure("invalid_name", None);
+    }
+    let path = saved_path(&root(cwd, scope, home), name);
+    match std::fs::remove_file(&path) {
+        Ok(()) => {
+            let mut value = Json::object();
+            value.set("ok", Json::Bool(true));
+            value.set("path", Json::str(path.to_string_lossy().into_owned()));
+            value
+        }
+        Err(error) if is_not_found(&error) => failure("not_found", None),
+        Err(error) => failure("read_error", Some(describe(&error))),
+    }
+}
+
+/// `workflows/move`（TS `moveSavedWorkflowOp`）：全局档 → 本项目，逐字节搬、不覆盖。
+pub fn hub_move(cwd: &Path, home: &Path, name: &str) -> Json {
+    match move_to_project(cwd, home, name) {
+        Move::Ok { from, to } => {
+            let mut value = Json::object();
+            value.set("ok", Json::Bool(true));
+            value.set("from", Json::str(from.to_string_lossy().into_owned()));
+            value.set("to", Json::str(to.to_string_lossy().into_owned()));
+            value
+        }
+        Move::InvalidName { detail } => failure("invalid_name", Some(detail)),
+        Move::NotFound => failure("not_found", None),
+        Move::TargetExists { path } => {
+            let mut value = failure("target_exists", None);
+            value.set("path", Json::str(path.to_string_lossy().into_owned()));
+            value
+        }
+        Move::ReadError { path, detail } => {
+            let mut value = failure("read_error", Some(detail));
+            value.set("path", Json::str(path.to_string_lossy().into_owned()));
+            value
+        }
+        Move::WriteError { path, detail } => {
+            let mut value = failure("write_error", Some(detail));
+            value.set("path", Json::str(path.to_string_lossy().into_owned()));
+            value
+        }
+    }
+}

@@ -3,7 +3,7 @@ use super::{
     tool_shell::ShellTasks,
 };
 use crate::contract::{EventSink, ToolOutput, ToolPort};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use serde_json::Value;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
@@ -269,6 +269,39 @@ impl ToolPort for WorkspaceTools {
         cancel: &CancellationToken,
     ) -> Result<crate::domain::skills::SkillCatalog> {
         super::tool_skills::discover(&self.cwd, cancel).await
+    }
+    /// 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）：workspace 级、无会话，
+    /// 每次调用现扫目录（挂载时快照会漏掉用户手改或模型刚落盘的文件）。
+    async fn saved_workflow_op(&self, op: &str, params: &Value) -> Result<Value> {
+        use super::saved_workflows as store;
+        let cwd = std::path::PathBuf::from(
+            params["workspace"]["workspacePath"]
+                .as_str()
+                .context("Workspace path required")?,
+        );
+        let home = std::path::PathBuf::from(zcode_cli_host::credential_cipher::node_homedir());
+        // 缺省即 `project`：不给 scope 的旧 GUI 与项目档调用逐字走本项目根。
+        let scope = match params.get("scope").and_then(Value::as_str) {
+            Some(scope) => store::Scope::parse(scope).context("Invalid scope")?,
+            None => store::Scope::Project,
+        };
+        let name = || params["name"].as_str().context("Invalid name");
+        let result = match op {
+            "list" => store::hub_list(&cwd, &home, scope),
+            "get" => store::hub_get(&cwd, &home, name()?, scope),
+            "updateMeta" => {
+                let meta = zcode_cli_domain::json_order::Json::parse(
+                    &params["meta"].to_string(),
+                )
+                .context("Invalid meta")?;
+                store::hub_update_meta(&cwd, &home, name()?, &meta, scope)
+                    .map_err(|issues| anyhow::anyhow!(issues.join("; ")))?
+            }
+            "delete" => store::hub_delete(&cwd, &home, name()?, scope),
+            "move" => store::hub_move(&cwd, &home, name()?),
+            other => bail!("Unsupported saved workflow operation: {other}"),
+        };
+        Ok(store::to_value(&result))
     }
     async fn load_skill(
         &self,

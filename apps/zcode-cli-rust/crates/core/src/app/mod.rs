@@ -37,6 +37,7 @@ mod session_close;
 mod session_read;
 mod session_residency;
 mod session_title;
+mod saved_workflow_hub;
 
 mod busy_input;
 mod input_admission;

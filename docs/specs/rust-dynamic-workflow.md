@@ -73,3 +73,8 @@
   `packages/services/tests/zcode-cli-rust-saved-workflow-tool.test.ts`（灰度为开时两侧模型面与 display
   逐字一致）。其余九个工作流工具未实现，所以**开启态**的工具名清单仍与 Node 不同（Node 十个、Rust 一个），
   这是刻意的分期状态；SaveWorkflow 随第 3 期静态分析落地。
+- 2026-09-30 GUI 中枢 `workflows/list|get|updateMeta|delete|move` 已落地（workspace 级、无会话，
+  每次现扫目录，定向 scope；失败面按协议 schema 收口，不泄漏文件路径）。`runs` 是 run 历史，
+  依赖第 4 期的 journal，**暂不实现**（未知方法照旧报错，不用空页冒充）。验收：App 差分
+  `packages/services/tests/zcode-cli-rust-saved-workflow-hub.test.ts`（五方法逐字一致 + 落盘文件
+  与目录状态一致）。
