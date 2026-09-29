@@ -29,6 +29,7 @@
 | P1       | 附件与工具细节                        | 大图缩放、媒体 Read、完整文本预览、音频/部分视频、Edit 宽松匹配、Web 工具及工具装配开关                              |
 | P1       | App 生命周期完整矩阵                  | TS/Rust 切换、带 Plan 导入、远端/手机双语义、账号供应商多协议回归           |
 | P2       | 工作流、自动任务、OffPeak、浏览器工具 | 真实执行与持久化投影；App workflowRuns 目前仍会报告 unsupported，不能以空结果伪装完成                                |
+| P1       | App 侧 local TTFT 与请求级遥测        | Rust 不发 `ModelNetworkStatus`、不产 `frame.ttft`，App 侧针对 Rust 会话的 TTFT/请求遥测缺失；范围与实现要点见 [性能文档](rust-runtime-performance.md) |
 | 发布门槛 | 三平台发行与回退                      | macOS/Windows/Linux 原生进程、打包升级、历史兼容；TS/Rust release 与真实供应商对比                                   |
 
 已确认的基础链路包括账号模型、三种模型协议、AskUserQuestion、Todo、shared context handover、本地文本附件、取消/队列/冷恢复。相关报告保留在 `docs/reports/`。本清单区分功能核心完成、残余兼容差分和发布门槛，不宣称全量 TS 替换已经验收。

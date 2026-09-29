@@ -27,7 +27,9 @@ async function runTwoBashCalls(shell?: Record<string, unknown>) {
       if (step > 0) outputs.push(String(last?.content ?? ""));
       switch (step++) {
         case 0:
-          call(res, "echo %OS%", "first");
+          // 用 `ver` 而不是 `echo %OS%` 判 shell：`OS` 变量在某些启动环境里不存在，
+          // 那时 cmd 会把 `%OS%` 原样输出，与 Git Bash 无法区分；`ver` 是 cmd 内建命令。
+          call(res, "ver", "first");
           break;
         case 1:
           call(res, "echo second", "second");
@@ -63,7 +65,7 @@ test(
       label: "CMD",
       path: "cmd.exe",
     });
-    assert.match(outputs[0]!, /Windows_NT/);
+    assert.match(outputs[0]!, /Microsoft Windows/);
     // 与 Node 一致：会话物化时先请求一次 runtime-materialization（记忆开关），首个 Bash 前再请求 user-execution。
     assert.deepEqual(requests, [
       { sessionId: id, scope: "runtime-materialization" },
@@ -77,7 +79,7 @@ test(
   { skip: process.platform !== "win32" },
   async () => {
     const { outputs } = await runTwoBashCalls();
-    // Git Bash 不展开 %OS%，原样输出；cmd 会输出 Windows_NT。
-    assert.match(outputs[0]!, /%OS%/);
+    // Git Bash 没有 ver 内建命令（报 command not found），cmd 才打印 Windows 版本。
+    assert.doesNotMatch(outputs[0]!, /Microsoft Windows/);
   },
 );

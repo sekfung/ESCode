@@ -42,7 +42,11 @@ sequenceDiagram
   工具产物目录（与 TS 的 `<storageRoot>/cli/artifacts` 不同址，路径本就各自独立，文件名与 URI 格式一致）。
   验收：`crates/tools` 单测 `oversized_content_writes_a_tool_result_artifact`（注入传输层：阈值、文件名、
   扩展名、URI、落盘内容、缓存复用）；App 差分需要公网，沿用本文件既有 live 用例。
-- 不发 `networkRequestStatus` 进度事件。
+- 不发 `networkRequestStatus` 进度事件：该事件（`SessionEventType.NetworkRequestStatus`）在 App 链路上
+  **没有消费方**——全仓只有 `packages/tui` 的 `app-events.ts` 读它（转成终端网络状态行），
+  `packages/bootstrap` 的 V4 投影与 `packages/ui` 都不处理（对照 `ModelNetworkStatus` 在
+  `conversation-telemetry-facts.ts` / `local-ttft.ts` 有消费方）。Rust runtime 的目标是 App stdio，
+  不做 TUI，故不实现；若将来补 Rust TUI，需要连同该事件一起做。
 - `statusText` 取 HTTP 规范原因短语（Node 为响应行原文，HTTP/2 下为空时回落 `STATUS_CODES`）。
 - 截断在 UTF-16 边界切开代理对时，TS 留下孤立代理项，Rust 以 U+FFFD 代替（语料按 `toWellFormed()` 比对）。
 - HTML 实体解码遇到代理项码点（`&#xD800;` 等）时同样以 U+FFFD 代替。

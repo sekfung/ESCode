@@ -94,3 +94,19 @@ CI 三平台（run 36237407731，提交 ac2d0db，5 次配对中位数，GitHub 
 | Windows x64 | 1604 ms / 114 ms | 264 / 8.6 MiB        | 356 / 19.3 MiB       | 4.58 s / 0.36 s      |
 
 三平台上 Rust 的启动、内存与同一 workload 墙钟均显著低于 Node，满足发布门槛中「性能」的同口径对比要求。
+
+## 已知缺口：App 侧 local TTFT 遥测（2026-09-30 发现）
+
+Node 的模型 runner 对每次尝试发 `SessionEventType.ModelNetworkStatus`（`model_request_started|
+queued|admitted|completed|failed`），CLI 的 V4 网关用 `LocalTtftRecorder`
+（`bootstrap/src/zcode-protocol-v4/local-ttft.ts`）把它们与入站命令的 `ttft` 上下文对齐，产出
+`frame.ttft` / `frame.ttftRelated`（协议里可选）并经 `zcode:report-local-ttft-batch` 上报给 App 侧
+遥测；同一事件在 `conversation-telemetry-facts.ts` 里还生成每请求的遥测事实（耗时、首字节/首文本、
+重试与错误原因、请求响应头计数等）。Rust runtime **既不产这些事件，也不产 `frame.ttft` 事实**，
+因此 App 侧针对 Rust 会话的 local TTFT / 请求级遥测是缺失的（功能与用户可见行为不受影响，
+两个字段在协议里可选）。
+
+已确认不是本轮引入（Rust 从来没有该事件源），也没有对应测试覆盖。若要补齐，需要：模型层按尝试
+发 started/completed/failed 事件（requestId、provider/model、transport、attempt/maxAttempts、
+queuedMs、durationMs、TTFB/TTFT、失败 reason/retryable）、Rust 侧实现等价的 TTFT 记录器与帧挂载、
+并按 Node 的 batch 上报语义发 host 通道。规模接近一个小工作包，未在本次实施。
