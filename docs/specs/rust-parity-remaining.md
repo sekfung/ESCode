@@ -43,7 +43,8 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
   [rust-session-loading.md](rust-session-loading.md)）。
 - **仍缺**（按当前行为判断的重要性排序）：
   - `plugins/list`（`zcodeAgentService.listPlugins`）：Rust 无该字符串；App 只对超时重试，
-    method-not-found 直接上抛 → 插件管理与同步链路在 Rust 上失败。
+    method-not-found 直接上抛 → 插件管理与同步链路在 Rust 上失败。这是一整块插件域
+    （`plugins/*` 四个方法，TS 侧约 5.9k 行），分期与验收见 [rust-plugins.md](rust-plugins.md)。
   - `session/messages`：**已实现**（`afterMessageId`/`limit` 分页语义与 TS 一致，见
     [rust-session-loading.md](rust-session-loading.md)）；但该方法的 App 调用方 `readSessionMessages`
     当前没有活跃 UI 消费者，且 Node 返回的 legacy 形状过不了 App 自己的
@@ -52,6 +53,7 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
     CLI"）→ 不崩溃，但「完整保留模型 IO」设置对 Rust 会话不生效。
   - `computer-use/operation-event`：CLI → App 的 CUA 侧带通知，Rust 不发；与 rust-mcp-parity.md 第 4 期
     （官方 CUA/浏览器运行时）同批处理。
-  - 待确认是否仍在活跃调用面：`session/events`、`session/debug`、`session/subscribe`、
-    `plugins/referenceCatalog`、`plugins/referenceCatalogWithCategory`、`workspace/hooks/trustGrant`
-    （Rust 均无对应字符串；其中若干可能已被 V4 方法取代，需逐个核对调用点后再决定实现或删除声明）。
+  - 已核对为**无活跃 UI 调用点**（Rust 不实现，作为 legacy 面保留在 TS 侧）：
+    `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
+    `plugins/referenceCatalog` / `plugins/referenceCatalogWithCategory`（只在一条注释里被提到，
+    V4 UI 改从插件快照拿组件）、`workspace/hooks/trustGrant`（Rust 无 hooks，UI 无调用）。
