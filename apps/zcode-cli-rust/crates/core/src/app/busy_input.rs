@@ -46,7 +46,13 @@ impl Engine {
         // TS prompt-admission：带 modelExecution 的输入只在空闲时开新轮，忙时拒绝（不排队、不 steer），
         // 单次执行凭据不能进入队列（docs/specs/rust-offpeak.md 第三期）。
         if s.running() && c.payload.get("modelExecution").is_some() {
-            return Ok(c.ack("rejected", s.revision, Some("guard.turnNotSteerable")));
+            // V4 层对 core admission 拒绝的收口（App 差分确认，2026-09-30）：**failed + activePrompt**，
+            // 文案是 `Core prompt admission rejected: <core reason>`；core reason 在活跃轮上是
+            // `turn_not_steerable`（没有活跃轮而只是排队时是 `no_active_turn`）。
+            let mut ack = c.ack("failed", s.revision, Some("activePrompt"));
+            ack["message"] =
+                "Core prompt admission rejected: turn_not_steerable".into();
+            return Ok(ack);
         }
         let start_now = s.running() && c.payload["requestedDelivery"] == "startNow";
         if start_now && s.queued_now.is_some() {

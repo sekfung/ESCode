@@ -79,8 +79,10 @@ sequenceDiagram
     运行开始按 (会话, run) 取出；进程重启后凭据不在，off-peak 模型该轮鉴权失败（与 TS 缺失凭据同义）。
   - 辅助作业（标题、记忆等）没有执行材料：off-peak 模型直接鉴权失败，不向 Host 请求 header（差分：两侧都不请求）。
   - 执行作用域的本轮模型不被同轮 guide 改写。
-  - 会话忙时收到 modelExecution 输入：TS core admission 拒绝（不排队、不 steer）；Rust 以 rejected ACK
-    （`guard.turnNotSteerable`）回复。V4 层对应的 ACK 原因码尚未差分确认。
+  - 会话忙时收到 modelExecution 输入：TS core admission 拒绝（不排队、不 steer）；V4 层收口为
+    **failed + `activePrompt`**，文案 `Core prompt admission rejected: turn_not_steerable`（活跃轮；
+    只排队而没活跃轮时 core reason 是 `no_active_turn`）。Rust 已按此对齐（2026-09-30 App 差分确认：
+    `packages/services/tests/zcode-cli-rust-model-execution-admission.test.ts`）。
 
 ## 验收
 
