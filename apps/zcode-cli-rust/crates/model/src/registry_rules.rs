@@ -239,6 +239,24 @@ pub(super) fn resolve(
             let option = json!({"value":model,"name":model,"modelProviderId":id,"modelProviderName":rule["providerName"].as_str().unwrap_or(&id),"modelThoughtLevels":levels,"contextWindow":mc["properties"]["contextWindow"]});
             result.options.push(option.clone());
             if config["visibility"] != "hidden" {
+                // ListModels 的目录面（TS `createModelCatalogPort`）：与 picker 面同一份注册表但字段集
+                // 独立——providerLabel 保持“没取过名就缺席”（picker 那里退回 providerId），
+                // 默认档位与 picker 同一条规则（最后一档）。
+                let mut entry = json!({"providerId":id,"modelId":model,"reasoningLevels":levels});
+                if let Some(label) = rule["providerName"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|label| !label.is_empty())
+                {
+                    entry["providerLabel"] = label.into();
+                }
+                if let Some(level) = levels.last() {
+                    entry["defaultReasoningLevel"] = level.clone().into();
+                }
+                if let Some(window) = mc["properties"]["contextWindow"].as_i64() {
+                    entry["contextWindow"] = window.into();
+                }
+                result.model_catalog.push(entry);
                 result.catalog.push(option);
             }
         }

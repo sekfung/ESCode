@@ -54,6 +54,7 @@ const tools = [
   ["OffPeakCreate", "off-peak", "OffPeakCreateInputJsonSchema"],
   ["OffPeakList", "off-peak", "OffPeakListInputJsonSchema"],
   ["ListSavedWorkflows", "list-saved-workflows", "ListSavedWorkflowsInputJsonSchema"],
+  ["ListModels", "list-models", "ListModelsInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -134,6 +135,7 @@ const staticDescriptions = Object.fromEntries(
     "OffPeakCreate",
     "OffPeakList",
     "ListSavedWorkflows",
+    "ListModels",
   ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };

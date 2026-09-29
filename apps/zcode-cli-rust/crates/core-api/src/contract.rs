@@ -177,6 +177,11 @@ pub trait ModelRegistry: Send + Sync {
         None
     }
     fn catalog(&self) -> Vec<Value>;
+    /// `ListModels` 的目录面（TS `createModelCatalogPort`，docs/specs/rust-dynamic-workflow.md 第 6 期）：
+    /// providerId/modelId/providerLabel?/reasoningLevels/defaultReasoningLevel?/contextWindow?。
+    fn model_catalog(&self) -> Vec<Value> {
+        Vec::new()
+    }
     fn model_options(&self) -> Vec<Value> {
         self.catalog()
     }

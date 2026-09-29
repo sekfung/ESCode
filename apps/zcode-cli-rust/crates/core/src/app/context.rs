@@ -21,6 +21,10 @@ pub(super) struct TurnFacts {
     pub off_peak_tools: bool,
     /// 本会话是否注册动态工作流工具（docs/specs/rust-dynamic-workflow.md 第 1 期）。
     pub dynamic_workflow: bool,
+    /// 本轮的模型目录（`ListModels`，docs/specs/rust-dynamic-workflow.md 第 6 期）：TS 在工具调用
+    /// 那一刻现读注册表视图，这里按轮次取一次——同一轮里的注册表刷新不会改变本轮已取的目录。
+    /// `None` 表示本进程没有 Provider Registry（TS 的端口缺席，报 `model_catalog_unavailable`）。
+    pub model_catalog: Option<Vec<Value>>,
     /// 本轮闲时派发身份（第二期）。
     pub off_peak_task_id: Option<String>,
     /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。

@@ -27,6 +27,7 @@ mod cron_tool;
 mod dynamic_workflow;
 mod off_peak;
 mod model_execution;
+mod model_catalog_tool;
 mod maintenance;
 mod queue_control;
 

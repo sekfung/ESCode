@@ -119,6 +119,11 @@ impl Engine {
         history.turn.off_peak_tools = self.off_peak_enabled(id);
         // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）。
         history.turn.dynamic_workflow = self.dynamic_workflow_enabled(id);
+        // ListModels 的目录（第 6 期）：每轮取一次注册表视图（工具调用时不再现读）。
+        history.turn.model_catalog = self
+            .registry
+            .as_ref()
+            .map(|registry| registry.model_catalog());
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {

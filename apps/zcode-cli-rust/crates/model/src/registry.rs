@@ -16,6 +16,9 @@ pub(super) struct Snapshot {
     pub(super) signature: Vec<u8>,
     pub(super) models: BTreeMap<ModelKey, Arc<dyn ModelPort>>,
     pub(super) catalog: Vec<Value>,
+    /// `ListModels` 的目录面（TS `createModelCatalogPort`）：与 picker 面同一份注册表、另一套字段
+    /// （providerLabel 保持“没取过名就缺席”，档位表与默认档位同 picker 的规则）。
+    pub(super) model_catalog: Vec<Value>,
     pub(super) options: Vec<Value>,
     pub(super) default: Option<ModelIdentity>,
 }
@@ -60,6 +63,9 @@ impl ModelRegistry for Registry {
     }
     fn catalog(&self) -> Vec<Value> {
         self.snapshot.read().unwrap().catalog.clone()
+    }
+    fn model_catalog(&self) -> Vec<Value> {
+        self.snapshot.read().unwrap().model_catalog.clone()
     }
     fn default_selection(&self) -> Option<ModelIdentity> {
         self.snapshot.read().unwrap().default.clone()

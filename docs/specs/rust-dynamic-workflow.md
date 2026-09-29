@@ -112,3 +112,10 @@
   `scripts/generate-zcode-cli-rust-dwf-journal-corpus.mjs` 用**真实 TS session store 建库**（迁移即
   DDL）、插行、再跑真实 `listSavedWorkflowRunsOp`，Rust 用同一份 DDL/行重建库后逐字比对 7 组查询。
   写入方（引擎）与其余 run 内省方法（ListWorkflowRuns / GetWorkflowRun）仍属第 4 期。
+- 2026-09-30 `ListModels` 已接入（第 6 期前置的只读发现面）：model crate 的注册表快照新增
+  **目录面**（`providerId/modelId/providerLabel?/reasoningLevels/defaultReasoningLevel?/contextWindow?`，
+  与 picker 面同源但字段集独立；`providerLabel` 保持「没取过名就缺席」），core 在轮次开始时取一次
+  目录、`ListModels` 由 owner 侧直接应答（模型面 + `list_models` display + 结构化输出；没有注册表时
+  按 TS 的 `model_catalog_unavailable` 报业务失败，不静默回空列表）。可见性仍由第 1 期开关裁剪。
+  验收：App 差分 `packages/services/tests/zcode-cli-rust-list-models-tool.test.ts`（灰度为开、注册表
+  两个模型带档位表与上下文窗时，模型面、display 与行状态逐字/逐值一致）。
