@@ -33,3 +33,23 @@
 | 发布门槛 | 三平台发行与回退                      | macOS/Windows/Linux 原生进程、打包升级、历史兼容；TS/Rust release 与真实供应商对比                                   |
 
 已确认的基础链路包括账号模型、三种模型协议、AskUserQuestion、Todo、shared context handover、本地文本附件、取消/队列/冷恢复。相关报告保留在 `docs/reports/`。本清单区分功能核心完成、残余兼容差分和发布门槛，不宣称全量 TS 替换已经验收。
+
+## App 协议方法级 diff（2026-09-30）
+
+做法：把 App 客户端（`packages/services/src/zcode-agent/*`）引用的 `zcodeProtocolMethods.*` 与 Rust engine 的
+method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust 无实现"的项再做真机探针。
+
+- **已修**：`session/resume`（探针实测 Node 正常、Rust 回 `-32601 Unsupported method`；实现与验收见
+  [rust-session-loading.md](rust-session-loading.md)）。
+- **仍缺**（按当前行为判断的重要性排序）：
+  - `plugins/list`（`zcodeAgentService.listPlugins`）：Rust 无该字符串；App 只对超时重试，
+    method-not-found 直接上抛 → 插件管理与同步链路在 Rust 上失败。
+  - `session/messages`（`readSessionMessages`，`afterMessageId`/`limit` 分页读）：Rust 无该字符串 →
+    这条 legacy 读路径失败（V4 侧已有 `v4/conversation/rowsRange`，但 App 这里尚未切换）。
+  - `workspace/updateModelIoPreferences`：App 显式容忍 method-not-found（源码注释"新 Host 兼容尚未升级的
+    CLI"）→ 不崩溃，但「完整保留模型 IO」设置对 Rust 会话不生效。
+  - `computer-use/operation-event`：CLI → App 的 CUA 侧带通知，Rust 不发；与 rust-mcp-parity.md 第 4 期
+    （官方 CUA/浏览器运行时）同批处理。
+  - 待确认是否仍在活跃调用面：`session/events`、`session/debug`、`session/subscribe`、
+    `plugins/referenceCatalog`、`plugins/referenceCatalogWithCategory`、`workspace/hooks/trustGrant`
+    （Rust 均无对应字符串；其中若干可能已被 V4 方法取代，需逐个核对调用点后再决定实现或删除声明）。
