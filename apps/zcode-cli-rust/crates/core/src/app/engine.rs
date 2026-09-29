@@ -49,6 +49,9 @@ pub struct Engine {
     pub(super) project_rules: Option<crate::domain::permission::Ruleset>,
     pub(super) project_rules_persistent: bool,
     pub(super) project_rules_json: Option<Value>,
+    /// 权限配置（`permission.allowedTools`/`disallowedTools`/`autoApproveHighRisk`）：
+    /// 与 TS 一样在启动时读取一次，运行期不再变（改配置需重启 runtime）。
+    pub(super) permission_config: crate::domain::permission::Config,
     pub(super) subscriptions: BTreeMap<String, Subscription>,
     pub(super) epoch: String,
     pub(super) index_seq: u64,
@@ -96,6 +99,7 @@ impl Engine {
                 Err(_) => (None, false),
             };
         let index = store.load_index(&workspace).await?;
+        let permission_config = tools.permission_config().await;
         let (events, event_rx) = mpsc::channel(128);
         tools.attach_host(crate::contract::EventSink {
             session_id: crate::contract::HOST_CHANNEL.into(),
@@ -133,6 +137,7 @@ impl Engine {
                 .as_ref()
                 .map(crate::domain::permission::Ruleset::from_json),
             project_rules_persistent,
+            permission_config,
             subscriptions: BTreeMap::new(),
             epoch: clock.id(),
             index_seq: 0,

@@ -1,6 +1,6 @@
 //! 权限判定纯函数：逐位对应 TS `core/src/permission/service.ts::checkPermission`，
 //! 见 docs/specs/rust-permission-modes.md。差分 oracle 为 tests/fixtures/permission_matrix.json。
-//! 规则匹配见 permission_rules.rs；Bash rulePolicy 与 disallowed/allowedTools 配置尚未接入（均为空）。
+//! 规则匹配见 permission_rules.rs；Bash rulePolicy 尚未接入（配置为空）。
 pub use crate::permission_rules::{Rule, RuleBehavior, Ruleset};
 use crate::permission_rules::{RuleBehavior as B, matches, webfetch_preapproved};
 use serde_json::Value;
@@ -79,6 +79,27 @@ pub struct Context<'a> {
     pub project: Option<&'a Ruleset>,
     /// 会话免确认规则，只服务 alwaysAsk 门（TS `sessionRules`）。
     pub session: Option<&'a Ruleset>,
+    /// 用户配置（TS `PermissionService` 构造参数）；缺省即全空/false。
+    pub config: Option<&'a Config>,
+}
+
+/// TS `PermissionConfig`：`allowedTools` / `disallowedTools` 是**精确名字**集合
+/// （`--allowed-tools`、`--disallowed-tools` 与 config `permission.*` 同源），
+/// 不做通配；`autoApproveHighRisk` 只影响 build 模式的高风险分支。
+#[derive(Clone, Debug, Default)]
+pub struct Config {
+    pub allowed: Vec<String>,
+    pub disallowed: Vec<String>,
+    pub auto_approve_high_risk: bool,
+}
+
+impl Config {
+    pub fn disallows(&self, tool: &str) -> bool {
+        self.disallowed.iter().any(|t| t == tool)
+    }
+    pub fn allows(&self, tool: &str) -> bool {
+        self.allowed.iter().any(|t| t == tool)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,12 +193,20 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     let group = cap.and_then(|c| c.permission_capability_group.as_deref());
     let rule =
         |set: Option<&Ruleset>, behavior| matches(set, behavior, ctx.tool_name, ctx.input, group);
+    let disallowed = ctx.config.is_some_and(|c| c.disallows(ctx.tool_name));
     if c.requires_user_interaction {
+        // TS：硬禁用先于交互工具的 ask，避免被禁用的工具「弹个窗就能跑」。
+        if disallowed {
+            return d(Deny, "rule.disallowedTools");
+        }
         return d(Ask, "tool.userInteraction");
     }
     if c.always_ask {
         if ctx.mode == Mode::Auto {
             return d(Deny, "mode.auto.unimplemented");
+        }
+        if disallowed {
+            return d(Deny, "rule.disallowedTools");
         }
         if rule(ctx.project, B::Deny) {
             return d(Deny, "rule.project.deny");
@@ -192,6 +221,10 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     }
     if ctx.mode == Mode::Auto {
         return d(Deny, "mode.auto.unimplemented");
+    }
+    // TS 位置：yolo 直通之后、项目规则之前；即 yolo 仍可越过 disallowedTools。
+    if disallowed {
+        return d(Deny, "rule.disallowedTools");
     }
     if rule(ctx.project, B::Deny) {
         return d(Deny, "rule.project.deny");
@@ -208,13 +241,19 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     if webfetch_preapproved(ctx.tool_name, ctx.input) {
         return d(Allow, "tool.webfetch.preapproved");
     }
+    if ctx.config.is_some_and(|c| c.allows(ctx.tool_name)) {
+        return d(Allow, "rule.allowedTools");
+    }
     if ctx.mode == Mode::Edit
         && c.permission_name.as_deref() == Some("edit")
         && c.side_effect_scope == "workspace"
     {
         return d(Allow, "mode.edit.fileEdit");
     }
-    check_build(&c)
+    check_build(
+        &c,
+        ctx.config.is_some_and(|c| c.auto_approve_high_risk),
+    )
 }
 
 fn check_plan(c: &Resolved) -> Decision {
@@ -235,7 +274,7 @@ fn check_plan(c: &Resolved) -> Decision {
     d(Deny, "mode.plan.nonReadOnly")
 }
 
-fn check_build(c: &Resolved) -> Decision {
+fn check_build(c: &Resolved, auto_approve_high_risk: bool) -> Decision {
     use Behavior::*;
     if c.read_only && !c.destructive && !c.needs_approval {
         return d(Allow, "mode.build.readOnly");
@@ -243,8 +282,7 @@ fn check_build(c: &Resolved) -> Decision {
     if c.risk == Risk::Critical {
         return d(Ask, "mode.build.criticalRisk");
     }
-    // TS 的 autoApproveHighRisk 默认 false；配置接入后在此读取。
-    if c.risk == Risk::High {
+    if c.risk == Risk::High && !auto_approve_high_risk {
         return d(Ask, "mode.build.highRisk");
     }
     if c.side_effect_scope == "session"

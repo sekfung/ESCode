@@ -264,6 +264,31 @@ impl ToolPort for WorkspaceTools {
     async fn slash_commands(&self, cancel: &CancellationToken) -> Vec<Value> {
         super::custom_command_shell::catalog(&self.cwd, cancel).await
     }
+    /// 权限配置：与 TS 同源（`~/.zcode/cli/config.json` + 项目 zcode.json/.zcode/config.json，
+    /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
+    async fn permission_config(&self) -> crate::domain::permission::Config {
+        let config = super::extension_config::load(&self.cwd)
+            .await
+            .unwrap_or_else(|_| serde_json::json!({}));
+        let permission = &config["permission"];
+        let list = |key: &str| {
+            permission[key]
+                .as_array()
+                .map(|values| {
+                    values
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        crate::domain::permission::Config {
+            allowed: list("allowedTools"),
+            disallowed: list("disallowedTools"),
+            auto_approve_high_risk: permission["autoApproveHighRisk"].as_bool() == Some(true),
+        }
+    }
     async fn discover_skills(
         &self,
         cancel: &CancellationToken,

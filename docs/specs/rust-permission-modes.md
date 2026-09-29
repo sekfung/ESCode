@@ -18,6 +18,25 @@
 
 每个分支的 `ruleId`（如 `mode.build.highRisk`）原样输出，用于 App 展示和差分比对。
 
+## 用户配置：allowedTools / disallowedTools / autoApproveHighRisk（2026-09-30）
+
+来源与 TS 相同：CLI 的 `--allowed-tools` / `--disallowed-tools` 会投影进 `permission.*`，桌面端读
+`~/.zcode/cli/config.json` 与项目 `zcode.json` / `.zcode/config.json` 合并后的 `permission` 段；
+与 TS 一样**启动时读一次**（运行期改配置要重启 runtime）。工具名按**精确**匹配，不做通配。
+
+位次就是语义，逐条对应 TS `checkPermission`：
+
+- `disallowedTools` 在 `requiresUserInteraction` 分支里先于该分支的 ask；在 alwaysAsk 门里排在 auto 之后、
+  项目 deny 之前；主干里位于 **yolo 直通之后**（yolo 仍越过硬禁用）、项目规则与 plan 判定之前。
+- `allowedTools` 位于 webfetch 预批之后、edit 模式分支之前；压不过 alwaysAsk、项目 deny/ask 与 plan。
+- `autoApproveHighRisk` 只跳过 build 模式的 highRisk ask，随后仍按 sessionState/sideEffect 继续判定
+  （高风险且带副作用的工具因此从 `mode.build.highRisk` 变成 `mode.build.sideEffect`，仍是 ask）。
+
+验收：生成器新增配置段（10 组配置 × 5 工具 × 4 模式 = 200 条，`configAxes`/`configDecisions`），
+Rust 测试 `rust_matches_ts_permission_config` 逐条比对；App 差分
+`packages/services/tests/zcode-cli-rust-permission-config.test.ts` 用真实 `~/.zcode/cli/config.json`
+覆盖「硬禁用不弹窗直接拒绝」「直通不弹窗直接放行」「yolo 越过硬禁用」三条链路。
+
 ## 策略拒绝发给模型的文案（2026-09-27）
 
 - TS 对判定为 deny 的调用返回 `createPermissionErrorResult(reason)`：模型看到的是该规则的 reason 原文；
@@ -101,7 +120,7 @@ Rust：`permission_flow.rs` 仅在 `parent_id` 为空时投放 `fullAccessOption
 | 模式与工具能力分支（判定顺序 1–11）                                                    | 已实现 `crates/domain/src/permission.rs`                                                                                                    | 34,700 条与 TS 一致                              |
 | 项目 deny/ask/allow、会话免确认（alwaysAsk 门）、Write 命中 Edit 规则、官方 CUA 作用域 | 已实现 `permission_rules.rs`                                                                                                                | 1,344 条规则用例与 TS 一致                       |
 | WebFetch 预批                                                                          | 已实现；清单由生成器从 TS 源码抽取为 `webfetch_preapproved.json`（`--check` 防漂移）                                                        | 含编码路径、多重编码、前缀边界用例               |
-| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 未接入（TS 默认均为空/false，当前行为一致）                                                                                                 | —                                                |
+| disallowedTools / allowedTools / autoApproveHighRisk 配置                              | 已接入（`domain/src/permission.rs::Config`，与 TS 同源读 `~/.zcode/cli/config.json` 与项目 zcode.json/.zcode/config.json 的 `permission` 段） | 200 条配置矩阵与 TS 逐条一致 + App 差分          |
 | Bash 只读分类                                                                          | 已实现 `bash_parse` + `bash_policy*` + `bash_callbacks*`；策略表由生成器导出 JSON；Bash 能力按命令动态降级（只读 → low/none/免确认，同 TS） | 5,098 条语料与 429 条解析 oracle 全部一致        |
 | Bash rulePolicy（复合命令拆分与「总是允许」建议）                                      | 已实现 `bash_rule_policy` + `bash_rule_prefix`；fig registry 导出为 JSON 资产                                                               | 2,123 命令 × 8 规则集 × 2 行为 + 建议项全部一致  |
 | 带工作目录的 git 运行时检查（hooks/config 信任）                                       | 已实现 `crates/tools/src/bash_git_safety.rs`（IO 在 adapter，domain 只做纯决策）                                                            | 15 例目录树语料；差分测试待可构建环境运行        |

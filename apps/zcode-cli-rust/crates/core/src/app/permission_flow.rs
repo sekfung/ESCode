@@ -45,6 +45,7 @@ impl Engine {
             input: &input,
             project: self.project_rules.as_ref(),
             session: None,
+            config: Some(&self.permission_config),
         };
         let capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
         // 主会话记忆 Markdown 写入放行（docs/specs/rust-project-memory.md）。

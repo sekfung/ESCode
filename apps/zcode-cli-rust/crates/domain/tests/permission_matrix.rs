@@ -1,7 +1,7 @@
 //! 差分：Rust permission::check 与 TS PermissionService 的判定矩阵逐条一致。
 //! 产物由 scripts/generate-zcode-cli-rust-permission-matrix.mjs 生成，枚举顺序以其注释为准。
 use serde_json::Value;
-use zcode_cli_domain::permission::{Capability, Context, Mode, Risk, Ruleset, check};
+use zcode_cli_domain::permission::{Capability, Config, Context, Mode, Risk, Ruleset, check};
 
 fn strings(v: &Value) -> Vec<String> {
     v.as_array()
@@ -91,6 +91,7 @@ fn rust_matches_ts_permission_matrix() {
                     input: &Value::Null,
                     project: None,
                     session: None,
+                    config: None,
                 },
                 *cap,
             );
@@ -163,6 +164,7 @@ fn rust_matches_ts_permission_rules() {
                                 input,
                                 project: project.as_ref(),
                                 session: session.as_ref(),
+                                config: None,
                             },
                             cap.as_ref(),
                         );
@@ -180,6 +182,99 @@ fn rust_matches_ts_permission_rules() {
         }
     }
     assert_eq!(got.len(), expected.len(), "rule matrix size");
+    let mismatches: Vec<String> = got
+        .iter()
+        .zip(&expected)
+        .zip(&labels)
+        .filter(|((g, w), _)| g != *w)
+        .map(|((g, w), l)| format!("{l}: {g} != {w}"))
+        .collect();
+    assert!(
+        mismatches.is_empty(),
+        "{} mismatches: {:#?}",
+        mismatches.len(),
+        &mismatches[..mismatches.len().min(5)]
+    );
+}
+
+/// 配置段：`permission.allowedTools` / `disallowedTools` / `autoApproveHighRisk`。
+/// 枚举顺序与生成器一致：config → tool → mode。
+#[test]
+fn rust_matches_ts_permission_config() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/permission_matrix.json")).unwrap();
+    let outcomes = strings(&fixture["outcomes"]);
+    let expected: Vec<&str> = fixture["configDecisions"]
+        .as_str()
+        .unwrap()
+        .chars()
+        .map(|c| outcomes[(c as u32 - 48) as usize].as_str())
+        .collect();
+    let axes = &fixture["configAxes"];
+    let names = |v: &Value| -> Vec<String> {
+        v.as_array()
+            .map(|list| list.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+            .unwrap_or_default()
+    };
+    let configs: Vec<Config> = axes["configs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| Config {
+            allowed: names(&c["allowedTools"]),
+            disallowed: names(&c["disallowedTools"]),
+            auto_approve_high_risk: c["autoApproveHighRisk"].as_bool().unwrap_or(false),
+        })
+        .collect();
+    let modes: Vec<Mode> = strings(&axes["modes"])
+        .iter()
+        .map(|m| Mode::parse(m).unwrap())
+        .collect();
+    let mut got = Vec::new();
+    let mut labels = Vec::new();
+    for (index, config) in configs.iter().enumerate() {
+        for case in axes["tools"].as_array().unwrap() {
+            let tool = case["toolName"].as_str().unwrap();
+            let input = &case["input"];
+            // 与生成器的 capability 轴一一对应：其余工具走工具名默认能力。
+            let cap = match tool {
+                "AlwaysAskTool" => Some(Capability {
+                    always_ask: Some(true),
+                    ..Default::default()
+                }),
+                "HighRiskTool" => Some(Capability {
+                    risk_level: Some(Risk::High),
+                    side_effect_scope: Some("workspace".into()),
+                    ..Default::default()
+                }),
+                _ => None,
+            };
+            for mode in &modes {
+                let decision = check(
+                    &Context {
+                        tool_name: tool,
+                        mode: *mode,
+                        plan_enabled: None,
+                        input,
+                        project: None,
+                        session: None,
+                        config: Some(config),
+                    },
+                    cap.as_ref(),
+                );
+                got.push(format!(
+                    "{}:{}",
+                    decision.behavior.as_str(),
+                    decision.rule_id
+                ));
+                labels.push(format!(
+                    "config[{index}] {tool} {mode:?} {}",
+                    case["capability"]
+                ));
+            }
+        }
+    }
+    assert_eq!(got.len(), expected.len(), "config matrix size");
     let mismatches: Vec<String> = got
         .iter()
         .zip(&expected)

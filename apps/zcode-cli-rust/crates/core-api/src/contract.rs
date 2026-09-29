@@ -331,6 +331,11 @@ pub trait ToolPort: Send + Sync {
     async fn slash_commands(&self, _cancel: &CancellationToken) -> Vec<Value> {
         zcode_cli_domain::custom_command::builtin_catalog()
     }
+    /// 权限相关的用户配置（TS `PermissionService` 构造参数）：`permission.allowedTools` /
+    /// `disallowedTools` / `autoApproveHighRisk`。与 TS 一样在启动时读取一次。
+    async fn permission_config(&self) -> zcode_cli_domain::permission::Config {
+        zcode_cli_domain::permission::Config::default()
+    }
     async fn discover_skills(
         &self,
         _cancel: &CancellationToken,

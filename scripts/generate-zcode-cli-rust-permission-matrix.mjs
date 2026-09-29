@@ -181,6 +181,56 @@ for (const project of rulesets) {
   }
 }
 
+// ── 配置分支：permission.allowedTools / disallowedTools / autoApproveHighRisk ──
+// 工具名按**精确**匹配（TS 用 Set.has），来源是 --allowed-tools/--disallowed-tools
+// 或 config 的 permission.*；yolo 直通仍先于 disallowedTools。
+const configs = [
+  null,
+  { disallowedTools: ["Write"] },
+  { disallowedTools: ["Bash", "AlwaysAskTool"] },
+  { disallowedTools: ["CuaTool"] },
+  { allowedTools: ["Write"] },
+  { allowedTools: ["Bash"] },
+  { allowedTools: ["AlwaysAskTool"] },
+  { autoApproveHighRisk: true },
+  { disallowedTools: ["Write"], allowedTools: ["Write"] },
+  { disallowedTools: ["UnknownTool"], autoApproveHighRisk: true },
+];
+const configTools = [
+  { toolName: "Read", input: {} },
+  { toolName: "Write", input: { file_path: "src/a.ts" } },
+  { toolName: "Bash", input: { command: "echo hi" } },
+  { toolName: "AlwaysAskTool", input: { command: "safe" }, capability: { alwaysAsk: true } },
+  {
+    toolName: "HighRiskTool",
+    input: { path: "src/a.ts" },
+    capability: { riskLevel: "high", sideEffectScope: "workspace" },
+  },
+];
+const configModes = ["build", "plan", "yolo", "edit"];
+let configDecisions = "";
+for (const config of configs) {
+  for (const { toolName, input, capability } of configTools) {
+    for (const mode of configModes) {
+      const service = new PermissionService({
+        allowedTools: new Set(config?.allowedTools ?? []),
+        disallowedTools: new Set(config?.disallowedTools ?? []),
+        autoApproveHighRisk: config?.autoApproveHighRisk ?? false,
+        allowMediumRiskInAutoMode: false,
+      });
+      const result = service.checkPermission(
+        { toolName, input, riskLevel: "low", mode },
+        capability,
+      );
+      recordReason(result, toolName);
+      const key = `${result.decision}:${result.ruleId}`;
+      let index = outcomes.indexOf(key);
+      if (index < 0) index = outcomes.push(key) - 1;
+      configDecisions += String.fromCharCode(48 + index);
+    }
+  }
+}
+
 // WebFetch 预批清单不导出：从 TS 源码抽取，作为 Rust 内嵌资产（--check 防漂移）。
 const webfetchSource = await readFile(
   new URL("../apps/zcode-cli/packages/core/src/tool/webfetch-preapproved.ts", import.meta.url),
@@ -208,6 +258,9 @@ const content = `${JSON.stringify({
   // 规则段枚举顺序：project → session → input → mode →（CuaTool 时）official=false/true。
   ruleAxes: { rulesets, sessionRules, inputs, ruleModes },
   ruleDecisions,
+  // 配置段枚举顺序：config → tool → mode。
+  configAxes: { configs, tools: configTools, modes: configModes },
+  configDecisions,
   askReasons: Object.fromEntries(Object.entries(askReasons).sort(([a], [b]) => a.localeCompare(b))),
   denyReasons: Object.fromEntries(Object.entries(denyReasons).sort(([a], [b]) => a.localeCompare(b))),
 })}\n`;
