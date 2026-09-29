@@ -52,6 +52,12 @@
 
 ## 进度
 
+- 2026-09-30 第 1 期灰度开关已落地：`domain/src/dynamic_workflow.rs` 持有进程级结论与各会话固化值
+  （fail-closed、创建参数优先、翻转不回收已固化会话），`core/src/app/dynamic_workflow.rs` 提供
+  `workspace/updateDynamicWorkflowPolicy`、会话创建固化与工具面过滤（`DYNAMIC_WORKFLOW_TOOL_NAMES`）。
+  验收：domain 单测（读法）、`tests/dynamic_workflow_policy.rs`（strict 参数与回显）、App 差分
+  `packages/services/tests/zcode-cli-rust-dynamic-workflow-policy.test.ts`（Node/Rust 回显同形，关闭态
+  工具名逐字一致）。工具在实现前不注册，所以**开启态**的工具面差分要等第 2/6 期工具落地。
 - 2026-09-30 第 2 期存储与编解码已落地：`domain/src/saved_workflow.rs`（frontmatter 编解码、
   元数据校验、参数校验）、`domain/src/yaml_emit.rs`（对齐 TS `yaml` 缺省 `stringify`）与
   `tools/src/saved_workflows.rs`（作用域根、解析、枚举、写入、遮蔽、全局→项目搬运）。

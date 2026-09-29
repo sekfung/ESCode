@@ -19,6 +19,8 @@ pub(super) struct TurnFacts {
     pub mcp_meta: Value,
     /// 本会话是否注册 OffPeak 工具（docs/specs/rust-offpeak.md 第一期）。
     pub off_peak_tools: bool,
+    /// 本会话是否注册动态工作流工具（docs/specs/rust-dynamic-workflow.md 第 1 期）。
+    pub dynamic_workflow: bool,
     /// 本轮闲时派发身份（第二期）。
     pub off_peak_task_id: Option<String>,
     /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。

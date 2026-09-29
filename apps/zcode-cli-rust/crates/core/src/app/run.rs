@@ -117,6 +117,8 @@ impl Engine {
         history.turn.off_peak_restricted = history.turn.off_peak_task_id.is_some()
             || history.turn.disallowed.iter().any(|t| t == "OffPeakCreate");
         history.turn.off_peak_tools = self.off_peak_enabled(id);
+        // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）。
+        history.turn.dynamic_workflow = self.dynamic_workflow_enabled(id);
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {

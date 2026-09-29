@@ -60,6 +60,7 @@ pub(super) async fn run(
     let turn_facts = std::mem::take(&mut history.turn);
     super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
     super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
+    super::dynamic_workflow::retain_visible(&mut definitions, &turn_facts);
     let profiles = if definitions.iter().any(|d| d["function"]["name"] == "Agent") {
         tools.agent_profiles(cancel).await?
     } else {
