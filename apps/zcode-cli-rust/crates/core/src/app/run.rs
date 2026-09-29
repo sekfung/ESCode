@@ -58,6 +58,7 @@ impl Engine {
             estimated,
         );
         history.prompt_snapshot = session.prompt_snapshot.clone();
+        history.subagents_enabled = self.subagents_enabled;
         history.skills = session.skills.clone();
         history.goal = session.goal.clone();
         history.agent_profile = session.agent_profile.clone();

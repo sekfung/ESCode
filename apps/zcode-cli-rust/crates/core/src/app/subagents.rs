@@ -23,6 +23,17 @@ impl Engine {
         else {
             unreachable!()
         };
+        // features.subagent=false：TS 没有 SubagentPort，Agent 直接报 ConfigurationError。
+        // 工具面已剔除这两个工具，这里是脚本化调用/冷恢复历史的兜底，文案与 TS 一致。
+        if !self.subagents_enabled {
+            let error = if name == "SendMessage" {
+                "SubagentPort is not configured for SendMessage tool"
+            } else {
+                "SubagentPort is not configured for Agent tool"
+            };
+            let _ = reply.send(Err(error.into()));
+            return Ok(());
+        }
         let result = if let Some(profile) = profile {
             self.launch_child(parent, &call_id, &args, *profile, selection)
                 .await

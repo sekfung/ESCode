@@ -336,6 +336,11 @@ pub trait ToolPort: Send + Sync {
     async fn permission_config(&self) -> zcode_cli_domain::permission::Config {
         zcode_cli_domain::permission::Config::default()
     }
+    /// `features.subagent`：false 时 TS 不注入 SubagentPort，Agent/SendMessage 既不进工具面，
+    /// 直接调用也报 ConfigurationError（docs/specs/rust-subagents.md）。与 TS 一样启动读一次。
+    async fn subagents_enabled(&self) -> bool {
+        true
+    }
     async fn discover_skills(
         &self,
         _cancel: &CancellationToken,

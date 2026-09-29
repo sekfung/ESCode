@@ -289,6 +289,12 @@ impl ToolPort for WorkspaceTools {
             auto_approve_high_risk: permission["autoApproveHighRisk"].as_bool() == Some(true),
         }
     }
+    async fn subagents_enabled(&self) -> bool {
+        let config = super::extension_config::load(&self.cwd)
+            .await
+            .unwrap_or_else(|_| serde_json::json!({}));
+        config["features"]["subagent"] != false
+    }
     async fn discover_skills(
         &self,
         cancel: &CancellationToken,

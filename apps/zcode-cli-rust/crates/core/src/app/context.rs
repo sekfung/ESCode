@@ -35,6 +35,8 @@ pub(super) struct TurnFacts {
 
 pub(super) struct RunContext {
     pub turn: TurnFacts,
+    /// `features.subagent`：false 时本轮不向模型暴露 Agent/SendMessage（TS 不注入 SubagentPort）。
+    pub subagents_enabled: bool,
     pub agent_profile: Option<crate::domain::subagent::Profile>,
     pub goal: Option<crate::domain::goal::Goal>,
     pub skills: Option<crate::domain::skills::SkillCatalog>,
@@ -62,6 +64,7 @@ impl RunContext {
     ) -> Self {
         Self {
             turn: TurnFacts::default(),
+            subagents_enabled: true,
             agent_profile: None,
             goal: None,
             skills: None,

@@ -40,6 +40,15 @@ pub(super) async fn run(
     if !skills.enabled {
         definitions.retain(|d| d["function"]["name"] != "Skill");
     }
+    // features.subagent=false：TS 不注入 SubagentPort，Agent/SendMessage 不进工具面。
+    if !history.subagents_enabled {
+        definitions.retain(|d| {
+            !matches!(
+                d["function"]["name"].as_str().unwrap_or(""),
+                "Agent" | "SendMessage"
+            )
+        });
+    }
     // 模型输入能力决定 Read 的 PDF 分支与 schema（rust-media-read.md）。
     let properties = model
         .bind()

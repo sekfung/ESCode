@@ -52,6 +52,8 @@ pub struct Engine {
     /// 权限配置（`permission.allowedTools`/`disallowedTools`/`autoApproveHighRisk`）：
     /// 与 TS 一样在启动时读取一次，运行期不再变（改配置需重启 runtime）。
     pub(super) permission_config: crate::domain::permission::Config,
+    /// `features.subagent`：false 时 Agent/SendMessage 不进工具面，直接调用也拒绝。
+    pub(super) subagents_enabled: bool,
     pub(super) subscriptions: BTreeMap<String, Subscription>,
     pub(super) epoch: String,
     pub(super) index_seq: u64,
@@ -100,6 +102,7 @@ impl Engine {
             };
         let index = store.load_index(&workspace).await?;
         let permission_config = tools.permission_config().await;
+        let subagents_enabled = tools.subagents_enabled().await;
         let (events, event_rx) = mpsc::channel(128);
         tools.attach_host(crate::contract::EventSink {
             session_id: crate::contract::HOST_CHANNEL.into(),
@@ -138,6 +141,7 @@ impl Engine {
                 .map(crate::domain::permission::Ruleset::from_json),
             project_rules_persistent,
             permission_config,
+            subagents_enabled,
             subscriptions: BTreeMap::new(),
             epoch: clock.id(),
             index_seq: 0,
