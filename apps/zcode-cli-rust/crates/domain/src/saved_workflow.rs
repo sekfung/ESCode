@@ -204,6 +204,77 @@ pub fn validate(meta: &Json) -> Vec<String> {
     issues
 }
 
+/// TS `validateWorkflowArgs`（`tool/handlers/saved-workflows/args.ts`）：按声明校验调用方参数并补齐
+/// 默认值，一次返回**全部**违规；成功时参数的键序是**声明顺序**（TS 用 `Object.entries(declared)` 建表）。
+pub fn validate_args(declaration: Option<&Json>, provided: Option<&Json>) -> Result<Json, Vec<String>> {
+    let empty = Json::object();
+    let declared = declaration.filter(|value| value.is_object()).unwrap_or(&empty);
+    let given = provided.filter(|value| value.is_object()).unwrap_or(&empty);
+    let (Json::Object(declared_entries), Json::Object(given_entries)) = (declared, given) else {
+        unreachable!("上面已收敛到对象")
+    };
+    let names: Vec<&str> = declared_entries.iter().map(|(name, _)| name.as_str()).collect();
+    let mut errors = Vec::new();
+    for (key, _) in given_entries {
+        if declared_entries.iter().any(|(name, _)| name == key) {
+            continue;
+        }
+        errors.push(if names.is_empty() {
+            format!("unknown argument '{key}': this workflow declares no arguments")
+        } else {
+            format!("unknown argument '{key}' (declared: {})", names.join(", "))
+        });
+    }
+    let mut args = Json::object();
+    for (key, spec) in declared_entries {
+        // 缺省与显式 undefined 一视同仁：JSON 里传不出 undefined，两者只能是同一件事。
+        let supplied = given_entries.iter().find(|(name, _)| name == key).map(|(_, value)| value);
+        let Some(supplied) = supplied else {
+            // 默认值与传入值走**同一条**类型检查（声明成 number 却默认写 "3"，错在保存那一刻）。
+            if let Some(default) = spec.get("default") {
+                match type_mismatch(key, spec, default, "default value") {
+                    None => args.set(key, default.clone()),
+                    Some(message) => errors.push(message),
+                }
+            } else if spec.get("required") == Some(&Json::Bool(true)) {
+                errors.push(format!("missing required argument '{key}'"));
+            }
+            continue;
+        };
+        match type_mismatch(key, spec, supplied, "value") {
+            None => args.set(key, supplied.clone()),
+            Some(message) => errors.push(message),
+        }
+    }
+    if errors.is_empty() { Ok(args) } else { Err(errors) }
+}
+
+/// 类型不符时的说明，符合时 None。`json` 什么都收（连 null 都是合法 json 值）；`number` 额外拒
+/// NaN 与 Infinity——它们过不了 JSON 边界，放行只会把可读的错误挪到脚本里变成 `null`。
+fn type_mismatch(key: &str, spec: &Json, value: &Json, what: &str) -> Option<String> {
+    let expected = match spec.get("type").and_then(Json::as_str) {
+        Some("string") if matches!(value, Json::String(_)) => return None,
+        Some("string") => "a string",
+        Some("number") if matches!(value, Json::Number(number) if number.as_f64().is_some_and(f64::is_finite)) => {
+            return None;
+        }
+        Some("number") => "a finite number",
+        Some("boolean") if matches!(value, Json::Bool(_)) => return None,
+        Some("boolean") => "a boolean",
+        // `json` 与未声明的类型都放行（TS 的 switch 在未知类型上落空）。
+        _ => return None,
+    };
+    let got = match value {
+        Json::Null => "null".to_owned(),
+        Json::Array(_) => "an array".to_owned(),
+        Json::Bool(_) => "a boolean".to_owned(),
+        Json::Number(_) => "a number".to_owned(),
+        Json::String(_) => "a string".to_owned(),
+        Json::Object(_) => "a object".to_owned(),
+    };
+    Some(format!("argument '{key}': expected {expected}, got {got} ({what})"))
+}
+
 #[cfg(test)]
 #[path = "saved_workflow_tests.rs"]
 mod tests;

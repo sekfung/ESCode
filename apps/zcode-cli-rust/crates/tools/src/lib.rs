@@ -51,6 +51,10 @@ mod process_tree;
 mod project_memory;
 mod read_image;
 mod read_pdf;
+// 第 2 期存储层：ListSavedWorkflows / SaveWorkflow 与 `workflows/*` 管理方法随开关（第 1 期）接入。
+pub mod saved_workflows;
+#[cfg(test)]
+mod saved_workflows_tests;
 mod shell_select;
 mod shell_snapshot;
 mod tool_args;

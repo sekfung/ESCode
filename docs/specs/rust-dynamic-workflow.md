@@ -49,3 +49,15 @@
 
 - 每期先有 TS oracle（真实 TS 模块 + 脚本化依赖）或 App 差分，再实现；不以 Rust 自测代替对齐。
 - 全部完成前 Rust 继续不宣告 `workflowRunDeltas`、不注册未实现的工具，不以空结果冒充完成。
+
+## 进度
+
+- 2026-09-30 第 2 期存储与编解码已落地：`domain/src/saved_workflow.rs`（frontmatter 编解码、
+  元数据校验、参数校验）、`domain/src/yaml_emit.rs`（对齐 TS `yaml` 缺省 `stringify`）与
+  `tools/src/saved_workflows.rs`（作用域根、解析、枚举、写入、遮蔽、全局→项目搬运）。
+  验收语料：`scripts/generate-zcode-cli-rust-saved-workflow-corpus.mjs`（编解码，逐字节）与
+  `scripts/generate-zcode-cli-rust-saved-workflow-store-corpus.mjs`（存储，读用例全文 + 写用例
+  的文件快照）；两者都纳入 `pnpm test:zcode-cli-rust` 的 `--check`。
+  `invalid_yaml` 的解析器措辞与 `read_error` 的 OS 文案跨平台不同，语料只比 kind（规格已记）。
+- 工具（ListSavedWorkflows / SaveWorkflow）与 `workflows/*` 管理方法需要第 1 期开关的可见性裁剪，
+  且 SaveWorkflow 的诊断来自第 3 期的静态分析；为此存储层先以 `pub mod` 落地，接入时改回私有。
