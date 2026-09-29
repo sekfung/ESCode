@@ -180,9 +180,19 @@ sequenceDiagram
 
 ## 子代理的执行模式
 
-与 TS `resolveSubagentPermissionMode` 一致：子会话继承父会话的 `mode` 与 plan 状态；内置 Explore（`name == "Explore"` 且 `source == "built-in"`，同名用户 profile 不算）以 `yolo` 运行。原先 Rust 子会话取 `Session::new` 的默认值，默认值改为 build 后会让 yolo 父会话的子代理意外停在确认弹窗。
+与 TS `resolveSubagentPermissionMode` + `runExploreAgent` 的构造逐条对齐（2026-09-30 完成）：
 
-已知差异：TS profile 的 `permissionMode: auto|plan`（仅非 project 来源）会覆盖继承值；Rust 尚不支持这两种模式，按继承处理。
+1. profile 声明 `permissionMode` 时它覆盖继承值，只接受 `auto`/`plan`（非法值静默丢弃，与 TS `normalizePermissionMode` 一致）；`plan` 在 TS 里只打开 `planEnabled`、`mode` 留在父模式（`mode: childMode === "plan" ? this.config.mode : childMode`），`auto` 则为 `mode = "auto"` + `planEnabled = false`。
+2. 未声明时子会话继承父会话的 `mode` 与 plan 状态；内置 Explore（`name == "Explore"` 且 `source == "built-in"`，同名用户 profile 不算）以 `yolo` 运行。原先 Rust 子会话取 `Session::new` 的默认值，默认值改为 build 后会让 yolo 父会话的子代理意外停在确认弹窗。
+3. 项目级 `.zcode/agents/*.md` 属于仓库输入，`permissionMode` 在解析时剥离（TS `parseAgentProfile` + `sanitizeProjectAgentProfile` 两道），用户级与插件 profile 不受影响。
+
+实现：`domain::agent_profile::parse` 解析并做来源剥离，`domain::subagent::Profile.permission_mode` 承载，`core/src/app/subagents.rs` 按上面三步决定子会话的 `mode`/`plan_enabled`。注意不能把 `plan` 写进 `session.mode`：`permission_flow` 显式传 `plan_enabled`，`check` 的 `mode == Plan` 回退分支不会生效，会放宽成父模式的普通工具判定。
+
+验收：App 差分 `packages/services/tests/zcode-cli-rust-subagent-permission-mode.test.ts`（用户级 profile 声明 `plan`/`auto` 时两侧子会话的行状态、模型可见拒绝文案、父会话 Agent 结果与磁盘副作用一致；项目级同名声明被剥离、按继承放行）+ `agent_profile` 单测。
+
+### 未决项：策略拒绝的工具行投影（2026-09-30 差分发现）
+
+上例暴露出一条与本条无关的既有差异：**策略拒绝**（`check` 直接 deny，没有确认交互）时，Node 的工具行除了 `cancelled` 还写入 `error` 与 `output.text`（拒绝原因），Rust 的 `Session::finish_tool_row` 只收口为 `cancelled`、不写输出与错误。用户拒绝（走确认交互、`settlePermission`）两侧一致，即本文「被拒调用的行投影」的「不带工具输出/错误」只对交互拒绝成立。该差异影响所有模式级/规则级拒绝（父会话同样可复现），需要单独定 oracle 后修复；新差分用例只断言 `status`，不把现状固化成期望。
 
 ## 集成测试约定
 

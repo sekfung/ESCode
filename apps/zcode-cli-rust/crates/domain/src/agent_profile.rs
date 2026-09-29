@@ -58,6 +58,16 @@ pub fn parse(text: &str, source: &str) -> Option<Profile> {
             .map(|s| parse_list(s))
             .unwrap_or_default(),
         memory: fields.get("memory").cloned(),
+        // TS `parseAgentProfile`：项目级 `.zcode/agents/*.md` 属于仓库输入，权限模式只接受
+        // 用户级或受信插件配置；非法值静默丢弃（不产生诊断），与 TS `normalizePermissionMode` 一致。
+        permission_mode: if source == "project" {
+            None
+        } else {
+            fields
+                .get("permissionMode")
+                .map(|s| unquote(s))
+                .filter(|s| s == "auto" || s == "plan")
+        },
     })
 }
 fn parse_tools(s: &str) -> Vec<String> {
@@ -148,6 +158,48 @@ fn selection(model: &str, thought: Option<&str>) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
+    fn profile(frontmatter: &str, source: &str) -> Option<super::Profile> {
+        super::parse(&format!("---\n{frontmatter}---\nbody\n"), source)
+    }
+
+    // TS `parseAgentProfile` + `sanitizeProjectAgentProfile`：权限模式只认 auto/plan，
+    // 非法值静默丢弃；项目级来源一律剥离（仓库内容不能提升子运行时的权限）。
+    #[test]
+    fn permission_mode_follows_ts_source_rules() {
+        let user = profile(
+            "name: A\ndescription: d\npermissionMode: plan\n",
+            "user",
+        )
+        .unwrap();
+        assert_eq!(user.permission_mode.as_deref(), Some("plan"));
+
+        let plugin = profile(
+            "name: A\ndescription: d\npermissionMode: \"auto\"\n",
+            "plugin",
+        )
+        .unwrap();
+        assert_eq!(plugin.permission_mode.as_deref(), Some("auto"));
+
+        for invalid in ["yolo", "build", "edit", "PLAN", ""] {
+            let value = profile(
+                &format!("name: A\ndescription: d\npermissionMode: {invalid}\n"),
+                "user",
+            )
+            .unwrap();
+            assert_eq!(value.permission_mode, None, "{invalid} must be dropped");
+        }
+
+        let project = profile(
+            "name: A\ndescription: d\npermissionMode: plan\n",
+            "project",
+        )
+        .unwrap();
+        assert_eq!(project.permission_mode, None);
+
+        let absent = profile("name: A\ndescription: d\n", "user").unwrap();
+        assert_eq!(absent.permission_mode, None);
+    }
+
     #[test]
     fn tool_profile_matches_ts_names_without_permission_specifiers() {
         assert_eq!(

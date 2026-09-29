@@ -24,6 +24,10 @@ pub struct Profile {
     pub background: bool,
     #[serde(default)]
     pub inject_agents_md: Option<bool>,
+    /// TS `AgentProfile.permissionMode`：仅 `auto`/`plan`，且只由用户级/插件来源声明
+    /// （项目级在解析时剥离）。见 docs/specs/rust-permission-modes.md。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permission_mode: Option<String>,
 }
 impl Profile {
     pub fn allows(&self, name: &str) -> bool {
