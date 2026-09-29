@@ -65,6 +65,26 @@ Rust 实现（`core/src/app/session_resume.rs`）：
 以及 Node 独有的 `step-start/step-finish` part），恢复后可直接续聊（消息数与用户轮数一致），
 且冷恢复参数 `dynamicWorkflowEnabled: true` 让两侧都看到工作流只读工具。
 
+## `session/messages`（2026-09-30）
+
+App 的 `readSessionMessages` 走 `session/messages`（TS `readMessages`），Rust 之前回 -32601。
+实现（`session_read.rs::read_messages`）：只读**活跃**会话（未激活时与 Node 同文案
+`Session is not active: <id>`）；`afterMessageId` 命中后取其后的全部（找不到退回全部）；
+`limit` 取**最后** N 条（TS `slice(-limit)`）；`limit` 非正数报 `Invalid message limit`。
+响应直接满足 App 的 `zcodeSessionMessagesResultSchema`。
+
+已知差异（该方法的 App 调用方 `readSessionMessages` 当前没有活跃 UI 消费者）：
+
+- 消息形状：Node 返回 legacy AI SDK 形状（`info.id/sessionID`、part 带 `id/sessionID/messageID`），
+  **过不了 App 自己的 `zcodeSessionMessagesResultSchema`**（要求 `messageId/partId/sessionId`）；
+  Rust 按该 schema 的形状返回。因此锚点字段也不同（Node 比 `info.id`，Rust 比 `messageId`），
+  两侧无法逐条 deepEqual。
+- Node 的历史里含一条「活」的占位 assistant（只有 step-start），出现时机晚于 turn 完成，
+  同一场景连续两次读取的条数可能不同；Rust 只反映已提交的历史。
+
+验收：`packages/services/tests/zcode-cli-rust-session-messages.test.ts`——Rust 侧校验 schema 通过、
+四类分页（命中锚点 / 锚点缺失 / limit 取尾部 / limit 超限）逐条对齐 TS 算法、未激活会话报同文案。
+
 ## 验收
 
 - 用禁止会话写入的 trigger、损坏的未打开 transcript/ACK，证明启动和 index 不访问它们；坏历史只影响读取该会话。

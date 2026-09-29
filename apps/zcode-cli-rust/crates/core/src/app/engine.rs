@@ -333,6 +333,8 @@ impl Engine {
             "session/read" => self.read_cold_session(&request.params).await,
             // App 的会话/任务恢复入口（TS resumeSession + activateSessionForResume）。
             "session/resume" => self.resume_session(&request.params).await,
+            // legacy 消息分页读（TS readMessages；App `readSessionMessages` 仍在用）。
+            "session/messages" => self.read_messages(&request.params),
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,

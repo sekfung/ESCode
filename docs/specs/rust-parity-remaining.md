@@ -44,8 +44,10 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
 - **仍缺**（按当前行为判断的重要性排序）：
   - `plugins/list`（`zcodeAgentService.listPlugins`）：Rust 无该字符串；App 只对超时重试，
     method-not-found 直接上抛 → 插件管理与同步链路在 Rust 上失败。
-  - `session/messages`（`readSessionMessages`，`afterMessageId`/`limit` 分页读）：Rust 无该字符串 →
-    这条 legacy 读路径失败（V4 侧已有 `v4/conversation/rowsRange`，但 App 这里尚未切换）。
+  - `session/messages`：**已实现**（`afterMessageId`/`limit` 分页语义与 TS 一致，见
+    [rust-session-loading.md](rust-session-loading.md)）；但该方法的 App 调用方 `readSessionMessages`
+    当前没有活跃 UI 消费者，且 Node 返回的 legacy 形状过不了 App 自己的
+    `zcodeSessionMessagesResultSchema`——要不要保留这条 legacy 面需要产品决定。
   - `workspace/updateModelIoPreferences`：App 显式容忍 method-not-found（源码注释"新 Host 兼容尚未升级的
     CLI"）→ 不崩溃，但「完整保留模型 IO」设置对 Rust 会话不生效。
   - `computer-use/operation-event`：CLI → App 的 CUA 侧带通知，Rust 不发；与 rust-mcp-parity.md 第 4 期

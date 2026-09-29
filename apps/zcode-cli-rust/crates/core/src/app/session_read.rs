@@ -1,5 +1,5 @@
 use super::Engine;
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 
 impl Engine {
@@ -7,6 +7,38 @@ impl Engine {
         let id = p["sessionId"].as_str().context("Session id required")?;
         let s = self.sessions.get(id).context("Session unavailable")?;
         self.read_session_snapshot(s, p)
+    }
+    /// `session/messages`：TS `readMessages` 的等价物——只读**活跃**会话的消息，
+    /// `afterMessageId` 命中后取其后的全部，`limit` 取**最后** N 条（TS `slice(-limit)`）。
+    pub(super) fn read_messages(&self, p: &Value) -> Result<Value> {
+        self.validate_workspace(p)?;
+        let id = p["sessionId"].as_str().context("Session id required")?;
+        let Some(s) = self.sessions.get(id) else {
+            // TS `requireSession`：未激活的会话报这条（与「已持久化但未激活」区分）。
+            bail!("Session is not active: {id}");
+        };
+        let limit = p
+            .get("limit")
+            .map(|v| {
+                v.as_u64()
+                    .filter(|n| *n > 0)
+                    .context("Invalid message limit")
+            })
+            .transpose()?;
+        let mut messages = crate::domain::legacy_snapshot::messages(s, &self.workspace_path);
+        if let Some(after) = p["afterMessageId"].as_str()
+            && let Some(index) = messages
+                .iter()
+                // Rust 的消息投影用 V4 键（`messageId`）；TS 比的是它自己的 `info.id`。
+                .position(|m| m["info"]["messageId"].as_str() == Some(after))
+        {
+            messages.drain(..=index);
+        }
+        if let Some(limit) = limit {
+            let start = messages.len().saturating_sub(limit as usize);
+            messages.drain(..start);
+        }
+        Ok(json!({"messages": messages}))
     }
     pub(super) fn read_session_snapshot(
         &self,
