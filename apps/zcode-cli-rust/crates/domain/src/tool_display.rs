@@ -91,6 +91,49 @@ pub fn row_display_kind(display: &Value) -> bool {
     )
 }
 
+/// TS `fitStringToBytes(_, max, "head")`：保留不超过 `max` 字节的合法 UTF-8 前缀。
+fn fit_prefix(value: &str, max_bytes: usize) -> String {
+    if value.len() <= max_bytes {
+        return value.to_owned();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    value[..end].to_owned()
+}
+
+/// TS resultBudget（`strategy: "truncate"`、`preview.direction: "head"`）：超预算时保留头部并附同一条
+/// 说明后缀（`fitContentWithSuffix`）。`originalBytes` 报的是**截断前**的字节数。
+pub fn truncate_model_content(text: String, max_model_bytes: usize) -> String {
+    if max_model_bytes == 0 {
+        return String::new();
+    }
+    if text.len() <= max_model_bytes {
+        return text;
+    }
+    let suffix = format!(
+        "\n\n[Tool output truncated by resultBudget: originalBytes={}, maxModelBytes={max_model_bytes}, strategy=truncate]",
+        text.len()
+    );
+    let suffix = fit_prefix(&suffix, max_model_bytes);
+    let mut out = fit_prefix(&text, max_model_bytes.saturating_sub(suffix.len()));
+    out.push_str(&suffix);
+    out
+}
+
+/// TS `boundDisplayText`：超过字节上限时保留前缀并附 `\n...[truncated]`（display 通道没有工具预算兜着）。
+pub fn bound_display_text(value: &str, max_bytes: usize) -> (String, bool) {
+    const SUFFIX: &str = "\n...[truncated]";
+    if value.len() <= max_bytes {
+        return (value.to_owned(), false);
+    }
+    let suffix = fit_prefix(SUFFIX, max_bytes);
+    let mut out = fit_prefix(value, max_bytes.saturating_sub(suffix.len()));
+    out.push_str(&suffix);
+    (out, true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

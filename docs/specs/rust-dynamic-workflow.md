@@ -67,3 +67,9 @@
   `invalid_yaml` 的解析器措辞与 `read_error` 的 OS 文案跨平台不同，语料只比 kind（规格已记）。
 - 工具（ListSavedWorkflows / SaveWorkflow）与 `workflows/*` 管理方法需要第 1 期开关的可见性裁剪，
   且 SaveWorkflow 的诊断来自第 3 期的静态分析；为此存储层先以 `pub mod` 落地，接入时改回私有。
+- 2026-09-30 ListSavedWorkflows 已按第 1 期开关接入：模型面（XML 容器、24 KiB 预算）、行级
+  display（`saved_workflow_list`、元文本 2 KiB 上限）与结构化输出对齐 TS；校验为
+  `crates/tools/tests/fixtures/saved_workflow_tool_corpus.json`（TS 工具条目 + display 构造）+ App 差分
+  `packages/services/tests/zcode-cli-rust-saved-workflow-tool.test.ts`（灰度为开时两侧模型面与 display
+  逐字一致）。其余九个工作流工具未实现，所以**开启态**的工具名清单仍与 Node 不同（Node 十个、Rust 一个），
+  这是刻意的分期状态；SaveWorkflow 随第 3 期静态分析落地。

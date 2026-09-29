@@ -53,6 +53,7 @@ const tools = [
   ["CronDelete", "automation", "CronDeleteInputJsonSchema"],
   ["OffPeakCreate", "off-peak", "OffPeakCreateInputJsonSchema"],
   ["OffPeakList", "off-peak", "OffPeakListInputJsonSchema"],
+  ["ListSavedWorkflows", "list-saved-workflows", "ListSavedWorkflowsInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -132,6 +133,7 @@ const staticDescriptions = Object.fromEntries(
     "CronDelete",
     "OffPeakCreate",
     "OffPeakList",
+    "ListSavedWorkflows",
   ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };

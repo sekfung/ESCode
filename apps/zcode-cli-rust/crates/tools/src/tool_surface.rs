@@ -48,6 +48,9 @@ pub(super) fn definitions() -> Vec<Value> {
     definitions.push(json!({"type":"function","function":{"name":"WebSearch","description":crate::domain::web_search::description(year, month),"parameters":schemas["WebSearch"]}}));
     // 非参考集合的工具按 TS 注册顺序排列：ReadSessionContext 在 SendMessage 之后。
     definitions.push(json!({"type":"function","function":{"name":"ReadSessionContext","description":surface["descriptions"]["ReadSessionContext"],"parameters":schemas["ReadSessionContext"]}}));
+    // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：只读、无 gate，是否可见由
+    // 动态工作流灰度门决定（保留给各期实现顺序里的最后一个工作流工具之前）。
+    definitions.push(json!({"type":"function","function":{"name":"ListSavedWorkflows","description":surface["descriptions"]["ListSavedWorkflows"],"parameters":schemas["ListSavedWorkflows"]}}));
     definitions.extend(super::plan_tools::definitions(
         &schemas,
         &surface["EnterPlanMode"]["embedded"],

@@ -100,6 +100,20 @@ impl WorkspaceTools {
             "Glob" | "Grep" => super::tool_search::search(&self.cwd, name, args, cancel).await,
             // Kept for existing native transcripts, but no longer advertised to the model.
             "List" => super::tool_search::list(&self.cwd, args, cancel).await,
+            // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：cwd 恒取会话工作目录，
+            // 模型无权跨项目扫盘（TS handler 同），这也是 `sideEffectScope: "none"` 成立的前提。
+            "ListSavedWorkflows" => {
+                let home = std::path::PathBuf::from(zcode_cli_host::credential_cipher::node_homedir());
+                let listed = super::saved_workflows::list(&self.workspace_path, &home, None);
+                let mut output = ToolOutput::new(
+                    super::saved_workflows::model_content(&listed),
+                    super::saved_workflows::to_value(&super::saved_workflows::output(&listed)),
+                );
+                output.display = Some(super::saved_workflows::to_value(
+                    &super::saved_workflows::display(&listed),
+                ));
+                Ok(output)
+            }
             "Bash" | "TaskOutput" | "TaskStop" => {
                 let started = std::time::SystemTime::now();
                 let paths = (self.cwd.as_path(), artifacts.as_path(), self.workspace_path.as_path());
