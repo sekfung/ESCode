@@ -64,6 +64,13 @@ impl Engine {
                     let _ = reply.send(store.session_context(&target).await);
                 });
             }
+            Event::WorkflowRunList { query, reply } => {
+                // 同上：journal 读取交回存储任务，不阻塞会话 actor。
+                let store = self.store.clone();
+                tokio::spawn(async move {
+                    let _ = reply.send(store.workflow_runs(&query).await);
+                });
+            }
             Event::ShellPreference { reply } => self.request_shell_preference(id, reply),
             Event::MemoryPreference { reply } => {
                 let cached = self.memory_prompts.get(id).cloned();

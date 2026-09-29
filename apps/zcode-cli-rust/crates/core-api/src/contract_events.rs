@@ -61,6 +61,12 @@ pub enum Event {
             anyhow::Result<Option<zcode_cli_domain::session_context::SessionSource>>,
         >,
     },
+    /// `ListWorkflowRuns` 读 run journal（docs/specs/rust-dynamic-workflow.md 第 6 期）：工具在
+    /// 会话回合里执行，而 journal 由会话 owner 的存储持有——经 owner 读，投影在工具侧。
+    WorkflowRunList {
+        query: zcode_cli_domain::dwf_journal::RunQuery,
+        reply: oneshot::Sender<anyhow::Result<Vec<zcode_cli_domain::dwf_journal::JournalRun>>>,
+    },
     /// 工具经会话 owner 向 Host 发起反向请求（automation/* 等）。
     HostRequest {
         method: String,

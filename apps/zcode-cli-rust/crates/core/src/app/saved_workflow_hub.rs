@@ -35,6 +35,7 @@ impl Engine {
                 )
             },
             name: p.get("name").and_then(Value::as_str).map(str::to_owned),
+            statuses: None,
             // 多取一条**只为判定 truncated**（run service 与 v4 事件分页的同一惯例）。
             limit: limit as i64 + 1,
         };

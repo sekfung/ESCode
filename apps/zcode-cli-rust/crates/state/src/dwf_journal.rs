@@ -93,6 +93,10 @@ pub fn ensure_schema(conn: &Connection) -> Result<()> {
 /// TS `listRuns`：cwd / name 下推 SQL，`time_updated desc`，`limit` **由调用方钳制**（截断探测行不许
 /// 在这里被吃掉）。状态过滤 TS 支持、`workflows/runs` 不用，故未实现。
 pub fn list_runs(conn: &Connection, query: &RunQuery) -> Result<Vec<RunRow>> {
+    // 空状态集合的语义是「不匹配任何状态」而不是「不过滤」：显式传下来的过滤器不许静默失效。
+    if query.statuses.as_ref().is_some_and(Vec::is_empty) {
+        return Ok(Vec::new());
+    }
     if query.limit <= 0 {
         return Ok(Vec::new());
     }
@@ -108,6 +112,35 @@ pub fn list_runs(conn: &Connection, query: &RunQuery) -> Result<Vec<RunRow>> {
     if let Some(name) = &query.name {
         sql.push_str(" and name = ?");
         values.push(SqlValue::Text(name.clone()));
+    }
+    if let Some(statuses) = &query.statuses {
+        // TS `encodeRunStatusPredicate`：`stopped` / `errored` 在物理层共享 `failed` 列值，靠
+        // failure_json 的 code 在 SQL 里分清——取一页再筛会让 limit 与截断探测失真。
+        let mut clauses = Vec::new();
+        for status in statuses {
+            match status.as_str() {
+                "stopped" => {
+                    clauses.push(
+                        "(status = 'cancelled' or (status = 'failed' and \
+                         json_extract(failure_json, '$.code') = ?))"
+                            .to_owned(),
+                    );
+                    values.push(SqlValue::Text("Interrupted".into()));
+                }
+                "errored" => {
+                    clauses.push(
+                        "(status = 'failed' and coalesce(json_extract(failure_json, '$.code'), '') <> ?)"
+                            .to_owned(),
+                    );
+                    values.push(SqlValue::Text("Interrupted".into()));
+                }
+                other => {
+                    clauses.push("status = ?".to_owned());
+                    values.push(SqlValue::Text(other.to_owned()));
+                }
+            }
+        }
+        sql.push_str(&format!(" and ({})", clauses.join(" or ")));
     }
     sql.push_str(" order by time_updated desc limit ?");
     values.push(SqlValue::Integer(query.limit));

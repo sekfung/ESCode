@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
-/// 本轮来自输入的事实与会话配置（Cron 守卫与参数，docs/specs/rust-cron.md）。
+    /// 本轮来自输入的事实与会话配置（Cron 守卫与参数，docs/specs/rust-cron.md）。
 #[derive(Default)]
 pub(super) struct TurnFacts {
     pub automation_id: Option<String>,
@@ -25,6 +25,8 @@ pub(super) struct TurnFacts {
     /// 那一刻现读注册表视图，这里按轮次取一次——同一轮里的注册表刷新不会改变本轮已取的目录。
     /// `None` 表示本进程没有 Provider Registry（TS 的端口缺席，报 `model_catalog_unavailable`）。
     pub model_catalog: Option<Vec<Value>>,
+    /// 本会话的工作目录（`ListWorkflowRuns` 的项目键；TS `context.workingDirectory`）。
+    pub cwd: Option<String>,
     /// 本轮闲时派发身份（第二期）。
     pub off_peak_task_id: Option<String>,
     /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。

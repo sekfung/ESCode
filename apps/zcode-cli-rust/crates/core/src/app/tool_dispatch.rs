@@ -154,6 +154,9 @@ pub(super) async fn execute(
                     selection.as_ref(),
                 )
             }
+            Ok(args) if name == "ListWorkflowRuns" => {
+                super::workflow_run_tool::execute(&args, turn.cwd.as_deref(), sink, cancel).await
+            }
             Ok(args) if name == "WebSearch" => {
                 super::web_search_tool::execute(model, &args, sink, cancel).await
             }

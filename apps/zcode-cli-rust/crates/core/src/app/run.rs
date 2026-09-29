@@ -124,6 +124,8 @@ impl Engine {
             .registry
             .as_ref()
             .map(|registry| registry.model_catalog());
+        // ListWorkflowRuns 的项目键：会话工作目录（TS `context.workingDirectory`）。
+        history.turn.cwd = Some(self.workspace_path.clone());
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {

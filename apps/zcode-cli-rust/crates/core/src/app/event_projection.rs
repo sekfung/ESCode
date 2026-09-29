@@ -104,6 +104,7 @@ impl Engine {
             event.event,
             Event::HostRequest { .. }
                 | Event::SessionContext { .. }
+                | Event::WorkflowRunList { .. }
                 | Event::ShellPreference { .. }
                 | Event::MemoryPreference { .. }
                 | Event::MemoryResolved(_)
@@ -152,6 +153,7 @@ impl Engine {
             | Event::MemoryResolved(_)
             | Event::MemoryExtract(_)
             | Event::SessionContext { .. }
+            | Event::WorkflowRunList { .. }
             | Event::HostRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }

@@ -50,6 +50,7 @@ fn query(corpus: &Json, case: &Json) -> journal::RunQuery {
             Some(corpus.get("cwd").unwrap().as_str().unwrap().to_owned())
         },
         name: params.get("name").and_then(Json::as_str).map(str::to_owned),
+        statuses: None,
         limit: params
             .get("limit")
             .and_then(|value| match value {
@@ -115,6 +116,7 @@ fn workflow_run_list_matches_ts() {
         let query = journal::RunQuery {
             cwd: port.get("cwd").and_then(Json::as_str).map(str::to_owned),
             name: None,
+            statuses: None,
             limit: port.get("limit").and_then(|value| match value {
                 Json::Number(number) => number.as_i64(),
                 _ => None,

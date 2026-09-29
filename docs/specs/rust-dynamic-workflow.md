@@ -126,4 +126,9 @@
   display。实现的是**注册表为空**那一支（活 run 注册表随引擎第 4 期）。
   验收：语料在既有 TS 建库基础上，新增「内省端口（`createRunIntrospectionMethods`）→ 真实工具
   handler → 模型面/display」的 `listCases`，Rust 用同一份 DDL/行重建库后逐条比对。
-  工具定义/派发与 `statuses` 过滤、App 差分下一步做。
+  工具定义与派发已接线：schema/描述取自同一套生成资产（TS 注册顺序里在保存/模型目录之前），
+  `statuses` 过滤下推 SQL（`stopped`/`errored` 与 TS 同谓词：物理 `failed` 靠 failure_json 的
+  `$.code` 分辨 `Interrupted`），journal 读经 `Event::WorkflowRunList` 交回会话 owner（工具在
+  回合里执行，存储不在它的手里）。验收另有 App 差分 `zcode-cli-rust-list-workflow-runs-tool.test.ts`：
+  两侧各自的库（Node `ts.sqlite`、Rust `data/rust-sessions.sqlite`）播同一组 run 行后，模型面与
+  display 逐字一致，并覆盖 `statuses: ["stopped"]` 的下推面。

@@ -13,6 +13,8 @@ use crate::json_order::Json;
 pub struct RunQuery {
     pub cwd: Option<String>,
     pub name: Option<String>,
+    /// 可选状态子集（逻辑状态词）：缺省即不过滤；**空数组**即「不匹配任何状态」（回空页）。
+    pub statuses: Option<Vec<String>>,
     pub limit: i64,
 }
 

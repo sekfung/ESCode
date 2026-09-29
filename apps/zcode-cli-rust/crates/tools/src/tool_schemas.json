@@ -442,6 +442,28 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "ListWorkflowRuns": {
+    "type": "object",
+    "properties": {
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 20,
+        "description": "Maximum number of runs to return (1-50, default 20). Most recently updated runs come first."
+      },
+      "statuses": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["completed", "errored", "pending", "running", "stopped"]
+        },
+        "description": "Optional status filter. Omit to see every run in this project. Pass [\"running\", \"pending\"] to see only what is still in flight."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "Grep": {
     "type": "object",
     "properties": {
