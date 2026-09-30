@@ -95,22 +95,29 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
   `Plugin` 增加 `marketplace` / `source` / `enabled`。
 - `crates/tools/src/plugin_list.rs`：按 TS `toPluginInfo` + `createMissingConfiguredPluginInfos` 输出
   `id/name/enabled/source/marketplace/rootPath/skillCount/skillRootCount/commandRootCount/`
-  `declaredMcpServerNames/mcpServerNames` + manifest 的 `description/version/author/authorUrl/homepage`。
+  `declaredMcpServerNames/mcpServerNames/components` + manifest 的
+  `description/version/author/authorUrl/homepage`。
   计数口径与 TS 相同：`resolveComponentRoots`（默认目录 + manifest 路径，去重）+ `skillCount` 为根下
   SKILL.md 数（两级扫描、不跟随符号链接）+ manifest `commands` 为对象时额外 +1 个生成根；
   停用插件走「计数 0 + MCP 名空」，与 TS `emptyComponents` 一致；配置里声明但未发现的行补
   `source: "missing"` + `packageStatus: "missing"`。
+- `components` 与启用态无关（TS `createPluginMetadata` 始终对插件根做权威枚举）：分组顺序
+  agent → command → skill → mcp，名字/描述取 manifest 声明或 frontmatter（`name`/`description`，
+  按 TS `parseScalar` 去引号），命令/技能分别按「名字」与「文件路径 + 名字」去重。
 - `configScope: "user"` 只读用户层配置（`extension_config::load_user`）。
 - MCP 名复用运行时同一套解析：`mcp_config::plugin_definitions`（`.mcp.json` + manifest）与
   `plugin_servers`（命名空间 `plugin:<name>:<key>`、鉴权/失效判定）。
 
-仍属后续期（schema 可选项，缺失不伪造）：`components` 分组、`userConfig`、`configuredOptions`、
-`optionSources`、`enabledSource`、`rootSource`、`hookDetails`（第 4 期）；`plugins/setEnabled`
-（第 2 期）；`plugins/overview` / `referenceCatalog`（第 3 期）。
+仍属后续期（schema 可选项，缺失不伪造）：`components` 的 **hook 分组**（TS 走 loader 的 hook 源发现
+——manifest hooks + hook 文件且要过 `canRunPluginHooks`，直接读 manifest 键会输出 Node 不会显示的名字，
+故留到第 4 期与 `hookDetails` 一起做）、`userConfig`、`configuredOptions`、`optionSources`、
+`enabledSource`、`rootSource`；`plugins/setEnabled`（第 2 期）；`plugins/overview` /
+`referenceCatalog`（第 3 期）。
 
 验收：`packages/services/tests/zcode-cli-rust-plugins-list.test.ts`——同一 fixture 下
-（inline 两个插件根 + `enabledPlugins` 关闭其中一个 + 一条只声明未安装的 id），Node 与 Rust 在
-上述字段上逐值一致，且三行都带 schema 必填字段。
+（inline 两个插件根 + `enabledPlugins` 关闭其中一个 + 一条只声明未安装的 id，含 agents/commands/
+skills/`.mcp.json` 组件），Node 与 Rust 在整份列表的上述字段（含 `components`）上逐值一致，
+且所有行都带 schema 必填字段；停用插件的 `components` 仍然完整而计数为 0。
 
 官方插件行的说明（已查清，不是缺口）：Node 从随包官方插件根直接发现，Rust 依赖
 `official_plugins::seed_once` 把同一份随包内容写进 `<storage>/cache/zcode-plugins-official`。用例里

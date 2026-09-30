@@ -28,6 +28,7 @@ const FIELDS = [
   "skillCount",
   "declaredMcpServerNames",
   "mcpServerNames",
+  "components",
 ] as const;
 
 async function pluginsUnder(root: string) {
@@ -41,6 +42,7 @@ async function pluginsUnder(root: string) {
         author: { name: "Alpha Author", url: "https://example.com/alpha" },
         homepage: "https://example.com/alpha/home",
       }),
+      "agents/reviewer.md": "---\nname: reviewer\ndescription: Reviews code\n---\nbody\n",
       "skills/one/SKILL.md": "---\nname: one\ndescription: First skill\n---\nbody\n",
       "skills/two/SKILL.md": "---\nname: two\n---\nbody\n",
       "commands/review.md": "---\ndescription: Review something\n---\nbody\n",
@@ -158,6 +160,20 @@ test("Node and Rust list plugins with the same discovery fields", async () => {
   assert.equal(byId["beta@inline"].enabled, false);
   assert.equal(byId["beta@inline"].skillCount, 0);
   assert.deepEqual(byId["beta@inline"].mcpServerNames, []);
+  // components 与启用态无关：停用插件也照常列出组件清单。
+  assert.deepEqual(
+    byId["alpha@inline"].components.map((group: any) => group.kind),
+    ["agent", "command", "skill", "mcp"],
+  );
+  assert.deepEqual(
+    byId["alpha@inline"].components.map((group: any) => group.items.map((item: any) => item.name)),
+    [["reviewer"], ["review"], ["one", "two"], ["alpha_mcp"]],
+  );
+  assert.equal(byId["beta@inline"].components.length, 1);
+  assert.deepEqual(byId["beta@inline"].components[0], {
+    kind: "skill",
+    items: [{ name: "x" }],
+  });
   assert.equal(byId["ghost@some-market"].source, "missing");
   assert.deepEqual(node.missingRequired, []);
 });

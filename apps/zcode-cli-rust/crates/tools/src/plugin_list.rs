@@ -56,7 +56,7 @@ pub(super) async fn list(cwd: &Path, config: &Value, cancel: &CancellationToken)
         info["declaredMcpServerNames"] = Value::Array(declared);
         if plugin.enabled {
             // 与 TS 一致：只有启用插件才解析真实组件（停用插件计数为 0、MCP 名为空），
-            // 但 `components` 清单在后续期里与启用态无关。
+            // 但 `components` 清单与启用态无关（见 TS createPluginMetadata 注释）。
             let skill_roots = component_roots(&plugin, "skills");
             let command_roots = component_roots(&plugin, "commands");
             info["skillRootCount"] = json!(skill_roots.len());
@@ -70,11 +70,206 @@ pub(super) async fn list(cwd: &Path, config: &Value, cancel: &CancellationToken)
             }
             info["mcpServerNames"] = Value::Array(names);
         }
+        // `components` 与启用态无关：TS `createPluginMetadata` 始终对插件根做权威枚举。
+        info["components"] = components(&plugin).await?;
         items.push(info);
     }
     items.extend(missing(&config["plugins"], &seen));
     Ok(json!({ "plugins": items }))
 }
+
+/// TS `enumeratePluginComponents`：分组顺序 agent → command → skill → hook → mcp，空组不出现。
+/// 组件名/描述来自 loader 的枚举（与启用态无关）。
+async fn components(plugin: &plugins::Plugin) -> Result<Value> {
+    let mut groups: Vec<Value> = vec![];
+    for (kind, field, default_dir) in [
+        ("agent", "agents", "agents"),
+        ("command", "commands", "commands"),
+    ] {
+        let items = markdown_components(plugin, field, default_dir).await?;
+        if !items.is_empty() {
+            groups.push(json!({"kind": kind, "items": items}));
+        }
+    }
+    let skills = skill_components(plugin).await?;
+    if !skills.is_empty() {
+        groups.push(json!({"kind": "skill", "items": skills}));
+    }
+    // hook 组留到第 4 期：TS 用 loader 的 hook 源发现（manifest hooks + hook 文件，且要过
+    // `canRunPluginHooks`）而不是直接读 manifest 键，本机 fixture 里 manifest 声明并不出现在
+    // Node 的列表里。宁可少一组，也不输出 Node 不会显示的名字。
+    let mcp: Vec<Value> = mcp_config::plugin_definitions(plugin)
+        .await?
+        .keys()
+        .map(|name| name.trim())
+        .filter(|name| !name.is_empty())
+        .map(|name| json!({"name": name}))
+        .collect();
+    if !mcp.is_empty() {
+        groups.push(json!({"kind": "mcp", "items": mcp}));
+    }
+    Ok(Value::Array(groups))
+}
+
+/// TS `collectMarkdownComponents`（agent / command）：先取 manifest 对象形式的声明（带描述），
+/// 再扫默认目录与 manifest 声明的路径下的 `.md`，名字取 frontmatter `name` 或文件名，按名去重。
+async fn markdown_components(
+    plugin: &plugins::Plugin,
+    field: &str,
+    default_dir: &str,
+) -> Result<Vec<Value>> {
+    let mut items: Vec<Value> = vec![];
+    let mut seen: Vec<String> = vec![];
+    if let Some(declared) = plugin.manifest[field].as_object() {
+        for (raw_name, meta) in declared {
+            let name = raw_name.trim().to_owned();
+            if name.is_empty() || seen.contains(&name) {
+                continue;
+            }
+            seen.push(name.clone());
+            let description = meta["description"]
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            items.push(match description {
+                Some(description) => json!({"name": name, "description": description}),
+                None => json!({"name": name}),
+            });
+        }
+    }
+    for dir in component_roots(plugin, default_dir) {
+        let mut entries = match tokio::fs::read_dir(&dir).await {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        let mut files: Vec<PathBuf> = vec![];
+        while let Some(entry) = entries.next_entry().await? {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if entry.file_type().await?.is_file() && name.ends_with(".md") {
+                files.push(entry.path());
+            }
+        }
+        files.sort();
+        for file in files {
+            let fallback = file
+                .file_name()
+                .map(|name| name.to_string_lossy().trim_end_matches(".md").to_owned())
+                .unwrap_or_default();
+            let frontmatter = read_frontmatter(&file).await;
+            let name = frontmatter.0.unwrap_or(fallback);
+            if seen.contains(&name) {
+                continue;
+            }
+            seen.push(name.clone());
+            items.push(match frontmatter.1 {
+                Some(description) => json!({"name": name, "description": description}),
+                None => json!({"name": name}),
+            });
+        }
+    }
+    Ok(items)
+}
+
+/// TS `collectSkillComponents`：默认 `skills/` 与 manifest 声明路径下的 SKILL.md，
+/// 名字取 frontmatter `name` 或技能目录名；按文件路径与最终名字双重去重。
+async fn skill_components(plugin: &plugins::Plugin) -> Result<Vec<Value>> {
+    let mut items: Vec<Value> = vec![];
+    let mut seen_files: Vec<PathBuf> = vec![];
+    let mut seen_names: Vec<String> = vec![];
+    for dir in component_roots(plugin, "skills") {
+        for file in skill_files_under(&dir).await? {
+            if seen_files.contains(&file) {
+                continue;
+            }
+            seen_files.push(file.clone());
+            let fallback = file
+                .parent()
+                .and_then(|parent| parent.file_name())
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let frontmatter = read_frontmatter(&file).await;
+            let name = frontmatter.0.unwrap_or(fallback);
+            if seen_names.contains(&name) {
+                continue;
+            }
+            seen_names.push(name.clone());
+            items.push(match frontmatter.1 {
+                Some(description) => json!({"name": name, "description": description}),
+                None => json!({"name": name}),
+            });
+        }
+    }
+    Ok(items)
+}
+
+/// 与 `count_skill_files` 相同的两级扫描，返回命中的 SKILL.md 路径。
+async fn skill_files_under(root: &Path) -> Result<Vec<PathBuf>> {
+    let mut files: Vec<PathBuf> = vec![];
+    if tokio::fs::symlink_metadata(root)
+        .await
+        .is_ok_and(|m| m.file_type().is_symlink())
+        || !tokio::fs::metadata(root).await.is_ok_and(|m| m.is_dir())
+    {
+        return Ok(files);
+    }
+    let mut candidates = vec![root.join("SKILL.md")];
+    if let Ok(mut entries) = tokio::fs::read_dir(root).await {
+        while let Some(entry) = entries.next_entry().await? {
+            if !entry.file_type().await?.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if should_walk(&name) {
+                candidates.push(entry.path().join("SKILL.md"));
+            }
+        }
+    }
+    candidates.sort();
+    for candidate in candidates {
+        if tokio::fs::symlink_metadata(&candidate)
+            .await
+            .is_ok_and(|m| m.file_type().is_symlink())
+        {
+            continue;
+        }
+        if tokio::fs::metadata(&candidate)
+            .await
+            .is_ok_and(|m| m.is_file())
+        {
+            files.push(candidate);
+        }
+    }
+    Ok(files)
+}
+
+/// TS `readMarkdownFrontmatter` 的 name/description 抽取（块标量交给现有 frontmatter 解析器，
+/// 再按 TS `parseScalar` 去掉成对引号）。
+async fn read_frontmatter(file: &Path) -> (Option<String>, Option<String>) {
+    let Ok(content) = tokio::fs::read_to_string(file).await else {
+        return (None, None);
+    };
+    let (present, fields, _) = crate::domain::skills::frontmatter(&content);
+    if !present {
+        return (None, None);
+    }
+    let scalar = |key: &str| {
+        fields
+            .get(key)
+            .map(|value| value.trim())
+            .map(|value| {
+                let quoted = (value.starts_with('"') && value.ends_with('"'))
+                    || (value.starts_with('\'') && value.ends_with('\''));
+                if quoted && value.len() >= 2 {
+                    value[1..value.len() - 1].trim().to_owned()
+                } else {
+                    value.to_owned()
+                }
+            })
+            .filter(|value| !value.is_empty())
+    };
+    (scalar("name"), scalar("description"))
+}
+
 
 /// TS `toPluginInfo` 的 author/authorUrl 回退字段：manifest 里可以是字符串（名字）或
 /// `{name, url}` 对象；其余形态忽略。
