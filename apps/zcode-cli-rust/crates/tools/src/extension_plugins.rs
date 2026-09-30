@@ -13,8 +13,25 @@ pub(super) struct Plugin {
     pub name: String,
     pub manifest: Value,
     pub official: bool,
+    /// `plugins.list` 需要的市场/来源/启用态（`enabled()` 之外的新读面，见 docs/specs/rust-plugins.md）。
+    pub marketplace: String,
+    pub source: &'static str,
+    pub enabled: bool,
 }
 pub(super) async fn enabled(
+    cwd: &Path,
+    config: &Value,
+    cancel: &CancellationToken,
+) -> Result<Vec<Plugin>> {
+    Ok(all(cwd, config, cancel)
+        .await?
+        .into_iter()
+        .filter(|plugin| plugin.enabled)
+        .collect())
+}
+
+/// 全部已发现的插件（含被 `enabledPlugins` 关闭的），`enabled` 只作为标志返回。
+pub(super) async fn all(
     cwd: &Path,
     config: &Value,
     cancel: &CancellationToken,
@@ -25,7 +42,7 @@ pub(super) async fn enabled(
     let storage = storage(config);
     let mut candidates = strings(&config["plugins"]["dirs"])
         .into_iter()
-        .map(|p| (resolve(cwd, p), "inline".to_owned(), true, false))
+        .map(|p| (resolve(cwd, p), "inline".to_owned(), "inline", true, false))
         .collect::<Vec<_>>();
     let official = "zcode-plugins-official";
     // 修复：Rust 此前只读缓存，从未 seed 随包官方插件；仅运行 Rust 的环境因此没有任何官方插件与技能。
@@ -36,7 +53,7 @@ pub(super) async fn enabled(
             .await
             .unwrap_or_default();
     for root in fallback {
-        candidates.push((root, official.into(), false, true));
+        candidates.push((root, official.into(), "official", false, true));
     }
     let partition =
         json_file(&storage.join(format!("marketplaces/{official}/bundled-marketplace.json")))
@@ -48,14 +65,14 @@ pub(super) async fn enabled(
                 let root = resolve(&storage, path);
                 let boundary = storage.join("cache").join(official).join(name);
                 if root.starts_with(&boundary) && root != boundary {
-                    candidates.push((root, official.into(), false, true));
+                    candidates.push((root, official.into(), "official", false, true));
                 }
             }
         }
     } else {
         for plugin in directories(&storage.join("cache").join(official)).await? {
             for version in directories(&plugin).await? {
-                candidates.push((version, official.into(), false, true));
+                candidates.push((version, official.into(), "official", false, true));
             }
         }
     }
@@ -94,13 +111,13 @@ pub(super) async fn enabled(
                         .join(name)
                         .join(record["version"].as_str().unwrap_or("0.0.0"))
                 });
-            candidates.push((root, market.into(), false, false));
+            candidates.push((root, market.into(), "cache", false, false));
         }
     }
     let defaults: Vec<String> = serde_json::from_str(include_str!("plugin_defaults.json"))?;
     let mut seen = BTreeSet::new();
     let mut plugins = vec![];
-    for (root, market, default, official_source) in candidates {
+    for (root, market, source, default, official_source) in candidates {
         super::tools::check_cancel(cancel)?;
         let mut manifest = Value::Null;
         for dir in [".zcode-plugin", ".claude-plugin", ".codex-plugin"] {
@@ -127,18 +144,18 @@ pub(super) async fn enabled(
         if !seen.insert(id.clone()) {
             continue;
         }
-        if !config["plugins"]["enabledPlugins"][&id]
+        let enabled = config["plugins"]["enabledPlugins"][&id]
             .as_bool()
-            .unwrap_or(default || defaults.contains(&id))
-        {
-            continue;
-        }
+            .unwrap_or(default || defaults.contains(&id));
         plugins.push(Plugin {
             id,
             root,
             name: name.into(),
             manifest,
             official: official_source,
+            marketplace: market,
+            source,
+            enabled,
         });
     }
     Ok(plugins)

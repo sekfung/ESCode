@@ -42,9 +42,10 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
 - **已修**：`session/resume`（探针实测 Node 正常、Rust 回 `-32601 Unsupported method`；实现与验收见
   [rust-session-loading.md](rust-session-loading.md)）。
 - **仍缺**（按当前行为判断的重要性排序）：
-  - `plugins/list`（`zcodeAgentService.listPlugins`）：Rust 无该字符串；App 只对超时重试，
-    method-not-found 直接上抛 → 插件管理与同步链路在 Rust 上失败。这是一整块插件域
-    （`plugins/*` 四个方法，TS 侧约 5.9k 行），分期与验收见 [rust-plugins.md](rust-plugins.md)。
+  - `plugins/list`：**第 1 期已实现**（发现层 + 清单 + 计数 + MCP 名 + missing 行，App 差分通过，
+    见 [rust-plugins.md](rust-plugins.md)）；`components`/选项面与 `plugins/setEnabled`、
+    `plugins/overview`、`referenceCatalog` 仍待后续三期。整块插件域 TS 侧约 5.9k 行，
+    在补齐前 App 插件页仍不完整。
   - `session/messages`：**已实现**（`afterMessageId`/`limit` 分页语义与 TS 一致，见
     [rust-session-loading.md](rust-session-loading.md)）；但该方法的 App 调用方 `readSessionMessages`
     当前没有活跃 UI 消费者，且 Node 返回的 legacy 形状过不了 App 自己的

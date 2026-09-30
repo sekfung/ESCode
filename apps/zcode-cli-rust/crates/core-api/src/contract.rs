@@ -345,6 +345,11 @@ pub trait ToolPort: Send + Sync {
     async fn subagents_enabled(&self) -> bool {
         true
     }
+    /// `plugins/list`（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话；
+    /// 参数为协议原样（`workspace` / `configScope`）。
+    async fn plugin_list(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     async fn discover_skills(
         &self,
         _cancel: &CancellationToken,

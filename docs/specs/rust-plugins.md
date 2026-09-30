@@ -86,3 +86,33 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
   （`packageStatus: "missing"` + `source: "missing"`）/ inline 目录的 `rootSource`。
 - `plugins/setEnabled` 差分要断言落盘的配置文件内容与随后 `plugins/list` 的可观察结果一致。
 - 日志、诊断（`diagnostics`）文案与严重级别与 Node 一致；不写凭据或真实用户路径。
+
+## 实现与验证（第 1 期，2026-09-30）
+
+已落地 `plugins/list` 读面：
+
+- `extension_plugins` 拆成 `all()`（全部已发现插件 + `enabled` 标志）与 `enabled()`（过滤，行为不变）；
+  `Plugin` 增加 `marketplace` / `source` / `enabled`。
+- `crates/tools/src/plugin_list.rs`：按 TS `toPluginInfo` + `createMissingConfiguredPluginInfos` 输出
+  `id/name/enabled/source/marketplace/rootPath/skillCount/skillRootCount/commandRootCount/`
+  `declaredMcpServerNames/mcpServerNames` + manifest 的 `description/version/author/authorUrl/homepage`。
+  计数口径与 TS 相同：`resolveComponentRoots`（默认目录 + manifest 路径，去重）+ `skillCount` 为根下
+  SKILL.md 数（两级扫描、不跟随符号链接）+ manifest `commands` 为对象时额外 +1 个生成根；
+  停用插件走「计数 0 + MCP 名空」，与 TS `emptyComponents` 一致；配置里声明但未发现的行补
+  `source: "missing"` + `packageStatus: "missing"`。
+- `configScope: "user"` 只读用户层配置（`extension_config::load_user`）。
+- MCP 名复用运行时同一套解析：`mcp_config::plugin_definitions`（`.mcp.json` + manifest）与
+  `plugin_servers`（命名空间 `plugin:<name>:<key>`、鉴权/失效判定）。
+
+仍属后续期（schema 可选项，缺失不伪造）：`components` 分组、`userConfig`、`configuredOptions`、
+`optionSources`、`enabledSource`、`rootSource`、`hookDetails`（第 4 期）；`plugins/setEnabled`
+（第 2 期）；`plugins/overview` / `referenceCatalog`（第 3 期）。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-list.test.ts`——同一 fixture 下
+（inline 两个插件根 + `enabledPlugins` 关闭其中一个 + 一条只声明未安装的 id），Node 与 Rust 在
+上述字段上逐值一致，且三行都带 schema 必填字段。
+
+差分中观察到、需单独确认的一点：该 fixture 里 Node 的列表还包含
+`node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official`（来自随包官方插件根），
+Rust 这次 seed 后没有产出这两行。官方插件的发现来源（随包根 vs storage 缓存 vs App 安装）需要单独
+对齐后再纳入断言，本次比对按 id 前缀过滤，未把该差异写成期望。

@@ -163,39 +163,8 @@ pub(super) async fn configured(
     let node_repl = super::mcp_node_repl::server(&loaded, cwd);
     let data_root = config::storage(&config).join("data");
     for plugin in loaded {
-        let file = config::json_file(&plugin.root.join(".mcp.json")).await?;
-        let mut definitions = shape(&file).clone();
-        for spec in plugin
-            .manifest
-            .get("mcpServers")
-            .into_iter()
-            .flat_map(|v| v.as_array().cloned().unwrap_or_else(|| vec![v.clone()]))
-        {
-            let value = if let Some(path) = spec.as_str() {
-                let path = config::resolve(&plugin.root, path);
-                ensure!(
-                    path.starts_with(&plugin.root),
-                    "MCP manifest path escaped plugin"
-                );
-                config::json_file(&path).await?
-            } else {
-                spec
-            };
-            definitions.extend(shape(&value).clone());
-        }
-        for (key, mut raw) in definitions {
-            let name = format!("plugin:{}:{key}", plugin.name);
-            let root = plugin.root.to_string_lossy();
-            replace_root(&mut raw, &root);
-            plugin_stdio_env(&mut raw, cwd, &plugin, &data_root);
-            // TS resolveMcpServerConfig 只取白名单字段，插件里的 protocolVersion/isolation 不生效（走默认协商与隔离）；
-            // 之前 Rust 原样保留，官方 MCP 差分中出现请求序列分叉（docs/specs/rust-mcp-official-auth.md）。
-            if let Some(object) = raw.as_object_mut() {
-                object.remove("protocolVersion");
-                object.remove("isolation");
-            }
-            let server = official_plugin(Server::configured(&name, raw, cwd), &plugin.id, &key);
-            merged.insert(name.clone(), server);
+        for (name, server) in plugin_servers(&plugin, cwd, &data_root).await? {
+            merged.insert(name, server);
         }
     }
     if overrides.is_none() {
@@ -229,6 +198,62 @@ pub(super) async fn configured(
     ensure!(merged.len() <= 64, "Too many configured MCP servers");
     Ok(merged.into_values().collect())
 }
+/// 单个插件声明的 MCP server（TS `loadPluginMcpServerDefinitions` + `resolvePluginMcpServers`）：
+/// `.mcp.json` 与 manifest `mcpServers`（字符串按插件根解析路径）合并，名字按
+/// `plugin:<manifest name>:<key>` 命名空间化。`plugins/list` 的 `mcpServerNames` 与运行时注入共用这条读法。
+pub(super) async fn plugin_servers(
+    plugin: &plugins::Plugin,
+    cwd: &Path,
+    data_root: &Path,
+) -> Result<Vec<(String, Server)>> {
+    let mut servers = vec![];
+    for (key, raw) in plugin_definitions(plugin).await? {
+        let name = format!("plugin:{}:{key}", plugin.name);
+        let mut raw = raw;
+        let root = plugin.root.to_string_lossy();
+        replace_root(&mut raw, &root);
+        plugin_stdio_env(&mut raw, cwd, plugin, data_root);
+        // TS resolveMcpServerConfig 只取白名单字段，插件里的 protocolVersion/isolation 不生效（走默认协商与隔离）；
+        // 之前 Rust 原样保留，官方 MCP 差分中出现请求序列分叉（docs/specs/rust-mcp-official-auth.md）。
+        if let Some(object) = raw.as_object_mut() {
+            object.remove("protocolVersion");
+            object.remove("isolation");
+        }
+        let server = official_plugin(Server::configured(&name, raw, cwd), &plugin.id, &key);
+        servers.push((name, server));
+    }
+    Ok(servers)
+}
+
+/// 插件声明的 MCP server 原始定义（TS `loadPluginMcpServerDefinitions`）：`.mcp.json` 与
+/// manifest `mcpServers`（字符串按插件根解析路径）合并；键是声明名（`plugins/list` 的
+/// `declaredMcpServerNames`），值未做变量替换与鉴权解析。
+pub(super) async fn plugin_definitions(
+    plugin: &plugins::Plugin,
+) -> Result<serde_json::Map<String, Value>> {
+    let file = config::json_file(&plugin.root.join(".mcp.json")).await?;
+    let mut definitions = shape(&file).clone();
+    for spec in plugin
+        .manifest
+        .get("mcpServers")
+        .into_iter()
+        .flat_map(|v| v.as_array().cloned().unwrap_or_else(|| vec![v.clone()]))
+    {
+        let value = if let Some(path) = spec.as_str() {
+            let path = config::resolve(&plugin.root, path);
+            ensure!(
+                path.starts_with(&plugin.root),
+                "MCP manifest path escaped plugin"
+            );
+            config::json_file(&path).await?
+        } else {
+            spec
+        };
+        definitions.extend(shape(&value).clone());
+    }
+    Ok(definitions)
+}
+
 /// TS `resolveMcpServerConfig` 的官方鉴权分支（docs/specs/rust-mcp-official-auth.md）：严格解析 `auth`，
 /// 合法时写入宿主生成的 provenance；sse、同时声明 oauth、静态保留头都使该 MCP 失效。
 fn official_plugin(mut server: Server, plugin_id: &str, mcp_key: &str) -> Server {

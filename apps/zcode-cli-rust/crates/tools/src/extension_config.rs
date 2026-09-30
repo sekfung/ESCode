@@ -63,6 +63,13 @@ pub(super) async fn load(cwd: &Path) -> Result<Value> {
     }
     Ok(config)
 }
+
+/// 只含用户层（`~/.zcode/cli/config.json`）的配置视图：`plugins/list` 的 `configScope: "user"`
+/// 走这条（TS `createPluginConfigView` 在 user 视图不传 workingDirectory，避免把项目 override
+/// 投影成用户当前值）。
+pub(super) async fn load_user() -> Result<Value> {
+    json_file(&home().join(".zcode").join("cli").join("config.json")).await
+}
 fn merge(base: &mut Value, next: &Value, depth: usize) {
     let Some(object) = next.as_object() else {
         *base = next.clone();

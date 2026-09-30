@@ -335,6 +335,11 @@ impl Engine {
             "session/resume" => self.resume_session(&request.params).await,
             // legacy 消息分页读（TS readMessages；App `readSessionMessages` 仍在用）。
             "session/messages" => self.read_messages(&request.params),
+            // App 插件页读面（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话。
+            "plugins/list" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_list(&request.params).await
+            }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,
