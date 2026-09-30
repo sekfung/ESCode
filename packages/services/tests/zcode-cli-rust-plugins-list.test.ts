@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./zcode-cli-rust-fixture.js";
@@ -9,10 +9,9 @@ import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
 // docs/specs/rust-plugins.md 第 1 期：`plugins/list` 的发现层与清单字段。
 // 第 1 期不输出 components / userConfig / configuredOptions / optionSources / hookDetails /
-// enabledSource / rootSource（schema 里都是可选字段），因此只比对两侧都已实现且必需的字段；
-// 官方插件由各自 seed/缓存决定，比对时按 id 前缀过滤到本 fixture 的插件。
-const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
+// enabledSource / rootSource（schema 里都是可选字段），因此只比对两侧都已实现且必需的字段。
 type Runtime = "node" | "rust";
+const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
 const FIELDS = [
   "id",
   "name",
@@ -79,8 +78,24 @@ async function observe(kind: Runtime) {
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
+          // 官方插件：Node 从随包根发现，Rust 靠同一份随包目录 seed 进 storage（与 App 的
+          // processManager 注入一致），否则 Rust 侧会缺 node-repl-host / browser-use 两行。
+          env: {
+            ZCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ZCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+            ZCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+          },
         })
-      : await fixture({ root, registry: true, mode: "yolo" });
+      : await fixture({
+          root,
+          registry: true,
+          mode: "yolo",
+          env: {
+            ZCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ZCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+            ZCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+          },
+        });
   try {
     await configureRegistry(f);
     const dirs = await pluginsUnder(root);
@@ -101,14 +116,11 @@ async function observe(kind: Runtime) {
       { workspace: { workspacePath: f.cwd, workspaceKey: f.cwd } },
       z.any(),
     )) as any;
-    const plugins = (result.plugins as any[]).filter((plugin) =>
-      /^(alpha|beta)@inline$|^ghost@some-market$/.test(plugin.id),
-    );
+    const plugins = result.plugins as any[];
     const observation = {
       plugins: plugins.map((plugin) =>
         Object.fromEntries(FIELDS.map((field) => [field, plugin[field]])),
       ),
-      // 本 fixture 的三行必须都在；官方插件由各自 seed/缓存决定，见 spec 的已知差异。
       listedTotal: plugins.length,
       // 每个插件都必须带上 schema 必填字段（Node 与 Rust 都要能过 App 的解析）。
       missingRequired: plugins

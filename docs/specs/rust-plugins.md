@@ -112,7 +112,9 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
 （inline 两个插件根 + `enabledPlugins` 关闭其中一个 + 一条只声明未安装的 id），Node 与 Rust 在
 上述字段上逐值一致，且三行都带 schema 必填字段。
 
-差分中观察到、需单独确认的一点：该 fixture 里 Node 的列表还包含
-`node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official`（来自随包官方插件根），
-Rust 这次 seed 后没有产出这两行。官方插件的发现来源（随包根 vs storage 缓存 vs App 安装）需要单独
-对齐后再纳入断言，本次比对按 id 前缀过滤，未把该差异写成期望。
+官方插件行的说明（已查清，不是缺口）：Node 从随包官方插件根直接发现，Rust 依赖
+`official_plugins::seed_once` 把同一份随包内容写进 `<storage>/cache/zcode-plugins-official`。用例里
+必须像 App 的 `zcodeAgentProcessManager` 那样注入 `ZCODE_OFFICIAL_PLUGINS_BASE_DIR`（随包目录）、
+`ZCODE_PLUGIN_HOST_EXEC_PATH` 与 `ZCODE_PLUGIN_HOST_ENTRYPOINT`，否则 Rust 无源可 seed、会少
+`node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official` 两行。注入后两侧
+**整份列表**（含官方插件、含顺序）在上述字段上一致。
