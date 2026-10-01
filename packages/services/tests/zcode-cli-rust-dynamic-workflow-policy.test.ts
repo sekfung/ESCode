@@ -39,7 +39,13 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [
+            nodeBundle,
+            "app-server",
+            "--stdio",
+            "--cwd",
+            cwd,
+          ],
           registry: true,
           respond,
           mode: "yolo",
@@ -48,10 +54,13 @@ async function observe(kind: "node" | "rust") {
   try {
     await configureRegistry(f, false);
     const h = f.start();
-    const ask = (enabled: boolean) =>
+    const ask = async (enabled: boolean): Promise<any> =>
       h.client.request(
         "workspace/updateDynamicWorkflowPolicy",
-        { workspace: { workspacePath: h.workspace, workspaceKey: h.workspace }, enabled },
+        {
+          workspace: { workspacePath: h.workspace, workspaceKey: h.workspace },
+          enabled,
+        },
         { parse: (value: unknown) => value } as any,
       );
     // 缺省（Host 未调用）即关闭：显式关闭与缺省走同一条读法。
@@ -59,7 +68,9 @@ async function observe(kind: "node" | "rust") {
     const disabled = await ask(false);
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
-    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
+    await h.command(
+      h.envelope("sendText", id, { text: "hello", mode: "yolo" }),
+    );
     await h.completed(id);
     await h.close();
     const names = (requests[0]?.tools ?? [])
@@ -85,8 +96,14 @@ test("dynamic workflow policy and tool surface match Node", async () => {
     assert.equal(observed.enabled.workspace.workspaceKey, observed.workspace);
   }
   for (const name of WORKFLOW_TOOLS) {
-    assert.ok(!node.names.includes(name), `${name} 应在关闭态下架：${JSON.stringify(node.names)}`);
-    assert.ok(!rust.names.includes(name), `${name} 不应在 Rust 侧出现：${JSON.stringify(rust.names)}`);
+    assert.ok(
+      !node.names.includes(name),
+      `${name} 应在关闭态下架：${JSON.stringify(node.names)}`,
+    );
+    assert.ok(
+      !rust.names.includes(name),
+      `${name} 不应在 Rust 侧出现：${JSON.stringify(rust.names)}`,
+    );
   }
   // 模型看到的工具名在关闭态逐字一致（Rust 不注册未实现的工作流工具）。
   assert.deepEqual(rust.names, node.names);

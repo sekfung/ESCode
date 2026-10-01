@@ -11,7 +11,7 @@ import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 // fixture 把 HOME/USERPROFILE 指到临时 root，所以"全局档"落在临时目录，两侧都安全。
 process.env.ZCODE_TEST_WAIT_MS ??= "30000";
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
-const workflowFile = (description, whenToUse) =>
+const workflowFile = (description: string, whenToUse?: string) =>
   [
     "/* zcode-workflow",
     `description: ${description}`,
@@ -24,13 +24,21 @@ const workflowFile = (description, whenToUse) =>
   ].join("\n");
 
 async function observe(kind: "node" | "rust") {
-  const root = await mkdtemp(join(tmpdir(), `zcode-saved-workflow-hub-${kind}-`));
+  const root = await mkdtemp(
+    join(tmpdir(), `zcode-saved-workflow-hub-${kind}-`),
+  );
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [
+            nodeBundle,
+            "app-server",
+            "--stdio",
+            "--cwd",
+            cwd,
+          ],
           registry: true,
           mode: "yolo",
         })
@@ -42,7 +50,10 @@ async function observe(kind: "node" | "rust") {
     const projectDir = join(h.workspace, ".zcode", "workflows");
     const globalDir = join(root, ".zcode", "workflows");
     await mkdir(projectDir, { recursive: true });
-    await writeFile(join(projectDir, "review.dwf.ts"), workflowFile("Review the diff"));
+    await writeFile(
+      join(projectDir, "review.dwf.ts"),
+      workflowFile("Review the diff"),
+    );
 
     const normalize = (value: any) => {
       const text = JSON.stringify(value)
@@ -50,11 +61,14 @@ async function observe(kind: "node" | "rust") {
         .replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
       return JSON.parse(text);
     };
-    const ask = async (method: string, params: Record<string, unknown>) =>
+    type Method = Parameters<typeof h.client.request>[0];
+    const ask = async (method: Method, params: Record<string, unknown>) =>
       normalize(
-        await h.client.request(method, params, { parse: (value: unknown) => value } as any),
+        await h.client.request(method, params, {
+          parse: (value: unknown) => value,
+        } as any),
       );
-    const outcome = async (method: string, params: Record<string, unknown>) => {
+    const outcome = async (method: Method, params: Record<string, unknown>) => {
       try {
         return { ok: true, value: await ask(method, params) };
       } catch {
@@ -64,7 +78,10 @@ async function observe(kind: "node" | "rust") {
     const at = (name: string) => ({ workspace, name });
     const observed: Record<string, unknown> = {};
     observed.listProject = await ask("workflows/list", { workspace });
-    observed.listGlobal = await ask("workflows/list", { workspace, scope: "global" });
+    observed.listGlobal = await ask("workflows/list", {
+      workspace,
+      scope: "global",
+    });
     observed.get = await ask("workflows/get", at("review"));
     observed.getMissing = await ask("workflows/get", at("nope"));
     observed.getBadName = await ask("workflows/get", at("bad/name"));
@@ -74,7 +91,10 @@ async function observe(kind: "node" | "rust") {
     });
     observed.getAfterUpdate = await ask("workflows/get", at("review"));
     // updateMeta 落盘的正文（读-改-写后的整文件字节）。
-    observed.reviewBytes = await readFile(join(projectDir, "review.dwf.ts"), "utf8");
+    observed.reviewBytes = await readFile(
+      join(projectDir, "review.dwf.ts"),
+      "utf8",
+    );
     // 元数据不合 schema：两侧都必须拒绝（错误文案是各自 schema 库的措辞，只比"都失败"）。
     observed.updateMetaInvalid = await outcome("workflows/updateMeta", {
       ...at("review"),
@@ -82,14 +102,23 @@ async function observe(kind: "node" | "rust") {
     });
     // 全局档：写入后只出现在 global 组，项目组不受影响。
     await mkdir(globalDir, { recursive: true });
-    await writeFile(join(globalDir, "global-only.dwf.ts"), workflowFile("Global only"));
+    await writeFile(
+      join(globalDir, "global-only.dwf.ts"),
+      workflowFile("Global only"),
+    );
     observed.listProjectWithGlobal = await ask("workflows/list", { workspace });
-    observed.listGlobalWithGlobal = await ask("workflows/list", { workspace, scope: "global" });
+    observed.listGlobalWithGlobal = await ask("workflows/list", {
+      workspace,
+      scope: "global",
+    });
     observed.move = await ask("workflows/move", at("global-only"));
     observed.getMoved = await ask("workflows/get", at("global-only"));
     observed.moveAgain = await ask("workflows/move", at("global-only"));
     // 目标已存在（项目档已有同名）时拒绝搬运，并指认目标路径。
-    await writeFile(join(globalDir, "review.dwf.ts"), workflowFile("Global review"));
+    await writeFile(
+      join(globalDir, "review.dwf.ts"),
+      workflowFile("Global review"),
+    );
     observed.moveTargetExists = await ask("workflows/move", at("review"));
     observed.moveBadName = await ask("workflows/move", at("bad/name"));
     observed.deleteReview = await ask("workflows/delete", at("review"));
@@ -122,7 +151,10 @@ test("workflows/* hub matches Node", async () => {
   assert.equal((node.observed.getBadName as any).reason, "invalid_name");
   assert.equal((node.observed.updateMeta as any).ok, true);
   assert.equal((node.observed.updateMetaInvalid as any).ok, false);
-  assert.equal((node.observed.listProjectWithGlobal as any).workflows.length, 1);
+  assert.equal(
+    (node.observed.listProjectWithGlobal as any).workflows.length,
+    1,
+  );
   assert.equal((node.observed.listGlobalWithGlobal as any).workflows.length, 1);
   assert.equal((node.observed.move as any).ok, true);
   assert.equal((node.observed.moveAgain as any).reason, "not_found");
