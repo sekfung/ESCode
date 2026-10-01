@@ -132,3 +132,10 @@
   回合里执行，存储不在它的手里）。验收另有 App 差分 `zcode-cli-rust-list-workflow-runs-tool.test.ts`：
   两侧各自的库（Node `ts.sqlite`、Rust `data/rust-sessions.sqlite`）播同一组 run 行后，模型面与
   display 逐字一致，并覆盖 `statuses: ["stopped"]` 的下推面。
+
+## 第 3 期路线已定（2026-10-02 用户决定）
+
+采用路线 1：**附带 Node 跑既有 TS 分析器**。Rust 仍是 runtime 进程与唯一状态所有者；分析器与第 5 期执行器
+同为 Node 子进程沙箱（桌面复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`；远程/无界面随二进制附带 Node），
+NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同一份 TS 代码，验收以 TS 直调结果逐字比对桥接结果。
+第 3 期据此开工，SaveWorkflow 随之接入。
