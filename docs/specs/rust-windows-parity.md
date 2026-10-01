@@ -106,6 +106,7 @@ Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点�
 ## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
 
 `pnpm test:zcode-cli-rust`（`ZCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
+2026-10-02 在 `8f0e7a7`（插件写面 W1–W5 全部落地后）复跑：**349 用例，341 通过、0 失败、8 跳过**（同样 8 条按条件跳过），约 19 分钟。
 这是首次在原生 MSVC 目标（非 WSL/GNU）上跑完整套件。跳过项均为环境门控：真实供应商/真实数据库基准（3）、未打包
 Rust 二进制的 Host 解析（1）、Windows 上 Git Bash 快照超时的 shell init 用例（1，测试自身声明跳过）及 3 个用例自身
 声明 SKIP 的项。
