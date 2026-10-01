@@ -9,6 +9,9 @@ use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tokio_util::sync::CancellationToken;
+
+const CANCELLED: &str = "Plugin operation cancelled";
 
 const JSON_MAX_BYTES: usize = 10 * 1024 * 1024;
 const JSON_MAX_REDIRECTS: usize = 5;
@@ -411,9 +414,18 @@ pub(super) async fn add(
     source: &Json,
     expected_id: Option<&str>,
     trusted_id: Option<&str>,
+    cancel: &CancellationToken,
 ) -> Result<Json> {
+    if cancel.is_cancelled() {
+        bail!(CANCELLED);
+    }
     let loaded = load(source).await?;
-    let result = commit(storage, source, &loaded, expected_id, trusted_id);
+    // 提交点之前的最后安全点：之后的激活与 known 写入不再响应取消。
+    let result = if cancel.is_cancelled() {
+        Err(anyhow!(CANCELLED))
+    } else {
+        commit(storage, source, &loaded, expected_id, trusted_id)
+    };
     if let Some(temp) = &loaded.temp {
         let _ = std::fs::remove_dir_all(temp);
     }
@@ -537,13 +549,15 @@ fn failure_code(error: &anyhow::Error) -> &'static str {
 }
 
 /// TS `updateMarketplace`（单个已知市场）：用记录自带 source 受信任刷新；失败写 `lastRefreshFailure`。
-async fn refresh(storage: &Path, id: &str) -> Result<Option<Json>> {
+async fn refresh(storage: &Path, id: &str, cancel: &CancellationToken) -> Result<Option<Json>> {
     let Some(record) = known(storage).into_iter().find(|r| id_of(r) == id) else {
         bail!("Marketplace not found: {id}");
     };
     let source = record.get("source").cloned().unwrap_or_else(Json::object);
-    match add(storage, &source, None, Some(id)).await {
+    match add(storage, &source, None, Some(id), cancel).await {
         Ok(updated) => Ok(Some(updated)),
+        // 取消是本次操作的控制流，不是市场健康状态：不落 refresh failure（TS 同）。
+        Err(error) if cancel.is_cancelled() => Err(error),
         Err(error) => {
             let mut records = known(storage);
             if let Some(existing) = records.iter_mut().find(|r| id_of(r) == id) {
@@ -595,7 +609,7 @@ async fn context(params: &Value) -> Result<(PathBuf, PathBuf, Value)> {
     Ok((cwd, storage, config))
 }
 
-pub(super) async fn add_params(params: &Value) -> Result<Value> {
+pub(super) async fn add_params(params: &Value, cancel: &CancellationToken) -> Result<Value> {
     let source_input = super::plugin_list::non_empty(params, "source")?.to_owned();
     let (cwd, storage, _) = context(params).await?;
     let _guard = super::plugin_uninstall::storage_lock(&storage).await;
@@ -607,7 +621,7 @@ pub(super) async fn add_params(params: &Value) -> Result<Value> {
             "diagnostics": [],
         }));
     }
-    let record = add(&storage, &source, None, None).await?;
+    let record = add(&storage, &source, None, None, cancel).await?;
     Ok(json!({ "marketplace": summary(&record), "diagnostics": [] }))
 }
 
@@ -624,7 +638,7 @@ pub(super) async fn remove_params(params: &Value) -> Result<Value> {
 }
 
 /// TS `updateZCodePluginMarketplace`：指定 id 时只刷新它（声明未物化则按声明 add）；否则刷新全部已知市场。
-pub(super) async fn update_params(params: &Value) -> Result<Value> {
+pub(super) async fn update_params(params: &Value, cancel: &CancellationToken) -> Result<Value> {
     let only = params["marketplace"]
         .as_str()
         .map(str::trim)
@@ -676,7 +690,7 @@ pub(super) async fn update_params(params: &Value) -> Result<Value> {
             continue;
         }
         if let (Some(declared), None) = (declared_source, &known_record) {
-            match add(&storage, declared, Some(&id), None).await {
+            match add(&storage, declared, Some(&id), None, cancel).await {
                 Ok(record) => updated.push(record),
                 Err(error) => diagnostics.push(json!({
                     "code": error.downcast_ref::<plugin_git::SourceError>().map_or("plugin_marketplace_invalid", |e| e.code),
@@ -687,7 +701,7 @@ pub(super) async fn update_params(params: &Value) -> Result<Value> {
             }
             continue;
         }
-        if let Some(record) = refresh(&storage, &id).await? {
+        if let Some(record) = refresh(&storage, &id, cancel).await? {
             updated.push(record);
         }
     }
@@ -720,9 +734,15 @@ pub(super) async fn ensure_manifest(storage: &Path, marketplace: &str) -> Result
         return Ok(());
     };
     let source = record.get("source").cloned().unwrap_or_else(Json::object);
-    add(storage, &source, None, Some(marketplace))
-        .await
-        .map(|_| ())
+    add(
+        storage,
+        &source,
+        None,
+        Some(marketplace),
+        &CancellationToken::new(),
+    )
+    .await
+    .map(|_| ())
 }
 
 #[cfg(test)]

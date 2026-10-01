@@ -362,13 +362,15 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_reset_config(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
-    /// `plugins/marketplace/add|remove|update`（docs/specs/rust-plugin-marketplace-write.md W4）；`op` 为末段。
-    async fn plugin_marketplace(&self, _op: &str, _params: &Value) -> Result<Value> {
-        anyhow::bail!("Plugins unavailable")
-    }
-    /// `plugins/install`（docs/specs/rust-plugin-marketplace-write.md W1b：本地源）。
-    async fn plugin_install(&self, _params: &Value) -> Result<Value> {
-        anyhow::bail!("Plugins unavailable")
+    /// 插件写面的慢操作（`plugins/install|update`、`plugins/marketplace/add|remove|update`；
+    /// docs/specs/rust-plugin-marketplace-write.md）。`cancel` 由 `plugins/cancelOperation` 置位，操作在安全点检查。
+    async fn plugin_operation(
+        &self,
+        method: &str,
+        _params: &Value,
+        _cancel: &CancellationToken,
+    ) -> Result<Value> {
+        anyhow::bail!("Unsupported plugin operation: {method}")
     }
     /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, _params: &Value) -> Result<Value> {

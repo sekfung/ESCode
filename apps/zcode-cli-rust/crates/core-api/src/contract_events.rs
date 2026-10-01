@@ -94,6 +94,10 @@ pub enum Event {
     AuxiliaryDone {
         result: std::result::Result<Value, ModelFailure>,
     },
+    /// 后台工作区作业（插件安装 / 市场刷新等）的协议回复：错误按原文回给 Host。
+    AuxiliaryReply {
+        result: std::result::Result<Value, String>,
+    },
     RequestAuth {
         provider: String,
         selection: Value,

@@ -293,6 +293,14 @@ impl Engine {
             }
             return Ok(());
         }
+        if super::plugin_jobs::PLUGIN_JOB_METHODS.contains(&request.method.as_str()) {
+            if let Err(error) = self.start_plugin_job(&request) {
+                output
+                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                    .await?;
+            }
+            return Ok(());
+        }
         self.refresh_slash_commands(&request.method).await;
         let result = match request.method.as_str() {
             "v4/command" => match serde_json::from_value(request.params.clone()) {
@@ -361,17 +369,14 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_reset_config(&request.params).await
             }
-            // 插件市场增删刷新（写面 W4）。
-            "plugins/marketplace/add" | "plugins/marketplace/remove" | "plugins/marketplace/update" => {
+            // 市场删除（写面 W4）；安装 / 更新 / 市场增刷走后台作业（plugin_jobs.rs）。
+            "plugins/marketplace/remove" => {
                 self.validate_workspace(&request.params)?;
-                let op = request.method.trim_start_matches("plugins/marketplace/").to_owned();
-                self.tools.plugin_marketplace(&op, &request.params).await
+                self.tools
+                    .plugin_operation(&request.method, &request.params, &Default::default())
+                    .await
             }
-            // 插件安装（写面 W1b：本地源）。
-            "plugins/install" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_install(&request.params).await
-            }
+            "plugins/cancelOperation" => self.cancel_plugin_operation(&request.params),
             // 插件卸载 / 恢复内置（写面 W1a）。
             "plugins/uninstall" => {
                 self.validate_workspace(&request.params)?;

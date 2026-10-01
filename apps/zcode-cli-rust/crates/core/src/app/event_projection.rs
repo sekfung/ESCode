@@ -147,6 +147,7 @@ impl Engine {
             | Event::Background { .. }
             | Event::PromptInitialized { .. }
             | Event::AuxiliaryDone { .. }
+            | Event::AuxiliaryReply { .. }
             | Event::RequestAuth { .. }
             | Event::ShellPreference { .. }
             | Event::MemoryPreference { .. }

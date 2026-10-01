@@ -160,6 +160,15 @@ impl Engine {
                     .await?;
                 }
             }
+            Event::AuxiliaryReply { result } => {
+                let job = self.auxiliary.remove(&id).unwrap();
+                if job.request.is_some() {
+                    self.outbox.push(match result {
+                        Ok(value) => json!({"id":job.request,"result":value}),
+                        Err(error) => rpc_error(&job.request, -32000, &error),
+                    });
+                }
+            }
             Event::AuxiliaryDone { result } => {
                 self.cancel_auth(&id);
                 let job = self.auxiliary.remove(&id).unwrap();

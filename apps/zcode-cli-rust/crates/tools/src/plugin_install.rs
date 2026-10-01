@@ -23,6 +23,75 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
     let config = config::load(&cwd).await?;
     let storage = config::storage(&config);
     let _guard = storage_lock(&storage).await;
+    install_locked(&cwd, &config, &storage, &name, &marketplace, cancel).await
+}
+
+/// TS `updatePlugin`（协议）：按 pluginId / marketplace 过滤已安装记录，在同一把存储锁里逐个按原市场重装，
+/// 聚合安装结果、闭包与诊断（失败不抛错，诊断随结果返回）。
+pub(super) async fn update(params: &Value, cancel: &CancellationToken) -> Result<Value> {
+    let cwd = plugin_list::workspace_path(params)?;
+    let plugin_id = plugin_list::non_empty(params, "pluginId")
+        .ok()
+        .map(str::to_owned);
+    let marketplace = plugin_list::non_empty(params, "marketplace")
+        .ok()
+        .map(str::to_owned);
+    let config = config::load(&cwd).await?;
+    let storage = config::storage(&config);
+    let _guard = storage_lock(&storage).await;
+    let records: Vec<(String, String)> = read_installed_sync(&storage)
+        .iter()
+        .filter(|record| {
+            let field = |key: &str| record.get(key).and_then(Json::as_str).unwrap_or_default();
+            match (&plugin_id, &marketplace) {
+                (Some(id), _) => field("id") == id,
+                (None, Some(market)) => field("marketplace") == market,
+                (None, None) => true,
+            }
+        })
+        .map(|record| {
+            let field = |key: &str| {
+                record
+                    .get(key)
+                    .and_then(Json::as_str)
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            (field("name"), field("marketplace"))
+        })
+        .collect();
+    let mut installed = vec![];
+    let mut closure = vec![];
+    let mut diagnostics = vec![];
+    for (name, market) in records {
+        let config = config::load(&cwd).await?;
+        let result = install_locked(&cwd, &config, &storage, &name, &market, cancel).await?;
+        for (key, out) in [
+            ("installedPlugins", &mut installed),
+            ("dependencyClosure", &mut closure),
+            ("diagnostics", &mut diagnostics),
+        ] {
+            out.extend(result[key].as_array().cloned().unwrap_or_default());
+        }
+    }
+    Ok(
+        json!({ "dependencyClosure": closure, "installedPlugins": installed, "diagnostics": diagnostics }),
+    )
+}
+
+const CANCELLED: &str = "Plugin operation cancelled";
+
+/// 安装一个插件（调用方已持有存储锁）。
+async fn install_locked(
+    cwd: &Path,
+    config: &Value,
+    storage: &Path,
+    name: &str,
+    marketplace: &str,
+    cancel: &CancellationToken,
+) -> Result<Value> {
+    let (cwd, storage) = (cwd.to_owned(), storage.to_owned());
+    let (name, marketplace) = (name.to_owned(), marketplace.to_owned());
     market::ensure_default_marketplaces(&storage)?;
     let plugin_id = format!("{name}@{marketplace}");
     let user_path = config::home()
@@ -52,7 +121,12 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
     }
 
     // TS ensureMarketplaceManifestAvailable：本地没有目录 manifest 但有已知记录时先拉取（失败归入安装诊断）。
-    if let Err(error) = super::plugin_market_write::ensure_manifest(&storage, &marketplace).await {
+    let ensured = if cancel.is_cancelled() {
+        Err(anyhow!(CANCELLED))
+    } else {
+        super::plugin_market_write::ensure_manifest(&storage, &marketplace).await
+    };
+    if let Err(error) = ensured {
         return Ok(json!({
             "dependencyClosure": [],
             "installedPlugins": [],
@@ -61,8 +135,14 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
     }
     let worker_storage = storage.clone();
     let (worker_market, worker_name) = (marketplace.clone(), name.clone());
+    let worker_cancel = cancel.clone();
     let outcome = tokio::task::spawn_blocking(move || {
-        install_closure(&worker_storage, &worker_market, &worker_name)
+        install_closure(
+            &worker_storage,
+            &worker_market,
+            &worker_name,
+            &worker_cancel,
+        )
     })
     .await
     .map_err(|_| anyhow!("Plugin install worker panicked"))?;
@@ -675,6 +755,7 @@ fn install_closure(
     storage: &Path,
     marketplace: &str,
     name: &str,
+    cancel: &CancellationToken,
 ) -> Result<(Vec<String>, Vec<Json>)> {
     let ids = closure(storage, marketplace, name)?;
     let mut state = read_installed_sync(storage);
@@ -684,6 +765,10 @@ fn install_closure(
     let now = iso_now();
     let result = (|| -> Result<()> {
         for id in &ids {
+            // 安全点：每个插件物化前检查取消（TS throwIfPluginOperationAborted）。
+            if cancel.is_cancelled() {
+                bail!(CANCELLED);
+            }
             let (plugin_name, plugin_market) = split_id(id)?;
             let entry = ordered_entry(storage, plugin_market, plugin_name)
                 .ok_or_else(|| anyhow!("Plugin not found: {id}"))?;
@@ -779,6 +864,10 @@ fn install_closure(
                     installed.push(record);
                 }
             }
+        }
+        // 提交点之前最后一次检查；之后写权威状态并落定，不再响应取消。
+        if cancel.is_cancelled() {
+            bail!(CANCELLED);
         }
         let mut file = Json::object();
         file.set("version", Json::Number(1.into()));

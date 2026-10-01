@@ -146,3 +146,23 @@ bootstrap `addZCodePluginMarketplace` / `updateZCodePluginMarketplace`：
 featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id、非法名、路径不存在、用户声明的本地 git 市场按 update 物化、
 目录市场刷新、URL 市场刷新失败（500 → lastRefreshFailure）、未知 id、删除本地目录后安装触发按需拉取、remove；协议返回、
 `known_marketplaces.json` 字节、`marketplaces/` 文件树与随后 overview 的市场摘要，Node 与 Rust 一致。不刷新官方 CDN（离线）。
+
+## 实现与验证（W5a：后台作业、取消与 plugins/update，2026-10-02）
+
+- **慢操作走后台作业**（`crates/core/src/app/plugin_jobs.rs`）：`plugins/install`、`plugins/update`、`plugins/marketplace/add`、
+  `plugins/marketplace/update` 不再在 engine actor 里 await，而是 spawn 后经新事件 `Event::AuxiliaryReply`（错误按原文）回复；
+  其它请求在下载 / clone 期间照常应答。
+- **`plugins/cancelOperation`**：按 `operationId` 找到进行中的作业置位取消令牌，返回 `{operationId, cancelled}`（同 id 再取消为
+  false）。操作在安全点检查（安装：按需拉取前、每个插件物化前、写权威状态前；市场：加载后提交前），提交点之后不再响应——与
+  TS `throwIfPluginOperationAborted` 同一语义；不丢弃进行中的 future（避免存储锁先于阻塞写者释放）。取消导致的市场刷新失败不落
+  `lastRefreshFailure`。
+- **`plugins/update`**：按 `pluginId` / `marketplace` / 全部过滤已安装记录，在同一把存储锁里逐个按原市场重装，聚合
+  `installedPlugins` / `dependencyClosure` / `diagnostics`（同 TS 协议 `updatePlugin`，不先刷新市场）。
+
+与 TS 的差异（有意保留）：Node 的 app-server 在插件安装进行中不应答其它请求——`plugins/list` 与 `plugins/cancelOperation` 都会等到
+安装结束（实测在 5 s 客户端超时内无应答），因此进行中取消在 Node 上实际不可用；Rust 按 TS 取消 API 的设计意图实现。长下载内部
+（单个 HTTP 响应 / 单次 git clone）尚不可中途打断，取消在其结束后的下一个安全点生效。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-operations.test.ts`——源目录升版后按 id / 市场 / 全部重装、无匹配记录、
+未知 operationId，Node/Rust 一致；Rust 独有断言：慢 zip 下载期间 `plugins/list` 应答、取消返回 true、再次取消 false、安装以
+「Plugin operation cancelled」诊断结束且不落盘。全部插件差分回归通过。

@@ -37,6 +37,7 @@ mod attachments;
 mod input_attachments;
 mod model_io_preferences;
 mod plugin_catalog;
+mod plugin_jobs;
 mod session_close;
 mod session_read;
 mod session_residency;

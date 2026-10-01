@@ -324,18 +324,23 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_reset_config(&self, params: &Value) -> Result<Value> {
         super::plugin_config::reset(params).await
     }
-    /// `plugins/marketplace/add|remove|update`（docs/specs/rust-plugin-marketplace-write.md W4）。
-    async fn plugin_marketplace(&self, op: &str, params: &Value) -> Result<Value> {
-        match op {
-            "add" => super::plugin_market_write::add_params(params).await,
-            "remove" => super::plugin_market_write::remove_params(params).await,
-            "update" => super::plugin_market_write::update_params(params).await,
-            _ => anyhow::bail!("Unsupported marketplace operation: {op}"),
+    /// 插件写面的慢操作（docs/specs/rust-plugin-marketplace-write.md W1b–W5）。
+    async fn plugin_operation(
+        &self,
+        method: &str,
+        params: &Value,
+        cancel: &CancellationToken,
+    ) -> Result<Value> {
+        match method {
+            "plugins/install" => super::plugin_install::install(params, cancel).await,
+            "plugins/update" => super::plugin_install::update(params, cancel).await,
+            "plugins/marketplace/add" => super::plugin_market_write::add_params(params, cancel).await,
+            "plugins/marketplace/remove" => super::plugin_market_write::remove_params(params).await,
+            "plugins/marketplace/update" => {
+                super::plugin_market_write::update_params(params, cancel).await
+            }
+            _ => anyhow::bail!("Unsupported plugin operation: {method}"),
         }
-    }
-    /// `plugins/install`（docs/specs/rust-plugin-marketplace-write.md W1b）。
-    async fn plugin_install(&self, params: &Value) -> Result<Value> {
-        super::plugin_install::install(params, &CancellationToken::new()).await
     }
     /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, params: &Value) -> Result<Value> {
