@@ -228,6 +228,14 @@ impl HttpModel {
         tools: &[Value],
         sink: &EventSink,
     ) -> Result<ModelOutput> {
+        // model-IO 记录（docs/specs/rust-model-io.md）：投影在展开附件之前做；test 环境为 None。
+        let io = super::model_io::Call::new(
+            &self.config.provider_id,
+            &self.config.model_id,
+            self.config.max_output_tokens,
+            &messages,
+            tools,
+        );
         let mut messages = messages;
         let has_attachments =
             super::request_attachments::materialize(&mut messages, &self.format_properties())
@@ -278,13 +286,20 @@ impl HttpModel {
             } else {
                 Value::Null
             };
+            let started = std::time::SystemTime::now();
             let result = self
                 .request(encoded.clone(), attempt, &mut output, &auth, native_search)
                 .await;
             output.flush().await?;
+            let result = result.map(|mut result| {
+                result.response_id = output.response_id().to_owned();
+                result
+            });
+            if let Some(io) = &io {
+                io.record(attempt, started, &encoded, result.as_ref()).await;
+            }
             match result {
                 Ok(mut result) => {
-                    result.response_id = output.response_id().to_owned();
                     result.message["_zcode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
                     return Ok(result);
                 }

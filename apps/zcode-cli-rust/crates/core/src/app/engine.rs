@@ -331,6 +331,8 @@ impl Engine {
             "workspace/updateInteractionPreferences" => {
                 self.interaction_preferences(&request.params).await
             }
+            // 「完整保留模型 IO」偏好（docs/specs/rust-model-io.md 第 2 期）。
+            "workspace/updateModelIoPreferences" => self.model_io_preferences(&request.params),
             "v4/conversation/fileChanges" => self.file_changes(&request.params).await,
             "v4/conversation/fileRewindPreview" => self.rewind_preview(&request.params).await,
             "session/read" => self.read_cold_session(&request.params).await,

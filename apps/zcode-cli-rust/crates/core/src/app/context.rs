@@ -197,7 +197,11 @@ impl RunContext {
             &self.messages[..split],
         ));
         request.push(json!({"role":"user","content":format!("Summarize the preceding conversation now. Additional summary focus: {}", instructions.unwrap_or("Preserve all information needed to continue the current task."))}));
-        let output = hidden_summary(model, request, sink, cancel).await?;
+        let output = crate::contract::with_query_source(
+            "compact",
+            hidden_summary(model, request, sink, cancel),
+        )
+        .await?;
         if output.output_limit {
             bail!("Compaction summary exceeded the model output limit");
         }

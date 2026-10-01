@@ -43,7 +43,10 @@ pub(super) async fn execute(
             let base = auxiliary.as_deref().unwrap_or(model);
             let limited = base.with_max_output_tokens(rules::MAX_PROCESSING_OUTPUT_TOKENS)?;
             let processing = limited.as_deref().unwrap_or(base);
-            let reply = super::context::hidden_summary(processing, messages, sink, cancel)
+            let reply = crate::contract::with_query_source(
+                "web_fetch_processing",
+                super::context::hidden_summary(processing, messages, sink, cancel),
+            )
                 .await
                 .map_err(|error| anyhow!("{error}"))?;
             let text = reply.message["content"].as_str().unwrap_or_default();

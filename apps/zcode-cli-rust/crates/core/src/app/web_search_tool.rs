@@ -33,7 +33,10 @@ pub(super) async fn execute(
     let (messages, tool) = rules::request(&input);
     let reply = tokio::time::timeout(
         TIMEOUT,
-        super::context::hidden_complete(search, messages, &[tool], sink, cancel),
+        crate::contract::with_query_source(
+            "web_search_tool",
+            super::context::hidden_complete(search, messages, &[tool], sink, cancel),
+        ),
     )
     .await
     .map_err(|_| anyhow!("WebSearch timed out"))?

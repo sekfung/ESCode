@@ -8,6 +8,7 @@ mod attachment_read;
 mod attachment_reminder;
 pub mod config;
 mod model_failure;
+mod model_io;
 mod model_media;
 mod model_policy;
 pub mod model_protocol;

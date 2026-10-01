@@ -78,8 +78,19 @@ impl Engine {
             run_id: id,
             tx: self.events.clone(),
         };
+        // TS workspace-generate-text：连通性测试固定 provider_settings_connectivity，其余用调用方给的 querySource。
+        let query_source = if connectivity {
+            Some("provider_settings_connectivity".to_owned())
+        } else {
+            p["querySource"].as_str().map(str::to_owned)
+        };
+        let model_call = crate::contract::ModelCallScope {
+            session_id: None,
+            turn_id: None,
+            query_source,
+        };
         tokio::spawn(async move {
-            let result=model.complete(messages,&tools,&sink,&cancel).await.map(|out|{
+            let result=crate::contract::with_model_call(model_call, model.complete(messages,&tools,&sink,&cancel)).await.map(|out|{
                 if connectivity {return json!({"success":true});}
                 json!({"text":out.message["content"].as_str().unwrap_or(""),"selection":{"providerId":selected.provider_id,"modelId":selected.model_id,"options":{"reasoningLevel":selected.reasoning_level}},"toolCalls":out.calls.iter().map(|c|json!({"id":c["id"],"name":c["function"]["name"],"input":serde_json::from_str::<Value>(c["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or(Value::Null)})).collect::<Vec<_>>(),"finishReason":if out.output_limit{"length"}else if out.calls.is_empty(){"stop"}else{"tool-calls"},"usage":{"inputTokens":out.usage["prompt_tokens"].as_u64().unwrap_or(0),"outputTokens":out.usage["completion_tokens"].as_u64().unwrap_or(0)}})
             });

@@ -103,10 +103,19 @@ impl Engine {
         };
         let session = id.to_owned();
         let messages = session_title::request_messages(&seed);
+        let model_call = crate::contract::ModelCallScope {
+            session_id: Some(session.clone()),
+            turn_id: None,
+            query_source: Some("session_title".into()),
+        };
         tokio::spawn(async move {
+            let title = crate::contract::with_model_call(
+                model_call,
+                tokio::time::timeout(TITLE_TIMEOUT, model.complete(messages, &[], &sink, &cancel)),
+            );
             let result = tokio::select! {
                 _ = cancel.cancelled() => Err(ModelFailure::cancelled()),
-                outcome = tokio::time::timeout(TITLE_TIMEOUT, model.complete(messages, &[], &sink, &cancel)) => match outcome {
+                outcome = title => match outcome {
                     Ok(Ok(output)) => Ok(output),
                     Ok(Err(failure)) => Err(failure),
                     Err(_) => Err(ModelFailure::new("timeout", false)),

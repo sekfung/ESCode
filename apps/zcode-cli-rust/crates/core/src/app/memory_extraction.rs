@@ -100,8 +100,18 @@ impl Engine {
         let tools = self.tools.clone();
         let cwd = self.workspace_path.clone();
         let origin = id.to_owned();
+        // model-IO 记录归属发起提取的会话（task-local 不随 spawn 继承，这里重新进入作用域）。
+        let model_call = crate::contract::ModelCallScope {
+            session_id: Some(origin.clone()),
+            turn_id: None,
+            query_source: Some("project_memory_extract".into()),
+        };
         tokio::spawn(async move {
-            drain(&state, tools.as_ref(), &cwd, &origin, &sink, &cancel).await;
+            crate::contract::with_model_call(
+                model_call,
+                drain(&state, tools.as_ref(), &cwd, &origin, &sink, &cancel),
+            )
+            .await;
             let _ = tools.close_session(&sink.session_id).await;
             let _ = sink
                 .send(Event::AuxiliaryDone {
@@ -178,9 +188,11 @@ async fn extract(
         .unwrap_or_else(|| snapshot.model.clone());
     let model = model.with_max_output_tokens(5_000)?.unwrap_or(model);
     for _ in 0..memory::EXTRACTION_MAX_TURNS {
-        let output = model
-            .complete(messages.clone(), &snapshot.definitions, sink, cancel)
-            .await
+        let output = crate::contract::with_query_source(
+            "project_memory_extract",
+            model.complete(messages.clone(), &snapshot.definitions, sink, cancel),
+        )
+        .await
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         messages.push(output.message.clone());
         if output.calls.is_empty() {

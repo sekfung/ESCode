@@ -134,14 +134,25 @@ impl Engine {
             run_id,
             tx: self.events.clone(),
         };
+        // model-IO 记录的调用元数据（docs/specs/rust-model-io.md）：子代理会话带 agent profile。
+        let model_call = crate::contract::ModelCallScope {
+            session_id: Some(id.into()),
+            turn_id: Some(turn_id_for_facts.clone()),
+            query_source: Some(
+                if history.agent_profile.is_some() { "subagent" } else { "main_turn" }.into(),
+            ),
+        };
         tokio::spawn(async move {
-            let result = super::agent_loop::run(
-                model.as_ref(),
-                tools.as_ref(),
-                context.as_ref(),
-                &mut history,
-                &sink,
-                &cancel,
+            let result = crate::contract::with_model_call(
+                model_call,
+                super::agent_loop::run(
+                    model.as_ref(),
+                    tools.as_ref(),
+                    context.as_ref(),
+                    &mut history,
+                    &sink,
+                    &cancel,
+                ),
             )
             .await;
             let model_failure = result

@@ -26,7 +26,13 @@ pub(super) async fn advance(
     };
     let (mut messages, _) = history.projection(prefix, 0, usize::MAX);
     messages.push(json!({"role":"user","content":goal.prompt("goalVerify", None)}));
-    let (verdict, usage) = match hidden_summary(model, messages, sink, cancel).await {
+    let verify = hidden_summary(model, messages, sink, cancel);
+    let (verdict, usage) = match crate::contract::with_query_source(
+        "target_completion_verification",
+        verify,
+    )
+    .await
+    {
         Ok(output) if !output.output_limit && output.calls.is_empty() => (
             Verdict::parse(output.message["content"].as_str().unwrap_or("")),
             output.usage,

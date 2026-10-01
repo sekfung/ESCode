@@ -13,6 +13,7 @@ workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true
+chrono.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 httpdate.workspace = true
@@ -29,3 +30,6 @@ zcode-cli-core-api.workspace = true
 zcode-cli-domain.workspace = true
 zcode-cli-host.workspace = true
 zcode-cli-protocol.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

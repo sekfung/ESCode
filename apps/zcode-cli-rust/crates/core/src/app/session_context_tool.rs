@@ -45,7 +45,15 @@ pub(super) async fn execute(
                         let limited = limited.map_err(|error| error.to_string())?;
                         let processing = limited.as_deref().unwrap_or(base);
                         let reply =
-                            super::context::hidden_summary(processing, call.messages, sink, cancel)
+                            crate::contract::with_query_source(
+                                "read_session_context",
+                                super::context::hidden_summary(
+                                    processing,
+                                    call.messages,
+                                    sink,
+                                    cancel,
+                                ),
+                            )
                                 .await
                                 .map_err(|error| error.to_string())?;
                         Ok(reply.message["content"]
