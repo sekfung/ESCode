@@ -24,6 +24,7 @@ mod file_rewind;
 mod lexical_path;
 mod mcp_config;
 mod plugin_config;
+mod plugin_git;
 mod plugin_install;
 mod plugin_list;
 mod plugin_marketplace;

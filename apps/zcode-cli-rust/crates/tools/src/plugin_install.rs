@@ -64,7 +64,7 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
             return Ok(json!({
                 "dependencyClosure": [],
                 "installedPlugins": [],
-                "diagnostics": [install_diagnostic(&error.to_string(), &plugin_id)],
+                "diagnostics": [install_diagnostic(&error, &plugin_id)],
             }));
         }
     };
@@ -182,8 +182,15 @@ fn iso_now() -> String {
 }
 
 /// TS `toMarketplaceInstallDiagnostic`：按错误文案归类。
-fn install_diagnostic(message: &str, plugin_id: &str) -> Value {
-    let code = if message.starts_with("Plugin not found:") {
+fn install_diagnostic(error: &anyhow::Error, plugin_id: &str) -> Value {
+    let message = error.to_string();
+    let message = message.as_str();
+    let source_code = error
+        .downcast_ref::<super::plugin_git::SourceError>()
+        .map(|e| e.code);
+    let code = if let Some(code) = source_code {
+        code
+    } else if message.starts_with("Plugin not found:") {
         "plugin_not_found"
     } else if message.contains("Cross-marketplace dependency") {
         "plugin_dependency_cross_marketplace"
@@ -441,8 +448,8 @@ fn source_root(storage: &Path, marketplace: &str, entry: &Json) -> Result<PathBu
                     }
                     bail!("Plugin source directory does not exist: {}", path.display())
                 }
-                // 远端源：W2（zip）/ W3（git）实现前按 TS 的「已识别但本 runtime 不支持」返回。
-                "github" | "git" | "url" | "git-subdir" | "npm" | "pip" => {
+                // 仓库类与 zip 源在 source_root 之前已分流；剩下的 url:<其它 type> 与 npm / pip 同 TS 不支持。
+                "url" | "npm" | "pip" => {
                     let label = if kind == "url" {
                         match source.get("type").and_then(Json::as_str) {
                             Some(t) if !t.is_empty() => format!("url:{t}"),
@@ -471,6 +478,71 @@ fn source_root(storage: &Path, marketplace: &str, entry: &Json) -> Result<PathBu
             bail!("Plugin source is not supported for {id}")
         }
     }
+}
+
+/// 仓库类源（TS `resolvePluginSourceRoot` 的 github / git / url(git) / git-subdir 分支）；字段校验文案同 TS。
+fn repository_source(entry: &Json) -> Result<Option<super::plugin_git::RepoSource>> {
+    let Some(source) = entry.get("source").filter(|s| s.is_object()) else {
+        return Ok(None);
+    };
+    let text = |key: &str| source.get(key).and_then(Json::as_str).map(str::to_owned);
+    let required = |key: &str, label: &str| {
+        text(key)
+            .filter(|v| !v.trim().is_empty())
+            .ok_or_else(|| anyhow!("Plugin {label} source requires a non-empty {key}"))
+    };
+    let kind = text("source").unwrap_or_default();
+    // TS readPluginSourceIdentityPin：仓库源没有 zip sha256，取 sha，其次旧写法 commit。
+    let sha = text("sha").or_else(|| text("commit"));
+    let repo = match kind.as_str() {
+        "github" => {
+            let repo = required("repo", "GitHub repo")?;
+            super::plugin_git::RepoSource {
+                url: format!("https://github.com/{repo}.git"),
+                path: text("path"),
+                r#ref: text("ref"),
+                sha,
+            }
+        }
+        "git" => super::plugin_git::RepoSource {
+            url: required("url", "Git URL")?,
+            path: text("path"),
+            r#ref: text("ref"),
+            sha,
+        },
+        "url" => {
+            let url = required("url", "URL")?;
+            match text("type").unwrap_or_default().as_str() {
+                "" | "git" => super::plugin_git::RepoSource {
+                    url,
+                    path: text("path"),
+                    r#ref: text("ref"),
+                    sha,
+                },
+                _ => return Ok(None),
+            }
+        }
+        "git-subdir" => {
+            let path = required("path", "git-subdir path")?;
+            let url = required("url", "git-subdir URL")?;
+            // TS normalizeGitUrl：owner/repo 简写补成 GitHub HTTPS。
+            let is_short = url.split('/').count() == 2
+                && !url.contains(':')
+                && url.split('/').all(|part| !part.is_empty());
+            super::plugin_git::RepoSource {
+                url: if is_short {
+                    format!("https://github.com/{url}.git")
+                } else {
+                    url
+                },
+                path: Some(path),
+                r#ref: text("ref"),
+                sha,
+            }
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(repo))
 }
 
 /// `{source: "url", type: "zip"}`（TS `isZipPluginUrlSource` 的入口判定；字段校验在 plugin_zip）。
@@ -608,6 +680,7 @@ fn install_closure(
             let entry = ordered_entry(storage, plugin_market, plugin_name)
                 .ok_or_else(|| anyhow!("Plugin not found: {id}"))?;
             // zip 源（W2）：下载解压到临时目录；激活后（无论成败）清理。
+            // 远端源（W2 zip / W3 仓库）物化到临时目录；激活后（无论成败）清理。
             let zip = if is_zip_source(&entry) {
                 let source = entry.get("source").cloned().unwrap_or(Json::Null);
                 let root = tokio::runtime::Handle::current()
@@ -616,12 +689,16 @@ fn install_closure(
                     root.cleanup();
                     return Err(error);
                 }
-                Some(root)
+                Some((root.path.clone(), root.temp_dir()))
+            } else if let Some(repo) = repository_source(&entry)? {
+                let root =
+                    tokio::runtime::Handle::current().block_on(super::plugin_git::resolve(repo))?;
+                Some((root.path.clone(), root.temp_dir()))
             } else {
                 None
             };
             let source = match &zip {
-                Some(root) => root.path.clone(),
+                Some((path, _)) => path.clone(),
                 None => source_root(storage, plugin_market, &entry)?,
             };
             let version = installed_version(&source, &entry);
@@ -638,8 +715,8 @@ fn install_closure(
                 .map(Some)
             };
             // 缓存已复制（或失败）后临时目录清理失败不阻断安装记录落盘。
-            if let Some(root) = &zip {
-                root.cleanup();
+            if let Some((_, temp)) = &zip {
+                let _ = std::fs::remove_dir_all(temp);
             }
             if let Some(activation) = activated? {
                 transaction = Some(activation.transaction_id.clone());

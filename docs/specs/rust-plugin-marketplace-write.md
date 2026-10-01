@@ -104,3 +104,22 @@ list 不再出现）、未知 id、缺选择器、恢复内置（list 重新出�
 验收：`packages/services/tests/zcode-cli-rust-plugins-install-zip.test.ts`——回环 HTTP 服务（yazl 生成 zip）：单顶层 strip、
 显式 path、同源重定向转发自定义头、sha256 不符、manifest 名不符、多顶层无 manifest、非 HTTPS、禁用头；协议返回（下载类
 错误只比 code）、`installed_plugins.json`、缓存文件树与服务端收到的请求（路径与自定义头），Node 与 Rust 一致。
+
+## 实现与验证（W3：仓库类源，2026-10-02）
+
+`crates/tools/src/plugin_git.rs`，对齐 TS `resolveRepositoryPluginSource` / `github-archive-source.ts` / `clonePluginSource`：
+
+- 分流（`plugin_install::repository_source`）：`github`（`repo` → `https://github.com/<repo>.git`）、`git`、`url`（无 type 或
+  `git`）、`git-subdir`（`owner/repo` 简写补 GitHub HTTPS）；必填字段文案逐字；pin 取 `sha`，其次旧写法 `commit`。
+- 公开 GitHub HTTPS 仓库先走 Archive：`api.github.com/repos/<o>/<r>/zipball/<sha ?? ref ?? HEAD>`，复用 W2 下载解压（要求单顶层、
+  不校验 sha）；submodule / Git LFS（含父目录继承的 `.gitattributes`）需要完整 Git 语义时回退。回退条件同 TS：非公开 GitHub、
+  401/403/404、符号链接/特殊条目；其余 Archive 失败报 `plugin_archive_fetch_failed`（URL 凭据脱敏）。
+- 系统 Git：`ZCODE_GIT_BINARY` 可覆盖；子进程环境走 host `child_env::apply(…, true)`（清洗后恢复出网配置，同 TS
+  `buildMarketplaceGitEnv`）；无 sha 时 `--depth 1`、`--branch <ref>`、sha 时 clone 后 `checkout`；网络型错误最多 3 次、
+  间隔 1 s × 次数；90 s 超时；git 不存在报 `plugin_git_unavailable`。
+- `zip` 模块抽出 `resolve_http`（可选 sha、`require_single_root`）与带 HTTP 状态的 `ZipDownloadError`。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-install-git.test.ts`——测试内建本地仓库（两次提交 + `v2` 分支 + 子包）：
+普通 clone、ref、sha pin（检出旧提交）、git-subdir、子目录缺失、仓库不存在、缺 url；以及 `ZCODE_GIT_BINARY` 指向不存在路径时的
+Git 不可用诊断。协议返回（git 子进程原文只比 code）、安装记录与缓存文件树 Node/Rust 一致。GitHub Archive 主链路需要访问
+api.github.com，未在离线差分里覆盖（回退判定与 URL 解析有单测）。

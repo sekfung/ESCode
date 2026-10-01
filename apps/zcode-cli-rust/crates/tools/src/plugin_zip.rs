@@ -31,14 +31,35 @@ impl ZipRoot {
     pub(super) fn cleanup(&self) {
         let _ = std::fs::remove_dir_all(&self.temp);
     }
+
+    pub(super) fn temp_dir(&self) -> PathBuf {
+        self.temp.clone()
+    }
 }
 
-struct Source {
-    url: String,
-    sha256: String,
-    path: Option<String>,
-    strip_root: Option<bool>,
-    headers: Vec<(String, String)>,
+/// TS `PluginZipDownloadError`：带 HTTP 状态，GitHub Archive 据此决定是否回退到系统 Git。
+#[derive(Debug)]
+pub(super) struct ZipDownloadError {
+    pub status: u16,
+    message: String,
+}
+
+impl std::fmt::Display for ZipDownloadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ZipDownloadError {}
+
+pub(super) struct Source {
+    pub url: String,
+    /// 市场条目的 zip 源必填；GitHub Archive 不校验。
+    pub sha256: Option<String>,
+    pub path: Option<String>,
+    pub strip_root: Option<bool>,
+    pub headers: Vec<(String, String)>,
+    pub require_single_root: bool,
 }
 
 /// TS `readRequired*` / `readOptional*` 与 `validateZipSourceInput`。
@@ -90,10 +111,11 @@ fn parse_source(source: &Json) -> Result<Source> {
     }
     Ok(Source {
         url,
-        sha256: lower,
+        sha256: Some(lower),
         path,
         strip_root,
         headers,
+        require_single_root: false,
     })
 }
 
@@ -173,7 +195,11 @@ async fn download(source: &Source) -> Result<Vec<u8>> {
         }
         if !(200..300).contains(&status) {
             let reason = response.status().canonical_reason().unwrap_or_default();
-            bail!("Failed to download plugin zip: {status} {reason}");
+            return Err(ZipDownloadError {
+                status,
+                message: format!("Failed to download plugin zip: {status} {reason}"),
+            }
+            .into());
         }
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await? {
@@ -261,6 +287,12 @@ fn has_manifest(root: &Path) -> bool {
 
 /// TS `resolveZipRoot`：显式 `path` > 解压根已有 manifest > `stripRoot`（缺省 true）且只有一个顶层目录 > 解压根。
 fn resolve_root(extract: &Path, source: &Source, top: &[String]) -> Result<PathBuf> {
+    if source.require_single_root && top.len() != 1 {
+        bail!(
+            "Plugin zip must contain exactly one top-level directory: {}",
+            top.len()
+        );
+    }
     if let Some(path) = &source.path {
         let requested = extract.join(normalize_relative(path)?.split('/').collect::<PathBuf>());
         if !requested.is_dir() {
@@ -285,18 +317,22 @@ fn resolve_root(extract: &Path, source: &Source, top: &[String]) -> Result<PathB
     Ok(extract.to_owned())
 }
 
-/// TS `resolveZipPluginSource`：下载、校验、解压，返回插件根（失败时清理临时目录）。
+/// TS `resolveZipPluginSource`：市场条目的 zip 源。
 pub(super) async fn resolve(source: &Json) -> Result<ZipRoot> {
-    let source = parse_source(source)?;
+    resolve_http(parse_source(source)?).await
+}
+
+/// TS `resolveHttpZipSource`：下载、（可选）校验、解压，返回插件根（失败时清理临时目录）。
+pub(super) async fn resolve_http(source: Source) -> Result<ZipRoot> {
+    validate_url(&source.url)?;
     let temp = std::env::temp_dir().join(format!("zcode-plugin-zip-{}", uuid::Uuid::new_v4()));
     let result = async {
         let bytes = download(&source).await?;
         let actual = format!("{:x}", Sha256::digest(&bytes));
-        if actual != source.sha256 {
-            bail!(
-                "Plugin zip sha256 mismatch: expected={}, actual={actual}",
-                source.sha256
-            );
+        if let Some(expected) = &source.sha256
+            && &actual != expected
+        {
+            bail!("Plugin zip sha256 mismatch: expected={expected}, actual={actual}");
         }
         std::fs::create_dir_all(&temp)?;
         std::fs::write(temp.join("source.zip"), &bytes)?;
