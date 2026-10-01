@@ -372,6 +372,16 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<Value> {
         anyhow::bail!("Unsupported plugin operation: {method}")
     }
+    /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
+    /// `refresh = true` 刷新官方目录后给出最终结果。
+    async fn plugin_suggested_reference(
+        &self,
+        _params: &Value,
+        _refresh: bool,
+        _cancel: &CancellationToken,
+    ) -> Result<Option<Value>> {
+        anyhow::bail!("Plugins unavailable")
+    }
     /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")

@@ -98,6 +98,11 @@ pub enum Event {
     AuxiliaryReply {
         result: std::result::Result<Value, String>,
     },
+    /// 后台工作区作业回复前的协议通知（如 `plugins/operationProgress`），按发出顺序转给 Host。
+    AuxiliaryNotify {
+        method: String,
+        params: Value,
+    },
     RequestAuth {
         provider: String,
         selection: Value,

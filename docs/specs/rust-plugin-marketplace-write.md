@@ -203,3 +203,14 @@ featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id�
   缺失为 `plugin_not_found`）；否则按需拉取后 `validateMarketplacePlugin`。结果恒为空闭包 / 空安装，只带诊断，不写存储。
 - 差分：`zcode-cli-rust-plugins-install-dry-run.test.ts`（冲突、已知市场正常 / 源缺失 / 条目缺失、声明市场正常 / 条目缺失 / id 不一致、
   未知市场，并断言没有写 installed / cache / 市场目录）。
+
+## 实现与验证（W5b-4：plugins/resolveSuggestedReference，2026-10-02）
+
+- `crates/tools/src/plugin_suggested.rs`：对齐 TS `resolveSuggestedPluginReference`。非官方市场 / 不合 stable id 正则 →
+  `plugin_suggested_reference_untrusted_source`；本地引用目录命中（含停用）→ ready / disabled / conflict（图标取缓存 listing）；
+  否则刷新官方市场（`update_params`，10 s 超时即中止并报 `marketplace_refresh_failed`；刷新诊断里有官方市场失败同样不可用；
+  取消 → `plugin_operation_cancelled`），再查本地，仍无则按刷新后 overview 返回 missing（带 icon / listing）或 `not_listed`。
+- 两段式 `ToolPort::plugin_suggested_reference(params, refresh, cancel)`：engine 后台作业先本地判定，未命中时经新事件
+  `Event::AuxiliaryNotify` 先发 `plugins/operationProgress {operationId, state:"refreshing"}`，再刷新并回复（通知先于回复）。
+- 差分：`zcode-cli-rust-plugins-suggested.test.ts`（内置官方插件、非官方 / 非法 / 缺名 id、回环服务充当 CDN 的 missing、
+  未列出、刷新 500 失败；同时比对 refreshing 通知）。W5 至此全部完成；全部 17 个插件差分用例通过。

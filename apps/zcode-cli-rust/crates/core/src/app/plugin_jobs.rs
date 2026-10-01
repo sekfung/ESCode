@@ -17,6 +17,7 @@ pub(super) const PLUGIN_JOB_METHODS: &[&str] = &[
     "plugins/marketplace/update",
     "plugins/validate",
     "plugins/describe",
+    "plugins/resolveSuggestedReference",
 ];
 
 impl Engine {
@@ -46,10 +47,12 @@ impl Engine {
         let tools = self.tools.clone();
         let (method, params) = (request.method.clone(), request.params.clone());
         tokio::spawn(async move {
-            let result = tools
-                .plugin_operation(&method, &params, &cancel)
-                .await
-                .map_err(|error| format!("{error:#}"));
+            let result = if method == "plugins/resolveSuggestedReference" {
+                suggested_reference(&*tools, &params, &cancel, &sink).await
+            } else {
+                tools.plugin_operation(&method, &params, &cancel).await
+            }
+            .map_err(|error| format!("{error:#}"));
             let _ = sink.send(Event::AuxiliaryReply { result }).await;
         });
         Ok(())
@@ -77,4 +80,29 @@ impl Engine {
         };
         Ok(json!({ "operationId": operation, "cancelled": cancelled }))
     }
+}
+
+/// TS `resolveSuggestedPluginReference`：本地未命中时先通知同一 operation 进入 refreshing，再刷新官方目录。
+async fn suggested_reference(
+    tools: &dyn crate::contract::ToolPort,
+    params: &Value,
+    cancel: &CancellationToken,
+    sink: &EventSink,
+) -> Result<Value> {
+    if let Some(result) = tools
+        .plugin_suggested_reference(params, false, cancel)
+        .await?
+    {
+        return Ok(result);
+    }
+    let operation = params["operationId"].as_str().unwrap_or_default().trim();
+    sink.send(Event::AuxiliaryNotify {
+        method: "plugins/operationProgress".into(),
+        params: json!({ "operationId": operation, "state": "refreshing" }),
+    })
+    .await?;
+    tools
+        .plugin_suggested_reference(params, true, cancel)
+        .await?
+        .context("Suggested plugin reference resolution returned no result")
 }

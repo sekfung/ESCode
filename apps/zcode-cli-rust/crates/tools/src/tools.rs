@@ -344,6 +344,14 @@ impl ToolPort for WorkspaceTools {
             _ => anyhow::bail!("Unsupported plugin operation: {method}"),
         }
     }
+    async fn plugin_suggested_reference(
+        &self,
+        params: &Value,
+        refresh: bool,
+        cancel: &CancellationToken,
+    ) -> Result<Option<Value>> {
+        super::plugin_suggested::resolve(params, refresh, cancel).await
+    }
     /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, params: &Value) -> Result<Value> {
         super::plugin_uninstall::uninstall(params, &CancellationToken::new()).await

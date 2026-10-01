@@ -160,6 +160,9 @@ impl Engine {
                     .await?;
                 }
             }
+            Event::AuxiliaryNotify { method, params } => {
+                self.outbox.push(json!({ "method": method, "params": params }));
+            }
             Event::AuxiliaryReply { result } => {
                 let job = self.auxiliary.remove(&id).unwrap();
                 if job.request.is_some() {
