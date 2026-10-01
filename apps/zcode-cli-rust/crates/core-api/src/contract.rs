@@ -362,6 +362,10 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_reset_config(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
+    /// `plugins/install`（docs/specs/rust-plugin-marketplace-write.md W1b：本地源）。
+    async fn plugin_install(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")

@@ -361,6 +361,11 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_reset_config(&request.params).await
             }
+            // 插件安装（写面 W1b：本地源）。
+            "plugins/install" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_install(&request.params).await
+            }
             // 插件卸载 / 恢复内置（写面 W1a）。
             "plugins/uninstall" => {
                 self.validate_workspace(&request.params)?;

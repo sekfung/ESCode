@@ -65,3 +65,25 @@ Node 上可用：Rust 对这些方法回 method-not-found，用户在 Rust 会�
 记录与其额外字段保留、用户配置清理含残留 suppression）、按 name+marketplace 卸载内置（suppression、数据删、缓存留、
 list 不再出现）、未知 id、缺选择器、恢复内置（list 重新出现）；每步的协议返回、`installed_plugins.json` 与用户配置
 字节、目录存在性 Node/Rust 一致。
+
+## 实现与验证（W1b：本地源安装，2026-10-02）
+
+- `crates/tools/src/atomic_dir.rs`：与 TS `atomic-directory.ts` 同布局的目录原子激活（同目录暂存 → 排他写 v2 事务标记
+  `.<name>.transaction.json`（owner pid / ownerId / transactionId / authorityPath）→ 旧目标改名 `.<name>.backup` → 暂存改名为
+  目标），`finalize` 删备份与标记、`rollback` 还原备份；`recover` 按 TS `recoverAtomicTargetSync` 规则收拾任一 runtime 崩溃
+  留下的半成品（存活写者不动；权威状态含同一 `cacheTransactionId` 视为已提交）。进程存活判断复用 host 的 Node 语义
+  `process_alive`。
+- `crates/tools/src/plugin_install.rs`：依赖闭包（后序、去重、环检测、跨市场白名单 `allowCrossMarketplaceDependenciesOn`、
+  `name@^x` 约束后缀剥离）→ 解析源根（内置 filesystem/sea 的 cachePath、市场目录内相对路径（含 `metadata.pluginRoot`）、
+  `directory`、无 source 时按名字目录）→ 版本取源根 plugin.json 的非空 version，否则条目 version，否则 0.0.0 → 原子激活到
+  `cache/<market>/<name>/<version>`（源即目标时不拷贝）→ `strict:false` 无 manifest 时合成 `.claude-plugin/plugin.json`
+  （剔除来源/商店展示字段）→ 重写 `installed_plugins.json`（已有记录原地覆盖、保留首次 installedAt、带 cacheTransactionId）；
+  任一步失败逆序回滚。之后官方市场清 suppression、默认启用只写尚未声明的 id。错误按 TS `toMarketplaceInstallDiagnostic`
+  归类为诊断返回（不抛协议错误）。被抑制的内置官方插件走 restore。
+- 远端源（github / git / url / git-subdir）在 W2/W3 前返回 `plugin_marketplace_source_unsupported`；`dryRun` 校验与
+  市场按需刷新（manifest 不在本地时）尚未支持，明确报错而不是伪造结果。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-install.test.ts`——本地市场：相对路径插件依赖 directory 源插件
+（`helper@^1.0`）、用户配置显式停用依赖、重装（installedAt 保留）、`strict:false` 合成 manifest、依赖环 / 跨市场 /
+依赖缺失 / 非法 source kind / 未知插件五种诊断；协议返回、`installed_plugins.json`、缓存文件树与内容哈希、用户配置字节、
+合成 manifest 与随后 `plugins/list`，Node 与 Rust 逐值一致。

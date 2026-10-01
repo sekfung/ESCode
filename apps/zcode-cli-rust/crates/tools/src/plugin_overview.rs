@@ -260,7 +260,7 @@ fn declaration_diagnostics(known: &[Value], declared: &[(String, Value)]) -> Vec
 }
 
 /// TS `inferComponentTypesFromMetadata`（hook 依赖 hookDetails，留到第 4 期）。
-fn component_types_from_info(info: &Value) -> Value {
+pub(super) fn component_types_from_info(info: &Value) -> Value {
     let mut types: Vec<&str> = vec![];
     let has_agents = info["components"].as_array().is_some_and(|groups| {
         groups.iter().any(|g| {

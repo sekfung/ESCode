@@ -1,6 +1,7 @@
 use zcode_cli_core_api as contract;
 use zcode_cli_domain as domain;
 mod agent_profiles;
+mod atomic_dir;
 mod browser_broker;
 mod browser_broker_listen;
 pub mod bash_git_safety;
@@ -23,6 +24,7 @@ mod file_rewind;
 mod lexical_path;
 mod mcp_config;
 mod plugin_config;
+mod plugin_install;
 mod plugin_list;
 mod plugin_marketplace;
 mod plugin_overview;

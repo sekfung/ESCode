@@ -116,6 +116,15 @@ pub(super) async fn read_installed(storage: &Path) -> Vec<Json> {
     normalize_installed(parsed)
 }
 
+/// 阻塞线程里用的同步读取（先按事务标记恢复，与 TS `readJsonFileSync` 同路）。
+pub(super) fn read_installed_sync(storage: &Path) -> Vec<Json> {
+    let path = super::atomic_dir::recover(&storage.join("installed_plugins.json"));
+    let parsed = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| Json::parse(&text));
+    normalize_installed(parsed)
+}
+
 pub(super) async fn write_installed(storage: &Path, records: Vec<Json>) -> Result<()> {
     let mut state = Json::object();
     state.set("version", Json::Number(1.into()));

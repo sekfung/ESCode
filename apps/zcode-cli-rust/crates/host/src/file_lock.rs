@@ -43,7 +43,7 @@ fn now_ms() -> u64 {
 }
 
 /// Node `process.kill(pid, 0)`：只有「进程不存在」才算退出，权限不足等其它错误视为仍存活。
-fn process_alive(pid: u32) -> bool {
+pub fn process_alive(pid: u32) -> bool {
     #[cfg(windows)]
     {
         use windows_sys::Win32::{

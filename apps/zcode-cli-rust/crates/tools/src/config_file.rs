@@ -264,6 +264,27 @@ pub(super) fn remove_suppressed_builtin(root: &mut Json, plugin_id: &str) -> boo
     true
 }
 
+/// TS `enablePluginsByDefaultInFileConfig`：只给 `enabledPlugins` 里尚未声明的 id 写 true（追加在末尾），
+/// 返回新置为启用的 id；没有新 id 时不改动。
+pub(super) fn enable_by_default(root: &mut Json, ids: &[String]) -> Vec<String> {
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let mut enabled = object_or_empty(plugins.get("enabledPlugins"));
+    let fresh: Vec<String> = ids
+        .iter()
+        .filter(|id| enabled.get(id).is_none())
+        .cloned()
+        .collect();
+    if fresh.is_empty() {
+        return fresh;
+    }
+    for id in &fresh {
+        enabled.set(id, Json::Bool(true));
+    }
+    plugins.set("enabledPlugins", enabled);
+    root.set("plugins", plugins);
+    fresh
+}
+
 /// 读 → 补丁 → 有改动才原子写；返回是否写入。
 pub(super) async fn patch_file(path: &Path, patch: impl FnOnce(&mut Json) -> bool) -> Result<bool> {
     let mut file = read_object_or_empty(path).await?;
