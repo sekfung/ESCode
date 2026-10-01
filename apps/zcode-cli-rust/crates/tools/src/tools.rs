@@ -1,134 +1,10 @@
-use super::{
-    tool_files::{FileState, FileTools},
-    tool_shell::ShellTasks,
-};
+#[allow(unused_imports)]
+pub use super::workspace_tools::WorkspaceTools;
 use crate::contract::{EventSink, ToolOutput, ToolPort};
-use anyhow::{Context, Result, bail};
+use anyhow::Result;
 use serde_json::Value;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-pub struct WorkspaceTools {
-    cwd: PathBuf,
-    /// Host 提交的 workspace 绝对路径（不解析符号链接/短文件名），记忆根按它哈希，与 Node 一致。
-    workspace_path: PathBuf,
-    artifacts: PathBuf,
-    reads: Mutex<HashMap<String, Arc<Mutex<FileState>>>>,
-    /// 会话的记忆上下文（记忆根, 来源会话），Write/Edit 据此补写 originSessionId。
-    memory: Mutex<HashMap<String, (String, String)>>,
-    /// 会话本轮模型的 inputFormat（Read 的 PDF/图片分支据此判定）。
-    models: Mutex<HashMap<String, Value>>,
-    // File writes from different sessions share one commit gate; reads remain concurrent.
-    writes: Arc<Mutex<()>>,
-    shell: ShellTasks,
-    mcp: super::mcp_hub::Hub,
-}
-impl WorkspaceTools {
-    pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
-        Self {
-            mcp: super::mcp_hub::Hub::new(cwd.clone()),
-            workspace_path: cwd.clone(),
-            cwd,
-            artifacts,
-            reads: Mutex::new(HashMap::new()),
-            memory: Mutex::new(HashMap::new()),
-            models: Mutex::new(HashMap::new()),
-            writes: Arc::new(Mutex::new(())),
-            shell: ShellTasks::default(),
-        }
-    }
-    /// 修复：记忆根此前按 realpath 后的 cwd 哈希，macOS `/var`→`/private/var`、Windows 8.3 短名展开后
-    /// 与 Node（按 Host 路径 resolve）不同，两侧记忆不共享；改用 Host 路径。
-    pub fn with_workspace_path(mut self, path: PathBuf) -> Self {
-        self.workspace_path = path;
-        self
-    }
-    pub async fn call(
-        &self,
-        session: &str,
-        name: &str,
-        args: &Value,
-        cancel: &CancellationToken,
-    ) -> Result<ToolOutput> {
-        self.call_inner(session, name, args, None, cancel).await
-    }
-    async fn call_inner(
-        &self,
-        session: &str,
-        name: &str,
-        args: &Value,
-        sink: Option<&EventSink>,
-        cancel: &CancellationToken,
-    ) -> Result<ToolOutput> {
-        check_cancel(cancel)?;
-        if !args.is_object() {
-            bail!("Tool arguments must be an object");
-        }
-        let artifacts = self.artifacts.join(format!(
-            "{:x}",
-            <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
-        ));
-        match name {
-            name if name.starts_with("mcp__") => self.mcp.call(session, name, args, &Value::Null, None, cancel).await,
-            "Read" | "Write" | "Edit" => {
-                let state = self
-                    .reads
-                    .lock()
-                    .await
-                    .entry(session.to_owned())
-                    .or_default()
-                    .clone();
-                let memory = self.memory.lock().await.get(session).cloned();
-                let input_format = self.models.lock().await.get(session).cloned();
-                let files = FileTools {
-                    memory: memory
-                        .as_ref()
-                        .map(|(root, origin)| (root.as_str(), origin.as_str())),
-                    input_format: input_format.unwrap_or_default(),
-                    sink,
-                    checkpoint_root: &self.artifacts,
-                    // TS resolveWorkspacePath 以词法 workingDirectory 为基准（不 realpath），模型可见的路径与
-                    // 「current working directory」文案同 Node；读写状态键仍在 tool_files 内 realpath。
-                    cwd: &self.workspace_path,
-                    artifacts: &artifacts,
-                    state: &state,
-                    writes: &self.writes,
-                };
-                files.call(name, args, cancel).await
-            }
-            "Glob" | "Grep" => super::tool_search::search(&self.cwd, name, args, cancel).await,
-            // Kept for existing native transcripts, but no longer advertised to the model.
-            "List" => super::tool_search::list(&self.cwd, args, cancel).await,
-            // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：cwd 恒取会话工作目录，
-            // 模型无权跨项目扫盘（TS handler 同），这也是 `sideEffectScope: "none"` 成立的前提。
-            "ListSavedWorkflows" => {
-                let home = std::path::PathBuf::from(zcode_cli_host::credential_cipher::node_homedir());
-                let listed = super::saved_workflows::list(&self.workspace_path, &home, None);
-                let mut output = ToolOutput::new(
-                    super::saved_workflows::model_content(&listed),
-                    super::saved_workflows::to_value(&super::saved_workflows::output(&listed)),
-                );
-                output.display = Some(super::saved_workflows::to_value(
-                    &super::saved_workflows::display(&listed),
-                ));
-                Ok(output)
-            }
-            "Bash" | "TaskOutput" | "TaskStop" => {
-                let started = std::time::SystemTime::now();
-                let paths = (self.cwd.as_path(), artifacts.as_path(), self.workspace_path.as_path());
-                let mut output = self.shell.call(paths, session, name, args, sink, cancel).await?;
-                if name == "Bash" {
-                    let state = self.reads.lock().await.entry(session.to_owned()).or_default().clone();
-                    let command = args["command"].as_str().unwrap_or_default();
-                    super::bash_read_state::apply(&state, &self.workspace_path, &mut output, command, started).await;
-                }
-                Ok(output)
-            }
-            _ => bail!("Unsupported tool: {name}"),
-        }
-    }
-}
 #[async_trait::async_trait]
 impl ToolPort for WorkspaceTools {
     async fn browser_turn_screenshot(&self, session: &str, turn: &str) -> Option<Value> {
@@ -336,7 +212,9 @@ impl ToolPort for WorkspaceTools {
             "plugins/update" => super::plugin_install::update(params, cancel).await,
             "plugins/describe" => super::plugin_describe::describe(params).await,
             "plugins/validate" => super::plugin_validate::validate(params).await,
-            "plugins/marketplace/add" => super::plugin_market_write::add_params(params, cancel).await,
+            "plugins/marketplace/add" => {
+                super::plugin_market_write::add_params(params, cancel).await
+            }
             "plugins/marketplace/remove" => super::plugin_market_write::remove_params(params).await,
             "plugins/marketplace/update" => {
                 super::plugin_market_write::update_params(params, cancel).await
@@ -379,38 +257,9 @@ impl ToolPort for WorkspaceTools {
     ) -> Result<crate::domain::skills::SkillCatalog> {
         super::tool_skills::discover(&self.cwd, cancel).await
     }
-    /// 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）：workspace 级、无会话，
-    /// 每次调用现扫目录（挂载时快照会漏掉用户手改或模型刚落盘的文件）。
+    /// 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）。
     async fn saved_workflow_op(&self, op: &str, params: &Value) -> Result<Value> {
-        use super::saved_workflows as store;
-        let cwd = std::path::PathBuf::from(
-            params["workspace"]["workspacePath"]
-                .as_str()
-                .context("Workspace path required")?,
-        );
-        let home = std::path::PathBuf::from(zcode_cli_host::credential_cipher::node_homedir());
-        // 缺省即 `project`：不给 scope 的旧 GUI 与项目档调用逐字走本项目根。
-        let scope = match params.get("scope").and_then(Value::as_str) {
-            Some(scope) => store::Scope::parse(scope).context("Invalid scope")?,
-            None => store::Scope::Project,
-        };
-        let name = || params["name"].as_str().context("Invalid name");
-        let result = match op {
-            "list" => store::hub_list(&cwd, &home, scope),
-            "get" => store::hub_get(&cwd, &home, name()?, scope),
-            "updateMeta" => {
-                let meta = zcode_cli_domain::json_order::Json::parse(
-                    &params["meta"].to_string(),
-                )
-                .context("Invalid meta")?;
-                store::hub_update_meta(&cwd, &home, name()?, &meta, scope)
-                    .map_err(|issues| anyhow::anyhow!(issues.join("; ")))?
-            }
-            "delete" => store::hub_delete(&cwd, &home, name()?, scope),
-            "move" => store::hub_move(&cwd, &home, name()?),
-            other => bail!("Unsupported saved workflow operation: {other}"),
-        };
-        Ok(store::to_value(&result))
+        super::saved_workflows_hub::op(op, params)
     }
     async fn load_skill(
         &self,
@@ -536,19 +385,5 @@ impl ToolPort for WorkspaceTools {
         self.mcp.shutdown().await
     }
 }
-pub(super) use super::tool_args::{boolean, keys, resolve, string, uint};
-pub(super) fn check_cancel(cancel: &CancellationToken) -> Result<()> {
-    if cancel.is_cancelled() {
-        bail!("Cancelled")
-    }
-    Ok(())
-}
-pub fn truncate_utf8(text: &mut String, limit: usize) {
-    if text.len() > limit {
-        let mut end = limit;
-        while !text.is_char_boundary(end) {
-            end -= 1
-        }
-        text.truncate(end);
-    }
-}
+pub use super::tool_args::truncate_utf8;
+pub(super) use super::tool_args::{boolean, check_cancel, keys, resolve, string, uint};

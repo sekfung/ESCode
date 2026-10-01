@@ -9,11 +9,17 @@ use crate::domain::json_order::Json;
 use serde_json::{Map, Value, json};
 use std::path::Path;
 
+#[allow(unused_imports)]
+pub(super) use super::plugin_listing::{author, component_types, listing, source_pin};
+
 pub(super) const OFFICIAL_MARKETPLACE: &str = "zcode-plugins-official";
+
 /// TS `OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME`：官方市场里的宿主插件，不计入可见数量。
 pub(super) const NODE_REPL_HOST: &str = "node-repl-host";
+
 const DEFAULT_OFFICIAL_SOURCE: &str =
     "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json";
+
 const DEFAULT_OFFICIAL_DESCRIPTION: &str =
     "Official ZCode plugins marketplace: built-in and community plugins for ZCode.";
 
@@ -195,140 +201,6 @@ fn valid_marketplace_name(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "._-".contains(c))
 }
 
-/// TS `parseEntryStoreListing`：解析不到有效内容时返回 None。
-pub(super) fn listing(entry: &Map<String, Value>) -> Option<Value> {
-    let text = |key: &str| {
-        entry
-            .get(key)
-            .and_then(Value::as_str)
-            .filter(|s| !s.trim().is_empty())
-    };
-    let string_map = |key: &str| -> Option<Value> {
-        let map: Map<String, Value> = entry
-            .get(key)?
-            .as_object()?
-            .iter()
-            .filter(|(_, v)| v.is_string())
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        (!map.is_empty()).then_some(Value::Object(map))
-    };
-    let mut listing = Map::new();
-    if let Some(v) = text("displayName") {
-        listing.insert("displayName".into(), v.into());
-    }
-    if let Some(v) = string_map("displayName_i18n") {
-        listing.insert("displayNameI18n".into(), v);
-    }
-    if let Some(v) = string_map("description_i18n") {
-        listing.insert("descriptionI18n".into(), v);
-    }
-    for key in [
-        "icon",
-        "category",
-        "homepage",
-        "privacyPolicy",
-        "termsOfService",
-        "heroImage",
-    ] {
-        if let Some(v) = text(key) {
-            listing.insert(key.into(), v.into());
-        }
-    }
-    if let Some((name, url)) = author(entry.get("author").unwrap_or(&Value::Null)) {
-        if let Some(name) = name {
-            listing.insert("author".into(), name.into());
-        }
-        if let Some(url) = url {
-            listing.insert("authorUrl".into(), url.into());
-        }
-    }
-    let prompts: Vec<Value> = entry
-        .get("examplePrompts")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter(|v| v.as_str().is_some_and(|s| !s.trim().is_empty()))
-                .cloned()
-                .collect()
-        })
-        .unwrap_or_default();
-    if !prompts.is_empty() {
-        listing.insert("examplePrompts".into(), prompts.into());
-    }
-    if let Some(map) = entry.get("examplePrompts_i18n").and_then(Value::as_object) {
-        let lists: Map<String, Value> = map
-            .iter()
-            .filter_map(|(locale, list)| {
-                let items: Vec<Value> = list
-                    .as_array()?
-                    .iter()
-                    .filter(|v| v.is_string())
-                    .cloned()
-                    .collect();
-                (!items.is_empty()).then(|| (locale.clone(), Value::Array(items)))
-            })
-            .collect();
-        if !lists.is_empty() {
-            listing.insert("examplePromptsI18n".into(), Value::Object(lists));
-        }
-    }
-    if entry.get("requiresPaidPlan") == Some(&Value::Bool(true)) {
-        listing.insert("requiresPaidPlan".into(), true.into());
-    }
-    (!listing.is_empty()).then_some(Value::Object(listing))
-}
-
-/// TS `normalizeAuthorValue`。
-fn author(value: &Value) -> Option<(Option<String>, Option<String>)> {
-    if let Some(name) = value.as_str() {
-        let name = name.trim();
-        return (!name.is_empty()).then(|| (Some(name.to_owned()), None));
-    }
-    let object = value.as_object()?;
-    let field = |key: &str| {
-        object
-            .get(key)
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned)
-    };
-    let (name, url) = (field("name"), field("url"));
-    (name.is_some() || url.is_some()).then_some((name, url))
-}
-
-/// TS `inferComponentTypes`：按目录条目原样的 key 推断（`in` 语义，值是什么都算）。
-pub(super) fn component_types(raw: &Map<String, Value>) -> Vec<Value> {
-    [
-        ("agents", "agent"),
-        ("commands", "command"),
-        ("skills", "skill"),
-        ("hooks", "hook"),
-        ("mcpServers", "mcp"),
-        ("lspServers", "lsp"),
-    ]
-    .into_iter()
-    .filter(|(key, _)| raw.contains_key(*key))
-    .map(|(_, kind)| kind.into())
-    .collect()
-}
-
-/// TS `readPluginSourceIdentityPin`：zip url 源的 sha256 > `sha` > 旧写法 `commit`。
-pub(super) fn source_pin(source: &Value) -> Option<String> {
-    let object = source.as_object()?;
-    let is_zip = source["source"] == "url"
-        && source["type"] == "zip"
-        && source["url"].is_string()
-        && source["sha256"].is_string();
-    let pick = |key: &str| object.get(key).and_then(Value::as_str).map(str::to_owned);
-    if is_zip && let Some(sha) = pick("sha256").filter(|s| !s.is_empty()) {
-        return Some(sha);
-    }
-    pick("sha").or_else(|| pick("commit"))
-}
-
 /// TS `listInstalledPluginRecords`（`normalizeInstalledPluginsState`）：数组形式逐条校验；
 /// 对象形式（Claude 风格 id → entry | entry[]）缺 installPath 的条目丢弃，scope project/local → workspace。
 pub(super) fn installed_records(storage: &Path) -> Vec<Value> {
@@ -454,80 +326,5 @@ fn coerce(version: &str) -> Option<(u64, u64, u64)> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn coerce_matches_node_semver() {
-        assert_eq!(coerce("1.2.3"), Some((1, 2, 3)));
-        assert_eq!(coerce("v2"), Some((2, 0, 0)));
-        assert_eq!(coerce("release-1.4-beta"), Some((1, 4, 0)));
-        assert_eq!(coerce("1.2.3.4"), Some((1, 2, 3)));
-        assert_eq!(coerce("abc"), None);
-    }
-
-    #[test]
-    fn update_status_follows_ts_axes() {
-        assert_eq!(
-            update_status(Some("1.0.0"), None, Some("1.1.0"), None),
-            "update-available"
-        );
-        assert_eq!(
-            update_status(Some("1.1.0"), None, Some("1.0.0"), None),
-            "none"
-        );
-        assert_eq!(
-            update_status(Some("abc"), None, Some("abd"), None),
-            "version-changed"
-        );
-        assert_eq!(update_status(Some("abc"), None, Some("abc"), None), "none");
-        assert_eq!(update_status(None, None, Some("1.0.0"), None), "none");
-        assert_eq!(
-            update_status(None, None, None, Some("x")),
-            "version-changed"
-        );
-        assert_eq!(update_status(None, Some("x"), None, Some("x")), "none");
-        assert_eq!(
-            update_status(None, Some("y"), None, Some("x")),
-            "update-available"
-        );
-        assert_eq!(update_status(Some("1.0.0"), None, None, None), "none");
-    }
-
-    #[test]
-    fn marketplace_name_pattern() {
-        assert!(valid_marketplace_name("zcode-plugins-official"));
-        assert!(valid_marketplace_name("a.b_c-1"));
-        assert!(!valid_marketplace_name("Upper"));
-        assert!(!valid_marketplace_name("-lead"));
-        assert!(!valid_marketplace_name(""));
-    }
-
-    #[test]
-    fn listing_parses_store_fields() {
-        let entry = json!({
-            "name": "p",
-            "displayName": "P",
-            "displayName_i18n": {"zh": "批", "bad": 1},
-            "icon": " ",
-            "category": "dev",
-            "author": {"name": " A ", "url": "https://a"},
-            "examplePrompts": ["x", " ", 1],
-            "examplePrompts_i18n": {"zh": ["甲", 2], "en": []},
-            "requiresPaidPlan": "true",
-        });
-        assert_eq!(
-            listing(entry.as_object().unwrap()),
-            Some(json!({
-                "displayName": "P",
-                "displayNameI18n": {"zh": "批"},
-                "category": "dev",
-                "author": "A",
-                "authorUrl": "https://a",
-                "examplePrompts": ["x"],
-                "examplePromptsI18n": {"zh": ["甲"]},
-            }))
-        );
-        assert_eq!(listing(json!({"name": "p"}).as_object().unwrap()), None);
-    }
-}
+#[path = "plugin_marketplace_tests.rs"]
+mod tests;

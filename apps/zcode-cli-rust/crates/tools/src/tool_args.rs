@@ -45,3 +45,19 @@ pub(super) fn resolve(cwd: &Path, input: &str) -> Result<PathBuf> {
     }
     Ok(super::lexical_path::resolve(cwd, Path::new(input)))
 }
+
+pub(crate) fn check_cancel(cancel: &tokio_util::sync::CancellationToken) -> anyhow::Result<()> {
+    if cancel.is_cancelled() {
+        anyhow::bail!("Cancelled")
+    }
+    Ok(())
+}
+pub fn truncate_utf8(text: &mut String, limit: usize) {
+    if text.len() > limit {
+        let mut end = limit;
+        while !text.is_char_boundary(end) {
+            end -= 1
+        }
+        text.truncate(end);
+    }
+}
