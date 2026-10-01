@@ -139,3 +139,10 @@
 同为 Node 子进程沙箱（桌面复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`；远程/无界面随二进制附带 Node），
 NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同一份 TS 代码，验收以 TS 直调结果逐字比对桥接结果。
 第 3 期据此开工，SaveWorkflow 随之接入。
+- 2026-10-02 第 3 期分析桥已落地：Node CLI 隐藏子命令 `__zcode-workflow-analyzer`（`cli/src/workflow-analyzer-command.ts`，
+  在导入 `run` 之前分派，只加载分析器）NDJSON 一问一答，结果是 `analyzeWorkflowScript` 的 JSON 形（`core` 经
+  `encodeAnalysisCore`）。Rust 客户端 `tools/src/workflow_analyzer.rs`：经 Host 的 Node 启动器
+  （`ZCODE_PLUGIN_HOST_EXEC_PATH` / `_ENTRYPOINT`，`ELECTRON_RUN_AS_NODE=1`）常驻、串行，60 s 超时 / 崩溃即杀掉重拉，
+  保留 TS 的单槽记忆。验收：`scripts/generate-zcode-cli-rust-workflow-analysis-corpus.mjs` 以内置技能示例 + 编译错误
+  样例生成 TS 直调语料，Rust 经桥逐字比对（12 例全部一致）；`test:zcode-cli-rust` 加 `--check` 防漂移，并在
+  CLI 产物就绪后带启动器单独跑桥接用例。SaveWorkflow 接入是下一步。

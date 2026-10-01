@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "..");
 // CI 与慢机器：每个用例都会起 runtime + 本地模型服务，并发跑会被接收超时误伤；ZCODE_TEST_SERIAL=1 时串行。
 const serial = process.env.ZCODE_TEST_SERIAL === "1";
-async function run(command, args) {
+async function run(command, args, env = {}) {
   await new Promise((done, fail) => {
     const child = spawn(command, args, {
       cwd: root,
@@ -14,6 +14,7 @@ async function run(command, args) {
       env: {
         ...process.env,
         TSX_TSCONFIG_PATH: resolve(root, "packages/services/tests/tsconfig.zcode-cli-rust.json"),
+        ...env,
       },
     });
     child.once("error", fail);
@@ -134,6 +135,7 @@ for (const script of [
   "scripts/generate-zcode-cli-rust-saved-workflow-tool-corpus.mjs",
   "scripts/generate-zcode-cli-rust-dwf-journal-corpus.mjs",
   "scripts/generate-zcode-cli-rust-model-catalog-corpus.mjs",
+  "scripts/generate-zcode-cli-rust-workflow-analysis-corpus.mjs",
 ])
   await run(process.execPath, ["--import", "tsx", script, "--check"]);
 // 测试导入的工作区包（@zcode/rpc 等）类型入口指向 dist/*.d.ts；干净检出（CI）没有 dist 时，tsc 会退回按源码
@@ -172,6 +174,24 @@ await run("cargo", ["build", "--locked", "--manifest-path", "apps/zcode-cli-rust
 if (!existsSync(resolve(root, "apps/zcode-cli/packages/cli/dist/zcode.cjs"))) {
   await run(process.execPath, ["scripts/build-desktop-agent-cli.mjs"]);
 }
+// 工作流分析桥（docs/specs/rust-dynamic-workflow.md 第 3 期）：经 Node CLI 产物的隐藏子命令逐字比对 TS 语料；
+// 上面的 workspace 测试缺少启动器时跳过这一条，这里补上启动器单独再跑。
+await run(
+  "cargo",
+  [
+    "test",
+    "--locked",
+    "--manifest-path",
+    "apps/zcode-cli-rust/Cargo.toml",
+    "-p",
+    "zcode-cli-tools",
+    "workflow_analyzer::tests::bridge_matches_ts_analyzer",
+  ],
+  {
+    ZCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+    ZCODE_PLUGIN_HOST_ENTRYPOINT: resolve(root, "apps/zcode-cli/packages/cli/dist/zcode.cjs"),
+  },
+);
 const tests = (await readdir(resolve(root, "packages/services/tests")))
   .filter((name) => /^zcode-cli-rust-.*\.test\.ts$/.test(name))
   .map((name) => `packages/services/tests/${name}`);

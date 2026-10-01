@@ -316,6 +316,9 @@ importers:
       '@zcode/core':
         specifier: workspace:*
         version: link:../core
+      '@zcode/dynamic-workflow':
+        specifier: workspace:*
+        version: link:../dynamic-workflow
       '@zcode/dynamic-workflow-runtime':
         specifier: workspace:*
         version: link:../dynamic-workflow-runtime

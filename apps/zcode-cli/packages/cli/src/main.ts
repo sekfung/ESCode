@@ -63,6 +63,12 @@ async function main(): Promise<void> {
       process.exitCode = await runPluginHostCommand(context, argv.slice(1));
       return;
     }
+    // 工作流分析子进程（Rust runtime 调用）：同理在导入 run 之前分派，只加载分析器。
+    if (argv[0] === "__zcode-workflow-analyzer") {
+      const { runWorkflowAnalyzerCommand } = await import("./workflow-analyzer-command.js");
+      process.exitCode = await runWorkflowAnalyzerCommand();
+      return;
+    }
     if (!argv.includes("--prepare-storage")) {
       const { prepareCliProviderRuntimeEnv } = await import("./provider-runtime-env.js");
       Object.assign(

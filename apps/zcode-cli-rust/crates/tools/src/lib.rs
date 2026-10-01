@@ -36,6 +36,7 @@ mod plugin_suggested;
 mod plugin_uninstall;
 mod plugin_validate;
 mod plugin_zip;
+mod workflow_analyzer;
 mod mcp_connection;
 mod mcp_http_capture;
 mod mcp_http;
