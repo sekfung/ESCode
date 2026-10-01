@@ -359,6 +359,16 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_overview(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
+    /// `plugins/referenceCatalog(WithCategory)`（第 3 期）：返回 `{identity, plugins}`；`frozen` 是会话冻结的
+    /// 身份条目（为空时现算并在 `identity` 里交回给 engine 冻结）。
+    async fn plugin_reference_catalog(
+        &self,
+        _params: &Value,
+        _frozen: Option<&Value>,
+        _include_category: bool,
+    ) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     async fn discover_skills(
         &self,
         _cancel: &CancellationToken,

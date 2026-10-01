@@ -35,6 +35,7 @@ mod queue_control;
 mod attachment_upload;
 mod attachments;
 mod input_attachments;
+mod plugin_catalog;
 mod session_close;
 mod session_read;
 mod session_residency;

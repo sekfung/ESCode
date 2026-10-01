@@ -321,6 +321,16 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_overview(&self, params: &Value) -> Result<Value> {
         super::plugin_overview::overview(params, &CancellationToken::new()).await
     }
+    /// `plugins/referenceCatalog(WithCategory)`（docs/specs/rust-plugins.md 第 3 期）。
+    async fn plugin_reference_catalog(
+        &self,
+        params: &Value,
+        frozen: Option<&Value>,
+        include_category: bool,
+    ) -> Result<Value> {
+        let cancel = CancellationToken::new();
+        super::plugin_reference::catalog(params, frozen, include_category, &cancel).await
+    }
     async fn discover_skills(
         &self,
         cancel: &CancellationToken,

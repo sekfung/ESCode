@@ -72,6 +72,7 @@ impl Engine {
         self.sessions.remove(id);
         self.session_access.remove(id);
         self.closed.insert(id.into());
+        self.plugin_catalogs.remove(id);
         self.publish_index(id, None)?;
         self.acks.insert(c.key(), ack.clone());
         Ok(ack)

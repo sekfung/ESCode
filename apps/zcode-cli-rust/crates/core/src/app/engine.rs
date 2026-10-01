@@ -36,6 +36,8 @@ pub struct Engine {
     pub(super) sessions: BTreeMap<String, Session>,
     pub(super) index: BTreeMap<String, Value>,
     pub(super) closed: std::collections::BTreeSet<String>,
+    /// 会话冻结的插件引用身份目录（`plugins/referenceCatalog` 带 sessionId；见 plugin_catalog.rs）。
+    pub(super) plugin_catalogs: BTreeMap<String, Value>,
     pub(super) session_access: BTreeMap<String, u64>,
     pub(super) access_seq: u64,
     pub(super) durable_acks: std::collections::BTreeSet<String>,
@@ -129,6 +131,7 @@ impl Engine {
             sessions: BTreeMap::new(),
             index,
             closed: Default::default(),
+            plugin_catalogs: BTreeMap::new(),
             session_access: Default::default(),
             access_seq: 0,
             durable_acks: Default::default(),
@@ -349,6 +352,11 @@ impl Engine {
             "plugins/overview" => {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_overview(&request.params).await
+            }
+            // 对话 Picker 的插件引用目录（第 3 期）：session 冻结身份 / workspace 现算。
+            "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory" => {
+                self.plugin_reference_catalog(&request.method, &request.params)
+                    .await
             }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,

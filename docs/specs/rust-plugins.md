@@ -4,11 +4,11 @@
 `plugins/list`、`plugins/setEnabled`、`plugins/overview`、`plugins/referenceCatalog(WithCategory)`，
 而 Rust engine **一个方法字符串都没有**（`rg --fixed-strings` 全仓为 0）。
 
-| 方法                                             | App 调用点                                                                                                             | Rust                                          |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `plugins/list`                                   | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 第 1 期已实现                                 |
-| `plugins/setEnabled`                             | 插件页开关                                                                                                             | 第 2 期已实现                                 |
-| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录                                                                                                    | overview 第 3 期已实现；referenceCatalog 待做 |
+| 方法                                             | App 调用点                                                                                                             | Rust          |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `plugins/list`                                   | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 第 1 期已实现 |
+| `plugins/setEnabled`                             | 插件页开关                                                                                                             | 第 2 期已实现 |
+| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录                                                                                                    | 第 3 期已实现 |
 
 App 对 `plugins/list` 的错误只在**超时**时重试，method-not-found 直接上抛 → 用 Rust runtime 时插件页与
 远端插件同步会失败。这不是「可选能力」，是 App 生命周期矩阵里的缺口。
@@ -193,3 +193,26 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
 featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记录、用户层声明含保留官方 id 与相对目录、已安装
 插件含真实根与缺失根、被抑制的官方插件）下，Node 与 Rust 的整份结果逐值一致（剔除 hookDetails 与发现层诊断），
 且 overview 补写后的 `known_marketplaces.json` 一致（剔除 `addedAt`）。
+
+## 实现与验证（第 3 期 · referenceCatalog，2026-10-02）
+
+`plugins/referenceCatalog` / `plugins/referenceCatalogWithCategory` 已落地（`crates/tools/src/plugin_reference.rs`
+
+- `crates/core/src/app/plugin_catalog.rs`），对齐 TS `getPluginReferenceCatalog` + core `buildPluginReferenceCatalog`：
+
+* 身份条目：全部已发现插件（含停用）；`conflictingPluginIds` = 同 manifest name 的其它**启用**插件（停用条目
+  不参与、为空）；`skillQualifiedNames` / `subagentNames` = `<plugin name>:<组件名>`（来自与启用态无关的组件
+  枚举，去重排序）；`mcpServerNames` 排序（停用插件为空）。`rootPath` 不出协议。
+* 展示条目：按 overview 的 available → installed → restorable 依次合并 listing（`category` / `icon` /
+  `displayName` / `displayNameI18n` / `descriptionI18n`）与 `description`（trim 后非空才覆盖）；
+  `WithCategory` 额外带 `category`，缺省 `"other"`。展示部分每次现取，不随会话冻结。
+* 权威：不带 `sessionId` → `authority: "workspace"` 现算；带 `sessionId` → `authority: "session"`，会话不存在
+  （或已关闭）fail closed，不回退 workspace。
+
+与 TS 的差异（记录在案）：TS 在 App（会话运行时）创建时冻结身份目录、冷恢复重建；Rust 在该会话**首次**查询
+引用目录时冻结（engine 内存，会话关闭即丢弃，不落盘）。只有「会话创建后、首次打开 Picker 前」改了插件配置时
+两者可观察不同。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-reference-catalog.test.ts`——inline 插件含 skill/agent/MCP、
+停用插件、inline 与市场安装的同名插件冲突、市场 listing 展示 join；比对 workspace / WithCategory / 会话首次 /
+`setEnabled` 之后的会话（仍为冻结值）与 workspace（已更新）/ 未知会话报错，Node 与 Rust 逐值一致。
