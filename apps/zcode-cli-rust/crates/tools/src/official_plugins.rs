@@ -124,6 +124,26 @@ pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
     roots
 }
 
+/// 恢复被抑制的内置插件后立即重新 seed（TS `restoreBuiltinPlugin` → `resolveOfficialPluginRoots`），
+/// 不受进程内 `seed_once` 缓存影响。
+pub(crate) fn reseed(storage: &Path) {
+    let host = match (
+        std::env::var("ZCODE_PLUGIN_HOST_EXEC_PATH"),
+        std::env::var("ZCODE_PLUGIN_HOST_ENTRYPOINT"),
+    ) {
+        (Ok(exec_path), Ok(entrypoint)) if !exec_path.is_empty() && !entrypoint.is_empty() => {
+            Some(Host {
+                exec_path,
+                entrypoint,
+            })
+        }
+        _ => None,
+    };
+    if let Err(error) = seed(storage, &base_dirs(), host.as_ref()) {
+        eprintln!("zcode-cli-rust: official plugin reseed failed: {error:#}");
+    }
+}
+
 /// TS `candidateBaseDirs`：入口所在目录、进程 cwd；另加开发/测试用的显式候选。
 fn base_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();

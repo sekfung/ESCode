@@ -92,7 +92,7 @@ fn iso_now() -> String {
 }
 
 /// TS `sanitizePluginId`。
-fn sanitize(id: &str) -> String {
+pub(super) fn sanitize(id: &str) -> String {
     id.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || "_.@-".contains(c) {

@@ -324,6 +324,13 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_reset_config(&self, params: &Value) -> Result<Value> {
         super::plugin_config::reset(params).await
     }
+    /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
+    async fn plugin_uninstall(&self, params: &Value) -> Result<Value> {
+        super::plugin_uninstall::uninstall(params, &CancellationToken::new()).await
+    }
+    async fn plugin_restore_builtin(&self, params: &Value) -> Result<Value> {
+        super::plugin_uninstall::restore_builtin(params).await
+    }
     /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）。
     async fn plugin_overview(&self, params: &Value) -> Result<Value> {
         super::plugin_overview::overview(params, &CancellationToken::new()).await

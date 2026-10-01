@@ -362,6 +362,13 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_reset_config(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
+    /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
+    async fn plugin_uninstall(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
+    async fn plugin_restore_builtin(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）：市场/目录/已安装/可恢复内置的读面。
     async fn plugin_overview(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")

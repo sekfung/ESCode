@@ -323,7 +323,7 @@ fn restorable_builtins(config: &Value) -> Vec<Value> {
 }
 
 /// TS `isZCodeCuaInternalFeatureEnabled`：DEV_MODE 打开即启用，PRODUCT_HELPER=0/false/off 显式关闭。
-fn cua_feature_enabled() -> bool {
+pub(super) fn cua_feature_enabled() -> bool {
     let env = |key: &str| std::env::var(key).unwrap_or_default().trim().to_lowercase();
     if matches!(env("ZCODE_CUA_DEV_MODE").as_str(), "1" | "true" | "on") {
         return true;

@@ -198,6 +198,82 @@ pub(super) fn remove_plugin_enabled(root: &mut Json, plugin_id: &str) -> bool {
     true
 }
 
+fn suppressed_list(plugins: &Json) -> Vec<String> {
+    plugins
+        .get("suppressedBuiltins")
+        .and_then(Json::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Json::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// TS `addSuppressedBuiltinInFileConfig`：规范 id 追加到末尾（先去掉别名）；已是唯一形态时不改。
+pub(super) fn add_suppressed_builtin(root: &mut Json, plugin_id: &str) -> bool {
+    let canonical = if plugin_id == LEGACY_CUA_PLUGIN_ID {
+        CANONICAL_CUA_PLUGIN_ID
+    } else {
+        plugin_id
+    };
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let current = suppressed_list(&plugins);
+    let ids: Vec<&str> = std::iter::once(canonical)
+        .chain(aliases(canonical))
+        .collect();
+    let mut retained: Vec<String> = current
+        .iter()
+        .filter(|id| !ids.contains(&id.as_str()))
+        .cloned()
+        .collect();
+    if retained.len() == current.len() && current.iter().any(|id| id == canonical) {
+        return false;
+    }
+    retained.push(canonical.to_owned());
+    plugins.set(
+        "suppressedBuiltins",
+        Json::Array(retained.into_iter().map(Json::String).collect()),
+    );
+    root.set("plugins", plugins);
+    true
+}
+
+/// TS `removeSuppressedBuiltinInFileConfig`：去掉 id 及其别名；没有命中时不改。
+pub(super) fn remove_suppressed_builtin(root: &mut Json, plugin_id: &str) -> bool {
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let current = suppressed_list(&plugins);
+    let ids: Vec<&str> = std::iter::once(plugin_id)
+        .chain(aliases(plugin_id))
+        .collect();
+    let next: Vec<String> = current
+        .iter()
+        .filter(|id| !ids.contains(&id.as_str()))
+        .cloned()
+        .collect();
+    if next.len() == current.len() {
+        return false;
+    }
+    plugins.set(
+        "suppressedBuiltins",
+        Json::Array(next.into_iter().map(Json::String).collect()),
+    );
+    root.set("plugins", plugins);
+    true
+}
+
+/// 读 → 补丁 → 有改动才原子写；返回是否写入。
+pub(super) async fn patch_file(path: &Path, patch: impl FnOnce(&mut Json) -> bool) -> Result<bool> {
+    let mut file = read_object_or_empty(path).await?;
+    if !patch(&mut file) {
+        return Ok(false);
+    }
+    atomic_write(path, &file).await?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

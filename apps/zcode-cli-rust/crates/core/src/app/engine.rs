@@ -361,6 +361,15 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_reset_config(&request.params).await
             }
+            // 插件卸载 / 恢复内置（写面 W1a）。
+            "plugins/uninstall" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_uninstall(&request.params).await
+            }
+            "plugins/restoreBuiltin" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_restore_builtin(&request.params).await
+            }
             // 插件页概览（第 3 期）：市场摘要 + 目录条目 + 已安装记录 + 可恢复内置。
             "plugins/overview" => {
                 self.validate_workspace(&request.params)?;
