@@ -93,7 +93,8 @@ async fn engine() -> Engine {
 async fn policy_method_echoes_the_workspace_and_rejects_bad_params() {
     let mut engine = engine().await;
     let workspace = json!({"workspacePath":"workspace","workspaceIdentity":"workspace"});
-    let update = |enabled: Value, workspace: Value| json!({"workspace":workspace,"enabled":enabled});
+    let update =
+        |enabled: Value, workspace: Value| json!({"workspace":workspace,"enabled":enabled});
     // 回显与 TS `updateDynamicWorkflowPolicy` 同形：`{workspace, enabled}`。
     assert_eq!(
         engine
