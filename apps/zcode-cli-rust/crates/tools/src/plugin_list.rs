@@ -460,7 +460,7 @@ async fn count_skill_files(roots: &[PathBuf]) -> Result<usize> {
 }
 
 /// 与 TS `shouldWalkSkillDirectoryEntry` 同义：跳过隐藏目录与常见构建/依赖目录。
-fn should_walk(name: &str) -> bool {
+pub(super) fn should_walk(name: &str) -> bool {
     if name.starts_with('.') && name != ".system" {
         return false;
     }

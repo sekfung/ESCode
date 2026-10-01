@@ -182,3 +182,16 @@ featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id�
 - `plugin_install.rs`：抽出 `entry_in` / `closure_in` / `materialize` / `valid_plugin_name` 供安装与校验共用。
 - 差分：`zcode-cli-rust-plugins-validate.test.ts`（11 个市场内插件 + 未知市场 + 4 种 source + 空参数）。
   JSON 语法错误文案两端来源不同（V8 vs Rust），样例不覆盖。
+
+## 实现与验证（W5b-2：plugins/describe，2026-10-02）
+
+- `crates/tools/src/plugin_describe.rs`：对齐 TS `describePlugin` → `describeMarketplacePlugin`。已安装记录且安装目录存在时
+  读安装目录（不读源）；否则按需拉取市场 → 条目 → `materialize` 后枚举，临时目录用完即删。
+- 组件枚举（TS `enumeratePluginComponents`）：agents / commands（对象声明在前，再扫默认目录与 manifest 路径下的 `.md`，
+  frontmatter name 优先、按名去重）、skills（不跟随符号链接，根自身 SKILL.md + 一层子目录，跳过隐藏 / 构建目录，按文件与名去重）、
+  hooks（`hooks/hooks.json` + manifest 路径 / 内联 / 数组，重复文件按 realpath 跳过，只取受支持事件名并记诊断）、
+  MCP（复用 validate 的 `mcp_definitions`）；manifest 不可用时只按目录约定枚举前三类。
+- frontmatter 解析移植 TS `markdown-frontmatter.ts`（`>` / `|` 块标量、引号去除、空值省略）。
+- 元数据：author（字符串或 {name,url}，trim）/ authorUrl / homepage / version。
+- 差分：`zcode-cli-rust-plugins-describe.test.ts`（完整组件、strict:false、无 manifest、非法名、已安装、安装目录缺失兜底、
+  源目录缺失、未知插件 / 市场）。hooks 文件 JSON 语法错误的文案两端不同，样例不覆盖。

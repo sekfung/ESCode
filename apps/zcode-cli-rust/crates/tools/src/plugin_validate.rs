@@ -63,7 +63,12 @@ pub(super) async fn validate(params: &Value) -> Result<Value> {
     }))
 }
 
-fn diag(code: &str, message: impl Into<String>, plugin_id: Option<&str>, error: bool) -> Value {
+pub(super) fn diag(
+    code: &str,
+    message: impl Into<String>,
+    plugin_id: Option<&str>,
+    error: bool,
+) -> Value {
     let mut out = json!({
         "code": code,
         "message": message.into(),
@@ -96,7 +101,7 @@ pub(super) fn error_diagnostic(error: &anyhow::Error, plugin_id: Option<&str>) -
     diag(code, message, plugin_id, true)
 }
 
-fn entry_name(entry: &Json) -> String {
+pub(super) fn entry_name(entry: &Json) -> String {
     entry
         .get("name")
         .and_then(Json::as_str)
@@ -475,14 +480,25 @@ fn validate_root(entry: &Json, marketplace: &str, root: &Path) -> Vec<Value> {
 // ---- 插件 MCP 声明校验（TS plugins/mcp.ts：loadPluginMcpServerDefinitions + resolvePluginMcpServers，
 // 校验时 env / options 均为空，只收集诊断） ----
 
-fn mcp_diagnostics(root: &Path, manifest: &Json, id: &str) -> Vec<Value> {
-    let mut out = vec![];
-    let mut servers = mcp_file(&root.join(".mcp.json"), id, &mut out);
+/// TS `loadPluginMcpServerDefinitions`：`.mcp.json` 在前，manifest `mcpServers` 覆盖同名项；读取诊断写入 `out`。
+pub(super) fn mcp_definitions(
+    root: &Path,
+    manifest: &Json,
+    id: &str,
+    out: &mut Vec<Value>,
+) -> Vec<(String, Json)> {
+    let mut servers = mcp_file(&root.join(".mcp.json"), id, out);
     if let Some(spec) = manifest.get("mcpServers") {
-        for (key, value) in mcp_spec(root, spec, id, &mut out) {
+        for (key, value) in mcp_spec(root, spec, id, out) {
             upsert(&mut servers, key, value);
         }
     }
+    servers
+}
+
+fn mcp_diagnostics(root: &Path, manifest: &Json, id: &str) -> Vec<Value> {
+    let mut out = vec![];
+    let servers = mcp_definitions(root, manifest, id, &mut out);
     let defaults: Vec<(String, Json)> = match manifest.get("userConfig") {
         Some(Json::Object(options)) => options
             .iter()
