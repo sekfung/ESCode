@@ -87,3 +87,20 @@ list 不再出现）、未知 id、缺选择器、恢复内置（list 重新出�
 （`helper@^1.0`）、用户配置显式停用依赖、重装（installedAt 保留）、`strict:false` 合成 manifest、依赖环 / 跨市场 /
 依赖缺失 / 非法 source kind / 未知插件五种诊断；协议返回、`installed_plugins.json`、缓存文件树与内容哈希、用户配置字节、
 合成 manifest 与随后 `plugins/list`，Node 与 Rust 逐值一致。
+
+## 实现与验证（W2：zip 源，2026-10-02）
+
+`crates/tools/src/plugin_zip.rs`（新增依赖 `zip`，仅 deflate），对齐 TS `zip-source.ts`：
+
+- 字段读取顺序同 TS（url → headers → path → sha256 → stripRoot），文案逐字；URL 只允许 HTTPS，回环（localhost /
+  127.x / ::1）允许 HTTP；禁用 `authorization` / `cookie` / `proxy-authorization` / `set-cookie` 头；sha256 必须 64 位 hex。
+- 下载：与 WebFetch 共用 `web_fetch::proxied_client`（同一套代理解析与设置页 CA，不自动跟随重定向）；手动重定向最多 5 次，
+  跨源丢弃自定义头；200 MiB 上限、180 s 超时；sha256 不符报 `expected=…, actual=…`。
+- 解压：路径规范化（拒绝空段 / `.` / `..` / 反斜杠 / 绝对路径 / 盘符）、拒绝加密、符号链接与非常规类型条目；条目数 ≤ 20000、
+  单文件 ≤ 50 MiB、总量 ≤ 500 MiB。
+- 根定位：显式 `path` > 解压根已有 manifest > `stripRoot`（缺省 true）且只有一个顶层目录 > 解压根；安装前按 TS
+  `assertZipPluginInstallRoot` 要求根能形成合法插件且 manifest 名与条目一致；临时目录在激活后清理。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-install-zip.test.ts`——回环 HTTP 服务（yazl 生成 zip）：单顶层 strip、
+显式 path、同源重定向转发自定义头、sha256 不符、manifest 名不符、多顶层无 manifest、非 HTTPS、禁用头；协议返回（下载类
+错误只比 code）、`installed_plugins.json`、缓存文件树与服务端收到的请求（路径与自定义头），Node 与 Rust 一致。

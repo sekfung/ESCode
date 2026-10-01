@@ -473,6 +473,53 @@ fn source_root(storage: &Path, marketplace: &str, entry: &Json) -> Result<PathBu
     }
 }
 
+/// `{source: "url", type: "zip"}`（TS `isZipPluginUrlSource` 的入口判定；字段校验在 plugin_zip）。
+fn is_zip_source(entry: &Json) -> bool {
+    let Some(source) = entry.get("source").filter(|s| s.is_object()) else {
+        return false;
+    };
+    source.get("source").and_then(Json::as_str) == Some("url")
+        && source.get("type").and_then(Json::as_str) == Some("zip")
+}
+
+/// TS `assertZipPluginInstallRoot` + `readPluginManifestFromRoot`：多顶层 zip 未指定 path 时会回退到解压根，
+/// 必须确认它能形成合法插件且名字与目录条目一致，否则不能写安装记录。
+fn assert_zip_root(root: &Path, entry: &Json, marketplace: &str) -> Result<()> {
+    let entry_name = entry.get("name").and_then(Json::as_str).unwrap_or_default();
+    let id = format!("{entry_name}@{marketplace}");
+    let name = match manifest_path(root) {
+        Some(path) => {
+            let parsed: Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+            if !parsed.is_object() {
+                bail!("Plugin manifest must be a JSON object");
+            }
+            let name = parsed["name"]
+                .as_str()
+                .unwrap_or_default()
+                .trim()
+                .to_owned();
+            let valid = name
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+                && name.len() <= 128
+                && name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "._-".contains(c));
+            if !valid {
+                bail!("Invalid plugin name: {name}");
+            }
+            name
+        }
+        None if entry.get("strict") == Some(&Json::Bool(false)) => entry_name.trim().to_owned(),
+        None => bail!("Plugin manifest not found: {id}"),
+    };
+    if name != entry_name {
+        bail!("Plugin manifest name '{name}' does not match marketplace entry '{entry_name}'");
+    }
+    Ok(())
+}
+
 /// TS `getPluginCacheDir`。
 fn cache_dir(storage: &Path, marketplace: &str, name: &str, version: &str) -> PathBuf {
     storage
@@ -560,18 +607,41 @@ fn install_closure(
             let (plugin_name, plugin_market) = split_id(id)?;
             let entry = ordered_entry(storage, plugin_market, plugin_name)
                 .ok_or_else(|| anyhow!("Plugin not found: {id}"))?;
-            let source = source_root(storage, plugin_market, &entry)?;
+            // zip 源（W2）：下载解压到临时目录；激活后（无论成败）清理。
+            let zip = if is_zip_source(&entry) {
+                let source = entry.get("source").cloned().unwrap_or(Json::Null);
+                let root = tokio::runtime::Handle::current()
+                    .block_on(super::plugin_zip::resolve(&source))?;
+                if let Err(error) = assert_zip_root(&root.path, &entry, plugin_market) {
+                    root.cleanup();
+                    return Err(error);
+                }
+                Some(root)
+            } else {
+                None
+            };
+            let source = match &zip {
+                Some(root) => root.path.clone(),
+                None => source_root(storage, plugin_market, &entry)?,
+            };
             let version = installed_version(&source, &entry);
             let target = cache_dir(storage, plugin_market, plugin_name, &version);
             let same =
                 super::lexical_path::normalize(&source) == super::lexical_path::normalize(&target);
             let mut transaction = None;
-            if same {
-                ensure_entry_manifest(&entry, &target)?;
+            let activated = if same {
+                ensure_entry_manifest(&entry, &target).map(|_| None)
             } else {
-                let activation = atomic_dir::activate(&source, &target, &authority, |staged| {
+                atomic_dir::activate(&source, &target, &authority, |staged| {
                     ensure_entry_manifest(&entry, staged)
-                })?;
+                })
+                .map(Some)
+            };
+            // 缓存已复制（或失败）后临时目录清理失败不阻断安装记录落盘。
+            if let Some(root) = &zip {
+                root.cleanup();
+            }
+            if let Some(activation) = activated? {
                 transaction = Some(activation.transaction_id.clone());
                 activations.push(activation);
             }

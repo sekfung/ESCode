@@ -160,15 +160,15 @@ async fn fetch_pipeline_matches_ts_rules() {
 #[tokio::test]
 async fn oversized_content_writes_a_tool_result_artifact() {
     clear_cache();
-    let body: &'static str =
-        Box::leak(format!("<p>{}</p>", "x".repeat(120_000)).into_boxed_str());
+    let body: &'static str = Box::leak(format!("<p>{}</p>", "x".repeat(120_000)).into_boxed_str());
     let t = fake(vec![(
         "https://big.example.com/",
         200,
         vec![("content-type", "text/html; charset=utf-8")],
         body,
     )]);
-    let root = std::env::temp_dir().join(format!("zcode-webfetch-artifact-{}", zcode_cli_host::id()));
+    let root =
+        std::env::temp_dir().join(format!("zcode-webfetch-artifact-{}", zcode_cli_host::id()));
     let target = ArtifactTarget {
         root: &root,
         session: "sess_test",
@@ -179,7 +179,10 @@ async fn oversized_content_writes_a_tool_result_artifact() {
         .await
         .unwrap();
     let uri = page.output["artifactUri"].as_str().unwrap().to_owned();
-    assert!(uri.starts_with("zcode-artifact://sess_test/tool-result-"), "{uri}");
+    assert!(
+        uri.starts_with("zcode-artifact://sess_test/tool-result-"),
+        "{uri}"
+    );
     let path = page.output["artifactPath"].as_str().unwrap().to_owned();
     let name = std::path::Path::new(&path)
         .file_name()

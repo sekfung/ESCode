@@ -34,6 +34,7 @@ zcode-cli-core-api.workspace = true
 zcode-cli-domain.workspace = true
 zcode-cli-host.workspace = true
 zcode-cli-protocol.workspace = true
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

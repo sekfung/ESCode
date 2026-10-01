@@ -50,9 +50,15 @@ impl ArtifactTarget<'_> {
         if content.len() <= rules::MAX_MODEL_INPUT_CHARS {
             return Ok((None, None));
         }
-        let extension = if content_type.contains("html") { ".md" } else { ".txt" };
+        let extension = if content_type.contains("html") {
+            ".md"
+        } else {
+            ".txt"
+        };
         let artifact = format!("tool-result-{}", zcode_cli_host::id());
-        let directory = self.root.join(super::mcp_connection::sanitize(self.session));
+        let directory = self
+            .root
+            .join(super::mcp_connection::sanitize(self.session));
         let path = directory.join(format!(
             "{}-{artifact}{extension}",
             super::mcp_connection::sanitize(self.call_id)
@@ -61,10 +67,7 @@ impl ArtifactTarget<'_> {
         tokio::fs::write(&path, content).await?;
         Ok((
             Some(path.to_string_lossy().into_owned()),
-            Some(format!(
-                "zcode-artifact://{}/{artifact}",
-                self.session
-            )),
+            Some(format!("zcode-artifact://{}/{artifact}", self.session)),
         ))
     }
 }
@@ -123,15 +126,15 @@ pub(crate) async fn fetch(
         },
     };
     let mut output = json!({
-            "url": url,
-            "finalUrl": fetched.final_url,
-            "status": fetched.status,
-            "statusText": status_text(fetched.status, &fetched.status_text),
-            "contentType": fetched.content_type,
-            "bytes": fetched.bytes,
-            "cacheHit": cache_hit,
-            "redirects": fetched.redirects,
-        });
+        "url": url,
+        "finalUrl": fetched.final_url,
+        "status": fetched.status,
+        "statusText": status_text(fetched.status, &fetched.status_text),
+        "contentType": fetched.content_type,
+        "bytes": fetched.bytes,
+        "cacheHit": cache_hit,
+        "redirects": fetched.redirects,
+    });
     // 与 TS `WebFetchOutput` 一样只在有 artifact 时带上这两个键（undefined 会被 JSON 序列化丢掉）。
     if let Some(uri) = &fetched.artifact_uri {
         output["artifactUri"] = uri.clone().into();
@@ -330,6 +333,41 @@ pub(crate) fn clear_cache() {
     CACHE.lock().unwrap().clear();
 }
 
+/// 应用层下载用的 reqwest 客户端：代理按 TS web-fetch 规则逐 URL 解析（显式配置、ZCODE_HTTP_PROXY、
+/// ZCODE_NO_PROXY 与捕获的宿主代理），不跟随重定向，信任设置页自定义 CA。WebFetch 与插件 zip 下载共用。
+pub(crate) async fn proxied_client(target: String, timeout: Duration) -> Result<reqwest::Client> {
+    // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
+    tokio::task::spawn_blocking(move || -> anyhow::Result<reqwest::Client> {
+        let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
+            &target,
+            &zcode_cli_domain::net_proxy::ProxyOptions {
+                http_proxy: None,
+                no_proxy: None,
+                env: std::env::vars().collect(),
+            },
+        );
+        let mut builder = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(timeout);
+        builder = match resolution.proxy_url {
+            Some(proxy) => builder.proxy(reqwest::Proxy::all(proxy)?),
+            None => builder.no_proxy(),
+        };
+        // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 `NODE_EXTRA_CA_CERTS`）：与模型请求同一份来源。
+        for bytes in zcode_cli_host::tls_ca::extra_ca_certificates()? {
+            let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
+                Ok(certificates) => certificates,
+                Err(_) => vec![reqwest::Certificate::from_der(&bytes)?],
+            };
+            for certificate in certificates {
+                builder = builder.add_root_certificate(certificate);
+            }
+        }
+        Ok(builder.build()?)
+    })
+    .await?
+}
+
 /// reqwest 传输：代理按 TS web-fetch 规则逐 URL 解析，不跟随重定向，60 秒超时，10 MiB 上限。
 pub(crate) struct HttpTransport;
 
@@ -338,35 +376,7 @@ impl Transport for HttpTransport {
     async fn get(&self, url: &Url, cancel: &CancellationToken) -> Result<Response> {
         let target = url.to_string();
         // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
-        let client = tokio::task::spawn_blocking(move || -> anyhow::Result<reqwest::Client> {
-            let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
-                &target,
-                &zcode_cli_domain::net_proxy::ProxyOptions {
-                    http_proxy: None,
-                    no_proxy: None,
-                    env: std::env::vars().collect(),
-                },
-            );
-            let mut builder = reqwest::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
-                .timeout(Duration::from_millis(rules::TIMEOUT_MS));
-            builder = match resolution.proxy_url {
-                Some(proxy) => builder.proxy(reqwest::Proxy::all(proxy)?),
-                None => builder.no_proxy(),
-            };
-            // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 `NODE_EXTRA_CA_CERTS`）：与模型请求同一份来源。
-            for bytes in zcode_cli_host::tls_ca::extra_ca_certificates()? {
-                let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
-                    Ok(certificates) => certificates,
-                    Err(_) => vec![reqwest::Certificate::from_der(&bytes)?],
-                };
-                for certificate in certificates {
-                    builder = builder.add_root_certificate(certificate);
-                }
-            }
-            Ok(builder.build()?)
-        })
-        .await??;
+        let client = proxied_client(target, Duration::from_millis(rules::TIMEOUT_MS)).await?;
         let request = client
             .get(url.as_str())
             .header("User-Agent", rules::USER_AGENT)
