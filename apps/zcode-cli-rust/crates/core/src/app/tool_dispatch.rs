@@ -148,7 +148,7 @@ pub(super) async fn execute(
             Ok(args) if name == "ReadSessionContext" => {
                 super::session_context_tool::execute(model, &args, sink, cancel).await
             }
-            Ok(args) if name == "ListModels" => {
+            Ok(_) if name == "ListModels" => {
                 super::model_catalog_tool::execute(
                     turn.model_catalog.as_deref(),
                     selection.as_ref(),

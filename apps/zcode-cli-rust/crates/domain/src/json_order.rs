@@ -53,6 +53,13 @@ impl Json {
         }
     }
 
+    /// JS `delete obj[key]`。非对象时不做任何事。
+    pub fn remove(&mut self, key: &str) {
+        if let Self::Object(entries) = self {
+            entries.retain(|(k, _)| k != key);
+        }
+    }
+
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::String(value) => Some(value),
@@ -136,16 +143,66 @@ fn quote(value: &str) -> String {
     serde_json::to_string(value).unwrap_or_default()
 }
 
-/// JS 数字输出：整数值的浮点数不带小数点。
+/// JS 数字输出（ECMA-262 `Number::toString`，基数 10）：JS 只有 f64，所以先按 f64 取值
+/// （`2.0` → `2`、超出 2^53 的整数按 f64 舍入），再按 JS 的定点/指数排版规则输出
+/// （`1e21` → `1e+21`、`1e-7` → `1e-7`、`1e20` → `100000000000000000000`）。
 fn write_number(out: &mut String, value: &serde_json::Number) {
     match value.as_f64() {
-        Some(f) if !value.is_i64() && !value.is_u64() && f.fract() == 0.0 && f.abs() < 1e21 => {
-            let _ = write!(out, "{}", f as i64);
-        }
-        _ => {
+        Some(f) => out.push_str(&js_number(f)),
+        None => {
             let _ = write!(out, "{value}");
         }
     }
+}
+
+pub(crate) fn js_number(value: f64) -> String {
+    if value == 0.0 {
+        return "0".to_owned();
+    }
+    if !value.is_finite() {
+        return "null".to_owned();
+    }
+    // Rust 与 V8 都输出「最短可往返」的十进制位；`{:e}` 不带精度时形如 `1.5e300` / `1e-7`。
+    let formatted = format!("{:e}", value.abs());
+    let (mantissa, exponent) = match formatted.split_once('e') {
+        Some((m, e)) => (m, e.parse::<i32>().unwrap_or(0)),
+        None => (formatted.as_str(), 0),
+    };
+    let (int_part, frac_part) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let mut digits = format!("{int_part}{frac_part}");
+    // value = 0.<digits> × 10^n
+    let mut n = int_part.len() as i32 + exponent;
+    let leading = digits.len() - digits.trim_start_matches('0').len();
+    digits.drain(..leading);
+    n -= leading as i32;
+    let trimmed = digits.trim_end_matches('0').len();
+    digits.truncate(trimmed);
+    let k = digits.len() as i32;
+    let mut out = String::new();
+    if value < 0.0 {
+        out.push('-');
+    }
+    if k <= n && n <= 21 {
+        out.push_str(&digits);
+        out.push_str(&"0".repeat((n - k) as usize));
+    } else if 0 < n && n <= 21 {
+        out.push_str(&digits[..n as usize]);
+        out.push('.');
+        out.push_str(&digits[n as usize..]);
+    } else if -6 < n && n <= 0 {
+        out.push_str("0.");
+        out.push_str(&"0".repeat((-n) as usize));
+        out.push_str(&digits);
+    } else {
+        out.push_str(&digits[..1]);
+        if k > 1 {
+            out.push('.');
+            out.push_str(&digits[1..]);
+        }
+        let e = n - 1;
+        let _ = write!(out, "e{}{}", if e < 0 { '-' } else { '+' }, e.abs());
+    }
+    out
 }
 
 impl<'de> Deserialize<'de> for Json {
@@ -196,6 +253,33 @@ impl<'de> Deserialize<'de> for Json {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numbers_match_v8() {
+        for (value, expected) in [
+            (0.0, "0"),
+            (-0.0, "0"),
+            (1.0, "1"),
+            (-12.5, "-12.5"),
+            (0.1, "0.1"),
+            (1e-7, "1e-7"),
+            (0.000001, "0.000001"),
+            (1e21, "1e+21"),
+            (1e20, "100000000000000000000"),
+            (1.5e300, "1.5e+300"),
+            (2.5e-10, "2.5e-10"),
+            (12345.678, "12345.678"),
+            (18446744073709551615.0, "18446744073709552000"),
+        ] {
+            assert_eq!(js_number(value), expected, "{value}");
+        }
+        assert_eq!(
+            Json::parse("[18446744073709551615,9007199254740993,1e21]")
+                .unwrap()
+                .compact(),
+            "[18446744073709552000,9007199254740992,1e+21]"
+        );
+    }
 
     #[test]
     fn matches_json_stringify_layout() {

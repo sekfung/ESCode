@@ -16,66 +16,71 @@ pub(super) async fn list(cwd: &Path, config: &Value, cancel: &CancellationToken)
     let mut seen: Vec<String> = vec![];
     for plugin in plugins::all(cwd, config, cancel).await? {
         seen.push(plugin.id.clone());
-        let mut info = json!({
-            "id": plugin.id,
-            "name": plugin.name,
-            "enabled": plugin.enabled,
-            "source": plugin.source,
-            "marketplace": plugin.marketplace,
-            "rootPath": plugin.root.to_string_lossy(),
-            // TS `toPluginInfo` 始终带 skillCount：停用插件走 emptyComponents 得 0。
-            "skillCount": 0,
-            "skillRootCount": 0,
-            "commandRootCount": 0,
-            "mcpServerNames": [],
-        });
-        let manifest = &plugin.manifest;
-        if let Some(description) = manifest["description"].as_str() {
-            info["description"] = description.into();
-        }
-        if let Some(version) = manifest["version"].as_str() {
-            info["version"] = version.into();
-        }
-        if let Some((author, url)) = author_of(manifest) {
-            info["author"] = author.into();
-            if let Some(url) = url {
-                info["authorUrl"] = url.into();
-            }
-        }
-        if let Some(homepage) = manifest["homepage"]
-            .as_str()
-            .filter(|value| !value.trim().is_empty())
-        {
-            info["homepage"] = homepage.into();
-        }
-        let declared: Vec<Value> = mcp_config::plugin_definitions(&plugin)
-            .await?
-            .keys()
-            .map(|name| Value::from(name.clone()))
-            .collect();
-        info["declaredMcpServerNames"] = Value::Array(declared);
-        if plugin.enabled {
-            // 与 TS 一致：只有启用插件才解析真实组件（停用插件计数为 0、MCP 名为空），
-            // 但 `components` 清单与启用态无关（见 TS createPluginMetadata 注释）。
-            let skill_roots = component_roots(&plugin, "skills");
-            let command_roots = component_roots(&plugin, "commands");
-            info["skillRootCount"] = json!(skill_roots.len());
-            info["commandRootCount"] = json!(command_roots.len() + generated_command_root(&plugin));
-            info["skillCount"] = json!(count_skill_files(&skill_roots).await?);
-            let mut names: Vec<Value> = vec![];
-            for (name, server) in mcp_config::plugin_servers(&plugin, cwd, &data_root).await? {
-                if !server.invalid {
-                    names.push(name.into());
-                }
-            }
-            info["mcpServerNames"] = Value::Array(names);
-        }
-        // `components` 与启用态无关：TS `createPluginMetadata` 始终对插件根做权威枚举。
-        info["components"] = components(&plugin).await?;
-        items.push(info);
+        items.push(info(&plugin, cwd, &data_root).await?);
     }
     items.extend(missing(&config["plugins"], &seen));
     Ok(json!({ "plugins": items }))
+}
+
+/// TS `toPluginInfo`（不带 configResult 的部分）：单个已发现插件的协议投影。
+pub(super) async fn info(plugin: &plugins::Plugin, cwd: &Path, data_root: &Path) -> Result<Value> {
+    let mut info = json!({
+        "id": plugin.id,
+        "name": plugin.name,
+        "enabled": plugin.enabled,
+        "source": plugin.source,
+        "marketplace": plugin.marketplace,
+        "rootPath": plugin.root.to_string_lossy(),
+        // TS `toPluginInfo` 始终带 skillCount：停用插件走 emptyComponents 得 0。
+        "skillCount": 0,
+        "skillRootCount": 0,
+        "commandRootCount": 0,
+        "mcpServerNames": [],
+    });
+    let manifest = &plugin.manifest;
+    if let Some(description) = manifest["description"].as_str() {
+        info["description"] = description.into();
+    }
+    if let Some(version) = manifest["version"].as_str() {
+        info["version"] = version.into();
+    }
+    if let Some((author, url)) = author_of(manifest) {
+        info["author"] = author.into();
+        if let Some(url) = url {
+            info["authorUrl"] = url.into();
+        }
+    }
+    if let Some(homepage) = manifest["homepage"]
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+    {
+        info["homepage"] = homepage.into();
+    }
+    let declared: Vec<Value> = mcp_config::plugin_definitions(plugin)
+        .await?
+        .keys()
+        .map(|name| Value::from(name.clone()))
+        .collect();
+    info["declaredMcpServerNames"] = Value::Array(declared);
+    if plugin.enabled {
+        // 与 TS 一致：只有启用插件才解析真实组件（停用插件计数为 0、MCP 名为空），
+        // 但 `components` 清单与启用态无关（见 TS createPluginMetadata 注释）。
+        let skill_roots = component_roots(plugin, "skills");
+        let command_roots = component_roots(plugin, "commands");
+        info["skillRootCount"] = json!(skill_roots.len());
+        info["commandRootCount"] = json!(command_roots.len() + generated_command_root(plugin));
+        info["skillCount"] = json!(count_skill_files(&skill_roots).await?);
+        let mut names: Vec<Value> = vec![];
+        for (name, server) in mcp_config::plugin_servers(plugin, cwd, data_root).await? {
+            if !server.invalid {
+                names.push(name.into());
+            }
+        }
+        info["mcpServerNames"] = Value::Array(names);
+    }
+    // `components` 与启用态无关：TS `createPluginMetadata` 始终对插件根做权威枚举。
+    info["components"] = components(plugin).await?;
+    Ok(info)
 }
 
 /// TS `enumeratePluginComponents`：分组顺序 agent → command → skill → hook → mcp，空组不出现。
@@ -446,5 +451,64 @@ pub(super) async fn config_for(cwd: &Path, params: &Value) -> Result<Value> {
         config::load_user().await
     } else {
         config::load(cwd).await
+    }
+}
+
+/// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）：对齐 TS `setPluginEnabled` +
+/// `setZCodePluginEnabled`。
+///
+/// - 选择器：先按完整 id，再按唯一 `name`（重名报歧义），在「全部已发现插件」里找（配置视图含项目层）。
+/// - 写入目标：`scope: "workspace"` 固定写 `<workspace>/.zcode/config.json`，否则写用户层
+///   `~/.zcode/cli/config.json`；只补丁 `plugins.enabledPlugins[id]`，文件其余内容与顺序保留。
+/// - 返回值与 TS 一样基于**写入前**解析的插件元数据（停用 → 启用时计数仍为 0，等下一次 list 刷新），
+///   只覆盖 `enabled` 并带上 `enabledSource = scope ?? "user"`。
+pub(super) async fn set_enabled(params: &Value, cancel: &CancellationToken) -> Result<Value> {
+    let cwd = workspace_path(params)?;
+    let selector = params["pluginId"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .context("pluginId required")?;
+    let enabled = params["enabled"]
+        .as_bool()
+        .context("enabled must be a boolean")?;
+    let scope = match &params["scope"] {
+        Value::Null => None,
+        Value::String(scope) if scope == "user" || scope == "workspace" => Some(scope.as_str()),
+        _ => anyhow::bail!("scope must be \"user\" or \"workspace\""),
+    };
+    let config = config::load(&cwd).await?;
+    let discovered = plugins::all(&cwd, &config, cancel).await?;
+    let plugin = select(selector, &discovered)?;
+    let path = if scope == Some("workspace") {
+        cwd.join(".zcode").join("config.json")
+    } else {
+        config::home()
+            .join(".zcode")
+            .join("cli")
+            .join("config.json")
+    };
+    let mut file = super::config_file::read_object_or_empty(&path).await?;
+    super::config_file::patch_plugin_enabled(&mut file, &plugin.id, enabled);
+    super::config_file::atomic_write(&path, &file).await?;
+    let data_root = config::storage(&config).join("data");
+    let mut info = info(plugin, &cwd, &data_root).await?;
+    info["enabled"] = enabled.into();
+    info["enabledSource"] = scope.unwrap_or("user").into();
+    Ok(json!({ "plugin": info, "enabled": enabled }))
+}
+
+/// TS `resolvePluginSelector`。
+fn select<'a>(selector: &str, plugins: &'a [plugins::Plugin]) -> Result<&'a plugins::Plugin> {
+    let selector = selector.trim();
+    if let Some(plugin) = plugins.iter().find(|plugin| plugin.id == selector) {
+        return Ok(plugin);
+    }
+    let mut matches = plugins.iter().filter(|plugin| plugin.name == selector);
+    match (matches.next(), matches.next()) {
+        (Some(plugin), None) => Ok(plugin),
+        (Some(_), Some(_)) => {
+            anyhow::bail!("Plugin name is ambiguous, use full plugin id: {selector}")
+        }
+        _ => anyhow::bail!("Plugin not found: {selector}"),
     }
 }

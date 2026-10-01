@@ -340,6 +340,11 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_list(&request.params).await
             }
+            // 插件页开关（第 2 期）：落盘 enabledPlugins，新会话按新配置装载插件。
+            "plugins/setEnabled" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_set_enabled(&request.params).await
+            }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,

@@ -4,11 +4,11 @@
 `plugins/list`、`plugins/setEnabled`、`plugins/overview`、`plugins/referenceCatalog(WithCategory)`，
 而 Rust engine **一个方法字符串都没有**（`rg --fixed-strings` 全仓为 0）。
 
-| 方法 | App 调用点 | Rust |
-| --- | --- | --- |
-| `plugins/list` | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 无 |
-| `plugins/setEnabled` | 插件页开关 | 无 |
-| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录 | 无 |
+| 方法                                             | App 调用点                                                                                                             | Rust          |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `plugins/list`                                   | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 第 1 期已实现 |
+| `plugins/setEnabled`                             | 插件页开关                                                                                                             | 第 2 期已实现 |
+| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录                                                                                                    | 无            |
 
 App 对 `plugins/list` 的错误只在**超时**时重试，method-not-found 直接上抛 → 用 Rust runtime 时插件页与
 远端插件同步会失败。这不是「可选能力」，是 App 生命周期矩阵里的缺口。
@@ -125,3 +125,34 @@ skills/`.mcp.json` 组件），Node 与 Rust 在整份列表的上述字段（�
 `ZCODE_PLUGIN_HOST_EXEC_PATH` 与 `ZCODE_PLUGIN_HOST_ENTRYPOINT`，否则 Rust 无源可 seed、会少
 `node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official` 两行。注入后两侧
 **整份列表**（含官方插件、含顺序）在上述字段上一致。
+
+## 实现与验证（第 2 期，2026-10-02）
+
+`plugins/setEnabled` 写面已落地（`crates/tools/src/plugin_list.rs::set_enabled` + `config_file.rs`），
+对齐 TS `setPluginEnabled` → `setZCodePluginEnabled` → `updatePluginEnabledInFileConfig`：
+
+- 选择器（TS `resolvePluginSelector`）：`trim` 后先按完整 id，再按唯一 `name`；重名报
+  `Plugin name is ambiguous, use full plugin id: …`，否则 `Plugin not found: …`。范围是**已发现**插件
+  （配置视图含项目层），所以只在配置里声明、未安装的 missing 行同样报未找到。
+- 写入目标（TS `resolvePluginConfigPath`）：`scope: "workspace"` 固定 `<workspacePath>/.zcode/config.json`
+  （不走 project discovery 的最外层文件），否则用户层 `~/.zcode/cli/config.json`。
+- 补丁（TS `patchPluginEnabled`）：只动 `plugins.enabledPlugins`，先删掉 id 的别名（CUA 旧 id
+  `zcode-cua@zcode-plugins-official` → `computer-use@zcode-plugins-official`），再把规范 id 追加到末尾；
+  `plugins` / `enabledPlugins` 不是对象时原位替换为对象。
+- 落盘（TS `atomicWriteJson`）：同目录临时文件（unix 0600）+ rename，失败清理临时文件；内容为
+  `JSON.stringify(value, null, 2) + "\n"`。Rust 的 serde_json 没开 `preserve_order`（全局打开会改变
+  其它输出的 key 顺序），因此复用 `domain::json_order::Json`（保序；重复 key 后者覆盖但保持首次位置）。
+  顺带把它的数字输出补齐为 JS `Number#toString`（先按 f64 取值：`1.0` → `1`、超出 2^53 的整数按 f64
+  舍入；`1e21` → `1e+21`），工具 input 转写与官方插件缓存这两个既有调用方同样受益。
+  读失败 / 非 JSON / 非对象的错误文案与 TS 相同；文件不存在视为 `{}`。
+- 返回值：与 TS 一样基于**写入前**解析的插件元数据（停用 → 启用时计数仍为 0，等下一次 `plugins/list`
+  刷新），覆盖 `enabled`，并带 `enabledSource = scope ?? "user"`。
+- 生效时机：只改配置文件；运行中会话的插件集合不变，新会话按新配置装载（与 TS 冻结的 session catalog 一致）。
+
+未对齐（记录在案）：TS `createConfig` 装载时会把旧 CUA key 迁移并回写磁盘（`persistPluginConfigMigration`），
+Rust 读路径不做这一步；只影响仍保存旧 id 的历史配置，写入时的别名清理已对齐。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-set-enabled.test.ts`——同一 fixture 下比对 Node 与
+Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace 层，文件原本不存在）、未知 id、missing 行
+四次调用的返回/错误文案，两份配置文件写后的**完整字节**（含补丁外 key 的顺序、`1.0` 的排版），以及随后
+`plugins/list` 的启用态。
