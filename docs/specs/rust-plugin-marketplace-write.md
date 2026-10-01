@@ -166,3 +166,19 @@ featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id�
 验收：`packages/services/tests/zcode-cli-rust-plugins-operations.test.ts`——源目录升版后按 id / 市场 / 全部重装、无匹配记录、
 未知 operationId，Node/Rust 一致；Rust 独有断言：慢 zip 下载期间 `plugins/list` 应答、取消返回 true、再次取消 false、安装以
 「Plugin operation cancelled」诊断结束且不落盘。全部插件差分回归通过。
+
+## 实现与验证（W5b-1：plugins/validate，2026-10-02）
+
+- `crates/tools/src/plugin_validate.rs`：对齐 TS `validatePlugin` → `validateZCodePlugin`。
+  - `source`：`parse_source_input` → `plugin_market_write::load`（不落盘）→ 逐条目形状校验（无 source、npm/pip、
+    url type / zip sha256 等字段）、依赖闭包（根市场用加载的 manifest 原文，`closure_in`）、远端条目
+    `plugin_validation_deferred`（附条目兼容性诊断）、本地条目按市场源目录解析后深扫根目录。
+  - `marketplace` + `pluginName`：按需拉取市场 → 依赖诊断 → `materialize`（zip / 仓库 / 本地，临时目录用完即删）→
+    `validatePluginRoot`（manifest 读取 / 名字一致 / 兼容性：diagnostic-only 字段、必填无默认 userConfig、MCPB/DXT）。
+  - 插件 MCP 声明校验按 TS `loadPluginMcpServerDefinitions` + `resolvePluginMcpServers`（env / options 为空）：
+    `.mcp.json` 与 manifest `mcpServers`（路径 / 数组 / 对象）合并、传输类型、官方鉴权、oauth、保留头、
+    模板变量（会话 / skill 上下文、user_config 敏感与缺省、环境变量）的首个错误。
+  - 以后台作业执行（`PLUGIN_JOB_METHODS`），远端深扫不阻塞其它请求。
+- `plugin_install.rs`：抽出 `entry_in` / `closure_in` / `materialize` / `valid_plugin_name` 供安装与校验共用。
+- 差分：`zcode-cli-rust-plugins-validate.test.ts`（11 个市场内插件 + 未知市场 + 4 种 source + 空参数）。
+  JSON 语法错误文案两端来源不同（V8 vs Rust），样例不覆盖。
