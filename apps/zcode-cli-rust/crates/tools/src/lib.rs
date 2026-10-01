@@ -32,6 +32,7 @@ mod plugin_marketplace;
 mod plugin_overview;
 mod plugin_reference;
 mod plugin_uninstall;
+mod plugin_validate;
 mod plugin_zip;
 mod mcp_connection;
 mod mcp_http_capture;

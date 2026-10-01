@@ -180,14 +180,14 @@ pub(super) fn parse_source_input(input: &str, cwd: &Path) -> Result<Json> {
 
 // ---- 加载市场 manifest（TS loadMarketplaceFromSource，persist:false） ----
 
-struct Loaded {
+pub(super) struct Loaded {
     /// 规范化后的原文：`name` trim、`plugins` 对象写法转为数组（原位），其余 key 原样。
-    raw: Json,
-    name: String,
+    pub raw: Json,
+    pub name: String,
     description: Option<String>,
     plugin_count: usize,
-    source_root: Option<PathBuf>,
-    temp: Option<PathBuf>,
+    pub source_root: Option<PathBuf>,
+    pub temp: Option<PathBuf>,
 }
 
 /// TS `parseRequiredMarketplaceManifest` + `normalizeMarketplaceManifest`。
@@ -324,7 +324,7 @@ async fn request_json(url: &str, headers: Vec<(String, String)>) -> Result<Json>
     bail!("Marketplace fetch exceeded redirect limit: {url}")
 }
 
-async fn load(source: &Json) -> Result<Loaded> {
+pub(super) async fn load(source: &Json) -> Result<Loaded> {
     let text = |key: &str| source.get(key).and_then(Json::as_str).map(str::to_owned);
     let kind = text("source").unwrap_or_default();
     match kind.as_str() {

@@ -300,7 +300,7 @@ fn install_diagnostic(error: &anyhow::Error, plugin_id: &str) -> Value {
 
 /// 市场 manifest 原文（保序）。TS 用解析后的条目，但合成 plugin.json 与 installed record 的 `source`
 /// 都要按条目原样的 key 顺序输出。
-fn ordered_manifest(storage: &Path, marketplace: &str) -> Option<Json> {
+pub(super) fn ordered_manifest(storage: &Path, marketplace: &str) -> Option<Json> {
     let path = storage
         .join("marketplaces")
         .join(sanitize(marketplace))
@@ -310,8 +310,12 @@ fn ordered_manifest(storage: &Path, marketplace: &str) -> Option<Json> {
 }
 
 /// 条目原文：`plugins` 为数组时按 trim 后的 name 匹配；为对象时 key 即 name（补上 `name`）。
-fn ordered_entry(storage: &Path, marketplace: &str, name: &str) -> Option<Json> {
-    let manifest = ordered_manifest(storage, marketplace)?;
+pub(super) fn ordered_entry(storage: &Path, marketplace: &str, name: &str) -> Option<Json> {
+    entry_in(&ordered_manifest(storage, marketplace)?, name)
+}
+
+/// 在给定的市场 manifest 原文里按名字取条目（见 [`ordered_entry`]）。
+pub(super) fn entry_in(manifest: &Json, name: &str) -> Option<Json> {
     match manifest.get("plugins")? {
         Json::Array(items) => items
             .iter()
@@ -394,7 +398,20 @@ fn split_id(id: &str) -> Result<(&str, &str)> {
 
 /// TS `resolveDependencyClosure`：深度优先、后序（依赖先于依赖者）；跨市场需根市场白名单。
 fn closure(storage: &Path, marketplace: &str, name: &str) -> Result<Vec<String>> {
-    let allow: Vec<String> = ordered_manifest(storage, marketplace)
+    closure_in(storage, marketplace, name, None)
+}
+
+/// `local`：根市场的 manifest 原文（TS `resolveDependencyClosureFromManifest`，市场尚未落盘时用）；
+/// 其它市场仍从存储读取。
+pub(super) fn closure_in(
+    storage: &Path,
+    marketplace: &str,
+    name: &str,
+    local: Option<&Json>,
+) -> Result<Vec<String>> {
+    let allow: Vec<String> = local
+        .cloned()
+        .or_else(|| ordered_manifest(storage, marketplace))
         .and_then(|m| m.get("allowCrossMarketplaceDependenciesOn").cloned())
         .and_then(|v| {
             v.as_array().map(|items| {
@@ -409,8 +426,10 @@ fn closure(storage: &Path, marketplace: &str, name: &str) -> Result<Vec<String>>
     let root = format!("{name}@{marketplace}");
     let mut out = vec![];
     let mut visiting: Vec<String> = vec![];
+    #[allow(clippy::too_many_arguments)]
     fn walk(
         storage: &Path,
+        local: Option<&Json>,
         root_market: &str,
         allow: &[String],
         id: &str,
@@ -428,14 +447,28 @@ fn closure(storage: &Path, marketplace: &str, name: &str) -> Result<Vec<String>>
         if out.iter().any(|v| v == id) {
             return Ok(());
         }
-        if market::manifest(storage, market).is_none() {
-            bail!("Marketplace not found for dependency: {market}");
+        let entry = match local.filter(|_| market == root_market) {
+            Some(manifest) => entry_in(manifest, name),
+            None => {
+                if market::manifest(storage, market).is_none() {
+                    bail!("Marketplace not found for dependency: {market}");
+                }
+                ordered_entry(storage, market, name)
+            }
         }
-        let entry = ordered_entry(storage, market, name)
-            .ok_or_else(|| anyhow!("Dependency not found: {id} required by {required_by}"))?;
+        .ok_or_else(|| anyhow!("Dependency not found: {id} required by {required_by}"))?;
         visiting.push(id.to_owned());
         for dependency in dependencies(&entry, market) {
-            walk(storage, root_market, allow, &dependency, id, visiting, out)?;
+            walk(
+                storage,
+                local,
+                root_market,
+                allow,
+                &dependency,
+                id,
+                visiting,
+                out,
+            )?;
         }
         visiting.pop();
         out.push(id.to_owned());
@@ -443,6 +476,7 @@ fn closure(storage: &Path, marketplace: &str, name: &str) -> Result<Vec<String>>
     }
     walk(
         storage,
+        local,
         marketplace,
         &allow,
         &root,
@@ -454,7 +488,7 @@ fn closure(storage: &Path, marketplace: &str, name: &str) -> Result<Vec<String>>
 }
 
 /// TS `findPluginManifestPath`。
-fn manifest_path(root: &Path) -> Option<PathBuf> {
+pub(super) fn manifest_path(root: &Path) -> Option<PathBuf> {
     [".zcode-plugin", ".claude-plugin", ".codex-plugin"]
         .iter()
         .map(|dir| root.join(dir).join("plugin.json"))
@@ -462,19 +496,85 @@ fn manifest_path(root: &Path) -> Option<PathBuf> {
 }
 
 /// TS `resolveInside`：相对路径解析后必须仍在 base 内。
-fn resolve_inside(base: &Path, relative: &str) -> Option<PathBuf> {
+pub(super) fn resolve_inside(base: &Path, relative: &str) -> Option<PathBuf> {
     let joined = super::lexical_path::normalize(&base.join(relative));
     joined
         .starts_with(super::lexical_path::normalize(base))
         .then_some(joined)
 }
 
+/// 物化出的插件源根；`temp` 是远端源的临时目录（用完删除）。
+pub(super) struct SourceRoot {
+    pub path: PathBuf,
+    pub temp: Option<PathBuf>,
+    pub zip: bool,
+}
+
+impl SourceRoot {
+    pub(super) fn cleanup(&self) {
+        if let Some(temp) = &self.temp {
+            let _ = std::fs::remove_dir_all(temp);
+        }
+    }
+}
+
+/// TS `resolvePluginSourceRoot`：zip / 仓库类源下载到临时目录，本地源直接定位（须在阻塞线程里调用）。
+/// `local`：尚未落盘的市场（目录 + manifest 原文），相对源按它解析。
+pub(super) fn materialize(
+    storage: &Path,
+    marketplace: &str,
+    entry: &Json,
+    local: Option<(&Path, &Json)>,
+) -> Result<SourceRoot> {
+    if is_zip_source(entry) {
+        let source = entry.get("source").cloned().unwrap_or(Json::Null);
+        let root =
+            tokio::runtime::Handle::current().block_on(super::plugin_zip::resolve(&source))?;
+        return Ok(SourceRoot {
+            path: root.path.clone(),
+            temp: Some(root.temp_dir()),
+            zip: true,
+        });
+    }
+    if let Some(repo) = repository_source(entry)? {
+        let root = tokio::runtime::Handle::current().block_on(super::plugin_git::resolve(repo))?;
+        return Ok(SourceRoot {
+            path: root.path.clone(),
+            temp: Some(root.temp_dir()),
+            zip: false,
+        });
+    }
+    let path = match local {
+        Some((dir, manifest)) => {
+            source_root_in(storage, marketplace, dir, Some(manifest.clone()), entry)?
+        }
+        None => source_root(storage, marketplace, entry)?,
+    };
+    Ok(SourceRoot {
+        path,
+        temp: None,
+        zip: false,
+    })
+}
+
 /// TS `resolvePluginSourceRoot`（本地源部分）。
 fn source_root(storage: &Path, marketplace: &str, entry: &Json) -> Result<PathBuf> {
+    let marketplace_dir = storage.join("marketplaces").join(sanitize(marketplace));
+    let manifest = ordered_manifest(storage, marketplace);
+    source_root_in(storage, marketplace, &marketplace_dir, manifest, entry)
+}
+
+fn source_root_in(
+    storage: &Path,
+    marketplace: &str,
+    marketplace_dir: &Path,
+    manifest: Option<Json>,
+    entry: &Json,
+) -> Result<PathBuf> {
     let name = entry.get("name").and_then(Json::as_str).unwrap_or_default();
     let id = format!("{name}@{marketplace}");
-    let marketplace_dir = storage.join("marketplaces").join(sanitize(marketplace));
-    let plugin_root = ordered_manifest(storage, marketplace)
+    let marketplace_dir = marketplace_dir.to_owned();
+    let plugin_root = manifest
         .and_then(|m| m.get("metadata").cloned())
         .and_then(|meta| {
             meta.get("pluginRoot")
@@ -658,15 +758,7 @@ fn assert_zip_root(root: &Path, entry: &Json, marketplace: &str) -> Result<()> {
                 .unwrap_or_default()
                 .trim()
                 .to_owned();
-            let valid = name
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-                && name.len() <= 128
-                && name
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "._-".contains(c));
-            if !valid {
+            if !valid_plugin_name(&name) {
                 bail!("Invalid plugin name: {name}");
             }
             name
@@ -678,6 +770,17 @@ fn assert_zip_root(root: &Path, entry: &Json, marketplace: &str) -> Result<()> {
         bail!("Plugin manifest name '{name}' does not match marketplace entry '{entry_name}'");
     }
     Ok(())
+}
+
+/// TS `PLUGIN_NAME_PATTERN`。
+pub(super) fn valid_plugin_name(name: &str) -> bool {
+    name.chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && name.len() <= 128
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "._-".contains(c))
 }
 
 /// TS `getPluginCacheDir`。
@@ -774,26 +877,14 @@ fn install_closure(
                 .ok_or_else(|| anyhow!("Plugin not found: {id}"))?;
             // zip 源（W2）：下载解压到临时目录；激活后（无论成败）清理。
             // 远端源（W2 zip / W3 仓库）物化到临时目录；激活后（无论成败）清理。
-            let zip = if is_zip_source(&entry) {
-                let source = entry.get("source").cloned().unwrap_or(Json::Null);
-                let root = tokio::runtime::Handle::current()
-                    .block_on(super::plugin_zip::resolve(&source))?;
-                if let Err(error) = assert_zip_root(&root.path, &entry, plugin_market) {
-                    root.cleanup();
-                    return Err(error);
-                }
-                Some((root.path.clone(), root.temp_dir()))
-            } else if let Some(repo) = repository_source(&entry)? {
-                let root =
-                    tokio::runtime::Handle::current().block_on(super::plugin_git::resolve(repo))?;
-                Some((root.path.clone(), root.temp_dir()))
-            } else {
-                None
-            };
-            let source = match &zip {
-                Some((path, _)) => path.clone(),
-                None => source_root(storage, plugin_market, &entry)?,
-            };
+            let root = materialize(storage, plugin_market, &entry, None)?;
+            if root.zip
+                && let Err(error) = assert_zip_root(&root.path, &entry, plugin_market)
+            {
+                root.cleanup();
+                return Err(error);
+            }
+            let source = root.path.clone();
             let version = installed_version(&source, &entry);
             let target = cache_dir(storage, plugin_market, plugin_name, &version);
             let same =
@@ -808,9 +899,7 @@ fn install_closure(
                 .map(Some)
             };
             // 缓存已复制（或失败）后临时目录清理失败不阻断安装记录落盘。
-            if let Some((_, temp)) = &zip {
-                let _ = std::fs::remove_dir_all(temp);
-            }
+            root.cleanup();
             if let Some(activation) = activated? {
                 transaction = Some(activation.transaction_id.clone());
                 activations.push(activation);

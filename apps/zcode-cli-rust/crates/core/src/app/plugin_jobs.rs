@@ -15,6 +15,7 @@ pub(super) const PLUGIN_JOB_METHODS: &[&str] = &[
     "plugins/update",
     "plugins/marketplace/add",
     "plugins/marketplace/update",
+    "plugins/validate",
 ];
 
 impl Engine {

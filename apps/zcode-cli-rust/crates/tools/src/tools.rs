@@ -334,6 +334,7 @@ impl ToolPort for WorkspaceTools {
         match method {
             "plugins/install" => super::plugin_install::install(params, cancel).await,
             "plugins/update" => super::plugin_install::update(params, cancel).await,
+            "plugins/validate" => super::plugin_validate::validate(params).await,
             "plugins/marketplace/add" => super::plugin_market_write::add_params(params, cancel).await,
             "plugins/marketplace/remove" => super::plugin_market_write::remove_params(params).await,
             "plugins/marketplace/update" => {
