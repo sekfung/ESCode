@@ -104,6 +104,100 @@ pub(super) fn patch_plugin_enabled(root: &mut Json, plugin_id: &str, enabled: bo
     root.set("plugins", plugins);
 }
 
+/// TS `pluginIdAliases`：CUA 规范 id 同时覆盖旧 id，其余只有自身。
+fn aliases(plugin_id: &str) -> Vec<&'static str> {
+    if plugin_id == CANONICAL_CUA_PLUGIN_ID || plugin_id == LEGACY_CUA_PLUGIN_ID {
+        vec![CANONICAL_CUA_PLUGIN_ID, LEGACY_CUA_PLUGIN_ID]
+    } else {
+        vec![]
+    }
+}
+
+fn remove_aliases(object: &mut Json, plugin_id: &str) {
+    object.remove(plugin_id);
+    for alias in aliases(plugin_id) {
+        object.remove(alias);
+    }
+}
+
+/// TS `patchPluginOptions`：按 option key 合并（UI 不回传已存密钥，整对象替换会把它们清空）；
+/// 先删 `clear` 里的键再并入本次输入；规范 id 写到 `options` 末尾，旧 CUA id 的选项迁过来。
+pub(super) fn patch_plugin_options(
+    root: &mut Json,
+    plugin_id: &str,
+    options: &[(String, Json)],
+    clear: &[String],
+) {
+    let canonical = if plugin_id == LEGACY_CUA_PLUGIN_ID {
+        CANONICAL_CUA_PLUGIN_ID
+    } else {
+        plugin_id
+    };
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let mut all = object_or_empty(plugins.get("options"));
+    let current = all
+        .get(canonical)
+        .filter(|value| value.is_object())
+        .or_else(|| {
+            (canonical == CANONICAL_CUA_PLUGIN_ID)
+                .then(|| all.get(LEGACY_CUA_PLUGIN_ID))
+                .flatten()
+                .filter(|value| value.is_object())
+        })
+        .cloned()
+        .unwrap_or_else(Json::object);
+    let mut next = current;
+    for key in clear {
+        next.remove(key);
+    }
+    for (key, value) in options {
+        next.set(key, value.clone());
+    }
+    remove_aliases(&mut all, canonical);
+    all.set(canonical, next);
+    plugins.set("options", all);
+    root.set("plugins", plugins);
+}
+
+/// TS `patchPluginRemoved`（user scope 的 resetConfig / 卸载）：删掉启用覆盖与选项；两者都没有时返回
+/// false 且不改动（调用方不落盘）。有改动时 `enabledPlugins` 与 `options` 两个键都会写出。
+pub(super) fn remove_plugin(root: &mut Json, plugin_id: &str) -> bool {
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let mut enabled = object_or_empty(plugins.get("enabledPlugins"));
+    let mut options = object_or_empty(plugins.get("options"));
+    let ids: Vec<&str> = std::iter::once(plugin_id)
+        .chain(aliases(plugin_id))
+        .collect();
+    let present = ids
+        .iter()
+        .any(|id| enabled.get(id).is_some() || options.get(id).is_some());
+    if !present {
+        return false;
+    }
+    remove_aliases(&mut enabled, plugin_id);
+    remove_aliases(&mut options, plugin_id);
+    plugins.set("enabledPlugins", enabled);
+    plugins.set("options", options);
+    root.set("plugins", plugins);
+    true
+}
+
+/// TS `removePluginEnabledFromFileConfig`（workspace scope 的「恢复继承」）：只删启用覆盖，保留选项与密钥。
+pub(super) fn remove_plugin_enabled(root: &mut Json, plugin_id: &str) -> bool {
+    let mut plugins = object_or_empty(root.get("plugins"));
+    let mut enabled = object_or_empty(plugins.get("enabledPlugins"));
+    let present = std::iter::once(plugin_id)
+        .chain(aliases(plugin_id))
+        .any(|id| enabled.get(id).is_some());
+    if !present {
+        return false;
+    }
+    remove_aliases(&mut enabled, plugin_id);
+    plugins.set("enabledPlugins", enabled);
+    root.set("plugins", plugins);
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,6 +227,43 @@ mod tests {
             root.compact(),
             r#"{"plugins":{"enabledPlugins":{"p@m":true}},"x":1}"#
         );
+    }
+
+    #[test]
+    fn options_merge_per_key_and_clear_first() {
+        let mut root = parse(
+            r#"{"plugins":{"options":{"a@m":{"k1":1,"secret":"s","k2":2},"b@m":{"x":true}},"enabledPlugins":{"a@m":true}}}"#,
+        );
+        let input = vec![
+            ("k2".to_owned(), Json::str("new")),
+            ("k3".to_owned(), Json::Bool(false)),
+        ];
+        patch_plugin_options(&mut root, "a@m", &input, &["k1".to_owned()]);
+        assert_eq!(
+            root.compact(),
+            r#"{"plugins":{"options":{"b@m":{"x":true},"a@m":{"secret":"s","k2":"new","k3":false}},"enabledPlugins":{"a@m":true}}}"#
+        );
+    }
+
+    #[test]
+    fn reset_removes_enabled_and_options_or_only_enabled() {
+        let original = r#"{"plugins":{"enabledPlugins":{"a@m":true},"options":{"a@m":{"k":1}}}}"#;
+        let mut user = parse(original);
+        assert!(remove_plugin(&mut user, "a@m"));
+        assert_eq!(
+            user.compact(),
+            r#"{"plugins":{"enabledPlugins":{},"options":{}}}"#
+        );
+        let mut workspace = parse(original);
+        assert!(remove_plugin_enabled(&mut workspace, "a@m"));
+        assert_eq!(
+            workspace.compact(),
+            r#"{"plugins":{"enabledPlugins":{},"options":{"a@m":{"k":1}}}}"#
+        );
+        let mut untouched = parse(r#"{"x":1}"#);
+        assert!(!remove_plugin(&mut untouched, "a@m"));
+        assert!(!remove_plugin_enabled(&mut untouched, "a@m"));
+        assert_eq!(untouched.compact(), r#"{"x":1}"#);
     }
 
     #[tokio::test]

@@ -22,6 +22,7 @@ mod file_checkpoints;
 mod file_rewind;
 mod lexical_path;
 mod mcp_config;
+mod plugin_config;
 mod plugin_list;
 mod plugin_marketplace;
 mod plugin_overview;

@@ -355,6 +355,13 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_set_enabled(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
+    /// `plugins/configure` / `plugins/resetConfig`（docs/specs/rust-plugins.md 第 4 期选项面）。
+    async fn plugin_configure(&self, _params: &Value, _raw_params: Option<&str>) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
+    async fn plugin_reset_config(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）：市场/目录/已安装/可恢复内置的读面。
     async fn plugin_overview(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")

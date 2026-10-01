@@ -83,7 +83,7 @@ pub(super) async fn overview(params: &Value, cancel: &CancellationToken) -> Resu
             if let Some(manifest_version) = plugin.manifest["version"].as_str() {
                 version = Some(manifest_version.to_owned());
             }
-            let info = plugin_list::info(plugin, &cwd, &data_root).await?;
+            let info = plugin_list::info(plugin, &cwd, &config, &data_root).await?;
             item["componentTypes"] = component_types_from_info(&info);
         }
         if let Some(version) = version.as_deref().filter(|v| !v.is_empty()) {

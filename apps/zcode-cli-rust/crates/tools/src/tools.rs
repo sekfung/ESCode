@@ -310,12 +310,19 @@ impl ToolPort for WorkspaceTools {
     /// `plugins/list`（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话。
     async fn plugin_list(&self, params: &Value) -> Result<Value> {
         let cwd = super::plugin_list::workspace_path(params)?;
-        let config = super::plugin_list::config_for(&cwd, params).await?;
-        super::plugin_list::list(&cwd, &config, &CancellationToken::new()).await
+        let layers = super::plugin_list::layers_for(&cwd, params).await?;
+        super::plugin_list::list(&cwd, &layers, &CancellationToken::new()).await
     }
     /// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）。
     async fn plugin_set_enabled(&self, params: &Value) -> Result<Value> {
         super::plugin_list::set_enabled(params, &CancellationToken::new()).await
+    }
+    /// `plugins/configure` / `plugins/resetConfig`（docs/specs/rust-plugins.md 第 4 期选项面）。
+    async fn plugin_configure(&self, params: &Value, raw_params: Option<&str>) -> Result<Value> {
+        super::plugin_config::configure(params, raw_params, &CancellationToken::new()).await
+    }
+    async fn plugin_reset_config(&self, params: &Value) -> Result<Value> {
+        super::plugin_config::reset(params).await
     }
     /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）。
     async fn plugin_overview(&self, params: &Value) -> Result<Value> {

@@ -244,3 +244,28 @@ JSON 语法错误的 message 来自各自的解析器（V8 vs serde），文案�
 验收：`packages/services/tests/zcode-cli-rust-plugins-diagnostics.test.ts`——缺 version、JSON 损坏、数组 manifest、
 非法 name、无 manifest、`.zcode-plugin` 非法遮蔽 `.claude-plugin`、仅 `.claude-plugin`、重复 id、仅诊断组件键、
 根不存在；Node 与 Rust 的插件行与诊断（除解析器文案）逐值一致。overview 差分不再剔除发现层诊断，整份一致。
+
+## 实现与验证（第 4 期 · 选项面 4a，2026-10-02）
+
+- **两层合并修正**（`extension_config::merge_plugins`，对齐 TS `mergeConfigs` 的 plugins 分支）：`dirs` 取并集（保序去重）、
+  `enabledPlugins` / `extraKnownMarketplaces` 按 id、`options` 按 pluginId 再按 option key 合并。Rust 之前对 `plugins`
+  用通用深度合并：项目层 `dirs` 整体替换用户层（用户 + 工作区都声明插件目录时**用户的插件消失**），
+  `options[id]` 整对象替换（项目层只写一个键就丢掉用户层其它选项与密钥）。
+- `extension_config::load_layers`：用户层与（多文件合并后的）项目层分开，供来源标注。
+- `plugins/list` 新增（TS `toPluginInfo` 带 configResult 的部分 + `createPluginMetadata`）：`enabledSource`、
+  `optionSources`（按 option key，项目层覆盖用户层）、inline 插件的 `rootSource`（workspace 声明优先；Windows 路径不分
+  大小写、斜杠方向）、`configuredOptions`（有效配置里的选项，按 manifest `userConfig[key].sensitive` 剔除密钥，为空不输出）、
+  `userConfig`（manifest 原样）。missing 行也带 `enabledSource` / `optionSources`。`configScope: "user"` 时只有用户层。
+- `plugins/configure`（`plugin_config.rs`）：按选择器解析插件（`dryRun` 只校验）；只收 string/number/boolean；
+  `clearOptionKeys` trim 去重，先删后并；按 option key 合并写入（`config_file::patch_plugin_options`，旧 CUA id 迁移）。
+  新增键按**请求书写顺序**落盘：stdio 层为该方法保留原始 params 文本（`Request::raw_params`），保序解析。
+- `plugins/resetConfig`：不解析插件；workspace scope 只删启用覆盖（保留选项/密钥），user scope 删启用覆盖与选项；无可删内容不写。
+- 协议 `nonEmptyString` 是 `trim().min(1)`：`pluginId` / `clearOptionKeys` 元素 trim 后为空即 Invalid params，且使用
+  trim 后的值（setEnabled 一并对齐）。错误文案是各自校验库的措辞，只对齐「拒绝」。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-options.test.ts`——用户层（dirs=alpha、启用、region+密钥）+ 工作区层
+（dirs=beta、停用 beta、覆盖 region）；比对合并视图与 user 视图的 list（来源、configuredOptions、userConfig）、workspace
+scope configure（清键 + 新键顺序 + 非原始值丢弃）、dryRun、user scope 清密钥、未知插件、非法 clearOptionKeys、三种 reset，
+以及每步之后两份配置文件的完整字节；Node 与 Rust 逐值一致。
+
+仍属第 4 期后半（4b）：hook 源发现、`hookDetails` 与 components 的 hook 分组、`packageStatus`。

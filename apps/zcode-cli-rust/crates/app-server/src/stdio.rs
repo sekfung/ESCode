@@ -44,6 +44,9 @@ pub fn start(
     });
     (in_rx, out_tx, writer)
 }
+/// 需要按 Host 原键顺序重新解析 params 的方法（落盘时保持请求里的 key 顺序）。
+const RAW_PARAMS_METHODS: &[&str] = &["plugins/configure"];
+
 fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
     if line.iter().all(u8::is_ascii_whitespace) {
         return true;
@@ -77,7 +80,17 @@ fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
                 json!({"method":"startup/storagePathReady","params":{"reuse":value["reuse"]}}),
             )
         } else {
-            serde_json::from_value::<Request>(value)
+            let method = value["method"].as_str().unwrap_or_default().to_owned();
+            serde_json::from_value::<Request>(value).map(|mut request| {
+                if RAW_PARAMS_METHODS.contains(&method.as_str()) {
+                    request.raw_params = serde_json::from_slice::<
+                        std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
+                    >(line)
+                    .ok()
+                    .and_then(|fields| fields.get("params").map(|raw| raw.get().to_owned()));
+                }
+                request
+            })
         }
     };
     tx.blocking_send(match request {

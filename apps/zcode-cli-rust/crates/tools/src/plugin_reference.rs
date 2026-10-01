@@ -45,7 +45,7 @@ async fn identity_entries(cwd: &std::path::Path, cancel: &CancellationToken) -> 
     let discovered = plugins::all(cwd, &config, cancel).await?;
     let mut entries = vec![];
     for plugin in &discovered {
-        let info = plugin_list::info(plugin, cwd, &data_root).await?;
+        let info = plugin_list::info(plugin, cwd, &config, &data_root).await?;
         let mut conflicts: Vec<&str> = if plugin.enabled {
             discovered
                 .iter()

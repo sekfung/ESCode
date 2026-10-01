@@ -55,6 +55,10 @@ pub struct Request {
     #[serde(default)]
     pub params: Value,
     pub trace: Option<Value>,
+    /// 原始 params 文本：serde_json 的对象 key 有序（按字典序），个别写面要按请求里的书写顺序落盘
+    /// （TS 展开对象保序）。只为需要的方法保留，见 app-server `stdio::RAW_PARAMS_METHODS`。
+    #[serde(skip)]
+    pub raw_params: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

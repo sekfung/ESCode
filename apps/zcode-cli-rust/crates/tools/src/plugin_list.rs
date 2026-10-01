@@ -10,21 +10,39 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
 
-pub(super) async fn list(cwd: &Path, config: &Value, cancel: &CancellationToken) -> Result<Value> {
+pub(super) async fn list(
+    cwd: &Path,
+    layers: &config::Layers,
+    cancel: &CancellationToken,
+) -> Result<Value> {
+    let merged = layers.merged();
+    let config = &merged;
     let data_root = config::storage(config).join("data");
     let mut items: Vec<Value> = vec![];
     let mut seen: Vec<String> = vec![];
     let (discovered, diagnostics) = plugins::discover(cwd, config, cancel).await?;
     for plugin in &discovered {
         seen.push(plugin.id.clone());
-        items.push(info(plugin, cwd, &data_root).await?);
+        let mut item = info(plugin, cwd, config, &data_root).await?;
+        with_sources(&mut item, plugin, layers, cwd);
+        items.push(item);
     }
-    items.extend(missing(&config["plugins"], &seen));
+    let mut missing_rows = missing(&config["plugins"], &seen);
+    for row in &mut missing_rows {
+        let id = row["id"].as_str().unwrap_or_default().to_owned();
+        add_config_sources(row, &id, layers);
+    }
+    items.extend(missing_rows);
     Ok(json!({ "plugins": items, "diagnostics": diagnostics }))
 }
 
 /// TS `toPluginInfo`（不带 configResult 的部分）：单个已发现插件的协议投影。
-pub(super) async fn info(plugin: &plugins::Plugin, cwd: &Path, data_root: &Path) -> Result<Value> {
+pub(super) async fn info(
+    plugin: &plugins::Plugin,
+    cwd: &Path,
+    config: &Value,
+    data_root: &Path,
+) -> Result<Value> {
     let mut info = json!({
         "id": plugin.id,
         "name": plugin.name,
@@ -81,7 +99,74 @@ pub(super) async fn info(plugin: &plugins::Plugin, cwd: &Path, data_root: &Path)
     }
     // `components` 与启用态无关：TS `createPluginMetadata` 始终对插件根做权威枚举。
     info["components"] = components(plugin).await?;
+    // TS createPluginMetadata：userConfig 是 manifest 的选项 schema 原样；configuredOptions 取有效配置里
+    // 该插件的选项，按 schema 剔除 sensitive 键（脱敏合同：密钥不回传 UI），为空时不输出。
+    let user_config = &plugin.manifest["userConfig"];
+    if !user_config.is_null() && user_config != &Value::Bool(false) {
+        info["userConfig"] = user_config.clone();
+    }
+    if let Some(options) = config["plugins"]["options"][&plugin.id].as_object() {
+        let visible: serde_json::Map<String, Value> = options
+            .iter()
+            .filter(|(key, _)| user_config[key.as_str()]["sensitive"] != true)
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        if !visible.is_empty() {
+            info["configuredOptions"] = Value::Object(visible);
+        }
+    }
     Ok(info)
+}
+
+/// TS `toPluginInfo` 带 configResult 的部分：`enabledSource` / `optionSources` / inline 插件的 `rootSource`。
+fn with_sources(info: &mut Value, plugin: &plugins::Plugin, layers: &config::Layers, cwd: &Path) {
+    add_config_sources(info, &plugin.id, layers);
+    if plugin.source == "inline" {
+        // TS resolveInlinePluginRootSource：workspace 声明优先；Windows 路径不区分大小写、斜杠方向不定。
+        let key = |path: &Path| {
+            let text = super::lexical_path::normalize(path)
+                .to_string_lossy()
+                .into_owned();
+            if cfg!(windows) {
+                text.replace('\\', "/").to_lowercase()
+            } else {
+                text
+            }
+        };
+        let root = key(&plugin.root);
+        let declared = |layer: &Value| {
+            config::strings(&layer["plugins"]["dirs"])
+                .into_iter()
+                .any(|dir| key(&config::resolve(cwd, dir)) == root)
+        };
+        if declared(&layers.project) {
+            info["rootSource"] = "workspace".into();
+        } else if declared(&layers.user) {
+            info["rootSource"] = "user".into();
+        }
+    }
+}
+
+/// TS `resolvePluginConfigSources`：项目层覆盖用户层；optionSources 按 option key 记来源，为空不输出。
+fn add_config_sources(info: &mut Value, id: &str, layers: &config::Layers) {
+    let mut enabled = None;
+    let mut options = serde_json::Map::new();
+    for (layer, scope) in [(&layers.user, "user"), (&layers.project, "workspace")] {
+        if layer["plugins"]["enabledPlugins"].get(id).is_some() {
+            enabled = Some(scope);
+        }
+        if let Some(keys) = layer["plugins"]["options"][id].as_object() {
+            for key in keys.keys() {
+                options.insert(key.clone(), scope.into());
+            }
+        }
+    }
+    if let Some(scope) = enabled {
+        info["enabledSource"] = scope.into();
+    }
+    if !options.is_empty() {
+        info["optionSources"] = Value::Object(options);
+    }
 }
 
 /// TS `enumeratePluginComponents`：分组顺序 agent → command → skill → hook → mcp，空组不出现。
@@ -446,13 +531,21 @@ pub(super) fn workspace_path(params: &Value) -> Result<PathBuf> {
     ))
 }
 
-/// 供 `Tools::plugin_list` 使用的配置视图：`configScope: "user"` 时不加载项目层配置。
-pub(super) async fn config_for(cwd: &Path, params: &Value) -> Result<Value> {
+/// 配置视图：`configScope: "user"` 时不加载项目层（TS `createPluginConfigView` 在 user 视图不传
+/// workingDirectory，避免把项目 override 投影成用户当前值）。
+pub(super) async fn layers_for(cwd: &Path, params: &Value) -> Result<config::Layers> {
     if params["configScope"].as_str() == Some("user") {
-        config::load_user().await
+        Ok(config::Layers {
+            user: config::load_user().await?,
+            project: json!({}),
+        })
     } else {
-        config::load(cwd).await
+        config::load_layers(cwd).await
     }
+}
+
+pub(super) async fn config_for(cwd: &Path, params: &Value) -> Result<Value> {
+    Ok(layers_for(cwd, params).await?.merged())
 }
 
 /// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）：对齐 TS `setPluginEnabled` +
@@ -465,41 +558,30 @@ pub(super) async fn config_for(cwd: &Path, params: &Value) -> Result<Value> {
 ///   只覆盖 `enabled` 并带上 `enabledSource = scope ?? "user"`。
 pub(super) async fn set_enabled(params: &Value, cancel: &CancellationToken) -> Result<Value> {
     let cwd = workspace_path(params)?;
-    let selector = params["pluginId"]
-        .as_str()
-        .filter(|id| !id.is_empty())
-        .context("pluginId required")?;
+    let selector = non_empty(params, "pluginId")?;
     let enabled = params["enabled"]
         .as_bool()
         .context("enabled must be a boolean")?;
-    let scope = match &params["scope"] {
-        Value::Null => None,
-        Value::String(scope) if scope == "user" || scope == "workspace" => Some(scope.as_str()),
-        _ => anyhow::bail!("scope must be \"user\" or \"workspace\""),
-    };
+    let scope = scope_of(params)?;
     let config = config::load(&cwd).await?;
     let discovered = plugins::all(&cwd, &config, cancel).await?;
     let plugin = select(selector, &discovered)?;
-    let path = if scope == Some("workspace") {
-        cwd.join(".zcode").join("config.json")
-    } else {
-        config::home()
-            .join(".zcode")
-            .join("cli")
-            .join("config.json")
-    };
+    let path = config_path(&cwd, scope);
     let mut file = super::config_file::read_object_or_empty(&path).await?;
     super::config_file::patch_plugin_enabled(&mut file, &plugin.id, enabled);
     super::config_file::atomic_write(&path, &file).await?;
     let data_root = config::storage(&config).join("data");
-    let mut info = info(plugin, &cwd, &data_root).await?;
+    let mut info = info(plugin, &cwd, &config, &data_root).await?;
     info["enabled"] = enabled.into();
     info["enabledSource"] = scope.unwrap_or("user").into();
     Ok(json!({ "plugin": info, "enabled": enabled }))
 }
 
 /// TS `resolvePluginSelector`。
-fn select<'a>(selector: &str, plugins: &'a [plugins::Plugin]) -> Result<&'a plugins::Plugin> {
+pub(super) fn select<'a>(
+    selector: &str,
+    plugins: &'a [plugins::Plugin],
+) -> Result<&'a plugins::Plugin> {
     let selector = selector.trim();
     if let Some(plugin) = plugins.iter().find(|plugin| plugin.id == selector) {
         return Ok(plugin);
@@ -512,4 +594,34 @@ fn select<'a>(selector: &str, plugins: &'a [plugins::Plugin]) -> Result<&'a plug
         }
         _ => anyhow::bail!("Plugin not found: {selector}"),
     }
+}
+
+/// 协议参数里的 `scope`（`"user"` | `"workspace"`，缺省 user）。
+pub(super) fn scope_of(params: &Value) -> Result<Option<&str>> {
+    match &params["scope"] {
+        Value::Null => Ok(None),
+        Value::String(scope) if scope == "user" || scope == "workspace" => Ok(Some(scope.as_str())),
+        _ => anyhow::bail!("scope must be \"user\" or \"workspace\""),
+    }
+}
+
+/// TS `resolvePluginConfigPath`：workspace scope 固定 `<workspace>/.zcode/config.json`，否则用户层。
+pub(super) fn config_path(cwd: &Path, scope: Option<&str>) -> PathBuf {
+    if scope == Some("workspace") {
+        cwd.join(".zcode").join("config.json")
+    } else {
+        config::home()
+            .join(".zcode")
+            .join("cli")
+            .join("config.json")
+    }
+}
+
+/// 协议 `nonEmptyString`（`z.string().trim().min(1)`）：返回 trim 后的值，trim 后为空即 Invalid params。
+pub(super) fn non_empty<'a>(params: &'a Value, field: &str) -> Result<&'a str> {
+    params[field]
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .with_context(|| format!("Invalid params — {field} must be a non-empty string"))
 }
