@@ -216,3 +216,31 @@ featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记�
 验收：`packages/services/tests/zcode-cli-rust-plugins-reference-catalog.test.ts`——inline 插件含 skill/agent/MCP、
 停用插件、inline 与市场安装的同名插件冲突、市场 listing 展示 join；比对 workspace / WithCategory / 会话首次 /
 `setEnabled` 之后的会话（仍为冻结值）与 workspace（已更新）/ 未知会话报错，Node 与 Rust 逐值一致。
+
+## 实现与验证（发现层诊断，2026-10-02）
+
+`extension_plugins::discover` 对齐 TS `discoverNodePluginsSync` 的 loader 部分，`plugins/list` 的 `diagnostics` 与
+`plugins/overview` 的发现层诊断（排在保留 id 声明与刷新失败之前）共用这一份：
+
+- `loadPlugin`：根不存在 → `plugin_root_not_found`（warning）；`.zcode-plugin` → `.claude-plugin` → `.codex-plugin`
+  取**第一个存在的** `plugin.json`（存在但非法时不回退）、都没有 → `plugin_manifest_not_found`（error）；
+  JSON 非法 / 非对象 / name trim 后不匹配 `^[a-z0-9][a-z0-9._-]{0,127}$` → `plugin_manifest_invalid`（error）。
+- 重复 id → `plugin_duplicate_id`；manifest 含 `channels` / `lspServers` / `outputStyles` / `settings` →
+  `plugin_unsupported_component`（warning，插件照常加载）。
+- 协议形状同 TS `toPluginDiagnostic`：`{code, message, severity, pluginId?}`，`path` 不出协议。
+
+顺带修掉两处真实偏差：
+
+- **坏 manifest 拖垮整次发现**：Rust 之前读 manifest 用 `?`，任何一个插件的 `plugin.json` 不是合法 JSON 都会让
+  `plugins::all` 报错——插件页、overview 以及会话装载插件（skills / commands / MCP）一并失败。现在与 TS 一样只对该
+  插件出诊断并跳过。
+- **缺省 version**：TS `readManifest` 把缺失的 `version` 补成 `"0.0.0"`，`plugins/list` 始终输出 `version`；
+  Rust 之前缺省不输出。name 也按 TS trim。
+
+仍未覆盖的诊断来源（需要组件解析层，记录在案）：`plugin_skill_root_empty`、`plugin_component_path_invalid`、
+manifest 组件字段的 `plugin_manifest_invalid`、hook 相关（第 4 期）、MCP 相关（`plugin_mcp_*`）。
+JSON 语法错误的 message 来自各自的解析器（V8 vs serde），文案不同、code/severity 相同。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-diagnostics.test.ts`——缺 version、JSON 损坏、数组 manifest、
+非法 name、无 manifest、`.zcode-plugin` 非法遮蔽 `.claude-plugin`、仅 `.claude-plugin`、重复 id、仅诊断组件键、
+根不存在；Node 与 Rust 的插件行与诊断（除解析器文案）逐值一致。overview 差分不再剔除发现层诊断，整份一致。

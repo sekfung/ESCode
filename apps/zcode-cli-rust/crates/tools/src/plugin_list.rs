@@ -14,12 +14,13 @@ pub(super) async fn list(cwd: &Path, config: &Value, cancel: &CancellationToken)
     let data_root = config::storage(config).join("data");
     let mut items: Vec<Value> = vec![];
     let mut seen: Vec<String> = vec![];
-    for plugin in plugins::all(cwd, config, cancel).await? {
+    let (discovered, diagnostics) = plugins::discover(cwd, config, cancel).await?;
+    for plugin in &discovered {
         seen.push(plugin.id.clone());
-        items.push(info(&plugin, cwd, &data_root).await?);
+        items.push(info(plugin, cwd, &data_root).await?);
     }
     items.extend(missing(&config["plugins"], &seen));
-    Ok(json!({ "plugins": items }))
+    Ok(json!({ "plugins": items, "diagnostics": diagnostics }))
 }
 
 /// TS `toPluginInfo`（不带 configResult 的部分）：单个已发现插件的协议投影。

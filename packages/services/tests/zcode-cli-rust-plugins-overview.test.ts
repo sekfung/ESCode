@@ -195,15 +195,6 @@ async function observe(kind: Runtime) {
         ),
       );
     for (const item of result.installedPlugins ?? []) delete item.hookDetails;
-    // 发现层诊断（plugin_root_not_found 等）Rust 尚未产出（plugins/list 同样缺），单独跟踪；
-    // 这里只比对 overview 自身产生的市场诊断（声明保留 id / 刷新失败，都带 pluginId = 市场 id）。
-    const marketplaceIds = new Set(
-      (result.marketplaces ?? []).map((item: any) => item.id),
-    );
-    marketplaceIds.add("zcode-plugins-official");
-    result.diagnostics = (result.diagnostics ?? []).filter((item: any) =>
-      marketplaceIds.has(item.pluginId),
-    );
     const known = JSON.parse(
       await readFile(
         join(root, ".zcode", "cli", "plugins", "known_marketplaces.json"),

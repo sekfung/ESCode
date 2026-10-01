@@ -15,7 +15,7 @@ pub(super) async fn overview(params: &Value, cancel: &CancellationToken) -> Resu
     let config = plugin_list::config_for(&cwd, params).await?;
     let storage = config::storage(&config);
     market::ensure_default_marketplaces(&storage)?;
-    let discovered = plugins::all(&cwd, &config, cancel).await?;
+    let (discovered, discovery_diagnostics) = plugins::discover(&cwd, &config, cancel).await?;
     let known = market::known_marketplaces(&storage);
     // Marketplace 声明只来自用户层（TS config-merger 会丢掉项目层的 extraKnownMarketplaces）。
     let declared = declared_marketplaces(&config::load_user().await?);
@@ -117,7 +117,9 @@ pub(super) async fn overview(params: &Value, cancel: &CancellationToken) -> Resu
         installed_items.push(item);
     }
 
-    let mut diagnostics = declaration_diagnostics(&known, &declared);
+    // TS 顺序：发现层诊断 → 保留 id 声明 → 市场刷新失败。
+    let mut diagnostics = discovery_diagnostics;
+    diagnostics.extend(declaration_diagnostics(&known, &declared));
     for record in &known {
         let failure = &record["lastRefreshFailure"];
         if failure.is_object() {

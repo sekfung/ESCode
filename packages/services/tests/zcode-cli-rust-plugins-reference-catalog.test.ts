@@ -150,7 +150,8 @@ async function observe(kind: Runtime) {
     const h = f.start();
     const workspace = { workspacePath: f.cwd, workspaceKey: f.cwd };
     const catalog = async (
-      method: string,
+      method:
+        "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory",
       extra: Record<string, unknown> = {},
     ) => {
       try {
