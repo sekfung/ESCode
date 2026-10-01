@@ -178,7 +178,7 @@ fn summary(record: &Value, manifest: Option<&market::Manifest>) -> Value {
 
 /// TS `resolveDeclaredMarketplaceSources`：`plugins.extraKnownMarketplaces`，file/directory 源的相对路径按
 /// 用户配置所在目录（`~/.zcode/cli`）解析。
-fn declared_marketplaces(user_config: &Value) -> Vec<(String, Value)> {
+pub(super) fn declared_marketplaces(user_config: &Value) -> Vec<(String, Value)> {
     let base = config::home().join(".zcode").join("cli");
     let Some(map) = user_config["plugins"]["extraKnownMarketplaces"].as_object() else {
         return vec![];

@@ -25,7 +25,7 @@ pub(super) async fn validate(params: &Value) -> Result<Value> {
     market::ensure_default_marketplaces(&storage)?;
     let diagnostics = if let Some(source) = source {
         match market_write::parse_source_input(&source, &cwd) {
-            Ok(source) => validate_source(&storage, &source).await,
+            Ok(source) => validate_source(&storage, &source, None, None).await,
             Err(error) => vec![diag(
                 "plugin_marketplace_invalid",
                 error.to_string(),
@@ -110,6 +110,61 @@ pub(super) fn entry_name(entry: &Json) -> String {
         .to_owned()
 }
 
+/// TS `installZCodeMarketplacePlugin` 的 dryRun 分支：声明源与已知记录冲突 → 改指诊断；声明了但未落盘 →
+/// 按声明源校验（不落盘）；否则按已知市场校验单个插件。
+pub(super) async fn install_dry_run(
+    storage: &Path,
+    marketplace: &str,
+    name: &str,
+) -> Result<Value> {
+    let user = config::load_user().await?;
+    let declared = super::plugin_overview::declared_marketplaces(&user)
+        .into_iter()
+        .find(|(id, _)| id == marketplace)
+        .map(|(_, source)| source);
+    let known = market_write::known(storage)
+        .into_iter()
+        .find(|record| record.get("id").and_then(Json::as_str) == Some(marketplace));
+    let known_source = known.as_ref().map(|record| {
+        record
+            .get("source")
+            .and_then(|s| serde_json::from_str::<Value>(&s.compact()).ok())
+            .unwrap_or(Value::Null)
+    });
+    let diagnostics = match (&declared, &known_source) {
+        (Some(declared), Some(known)) if declared != known => vec![diag(
+            "plugin_marketplace_invalid",
+            format!(
+                "Workspace marketplace declaration \"{marketplace}\" conflicts with an existing Host source. Remove the existing marketplace or use a different marketplace id before materializing it."
+            ),
+            Some(marketplace),
+            true,
+        )],
+        (Some(declared), _)
+            if known.is_none() || market::manifest(storage, marketplace).is_none() =>
+        {
+            let source = Json::parse(&declared.to_string()).unwrap_or_else(Json::object);
+            validate_source(storage, &source, Some(marketplace), Some(name)).await
+        }
+        _ => {
+            let id = format!("{name}@{marketplace}");
+            match market_write::ensure_manifest(storage, marketplace).await {
+                Err(error) => vec![error_diagnostic(&error, Some(&id))],
+                Ok(()) => {
+                    let (storage, marketplace, name) =
+                        (storage.to_owned(), marketplace.to_owned(), name.to_owned());
+                    tokio::task::spawn_blocking(move || {
+                        validate_plugin(&storage, &marketplace, &name)
+                    })
+                    .await
+                    .map_err(|_| anyhow!("Plugin validate worker panicked"))?
+                }
+            }
+        }
+    };
+    Ok(json!({ "dependencyClosure": [], "installedPlugins": [], "diagnostics": diagnostics }))
+}
+
 /// TS `validateMarketplacePlugin`（阻塞线程）。
 fn validate_plugin(storage: &Path, marketplace: &str, name: &str) -> Vec<Value> {
     let id = format!("{name}@{marketplace}");
@@ -144,17 +199,45 @@ fn validate_plugin(storage: &Path, marketplace: &str, name: &str) -> Vec<Value> 
 }
 
 /// TS `validateMarketplaceSource`（persist:false）：加载市场，逐条目校验形状 / 依赖；远端条目延后深扫。
-async fn validate_source(storage: &Path, source: &Json) -> Vec<Value> {
+/// `expected`：声明的市场 id（不一致即报错）；`plugin`：只校验该条目。
+async fn validate_source(
+    storage: &Path,
+    source: &Json,
+    expected: Option<&str>,
+    plugin: Option<&str>,
+) -> Vec<Value> {
     let loaded = match market_write::load(source).await {
         Ok(loaded) => loaded,
         Err(error) => return vec![error_diagnostic(&error, None)],
     };
+    if let Some(expected) = expected.filter(|e| *e != loaded.name) {
+        if let Some(temp) = &loaded.temp {
+            let _ = std::fs::remove_dir_all(temp);
+        }
+        let message = format!(
+            "Marketplace declaration id mismatch: expected {expected}, received {}",
+            loaded.name
+        );
+        return vec![diag(
+            "plugin_marketplace_invalid",
+            message,
+            Some(expected),
+            true,
+        )];
+    }
     let storage = storage.to_owned();
+    let plugin = plugin.map(str::to_owned);
     let raw = loaded.raw.clone();
     let name = loaded.name.clone();
     let source_root = loaded.source_root.clone();
     let result = tokio::task::spawn_blocking(move || {
-        validate_loaded(&storage, &raw, &name, source_root.as_deref())
+        validate_loaded(
+            &storage,
+            &raw,
+            &name,
+            source_root.as_deref(),
+            plugin.as_deref(),
+        )
     })
     .await
     .unwrap_or_else(|_| {
@@ -176,6 +259,7 @@ fn validate_loaded(
     raw: &Json,
     marketplace: &str,
     source_root: Option<&Path>,
+    plugin: Option<&str>,
 ) -> Vec<Value> {
     let mut diagnostics = vec![];
     let entries: Vec<&Json> = raw
@@ -192,6 +276,23 @@ fn validate_loaded(
             None,
             false,
         ));
+    }
+    let entries: Vec<&Json> = match plugin {
+        Some(plugin) => entries
+            .into_iter()
+            .filter(|entry| entry_name(entry) == plugin)
+            .collect(),
+        None => entries,
+    };
+    if let Some(plugin) = plugin.filter(|_| entries.is_empty()) {
+        let id = format!("{plugin}@{marketplace}");
+        diagnostics.push(diag(
+            "plugin_not_found",
+            format!("Plugin not found: {id}"),
+            Some(&id),
+            true,
+        ));
+        return diagnostics;
     }
     // 相对源按市场源目录解析（TS sourceRoot ?? 存储里的市场目录）。
     let dir: PathBuf = source_root.map(Path::to_owned).unwrap_or_else(|| {

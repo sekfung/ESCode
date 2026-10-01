@@ -195,3 +195,11 @@ featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id�
 - 元数据：author（字符串或 {name,url}，trim）/ authorUrl / homepage / version。
 - 差分：`zcode-cli-rust-plugins-describe.test.ts`（完整组件、strict:false、无 manifest、非法名、已安装、安装目录缺失兜底、
   源目录缺失、未知插件 / 市场）。hooks 文件 JSON 语法错误的文案两端不同，样例不覆盖。
+
+## 实现与验证（W5b-3：plugins/install dryRun，2026-10-02）
+
+- `plugin_validate::install_dry_run`（TS `installZCodeMarketplacePlugin` dryRun 分支，持存储锁）：用户配置声明的市场源与已知记录
+  源不同 → 改指诊断；声明了但未知或 manifest 未落盘 → `validateMarketplaceSource`（expectedId 不一致报错、只校验目标条目，
+  缺失为 `plugin_not_found`）；否则按需拉取后 `validateMarketplacePlugin`。结果恒为空闭包 / 空安装，只带诊断，不写存储。
+- 差分：`zcode-cli-rust-plugins-install-dry-run.test.ts`（冲突、已知市场正常 / 源缺失 / 条目缺失、声明市场正常 / 条目缺失 / id 不一致、
+  未知市场，并断言没有写 installed / cache / 市场目录）。

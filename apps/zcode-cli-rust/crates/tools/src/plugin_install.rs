@@ -17,12 +17,13 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
     let name = plugin_list::non_empty(params, "pluginName")?.to_owned();
     let marketplace = plugin_list::non_empty(params, "marketplace")?.to_owned();
     plugin_list::scope_of(params)?;
-    if params["dryRun"] == true {
-        bail!("plugins/install dryRun (validation) is not supported by the Rust runtime yet");
-    }
     let config = config::load(&cwd).await?;
     let storage = config::storage(&config);
     let _guard = storage_lock(&storage).await;
+    if params["dryRun"] == true {
+        market::ensure_default_marketplaces(&storage)?;
+        return super::plugin_validate::install_dry_run(&storage, &marketplace, &name).await;
+    }
     install_locked(&cwd, &config, &storage, &name, &marketplace, cancel).await
 }
 
