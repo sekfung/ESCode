@@ -2,17 +2,17 @@
 
 2026-09-24。分支此前只在 macOS arm64 验证；在 Windows 11 x64 上跑 App 集成测试暴露以下与 TS 不一致的行为。Shell 选择单独见 [rust-shell-selection.md](rust-shell-selection.md)。
 
-| 问题           | TS 行为                              | Rust 原行为                                                                                       | 处理                                                                                                                   |
-| -------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| realpath 形态  | `fs.realpath` 返回 `C:\...`          | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                 | 统一走 `zcode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`             |
+| 问题           | TS 行为                                                                                       | Rust 原行为                                                                                                                           | 处理                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| realpath 形态  | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `zcode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                           |
 | 模型可见路径   | 工具 `file_path` 只做词法归一（`resolveWorkspacePath`：折叠 `.`/`..`，不解析软链接/8.3 短名） | 工具结果 `filePath` 与媒体 Read 文案走 realpath，Windows（`RUNNER~1`→`runneradmin`）与 macOS（`/var`→`/private/var`）下与 Node 不一致 | 词法解析收敛到 `crates/tools/src/lexical_path.rs`（Node `path.resolve` 语义），模型可见路径一律用它；realpath 仅保留给状态键与检查点 |
-| 路径拼接       | `path.join` 使用平台分隔符           | `join(".zcode/AGENTS.md")` 生成 `\.zcode/AGENTS.md` 混合分隔符                                    | 所有多段字面量改为逐段 `join`                                                                                          |
-| OS Version     | `os.release()` = `10.0.26100`        | `Version.ToString()` = `10.0.26100.0`                                                             | 输出 `major.minor.build`                                                                                               |
-| 生成资产换行   | —                                    | `core.autocrlf` 检出 CRLF，漂移检查误报                                                           | `.gitattributes` 固定 LF                                                                                               |
-| 记忆模板分隔符 | 运行时追加 `path.sep`                | 资产固化生成机分隔符                                                                              | `{sep}` 占位，运行时填充                                                                                               |
-| 只读句柄 fsync | —                                    | 导入附件时 `File::open` 只读后 `sync_all`，Windows 返回 os error 5，整个 TS 导入回滚              | 写入与落盘使用同一可写句柄                                                                                             |
-| 产物 URI 解码  | `decodeURIComponent`                 | 借 `file:///` URL 转路径解码，Windows 无盘符必失败（Invalid artifact identity）                   | 直接 percent-decode                                                                                                    |
-| 进程树清理     | Windows job object（MCP stdio 已用） | `process_tree` 仅 unix，Windows 只有 `taskkill /T`，Git Bash 的 MSYS 后代失去父链后仍持有输出管道 | Bash 放入 `KILL_ON_JOB_CLOSE` Job（`crates/tools/src/win_job.rs`），终止时 `TerminateJobObject`，附加失败退回 taskkill |
+| 路径拼接       | `path.join` 使用平台分隔符                                                                    | `join(".zcode/AGENTS.md")` 生成 `\.zcode/AGENTS.md` 混合分隔符                                                                        | 所有多段字面量改为逐段 `join`                                                                                                        |
+| OS Version     | `os.release()` = `10.0.26100`                                                                 | `Version.ToString()` = `10.0.26100.0`                                                                                                 | 输出 `major.minor.build`                                                                                                             |
+| 生成资产换行   | —                                                                                             | `core.autocrlf` 检出 CRLF，漂移检查误报                                                                                               | `.gitattributes` 固定 LF                                                                                                             |
+| 记忆模板分隔符 | 运行时追加 `path.sep`                                                                         | 资产固化生成机分隔符                                                                                                                  | `{sep}` 占位，运行时填充                                                                                                             |
+| 只读句柄 fsync | —                                                                                             | 导入附件时 `File::open` 只读后 `sync_all`，Windows 返回 os error 5，整个 TS 导入回滚                                                  | 写入与落盘使用同一可写句柄                                                                                                           |
+| 产物 URI 解码  | `decodeURIComponent`                                                                          | 借 `file:///` URL 转路径解码，Windows 无盘符必失败（Invalid artifact identity）                                                       | 直接 percent-decode                                                                                                                  |
+| 进程树清理     | Windows job object（MCP stdio 已用）                                                          | `process_tree` 仅 unix，Windows 只有 `taskkill /T`，Git Bash 的 MSYS 后代失去父链后仍持有输出管道                                     | Bash 放入 `KILL_ON_JOB_CLOSE` Job（`crates/tools/src/win_job.rs`），终止时 `TerminateJobObject`，附加失败退回 taskkill               |
 
 ## 待确认：代理环境变量
 
@@ -102,3 +102,20 @@ Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点�
 （绝对/相对 + `.`/`..` 折叠、目录 junction/软链接原样回显、Write 的相对路径回显），
 用旧 `join` 实现构建 fixture 时该用例失败、换成词法实现后通过。
 差异只剩绝对路径的尾部分隔符（Node `normalize` 保留、这里去掉），工具路径不靠它区分实体。
+
+## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
+
+`pnpm test:zcode-cli-rust`（`ZCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
+这是首次在原生 MSVC 目标（非 WSL/GNU）上跑完整套件。跳过项均为环境门控：真实供应商/真实数据库基准（3）、未打包
+Rust 二进制的 Host 解析（1）、Windows 上 Git Bash 快照超时的 shell init 用例（1，测试自身声明跳过）及 3 个用例自身
+声明 SKIP 的项。
+
+本机复现条件（缺任一项会出现与代码无关的失败）：
+
+- 先用 `node scripts/build-desktop-agent-cli.mjs` 构建 Node CLI：它同时构建随包官方插件（node-repl-host 的
+  `dist/mcp/server.js`、browser-use 的 `scripts/browser-client.mjs`）。只用 turbo 构建 `zcode.cjs` 时测试脚本会跳过这一步，
+  node_repl / CUA / 官方插件 seed 用例在 Node 与 Rust 两侧同时失败。
+- 网络用例需要 `openssl`：Git for Windows 自带（`C:\Program Files\Git\usr\bin`），加进 PATH 即可。
+- 测试脚本会 shell 调 `pnpm`，需全局 pnpm（仅 `npx pnpm` 不够）。
+- 8 GB 内存机器上 pnpm 并行 `tsc` 会 OOM：`npm_config_workspace_concurrency=1`。
+- 套件运行期间不要改工作树：它的 cargo 步骤会编译当时的源码。
