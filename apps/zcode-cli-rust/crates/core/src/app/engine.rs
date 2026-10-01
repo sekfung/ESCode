@@ -345,6 +345,11 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_set_enabled(&request.params).await
             }
+            // 插件页概览（第 3 期）：市场摘要 + 目录条目 + 已安装记录 + 可恢复内置。
+            "plugins/overview" => {
+                self.validate_workspace(&request.params)?;
+                self.tools.plugin_overview(&request.params).await
+            }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,

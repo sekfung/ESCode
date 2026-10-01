@@ -23,6 +23,8 @@ mod file_rewind;
 mod lexical_path;
 mod mcp_config;
 mod plugin_list;
+mod plugin_marketplace;
+mod plugin_overview;
 mod mcp_connection;
 mod mcp_http_capture;
 mod mcp_http;

@@ -4,11 +4,11 @@
 `plugins/list`、`plugins/setEnabled`、`plugins/overview`、`plugins/referenceCatalog(WithCategory)`，
 而 Rust engine **一个方法字符串都没有**（`rg --fixed-strings` 全仓为 0）。
 
-| 方法                                             | App 调用点                                                                                                             | Rust          |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `plugins/list`                                   | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 第 1 期已实现 |
-| `plugins/setEnabled`                             | 插件页开关                                                                                                             | 第 2 期已实现 |
-| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录                                                                                                    | 无            |
+| 方法                                             | App 调用点                                                                                                             | Rust                                          |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `plugins/list`                                   | `packages/ui/src/store/pluginManagementStoreLoading.ts`、`RemotePluginSyncDialog.tsx`、`App.tsx`（pluginService 装配） | 第 1 期已实现                                 |
+| `plugins/setEnabled`                             | 插件页开关                                                                                                             | 第 2 期已实现                                 |
+| `plugins/overview` / `plugins/referenceCatalog*` | 插件页概览/引用目录                                                                                                    | overview 第 3 期已实现；referenceCatalog 待做 |
 
 App 对 `plugins/list` 的错误只在**超时**时重试，method-not-found 直接上抛 → 用 Rust runtime 时插件页与
 远端插件同步会失败。这不是「可选能力」，是 App 生命周期矩阵里的缺口。
@@ -156,3 +156,40 @@ Rust 读路径不做这一步；只影响仍保存旧 id 的历史配置，写�
 Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace 层，文件原本不存在）、未知 id、missing 行
 四次调用的返回/错误文案，两份配置文件写后的**完整字节**（含补丁外 key 的顺序、`1.0` 的排版），以及随后
 `plugins/list` 的启用态。
+
+## 实现与验证（第 3 期 · overview，2026-10-02）
+
+`plugins/overview` 已落地（`crates/tools/src/plugin_overview.rs` 组装 + `plugin_marketplace.rs` 存储解析），
+对齐 TS `getPluginsOverview` → `getZCodePluginsOverview`：
+
+- 每次调用先做 TS `ensureDefaultPluginMarketplaces`：`known_marketplaces.json` 缺官方市场记录时补一条
+  （`source: {source:"url", url:<CDN>}`、`addedAt` 为当前 ISO 时间、`pluginCount: 0`）并整份重写
+  `{version:1, marketplaces}`——已有记录保序原样、未过 `isKnownMarketplaceRecord` 的记录被丢弃（与 TS 相同）。
+- 市场：`known` + 用户层 `plugins.extraKnownMarketplaces` 声明（项目层声明被 TS config-merger 丢弃；
+  file/directory 相对路径按 `~/.zcode/cli` 解析）。同 id 同 source 读缓存 manifest；异 source 的非官方声明替换成
+  不读缓存的占位记录（`pluginCount: 0`）；官方 id 是保留身份，声明只产生
+  `plugin_marketplace_declaration_reserved` 诊断。摘要的 `pluginCount` 取 manifest 可见条目数（官方市场排除
+  `node-repl-host`），无 manifest 时取记录值；`featured` 只收非空字符串。
+- `availablePlugins`：manifest 条目（数组或 name → entry 对象两种写法，名字 trim 后非空），`componentTypes`
+  按条目原样 key 推断，`listing` 按 TS `parseEntryStoreListing`。
+- `installedPlugins`：`installed_plugins.json`（数组逐条校验；Claude 风格对象写法归一化）；`enabled` 取配置
+  `enabledPlugins[id] ?? false`；已被发现层加载时取 manifest 的 description/version 与
+  `inferComponentTypesFromMetadata`；更新判定按 TS `comparePluginUpdate`（目录条目有 version 用 semver
+  `coerce` 比较，否则比 source pin：zip sha256 > sha > commit），`latestVersion` 为 version 或 sha 前 7 位；
+  按 id join 目录条目的 listing。
+- `restorableBuiltins`：被 `suppressedBuiltins` 抑制的官方定义（computer-use 另需 CUA 特性，同 TS
+  `isZCodeCuaInternalFeatureEnabled`），listing 取定义 seed。
+- 诊断：声明保留 id + 市场 `lastRefreshFailure`（severity error）。
+
+未对齐（记录在案，均为 schema 可选或独立缺口）：
+
+- **发现层诊断**（`plugin_root_not_found` 等，来自 TS `discoverNodePluginsSync`）Rust 不产出——`plugins/list` 的
+  `diagnostics` 同样缺。这是发现层的独立缺口，下一步单独补，届时 list/overview 一并对齐。
+- `installedPlugins[].hookDetails` 与 componentTypes 里的 `hook` 依赖 hook 源发现（第 4 期）。
+- 读路径不做 TS `recoverAtomicTargetSync` 的崩溃恢复：Rust 不写 marketplaces/cache 目录，Node writer 崩溃留下的
+  事务残留由 Node 下次操作恢复；在此之前 Rust 可能读到旧一代或缺失的 manifest。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-overview.test.ts`——同一 fixture（第三方市场含 listing /
+featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记录、用户层声明含保留官方 id 与相对目录、已安装
+插件含真实根与缺失根、被抑制的官方插件）下，Node 与 Rust 的整份结果逐值一致（剔除 hookDetails 与发现层诊断），
+且 overview 补写后的 `known_marketplaces.json` 一致（剔除 `addedAt`）。

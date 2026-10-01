@@ -317,6 +317,10 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_set_enabled(&self, params: &Value) -> Result<Value> {
         super::plugin_list::set_enabled(params, &CancellationToken::new()).await
     }
+    /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）。
+    async fn plugin_overview(&self, params: &Value) -> Result<Value> {
+        super::plugin_overview::overview(params, &CancellationToken::new()).await
+    }
     async fn discover_skills(
         &self,
         cancel: &CancellationToken,
