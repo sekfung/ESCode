@@ -27,6 +27,7 @@ mod plugin_config;
 mod plugin_git;
 mod plugin_install;
 mod plugin_list;
+mod plugin_market_write;
 mod plugin_marketplace;
 mod plugin_overview;
 mod plugin_reference;

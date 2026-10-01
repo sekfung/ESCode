@@ -361,6 +361,12 @@ impl Engine {
                 self.validate_workspace(&request.params)?;
                 self.tools.plugin_reset_config(&request.params).await
             }
+            // 插件市场增删刷新（写面 W4）。
+            "plugins/marketplace/add" | "plugins/marketplace/remove" | "plugins/marketplace/update" => {
+                self.validate_workspace(&request.params)?;
+                let op = request.method.trim_start_matches("plugins/marketplace/").to_owned();
+                self.tools.plugin_marketplace(&op, &request.params).await
+            }
             // 插件安装（写面 W1b：本地源）。
             "plugins/install" => {
                 self.validate_workspace(&request.params)?;

@@ -44,7 +44,35 @@ pub(crate) fn write(storage: &Path, plugins: &[SeedPlugin]) -> Result<()> {
     partition.set("version", Json::Number(1.into()));
     let dir = storage.join("marketplaces").join(&assets.marketplace);
     write_json(&dir.join("bundled-marketplace.json"), &partition)?;
-    // TS rebuildOfficialMarketplaceSync：{...bundled, ...cdn, name, plugins: [...cdn, ...bundled 去重]}。
+    rebuild(storage, Some(&manifest)).map(|_| ())
+}
+
+/// TS `writeCdnOfficialMarketplacePartitionSync`：写 CDN 分片后按 bundled + cdn 重建合并目录，返回合并结果。
+pub(crate) fn write_cdn(storage: &Path, manifest: &Json) -> Result<Json> {
+    let assets = assets();
+    if manifest.get("name").and_then(Json::as_str) != Some(assets.marketplace.as_str()) {
+        anyhow::bail!(
+            "Official marketplace manifest must be named {}",
+            assets.marketplace
+        );
+    }
+    let dir = storage.join("marketplaces").join(&assets.marketplace);
+    write_json(&dir.join("cdn-marketplace.json"), manifest)?;
+    // bundled 分片从文件读（TS readBundledPartition：version 1 且 manifest 为对象）。
+    let bundled = std::fs::read_to_string(dir.join("bundled-marketplace.json"))
+        .ok()
+        .and_then(|text| Json::parse(&text))
+        .filter(|p| p.get("version") == Some(&Json::Number(1.into())))
+        .and_then(|p| p.get("manifest").cloned())
+        .filter(Json::is_object);
+    rebuild(storage, bundled.as_ref())
+}
+
+/// TS rebuildOfficialMarketplaceSync：{...bundled, ...cdn, name, plugins: [...cdn, ...bundled 去重]}。
+fn rebuild(storage: &Path, bundled: Option<&Json>) -> Result<Json> {
+    let assets = assets();
+    let dir = storage.join("marketplaces").join(&assets.marketplace);
+    let manifest = bundled.cloned().unwrap_or_else(Json::object);
     let cdn = std::fs::read_to_string(dir.join("cdn-marketplace.json"))
         .ok()
         .and_then(|text| Json::parse(&text))
@@ -78,7 +106,8 @@ pub(crate) fn write(storage: &Path, plugins: &[SeedPlugin]) -> Result<()> {
         "plugins",
         Json::Array(cdn_plugins.into_iter().chain(bundled).collect()),
     );
-    write_json(&dir.join("marketplace.json"), &merged)
+    write_json(&dir.join("marketplace.json"), &merged)?;
+    Ok(merged)
 }
 
 fn description(plugin: &SeedPlugin) -> Option<String> {

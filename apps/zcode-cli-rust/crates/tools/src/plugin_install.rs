@@ -51,6 +51,14 @@ pub(super) async fn install(params: &Value, cancel: &CancellationToken) -> Resul
         return restore_bundled(&cwd, &storage, &plugin_id, &user_path, cancel).await;
     }
 
+    // TS ensureMarketplaceManifestAvailable：本地没有目录 manifest 但有已知记录时先拉取（失败归入安装诊断）。
+    if let Err(error) = super::plugin_market_write::ensure_manifest(&storage, &marketplace).await {
+        return Ok(json!({
+            "dependencyClosure": [],
+            "installedPlugins": [],
+            "diagnostics": [install_diagnostic(&error, &plugin_id)],
+        }));
+    }
     let worker_storage = storage.clone();
     let (worker_market, worker_name) = (marketplace.clone(), name.clone());
     let outcome = tokio::task::spawn_blocking(move || {
@@ -709,7 +717,7 @@ fn install_closure(
             let activated = if same {
                 ensure_entry_manifest(&entry, &target).map(|_| None)
             } else {
-                atomic_dir::activate(&source, &target, &authority, |staged| {
+                atomic_dir::activate(Some(&source), &target, &authority, |staged| {
                     ensure_entry_manifest(&entry, staged)
                 })
                 .map(Some)

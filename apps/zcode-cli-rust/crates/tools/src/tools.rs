@@ -324,6 +324,15 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_reset_config(&self, params: &Value) -> Result<Value> {
         super::plugin_config::reset(params).await
     }
+    /// `plugins/marketplace/add|remove|update`（docs/specs/rust-plugin-marketplace-write.md W4）。
+    async fn plugin_marketplace(&self, op: &str, params: &Value) -> Result<Value> {
+        match op {
+            "add" => super::plugin_market_write::add_params(params).await,
+            "remove" => super::plugin_market_write::remove_params(params).await,
+            "update" => super::plugin_market_write::update_params(params).await,
+            _ => anyhow::bail!("Unsupported marketplace operation: {op}"),
+        }
+    }
     /// `plugins/install`（docs/specs/rust-plugin-marketplace-write.md W1b）。
     async fn plugin_install(&self, params: &Value) -> Result<Value> {
         super::plugin_install::install(params, &CancellationToken::new()).await

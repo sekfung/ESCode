@@ -177,7 +177,7 @@ impl Activation {
 /// TS `activateDirectoryAtomically`：把 `source` 复制到同目录暂存，`prepare` 补全后，排他写事务标记，
 /// 旧目标改名为备份，暂存改名为目标。`authority` 是记录 `cacheTransactionId` 的权威状态文件。
 pub(super) fn activate(
-    source: &Path,
+    source: Option<&Path>,
     target: &Path,
     authority: &Path,
     prepare: impl FnOnce(&Path) -> Result<()>,
@@ -197,7 +197,11 @@ pub(super) fn activate(
     let transaction_id = uuid::Uuid::new_v4().to_string();
     let result = (|| -> Result<Activation> {
         std::fs::create_dir_all(&stage_container)?;
-        copy_dir(source, &staged)?;
+        // URL / settings 市场只有规范化 manifest，没有可复制的源树：空暂存目录 + prepare。
+        match source {
+            Some(source) => copy_dir(source, &staged)?,
+            None => std::fs::create_dir_all(&staged)?,
+        }
         prepare(&staged)?;
         let had_target = target.exists();
         let record = json!({
@@ -302,7 +306,7 @@ mod tests {
         let target = dir.path().join("cache").join("p").join("1.0.0");
         write(&target.join("a.txt"), "old");
         let authority = dir.path().join("installed_plugins.json");
-        let activation = activate(&source, &target, &authority, |staged| {
+        let activation = activate(Some(&source), &target, &authority, |staged| {
             std::fs::write(staged.join("b.txt"), "prepared")?;
             Ok(())
         })
@@ -336,7 +340,7 @@ mod tests {
         let target = dir.path().join("t");
         write(&target.join("a.txt"), "old");
         let authority = dir.path().join("installed_plugins.json");
-        activate(&source, &target, &authority, |_| Ok(()))
+        activate(Some(&source), &target, &authority, |_| Ok(()))
             .unwrap()
             .finalize();
         let (backup, marker) = recovery_paths(&target);

@@ -123,3 +123,26 @@ list 不再出现）、未知 id、缺选择器、恢复内置（list 重新出�
 普通 clone、ref、sha pin（检出旧提交）、git-subdir、子目录缺失、仓库不存在、缺 url；以及 `ZCODE_GIT_BINARY` 指向不存在路径时的
 Git 不可用诊断。协议返回（git 子进程原文只比 code）、安装记录与缓存文件树 Node/Rust 一致。GitHub Archive 主链路需要访问
 api.github.com，未在离线差分里覆盖（回退判定与 URL 解析有单测）。
+
+## 实现与验证（W4：市场写面，2026-10-02）
+
+`crates/tools/src/plugin_market_write.rs`，对齐 TS adapters `addMarketplace` / `updateMarketplace` / `removeMarketplace` 与
+bootstrap `addZCodePluginMarketplace` / `updateZCodePluginMarketplace`：
+
+- `plugins/marketplace/add`：`parseMarketplaceSourceInput`（URL：`.git` / `/_git/` / github.com 路径 → git，其它 → url；
+  Git SSH；本地路径 → file（须 .json）/ directory，相对路径按工作区；`owner/repo[#@]ref` → github）→ 加载（file / directory /
+  url（手动重定向、10 MiB、180 s）/ github / git（复用 W3：Archive 或 clone）/ settings；npm / hostPattern / pathPattern 不支持）→
+  manifest 规范化（name trim、`plugins` 对象写法原位转数组）→ 官方 id 保留守卫 → 激活 `marketplaces/<name>`（源树 + 规范 manifest，
+  与 known 记录同一 `cacheTransactionId`；无源树时只放 manifest）→ upsert `known_marketplaces.json`（保留 addedAt、清旧事务 id 与
+  refresh failure）。官方市场写 CDN 分片并与内置分片重建合并目录。`dryRun` 返回 `dry-run` 摘要。
+- `plugins/marketplace/update`：指定 id 时，用户层声明（`extraKnownMarketplaces`）尚未物化 → 按声明 add（`expectedId`）；声明与
+  已知 source 不同 → repoint 诊断；否则用记录 source 受信任刷新，失败写 `lastRefreshFailure`（code 按 TS
+  `toValidationDiagnostic`）；不指定 id 刷新全部已知市场。返回更新后的摘要 + 声明诊断 + 选中市场的刷新失败。
+- `plugins/marketplace/remove`：从 known 记录删除（不删目录，同 TS）。
+- 安装前 `ensure_manifest`：本地没有目录 manifest 但有已知记录时先用其 source 受信任拉取（TS `ensureMarketplaceManifestAvailable`）。
+- `atomic_dir::activate` 支持无源树（manifest-only）；`official_plugins_marketplace` 抽出 `rebuild` / `write_cdn`。
+
+验收：`packages/services/tests/zcode-cli-rust-plugins-marketplace.test.ts`——目录市场（对象写法 plugins、metadata.description、
+featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id、非法名、路径不存在、用户声明的本地 git 市场按 update 物化、
+目录市场刷新、URL 市场刷新失败（500 → lastRefreshFailure）、未知 id、删除本地目录后安装触发按需拉取、remove；协议返回、
+`known_marketplaces.json` 字节、`marketplaces/` 文件树与随后 overview 的市场摘要，Node 与 Rust 一致。不刷新官方 CDN（离线）。
