@@ -14,6 +14,13 @@ impl Engine {
         let Some(session) = self.sessions.get_mut(id) else {
             return Ok(());
         };
+        // V4 `workflowRuns` 状态键：整键替换进会话快照，随下一次 state patch 发布。
+        if notice["kind"] == "workflowRuns" {
+            session.workflow_runs = Some(notice["workflowRuns"].clone());
+            session.revision += 1;
+            self.publish(id, vec![])?;
+            return self.persist(id, None).await;
+        }
         // 同一条通知只排一次：结算按 run 去重，run 中通知（升级问答 / 停滞）另带 noticeId。
         let key = (notice["taskId"].clone(), notice["noticeId"].clone());
         if session

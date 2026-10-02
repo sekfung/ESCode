@@ -115,6 +115,19 @@ async function observe(kind: "node" | "rust") {
     const createResult = requests[steps.length]?.messages?.find(
       (m: any) => m.role === "tool" && m.tool_call_id === "cw-1",
     )?.content;
+    // V4 `workflowRuns` 状态键的终值（未协商 workflowRunDeltas 的客户端收整键 state.updated）。
+    let workflowRuns: unknown;
+    for (const message of h.messages) {
+      for (const delta of message?.params?.frame?.payload?.deltas ?? []) {
+        if (delta.patch?.workflowRuns !== undefined) workflowRuns = delta.patch.workflowRuns;
+      }
+      const snapshot = message?.params?.frame?.payload?.snapshot;
+      if (snapshot?.workflowRuns !== undefined) workflowRuns = snapshot.workflowRuns;
+    }
+    const scrubState = (value: unknown) =>
+      JSON.parse(
+        scrub(JSON.stringify(value ?? null)).replace(/"(\w*(?:At|Ms|revision|Sequence))":\d+/g, '"$1":0'),
+      );
     const notificationRequest = requests[steps.length + 1];
     const notification = notificationRequest?.messages
       ?.filter((m: any) => m.role === "user")
@@ -124,6 +137,7 @@ async function observe(kind: "node" | "rust") {
       notification: scrub(typeof notification === "string" ? notification : JSON.stringify(notification)),
       permissions,
       requestCount: requests.length,
+      workflowRuns: scrubState(workflowRuns),
       schemaErrors: h.schemaErrors,
     };
   } finally {
@@ -141,6 +155,7 @@ test("Node and Rust run a CreateWorkflow script in the background the same way",
   assert.match(node.notification, /<task-notification>/);
   assert.match(node.notification, /&quot;count&quot;: 2/);
   assert.equal(node.permissions.length, 1);
+  assert.equal((node.workflowRuns as any)?.runs?.[0]?.status, "completed");
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
   }

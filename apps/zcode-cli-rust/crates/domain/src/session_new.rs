@@ -50,6 +50,7 @@ impl Session {
             background: Default::default(),
             workflow_notices: vec![],
             workflow_actor: None,
+            workflow_runs: None,
             id,
             workspace,
             provider,

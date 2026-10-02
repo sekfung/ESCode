@@ -88,6 +88,9 @@ pub struct Session {
     /// 在场即走 actor 的系统提示词变体与工具面。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_actor: Option<Value>,
+    /// V4 `workflowRuns` 状态键（宿主用 TS reduceWorkflowRunsState 归约进度事件，M3）：在场即进 state patch。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_runs: Option<Value>,
     pub id: String,
     pub workspace: String,
     pub title: String,
@@ -245,6 +248,9 @@ impl Session {
             patch["sharedContextImport"] = json!({"title":self.title});
         }
         super::subagent::projection(self, &mut patch);
+        if let Some(runs) = &self.workflow_runs {
+            patch["workflowRuns"] = runs.clone();
+        }
         patch
     }
     pub fn snapshot(&self) -> Value {

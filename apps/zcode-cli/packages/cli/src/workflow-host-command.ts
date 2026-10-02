@@ -33,6 +33,7 @@ import { createDwfJournalStore } from "@zcode/adapters/storage";
 import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
+import { reduceWorkflowRunsState, type WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
 import {
   BackgroundTaskTracker,
   buildWorkflowRunProgressNotification,
@@ -95,6 +96,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
    */
   const trackers = new Map<string, { registry: InMemoryRuntimeTaskRegistry; tracker: BackgroundTaskTracker }>();
   const workingDirectories = new Map<string, string>();
+  /** 父会话 → V4 `workflowRuns` 归约态（宿主进程内；Rust 持久化每次的整键结果）。 */
+  const runStates = new Map<string, WorkflowRunsState>();
   const tracking = (session: string) => {
     let existing = trackers.get(session);
     if (existing === undefined) {
@@ -159,6 +162,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
         executionPort,
         // run 中通知（升级问答 / 停滞）：与 Node runtime 的进度汇同一个格式器，交给 Rust 作为后台结果轮。
         onRunEvent: (progress, routing) => {
+          // V4 `workflowRuns` 状态键：与 Node 投影同一个归约（@zcode/shared），整键交给 Rust 进会话快照。
+          const owner = routing.parentSessionId ?? session;
+          const workflowRuns = reduceWorkflowRunsState(runStates.get(owner), progress as never);
+          if (workflowRuns !== null) {
+            runStates.set(owner, workflowRuns);
+            send({ event: "workflowRuns", params: { session: owner, kind: "workflowRuns", workflowRuns } });
+          }
           const runLabel = tracking(session).registry.get(progress.runId)?.description ?? progress.runId;
           const notification = buildWorkflowRunProgressNotification(progress, runLabel);
           if (notification === undefined) return;
