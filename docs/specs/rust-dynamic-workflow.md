@@ -211,3 +211,24 @@ prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`�
   包装（子代理同样适用）；工作流确认选项按 TS（Create = 允许一次 / 本会话总是允许 / 拒绝 / Refine，Amend / Save
   无总是允许，三者都不带完全访问）。验收：`zcode-cli-rust-create-workflow.test.ts`（技能 → 提交 → 确认 → 后台运行 →
   完成通知续跑，工具结果、确认选项与通知全文两侧一致）；相关对比用例 37/37（1 跳过）。
+
+### M2 设计（actor 执行，2026-10-02）
+
+TS driver（`bootstrap/src/app/workflow-driver*.ts`）只用到 actor runtime 的窄面：`executeTurn(input, _, {abortSignal,
+epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模型错误策略表分类）、`subscribeEvents`（只消费
+`ModelNetworkStatus` 的 `model_request_queued/admitted/started`、`model_retry_scheduled` 与 `ToolCallScheduled/Started/Result/Error`）、
+工具注册表（submit profile 降级时重注册 `submit_result`）、`resumeFromStore`（转录种子，M3）、`close` / `closeBrowserSession`。
+因此代理切面是**远程 AgentRuntime**：宿主的 `createActorRuntime` 返回它，driver 原样不动。
+
+- **宿主 → Rust**：`actor.create {session(父), actorSession, persona:{name?, identityPrompt}, model:{run?, pinned?},
+  disallowed[], remoteTools:[{name, description, parameters}]}`（identityPrompt 由 TS `buildWorkflowActorIdentityPrompt` 生成，
+  remoteTools 是该会话的 `submit_result` / `escalate` 定义）、`actor.turn {actorSession, input, epilogueStart}` →
+  `{response, usage, error?}`、`actor.cancel`、`actor.close`。
+- **Rust → 宿主**：`actor.event {actorSession, event}`（TS SessionEvent 形状的 `ModelNetworkStatus` 与工具调用事件）、
+  `actor.tool {actorSession, callId, tool, input}` → `{content, isError, stopTurn}`（宿主执行 TS 的 submit_result / escalate
+  handler，阻塞在 driver 的 deferred 上，accept 时带 turnControl 停 turn）。
+- **Rust actor 会话**：子会话（不进会话列表），系统提示词走 TS builder 的 workflowActor 路径（无 CLI 前缀 / 桌面段 / 行为段 /
+  会话指引，身份段换成 actor 身份，保留 memory / env / context management / git），工具面 = 父会话全集减
+  `ACTOR_DISALLOWED_TOOLS`（AskUserQuestion / EnterPlanMode / ExitPlanMode / CreateWorkflow / AmendWorkflow /
+  ReadSessionContext / ResolveWorkflowQuestion）加远程工具；模型 = run 的 `subagent_model` > pin > 父会话当前选择。
+- 顺带补上 Rust 的 `ModelNetworkStatus` 事件（排队 / 发出 / 重试排定），它也是 App 侧 TTFT / 请求遥测缺口的底座。
