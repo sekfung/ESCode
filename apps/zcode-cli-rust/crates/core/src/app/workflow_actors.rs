@@ -300,7 +300,19 @@ impl Engine {
                     .and_then(|e| e["message"].as_str())
                     .unwrap_or("Subagent turn failed")
                     .to_owned();
-                json!({ "error": { "message": message }, "usage": usage })
+                let mut error = json!({ "message": message });
+                // 模型失败的分类（TS AiSdkModelAdapterError 的 code / context）：driver 据此决定停 run、重驱或 ContextLimit。
+                if let Some(failure) = &session.last_model_failure {
+                    if let Some(raw) = &failure.provider_message {
+                        error["message"] = raw.clone().into();
+                    }
+                    error["code"] = failure.code.into();
+                    error["context"] = json!({
+                        "reason": failure.reason, "retryable": failure.retryable, "providerCode": failure.provider_code,
+                        "retryAfterMs": failure.retry_after_ms, "providerId": session.provider, "modelId": session.model,
+                    });
+                }
+                json!({ "error": error, "usage": usage })
             }
         };
         let _ = turn.reply.send(Ok(result));

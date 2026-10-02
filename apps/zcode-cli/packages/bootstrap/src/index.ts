@@ -75,6 +75,7 @@ export { workflowActorModelPolicy } from "./app/workflow-actor-model.js";
 // Rust runtime 的工作流宿主据此装配 hook 运行器（docs/specs/rust-hooks.md）。
 export { resolveRuntimeHookContext, resolveRuntimeHooks } from "./app/runtime-hooks.js";
 export { createWorkspaceHookRuntimeSecurity } from "./app/workspace-hook-trust.js";
+export { getWorkflowConcurrencyGovernor } from "./app/workflow-concurrency-governor.js";
 export { grantWorkspaceHookTrustForProtocol } from "./zcode-protocol/workspace-hook-trust.js";
 export { workflowLifecycleFactFromProgress } from "./zcode-protocol-v4/conversation-telemetry-workflow-facts.js";
 // Exposed for the CLI's --output-format stream-json: it needs the same event

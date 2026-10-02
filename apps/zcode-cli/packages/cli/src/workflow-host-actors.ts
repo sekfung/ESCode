@@ -100,7 +100,18 @@ export function createActorBridge(
           if (result.cancelled === true || signal?.aborted === true) {
             throw Object.assign(new Error("Turn cancelled"), { type: CoreErrorType.TurnCancelled });
           }
-          if (result.error !== undefined) throw new Error(String(result.error.message ?? result.error));
+          if (result.error !== undefined) {
+            const error = new Error(String(result.error.message ?? result.error));
+            // 模型失败带分类时还原成 TS adapter 错误的形状（name / code / context），
+            // driver 的 inspectWorkflowModelFailure 据此决定停 run、重驱或 ContextLimit。
+            if (result.error.context !== undefined) {
+              const context = Object.fromEntries(
+                Object.entries(result.error.context as Record<string, unknown>).filter(([, v]) => v != null),
+              );
+              Object.assign(error, { name: "AiSdkModelAdapterError", code: result.error.code, context });
+            }
+            throw error;
+          }
           return { response: result.response ?? "", usage: result.usage };
         } finally {
           signal?.removeEventListener("abort", cancel);

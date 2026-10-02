@@ -209,7 +209,8 @@ async fn run() -> Result<()> {
                             .with_workspace_path(
                                 std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
                             )
-                            .with_session_db(data_dir.join("rust-sessions.sqlite")),
+                            .with_session_db(data_dir.join("rust-sessions.sqlite"))
+                            .with_model_admission(),
                     ),
                     clock: Arc::new(SystemClock),
                 },

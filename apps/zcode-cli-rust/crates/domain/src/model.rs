@@ -14,6 +14,12 @@ pub struct ModelFailure {
     pub output_committed: bool,
     #[serde(skip)]
     pub empty_completion: bool,
+    /// 供应商业务码原文（TS adapter error `context.providerCode`）：工作流按它识别配额类停止。
+    #[serde(skip)]
+    pub provider_code: Option<String>,
+    /// 供应商错误原文（TS adapter error message）：只回报给工作流 driver，不进会话诊断。
+    #[serde(skip)]
+    pub provider_message: Option<String>,
 }
 impl ModelFailure {
     pub fn new(reason: &'static str, retryable: bool) -> Self {
@@ -65,6 +71,8 @@ impl ModelFailure {
             retry_after_ms: None,
             output_committed: false,
             empty_completion: false,
+            provider_code: None,
+            provider_message: None,
         }
     }
     pub fn invalid() -> Self {

@@ -260,4 +260,9 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
   （`create-workflow` 差分以第二条增量订阅比对应用后的终态与 op 判别式）。
 - 已落地：宿主进程内首次见到某会话的 run 事件时先经 `workflowRuns.prior` 向 Rust 取已持久化的归约态，同会话后续事件
   串在其后（宿主重启不再丢此前的 run）。
-- 待做：模型失败分类映射。
+- 已落地：模型失败分类映射——actor 回合失败带 TS adapter 错误的 code / context（reason、retryable、providerCode、
+  retryAfterMs、provider/model）与供应商原文，宿主还原成 `AiSdkModelAdapterError` 形状交给 driver 的
+  `inspectWorkflowModelFailure`（停 run / 重驱 / ContextLimit 与 Node 一致）。
+- 已落地：进程级并发治理器——宿主 run 服务注入 `getWorkflowConcurrencyGovernor()`；Rust 的 `workflow_child`
+  每次模型尝试先经 `actor.admission.acquire` 取票，网络状态事件依序投给票据、尝试结束释放（退避期间不持票），
+  `concurrency-changed` 与 run 的 `concurrency` 状态因此与 Node 一致。差分：`zcode-cli-rust-workflow-model-failure.test.ts`。

@@ -97,6 +97,8 @@ pub fn response(status: Option<u16>, body: &Value, headers: &HeaderMap) -> Model
 
     failure.status_code = status;
     failure.retry_after_ms = retry_after(headers, SystemTime::now());
+    failure.provider_code = Some(code).filter(|c| !c.is_empty());
+    failure.provider_message = error["message"].as_str().map(str::trim).filter(|m| !m.is_empty()).map(str::to_owned);
     failure
 }
 fn fallback(status: Option<u16>, code: &str, error: &Value) -> ModelFailure {

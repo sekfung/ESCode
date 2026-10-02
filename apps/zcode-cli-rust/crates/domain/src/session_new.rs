@@ -82,6 +82,7 @@ impl Session {
             api_retry: None,
             usage: json!({"contextWindow":null,"cumulative":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0}}),
             last_error: None,
+            last_model_failure: None,
             creation_ack: None,
             pending: vec![],
             queue: vec![],

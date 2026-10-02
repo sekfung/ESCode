@@ -62,3 +62,30 @@ pub fn record_model_usage(fact: serde_json::Value) {
         sink(fact);
     }
 }
+
+/// 工作流 actor 模型请求的准入票据（TS `ModelRequestAdmissionTicket`）：每次尝试的网络状态事件依序投给它，
+/// drop 即释放（TS `release()`）。
+pub trait ModelAdmissionTicket: Send + Sync {
+    fn publish(&self, event: &serde_json::Value);
+}
+type AdmissionFuture = std::pin::Pin<Box<dyn Future<Output = Option<Box<dyn ModelAdmissionTicket>>> + Send>>;
+/// 准入钩子（TS 进程级并发治理器经工作流宿主）：入参是调用作用域与 provider / model。
+pub type ModelAdmission = Box<dyn Fn(ModelCallScope, String, String) -> AdmissionFuture + Send + Sync>;
+static ADMISSION: std::sync::OnceLock<ModelAdmission> = std::sync::OnceLock::new();
+
+pub fn set_model_admission(admission: ModelAdmission) {
+    let _ = ADMISSION.set(admission);
+}
+
+/// 只有工作流 actor（`workflow_child`）的请求过闸门（TS 只给 actor runtime 注入准入端口）。
+pub async fn acquire_model_admission(
+    provider_id: &str,
+    model_id: &str,
+) -> Option<Box<dyn ModelAdmissionTicket>> {
+    let scope = current_model_call();
+    if scope.query_source.as_deref() != Some("workflow_child") {
+        return None;
+    }
+    let admission = ADMISSION.get()?;
+    admission(scope, provider_id.to_owned(), model_id.to_owned()).await
+}

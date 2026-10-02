@@ -134,6 +134,7 @@ impl Engine {
         s.run_id = Some(self.clock.id());
         s.phase = "running".into();
         s.last_error = None;
+        s.last_model_failure = None;
         s.updated_at = now;
         s.revision += 1;
         // TS 对 automation 执行会话传 titleGenerationEnabled=false：不请求模型，标题停在 first_input。

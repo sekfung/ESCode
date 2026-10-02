@@ -145,6 +145,9 @@ pub struct Session {
     pub api_retry: Option<super::model::RetryState>,
     pub usage: Value,
     pub last_error: Option<Value>,
+    /// 本进程内最近一次运行的模型失败分类（工作流 actor 回合失败按它回报给 TS driver 分类，不落库）。
+    #[serde(skip)]
+    pub last_model_failure: Option<crate::model::ModelFailure>,
     #[serde(default)]
     pub creation_ack: Option<(String, Value)>,
     #[serde(default)]

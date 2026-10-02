@@ -255,7 +255,7 @@ impl HttpModel {
         }
         let mut empty_retries = 0;
         let request_started = super::now();
-        let status = super::model_usage::Status { sink, provider_id: &self.config.provider_id, model_id: &self.config.model_id, request_id: uuid::Uuid::new_v4().to_string(), max_attempts: self.retry.max_attempts };
+        let status = super::model_usage::Status { sink, provider_id: &self.config.provider_id, model_id: &self.config.model_id, request_id: uuid::Uuid::new_v4().to_string(), max_attempts: self.retry.max_attempts, ticket: Default::default() };
         for attempt in 1..=self.retry.max_attempts {
             if attempt > 1 {
                 sink.send(Event::Retry(None))

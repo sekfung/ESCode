@@ -345,10 +345,8 @@ impl Engine {
                         s.last_error = Some(json!({"code":failure.code,"message":failure.message,
                             "recoverable":failure.retryable,"at":now,"source":"provider",
                             "attribution":{"source":"provider","reason":failure.reason,"providerId":s.provider,"modelId":s.model,"retryable":failure.retryable}}));
-                        if let Some(status) = failure.status_code {
-                            s.last_error.as_mut().unwrap()["attribution"]["statusCode"] =
-                                status.into();
-                        }
+                        if let Some(status) = failure.status_code { s.last_error.as_mut().unwrap()["attribution"]["statusCode"] = status.into(); }
+                        s.last_model_failure = Some(failure);
                     }
                 }
                 s.finish_rows(outcome, now);

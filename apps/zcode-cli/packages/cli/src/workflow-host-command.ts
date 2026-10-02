@@ -32,7 +32,11 @@ import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createDwfJournalStore, createNodeToolArtifactStore } from "@zcode/adapters/storage";
 import { runWorkflowQuery } from "./workflow-host-queries.js";
 import { createHookHost } from "./workflow-host-hooks.js";
-import { createDynamicWorkflowRunService, workflowLifecycleFactFromProgress } from "@zcode/bootstrap";
+import {
+  createDynamicWorkflowRunService,
+  getWorkflowConcurrencyGovernor,
+  workflowLifecycleFactFromProgress,
+} from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import {
@@ -100,6 +104,10 @@ export async function runWorkflowHostCommand(): Promise<number> {
       rustPending.set(id, { resolve, reject });
       send({ event: "request", id, method, params });
     });
+  /** actor 会话 → driver 下发的模型请求准入端口；票据 id → 已准入的票据。 */
+  const admissions = new Map<string, any>();
+  const tickets = new Map<string, any>();
+  let nextTicket = 0;
   /** actor 会话 → 它所属会话的桥（actor.tool / actor.event 据此路由）。 */
   const actorBridges = new Map<string, ReturnType<typeof createActorBridge>>();
   /** 每个父会话最近一次工作流工具调用带来的模型选择（actor 的模型基线）。 */
@@ -228,10 +236,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
             params: { session: routing.parentSessionId ?? session, taskId: progress.runId, noticeId, ...notification },
           });
         },
+        // 进程级并发治理器（TS create-app 同一实例）：actor 的模型请求经 `actor.admission.*` 过它的闸门。
+        concurrency: getWorkflowConcurrencyGovernor(),
         createActorRuntime: (() => {
           const bridge = createActorBridge(rustRequest, session, () => selections.get(session));
           return (input: Record<string, any>) => {
             actorBridges.set(String(input.sessionId), bridge);
+            if (input.modelRequestAdmission !== undefined) admissions.set(String(input.sessionId), input.modelRequestAdmission);
             return bridge.createActorRuntime(input);
           };
         })() as never,
@@ -342,6 +353,23 @@ export async function runWorkflowHostCommand(): Promise<number> {
         if (bridge === undefined) return { content: "Unknown workflow actor session", isError: true };
         return bridge.handleTool(params);
       }
+      // actor 模型请求的准入（Rust 每次尝试前取票，状态事件依序投入，结束释放）。
+      case "actor.admission.acquire": {
+        const admission = admissions.get(params.actorSession);
+        if (admission === undefined) return { ticket: null };
+        const model = { providerId: params.providerId, modelId: params.modelId };
+        const ticket = admission.tryAcquire?.({ model }) ?? (await admission.acquire({ model }));
+        const id = `t${++nextTicket}`;
+        tickets.set(id, ticket);
+        return { ticket: id };
+      }
+      case "actor.admission.publish":
+        await tickets.get(params.ticket)?.publish(params.event);
+        return { ok: true };
+      case "actor.admission.release":
+        tickets.get(params.ticket)?.release();
+        tickets.delete(params.ticket);
+        return { ok: true };
       case "actor.event":
         actorBridges.get(params.actorSession)?.handleEvent(params);
         return { ok: true };

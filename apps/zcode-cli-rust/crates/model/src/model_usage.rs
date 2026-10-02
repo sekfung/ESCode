@@ -56,11 +56,19 @@ pub(crate) struct Status<'a> {
     pub model_id: &'a str,
     pub request_id: String,
     pub max_attempts: u32,
+    /// 工作流 actor 本次尝试的准入票据（TS ModelRequestAdmission）：尝试开始前取，状态事件依序投入，
+    /// 下一次尝试开始 / 成功 / 重试排定 / Status 释放时 drop（退避期间不持票）。
+    pub ticket: tokio::sync::Mutex<Option<Box<dyn crate::contract::ModelAdmissionTicket>>>,
 }
 
 impl Status<'_> {
     /// TS ModelNetworkStatus（流式传输 `sse`）：started / completed / failed / retry_scheduled。只进遥测，发送失败忽略。
     pub(crate) async fn emit(&self, kind: &str, attempt: u32, extra: Value) {
+        let mut ticket = self.ticket.lock().await;
+        if kind == "model_request_started" {
+            ticket.take();
+            *ticket = crate::contract::acquire_model_admission(self.provider_id, self.model_id).await;
+        }
         let mut status = json!({
             "type": kind, "requestId": self.request_id, "providerId": self.provider_id, "modelId": self.model_id,
             "transport": "sse", "attempt": attempt, "maxAttempts": self.max_attempts,
@@ -71,6 +79,13 @@ impl Status<'_> {
         if let (Some(target), Some(fields)) = (status.as_object_mut(), extra.as_object()) {
             target.extend(fields.clone());
         }
+        if let Some(held) = ticket.as_ref() {
+            held.publish(&status);
+        }
+        if matches!(kind, "model_request_completed" | "model_retry_scheduled") {
+            ticket.take();
+        }
+        drop(ticket);
         let _ = self
             .sink
             .send(crate::contract::Event::ModelStatus(status))
