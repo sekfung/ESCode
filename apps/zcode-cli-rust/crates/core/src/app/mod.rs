@@ -74,6 +74,7 @@ mod tool_hooks;
 mod permission_hooks;
 mod turn_hooks;
 mod workspace_hooks;
+mod cua_events;
 mod local_ttft;
 mod local_ttft_frame;
 mod telemetry;

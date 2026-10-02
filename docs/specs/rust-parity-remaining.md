@@ -52,9 +52,9 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
     当前没有活跃 UI 消费者，且 Node 返回的 legacy 形状过不了 App 自己的
     `zcodeSessionMessagesResultSchema`——要不要保留这条 legacy 面需要产品决定。
   - `workspace/updateModelIoPreferences`：**已实现**，且补上了它背后真正的缺口——Rust 之前完全不写 model-io，App「模型调用轨迹」侧栏对 Rust 会话为空；见 [rust-model-io.md](rust-model-io.md)。
-  - `computer-use/operation-event`：CLI → App 的 CUA 侧带通知，Rust 不发；与 rust-mcp-parity.md 第 4 期
-    （官方 CUA/浏览器运行时）同批处理。
+  - `computer-use/operation-event`：**已实现**（2026-10-03，由遥测事实派生 turn-started / tool-scheduled（含 CUA
+    引导语句判定）/ tool-started / turn-completed|failed；差分 `zcode-cli-rust-cua-operation-event.test.ts`）。
   - 已核对为**无活跃 UI 调用点**（Rust 不实现，作为 legacy 面保留在 TS 侧）：
     `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
-    `workspace/hooks/trustGrant`（Rust 无 hooks，UI 无调用）。`plugins/referenceCatalog*` 同样没有活跃 UI
+    `workspace/hooks/trustGrant` 已随 hooks H2 实现（见 [rust-hooks.md](rust-hooks.md)）。`plugins/referenceCatalog*` 同样没有活跃 UI
     调用点，但 TS 仍提供，Rust 已一并实现（见上）。

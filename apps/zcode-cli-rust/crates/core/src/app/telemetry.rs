@@ -9,6 +9,8 @@ use std::collections::{HashMap, HashSet};
 pub(super) struct State {
     seq: HashMap<String, u64>,
     first_chunks: HashSet<String>,
+    /// `computer-use/operation-event` 的会话内序号（cua_events.rs）。
+    pub(super) cua_seq: std::collections::HashMap<String, u64>,
     /// 本会话最近一次完成的模型请求（usage.delta 的身份）。
     completed: HashMap<String, Value>,
 }
@@ -42,6 +44,7 @@ impl Engine {
         }
         let fact = Value::Object(fact);
         self.local_ttft_fact(&fact);
+        self.cua_from_fact(&fact);
         self.outbox.push(json!({ "method": "v4/telemetry/event", "params": fact }));
     }
 
@@ -123,6 +126,7 @@ impl Engine {
                 );
             }
             Event::ToolStart { call, .. } => {
+                self.cua_tool_scheduled(id, turn, call);
                 let fields =
                     json!({ "toolCallId": call["id"], "toolName": call["function"]["name"] });
                 self.emit_fact(
