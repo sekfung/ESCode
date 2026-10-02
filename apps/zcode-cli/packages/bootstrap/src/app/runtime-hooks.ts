@@ -3,7 +3,8 @@
 // ============================================================
 // Rust runtime 的工作流宿主据此为会话装配 hook 运行器（docs/specs/rust-hooks.md H1）：
 // 用户 / env 层 hooks（createConfig）与插件 hook 来源（resolveStartupPlugins）按 mergeRuntimeHooks 合并。
-// 工作区（项目）hooks 需要信任审核，属于 H2，这里不返回。
+// 工作区（项目）hooks 需要信任审核（H2）：由 `resolveRuntimeHookContext` 一并返回配置来源，宿主据此装配
+// `createWorkspaceHookRuntimeSecurity`（与 createZCodeApp 同一口径）。
 
 import type { HooksRuntimeConfig } from "@zcode/contracts";
 import { createConfig, resolvePath } from "@zcode/adapters/config";
@@ -25,6 +26,14 @@ export function resolveRuntimeHooks(input: {
   workingDirectory: string;
   env?: NodeJS.ProcessEnv;
 }): HooksRuntimeConfig | undefined {
+  const hooks = resolveRuntimeHookContext(input).hooks;
+  return hooks?.enabled ? hooks : undefined;
+}
+
+export function resolveRuntimeHookContext(input: {
+  workingDirectory: string;
+  env?: NodeJS.ProcessEnv;
+}): { hooks: HooksRuntimeConfig | undefined; configResult: ReturnType<typeof createConfig> } {
   const workingDirectory = resolvePath(input.workingDirectory);
   const configResult = createConfig({ env: input.env, workingDirectory });
   const cliStorageRoot = getCliStorageRoot(resolvePath(configResult.config.storage.dir));
@@ -37,6 +46,5 @@ export function resolveRuntimeHooks(input: {
     startupTimer: new StartupTimer(SILENT_LOGGER, {}, startupNow()),
     workingDirectory,
   });
-  const hooks = mergeRuntimeHooks(configResult.config.hooks, plugins.hooks);
-  return hooks?.enabled ? hooks : undefined;
+  return { hooks: mergeRuntimeHooks(configResult.config.hooks, plugins.hooks), configResult };
 }

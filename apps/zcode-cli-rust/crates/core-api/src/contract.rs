@@ -245,6 +245,10 @@ pub trait ToolPort: Send + Sync {
     async fn run_hook(&self, _session: &str, _input: Value, _call_id: Option<&str>) -> Option<Value> {
         None
     }
+    /// 工作区 hooks 的审核命令与无会话授权（H2）：转给工作流宿主（`hooks.review` / `hooks.trustGrant`）。
+    async fn workspace_hooks(&self, method: &str, _params: Value) -> Result<Value> {
+        anyhow::bail!("Unsupported workspace hooks method: {method}")
+    }
     /// V4 工作流只读查询（`v4/conversation/workflowRun*`，方法名去掉前缀）：由工作流宿主按 Node 网关应答。
     async fn workflow_query(&self, method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("Unsupported workflow query: {method}")

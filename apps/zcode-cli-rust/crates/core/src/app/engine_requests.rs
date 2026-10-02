@@ -194,6 +194,7 @@ impl Engine {
             }
             "session/create" => self.import_shared_context(&request.params).await,
             "provider/updateAccountConfig" => self.update_account(&request.params).await,
+            "workspace/hooks/trustGrant" => self.workspace_hook_trust_grant(&request.params).await,
             _ => self.query(&request.method, &request.params),
         };
         let storage_failed = result

@@ -91,6 +91,10 @@ pub struct Session {
     /// V4 `workflowRuns` 状态键（宿主用 TS reduceWorkflowRunsState 归约进度事件，M3）：在场即进 state patch。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_runs: Option<Value>,
+    /// V4 `workspaceHookAdmission` 软门禁状态（H2，宿主准入事件）：本进程运行期事实，不落库（TS 新 Runtime 重新上报）。
+    /// `Some(Null)` 表示清空提示条。
+    #[serde(skip)]
+    pub workspace_hook_admission: Option<Value>,
     pub id: String,
     pub workspace: String,
     pub title: String,
@@ -250,6 +254,9 @@ impl Session {
         super::subagent::projection(self, &mut patch);
         if let Some(runs) = &self.workflow_runs {
             patch["workflowRuns"] = runs.clone();
+        }
+        if let Some(admission) = &self.workspace_hook_admission {
+            patch["workspaceHookAdmission"] = admission.clone();
         }
         patch
     }

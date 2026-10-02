@@ -215,6 +215,9 @@ impl Engine {
     /// 宿主转发的 `HookRun*` 事件（`at` 是事件时间戳毫秒）。
     pub(super) async fn hook_event(&mut self, id: &str, notice: &Value) -> Result<()> {
         let event = &notice["event"];
+        if event["type"].as_str().is_some_and(|t| t.starts_with("workspace_hook_")) {
+            return self.workspace_hook_event(id, event).await;
+        }
         let payload = &event["payload"];
         let (Some(invocation), Some(_), Some(count)) = (
             payload["hookInvocationId"].as_str(),

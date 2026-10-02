@@ -17,6 +17,7 @@ impl ToolPort for WorkspaceTools {
     async fn workflow_query(&self, method: &str, params: &Value) -> Result<Value> { self.workflow_host.request("v4.query", serde_json::json!({ "method": method, "params": params })).await }
     fn attach_host(&self, host: crate::contract::EventSink) { self.workflow_host.attach_host(host.clone()); self.mcp.attach_host(host); }
     async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> { self.run_hook_inner(session, input, call_id).await }
+    async fn workspace_hooks(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
     async fn execute_workflow(
         &self,
         session: &str,

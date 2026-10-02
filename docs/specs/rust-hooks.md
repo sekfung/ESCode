@@ -46,6 +46,15 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
   收尾时运行，`stopShouldContinue` 且有上下文时追加并续跑同一轮（至多 3 次）。插入 / 撤回消息走整段重写落库。
   差分：`zcode-cli-rust-hooks-turn.test.ts`。
 
+## H2 进度
+
+- 宿主按会话装配 bootstrap `createWorkspaceHookRuntimeSecurity`（与 app-server 同配置：trust 开启、宿主级 policy provider、
+  审核宿主上下文），运行器带工作区准入；SessionStart 前 `admission.activate(source)`。准入 / 审核事件（`workspace_hook_*`）
+  经 `hookEvent` 通知 Rust，投影成 `workspaceHookAdmission` 状态（运行期，不落库）与 `workspaceHookReview` 待处理交互
+  （同 flow 更高 generation 才替换）。V4 `respond/toggle/revoke/requestWorkspaceHookReview` 与 `workspace/hooks/trustGrant`
+  转宿主（`hooks.review` / `hooks.trustGrant`，授权成功重载同工作区会话）。
+  差分：`zcode-cli-rust-hooks-workspace.test.ts`（软门禁 → 审核 → 信任 → 执行；过期授权拒绝）。
+
 ## 已知差异
 
 - PreToolUse 的 `riskLevel` / `sideEffectScope` 取生成的静态工具元数据；MCP 工具没有该元数据（TS 取 MCP 条目的元数据）。
@@ -54,4 +63,6 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
   hook 进程不被中止（TS abort 败者），其迟到结论被忽略。
 - TS 在会话 resume 时即跑 SessionStart(resume)；Rust 推迟到该会话本进程内的首轮。
 - UserPromptSubmit 的 `attachmentsSummary` 未提供。
+- 工作区审核交互随会话落库；TS 在 Runtime 重启（SessionResumed）时清掉旧审核与提示条，Rust 冷恢复后旧审核可能残留到
+  宿主重新上报。
 - 回合之外到达的 hook 事件暂不投影行（TS 挂起到下一回合）。

@@ -51,6 +51,7 @@ impl Session {
             workflow_notices: vec![],
             workflow_actor: None,
             workflow_runs: None,
+            workspace_hook_admission: None,
             id,
             workspace,
             provider,

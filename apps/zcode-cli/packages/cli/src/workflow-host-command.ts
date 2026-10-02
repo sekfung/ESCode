@@ -298,6 +298,11 @@ export async function runWorkflowHostCommand(): Promise<number> {
           if (params.callId !== undefined) inflight.delete(params.callId);
         }
       }
+      // 工作区 hooks 的审核命令与无会话授权（H2）。
+      case "hooks.review":
+        return hooks.review(params);
+      case "hooks.trustGrant":
+        return hooks.trustGrant(params);
       // V4 工作流只读查询（`v4/conversation/workflowRun*`）。
       case "v4.query":
         return runWorkflowQuery(params.method, params.params, (session) => service(session) as never);

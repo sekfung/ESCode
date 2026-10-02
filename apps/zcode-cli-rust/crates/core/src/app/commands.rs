@@ -36,6 +36,9 @@ impl Engine {
             .context("Session id required")?
             .to_owned();
         self.ensure_session(&id).await?;
+        if c.kind.contains("WorkspaceHook") {
+            return self.workspace_hook_command(&c, &id).await;
+        }
         let s = self.sessions.get(&id).context("Session unavailable")?;
         if matches!(
             c.kind.as_str(),
