@@ -31,7 +31,7 @@ import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createDwfJournalStore, createNodeToolArtifactStore } from "@zcode/adapters/storage";
 import { runWorkflowQuery } from "./workflow-host-queries.js";
-import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
+import { createDynamicWorkflowRunService, workflowLifecycleFactFromProgress } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import { reduceWorkflowRunsState, type WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
@@ -172,6 +172,15 @@ export async function runWorkflowHostCommand(): Promise<number> {
           if (workflowRuns !== null) {
             runStates.set(owner, workflowRuns);
             send({ event: "workflowRuns", params: { session: owner, kind: "workflowRuns", workflowRuns } });
+          }
+          // `workflow.lifecycle` 遥测事实（actor-spawned / run-settled）：基字段由 Rust 重新盖章。
+          const fact = workflowLifecycleFactFromProgress(
+            { version: 1, eventId: "host", eventSeq: 0, occurredAt: Date.now(), sessionId: owner },
+            progress,
+          ) as Record<string, unknown> | null;
+          if (fact !== null) {
+            const { version: _v, eventId: _e, eventSeq: _s, occurredAt: _o, sessionId: _id, ...fields } = fact;
+            send({ event: "workflowRuns", params: { session: owner, kind: "telemetry", fact: fields } });
           }
           const runLabel = tracking(session).registry.get(progress.runId)?.description ?? progress.runId;
           const notification = buildWorkflowRunProgressNotification(progress, runLabel);

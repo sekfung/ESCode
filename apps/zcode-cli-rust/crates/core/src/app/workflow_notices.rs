@@ -14,6 +14,16 @@ impl Engine {
         let Some(session) = self.sessions.get_mut(id) else {
             return Ok(());
         };
+        // 宿主派生的遥测事实（workflow.lifecycle）：Rust 重新盖基字段后发出。
+        if notice["kind"] == "telemetry" {
+            let mut fields = notice["fact"].clone();
+            let kind = fields["kind"].as_str().unwrap_or_default().to_owned();
+            if let Some(fields) = fields.as_object_mut() {
+                fields.remove("kind");
+            }
+            self.emit_fact(id, None, &kind, fields);
+            return Ok(());
+        }
         // V4 `workflowRuns` 状态键：整键替换进会话快照，随下一次 state patch 发布。
         if notice["kind"] == "workflowRuns" {
             session.workflow_runs = Some(notice["workflowRuns"].clone());

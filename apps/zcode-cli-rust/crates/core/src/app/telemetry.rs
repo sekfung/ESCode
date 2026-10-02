@@ -16,7 +16,7 @@ pub(super) struct State {
 const USAGE_SOURCES: [&str; 3] = ["main_turn", "subagent", "workflow_child"];
 
 impl Engine {
-    fn emit_fact(&mut self, id: &str, turn: Option<&str>, kind: &str, fields: Value) {
+    pub(super) fn emit_fact(&mut self, id: &str, turn: Option<&str>, kind: &str, fields: Value) {
         let seq = self.telemetry.seq.entry(id.to_owned()).or_default();
         let mut fact = Map::new();
         fact.insert("version".into(), 1.into());

@@ -24,6 +24,7 @@ impl Engine {
         let session = self.sessions.get_mut(id).unwrap();
         let mut deltas = vec![];
         let mut receipt = None;
+        let mut compaction = None;
         match event {
             Event::SkillsInitialized { catalog, reply } => {
                 // catalog RPC 可能先于发现事件完成；统一返回 owner 已提交的快照，避免两份能力目录。
@@ -94,6 +95,7 @@ impl Engine {
                         .saturating_add(usage[from].as_u64().unwrap_or(0))
                         .into();
                 }
+                let model = (session.model.clone(), session.provider.clone());
                 let row = session
                     .rows
                     .iter_mut()
@@ -101,6 +103,14 @@ impl Engine {
                     .ok_or_else(|| anyhow::anyhow!("Compaction marker missing"))?;
                 row["marker"]["status"] = if changed { "success" } else { "noop" }.into();
                 row["marker"]["tokensAfter"] = tokens.into();
+                // TS compaction.terminal（CompactCompleted）：按压缩操作给出触发方式、前后 token 与模型。
+                compaction = Some(json!({
+                    "operationId": id, "status": "completed",
+                    "trigger": if row["marker"]["origin"] == "manual" { "manual" } else { "auto" },
+                    "startedAt": row["createdAt"], "endedAt": self.clock.now(),
+                    "preCompactTokenCount": row["marker"]["tokensBefore"], "postCompactTokenCount": tokens,
+                    "modelName": model.0, "modelProvider": model.1,
+                }));
                 deltas.push(json!({"op":"row.upserted","row":row}));
                 receipt = Some(committed);
                 session.revision += 1;
@@ -108,6 +118,9 @@ impl Engine {
             _ => unreachable!(),
         }
         self.publish(id, deltas)?;
+        if let Some(fields) = compaction {
+            self.emit_fact(id, Some(&turn), "compaction.terminal", fields);
+        }
         if let Some(receipt) = receipt {
             self.persist(id, None).await?;
             let _ = receipt.send(());

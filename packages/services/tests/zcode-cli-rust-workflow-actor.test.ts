@@ -130,6 +130,17 @@ async function observe(kind: "node" | "rust") {
       actorRequests: actor.length,
       createResult: main[2]?.messages?.find((m: any) => m.tool_call_id === "cw-1")?.content,
       notification,
+      // `workflow.lifecycle` 遥测（actor-spawned / run-settled），挂在发起 run 的输入上。
+      workflowFacts: h.messages
+        .filter((m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "workflow.lifecycle")
+        .map((m: any) => ({
+          phase: m.params.phase,
+          status: m.params.status,
+          agentId: m.params.agentId,
+          toolCallId: m.params.toolCallId,
+          hasChild: typeof m.params.childSessionId === "string",
+          hasSource: typeof m.params.sourceCommandId === "string",
+        })),
       schemaErrors: h.schemaErrors,
     });
   } finally {
@@ -142,6 +153,7 @@ test("Node and Rust run a workflow actor ask the same way", async () => {
   const rust = await observe("rust");
   assert.deepEqual(node.schemaErrors, []);
   assert.ok(node.actorRequests >= 1, "the actor ran at least one model request");
+  assert.deepEqual(node.workflowFacts.map((f: any) => f.phase), ["actor-spawned", "run-settled"]);
   assert.match(String(node.notification), /&quot;total&quot;: 3/);
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
