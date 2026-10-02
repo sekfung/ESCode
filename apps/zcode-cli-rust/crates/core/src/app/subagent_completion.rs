@@ -91,6 +91,7 @@ impl Engine {
         deltas.extend(owner.sync_subagent_row(&task.id));
         self.publish(&parent, deltas)?;
         self.persist(&parent, None).await?;
+        self.telemetry_subagent(&parent, "stopped", &task);
         if let Some(watch) = self.child_updates.get(id) {
             watch.send_replace(task);
         }

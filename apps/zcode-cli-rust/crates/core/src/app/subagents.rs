@@ -185,6 +185,7 @@ impl Engine {
             .unwrap()
             .children
             .insert(agent.clone(), task.clone());
+        self.telemetry_subagent(parent, "spawned", &task);
         self.sessions.get_mut(parent).unwrap().revision += 1;
         let deltas = self
             .sessions

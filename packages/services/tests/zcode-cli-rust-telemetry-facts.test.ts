@@ -84,7 +84,6 @@ async function observe(kind: "node" | "rust") {
 test("Node and Rust emit the same live conversation telemetry facts", async () => {
   const node = await observe("node");
   const rust = await observe("rust");
-  if (process.env.DEBUG_TEL) console.log(JSON.stringify({ node: node.shape, rust: rust.shape }, null, 1));
   assert.deepEqual(node.invalid, []);
   assert.deepEqual(rust.invalid, []);
   assert.ok(node.shape.length > 0);

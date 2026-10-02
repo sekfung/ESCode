@@ -221,3 +221,51 @@ fn merge(base: &Value, extra: Value) -> Value {
     }
     merged
 }
+
+/// `permission.lifecycle` 的一条（TS PermissionRequested / PermissionResolved / PermissionDenied）。
+pub(super) struct Permission<'a> {
+    pub phase: &'a str,
+    pub call_id: &'a str,
+    pub tool: Option<&'a str>,
+    pub request_id: Option<&'a str>,
+    pub decision: Option<&'a str>,
+}
+
+impl Engine {
+    pub(super) fn telemetry_permission(&mut self, id: &str, turn: Option<&str>, p: Permission<'_>) {
+        let fields = json!({
+            "phase": p.phase, "requestId": p.request_id, "toolCallId": p.call_id,
+            "toolName": p.tool, "decision": p.decision,
+        });
+        self.emit_fact(id, turn, "permission.lifecycle", fields);
+    }
+}
+
+impl Engine {
+    /// `subagent.lifecycle`（TS SubagentSpawned / SubagentStopped）：父会话上的子代理诞生与结束。
+    pub(super) fn telemetry_subagent(
+        &mut self,
+        parent: &str,
+        phase: &str,
+        task: &crate::domain::subagent::Task,
+    ) {
+        let turn = self.sessions.get(parent).and_then(|s| {
+            s.rows
+                .iter()
+                .find(|r| r["toolCallId"] == task.call_id.as_str())
+                .and_then(|r| r["turnId"].as_str().map(str::to_owned))
+        });
+        let stopped = phase == "stopped";
+        let fields = json!({
+            "phase": phase, "agentId": task.id, "agentType": task.agent_type, "childSessionId": task.child_id,
+            "parentToolCallId": task.call_id, "background": task.background,
+            "status": task.status,
+            "errorMessage": if stopped && task.status == "failed" && !task.output.is_empty() {
+                Value::from(task.output.clone())
+            } else {
+                Value::Null
+            },
+        });
+        self.emit_fact(parent, turn.as_deref(), "subagent.lifecycle", fields);
+    }
+}

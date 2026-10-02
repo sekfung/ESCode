@@ -74,6 +74,9 @@ impl Engine {
             crate::domain::permission::Behavior::Deny => {
                 let reason =
                     crate::domain::permission_options::deny_reason(decision.rule_id, &tool);
+                let call_id = call["id"].as_str().unwrap_or_default();
+                let p = super::telemetry::Permission { phase: "denied", call_id, tool: Some(&tool), request_id: None, decision: None };
+                self.telemetry_permission(id, Some(turn), p);
                 let _ = reply.send(PermissionOutcome::deny(reason));
                 Ok(())
             }
@@ -166,6 +169,9 @@ impl Engine {
         if let Some(row) = row {
             deltas.push(json!({"op":"row.upserted","row":row}));
         }
+        let call_id = call["id"].as_str().unwrap_or_default();
+        let p = super::telemetry::Permission { phase: "requested", call_id, tool: Some(tool), request_id: Some(&interaction), decision: None };
+        self.telemetry_permission(id, Some(turn), p);
         self.publish(id, deltas)?;
         self.persist(id, None).await
     }

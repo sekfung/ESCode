@@ -157,6 +157,10 @@ impl Engine {
             self.activate_question_head(id);
             let ack = self.commit_interaction(c, vec![]).await?;
             let waiting = self.waiting_permissions.remove(interaction).unwrap();
+            let turn = self.active.get(id).map(|a| a.turn_id.clone());
+            let decision = if outcome.allowed { "allow" } else { "deny" };
+            let p = super::telemetry::Permission { phase: "resolved", call_id: &call_id, tool: None, request_id: Some(interaction), decision: Some(decision) };
+            self.telemetry_permission(id, turn.as_deref(), p);
             let _ = waiting.reply.send(outcome);
             return Ok(ack);
         }
