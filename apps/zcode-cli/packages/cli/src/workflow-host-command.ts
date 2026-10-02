@@ -35,7 +35,11 @@ import { createHookHost } from "./workflow-host-hooks.js";
 import { createDynamicWorkflowRunService, workflowLifecycleFactFromProgress } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
-import { reduceWorkflowRunsState, type WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
+import {
+  clampWorkflowRunsForLegacy,
+  reduceWorkflowRunsState,
+  type WorkflowRunsState,
+} from "@zcode/shared/zcode-protocol-v4";
 import {
   BackgroundTaskTracker,
   buildWorkflowRunProgressNotification,
@@ -177,7 +181,17 @@ export async function runWorkflowHostCommand(): Promise<number> {
           const workflowRuns = reduceWorkflowRunsState(runStates.get(owner), progress as never);
           if (workflowRuns !== null) {
             runStates.set(owner, workflowRuns);
-            send({ event: "workflowRuns", params: { session: owner, kind: "workflowRuns", workflowRuns } });
+            // 没有 `workflowRunDeltas` 能力的订阅者收旧界裁剪版（TS publisher 的旧消费者编码）。
+            const legacy = clampWorkflowRunsForLegacy(workflowRuns);
+            send({
+              event: "workflowRuns",
+              params: {
+                session: owner,
+                kind: "workflowRuns",
+                workflowRuns,
+                ...(legacy === workflowRuns ? {} : { legacy }),
+              },
+            });
           }
           // `workflow.lifecycle` 遥测事实（actor-spawned / run-settled）：基字段由 Rust 重新盖章。
           const fact = workflowLifecycleFactFromProgress(

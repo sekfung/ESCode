@@ -252,5 +252,8 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
   完成通知已同样补齐（`zcode-cli-rust-subagent-steer`、`bash-background-notice` 差分；Bash 通知、TaskOutput / TaskStop 模型面、
   任务 id 与输出文件名一并对齐 Node）。
 - 已落地：TaskOutput 读工作流 run（宿主复用 TS BackgroundTaskTracker）。
-- 待做：V4 `workflowRuns` 投影 / `workflowRunDeltas`、`/workflow` 命令、run 产物 store、
-  模型失败分类映射。
+- 已落地：V4 `workflowRuns` 投影（宿主 TS 归约，整键进会话状态）；没有 `workflowRunDeltas` 能力的订阅者收宿主
+  `clampWorkflowRunsForLegacy` 的旧界裁剪版（快照与 state patch 同档，回放取当前裁剪版，与 TS publisher 一致）。
+  `/workflow` 命令与 run 产物 store 已落地。
+- 待做：对有能力的订阅者发 `workflowRun.updated|removed` 键级增量（当前发整键 `state.updated`，合法但每事件 O(N)）；
+  宿主重启后此前 run 的归约态丢失；模型失败分类映射。

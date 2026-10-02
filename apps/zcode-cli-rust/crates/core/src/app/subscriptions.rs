@@ -9,6 +9,8 @@ pub(super) struct Subscription {
     pub connection: String,
     /// 订阅的客户端形态（desktop-continuous / web-remote-replayable），MCP 请求上下文透传。
     pub client_mode: String,
+    /// 订阅收不收 `workflowRun.*` 键级能力（可信 host 注入）；缺席按旧消费者：`workflowRuns` 发旧界裁剪版。
+    pub workflow_run_deltas: bool,
     pub ordinal: u64,
     pub paused: bool,
     pub needs_resync: bool,
@@ -39,6 +41,7 @@ impl Engine {
                 topic: topic.clone(),
                 connection,
                 client_mode: p["clientMode"].as_str().unwrap_or_default().to_owned(),
+                workflow_run_deltas: p["workflowRunDeltas"] == true,
                 ordinal: 0,
                 paused: false,
                 needs_resync: false,
@@ -224,6 +227,15 @@ impl Engine {
         sub.delivered = to;
         let (topic, sub_id, ordinal) = (sub.topic.clone(), sub.id.clone(), sub.ordinal);
         let continuous = sub.client_mode == "desktop-continuous";
+        let mut payload = payload;
+        if !sub.workflow_run_deltas
+            && let Some(legacy) = topic
+                .strip_prefix("conversation/")
+                .and_then(|s| self.sessions.get(s))
+                .and_then(|s| s.workflow_runs_legacy.clone())
+        {
+            super::workflow_notices::legacy_workflow_runs(&mut payload, &legacy);
+        }
         let mut frame = json!({"topic":topic,"subscriptionId":sub_id,"fromSeq":from,"toSeq":to,"sentAt":self.clock.now(),"payload":payload});
         // TS v4-gateway：在线增量帧携带本地 TTFT 观测（首输出时刻只经帧送达渲染端）。
         if continuous && delivery == "online" && frame["payload"]["kind"] == "deltas"

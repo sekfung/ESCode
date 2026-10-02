@@ -37,6 +37,7 @@ impl Engine {
         // V4 `workflowRuns` 状态键：整键替换进会话快照，随下一次 state patch 发布。
         if notice["kind"] == "workflowRuns" {
             session.workflow_runs = Some(notice["workflowRuns"].clone());
+            session.workflow_runs_legacy = Some(notice["legacy"].clone()).filter(|v| !v.is_null());
             session.revision += 1;
             self.publish(id, vec![])?;
             return self.persist(id, None).await;
@@ -131,5 +132,17 @@ impl Engine {
         self.publish(id, deltas)?;
         self.persist(id, None).await?;
         Ok(Some(messages))
+    }
+}
+
+/// 旧消费者编码（TS publisher）：帧里的 `workflowRuns`（快照字段或 state patch 键）换成当前的旧界裁剪版。
+pub(super) fn legacy_workflow_runs(payload: &mut Value, legacy: &Value) {
+    if payload["snapshot"].get("workflowRuns").is_some() {
+        payload["snapshot"]["workflowRuns"] = legacy.clone();
+    }
+    for delta in payload["deltas"].as_array_mut().into_iter().flatten() {
+        if delta["patch"].get("workflowRuns").is_some() {
+            delta["patch"]["workflowRuns"] = legacy.clone();
+        }
     }
 }

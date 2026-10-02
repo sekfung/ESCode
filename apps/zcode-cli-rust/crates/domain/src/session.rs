@@ -91,6 +91,10 @@ pub struct Session {
     /// V4 `workflowRuns` 状态键（宿主用 TS reduceWorkflowRunsState 归约进度事件，M3）：在场即进 state patch。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_runs: Option<Value>,
+    /// `workflowRuns` 的旧界裁剪版（宿主 clampWorkflowRunsForLegacy；与整键相同时缺席）：发给没有
+    /// `workflowRunDeltas` 能力的订阅者。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_runs_legacy: Option<Value>,
     /// V4 `workspaceHookAdmission` 软门禁状态（H2，宿主准入事件）：本进程运行期事实，不落库（TS 新 Runtime 重新上报）。
     /// `Some(Null)` 表示清空提示条。
     #[serde(skip)]
