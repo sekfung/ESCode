@@ -29,6 +29,7 @@ import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createDwfJournalStore } from "@zcode/adapters/storage";
 import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
+import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import {
   buildWorkflowNotificationOriginMeta,
@@ -161,7 +162,9 @@ export async function runWorkflowHostCommand(): Promise<number> {
           input = resolution.input;
         }
         const gate = tool.prepareApproval ? tool.prepareApproval(input) : { gate: "ask" as const };
-        return { input, ask: gate.gate === "ask" };
+        // TS 权限服务的 workflowOwner 规则：修订本会话发起、且非用户停下的 run 免确认（阻断规则照常生效）。
+        const owned = params.tool === "AmendWorkflow" && isAmendWorkflowOwnedPredecessor(input?.predecessor);
+        return { input, ask: gate.gate === "ask" && !owned };
       }
       case "tool.execute": {
         const tool = entry(params.tool);

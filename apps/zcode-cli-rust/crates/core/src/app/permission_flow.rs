@@ -185,9 +185,9 @@ pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
 
 /// TS `askOptions.allowAlways: false`（no-always-allow）：每次调用都是不同代码，持久或会话规则
 /// 不是「记住这次决定」而是把这道确认永久关掉，所以只给「允许一次 / 拒绝」。
-const NO_ALWAYS_ALLOW: [&str; 2] = ["AmendWorkflow", "SaveWorkflow"];
+const NO_ALWAYS_ALLOW: [&str; 1] = ["SaveWorkflow"];
 /// TS `askOptions.allowAlways: "session"`：只给会话作用域的免确认（不落项目规则）。
-const SESSION_ALWAYS_ALLOW: [&str; 1] = ["CreateWorkflow"];
+const SESSION_ALWAYS_ALLOW: [&str; 2] = ["CreateWorkflow", "AmendWorkflow"];
 const OPTIONS_POLICY_TOOLS: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow"];
 
 fn options_for(tool: &str, suggested: &[Rule], persistent: bool) -> Vec<Value> {

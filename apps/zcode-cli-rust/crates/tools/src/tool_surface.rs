@@ -53,11 +53,14 @@ pub(super) fn definitions() -> Vec<Value> {
     // run 内省（第 6 期）：TS 注册顺序里在保存/模型目录之前。
     // 运行入口（M1，工作流宿主）：TS 注册顺序里排在保存定义之前。
     definitions.push(json!({"type":"function","function":{"name":"CreateWorkflow","description":surface["descriptions"]["CreateWorkflow"],"parameters":schemas["CreateWorkflow"]}}));
+    definitions.push(json!({"type":"function","function":{"name":"AmendWorkflow","description":surface["descriptions"]["AmendWorkflow"],"parameters":schemas["AmendWorkflow"]}}));
     // 保存定义（第 2/3 期）：TS 注册顺序里在 run 内省之前；可见性同受动态工作流灰度门约束。
     definitions.push(json!({"type":"function","function":{"name":"SaveWorkflow","description":surface["descriptions"]["SaveWorkflow"],"parameters":schemas["SaveWorkflow"]}}));
     definitions.push(json!({"type":"function","function":{"name":"EvalWorkflowSnippet","description":surface["descriptions"]["EvalWorkflowSnippet"],"parameters":schemas["EvalWorkflowSnippet"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListWorkflowRuns","description":surface["descriptions"]["ListWorkflowRuns"],"parameters":schemas["ListWorkflowRuns"]}}));
     definitions.push(json!({"type":"function","function":{"name":"GetWorkflowRun","description":surface["descriptions"]["GetWorkflowRun"],"parameters":schemas["GetWorkflowRun"]}}));
+    definitions.push(json!({"type":"function","function":{"name":"ResumeWorkflowRun","description":surface["descriptions"]["ResumeWorkflowRun"],"parameters":schemas["ResumeWorkflowRun"]}}));
+    definitions.push(json!({"type":"function","function":{"name":"ResolveWorkflowQuestion","description":surface["descriptions"]["ResolveWorkflowQuestion"],"parameters":schemas["ResolveWorkflowQuestion"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListSavedWorkflows","description":surface["descriptions"]["ListSavedWorkflows"],"parameters":schemas["ListSavedWorkflows"]}}));
     // 模型目录（第 6 期）：同为只读发现面，可见性由动态工作流灰度门决定（TS 注册顺序里紧随其后）。
     definitions.push(json!({"type":"function","function":{"name":"ListModels","description":surface["descriptions"]["ListModels"],"parameters":schemas["ListModels"]}}));

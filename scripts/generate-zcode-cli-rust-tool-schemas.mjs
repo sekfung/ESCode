@@ -60,6 +60,9 @@ const tools = [
   ["ListSavedWorkflows", "list-saved-workflows", "ListSavedWorkflowsInputJsonSchema"],
   ["ListModels", "list-models", "ListModelsInputJsonSchema"],
   ["ListWorkflowRuns", "list-workflow-runs", "ListWorkflowRunsInputJsonSchema"],
+  ["AmendWorkflow", "amend-workflow", "AmendWorkflowInputJsonSchema"],
+  ["ResumeWorkflowRun", "resume-workflow-run", "ResumeWorkflowRunInputJsonSchema"],
+  ["ResolveWorkflowQuestion", "resolve-workflow-question", "ResolveWorkflowQuestionInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -146,6 +149,9 @@ const staticDescriptions = Object.fromEntries(
     "ListSavedWorkflows",
     "ListModels",
     "ListWorkflowRuns",
+    "AmendWorkflow",
+    "ResumeWorkflowRun",
+    "ResolveWorkflowQuestion",
   ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };

@@ -649,6 +649,89 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "AmendWorkflow": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "ID of the run to amend (from a result, a notification, GetWorkflowRun or ListWorkflowRuns)."
+      },
+      "script": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The whole revised script, inline. This OR `path`, never both; omit both to keep the predecessor's script."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The revised script's file, usually the predecessor's own script file edited in place. This OR `script`, never both."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Display label for the new run; defaults to the predecessor's."
+      },
+      "max_concurrency": {
+        "description": "Omit to keep the predecessor's limit, null to remove it, a number to set one (only when the user asks).",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "subagent_model": {
+        "description": "Omit to keep the predecessor's choice, null for the session model, a model id to set one (only when the user asks).",
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["run_id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ResumeWorkflowRun": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The workflow run ID to resume — a cancelled run or one that failed with code `Interrupted`, as seen with GetWorkflowRun or ListWorkflowRuns"
+      }
+    },
+    "required": ["run_id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ResolveWorkflowQuestion": {
+    "type": "object",
+    "properties": {
+      "question_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The question ID from the escalation notification, or from GetWorkflowRun's pending questions (looks like `dwfq-...`)"
+      },
+      "answer": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The answer text, delivered verbatim to the subagent that asked"
+      }
+    },
+    "required": ["question_id", "answer"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "Grep": {
     "type": "object",
     "properties": {
