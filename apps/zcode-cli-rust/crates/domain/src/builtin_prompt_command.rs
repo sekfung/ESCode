@@ -1,16 +1,41 @@
 //! 内置提示词命令展开：对应 TS `bootstrap/builtin-prompt-command.ts` 的
 //! `resolveZCodeBuiltinPromptCommand`（`/init` 展开为一个普通用户提示词）。
-//! 已知差异：Rust 无动态工作流，`/workflow` 一律按关闭处理（TS 在 `dynamicWorkflowEnabled === false` 时同样返回 None）。
+//! `/workflow` 对应 TS `builtin-workflow-command.ts`：动态工作流关闭时不展开（原文作普通提示词）。
 use std::path::Path;
 
 /// TS `BUILTIN_PROMPT_COMMAND_PATTERN = /^\/([^\s]+)(?:\s+([\s\S]*))?$/` 作用于 `input.trim()`。
-pub fn resolve_builtin_prompt_command(input: &str, working_directory: &Path) -> Option<String> {
+pub fn resolve_builtin_prompt_command(
+    input: &str,
+    working_directory: &Path,
+    dynamic_workflow_enabled: bool,
+) -> Option<String> {
     let (name, args) = parse_invocation(input.trim())?;
-    if name.to_lowercase() != "init" {
-        return None;
+    match name.to_lowercase().as_str() {
+        "init" => Some(build_init_agents_prompt(&args, working_directory)),
+        "workflow" if dynamic_workflow_enabled => {
+            let expanded = super::custom_command_template::expand_template(WORKFLOW_BODY, &args);
+            Some(super::custom_command_template::format_prompt(
+                "workflow",
+                "system",
+                "zcode",
+                &["dynamic-workflows".to_owned()],
+                &expanded.body,
+            ))
+        }
+        _ => None,
     }
-    Some(build_init_agents_prompt(&args, working_directory))
 }
+
+/// TS `BUILTIN_WORKFLOW_COMMAND_BODY`（builtin-workflow-command.ts；`$ARGUMENTS` 必须在场）。
+const WORKFLOW_BODY: &str = "Use the `dynamic-workflows` skill to design and launch a dynamic workflow for this request:
+
+$ARGUMENTS
+
+Decide the subagent topology before writing any code: how many subagents, which of them
+share a context, what result each one returns. Then write the script and call the
+`CreateWorkflow` tool. (`CreateWorkflow` is the dynamic-workflow tool. Do not use the
+legacy `Workflow` tool, and do not substitute the `Agent` tool.)
+";
 
 fn parse_invocation(input: &str) -> Option<(String, String)> {
     let rest = input.strip_prefix('/')?;

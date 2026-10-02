@@ -16,6 +16,7 @@ impl Engine {
             || crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
                 trimmed,
                 std::path::Path::new(&self.workspace_path),
+                self.shell.dynamic_workflow.peek(id),
             )
             .is_some()
         {
@@ -51,6 +52,7 @@ impl Engine {
                 crate::domain::builtin_prompt_command::resolve_builtin_prompt_command(
                     text,
                     std::path::Path::new(&self.workspace_path),
+                    self.shell.dynamic_workflow.peek(id),
                 )
             {
                 model_text = Some(prompt);

@@ -17,7 +17,7 @@ fn rust_init_prompt_matches_ts() {
     for case in fixture["cases"].as_array().unwrap() {
         let input = case[0].as_str().unwrap();
         let want = case[1].as_str().map(normalize);
-        let got = resolve_builtin_prompt_command(input, cwd).map(|p| normalize(&p));
+        let got = resolve_builtin_prompt_command(input, cwd, false).map(|p| normalize(&p));
         if got != want {
             let describe = |v: &Option<String>| {
                 v.as_ref()

@@ -15,6 +15,11 @@ impl Engine {
         ) {
             let cancel = tokio_util::sync::CancellationToken::new();
             self.slash_commands = self.tools.slash_commands(&cancel).await;
+            // TS zcode-protocol/slash-commands.ts：动态工作流关闭时目录剔除内置 `workflow`。
+            if !self.shell.dynamic_workflow.process_enabled() {
+                self.slash_commands
+                    .retain(|c| !(c["source"] == "builtin" && c["name"] == "workflow"));
+            }
         }
     }
 

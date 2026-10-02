@@ -7,6 +7,12 @@
       "source": "builtin"
     },
     {
+      "description": "Design and launch a dynamic workflow for a task.",
+      "inputHint": "/workflow [what the workflow should accomplish]",
+      "name": "workflow",
+      "source": "builtin"
+    },
+    {
       "description": "Compact the current conversation with optional instructions.",
       "inputHint": "/compact [instructions]",
       "name": "compact",

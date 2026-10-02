@@ -57,6 +57,11 @@ impl Policy {
         self.sessions.insert(id.to_owned(), enabled);
     }
 
+    /// 只读查询：未固化时按进程级结论回答（不固化）。
+    pub fn peek(&self, id: &str) -> bool {
+        self.sessions.get(id).copied().unwrap_or(self.process)
+    }
+
     /// 本会话是否注册工作流工具（首次读取时按当时的进程级结论固化）。
     pub fn enabled(&mut self, id: &str) -> bool {
         let process = self.process;

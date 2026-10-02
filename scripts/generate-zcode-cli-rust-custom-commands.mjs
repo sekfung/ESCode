@@ -30,7 +30,7 @@ async function emit(relativeTarget, value) {
   }
 }
 
-// ---- 1. 内置目录与保留名（Rust 声明动态工作流不支持，按 TS 开关关闭剔除 workflow）----
+// ---- 1. 内置目录与保留名（workflow 在列；Rust 按进程级动态工作流开关剔除，同 TS slash-commands.ts）----
 const builtins = [
   ...APP_PROTOCOL_VISIBLE_BUILTIN_SLASH_COMMAND_NAMES.flatMap((name) => {
     const command = BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES.find((entry) => entry.name === name);
@@ -39,7 +39,7 @@ const builtins = [
       : [];
   }),
   ...APP_PROTOCOL_APP_ONLY_BUILTIN_SLASH_COMMANDS,
-].filter((command) => command.name !== "workflow");
+];
 const reserved = [
   ...new Set(
     BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES.flatMap((e) => [e.name, ...(e.aliases ?? [])]).concat([
