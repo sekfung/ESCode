@@ -70,6 +70,12 @@ pub(crate) async fn execute(
         Value::String(text) => text.clone(),
         other => other.to_string(),
     };
+    // validateInput 失败（TS ToolHandlerFailure）：可修复的工具失败。
+    if reply["handlerFailure"] == true {
+        let mut output = ToolOutput::new(format!("<tool_use_error>{content}</tool_use_error>"), Value::Null);
+        output.failed = true;
+        return Ok(output);
+    }
     Ok(ToolOutput::new(content, reply["data"].clone()))
 }
 

@@ -26,11 +26,11 @@ pub(crate) const TOOLS: [&str; 5] = [
     "ResolveWorkflowQuestion",
 ];
 
-/// 交给宿主执行的调用：宿主工具，以及指向工作流 run 的 TaskStop（TS 后台任务控制端口的
-/// `local_dynamic_workflow` 分支 → run 服务的 cancel）。
+/// 交给宿主执行的调用：宿主工具，以及指向工作流 run 的 TaskStop / TaskOutput（TS 后台任务控制端口的
+/// `local_dynamic_workflow` 分支与运行时任务注册表，见宿主的 tracker）。
 pub(crate) fn routes(name: &str, args: &Value) -> bool {
     TOOLS.contains(&name)
-        || name == "TaskStop"
+        || matches!(name, "TaskStop" | "TaskOutput")
             && args["task_id"]
                 .as_str()
                 .or(args["shell_id"].as_str())

@@ -8,8 +8,9 @@
  *   - `init {dbPath}`：打开 Rust 会话库（只碰 dwf_* 表）。
  *   - `tool.prepare {session, cwd, tool, input, skillLoaded}` → `{rejected: message}` 或 `{input, ask}`：
  *     TS executor 的 validateInput → resolveInput → prepareApproval 三段。
- *   - `tool.execute {session, cwd, tool, input, callId}` → `{content, data}`：handler + formatModelContent。
- *     输出带 `backgroundTaskId` 时宿主接着等这个 run 结算，再发 `runSettled` 通知。
+ *   - `tool.execute {session, cwd, tool, input, callId}` → `{content, data}` 或 `{content, isError, handlerFailure}`：
+ *     validateInput + handler + formatModelContent。输出带 `backgroundTaskId` 时交给该会话的 TS 后台追踪器
+ *     （BackgroundTaskTracker + 运行时任务注册表），结算后发 `runSettled` 通知。
  *   - `tool.cancel {callId}`：中止在飞的 handler。
  *   - `session.close {session}`：停下该会话名下在飞的 run 并释放服务。
  * - 宿主 → Rust 通知 `{event, params}`：`runSettled {session, taskId, toolCallId, text, originMeta}`、
@@ -33,10 +34,11 @@ import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import {
-  buildWorkflowNotificationOriginMeta,
+  BackgroundTaskTracker,
   buildWorkflowRunProgressNotification,
   builtInTools,
-  formatWorkflowTaskNotificationText,
+  InMemoryRuntimeTaskRegistry,
+  isTerminalRuntimeTask,
 } from "@zcode/core";
 
 export const ZCODE_WORKFLOW_HOST_COMMAND = "__zcode-workflow-host";
@@ -48,8 +50,10 @@ const HOST_TOOLS = new Set([
   "ResumeWorkflowRun",
   "GetWorkflowRun",
   "ResolveWorkflowQuestion",
-  // 只在 task_id 指向工作流 run 时由 Rust 转来（TS 后台任务控制端口的 local_dynamic_workflow 分支）。
+  // 只在 task_id 指向工作流 run 时由 Rust 转来（TS 后台任务控制端口的 local_dynamic_workflow 分支
+  // 与运行时任务注册表）。
   "TaskStop",
+  "TaskOutput",
 ]);
 const DYNAMIC_WORKFLOW_SKILL = "dynamic-workflows";
 
@@ -85,20 +89,53 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const actorBridges = new Map<string, ReturnType<typeof createActorBridge>>();
   /** 每个父会话最近一次工作流工具调用带来的模型选择（actor 的模型基线）。 */
   const selections = new Map<string, Record<string, unknown>>();
-  /** run → 展示名（TS registry 条目的 description：输出 name → 入参 description / name / scriptPath）。 */
-  const runLabels = new Map<string, string>();
-  /** run → 本宿主所见的生命周期状态（"running" 或结算状态），TaskStop 的 strict 判定读它。 */
-  const runStates = new Map<string, string>();
-  /** TS runtime.stopBackgroundTask 的 local_dynamic_workflow 分支（background-stop-dynamic-workflow.ts）。 */
+  /**
+   * 每个父会话一份 TS 运行时任务注册表与后台追踪器（Node 里它们属于该会话的 AgentRuntime）：run 的登记、
+   * 结算、resultText、通知认领（TaskOutput 读到终态即认领）与 superseded 抑制都走 TS 原实现。
+   */
+  const trackers = new Map<string, { registry: InMemoryRuntimeTaskRegistry; tracker: BackgroundTaskTracker }>();
+  const workingDirectories = new Map<string, string>();
+  const tracking = (session: string) => {
+    let existing = trackers.get(session);
+    if (existing === undefined) {
+      const registry = new InMemoryRuntimeTaskRegistry();
+      const tracker = new BackgroundTaskTracker({
+        runtimeTaskRegistry: registry,
+        sessionId: session,
+        dynamicWorkflowRunPort: service(session),
+        getWorkingDirectory: () => workingDirectories.get(session) ?? process.cwd(),
+        emitEvent: async () => {},
+        enqueueBackgroundTaskNotification: (notification: Record<string, any>) => {
+          send({
+            event: "runSettled",
+            params: {
+              session,
+              taskId: notification.taskId,
+              text: notification.text,
+              originMeta: notification.originMeta,
+            },
+          });
+        },
+      } as never);
+      existing = { registry, tracker };
+      trackers.set(session, existing);
+    }
+    return existing;
+  };
+  /** TS runtime.stopBackgroundTask 的 local_dynamic_workflow 分支（background.ts / background-stop-dynamic-workflow.ts）。 */
   const backgroundTaskControlPort = (session: string) => ({
-    stopBackgroundTask: async (taskId: string, options: { initiator?: string; strict?: boolean }) => {
+    stopBackgroundTask: async (taskId: string, options: { initiator?: "user" | "model"; strict?: boolean }) => {
       const type = "local_dynamic_workflow";
-      const state = runStates.get(taskId);
-      if (state === undefined) return { ok: false, reason: "background_task_not_found", taskId };
-      if (state !== "running") {
+      const { registry } = tracking(session);
+      const task = registry.get(taskId);
+      if (task === undefined) return { ok: false, reason: "background_task_not_found", taskId };
+      if (isTerminalRuntimeTask(task)) {
         return options.strict === true
-          ? { ok: false, reason: "background_task_not_running", status: state, taskId, type }
-          : { alreadyTerminal: true, ok: true, status: state, taskId, type };
+          ? { ok: false, reason: "background_task_not_running", status: task.status, taskId, type }
+          : { alreadyTerminal: true, ok: true, status: task.status, taskId, type };
+      }
+      if (options.initiator !== undefined) {
+        registry.update(taskId, (current) => ({ ...current, stopInitiator: options.initiator }));
       }
       const cancelled = await service(session).cancel(taskId, options.initiator as never);
       return cancelled
@@ -122,7 +159,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
         executionPort,
         // run 中通知（升级问答 / 停滞）：与 Node runtime 的进度汇同一个格式器，交给 Rust 作为后台结果轮。
         onRunEvent: (progress, routing) => {
-          const runLabel = runLabels.get(progress.runId) ?? progress.runId;
+          const runLabel = tracking(session).registry.get(progress.runId)?.description ?? progress.runId;
           const notification = buildWorkflowRunProgressNotification(progress, runLabel);
           if (notification === undefined) return;
           const noticeId = String(progress.payload.qid ?? `${progress.eventType}:${progress.sequence}`);
@@ -147,35 +184,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
     workingDirectory: params.cwd as string,
     dynamicWorkflowRunPort: service(params.session),
     backgroundTaskControlPort: backgroundTaskControlPort(params.session),
+    runtimeTaskRegistry: tracking(params.session).registry,
     sessionId: params.session,
     hasLoadedSkill: (name: string) => params.skillLoaded === true && name === DYNAMIC_WORKFLOW_SKILL,
     ...(params.callId === undefined ? {} : { toolCallId: params.callId }),
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
 
-  /** 后台 run 结算后生成完成通知（Node 由 tracker 发出，这里同一个格式器）。 */
-  const trackRun = async (params: Record<string, any>, output: Record<string, unknown>) => {
-    const taskId = output.backgroundTaskId;
-    if (typeof taskId !== "string") return;
-    const port = service(params.session);
-    const snapshot = await port.waitForTask(taskId);
-    const status = snapshot?.status ?? "lost";
-    runStates.set(taskId, status);
-    const toolCall = { id: params.callId, name: params.tool, input: params.input } as never;
-    const text = formatWorkflowTaskNotificationText({
-      toolCall,
-      taskId,
-      status,
-      snapshot: snapshot as never,
-      launchOutput: output,
-      workingDirectory: params.cwd,
-    });
-    const originMeta = buildWorkflowNotificationOriginMeta(toolCall, taskId, status, snapshot as never, output);
-    send({
-      event: "runSettled",
-      params: { session: params.session, taskId, toolCallId: params.callId, status, text, originMeta },
-    });
-  };
 
   const handle = async (request: Request): Promise<unknown> => {
     const params = request.params ?? {};
@@ -208,26 +223,30 @@ export async function runWorkflowHostCommand(): Promise<number> {
         const tool = entry(params.tool);
         const controller = new AbortController();
         inflight.set(params.callId, controller);
+        workingDirectories.set(params.session, params.cwd);
         try {
+          // TS executor 的 validateInput（TaskOutput 的「无此任务」等）：可修复失败，按工具失败回给模型。
+          const validation = tool.validateInput?.(params.input, {
+            runtimeTaskRegistry: tracking(params.session).registry,
+          } as never);
+          if (validation && validation.result === false) {
+            return { content: validation.message, isError: true, handlerFailure: true };
+          }
           const output = (await tool.handler(
             params.input,
             toolContext(params, controller.signal) as never,
           )) as Record<string, unknown>;
           const content = tool.formatModelContent ? tool.formatModelContent(output) : JSON.stringify(output);
-          if (typeof output.backgroundTaskId === "string") {
-            const input = (params.input ?? {}) as Record<string, unknown>;
-            const label = [output.name, input.description, input.name, input.scriptPath].find(
-              (value): value is string => typeof value === "string",
-            );
-            if (label !== undefined) runLabels.set(output.backgroundTaskId, label);
-            runStates.set(output.backgroundTaskId, "running");
-          }
-          void trackRun(params, output).catch((error: unknown) => {
-            send({
-              event: "hostError",
-              params: { message: error instanceof Error ? error.message : String(error) },
+          // 后台 run：TS tracker 登记、等结算、发完成通知（与 Node 的 call-runner → trackBackgroundTask 同路）。
+          const toolCall = { id: params.callId, name: params.tool, input: params.input };
+          void tracking(params.session)
+            .tracker.trackBackgroundTask(toolCall as never, output, { traceId: params.callId } as never, undefined)
+            .catch((error: unknown) => {
+              send({
+                event: "hostError",
+                params: { message: error instanceof Error ? error.message : String(error) },
+              });
             });
-          });
           return { content, data: output };
         } finally {
           inflight.delete(params.callId);

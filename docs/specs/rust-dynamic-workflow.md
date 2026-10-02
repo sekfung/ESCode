@@ -241,3 +241,14 @@ epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模�
 不含插件与内置技能包）；工具面另减 workflow_child 的结构性缺席（`WORKFLOW_CHILD_DISALLOWED_TOOLS`、subagents 关闭的
 Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
 工具面、submit_result schema、CreateWorkflow 结果与完成通知两侧一致）。`resumeFromStore`（转录种子）留在 M3。
+
+**M3 进度（2026-10-02）**：
+- 已落地（各带差分）：AmendWorkflow（修订本会话 run 套用 TS workflowOwner 免确认；确认选项为会话级免确认 + Refine）；
+  升级问答（run 服务 `onRunEvent` → 宿主用 core `buildWorkflowRunProgressNotification` 生成 escalation / stall 通知 →
+  `runNotice`）；TaskStop 停止 run（宿主实现 TS 后台控制端口的 `local_dynamic_workflow` 分支）；ResumeWorkflowRun 与 actor
+  重水化（`resumeFromStore` → `actor.resume`）。
+- 回合内 steer：Node 在回合进行中到达的后台通知于下一个步边界并入本回合（`drainPendingRuntimeCommandsForActiveLoop`，
+  `task_notification_steer`）；Rust 的工作流通知已按此在 StepBoundary 并入（与 mailbox 同一机制）。**缺口**：Rust 的后台
+  子代理 / 后台 Bash 完成通知仍只在回合结束后开新轮，需按同一语义补齐（另立差分）。
+- 待做：TaskOutput 读工作流 run、V4 `workflowRuns` 投影 / `workflowRunDeltas`、`/workflow` 命令、run 产物 store、
+  模型失败分类映射。
