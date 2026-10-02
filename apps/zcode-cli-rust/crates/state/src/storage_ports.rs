@@ -92,6 +92,11 @@ impl crate::contract::SessionStore for Store {
             .await?;
         rx.await?
     }
+    async fn usage(&self, request: Value) -> Result<Value> {
+        let (tx, rx) = oneshot::channel();
+        self.tx.send(Operation::Usage(request, tx)).await?;
+        rx.await?
+    }
     async fn put_attachment(
         &self,
         chunks: &[Vec<u8>],
@@ -133,5 +138,21 @@ impl crate::contract::SessionStore for Store {
         ack: Option<(String, Value)>,
     ) -> Result<()> {
         Store::commit(self, workspace, session, ack).await
+    }
+}
+
+impl Store {
+    /// 模型用量事实的记录器（装进 core-api 的全局 sink）：只持弱引用，store 关闭后记录被丢弃，不拖住进程退出。
+    pub fn usage_recorder(&self) -> crate::contract::ModelUsageSink {
+        let weak = self.tx.downgrade();
+        Box::new(move |fact| {
+            if let Some(tx) = weak.upgrade() {
+                tokio::spawn(async move {
+                    let (reply, _) = oneshot::channel();
+                    let request = serde_json::json!({ "op": "record", "fact": fact });
+                    let _ = tx.send(Operation::Usage(request, reply)).await;
+                });
+            }
+        })
     }
 }

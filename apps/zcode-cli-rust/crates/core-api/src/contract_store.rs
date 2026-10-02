@@ -47,6 +47,10 @@ pub trait SessionStore: Send + Sync {
     async fn load_project_rules(&self, _workspace: &str) -> Result<Option<Value>> {
         Ok(None)
     }
+    /// 模型用量（TS usage store）：`{op: "record", fact}` 记录一次逻辑请求，`{op: "task", sessionId}` 按会话聚合。
+    async fn usage(&self, _request: Value) -> Result<Value> {
+        anyhow::bail!("Usage store is not available")
+    }
     /// `workflows/runs` 的 journal 读面（docs/specs/rust-dynamic-workflow.md 第 4 期前置）。
     /// 缺省表示这个 store 没有 dwf journal——TS 在 journal 缺席时同样回空页而不是报错。
     async fn workflow_runs(

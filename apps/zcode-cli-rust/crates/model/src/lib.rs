@@ -11,6 +11,7 @@ mod model_failure;
 mod model_io;
 mod model_io_project;
 mod model_media;
+mod model_usage;
 mod model_policy;
 pub mod model_protocol;
 mod model_stream;

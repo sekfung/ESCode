@@ -100,6 +100,8 @@ async fn run() -> Result<()> {
             anyhow::bail!("Session storage failed");
         }
     };
+    // 模型层的用量事实（每次逻辑请求一条）落会话库（TS usage store）；记录器只持弱引用。
+    zcode_cli_core_api::set_model_usage_sink(store.usage_recorder());
     if !args.prepare_storage {
         let import_cancel = cancel.child_token();
         let imported = async {

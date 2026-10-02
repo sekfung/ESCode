@@ -41,6 +41,8 @@ pub(super) enum Operation {
         crate::domain::dwf_journal::RunQuery,
         oneshot::Sender<Result<Vec<crate::domain::dwf_journal::JournalRun>>>,
     ),
+    /// 模型用量（storage_usage.rs）：记录事实或按会话聚合。
+    Usage(Value, oneshot::Sender<Result<Value>>),
 }
 pub(super) type SessionContextSource = zcode_cli_domain::session_context::SessionSource;
 
@@ -91,6 +93,7 @@ impl Store {
                     CREATE TABLE IF NOT EXISTS rust_message(workspace TEXT NOT NULL,session TEXT NOT NULL,ordinal INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(workspace,session,ordinal));
                     CREATE TABLE IF NOT EXISTS rust_project_rule(workspace TEXT NOT NULL,rules TEXT NOT NULL,PRIMARY KEY(workspace));")?;
                 super::dwf_journal::ensure_schema(&conn)?;
+                super::storage_usage::ensure_schema(&conn)?;
                 super::storage_listing::prepare(&conn)?;
                 conn.execute_batch("CREATE INDEX IF NOT EXISTS rust_row_command ON rust_row(workspace,session,CASE WHEN json_valid(body) THEN json_extract(body,'$.sourceCommandId') END);")?;
                 Ok(conn)
@@ -154,6 +157,9 @@ impl Store {
                     }
                     Operation::WorkflowRuns(query, reply) => {
                         let _ = reply.send(super::dwf_journal::journal_runs(&conn, &query));
+                    }
+                    Operation::Usage(request, reply) => {
+                        let _ = reply.send(super::storage_usage::handle(&conn, &request));
                     }
                 }
             }

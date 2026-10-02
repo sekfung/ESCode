@@ -254,6 +254,7 @@ impl HttpModel {
             return Err(ModelFailure::new("context_exceeded", false));
         }
         let mut empty_retries = 0;
+        let request_started = super::now();
         for attempt in 1..=self.retry.max_attempts {
             if attempt > 1 {
                 sink.send(Event::Retry(None))
@@ -293,6 +294,8 @@ impl HttpModel {
             }
             match result {
                 Ok(mut result) => {
+                    let (provider, model) = (&self.config.provider_id, &self.config.model_id);
+                    super::model_usage::record(provider, model, request_started, attempt, Ok(&result));
                     result.message["_zcode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
                     return Ok(result);
                 }
@@ -303,6 +306,8 @@ impl HttpModel {
                         || attempt == self.retry.max_attempts
                         || (failure.empty_completion && empty_retries > 0)
                     {
+                        let (provider, model) = (&self.config.provider_id, &self.config.model_id);
+                        super::model_usage::record(provider, model, request_started, attempt, Err(&failure));
                         return Err(failure);
                     }
                     if failure.empty_completion {

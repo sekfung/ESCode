@@ -139,8 +139,16 @@ impl Engine {
         let model_call = crate::contract::ModelCallScope {
             session_id: Some(id.into()),
             turn_id: Some(turn_id_for_facts.clone()),
+            // TS querySourceForTask：workflow_child / subagent_child / 其余 main_turn。
             query_source: Some(
-                if history.agent_profile.is_some() { "subagent" } else { "main_turn" }.into(),
+                if history.workflow_actor.is_some() {
+                    "workflow_child"
+                } else if history.agent_profile.is_some() {
+                    "subagent"
+                } else {
+                    "main_turn"
+                }
+                .into(),
             ),
         };
         tokio::spawn(async move {

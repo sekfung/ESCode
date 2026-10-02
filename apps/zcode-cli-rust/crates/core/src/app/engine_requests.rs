@@ -78,6 +78,11 @@ impl Engine {
             // 「完整保留模型 IO」偏好（docs/specs/rust-model-io.md 第 2 期）。
             "workspace/updateModelIoPreferences" => self.model_io_preferences(&request.params),
             "v4/conversation/fileChanges" => self.file_changes(&request.params).await,
+            // 会话用量（TS getTaskTokenUsage → usage store queryTaskUsage）。
+            "v4/conversation/usage" => {
+                let session = request.params["sessionId"].as_str().filter(|s| !s.is_empty()).context("sessionId is required")?;
+                self.store.usage(serde_json::json!({ "op": "task", "sessionId": session })).await
+            }
             // 后台 Bash 详情的输出尾窗：观察查询，不恢复冷会话（TS readBackgroundBashOutputFromOwner）。
             "v4/conversation/backgroundBashOutput" => {
                 let session = request.params["sessionId"].as_str().context("sessionId is required")?;

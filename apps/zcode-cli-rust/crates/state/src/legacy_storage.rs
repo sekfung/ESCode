@@ -67,6 +67,7 @@ pub(super) fn import(dest: &mut Connection, request: ImportRequest) -> Result<()
         &artifacts,
         &cancel,
     )?;
+    super::storage_usage::import_legacy(&tx, &snapshot, &workspace)?;
     drop(snapshot);
     check(&cancel)?;
     attempt.publish()?;
