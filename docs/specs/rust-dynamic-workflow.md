@@ -172,3 +172,12 @@ NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同
   返回值序列化同在 Node 侧（`serializeWorkflowArtifact`），Rust 只按 TS 模板渲染 response。启动器缺席时诚实降级为
   UNAVAILABLE。验收：`zcode-cli-rust-eval-workflow-snippet.test.ts`（技能门、二选一、内联 / 文件诊断、返回值与日志、抛错、
   无返回值，7 例两侧逐字一致，耗时抹掉）。
+
+## 第 4 期边界已定（2026-10-02，按用户「性能或性价比高」的要求选定）
+
+采用 **TS 引擎跑在 Node 子进程、Rust 作 driver**：脚本本就在 Node 沙箱里执行，引擎（run 状态机、actor、ask、结算）
+放进同一个子进程不多开进程；它对外的 driver 接口（`createActorSession` / `startAsk` / `respondToSubmit` / `cancelAsk`、
+journal 读写、`emit` 运行事件、world read）经 NDJSON 回调 Rust——actor 子会话、journal（SQLite）与 V4 `workflowRuns`
+投影仍由 Rust 持有。性能：工作流耗时由 actor 的模型调用主导（秒～分钟级），每个引擎步骤多一次本机往返（亚毫秒）
+可忽略，进程数与内存与「Rust 引擎 + Node 沙箱」相同；成本：不移植约 5.4k 行引擎、语义与 Node 天然一致、无漂移。
+「彻底去掉 Node」仍可在之后把执行器整体换成内嵌 JS 引擎，不影响本边界。
