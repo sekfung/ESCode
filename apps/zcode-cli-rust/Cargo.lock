@@ -2520,6 +2520,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "iana-time-zone",
  "image",
  "libc",
  "ring",

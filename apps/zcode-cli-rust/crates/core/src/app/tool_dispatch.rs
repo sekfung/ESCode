@@ -16,6 +16,8 @@ pub(super) struct ExecutionContext<'a> {
     pub memory_root: Option<&'a str>,
     /// 本轮发给模型的工具定义；执行前按其 parameters 校验入参。
     pub definitions: &'a [Value],
+    /// 本会话注册的工具（可见性过滤之前）：查不到的调用回 `Tool not found`。
+    pub registered: &'a [Value],
     /// 会话历史里是否成功加载过 `dynamic-workflows` 技能（TS 技能门 `hasLoadedSkill`）。
     pub workflow_skill_loaded: bool,
 }
@@ -35,6 +37,7 @@ pub(super) async fn execute(
         turn,
         memory_root,
         definitions,
+        registered: context_registered,
         workflow_skill_loaded,
     } = context;
     // 工作流宿主的 actor 模型基线（TS ModelSelection 形状）。
@@ -49,12 +52,18 @@ pub(super) async fn execute(
         .filter(|n| n.starts_with("mcp__"))
         .and_then(|n| tools.mcp_tool(&sink.session_id, n)?.display);
     sink.send(Event::ToolStart { call: call.clone(), display }).await?;
-    let tool_name = call["function"]["name"]
+    let mut tool_name = call["function"]["name"]
         .as_str()
         .context("Tool name missing")?
         .to_owned();
-    let name = tool_name.as_str();
     let mut call = call;
+    // TS call-runner：工具按本会话注册表查找（含别名，执行用规范名）；查不到即 `Tool not found`，不执行。
+    if let Err(content) = resolve_registered(context_registered, &mut tool_name) {
+        let output = crate::contract::ToolOutput { failed: true, ..crate::contract::ToolOutput::text(content) };
+        return Ok((call["id"].as_str().context("Tool id missing")?.into(), tool_name, output, true, false));
+    }
+    call["function"]["name"] = tool_name.clone().into();
+    let name = tool_name.as_str();
     // TS validateInitialModelToolInput：入参先按发给模型的定义 parameters 校验，失败时不请求权限、不调用工具，
     // 把问题回传模型（docs/specs/rust-tool-input-validation.md；Rust 之前 MCP 原样透传、内置工具用各自文案）。
     match checked_input(definitions, name, &call) {
@@ -313,4 +322,31 @@ fn checked_input(definitions: &[Value], name: &str, call: &Value) -> Result<Opti
         }
     }
     Ok((stripped != args).then(|| stripped.compact()))
+}
+
+/// TS ToolRegistry.get + call-runner 的 registry miss：别名（TaskStop / TaskOutput 的旧名）映射到规范名，
+/// 本会话工具面里没有的名字回 `Tool not found: <name>`；空名回 provider 原样的 `No such tool available`。
+fn resolve_registered(definitions: &[Value], name: &mut String) -> Result<(), String> {
+    const ALIASES: [(&str, &str); 6] = [
+        ("KillShell", "TaskStop"),
+        ("KillBash", "TaskStop"),
+        ("AgentOutputTool", "TaskOutput"),
+        ("BashOutputTool", "TaskOutput"),
+        ("AgentOutput", "TaskOutput"),
+        ("BashOutput", "TaskOutput"),
+    ];
+    let registered = |n: &str| definitions.iter().any(|d| d["function"]["name"] == n);
+    if name.trim().is_empty() {
+        return Err(format!("<tool_use_error>Error: No such tool available: {name}</tool_use_error>"));
+    }
+    if registered(name) {
+        return Ok(());
+    }
+    match ALIASES.iter().find(|(alias, target)| *alias == name.as_str() && registered(target)) {
+        Some((_, target)) => {
+            *name = (*target).to_owned();
+            Ok(())
+        }
+        None => Err(format!("Tool not found: {name}")),
+    }
 }

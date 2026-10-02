@@ -32,6 +32,8 @@ base64 = "0.22"
 saphyr = { version = "0.1", default-features = false }
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# 用量统计的时区偏移：本机 IANA 时区名（chrono clock 已依赖它）。
+iana-time-zone = "0.1"
 httpdate = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif"] }
 ignore = "0.4"

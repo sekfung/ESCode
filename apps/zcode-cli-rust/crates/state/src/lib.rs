@@ -18,5 +18,6 @@ mod storage_project_rules;
 mod storage_read;
 mod storage_session_context;
 mod storage_usage;
+mod storage_usage_app;
 pub use storage::Store;
 use zcode_cli_host::id;

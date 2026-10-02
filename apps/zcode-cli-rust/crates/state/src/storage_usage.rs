@@ -17,7 +17,14 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<()> {
             computed_total_tokens INTEGER NOT NULL DEFAULT 0, retry_count INTEGER NOT NULL DEFAULT 0,
             error_code TEXT);
         CREATE INDEX IF NOT EXISTS rust_model_usage_session ON rust_model_usage(session_id, started_at);
-        CREATE INDEX IF NOT EXISTS rust_model_usage_started ON rust_model_usage(started_at, provider_id, model_id);",
+        CREATE INDEX IF NOT EXISTS rust_model_usage_started ON rust_model_usage(started_at, provider_id, model_id);
+        CREATE TABLE IF NOT EXISTS rust_turn_usage(session_id TEXT NOT NULL, turn_id TEXT NOT NULL, status TEXT NOT NULL,
+            started_at INTEGER NOT NULL, completed_at INTEGER, duration_ms INTEGER, PRIMARY KEY(session_id, turn_id));
+        CREATE INDEX IF NOT EXISTS rust_turn_usage_started ON rust_turn_usage(started_at);
+        CREATE TABLE IF NOT EXISTS rust_tool_usage(session_id TEXT NOT NULL, tool_call_id TEXT NOT NULL, turn_id TEXT,
+            tool_name TEXT NOT NULL, status TEXT NOT NULL, started_at INTEGER NOT NULL, completed_at INTEGER,
+            duration_ms INTEGER, PRIMARY KEY(session_id, tool_call_id));
+        CREATE INDEX IF NOT EXISTS rust_tool_usage_started ON rust_tool_usage(started_at, tool_name);",
     )?;
     Ok(())
 }
@@ -27,6 +34,8 @@ pub(super) fn handle(conn: &Connection, request: &Value) -> Result<Value> {
     match request["op"].as_str() {
         Some("record") => record(conn, &request["fact"]).map(|_| json!({ "ok": true })),
         Some("task") => task(conn, request["sessionId"].as_str().unwrap_or_default()),
+        Some("turn") | Some("tool") => span(conn, request).map(|_| json!({ "ok": true })),
+        Some("app") => super::storage_usage_app::query(conn, request),
         other => anyhow::bail!("Unsupported usage request: {other:?}"),
     }
 }
@@ -76,6 +85,42 @@ fn record(conn: &Connection, fact: &Value) -> Result<()> {
             fact["errorCode"].as_str(),
         ],
     )?;
+    Ok(())
+}
+
+/// 回合 / 工具的一条用量事实（TS upsertTurnUsage / upsertToolUsage）。
+fn span(conn: &Connection, request: &Value) -> Result<()> {
+    let started = int(&request["startedAt"]);
+    let completed = int(&request["completedAt"]);
+    let duration = (completed - started).max(0);
+    let status = request["status"].as_str().unwrap_or("completed");
+    if request["op"] == "turn" {
+        conn.execute(
+            "INSERT OR REPLACE INTO rust_turn_usage VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                request["sessionId"].as_str(),
+                request["turnId"].as_str(),
+                status,
+                started,
+                completed,
+                duration
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT OR REPLACE INTO rust_tool_usage VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![
+                request["sessionId"].as_str(),
+                request["toolCallId"].as_str(),
+                request["turnId"].as_str(),
+                request["toolName"].as_str().unwrap_or_default(),
+                status,
+                started,
+                completed,
+                duration
+            ],
+        )?;
+    }
     Ok(())
 }
 

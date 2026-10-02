@@ -11,6 +11,10 @@ pub trait RuntimeClock: Send + Sync {
     fn local_date(&self) -> Option<String> {
         None
     }
+    /// `timeZone` 在 `at_ms` 时刻相对 UTC 的偏移（ms，TS resolveTzOffsetMs）；测试时钟按 UTC。
+    fn tz_offset_ms(&self, _time_zone: &str, _at_ms: i64) -> i64 {
+        0
+    }
 }
 pub use RuntimeClock as Clock;
 

@@ -69,6 +69,7 @@ mod subagent_completion;
 mod subagent_tools;
 mod subagent_query;
 mod workflow_actors;
+mod usage_facts;
 mod workflow_notices;
 mod subagents;
 

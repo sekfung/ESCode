@@ -295,7 +295,8 @@ impl HttpModel {
             match result {
                 Ok(mut result) => {
                     let (provider, model) = (&self.config.provider_id, &self.config.model_id);
-                    super::model_usage::record(provider, model, request_started, attempt, Ok(&result));
+                    let first = output.first_token_at;
+                    super::model_usage::record(provider, model, (request_started, first), attempt, Ok(&result));
                     result.message["_zcode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
                     return Ok(result);
                 }
@@ -307,7 +308,8 @@ impl HttpModel {
                         || (failure.empty_completion && empty_retries > 0)
                     {
                         let (provider, model) = (&self.config.provider_id, &self.config.model_id);
-                        super::model_usage::record(provider, model, request_started, attempt, Err(&failure));
+                        let first = output.first_token_at;
+                        super::model_usage::record(provider, model, (request_started, first), attempt, Err(&failure));
                         return Err(failure);
                     }
                     if failure.empty_completion {

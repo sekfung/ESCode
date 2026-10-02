@@ -69,15 +69,18 @@ pub(super) async fn run(
             &properties["inputFormat"],
         )
         .await;
+    // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
+    let turn_facts = std::mem::take(&mut history.turn);
+    super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
+    super::dynamic_workflow::retain_visible(&mut definitions, &turn_facts);
+    // TS 注册表（registerBuiltInTools 的结果）：其后只是本轮可见性过滤，被隐藏的工具仍按注册表执行
+    // （自动化轮的 Cron 写工具回自动化拒绝），注册表里没有的名字回 `Tool not found`。
+    let registered = definitions.clone();
     // TS shouldExposeWebSearch：只有声明 provider-native 搜索的模型才看到 WebSearch（rust-websearch.md）。
     if !model.native_web_search() {
         definitions.retain(|d| d["function"]["name"] != "WebSearch");
     }
-    // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
-    let turn_facts = std::mem::take(&mut history.turn);
     super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
-    super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
-    super::dynamic_workflow::retain_visible(&mut definitions, &turn_facts);
     let profiles = if definitions.iter().any(|d| d["function"]["name"] == "Agent") {
         tools.agent_profiles(cancel).await?
     } else {
@@ -273,6 +276,7 @@ pub(super) async fn run(
                             turn: &turn_facts,
                             memory_root: memory_root.as_deref(),
                             definitions: &definitions,
+                            registered: &registered,
                             workflow_skill_loaded,
                         },
                         call,

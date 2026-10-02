@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 pub(crate) fn record(
     provider_id: &str,
     model_id: &str,
-    started_ms: u64,
+    (started_ms, first_token_ms): (u64, Option<u64>),
     attempts: u32,
     result: Result<&ModelOutput, &ModelFailure>,
 ) {
@@ -36,6 +36,7 @@ pub(crate) fn record(
         "startedAt": started_ms,
         "completedAt": completed_ms,
         "durationMs": completed_ms.saturating_sub(started_ms),
+        "timeToFirstTokenMs": first_token_ms.map(|at| at.saturating_sub(started_ms)),
         "toolCallCount": tool_calls,
         "inputTokens": usage["inputTokens"],
         "outputTokens": usage["outputTokens"],

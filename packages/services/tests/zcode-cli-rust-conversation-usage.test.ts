@@ -60,10 +60,21 @@ async function observe(kind: "node" | "rust") {
     await h.completed(sessionId);
     await new Promise((done) => setTimeout(done, 500));
     const after = (await h.client.request("v4/conversation/usage", { sessionId }, parse)) as any;
+    // 应用级统计（v4/usage/stats）：耗时类字段两侧不同，抹成 0 / null 只比结构与计数。
+    const timing = /^(generatedAt|avgTimeToFirstTokenMs|avgTurnDurationMs|longestSessionMs|avgDurationMs)$/;
+    const stats = JSON.parse(
+      JSON.stringify(
+        await h.client.request("v4/usage/stats", { range: "7d", timeZone: "UTC" }, parse),
+        (key, value) => (timing.test(key) ? (value === null ? null : 0) : value),
+      ),
+    );
     await h.close();
     return {
       before: { ...(before as any), sessionId: "<sid>" },
       after: { ...after, sessionId: "<sid>" },
+      stats,
+      toolResult: requests[1]?.messages?.find((m: any) => m.tool_call_id === "g-1")?.content,
+      hasGlob: (requests[0]?.tools ?? []).some((t: any) => t.function?.name === "Glob"),
       requestCount: requests.length,
       schemaErrors: h.schemaErrors,
     };
@@ -72,7 +83,7 @@ async function observe(kind: "node" | "rust") {
   }
 }
 
-test("Node and Rust aggregate a conversation's model usage the same way", async () => {
+test("Node and Rust aggregate conversation and app usage the same way", async () => {
   const node = await observe("node");
   const rust = await observe("rust");
   assert.deepEqual(node.schemaErrors, []);

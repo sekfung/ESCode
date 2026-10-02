@@ -54,11 +54,12 @@ test("Rust coding path searches, reads, edits and runs a background test through
       assert(!last?.content?.startsWith("Tool failed"), last?.content);
       switch (step++) {
         case 0:
-          call(res, "Glob", { pattern: "**/*.txt" });
+          // 内嵌搜索开启时 Glob / Grep 不注册（TS registerBuiltInTools），检索走 Bash。
+          call(res, "Bash", { command: "ls *.txt", description: "list" }, "list");
           break;
         case 1:
           assert.match(last.content, /sample.txt/);
-          call(res, "Grep", { pattern: "wrong", glob: "*.txt", output_mode: "content" });
+          call(res, "Bash", { command: "grep -Hn wrong *.txt", description: "search" }, "search");
           break;
         case 2:
           assert.match(last.content, /sample.txt:1:wrong/);

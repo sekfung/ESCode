@@ -123,6 +123,7 @@ impl Engine {
             _ => None,
         };
         self.forward_actor_event(&id, &event.event).await;
+        self.record_usage_facts(&id, &turn, &event.event);
         let now = self.clock.now();
         let s = self.sessions.get_mut(&id).unwrap();
         let mut deltas = vec![];

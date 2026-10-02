@@ -78,6 +78,8 @@ impl Engine {
             // 「完整保留模型 IO」偏好（docs/specs/rust-model-io.md 第 2 期）。
             "workspace/updateModelIoPreferences" => self.model_io_preferences(&request.params),
             "v4/conversation/fileChanges" => self.file_changes(&request.params).await,
+            // 应用用量统计（TS getUsageStats：queryAppUsage + buildAppUsageSnapshot）。
+            "v4/usage/stats" => self.usage_stats(&request.params).await,
             // 会话用量（TS getTaskTokenUsage → usage store queryTaskUsage）。
             "v4/conversation/usage" => {
                 let session = request.params["sessionId"].as_str().filter(|s| !s.is_empty()).context("sessionId is required")?;

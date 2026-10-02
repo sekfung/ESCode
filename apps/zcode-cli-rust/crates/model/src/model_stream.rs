@@ -58,6 +58,12 @@ impl Assembly {
             self.finish = Some(reason.into());
         }
         let delta = &choice["delta"];
+        // 首个模型 token（文本、推理或工具调用增量）的时刻：用量事实的 TTFT（TS firstModelTokenAt）。
+        if output.first_token_at.is_none()
+            && delta.as_object().is_some_and(|d| d.iter().any(|(k, v)| k != "role" && !v.is_null() && v != ""))
+        {
+            output.first_token_at = Some(super::now());
+        }
         for (field, reasoning) in [(reasoning_field(delta), true), ("content", false)] {
             if let Some(part) = string(&delta[field])?
                 && !part.is_empty()
@@ -170,6 +176,7 @@ pub struct TextBuffer<'a> {
     reasoning: bool,
     pub deadline: Option<Instant>,
     pub committed: bool,
+    pub first_token_at: Option<u64>,
 }
 impl<'a> TextBuffer<'a> {
     pub fn response_id(&self) -> &str {
@@ -183,6 +190,7 @@ impl<'a> TextBuffer<'a> {
             reasoning: false,
             deadline: None,
             committed: false,
+            first_token_at: None,
         }
     }
     async fn push(&mut self, mut text: &str, reasoning: bool) -> Result<(), ModelFailure> {

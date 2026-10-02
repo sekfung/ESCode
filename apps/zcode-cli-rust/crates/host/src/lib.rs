@@ -48,6 +48,9 @@ impl contract::RuntimeClock for SystemClock {
     fn local_date(&self) -> Option<String> {
         Some(chrono::Local::now().format("%Y-%m-%d").to_string())
     }
+    fn tz_offset_ms(&self, time_zone: &str, at_ms: i64) -> i64 {
+        tz_offset_ms(time_zone, at_ms)
+    }
 }
 
 #[cfg(test)]
@@ -64,4 +67,20 @@ mod tests {
         assert_eq!(workspace_identity(Some("  "), Path::new("/repo")), "/repo");
         assert_eq!(workspace_identity(None, Path::new("/repo")), "/repo");
     }
+}
+
+/// TS `resolveTzOffsetMs`（usage-stats-builder.ts）：`timeZone` 在 `at_ms` 时刻相对 UTC 的偏移（ms）。
+/// Rust 不带 IANA 时区库：UTC 与本机时区（App 传的就是本机时区）精确，其余按 TS 无法解析时的回退取 0。
+pub fn tz_offset_ms(time_zone: &str, at_ms: i64) -> i64 {
+    use chrono::{Offset, TimeZone};
+    if matches!(time_zone, "UTC" | "Etc/UTC" | "GMT" | "Etc/GMT") {
+        return 0;
+    }
+    if iana_time_zone::get_timezone().ok().as_deref() != Some(time_zone) {
+        return 0;
+    }
+    chrono::Local
+        .timestamp_millis_opt(at_ms)
+        .single()
+        .map_or(0, |at| i64::from(at.offset().fix().local_minus_utc()) * 1000)
 }
