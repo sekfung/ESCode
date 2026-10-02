@@ -84,6 +84,10 @@ pub struct Session {
     /// docs/specs/rust-dynamic-workflow.md M1）：会话空闲时作为后台结果轮注入。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_notices: Vec<Value>,
+    /// 工作流 actor 会话的配置（`{identityPrompt, remoteTools, disallowed}`，docs/specs/rust-dynamic-workflow.md M2）：
+    /// 在场即走 actor 的系统提示词变体与工具面。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_actor: Option<Value>,
     pub id: String,
     pub workspace: String,
     pub title: String,

@@ -103,7 +103,7 @@ impl Engine {
         if matches!(
             event.event,
             Event::HostRequest { .. }
-                | Event::WorkflowSettled { .. }
+                | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
                 | Event::SessionContext { .. }
                 | Event::WorkflowRunList { .. }
                 | Event::ShellPreference { .. }
@@ -126,6 +126,7 @@ impl Engine {
             }
             _ => None,
         };
+        self.forward_actor_event(&id, &event.event).await;
         let now = self.clock.now();
         let s = self.sessions.get_mut(&id).unwrap();
         let mut deltas = vec![];
@@ -158,7 +159,7 @@ impl Engine {
             | Event::SessionContext { .. }
             | Event::WorkflowRunList { .. }
             | Event::HostRequest { .. }
-            | Event::WorkflowSettled { .. }
+            | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
             | Event::CompactDone { .. } | Event::SessionTitle { .. } => unreachable!(),
@@ -389,6 +390,7 @@ impl Engine {
             self.promote(&id).await?;
             self.deliver_children(&id).await?;
             self.deliver_workflow_notices(&id).await?;
+            self.finish_actor_turn(&id);
             self.finish_child(&id).await?;
             self.finish_session_title(&id);
         }

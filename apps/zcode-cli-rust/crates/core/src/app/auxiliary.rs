@@ -104,11 +104,22 @@ impl Engine {
     }
     pub(super) async fn auxiliary_event(&mut self, event: RunEvent) -> Result<()> {
         if event.session_id == crate::contract::HOST_CHANNEL {
-            if let Event::WorkflowSettled { session, notice } = event.event {
-                return self.workflow_settled(&session, notice).await;
+            match event.event {
+                Event::WorkflowSettled { session, notice } => {
+                    return self.workflow_settled(&session, notice).await;
+                }
+                Event::ActorRequest {
+                    method,
+                    params,
+                    reply,
+                } => {
+                    return self.actor_request(&method, &params, reply).await;
+                }
+                other => {
+                    self.host_channel_event(other);
+                    return Ok(());
+                }
             }
-            self.host_channel_event(event.event);
-            return Ok(());
         }
         let id = event.session_id;
         if event.run_id != id {

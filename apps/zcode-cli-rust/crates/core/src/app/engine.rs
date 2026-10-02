@@ -70,6 +70,8 @@ pub struct Engine {
     pub(super) memory_prompts: BTreeMap<String, crate::contract::ProjectMemory>,
     /// 会话标题 sidecar：会话 → 作业 id（docs/specs/rust-session-title.md）。
     pub(super) title_jobs: BTreeMap<String, String>,
+    /// 工作流 actor 在飞的一轮（应答句柄与用量，workflow_actors.rs）。
+    pub(super) actor_turns: BTreeMap<String, super::workflow_actors::ActorTurn>,
 }
 impl Engine {
     pub async fn new(
@@ -156,6 +158,7 @@ impl Engine {
             memory_schedulers: BTreeMap::new(),
             memory_prompts: BTreeMap::new(),
             title_jobs: BTreeMap::new(),
+            actor_turns: BTreeMap::new(),
         })
     }
     pub async fn serve(

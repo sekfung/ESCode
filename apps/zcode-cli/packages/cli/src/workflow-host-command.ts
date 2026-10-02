@@ -15,7 +15,10 @@
  * - 宿主 → Rust 通知 `{event, params}`：`runSettled {session, taskId, toolCallId, text, originMeta}`
  *   （完成通知与 Node runtime 逐字相同，见 core `formatWorkflowTaskNotificationText`）。
  *
- * M1：actor（`agent()`）在 Rust 侧接管之前以命名失败结束；run 产物 store 尚未接入。
+ * actor（M2）：远程 AgentRuntime（workflow-host-actors.ts）——每一轮由 Rust 的 actor 子会话执行。宿主经
+ * `{event: "request", id, method, params}` 向 Rust 发请求（actor.create / actor.turn / …），Rust 以
+ * `{replyTo, result | error}` 应答；Rust 的 actor.tool / actor.event 走普通请求通道进来。
+ * run 产物 store 尚未接入。
  */
 
 import { createInterface } from "node:readline";
@@ -26,6 +29,7 @@ import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createDwfJournalStore } from "@zcode/adapters/storage";
 import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
+import { createActorBridge } from "./workflow-host-actors.js";
 import {
   buildWorkflowNotificationOriginMeta,
   builtInTools,
@@ -63,6 +67,19 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const send = (message: unknown): void => {
     process.stdout.write(`${JSON.stringify(message)}\n`);
   };
+  // 宿主 → Rust 的请求（actor 会话操作）：按 id 等应答。
+  let nextRustId = 0;
+  const rustPending = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>();
+  const rustRequest = (method: string, params: Record<string, unknown>): Promise<any> =>
+    new Promise((resolve, reject) => {
+      const id = `h${++nextRustId}`;
+      rustPending.set(id, { resolve, reject });
+      send({ event: "request", id, method, params });
+    });
+  /** actor 会话 → 它所属会话的桥（actor.tool / actor.event 据此路由）。 */
+  const actorBridges = new Map<string, ReturnType<typeof createActorBridge>>();
+  /** 每个父会话最近一次工作流工具调用带来的模型选择（actor 的模型基线）。 */
+  const selections = new Map<string, Record<string, unknown>>();
   const entry = (name: string) => {
     const found = builtInTools.find((tool) => tool.metadata.name === name);
     if (found === undefined || !HOST_TOOLS.has(name)) throw new Error(`Unknown workflow tool: ${name}`);
@@ -77,11 +94,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
         parentSessionId: session,
         fileSystemPort,
         executionPort,
-        createActorRuntime: () => {
-          throw new Error(
-            "Workflow actors (agent()) are not available in the Rust runtime yet; run scripts without agent() calls.",
-          );
-        },
+        createActorRuntime: (() => {
+          const bridge = createActorBridge(rustRequest, session, () => selections.get(session));
+          return (input: Record<string, any>) => {
+            actorBridges.set(String(input.sessionId), bridge);
+            return bridge.createActorRuntime(input);
+          };
+        })() as never,
       });
       services.set(session, existing);
     }
@@ -121,6 +140,9 @@ export async function runWorkflowHostCommand(): Promise<number> {
 
   const handle = async (request: Request): Promise<unknown> => {
     const params = request.params ?? {};
+    if (typeof params.session === "string" && params.selection !== undefined) {
+      selections.set(params.session, params.selection);
+    }
     switch (request.method) {
       case "init": {
         const db = new DatabaseSync(params.dbPath as string);
@@ -162,6 +184,14 @@ export async function runWorkflowHostCommand(): Promise<number> {
           inflight.delete(params.callId);
         }
       }
+      case "actor.tool": {
+        const bridge = actorBridges.get(params.actorSession);
+        if (bridge === undefined) return { content: "Unknown workflow actor session", isError: true };
+        return bridge.handleTool(params);
+      }
+      case "actor.event":
+        actorBridges.get(params.actorSession)?.handleEvent(params);
+        return { ok: true };
       case "tool.cancel":
         inflight.get(params.callId)?.abort();
         return { ok: true };
@@ -179,10 +209,18 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
   for await (const line of lines) {
     if (line.trim().length === 0) continue;
-    let request: Request;
+    let request: Request & { replyTo?: string; result?: unknown; error?: string };
     try {
-      request = JSON.parse(line) as Request;
+      request = JSON.parse(line) as typeof request;
     } catch {
+      continue;
+    }
+    // Rust 对宿主请求的应答。
+    if (request.replyTo !== undefined) {
+      const pending = rustPending.get(request.replyTo);
+      rustPending.delete(request.replyTo);
+      if (request.error !== undefined) pending?.reject(new Error(request.error));
+      else pending?.resolve(request.result);
       continue;
     }
     void handle(request).then(

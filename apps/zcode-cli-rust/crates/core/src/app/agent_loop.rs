@@ -37,6 +37,14 @@ pub(super) async fn run(
     if let Some(profile) = &profile {
         definitions.retain(|d| profile.allows(d["function"]["name"].as_str().unwrap_or("")));
     }
+    // 工作流 actor（docs/specs/rust-dynamic-workflow.md M2）：全集减禁用列表，再加宿主裁决的远程工具。
+    let actor_identity = history
+        .workflow_actor
+        .as_ref()
+        .and_then(|actor| actor["identityPrompt"].as_str().map(str::to_owned));
+    if let Some(actor) = history.workflow_actor.clone() {
+        super::workflow_actors::actor_definitions(&actor, &mut definitions);
+    }
     if !skills.enabled {
         definitions.retain(|d| d["function"]["name"] != "Skill");
     }
@@ -146,6 +154,7 @@ pub(super) async fn run(
                 .memory
                 .as_ref()
                 .map(|m| (m.root.as_str(), memory_index.as_deref())),
+            actor_identity.as_deref(),
         );
         // Node 的请求里技能提醒位于上下文提醒（As you answer the user…）之前；之前追加在末尾，
         // 有插件技能时两条 reminder 顺序与 Node 相反（node_repl 差分发现）。

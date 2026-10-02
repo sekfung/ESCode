@@ -38,6 +38,8 @@ pub(super) struct RunContext {
     /// `features.subagent`：false 时本轮不向模型暴露 Agent/SendMessage（TS 不注入 SubagentPort）。
     pub subagents_enabled: bool,
     pub agent_profile: Option<crate::domain::subagent::Profile>,
+    /// 工作流 actor 会话的配置（Session.workflow_actor）。
+    pub workflow_actor: Option<serde_json::Value>,
     pub goal: Option<crate::domain::goal::Goal>,
     pub skills: Option<crate::domain::skills::SkillCatalog>,
     pub prompt_snapshot: Option<crate::domain::prompt::PromptSnapshot>,
@@ -66,6 +68,7 @@ impl RunContext {
             turn: TurnFacts::default(),
             subagents_enabled: true,
             agent_profile: None,
+            workflow_actor: None,
             goal: None,
             skills: None,
             prompt_snapshot: None,

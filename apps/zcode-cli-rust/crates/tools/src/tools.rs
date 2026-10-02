@@ -4,7 +4,6 @@ use crate::contract::{EventSink, ToolOutput, ToolPort};
 use anyhow::Result;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
-
 #[async_trait::async_trait]
 impl ToolPort for WorkspaceTools {
     async fn browser_turn_screenshot(&self, session: &str, turn: &str) -> Option<Value> {
@@ -26,12 +25,19 @@ impl ToolPort for WorkspaceTools {
         call_id: &str,
         name: &str,
         args: &Value,
+        selection: &Value,
         cancel: &CancellationToken,
     ) -> Option<Result<ToolOutput>> {
+        if super::workflow_tools::ACTOR_TOOLS.contains(&name) {
+            return Some(super::workflow_tools::execute_actor_tool(self, session, call_id, name, args).await);
+        }
         if !super::workflow_host::TOOLS.contains(&name) {
             return None;
         }
-        Some(super::workflow_tools::execute(self, session, call_id, name, args, cancel).await)
+        Some(super::workflow_tools::execute(self, session, call_id, name, args, selection, cancel).await)
+    }
+    async fn workflow_actor_event(&self, actor_session: &str, event: Value) {
+        self.workflow_host.notify("actor.event", serde_json::json!({ "actorSession": actor_session, "event": event }));
     }
     async fn file_changes(
         &self,

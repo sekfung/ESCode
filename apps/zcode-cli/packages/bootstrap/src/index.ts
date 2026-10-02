@@ -69,6 +69,8 @@ export { runZCodeProtocolAgent } from "./zcode-protocol-entrypoint.js";
 // Rust runtime 的 snippet 子进程（cli/src/workflow-snippet-command.ts）复用同一个执行面。
 export { createDynamicWorkflowSnippetService } from "./app/dynamic-workflow-snippet-service.js";
 export { createDynamicWorkflowRunService } from "./app/dynamic-workflow-run-service.js";
+export { workflowActorToolPolicy } from "./app/workflow-actor-tools.js";
+export { workflowActorModelPolicy } from "./app/workflow-actor-model.js";
 // Exposed for the CLI's --output-format stream-json: it needs the same event
 // shape the protocol server emits, rather than inventing a second one.
 export { mapSessionEvent } from "./zcode-protocol/session-mapper.js";

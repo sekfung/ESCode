@@ -62,6 +62,7 @@ impl Engine {
         history.skills = session.skills.clone();
         history.goal = session.goal.clone();
         history.agent_profile = session.agent_profile.clone();
+        history.workflow_actor = session.workflow_actor.clone();
         let input = session
             .history
             .inputs

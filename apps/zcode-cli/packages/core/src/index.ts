@@ -20,6 +20,8 @@ export type { ToolSchedule, ToolScheduleItem, ToolDependency } from "./tool/sche
 export { createToolRegistry, ToolRegistry, ToolRegistryImpl } from "./tool/registry.js";
 export { createToolExecutor, ToolExecutor, ToolExecutorImpl } from "./tool/executor.js";
 export { builtInTools, registerBuiltInTools } from "./tool/handlers/index.js";
+// Rust runtime 的工作流 actor 会话（宿主计算身份段交给 Rust）。
+export { buildWorkflowActorIdentityPrompt } from "./context/sections/workflow-actor.js";
 // Rust runtime 的工作流宿主用它生成与 Node runtime 逐字相同的完成通知。
 export {
   buildWorkflowNotificationOriginMeta,

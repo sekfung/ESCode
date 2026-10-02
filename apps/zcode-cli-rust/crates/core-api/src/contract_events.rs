@@ -104,6 +104,13 @@ pub enum Event {
         session: String,
         notice: Value,
     },
+    /// 工作流宿主对 actor 会话的请求（`actor.create` / `actor.turn` / `actor.cancel` / `actor.close` /
+    /// `actor.tools`，docs/specs/rust-dynamic-workflow.md「M2 设计」）：会话 owner 执行并经 `reply` 应答。
+    ActorRequest {
+        method: String,
+        params: Value,
+        reply: oneshot::Sender<std::result::Result<Value, String>>,
+    },
     /// 后台工作区作业回复前的协议通知（如 `plugins/operationProgress`），按发出顺序转给 Host。
     AuxiliaryNotify {
         method: String,

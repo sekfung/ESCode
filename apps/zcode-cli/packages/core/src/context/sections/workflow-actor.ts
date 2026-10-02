@@ -45,7 +45,7 @@ function buildWorkflowContract(): string {
   ].join("\n");
 }
 
-function buildWorkflowActorIdentityPrompt(actor: WorkflowActorContext): string {
+export function buildWorkflowActorIdentityPrompt(actor: WorkflowActorContext): string {
   const name = actor.name?.trim();
   const named = name ? `, named "${name}"` : "";
   const opening = [

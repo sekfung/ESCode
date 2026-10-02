@@ -71,6 +71,7 @@ pub fn prefix(
     desktop: bool,
     skill_guidance: bool,
     memory: Option<(&str, Option<&str>)>,
+    actor_identity: Option<&str>,
 ) -> Vec<Value> {
     let templates = templates();
     let stable = if desktop {
@@ -101,10 +102,17 @@ pub fn prefix(
     let memory_section = memory
         .map(|(root, _)| format!("\n\n{}", super::memory::section(root)))
         .unwrap_or_default();
-    let mut dynamic = format!(
-        "\n\n{}{guidance}{memory_section}\n\n{env}\n\n{}",
-        templates.behavior, templates.context_management
-    );
+    // TS ContextBuilder 的工作流 actor 路径：无行为段与会话指引（它们面向「与用户对话」）。
+    let mut dynamic = match actor_identity {
+        Some(_) => format!(
+            "{memory_section}\n\n{env}\n\n{}",
+            templates.context_management
+        ),
+        None => format!(
+            "\n\n{}{guidance}{memory_section}\n\n{env}\n\n{}",
+            templates.behavior, templates.context_management
+        ),
+    };
     if let Some(git) = &snapshot.git {
         dynamic.push_str("\n\ngitStatus: This is the git status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation.");
         for (label, value) in [
@@ -129,9 +137,19 @@ pub fn prefix(
             git.recent_commits
         ));
     }
-    let mut messages = [&templates.cli, &stable, &dynamic].map(|content| {
-        json!({"role":"system","content":content,"_zcode_cache_control":{"type":"ephemeral"}})
-    }).to_vec();
+    // 工作流 actor 没有 CLI 前缀，身份段换成 actor 身份（TS buildWorkflowActorIdentitySection）。
+    // actor 的身份段与动态段在 TS 里合成同一条 system 消息。
+    let actor_system = actor_identity.map(|identity| format!("{identity}{dynamic}"));
+    let system: Vec<&str> = match &actor_system {
+        Some(merged) => vec![merged],
+        None => vec![&templates.cli, &stable, &dynamic],
+    };
+    let mut messages = system
+        .into_iter()
+        .map(|content| {
+            json!({"role":"system","content":content,"_zcode_cache_control":{"type":"ephemeral"}})
+        })
+        .collect::<Vec<_>>();
     let mut sections = vec![];
     for source in sources {
         let body = if source.truncated {

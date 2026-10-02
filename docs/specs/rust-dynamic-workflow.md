@@ -232,3 +232,12 @@ epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模�
   `ACTOR_DISALLOWED_TOOLS`（AskUserQuestion / EnterPlanMode / ExitPlanMode / CreateWorkflow / AmendWorkflow /
   ReadSessionContext / ResolveWorkflowQuestion）加远程工具；模型 = run 的 `subagent_model` > pin > 父会话当前选择。
 - 顺带补上 Rust 的 `ModelNetworkStatus` 事件（排队 / 发出 / 重试排定），它也是 App 侧 TTFT / 请求遥测缺口的底座。
+
+**M2 落地（2026-10-02）**：远程 runtime 在 `cli/src/workflow-host-actors.ts`；Rust 侧在 `core/src/app/workflow_actors.rs`。
+与设计的差异与补充：模型选择由宿主按 `workflowActorModelPolicy` 算好后以 `selection` 传入（driver 在造好 runtime 后同步读
+`getSessionModelSelection`）；`ensureSessionPersistedForExternalActivity(title)` → `actor.title`（会话标题
+`workflow subagent <ref>`）。为与 Node 的 `script-workflow-child-runtime` 逐字一致，actor 会话还：
+环境段 Shell 取 `basename(SHELL ?? ComSpec)`（child 不套会话 shell 选择）；技能清单只保留用户 / 项目技能（child 的技能端口
+不含插件与内置技能包）；工具面另减 workflow_child 的结构性缺席（`WORKFLOW_CHILD_DISALLOWED_TOOLS`、subagents 关闭的
+Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
+工具面、submit_result schema、CreateWorkflow 结果与完成通知两侧一致）。`resumeFromStore`（转录种子）留在 M3。

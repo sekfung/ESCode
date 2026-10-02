@@ -35,7 +35,7 @@ struct Process {
 
 #[derive(Default)]
 pub(crate) struct WorkflowHost {
-    process: Mutex<Option<Process>>,
+    process: Arc<Mutex<Option<Process>>>,
     pending: Pending,
     next_id: std::sync::atomic::AtomicU64,
     db_path: OnceLock<PathBuf>,
@@ -82,6 +82,16 @@ impl WorkflowHost {
         }
     }
 
+    /// 不等应答的通知（actor 运行事件）：宿主未起时直接丢弃。
+    pub(crate) fn notify(self: &Arc<Self>, method: &'static str, params: Value) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            if this.process.lock().await.is_some() {
+                let _ = this.request(method, params).await;
+            }
+        });
+    }
+
     async fn spawn(&self) -> Result<Process> {
         let (exec, entrypoint) = launcher()
             .context("Workflow execution is unavailable: the Host did not provide a Node launcher")?;
@@ -104,6 +114,7 @@ impl WorkflowHost {
         let mut stdin = child.stdin.take().context("workflow host stdin")?;
         let stdout = child.stdout.take().context("workflow host stdout")?;
         let (pending, host) = (self.pending.clone(), self.host.clone());
+        let process = self.process.clone();
         tokio::spawn(async move {
             let mut lines = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = lines.next_line().await {
@@ -117,6 +128,40 @@ impl WorkflowHost {
                             None => Ok(message["result"].clone()),
                         });
                     }
+                    continue;
+                }
+                // 宿主对 actor 会话的请求：交给会话 owner，应答以 `{replyTo, result | error}` 写回宿主。
+                if message["event"] == "request"
+                    && let (Some(id), Some(sink)) = (message["id"].as_str(), host.get())
+                {
+                    let (reply, receipt) = oneshot::channel();
+                    let event = Event::ActorRequest {
+                        method: message["method"].as_str().unwrap_or_default().to_owned(),
+                        params: message["params"].clone(),
+                        reply,
+                    };
+                    let (id, sink, process) = (id.to_owned(), sink.clone(), process.clone());
+                    tokio::spawn(async move {
+                        let answer = if sink.send(event).await.is_err() {
+                            Err("Rust runtime is shutting down".to_owned())
+                        } else {
+                            receipt
+                                .await
+                                .unwrap_or_else(|_| Err("Actor request dropped".to_owned()))
+                        };
+                        let line = match answer {
+                            Ok(result) => json!({ "replyTo": id, "result": result }),
+                            Err(error) => json!({ "replyTo": id, "error": error }),
+                        };
+                        if let Some(process) = process.lock().await.as_mut() {
+                            let _ = process
+                                .stdin
+                                .write_all(format!("{line}
+").as_bytes())
+                                .await;
+                            let _ = process.stdin.flush().await;
+                        }
+                    });
                     continue;
                 }
                 if message["event"] == "runSettled"

@@ -230,10 +230,13 @@ pub trait ToolPort: Send + Sync {
         _call_id: &str,
         _name: &str,
         _args: &Value,
+        _selection: &Value,
         _cancel: &CancellationToken,
     ) -> Option<Result<crate::ToolOutput>> {
         None
     }
+    /// actor 会话的运行事件（工具开始 / 结束、模型请求），转交工作流宿主合成 TS SessionEvent。
+    async fn workflow_actor_event(&self, _actor_session: &str, _event: Value) {}
     /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
     /// `refresh = true` 刷新官方目录后给出最终结果。
     async fn plugin_suggested_reference(

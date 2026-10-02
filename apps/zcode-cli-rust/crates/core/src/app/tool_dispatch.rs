@@ -37,6 +37,10 @@ pub(super) async fn execute(
         definitions,
         workflow_skill_loaded,
     } = context;
+    // 工作流宿主的 actor 模型基线（TS ModelSelection 形状）。
+    let selection_json = selection.as_ref().map_or(Value::Null, |s| {
+        serde_json::json!({"providerId": s.provider_id, "modelId": s.model_id, "options": {"reasoningLevel": s.reasoning_level}})
+    });
     if cancel.is_cancelled() {
         bail!("Cancelled");
     }
@@ -170,7 +174,7 @@ pub(super) async fn execute(
                 )
             }
             Ok(args) if let Some(output) = tools
-                .execute_workflow(&sink.session_id, call["id"].as_str().unwrap_or_default(), name, &args, cancel)
+                .execute_workflow(&sink.session_id, call["id"].as_str().unwrap_or_default(), name, &args, &selection_json, cancel)
                 .await =>
             {
                 output
