@@ -27,6 +27,7 @@ export {
   buildWorkflowNotificationOriginMeta,
   formatWorkflowTaskNotificationText,
 } from "./tool/executor/background-tasks.js";
+export { buildWorkflowRunProgressNotification } from "./runtime/methods/dynamic-workflow-run-progress.js";
 // dwf driver 的 submit profile 运行时守卫要把 typed 声明换回通用声明。
 export {
   createSubmitResultToolEntry,

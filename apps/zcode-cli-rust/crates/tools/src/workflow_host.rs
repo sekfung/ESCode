@@ -164,7 +164,8 @@ impl WorkflowHost {
                     });
                     continue;
                 }
-                if message["event"] == "runSettled"
+                // 结算与 run 中通知（升级问答 / 停滞）同一条投递路（后台结果轮）。
+                if (message["event"] == "runSettled" || message["event"] == "runNotice")
                     && let Some(sink) = host.get()
                 {
                     let params = message["params"].clone();

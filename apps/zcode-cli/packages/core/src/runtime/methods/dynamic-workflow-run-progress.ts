@@ -1,8 +1,10 @@
 import {
   SessionEventType,
   type DynamicWorkflowRunProgressPayload,
+  type Logger,
   type TraceContext,
 } from "../deps.js";
+import type { BackgroundResultOriginMeta } from "@zcode/contracts";
 import {
   formatWorkflowEscalationNotification,
   formatWorkflowStallNotification,
@@ -35,8 +37,29 @@ export async function recordDynamicWorkflowRunProgress(
     ),
     traceContext,
   );
-  notifyEscalationRaised.call(this, payload, traceContext);
-  notifyRunStalled.call(this, payload, traceContext);
+  const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
+  const notification = buildWorkflowRunProgressNotification(payload, runLabel, this.logger);
+  if (notification === undefined) return;
+  // taskId = runId：通知继承该 run 的 branchGeneration（迟到通知的 fencing）；兜底是快照查询。
+  this.enqueueBackgroundTaskNotification({ ...notification, taskId: payload.runId, traceContext });
+}
+
+type ProgressNotification = { text: string; originMeta: BackgroundResultOriginMeta };
+
+/**
+ * run 中通知的纯构造：`escalation-raised` / `run-stalled` → 模型可见文本 + originMeta，其余事件不出通知。
+ * Rust runtime 的工作流宿主复用它（docs/specs/rust-dynamic-workflow.md M3），两侧逐字一致。
+ * `runLabel` 是展示名（registry 条目的 description → runId 的兜底链由调用方给出）。
+ */
+export function buildWorkflowRunProgressNotification(
+  payload: DynamicWorkflowRunProgressPayload,
+  runLabel: string,
+  logger?: Logger,
+): ProgressNotification | undefined {
+  return (
+    escalationRaisedNotification(payload, runLabel, logger) ??
+    runStalledNotification(payload, runLabel, logger)
+  );
 }
 
 /** run 级停滞的事件种类（引擎的 `RunEvent.type`）。 */
@@ -47,30 +70,29 @@ const RUN_STALLED_EVENT_TYPE = "run-stalled";
  * 纪律：每条事件恰好一条通知（driver 侧每个 stall 段只发一次，成功后重新上膛才会有下一条）；
  * 不催办；绝不抛异常——载荷形状不对就跳过并记一条日志。
  */
-function notifyRunStalled(
-  this: AgentRuntimeInternal,
+function runStalledNotification(
   payload: DynamicWorkflowRunProgressPayload,
-  traceContext: TraceContext,
-): void {
-  if (payload.eventType !== RUN_STALLED_EVENT_TYPE) return;
+  runLabel: string,
+  logger?: Logger,
+): ProgressNotification | undefined {
+  if (payload.eventType !== RUN_STALLED_EVENT_TYPE) return undefined;
   const sinceMs = payload.payload.sinceMs;
   if (typeof sinceMs !== "number" || !Number.isFinite(sinceMs) || sinceMs < 0) {
-    this.logger?.warn?.("Dynamic workflow stall notification skipped: malformed payload", {
+    logger?.warn?.("Dynamic workflow stall notification skipped: malformed payload", {
       event: "dynamic_workflow.stall.notification_skipped",
       module: "core.runtime",
       runId: payload.runId,
       sequence: payload.sequence,
     });
-    return;
+    return undefined;
   }
-  const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
   const reason = stringField(payload.payload, "reason");
   const capValue = payload.payload.cap;
   const cap =
     typeof capValue === "number" && Number.isFinite(capValue) && capValue >= 0
       ? Math.floor(capValue)
       : undefined;
-  this.enqueueBackgroundTaskNotification({
+  return {
     originMeta: {
       backgroundSource: "workflow",
       title: runLabel,
@@ -82,7 +104,6 @@ function notifyRunStalled(
         ...(cap === undefined ? {} : { cap }),
       },
     },
-    taskId: payload.runId,
     text: formatWorkflowStallNotification({
       runLabel,
       runId: payload.runId,
@@ -90,8 +111,7 @@ function notifyRunStalled(
       ...(reason === undefined ? {} : { reason }),
       ...(cap === undefined ? {} : { cap }),
     }),
-    traceContext,
-  });
+  };
 }
 
 /** 升级问答的事件种类（引擎的 `RunEvent.type`，经进度载荷的 `eventType` 到达）。 */
@@ -110,28 +130,27 @@ const ESCALATION_RAISED_EVENT_TYPE = "escalation-raised";
  *   - **绝不抛异常**：这是观察面，而 run 的真相在 journal。载荷形状不对就跳过并记一条日志——
  *     它跨了端口边界又被有界化裁剪过，防御性读取是它应得的待遇。
  */
-function notifyEscalationRaised(
-  this: AgentRuntimeInternal,
+function escalationRaisedNotification(
   payload: DynamicWorkflowRunProgressPayload,
-  traceContext: TraceContext,
-): void {
-  if (payload.eventType !== ESCALATION_RAISED_EVENT_TYPE) return;
+  runLabel: string,
+  logger?: Logger,
+): ProgressNotification | undefined {
+  if (payload.eventType !== ESCALATION_RAISED_EVENT_TYPE) return undefined;
 
   const qid = stringField(payload.payload, "qid");
   const question = stringField(payload.payload, "question");
   if (qid === undefined || question === undefined) {
-    this.logger?.warn?.("Dynamic workflow escalation notification skipped: malformed payload", {
+    logger?.warn?.("Dynamic workflow escalation notification skipped: malformed payload", {
       event: "dynamic_workflow.escalation.notification_skipped",
       module: "core.runtime",
       runId: payload.runId,
       sequence: payload.sequence,
     });
-    return;
+    return undefined;
   }
 
   // 展示名的兜底链与终态通知同源：registry 条目的 description（CreateWorkflow 的 name /
-  // 脚本首行派生）→ runId。刻意不去查端口——通知是同步产出的，而这条路径不做 I/O。
-  const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
+  // 脚本首行派生）→ runId，由调用方给出。刻意不去查端口——通知是同步产出的，而这条路径不做 I/O。
   const context = stringField(payload.payload, "context");
   // 匿名 actor 没有 actorName（引擎刻意不合成兜底标签，见 RunEvent 的注释）：这里落到
   // 结构化 ref `site@ordinal`，它在 run 内唯一定位，读成句子也还过得去。通知文本与 manifest
@@ -140,7 +159,7 @@ function notifyEscalationRaised(
   // askedAt 是 epoch ms，可能缺席（stringField 读不出数字，只能防御性直读）。
   const askedAt = payload.payload.askedAt;
 
-  this.enqueueBackgroundTaskNotification({
+  return {
     originMeta: {
       backgroundSource: "workflow",
       title: runLabel,
@@ -159,8 +178,6 @@ function notifyEscalationRaised(
         ...(typeof askedAt === "number" && Number.isFinite(askedAt) ? { askedAt } : {}),
       },
     },
-    // taskId 让通知继承该 run 的 branchGeneration（迟到通知的 fencing）；兜底是快照查询。
-    taskId: payload.runId,
     text: formatWorkflowEscalationNotification({
       runLabel,
       runId: payload.runId,
@@ -169,8 +186,7 @@ function notifyEscalationRaised(
       question,
       ...(context === undefined ? {} : { context }),
     }),
-    traceContext,
-  });
+  };
 }
 
 /** manifest 载荷里 question / context 的界（shared schema：≤4000 字符）。 */

@@ -12,7 +12,8 @@
  *     输出带 `backgroundTaskId` 时宿主接着等这个 run 结算，再发 `runSettled` 通知。
  *   - `tool.cancel {callId}`：中止在飞的 handler。
  *   - `session.close {session}`：停下该会话名下在飞的 run 并释放服务。
- * - 宿主 → Rust 通知 `{event, params}`：`runSettled {session, taskId, toolCallId, text, originMeta}`
+ * - 宿主 → Rust 通知 `{event, params}`：`runSettled {session, taskId, toolCallId, text, originMeta}`、
+ *   `runNotice {session, taskId, noticeId, text, originMeta}`（run 中的升级问答 / 停滞通知）
  *   （完成通知与 Node runtime 逐字相同，见 core `formatWorkflowTaskNotificationText`）。
  *
  * actor（M2）：远程 AgentRuntime（workflow-host-actors.ts）——每一轮由 Rust 的 actor 子会话执行。宿主经
@@ -33,6 +34,7 @@ import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import {
   buildWorkflowNotificationOriginMeta,
+  buildWorkflowRunProgressNotification,
   builtInTools,
   formatWorkflowTaskNotificationText,
 } from "@zcode/core";
@@ -81,6 +83,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const actorBridges = new Map<string, ReturnType<typeof createActorBridge>>();
   /** 每个父会话最近一次工作流工具调用带来的模型选择（actor 的模型基线）。 */
   const selections = new Map<string, Record<string, unknown>>();
+  /** run → 展示名（TS registry 条目的 description：输出 name → 入参 description / name / scriptPath）。 */
+  const runLabels = new Map<string, string>();
   const entry = (name: string) => {
     const found = builtInTools.find((tool) => tool.metadata.name === name);
     if (found === undefined || !HOST_TOOLS.has(name)) throw new Error(`Unknown workflow tool: ${name}`);
@@ -95,6 +99,17 @@ export async function runWorkflowHostCommand(): Promise<number> {
         parentSessionId: session,
         fileSystemPort,
         executionPort,
+        // run 中通知（升级问答 / 停滞）：与 Node runtime 的进度汇同一个格式器，交给 Rust 作为后台结果轮。
+        onRunEvent: (progress, routing) => {
+          const runLabel = runLabels.get(progress.runId) ?? progress.runId;
+          const notification = buildWorkflowRunProgressNotification(progress, runLabel);
+          if (notification === undefined) return;
+          const noticeId = String(progress.payload.qid ?? `${progress.eventType}:${progress.sequence}`);
+          send({
+            event: "runNotice",
+            params: { session: routing.parentSessionId ?? session, taskId: progress.runId, noticeId, ...notification },
+          });
+        },
         createActorRuntime: (() => {
           const bridge = createActorBridge(rustRequest, session, () => selections.get(session));
           return (input: Record<string, any>) => {
@@ -176,6 +191,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
             toolContext(params, controller.signal) as never,
           )) as Record<string, unknown>;
           const content = tool.formatModelContent ? tool.formatModelContent(output) : JSON.stringify(output);
+          if (typeof output.backgroundTaskId === "string") {
+            const input = (params.input ?? {}) as Record<string, unknown>;
+            const label = [output.name, input.description, input.name, input.scriptPath].find(
+              (value): value is string => typeof value === "string",
+            );
+            if (label !== undefined) runLabels.set(output.backgroundTaskId, label);
+          }
           void trackRun(params, output).catch((error: unknown) => {
             send({
               event: "hostError",

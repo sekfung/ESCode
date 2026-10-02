@@ -1,4 +1,4 @@
-//! 工作流 run 的完成通知（docs/specs/rust-dynamic-workflow.md M1）：工作流宿主经工具层 Host 通道报告结算，
+//! 工作流 run 的完成通知与 run 中通知（docs/specs/rust-dynamic-workflow.md M1 / M3）：工作流宿主经工具层 Host 通道报告结算，
 //! 通知文本与 originMeta 由宿主用 TS 同一个格式器生成。会话空闲时作为一个后台结果轮注入（与后台子代理
 //! 的续跑同一条路：`admit_input` → 行标 `backgroundResult` → 起跑），忙时留在会话里等下一次空闲。
 use super::Engine;
@@ -14,8 +14,13 @@ impl Engine {
         let Some(session) = self.sessions.get_mut(id) else {
             return Ok(());
         };
-        let task = notice["taskId"].clone();
-        if session.workflow_notices.iter().any(|n| n["taskId"] == task) {
+        // 同一条通知只排一次：结算按 run 去重，run 中通知（升级问答 / 停滞）另带 noticeId。
+        let key = (notice["taskId"].clone(), notice["noticeId"].clone());
+        if session
+            .workflow_notices
+            .iter()
+            .any(|n| (n["taskId"].clone(), n["noticeId"].clone()) == key)
+        {
             return Ok(());
         }
         session.workflow_notices.push(notice);
