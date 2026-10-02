@@ -181,3 +181,22 @@ journal 读写、`emit` 运行事件、world read）经 NDJSON 回调 Rust——
 投影仍由 Rust 持有。性能：工作流耗时由 actor 的模型调用主导（秒～分钟级），每个引擎步骤多一次本机往返（亚毫秒）
 可忽略，进程数与内存与「Rust 引擎 + Node 沙箱」相同；成本：不移植约 5.4k 行引擎、语义与 Node 天然一致、无漂移。
 「彻底去掉 Node」仍可在之后把执行器整体换成内嵌 JS 引擎，不影响本边界。
+
+## 运行面实现计划（第 4–7 期，2026-10-02）
+
+边界（承上节）：**Node 工作流宿主**（CLI 隐藏子命令 `__zcode-workflow-host`，每个 Rust 进程一个、常驻）复用 TS 的
+run 服务（`createDynamicWorkflowRunService`：launch / submit / 标签 / 生命周期 / world read / 结算）与工作流工具 handler
+（CreateWorkflow / AmendWorkflow / ResumeWorkflowRun / GetWorkflowRun / ResolveWorkflowQuestion 的 validate / resolve /
+prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`，`node:sqlite`）直接写 Rust 会话库的 `dwf_*`
+表（Rust 建表、拥有库；WAL + busy_timeout 允许多进程）。Rust 负责工具派发与权限确认（`prepare_tool` 钩子）、会话、
+后台完成通知注入父会话、V4 投影，以及（M2）actor 的执行。
+
+- **M1**（无 actor 脚本）：宿主协议 `tool.prepare` / `tool.execute` / `session.close`（Rust→宿主，按 id 多路复用）与
+  `runEvent` / `runSettled`（宿主→Rust 通知，完成通知文案由宿主用 TS `runtime-task/notification.ts` 生成）；Rust 侧
+  宿主客户端、工作流完成通知注入父会话（与 Bash / 子代理后台通知平行的一条）、CreateWorkflow / GetWorkflowRun 接线；
+  actor 脚本在 M2 前以命名失败结束。验收：无 actor 脚本的 CreateWorkflow → 后台结算 → 通知续跑，两侧模型面一致。
+- **M2**（actor）：run 服务新增 `makeDriver` 注入口，宿主的代理 driver 把 `createActorSession` / `startAsk` /
+  `respondToSubmit` / `cancelAsk` 交给 Rust；Rust 以子会话执行 ask（submit 工具、repair / nudge 轮、用量 / 进度 / 等待 /
+  写入观察经 sink 回报），对齐 TS `workflow-driver*.ts`。
+- **M3**：Resume / Amend、升级问答（ResolveWorkflowQuestion）、V4 `workflowRuns` 投影与 `workflowRunDeltas`、`/workflow`
+  命令、run 产物（artifact store）。
