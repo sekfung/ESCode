@@ -29,6 +29,8 @@ pub struct WorkspaceTools {
     pub(super) analyzer: Arc<super::workflow_analyzer::WorkflowAnalyzer>,
     /// 动态工作流宿主（CreateWorkflow 等的 run 服务与 handler）。
     pub(super) workflow_host: Arc<super::workflow_host::WorkflowHost>,
+    /// 会话是否配置了 hooks（hooks.rs）：首次调用时判定并缓存。
+    pub(super) hook_presence: Mutex<HashMap<String, bool>>,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
@@ -36,6 +38,7 @@ impl WorkspaceTools {
             mcp: super::mcp_hub::Hub::new(cwd.clone()),
             analyzer: Arc::default(),
             workflow_host: Arc::default(),
+            hook_presence: Mutex::new(HashMap::new()),
             workspace_path: cwd.clone(),
             cwd,
             artifacts,

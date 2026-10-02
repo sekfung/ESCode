@@ -179,7 +179,8 @@ impl WorkflowHost {
                 // `workflowRuns`（V4 状态键）也走这条：owner 按 `kind` 分流。
                 if (message["event"] == "runSettled"
                     || message["event"] == "runNotice"
-                    || message["event"] == "workflowRuns")
+                    || message["event"] == "workflowRuns"
+                    || message["event"] == "hookEvent")
                     && let Some(sink) = host.get()
                 {
                     let params = message["params"].clone();

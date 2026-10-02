@@ -28,7 +28,7 @@ impl Engine {
         turn: &str,
         call: &Value,
         memory_root: Option<&str>,
-        approval_proceed: bool,
+        (approval_proceed, hook): (bool, Option<Value>),
         reply: oneshot::Sender<PermissionOutcome>,
     ) -> Result<()> {
         let tool = call["function"]["name"].as_str().unwrap_or("").to_owned();
@@ -58,6 +58,8 @@ impl Engine {
             memory_root,
             &self.workspace_path,
         );
+        let always_ask = capability.as_ref().and_then(|c| c.always_ask) == Some(true);
+        let (decision, hook_reason) = super::tool_hooks::merge_permission(decision, hook.as_ref(), always_ask);
         // 待产品确认：TS 对声明 requiresUserInteraction 的工具（AskUserQuestion）在
         // checkPermission 里同样返回 ask，而该工具自身的提问界面才是这次「用户交互」。
         // Rust 现有问句流程与既有集成用例都按「不额外弹权限确认」实现，这里先按原行为放行，
@@ -86,7 +88,7 @@ impl Engine {
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {
-                let reason = ask_reason(decision.rule_id, &tool);
+                let reason = hook_reason.unwrap_or_else(|| ask_reason(decision.rule_id, &tool));
                 self.register_permission(id, run, turn, call, &tool, &input, reason, reply)
                     .await
             }

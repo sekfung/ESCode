@@ -72,6 +72,8 @@ export { createDynamicWorkflowRunService } from "./app/dynamic-workflow-run-serv
 export { workflowActorToolPolicy } from "./app/workflow-actor-tools.js";
 export { workflowActorModelPolicy } from "./app/workflow-actor-model.js";
 // Rust runtime 的工作流宿主据此派生 `workflow.lifecycle` 遥测事实（与 Node 投影同一函数）。
+// Rust runtime 的工作流宿主据此装配 hook 运行器（docs/specs/rust-hooks.md）。
+export { resolveRuntimeHooks } from "./app/runtime-hooks.js";
 export { workflowLifecycleFactFromProgress } from "./zcode-protocol-v4/conversation-telemetry-workflow-facts.js";
 // Exposed for the CLI's --output-format stream-json: it needs the same event
 // shape the protocol server emits, rather than inventing a second one.

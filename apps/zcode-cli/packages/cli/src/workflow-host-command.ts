@@ -31,6 +31,7 @@ import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createDwfJournalStore, createNodeToolArtifactStore } from "@zcode/adapters/storage";
 import { runWorkflowQuery } from "./workflow-host-queries.js";
+import { createHookHost } from "./workflow-host-hooks.js";
 import { createDynamicWorkflowRunService, workflowLifecycleFactFromProgress } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
@@ -77,6 +78,11 @@ export async function runWorkflowHostCommand(): Promise<number> {
     processEnv: process.env,
   });
   const fileSystemPort = createNodeFileSystemAdapter();
+  const send0 = (message: unknown): void => {
+    process.stdout.write(`${JSON.stringify(message)}
+`);
+  };
+  const hooks = createHookHost(send0, executionPort);
   const send = (message: unknown): void => {
     process.stdout.write(`${JSON.stringify(message)}\n`);
   };
@@ -282,6 +288,16 @@ export async function runWorkflowHostCommand(): Promise<number> {
           inflight.delete(params.callId);
         }
       }
+      // hooks（docs/specs/rust-hooks.md）：按调用点执行，callId 可被 tool.cancel 中止。
+      case "hooks.run": {
+        const controller = new AbortController();
+        if (params.callId !== undefined) inflight.set(params.callId, controller);
+        try {
+          return await hooks.run(params, controller.signal);
+        } finally {
+          if (params.callId !== undefined) inflight.delete(params.callId);
+        }
+      }
       // V4 工作流只读查询（`v4/conversation/workflowRun*`）。
       case "v4.query":
         return runWorkflowQuery(params.method, params.params, (session) => service(session) as never);
@@ -297,6 +313,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
         inflight.get(params.callId)?.abort();
         return { ok: true };
       case "session.close": {
+        hooks.close(params.session);
         const existing = services.get(params.session);
         services.delete(params.session);
         await existing?.close();

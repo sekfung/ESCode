@@ -242,7 +242,7 @@ function resolveInitialRegistrySelection(
     : undefined;
 }
 
-function mergeRuntimeHooks(
+export function mergeRuntimeHooks(
   base: HooksRuntimeConfig | undefined,
   pluginHooks: Partial<Record<HookEventName, HookMatcherConfig[]>> | undefined,
 ): HooksRuntimeConfig | undefined {

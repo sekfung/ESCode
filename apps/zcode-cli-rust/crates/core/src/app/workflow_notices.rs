@@ -14,6 +14,10 @@ impl Engine {
         let Some(session) = self.sessions.get_mut(id) else {
             return Ok(());
         };
+        // hooks 生命周期（docs/specs/rust-hooks.md）：投影成 hookInvocation 行。
+        if notice["kind"] == "hookEvent" {
+            return self.hook_event(id, &notice).await;
+        }
         // 宿主派生的遥测事实（workflow.lifecycle）：Rust 重新盖基字段后发出。
         if notice["kind"] == "telemetry" {
             let mut fields = notice["fact"].clone();

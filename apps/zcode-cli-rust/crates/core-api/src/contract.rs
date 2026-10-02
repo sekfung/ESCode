@@ -241,6 +241,10 @@ pub trait ToolPort: Send + Sync {
     async fn background_bash_output(&self, _session: &str, work_id: &str) -> Value {
         serde_json::json!({ "kind": "unsupported", "workId": work_id })
     }
+    /// Hooks（docs/specs/rust-hooks.md）：执行一次 hook 事件，返回 TS HookRunResult；本会话没有 hooks 时 None。
+    async fn run_hook(&self, _session: &str, _input: Value, _call_id: Option<&str>) -> Option<Value> {
+        None
+    }
     /// V4 工作流只读查询（`v4/conversation/workflowRun*`，方法名去掉前缀）：由工作流宿主按 Node 网关应答。
     async fn workflow_query(&self, method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("Unsupported workflow query: {method}")

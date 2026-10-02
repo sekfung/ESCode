@@ -54,6 +54,7 @@ mod plugin_zip;
 mod workflow_analyzer;
 mod workflow_host;
 mod workflow_tools;
+mod hooks;
 mod mcp_connection;
 mod mcp_http_capture;
 mod mcp_http;

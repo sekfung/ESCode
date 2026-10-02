@@ -249,6 +249,7 @@ impl Engine {
                 call,
                 memory_root,
                 approval_proceed,
+                hook,
                 reply,
             } => {
                 self.ask_permission(
@@ -257,7 +258,7 @@ impl Engine {
                     &turn,
                     &call,
                     memory_root.as_deref(),
-                    approval_proceed,
+                    (approval_proceed, hook),
                     reply,
                 )
                 .await?;

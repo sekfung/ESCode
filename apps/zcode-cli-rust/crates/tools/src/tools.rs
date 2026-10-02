@@ -15,10 +15,8 @@ impl ToolPort for WorkspaceTools {
     fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> { self.mcp.tool(session, name) }
     async fn background_bash_output(&self, session: &str, work_id: &str) -> Value { self.shell.output(session, work_id).await }
     async fn workflow_query(&self, method: &str, params: &Value) -> Result<Value> { self.workflow_host.request("v4.query", serde_json::json!({ "method": method, "params": params })).await }
-    fn attach_host(&self, host: crate::contract::EventSink) {
-        self.workflow_host.attach_host(host.clone());
-        self.mcp.attach_host(host);
-    }
+    fn attach_host(&self, host: crate::contract::EventSink) { self.workflow_host.attach_host(host.clone()); self.mcp.attach_host(host); }
+    async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> { self.run_hook_inner(session, input, call_id).await }
     async fn execute_workflow(
         &self,
         session: &str,

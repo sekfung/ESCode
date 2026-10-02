@@ -171,6 +171,8 @@ pub enum Event {
         memory_root: Option<String>,
         /// 工具的审批门答复 proceed（TS `prepareApproval`）：判定为 ask 时直接放行，deny 仍然生效。
         approval_proceed: bool,
+        /// PreToolUse hook 的 allow / ask（`{behavior, reason}`，TS applyPreToolPermissionDecision）。
+        hook: Option<Value>,
         reply: oneshot::Sender<PermissionOutcome>,
     },
     Question {

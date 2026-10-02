@@ -29,6 +29,8 @@ export {
 } from "./tool/executor/background-tasks.js";
 export { buildWorkflowRunProgressNotification } from "./runtime/methods/dynamic-workflow-run-progress.js";
 export { BackgroundTaskTracker } from "./tool/executor/background-tasks.js";
+// Rust runtime 的 hooks 宿主（docs/specs/rust-hooks.md）：工具事件的 matcher 别名与 Node 一致。
+export { hookMatcherToolNamesForTool } from "./tool/compat.js";
 // dwf driver 的 submit profile 运行时守卫要把 typed 声明换回通用声明。
 export {
   createSubmitResultToolEntry,

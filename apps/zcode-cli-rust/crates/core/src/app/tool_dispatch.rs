@@ -88,6 +88,14 @@ pub(super) async fn execute(
             .and_then(|fields| fields.remove("_zcode_approval_proceed"))
             == Some(Value::Bool(true)),
     };
+    // PreToolUse hooks（docs/specs/rust-hooks.md）：预处理之后、权限之前。
+    let pre = match super::tool_hooks::pre_tool_use(tools, turn, &mut call, definitions).await {
+        Ok(pre) => pre,
+        Err(output) => {
+            let denied = output.control.denied;
+            return Ok((call["id"].as_str().context("Tool id missing")?.into(), tool_name, output, true, denied));
+        }
+    };
     // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
     let outcome = {
         let (reply, receipt) = oneshot::channel();
@@ -95,6 +103,7 @@ pub(super) async fn execute(
             call: call.clone(),
             memory_root: memory_root.map(str::to_owned),
             approval_proceed,
+            hook: pre.permission.clone(),
             reply,
         })
         .await?;
@@ -251,6 +260,7 @@ pub(super) async fn execute(
                 None => crate::domain::tool_failure::plain_error_text(&error.to_string()),
             })
         });
+    let content = super::tool_hooks::post_tool_use(tools, turn, &call, pre, content, !failed).await;
     Ok((
         call["id"].as_str().context("Tool id missing")?.into(),
         name.to_owned(),
@@ -288,7 +298,7 @@ async fn prepare(
 
 /// `Err(文案)`：校验失败；`Ok(Some(参数原文))`：去掉未知键后的参数；`Ok(None)`：原样执行。
 /// 定义中没有该工具时不校验。
-fn checked_input(definitions: &[Value], name: &str, call: &Value) -> Result<Option<String>, String> {
+pub(super) fn checked_input(definitions: &[Value], name: &str, call: &Value) -> Result<Option<String>, String> {
     use crate::domain::{json_order::Json, schema_order, tool_input_validation as validation};
     let Some(schema) = definitions
         .iter()
