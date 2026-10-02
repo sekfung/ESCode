@@ -12,9 +12,8 @@ impl ToolPort for WorkspaceTools {
     async fn turn_ended(&self, session: &str, turn: &str) {
         self.mcp.browser_lifecycle(session, Some(turn), false).await;
     }
-    fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> {
-        self.mcp.tool(session, name)
-    }
+    fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> { self.mcp.tool(session, name) }
+    async fn workflow_query(&self, method: &str, params: &Value) -> Result<Value> { self.workflow_host.request("v4.query", serde_json::json!({ "method": method, "params": params })).await }
     fn attach_host(&self, host: crate::contract::EventSink) {
         self.workflow_host.attach_host(host.clone());
         self.mcp.attach_host(host);

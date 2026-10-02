@@ -78,6 +78,17 @@ impl Engine {
             // 「完整保留模型 IO」偏好（docs/specs/rust-model-io.md 第 2 期）。
             "workspace/updateModelIoPreferences" => self.model_io_preferences(&request.params),
             "v4/conversation/fileChanges" => self.file_changes(&request.params).await,
+            // V4 工作流只读查询（run 枚举 / 事件 / 产物 / 工作区）：工作流宿主按 Node 网关应答。
+            "v4/conversation/workflowRuns"
+            | "v4/conversation/workflowRunEvents"
+            | "v4/conversation/workflowRunArtifacts"
+            | "v4/conversation/workflowRunArtifactData"
+            | "v4/conversation/workflowRunArtifactRead"
+            | "v4/conversation/workflowRunWorkspace"
+            | "v4/conversation/workflowRunNodeResult" => {
+                let method = request.method.trim_start_matches("v4/conversation/");
+                self.tools.workflow_query(method, &request.params).await
+            }
             "v4/conversation/fileRewindPreview" => self.rewind_preview(&request.params).await,
             "session/read" => self.read_cold_session(&request.params).await,
             // App 的会话/任务恢复入口（TS resumeSession + activateSessionForResume）。

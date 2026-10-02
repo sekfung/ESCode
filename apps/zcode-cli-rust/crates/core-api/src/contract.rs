@@ -237,6 +237,10 @@ pub trait ToolPort: Send + Sync {
     }
     /// actor 会话的运行事件（工具开始 / 结束、模型请求），转交工作流宿主合成 TS SessionEvent。
     async fn workflow_actor_event(&self, _actor_session: &str, _event: Value) {}
+    /// V4 工作流只读查询（`v4/conversation/workflowRun*`，方法名去掉前缀）：由工作流宿主按 Node 网关应答。
+    async fn workflow_query(&self, method: &str, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Unsupported workflow query: {method}")
+    }
     /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
     /// `refresh = true` 刷新官方目录后给出最终结果。
     async fn plugin_suggested_reference(

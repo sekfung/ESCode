@@ -24,12 +24,13 @@
  */
 
 import { createInterface } from "node:readline";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
-import { createDwfJournalStore } from "@zcode/adapters/storage";
+import { createDwfJournalStore, createNodeToolArtifactStore } from "@zcode/adapters/storage";
+import { runWorkflowQuery } from "./workflow-host-queries.js";
 import { createDynamicWorkflowRunService } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
@@ -67,6 +68,8 @@ interface Request {
 
 export async function runWorkflowHostCommand(): Promise<number> {
   let journal: ReturnType<typeof createDwfJournalStore> | undefined;
+  /** run 用户面产物（`artifact.file` / `artifact.markdown`）的字节落点：Rust 数据目录下，布局同 Node 的 cli/artifacts。 */
+  let artifactStore: ReturnType<typeof createNodeToolArtifactStore> | undefined;
   const services = new Map<string, Service>();
   const inflight = new Map<string, AbortController>();
   const executionPort = createNodeExecutionAdapter({
@@ -160,6 +163,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
         parentSessionId: session,
         fileSystemPort,
         executionPort,
+        ...(artifactStore === undefined ? {} : { artifactStore }),
         // run 中通知（升级问答 / 停滞）：与 Node runtime 的进度汇同一个格式器，交给 Rust 作为后台结果轮。
         onRunEvent: (progress, routing) => {
           // V4 `workflowRuns` 状态键：与 Node 投影同一个归约（@zcode/shared），整键交给 Rust 进会话快照。
@@ -212,6 +216,13 @@ export async function runWorkflowHostCommand(): Promise<number> {
         const db = new DatabaseSync(params.dbPath as string);
         db.exec("PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON;");
         journal = createDwfJournalStore(db);
+        const root = dirname(params.dbPath as string);
+        artifactStore = createNodeToolArtifactStore({
+          imageCacheRootDir: join(root, "workflow-artifacts", "image-cache"),
+          pdfCacheRootDir: join(root, "workflow-artifacts", "pdf-cache"),
+          rootDir: join(root, "workflow-artifacts", "artifacts"),
+          videoCacheRootDir: join(root, "workflow-artifacts", "video-cache"),
+        });
         return { ok: true };
       }
       case "tool.prepare": {
@@ -262,6 +273,9 @@ export async function runWorkflowHostCommand(): Promise<number> {
           inflight.delete(params.callId);
         }
       }
+      // V4 工作流只读查询（`v4/conversation/workflowRun*`）。
+      case "v4.query":
+        return runWorkflowQuery(params.method, params.params, (session) => service(session) as never);
       case "actor.tool": {
         const bridge = actorBridges.get(params.actorSession);
         if (bridge === undefined) return { content: "Unknown workflow actor session", isError: true };
