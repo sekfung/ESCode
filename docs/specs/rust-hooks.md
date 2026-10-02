@@ -38,10 +38,14 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
 - 已接：PreToolUse（预处理之后、权限之前；deny / preventContinuation → 权限失败 + 追加上下文；updatedInput 改写并重校验；
   allow / ask 与权限判定合并，alwaysAsk 不被 allow 抹掉）、PostToolUse / PostToolUseFailure（追加上下文接在模型内容后）。
   `hookInvocation` 行投影（`hook_rows.rs`，TS `onHookRunLifecycle`）。差分：`zcode-cli-rust-hooks-tool.test.ts`。
-- 待接：PermissionRequest、UserPromptSubmit、SessionStart（含 TS 的 pending 挂到下一回合）、Stop（续跑）。
+- PermissionRequest：确认窗挂起后起 hook 链，结论经 Host 通道回 owner，与用户应答竞速（先到者生效，同一套行 / 遥测收口）；
+  hook 无结论则退赛。差分：`zcode-cli-rust-hooks-permission.test.ts`。
+- 待接：UserPromptSubmit、SessionStart（含 TS 的 pending 挂到下一回合）、Stop（续跑）。
 
 ## 已知差异
 
 - PreToolUse 的 `riskLevel` / `sideEffectScope` 取生成的静态工具元数据；MCP 工具没有该元数据（TS 取 MCP 条目的元数据）。
 - PostToolUseFailure 的 `error.type` 固定为 `ToolExecutionFailed`，`isInterrupt` 固定 false（TS 区分取消 / 超时）。
+- PermissionRequest 的 `decision.updatedInput`（改写入参后需按新入参重判权限）暂未支持，按退赛处理；用户先应答时
+  hook 进程不被中止（TS abort 败者），其迟到结论被忽略。
 - 回合之外到达的 hook 事件（SessionStart 之前的启动钩子）暂不投影行。

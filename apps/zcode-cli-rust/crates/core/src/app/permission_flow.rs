@@ -111,6 +111,7 @@ impl Engine {
             return Ok(());
         }
         let suggested = suggested_rules(tool, input);
+        let hook_reason = reason.clone();
         // 项目规则可由 store 持久化时才投放 allowAlways，避免给出无法兑现的授权。
         let persistent = self.project_rules_persistent;
         let interaction = self.clock.id();
@@ -174,6 +175,7 @@ impl Engine {
         let call_id = call["id"].as_str().unwrap_or_default();
         let p = super::telemetry::Permission { phase: "requested", call_id, tool: Some(tool), request_id: Some(&interaction), decision: None };
         self.telemetry_permission(id, Some(turn), p);
+        self.spawn_permission_hook(id, turn, call, input, &interaction, &hook_reason);
         self.publish(id, deltas)?;
         self.persist(id, None).await
     }

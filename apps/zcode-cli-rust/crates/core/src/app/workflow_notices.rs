@@ -18,6 +18,9 @@ impl Engine {
         if notice["kind"] == "hookEvent" {
             return self.hook_event(id, &notice).await;
         }
+        if notice["kind"] == "permissionHook" {
+            return self.permission_hook(id, &notice).await;
+        }
         // 宿主派生的遥测事实（workflow.lifecycle）：Rust 重新盖基字段后发出。
         if notice["kind"] == "telemetry" {
             let mut fields = notice["fact"].clone();

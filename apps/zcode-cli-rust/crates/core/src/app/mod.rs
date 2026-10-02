@@ -71,6 +71,7 @@ mod subagent_query;
 mod workflow_actors;
 mod hook_rows;
 mod tool_hooks;
+mod permission_hooks;
 mod local_ttft;
 mod local_ttft_frame;
 mod telemetry;

@@ -38,7 +38,7 @@ impl WorkspaceTools {
         call_id: Option<&str>,
     ) -> Option<Value> {
         // TS runPreToolUseHooks 带工具元数据的风险与副作用范围（静态表，不含 Bash 只读降级）。
-        if input["hookEventName"] == "PreToolUse" {
+        if input["hookEventName"] == "PreToolUse" || input["hookEventName"] == "PermissionRequest" {
             let table: Value =
                 serde_json::from_str(include_str!("tool_capabilities.json")).unwrap_or_default();
             let entry = &table[input["toolName"].as_str().unwrap_or_default()];
