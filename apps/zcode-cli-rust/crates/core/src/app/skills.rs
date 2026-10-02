@@ -24,6 +24,7 @@ impl Engine {
                 .tools
                 .discover_skills(&CancellationToken::new())
                 .await?;
+            let catalog = self.freeze_skills(id, catalog);
             self.sessions.get_mut(id).unwrap().skills = Some(catalog);
             self.persist(id, None).await?;
         }

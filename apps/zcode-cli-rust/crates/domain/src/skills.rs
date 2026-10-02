@@ -37,7 +37,14 @@ impl Skill {
 }
 impl SkillCatalog {
     pub fn response(&self, authority: &str) -> Value {
-        json!({"authority":authority,"skills":self.skills.iter().map(Skill::entry).collect::<Vec<_>>()})
+        // 内置技能包（scope `system`）不进引用面板：协议 scope 是封闭枚举（TS 按 source 排除）。
+        let skills: Vec<Value> = self
+            .skills
+            .iter()
+            .filter(|skill| skill.scope != "system")
+            .map(Skill::entry)
+            .collect();
+        json!({"authority":authority,"skills":skills})
     }
     pub fn reminder(&self) -> Option<Value> {
         if !self.include_instructions || self.skills.is_empty() {

@@ -36,6 +36,19 @@ impl Engine {
     pub(super) fn dynamic_workflow_enabled(&mut self, id: &str) -> bool {
         self.shell.dynamic_workflow.enabled(id)
     }
+
+    /// 固化会话技能目录：动态工作流关闭时去掉内置技能包（TS `collectDynamicWorkflowDisabledSkillPaths`）——
+    /// 工作流工具都不在场时再让模型读到「怎么写工作流脚本」只会诱导它调不存在的工具。
+    pub(super) fn freeze_skills(
+        &mut self,
+        id: &str,
+        mut catalog: crate::domain::skills::SkillCatalog,
+    ) -> crate::domain::skills::SkillCatalog {
+        if !self.dynamic_workflow_enabled(id) {
+            catalog.skills.retain(|skill| skill.scope != "system");
+        }
+        catalog
+    }
 }
 
 /// TS `includeDynamicWorkflow === false`：灰度关闭时下架工作流工具（含只读的 run 内省工具与

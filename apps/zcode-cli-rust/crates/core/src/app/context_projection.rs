@@ -5,6 +5,22 @@ use serde_json::json;
 impl Engine {
     pub(super) async fn context_event(&mut self, id: &str, event: Event) -> Result<()> {
         let turn = self.active[id].turn_id.clone();
+        let event = match event {
+            Event::SkillsInitialized { catalog, reply } => Event::SkillsInitialized {
+                catalog: self.freeze_skills(id, catalog),
+                reply,
+            },
+            Event::PromptInitialized {
+                snapshot,
+                skills,
+                committed,
+            } => Event::PromptInitialized {
+                snapshot,
+                skills: self.freeze_skills(id, skills),
+                committed,
+            },
+            other => other,
+        };
         let session = self.sessions.get_mut(id).unwrap();
         let mut deltas = vec![];
         let mut receipt = None;

@@ -7,6 +7,7 @@ mod browser_broker_listen;
 pub mod bash_git_safety;
 mod checkpoint_blobs;
 mod config_file;
+mod bundled_skills;
 mod custom_command_shell;
 mod custom_commands;
 #[cfg(test)]

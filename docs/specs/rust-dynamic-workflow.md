@@ -146,3 +146,10 @@ NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同
   保留 TS 的单槽记忆。验收：`scripts/generate-zcode-cli-rust-workflow-analysis-corpus.mjs` 以内置技能示例 + 编译错误
   样例生成 TS 直调语料，Rust 经桥逐字比对（12 例全部一致）；`test:zcode-cli-rust` 加 `--check` 防漂移，并在
   CLI 产物就绪后带启动器单独跑桥接用例。SaveWorkflow 接入是下一步。
+- 2026-10-02 内置技能包（`bundled-skills/dynamic-workflows`）接入 Rust 技能发现：`tools/src/bundled_skills.rs` 沿 TS
+  `candidateBaseDirs` 同款候选（`ZCODE_OFFICIAL_PLUGINS_BASE_DIR`、Host 给的 Node 入口目录、二进制目录、cwd）×
+  `packages/bundled-skills` / `../bundled-skills` / … 查找，三个必需文件缺一即拒绝整包；作为 `system` scope 根排在
+  插件根之后。`SkillCatalog::response`（`skills/referenceCatalog`）排除 `system`，与 TS 按 `source: "bundled"` 排除同义；
+  动态工作流关闭的会话在固化技能目录时去掉它（core `freeze_skills`，TS `collectDynamicWorkflowDisabledSkillPaths`）。
+  验收：`zcode-cli-rust-bundled-skills.test.ts`（开启态模型可见、关闭态不可见、引用面板不含，两侧一致）。
+  这是 SaveWorkflow 技能门的前置（门要求会话里成功加载过 `dynamic-workflows`）。

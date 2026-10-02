@@ -74,6 +74,15 @@ async fn discover_inner(cwd: &Path, cancel: &CancellationToken) -> Result<SkillC
             }
         }
     }
+    // 内置技能包（bundled_skills.rs）排在所有插件根之后：同名时用户 / 项目 / 插件技能优先。
+    if let Some(path) = super::bundled_skills::skills_root() {
+        roots.push(Root {
+            path,
+            scope: super::bundled_skills::SCOPE.into(),
+            plugin_name: None,
+            plugin_root: None,
+        });
+    }
     let mut disabled = BTreeSet::new();
     for group in ["skill", "skills"] {
         if let Some(entries) = config[group].as_object() {
