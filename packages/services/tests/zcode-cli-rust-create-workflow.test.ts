@@ -3,6 +3,7 @@ import test from "node:test";
 import { dirname, join, resolve } from "node:path";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { applyConversationDeltas } from "@zcode/shared/zcode-protocol-v4";
 import { fixture, event, end, type Harness } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
@@ -71,6 +72,12 @@ async function observe(kind: "node" | "rust") {
     } as any);
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
+    // 第二条订阅协商了 `workflowRunDeltas`：收 `workflowRun.*` 键级增量，state patch 不再带整键。
+    const deltasSub = (await h.client.request(
+      "v4/conversation/subscribe",
+      { topic: `conversation/${id}`, connectionId: "fixture-deltas", clientMode: "desktop-continuous", workflowRunDeltas: true },
+      { parse: (value: unknown) => value } as any,
+    )) as any;
     const permissions: any[] = [];
     let seen = 0;
     const answered = new Set<string>();
@@ -124,6 +131,20 @@ async function observe(kind: "node" | "rust") {
       const snapshot = message?.params?.frame?.payload?.snapshot;
       if (snapshot?.workflowRuns !== undefined) workflowRuns = snapshot.workflowRuns;
     }
+    // 增量订阅：快照 + 依序应用全部增量帧后的 workflowRuns，以及 op 判别式序列。
+    let applied: any;
+    const opKinds: string[] = [];
+    let patchCarriedRuns = false;
+    for (const message of h.messages) {
+      const frame = message?.params?.frame;
+      if (!frame || frame.subscriptionId !== deltasSub.ack.subscriptionId) continue;
+      if (frame.payload?.kind === "snapshot") applied = frame.payload.snapshot;
+      for (const delta of frame.payload?.deltas ?? []) {
+        if (String(delta.op).startsWith("workflowRun.")) opKinds.push(delta.op);
+        if (delta.patch?.workflowRuns !== undefined) patchCarriedRuns = true;
+      }
+      if (frame.payload?.kind === "deltas" && applied) applied = applyConversationDeltas(applied, frame.payload.deltas);
+    }
     const scrubState = (value: unknown) =>
       JSON.parse(
         scrub(JSON.stringify(value ?? null)).replace(/"(\w*(?:At|Ms|revision|Sequence))":\d+/g, '"$1":0'),
@@ -138,6 +159,9 @@ async function observe(kind: "node" | "rust") {
       permissions,
       requestCount: requests.length,
       workflowRuns: scrubState(workflowRuns),
+      deltaWorkflowRuns: scrubState(applied?.workflowRuns),
+      opKinds: [...new Set(opKinds)],
+      patchCarriedRuns,
       schemaErrors: h.schemaErrors,
     };
   } finally {
@@ -156,6 +180,9 @@ test("Node and Rust run a CreateWorkflow script in the background the same way",
   assert.match(node.notification, /&quot;count&quot;: 2/);
   assert.equal(node.permissions.length, 1);
   assert.equal((node.workflowRuns as any)?.runs?.[0]?.status, "completed");
+  assert.deepEqual(node.deltaWorkflowRuns, node.workflowRuns);
+  assert.deepEqual(node.opKinds, ["workflowRun.updated"]);
+  assert.equal(node.patchCarriedRuns, false);
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
   }

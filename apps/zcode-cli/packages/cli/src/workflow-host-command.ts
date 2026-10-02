@@ -37,6 +37,7 @@ import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
 import {
   clampWorkflowRunsForLegacy,
+  diffWorkflowRunsState,
   reduceWorkflowRunsState,
   type WorkflowRunsState,
 } from "@zcode/shared/zcode-protocol-v4";
@@ -178,7 +179,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
         onRunEvent: (progress, routing) => {
           // V4 `workflowRuns` 状态键：与 Node 投影同一个归约（@zcode/shared），整键交给 Rust 进会话快照。
           const owner = routing.parentSessionId ?? session;
-          const workflowRuns = reduceWorkflowRunsState(runStates.get(owner), progress as never);
+          const prior = runStates.get(owner);
+          const workflowRuns = reduceWorkflowRunsState(prior, progress as never);
           if (workflowRuns !== null) {
             runStates.set(owner, workflowRuns);
             // 没有 `workflowRunDeltas` 能力的订阅者收旧界裁剪版（TS publisher 的旧消费者编码）。
@@ -189,6 +191,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
                 session: owner,
                 kind: "workflowRuns",
                 workflowRuns,
+                // 键级增量（TS projection diffWorkflowRunsState）：有 `workflowRunDeltas` 能力的订阅者收它而不是整键。
+                deltas: diffWorkflowRunsState(prior, workflowRuns),
                 ...(legacy === workflowRuns ? {} : { legacy }),
               },
             });

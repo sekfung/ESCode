@@ -255,5 +255,7 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
 - 已落地：V4 `workflowRuns` 投影（宿主 TS 归约，整键进会话状态）；没有 `workflowRunDeltas` 能力的订阅者收宿主
   `clampWorkflowRunsForLegacy` 的旧界裁剪版（快照与 state patch 同档，回放取当前裁剪版，与 TS publisher 一致）。
   `/workflow` 命令与 run 产物 store 已落地。
-- 待做：对有能力的订阅者发 `workflowRun.updated|removed` 键级增量（当前发整键 `state.updated`，合法但每事件 O(N)）；
-  宿主重启后此前 run 的归约态丢失；模型失败分类映射。
+- 已落地：键级增量——宿主随整键附带 `diffWorkflowRunsState(prior, next)`，Rust 把原生 op 记入增量日志；有
+  `workflowRunDeltas` 能力的订阅者收 `workflowRun.*` 且 state patch 不带整键，旧消费者丢 op、收裁剪整键
+  （`create-workflow` 差分以第二条增量订阅比对应用后的终态与 op 判别式）。
+- 待做：宿主重启后此前 run 的归约态丢失；模型失败分类映射。

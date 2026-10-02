@@ -228,13 +228,9 @@ impl Engine {
         let (topic, sub_id, ordinal) = (sub.topic.clone(), sub.id.clone(), sub.ordinal);
         let continuous = sub.client_mode == "desktop-continuous";
         let mut payload = payload;
-        if !sub.workflow_run_deltas
-            && let Some(legacy) = topic
-                .strip_prefix("conversation/")
-                .and_then(|s| self.sessions.get(s))
-                .and_then(|s| s.workflow_runs_legacy.clone())
-        {
-            super::workflow_notices::legacy_workflow_runs(&mut payload, &legacy);
+        if let Some(session) = topic.strip_prefix("conversation/").and_then(|s| self.sessions.get(s)) {
+            let legacy = session.workflow_runs_legacy.as_ref();
+            super::workflow_notices::encode_workflow_runs(&mut payload, sub.workflow_run_deltas, legacy);
         }
         let mut frame = json!({"topic":topic,"subscriptionId":sub_id,"fromSeq":from,"toSeq":to,"sentAt":self.clock.now(),"payload":payload});
         // TS v4-gateway：在线增量帧携带本地 TTFT 观测（首输出时刻只经帧送达渲染端）。

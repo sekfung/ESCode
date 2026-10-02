@@ -39,7 +39,8 @@ impl Engine {
             session.workflow_runs = Some(notice["workflowRuns"].clone());
             session.workflow_runs_legacy = Some(notice["legacy"].clone()).filter(|v| !v.is_null());
             session.revision += 1;
-            self.publish(id, vec![])?;
+            let ops = notice["deltas"].as_array().cloned().unwrap_or_default();
+            self.publish(id, ops)?;
             return self.persist(id, None).await;
         }
         // 同一条通知只排一次：结算按 run 去重，run 中通知（升级问答 / 停滞）另带 noticeId。
@@ -135,14 +136,32 @@ impl Engine {
     }
 }
 
-/// 旧消费者编码（TS publisher）：帧里的 `workflowRuns`（快照字段或 state patch 键）换成当前的旧界裁剪版。
-pub(super) fn legacy_workflow_runs(payload: &mut Value, legacy: &Value) {
-    if payload["snapshot"].get("workflowRuns").is_some() {
+/// 每订阅者的 `workflowRuns` 编码（TS publisher）。日志里存原生 op 与整键 patch 两份事实：
+/// - 有 `workflowRunDeltas` 能力：收 `workflowRun.*` 键级增量，state patch 里不再带整键；
+/// - 旧消费者：丢掉 `workflowRun.*`（它们的判别式旧客户端不认），快照与 patch 里的整键换成当前旧界裁剪版。
+pub(super) fn encode_workflow_runs(payload: &mut Value, deltas_capable: bool, legacy: Option<&Value>) {
+    if !deltas_capable
+        && let Some(legacy) = legacy
+        && payload["snapshot"].get("workflowRuns").is_some()
+    {
         payload["snapshot"]["workflowRuns"] = legacy.clone();
     }
-    for delta in payload["deltas"].as_array_mut().into_iter().flatten() {
-        if delta["patch"].get("workflowRuns").is_some() {
-            delta["patch"]["workflowRuns"] = legacy.clone();
+    let Some(deltas) = payload["deltas"].as_array_mut() else {
+        return;
+    };
+    if !deltas_capable {
+        deltas.retain(|d| !d["op"].as_str().is_some_and(|op| op.starts_with("workflowRun.")));
+    }
+    for delta in deltas.iter_mut() {
+        let Some(patch) = delta["patch"].as_object_mut() else {
+            continue;
+        };
+        if deltas_capable {
+            patch.remove("workflowRuns");
+        } else if let Some(legacy) = legacy
+            && patch.contains_key("workflowRuns")
+        {
+            patch.insert("workflowRuns".into(), legacy.clone());
         }
     }
 }
