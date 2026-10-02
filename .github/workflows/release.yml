@@ -186,6 +186,8 @@ jobs:
         shell: bash
         env:
           TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.zcode-cli-rust.json
+          # Rosetta 下的 x64 Electron 退出远慢于原生，进程退出等待放宽到 30s（仍要求正常退出）。
+          ZCODE_TEST_EXIT_MS: "30000"
         run: |
           set -uo pipefail
           # 预热：Rosetta（mac x64）首次运行要先翻译二进制，冷启动会吃掉用例的请求超时。

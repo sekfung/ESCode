@@ -412,7 +412,8 @@ export class Harness {
     if (this.closed) return;
     this.closed = true;
     if (this.child.exitCode === null) this.child.stdin.end();
-    const timer = setTimeout(() => this.child.kill("SIGKILL"), 4000);
+    // 退出等待上限：默认 4s；安装包演练在 Rosetta（mac x64）下翻译运行 Electron，退出明显更慢，由 CI 调大。
+    const timer = setTimeout(() => this.child.kill("SIGKILL"), Number(process.env.ZCODE_TEST_EXIT_MS ?? 4000));
     const status = await this.exited;
     clearTimeout(timer);
     this.client.dispose();
