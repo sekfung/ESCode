@@ -101,3 +101,26 @@ impl Engine {
             .await
     }
 }
+
+impl Engine {
+    /// H3：mailbox PostToolUse 取到的消息作为本轮 guide 输入（TS steerTurn delivery guide + expectedTurnId）；
+    /// 轮次已变或已空闲时丢弃（TS 记 queue_rejected）。
+    pub(super) async fn mailbox_guide(&mut self, id: &str, notice: &Value) -> Result<()> {
+        let current = self.active.get(id).map(|a| a.turn_id.clone());
+        let expected = notice["turnId"].as_str();
+        if current.is_none() || expected.is_some_and(|t| Some(t) != current.as_deref()) {
+            return Ok(());
+        }
+        let c = Command {
+            command_id: self.clock.id(),
+            client_id: "session-mailbox".into(),
+            session_id: Some(id.into()),
+            kind: "sendText".into(),
+            payload: json!({"text": notice["text"], "requestedDelivery": "guide"}),
+            issued_at: self.clock.now() as f64,
+            base_revision: None,
+            base_log_epoch: None,
+        };
+        self.send_input(c).await.map(|_| ())
+    }
+}

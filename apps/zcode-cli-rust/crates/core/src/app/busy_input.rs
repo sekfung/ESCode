@@ -186,7 +186,9 @@ impl Engine {
         s.rows.push(row.clone());
         let text = item["text"].as_str().context("Guide text missing")?;
         // `_zcode_input`：真实用户输入及其是否满足记忆提取的散文门槛（docs/specs/rust-project-memory.md）。
-        let message = json!({"role":"user","content":crate::domain::prompt::user_steer(text),"_zcode_input":crate::domain::memory::is_prose(text)});
+        // mailbox 消息（H3，TS steerTurn）按原文进历史，不套用户中途消息的包装。
+        let content = if item["clientId"] == "session-mailbox" { text.to_owned() } else { crate::domain::prompt::user_steer(text) };
+        let message = json!({"role":"user","content":content,"_zcode_input":crate::domain::memory::is_prose(text)});
         s.append_message(message.clone());
         messages.push(message);
         s.history.inputs.push(crate::domain::history::InputBoundary {entity:row["entityId"].as_str().unwrap().into(),turn:turn.into(),row:boundary.0,user_row:boundary.0,message:retained_messages,state:boundary.2,kind:"sendText".into(),payload:json!({"text":item["text"],"modelSelection":item["modelSelection"],"_userSteer":true})});

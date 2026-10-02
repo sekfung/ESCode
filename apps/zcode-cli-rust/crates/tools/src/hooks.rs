@@ -8,6 +8,10 @@ use tokio_util::sync::CancellationToken;
 /// 用户 / env 配置里有 hooks 事件，或任一启用插件声明了 hook 来源（`hooks/hooks.json` / manifest `hooks`）。
 /// 只做存在性判定；确切配置（合并、matcher、enabled）由宿主按 TS 口径解析。
 async fn configured(cwd: &Path) -> bool {
+    // H3：会话 mailbox 内部 hooks 的灰度（TS isMessageEnabled）。
+    if matches!(std::env::var("ZCODE_MESSAGE_ENABLED").as_deref(), Ok("1" | "true")) {
+        return true;
+    }
     let config = super::extension_config::load(cwd)
         .await
         .unwrap_or_else(|_| json!({}));

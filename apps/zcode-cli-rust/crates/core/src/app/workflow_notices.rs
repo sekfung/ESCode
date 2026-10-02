@@ -18,6 +18,9 @@ impl Engine {
         if notice["kind"] == "hookEvent" {
             return self.hook_event(id, &notice).await;
         }
+        if notice["kind"] == "mailboxGuide" {
+            return self.mailbox_guide(id, &notice).await;
+        }
         if notice["kind"] == "permissionHook" {
             return self.permission_hook(id, &notice).await;
         }

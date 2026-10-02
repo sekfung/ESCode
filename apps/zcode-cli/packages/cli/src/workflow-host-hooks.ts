@@ -5,9 +5,14 @@
  *
  * H2：工作区（项目）hooks 的信任准入与审核复用 bootstrap `createWorkspaceHookRuntimeSecurity`（与 app-server
  * 同一份配置：trust 开启、宿主级 policy provider、审核宿主上下文）；准入 / 审核事件同样经 `hookEvent` 通知 Rust。
+ *
+ * H3：`ZCODE_MESSAGE_ENABLED` 灰度下注册会话 mailbox 内部 hooks（TS runtime-tools）；PostToolUse 取到的消息经
+ * `mailboxGuide` 通知 Rust 作为本轮 guide 输入（TS steerTurn delivery guide）。
  */
 
 import { basename } from "node:path";
+import { homedir } from "node:os";
+import { createNodeSessionMailboxAdapter } from "@zcode/adapters/mailbox";
 import { randomUUID } from "node:crypto";
 import {
   createWorkspaceHookRuntimeSecurity,
@@ -17,6 +22,8 @@ import {
 import {
   InMemoryWorkspaceHookPolicyProvider,
   createConfiguredHookRunner,
+  createInMemoryHookRunner,
+  createSessionMailboxHookRegistrations,
   hookMatcherToolNamesForTool,
 } from "@zcode/core";
 
@@ -60,6 +67,14 @@ function reviewTarget(input: Record<string, any>) {
   };
 }
 
+/** TS bootstrap isMessageEnabled + ZCODE_MAILBOX_ROOT（默认 ~/.zcode/mailbox）。 */
+function mailboxPort() {
+  const flag = process.env.ZCODE_MESSAGE_ENABLED;
+  if (flag !== "1" && flag !== "true") return undefined;
+  const root = (process.env.ZCODE_MAILBOX_ROOT ?? "~/.zcode/mailbox").replace(/^~(?=$|[\/])/u, homedir());
+  return createNodeSessionMailboxAdapter({ rootDir: root });
+}
+
 const UNAVAILABLE = { accepted: false, reasonCode: "workspace_hooks_require_trust_capable_host" };
 
 export function createHookHost(send: Send, executionPort: unknown) {
@@ -94,9 +109,9 @@ export function createHookHost(send: Send, executionPort: unknown) {
       emitReviewEvent: async (event) => notify(session, event),
       emitAdmissionEvent: async (event) => notify(session, event),
     });
-    const runner = hooks
+    let runner: Runner = hooks?.enabled || security
       ? createConfiguredHookRunner({
-          config: hooks,
+          config: hooks ?? { enabled: false, events: {}, timeoutMs: 60_000, maxOutputBytes: 32_768 },
           executionPort: executionPort as never,
           getWorkingDirectory: () => cwd,
           ...(security
@@ -105,6 +120,19 @@ export function createHookHost(send: Send, executionPort: unknown) {
           emitEvent: async (event) => notify(session, event),
         })
       : undefined;
+    const mailbox = mailboxPort();
+    if (mailbox) {
+      runner ??= createInMemoryHookRunner({ emitEvent: async (event) => notify(session, event) });
+      for (const hook of createSessionMailboxHookRegistrations({
+        enqueuePendingInput: async (text, trace) => {
+          send({ event: "hookEvent", params: { session, kind: "mailboxGuide", text, turnId: trace.turnId } });
+        },
+        mailbox,
+        sessionId: session as never,
+      })) {
+        if (runner && "register" in runner && typeof runner.register === "function") runner.register(hook);
+      }
+    }
     const entry = { cwd, runner, security };
     sessions.set(session, entry);
     return entry;

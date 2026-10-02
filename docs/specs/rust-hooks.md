@@ -1,6 +1,6 @@
 # Rust runtime：Hooks（生命周期钩子）
 
-> 状态：设计 / H1 进行中（2026-10-03）。
+> 状态：H1 / H2 / H3 已实现（2026-10-03），默认仍为 Node runtime。
 
 ## 背景
 
@@ -54,6 +54,13 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
   （同 flow 更高 generation 才替换）。V4 `respond/toggle/revoke/requestWorkspaceHookReview` 与 `workspace/hooks/trustGrant`
   转宿主（`hooks.review` / `hooks.trustGrant`，授权成功重载同工作区会话）。
   差分：`zcode-cli-rust-hooks-workspace.test.ts`（软门禁 → 审核 → 信任 → 执行；过期授权拒绝）。
+
+## H3 进度
+
+- `ZCODE_MESSAGE_ENABLED` 灰度下宿主注册 core `createSessionMailboxHookRegistrations`（`ZCODE_MAILBOX_ROOT`，默认
+  `~/.zcode/mailbox`）：UserPromptSubmit / Stop 的未读消息作为追加上下文；PostToolUse 取到的消息经 `mailboxGuide` 回 Rust，
+  在当前轮作为 guide 输入（clientId `session-mailbox`，原文进历史、不套中途消息包装；轮次已变则丢弃）。
+  差分：`zcode-cli-rust-hooks-mailbox.test.ts`。
 
 ## 已知差异
 
