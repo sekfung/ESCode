@@ -120,6 +120,8 @@ impl Engine {
             || s.children.values().any(|t| t.running() || !t.notified)
             || !s.queue.is_empty()
             || s.background.values().any(|t| t.status == "running")
+            // 待投递的后台完成通知先开后台结果轮，目标在该轮收尾时推进（TS runPostCommandActiveTargetLoop）。
+            || !s.workflow_notices.is_empty()
             || s.goal
                 .as_ref()
                 .is_none_or(|g| g.status != "active" || g.exhausted())
