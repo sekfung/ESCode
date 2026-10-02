@@ -186,7 +186,20 @@ jobs:
         shell: bash
         env:
           TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.zcode-cli-rust.json
-        run: node --import tsx --test packages/services/tests/zcode-cli-rust-installed.test.ts
+        run: |
+          set -uo pipefail
+          # 预热：Rosetta（mac x64）首次运行要先翻译二进制，冷启动会吃掉用例的请求超时。
+          "$ZCODE_INSTALLED_GLM/zcode-cli-rust" --help > /dev/null || true
+          ELECTRON_RUN_AS_NODE=1 "$ZCODE_INSTALLED_APP" -e "0" || true
+          node --import tsx --test packages/services/tests/zcode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # 日志需要登录才能读；失败要点转成公开的注解。
+            grep -E "✖|Error|assert|expected|actual|Timed out|stderr" installed-test.log | head -40 | while IFS= read -r line; do
+              echo "::error title=installed rehearsal::${line//%/%25}"
+            done
+          fi
+          exit "$status"
 
   publish:
     name: publish GitHub Release
