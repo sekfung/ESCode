@@ -255,6 +255,7 @@ impl HttpModel {
         }
         let mut empty_retries = 0;
         let request_started = super::now();
+        let status = super::model_usage::Status { sink, provider_id: &self.config.provider_id, model_id: &self.config.model_id, request_id: uuid::Uuid::new_v4().to_string(), max_attempts: self.retry.max_attempts };
         for attempt in 1..=self.retry.max_attempts {
             if attempt > 1 {
                 sink.send(Event::Retry(None))
@@ -280,7 +281,8 @@ impl HttpModel {
             } else {
                 Value::Null
             };
-            let started = std::time::SystemTime::now();
+            let (started, attempt_started) = (std::time::SystemTime::now(), super::now());
+            status.emit("model_request_started", attempt, serde_json::json!({})).await;
             let result = self
                 .request(encoded.clone(), attempt, &mut output, &auth, native_search)
                 .await;
@@ -292,11 +294,10 @@ impl HttpModel {
             if let Some(io) = &io {
                 io.record(attempt, started, &encoded, result.as_ref()).await;
             }
+            status.settled(attempt, attempt_started, result.as_ref()).await;
             match result {
                 Ok(mut result) => {
-                    let (provider, model) = (&self.config.provider_id, &self.config.model_id);
-                    let first = output.first_token_at;
-                    super::model_usage::record(provider, model, (request_started, first), attempt, Ok(&result));
+                    super::model_usage::record(status.provider_id, status.model_id, (request_started, output.first_token_at), attempt, Ok(&result));
                     result.message["_zcode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
                     return Ok(result);
                 }
@@ -307,9 +308,7 @@ impl HttpModel {
                         || attempt == self.retry.max_attempts
                         || (failure.empty_completion && empty_retries > 0)
                     {
-                        let (provider, model) = (&self.config.provider_id, &self.config.model_id);
-                        let first = output.first_token_at;
-                        super::model_usage::record(provider, model, (request_started, first), attempt, Err(&failure));
+                        super::model_usage::record(status.provider_id, status.model_id, (request_started, output.first_token_at), attempt, Err(&failure));
                         return Err(failure);
                     }
                     if failure.empty_completion {
@@ -324,6 +323,7 @@ impl HttpModel {
                     } else {
                         failure.reason
                     };
+                    status.emit("model_retry_scheduled", attempt, serde_json::json!({ "delayMs": delay_ms, "nextAttempt": attempt + 1, "reason": reason })).await;
                     sink.send(Event::Retry(Some(RetryState {
                         attempt,
                         max_attempts: self.retry.max_attempts,

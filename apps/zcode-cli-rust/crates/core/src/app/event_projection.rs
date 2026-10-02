@@ -124,6 +124,8 @@ impl Engine {
         };
         self.forward_actor_event(&id, &event.event).await;
         self.record_usage_facts(&id, &turn, &event.event);
+        self.telemetry_event(&id, &turn, &event.event);
+        if matches!(event.event, Event::ModelStatus(_)) { return Ok(()); }
         let now = self.clock.now();
         let s = self.sessions.get_mut(&id).unwrap();
         let mut deltas = vec![];
@@ -159,7 +161,7 @@ impl Engine {
             | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
-            | Event::CompactDone { .. } | Event::SessionTitle { .. } => unreachable!(),
+            | Event::CompactDone { .. } | Event::SessionTitle { .. } | Event::ModelStatus(_) => unreachable!(),
             Event::Retry(state) => {
                 s.api_retry = state;
             }

@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 impl Engine {
     pub(super) fn start_run(&mut self, id: &str, turn_id: String) -> Result<()> {
+        self.telemetry_turn_started(id, &turn_id);
         let turn_id_for_facts = turn_id.clone();
         let payload = self
             .sessions

@@ -72,6 +72,8 @@ pub struct Engine {
     pub(super) title_jobs: BTreeMap<String, String>,
     /// 工作流 actor 在飞的一轮（应答句柄与用量，workflow_actors.rs）。
     pub(super) actor_turns: BTreeMap<String, super::workflow_actors::ActorTurn>,
+    /// 实时遥测事实的会话序号与流式首块记录（telemetry.rs）。
+    pub(super) telemetry: super::telemetry::State,
 }
 impl Engine {
     pub async fn new(
@@ -159,6 +161,7 @@ impl Engine {
             memory_prompts: BTreeMap::new(),
             title_jobs: BTreeMap::new(),
             actor_turns: BTreeMap::new(),
+            telemetry: Default::default(),
         })
     }
     pub async fn serve(

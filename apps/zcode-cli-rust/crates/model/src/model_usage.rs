@@ -48,3 +48,58 @@ pub(crate) fn record(
         "errorCode": error_code,
     }));
 }
+
+/// 一次逻辑请求的网络状态身份（TS createStatusContext：requestId 一次调用一个，attempt 逐次递增）。
+pub(crate) struct Status<'a> {
+    pub sink: &'a crate::contract::EventSink,
+    pub provider_id: &'a str,
+    pub model_id: &'a str,
+    pub request_id: String,
+    pub max_attempts: u32,
+}
+
+impl Status<'_> {
+    /// TS ModelNetworkStatus（流式传输 `sse`）：started / completed / failed / retry_scheduled。只进遥测，发送失败忽略。
+    pub(crate) async fn emit(&self, kind: &str, attempt: u32, extra: Value) {
+        let mut status = json!({
+            "type": kind, "requestId": self.request_id, "providerId": self.provider_id, "modelId": self.model_id,
+            "transport": "sse", "attempt": attempt, "maxAttempts": self.max_attempts,
+        });
+        if let Some(source) = crate::contract::current_model_call().query_source {
+            status["querySource"] = source.into();
+        }
+        if let (Some(target), Some(fields)) = (status.as_object_mut(), extra.as_object()) {
+            target.extend(fields.clone());
+        }
+        let _ = self
+            .sink
+            .send(crate::contract::Event::ModelStatus(status))
+            .await;
+    }
+
+    pub(crate) async fn settled(
+        &self,
+        attempt: u32,
+        started_ms: u64,
+        result: Result<&ModelOutput, &ModelFailure>,
+    ) {
+        let duration = super::now().saturating_sub(started_ms);
+        match result {
+            Ok(_) => {
+                self.emit(
+                    "model_request_completed",
+                    attempt,
+                    json!({ "durationMs": duration }),
+                )
+                .await
+            }
+            Err(failure) => {
+                let mut extra = json!({ "durationMs": duration, "reason": failure.reason, "retryable": failure.retryable });
+                if let Some(code) = failure.status_code {
+                    extra["statusCode"] = code.into();
+                }
+                self.emit("model_request_failed", attempt, extra).await;
+            }
+        }
+    }
+}

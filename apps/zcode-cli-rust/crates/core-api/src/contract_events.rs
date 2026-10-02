@@ -141,6 +141,8 @@ pub enum Event {
         committed: Option<oneshot::Sender<()>>,
     },
     Retry(Option<RetryState>),
+    /// 模型请求的网络状态（TS ModelNetworkStatus：started / completed / failed / retry_scheduled），只进遥测事实。
+    ModelStatus(serde_json::Value),
     Text {
         response_id: String,
         text: String,
