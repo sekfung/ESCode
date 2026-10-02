@@ -83,6 +83,14 @@ impl Engine {
             .to_owned();
         let result = match method {
             "actor.create" => self.actor_create(&actor, params).await,
+            // 宿主重启后首次见到会话：取已持久化的 `workflowRuns` 归约态作为起点。
+            "workflowRuns.prior" => {
+                let session = params["session"].as_str().unwrap_or_default();
+                match self.ensure_session(session).await {
+                    Ok(_) => Ok(self.sessions.get(session).and_then(|s| s.workflow_runs.clone()).unwrap_or(Value::Null)),
+                    Err(_) => Ok(Value::Null),
+                }
+            }
             "actor.turn" => return self.actor_turn(&actor, params, reply).await,
             "actor.cancel" => {
                 if let Some(active) = self.active.get(&actor) {

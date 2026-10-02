@@ -112,6 +112,27 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const workingDirectories = new Map<string, string>();
   /** 父会话 → V4 `workflowRuns` 归约态（宿主进程内；Rust 持久化每次的整键结果）。 */
   const runStates = new Map<string, WorkflowRunsState>();
+  /** V4 `workflowRuns` 状态键：与 Node 投影同一个归约（@zcode/shared），整键交给 Rust 进会话快照。 */
+  const reduceRuns = (owner: string, progress: unknown): void => {
+    const prior = runStates.get(owner);
+    const workflowRuns = reduceWorkflowRunsState(prior, progress as never);
+    if (workflowRuns === null) return;
+    runStates.set(owner, workflowRuns);
+    // 没有 `workflowRunDeltas` 能力的订阅者收旧界裁剪版（TS publisher 的旧消费者编码）。
+    const legacy = clampWorkflowRunsForLegacy(workflowRuns);
+    send({
+      event: "workflowRuns",
+      params: {
+        session: owner,
+        kind: "workflowRuns",
+        workflowRuns,
+        // 键级增量（TS projection diffWorkflowRunsState）：有 `workflowRunDeltas` 能力的订阅者收它而不是整键。
+        deltas: diffWorkflowRunsState(prior, workflowRuns),
+        ...(legacy === workflowRuns ? {} : { legacy }),
+      },
+    });
+  };
+  const runChains = new Map<string, Promise<void>>();
   const tracking = (session: string) => {
     let existing = trackers.get(session);
     if (existing === undefined) {
@@ -179,24 +200,16 @@ export async function runWorkflowHostCommand(): Promise<number> {
         onRunEvent: (progress, routing) => {
           // V4 `workflowRuns` 状态键：与 Node 投影同一个归约（@zcode/shared），整键交给 Rust 进会话快照。
           const owner = routing.parentSessionId ?? session;
-          const prior = runStates.get(owner);
-          const workflowRuns = reduceWorkflowRunsState(prior, progress as never);
-          if (workflowRuns !== null) {
-            runStates.set(owner, workflowRuns);
-            // 没有 `workflowRunDeltas` 能力的订阅者收旧界裁剪版（TS publisher 的旧消费者编码）。
-            const legacy = clampWorkflowRunsForLegacy(workflowRuns);
-            send({
-              event: "workflowRuns",
-              params: {
-                session: owner,
-                kind: "workflowRuns",
-                workflowRuns,
-                // 键级增量（TS projection diffWorkflowRunsState）：有 `workflowRunDeltas` 能力的订阅者收它而不是整键。
-                deltas: diffWorkflowRunsState(prior, workflowRuns),
-                ...(legacy === workflowRuns ? {} : { legacy }),
-              },
-            });
-          }
+          // 本宿主进程内首次见到该会话时先向 Rust 取已持久化的归约态（宿主重启不丢此前的 run），
+          // 同一会话的后续事件按序排在它之后。
+          const chained = (runChains.get(owner) ?? Promise.resolve()).then(async () => {
+            if (!runStates.has(owner)) {
+              const seeded = await rustRequest("workflowRuns.prior", { session: owner }).catch(() => null);
+              if (seeded && !runStates.has(owner)) runStates.set(owner, seeded as WorkflowRunsState);
+            }
+            reduceRuns(owner, progress);
+          });
+          runChains.set(owner, chained.catch(() => {}));
           // `workflow.lifecycle` 遥测事实（actor-spawned / run-settled）：基字段由 Rust 重新盖章。
           const fact = workflowLifecycleFactFromProgress(
             { version: 1, eventId: "host", eventSeq: 0, occurredAt: Date.now(), sessionId: owner },

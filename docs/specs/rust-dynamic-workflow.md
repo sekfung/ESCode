@@ -258,4 +258,6 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
 - 已落地：键级增量——宿主随整键附带 `diffWorkflowRunsState(prior, next)`，Rust 把原生 op 记入增量日志；有
   `workflowRunDeltas` 能力的订阅者收 `workflowRun.*` 且 state patch 不带整键，旧消费者丢 op、收裁剪整键
   （`create-workflow` 差分以第二条增量订阅比对应用后的终态与 op 判别式）。
-- 待做：宿主重启后此前 run 的归约态丢失；模型失败分类映射。
+- 已落地：宿主进程内首次见到某会话的 run 事件时先经 `workflowRuns.prior` 向 Rust 取已持久化的归约态，同会话后续事件
+  串在其后（宿主重启不再丢此前的 run）。
+- 待做：模型失败分类映射。
