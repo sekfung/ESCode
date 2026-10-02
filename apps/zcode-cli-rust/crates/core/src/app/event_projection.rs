@@ -103,6 +103,7 @@ impl Engine {
         if matches!(
             event.event,
             Event::HostRequest { .. }
+                | Event::WorkflowSettled { .. }
                 | Event::SessionContext { .. }
                 | Event::WorkflowRunList { .. }
                 | Event::ShellPreference { .. }
@@ -157,6 +158,7 @@ impl Engine {
             | Event::SessionContext { .. }
             | Event::WorkflowRunList { .. }
             | Event::HostRequest { .. }
+            | Event::WorkflowSettled { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
             | Event::CompactDone { .. } | Event::SessionTitle { .. } => unreachable!(),
@@ -386,6 +388,7 @@ impl Engine {
         if finished {
             self.promote(&id).await?;
             self.deliver_children(&id).await?;
+            self.deliver_workflow_notices(&id).await?;
             self.finish_child(&id).await?;
             self.finish_session_title(&id);
         }

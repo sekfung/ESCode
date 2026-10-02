@@ -206,7 +206,8 @@ async fn run() -> Result<()> {
                         WorkspaceTools::new(cwd.clone(), data_dir.join("tool-results"))
                             .with_workspace_path(
                                 std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
-                            ),
+                            )
+                            .with_session_db(data_dir.join("rust-sessions.sqlite")),
                     ),
                     clock: Arc::new(SystemClock),
                 },

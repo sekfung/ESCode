@@ -114,11 +114,14 @@ impl Engine {
             return Ok(());
         }
         self.select(&json!({}), Some(self.session_selection(id)?))?;
-        let text = pending
-            .iter()
-            .map(|t| t.notification())
-            .collect::<Vec<_>>()
-            .join("\n");
+        // TS 的后台任务通知进模型时都带「不是用户输入」的包装（task_notification 呈现）。
+        let text = crate::domain::background::task_notification_message(
+            &pending
+                .iter()
+                .map(|t| t.notification())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
         let c = super::subagents::child_command(id, &self.clock.id(), &text);
         let (turn, _) = self.admit_input(id, &c, None, None)?;
         let s = self.sessions.get_mut(id).unwrap();

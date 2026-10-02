@@ -98,6 +98,12 @@ pub enum Event {
     AuxiliaryReply {
         result: std::result::Result<Value, String>,
     },
+    /// 工作流宿主报告一个后台 run 已结算（经工具层 Host 通道）：`notice` 是
+    /// `{taskId, toolCallId, status, text, originMeta}`，会话空闲时作为后台结果轮注入（docs/specs/rust-dynamic-workflow.md M1）。
+    WorkflowSettled {
+        session: String,
+        notice: Value,
+    },
     /// 后台工作区作业回复前的协议通知（如 `plugins/operationProgress`），按发出顺序转给 Host。
     AuxiliaryNotify {
         method: String,

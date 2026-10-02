@@ -20,6 +20,11 @@ export type { ToolSchedule, ToolScheduleItem, ToolDependency } from "./tool/sche
 export { createToolRegistry, ToolRegistry, ToolRegistryImpl } from "./tool/registry.js";
 export { createToolExecutor, ToolExecutor, ToolExecutorImpl } from "./tool/executor.js";
 export { builtInTools, registerBuiltInTools } from "./tool/handlers/index.js";
+// Rust runtime 的工作流宿主用它生成与 Node runtime 逐字相同的完成通知。
+export {
+  buildWorkflowNotificationOriginMeta,
+  formatWorkflowTaskNotificationText,
+} from "./tool/executor/background-tasks.js";
 // dwf driver 的 submit profile 运行时守卫要把 typed 声明换回通用声明。
 export {
   createSubmitResultToolEntry,

@@ -80,6 +80,10 @@ pub struct Session {
     pub attachments: std::collections::BTreeMap<String, StoredAttachment>,
     #[serde(default)]
     pub background: std::collections::BTreeMap<String, super::background::BackgroundTask>,
+    /// 已结算、尚未交给模型的工作流 run 完成通知（`{taskId, toolCallId, text, originMeta}`，
+    /// docs/specs/rust-dynamic-workflow.md M1）：会话空闲时作为后台结果轮注入。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflow_notices: Vec<Value>,
     pub id: String,
     pub workspace: String,
     pub title: String,
@@ -139,13 +143,13 @@ pub struct Session {
     #[serde(skip)]
     pub run_id: Option<String>,
 }
-fn queue_mode() -> String {
+pub(crate) fn queue_mode() -> String {
     "queue".into()
 }
-fn legacy_mode() -> String {
+pub(crate) fn legacy_mode() -> String {
     "build".into()
 }
-fn interactive() -> String {
+pub(crate) fn interactive() -> String {
     "interactive".into()
 }
 fn yes() -> bool {
@@ -153,88 +157,6 @@ fn yes() -> bool {
 }
 
 impl Session {
-    pub fn new(
-        id: String,
-        workspace: String,
-        provider: String,
-        model: String,
-        reasoning_level: String,
-        epoch: String,
-        now: u64,
-    ) -> Self {
-        Self {
-            file_checkpoints: vec![],
-            rewind_committed: None,
-            history: Default::default(),
-            row_highwater: 0,
-            history_rewrite: false,
-            agent_profile: None,
-            children: Default::default(),
-            mailbox: vec![],
-            plan_followups: vec![],
-            goal: None,
-            skills: None,
-            shared_context: None,
-            legacy_shared_context: false,
-            workspace_path: None,
-            workspace_directory: None,
-            trace_id: None,
-            todos: vec![],
-            todos_updated_at: now,
-            prompt_snapshot: None,
-            context: Default::default(),
-            context_tokens: None,
-            compact_instructions: None,
-            queued_now: None,
-            pending_acks: Default::default(),
-            // 修复：原先是只支持 yolo 时的默认值，漏传模式的新会话会直接放行写操作。
-            // TS 所有默认都是 build（见 docs/specs/rust-permission-modes.md「默认模式」）。
-            mode: legacy_mode(),
-            plan_enabled: false,
-            parent_id: None,
-            task_type: interactive(),
-            archived_at: None,
-            archived: false,
-            listed: true,
-            attachments: Default::default(),
-            background: Default::default(),
-            id,
-            workspace,
-            provider,
-            model,
-            reasoning_level,
-            thought_levels: vec![],
-            epoch,
-            title_seed: None,
-            title_attempted: false,
-            last_local_date: None,
-            title: String::new(),
-            title_source: "default".into(),
-            seq: 0,
-            delta_log: Default::default(),
-            revision: 0,
-            created_at: now,
-            updated_at: now,
-            phase: "draft".into(),
-            rows: vec![],
-            messages: vec![],
-            saved_rows: 0,
-            resident_bytes: None,
-            saved_inputs: 0,
-            saved_responses: 0,
-            saved_messages: 0,
-            checkpoint_at: 0,
-            api_retry: None,
-            usage: json!({"contextWindow":null,"cumulative":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0}}),
-            last_error: None,
-            creation_ack: None,
-            pending: vec![],
-            queue: vec![],
-            auto_drain: true,
-            followup_mode: queue_mode(),
-            run_id: None,
-        }
-    }
     pub fn active_context_tokens(&mut self) -> usize {
         *self.context_tokens.get_or_insert_with(|| {
             super::context::estimate(&self.messages[self.context.offset..])

@@ -66,7 +66,7 @@ pub(super) async fn execute(
     }
     // TS validateInput → resolveInput → prepareApproval：失败直接交回模型、不请求权限；成功则把入参换成
     // 将要执行的事实（确认窗与 handler 读同一份），并带上审批门的结论。
-    let approval_proceed = match prepare(tools, name, &mut call, workflow_skill_loaded).await? {
+    let approval_proceed = match prepare(tools, &sink.session_id, name, &mut call, workflow_skill_loaded).await? {
         Some(output) => {
             return Ok((call["id"].as_str().context("Tool id missing")?.into(), tool_name, output, true, false));
         }
@@ -169,6 +169,12 @@ pub(super) async fn execute(
                     selection.as_ref(),
                 )
             }
+            Ok(args) if let Some(output) = tools
+                .execute_workflow(&sink.session_id, call["id"].as_str().unwrap_or_default(), name, &args, cancel)
+                .await =>
+            {
+                output
+            }
             Ok(args) if name == "ListWorkflowRuns" => {
                 super::workflow_run_tool::execute(&args, turn.cwd.as_deref(), sink, cancel).await
             }
@@ -239,6 +245,7 @@ pub(super) async fn execute(
 /// 并以临时键 `_zcode_approval_proceed` 交回审批门结论（调用方取走后即删除）。
 async fn prepare(
     tools: &dyn ToolPort,
+    session: &str,
     name: &str,
     call: &mut Value,
     skill_loaded: bool,
@@ -246,7 +253,7 @@ async fn prepare(
     let Ok(args) = serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) else {
         return Ok(None);
     };
-    match tools.prepare_tool(name, &args, skill_loaded).await? {
+    match tools.prepare_tool(session, name, &args, skill_loaded).await? {
         None => Ok(None),
         Some(Err(message)) => Ok(Some(crate::contract::ToolOutput {
             failed: true,

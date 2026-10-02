@@ -22,6 +22,8 @@ import type {
 import { maybeThrowStorageFsFault } from "./fs-fault-injection.js";
 
 export * from "./session-store.js";
+// Rust runtime 的工作流宿主直接用同一个 journal 仓储写 Rust 会话库的 dwf_* 表。
+export { createDwfJournalStore } from "./session-store/repositories/dwf-journal.js";
 
 // 内存 event store 实现已下沉到 @zcode/contracts，
 // 这里保持 `@zcode/adapters/storage` 的导出路径不变，避免调用方改 import。

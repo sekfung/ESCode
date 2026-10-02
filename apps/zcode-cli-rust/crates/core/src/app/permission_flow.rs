@@ -133,8 +133,9 @@ impl Engine {
             "freeText": true,
             "options": options_for(tool, &suggested, persistent),
         });
-        // TS 仅对主会话的确认提供「完全访问」（子代理来源的确认不带该选项）。
-        if s.parent_id.is_none() {
+        // TS 仅对主会话的确认提供「完全访问」（子代理来源的确认不带该选项）；声明了选项策略的工具
+        // （工作流的 Create / Amend / Save）同样不带。
+        if s.parent_id.is_none() && !OPTIONS_POLICY_TOOLS.contains(&tool) {
             payload["fullAccessOption"] = full_access_option();
         }
         s.pending.push(json!({
@@ -184,12 +185,29 @@ pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
 
 /// TS `askOptions.allowAlways: false`（no-always-allow）：每次调用都是不同代码，持久或会话规则
 /// 不是「记住这次决定」而是把这道确认永久关掉，所以只给「允许一次 / 拒绝」。
-const NO_ALWAYS_ALLOW: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow"];
+const NO_ALWAYS_ALLOW: [&str; 2] = ["AmendWorkflow", "SaveWorkflow"];
+/// TS `askOptions.allowAlways: "session"`：只给会话作用域的免确认（不落项目规则）。
+const SESSION_ALWAYS_ALLOW: [&str; 1] = ["CreateWorkflow"];
+const OPTIONS_POLICY_TOOLS: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow"];
 
 fn options_for(tool: &str, suggested: &[Rule], persistent: bool) -> Vec<Value> {
-    let mut list = options_with_persistence(suggested, persistent);
+    let mut list = if SESSION_ALWAYS_ALLOW.contains(&tool) {
+        options(suggested, true)
+    } else {
+        options_with_persistence(suggested, persistent)
+    };
     if NO_ALWAYS_ALLOW.contains(&tool) {
         list.retain(|option| option["kind"] != "allowAlways");
+    }
+    // TS product-projection：Create / Amend 的确认另带 workflow Refine（静态应答是普通拒绝，带反馈时
+    // 由交互层升级成修改意见）。
+    if matches!(tool, "CreateWorkflow" | "AmendWorkflow") {
+        list.push(json!({
+            "optionId": "workflowRefine",
+            "label": "Refine",
+            "kind": "custom",
+            "response": {"decision": "deny", "reason": "Denied"},
+        }));
     }
     list
 }

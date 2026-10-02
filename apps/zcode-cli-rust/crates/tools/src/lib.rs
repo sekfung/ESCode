@@ -52,6 +52,8 @@ mod plugin_validate_mcp_tests;
 mod plugin_validate_shape;
 mod plugin_zip;
 mod workflow_analyzer;
+mod workflow_host;
+mod workflow_tools;
 mod mcp_connection;
 mod mcp_http_capture;
 mod mcp_http;

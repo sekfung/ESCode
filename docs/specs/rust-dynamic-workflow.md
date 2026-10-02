@@ -200,3 +200,14 @@ prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`�
   写入观察经 sink 回报），对齐 TS `workflow-driver*.ts`。
 - **M3**：Resume / Amend、升级问答（ResolveWorkflowQuestion）、V4 `workflowRuns` 投影与 `workflowRunDeltas`、`/workflow`
   命令、run 产物（artifact store）。
+- 2026-10-02 **M1 落地**（无 actor 脚本的 CreateWorkflow / GetWorkflowRun）：Node 宿主 `cli/src/workflow-host-command.ts`
+  （每个父会话一个 TS run 服务；journal = `createDwfJournalStore` 打开 Rust 会话库；actor 在 M2 前命名失败）；TS 侧新导出
+  `createDwfJournalStore`（adapters/storage）、`createDynamicWorkflowRunService`（bootstrap）、
+  `formatWorkflowTaskNotificationText` / `buildWorkflowNotificationOriginMeta`（core，从 tracker 私有方法提出的纯函数，
+  Node 行为不变）。Rust：`tools/src/workflow_host.rs`（常驻子进程、按 id 多路复用、`runSettled` → Host 通道
+  `Event::WorkflowSettled`）、`workflow_tools.rs`（`prepare_tool` / 新 `ToolPort::execute_workflow` 转宿主请求）、
+  core `workflow_notices.rs`（结算通知持久在 `Session.workflow_notices`，会话空闲时注入后台结果轮，行带
+  `originMeta`）。顺带修正两处既有差异：后台任务完成通知进模型时补上 TS 的 `<system-reminder>` 「不是用户输入」
+  包装（子代理同样适用）；工作流确认选项按 TS（Create = 允许一次 / 本会话总是允许 / 拒绝 / Refine，Amend / Save
+  无总是允许，三者都不带完全访问）。验收：`zcode-cli-rust-create-workflow.test.ts`（技能 → 提交 → 确认 → 后台运行 →
+  完成通知续跑，工具结果、确认选项与通知全文两侧一致）；相关对比用例 37/37（1 跳过）。

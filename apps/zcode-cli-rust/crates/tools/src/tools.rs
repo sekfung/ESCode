@@ -17,7 +17,21 @@ impl ToolPort for WorkspaceTools {
         self.mcp.tool(session, name)
     }
     fn attach_host(&self, host: crate::contract::EventSink) {
+        self.workflow_host.attach_host(host.clone());
         self.mcp.attach_host(host);
+    }
+    async fn execute_workflow(
+        &self,
+        session: &str,
+        call_id: &str,
+        name: &str,
+        args: &Value,
+        cancel: &CancellationToken,
+    ) -> Option<Result<ToolOutput>> {
+        if !super::workflow_host::TOOLS.contains(&name) {
+            return None;
+        }
+        Some(super::workflow_tools::execute(self, session, call_id, name, args, cancel).await)
     }
     async fn file_changes(
         &self,
@@ -204,6 +218,7 @@ impl ToolPort for WorkspaceTools {
     }
     async fn prepare_tool(
         &self,
+        session: &str,
         name: &str,
         args: &Value,
         skill_loaded: bool,
@@ -215,6 +230,11 @@ impl ToolPort for WorkspaceTools {
             }
             super::eval_workflow_snippet::TOOL => {
                 super::eval_workflow_snippet::prepare(cwd, args, skill_loaded, analyzer).await
+            }
+            name if super::workflow_host::TOOLS.contains(&name) => {
+                return super::workflow_tools::prepare(self, session, name, args, skill_loaded)
+                    .await
+                    .map(Some);
             }
             _ => return Ok(None),
         }
@@ -311,21 +331,7 @@ impl ToolPort for WorkspaceTools {
         crate::bash_git_safety::is_readonly_in_context(command, Some(&self.cwd))
     }
     fn concurrent_safe(&self, name: &str) -> bool {
-        matches!(
-            name,
-            "Read"
-                | "WebFetch"
-                | "WebSearch"
-                | "ReadSessionContext"
-                | "List"
-                | "Glob"
-                | "Grep"
-                | "AskUserQuestion"
-                | "TodoRead"
-                | "Skill"
-                | "Agent"
-                | "Task"
-        )
+        super::workspace_tools::concurrent_safe(name)
     }
     async fn execute(
         &self,

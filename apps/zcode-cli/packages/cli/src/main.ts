@@ -69,6 +69,12 @@ async function main(): Promise<void> {
       process.exitCode = await runWorkflowAnalyzerCommand();
       return;
     }
+    // 动态工作流宿主（Rust runtime 调用）：常驻，复用 TS run 服务与工作流工具 handler。
+    if (argv[0] === "__zcode-workflow-host") {
+      const { runWorkflowHostCommand } = await import("./workflow-host-command.js");
+      process.exitCode = await runWorkflowHostCommand();
+      return;
+    }
     // EvalWorkflowSnippet 的执行子进程（Rust runtime 调用）：一次调用一个进程，执行面是 Node 的 snippet 服务。
     if (argv[0] === "__zcode-workflow-snippet") {
       const { runWorkflowSnippetCommand } = await import("./workflow-snippet-command.js");

@@ -430,6 +430,76 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "CreateWorkflow": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Short run label in the user's language. Always pass it for an inline script; defaults to the saved workflow's name."
+      },
+      "script": {
+        "type": "string",
+        "description": "The whole workflow script, inline. Exactly one of `script`, `saved` and `path`."
+      },
+      "saved": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Name of a saved workflow (see ListSavedWorkflows)."
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Values for the arguments the saved workflow declares.",
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["project", "global"],
+            "description": "Which archive to take it from; omit for the normal lookup order."
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false,
+        "description": "A saved workflow to run, by name. Exactly one of `script`, `saved` and `path`."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A script file on disk (relative or absolute), usually the file a previous result named. Exactly one of `script`, `saved` and `path`."
+      },
+      "args": {
+        "type": "object",
+        "additionalProperties": {},
+        "description": "Values for the arguments a `path` file declares. Only with `path`.",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "max_concurrency": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Upper bound on subagents working at once. Only when the user asks to limit parallelism; never as a reaction to provider errors."
+      },
+      "subagent_model": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Model for the subagents (`providerId/modelId` or a model id). Only when the user asks; you stay on the session model."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "SaveWorkflow": {
     "type": "object",
     "properties": {
@@ -506,6 +576,19 @@
       }
     },
     "required": ["name", "description", "scope"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "GetWorkflowRun": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The workflow run ID to inspect (as returned by CreateWorkflow or ListWorkflowRuns)"
+      }
+    },
+    "required": ["run_id"],
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },

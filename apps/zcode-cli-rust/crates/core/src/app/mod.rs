@@ -68,6 +68,7 @@ mod skills;
 mod subagent_completion;
 mod subagent_tools;
 mod subagent_query;
+mod workflow_notices;
 mod subagents;
 
 mod history_commands;

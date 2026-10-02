@@ -74,6 +74,7 @@ mod session_context_rust;
 mod session_context_text;
 pub mod session_listing;
 mod session_memory;
+mod session_new;
 mod session_recovery;
 pub use session_recovery::ToolResult;
 pub mod session_title;

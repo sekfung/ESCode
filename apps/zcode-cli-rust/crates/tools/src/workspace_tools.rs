@@ -27,12 +27,15 @@ pub struct WorkspaceTools {
     pub(super) mcp: super::mcp_hub::Hub,
     /// 工作流脚本分析子进程（SaveWorkflow / CreateWorkflow 共用同一个检查器）。
     pub(super) analyzer: Arc<super::workflow_analyzer::WorkflowAnalyzer>,
+    /// 动态工作流宿主（CreateWorkflow 等的 run 服务与 handler）。
+    pub(super) workflow_host: Arc<super::workflow_host::WorkflowHost>,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
         Self {
             mcp: super::mcp_hub::Hub::new(cwd.clone()),
             analyzer: Arc::default(),
+            workflow_host: Arc::default(),
             workspace_path: cwd.clone(),
             cwd,
             artifacts,
@@ -47,6 +50,11 @@ impl WorkspaceTools {
     /// 与 Node（按 Host 路径 resolve）不同，两侧记忆不共享；改用 Host 路径。
     pub fn with_workspace_path(mut self, path: PathBuf) -> Self {
         self.workspace_path = path;
+        self
+    }
+    /// 本进程的会话库：工作流宿主用 TS journal 仓储写其中的 dwf_* 表。
+    pub fn with_session_db(self, path: PathBuf) -> Self {
+        self.workflow_host.set_db_path(path);
         self
     }
     pub async fn call(
@@ -164,4 +172,23 @@ impl WorkspaceTools {
             _ => bail!("Unsupported tool: {name}"),
         }
     }
+}
+
+/// 只读、可与同批其它只读调用并发执行的内置工具。
+pub(super) fn concurrent_safe(name: &str) -> bool {
+    matches!(
+        name,
+        "Read"
+            | "WebFetch"
+            | "WebSearch"
+            | "ReadSessionContext"
+            | "List"
+            | "Glob"
+            | "Grep"
+            | "AskUserQuestion"
+            | "TodoRead"
+            | "Skill"
+            | "Agent"
+            | "Task"
+    )
 }

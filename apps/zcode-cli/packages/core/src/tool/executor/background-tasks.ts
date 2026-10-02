@@ -644,78 +644,17 @@ export class BackgroundTaskTracker {
     snapshot: BackgroundTaskSnapshot | undefined,
     launchOutput?: Record<string, unknown>,
   ): string {
-    const output =
-      snapshot && "output" in snapshot && isRecord(snapshot.output)
-        ? snapshot.output
-        : launchOutput;
-    const subject = workflowTaskSubject(toolCall, taskId, snapshot, output);
-    const notificationStatus = normalizeBackgroundTaskNotificationStatus(status);
-    // dwf 的三终态词与停止原因从快照读：run service 把
-    // journal 里的 `stopReason` 投影到 `snapshot.stopReason`，所以「谁停的」不再只活在 registry。
-    // registry 的 stopInitiator 只作兼容兜底（老端口 / stub 不发 stopReason 时）。
-    const terminal = workflowSnapshotTerminal(status, snapshot);
-    const stopReason =
-      terminal?.stopReason ??
-      (status === "cancelled"
-        ? this.deps.runtimeTaskRegistry?.get(taskId)?.stopInitiator
-        : undefined);
-    const summary = buildWorkflowTaskSummary({
-      lost: status === "lost",
-      status: notificationStatus,
-      runStatus: terminal?.runStatus,
-      stopReason,
-      subject,
-    });
-    // dwf 与 legacy `Workflow` 在**结果**这一项上分道：
-    //   - dwf 的产物是脚本的任意顶层返回值，取 `snapshot.output` 原值并统一序列化，且**绝不**
-    //     回退到 launch output——后者的 `response` 是「run 已在后台启动」的陈旧散文，
-    //     回退过去比缺席更糟（桌面实测 bug 的第二种表现）。
-    //   - legacy `Workflow` 的 `output.response` 真实存在，launchOutput 回退是它自己的契约，
-    //     逐字节保留。
-    // subject 仍走上面那个 record 门控的 output（展示名不涉及产物形状）。
-    // dwf 分派名扩到 ResumeWorkflowRun：恢复的 run 与新启动的 run 在通知形状上同构。
-    const result = isDynamicWorkflowRunDispatchToolName(toolCall.name)
-      ? serializeWorkflowArtifact(snapshot && "output" in snapshot ? snapshot.output : undefined)
-      : stringField(output, "response");
-    // 渐进产物（`report(item)`）只属于 dwf：legacy `Workflow` 没有这个概念，它的通知逐字节不变。
-    // **三个终态一律携带**（completed / failed / cancelled）：一个死在第 12 个 ask 上的 run
-    // 仍然做完了 11 个 ask 的活，只报一句「失败」等于把它全扔了——那正是 report 存在的理由。
-    // 条目来自 journal 的 kind="report" 行（run service 放在快照上），不是 memory-only 的投影。
-    const isDynamicWorkflow = isDynamicWorkflowRunDispatchToolName(toolCall.name);
-    const reports = isDynamicWorkflow
-      ? buildWorkflowReportsNotificationSection(workflowSnapshotReports(snapshot))
-      : undefined;
-    // 用户面产物同样只属于 dwf（legacy `Workflow` 没有这个概念，通知逐字节不变）。三个终态
-    // 一律携带：一个失败的 run 已经发布的产物仍然摆在用户面前，通知不提它，模型就会重述一遍。
-    const artifacts = isDynamicWorkflow
-      ? buildWorkflowArtifactsNotificationSection(
-          workflowSnapshotArtifacts(snapshot),
-          WORKFLOW_ARTIFACTS_NOTIFICATION_MAX_LINES,
-        )
-      : undefined;
-    // 脚本文件同样只属于 dwf：呈现指引据它把
-    // 下一步说成「就地编辑那个文件」。journal 存的是绝对路径，模型面给工作区相对写法——
-    // 它接下来要 Edit 这个文件，而那正是它在别处读写文件时用的那一种路径。
-    const scriptPath = isDynamicWorkflow ? workflowSnapshotScriptPath(snapshot) : undefined;
-    return formatTaskNotification({
-      description: subject,
-      // 交付物呈现指引同样只属于 dwf。
-      ...(isDynamicWorkflow ? { deliveryGuidance: true } : {}),
-      ...(scriptPath === undefined
-        ? {}
-        : { scriptPath: describeWorkflowScriptPath(scriptPath, this.deps.getWorkingDirectory()) }),
-      error: snapshot && "error" in snapshot ? runtimeString(snapshot.error) : undefined,
-      ...(reports === undefined ? {} : { reports }),
-      ...(artifacts === undefined ? {} : { artifacts }),
-      result,
-      status: notificationStatus,
-      ...(terminal?.runStatus === undefined ? {} : { runStatus: terminal.runStatus }),
-      ...(stopReason === undefined ? {} : { stopReason }),
-      ...(terminal?.failure === undefined ? {} : { failure: terminal.failure }),
-      summary,
+    return formatWorkflowTaskNotificationText({
+      toolCall,
       taskId,
-      taskType: "local_workflow",
-      toolUseId: toolCall.id,
+      status,
+      snapshot,
+      launchOutput,
+      stopInitiator:
+        status === "cancelled"
+          ? this.deps.runtimeTaskRegistry?.get(taskId)?.stopInitiator
+          : undefined,
+      workingDirectory: this.deps.getWorkingDirectory(),
     });
   }
 
@@ -987,7 +926,7 @@ const WORKFLOW_NOTIFICATION_ERROR_MAX_CHARS = 2_000;
  * 两个入口同构，都经这里铸造：title 与 summary 同源（`workflowTaskSubject`），载荷只在**终态且
  * 快照在场**时携带（非终态 / lost 无快照 → 整字段缺席，GUI 退回裸标题行）。
  */
-function buildWorkflowNotificationOriginMeta(
+export function buildWorkflowNotificationOriginMeta(
   toolCall: ExecutableToolCall,
   taskId: string,
   status: string,
@@ -1195,4 +1134,89 @@ function backgroundTaskKind(toolName: string): "bash" | "subagent" | "workflow" 
   // dwf 的两个入口（CreateWorkflow / ResumeWorkflowRun）同归 "workflow"：同一个 run 的
   // 生命周期延续，面板分组与图标不该因入口不同而换类。
   return isDynamicWorkflowRunDispatchToolName(toolName) ? "workflow" : "bash";
+}
+
+/**
+ * workflow run（与 legacy `Workflow`）的完成通知文本。从 tracker 的私有方法提出来的纯函数：Rust runtime 的
+ * 工作流宿主（cli/src/workflow-host-command.ts）用它生成与 Node runtime 逐字相同的通知。
+ * `stopInitiator` 是 registry 里的停止发起方（快照不带 stopReason 时的兼容兜底），`workingDirectory`
+ * 用于把脚本路径写成模型面的样子。
+ */
+export function formatWorkflowTaskNotificationText(input: {
+  toolCall: ExecutableToolCall;
+  taskId: string;
+  status: string;
+  snapshot: BackgroundTaskSnapshot | undefined;
+  launchOutput?: Record<string, unknown>;
+  stopInitiator?: "user" | "model";
+  workingDirectory: string | undefined;
+}): string {
+  const { toolCall, taskId, status, snapshot, launchOutput } = input;
+  const output =
+    snapshot && "output" in snapshot && isRecord(snapshot.output) ? snapshot.output : launchOutput;
+  const subject = workflowTaskSubject(toolCall, taskId, snapshot, output);
+  const notificationStatus = normalizeBackgroundTaskNotificationStatus(status);
+  // dwf 的三终态词与停止原因从快照读：run service 把
+  // journal 里的 `stopReason` 投影到 `snapshot.stopReason`，所以「谁停的」不再只活在 registry。
+  // registry 的 stopInitiator 只作兼容兜底（老端口 / stub 不发 stopReason 时）。
+  const terminal = workflowSnapshotTerminal(status, snapshot);
+  const stopReason = terminal?.stopReason ?? input.stopInitiator;
+  const summary = buildWorkflowTaskSummary({
+    lost: status === "lost",
+    status: notificationStatus,
+    runStatus: terminal?.runStatus,
+    stopReason,
+    subject,
+  });
+  // dwf 与 legacy `Workflow` 在**结果**这一项上分道：
+  //   - dwf 的产物是脚本的任意顶层返回值，取 `snapshot.output` 原值并统一序列化，且**绝不**
+  //     回退到 launch output——后者的 `response` 是「run 已在后台启动」的陈旧散文，
+  //     回退过去比缺席更糟（桌面实测 bug 的第二种表现）。
+  //   - legacy `Workflow` 的 `output.response` 真实存在，launchOutput 回退是它自己的契约，
+  //     逐字节保留。
+  // subject 仍走上面那个 record 门控的 output（展示名不涉及产物形状）。
+  // dwf 分派名扩到 ResumeWorkflowRun：恢复的 run 与新启动的 run 在通知形状上同构。
+  const result = isDynamicWorkflowRunDispatchToolName(toolCall.name)
+    ? serializeWorkflowArtifact(snapshot && "output" in snapshot ? snapshot.output : undefined)
+    : stringField(output, "response");
+  // 渐进产物（`report(item)`）只属于 dwf：legacy `Workflow` 没有这个概念，它的通知逐字节不变。
+  // **三个终态一律携带**（completed / failed / cancelled）：一个死在第 12 个 ask 上的 run
+  // 仍然做完了 11 个 ask 的活，只报一句「失败」等于把它全扔了——那正是 report 存在的理由。
+  // 条目来自 journal 的 kind="report" 行（run service 放在快照上），不是 memory-only 的投影。
+  const isDynamicWorkflow = isDynamicWorkflowRunDispatchToolName(toolCall.name);
+  const reports = isDynamicWorkflow
+    ? buildWorkflowReportsNotificationSection(workflowSnapshotReports(snapshot))
+    : undefined;
+  // 用户面产物同样只属于 dwf（legacy `Workflow` 没有这个概念，通知逐字节不变）。三个终态
+  // 一律携带：一个失败的 run 已经发布的产物仍然摆在用户面前，通知不提它，模型就会重述一遍。
+  const artifacts = isDynamicWorkflow
+    ? buildWorkflowArtifactsNotificationSection(
+        workflowSnapshotArtifacts(snapshot),
+        WORKFLOW_ARTIFACTS_NOTIFICATION_MAX_LINES,
+      )
+    : undefined;
+  // 脚本文件同样只属于 dwf：呈现指引据它把
+  // 下一步说成「就地编辑那个文件」。journal 存的是绝对路径，模型面给工作区相对写法——
+  // 它接下来要 Edit 这个文件，而那正是它在别处读写文件时用的那一种路径。
+  const scriptPath = isDynamicWorkflow ? workflowSnapshotScriptPath(snapshot) : undefined;
+  return formatTaskNotification({
+    description: subject,
+    // 交付物呈现指引同样只属于 dwf。
+    ...(isDynamicWorkflow ? { deliveryGuidance: true } : {}),
+    ...(scriptPath === undefined
+      ? {}
+      : { scriptPath: describeWorkflowScriptPath(scriptPath, input.workingDirectory) }),
+    error: snapshot && "error" in snapshot ? runtimeString(snapshot.error) : undefined,
+    ...(reports === undefined ? {} : { reports }),
+    ...(artifacts === undefined ? {} : { artifacts }),
+    result,
+    status: notificationStatus,
+    ...(terminal?.runStatus === undefined ? {} : { runStatus: terminal.runStatus }),
+    ...(stopReason === undefined ? {} : { stopReason }),
+    ...(terminal?.failure === undefined ? {} : { failure: terminal.failure }),
+    summary,
+    taskId,
+    taskType: "local_workflow",
+    toolUseId: toolCall.id,
+  });
 }

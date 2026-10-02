@@ -215,11 +215,24 @@ pub trait ToolPort: Send + Sync {
     /// `Some(Ok((入参, ask)))`：归一化后的入参，以及是否需要确认（`false` = ask 时直接放行）。
     async fn prepare_tool(
         &self,
+        _session: &str,
         _name: &str,
         _args: &Value,
         _skill_loaded: bool,
     ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
         Ok(None)
+    }
+    /// 工作流宿主负责的工具（CreateWorkflow 等，docs/specs/rust-dynamic-workflow.md M1）：带会话与调用 id 执行，
+    /// 后台 run 结算后宿主经 Host 通道报告 `Event::WorkflowSettled`。`None`：该工具不归宿主。
+    async fn execute_workflow(
+        &self,
+        _session: &str,
+        _call_id: &str,
+        _name: &str,
+        _args: &Value,
+        _cancel: &CancellationToken,
+    ) -> Option<Result<crate::ToolOutput>> {
+        None
     }
     /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
     /// `refresh = true` 刷新官方目录后给出最终结果。
