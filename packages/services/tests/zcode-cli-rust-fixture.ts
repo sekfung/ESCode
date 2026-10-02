@@ -306,7 +306,8 @@ export class Harness {
     this.transport = new ZCodeStdioTransport(child);
     this.client = new ZCodeProtocolClient(this.transport, {
       requireStorageStartup: true,
-      requestTimeoutMs: 5000,
+      // 请求上限默认 5s；安装包演练（慢 runner）由 CI 调大。
+      requestTimeoutMs: Number(process.env.ZCODE_TEST_REQUEST_MS ?? 5000),
     });
     // 与真实 Host（zcodeAgentService 的 onRequest）一致应答运行时偏好与脚本化反向请求。
     this.client.onRequest((request) => answerHostRequest(this, request));

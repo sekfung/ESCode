@@ -197,8 +197,12 @@ impl ToolPort for Tools {
         self.cancellations.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
+    /// 用例会调用的工具都要在注册表里（未注册的名字按 TS 回 `Tool not found`，不执行）；入参不在此校验。
     fn definitions(&self) -> Vec<Value> {
-        vec![]
+        ["Read", "Write", "GuardedWrite", "AskUserQuestion", "TodoWrite", "SlowCancel", "CleanupFailure"]
+            .iter()
+            .map(|name| json!({"type":"function","function":{"name":name,"description":name,"parameters":{"type":"object"}}}))
+            .collect()
     }
     fn requires_permission(&self, name: &str) -> bool {
         name == "GuardedWrite"
@@ -765,11 +769,14 @@ async fn stop_during_start_now_reservation_holds_input_and_rejects_competing_pro
         ))
         .await
         .unwrap();
-    let rejection = runtime.output.recv().await.unwrap();
-    assert_eq!(
-        rejection[0]["result"]["reasonCode"],
-        "guard.queuePromotionBusy"
-    );
+    // 输出里夹着通知（遥测事实等）：取 id 为 other 的应答。
+    let rejection = loop {
+        let batch = runtime.output.recv().await.unwrap();
+        if let Some(reply) = batch.into_iter().find(|m| m["id"] == "other") {
+            break reply;
+        }
+    };
+    assert_eq!(rejection["result"]["reasonCode"], "guard.queuePromotionBusy");
     runtime
         .input
         .send(command("stop", "stop", json!({})))

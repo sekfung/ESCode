@@ -14,7 +14,8 @@ const skillDir = new URL(
 );
 const blocks = [];
 for (const file of ["examples.md", "patterns.md"]) {
-  const text = await readFile(new URL(file, skillDir), "utf8");
+  // 检出的行尾随平台不同（Windows autocrlf）：统一成 LF，语料与平台无关。
+  const text = (await readFile(new URL(file, skillDir), "utf8")).replace(/\r\n/g, "\n");
   for (const match of text.matchAll(/```(?:ts|typescript|js|javascript)\r?\n([\s\S]*?)```/g)) {
     blocks.push({ name: `${file}#${blocks.length}`, script: match[1] });
   }

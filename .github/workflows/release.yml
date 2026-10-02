@@ -149,8 +149,8 @@ jobs:
         include:
           - { os: win, arch: x64, runner: windows-latest }
           - { os: mac, arch: arm64, runner: macos-latest }
-          # arm64 runner 上经 Rosetta 运行 x64 安装包。
-          - { os: mac, arch: x64, runner: macos-latest }
+          # x64 安装包在原生 Intel runner 上验证（不经 Rosetta）。
+          - { os: mac, arch: x64, runner: macos-15-intel }
           - { os: linux, arch: x64, runner: ubuntu-latest }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -166,9 +166,6 @@ jobs:
         with:
           node-version: 24.14.0
           cache: pnpm
-      - name: rosetta
-        if: matrix.os == 'mac' && matrix.arch == 'x64'
-        run: softwareupdate --install-rosetta --agree-to-license
       - name: linux display
         if: matrix.os == 'linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
@@ -186,11 +183,12 @@ jobs:
         shell: bash
         env:
           TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.zcode-cli-rust.json
-          # Rosetta 下的 x64 Electron 退出远慢于原生，进程退出等待放宽到 30s（仍要求正常退出）。
+          # 安装包首次运行与退出比开发态慢，进程退出与请求等待放宽（仍要求正常退出与正确结果）。
           ZCODE_TEST_EXIT_MS: "30000"
+          ZCODE_TEST_REQUEST_MS: "60000"
         run: |
           set -uo pipefail
-          # 预热：Rosetta（mac x64）首次运行要先翻译二进制，冷启动会吃掉用例的请求超时。
+          # 预热：首次启动（Gatekeeper 扫描等）明显更慢，先各跑一次两个 runtime。
           "$ZCODE_INSTALLED_GLM/zcode-cli-rust" --help > /dev/null || true
           ELECTRON_RUN_AS_NODE=1 "$ZCODE_INSTALLED_APP" -e "0" || true
           node --import tsx --test packages/services/tests/zcode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
