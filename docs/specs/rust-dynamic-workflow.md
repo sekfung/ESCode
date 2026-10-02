@@ -248,7 +248,9 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
   `runNotice`）；TaskStop 停止 run（宿主实现 TS 后台控制端口的 `local_dynamic_workflow` 分支）；ResumeWorkflowRun 与 actor
   重水化（`resumeFromStore` → `actor.resume`）。
 - 回合内 steer：Node 在回合进行中到达的后台通知于下一个步边界并入本回合（`drainPendingRuntimeCommandsForActiveLoop`，
-  `task_notification_steer`）；Rust 的工作流通知已按此在 StepBoundary 并入（与 mailbox 同一机制）。**缺口**：Rust 的后台
-  子代理 / 后台 Bash 完成通知仍只在回合结束后开新轮，需按同一语义补齐（另立差分）。
-- 待做：TaskOutput 读工作流 run、V4 `workflowRuns` 投影 / `workflowRunDeltas`、`/workflow` 命令、run 产物 store、
+  `task_notification_steer`）；Rust 的工作流通知已按此在 StepBoundary 并入（与 mailbox 同一机制）。后台子代理 / 后台 Bash
+  完成通知已同样补齐（`zcode-cli-rust-subagent-steer`、`bash-background-notice` 差分；Bash 通知、TaskOutput / TaskStop 模型面、
+  任务 id 与输出文件名一并对齐 Node）。
+- 已落地：TaskOutput 读工作流 run（宿主复用 TS BackgroundTaskTracker）。
+- 待做：V4 `workflowRuns` 投影 / `workflowRunDeltas`、`/workflow` 命令、run 产物 store、
   模型失败分类映射。
