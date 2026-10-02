@@ -42,12 +42,19 @@ impl Engine {
 
 /// TS includeOffPeak：未开启或子代理（subagent_child）时不注册 OffPeak 工具；
 /// TS buildTurnDisallowedTools：闲时受限轮（含只靠禁用列表哨兵判定的）隐藏 OffPeak 受限工具。
+/// 注册面：会话未开 OffPeak 工具或子代理时这些工具不注册（调用回 `Tool not found`）。
 pub(super) fn retain_visible(definitions: &mut Vec<Value>, facts: &super::context::TurnFacts, child: bool) {
     definitions.retain(|d| {
         let name = d["function"]["name"].as_str().unwrap_or_default();
-        !((off_peak::TOOLS.contains(&name) && (!facts.off_peak_tools || child))
-            || (facts.off_peak_restricted && off_peak::MUTATION_TOOLS.contains(&name)))
+        !(off_peak::TOOLS.contains(&name) && (!facts.off_peak_tools || child))
     });
+}
+
+/// 闲时受限轮只对模型隐藏改动类工具：它们仍在注册表里，模型硬调时回闲时拒绝文案（TS 可见性过滤）。
+pub(super) fn hide_restricted(definitions: &mut Vec<Value>, facts: &super::context::TurnFacts) {
+    if facts.off_peak_restricted {
+        definitions.retain(|d| !off_peak::MUTATION_TOOLS.contains(&d["function"]["name"].as_str().unwrap_or_default()));
+    }
 }
 
 pub(super) async fn execute(

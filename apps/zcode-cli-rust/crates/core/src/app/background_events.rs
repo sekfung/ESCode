@@ -40,8 +40,12 @@ impl Engine {
         let sealed = session.parent_id.is_some() && !session.running();
         if task.status != "running" && !sealed {
             let (text, meta) = task.notification();
+            // 被停止的任务（TaskStop / 取消）：停止的工具结果先交回模型，通知在本轮结束后作为后台结果轮送达，
+            // 不在步边界并入（Node 的 tracker 轮询晚于停止那一步的请求）。
+            let stopped = matches!(task.status.as_str(), "cancelled" | "killed" | "stopped");
             session.workflow_notices.push(serde_json::json!({
                 "taskId": task.id, "noticeId": "settled", "text": text, "originMeta": meta,
+                "steer": !stopped,
             }));
         }
         session.background.insert(task.id.clone(), task);

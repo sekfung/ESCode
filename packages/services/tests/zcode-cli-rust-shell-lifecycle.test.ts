@@ -141,7 +141,8 @@ test("Rust TaskStop waits for cross-group workers and exposes the committed back
     respond(req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
       const last = req.messages.at(-1);
-      if (last.role === "user") {
+      // 只对 start / stop 发工具调用：停止后到达的后台完成通知（user 角色）按普通回复处理。
+      if (last.role === "user" && (last.content === "start" || last.content === "stop")) {
         const stop = last.content === "stop";
         event(res, {
           tool_calls: [

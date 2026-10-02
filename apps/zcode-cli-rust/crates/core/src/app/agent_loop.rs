@@ -83,6 +83,7 @@ pub(super) async fn run(
     // TS 注册表（registerBuiltInTools 的结果）：其后只是本轮可见性过滤，被隐藏的工具仍按注册表执行
     // （自动化轮的 Cron 写工具回自动化拒绝），注册表里没有的名字回 `Tool not found`。
     let registered = definitions.clone();
+    super::off_peak::hide_restricted(&mut definitions, &turn_facts);
     // TS shouldExposeWebSearch：只有声明 provider-native 搜索的模型才看到 WebSearch（rust-websearch.md）。
     if !model.native_web_search() {
         definitions.retain(|d| d["function"]["name"] != "WebSearch");

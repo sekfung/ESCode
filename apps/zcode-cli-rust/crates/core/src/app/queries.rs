@@ -11,16 +11,21 @@ impl Engine {
     pub(super) async fn refresh_slash_commands(&mut self, method: &str) {
         if matches!(
             method,
-            "v4/conversation/subscribe" | "session/read" | "workspace/readPresentation"
+            "v4/conversation/subscribe" | "session/read" | "session/resume" | "workspace/readPresentation"
         ) {
             let cancel = tokio_util::sync::CancellationToken::new();
             self.slash_commands = self.tools.slash_commands(&cancel).await;
-            // TS zcode-protocol/slash-commands.ts：动态工作流关闭时目录剔除内置 `workflow`。
-            if !self.shell.dynamic_workflow.process_enabled() {
-                self.slash_commands
-                    .retain(|c| !(c["source"] == "builtin" && c["name"] == "workflow"));
-            }
         }
+    }
+
+    /// TS zcode-protocol/slash-commands.ts：动态工作流关闭时目录剔除内置 `workflow`（启动时的内置目录同样过滤）。
+    fn visible_slash_commands(&self) -> Vec<Value> {
+        let enabled = self.shell.dynamic_workflow.process_enabled();
+        self.slash_commands
+            .iter()
+            .filter(|c| enabled || !(c["source"] == "builtin" && c["name"] == "workflow"))
+            .cloned()
+            .collect()
     }
 
     fn execution_capabilities(&self) -> Value {
@@ -31,7 +36,7 @@ impl Engine {
 
     pub(super) fn workspace_config(&self) -> Value {
         let options = self.catalog();
-        json!({"executionCapabilities":self.execution_capabilities(),"configOptions":if options.is_empty(){vec![]}else{vec![json!({"id":"model","name":"Model","type":"select","currentValue":self.config.as_ref().map(|c|c.model_id.as_str()).unwrap_or(""),"options":options})]},"slashCommands":self.slash_commands})
+        json!({"executionCapabilities":self.execution_capabilities(),"configOptions":if options.is_empty(){vec![]}else{vec![json!({"id":"model","name":"Model","type":"select","currentValue":self.config.as_ref().map(|c|c.model_id.as_str()).unwrap_or(""),"options":options})]},"slashCommands":self.visible_slash_commands()})
     }
 
     pub(super) fn validate_workspace(&self, p: &Value) -> Result<()> {
@@ -74,7 +79,7 @@ impl Engine {
             "process/childProcesses" => Ok(json!({"processes":[]})),
             "workspace/readPresentation" => {
                 // 旧 App 使用 strict schema；未协商的客户端不能收到新增字段。
-                let mut presentation = json!({"workspace":p["workspace"],"mode":"build","slashCommands":self.slash_commands});
+                let mut presentation = json!({"workspace":p["workspace"],"mode":"build","slashCommands":self.visible_slash_commands()});
                 if p["includeExecutionCapabilities"] == true {
                     presentation["executionCapabilities"] = self.execution_capabilities();
                 }

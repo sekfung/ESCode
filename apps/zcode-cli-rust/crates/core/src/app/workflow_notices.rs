@@ -108,12 +108,15 @@ impl Engine {
     /// （task_notification_steer），而不是等回合结束再开一个后台结果轮。
     async fn steer_workflow_notices(&mut self, id: &str, turn: &str) -> Result<Option<Vec<Value>>> {
         let s = self.sessions.get_mut(id).unwrap();
-        if s.workflow_notices.is_empty() {
+        let (steered, kept): (Vec<Value>, Vec<Value>) =
+            std::mem::take(&mut s.workflow_notices).into_iter().partition(|n| n["steer"] != false);
+        s.workflow_notices = kept;
+        if steered.is_empty() {
             return Ok(None);
         }
         let mut deltas = vec![];
         let mut messages = vec![];
-        for notice in std::mem::take(&mut s.workflow_notices) {
+        for notice in steered {
             let text = crate::domain::background::task_notification_message(
                 notice["text"].as_str().unwrap_or_default(),
             );
