@@ -776,7 +776,10 @@ async fn stop_during_start_now_reservation_holds_input_and_rejects_competing_pro
             break reply;
         }
     };
-    assert_eq!(rejection["result"]["reasonCode"], "guard.queuePromotionBusy");
+    assert_eq!(
+        rejection["result"]["reasonCode"],
+        "guard.queuePromotionBusy"
+    );
     runtime
         .input
         .send(command("stop", "stop", json!({})))
