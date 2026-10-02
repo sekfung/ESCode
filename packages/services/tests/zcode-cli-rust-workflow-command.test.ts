@@ -46,7 +46,7 @@ async function observe(kind: "node" | "rust") {
       const rows = (await h.rows(id)).rows;
       return {
         model: req?.messages?.filter((m: any) => m.role === "user").at(-1)?.content,
-        row: rows.find((r: any) => r.kind === "userInput")?.text,
+        row: (rows.find((r: any) => r.kind === "userInput") as any)?.text,
       };
     };
     const workspace = { workspacePath: h.workspace, workspaceKey: h.workspace };

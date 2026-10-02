@@ -12,6 +12,8 @@ on:
       - .github/workflows/release.yml
       - packages/desktop/scripts/**
       - packages/desktop/electron-builder.config.js
+      - scripts/ci-install-desktop.mjs
+      - packages/services/tests/zcode-cli-rust-installed.test.ts
   workflow_dispatch:
 
 permissions:
@@ -136,10 +138,60 @@ jobs:
             packages/desktop/dist/*.pkg.tar.zst
           if-no-files-found: error
 
+  # 安装包真机演练（docs/specs/rust-release-rollback.md）：在各平台 runner 上安装真实安装包、确认应用能启动，
+  # 再用包内的 Node 与 Rust runtime 在同一数据目录上走 Node → Rust → 回退 Node。发布前必须通过。
+  installed:
+    name: installed (${{ matrix.os }}-${{ matrix.arch }})
+    needs: desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: win, arch: x64, runner: windows-latest }
+          - { os: mac, arch: arm64, runner: macos-latest }
+          # arm64 runner 上经 Rosetta 运行 x64 安装包。
+          - { os: mac, arch: x64, runner: macos-latest }
+          - { os: linux, arch: x64, runner: ubuntu-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      ZCODE_TEST_SERIAL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: rosetta
+        if: matrix.os == 'mac' && matrix.arch == 'x64'
+        run: softwareupdate --install-rosetta --agree-to-license
+      - name: linux display
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      # 回退演练用例复用差分 fixture：其依赖包走 dist 入口。
+      - run: node apps/zcode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs
+      - run: pnpm --dir apps/zcode-cli --filter "@zcode/bootstrap^..." build
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: installer
+      - name: install and launch
+        run: node scripts/ci-install-desktop.mjs installer
+      - name: Node → Rust → Node rollback rehearsal on the installed package
+        shell: bash
+        env:
+          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.zcode-cli-rust.json
+        run: node --import tsx --test packages/services/tests/zcode-cli-rust-installed.test.ts
+
   publish:
     name: publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [rust-runtime, desktop]
+    needs: [rust-runtime, desktop, installed]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -153,3 +205,19 @@ jobs:
           body: |
             Unsigned build. The desktop app still defaults to the Node runtime;
             set ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust to use the bundled Rust runtime.
+      # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
+      - name: verify published assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          expected=$(ls artifacts | sort)
+          published=$(gh release view "$tag" --json assets --jq '.assets[].name' | sort)
+          diff <(echo "$expected") <(echo "$published")
+          mkdir -p verify && cd verify
+          gh release download "$tag" --pattern 'zcode-cli-rust-*'
+          for sum in *.sha256; do sha256sum -c "$sum"; done
+          echo "verified $(ls *.sha256 | wc -l) runtime archives on release $tag" >> "$GITHUB_STEP_SUMMARY"

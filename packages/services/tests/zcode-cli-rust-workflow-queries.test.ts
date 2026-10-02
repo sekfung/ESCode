@@ -85,9 +85,9 @@ async function observe(kind: "node" | "rust") {
     }
     await h.completed(sessionId);
     clearInterval(pump);
-    const q =async (method: string, params: Record<string, unknown>) => {
+    const q = async (method: string, params: Record<string, unknown>) => {
       try {
-        return (await h.client.request(`v4/conversation/${method}`, { sessionId, ...params }, parse)) as any;
+        return (await h.client.request(`v4/conversation/${method}` as any, { sessionId, ...params }, parse)) as any;
       } catch (error) {
         return { error: error instanceof Error ? error.message : String(error) };
       }
