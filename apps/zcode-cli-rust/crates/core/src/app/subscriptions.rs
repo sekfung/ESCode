@@ -222,9 +222,20 @@ impl Engine {
             .context("Subscription unavailable")?;
         sub.ordinal += 1;
         sub.delivered = to;
-        let frame = json!({"topic":sub.topic,"subscriptionId":sub.id,"fromSeq":from,"toSeq":to,"sentAt":self.clock.now(),"payload":payload});
-        let wire = json!({"wireVersion":3,"kind":"complete","deliveryKind":delivery,"logicalFrameId":self.clock.id(),"logicalFrameOrdinal":sub.ordinal,
-            "topic":sub.topic,"subscriptionId":sub.id,"frame":frame});
+        let (topic, sub_id, ordinal) = (sub.topic.clone(), sub.id.clone(), sub.ordinal);
+        let continuous = sub.client_mode == "desktop-continuous";
+        let mut frame = json!({"topic":topic,"subscriptionId":sub_id,"fromSeq":from,"toSeq":to,"sentAt":self.clock.now(),"payload":payload});
+        // TS v4-gateway：在线增量帧携带本地 TTFT 观测（首输出时刻只经帧送达渲染端）。
+        if continuous && delivery == "online" && frame["payload"]["kind"] == "deltas"
+            && let Some((ttft, related)) = topic.strip_prefix("conversation/").and_then(|s| self.local_ttft_frame(s, &frame["payload"]))
+        {
+            frame["ttft"] = ttft;
+            if !related.is_empty() {
+                frame["ttftRelated"] = related.into();
+            }
+        }
+        let wire = json!({"wireVersion":3,"kind":"complete","deliveryKind":delivery,"logicalFrameId":self.clock.id(),"logicalFrameOrdinal":ordinal,
+            "topic":topic,"subscriptionId":sub_id,"frame":frame});
         self.outbox.extend(encode(wire)?);
         Ok(())
     }

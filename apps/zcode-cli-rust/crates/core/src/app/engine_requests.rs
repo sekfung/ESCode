@@ -40,7 +40,20 @@ impl Engine {
         self.refresh_slash_commands(&request.method).await;
         let result = match request.method.as_str() {
             "v4/command" => match serde_json::from_value(request.params.clone()) {
-                Ok(command) => self.command(command).await,
+                Ok(command) => {
+                    // 本地 TTFT 观测（TS LocalTtftRecorder.receive / admitted）：只观察，不改变命令结果。
+                    let ttft_admitted = self.local_ttft_receive(&request.params);
+                    let command_id = request.params["commandId"].as_str().unwrap_or_default().to_owned();
+                    let ack = self.command(command).await;
+                    ack.map(|mut ack| {
+                        if !ttft_admitted {
+                            ack["ttftExcluded"] = "capacity".into();
+                        } else if ack["status"] == "accepted" {
+                            self.local_ttft_admitted(&command_id);
+                        }
+                        ack
+                    })
+                }
                 Err(_) => {
                     output
                         .send(vec![rpc_error(
@@ -155,6 +168,10 @@ impl Engine {
             "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory" => {
                 self.plugin_reference_catalog(&request.method, &request.params)
                     .await
+            }
+            // 时钟探测不触达命令账本（TS queryCommands 的 clock 分支）。
+            "v4/commands/query" if request.params["clock"] == true => {
+                self.local_ttft_clock(&request.params, super::local_ttft::now())
             }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,

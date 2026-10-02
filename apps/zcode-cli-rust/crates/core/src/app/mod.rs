@@ -69,6 +69,8 @@ mod subagent_completion;
 mod subagent_tools;
 mod subagent_query;
 mod workflow_actors;
+mod local_ttft;
+mod local_ttft_frame;
 mod telemetry;
 mod usage_facts;
 mod workflow_notices;

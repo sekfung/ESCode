@@ -40,13 +40,20 @@ impl Engine {
                     .map(|(k, v)| (k.clone(), v.clone())),
             );
         }
-        self.outbox
-            .push(json!({ "method": "v4/telemetry/event", "params": Value::Object(fact) }));
+        let fact = Value::Object(fact);
+        self.local_ttft_fact(&fact);
+        self.outbox.push(json!({ "method": "v4/telemetry/event", "params": fact }));
     }
 
-    /// 本轮的输入 id（TS admission 的 inputId；用户轮与后台唤醒轮都有）。
+    /// 本轮的输入 id（TS admission 的 inputId = 发起命令 id；用户轮与后台唤醒轮都有）。
     fn turn_input(&self, id: &str, turn: &str) -> Option<String> {
         let session = self.sessions.get(id)?;
+        let command = session.rows.iter().find(|r| {
+            r["turnId"] == turn && matches!(r["kind"].as_str(), Some("turnHeader" | "userInput"))
+        });
+        if let Some(command) = command.and_then(|r| r["sourceCommandId"].as_str()) {
+            return Some(command.to_owned());
+        }
         session
             .history
             .inputs

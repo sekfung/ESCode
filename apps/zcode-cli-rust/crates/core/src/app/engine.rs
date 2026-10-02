@@ -74,6 +74,8 @@ pub struct Engine {
     pub(super) actor_turns: BTreeMap<String, super::workflow_actors::ActorTurn>,
     /// 实时遥测事实的会话序号与流式首块记录（telemetry.rs）。
     pub(super) telemetry: super::telemetry::State,
+    /// 本地首 token 时延观测（local_ttft.rs）。
+    pub(super) local_ttft: super::local_ttft::Recorder,
 }
 impl Engine {
     pub async fn new(
@@ -162,6 +164,7 @@ impl Engine {
             title_jobs: BTreeMap::new(),
             actor_turns: BTreeMap::new(),
             telemetry: Default::default(),
+            local_ttft: super::local_ttft::Recorder::new(clock.id()),
         })
     }
     pub async fn serve(
