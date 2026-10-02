@@ -199,40 +199,53 @@ fn stored_input_side(input: i64, output: i64, creation: i64, read: i64, total: i
     input
 }
 
-/// TS 库导入（数据迁移）：把已导入到本 workspace 的会话的 `model_usage` 行带过来，会话用量与应用统计不断档。
-/// 旧库没有该表（0010 之前的版本）时跳过；重复导入按 id 去重。
+/// TS 库导入（数据迁移）：把已导入到本 workspace 的会话的 `model_usage` / `turn_usage` / `tool_usage` 行带过来，
+/// 会话用量与应用统计不断档。旧库没有这些表（0010 之前的版本）时跳过；重复导入按主键去重。
 pub(super) fn import_legacy(tx: &Connection, snapshot: &Connection, workspace: &str) -> Result<()> {
-    let has_table: bool = snapshot.query_row(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_usage')",
-        [],
-        |r| r.get(0),
-    )?;
-    if !has_table {
-        return Ok(());
-    }
     let mut sessions = tx.prepare("SELECT id FROM rust_session WHERE workspace = ?1")?;
     let sessions: std::collections::HashSet<String> = sessions
         .query_map([workspace], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?;
-    let mut rows = snapshot.prepare(
-        "SELECT id,session_id,turn_id,query_source,provider_id,model_id,status,started_at,completed_at,duration_ms,
-            time_to_first_token_ms,tool_call_count,input_tokens,output_tokens,reasoning_tokens,
-            cache_creation_input_tokens,cache_read_input_tokens,provider_total_tokens,computed_total_tokens,
-            retry_count,error_code FROM model_usage",
-    )?;
-    let mut insert = tx.prepare(
-        "INSERT OR IGNORE INTO rust_model_usage VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
-    )?;
-    let mut cursor = rows.query([])?;
-    while let Some(row) = cursor.next()? {
-        let session: String = row.get(1)?;
-        if !sessions.contains(&session) {
+    for (source, columns, target) in [
+        (
+            "model_usage",
+            "id,session_id,turn_id,query_source,provider_id,model_id,status,started_at,completed_at,duration_ms,
+             time_to_first_token_ms,tool_call_count,input_tokens,output_tokens,reasoning_tokens,
+             cache_creation_input_tokens,cache_read_input_tokens,provider_total_tokens,computed_total_tokens,
+             retry_count,error_code",
+            "rust_model_usage",
+        ),
+        ("turn_usage", "session_id,turn_id,status,started_at,completed_at,duration_ms", "rust_turn_usage"),
+        (
+            "tool_usage",
+            "session_id,tool_call_id,turn_id,tool_name,status,started_at,completed_at,duration_ms",
+            "rust_tool_usage",
+        ),
+    ] {
+        let exists: bool = snapshot.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+            [source],
+            |r| r.get(0),
+        )?;
+        if !exists {
             continue;
         }
-        let values: Vec<rusqlite::types::Value> = (0..21)
-            .map(|i| row.get::<_, rusqlite::types::Value>(i))
-            .collect::<std::result::Result<_, _>>()?;
-        insert.execute(rusqlite::params_from_iter(values))?;
+        let count = columns.split(',').count();
+        let session_index = columns.split(',').position(|c| c.trim() == "session_id").unwrap_or(0);
+        let placeholders = (1..=count).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+        let mut rows = snapshot.prepare(&format!("SELECT {columns} FROM {source}"))?;
+        let mut insert = tx.prepare(&format!("INSERT OR IGNORE INTO {target} VALUES({placeholders})"))?;
+        let mut cursor = rows.query([])?;
+        while let Some(row) = cursor.next()? {
+            let session: String = row.get(session_index)?;
+            if !sessions.contains(&session) {
+                continue;
+            }
+            let values: Vec<rusqlite::types::Value> = (0..count)
+                .map(|i| row.get::<_, rusqlite::types::Value>(i))
+                .collect::<std::result::Result<_, _>>()?;
+            insert.execute(rusqlite::params_from_iter(values))?;
+        }
     }
     Ok(())
 }
@@ -271,7 +284,12 @@ mod tests {
         record(&source, &fact("a", "main_turn", 10, 1)).unwrap();
         source.execute_batch("ALTER TABLE rust_model_usage RENAME TO model_usage; UPDATE model_usage SET session_id='s1';
             INSERT INTO model_usage(id,session_id,query_source,provider_id,model_id,status,started_at) VALUES('b','other','main_turn','p','m','completed',1);").unwrap();
+        source.execute_batch("CREATE TABLE turn_usage(session_id TEXT, turn_id TEXT, status TEXT, started_at INTEGER, completed_at INTEGER, duration_ms INTEGER, extra TEXT); INSERT INTO turn_usage VALUES('s1','t1','completed',1,2,1,'x');").unwrap();
         import_legacy(&dest, &source, "w").unwrap();
+        let turns: i64 = dest
+            .query_row("SELECT COUNT(*) FROM rust_turn_usage", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(turns, 1);
         let count: i64 = dest
             .query_row("SELECT COUNT(*) FROM rust_model_usage", [], |r| r.get(0))
             .unwrap();
