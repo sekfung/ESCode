@@ -54,6 +54,9 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
   - `workspace/updateModelIoPreferences`：**已实现**，且补上了它背后真正的缺口——Rust 之前完全不写 model-io，App「模型调用轨迹」侧栏对 Rust 会话为空；见 [rust-model-io.md](rust-model-io.md)。
   - `computer-use/operation-event`：**已实现**（2026-10-03，由遥测事实派生 turn-started / tool-scheduled（含 CUA
     引导语句判定）/ tool-started / turn-completed|failed；差分 `zcode-cli-rust-cua-operation-event.test.ts`）。
+  - `v4/cua/permission-observation`：已核对为**当前产品不可达**——TS 只对 `kind: "cua"` 展示（`mcp__computer_use__*`
+    工具）的 `request_access` 结果发出，而 TS 与 Rust 都把除 `node_repl` 外的 CUA 形 MCP 服务器退役（`isRetiredCuaMcpServer`），
+    `node_repl` 的 CUA 走 `node_repl_images` 展示（Rust 已对齐）。Rust 不实现，若 TS 恢复 computer-use MCP 再补。
   - 已核对为**无活跃 UI 调用点**（Rust 不实现，作为 legacy 面保留在 TS 侧）：
     `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
     `workspace/hooks/trustGrant` 已随 hooks H2 实现（见 [rust-hooks.md](rust-hooks.md)）。`plugins/referenceCatalog*` 同样没有活跃 UI
