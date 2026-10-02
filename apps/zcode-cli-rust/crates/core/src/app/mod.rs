@@ -1,6 +1,7 @@
 mod auxiliary;
 mod commands;
 mod engine;
+mod engine_requests;
 mod event_projection;
 mod host_requests;
 mod model_config;
@@ -66,6 +67,7 @@ mod shared_context;
 mod skills;
 mod subagent_completion;
 mod subagent_tools;
+mod subagent_query;
 mod subagents;
 
 mod history_commands;

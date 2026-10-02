@@ -7,12 +7,17 @@
 
 use crate::json_order::Json;
 
-use std::collections::HashSet;
+#[allow(unused_imports)]
+pub(super) use super::yaml_fold::{
+    FoldMode, Folded, consume_more_indented_lines, fold_block, fold_flow_lines,
+};
 
-const LINE_WIDTH: usize = 80;
-const MIN_CONTENT_WIDTH: usize = 20;
+pub(crate) const LINE_WIDTH: usize = 80;
+
+pub(crate) const MIN_CONTENT_WIDTH: usize = 20;
+
 /// TS `doubleQuotedMinMultiLineLength`。
-const DOUBLE_QUOTED_MIN_MULTI_LINE: usize = 40;
+pub(crate) const DOUBLE_QUOTED_MIN_MULTI_LINE: usize = 40;
 
 /// 顶层映射 → YAML 文本（带尾换行）。
 pub fn stringify(value: &Json) -> String {
@@ -66,7 +71,9 @@ fn write_sequence(out: &mut String, items: &[Json], indent: usize) {
             Json::Object(entries) if !entries.is_empty() => {
                 let mut nested = String::new();
                 write_mapping(&mut nested, entries, indent + 2);
-                let body = nested.strip_prefix(&" ".repeat(indent + 2)).unwrap_or(&nested);
+                let body = nested
+                    .strip_prefix(&" ".repeat(indent + 2))
+                    .unwrap_or(&nested);
                 out.push_str(&pad);
                 out.push_str("- ");
                 out.push_str(body);
@@ -74,7 +81,9 @@ fn write_sequence(out: &mut String, items: &[Json], indent: usize) {
             Json::Array(inner) if !inner.is_empty() => {
                 let mut nested = String::new();
                 write_sequence(&mut nested, inner, indent + 2);
-                let body = nested.strip_prefix(&" ".repeat(indent + 2)).unwrap_or(&nested);
+                let body = nested
+                    .strip_prefix(&" ".repeat(indent + 2))
+                    .unwrap_or(&nested);
                 out.push_str(&pad);
                 out.push_str("- ");
                 out.push_str(body);
@@ -201,7 +210,13 @@ fn double_quoted(value: &str, implicit_key: bool, indent: usize, column: usize) 
 /// 决定嵌入换行是保持转义还是展开成多行。
 fn rewrite_json_escapes(json: &str, indent: usize) -> String {
     let chars: Vec<char> = json.chars().collect();
-    let at = |i: i64| -> Option<char> { if i < 0 { None } else { chars.get(i as usize).copied() } };
+    let at = |i: i64| -> Option<char> {
+        if i < 0 {
+            None
+        } else {
+            chars.get(i as usize).copied()
+        }
+    };
     let mut out = String::new();
     let mut start = 0usize;
     let mut i: i64 = 0;
@@ -217,7 +232,9 @@ fn rewrite_json_escapes(json: &str, indent: usize) -> String {
             match at(i + 1) {
                 Some('u') => {
                     out.push_str(&chars[start..i as usize].iter().collect::<String>());
-                    let code: String = chars[i as usize + 2..(i as usize + 6).min(chars.len())].iter().collect();
+                    let code: String = chars[i as usize + 2..(i as usize + 6).min(chars.len())]
+                        .iter()
+                        .collect();
                     match code.as_str() {
                         "0000" => out.push_str("\\0"),
                         "0007" => out.push_str("\\a"),
@@ -231,20 +248,26 @@ fn rewrite_json_escapes(json: &str, indent: usize) -> String {
                             out.push_str("\\x");
                             out.push_str(&other[2..]);
                         }
-                        _ => out.extend(chars[i as usize..(i as usize + 6).min(chars.len())].iter()),
+                        _ => {
+                            out.extend(chars[i as usize..(i as usize + 6).min(chars.len())].iter())
+                        }
                     }
                     i += 5;
                     start = i as usize + 1;
                 }
                 Some('n') => {
-                    let short = at(i + 2) == Some('"') || chars.len() < DOUBLE_QUOTED_MIN_MULTI_LINE;
+                    let short =
+                        at(i + 2) == Some('"') || chars.len() < DOUBLE_QUOTED_MIN_MULTI_LINE;
                     if short {
                         i += 1;
                     } else {
                         // 折行会吃掉第一个换行，所以写两个换行再加缩进。
                         out.push_str(&chars[start..i as usize].iter().collect::<String>());
                         out.push_str("\n\n");
-                        while at(i + 2) == Some('\\') && at(i + 3) == Some('n') && at(i + 4) != Some('"') {
+                        while at(i + 2) == Some('\\')
+                            && at(i + 3) == Some('n')
+                            && at(i + 4) != Some('"')
+                        {
                             out.push('\n');
                             i += 2;
                         }
@@ -308,185 +331,6 @@ fn block_literal(value: &str, indent: usize) -> String {
     out
 }
 
-/// 折叠块正文：先做 TS `blockString` 的两步改写，再交给 `foldFlowLines('block')`：
-/// 先把每个换行段 k 个换成 k+1 个（折行会吃掉一个换行），再在每个换行段之后插入缩进。
-/// 折行溢出（某段超宽且没有可断点）即 TS `onOverflow`，返回 None 让调用方退回字面量。
-fn fold_block(body: &str, indent: usize) -> Option<String> {
-    let pad = " ".repeat(indent);
-    let chars: Vec<char> = body.chars().collect();
-    let mut expanded = String::new();
-    let mut i = 0usize;
-    while i < chars.len() {
-        if chars[i] == '\n' {
-            let mut run = 0usize;
-            while i < chars.len() && chars[i] == '\n' {
-                i += 1;
-                run += 1;
-            }
-            for _ in 0..=run {
-                expanded.push('\n');
-            }
-            expanded.push_str(&pad);
-        } else {
-            expanded.push(chars[i]);
-            i += 1;
-        }
-    }
-    let folded = fold_flow_lines(&expanded, &pad, FoldMode::Block, Some(indent));
-    (!folded.bailed && !folded.overflow).then_some(folded.text)
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum FoldMode {
-    Flow,
-    Quoted,
-    Block,
-}
-
-struct Folded {
-    text: String,
-    overflow: bool,
-    bailed: bool,
-}
-
-/// TS `foldFlowLines`（yaml `dist/stringify/foldFlowLines.js`）的逐行移植：在不超过
-/// `lineWidth` 的前提下，只在「前后都不是空白的单个空格」处折行，续行以 `indent` 开头。
-/// `indent_at_start` 是首行已占列数（键与 `: `）。`overflow` 表示遇到超宽且不可折的段。
-fn fold_flow_lines(text: &str, indent: &str, mode: FoldMode, indent_at_start: Option<usize>) -> Folded {
-    let chars: Vec<char> = text.chars().collect();
-    let indent_len = indent.chars().count();
-    let min_content = if LINE_WIDTH < MIN_CONTENT_WIDTH { 0 } else { MIN_CONTENT_WIDTH };
-    let end_step = std::cmp::max(1 + min_content, 1 + LINE_WIDTH.saturating_sub(indent_len));
-    let unchanged = |overflow: bool, bailed: bool| Folded { text: text.to_owned(), overflow, bailed };
-    if chars.len() <= end_step {
-        return unchanged(false, false);
-    }
-    let at = |i: i64| -> Option<char> { if i < 0 { None } else { chars.get(i as usize).copied() } };
-    let mut folds: Vec<usize> = Vec::new();
-    let mut escaped_folds: HashSet<usize> = HashSet::new();
-    let mut end: i64 = LINE_WIDTH as i64 - indent_len as i64;
-    if let Some(start_col) = indent_at_start {
-        if start_col as i64 > LINE_WIDTH as i64 - std::cmp::max(2, min_content) as i64 {
-            folds.push(0);
-        } else {
-            end = LINE_WIDTH as i64 - start_col as i64;
-        }
-    }
-    let mut split: Option<usize> = None;
-    let mut prev: Option<char> = None;
-    let mut overflow = false;
-    let (mut esc_start, mut esc_end): (i64, i64) = (-1, -1);
-    let mut i: i64 = -1;
-    if mode == FoldMode::Block {
-        i = consume_more_indented_lines(&chars, i, indent_len);
-        if i != -1 {
-            end = i + end_step as i64;
-        }
-    }
-    loop {
-        i += 1;
-        let Some(ch) = at(i) else { break };
-        if mode == FoldMode::Quoted && ch == '\\' {
-            esc_start = i;
-            i += match at(i + 1) {
-                Some('x') => 3,
-                Some('u') => 5,
-                Some('U') => 9,
-                _ => 1,
-            };
-            esc_end = i;
-        }
-        if ch == '\n' {
-            if mode == FoldMode::Block {
-                i = consume_more_indented_lines(&chars, i, indent_len);
-            }
-            end = i + indent_len as i64 + end_step as i64;
-            split = None;
-        } else {
-            if ch == ' '
-                && matches!(prev, Some(p) if p != ' ' && p != '\n' && p != '\t')
-                && !matches!(at(i + 1), None | Some(' ') | Some('\n') | Some('\t'))
-            {
-                split = Some(i as usize);
-            }
-            if i >= end {
-                if let Some(point) = split {
-                    folds.push(point);
-                    end = point as i64 + end_step as i64;
-                    split = None;
-                } else if mode == FoldMode::Quoted {
-                    // 没有可断点：吃掉后面的空白，在 `i - 2` 处硬折（TS 的 `escapedFolds` 分支）。
-                    while matches!(prev, Some(' ') | Some('\t')) {
-                        prev = Some(ch);
-                        i += 1;
-                        overflow = true;
-                    }
-                    let point = if i > esc_end + 1 { i - 2 } else { esc_start - 1 };
-                    if point < 0 || escaped_folds.contains(&(point as usize)) {
-                        return unchanged(overflow, true);
-                    }
-                    folds.push(point as usize);
-                    escaped_folds.insert(point as usize);
-                    end = point + end_step as i64;
-                    split = None;
-                } else {
-                    overflow = true;
-                }
-            }
-        }
-        prev = Some(ch);
-    }
-    if folds.is_empty() {
-        return unchanged(overflow, false);
-    }
-    let slice = |from: usize, to: usize| -> String {
-        chars[from.min(chars.len())..to.min(chars.len())].iter().collect()
-    };
-    let mut res = slice(0, folds[0]);
-    for (index, &point) in folds.iter().enumerate() {
-        let to = folds.get(index + 1).copied().unwrap_or(chars.len());
-        if point == 0 {
-            res = format!("\n{indent}{}", slice(0, to));
-        } else {
-            if mode == FoldMode::Quoted && escaped_folds.contains(&point) {
-                res.push(chars[point]);
-                res.push('\\');
-            }
-            res.push('\n');
-            res.push_str(indent);
-            res.push_str(&slice(point + 1, to));
-        }
-    }
-    Folded { text: res, overflow, bailed: false }
-}
-
-/// TS `consumeMoreIndentedLines`：`i + 1` 视为行首，跳过 more-indented（以空白开头）的整行，
-/// 返回最后一个换行的下标。本模块只在折叠块里用到（语料没有 more-indented 行的折叠用例）。
-fn consume_more_indented_lines(chars: &[char], mut i: i64, indent: usize) -> i64 {
-    let at = |i: i64| -> Option<char> { if i < 0 { None } else { chars.get(i as usize).copied() } };
-    let mut end = i;
-    let mut start = i + 1;
-    let mut ch = at(start);
-    while matches!(ch, Some(' ') | Some('\t')) {
-        if i < start + indent as i64 {
-            i += 1;
-            ch = at(i);
-        } else {
-            loop {
-                i += 1;
-                ch = at(i);
-                if !matches!(ch, Some(c) if c != '\n') {
-                    break;
-                }
-            }
-            end = i;
-            start = i + 1;
-            ch = at(start);
-        }
-    }
-    end
-}
-
 /// JS `Number#toString`。
 pub fn js_number(n: &serde_json::Number) -> String {
     if let Some(i) = n.as_i64() {
@@ -504,7 +348,13 @@ pub fn js_float(f: f64) -> String {
         return "0".into();
     }
     if !f.is_finite() {
-        return if f.is_nan() { "NaN".into() } else if f > 0.0 { "Infinity".into() } else { "-Infinity".into() };
+        return if f.is_nan() {
+            "NaN".into()
+        } else if f > 0.0 {
+            "Infinity".into()
+        } else {
+            "-Infinity".into()
+        };
     }
     let sign = if f < 0.0 { "-" } else { "" };
     // 最短往返的有效数字与指数（Rust `{:e}` 与 JS 同为最短表示）。
@@ -521,8 +371,16 @@ pub fn js_float(f: f64) -> String {
         format!("0.{}{digits}", "0".repeat((-n) as usize))
     } else {
         let e = n - 1;
-        let exp = if e >= 0 { format!("+{e}") } else { e.to_string() };
-        if k == 1 { format!("{digits}e{exp}") } else { format!("{}.{}e{exp}", &digits[..1], &digits[1..]) }
+        let exp = if e >= 0 {
+            format!("+{e}")
+        } else {
+            e.to_string()
+        };
+        if k == 1 {
+            format!("{digits}e{exp}")
+        } else {
+            format!("{}.{}e{exp}", &digits[..1], &digits[1..])
+        }
     };
     format!("{sign}{body}")
 }

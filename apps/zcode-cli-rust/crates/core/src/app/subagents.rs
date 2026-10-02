@@ -81,10 +81,19 @@ impl Engine {
             ancestor = self.sessions.get(id).and_then(|s| s.parent_id.as_deref());
         }
         // 执行作用域的子代理策略（TS subagentModelOverride）：后台拒绝；前台沿用本轮提交的模型与凭据。
-        let parent_run = self.active.get(parent).map(|a| a.run_id.clone()).unwrap_or_default();
-        let execution = self.live_execution(parent, &parent_run).filter(|l| l.execution.subagents).cloned();
+        let parent_run = self
+            .active
+            .get(parent)
+            .map(|a| a.run_id.clone())
+            .unwrap_or_default();
+        let execution = self
+            .live_execution(parent, &parent_run)
+            .filter(|l| l.execution.subagents)
+            .cloned();
         if execution.is_some() && (args["run_in_background"] == true || profile.background) {
-            anyhow::bail!("Idle-time tasks do not support background agents. Run this agent in the foreground.");
+            anyhow::bail!(
+                "Idle-time tasks do not support background agents. Run this agent in the foreground."
+            );
         }
         // TS：执行作用域的 override 优先于 profile 自带模型与父模型继承。
         let selection = match execution {
@@ -327,38 +336,6 @@ impl Engine {
             self.tools.cancel_session(&child, None).await?;
         }
         Ok(())
-    }
-    pub(super) async fn subagents_query(&mut self, p: &Value) -> Result<Value> {
-        let id = p["sessionId"].as_str().context("Session required")?;
-        self.ensure_session(id).await?;
-        let s = &self.sessions[id];
-        let offset = p["endedCursor"]
-            .as_str()
-            .map(str::parse::<usize>)
-            .transpose()?
-            .unwrap_or(0);
-        let limit = p["endedLimit"].as_u64().unwrap_or(20);
-        ensure!((1..=100).contains(&limit), "Invalid ended limit");
-        let mut ended = s
-            .children
-            .values()
-            .filter(|t| !t.running())
-            .collect::<Vec<_>>();
-        ended.sort_by_key(|t| std::cmp::Reverse(t.ended_at));
-        ensure!(offset <= ended.len(), "Invalid ended cursor");
-        let items = ended
-            .iter()
-            .skip(offset)
-            .take(limit as usize)
-            .map(|t| t.summary())
-            .collect::<Vec<_>>();
-        let mut end = json!({"total":ended.len(),"items":items});
-        if offset + items.len() < ended.len() {
-            end["nextCursor"] = (offset + items.len()).to_string().into();
-        }
-        Ok(
-            json!({"revision":s.revision,"childSessionIds":s.children.values().map(|t|&t.child_id).collect::<Vec<_>>(),"running":s.children.values().filter(|t|t.running()).map(|t|t.summary()).collect::<Vec<_>>(),"ended":end}),
-        )
     }
     pub(super) async fn drain_mailbox(
         &mut self,

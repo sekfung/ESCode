@@ -1,4 +1,6 @@
 mod contract;
+mod contract_model;
+mod contract_store;
 mod contract_events;
 mod environment_ports;
 mod failures;

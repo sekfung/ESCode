@@ -14,29 +14,18 @@ use std::time::Duration;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
+#[allow(unused_imports)]
+pub(super) use super::provider_support::{add_extra_ca_certificates, after, deadline};
+
 type Result<T> = std::result::Result<T, ModelFailure>;
 
-/// 把设置页注入的 CA 加进客户端根证书（PEM 可含多张；失败再按 DER 试一次）。
-/// 读文件失败（`ZCODE_AGENT_CA_CERT` 配错）即让本次请求以配置错误收口，与 TS `readFileSync` 同路。
-fn add_extra_ca_certificates(mut builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder> {
-    let misplaced = || ModelFailure::new("invalid_request", false);
-    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates().map_err(|_| misplaced())? {
-        let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
-            Ok(certificates) => certificates,
-            Err(_) => vec![reqwest::Certificate::from_der(&bytes).map_err(|_| misplaced())?],
-        };
-        for certificate in certificates {
-            builder = builder.add_root_certificate(certificate);
-        }
-    }
-    Ok(builder)
-}
 pub struct HttpModel {
     config: ModelConfig,
     client: std::sync::Arc<tokio::sync::OnceCell<reqwest::Client>>,
     retry: RetryPolicy,
     url: String,
 }
+
 impl HttpModel {
     pub fn new(config: ModelConfig) -> Self {
         let retry = RetryPolicy::resolve(&config.retry);
@@ -81,7 +70,8 @@ impl HttpModel {
                         );
                     if let Some(proxy) = resolution.proxy_url {
                         builder = builder.proxy(
-                            reqwest::Proxy::all(proxy).map_err(|error| model_failure::network(&error))?,
+                            reqwest::Proxy::all(proxy)
+                                .map_err(|error| model_failure::network(&error))?,
                         );
                     } else if resolution.no_proxy_matched {
                         builder = builder.no_proxy();
@@ -89,7 +79,9 @@ impl HttpModel {
                     // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 Node 的 `NODE_EXTRA_CA_CERTS`）：
                     // TS 经 @zcode/adapters 的 TLS 配置信任它，Rust 侧必须显式加进根证书。
                     builder = add_extra_ca_certificates(builder)?;
-                    builder.build().map_err(|error| model_failure::network(&error))
+                    builder
+                        .build()
+                        .map_err(|error| model_failure::network(&error))
                 })
                 .await
                 .map_err(|_| ModelFailure::new("invalid_request", false))?
@@ -167,7 +159,7 @@ impl HttpModel {
                 );
             }
         }
-            let response = tokio::select! {
+        let response = tokio::select! {
                 result=request.send()=>result.map_err(|e| model_failure::network(&e))?,
             _=deadline(after(idle_ms))=>return Err(ModelFailure::new("stream_idle_timeout",true)),
         };
@@ -246,7 +238,8 @@ impl HttpModel {
         // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
         // MCP 工具 schema 按登记的声明顺序编码（docs/specs/rust-tool-schema-order.md），其余与 serde_json 相同。
         let encoded = Bytes::from(
-            crate::domain::schema_order::encode(&body, crate::domain::schema_order::lookup).into_bytes(),
+            crate::domain::schema_order::encode(&body, crate::domain::schema_order::lookup)
+                .into_bytes(),
         );
         let native_search = super::web_search::needs_beta(&body);
         // 大附件仅保留重试所需的已编码字节，不能在整个流期间保留多份 base64 请求树。
@@ -339,19 +332,7 @@ impl HttpModel {
         unreachable!("positive retry budget")
     }
 }
-fn after(ms: u64) -> Option<Instant> {
-    if ms == 0 {
-        None
-    } else {
-        Instant::now().checked_add(Duration::from_millis(ms))
-    }
-}
-async fn deadline(at: Option<Instant>) {
-    match at {
-        Some(at) => tokio::time::sleep_until(at).await,
-        None => std::future::pending().await,
-    }
-}
+
 #[async_trait::async_trait]
 impl ModelPort for HttpModel {
     fn identity(&self) -> Option<crate::contract::ModelIdentity> {
