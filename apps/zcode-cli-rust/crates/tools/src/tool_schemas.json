@@ -509,6 +509,29 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "EvalWorkflowSnippet": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The snippet, inline. This OR `path`, never both."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A file holding the snippet, read whole. This OR `code`, never both."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 600000,
+        "description": "Wall clock for the whole snippet, in ms. Default 60000, at most 600000."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "ListSavedWorkflows": {
     "type": "object",
     "properties": {},

@@ -164,3 +164,11 @@ NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同
   验收：`zcode-cli-rust-save-workflow.test.ts`（技能门、三种入参拒绝、编译诊断、新建 / 覆盖 / 草稿存全局三次确认，
   模型面结果、确认窗载荷与落盘内容两侧逐字一致）；相关对比用例 37/37（1 跳过）。已知：子代理停止用例
   （`zcode-cli-rust-subagents.test.ts`）在本机内存紧张的分组运行里偶发贴超时失败，单独与复跑均通过。
+- 2026-10-02 **EvalWorkflowSnippet 已接入**（第 6 期首个运行工具，同时打通第 5 期执行器的 Node 沙箱路线）：
+  `tools/src/eval_workflow_snippet.rs`——validateInput（`code` / `path` 二选一）→ resolveInput（技能门 → `path` 整份读成
+  `code`、路径写绝对形）→ prepareApproval（分析子进程新方法 `snippetGate`：编得过且带 world.run 才问）→ handler：执行面就是
+  Node runtime 的 snippet 服务（bootstrap 新导出 `createDynamicWorkflowSnippetService`，CLI 隐藏子命令
+  `__zcode-workflow-snippet`，一次调用一个进程；取消写 `cancel` 行让 harness 收尾，5 s 宽限后强杀；660 s 外层兜底）。
+  返回值序列化同在 Node 侧（`serializeWorkflowArtifact`），Rust 只按 TS 模板渲染 response。启动器缺席时诚实降级为
+  UNAVAILABLE。验收：`zcode-cli-rust-eval-workflow-snippet.test.ts`（技能门、二选一、内联 / 文件诊断、返回值与日志、抛错、
+  无返回值，7 例两侧逐字一致，耗时抹掉）。

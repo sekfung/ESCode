@@ -13,6 +13,7 @@ mod custom_commands;
 #[cfg(test)]
 mod custom_commands_tests;
 mod edit_apply;
+mod eval_workflow_snippet;
 mod edit_match;
 mod edit_quotes;
 mod embedded_search;

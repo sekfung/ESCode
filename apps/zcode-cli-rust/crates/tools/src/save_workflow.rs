@@ -57,15 +57,20 @@ fn validate(args: &Value) -> std::result::Result<(), String> {
 }
 
 /// TS `describeWorkflowScriptPath`：在工作目录之下给相对路径，否则绝对路径。
-fn describe(absolute: &Path, cwd: &Path) -> String {
+pub(crate) fn describe(absolute: &Path, cwd: &Path) -> String {
     match absolute.strip_prefix(cwd) {
         Ok(relative) if !relative.as_os_str().is_empty() => relative.to_string_lossy().into_owned(),
         _ => absolute.to_string_lossy().into_owned(),
     }
 }
 
-/// TS `readWorkflowScriptFile`（parseFrontmatter 缺省）：读一次，带元数据块时只留正文。
-fn read_script_file(cwd: &Path, input: &str) -> std::result::Result<String, String> {
+/// TS `readWorkflowScriptFile`：读一次；`parse_frontmatter` 时带元数据块的文件只留正文（片段整份
+/// 就是代码）。返回（绝对路径, 正文）。
+pub(crate) fn read_script_file(
+    cwd: &Path,
+    input: &str,
+    parse_frontmatter: bool,
+) -> std::result::Result<(PathBuf, String), String> {
     let path = Path::new(input);
     let absolute = super::lexical_path::normalize(&if path.is_absolute() {
         path.to_owned()
@@ -79,11 +84,11 @@ fn read_script_file(cwd: &Path, input: &str) -> std::result::Result<String, Stri
         )
     })?;
     let first = source.split('\n').find(|line| !line.trim().is_empty());
-    if first.map(str::trim) != Some(codec::SENTINEL) {
-        return Ok(source);
+    if !parse_frontmatter || first.map(str::trim) != Some(codec::SENTINEL) {
+        return Ok((absolute, source));
     }
     match codec::parse(&source) {
-        Ok(parsed) => Ok(parsed.script),
+        Ok(parsed) => Ok((absolute, parsed.script)),
         Err(failure) => Err(format!(
             "The workflow script file {described} starts with a `{}` metadata block that could not be read ({}): {}. Fix the block in that file, or remove it and pass the script alone.",
             codec::SENTINEL,
@@ -93,11 +98,11 @@ fn read_script_file(cwd: &Path, input: &str) -> std::result::Result<String, Stri
     }
 }
 
-/// 技能门（TS `requireDynamicWorkflowSkill`）。
-fn skill_gate_message() -> String {
+/// 技能门（TS `requireDynamicWorkflowSkill`）：拒绝文案点名要重试的工具。
+pub(crate) fn skill_gate_message(tool: &str) -> String {
     let skill = super::bundled_skills::DYNAMIC_WORKFLOW_SKILL;
     format!(
-        "{TOOL} needs the `{skill}` skill loaded in this session before it accepts a script. Call the Skill tool with skill \"{skill}\" first — it carries the facade declarations the script is checked against, the authoring rules and this tool's full contract — then call {TOOL} again. Nothing was started."
+        "{tool} needs the `{skill}` skill loaded in this session before it accepts a script. Call the Skill tool with skill \"{skill}\" first — it carries the facade declarations the script is checked against, the authoring rules and this tool's full contract — then call {tool} again. Nothing was started."
     )
 }
 
@@ -111,12 +116,12 @@ pub(crate) async fn prepare(
         return Ok(Err(message));
     }
     if !skill_loaded {
-        return Ok(Err(skill_gate_message()));
+        return Ok(Err(skill_gate_message(TOOL)));
     }
     let mut input = args.clone();
     if let Some(path) = args["script_path"].as_str() {
-        match read_script_file(cwd, path) {
-            Ok(script) => input["script"] = script.into(),
+        match read_script_file(cwd, path, true) {
+            Ok((_, script)) => input["script"] = script.into(),
             Err(message) => return Ok(Err(message)),
         }
     }

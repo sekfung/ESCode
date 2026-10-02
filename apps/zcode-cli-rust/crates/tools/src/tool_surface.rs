@@ -53,6 +53,7 @@ pub(super) fn definitions() -> Vec<Value> {
     // run 内省（第 6 期）：TS 注册顺序里在保存/模型目录之前。
     // 保存定义（第 2/3 期）：TS 注册顺序里在 run 内省之前；可见性同受动态工作流灰度门约束。
     definitions.push(json!({"type":"function","function":{"name":"SaveWorkflow","description":surface["descriptions"]["SaveWorkflow"],"parameters":schemas["SaveWorkflow"]}}));
+    definitions.push(json!({"type":"function","function":{"name":"EvalWorkflowSnippet","description":surface["descriptions"]["EvalWorkflowSnippet"],"parameters":schemas["EvalWorkflowSnippet"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListWorkflowRuns","description":surface["descriptions"]["ListWorkflowRuns"],"parameters":schemas["ListWorkflowRuns"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListSavedWorkflows","description":surface["descriptions"]["ListSavedWorkflows"],"parameters":schemas["ListSavedWorkflows"]}}));
     // 模型目录（第 6 期）：同为只读发现面，可见性由动态工作流灰度门决定（TS 注册顺序里紧随其后）。

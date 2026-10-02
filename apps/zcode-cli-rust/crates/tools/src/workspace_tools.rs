@@ -111,6 +111,9 @@ impl WorkspaceTools {
             "List" => super::tool_search::list(&self.cwd, args, cancel).await,
             // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：cwd 恒取会话工作目录，
             // 模型无权跨项目扫盘（TS handler 同），这也是 `sideEffectScope: "none"` 成立的前提。
+            "EvalWorkflowSnippet" => {
+                super::eval_workflow_snippet::execute(&self.workspace_path, args, cancel).await
+            }
             "SaveWorkflow" => {
                 super::save_workflow::execute(&self.workspace_path, args, &self.analyzer).await
             }

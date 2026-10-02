@@ -208,12 +208,17 @@ impl ToolPort for WorkspaceTools {
         args: &Value,
         skill_loaded: bool,
     ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
-        if name != super::save_workflow::TOOL {
-            return Ok(None);
+        let (cwd, analyzer) = (&self.workspace_path, &self.analyzer);
+        match name {
+            super::save_workflow::TOOL => {
+                super::save_workflow::prepare(cwd, args, skill_loaded, analyzer).await
+            }
+            super::eval_workflow_snippet::TOOL => {
+                super::eval_workflow_snippet::prepare(cwd, args, skill_loaded, analyzer).await
+            }
+            _ => return Ok(None),
         }
-        super::save_workflow::prepare(&self.workspace_path, args, skill_loaded, &self.analyzer)
-            .await
-            .map(Some)
+        .map(Some)
     }
     async fn plugin_suggested_reference(
         &self,

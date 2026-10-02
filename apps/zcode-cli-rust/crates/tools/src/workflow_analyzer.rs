@@ -47,12 +47,17 @@ impl WorkflowAnalyzer {
         {
             return Ok(result.clone());
         }
-        let result = self.request(script).await?;
+        let result = self.request("analyze", script).await?;
         *self.last.lock().await = Some((script.to_owned(), result.clone()));
         Ok(result)
     }
 
-    async fn request(&self, script: &str) -> Result<Value> {
+    /// EvalWorkflowSnippet 的确认门（TS `prepareEvalWorkflowSnippetApproval`）：编得过且带 world.run 才问。
+    pub(crate) async fn snippet_gate(&self, code: &str) -> Result<bool> {
+        Ok(self.request("snippetGate", code).await?["ask"] == true)
+    }
+
+    async fn request(&self, method: &str, script: &str) -> Result<Value> {
         let mut guard = self.process.lock().await;
         if guard.is_none() {
             *guard = Some(spawn()?);
@@ -60,7 +65,7 @@ impl WorkflowAnalyzer {
         let process = guard.as_mut().expect("spawned analyzer");
         process.next_id += 1;
         let id = process.next_id;
-        let outcome = tokio::time::timeout(TIMEOUT, exchange(process, id, script)).await;
+        let outcome = tokio::time::timeout(TIMEOUT, exchange(process, id, method, script)).await;
         match outcome {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(error)) => {
@@ -108,8 +113,8 @@ fn kill(process: Option<Process>) {
     }
 }
 
-async fn exchange(process: &mut Process, id: u64, script: &str) -> Result<Value> {
-    let line = json!({ "id": id, "method": "analyze", "script": script }).to_string();
+async fn exchange(process: &mut Process, id: u64, method: &str, script: &str) -> Result<Value> {
+    let line = json!({ "id": id, "method": method, "script": script }).to_string();
     process.stdin.write_all(line.as_bytes()).await?;
     process.stdin.write_all(b"\n").await?;
     process.stdin.flush().await?;

@@ -69,6 +69,12 @@ async function main(): Promise<void> {
       process.exitCode = await runWorkflowAnalyzerCommand();
       return;
     }
+    // EvalWorkflowSnippet 的执行子进程（Rust runtime 调用）：一次调用一个进程，执行面是 Node 的 snippet 服务。
+    if (argv[0] === "__zcode-workflow-snippet") {
+      const { runWorkflowSnippetCommand } = await import("./workflow-snippet-command.js");
+      process.exitCode = await runWorkflowSnippetCommand();
+      return;
+    }
     if (!argv.includes("--prepare-storage")) {
       const { prepareCliProviderRuntimeEnv } = await import("./provider-runtime-env.js");
       Object.assign(

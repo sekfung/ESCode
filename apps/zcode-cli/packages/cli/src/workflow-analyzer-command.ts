@@ -12,7 +12,15 @@
  */
 
 import { createInterface } from "node:readline";
-import { analyzeWorkflowScript, encodeAnalysisCore } from "@zcode/dynamic-workflow";
+import {
+  analyzeWorkflowScript,
+  collectDiagnostics,
+  collectSites,
+  collectWorldRunCommands,
+  createWorkflowProgram,
+  encodeAnalysisCore,
+  SNIPPET_FACADE_DTS,
+} from "@zcode/dynamic-workflow";
 
 export const ZCODE_WORKFLOW_ANALYZER_COMMAND = "__zcode-workflow-analyzer";
 
@@ -24,6 +32,18 @@ interface AnalyzerRequest {
   id?: unknown;
   method?: unknown;
   script?: unknown;
+}
+
+/**
+ * EvalWorkflowSnippet 的确认门（TS `prepareEvalWorkflowSnippetApproval`）：只有编得过、且带
+ * world.run 命令的片段才问。
+ */
+export function snippetNeedsApproval(code: string): boolean {
+  const workflow = createWorkflowProgram(code, { facadeDts: SNIPPET_FACADE_DTS });
+  if (collectDiagnostics(workflow.program).length > 0) return false;
+  const { commands, diagnostics } = collectWorldRunCommands(workflow, collectSites(workflow));
+  if (diagnostics.length > 0) return false;
+  return commands.length > 0;
 }
 
 /** 把一次分析结果转成可 stringify 的纯对象。 */
@@ -46,10 +66,11 @@ export async function runWorkflowAnalyzerCommand(): Promise<number> {
     }
     const id = request.id ?? null;
     try {
-      if (request.method !== "analyze" || typeof request.script !== "string") {
-        throw new Error(`Unsupported analyzer request: ${String(request.method)}`);
-      }
-      const result = analyzeToJson(request.script);
+      if (typeof request.script !== "string") throw new Error("Analyzer request needs a script");
+      let result: unknown;
+      if (request.method === "analyze") result = analyzeToJson(request.script);
+      else if (request.method === "snippetGate") result = { ask: snippetNeedsApproval(request.script) };
+      else throw new Error(`Unsupported analyzer request: ${String(request.method)}`);
       process.stdout.write(`${JSON.stringify({ id, result })}\n`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
