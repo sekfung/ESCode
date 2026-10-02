@@ -155,27 +155,7 @@ impl ToolPort for WorkspaceTools {
     /// 权限配置：与 TS 同源（`~/.zcode/cli/config.json` + 项目 zcode.json/.zcode/config.json，
     /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
     async fn permission_config(&self) -> crate::domain::permission::Config {
-        let config = super::extension_config::load(&self.cwd)
-            .await
-            .unwrap_or_else(|_| serde_json::json!({}));
-        let permission = &config["permission"];
-        let list = |key: &str| {
-            permission[key]
-                .as_array()
-                .map(|values| {
-                    values
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_owned)
-                        .collect()
-                })
-                .unwrap_or_default()
-        };
-        crate::domain::permission::Config {
-            allowed: list("allowedTools"),
-            disallowed: list("disallowedTools"),
-            auto_approve_high_risk: permission["autoApproveHighRisk"].as_bool() == Some(true),
-        }
+        super::extension_config::permission_config(&self.cwd).await
     }
     async fn subagents_enabled(&self) -> bool {
         let config = super::extension_config::load(&self.cwd)
@@ -221,6 +201,19 @@ impl ToolPort for WorkspaceTools {
             }
             _ => anyhow::bail!("Unsupported plugin operation: {method}"),
         }
+    }
+    async fn prepare_tool(
+        &self,
+        name: &str,
+        args: &Value,
+        skill_loaded: bool,
+    ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
+        if name != super::save_workflow::TOOL {
+            return Ok(None);
+        }
+        super::save_workflow::prepare(&self.workspace_path, args, skill_loaded, &self.analyzer)
+            .await
+            .map(Some)
     }
     async fn plugin_suggested_reference(
         &self,

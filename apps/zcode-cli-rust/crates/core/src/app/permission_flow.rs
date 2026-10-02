@@ -20,6 +20,7 @@ pub(super) struct WaitingPermission {
 
 impl Engine {
     /// 工具调用前的权限判定；allow/deny 立即答复，ask 则挂起等待用户应答。
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn ask_permission(
         &mut self,
         id: &str,
@@ -27,6 +28,7 @@ impl Engine {
         turn: &str,
         call: &Value,
         memory_root: Option<&str>,
+        approval_proceed: bool,
         reply: oneshot::Sender<PermissionOutcome>,
     ) -> Result<()> {
         let tool = call["function"]["name"].as_str().unwrap_or("").to_owned();
@@ -70,8 +72,14 @@ impl Engine {
                 Ok(())
             }
             crate::domain::permission::Behavior::Deny => {
-                let reason = crate::domain::permission_options::deny_reason(decision.rule_id, &tool);
+                let reason =
+                    crate::domain::permission_options::deny_reason(decision.rule_id, &tool);
                 let _ = reply.send(PermissionOutcome::deny(reason));
+                Ok(())
+            }
+            // TS approval-gate：工具答复 proceed 时 ask 直接放行（只能收窄 ask，不能把 deny 变成 allow）。
+            crate::domain::permission::Behavior::Ask if approval_proceed => {
+                let _ = reply.send(PermissionOutcome::allow());
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {
@@ -123,7 +131,7 @@ impl Engine {
             "summary": reason,
             "detail": input,
             "freeText": true,
-            "options": options_with_persistence(&suggested, persistent),
+            "options": options_for(tool, &suggested, persistent),
         });
         // TS 仅对主会话的确认提供「完全访问」（子代理来源的确认不带该选项）。
         if s.parent_id.is_none() {
@@ -173,6 +181,18 @@ fn full_access_option() -> Value {
 }
 
 pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
+
+/// TS `askOptions.allowAlways: false`（no-always-allow）：每次调用都是不同代码，持久或会话规则
+/// 不是「记住这次决定」而是把这道确认永久关掉，所以只给「允许一次 / 拒绝」。
+const NO_ALWAYS_ALLOW: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow"];
+
+fn options_for(tool: &str, suggested: &[Rule], persistent: bool) -> Vec<Value> {
+    let mut list = options_with_persistence(suggested, persistent);
+    if NO_ALWAYS_ALLOW.contains(&tool) {
+        list.retain(|option| option["kind"] != "allowAlways");
+    }
+    list
+}
 
 fn options_with_persistence(suggested: &[Rule], persistent: bool) -> Vec<Value> {
     let mut list = options(suggested, !persistent);

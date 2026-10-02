@@ -190,6 +190,29 @@ pub(super) fn strings(value: &Value) -> Vec<&str> {
     }
 }
 
+/// 用户 / 项目配置里的 `permission` 段（allowedTools / disallowedTools / autoApproveHighRisk）。
+pub(super) async fn permission_config(cwd: &Path) -> crate::domain::permission::Config {
+    let config = load(cwd).await.unwrap_or_else(|_| serde_json::json!({}));
+    let permission = &config["permission"];
+    let list = |key: &str| {
+        permission[key]
+            .as_array()
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    crate::domain::permission::Config {
+        allowed: list("allowedTools"),
+        disallowed: list("disallowedTools"),
+        auto_approve_high_risk: permission["autoApproveHighRisk"].as_bool() == Some(true),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -162,3 +162,38 @@ pub fn frontmatter(content: &str) -> (bool, BTreeMap<String, String>, String) {
     }
     (true, values, lines[end + 1..].join("\n").trim().into())
 }
+
+/// TS `sessionHasLoadedSkill`：模型可见历史里有一次成功的 `Skill(<name>)` 调用（assistant 发出调用、
+/// 对应的 tool 结果未失败）。compaction 移除调用后需要重新加载；resume / rewind 随历史一起恢复判据。
+pub fn loaded_in_history(messages: &[Value], skill: &str) -> bool {
+    let mut pending: Vec<&str> = vec![];
+    for message in messages {
+        match message["role"].as_str() {
+            Some("assistant") => {
+                for call in message["tool_calls"].as_array().into_iter().flatten() {
+                    if call["function"]["name"] != "Skill" {
+                        continue;
+                    }
+                    let args: Value = match &call["function"]["arguments"] {
+                        Value::String(raw) => serde_json::from_str(raw).unwrap_or(Value::Null),
+                        other => other.clone(),
+                    };
+                    let named = args["skill"].as_str().or_else(|| args["name"].as_str());
+                    if named == Some(skill)
+                        && let Some(id) = call["id"].as_str()
+                    {
+                        pending.push(id);
+                    }
+                }
+            }
+            Some("tool") => {
+                let id = message["tool_call_id"].as_str().unwrap_or_default();
+                if pending.contains(&id) && message["_zcode_tool_failed"] != true {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}

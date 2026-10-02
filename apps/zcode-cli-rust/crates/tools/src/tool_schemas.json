@@ -430,6 +430,85 @@
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
+  "SaveWorkflow": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "File-safe identifier: letters, digits, dot, dash and underscore."
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "description": "One line saying what the workflow does."
+      },
+      "whenToUse": {
+        "type": "string",
+        "minLength": 1,
+        "description": "When this workflow is the right answer."
+      },
+      "args": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["string", "number", "boolean", "json"],
+              "description": "Value type. \"json\" accepts any JSON value without further checking."
+            },
+            "description": {
+              "type": "string",
+              "description": "What this argument means, for whoever calls the workflow later."
+            },
+            "required": {
+              "type": "boolean",
+              "description": "When true the workflow cannot run without this argument."
+            },
+            "default": {
+              "description": "Value used when the caller omits this argument."
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        "description": "Argument declarations the script reads off `args`.",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "script": {
+        "type": "string",
+        "description": "The script body, inline, without a metadata block. This OR `script_path`, never both."
+      },
+      "script_path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A file holding the script body, usually a draft a result named. This OR `script`, never both."
+      },
+      "scope": {
+        "type": "string",
+        "enum": ["project", "global"],
+        "description": "\"project\" when the script depends on this repository; \"global\" when it depends on nothing in it. Required, no default."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "shadowing": {
+        "type": "string",
+        "enum": ["hides_global", "hidden_by_project"]
+      }
+    },
+    "required": ["name", "description", "scope"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
   "ListSavedWorkflows": {
     "type": "object",
     "properties": {},

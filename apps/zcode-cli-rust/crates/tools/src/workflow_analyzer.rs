@@ -7,9 +7,6 @@
 //! 进程常驻（首次编译要载入 TS 与 lib，后续调用复用）、串行；超时、崩溃或协议错误即杀掉，
 //! 下一次调用重新拉起。TS 对紧邻的同一脚本有单槽记忆（审批门与 handler 各分析一次），这里同样保留。
 
-// SaveWorkflow / CreateWorkflow 接入前只有桥接测试在用。
-#![allow(dead_code)]
-
 use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{Value, json};
 use std::time::Duration;

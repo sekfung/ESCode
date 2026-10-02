@@ -89,6 +89,7 @@ mod saved_workflows_model;
 mod saved_workflows_move;
 #[cfg(test)]
 mod saved_workflows_tests;
+mod save_workflow;
 mod shell_select;
 mod shell_snapshot;
 mod tool_args;

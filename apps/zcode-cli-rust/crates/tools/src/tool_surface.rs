@@ -51,6 +51,8 @@ pub(super) fn definitions() -> Vec<Value> {
     // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：只读、无 gate，是否可见由
     // 动态工作流灰度门决定（保留给各期实现顺序里的最后一个工作流工具之前）。
     // run 内省（第 6 期）：TS 注册顺序里在保存/模型目录之前。
+    // 保存定义（第 2/3 期）：TS 注册顺序里在 run 内省之前；可见性同受动态工作流灰度门约束。
+    definitions.push(json!({"type":"function","function":{"name":"SaveWorkflow","description":surface["descriptions"]["SaveWorkflow"],"parameters":schemas["SaveWorkflow"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListWorkflowRuns","description":surface["descriptions"]["ListWorkflowRuns"],"parameters":schemas["ListWorkflowRuns"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListSavedWorkflows","description":surface["descriptions"]["ListSavedWorkflows"],"parameters":schemas["ListSavedWorkflows"]}}));
     // 模型目录（第 6 期）：同为只读发现面，可见性由动态工作流灰度门决定（TS 注册顺序里紧随其后）。

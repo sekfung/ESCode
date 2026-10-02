@@ -153,3 +153,14 @@ NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同
   动态工作流关闭的会话在固化技能目录时去掉它（core `freeze_skills`，TS `collectDynamicWorkflowDisabledSkillPaths`）。
   验收：`zcode-cli-rust-bundled-skills.test.ts`（开启态模型可见、关闭态不可见、引用面板不含，两侧一致）。
   这是 SaveWorkflow 技能门的前置（门要求会话里成功加载过 `dynamic-workflows`）。
+- 2026-10-02 **SaveWorkflow 已接入**（第 2/3 期合流）：`tools/src/save_workflow.rs` 按 TS 生命周期实现——validateInput
+  （名字、唯一来源、内联脚本不得自带元数据块）→ resolveInput（技能门 → `script_path` 读成正文并丢掉元数据块 →
+  回填 `path` / `overwrite` / `shadowing`）→ prepareApproval（经 Node 分析子进程编译，干净才问）→ handler（再编译，
+  编不过回 `L{line}:C{column}` 诊断且不落盘；干净则写盘、按写的那一刻判定覆盖）。core 新增通用预处理钩子
+  `ToolPort::prepare_tool`：拒绝以 `<tool_use_error>` 交回模型、不请求权限；放行时把入参换成执行事实（确认窗与
+  handler 读同一份），审批门 proceed 经 `Event::Permission.approval_proceed` 让 ask 直接放行（deny 仍生效）。
+  技能门按模型可见历史判定（`domain::skills::loaded_in_history`，TS `sessionHasLoadedSkill`）；确认选项对
+  Create/Amend/SaveWorkflow 去掉「总是允许」（TS `askOptions.allowAlways: false`）。工具 schema 与描述由生成脚本产出。
+  验收：`zcode-cli-rust-save-workflow.test.ts`（技能门、三种入参拒绝、编译诊断、新建 / 覆盖 / 草稿存全局三次确认，
+  模型面结果、确认窗载荷与落盘内容两侧逐字一致）；相关对比用例 37/37（1 跳过）。已知：子代理停止用例
+  （`zcode-cli-rust-subagents.test.ts`）在本机内存紧张的分组运行里偶发贴超时失败，单独与复跑均通过。

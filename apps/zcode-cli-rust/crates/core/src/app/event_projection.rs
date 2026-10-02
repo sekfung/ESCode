@@ -246,6 +246,7 @@ impl Engine {
             Event::Permission {
                 call,
                 memory_root,
+                approval_proceed,
                 reply,
             } => {
                 self.ask_permission(
@@ -254,6 +255,7 @@ impl Engine {
                     &turn,
                     &call,
                     memory_root.as_deref(),
+                    approval_proceed,
                     reply,
                 )
                 .await?;

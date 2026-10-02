@@ -16,6 +16,8 @@ pub(super) struct ExecutionContext<'a> {
     pub memory_root: Option<&'a str>,
     /// 本轮发给模型的工具定义；执行前按其 parameters 校验入参。
     pub definitions: &'a [Value],
+    /// 会话历史里是否成功加载过 `dynamic-workflows` 技能（TS 技能门 `hasLoadedSkill`）。
+    pub workflow_skill_loaded: bool,
 }
 pub(super) async fn execute(
     tools: &dyn ToolPort,
@@ -33,6 +35,7 @@ pub(super) async fn execute(
         turn,
         memory_root,
         definitions,
+        workflow_skill_loaded,
     } = context;
     if cancel.is_cancelled() {
         bail!("Cancelled");
@@ -61,12 +64,24 @@ pub(super) async fn execute(
         Ok(Some(arguments)) => call["function"]["arguments"] = arguments.into(),
         Ok(None) => {}
     }
+    // TS validateInput → resolveInput → prepareApproval：失败直接交回模型、不请求权限；成功则把入参换成
+    // 将要执行的事实（确认窗与 handler 读同一份），并带上审批门的结论。
+    let approval_proceed = match prepare(tools, name, &mut call, workflow_skill_loaded).await? {
+        Some(output) => {
+            return Ok((call["id"].as_str().context("Tool id missing")?.into(), tool_name, output, true, false));
+        }
+        None => call
+            .as_object_mut()
+            .and_then(|fields| fields.remove("_zcode_approval_proceed"))
+            == Some(Value::Bool(true)),
+    };
     // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
     let outcome = {
         let (reply, receipt) = oneshot::channel();
         sink.send(Event::Permission {
             call: call.clone(),
             memory_root: memory_root.map(str::to_owned),
+            approval_proceed,
             reply,
         })
         .await?;
@@ -218,6 +233,31 @@ pub(super) async fn execute(
         failed,
         denied,
     ))
+}
+
+/// 工具预处理（`ToolPort::prepare_tool`）：拒绝时返回交回模型的失败输出；放行时改写 `call` 的参数，
+/// 并以临时键 `_zcode_approval_proceed` 交回审批门结论（调用方取走后即删除）。
+async fn prepare(
+    tools: &dyn ToolPort,
+    name: &str,
+    call: &mut Value,
+    skill_loaded: bool,
+) -> Result<Option<crate::contract::ToolOutput>> {
+    let Ok(args) = serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) else {
+        return Ok(None);
+    };
+    match tools.prepare_tool(name, &args, skill_loaded).await? {
+        None => Ok(None),
+        Some(Err(message)) => Ok(Some(crate::contract::ToolOutput {
+            failed: true,
+            ..crate::contract::ToolOutput::text(format!("<tool_use_error>{message}</tool_use_error>"))
+        })),
+        Some(Ok((input, ask))) => {
+            call["function"]["arguments"] = input.to_string().into();
+            call["_zcode_approval_proceed"] = (!ask).into();
+            Ok(None)
+        }
+    }
 }
 
 /// `Err(文案)`：校验失败；`Ok(Some(参数原文))`：去掉未知键后的参数；`Ok(None)`：原样执行。

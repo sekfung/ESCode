@@ -25,11 +25,14 @@ pub struct WorkspaceTools {
     pub(super) writes: Arc<Mutex<()>>,
     pub(super) shell: ShellTasks,
     pub(super) mcp: super::mcp_hub::Hub,
+    /// 工作流脚本分析子进程（SaveWorkflow / CreateWorkflow 共用同一个检查器）。
+    pub(super) analyzer: Arc<super::workflow_analyzer::WorkflowAnalyzer>,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
         Self {
             mcp: super::mcp_hub::Hub::new(cwd.clone()),
+            analyzer: Arc::default(),
             workspace_path: cwd.clone(),
             cwd,
             artifacts,
@@ -108,6 +111,9 @@ impl WorkspaceTools {
             "List" => super::tool_search::list(&self.cwd, args, cancel).await,
             // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：cwd 恒取会话工作目录，
             // 模型无权跨项目扫盘（TS handler 同），这也是 `sideEffectScope: "none"` 成立的前提。
+            "SaveWorkflow" => {
+                super::save_workflow::execute(&self.workspace_path, args, &self.analyzer).await
+            }
             "ListSavedWorkflows" => {
                 let home =
                     std::path::PathBuf::from(zcode_cli_host::credential_cipher::node_homedir());

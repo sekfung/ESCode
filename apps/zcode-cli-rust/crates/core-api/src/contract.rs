@@ -210,6 +210,17 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<Value> {
         anyhow::bail!("Unsupported plugin operation: {method}")
     }
+    /// 工具的执行前预处理（TS validateInput → resolveInput → prepareApproval；目前只有 SaveWorkflow）。
+    /// `None`：该工具没有预处理；`Some(Err(文案))`：交回模型的工具失败，不请求权限；
+    /// `Some(Ok((入参, ask)))`：归一化后的入参，以及是否需要确认（`false` = ask 时直接放行）。
+    async fn prepare_tool(
+        &self,
+        _name: &str,
+        _args: &Value,
+        _skill_loaded: bool,
+    ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
+        Ok(None)
+    }
     /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
     /// `refresh = true` 刷新官方目录后给出最终结果。
     async fn plugin_suggested_reference(

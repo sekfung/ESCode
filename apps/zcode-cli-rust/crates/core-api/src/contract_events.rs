@@ -154,6 +154,8 @@ pub enum Event {
         call: Value,
         /// 主会话启用记忆时的记忆根：写入其中的 Markdown 放行（TS applyMemoryFilePermission）。
         memory_root: Option<String>,
+        /// 工具的审批门答复 proceed（TS `prepareApproval`）：判定为 ask 时直接放行，deny 仍然生效。
+        approval_proceed: bool,
         reply: oneshot::Sender<PermissionOutcome>,
     },
     Question {

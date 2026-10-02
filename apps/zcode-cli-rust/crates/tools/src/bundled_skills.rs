@@ -10,7 +10,6 @@
 use std::path::{Path, PathBuf};
 
 /// 技能门（SaveWorkflow 等写脚本的工具）要求会话里加载过的技能名。
-#[allow(dead_code)]
 pub(crate) const DYNAMIC_WORKFLOW_SKILL: &str = "dynamic-workflows";
 /// 内置技能包在技能目录里的 scope（TS `scope: "system"`, `source: "bundled"`）。
 pub(crate) const SCOPE: &str = "system";

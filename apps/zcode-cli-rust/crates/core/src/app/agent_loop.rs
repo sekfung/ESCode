@@ -247,6 +247,9 @@ pub(super) async fn run(
                     group.push(calls.next().unwrap());
                 }
             }
+            // 技能门按此刻模型可见的历史判定（同一批里先前的 Skill 结果已按组写入历史）。
+            let workflow_skill_loaded =
+                crate::domain::skills::loaded_in_history(&history.messages, "dynamic-workflows");
             // 只读工具并发执行，但按原始 call 顺序持久化结果；写/Shell 不跨越该屏障。
             let mut results = stream::iter(group)
                 .map(|call| {
@@ -261,6 +264,7 @@ pub(super) async fn run(
                             turn: &turn_facts,
                             memory_root: memory_root.as_deref(),
                             definitions: &definitions,
+                            workflow_skill_loaded,
                         },
                         call,
                         sink,
