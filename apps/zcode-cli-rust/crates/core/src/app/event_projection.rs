@@ -54,11 +54,11 @@ impl Engine {
         if matches!(event.event, Event::Subagent { .. }) {
             return self.subagent_event(&id, event.event).await;
         }
-        if matches!(
-            event.event,
-            Event::GoalStep { .. } | Event::GoalVerdict { .. }
-        ) {
+        if matches!(event.event, Event::GoalStep { .. } | Event::GoalVerdict { .. }) {
             return self.goal_event(&id, event.event).await;
+        }
+        if let Event::HookContext { message, before_input, committed } = event.event {
+            return self.hook_context(&id, message, before_input, committed).await;
         }
         if let Event::Todos {
             call_id,
@@ -139,7 +139,7 @@ impl Engine {
             | Event::GoalStep { .. }
             | Event::GoalVerdict { .. }
             | Event::SkillsInitialized { .. }
-            | Event::TodoReminder { .. }
+            | Event::TodoReminder { .. } | Event::HookContext { .. }
             | Event::Question { .. }
             | Event::PlanEnter { .. }
             | Event::PlanExit { .. }

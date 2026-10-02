@@ -60,6 +60,8 @@ pub struct Engine {
     pub(super) outbox: Vec<Value>,
     pub(super) auto_resolution_preference: bool,
     pub(super) questions: BTreeMap<String, super::questions::WaitingQuestion>,
+    /// 本进程内已跑过 SessionStart hooks 的会话（TS `sessionStartHookRan`）。
+    pub(super) session_started: std::collections::BTreeSet<String>,
     pub(super) question_timing: (u64, u64),
     pub(super) events: mpsc::Sender<RunEvent>,
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
@@ -155,6 +157,7 @@ impl Engine {
             outbox: vec![],
             auto_resolution_preference: true,
             questions: BTreeMap::new(),
+            session_started: Default::default(),
             question_timing: (60_000, 300_000),
             events,
             event_rx,

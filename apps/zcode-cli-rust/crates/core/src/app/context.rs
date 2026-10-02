@@ -31,6 +31,10 @@ pub(super) struct TurnFacts {
     pub off_peak_task_id: Option<String>,
     /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。
     pub off_peak_restricted: bool,
+    /// UserPromptSubmit 的提示正文（只有真实用户输入轮；后台结果 / 子代理消息轮跳过，TS skipUserPromptSubmitHooks）。
+    pub prompt: Option<String>,
+    /// 本进程内本会话首轮：SessionStart 的 source（startup / resume）。
+    pub session_start: Option<&'static str>,
 }
 
 pub(super) struct RunContext {
@@ -81,6 +85,10 @@ impl RunContext {
             estimated,
             continuations: vec![],
         }
+    }
+    pub fn insert(&mut self, at: usize, message: Value) {
+        self.estimated += estimate(std::slice::from_ref(&message));
+        self.messages.insert(at, message);
     }
     pub fn push(&mut self, message: Value) {
         self.estimated += estimate(std::slice::from_ref(&message));

@@ -56,6 +56,10 @@ export function createHookHost(send: Send, executionPort: unknown) {
     for (const key of Object.keys(input)) if (input[key] === null) delete input[key];
     const event = String(input.hookEventName);
     if (event === "PostToolUse") input.toolResultPreview ??= previewHookValue(input.toolResponse);
+    if (event === "Stop" && typeof input.responseText === "string") {
+      input.responsePreview ??=
+        input.responseText.length <= 4000 ? input.responseText : `${input.responseText.slice(0, 4000)}...`;
+    }
     const options = TOOL_EVENTS.has(event)
       ? {
           matchValue: input.toolName,

@@ -40,7 +40,11 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
   `hookInvocation` 行投影（`hook_rows.rs`，TS `onHookRunLifecycle`）。差分：`zcode-cli-rust-hooks-tool.test.ts`。
 - PermissionRequest：确认窗挂起后起 hook 链，结论经 Host 通道回 owner，与用户应答竞速（先到者生效，同一套行 / 遥测收口）；
   hook 无结论则退赛。差分：`zcode-cli-rust-hooks-permission.test.ts`。
-- 待接：UserPromptSubmit、SessionStart（含 TS 的 pending 挂到下一回合）、Stop（续跑）。
+- 会话级：SessionStart（本进程内每会话首轮一次；历史里已有输入记为 resume）与 UserPromptSubmit（只在真实用户输入轮）
+  在首个模型请求前运行，追加上下文以 `hook_context` system reminder 插在本轮输入（及其 referenced / date / mode 提醒）之前；
+  UserPromptSubmit 阻止继续时撤回本轮输入消息、不请求模型（行与 `fault.runtime.hookBlocked` 错误由投影给出）。Stop 在纯文本
+  收尾时运行，`stopShouldContinue` 且有上下文时追加并续跑同一轮（至多 3 次）。插入 / 撤回消息走整段重写落库。
+  差分：`zcode-cli-rust-hooks-turn.test.ts`。
 
 ## 已知差异
 
@@ -48,4 +52,6 @@ exit code 2 阻断、`HookJSONOutput` 校验与聚合（权限决定、改写入
 - PostToolUseFailure 的 `error.type` 固定为 `ToolExecutionFailed`，`isInterrupt` 固定 false（TS 区分取消 / 超时）。
 - PermissionRequest 的 `decision.updatedInput`（改写入参后需按新入参重判权限）暂未支持，按退赛处理；用户先应答时
   hook 进程不被中止（TS abort 败者），其迟到结论被忽略。
-- 回合之外到达的 hook 事件（SessionStart 之前的启动钩子）暂不投影行。
+- TS 在会话 resume 时即跑 SessionStart(resume)；Rust 推迟到该会话本进程内的首轮。
+- UserPromptSubmit 的 `attachmentsSummary` 未提供。
+- 回合之外到达的 hook 事件暂不投影行（TS 挂起到下一回合）。

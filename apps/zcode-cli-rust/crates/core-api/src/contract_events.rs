@@ -42,6 +42,13 @@ pub enum Event {
     TodoReminder {
         reply: oneshot::Sender<Value>,
     },
+    /// hooks 追加的上下文（docs/specs/rust-hooks.md）：`Some` 落进会话消息（`before_input` 时插在本轮输入之前），
+    /// `None` 撤回本轮输入（UserPromptSubmit 阻止继续）。
+    HookContext {
+        message: Option<Value>,
+        before_input: bool,
+        committed: oneshot::Sender<()>,
+    },
     /// 会话终端 shell 偏好（Host `integratedTerminalShell` 原值）；会话 owner 负责请求与缓存。
     ShellPreference {
         reply: oneshot::Sender<Option<Value>>,

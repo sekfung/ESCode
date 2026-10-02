@@ -69,6 +69,13 @@ pub(super) async fn run(
             &properties["inputFormat"],
         )
         .await;
+    // 会话级 hooks（docs/specs/rust-hooks.md）：SessionStart / UserPromptSubmit 在首个模型请求之前。
+    let model_label = history.turn.model_selection.as_ref().and_then(|s| {
+        Some(format!("{}/{}", s["providerId"].as_str()?, s["modelId"].as_str()?))
+    });
+    if super::turn_hooks::before_turn(tools, model_label, history, sink, cancel).await? {
+        return Ok(());
+    }
     // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
     let turn_facts = std::mem::take(&mut history.turn);
     super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
@@ -105,6 +112,7 @@ pub(super) async fn run(
     });
     let memory_root = history.memory.as_ref().map(|m| m.root.clone());
     let mut turns = 0;
+    let (mut tool_calls, mut stop_continuations) = (0, 0);
     loop {
         if profile
             .as_ref()
@@ -222,6 +230,7 @@ pub(super) async fn run(
         if persist {
             history.push(output.message.clone());
         }
+        let response_text = output.message["content"].as_str().unwrap_or_default().to_owned();
         let (committed, receipt) = oneshot::channel();
         sink.send(Event::ModelDone {
             response_id: output.response_id.clone(),
@@ -247,6 +256,7 @@ pub(super) async fn run(
         }
         continuations = 0;
         let has_tools = !output.calls.is_empty();
+        tool_calls += output.calls.len();
         let mut stop_turn = false;
         let mut calls = output.calls.into_iter().peekable();
         while let Some(first) = calls.next() {
@@ -326,6 +336,11 @@ pub(super) async fn run(
             for message in messages {
                 history.push(message);
             }
+        } else if !has_tools
+            && super::turn_hooks::stop(tools, &turn_facts, history, &mut stop_continuations, (&response_text, tool_calls), sink, cancel)
+                .await?
+        {
+            // Stop hook 要求续跑：上下文已追加，同一轮继续请求模型。
         } else if !has_tools
             && !super::goal_loop::advance(model, history, &prefix, sink, cancel).await?
         {

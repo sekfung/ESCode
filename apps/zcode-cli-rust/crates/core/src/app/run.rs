@@ -129,6 +129,18 @@ impl Engine {
             .map(|registry| registry.model_catalog());
         // ListWorkflowRuns 的项目键：会话工作目录（TS `context.workingDirectory`）。
         history.turn.cwd = Some(self.workspace_path.clone());
+        // hooks（docs/specs/rust-hooks.md）：真实用户输入轮带提示正文；本进程首轮带 SessionStart 的 source。
+        let session = &self.sessions[id];
+        let user_turn = session.rows.iter().any(|r| {
+            r["kind"] == "userInput" && r["turnId"] == turn_id_for_facts.as_str() && r["origin"] != "backgroundResult"
+        });
+        history.turn.prompt = input["text"].as_str().filter(|_| user_turn).map(str::to_owned);
+        let resumed = session.messages[..super::turn_hooks::input_start(&session.messages)]
+            .iter()
+            .any(|m| m.get("_zcode_input").is_some());
+        if self.session_started.insert(id.to_owned()) {
+            history.turn.session_start = Some(if resumed { "resume" } else { "startup" });
+        }
         let context = self.context.clone();
         let tools = self.tools.clone();
         let sink = Sink {
