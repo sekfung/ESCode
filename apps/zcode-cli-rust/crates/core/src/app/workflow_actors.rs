@@ -96,6 +96,11 @@ impl Engine {
                 }
                 Ok(json!({ "ok": true }))
             }
+            // resume 重水化（TS resumeFromStore）：从会话库重载；会话行不在即 SessionNotFound（宿主退回全新路径）。
+            "actor.resume" => {
+                let found = self.ensure_session(&actor).await.is_ok();
+                Ok(json!({ "found": found }))
+            }
             "actor.title" => {
                 if let Some(session) = self.sessions.get_mut(&actor) {
                     session.title = params["title"].as_str().unwrap_or_default().into();
@@ -119,7 +124,17 @@ impl Engine {
     }
 
     async fn actor_create(&mut self, actor: &str, params: &Value) -> Result<Value> {
-        if self.sessions.contains_key(actor) {
+        // resume 时同一个 actor 会话再造一次 runtime：已在内存或已落库就沿用（转录由 actor.resume 重水化），
+        // 只刷新宿主给的工具面配置。
+        if self.sessions.contains_key(actor) || self.ensure_session(actor).await.is_ok() {
+            if let Some(config) = self
+                .sessions
+                .get_mut(actor)
+                .and_then(|s| s.workflow_actor.as_mut())
+            {
+                config["remoteTools"] = params["remoteTools"].clone();
+                config["disallowed"] = params["disallowed"].clone();
+            }
             return Ok(json!({ "ok": true }));
         }
         let parent = params["session"]

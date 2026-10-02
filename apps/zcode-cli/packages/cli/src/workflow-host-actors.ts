@@ -133,8 +133,15 @@ export function createActorBridge(
       getSessionModelSelection() {
         return selection;
       },
+      /** resume 重水化：Rust 从会话库重载该 actor 会话（被打断的工具调用按 TS hydrator 语义补齐）。 */
       async resumeFromStore() {
-        throw new Error("Workflow actor transcript seeding is not available in the Rust runtime yet");
+        await ready;
+        const result = await rustRequest("actor.resume", { actorSession });
+        if (result?.found !== true) {
+          throw Object.assign(new Error(`Session not found: ${actorSession}`), {
+            type: CoreErrorType.SessionNotFound,
+          });
+        }
       },
       async closeBrowserSession() {},
       async close() {

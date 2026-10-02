@@ -31,7 +31,7 @@ impl ToolPort for WorkspaceTools {
         if super::workflow_tools::ACTOR_TOOLS.contains(&name) {
             return Some(super::workflow_tools::execute_actor_tool(self, session, call_id, name, args).await);
         }
-        if !super::workflow_host::TOOLS.contains(&name) {
+        if !super::workflow_host::routes(name, args) {
             return None;
         }
         Some(super::workflow_tools::execute(self, session, call_id, name, args, selection, cancel).await)

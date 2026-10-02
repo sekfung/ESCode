@@ -56,4 +56,50 @@ impl Engine {
         self.persist(id, None).await?;
         self.start_run(id, turn)
     }
+
+    /// StepBoundary 的待并入消息：plan 审批的后续消息 → 子代理 mailbox → 后台工作流通知（各取其一类）。
+    pub(super) async fn drain_step_messages(
+        &mut self,
+        id: &str,
+        turn: &str,
+    ) -> Result<Option<Vec<Value>>> {
+        if let Some(messages) = self.drain_plan_followups(id).await? {
+            return Ok(Some(messages));
+        }
+        if let Some(messages) = self.drain_mailbox(id, turn).await? {
+            return Ok(Some(messages));
+        }
+        self.steer_workflow_notices(id, turn).await
+    }
+
+    /// TS drainPendingRuntimeCommandsForActiveLoop：回合进行中到达的工作流通知在下一个步边界并入本回合
+    /// （task_notification_steer），而不是等回合结束再开一个后台结果轮。
+    async fn steer_workflow_notices(&mut self, id: &str, turn: &str) -> Result<Option<Vec<Value>>> {
+        let s = self.sessions.get_mut(id).unwrap();
+        if s.workflow_notices.is_empty() {
+            return Ok(None);
+        }
+        let mut deltas = vec![];
+        let mut messages = vec![];
+        for notice in std::mem::take(&mut s.workflow_notices) {
+            let text = crate::domain::background::task_notification_message(
+                notice["text"].as_str().unwrap_or_default(),
+            );
+            let mut row = s.row("userInput", turn, &self.clock.id(), self.clock.now());
+            row["text"] = text.clone().into();
+            row["origin"] = "backgroundResult".into();
+            if notice["originMeta"].is_object() {
+                row["originMeta"] = notice["originMeta"].clone();
+            }
+            s.rows.push(row.clone());
+            deltas.push(json!({"op":"row.appended","row":row}));
+            let message = json!({"role":"user","content":text});
+            s.append_message(message.clone());
+            messages.push(message);
+        }
+        s.revision += 1;
+        self.publish(id, deltas)?;
+        self.persist(id, None).await?;
+        Ok(Some(messages))
+    }
 }

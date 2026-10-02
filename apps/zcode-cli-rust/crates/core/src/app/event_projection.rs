@@ -90,11 +90,7 @@ impl Engine {
                 .await;
         }
         if let Event::StepBoundary { committed } = event.event {
-            if let Some(messages) = self.drain_plan_followups(&id).await? {
-                let _ = committed.send(Some(messages));
-                return Ok(());
-            }
-            if let Some(messages) = self.drain_mailbox(&id, &turn).await? {
+            if let Some(messages) = self.drain_step_messages(&id, &turn).await? {
                 let _ = committed.send(Some(messages));
                 return Ok(());
             }

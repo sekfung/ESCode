@@ -48,6 +48,8 @@ const HOST_TOOLS = new Set([
   "ResumeWorkflowRun",
   "GetWorkflowRun",
   "ResolveWorkflowQuestion",
+  // 只在 task_id 指向工作流 run 时由 Rust 转来（TS 后台任务控制端口的 local_dynamic_workflow 分支）。
+  "TaskStop",
 ]);
 const DYNAMIC_WORKFLOW_SKILL = "dynamic-workflows";
 
@@ -85,6 +87,25 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const selections = new Map<string, Record<string, unknown>>();
   /** run → 展示名（TS registry 条目的 description：输出 name → 入参 description / name / scriptPath）。 */
   const runLabels = new Map<string, string>();
+  /** run → 本宿主所见的生命周期状态（"running" 或结算状态），TaskStop 的 strict 判定读它。 */
+  const runStates = new Map<string, string>();
+  /** TS runtime.stopBackgroundTask 的 local_dynamic_workflow 分支（background-stop-dynamic-workflow.ts）。 */
+  const backgroundTaskControlPort = (session: string) => ({
+    stopBackgroundTask: async (taskId: string, options: { initiator?: string; strict?: boolean }) => {
+      const type = "local_dynamic_workflow";
+      const state = runStates.get(taskId);
+      if (state === undefined) return { ok: false, reason: "background_task_not_found", taskId };
+      if (state !== "running") {
+        return options.strict === true
+          ? { ok: false, reason: "background_task_not_running", status: state, taskId, type }
+          : { alreadyTerminal: true, ok: true, status: state, taskId, type };
+      }
+      const cancelled = await service(session).cancel(taskId, options.initiator as never);
+      return cancelled
+        ? { ok: true, status: "cancelled", taskId, type }
+        : { ok: false, reason: "background_task_not_found", status: "lost", taskId, type };
+    },
+  });
   const entry = (name: string) => {
     const found = builtInTools.find((tool) => tool.metadata.name === name);
     if (found === undefined || !HOST_TOOLS.has(name)) throw new Error(`Unknown workflow tool: ${name}`);
@@ -125,6 +146,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const toolContext = (params: Record<string, any>, signal?: AbortSignal) => ({
     workingDirectory: params.cwd as string,
     dynamicWorkflowRunPort: service(params.session),
+    backgroundTaskControlPort: backgroundTaskControlPort(params.session),
     sessionId: params.session,
     hasLoadedSkill: (name: string) => params.skillLoaded === true && name === DYNAMIC_WORKFLOW_SKILL,
     ...(params.callId === undefined ? {} : { toolCallId: params.callId }),
@@ -138,6 +160,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
     const port = service(params.session);
     const snapshot = await port.waitForTask(taskId);
     const status = snapshot?.status ?? "lost";
+    runStates.set(taskId, status);
     const toolCall = { id: params.callId, name: params.tool, input: params.input } as never;
     const text = formatWorkflowTaskNotificationText({
       toolCall,
@@ -197,6 +220,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
               (value): value is string => typeof value === "string",
             );
             if (label !== undefined) runLabels.set(output.backgroundTaskId, label);
+            runStates.set(output.backgroundTaskId, "running");
           }
           void trackRun(params, output).catch((error: unknown) => {
             send({
