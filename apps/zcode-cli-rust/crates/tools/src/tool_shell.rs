@@ -267,6 +267,41 @@ impl ShellTasks {
             }
         }
     }
+    /// `v4/conversation/backgroundBashOutput`（TS node-execution-adapter readBackgroundBashOutput）：后台详情的
+    /// 输出尾窗（≤ 8192 字节）。任务按启动会话校验归属；先冻结状态再读文件。
+    pub async fn output(&self, session: &str, work_id: &str) -> Value {
+        let job = self.jobs.lock().await.get(session).and_then(|jobs| jobs.get(work_id)).cloned();
+        let Some(job) = job else {
+            return json!({ "kind": "unavailable", "workId": work_id });
+        };
+        let status = match job.state.borrow().as_ref().map(|r| r["status"].as_str().unwrap_or("failed").to_owned()) {
+            None => "running".to_owned(),
+            Some(s) if ["completed", "failed", "timed_out", "cancelled", "spawn_error"].contains(&s.as_str()) => s,
+            Some(_) => "failed".to_owned(),
+        };
+        let read = async {
+            let mut file = tokio::fs::File::open(&job.path).await?;
+            let size = file.metadata().await?.len();
+            let length = size.min(8192);
+            file.seek(std::io::SeekFrom::Start(size - length)).await?;
+            let mut bytes = vec![];
+            file.read_to_end(&mut bytes).await?;
+            Ok::<_, std::io::Error>((String::from_utf8_lossy(&bytes).into_owned(), size > bytes.len() as u64))
+        };
+        match read.await {
+            Ok((output, truncated)) => json!({
+                "kind": "output", "workId": work_id, "status": status, "output": output,
+                "truncated": truncated, "outputPath": job.path.to_string_lossy(),
+            }),
+            Err(error) => {
+                let mut value = json!({ "kind": "read_failed", "workId": work_id });
+                if let Some(code) = error.raw_os_error() {
+                    value["code"] = code.to_string().into();
+                }
+                value
+            }
+        }
+    }
     pub async fn cancel(&self, session: &str, id: Option<&str>) -> Result<()> {
         let all = self.jobs.lock().await;
         if let Some(id) = id {

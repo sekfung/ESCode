@@ -4,7 +4,7 @@ use crate::{
     contract::{Output, StorageCommitFailure},
     domain::protocol::{Request, rpc_error},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_json::json;
 
 impl Engine {
@@ -78,6 +78,12 @@ impl Engine {
             // 「完整保留模型 IO」偏好（docs/specs/rust-model-io.md 第 2 期）。
             "workspace/updateModelIoPreferences" => self.model_io_preferences(&request.params),
             "v4/conversation/fileChanges" => self.file_changes(&request.params).await,
+            // 后台 Bash 详情的输出尾窗：观察查询，不恢复冷会话（TS readBackgroundBashOutputFromOwner）。
+            "v4/conversation/backgroundBashOutput" => {
+                let session = request.params["sessionId"].as_str().context("sessionId is required")?;
+                let work = request.params["workId"].as_str().filter(|w| !w.is_empty()).context("workId is required")?;
+                Ok(self.tools.background_bash_output(session, work).await)
+            }
             // V4 工作流只读查询（run 枚举 / 事件 / 产物 / 工作区）：工作流宿主按 Node 网关应答。
             "v4/conversation/workflowRuns"
             | "v4/conversation/workflowRunEvents"
