@@ -57,7 +57,7 @@ impl Engine {
         self.start_run(id, turn)
     }
 
-    /// StepBoundary 的待并入消息：plan 审批的后续消息 → 子代理 mailbox → 后台工作流通知（各取其一类）。
+    /// StepBoundary 的待并入消息：plan 审批的后续消息 → 子代理 mailbox → 后台子代理完成 → 后台工作流 / Bash 通知（各取其一类）。
     pub(super) async fn drain_step_messages(
         &mut self,
         id: &str,
@@ -67,6 +67,9 @@ impl Engine {
             return Ok(Some(messages));
         }
         if let Some(messages) = self.drain_mailbox(id, turn).await? {
+            return Ok(Some(messages));
+        }
+        if let Some(messages) = self.steer_children(id, turn).await? {
             return Ok(Some(messages));
         }
         self.steer_workflow_notices(id, turn).await

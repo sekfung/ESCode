@@ -1,6 +1,6 @@
 use super::Engine;
 use anyhow::{Context, Result};
-use serde_json::json;
+use serde_json::{Value, json};
 
 impl Engine {
     pub(super) async fn finish_child(&mut self, id: &str) -> Result<()> {
@@ -136,5 +136,40 @@ impl Engine {
         self.publish(id, self.new_turn_rows(id))?;
         self.persist(id, None).await?;
         self.start_run(id, turn)
+    }
+
+    /// TS drainPendingRuntimeCommandsForActiveLoop：父回合进行中完成的后台子代理，通知在步边界并入本回合
+    /// （每条通知一条消息），不再等回合结束开后台结果轮。
+    pub(super) async fn steer_children(&mut self, id: &str, turn: &str) -> Result<Option<Vec<Value>>> {
+        let now = self.clock.now();
+        let s = self.sessions.get_mut(id).unwrap();
+        let pending: Vec<String> = s
+            .children
+            .values()
+            .filter(|t| t.background && !t.running() && !t.notified)
+            .map(|t| t.id.clone())
+            .collect();
+        if pending.is_empty() {
+            return Ok(None);
+        }
+        let mut deltas = vec![];
+        let mut messages = vec![];
+        for task in pending {
+            let child = s.children.get_mut(&task).unwrap();
+            child.notified = true;
+            let text = crate::domain::background::task_notification_message(&child.notification());
+            let mut row = s.row("userInput", turn, &self.clock.id(), now);
+            row["text"] = text.clone().into();
+            row["origin"] = "backgroundResult".into();
+            s.rows.push(row.clone());
+            deltas.push(json!({"op":"row.appended","row":row}));
+            let message = json!({"role":"user","content":text});
+            s.append_message(message.clone());
+            messages.push(message);
+        }
+        s.revision += 1;
+        self.publish(id, deltas)?;
+        self.persist(id, None).await?;
+        Ok(Some(messages))
     }
 }

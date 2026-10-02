@@ -99,8 +99,8 @@ impl ToolPort for WorkspaceTools {
             <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
         ));
         tokio::fs::create_dir_all(&dir).await?;
-        let path = dir.join("agent.output");
-        let temp = dir.join("agent.output.tmp");
+        let path = dir.join("output.txt"); // TS createSubagentLifecycle 的文件名
+        let temp = dir.join("output.txt.tmp");
         tokio::fs::write(&temp, text).await?;
         tokio::fs::rename(temp, &path).await?;
         Ok(path.to_string_lossy().into_owned())

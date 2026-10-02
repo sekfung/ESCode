@@ -118,26 +118,58 @@ impl Task {
             )
         }
     }
+    /// TS formatLocalAgentTaskNotification（subagent/completion-notification.ts + runtime-task/notification.ts）。
     pub fn notification(&self) -> String {
-        format!(
-            "<task-notification>\n<task-id>{}</task-id>\n<tool-use-id>{}</tool-use-id>\n<output-file>{}</output-file>\n<status>{}</status>\n<summary>{}</summary>\n<result>{}</result>\n</task-notification>",
-            escape(&self.id),
-            escape(&self.call_id),
-            escape(&self.output_file),
-            escape(&self.status),
-            escape(&self.description),
-            escape(&self.output)
-        )
+        let status = match self.status.as_str() {
+            "completed" => "completed",
+            "failed" => "failed",
+            _ => "stopped",
+        };
+        let mut summary = format!("Agent {} task \"{}\" {status}.", self.agent_type, self.description);
+        if status == "failed" && !self.output.trim().is_empty() {
+            summary = format!("{summary} {}", self.output);
+        }
+        let mut lines = vec![
+            "<task-notification>".to_owned(),
+            format!("<task-id>{}</task-id>", escape(&self.id)),
+            format!("<tool-use-id>{}</tool-use-id>", escape(&self.call_id)),
+        ];
+        if !self.output_file.is_empty() {
+            lines.push(format!("<output-file>{}</output-file>", escape(&self.output_file)));
+        }
+        lines.push(format!("<status>{status}</status>"));
+        lines.push(format!("<summary>{}</summary>", escape(&summary)));
+        let duration = self.ended_at.unwrap_or(self.started_at).saturating_sub(self.started_at);
+        match status {
+            "completed" => {
+                lines.push(format!("<result>{}</result>", escape(&self.output)));
+                lines.push(format!(
+                    "<usage><subagent_tokens>{}</subagent_tokens><tool_uses>{}</tool_uses><duration_ms>{duration}</duration_ms></usage>",
+                    self.tokens, self.tool_uses
+                ));
+            }
+            "failed" => {
+                lines.push(format!("<error>{}</error>", escape(&self.output)));
+                lines.push(format!("<usage><duration_ms>{duration}</duration_ms></usage>"));
+            }
+            _ => lines.push(format!("<usage><duration_ms>{duration}</duration_ms></usage>")),
+        }
+        lines.push("</task-notification>".to_owned());
+        lines.join("
+")
     }
     pub fn task_output(&self, timed_out: bool) -> Value {
         json!({"retrieval_status":if self.running(){if timed_out{"timeout"}else{"not_ready"}}else{"success"},
         "task":{"task_id":self.id,"task_type":"local_agent","status":self.status,"description":self.description,"output":self.output,"prompt":self.prompt,"outputFile":self.output_file}})
     }
 }
+/// TS escapeXml。
 fn escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+        .replace('\'', "&apos;")
+        .replace('"', "&quot;")
 }
 
 pub fn projection(s: &crate::session::Session, patch: &mut Value) {
