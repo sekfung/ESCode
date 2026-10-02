@@ -15,7 +15,6 @@ use tokio::{
     sync::Mutex,
 };
 use tokio_util::sync::CancellationToken;
-pub(super) const INLINE: usize = 24 * 1024;
 /// TS Bash `MAX_INLINE_OUTPUT_BYTES`：结果 stdout 取合并输出文件的前这么多字节。
 const MODEL_INLINE: u64 = 30_000;
 const MAX_STREAM: u64 = 16 * 1024 * 1024;

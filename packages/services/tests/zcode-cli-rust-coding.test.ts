@@ -25,6 +25,16 @@ function done(res: any) {
   event(res, { content: "done" });
   end(res, "stop");
 }
+/** 去掉末尾的后台通知（steer 进本回合或单独成轮），返回此前那条消息；纯通知轮返回 undefined。 */
+function effectiveLast(req: any) {
+  const notice = (m: any) =>
+    m.role === "user" && /^<system-reminder>\n\[SYSTEM NOTIFICATION/.test(String(m.content));
+  let i = req.messages.length - 1;
+  while (i >= 0 && notice(req.messages[i])) i--;
+  const stripped = i < req.messages.length - 1;
+  const last = req.messages[i];
+  return stripped && last?.role !== "tool" ? undefined : last;
+}
 function prompt(req: any) {
   return req.messages.findLast(
     // fixture 根据真实输入选择工具；后台通知和 Todo 提醒不能被当成新的测试指令。
@@ -39,7 +49,8 @@ test("Rust coding path searches, reads, edits and runs a background test through
     mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
-      const last = req.messages.at(-1);
+      const last = effectiveLast(req);
+      if (last === undefined) return done(res);
       assert(!last?.content?.startsWith("Tool failed"), last?.content);
       switch (step++) {
         case 0:
@@ -74,10 +85,10 @@ test("Rust coding path searches, reads, edits and runs a background test through
           call(res, "TaskOutput", { task_id: taskId, block: true, timeout: 5000 });
           break;
         default: {
-          const result = JSON.parse(last.content);
-          assert.equal(result.retrieval_status, "success");
-          assert.equal(result.task.exitCode, 0);
-          assert.match(result.task.output, /passed/);
+          // TS formatTaskOutputModelContent 的 XML 块。
+          assert.match(last.content, /<retrieval_status>success<\/retrieval_status>/);
+          assert.match(last.content, /<exit_code>0<\/exit_code>/);
+          assert.match(last.content, /<output>\npassed\n<\/output>/);
           done(res);
         }
       }
@@ -109,7 +120,8 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
     mode: "yolo",
     respond(req, res) {
       res.writeHead(200, { "Content-Type": "text/event-stream" });
-      const last = req.messages.at(-1);
+      const last = effectiveLast(req);
+      if (last === undefined) return done(res);
       const action = prompt(req);
       if (last.role !== "tool") {
         if (action === "start")
@@ -143,7 +155,7 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
     await access(outputFile);
     await waitForBeat(f.cwd, "background.beat");
     await send(id, "wait");
-    assert.equal(JSON.parse(output).retrieval_status, "timeout");
+    assert.match(output, /<retrieval_status>timeout<\/retrieval_status>/);
     const other = await h.create();
     await h.subscribe(`conversation/${other}`);
     await send(other, "foreign");
@@ -160,7 +172,7 @@ test("Rust background tasks survive foreground completion, isolate sessions and 
     await send(id, "stop");
     assert.match(output, /stopped/);
     await send(id, "poll");
-    assert.equal(JSON.parse(output).task.status, "killed");
+    assert.match(output, /<status>killed<\/status>/);
     const beatsBefore = await beatCount(f.cwd, "background.beat");
     await send(id, "start");
     await waitForBeatGrowth(f.cwd, "background.beat", beatsBefore);

@@ -85,6 +85,7 @@ pub mod shared_context;
 pub mod shared_import;
 pub mod skills;
 pub mod subagent;
+pub mod task_output;
 mod subagent_row;
 pub mod browser_ambient;
 pub mod todo;

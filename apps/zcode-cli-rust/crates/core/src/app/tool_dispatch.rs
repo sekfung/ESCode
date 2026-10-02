@@ -113,7 +113,13 @@ pub(super) async fn execute(
             },
         })
     } else {
-        match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")) {
+        // Bash 带上发起调用的 id：后台完成通知的 `<tool-use-id>`（TS tracker 持有 toolCall）。
+        match serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or("")).map(|mut args| {
+            if name == "Bash" && args.is_object() {
+                args[crate::domain::background::TOOL_CALL_ID_ARG] = call["id"].clone();
+            }
+            args
+        }) {
             // 闲时受限轮（docs/specs/rust-offpeak.md 第二期）：SendMessage 会绕开本轮执行模型续跑子代理；
             // Bash 后台命令完成后的通知轮会落到用户套餐，拒绝显式后台并关闭超时自动转后台。
             Ok(_) if turn.off_peak_restricted && name == "SendMessage" => Err(anyhow::anyhow!(

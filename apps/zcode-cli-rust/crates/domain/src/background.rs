@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+/// core 给 Bash 调用注入的内部参数：发起调用的 tool call id（后台完成通知的 `<tool-use-id>`）。
+pub const TOOL_CALL_ID_ARG: &str = "__zcodeToolCallId";
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundTask {
@@ -11,6 +14,16 @@ pub struct BackgroundTask {
     pub started_at: u64,
     pub ended_at: Option<u64>,
     pub output_file: String,
+    /// 发起它的 Bash 调用（通知的 `<tool-use-id>`）；旧会话缺席。
+    #[serde(default)]
+    pub tool_call_id: Option<String>,
+    /// 入参原文：`description` 缺席时通知的主语退到 `command`（TS buildBackgroundTaskSummary）。
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub exit_code: Option<i64>,
 }
 impl BackgroundTask {
     pub fn projection(&self) -> Value {
@@ -28,6 +41,51 @@ impl BackgroundTask {
             }
         }
         value
+    }
+}
+
+impl BackgroundTask {
+    /// TS BackgroundTaskTracker 对 local_bash 终态的完成通知：`(text, originMeta)`。
+    pub fn notification(&self) -> (String, Value) {
+        // normalizeBackgroundTaskNotificationStatus：cancelled / timed_out / killed / stopped → killed。
+        let status = match self.status.as_str() {
+            "completed" => "completed",
+            "cancelled" | "timed_out" | "killed" | "stopped" => "killed",
+            _ => "failed",
+        };
+        let subject = self.description.as_deref().unwrap_or(&self.command);
+        let prefix = format!("Background command \"{subject}\"");
+        let summary = match (status, self.exit_code) {
+            ("completed", Some(code)) => format!("{prefix} completed (exit code {code})"),
+            ("completed", None) => format!("{prefix} completed"),
+            ("failed", Some(code)) => format!("{prefix} failed with exit code {code}"),
+            ("failed", None) => format!("{prefix} failed"),
+            _ => format!("{prefix} was stopped"),
+        };
+        let escape = |v: &str| v.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+        let mut lines = vec![
+            "<task-notification>".to_owned(),
+            format!("<task-id>{}</task-id>", escape(&self.id)),
+        ];
+        if let Some(call) = &self.tool_call_id {
+            lines.push(format!("<tool-use-id>{}</tool-use-id>", escape(call)));
+        }
+        if !self.output_file.is_empty() {
+            lines.push(format!("<output-file>{}</output-file>", escape(&self.output_file)));
+        }
+        lines.push(format!("<status>{status}</status>"));
+        lines.push(format!("<summary>{}</summary>", escape(&summary)));
+        lines.push("</task-notification>".to_owned());
+        // resolveBashBackgroundResultTitle：description → command → 工具名 → task id。
+        let title = [self.description.as_deref(), Some(self.command.as_str())]
+            .into_iter()
+            .flatten()
+            .map(str::trim)
+            .find(|t| !t.is_empty())
+            .unwrap_or("Bash");
+        let meta = json!({"backgroundSource":"bash","title":title,"workId":self.id});
+        (lines.join("
+"), meta)
     }
 }
 

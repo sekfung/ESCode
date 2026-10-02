@@ -35,6 +35,15 @@ impl Engine {
         {
             session.background.remove(&old);
         }
+        // TS BackgroundTaskTracker：local_bash 终态发一条完成通知（空闲时开后台结果轮，忙时在步边界并入本回合）。
+        // 已结束的子代理会话不再收（TS shouldSuppressSealedSubagentBashNotification）。
+        let sealed = session.parent_id.is_some() && !session.running();
+        if task.status != "running" && !sealed {
+            let (text, meta) = task.notification();
+            session.workflow_notices.push(serde_json::json!({
+                "taskId": task.id, "noticeId": "settled", "text": text, "originMeta": meta,
+            }));
+        }
         session.background.insert(task.id.clone(), task);
         session.updated_at = self.clock.now();
         session.revision += 1;
@@ -44,6 +53,7 @@ impl Engine {
             let _ = receipt.send(());
         }
         self.resume_background_goal(id).await?;
+        self.deliver_workflow_notices(id).await?;
         self.finish_child(id).await?;
         Ok(())
     }

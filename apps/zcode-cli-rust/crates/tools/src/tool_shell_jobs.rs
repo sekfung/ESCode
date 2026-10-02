@@ -33,6 +33,8 @@ pub(in super::super) struct Launch {
     pub shell: Option<crate::shell_select::Override>,
     pub command: String,
     pub description: String,
+    pub tool_call_id: Option<String>,
+    pub raw_description: Option<String>,
     pub lifecycle: AtomicU8,
 }
 
@@ -61,6 +63,10 @@ impl Launch {
             started_at: super::super::now(),
             ended_at: None,
             output_file: self.path.to_string_lossy().into_owned(),
+            tool_call_id: self.tool_call_id.clone(),
+            description: self.raw_description.clone(),
+            command: self.command.clone(),
+            exit_code: None,
         }
     }
     fn backgrounded(&self) -> ToolOutput {
@@ -197,6 +203,7 @@ async fn finish(running: Running, sink: EventSink, mut task: BackgroundTask, tx:
     let result = result
         .unwrap_or_else(|e| json!({"stdout":"","stderr":e.to_string(),"status":"spawn_error","interrupted":false}));
     task.ended_at = Some(super::super::now());
+    task.exit_code = result["exitCode"].as_i64();
     task.status = match result["status"].as_str() {
         Some("completed") => "completed",
         Some("cancelled") => "cancelled",

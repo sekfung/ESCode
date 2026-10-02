@@ -1,4 +1,4 @@
-use super::tool_process::{BACKGROUNDED, FOREGROUND, INLINE, ShellContext, run, shell_output};
+use super::tool_process::{BACKGROUNDED, FOREGROUND, ShellContext, run, shell_output};
 #[path = "tool_shell_jobs.rs"]
 mod jobs;
 use super::tools::{boolean, keys, string, truncate_utf8, uint};
@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    io::AsyncReadExt,
+    io::{AsyncReadExt, AsyncSeekExt},
     sync::{Mutex, oneshot, watch},
 };
 use tokio_util::sync::CancellationToken;
@@ -67,12 +67,19 @@ impl ShellTasks {
                     if state.borrow().is_none() {
                         tokio::select! {_=cancel.cancelled()=>bail!("Cancelled"),r=state.wait_for(|v|v.is_some())=>{r?;}}
                     }
-                    let message = format!("Task {id} stopped");
-                    let data = json!({"message":message,"task_id":id,"task_type":"bash","command":job.command});
+                    // TS task-stop：输出对象按 JSON 原样交给模型（键序 message / task_id / task_type / command）。
+                    let message = format!("Successfully stopped task: {id} ({})", job.command);
+                    let data = json!({"message":message,"task_id":id,"task_type":"local_bash","command":job.command});
+                    let content = format!(
+                        r#"{{"message":{},"task_id":{},"task_type":"local_bash","command":{}}}"#,
+                        json!(message),
+                        json!(id),
+                        json!(job.command)
+                    );
                     return Ok(ToolOutput {
                         media: Vec::new(),
                         failed: false,
-                        content: message.clone(),
+                        content,
                         display: Some(
                             json!({"kind":"task_stop","taskId":id,"taskType":"bash","command":job.command,"message":message}),
                         ),
@@ -96,19 +103,18 @@ impl ShellTasks {
                     }
                 }
                 let final_result = state.borrow().clone();
+                // TS projectBashTask：运行中读文件头 30000 字节，终态读尾部 8 MiB；字符预算由模型面格式器施加。
                 let mut file = tokio::fs::File::open(&job.path).await?;
+                let size = file.metadata().await?.len();
                 let mut bytes = vec![];
-                (&mut file)
-                    .take(INLINE as u64)
-                    .read_to_end(&mut bytes)
-                    .await?;
-                let mut output = String::from_utf8_lossy(&bytes).into_owned();
-                if file.metadata().await?.len() > INLINE as u64 {
-                    output.push_str(&format!(
-                        "\n[output truncated; Read {} with offset/limit]",
-                        job.path.display()
-                    ));
+                if final_result.is_none() {
+                    (&mut file).take(30_000).read_to_end(&mut bytes).await?;
+                } else {
+                    let tail = size.min(8 * 1024 * 1024);
+                    file.seek(std::io::SeekFrom::Start(size - tail)).await?;
+                    file.read_to_end(&mut bytes).await?;
                 }
+                let output = String::from_utf8_lossy(&bytes).into_owned();
                 let status = final_result
                     .as_ref()
                     .map(|v| match v["status"].as_str() {
@@ -117,7 +123,7 @@ impl ShellTasks {
                         _ => "failed",
                     })
                     .unwrap_or("running");
-                let data = json!({"retrieval_status":retrieval,"task":{"task_id":id,"task_type":"bash","status":status,"description":job.description,"output":output,"exitCode":final_result.as_ref().and_then(|v|v["exitCode"].as_i64()),"outputFile":job.path}});
+                let data = json!({"retrieval_status":retrieval,"task":{"task_id":id,"task_type":"local_bash","status":status,"description":job.description,"output":output,"exitCode":final_result.as_ref().and_then(|v|v["exitCode"].as_i64()),"outputFile":job.path}});
                 let mut preview = output.clone();
                 truncate_utf8(&mut preview, 1800);
                 let mut display =
@@ -131,7 +137,7 @@ impl ShellTasks {
                 Ok(ToolOutput {
                     media: Vec::new(),
                     failed: false,
-                    content: serde_json::to_string(&data)?,
+                    content: crate::domain::task_output::model_content(&data),
                     data,
                     display: Some(display),
                     control: Default::default(),
@@ -158,6 +164,7 @@ impl ShellTasks {
                 "run_in_background",
                 "dangerouslyDisableSandbox",
                 crate::domain::off_peak::FOREGROUND_ONLY_ARG,
+                crate::domain::background::TOOL_CALL_ID_ARG,
             ],
         )?;
         // core 在闲时受限轮加入的内部参数：关闭超时自动转后台（docs/specs/rust-offpeak.md 第二期）。
@@ -196,8 +203,20 @@ impl ShellTasks {
         };
         let shell = shell_override(sink).await;
         tokio::fs::create_dir_all(artifacts).await?;
-        let id = super::id();
-        let path = artifacts.join(format!("{id}.output"));
+        // TS node-execution-adapter：任务 id `exec_<uuid>`，合并输出落 `<toolCallId>-stdout.log`（id 经 sanitizePathSegment）。
+        let id = format!("exec_{}", super::id());
+        let file = args[crate::domain::background::TOOL_CALL_ID_ARG]
+            .as_str()
+            .map(|call| {
+                let safe: String = call
+                    .chars()
+                    .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' })
+                    .take(120)
+                    .collect();
+                if safe.is_empty() { "unknown".to_owned() } else { safe }
+            })
+            .unwrap_or_else(super::id);
+        let path = artifacts.join(format!("{file}-stdout.log"));
         let combined = Arc::new(Mutex::new(tokio::fs::File::create(&path).await?));
         let lifecycle = if background { BACKGROUNDED } else { FOREGROUND };
         let launch = Arc::new(jobs::Launch {
@@ -209,6 +228,8 @@ impl ShellTasks {
             path,
             combined,
             shell,
+            tool_call_id: args[crate::domain::background::TOOL_CALL_ID_ARG].as_str().map(str::to_owned),
+            raw_description: args["description"].as_str().map(str::to_owned),
             command,
             description,
             lifecycle: AtomicU8::new(lifecycle),

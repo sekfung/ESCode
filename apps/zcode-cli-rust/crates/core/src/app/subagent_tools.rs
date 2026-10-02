@@ -105,11 +105,12 @@ pub(super) async fn execute(
         return Ok(ToolOutput::text(json!({"status":"success","messageId":handle.message_id,"agentId":handle.task.id,"taskId":handle.task.id,"delivery":handle.delivery,"outputFile":handle.task.output_file}).to_string()));
     }
     if name == "TaskOutput" {
-        return Ok(ToolOutput::text(
-            handle
-                .task
-                .task_output(args["block"] != false && args["block"] != "false")
-                .to_string(),
+        let data = handle
+            .task
+            .task_output(args["block"] != false && args["block"] != "false");
+        return Ok(ToolOutput::new(
+            crate::domain::task_output::model_content(&data),
+            data,
         ));
     }
     if name == "TaskStop" {
