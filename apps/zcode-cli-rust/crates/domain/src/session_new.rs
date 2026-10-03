@@ -49,6 +49,7 @@ impl Session {
             attachments: Default::default(),
             background: Default::default(),
             workflow_notices: vec![],
+            settings_turns: vec![],
             workflow_actor: None,
             workflow_runs: None,
             workflow_runs_legacy: None,

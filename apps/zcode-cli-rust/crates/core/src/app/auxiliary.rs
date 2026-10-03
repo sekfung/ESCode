@@ -174,6 +174,27 @@ impl Engine {
                 };
                 let _ = reply.send(ack);
             }
+            // GUI「配置」修订的设置轮：会话 owner 落行（忙时暂存），ACK 经 reply 应答
+            // （docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」）。
+            Event::WorkflowSettingsTurn {
+                session,
+                command,
+                applied,
+                reply,
+            } => {
+                let ack = match self
+                    .apply_workflow_settings_turn(&session, &command, &applied)
+                    .await
+                {
+                    Ok(ack) => ack,
+                    Err(_) => super::workflow_settings::settings_accepted(
+                        &command,
+                        self.sessions[&session].revision,
+                        &applied,
+                    ),
+                };
+                let _ = reply.send(ack);
+            }
             // 标题 sidecar 的候选：由会话 owner 校验后写回（docs/specs/rust-session-title.md）。
             Event::SessionTitle {
                 session,

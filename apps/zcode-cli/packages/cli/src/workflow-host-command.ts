@@ -53,7 +53,7 @@ import {
   InMemoryRuntimeTaskRegistry,
   isTerminalRuntimeTask,
 } from "@zcode/core";
-import { createSavedWorkflowLaunch } from "./workflow-host-saved-start.js";
+import { createWorkflowRunHandoff } from "./workflow-host-run-handoff.js";
 
 export const ZCODE_WORKFLOW_HOST_COMMAND = "__zcode-workflow-host";
 
@@ -264,8 +264,9 @@ export async function runWorkflowHostCommand(): Promise<number> {
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
 
-  // 中枢「运行」的两段（startSaved / trackSaved）拆在独立模块：宿主命令面已接近单文件 400 行上限。
-  const savedLaunch = createSavedWorkflowLaunch({
+  // 「提交 → 追踪重臂」两段（startSaved / amendSettings / track）拆在独立模块：宿主命令面已接近
+  // 单文件 400 行上限。
+  const handoff = createWorkflowRunHandoff({
     port: service,
     track: (session, toolCall, runId) =>
       tracking(session).tracker.trackBackgroundTask(
@@ -277,7 +278,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
       ),
   });
   const runDeps: WorkflowRunCommandDeps = {
-    ...savedLaunch,
+    ...handoff,
     resume: async (session, runId) => {
       const port = service(session);
       if (typeof port.resume !== "function") throw new Error("Workflow run resume is unavailable");
@@ -412,7 +413,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
         return { ok: true };
       }
       default:
-        // 用户命令面的 run 取消 / 恢复（workflow-host-runs.ts）。
+        // 用户命令面的 run 取消 / 恢复 / 中枢启动 / 设置修订（workflow-host-runs.ts）。
         if (isWorkflowRunCommand(request.method)) return runWorkflowRunCommand(request.method, params, runDeps);
         throw new Error(`Unsupported workflow host request: ${request.method}`);
     }

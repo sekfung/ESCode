@@ -111,6 +111,16 @@ pub enum Event {
         launched: Value,
         reply: oneshot::Sender<Value>,
     },
+    /// GUI「配置」修订工作流 run 的设置轮（docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」）：
+    /// 工作流宿主已 `port.amend`（零会话副作用，或就地调并发），会话 owner 落设置轮（标题 / userInput /
+    /// controlOnly turnHeader / runtime history），忙时改入 `Session::settings_turns` 延迟落行。ACK 经
+    /// `reply` 应答。会话状态的唯一写入点在 owner，辅助任务因此不能自己落行。
+    WorkflowSettingsTurn {
+        session: String,
+        command: Box<zcode_cli_protocol::Command>,
+        applied: Value,
+        reply: oneshot::Sender<Value>,
+    },
     /// 后台工作区作业（插件安装 / 市场刷新等）的协议回复：错误按原文回给 Host。
     AuxiliaryReply {
         result: std::result::Result<Value, String>,

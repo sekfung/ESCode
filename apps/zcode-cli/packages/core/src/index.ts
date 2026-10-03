@@ -35,6 +35,15 @@ export type {
   SavedWorkflowLaunchRejection,
   SavedWorkflowLaunchResult,
 } from "./runtime/methods/dynamic-workflow-saved-launch.js";
+// Rust runtime 的工作流宿主用同一段判定 + 执行实现 GUI「配置」的修订
+// （docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」）。
+export { applyWorkflowRunSettings } from "./runtime/methods/dynamic-workflow-run-settings-apply.js";
+export type {
+  AmendWorkflowRunSettingsRejection,
+  WorkflowRunSettingsApplyDeps,
+  WorkflowRunSettingsApplyResult,
+  WorkflowRunSettingsRequest,
+} from "./runtime/methods/dynamic-workflow-run-settings-apply.js";
 export { BackgroundTaskTracker } from "./tool/executor/background-tasks.js";
 // Rust runtime 的 hooks 宿主（docs/specs/rust-hooks.md）：工具事件的 matcher 别名与 Node 一致。
 export { hookMatcherToolNamesForTool } from "./tool/compat.js";

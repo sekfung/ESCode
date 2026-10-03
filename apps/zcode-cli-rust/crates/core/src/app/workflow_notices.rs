@@ -61,7 +61,13 @@ impl Engine {
         let Some(s) = self.sessions.get(id) else {
             return Ok(());
         };
-        if s.running() || !s.auto_drain || !s.queue.is_empty() || s.workflow_notices.is_empty() {
+        // 设置轮未落完前不交付 run 通知：修订的设置轮必须先于新 run 的任何通知（docs/specs/rust-v4-command-gaps.md）。
+        if s.running()
+            || !s.auto_drain
+            || !s.queue.is_empty()
+            || !s.settings_turns.is_empty()
+            || s.workflow_notices.is_empty()
+        {
             return Ok(());
         }
         let notice = s.workflow_notices[0].clone();

@@ -28,21 +28,21 @@ const CANCEL_REJECTED_PREFIX: &str = "fault.command.backgroundWorkCancelRejected
 const SAVED_START_REJECTED_PREFIX: &str = "fault.command.savedWorkflowStartRejected.";
 /// TS 取消拒绝的 reason 去掉 `background_task_` 前缀进 reasonCode（BACKGROUND_WORK_CANCEL_REJECTED_FAULT_PREFIX）。
 const BACKGROUND_TASK_REASON_PREFIX: &str = "background_task_";
-const HOST_FAILURE: &str = "fault.command.executionFailed";
+pub(super) const HOST_FAILURE: &str = "fault.command.executionFailed";
 /// 直接启动的两个宿主方法（`apps/zcode-cli/packages/cli/src/workflow-host-runs.ts`）。
 const START_SAVED_METHOD: &str = "run.startSaved";
-const TRACK_SAVED_METHOD: &str = "run.track";
+pub(super) const TRACK_SAVED_METHOD: &str = "run.track";
 /// 宿主结果缺席 reason 时的兜底（TS `savedWorkflowStartRejectionReasonSchema` 的 start_failed）。
 const START_SAVED_FALLBACK_REASON: &str = "start_failed";
 /// 忙碌会话拒绝：与 TS `hasActiveOrQueuedTurnWork` 同一个判别键。
 const SAVED_START_BUSY_REASON: &str = "session_busy";
 /// 启动轮的 origin（TS `inputSource: "workflow_launch"` 同时定 turnHeaderOrigin 与 userInputOrigin）。
-const WORKFLOW_LAUNCH_ORIGIN: &str = "workflowLaunch";
+pub(super) const WORKFLOW_LAUNCH_ORIGIN: &str = "workflowLaunch";
 
 /// 需要宿主往返的 `v4/command`（在请求分派处先于普通命令路径拦截）。
 pub(super) fn is_workflow_run_command(params: &Value) -> bool {
     match params["type"].as_str() {
-        Some("resumeWorkflowRun" | "startSavedWorkflow") => true,
+        Some("resumeWorkflowRun" | "startSavedWorkflow" | "amendWorkflowRunSettings") => true,
         Some("cancelBackgroundWork") => params["payload"]["workId"]
             .as_str()
             .is_some_and(|work| work.starts_with(WORKFLOW_RUN_PREFIX)),
@@ -68,6 +68,9 @@ impl Engine {
         self.ensure_session(&session).await?;
         if c.kind == "startSavedWorkflow" {
             return self.start_saved_workflow_command(request, c, session).await;
+        }
+        if c.kind == "amendWorkflowRunSettings" {
+            return self.amend_workflow_settings_command(request, c, session).await;
         }
         let revision = self.sessions[&session].revision;
         let work = c.payload["workId"]
@@ -215,7 +218,7 @@ impl Engine {
     }
 }
 
-fn rejected(c: &Command, revision: u64, reason: String, message: Option<&str>) -> Value {
+pub(super) fn rejected(c: &Command, revision: u64, reason: String, message: Option<&str>) -> Value {
     // TS 网关：携带 reasonCode 的领域错误以 failed 上行，error.message 收进 ack.message。
     let mut ack = c.ack("failed", revision, Some(&reason));
     if let Some(message) = message {

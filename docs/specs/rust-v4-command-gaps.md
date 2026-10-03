@@ -10,7 +10,7 @@
 | `createSelectionSideSession` | 框选「问一问」副屏（`v4/SessionPane.tsx`）               | **已实现**，差分一致（已知差异见下） |
 | `startSavedWorkflow`         | 设置页「已保存工作流」启动（`useSavedWorkflowLauncher`） | **已实现**，差分一致                 |
 | `resumeWorkflowRun`          | 工作流运行侧栏「恢复」（`WorkflowRunSidePane`）          | **已实现**，差分一致                 |
-| `amendWorkflowRunSettings`   | 工作流运行设置弹层（`useWorkflowRunPaneSettings`）       | 待实现                               |
+| `amendWorkflowRunSettings`   | 工作流运行设置弹层（`useWorkflowRunPaneSettings`）       | **已实现**，差分一致（已知差异见下） |
 
 Workspace hook 的四个命令（`requestWorkspaceHookReview` 等）经 `kind.contains("WorkspaceHook")` 整体转发给工具层，已覆盖。
 
@@ -180,3 +180,77 @@ sequenceDiagram
 - 验收：`zcode-cli-rust-start-saved-workflow.test.ts`（成功启动的 ACK、启动轮两行、`session/read` 标题与状态、
   下一次模型请求里的启动句、`invalid_name` / `not_found` / `invalid_args` / `session_busy` 四条拒绝的
   ACK 与零行副作用，两侧逐字一致）。
+
+## amendWorkflowRunSettings（2026-10-04）
+
+run 卡 / 详情页「配置」弹层的「应用」原先在 Rust 上直接失败（未知命令 → `rejected /
+guard.capabilityUnsupported`），现在按 Node `app.amendWorkflowRunSettings` 的语义实现。判定与执行仍由
+工作流宿主用 TS 的同一段实现完成——为此把 Node runtime 里的算法抽成 core 的纯函数
+`applyWorkflowRunSettings`（`dynamic-workflow-run-settings-apply.ts`），Node runtime 与宿主各注入一份
+依赖：前者拿 `AgentRuntimeInternal` 的会话事实与执行器，后者拿宿主的 cwd、run 端口与 Rust 递来的模型目录。
+
+| 事实                                                                                                          | 所有者           |
+| ------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 归属校验 / 可配置校验 / 两项三态归一 / 未改判定 / 脚本读取 / 编译 / 调并发 / `port.amend` / 工作副本 / 提交 run | 工作流宿主（TS） |
+| 模型目录（provider 注册表 → `ModelCatalogEntry[]`，补 `current`）                                              | Rust Engine      |
+| 设置轮的会话写入（userInput、controlOnly turnHeader、runtime history）                                          | Rust Engine      |
+| run 的后台追踪重臂（登记表、终态 waiter、结算通知）                                                            | 工作流宿主（TS） |
+
+宿主新增一个方法（`apps/zcode-cli/packages/cli/src/workflow-host-runs.ts`）：
+
+- `run.amendSettings {session, cwd, runId, subagentModel?, maxConcurrency?, models?}` →
+  `{ok:true, runId, toolCallId, supersededRunId?, track, turn:{text, meta, titleInput}}` 或
+  `{ok:false, reason, message?}`。**零会话副作用**：失败时旧 run 照旧在跑，没有新 run、没有行、没有消息。
+  成功即已提交新 run（或就地改完并发），并把合成 AmendWorkflow 描述子按 toolCallId 暂存。
+  `track` 为假表示**就地调并发**（同一个 runId、没有后继），这条路上刻意不登记第二个后台任务。
+  两项设置原样三态透传：键在场即用户改过，`null` 是「回到默认」。
+
+```mermaid
+sequenceDiagram
+  participant UI
+  participant R as Rust Engine
+  participant H as 工作流宿主
+  UI->>R: v4/command amendWorkflowRunSettings {workId, subagentModel?, maxConcurrency?}
+  R->>H: run.amendSettings（辅助请求，不占 actor；附模型目录）
+  H->>H: 归属 / 可配置 / 三态归一 / 未改判定 →（只改并发且 run 在飞）就地调并发 → 脚本 → 编译 → port.amend
+  H-->>R: {ok, runId, toolCallId, supersededRunId?, track, turn}
+  R->>R: 落设置轮（标题 / userInput / controlOnly turnHeader / history）——唯一的会话写入
+  R->>H: run.track（仅 track=true；重臂追踪）
+  R-->>UI: ACK accepted {type, runId, toolCallId, supersededRunId?}
+  H--)R: runSettled（run 终态）→ 既有后台结果轮
+```
+
+- 拒绝（宿主 reason）：`failed / fault.command.workflowRunSettingsRejected.<not_found|not_configurable|
+  unchanged|script_missing|model_unavailable|compile_failed|missing_boundaries|start_failed>`，`message` 用
+  宿主诊断（编译 / 模型解析 / 启动失败原因），缺席时 `workflow run settings rejected: <reason>`。
+- 模型目录：Rust 把 `registry.model_catalog()` 随请求递过去，并给会话当前 `providerId/modelId` 那一条补
+  `current: true`（其余 `false`）。TS 端口的 `current` 是必需字段，它决定 `model_unavailable` 诊断里
+  `[current]` 标记与「同名挂多个 provider」的第 3 档判定；缺了它两侧的失败文案会分叉。
+- 设置轮的文本与元数据由宿主用 TS 同一个 `buildSettingsMessageText` / `boundWorkflowLaunchMeta` 生成
+  （英文、进 provider transcript），Rust 只负责落行。
+
+### 设置轮的时序
+
+Node 把设置轮排进运行时命令队列（priority `next`），与通知同优先级、先于新 run 的任何通知。Rust 没有这条
+队列，改用会话上的一个**待落列表**（`Session::settings_turns`，只存内存、不落库、`recover()` 清空）：
+命令的 ACK 到达时先入列，会话空闲（无在跑轮、无待提升输入）即落行。
+
+- 落行点固定三处：ACK 到达后、任意一轮 `Finished` 之后（**早于** `promote`）、以及上述两处的幂等重试。
+  判据是 `!s.running() && s.queued_now.is_none()`。
+- `deliver_workflow_notices` 增加 `!s.settings_turns.is_empty()` 门：只要还有设置轮没落，run 的完成通知就
+  不能抢先变成本回合的后台结果轮。这是「追踪必须晚于设置轮重臂」（`run.track` 在落行之后才发）之外的第二道
+  保险——即使宿主在 ACK 之前就报了结算，通知也排在设置轮后面。
+- 设置轮不走模型：turnHeader 的 `executionKind = "controlOnly"`、`state = "completedSuccess"`、
+  `origin = "workflowLaunch"`，与启动轮同形；`workflowLaunch` 元数据里的 `amend` 块区分两条路
+  （有 `predecessorRunId` = 修订出新 run，没有 = 就地调并发）。
+
+### 已知差异
+
+- **设置轮与排队输入的先后**：Node 的运行时命令队列按到达顺序（同为 priority `next`）；Rust 一律先落
+  已排队的设置轮、再提升排队输入。差别只在「命令行在处理中、用户既改了设置又排了输入」时可见。
+- 拒绝 `start_failed` 的 `message`：宿主方法不存在时 Node 给 `dynamic workflow amend unavailable`，
+  Rust 走宿主错误通道给 `fault.command.executionFailed`。宿主始终带该方法，属未接线的兜底面。
+
+验收：`zcode-cli-rust-amend-workflow-settings.test.ts`（修订出新 run 的 ACK / 设置轮 / 新 run 的通知顺序、
+就地调并发、`unchanged`、`not_found`、`not_configurable`、`model_unavailable`、忙会话下的延迟落行，
+两侧 ACK 与行投影逐字一致）。

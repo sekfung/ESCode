@@ -43,6 +43,7 @@ mod assistant_feedback;
 mod legacy_session;
 mod selection_side_session;
 mod workflow_run_commands;
+mod workflow_settings;
 mod session_close;
 mod session_read;
 mod session_residency;

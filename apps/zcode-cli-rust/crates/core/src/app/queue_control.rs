@@ -94,6 +94,8 @@ impl Engine {
         Ok(())
     }
     pub(super) async fn promote(&mut self, id: &str) -> Result<()> {
+        // 暂存的设置轮先于排队输入与 run 通知落行（docs/specs/rust-v4-command-gaps.md「设置轮的时序」）。
+        self.flush_settings_turns(id).await?;
         let s = self.sessions.get_mut(id).context("Session unavailable")?;
         if s.running() || (!s.auto_drain && s.queued_now.is_none()) || s.queue.is_empty() {
             return Ok(());

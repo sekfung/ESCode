@@ -8,8 +8,11 @@
  * - `run.startSaved {session, cwd, name, scope?, args?}`：中枢「运行」的零会话副作用段
  *   （core `launchSavedWorkflowRun`）——解析 / 实参校验 / 编译 / 工作副本 / `port.submit`，把启动轮需要
  *   的事实交回 Rust 落行。**不在这里重臂追踪**：追踪必须晚于启动轮，见 `run.track`。
- * - `run.track {session, toolCallId}`：为 `run.startSaved` 提交的 run 重臂后台追踪。Rust 在启动轮
- *   落定之后才发它，保证 run 的完成通知不会先于启动轮落成后台结果轮。
+ * - `run.amendSettings {session, cwd, runId, subagentModel?, maxConcurrency?, models?}`：GUI「配置」的
+ *   修订（core `applyWorkflowRunSettings`，与 Node runtime 同一段）——同上，设置轮由 Rust 落，
+ *   追踪走 `run.track`。
+ * - `run.track {session, toolCallId}`：为 `run.startSaved` / `run.amendSettings` 提交的 run 重臂后台
+ *   追踪。Rust 在对应轮落定之后才发它，保证 run 的完成通知不会先于那条轮落成后台结果轮。
  */
 
 /** CreateWorkflow：重臂追踪的描述子工具名（TS CREATE_WORKFLOW_TOOL_NAME，让通知/取消分派归 workflow）。 */
@@ -22,7 +25,9 @@ export interface WorkflowRunCommandDeps {
   track(session: string, toolCall: Record<string, unknown>, output: Record<string, unknown>): Promise<unknown>;
   /** 直接启动已保存工作流的零会话副作用段（解析 / 校验 / 编译 / 工作副本 / submit）。 */
   startSaved(session: string, params: Record<string, any>): Promise<Record<string, unknown>>;
-  /** 为 `run.startSaved` 提交的 run 重臂追踪（合描述子按 toolCallId 暂存）。 */
+  /** GUI「配置」的判定 + 执行（core `applyWorkflowRunSettings`）；同样把设置轮的事实交回 Rust。 */
+  amendSettings(session: string, params: Record<string, any>): Promise<Record<string, unknown>>;
+  /** 为 `run.startSaved` / `run.amendSettings` 提交的 run 重臂追踪（合描述子按 toolCallId 暂存）。 */
   trackSaved(session: string, toolCallId: string): Promise<Record<string, unknown>>;
   setWorkingDirectory(session: string, cwd: string): void;
   onTrackError(error: unknown): void;
@@ -33,6 +38,7 @@ export function isWorkflowRunCommand(method: string): boolean {
     method === "run.cancel" ||
     method === "run.resume" ||
     method === "run.startSaved" ||
+    method === "run.amendSettings" ||
     method === "run.track"
   );
 }
@@ -47,6 +53,11 @@ export async function runWorkflowRunCommand(
   if (method === "run.startSaved") {
     if (typeof params.cwd === "string") deps.setWorkingDirectory(session, params.cwd);
     return deps.startSaved(session, params);
+  }
+  // GUI「配置」：cwd 与 startSaved 同一条设置（沿用脚本文件的字节比对与前驱脚本的解压都以它为准）。
+  if (method === "run.amendSettings") {
+    if (typeof params.cwd === "string") deps.setWorkingDirectory(session, params.cwd);
+    return deps.amendSettings(session, params);
   }
   if (method === "run.track") {
     return deps.trackSaved(session, String(params.toolCallId));

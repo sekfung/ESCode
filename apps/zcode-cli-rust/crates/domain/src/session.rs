@@ -84,6 +84,11 @@ pub struct Session {
     /// docs/specs/rust-dynamic-workflow.md M1）：会话空闲时作为后台结果轮注入。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_notices: Vec<Value>,
+    /// GUI「配置」已提交、尚未落行的设置轮（docs/specs/rust-v4-command-gaps.md
+    /// 「amendWorkflowRunSettings」）：会话忙时先入列，空闲时落行（早于 `deliver_workflow_notices`）。
+    /// 只存内存、不落库、`recover()` 清空——与 TS 的运行时命令队列同为进程内事实。
+    #[serde(skip)]
+    pub settings_turns: Vec<Value>,
     /// 工作流 actor 会话的配置（`{identityPrompt, remoteTools, disallowed}`，docs/specs/rust-dynamic-workflow.md M2）：
     /// 在场即走 actor 的系统提示词变体与工具面。
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -331,6 +336,7 @@ impl Session {
         self.api_retry = None;
         self.pending.clear();
         self.queue.clear();
+        self.settings_turns.clear();
         for task in self.background.values_mut() {
             if task.status == "running" {
                 task.status = "interrupted".into();
