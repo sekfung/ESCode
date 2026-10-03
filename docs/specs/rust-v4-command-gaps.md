@@ -124,11 +124,21 @@ sequenceDiagram
 `session` / `settings` 投影逐字段一致；用例同时自检 Node 侧确实带 `traceId`、显式 `target: null`、
 `model` 只有两个键、新会话无 `titleSource`）。
 
-仍存缺口：**有 Goal 的会话不投影 `session.target`**。Rust 的 `Goal` 记录没有 TS 的 `createdAt` / `updatedAt`，
-`status` 词表也是内部的 `verifying` / `notSatisfied`，直接发会被 `zcodeSessionGoalSchema`（strict）拒绝；
-需要先给 `Goal` 补时间字段并把状态归一到 `active|paused|budget_limited|complete`。
+**已补**：有 Goal 的会话现在也投影 `session.target`（TS `mapSessionGoal` + `zcodeSessionGoalSchema` strict）。
+给 `Goal` 补了 `createdAt` / `updatedAt`（旧数据缺省 0，投影时退回会话时间），并把内部状态归一到协议词表：
+
+| 内部状态                            | 协议状态        |
+| ----------------------------------- | --------------- |
+| `active` / `verifying` / `notSatisfied` | `active`     |
+| `verified`                          | `complete`      |
+| `paused`（预算耗尽 `exhausted()`）  | `budget_limited` |
+| `paused` / `failed`                 | `paused`        |
+
+验收：`zcode-cli-rust-goal-target.test.ts`（设 Goal 后 `session/read` 的 `session.target` 逐字段一致；
+两侧同时自检 `createdAt` / `updatedAt` 是 number、`status` 在协议词表内）。
 
 ## startSavedWorkflow（2026-10-03）
+
 
 设置页「已保存工作流」的「运行」原先在 Rust 上直接失败（未知命令 → `rejected / guard.capabilityUnsupported`），
 现在按 Node `app.startSavedWorkflow` 的语义实现。解析 / 实参校验 / 编译 / 落工作副本 / 提交 run 仍由工作流宿主

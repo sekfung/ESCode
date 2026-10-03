@@ -121,10 +121,12 @@ impl Engine {
             // TS `session.traceID ?? app.traceId`：进程内会话总有 traceId，与 session/list 一致地投影。
             info["traceId"] = trace.clone().into();
         }
-        if s.goal.is_none() {
+        if let Some(goal) = &s.goal {
+            // TS `mapSessionGoal(projection.target)`：状态归一 + 缺省时间退回会话时间
+            // （docs/specs/rust-v4-command-gaps.md「session/read 的 session 投影」）。
+            info["target"] = goal.session_target(&s.id, s.created_at, s.updated_at);
+        } else {
             // TS `mapSessionGoal(projection.target)`：没有目标时是显式 null，不是缺字段。
-            // 有目标时暂不投影：Rust 的 Goal 记录缺 createdAt/updatedAt，status 词表（verifying/
-            // notSatisfied）也还没归一到协议枚举，直接发会被 strict schema 拒绝，见 spec「已知差异」。
             info["target"] = Value::Null;
         }
         if let Some(parent) = &s.parent_id {

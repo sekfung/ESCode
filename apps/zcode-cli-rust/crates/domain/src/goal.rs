@@ -19,6 +19,13 @@ pub struct Goal {
     /// 目标摘要标题（TS `target.summaryTitle`，docs/specs/rust-session-title.md）；旧数据缺省为空。
     #[serde(default)]
     pub summary_title: Option<String>,
+    /// 目标创建时间（TS `target.time.created`，docs/specs/rust-v4-command-gaps.md「session/read 的
+    /// session 投影」）。旧数据缺省 0：投影时退回会话创建时间。
+    #[serde(default)]
+    pub created_at: u64,
+    /// 目标最近一次状态变更 / 用量结算时间（TS `target.time.updated`）。旧数据缺省 0：投影时退回会话更新时间。
+    #[serde(default)]
+    pub updated_at: u64,
 }
 #[derive(Clone)]
 pub struct Verdict {
@@ -74,6 +81,8 @@ impl Goal {
             active_run_started_at_ms: Some(now),
             last_seen: Some(now),
             summary_title: None,
+            created_at: now,
+            updated_at: now,
         }
     }
     pub fn active(&self) -> bool {
@@ -86,6 +95,7 @@ impl Goal {
         self.status = "active".into();
         self.active_run_started_at_ms = Some(now);
         self.last_seen = Some(now);
+        self.updated_at = now;
     }
     pub fn account(&mut self, usage: &Value, now: u64) {
         self.tokens_used = self
@@ -98,17 +108,20 @@ impl Goal {
         if self.last_seen.is_some() {
             self.last_seen = Some(now);
         }
+        self.updated_at = now;
     }
     pub fn settle(&mut self, now: u64) {
         self.account(&Value::Null, now);
         self.last_seen = None;
         self.active_run_started_at_ms = None;
+        self.updated_at = now;
     }
     pub fn pause(&mut self, now: u64) {
         self.settle(now);
         if self.active() {
             self.status = "paused".into();
         }
+        self.updated_at = now;
     }
     pub fn exhausted(&self) -> bool {
         self.token_budget
@@ -118,6 +131,36 @@ impl Goal {
         json!({"targetId":self.target_id,"objective":self.objective,"summaryTitle":self.summary_title,
             "status":self.status,"iteration":self.iteration,"verifications":self.verifications,"iterations":self.iterations,
             "timeUsedSeconds":self.time_used_ms / 1000,"activeRunStartedAtMs":self.active_run_started_at_ms})
+    }
+    /// `session/read` 的 `session.target` 投影（TS `mapSessionGoal` + `zcodeSessionGoalSchema`，strict）。
+    /// 与 `projection()`（state patch 的 goal 块）不同：状态归一到协议词表，缺省的时间字段退回会话时间
+    /// （旧数据没有 created_at / updated_at）。`session_id` 与缺省时间由 owner 给，Goal 不知道所属会话。
+    pub fn session_target(&self, session_id: &str, fallback_created: u64, fallback_updated: u64) -> Value {
+        json!({
+            "sessionId": session_id,
+            "targetId": self.target_id,
+            "objective": self.objective,
+            "summaryTitle": self.summary_title,
+            "status": self.projected_status(),
+            "tokenBudget": self.token_budget,
+            "tokensUsed": self.tokens_used,
+            "timeUsedSeconds": self.time_used_ms / 1000,
+            "activeRunStartedAtMs": self.active_run_started_at_ms,
+            "activeRunLastSeenAtMs": self.last_seen,
+            "createdAt": if self.created_at == 0 { fallback_created } else { self.created_at },
+            "updatedAt": if self.updated_at == 0 { fallback_updated } else { self.updated_at },
+        })
+    }
+    /// 内部状态 → 协议词表（`zcodeSessionGoalSchema.status`）：`verified` 即完成；预算耗尽的 `paused`
+    /// 归 `budget_limited`（TS 的 SQL 同一条「active + 超预算」派生命题）；`verifying` / `notSatisfied`
+    /// 仍是「在追目标」，读作 active。
+    pub fn projected_status(&self) -> &'static str {
+        match self.status.as_str() {
+            "verified" => "complete",
+            "paused" if self.exhausted() => "budget_limited",
+            "paused" | "failed" => "paused",
+            _ => "active",
+        }
     }
     pub fn prompt(&self, kind: &str, verdict: Option<&Verdict>) -> String {
         static TEMPLATES: OnceLock<Value> = OnceLock::new();

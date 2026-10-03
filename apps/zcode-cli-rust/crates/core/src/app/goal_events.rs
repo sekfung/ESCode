@@ -125,6 +125,7 @@ fn record(goal: &mut Goal, verdict: &Verdict, anchor: Value, now: u64) {
         verdict.outcome
     }
     .into();
+    goal.updated_at = now;
     let mut verification = json!({"iteration":goal.iteration,"outcome":verdict.outcome,"reason":verdict.reason,"anchorRowId":anchor,"at":now});
     if let Some(next) = &verdict.next_action {
         verification["nextAction"] = next.clone().into();
