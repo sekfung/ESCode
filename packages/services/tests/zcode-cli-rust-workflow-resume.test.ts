@@ -92,6 +92,7 @@ async function observe(kind: "node" | "rust") {
     ZCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
     ZCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
   };
+  let pump: ReturnType<typeof setInterval> | undefined;
   const f =
     kind === "node"
       ? await fixture({
@@ -115,7 +116,7 @@ async function observe(kind: "node" | "rust") {
     await h.subscribe(`conversation/${id}`);
     let seen = 0;
     const answered = new Set<string>();
-    const pump = setInterval(() => {
+    pump = setInterval(() => {
       for (; seen < h.messages.length; seen++) {
         for (const delta of h.messages[seen]?.params?.frame?.payload?.deltas ?? []) {
           for (const p of delta.patch?.pendingInteractions ?? []) {
@@ -176,6 +177,8 @@ async function observe(kind: "node" | "rust") {
       schemaErrors: h.schemaErrors,
     };
   } finally {
+    // 失败路径也要停掉轮询，否则定时器让测试进程无法退出。
+    clearInterval(pump);
     await f.close();
   }
 }

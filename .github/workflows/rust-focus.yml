@@ -48,5 +48,5 @@ jobs:
         run: |
           for i in 1 2 3; do
             echo "=== attempt $i"
-            node --import tsx --test --test-timeout=300000 packages/services/tests/zcode-cli-rust-workflow-resume.test.ts || true
+            node --import tsx --test --test-reporter=tap --test-timeout=300000 --test-force-exit packages/services/tests/zcode-cli-rust-workflow-resume.test.ts || true
           done
