@@ -57,12 +57,14 @@ impl Store {
         use sha2::{Digest, Sha256};
         tokio::task::spawn_blocking(move || {
             let key = format!("{:x}", Sha256::digest(workspace.as_bytes()));
+            let target = dir.join(format!("workspace-{key}.lock"));
             let file = std::fs::OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
                 .truncate(false)
-                .open(dir.join(format!("workspace-{key}.lock")))?;
+                .open(&target)
+                .with_context(|| format!("Workspace lock file unavailable: {}", target.display()))?;
             // SQLite 的写锁不能阻止第二个 actor 先读取旧状态并执行恢复，必须先锁 owner。
             file.try_lock()
                 .context("Workspace runtime is already owned or cannot be locked")?;
