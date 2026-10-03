@@ -9,6 +9,22 @@ use crate::{
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 
+/// TS `buildAtomicForkNotice` 的 hidden 消息来源标记（`runtime/methods/session-fork.ts`）。
+const FORK_NOTICE_SOURCE: &str = "fork_notice";
+/// forkNotice 行的 lane（TS `product-projection.ts` `onSessionForked`）。
+const FORK_NOTICE_LANE: &str = "turnTailBoundary";
+
+/// TS `formatConversationForkNoticeBody`（`runtime/helpers/rewind.ts`）：正文行与措辞逐字一致。
+fn fork_notice_body(parent: &str, target: &str) -> String {
+    format!(
+        "This session was forked from a previous session message.\n\
+         parentSessionId: {parent}\n\
+         targetMessageId: {target}\n\
+         No workspace checkpoint was restored for this fork.\n\
+         Continue from this fork. Do not assume messages after the fork point happened in this session."
+    )
+}
+
 impl Engine {
     pub(super) async fn history_command(&mut self, c: &Command) -> Result<Value> {
         let id = c.session_id.as_deref().context("Session required")?;
@@ -205,6 +221,11 @@ impl Engine {
     }
     async fn fork_history(&mut self, c: &Command, b: ResponseBoundary) -> Result<Value> {
         let parent = c.session_id.as_deref().unwrap();
+        // 修复：child 的身份字段原先直接沿用父会话（id 无 sess_ 前缀、taskType=interactive、
+        // 标题与父会话相同），与 TS buildForkedSessionInput 不一致——sessionKind 显示错、`#sess_*`
+        // 引用解析不到（crates/core 的会话引用只认 sess_ 前缀）。见 docs/specs/rust-history-actions.md
+        // 「forkAssistant 子会话身份」。
+        let parent_title = self.sessions[parent].title.clone();
         let mut child = self.sessions[parent].clone();
         child.cut_history(b.row + 1, b.message, &b.state);
         child.file_checkpoints.retain(|c| {
@@ -216,15 +237,49 @@ impl Engine {
                     .unwrap_or(0)
         });
         child.rewind_committed = None;
-        child.id = self.clock.id();
+        child.id = format!("sess_{}", self.clock.id());
         child.parent_id = Some(parent.into());
-        child.task_type = "interactive".into();
+        child.task_type = "fork".into();
+        child.title = format!("Fork of {parent_title}");
+        child.title_source = "generated".into();
         child.agent_profile = None;
         child.created_at = self.clock.now();
         child.updated_at = child.created_at;
         child.epoch = self.clock.id();
         child.seq = 0;
         child.revision = 1;
+        // 修复：fork 边界原先只改了标识字段，child 既拿不到「这是分支」的模型提醒，App 也看不到
+        // 分支标记行。对齐 TS `buildAtomicForkNotice`：先注一条 hidden model-only 的 fork 提醒
+        // （provider 可见、UI 隐藏），再在被选轮末尾落一条可见的 forkNotice 边界行。
+        // 见 docs/specs/rust-history-actions.md「forkAssistant 子会话身份」。
+        let target = b.entity.clone();
+        let turn = child
+            .rows
+            .last()
+            .and_then(|r| r["turnId"].as_str())
+            .unwrap_or_default()
+            .to_owned();
+        // 分支是独立会话：rowId 从自身保留的行继续编号，不沿用父会话的 row_highwater。
+        child.row_highwater = child
+            .rows
+            .last()
+            .and_then(|r| r["rowId"].as_u64())
+            .unwrap_or(0);
+        child.append_message(json!({
+            "role": "user",
+            "content": crate::domain::plan_mode::wrap(&fork_notice_body(parent, &target)),
+            "_zcode_source": FORK_NOTICE_SOURCE,
+        }));
+        let mut marker = child.row(
+            "timelineMarker",
+            &turn,
+            &format!("fork:{parent}:{target}"),
+            self.clock.now(),
+        );
+        marker["lane"] = FORK_NOTICE_LANE.into();
+        marker["marker"] =
+            json!({"type":"forkNotice","parentSessionId":parent,"parentRowId":0});
+        child.rows.push(marker);
         child.phase = "completedSuccess".into();
         child.auto_drain = true;
         child.queued_now = None;

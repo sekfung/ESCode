@@ -12,6 +12,33 @@
 - 截断采用一个 Store 事务：删除未来 rows/messages、保存元数据/重发输入与 ACK。row ID 单调且不复用，改变 epoch 后推送完整 snapshot。已执行 command 的幂等凭据必须独立于被截断的 row 保留。
 - 旧历史只有在能从已有 canonical 身份证明边界时才回填；无法证明的目标明确拒绝，不按文本猜测。
 
+### forkAssistant 子会话身份
+
+fork 出的 child 是 App 里能被用户直接看到和再次打开的一等会话，身份必须与 TS `buildForkedSessionInput`
+（`runtime/methods/session-fork.ts`）逐字一致，不能沿用父会话的字段：
+
+| 字段          | 取值                                        | 依据                                                     |
+| ------------- | ------------------------------------------- | -------------------------------------------------------- |
+| `id`          | `sess_<uuid>`                               | TS `createSessionId()`；`#sess_*` 引用与 ReadSessionContext 只认该格式 |
+| `taskType`    | `fork`                                      | TS `taskType: kind`；Rust `session_list` 的 `LIST_TYPES` 已含 `fork` |
+| `title`       | `Fork of {parent.title}`                    | fork 只在 UI 列表里表达与父会话的关系，不做自动标题      |
+| `titleSource` | `generated`                                 | 与 TS 相同，不参与 `session_title` 的自动生成（child 有 parentID） |
+
+child 继承父会话的工作区、模式、附件、Skill 目录与提示快照，但只带走被选轮及之前的 canonical 消息；
+队列、运行中工具、后台任务与待交互项都不复制，父会话与工作区文件都不改动。
+
+fork 边界本身也要同时体现在模型上下文与 UI（TS `buildAtomicForkNotice`）：
+
+- canonical messages 追加一条 hidden 的 model-only user 消息，正文为
+  `formatConversationForkNoticeBody`（parentSessionId / targetMessageId / 不恢复 checkpoint / 从分支继续），
+  以 `<system-reminder>` 外壳注入，标记 `_zcode_source = "fork_notice"`；provider 可见、UI 不渲染成用户气泡。
+- 被选轮末尾追加一条可见 `timelineMarker` 行：`lane = "turnTailBoundary"`、
+  `marker = {type:"forkNotice", parentSessionId, parentRowId:0}`、
+  `entityId = "fork:{parentSessionId}:{targetMessageId}"`，targetMessageId 取被选 assistant 行的 entityId。
+  Node 的 notice 行用新 turnId；Rust 复用被选行的 turnId，避免产生没有 turnHeader 的孤立轮，
+  差分测试对 turnId/productTurnId 归一。
+- child 的 rowId 从自身保留的行继续编号，不继承父会话的 `row_highwater`；`createdAtSeq` 从 1 起。
+
 ## 工作区恢复
 
 Write/Edit 在实际修改前保存有内容 hash 的原始字节 checkpoint，准备事实先提交，才允许写文件；记录创建、修改、BOM/CRLF、权限、目标路径和预期写后 hash。恢复使用 checkpoint 原字节，不反向猜 diff；备份按 hash 去重。只追踪可证明的工具修改，本包不追踪 Shell 或外部 MCP 的任意文件修改，因此不声称可完整撤销整个工作区；preview 只判断已有 Write/Edit checkpoint。
