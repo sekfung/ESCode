@@ -47,19 +47,25 @@ pub(super) fn component_dirs(root: &Path, field: Option<&Json>, default_dir: &st
     dirs
 }
 
-/// 目录项（不跟随符号链接；按 OS 顺序，与 Node `readdirSync` 一致）。
+/// 目录项（不跟随符号链接），顺序与 Node `readdirSync` 一致：Unix 上 libuv 的 scandir 按名字字节序（strcmp）
+/// 排序，而 `read_dir` 给的是文件系统原始顺序（ext4 为哈希序）；Windows 上两者都是 NTFS 返回的顺序，不再排序。
 pub(super) fn entries(dir: &Path) -> Vec<(String, std::fs::FileType)> {
     let Ok(read) = std::fs::read_dir(dir) else {
         return vec![];
     };
-    read.flatten()
+    #[cfg_attr(windows, allow(unused_mut))]
+    let mut items: Vec<_> = read
+        .flatten()
         .filter_map(|entry| {
             Some((
                 entry.file_name().into_string().ok()?,
                 entry.file_type().ok()?,
             ))
         })
-        .collect()
+        .collect();
+    #[cfg(not(windows))]
+    items.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+    items
 }
 
 /// TS `collectMarkdownComponents`：对象形式声明在前，再扫目录里的 `.md`（frontmatter name / description）。

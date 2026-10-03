@@ -34,6 +34,14 @@ import { SkillInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts
 import { ListSavedWorkflowsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-saved-workflows.js";
 import { ListModelsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-models.js";
 import { ListWorkflowRunsInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/list-workflow-runs.js";
+// 动态工作流的创建 / 修订 / 运行面工具（docs/specs/rust-dynamic-workflow.md）。
+import { CreateWorkflowInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/create-workflow.js";
+import { SaveWorkflowInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/save-workflow.js";
+import { GetWorkflowRunInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/get-workflow-run.js";
+import { EvalWorkflowSnippetInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/eval-workflow-snippet.js";
+import { AmendWorkflowInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/amend-workflow.js";
+import { ResumeWorkflowRunInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/resume-workflow-run.js";
+import { ResolveWorkflowQuestionInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/resolve-workflow-question.js";
 import {
   OffPeakCreateInputJsonSchema,
   OffPeakListInputJsonSchema,
@@ -230,6 +238,13 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       ListSavedWorkflows: ListSavedWorkflowsInputJsonSchema,
       ListModels: ListModelsInputJsonSchema,
       ListWorkflowRuns: ListWorkflowRunsInputJsonSchema,
+      CreateWorkflow: CreateWorkflowInputJsonSchema,
+      SaveWorkflow: SaveWorkflowInputJsonSchema,
+      GetWorkflowRun: GetWorkflowRunInputJsonSchema,
+      EvalWorkflowSnippet: EvalWorkflowSnippetInputJsonSchema,
+      AmendWorkflow: AmendWorkflowInputJsonSchema,
+      ResumeWorkflowRun: ResumeWorkflowRunInputJsonSchema,
+      ResolveWorkflowQuestion: ResolveWorkflowQuestionInputJsonSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),
