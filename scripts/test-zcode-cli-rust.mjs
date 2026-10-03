@@ -201,5 +201,8 @@ await run(process.execPath, [
   "tsx",
   "--test",
   ...(serial ? ["--test-concurrency=1"] : []),
+  // 单个用例挂死（等不到的事件、遗留子进程）不能拖垮整个作业：5 分钟上限，结束后强制退出，失败详情照常打印。
+  "--test-timeout=300000",
+  "--test-force-exit",
   ...tests,
 ]);
