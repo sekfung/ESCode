@@ -18,6 +18,7 @@ impl ToolPort for WorkspaceTools {
     fn attach_host(&self, host: crate::contract::EventSink) { self.workflow_host.attach_host(host.clone()); self.mcp.attach_host(host); }
     async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> { self.run_hook_inner(session, input, call_id).await }
     async fn workspace_hooks(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
+    async fn workflow_run(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
     async fn execute_workflow(
         &self,
         session: &str,

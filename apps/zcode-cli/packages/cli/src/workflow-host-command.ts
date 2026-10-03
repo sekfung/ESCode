@@ -39,6 +39,7 @@ import {
 } from "@zcode/bootstrap";
 import { isAmendWorkflowOwnedPredecessor } from "@zcode/contracts";
 import { createActorBridge } from "./workflow-host-actors.js";
+import { isWorkflowRunCommand, runWorkflowRunCommand, type WorkflowRunCommandDeps } from "./workflow-host-runs.js";
 import {
   clampWorkflowRunsForLegacy,
   diffWorkflowRunsState,
@@ -263,6 +264,20 @@ export async function runWorkflowHostCommand(): Promise<number> {
   });
 
 
+  const runDeps: WorkflowRunCommandDeps = {
+    resume: async (session, runId) => {
+      const port = service(session);
+      if (typeof port.resume !== "function") throw new Error("Workflow run resume is unavailable");
+      return (await port.resume(runId)) as Record<string, unknown>;
+    },
+    stop: (session, runId) => backgroundTaskControlPort(session).stopBackgroundTask(runId, { initiator: "user" }),
+    track: (session, toolCall, output) =>
+      tracking(session).tracker.trackBackgroundTask(toolCall as never, output, { traceId: toolCall.id } as never, undefined),
+    setWorkingDirectory: (session, cwd) => workingDirectories.set(session, cwd),
+    onTrackError: (error) =>
+      send({ event: "hostError", params: { message: error instanceof Error ? error.message : String(error) } }),
+  };
+
   const handle = async (request: Request): Promise<unknown> => {
     const params = request.params ?? {};
     if (typeof params.session === "string" && params.selection !== undefined) {
@@ -384,6 +399,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
         return { ok: true };
       }
       default:
+        // 用户命令面的 run 取消 / 恢复（workflow-host-runs.ts）。
+        if (isWorkflowRunCommand(request.method)) return runWorkflowRunCommand(request.method, params, runDeps);
         throw new Error(`Unsupported workflow host request: ${request.method}`);
     }
   };

@@ -253,6 +253,11 @@ pub trait ToolPort: Send + Sync {
     async fn workflow_query(&self, method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("Unsupported workflow query: {method}")
     }
+    /// 用户命令面的工作流 run 操作（`run.cancel` / `run.resume` …，docs/specs/rust-v4-command-gaps.md）：
+    /// 交给工作流宿主执行，返回宿主的结构化结果（`ok` + `reason` / `runId`）。
+    async fn workflow_run(&self, method: &str, _params: Value) -> Result<Value> {
+        anyhow::bail!("Unsupported workflow run command: {method}")
+    }
     /// `plugins/resolveSuggestedReference` 两段式：`refresh = false` 只查本地（未命中返回 None），
     /// `refresh = true` 刷新官方目录后给出最终结果。
     async fn plugin_suggested_reference(

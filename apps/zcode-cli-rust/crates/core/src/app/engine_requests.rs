@@ -29,6 +29,17 @@ impl Engine {
             }
             return Ok(());
         }
+        // 工作流 run 的取消 / 恢复要等工作流宿主，而宿主会反向请求本 actor：后台执行、完成后应答。
+        if request.method == "v4/command"
+            && super::workflow_run_commands::is_workflow_run_command(&request.params)
+        {
+            if let Err(error) = self.start_workflow_run_command(&request).await {
+                output
+                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                    .await?;
+            }
+            return Ok(());
+        }
         if super::plugin_jobs::PLUGIN_JOB_METHODS.contains(&request.method.as_str()) {
             if let Err(error) = self.start_plugin_job(&request) {
                 output
@@ -192,7 +203,18 @@ impl Engine {
                     self.saved_workflow_op(&op, &request.params).await
                 }
             }
-            "session/create" => self.import_shared_context(&request.params).await,
+            // 修复：普通建会话（定时/闲时任务首跑、task facade）原先也进共享上下文导入而被拒；
+            // 只有带 importedHistory 的才是导入（docs/specs/rust-legacy-session-methods.md）。
+            "session/create" if request.params.get("importedHistory").is_some() => {
+                self.import_shared_context(&request.params).await
+            }
+            "session/create" => self.legacy_create(&request.params).await,
+            // legacy 会话操作：翻译为 V4 命令走同一写路径（Bots、task facade、desktop session service 仍在用）。
+            "session/send" => self.legacy_send(&request.params).await,
+            "session/setModel" => self.legacy_set_model(&request.params).await,
+            "session/setThoughtLevel" => self.legacy_set_thought_level(&request.params).await,
+            "session/setMode" => self.legacy_set_mode(&request.params).await,
+            "session/close" => self.legacy_close(&request.params).await,
             "provider/updateAccountConfig" => self.update_account(&request.params).await,
             "workspace/hooks/trustGrant" => self.workspace_hook_trust_grant(&request.params).await,
             _ => self.query(&request.method, &request.params),

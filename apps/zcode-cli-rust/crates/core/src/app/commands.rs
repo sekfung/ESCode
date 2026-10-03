@@ -40,6 +40,19 @@ impl Engine {
             return self.workspace_hook_command(&c, &id).await;
         }
         let s = self.sessions.get(&id).context("Session unavailable")?;
+        // TS executor：副屏会话不允许 Goal / 历史改写 / 分支 / 共享上下文丢弃（执行期抛错 → failed）。
+        if s.task_type == super::selection_side_session::SIDE_CHAT_TASK_TYPE
+            && super::selection_side_session::SIDE_CHAT_RESTRICTED.contains(&c.kind.as_str())
+        {
+            return Ok(c.ack(
+                "failed",
+                s.revision,
+                Some("guard.selectionSideChatRestrictedCommand"),
+            ));
+        }
+        if c.kind == "createSelectionSideSession" {
+            return self.create_selection_side_session(&c).await;
+        }
         if matches!(
             c.kind.as_str(),
             "editQueueItem" | "deleteQueueItem" | "reorderQueueItem" | "setAutoDrain"
@@ -74,6 +87,9 @@ impl Engine {
         }
         if c.kind == "applyFileRewind" {
             return self.apply_file_rewind(&c).await;
+        }
+        if c.kind == "setAssistantFeedback" {
+            return self.assistant_feedback(&c).await;
         }
         if c.kind == "compact" {
             return self.compact_command(&c).await;

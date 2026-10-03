@@ -170,6 +170,17 @@ impl Engine {
                 automation,
             });
         }
+        // TS 副屏 child 的模型基线是 sourceLess（∅→X），首轮前落「正在使用」modelChange marker。
+        if s.task_type == super::selection_side_session::SIDE_CHAT_TASK_TYPE
+            && !s.provider.is_empty()
+            && !s.rows.iter().any(|r| r["kind"] == "turnHeader")
+        {
+            let entity = format!("model-initial:{turn}:{}/{}", s.provider, s.model);
+            let mut marker = s.row("timelineMarker", &turn, &entity, now);
+            marker["lane"] = "lightBoundary".into();
+            marker["marker"] = json!({"type":"modelChange","toProvider":s.provider,"toModel":s.model,"toThought":s.reasoning_level});
+            s.rows.push(marker);
+        }
         let mut header = s.row("turnHeader", &turn, &turn, now);
         header["origin"] = if c.payload["_historyRerun"] == true {
             "editRerun"

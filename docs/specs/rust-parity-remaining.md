@@ -41,6 +41,13 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
 
 - **已修**：`session/resume`（探针实测 Node 正常、Rust 回 `-32601 Unsupported method`；实现与验收见
   [rust-session-loading.md](rust-session-loading.md)）。
+- **已修（2026-10-03 复查）**：上次 diff 按 V4 主路径判断漏掉了 legacy facade——普通 `session/create`（Rust 误当共享
+  导入拒绝）、`session/send`（带附件）、`session/setModel`、`session/setThoughtLevel`、`session/setMode`、`session/close`
+  在 Rust 上全部失败，触达定时/闲时任务首跑、Bots 附件与 `/model`、恢复历史任务的档位重放、框选副屏关闭等。已翻译为
+  V4 命令实现并与 Node 差分一致（[rust-legacy-session-methods.md](rust-legacy-session-methods.md)）。`session/compact`、
+  `session/goal` 无 App 调用点，不实现。
+- **仍缺**：`session/create` 的 `importedHistory.source = "claudeCode"`（Claude Code 历史导入与
+  `importedClaudeHistoryRepair` 修复），Rust 只接受 `sharedContext`，需另立工作包。
 - **仍缺**（按当前行为判断的重要性排序）：
   - 插件读面与开关：`plugins/list`（含 components 与发现层诊断）、`plugins/setEnabled`、`plugins/overview`、
     `plugins/referenceCatalog(WithCategory)` **已实现**，各有 App 差分（见 [rust-plugins.md](rust-plugins.md)）。
