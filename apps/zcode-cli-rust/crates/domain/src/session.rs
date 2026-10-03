@@ -194,6 +194,12 @@ impl Session {
     pub fn ended(&self) -> bool {
         self.phase.starts_with("completed")
     }
+    /// 会话是否已有标题来源。TS `mapSessionInfo` 直发会话记录里的 `titleSource`：新建的会话在 Node 侧
+    /// 该字段还没设置（`input.session?.titleSource` → undefined，序列化后整个键消失）。Rust 的内部初值
+    /// `default`（`session_new.rs`）表示同一状态，读口要还原成「不发送」，见 `session_read.rs`。
+    pub fn titled(&self) -> bool {
+        self.title_source != "default"
+    }
     fn projected_title_source(&self) -> &str {
         // TS stored 身份有 first_input，V4 只有三值；与 product-projection 统一映射，避免冷恢复帧被拒绝。
         if self.title_source == "first_input" {

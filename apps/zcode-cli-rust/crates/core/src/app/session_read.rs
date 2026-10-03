@@ -100,13 +100,32 @@ impl Engine {
         if !s.reasoning_level.is_empty() {
             thought["current"] = s.reasoning_level.clone().into();
         }
-        let mut info = json!({"sessionId":s.id,"workspace":{"workspacePath":self.workspace_path,"workspaceKey":s.workspace},"sessionKind":s.task_type,"title":s.title,"titleSource":s.title_source,"mode":s.mode,"status":status,"createdAt":s.created_at,"updatedAt":s.updated_at});
+        let mut info = json!({"sessionId":s.id,"workspace":{"workspacePath":self.workspace_path,"workspaceKey":s.workspace},"sessionKind":s.task_type,"title":s.title,"mode":s.mode,"status":status,"createdAt":s.created_at,"updatedAt":s.updated_at});
+        // 尚未命名的会话不发 `titleSource`（schema 里是 optional）：Node 的 `mapSessionInfo` 直发记录
+        // 里的字段，新会话该字段为空、整个键消失；Rust 的内部初值 `default` 表示同一状态。
+        if s.titled() {
+            info["titleSource"] = s.title_source.clone().into();
+        }
         if s.workspace != self.workspace_path {
             // workspace key 的本地路径 fallback 不是远端 identity，不能把本地任务投影成远端。
             info["workspace"]["workspaceIdentity"] = s.workspace.clone().into();
         }
-        if let Some(selected) = &selected {
-            info["model"] = selected.clone();
+        // TS `mapSessionInfo` 的 `session.model` 来自 `optionalModelSelectionFromString(app.getModel())`，
+        // 解析出的选择只有 providerId/modelId（`provider-registry-selection.ts` 只按 `/` 切分）；
+        // 档位由 `settings.thoughtLevel.current` 与 `settings.model.current` 表达。原先这里直接复用
+        // 带 options 的 selected，会在 session/read 上多出一个 Node 不会发的字段。
+        if selected.is_some() {
+            info["model"] = json!({"providerId":s.provider,"modelId":s.model});
+        }
+        if let Some(trace) = &s.trace_id {
+            // TS `session.traceID ?? app.traceId`：进程内会话总有 traceId，与 session/list 一致地投影。
+            info["traceId"] = trace.clone().into();
+        }
+        if s.goal.is_none() {
+            // TS `mapSessionGoal(projection.target)`：没有目标时是显式 null，不是缺字段。
+            // 有目标时暂不投影：Rust 的 Goal 记录缺 createdAt/updatedAt，status 词表（verifying/
+            // notSatisfied）也还没归一到协议枚举，直接发会被 strict schema 拒绝，见 spec「已知差异」。
+            info["target"] = Value::Null;
         }
         if let Some(parent) = &s.parent_id {
             info["parentSessionId"] = parent.clone().into();
