@@ -6,9 +6,11 @@ import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 
-// docs/specs/rust-dynamic-workflow.md M3：停止与恢复。actor 的第一次模型请求挂住时主代理 TaskStop 这条 run
-// （stopped(model) 通知在步边界并入同一回合）→ ResumeWorkflowRun → actor 会话重水化（resumeFromStore）后重跑未完结的 ask →
-// submit_result → 结算。比对 TaskStop / Resume 的结果、停止与终态通知，以及重水化后 actor 的请求消息。
+// docs/specs/rust-dynamic-workflow.md M3：停止与恢复。actor 的第一次模型请求挂住时，用户让主代理 TaskStop 这条 run →
+// ResumeWorkflowRun → actor 会话重水化（resumeFromStore）后重跑未完结的 ask → submit_result → 结算。比对 TaskStop /
+// Resume 的结果、停止与终态通知，以及重水化后 actor 的请求消息。
+// 主模型请求不在 actor 起跑前挂住：进程级并发治理器的天花板随核数变化（3 核 runner 上为 1），主对话在飞的请求
+// 占着唯一名额时 actor 会排队，挂住主请求等 actor 就成了死锁。
 process.env.ZCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
@@ -65,14 +67,13 @@ async function observe(kind: "node" | "rust") {
       end(res, "tool_calls");
     } else if (n === 3) {
       runId = /dwfrun-[A-Za-z0-9_-]+/.exec(toolResult(req, "cw-1"))?.[0] ?? "missing";
-      // 等 actor 的请求在飞再停，保证停下的是一个未完结的 ask。
-      const timer = setInterval(() => {
-        if (actor.length === 0) return;
-        clearInterval(timer);
-        event(res, call("stop-1", "TaskStop", { task_id: runId }));
-        end(res, "tool_calls");
-      }, 20);
+      event(res, { content: "started" });
+      end(res, "stop");
     } else if (n === 4) {
+      // 用户在 actor 请求在飞时要求停止：停下的是一个未完结的 ask。
+      event(res, call("stop-1", "TaskStop", { task_id: runId }));
+      end(res, "tool_calls");
+    } else if (n === 5) {
       try {
         event(hung, { content: "late" });
         end(hung, "stop");
@@ -83,7 +84,7 @@ async function observe(kind: "node" | "rust") {
       event(res, call("rs-1", "ResumeWorkflowRun", { run_id: runId }));
       end(res, "tool_calls");
     } else {
-      event(res, { content: n === 5 ? "waiting" : "done" });
+      event(res, { content: n === 6 ? "waiting" : "done" });
       end(res, "stop");
     }
   };
@@ -134,17 +135,22 @@ async function observe(kind: "node" | "rust") {
       }
     }, 20);
     await h.command(h.envelope("sendText", id, { text: "count the items", mode: "yolo" }));
+    await h.completed(id);
+    const started = Date.now() + 60_000;
+    while (actor.length === 0 && Date.now() < started) await new Promise((done) => setTimeout(done, 50));
+    const after = h.messages.length;
+    await h.command(h.envelope("sendText", id, { text: "stop the run", mode: "yolo" }));
     const deadline = Date.now() + 90_000;
-    while (main.length < 6 && Date.now() < deadline) {
+    while (main.length < 7 && Date.now() < deadline) {
       await new Promise((done) => setTimeout(done, 100));
     }
     try {
-      await h.completed(id);
+      await h.completed(id, after);
     } catch (error) {
       // 平台相关的挂起要能从 CI 日志直接定位：哪一侧、走到第几个请求、停止与恢复的工具结果。
       throw new Error(
         `${kind}: turn did not complete (main=${main.length}, actor=${actor.length}); ` +
-          `stop=${toolResult(main[3], "stop-1").slice(0, 300)}; resume=${toolResult(main[4], "rs-1").slice(0, 300)}; ` +
+          `stop=${toolResult(main[4], "stop-1").slice(0, 300)}; resume=${toolResult(main[5], "rs-1").slice(0, 300)}; ` +
           `last=${lastUser(main.at(-1)).slice(0, 300)}; ${String(error)}`,
       );
     }
@@ -167,11 +173,11 @@ async function observe(kind: "node" | "rust") {
         ...(m.tool_calls ? { tools: m.tool_calls.map((c: any) => c.function.name) } : {}),
       }));
     return {
-      stopResult: scrub(toolResult(main[3], "stop-1")),
-      stopNotice: scrub(lastUser(main[3])),
-      resumeResult: scrub(toolResult(main[4], "rs-1")),
+      stopResult: scrub(toolResult(main[4], "stop-1")),
+      stopNotice: scrub(lastUser(main[4])),
+      resumeResult: scrub(toolResult(main[5], "rs-1")),
       resumedActorMessages: resumed,
-      finalNotice: scrub(lastUser(main[5])),
+      finalNotice: scrub(lastUser(main[6])),
       mainRequests: main.length,
       actorRequests: actor.length,
       schemaErrors: h.schemaErrors,
