@@ -161,7 +161,8 @@ impl Engine {
             | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
-            | Event::CompactDone { .. } | Event::SessionTitle { .. } | Event::ModelStatus(_) => unreachable!(),
+            | Event::CompactDone { .. } | Event::SessionTitle { .. }
+            | Event::ModelStatus(_) | Event::WorkflowLaunchTurn { .. } => unreachable!(),
             Event::Retry(state) => {
                 s.api_retry = state;
             }

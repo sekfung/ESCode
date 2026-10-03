@@ -53,6 +53,7 @@ import {
   InMemoryRuntimeTaskRegistry,
   isTerminalRuntimeTask,
 } from "@zcode/core";
+import { createSavedWorkflowLaunch } from "./workflow-host-saved-start.js";
 
 export const ZCODE_WORKFLOW_HOST_COMMAND = "__zcode-workflow-host";
 
@@ -263,8 +264,20 @@ export async function runWorkflowHostCommand(): Promise<number> {
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
 
-
+  // 中枢「运行」的两段（startSaved / trackSaved）拆在独立模块：宿主命令面已接近单文件 400 行上限。
+  const savedLaunch = createSavedWorkflowLaunch({
+    port: service,
+    track: (session, toolCall, runId) =>
+      tracking(session).tracker.trackBackgroundTask(
+        toolCall as never,
+        { backgroundTaskId: runId, status: "backgrounded" },
+        // 与 run.resume 的重臂同一条（trace 取合成工具调用 id）。
+        { traceId: String(toolCall.id) } as never,
+        undefined,
+      ),
+  });
   const runDeps: WorkflowRunCommandDeps = {
+    ...savedLaunch,
     resume: async (session, runId) => {
       const port = service(session);
       if (typeof port.resume !== "function") throw new Error("Workflow run resume is unavailable");

@@ -29,14 +29,20 @@ impl Engine {
             }
             return Ok(());
         }
-        // 工作流 run 的取消 / 恢复要等工作流宿主，而宿主会反向请求本 actor：后台执行、完成后应答。
+        // 工作流 run 的取消 / 恢复 / 中枢直接启动要等工作流宿主，而宿主会反向请求本 actor：
+        // 后台执行、完成后应答。本入口早返回，不走请求尾部的 outbox 冲刷，所以同步拒绝（如
+        // session_busy）由处理函数带回，在这里就地发出。
         if request.method == "v4/command"
             && super::workflow_run_commands::is_workflow_run_command(&request.params)
         {
-            if let Err(error) = self.start_workflow_run_command(&request).await {
-                output
-                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
-                    .await?;
+            match self.start_workflow_run_command(&request).await {
+                Ok(Some(batch)) => output.send(batch).await?,
+                Ok(None) => {}
+                Err(error) => {
+                    output
+                        .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                        .await?
+                }
             }
             return Ok(());
         }

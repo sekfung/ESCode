@@ -1,4 +1,4 @@
-use super::Engine;
+use super::{Engine, workflow_run_commands::saved_start_accepted};
 use crate::{
     contract::{Event, EventSink, ModelFailure, RunEvent},
     domain::protocol::{Request, RequestId, rpc_error},
@@ -155,6 +155,25 @@ impl Engine {
                     let _ = reply.send(None);
                 }
             },
+            // 中枢直接启动工作流的启动轮：会话状态的唯一写入点在 owner（docs/specs/rust-v4-command-gaps.md）。
+            Event::WorkflowLaunchTurn {
+                session,
+                command,
+                launched,
+                reply,
+            } => {
+                // 提交之后的记账失败不回滚：run 已在飞、可在侧板取消，ACK 仍按成功回（TS 同规矩）。
+                let ack = match self
+                    .apply_workflow_launch_turn(&session, &command, &launched)
+                    .await
+                {
+                    Ok(ack) => ack,
+                    Err(_) => {
+                        saved_start_accepted(&command, self.sessions[&session].revision, &launched)
+                    }
+                };
+                let _ = reply.send(ack);
+            }
             // 标题 sidecar 的候选：由会话 owner 校验后写回（docs/specs/rust-session-title.md）。
             Event::SessionTitle {
                 session,

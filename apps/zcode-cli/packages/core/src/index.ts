@@ -28,6 +28,13 @@ export {
   formatWorkflowTaskNotificationText,
 } from "./tool/executor/background-tasks.js";
 export { buildWorkflowRunProgressNotification } from "./runtime/methods/dynamic-workflow-run-progress.js";
+// Rust runtime 的工作流宿主用同一段「零会话副作用」实现直接启动已保存工作流
+// （docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」）。
+export { launchSavedWorkflowRun } from "./runtime/methods/dynamic-workflow-saved-launch.js";
+export type {
+  SavedWorkflowLaunchRejection,
+  SavedWorkflowLaunchResult,
+} from "./runtime/methods/dynamic-workflow-saved-launch.js";
 export { BackgroundTaskTracker } from "./tool/executor/background-tasks.js";
 // Rust runtime 的 hooks 宿主（docs/specs/rust-hooks.md）：工具事件的 matcher 别名与 Node 一致。
 export { hookMatcherToolNamesForTool } from "./tool/compat.js";

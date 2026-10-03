@@ -101,6 +101,16 @@ pub enum Event {
     AuxiliaryDone {
         result: std::result::Result<Value, ModelFailure>,
     },
+    /// 中枢直接启动已保存工作流的启动轮（docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」）：
+    /// 工作流宿主已 `port.submit`（零会话副作用），会话 owner 落启动轮（标题 / userInput /
+    /// controlOnly turnHeader / runtime history）并以本次 `v4/command` 的 ACK 经 `reply` 应答。
+    /// 会话状态的唯一写入点在 owner，辅助任务因此不能自己落行。
+    WorkflowLaunchTurn {
+        session: String,
+        command: Box<zcode_cli_protocol::Command>,
+        launched: Value,
+        reply: oneshot::Sender<Value>,
+    },
     /// 后台工作区作业（插件安装 / 市场刷新等）的协议回复：错误按原文回给 Host。
     AuxiliaryReply {
         result: std::result::Result<Value, String>,
