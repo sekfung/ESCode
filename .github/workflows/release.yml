@@ -216,8 +216,9 @@ jobs:
           draft: true
           files: artifacts/*
           body: |
-            Unsigned build. The desktop app still defaults to the Node runtime;
-            set ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust to use the bundled Rust runtime.
+            Unsigned build. The desktop app defaults to the bundled Rust runtime and falls back to the
+            bundled Node runtime if Rust fails before becoming ready; set ZCODE_AGENT_SERVER_RUNTIME=node to
+            force the Node runtime.
       # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
       - name: verify published assets
         shell: bash

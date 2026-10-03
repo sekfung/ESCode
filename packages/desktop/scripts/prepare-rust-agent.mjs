@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // 可选：把 Rust runtime（apps/zcode-cli-rust）构建并放进 bundled-agents/<platform>/glm，
-// 随 resources/glm 一起打包。默认 runtime 仍是 Node；只有 ZCODE_BUNDLE_RUST_AGENT=1 时
-// prepare-runtime-assets 才调用本脚本。规则见 docs/specs/rust-packaging.md。
+// 随 resources/glm 一起打包。默认随包（ZCODE_BUNDLE_RUST_AGENT=0 关闭），桌面端默认用它，
+// 未就绪即失败时回退包内 Node runtime。规则见 docs/specs/rust-packaging.md。
 
 import { chmod, copyFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";

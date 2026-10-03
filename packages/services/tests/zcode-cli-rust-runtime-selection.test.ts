@@ -62,6 +62,32 @@ test("the Rust command carries the Node plugin host used by official plugin seed
   });
 });
 
+// 默认 runtime 为 Rust（安装态，没有 monorepo 开发入口）：不设变量即用随包二进制；开发态与显式 node 保持 Node。
+const installed = { ...bundled, findDevCommand: () => null };
+const installedMissing = { ...missing, findDevCommand: () => null };
+const dev = {
+  ...bundled,
+  findDevCommand: () => ({ command: "/dev/node", args: ["/dev/zcode.cjs", "app-server", "--stdio"] }),
+};
+
+test("the default runtime is the bundled Rust binary in an installed app", () => {
+  const command = withEnv({}, () => resolveDefaultZCodeAgentCommand(context, installed));
+  assert.equal(command?.command, "/res/glm/zcode-cli-rust");
+  assert.equal(command?.runtime, "zcode-cli-rust");
+  assert.deepEqual(command?.args, ["app-server", "--stdio", "--cwd", "/work/space"]);
+});
+
+test("the default falls back to Node when the binary is missing, in development, after a Rust failure, or when node is chosen", () => {
+  const notRust = (command: ReturnType<typeof resolveDefaultZCodeAgentCommand>) =>
+    assert.notEqual(command?.command, "/res/glm/zcode-cli-rust");
+  notRust(withEnv({}, () => resolveDefaultZCodeAgentCommand(context, installedMissing)));
+  notRust(withEnv({}, () => resolveDefaultZCodeAgentCommand(context, dev)));
+  notRust(
+    withEnv({}, () => resolveDefaultZCodeAgentCommand({ ...context, rustRuntimeFailed: true }, installed)),
+  );
+  notRust(withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "node" }, () => resolveDefaultZCodeAgentCommand(context, installed)));
+});
+
 test("a missing bundled Rust binary falls back to the Node runtime instead of failing", () => {
   const command = withEnv({ ZCODE_AGENT_SERVER_RUNTIME: "zcode-cli-rust" }, () =>
     resolveDefaultZCodeAgentCommand(context, missing),

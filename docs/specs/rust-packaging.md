@@ -1,6 +1,6 @@
 # Rust runtime 打包与选择（WP8）
 
-2026-09-24。此前 Rust runtime 只能通过 `ZCODE_AGENT_SERVER_COMMAND` 指向本地二进制启用；桌面安装包不含 Rust 二进制，`ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust` 单独设置时被忽略（仍启动 Node）。**默认 runtime 不变（Node）**。
+2026-09-24。此前 Rust runtime 只能通过 `ZCODE_AGENT_SERVER_COMMAND` 指向本地二进制启用；桌面安装包不含 Rust 二进制，`ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust` 单独设置时被忽略（仍启动 Node）。（2026-10-03 起**默认 runtime 为 Rust**：安装态未设置 `ZCODE_AGENT_SERVER_RUNTIME` 且无自定义命令时用随包二进制，见下文「默认切换」。）
 
 ## 规则
 
@@ -20,7 +20,7 @@
 
 ## 回退
 
-- 用户/运维回退：移除 `ZCODE_AGENT_SERVER_RUNTIME` 即回到 Node（见 rust-release-rollback.md）。
+- 用户/运维回退：设置 `ZCODE_AGENT_SERVER_RUNTIME=node` 后重启 App 即回到 Node（见 rust-release-rollback.md）。
 - 随包二进制缺失：自动回退 Node 并记录原因。
 - 启动失败自动回退（2026-09-25）：
   - 所有者：`ZCodeAgentProcessManager`（每个 manager 实例，即每个窗口的 Local Host 泳道）持有 `rustRuntimeFailed`；只增不减，进程生命周期内不再尝试 Rust。
@@ -49,3 +49,10 @@ sequenceDiagram
 - 单测：Rust 选择、缺失回退、显式命令优先、非法 runtime 抛错；平台 → triple 映射。
 - 本机已验证（2026-09-25）：`ZCODE_RUST_TARGET=x86_64-pc-windows-gnu` 下 `prepare:rust-agent` 产出 release 二进制 `bundled-agents/win32-x64/glm/zcode-cli-rust.exe`（24 MB）；Host 真实解析链（未注入）按规则 2 选中它，并在 App harness 下完成一轮（`zcode-cli-rust-runtime-selection.test.ts`，未随包时该用例跳过）。
 - 未验证：MSVC 目标构建、macOS 签名与公证、Linux 包（本机环境限制，如实标注）。
+
+## 默认切换（2026-10-03，用户决定）
+
+- 选择顺序：`ZCODE_AGENT_SERVER_RUNTIME=node` → Node；`=zcode-cli-rust` → Rust；**未设置**时，若无自定义命令且不在 monorepo
+  开发态（开发入口在场即保持 Node，改源码立刻生效），用随包 Rust 二进制。找不到二进制、或 Rust 就绪前失败，回退包内 Node。
+- 打包：`ZCODE_BUNDLE_RUST_AGENT` 默认开启（`=0` 关闭，此时安装包只含 Node，桌面端自动用 Node）。
+- 用例：`zcode-cli-rust-runtime-selection.test.ts` 覆盖默认选 Rust、二进制缺失 / 开发态 / Rust 失败 / 显式 node 四种回退。

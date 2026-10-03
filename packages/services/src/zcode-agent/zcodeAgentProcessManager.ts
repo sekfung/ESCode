@@ -474,19 +474,28 @@ function rustPluginHostEnv(
 
 export interface ZCodeAgentCommandResolverDeps {
   findRustBinary(): string | null;
+  /** monorepo 开发态的 Node 入口（源码 / dist）；在场时默认 runtime 保持 Node。缺省按仓库结构探测。 */
+  findDevCommand?(context: ZCodeAgentCommandResolverContext): ZCodeAgentCommand | null;
 }
 
 export function resolveDefaultZCodeAgentCommand(
   context: ZCodeAgentCommandResolverContext,
   deps: ZCodeAgentCommandResolverDeps = { findRustBinary: () => findZCodeAgentRustBinary() },
 ): ZCodeAgentCommand | null {
-  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：node 为默认，zcode-cli-rust 为显式选择。
+  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：默认用随包 Rust runtime（找不到二进制或就绪前失败即回退
+  // Node），ZCODE_AGENT_SERVER_RUNTIME=node 显式回退 Node。monorepo 开发态（源码 / dist 入口在场）与自定义命令保持
+  // 原有 Node 语义：开发改源码要立刻生效，自定义命令的协议形态由调用方决定。
   const runtime = process.env.ZCODE_AGENT_SERVER_RUNTIME?.trim() || undefined;
   if (runtime && runtime !== "zcode-cli-rust" && runtime !== "node") {
     throw new Error("Unsupported ZCODE_AGENT_SERVER_RUNTIME");
   }
-  const rustFailed = runtime === "zcode-cli-rust" && context.rustRuntimeFailed === true;
-  const rust = runtime === "zcode-cli-rust" && !rustFailed;
+  const defaultRust =
+    runtime === undefined &&
+    !process.env.ZCODE_AGENT_SERVER_COMMAND?.trim() &&
+    (deps.findDevCommand ?? resolveBundledWorkspaceZCodeAgentCommand)(context) === null;
+  const wantsRust = runtime === "zcode-cli-rust" || defaultRust;
+  const rustFailed = wantsRust && context.rustRuntimeFailed === true;
+  const rust = wantsRust && !rustFailed;
   if (rustFailed) {
     warnLog("zcode-cli-rust runtime failed before becoming ready; using Node", {
       event: "zcode_agent.runtime.rust_fallback",
@@ -522,9 +531,10 @@ export function resolveDefaultZCodeAgentCommand(
         context.presentationSurface,
       );
     }
-    // 显式选了 Rust 但安装包没有随包二进制：回退 Node 保证可用，同时留下可诊断的记录。
+    // 没有随包二进制（显式选择或默认）：回退 Node 保证可用，同时留下可诊断的记录。
     warnLog("zcode-cli-rust runtime selected but no bundled binary was found; using Node", {
       event: "zcode_agent.runtime.rust_binary_missing",
+      explicit: runtime === "zcode-cli-rust",
     });
   }
 

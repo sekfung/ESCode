@@ -1,6 +1,6 @@
 # Rust runtime 发布与回退（WP10 前置）
 
-2026-09-24。本文定义 runtime 切换面、回退步骤与验收；**当前默认仍是 Node runtime**，只有下列门槛全部通过才切换。
+2026-09-24。本文定义 runtime 切换面、回退步骤与验收。**2026-10-03 门槛全部通过、经用户决定，默认已切换为 Rust runtime**（见文末）。
 
 ## 切换面
 
@@ -74,8 +74,18 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
   通过后创建**草稿** Release（21 个资产）；从 Release 下载 6 个 Rust runtime 压缩包，sha256 全部一致。资产名比对因 GitHub
   把空格换成 "." 误报，已修正比对规则。
 
-至此功能对齐、性能、数据迁移、跨平台与发布回退五项门槛均有自动化验收记录。默认 runtime 仍为 Node：是否切换、何时发布
-草稿 Release 由用户决定；其他机器上更大真实库的迁移复核可用 `zcode-cli-rust-real-data-rehearsal.test.ts` 继续补充。
+至此功能对齐、性能、数据迁移、跨平台与发布回退五项门槛均有自动化验收记录。其他机器上更大真实库的迁移复核可用
+`zcode-cli-rust-real-data-rehearsal.test.ts` 继续补充。
+
+### 2026-10-03 切换默认 runtime（用户决定）
+
+- 桌面端 `resolveDefaultZCodeAgentCommand`：未设置 `ZCODE_AGENT_SERVER_RUNTIME`、没有自定义命令且不在 monorepo 开发态时，
+  默认用随包 `resources/glm/zcode-cli-rust`；找不到二进制或 Rust 就绪前失败即回退包内 Node runtime（同一 manager 内
+  记住失败）。开发态与自定义命令保持原 Node 语义。
+- 打包默认随包 Rust runtime（`ZCODE_BUNDLE_RUST_AGENT=0` 可关闭，此时安装包只有 Node，桌面端自动用 Node）。
+- 回退：设置 `ZCODE_AGENT_SERVER_RUNTIME=node` 后重启 App；数据边界不变（Rust 只读 TS 库，回退后 Rust 期会话在
+  Node 侧不可见，已由用户确认可接受）。
+- 草稿 Release `v3.14.0-rust-rc.1` 保留为草稿（用户决定），未公开。
 
 补充硬性要求：发布验收必须用 MSVC 目标构建——已由 GitHub CI 与 release 工作流满足（2026-09-25）。
 

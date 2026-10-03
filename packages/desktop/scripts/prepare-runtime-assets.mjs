@@ -26,8 +26,9 @@ const shouldPrepareMacosWindowBounds = target.os === "darwin";
 // 本机桌面包内置 agent 的 JS bundle（prepare:agent-bundle），运行时由 app 的 Electron Node runtime 执行。
 // 远端跨平台原生二进制仍由上面的 prepare:remote-assets 提供。
 // native-search 归档随仓库分发，准备步骤只做本地解包校验，不需要任何下载源配置。
-// Rust runtime 仅在显式开启时随包（默认 runtime 仍是 Node，见 docs/specs/rust-packaging.md）。
-const shouldPrepareRustAgent = process.env.ZCODE_BUNDLE_RUST_AGENT === "1";
+// Rust runtime 默认随包（默认 runtime 已切到 Rust，见 docs/specs/rust-packaging.md）；ZCODE_BUNDLE_RUST_AGENT=0 可关闭，
+// 此时安装包只含 Node runtime，桌面端自动用 Node。
+const shouldPrepareRustAgent = process.env.ZCODE_BUNDLE_RUST_AGENT !== "0";
 const localRuntimeScripts = [
   "prepare:agent-bundle",
   ...(shouldPrepareRustAgent ? ["prepare:rust-agent"] : []),
