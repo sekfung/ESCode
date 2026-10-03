@@ -137,7 +137,16 @@ async function observe(kind: "node" | "rust") {
     while (main.length < 6 && Date.now() < deadline) {
       await new Promise((done) => setTimeout(done, 100));
     }
-    await h.completed(id);
+    try {
+      await h.completed(id);
+    } catch (error) {
+      // 平台相关的挂起要能从 CI 日志直接定位：哪一侧、走到第几个请求、停止与恢复的工具结果。
+      throw new Error(
+        `${kind}: turn did not complete (main=${main.length}, actor=${actor.length}); ` +
+          `stop=${toolResult(main[3], "stop-1").slice(0, 300)}; resume=${toolResult(main[4], "rs-1").slice(0, 300)}; ` +
+          `last=${lastUser(main.at(-1)).slice(0, 300)}; ${String(error)}`,
+      );
+    }
     clearInterval(pump);
     await h.close();
     const rootText = JSON.stringify(root).slice(1, -1);
