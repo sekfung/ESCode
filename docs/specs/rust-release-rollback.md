@@ -61,8 +61,21 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
   已对齐；`v4/cua/permission-observation` 在当前产品不可达（rust-parity-remaining.md）。
 - 已知残余差异各自记录在对应 spec 的「已知差异」节，均不改变协议形状。
 
-仍需人工或外部环境完成的门槛：macOS / Linux 安装包真机运行、一次真实发布与回退演练、其他机器更大真实库的迁移复核；
-满足后由用户决定切换默认 runtime。
+### 2026-10-03 跨平台真机与发布回退验收（GitHub CI）
+
+- 三平台测试（rust-runtime-ci run 37097969881，提交 1c6857c）：Linux / Windows（MSVC）/ macOS（arm64）的 cargo 全工作区测试与
+  App 集成差分套件全部通过。期间修复：Linux 上目录项顺序（libuv 按字节序排序）、工作流分析语料行尾、tool-parity 基准表、
+  runtime_consistency 模拟工具注册表；工作流恢复用例改为不依赖核数（3 核 runner 上并发天花板为 1）。
+- 安装包真机演练（release 工作流 `installed` 作业）：Windows x64、macOS arm64、macOS x64（原生 Intel runner
+  `macos-15-intel`）、Linux x64 上安装真实安装包（NSIS 静默 / dmg / deb），确认应用能启动并持续运行，再用包内 Node 与 Rust
+  runtime 在同一数据目录上走 Node → Rust → 回退 Node：Rust 读到 Node 写的会话并能继续对话，TS 源库逐字节不变，回退后
+  Node 原会话完好且可继续（`zcode-cli-rust-installed.test.ts`）。
+- 真实发布（标签 `v3.14.0-rust-rc.1`，release run 37100036941）：6 个 Rust runtime 目标与 4 个平台安装包构建、四平台演练全部
+  通过后创建**草稿** Release（21 个资产）；从 Release 下载 6 个 Rust runtime 压缩包，sha256 全部一致。资产名比对因 GitHub
+  把空格换成 "." 误报，已修正比对规则。
+
+至此功能对齐、性能、数据迁移、跨平台与发布回退五项门槛均有自动化验收记录。默认 runtime 仍为 Node：是否切换、何时发布
+草稿 Release 由用户决定；其他机器上更大真实库的迁移复核可用 `zcode-cli-rust-real-data-rehearsal.test.ts` 继续补充。
 
 补充硬性要求：发布验收必须用 MSVC 目标构建——已由 GitHub CI 与 release 工作流满足（2026-09-25）。
 

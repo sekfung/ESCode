@@ -227,7 +227,8 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          expected=$(ls artifacts | sort)
+          # GitHub 上传资产时把文件名里的空格换成 "."（"ZCode Preview-…" → "ZCode.Preview-…"）。
+          expected=$(ls artifacts | sed 's/ /./g' | sort)
           published=$(gh release view "$tag" --json assets --jq '.assets[].name' | sort)
           diff <(echo "$expected") <(echo "$published")
           mkdir -p verify && cd verify
