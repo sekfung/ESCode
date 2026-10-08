@@ -19,11 +19,7 @@ pub(super) fn client_with_timeout(
 fn builder(target: &str, timeout: Option<std::time::Duration>) -> Result<reqwest_mcp::Client> {
     let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
         target,
-        &zcode_cli_domain::net_proxy::ProxyOptions {
-            http_proxy: None,
-            no_proxy: None,
-            env: std::env::vars().collect(),
-        },
+        &zcode_cli_host::net_config::proxy_options(zcode_cli_host::net_config::NetworkScope::Process),
     );
     let mut builder = reqwest_mcp::Client::builder()
         .redirect(reqwest_mcp::redirect::Policy::none())
@@ -36,7 +32,7 @@ fn builder(target: &str, timeout: Option<std::time::Duration>) -> Result<reqwest
     } else if resolution.no_proxy_matched {
         builder = builder.no_proxy();
     }
-    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates()? {
+    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates(zcode_cli_host::net_config::NetworkScope::Process)? {
         let certificates = match reqwest_mcp::Certificate::from_pem_bundle(&bytes) {
             Ok(certificates) => certificates,
             Err(_) => vec![reqwest_mcp::Certificate::from_der(&bytes)?],

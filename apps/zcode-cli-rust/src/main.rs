@@ -30,6 +30,18 @@ async fn run() -> Result<()> {
     let cwd = zcode_cli_host::realpath(&requested_cwd)
         .await
         .context("Workspace unavailable")?;
+    // 修复：配置文件的 `network` 段（代理 / No Proxy / CA）原先被忽略。必须在任何 HTTP 客户端建立前写入；
+    // 读失败只告警、按无文件值继续（TS 文件配置有诊断时同样忽略该文件）。
+    match zcode_cli_tools::network_file_config(&cwd).await {
+        Ok(network) => zcode_cli_host::net_config::install(network),
+        Err(error) => {
+            use std::io::Write;
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "zcode-cli-rust: network config ignored: {error}"
+            );
+        }
+    }
     let requested_data = args.data_dir.unwrap_or_else(|| {
         std::env::var_os("ZCODE_CLI_RUST_DATA_DIR")
             .map(std::path::PathBuf::from)

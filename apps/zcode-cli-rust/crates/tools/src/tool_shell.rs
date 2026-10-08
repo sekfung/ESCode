@@ -114,7 +114,7 @@ impl ShellTasks {
                     file.seek(std::io::SeekFrom::Start(size - tail)).await?;
                     file.read_to_end(&mut bytes).await?;
                 }
-                let output = String::from_utf8_lossy(&bytes).into_owned();
+                let output = zcode_cli_host::output_encoding::decode_output(&bytes);
                 let status = final_result
                     .as_ref()
                     .map(|v| match v["status"].as_str() {
@@ -286,7 +286,7 @@ impl ShellTasks {
             file.seek(std::io::SeekFrom::Start(size - length)).await?;
             let mut bytes = vec![];
             file.read_to_end(&mut bytes).await?;
-            Ok::<_, std::io::Error>((String::from_utf8_lossy(&bytes).into_owned(), size > bytes.len() as u64))
+            Ok::<_, std::io::Error>((zcode_cli_host::output_encoding::decode_output(&bytes), size > bytes.len() as u64))
         };
         match read.await {
             Ok((output, truncated)) => json!({

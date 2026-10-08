@@ -12,7 +12,7 @@ pub(super) fn add_extra_ca_certificates(
     mut builder: reqwest::ClientBuilder,
 ) -> Result<reqwest::ClientBuilder> {
     let misplaced = || ModelFailure::new("invalid_request", false);
-    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates().map_err(|_| misplaced())? {
+    for bytes in zcode_cli_host::tls_ca::extra_ca_certificates(zcode_cli_host::net_config::NetworkScope::Process).map_err(|_| misplaced())? {
         let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
             Ok(certificates) => certificates,
             Err(_) => vec![reqwest::Certificate::from_der(&bytes).map_err(|_| misplaced())?],

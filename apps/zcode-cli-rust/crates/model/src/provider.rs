@@ -58,15 +58,12 @@ impl HttpModel {
                         .tcp_nodelay(true);
                     // 代理解析与 TS `resolveWebFetchProxyForRequest` 一致（显式配置、ZCODE_HTTP_PROXY、
                     // ZCODE_NO_PROXY 与捕获的宿主代理），不依赖 reqwest 默认读取的 HTTP(S)_PROXY。
-                    // 见 docs/specs/rust-net-proxy.md；此处只处理环境变量来源，Host 下发配置待接入。
+                    // 见 docs/specs/rust-net-proxy.md；显式值 = 环境变量 ?? 用户配置的 `network` 段
+                    // （Node 的 provider registry 在进程级读配置、不含项目层，见 host::net_config）。
                     let resolution =
                         zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
                             &target,
-                            &zcode_cli_domain::net_proxy::ProxyOptions {
-                                http_proxy: None,
-                                no_proxy: None,
-                                env: std::env::vars().collect(),
-                            },
+                            &zcode_cli_host::net_config::proxy_options(zcode_cli_host::net_config::NetworkScope::Process),
                         );
                     if let Some(proxy) = resolution.proxy_url {
                         builder = builder.proxy(

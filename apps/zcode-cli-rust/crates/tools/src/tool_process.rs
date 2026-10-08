@@ -234,7 +234,7 @@ pub(super) async fn run(
         head = diagnostic.into_bytes();
     }
     // TS BashFileOutput：两路输出共用一个文件，stdout 为文件开头、stderr 为空（docs/specs/rust-bash-model-content.md）。
-    let mut data = json!({"stdout":String::from_utf8_lossy(&head),"stderr":"","interrupted":reason=="cancelled"||reason=="timed_out","isImage":false,"noOutputExpected":crate::domain::bash_model_content::is_silent(command_text),"status":reason,"timedOut":reason=="timed_out","cancelled":reason=="cancelled","stdoutTruncated":truncated,"stderrTruncated":false,"stdoutBytes":size,"stderrBytes":0});
+    let mut data = json!({"stdout":zcode_cli_host::output_encoding::decode_output(&head),"stderr":"","interrupted":reason=="cancelled"||reason=="timed_out","isImage":false,"noOutputExpected":crate::domain::bash_model_content::is_silent(command_text),"status":reason,"timedOut":reason=="timed_out","cancelled":reason=="cancelled","stdoutTruncated":truncated,"stderrTruncated":false,"stdoutBytes":size,"stderrBytes":0});
     if let Some(code) = exit_code {
         data["exitCode"] = code.into();
     }

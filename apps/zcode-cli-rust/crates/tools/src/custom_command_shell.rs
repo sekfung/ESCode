@@ -127,7 +127,8 @@ async fn read_limited<R: tokio::io::AsyncRead + Unpin>(mut reader: R) -> String 
         let room = cc::SHELL_OUTPUT_BYTES.saturating_sub(kept.len());
         kept.extend_from_slice(&chunk[..n.min(room)]);
     }
-    String::from_utf8_lossy(&kept).into_owned()
+    // Windows 旧代码页输出按 TS 同一规则解码（docs/specs/rust-windows-output-encoding.md）。
+    zcode_cli_host::output_encoding::decode_output(&kept)
 }
 async fn run(
     cwd: &Path,

@@ -15,8 +15,17 @@ pub const EXPLICIT_CA_ENV_KEY: &str = "ZCODE_AGENT_CA_CERT";
 pub const NODE_EXTRA_CA_ENV_KEY: &str = "NODE_EXTRA_CA_CERTS";
 
 /// 应额外信任的根证书字节（0 或 1 份文件；文件里可以有多张证书）。
-pub fn extra_ca_certificates() -> Result<Vec<Vec<u8>>> {
-    extra_ca_certificates_from(|key| std::env::var_os(key).filter(|value| !value.is_empty()))
+pub fn extra_ca_certificates(
+    scope: crate::net_config::NetworkScope,
+) -> Result<Vec<Vec<u8>>> {
+    // 显式来源 = `ZCODE_AGENT_CA_CERT` ?? 该作用域的 `network.caCertFile`（TS 合并后的 caCertFile）。
+    extra_ca_certificates_from(|key| {
+        if key == EXPLICIT_CA_ENV_KEY {
+            crate::net_config::explicit_ca_cert_file(scope).map(Into::into)
+        } else {
+            std::env::var_os(key).filter(|value| !value.is_empty())
+        }
+    })
 }
 
 fn extra_ca_certificates_from(env: impl Fn(&str) -> Option<std::ffi::OsString>) -> Result<Vec<Vec<u8>>> {

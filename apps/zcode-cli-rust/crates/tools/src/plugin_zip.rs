@@ -166,7 +166,7 @@ async fn download(source: &Source) -> Result<Vec<u8>> {
     let mut headers = source.headers.clone();
     for _ in 0..=MAX_REDIRECTS {
         validate_url(&current)?;
-        let client = super::web_fetch::proxied_client(current.clone(), DOWNLOAD_TIMEOUT).await?;
+        let client = super::web_fetch::proxied_client(current.clone(), DOWNLOAD_TIMEOUT, zcode_cli_host::net_config::NetworkScope::EnvOnly).await?;
         let mut request = client.get(&current);
         for (key, value) in &headers {
             request = request.header(key, value);

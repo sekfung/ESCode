@@ -11,7 +11,10 @@ fn vars() -> Vec<(String, String)> {
 
 /// `tool`：Bash、自定义命令与 MCP stdio（清洗后恢复出网配置）；否则只清洗（git、PDF 渲染等内部子进程）。
 pub fn apply(command: &mut tokio::process::Command, tool: bool) {
-    for (key, value) in runtime_env::child_env(&vars(), tool, cfg!(windows)) {
+    // 修复：配置文件 `network` 段原先不进工具子进程。环境缺席时按等价 `ZCODE_*` 键参与差量
+    // （TS executionPort 用工作区合并视图的 network，见 host::net_config）。
+    let env = crate::net_config::with_file_fallback(vars());
+    for (key, value) in runtime_env::child_env(&env, tool, cfg!(windows)) {
         match value {
             Some(value) => command.env(key, value),
             None => command.env_remove(key),

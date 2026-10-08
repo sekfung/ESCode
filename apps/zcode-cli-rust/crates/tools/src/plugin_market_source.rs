@@ -225,7 +225,7 @@ pub(super) async fn request_json(url: &str, headers: Vec<(String, String)>) -> R
     let mut current = url.to_owned();
     let mut headers = headers;
     for _ in 0..=JSON_MAX_REDIRECTS {
-        let client = super::web_fetch::proxied_client(current.clone(), JSON_TIMEOUT).await?;
+        let client = super::web_fetch::proxied_client(current.clone(), JSON_TIMEOUT, zcode_cli_host::net_config::NetworkScope::EnvOnly).await?;
         let mut request = client.get(&current);
         for (key, value) in &headers {
             request = request.header(key, value);

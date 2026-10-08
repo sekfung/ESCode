@@ -113,3 +113,16 @@ mod web_fetch_http;
 mod win_job;
 pub use tools::WorkspaceTools;
 use zcode_cli_host::{id, now};
+
+/// 配置文件的 `network` 段（user 视图与 user + project 合并视图），进程启动时交给
+/// `host::net_config`（docs/specs/rust-net-proxy.md「配置文件 `network` 段」）。
+pub async fn network_file_config(
+    cwd: &std::path::Path,
+) -> anyhow::Result<zcode_cli_host::net_config::NetworkFileLayers> {
+    use zcode_cli_host::net_config::{NetworkFileConfig, NetworkFileLayers};
+    let layers = extension_config::load_layers(cwd).await?;
+    Ok(NetworkFileLayers {
+        user: NetworkFileConfig::from_config(&layers.user),
+        workspace: NetworkFileConfig::from_config(&layers.merged()),
+    })
+}

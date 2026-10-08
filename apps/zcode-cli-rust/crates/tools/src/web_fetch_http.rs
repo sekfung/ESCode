@@ -12,16 +12,18 @@ use zcode_cli_domain::web_fetch as rules;
 
 /// 应用层下载用的 reqwest 客户端：代理按 TS web-fetch 规则逐 URL 解析（显式配置、ZCODE_HTTP_PROXY、
 /// ZCODE_NO_PROXY 与捕获的宿主代理），不跟随重定向，信任设置页自定义 CA。WebFetch 与插件 zip 下载共用。
-pub(crate) async fn proxied_client(target: String, timeout: Duration) -> Result<reqwest::Client> {
+/// `scope`：WebFetch 读工作区合并视图（TS 会话 app 的 httpClientPort），插件下载只认环境变量
+/// （TS `applyNetworkEgressEnv` 不传 network），见 `host::net_config`。
+pub(crate) async fn proxied_client(
+    target: String,
+    timeout: Duration,
+    scope: zcode_cli_host::net_config::NetworkScope,
+) -> Result<reqwest::Client> {
     // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
     tokio::task::spawn_blocking(move || -> anyhow::Result<reqwest::Client> {
         let resolution = zcode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
             &target,
-            &zcode_cli_domain::net_proxy::ProxyOptions {
-                http_proxy: None,
-                no_proxy: None,
-                env: std::env::vars().collect(),
-            },
+            &zcode_cli_host::net_config::proxy_options(scope),
         );
         let mut builder = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -31,7 +33,7 @@ pub(crate) async fn proxied_client(target: String, timeout: Duration) -> Result<
             None => builder.no_proxy(),
         };
         // 设置页的自定义 CA（`ZCODE_AGENT_CA_CERT`，其次 `NODE_EXTRA_CA_CERTS`）：与模型请求同一份来源。
-        for bytes in zcode_cli_host::tls_ca::extra_ca_certificates()? {
+        for bytes in zcode_cli_host::tls_ca::extra_ca_certificates(scope)? {
             let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
                 Ok(certificates) => certificates,
                 Err(_) => vec![reqwest::Certificate::from_der(&bytes)?],
@@ -53,7 +55,11 @@ impl Transport for HttpTransport {
     async fn get(&self, url: &Url, cancel: &CancellationToken) -> Result<Response> {
         let target = url.to_string();
         // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
-        let client = proxied_client(target, Duration::from_millis(rules::TIMEOUT_MS)).await?;
+        let client = proxied_client(
+            target,
+            Duration::from_millis(rules::TIMEOUT_MS),
+            zcode_cli_host::net_config::NetworkScope::Workspace,
+        ).await?;
         let request = client
             .get(url.as_str())
             .header("User-Agent", rules::USER_AGENT)
