@@ -57,6 +57,8 @@ App 差分实测（同一 Registry 夹具）Node 的请求头：`http-referer`�
 - `x-query-id`：Node 取 traceContext 的 queryId，Rust 取本轮 turn id（同为每轮唯一）；两侧取值来源不同，差分只比格式。
 - `accept` / `accept-language` / `sec-fetch-mode`：Node fetch（undici）自带，非产品语义，不对齐。
 - POSIX locale 取 `LC_ALL` → `LC_MESSAGES` → `LANG`（ICU 同序），`C` / `POSIX` 视为 `en-US`。
+- 时区：V8 把 UTC 的各种别名（`Etc/UTC`、`GMT`、`Zulu` 等）归一为 `UTC`，Rust 同样归一（三平台 CI 的 runner 时区为 `Etc/UTC`）；
+  ICU 其余旧链接名的改写（如 `US/Pacific` → `America/Los_Angeles`）未对齐，系统时区通常已是规范名。
 
 ## 验收
 

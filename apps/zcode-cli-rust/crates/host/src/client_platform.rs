@@ -28,9 +28,23 @@ pub fn current() -> &'static ClientPlatform {
             os_category: os_category(platform),
             os_release: os_release(),
             locale: locale(),
-            timezone: iana_time_zone::get_timezone().ok(),
+            timezone: iana_time_zone::get_timezone().ok().map(|tz| canonical_timezone(&tz)),
         }
     })
+}
+
+/// V8 `Intl.DateTimeFormat().resolvedOptions().timeZone` 把 UTC 的各种别名归一为 `UTC`。修复：CI runner 的系统时区为
+/// `Etc/UTC`，Rust 原样发出，Node 发 `UTC`。其余 ICU 旧链接名（如 `US/Pacific`）的改写未对齐（系统时区通常已是规范名）。
+fn canonical_timezone(tz: &str) -> String {
+    const UTC_ALIASES: [&str; 18] = [
+        "UTC", "Etc/UTC", "Etc/GMT", "GMT", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu",
+        "Zulu", "Etc/Greenwich", "Greenwich", "Etc/GMT0", "GMT0", "Etc/GMT+0", "Etc/GMT-0", "GMT+0", "GMT-0",
+    ];
+    if UTC_ALIASES.iter().any(|alias| alias.eq_ignore_ascii_case(tz)) {
+        "UTC".to_owned()
+    } else {
+        tz.to_owned()
+    }
 }
 
 fn node_platform(os: &'static str) -> &'static str {
@@ -136,6 +150,15 @@ mod tests {
         assert_eq!(os_category("win32"), "windows");
         assert_eq!(os_category("darwin"), "macos");
         assert_eq!(os_category("freebsd"), "linux");
+    }
+
+    #[test]
+    fn utc_aliases_canonicalize_like_v8() {
+        for tz in ["Etc/UTC", "GMT", "Etc/Zulu", "UCT", "Etc/GMT+0", "utc"] {
+            assert_eq!(canonical_timezone(tz), "UTC", "{tz}");
+        }
+        assert_eq!(canonical_timezone("Asia/Shanghai"), "Asia/Shanghai");
+        assert_eq!(canonical_timezone("Etc/GMT+8"), "Etc/GMT+8");
     }
 
     #[test]
