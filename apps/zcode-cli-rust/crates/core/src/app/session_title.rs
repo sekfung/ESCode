@@ -19,6 +19,11 @@ const TITLE_TIMEOUT: Duration = Duration::from_secs(60);
 const TITLE_MAX_OUTPUT_TOKENS: usize = 5_000;
 
 impl Engine {
+    /// 关闭自动标题：首条输入后标题停在 first_input，不发标题请求（Node `-p` 同样不生成）。
+    pub fn without_title_generation(mut self) -> Self {
+        self.title_generation = false;
+        self
+    }
     /// run 收口：普通输入只在首个 run 成功后启动一次；失败/取消与 TS 相同地丢弃 seed。
     /// 启动失败（模型未注册等）只影响标题，不改变会话结果。
     pub(super) fn finish_session_title(&mut self, id: &str) {

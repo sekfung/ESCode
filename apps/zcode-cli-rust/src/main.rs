@@ -1,21 +1,23 @@
 mod args;
-use anyhow::{Context, Result};
+mod headless;
+mod runtime;
+use anyhow::Result;
 use args::Args;
 use clap::Parser;
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use zcode_cli_app_server as stdio;
-use zcode_cli_core::Engine;
-use zcode_cli_core_api::{ModelIdentity, ModelPort, ModelRegistry, RuntimePorts};
-use zcode_cli_host::{SystemClock, WorkspaceContext, legacy_paths};
-use zcode_cli_model::{config::ModelConfig, provider::HttpModel, registry::Registry};
 use zcode_cli_state::Store;
-use zcode_cli_tools::WorkspaceTools;
 
 #[tokio::main]
 async fn main() {
+    // `app-server` 走协议入口；其余参数按 Node 全局参数处理（`-p` 无头模式，docs/specs/rust-headless-prompt.md）。
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    if argv.first().map(String::as_str) != Some("app-server") {
+        let code = headless::run(argv).await;
+        std::process::exit(code);
+    }
     if let Err(error) = run().await {
         // stderr 断管也不能递归进入错误处理；stdout 永远只用于协议。file_log 的 error 同时写 stderr。
         zcode_cli_host::file_log::error(
@@ -33,6 +35,31 @@ async fn main() {
         serde_json::Value::Null,
     );
 }
+
+/// 进程收到 Ctrl-C / SIGTERM 时取消；返回收到的信号对应的退出码（130 / 143）。
+pub(crate) fn watch_signals(cancel: CancellationToken) -> tokio::task::JoinHandle<i32> {
+    tokio::spawn(async move {
+        #[cfg(unix)]
+        let code = {
+            if let Ok(mut term) =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            {
+                tokio::select! {_=tokio::signal::ctrl_c()=>130,_=term.recv()=>143}
+            } else {
+                let _ = tokio::signal::ctrl_c().await;
+                130
+            }
+        };
+        #[cfg(not(unix))]
+        let code = {
+            let _ = tokio::signal::ctrl_c().await;
+            130
+        };
+        cancel.cancel();
+        code
+    })
+}
+
 async fn run() -> Result<()> {
     let args = Args::parse();
     // 文件日志（docs/specs/rust-file-log.md）：进程生命周期 + 7 天保留。
@@ -45,83 +72,24 @@ async fn run() -> Result<()> {
     if !args.prepare_storage {
         zcode_cli_host::file_log::schedule_retention();
     }
-    let question_timing = zcode_cli_host::question_timing()?;
-    let requested_cwd = args.cwd.unwrap_or(std::env::current_dir()?);
-    let cwd = zcode_cli_host::realpath(&requested_cwd)
-        .await
-        .context("Workspace unavailable")?;
-    // 修复：配置文件的 `network` 段（代理 / No Proxy / CA）原先被忽略。必须在任何 HTTP 客户端建立前写入；
-    // 读失败只告警、按无文件值继续（TS 文件配置有诊断时同样忽略该文件）。
-    match zcode_cli_tools::network_file_config(&cwd).await {
-        Ok(network) => zcode_cli_host::net_config::install(network),
-        Err(error) => {
-            use std::io::Write;
-            let _ = writeln!(
-                std::io::stderr().lock(),
-                "zcode-cli-rust: network config ignored: {error}"
-            );
-        }
-    }
-    let requested_data = args.data_dir.unwrap_or_else(|| {
-        std::env::var_os("ZCODE_CLI_RUST_DATA_DIR")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                std::path::PathBuf::from(
-                    std::env::var_os("HOME")
-                        .or_else(|| std::env::var_os("USERPROFILE"))
-                        .unwrap_or_default(),
-                )
-                .join(".zcode")
-                .join("rust")
-            })
-    });
-    let data_dir = if requested_data.is_absolute() {
-        requested_data
-    } else {
-        std::env::current_dir()?.join(requested_data)
-    };
-    tokio::fs::create_dir_all(&data_dir).await?;
-    let data_dir = zcode_cli_host::realpath(data_dir).await?;
-    let path = data_dir.join("rust-sessions.sqlite");
-    // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
-    let workspace = zcode_cli_host::workspace_identity(
-        std::env::var("ZCODE_WORKSPACE_IDENTITY").ok().as_deref(),
-        &requested_cwd,
-    );
+    let ws = runtime::resolve_workspace(args.cwd.clone(), args.data_dir.clone()).await?;
     let cancel = CancellationToken::new();
-    let signal_cancel = cancel.clone();
-    tokio::spawn(async move {
-        #[cfg(unix)]
-        {
-            if let Ok(mut term) =
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            {
-                tokio::select! {_=tokio::signal::ctrl_c()=>{},_=term.recv()=>{}}
-            } else {
-                let _ = tokio::signal::ctrl_c().await;
-            }
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = tokio::signal::ctrl_c().await;
-        }
-        signal_cancel.cancel();
-    });
+    watch_signals(cancel.clone());
     let input_closed = CancellationToken::new();
     let (mut input, output, writer) = stdio::start(cancel.clone(), input_closed.clone());
     let attempt = zcode_cli_host::id();
-    let database_id = format!("{:x}", Sha256::digest(path.to_string_lossy().as_bytes()));
+    let database_id = format!("{:x}", Sha256::digest(ws.db.to_string_lossy().as_bytes()));
     let progress = |phase: &str, sequence: u64| json!({"method":"startup/storageState","params":{"schemaVersion":1,"attemptId":attempt,"sequence":sequence,"databaseId":database_id,"databaseKind":"session","phase":phase,"elapsedMs":0}});
     if args.prepare_storage {
-        stdio::storage_prepare(&path, &mut input, &output).await?;
+        stdio::storage_prepare(&ws.db, &mut input, &output).await?;
     }
     let _owner = if args.prepare_storage {
         None
     } else {
-        Some(Store::lock_workspace(data_dir.clone(), workspace.clone()).await?)
+        Some(Store::lock_workspace(ws.data_dir.clone(), ws.identity.clone()).await?)
     };
     output.send(vec![progress("checking", 1)]).await?;
-    let store = match Store::open(path).await {
+    let store = match Store::open(ws.db.clone()).await {
         Ok(store) => store,
         Err(_) => {
             let mut frame = progress("failed", 2);
@@ -135,44 +103,20 @@ async fn run() -> Result<()> {
     // 模型层的用量事实（每次逻辑请求一条）落会话库（TS usage store）；记录器只持弱引用。
     zcode_cli_core_api::set_model_usage_sink(store.usage_recorder());
     if !args.prepare_storage {
-        let import_cancel = cancel.child_token();
-        let imported = async {
-            if let Some(source) =
-                legacy_paths::resolve(args.import_ts_db, &requested_cwd, args.config.is_none())
-                    .await?
-            {
-                if tokio::fs::try_exists(&source.database).await? {
-                    let operation = store.import_ts(
-                        source.database,
-                        workspace.clone(),
-                        requested_cwd.to_string_lossy().into_owned(),
-                        data_dir.clone(),
-                        source.artifacts,
-                        import_cancel.clone(),
-                    );
-                    tokio::pin!(operation);
-                    // 只在实际导入期间处理 EOF；无导入时保留输入缓冲区交由 actor 排空。
-                    let result = tokio::select! {
-                        result = &mut operation => result,
-                        _ = input_closed.cancelled() => {
-                            import_cancel.cancel();
-                            operation.await
-                        }
-                        _ = cancel.cancelled() => {
-                            import_cancel.cancel();
-                            operation.await
-                        }
-                    };
-                    if import_cancel.is_cancelled() || input_closed.is_cancelled() {
-                        return Ok(true);
-                    }
-                    result?;
-                } else {
-                    anyhow::ensure!(!source.required, "Explicit TS import source does not exist");
-                }
-            }
-            Ok::<_, anyhow::Error>(false)
-        }
+        // 导入期间 Host 关闭输入或进程收到信号：取消导入并直接退出。
+        let stop = cancel.child_token();
+        let (closed, stop_on_close) = (input_closed.clone(), stop.clone());
+        tokio::spawn(async move {
+            closed.cancelled().await;
+            stop_on_close.cancel();
+        });
+        let imported = runtime::import_history(
+            &store,
+            &ws,
+            args.import_ts_db.clone(),
+            args.config.is_none(),
+            &stop,
+        )
         .await;
         if matches!(imported, Ok(true)) {
             drop(output);
@@ -199,59 +143,10 @@ async fn run() -> Result<()> {
             .map_err(Into::into)
     } else {
         async {
-            // TS 派生媒体缓存位于 `<storageRoot>/cli/{image,pdf,video}-cache`（docs/specs/rust-media-read.md 第 4 期）。
-            if let Ok(root) = legacy_paths::storage_root(&requested_cwd).await {
-                zcode_cli_model::set_media_cache_root(root.join("cli"));
-            }
-            let config = ModelConfig::load(args.config.as_ref()).await?;
-            let registry = if config.is_none() {
-                Registry::from_env()
-                    .await?
-                    .map(|r| r as Arc<dyn ModelRegistry>)
-            } else {
-                None
-            };
-            let identity = config.as_ref().map(|c| ModelIdentity {
-                provider_id: c.provider_id.clone(),
-                model_id: c.model_id.clone(),
-                reasoning_level: c.reasoning_level.clone(),
-            });
-            let model = config
-                .map(HttpModel::new)
-                .map(|m| Arc::new(m) as Arc<dyn ModelPort>);
-            Engine::new(
-                workspace,
-                identity,
-                RuntimePorts {
-                    // 修复：提示词里的工作目录与 AGENTS/Git 查找用 Host 提交的路径（TS 同样不 realpath）；
-                    // 原先用 realpath，macOS /var→/private/var、Windows 8.3 短名会与 Node 不一致。
-                    context: Arc::new(WorkspaceContext::new(
-                        std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
-                        std::env::var_os("HOME")
-                            .filter(|s| !s.is_empty())
-                            .or_else(|| std::env::var_os("USERPROFILE"))
-                            .map(std::path::PathBuf::from)
-                            .unwrap_or_default(),
-                        args.surface == "desktop",
-                    )),
-                    store: Arc::new(store),
-                    model,
-                    tools: Arc::new(
-                        WorkspaceTools::new(cwd.clone(), data_dir.join("tool-results"))
-                            .with_workspace_path(
-                                std::path::absolute(&requested_cwd).unwrap_or_else(|_| cwd.clone()),
-                            )
-                            .with_session_db(data_dir.join("rust-sessions.sqlite"))
-                            .with_model_admission(),
-                    ),
-                    clock: Arc::new(SystemClock),
-                },
-            )
-            .await?
-            .with_question_timing(question_timing.0, question_timing.1)
-            .with_registry(registry, requested_cwd.to_string_lossy().into_owned())
-            .serve(input, output.clone(), cancel)
-            .await
+            runtime::build_engine(&ws, store, args.config.as_ref(), args.surface == "desktop")
+                .await?
+                .serve(input, output.clone(), cancel)
+                .await
         }
         .await
     };

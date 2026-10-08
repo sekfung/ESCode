@@ -167,7 +167,8 @@ impl Engine {
                 text: text.to_owned(),
                 session: first_input,
                 goal_target,
-                automation,
+                // 关闭自动标题时与 automation 会话同一条路径（不请求模型）。
+                automation: automation || !self.title_generation,
             });
         }
         // TS 副屏 child 的模型基线是 sourceLess（∅→X），首轮前落「正在使用」modelChange marker。

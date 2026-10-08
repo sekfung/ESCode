@@ -63,6 +63,10 @@ pub struct Engine {
     /// 本进程内已跑过 SessionStart hooks 的会话（TS `sessionStartHookRan`）。
     pub(super) session_started: std::collections::BTreeSet<String>,
     pub(super) question_timing: (u64, u64),
+    /// 自动生成会话标题（`-p` 关闭，与 Node `titleGenerationEnabled: false` 相同，docs/specs/rust-headless-prompt.md）。
+    pub(super) title_generation: bool,
+    /// 无审批面（`-p`）：需要审批时直接拒绝，同 Node headless deny broker（docs/specs/rust-headless-prompt.md）。
+    pub(super) headless_permissions: bool,
     pub(super) events: mpsc::Sender<RunEvent>,
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
     /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
@@ -159,6 +163,8 @@ impl Engine {
             questions: BTreeMap::new(),
             session_started: Default::default(),
             question_timing: (60_000, 300_000),
+            title_generation: true,
+            headless_permissions: false,
             events,
             event_rx,
             slash_commands: crate::domain::custom_command::builtin_catalog(),

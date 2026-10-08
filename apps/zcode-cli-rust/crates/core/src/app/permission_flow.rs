@@ -18,7 +18,16 @@ pub(super) struct WaitingPermission {
     pub reply: oneshot::Sender<PermissionOutcome>,
 }
 
+/// Node headless broker 自动放行的工具（无交互审批面时工作流仍可创建 / 修订）。
+const HEADLESS_AUTO_APPROVED: [&str; 2] = ["CreateWorkflow", "AmendWorkflow"];
+
 impl Engine {
+    /// `-p`：需要审批的工具调用直接拒绝（Node deny broker 文案），工作流创建 / 修订放行。
+    pub fn with_headless_permissions(mut self) -> Self {
+        self.headless_permissions = true;
+        self
+    }
+
     /// 工具调用前的权限判定；allow/deny 立即答复，ask 则挂起等待用户应答。
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn ask_permission(
@@ -85,6 +94,18 @@ impl Engine {
             // TS approval-gate：工具答复 proceed 时 ask 直接放行（只能收窄 ask，不能把 deny 变成 allow）。
             crate::domain::permission::Behavior::Ask if approval_proceed => {
                 let _ = reply.send(PermissionOutcome::allow());
+                Ok(())
+            }
+            // `-p` 没有审批面：Node createHeadlessPermissionBroker 只放行工作流创建 / 修订，其余按 deny broker 拒绝。
+            crate::domain::permission::Behavior::Ask if self.headless_permissions => {
+                if HEADLESS_AUTO_APPROVED.contains(&tool.as_str()) {
+                    let _ = reply.send(PermissionOutcome::allow());
+                } else {
+                    let call_id = call["id"].as_str().unwrap_or_default();
+                    let p = super::telemetry::Permission { phase: "denied", call_id, tool: Some(&tool), request_id: None, decision: None };
+                    self.telemetry_permission(id, Some(turn), p);
+                    let _ = reply.send(PermissionOutcome::deny(format!("No permission client configured for {tool}")));
+                }
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {
