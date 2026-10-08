@@ -90,14 +90,17 @@ impl Parser<'_> {
                 self.tokens[self.i],
                 Token::Op(";" | "&" | ";;" | "|" | "|&" | "&&" | "||")
             ) {
-                self.out.has_parse_errors = true;
-                self.i += 1;
-                continue;
+                // 修复（对齐 unbash，差分语料发现）：语句位置上的分隔符 / 操作符（`; ls`、`ls; ; pwd`）
+                // unbash 静默停止解析、保留已得命令且不报错；Rust 原先记解析错误。这类输入 bash 本身
+                // 报语法错误、整行不执行，按 TS 停止不会放宽任何实际执行的命令。
+                return self.stop();
             }
             self.and_or(if first { None } else { Some("sequence") });
             first = false;
             match self.tokens.get(self.i) {
                 Some(Token::Op(";")) | Some(Token::Newline) => self.i += 1,
+                // 语句后的 `;;`（`ls ;; pwd`）：unbash 静默停止。
+                Some(Token::Op(";;")) => return self.stop(),
                 Some(Token::Op("&")) => {
                     self.out.has_unsupported_syntax = true;
                     self.i += 1;
@@ -119,8 +122,8 @@ impl Parser<'_> {
             self.i += 1;
             self.skip_newlines();
             if self.at_end_of_command() {
-                self.out.has_parse_errors = true;
-                return;
+                // 悬空的 `&&` / `||`（`ls &&`）：unbash 不报错（bash 同样整行不执行）。
+                return self.stop();
             }
             self.pipeline(Some(op));
         }
@@ -136,14 +139,21 @@ impl Parser<'_> {
                 self.i += 1;
             }
         }
+        // 管道取反 `! cmd`：unbash 跳过一个前导 `!`；紧接的第二个 `!` 处于命令位置，停止解析（`! ! ls` 无命令）。
+        if self.is_bang() {
+            self.i += 1;
+            if self.is_bang() {
+                return self.stop();
+            }
+        }
         self.command(before);
         while let Some(Token::Op(op @ ("|" | "|&"))) = self.tokens.get(self.i) {
             let op = *op;
             self.i += 1;
             self.skip_newlines();
-            if self.at_end_of_command() {
-                self.out.has_parse_errors = true;
-                return;
+            // 悬空的 `|`（`ls |`）与管道后的 `!`（`ls | ! rm x`，bash 报语法错误）：unbash 静默停止。
+            if self.at_end_of_command() || self.is_bang() {
+                return self.stop();
             }
             self.command(Some(op));
         }
@@ -153,9 +163,20 @@ impl Parser<'_> {
         matches!(self.tokens.get(self.i), None | Some(Token::Op(..)))
     }
 
+    fn is_bang(&self) -> bool {
+        matches!(self.tokens.get(self.i), Some(Token::Word(w)) if w.value == "!" && !w.dynamic)
+    }
+
+    /// unbash 在命令位置遇到不能开始命令的 token 时静默停止：保留已解析的命令，不设任何标志。
+    fn stop(&mut self) {
+        self.i = self.tokens.len();
+    }
+
     fn command(&mut self, before: Option<&'static str>) {
         match self.tokens.get(self.i) {
             Some(Token::Op("(")) => return self.unsupported_until_separator(),
+            // 命令位置上的 `}`（`{ls;}` 拆成 `{ls` `;` `}`）：unbash 静默停止，不记不支持。
+            Some(Token::Word(w)) if w.value == "}" && !w.dynamic => return self.stop(),
             Some(Token::Word(w)) if RESERVED.contains(&w.value.as_str()) && !w.dynamic => {
                 return self.unsupported_until_separator();
             }

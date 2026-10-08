@@ -226,3 +226,16 @@ sequenceDiagram
 ## 集成测试约定
 
 `packages/services/tests/zcode-cli-rust-fixture.ts` 提供 `fixture({ mode })`：输入命令未写 `mode` 时由 harness 补上。验证运行时一致性（Shell 生命周期、MCP、回退、队列等）而非权限的用例显式声明 `mode: "yolo"`；验证默认回落的用例（本文档「默认模式」、coding 的旧会话冷恢复）不设置，以保证测到的是 runtime 的真实默认。
+
+## Bash 解析的语法边界（2026-10-08）
+
+对照 MBearo/ZCode-rs（逐函数移植 unbash）补了解析层压力语料：`generate-zcode-cli-rust-bash-readonly-corpus.mjs` 新增
+约 130 条语法边界（引号与转义、ANSI-C 引号、heredoc、命令 / 进程替换、算术与花括号展开、`[[ ]]`、续行、注释、
+fd 重定向、case/while/函数、Unicode 等），进入解析层 oracle 逐字段比对。发现并修复 Rust 解析器与 unbash 的 4 类差异
+（均为 Rust 更保守，非放宽）：
+
+- unbash 在命令位置遇到不能开始命令的 token 时**静默停止**（保留已解析命令、不设任何标志）：语句位置的分隔符
+  （`; ls`、`ls; ; pwd`）、语句后的 `;;`、悬空的 `&&` / `||` / `|`、管道后的 `!`、命令位置的 `}`（`{ls;}`）。
+  Rust 原先记解析错误或不支持。已用真实 bash 核对：这些输入 bash 全部报语法错误、整行不执行，按 unbash 停止不会
+  放宽任何实际执行的命令；停止后若无命令，规则匹配对空命令集返回不匹配（TS `evaluateBashRules`），不会自动放行。
+- 前导 `! cmd`（管道取反）：unbash 跳过一个 `!`；`! ! ls` 第二个 `!` 处于命令位置，停止解析。
