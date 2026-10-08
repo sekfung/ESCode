@@ -18,11 +18,12 @@ const text = (content: unknown) =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /**
- * 会话部分（去掉 system）；临时工作区路径归一化。另去掉两条与副屏无关的提醒：
+ * 会话部分（去掉 system）；临时工作区路径归一化。另去掉一条与副屏无关的提醒：
  * - Skill 列表：夹具没给 Rust 传官方插件目录（桌面端由 Host 传入），只有 Node 列出 browser-use 技能；
- * - shell 环境变更提醒（`The Bash tool shell is …`）：Rust 尚未实现恢复期 shell 提醒，见 spec「已知差异」。
+ * shell 环境变更提醒（`The Bash tool shell is …`）不再过滤：两侧都在 child 首轮注入，逐字比较
+ * （docs/specs/rust-shell-resume-notice.md）。
  */
-const UNRELATED_REMINDERS = ["The following skills are available", "The Bash tool shell is"];
+const UNRELATED_REMINDERS = ["The following skills are available"];
 function conversation(messages: any[], cwd: string) {
   return messages
     .filter((m) => m.role !== "system")

@@ -148,6 +148,7 @@ function buildForkedSessionInput(
   runtime: AgentRuntimeInternal,
   parentSession: SessionInfo,
   forkedSessionId: SessionId,
+  executionState: ExecutionState,
   kind: "fork" | "selection_side_chat" = "fork",
 ): CreateSessionInput {
   const now = Date.now();
@@ -165,7 +166,11 @@ function buildForkedSessionInput(
       kind === "selection_side_chat" ? "Selection side chat" : `Fork of ${parentSession.title}`,
     titleSource: "generated",
     version: parentSession.version,
-    permission: parentSession.permission,
+    // 修复：原先照抄父会话创建时的 permission，而 child 实际执行模式来自同一 bundle 的
+    // execution-state entry（被 fork 那一轮的模式）。两者矛盾时 session/read 的 session.mode 显示旧模式、
+    // settings.permission.mode 与实际执行却是新模式（docs/specs/rust-v4-command-gaps.md）。
+    // 规则集沿用父会话，模式与 execution state 保持同一事实。
+    permission: { ...parentSession.permission, mode: executionState.mode },
     time: {
       created: now,
       updated: now,
@@ -735,7 +740,13 @@ async function commitAtomicConversationFork(
         }
       : undefined;
   const committedChild = await store.commitForkBundle({
-    child: buildForkedSessionInput(runtime, options.parentSession, childSessionId, kind),
+    child: buildForkedSessionInput(
+      runtime,
+      options.parentSession,
+      childSessionId,
+      executionState,
+      kind,
+    ),
     messages: copiedMessages,
     copySources: {
       messages: Object.fromEntries(
@@ -866,7 +877,13 @@ export async function createForkedSession(
   }
 
   const forkedSessionId = options.forkedSessionId ?? createSessionId();
-  const input = buildForkedSessionInput(runtime, options.parentSession, forkedSessionId);
+  const executionState = readRuntimeExecutionState(runtime);
+  const input = buildForkedSessionInput(
+    runtime,
+    options.parentSession,
+    forkedSessionId,
+    executionState,
+  );
   // legacy workspace fork 兼容分支。V4 stable/compact-edit 入口直接构建完整 bundle，
   // 不得经过这里的 child-only metadata 原语，否则会重新引入逐条补写窗口。
   if (options.stableForkMetadata) {
@@ -886,7 +903,7 @@ export async function createForkedSession(
   }
 
   await runtime.sessionStore.saveSessionEntry?.(
-    buildExecutionStateEntry(forkedSessionId, readRuntimeExecutionState(runtime)),
+    buildExecutionStateEntry(forkedSessionId, executionState),
   );
   return forkedSessionId;
 }

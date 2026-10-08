@@ -93,6 +93,10 @@ pub struct Session {
     /// 在场即走 actor 的系统提示词变体与工具面。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_actor: Option<Value>,
+    /// 恢复后的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：插在 `messages[位置]` 之前，只在本进程内
+    /// 进模型请求，不落库、不复制给 fork / 副屏 child（child 首轮自己判定）。
+    #[serde(skip)]
+    pub shell_notice: Option<(usize, Value)>,
     /// V4 `workflowRuns` 状态键（宿主用 TS reduceWorkflowRunsState 归约进度事件，M3）：在场即进 state patch。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_runs: Option<Value>,

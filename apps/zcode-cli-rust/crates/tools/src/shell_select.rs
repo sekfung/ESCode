@@ -232,6 +232,18 @@ fn resolve_posix(env: &[(String, String)], exists: &dyn Fn(&str) -> bool) -> Sel
         .unwrap_or_else(legacy)
 }
 
+/// 恢复会话后的 shell 提醒（TS `getShellEnvironmentResumeNoticeKind` + `buildShellEnvironmentResumeNotice`，
+/// docs/specs/rust-shell-resume-notice.md）。App 链路上不存在 shell 快照（restore 恒为 missing），故只有两种情形：
+/// Windows 自动探测到 Git Bash 时必提醒；否则会话起始时写进提示词的 Shell 名（`persisted`）与当前不同才提醒。
+pub fn resume_notice(selection: &Selection, persisted: Option<&str>) -> Option<String> {
+    if selection.dialect == Dialect::GitBash && selection.source == Source::AutoDetected {
+        return Some("The Bash tool shell is Git Bash.".into());
+    }
+    let current = display_name(selection);
+    let previous = persisted.map(str::trim).filter(|name| !name.is_empty())?;
+    (previous != current.trim()).then(|| format!("The Bash tool shell is {current}."))
+}
+
 /// TS `ExecutionShellSelection.display.name`：进入系统提示词的 Shell 名称。
 pub fn display_name(selection: &Selection) -> String {
     match selection.dialect {

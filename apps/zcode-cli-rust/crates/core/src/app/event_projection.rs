@@ -42,6 +42,7 @@ impl Engine {
             Event::SkillsInitialized { .. }
                 | Event::PromptInitialized { .. }
                 | Event::ContextUsage(_)
+                | Event::ShellNotice { .. }
                 | Event::CompactStarted { .. }
                 | Event::CompactDone { .. }
         ) {
@@ -147,6 +148,7 @@ impl Engine {
             | Event::StepBoundary { .. }
             | Event::Background { .. }
             | Event::PromptInitialized { .. }
+            | Event::ShellNotice { .. }
             | Event::AuxiliaryDone { .. }
             | Event::AuxiliaryReply { .. }
             | Event::AuxiliaryNotify { .. }

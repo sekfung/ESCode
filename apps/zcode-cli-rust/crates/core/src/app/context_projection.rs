@@ -54,6 +54,10 @@ impl Engine {
                 return Ok(());
             }
             Event::ContextUsage(usage) => session.usage["contextWindow"] = usage,
+            Event::ShellNotice { at, message } => {
+                session.shell_notice = Some((session.context.offset + at, message));
+                return Ok(());
+            }
             Event::CompactStarted {
                 id,
                 manual,

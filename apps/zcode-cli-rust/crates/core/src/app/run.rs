@@ -59,6 +59,11 @@ impl Engine {
             estimated,
         );
         history.prompt_snapshot = session.prompt_snapshot.clone();
+        // 本进程内已判定过的 shell 提醒（落在压缩边界之前的已随摘要消失）。
+        history.shell_notice = session.shell_notice.as_ref().and_then(|(at, notice)| {
+            let at = at.checked_sub(session.context.offset)?;
+            (at <= history.messages.len()).then(|| (at, notice.clone()))
+        });
         history.subagents_enabled = self.subagents_enabled;
         history.skills = session.skills.clone();
         history.goal = session.goal.clone();

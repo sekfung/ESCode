@@ -51,6 +51,7 @@ impl Session {
             workflow_notices: vec![],
             settings_turns: vec![],
             workflow_actor: None,
+            shell_notice: None,
             workflow_runs: None,
             workflow_runs_legacy: None,
             workspace_hook_admission: None,

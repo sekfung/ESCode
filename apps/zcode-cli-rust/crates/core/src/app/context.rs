@@ -56,6 +56,9 @@ pub(super) struct RunContext {
     pub usage_anchor: Option<(usize, usize, usize)>,
     estimated: usize,
     continuations: Vec<usize>,
+    /// 恢复后的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：插在 `messages[位置]` 之前，只进请求、
+    /// 不落库，与临时 Continue 同样不计入 canonical 消息偏移。
+    pub shell_notice: Option<(usize, Value)>,
 }
 const CONTINUE_PROMPT: &str = "Output token limit hit. Resume directly — no apology, no recap of what you were doing. Pick up mid-thought if that is where the cut happened. Break remaining work into smaller pieces.";
 fn continuation_tokens() -> usize {
@@ -84,11 +87,16 @@ impl RunContext {
             usage_anchor: None,
             estimated,
             continuations: vec![],
+            shell_notice: None,
         }
     }
     pub fn insert(&mut self, at: usize, message: Value) {
         self.estimated += estimate(std::slice::from_ref(&message));
         self.messages.insert(at, message);
+        // 插在提醒之前的消息把提醒的锚点后移；插在锚点处（本轮 hook 上下文）则提醒仍在其前。
+        if let Some((position, _)) = self.shell_notice.as_mut().filter(|(p, _)| at < *p) {
+            *position += 1;
+        }
     }
     pub fn push(&mut self, message: Value) {
         self.estimated += estimate(std::slice::from_ref(&message));
@@ -115,15 +123,24 @@ impl RunContext {
         let mut tokens = self.estimated
             + estimate(prefix)
             + tool_tokens
-            + self.continuations.len() * continuation_tokens();
-        // 常规请求保持批量 clone 路径；仅发生续写时才逐消息合并临时提示。
-        let mut messages = if self.continuations.is_empty() {
+            + self.continuations.len() * continuation_tokens()
+            + self
+                .shell_notice
+                .as_ref()
+                .map_or(0, |(_, notice)| estimate(std::slice::from_ref(notice)));
+        // 常规请求保持批量 clone 路径；仅发生续写或有 shell 提醒时才逐消息合并临时提示。
+        let mut messages = if self.continuations.is_empty() && self.shell_notice.is_none() {
             with_summary(self.state.summary.as_deref(), &self.messages)
         } else {
             let mut messages = with_summary(self.state.summary.as_deref(), &[]);
-            messages.reserve(self.messages.len() + self.continuations.len() + 1);
+            messages.reserve(self.messages.len() + self.continuations.len() + 2);
             let mut continuations = self.continuations.iter().peekable();
             for index in 0..=self.messages.len() {
+                if let Some((_, notice)) =
+                    self.shell_notice.as_ref().filter(|(at, _)| *at == index)
+                {
+                    messages.push(notice.clone());
+                }
                 while continuations
                     .peek()
                     .is_some_and(|position| **position == index)
@@ -253,6 +270,11 @@ impl RunContext {
             .iter()
             .filter_map(|position| position.checked_sub(split))
             .collect();
+        // 被压缩掉的区段里的 shell 提醒随之消失（TS 压缩后的历史里也不再有该 attachment）。
+        self.shell_notice = self
+            .shell_notice
+            .take()
+            .and_then(|(at, notice)| Some((at.checked_sub(split)?, notice)));
         self.usage_anchor = None;
         self.estimated = after;
         Ok(())

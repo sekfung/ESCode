@@ -17,6 +17,12 @@ pub struct State {
     pub selection: Value,
     pub goal: Option<Goal>,
     pub todos: Vec<TodoItem>,
+    /// 边界当时的协作模式与 Plan 开关（TS assistant 消息上的 execution state）：fork child 按被选轮的模式执行，
+    /// 而不是父会话当前模式。旧边界缺席时为 None，回落父会话当前值。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_enabled: Option<bool>,
 }
 impl State {
     pub fn capture(s: &Session) -> Self {
@@ -32,6 +38,8 @@ impl State {
             selection: json!({"provider":s.provider,"model":s.model,"thought":s.reasoning_level,"thoughtLevels":s.thought_levels}),
             goal,
             todos: s.todos.clone(),
+            mode: Some(s.mode.clone()),
+            plan_enabled: Some(s.plan_enabled),
         }
     }
     pub fn restore(&self, s: &mut Session) {
@@ -214,6 +222,10 @@ impl Session {
     pub fn cut_history(&mut self, row: usize, message: usize, state: &State) {
         self.rows.truncate(row);
         self.messages.truncate(message);
+        // 被截掉的区段里的 shell 提醒随之失效；锚在截断点上的仍在重跑输入之前。
+        if self.shell_notice.as_ref().is_some_and(|(at, _)| *at > message) {
+            self.shell_notice = None;
+        }
         self.history.inputs.retain(|b| b.row < row);
         self.history
             .responses

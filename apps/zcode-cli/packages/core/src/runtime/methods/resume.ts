@@ -29,6 +29,7 @@ import type {
 import { getLatestActiveSessionMessageId } from "../helpers/index.js";
 import type { ResumeSessionOptions, ResumeSessionResult } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
+import { reconcileProjectedExecutionState } from "../execution-state.js";
 import {
   announceSessionShellEnvironmentNoticeAfterResume,
   getSessionShellSelection,
@@ -251,6 +252,8 @@ export async function resumeFromStore(
     traceContext,
   );
   await this.appendEvent(resumedEvent, traceContext);
+  // 修复：恢复的模式只写了 config、没进事件流，见 reconcileProjectedExecutionState。
+  await reconcileProjectedExecutionState(this, traceContext);
   const sessionStartHookResult = await this.runSessionStartHooks(
     "resume",
     traceContext,

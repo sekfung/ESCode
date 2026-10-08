@@ -84,8 +84,7 @@ sequenceDiagram
 ### 已知差异
 
 - marker 的 `toThought`：Node 副屏 child 投影的 `config.thought` 为空串，Rust 填实际档位。
-- shell 环境变更提醒：Node 恢复 runtime（副屏、fork、跨进程冷恢复）且 shell 快照未还原时注入
-  `The Bash tool shell is …`（Windows 自动检测 Git Bash 时必注入），Rust 尚未实现该提醒，属跨路径缺口，单独处理。
+- ~~shell 环境变更提醒~~：2026-10-08 已对齐（副屏、fork、跨进程冷恢复同一实现），见 `rust-shell-resume-notice.md`。
 
 ## forkAssistant 的 child 身份与边界（2026-10-03）
 
@@ -101,12 +100,22 @@ sequenceDiagram
 
 ### 已知差异
 
-- fork child 的 `session/read.session.mode`：Node 取父会话**创建时**持久化的 permission（`buildForkedSessionInput`
-  用 store 行的 `parentSession.permission`），因此父会话后来切到 yolo，child 仍是 `build`；Rust 只有一个实时
-  `mode` 字段，child 继承父会话当前模式。补齐需要给会话增加「创建时模式」持久化字段，属数据模型变更，待确认。
-- shell 环境变更提醒：同「副屏」一节的已知差异，fork child 的首次模型请求同样少一条
-  `The Bash tool shell is …`。Rust 的 shell 选择是首个 Bash 前懒解析（`crates/core/src/app/shell_preferences.rs`），
-  要在恢复期注入得把解析提前到会话激活，属设计变更，需先确认。
+- ~~fork child 的 `session/read.session.mode`~~（2026-10-08 已修复，两侧都改）：
+  - 规则（TS `session-fork.ts` 的 `commitAtomicConversationFork`）：child 的协作模式与 Plan 开关取**被选轮** assistant
+    消息上的 execution state；父会话之后切换模式不影响 child。副屏 child 仍取父会话当前状态。
+  - Node 缺陷：`buildForkedSessionInput` 把父会话**创建时**的 `permission` 写进 child 行，而 child 实际执行模式来自
+    同一 bundle 的 execution-state entry，`session.mode`（显示 build）与 `settings.permission.mode`、实际执行（yolo）
+    互相矛盾。根因有两处，都修：
+    1. `buildForkedSessionInput` 照抄父会话创建时的 `permission`：child 行的 `permission.mode` 改取同一个
+       execution state（`session-fork.ts`）；
+    2. 冷恢复（`resume.ts`）按 execution-state entry 恢复模式时只写 config、不进事件流，而 `session.mode` 来自事件
+       投影（无模式事件时回落默认 build）。恢复后若投影与权威执行状态不一致，补一条 `SessionModeChanged`
+       （`source: "system"`），与其他改模式路径（`applyRuntimeExecutionState`）同样经事件流生效。
+  - Rust 偏差：child 继承父会话**当前**模式。修复：回复边界 `history::State` 记录当时的 `mode` / `planEnabled`
+    （旧边界缺席时回落父会话当前值），fork 用被选边界上的值（`history_commands.rs`）。
+  - 验收：`zcode-cli-rust-fork-child-mode.test.ts`（第一轮 yolo、第二轮 build 后 fork 第一轮：两侧 child 的
+    `session.mode` 与 `settings.permission.mode` 都是 yolo，父会话仍是 build）。
+- ~~shell 环境变更提醒~~：2026-10-08 已对齐，fork child 首个请求的提醒与位置两侧逐字一致，见 `rust-shell-resume-notice.md`。
 
 ## session/read 的 session 投影（2026-10-03）
 

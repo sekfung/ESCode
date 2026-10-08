@@ -145,3 +145,40 @@ fn win_normalize_matches_node_win32() {
     );
     assert_eq!(win_normalize("C:/a//b/./c"), "C:\\a\\b\\c");
 }
+
+#[test]
+fn resume_notice_follows_ts_rules() {
+    let pick = |dialect, path: Option<&str>, source| Selection {
+        dialect,
+        path: path.map(str::to_owned),
+        source,
+    };
+    let auto_git_bash = pick(
+        Dialect::GitBash,
+        Some(r"C:\Program Files\Git\bin\bash.exe"),
+        Source::AutoDetected,
+    );
+    // 自动探测到的 Git Bash：无论提示词里记的是什么都提醒。
+    for persisted in [None, Some("Git Bash"), Some("CMD")] {
+        assert_eq!(
+            resume_notice(&auto_git_bash, persisted).as_deref(),
+            Some("The Bash tool shell is Git Bash.")
+        );
+    }
+    let user_git_bash = pick(Dialect::GitBash, Some(r"C:\bash.exe"), Source::UserConfig);
+    assert_eq!(resume_notice(&user_git_bash, Some("Git Bash")), None);
+    let cmd = pick(Dialect::Cmd, Some("cmd.exe"), Source::UserConfig);
+    assert_eq!(
+        resume_notice(&cmd, Some("Git Bash")).as_deref(),
+        Some("The Bash tool shell is CMD.")
+    );
+    assert_eq!(resume_notice(&cmd, Some(" CMD ")), None);
+    // 没有记录过 Shell 名时不算变化（TS hasShellDisplayChanged 两侧都得有值）。
+    assert_eq!(resume_notice(&cmd, None), None);
+    assert_eq!(resume_notice(&cmd, Some("  ")), None);
+    let zsh = pick(Dialect::Posix, Some("/bin/zsh"), Source::AutoDetected);
+    assert_eq!(
+        resume_notice(&zsh, Some("bash")).as_deref(),
+        Some("The Bash tool shell is zsh.")
+    );
+}

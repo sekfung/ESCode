@@ -80,3 +80,37 @@ export async function applyRuntimeExecutionState(
   );
   return next;
 }
+
+/**
+ * 冷恢复后让事件投影与权威执行状态对齐。
+ *
+ * 修复：resume 按 execution-state entry 恢复模式与 Plan 时只写 config、不进事件流；事件流里没有模式事件的会话
+ * （如 fork child：entry 取被选轮的模式，父会话事件不复制）投影回落默认 build，session/read 的 session.mode 与
+ * settings.permission.mode、实际执行互相矛盾。与 applyRuntimeExecutionState 一样补一条 SessionModeChanged，
+ * 让投影与执行状态是同一事实（docs/specs/rust-v4-command-gaps.md「forkAssistant」）。一致时不产事件。
+ */
+export async function reconcileProjectedExecutionState(
+  runtime: AgentRuntimeInternal,
+  traceContext: TraceContext,
+): Promise<void> {
+  const projected = await runtime.rebuildProjection();
+  const current = readRuntimeExecutionState(runtime);
+  if (
+    projected.mode === current.mode &&
+    (projected.planEnabled ?? false) === (current.planEnabled ?? false)
+  )
+    return;
+  await runtime.appendEvent(
+    runtime.createEvent(
+      SessionEventType.SessionModeChanged,
+      {
+        ...current,
+        previousMode: projected.mode,
+        previousPlanEnabled: projected.planEnabled,
+        source: "system",
+      },
+      traceContext,
+    ),
+    traceContext,
+  );
+}

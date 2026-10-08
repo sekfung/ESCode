@@ -237,6 +237,16 @@ impl Engine {
                     .unwrap_or(0)
         });
         child.rewind_committed = None;
+        // 父会话的 shell 提醒只属于父会话本进程的历史；child 首轮按恢复会话自行判定。
+        child.shell_notice = None;
+        // 修复：child 原先继承父会话**当前**模式；TS forkAssistant 取被选轮 assistant 消息上的 execution state
+        // （父会话之后切过模式也不影响 child），见 docs/specs/rust-v4-command-gaps.md「forkAssistant」已知差异的更正。
+        if let Some(mode) = &b.state.mode {
+            child.mode = mode.clone();
+        }
+        if let Some(plan) = b.state.plan_enabled {
+            child.plan_enabled = plan;
+        }
         child.id = format!("sess_{}", self.clock.id());
         child.parent_id = Some(parent.into());
         child.task_type = "fork".into();

@@ -113,6 +113,15 @@ pub trait ToolPort: Send + Sync {
     async fn shell_display_name(&self, _sink: &EventSink) -> Option<String> {
         None
     }
+    /// 恢复会话首轮的 shell 提醒正文（docs/specs/rust-shell-resume-notice.md）；`persisted` 是会话起始时写进
+    /// 提示词的 Shell 名。None 表示无需提醒。
+    async fn shell_resume_notice(
+        &self,
+        _sink: &EventSink,
+        _persisted: Option<&str>,
+    ) -> Option<String> {
+        None
+    }
     async fn web_fetch(
         &self,
         _args: &Value,

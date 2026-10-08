@@ -197,11 +197,17 @@ impl super::Engine {
                     *tokens += crate::domain::context::estimate(std::slice::from_ref(&message));
                 }
                 s.messages.insert(start, message);
+                if let Some((at, _)) = s.shell_notice.as_mut().filter(|(at, _)| start < *at) {
+                    *at += 1;
+                }
                 s.history_rewrite = true;
             }
             Some(message) => s.append_message(message),
             None => {
                 s.messages.truncate(start);
+                if s.shell_notice.as_ref().is_some_and(|(at, _)| *at > start) {
+                    s.shell_notice = None;
+                }
                 s.context_tokens = None;
                 s.history_rewrite = true;
             }
