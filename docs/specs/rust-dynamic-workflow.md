@@ -266,3 +266,13 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
 - 已落地：进程级并发治理器——宿主 run 服务注入 `getWorkflowConcurrencyGovernor()`；Rust 的 `workflow_child`
   每次模型尝试先经 `actor.admission.acquire` 取票，网络状态事件依序投给票据、尝试结束释放（退避期间不持票），
   `concurrency-changed` 与 run 的 `concurrency` 状态因此与 Node 一致。差分：`zcode-cli-rust-workflow-model-failure.test.ts`。
+
+## 停止后的结算通知顺序（2026-10-08）
+
+- 现象（CI 复现，`zcode-cli-rust-workflow-resume.test.ts`）：慢机器上 StopWorkflowRun 的工具结果先于 run 的 `runSettled`
+  通知到达 Rust，「已停止」通知落到下一次模型请求，而 Node 在同一次请求里带上。
+- 原因：Node 里终态通知由 run 的 waiter 在 cancel 之后异步铸造，与工具结果之间本就是竞态；同进程时几乎总能赶上下一个
+  步边界。Rust 经工作流宿主子进程多一跳转发，更容易错过。
+- 修复（宿主 `workflow-host-settle-wait.ts`）：宿主的 stop（模型 StopWorkflowRun 与用户停止同一入口）在 cancel 成功后
+  等该 run 的 `runSettled` 行写出再应答。宿主输出按行有序，Rust 先收到通知、再收到工具结果，同一步边界确定地并入通知。
+  等待以结算事件为准，上限 5 秒只防 run 永不结算时卡住停止（届时照常应答）。

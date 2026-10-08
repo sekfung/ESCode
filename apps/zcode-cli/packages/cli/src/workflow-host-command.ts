@@ -54,6 +54,7 @@ import {
   isTerminalRuntimeTask,
 } from "@zcode/core";
 import { createWorkflowRunHandoff } from "./workflow-host-run-handoff.js";
+import { createSettleWaiter } from "./workflow-host-settle-wait.js";
 
 export const ZCODE_WORKFLOW_HOST_COMMAND = "__zcode-workflow-host";
 
@@ -143,6 +144,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
     });
   };
   const runChains = new Map<string, Promise<void>>();
+  const settleWaiter = createSettleWaiter();
   const tracking = (session: string) => {
     let existing = trackers.get(session);
     if (existing === undefined) {
@@ -163,6 +165,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
               originMeta: notification.originMeta,
             },
           });
+          // 通知行先写出，停止请求的应答才放行（见 workflow-host-settle-wait.ts）。
+          settleWaiter.settled(String(notification.taskId));
         },
       } as never);
       existing = { registry, tracker };
@@ -186,6 +190,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
         registry.update(taskId, (current) => ({ ...current, stopInitiator: options.initiator }));
       }
       const cancelled = await service(session).cancel(taskId, options.initiator as never);
+      if (cancelled) await settleWaiter.wait(taskId);
       return cancelled
         ? { ok: true, status: "cancelled", taskId, type }
         : { ok: false, reason: "background_task_not_found", status: "lost", taskId, type };
