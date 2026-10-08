@@ -156,7 +156,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
     reasoningParameters: {},
     retry: { maxRetries: 1, baseDelayMs: 1, maxDelayMs: 1, jitter: false },
   };
-  test(`Rust ${protocol} retries only before visible output with identical encoded bytes`, async () => {
+  test(`Rust ${protocol} retries before visible output and recovers after it with identical encoded bytes`, async () => {
     for (const visible of [false, true]) {
       const f = await fixture({
         mode: "yolo",
@@ -172,9 +172,12 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
         await h.subscribe(`conversation/${id}`);
         await h.command(h.envelope("sendText", id, { text: "stream interruption" }));
         if (visible) {
-          await failure(h, id);
-          assert.equal(f.requests.length, 1);
-          assert(JSON.stringify((await h.rows(id)).rows).includes("visible partial"));
+          // 可见输出之后断流：断流恢复作废尾部（行置 interrupted）并用同一历史重发（rust-model-retry.md）。
+          await h.completed(id);
+          assert.equal(f.requests.length, 2);
+          assert.equal(f.requestBodies[0], f.requestBodies[1]);
+          const partial = (await h.rows(id)).rows.find((r: any) => JSON.stringify(r).includes("visible partial"));
+          assert.equal((partial as any)?.state, "interrupted");
         } else {
           await h.completed(id);
           assert.equal(f.requests.length, 2);
