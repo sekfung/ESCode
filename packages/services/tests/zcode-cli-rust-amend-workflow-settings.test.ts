@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dirname, join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
+
+// 修复（CI macOS 偶发失败）：run 的并发天花板是 `max(1, min(16, availableParallelism()-2))`（TS
+// workflow-concurrency-ceiling.ts）。3 核的 macOS runner 上天花板就是 1，就地调到 1 会被读成 unchanged，
+// 不落设置轮，用例一直等第四行直到超时。天花板为 1 时没有更低的界可调，此时只校验两侧同样拒绝。
+const CAN_RETUNE = Math.max(1, Math.min(16, availableParallelism() - 2)) > 1;
+const SETTINGS_ROWS = CAN_RETUNE ? 4 : 2;
 
 // docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」：run 卡 / 详情页「配置」的「应用」在
 // Node 与 Rust 上给出一致的命令 ACK（修订出新 run 的 supersededRunId、就地调并发、unchanged /
@@ -177,7 +183,7 @@ async function observe(kind: "node" | "rust") {
     const retune = projectAck(await rawAck({ workId: newRunId, maxConcurrency: 1 }));
 
     // 设置轮在 ACK 之后落定（主会话空闲时两侧都立即落）。等两轮（supersede + retune）各两行到齐。
-    assert.ok(await until(async () => (await settingsRows()).length >= 4, 30_000), `${kind}: settings turns never landed`);
+    assert.ok(await until(async () => (await settingsRows()).length >= SETTINGS_ROWS, 30_000), `${kind}: settings turns never landed`);
     const rows = (await settingsRows()).map(projectRow);
 
     clearInterval(pump);
@@ -225,9 +231,13 @@ test("Node and Rust amend workflow run settings from the GUI the same way", asyn
     node.notConfigurable.reasonCode,
     "fault.command.workflowRunSettingsRejected.not_configurable",
   );
-  assert.equal(node.retune.status, "accepted");
-  assert.equal(node.retune.result?.supersededRunId, undefined);
-  assert.equal(node.settingsRows.length, 4);
+  if (CAN_RETUNE) {
+    assert.equal(node.retune.status, "accepted");
+    assert.equal(node.retune.result?.supersededRunId, undefined);
+  } else {
+    assert.equal(node.retune.reasonCode, "fault.command.workflowRunSettingsRejected.unchanged");
+  }
+  assert.equal(node.settingsRows.length, SETTINGS_ROWS);
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
   }

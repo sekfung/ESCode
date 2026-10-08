@@ -215,7 +215,9 @@ async function observe(kind: Runtime) {
       session: {
         title: read.session?.title ?? null,
         titleSource: read.session?.titleSource ?? null,
-        status: read.session?.status ?? null,
+        // 修复（CI 偶发）：启动轮在 ACK 后异步执行，读到 running 还是已收口的 idle 取决于调度快慢，
+        // 两侧都可能出现；只比较它是否落在这两个合法状态内。
+        status: ["running", "idle"].includes(read.session?.status) ? "running|idle" : (read.session?.status ?? null),
         sessionKind: read.session?.sessionKind ?? null,
       },
       launchSentence,

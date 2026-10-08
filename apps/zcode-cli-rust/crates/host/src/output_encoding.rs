@@ -4,7 +4,9 @@
 
 /// 覆盖旧编码的环境变量（TS `ZCODE_WINDOWS_OUTPUT_ENCODING`）。
 pub const OVERRIDE_ENV_KEY: &str = "ZCODE_WINDOWS_OUTPUT_ENCODING";
+#[cfg_attr(not(windows), allow(dead_code))] // 只有 Windows 的旧编码解析用到；单测在各平台都覆盖。
 const UTF8_CODE_PAGE: u32 = 65001;
+#[cfg_attr(not(windows), allow(dead_code))] // 只有 Windows 的旧编码解析用到；单测在各平台都覆盖。
 const GB18030_CODE_PAGE: u32 = 54936;
 
 /// 整段解码工具输出：合法 UTF-8 原样；真正非法的 UTF-8 在有旧编码时按旧编码解码；其余 UTF-8 lossy。
@@ -25,6 +27,7 @@ fn decode_with(bytes: &[u8], legacy: Option<u32>) -> String {
 
 /// `ZCODE_WINDOWS_OUTPUT_ENCODING` 的取值 → 代码页。识别 `cpNNN` / `NNN` 与常见别名；不可识别为 `None`
 /// （TS `iconv.encodingExists` 失败即无旧编码）。
+#[cfg_attr(not(windows), allow(dead_code))] // 只有 Windows 的旧编码解析用到；单测在各平台都覆盖。
 fn override_code_page(value: &str) -> Option<u32> {
     let value = value.trim().to_ascii_lowercase();
     let digits = value
@@ -47,6 +50,7 @@ fn override_code_page(value: &str) -> Option<u32> {
 }
 
 /// TS `resolveWindowsLocaleLegacyEncoding`：locale 文本小写后按子串推断。
+#[cfg_attr(not(windows), allow(dead_code))] // 只有 Windows 的旧编码解析用到；单测在各平台都覆盖。
 fn locale_code_page(locale_text: &str) -> u32 {
     let text = locale_text.to_lowercase();
     let any = |needles: &[&str]| needles.iter().any(|needle| text.contains(needle));
