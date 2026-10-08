@@ -105,6 +105,7 @@ impl Engine {
             session_id: Some(origin.clone()),
             turn_id: None,
             query_source: Some("project_memory_extract".into()),
+            trace_id: self.sessions.get(id).and_then(|s| s.trace_id.clone()),
         };
         tokio::spawn(async move {
             crate::contract::with_model_call(

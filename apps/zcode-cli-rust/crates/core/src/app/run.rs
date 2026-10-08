@@ -168,6 +168,8 @@ impl Engine {
                 }
                 .into(),
             ),
+            // 与 MCP 请求上下文同一个 trace id（模型请求的 x-zcode-trace-id 归因头）。
+            trace_id: history.turn.mcp_meta["trace_id"].as_str().map(str::to_owned),
         };
         tokio::spawn(async move {
             let result = crate::contract::with_model_call(

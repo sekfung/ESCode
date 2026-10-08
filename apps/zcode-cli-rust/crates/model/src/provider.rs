@@ -123,10 +123,7 @@ impl HttpModel {
                 .map(|(_, value)| value.as_str());
             super::web_search::merge_beta(existing)
         });
-        for (key, value) in &self.config.headers {
-            if beta.is_some() && key.eq_ignore_ascii_case("anthropic-beta") {
-                continue;
-            }
+        for (key, value) in super::client_headers::request_headers(&self.config.headers, beta.is_some(), &self.url) {
             request = request.header(key, value);
         }
         if let Some(beta) = &beta {

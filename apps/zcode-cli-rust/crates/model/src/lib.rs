@@ -6,6 +6,7 @@ mod attachment_image;
 pub use attachment_image::set_media_cache_root;
 mod attachment_read;
 mod attachment_reminder;
+mod client_headers;
 pub mod config;
 mod model_failure;
 mod model_io;

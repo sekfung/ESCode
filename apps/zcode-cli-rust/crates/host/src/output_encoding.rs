@@ -109,7 +109,7 @@ fn resolve_legacy_code_page() -> Option<u32> {
 }
 
 #[cfg(windows)]
-fn user_default_locale_name() -> Option<String> {
+pub(crate) fn user_default_locale_name() -> Option<String> {
     use windows_sys::Win32::Globalization::GetUserDefaultLocaleName;
     let mut buffer = [0u16; 85];
     let length = unsafe { GetUserDefaultLocaleName(buffer.as_mut_ptr(), buffer.len() as i32) };

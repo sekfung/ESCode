@@ -88,6 +88,7 @@ impl Engine {
             session_id: None,
             turn_id: None,
             query_source,
+            trace_id: None,
         };
         tokio::spawn(async move {
             let result=crate::contract::with_model_call(model_call, model.complete(messages,&tools,&sink,&cancel)).await.map(|out|{

@@ -9,6 +9,7 @@ pub mod credential_store;
 pub mod file_lock;
 pub mod image_budget;
 pub mod legacy_paths;
+pub mod client_platform;
 pub mod file_log;
 pub mod net_config;
 pub mod output_encoding;

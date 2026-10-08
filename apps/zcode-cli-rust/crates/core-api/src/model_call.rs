@@ -13,6 +13,8 @@ pub struct ModelCallScope {
     pub turn_id: Option<String>,
     /// TS `metadata.querySource`：`main_turn` / `subagent` / `compact` / `session_title` / …
     pub query_source: Option<String>,
+    /// 会话 trace id：模型请求的 `x-zcode-trace-id` 归因头（docs/specs/rust-model-request-headers.md）。
+    pub trace_id: Option<String>,
 }
 
 tokio::task_local! {
