@@ -113,16 +113,14 @@ impl ToolPort for WorkspaceTools {
     }
     /// 会话 shell 的显示名（与 Bash 执行使用同一选择与 Host 偏好）。
     async fn shell_display_name(&self, sink: &crate::contract::EventSink) -> Option<String> {
-        Some(crate::shell_select::display_name(
-            &session_shell_selection(sink).await,
-        ))
+        Some(super::tool_shell::display_name(sink).await)
     }
     async fn shell_resume_notice(
         &self,
         sink: &crate::contract::EventSink,
         persisted: Option<&str>,
     ) -> Option<String> {
-        crate::shell_select::resume_notice(&session_shell_selection(sink).await, persisted)
+        super::tool_shell::resume_notice(sink, persisted).await
     }
     async fn web_fetch(
         &self,
@@ -398,17 +396,3 @@ impl ToolPort for WorkspaceTools {
 }
 pub use super::tool_args::truncate_utf8;
 pub(super) use super::tool_args::{boolean, check_cancel, keys, resolve, string, uint};
-
-/// 会话当前的 shell 选择（与 Bash 执行同一 Host 偏好与解析）。
-async fn session_shell_selection(
-    sink: &crate::contract::EventSink,
-) -> crate::shell_select::Selection {
-    let over = super::tool_shell::shell_override(Some(sink)).await;
-    let env: Vec<(String, String)> = std::env::vars().collect();
-    crate::shell_select::resolve(
-        crate::shell_select::Platform::current(),
-        &env,
-        over.as_ref(),
-        &|p| std::path::Path::new(p).is_file(),
-    )
-}

@@ -77,6 +77,7 @@ mod workflow_actors;
 mod hook_rows;
 mod tool_hooks;
 mod permission_hooks;
+mod shell_notice;
 mod turn_hooks;
 mod workspace_hooks;
 mod cua_events;

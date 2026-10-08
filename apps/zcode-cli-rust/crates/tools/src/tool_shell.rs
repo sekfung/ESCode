@@ -364,3 +364,30 @@ pub(super) async fn shell_override(
         .ok()??;
     crate::shell_select::parse_override(&value)
 }
+
+/// 会话当前的 shell 选择（与 Bash 执行同一 Host 偏好与解析）。
+async fn session_shell_selection(
+    sink: &crate::contract::EventSink,
+) -> crate::shell_select::Selection {
+    let over = shell_override(Some(sink)).await;
+    let env: Vec<(String, String)> = std::env::vars().collect();
+    crate::shell_select::resolve(
+        crate::shell_select::Platform::current(),
+        &env,
+        over.as_ref(),
+        &|p| std::path::Path::new(p).is_file(),
+    )
+}
+
+/// 恢复会话首轮的 shell 提醒（docs/specs/rust-shell-resume-notice.md）。
+pub(super) async fn resume_notice(
+    sink: &crate::contract::EventSink,
+    persisted: Option<&str>,
+) -> Option<String> {
+    crate::shell_select::resume_notice(&session_shell_selection(sink).await, persisted)
+}
+
+/// 系统提示词里的 Shell 名（与 Bash 执行同一选择）。
+pub(super) async fn display_name(sink: &crate::contract::EventSink) -> String {
+    crate::shell_select::display_name(&session_shell_selection(sink).await)
+}
