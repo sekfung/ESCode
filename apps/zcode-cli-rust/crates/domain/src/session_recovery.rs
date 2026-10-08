@@ -86,6 +86,37 @@ impl Session {
             self.append_message(json!({"role":"tool","tool_call_id":id,"content":content,"_zcode_tool_failed":failed}));
         }
     }
+    /// 同一响应里可续写的正文 / 推理行。断流恢复作废的行（interrupted）不再续写：重发的请求可能沿用同一 response id
+    /// （docs/specs/rust-model-retry.md）。
+    pub fn text_row_to_continue(&mut self, response_id: &str, kind: &str) -> Option<&mut Value> {
+        self.rows.iter_mut().rev().find(|r| {
+            r["assistantResponseId"] == response_id && r["kind"] == kind && r["state"] != "interrupted"
+        })
+    }
+    /// 断流恢复作废本轮仍在流式的 assistant 尾部（TS onStreamRecoveryTailDiscarded 的 closeStreamingRows("interrupted")）。
+    /// Node 在正文开始时已把同一响应的推理行收口为 complete，这里同样处理被正文接上的推理行；
+    /// 其余仍在流式的行收口为 interrupted，恢复请求用新行续写。
+    pub fn discard_stream_tail(&mut self, turn: &str) -> Vec<Value> {
+        let followed_by_text: Vec<bool> = (0..self.rows.len())
+            .map(|i| {
+                let row = &self.rows[i];
+                row["kind"] == "reasoning"
+                    && self.rows[i + 1..].iter().any(|later| {
+                        later["kind"] == "assistantText"
+                            && later["state"] == "streaming"
+                            && later["assistantResponseId"] == row["assistantResponseId"]
+                    })
+            })
+            .collect();
+        let mut deltas = vec![];
+        for (row, followed) in self.rows.iter_mut().zip(followed_by_text) {
+            if row["turnId"] == turn && row["state"] == "streaming" {
+                row["state"] = if followed { "complete" } else { "interrupted" }.into();
+                deltas.push(json!({"op":"row.upserted","row":row}));
+            }
+        }
+        deltas
+    }
     pub fn finish_rows(&mut self, outcome: &str, now: u64) {
         let history_rounds = history_rounds(&self.rows);
         for row in &mut self.rows {

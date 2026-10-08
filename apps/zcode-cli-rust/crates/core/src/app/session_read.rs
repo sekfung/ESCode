@@ -160,7 +160,7 @@ impl Engine {
             .into();
         }
         if let Some(retry) = &s.api_retry {
-            runtime["apiRetry"] = json!({"kind":"api_retry","attempt":retry.attempt,"maxRetries":retry.max_attempts.saturating_sub(1),"retryDelayMs":retry.next_retry_at.saturating_sub(self.clock.now()),"errorStatus":null,"error":retry.reason_code});
+            runtime["apiRetry"] = json!({"kind":"api_retry","attempt":retry.attempt,"maxRetries":retry.max_attempts.saturating_sub(1),"retryDelayMs":retry.next_retry_at.saturating_sub(self.clock.now()),"errorStatus":null,"error":retry.reason});
         }
         let mut messages = crate::domain::legacy_snapshot::messages(s, &self.workspace_path);
         if let Some(limit) = limit {

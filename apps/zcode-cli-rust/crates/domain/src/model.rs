@@ -101,5 +101,44 @@ pub struct RetryState {
     pub attempt: u32,
     pub max_attempts: u32,
     pub next_retry_at: u64,
+    /// V4 `control.apiRetry.reasonCode`：UI 按 `fault.*` 取文案（[`retry_reason_code`]）。
     pub reason_code: &'static str,
+    /// 适配层原始 reason：旧 `session/read` 的 `runtime.apiRetry.error` 沿用它（TS normalizeZCodeApiRetryStatus 回落 reason）。
+    #[serde(skip)]
+    pub reason: &'static str,
+}
+
+/// TS product-projection `modelRetryReasonCode`。修复：Rust 原先把原始 reason（如 `rate_limited`）直接作为
+/// reasonCode，UI 按 `fault.*` 展示的重试文案无法命中。
+pub fn retry_reason_code(reason: &str) -> &'static str {
+    match reason {
+        "rate_limited" | "offpeak_queued" => "fault.provider.rateLimited",
+        "provider_overloaded" | "server_error" => "fault.provider.serverError",
+        "timeout" => "fault.network.timeout",
+        "stream_idle_timeout" => "fault.network.sseStalled",
+        "stale_connection" => "fault.network.sseDisconnected",
+        "network_error" => "fault.network.unreachable",
+        _ => "fault.provider.requestFailed",
+    }
+}
+
+#[cfg(test)]
+mod retry_reason_tests {
+    #[test]
+    fn maps_like_ts_product_projection() {
+        for (reason, code) in [
+            ("rate_limited", "fault.provider.rateLimited"),
+            ("offpeak_queued", "fault.provider.rateLimited"),
+            ("provider_overloaded", "fault.provider.serverError"),
+            ("server_error", "fault.provider.serverError"),
+            ("timeout", "fault.network.timeout"),
+            ("stream_idle_timeout", "fault.network.sseStalled"),
+            ("stale_connection", "fault.network.sseDisconnected"),
+            ("network_error", "fault.network.unreachable"),
+            ("auth_refresh", "fault.provider.requestFailed"),
+            ("reasoning_signature_repair", "fault.provider.requestFailed"),
+        ] {
+            assert_eq!(super::retry_reason_code(reason), code, "{reason}");
+        }
+    }
 }

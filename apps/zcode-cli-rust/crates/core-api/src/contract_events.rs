@@ -52,6 +52,12 @@ pub enum Event {
     /// 恢复会话首轮判定出的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：`at` 是相对本次运行
     /// 消息窗口（`messages[context.offset..]`）的锚点；owner 只记在内存，不落库。
     ShellNotice { at: usize, message: Value },
+    /// 断流恢复开始（docs/specs/rust-model-retry.md）：owner 作废本次 assistant 尾部并显示恢复态。
+    StreamRecovery {
+        retry_number: u32,
+        max_retries: u32,
+        reason_code: &'static str,
+    },
     /// 会话终端 shell 偏好（Host `integratedTerminalShell` 原值）；会话 owner 负责请求与缓存。
     ShellPreference {
         reply: oneshot::Sender<Option<Value>>,

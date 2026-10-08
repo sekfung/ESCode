@@ -54,6 +54,21 @@ impl Engine {
                 return Ok(());
             }
             Event::ContextUsage(usage) => session.usage["contextWindow"] = usage,
+            // 断流恢复（docs/specs/rust-model-retry.md）：作废流式尾部并显示恢复态。
+            Event::StreamRecovery {
+                retry_number,
+                max_retries,
+                reason_code,
+            } => {
+                deltas.extend(session.discard_stream_tail(&turn));
+                session.api_retry = Some(crate::contract::RetryState {
+                    attempt: retry_number,
+                    max_attempts: max_retries + 1,
+                    next_retry_at: self.clock.now(),
+                    reason_code,
+                    reason: reason_code,
+                });
+            }
             Event::ShellNotice { at, message } => {
                 session.shell_notice = Some((session.context.offset + at, message));
                 return Ok(());

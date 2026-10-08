@@ -172,7 +172,8 @@ test("Rust retries socket failures, server errors and SSE network errors within 
       .filter(Boolean);
     assert.deepEqual(
       retries.map((r: any) => r.reasonCode),
-      ["network_error", "server_error", "network_error"],
+      // V4 reasonCode 与 Node modelRetryReasonCode 一致（rust-model-retry.md）。
+      ["fault.network.unreachable", "fault.provider.serverError", "fault.network.unreachable"],
     );
     assert(!JSON.stringify(h.messages).includes("private diagnostic"));
     assert.deepEqual(h.schemaErrors, []);

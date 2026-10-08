@@ -325,7 +325,8 @@ impl HttpModel {
                         attempt,
                         max_attempts: self.retry.max_attempts,
                         next_retry_at: super::now().saturating_add(delay_ms),
-                        reason_code: reason,
+                        reason_code: zcode_cli_domain::model::retry_reason_code(reason),
+                        reason,
                     })))
                     .await
                     .map_err(|_| ModelFailure::cancelled())?;

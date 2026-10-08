@@ -78,6 +78,7 @@ mod hook_rows;
 mod tool_hooks;
 mod permission_hooks;
 mod shell_notice;
+mod stream_recovery;
 mod turn_hooks;
 mod workspace_hooks;
 mod cua_events;

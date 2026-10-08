@@ -41,7 +41,7 @@ impl Engine {
             event.event,
             Event::SkillsInitialized { .. }
                 | Event::PromptInitialized { .. }
-                | Event::ContextUsage(_) | Event::ShellNotice { .. }
+                | Event::ContextUsage(_) | Event::ShellNotice { .. } | Event::StreamRecovery { .. }
                 | Event::CompactStarted { .. }
                 | Event::CompactDone { .. }
         ) {
@@ -140,6 +140,7 @@ impl Engine {
             | Event::GoalVerdict { .. }
             | Event::SkillsInitialized { .. }
             | Event::TodoReminder { .. } | Event::HookContext { .. } | Event::ShellNotice { .. }
+            | Event::StreamRecovery { .. }
             | Event::Question { .. }
             | Event::PlanEnter { .. }
             | Event::PlanExit { .. }
@@ -183,12 +184,7 @@ impl Engine {
                 } else {
                     "assistantText"
                 };
-                if let Some(row) = s
-                    .rows
-                    .iter_mut()
-                    .rev()
-                    .find(|r| r["assistantResponseId"] == response_id && r["kind"] == kind)
-                {
+                if let Some(row) = s.text_row_to_continue(&response_id, kind) {
                     let serde_json::Value::String(current) = &mut row["text"] else {
                         bail!("Invalid text projection");
                     };

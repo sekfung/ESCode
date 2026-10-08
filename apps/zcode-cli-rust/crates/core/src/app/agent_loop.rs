@@ -114,6 +114,8 @@ pub(super) async fn run(
     });
     let memory_root = history.memory.as_ref().map(|m| m.root.clone());
     let mut turns = 0;
+    // 本 run 已做的断流恢复次数（TS RegularTurnLoopState.streamRecoveryRetryCount）。
+    let mut stream_recoveries = 0;
     let (mut tool_calls, mut stop_continuations) = (0, 0);
     loop {
         if profile
@@ -199,7 +201,21 @@ pub(super) async fn run(
             }
         }
         sink.send(Event::ContextUsage(json!({"usedTokens":tokens,"maxTokens":policy.window,"autoCompactThresholdTokens":if policy.automatic {Some(policy.threshold())} else {None}}))).await?;
-        let output = match model.complete(messages, &definitions, sink, cancel).await {
+        let result = loop {
+            match model.complete(messages, &definitions, sink, cancel).await {
+                Err(failure)
+                    if super::stream_recovery::recoverable(&failure)
+                        && stream_recoveries < super::stream_recovery::MAX_RETRIES
+                        && !cancel.is_cancelled() =>
+                {
+                    stream_recoveries += 1;
+                    super::stream_recovery::start(sink, stream_recoveries, &failure).await?;
+                    (messages, _) = history.projection(&prefix, tool_tokens, micro_threshold);
+                }
+                result => break result,
+            }
+        };
+        let output = match result {
             Err(failure)
                 if policy.automatic
                     && failure.reason == "context_exceeded"
