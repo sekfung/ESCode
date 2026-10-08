@@ -33,10 +33,15 @@ pub(crate) fn seed_plugins<'a>(
     for plugin in plugins {
         let target = cache_root(storage, plugin.definition);
         if !plugin.missing.is_empty() {
-            eprintln!(
-                "zcode-cli-rust: official plugin {} is missing required seed assets: {}",
-                plugin.definition.name,
-                plugin.missing.join(", ")
+            zcode_cli_host::file_log::warn(
+                "official_plugins.seed.assets_missing",
+                "tools.official_plugins",
+                &format!(
+                    "official plugin {} is missing required seed assets: {}",
+                    plugin.definition.name,
+                    plugin.missing.join(", ")
+                ),
+                serde_json::Value::Null,
             );
             failed.push(plugin.definition);
             continue;
@@ -51,9 +56,14 @@ pub(crate) fn seed_plugins<'a>(
             if !degraded {
                 return Err(error);
             }
-            eprintln!(
-                "zcode-cli-rust: official plugin cache operation degraded for {}: {error:#}",
-                plugin.definition.name
+            zcode_cli_host::file_log::warn(
+                "official_plugins.cache.degraded",
+                "tools.official_plugins",
+                &format!(
+                    "official plugin cache operation degraded for {}: {error:#}",
+                    plugin.definition.name
+                ),
+                serde_json::Value::Null,
             );
             failed.push(plugin.definition);
         }

@@ -116,7 +116,7 @@ pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
     let roots = match seed(storage, &base_dirs(), host.as_ref()) {
         Ok(roots) => roots,
         Err(error) => {
-            eprintln!("zcode-cli-rust: official plugin seed failed: {error:#}");
+            zcode_cli_host::file_log::warn("official_plugins.seed.failed", "tools.official_plugins", &format!("official plugin seed failed: {error:#}"), serde_json::Value::Null);
             vec![]
         }
     };
@@ -140,7 +140,7 @@ pub(crate) fn reseed(storage: &Path) {
         _ => None,
     };
     if let Err(error) = seed(storage, &base_dirs(), host.as_ref()) {
-        eprintln!("zcode-cli-rust: official plugin reseed failed: {error:#}");
+        zcode_cli_host::file_log::warn("official_plugins.reseed.failed", "tools.official_plugins", &format!("official plugin reseed failed: {error:#}"), serde_json::Value::Null);
     }
 }
 

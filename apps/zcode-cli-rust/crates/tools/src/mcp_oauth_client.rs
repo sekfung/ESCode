@@ -63,7 +63,7 @@ impl AuthClient {
         self.record(match error.downcast::<AuthorizationRequired>() {
             Ok(required) => Failure::Required(required),
             Err(error) => {
-                eprintln!("zcode-cli-rust: MCP server {} OAuth token unavailable: {error:#}", self.oauth.name());
+                zcode_cli_host::file_log::warn("mcp.oauth.token_unavailable", "tools.mcp", &format!("MCP server {} OAuth token unavailable: {error:#}", self.oauth.name()), serde_json::Value::Null);
                 Failure::Other
             }
         });

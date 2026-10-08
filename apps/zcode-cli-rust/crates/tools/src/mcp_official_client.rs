@@ -87,7 +87,7 @@ impl Official {
         match self.resolve(origin).await {
             Ok(headers) => headers.iter().filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_owned()))).collect(),
             Err(reason) => {
-                eprintln!("zcode-cli-rust: official MCP {} auth headers unavailable: {reason}", self.name);
+                zcode_cli_host::file_log::warn("mcp.official.auth_unavailable", "tools.mcp", &format!("official MCP {} auth headers unavailable: {reason}", self.name), serde_json::Value::Null);
                 vec![]
             }
         }
@@ -95,7 +95,7 @@ impl Official {
     /// stdio 出站消息的 `_meta` 身份载荷（TS `resolveOfficialStdioAuthMeta`）：失败也下发枚举 reason。
     pub async fn stdio_meta(&self) -> Value {
         let fail = |reason: &str| {
-            eprintln!("zcode-cli-rust: official MCP {} stdio auth headers unavailable: {reason}", self.name);
+            zcode_cli_host::file_log::warn("mcp.official.stdio_auth_unavailable", "tools.mcp", &format!("official MCP {} stdio auth headers unavailable: {reason}", self.name), serde_json::Value::Null);
             json!({"ok": false, "reason": reason})
         };
         if self.host.is_none() {

@@ -103,11 +103,11 @@ pub(super) fn start(
                 .map(Arc::new)
                 .map_err(|error| failure_kind(&error).into()),
             Outcome::Pending => {
-                eprintln!("zcode-cli-rust: MCP server {} OAuth authorization is still in progress; complete it in the browser and reconnect", server.name);
+                zcode_cli_host::file_log::warn("mcp.oauth.pending", "tools.mcp", &format!("MCP server {} OAuth authorization is still in progress; complete it in the browser and reconnect", server.name), serde_json::Value::Null);
                 Err("oauth_authorization_failed".to_owned())
             }
             Outcome::Failed(error) => {
-                eprintln!("zcode-cli-rust: MCP server {} OAuth authorization failed: {error:#}", server.name);
+                zcode_cli_host::file_log::warn("mcp.oauth.failed", "tools.mcp", &format!("MCP server {} OAuth authorization failed: {error:#}", server.name), serde_json::Value::Null);
                 Err("oauth_authorization_failed".to_owned())
             }
         };

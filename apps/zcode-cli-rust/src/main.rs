@@ -17,14 +17,34 @@ use zcode_cli_tools::WorkspaceTools;
 #[tokio::main]
 async fn main() {
     if let Err(error) = run().await {
-        // stderr 断管也不能递归进入错误处理；stdout 永远只用于协议。
-        use std::io::Write;
-        let _ = writeln!(std::io::stderr().lock(), "zcode-cli-rust: {error}");
+        // stderr 断管也不能递归进入错误处理；stdout 永远只用于协议。file_log 的 error 同时写 stderr。
+        zcode_cli_host::file_log::error(
+            "runtime.failed",
+            "cli",
+            &error.to_string(),
+            serde_json::Value::Null,
+        );
         std::process::exit(1);
     }
+    zcode_cli_host::file_log::info(
+        "runtime.stopped",
+        "cli",
+        "Runtime stopped",
+        serde_json::Value::Null,
+    );
 }
 async fn run() -> Result<()> {
     let args = Args::parse();
+    // 文件日志（docs/specs/rust-file-log.md）：进程生命周期 + 7 天保留。
+    zcode_cli_host::file_log::info(
+        "runtime.started",
+        "cli",
+        "Runtime started",
+        json!({"version": env!("CARGO_PKG_VERSION"), "platform": std::env::consts::OS, "arch": std::env::consts::ARCH, "prepareStorage": args.prepare_storage}),
+    );
+    if !args.prepare_storage {
+        zcode_cli_host::file_log::schedule_retention();
+    }
     let question_timing = zcode_cli_host::question_timing()?;
     let requested_cwd = args.cwd.unwrap_or(std::env::current_dir()?);
     let cwd = zcode_cli_host::realpath(&requested_cwd)
