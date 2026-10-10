@@ -32,16 +32,16 @@
 
 ## 三、验证证据
 
-| 检查                                                | 结果                                                                                                                                                                            |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm typecheck`                                    | 通过（修复 1 处被二进制检测跳过的导入：`packages/ui/src/hooks/useWorkflowRunNodeResult.ts` 含 NUL 分隔符，改名脚本按二进制跳过）                                                |
-| `pnpm lint`                                         | 通过（90 warnings / 0 errors，与改名前的既有基线一致）                                                                                                                          |
-| `pnpm architecture:check --changed`                 | 通过：violations 0、baseline 0、new 0                                                                                                                                           |
-| `cargo fmt --check`（escode-cli-rust）              | 通过（改名改变 `use escode_cli_*` 的字典序，35 处 import 顺序差异已用 `cargo fmt` 应用）                                                                                        |
-| `pnpm test:escode-cli-rust`（GNU 目标）             | cargo 单元测试全部通过；App 集成套件 400 项：390 通过、9 跳过、1 失败（既有失败，见下）                                                                                         |
-| `cargo clippy --all-targets -- -D warnings`         | 见下「Rust 验证环境」                                                                                                                                                           |
-| 生成资产重建                                        | `scripts/generate-escode-cli-rust-*.mjs` 全部 28 个生成器按 TS 源重跑；`plugin_defaults.json`、`official_plugins.json` 等因 ID 改名导致排序变化，已由生成器重写；`--check` 一致 |
-| `node scripts/check-escode-cli-rust-boundaries.mjs` | **既有失败**：`tools/src/mcp_hub.rs`（410 行）与 `tools/src/tools.rs`（403 行）超过 400 行上限；两者在 HEAD 同样是 410/403 行，与本次改名无关                                   |
+| 检查                                                | 结果                                                                                                                                                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------------------------------- |
+| `pnpm typecheck`                                    | 通过（修复 1 处被二进制检测跳过的导入：`packages/ui/src/hooks/useWorkflowRunNodeResult.ts` 含 NUL 分隔符，改名脚本按二进制跳过）                                                                                        |
+| `pnpm lint`                                         | 通过（90 warnings / 0 errors，与改名前的既有基线一致）                                                                                                                                                                  |
+| `pnpm architecture:check --changed`                 | 通过：violations 0、baseline 0、new 0                                                                                                                                                                                   |
+| `cargo fmt --check`（escode-cli-rust）              | 通过（改名改变 `use escode_cli_*` 的字典序，35 处 import 顺序差异已用 `cargo fmt` 应用）                                                                                                                                |
+| `pnpm test:escode-cli-rust`（GNU 目标）             | cargo 单元测试全部通过；App 集成套件 400 项：390 通过、9 跳过、1 失败（既有失败，见下）                                                                                                                                 |
+| `cargo clippy --all-targets -- -D warnings`         | **既有失败**：2 处 lint 与改名无关——`collapsible_match`（`crates/core/src/app/auxiliary.rs:207`，`match` 分支内的 `if`）与 `nonminimal_bool`（`crates/tools/src/plugin_validate_mcp.rs:276`，`!text(field).is_some_and( | v   | !v.is_empty())`）；两段代码在改名前（HEAD~2）逐字存在 |
+| 生成资产重建                                        | `scripts/generate-escode-cli-rust-*.mjs` 全部 28 个生成器按 TS 源重跑；`plugin_defaults.json`、`official_plugins.json` 等因 ID 改名导致排序变化，已由生成器重写；`--check` 一致                                         |
+| `node scripts/check-escode-cli-rust-boundaries.mjs` | **既有失败**：`tools/src/mcp_hub.rs`（410 行）与 `tools/src/tools.rs`（403 行）超过 400 行上限；两者在 HEAD 同样是 410/403 行，与本次改名无关                                                                           |
 
 App 集成套件中唯一失败的 `packages/services/tests/escode-cli-rust-options.test.ts` 也是既有问题：它 `import` 未在工作区中声明的 `@escode/model-option-map`，`packages/services/tsconfig.json` 没有该 paths 映射（改名前同样没有，`@zcode/model-option-map` 的同一断言在改名前代码上同样报 `ERR_MODULE_NOT_FOUND`），运行期解析一直依赖不存在的 node_modules 链接。改名未引入该失败，也未扩大范围。
 
