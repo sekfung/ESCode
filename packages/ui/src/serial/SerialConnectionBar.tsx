@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RefreshCwIcon } from "lucide-react";
-import type { SerialConfig, SerialPortInfo } from "@zcode/services";
+import type { SerialConfig } from "@zcode/services";
+import type { SerialPortOption } from "@/lib/serial/serialPortChoice.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import {
@@ -29,7 +30,7 @@ export function SerialConnectionBar({
   onConfigChange,
   onToggleOpen,
 }: {
-  ports: readonly SerialPortInfo[];
+  ports: readonly SerialPortOption[];
   path: string;
   config: SerialConfig;
   /** 串口处于打开/等待重连/转换中，参数不可修改。 */
@@ -63,6 +64,11 @@ export function SerialConnectionBar({
               {port.path}
               {port.manufacturer ? (
                 <span className="ml-2 text-foreground-subtle">{port.manufacturer}</span>
+              ) : null}
+              {port.running ? (
+                <span className="ml-2 text-ui-xs text-success">
+                  {intl.formatMessage({ id: "serial.port.running" })}
+                </span>
               ) : null}
             </SelectItem>
           ))}

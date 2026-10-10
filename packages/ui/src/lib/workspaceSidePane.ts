@@ -85,13 +85,18 @@ export interface DeveloperToolsSidePaneTab {
   openedAt?: number;
 }
 
-/** 串口调试器；串口会话属于窗口级 Local Host，每个窗口最多一个标签。 */
+/**
+ * 串口调试器标签；串口会话属于窗口级 Local Host。可多开，每个标签绑定一个串口路径
+ * （未绑定时为空），关闭标签不关闭串口（docs/specs/serial-port-debugger-phase3.md）。
+ */
 export interface SerialSidePaneTab {
-  id: "serial";
+  id: string;
   type: "serial";
   ownerTaskId?: string | null;
   workspaceKey?: string | null;
   openedAt?: number;
+  /** 绑定的串口路径；应用重启后保留用于预选，不自动连接。 */
+  path?: string;
 }
 
 export interface TerminalSidePaneTab {
@@ -684,7 +689,7 @@ function createDeveloperToolsSidePaneTab(): DeveloperToolsSidePaneTab {
 
 function createSerialSidePaneTab(): SerialSidePaneTab {
   return {
-    id: "serial",
+    id: `serial:${createUuid()}`,
     type: "serial",
     openedAt: Date.now(),
   };
@@ -1612,11 +1617,27 @@ export function activateDeveloperToolsSidePane(
   return activateSidePaneTab(current, createDeveloperToolsSidePaneTab());
 }
 
+/** 新开一个未绑定的串口标签；多串口时每个标签对应一个串口。 */
 export function openSerialSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
-  const existing = current?.tabs.find((tab) => tab.type === "serial");
-  return activateSidePaneTab(current, existing ?? createSerialSidePaneTab());
+  return activateSidePaneTab(current, createSerialSidePaneTab());
+}
+
+/** 标签绑定（或改绑）串口路径；未知标签原样返回。 */
+export function bindSerialSidePaneTab(
+  current: WorkspaceSidePaneState | null,
+  tabId: string,
+  path: string,
+): WorkspaceSidePaneState | null {
+  if (!current) return current;
+  let changed = false;
+  const tabs = current.tabs.map((tab) => {
+    if (tab.id !== tabId || tab.type !== "serial" || tab.path === path) return tab;
+    changed = true;
+    return { ...tab, path };
+  });
+  return changed ? { ...current, tabs } : current;
 }
 
 export function openTerminalSidePane(

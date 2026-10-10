@@ -22,9 +22,13 @@ const TOOL_OPS: Record<string, SerialToolOp> = {
   serial_close: "close",
 };
 
+/** 多串口时的通用说明，附在需要定位串口的工具描述后。 */
+const PATH_HINT =
+  " Pass path when more than one serial port is open; it may be omitted when exactly one is open.";
+
 const DESCRIPTIONS: Record<SerialToolOp, string> = {
   list:
-    "List serial ports on this machine and the state of the serial session shared with the user's Serial Port panel (closed/open/disconnected, path, parameters).",
+    "List serial ports on this machine and the active serial sessions shared with the user's Serial Port panels (path, state, parameters). Up to 4 ports can be open at once.",
   open:
     "Open a serial port when the session is closed. If the user already has a port open, this succeeds only when path and parameters match exactly; otherwise it fails and you must ask the user. Requires approval.",
   write:
@@ -40,7 +44,7 @@ const READ_ONLY_OPS = new Set<SerialToolOp>(["list", "read", "waitFor"]);
 
 export const SERIAL_TOOLS: SerialToolDefinition[] = Object.entries(TOOL_OPS).map(([name, op]) => ({
   name,
-  description: DESCRIPTIONS[op],
+  description: op === "list" || op === "open" ? DESCRIPTIONS[op] : DESCRIPTIONS[op] + PATH_HINT,
   inputSchema: z.toJSONSchema(serialToolArgsSchemas[op], { io: "input" }) as {
     type: "object";
   },

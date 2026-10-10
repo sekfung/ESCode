@@ -114,11 +114,31 @@ test("渲染缓冲按字节上限淘汰最旧 chunk", () => {
 
 // --- 侧边面板 -----------------------------------------------------------------
 
-test("serial 标签每个窗口唯一，重复打开复用同一标签", () => {
+test("每次打开串口调试都新建一个未绑定的 serial 标签（多串口）", () => {
   let state = openSerialSidePane(null);
   state = openSerialSidePane(state);
-  assert.equal(state.tabs.filter((tab) => tab.type === "serial").length, 1);
-  assert.equal(state.activeTabId, "serial");
+  const tabs = state.tabs.filter((tab) => tab.type === "serial");
+  assert.equal(tabs.length, 2);
+  assert.notEqual(tabs[0]!.id, tabs[1]!.id);
+  assert.ok(tabs.every((tab) => tab.id.startsWith("serial:")));
+  assert.equal(state.activeTabId, tabs[1]!.id);
+  assert.ok(tabs.every((tab) => tab.type === "serial" && tab.path === undefined));
+});
+
+test("绑定串口后标签记住 path，标题只显示串口名（多标签时避免被截断成同样的前缀）", async () => {
+  const { bindSerialSidePaneTab } = await import("../src/lib/workspaceSidePane.js");
+  const { getSidePaneTabTitle } = await import("../src/app-shell/SidePaneTabTrigger.js");
+  const opened = openSerialSidePane(null);
+  const tabId = opened.activeTabId;
+  const bound = bindSerialSidePaneTab(opened, tabId, "COM3");
+  const tab = bound?.tabs.find((item) => item.id === tabId);
+  assert.equal(tab?.type === "serial" && tab.path, "COM3");
+  const format = ({ id }: { id: string }) => (id === "serial.title" ? "串口调试" : id);
+  assert.equal(getSidePaneTabTitle(tab!, format), "COM3");
+  const unbound = opened.tabs.find((item) => item.id === tabId)!;
+  assert.equal(getSidePaneTabTitle(unbound, format), "串口调试");
+  // 未知标签不变
+  assert.equal(bindSerialSidePaneTab(opened, "missing", "COM4"), opened);
 });
 
 test("serial 标签跟随窗口，在任意 workspace 与对话中可见", () => {
@@ -317,6 +337,16 @@ test("serial_open/close 预览参数；其它工具不生成预览", async () =>
   assert.deepEqual(buildSerialPermissionPreview("mcp__serial__serial_close", {}), {
     kind: "close",
   });
+  // 多串口：目标串口来自工具输入的 path
+  assert.deepEqual(buildSerialPermissionPreview("mcp__serial__serial_close", { path: "COM5" }), {
+    kind: "close",
+    path: "COM5",
+  });
+  const write = buildSerialPermissionPreview("mcp__serial__serial_write", {
+    data: "A",
+    path: "COM5",
+  });
+  assert.equal(write?.kind === "write" && write.path, "COM5");
   assert.equal(buildSerialPermissionPreview("mcp__serial__serial_read", {}), null);
   assert.equal(buildSerialPermissionPreview("mcp__other__write", { data: "x" }), null);
 });
@@ -364,4 +394,57 @@ test("按 sessionId 在各 workspace 的任务缓存中查找会话标题，查�
   assert.equal(formatSerialAgentLabel(found?.title, "session-abcdef123"), "Flash firmware");
   assert.equal(resolveSerialAgentSession(workspaces as never, "missing"), null);
   assert.equal(formatSerialAgentLabel(undefined, "session-abcdef123"), "session-");
+});
+
+test("多个面板同时可见时按引用计数开关 Host 轮询", async () => {
+  const { acquireSerialWatch } = await import("../src/hooks/serialWatch.js");
+  const calls: boolean[] = [];
+  const service = {
+    setWatching: async ({ watching }: { watching: boolean }) => void calls.push(watching),
+  };
+  const releaseA = acquireSerialWatch(service as never);
+  const releaseB = acquireSerialWatch(service as never);
+  releaseA();
+  assert.deepEqual(calls, [true]);
+  releaseB();
+  releaseB(); // 重复释放幂等
+  assert.deepEqual(calls, [true, false]);
+});
+
+// --- 多串口：标签的串口选择 -----------------------------------------------------
+
+test("新标签优先预选上次用过且未被占用的串口，否则选第一个空闲串口", async () => {
+  const { pickInitialSerialPath } = await import("../src/lib/serial/serialPortChoice.js");
+  const ports = [{ path: "COM1" }, { path: "COM2" }, { path: "COM3" }];
+  const running = (path: string) => ({ path, status: { state: "open" as const, path } });
+  assert.equal(
+    pickInitialSerialPath({ tabPath: "COM9", lastPath: "COM1", ports, sessions: [] }),
+    "COM9",
+  );
+  assert.equal(pickInitialSerialPath({ lastPath: "COM2", ports, sessions: [] }), "COM2");
+  assert.equal(
+    pickInitialSerialPath({ lastPath: "COM1", ports, sessions: [running("COM1")] }),
+    "COM2",
+  );
+  assert.equal(
+    pickInitialSerialPath({ ports: [{ path: "COM1" }], sessions: [running("COM1")] }),
+    "COM1",
+  );
+  assert.equal(pickInitialSerialPath({ ports: [], sessions: [] }), undefined);
+});
+
+test("串口下拉合并本机串口与运行中会话，并标注运行中", async () => {
+  const { buildSerialPortOptions } = await import("../src/lib/serial/serialPortChoice.js");
+  const options = buildSerialPortOptions(
+    [{ path: "COM1", manufacturer: "FTDI" }, { path: "COM2" }],
+    [
+      { path: "COM2", status: { state: "open", path: "COM2" } },
+      { path: "COM7", status: { state: "disconnected", path: "COM7" } },
+    ],
+  );
+  assert.deepEqual(options, [
+    { path: "COM1", manufacturer: "FTDI", running: false },
+    { path: "COM2", running: true },
+    { path: "COM7", running: true },
+  ]);
 });

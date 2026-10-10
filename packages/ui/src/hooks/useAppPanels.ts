@@ -35,6 +35,7 @@ import {
   openWorkflowArtifactSidePane,
   activateDeveloperToolsSidePane,
   openSerialSidePane,
+  bindSerialSidePaneTab,
   openBrowserSidePane,
   openOrActivateBrowserSidePaneByUrl,
   findBrowserSidePaneTabByUrl,
@@ -1556,6 +1557,14 @@ export function useAppPanels(options: {
     setBrowserNavigationRequest((current) => (current?.id === requestId ? null : current));
   }, []);
 
+  const handleBindSerialTab = useCallback(
+    (tabId: string, path: string) => {
+      // 串口标签绑定的 path 存在标签状态里（唯一来源），重启后用于预选。
+      commitSidePaneState((current) => bindSerialSidePaneTab(current, tabId, path));
+    },
+    [commitSidePaneState],
+  );
+
   const handleBrowserPageMetadataChange = useCallback(
     (tabId: string, metadata: BrowserSidePaneMetadata) => {
       // 交互说明：Browser 的 title/favicon 来自 webview 事件，必须按 tab id 写回。
@@ -1598,6 +1607,7 @@ export function useAppPanels(options: {
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
     handleOpenSerialTab,
+    handleBindSerialTab,
     handleOpenTerminalTab,
     handleOpenModelTrajectory,
     handleOpenSubagentSession,

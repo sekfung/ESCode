@@ -317,6 +317,7 @@ export function AnimatedSidePanePanel({
   onOpenWhiteboard: _onOpenWhiteboard,
   onOpenDeveloperTools,
   onOpenSerialTab,
+  onBindSerialTab,
   onOpenTerminalTab,
   onOpenReviewTab,
   onSelectTask,
@@ -386,6 +387,7 @@ export function AnimatedSidePanePanel({
   onOpenWhiteboard: () => void;
   onOpenDeveloperTools: () => void;
   onOpenSerialTab: () => void;
+  onBindSerialTab: (tabId: string, path: string) => void;
   onOpenTerminalTab: () => void;
   /** 串口面板中点击 Agent 标注时跳转到对应会话。 */
   onSelectTask?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
@@ -1286,6 +1288,8 @@ export function AnimatedSidePanePanel({
                           <SerialPane
                             services={services}
                             isVisible={isVisible && tab.id === visibleActiveTabId}
+                            path={tab.path}
+                            onBindPath={(path) => onBindSerialTab(tab.id, path)}
                             onOpenSession={onSelectTask}
                           />
                         ) : tab.type === "terminal" ? (

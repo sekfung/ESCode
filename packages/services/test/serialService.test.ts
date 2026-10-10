@@ -59,13 +59,16 @@ test("打开后 RX/TX 进入快照，seq 单调递增并带方向与来源", asy
   assert.equal(statuses.at(-1)?.state, "open");
 
   await service.write({
+    path: "/dev/ttyMOCK0",
     bytes: new TextEncoder().encode("AT\r\n"),
     source: "user",
   });
   testBinding.emit("/dev/ttyMOCK0", "OK\r\n");
-  await waitFor(async () => (await service.getSnapshot()).chunks.length === 2);
+  await waitFor(
+    async () => (await service.getSnapshot({ path: "/dev/ttyMOCK0" })).chunks.length === 2,
+  );
 
-  const snapshot = await service.getSnapshot();
+  const snapshot = await service.getSnapshot({ path: "/dev/ttyMOCK0" });
   assert.deepEqual(
     snapshot.chunks.map((chunk) => [
       chunk.seq,
@@ -88,17 +91,17 @@ test("onData 推送的 chunk 与快照一致", async () => {
   const seen: number[] = [];
   service.onData((chunk) => seen.push(chunk.seq));
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
-  await service.write({ bytes: Uint8Array.of(1, 2), source: "agent" });
+  await service.write({ path: "/dev/ttyMOCK0", bytes: Uint8Array.of(1, 2), source: "agent" });
   testBinding.emit("/dev/ttyMOCK0", Buffer.from([3]));
   await waitFor(() => seen.length === 2);
   assert.deepEqual(seen, [1, 2]);
-  const snapshot = await service.getSnapshot();
+  const snapshot = await service.getSnapshot({ path: "/dev/ttyMOCK0" });
   assert.equal(snapshot.chunks[0]?.source, "agent");
 });
 
 test("非 open 状态写入返回 notOpen，不排队", async () => {
   await assert.rejects(
-    service.write({ bytes: Uint8Array.of(1), source: "user" }),
+    service.write({ path: "/dev/ttyMOCK0", bytes: Uint8Array.of(1), source: "user" }),
     (error: unknown) => error instanceof SerialError && error.code === "notOpen",
   );
 });
@@ -107,6 +110,7 @@ test("单次写入超过 64 KiB 返回 invalidInput", async () => {
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
   await assert.rejects(
     service.write({
+      path: "/dev/ttyMOCK0",
       bytes: new Uint8Array(SERIAL_WRITE_LIMIT_BYTES + 1),
       source: "user",
     }),
@@ -120,11 +124,12 @@ test("环形缓冲超过字节上限时淘汰最旧的完整 chunk", async () =>
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
   for (const text of ["aaa", "bbb", "cc"]) {
     await service.write({
+      path: "/dev/ttyMOCK0",
       bytes: new TextEncoder().encode(text),
       source: "user",
     });
   }
-  const snapshot = await service.getSnapshot();
+  const snapshot = await service.getSnapshot({ path: "/dev/ttyMOCK0" });
   assert.deepEqual(
     snapshot.chunks.map((chunk) => Buffer.from(chunk.bytes).toString()),
     ["bbb", "cc"],
@@ -136,15 +141,15 @@ test("环形缓冲超过字节上限时淘汰最旧的完整 chunk", async () =>
 
 test("clear 清空缓冲与计数但保持串口打开", async () => {
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
-  await service.write({ bytes: Uint8Array.of(1), source: "user" });
-  await service.clear();
-  const snapshot = await service.getSnapshot();
+  await service.write({ path: "/dev/ttyMOCK0", bytes: Uint8Array.of(1), source: "user" });
+  await service.clear({ path: "/dev/ttyMOCK0" });
+  const snapshot = await service.getSnapshot({ path: "/dev/ttyMOCK0" });
   assert.deepEqual(snapshot.chunks, []);
   assert.deepEqual(snapshot.stats, { rxBytes: 0, txBytes: 0 });
   assert.equal(snapshot.status.state, "open");
   // seq 不回退，避免 renderer 把新数据误判为快照内旧数据
-  await service.write({ bytes: Uint8Array.of(2), source: "user" });
-  assert.equal((await service.getSnapshot()).seq, 2);
+  await service.write({ path: "/dev/ttyMOCK0", bytes: Uint8Array.of(2), source: "user" });
+  assert.equal((await service.getSnapshot({ path: "/dev/ttyMOCK0" })).seq, 2);
 });
 
 test("相邻 RX 在合并窗口内合成一个 chunk", async () => {
@@ -154,9 +159,11 @@ test("相邻 RX 在合并窗口内合成一个 chunk", async () => {
   testBinding.emit("/dev/ttyMOCK0", "ab");
   await new Promise((resolve) => setTimeout(resolve, 2));
   testBinding.emit("/dev/ttyMOCK0", "cd");
-  await waitFor(async () => (await service.getSnapshot()).chunks.length === 1);
+  await waitFor(
+    async () => (await service.getSnapshot({ path: "/dev/ttyMOCK0" })).chunks.length === 1,
+  );
   await new Promise((resolve) => setTimeout(resolve, 60));
-  const snapshot = await service.getSnapshot();
+  const snapshot = await service.getSnapshot({ path: "/dev/ttyMOCK0" });
   assert.deepEqual(
     snapshot.chunks.map((chunk) => Buffer.from(chunk.bytes).toString()),
     ["abcd"],
@@ -174,22 +181,27 @@ test("并发 open 共享同一次进行中的打开", async () => {
   );
 });
 
-test("已打开时 open 另一个串口会先关闭当前串口", async () => {
+test("打开另一个串口不影响已打开的串口（多串口）", async () => {
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
   await service.open({ path: "/dev/ttyMOCK1", config: CONFIG });
-  const snapshot = await service.getSnapshot();
-  assert.equal(snapshot.status.path, "/dev/ttyMOCK1");
+  assert.equal((await service.getSnapshot({ path: "/dev/ttyMOCK0" })).status.state, "open");
+  assert.equal((await service.getSnapshot({ path: "/dev/ttyMOCK1" })).status.state, "open");
   assert.deepEqual(
-    statuses.map((status) => status.state),
-    ["opening", "open", "closing", "closed", "opening", "open"],
+    statuses.map((status) => [status.path, status.state]),
+    [
+      ["/dev/ttyMOCK0", "opening"],
+      ["/dev/ttyMOCK0", "open"],
+      ["/dev/ttyMOCK1", "opening"],
+      ["/dev/ttyMOCK1", "open"],
+    ],
   );
 });
 
 test("open 与 close 按到达顺序串行，最终为 closed", async () => {
   const opening = service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
-  const closing = service.close();
+  const closing = service.close({ path: "/dev/ttyMOCK0" });
   await Promise.all([opening, closing]);
-  assert.equal((await service.getSnapshot()).status.state, "closed");
+  assert.equal((await service.getSnapshot({ path: "/dev/ttyMOCK0" })).status.state, "closed");
 });
 
 test("串口被占用时进入 error/busy", async () => {
@@ -200,7 +212,7 @@ test("串口被占用时进入 error/busy", async () => {
       service.open({ path: "/dev/ttyMOCK0", config: CONFIG }),
       (error: unknown) => error instanceof SerialError && error.code === "busy",
     );
-    const status = (await service.getSnapshot()).status;
+    const status = (await service.getSnapshot({ path: "/dev/ttyMOCK0" })).status;
     assert.equal(status.state, "error");
     assert.equal(status.error?.code, "busy");
   } finally {
@@ -231,9 +243,9 @@ test("拔出且开启自动重连：disconnected，重新插入后用原参数�
   await waitFor(() => statuses.at(-1)?.state === "disconnected");
   testBinding.replug("/dev/ttyMOCK0");
   await waitFor(() => statuses.at(-1)?.state === "open");
-  const status = (await service.getSnapshot()).status;
+  const status = (await service.getSnapshot({ path: "/dev/ttyMOCK0" })).status;
   assert.equal(status.config?.baudRate, 9600);
-  await service.write({ bytes: Uint8Array.of(7), source: "user" });
+  await service.write({ path: "/dev/ttyMOCK0", bytes: Uint8Array.of(7), source: "user" });
 });
 
 test("拔出且关闭自动重连：直接 closed", async () => {
@@ -249,13 +261,13 @@ test("disconnected 时 close 停止等待与轮询", async () => {
   await service.open({ path: "/dev/ttyMOCK0", config: CONFIG });
   testBinding.unplug("/dev/ttyMOCK0");
   await waitFor(() => statuses.at(-1)?.state === "disconnected");
-  await service.close();
+  await service.close({ path: "/dev/ttyMOCK0" });
   assert.equal(statuses.at(-1)?.state, "closed");
   const calls = testBinding.listCalls;
   testBinding.replug("/dev/ttyMOCK0");
   await new Promise((resolve) => setTimeout(resolve, 40));
   assert.equal(testBinding.listCalls, calls);
-  assert.equal((await service.getSnapshot()).status.state, "closed");
+  assert.equal((await service.getSnapshot({ path: "/dev/ttyMOCK0" })).status.state, "closed");
 });
 
 test("仅在面板可见时轮询串口列表并推送变化", async () => {
@@ -342,9 +354,15 @@ test("设置 ZCODE_SERIAL_MOCK_PORTS 时默认 binding 使用回环虚拟串口�
       ["COM_MOCK_A", "COM_MOCK_B"],
     );
     await mocked.open({ path: "COM_MOCK_A", config: CONFIG });
-    await mocked.write({ bytes: new TextEncoder().encode("ping"), source: "user" });
-    await waitFor(async () => (await mocked.getSnapshot()).chunks.length === 2);
-    const snapshot = await mocked.getSnapshot();
+    await mocked.write({
+      path: "COM_MOCK_A",
+      bytes: new TextEncoder().encode("ping"),
+      source: "user",
+    });
+    await waitFor(
+      async () => (await mocked.getSnapshot({ path: "COM_MOCK_A" })).chunks.length === 2,
+    );
+    const snapshot = await mocked.getSnapshot({ path: "COM_MOCK_A" });
     assert.deepEqual(
       snapshot.chunks.map((chunk) => [chunk.direction, Buffer.from(chunk.bytes).toString()]),
       [

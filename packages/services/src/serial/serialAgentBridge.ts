@@ -114,12 +114,38 @@ export function createSerialAgentBridge(options: {
     return service;
   }
 
-  async function currentStatus(service: SerialService): Promise<SerialStatus> {
-    return (await service.getSnapshot()).status;
+  async function currentStatus(service: SerialService, path: string): Promise<SerialStatus> {
+    return (await service.getSnapshot({ path })).status;
   }
 
-  async function recentRxTail(service: SerialService, encoding: SerialDisplayEncoding) {
+  /**
+   * 多串口时省略 path 的规则（docs/specs/serial-port-debugger-phase3.md）：恰好一个活动会话时使用它；
+   * 没有会话返回 null（由调用方决定返回空结果或 notOpen）；多个会话时要求 Agent 指定。
+   */
+  async function resolvePath(service: SerialService, explicit?: string): Promise<string | null> {
+    if (explicit) return explicit;
+    const sessions = await service.listSessions();
+    if (sessions.length === 1) return sessions[0]!.path;
+    if (sessions.length === 0) return null;
+    throw new SerialError(
+      "invalidInput",
+      `Multiple serial ports are open (${sessions.map((session) => session.path).join(", ")}); specify path.`,
+    );
+  }
+
+  async function requirePath(service: SerialService, explicit?: string): Promise<string> {
+    const path = await resolvePath(service, explicit);
+    if (!path) throw new SerialError("notOpen", "No serial port is open");
+    return path;
+  }
+
+  async function recentRxTail(
+    service: SerialService,
+    path: string,
+    encoding: SerialDisplayEncoding,
+  ) {
     const { chunks } = service.readSince({
+      path,
       sinceSeq: 0,
       direction: "rx",
       maxBytes: TAIL_SOURCE_BYTES,
@@ -135,11 +161,11 @@ export function createSerialAgentBridge(options: {
   } = {
     async list(service) {
       const ports = await service.list();
-      return { ports, status: await currentStatus(service) };
+      return { ports, sessions: await service.listSessions() };
     },
 
     async open(service, { args }) {
-      const status = await currentStatus(service);
+      const status = await currentStatus(service, args.path);
       if (status.state !== "closed" && status.state !== "error") {
         // 不抢占：只复用与当前完全一致的 path+参数，避免 Agent 切走用户正在使用的串口。
         if (status.state === "open" && sameConfig(status, args.path, args)) {
@@ -159,7 +185,7 @@ export function createSerialAgentBridge(options: {
         autoReconnect: (await options.getRememberedAutoReconnect(args.path)) ?? true,
       };
       await service.open({ path: args.path, config });
-      return { reused: false, status: await currentStatus(service) };
+      return { reused: false, status: await currentStatus(service, args.path) };
     },
 
     async write(service, { args, sessionId }) {
@@ -171,18 +197,34 @@ export function createSerialAgentBridge(options: {
       if (!payload.ok) {
         throw new SerialError("invalidInput", `Invalid HEX data: ${payload.error}`);
       }
-      const { seq } = await service.write({ bytes: payload.bytes, source: "agent", sessionId });
+      const path = await requirePath(service, args.path);
+      const { seq } = await service.write({
+        path,
+        bytes: payload.bytes,
+        source: "agent",
+        sessionId,
+      });
       return { bytes: payload.bytes.byteLength, seq };
     },
 
     async read(service, { args }) {
-      const result = service.readSince(args);
+      const path = await resolvePath(service, args.path);
+      if (!path) {
+        return {
+          text: "",
+          lastSeq: args.sinceSeq ?? 0,
+          truncated: false,
+          evicted: false,
+          status: { state: "closed" },
+        };
+      }
+      const result = service.readSince({ ...args, path });
       return {
         text: formatRead(result.chunks, args.direction, args.encoding),
         lastSeq: result.lastSeq,
         truncated: result.truncated,
         evicted: result.evicted,
-        status: await currentStatus(service),
+        status: await currentStatus(service, path),
       };
     },
 
@@ -196,10 +238,12 @@ export function createSerialAgentBridge(options: {
           `Invalid pattern: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+      const path = await requirePath(service, args.path);
       const controller = new AbortController();
       waits.set(requestId, { sessionId, controller });
       try {
         const outcome = await service.waitFor({
+          path,
           ...(args.sinceSeq !== undefined ? { sinceSeq: args.sinceSeq } : {}),
           timeoutMs: args.timeoutMs,
           signal: controller.signal,
@@ -225,7 +269,7 @@ export function createSerialAgentBridge(options: {
               : outcome.kind === "timeout"
                 ? "timeout"
                 : "disconnected",
-          tail: await recentRxTail(service, args.encoding),
+          tail: await recentRxTail(service, path, args.encoding),
           lastSeq: outcome.lastSeq,
         };
       } finally {
@@ -233,9 +277,10 @@ export function createSerialAgentBridge(options: {
       }
     },
 
-    async close(service) {
-      if ((await currentStatus(service)).state !== "closed") await service.close();
-      return { status: await currentStatus(service) };
+    async close(service, { args }) {
+      const path = await requirePath(service, args.path);
+      if ((await currentStatus(service, path)).state !== "closed") await service.close({ path });
+      return { status: await currentStatus(service, path) };
     },
   };
 

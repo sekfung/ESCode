@@ -542,7 +542,8 @@ export function getSidePaneTabTitle(
   }
 
   if (tab.type === "serial") {
-    return formatMessage({ id: "serial.title" });
+    // 多个串口标签并排时标题会被截断：只显示串口名，USB 图标已表明是串口标签。
+    return tab.path || formatMessage({ id: "serial.title" });
   }
 
   if (tab.type === "terminal" || tab.type === "bash-output") {

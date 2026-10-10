@@ -103,3 +103,12 @@ test("取消方法按目标 requestId 终止等待，参数严格校验", async 
   );
   assert.ok(!zcodeSerialCancelParamsSchema.safeParse({ sessionId: "s" }).success);
 });
+
+test("多串口：除 list/open 外的工具都接受可选 path", () => {
+  for (const op of ["write", "read", "waitFor", "close"] as const) {
+    const base = op === "write" ? { data: "x" } : op === "waitFor" ? { pattern: "x" } : {};
+    assert.equal(serialToolArgsSchemas[op].parse({ ...base, path: "COM3" }).path, "COM3", op);
+    assert.equal(serialToolArgsSchemas[op].parse(base).path, undefined, op);
+  }
+  assert.ok(!serialToolArgsSchemas.list.safeParse({ path: "COM3" }).success);
+});

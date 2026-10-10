@@ -80,23 +80,39 @@ export class SerialError extends Error {
   }
 }
 
+/** 窗口内同时活动（非 closed）的串口会话上限（docs/specs/serial-port-debugger-phase3.md）。 */
+export const SERIAL_MAX_ACTIVE_SESSIONS = 4;
+
+export interface SerialSessionSummary {
+  path: string;
+  status: SerialStatus;
+}
+
+/** 事件按串口路径区分：面板标签只消费自己绑定的 path。 */
+export type SerialPathChunk = SerialChunk & { path: string };
+export type SerialPathStatus = SerialStatus & { path: string };
+
 export interface ISerialService {
   list(): Promise<SerialPortInfo[]>;
+  /** 活动（非 closed）的串口会话。 */
+  listSessions(): Promise<SerialSessionSummary[]>;
   open(params: { path: string; config: SerialConfig }): Promise<void>;
-  close(): Promise<void>;
+  close(params: { path: string }): Promise<void>;
   /** 返回本次写入在收发记录中的 seq（空写入返回当前 lastSeq）。 */
   write(params: {
+    path: string;
     bytes: Uint8Array;
     source: SerialSource;
     sessionId?: string;
   }): Promise<{ seq: number }>;
-  /** 清空环形缓冲与计数，不影响串口状态。 */
-  clear(): Promise<void>;
-  getSnapshot(): Promise<SerialSnapshot>;
-  /** 面板可见性；仅在有可见面板或等待重连时轮询串口列表。 */
+  /** 清空该串口的环形缓冲与计数，不影响串口状态。 */
+  clear(params: { path: string }): Promise<void>;
+  /** 未打开过或已被淘汰的路径返回 closed 空快照。 */
+  getSnapshot(params: { path: string }): Promise<SerialSnapshot>;
+  /** 面板可见性；仅在有可见面板或有会话等待重连时轮询串口列表。 */
   setWatching(params: { watching: boolean }): Promise<void>;
-  onData: Event<SerialChunk>;
-  onStatus: Event<SerialStatus>;
+  onData: Event<SerialPathChunk>;
+  onStatus: Event<SerialPathStatus>;
   onPorts: Event<SerialPortInfo[]>;
 }
 

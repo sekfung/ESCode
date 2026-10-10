@@ -10,9 +10,17 @@ const PREVIEW_BYTES = 256;
 const TOOL_PREFIX = "mcp__serial__";
 
 export type SerialPermissionPreview =
-  | { kind: "write"; bytes: number; text: string; hex: string; truncated: boolean }
+  | {
+      kind: "write";
+      bytes: number;
+      text: string;
+      hex: string;
+      truncated: boolean;
+      /** 工具输入指定的串口；省略时由卡片按当前会话推断。 */
+      path?: string;
+    }
   | { kind: "open"; path: string; params: string }
-  | { kind: "close" }
+  | { kind: "close"; path?: string }
   /** 参数无法解析（如非法 HEX）；Host 会拒绝该调用，卡片提示而不是猜测内容。 */
   | { kind: "invalid" };
 
@@ -26,7 +34,11 @@ export function buildSerialPermissionPreview(
 ): SerialPermissionPreview | null {
   if (!toolName.startsWith(TOOL_PREFIX)) return null;
   const tool = toolName.slice(TOOL_PREFIX.length);
-  if (tool === "serial_close") return { kind: "close" };
+  if (tool === "serial_close") {
+    const parsed = serialToolArgsSchemas.close.safeParse(input ?? {});
+    if (!parsed.success) return { kind: "invalid" };
+    return parsed.data.path ? { kind: "close", path: parsed.data.path } : { kind: "close" };
+  }
   if (tool === "serial_open") {
     const parsed = serialToolArgsSchemas.open.safeParse(input ?? {});
     if (!parsed.success) return { kind: "invalid" };
@@ -54,5 +66,6 @@ export function buildSerialPermissionPreview(
     text: escapeSerialPreview(head),
     hex: formatSerialHex(head),
     truncated: payload.bytes.byteLength > PREVIEW_BYTES,
+    ...(parsed.data.path ? { path: parsed.data.path } : {}),
   };
 }

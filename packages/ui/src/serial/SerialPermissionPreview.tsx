@@ -3,8 +3,11 @@ import { useOptionalServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { buildSerialPermissionPreview } from "@/lib/serial/serialPermissionPreview.js";
 
-/** 读取当前串口路径用于 write/close 审批；串口服务不存在（Web/远程）时不显示。 */
-function useCurrentSerialPath(enabled: boolean): string | null {
+/**
+ * write/close 未指定 path 时推断目标串口：与 Host 规则一致，恰好一个活动会话时就是它，
+ * 否则不显示具体串口（Host 会要求 Agent 指定）。串口服务不存在（Web/远程）时不显示。
+ */
+function useImplicitSerialPath(enabled: boolean): string | null {
   const services = useOptionalServices();
   const serialService = services?.serialService;
   const [path, setPath] = useState<string | null>(null);
@@ -12,9 +15,9 @@ function useCurrentSerialPath(enabled: boolean): string | null {
     if (!enabled || !serialService) return;
     let cancelled = false;
     void serialService
-      .getSnapshot()
-      .then((snapshot) => {
-        if (!cancelled) setPath(snapshot.status.path ?? null);
+      .listSessions()
+      .then((sessions) => {
+        if (!cancelled) setPath(sessions.length === 1 ? sessions[0]!.path : null);
       })
       .catch(() => undefined);
     return () => {
@@ -31,7 +34,9 @@ function useCurrentSerialPath(enabled: boolean): string | null {
 export function SerialPermissionPreview({ toolName, input }: { toolName: string; input: unknown }) {
   const { intl } = useZCodeIntl();
   const preview = useMemo(() => buildSerialPermissionPreview(toolName, input), [input, toolName]);
-  const currentPath = useCurrentSerialPath(preview?.kind === "write" || preview?.kind === "close");
+  const needsImplicitPath =
+    (preview?.kind === "write" || preview?.kind === "close") && !preview.path;
+  const implicitPath = useImplicitSerialPath(needsImplicitPath);
   if (!preview) return null;
   if (preview.kind === "invalid") {
     return (
@@ -40,7 +45,7 @@ export function SerialPermissionPreview({ toolName, input }: { toolName: string;
       </p>
     );
   }
-  const path = preview.kind === "open" ? preview.path : currentPath;
+  const path = preview.path ?? implicitPath;
   return (
     <div className="flex flex-col gap-1.5 text-ui-sm" data-testid="serial-permission-preview">
       <div className="flex flex-wrap items-center gap-2 text-foreground-subtle">

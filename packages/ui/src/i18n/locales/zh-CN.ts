@@ -1702,6 +1702,7 @@ const zhCN: Record<string, string> = {
   "serial.title": "串口调试",
   "serial.unavailable": "串口调试仅在桌面端可用。",
   "serial.port": "串口",
+  "serial.port.running": "运行中",
   "serial.port.empty": "未发现串口",
   "serial.refresh": "刷新串口列表",
   "serial.baudRate": "波特率",

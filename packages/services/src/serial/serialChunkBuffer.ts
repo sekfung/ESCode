@@ -18,12 +18,16 @@ interface PendingRx {
 
 /**
  * 串口收发记录：RX 合并、seq 分配与按字节上限的环形淘汰。
- * 由 SerialService 独占持有；seq 单调递增且 clear 后不回退，供 renderer 做快照与事件去重。
+ * 由所属串口会话独占持有。seq 由 SerialService 统一分配（窗口内跨会话单调递增、clear 与重开都不回退），
+ * 因此同一串口关闭后重开也不会让 renderer 把新数据误判为快照内旧数据；同一缓冲内的 seq 可以不连续。
  */
 export class SerialChunkBuffer {
   private chunks: SerialChunk[] = [];
   private bufferedBytes = 0;
+  /** 本缓冲最后分配到的 seq。 */
   private seq = 0;
+  /** 已被淘汰或清空的最大 seq：游标早于它说明中间有数据缺失。 */
+  private evictedThrough = 0;
   private stats: SerialStats = { rxBytes: 0, txBytes: 0 };
   private pendingRx: PendingRx | null = null;
 
@@ -34,8 +38,15 @@ export class SerialChunkBuffer {
       coalesceWindowMs: number;
       coalesceMaxBytes: number;
       onChunk: (chunk: SerialChunk) => void;
+      /** 共享的 seq 分配器；缺省为缓冲内自增（单会话测试使用）。 */
+      nextSeq?: () => number;
     },
   ) {}
+
+  private localSeq = 0;
+  private allocateSeq(): number {
+    return this.options.nextSeq ? this.options.nextSeq() : ++this.localSeq;
+  }
 
   receive(data: Buffer): void {
     if (data.length === 0) return;
@@ -77,10 +88,9 @@ export class SerialChunkBuffer {
     if (sinceSeq === undefined) {
       return { chunks: [], lastSeq: this.seq, truncated: false, evicted: false };
     }
-    const firstRetainedSeq = this.chunks[0]?.seq ?? this.seq + 1;
-    const evicted = sinceSeq < this.seq && firstRetainedSeq > sinceSeq + 1;
+    const evicted = sinceSeq < this.evictedThrough;
     const chunks: SerialChunk[] = [];
-    let lastSeq = Math.max(sinceSeq, Math.min(this.seq, firstRetainedSeq - 1));
+    let lastSeq = Math.max(sinceSeq, Math.min(this.seq, this.evictedThrough));
     let bytes = 0;
     for (const chunk of this.chunks) {
       if (chunk.seq <= sinceSeq) continue;
@@ -116,6 +126,7 @@ export class SerialChunkBuffer {
   }
 
   clear(): void {
+    this.evictedThrough = this.seq;
     this.chunks = [];
     this.bufferedBytes = 0;
     this.stats = { rxBytes: 0, txBytes: 0 };
@@ -136,7 +147,7 @@ export class SerialChunkBuffer {
     at = Date.now(),
     sessionId?: string,
   ): void {
-    this.seq += 1;
+    this.seq = this.allocateSeq();
     const chunk: SerialChunk = {
       seq: this.seq,
       at,
@@ -151,7 +162,10 @@ export class SerialChunkBuffer {
     else this.stats.txBytes += bytes.byteLength;
     while (this.bufferedBytes > this.options.limitBytes && this.chunks.length > 1) {
       const evicted = this.chunks.shift();
-      if (evicted) this.bufferedBytes -= evicted.bytes.byteLength;
+      if (evicted) {
+        this.bufferedBytes -= evicted.bytes.byteLength;
+        this.evictedThrough = evicted.seq;
+      }
     }
     this.options.onChunk(chunk);
   }

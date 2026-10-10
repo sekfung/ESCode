@@ -9,6 +9,7 @@ const SERVER_VERSION = "0.1.0";
 const SERVER_INSTRUCTIONS =
   "Serial port tools share one serial session with the user's Serial Port panel in this ZCode window. " +
   "Call serial_list first. Never switch away from a port the user has open; ask the user instead. " +
+  "When several ports are open, pass path to every tool. " +
   "Use serial_read with the returned lastSeq to follow output, and serial_wait_for to wait for boot logs or responses.";
 
 export function createSerialMcpServer(

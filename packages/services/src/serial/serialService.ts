@@ -1,30 +1,27 @@
 import { Emitter } from "@zcode/rpc";
 import type { BindingInterface } from "@serialport/bindings-cpp";
 import type { ServiceAuthorityMode } from "@zcode/shared";
-import type { SerialPortStream } from "@serialport/stream";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import {
-  SERIAL_WRITE_LIMIT_BYTES,
+  SERIAL_MAX_ACTIVE_SESSIONS,
   SerialError,
   type ISerialService,
   type SerialChunk,
   type SerialConfig,
+  type SerialPathChunk,
+  type SerialPathStatus,
   type SerialPortInfo,
+  type SerialSessionSummary,
   type SerialSnapshot,
   type SerialSource,
-  type SerialStatus,
 } from "./serial.js";
-import { SerialChunkBuffer, type SerialReadResult } from "./serialChunkBuffer.js";
+import type { SerialReadResult } from "./serialChunkBuffer.js";
+import { SerialSession } from "./serialSession.js";
 import { waitForSerialRx, type SerialWaitResult } from "./serialWait.js";
-import { mapSerialOpenError } from "./serialErrors.js";
-import {
-  loadDefaultSerialBinding,
-  loadStreamModule,
-  validateConfig,
-  type SerialStreamModule,
-} from "./serialRuntime.js";
+import { loadDefaultSerialBinding } from "./serialRuntime.js";
 
 export { loadDefaultSerialBinding } from "./serialRuntime.js";
+export type { SerialWaitResult } from "./serialWait.js";
 
 const log = createServiceLogger("serial");
 
@@ -32,6 +29,8 @@ const DEFAULT_POLL_INTERVAL_MS = 1500;
 const DEFAULT_BUFFER_LIMIT_BYTES = 1024 * 1024;
 const DEFAULT_COALESCE_WINDOW_MS = 10;
 const DEFAULT_COALESCE_MAX_BYTES = 4096;
+/** 会话表最多保留的会话数（含已关闭会话的历史）；超出时淘汰最早关闭的会话。 */
+const MAX_RETAINED_SESSIONS = 8;
 
 export interface CreateSerialServiceOptions {
   /** 默认延迟加载 @serialport/bindings-cpp；测试注入 mock binding。 */
@@ -42,20 +41,22 @@ export interface CreateSerialServiceOptions {
   coalesceMaxBytes?: number;
 }
 
-export type { SerialWaitResult } from "./serialWait.js";
+type ReadParams = {
+  path: string;
+  sinceSeq?: number;
+  direction: SerialChunk["direction"] | "both";
+  maxBytes: number;
+};
 
 /** Host 进程内接口：在 RPC 契约之外提供 Agent 串口工具使用的游标读取与等待。 */
 export interface SerialService extends ISerialService {
-  readSince(params: {
-    sinceSeq?: number;
-    direction: SerialChunk["direction"] | "both";
-    maxBytes: number;
-  }): SerialReadResult;
+  readSince(params: ReadParams): SerialReadResult;
   /**
-   * 等待 sinceSeq（缺省为调用时刻）之后的 RX 满足 test。串口不处于 open 时立即返回 disconnected；
+   * 等待该串口 sinceSeq（缺省为调用时刻）之后的 RX 满足 test。串口不处于 open 时立即返回 disconnected；
    * 超时、取消都会释放订阅。
    */
   waitFor<T>(params: {
+    path: string;
     sinceSeq?: number;
     timeoutMs: number;
     signal?: AbortSignal;
@@ -69,24 +70,21 @@ function portsKey(ports: SerialPortInfo[]): string {
   return ports.map((port) => port.path).join("\n");
 }
 
+const isActive = (session: SerialSession) => session.state !== "closed";
+
 class SerialServiceImpl implements SerialService {
-  private readonly dataEmitter = new Emitter<SerialChunk>();
-  private readonly statusEmitter = new Emitter<SerialStatus>();
+  private readonly dataEmitter = new Emitter<SerialPathChunk>();
+  private readonly statusEmitter = new Emitter<SerialPathStatus>();
   private readonly portsEmitter = new Emitter<SerialPortInfo[]>();
   readonly onData = this.dataEmitter.event;
   readonly onStatus = this.statusEmitter.event;
   readonly onPorts = this.portsEmitter.event;
 
   private readonly pollIntervalMs: number;
-  private readonly buffer: SerialChunkBuffer;
-
+  private readonly sessions = new Map<string, SerialSession>();
+  /** 窗口内统一的 seq：跨会话、跨关闭重开都单调递增，renderer 去重永不误判。 */
+  private seq = 0;
   private bindingPromise: Promise<BindingInterface> | null = null;
-  private status: SerialStatus = { state: "closed" };
-  private port: SerialPortStream | null = null;
-
-  /** open/close/重连串行执行；状态转换只在队列里发生。 */
-  private queue: Promise<void> = Promise.resolve();
-  private inFlightOpen: { key: string; promise: Promise<void> } | null = null;
 
   private watching = false;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -96,12 +94,6 @@ class SerialServiceImpl implements SerialService {
 
   constructor(private readonly options: CreateSerialServiceOptions) {
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-    this.buffer = new SerialChunkBuffer({
-      limitBytes: options.bufferLimitBytes ?? DEFAULT_BUFFER_LIMIT_BYTES,
-      coalesceWindowMs: options.coalesceWindowMs ?? DEFAULT_COALESCE_WINDOW_MS,
-      coalesceMaxBytes: options.coalesceMaxBytes ?? DEFAULT_COALESCE_MAX_BYTES,
-      onChunk: (chunk) => this.dataEmitter.fire(chunk),
-    });
   }
 
   async list(): Promise<SerialPortInfo[]> {
@@ -120,91 +112,79 @@ class SerialServiceImpl implements SerialService {
     }
   }
 
-  open(params: { path: string; config: SerialConfig }): Promise<void> {
-    const key = JSON.stringify([params.path, params.config]);
-    if (this.inFlightOpen?.key === key) return this.inFlightOpen.promise;
-    const promise = this.enqueue(() => this.openNow(params.path, params.config));
-    const entry = { key, promise };
-    this.inFlightOpen = entry;
-    void promise
-      .catch(() => {})
-      .finally(() => {
-        if (this.inFlightOpen === entry) this.inFlightOpen = null;
-      });
-    return promise;
+  async listSessions(): Promise<SerialSessionSummary[]> {
+    return [...this.sessions.values()]
+      .filter(isActive)
+      .map((session) => ({ path: session.path, status: session.currentStatus }));
   }
 
-  close(): Promise<void> {
-    return this.enqueue(() => this.closeNow());
+  async open(params: { path: string; config: SerialConfig }): Promise<void> {
+    const existing = this.sessions.get(params.path);
+    const activeOthers = [...this.sessions.values()].filter(
+      (session) => session.path !== params.path && isActive(session),
+    ).length;
+    if (activeOthers >= SERIAL_MAX_ACTIVE_SESSIONS) {
+      throw new SerialError(
+        "invalidInput",
+        `At most ${SERIAL_MAX_ACTIVE_SESSIONS} serial ports can be open at the same time`,
+      );
+    }
+    const session = existing ?? this.createSession(params.path);
+    await session.open(params.config);
+  }
+
+  async close(params: { path: string }): Promise<void> {
+    await this.sessions.get(params.path)?.close();
   }
 
   async write(params: {
+    path: string;
     bytes: Uint8Array;
     source: SerialSource;
     sessionId?: string;
   }): Promise<{ seq: number }> {
-    const port = this.port;
-    if (this.status.state !== "open" || !port) {
-      throw new SerialError("notOpen", "Serial port is not open");
-    }
-    if (params.bytes.byteLength > SERIAL_WRITE_LIMIT_BYTES) {
-      throw new SerialError(
-        "invalidInput",
-        `Write exceeds ${SERIAL_WRITE_LIMIT_BYTES} bytes: ${params.bytes.byteLength}`,
-      );
-    }
-    if (params.bytes.byteLength === 0) return { seq: this.buffer.lastSeq };
-    const bytes = Buffer.from(params.bytes);
-    this.buffer.pushTx(
-      params.source,
-      bytes,
-      params.source === "agent" ? params.sessionId : undefined,
-    );
-    const seq = this.buffer.lastSeq;
-    await new Promise<void>((resolve, reject) => {
-      port.write(bytes, (error) => {
-        if (error) {
-          reject(new SerialError("io", error.message));
-          return;
-        }
-        port.drain((drainError) => {
-          if (drainError) reject(new SerialError("io", drainError.message));
-          else resolve();
-        });
-      });
-    });
-    return { seq };
+    const session = this.sessions.get(params.path);
+    if (!session) throw new SerialError("notOpen", "Serial port is not open");
+    return session.write(params);
   }
 
-  async clear(): Promise<void> {
-    this.buffer.clear();
+  async clear(params: { path: string }): Promise<void> {
+    this.sessions.get(params.path)?.clear();
   }
 
-  async getSnapshot(): Promise<SerialSnapshot> {
-    return { status: { ...this.status }, ...this.buffer.snapshot() };
+  async getSnapshot(params: { path: string }): Promise<SerialSnapshot> {
+    const session = this.sessions.get(params.path);
+    if (session) return session.snapshot();
+    return {
+      status: { state: "closed", path: params.path },
+      chunks: [],
+      seq: this.seq,
+      stats: { rxBytes: 0, txBytes: 0 },
+    };
   }
 
-  readSince(params: {
-    sinceSeq?: number;
-    direction: SerialChunk["direction"] | "both";
-    maxBytes: number;
-  }): SerialReadResult {
-    return this.buffer.readSince(params);
+  readSince(params: ReadParams): SerialReadResult {
+    const session = this.sessions.get(params.path);
+    if (session) return session.readSince(params);
+    return { chunks: [], lastSeq: params.sinceSeq ?? this.seq, truncated: false, evicted: false };
   }
 
   waitFor<T>(params: {
+    path: string;
     sinceSeq?: number;
     timeoutMs: number;
     signal?: AbortSignal;
     test: (rxChunks: readonly SerialChunk[]) => T | null;
   }): Promise<SerialWaitResult<T>> {
+    const session = this.sessions.get(params.path);
+    const path = params.path;
     return waitForSerialRx(
       {
-        lastSeq: () => this.buffer.lastSeq,
-        rxSince: (seq) => this.buffer.rxSince(seq),
-        isOpen: () => this.status.state === "open",
-        onData: this.onData,
-        onStatus: this.onStatus,
+        lastSeq: () => session?.lastSeq ?? this.seq,
+        rxSince: (seq) => session?.rxSince(seq) ?? [],
+        isOpen: () => session?.state === "open",
+        onData: (listener) => this.onData((chunk) => chunk.path === path && listener(chunk)),
+        onStatus: (listener) => this.onStatus((status) => status.path === path && listener(status)),
       },
       params,
     );
@@ -224,7 +204,9 @@ class SerialServiceImpl implements SerialService {
     if (this.disposed) return;
     this.disposed = true;
     this.stopPolling();
-    await this.enqueue(() => this.closeNow()).catch(() => {});
+    await Promise.all(
+      [...this.sessions.values()].map((session) => session.close().catch(() => {})),
+    );
     this.dataEmitter.dispose();
     this.statusEmitter.dispose();
     this.portsEmitter.dispose();
@@ -232,10 +214,38 @@ class SerialServiceImpl implements SerialService {
 
   // ---------------------------------------------------------------------------
 
-  private enqueue(operation: () => Promise<void>): Promise<void> {
-    const run = this.queue.then(operation);
-    this.queue = run.catch(() => {});
-    return run;
+  private createSession(path: string): SerialSession {
+    const session = new SerialSession({
+      path,
+      getBinding: () => this.getBinding(),
+      buffer: {
+        limitBytes: this.options.bufferLimitBytes ?? DEFAULT_BUFFER_LIMIT_BYTES,
+        coalesceWindowMs: this.options.coalesceWindowMs ?? DEFAULT_COALESCE_WINDOW_MS,
+        coalesceMaxBytes: this.options.coalesceMaxBytes ?? DEFAULT_COALESCE_MAX_BYTES,
+      },
+      nextSeq: () => ++this.seq,
+      onChunk: (chunk) => this.dataEmitter.fire({ ...chunk, path }),
+      onStatus: (status) => {
+        this.statusEmitter.fire({ ...status, path });
+        this.updatePolling();
+      },
+      log,
+    });
+    this.sessions.set(path, session);
+    this.evictClosedSessions();
+    return session;
+  }
+
+  /** 已关闭会话保留历史；会话表超出上限时淘汰最早关闭的会话。 */
+  private evictClosedSessions(): void {
+    if (this.sessions.size <= MAX_RETAINED_SESSIONS) return;
+    const closed = [...this.sessions.values()]
+      .filter((session) => !isActive(session))
+      .sort((a, b) => a.lastChangedAt - b.lastChangedAt);
+    for (const session of closed) {
+      if (this.sessions.size <= MAX_RETAINED_SESSIONS) return;
+      this.sessions.delete(session.path);
+    }
   }
 
   private getBinding(): Promise<BindingInterface> {
@@ -252,137 +262,14 @@ class SerialServiceImpl implements SerialService {
     return this.bindingPromise;
   }
 
-  private setStatus(status: SerialStatus): void {
-    this.status = status;
-    this.statusEmitter.fire({ ...status });
-    this.updatePolling();
-  }
+  // --- 热插拔轮询：一次轮询服务所有会话的重连 ------------------------------------
 
-  private async openNow(path: string, config: SerialConfig): Promise<void> {
-    validateConfig(path, config);
-    const binding = await this.getBinding();
-    if (this.status.state === "open" && this.status.path === path) {
-      if (JSON.stringify(this.status.config) === JSON.stringify(config)) return;
-    }
-    if (this.port || this.status.state === "disconnected") await this.closeNow();
-    await this.openPort(binding, path, config);
+  private hasDisconnected(): boolean {
+    return [...this.sessions.values()].some((session) => session.state === "disconnected");
   }
-
-  private async openPort(binding: BindingInterface, path: string, config: SerialConfig) {
-    this.setStatus({ state: "opening", path, config });
-    let SerialPortStreamClass: SerialStreamModule["SerialPortStream"];
-    try {
-      SerialPortStreamClass = (await loadStreamModule()).SerialPortStream;
-    } catch (error) {
-      const mapped = mapSerialOpenError(error);
-      this.setStatus({
-        state: "error",
-        path,
-        config,
-        error: { code: mapped.code, message: mapped.message },
-      });
-      throw mapped;
-    }
-    const port = new SerialPortStreamClass({
-      binding,
-      path,
-      baudRate: config.baudRate,
-      dataBits: config.dataBits,
-      parity: config.parity,
-      stopBits: config.stopBits,
-      rtscts: config.rtscts,
-      autoOpen: false,
-    });
-    try {
-      await new Promise<void>((resolve, reject) => {
-        port.open((error) => (error ? reject(error) : resolve()));
-      });
-    } catch (error) {
-      const mapped = mapSerialOpenError(error);
-      log.warn("serial open failed", {
-        path,
-        code: mapped.code,
-        message: mapped.message,
-      });
-      this.setStatus({
-        state: "error",
-        path,
-        config,
-        error: { code: mapped.code, message: mapped.message },
-      });
-      throw mapped;
-    }
-    this.port = port;
-    port.on("data", (data: Buffer) => {
-      if (this.port === port) this.buffer.receive(data);
-    });
-    port.on("error", (error: Error) => {
-      log.warn("serial port error", { path, message: error.message });
-    });
-    port.on("close", (error?: Error & { disconnected?: boolean }) => {
-      if (this.port !== port || !error?.disconnected) return;
-      this.handleDisconnect(path, config);
-    });
-    log.info("serial port opened", { path, baudRate: config.baudRate });
-    this.setStatus({ state: "open", path, config });
-  }
-
-  private async closeNow(): Promise<void> {
-    const port = this.port;
-    const { path, config } = this.status;
-    if (port) {
-      this.setStatus({ state: "closing", path, config });
-      this.port = null;
-      this.buffer.flushRx();
-      if (port.isOpen) {
-        await new Promise<void>((resolve) => {
-          port.close((error) => {
-            if (error) log.warn("serial close failed", { path, message: error.message });
-            resolve();
-          });
-        });
-      }
-      port.removeAllListeners();
-      log.info("serial port closed", { path });
-      this.setStatus({ state: "closed", path, config });
-      return;
-    }
-    if (this.status.state !== "closed") {
-      this.setStatus({ state: "closed", path, config });
-    }
-  }
-
-  private handleDisconnect(path: string, config: SerialConfig): void {
-    const port = this.port;
-    this.port = null;
-    port?.removeAllListeners();
-    this.buffer.flushRx();
-    log.info("serial device disconnected", {
-      path,
-      autoReconnect: config.autoReconnect,
-    });
-    this.setStatus({
-      state: config.autoReconnect ? "disconnected" : "closed",
-      path,
-      config,
-    });
-  }
-
-  private reconnect(path: string): Promise<void> {
-    return this.enqueue(async () => {
-      // 入队后可能已被用户关闭或改开其他串口；只有仍在等待同一设备时才重连。
-      const { state, config } = this.status;
-      if (state !== "disconnected" || this.status.path !== path || !config) return;
-      const binding = await this.getBinding();
-      await this.openPort(binding, path, config);
-      log.info("serial device reconnected", { path });
-    });
-  }
-
-  // --- 热插拔轮询 ---------------------------------------------------------------
 
   private shouldPoll(): boolean {
-    return !this.disposed && (this.watching || this.status.state === "disconnected");
+    return !this.disposed && (this.watching || this.hasDisconnected());
   }
 
   private updatePolling(): void {
@@ -415,10 +302,11 @@ class SerialServiceImpl implements SerialService {
         this.lastPortsKey = key;
         this.portsEmitter.fire(ports);
       }
-      const { state, path } = this.status;
-      if (state === "disconnected" && path && ports.some((port) => port.path === path)) {
-        await this.reconnect(path).catch(() => {});
-      }
+      const present = new Set(ports.map((port) => port.path));
+      const reconnecting = [...this.sessions.values()].filter(
+        (session) => session.state === "disconnected" && present.has(session.path),
+      );
+      await Promise.all(reconnecting.map((session) => session.reconnect().catch(() => {})));
     } catch (error) {
       log.debug("serial port poll failed", {
         message: error instanceof Error ? error.message : String(error),

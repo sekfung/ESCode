@@ -1828,6 +1828,7 @@ const enUS: Record<string, string> = {
   "serial.title": "Serial Port",
   "serial.unavailable": "The serial port debugger is only available in the desktop app.",
   "serial.port": "Serial port",
+  "serial.port.running": "Running",
   "serial.port.empty": "No serial ports found",
   "serial.refresh": "Refresh serial ports",
   "serial.baudRate": "Baud rate",

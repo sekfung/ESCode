@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IServiceAccessor, SerialConfig, SerialErrorCode, SerialState } from "@zcode/services";
 import type { SerialPortPreferences } from "@zcode/shared";
 import { toast } from "@/components/ui/toast.js";
@@ -15,6 +15,7 @@ import {
   resolveSerialAgentSession,
 } from "@/lib/serial/serialAgentSession.js";
 import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { buildSerialPortOptions, pickInitialSerialPath } from "@/lib/serial/serialPortChoice.js";
 
 const DEFAULT_CONFIG: SerialConfig = {
   baudRate: 115200,
@@ -36,16 +37,21 @@ function describeError(error: unknown): { code?: SerialErrorCode; message: strin
 }
 
 /**
- * 串口调试器面板。串口会话属于窗口级 Desktop Local Host：关闭标签不会断开串口，
- * 重新打开时从 Host 快照恢复收发记录。
+ * 串口调试器面板（一个标签对应一个串口）。串口会话属于窗口级 Desktop Local Host：关闭标签不会断开串口，
+ * 选择运行中的串口即挂回该会话，并从 Host 快照恢复收发记录。
  */
 export function SerialPane({
   services,
   isVisible,
+  path,
+  onBindPath,
   onOpenSession,
 }: {
   services: IServiceAccessor;
   isVisible: boolean;
+  /** 标签绑定的串口路径（标签状态是唯一来源）；未绑定时为空。 */
+  path?: string;
+  onBindPath: (path: string) => void;
   /** 点击 `[Agent·…]` 时跳到发起写入的会话。 */
   onOpenSession?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
 }) {
@@ -53,47 +59,34 @@ export function SerialPane({
   const { settings, update } = useSettings();
   const { state, refreshPorts, open, close, send, clear } = useSerialSession(
     services.serialService,
+    path,
     isVisible,
   );
-  const { status, ports, log, listError } = state;
+  const { status, ports, sessions, log, listError } = state;
   const isActive =
     status.state === "open" || status.state === "disconnected" || BUSY_STATES.has(status.state);
 
   const preferences = settings?.serialPortPreferences;
-  const [path, setPath] = useState("");
   const [config, setConfig] = useState<SerialConfig>(DEFAULT_CONFIG);
-  const formInitialized = useRef(false);
+  const portOptions = useMemo(() => buildSerialPortOptions(ports, sessions), [ports, sessions]);
 
-  // 表单预填：已有会话时以 Host 状态为准；否则使用上次记住的串口与参数（只预填，不自动连接）。
+  // 未绑定的新标签预选串口（只预选，不自动连接）：上次用过且未被占用的优先，否则第一个空闲串口。
   useEffect(() => {
-    if (formInitialized.current) return;
-    if (status.path && status.config) {
-      formInitialized.current = true;
-      setPath(status.path);
+    if (path || !settings || !state.inventoryLoaded || ports.length === 0) return;
+    const initial = pickInitialSerialPath({ lastPath: preferences?.lastPath, ports, sessions });
+    if (initial) onBindPath(initial);
+  }, [onBindPath, path, ports, preferences?.lastPath, sessions, settings, state.inventoryLoaded]);
+
+  // 表单参数：会话活动时以 Host 状态为准；否则用该串口记住的参数。
+  useEffect(() => {
+    if (status.config && status.state !== "closed") {
       setConfig(status.config);
       return;
     }
-    if (!settings) return;
-    formInitialized.current = true;
-    const lastPath = preferences?.lastPath;
-    if (lastPath) {
-      setPath(lastPath);
-      setConfig(preferences.byPath[lastPath] ?? DEFAULT_CONFIG);
-    }
-  }, [preferences, settings, status.config, status.path]);
+    if (path) setConfig(preferences?.byPath[path] ?? DEFAULT_CONFIG);
+  }, [path, preferences, status.config, status.state]);
 
-  useEffect(() => {
-    if (!path && ports[0]) setPath(ports[0].path);
-  }, [path, ports]);
-
-  const selectPort = useCallback(
-    (nextPath: string) => {
-      setPath(nextPath);
-      const remembered = preferences?.byPath[nextPath];
-      if (remembered) setConfig(remembered);
-    },
-    [preferences],
-  );
+  const selectPort = useCallback((nextPath: string) => onBindPath(nextPath), [onBindPath]);
 
   const formatError = useCallback(
     (error: { code?: string; message: string }) =>
@@ -107,7 +100,8 @@ export function SerialPane({
         await close();
         return;
       }
-      await open(path, config);
+      if (!path) return;
+      await open(config);
       const next: SerialPortPreferences = {
         lastPath: path,
         byPath: { ...preferences?.byPath, [path]: config },
@@ -175,8 +169,8 @@ export function SerialPane({
       data-testid="serial-pane"
     >
       <SerialConnectionBar
-        ports={ports}
-        path={path}
+        ports={portOptions}
+        path={path ?? ""}
         config={config}
         isActive={isActive}
         isBusy={BUSY_STATES.has(status.state)}

@@ -20,6 +20,8 @@ export const SERIAL_WAIT_MAX_TIMEOUT_MS = 120_000;
 const SERIAL_WRITE_MAX_INPUT_CHARS = 256 * 1024;
 
 const pathSchema = z.string().trim().min(1).max(512);
+/** 多串口时指定目标串口；省略时仅当恰好一个会话时使用它（docs/specs/serial-port-debugger-phase3.md）。 */
+const optionalPath = { path: pathSchema.optional() };
 const seqSchema = z.number().int().nonnegative();
 
 export const serialToolArgsSchemas = {
@@ -36,6 +38,7 @@ export const serialToolArgsSchemas = {
     .strict(),
   write: z
     .object({
+      ...optionalPath,
       data: z.string().min(1).max(SERIAL_WRITE_MAX_INPUT_CHARS),
       encoding: z.enum(["utf-8", "hex"]).default("utf-8"),
       lineEnding: z.enum(["none", "cr", "lf", "crlf"]).default("none"),
@@ -43,6 +46,7 @@ export const serialToolArgsSchemas = {
     .strict(),
   read: z
     .object({
+      ...optionalPath,
       sinceSeq: seqSchema.optional(),
       direction: z.enum(["rx", "tx", "both"]).default("rx"),
       encoding: z.enum(["utf-8", "gbk", "hex"]).default("utf-8"),
@@ -56,6 +60,7 @@ export const serialToolArgsSchemas = {
     .strict(),
   waitFor: z
     .object({
+      ...optionalPath,
       pattern: z.string().min(1).max(4096),
       flags: z
         .string()
@@ -71,7 +76,7 @@ export const serialToolArgsSchemas = {
       encoding: z.enum(["utf-8", "gbk"]).default("utf-8"),
     })
     .strict(),
-  close: z.object({}).strict(),
+  close: z.object({ ...optionalPath }).strict(),
 } as const;
 
 export type SerialToolOp = keyof typeof serialToolArgsSchemas;
@@ -178,7 +183,7 @@ export const zcodeSerialMethodResultSchemas = {
           })
           .strict(),
       ),
-      status: serialStatusSchema,
+      sessions: z.array(z.object({ path: z.string(), status: serialStatusSchema }).strict()),
     })
     .strict(),
   open: z.object({ reused: z.boolean(), status: serialStatusSchema }).strict(),

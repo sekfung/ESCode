@@ -44,7 +44,7 @@ before(async () => {
     existsSync(SERVER_SCRIPT),
     `missing ${SERVER_SCRIPT}; build @zcode/serial-plugin first`,
   );
-  process.env.ZCODE_SERIAL_MOCK_PORTS = "COM_CHAIN1";
+  process.env.ZCODE_SERIAL_MOCK_PORTS = "COM_CHAIN1,COM_CHAIN2";
   service = createSerialService({ loadBinding: loadDefaultSerialBinding, coalesceWindowMs: 0 });
   const bridge = createSerialAgentBridge({
     getSerialService: () => service,
@@ -120,7 +120,7 @@ test("list → open → write → wait_for（回环）→ read → close 走通�
   const listed = json(await call("serial_list"));
   assert.deepEqual(
     (listed.ports as Array<{ path: string }>).map((port) => port.path),
-    ["COM_CHAIN1"],
+    ["COM_CHAIN1", "COM_CHAIN2"],
   );
 
   const opened = json(await call("serial_open", { path: "COM_CHAIN1", baudRate: 115200 }));
@@ -138,7 +138,9 @@ test("list → open → write → wait_for（回环）→ read → close 走通�
   assert.equal(read.content[0]!.text, "TX PING\r\nRX PING\r\n");
 
   // Agent 写入在 Host 收发记录里带会话来源，供面板标注 [Agent·…]。
-  const tx = (await service.getSnapshot()).chunks.find((chunk) => chunk.direction === "tx");
+  const tx = (await service.getSnapshot({ path: "COM_CHAIN1" })).chunks.find(
+    (chunk) => chunk.direction === "tx",
+  );
   assert.equal(tx?.source, "agent");
   assert.equal(tx?.sessionId, SESSION);
 
@@ -161,7 +163,7 @@ test("不抢占：用户已打开的串口参数不同时 open 返回 busy", asy
   const result = await call("serial_open", { path: "COM_CHAIN1", baudRate: 115200 });
   assert.equal(result.isError, true);
   assert.match(result.content[0]!.text, /^\[busy\]/);
-  await service.close();
+  await service.close({ path: "COM_CHAIN1" });
 });
 
 test("业务错误码与参数错误都以 [code] 形式返回给模型", async () => {
@@ -174,4 +176,28 @@ test("业务错误码与参数错误都以 [code] 形式返回给模型", async 
     content: Array<{ text: string }>;
   };
   assert.match(noContext.content[0]!.text, /^\[unavailable\]/);
+});
+
+test("多串口：两个串口同时打开时省略 path 被拒绝，带 path 各自收发", async () => {
+  await call("serial_open", { path: "COM_CHAIN1", baudRate: 115200 });
+  await call("serial_open", { path: "COM_CHAIN2", baudRate: 115200 });
+  const ambiguous = await call("serial_write", { data: "X" });
+  assert.equal(ambiguous.isError, true);
+  assert.match(ambiguous.content[0]!.text, /^\[invalidInput\].*COM_CHAIN1.*COM_CHAIN2/);
+  const written = json(await call("serial_write", { path: "COM_CHAIN2", data: "Y" }));
+  assert.equal(written.bytes, 1);
+  const second = (await service.getSnapshot({ path: "COM_CHAIN2" })).chunks.map((c) =>
+    Buffer.from(c.bytes).toString(),
+  );
+  assert.ok(second.includes("Y"));
+  assert.deepEqual(
+    (await service.getSnapshot({ path: "COM_CHAIN1" })).chunks.filter(
+      (c) => c.direction === "tx" && Buffer.from(c.bytes).toString() === "Y",
+    ),
+    [],
+  );
+  const listed = json(await call("serial_list"));
+  assert.equal((listed.sessions as unknown[]).length, 2);
+  await call("serial_close", { path: "COM_CHAIN1" });
+  await call("serial_close", { path: "COM_CHAIN2" });
 });
