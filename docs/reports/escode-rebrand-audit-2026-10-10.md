@@ -12,7 +12,7 @@
 | 不得修改源代码的归属权 | 完成                                                                                                              | `LICENSE` 未改动（`Copyright 2026 Z.AI Co., Ltd`）；`Modified by ZCode`/`zcode patch:`/`modified by ZCode` 原样保留；产物元数据双署名               |
 | 必须遵循 Apache-2.0    | 完成                                                                                                              | 安装包随附 `LICENSE`、`NOTICE.md`、`THIRD-PARTY-NOTICES.md`（第 4(a)(d) 条）；NOTICE 第五节登记本次修改（第 4(b) 条）；第三方声明与清单由生成器重建 |
 
-两条要求在「上游修改声明」与「第三方服务地址」上存在冲突：前者受归属权约束必须保留，后者属外部服务标识、改名会破坏登录/网关/插件市场/更新。口径与回退路径见 [spec 第二节的裁定记录](../specs/escode-rebrand.md#裁定记录2026-10-10)；该裁定已两次请求用户确认但未获答复，按推荐口径执行并登记为可回退假设。
+两条要求在「上游修改声明」与「第三方服务地址」上存在冲突：前者受归属权约束必须保留，后者属外部服务标识、改名会破坏登录/网关/插件市场/更新。口径与回退路径见 [spec 第二节的裁定记录](../specs/escode-rebrand.md#裁定记录2026-10-10)；用户于 2026-10-11 复「豁免」确认该口径，不再作为待决假设。
 
 ## 一、执行结果
 
@@ -44,7 +44,7 @@
 
 补充：Rust 的官方 MCP 鉴权差分语料原本用生产域名当匹配参数，已改为合成域名 `official.example.test`（`crates/domain/tests/fixtures/mcp_official_auth_corpus.json` 与生成器同步），只保留 1 行对编译期内置默认值的断言；域内 Rust 用例 `origin_trust_matches_ts`、`escode_origin_matches_ts` 等 6 项仍全部通过。
 
-口径说明：上表第一、二类是「代码不出现 ZCode」与「不得修改源代码归属权」的直接冲突点，本次按豁免口径执行（保留上游修改声明与 Z.AI 服务端点），理由与零残留时的迁移清单见 [spec 第二节的裁定记录](../specs/escode-rebrand.md#裁定记录2026-10-10)。该口径在用户另行裁定前有效；端点本身已可通过 `ESCODE_BASE_URL`、`ESCODE_CDN_BASE_URL` 等环境变量覆盖为自建服务，无需改代码。
+口径说明：上表第一、二类是「代码不出现 ZCode」与「不得修改源代码归属权」的直接冲突点，本次按豁免口径执行（保留上游修改声明与 Z.AI 服务端点），理由与零残留时的迁移清单见 [spec 第二节的裁定记录](../specs/escode-rebrand.md#裁定记录2026-10-10)。该口径经用户于 2026-10-11 确认（回复「豁免」）；端点本身已可通过 `ESCODE_BASE_URL`、`ESCODE_CDN_BASE_URL` 等环境变量覆盖为自建服务，无需改代码。
 
 ## 三、验证证据
 
