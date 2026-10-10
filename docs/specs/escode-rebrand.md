@@ -31,7 +31,21 @@
 
 「代码不出现 ZCode」与「不得修改源代码的归属权」在第 3–5 项上直接冲突，需在两者间定界。本次执行采用**豁免**口径：第 3、4 项（上游修改声明）与第 5 项（Z.AI 服务端点）保留现状，理由是 Apache-2.0 第 4(b)/4(c) 条要求保留修改与归属声明，而端点改名会打断登录、模型网关、插件市场与自动更新。该口径已向用户请求裁定但未获答复，此处按推荐口径执行并登记为可回退假设。
 
-若要达成「代码零 `zcode`」，需要自建后端并替换默认端点，涉及位置：`.env.example`、`config/provider/escode-builtin.json`（`baseUrl`/`baseUrlMatch`）、`apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts`、`apps/escode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts`、`apps/escode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts`、`packages/shared/src/escodeEndpoint.ts`、`packages/shared/src/plugin-marketplaces.ts`、`packages/desktop/src/main/remoteCdn.ts`、`packages/services/src/session/offPeak{ServerClient,TaskService}.ts`、Rust `crates/domain/src/mcp_official_auth.rs`、`crates/model/src/client_headers.rs`、`crates/tools/src/{plugin_marketplace.rs,official_plugins.json}` 及其生成器与语料。其中归属声明（第 3、4 项）无论何种口径都应保留。
+若要达成「代码零 `zcode`」，需要自建后端并替换默认端点。逐条迁移清单（总计 75 行命中，21 个文件；归属声明无论何种口径都保留）：
+
+**A. 已可运行时覆盖**——部署侧设环境变量即可，不需要改代码：
+
+| 默认值位置                                                                          | 覆盖变量                                     |
+| ----------------------------------------------------------------------------------- | -------------------------------------------- |
+| `packages/shared/src/escodeEndpoint.ts`                                             | `ESCODE_BASE_URL` / `ESCODE_ENDPOINT_ORIGIN` |
+| `apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts`                           | `ESCODE_OAUTH_BASE_URL`                      |
+| `packages/desktop/src/main/remoteCdn.ts`                                            | `ESCODE_CDN_BASE_URL`                        |
+| `packages/services/src/conversation-share/conversationShareService.ts`              | `ESCODE_CONVERSATION_SHARE_WEB_URL`          |
+| Rust `crates/domain/src/mcp_official_auth.rs`、`crates/model/src/client_headers.rs` | `ESCODE_BASE_URL` / `ESCODE_ENDPOINT_ORIGIN` |
+
+**B. 需改默认值**（代码、配置或生成物）：`config/provider/escode-builtin.json` 的 `baseUrl`（2 处）与 `baseUrlMatch`（3 处）；`crates/tools/src/official_plugins.json` 的 8 个插件图标 URL（由 TS 官方插件定义生成）；`packages/shared/src/plugin-marketplaces.ts` 与 `crates/tools/src/plugin_marketplace.rs` 的 `marketplace.json`；`apps/escode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts` 的插件资产基址；`packages/ui/src/lib/productDocs.ts` 的文档地址与 `packages/ui/src/v4/featureSuggestedPrompts.ts` 的示例资源；`apps/escode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts` 中说明默认 origin 的注释；安装包元数据 `packages/desktop/electron-builder.config.js` 的 `homepage`/`author.email`/`maintainer`；`.env.example` 的示例值；以及 Rust 语料 `crates/domain/tests/fixtures/mcp_official_auth_corpus.json` 与其生成器（语料用于验证 origin 匹配语义，默认值一变必须同步）。
+
+**C. 不应改**（第三方 provider 自身端点，与我们的服务无关）：`packages/services/src/oauth/providers/zaiProviderConfig.ts` 与 `bigmodelProviderConfig.ts` 的 `tokenUrl`——那是 Z.AI / BigModel 提供商的 API 地址，改了等于伪造第三方端点并打断该 provider。
 
 ## 三、影响与已知后果
 
