@@ -5,15 +5,27 @@ import {
   type ExecutionPort,
   type SessionId,
   type TraceContext,
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/custom-command-prompt.ts
 } from "@escode/contracts";
 import { loadESCodeCustomCommand, type ListESCodeCustomCommandsOptions } from "./custom-commands.js";
+=======
+} from "@zcode/contracts";
+import {
+  loadZCodeCustomCommand,
+  type ListZCodeCustomCommandsOptions,
+} from "./custom-commands.js";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/custom-command-prompt.ts
 import { expandCustomCommandShellSyntax } from "./custom-command-shell-expansion.js";
 import { isReservedESCodeSlashCommandName } from "./slash-command-surface.js";
 
 const CUSTOM_COMMAND_NOT_FOUND_PATTERN = /not found/i;
 const PROMPT_CUSTOM_COMMAND_PATTERN = /^\/([^\s]+)(?:\s+([\s\S]*))?$/;
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/custom-command-prompt.ts
 interface ResolveESCodeCustomCommandPromptOptions extends ListESCodeCustomCommandsOptions {
+=======
+export interface ResolveZCodeCustomCommandPromptOptions extends ListZCodeCustomCommandsOptions {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/custom-command-prompt.ts
   executionPort?: ExecutionPort;
   sessionId?: SessionId;
   signal?: AbortSignal;
@@ -26,8 +38,13 @@ export async function resolveESCodeCustomCommandPrompt(
 ): Promise<string | undefined> {
   const invocation = parsePromptCustomCommandInvocation(input);
   // 保留名（含内置 `workflow`）在这里直接返回 undefined，与「命令不存在」同形：内置命令由
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/custom-command-prompt.ts
   // builtin-prompt-command.ts 先行展开，这里拒绝的是借同名自定义命令绕过内置语义（或功能开关）的路径。
   if (!invocation || isReservedESCodeSlashCommandName(invocation.name)) {
+=======
+  // builtin-prompt-command.ts 先行展开，这里拒绝的是借同名自定义命令绕过内置语义（或灰度门）的路径。
+  if (!invocation || isReservedZCodeSlashCommandName(invocation.name)) {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/custom-command-prompt.ts
     return undefined;
   }
 

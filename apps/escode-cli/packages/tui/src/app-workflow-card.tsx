@@ -6,8 +6,13 @@
 //
 // 视图是 props 的纯函数（TUI 测试按函数式调用组件，不起终端）。
 import React from "react";
+<<<<<<< HEAD:apps/escode-cli/packages/tui/src/app-workflow-card.tsx
 import type { TuiCopy } from "@escode/i18n";
 import type { WorkflowRunActor } from "@escode/shared/escode-protocol-v4";
+=======
+import type { TuiCopy } from "@zcode/i18n";
+import type { WorkflowRunActor } from "@zcode/shared/zcode-protocol-v4";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/tui/src/app-workflow-card.tsx
 import { palette } from "./app-model.js";
 import { DEFAULT_TUI_COPY } from "./app-locale.js";
 import { truncateDisplay } from "./app-terminal-width.js";
@@ -18,7 +23,11 @@ const CARD_LOG_INDENT = "    ";
 export const MAX_ACTOR_ROWS = 6;
 const MAX_RESULT_PREVIEW_WIDTH = 200;
 
+<<<<<<< HEAD:apps/escode-cli/packages/tui/src/app-workflow-card.tsx
 /** 六行位置按状态分桶：跑着的排前面。 */
+=======
+/** 六行位置按状态分桶（docs/dynamic-workflow/launch.md「The inline card」）：跑着的排前面。 */
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/tui/src/app-workflow-card.tsx
 const ACTOR_ROW_RANK: Record<WorkflowRunActor["status"], number> = {
   running: 0,
   waiting: 1,

@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 import { createHash, randomUUID } from "node:crypto";
 import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -16,6 +17,36 @@ import { candidateBaseDirs } from "./bundled-plugins.js";
  * - SEA 二进制：资产内嵌在 `escode-bundled-skills/` 前缀下，首启按内容 hash 解压到
  *   `<cli storage>/bundled-skills/<hash>/`；目录名即内容身份，重复启动幂等，并发只会有一个赢家。
  * - 远端主机：prepare-prebuilds 把目录 stage 到远端 escode.cjs 旁，与桌面同路。
+=======
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import type { Logger, SkillRoot } from "@zcode/contracts";
+import { DYNAMIC_WORKFLOW_SKILL_NAME } from "@zcode/contracts";
+import { candidateBaseDirs } from "./bundled-plugins.js";
+
+/**
+ * 随 CLI 内置的技能包（apps/zcode-cli/packages/bundled-skills）。
+ *
+ * 它不是插件：不进官方市场目录、没有启停开关、不能卸载，也不出现在设置页与 `$` 引用面板。
+ * 产品功能的工具由 runtime 注册，教模型使用这些工具的技能必须同样不可移除——
+ * 2026-09-19 的「/workflow 消失」事故根因就是 dynamic-workflows 技能与命令都住在
+ * 用户可卸载的 zcode-guide 插件里（docs/dynamic-workflow/authoring.md「The `/workflow` command and the skill」）。
+ *
+ * 三种运行形态解析到同一个 skills 目录：
+ * - 开发态 / Electron 桌面：沿官方插件同款候选目录在入口旁找到 `packages/bundled-skills`，原地读取，不拷贝。
+ * - SEA 二进制：资产内嵌在 `zcode-bundled-skills/` 前缀下，首启按内容 hash 解压到
+ *   `<cli storage>/bundled-skills/<hash>/`；目录名即内容身份，重复启动幂等，并发只会有一个赢家。
+ * - 远端主机：prepare-prebuilds 把目录 stage 到远端 zcode.cjs 旁，与桌面同路。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
  */
 
 export const BUNDLED_SKILL_PACK_DIRECTORY_NAME = "bundled-skills";
@@ -38,6 +69,7 @@ const BUNDLED_SKILL_PACK_ROOT_CANDIDATES = [
   `../../../${BUNDLED_SKILL_PACK_DIRECTORY_NAME}`,
 ] as const;
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 export const SEA_BUNDLED_SKILL_ASSET_PREFIX = "escode-bundled-skills/";
 const SEA_BUNDLED_SKILL_MANIFEST_ASSET_KEY = `${SEA_BUNDLED_SKILL_ASSET_PREFIX}manifest.json`;
 const SEED_MARKER_FILE = ".escode-bundled-skills-seed.json";
@@ -45,6 +77,15 @@ const SEED_MARKER_FILE = ".escode-bundled-skills-seed.json";
 /**
  * 排在所有插件根之后（adapters 的插件根从 FIRST_PLUGIN_PRIORITY 起步进）：同名技能按发现顺序取先者，
  * 用户/项目/插件里的同名技能都应压过内置包。
+=======
+export const SEA_BUNDLED_SKILL_ASSET_PREFIX = "zcode-bundled-skills/";
+const SEA_BUNDLED_SKILL_MANIFEST_ASSET_KEY = `${SEA_BUNDLED_SKILL_ASSET_PREFIX}manifest.json`;
+const SEED_MARKER_FILE = ".zcode-bundled-skills-seed.json";
+
+/**
+ * 排在所有插件根之后（adapters 的插件根从 FIRST_PLUGIN_PRIORITY 起步进）：同名技能按发现顺序取先者，
+ * 用户/项目/插件里的同名技能都应压过内置包，与 skill.md「优先级」第 7 档 bundled/system 一致。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
  */
 const BUNDLED_SKILL_ROOT_PRIORITY = 1_000_000;
 
@@ -62,6 +103,7 @@ export interface ResolveBundledSkillRootsOptions {
   logger?: Logger;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 export async function resolveBundledSkillRoots(
   options: ResolveBundledSkillRootsOptions,
 ): Promise<SkillRoot[]> {
@@ -70,6 +112,14 @@ export async function resolveBundledSkillRoots(
     (await resolveFilesystemBundledSkillPackRoot());
   if (!packRoot) {
     // 内置技能包缺席会让脚本编写被技能门拒绝；记录诊断，便于定位不完整的分发资产。
+=======
+export function resolveBundledSkillRoots(options: ResolveBundledSkillRootsOptions): SkillRoot[] {
+  const packRoot =
+    materializeSeaBundledSkillPack(options) ?? resolveFilesystemBundledSkillPackRoot();
+  if (!packRoot) {
+    // 内置技能包缺席意味着 /workflow 展开后模型加载不到技能。这不是致命错误（工具描述仍带完整 API），
+    // 但必须留下诊断，否则症状只是「模型写的脚本质量变差」。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
     options.logger?.warn("Bundled skill pack unavailable", {
       module: "bootstrap.bundled_skills",
       requiredPaths: [...BUNDLED_SKILL_PACK_REQUIRED_PATHS],
@@ -86,6 +136,7 @@ export async function resolveBundledSkillRoots(
   ];
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 export async function findMissingBundledSkillPackPaths(packRoot: string): Promise<string[]> {
   const present = await Promise.all(
     BUNDLED_SKILL_PACK_REQUIRED_PATHS.map((requiredPath) =>
@@ -105,12 +156,26 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function resolveFilesystemBundledSkillPackRoot(): Promise<string | undefined> {
+=======
+export function findMissingBundledSkillPackPaths(packRoot: string): string[] {
+  return BUNDLED_SKILL_PACK_REQUIRED_PATHS.filter(
+    (requiredPath) => !existsSync(join(packRoot, ...requiredPath.split("/"))),
+  );
+}
+
+function resolveFilesystemBundledSkillPackRoot(): string | undefined {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
   for (const baseDir of candidateBaseDirs()) {
     for (const relativePath of BUNDLED_SKILL_PACK_ROOT_CANDIDATES) {
       const packRoot = resolve(baseDir, relativePath);
       if (
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
         (await pathExists(join(packRoot, BUNDLED_SKILL_PACK_SKILLS_DIRECTORY))) &&
         (await findMissingBundledSkillPackPaths(packRoot)).length === 0
+=======
+        existsSync(join(packRoot, BUNDLED_SKILL_PACK_SKILLS_DIRECTORY)) &&
+        findMissingBundledSkillPackPaths(packRoot).length === 0
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
       ) {
         return packRoot;
       }
@@ -119,9 +184,15 @@ async function resolveFilesystemBundledSkillPackRoot(): Promise<string | undefin
   return undefined;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 async function materializeSeaBundledSkillPack(
   options: ResolveBundledSkillRootsOptions,
 ): Promise<string | undefined> {
+=======
+function materializeSeaBundledSkillPack(
+  options: ResolveBundledSkillRootsOptions,
+): string | undefined {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
   const sea = getSeaModule();
   if (!sea?.isSea()) return undefined;
   const manifest = readSeaManifest(sea);
@@ -129,6 +200,7 @@ async function materializeSeaBundledSkillPack(
 
   const packsRoot = join(options.cliStorageRoot, BUNDLED_SKILL_PACK_DIRECTORY_NAME);
   const targetRoot = join(packsRoot, manifest.hash);
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
   if (await isSeedComplete(targetRoot, manifest.hash)) return targetRoot;
 
   // 目录名就是内容 hash：写进唯一临时目录再 rename，rename 失败且目标已完整即并发赢家先到，
@@ -136,12 +208,22 @@ async function materializeSeaBundledSkillPack(
   const temporaryRoot = `${targetRoot}.tmp-${process.pid}-${randomUUID()}`;
   try {
     await mkdir(temporaryRoot, { recursive: true });
+=======
+  if (isSeedComplete(targetRoot, manifest.hash)) return targetRoot;
+
+  // 目录名就是内容 hash：写进唯一临时目录再 rename，rename 失败且目标已完整即并发赢家先到，
+  // 直接复用；其他失败回退到任一已完整的旧包（升级中途掉盘仍有技能可用）。
+  const temporaryRoot = `${targetRoot}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    mkdirSync(temporaryRoot, { recursive: true });
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
     for (const file of manifest.files) {
       const bytes = Buffer.from(sea.getRawAsset(`${SEA_BUNDLED_SKILL_ASSET_PREFIX}${file.path}`));
       if (hashBytes(bytes) !== file.sha256) {
         throw new Error(`Bundled skill asset hash mismatch: ${file.path}`);
       }
       const outputPath = join(temporaryRoot, ...file.path.split("/"));
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
       await mkdir(dirname(outputPath), { recursive: true });
       await writeFile(outputPath, bytes, { mode: file.mode ?? 0o644 });
     }
@@ -156,6 +238,22 @@ async function materializeSeaBundledSkillPack(
     await rm(temporaryRoot, { force: true, recursive: true });
     if (await isSeedComplete(targetRoot, manifest.hash)) return targetRoot;
     const fallbackRoot = await findUsableSeededPack(packsRoot);
+=======
+      mkdirSync(dirname(outputPath), { recursive: true });
+      writeFileSync(outputPath, bytes, { mode: file.mode ?? 0o644 });
+    }
+    writeFileSync(
+      join(temporaryRoot, SEED_MARKER_FILE),
+      JSON.stringify({ hash: manifest.hash, version: 1 }, null, 2),
+    );
+    mkdirSync(packsRoot, { recursive: true });
+    renameSync(temporaryRoot, targetRoot);
+    return targetRoot;
+  } catch (error) {
+    rmSync(temporaryRoot, { force: true, recursive: true });
+    if (isSeedComplete(targetRoot, manifest.hash)) return targetRoot;
+    const fallbackRoot = findUsableSeededPack(packsRoot);
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
     options.logger?.warn("Bundled skill pack seed degraded", {
       error: error instanceof Error ? error.message : String(error),
       fallbackRoot,
@@ -166,15 +264,22 @@ async function materializeSeaBundledSkillPack(
   }
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
 async function isSeedComplete(targetRoot: string, expectedHash: string): Promise<boolean> {
   try {
     const marker = JSON.parse(await readFile(join(targetRoot, SEED_MARKER_FILE), "utf8")) as {
+=======
+function isSeedComplete(targetRoot: string, expectedHash: string): boolean {
+  try {
+    const marker = JSON.parse(readFileSync(join(targetRoot, SEED_MARKER_FILE), "utf8")) as {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
       hash?: unknown;
     };
     if (marker.hash !== expectedHash) return false;
   } catch {
     return false;
   }
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts
   return (await findMissingBundledSkillPackPaths(targetRoot)).length === 0;
 }
 
@@ -200,6 +305,31 @@ async function findUsableSeededPack(packsRoot: string): Promise<string | undefin
     }
   }
   return undefined;
+=======
+  return findMissingBundledSkillPackPaths(targetRoot).length === 0;
+}
+
+function findUsableSeededPack(packsRoot: string): string | undefined {
+  let entries;
+  try {
+    entries = readdirSync(packsRoot, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.includes(".tmp-"))
+    .map((entry) => join(packsRoot, entry.name))
+    .find((packRoot) => {
+      try {
+        const marker = JSON.parse(readFileSync(join(packRoot, SEED_MARKER_FILE), "utf8")) as {
+          hash?: unknown;
+        };
+        return typeof marker.hash === "string" && isSeedComplete(packRoot, marker.hash);
+      } catch {
+        return false;
+      }
+    });
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/bundled-skills.ts
 }
 
 function readSeaManifest(sea: SeaModule): SeaBundledSkillManifest | undefined {

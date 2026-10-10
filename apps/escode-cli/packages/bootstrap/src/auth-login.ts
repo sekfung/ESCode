@@ -1,9 +1,37 @@
+export { hasConfiguredStandaloneCodingPlan, logoutZCodeCli } from "./auth-login-persistence.js";
+import {
+  persistStandaloneCodingPlanConnection,
+  type StandaloneCodingPlanPersistenceResult,
+} from "./auth-login-persistence.js";
+export { ZCodeCliLoginError } from "./auth-login-contract.js";
+export type {
+  CodingPlanProviderId,
+  LoginZCodeCliOptions,
+  LoginZCodeCliResult,
+  LoginBigmodelCodingPlanOptions,
+  LoginBigmodelCodingPlanResult,
+  ConfigureCodingPlanApiKeyOptions,
+  ConfigureCodingPlanApiKeyResult,
+  LogoutZCodeCliOptions,
+  LogoutZCodeCliResult,
+} from "./auth-login-contract.js";
+import {
+  ZCodeCliLoginError,
+  type CodingPlanProviderId,
+  type LoginZCodeCliOptions,
+  type LoginZCodeCliResult,
+  type LoginBigmodelCodingPlanOptions,
+  type LoginBigmodelCodingPlanResult,
+  type ConfigureCodingPlanApiKeyOptions,
+  type ConfigureCodingPlanApiKeyResult,
+} from "./auth-login-contract.js";
 import {
   createCodingPlanApiKeyResolver,
   createSharedESCodeCredentialStore,
   createCliOAuthClient,
   createCliOAuthPollToken,
   openUrlInBrowser,
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/auth-login.ts
   SHARED_ESCODE_CREDENTIAL_KEYS,
   type BrowserOpenResult,
   type SharedESCodeCredentialStore,
@@ -33,11 +61,23 @@ import {
   standaloneAccountProviderCredentialKey,
 } from "./app/standalone-account-provider-runtime.js";
 import { throwIfAborted, waitWithAbort } from "./auth-login-abort.js";
+=======
+  SHARED_ZCODE_CREDENTIAL_KEYS,
+  type CliOAuthClient,
+} from "@zcode/adapters";
+import { createConfig } from "@zcode/adapters/config";
+import { createNodeHttpClientAdapter } from "@zcode/adapters/http";
+import type { EnvRecord } from "@zcode/adapters/model";
+import { buildZCodeEndpointUrls, resolveRuntimeZCodeEndpointOrigin } from "@zcode/shared";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/auth-login.ts
 import { setTimeout as delay } from "node:timers/promises";
+import { createStandaloneAccountIdentityFromSecret } from "./app/standalone-account-provider-runtime.js";
+import { throwIfAborted, waitWithAbort } from "./auth-login-abort.js";
 import { pollUntilReady } from "./auth-login-polling.js";
 
 const DEFAULT_LOGIN_TIMEOUT_MS = 5 * 60 * 1_000;
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/auth-login.ts
 export type CodingPlanProviderId = "bigmodel" | "zai";
 
 export interface LoginESCodeCliOptions {
@@ -127,6 +167,16 @@ export class ESCodeCliLoginError extends Error {
 export async function loginESCodeCli(
   options: LoginESCodeCliOptions = {},
 ): Promise<LoginESCodeCliResult> {
+=======
+/**
+ * Z.ai 与 BigModel 共用服务端轮询登录：init 拿授权地址，浏览器授权后轮询到 ready，
+ * 再解析项目访问材料并写入凭据与默认模型。OAuth 登录不落盘派生 API Key，
+ * 运行时按 `authSource: "oauth"` 用访问令牌换取请求凭据。
+ */
+export async function loginZCodeCli(
+  options: LoginZCodeCliOptions = {},
+): Promise<LoginZCodeCliResult> {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/auth-login.ts
   const env = options.env ?? process.env;
   const providerId = options.providerId ?? "zai";
   const now = options.now ?? Date.now;
@@ -172,8 +222,8 @@ export async function loginESCodeCli(
           ? timeoutError()
           : new ESCodeCliLoginError(code, "Authorization failed. Please retry login."),
     });
-    const apiKey = await waitWithAbort(
-      resolveCodingPlanApiKey({
+    const material = await waitWithAbort(
+      resolveCodingPlanMaterial({
         accessToken: readyData.accessToken,
         env,
         httpClient: options.httpClient,
@@ -183,8 +233,16 @@ export async function loginESCodeCli(
       }),
       signal,
     );
-    // A cancelled/expired attempt must not persist a late ready response or API key.
+    // 已取消或已超时的登录不能把迟到的 ready 响应写入凭据。
     throwIfAborted(signal);
+    // Z.ai 以账号用户 ID 作为连接身份；BigModel 的项目令牌按组织与项目签发，
+    // 连接身份沿用组织与项目的稳定摘要，与运行时的令牌缓存范围一致。
+    const accountIdentity =
+      providerId === "zai"
+        ? readyData.user.user_id
+        : createStandaloneAccountIdentityFromSecret(
+            JSON.stringify([material.organizationId, material.projectId]),
+          );
     try {
       if (providerId === "zai") {
         await credentialStore.saveZaiLoginCredentials({
@@ -193,6 +251,7 @@ export async function loginESCodeCli(
           user: readyData.user,
         });
       } else {
+        const displayName = readyData.user.name || readyData.user.email || readyData.user.user_id;
         await credentialStore.saveMany({
           [SHARED_ESCODE_CREDENTIAL_KEYS.activeProvider]: providerId,
           [SHARED_ESCODE_CREDENTIAL_KEYS.escodeJwtToken]: readyData.token,
@@ -200,10 +259,17 @@ export async function loginESCodeCli(
           ...(readyData.refreshToken
             ? { [SHARED_ESCODE_CREDENTIAL_KEYS.bigmodelRefreshToken]: readyData.refreshToken }
             : {}),
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/auth-login.ts
           [SHARED_ESCODE_CREDENTIAL_KEYS.bigmodelUserInfo]: JSON.stringify({
             id: readyData.user.user_id,
             username: readyData.user.name || readyData.user.email || readyData.user.user_id,
             displayName: readyData.user.name || readyData.user.email || readyData.user.user_id,
+=======
+          [SHARED_ZCODE_CREDENTIAL_KEYS.bigmodelUserInfo]: JSON.stringify({
+            id: accountIdentity,
+            username: displayName,
+            displayName,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/auth-login.ts
             rawProfile: readyData.user,
           }),
         });
@@ -219,8 +285,8 @@ export async function loginESCodeCli(
     let configPatch: StandaloneCodingPlanPersistenceResult;
     try {
       configPatch = await persistStandaloneCodingPlanConnection({
-        accountIdentity: readyData.user.user_id,
-        apiKey,
+        accountIdentity,
+        authSource: "oauth",
         credentialStore,
         env,
         personalProviderConfigPath: options.personalProviderConfigPath,
@@ -279,6 +345,7 @@ export async function configureCodingPlanApiKey(
   };
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/auth-login.ts
 export async function logoutESCodeCli(
   options: LogoutESCodeCliOptions = {},
 ): Promise<LogoutESCodeCliResult> {
@@ -364,6 +431,9 @@ async function persistStandaloneCodingPlanConnection(input: {
 }
 
 function createOAuthClient(options: LoginESCodeCliOptions, env: EnvRecord): CliOAuthClient {
+=======
+function createOAuthClient(options: LoginZCodeCliOptions, env: EnvRecord): CliOAuthClient {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/auth-login.ts
   return createCliOAuthClient({
     baseUrl:
       options.baseUrl ?? buildESCodeEndpointUrls(resolveCliESCodeEndpointOrigin(env)).apiBaseUrl,
@@ -387,20 +457,20 @@ function createDefaultHttpClient(env: EnvRecord) {
   });
 }
 
-async function resolveCodingPlanApiKey(input: {
+async function resolveCodingPlanMaterial(input: {
   accessToken: string;
   env: EnvRecord;
   httpClient?: Parameters<typeof createCodingPlanApiKeyResolver>[0]["httpClient"];
   family: CodingPlanProviderId;
-  resolver?: ReturnType<typeof createCodingPlanApiKeyResolver>;
   signal?: AbortSignal;
-}): Promise<string> {
+  resolver?: ReturnType<typeof createCodingPlanApiKeyResolver>;
+}) {
   const resolver =
     input.resolver ??
     createCodingPlanApiKeyResolver({
       httpClient: input.httpClient ?? createDefaultHttpClient(input.env),
     });
-  return resolver.resolve(
+  return resolver.resolveMaterial(
     {
       accessToken: input.accessToken,
       family: input.family,

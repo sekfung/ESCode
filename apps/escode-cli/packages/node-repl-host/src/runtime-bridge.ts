@@ -1,7 +1,11 @@
 import type { BrowserClientTransport } from "@escode/core/browser-client";
 
+<<<<<<< HEAD:apps/escode-cli/packages/node-repl-host/src/runtime-bridge.ts
 export const NODE_REPL_BROWSER_BRIDGE_SYMBOL = Symbol.for("escode.node-repl.browser-control-bridge");
 export const BROWSER_UNAVAILABLE_IN_SUBAGENT_MESSAGE = "Browser is not available in subagent";
+=======
+export const NODE_REPL_BROWSER_BRIDGE_SYMBOL = Symbol.for("zcode.node-repl.browser-control-bridge");
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/node-repl-host/src/runtime-bridge.ts
 
 export interface NodeReplBrowserRuntimeBridge extends BrowserClientTransport {
   documentationRoot: string;

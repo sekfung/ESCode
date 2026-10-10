@@ -1,13 +1,27 @@
 # @escode/dynamic-workflow-runtime
 
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow-runtime/README.md
 沙箱 harness（dynamic workflow 执行引擎）。把一份 workflow 脚本在受控子进程里跑起来，
 用 NDJSON 把子进程的 `__host.*` 调用桥接到 `@escode/dynamic-workflow` 的纯引擎核心。
+=======
+沙箱 harness（dynamic workflow 执行引擎的 phase 1.4）。把一份 workflow 脚本在受控子进程里跑起来，
+用 NDJSON 把子进程的 `__host.*` 调用桥接到 `@zcode/dynamic-workflow` 的纯引擎核心。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow-runtime/README.md
+
+规范：`@zcode/dynamic-workflow/docs/execution-engine.md`（"The sandbox" 与 "The shape of a run:
+three boundaries" 里点名本包）。
 
 ## 依赖边界
 
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow-runtime/README.md
 **仅**依赖 `@escode/dynamic-workflow`（workspace）与 node 内建。**绝不** import `@escode/core` /
 `@escode/contracts` / `@escode/bootstrap` / `@escode/adapters`——本包是「整条 sandbox↔engine
 管线 app-free 可跑」的证明。
+=======
+**仅**依赖 `@zcode/dynamic-workflow`（workspace）与 node 内建。**绝不** import `@zcode/core` /
+`@zcode/contracts` / `@zcode/bootstrap` / `@zcode/adapters`——本包是 phase 1 "整条 sandbox↔engine
+管线 app-free 可跑"的证明。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow-runtime/README.md
 
 ## 用法
 

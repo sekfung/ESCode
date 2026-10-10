@@ -15,9 +15,15 @@ import {
   type AmendWorkflowPredecessor,
   type DynamicWorkflowRunPort,
   type DynamicWorkflowRunSnapshot,
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
 } from "@escode/contracts";
 import type { ToolHandlerFailure } from "../types.js";
 import { clampWorkflowMaxConcurrency } from "./create-workflow-source.js";
+=======
+} from "@zcode/contracts";
+import type { ToolHandlerFailure } from "../types.js";
+import { normalizeWorkflowMaxConcurrency } from "./create-workflow-source.js";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
 import { readWorkflowScriptFile } from "./workflow-path-source.js";
 
 /**
@@ -32,7 +38,12 @@ export const AMEND_WORKFLOW_ERROR_CODE = {
   SCRIPT_UNCHANGED: 24,
   SCRIPT_FILE: 25,
   SCRIPT_UNAVAILABLE: 26,
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
   // 只改并发那条路由自己的三个拒绝；三者都不动 run。
+=======
+  // 只改并发那条路由自己的三个拒绝（docs/dynamic-workflow/launch.md「Changing only the
+  // parallelism of a live run」）；三者都不动 run。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
   RETUNE_UNCHANGED: 27,
   RUN_SETTLED: 28,
   NOT_RETUNABLE: 29,
@@ -80,6 +91,7 @@ export function scriptUnavailableFailure(
 }
 
 /**
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
  * 并发上界的三态归一：
  *
  *   - 数 → 钳到 `[1, 天花板]`；
@@ -90,21 +102,44 @@ export function scriptUnavailableFailure(
  *
  * 三态只活到这里：确认窗与 handler 之后面对的只有「一个数或没有」。**唯一的例外是就地调并发**
  * 那条路由（amend-workflow-retune.ts）：`retuneConcurrency` 自己收 `number | null`，天花板那个数
+=======
+ * 并发上界的三态归一（docs/dynamic-workflow/concurrency.md「Two bounds on a run」）：
+ *
+ *   - 数 → 向下取整到至少 1，没有上限（高于默认并发与低于它一样作数）；
+ *   - `null` → 解除，键整个消失（新 run 跑在默认并发上）；
+ *   - 省略 → 沿用前驱的上界，**原样**。快照**只在不等于默认时**带 `maxConcurrency`，所以「前驱
+ *     没设过」与「前驱跑在默认上」在这里是同一件事：也是键消失；一个被调高过的前驱把它的数
+ *     传下去。
+ *
+ * 三态只活到这里：确认窗与 handler 之后面对的只有「一个数或没有」。**唯一的例外是就地调并发**
+ * 那条路由（amend-workflow-retune.ts）：`retuneConcurrency` 自己收 `number | null`，默认并发那个数
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
  * 只有端口知道，工具不该猜第二遍。
  */
 export function resolveAmendMaxConcurrency(
   requested: number | null | undefined,
   inherited: number | undefined,
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
   ceiling: number | undefined,
+=======
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
 ): { max_concurrency?: number } {
   if (requested === null) return {};
   const resolved = requested ?? inherited;
   if (resolved === undefined) return {};
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
   return { max_concurrency: clampWorkflowMaxConcurrency(resolved, ceiling) };
 }
 
 /**
  * 前驱事实块。resolveInput 与就地
+=======
+  return { max_concurrency: normalizeWorkflowMaxConcurrency(resolved) };
+}
+
+/**
+ * 前驱事实块（docs/dynamic-workflow/launch.md「From call to run」第 2 步）。resolveInput 与就地
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/amend-workflow-source.ts
  * 调并发的落回路（结算竞态里重读一次快照）共用这一份派生，免得两处对「这个 run 现在算什么状态」
  * 给出不同的答案。
  */
@@ -127,7 +162,7 @@ export function describePredecessor(
 }
 
 /** 归一化出来的脚本字段（三条来源同形），外加模型面该看到的文件写法与「是否沿用」。 */
-type AmendScriptResolution =
+export type AmendScriptResolution =
   | {
       result: true;
       fields: { script: string; path?: string; script_line_offset?: number };

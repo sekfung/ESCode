@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/builtin-workflow-command.ts
 import { expandCustomCommandPrompt, type CustomCommandContent } from "@escode/contracts";
 import { BUILTIN_ESCODE_SLASH_COMMAND_HELP_ENTRIES } from "@escode/shared";
 import { DYNAMIC_WORKFLOW_SKILL_NAME } from "./app/bundled-skills.js";
@@ -12,6 +13,25 @@ import { DYNAMIC_WORKFLOW_SKILL_NAME } from "./app/bundled-skills.js";
 export const BUILTIN_WORKFLOW_COMMAND_NAME = "workflow";
 
 const helpEntry = BUILTIN_ESCODE_SLASH_COMMAND_HELP_ENTRIES.find(
+=======
+import { expandCustomCommandPrompt, type CustomCommandContent } from "@zcode/contracts";
+import { BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES } from "@zcode/shared";
+import { DYNAMIC_WORKFLOW_SKILL_NAME } from "./app/bundled-skills.js";
+
+/**
+ * 内置 `/workflow` 命令（docs/dynamic-workflow/authoring.md「The `/workflow` command and the skill」）。
+ *
+ * 它曾是 zcode-guide 内置插件的 `commands/workflow.md`：插件一被卸载/停用，命令与加号菜单入口一起消失，
+ * 而十个工作流工具仍在（2026-09-19 事故）。现在命令正文随 CLI 编译，与 `/init` 同为代码定义的
+ * prompt 型内置命令；名字进入保留字表，用户或插件同名命令不再被展开。
+ *
+ * 正文刻意复用 contracts 的 custom command 展开（$ARGUMENTS 替换 + `skills:` 前言），
+ * 让模型看到的提示词与插件时代逐字同形，不重新调教。
+ */
+export const BUILTIN_WORKFLOW_COMMAND_NAME = "workflow";
+
+const helpEntry = BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES.find(
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/builtin-workflow-command.ts
   (entry) => entry.name === BUILTIN_WORKFLOW_COMMAND_NAME,
 );
 if (!helpEntry) {
@@ -52,7 +72,11 @@ export const BUILTIN_WORKFLOW_COMMAND: CustomCommandContent = {
     rootPath: "builtin:",
     scope: "system",
     skills: [DYNAMIC_WORKFLOW_SKILL_NAME],
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/builtin-workflow-command.ts
     source: "escode",
+=======
+    source: "zcode",
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/builtin-workflow-command.ts
   },
   sizeBytes: Buffer.byteLength(BUILTIN_WORKFLOW_COMMAND_BODY),
   truncated: false,

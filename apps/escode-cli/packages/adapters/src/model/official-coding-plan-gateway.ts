@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts
 import { resolveRuntimeESCodeEndpointOrigin } from "@escode/shared";
 import type { EnvRecord } from "./model-execution.js";
 
@@ -41,8 +42,21 @@ export type OfficialCodingPlanGatewayFetch = typeof globalThis.fetch;
 
 const ROOT_PATH = "/";
 const HOST_HEADER = "host";
-const HTTPS_DEFAULT_PORT = "443";
+=======
+import type {
+  ProviderEndpointRoutingDecision,
+  ProviderEndpointRoutingPort,
+} from "@zcode/contracts";
 
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts
+const HTTPS_DEFAULT_PORT = "443";
+const ROOT_PATH = "/";
+const GATEWAY_PATH_BY_ENDPOINT: ReadonlyMap<string, string> = new Map([
+  ["https://open.bigmodel.cn:443/api/anthropic/v1/messages", "/api/v1/ultra/anthropic/v1/messages"],
+  ["https://api.z.ai:443/api/anthropic/v1/messages", "/api/v1/ultra-zai/anthropic/v1/messages"],
+]);
+
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts
 const GATEWAY_PATH_BY_PROVIDER_ENDPOINT: ReadonlyMap<string, string> = new Map(
   OFFICIAL_CODING_PLAN_GATEWAY_ROUTES.map((route) => [
     endpointKey(new URL(route.providerEndpoint)),
@@ -90,67 +104,31 @@ export function createOfficialCodingPlanGatewayFetch(options: {
       gatewayInput.headers.delete(HOST_HEADER);
     }
     return await options.fetch(gatewayInput, withoutHostHeader(init));
+=======
+/** 静态实现只提供 URL 决策；Host 清理、请求与响应透传由公共 fetch wrapper 负责。 */
+export function createStaticProviderEndpointRoutingPort(
+  endpointOrigin: string,
+): ProviderEndpointRoutingPort {
+  return {
+    async resolve(requestUrl): Promise<ProviderEndpointRoutingDecision> {
+      let parsed: URL;
+      try {
+        parsed = new URL(requestUrl);
+      } catch {
+        return { routed: false, url: requestUrl };
+      }
+      if (parsed.protocol !== "https:") return { routed: false, url: requestUrl };
+      const path =
+        parsed.pathname === ROOT_PATH
+          ? ROOT_PATH
+          : parsed.pathname.replace(/\/+$/u, "") || ROOT_PATH;
+      const key = `${parsed.protocol}//${parsed.hostname.toLowerCase()}:${parsed.port || HTTPS_DEFAULT_PORT}${path}`;
+      const targetPath = GATEWAY_PATH_BY_ENDPOINT.get(key);
+      if (!targetPath) return { routed: false, url: requestUrl };
+      const target = new URL(targetPath, endpointOrigin);
+      target.search = parsed.search;
+      return { routed: true, url: target.href };
+    },
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts
   };
-}
-
-function withoutHostHeader(
-  init: Parameters<OfficialCodingPlanGatewayFetch>[1],
-): Parameters<OfficialCodingPlanGatewayFetch>[1] {
-  if (!init?.headers) {
-    return init;
-  }
-  const headers = new Headers(init.headers);
-  if (!headers.has(HOST_HEADER)) {
-    return init;
-  }
-  headers.delete(HOST_HEADER);
-  return { ...init, headers };
-}
-
-function readRequestUrl(input: Parameters<OfficialCodingPlanGatewayFetch>[0]): string | undefined {
-  try {
-    if (input instanceof Request) {
-      return input.url;
-    }
-    if (input instanceof URL) {
-      return input.href;
-    }
-    return new URL(String(input)).href;
-  } catch {
-    return undefined;
-  }
-}
-
-function withUrl(
-  input: Parameters<OfficialCodingPlanGatewayFetch>[0],
-  url: string,
-): Parameters<OfficialCodingPlanGatewayFetch>[0] {
-  if (input instanceof Request) {
-    return new Request(url, input);
-  }
-  if (input instanceof URL) {
-    return new URL(url);
-  }
-  return url;
-}
-
-function parseHttpsUrl(value: string): URL | undefined {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function endpointKey(url: URL): string {
-  const effectivePort = url.port || HTTPS_DEFAULT_PORT;
-  return `${url.protocol}//${url.hostname.toLowerCase()}:${effectivePort}${normalizedPath(url.pathname)}`;
-}
-
-function normalizedPath(pathname: string): string {
-  if (pathname === ROOT_PATH) {
-    return ROOT_PATH;
-  }
-  return pathname.replace(/\/+$/u, "") || ROOT_PATH;
 }

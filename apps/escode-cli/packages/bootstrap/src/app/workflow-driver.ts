@@ -45,8 +45,13 @@
 //   - **会话静默登记**：dispose 时记下每个会话是否还有在写的 turn。修订一个在飞前驱时，amend
 //     要据它判断「此刻数出来的消息条数可不可信」，才谈得上接续那条未完的 ask。
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/workflow-driver.ts
 import type { SessionId, WorkflowEscalatePort } from "@escode/contracts";
 import type { TurnResult } from "@escode/core";
+=======
+import type { SessionId, WorkflowEscalatePort } from "@zcode/contracts";
+import type { TurnResult } from "@zcode/core";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/workflow-driver.ts
 import {
   GENERIC_SUBMIT_PROFILE,
   refToString,
@@ -100,6 +105,10 @@ import {
 } from "./workflow-driver-helpers.js";
 import { makeSessionSubmitPort, type SubmitBridgeHost } from "./workflow-driver-submit-bridge.js";
 import {
+  makeSessionSubmitPort,
+  type SubmitBridgeHost,
+} from "./workflow-driver-submit-bridge.js";
+import {
   countSessionTranscript,
   journalAskMessageBoundary,
   seedActorSession,
@@ -135,7 +144,11 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
   private readonly modelFailureHost: ModelFailureHost;
   /** 交给 submit 桥接（workflow-driver-submit-bridge.ts）的宿主面：同上，两样都按引用共享。 */
   private readonly submitHost: SubmitBridgeHost;
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/workflow-driver.ts
   /** run 级 stall 时钟：所有 actor 的成功 / 重试节拍汇到这一只表。 */
+=======
+  /** run 级 stall 时钟（决策 4）：所有 actor 的成功 / 重试节拍汇到这一只表。 */
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/workflow-driver.ts
   private readonly stallClock: RunStallClock;
   /**
    * 会话静默账（workflow-driver-quiescence.ts）：dispose 那一刻每个会话还有没有在写的 turn。
@@ -248,7 +261,11 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
       live,
       // 座位闸门按 **actor** 键入（不是 ask 实例）：per-actor FIFO 保证一个 actor 至多一个在飞
       // ask，所以「工作中的子代理」与「在飞的 ask」是同一个计数，而准入端口本就是按 actor 会话
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/workflow-driver.ts
       // 造的。
+=======
+      // 造的。见 docs/dynamic-workflow/concurrency.md「Park and unpark」。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/workflow-driver.ts
       ...(this.deps.seatGate === undefined
         ? {}
         : { seat: { gate: this.deps.seatGate, key: refToString(actor) } }),

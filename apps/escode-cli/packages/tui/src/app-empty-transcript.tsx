@@ -8,7 +8,11 @@ const h = React.createElement as (
   ...children: React.ReactNode[]
 ) => React.ReactElement;
 
+<<<<<<< HEAD:apps/escode-cli/packages/tui/src/app-empty-transcript.tsx
 const ESCODE_LOGO_LINES = [
+=======
+export const ZCODE_LOGO_LINES = [
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/tui/src/app-empty-transcript.tsx
   "███████╗ ██████╗ ██████╗ ██████╗ ███████╗",
   "   ███╔╝██╔════╝██╔═══██╗██╔══██╗██╔════╝",
   "  ███╔╝ ██║     ██║   ██║██║  ██║█████╗  ",

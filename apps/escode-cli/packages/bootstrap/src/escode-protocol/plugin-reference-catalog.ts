@@ -14,9 +14,16 @@ import {
 import type { PluginReferenceCatalogEntry } from "@escode/contracts";
 import { buildPluginReferenceCatalog } from "@escode/core";
 import {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/plugin-reference-catalog.ts
   getESCodePluginsOverview,
   resolveESCodePlugins,
   updateESCodePluginMarketplace,
+=======
+  enrichCachedClaudeMarketplaceIconsForOverview,
+  getZCodePluginsOverview,
+  resolveZCodePlugins,
+  updateZCodePluginMarketplace,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/plugin-reference-catalog.ts
 } from "../plugins.js";
 import {
   parseParams,
@@ -237,7 +244,12 @@ interface PluginReferenceListingDisplay {
 function resolveReferenceListingDisplayByPluginId(
   workspacePath: string,
 ): Map<string, PluginReferenceListingDisplay> {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/plugin-reference-catalog.ts
   const overview = getESCodePluginsOverview({ workingDirectory: workspacePath });
+=======
+  enrichCachedClaudeMarketplaceIconsForOverview({ workingDirectory: workspacePath });
+  const overview = getZCodePluginsOverview({ workingDirectory: workspacePath });
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/plugin-reference-catalog.ts
   const displayByPluginId = new Map<string, PluginReferenceListingDisplay>();
   for (const plugin of [
     ...overview.availablePlugins,

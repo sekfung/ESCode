@@ -644,8 +644,83 @@ export class BackgroundTaskTracker {
     snapshot: BackgroundTaskSnapshot | undefined,
     launchOutput?: Record<string, unknown>,
   ): string {
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/executor/background-tasks.ts
     return formatWorkflowTaskNotificationText({
       toolCall,
+=======
+    const output =
+      snapshot && "output" in snapshot && isRecord(snapshot.output)
+        ? snapshot.output
+        : launchOutput;
+    const subject = workflowTaskSubject(toolCall, taskId, snapshot, output);
+    const notificationStatus = normalizeBackgroundTaskNotificationStatus(status);
+    // dwf 的三终态词与停止原因从快照读：run service 把
+    // journal 里的 `stopReason` 投影到 `snapshot.stopReason`，所以「谁停的」不再只活在 registry。
+    // registry 的 stopInitiator 只作兼容兜底（老端口 / stub 不发 stopReason 时）。
+    const terminal = workflowSnapshotTerminal(status, snapshot);
+    const stopReason =
+      terminal?.stopReason ??
+      (status === "cancelled"
+        ? this.deps.runtimeTaskRegistry?.get(taskId)?.stopInitiator
+        : undefined);
+    const summary = buildWorkflowTaskSummary({
+      lost: status === "lost",
+      status: notificationStatus,
+      runStatus: terminal?.runStatus,
+      stopReason,
+      subject,
+    });
+    // dwf 与 legacy `Workflow` 在**结果**这一项上分道：
+    //   - dwf 的产物是脚本的任意顶层返回值，取 `snapshot.output` 原值并统一序列化，且**绝不**
+    //     回退到 launch output——后者的 `response` 是「run 已在后台启动」的陈旧散文，
+    //     回退过去比缺席更糟（桌面实测 bug 的第二种表现）。
+    //   - legacy `Workflow` 的 `output.response` 真实存在，launchOutput 回退是它自己的契约，
+    //     逐字节保留。
+    // subject 仍走上面那个 record 门控的 output（展示名不涉及产物形状）。
+    // dwf 分派名扩到 ResumeWorkflowRun：恢复的 run 与新启动的 run 在通知形状上同构。
+    const result = isDynamicWorkflowRunDispatchToolName(toolCall.name)
+      ? serializeWorkflowArtifact(snapshot && "output" in snapshot ? snapshot.output : undefined)
+      : stringField(output, "response");
+    // 渐进产物（`report(item)`）只属于 dwf：legacy `Workflow` 没有这个概念，它的通知逐字节不变。
+    // **三个终态一律携带**（completed / failed / cancelled）：一个死在第 12 个 ask 上的 run
+    // 仍然做完了 11 个 ask 的活，只报一句「失败」等于把它全扔了——那正是 report 存在的理由。
+    // 条目来自 journal 的 kind="report" 行（run service 放在快照上），不是 memory-only 的投影。
+    const isDynamicWorkflow = isDynamicWorkflowRunDispatchToolName(toolCall.name);
+    const reports = isDynamicWorkflow
+      ? buildWorkflowReportsNotificationSection(
+          workflowSnapshotReports(snapshot),
+          workflowSnapshotReportCount(snapshot),
+        )
+      : undefined;
+    // 用户面产物同样只属于 dwf（legacy `Workflow` 没有这个概念，通知逐字节不变）。三个终态
+    // 一律携带：一个失败的 run 已经发布的产物仍然摆在用户面前，通知不提它，模型就会重述一遍。
+    const artifacts = isDynamicWorkflow
+      ? buildWorkflowArtifactsNotificationSection(
+          workflowSnapshotArtifacts(snapshot),
+          WORKFLOW_ARTIFACTS_NOTIFICATION_MAX_LINES,
+        )
+      : undefined;
+    // 脚本文件同样只属于 dwf：呈现指引据它把
+    // 下一步说成「就地编辑那个文件」。journal 存的是绝对路径，模型面给工作区相对写法——
+    // 它接下来要 Edit 这个文件，而那正是它在别处读写文件时用的那一种路径。
+    const scriptPath = isDynamicWorkflow ? workflowSnapshotScriptPath(snapshot) : undefined;
+    return formatTaskNotification({
+      description: subject,
+      // 交付物呈现指引同样只属于 dwf。
+      ...(isDynamicWorkflow ? { deliveryGuidance: true } : {}),
+      ...(scriptPath === undefined
+        ? {}
+        : { scriptPath: describeWorkflowScriptPath(scriptPath, this.deps.getWorkingDirectory()) }),
+      error: snapshot && "error" in snapshot ? runtimeString(snapshot.error) : undefined,
+      ...(reports === undefined ? {} : { reports }),
+      ...(artifacts === undefined ? {} : { artifacts }),
+      result,
+      status: notificationStatus,
+      ...(terminal?.runStatus === undefined ? {} : { runStatus: terminal.runStatus }),
+      ...(stopReason === undefined ? {} : { stopReason }),
+      ...(terminal?.failure === undefined ? {} : { failure: terminal.failure }),
+      summary,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts
       taskId,
       status,
       snapshot,
@@ -690,10 +765,15 @@ export class BackgroundTaskTracker {
     if (isSubagentDispatchToolName(toolCall.name)) {
       const getTask = deps.subagentPort?.getTask;
       return {
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/executor/background-tasks.ts
         ...(getTask
           ? { getSnapshot: (taskId: string) => getTask.call(deps.subagentPort, taskId) }
           : {}),
         // background Agent 的停止入口在 subagentPort.stopTask；
+=======
+        ...(getTask ? { getSnapshot: (taskId: string) => getTask.call(deps.subagentPort, taskId) } : {}),
+        // 修复原因：background Agent 的停止入口在 subagentPort.stopTask；
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts
         // started payload 不能沿用 Bash 的 executionPort 能力判断。
         cancellable: Boolean(deps.subagentPort?.stopTask),
       };
@@ -985,7 +1065,10 @@ function buildWorkflowTerminalNotification(
   if (error !== undefined) meta.error = error.slice(0, WORKFLOW_NOTIFICATION_ERROR_MAX_CHARS);
 
   // 渐进产物三个终态一律携带：一个死在第 12 个 ask 上的 run 仍做完了 11 个 ask 的活。
-  const reports = buildWorkflowReportsManifestSection(workflowSnapshotReports(snapshot));
+  const reports = buildWorkflowReportsManifestSection(
+    workflowSnapshotReports(snapshot),
+    workflowSnapshotReportCount(snapshot),
+  );
   if (reports !== undefined) meta.reports = reports;
 
   // 用户面产物的 chips 载荷。这是通知行 chips 的
@@ -1025,14 +1108,23 @@ function workflowTerminalNotificationStatus(
 }
 
 /**
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/executor/background-tasks.ts
  * 通知里的墙钟时长（完成卡的「时间」格）。
+=======
+ * 通知里的墙钟时长（完成卡的「时间」格，见
+ * docs/dynamic-workflow/transcript-and-notifications.md「How long it took」）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts
  *
  * 两个来源，取**大**者：
  *   - 本世：`completedAt - startedAt`，结算它的这个进程自己看到的那一段；
  *   - 整条 lineage 的活动时长：`activeDurationMs`，由端口从 journal 求和（resume 的每一世 +
  *     沿 `resumedFrom` 的每个前驱），缺席即读不出。
  *
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/executor/background-tasks.ts
  * 只报本次启动的墙钟时长会漏掉之前的运行时间：修订与
+=======
+ * 缺陷原因（2026-09-21）：只报本世会把「跑了四小时、修订过一次」的 run 报成 12 秒——修订与
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/executor/background-tasks.ts
  * resume 各自重开一次进程内时钟，而那一世大半是缓存重放。取大而不是直接取 lineage，是为了守住
  * 「永不少报本进程亲眼所见」：老 run 的事件早于本记账、journal 读面不在场时 `activeDurationMs`
  * 缺席，退回本世；而 lineage 值正常总比本世大（它含本世）。
@@ -1087,6 +1179,14 @@ function workflowSnapshotReports(
 ): readonly unknown[] | undefined {
   if (snapshot === undefined || !("reports" in snapshot)) return undefined;
   return Array.isArray(snapshot.reports) ? snapshot.reports : undefined;
+}
+
+/** 快照上的 report 真实总数（`reports` 只带前 256 条）；缺席即老快照，读侧退回条目数。 */
+function workflowSnapshotReportCount(
+  snapshot: BackgroundTaskSnapshot | undefined,
+): number | undefined {
+  if (snapshot === undefined || !("reportCount" in snapshot)) return undefined;
+  return typeof snapshot.reportCount === "number" ? snapshot.reportCount : undefined;
 }
 
 /**

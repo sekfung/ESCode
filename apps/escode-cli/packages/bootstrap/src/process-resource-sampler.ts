@@ -6,7 +6,11 @@ import {
 } from "@escode/shared";
 
 /** 采样周期与 app 侧聚合共用 shared 的同一个常量，避免两侧节拍各自漂移。 */
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/process-resource-sampler.ts
 const ESCODE_PROCESS_RESOURCE_SAMPLE_INTERVAL_MS = ESCODE_CLI_RESOURCE_SAMPLE_INTERVAL_MS;
+=======
+export const ZCODE_PROCESS_RESOURCE_SAMPLE_INTERVAL_MS = ZCODE_CLI_RESOURCE_SAMPLE_INTERVAL_MS;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/process-resource-sampler.ts
 
 let processInstanceToken: string | undefined;
 
@@ -28,7 +32,7 @@ interface CpuUsageSnapshot {
 }
 
 /** 与 Node `process.memoryUsage()` 同形；本地内存诊断日志需要 heap 细分，协议样本只取 rss。 */
-interface ProcessMemoryUsageSnapshot {
+export interface ProcessMemoryUsageSnapshot {
   rss: number;
   heapTotal: number;
   heapUsed: number;

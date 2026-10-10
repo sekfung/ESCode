@@ -1,5 +1,8 @@
 import { querySessionDebug } from "./session-debug.js";
+import { createNodeNetworkCapture } from "@zcode/shared/node";
+import { networkCaptureControlSchema, zcodeProtocolNotifications } from "@zcode/shared";
 import {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
   escodePluginsCancelOperationParamsSchema,
   escodeProtocolMethods,
   escodeWorkspaceCancelGenerateTextParamsSchema,
@@ -7,6 +10,21 @@ import {
 } from "@escode/shared";
 import type { BrowserControlPort } from "@escode/contracts";
 import { InMemoryWorkspaceHookPolicyProvider } from "@escode/core";
+=======
+  zcodePluginsCancelOperationParamsSchema,
+  zcodeProtocolMethods,
+  zcodeWorkspaceCancelGenerateTextParamsSchema,
+  zcodeWorkspaceHookTrustGrantParamsSchema,
+} from "@zcode/shared";
+import type { BrowserControlPort } from "@zcode/contracts";
+import type {
+  McpElicitationRequest,
+  McpElicitationResult,
+  McpServerNotification,
+} from "@zcode/contracts";
+import { requestMcpElicitation } from "./interaction-broker.js";
+import { InMemoryWorkspaceHookPolicyProvider } from "@zcode/core";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
 import {
   V4_METHODS,
   V4_NOTIFICATIONS,
@@ -81,7 +99,26 @@ import {
   moveSavedWorkflowOp,
   updateSavedWorkflowMetaOp,
 } from "./saved-workflows.js";
+import { findSavedWorkflowForRunOp, saveSavedWorkflowFromRunOp } from "./saved-workflows-run.js";
 import { listMcpServers } from "./mcp.js";
+import {
+  callMcpUiTool,
+  sampleMcpUi,
+  cancelMcpUiSampling,
+  cancelMcpUiToolCall,
+  listMcpUiResourceTemplates,
+  listMcpUiResources,
+  claimMcpUiAppToolCall,
+  registerMcpUiAppTools,
+  resolveMcpUiAppToolCall,
+  unregisterMcpUiAppTools,
+  readMcpUiResource,
+  readMcpUiResourceForUi,
+  routeMcpServerNotification,
+  subscribeMcpUiResource,
+  unsubscribeMcpUiResource,
+} from "./mcp-ui/index.js";
+import { listPluginUiSurfaces } from "./plugin-ui-surfaces.js";
 import { updateInteractionPreferences } from "./interaction-preferences.js";
 import { updateAccountProviderConfig } from "./account-provider-config.js";
 import { updateModelIoPreferences } from "./model-io-preferences.js";
@@ -105,6 +142,7 @@ import {
   isNotification,
   isRequest,
   isResponse,
+  PROTOCOL_CLIENT_REQUEST_ERROR_CODES,
   ProtocolRequestError,
   type ParamsSchema,
   parseParams,
@@ -120,6 +158,7 @@ import { createProtocolSerialControlPort } from "./serial-control-broker.js";
 
 export type { ESCodeProtocolAgentDependencies, ESCodeProtocolSessionRecord };
 
+import { closeMcpUiInstance, openMcpUiInstance, validateMcpUiInstance } from "./mcp-ui/index.js";
 const MAX_CLIENT_REQUEST_REANNOUNCE_INTERVAL_MS = 10_000;
 
 type ESCodeProtocolOutboundMessage = ESCodeProtocolNotification | ESCodeProtocolRequest;
@@ -130,7 +169,7 @@ type ESCodeProtocolOutboundMessage = ESCodeProtocolNotification | ESCodeProtocol
  * 停留旧值。pretrust 授权成功后按 workspaceKey 通知所有匹配的活跃 session 重载。
  * 独立导出为纯调度函数（不触网、不发事件），便于回归测试直接构造 sessions Map。
  */
-async function notifyWorkspaceHookTrustGrantSessions(input: {
+export async function notifyWorkspaceHookTrustGrantSessions(input: {
   grantedWorkspaceKey?: string;
   sessions: Map<string, ESCodeProtocolSessionRecord>;
 }): Promise<void> {
@@ -185,8 +224,13 @@ function getOperationId(params: unknown): string | undefined {
     : undefined;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
 interface ESCodeProtocolPostResponseBatch {
   readonly messages: readonly ESCodeProtocolOutboundMessage[];
+=======
+export interface ZCodeProtocolPostResponseBatch {
+  readonly messages: readonly ZCodeProtocolOutboundMessage[];
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
   commit(): boolean;
 }
 
@@ -202,7 +246,17 @@ interface PendingClientRequest<T> {
   abortHandler?: () => void;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
 export class ESCodeProtocolAgentServer {
+=======
+export class ZCodeProtocolAgentServer {
+  private readonly networkCapture = createNodeNetworkCapture("cli", (batch) => {
+    this.messageSink?.({
+      method: zcodeProtocolNotifications.processNetworkRequests,
+      params: batch,
+    });
+  });
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
   private readonly runtimeResources: ProtocolRuntimeResources;
   private shutdownPromise?: Promise<void>;
   readonly browserControlPort: BrowserControlPort;
@@ -213,7 +267,24 @@ export class ESCodeProtocolAgentServer {
    * MCP 连接池的构造早于 server，需要在 server 就绪后回填闭包持有的引用——
    * 与 v4Gateway 同样的构造顺序收口方式。只暴露 requestClient，不外泄整个 context。
    */
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
   get officialMcpAuthRequestContext(): Pick<ESCodeProtocolAgentServerContext, "requestClient"> {
+=======
+  /** MCP server 发起的 elicitation/create → 用户提问。 */
+  requestMcpElicitation(
+    request: McpElicitationRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<McpElicitationResult> {
+    return requestMcpElicitation(this.context, request, options);
+  }
+
+  /** MCP server 通知 → 会话 live 事件 / agent 日志。 */
+  handleMcpNotification(notification: McpServerNotification): void {
+    routeMcpServerNotification(this.context, notification);
+  }
+
+  get officialMcpAuthRequestContext(): Pick<ZCodeProtocolAgentServerContext, "requestClient"> {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
     return this.context;
   }
 
@@ -349,6 +420,7 @@ export class ESCodeProtocolAgentServer {
   }
 
   disconnectClient(error: Error): void {
+    this.networkCapture.setCaptureId(null);
     this.clientDisconnectError = error;
     // 连接关闭后反向请求已不可能收到响应，必须先结束 pending，
     // 否则正在物化 Session 的 handler 会阻塞 connection 的关闭流程。
@@ -427,8 +499,18 @@ export class ESCodeProtocolAgentServer {
       return await this.handleRequest(message);
     }
     if (isNotification(message)) {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
       this.logger?.debug("ESCode Protocol notification ignored", {
         event: "escode_protocol.notification.ignored",
+=======
+      if (message.method === zcodeProtocolMethods.processNetworkCapture) {
+        const control = networkCaptureControlSchema.safeParse(message.params);
+        if (control.success) this.networkCapture.setCaptureId(control.data.captureId);
+        return undefined;
+      }
+      this.logger?.debug("ZCode Protocol notification ignored", {
+        event: "zcode_protocol.notification.ignored",
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
         method: message.method,
         module: "bootstrap.escode_protocol",
       });
@@ -648,13 +730,57 @@ export class ESCodeProtocolAgentServer {
         return await testProviderModelConnectivity(this.context, request.params);
       case escodeProtocolMethods.mcpList:
         return await listMcpServers(this.context, request.params);
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
       case escodeProtocolMethods.pluginsList:
+=======
+      case zcodeProtocolMethods.mcpReadResource:
+        return await readMcpUiResource(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiOpenInstance:
+        return openMcpUiInstance(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiValidateInstance:
+        return validateMcpUiInstance(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiCloseInstance:
+        return closeMcpUiInstance(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiSampling:
+        return sampleMcpUi(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiCancelSampling:
+        return cancelMcpUiSampling(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiCallTool:
+        return await callMcpUiTool(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiCancelCall:
+        return await cancelMcpUiToolCall(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiReadResource:
+        return await readMcpUiResourceForUi(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiListResources:
+        return await listMcpUiResources(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiListResourceTemplates:
+        return await listMcpUiResourceTemplates(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiSubscribeResource:
+        return await subscribeMcpUiResource(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiUnsubscribeResource:
+        return await unsubscribeMcpUiResource(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiRegisterAppTools:
+        return await registerMcpUiAppTools(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiUnregisterAppTools:
+        return await unregisterMcpUiAppTools(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiClaimAppToolCall:
+        return await claimMcpUiAppToolCall(this.context, request.params);
+      case zcodeProtocolMethods.mcpUiResolveAppToolCall:
+        return await resolveMcpUiAppToolCall(this.context, request.params);
+      case zcodeProtocolMethods.pluginsList:
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
         return await listPlugins(this.context, request.params);
       case escodeProtocolMethods.pluginsReferenceCatalogWithCategory:
         return await getPluginReferenceCatalog(this.context, request.params, true);
       case escodeProtocolMethods.pluginsReferenceCatalog:
         return await getPluginReferenceCatalog(this.context, request.params);
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
       case escodeProtocolMethods.skillsReferenceCatalog:
+=======
+      case zcodeProtocolMethods.pluginsListUiSurfaces:
+        return await listPluginUiSurfaces(this.context, request.params);
+      case zcodeProtocolMethods.skillsReferenceCatalog:
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
         return await getSkillReferenceCatalog(this.context, request.params);
       case escodeProtocolMethods.workflowsList:
         return await listSavedWorkflowsOp(this.context, request.params);
@@ -668,7 +794,15 @@ export class ESCodeProtocolAgentServer {
         return await listSavedWorkflowRunsOp(this.context, request.params);
       case escodeProtocolMethods.workflowsMove:
         return await moveSavedWorkflowOp(this.context, request.params);
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
       case escodeProtocolMethods.pluginsResolveSuggestedReference:
+=======
+      case zcodeProtocolMethods.workflowsSave:
+        return await saveSavedWorkflowFromRunOp(this.context, request.params);
+      case zcodeProtocolMethods.workflowsForRun:
+        return await findSavedWorkflowForRunOp(this.context, request.params);
+      case zcodeProtocolMethods.pluginsResolveSuggestedReference:
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
         return await this.withPluginOperationSignal(request, (signal) =>
           resolveSuggestedPluginReference(this.context, request.params, signal),
         );
@@ -817,7 +951,14 @@ export class ESCodeProtocolAgentServer {
       throw this.clientDisconnectError;
     }
     if (!this.messageSink) {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server.ts
       throw new ProtocolRequestError(-32020, `No ESCode Protocol client is attached for ${method}`);
+=======
+      throw new ProtocolRequestError(
+        PROTOCOL_CLIENT_REQUEST_ERROR_CODES.noClientAttached,
+        `No ZCode Protocol client is attached for ${method}`,
+      );
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server.ts
     }
 
     return new Promise<T>((resolve, reject) => {
@@ -836,7 +977,12 @@ export class ESCodeProtocolAgentServer {
       };
       pending.abortHandler = () => {
         cleanup();
-        reject(new ProtocolRequestError(-32021, `Client request cancelled: ${method}`));
+        reject(
+          new ProtocolRequestError(
+            PROTOCOL_CLIENT_REQUEST_ERROR_CODES.cancelled,
+            `Client request cancelled: ${method}`,
+          ),
+        );
       };
       if (options?.signal?.aborted) {
         pending.abortHandler();
@@ -846,9 +992,13 @@ export class ESCodeProtocolAgentServer {
         pending.timeout = setTimeout(() => {
           cleanup();
           reject(
-            new ProtocolRequestError(-32022, `Client request timed out: ${method}`, {
-              timeoutMs: options.timeoutMs,
-            }),
+            new ProtocolRequestError(
+              PROTOCOL_CLIENT_REQUEST_ERROR_CODES.timedOut,
+              `Client request timed out: ${method}`,
+              {
+                timeoutMs: options.timeoutMs,
+              },
+            ),
           );
         }, options.timeoutMs);
       }

@@ -7,7 +7,7 @@ import type {
 } from "./session-resident-pool.js";
 import type { ESCodeProtocolAgentServerContext } from "./server-types.js";
 
-interface SessionResidencyFinalizationOwner {
+export interface SessionResidencyFinalizationOwner {
   residencyFinalizationCount?: number;
 }
 
@@ -16,7 +16,7 @@ interface SessionResidencyFinalizationOwner {
  * record。Prompt admission 的 busy/idle authority 已归 Core；activeAbortController 仅是旧命令
  * 路径的兼容取消句柄，不能再作为 prompt 调度锁。
  */
-function acquireSessionResidencyFinalization(
+export function acquireSessionResidencyFinalization(
   record: SessionResidencyFinalizationOwner,
 ): () => void {
   record.residencyFinalizationCount = (record.residencyFinalizationCount ?? 0) + 1;
@@ -50,8 +50,13 @@ export function runWithSessionResidencyFinalization<T>(
  * 又会并发碰同一 session 资源。因此同步摘除与异步 close 必须由 pool 的 in-flight gate
  * 组合成一个生命周期事务。
  */
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/session-residency.ts
 async function deactivateSessionRecord(
   context: ESCodeProtocolAgentServerContext,
+=======
+export async function deactivateSessionRecord(
+  context: ZCodeProtocolAgentServerContext,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/session-residency.ts
   sessionId: string,
 ): Promise<void> {
   const record = context.sessions.get(sessionId);

@@ -14,7 +14,12 @@ const SENSITIVE_MEMORY_PATH_SEGMENTS = new Set([
   "config",
   "objects",
   "refs",
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/memory/memory-file-path.ts
   ".escode",
+=======
+  ".claude",
+  ".zcode",
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/memory/memory-file-path.ts
   "skills",
   "commands",
   "agents",
@@ -59,7 +64,7 @@ export function memoryFileRelativePath(rootDir: string, filePath: string): strin
   return isContainedRelativePath(relativePath) ? relativePath : undefined;
 }
 
-function containsSensitiveMemoryPathSegment(relativePath: string): boolean {
+export function containsSensitiveMemoryPathSegment(relativePath: string): boolean {
   return relativePath
     .split(/[\\/]+/u)
     .some((segment) => SENSITIVE_MEMORY_PATH_SEGMENTS.has(normalizeSensitiveSegment(segment)));

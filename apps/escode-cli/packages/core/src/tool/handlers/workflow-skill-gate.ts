@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts
 // 工作流创作工具的技能加载检查。
 // CreateWorkflow、AmendWorkflow、SaveWorkflow 和 EvalWorkflowSnippet 的工具描述保持简短，
 // facade 与写作规则由 `dynamic-workflows` 技能提供。提交脚本前必须加载技能：会话历史里没有
@@ -8,6 +9,23 @@
 // 探针缺席表示当前装配未提供技能加载检查，此时不设置无法满足的前提。
 
 import { DYNAMIC_WORKFLOW_SKILL_NAME } from "@escode/contracts";
+=======
+// ============================================================
+// 工作流创作工具的技能门（docs/dynamic-workflow/authoring.md「The authoring surface」）
+// ============================================================
+// 2026-09-21：四个创作工具（CreateWorkflow / AmendWorkflow / SaveWorkflow / EvalWorkflowSnippet）
+// 的描述收短到几百 token，facade 与写作规则搬进 `dynamic-workflows` 技能。省下的是每一次模型请求
+// 都要重发的约 1.9 万 token；代价是模型可能不读技能就写脚本。这道门把「读过技能」变成提交脚本的
+// 前提：会话历史里没有一次成功的 `Skill(dynamic-workflows)` 调用，就在 resolveInput 上拒绝——
+// 那一步早于 hook 与确认窗，所以模型拿回的是一条业务失败、用户看不到一个注定作废的确认窗。
+//
+// 「读过」的判据是**模型此刻还看得见的历史**（runtime 的 messageHistory），不是一个会话级标志：
+// compaction 把技能正文挤出上下文之后，历史里那次调用也不在了，门重新关上，模型得再读一遍——
+// 这正是 Edit 要求 Read 的同一种语义（compact 后 readFileState 也清空）。探针缺席（没有 Skill
+// 工具的会话、单元测试直接造的 context）时门不生效：不能把一个无法满足的前提摆在模型面前。
+
+import { DYNAMIC_WORKFLOW_SKILL_NAME } from "@zcode/contracts";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts
 import type { ToolHandlerFailure, ToolInputResolutionContext } from "../types.js";
 
 /**
@@ -16,7 +34,11 @@ import type { ToolHandlerFailure, ToolInputResolutionContext } from "../types.js
  */
 export const WORKFLOW_SKILL_NOT_LOADED_CODE = 428;
 
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts
 /** 门在场时的判据；单独导出供探针实现复用。 */
+=======
+/** 门在场时的判据；单独导出给探针实现与测试复用。 */
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/workflow-skill-gate.ts
 export function isDynamicWorkflowSkillLoaded(context: ToolInputResolutionContext): boolean {
   return context.hasLoadedSkill?.(DYNAMIC_WORKFLOW_SKILL_NAME) ?? true;
 }

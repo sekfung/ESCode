@@ -38,9 +38,15 @@ import {
 
 const MAX_SYNC_TIMEOUT_MS = 120_000;
 const UNTRUSTED_SESSION_KEY = "__unscoped__";
+<<<<<<< HEAD:apps/escode-cli/packages/node-repl-host/src/server.ts
 const WORKER_KIND = "escode-node-repl-call";
 export const NODE_REPL_MCP_PROCESS_TITLE = "escode-node-repl-mcp";
 const pluginRoot = process.env.ESCODE_PLUGIN_ROOT ?? process.cwd();
+=======
+const WORKER_KIND = "zcode-node-repl-call";
+export const NODE_REPL_MCP_PROCESS_TITLE = "zcode-node-repl-mcp";
+const pluginRoot = process.env.ZCODE_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT ?? process.cwd();
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/node-repl-host/src/server.ts
 // CUA 与 Browser Use 共用 node_repl host，但文档和 native 依赖必须按领域隔离；
 // 否则 CUA skill 会因为 host root 恰好来自 Browser Use 而再次产生隐式依赖。
 const browserDocumentationRoot = resolve(pluginRoot, "docs");

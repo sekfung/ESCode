@@ -8,7 +8,7 @@ import {
 } from "@escode/contracts";
 import { parseRemoteWorkspaceIdentity } from "@escode/shared";
 
-const REMOTE_SESSION_PATH_CORRUPTION_REASON = "remote_session_workspace_path_corrupted";
+export const REMOTE_SESSION_PATH_CORRUPTION_REASON = "remote_session_workspace_path_corrupted";
 
 type PathFieldResolution = "clean" | "repair" | "unrelated" | "unsafe";
 

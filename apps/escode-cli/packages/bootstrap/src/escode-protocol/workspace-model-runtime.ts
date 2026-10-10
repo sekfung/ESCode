@@ -75,6 +75,7 @@ export async function createWorkspaceESCodeApp(
     options.providerRuntimeHeadersPort ?? createProviderRuntimeHeadersPort(context, workspace);
   return context.deps.createESCodeApp({
     ...options,
+    includeVisualize: true,
     platform: context.deps.platform,
     providerRuntimeHeadersPort,
     runtimeConfig: {

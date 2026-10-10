@@ -15,7 +15,15 @@ import {
   ESCODE_PLUGIN_ID_ENV_KEY,
 } from "@escode/shared";
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/mcp-config.ts
 export { ESCODE_CUA_BROKER_SOCKET_ENV_KEY as ESCODE_CUA_BROKER_SOCKET_ENV } from "@escode/shared";
+=======
+export {
+  ZCODE_CUA_BROKER_SOCKET_ENV_KEY as ZCODE_CUA_BROKER_SOCKET_ENV,
+} from "@zcode/shared";
+// 保留环境变量名供旧诊断脚本读取；迁移后的配置路径不会据此启动独立 CUA MCP。
+export const ZCODE_CUA_BROKER_UNAVAILABLE_ENV = "ZCODE_CUA_PERMISSION_BROKER_UNAVAILABLE";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/mcp-config.ts
 // CLI 入口会先清理 broker 凭据；shared node_repl 的可信配置随后从进程内捕获快照恢复它们。
 function resolveESCodeCuaBrokerSocket(): string | undefined {
   // captured 优先；运行时残留的 stale socket 不能覆盖可信快照。
@@ -25,8 +33,15 @@ function resolveESCodeCuaBrokerSocket(): string | undefined {
   );
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/mcp-config.ts
 function resolveESCodeCuaBrokerToken(): string | undefined {
   return undefined;
+=======
+function resolveZCodeCuaBrokerToken(): string | undefined {
+  return (
+    undefined
+  );
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/mcp-config.ts
 }
 
 const NODE_REPL_SERVER_NAME = "node_repl";
@@ -93,7 +108,9 @@ export function omitMcpServers(
 ): Record<string, McpServerConfig> {
   const kept = Object.fromEntries(
     Object.entries(servers).filter(
-      ([name, config]) => !omittedNames.has(name) && !isRetiredCuaMcpServer(name, config),
+      ([name, config]) =>
+        !omittedNames.has(name) &&
+        !isRetiredCuaMcpServer(name, config),
     ),
   );
 
@@ -105,7 +122,11 @@ export function omitMcpServers(
   );
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/mcp-config.ts
 function injectESCodeCuaBrokerMcpServers(
+=======
+export function injectZCodeCuaBrokerMcpServers(
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/mcp-config.ts
   servers: Record<string, McpServerConfig>,
   socketPath: string | undefined,
   token: string | undefined = undefined,
@@ -188,9 +209,13 @@ function isESCodeCuaStdioServer(
 function isRetiredCuaMcpServer(name: string, config: McpServerConfig | undefined): boolean {
   // node_repl is the single supported CUA host and may share the CUA plugin's
   // authority marker; all other CUA-shaped MCP entries are retired.
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/mcp-config.ts
   return (
     name !== NODE_REPL_SERVER_NAME && config !== undefined && isESCodeCuaStdioServer(name, config)
   );
+=======
+  return name !== NODE_REPL_SERVER_NAME && config !== undefined && isZCodeCuaStdioServer(name, config);
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/mcp-config.ts
 }
 
 function getConfiguredServerStatus(

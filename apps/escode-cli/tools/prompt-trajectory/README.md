@@ -1,6 +1,10 @@
 # @escode/prompt-trajectory
 
+<<<<<<< HEAD:apps/escode-cli/tools/prompt-trajectory/README.md
 OpenAI protocol trajectory recorder for inspecting escode-cli prompt assembly.
+=======
+Test-only OpenAI protocol trajectory recorder for zcode-cli prompt assembly checks.
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/tools/prompt-trajectory/README.md
 
 This tool lives under `tools/` so it is available in the pnpm workspace but stays out of
 the production CLI and SEA packaging path.
@@ -11,15 +15,29 @@ the production CLI and SEA packaging path.
 pnpm --filter @escode/bootstrap^... build
 pnpm --filter @escode/bootstrap build
 
+<<<<<<< HEAD:apps/escode-cli/tools/prompt-trajectory/README.md
 pnpm --filter @escode/prompt-trajectory record -- \
   --fixture /path/to/recording.json \
   --out /tmp/escode-prompt-trajectory/basic-live
+=======
+pnpm --filter @zcode/prompt-trajectory record -- \
+  --fixture fixtures/prompt/basic-live.json \
+  --out /tmp/zcode-prompt-trajectory/basic-live
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/tools/prompt-trajectory/README.md
 
 pnpm --filter @escode/prompt-trajectory record:prompt -- \
   --prompt "Say hello in one short sentence."
 
+<<<<<<< HEAD:apps/escode-cli/tools/prompt-trajectory/README.md
 pnpm --filter @escode/prompt-trajectory derive -- \
   --out /tmp/escode-prompt-trajectory/basic-live
+=======
+pnpm --filter @zcode/prompt-trajectory run:testcases -- \
+  --cases testcases
+
+pnpm --filter @zcode/prompt-trajectory derive -- \
+  --out /tmp/zcode-prompt-trajectory/basic-live
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/tools/prompt-trajectory/README.md
 
 pnpm --filter @escode/prompt-trajectory model-io -- \
   --input ~/.escode/cli/debug/model-io-<session>.jsonl \
@@ -32,18 +50,33 @@ derives complete request-body snapshots under `/out/trajectories`.
 `trajectory.jsonl` is the single source of truth. Streaming deltas are assembled
 into a single assistant message before they are appended to the JSONL file.
 
-`record`, `record-prompt`, and `derive` accept `--reference-request <path>` to copy
-an optional reference request into `<out>/raw/reference-request-body.raw.json`.
-The copy preserves the supplied text and adds a trailing newline when missing;
-it does not alter the derived trajectories. Without this option, no reference
-copy is written. Unrecognized options are rejected before recording or derivation.
-
 When `--model`, `--upstream-base-url`, and API-key flags are omitted, the recorder
 uses the same escode model config resolution as the CLI. The upstream request is
 still proxied through the recorder; only the model provider `baseURL` is replaced
 with the local proxy URL at runtime.
 
-## Prompt recording output
+## Testcase Runner
+
+`run:testcases` scans the testcase directory one child folder at a time. A case is
+valid when it contains both files:
+
+```text
+testcases/<case-name>/prompt.txt
+testcases/<case-name>/expect.json
+```
+
+Each run writes a timestamped output directory:
+
+```text
+out/testYYYYMMDD-HHMMSS/<case-name>/trajectory.jsonl
+out/testYYYYMMDD-HHMMSS/<case-name>/manifest.json
+out/testYYYYMMDD-HHMMSS/<case-name>/trajectories/*.openai_request_body.json
+out/testYYYYMMDD-HHMMSS/<case-name>/trajectories/*.anthropic_request_body.json
+out/testYYYYMMDD-HHMMSS/<case-name>/expect.json
+```
+
+The runner does not compare `expect.json` yet; it records and derives the
+trajectory so the generated OpenAI request-body JSON can be inspected manually.
 
 Single prompt recording without `--out` writes to:
 
@@ -85,9 +118,3 @@ the converter preserves that complete assistant message after verifying its text
 tool calls against the response summary. Appending blocks to the final user message
 also remains in the same trajectory. Rewriting existing content still starts a new
 segment. `non-incremental-change` is not a provider cache-miss indicator.
-
-## Live recording configuration
-
-Supply an external recording configuration with `--fixture`, or use `record:prompt`
-with `--model`, `--upstream-base-url`, and `--api-key-env`. Supply credentials through
-the named environment variable; do not store them in the recording configuration.

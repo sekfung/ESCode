@@ -3,14 +3,20 @@
   "name": "@escode/browser-use-plugin",
   "version": "0.5.1",
   "private": true,
+<<<<<<< HEAD:apps/escode-cli/packages/browser-use-plugin/package.json
   "description": "作为官方 ESCode 内置插件发布的 Browser Use skill 与 client runtime；node_repl MCP server 由 @escode/node-repl-host 提供。",
   "license": "Apache-2.0",
+=======
+  "description": "作为官方 ZCode 内置插件发布的 Browser Use skill 与 client runtime；node_repl MCP server 由 @zcode/node-repl-host 提供。",
+  "license": "MIT",
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/browser-use-plugin/package.json
   "type": "module",
   "main": "./dist/mcp/server.js",
   "scripts": {
     "build": "tsc && node scripts/build.mjs",
     "clean": "node ../../scripts/clean-dist.mjs",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run test",
     "lint": "oxlint src --no-ignore"
   },
   "dependencies": {
@@ -28,6 +34,7 @@
     "@escode/bootstrap": "workspace:*",
     "esbuild": "^0.25.0",
     "playwright-core": "1.59.1",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.5"
   }
 }

@@ -40,7 +40,11 @@ Run `npm run bootstrap` after cloning the repository. It checks the local Node.j
 
 ## Plugin Development
 
+<<<<<<< HEAD:apps/escode-cli/README.md
 escode plugins are local bundles that can contribute skills, custom commands, and MCP servers.
+=======
+zcode plugins are local bundles that can contribute skills, custom commands, and MCP servers. The plugin surface is compatible with the Claude Code plugin layout, so existing plugin content can be reused with minimal changes.
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/README.md
 
 Plugin state lives under `~/.escode/cli/plugins`:
 
@@ -69,9 +73,20 @@ For local plugin development, put the plugin in any directory, then add it to th
 }
 ```
 
-### Plugin Manifest
+### Manifest Compatibility
 
+<<<<<<< HEAD:apps/escode-cli/README.md
 MCP config can live directly in `.escode-plugin/plugin.json` through `mcpServers`. A plugin may provide both `.mcp.json` and manifest `mcpServers`; when the same server name appears in both places, `mcpServers` from the selected manifest wins.
+=======
+zcode discovers the first manifest that exists:
+
+1. `.zcode-plugin/plugin.json`
+2. `.claude-plugin/plugin.json`
+
+`.zcode-plugin/plugin.json` uses the same field names as Claude Code. Use it only when zcode needs different metadata or runtime wiring. If the Claude manifest already works, a plugin can ship only `.claude-plugin/plugin.json`.
+
+MCP config can live directly in `.zcode-plugin/plugin.json` through `mcpServers`. This is useful when the Claude-compatible `.mcp.json` points at a different runtime, such as Bun source files, while zcode should run a built Node.js server from `dist/`. A plugin may provide both `.mcp.json` and manifest `mcpServers`; when the same server name appears in both places, `mcpServers` from the selected manifest wins.
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/README.md
 
 Supported fields in the current escode plugin surface:
 
@@ -109,13 +124,34 @@ Example `.escode-plugin/plugin.json` with inline MCP config:
 }
 ```
 
+zcode also reads plugin `.mcp.json` using Claude Code's wrapper shape. Use this when the same MCP config should be shared by Claude Code and zcode:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp/server.js"]
+    }
+  }
+}
+```
+
+Unsupported Claude plugin fields are ignored with diagnostics rather than executed. This includes `hooks`, `agents`, `outputStyles`, `lspServers`, `channels`, and `dependencies`.
+
 ### Variables
 
-Plugin MCP config can use these variable names:
+Plugin MCP config can use both zcode and Claude-compatible variable names:
 
+<<<<<<< HEAD:apps/escode-cli/README.md
 - `${ESCODE_PLUGIN_ROOT}`
 - `${ESCODE_PLUGIN_DATA}`
 - `${ESCODE_PROJECT_DIR}`
+=======
+- `${ZCODE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_ROOT}`
+- `${ZCODE_PLUGIN_DATA}` and `${CLAUDE_PLUGIN_DATA}`
+- `${ZCODE_PROJECT_DIR}` and `${CLAUDE_PROJECT_DIR}`
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/README.md
 - `${user_config.key}`
 - `${ESCODE_SOME_ENV}`
 
@@ -125,7 +161,12 @@ Only environment variables with the `ESCODE_` prefix are expanded. Missing varia
 
 ```txt
 my-plugin/
+<<<<<<< HEAD:apps/escode-cli/README.md
   .escode-plugin/plugin.json
+=======
+  .claude-plugin/plugin.json
+  .zcode-plugin/plugin.json
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/README.md
   .mcp.json
   skills/
     my-skill/SKILL.md
@@ -134,7 +175,11 @@ my-plugin/
   src/
 ```
 
+<<<<<<< HEAD:apps/escode-cli/README.md
 For MCP servers, prefer Node's normal package build and `bin` output when targeting escode-cli, and keep all process/file/network side effects inside the MCP server boundary.
+=======
+Keep reusable content in Claude-compatible locations. Add a `.zcode-plugin/plugin.json` only for zcode-specific package names, built artifacts, or command paths. For MCP servers, prefer Node's normal package build and `bin` output when targeting zcode-cli, and keep all process/file/network side effects inside the MCP server boundary.
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/README.md
 
 ## MCP Configuration
 

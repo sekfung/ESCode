@@ -45,7 +45,11 @@ export interface SchedulerHost {
   readonly runId: string;
   /**
    * 本 run 的并发上界。**每次派发前现读**，不是构造时抄下的一份：`setMaxConcurrency` 会整份
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler-types.ts
    * 换掉引擎持有的 caps，
+=======
+   * 换掉引擎持有的 caps（docs/dynamic-workflow/concurrency.md「Two bounds on a run」），
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-types.ts
    * 而调度器的派发判据必须看见新值。引擎侧因此以 getter 实现这个属性。
    */
   readonly caps: Caps;
@@ -54,7 +58,11 @@ export interface SchedulerHost {
   /** 分配某站点的下一个执行序号（与 world-read/actor 共用一套计数器）。 */
   nextOrdinal(siteId: string): number;
   /**
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler-types.ts
    * 受 replay 结算次序约束地释放一次命中。
+=======
+   * 受 replay 结算次序约束地释放一次命中（docs/execution-engine.md「Replaying the settle order」）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler-types.ts
    * 非 resume、或次序表里没有这个实例时立即执行 `release`。
    */
   holdForReplay(instance: InstanceRef, release: () => void): void;

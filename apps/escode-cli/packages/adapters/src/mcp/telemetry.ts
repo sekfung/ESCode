@@ -11,7 +11,11 @@ const BUILTIN_NODE_REPL_SERVER_NAME = "node_repl";
 const MCP_ID_SAFE_CHARACTER_PATTERN = /^[A-Za-z0-9._~-]$/;
 const PLUGIN_MCP_NAMESPACE_PREFIX = "plugin:";
 
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/mcp/telemetry.ts
 type McpTelemetryEvent = ESCodeMcpTelemetryEvent;
+=======
+export type McpTelemetryEvent = ZCodeMcpTelemetryEvent;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/mcp/telemetry.ts
 export type McpTelemetrySource = Extract<
   ESCodeMcpTelemetryEvent,
   { kind: "process_start" }
@@ -72,8 +76,13 @@ export interface McpTelemetryTracker {
   stop(): void;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/mcp/telemetry.ts
 interface CreateMcpTelemetryTrackerOptions {
   arch?: ESCodeMcpTelemetryEvent["arch"];
+=======
+export interface CreateMcpTelemetryTrackerOptions {
+  arch?: ZCodeMcpTelemetryEvent["arch"];
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/mcp/telemetry.ts
   idSalt: string;
   now?: () => number;
   onEvent(event: McpTelemetryEvent): void;

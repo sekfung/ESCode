@@ -20,6 +20,7 @@ import { buildSkillsSection } from "./sections/skills.js";
 import { buildRequestUserContextSection } from "./sections/request-user-context.js";
 import { buildCurrentDateSection } from "./sections/current-date.js";
 import { buildMemorySection } from "./sections/memory.js";
+import { ACTIVE_PROJECT_MEMORY_RETRIEVAL_BRANCH } from "../memory/project-memory-retrieval-branch.js";
 import { buildDesktopContextSection } from "./sections/desktop.js";
 import {
   buildContextManagementSection,
@@ -128,8 +129,13 @@ export class ContextBuilder {
     // 工作流子代理跳过其中面向「与用户对话」的三段（desktop、Dynamic Behavior、session
     // guidance——契约里已把 Report outcomes faithfully 搬过去），保留 memory 与其后各段。
     if (!hasCustomSystemPrompt) {
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/context/builder.ts
       if (!isWorkflowActor && this.config.presentationSurface === "escode_desktop") {
         sections.push(buildDesktopContextSection());
+=======
+      if (!isWorkflowActor && this.config.presentationSurface === "zcode_desktop") {
+        sections.push(buildDesktopContextSection(this.config.genUiOutputDirectory));
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/context/builder.ts
       }
 
       // behaviour part right after stable sp...
@@ -150,7 +156,10 @@ export class ContextBuilder {
 
       // Memory
       if (this.config.memoryRoot) {
-        const memorySection = buildMemorySection(this.config.memoryRoot);
+        const memorySection = buildMemorySection(
+          this.config.memoryRoot,
+          ACTIVE_PROJECT_MEMORY_RETRIEVAL_BRANCH,
+        );
         if (memorySection) {
           sections.push(memorySection);
         }
@@ -239,7 +248,6 @@ export class ContextBuilder {
       messages.push({
         role: "system",
         content: cliPrefixContent,
-        cacheControl: EPHEMERAL_CACHE_CONTROL,
       });
     }
 

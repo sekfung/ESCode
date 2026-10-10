@@ -1,5 +1,13 @@
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/bash-command-permission-policy.ts
 import type { PermissionRuleValue, PermissionUpdate } from "@escode/contracts";
 import type { ToolPermissionRulePolicy, ToolRuntimePermissionCapabilityContext } from "../types.js";
+=======
+import type { PermissionRuleValue, PermissionUpdate } from "@zcode/contracts";
+import type {
+  ToolPermissionRulePolicy,
+  ToolRuntimePermissionCapabilityContext,
+} from "../types.js";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/bash-command-permission-policy.ts
 import {
   analyzeBashCommand,
   isBashCommandPermissionSafe,
@@ -91,7 +99,7 @@ export function resolveBashPermissionRulePolicy(
   return createBashPermissionRulePolicy(command, context);
 }
 
-function createBashPermissionRulePolicy(
+export function createBashPermissionRulePolicy(
   command: string,
   context?: ToolRuntimePermissionCapabilityContext,
 ): ToolPermissionRulePolicy {
@@ -106,7 +114,11 @@ function createBashPermissionRulePolicy(
       )
     : [];
   const requiredSubjectGroups = requiredCommands.map(buildInvocationRuleSubjects);
-  const suggestedPermissionUpdates = buildSuggestedUpdates(rawCommand, safe, requiredCommands);
+  const suggestedPermissionUpdates = buildSuggestedUpdates(
+    rawCommand,
+    safe,
+    requiredCommands,
+  );
 
   return {
     evaluateRules(behavior, rules) {
@@ -202,7 +214,10 @@ function resolveStableCommandPrefix(invocation: BashCommandInvocation): string |
 
   let node = BASH_COMMAND_REGISTRY[executableName];
   if (!node) return undefined;
-  const override = resolveDepthOverride(executableName, skipLeadingKnownOptions(node, remaining));
+  const override = resolveDepthOverride(
+    executableName,
+    skipLeadingKnownOptions(node, remaining),
+  );
   if (override) {
     prefix.push(...override);
     return serializePrefix(prefix);
@@ -349,7 +364,10 @@ function isStaticAssignmentToken(token: string): boolean {
 
 function isStableActionToken(token: string | undefined): token is string {
   return (
-    Boolean(token) && !token!.startsWith("-") && !looksLikePathOrUrl(token!) && !/\s/.test(token!)
+    Boolean(token) &&
+    !token!.startsWith("-") &&
+    !looksLikePathOrUrl(token!) &&
+    !/\s/.test(token!)
   );
 }
 

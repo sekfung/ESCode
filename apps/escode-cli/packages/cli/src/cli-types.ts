@@ -6,8 +6,14 @@ import type {
   ManagedCdpBrowserRuntimeOptions,
 } from "@escode/adapters/browser";
 import type {
+  createDefaultProviderEndpointRoutingPort,
   createModelAdapter,
+<<<<<<< HEAD:apps/escode-cli/packages/cli/src/cli-types.ts
   createESCodeApp,
+=======
+  createZCodeApp,
+  CreateDefaultProviderEndpointRoutingPortOptions,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/cli/src/cli-types.ts
   CreateModelAdapterOptions,
   configureCodingPlanApiKey,
   ConfigureCodingPlanApiKeyOptions,
@@ -55,9 +61,18 @@ export interface RunDependencies extends PluginsCommandOverrides {
   createModelAdapter?: (
     options?: CreateModelAdapterOptions,
   ) => ReturnType<typeof createModelAdapter>;
+<<<<<<< HEAD:apps/escode-cli/packages/cli/src/cli-types.ts
   createESCodeApp?: (
     options?: ESCodeAppOptions,
   ) => Awaited<ReturnType<typeof createESCodeApp>> | ReturnType<typeof createESCodeApp>;
+=======
+  createProviderEndpointRoutingPort?: (
+    options: CreateDefaultProviderEndpointRoutingPortOptions,
+  ) => ReturnType<typeof createDefaultProviderEndpointRoutingPort>;
+  createZCodeApp?: (
+    options?: ZCodeAppOptions,
+  ) => Awaited<ReturnType<typeof createZCodeApp>> | ReturnType<typeof createZCodeApp>;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/cli/src/cli-types.ts
   /**
    * Session-event shaper for --output-format stream-json. Defaults to the
    * bootstrap module's, which is also what the protocol server uses; injectable
@@ -114,7 +129,7 @@ export interface RunDependencies extends PluginsCommandOverrides {
   shutdownESCodeTelemetry?: typeof shutdownESCodeTelemetry;
 }
 
-export type CliPermissionMode = "build" | "plan" | "edit" | "yolo";
+export type CliPermissionMode = "build" | "plan" | "edit" | "yolo" | "guarded";
 export type CliRuntimeMode = CliPermissionMode | "auto";
 
 export interface CliModeState {

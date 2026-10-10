@@ -14,9 +14,15 @@ import type { McpTelemetryTracker } from "@escode/adapters";
 import type { WorkspaceHookPolicyProvider } from "@escode/core";
 import type { AccountProviderConfigSnapshot } from "@escode/provider";
 import {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server-types.ts
   escodeProtocolErrorCodes,
   type ESCodeAutomationBotDeliveryTarget,
   type ESCodeDeliveryKind,
+=======
+  zcodeProtocolErrorCodes,
+  type ZCodeAutomationBotDeliveryTarget,
+  type ZCodeDeliveryKind,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server-types.ts
   type ModelSelection,
   type ESCodeModelContextBudgetStrategy,
   type ESCodeProtocolMessage,
@@ -33,6 +39,7 @@ import type { ESCodeApp, ESCodeAppOptions } from "../app/types.js";
 import type { V4InteractionRegistry } from "../escode-protocol-v4/interaction-registry.js";
 import type { ConversationV4Gateway } from "../escode-protocol-v4/v4-gateway.js";
 import type { SessionResidentPool, SessionResidentPoolOptions } from "./session-resident-pool.js";
+import type { DynamicWorkflowMode } from "@zcode/shared";
 
 export interface ParamsSchema<T> {
   parse(input: unknown): T;
@@ -80,8 +87,14 @@ export interface ESCodeProtocolToolInputTransmissionState {
   streamedToolCallIdsWithInput: Set<string>;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server-types.ts
 export interface ESCodeProtocolSessionRecord {
   app: ESCodeApp;
+=======
+export interface ZCodeProtocolSessionRecord {
+  app: ZCodeApp;
+  subagentRuntimeConfigEnabled?: boolean;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server-types.ts
   memoryEnabled: boolean;
   nativeSearchEnhancementsEnabled: boolean;
   modelContextBudgetStrategy: ESCodeModelContextBudgetStrategy;
@@ -111,7 +124,11 @@ export interface ESCodeProtocolSessionRecord {
   /** 当前正在执行的闲时派发 turn；只在 turn 运行期间存在，禁止递归 OffPeakCreate。 */
   activeOffPeakTaskId?: string;
   /** 当前 Bot 入站 turn 的稳定回推地址；只允许 CronCreate 在本轮读取。 */
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/server-types.ts
   activeBotDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
+=======
+  activeBotDeliveryTarget?: ZCodeAutomationBotDeliveryTarget;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server-types.ts
   restoreWarning?: { message: string; type: string };
   /** 冷恢复候选只供初始投影；新的选模事件立即清除，不能替代 Runtime 执行绑定。 */
   restoredModelSelection?: ModelSelection;
@@ -140,6 +157,11 @@ export interface ESCodeProtocolAgentServerContext {
      * 工作流工具面、`/workflow` 与 dynamic-workflows 技能一律不露出。
      */
     dynamicWorkflowEnabled: boolean;
+    /**
+     * 与 dynamicWorkflowEnabled 同行到达的灰度 mode（launch.md「On demand: activation」）。
+     * 缺席（旧 Host 只发布尔）= alwaysOn；`onDemand` 让 createRecord 写 runtimeConfig.dynamicWorkflowToolsOnDemand。
+     */
+    dynamicWorkflowMode?: DynamicWorkflowMode;
   };
   // 竖切：v4 conversation 通道（订阅/帧/命令），与旧 session/* 方法并存。
   // 构造顺序问题（gateway 闭包持有 context）用可选字段收口，server 构造完立即赋值。
@@ -159,6 +181,16 @@ export interface ESCodeProtocolAgentServerContext {
     options?: ESCodeProtocolClientRequestOptions,
   ): Promise<T>;
 }
+
+/** server → client 请求失败的协议错误码；server.ts 抛出，适配层按码翻译，不在业务逻辑中散落字面量。 */
+export const PROTOCOL_CLIENT_REQUEST_ERROR_CODES = {
+  /** 没有 ZCode Protocol client 挂载，无法投递请求。 */
+  noClientAttached: -32020,
+  /** 请求在收到应答前被取消。 */
+  cancelled: -32021,
+  /** 请求等待应答超时。 */
+  timedOut: -32022,
+} as const;
 
 export class ProtocolRequestError extends Error {
   constructor(
@@ -268,8 +300,8 @@ export function toProtocolError(error: unknown): {
   };
 }
 
-function createProtocolTraceId(_sessionId: SessionId): TraceContext["traceId"] {
-  // traceId 是 session 之上的观测链路，不应由 sessionId 拼出来。
+export function createProtocolTraceId(_sessionId: SessionId): TraceContext["traceId"] {
+  // Bugfix: traceId 是 session 之上的观测链路，不应由 sessionId 拼出来。
   // 这里复用 agent/contracts 的 UUID 算法，保证 app 和 agent 两端 trace 格式一致。
   return createTraceId();
 }

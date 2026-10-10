@@ -2,7 +2,12 @@ import type {
   AiSdkModelExecutionConfig,
   AiSdkNetworkConfig,
   EnvRecord,
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/model-config.ts
 } from "@escode/adapters/model";
+=======
+} from "@zcode/adapters/model";
+import type { ProviderEndpointRoutingPort } from "@zcode/contracts";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/model-config.ts
 import {
   resolveRuntimeESCodeEnv,
   resolveRuntimeESCodeEndpointOrigin,
@@ -17,6 +22,7 @@ export type ModelProviderSourceTitle = "cli" | "electron";
 
 interface RuntimeExecutionConfigOptions {
   appVersion?: string;
+  endpointRoutingPort?: ProviderEndpointRoutingPort;
   network?: AiSdkNetworkConfig;
   sourceTitle?: ModelProviderSourceTitle;
 }
@@ -30,6 +36,7 @@ export function createRuntimeAiSdkModelExecutionConfig(
     defaultHeaders: buildCliESCodeSourceHeaders(env, options),
     env,
     ...(network ? { network } : {}),
+    ...(options.endpointRoutingPort ? { endpointRoutingPort: options.endpointRoutingPort } : {}),
   };
 }
 
@@ -44,7 +51,11 @@ function normalizeAiSdkNetworkConfig(
   };
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/model-config.ts
 function buildCliESCodeSourceHeaders(
+=======
+export function buildCliZCodeSourceHeaders(
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/model-config.ts
   env: EnvRecord,
   options: Pick<RuntimeExecutionConfigOptions, "appVersion" | "sourceTitle"> = {},
 ): Record<string, string> {

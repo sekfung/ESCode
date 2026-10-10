@@ -8,9 +8,15 @@ import { listProtocolSlashCommands } from "./slash-commands.js";
 import type { ESCodeProtocolAgentServerContext } from "./server-types.js";
 
 /** Session settings 只投影非模型的 workspace mode 与 slash commands。 */
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/v4-workspace-config.ts
 function toV4WorkspaceConfigState(
   settings: ESCodeSessionSettingsState,
   slashCommands: readonly ESCodeSlashCommand[],
+=======
+export function toV4WorkspaceConfigState(
+  settings: ZCodeSessionSettingsState,
+  slashCommands: readonly ZCodeSlashCommand[],
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/v4-workspace-config.ts
 ): WorkspaceConfigState {
   return {
     configOptions: [

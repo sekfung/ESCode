@@ -1,3 +1,4 @@
+import type { RequestVerificationReason } from "@zcode/shared";
 import { generateText as aiGenerateText, streamText as aiStreamText } from "ai";
 import type {
   ModelProperties,
@@ -28,9 +29,15 @@ export interface AiSdkModelTextRequest extends ModelTextRequest {
   // Start Plan 的账号鉴权材料按 attempt 刷新；adapter 内部 retry 也是真实模型请求，
   // 必须在每个 attempt 发送前给 core/host 一个刷新机会。
   refreshRuntimeHeadersBeforeAttempt?: (input: {
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/model/runner-runtime.ts
     accountAccess?: ESCodeProviderAccountAccess;
+=======
+    accountAccess?: ZCodeProviderAccountAccess;
+    expectedAccountScope?: string;
+    rejectedProjectTokenFingerprint?: string;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/model/runner-runtime.ts
     attempt: number;
-    reason?: "model-request";
+    reason?: RequestVerificationReason;
     abortSignal?: AbortSignal;
     providerId: string;
     modelId: string;

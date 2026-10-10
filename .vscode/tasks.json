@@ -5,7 +5,9 @@
       "label": "escode: tsup watch (debug)",
       "type": "process",
       "command": "node",
-      "args": ["${workspaceFolder}/.vscode/tsup-watch.mjs"],
+      "args": [
+        "${workspaceFolder}/.vscode/tsup-watch.mjs"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -32,7 +34,9 @@
       "label": "escode: vite dev",
       "type": "process",
       "command": "node",
-      "args": ["${workspaceFolder}/.vscode/vite-dev.mjs"],
+      "args": [
+        "${workspaceFolder}/.vscode/vite-dev.mjs"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -56,20 +60,36 @@
       }
     },
     {
+<<<<<<< HEAD
       "label": "escode: prepare desktop debug",
       "dependsOn": ["escode: tsup watch (debug)", "escode: vite dev"],
+=======
+      "label": "zcode: prepare desktop debug",
+      "dependsOn": [
+        "zcode: tsup watch (debug)",
+        "zcode: vite dev"
+      ],
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f
       "dependsOrder": "parallel"
     },
     {
       "label": "escode: start electron (debug)",
       "type": "process",
       "command": "node",
-      "args": ["${workspaceFolder}/.vscode/start-electron.mjs"],
+      "args": [
+        "${workspaceFolder}/.vscode/start-electron.mjs"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "isBackground": true,
+<<<<<<< HEAD
       "dependsOn": ["escode: prepare desktop debug"],
+=======
+      "dependsOn": [
+        "zcode: prepare desktop debug"
+      ],
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -92,12 +112,21 @@
       "label": "escode: start electron (debug with host inspect)",
       "type": "process",
       "command": "node",
-      "args": ["${workspaceFolder}/.vscode/start-electron.mjs", "--host-inspect"],
+      "args": [
+        "${workspaceFolder}/.vscode/start-electron.mjs",
+        "--host-inspect"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "isBackground": true,
+<<<<<<< HEAD
       "dependsOn": ["escode: prepare desktop debug"],
+=======
+      "dependsOn": [
+        "zcode: prepare desktop debug"
+      ],
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",

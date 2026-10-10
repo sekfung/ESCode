@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/dynamic-workflow-run-elapsed.ts
 // dwf run 的活动时长，用于完成卡的「时间」格。
 // 本 run 的每次启动，以及沿 `resumedFrom` 上溯的每个前驱，都按各自活动区间求和；
 // 停止或进程退出后、下次 resume 前的空档不计入。
@@ -8,6 +9,25 @@
 // 事件日志已记录每段区间的起点和最后活动时刻，因此只需读取求和，无须额外持久化。
 
 import type { JournalStorePort } from "@escode/dynamic-workflow";
+=======
+// ============================================================
+// dwf run 的活动时长（完成卡的「时间」格）
+// ============================================================
+// 口径与论证见仓库根 docs/dynamic-workflow/transcript-and-notifications.md「How long it took」：
+// 完成卡的时长是**整条 lineage 的活动时长**——本 run 的每一世，加上沿 `resumedFrom` 上溯的每一个
+// 前驱的每一世，世与世之间的空档不计。
+//
+// 缺陷原因（2026-09-21）：时长曾是「结算它的那个进程自己的时钟」（注册表条目的
+// `completedAt − startedAt`）。resume 换一个新条目、修订换一个新 runId，两者都把那个时钟归零，
+// 而修订/恢复出来的那一世大半是缓存重放——秒级。于是一个跑了四小时、修订过一次的 run 报「12 秒」，
+// 旁边的 tokens 格却是整条 lineage 的总数（那一格从建 run 起就按 lineage 计，见 execution-engine.md
+// 「Usage across the lineage」）。两格答的是同一个问题，必须按同一个跨度计。
+//
+// 时长不需要像 tokens 那样在行上累加：事件日志已经给每一世标了日期（`run-started` → 那一世
+// 最后一条事件），所以这里是一次**只读求和**，零写入、零迁移，对升级前就存在的老 run 同样成立。
+
+import type { JournalStorePort } from "@zcode/dynamic-workflow";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/dynamic-workflow-run-elapsed.ts
 import { supportsRunLifeSpans } from "./dynamic-workflow-run-journal.js";
 
 /**

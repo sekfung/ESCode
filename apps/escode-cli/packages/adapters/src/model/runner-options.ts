@@ -10,14 +10,20 @@ import type {
   ResolvedAiSdkModel,
 } from "./runner-runtime.js";
 import { createModelRequestAttributionHeaders, type ModelStatusContext } from "./runner-status.js";
+import { withoutModelQuerySourceHeader } from "./model-request-headers.js";
 
 type ExperimentalIncludeWithResponseBody = {
   requestBody?: boolean;
   responseBody?: boolean;
 };
 
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/model/runner-options.ts
 /** escode-plan 业务码常只出现在 finish chunk 的 response.body，流式路径需显式开启。 */
 function shouldIncludeStreamResponseBody(resolved: ResolvedAiSdkModel): boolean {
+=======
+/** zcode-plan 业务码常只出现在 finish chunk 的 response.body，流式路径需显式开启。 */
+export function shouldIncludeStreamResponseBody(resolved: ResolvedAiSdkModel): boolean {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/model/runner-options.ts
   return (
     resolved.providerKind === "openai-compatible" && resolved.accountAccess?.mode === "start-plan"
   );
@@ -27,8 +33,9 @@ function mergeRequestHeaders(
   providerHeaders: Record<string, string> | undefined,
   attributionHeaders: Record<string, string>,
 ): Record<string, string> {
+  // 通用大小写去重会改变旧归因头的 SDK 合并结果；本次只剔除 query-source 静态值。
   return {
-    ...providerHeaders,
+    ...withoutModelQuerySourceHeader(providerHeaders),
     ...attributionHeaders,
   };
 }

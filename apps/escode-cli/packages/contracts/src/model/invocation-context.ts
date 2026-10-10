@@ -1,3 +1,4 @@
+import type { RequestVerificationReason } from "@zcode/shared";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ESCodeProviderAccountAccess } from "@escode/shared";
 import type { ModelApiCallObservation } from "../telemetry/index.js";
@@ -30,9 +31,15 @@ export interface ModelInvocationContext {
   streamRecovery?: ModelStreamRecoveryStatus;
   preserveProviderStreamBoundaries?: boolean;
   refreshRuntimeHeadersBeforeAttempt?: (input: {
+<<<<<<< HEAD:apps/escode-cli/packages/contracts/src/model/invocation-context.ts
     accountAccess?: ESCodeProviderAccountAccess;
+=======
+    accountAccess?: ZCodeProviderAccountAccess;
+    expectedAccountScope?: string;
+    rejectedProjectTokenFingerprint?: string;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/contracts/src/model/invocation-context.ts
     attempt: number;
-    reason?: "model-request";
+    reason?: RequestVerificationReason;
     abortSignal?: AbortSignal;
     providerId: string;
     modelId: string;
@@ -45,7 +52,9 @@ export interface ModelInvocationContext {
 
 /** Adapter 为单个物理请求 attempt 使用的动态鉴权材料。 */
 export interface ModelRequestAuth {
+  accountScope?: string;
   apiKey?: string;
+  apiKeyId?: string;
   headers?: Record<string, string>;
 }
 

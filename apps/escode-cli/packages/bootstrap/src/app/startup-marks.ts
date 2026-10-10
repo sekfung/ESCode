@@ -6,14 +6,23 @@ import type { StartupTimer } from "../startup-logging.js";
 import { resolveOfficialPluginRoots } from "./bundled-plugins.js";
 import { DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS } from "./official-plugin-definitions.js";
 import { getPluginStorageRoot } from "./paths.js";
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/startup-marks.ts
 import type { ESCodeAppOptions } from "./types.js";
+=======
+import type { ZCodeAppOptions } from "./types.js";
+import { filterVisualizeSkillRoots } from "./visualize-skill-gate.js";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/startup-marks.ts
 
 export function resolveStartupPlugins(input: {
   cliStorageRoot: string;
   configResult: ConfigResult;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/startup-marks.ts
   options: Pick<ESCodeAppOptions, "officialPluginRoots" | "pluginStorageRoot">;
+=======
+  options: Pick<ZCodeAppOptions, "officialPluginRoots" | "pluginStorageRoot" | "includeVisualize">;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/startup-marks.ts
   startupTimer: StartupTimer;
   workingDirectory: string;
 }): PluginLoadOutcome {
@@ -36,7 +45,15 @@ export function resolveStartupPlugins(input: {
     storageRoot: pluginStorageRoot,
     workingDirectory: input.workingDirectory,
   });
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/startup-marks.ts
   input.startupTimer.mark("ESCode plugins resolved", {
+=======
+  pluginOutcome.skillRoots = filterVisualizeSkillRoots(
+    pluginOutcome.skillRoots,
+    input.options.includeVisualize,
+  );
+  input.startupTimer.mark("ZCode plugins resolved", {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/startup-marks.ts
     context: {
       commandRootCount: pluginOutcome.commandRoots.length,
       diagnosticCount: pluginOutcome.diagnostics.length,

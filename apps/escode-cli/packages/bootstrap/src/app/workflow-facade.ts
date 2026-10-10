@@ -230,7 +230,7 @@ export function createWorkflowFacade(deps: CreateWorkflowFacadeDeps): WorkflowFa
       : `/workflow ${definition.kind} ${task}`;
 
   const switchWorkflowToYolo = (): void => {
-    if (deps.runtime.getMode() !== "yolo") {
+    if (deps.runtime.getMode() !== "yolo" && deps.runtime.getMode() !== "guarded") {
       deps.runtime.updateConfig({ mode: "yolo" });
     }
   };
@@ -284,7 +284,12 @@ function createWorkflowChildRuntime(
     options.childSessionId,
     {
       ...deps.runtimeConfig,
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/app/workflow-facade.ts
       agentName: options.workflowKind === "expert" ? "escode-expert" : "escode-workflow",
+=======
+      agentName: options.workflowKind === "expert" ? "zcode-expert" : "zcode-workflow",
+      // workflow child 不在 Guarded 合同内；只隔离父任务模式，不继承审批。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/app/workflow-facade.ts
       mode: "yolo",
       modelSelection: deps.runtime.getSessionModelSelection(),
       parentSessionId: deps.sessionId,

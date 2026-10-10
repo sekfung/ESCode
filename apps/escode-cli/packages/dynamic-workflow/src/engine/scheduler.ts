@@ -7,9 +7,12 @@
  *
  * 内部类型与 SchedulerHost 在 scheduler-types.ts；submit / turn 的向上回报处理在 scheduler-submit.ts
  * （拆分原因：oxlint max-lines 上限 400 行）。SchedulerHost 在此原地再导出，导入路径不变。
+ * replay 命中的哈希不一致错误 {@link hashMismatch} 在 hash-mismatch.ts（同一个理由）。
  */
 
+import { cachedAskFacts, headOfInstructions, type CachedAskFacts } from "./cached-ask-facts.js";
 import { inputHash } from "./hash.js";
+import { hashMismatch } from "./hash-mismatch.js";
 import { importedAskRecord, type ImportedActorState } from "./imported-cache.js";
 import {
   defer,
@@ -35,7 +38,16 @@ import type {
   PersonaSpec,
   SessionRef,
 } from "./types.js";
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
 import { NUDGE_ATTEMPTS, refToString, REPAIR_ATTEMPTS, WorkflowError } from "./types.js";
+=======
+import {
+  NUDGE_ATTEMPTS,
+  refToString,
+  REPAIR_ATTEMPTS,
+  WorkflowError,
+} from "./types.js";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
 
 export { hashMismatch } from "./scheduler-types.js";
 export type { SchedulerHost } from "./scheduler-types.js";
@@ -50,6 +62,17 @@ export class AskScheduler {
    * 结算后不清理——迟到的 stats 回填还要查它。
    */
   private readonly priorTranscriptAsks = new Set<string>();
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
+=======
+  /**
+   * 每个 actor 在 journal 里已记录的 ask 行数（`siteId@ordinal` → 行数），由引擎的 resume 分支用它
+   * 已经读好的 ask 行一次建好（{@link seedRecordedAsks}）。修复原因：registerActor 原先每建一个
+   * actor 就把整张节点表读一遍再过滤——宽扇出下是 O(actor × 行) 次解码，而且解的是每条 ask 的回答
+   * 与每条 report item。一次建表是对的：actor 总在它的第一次 ask 之前注册，所以注册那一刻 journal
+   * 里属于它的 ask 行只可能来自前几世；全新 run 的表为空。
+   */
+  private readonly recordedAsks = new Map<string, number>();
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
   private activeAsks = 0;
 
   /** scheduler-submit.ts 的自由函数经它查 live 节点、按结果结算（见 {@link SubmitSeam}）。 */
@@ -68,6 +91,17 @@ export class AskScheduler {
     return this.host.driver.journal;
   }
 
+  /** resume 时喂入本 run 已落库的 ask 行（可不带结果），建好 {@link recordedAsks}。 */
+  seedRecordedAsks(askRows: readonly NodeRecord[]): void {
+    for (const row of askRows) {
+      if (row.kind !== "ask" || row.actorSiteId === undefined || row.actorOrdinal === undefined) {
+        continue;
+      }
+      const actorKey = refToString({ siteId: row.actorSiteId, ordinal: row.actorOrdinal });
+      this.recordedAsks.set(actorKey, (this.recordedAsks.get(actorKey) ?? 0) + 1);
+    }
+  }
+
   hasActor(id: ActorId): boolean {
     return this.actors.has(id);
   }
@@ -83,11 +117,15 @@ export class AskScheduler {
     persona: PersonaSpec,
     imported?: ImportedActorState,
   ): Actor {
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     const recordedCount = this.journal
       .listNodes(this.host.runId)
       .filter(
         (n) => n.kind === "ask" && n.actorSiteId === ref.siteId && n.actorOrdinal === ref.ordinal,
       ).length;
+=======
+    const recordedCount = this.recordedAsks.get(refToString(ref)) ?? 0;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     const actor: Actor = {
       ref,
       id,
@@ -149,10 +187,15 @@ export class AskScheduler {
           this.admitLive(instance, actor, seq, instructions, hash, spec, deferred, true);
         });
       } else {
-        // completed / failed：短路结算，无 driver 调用。
+        // completed / failed：短路结算，无 driver 调用。出生事实在 reconcile 之后**当场**取
+        // （答案是否读自前驱的转录，看的是此刻的导入消费态；事件可能被结算次序闸推迟）。
         actor.pendingRecorded.set(seq, () => {
           reconcile();
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
           this.releaseCachedAsk(instance, recorded, deferred);
+=======
+          this.releaseCachedAsk(instance, recorded, deferred, cachedAskFacts(actor.ref, seq, instructions, actor.imported));
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
         });
       }
       this.drainAdmission(actor);
@@ -163,7 +206,11 @@ export class AskScheduler {
     // 分配到 seq 之后先问导入缓存（amend-resume）：命中即 cached settle，不 live。
     actor.pendingLive.push(() => {
       const seq = actor.nextAdmitSeq++;
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
       if (this.tryImportedSettle(instance, actor, seq, hash, deferred)) return;
+=======
+      if (this.tryImportedSettle(instance, actor, seq, hash, instructions, deferred)) return;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
       // 未命中之后才知道它是不是「续跑前驱的在飞 ask」——判定在 take 里随分歧一起做出。
       const carried = actor.imported?.carriedAt(seq) === true;
       this.admitLive(instance, actor, seq, instructions, hash, spec, deferred, carried);
@@ -190,7 +237,11 @@ export class AskScheduler {
     priorTranscript = false,
   ): void {
     if (priorTranscript) this.priorTranscriptAsks.add(refToString(instance));
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     // 指令开头随出生事件一起落轨：这里的 instructions 还是
+=======
+    // 指令开头随出生事件一起落轨（docs/execution-engine.md「Events」）：这里的 instructions 还是
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     // 作者的原文——driver 的质量 / schema 尾注在 startAsk 里才追加，所以摘要里不会混进引擎的话。
     // 算一次存在节点上：派发要重复出生事实，两条事件带的必须是同一个串。
     const instructionsHead = headOfInstructions(instructions);
@@ -243,13 +294,15 @@ export class AskScheduler {
    *
    * 命中写一行**真** dwf_node，只发 `node-settled cached:true`——与 replay 命中的
    * {@link releaseCachedAsk} 同一副姿态：不发 node-queued / node-dispatched，
-   * 不入 liveQueue，不建会话，不占 `actor.current`。
+   * 不入 liveQueue，不建会话，不占 `actor.current`。那条结算因此就是出生事件，重发出生事实，
+   * 并点名前驱里持有这段交换的会话（{@link cachedAskFacts}）。
    */
   private tryImportedSettle(
     instance: InstanceRef,
     actor: Actor,
     seq: number,
     hash: string,
+    instructions: string,
     deferred: Deferred<unknown>,
   ): boolean {
     // 缓存已关闭 ⇒ 只放**纯** ask（前驱记下 toolCalls === 0）：它只依赖指令与转录前缀，与工作区
@@ -261,7 +314,8 @@ export class AskScheduler {
       : actor.imported?.take(seq, hash);
     if (entry === undefined) return false;
     this.journal.putNode(importedAskRecord(this.host.runId, instance, actor.ref, seq, hash, entry));
-    this.host.record({ type: "node-settled", instance, outcome: "ok", cached: true });
+    const facts = cachedAskFacts(actor.ref, seq, instructions, actor.imported);
+    this.host.record({ type: "node-settled", instance, outcome: "ok", cached: true, ...facts });
     deferred.resolve(entry.result);
     return true;
   }
@@ -349,6 +403,7 @@ export class AskScheduler {
   }
 
   /**
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
    * 命中记录的 ask：按 journal 记下的**结算次序**释放。hold 规则定的是同一个 actor 内的准入次序，跨 actor 的
    * 完成次序要这一道闸才回得来——扇出分支在 await 之后的每一次 journal 调用都按它编号。
    */
@@ -365,11 +420,23 @@ export class AskScheduler {
     recorded: NodeRecord,
     deferred: Deferred<unknown>,
   ): void {
+=======
+   * 命中记录的 ask：按 journal 记下的**结算次序**释放（docs/execution-engine.md
+   * 「Replaying the settle order」）。hold 规则定的是同一个 actor 内的准入次序，跨 actor 的
+   * 完成次序要这一道闸才回得来——扇出分支在 await 之后的每一次 journal 调用都按它编号。
+   */
+  private releaseCachedAsk(instance: InstanceRef, recorded: NodeRecord, deferred: Deferred<unknown>, facts: CachedAskFacts): void {
+    this.host.holdForReplay(instance, () => this.settleCachedAsk(instance, recorded, deferred, facts));
+  }
+
+  private settleCachedAsk(instance: InstanceRef, recorded: NodeRecord, deferred: Deferred<unknown>, facts: CachedAskFacts): void {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     if (recorded.status === "completed") {
-      this.host.record({ type: "node-settled", instance, outcome: "ok", cached: true });
+      this.host.record({ type: "node-settled", instance, outcome: "ok", cached: true, ...facts });
       deferred.resolve(recorded.result);
     } else {
       // 已记录的失败也要短路复现：脚本可能已 try/catch 过它并据此分支，replay 必须重放同一 rejection。
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
       this.host.record({
         type: "node-settled",
         instance,
@@ -377,13 +444,20 @@ export class AskScheduler {
         cached: true,
         error: recorded.error,
       });
+=======
+      this.host.record({ type: "node-settled", instance, outcome: "failed", cached: true, error: recorded.error, ...facts });
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
       deferred.reject(WorkflowError.fromJSON(recorded.error!));
     }
   }
 
   /**
    * 重扫每个 actor 的待派发队列。公开面**只为一个调用方**：引擎在抬高本 run 的并发上界之后
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
    * 调它。上界本身是
+=======
+   * 调它（docs/dynamic-workflow/concurrency.md「Two bounds on a run」）。上界本身是
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
    * {@link pumpActor} 每次派发前现读的，但没有任何别的事件会触发一次重扫——排队的 ask
    * 否则要一直等到下一次结算才动，而「抬高之后立刻多跑几个」正是这条命令买的东西。
    */
@@ -422,9 +496,15 @@ export class AskScheduler {
       return;
     }
     if (this.host.isRunSettled() || node.settled) return;
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     // node-dispatched 在会话就绪之后。进程级并发闸门
     // 不在这里：它按**模型请求**准入，住在 driver 之下的 runtime deps 里；调度器只守
     // per-run 的 ask 级上界。
+=======
+    // node-dispatched 在会话就绪之后（docs/dynamic-workflow/concurrency.md「Two bounds on a run」）。进程级并发闸门
+    // 不在这里：它按**模型请求**准入，住在 driver 之下的 runtime deps 里（决策 34/38）；调度器只守
+    // per-run 的 ask 级上界（决策 17）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
     // 这一条重复该实例的出生事实（types.ts 的 `node-dispatched`）：调度器手上现成的那几样
     // 与它的 `node-queued` 同源，两个出生阶段名由引擎在 record 里按同一张铸造表补。
     this.host.record({
@@ -433,6 +513,12 @@ export class AskScheduler {
       kind: "ask",
       actor: node.actor.ref,
       ...(node.actor.name === undefined ? {} : { actorName: node.actor.name }),
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
+=======
+      ...(node.actor.persona.model === undefined
+        ? {}
+        : { actorPersonaModel: node.actor.persona.model }),
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
       ...(node.instructionsHead === undefined ? {} : { instructionsHead: node.instructionsHead }),
     });
     node.dispatched = true;
@@ -537,3 +623,14 @@ export class AskScheduler {
     return record;
   }
 }
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/scheduler.ts
+=======
+
+/** cause → 一行有界文本（Error 取 message，其余 String()；空则给占位）。 */
+function describeCause(cause: unknown): string {
+  const text = cause instanceof Error ? cause.message : String(cause);
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return "unknown error";
+  return trimmed.length > 300 ? `${trimmed.slice(0, 300)}…` : trimmed;
+}
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/scheduler.ts

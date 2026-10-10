@@ -3,10 +3,17 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
+<<<<<<< HEAD:apps/escode-cli/packages/cli/scripts/sea-bundled-skill-assets.mjs
 // 随 CLI 内置的技能包（apps/escode-cli/packages/bundled-skills）。它不是官方插件：不进市场目录、
 // 没有版本身份，运行时按内容 hash 解压到 `<cli storage>/bundled-skills/<hash>/`
 // （bootstrap/src/app/bundled-skills.ts）。这里的 manifest 形状与那边的读取逐字对应。
 export const seaBundledSkillAssetPrefix = "escode-bundled-skills/";
+=======
+// 随 CLI 内置的技能包（apps/zcode-cli/packages/bundled-skills）。它不是官方插件：不进市场目录、
+// 没有版本身份，运行时按内容 hash 解压到 `<cli storage>/bundled-skills/<hash>/`
+// （bootstrap/src/app/bundled-skills.ts）。这里的 manifest 形状与那边的读取逐字对应。
+export const seaBundledSkillAssetPrefix = "zcode-bundled-skills/";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/cli/scripts/sea-bundled-skill-assets.mjs
 export const seaBundledSkillManifestAssetKey = `${seaBundledSkillAssetPrefix}manifest.json`;
 export const bundledSkillPackRootPath = join("packages", "bundled-skills");
 export const bundledSkillPackSkillsDirectory = "skills";

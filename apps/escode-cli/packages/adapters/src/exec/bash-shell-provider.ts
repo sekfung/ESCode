@@ -1,7 +1,14 @@
 import { accessSync, constants as fsConstants } from "node:fs";
 import { basename, delimiter, join, win32 } from "node:path";
 import { windowsExecutableCandidates } from "./windows-executable.js";
+<<<<<<< HEAD:apps/escode-cli/packages/adapters/src/exec/bash-shell-provider.ts
 import { type ExecutionShellDialect, type ExecutionShellSelection } from "@escode/contracts";
+=======
+import {
+  type ExecutionShellDialect,
+  type ExecutionShellSelection,
+} from "@zcode/contracts";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/adapters/src/exec/bash-shell-provider.ts
 
 type PosixShellKind = "bash" | "zsh";
 type ExecutableCheck = (path: string) => boolean;
@@ -25,7 +32,7 @@ export interface BashShellProvider {
   shell: boolean | string;
 }
 
-interface EffectiveBashShellResolution {
+export interface EffectiveBashShellResolution {
   selection: ExecutionShellSelection;
   provider?: BashShellProvider;
 }
@@ -43,7 +50,7 @@ export function resolveEffectiveBashShellSelection(
     : resolveEffectivePosixBashShellSelection(options);
 }
 
-function resolvePosixBashShell(
+export function resolvePosixBashShell(
   env: NodeJS.ProcessEnv,
   exists?: ExecutableCheck,
 ): string | undefined {
@@ -71,7 +78,20 @@ function resolvePosixBashShell(
   return undefined;
 }
 
-function resolveWindowsGitBashShell(
+export function resolveWindowsBashShellProvider(options: {
+  env: NodeJS.ProcessEnv;
+  exists?: ExecutableCheck;
+  override?: ExecutionShellSelection;
+}): BashShellProvider | undefined {
+  return resolveEffectiveWindowsBashShellSelection({
+    env: options.env,
+    exists: options.exists,
+    override: options.override,
+    platform: "win32",
+  }).provider;
+}
+
+export function resolveWindowsGitBashShell(
   env: NodeJS.ProcessEnv,
   exists?: ExecutableCheck,
 ): string | undefined {
@@ -277,7 +297,9 @@ function resolveWindowsCmdOverridePath(
 
 function isWindowsCmdFallback(shellPath: string): boolean {
   return (
-    !shellPath.includes("\\") && !shellPath.includes("/") && shellPath.toLowerCase() === "cmd.exe"
+    !shellPath.includes("\\") &&
+    !shellPath.includes("/") &&
+    shellPath.toLowerCase() === "cmd.exe"
   );
 }
 

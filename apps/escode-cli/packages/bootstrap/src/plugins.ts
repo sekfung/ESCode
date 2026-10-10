@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve, win32 } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep, win32 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
   addSuppressedBuiltinInFileConfig,
@@ -17,6 +17,7 @@ import {
   addMarketplace,
   comparePluginUpdate,
   describeMarketplacePlugin,
+  enrichCachedClaudeMarketplaceIcons,
   ensureDefaultPluginMarketplaces,
   discoverNodePluginsSync,
   ensureMarketplaceManifestAvailable,
@@ -194,11 +195,19 @@ export interface ESCodePluginUpdateData extends ESCodePluginInstallData {
   previousVersion: string;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/plugins.ts
 interface RestoreBuiltinPluginOptions extends ResolveESCodePluginsOptions {
   pluginId: string;
 }
 
 interface ConfigureESCodePluginOptions extends ResolveESCodePluginsOptions {
+=======
+export interface RestoreBuiltinPluginOptions extends ResolveZCodePluginsOptions {
+  pluginId: string;
+}
+
+export interface ConfigureZCodePluginOptions extends ResolveZCodePluginsOptions {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/plugins.ts
   clearOptionKeys?: string[];
   dryRun?: boolean;
   options: Record<string, unknown>;
@@ -206,18 +215,30 @@ interface ConfigureESCodePluginOptions extends ResolveESCodePluginsOptions {
   scope?: "user" | "workspace";
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/plugins.ts
 interface ResetESCodePluginConfigOptions extends ResolveESCodePluginsOptions {
+=======
+export interface ResetZCodePluginConfigOptions extends ResolveZCodePluginsOptions {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/plugins.ts
   pluginId: string;
   scope?: "user" | "workspace";
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/plugins.ts
 interface ValidateESCodePluginOptions extends ResolveESCodePluginsOptions {
+=======
+export interface ValidateZCodePluginOptions extends ResolveZCodePluginsOptions {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/plugins.ts
   marketplace?: string;
   pluginName?: string;
   source?: string;
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/plugins.ts
 interface DescribeESCodePluginOptions extends ResolveESCodePluginsOptions {
+=======
+export interface DescribeZCodePluginOptions extends ResolveZCodePluginsOptions {
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/plugins.ts
   marketplace: string;
   pluginName: string;
 }
@@ -402,8 +423,23 @@ export function getESCodePluginsOverview(
   };
 }
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/plugins.ts
 export function listESCodePlugins(options: ListESCodePluginsOptions = {}): PluginLoadOutcome {
   const outcome = resolveESCodePlugins(options);
+=======
+export function enrichCachedClaudeMarketplaceIconsForOverview(
+  options: ResolveZCodePluginsOptions = {},
+): void {
+  const { pluginStorageRoot } = resolvePluginContext(options);
+  // 图标是可选展示增强：overview 不等待网络；仅写回阶段进入 storage lock。
+  void enrichCachedClaudeMarketplaceIcons(pluginStorageRoot, (write) =>
+    withPluginStorageLock(pluginStorageRoot, write),
+  );
+}
+
+export function listZCodePlugins(options: ListZCodePluginsOptions = {}): PluginLoadOutcome {
+  const outcome = resolveZCodePlugins(options);
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/plugins.ts
   const { pluginStorageRoot } = resolvePluginContext(options);
   return {
     ...outcome,
@@ -1317,7 +1353,20 @@ function normalizePluginConfigPathForComparison(
   return platform === "win32" ? resolvedPath.replaceAll("\\", "/").toLowerCase() : resolvedPath;
 }
 
-function resolveMarketplaceRefreshTargetIds(input: {
+export function isWorkspacePluginConfigPath(
+  path: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform === "win32") {
+    return (
+      win32.basename(path).toLowerCase() === "config.json" &&
+      win32.basename(win32.dirname(path)).toLowerCase() === ".zcode"
+    );
+  }
+  return basename(path) === "config.json" && basename(dirname(path)) === ".zcode";
+}
+
+export function resolveMarketplaceRefreshTargetIds(input: {
   declaredIds: Iterable<string>;
   knownIds: Iterable<string>;
   marketplace?: string;

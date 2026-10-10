@@ -27,7 +27,12 @@ export interface ImportedAskEntry {
  * 前驱停下时**还在飞**的那一条 ask（`actorSeq === entries.length`，紧接前缀之后的 running 行）。
  *
  * 它没有结果可导入，导入的是**它已经跑出来的那段转录**：修订若在同一位置重发同一条指令
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts
  * （`inputHash` 相符），新会话就从这里接着跑，而不是把那半场对话扔掉重来。
+=======
+ * （`inputHash` 相符），新会话就从这里接着跑，而不是把那半场对话扔掉重来
+ * （见 `docs/execution-engine.md`「How the engine consumes the cache」）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts
  */
 export interface ImportedInFlightAsk {
   /** 前驱记录的 inputHash（对指令正文）。与本次 ask 的哈希相符才谈得上续跑。 */
@@ -91,7 +96,11 @@ export interface ImportedRunCache {
 
 /**
  * 会话种子：分歧 actor 首次 live 派发时交给 {@link WorkflowDriver.createActorSession}，
+<<<<<<< HEAD:apps/escode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts
  * 让新会话以源会话的**全保真转录前缀**开场。
+=======
+ * 让新会话以源会话的**全保真转录前缀**开场（spec 的「转录截断」行）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/dynamic-workflow/src/engine/imported-cache-types.ts
  */
 export interface ActorSessionSeed {
   /** 转录来源会话（前驱或更早祖先的该名 actor 会话）。 */

@@ -3,14 +3,24 @@ import { createReadFileStateKey } from "./read-file-state.js";
 import type { ReadFileStateEntry, ReadFileStateMap } from "./types.js";
 
 export const READ_FILE_STATE_METADATA_SCHEMA_VERSION = 1;
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/read-file-state-metadata.ts
 // `CreateWorkflow` / `AmendWorkflow`：内联草稿的字节就是模型那次调用的 `script` 入参，与 Write
 // 同理记作完整视图（handlers/workflow-draft-read-state.ts）。
+=======
+// `CreateWorkflow` / `AmendWorkflow` / `FillWorkflowHole`：内联草稿（或 fill 文件）的字节就是模型那次
+// 调用的 `script` 入参，与 Write 同理记作完整视图（handlers/workflow-draft-read-state.ts）。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/read-file-state-metadata.ts
 export type PersistedReadFileStateTool =
   | "Read"
   | "Write"
   | "Edit"
   | "CreateWorkflow"
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/read-file-state-metadata.ts
   | "AmendWorkflow";
+=======
+  | "AmendWorkflow"
+  | "FillWorkflowHole";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/read-file-state-metadata.ts
 
 export interface PersistedReadFileStateMetadata {
   schemaVersion: typeof READ_FILE_STATE_METADATA_SCHEMA_VERSION;

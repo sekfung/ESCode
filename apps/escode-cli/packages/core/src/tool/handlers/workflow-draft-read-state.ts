@@ -1,5 +1,10 @@
 // ============================================================
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts
 // 内联草稿记作「模型写过的文件」
+=======
+// 内联草稿记作「模型写过的文件」（docs/dynamic-workflow/launch.md「Script files」→
+// 「An inline draft counts as written by the model」）
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts
 // ============================================================
 // Edit / Write 拒绝会话没读过的文件（FILE_NOT_READ）：模型不能改它没见过的字节。内联草稿恰好是
 // 这条已经成立的文件——它的字节就是产生它的那次调用的 `script` 入参。不记这一笔，NOTE 要求的
@@ -16,7 +21,11 @@ import { createReadFileStateMetadataFromEntry } from "../read-file-state-metadat
 import { createReadFileStateKey, normalizeReadFileStateMtimeMs } from "../read-file-state.js";
 import type { ReadFileStateEntry, ToolExecutionContext } from "../types.js";
 
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts
 export type WorkflowDraftAuthoringTool = "CreateWorkflow" | "AmendWorkflow";
+=======
+export type WorkflowDraftAuthoringTool = "CreateWorkflow" | "AmendWorkflow" | "FillWorkflowHole";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/tool/handlers/workflow-draft-read-state.ts
 
 const CRLF_PATTERN = /\r\n/gu;
 const LF = "\n";

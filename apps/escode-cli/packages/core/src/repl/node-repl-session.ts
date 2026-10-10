@@ -322,11 +322,18 @@ export class NodeReplSession {
   /** browser-client transport 在同一次 js run 内把 backend meta 合并进工具结果。 */
   mergeResponseMeta(meta: Record<string, unknown>): void {
     if (!this.currentSink) return;
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/repl/node-repl-session.ts
     const currentSurface = this.currentSink.responseMeta["escode/toolSurface"];
     const nextSurface = meta["escode/toolSurface"];
 
     // cell 结束时附加最后一次成功副作用的 openTabIds/sessionEnded；自动 preview 与后续
     // title/url/domSnapshot 读取不能把先前动作 meta 覆盖掉。
+=======
+    const currentSurface = this.currentSink.responseMeta["zcode/toolSurface"];
+    const nextSurface = meta["zcode/toolSurface"];
+    // 工具结果需保留同一 cell 内最后一次成功 side-effect 的 openTabIds/sessionEnded。ZCode 不做
+    // 自动 preview，但同一 cell 后续 title/url/domSnapshot 读取不能把先前动作 meta 覆盖掉。
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/repl/node-repl-session.ts
     if (
       currentSurface &&
       typeof currentSurface === "object" &&

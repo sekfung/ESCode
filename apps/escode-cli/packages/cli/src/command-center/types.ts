@@ -5,9 +5,16 @@ import type {
   TuiSendInputResult,
   TuiSubmitPrompt,
   TuiSubmitPromptResult,
+<<<<<<< HEAD:apps/escode-cli/packages/cli/src/command-center/types.ts
 } from "@escode/tui";
 import type { SupportedLocale, UiLocale } from "@escode/i18n";
 import type { ModelSelection, ESCodeModelOption } from "@escode/shared";
+=======
+} from "@zcode/tui";
+import type { SupportedLocale, UiLocale } from "@zcode/i18n";
+import type { ModelSelection, ZCodeModelOption } from "@zcode/shared";
+import type { DynamicWorkflowMode } from "@zcode/shared";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/cli/src/command-center/types.ts
 import type {
   BackgroundTaskCancelResult,
   DynamicWorkflowRunResumeResult,
@@ -28,7 +35,7 @@ export type TuiSendInputOptions = Parameters<TuiSendInput>[1];
 export type CommandCenterMode = NonNullable<TuiSubmitPromptResult["mode"]>;
 export type SwitchableCommandCenterMode = Extract<
   CommandCenterMode,
-  "plan" | "build" | "edit" | "yolo"
+  "plan" | "build" | "edit" | "yolo" | "guarded"
 >;
 
 export type CommandCenterModelOption = ESCodeModelOption;
@@ -157,6 +164,8 @@ export type CommandCenterLoginOptions = {
   abortSignal?: AbortSignal;
   onAuthorizeUrl?: (data: CommandCenterLoginAuthorizeData) => Promise<void> | void;
 };
+
+export type CommandCenterBigmodelLoginAuthorizeData = CommandCenterLoginAuthorizeData;
 export type CommandCenterBigmodelLoginOptions = CommandCenterLoginOptions;
 
 export type CommandCenterBigmodelLoginResult = {
@@ -321,4 +330,9 @@ export type CommandCenterDeps = {
   logout?: () => Promise<CommandCenterLogoutResult>;
   setLocale?: (locale: UiLocale) => Promise<CommandCenterLocaleResult> | CommandCenterLocaleResult;
   setMode?: (mode: SwitchableCommandCenterMode) => Promise<CommandCenterMode> | CommandCenterMode;
+  /**
+   * 本进程的 `--workflow-mode`（launch.md「The standalone CLI: `--workflow-mode`」）。`disabled` 时
+   * `/workflow` 与 `/dwf resume` 给本地提示；缺席不设门（单测、嵌入方），CLI 入口总会传入。
+   */
+  workflowMode?: DynamicWorkflowMode;
 };

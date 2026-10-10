@@ -20,8 +20,13 @@
 //
 // 裁到旧界（256）由 `clampWorkflowRunsForLegacy` 负责，理由见它的文件头。
 
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/conversation-workflow-run-deltas.ts
 import type { ConversationDelta, WorkflowRunsState } from "@escode/shared/escode-protocol-v4";
 import { clampWorkflowRunsForLegacy, utf8JsonByteLength } from "@escode/shared/escode-protocol-v4";
+=======
+import type { ConversationDelta, WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
+import { clampWorkflowRunsForLegacy, utf8JsonByteLength } from "@zcode/shared/zcode-protocol-v4";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/conversation-workflow-run-deltas.ts
 
 function isWorkflowRunDelta(delta: ConversationDelta): boolean {
   return delta.op === "workflowRun.updated" || delta.op === "workflowRun.removed";

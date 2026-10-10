@@ -18,7 +18,7 @@ export function splitMarkdownFrontmatter(content: string): {
   };
 }
 
-interface ParsedAgentFrontmatter {
+export interface ParsedAgentFrontmatter {
   mcpServers: string[] | null | undefined;
   values: Record<string, unknown>;
 }

@@ -1,7 +1,14 @@
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/subagent/tool-policy.ts
 import { ENTER_PLAN_MODE_TOOL_NAME, EXIT_PLAN_MODE_TOOL_NAME } from "@escode/contracts";
+=======
+import {
+  ENTER_PLAN_MODE_TOOL_NAME,
+  EXIT_PLAN_MODE_TOOL_NAME,
+} from "@zcode/contracts";
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/subagent/tool-policy.ts
 import { filterDisallowedToolNames } from "../tool/tool-visibility.js";
 
-const SUBAGENT_CHILD_FORCED_DISALLOWED_TOOLS = [
+export const SUBAGENT_CHILD_FORCED_DISALLOWED_TOOLS = [
   ENTER_PLAN_MODE_TOOL_NAME,
   EXIT_PLAN_MODE_TOOL_NAME,
 ] as const;
@@ -9,7 +16,10 @@ const SUBAGENT_CHILD_FORCED_DISALLOWED_TOOLS = [
 export function buildSubagentChildDisallowRules(
   disallowedTools: readonly string[] | undefined,
 ): readonly string[] {
-  return [...SUBAGENT_CHILD_FORCED_DISALLOWED_TOOLS, ...(disallowedTools ?? [])];
+  return [
+    ...SUBAGENT_CHILD_FORCED_DISALLOWED_TOOLS,
+    ...(disallowedTools ?? []),
+  ];
 }
 
 export function filterSubagentChildToolNames(
@@ -18,5 +28,8 @@ export function filterSubagentChildToolNames(
 ): readonly string[] {
   // 子 agent 没有独立的 plan approval 恢复面，暴露 plan tools 会让
   // ExitPlanMode 等待用户确认并卡住父 turn，因此所有子 agent 工具面统一剔除。
-  return filterDisallowedToolNames(toolNames, buildSubagentChildDisallowRules(disallowedTools));
+  return filterDisallowedToolNames(
+    toolNames,
+    buildSubagentChildDisallowRules(disallowedTools),
+  );
 }

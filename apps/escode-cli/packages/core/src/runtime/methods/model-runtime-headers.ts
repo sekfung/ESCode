@@ -1,3 +1,4 @@
+import type { RequestVerificationReason } from "@zcode/shared";
 import { traceContextToLogContext } from "../deps.js";
 import type { ModelRequestAuth } from "@escode/contracts";
 import type { ESCodeProviderAccountAccess } from "@escode/shared";
@@ -13,9 +14,15 @@ export function createRefreshRuntimeHeadersBeforeModelAttempt(
   },
 ):
   | ((attemptInput: {
+<<<<<<< HEAD:apps/escode-cli/packages/core/src/runtime/methods/model-runtime-headers.ts
       accountAccess?: ESCodeProviderAccountAccess;
+=======
+      accountAccess?: ZCodeProviderAccountAccess;
+      expectedAccountScope?: string;
+      rejectedProjectTokenFingerprint?: string;
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/core/src/runtime/methods/model-runtime-headers.ts
       attempt: number;
-      reason?: "model-request";
+      reason?: RequestVerificationReason;
       abortSignal?: AbortSignal;
     }) => Promise<{
       headersApplied: boolean;
@@ -43,6 +50,8 @@ export function createRefreshRuntimeHeadersBeforeModelAttempt(
     // （helpers/child-client-ports.ts），把 sessionId 改写成客户端认识的根会话。
     const refreshResult = await runtimeHeadersPort.refreshBeforeModelRequest({
       accountAccess: attemptInput.accountAccess,
+      expectedAccountScope: attemptInput.expectedAccountScope,
+      rejectedProjectTokenFingerprint: attemptInput.rejectedProjectTokenFingerprint,
       abortSignal: attemptInput.abortSignal ?? input.abortSignal,
       modelId: String(input.model.modelId),
       providerId: String(input.model.providerId),

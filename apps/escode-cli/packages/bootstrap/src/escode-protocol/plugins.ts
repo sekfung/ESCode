@@ -32,6 +32,7 @@ import {
 } from "@escode/shared";
 import type { PluginDiagnostic, PluginMetadata } from "@escode/contracts";
 import {
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/plugins.ts
   addESCodePluginMarketplace,
   configureESCodePlugin,
   describeESCodePlugin,
@@ -40,6 +41,17 @@ import {
   removeESCodePluginMarketplace,
   resolveESCodePlugins,
   resetESCodePluginConfig,
+=======
+  addZCodePluginMarketplace,
+  configureZCodePlugin,
+  describeZCodePlugin,
+  enrichCachedClaudeMarketplaceIconsForOverview,
+  getZCodePluginsOverview,
+  installZCodeMarketplacePlugin,
+  removeZCodePluginMarketplace,
+  resolveZCodePlugins,
+  resetZCodePluginConfig,
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/plugins.ts
   restoreBuiltinPlugin as restoreBuiltinPluginCore,
   setESCodePluginEnabled,
   uninstallESCodeMarketplacePlugin,
@@ -173,20 +185,24 @@ function createMissingConfiguredPluginInfos(
         rootPath: "",
         packageStatus: "missing",
         ...(enabledSource ? { enabledSource } : {}),
-        ...(optionSources && Object.keys(optionSources).length > 0 ? { optionSources } : {}),
+        ...(optionSources && Object.keys(optionSources).length > 0
+          ? { optionSources }
+          : {}),
       },
     ];
   });
 }
 
-function normalizePluginRootForComparison(
+export function normalizePluginRootForComparison(
   rootPath: string,
   platform: NodeJS.Platform = process.platform,
 ): string {
   const resolvedRoot = resolvePath(rootPath);
   // Windows 路径不区分大小写，且配置与 loader 可能分别返回正斜杠和反斜杠。
   // 若直接做字符串比较，会把同一个 Workspace plugins.dirs 根误判为无归属。
-  return platform === "win32" ? resolvedRoot.replaceAll("\\", "/").toLowerCase() : resolvedRoot;
+  return platform === "win32"
+    ? resolvedRoot.replaceAll("\\", "/").toLowerCase()
+    : resolvedRoot;
 }
 
 function toPluginDiagnostic(diagnostic: PluginDiagnostic): ESCodePluginDiagnostic {
@@ -213,7 +229,9 @@ export async function listPlugins(
     logger: context.logger,
     workingDirectory: params.workspace.workspacePath,
   });
-  const plugins = outcome.plugins.map((plugin) => toPluginInfo(plugin, configResult));
+  const plugins = outcome.plugins.map((plugin) =>
+    toPluginInfo(plugin, configResult),
+  );
   return {
     plugins: [
       ...plugins,
@@ -254,9 +272,19 @@ export async function setPluginEnabled(
 export async function getPluginsOverview(
   context: ESCodeProtocolAgentServerContext,
   rawParams: unknown,
+<<<<<<< HEAD:apps/escode-cli/packages/bootstrap/src/escode-protocol/plugins.ts
 ): Promise<ESCodePluginsOverviewResult> {
   const params = parseParams(escodePluginsOverviewParamsSchema, rawParams);
   const overview = getESCodePluginsOverview({
+=======
+): Promise<ZCodePluginsOverviewResult> {
+  const params = parseParams(zcodePluginsOverviewParamsSchema, rawParams);
+  enrichCachedClaudeMarketplaceIconsForOverview({
+    logger: context.logger,
+    workingDirectory: params.workspace.workspacePath,
+  });
+  const overview = getZCodePluginsOverview({
+>>>>>>> aac4755666d09fdcd70272fcf063c077a639015f:apps/zcode-cli/packages/bootstrap/src/zcode-protocol/plugins.ts
     configResult: createPluginConfigView(
       context,
       params.workspace.workspacePath,
