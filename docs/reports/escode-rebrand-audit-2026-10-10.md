@@ -56,9 +56,25 @@ App 集成套件中唯一失败的 `packages/services/tests/escode-cli-rust-opti
 - App 集成套件按 `target/debug/` 取产物，而带 `--target` 的构建落在 `target/x86_64-pc-windows-gnu/debug/`；为不改动测试，验证时把新产物同步到 `target/debug/`（`target/` 不入库）。首次运行曾因残留的 9 月 30 日旧产物（内含 `zcode-credential-fallback`）导致 2 项凭据差分测试误报，同步后通过。
 - 环境限制记录：本机 `pnpm -r ls --depth Infinity` 会因句柄耗尽报 `EMFILE`（与改名无关），生成 `THIRD-PARTY-NOTICES.md` 时改用逐项目采集的依赖图 JSON 临时注入，生成器与仓库代码未保留该改动。
 
+### 桌面安装包冒烟（Windows x64）
+
+`ESCODE_BUNDLE_RUST_AGENT=0 ESCODE_SKIP_REMOTE_ASSETS=1 pnpm bundle:desktop -- --os win --arch x64`，退出码 0，产物 `packages/desktop/dist/ESCode Preview-3.14.0-win-x64_TEST.exe`（142.8 MiB，体积审计上限 500 MiB 通过）。核对结果：
+
+| 检查项            | 结果                                                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 产物身份          | `win-unpacked/ESCode Preview.exe`，`ProductName=ESCode Preview`、`CompanyName=ESCode`                                                           |
+| 更新元数据        | `latest.yml` 指向 `ESCode Preview-3.14.0-win-x64_TEST.exe`，无旧名                                                                              |
+| 图标              | `resources/icon.png`、`icon_windows.png` 与 `packages/desktop/build/` 生成物 sha256 一致                                                        |
+| 内置 Agent bundle | `resources/glm/escode.cjs`                                                                                                                      |
+| ASCII/合规文件    | `resources/LICENSE`（仍是 `Copyright 2026 Z.AI Co., Ltd`）、`resources/NOTICE.md`（含 ESCode 衍生作品声明）、`resources/THIRD-PARTY-NOTICES.md` |
+
+冒烟暴露并修复了两处合规缺口（提交 `254b2b1d`）：版权字段原由 `author` 推导为 `Copyright © 2026 ESCode`，把上游权利人一并替换，现改为显式双署名；`resources` 原先只带第三方声明，现随附项目 `LICENSE` 与 `NOTICE.md`（Apache-2.0 第 4(a)、4(d) 条）。
+
+未覆盖：`prepare:rust-agent`（需要 MSVC 目标，本机缺 Windows SDK）与 `prepare:remote-assets`（`ESCODE_SKIP_REMOTE_ASSETS=1`）被跳过，因此安装包内不含 Rust runtime 与远程部署资产；界面 E2E 仍未执行。
+
 ## 四、已知后果与后续事项
 
 - **不做数据迁移**：`productName`、`~/.zcode`→`~/.escode`、`ZCODE_*`→`ESCODE_*` 均不兼容旧安装；旧用户的设置、会话与 CLI 数据库不会自动迁移，需要时另立议题。
 - **上游服务端点保持不变**：`zcode.z.ai`、`cdn-zcode.z.ai` 仍指向 Z.AI 服务；在自建后端与 CDN 之前，登录、模型网关、插件市场与自动更新仍依赖上游服务。
 - **图标为程序化重建**：应用图标沿用「深色圆角方块 + 斜体字标」构图，安装包图标沿用纸箱构图，均为按几何重新绘制，未复用上游设计源文件。
-- **未执行**：桌面安装包实际打包冒烟（`pnpm bundle:desktop`）与界面 E2E；本机仅验证到类型、Lint、架构、Rust 边界与生成资产一致性。
+- **未执行**：界面 E2E（本机无对应套件与驾驶环境）；桌面打包冒烟已执行，但跳过 Rust runtime 与远程资产两步，原因见上节。
