@@ -80,6 +80,16 @@ App 集成套件中唯一失败的 `packages/services/tests/escode-cli-rust-opti
 | 内置 Agent bundle | `resources/glm/escode.cjs`                                                                                                                      |
 | ASCII/合规文件    | `resources/LICENSE`（仍是 `Copyright 2026 Z.AI Co., Ltd`）、`resources/NOTICE.md`（含 ESCode 衍生作品声明）、`resources/THIRD-PARTY-NOTICES.md` |
 
+### 运行时冒烟（server 与 web）
+
+此前只对服务端与 Web 做过类型检查，未真正启动过运行时；本轮补上：
+
+- **后端**：`pnpm --filter "@escode/server..." build`（产出 `dist/remote/escode-server.cjs`）后以 `PORT=3458 ESCODE_DATA_BASE_DIR=<临时目录> node packages/server/dist/entry-http.js` 启动，`GET /api/server-info` 返回 200：
+  `{"serverId":"DESKTOP-U6EQEHV","version":"3.14.0","protocolVersion":1,"authRequired":false,"workspaces":[{"path":"…\\ESCode","label":"ESCode"}],…}`。
+  启动日志的 scope 为 `escode-server:http`，Provider Registry 的 configRevision 前缀为 `escode-builtin:30:…`。首次请求返回 503 是本机 HTTP 代理拦截所致（响应头带 `Proxy-Connection`），`--noproxy` 绕过代理后为 200。
+- **Web**：`pnpm --filter @escode/web dev` 后取 `http://localhost:5173/`（本机解析为 IPv6 `::1`）返回 200，页面含 `<title>ESCode</title>`、`escode-theme` 存储键、内联 favicon、`--escode-bootstrap-bg` 与 `data-escode-*` 属性，响应 HTML 中 `zcode` 出现 **0 次**。
+- 两个冒烟进程已终止，临时数据目录已清理。
+
 冒烟暴露并修复了两处合规缺口（提交 `254b2b1d`）：版权字段原由 `author` 推导为 `Copyright © 2026 ESCode`，把上游权利人一并替换，现改为显式双署名；`resources` 原先只带第三方声明，现随附项目 `LICENSE` 与 `NOTICE.md`（Apache-2.0 第 4(a)、4(d) 条）。
 
 ### 图标与二进制资产核验
