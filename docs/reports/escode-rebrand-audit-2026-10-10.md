@@ -94,6 +94,11 @@ App 集成套件中唯一失败的 `packages/services/tests/escode-cli-rust-opti
 
 冒烟暴露并修复了两处合规缺口（提交 `254b2b1d`）：版权字段原由 `author` 推导为 `Copyright © 2026 ESCode`，把上游权利人一并替换，现改为显式双署名；`resources` 原先只带第三方声明，现随附项目 `LICENSE` 与 `NOTICE.md`（Apache-2.0 第 4(a)、4(d) 条）。
 
+### CLI 与文档链接核验
+
+- **CLI 产物**：`node apps/escode-cli/packages/cli/dist/escode.cjs --version` → `0.16.9`；`--help` 输出 `escode 0.16.9`、`Run the ESCode Protocol stdio app server` 等，全文 `zcode` 出现 **0 次**；`doctor` 自述 `process: escode-cli`、`version: 0.16.9`。
+- **文档链接**：对全部受控 markdown 的相对链接做存在性核验并与改名前基线对比（基线 44 处、当前 45 处）。逐条核对后确认**没有因改名新断的链接**：两边的差异项是同一批既有问题的承载文件换了路径（`memory_section.md` 的 `file.md` 占位、`dependencies/README.md` 指向并不存在的 `third-party/README.md`、skill 内的 `file:///C:/Users/test/…` 示例、`docs/rust-migration.md` 以仓库根相对路径指向目录），其中多项为检查器对目录、示例 URL 与仓库根相对路径的误判。
+
 ### 图标与二进制资产核验
 
 - 以改名前基线 `origin/feat/rust-runtime` 逐 blob 比对全部 2376 个图片资产：28 个产品品牌资产被替换；其余 2347 个未变动项里，5 个非第三方项经目视核对是 macOS Finder/Terminal、飞书图标与通用箭头。
