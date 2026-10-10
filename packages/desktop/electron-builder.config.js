@@ -496,6 +496,10 @@ export default {
     mirror: resolveElectronDownloadMirror(),
   },
   productName: desktopProductIdentity.productName,
+  // 二进制元数据的版权字段必须同时保留上游署名：ESCode 是 ZCode 的衍生作品，
+  // 只写 ESCode 会把上游权利人从产物元数据里抹掉（Apache-2.0 第 4(c) 条要求保留版权声明）。
+  copyright:
+    "Copyright © 2026 ESCode (derived from ZCode); Copyright © 2026 Z.AI Co., Ltd (Apache-2.0)",
   directories: {
     // macOS arm64/x64 CI 可能共享同一个 checkout 并行打包。
     // 输出根目录允许按架构隔离，避免一个 job 清理 dist 时删除另一个 job 正在签名的 .app。
@@ -590,6 +594,10 @@ export default {
   },
   extraResources: [
     { from: resolve(workspaceRoot, noticesFileName), to: noticesFileName },
+    // Apache-2.0 第 4(a)、4(d) 条：随二进制分发时必须同时给出许可证副本与 NOTICE 的归属声明。
+    // THIRD-PARTY-NOTICES.md 只覆盖第三方材料，不能替代这两份。
+    { from: resolve(workspaceRoot, "LICENSE"), to: "LICENSE" },
+    { from: resolve(workspaceRoot, "NOTICE.md"), to: "NOTICE.md" },
     ...(targetPlatform.os === "darwin"
       ? [
           {
