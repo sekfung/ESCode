@@ -760,3 +760,92 @@ test("帧校验：完整帧按末尾校验和比对，失败给出期望值，�
     ],
   );
 });
+
+// --- 波形 ---------------------------------------------------------------------------
+
+function rxText(seq: number, at: number, text: string) {
+  return rx(seq, at, [...new TextEncoder().encode(text)]);
+}
+
+test("波形行解析：数字列与键值对，非法值跳过、空行忽略", async () => {
+  const { parseSerialPlotLine } = await import("../src/lib/serial/serialPlot.js");
+  assert.deepEqual(parseSerialPlotLine("1.5, -2\t3e2"), [
+    ["ch1", 1.5],
+    ["ch2", -2],
+    ["ch3", 300],
+  ]);
+  assert.deepEqual(parseSerialPlotLine("1 abc 3"), [
+    ["ch1", 1],
+    ["ch3", 3],
+  ]);
+  assert.deepEqual(parseSerialPlotLine("temp:25.5, hum=60 bad:x"), [
+    ["temp", 25.5],
+    ["hum", 60],
+  ]);
+  assert.deepEqual(parseSerialPlotLine("   "), []);
+});
+
+test("波形缓冲：增量解析跨 chunk 的行，横轴为相对首点的秒数，最多 8 条曲线", async () => {
+  const { SerialPlotBuffer } = await import("../src/lib/serial/serialPlot.js");
+  const buffer = new SerialPlotBuffer("utf-8");
+  buffer.push([rxText(1, 1000, "a:1 b:"), rxText(2, 1500, "2\r\nnot a number\n")]);
+  buffer.push([
+    rxText(1, 1000, "a:1 b:"),
+    rxText(2, 1500, "2\r\nnot a number\n"),
+    rxText(3, 3000, "a:3\n"),
+  ]);
+  assert.deepEqual(buffer.series, ["a", "b"]);
+  assert.deepEqual(buffer.rows, [
+    { t: 0, a: 1, b: 2 },
+    { t: 1.5, a: 3 },
+  ]);
+  const wide = new SerialPlotBuffer("utf-8");
+  wide.push([rxText(1, 0, `${Array.from({ length: 10 }, (_, i) => i).join(",")}\n`)]);
+  assert.equal(wide.series.length, 8);
+  assert.deepEqual(Object.keys(wide.rows[0]!).sort(), [
+    "ch1",
+    "ch2",
+    "ch3",
+    "ch4",
+    "ch5",
+    "ch6",
+    "ch7",
+    "ch8",
+    "t",
+  ]);
+});
+
+test("波形缓冲：每条曲线最多保留 2000 点，TX 不参与，缓冲被清空后重新开始", async () => {
+  const { SerialPlotBuffer, SERIAL_PLOT_MAX_POINTS } =
+    await import("../src/lib/serial/serialPlot.js");
+  assert.equal(SERIAL_PLOT_MAX_POINTS, 2000);
+  const buffer = new SerialPlotBuffer("utf-8");
+  const text = Array.from(
+    { length: 2005 },
+    (_, i) => `x:${i}${i % 1000 === 0 ? " y:1" : ""}\n`,
+  ).join("");
+  const tx = {
+    seq: 2,
+    at: 0,
+    direction: "tx" as const,
+    source: "user" as const,
+    bytes: new TextEncoder().encode("x:999\n"),
+  };
+  buffer.push([rxText(1, 0, text), tx]);
+  assert.equal(buffer.rows.filter((row) => "x" in row).length, 2000);
+  assert.equal(buffer.rows.find((row) => "x" in row)!.x, 5);
+  // y 只有 3 个点，未超上限：最早的点所在行去掉 x 后仍保留 y
+  assert.equal(buffer.rows.filter((row) => "y" in row).length, 3);
+  buffer.push([]);
+  assert.deepEqual(buffer.rows, []);
+  assert.deepEqual(buffer.series, []);
+  buffer.push([rxText(5, 9000, "z:1\n")]);
+  assert.deepEqual(buffer.rows, [{ t: 0, z: 1 }]);
+});
+
+test("波形导出 CSV：表头 t 加曲线名，缺失值留空", async () => {
+  const { SerialPlotBuffer, buildSerialPlotCsv } = await import("../src/lib/serial/serialPlot.js");
+  const buffer = new SerialPlotBuffer("utf-8");
+  buffer.push([rxText(1, 0, "a:1 b:2\n"), rxText(2, 250, "b:3\n")]);
+  assert.equal(buildSerialPlotCsv(buffer.series, buffer.rows), "t,a,b\n0,1,2\n0.25,,3\n");
+});

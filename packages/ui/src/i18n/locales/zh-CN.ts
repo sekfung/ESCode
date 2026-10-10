@@ -1759,6 +1759,9 @@ const zhCN: Record<string, string> = {
   "serial.send": "发送",
   "serial.send.placeholder": "输入要发送的内容，Enter 发送，Shift+Enter 换行",
   "serial.send.hexPlaceholder": "例如：41 54 0D 0A",
+  "serial.plot.title": "波形",
+  "serial.plot.empty":
+    "暂无可绘制的数据。每行发送数字列（如 1.2,3.4）或名称:值（如 temp:25 hum=60）。",
   "serial.checksum.label": "校验和",
   "serial.checksum.none": "无校验",
   "serial.checksum.skip": "跳过字节",

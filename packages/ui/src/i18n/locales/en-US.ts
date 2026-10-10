@@ -1886,6 +1886,9 @@ const enUS: Record<string, string> = {
   "serial.send": "Send",
   "serial.send.placeholder": "Enter data to send. Enter sends, Shift+Enter adds a new line",
   "serial.send.hexPlaceholder": "For example: 41 54 0D 0A",
+  "serial.plot.title": "Plot",
+  "serial.plot.empty":
+    "No plottable data yet. Send lines of numbers (e.g. 1.2,3.4) or name:value pairs (e.g. temp:25 hum=60).",
   "serial.checksum.label": "Checksum",
   "serial.checksum.none": "No checksum",
   "serial.checksum.skip": "Skip bytes",

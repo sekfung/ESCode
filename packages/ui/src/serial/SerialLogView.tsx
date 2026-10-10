@@ -24,7 +24,9 @@ import {
   parseSerialFramingInputs,
   type SerialFramedRow,
 } from "@/lib/serial/serialFraming.js";
+import { buildSerialPlotCsv, SerialPlotBuffer } from "@/lib/serial/serialPlot.js";
 import { IconToggle, SegmentedToggle } from "@/serial/SerialControls.js";
+import { SerialPlotView } from "@/serial/SerialPlotView.js";
 import {
   DEFAULT_SERIAL_FRAMING_SETTINGS,
   SerialFramingPopover,
@@ -55,7 +57,10 @@ export function SerialLogView({
 }) {
   const { intl } = useZCodeIntl();
   const platform = usePlatform();
-  const [displayMode, setDisplayMode] = useState<SerialSendMode>("text");
+  const [displayMode, setDisplayMode] = useState<SerialSendMode | "plot">("text");
+  const plotMode = displayMode === "plot";
+  // 波形模式按文本解码；日志行只在非波形模式下构建。
+  const textMode: SerialSendMode = plotMode ? "text" : displayMode;
   const [encoding, setEncoding] = useState<SerialDisplayEncoding>("utf-8");
   const [showTimestamp, setShowTimestamp] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -64,18 +69,19 @@ export function SerialLogView({
   const visibleChunks = pausedChunks ?? chunks;
   const [framing, setFraming] = useState<SerialFramingSettings>(DEFAULT_SERIAL_FRAMING_SETTINGS);
   const rows = useMemo((): SerialFramedRow[] => {
+    if (plotMode) return [];
     const parsedFraming = framing.enabled ? parseSerialFramingInputs(framing.inputs) : null;
     // 分帧参数非法时退回普通显示，错误提示留在分帧设置里。
     const all = parsedFraming?.ok
       ? buildSerialFramedRows(visibleChunks, {
-          mode: displayMode,
+          mode: textMode,
           encoding,
           framing: parsedFraming.framing,
           ...(framing.verify ? { verify: framing.verify } : {}),
         })
-      : buildSerialDisplayRows(visibleChunks, { mode: displayMode, encoding, showTimestamp });
+      : buildSerialDisplayRows(visibleChunks, { mode: textMode, encoding, showTimestamp });
     return all.length > MAX_RENDERED_ROWS ? all.slice(-MAX_RENDERED_ROWS) : all;
-  }, [displayMode, encoding, framing, showTimestamp, visibleChunks]);
+  }, [encoding, framing, plotMode, showTimestamp, textMode, visibleChunks]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,22 +96,29 @@ export function SerialLogView({
 
   const handleExport = useCallback(async () => {
     if (!platform.saveFile) return;
-    const data = new TextEncoder().encode(
-      buildSerialExportText(chunks, { mode: displayMode, encoding }),
-    );
+    // 波形模式导出 CSV：按与视图相同的规则对完整缓冲重新解析一次。
+    let text: string;
+    if (plotMode) {
+      const plot = new SerialPlotBuffer(encoding);
+      plot.push(chunks);
+      text = buildSerialPlotCsv(plot.series, plot.rows);
+    } else {
+      text = buildSerialExportText(chunks, { mode: textMode, encoding });
+    }
+    const data = new TextEncoder().encode(text);
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const reportFailure = (message: string) =>
       toast(intl.formatMessage({ id: "serial.exportFailed" }, { message }));
     try {
       const result = await platform.saveFile({
         data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-        suggestedName: `serial-${stamp}.log`,
+        suggestedName: plotMode ? `serial-plot-${stamp}.csv` : `serial-${stamp}.log`,
       });
       if (!result.success && !result.canceled) reportFailure(result.error ?? "");
     } catch (error) {
       reportFailure(error instanceof Error ? error.message : String(error));
     }
-  }, [chunks, displayMode, encoding, intl, platform]);
+  }, [chunks, encoding, intl, platform, plotMode, textMode]);
 
   return (
     <>
@@ -116,6 +129,7 @@ export function SerialLogView({
           options={[
             { value: "text", label: intl.formatMessage({ id: "serial.mode.text" }) },
             { value: "hex", label: "HEX" },
+            { value: "plot", label: intl.formatMessage({ id: "serial.plot.title" }) },
           ]}
           testId="serial-display-mode"
         />
@@ -132,19 +146,25 @@ export function SerialLogView({
             <SelectItem value="gbk">GBK</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-1.5 px-1 text-ui-sm text-foreground-subtle">
-          <Switch size="sm" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
-          {intl.formatMessage({ id: "serial.timestamp" })}
-        </label>
+        {plotMode ? null : (
+          <label className="flex items-center gap-1.5 px-1 text-ui-sm text-foreground-subtle">
+            <Switch size="sm" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
+            {intl.formatMessage({ id: "serial.timestamp" })}
+          </label>
+        )}
         <div className="ml-auto flex items-center gap-0.5">
-          <SerialFramingPopover settings={framing} onChange={setFraming} />
-          <IconToggle
-            active={autoScroll}
-            label={intl.formatMessage({ id: "serial.autoScroll" })}
-            onClick={() => setAutoScroll((current) => !current)}
-          >
-            <ArrowDownToLineIcon />
-          </IconToggle>
+          {plotMode ? null : (
+            <>
+              <SerialFramingPopover settings={framing} onChange={setFraming} />
+              <IconToggle
+                active={autoScroll}
+                label={intl.formatMessage({ id: "serial.autoScroll" })}
+                onClick={() => setAutoScroll((current) => !current)}
+              >
+                <ArrowDownToLineIcon />
+              </IconToggle>
+            </>
+          )}
           <IconToggle
             active={pausedChunks !== null}
             label={intl.formatMessage({ id: pausedChunks ? "serial.resume" : "serial.pause" })}
@@ -176,74 +196,86 @@ export function SerialLogView({
           ) : null}
         </div>
       </div>
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-surface p-2 font-mono text-ui-sm"
-        data-testid="serial-log"
-        onWheel={(event) => {
-          // 用户向上翻阅时停止自动滚动，避免新数据把视图拉回底部。
-          if (event.deltaY < 0 && autoScroll) setAutoScroll(false);
-        }}
-      >
-        {pausedChunks ? (
-          <div className="mb-1 text-ui-xs text-warning">
-            {intl.formatMessage({ id: "serial.paused" })}
-          </div>
-        ) : null}
-        {rows.map((row) => (
-          <div
-            key={row.key}
-            className={cn(
-              "flex gap-2 break-all whitespace-pre-wrap",
-              row.direction === "tx"
-                ? "text-icon-blue"
-                : row.checksum && !row.checksum.ok
-                  ? "text-destructive"
-                  : "text-foreground",
-            )}
-            data-direction={row.direction}
-            data-checksum={row.checksum ? (row.checksum.ok ? "ok" : "failed") : undefined}
-          >
-            {showTimestamp ? (
-              <span className="shrink-0 text-foreground-subtlest">{formatTime(row.at)}</span>
-            ) : null}
-            {row.direction === "tx" ? <span className="shrink-0">→</span> : null}
-            {row.source === "agent" ? (
-              <button
-                type="button"
-                className="shrink-0 text-foreground-subtle hover:text-foreground hover:underline disabled:no-underline"
-                disabled={!row.sessionId || !onOpenAgentSession}
-                onClick={() => row.sessionId && onOpenAgentSession?.(row.sessionId)}
-                data-testid="serial-agent-label"
-              >
-                [Agent·{getAgentLabel(row.sessionId)}]
-              </button>
-            ) : null}
-            <span className={cn("min-w-0", row.partial && "text-foreground-subtle")}>
-              {row.text}
-            </span>
-            {row.checksum ? (
-              <span
-                className={cn(
-                  "shrink-0",
-                  row.checksum.ok ? "text-foreground-subtlest" : "text-destructive",
-                )}
-                title={intl.formatMessage(
-                  { id: "serial.framing.checksumDetail" },
-                  { expected: row.checksum.expected || "-", actual: row.checksum.actual || "-" },
-                )}
-              >
-                {row.checksum.ok
-                  ? "✓"
-                  : `✗ ${intl.formatMessage(
-                      { id: "serial.framing.checksumExpected" },
-                      { expected: row.checksum.expected || "-" },
-                    )}`}
+      {plotMode ? (
+        <>
+          {pausedChunks ? (
+            <div className="text-ui-xs text-warning">
+              {intl.formatMessage({ id: "serial.paused" })}
+            </div>
+          ) : null}
+          {/* 切换编码时重建解析缓冲。 */}
+          <SerialPlotView key={encoding} chunks={visibleChunks} encoding={encoding} />
+        </>
+      ) : (
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-surface p-2 font-mono text-ui-sm"
+          data-testid="serial-log"
+          onWheel={(event) => {
+            // 用户向上翻阅时停止自动滚动，避免新数据把视图拉回底部。
+            if (event.deltaY < 0 && autoScroll) setAutoScroll(false);
+          }}
+        >
+          {pausedChunks ? (
+            <div className="mb-1 text-ui-xs text-warning">
+              {intl.formatMessage({ id: "serial.paused" })}
+            </div>
+          ) : null}
+          {rows.map((row) => (
+            <div
+              key={row.key}
+              className={cn(
+                "flex gap-2 break-all whitespace-pre-wrap",
+                row.direction === "tx"
+                  ? "text-icon-blue"
+                  : row.checksum && !row.checksum.ok
+                    ? "text-destructive"
+                    : "text-foreground",
+              )}
+              data-direction={row.direction}
+              data-checksum={row.checksum ? (row.checksum.ok ? "ok" : "failed") : undefined}
+            >
+              {showTimestamp ? (
+                <span className="shrink-0 text-foreground-subtlest">{formatTime(row.at)}</span>
+              ) : null}
+              {row.direction === "tx" ? <span className="shrink-0">→</span> : null}
+              {row.source === "agent" ? (
+                <button
+                  type="button"
+                  className="shrink-0 text-foreground-subtle hover:text-foreground hover:underline disabled:no-underline"
+                  disabled={!row.sessionId || !onOpenAgentSession}
+                  onClick={() => row.sessionId && onOpenAgentSession?.(row.sessionId)}
+                  data-testid="serial-agent-label"
+                >
+                  [Agent·{getAgentLabel(row.sessionId)}]
+                </button>
+              ) : null}
+              <span className={cn("min-w-0", row.partial && "text-foreground-subtle")}>
+                {row.text}
               </span>
-            ) : null}
-          </div>
-        ))}
-      </div>
+              {row.checksum ? (
+                <span
+                  className={cn(
+                    "shrink-0",
+                    row.checksum.ok ? "text-foreground-subtlest" : "text-destructive",
+                  )}
+                  title={intl.formatMessage(
+                    { id: "serial.framing.checksumDetail" },
+                    { expected: row.checksum.expected || "-", actual: row.checksum.actual || "-" },
+                  )}
+                >
+                  {row.checksum.ok
+                    ? "✓"
+                    : `✗ ${intl.formatMessage(
+                        { id: "serial.framing.checksumExpected" },
+                        { expected: row.checksum.expected || "-" },
+                      )}`}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
