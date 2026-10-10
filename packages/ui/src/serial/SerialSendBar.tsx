@@ -21,7 +21,9 @@ import {
   type SerialLineEnding,
   type SerialSendMode,
 } from "@/lib/serial/serialFormat.js";
+import type { SerialChecksumConfig } from "@zcode/shared/serial";
 import { SegmentedToggle } from "@/serial/SerialControls.js";
+import { SerialChecksumPicker } from "@/serial/SerialChecksumPicker.js";
 import { SerialLoopControls, type SerialLoopSettings } from "@/serial/SerialLoopControls.js";
 import { parseSerialLoopInputs } from "@/lib/serial/serialLoopInputs.js";
 
@@ -49,9 +51,16 @@ export function SerialSendBar({
   const [lineEnding, setLineEnding] = useState<SerialLineEnding>("crlf");
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState<string[]>([]);
+  const [checksum, setChecksum] = useState<SerialChecksumConfig>();
   const payload = useMemo(
-    () => buildSerialSendPayload({ input: draft, mode: sendMode, lineEnding }),
-    [draft, lineEnding, sendMode],
+    () =>
+      buildSerialSendPayload({
+        input: draft,
+        mode: sendMode,
+        lineEnding,
+        ...(checksum ? { checksum } : {}),
+      }),
+    [checksum, draft, lineEnding, sendMode],
   );
   const draftError =
     draft.trim() && !payload.ok
@@ -137,6 +146,12 @@ export function SerialSendBar({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        <SerialChecksumPicker
+          value={checksum}
+          onChange={setChecksum}
+          disabled={loop.running}
+          testId="serial-send-checksum"
+        />
         {draftError ? <span className="text-ui-sm text-destructive">{draftError}</span> : null}
       </div>
       <SerialLoopControls

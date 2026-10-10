@@ -14,6 +14,7 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { buildSerialSendPayload } from "@/lib/serial/serialFormat.js";
 import type { SerialQuickCommandDraft } from "@/lib/serial/serialQuickCommands.js";
 import { SegmentedToggle } from "@/serial/SerialControls.js";
+import { SerialChecksumPicker } from "@/serial/SerialChecksumPicker.js";
 
 const EMPTY_DRAFT: SerialQuickCommandDraft = {
   name: "",
@@ -40,6 +41,7 @@ export function SerialQuickCommandEditor({
           data: initial.data,
           mode: initial.mode,
           lineEnding: initial.lineEnding,
+          ...(initial.checksum ? { checksum: initial.checksum } : {}),
         }
       : EMPTY_DRAFT,
   );
@@ -112,6 +114,15 @@ export function SerialQuickCommandEditor({
           </SelectContent>
         </Select>
       </div>
+      <SerialChecksumPicker
+        value={draft.checksum}
+        onChange={(checksum) =>
+          setDraft(({ checksum: _previous, ...current }) =>
+            checksum ? { ...current, checksum } : current,
+          )
+        }
+        testId="serial-quick-command-checksum"
+      />
       {hexError ? <span className="text-ui-sm text-destructive">{hexError}</span> : null}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>

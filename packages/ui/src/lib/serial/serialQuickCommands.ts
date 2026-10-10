@@ -4,6 +4,7 @@ import {
   serialQuickCommandSchema,
   type SerialQuickCommand,
 } from "@zcode/shared";
+import { buildSerialSendPayload, type SerialBytesResult } from "@/lib/serial/serialFormat.js";
 
 /**
  * 串口快捷指令的列表操作（docs/specs/serial-port-debugger-phase3.md 第 3 节）。
@@ -99,4 +100,14 @@ export function exportSerialQuickCommands(list: readonly SerialQuickCommand[]): 
     null,
     2,
   );
+}
+
+/** 快捷指令的发送字节：与发送栏同一编码规则（文本加行尾、HEX 原样，校验和在内容之后、行尾之前）。 */
+export function buildSerialQuickCommandPayload(command: SerialQuickCommand): SerialBytesResult {
+  return buildSerialSendPayload({
+    input: command.data,
+    mode: command.mode,
+    lineEnding: command.lineEnding,
+    ...(command.checksum ? { checksum: command.checksum } : {}),
+  });
 }

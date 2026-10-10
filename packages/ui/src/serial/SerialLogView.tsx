@@ -19,7 +19,17 @@ import {
   type SerialDisplayEncoding,
   type SerialSendMode,
 } from "@/lib/serial/serialFormat.js";
+import {
+  buildSerialFramedRows,
+  parseSerialFramingInputs,
+  type SerialFramedRow,
+} from "@/lib/serial/serialFraming.js";
 import { IconToggle, SegmentedToggle } from "@/serial/SerialControls.js";
+import {
+  DEFAULT_SERIAL_FRAMING_SETTINGS,
+  SerialFramingPopover,
+  type SerialFramingSettings,
+} from "@/serial/SerialFramingControls.js";
 import { cn } from "@/components/lib/utils.js";
 
 /** 渲染层显示上限；超出时只截断显示，不影响 Host 缓冲与导出。 */
@@ -52,14 +62,20 @@ export function SerialLogView({
   // 暂停只冻结显示；Host 继续接收并记录数据，恢复后一次性补齐。
   const [pausedChunks, setPausedChunks] = useState<readonly SerialChunk[] | null>(null);
   const visibleChunks = pausedChunks ?? chunks;
-  const rows = useMemo(() => {
-    const all = buildSerialDisplayRows(visibleChunks, {
-      mode: displayMode,
-      encoding,
-      showTimestamp,
-    });
+  const [framing, setFraming] = useState<SerialFramingSettings>(DEFAULT_SERIAL_FRAMING_SETTINGS);
+  const rows = useMemo((): SerialFramedRow[] => {
+    const parsedFraming = framing.enabled ? parseSerialFramingInputs(framing.inputs) : null;
+    // 分帧参数非法时退回普通显示，错误提示留在分帧设置里。
+    const all = parsedFraming?.ok
+      ? buildSerialFramedRows(visibleChunks, {
+          mode: displayMode,
+          encoding,
+          framing: parsedFraming.framing,
+          ...(framing.verify ? { verify: framing.verify } : {}),
+        })
+      : buildSerialDisplayRows(visibleChunks, { mode: displayMode, encoding, showTimestamp });
     return all.length > MAX_RENDERED_ROWS ? all.slice(-MAX_RENDERED_ROWS) : all;
-  }, [displayMode, encoding, showTimestamp, visibleChunks]);
+  }, [displayMode, encoding, framing, showTimestamp, visibleChunks]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -121,6 +137,7 @@ export function SerialLogView({
           {intl.formatMessage({ id: "serial.timestamp" })}
         </label>
         <div className="ml-auto flex items-center gap-0.5">
+          <SerialFramingPopover settings={framing} onChange={setFraming} />
           <IconToggle
             active={autoScroll}
             label={intl.formatMessage({ id: "serial.autoScroll" })}
@@ -178,9 +195,14 @@ export function SerialLogView({
             key={row.key}
             className={cn(
               "flex gap-2 break-all whitespace-pre-wrap",
-              row.direction === "tx" ? "text-icon-blue" : "text-foreground",
+              row.direction === "tx"
+                ? "text-icon-blue"
+                : row.checksum && !row.checksum.ok
+                  ? "text-destructive"
+                  : "text-foreground",
             )}
             data-direction={row.direction}
+            data-checksum={row.checksum ? (row.checksum.ok ? "ok" : "failed") : undefined}
           >
             {showTimestamp ? (
               <span className="shrink-0 text-foreground-subtlest">{formatTime(row.at)}</span>
@@ -197,7 +219,28 @@ export function SerialLogView({
                 [Agent·{getAgentLabel(row.sessionId)}]
               </button>
             ) : null}
-            <span className="min-w-0">{row.text}</span>
+            <span className={cn("min-w-0", row.partial && "text-foreground-subtle")}>
+              {row.text}
+            </span>
+            {row.checksum ? (
+              <span
+                className={cn(
+                  "shrink-0",
+                  row.checksum.ok ? "text-foreground-subtlest" : "text-destructive",
+                )}
+                title={intl.formatMessage(
+                  { id: "serial.framing.checksumDetail" },
+                  { expected: row.checksum.expected || "-", actual: row.checksum.actual || "-" },
+                )}
+              >
+                {row.checksum.ok
+                  ? "✓"
+                  : `✗ ${intl.formatMessage(
+                      { id: "serial.framing.checksumExpected" },
+                      { expected: row.checksum.expected || "-" },
+                    )}`}
+              </span>
+            ) : null}
           </div>
         ))}
       </div>

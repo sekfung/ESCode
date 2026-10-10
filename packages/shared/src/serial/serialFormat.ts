@@ -1,4 +1,6 @@
 /** 串口收发编解码：UI 面板与 Host（Agent 串口工具）共用，保证两条路径对同一输入得到相同字节。 */
+import { computeSerialChecksum, type SerialChecksumConfig } from "./serialChecksum.js";
+
 export type SerialSendMode = "text" | "hex";
 export type SerialLineEnding = "none" | "cr" | "lf" | "crlf";
 export type SerialDisplayEncoding = "utf-8" | "gbk";
@@ -39,12 +41,27 @@ export function buildSerialSendPayload(options: {
   input: string;
   mode: SerialSendMode;
   lineEnding: SerialLineEnding;
+  /** 校验和附加在内容之后、行尾之前（docs/specs/serial-port-debugger-phase3.md 第 5 节）。 */
+  checksum?: SerialChecksumConfig;
 }): SerialBytesResult {
-  if (options.mode === "hex") return parseSerialHexInput(options.input);
-  return {
-    ok: true,
-    bytes: new TextEncoder().encode(options.input + LINE_ENDINGS[options.lineEnding]),
-  };
+  const content =
+    options.mode === "hex"
+      ? parseSerialHexInput(options.input)
+      : ({ ok: true, bytes: new TextEncoder().encode(options.input) } as const);
+  if (!content.ok) return content;
+  const checksum = options.checksum
+    ? computeSerialChecksum(content.bytes, options.checksum)
+    : new Uint8Array();
+  const ending =
+    options.mode === "hex"
+      ? new Uint8Array()
+      : new TextEncoder().encode(LINE_ENDINGS[options.lineEnding]);
+  if (checksum.byteLength === 0 && ending.byteLength === 0) return content;
+  const bytes = new Uint8Array(content.bytes.byteLength + checksum.byteLength + ending.byteLength);
+  bytes.set(content.bytes, 0);
+  bytes.set(checksum, content.bytes.byteLength);
+  bytes.set(ending, content.bytes.byteLength + checksum.byteLength);
+  return { ok: true, bytes };
 }
 
 export interface SerialStreamDecoder {

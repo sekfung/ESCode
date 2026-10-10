@@ -578,6 +578,38 @@ test("全局设置保存快捷指令列表并校验", async () => {
   );
 });
 
+test("快捷指令可携带校验和配置，发送字节与发送栏同一规则", async () => {
+  const { appSettingsPatchSchema } = await import("../../shared/src/validationAppSettings.js");
+  const lib = await import("../src/lib/serial/serialQuickCommands.js");
+  const { formatSerialHex } = await import("../src/lib/serial/serialFormat.js");
+  const command = {
+    id: "c1",
+    name: "frame",
+    data: "AA 55 01 02",
+    mode: "hex",
+    lineEnding: "none",
+    checksum: { algorithm: "xor", skip: 2 },
+  } as const;
+  assert.ok(appSettingsPatchSchema.safeParse({ serialQuickCommands: [command] }).success);
+  assert.ok(
+    !appSettingsPatchSchema.safeParse({
+      serialQuickCommands: [{ ...command, checksum: { algorithm: "md5" } }],
+    }).success,
+  );
+  const payload = lib.buildSerialQuickCommandPayload(command);
+  assert.equal(payload.ok ? formatSerialHex(payload.bytes) : "", "AA 55 01 02 03");
+  const plain = lib.buildSerialQuickCommandPayload({
+    id: "c2",
+    name: "AT",
+    data: "AT",
+    mode: "text",
+    lineEnding: "crlf",
+  });
+  assert.equal(plain.ok ? formatSerialHex(plain.bytes) : "", "41 54 0D 0A");
+  const roundtrip = lib.importSerialQuickCommands([], lib.exportSerialQuickCommands([command]));
+  assert.deepEqual(roundtrip.commands[0]?.checksum, { algorithm: "xor", skip: 2 });
+});
+
 // --- 定时循环发送 -----------------------------------------------------------------
 
 test("循环参数：间隔 ≥10ms，次数留空为无限、填写须为正整数", async () => {
@@ -588,4 +620,143 @@ test("循环参数：间隔 ≥10ms，次数留空为无限、填写须为正整
   assert.deepEqual(parseSerialLoopInputs("abc", ""), { ok: false, error: "interval" });
   assert.deepEqual(parseSerialLoopInputs("100", "0"), { ok: false, error: "count" });
   assert.deepEqual(parseSerialLoopInputs("100", "1.5"), { ok: false, error: "count" });
+});
+
+// --- 接收分帧与帧校验 ---------------------------------------------------------------
+
+function rx(seq: number, at: number, bytes: number[]) {
+  return {
+    seq,
+    at,
+    direction: "rx" as const,
+    source: "user" as const,
+    bytes: new Uint8Array(bytes),
+  };
+}
+
+test("分帧参数：分隔符支持文本转义与 HEX，长度与间隔须为正整数", async () => {
+  const { parseSerialFramingInputs } = await import("../src/lib/serial/serialFraming.js");
+  const base = {
+    mode: "delimiter",
+    delimiter: "\r\n",
+    delimiterMode: "text",
+    length: "8",
+    gapMs: "20",
+  } as const;
+  const text = parseSerialFramingInputs(base);
+  assert.ok(text.ok);
+  assert.deepEqual(
+    text.ok && text.framing.mode === "delimiter" ? [...text.framing.delimiter] : [],
+    [0x0d, 0x0a],
+  );
+  const escaped = parseSerialFramingInputs({ ...base, delimiter: "\x7E\t\\\\" });
+  assert.deepEqual(
+    escaped.ok && escaped.framing.mode === "delimiter" ? [...escaped.framing.delimiter] : [],
+    [0x7e, 0x09, 0x5c],
+  );
+  const hex = parseSerialFramingInputs({ ...base, delimiter: "0D 0A", delimiterMode: "hex" });
+  assert.deepEqual(
+    hex.ok && hex.framing.mode === "delimiter" ? [...hex.framing.delimiter] : [],
+    [0x0d, 0x0a],
+  );
+  assert.deepEqual(parseSerialFramingInputs({ ...base, delimiter: "" }), {
+    ok: false,
+    error: "delimiter",
+  });
+  assert.deepEqual(parseSerialFramingInputs({ ...base, delimiter: "0G", delimiterMode: "hex" }), {
+    ok: false,
+    error: "delimiter",
+  });
+  assert.deepEqual(parseSerialFramingInputs({ ...base, mode: "length", length: "4" }), {
+    ok: true,
+    framing: { mode: "length", length: 4 },
+  });
+  assert.deepEqual(parseSerialFramingInputs({ ...base, mode: "length", length: "0" }), {
+    ok: false,
+    error: "length",
+  });
+  assert.deepEqual(parseSerialFramingInputs({ ...base, mode: "gap", gapMs: "50" }), {
+    ok: true,
+    framing: { mode: "gap", gapMs: 50 },
+  });
+  assert.deepEqual(parseSerialFramingInputs({ ...base, mode: "gap", gapMs: "x" }), {
+    ok: false,
+    error: "gap",
+  });
+});
+
+test("分隔符分帧：跨 chunk 拼接，帧内去掉分隔符，未完成的尾帧单独标记", async () => {
+  const { buildSerialFramedRows } = await import("../src/lib/serial/serialFraming.js");
+  const chunks = [rx(1, 100, [0x41, 0x42, 0x0d]), rx(2, 110, [0x0a, 0x43, 0x0d, 0x0a, 0x44])];
+  const rows = buildSerialFramedRows(chunks, {
+    mode: "text",
+    encoding: "utf-8",
+    framing: { mode: "delimiter", delimiter: new Uint8Array([0x0d, 0x0a]) },
+  });
+  assert.deepEqual(
+    rows.map((row) => [row.text, row.at, row.partial ?? false]),
+    [
+      ["AB", 100, false],
+      ["C", 110, false],
+      ["D", 110, true],
+    ],
+  );
+});
+
+test("固定长度与时间间隔分帧；TX 行保持原样且不打断 RX 帧", async () => {
+  const { buildSerialFramedRows } = await import("../src/lib/serial/serialFraming.js");
+  const tx = {
+    seq: 2,
+    at: 105,
+    direction: "tx" as const,
+    source: "user" as const,
+    bytes: new Uint8Array([0x31]),
+  };
+  const byLength = buildSerialFramedRows([rx(1, 100, [1, 2, 3]), tx, rx(3, 110, [4, 5])], {
+    mode: "hex",
+    encoding: "utf-8",
+    framing: { mode: "length", length: 4 },
+  });
+  assert.deepEqual(
+    byLength.map((row) => [row.direction, row.text, row.partial ?? false]),
+    [
+      ["tx", "31", false],
+      ["rx", "01 02 03 04", false],
+      ["rx", "05", true],
+    ],
+  );
+  const byGap = buildSerialFramedRows([rx(1, 100, [1]), rx(2, 105, [2]), rx(3, 200, [3])], {
+    mode: "hex",
+    encoding: "utf-8",
+    framing: { mode: "gap", gapMs: 20 },
+  });
+  // 间隔模式没有结束标记，尾帧视为完整（数据到达即可校验）。
+  assert.deepEqual(
+    byGap.map((row) => [row.text, row.at, row.partial ?? false]),
+    [
+      ["01 02", 100, false],
+      ["03", 200, false],
+    ],
+  );
+});
+
+test("帧校验：完整帧按末尾校验和比对，失败给出期望值，未完成尾帧不校验", async () => {
+  const { buildSerialFramedRows } = await import("../src/lib/serial/serialFraming.js");
+  const rows = buildSerialFramedRows(
+    [rx(1, 100, [0xaa, 0x01, 0x02, 0x03, 0x0a, 0xaa, 0x01, 0x02, 0x00, 0x0a, 0xaa])],
+    {
+      mode: "hex",
+      encoding: "utf-8",
+      framing: { mode: "delimiter", delimiter: new Uint8Array([0x0a]) },
+      verify: { algorithm: "xor", skip: 1 },
+    },
+  );
+  assert.deepEqual(
+    rows.map((row) => [row.text, row.checksum]),
+    [
+      ["AA 01 02 03", { ok: true, expected: "03", actual: "03" }],
+      ["AA 01 02 00", { ok: false, expected: "03", actual: "00" }],
+      ["AA", undefined],
+    ],
+  );
 });

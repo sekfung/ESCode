@@ -1,4 +1,5 @@
 import type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
+import type { SerialChecksumConfig } from "./serial/serialChecksum.js";
 import type { RemoteResourcePackageSelection } from "./remoteResourcePackages.js";
 import type { ProviderFamilyDomain } from "./model-provider-family.js";
 import type { ProviderFamilyConnectionSelectionSettings } from "./provider-family-connection-selection.js";
@@ -255,6 +256,8 @@ export interface SerialQuickCommand {
   data: string;
   mode: "text" | "hex";
   lineEnding: "none" | "cr" | "lf" | "crlf";
+  /** 附加在内容之后、行尾之前的校验和；缺省不附加。 */
+  checksum?: SerialChecksumConfig;
 }
 
 export interface AppSettings {

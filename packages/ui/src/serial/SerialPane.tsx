@@ -7,7 +7,7 @@ import type {
   SerialState,
 } from "@zcode/services";
 import type { SerialPortPreferences, SerialQuickCommand } from "@zcode/shared";
-import { buildSerialSendPayload } from "@/lib/serial/serialFormat.js";
+import { buildSerialQuickCommandPayload } from "@/lib/serial/serialQuickCommands.js";
 import { SerialQuickCommandsBar } from "@/serial/SerialQuickCommandsBar.js";
 import {
   DEFAULT_SERIAL_LOOP_SETTINGS,
@@ -176,12 +176,8 @@ export function SerialPane({
   );
   const handleQuickCommandSend = useCallback(
     (command: SerialQuickCommand) => {
-      // 与发送栏相同的编码规则：文本按 UTF-8 加行尾，HEX 原样。
-      const payload = buildSerialSendPayload({
-        input: command.data,
-        mode: command.mode,
-        lineEnding: command.lineEnding,
-      });
+      // 与发送栏相同的编码规则：文本按 UTF-8 加行尾，HEX 原样，校验和在行尾之前。
+      const payload = buildSerialQuickCommandPayload(command);
       if (payload.ok) void handleSend(payload.bytes);
     },
     [handleSend],
@@ -207,11 +203,7 @@ export function SerialPane({
   }, [formatError, stopLoop]);
   const handleQuickCommandLoop = useCallback(
     (command: SerialQuickCommand) => {
-      const payload = buildSerialSendPayload({
-        input: command.data,
-        mode: command.mode,
-        lineEnding: command.lineEnding,
-      });
+      const payload = buildSerialQuickCommandPayload(command);
       if (payload.ok) handleStartLoop(payload.bytes);
     },
     [handleStartLoop],
