@@ -8,6 +8,8 @@ export type {
   WorkspaceFileEntry,
   SystemInfo,
   AppSettings,
+  SerialPortConfigPreference,
+  SerialPortPreferences,
   ElectronReleaseChannel,
   IntegratedTerminalShellDialect,
   IntegratedTerminalShellOption,

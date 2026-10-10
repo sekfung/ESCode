@@ -30,6 +30,11 @@ function createSharedDefines() {
 export const SERVER_HTTP_EXTERNAL_DEPENDENCIES = [
   "ssh2",
   "node-pty",
+  // 串口服务只在 Desktop Local Host 注册，server 不会加载；外置避免把 native 包内联进 ESM bundle。
+  "@serialport/bindings-cpp",
+  "@serialport/stream",
+  // E2E 虚拟串口（仅 ZCODE_SERIAL_MOCK_PORTS 时加载），开发依赖，不内联进产物。
+  "@serialport/binding-mock",
   "undici",
   "axios",
   "form-data",

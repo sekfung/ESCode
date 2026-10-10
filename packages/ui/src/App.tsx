@@ -231,6 +231,7 @@ export function App({
     handleOpenTreemapping,
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
+    handleOpenSerialTab,
     handleOpenTerminalTab,
     handleOpenSubagentSession,
     handleOpenBackgroundBash,
@@ -1000,6 +1001,7 @@ export function App({
         canOpenCommunity: canOpenCommunityFromQuickPick,
         isSidebarVisible,
         supportsEmbeddedBrowser,
+        supportsSerialPort: platform.supportsSerialPort === true,
         // quick pick 命令只关心登录态布尔值。
         // 如果依赖完整 user 对象，auth store 返回等价新引用时会重建整组 command/run 闭包。
         isLoggedIn,
@@ -1034,6 +1036,7 @@ export function App({
           openTerminalTab: () => runVisibleWorkspaceCommand(handleOpenTerminalTabIfWritable),
           openBrowserTab: () => runVisibleWorkspaceCommand(handleOpenBrowserTab),
           openReviewTab: () => runVisibleWorkspaceCommand(handleOpenGitIfWritable),
+          openSerialTab: () => runVisibleWorkspaceCommand(handleOpenSerialTab),
         },
       }),
     [
@@ -1048,6 +1051,7 @@ export function App({
       handleOpenBrowserTab,
       handleOpenGitIfWritable,
       handleOpenTerminalTabIfWritable,
+      handleOpenSerialTab,
       handleToggleBrowser,
       handleToggleSidebar,
       handleToggleTerminalIfWritable,
@@ -1058,6 +1062,7 @@ export function App({
       onLogin,
       onLogout,
       onOpenWorkspace,
+      platform.supportsSerialPort,
       runVisibleWorkspaceCommand,
       openSettingsTab,
       openWorkspaceShortcutLabel,
@@ -1244,6 +1249,7 @@ export function App({
         handleOpenTreemapping={handleOpenTreemappingIfWritable}
         handleOpenWhiteboard={handleOpenWhiteboard}
         handleOpenDeveloperTools={handleOpenDeveloperTools}
+        handleOpenSerialTab={handleOpenSerialTab}
         handleOpenTerminalTab={handleOpenTerminalTabIfWritable}
         handleToggleGit={handleToggleGitIfWritable}
         handleToggleSidePane={handleToggleSidePane}

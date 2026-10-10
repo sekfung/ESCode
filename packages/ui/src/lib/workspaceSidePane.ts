@@ -85,6 +85,15 @@ export interface DeveloperToolsSidePaneTab {
   openedAt?: number;
 }
 
+/** 串口调试器；串口会话属于窗口级 Local Host，每个窗口最多一个标签。 */
+export interface SerialSidePaneTab {
+  id: "serial";
+  type: "serial";
+  ownerTaskId?: string | null;
+  workspaceKey?: string | null;
+  openedAt?: number;
+}
+
 export interface TerminalSidePaneTab {
   id: string;
   type: "terminal";
@@ -523,6 +532,7 @@ export type WorkspaceSidePaneTab =
   | ModelTrajectorySidePaneTab
   | DeveloperToolsSidePaneTab
   | TerminalSidePaneTab
+  | SerialSidePaneTab
   | BrowserUseSidePaneTab
   | SubagentSessionSidePaneTab
   | SubagentDirectorySidePaneTab
@@ -668,6 +678,14 @@ function createDeveloperToolsSidePaneTab(): DeveloperToolsSidePaneTab {
   return {
     id: "developer-tools",
     type: "developer-tools",
+    openedAt: Date.now(),
+  };
+}
+
+function createSerialSidePaneTab(): SerialSidePaneTab {
+  return {
+    id: "serial",
+    type: "serial",
     openedAt: Date.now(),
   };
 }
@@ -1061,6 +1079,11 @@ function isWorkspaceGlobalSidePaneTab(tab: WorkspaceSidePaneTab): boolean {
   return WORKSPACE_GLOBAL_SIDE_PANE_TAB_TYPES.has(tab.type);
 }
 
+/** 串口设备在本机、会话跟随窗口：切换 workspace（含远程）或对话都不隐藏该标签。 */
+function isWindowGlobalSidePaneTab(tab: WorkspaceSidePaneTab): boolean {
+  return tab.type === "serial";
+}
+
 interface SidePaneVisibilityScope {
   workspaceKey: string | null;
   ownerTaskId: string | null;
@@ -1093,7 +1116,9 @@ export function stampSidePaneTabsOwnership(
     return {
       ...tab,
       ownerTaskId: ownership.ownerTaskId,
-      workspaceKey: tab.workspaceKey ?? ownership.workspaceKey,
+      workspaceKey: isWindowGlobalSidePaneTab(tab)
+        ? null
+        : (tab.workspaceKey ?? ownership.workspaceKey),
       ...((tab.type === "browser" || tab.type === "browser-use") && ownership.remoteSessionId
         ? { remoteSessionId: ownership.remoteSessionId }
         : {}),
@@ -1108,6 +1133,7 @@ function getVisibleSidePaneTabsByScope(
 ): WorkspaceSidePaneTab[] {
   const ownerKey = sidePaneOwnerKey(scope.ownerTaskId);
   return tabs.filter((tab) => {
+    if (isWindowGlobalSidePaneTab(tab)) return true;
     if (!sidePaneTabMatchesWorkspace(tab, scope.workspaceKey)) return false;
     if (isWorkspaceGlobalSidePaneTab(tab)) return true;
     if (tab.type === "browser-use") return tab.sessionId === scope.ownerTaskId;
@@ -1584,6 +1610,13 @@ export function activateDeveloperToolsSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createDeveloperToolsSidePaneTab());
+}
+
+export function openSerialSidePane(
+  current: WorkspaceSidePaneState | null,
+): WorkspaceSidePaneState {
+  const existing = current?.tabs.find((tab) => tab.type === "serial");
+  return activateSidePaneTab(current, existing ?? createSerialSidePaneTab());
 }
 
 export function openTerminalSidePane(

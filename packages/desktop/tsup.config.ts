@@ -116,6 +116,11 @@ function createSharedDefines() {
 const desktopNodeRuntimeExternals = [
   "electron",
   "node-pty",
+  // 串口原生模块经 node-gyp-build 按 __dirname 查找 prebuild，必须保留为运行时依赖。
+  "@serialport/bindings-cpp",
+  "@serialport/stream",
+  // E2E 虚拟串口（仅 ZCODE_SERIAL_MOCK_PORTS 时加载），开发依赖，不内联进产物。
+  "@serialport/binding-mock",
   "ssh2",
   "undici",
   "@larksuiteoapi/node-sdk",

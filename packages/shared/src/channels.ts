@@ -77,6 +77,8 @@ export const ServiceChannels = {
   MediaPreview: "media-preview",
   System: "system",
   Terminal: "terminal",
+  /** 串口调试器；仅 Desktop Local Host 注册 */
+  Serial: "serial",
   /** Git 服务 */
   Git: "git",
   /** Git checkpoint 服务 */

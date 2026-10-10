@@ -530,6 +530,9 @@ export interface IPlatformService {
   /** 当前平台的文件选择框是否能返回 agent 可访问的本地绝对路径 */
   canSelectFilePath?: boolean;
 
+  /** 是否提供本机串口调试器；仅 Desktop 为 true（串口服务只注册在 Desktop Local Host）。 */
+  supportsSerialPort?: boolean;
+
   /** 打开系统目录选择框，返回选中路径或 null */
   selectDirectory(): Promise<string | null>;
 

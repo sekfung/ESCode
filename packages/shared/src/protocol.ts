@@ -234,6 +234,20 @@ export interface ResourceUsageSnapshot {
   processes: ResourceUsageProcess[];
 }
 
+export interface SerialPortConfigPreference {
+  baudRate: number;
+  dataBits: 5 | 6 | 7 | 8;
+  parity: "none" | "even" | "odd" | "mark" | "space";
+  stopBits: 1 | 1.5 | 2;
+  rtscts: boolean;
+  autoReconnect: boolean;
+}
+
+export interface SerialPortPreferences {
+  lastPath?: string;
+  byPath: Record<string, SerialPortConfigPreference>;
+}
+
 export interface AppSettings {
   /** 当前 App/Host 不再显示提交前体验套餐推荐；不改变任何入口的模型选择。 */
   startPlanRecommendationDismissed?: boolean;
@@ -266,6 +280,8 @@ export interface AppSettings {
   embeddedBrowserAllowInsecureCertificates?: boolean;
   /** 人类用户主动打开 Browser tab 时的一次性显示偏好；Agent Browser Use 不读写。 */
   embeddedBrowserViewportPreference?: EmbeddedBrowserViewportPreference;
+  /** 串口调试器上次使用的串口与按串口名记住的参数；只用于预填，不会自动连接。 */
+  serialPortPreferences?: SerialPortPreferences;
   /**
    * 用户已在设置页关闭输入框的「电脑操作」按钮（内部 hidden 态）。
    * 取 hidden 语义而非 visible：undefined 即默认显示，老用户无需数据迁移。

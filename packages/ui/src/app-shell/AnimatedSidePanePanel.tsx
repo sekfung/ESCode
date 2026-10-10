@@ -17,6 +17,7 @@ import { horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortabl
 import type { BrowserViewScreenshotSurfacePreparePayload, GitChangeSourceId } from "@zcode/shared";
 import { PreviewPane } from "@/PreviewPane.js";
 import { SidePaneTerminalPane } from "@/SidePaneTerminalPane.js";
+import { SerialPane } from "@/serial/SerialPane.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
 import { WorkspaceSidePaneToggleButton } from "@/WorkspaceSidePaneToggleButton.js";
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
@@ -91,6 +92,7 @@ import { getVisibleSidePaneTabs } from "@/lib/workspaceSidePane.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   BugIcon,
+  UsbIcon,
   FileDiffIcon,
   GlobeIcon,
   MessageSquareTextIcon,
@@ -285,6 +287,7 @@ export function AnimatedSidePanePanel({
   recentClosedSidePaneTabs,
   isBrowserOpen,
   supportsEmbeddedBrowser = true,
+  supportsSerialPort = false,
   workspaceAbsPath,
   workspaceIdentity,
   workspaceRemoteSessionId,
@@ -313,6 +316,7 @@ export function AnimatedSidePanePanel({
   onOpenBrowserTab,
   onOpenWhiteboard: _onOpenWhiteboard,
   onOpenDeveloperTools,
+  onOpenSerialTab,
   onOpenTerminalTab,
   onOpenReviewTab,
   onOpenSelectionSideConversation,
@@ -350,6 +354,8 @@ export function AnimatedSidePanePanel({
   recentClosedSidePaneTabs: RecentClosedSidePaneTab[];
   isBrowserOpen: boolean;
   supportsEmbeddedBrowser?: boolean;
+  /** 平台声明的本机串口能力（仅 Desktop）。 */
+  supportsSerialPort?: boolean;
   workspaceAbsPath: string;
   workspaceIdentity?: string;
   workspaceRemoteSessionId?: string;
@@ -378,6 +384,7 @@ export function AnimatedSidePanePanel({
   onOpenBrowserTab: () => void;
   onOpenWhiteboard: () => void;
   onOpenDeveloperTools: () => void;
+  onOpenSerialTab: () => void;
   onOpenTerminalTab: () => void;
   onOpenReviewTab: () => void;
   onOpenSelectionSideConversation: () => void;
@@ -746,6 +753,17 @@ export function AnimatedSidePanePanel({
             <span>{intl.formatMessage({ id: "browser.title" })}</span>
           </DropdownMenuItem>
         ) : null}
+        {supportsSerialPort ? (
+          <DropdownMenuItem
+            data-side-pane-add-item="serial"
+            onSelect={() => {
+              onOpenSerialTab();
+            }}
+          >
+            <UsbIcon className="size-4" />
+            <span>{intl.formatMessage({ id: "serial.title" })}</span>
+          </DropdownMenuItem>
+        ) : null}
         {developerToolsEnabled ? (
           <DropdownMenuItem
             data-side-pane-add-item="developer-tools"
@@ -785,6 +803,12 @@ export function AnimatedSidePanePanel({
       icon: GlobeIcon,
       onOpen: onOpenBrowserTab,
     },
+    serial: {
+      id: "serial",
+      label: intl.formatMessage({ id: "serial.title" }),
+      icon: UsbIcon,
+      onOpen: onOpenSerialTab,
+    },
     "developer-tools": {
       id: "developer-tools",
       label: intl.formatMessage({ id: "developerTools.title" }),
@@ -797,6 +821,7 @@ export function AnimatedSidePanePanel({
     developerToolsEnabled,
     hasReviewTab,
     supportsEmbeddedBrowser,
+    supportsSerialPort,
   })
     .filter((itemId) => !isOfficeMode || (itemId !== "terminal" && itemId !== "review"))
     .map((itemId) => openTabLauncherItemById[itemId]);
@@ -885,6 +910,7 @@ export function AnimatedSidePanePanel({
         developerToolsTitle: intl.formatMessage({
           id: "developerTools.title",
         }),
+        serialTitle: intl.formatMessage({ id: "serial.title" }),
         terminalTitle: intl.formatMessage({ id: "terminal.title" }),
         subagentTypeLabel: intl.formatMessage({ id: "sidePane.subagent" }),
         subagentDirectoryTitle: intl.formatMessage({
@@ -1253,6 +1279,11 @@ export function AnimatedSidePanePanel({
                               enabled={isVisible && tab.id === visibleActiveTabId}
                             />
                           </ServiceProvider>
+                        ) : tab.type === "serial" ? (
+                          <SerialPane
+                            services={services}
+                            isVisible={isVisible && tab.id === visibleActiveTabId}
+                          />
                         ) : tab.type === "terminal" ? (
                           <SidePaneTerminalPane
                             services={services}

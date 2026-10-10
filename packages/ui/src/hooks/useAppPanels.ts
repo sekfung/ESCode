@@ -34,6 +34,7 @@ import {
   openWorkflowWorkspaceSidePane,
   openWorkflowArtifactSidePane,
   activateDeveloperToolsSidePane,
+  openSerialSidePane,
   openBrowserSidePane,
   openOrActivateBrowserSidePaneByUrl,
   findBrowserSidePaneTabByUrl,
@@ -785,6 +786,15 @@ export function useAppPanels(options: {
       return next;
     });
   }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner, workspaceAbsPath]);
+
+  const handleOpenSerialTab = useCallback(() => {
+    revealSidePaneForCurrentOwner();
+    commitOpenedSidePaneState((current) => {
+      const next = openSerialSidePane(current);
+      logger.info(`[App] 打开右侧面板 mode=serial tabs=${next.tabs.length}`);
+      return next;
+    });
+  }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner]);
 
   const handleOpenTerminalTab = useCallback(() => {
     if (isOfficeMode) return;
@@ -1587,6 +1597,7 @@ export function useAppPanels(options: {
     handleOpenTreemapping,
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
+    handleOpenSerialTab,
     handleOpenTerminalTab,
     handleOpenModelTrajectory,
     handleOpenSubagentSession,

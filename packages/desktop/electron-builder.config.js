@@ -61,6 +61,7 @@ import {
   findDesktopNativePackageViolations,
   createDesktopNativePackagePrunePatterns,
   parseAsarListWithPackState,
+  resolveSerialportPrebuildKey,
 } from "./scripts/desktop-native-package-policy.mjs";
 import { replaceAppAsarFromStaging } from "./scripts/app-asar-repack.mjs";
 import {
@@ -451,6 +452,21 @@ function assertPackagedNodePtyPrebuild(context) {
     throw new Error(`node-pty 预编译产物缺失: ${targetBinaryPath}`);
 }
 
+function assertPackagedSerialportPrebuild(context) {
+  const prebuildDir = resolve(
+    resolvePackagedResourcesDir(context),
+    "app.asar.unpacked",
+    "node_modules",
+    "@serialport",
+    "bindings-cpp",
+    "prebuilds",
+    resolveSerialportPrebuildKey(targetPlatform.key),
+  );
+  // 串口服务延迟加载原生模块，缺失时只会在用户打开串口时报 nativeUnavailable；
+  // 打包阶段提前拦截，避免发布一个串口功能必然不可用的安装包。
+  if (!existsSync(prebuildDir)) throw new Error(`serialport 预编译产物缺失: ${prebuildDir}`);
+}
+
 /** @type {import("electron-builder").Configuration} */
 export default {
   appId: desktopProductIdentity.appId,
@@ -501,6 +517,7 @@ export default {
     // node-pty 的 target prebuild 还包含 spawn-helper / winpty-agent.exe 等辅助可执行文件，
     // 整个目标目录必须 unpack；其他平台目录已由 files 规则裁剪。
     `node_modules/node-pty/prebuilds/${targetPlatform.key}/**`,
+    `node_modules/@serialport/bindings-cpp/prebuilds/${resolveSerialportPrebuildKey(targetPlatform.key)}/**`,
   ],
   beforePack: async (context) => {
     runTimedSync("beforePack:restoreTargetNodePtyPrebuild", () =>
@@ -561,6 +578,9 @@ export default {
     );
     runTimedSync("afterPack:assertPackagedNodePtyPrebuild", () =>
       assertPackagedNodePtyPrebuild(context),
+    );
+    runTimedSync("afterPack:assertPackagedSerialportPrebuild", () =>
+      assertPackagedSerialportPrebuild(context),
     );
     if (actualWindowsTarget) {
       await runTimedAsync("afterPack:writeWindowsInstallManifest", () =>

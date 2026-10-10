@@ -417,6 +417,21 @@ function migrateLegacyWorkspaceSession(value: unknown): unknown {
   return migrated;
 }
 
+const serialPortPreferencesSchema = z.object({
+  lastPath: nonEmptyStringSchema.optional(),
+  byPath: z.record(
+    z.string(),
+    z.object({
+      baudRate: z.number().int().positive(),
+      dataBits: z.union([z.literal(5), z.literal(6), z.literal(7), z.literal(8)]),
+      parity: z.enum(["none", "even", "odd", "mark", "space"]),
+      stopBits: z.union([z.literal(1), z.literal(1.5), z.literal(2)]),
+      rtscts: z.boolean(),
+      autoReconnect: z.boolean(),
+    }),
+  ),
+});
+
 const appSettingsObjectSchema = z.object({
   recentProjects: z.array(z.string()).default([]),
   locale: localeSchema.default("zh-CN"),
@@ -435,6 +450,7 @@ const appSettingsObjectSchema = z.object({
   ),
   // 输入框电脑操作入口改为默认不展示，设置项保留、默认关闭。
   // default 只对缺省字段生效，显式存过 false 的用户仍保持展示。
+  serialPortPreferences: serialPortPreferencesSchema.optional(),
   computerUseComposerEntryHidden: z.boolean().default(true),
   taskAutoArchiveEnabled: z.boolean().default(false),
   taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).default(7),
@@ -503,6 +519,7 @@ export const appSettingsPatchSchema = z.object({
   httpProxyCaCertPath: nonEmptyStringSchema.optional(),
   embeddedBrowserAllowInsecureCertificates: z.boolean().optional(),
   embeddedBrowserViewportPreference: embeddedBrowserViewportPreferenceSchema.optional(),
+  serialPortPreferences: serialPortPreferencesSchema.optional(),
   computerUseComposerEntryHidden: z.boolean().optional(),
   taskAutoArchiveEnabled: z.boolean().optional(),
   taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).optional(),

@@ -5,6 +5,7 @@ import type { IGitService } from "./git/git.js";
 import type { IGitCheckpointService } from "./git/gitCheckpoint.js";
 import type { ISystemService } from "./system/system.js";
 import type { ITerminalService } from "./terminal/terminal.js";
+import type { ISerialService } from "./serial/serial.js";
 import type { ISettingService } from "./setting/setting.js";
 import type { ICredentialService } from "./credential/credential.js";
 import type { IBroadcastService } from "./broadcast/broadcast.js";
@@ -48,6 +49,8 @@ export interface IServiceAccessor {
   readonly gitCheckpointService: IGitCheckpointService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
+  /** 本机串口调试器；仅 Desktop Local Host 注册，UI 按平台能力 supportsSerialPort 决定是否使用。 */
+  readonly serialService?: ISerialService;
   readonly settingService: ISettingService;
   /** Onboarding 完成记录（本地持久化）；旧测试 double / 不支持的 host 可不提供。 */
   readonly onboardingRecordService?: IOnboardingRecordService;

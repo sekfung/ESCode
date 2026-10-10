@@ -6,6 +6,7 @@ import {
   IGitCheckpointService,
   ISystemService,
   ITerminalService,
+  ISerialService,
   ISettingService,
   IOnboardingRecordService,
   ICredentialService,
@@ -55,6 +56,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly gitCheckpointService: IGitCheckpointService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
+  // 只有 Desktop Local Host 注册 serial channel；Web/远端 server 上该代理存在但不会被调用，
+  // UI 由 IPlatformService.supportsSerialPort 决定是否展示入口。
+  readonly serialService: ISerialService;
   readonly settingService: ISettingService;
   readonly onboardingRecordService: IOnboardingRecordService;
   readonly credentialService: ICredentialService;
@@ -113,6 +117,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.terminalService = ProxyChannel.toService<ITerminalService>(
       channelClient.getChannel(ITerminalService.channelName),
+    );
+    this.serialService = ProxyChannel.toService<ISerialService>(
+      channelClient.getChannel(ISerialService.channelName),
     );
     this.settingService = ProxyChannel.toService<ISettingService>(
       channelClient.getChannel(ISettingService.channelName),

@@ -5,6 +5,7 @@ export type OpenTabLauncherItemId =
   | "review"
   | "terminal"
   | "browser"
+  | "serial"
   | "developer-tools";
 
 export function resolveOpenTabLauncherItemIds({
@@ -12,11 +13,13 @@ export function resolveOpenTabLauncherItemIds({
   hasReviewTab,
   canOpenSelectionSideConversation = false,
   supportsEmbeddedBrowser = true,
+  supportsSerialPort = false,
 }: {
   developerToolsEnabled: boolean;
   hasReviewTab: boolean;
   canOpenSelectionSideConversation?: boolean;
   supportsEmbeddedBrowser?: boolean;
+  supportsSerialPort?: boolean;
 }): OpenTabLauncherItemId[] {
   const itemIds: OpenTabLauncherItemId[] = [];
 
@@ -32,6 +35,10 @@ export function resolveOpenTabLauncherItemIds({
 
   if (supportsEmbeddedBrowser) {
     itemIds.push("browser");
+  }
+
+  if (supportsSerialPort) {
+    itemIds.push("serial");
   }
 
   if (developerToolsEnabled) {

@@ -68,6 +68,21 @@ export { ISystemService } from "./system/system.js";
 
 // Terminal service — ITerminalService is both a type (interface) and value (descriptor)
 export { ITerminalService } from "./terminal/terminal.js";
+export {
+  ISerialService,
+  SERIAL_WRITE_LIMIT_BYTES,
+  SerialError,
+  type SerialChunk,
+  type SerialConfig,
+  type SerialDirection,
+  type SerialErrorCode,
+  type SerialPortInfo,
+  type SerialSnapshot,
+  type SerialSource,
+  type SerialState,
+  type SerialStats,
+  type SerialStatus,
+} from "./serial/serial.js";
 
 // Setting service — ISettingService is both a type (interface) and value (descriptor)
 export { ISettingService } from "./setting/setting.js";

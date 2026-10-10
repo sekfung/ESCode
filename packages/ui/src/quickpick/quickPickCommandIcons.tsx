@@ -14,6 +14,7 @@ import {
   SettingsIcon,
   SquareTerminalIcon,
   SunIcon,
+  UsbIcon,
   UsersIcon,
   WandSparkles,
 } from "lucide-react";
@@ -37,4 +38,5 @@ export const QUICK_PICK_ICON_BY_KIND = {
   themeDark: MoonIcon,
   themeLight: SunIcon,
   terminal: SquareTerminalIcon,
+  serial: UsbIcon,
 } satisfies Record<QuickPickCommandIcon, typeof MessageCirclePlus>;
