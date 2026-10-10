@@ -48,6 +48,8 @@ import { startProtocolResourceSampler } from "./zcode-protocol/resource-sampler.
 import { acquireProtocolStartupResource } from "./zcode-protocol/startup-resource.js";
 import type { ZCodeProcessResourceSampler } from "./process-resource-sampler.js";
 import { prepareZCodeTelemetryEnv, shutdownZCodeTelemetry } from "./telemetry-bootstrap.js";
+import { createSerialBroker, type SerialBroker } from "./app/serial-broker.js";
+import { isHostSerialAvailable } from "./app/built-in-serial.js";
 
 function applyProtocolPresentationSurface(
   options: Omit<ZCodeAppOptions, "providerRegistry">,
@@ -124,6 +126,7 @@ export async function runZCodeProtocolAgent(
   let sessionStore: SqliteSessionStore | undefined;
   let serverForCleanup: ZCodeProtocolAgentServer | undefined;
   let nodeReplBrowserBroker: NodeReplBrowserBroker | undefined;
+  let serialBroker: SerialBroker | undefined;
   let mcpConnectionPool: McpConnectionPool | undefined;
   let mcpPort: McpPort | undefined;
   let mcpTelemetryTracker: McpTelemetryTracker | undefined;
@@ -268,6 +271,7 @@ export async function runZCodeProtocolAgent(
             ...(telemetryDeviceMid ? { ZCODE_TELEMETRY_DEVICE_MID: telemetryDeviceMid } : {}),
           },
           ...(nodeReplBrowserBroker ? { nodeReplBrowserBroker } : {}),
+          ...(serialBroker ? { serialBroker } : {}),
           ...(mcpConnectionPool
             ? {
                 mcpPortFactory: () =>
@@ -306,6 +310,20 @@ export async function runZCodeProtocolAgent(
         logger,
         create: () => broker.ready,
       });
+      // 只有 Desktop Local Host 拥有串口会话并注入能力标记；其它宿主不创建 broker，也就不注册串口工具。
+      if (isHostSerialAvailable(process.env)) {
+        const createdSerialBroker = createSerialBroker({
+          port: server.serialControlPort,
+          logger,
+          platform: process.platform,
+        });
+        serialBroker = createdSerialBroker;
+        await acquireProtocolStartupResource({
+          signal: options.lifecycle?.signal,
+          logger,
+          create: () => createdSerialBroker.ready,
+        });
+      }
     }
     const connection = new ZCodeProtocolNdjsonConnection({
       signal: options.lifecycle?.signal,
@@ -362,6 +380,7 @@ export async function runZCodeProtocolAgent(
       processResourceSampler,
       mcpTelemetryTracker,
       nodeReplBrowserBroker,
+      serialBroker,
       mcpPort,
       mcpConnectionPool,
       sessionStore,

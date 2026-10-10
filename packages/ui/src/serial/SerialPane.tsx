@@ -10,6 +10,11 @@ import { SerialConnectionBar } from "@/serial/SerialConnectionBar.js";
 import { SerialLogView } from "@/serial/SerialLogView.js";
 import { SerialSendBar } from "@/serial/SerialSendBar.js";
 import { cn } from "@/components/lib/utils.js";
+import {
+  formatSerialAgentLabel,
+  resolveSerialAgentSession,
+} from "@/lib/serial/serialAgentSession.js";
+import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 
 const DEFAULT_CONFIG: SerialConfig = {
   baudRate: 115200,
@@ -37,9 +42,12 @@ function describeError(error: unknown): { code?: SerialErrorCode; message: strin
 export function SerialPane({
   services,
   isVisible,
+  onOpenSession,
 }: {
   services: IServiceAccessor;
   isVisible: boolean;
+  /** 点击 `[Agent·…]` 时跳到发起写入的会话。 */
+  onOpenSession?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
 }) {
   const { intl } = useZCodeIntl();
   const { settings, update } = useSettings();
@@ -126,6 +134,22 @@ export function SerialPane({
     [formatError, send],
   );
 
+  const workspaces = useZCodeSessionStore((state) => state.workspaces);
+  const getAgentLabel = useCallback(
+    (sessionId: string | undefined) =>
+      sessionId
+        ? formatSerialAgentLabel(resolveSerialAgentSession(workspaces, sessionId)?.title, sessionId)
+        : "Agent",
+    [workspaces],
+  );
+  const handleOpenAgentSession = useCallback(
+    (sessionId: string) => {
+      const session = resolveSerialAgentSession(workspaces, sessionId);
+      if (session) onOpenSession?.(session.workspacePath, sessionId, session.workspaceIdentity);
+    },
+    [onOpenSession, workspaces],
+  );
+
   const handleClear = useCallback(() => {
     void clear().catch((error: unknown) => {
       logger.warn("[serial] clear failed", describeError(error));
@@ -193,7 +217,12 @@ export function SerialPane({
           )}
         </span>
       </div>
-      <SerialLogView chunks={log.chunks} onClear={handleClear} />
+      <SerialLogView
+        chunks={log.chunks}
+        onClear={handleClear}
+        getAgentLabel={getAgentLabel}
+        {...(onOpenSession ? { onOpenAgentSession: handleOpenAgentSession } : {})}
+      />
       <SerialSendBar canSend={status.state === "open"} onSend={handleSend} />
     </section>
   );

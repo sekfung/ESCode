@@ -161,6 +161,7 @@ pub(super) async fn configured(
     let loaded = plugins::enabled(cwd, &config, cancel).await?;
     // 内置 node_repl 最后合并（TS builtInMcpServers 最后 spread），同名用户/插件/会话配置不能劫持它。
     let node_repl = super::mcp_node_repl::server(&loaded, cwd);
+    let serial = super::mcp_serial::server(&loaded, cwd);
     let data_root = config::storage(&config).join("data");
     for plugin in loaded {
         for (name, server) in plugin_servers(&plugin, cwd, &data_root).await? {
@@ -191,6 +192,10 @@ pub(super) async fn configured(
         }
     }
     if let Some(server) = node_repl {
+        merged.insert(server.name.clone(), server);
+    }
+    // 内置 serial 同理最后合并：同名用户/插件配置不能劫持串口 broker 的连接材料。
+    if let Some(server) = serial {
         merged.insert(server.name.clone(), server);
     }
     // 退役的 CUA 形态 MCP 不连接、不列出（TS isRetiredCuaMcpServer）；CUA 只经 node_repl 承载。

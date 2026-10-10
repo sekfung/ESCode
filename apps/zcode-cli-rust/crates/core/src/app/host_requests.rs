@@ -24,7 +24,7 @@ impl Engine {
             .push(json!({"id": request_id, "method": method, "params": params}));
     }
 
-    /// Host 应答：先匹配工具反向请求（错误保留 code/message，结果保留原始文本），再依次交给鉴权与 shell 偏好。
+    /// Host 应答：先匹配工具反向请求（错误保留 code/message/data，结果保留原始文本），再依次交给鉴权与 shell 偏好。
     pub(super) fn resolve_response(
         &mut self,
         id: &str,
@@ -37,6 +37,7 @@ impl Engine {
                 Some(error) => Err((
                     error["code"].as_i64().unwrap_or(0),
                     error["message"].as_str().unwrap_or_default().to_owned(),
+                    error["data"].clone(),
                 )),
                 None => Ok(raw_result.unwrap_or_else(|| result.to_string())),
             });

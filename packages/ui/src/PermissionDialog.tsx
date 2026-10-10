@@ -48,6 +48,8 @@ import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { Info, LoaderIcon, WrenchIcon } from "lucide-react";
+import { SerialPermissionPreview } from "@/serial/SerialPermissionPreview.js";
+import { buildSerialPermissionPreview } from "@/lib/serial/serialPermissionPreview.js";
 
 const MCP_PERMISSION_TOOL_ICON = <WrenchIcon className="size-4 shrink-0 text-foreground-subtle" />;
 
@@ -402,6 +404,7 @@ function McpPermissionBlock(context: ToolCallBlockRenderContext) {
   const toolName = getMcpPermissionToolName(toolCall) ?? toolCall.title ?? toolCall.kind;
   const reason = getMcpPermissionReason(toolCall);
   const hasKindLabelOverride = context.kindLabelOverride != null;
+  const hasSerialPreview = buildSerialPermissionPreview(toolName, toolCall.input) !== null;
   const primaryText = useMemo(
     () =>
       hasKindLabelOverride ? (
@@ -421,7 +424,12 @@ function McpPermissionBlock(context: ToolCallBlockRenderContext) {
       kindLabel={context.kindLabelOverride ?? toolName}
       primaryText={primaryText}
       isRunning={context.isRunning}
-      content={null}
+      // 串口写类工具在审批时展示目标串口与数据预览；其它 MCP 工具保持原样（返回 null）。
+      content={
+        hasSerialPreview ? (
+          <SerialPermissionPreview toolName={toolName} input={toolCall.input} />
+        ) : null
+      }
     />
   );
 }

@@ -319,6 +319,7 @@ export function AnimatedSidePanePanel({
   onOpenSerialTab,
   onOpenTerminalTab,
   onOpenReviewTab,
+  onSelectTask,
   onOpenSelectionSideConversation,
   onRevealGitFileInTree,
   onOpenBrowserUrl,
@@ -386,6 +387,8 @@ export function AnimatedSidePanePanel({
   onOpenDeveloperTools: () => void;
   onOpenSerialTab: () => void;
   onOpenTerminalTab: () => void;
+  /** 串口面板中点击 Agent 标注时跳转到对应会话。 */
+  onSelectTask?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
   onOpenReviewTab: () => void;
   onOpenSelectionSideConversation: () => void;
   onRevealGitFileInTree?: (path: string) => void;
@@ -1283,6 +1286,7 @@ export function AnimatedSidePanePanel({
                           <SerialPane
                             services={services}
                             isVisible={isVisible && tab.id === visibleActiveTabId}
+                            onOpenSession={onSelectTask}
                           />
                         ) : tab.type === "terminal" ? (
                           <SidePaneTerminalPane

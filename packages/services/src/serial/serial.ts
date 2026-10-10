@@ -29,6 +29,8 @@ export interface SerialChunk {
   at: number;
   direction: SerialDirection;
   source: SerialSource;
+  /** 仅 source="agent" 时存在：发起写入的 Agent 会话。 */
+  sessionId?: string;
   bytes: Uint8Array;
 }
 
@@ -40,7 +42,9 @@ export type SerialErrorCode =
   | "invalidInput"
   | "nativeUnavailable"
   | "notOpen"
-  | "io";
+  | "io"
+  /** Agent 串口工具：远程 workspace、子 agent 或 Host 未提供串口服务。 */
+  | "unavailable";
 
 export type SerialState = "closed" | "opening" | "open" | "closing" | "disconnected" | "error";
 
@@ -80,7 +84,12 @@ export interface ISerialService {
   list(): Promise<SerialPortInfo[]>;
   open(params: { path: string; config: SerialConfig }): Promise<void>;
   close(): Promise<void>;
-  write(params: { bytes: Uint8Array; source: SerialSource }): Promise<void>;
+  /** 返回本次写入在收发记录中的 seq（空写入返回当前 lastSeq）。 */
+  write(params: {
+    bytes: Uint8Array;
+    source: SerialSource;
+    sessionId?: string;
+  }): Promise<{ seq: number }>;
   /** 清空环形缓冲与计数，不影响串口状态。 */
   clear(): Promise<void>;
   getSnapshot(): Promise<SerialSnapshot>;

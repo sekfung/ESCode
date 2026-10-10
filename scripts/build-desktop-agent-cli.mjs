@@ -60,6 +60,11 @@ const requiredDevPluginRuntimeBuilds = [
     packageName: "@zcode/browser-use-plugin",
     artifactPath: "browser-use-plugin/scripts/browser-client.mjs",
   },
+  {
+    // 串口官方插件：serial MCP server 由宿主按 ZCODE_HOST_SERIAL 注入，产物随插件携带。
+    packageName: "@zcode/serial-plugin",
+    artifactPath: "serial-plugin/dist/mcp/server.js",
+  },
 ];
 const defaultBuildFilters = [
   ...cliWorkspaceBuilds.map(({ packageName }) => packageName),

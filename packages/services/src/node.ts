@@ -292,6 +292,8 @@ import { ISystemService } from "./system/system.js";
 import { ITerminalService } from "./terminal/terminal.js";
 import { ISerialService } from "./serial/serial.js";
 import { createSerialService, shouldRegisterSerialService } from "./serial/serialService.js";
+import { createSerialAgentBridge } from "./serial/serialAgentBridge.js";
+import { ZCODE_HOST_SERIAL_ENV } from "@zcode/shared/serial";
 import { ISettingService } from "./setting/setting.js";
 import { IOnboardingRecordService } from "./onboarding/onboardingRecord.js";
 import { ICredentialService } from "./credential/credential.js";
@@ -2084,6 +2086,17 @@ export function createLocalServices(options: {
           resolveOffPeakClientConfig: () => codingPlanSubscriptionService.getOffPeakClientConfig(),
           resolveOffPeakTaskService: () => offPeakTaskServiceForAgent,
         };
+  // 串口会话属于窗口级 Desktop Local Host；同一实例既注册给 renderer RPC，也供 Agent 串口工具使用。
+  const serialService = shouldRegisterSerialService(options?.serviceAuthorityMode)
+    ? createSerialService()
+    : undefined;
+  const serialAgentBridge = serialService
+    ? createSerialAgentBridge({
+        getSerialService: () => serialService,
+        getRememberedAutoReconnect: async (path) =>
+          (await settingService.get()).serialPortPreferences?.byPath[path]?.autoReconnect,
+      })
+    : undefined;
   const zcodeAgentService = createZCodeAgentService({
     ...(agentAccountProviderConfigSource
       ? { accountProviderConfigSource: agentAccountProviderConfigSource }
@@ -2111,6 +2124,7 @@ export function createLocalServices(options: {
     spawnFallbackCwd: options?.zcodeAgentSpawnFallbackCwd,
     // browser-use：host→main 执行桥透传给 agent service 的 onRequest browserExecute 路由。
     browserControlExecutor: options?.browserControlExecutor,
+    serialAgentBridge,
     // 官方 Server MCP 身份头：host 是唯一身份权威，Agent 经反向请求索取。
     // Provider 存在性读取正式 Model Selection View；不恢复旧 Provider Snapshot。
     officialMcpAuthHeadersResolver: createOfficialMcpAuthHeadersResolver({
@@ -2234,6 +2248,8 @@ export function createLocalServices(options: {
         // 上面 cuaProductHelperEnv 已完成代际校验与 unavailable 兜底，取代 staging 侧
         // 直接调用 buildCuaProductHelperAgentEnv 的旧路径。
         ...cuaProductHelperEnv,
+        // 只有本 Host 拥有串口会话时才告诉 Agent 运行时注册 serial MCP server。
+        ...(serialService ? { [ZCODE_HOST_SERIAL_ENV]: "1" } : {}),
         ...buildAgentTelemetrySpawnEnv({
           deviceMid: telemetryDeviceMid,
           runtimeSurface: options?.agentRuntimeContext?.runtimeSurface ?? "remote_workspace_host",
@@ -2599,9 +2615,7 @@ export function createLocalServices(options: {
       }),
     )
     .register(IPromptAttachmentTransferService, createLocalPromptAttachmentTransferService());
-  if (shouldRegisterSerialService(options?.serviceAuthorityMode)) {
-    services.register(ISerialService, createSerialService());
-  }
+  if (serialService) services.register(ISerialService, serialService);
 
   // 即使初始配置关闭也必须登记 lifecycle disposer：terminal fence 需要早于任意延迟 setting/acquire
   // 恢复，不能把"当前还没有 Helper"误当成"不需要生命周期所有者"。dispose 时串行 stop host。

@@ -31,6 +31,8 @@ export const OFFICIAL_BROWSER_USE_PLUGIN_ID = `${OFFICIAL_BROWSER_USE_PLUGIN_NAM
  */
 export const OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME = "node-repl-host";
 export const OFFICIAL_NODE_REPL_HOST_PLUGIN_ID = `${OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME}@${ZCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
+const OFFICIAL_SERIAL_PLUGIN_NAME = "serial";
+export const OFFICIAL_SERIAL_PLUGIN_ID = `${OFFICIAL_SERIAL_PLUGIN_NAME}@${ZCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_CUA_PLUGIN_NAME = "computer-use";
 export const OFFICIAL_CUA_PLUGIN_ID = `${OFFICIAL_CUA_PLUGIN_NAME}@${ZCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 
@@ -45,6 +47,11 @@ export interface OfficialPluginDefinition {
    * 仅用于产品归属和设置页状态展示；运行时仍保留宿主 identity。
    */
   hostMcpServerNames?: readonly string[];
+  /**
+   * 该插件宿主 MCP server 中无需审批的只读工具（不含 mcp__ 前缀的工具名）。只对本插件声明的
+   * hostMcpServerNames 生效，不改变其它 MCP 工具基于 readOnlyHint 的审批行为。
+   */
+  defaultAllowedTools?: readonly string[];
   name: string;
   /** filesystem/SEA seed 缺少任一项时拒绝生成残缺的官方插件缓存。 */
   requiredSeedPaths?: readonly string[];
@@ -86,7 +93,37 @@ const OFFICIAL_ZCODE_GUIDE_REQUIRED_SEED_PATHS = [
   "skills/dynamic-workflows/patterns.md",
 ] as const;
 
+const OFFICIAL_SERIAL_REQUIRED_SEED_PATHS = [
+  "dist/mcp/server.js",
+  "skills/serial-port/SKILL.md",
+] as const;
+
 export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = [
+  {
+    // 串口工具由宿主按 Host 能力标记（ZCODE_HOST_SERIAL）注入，只有 Desktop Local Host 才有；
+    // 默认启用不会在其它环境注入工具，也不拉起任何常驻进程（MCP server 按需启动）。
+    defaultEnabled: true,
+    defaultAllowedTools: ["serial_list", "serial_read", "serial_wait_for"],
+    hostMcpServerNames: [OFFICIAL_SERIAL_PLUGIN_NAME],
+    listing: {
+      author: ZAI_AUTHOR,
+      category: "developer-tools",
+      displayName: "Serial Port",
+      displayName_i18n: { "zh-CN": "串口调试" },
+      description_i18n: {
+        "zh-CN": "让 Agent 读写本机串口：烧录后等待启动日志、发送 AT 指令并验证响应。",
+      },
+    },
+    name: OFFICIAL_SERIAL_PLUGIN_NAME,
+    requiredSeedPaths: OFFICIAL_SERIAL_REQUIRED_SEED_PATHS,
+    rootCandidates: [
+      "packages/serial-plugin",
+      "../serial-plugin",
+      "../../serial-plugin",
+      "../../../serial-plugin",
+    ],
+    version: "0.1.0",
+  },
   {
     // 无 listing：宿主不进市场、不对用户露出。它必须始终可用，因为 node_repl 的注册门禁
     // 是「Browser Use 或 Computer Use 任一启用」，宿主自己不参与那个判断。
@@ -390,4 +427,23 @@ export function resolveOfficialPluginNameByHostMcpServerName(
   return OFFICIAL_PLUGIN_DEFINITIONS.find((definition) =>
     definition.hostMcpServerNames?.includes(serverName),
   )?.name;
+}
+
+/**
+ * 已启用官方插件声明的只读宿主工具，作为 allowedTools 并入权限配置（形如 mcp__serial__serial_list）。
+ * 仅当对应宿主 MCP server 已注册时生效；用户的 disallowedTools 与项目 deny 规则仍优先。
+ */
+export function resolveOfficialPluginDefaultAllowedTools(input: {
+  enabledPluginIds: ReadonlySet<string>;
+  registeredMcpServerNames: ReadonlySet<string>;
+}): string[] {
+  return OFFICIAL_PLUGIN_DEFINITIONS.flatMap((definition) => {
+    const pluginId = `${definition.name}@${ZCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
+    if (!definition.defaultAllowedTools || !input.enabledPluginIds.has(pluginId)) return [];
+    return (definition.hostMcpServerNames ?? [])
+      .filter((serverName) => input.registeredMcpServerNames.has(serverName))
+      .flatMap((serverName) =>
+        definition.defaultAllowedTools!.map((tool) => `mcp__${serverName}__${tool}`),
+      );
+  });
 }

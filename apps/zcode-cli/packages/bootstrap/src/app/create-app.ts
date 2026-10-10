@@ -91,6 +91,10 @@ import {
   type NodeReplBrowserBroker,
 } from "./node-repl-browser-broker.js";
 import { resolveBuiltInNodeReplMcpServers } from "./built-in-node-repl.js";
+import { resolveBuiltInSerialMcpServers } from "./built-in-serial.js";
+import { resolveOfficialPluginDefaultAllowedTools } from "./official-plugin-definitions.js";
+import { injectSerialBroker } from "./serial-broker.js";
+import { SERIAL_MCP_SERVER_NAME } from "@zcode/shared/serial";
 import { resolveZCodeCustomCommandPrompt } from "../custom-command-prompt.js";
 import { resolveZCodeBuiltinPromptCommand } from "../builtin-prompt-command.js";
 import { collectDisabledPaths } from "../skill-command-overrides.js";
@@ -227,10 +231,17 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       modelSelectionOverrides: zcodeSubagentProfileOutcome.pluginAgentModelSelectionOverrides,
     }).profiles;
     const pluginRuntimeFeatures = resolvePluginRuntimeFeatures(pluginOutcome);
-    const builtInMcpServers = resolveBuiltInNodeReplMcpServers({
-      pluginOutcome,
-      workingDirectory,
-    });
+    const builtInMcpServers = {
+      ...resolveBuiltInNodeReplMcpServers({
+        pluginOutcome,
+        workingDirectory,
+      }),
+      ...resolveBuiltInSerialMcpServers({
+        brokerAvailable: options.serialBroker !== undefined,
+        pluginOutcome,
+        workingDirectory,
+      }),
+    };
     // 用户目录已在 loader 前完成原地迁移；不能给项目/插件旧身份加内存兼容旁路。
     const subagentProfiles = [...zcodeSubagentProfiles, ...pluginSubagentProfiles];
     const ownsSessionStore = options.sessionStore === undefined;
@@ -282,6 +293,13 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
           runtimeConfig.mcp.servers ?? {},
           nodeReplBrowserBroker,
         ),
+      };
+    }
+    if (options.serialBroker && runtimeConfig.mcp?.servers?.[SERIAL_MCP_SERVER_NAME]) {
+      configuredMcpServers = injectSerialBroker(configuredMcpServers, options.serialBroker);
+      runtimeConfig.mcp = {
+        ...runtimeConfig.mcp,
+        servers: injectSerialBroker(runtimeConfig.mcp.servers ?? {}, options.serialBroker),
       };
     }
     startupTimer.mark("ZCode runtime configuration resolved", {
@@ -340,7 +358,16 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         : {}),
     });
     const permissionService = new PermissionService({
-      allowedTools: new Set(configResult.config.permission.allowedTools),
+      allowedTools: new Set([
+        ...configResult.config.permission.allowedTools,
+        // 官方插件声明的只读宿主工具（如 serial_list/read/wait_for）免审批；只对已注册的 server 生效。
+        ...resolveOfficialPluginDefaultAllowedTools({
+          enabledPluginIds: new Set(
+            pluginOutcome.plugins.filter((plugin) => plugin.enabled).map((plugin) => plugin.id),
+          ),
+          registeredMcpServerNames: new Set(Object.keys(runtimeConfig.mcp?.servers ?? {})),
+        }),
+      ]),
       autoApproveHighRisk: configResult.config.permission.autoApproveHighRisk,
       disallowedTools: new Set(configResult.config.permission.disallowedTools),
       allowMediumRiskInAutoMode: configResult.config.permission.allowMediumRiskInAuto,

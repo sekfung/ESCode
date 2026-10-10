@@ -112,6 +112,15 @@ const officialPluginPackages = [
     runtimeBuildScript: "scripts/build.mjs",
     stagedPath: "packages/node-repl-host",
   },
+  {
+    // 串口官方插件：首启 seed 需要 MCP runtime 与 skill；缺任一项都会装出无法使用的插件。
+    packageName: "@zcode/serial-plugin",
+    relativePath: "apps/zcode-cli/packages/serial-plugin",
+    requiresRuntime: true,
+    requiredRuntimePaths: ["dist/mcp/server.js", "skills/serial-port/SKILL.md"],
+    runtimeBuildScript: "scripts/build.mjs",
+    stagedPath: "packages/serial-plugin",
+  },
 ];
 // 随 CLI 内置的技能包（不是插件）：bootstrap 的 resolveBundledSkillRoots 沿官方插件同款候选目录
 // 在 zcode.cjs 旁找 packages/bundled-skills 并原地读取。漏 stage 它，桌面包的 /workflow 会展开成

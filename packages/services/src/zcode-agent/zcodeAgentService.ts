@@ -315,6 +315,8 @@ import {
 } from "./cuaOperationTurnTracker.js";
 import type { PipSessionEvent } from "@zcode/zcode-cua/pip-session";
 import { registerMemoryDiagnosticsProvider } from "#src/memoryDiagnostics.js";
+import type { SerialAgentBridge } from "../serial/serialAgentBridge.js";
+import { routeSerialAgentRequest } from "../serial/serialAgentRequestRouter.js";
 
 const logger = createServiceLogger("zcode-agent-service");
 const cuaOperationLogger = createServiceLogger("cua-operation-turn");
@@ -900,6 +902,11 @@ interface CreateZCodeAgentServiceOptions extends Omit<
    * browser 命令返回 backend_unavailable，不影响其它功能。
    */
   browserControlExecutor?: BrowserAmbientContextExecutor;
+  /**
+   * Agent 串口工具：interaction/serial* 反向请求交给它处理。仅 Desktop Local Host 装配；
+   * 缺省时这些请求一律返回 unavailable 工具错误。
+   */
+  serialAgentBridge?: SerialAgentBridge;
   /**
    * 官方 Server MCP 身份头解析器。Agent 进程不持有用户身份权威，
    * 经 interaction/requestOfficialMcpAuthHeaders 向 host 索取本次请求的身份头。
@@ -2114,6 +2121,15 @@ export function createZCodeAgentService(
         }
       }),
       client.onRequest((request) => {
+        if (
+          routeSerialAgentRequest({
+            request,
+            bridge: options?.serialAgentBridge,
+            responder: client,
+          })
+        ) {
+          return;
+        }
         if (request.method === zcodeProtocolMethods.sessionRequestRuntimePreferences) {
           const reportResponseFailure = (error: unknown): void => {
             logger.debug(undefined, "运行时偏好响应发送失败", {

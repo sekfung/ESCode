@@ -300,8 +300,9 @@ impl EventSink {
 /// 见 docs/specs/rust-mcp-official-auth.md「所有者与事件顺序」。
 pub const HOST_CHANNEL: &str = "rust-host-channel";
 
-/// Host 反向请求的应答：原始结果 JSON 文本，或 (code, message)。
-pub type HostReply = oneshot::Sender<std::result::Result<String, (i64, String)>>;
+/// Host 反向请求的应答：原始结果 JSON 文本，或 (code, message, data)。
+/// data 保留 JSON-RPC `error.data`（串口工具的业务错误码在 `data.code`，见 docs/specs/serial-agent-tools.md）。
+pub type HostReply = oneshot::Sender<std::result::Result<String, (i64, String, serde_json::Value)>>;
 
 pub enum Input {
     Request(zcode_cli_domain::protocol::Request),

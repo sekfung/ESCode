@@ -90,6 +90,32 @@
   ],
   "definitions": [
     {
+      "name": "serial",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/serial-plugin",
+        "../serial-plugin",
+        "../../serial-plugin",
+        "../../../serial-plugin"
+      ],
+      "requiredSeedPaths": ["dist/mcp/server.js", "skills/serial-port/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "developer-tools",
+        "displayName": "Serial Port",
+        "displayName_i18n": {
+          "zh-CN": "串口调试"
+        },
+        "description_i18n": {
+          "zh-CN": "让 Agent 读写本机串口：烧录后等待启动日志、发送 AT 指令并验证响应。"
+        }
+      }
+    },
+    {
       "name": "node-repl-host",
       "version": "0.6.0",
       "rootCandidates": [

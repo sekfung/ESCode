@@ -1734,6 +1734,7 @@ const zhCN: Record<string, string> = {
   "serial.error.nativeUnavailable": "串口功能不可用：{message}",
   "serial.error.notOpen": "串口未打开",
   "serial.error.io": "读写错误：{message}",
+  "serial.error.unavailable": "当前会话无法使用串口",
   "serial.stats": "RX {rx} B · TX {tx} B",
   "serial.mode.text": "文本",
   "serial.encoding": "编码",
@@ -1757,6 +1758,11 @@ const zhCN: Record<string, string> = {
   "serial.send": "发送",
   "serial.send.placeholder": "输入要发送的内容，Enter 发送，Shift+Enter 换行",
   "serial.send.hexPlaceholder": "例如：41 54 0D 0A",
+  "serial.permission.target": "串口：{path}",
+  "serial.permission.noPort": "当前没有打开的串口",
+  "serial.permission.bytes": "{bytes} 字节",
+  "serial.permission.truncated": "仅预览前 256 字节",
+  "serial.permission.invalid": "参数无效，ZCode 会拒绝这次调用。",
 
   // 终端
   "terminal.exited": "[进程已退出]",

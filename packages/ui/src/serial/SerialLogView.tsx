@@ -34,9 +34,14 @@ function formatTime(at: number): string {
 export function SerialLogView({
   chunks,
   onClear,
+  getAgentLabel,
+  onOpenAgentSession,
 }: {
   chunks: readonly SerialChunk[];
   onClear: () => void;
+  /** Agent 写入行的会话标注；查不到标题时由调用方回退为会话 ID 前缀。 */
+  getAgentLabel: (sessionId: string | undefined) => string;
+  onOpenAgentSession?: (sessionId: string) => void;
 }) {
   const { intl } = useZCodeIntl();
   const platform = usePlatform();
@@ -182,7 +187,15 @@ export function SerialLogView({
             ) : null}
             {row.direction === "tx" ? <span className="shrink-0">→</span> : null}
             {row.source === "agent" ? (
-              <span className="shrink-0 text-foreground-subtle">[Agent]</span>
+              <button
+                type="button"
+                className="shrink-0 text-foreground-subtle hover:text-foreground hover:underline disabled:no-underline"
+                disabled={!row.sessionId || !onOpenAgentSession}
+                onClick={() => row.sessionId && onOpenAgentSession?.(row.sessionId)}
+                data-testid="serial-agent-label"
+              >
+                [Agent·{getAgentLabel(row.sessionId)}]
+              </button>
             ) : null}
             <span className="min-w-0">{row.text}</span>
           </div>

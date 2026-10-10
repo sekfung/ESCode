@@ -76,7 +76,7 @@ pub(super) async fn execute(
             .map_err(|error| HostError { code: 0, message: error.to_string() })?;
         match answer.await {
             Ok(Ok(raw)) => Json::parse(&raw).ok_or(HostError { code: 0, message: "Invalid Host response".into() }),
-            Ok(Err((code, message))) => Err(HostError { code, message }),
+            Ok(Err((code, message, _))) => Err(HostError { code, message }),
             Err(_) => Err(HostError { code: 0, message: "Session owner stopped before the Host replied".into() }),
         }
     });

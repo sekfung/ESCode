@@ -8,6 +8,7 @@
     "./mcp": "./src/mcp.ts",
     "./runtime-tool-runtime": "./src/runtime-tool-runtime.ts",
     "./node-repl-browser-broker": "./src/browser-use/nodeReplBroker.ts",
+    "./serial": "./src/serial/index.ts",
     "./process-diagnostic": "./src/process-diagnostic.ts",
     "./model-selection": "./src/model-selection.ts",
     "./account-provider-state": "./src/account-provider-state.ts",

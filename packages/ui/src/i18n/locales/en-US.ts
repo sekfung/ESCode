@@ -1860,6 +1860,7 @@ const enUS: Record<string, string> = {
   "serial.error.nativeUnavailable": "The serial port feature is unavailable: {message}",
   "serial.error.notOpen": "The serial port is not open",
   "serial.error.io": "Read/write error: {message}",
+  "serial.error.unavailable": "The serial port is not available in this session",
   "serial.stats": "RX {rx} B · TX {tx} B",
   "serial.mode.text": "Text",
   "serial.encoding": "Encoding",
@@ -1883,6 +1884,11 @@ const enUS: Record<string, string> = {
   "serial.send": "Send",
   "serial.send.placeholder": "Enter data to send. Enter sends, Shift+Enter adds a new line",
   "serial.send.hexPlaceholder": "For example: 41 54 0D 0A",
+  "serial.permission.target": "Serial port: {path}",
+  "serial.permission.noPort": "No serial port is open",
+  "serial.permission.bytes": "{bytes} bytes",
+  "serial.permission.truncated": "Only the first 256 bytes are shown",
+  "serial.permission.invalid": "These arguments are invalid. ZCode will reject this call.",
 
   // Terminal
   "terminal.exited": "[Process exited]",

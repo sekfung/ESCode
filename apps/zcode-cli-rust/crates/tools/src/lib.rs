@@ -4,6 +4,8 @@ mod agent_profiles;
 mod atomic_dir;
 mod browser_broker;
 mod browser_broker_listen;
+mod serial_broker;
+mod mcp_serial;
 pub mod bash_git_safety;
 mod checkpoint_blobs;
 mod config_file;

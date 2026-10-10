@@ -287,3 +287,81 @@ test("命令面板只在平台支持串口时提供添加串口标签命令", as
   assert.ok(build(true).includes("add-serial-tab"));
   assert.ok(!build(false).includes("add-serial-tab"));
 });
+
+// --- 审批卡片预览 ---------------------------------------------------------------
+
+test("serial_write 审批预览给出字节数、转义文本与 HEX，超过 256 字节截断", async () => {
+  const { buildSerialPermissionPreview } =
+    await import("../src/lib/serial/serialPermissionPreview.js");
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_write", { data: "AT", lineEnding: "crlf" }),
+    { kind: "write", bytes: 4, text: "AT\\r\\n", hex: "41 54 0D 0A", truncated: false },
+  );
+  const long = buildSerialPermissionPreview("mcp__serial__serial_write", { data: "x".repeat(300) });
+  assert.equal(long?.kind === "write" && long.bytes, 300);
+  assert.equal(long?.kind === "write" && long.text.length, 256);
+  assert.equal(long?.kind === "write" && long.truncated, true);
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_write", { data: "4", encoding: "hex" }),
+    { kind: "invalid" },
+  );
+});
+
+test("serial_open/close 预览参数；其它工具不生成预览", async () => {
+  const { buildSerialPermissionPreview } =
+    await import("../src/lib/serial/serialPermissionPreview.js");
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_open", { path: "COM3", baudRate: 9600 }),
+    { kind: "open", path: "COM3", params: "9600 8N1" },
+  );
+  assert.deepEqual(buildSerialPermissionPreview("mcp__serial__serial_close", {}), {
+    kind: "close",
+  });
+  assert.equal(buildSerialPermissionPreview("mcp__serial__serial_read", {}), null);
+  assert.equal(buildSerialPermissionPreview("mcp__other__write", { data: "x" }), null);
+});
+
+// --- Agent 来源标注 -------------------------------------------------------------
+
+test("不同 Agent 会话的写入不合并为一行，并保留 sessionId", async () => {
+  const { buildSerialDisplayRows } = await import("../src/lib/serial/serialFormat.js");
+  const agent = (seq: number, sessionId: string): SerialChunk => ({
+    seq,
+    at: seq,
+    direction: "tx",
+    source: "agent",
+    sessionId,
+    bytes: text(`c${seq}`),
+  });
+  const rows = buildSerialDisplayRows([agent(1, "s-1"), agent(2, "s-1"), agent(3, "s-2")], {
+    mode: "text",
+    encoding: "utf-8",
+    showTimestamp: false,
+  });
+  assert.deepEqual(
+    rows.map((row) => [row.sessionId, row.text]),
+    [
+      ["s-1", "c1c2"],
+      ["s-2", "c3"],
+    ],
+  );
+});
+
+test("按 sessionId 在各 workspace 的任务缓存中查找会话标题，查不到时回退为 ID 前 8 位", async () => {
+  const { resolveSerialAgentSession, formatSerialAgentLabel } =
+    await import("../src/lib/serial/serialAgentSession.js");
+  const workspaces = {
+    "C:/a": { taskListCache: [{ taskId: "other", title: "Other" }] },
+    "remote-1": {
+      taskListCache: [
+        { taskId: "session-abcdef123", title: "Flash firmware", workspacePath: "/home/u/fw" },
+      ],
+    },
+  };
+  const found = resolveSerialAgentSession(workspaces as never, "session-abcdef123");
+  // 跳转需要任务自身的 workspacePath / workspaceIdentity；缺省时回退到 store 的 workspace key
+  assert.deepEqual(found, { title: "Flash firmware", workspacePath: "/home/u/fw" });
+  assert.equal(formatSerialAgentLabel(found?.title, "session-abcdef123"), "Flash firmware");
+  assert.equal(resolveSerialAgentSession(workspaces as never, "missing"), null);
+  assert.equal(formatSerialAgentLabel(undefined, "session-abcdef123"), "session-");
+});

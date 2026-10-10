@@ -174,7 +174,12 @@ impl ToolPort for WorkspaceTools {
     /// 权限配置：与 TS 同源（`~/.zcode/cli/config.json` + 项目 zcode.json/.zcode/config.json，
     /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
     async fn permission_config(&self) -> crate::domain::permission::Config {
-        super::extension_config::permission_config(&self.cwd).await
+        let mut config = super::extension_config::permission_config(&self.cwd).await;
+        // 官方 serial 插件的只读工具免审批（TS resolveOfficialPluginDefaultAllowedTools）。
+        config
+            .allowed
+            .extend(super::mcp_serial::default_allowed_tools(super::mcp_serial::host_serial_available()));
+        config
     }
     async fn subagents_enabled(&self) -> bool {
         let config = super::extension_config::load(&self.cwd)

@@ -155,7 +155,7 @@ impl Broker {
         host.send(Event::HostRequest { method: method.into(), params, reply }).await?;
         match receive.await? {
             Ok(text) => Ok(serde_json::from_str(&text)?),
-            Err((_, message)) => anyhow::bail!(message),
+            Err((_, message, _)) => anyhow::bail!(message),
         }
     }
 

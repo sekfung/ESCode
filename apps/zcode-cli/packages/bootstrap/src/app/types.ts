@@ -96,6 +96,7 @@ import type { SessionTranscriptMessage } from "../session-transcript.js";
 import type { WorkspaceHookReviewCommandResult } from "./workspace-hook-review-controller.js";
 import type { AgentTelemetryRuntimeOwner, WorkspaceHookPolicy } from "@zcode/contracts";
 import type { ProviderRegistryModelSource } from "./provider-registry-model-runtime.js";
+import type { SerialBroker } from "./serial-broker.js";
 
 export interface WorkspaceHookReviewHostContext {
   taskId: string;
@@ -159,6 +160,11 @@ export interface ZCodeAppOptions {
   browserControlPort?: BrowserControlPort;
   /** 可由协议宿主注入的进程级 node_repl Browser broker；缺省时 app 自建并拥有。 */
   nodeReplBrowserBroker?: NodeReplBrowserBroker;
+  /**
+   * 协议宿主在 Host 声明本机串口能力（ZCODE_HOST_SERIAL=1）时创建的进程级串口 broker。
+   * 注入后才注册 serial MCP server；缺省则模型看不到串口工具。
+   */
+  serialBroker?: Pick<SerialBroker, "socketPath" | "token">;
   fileSystemPort?: FileSystemPort;
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;

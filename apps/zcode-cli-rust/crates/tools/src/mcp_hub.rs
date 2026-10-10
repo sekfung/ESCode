@@ -43,6 +43,8 @@ pub(super) struct Hub {
     host: Arc<std::sync::OnceLock<crate::contract::EventSink>>,
     /// node_repl 浏览器 broker（首次出现 node_repl 配置时启动，docs/specs/rust-browser-use.md 第 2 期）。
     broker: std::sync::OnceLock<Option<Arc<super::browser_broker::Broker>>>,
+    /// 串口 broker（首次出现 serial 配置时启动，docs/specs/serial-agent-tools.md）。
+    serial: std::sync::OnceLock<Option<Arc<super::serial_broker::SerialBroker>>>,
     state: Arc<RwLock<State>>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
@@ -66,6 +68,7 @@ impl Hub {
             credentials: Default::default(),
             host: Default::default(),
             broker: Default::default(),
+            serial: Default::default(),
             state: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
@@ -155,8 +158,13 @@ impl Hub {
         // 内置 node_repl 只属于会话运行时；设置页 mcp/list 不列出、也不为此启动宿主（TS 同）。
         let configs: Vec<_> = configs
             .into_iter()
-            .filter(|c| session != "mcp-status" || c.name != super::mcp_node_repl::NAME)
+            .filter(|c| {
+                session != "mcp-status"
+                    || (c.name != super::mcp_node_repl::NAME && c.name != super::mcp_serial::NAME)
+            })
             .map(|mut c| {
+                // serial 经私有 broker 访问 Host 的串口会话：socket 与 token 只注入它的 env。
+                self.inject_serial_broker(&mut c);
                 // node_repl 经私有 broker 访问浏览器：socket 与 token 只注入它的 env。
                 if c.name == super::mcp_node_repl::NAME
                     && let Some(broker) = self.broker()
@@ -294,6 +302,7 @@ impl Hub {
         if let Some(Some(broker)) = self.broker.get() {
             broker.remember(session, meta);
         }
+        self.remember_serial(session, meta);
         let mut output = binding
             .connection
             .call(&binding.original, args, meta, artifacts, cancel)
@@ -364,6 +373,8 @@ impl Hub {
 mod browser;
 #[path = "mcp_hub_oauth.rs"]
 mod oauth;
+#[path = "mcp_hub_serial.rs"]
+mod serial;
 fn bind(
     server: &Server,
     key: &str,

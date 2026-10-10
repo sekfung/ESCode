@@ -41,6 +41,13 @@ import { integratedTerminalShellSelectionSchema } from "../validationAppSettings
 import { zcodeTaskModeSchema } from "../zcode-task-mode-schema.js";
 import { OFFICIAL_MCP_AUTH_PORT_FAILURE_REASONS } from "../official-mcp-auth.js";
 import {
+  zcodeSerialCancelMethod,
+  zcodeSerialCancelParamsSchema,
+  zcodeSerialMethodParamsSchemas,
+  zcodeSerialMethodResultSchemas,
+  zcodeSerialMethods,
+} from "../serial/serialAgentTools.js";
+import {
   zcodeDeliveryKindSchema,
   zcodeMessageVisibilitySchema,
   zcodeSyntheticUserMessageSourceSchema as legacyZcodeSyntheticUserMessageSourceSchema,
@@ -3672,6 +3679,14 @@ export const zcodeProtocolMethods = {
   // browser-use 反向请求由 agent 发起，host 转给 main 中的 CDP executor。
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",
+  // Agent 串口工具：agent broker 转发 MCP serial 工具调用，host 交给 Desktop Local Host 的 SerialService。
+  interactionSerialList: zcodeSerialMethods.list,
+  interactionSerialOpen: zcodeSerialMethods.open,
+  interactionSerialWrite: zcodeSerialMethods.write,
+  interactionSerialRead: zcodeSerialMethods.read,
+  interactionSerialWaitFor: zcodeSerialMethods.waitFor,
+  interactionSerialClose: zcodeSerialMethods.close,
+  interactionSerialCancel: zcodeSerialCancelMethod,
 } as const;
 
 export type ZCodeProtocolMethod = (typeof zcodeProtocolMethods)[keyof typeof zcodeProtocolMethods];
@@ -3696,6 +3711,34 @@ export const zcodeProtocolSessionMethodContracts = {
   [zcodeProtocolMethods.interactionBrowserExecute]: {
     params: zcodeBrowserExecuteParamsSchema,
     result: zcodeBrowserExecuteResultSchema,
+  },
+  [zcodeProtocolMethods.interactionSerialList]: {
+    params: zcodeSerialMethodParamsSchemas.list,
+    result: zcodeSerialMethodResultSchemas.list,
+  },
+  [zcodeProtocolMethods.interactionSerialOpen]: {
+    params: zcodeSerialMethodParamsSchemas.open,
+    result: zcodeSerialMethodResultSchemas.open,
+  },
+  [zcodeProtocolMethods.interactionSerialWrite]: {
+    params: zcodeSerialMethodParamsSchemas.write,
+    result: zcodeSerialMethodResultSchemas.write,
+  },
+  [zcodeProtocolMethods.interactionSerialRead]: {
+    params: zcodeSerialMethodParamsSchemas.read,
+    result: zcodeSerialMethodResultSchemas.read,
+  },
+  [zcodeProtocolMethods.interactionSerialWaitFor]: {
+    params: zcodeSerialMethodParamsSchemas.waitFor,
+    result: zcodeSerialMethodResultSchemas.waitFor,
+  },
+  [zcodeProtocolMethods.interactionSerialClose]: {
+    params: zcodeSerialMethodParamsSchemas.close,
+    result: zcodeSerialMethodResultSchemas.close,
+  },
+  [zcodeProtocolMethods.interactionSerialCancel]: {
+    params: zcodeSerialCancelParamsSchema,
+    result: zcodeProtocolEmptyResultSchema,
   },
 } as const satisfies Partial<
   Record<ZCodeProtocolMethod, { params: z.ZodTypeAny; result: z.ZodTypeAny }>

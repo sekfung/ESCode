@@ -509,6 +509,28 @@ importers:
         specifier: ^5.9.0
         version: 5.9.3
 
+  apps/zcode-cli/packages/serial-plugin:
+    dependencies:
+      '@modelcontextprotocol/server':
+        specifier: 2.0.0
+        version: 2.0.0
+      '@zcode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
   apps/zcode-cli/packages/shared-types:
     devDependencies:
       '@types/node':

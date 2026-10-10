@@ -197,6 +197,9 @@ export const resolveBuildAliases = ({
     "../../packages/shared/src/zcodeEndpoint.ts",
   ),
   "@zcode/shared/node": resolve(rootDirectory, "../../packages/shared/src/node.ts"),
+  // Agent 串口工具契约（serial broker / 官方 serial 插件）；漏声明同样会被通用前缀改写成
+  // `src/index.ts/serial`，Desktop agent/SEA 打包失败。
+  "@zcode/shared/serial": resolve(rootDirectory, "../../packages/shared/src/serial/index.ts"),
   "@zcode/shared": resolve(rootDirectory, "../../packages/shared/src/index.ts"),
   "@zcode/core": resolve(cliDirectory, "../core/dist/index.js"),
 });
