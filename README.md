@@ -32,6 +32,10 @@ Electron 二进制不由 npm registry 分发。`.npmrc` 已把 `electron_mirror`
 
 Agent CLI 与运行时源码位于 [apps/escode-cli/](apps/escode-cli/)，作为普通目录随本仓库一起克隆，无需单独拉取或初始化 Git submodule。
 
+## 关于本仓库与上游
+
+ESCode 是 ZCode 的衍生作品，依 Apache-2.0 授权；上游源码版权归 Z.AI Co., Ltd 所有。产品名称、包名、路径、环境变量与图标已更名为 ESCode，而上游的版权、修改声明与服务地址保持不变——保留范围与本次修改的登记见 [NOTICE.md](NOTICE.md) 第五节，第三方许可清单见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)，执行明细见 [更名 spec](docs/specs/escode-rebrand.md)。
+
 根据需要选择其他初始化或构建入口：
 
 | 命令                           | 用途                                                              |
@@ -126,9 +130,9 @@ node apps/escode-cli/packages/cli/dist/escode.cjs --help
 
 根目录 [.env.example](.env.example) 提供服务地址与构建配置示例，可按需复制到 `.env`，本地覆盖放入 `.env.local`。Desktop 的开发环境通过 `dev:desktop:test` / `dev:desktop:prod` 选择。
 
-| 配置                                 | 用途                                             |
-| ------------------------------------ | ------------------------------------------------ |
-| `ESCODE_DATA_BASE_DIR`                | 应用数据基目录，数据写入其下的 `.escode/`         |
+| 配置                                  | 用途                                             |
+| ------------------------------------- | ------------------------------------------------ |
+| `ESCODE_DATA_BASE_DIR`                | 应用数据基目录，数据写入其下的 `.escode/`        |
 | `ESCODE_SERVER_WORKSPACE`             | Web 后端的工作区路径                             |
 | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` | 本地 Provider 配置文件路径；未设置时使用内置配置 |
 | `ESCODE_DIST_BASE_URL`                | 命令行安装脚本使用的下载根地址                   |
@@ -211,12 +215,12 @@ node dist/escode/debug/escode/bin/escode.mjs --web \
 | `packages/desktop`                                   | Electron Main、Host、Renderer 与桌面打包   |
 | `packages/web`                                       | Web 客户端                                 |
 | `packages/server`                                    | HTTP / WebSocket 服务与远程连接            |
-| `packages/escode-server-cli`                          | 独立 Server 启动与进程管理                 |
+| `packages/escode-server-cli`                         | 独立 Server 启动与进程管理                 |
 | `packages/ui`                                        | 共享 React 组件、hooks 与 Zustand 状态     |
 | `packages/services`                                  | 业务服务与持久化                           |
 | `packages/shared`、`packages/rpc`、`packages/client` | 共享协议和类型、RPC 框架、Agent 客户端 SDK |
 | `packages/provider`、`packages/provider-node`        | Provider 公共能力与 Node 实现              |
-| `apps/escode-cli`                                     | Agent CLI、TUI、运行时与工具               |
+| `apps/escode-cli`                                    | Agent CLI、TUI、运行时与工具               |
 | `scripts`、`config`、`third-party`                   | 构建维护脚本、内置配置与第三方声明材料     |
 
 ## 项目声明

@@ -31,6 +31,10 @@ Electron binaries are not distributed through the npm registry. `.npmrc` pins `e
 
 The Agent CLI and runtime source code lives in [apps/escode-cli/](apps/escode-cli/) as a regular directory included when you clone this repository. No separate checkout or Git submodule initialization is required.
 
+## Upstream and attribution
+
+ESCode is a derivative work of ZCode, distributed under Apache-2.0; copyright in the upstream source remains with Z.AI Co., Ltd. Product name, package names, paths, environment variables and icons have been renamed to ESCode, while upstream copyright notices, modification notices and service addresses are kept as-is. The retained material and the record of our changes are in [NOTICE.md](NOTICE.md) section 5, the third-party licence inventory is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), and the execution details are in the [rebrand spec](docs/specs/escode-rebrand.md).
+
 Additional setup and build commands:
 
 | Command                        | Purpose                                                                                                                             |
@@ -121,9 +125,9 @@ This entry runs the Agent CLI directly and does not handle the distribution's `-
 
 The root [.env.example](.env.example) provides sample service URLs and build configuration. Copy it to `.env` as needed and place local overrides in `.env.local`. Select the Desktop development environment with `dev:desktop:test` or `dev:desktop:prod`.
 
-| Setting                              | Purpose                                                                                 |
-| ------------------------------------ | --------------------------------------------------------------------------------------- |
-| `ESCODE_DATA_BASE_DIR`                | Base directory for application data, stored under its `.escode/` subdirectory            |
+| Setting                               | Purpose                                                                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ESCODE_DATA_BASE_DIR`                | Base directory for application data, stored under its `.escode/` subdirectory           |
 | `ESCODE_SERVER_WORKSPACE`             | Workspace path for the Web backend                                                      |
 | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` | Path to a local provider configuration file; uses the built-in configuration when unset |
 | `ESCODE_DIST_BASE_URL`                | Download base URL used by the CLI distribution installer                                |
@@ -200,12 +204,12 @@ Open `http://127.0.0.1:3030` to validate the complete flow, with one backend ser
 | `packages/desktop`                                   | Electron Main, Host, Renderer, and desktop packaging                                    |
 | `packages/web`                                       | Web client                                                                              |
 | `packages/server`                                    | HTTP / WebSocket services and remote connections                                        |
-| `packages/escode-server-cli`                          | Standalone server startup and process management                                        |
+| `packages/escode-server-cli`                         | Standalone server startup and process management                                        |
 | `packages/ui`                                        | Shared React components, hooks, and Zustand state                                       |
 | `packages/services`                                  | Business services and persistence                                                       |
 | `packages/shared`, `packages/rpc`, `packages/client` | Shared protocols and types, RPC framework, and Agent client SDK                         |
 | `packages/provider`, `packages/provider-node`        | Common provider capabilities and Node implementations                                   |
-| `apps/escode-cli`                                     | Agent CLI, TUI, runtime, and tools                                                      |
+| `apps/escode-cli`                                    | Agent CLI, TUI, runtime, and tools                                                      |
 | `scripts`, `config`, `third-party`                   | Build and maintenance scripts, built-in configuration, and third-party notice materials |
 
 ## Project Notice
