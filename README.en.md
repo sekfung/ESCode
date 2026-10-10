@@ -27,6 +27,8 @@ pnpm bootstrap
 
 `pnpm bootstrap` installs workspace dependencies, prepares local desktop runtime assets, and runs `build:bootstrap`.
 
+Electron binaries are not distributed through the npm registry. `.npmrc` pins `electron_mirror` to npmmirror, so `pnpm install` and `pnpm bootstrap` download the Electron runtime from that mirror without any extra environment variable. To use another mirror, edit `electron_mirror` in `.npmrc`; project-level config takes precedence over the `ELECTRON_MIRROR` environment variable.
+
 The Agent CLI and runtime source code lives in [apps/zcode-cli/](apps/zcode-cli/) as a regular directory included when you clone this repository. No separate checkout or Git submodule initialization is required.
 
 Additional setup and build commands:

@@ -11,8 +11,6 @@
   简体中文 | <a href="README.en.md">English</a>
 </p>
 
-
-
 ZCode 是 AI 编程工作台，提供桌面应用、浏览器界面和终端 Agent。本仓库包含客户端、后端服务、共享 UI，以及 Agent CLI 与运行时源码。
 
 ## 更新
@@ -29,6 +27,8 @@ pnpm bootstrap
 ```
 
 `pnpm bootstrap` 安装 workspace 依赖、准备桌面本地运行资源，再执行 `build:bootstrap`。
+
+Electron 二进制不由 npm registry 分发。`.npmrc` 已把 `electron_mirror` 固定到 npmmirror，因此 `pnpm install` / `pnpm bootstrap` 会直接从该镜像下载 Electron 运行时，不需要额外设置环境变量。需要改用其他镜像时修改 `.npmrc` 里的 `electron_mirror`：项目级配置的优先级高于 `ELECTRON_MIRROR` 环境变量。
 
 Agent CLI 与运行时源码位于 [apps/zcode-cli/](apps/zcode-cli/)，作为普通目录随本仓库一起克隆，无需单独拉取或初始化 Git submodule。
 
