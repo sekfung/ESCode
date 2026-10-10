@@ -33,7 +33,7 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 
 | 缺口                                       | 决定                                                                                          |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| 动态工作流                                 | 已实现（2026-10，TS 引擎跑在工作流宿主、Rust 驱动；见 rust-dynamic-workflow.md）               |
+| 动态工作流                                 | 已实现（2026-10，TS 引擎跑在工作流宿主、Rust 驱动；见 rust-dynamic-workflow.md）              |
 | Cron 工具（CronCreate/List/Update/Delete） | 实现，与 Node 对齐                                                                            |
 | ReadSessionContext                         | 完整对齐：跨 workspace 查 Rust 库，未导入的会话只读回落 TS 库；注入 `#sess_*` 引用提醒        |
 | output style / 自定义 system               | 无需实现：App stdio 链路没有入口（插件 `outputStyles` 仅诊断，`systemPrompt` 只供工作流使用） |
@@ -86,6 +86,16 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/zcode-
 - 回退：设置 `ZCODE_AGENT_SERVER_RUNTIME=node` 后重启 App；数据边界不变（Rust 只读 TS 库，回退后 Rust 期会话在
   Node 侧不可见，已由用户确认可接受）。
 - 草稿 Release `v3.14.0-rust-rc.1` 保留为草稿（用户决定），未公开。
+
+### 2026-10-10 发布回退复验（对照 ZCode-rs 补齐六项之后）
+
+`-p` 无头模式、断流恢复、重试原因码、日志保留、Bash 解析对齐、客户端 / 归因头合入后（提交 5b78d41），重新复验：
+
+- rust-runtime-ci run 37789222331：checks 与三平台 test / bench 全部通过。
+- release 工作流 run 38018557841（workflow_dispatch，不发布）：6 个 Rust runtime 目标（含 x86_64 / aarch64 MSVC）、
+  4 个平台安装包、四平台安装包 Node → Rust → Node 演练全部通过；`publish GitHub Release` 按设计跳过。
+
+默认 runtime 维持 Rust。
 
 补充硬性要求：发布验收必须用 MSVC 目标构建——已由 GitHub CI 与 release 工作流满足（2026-09-25）。
 
