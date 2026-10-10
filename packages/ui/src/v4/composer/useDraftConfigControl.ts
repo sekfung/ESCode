@@ -36,7 +36,7 @@ import {
 import { resolveAppFollowupMode } from "@/v4/composer/followupModeSettings.js";
 import { logger } from "@/logger.js";
 
-function applyDraftModelSelection(
+export function applyDraftModelSelection(
   current: Partial<SessionConfigState>,
   model: ModelSelection,
 ): Partial<SessionConfigState> {
@@ -56,7 +56,7 @@ function applyDraftModelSelection(
   return next;
 }
 
-interface DraftConfigControl {
+export interface DraftConfigControl {
   executionCapabilities?: RuntimeExecutionCapabilities;
   executionReady: boolean;
   executionError: boolean;

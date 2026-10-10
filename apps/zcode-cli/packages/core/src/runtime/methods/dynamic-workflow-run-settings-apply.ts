@@ -35,6 +35,7 @@ import {
   writeWorkflowDraft,
 } from "../../tool/handlers/workflow-drafts.js";
 import { analyzeScript } from "../../tool/handlers/workflow-script-analysis.js";
+import { bindScriptModels } from "../../tool/handlers/workflow-script-models.js";
 import type { ExecutableToolCall } from "../../tool/types.js";
 import { boundedCompileDiagnostics } from "./dynamic-workflow-run-start.js";
 import {
@@ -55,7 +56,10 @@ export type AmendWorkflowRunSettingsRejection =
   | "missing_boundaries"
   | "start_failed";
 
-/** 两项设置守工具的三态：省略 = 沿用，`null` = 回到默认（会话模型 / 本机上限），值 = 设定。 */
+/**
+ * 两项设置守工具的三态（docs/dynamic-workflow/launch.md「The command」）：
+ * 省略 = 沿用，`null` = 回到默认（会话模型 / 默认并发），值 = 设定。
+ */
 export interface WorkflowRunSettingsRequest {
   runId: string;
   subagentModel?: string | null;
@@ -146,12 +150,13 @@ export async function applyWorkflowRunSettings(
       ...(deps.modelCatalogPort === undefined ? {} : { message: model.message }),
     };
   }
-  const ceiling = port.concurrencyCeiling?.();
-  const bound = resolveAmendMaxConcurrency(input.maxConcurrency, current.maxConcurrency, ceiling);
-  // 等于天花板的界就是「没有自己的界」：快照只在低于天花板时带 maxConcurrency，两边同一个读法，
-  // 「未改」的比较才成立（弹层把步进器推到顶也发 null，这里兜住直接给数的调用方）。
+  const defaultConcurrency = port.defaultConcurrency?.();
+  const bound = resolveAmendMaxConcurrency(input.maxConcurrency, current.maxConcurrency);
+  // 等于默认并发的界就是「没有自己的界」：快照只在不等于默认时带 maxConcurrency，两边同一个读法，
+  // 「未改」的比较才成立（弹层把步进器停在默认上也发 null，这里兜住直接给数的调用方）。高于默认
+  // 的界与低于默认的一样是这个 run 自己的界。
   const nextBound =
-    bound.max_concurrency === undefined || bound.max_concurrency === ceiling
+    bound.max_concurrency === undefined || bound.max_concurrency === defaultConcurrency
       ? undefined
       : bound.max_concurrency;
   const next: RunSettings = {
@@ -163,11 +168,12 @@ export async function applyWorkflowRunSettings(
   const boundChanged = next.maxConcurrency !== current.maxConcurrency;
   if (!modelChanged && !boundChanged) return { ok: false, reason: "unchanged" };
 
-  // (6) 分叉：只有并发变了、run 又在飞，就地生效——同一个 runId，不停、不铸后继、不导入缓存。
+  // (6) 分叉（docs/dynamic-workflow/launch.md「On the agent」）：只有并发变了、run 又在飞，就地
+  // 生效——同一个 runId，不停、不铸后继、不导入缓存。
   // 端口答 not_live（已结算，或 pending 但引擎还没建）就顺着这张表往下走，落成今天那次修订。
   if (boundChanged && !modelChanged && typeof port.retuneConcurrency === "function") {
-    // 弹层的 `null` 原样递到端口：天花板那个数只有端口知道，这里不猜第二遍。缺席只可能来自
-    // 「沿用的界高过本机天花板」（run 是在更大的机器上起的），那时要的也正是回到天花板。
+    // 弹层的 `null` 原样递到端口：默认并发那个数只有端口知道，这里不猜第二遍。缺席只可能来自
+    // 「给的数正好等于默认」（上面已折成缺席），那时要的也正是回到默认。
     const answer = await port.retuneConcurrency({
       runId: input.runId,
       maxConcurrency: input.maxConcurrency ?? null,
@@ -202,6 +208,22 @@ export async function applyWorkflowRunSettings(
       ),
     };
   }
+
+  // (8b) 脚本点名的模型：重跑的是这个 run 自己的脚本，每个名字在 launch 时都绑定过，照旧沿用那张表
+  // 并对着目录再解析一遍（docs/dynamic-workflow/launch.md「On the agent」）。沿用的模型没了就停在
+  // 这里——与「弹层选的模型解不出来」同一个原因码，旧 run 不动。
+  const models = bindScriptModels(analysis, deps.modelCatalogPort, snapshot.modelBindings);
+  if (models.unbound.length > 0) {
+    return {
+      ok: false,
+      reason: "model_unavailable",
+      message: boundedCompileDiagnostics(
+        `The models named in the script of run ${input.runId} cannot be used now:`,
+        models.unbound,
+      ),
+    };
+  }
+  const modelSelections = models.selections;
 
   // —— 到此为止零副作用。——
   //
@@ -241,6 +263,7 @@ export async function applyWorkflowRunSettings(
       ...(phaseAlongside === undefined ? {} : { phaseAlongside }),
       ...(next.maxConcurrency === undefined ? {} : { maxConcurrency: next.maxConcurrency }),
       ...(subagentModel === undefined ? {} : { subagentModel }),
+      ...(modelSelections === undefined ? {} : { modelBindings: modelSelections }),
       ...(scriptPath === undefined ? {} : { scriptPath }),
       // 重跑的是前驱自己的脚本，它读的正是前驱启动时的实参。
       inheritArgs: true,
@@ -270,7 +293,8 @@ export async function applyWorkflowRunSettings(
     ...(boundChanged
       ? { maxConcurrency: fromTo(current.maxConcurrency, next.maxConcurrency) }
       : {}),
-    ...(ceiling === undefined ? {} : { ceiling }),
+    // 线上键名 `ceiling` 早于「默认并发」这个概念，为兼容旧端保留，装的是默认并发 D。
+    ...(defaultConcurrency === undefined ? {} : { ceiling: defaultConcurrency }),
   };
   // 后台追踪的合成 AmendWorkflow 描述子：`input.name` 喂通知主题，工具名让分派归 "workflow"。
   const toolCall: ExecutableToolCall = {
@@ -320,14 +344,14 @@ function retunedSettings(options: {
 }): WorkflowRunSettingsApplyResult {
   const { answer, name, runId } = options;
   const toolCallId = `settings-${randomUUID()}`;
-  // 等于天花板的那一端就是「默认」，于是整端缺席——与修订那条路同一个读法（弹层把步进器推到顶
-  // 发的是 `null`，端口答回来的却永远是绝对值，折算只能在这里做）。
+  // 等于默认并发的那一端就是「默认」，于是整端缺席——与修订那条路同一个读法（弹层把步进器停在
+  // 默认上发的是 `null`，端口答回来的却永远是绝对值，折算只能在这里做）。线上键 `ceiling` 装 D。
   const amend: WorkflowSettingsAmendMeta = {
     maxConcurrency: fromTo(
-      answer.previous === answer.ceiling ? undefined : answer.previous,
-      answer.maxConcurrency === answer.ceiling ? undefined : answer.maxConcurrency,
+      answer.previous === answer.defaultConcurrency ? undefined : answer.previous,
+      answer.maxConcurrency === answer.defaultConcurrency ? undefined : answer.maxConcurrency,
     ),
-    ceiling: answer.ceiling,
+    ceiling: answer.defaultConcurrency,
   };
   return {
     ok: true,

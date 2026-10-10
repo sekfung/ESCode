@@ -5,6 +5,7 @@ import {
   createWorkflowPhaseAlongside,
   createWorkflowPhaseNames,
   type DynamicWorkflowRunPort,
+  type ModelCatalogPort,
   type SavedWorkflowScope,
   type TraceContext,
 } from "@zcode/contracts";
@@ -20,6 +21,7 @@ import {
 } from "../../tool/handlers/workflow-analysis-display.js";
 import { writeWorkflowDraft } from "../../tool/handlers/workflow-drafts.js";
 import { analyzeScript } from "../../tool/handlers/workflow-script-analysis.js";
+import { bindScriptModels } from "../../tool/handlers/workflow-script-models.js";
 import type { ExecutableToolCall } from "../../tool/types.js";
 
 /**
@@ -71,6 +73,8 @@ export async function launchSavedWorkflowRun(input: {
   name: string;
   scope?: SavedWorkflowScope;
   args?: Record<string, unknown>;
+  /** 解析脚本点名的模型；缺席即「宿主解不了模型名」，点名了模型的脚本按 compile_failed 拒绝。 */
+  modelCatalogPort?: ModelCatalogPort;
   traceContext: TraceContext;
   beforeSubmit?: (titleInput: string) => Promise<void>;
 }): Promise<SavedWorkflowLaunchResult> {
@@ -119,16 +123,21 @@ export async function launchSavedWorkflowRun(input: {
   // (2) 编译。任一诊断即拒绝——与 CreateWorkflow 对编不过脚本的处理同一条原则（弹一个注定失败的
   // run 只是延迟同一个错误）。诊断进 message，有界。
   const analysis = analyzeScript(found.script);
-  if (!analysis.ok || analysis.diagnostics.length > 0) {
+  // 脚本点名的模型与 CreateWorkflow 同一段代码解析（docs/dynamic-workflow/launch.md「Models the script
+  // names」）；没绑定的名字是 9011，与编译诊断一起按 compile_failed 拒绝。
+  const models = analysis.ok ? bindScriptModels(analysis, input.modelCatalogPort) : undefined;
+  const diagnostics = [...analysis.diagnostics, ...(models?.unbound ?? [])];
+  if (!analysis.ok || diagnostics.length > 0) {
     return {
       ok: false,
       reason: "compile_failed",
       message: boundedCompileDiagnostics(
         `The saved workflow '${found.name}' has errors:`,
-        analysis.diagnostics,
+        diagnostics,
       ),
     };
   }
+  const modelSelections = models?.selections;
 
   // —— 到此为止零副作用：无 run、无消息、无事件、无任务。——
 
@@ -173,6 +182,7 @@ export async function launchSavedWorkflowRun(input: {
       launchInputId,
       ...(phaseNames === undefined ? {} : { phaseNames }),
       ...(phaseAlongside === undefined ? {} : { phaseAlongside }),
+      ...(modelSelections === undefined ? {} : { modelBindings: modelSelections }),
       ...(draft === undefined ? {} : { scriptPath: draft.path }),
       trace: input.traceContext,
     });

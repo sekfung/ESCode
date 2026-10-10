@@ -10,6 +10,7 @@ import {
   formatWorkflowStallNotification,
 } from "../../runtime-task/notification.js";
 import type { AgentRuntimeInternal } from "../internal.js";
+import { notifyHoleReached } from "./dynamic-workflow-run-hole-notification.js";
 
 /**
  * 把一条 workflow run 进度事件追加到**父会话**（run 自己没有会话）。
@@ -39,9 +40,13 @@ export async function recordDynamicWorkflowRunProgress(
   );
   const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
   const notification = buildWorkflowRunProgressNotification(payload, runLabel, this.logger);
-  if (notification === undefined) return;
-  // taskId = runId：通知继承该 run 的 branchGeneration（迟到通知的 fencing）；兜底是快照查询。
-  this.enqueueBackgroundTaskNotification({ ...notification, taskId: payload.runId, traceContext });
+  if (notification !== undefined) {
+    // taskId = runId：通知继承该 run 的 branchGeneration（迟到通知的 fencing）；兜底是快照查询。
+    this.enqueueBackgroundTaskNotification({ ...notification, taskId: payload.runId, traceContext });
+  }
+  // 留白（dynamic-workflow-run-hole-notification.ts）：要读一次快照补齐类型 / 草稿 / 前后阶段，所以是
+  // 三条里唯一异步的一条；事件已经落库，等它只是等通知入队。
+  await notifyHoleReached.call(this, payload, traceContext);
 }
 
 type ProgressNotification = { text: string; originMeta: BackgroundResultOriginMeta };

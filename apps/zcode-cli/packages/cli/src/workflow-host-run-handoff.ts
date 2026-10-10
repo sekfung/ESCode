@@ -38,6 +38,9 @@ export function createWorkflowRunHandoff(deps: WorkflowRunHandoffDeps) {
       session: string,
       params: Record<string, any>,
     ): Promise<Record<string, unknown>> => {
+      // 脚本点名的模型对着 Rust 递来的模型目录解析（与 amendSettings 同一个来源）；缺席即「宿主解不了
+      // 模型名」，点名了模型的脚本按 compile_failed 拒绝，与 Node 端口缺席同一条判定。
+      const models = Array.isArray(params.models) ? params.models : undefined;
       const launched = await launchSavedWorkflowRun({
         port: deps.port(session),
         cwd: typeof params.cwd === "string" ? params.cwd : process.cwd(),
@@ -45,6 +48,7 @@ export function createWorkflowRunHandoff(deps: WorkflowRunHandoffDeps) {
         name: String(params.name),
         ...(params.scope === undefined ? {} : { scope: params.scope }),
         ...(params.args === undefined ? {} : { args: params.args }),
+        ...(models === undefined ? {} : { modelCatalogPort: { listModels: () => models } }),
         traceContext: { traceId: `${LAUNCH_TRACE_PREFIX}${session}` } as never,
       });
       if (!launched.ok) return launched as unknown as Record<string, unknown>;

@@ -65,11 +65,16 @@ function V4ComposerModeSwitchImpl({
   const modeShortcutLabel = useShortcutCommandLabel("cycleSessionMode");
   const modes = getZCodeAgentAvailableModes();
   const permissions = modes.filter((mode) => mode.id !== "plan");
-  // 历史内部权限（如 auto）也必须保留可切换入口，不能因不在菜单中而把按钮隐藏。
-  const selected = permissions.find((mode) => mode.id === draftConfig?.mode) ?? {
-    id: draftConfig?.mode ?? "build",
-    name: draftConfig?.mode ?? "Ask before changes",
-  };
+  // 新菜单隐藏 Edit，但历史草稿仍可回显，不能因候选变化隐藏整个权限入口；其它历史内部权限
+  // （如 auto）同样保留可切换入口，不能因不在菜单中而把按钮隐藏。
+  const selected =
+    permissions.find((mode) => mode.id === draftConfig?.mode) ??
+    (draftConfig?.mode === "edit"
+      ? { id: "edit", name: "Edit" }
+      : {
+          id: draftConfig?.mode ?? "build",
+          name: draftConfig?.mode ?? "Ask before changes",
+        });
   const label = (mode: (typeof modes)[number]) =>
     getModeOptionDisplayLabel(intl, displayProvider, { value: mode.id, name: mode.name });
   const plan = modes.find((mode) => mode.id === "plan")!;
@@ -130,6 +135,8 @@ function V4ComposerModeSwitchImpl({
               className={cn(
                 "group/mode h-7 gap-1 rounded-lg px-2 text-ui-base data-[composer-compact=true]:w-7 data-[composer-compact=true]:px-0",
                 selected.id === "yolo" && "text-warning hover:text-warning",
+                selected.id === "guarded" &&
+                  "text-icon-blue hover:text-icon-blue aria-expanded:text-icon-blue",
               )}
             >
               <Icon className="size-4" />

@@ -1,6 +1,7 @@
 import { traceContextToLogContext } from "../deps.js";
 import type { TraceContext } from "@zcode/contracts";
 import type { AgentRuntimeInternal } from "../internal.js";
+import { activateDynamicWorkflowTools } from "./dynamic-workflow-activation.js";
 import {
   applyWorkflowRunSettings,
   type AmendWorkflowRunSettingsRejection,
@@ -11,8 +12,8 @@ export { buildSettingsMessageText } from "./dynamic-workflow-run-settings-turn.j
 export type { AmendWorkflowRunSettingsRejection };
 
 /**
- * GUI「配置」的请求。两项设置守工具的三态：
- * 省略 = 沿用，`null` = 回到默认（会话模型 / 本机上限），值 = 设定。
+ * GUI「配置」的请求（docs/dynamic-workflow/launch.md「The command」）。两项设置守工具的三态：
+ * 省略 = 沿用，`null` = 回到默认（会话模型 / 默认并发），值 = 设定。
  */
 export interface AmendWorkflowRunSettingsInput {
   runId: string;
@@ -29,7 +30,7 @@ export type AmendWorkflowRunSettingsResult =
  * GUI「配置」的 runtime 落地：判定与执行全在 {@link applyWorkflowRunSettings}（与工作流宿主共用
  * 同一段实现），这里只补会话侧的记账。
  *
- * 顺序固定：追踪重臂 → 设置轮入队。设置轮排进运行时队列（priority `next`），与通知同优先级；不
+ * 顺序固定：追踪重臂 → 激活工作流工具面 → 设置轮入队。设置轮排进运行时队列（priority `next`），与通知同优先级；不
  * 先重臂的话，一个很快结算的 run 的完成通知会先于设置轮落成后台结果轮。
  *
  * 之后的失败只记日志不回滚：新 run 已在飞，可在侧板停下；撤回它反而制造孤儿。
@@ -56,6 +57,9 @@ export async function amendWorkflowRunSettings(
         undefined,
       );
     }
+    // 配置成功（含就地调并发）即激活工具面（launch.md「On demand: activation」）：设置轮之后 run 的
+    // 通知会让模型去调 GetWorkflowRun。
+    await activateDynamicWorkflowTools.call(this, { source: "run_control", traceContext });
     enqueueSettingsTurn.call(this, { ...applied.turn, traceContext });
   } catch (error) {
     const amending = applied.postPhase === "amend";

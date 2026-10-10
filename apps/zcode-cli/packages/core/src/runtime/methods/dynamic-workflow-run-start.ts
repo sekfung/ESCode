@@ -2,6 +2,7 @@ import type { SavedWorkflowScope, TraceContext } from "@zcode/contracts";
 import { createMessageId, traceContextToLogContext } from "../deps.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 import { emitControlOnlyUserTurn, persistWorkflowLaunchUserMessage } from "./control-only-turn.js";
+import { activateDynamicWorkflowTools } from "./dynamic-workflow-activation.js";
 import {
   launchSavedWorkflowRun,
   type SavedWorkflowLaunchRejection,
@@ -56,6 +57,7 @@ export async function startSavedWorkflowRun(
     name: input.name,
     ...(input.scope === undefined ? {} : { scope: input.scope }),
     ...(input.args === undefined ? {} : { args: input.args }),
+    ...(this.modelCatalogPort === undefined ? {} : { modelCatalogPort: this.modelCatalogPort }),
     traceContext,
     // 提交前先初始化上下文并持久化父会话。actor 的 session_task_link 通过
     // parent_session_id 引用父会话；父行不存在时，首个 actor 的创建会因外键约束失败。
@@ -64,6 +66,9 @@ export async function startSavedWorkflowRun(
     beforeSubmit: async (titleInput) => {
       await this.ensureContextInitialized(traceContext);
       await this.ensureSessionPersisted(titleInput, traceContext);
+      // 直接启动即激活工具面（launch.md「On demand: activation」）：启动轮之后的通知要模型去调
+      // GetWorkflowRun；放在落盘之后，entry 才有会话可挂。
+      await activateDynamicWorkflowTools.call(this, { source: "run_control", traceContext });
     },
   });
   if (!launched.ok) return launched;
