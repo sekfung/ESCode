@@ -27,6 +27,12 @@
 5. Z.AI 运营的服务端点：`zcode.z.ai`、`cdn-zcode.z.ai`（含正则转义与大小写变体）。这是外部服务的地址，不是本产品品牌；改名会同时破坏登录、模型网关与分享链路，且我们并不拥有对应域名。代码中按“上游服务地址”保留，并在本 spec 与本轮变更说明中登记。
 6. 第三方依赖名、上游仓库 URL、`Z.AI`/`z.ai` 等第三方标识。
 
+### 裁定记录（2026-10-10）
+
+「代码不出现 ZCode」与「不得修改源代码的归属权」在第 3–5 项上直接冲突，需在两者间定界。本次执行采用**豁免**口径：第 3、4 项（上游修改声明）与第 5 项（Z.AI 服务端点）保留现状，理由是 Apache-2.0 第 4(b)/4(c) 条要求保留修改与归属声明，而端点改名会打断登录、模型网关、插件市场与自动更新。该口径已向用户请求裁定但未获答复，此处按推荐口径执行并登记为可回退假设。
+
+若要达成「代码零 `zcode`」，需要自建后端并替换默认端点，涉及位置：`.env.example`、`config/provider/escode-builtin.json`（`baseUrl`/`baseUrlMatch`）、`apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts`、`apps/escode-cli/packages/adapters/src/model/official-coding-plan-gateway.ts`、`apps/escode-cli/packages/bootstrap/src/app/official-plugin-definitions.ts`、`packages/shared/src/escodeEndpoint.ts`、`packages/shared/src/plugin-marketplaces.ts`、`packages/desktop/src/main/remoteCdn.ts`、`packages/services/src/session/offPeak{ServerClient,TaskService}.ts`、Rust `crates/domain/src/mcp_official_auth.rs`、`crates/model/src/client_headers.rs`、`crates/tools/src/{plugin_marketplace.rs,official_plugins.json}` 及其生成器与语料。其中归属声明（第 3、4 项）无论何种口径都应保留。
+
 ## 三、影响与已知后果
 
 - 安装包身份、`appId`、Linux 包名与可执行名改为 ESCode 命名空间；Windows 开发态 AUMID 从 `cn.aminer.zcode` 改为 `dev.escode.app.dev`，与正式 `appId` 同源。

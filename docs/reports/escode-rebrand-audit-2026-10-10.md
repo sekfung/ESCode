@@ -17,18 +17,20 @@
 | lockfile     | 根 `pnpm-lock.yaml` 用 pnpm 重算；`apps/escode-cli/pnpm-lock.yaml` 同步改名；`apps/escode-cli-rust/Cargo.lock` 用 cargo 重算                                                                                                 |
 | 第三方声明   | `third-party/copied-components.json` 路径更新 + 重新生成 `third-party/inventory.json` 与 `THIRD-PARTY-NOTICES.md`（1212 个 npm 版本、8 个复制组件、18 个原生归档）                                                           |
 
-## 二、保留 `zcode` 的类别（共 243 行，177 个文件）
+## 二、保留 `zcode` 的类别（共 280 行，179 个文件）
 
-按 Apache-2.0 第 4 条与「不得修改源代码归属权」的要求，以下内容不参与品牌改名：
+按 Apache-2.0 第 4 条与「不得修改源代码归属权」的要求，以下内容不参与品牌改名（计数含本轮新增的说明文档）：
 
 | 类别         | 数量 | 说明                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 上游修改声明 | 160  | `Modified by ZCode: local integration, formatting and adaptations.`（`.agents/skills/**`、`packages/ui/src/components/ai-elements/**` 等 113 处）、`modified by ZCode`（`THIRD-PARTY-NOTICES.md` 3 处，由 `scripts/generate-third-party-notices.mjs` 的 `UPSTREAM_PATCH_AUTHOR` 常量生成）、`zcode patch:`（`patches/*.patch` 4 处）、`scripts/generate-third-party-notices.mjs` 常量注释 |
-| 上游服务地址 | 77   | `zcode.z.ai`、`cdn-zcode.z.ai`（含正则转义与大小写变体）：`.env.example`、`config/provider/escode-builtin.json`、Rust `mcp_official_auth.rs`/`client_headers.rs`/`official_plugins.json`、官方插件定义与 marketplace、`offPeakServerClient` 等。这些是 Z.AI 运营的外部服务端点，不是本产品品牌                                                                                            |
-| 文档说明     | 3    | `NOTICE.md` 第五节对本仓库与上游关系、服务地址归属及本次修改的声明                                                                                                                                                                                                                                                                                                                        |
+| 上游修改声明 | 158  | `Modified by ZCode: local integration, formatting and adaptations.`（`.agents/skills/**`、`packages/ui/src/components/ai-elements/**` 等 113 处）、`modified by ZCode`（`THIRD-PARTY-NOTICES.md` 3 处，由 `scripts/generate-third-party-notices.mjs` 的 `UPSTREAM_PATCH_AUTHOR` 常量生成）、`zcode patch:`（`patches/*.patch` 4 处）、`scripts/generate-third-party-notices.mjs` 常量注释 |
+| 上游服务地址 | 75   | `zcode.z.ai`、`cdn-zcode.z.ai`（含正则转义与大小写变体）：`.env.example`、`config/provider/escode-builtin.json`、Rust `mcp_official_auth.rs`/`client_headers.rs`/`official_plugins.json`、官方插件定义与 marketplace、`offPeakServerClient` 等。这些是 Z.AI 运营的外部服务端点，不是本产品品牌                                                                                            |
+| 文档说明     | 41   | `NOTICE.md` 第五节的衍生作品与修改声明、本 spec 的裁定记录、本审计报告对旧名的引用                                                                                                                                                                                                                                                                                                        |
 | 非品牌误报   | 6    | `bizCode`（业务错误码字段名），不含品牌含义，未改名                                                                                                                                                                                                                                                                                                                                       |
 
 除上述类别外，全仓没有其它 `zcode` 残留。改名后 `THIRD-PARTY-NOTICES.md`、`third-party/inventory.json` 中第三方许可与版权文本零丢失（对比仅新增 serial 相关依赖条目与三处复制组件路径）。
+
+口径说明：上表第一、二类是「代码不出现 ZCode」与「不得修改源代码归属权」的直接冲突点，本次按豁免口径执行（保留上游修改声明与 Z.AI 服务端点），理由与零残留时的迁移清单见 [spec 第二节的裁定记录](../specs/escode-rebrand.md#裁定记录2026-10-10)。该口径在用户另行裁定前有效；端点本身已可通过 `ESCODE_BASE_URL`、`ESCODE_CDN_BASE_URL` 等环境变量覆盖为自建服务，无需改代码。
 
 ## 三、验证证据
 
