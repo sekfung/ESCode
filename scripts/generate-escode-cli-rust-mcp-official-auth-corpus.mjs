@@ -8,19 +8,19 @@ import {
 import { resolveESCodeEndpointOrigin } from "../packages/shared/src/escodeEndpoint.ts";
 import { parseESCodeOfficialAuth } from "../apps/escode-cli/packages/adapters/src/plugins/mcp-official-auth.ts";
 
-const api = "https://zcode.z.ai";
+const api = "https://official.example.test";
 const trust = [
-  ["https://zcode.z.ai", undefined, api],
-  ["https://zcode.z.ai:443", undefined, api],
-  ["https://zcode.z.ai/mcp/path", undefined, api],
-  ["https://user:pass@zcode.z.ai", undefined, api],
-  ["http://zcode.z.ai", undefined, api],
+  ["https://official.example.test", undefined, api],
+  ["https://official.example.test:443", undefined, api],
+  ["https://official.example.test/mcp/path", undefined, api],
+  ["https://user:pass@official.example.test", undefined, api],
+  ["http://official.example.test", undefined, api],
   ["https://evil.example", undefined, api],
-  ["https://ZCODE.Z.AI", undefined, api],
+  ["https://OFFICIAL.EXAMPLE.TEST", undefined, api],
   ["  ", undefined, api],
   ["not a url", undefined, api],
-  ["https://zcode.z.ai", undefined, undefined],
-  ["https://zcode.z.ai", undefined, "http://zcode.z.ai"],
+  ["https://official.example.test", undefined, undefined],
+  ["https://official.example.test", undefined, "http://official.example.test"],
   ["http://127.0.0.1:3999", "http://127.0.0.1:3999", api],
   ["http://127.0.0.1:3999", " http://localhost:1 , http://127.0.0.1:3999 ", api],
   ["http://127.0.0.1:4000", "http://127.0.0.1:3999", api],

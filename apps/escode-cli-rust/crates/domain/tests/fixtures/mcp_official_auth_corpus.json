@@ -1,45 +1,45 @@
 {
  "trust": [
   {
-   "origin": "https://zcode.z.ai",
+   "origin": "https://official.example.test",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
    }
   },
   {
-   "origin": "https://zcode.z.ai:443",
+   "origin": "https://official.example.test:443",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
    }
   },
   {
-   "origin": "https://zcode.z.ai/mcp/path",
+   "origin": "https://official.example.test/mcp/path",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
    }
   },
   {
-   "origin": "https://user:pass@zcode.z.ai",
+   "origin": "https://user:pass@official.example.test",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
    }
   },
   {
-   "origin": "http://zcode.z.ai",
+   "origin": "http://official.example.test",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
@@ -48,16 +48,16 @@
   {
    "origin": "https://evil.example",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
    }
   },
   {
-   "origin": "https://ZCODE.Z.AI",
+   "origin": "https://OFFICIAL.EXAMPLE.TEST",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
@@ -66,7 +66,7 @@
   {
    "origin": "  ",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "invalid_input",
     "trusted": false
@@ -75,14 +75,14 @@
   {
    "origin": "not a url",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
    }
   },
   {
-   "origin": "https://zcode.z.ai",
+   "origin": "https://official.example.test",
    "devTrustedOriginsRaw": null,
    "escodeApiOrigin": null,
    "result": {
@@ -91,9 +91,9 @@
    }
   },
   {
-   "origin": "https://zcode.z.ai",
+   "origin": "https://official.example.test",
    "devTrustedOriginsRaw": null,
-   "escodeApiOrigin": "http://zcode.z.ai",
+   "escodeApiOrigin": "http://official.example.test",
    "result": {
     "detail": "escode_origin_unresolved",
     "trusted": false
@@ -102,7 +102,7 @@
   {
    "origin": "http://127.0.0.1:3999",
    "devTrustedOriginsRaw": "http://127.0.0.1:3999",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
@@ -111,7 +111,7 @@
   {
    "origin": "http://127.0.0.1:3999",
    "devTrustedOriginsRaw": " http://localhost:1 , http://127.0.0.1:3999 ",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
@@ -120,7 +120,7 @@
   {
    "origin": "http://127.0.0.1:4000",
    "devTrustedOriginsRaw": "http://127.0.0.1:3999",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
@@ -138,7 +138,7 @@
   {
    "origin": "http://[::1]:3999",
    "devTrustedOriginsRaw": "http://[::1]:3999",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "ok",
     "trusted": true
@@ -147,7 +147,7 @@
   {
    "origin": "https://evil.example",
    "devTrustedOriginsRaw": "https://evil.example",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
@@ -156,7 +156,7 @@
   {
    "origin": "http://evil.example",
    "devTrustedOriginsRaw": "http://evil.example",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
@@ -165,7 +165,7 @@
   {
    "origin": "http://u:p@127.0.0.1:3999",
    "devTrustedOriginsRaw": "http://127.0.0.1:3999",
-   "escodeApiOrigin": "https://zcode.z.ai",
+   "escodeApiOrigin": "https://official.example.test",
    "result": {
     "detail": "origin_mismatch",
     "trusted": false
