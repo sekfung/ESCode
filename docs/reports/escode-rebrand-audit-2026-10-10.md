@@ -70,6 +70,14 @@ App 集成套件中唯一失败的 `packages/services/tests/escode-cli-rust-opti
 
 冒烟暴露并修复了两处合规缺口（提交 `254b2b1d`）：版权字段原由 `author` 推导为 `Copyright © 2026 ESCode`，把上游权利人一并替换，现改为显式双署名；`resources` 原先只带第三方声明，现随附项目 `LICENSE` 与 `NOTICE.md`（Apache-2.0 第 4(a)、4(d) 条）。
 
+### 图标与二进制资产核验
+
+- 以改名前基线 `origin/feat/rust-runtime` 逐 blob 比对全部 2376 个图片资产：28 个产品品牌资产被替换；其余 2347 个未变动项里，5 个非第三方项经目视核对是 macOS Finder/Terminal、飞书图标与通用箭头。
+- 清点发现并修复了两处漏网（提交 `285836ba`）：`packages/desktop/build/dmg_background(.@2x).png` 中央印着 ZCODE 大字（macOS 安装窗口背景，已按同版式重绘为 ESCode 字标与箭头）；`public/icon_512@2x.png` 在改名前与应用图标同内容（更新弹窗里的 macOS Dock 图标，已换成新的 ESCode 应用图标）。
+- 全部受版本控制的二进制文件按字节扫描 `zcode`（大小写不敏感）：**0 处**。
+- 渲染层重建（`pnpm --filter @escode/desktop build:no-runtime-assets`）退出码 0，产物 `out/renderer/assets/icon_512@2x-15FB8BAe.png` 与新 Dock 图标 sha256 一致。
+- 未覆盖：macOS DMG 实际打包（本机为 Windows，DMG 背景只在 macOS 打包链路生效）。
+
 未覆盖：`prepare:rust-agent`（需要 MSVC 目标，本机缺 Windows SDK）与 `prepare:remote-assets`（`ESCODE_SKIP_REMOTE_ASSETS=1`）被跳过，因此安装包内不含 Rust runtime 与远程部署资产；界面 E2E 仍未执行。
 
 ## 四、已知后果与后续事项
