@@ -15,7 +15,7 @@ export const TEST_SERIAL_CONFIG: SerialConfig = {
  * MockBinding 不支持模拟拔出；这里包一层：拔出时让在途 read 失败（stream 据此判定 disconnected），
  * 并把该路径从 list() 中隐藏，重新插入时恢复。
  */
-export function createTestBinding() {
+export function createTestBinding(behavior: { writeDelayMs?: number } = {}) {
   const unplugged = new Set<string>();
   const live = new Map<string, { port: BindingPortInterface; unplug: () => void }>();
   let listCalls = 0;
@@ -40,6 +40,12 @@ export function createTestBinding() {
       unplugSignal.catch(() => {});
       const proxy = new Proxy(port, {
         get(target, key) {
+          if (key === "write" && behavior.writeDelayMs) {
+            return async (buffer: Buffer) => {
+              await new Promise((resolve) => setTimeout(resolve, behavior.writeDelayMs));
+              return target.write(buffer);
+            };
+          }
           if (key === "set") {
             return async (setOptions: Record<string, unknown>) => {
               setCalls.push({ path: options.path, at: Date.now(), options: setOptions });

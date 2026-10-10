@@ -161,6 +161,21 @@ class SerialServiceImpl implements SerialService {
     return session.setSignals(params);
   }
 
+  async startLoop(params: {
+    path: string;
+    bytes: Uint8Array;
+    intervalMs: number;
+    count?: number;
+  }): Promise<void> {
+    const session = this.sessions.get(params.path);
+    if (!session) throw new SerialError("notOpen", "Serial port is not open");
+    session.startLoop(params);
+  }
+
+  async stopLoop(params: { path: string }): Promise<void> {
+    this.sessions.get(params.path)?.stopLoop();
+  }
+
   async clear(params: { path: string }): Promise<void> {
     this.sessions.get(params.path)?.clear();
   }

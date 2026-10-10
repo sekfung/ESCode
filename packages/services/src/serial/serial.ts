@@ -57,8 +57,21 @@ export interface SerialSignals {
 /** 复位脉冲预设（docs/specs/serial-port-debugger-phase3.md 第 2 节）。 */
 export type SerialSignalPulse = "esp32" | "arduino";
 
+/** 定时循环发送的进度（仅循环进行中存在）。 */
+export interface SerialLoopState {
+  intervalMs: number;
+  /** 不存在表示无限循环。 */
+  count?: number;
+  sent: number;
+}
+
+/** 循环发送的最小间隔（docs/specs/serial-port-debugger-phase3.md 第 4 节）。 */
+export const SERIAL_LOOP_MIN_INTERVAL_MS = 10;
+
 export interface SerialStatus {
   state: SerialState;
+  /** 循环发送进行中的进度；随状态事件推送，进度事件间隔不低于 250ms。 */
+  loop?: SerialLoopState;
   /** 会话打开过之后才有；变化随状态事件广播给所有面板与 Agent。 */
   signals?: SerialSignals;
   path?: string;
@@ -128,6 +141,17 @@ export interface ISerialService {
     rts?: boolean;
     pulse?: SerialSignalPulse;
   }): Promise<SerialSignals>;
+  /**
+   * 由 Host 定时循环发送（关闭标签不影响）。每次发送等同一次用户写入；每个会话同时最多一个任务，
+   * 再次启动替换旧任务；串口关闭、断开或出错时自动停止。Agent 不能启动循环发送。
+   */
+  startLoop(params: {
+    path: string;
+    bytes: Uint8Array;
+    intervalMs: number;
+    count?: number;
+  }): Promise<void>;
+  stopLoop(params: { path: string }): Promise<void>;
   /** 未打开过或已被淘汰的路径返回 closed 空快照。 */
   getSnapshot(params: { path: string }): Promise<SerialSnapshot>;
   /** 面板可见性；仅在有可见面板或有会话等待重连时轮询串口列表。 */

@@ -135,3 +135,17 @@ test("serial_set_signals：dtr/rts 与 pulse 互斥，至少给出一项", async
       .success,
   );
 });
+
+test("状态携带循环发送进度时结果 schema 仍接受", async () => {
+  const { zcodeSerialMethodResultSchemas } = await import("../src/serial/index.js");
+  assert.ok(
+    zcodeSerialMethodResultSchemas.close.safeParse({
+      status: { state: "open", path: "COM3", loop: { intervalMs: 100, sent: 3 } },
+    }).success,
+  );
+  assert.ok(
+    zcodeSerialMethodResultSchemas.close.safeParse({
+      status: { state: "open", path: "COM3", loop: { intervalMs: 100, count: 5, sent: 3 } },
+    }).success,
+  );
+});

@@ -15,7 +15,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { EllipsisIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { EllipsisIcon, PencilIcon, PlusIcon, RepeatIcon, Trash2Icon } from "lucide-react";
 import type { SerialQuickCommand } from "@zcode/shared";
 import { Button } from "@/components/ui/button.js";
 import {
@@ -46,12 +46,14 @@ function QuickCommandChip({
   command,
   canSend,
   onSend,
+  onLoop,
   onEdit,
   onRemove,
 }: {
   command: SerialQuickCommand;
   canSend: boolean;
   onSend: () => void;
+  onLoop: () => void;
   onEdit: () => void;
   onRemove: () => void;
 }) {
@@ -91,6 +93,10 @@ function QuickCommandChip({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
+          <DropdownMenuItem disabled={!canSend} onSelect={onLoop}>
+            <RepeatIcon className="size-4" />
+            {intl.formatMessage({ id: "serial.quick.loop" })}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={onEdit}>
             <PencilIcon className="size-4" />
             {intl.formatMessage({ id: "serial.quick.edit" })}
@@ -113,11 +119,14 @@ export function SerialQuickCommandsBar({
   commands,
   canSend,
   onSend,
+  onLoop,
   onChange,
 }: {
   commands: readonly SerialQuickCommand[];
   canSend: boolean;
   onSend: (command: SerialQuickCommand) => void;
+  /** 以当前发送栏的循环参数循环发送该指令。 */
+  onLoop: (command: SerialQuickCommand) => void;
   onChange: (commands: SerialQuickCommand[]) => void;
 }) {
   const { intl } = useZCodeIntl();
@@ -176,6 +185,7 @@ export function SerialQuickCommandsBar({
               command={command}
               canSend={canSend}
               onSend={() => onSend(command)}
+              onLoop={() => onLoop(command)}
               onEdit={() => setEditing(command)}
               onRemove={() => onChange(removeSerialQuickCommand(commands, command.id))}
             />

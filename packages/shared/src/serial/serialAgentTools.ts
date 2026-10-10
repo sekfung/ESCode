@@ -186,6 +186,14 @@ const serialStatusSchema = z
       .optional(),
     error: z.object({ code: z.string(), message: z.string() }).strict().optional(),
     signals: z.object({ dtr: z.boolean(), rts: z.boolean() }).strict().optional(),
+    loop: z
+      .object({
+        intervalMs: z.number().int(),
+        count: z.number().int().optional(),
+        sent: z.number().int(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

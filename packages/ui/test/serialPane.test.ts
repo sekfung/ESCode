@@ -577,3 +577,15 @@ test("全局设置保存快捷指令列表并校验", async () => {
     }).success,
   );
 });
+
+// --- 定时循环发送 -----------------------------------------------------------------
+
+test("循环参数：间隔 ≥10ms，次数留空为无限、填写须为正整数", async () => {
+  const { parseSerialLoopInputs } = await import("../src/lib/serial/serialLoopInputs.js");
+  assert.deepEqual(parseSerialLoopInputs("100", ""), { ok: true, intervalMs: 100 });
+  assert.deepEqual(parseSerialLoopInputs(" 250 ", "5"), { ok: true, intervalMs: 250, count: 5 });
+  assert.deepEqual(parseSerialLoopInputs("9", ""), { ok: false, error: "interval" });
+  assert.deepEqual(parseSerialLoopInputs("abc", ""), { ok: false, error: "interval" });
+  assert.deepEqual(parseSerialLoopInputs("100", "0"), { ok: false, error: "count" });
+  assert.deepEqual(parseSerialLoopInputs("100", "1.5"), { ok: false, error: "count" });
+});

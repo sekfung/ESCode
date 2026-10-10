@@ -9,6 +9,11 @@ import type {
 import type { SerialPortPreferences, SerialQuickCommand } from "@zcode/shared";
 import { buildSerialSendPayload } from "@/lib/serial/serialFormat.js";
 import { SerialQuickCommandsBar } from "@/serial/SerialQuickCommandsBar.js";
+import {
+  DEFAULT_SERIAL_LOOP_SETTINGS,
+  type SerialLoopSettings,
+} from "@/serial/SerialLoopControls.js";
+import { parseSerialLoopInputs } from "@/lib/serial/serialLoopInputs.js";
 import { toast } from "@/components/ui/toast.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useSerialSession } from "@/hooks/useSerialSession.js";
@@ -67,11 +72,8 @@ export function SerialPane({
 }) {
   const { intl } = useZCodeIntl();
   const { settings, update } = useSettings();
-  const { state, refreshPorts, open, close, send, clear, setSignals } = useSerialSession(
-    services.serialService,
-    path,
-    isVisible,
-  );
+  const { state, refreshPorts, open, close, send, clear, setSignals, startLoop, stopLoop } =
+    useSerialSession(services.serialService, path, isVisible);
   const { status, ports, sessions, log, listError } = state;
   const isActive =
     status.state === "open" || status.state === "disconnected" || BUSY_STATES.has(status.state);
@@ -185,6 +187,36 @@ export function SerialPane({
     [handleSend],
   );
 
+  const [loopSettings, setLoopSettings] = useState<SerialLoopSettings>(
+    DEFAULT_SERIAL_LOOP_SETTINGS,
+  );
+  const handleStartLoop = useCallback(
+    (bytes: Uint8Array) => {
+      const inputs = parseSerialLoopInputs(loopSettings.interval, loopSettings.count);
+      if (!inputs.ok) return;
+      void startLoop({
+        bytes,
+        intervalMs: inputs.intervalMs,
+        ...(inputs.count !== undefined ? { count: inputs.count } : {}),
+      }).catch((error: unknown) => toast(formatError(describeError(error))));
+    },
+    [formatError, loopSettings, startLoop],
+  );
+  const handleStopLoop = useCallback(() => {
+    void stopLoop().catch((error: unknown) => toast(formatError(describeError(error))));
+  }, [formatError, stopLoop]);
+  const handleQuickCommandLoop = useCallback(
+    (command: SerialQuickCommand) => {
+      const payload = buildSerialSendPayload({
+        input: command.data,
+        mode: command.mode,
+        lineEnding: command.lineEnding,
+      });
+      if (payload.ok) handleStartLoop(payload.bytes);
+    },
+    [handleStartLoop],
+  );
+
   const handleClear = useCallback(() => {
     void clear().catch((error: unknown) => {
       logger.warn("[serial] clear failed", describeError(error));
@@ -199,6 +231,11 @@ export function SerialPane({
     );
   }
 
+  const loopProgressText = (loop: { sent: number; count?: number }) =>
+    intl.formatMessage(
+      { id: loop.count ? "serial.loop.progress" : "serial.loop.progressInfinite" },
+      { sent: loop.sent, count: loop.count ?? 0 },
+    );
   const statusText =
     status.state === "error" && status.error
       ? formatError(status.error)
@@ -243,6 +280,7 @@ export function SerialPane({
           data-state={status.state}
         >
           {statusText}
+          {status.loop ? ` · ${loopProgressText(status.loop)}` : ""}
           {listError ? ` · ${formatError(listError)}` : ""}
         </span>
         <span className="shrink-0 font-mono text-ui-xs text-foreground-subtlest">
@@ -269,9 +307,20 @@ export function SerialPane({
         commands={quickCommands}
         canSend={status.state === "open"}
         onSend={handleQuickCommandSend}
+        onLoop={handleQuickCommandLoop}
         onChange={handleQuickCommandsChange}
       />
-      <SerialSendBar canSend={status.state === "open"} onSend={handleSend} />
+      <SerialSendBar
+        canSend={status.state === "open"}
+        onSend={handleSend}
+        loop={{
+          settings: loopSettings,
+          running: Boolean(status.loop),
+          onSettingsChange: setLoopSettings,
+          onStart: handleStartLoop,
+          onStop: handleStopLoop,
+        }}
+      />
     </section>
   );
 }

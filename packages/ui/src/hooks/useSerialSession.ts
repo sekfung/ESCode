@@ -165,11 +165,24 @@ export function useSerialSession(
     [path, service],
   );
 
+  const startLoop = useCallback(
+    async (params: { bytes: Uint8Array; intervalMs: number; count?: number }) => {
+      if (!service || !path) return;
+      await service.startLoop({ path, ...params });
+    },
+    [path, service],
+  );
+
+  const stopLoop = useCallback(async () => {
+    if (!service || !path) return;
+    await service.stopLoop({ path });
+  }, [path, service]);
+
   const clear = useCallback(async () => {
     if (!service || !path) return;
     await service.clear({ path });
     setState((current) => ({ ...current, log: clearSerialChunkLog(current.log) }));
   }, [path, service]);
 
-  return { state, refreshPorts, open, close, send, clear, setSignals };
+  return { state, refreshPorts, open, close, send, clear, setSignals, startLoop, stopLoop };
 }

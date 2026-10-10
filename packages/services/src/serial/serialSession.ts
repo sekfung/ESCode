@@ -2,6 +2,7 @@ import type { BindingInterface } from "@serialport/bindings-cpp";
 import type { SerialPortStream } from "@serialport/stream";
 import type { ServiceLogger } from "../logger/serviceLogger.js";
 import {
+  SERIAL_LOOP_MIN_INTERVAL_MS,
   SERIAL_WRITE_LIMIT_BYTES,
   SerialError,
   type SerialChunk,
@@ -17,6 +18,7 @@ import {
   isDefaultSerialSignals,
   serialPulseSteps,
 } from "./serialSignals.js";
+import { SerialLoopRunner } from "./serialLoop.js";
 import { SerialChunkBuffer, type SerialReadResult } from "./serialChunkBuffer.js";
 import { mapSerialOpenError } from "./serialErrors.js";
 import { loadStreamModule, validateConfig, type SerialStreamModule } from "./serialRuntime.js";
@@ -42,6 +44,7 @@ export class SerialSession {
   private port: SerialPortStream | null = null;
   /** DTR/RTS 当前输出；重连后按断开前的状态恢复。 */
   private signals: SerialSignals = { ...DEFAULT_SERIAL_SIGNALS };
+  private loop: SerialLoopRunner | null = null;
   private queue: Promise<void> = Promise.resolve();
   private inFlightOpen: { key: string; promise: Promise<void> } | null = null;
   /** 最近一次状态变化的时间，用于淘汰最早关闭的会话。 */
@@ -167,6 +170,43 @@ export class SerialSession {
     }).then(() => applied);
   }
 
+  startLoop(params: { bytes: Uint8Array; intervalMs: number; count?: number }): void {
+    if (this.status.state !== "open" || !this.port) {
+      throw new SerialError("notOpen", "Serial port is not open");
+    }
+    const invalid =
+      !Number.isInteger(params.intervalMs) ||
+      params.intervalMs < SERIAL_LOOP_MIN_INTERVAL_MS ||
+      params.bytes.byteLength === 0 ||
+      params.bytes.byteLength > SERIAL_WRITE_LIMIT_BYTES ||
+      (params.count !== undefined && (!Number.isInteger(params.count) || params.count < 1));
+    if (invalid) throw new SerialError("invalidInput", "Invalid loop parameters");
+    this.loop?.stop();
+    const runner = new SerialLoopRunner({
+      bytes: params.bytes,
+      intervalMs: params.intervalMs,
+      ...(params.count !== undefined ? { count: params.count } : {}),
+      write: (bytes) => this.write({ bytes, source: "user" }),
+      onProgress: () => {
+        if (this.loop === runner) this.setStatus({ ...this.status });
+      },
+      onFinished: () => {
+        if (this.loop !== runner) return;
+        this.loop = null;
+        this.setStatus({ ...this.status });
+      },
+    });
+    this.loop = runner;
+    runner.start();
+  }
+
+  stopLoop(): void {
+    if (!this.loop) return;
+    this.loop.stop();
+    this.loop = null;
+    this.setStatus({ ...this.status });
+  }
+
   clear(): void {
     this.buffer.clear();
   }
@@ -207,8 +247,18 @@ export class SerialSession {
   }
 
   private setStatus(status: Omit<SerialStatus, "path">): void {
-    const { signals: _previous, ...rest } = status;
-    this.status = { ...rest, path: this.path, signals: { ...this.signals } };
+    // 离开 open（关闭、断开、出错）时循环发送随之停止。
+    if (status.state !== "open" && this.loop) {
+      this.loop.stop();
+      this.loop = null;
+    }
+    const { signals: _signals, loop: _loop, ...rest } = status;
+    this.status = {
+      ...rest,
+      path: this.path,
+      signals: { ...this.signals },
+      ...(this.loop ? { loop: this.loop.state } : {}),
+    };
     this.lastChangedAt = Date.now();
     this.options.onStatus({ ...this.status });
   }
@@ -310,6 +360,9 @@ export class SerialSession {
         });
       }
       port.removeAllListeners();
+      // 修复：关闭时被取消的在途写入会在之后补发 error 事件；移除全部监听后无人接收会成为
+      // 未捕获异常并打崩 Host 进程（循环发送时稳定复现）。保留一个空监听吞掉迟到的 error。
+      port.on("error", () => {});
       this.options.log.info("serial port closed", { path: this.path });
       this.setStatus({ state: "closed", config });
       return;
@@ -321,6 +374,8 @@ export class SerialSession {
     const port = this.port;
     this.port = null;
     port?.removeAllListeners();
+    // 同上：断开后迟到的 error 事件不能成为未捕获异常。
+    port?.on("error", () => {});
     this.buffer.flushRx();
     this.options.log.info("serial device disconnected", {
       path: this.path,
