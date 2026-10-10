@@ -6,10 +6,17 @@ import {
   SerialError,
   type SerialChunk,
   type SerialConfig,
+  type SerialSignalPulse,
+  type SerialSignals,
   type SerialSnapshot,
   type SerialSource,
   type SerialStatus,
 } from "./serial.js";
+import {
+  DEFAULT_SERIAL_SIGNALS,
+  isDefaultSerialSignals,
+  serialPulseSteps,
+} from "./serialSignals.js";
 import { SerialChunkBuffer, type SerialReadResult } from "./serialChunkBuffer.js";
 import { mapSerialOpenError } from "./serialErrors.js";
 import { loadStreamModule, validateConfig, type SerialStreamModule } from "./serialRuntime.js";
@@ -33,6 +40,8 @@ export class SerialSession {
   private readonly buffer: SerialChunkBuffer;
   private status: SerialStatus;
   private port: SerialPortStream | null = null;
+  /** DTR/RTS 当前输出；重连后按断开前的状态恢复。 */
+  private signals: SerialSignals = { ...DEFAULT_SERIAL_SIGNALS };
   private queue: Promise<void> = Promise.resolve();
   private inFlightOpen: { key: string; promise: Promise<void> } | null = null;
   /** 最近一次状态变化的时间，用于淘汰最早关闭的会话。 */
@@ -126,6 +135,38 @@ export class SerialSession {
     return { seq };
   }
 
+  setSignals(params: {
+    dtr?: boolean;
+    rts?: boolean;
+    pulse?: SerialSignalPulse;
+  }): Promise<SerialSignals> {
+    let applied: SerialSignals = this.signals;
+    return this.enqueue(async () => {
+      if (this.status.state !== "open" || !this.port) {
+        throw new SerialError("notOpen", "Serial port is not open");
+      }
+      if (params.rts !== undefined && this.status.config?.rtscts) {
+        throw new SerialError("invalidInput", "RTS is controlled by RTS/CTS flow control");
+      }
+      const previous = { ...this.signals };
+      if (params.pulse) {
+        for (const step of serialPulseSteps(params.pulse, previous)) {
+          await this.applySignals(step.signals);
+          if (step.holdMs > 0) await new Promise((resolve) => setTimeout(resolve, step.holdMs));
+        }
+        // 脉冲结束后恢复脉冲前的开关状态。
+        await this.applySignals(previous);
+      } else {
+        await this.applySignals({
+          dtr: params.dtr ?? previous.dtr,
+          rts: params.rts ?? previous.rts,
+        });
+      }
+      applied = { ...this.signals };
+      this.setStatus({ ...this.status });
+    }).then(() => applied);
+  }
+
   clear(): void {
     this.buffer.clear();
   }
@@ -154,8 +195,20 @@ export class SerialSession {
     return run;
   }
 
+  private async applySignals(signals: SerialSignals): Promise<void> {
+    const port = this.port;
+    if (!port) throw new SerialError("notOpen", "Serial port is not open");
+    await new Promise<void>((resolve, reject) => {
+      port.set(signals, (error) =>
+        error ? reject(new SerialError("io", error.message)) : resolve(),
+      );
+    });
+    this.signals = { ...signals };
+  }
+
   private setStatus(status: Omit<SerialStatus, "path">): void {
-    this.status = { ...status, path: this.path };
+    const { signals: _previous, ...rest } = status;
+    this.status = { ...rest, path: this.path, signals: { ...this.signals } };
     this.lastChangedAt = Date.now();
     this.options.onStatus({ ...this.status });
   }
@@ -170,6 +223,8 @@ export class SerialSession {
       return;
     }
     if (this.port || this.status.state === "disconnected") await this.closeNow();
+    // 用户主动打开时信号回到默认值；自动重连（reconnect）则保留断开前的状态。
+    this.signals = { ...DEFAULT_SERIAL_SIGNALS };
     await this.openPort(binding, config);
   }
 
@@ -210,6 +265,16 @@ export class SerialSession {
       fail(error);
     }
     this.port = port;
+    if (!isDefaultSerialSignals(this.signals)) {
+      try {
+        await this.applySignals(this.signals);
+      } catch (error) {
+        log.warn("serial signals restore failed", {
+          path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     port.on("data", (data: Buffer) => {
       if (this.port === port) this.buffer.receive(data);
     });

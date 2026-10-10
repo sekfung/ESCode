@@ -12,6 +12,8 @@ import {
   type SerialPathStatus,
   type SerialPortInfo,
   type SerialSessionSummary,
+  type SerialSignalPulse,
+  type SerialSignals,
   type SerialSnapshot,
   type SerialSource,
 } from "./serial.js";
@@ -146,6 +148,17 @@ class SerialServiceImpl implements SerialService {
     const session = this.sessions.get(params.path);
     if (!session) throw new SerialError("notOpen", "Serial port is not open");
     return session.write(params);
+  }
+
+  async setSignals(params: {
+    path: string;
+    dtr?: boolean;
+    rts?: boolean;
+    pulse?: SerialSignalPulse;
+  }): Promise<SerialSignals> {
+    const session = this.sessions.get(params.path);
+    if (!session) throw new SerialError("notOpen", "Serial port is not open");
+    return session.setSignals(params);
   }
 
   async clear(params: { path: string }): Promise<void> {

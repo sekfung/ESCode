@@ -243,3 +243,23 @@ test("不抢占按路径生效：另一串口被占用不影响打开新串口",
   assert.equal(opened.status.path, OTHER);
   assert.equal((await service.getSnapshot({ path: PATH })).status.state, "open");
 });
+
+// --- DTR/RTS ---------------------------------------------------------------------
+
+test("setSignals 设置 DTR/RTS 并返回生效状态；省略 path 时使用唯一会话", async () => {
+  await service.open({ path: PATH, config: TEST_SERIAL_CONFIG });
+  const result = await bridge.handle("setSignals", params("setSignals", { dtr: false }));
+  assert.deepEqual(result, { signals: { dtr: false, rts: true } });
+  const pulsed = await bridge.handle(
+    "setSignals",
+    params("setSignals", { pulse: "arduino", path: PATH }),
+  );
+  assert.deepEqual(pulsed, { signals: { dtr: false, rts: true } });
+});
+
+test("setSignals 在串口未打开时返回 notOpen", async () => {
+  await assert.rejects(
+    bridge.handle("setSignals", params("setSignals", { dtr: true, path: PATH })),
+    rejectsWith("notOpen"),
+  );
+});

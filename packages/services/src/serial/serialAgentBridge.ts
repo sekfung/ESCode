@@ -277,6 +277,17 @@ export function createSerialAgentBridge(options: {
       }
     },
 
+    async setSignals(service, { args }) {
+      const path = await requirePath(service, args.path);
+      const signals = await service.setSignals({
+        path,
+        ...(args.dtr !== undefined ? { dtr: args.dtr } : {}),
+        ...(args.rts !== undefined ? { rts: args.rts } : {}),
+        ...(args.pulse ? { pulse: args.pulse } : {}),
+      });
+      return { signals };
+    },
+
     async close(service, { args }) {
       const path = await requirePath(service, args.path);
       if ((await currentStatus(service, path)).state !== "closed") await service.close({ path });

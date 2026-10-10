@@ -34,6 +34,7 @@ fn method(op: &str) -> Option<&'static str> {
         "read" => "interaction/serialRead",
         "waitFor" => "interaction/serialWaitFor",
         "close" => "interaction/serialClose",
+        "setSignals" => "interaction/serialSetSignals",
         _ => return None,
     })
 }

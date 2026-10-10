@@ -48,8 +48,19 @@ export type SerialErrorCode =
 
 export type SerialState = "closed" | "opening" | "open" | "closing" | "disconnected" | "error";
 
+/** DTR/RTS 输出状态；打开串口后初值为 DTR=1、RTS=1（与 serialport 默认一致）。 */
+export interface SerialSignals {
+  dtr: boolean;
+  rts: boolean;
+}
+
+/** 复位脉冲预设（docs/specs/serial-port-debugger-phase3.md 第 2 节）。 */
+export type SerialSignalPulse = "esp32" | "arduino";
+
 export interface SerialStatus {
   state: SerialState;
+  /** 会话打开过之后才有；变化随状态事件广播给所有面板与 Agent。 */
+  signals?: SerialSignals;
   path?: string;
   config?: SerialConfig;
   error?: { code: SerialErrorCode; message: string };
@@ -107,6 +118,16 @@ export interface ISerialService {
   }): Promise<{ seq: number }>;
   /** 清空该串口的环形缓冲与计数，不影响串口状态。 */
   clear(params: { path: string }): Promise<void>;
+  /**
+   * 设置 DTR/RTS 或执行复位脉冲（pulse 与 dtr/rts 互斥）。与打开/关闭在会话内串行：
+   * 脉冲进行中的调用排到脉冲结束后执行。返回生效后的信号状态。
+   */
+  setSignals(params: {
+    path: string;
+    dtr?: boolean;
+    rts?: boolean;
+    pulse?: SerialSignalPulse;
+  }): Promise<SerialSignals>;
   /** 未打开过或已被淘汰的路径返回 closed 空快照。 */
   getSnapshot(params: { path: string }): Promise<SerialSnapshot>;
   /** 面板可见性；仅在有可见面板或有会话等待重连时轮询串口列表。 */

@@ -88,6 +88,8 @@ fn builds_host_params_from_remembered_session_and_rejects_unknown_ones() {
     assert_eq!(params["args"], json!({"data": "AT"}));
     assert!(params["requestId"].as_str().is_some());
     assert_eq!(broker.params(&request(json!({"op": "format"}))).unwrap_err().code, "invalidInput");
+    let (method, _) = broker.params(&request(json!({"op": "setSignals", "args": {"pulse": "esp32"}}))).unwrap();
+    assert_eq!(method, "interaction/serialSetSignals");
     assert_eq!(broker.params(&request(json!({"args": null}))).unwrap_err().code, "invalidInput");
 }
 

@@ -3686,6 +3686,7 @@ export const zcodeProtocolMethods = {
   interactionSerialRead: zcodeSerialMethods.read,
   interactionSerialWaitFor: zcodeSerialMethods.waitFor,
   interactionSerialClose: zcodeSerialMethods.close,
+  interactionSerialSetSignals: zcodeSerialMethods.setSignals,
   interactionSerialCancel: zcodeSerialCancelMethod,
 } as const;
 
@@ -3735,6 +3736,10 @@ export const zcodeProtocolSessionMethodContracts = {
   [zcodeProtocolMethods.interactionSerialClose]: {
     params: zcodeSerialMethodParamsSchemas.close,
     result: zcodeSerialMethodResultSchemas.close,
+  },
+  [zcodeProtocolMethods.interactionSerialSetSignals]: {
+    params: zcodeSerialMethodParamsSchemas.setSignals,
+    result: zcodeSerialMethodResultSchemas.setSignals,
   },
   [zcodeProtocolMethods.interactionSerialCancel]: {
     params: zcodeSerialCancelParamsSchema,

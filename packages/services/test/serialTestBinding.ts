@@ -19,6 +19,8 @@ export function createTestBinding() {
   const unplugged = new Set<string>();
   const live = new Map<string, { port: BindingPortInterface; unplug: () => void }>();
   let listCalls = 0;
+  /** 每次 port.set 调用（DTR/RTS 控制）按时间记录，供时序断言。 */
+  const setCalls: Array<{ path: string; at: number; options: Record<string, unknown> }> = [];
   const binding: BindingInterface = {
     async list() {
       listCalls += 1;
@@ -38,6 +40,12 @@ export function createTestBinding() {
       unplugSignal.catch(() => {});
       const proxy = new Proxy(port, {
         get(target, key) {
+          if (key === "set") {
+            return async (setOptions: Record<string, unknown>) => {
+              setCalls.push({ path: options.path, at: Date.now(), options: setOptions });
+              return target.set(setOptions);
+            };
+          }
           if (key === "read") {
             return (buffer: Buffer, offset: number, length: number) =>
               Promise.race([target.read(buffer, offset, length), unplugSignal]);
@@ -58,6 +66,7 @@ export function createTestBinding() {
     get listCalls() {
       return listCalls;
     },
+    setCalls,
     unplug(path: string) {
       unplugged.add(path);
       live.get(path)?.unplug();

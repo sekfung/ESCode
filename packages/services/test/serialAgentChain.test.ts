@@ -104,13 +104,14 @@ async function call(name: string, args: Record<string, unknown> = {}) {
 const json = (result: { content: Array<{ text: string }> }, index = 0) =>
   JSON.parse(result.content[index]!.text) as Record<string, unknown>;
 
-test("工具清单经真实 MCP server 暴露 6 个串口工具", async () => {
+test("工具清单经真实 MCP server 暴露全部串口工具", async () => {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((tool) => tool.name).sort(), [
     "serial_close",
     "serial_list",
     "serial_open",
     "serial_read",
+    "serial_set_signals",
     "serial_wait_for",
     "serial_write",
   ]);
@@ -200,4 +201,15 @@ test("多串口：两个串口同时打开时省略 path 被拒绝，带 path �
   assert.equal((listed.sessions as unknown[]).length, 2);
   await call("serial_close", { path: "COM_CHAIN1" });
   await call("serial_close", { path: "COM_CHAIN2" });
+});
+
+test("serial_set_signals 经整条链路设置 DTR/RTS 与复位脉冲", async () => {
+  await call("serial_open", { path: "COM_CHAIN1", baudRate: 115200 });
+  const set = json(await call("serial_set_signals", { dtr: false }));
+  assert.deepEqual(set.signals, { dtr: false, rts: true });
+  const pulsed = json(await call("serial_set_signals", { pulse: "esp32" }));
+  assert.deepEqual(pulsed.signals, { dtr: false, rts: true });
+  const conflicting = await call("serial_set_signals", { pulse: "esp32", dtr: true });
+  assert.match(conflicting.content[0]!.text, /^\[invalidInput\]/);
+  await call("serial_close");
 });

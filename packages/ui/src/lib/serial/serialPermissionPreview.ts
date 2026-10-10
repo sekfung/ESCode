@@ -21,6 +21,13 @@ export type SerialPermissionPreview =
     }
   | { kind: "open"; path: string; params: string }
   | { kind: "close"; path?: string }
+  | {
+      kind: "signals";
+      path?: string;
+      dtr?: boolean;
+      rts?: boolean;
+      pulse?: "esp32" | "arduino";
+    }
   /** 参数无法解析（如非法 HEX）；Host 会拒绝该调用，卡片提示而不是猜测内容。 */
   | { kind: "invalid" };
 
@@ -38,6 +45,18 @@ export function buildSerialPermissionPreview(
     const parsed = serialToolArgsSchemas.close.safeParse(input ?? {});
     if (!parsed.success) return { kind: "invalid" };
     return parsed.data.path ? { kind: "close", path: parsed.data.path } : { kind: "close" };
+  }
+  if (tool === "serial_set_signals") {
+    const parsed = serialToolArgsSchemas.setSignals.safeParse(input ?? {});
+    if (!parsed.success) return { kind: "invalid" };
+    const { path, dtr, rts, pulse } = parsed.data;
+    return {
+      kind: "signals",
+      ...(path ? { path } : {}),
+      ...(dtr !== undefined ? { dtr } : {}),
+      ...(rts !== undefined ? { rts } : {}),
+      ...(pulse ? { pulse } : {}),
+    };
   }
   if (tool === "serial_open") {
     const parsed = serialToolArgsSchemas.open.safeParse(input ?? {});
@@ -68,4 +87,16 @@ export function buildSerialPermissionPreview(
     truncated: payload.bytes.byteLength > PREVIEW_BYTES,
     ...(parsed.data.path ? { path: parsed.data.path } : {}),
   };
+}
+
+const bit = (value: boolean) => (value ? "1" : "0");
+
+/** 审批卡片中的信号变化：已知当前状态时显示 `DTR 1→0`，未知时只显示目标值 `DTR →0`。 */
+export function describeSerialSignalChange(
+  target: { dtr?: boolean; rts?: boolean },
+  current: { dtr: boolean; rts: boolean } | undefined,
+): string[] {
+  return (["dtr", "rts"] as const)
+    .filter((key) => target[key] !== undefined)
+    .map((key) => `${key.toUpperCase()} ${current ? bit(current[key]) : ""}→${bit(target[key]!)}`);
 }

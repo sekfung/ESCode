@@ -20,6 +20,7 @@ const TOOL_OPS: Record<string, SerialToolOp> = {
   serial_read: "read",
   serial_wait_for: "waitFor",
   serial_close: "close",
+  serial_set_signals: "setSignals",
 };
 
 /** 多串口时的通用说明，附在需要定位串口的工具描述后。 */
@@ -38,6 +39,8 @@ const DESCRIPTIONS: Record<SerialToolOp, string> = {
   waitFor:
     "Wait until received data (RX) matches a JavaScript regular expression, e.g. after flashing or resetting a device. By default only data arriving after the call is considered; pass sinceSeq to include earlier data. On timeout or disconnect returns the last 2 KiB of RX.",
   close: "Close the serial port. This also disconnects the user's Serial Port panel. Requires approval.",
+  setSignals:
+    "Set the DTR/RTS output lines, or run a reset pulse: pulse=esp32 (esptool classic reset into the app) or pulse=arduino (DTR pulse). Use it to reset a device and then serial_wait_for its boot log. RTS cannot be set when RTS/CTS flow control is on. Requires approval.",
 };
 
 const READ_ONLY_OPS = new Set<SerialToolOp>(["list", "read", "waitFor"]);

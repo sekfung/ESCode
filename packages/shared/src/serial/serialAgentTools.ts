@@ -77,6 +77,20 @@ export const serialToolArgsSchemas = {
     })
     .strict(),
   close: z.object({ ...optionalPath }).strict(),
+  setSignals: z
+    .object({
+      ...optionalPath,
+      dtr: z.boolean().optional(),
+      rts: z.boolean().optional(),
+      pulse: z.enum(["esp32", "arduino"]).optional(),
+    })
+    .strict()
+    .refine(
+      (args) => (args.pulse !== undefined) !== (args.dtr !== undefined || args.rts !== undefined),
+      {
+        message: "Pass either pulse, or dtr/rts (at least one)",
+      },
+    ),
 } as const;
 
 export type SerialToolOp = keyof typeof serialToolArgsSchemas;
@@ -102,6 +116,9 @@ export const serialBrokerRequestSchema = z.discriminatedUnion("op", [
     .extend({ op: z.literal("waitFor"), args: serialToolArgsSchemas.waitFor })
     .strict(),
   brokerRequestBase.extend({ op: z.literal("close"), args: serialToolArgsSchemas.close }).strict(),
+  brokerRequestBase
+    .extend({ op: z.literal("setSignals"), args: serialToolArgsSchemas.setSignals })
+    .strict(),
 ]);
 export type SerialBrokerRequest = z.infer<typeof serialBrokerRequestSchema>;
 
@@ -126,6 +143,7 @@ export const zcodeSerialMethods = {
   read: "interaction/serialRead",
   waitFor: "interaction/serialWaitFor",
   close: "interaction/serialClose",
+  setSignals: "interaction/serialSetSignals",
 } as const satisfies Record<SerialToolOp, string>;
 
 const protocolParamsBase = z.object({
@@ -145,6 +163,7 @@ export const zcodeSerialMethodParamsSchemas = {
   read: protocolParamsBase.extend({ args: serialToolArgsSchemas.read }).strict(),
   waitFor: protocolParamsBase.extend({ args: serialToolArgsSchemas.waitFor }).strict(),
   close: protocolParamsBase.extend({ args: serialToolArgsSchemas.close }).strict(),
+  setSignals: protocolParamsBase.extend({ args: serialToolArgsSchemas.setSignals }).strict(),
 } as const;
 export type ZCodeSerialMethodParams<Op extends SerialToolOp> = z.infer<
   (typeof zcodeSerialMethodParamsSchemas)[Op]
@@ -166,6 +185,7 @@ const serialStatusSchema = z
       .strict()
       .optional(),
     error: z.object({ code: z.string(), message: z.string() }).strict().optional(),
+    signals: z.object({ dtr: z.boolean(), rts: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -211,6 +231,9 @@ export const zcodeSerialMethodResultSchemas = {
       .strict(),
   ]),
   close: z.object({ status: serialStatusSchema }).strict(),
+  setSignals: z
+    .object({ signals: z.object({ dtr: z.boolean(), rts: z.boolean() }).strict() })
+    .strict(),
 } as const;
 export type ZCodeSerialMethodResult<Op extends SerialToolOp> = z.infer<
   (typeof zcodeSerialMethodResultSchemas)[Op]

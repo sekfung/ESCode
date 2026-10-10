@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { IServiceAccessor, SerialConfig, SerialErrorCode, SerialState } from "@zcode/services";
+import type {
+  IServiceAccessor,
+  SerialConfig,
+  SerialErrorCode,
+  SerialSignalPulse,
+  SerialState,
+} from "@zcode/services";
 import type { SerialPortPreferences } from "@zcode/shared";
 import { toast } from "@/components/ui/toast.js";
 import { useSettings } from "@/hooks/useSettingService.js";
@@ -9,6 +15,7 @@ import { logger } from "@/logger.js";
 import { SerialConnectionBar } from "@/serial/SerialConnectionBar.js";
 import { SerialLogView } from "@/serial/SerialLogView.js";
 import { SerialSendBar } from "@/serial/SerialSendBar.js";
+import { SerialSignalsBar } from "@/serial/SerialSignalsBar.js";
 import { cn } from "@/components/lib/utils.js";
 import {
   formatSerialAgentLabel,
@@ -57,7 +64,7 @@ export function SerialPane({
 }) {
   const { intl } = useZCodeIntl();
   const { settings, update } = useSettings();
-  const { state, refreshPorts, open, close, send, clear } = useSerialSession(
+  const { state, refreshPorts, open, close, send, clear, setSignals } = useSerialSession(
     services.serialService,
     path,
     isVisible,
@@ -144,6 +151,15 @@ export function SerialPane({
     [onOpenSession, workspaces],
   );
 
+  const handleSignals = useCallback(
+    (params: { dtr?: boolean; rts?: boolean; pulse?: SerialSignalPulse }) => {
+      void setSignals(params).catch((error: unknown) => {
+        toast(formatError(describeError(error)));
+      });
+    },
+    [formatError, setSignals],
+  );
+
   const handleClear = useCallback(() => {
     void clear().catch((error: unknown) => {
       logger.warn("[serial] clear failed", describeError(error));
@@ -211,6 +227,13 @@ export function SerialPane({
           )}
         </span>
       </div>
+      <SerialSignalsBar
+        signals={status.signals}
+        enabled={status.state === "open"}
+        rtsLocked={Boolean(status.config?.rtscts)}
+        onChange={handleSignals}
+        onPulse={(pulse) => handleSignals({ pulse })}
+      />
       <SerialLogView
         chunks={log.chunks}
         onClear={handleClear}

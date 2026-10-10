@@ -448,3 +448,28 @@ test("串口下拉合并本机串口与运行中会话，并标注运行中", as
     { path: "COM7", running: true },
   ]);
 });
+
+// --- DTR/RTS ---------------------------------------------------------------------
+
+test("serial_set_signals 审批预览给出目标信号或脉冲", async () => {
+  const { buildSerialPermissionPreview, describeSerialSignalChange } =
+    await import("../src/lib/serial/serialPermissionPreview.js");
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_set_signals", { dtr: false, path: "COM3" }),
+    { kind: "signals", path: "COM3", dtr: false },
+  );
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_set_signals", { pulse: "esp32" }),
+    { kind: "signals", pulse: "esp32" },
+  );
+  assert.deepEqual(
+    buildSerialPermissionPreview("mcp__serial__serial_set_signals", { pulse: "esp32", dtr: true }),
+    { kind: "invalid" },
+  );
+  // 变化描述：已知当前状态时显示 旧→新，未知时只显示目标值
+  assert.deepEqual(
+    describeSerialSignalChange({ dtr: false, rts: true }, { dtr: true, rts: true }),
+    ["DTR 1→0", "RTS 1→1"],
+  );
+  assert.deepEqual(describeSerialSignalChange({ rts: false }, undefined), ["RTS →0"]);
+});

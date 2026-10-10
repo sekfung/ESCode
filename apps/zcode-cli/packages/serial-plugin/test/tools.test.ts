@@ -11,20 +11,21 @@ function call(name: string, args: unknown, send = async () => ({ ok: true as con
   return handleSerialToolCall({ name, args, meta: META, send, signal: new AbortController().signal });
 }
 
-test("工具清单包含 6 个串口工具，并按读写声明 annotations", () => {
+test("工具清单包含全部串口工具，并按读写声明 annotations", () => {
   const byName = new Map(SERIAL_TOOLS.map((tool) => [tool.name, tool]));
   assert.deepEqual([...byName.keys()].sort(), [
     "serial_close",
     "serial_list",
     "serial_open",
     "serial_read",
+    "serial_set_signals",
     "serial_wait_for",
     "serial_write",
   ]);
   for (const name of ["serial_list", "serial_read", "serial_wait_for"]) {
     assert.equal(byName.get(name)?.annotations?.readOnlyHint, true, name);
   }
-  for (const name of ["serial_open", "serial_write", "serial_close"]) {
+  for (const name of ["serial_open", "serial_write", "serial_close", "serial_set_signals"]) {
     assert.equal(byName.get(name)?.annotations?.destructiveHint, true, name);
   }
   assert.equal(byName.get("serial_write")?.inputSchema.type, "object");

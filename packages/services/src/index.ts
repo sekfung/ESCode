@@ -79,6 +79,8 @@ export {
   type SerialPortInfo,
   type SerialSnapshot,
   type SerialSessionSummary,
+  type SerialSignals,
+  type SerialSignalPulse,
   type SerialPathChunk,
   type SerialPathStatus,
   SERIAL_MAX_ACTIVE_SESSIONS,

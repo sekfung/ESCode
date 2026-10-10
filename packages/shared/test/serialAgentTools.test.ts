@@ -76,6 +76,7 @@ test("协议为每个操作提供独立方法，参数携带会话与 workspace 
     "interaction/serialList",
     "interaction/serialOpen",
     "interaction/serialRead",
+    "interaction/serialSetSignals",
     "interaction/serialWaitFor",
     "interaction/serialWrite",
   ]);
@@ -111,4 +112,26 @@ test("多串口：除 list/open 外的工具都接受可选 path", () => {
     assert.equal(serialToolArgsSchemas[op].parse(base).path, undefined, op);
   }
   assert.ok(!serialToolArgsSchemas.list.safeParse({ path: "COM3" }).success);
+});
+
+test("serial_set_signals：dtr/rts 与 pulse 互斥，至少给出一项", async () => {
+  const { zcodeSerialMethodResultSchemas } = await import("../src/serial/index.js");
+  const schema = serialToolArgsSchemas.setSignals;
+  assert.ok(schema.safeParse({ dtr: true }).success);
+  assert.ok(schema.safeParse({ rts: false, path: "COM3" }).success);
+  assert.ok(schema.safeParse({ pulse: "esp32" }).success);
+  assert.ok(!schema.safeParse({}).success);
+  assert.ok(!schema.safeParse({ pulse: "esp32", dtr: true }).success);
+  assert.ok(!schema.safeParse({ pulse: "stm32" }).success);
+  assert.equal(zcodeSerialMethods.setSignals, "interaction/serialSetSignals");
+  // 状态里携带 signals，结果 schema 必须接受（strict schema 遇未知字段会整条拒收）
+  assert.ok(
+    zcodeSerialMethodResultSchemas.close.safeParse({
+      status: { state: "open", path: "COM3", signals: { dtr: true, rts: false } },
+    }).success,
+  );
+  assert.ok(
+    zcodeSerialMethodResultSchemas.setSignals.safeParse({ signals: { dtr: false, rts: true } })
+      .success,
+  );
 });

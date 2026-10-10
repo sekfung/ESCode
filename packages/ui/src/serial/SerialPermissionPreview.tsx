@@ -1,30 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOptionalServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { buildSerialPermissionPreview } from "@/lib/serial/serialPermissionPreview.js";
+import type { SerialSignals } from "@zcode/services";
+import {
+  buildSerialPermissionPreview,
+  describeSerialSignalChange,
+} from "@/lib/serial/serialPermissionPreview.js";
 
 /**
- * write/close 未指定 path 时推断目标串口：与 Host 规则一致，恰好一个活动会话时就是它，
- * 否则不显示具体串口（Host 会要求 Agent 指定）。串口服务不存在（Web/远程）时不显示。
+ * 审批卡片的目标串口与其当前信号：未指定 path 时按 Host 规则推断（恰好一个活动会话时就是它，
+ * 否则不显示具体串口，Host 会要求 Agent 指定）。串口服务不存在（Web/远程）时不显示。
  */
-function useImplicitSerialPath(enabled: boolean): string | null {
+function useSerialTarget(
+  enabled: boolean,
+  explicitPath: string | undefined,
+): { path: string | null; signals?: SerialSignals } {
   const services = useOptionalServices();
   const serialService = services?.serialService;
-  const [path, setPath] = useState<string | null>(null);
+  const [target, setTarget] = useState<{ path: string | null; signals?: SerialSignals }>({
+    path: explicitPath ?? null,
+  });
   useEffect(() => {
     if (!enabled || !serialService) return;
     let cancelled = false;
-    void serialService
-      .listSessions()
-      .then((sessions) => {
-        if (!cancelled) setPath(sessions.length === 1 ? sessions[0]!.path : null);
-      })
-      .catch(() => undefined);
+    void (async () => {
+      const path =
+        explicitPath ??
+        (await serialService
+          .listSessions()
+          .then((sessions) => (sessions.length === 1 ? sessions[0]!.path : null)));
+      const signals = path ? (await serialService.getSnapshot({ path })).status.signals : undefined;
+      if (!cancelled) setTarget({ path: path ?? null, ...(signals ? { signals } : {}) });
+    })().catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [enabled, serialService]);
-  return path;
+  }, [enabled, explicitPath, serialService]);
+  return target;
 }
 
 /**
@@ -34,9 +46,12 @@ function useImplicitSerialPath(enabled: boolean): string | null {
 export function SerialPermissionPreview({ toolName, input }: { toolName: string; input: unknown }) {
   const { intl } = useZCodeIntl();
   const preview = useMemo(() => buildSerialPermissionPreview(toolName, input), [input, toolName]);
-  const needsImplicitPath =
-    (preview?.kind === "write" || preview?.kind === "close") && !preview.path;
-  const implicitPath = useImplicitSerialPath(needsImplicitPath);
+  const needsTarget =
+    preview?.kind === "write" || preview?.kind === "close" || preview?.kind === "signals";
+  const target = useSerialTarget(
+    needsTarget,
+    preview && "path" in preview ? preview.path : undefined,
+  );
   if (!preview) return null;
   if (preview.kind === "invalid") {
     return (
@@ -45,7 +60,7 @@ export function SerialPermissionPreview({ toolName, input }: { toolName: string;
       </p>
     );
   }
-  const path = preview.path ?? implicitPath;
+  const path = preview.path ?? target.path;
   return (
     <div className="flex flex-col gap-1.5 text-ui-sm" data-testid="serial-permission-preview">
       <div className="flex flex-wrap items-center gap-2 text-foreground-subtle">
@@ -61,6 +76,13 @@ export function SerialPermissionPreview({ toolName, input }: { toolName: string;
           </span>
         ) : null}
       </div>
+      {preview.kind === "signals" ? (
+        <div className="font-mono text-foreground">
+          {preview.pulse
+            ? intl.formatMessage({ id: `serial.permission.pulse.${preview.pulse}` })
+            : describeSerialSignalChange(preview, target.signals).join("  ")}
+        </div>
+      ) : null}
       {preview.kind === "write" ? (
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-2 font-mono text-ui-sm">
           <span className="break-all whitespace-pre-wrap text-foreground">{preview.text}</span>

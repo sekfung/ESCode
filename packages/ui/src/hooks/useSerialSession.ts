@@ -10,6 +10,7 @@ import type {
   SerialConfig,
   SerialPortInfo,
   SerialSessionSummary,
+  SerialSignalPulse,
   SerialStatus,
 } from "@zcode/services";
 import { logger } from "@/logger.js";
@@ -156,11 +157,19 @@ export function useSerialSession(
     [path, service],
   );
 
+  const setSignals = useCallback(
+    async (params: { dtr?: boolean; rts?: boolean; pulse?: SerialSignalPulse }) => {
+      if (!service || !path) return;
+      await service.setSignals({ path, ...params });
+    },
+    [path, service],
+  );
+
   const clear = useCallback(async () => {
     if (!service || !path) return;
     await service.clear({ path });
     setState((current) => ({ ...current, log: clearSerialChunkLog(current.log) }));
   }, [path, service]);
 
-  return { state, refreshPorts, open, close, send, clear };
+  return { state, refreshPorts, open, close, send, clear, setSignals };
 }
