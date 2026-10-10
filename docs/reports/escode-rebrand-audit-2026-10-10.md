@@ -29,7 +29,7 @@
 | lockfile     | 根 `pnpm-lock.yaml` 用 pnpm 重算；`apps/escode-cli/pnpm-lock.yaml` 同步改名；`apps/escode-cli-rust/Cargo.lock` 用 cargo 重算                                                                                                 |
 | 第三方声明   | `third-party/copied-components.json` 路径更新 + 重新生成 `third-party/inventory.json` 与 `THIRD-PARTY-NOTICES.md`（1212 个 npm 版本、8 个复制组件、18 个原生归档）                                                           |
 
-## 二、保留 `zcode` 的类别（共 280 行，179 个文件）
+## 二、保留 `zcode` 的类别（共 287 行，179 个文件）
 
 按 Apache-2.0 第 4 条与「不得修改源代码归属权」的要求，以下内容不参与品牌改名（计数含本轮新增的说明文档）：
 
