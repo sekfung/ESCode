@@ -6,7 +6,9 @@ import type {
   SerialSignalPulse,
   SerialState,
 } from "@zcode/services";
-import type { SerialPortPreferences } from "@zcode/shared";
+import type { SerialPortPreferences, SerialQuickCommand } from "@zcode/shared";
+import { buildSerialSendPayload } from "@/lib/serial/serialFormat.js";
+import { SerialQuickCommandsBar } from "@/serial/SerialQuickCommandsBar.js";
 import { toast } from "@/components/ui/toast.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useSerialSession } from "@/hooks/useSerialSession.js";
@@ -34,6 +36,7 @@ const DEFAULT_CONFIG: SerialConfig = {
 };
 
 const BUSY_STATES: ReadonlySet<SerialState> = new Set(["opening", "closing"]);
+const EMPTY_QUICK_COMMANDS: SerialQuickCommand[] = [];
 
 function describeError(error: unknown): { code?: SerialErrorCode; message: string } {
   const code = (error as { code?: unknown } | null)?.code;
@@ -160,6 +163,28 @@ export function SerialPane({
     [formatError, setSignals],
   );
 
+  const quickCommands = settings?.serialQuickCommands ?? EMPTY_QUICK_COMMANDS;
+  const handleQuickCommandsChange = useCallback(
+    (serialQuickCommands: SerialQuickCommand[]) => {
+      void update({ serialQuickCommands }).catch((error: unknown) => {
+        logger.warn("[serial] failed to save quick commands", describeError(error));
+      });
+    },
+    [update],
+  );
+  const handleQuickCommandSend = useCallback(
+    (command: SerialQuickCommand) => {
+      // 与发送栏相同的编码规则：文本按 UTF-8 加行尾，HEX 原样。
+      const payload = buildSerialSendPayload({
+        input: command.data,
+        mode: command.mode,
+        lineEnding: command.lineEnding,
+      });
+      if (payload.ok) void handleSend(payload.bytes);
+    },
+    [handleSend],
+  );
+
   const handleClear = useCallback(() => {
     void clear().catch((error: unknown) => {
       logger.warn("[serial] clear failed", describeError(error));
@@ -239,6 +264,12 @@ export function SerialPane({
         onClear={handleClear}
         getAgentLabel={getAgentLabel}
         {...(onOpenSession ? { onOpenAgentSession: handleOpenAgentSession } : {})}
+      />
+      <SerialQuickCommandsBar
+        commands={quickCommands}
+        canSend={status.state === "open"}
+        onSend={handleQuickCommandSend}
+        onChange={handleQuickCommandsChange}
       />
       <SerialSendBar canSend={status.state === "open"} onSend={handleSend} />
     </section>

@@ -432,6 +432,20 @@ const serialPortPreferencesSchema = z.object({
   ),
 });
 
+export const SERIAL_QUICK_COMMANDS_MAX = 100;
+
+export const serialQuickCommandSchema = z
+  .object({
+    id: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(64),
+    data: z.string().max(65536),
+    mode: z.enum(["text", "hex"]),
+    lineEnding: z.enum(["none", "cr", "lf", "crlf"]),
+  })
+  .strict();
+
+const serialQuickCommandsSchema = z.array(serialQuickCommandSchema).max(SERIAL_QUICK_COMMANDS_MAX);
+
 const appSettingsObjectSchema = z.object({
   recentProjects: z.array(z.string()).default([]),
   locale: localeSchema.default("zh-CN"),
@@ -451,6 +465,7 @@ const appSettingsObjectSchema = z.object({
   // 输入框电脑操作入口改为默认不展示，设置项保留、默认关闭。
   // default 只对缺省字段生效，显式存过 false 的用户仍保持展示。
   serialPortPreferences: serialPortPreferencesSchema.optional(),
+  serialQuickCommands: serialQuickCommandsSchema.optional(),
   computerUseComposerEntryHidden: z.boolean().default(true),
   taskAutoArchiveEnabled: z.boolean().default(false),
   taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).default(7),
@@ -520,6 +535,7 @@ export const appSettingsPatchSchema = z.object({
   embeddedBrowserAllowInsecureCertificates: z.boolean().optional(),
   embeddedBrowserViewportPreference: embeddedBrowserViewportPreferenceSchema.optional(),
   serialPortPreferences: serialPortPreferencesSchema.optional(),
+  serialQuickCommands: serialQuickCommandsSchema.optional(),
   computerUseComposerEntryHidden: z.boolean().optional(),
   taskAutoArchiveEnabled: z.boolean().optional(),
   taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).optional(),

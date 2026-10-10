@@ -248,6 +248,15 @@ export interface SerialPortPreferences {
   byPath: Record<string, SerialPortConfigPreference>;
 }
 
+/** 串口快捷指令（docs/specs/serial-port-debugger-phase3.md 第 3 节），全局共用。 */
+export interface SerialQuickCommand {
+  id: string;
+  name: string;
+  data: string;
+  mode: "text" | "hex";
+  lineEnding: "none" | "cr" | "lf" | "crlf";
+}
+
 export interface AppSettings {
   /** 当前 App/Host 不再显示提交前体验套餐推荐；不改变任何入口的模型选择。 */
   startPlanRecommendationDismissed?: boolean;
@@ -282,6 +291,8 @@ export interface AppSettings {
   embeddedBrowserViewportPreference?: EmbeddedBrowserViewportPreference;
   /** 串口调试器上次使用的串口与按串口名记住的参数；只用于预填，不会自动连接。 */
   serialPortPreferences?: SerialPortPreferences;
+  /** 串口快捷指令，最多 100 条，所有串口共用。 */
+  serialQuickCommands?: SerialQuickCommand[];
   /**
    * 用户已在设置页关闭输入框的「电脑操作」按钮（内部 hidden 态）。
    * 取 hidden 语义而非 visible：undefined 即默认显示，老用户无需数据迁移。

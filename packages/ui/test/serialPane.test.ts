@@ -473,3 +473,107 @@ test("serial_set_signals 审批预览给出目标信号或脉冲", async () => {
   );
   assert.deepEqual(describeSerialSignalChange({ rts: false }, undefined), ["RTS →0"]);
 });
+
+// --- 快捷指令 ---------------------------------------------------------------------
+
+test("快捷指令：增删改与移动", async () => {
+  const lib = await import("../src/lib/serial/serialQuickCommands.js");
+  let list = lib.addSerialQuickCommand([], {
+    name: "AT",
+    data: "AT",
+    mode: "text",
+    lineEnding: "crlf",
+  });
+  list = lib.addSerialQuickCommand(list, {
+    name: "Reset",
+    data: "AA 55",
+    mode: "hex",
+    lineEnding: "none",
+  });
+  assert.equal(list.length, 2);
+  assert.ok(list.every((item) => typeof item.id === "string" && item.id.length > 0));
+  list = lib.updateSerialQuickCommand(list, list[0]!.id, { name: "AT test" });
+  assert.equal(list[0]!.name, "AT test");
+  list = lib.moveSerialQuickCommand(list, list[1]!.id, list[0]!.id);
+  assert.deepEqual(
+    list.map((item) => item.name),
+    ["Reset", "AT test"],
+  );
+  list = lib.removeSerialQuickCommand(list, list[0]!.id);
+  assert.deepEqual(
+    list.map((item) => item.name),
+    ["AT test"],
+  );
+});
+
+test("快捷指令：上限 100 条", async () => {
+  const lib = await import("../src/lib/serial/serialQuickCommands.js");
+  let list: ReturnType<typeof lib.addSerialQuickCommand> = [];
+  for (let index = 0; index < 101; index += 1) {
+    list = lib.addSerialQuickCommand(list, {
+      name: `c${index}`,
+      data: "x",
+      mode: "text",
+      lineEnding: "none",
+    });
+  }
+  assert.equal(list.length, 100);
+});
+
+test("快捷指令导入：追加、跳过非法条目、超过上限丢弃并报告数量；导出可再导入", async () => {
+  const lib = await import("../src/lib/serial/serialQuickCommands.js");
+  const existing = lib.addSerialQuickCommand([], {
+    name: "keep",
+    data: "k",
+    mode: "text",
+    lineEnding: "none",
+  });
+  const json = JSON.stringify([
+    { name: "ok", data: "AT", mode: "text", lineEnding: "crlf" },
+    { name: "", data: "x", mode: "text", lineEnding: "none" },
+    { name: "badmode", data: "x", mode: "binary", lineEnding: "none" },
+    { name: "hex", data: "41 42", mode: "hex", lineEnding: "none" },
+  ]);
+  const result = lib.importSerialQuickCommands(existing, json);
+  assert.deepEqual(
+    result.commands.map((item) => item.name),
+    ["keep", "ok", "hex"],
+  );
+  assert.equal(result.imported, 2);
+  assert.equal(result.skipped, 2);
+  assert.equal(result.dropped, 0);
+  assert.equal(lib.importSerialQuickCommands([], "not json").skipped, 0);
+  assert.equal(lib.importSerialQuickCommands([], "not json").error, "invalidJson");
+  const exported = lib.exportSerialQuickCommands(result.commands);
+  const roundtrip = lib.importSerialQuickCommands([], exported);
+  assert.deepEqual(
+    roundtrip.commands.map((item) => [item.name, item.data, item.mode, item.lineEnding]),
+    result.commands.map((item) => [item.name, item.data, item.mode, item.lineEnding]),
+  );
+  const many = JSON.stringify(
+    Array.from({ length: 120 }, (_, i) => ({
+      name: `n${i}`,
+      data: "x",
+      mode: "text",
+      lineEnding: "none",
+    })),
+  );
+  const capped = lib.importSerialQuickCommands(existing, many);
+  assert.equal(capped.commands.length, 100);
+  assert.equal(capped.dropped, 21);
+});
+
+test("全局设置保存快捷指令列表并校验", async () => {
+  const { appSettingsPatchSchema } = await import("../../shared/src/validationAppSettings.js");
+  const command = { id: "c1", name: "AT", data: "AT", mode: "text", lineEnding: "crlf" };
+  assert.ok(appSettingsPatchSchema.safeParse({ serialQuickCommands: [command] }).success);
+  assert.ok(
+    !appSettingsPatchSchema.safeParse({ serialQuickCommands: [{ ...command, mode: "bin" }] })
+      .success,
+  );
+  assert.ok(
+    !appSettingsPatchSchema.safeParse({
+      serialQuickCommands: Array.from({ length: 101 }, () => command),
+    }).success,
+  );
+});

@@ -10,6 +10,7 @@ export type {
   AppSettings,
   SerialPortConfigPreference,
   SerialPortPreferences,
+  SerialQuickCommand,
   ElectronReleaseChannel,
   IntegratedTerminalShellDialect,
   IntegratedTerminalShellOption,

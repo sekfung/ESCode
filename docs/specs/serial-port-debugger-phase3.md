@@ -97,8 +97,9 @@ interface ISerialService {
 - 全局列表，存设置 `serialQuickCommands: SerialQuickCommand[]`，最多 100 条：
   `{ id, name, data, mode: "text" | "hex", lineEnding, checksum? }`（`checksum` 见第 5 节）。
 - 面板发送区上方一行按钮，点击即发送到当前标签的串口；可拖拽排序（复用 `@dnd-kit/sortable`）、新增、编辑、删除。
-- 导入/导出 JSON 文件：导出走 `IPlatformService.saveFile`；导入走文件选择后经 `fileService` 读取，
-  按 schema 校验，非法条目跳过并提示数量；导入为追加，超过上限的部分丢弃并提示。
+- 导入/导出 JSON 文件：导出走 `IPlatformService.saveFile`（导出内容不含 id）；导入使用渲染层原生文件选择
+  （`<input type="file">` + `File.text()`），无需经 Host 读文件。按 schema 校验，非法条目跳过并提示数量；
+  导入为追加并重新分配 id，超过上限的部分丢弃并提示。
 - 可作为定时循环发送的内容。
 
 ## 4. 定时循环发送

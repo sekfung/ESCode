@@ -48,6 +48,8 @@ export {
   appSettingsSchema,
   localeSchema,
   postUpdateReleaseNotesPayloadSchema,
+  SERIAL_QUICK_COMMANDS_MAX,
+  serialQuickCommandSchema,
 } from "./validationAppSettings.js";
 
 export function formatZodError(error: z.ZodError): string {
