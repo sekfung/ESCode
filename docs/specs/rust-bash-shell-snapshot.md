@@ -36,9 +36,9 @@
 4. cwd 捕获（前台 Bash；显式后台不做）：
    - 命令后追加：
      ```
-     __zcode_status=$?
-     if [ "$__zcode_status" -eq 0 ]; then pwd -P > '<cwd 文件>'; fi
-     exit "$__zcode_status"
+     __escode_status=$?
+     if [ "$__escode_status" -eq 0 ]; then pwd -P > '<cwd 文件>'; fi
+     exit "$__escode_status"
      ```
    - cmd 方言用对应的 `set`/`cd`/`exit /b` 写法；
    - 成功（completed 且退出码 0）并读到 cwd 时：
@@ -73,5 +73,5 @@
   - alias 不展开；
   - 出错行号少一行。
 - 这是 TS 的产品行为（Windows 用户可能经常拿不到快照），Rust 按同一规则处理，未改动超时。
-- 差分 `zcode-cli-rust-bash-shell.test.ts` 因此只在 Linux/macOS 比较；本机两侧各跑一次均通过
+- 差分 `escode-cli-rust-bash-shell.test.ts` 因此只在 Linux/macOS 比较；本机两侧各跑一次均通过
   （Node 64s，Rust 22s）。

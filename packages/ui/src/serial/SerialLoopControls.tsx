@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input.js";
 import { Switch } from "@/components/ui/switch.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { parseSerialLoopInputs } from "@/lib/serial/serialLoopInputs.js";
 
 export interface SerialLoopSettings {
@@ -25,7 +25,7 @@ export function SerialLoopControls({
   disabled: boolean;
   onChange: (settings: SerialLoopSettings) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const parsed = parseSerialLoopInputs(settings.interval, settings.count);
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-ui-sm text-foreground-subtle">

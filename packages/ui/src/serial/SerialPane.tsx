@@ -5,8 +5,8 @@ import type {
   SerialErrorCode,
   SerialSignalPulse,
   SerialState,
-} from "@zcode/services";
-import type { SerialPortPreferences, SerialQuickCommand } from "@zcode/shared";
+} from "@escode/services";
+import type { SerialPortPreferences, SerialQuickCommand } from "@escode/shared";
 import { buildSerialQuickCommandPayload } from "@/lib/serial/serialQuickCommands.js";
 import { SerialQuickCommandsBar } from "@/serial/SerialQuickCommandsBar.js";
 import {
@@ -17,7 +17,7 @@ import { parseSerialLoopInputs } from "@/lib/serial/serialLoopInputs.js";
 import { toast } from "@/components/ui/toast.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useSerialSession } from "@/hooks/useSerialSession.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { SerialConnectionBar } from "@/serial/SerialConnectionBar.js";
 import { SerialLogView } from "@/serial/SerialLogView.js";
@@ -28,7 +28,7 @@ import {
   formatSerialAgentLabel,
   resolveSerialAgentSession,
 } from "@/lib/serial/serialAgentSession.js";
-import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import { buildSerialPortOptions, pickInitialSerialPath } from "@/lib/serial/serialPortChoice.js";
 
 const DEFAULT_CONFIG: SerialConfig = {
@@ -70,7 +70,7 @@ export function SerialPane({
   /** 点击 `[Agent·…]` 时跳到发起写入的会话。 */
   onOpenSession?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const { settings, update } = useSettings();
   const { state, refreshPorts, open, close, send, clear, setSignals, startLoop, stopLoop } =
     useSerialSession(services.serialService, path, isVisible);
@@ -140,7 +140,7 @@ export function SerialPane({
     [formatError, send],
   );
 
-  const workspaces = useZCodeSessionStore((state) => state.workspaces);
+  const workspaces = useESCodeSessionStore((state) => state.workspaces);
   const getAgentLabel = useCallback(
     (sessionId: string | undefined) =>
       sessionId

@@ -15,16 +15,16 @@ App 对 `plugins/list` 的错误只在**超时**时重试，method-not-found 直
 
 ## TS 基准与规模
 
-- 协议面：`bootstrap/src/zcode-protocol/plugins.ts`（`listPlugins` / `setPluginEnabled` /
+- 协议面：`bootstrap/src/escode-protocol/plugins.ts`（`listPlugins` / `setPluginEnabled` /
   `getPluginsOverview` / 引用目录 + `toPluginInfo` / `createMissingConfiguredPluginInfos` /
   `createPluginConfigView`）。
-- 解析面：`bootstrap/src/plugins.ts::resolveZCodePlugins`（`discoverNodePluginsSync`）。
+- 解析面：`bootstrap/src/plugins.ts::resolveESCodePlugins`（`discoverNodePluginsSync`）。
 - 插件域实现：`packages/adapters/src/plugins/*`，约 **5.9k 行**（`marketplace.ts` 单文件 101 KB），
   含市场索引、zip/GitHub 源、原子目录安装、组件枚举、hooks、MCP、版本比较。
 
 结论：这是一整块领域，不是「补一个方法」。本文件把它拆成分期，逐期对齐 + 差分，避免半成品列表冒充完成。
 
-## 结果契约（`zcodePluginInfoSchema`）
+## 结果契约（`escodePluginInfoSchema`）
 
 - 必填：`id`、`name`、`enabled`、`source`、`marketplace`、`skillRootCount`、`commandRootCount`、
   `mcpServerNames`、`rootPath`。
@@ -54,8 +54,8 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
 
 已核对（实现前不必重查）：
 
-- marketplace 常量两边一致：inline 目录 = `inline`（`ZCODE_INLINE_PLUGIN_MARKETPLACE`），
-  官方 = `zcode-plugins-official`（`ZCODE_OFFICIAL_PLUGIN_MARKETPLACE`），Rust 现有 id 形如
+- marketplace 常量两边一致：inline 目录 = `inline`（`ESCODE_INLINE_PLUGIN_MARKETPLACE`），
+  官方 = `escode-plugins-official`（`ESCODE_OFFICIAL_PLUGIN_MARKETPLACE`），Rust 现有 id 形如
   `name@<marketplace>` 与 TS 相同，所以 `enabledPlugins` / `suppressedBuiltins` 的键能对上。
 - defaultEnabled：inline 目录 = true，官方 root/cache = false，市场安装（`installed_plugins.json`）= false；
   实际值 = `plugins.enabledPlugins[id] ?? defaultEnabled || plugin_defaults 含该 id`（Rust 已按此实现）。
@@ -114,30 +114,30 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
 `enabledSource`、`rootSource`；`plugins/setEnabled`（第 2 期）；`plugins/overview` /
 `referenceCatalog`（第 3 期）。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-list.test.ts`——同一 fixture 下
+验收：`packages/services/tests/escode-cli-rust-plugins-list.test.ts`——同一 fixture 下
 （inline 两个插件根 + `enabledPlugins` 关闭其中一个 + 一条只声明未安装的 id，含 agents/commands/
 skills/`.mcp.json` 组件），Node 与 Rust 在整份列表的上述字段（含 `components`）上逐值一致，
 且所有行都带 schema 必填字段；停用插件的 `components` 仍然完整而计数为 0。
 
 官方插件行的说明（已查清，不是缺口）：Node 从随包官方插件根直接发现，Rust 依赖
-`official_plugins::seed_once` 把同一份随包内容写进 `<storage>/cache/zcode-plugins-official`。用例里
-必须像 App 的 `zcodeAgentProcessManager` 那样注入 `ZCODE_OFFICIAL_PLUGINS_BASE_DIR`（随包目录）、
-`ZCODE_PLUGIN_HOST_EXEC_PATH` 与 `ZCODE_PLUGIN_HOST_ENTRYPOINT`，否则 Rust 无源可 seed、会少
-`node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official` 两行。注入后两侧
+`official_plugins::seed_once` 把同一份随包内容写进 `<storage>/cache/escode-plugins-official`。用例里
+必须像 App 的 `escodeAgentProcessManager` 那样注入 `ESCODE_OFFICIAL_PLUGINS_BASE_DIR`（随包目录）、
+`ESCODE_PLUGIN_HOST_EXEC_PATH` 与 `ESCODE_PLUGIN_HOST_ENTRYPOINT`，否则 Rust 无源可 seed、会少
+`node-repl-host@escode-plugins-official` 与 `browser-use@escode-plugins-official` 两行。注入后两侧
 **整份列表**（含官方插件、含顺序）在上述字段上一致。
 
 ## 实现与验证（第 2 期，2026-10-02）
 
 `plugins/setEnabled` 写面已落地（`crates/tools/src/plugin_list.rs::set_enabled` + `config_file.rs`），
-对齐 TS `setPluginEnabled` → `setZCodePluginEnabled` → `updatePluginEnabledInFileConfig`：
+对齐 TS `setPluginEnabled` → `setESCodePluginEnabled` → `updatePluginEnabledInFileConfig`：
 
 - 选择器（TS `resolvePluginSelector`）：`trim` 后先按完整 id，再按唯一 `name`；重名报
   `Plugin name is ambiguous, use full plugin id: …`，否则 `Plugin not found: …`。范围是**已发现**插件
   （配置视图含项目层），所以只在配置里声明、未安装的 missing 行同样报未找到。
-- 写入目标（TS `resolvePluginConfigPath`）：`scope: "workspace"` 固定 `<workspacePath>/.zcode/config.json`
-  （不走 project discovery 的最外层文件），否则用户层 `~/.zcode/cli/config.json`。
+- 写入目标（TS `resolvePluginConfigPath`）：`scope: "workspace"` 固定 `<workspacePath>/.escode/config.json`
+  （不走 project discovery 的最外层文件），否则用户层 `~/.escode/cli/config.json`。
 - 补丁（TS `patchPluginEnabled`）：只动 `plugins.enabledPlugins`，先删掉 id 的别名（CUA 旧 id
-  `zcode-cua@zcode-plugins-official` → `computer-use@zcode-plugins-official`），再把规范 id 追加到末尾；
+  `escode-cua@escode-plugins-official` → `computer-use@escode-plugins-official`），再把规范 id 追加到末尾；
   `plugins` / `enabledPlugins` 不是对象时原位替换为对象。
 - 落盘（TS `atomicWriteJson`）：同目录临时文件（unix 0600）+ rename，失败清理临时文件；内容为
   `JSON.stringify(value, null, 2) + "\n"`。Rust 的 serde_json 没开 `preserve_order`（全局打开会改变
@@ -152,7 +152,7 @@ skills/`.mcp.json` 组件），Node 与 Rust 在整份列表的上述字段（�
 未对齐（记录在案）：TS `createConfig` 装载时会把旧 CUA key 迁移并回写磁盘（`persistPluginConfigMigration`），
 Rust 读路径不做这一步；只影响仍保存旧 id 的历史配置，写入时的别名清理已对齐。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-set-enabled.test.ts`——同一 fixture 下比对 Node 与
+验收：`packages/services/tests/escode-cli-rust-plugins-set-enabled.test.ts`——同一 fixture 下比对 Node 与
 Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace 层，文件原本不存在）、未知 id、missing 行
 四次调用的返回/错误文案，两份配置文件写后的**完整字节**（含补丁外 key 的顺序、`1.0` 的排版），以及随后
 `plugins/list` 的启用态。
@@ -160,13 +160,13 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
 ## 实现与验证（第 3 期 · overview，2026-10-02）
 
 `plugins/overview` 已落地（`crates/tools/src/plugin_overview.rs` 组装 + `plugin_marketplace.rs` 存储解析），
-对齐 TS `getPluginsOverview` → `getZCodePluginsOverview`：
+对齐 TS `getPluginsOverview` → `getESCodePluginsOverview`：
 
 - 每次调用先做 TS `ensureDefaultPluginMarketplaces`：`known_marketplaces.json` 缺官方市场记录时补一条
   （`source: {source:"url", url:<CDN>}`、`addedAt` 为当前 ISO 时间、`pluginCount: 0`）并整份重写
   `{version:1, marketplaces}`——已有记录保序原样、未过 `isKnownMarketplaceRecord` 的记录被丢弃（与 TS 相同）。
 - 市场：`known` + 用户层 `plugins.extraKnownMarketplaces` 声明（项目层声明被 TS config-merger 丢弃；
-  file/directory 相对路径按 `~/.zcode/cli` 解析）。同 id 同 source 读缓存 manifest；异 source 的非官方声明替换成
+  file/directory 相对路径按 `~/.escode/cli` 解析）。同 id 同 source 读缓存 manifest；异 source 的非官方声明替换成
   不读缓存的占位记录（`pluginCount: 0`）；官方 id 是保留身份，声明只产生
   `plugin_marketplace_declaration_reserved` 诊断。摘要的 `pluginCount` 取 manifest 可见条目数（官方市场排除
   `node-repl-host`），无 manifest 时取记录值；`featured` 只收非空字符串。
@@ -178,7 +178,7 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
   `coerce` 比较，否则比 source pin：zip sha256 > sha > commit），`latestVersion` 为 version 或 sha 前 7 位；
   按 id join 目录条目的 listing。
 - `restorableBuiltins`：被 `suppressedBuiltins` 抑制的官方定义（computer-use 另需 CUA 特性，同 TS
-  `isZCodeCuaInternalFeatureEnabled`），listing 取定义 seed。
+  `isESCodeCuaInternalFeatureEnabled`），listing 取定义 seed。
 - 诊断：声明保留 id + 市场 `lastRefreshFailure`（severity error）。
 
 未对齐（记录在案，均为 schema 可选或独立缺口）：
@@ -189,7 +189,7 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
 - 读路径不做 TS `recoverAtomicTargetSync` 的崩溃恢复：Rust 不写 marketplaces/cache 目录，Node writer 崩溃留下的
   事务残留由 Node 下次操作恢复；在此之前 Rust 可能读到旧一代或缺失的 manifest。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-overview.test.ts`——同一 fixture（第三方市场含 listing /
+验收：`packages/services/tests/escode-cli-rust-plugins-overview.test.ts`——同一 fixture（第三方市场含 listing /
 featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记录、用户层声明含保留官方 id 与相对目录、已安装
 插件含真实根与缺失根、被抑制的官方插件）下，Node 与 Rust 的整份结果逐值一致（剔除 hookDetails 与发现层诊断），
 且 overview 补写后的 `known_marketplaces.json` 一致（剔除 `addedAt`）。
@@ -213,7 +213,7 @@ featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记�
 引用目录时冻结（engine 内存，会话关闭即丢弃，不落盘）。只有「会话创建后、首次打开 Picker 前」改了插件配置时
 两者可观察不同。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-reference-catalog.test.ts`——inline 插件含 skill/agent/MCP、
+验收：`packages/services/tests/escode-cli-rust-plugins-reference-catalog.test.ts`——inline 插件含 skill/agent/MCP、
 停用插件、inline 与市场安装的同名插件冲突、市场 listing 展示 join；比对 workspace / WithCategory / 会话首次 /
 `setEnabled` 之后的会话（仍为冻结值）与 workspace（已更新）/ 未知会话报错，Node 与 Rust 逐值一致。
 
@@ -222,7 +222,7 @@ featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记�
 `extension_plugins::discover` 对齐 TS `discoverNodePluginsSync` 的 loader 部分，`plugins/list` 的 `diagnostics` 与
 `plugins/overview` 的发现层诊断（排在保留 id 声明与刷新失败之前）共用这一份：
 
-- `loadPlugin`：根不存在 → `plugin_root_not_found`（warning）；`.zcode-plugin` → `.claude-plugin` → `.codex-plugin`
+- `loadPlugin`：根不存在 → `plugin_root_not_found`（warning）；`.escode-plugin` → `.claude-plugin` → `.codex-plugin`
   取**第一个存在的** `plugin.json`（存在但非法时不回退）、都没有 → `plugin_manifest_not_found`（error）；
   JSON 非法 / 非对象 / name trim 后不匹配 `^[a-z0-9][a-z0-9._-]{0,127}$` → `plugin_manifest_invalid`（error）。
 - 重复 id → `plugin_duplicate_id`；manifest 含 `channels` / `lspServers` / `outputStyles` / `settings` →
@@ -241,8 +241,8 @@ featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记�
 manifest 组件字段的 `plugin_manifest_invalid`、hook 相关（第 4 期）、MCP 相关（`plugin_mcp_*`）。
 JSON 语法错误的 message 来自各自的解析器（V8 vs serde），文案不同、code/severity 相同。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-diagnostics.test.ts`——缺 version、JSON 损坏、数组 manifest、
-非法 name、无 manifest、`.zcode-plugin` 非法遮蔽 `.claude-plugin`、仅 `.claude-plugin`、重复 id、仅诊断组件键、
+验收：`packages/services/tests/escode-cli-rust-plugins-diagnostics.test.ts`——缺 version、JSON 损坏、数组 manifest、
+非法 name、无 manifest、`.escode-plugin` 非法遮蔽 `.claude-plugin`、仅 `.claude-plugin`、重复 id、仅诊断组件键、
 根不存在；Node 与 Rust 的插件行与诊断（除解析器文案）逐值一致。overview 差分不再剔除发现层诊断，整份一致。
 
 ## 实现与验证（第 4 期 · 选项面 4a，2026-10-02）
@@ -263,7 +263,7 @@ JSON 语法错误的 message 来自各自的解析器（V8 vs serde），文案�
 - 协议 `nonEmptyString` 是 `trim().min(1)`：`pluginId` / `clearOptionKeys` 元素 trim 后为空即 Invalid params，且使用
   trim 后的值（setEnabled 一并对齐）。错误文案是各自校验库的措辞，只对齐「拒绝」。
 
-验收：`packages/services/tests/zcode-cli-rust-plugins-options.test.ts`——用户层（dirs=alpha、启用、region+密钥）+ 工作区层
+验收：`packages/services/tests/escode-cli-rust-plugins-options.test.ts`——用户层（dirs=alpha、启用、region+密钥）+ 工作区层
 （dirs=beta、停用 beta、覆盖 region）；比对合并视图与 user 视图的 list（来源、configuredOptions、userConfig）、workspace
 scope configure（清键 + 新键顺序 + 非原始值丢弃）、dryRun、user scope 清密钥、未知插件、非法 clearOptionKeys、三种 reset，
 以及每步之后两份配置文件的完整字节；Node 与 Rust 逐值一致。

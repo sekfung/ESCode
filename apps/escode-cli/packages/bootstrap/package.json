@@ -1,0 +1,45 @@
+{
+  "name": "@escode/bootstrap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./v4-replay": {
+      "types": "./dist/escode-protocol-v4/replay.d.ts",
+      "import": "./dist/escode-protocol-v4/replay.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "node ../../scripts/clean-dist.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --write src"
+  },
+  "dependencies": {
+    "@escode/adapters": "workspace:*",
+    "@escode/contracts": "workspace:*",
+    "@escode/core": "workspace:*",
+    "@escode/dynamic-workflow": "workspace:*",
+    "@escode/dynamic-workflow-runtime": "workspace:*",
+    "@escode/i18n": "workspace:*",
+    "@escode/provider": "workspace:*",
+    "@escode/provider-node": "workspace:*",
+    "@escode/shared": "workspace:*",
+    "@escode/telemetry": "workspace:*",
+    "diff": "^9.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/yazl": "^3.3.1",
+    "@escode/formal-proof": "workspace:*",
+    "yazl": "^3.3.1"
+  }
+}

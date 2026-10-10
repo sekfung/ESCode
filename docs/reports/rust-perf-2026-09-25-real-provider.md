@@ -4,17 +4,17 @@
 
 ## 方法
 
-- 用例：`packages/services/tests/zcode-cli-rust-real-provider-bench.test.ts`（默认跳过）。
-  - `ZCODE_BENCH_PROVIDER_ID=<~/.zcode/v2/config.json 中的 provider id>` 启用；`ZCODE_BENCH_ROUNDS` 轮数；
-  - `ZCODE_BENCH_SCENARIO=short|long|tool`；`ZCODE_BENCH_RUST_BINARY` 指向 release 产物；
-  - 长回复需 `ZCODE_TEST_WAIT_MS=60000`（夹具默认等待 8s）；`ZCODE_BENCH_TRACE=1` 输出每种行首次出现时刻。
+- 用例：`packages/services/tests/escode-cli-rust-real-provider-bench.test.ts`（默认跳过）。
+  - `ESCODE_BENCH_PROVIDER_ID=<~/.escode/v2/config.json 中的 provider id>` 启用；`ESCODE_BENCH_ROUNDS` 轮数；
+  - `ESCODE_BENCH_SCENARIO=short|long|tool`；`ESCODE_BENCH_RUST_BINARY` 指向 release 产物；
+  - 长回复需 `ESCODE_TEST_WAIT_MS=60000`（夹具默认等待 8s）；`ESCODE_BENCH_TRACE=1` 输出每种行首次出现时刻。
 - 模型服务：用户指定的自建 DeepSeek（`deepseek-v4-flash`，OpenAI 兼容，局域网 vLLM；服务端自报 TTFT 约 250ms，
   约 27 token/s；**先流推理再作答**）。
 - 两侧同一份 personal provider 配置、经真实 App 协议驱动；Node 与 Rust **交替**执行 20 轮以抵消服务端漂移。
 - 每轮新起进程：计「进程启动到会话创建完成」、同一会话首轮（冷）与第二轮（热）从发出 `sendText` 到
   **本轮首个可见模型输出**（推理或正文，只认本轮新建的行）以及到本轮完成的时间。
-- 代理：开发机设置了 HTTP(S) 代理，会把局域网请求转走（实测 503）；用例把供应商主机加入两侧的 `NO_PROXY`/`ZCODE_NO_PROXY`。
-- 环境：Windows 11 x64；Node 为随包 `zcode.cjs`；Rust 为 GNU 目标 **release** 构建（MSVC 目标未测）。
+- 代理：开发机设置了 HTTP(S) 代理，会把局域网请求转走（实测 503）；用例把供应商主机加入两侧的 `NO_PROXY`/`ESCODE_NO_PROXY`。
+- 环境：Windows 11 x64；Node 为随包 `escode.cjs`；Rust 为 GNU 目标 **release** 构建（MSVC 目标未测）。
 
 ## 结果（毫秒，每侧 n=20；p99 在 n=20 时即最大值）
 
@@ -51,7 +51,7 @@
 
 ## 基准过程中发现并修复的缺陷
 
-`ZCODE_BENCH_TRACE` 显示：Node 在推理开始即展示 `reasoning` 行（热轮约 0.49s），Rust 在整个推理阶段**没有任何
+`ESCODE_BENCH_TRACE` 显示：Node 在推理开始即展示 `reasoning` 行（热轮约 0.49s），Rust 在整个推理阶段**没有任何
 可见输出**（热轮首个正文 3.8s）。原因是该服务只发 `delta.reasoning`，而 Rust 只认 `reasoning_content`；TS 所用 AI SDK
 取 `reasoning_content ?? reasoning`。已对齐（见 `docs/specs/rust-model-protocols.md`），上表为修复后的数据。
 
@@ -66,8 +66,8 @@
 
 ## 长历史会话（300 轮，每轮含一次工具调用与正文；各 5 轮交替，release）
 
-用例：`zcode-cli-rust-long-history-bench.test.ts`（默认跳过；`ZCODE_BENCH_PROVIDER_ID` 启用，
-`ZCODE_BENCH_HISTORY_TURNS` 控制轮数）。长会话由真实 TS store 写出；两侧打开同一份数据的独立副本，
+用例：`escode-cli-rust-long-history-bench.test.ts`（默认跳过；`ESCODE_BENCH_PROVIDER_ID` 启用，
+`ESCODE_BENCH_HISTORY_TURNS` 控制轮数）。长会话由真实 TS store 写出；两侧打开同一份数据的独立副本，
 新一轮随输入携带模型选择与思考深度 `high`（与 App composer 一致）。
 
 | 指标（毫秒，p50 / max）           | Node        | Rust        |
@@ -79,7 +79,7 @@
 | 长历史上新一轮：完成              | 7029 / 7055 | 6295 / 6340 |
 
 - 新一轮主要由模型处理长上下文决定（两侧约 6s+），Rust 快约 0.7s。
-- 已核对（`zcode-cli-rust-history-request-differential.test.ts`）：继续导入的历史时，两侧发给模型的会话部分（各轮问答、工具调用 id/参数、工具结果、本轮问题）逐字一致；system 提示与 reminder 由其它差分覆盖。差距因此来自运行时自身，而非上下文构造。
+- 已核对（`escode-cli-rust-history-request-differential.test.ts`）：继续导入的历史时，两侧发给模型的会话部分（各轮问答、工具调用 id/参数、工具结果、本轮问题）逐字一致；system 提示与 reminder 由其它差分覆盖。差距因此来自运行时自身，而非上下文构造。
 - 导入 300 轮历史的一次性成本约 130ms（首次打开 237ms 对比再次打开 106ms）。
 
 ## 公网供应商（用户授权，2026-09-25）

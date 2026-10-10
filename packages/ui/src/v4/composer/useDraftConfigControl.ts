@@ -10,21 +10,21 @@ import {
   resolveExecutionState,
   supportsRuntimeExecution,
   type RuntimeExecutionCapabilities,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { applyComposerPlanTransition } from "@/v4/composer/composerPlanTransition.js";
-import type { ModelSelection, ZCodeProvider } from "@zcode/shared";
-import type { SessionConfigState } from "@zcode/shared/zcode-protocol-v4";
-import type { IModelSelectionService } from "@zcode/services";
-import { completeNewModelSelection } from "@zcode/provider";
+import type { ModelSelection, ESCodeProvider } from "@escode/shared";
+import type { SessionConfigState } from "@escode/shared/escode-protocol-v4";
+import type { IModelSelectionService } from "@escode/services";
+import { completeNewModelSelection } from "@escode/provider";
 import {
   useModelSelectionServiceView,
   type ModelSelectionRead,
 } from "@/hooks/useModelSelectionView.js";
-import { submissionModeSchema } from "@zcode/shared/zcode-protocol-v4";
+import { submissionModeSchema } from "@escode/shared/escode-protocol-v4";
 import { useWorkspacePresentation } from "@/hooks/useWorkspacePresentation.js";
-import { useZCodeSessionService } from "@/hooks/useZCodeSessionService.js";
+import { useESCodeSessionService } from "@/hooks/useESCodeSessionService.js";
 import { useSettings } from "@/hooks/useSettingService.js";
-import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
+import { parseModelPickerValue } from "@/lib/escodeSessionProjection.js";
 import { initializeNewTaskDraft } from "@/v4/composer/newTaskDraft.js";
 import {
   clearV4ComposerDraft,
@@ -88,7 +88,7 @@ interface DraftConfigControl {
 export function useDraftConfigControl(params: {
   workspacePath: string;
   workspaceIdentity?: string;
-  provider?: ZCodeProvider;
+  provider?: ESCodeProvider;
   /** 会话切换读取对应 scope；已有空选择也必须保留。 */
   sessionId: string | null;
   /** 仅匹配当前 Session 的首份投影可用作初始化；null 表示还没恢复完成。 */
@@ -109,13 +109,13 @@ export function useDraftConfigControl(params: {
     modelSelectionService,
   } = params;
   const workspaceKey = workspaceIdentity?.trim() || workspacePath;
-  const zcodeSessionService = useZCodeSessionService(workspacePath, null, workspaceIdentity);
+  const escodeSessionService = useESCodeSessionService(workspacePath, null, workspaceIdentity);
   const presentation = useWorkspacePresentation({
     workspacePath,
     workspaceIdentity,
     provider,
     enabled: agentStartupAllowed,
-    service: zcodeSessionService,
+    service: escodeSessionService,
     onRuntimeRestart: params.onRuntimeRestart,
     onRuntimeLifecycle: params.onRuntimeLifecycle,
   });

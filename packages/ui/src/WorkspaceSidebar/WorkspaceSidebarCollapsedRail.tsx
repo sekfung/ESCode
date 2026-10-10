@@ -1,8 +1,8 @@
 import { PanelLeftOpen } from "lucide-react";
-import appLogoUrl from "@/assets/provider-icons/logo-zai.svg";
+import appLogoUrl from "@/assets/app-logo.svg";
 import { Button } from "@/components/ui/button.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 
 export function WorkspaceSidebarCollapsedRail({
   onToggleSidebar,
@@ -11,7 +11,7 @@ export function WorkspaceSidebarCollapsedRail({
   onToggleSidebar: () => void;
   toggleSidebarShortcutLabel?: string;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
 
   return (
     <aside className="flex h-full flex-col overflow-hidden border-r border-border bg-background-alt">
@@ -34,7 +34,7 @@ export function WorkspaceSidebarCollapsedRail({
             >
               <img
                 src={appLogoUrl}
-                alt="ZCode"
+                alt="ESCode"
                 className="size-5 transition-opacity group-hover:opacity-0"
                 draggable={false}
               />

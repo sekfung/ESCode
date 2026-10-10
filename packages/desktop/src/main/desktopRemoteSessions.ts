@@ -15,7 +15,7 @@ import {
   type RemoteTarget,
   type ProviderProvisioningTrigger,
   type WindowHostRemoteWorkspaceDescriptor,
-} from "@zcode/shared";
+} from "@escode/shared";
 import type {
   RemoteConnectionStats,
   RemoteDisconnectReason,

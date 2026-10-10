@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SerialQuickCommand } from "@zcode/shared";
+import type { SerialQuickCommand } from "@escode/shared";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import {
@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.js";
 import { Textarea } from "@/components/ui/textarea.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { buildSerialSendPayload } from "@/lib/serial/serialFormat.js";
 import type { SerialQuickCommandDraft } from "@/lib/serial/serialQuickCommands.js";
 import { SegmentedToggle } from "@/serial/SerialControls.js";
@@ -33,7 +33,7 @@ export function SerialQuickCommandEditor({
   onSave: (draft: SerialQuickCommandDraft) => void;
   onCancel: () => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const [draft, setDraft] = useState<SerialQuickCommandDraft>(() =>
     initial
       ? {

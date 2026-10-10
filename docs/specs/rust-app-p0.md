@@ -5,7 +5,7 @@
 ## 所有者与顺序
 
 - Session actor 是选型、队列、消息、ACK 和恢复状态的唯一写入者。输入/选型先提交，再启动请求；工具结果先提交，再请求下一步。
-- Registry adapter 读取既有 `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` / `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE`，按 TS 的模板、内置、账号、个人覆盖和模型规则解析。配置快照原子替换；账号基线 revision 不匹配时保留上一份完整快照。既有显式 `--config` 继续用于测试和独立部署。
+- Registry adapter 读取既有 `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` / `ESCODE_PERSONAL_PROVIDER_CONFIG_FILE`，按 TS 的模板、内置、账号、个人覆盖和模型规则解析。配置快照原子替换；账号基线 revision 不匹配时保留上一份完整快照。既有显式 `--config` 继续用于测试和独立部署。
 - 模型每次调用绑定已提交选型及完整配置快照；刷新不改变在途请求。模型切换允许在运行期间提交，下一模型步骤生效。排队输入保留 admission 时的选型。
 - 默认选型与会话选型分开：App 配置仓储拥有 `defaultModelSelection`；Rust 读取该字段创建新任务，恢复任务保留自己的选型，不直接覆盖配置文件。
 - Account overlay 不含凭据。每次网络请求经既有 `interaction/requestProviderRuntimeHeaders` 向 Host 获取临时鉴权，响应按请求 ID 匹配；取消发既有取消通知并清理等待者。迟到或重复回复不得恢复已取消请求。鉴权不进入 canonical、ACK、队列、日志或数据库。

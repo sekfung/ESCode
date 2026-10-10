@@ -13,7 +13,7 @@ on:
       - packages/desktop/scripts/**
       - packages/desktop/electron-builder.config.js
       - scripts/ci-install-desktop.mjs
-      - packages/services/tests/zcode-cli-rust-installed.test.ts
+      - packages/services/tests/escode-cli-rust-installed.test.ts
   workflow_dispatch:
 
 permissions:
@@ -48,18 +48,18 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/zcode-cli-rust
+          workspaces: apps/escode-cli-rust
           key: ${{ matrix.target }}
       - name: build
-        run: cargo build --release --locked --target ${{ matrix.target }} -p zcode-cli-rust
-        working-directory: apps/zcode-cli-rust
+        run: cargo build --release --locked --target ${{ matrix.target }} -p escode-cli-rust
+        working-directory: apps/escode-cli-rust
       - name: package
         shell: bash
         run: |
           set -euo pipefail
-          name="zcode-cli-rust-${GITHUB_REF_NAME//\//-}-${{ matrix.target }}"
+          name="escode-cli-rust-${GITHUB_REF_NAME//\//-}-${{ matrix.target }}"
           mkdir -p "dist/$name"
-          cp "apps/zcode-cli-rust/target/${{ matrix.target }}/release/zcode-cli-rust${{ matrix.exe }}" "dist/$name/"
+          cp "apps/escode-cli-rust/target/${{ matrix.target }}/release/escode-cli-rust${{ matrix.exe }}" "dist/$name/"
           cd dist
           if [[ "${{ matrix.exe }}" == ".exe" ]]; then 7z a -tzip "$name.zip" "$name" > /dev/null; archive="$name.zip";
           else tar -czf "$name.tar.gz" "$name"; archive="$name.tar.gz"; fi
@@ -87,12 +87,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     env:
-      # 安装包内置 Rust runtime（resources/glm/zcode-cli-rust[.exe]），通过 ZCODE_AGENT_SERVER_RUNTIME 选用。
-      ZCODE_BUNDLE_RUST_AGENT: "1"
+      # 安装包内置 Rust runtime（resources/glm/escode-cli-rust[.exe]），通过 ESCODE_AGENT_SERVER_RUNTIME 选用。
+      ESCODE_BUNDLE_RUST_AGENT: "1"
       # 远程部署资产（mock-cdn 跨平台包）不进桌面安装包。
-      ZCODE_SKIP_REMOTE_ASSETS: "1"
-      ZCODE_TARGET_OS: ${{ matrix.os }}
-      ZCODE_TARGET_ARCH: ${{ matrix.arch }}
+      ESCODE_SKIP_REMOTE_ASSETS: "1"
+      ESCODE_TARGET_OS: ${{ matrix.os }}
+      ESCODE_TARGET_ARCH: ${{ matrix.arch }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
           targets: ${{ env.RUST_TARGET }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/zcode-cli-rust
+          workspaces: apps/escode-cli-rust
           key: desktop-${{ env.RUST_TARGET }}
       - name: linux packaging tools
         if: matrix.os == 'linux'
@@ -156,7 +156,7 @@ jobs:
     timeout-minutes: 60
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
-      ZCODE_TEST_SERIAL: "1"
+      ESCODE_TEST_SERIAL: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -171,8 +171,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: pnpm install --frozen-lockfile
       # 回退演练用例复用差分 fixture：其依赖包走 dist 入口。
-      - run: node apps/zcode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs
-      - run: pnpm --dir apps/zcode-cli --filter "@zcode/bootstrap^..." build
+      - run: node apps/escode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs
+      - run: pnpm --dir apps/escode-cli --filter "@escode/bootstrap^..." build
       - uses: actions/download-artifact@v4
         with:
           name: desktop-${{ matrix.os }}-${{ matrix.arch }}
@@ -182,16 +182,16 @@ jobs:
       - name: Node → Rust → Node rollback rehearsal on the installed package
         shell: bash
         env:
-          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.zcode-cli-rust.json
+          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.escode-cli-rust.json
           # 安装包首次运行与退出比开发态慢，进程退出与请求等待放宽（仍要求正常退出与正确结果）。
-          ZCODE_TEST_EXIT_MS: "30000"
-          ZCODE_TEST_REQUEST_MS: "60000"
+          ESCODE_TEST_EXIT_MS: "30000"
+          ESCODE_TEST_REQUEST_MS: "60000"
         run: |
           set -uo pipefail
           # 预热：首次启动（Gatekeeper 扫描等）明显更慢，先各跑一次两个 runtime。
-          "$ZCODE_INSTALLED_GLM/zcode-cli-rust" --help > /dev/null || true
-          ELECTRON_RUN_AS_NODE=1 "$ZCODE_INSTALLED_APP" -e "0" || true
-          node --import tsx --test packages/services/tests/zcode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
+          "$ESCODE_INSTALLED_GLM/escode-cli-rust" --help > /dev/null || true
+          ELECTRON_RUN_AS_NODE=1 "$ESCODE_INSTALLED_APP" -e "0" || true
+          node --import tsx --test packages/services/tests/escode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             # 日志需要登录才能读；失败要点转成公开的注解。
@@ -217,7 +217,7 @@ jobs:
           files: artifacts/*
           body: |
             Unsigned build. The desktop app defaults to the bundled Rust runtime and falls back to the
-            bundled Node runtime if Rust fails before becoming ready; set ZCODE_AGENT_SERVER_RUNTIME=node to
+            bundled Node runtime if Rust fails before becoming ready; set ESCODE_AGENT_SERVER_RUNTIME=node to
             force the Node runtime.
       # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
       - name: verify published assets
@@ -228,11 +228,11 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          # GitHub 上传资产时把文件名里的空格换成 "."（"ZCode Preview-…" → "ZCode.Preview-…"）。
+          # GitHub 上传资产时把文件名里的空格换成 "."（"ESCode Preview-…" → "ESCode.Preview-…"）。
           expected=$(ls artifacts | sed 's/ /./g' | sort)
           published=$(gh release view "$tag" --json assets --jq '.assets[].name' | sort)
           diff <(echo "$expected") <(echo "$published")
           mkdir -p verify && cd verify
-          gh release download "$tag" --pattern 'zcode-cli-rust-*'
+          gh release download "$tag" --pattern 'escode-cli-rust-*'
           for sum in *.sha256; do sha256sum -c "$sum"; done
           echo "verified $(ls *.sha256 | wc -l) runtime archives on release $tag" >> "$GITHUB_STEP_SUMMARY"

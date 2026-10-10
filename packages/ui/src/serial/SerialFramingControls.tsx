@@ -1,5 +1,5 @@
 import { Rows3Icon } from "lucide-react";
-import type { SerialChecksumConfig } from "@zcode/shared/serial";
+import type { SerialChecksumConfig } from "@escode/shared/serial";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.js";
@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.js";
 import { Switch } from "@/components/ui/switch.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   DEFAULT_SERIAL_FRAMING_INPUTS,
   parseSerialFramingInputs,
@@ -42,7 +42,7 @@ export function SerialFramingPopover({
   settings: SerialFramingSettings;
   onChange: (settings: SerialFramingSettings) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const { inputs } = settings;
   const parsed = parseSerialFramingInputs(inputs);
   const setInputs = (patch: Partial<SerialFramingInputs>) =>

@@ -2,7 +2,7 @@
  * Agent 串口工具的整链路测试（docs/specs/serial-agent-tools.md「验收」）：不经过模型，
  * 真实 MCP client → serial MCP server 进程（serial-plugin 构建产物）→ TS serial broker → 协议端口
  * →（模拟 JSON-RPC 往返）→ Host 路由与 SerialAgentBridge → SerialService（binding-mock 回环虚拟串口）。
- * 运行前需构建 serial-plugin：pnpm --filter @zcode/serial-plugin build
+ * 运行前需构建 serial-plugin：pnpm --filter @escode/serial-plugin build
  */
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
@@ -10,13 +10,13 @@ import { resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { SERIAL_BROKER_SOCKET_ENV, SERIAL_BROKER_TOKEN_ENV } from "@zcode/shared/serial";
+import { SERIAL_BROKER_SOCKET_ENV, SERIAL_BROKER_TOKEN_ENV } from "@escode/shared/serial";
 import {
   createSerialBroker,
   type SerialBroker,
-} from "../../../apps/zcode-cli/packages/bootstrap/src/app/serial-broker.js";
-import { createProtocolSerialControlPort } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/serial-control-broker.js";
-import { ProtocolRequestError } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/server-types.js";
+} from "../../../apps/escode-cli/packages/bootstrap/src/app/serial-broker.js";
+import { createProtocolSerialControlPort } from "../../../apps/escode-cli/packages/bootstrap/src/escode-protocol/serial-control-broker.js";
+import { ProtocolRequestError } from "../../../apps/escode-cli/packages/bootstrap/src/escode-protocol/server-types.js";
 import { createSerialAgentBridge } from "../src/serial/serialAgentBridge.js";
 import { routeSerialAgentRequest } from "../src/serial/serialAgentRequestRouter.js";
 import {
@@ -27,11 +27,11 @@ import {
 
 const SERVER_SCRIPT = resolve(
   import.meta.dirname,
-  "../../../apps/zcode-cli/packages/serial-plugin/dist/mcp/server.js",
+  "../../../apps/escode-cli/packages/serial-plugin/dist/mcp/server.js",
 );
 const SESSION = "session-chain";
 const META = {
-  "com.zcode/request-context": { session_id: SESSION, turn_id: "turn-1", runtime_scope: "main" },
+  "com.escode/request-context": { session_id: SESSION, turn_id: "turn-1", runtime_scope: "main" },
 };
 const logger = { debug() {}, info() {}, warn() {}, error() {}, child: () => logger } as never;
 
@@ -42,9 +42,9 @@ let client: Client;
 before(async () => {
   assert.ok(
     existsSync(SERVER_SCRIPT),
-    `missing ${SERVER_SCRIPT}; build @zcode/serial-plugin first`,
+    `missing ${SERVER_SCRIPT}; build @escode/serial-plugin first`,
   );
-  process.env.ZCODE_SERIAL_MOCK_PORTS = "COM_CHAIN1,COM_CHAIN2";
+  process.env.ESCODE_SERIAL_MOCK_PORTS = "COM_CHAIN1,COM_CHAIN2";
   service = createSerialService({ loadBinding: loadDefaultSerialBinding, coalesceWindowMs: 0 });
   const bridge = createSerialAgentBridge({
     getSerialService: () => service,
@@ -91,7 +91,7 @@ after(async () => {
   await client?.close().catch(() => undefined);
   await broker?.close();
   await service?.disposeAllAndWait();
-  delete process.env.ZCODE_SERIAL_MOCK_PORTS;
+  delete process.env.ESCODE_SERIAL_MOCK_PORTS;
 });
 
 async function call(name: string, args: Record<string, unknown> = {}) {

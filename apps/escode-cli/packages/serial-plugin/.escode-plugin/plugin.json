@@ -1,0 +1,8 @@
+{
+  "name": "serial",
+  "version": "0.1.0",
+  "description": "Read and write the serial port opened in the ESCode Desktop window: wait for boot logs after flashing, send AT commands and verify responses.",
+  "author": { "name": "Z.ai" },
+  "license": "MIT",
+  "skills": "skills"
+}

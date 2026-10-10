@@ -5,7 +5,7 @@
 进度：
 
 - 第 1 层（已完成）：共享凭据存储。`crates/host/src/{credential_cipher,file_lock,credential_store}.rs`
-  对齐 TS cipher、`atomicFileLock` 协议与 `shared-credentials.ts`；`zcode-cli-rust-credentials.test.ts` 验证默认 secret 推导、
+  对齐 TS cipher、`atomicFileLock` 协议与 `shared-credentials.ts`；`escode-cli-rust-credentials.test.ts` 验证默认 secret 推导、
   双向解密、同一路径与跨进程锁（Node/Rust 交错独立写入各 25 次无丢失；去掉 Rust 锁时该用例稳定失败）。
 - 第 2 层（已完成）：OAuth 流程与 `mcp/list` 授权状态。
   - 纯规则：`crates/domain/src/mcp_oauth{,_pair}.rs`（TS oracle 语料）。
@@ -13,7 +13,7 @@
   - 刷新、租约与 leader：`mcp_oauth_{flow,lead}.rs`。
   - 运行期 transport：`mcp_oauth_client.rs`，包装 rmcp `StreamableHttpClient`；旧版 SSE 共用同一重试逻辑。
   - 编排：`mcp_hub_oauth.rs`。
-  - `zcode-cli-rust-mcp-oauth.test.ts` 在同一 fixture 上比较 Node 与 Rust：
+  - `escode-cli-rust-mcp-oauth.test.ts` 在同一 fixture 上比较 Node 与 Rust：
     - 首次授权的状态、回调页和请求序列（metadata、DCR、authorize 参数、token）；
     - 对方 runtime 写入的凭据可直接复用；
     - access token 作废后的 refresh；
@@ -27,7 +27,7 @@ TS 基线：
 | OAuth 流程     | `adapters/src/mcp/oauth-*.ts`                                 |
 | 本地回调       | `adapters/src/auth/localhost-callback.ts`                     |
 | 凭据存储与加密 | `adapters/src/auth/{shared-credentials,credential-cipher}.ts` |
-| 文件锁         | `@zcode/shared/node` `withFileLock` / `atomicFileLock`        |
+| 文件锁         | `@escode/shared/node` `withFileLock` / `atomicFileLock`        |
 | 协议           | `mcpServerConfig.oauth`、`mcp/list` 的 `authorization` 状态   |
 
 ## 目标
@@ -66,9 +66,9 @@ sequenceDiagram
 
 ## 兼容点（与 Node 共享的事实）
 
-1. 凭据文件：路径同 TS `resolveSharedZCodeCredentialsPath`（`ZCODE_DATA_BASE_DIR` 或默认位置）。
+1. 凭据文件：路径同 TS `resolveSharedESCodeCredentialsPath`（`ESCODE_DATA_BASE_DIR` 或默认位置）。
    - 条目值以 `enc:v1:<iv>.<tag>.<cipher>` 形式保存，均为 base64url；
-   - 算法为 AES-256-GCM，密钥为 `sha256(ZCODE_CREDENTIAL_SECRET 或 "zcode-credential-fallback:<platform>:<home>:<user>")`；
+   - 算法为 AES-256-GCM，密钥为 `sha256(ESCODE_CREDENTIAL_SECRET 或 "escode-credential-fallback:<platform>:<home>:<user>")`；
    - `<platform>` 取 Node `os.platform()` 的取值（`win32`/`darwin`/`linux`）。
 2. 键：
    - 前缀为 `mcp:oauth:<sha256(serverName\nserverUrl\nclientId\nscope\nredirectPath) 前 24 位>`；
@@ -104,7 +104,7 @@ sequenceDiagram
 - 已知限制：
   - 未覆盖协议默认值：未写 `protocolVersion` 时，TS 走 `auto`（SSE 除外），Rust 走 legacy `initialize`。
     这是 MCP 连接层的既有差异，与 OAuth 无关，单独修复；OAuth 差分固定为 `legacy`。
-  - 凭据目录前提：Node 的授权租约锁 `mkdir` 不带 recursive，因此要求 `~/.zcode/v2` 已存在。
+  - 凭据目录前提：Node 的授权租约锁 `mkdir` 不带 recursive，因此要求 `~/.escode/v2` 已存在。
     真实安装中该目录总是存在，差分 fixture 会预先创建。Rust 会自行创建该目录，不依赖这个前提。
   - 403 `insufficient_scope` step-up 已按 TS 实现（scope 并集、强制重新授权），但没有差分用例；
   - `official-auth.ts`（官方账号授权）需要 Host 账号能力，单独评估；
@@ -116,7 +116,7 @@ sequenceDiagram
 
 ### 适用范围（对齐 `resolveAuthorizationCodeOAuthConfig`）
 
-- 仅 http/sse。stdio、ZCode 官方鉴权（`auth.type=zcode_official` 且带 provenance）不走 OAuth。
+- 仅 http/sse。stdio、ESCode 官方鉴权（`auth.type=escode_official` 且带 provenance）不走 OAuth。
 - `oauth.type=authorization_code` 使用配置；`oauth.type=client_credentials` 见文末专节（非交互、token 仅在内存中）。
 - 配置了 `Authorization` 头时不走 OAuth。
 - 其余 http/sse（包括只配置 URL 的 server）隐式视为 authorization_code：只有服务器回 401/403 才会进入授权。
@@ -176,4 +176,4 @@ sequenceDiagram
 - 进度（已完成）：
   - 实现在 `crates/tools/src/mcp_oauth_credentials.rs`；
   - 运行期 transport 的 token 来源统一为 `Auth::{Code, Credentials}`；
-  - `zcode-cli-rust-mcp-oauth.test.ts` 的 client_credentials 用例与 Node 请求序列逐项一致。
+  - `escode-cli-rust-mcp-oauth.test.ts` 的 client_credentials 用例与 Node 请求序列逐项一致。

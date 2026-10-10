@@ -1,4 +1,4 @@
-import type { StartPlanPreviewConfig } from "@zcode/shared";
+import type { StartPlanPreviewConfig } from "@escode/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useOptionalServices } from "@/hooks/useServices.js";
 import { logger } from "@/logger.js";

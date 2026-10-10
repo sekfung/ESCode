@@ -7,6 +7,12 @@ import {
   repositoryRoot,
 } from "./third-party-notices.mjs";
 
+/**
+ * 上游补丁作者名称：`patches/*.patch` 记录的修改由上游 ZCode 项目作者提交，本仓库改名后
+ * 仍沿用该名称，避免把上游的修改署名改成 ESCode。
+ */
+const UPSTREAM_PATCH_AUTHOR = "ZCode";
+
 export async function generateThirdPartyNotices(root = repositoryRoot) {
   const inputs = {};
   const readInput = async (file) => {
@@ -147,7 +153,7 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
     "## Modified npm packages",
     ...patches.map(
       (item) =>
-        `- ${item.package}: modified by ZCode; the changes are recorded in ${item.file} in the source repository.`,
+        `- ${item.package}: modified by ${UPSTREAM_PATCH_AUTHOR}; the changes are recorded in ${item.file} in the source repository.`,
     ),
     "## License and NOTICE texts",
   ];

@@ -1,6 +1,6 @@
 # Rust 多模型协议交付记录
 
-ZCode-Pro main / 872ad96，2026-09-22。基于前三包未提交工作；TS 默认、Rust 显式选择、权限仅 yolo。
+ESCode-Pro main / 872ad96，2026-09-22。基于前三包未提交工作；TS 默认、Rust 显式选择、权限仅 yolo。
 
 ## 已完成
 
@@ -30,7 +30,7 @@ Apple M1 Max / macOS arm64，release。每场景、每版本或协议五次，�
 
 新 Chat 相对第三包总耗时分别 -0.6%、+0.9%、+2.4%；100 轮场景 Responses/Anthropic 相对同产物 Chat 为 +5.9%/+5.3%。不能据此宣称所有协议更快。RSS 为采样峰值，存储为 SQLite/WAL/SHM 占用而非物理写入量。
 
-原始样本 `.zcode-runtime/rust-bench/protocols/{chat,responses,anthropic}`。第三包 SHA256 `3edd350b3a23bfef00a66f12e5a47736d93df8c89ec98e9ce0191c354829cc6a`，第四包 `994acfdc8ee28ac8275c16d4bab1c739a8642cdd8df47b3c1521556087b028ba`。
+原始样本 `.escode-runtime/rust-bench/protocols/{chat,responses,anthropic}`。第三包 SHA256 `3edd350b3a23bfef00a66f12e5a47736d93df8c89ec98e9ce0191c354829cc6a`，第四包 `994acfdc8ee28ac8275c16d4bab1c739a8642cdd8df47b3c1521556087b028ba`。
 
 ## 边界
 

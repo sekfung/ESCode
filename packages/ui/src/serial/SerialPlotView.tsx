@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import type { SerialChunk } from "@zcode/services";
+import type { SerialChunk } from "@escode/services";
 import {
   ChartContainer,
   ChartLegend,
@@ -9,7 +9,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import type { SerialDisplayEncoding } from "@/lib/serial/serialFormat.js";
 import { SerialPlotBuffer, type SerialPlotRow } from "@/lib/serial/serialPlot.js";
 
@@ -41,7 +41,7 @@ export function SerialPlotView({
   chunks: readonly SerialChunk[];
   encoding: SerialDisplayEncoding;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const buffer = useMemo(() => new SerialPlotBuffer(encoding), [encoding]);
   const [snapshot, setSnapshot] = useState<PlotSnapshot>({ series: [], rows: [] });
   const lastFlush = useRef(0);

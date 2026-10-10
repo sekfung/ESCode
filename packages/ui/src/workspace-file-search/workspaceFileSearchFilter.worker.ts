@@ -1,10 +1,10 @@
-import type { WorkspaceFileEntry } from "@zcode/shared";
+import type { WorkspaceFileEntry } from "@escode/shared";
 import {
   filterWorkspaceFileSearchCandidates,
   mapWorkspaceFileEntriesToSearchCandidates,
   type FilterWorkspaceFileSearchCandidatesOptions,
 } from "./workspaceFileSearch.js";
-import { unpackWorkspaceFileEntries } from "@zcode/shared/workspaceFileEntriesCodec";
+import { unpackWorkspaceFileEntries } from "@escode/shared/workspaceFileEntriesCodec";
 
 /**
  * 工作区文件搜索过滤 Worker：持有全量候选，收 query 在后台线程打分+top-K，

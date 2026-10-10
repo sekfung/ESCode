@@ -1,8 +1,8 @@
 # Rust `-p` 无头模式
 
-2026-10-08。对照 MBearo/ZCode-rs 的 M4 发现：Rust runtime 只有 `app-server --stdio`，没有 Node `zcode -p` 的一次性无头入口
+2026-10-08。对照 MBearo/ESCode-rs 的 M4 发现：Rust runtime 只有 `app-server --stdio`，没有 Node `escode -p` 的一次性无头入口
 （脚本、CI、自动化调用依赖它）。本期在 Rust 二进制上提供与 Node 相同的 `-p` 入口与输出。基线：
-`apps/zcode-cli/packages/cli/src/{arguments.ts,run.ts,prompt-command.ts,shutdown.ts,resume.ts}`，以及 Node `-p` 实测输出。
+`apps/escode-cli/packages/cli/src/{arguments.ts,run.ts,prompt-command.ts,shutdown.ts,resume.ts}`，以及 Node `-p` 实测输出。
 
 ## 入口与参数
 
@@ -58,9 +58,9 @@ sequenceDiagram
   调用不建交互、直接拒绝，模型看到的结果为 `No permission client configured for {tool}`；`CreateWorkflow` / `AmendWorkflow` 放行。
   提问交互（AskUserQuestion）由驱动回 decline。
 - 标题：不生成会话标题（Node `-p` 的 `titleGenerationEnabled: false`，`Engine::without_title_generation`），标题停在首条输入。
-- 模型：`--config`，或 Registry 环境变量（`ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` + `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE`）；
-  都没有时报错 `No model configured: pass --config <model.json> or set ZCODE_BUILTIN_PROVIDER_CONFIG_FILE and
-  ZCODE_PERSONAL_PROVIDER_CONFIG_FILE.`，退出 1。
+- 模型：`--config`，或 Registry 环境变量（`ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` + `ESCODE_PERSONAL_PROVIDER_CONFIG_FILE`）；
+  都没有时报错 `No model configured: pass --config <model.json> or set ESCODE_BUILTIN_PROVIDER_CONFIG_FILE and
+  ESCODE_PERSONAL_PROVIDER_CONFIG_FILE.`，退出 1。
 
 ## 输出
 
@@ -93,6 +93,6 @@ sequenceDiagram
 ## 验收
 
 - 单测：参数解析（合法组合、各错误文本、`--disallowed-tools` 贪婪与归一、`--json` / `--output-format` 优先级）。
-- App 差分：`zcode-cli-rust-headless.test.ts`，同一模型夹具与 Registry 下分别运行 Node `zcode.cjs -p` 与 Rust `-p`：
+- App 差分：`escode-cli-rust-headless.test.ts`，同一模型夹具与 Registry 下分别运行 Node `escode.cjs -p` 与 Rust `-p`：
   text 与 json 输出（去掉 id、`eventCount`、`contextUsed`，保留键序）、带工具的轮次、缺省 yolo 与显式 build 下的拒绝文案、
   `-c` 续接、各参数错误的退出码与 stderr 首行一致。

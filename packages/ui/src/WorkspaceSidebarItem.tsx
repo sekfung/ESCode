@@ -46,13 +46,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   buildWorkspaceSessionKey,
   formatRemoteWorkspaceDisplayLabel,
 } from "@/lib/remoteWorkspaceHistory.js";
 import { TaskList } from "@/TaskList.js";
-import { selectWorkspaceZCodeState, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { selectWorkspaceESCodeState, useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 import type { RemoteConnectionLogEntry } from "@/hooks/useRemoteConnectionLogs.js";
 import { ReconnectingRemoteWorkspaceLogTooltip } from "@/WorkspaceSidebar/ReconnectingRemoteWorkspaceLogTooltip.js";
@@ -62,8 +62,8 @@ import {
   TID_WORKSPACE_FILE_TREE_BUTTON,
   TID_WORKSPACE_ITEM,
   testId,
-} from "@zcode/shared";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+} from "@escode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import { useBaseWorkspaceServices, useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import {
   applyTaskQueryCacheMutation,
@@ -77,7 +77,7 @@ import {
   RemoteSyncMenuItems,
   shouldShowRemoteSyncActions,
 } from "@/settings/RemoteSyncActions.js";
-import { invalidateDeferredDraftSessionForSkillChange } from "@/lib/zcodeDraftSkillInvalidation.js";
+import { invalidateDeferredDraftSessionForSkillChange } from "@/lib/escodeDraftSkillInvalidation.js";
 import { refreshSharedSkillStoreForWorkspace } from "@/lib/skillStoreRefresh.js";
 import { refreshWorkspacePluginCapabilitiesAfterRemoteSync } from "@/lib/remotePluginSyncRefresh.js";
 import { useMcpStore } from "@/store/mcpStore.js";
@@ -94,7 +94,7 @@ export type SortableBindings = Pick<ReturnType<typeof useSortable>, "attributes"
 
 // workspace 行在流式工具事件期间会因父级刷新而重渲染；
 // TaskList 如果每次收到新的空数组，会把等价数据误判成变化并连带刷新任务行。
-const EMPTY_PINNED_TASKS: ZCodeTaskMeta[] = [];
+const EMPTY_PINNED_TASKS: ESCodeTaskMeta[] = [];
 
 function isHomeWorkspacePath(path: string): boolean {
   const normalizedPath = path.replace(/\\/g, "/").replace(/\/+$/, "");
@@ -164,7 +164,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     targetWorkspaceIdentity?: string,
   ) => void;
   onStartDraftInWorkspace: (targetWorkspacePath: string, targetWorkspaceIdentity?: string) => void;
-  taskItems: ZCodeTaskMeta[];
+  taskItems: ESCodeTaskMeta[];
   taskListLoading: boolean;
   taskListHasMore: boolean;
   taskListHasUnread?: boolean;
@@ -186,19 +186,19 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
   sortableBindings?: SortableBindings;
   isDragging?: boolean;
 }) {
-  const { intl } = useZCodeIntl();
-  const workspaceZCodeState = useZCodeSessionStore((state) =>
-    selectWorkspaceZCodeState(state, tab.workspacePath, tab.workspaceIdentity),
+  const { intl } = useESCodeIntl();
+  const workspaceESCodeState = useESCodeSessionStore((state) =>
+    selectWorkspaceESCodeState(state, tab.workspacePath, tab.workspaceIdentity),
   );
-  const activeTaskId = workspaceZCodeState.activeTaskId;
-  const removeTaskState = useZCodeSessionStore((state) => state.removeTaskState);
-  const upsertOptimisticTaskListItem = useZCodeSessionStore(
+  const activeTaskId = workspaceESCodeState.activeTaskId;
+  const removeTaskState = useESCodeSessionStore((state) => state.removeTaskState);
+  const upsertOptimisticTaskListItem = useESCodeSessionStore(
     (state) => state.upsertOptimisticTaskListItem,
   );
-  const removeOptimisticTaskListItem = useZCodeSessionStore(
+  const removeOptimisticTaskListItem = useESCodeSessionStore(
     (state) => state.removeOptimisticTaskListItem,
   );
-  const setTaskUnreadIndicator = useZCodeSessionStore((state) => state.setTaskUnreadIndicator);
+  const setTaskUnreadIndicator = useESCodeSessionStore((state) => state.setTaskUnreadIndicator);
   const services = useWorkspaceServices(
     tab.workspacePath,
     tab.remoteSessionId,
@@ -207,11 +207,11 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
   );
   const confirmDialog = useConfirmDialog();
   const baseServices = useBaseWorkspaceServices();
-  const zcodeTaskService = services.zcodeTaskService;
+  const escodeTaskService = services.escodeTaskService;
   const taskItemsRef = useRef(taskItems);
   taskItemsRef.current = taskItems;
-  const workspaceZCodeStateRef = useRef(workspaceZCodeState);
-  workspaceZCodeStateRef.current = workspaceZCodeState;
+  const workspaceESCodeStateRef = useRef(workspaceESCodeState);
+  workspaceESCodeStateRef.current = workspaceESCodeState;
   const findCurrentTaskItem = useCallback((taskId: string) => {
     // 流式刷新会重建 taskItems 数组，任务操作回调如果直接依赖数组，
     // 即使任务语义没变也会换引用，继续击穿 TaskListItem 的 memo。
@@ -355,7 +355,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
 
     if (
       hasRunningWorkspaceChat({
-        workspaceState: workspaceZCodeStateRef.current,
+        workspaceState: workspaceESCodeStateRef.current,
         taskItems: taskItemsRef.current,
       })
     ) {
@@ -380,7 +380,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         workspacePath: tab.workspacePath,
         workspaceIdentity: tab.workspaceIdentity,
       },
-      zcodeTaskService,
+      escodeTaskService,
     });
     // 移除 workspace 只是移除入口和连接历史，不代表用户要隐藏历史任务：
     // 这里只失效缓存，保留 sqlite 任务索引原状态，避免重连同一 SSH workspace 后任务像“丢了”。
@@ -424,7 +424,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
     tab.id,
     tab.workspaceIdentity,
     tab.workspacePath,
-    zcodeTaskService,
+    escodeTaskService,
   ]);
 
   const handleReconnectRemoteWorkspace = useCallback(
@@ -486,9 +486,9 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         previousTitleLength: previousTask?.title.length,
         nextTitleLength: title.length,
       });
-      let meta: ZCodeTaskMeta;
+      let meta: ESCodeTaskMeta;
       try {
-        meta = await zcodeTaskService.renameTask({
+        meta = await escodeTaskService.renameTask({
           taskId,
           workspacePath: tab.workspacePath,
           title,
@@ -532,7 +532,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       findCurrentTaskItem,
       readOnlyReason,
       upsertOptimisticTaskListItem,
-      zcodeTaskService,
+      escodeTaskService,
     ],
   );
 
@@ -565,7 +565,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         });
       }
       try {
-        const meta = await zcodeTaskService.setTaskPinned({
+        const meta = await escodeTaskService.setTaskPinned({
           taskId,
           workspacePath: tab.workspacePath,
           pinned,
@@ -621,7 +621,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       tab.workspaceIdentity,
       tab.workspacePath,
       findCurrentTaskItem,
-      zcodeTaskService,
+      escodeTaskService,
     ],
   );
 
@@ -631,7 +631,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
-      const meta = await zcodeTaskService.archiveTask({
+      const meta = await escodeTaskService.archiveTask({
         taskId,
         workspacePath: tab.workspacePath,
         ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
@@ -659,7 +659,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       tab.workspaceIdentity,
       tab.workspacePath,
       findCurrentTaskItem,
-      zcodeTaskService,
+      escodeTaskService,
     ],
   );
 
@@ -669,7 +669,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         return null;
       }
       const previousTask = findCurrentTaskItem(taskId);
-      const meta = await zcodeTaskService.setTaskUnread({
+      const meta = await escodeTaskService.setTaskUnread({
         taskId,
         workspacePath: tab.workspacePath,
         unread,
@@ -695,7 +695,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
       tab.workspacePath,
       findCurrentTaskItem,
       upsertOptimisticTaskListItem,
-      zcodeTaskService,
+      escodeTaskService,
     ],
   );
 
@@ -1152,8 +1152,8 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         remoteMcpSyncService={services.mcpSyncService}
         localPluginSyncService={baseServices.pluginSyncService}
         remotePluginSyncService={services.pluginSyncService}
-        localZCodeAgentService={baseServices.zcodeAgentService}
-        remoteZCodeAgentService={services.zcodeAgentService}
+        localESCodeAgentService={baseServices.escodeAgentService}
+        remoteESCodeAgentService={services.escodeAgentService}
         remoteTarget={tab.remoteTarget}
         skillWorkspacePath={tab.workspacePath}
         mcpWorkspacePath={tab.workspacePath}
@@ -1163,7 +1163,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
         workspaceIdentity={tab.workspaceIdentity}
         onSkillsSynced={async () => {
           await invalidateDeferredDraftSessionForSkillChange({
-            zcodeSessionService: services.zcodeSessionService,
+            escodeSessionService: services.escodeSessionService,
             workspacePath: tab.workspacePath,
             workspaceIdentity: tab.workspaceIdentity,
             reason: "sidebar-remote-skill-sync",
@@ -1191,8 +1191,8 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
             skillsService: services.skillsService,
             workspaceIdentity: tab.workspaceIdentity,
             workspacePath: tab.workspacePath,
-            zcodeAgentService: services.zcodeAgentService,
-            zcodeSessionService: services.zcodeSessionService,
+            escodeAgentService: services.escodeAgentService,
+            escodeSessionService: services.escodeSessionService,
           });
         }}
       />

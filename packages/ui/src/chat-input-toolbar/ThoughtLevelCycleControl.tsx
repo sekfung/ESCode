@@ -3,15 +3,15 @@ import {
   TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
   TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
   testId,
-  type ZCodeConfigOption,
-  type ZCodeProvider,
-} from "@zcode/shared";
+  type ESCodeConfigOption,
+  type ESCodeProvider,
+} from "@escode/shared";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { cn } from "@/components/lib/utils.js";
 import { Button } from "@/components/ui/button.js";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select.js";
-import type { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import type { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   isCoarseTouchDevice,
   shouldRestoreChatInputFocusAfterPickerClose,
@@ -50,10 +50,10 @@ export function ThoughtLevelCycleControl({
   composerCollapsePriority?: number;
   interactionMode?: ThoughtLevelInteractionMode;
   indicatorClassName?: string;
-  intl: ReturnType<typeof useZCodeIntl>["intl"];
+  intl: ReturnType<typeof useESCodeIntl>["intl"];
   labelVisibilityClassName?: string;
-  option: ZCodeConfigOption;
-  provider?: ZCodeProvider;
+  option: ESCodeConfigOption;
+  provider?: ESCodeProvider;
   showInvalidCurrentValue?: boolean;
   restoreFocusSelector?: string | null;
   shortcutLabel?: string;

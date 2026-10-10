@@ -2,7 +2,7 @@ import {
   SERIAL_CHECKSUM_ALGORITHMS,
   serialChecksumWidth,
   type SerialChecksumConfig,
-} from "@zcode/shared/serial";
+} from "@escode/shared/serial";
 import { Input } from "@/components/ui/input.js";
 import {
   Select,
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 
 /** 算法名是通用技术名称，不做翻译。 */
 const ALGORITHM_LABELS: Record<SerialChecksumConfig["algorithm"], string> = {
@@ -42,7 +42,7 @@ export function SerialChecksumPicker({
   disabled?: boolean;
   testId?: string;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const multiByte = value ? serialChecksumWidth(value.algorithm) > 1 : false;
   return (
     <div className="flex flex-wrap items-center gap-1 text-ui-sm text-foreground-subtle">

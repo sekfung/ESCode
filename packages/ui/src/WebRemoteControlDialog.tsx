@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import type { BotProvider } from "@zcode/shared";
+import type { BotProvider } from "@escode/shared";
 import { Bot as BotIcon, MonitorSmartphone, XIcon } from "lucide-react";
 import { BotsDialog } from "@/BotsDialog.js";
 import { ProviderIcon } from "@/BotsDialog/shared.js";
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { getBotProviderRegionTagLabelId } from "@/botsUi.js";
 
@@ -40,7 +40,7 @@ export const WebRemoteControlDialog = memo(function WebRemoteControlDialogCompon
   workspacePath: string;
   workspaceIdentity?: string;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const [botsDialogOpen, setBotsDialogOpen] = useState(false);
   const [botEntryProvider, setBotEntryProvider] =
     useState<RemoteControlBotProvider | null>(null);

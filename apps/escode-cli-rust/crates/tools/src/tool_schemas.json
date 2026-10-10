@@ -1,0 +1,1012 @@
+{
+  "Agent": {
+    "type": "object",
+    "properties": {
+      "description": {
+        "type": "string",
+        "description": "A short (3-5 word) description of the task"
+      },
+      "prompt": {
+        "type": "string",
+        "description": "The task for the agent to perform"
+      },
+      "subagent_type": {
+        "type": "string",
+        "description": "The type of specialized agent to use for this task"
+      },
+      "run_in_background": {
+        "type": "boolean",
+        "description": "Set to true to run this agent in the background. You will be notified when it completes."
+      }
+    },
+    "required": ["description", "prompt"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "SendMessage": {
+    "type": "object",
+    "properties": {
+      "to": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "description": "Recipient: local agent ID returned by Agent (format agent_<uuid>)."
+      },
+      "summary": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "description": "A 5-10 word summary shown as a preview in the UI."
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000,
+        "description": "Plain text message content"
+      }
+    },
+    "required": ["to", "summary", "message"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Skill": {
+    "type": "object",
+    "properties": {
+      "skill": {
+        "type": "string",
+        "description": "The name of a skill from the available-skills list. Do not guess names."
+      },
+      "args": {
+        "type": "string",
+        "description": "Optional arguments for the skill"
+      }
+    },
+    "required": ["skill"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "TodoRead": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "TodoWrite": {
+    "type": "object",
+    "properties": {
+      "todos": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Brief description of the task"
+            },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "in_progress", "completed"],
+              "description": "Current status of the task"
+            },
+            "priority": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "Priority level of the task"
+            }
+          },
+          "required": ["content", "status", "priority"],
+          "additionalProperties": false
+        },
+        "description": "The complete updated todo list. At most one item may be in_progress at a time."
+      }
+    },
+    "required": ["todos"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Read": {
+    "type": "object",
+    "properties": {
+      "file_path": {
+        "type": "string",
+        "description": "The absolute path to the file to read"
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+      },
+      "limit": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991,
+        "description": "The number of lines to read. Only provide if the file is too large to read at once."
+      }
+    },
+    "required": ["file_path"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Write": {
+    "type": "object",
+    "properties": {
+      "file_path": {
+        "type": "string",
+        "description": "The absolute path to the file to write (must be absolute, not relative)"
+      },
+      "content": {
+        "type": "string",
+        "description": "The content to write to the file"
+      }
+    },
+    "required": ["file_path", "content"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Edit": {
+    "type": "object",
+    "properties": {
+      "file_path": {
+        "type": "string",
+        "description": "The absolute path to the file to modify"
+      },
+      "old_string": {
+        "type": "string",
+        "description": "The text to replace"
+      },
+      "new_string": {
+        "type": "string",
+        "description": "The text to replace it with (must be different from old_string)"
+      },
+      "replace_all": {
+        "type": "boolean",
+        "default": false,
+        "description": "Replace all occurrences of old_string (default false)"
+      }
+    },
+    "required": ["file_path", "old_string", "new_string"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Glob": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "type": "string",
+        "description": "The glob pattern to match files against"
+      },
+      "path": {
+        "type": "string",
+        "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+      }
+    },
+    "required": ["pattern"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "WebFetch": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "description": "The URL to fetch content from"
+      },
+      "prompt": {
+        "type": "string",
+        "description": "The prompt to run on the fetched content"
+      }
+    },
+    "required": ["url", "prompt"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "WebSearch": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 2,
+        "description": "The search query to use"
+      },
+      "allowed_domains": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Only include search results from these domains"
+      },
+      "blocked_domains": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Never include search results from these domains"
+      }
+    },
+    "required": ["query"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ReadSessionContext": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "pattern": "^sess_[A-Za-z0-9._-]+$",
+        "description": "Target ESCode session id to read from persisted session history."
+      },
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000,
+        "description": "Focused natural-language description of the context needed from the target session."
+      },
+      "strategy": {
+        "type": "string",
+        "enum": ["relevant", "handoff"],
+        "default": "relevant",
+        "description": "Use relevant for focused retrieval, or handoff for a bounded continuation summary."
+      },
+      "maxTokens": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 12000,
+        "description": "Approximate maximum tokens to return to the model."
+      }
+    },
+    "required": ["sessionId", "query"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronCreate": {
+    "type": "object",
+    "properties": {
+      "cron": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Standard 5-field cron expression in the user's local timezone: minute hour day-of-month month day-of-week. Use it only for an absolute named date/time or a recurring schedule; required unless delayMinutes is set. For any relative delay such as 'in 8 minutes'/'8分钟后' or 'in 2 hours'/'2小时后', omit cron and use delayMinutes instead — never convert a relative phrase into a fixed clock time or calendar date, because a just-passed one-shot time silently rolls a full year forward. Examples: '*/20 * * * *' means every 20 minutes, '0 * * * *' means hourly, and '0 9 * * 1-5' means weekdays at 09:00. Do not convert to UTC."
+      },
+      "delayMinutes": {
+        "description": "For any relative delay from now — 'in 3 minutes' (3), '8分钟后' (8), 'in 2 hours' (120), 'later'/'稍后' — set the exact positive delay in whole minutes and omit cron. The host calculates the future local schedule from its real current clock, so never compute an absolute time or cron yourself. For an absolute named date/time or a recurring schedule, omit it (or set null) and provide cron.",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 525600
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Complete prompt to send at every scheduled fire. Include all instructions needed when the automation runs. Describe the final work directly; do not ask it to create or schedule another automation or call CronCreate."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Concise automation title that preserves the user's natural-language schedule phrase verbatim. For example, for '每20分钟提醒我喝水', use '每20分钟喝水提醒', not '喝水提醒'."
+      },
+      "recurring": {
+        "type": "boolean",
+        "description": "true (default) repeats until paused or deleted. false creates a finite automation; without maxRuns it runs once."
+      },
+      "maxRuns": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Maximum successful scheduled dispatch count. Use only with recurring=false; omit for a one-shot automation (defaults to 1)."
+      },
+      "intervalUnit": {
+        "type": "string",
+        "enum": ["minute", "hourly", "daily", "weekly", "monthly", "yearly"],
+        "description": "Custom recurring interval unit for every N minutes/hours/days/weeks/months/years. Pair with interval (1-200) for every N-unit request, even if cron can express N; submit a legal compatible cron whose time/day slots are used by the scheduleRule. Omit both for ordinary calendar cron schedules."
+      },
+      "interval": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "description": "Integer interval from 1 to 200 paired with intervalUnit. The host carries the real interval via scheduleRule; the compatible cron is only a legal display expression. Must be set together with intervalUnit."
+      }
+    },
+    "required": ["prompt", "title"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronList": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronUpdate": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Automation id returned by CronCreate or CronList"
+      },
+      "cron": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Replacement standard 5-field cron expression in the user's local timezone. Omit to preserve the existing schedule. Do not convert to UTC."
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Replacement prompt for future scheduled fires. Omit to preserve the existing prompt."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Required synchronized automation title describing the task after this update. Keep the user's natural-language schedule phrase consistent with cron (for example, changing every 5 minutes to every 6 minutes must also change the title), and update the title when the prompt meaning changes."
+      },
+      "recurring": {
+        "type": "boolean",
+        "description": "Replacement recurrence mode. true repeats indefinitely and clears any old finite maxRuns limit; false is finite. Do not combine true with a numeric maxRuns."
+      },
+      "maxRuns": {
+        "description": "Replacement maximum successful scheduled dispatch count for recurring=false. null clears the existing limit and is valid only when recurring=true is included in the same update; when recurring=true is supplied without maxRuns, the service clears the old limit automatically.",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "intervalUnit": {
+        "type": "string",
+        "enum": ["minute", "hourly", "daily", "weekly", "monthly", "yearly"],
+        "description": "Switch this automation to a long recurring interval whose step exceeds a cron field ceiling (hourly N>24, daily N>31, etc.). Pair with interval and submit a legal compatible cron (omit cron to keep the existing schedule's minute)."
+      },
+      "interval": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "description": "Positive integer interval paired with intervalUnit. Must be set together with intervalUnit."
+      }
+    },
+    "required": ["id", "title"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CronDelete": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Automation id returned by CronCreate or CronList"
+      }
+    },
+    "required": ["id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "OffPeakCreate": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Concise idle-time task title describing the deferred work, for example '重构 utils 目录' or 'Fix flaky auth tests'. Keep it short and do not include file paths."
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Instructions for the deferred run, which later continues THIS conversation unattended with the full history available, so it may refer to context already established here. State the expected deliverable explicitly (nobody will answer questions during the run); never ask the run to create, schedule, or configure another idle-time task or automation."
+      },
+      "permissionMode": {
+        "type": "string",
+        "enum": ["build", "edit", "plan", "yolo"],
+        "description": "Unattended run permission mode. Omit for the default full-automatic mode (yolo). Set only when the user explicitly asks for confirmation-gated execution: 'build' pauses for approval before changes, 'edit' auto-applies edits, 'plan' is read-only planning."
+      },
+      "model": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Idle-plan model id. Must be one of the idle-time allowed models; omit to use the default (the newest allowed model). Set only when the user names a specific model."
+      },
+      "thoughtLevel": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Reasoning effort level for the chosen model. Omit to use the default (the highest level). Set only when the user explicitly asks for a lower reasoning effort."
+      }
+    },
+    "required": ["title", "prompt"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "OffPeakList": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "CreateWorkflow": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Short run label in the user's language. Always pass it for an inline script; defaults to the saved workflow's name."
+      },
+      "script": {
+        "type": "string",
+        "description": "The whole workflow script, inline. Exactly one of `script`, `saved` and `path`."
+      },
+      "saved": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Name of a saved workflow (see ListSavedWorkflows)."
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Values for the arguments the saved workflow declares.",
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["project", "global"],
+            "description": "Which archive to take it from; omit for the normal lookup order."
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false,
+        "description": "A saved workflow to run, by name. Exactly one of `script`, `saved` and `path`."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A script file on disk (relative or absolute), usually the file a previous result named. Exactly one of `script`, `saved` and `path`."
+      },
+      "args": {
+        "type": "object",
+        "additionalProperties": {},
+        "description": "Values for the arguments a `path` file declares. Only with `path`.",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "max_concurrency": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Upper bound on subagents working at once. Only when the user asks to limit parallelism; never as a reaction to provider errors."
+      },
+      "subagent_model": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Model for the subagents (`providerId/modelId` or a model id). Only when the user asks; you stay on the session model."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "SaveWorkflow": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "description": "File-safe identifier: letters, digits, dot, dash and underscore."
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "description": "One line saying what the workflow does."
+      },
+      "whenToUse": {
+        "type": "string",
+        "minLength": 1,
+        "description": "When this workflow is the right answer."
+      },
+      "args": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["string", "number", "boolean", "json"],
+              "description": "Value type. \"json\" accepts any JSON value without further checking."
+            },
+            "description": {
+              "type": "string",
+              "description": "What this argument means, for whoever calls the workflow later."
+            },
+            "required": {
+              "type": "boolean",
+              "description": "When true the workflow cannot run without this argument."
+            },
+            "default": {
+              "description": "Value used when the caller omits this argument."
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        "description": "Argument declarations the script reads off `args`.",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "script": {
+        "type": "string",
+        "description": "The script body, inline, without a metadata block. This OR `script_path`, never both."
+      },
+      "script_path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A file holding the script body, usually a draft a result named. This OR `script`, never both."
+      },
+      "scope": {
+        "type": "string",
+        "enum": ["project", "global"],
+        "description": "\"project\" when the script depends on this repository; \"global\" when it depends on nothing in it. Required, no default."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1
+      },
+      "overwrite": {
+        "type": "boolean"
+      },
+      "shadowing": {
+        "type": "string",
+        "enum": ["hides_global", "hidden_by_project"]
+      }
+    },
+    "required": ["name", "description", "scope"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "GetWorkflowRun": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The workflow run ID to inspect (as returned by CreateWorkflow or ListWorkflowRuns)"
+      }
+    },
+    "required": ["run_id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "EvalWorkflowSnippet": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The snippet, inline. This OR `path`, never both."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A file holding the snippet, read whole. This OR `code`, never both."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 600000,
+        "description": "Wall clock for the whole snippet, in ms. Default 60000, at most 600000."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ListSavedWorkflows": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ListModels": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ListWorkflowRuns": {
+    "type": "object",
+    "properties": {
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 20,
+        "description": "Maximum number of runs to return (1-50, default 20). Most recently updated runs come first."
+      },
+      "statuses": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["completed", "errored", "pending", "running", "stopped"]
+        },
+        "description": "Optional status filter. Omit to see every run in this project. Pass [\"running\", \"pending\"] to see only what is still in flight."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "AmendWorkflow": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "ID of the run to amend (from a result, a notification, GetWorkflowRun or ListWorkflowRuns)."
+      },
+      "script": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The whole revised script, inline. This OR `path`, never both; omit both to keep the predecessor's script."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The revised script's file, usually the predecessor's own script file edited in place. This OR `script`, never both."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Display label for the new run; defaults to the predecessor's."
+      },
+      "max_concurrency": {
+        "description": "Omit to keep the predecessor's limit, null to remove it, a number to set one (only when the user asks).",
+        "oneOf": [
+          {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "subagent_model": {
+        "description": "Omit to keep the predecessor's choice, null for the session model, a model id to set one (only when the user asks).",
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["run_id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ResumeWorkflowRun": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The workflow run ID to resume — a cancelled run or one that failed with code `Interrupted`, as seen with GetWorkflowRun or ListWorkflowRuns"
+      }
+    },
+    "required": ["run_id"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ResolveWorkflowQuestion": {
+    "type": "object",
+    "properties": {
+      "question_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The question ID from the escalation notification, or from GetWorkflowRun's pending questions (looks like `dwfq-...`)"
+      },
+      "answer": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The answer text, delivered verbatim to the subagent that asked"
+      }
+    },
+    "required": ["question_id", "answer"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Grep": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "type": "string",
+        "description": "The regular expression pattern to search for in file contents"
+      },
+      "path": {
+        "type": "string",
+        "description": "File or directory to search in (rg PATH). Defaults to current working directory."
+      },
+      "glob": {
+        "type": "string",
+        "description": "Glob pattern to filter files (e.g. \"*.js\", \"*.{ts,tsx}\") - maps to rg --glob"
+      },
+      "output_mode": {
+        "type": "string",
+        "enum": ["content", "files_with_matches", "count"],
+        "description": "Output mode: \"content\" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), \"files_with_matches\" shows file paths (supports head_limit), \"count\" shows match counts (supports head_limit). Defaults to \"files_with_matches\"."
+      },
+      "-B": {
+        "type": "number",
+        "description": "Number of lines to show before each match (rg -B). Requires output_mode: \"content\", ignored otherwise."
+      },
+      "-A": {
+        "type": "number",
+        "description": "Number of lines to show after each match (rg -A). Requires output_mode: \"content\", ignored otherwise."
+      },
+      "-C": {
+        "type": "number",
+        "description": "Alias for context."
+      },
+      "context": {
+        "type": "number",
+        "description": "Number of lines to show before and after each match (rg -C). Requires output_mode: \"content\", ignored otherwise."
+      },
+      "-n": {
+        "type": "boolean",
+        "description": "Show line numbers in output (rg -n). Requires output_mode: \"content\", ignored otherwise. Defaults to true."
+      },
+      "-i": {
+        "type": "boolean",
+        "description": "Case insensitive search (rg -i)"
+      },
+      "-o": {
+        "type": "boolean",
+        "description": "Print only the matched (non-empty) parts of each matching line, one match per output line (rg -o / --only-matching). Requires output_mode: \"content\", ignored otherwise. Defaults to false."
+      },
+      "type": {
+        "type": "string",
+        "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types."
+      },
+      "head_limit": {
+        "type": "number",
+        "description": "Limit output to first N lines/entries, equivalent to \"| head -N\". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 250 when unspecified. Pass 0 for unlimited (use sparingly — large result sets waste context)."
+      },
+      "offset": {
+        "type": "number",
+        "description": "Skip first N lines/entries before applying head_limit, equivalent to \"| tail -n +N | head -N\". Works across all output modes. Defaults to 0."
+      },
+      "multiline": {
+        "type": "boolean",
+        "description": "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false."
+      }
+    },
+    "required": ["pattern"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "Bash": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "The command to execute"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Optional timeout in milliseconds (max 600000)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Clear, concise description of what this command does in active voice. Never use words like \"complex\" or \"risk\" in the description - just describe what it does.\n\nFor simple commands (git, npm, standard CLI tools), keep it brief (5-10 words):\n- ls → \"List files in current directory\"\n- git status → \"Show working tree status\"\n- npm install → \"Install package dependencies\"\n\nFor commands that are harder to parse at a glance (piped commands, obscure flags, etc.), add enough context to clarify what it does:\n- find . -name \"*.tmp\" -exec rm {} \\; → \"Find and delete all .tmp files recursively\"\n- git reset --hard origin/main → \"Discard all local changes and match remote main\"\n- curl -s url | jq '.data[]' → \"Fetch JSON from URL and extract data array elements\""
+      },
+      "run_in_background": {
+        "type": "boolean",
+        "description": "Set to true to run this command in the background."
+      },
+      "dangerouslyDisableSandbox": {
+        "type": "boolean",
+        "description": "Set this to true to dangerously override sandbox mode and run commands without sandboxing."
+      }
+    },
+    "required": ["command"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "TaskOutput": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "description": "The task ID to get output from"
+      },
+      "block": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to wait for completion"
+      },
+      "timeout": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 600000,
+        "default": 30000,
+        "description": "Max wait time in ms"
+      }
+    },
+    "required": ["task_id", "block", "timeout"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "TaskStop": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "description": "The ID of the background task to stop"
+      },
+      "shell_id": {
+        "type": "string",
+        "description": "Deprecated: use task_id instead"
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "AskUserQuestion": {
+    "type": "object",
+    "properties": {
+      "questions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: \"Which library should we use for date formatting?\" If multiSelect is true, phrase it accordingly, e.g. \"Which features do you want to enable?\""
+            },
+            "header": {
+              "type": "string",
+              "description": "Very short label displayed as a chip/tag (max 12 chars). Examples: \"Auth method\", \"Library\", \"Approach\"."
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Explanation of what this option means or what will happen if chosen. Useful for providing context about trade-offs or implications."
+                  },
+                  "preview": {
+                    "type": "string",
+                    "description": "Optional preview content rendered when this option is focused. Use for mockups, code snippets, or visual comparisons that help users compare options. See the tool description for the expected content format."
+                  }
+                },
+                "required": ["label", "description"],
+                "additionalProperties": false
+              },
+              "minItems": 2,
+              "maxItems": 4,
+              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically."
+            },
+            "multiSelect": {
+              "type": "boolean",
+              "default": false,
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive."
+            }
+          },
+          "required": ["question", "header", "options", "multiSelect"],
+          "additionalProperties": false
+        },
+        "minItems": 1,
+        "maxItems": 4,
+        "description": "Questions to ask the user (1-4 questions)"
+      },
+      "answers": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "User answers collected by the permission component",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "annotations": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "preview": {
+              "type": "string",
+              "description": "The preview content of the selected option, if the question used previews."
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free-text notes the user added to their selection."
+            }
+          },
+          "additionalProperties": false
+        },
+        "description": "Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.",
+        "propertyNames": {
+          "type": "string"
+        }
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Optional identifier for the source of this question (e.g., \"remember\" for /remember command). Used for analytics tracking."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Optional metadata for tracking and analytics purposes. Not displayed to user."
+      }
+    },
+    "required": ["questions"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "EnterPlanMode": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ExitPlanMode": {
+    "type": "object",
+    "properties": {
+      "plan": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000,
+        "description": "The implementation plan to present to the user for approval."
+      },
+      "allowedPrompts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "type": "string",
+              "enum": ["Bash"],
+              "description": "The tool this prompt applies to"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "Semantic description of the action, e.g. \"run tests\", \"install dependencies\""
+            }
+          },
+          "required": ["tool", "prompt"],
+          "additionalProperties": false
+        },
+        "description": "Prompt-based permissions needed to implement the plan. These describe categories of actions rather than specific commands."
+      }
+    },
+    "required": ["plan"],
+    "additionalProperties": {},
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  }
+}

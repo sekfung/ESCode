@@ -1,22 +1,22 @@
-import { SocketProtocol, ChannelClient } from "@zcode/rpc";
-import type { IServiceAccessor } from "@zcode/services";
-import { RemoteServiceAccess } from "@zcode/client";
+import { SocketProtocol, ChannelClient } from "@escode/rpc";
+import type { IServiceAccessor } from "@escode/services";
+import { RemoteServiceAccess } from "@escode/client";
 import {
   SERVICE_AUTHORITY_MODE_ENV,
-  ZCODE_APP_VERSION_ENV,
-  ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
-  ZCODE_DYNAMIC_WORKFLOW_MODE_ENV,
+  ESCODE_APP_VERSION_ENV,
+  ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
+  ESCODE_DYNAMIC_WORKFLOW_MODE_ENV,
   formatLogPrefix,
-  ZCODE_REMOTE_HTTP_PROXY_ENV_KEY,
-  ZCODE_REMOTE_NO_PROXY_ENV_KEY,
-  ZCODE_REMOTE_RUNTIME_NETWORK_AUTHORITY_ENV_KEY,
-} from "@zcode/shared";
+  ESCODE_REMOTE_HTTP_PROXY_ENV_KEY,
+  ESCODE_REMOTE_NO_PROXY_ENV_KEY,
+  ESCODE_REMOTE_RUNTIME_NETWORK_AUTHORITY_ENV_KEY,
+} from "@escode/shared";
 import type { IRemoteBackend } from "./backend.js";
 import { wrapStdioStream } from "./stdio-socket.js";
 import { performHandshake } from "./handshake.js";
 import { deployServer } from "./deploy.js";
 import type { DeployOptions } from "./deploy.js";
-import { assertSupportedRemoteEnvironment } from "@zcode/server/remote/remotePlatformSupport.js";
+import { assertSupportedRemoteEnvironment } from "@escode/server/remote/remotePlatformSupport.js";
 import { quotePosixShellArg } from "./posixShell.js";
 import { formatWslProxyForLog } from "./wslProxy.js";
 
@@ -54,17 +54,17 @@ export interface RemoteConnection {
 }
 
 const REMOTE_RUNTIME_ENV_KEYS = [
-  "ZCODE_ENV",
-  "ZCODE_BASE_URL",
-  "ZCODE_ENDPOINT_ORIGIN",
+  "ESCODE_ENV",
+  "ESCODE_BASE_URL",
+  "ESCODE_ENDPOINT_ORIGIN",
   "ZAI_OAUTH_ORIGIN",
   "ZAI_BUSINESS_BASE_URL",
   "ZAI_OAUTH_CLIENT_ID",
   // 由 Desktop Main 计算并下发；远端 server 只消费，不重新计算。
-  ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
+  ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
   // 同上：本地覆盖由 Desktop Main 按构建档位写定（buildHostProcessEnv），
   // 透传后 SSH/WSL/Docker 远端 Host 与本地 Host 得到同一档位。
-  ZCODE_DYNAMIC_WORKFLOW_MODE_ENV,
+  ESCODE_DYNAMIC_WORKFLOW_MODE_ENV,
 ] as const;
 
 export type RemoteRuntimeEnvKey = (typeof REMOTE_RUNTIME_ENV_KEYS)[number];
@@ -97,7 +97,7 @@ function throwIfRemoteConnectAborted(signal: AbortSignal | undefined): void {
 }
 
 /**
- * Connect to a remote zcode server via an IRemoteBackend.
+ * Connect to a remote escode server via an IRemoteBackend.
  *
  * Steps:
  * 1. detect() → { platform, arch }
@@ -196,7 +196,7 @@ async function connectRemoteUnchecked(
 
   // Forward stderr for debugging
   stream.stderr.on("data", (chunk: Buffer) => {
-    // 远端 zcode-server 的服务日志走 stderr，直接写 host stderr 时可能被结构化日志中继吞掉。
+    // 远端 escode-server 的服务日志走 stderr，直接写 host stderr 时可能被结构化日志中继吞掉。
     // 这里转成 host 的 console 日志，让 remote sqlite 初始化/锁冲突日志能稳定出现在连接日志面板和启动终端。
     console.log(`[remote] ${chunk.toString().trimEnd()}`);
   });
@@ -362,7 +362,7 @@ function buildRemoteServerCommand(
 ): string {
   const envParts = [
     `${SERVICE_AUTHORITY_MODE_ENV}="desktop-attached-remote"`,
-    'ZCODE_SERVER_RUNTIME_ROOT="$HOME/.zcode/server"',
+    'ESCODE_SERVER_RUNTIME_ROOT="$HOME/.escode/server"',
   ];
   for (const [key, value] of Object.entries(
     pickRemoteRuntimeEnv(options?.remoteRuntimeEnv ?? {}),
@@ -373,20 +373,20 @@ function buildRemoteServerCommand(
   if (appVersion) {
     // 远端 server 是通过 SSH/WSL/Docker 单独启动的，不会继承桌面 host env。
     // 这里显式把 app 版本作为远端进程 env 注入，远端 agent 才能在模型请求 header 中带上版本。
-    envParts.push(`${ZCODE_APP_VERSION_ENV}=${quotePosixShellArg(appVersion)}`);
+    envParts.push(`${ESCODE_APP_VERSION_ENV}=${quotePosixShellArg(appVersion)}`);
   }
   if (remoteRuntimeNetwork?.authoritative) {
-    envParts.push(`${ZCODE_REMOTE_RUNTIME_NETWORK_AUTHORITY_ENV_KEY}='1'`);
+    envParts.push(`${ESCODE_REMOTE_RUNTIME_NETWORK_AUTHORITY_ENV_KEY}='1'`);
     if (remoteRuntimeNetwork.httpProxy !== undefined) {
       envParts.push(
-        `${ZCODE_REMOTE_HTTP_PROXY_ENV_KEY}=${quotePosixShellArg(remoteRuntimeNetwork.httpProxy)}`,
+        `${ESCODE_REMOTE_HTTP_PROXY_ENV_KEY}=${quotePosixShellArg(remoteRuntimeNetwork.httpProxy)}`,
       );
     }
     if (remoteRuntimeNetwork.noProxy !== undefined) {
       envParts.push(
-        `${ZCODE_REMOTE_NO_PROXY_ENV_KEY}=${quotePosixShellArg(remoteRuntimeNetwork.noProxy)}`,
+        `${ESCODE_REMOTE_NO_PROXY_ENV_KEY}=${quotePosixShellArg(remoteRuntimeNetwork.noProxy)}`,
       );
     }
   }
-  return `${envParts.join(" ")} ~/.zcode/server/node ~/.zcode/server/zcode-server.cjs`;
+  return `${envParts.join(" ")} ~/.escode/server/node ~/.escode/server/escode-server.cjs`;
 }

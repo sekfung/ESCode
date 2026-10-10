@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOptionalServices } from "@/hooks/useServices.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import type { SerialSignals } from "@zcode/services";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
+import type { SerialSignals } from "@escode/services";
 import {
   buildSerialPermissionPreview,
   describeSerialSignalChange,
@@ -44,7 +44,7 @@ function useSerialTarget(
  * 其它工具返回 null，审批卡片保持原样。
  */
 export function SerialPermissionPreview({ toolName, input }: { toolName: string; input: unknown }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const preview = useMemo(() => buildSerialPermissionPreview(toolName, input), [input, toolName]);
   const needsTarget =
     preview?.kind === "write" || preview?.kind === "close" || preview?.kind === "signals";

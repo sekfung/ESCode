@@ -1,5 +1,5 @@
 {
-  "name": "@zcode/services",
+  "name": "@escode/services",
   "private": true,
   "type": "module",
   "imports": {
@@ -20,11 +20,11 @@
     "@larksuiteoapi/node-sdk": "1.64.0",
     "@serialport/bindings-cpp": "13.0.1",
     "@serialport/stream": "13.0.0",
-    "@zcode/provider": "workspace:*",
-    "@zcode/provider-node": "workspace:*",
-    "@zcode/rpc": "workspace:*",
-    "@zcode/shared": "workspace:*",
-    "@zcode/zcode-cua": "workspace:*",
+    "@escode/provider": "workspace:*",
+    "@escode/provider-node": "workspace:*",
+    "@escode/rpc": "workspace:*",
+    "@escode/shared": "workspace:*",
+    "@escode/escode-cua": "workspace:*",
     "croner": "^10.0.1",
     "ignore": "^5.3.2",
     "node-forge": "^1.4.0",

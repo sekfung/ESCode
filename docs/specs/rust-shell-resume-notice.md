@@ -63,7 +63,7 @@ sequenceDiagram
 ## 验收
 
 - 单测：`shell_select_tests.rs::resume_notice_follows_ts_rules`（自动 Git Bash 必提醒、显示名变化提醒、相同或缺失不提醒）。
-- App 差分：`packages/services/tests/zcode-cli-rust-shell-resume-notice.test.ts`（Windows；三组设置，两次冷恢复后的
+- App 差分：`packages/services/tests/escode-cli-rust-shell-resume-notice.test.ts`（Windows；三组设置，两次冷恢复后的
   模型请求会话部分两侧逐字一致，含提醒位置与不落库）。
-- fork child 与副屏 child 的首个模型请求不再过滤该提醒（`zcode-cli-rust-fork-child.test.ts`、
-  `zcode-cli-rust-selection-side-session.test.ts`）。
+- fork child 与副屏 child 的首个模型请求不再过滤该提醒（`escode-cli-rust-fork-child.test.ts`、
+  `escode-cli-rust-selection-side-session.test.ts`）。

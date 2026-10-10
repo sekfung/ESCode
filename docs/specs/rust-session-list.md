@@ -4,7 +4,7 @@
 
 ## 产品规则
 
-- 参数遵循当前严格 `zcodeSessionListParamsSchema`：可选 workspace、1–64 个非空 sessionIds、includeArchived=false、正整数 limit。所有身份字符串先 trim；null 参数对象等同省略；可选字段显式 null、未知字段、空白 ID/空数组/超 64 个 ID、非整数或非正 limit 均拒绝。
+- 参数遵循当前严格 `escodeSessionListParamsSchema`：可选 workspace、1–64 个非空 sessionIds、includeArchived=false、正整数 limit。所有身份字符串先 trim；null 参数对象等同省略；可选字段显式 null、未知字段、空白 ID/空数组/超 64 个 ID、非整数或非正 limit 均拒绝。
 - 普通列表只返回已持久化 interactive/fork/workflow_parent，默认最多 50 条，按 updatedAt DESC、id DESC；无 offset/cursor，不伪造分页协议。显式 IDs 保持请求顺序和重复项，包含隐藏子会话，忽略 limit，缺失 ID 跳过。
 - includeArchived 控制归档过滤。workspace 指定时按 trim(identity) || path 匹配，普通列表同时保留 TS directory 查询约束；显式 ID 查询只以身份过滤。workspaceKey 仅回显，不能代替身份鉴别。remoteSessionId 透传。
 - 未指定 workspace 时查询存储中的跨 workspace 历史，返回每条记录自身的身份与路径。不能把其他 workspace 的记录标成当前 cwd；旧元数据缺少路径时使用已保存 prompt cwd、当前 owner 路径或已提交 TS 备份，只读补全。无法确认远端路径时失败，不能猜测。
@@ -38,7 +38,7 @@ SessionStore 增加有类型的只读 listing 端口，SQLite adapter 负责查�
 workspace 查询时只追加本 runtime 的 workspaceKey。条目按 TS `mapSessionInfo({app})`：`title` 为空、`createdAt`/`updatedAt`
 为当前时刻、`mode`/`model`/`traceId` 取运行时、不带 `titleSource`，不按归档过滤。App 的 share-import 去重（`limit: 100`
 后按 id 查找）依赖该行为。多条追加时 TS 按 runtime 建立顺序，Rust 以创建时间近似。
-差分：`zcode-cli-rust-differential.test.ts`「append live sessions beyond the session/list limit」。
+差分：`escode-cli-rust-differential.test.ts`「append live sessions beyond the session/list limit」。
 
 ## 验收
 

@@ -6,9 +6,9 @@ import { z } from "zod";
  */
 
 /** Host 仅在注册了 SerialService（desktop-local）时向 Agent spawn env 注入该标记。 */
-export const ZCODE_HOST_SERIAL_ENV = "ZCODE_HOST_SERIAL";
-export const SERIAL_BROKER_SOCKET_ENV = "ZCODE_SERIAL_BROKER_SOCKET";
-export const SERIAL_BROKER_TOKEN_ENV = "ZCODE_SERIAL_BROKER_TOKEN";
+export const ESCODE_HOST_SERIAL_ENV = "ESCODE_HOST_SERIAL";
+export const SERIAL_BROKER_SOCKET_ENV = "ESCODE_SERIAL_BROKER_SOCKET";
+export const SERIAL_BROKER_TOKEN_ENV = "ESCODE_SERIAL_BROKER_TOKEN";
 /** 官方插件内 serial MCP server 的名称（工具全名为 mcp__serial__<tool>）。 */
 export const SERIAL_MCP_SERVER_NAME = "serial";
 
@@ -136,7 +136,7 @@ export type SerialBrokerResponse = z.infer<typeof serialBrokerResponseSchema>;
 
 // --- 反向协议（Agent 运行时 → Host） ---------------------------------------------
 
-export const zcodeSerialMethods = {
+export const escodeSerialMethods = {
   list: "interaction/serialList",
   open: "interaction/serialOpen",
   write: "interaction/serialWrite",
@@ -156,7 +156,7 @@ const protocolParamsBase = z.object({
   remoteSessionId: z.string().trim().min(1).optional(),
 });
 
-export const zcodeSerialMethodParamsSchemas = {
+export const escodeSerialMethodParamsSchemas = {
   list: protocolParamsBase.extend({ args: serialToolArgsSchemas.list }).strict(),
   open: protocolParamsBase.extend({ args: serialToolArgsSchemas.open }).strict(),
   write: protocolParamsBase.extend({ args: serialToolArgsSchemas.write }).strict(),
@@ -165,8 +165,8 @@ export const zcodeSerialMethodParamsSchemas = {
   close: protocolParamsBase.extend({ args: serialToolArgsSchemas.close }).strict(),
   setSignals: protocolParamsBase.extend({ args: serialToolArgsSchemas.setSignals }).strict(),
 } as const;
-export type ZCodeSerialMethodParams<Op extends SerialToolOp> = z.infer<
-  (typeof zcodeSerialMethodParamsSchemas)[Op]
+export type ESCodeSerialMethodParams<Op extends SerialToolOp> = z.infer<
+  (typeof escodeSerialMethodParamsSchemas)[Op]
 >;
 
 const serialStatusSchema = z
@@ -197,7 +197,7 @@ const serialStatusSchema = z
   })
   .strict();
 
-export const zcodeSerialMethodResultSchemas = {
+export const escodeSerialMethodResultSchemas = {
   list: z
     .object({
       ports: z.array(
@@ -243,8 +243,8 @@ export const zcodeSerialMethodResultSchemas = {
     .object({ signals: z.object({ dtr: z.boolean(), rts: z.boolean() }).strict() })
     .strict(),
 } as const;
-export type ZCodeSerialMethodResult<Op extends SerialToolOp> = z.infer<
-  (typeof zcodeSerialMethodResultSchemas)[Op]
+export type ESCodeSerialMethodResult<Op extends SerialToolOp> = z.infer<
+  (typeof escodeSerialMethodResultSchemas)[Op]
 >;
 
 /** Host 拒绝请求时放进 JSON-RPC error.data.code，broker 原样转成工具失败。 */
@@ -263,11 +263,11 @@ export type SerialToolErrorCode =
  * 反向请求没有通用取消机制：工具调用被取消或 MCP 对端断开时，broker 发送该方法，
  * Host 按 targetRequestId 终止对应的 waitFor 并释放订阅；目标已结束时视为成功（幂等）。
  */
-export const zcodeSerialCancelMethod = "interaction/serialCancel";
-export const zcodeSerialCancelParamsSchema = z
+export const escodeSerialCancelMethod = "interaction/serialCancel";
+export const escodeSerialCancelParamsSchema = z
   .object({
     sessionId: z.string().trim().min(1),
     targetRequestId: z.string().trim().min(1),
   })
   .strict();
-export type ZCodeSerialCancelParams = z.infer<typeof zcodeSerialCancelParamsSchema>;
+export type ESCodeSerialCancelParams = z.infer<typeof escodeSerialCancelParamsSchema>;

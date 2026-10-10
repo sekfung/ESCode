@@ -5,11 +5,11 @@ import {
   hostBotRemoteWorkspaceRuntimePortMessageSchema,
   hostBotRemoteWorkspaceReconnectResultMessageSchema,
   type RemoteTarget,
-} from "@zcode/shared";
-import { type IZCodeTaskService as IZCodeTaskServiceShape } from "../session/zcodeTaskService.js";
+} from "@escode/shared";
+import { type IESCodeTaskService as IESCodeTaskServiceShape } from "../session/escodeTaskService.js";
 import type { ICredentialService } from "../credential/credential.js";
 import type { ISettingService } from "../setting/setting.js";
-import { type ZCodeAgentAppRuntimePreferences } from "../zcode-agent/zcodeAgent.js";
+import { type ESCodeAgentAppRuntimePreferences } from "../escode-agent/escodeAgent.js";
 import {
   createRemoteRuntimeServicesFromPort,
   type RemoteBotWorkspaceRuntimeServices,
@@ -50,7 +50,7 @@ export function createBotRemoteWorkspaceService(params: {
     (result: { ok: boolean; connected?: boolean; error?: string }) => void
   >();
   const runtimeServicesByWorkspaceKey = new Map<string, RemoteBotWorkspaceRuntimeServices>();
-  let latestAppRuntimePreferences: ZCodeAgentAppRuntimePreferences | undefined;
+  let latestAppRuntimePreferences: ESCodeAgentAppRuntimePreferences | undefined;
   let appRuntimePreferencesRevision = 0;
   const onMessage = (event: ParentPortMessageEvent) => {
     const result = hostBotRemoteWorkspaceReconnectResultMessageSchema.safeParse(event.data);
@@ -238,23 +238,23 @@ export function createBotRemoteWorkspaceService(params: {
       }
       return { ok: false, message: result.error ?? "unknown" };
     },
-    async getZCodeTaskService(target: {
+    async getESCodeTaskService(target: {
       workspacePath: string;
       workspaceIdentity: string;
-    }): Promise<IZCodeTaskServiceShape | null> {
-      return (await getRuntimeServices(target))?.zcodeTaskService ?? null;
+    }): Promise<IESCodeTaskServiceShape | null> {
+      return (await getRuntimeServices(target))?.escodeTaskService ?? null;
     },
     async getModelSelectionService(target: { workspacePath: string; workspaceIdentity: string }) {
       return (await getRuntimeServices(target))?.modelSelectionService ?? null;
     },
-    async syncAppRuntimePreferences(preferences: ZCodeAgentAppRuntimePreferences): Promise<void> {
+    async syncAppRuntimePreferences(preferences: ESCodeAgentAppRuntimePreferences): Promise<void> {
       latestAppRuntimePreferences = preferences;
       appRuntimePreferencesRevision += 1;
       // 修复原因：远端 Bot runtime 不属于任何 renderer 窗口，Root 的 Agent 同步无法触达它。
       // 这里只更新已经缓存的 runtime，避免切换设置时为了闲置 Bot 新建远端 Host/Agent。
       await Promise.all(
         Array.from(runtimeServicesByWorkspaceKey.values()).map((services) =>
-          services.zcodeAgentService.syncAppRuntimePreferences(preferences),
+          services.escodeAgentService.syncAppRuntimePreferences(preferences),
         ),
       );
     },
@@ -307,7 +307,7 @@ export function createBotRemoteWorkspaceService(params: {
     }
     // Bugfix: Bot 任务以前只知道远端 identity，却继续调用本地 task service。
     // 这里把 main 转发来的远端 RPC 端口包装成一组 runtime services；
-    // task wrapper 命令走 IZCodeTaskService，session 主状态走 ZCode session facade。
+    // task wrapper 命令走 IESCodeTaskService，session 主状态走 ESCode session facade。
     const services = createRemoteRuntimeServicesFromPort(result.port);
     // 远端 Bot 与 UI workspace 共用同一个远端 Environment。这里只确认远端
     // Model Selection Facade 已就绪，Desktop 不再向远端注入完整 Provider Registry。
@@ -315,14 +315,14 @@ export function createBotRemoteWorkspaceService(params: {
     while (true) {
       const revision = appRuntimePreferencesRevision;
       const cachedPreferences = latestAppRuntimePreferences;
-      const preferences: ZCodeAgentAppRuntimePreferences = cachedPreferences
+      const preferences: ESCodeAgentAppRuntimePreferences = cachedPreferences
         ? cachedPreferences
         : await params.settingService.get().then((settings) => ({
             askUserQuestionAutoResolutionEnabled:
               settings.askUserQuestionAutoResolutionEnabled !== false,
             modelIoFullRetentionEnabled: settings.modelIoFullRetentionEnabled === true,
           }));
-      await services.zcodeAgentService.syncAppRuntimePreferences(preferences);
+      await services.escodeAgentService.syncAppRuntimePreferences(preferences);
       if (revision === appRuntimePreferencesRevision) {
         break;
       }

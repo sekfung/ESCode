@@ -1,11 +1,11 @@
-import type { TaskNotificationPayload } from "@zcode/shared";
+import type { TaskNotificationPayload } from "@escode/shared";
 import type {
   ConversationSnapshot,
   PendingInteraction,
   SessionPhase,
   SessionSummary,
   UserInputRequestPayload,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import type { IntlInstance } from "@/i18n/index.js";
 
 type FormatMessage = IntlInstance["formatMessage"];

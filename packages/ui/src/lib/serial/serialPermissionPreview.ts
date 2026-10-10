@@ -3,7 +3,7 @@ import {
   escapeSerialPreview,
   formatSerialHex,
   serialToolArgsSchemas,
-} from "@zcode/shared/serial";
+} from "@escode/shared/serial";
 
 /** 审批卡片最多预览的字节数；字节总数单独显示，避免长数据撑开卡片。 */
 const PREVIEW_BYTES = 256;
@@ -32,7 +32,7 @@ export type SerialPermissionPreview =
   | { kind: "invalid" };
 
 /**
- * 由串口写类工具的输入生成审批预览。与 Host 使用同一份编解码（@zcode/shared/serial），
+ * 由串口写类工具的输入生成审批预览。与 Host 使用同一份编解码（@escode/shared/serial），
  * 保证用户批准看到的字节就是实际写出的字节。只读工具与其它 MCP 工具返回 null。
  */
 export function buildSerialPermissionPreview(

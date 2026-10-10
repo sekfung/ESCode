@@ -1,6 +1,6 @@
 # Rust Shell 选择与 TS 对齐
 
-2026-09-24，WP2（跨平台正确性）的第一项。Rust Bash 工具的 shell 解析必须与 TS `apps/zcode-cli/packages/adapters/src/exec/bash-shell-provider.ts` 一致，否则同一条模型命令在两个 runtime 上会得到不同语义。
+2026-09-24，WP2（跨平台正确性）的第一项。Rust Bash 工具的 shell 解析必须与 TS `apps/escode-cli/packages/adapters/src/exec/bash-shell-provider.ts` 一致，否则同一条模型命令在两个 runtime 上会得到不同语义。
 
 ## 现状差异（已确认）
 
@@ -42,7 +42,7 @@ sequenceDiagram
 
 ## 实现状态（2026-09-24）
 
-- 已实现：`crates/tools/src/shell_select.rs`（解析与 spawn 参数）、`crates/core/src/app/shell_preferences.rs`（Engine 按会话请求一次 `session/requestRuntimePreferences{scope:"user-execution"}` 并缓存，并发首批 Bash 共用一个请求）、Bash 工具在启动 shell 前经 `Event::ShellPreference` 取偏好（15s 超时，同 `ZCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS`）。
+- 已实现：`crates/tools/src/shell_select.rs`（解析与 spawn 参数）、`crates/core/src/app/shell_preferences.rs`（Engine 按会话请求一次 `session/requestRuntimePreferences{scope:"user-execution"}` 并缓存，并发首批 Bash 共用一个请求）、Bash 工具在启动 shell 前经 `Event::ShellPreference` 取偏好（15s 超时，同 `ESCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS`）。
 - 已知差异，待对齐：
   - TS 对 -32601/-32020 以外的错误和超时会让会话 runtime 创建失败；Rust 传输层把错误回包归一为 `Null`，统一回退自动探测。
   - ~~TS 会把选择结果作为快照持久化，冷恢复沿用创建时的 shell；Rust 仅进程内缓存，冷恢复重新请求。~~
@@ -55,8 +55,8 @@ sequenceDiagram
     - **跨进程续跑**：两侧都按当前设置重新解析（Node 没有快照可恢复，Rust 缓存已随进程消失），
       把设置从 Git Bash 改成 CMD 后，续跑的下一条 Bash 两侧都改用 cmd。
     结论：Rust 复请求的行为与 Node 一致，不要为此加会话级快照。
-    验收：`packages/services/tests/zcode-cli-rust-shell-switch.test.ts`（同一进程内改设置，会话内
-    仍用旧 shell）与 `packages/services/tests/zcode-cli-rust-shell-resume.test.ts`（跨进程续跑改用
+    验收：`packages/services/tests/escode-cli-rust-shell-switch.test.ts`（同一进程内改设置，会话内
+    仍用旧 shell）与 `packages/services/tests/escode-cli-rust-shell-resume.test.ts`（跨进程续跑改用
     新 shell，并断言 Node 侧没有 `bash_shell_selection` entry）；两例都逐字比较两侧工具结果。
 
 ### 子代理继承父会话的 shell 选择（2026-09-30）
@@ -67,7 +67,7 @@ sessionId 发 `session/requestRuntimePreferences{scope:"user-execution"}`。Rust
 就替根会话取一次；否则会退化成自动探测，拿到与 App 里显式选择不同的 shell）。上溯深度与子代理
 嵌套上限一致，父链异常时不会死循环。
 
-验收：App 差分 `packages/services/tests/zcode-cli-rust-subagent-shell.test.ts`——Host 指定 CMD 时，
+验收：App 差分 `packages/services/tests/escode-cli-rust-subagent-shell.test.ts`——Host 指定 CMD 时，
 父会话发 `runtime-materialization` + `user-execution` 各一次，**子会话不再发请求**，且子会话的
 Bash 实际走 cmd（`ver` 输出 Windows 版本；不能用 `echo %OS%`，该变量在清洗后的子进程环境里为空，
 两种 shell 都会原样输出）。

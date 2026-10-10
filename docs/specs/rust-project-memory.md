@@ -6,7 +6,7 @@
 - `core/src/context/sections/{memory,request-user-context}.ts`：Memory 段与索引注入。
 - `core/src/runtime/helpers/project-memory*.ts`：启用判定、快照与提取执行。
 - `core/src/tool/executor/memory-file-permission.ts`：记忆文件写入放行。
-- `bootstrap/src/zcode-protocol/server-operations.ts`：`memoryEnabled` 启动偏好。
+- `bootstrap/src/escode-protocol/server-operations.ts`：`memoryEnabled` 启动偏好。
 
 ## 所有者与时序
 
@@ -39,7 +39,7 @@ sequenceDiagram
   - 路径为 `<cliStorageRoot>/memories/projects/<slug>-<hash16>/memory`；
   - hash 为 sha256，取 `workspaceIdentity`，或 workspace 绝对路径（Windows 下转小写）；
   - slug 为目录名清洗结果，有 identity 时固定为 `project`；
-  - cliStorageRoot 与插件存储同源（`ZCODE_STORAGE_DIR` / `storage.dir` / `~/.zcode`，再取 `cli`），保证 Node 与 Rust 共享同一份记忆。
+  - cliStorageRoot 与插件存储同源（`ESCODE_STORAGE_DIR` / `storage.dir` / `~/.escode`，再取 `cli`），保证 Node 与 Rust 共享同一份记忆。
 - 首轮前创建记忆根目录（失败不阻断）。读取 `MEMORY.md` 后按 TS `formatProjectMemoryIndexContent` 处理：
   - 去掉 frontmatter 与顶层 HTML 注释；
   - 超过 200 行或 25000 字符时截断，并附警告。
@@ -88,13 +88,13 @@ sequenceDiagram
   - 作业开始时继承主会话的读取状态，结束后关闭作业的工具侧状态。
 - 游标：
   - 按会话消息计数（工具结果属于 assistant 消息，不单独计数）；
-  - 真实用户输入在 admission 时以 `_zcode_input` 标注是否满足 ≥3 词；
+  - 真实用户输入在 admission 时以 `_escode_input` 标注是否满足 ≥3 词；
   - 旧会话缺少标注的消息不计为用户散文；
   - 会话回退使游标失效时按「未找到」处理，与 TS 相同。
 
 ## 验收
 
-- `scripts/generate-zcode-cli-rust-memory-corpus.mjs` 覆盖以下纯规则，Rust 须逐条一致：
+- `scripts/generate-escode-cli-rust-memory-corpus.mjs` 覆盖以下纯规则，Rust 须逐条一致：
   - 记忆根 hash/slug；
   - 索引格式化（frontmatter、HTML 注释、截断）；
   - manifest 格式；

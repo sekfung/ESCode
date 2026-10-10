@@ -14,7 +14,7 @@
 
 ## 真实 App
 
-在原隔离 E2E profile 上关闭旧 App，清理约 520 MiB 的 Chromium Cache/Code Cache/GPU 缓存后重启。保留会话、TS 导入备份、附件和已有证据，没有改动正式 ZCode 进程。
+在原隔离 E2E profile 上关闭旧 App，清理约 520 MiB 的 Chromium Cache/Code Cache/GPU 缓存后重启。保留会话、TS 导入备份、附件和已有证据，没有改动正式 ESCode 进程。
 
 - Electron main PID 3273，Host PID 3938，测试会话 Rust PID 4007。
 - 启动恢复中的真实 Host `session/list` 请求由 Rust PID 4004 处理，23 ms 返回合法 `{sessions: []}`。该次查询的旧索引 ID 在当前 Rust 历史中不存在，因此保留派生索引；不能把这次空结果说成找到了子会话。包含真实子会话的删除条件由上面的真实子进程 + Host 函数测试覆盖。
@@ -24,14 +24,14 @@
 
 二进制 SHA-256：`f5200b7b619f3d6d29b09adbe4377ac455b1b4b79deb59683e585a6e61e64fc7`。
 
-本地证据位于 `.zcode-runtime/rust-e2e/20260922/`：`session-list-evidence.json`、`session-list-app.log`、`session-list-renderer-errors.txt`、`screenshots/42-session-list-resume.png`、`checks/session-list/`。真实 stdio 请求/响应关联路径记在 evidence 中；日志和凭据不纳入提交。
+本地证据位于 `.escode-runtime/rust-e2e/20260922/`：`session-list-evidence.json`、`session-list-app.log`、`session-list-renderer-errors.txt`、`screenshots/42-session-list-resume.png`、`checks/session-list/`。真实 stdio 请求/响应关联路径记在 evidence 中；日志和凭据不纳入提交。
 
 ## 验证
 
 | 检查                                            | 结果                                                                                             |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | Rust 50 / App 139 全通过，0 跳过；包括测试 TypeScript 编译、生成的 prompt/tool schema 一致性检查 |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | boundary / fmt / Clippy `-D warnings` 通过                                                       |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | Rust 50 / App 139 全通过，0 跳过；包括测试 TypeScript 编译、生成的 prompt/tool schema 一致性检查 |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | boundary / fmt / Clippy `-D warnings` 通过                                                       |
 | `pnpm typecheck`                                | 通过                                                                                             |
 | `pnpm lint`                                     | 0 errors，70 个既有 warnings                                                                     |
 | `pnpm fmt:check`                                | 通过                                                                                             |

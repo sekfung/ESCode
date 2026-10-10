@@ -12,9 +12,9 @@ sequenceDiagram
   participant R as Rust runtime（tools::official_plugins）
   participant S as 存储 <storage>/plugins
   participant D as 插件发现
-  H->>R: spawn（ZCODE_PLUGIN_HOST_EXEC_PATH / ZCODE_PLUGIN_HOST_ENTRYPOINT）
+  H->>R: spawn（ESCODE_PLUGIN_HOST_EXEC_PATH / ESCODE_PLUGIN_HOST_ENTRYPOINT）
   R->>R: 候选目录（入口旁、cwd）找各插件源，按白名单收集文件、sha256、mode、插件 hash
-  R->>S: 写 marketplaces/zcode-plugins-official/bundled-marketplace.json 并重建 marketplace.json
+  R->>S: 写 marketplaces/escode-plugins-official/bundled-marketplace.json 并重建 marketplace.json
   loop 每个插件（共享 15s 锁预算）
     R->>S: 目录锁 <root>.seed-lock（陈旧锁按 owner pid / 60s 接管）
     alt marker hash 与版本一致
@@ -33,11 +33,11 @@ sequenceDiagram
   marker、marketplace 分片与合并目录、runtime manifest 均按 TS 的键顺序与 `JSON.stringify(v, null, 2)` 格式输出；
   内容不变时不重写文件（避免两个 runtime 互相覆盖、放大 Windows 文件占用）。
 - runtime manifest：插件 `plugin.json` 有 `mcpServers` 时，把每个 server 改写为
-  `command=<宿主 exec>`、`args=[<入口>, "__zcode-plugin-host", <root>/dist/mcp/server.js]`、
-  `env += {ELECTRON_RUN_AS_NODE: "1", ZCODE_PLUGIN_ID: "<name>@zcode-plugins-official"}`；
+  `command=<宿主 exec>`、`args=[<入口>, "__escode-plugin-host", <root>/dist/mcp/server.js]`、
+  `env += {ELECTRON_RUN_AS_NODE: "1", ESCODE_PLUGIN_ID: "<name>@escode-plugins-official"}`；
   未收到宿主路径时不改写（等价 TS 无 `process.argv[1]`）。
-- 插件源候选目录：Rust 可执行文件所在目录（打包态与 `zcode.cjs` 同在 `resources/glm`）、进程 cwd；
-  `ZCODE_OFFICIAL_PLUGINS_BASE_DIR` 为开发/测试用的额外候选（Rust 独有，TS 以 monorepo 下 dist 路径覆盖同一需求）。
+- 插件源候选目录：Rust 可执行文件所在目录（打包态与 `escode.cjs` 同在 `resources/glm`）、进程 cwd；
+  `ESCODE_OFFICIAL_PLUGINS_BASE_DIR` 为开发/测试用的额外候选（Rust 独有，TS 以 monorepo 下 dist 路径覆盖同一需求）。
 - 不移植：SEA 资产源（Rust 不以 SEA 形态运行）。
 
 ## 验收

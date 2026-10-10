@@ -1,4 +1,4 @@
-import type { GitRepositorySummary } from "@zcode/shared";
+import type { GitRepositorySummary } from "@escode/shared";
 import type {
   BackgroundWorkSummary,
   GoalState,
@@ -6,8 +6,8 @@ import type {
   RunningSubagentSummary,
   ToolCallRow,
   WorkflowRunState,
-} from "@zcode/shared/zcode-protocol-v4";
-import { workflowRunStepCounts } from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
+import { workflowRunStepCounts } from "@escode/shared/escode-protocol-v4";
 import { extractPlanToolCallContent, getPlanDirectoryTitle } from "@/lib/planToolCall.js";
 
 export interface ConversationStatusPanelGitModel {
@@ -243,7 +243,7 @@ function buildRunningWorkflowRuns(
     if (run.status !== "pending" && run.status !== "running") continue;
     const work = workflowWorkByWorkId.get(run.runId);
     if (work) joinedWorkIds.add(run.runId);
-    // 计数与聊天紧凑卡同源（唯一实现在 @zcode/shared 的 workflowRunStepCounts：表内 + 表外）。
+    // 计数与聊天紧凑卡同源（唯一实现在 @escode/shared 的 workflowRunStepCounts：表内 + 表外）。
     const steps = workflowRunStepCounts(run);
     rows.push({
       runId: run.runId,

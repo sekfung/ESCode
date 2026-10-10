@@ -1,4 +1,4 @@
-import type { ISerialService } from "@zcode/services";
+import type { ISerialService } from "@escode/services";
 
 /**
  * 多个串口面板可能同时可见，而 Host 的 setWatching 是单个布尔：按服务实例做引用计数，

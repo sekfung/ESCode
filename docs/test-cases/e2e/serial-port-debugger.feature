@@ -1,7 +1,7 @@
 # language: zh-CN
 # 规格：docs/specs/serial-port-debugger.md
-# 运行前提：Desktop 开发版以 ZCODE_SERIAL_MOCK_PORTS=COM_MOCK1,COM_MOCK2 启动（binding-mock 回环虚拟串口），
-# 并以 ZCODE_DATA_BASE_DIR 指向临时目录隔离用户数据。Web 场景使用普通 Web 客户端。
+# 运行前提：Desktop 开发版以 ESCODE_SERIAL_MOCK_PORTS=COM_MOCK1,COM_MOCK2 启动（binding-mock 回环虚拟串口），
+# 并以 ESCODE_DATA_BASE_DIR 指向临时目录隔离用户数据。Web 场景使用普通 Web 客户端。
 功能: 串口调试器
 
   场景: 从新建标签菜单打开串口面板并完成文本收发

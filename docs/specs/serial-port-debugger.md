@@ -169,7 +169,7 @@ interface ISerialService {
   判定依据是 `IPlatformService.supportsSerialPort`（只有 Desktop 平台实现为 `true`）。
   Web 端和手机远控端都不显示入口。`IServiceAccessor.serialService` 为可选字段；
   远程 workspace 的服务组合沿用本地 base 服务，所以串口始终走本窗口的 Local Host。
-- 组件通过 `packages/ui/src/hooks/` 里新增的 hook 访问 `ISerialService`，不直接调用 `window.zcode`。
+- 组件通过 `packages/ui/src/hooks/` 里新增的 hook 访问 `ISerialService`，不直接调用 `window.escode`。
 - 导出功能使用 `IPlatformService.saveFile`，导出内容在 Renderer 里由快照生成。
 - 参数记忆：上次使用的串口和各串口的参数作为用户偏好，存进全局设置的 `serialPortPreferences` 字段（`lastPath` + `byPath`），按串口名作为 key，只在打开成功后写入。
   不存进 workspace，也不存进 Host 的状态。
@@ -216,7 +216,7 @@ Renderer 单测：
 - 多字节 UTF-8/GBK 字符跨 chunk 时能正确解码。
 
 E2E（Desktop，使用同一个 mock binding）：场景见 `docs/test-cases/e2e/serial-port-debugger.feature`。
-开发版以 `ZCODE_SERIAL_MOCK_PORTS=COM_MOCK1,COM_MOCK2` 启动时，`SerialService` 的默认 binding 改用
+开发版以 `ESCODE_SERIAL_MOCK_PORTS=COM_MOCK1,COM_MOCK2` 启动时，`SerialService` 的默认 binding 改用
 `@serialport/binding-mock` 的回环虚拟串口。binding-mock 只是开发依赖，在打包配置中外置，安装包里不存在。
 
 - 从新建标签菜单打开面板，选择虚拟串口并连接，发送文本和 HEX，确认回显和接收显示正确，

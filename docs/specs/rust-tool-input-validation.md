@@ -25,7 +25,7 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
 - 验收：
   - TS oracle 语料 `tool_input_validation_corpus.json` 共 18 例，问题对象与文案逐字一致；
     生成脚本为同目录的 `.gen.ts`；
-  - App 差分 `zcode-cli-rust-tool-input-validation.test.ts`：缺参、多余参数、类型错误、枚举与下限、合法调用，
+  - App 差分 `escode-cli-rust-tool-input-validation.test.ts`：缺参、多余参数、类型错误、枚举与下限、合法调用，
     六类模型文案逐字一致，且只有合法调用到达 MCP server。
 
 ## 已知差异（待与产品对齐）

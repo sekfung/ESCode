@@ -1,4 +1,4 @@
-import type { Event } from "@zcode/rpc";
+import type { Event } from "@escode/rpc";
 import type { SerialChunk, SerialStatus } from "./serial.js";
 
 export type SerialWaitResult<T> =

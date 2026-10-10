@@ -2,14 +2,14 @@
 
 2026-10-08。中文 Windows 上 cmd / 旧版本地工具按系统 OEM 代码页（如 936 GBK）输出。TS 用
 `adapters/src/exec/outputEncoding.ts` 识别并解码，Rust 一律 `String::from_utf8_lossy`，模型与 UI 看到乱码。
-发现于 `zcode-cli-rust-shell-resume.test.ts`「changing the shell setting applies to an existing session」：`ver` 的
+发现于 `escode-cli-rust-shell-resume.test.ts`「changing the shell setting applies to an existing session」：`ver` 的
 输出 Node 为 `Microsoft Windows [版本 …]`，Rust 为乱码（GitHub CI 是英文 Windows，测不到）。
 
 ## 规则（对齐 TS）
 
 1. 旧编码只在 Windows 上存在；其他平台始终按 UTF-8。
 2. 旧编码的解析顺序（TS `resolveLegacyExecutionOutputEncoding`）：
-   - `ZCODE_WINDOWS_OUTPUT_ENCODING` 非空：可识别即用，不可识别即「无旧编码」（TS `iconv.encodingExists` 失败回 null）；
+   - `ESCODE_WINDOWS_OUTPUT_ENCODING` 非空：可识别即用，不可识别即「无旧编码」（TS `iconv.encodingExists` 失败回 null）；
    - 系统活动代码页（TS 在 cmd 里跑 `chcp`；Rust 用 `GetOEMCP`，无控制台子进程里两者相同）不是 65001 且有效时用它；
    - 否则按 locale 推断：`LC_ALL` / `LC_CTYPE` / `LANG` 与用户默认 locale 名拼接后小写，子串匹配
      `zh|chinese|cn|hans|hant` → GB18030（54936），`ja|japanese|jp` → 932，`ko|korean|kr` → 949，
@@ -21,7 +21,7 @@
 
 ## 所有者与时序
 
-- 所有者：`zcode_cli_host::output_encoding`。旧编码在进程内首次需要时解析一次（`OnceLock`）。TS 每次执行都同步跑一次
+- 所有者：`escode_cli_host::output_encoding`。旧编码在进程内首次需要时解析一次（`OnceLock`）。TS 每次执行都同步跑一次
   `chcp`（1s 超时）；代码页与该环境变量在进程生命周期内不变，缓存不改变结果，也省掉每次执行的子进程。
 - 代码页解码走 `MultiByteToWideChar`（`windows-sys` 的 `Win32_Globalization`），支持系统安装的全部代码页（含
   437/850 等 OEM 页），不新增 crate。
@@ -37,5 +37,5 @@
 
 - 单测（host）：合法 UTF-8 原样；GBK 字节在 936 下解码为中文；截断的 UTF-8 尾部不切换旧编码；环境变量覆盖的识别
   （`cp936` / `936` / `gbk` / `utf-8` / 不可识别）；locale 推断表。
-- App 差分：`zcode-cli-rust-shell-resume.test.ts`「changing the shell setting applies to an existing session on both
+- App 差分：`escode-cli-rust-shell-resume.test.ts`「changing the shell setting applies to an existing session on both
   runtimes」在中文 Windows 上两侧 `ver` 输出一致。

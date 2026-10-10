@@ -15,13 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select.js";
 import { Textarea } from "@/components/ui/textarea.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   buildSerialSendPayload,
   type SerialLineEnding,
   type SerialSendMode,
 } from "@/lib/serial/serialFormat.js";
-import type { SerialChecksumConfig } from "@zcode/shared/serial";
+import type { SerialChecksumConfig } from "@escode/shared/serial";
 import { SegmentedToggle } from "@/serial/SerialControls.js";
 import { SerialChecksumPicker } from "@/serial/SerialChecksumPicker.js";
 import { SerialLoopControls, type SerialLoopSettings } from "@/serial/SerialLoopControls.js";
@@ -46,7 +46,7 @@ export function SerialSendBar({
     onStop: () => void;
   };
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const [sendMode, setSendMode] = useState<SerialSendMode>("text");
   const [lineEnding, setLineEnding] = useState<SerialLineEnding>("crlf");
   const [draft, setDraft] = useState("");

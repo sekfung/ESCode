@@ -1,20 +1,20 @@
-# Rust 官方 MCP 鉴权（zcode_official）
+# Rust 官方 MCP 鉴权（escode_official）
 
 2026-09-26。承接 rust-mcp-oauth.md 的已知限制「官方账号授权」。以下述 TS 实现为 oracle：
 
 - `adapters/src/plugins/mcp.ts` 与 `mcp-official-auth.ts`：解析 `auth` 与 provenance；
 - `adapters/src/mcp/official-auth.ts`：逐请求注入身份头并对失败分类；
-- `bootstrap/src/zcode-protocol/official-mcp-auth-port.ts`：通过 Host 反向请求取身份头；
+- `bootstrap/src/escode-protocol/official-mcp-auth-port.ts`：通过 Host 反向请求取身份头；
 - `packages/shared/src/official-mcp-auth.ts`：共享常量与信任判定。
 
 ## 范围
 
-- 只来自插件配置：`.mcp.json` 中写 `auth: {type: "zcode_official", provider: "jwt_token"}`。
+- 只来自插件配置：`.mcp.json` 中写 `auth: {type: "escode_official", provider: "jwt_token"}`。
   `mcp/list` 协议没有 `auth` 字段，Host 传入的 server 不会走这条路径。
 - provenance `{pluginId, mcpKey}` 由 runtime 按已加载插件生成，配置里写的 `official` 字段一律忽略。
 - http：每次请求注入身份头，并对 401/403/3xx 分类。
-- stdio：身份头放在出站消息 `params._meta["com.zcode/official-mcp-auth"]` 中下发，属于第二期。
-- sse：声明 zcode_official 即禁用该 MCP（`config_invalid`）。
+- stdio：身份头放在出站消息 `params._meta["com.escode/official-mcp-auth"]` 中下发，属于第二期。
+- sse：声明 escode_official 即禁用该 MCP（`config_invalid`）。
 
 ## 所有者与事件顺序
 
@@ -40,9 +40,9 @@ sequenceDiagram
 - 取不到身份头时（`ok:false` 或通道不可用），请求不带身份头照常发出（匿名降级），由服务端判定；
   日志只记录 reason。
 - 信任判定逐请求进行，只看 origin：
-  - 目标 origin 必须是 https、不含 userinfo，且等于 ZCode API origin；
-  - ZCode API origin 来自 `ZCODE_BASE_URL`，其次 `ZCODE_ENDPOINT_ORIGIN`，缺省为生产 origin；
-  - `ZCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 只放开其中列出的 http loopback origin；
+  - 目标 origin 必须是 https、不含 userinfo，且等于 ESCode API origin；
+  - ESCode API origin 来自 `ESCODE_BASE_URL`，其次 `ESCODE_ENDPOINT_ORIGIN`，缺省为生产 origin；
+  - `ESCODE_OFFICIAL_MCP_DEV_TRUSTED_ORIGINS` 只放开其中列出的 http loopback origin；
   - 不受信任时 fail closed：不发请求、不向 Host 取头，failureKind 为 `official_origin_untrusted`。
 - 配置期校验：
   - 静态 headers 含保留头时禁用该 MCP，大小写不敏感。保留头为：
@@ -87,13 +87,13 @@ sequenceDiagram
 ## 进度
 
 - 第 1 期（已完成）：`crates/domain/src/mcp_official_auth.rs`，TS oracle 语料
-  `generate-zcode-cli-rust-mcp-official-auth-corpus.mjs` 纳入 `--check`。
+  `generate-escode-cli-rust-mcp-official-auth-corpus.mjs` 纳入 `--check`。
 - 第 2 期（已完成）：
   - 插件解析：`mcp_config.rs` 的 `official_plugin` 负责严格校验，并写入 provenance。
     配置自带的 `official` 字段在 `Server::parse` 中丢弃；
   - Host 通道：`HOST_CHANNEL`、`ToolPort::attach_host`，以及 `apply_event` 中的转发；
   - http client：`mcp_official_client.rs`；
-  - `zcode-cli-rust-mcp-official-auth.test.ts` 在 ok、401、untrusted 三个场景下与 Node 逐项一致，比较：
+  - `escode-cli-rust-mcp-official-auth.test.ts` 在 ok、401、untrusted 三个场景下与 Node 逐项一致，比较：
     - Host 请求参数（`pluginId` 为 `<name>@inline`）；
     - 服务端收到的身份头与静态头；
     - 401 重试一次；
@@ -107,7 +107,7 @@ sequenceDiagram
   - 非官方 HTTP MCP 关闭时发送 DELETE 的差异已对齐（rust-mcp-parity.md「关闭语义」）；
   - tools/call 的服务端 request id 投影到工具结果（按 span 关联）尚未实现：Rust 目前没有 tool call span。
 - 第 3 期（已完成）：`mcp_official_stdio.rs` 用异步 sink 适配器，在每条出站请求与通知上改写 `params._meta`。
-  - 目标 origin 为 ZCode API origin，仍经过信任判定；
+  - 目标 origin 为 ESCode API origin，仍经过信任判定；
   - 失败时下发 `{ok:false, reason}`；
   - 差分覆盖 ok 与 `official_auth_plan_required` 两个场景，比较服务端收到的每条消息的载荷，以及 Host 请求；
   - 去掉注入时差分稳定失败。

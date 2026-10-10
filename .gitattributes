@@ -12,4 +12,4 @@ third-party/inventory.json linguist-generated=true
 
 # Rust runtime 的生成资产由 Node 脚本按 LF 写出并以 --check 逐字节比对；
 # Windows 上 core.autocrlf=true 会把检出文件转成 CRLF，导致漂移检查误报。
-apps/zcode-cli-rust/** text=auto eol=lf
+apps/escode-cli-rust/** text=auto eol=lf

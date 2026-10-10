@@ -1,7 +1,7 @@
-import type { ZCodeTaskMeta } from "@zcode/shared";
-import { mergeTaskMetaCandidates } from "@/lib/zcodeTaskMetaMerge.js";
+import type { ESCodeTaskMeta } from "@escode/shared";
+import { mergeTaskMetaCandidates } from "@/lib/escodeTaskMetaMerge.js";
 import { buildTaskEntityKey } from "@/lib/taskQueryCache.js";
-import { getTaskMeta, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { getTaskMeta, useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import {
   applyTaskQueryCacheMutation,
   removeTaskFromTaskQueryCaches,
@@ -16,7 +16,7 @@ export function removeTaskFromTaskCaches(params: {
   workspaceIdentity?: string;
   taskId: string;
 }): boolean {
-  const store = useZCodeSessionStore.getState();
+  const store = useESCodeSessionStore.getState();
   const workspaceState = store.getWorkspaceState(params.workspacePath, params.workspaceIdentity);
   if (workspaceState.taskListCache) {
     store.setTaskListCache(
@@ -34,7 +34,7 @@ const ABSENT_MEMBERSHIP: TaskListMembershipState = {
   archived: true,
 };
 
-function sortTasksByUpdatedAt(tasks: readonly ZCodeTaskMeta[]): ZCodeTaskMeta[] {
+function sortTasksByUpdatedAt(tasks: readonly ESCodeTaskMeta[]): ESCodeTaskMeta[] {
   return [...tasks].sort((left, right) => {
     if (right.updatedAt !== left.updatedAt) {
       return right.updatedAt - left.updatedAt;
@@ -49,14 +49,14 @@ function sortTasksByUpdatedAt(tasks: readonly ZCodeTaskMeta[]): ZCodeTaskMeta[] 
 export function syncTaskMetaToTaskCaches(params: {
   workspacePath: string;
   workspaceIdentity?: string;
-  task: ZCodeTaskMeta;
+  task: ESCodeTaskMeta;
   membership?: TaskListMembershipState;
   forceInsertMembership?: boolean;
   ensureInWorkspaceTaskCache?: boolean;
   preserveListMembership?: boolean;
   applyQueryCacheMutation?: boolean;
 }): void {
-  const store = useZCodeSessionStore.getState();
+  const store = useESCodeSessionStore.getState();
   const workspaceState = store.getWorkspaceState(params.workspacePath, params.workspaceIdentity);
   const previousTask = getTaskMeta(workspaceState, params.task.taskId);
   const queryTask = useTaskQueryCacheStore.getState().taskMetaByEntityKey[
@@ -126,7 +126,7 @@ export function syncTaskMetaToTaskCaches(params: {
 export function insertTaskIntoTaskCaches(params: {
   workspacePath: string;
   workspaceIdentity?: string;
-  task: ZCodeTaskMeta;
+  task: ESCodeTaskMeta;
   membership: TaskListMembershipState;
 }): void {
   // Bugfix: 新建/fork/远控 shared-host 创建 task 都应走同一条“无 -> 有”成员变更。

@@ -1,8 +1,8 @@
-import type { ZCodeConfigOption, ZCodeProvider } from "@zcode/shared";
-import type { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import type { ESCodeConfigOption, ESCodeProvider } from "@escode/shared";
+import type { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { getConfigOptionEntryLabel } from "@/chat-input-toolbar/display.js";
 
-type ThoughtLevelEntry = NonNullable<ZCodeConfigOption["options"]>[number];
+type ThoughtLevelEntry = NonNullable<ESCodeConfigOption["options"]>[number];
 
 const NO_THOUGHT_LEVEL_VALUES = new Set([
   "disabled",
@@ -56,7 +56,7 @@ export function isNoThoughtLevel(entry: ThoughtLevelEntry): boolean {
 }
 
 export function getNextThoughtLevelValue(
-  option: Pick<ZCodeConfigOption, "type" | "currentValue" | "options">,
+  option: Pick<ESCodeConfigOption, "type" | "currentValue" | "options">,
 ): string | null {
   if (option.type !== "select" || !option.options || option.options.length < 2) {
     return null;
@@ -72,9 +72,9 @@ export function getNextThoughtLevelValue(
 }
 
 export function getThoughtLevelLabel(
-  intl: ReturnType<typeof useZCodeIntl>["intl"],
-  provider: ZCodeProvider | undefined,
-  option: ZCodeConfigOption,
+  intl: ReturnType<typeof useESCodeIntl>["intl"],
+  provider: ESCodeProvider | undefined,
+  option: ESCodeConfigOption,
   entry: ThoughtLevelEntry,
 ): string {
   const value = normalizeThoughtLevelText(entry.value);

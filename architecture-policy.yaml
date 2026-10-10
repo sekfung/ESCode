@@ -37,8 +37,8 @@ modules:
   - id: server
     roots: [packages/server/src]
     managed: false
-  - id: zcode-server-cli
-    roots: [packages/zcode-server-cli/src]
+  - id: escode-server-cli
+    roots: [packages/escode-server-cli/src]
     managed: false
   - id: ui
     roots: [packages/ui/src]
@@ -52,15 +52,15 @@ modules:
   - id: formal-proof
     roots: [packages/formal-proof/src]
     managed: false
-  - id: zcode-cli
-    roots: [apps/zcode-cli]
+  - id: escode-cli
+    roots: [apps/escode-cli]
     managed: false
   # 当前 JS/TS checker 不解析 Rust；Rust 层边界由 native check + Cargo 检查负责。
-  - id: zcode-cli-rust
-    roots: [apps/zcode-cli-rust/crates]
+  - id: escode-cli-rust
+    roots: [apps/escode-cli-rust/crates]
     managed: false
     owner: agent-runtime
-    publicEntrypoints: [apps/zcode-cli-rust/crates/core-api/src/contract.rs]
+    publicEntrypoints: [apps/escode-cli-rust/crates/core-api/src/contract.rs]
 
 global:
   maxFileLines: 400

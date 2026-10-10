@@ -24,14 +24,14 @@ sequenceDiagram
 
 ## `features.subagent` 开关（2026-09-30）
 
-与 TS `createDefaultSubagentPort` 一致：`features.subagent=false`（读 `~/.zcode/cli/config.json` 与项目
-`zcode.json`/`.zcode/config.json` 合并后的 `features` 段，启动读一次）时 TS 不注入 SubagentPort，
+与 TS `createDefaultSubagentPort` 一致：`features.subagent=false`（读 `~/.escode/cli/config.json` 与项目
+`escode.json`/`.escode/config.json` 合并后的 `features` 段，启动读一次）时 TS 不注入 SubagentPort，
 `includeAgent`/`includeSendMessage` 都为 false，**Agent 与 SendMessage 不进模型可见工具面**；
 若仍被调用（脚本化输入或旧历史），TS 报 ConfigurationError「SubagentPort is not configured for
 Agent tool」。Rust 对齐：`Tools::subagents_enabled` → 引擎启动取一次 → 轮次内从 definitions 剔除
 这两个工具，工具处理入口再兜底同文案拒绝。`TaskOutput`/`TaskStop` 与 TS 一样不受该开关影响。
 
-验收：App 差分 `packages/services/tests/zcode-cli-rust-subagent-feature-flag.test.ts`（关闭时两侧
+验收：App 差分 `packages/services/tests/escode-cli-rust-subagent-feature-flag.test.ts`（关闭时两侧
 内置工具名清单逐字一致且都不含 Agent/SendMessage；默认值仍都含，防止过度裁剪）。
 
 父 stop/close/EOF 取消整个持有的运行树并等待子工具终态；不能发出清理完成后仍有子 Shell 写文件。冷恢复将未完成 child 标记 lost，不透明重放；已完成的 child 支持消息继续。运行中父子及未投递结果不可被 LRU 回收；终态可按需加载。任务身份、workspace、run generation 均校验，其他会话不能读取/停止/消息注入本会话子代理。

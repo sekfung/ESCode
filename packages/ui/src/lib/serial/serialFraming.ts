@@ -1,5 +1,5 @@
-import type { SerialChunk } from "@zcode/services";
-import { verifySerialChecksum, type SerialChecksumConfig } from "@zcode/shared/serial";
+import type { SerialChunk } from "@escode/services";
+import { verifySerialChecksum, type SerialChecksumConfig } from "@escode/shared/serial";
 import {
   formatSerialHex,
   parseSerialHexInput,

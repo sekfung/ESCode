@@ -1,6 +1,6 @@
 # 文本附件进入模型请求的形态（WP4）
 
-2026-09-24。差分用例（`zcode-cli-rust-differential.test.ts`「text attachment」）发现 Node 与 Rust 对同一个本地文本附件发给模型的内容不同。本文定义对齐后的规则。
+2026-09-24。差分用例（`escode-cli-rust-differential.test.ts`「text attachment」）发现 Node 与 Rust 对同一个本地文本附件发给模型的内容不同。本文定义对齐后的规则。
 
 ## 基准（TS）
 

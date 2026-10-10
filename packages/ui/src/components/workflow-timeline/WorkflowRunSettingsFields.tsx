@@ -6,7 +6,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { MinusIcon, PlusIcon } from "lucide-react";
-import { ZCODE_AGENT_PROVIDER, type ZCodeConfigOption } from "@zcode/shared";
+import { ESCODE_AGENT_PROVIDER, type ESCodeConfigOption } from "@escode/shared";
 import { ThoughtLevelCycleControl } from "@/chat-input-toolbar/ThoughtLevelCycleControl.js";
 import { cn } from "@/components/lib/utils.js";
 import {
@@ -15,7 +15,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   MODEL_CONFIG_SELECT_BADGE_CLASS_NAME,
   ModelConfigSelect,
@@ -57,11 +57,11 @@ export function WorkflowRunSettingsModelField({
   onLevelChange: (level: string) => void;
   onValueChange: (value: string) => void;
   /** 所选模型的思考档；缺席即不画思考档控件。 */
-  thoughtOption: ZCodeConfigOption | null;
+  thoughtOption: ESCodeConfigOption | null;
   triggerLabel: string;
   value: string;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const levelTriggerRef = useRef<HTMLSpanElement | null>(null);
   const [levelOpen, setLevelOpen] = useState(false);
   const label = intl.formatMessage({ id: "chat.toolCall.workflow.run.settings.model" });
@@ -120,7 +120,7 @@ export function WorkflowRunSettingsModelField({
           <ThoughtLevelCycleControl
             intl={intl}
             option={thoughtOption}
-            provider={ZCODE_AGENT_PROVIDER}
+            provider={ESCODE_AGENT_PROVIDER}
             onCurrentValueCommit={onLevelChange}
             showInvalidCurrentValue
             disabled={disabled}
@@ -153,7 +153,7 @@ export function WorkflowRunSettingsBoundField({
   disabled: boolean;
   onChange: (bound: number) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const hint =
     ceiling === undefined
       ? undefined

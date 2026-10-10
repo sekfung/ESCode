@@ -12,7 +12,7 @@ import type {
   SerialSessionSummary,
   SerialSignalPulse,
   SerialStatus,
-} from "@zcode/services";
+} from "@escode/services";
 import { logger } from "@/logger.js";
 import {
   applySerialChunk,

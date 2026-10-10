@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { zcodeSerialCancelMethod, zcodeSerialMethods } from "@zcode/shared/serial";
+import { escodeSerialCancelMethod, escodeSerialMethods } from "@escode/shared/serial";
 import { SerialError } from "../src/serial/serial.js";
 import type { SerialAgentBridge } from "../src/serial/serialAgentBridge.js";
 import {
@@ -50,7 +50,7 @@ test("参数非法时返回 -32602", async () => {
   const handled = routeSerialAgentRequest({
     request: {
       id: 2,
-      method: zcodeSerialMethods.read,
+      method: escodeSerialMethods.read,
       params: { ...baseParams, args: { maxBytes: -1 } },
     },
     bridge: undefined,
@@ -65,7 +65,7 @@ test("参数非法时返回 -32602", async () => {
 test("Host 未装配 bridge 时返回 unavailable 工具错误", async () => {
   const { responder, responses } = createResponder();
   routeSerialAgentRequest({
-    request: { id: 3, method: zcodeSerialMethods.list, params: { ...baseParams, args: {} } },
+    request: { id: 3, method: escodeSerialMethods.list, params: { ...baseParams, args: {} } },
     bridge: undefined,
     responder,
   });
@@ -87,14 +87,14 @@ test("bridge 结果原样返回，SerialError 映射为带 code 的工具错误"
     cancel: () => {},
   };
   routeSerialAgentRequest({
-    request: { id: 4, method: zcodeSerialMethods.list, params: { ...baseParams, args: {} } },
+    request: { id: 4, method: escodeSerialMethods.list, params: { ...baseParams, args: {} } },
     bridge,
     responder,
   });
   routeSerialAgentRequest({
     request: {
       id: 5,
-      method: zcodeSerialMethods.write,
+      method: escodeSerialMethods.write,
       params: { ...baseParams, args: { data: "AT" } },
     },
     bridge,
@@ -119,7 +119,7 @@ test("取消方法转给 bridge.cancel 并立即应答", async () => {
   routeSerialAgentRequest({
     request: {
       id: 6,
-      method: zcodeSerialCancelMethod,
+      method: escodeSerialCancelMethod,
       params: { sessionId: "session-a", targetRequestId: "req-1" },
     },
     bridge: {

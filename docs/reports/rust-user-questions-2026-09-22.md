@@ -1,6 +1,6 @@
 # Rust 用户问答与 App 验收
 
-2026-09-22，ZCode-Pro 当前工作树，macOS arm64。Rust 已通过现有 App 的 AskUserQuestion 交互继续 Agent loop；权限仍仅支持 yolo，TS 保持默认，Rust 显式选择。
+2026-09-22，ESCode-Pro 当前工作树，macOS arm64。Rust 已通过现有 App 的 AskUserQuestion 交互继续 Agent loop；权限仍仅支持 yolo，TS 保持默认，Rust 显式选择。
 
 ## 实现与所有权
 
@@ -8,7 +8,7 @@
 
 Session actor 是问题、定时器和工具行的唯一所有者。问题提交成功后才发布；回答的工具行、pending 移除和 ACK 提交成功后才唤醒工具。随后工具结果仍经已有 canonical 提交屏障进入下一模型请求；同批多个问题可独立回答，历史保持调用顺序。数据库失败立即停止执行。
 
-头部问题默认隐藏倒计时 60 秒，累计 300 秒后自动以空回答继续。App snooze 永久停用该问题倒计时；关闭工作区自动继续设置会停用现有问题，再开启仅影响后续问题。actor 按最近截止时间等待，不为每个问题创建常驻轮询。测试加速时钟只在 `ZCODE_ENV=test` 生效。
+头部问题默认隐藏倒计时 60 秒，累计 300 秒后自动以空回答继续。App snooze 永久停用该问题倒计时；关闭工作区自动继续设置会停用现有问题，再开启仅影响后续问题。actor 按最近截止时间等待，不为每个问题创建常驻轮询。测试加速时钟只在 `ESCODE_ENV=test` 生效。
 
 停止、立即发送、关闭、EOF 与旧 run 事件沿用既有边界。冷恢复不会重新提问或自动重跑工具；回答已提交、canonical 结果尚未提交的窗口，从已持久化工具行恢复实际回答。接口和时序见 [spec](../specs/rust-user-questions.md)，未新增协议版本或 UI 状态所有者。
 
@@ -20,18 +20,18 @@ Session actor 是问题、定时器和工具行的唯一所有者。问题提交
 
 | 验证                                            | 结果                               |
 | ----------------------------------------------- | ---------------------------------- |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | 47 Rust / 127 App，通过，0 跳过    |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 47 Rust / 127 App，通过，0 跳过    |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
 | `pnpm typecheck`                                | 通过                               |
 | `pnpm lint`                                     | 0 错误，既有 70 条警告             |
 | `pnpm fmt:check`                                | 通过                               |
 | `pnpm architecture:check --changed`             | 0 违反、0 新增                     |
 
-最终日志位于 `.zcode-runtime/rust-e2e/20260922/checks/user-questions/`。实现前问答用例因收不到 interaction 超时；开发中的 fixture 缺少 workspaceKey、工具 registry 期望未包含新工具、Clippy 和 JSON 格式问题均已修正，最终全量重跑通过。生成器现使用仓库 oxfmt API，生成后立即得到规范格式；Node SQLite 实验性提示保留。
+最终日志位于 `.escode-runtime/rust-e2e/20260922/checks/user-questions/`。实现前问答用例因收不到 interaction 超时；开发中的 fixture 缺少 workspaceKey、工具 registry 期望未包含新工具、Clippy 和 JSON 格式问题均已修正，最终全量重跑通过。生成器现使用仓库 oxfmt API，生成后立即得到规范格式；Node SQLite 实验性提示保留。
 
 ## 实际 App 验收
 
-隔离的 `ZCode Rust E2E` 使用原问答界面、真实 GLM-5.3 Max 和 `mode-workspace`，会话为 `2266a711-b002-4841-9136-e4acb2678e80`。
+隔离的 `ESCode Rust E2E` 使用原问答界面、真实 GLM-5.3 Max 和 `mode-workspace`，会话为 `2266a711-b002-4841-9136-e4acb2678e80`。
 
 - 一次调用包含单选和多选，选择“列表”和“搜索、导出”，模型正确复述后返回 `RUST_QUESTION_APP_OK`。
 - 点击 Dismiss，App 提交 decline，工具保存 error，模型返回 `RUST_QUESTION_DISMISS_OK`；未伪造用户偏好。

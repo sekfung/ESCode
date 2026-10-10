@@ -1,22 +1,22 @@
 import {
   ApiError,
-  DEFAULT_ZCODE_ENDPOINT_ORIGIN,
-  normalizeZCodeEndpointOrigin,
-  rewriteZCodeEndpointUrl,
+  DEFAULT_ESCODE_ENDPOINT_ORIGIN,
+  normalizeESCodeEndpointOrigin,
+  rewriteESCodeEndpointUrl,
   type ApiClient,
   type ApiRequestInit,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
-import { buildZCodeSourceHeaders } from "../sourceHeaders.js";
+import { buildESCodeSourceHeaders } from "../sourceHeaders.js";
 import { withRequestIdHeader } from "./requestIdHeaders.js";
 
 const log = createServiceLogger("node-api-client");
 
 interface NodeApiClientOptions {
   fetchImpl?: typeof fetch;
-  onZcodeJwtInvalid?: (input: string | URL, headers: Headers) => void;
-  isZcodeJwtRequest?: (input: string | URL, headers: Headers) => boolean | Promise<boolean>;
-  resolveZCodeEndpointOrigin?: () => Promise<string> | string;
+  onEscodeJwtInvalid?: (input: string | URL, headers: Headers) => void;
+  isEscodeJwtRequest?: (input: string | URL, headers: Headers) => boolean | Promise<boolean>;
+  resolveESCodeEndpointOrigin?: () => Promise<string> | string;
 }
 
 function resolveMethod(init?: ApiRequestInit): string {
@@ -36,24 +36,24 @@ function readHeaderKeys(headers: RequestInit["headers"] | undefined): string[] {
 
 function isRequestForEndpoint(input: string | URL, endpointOrigin: string): boolean {
   try {
-    return new URL(resolveUrl(input)).origin === normalizeZCodeEndpointOrigin(endpointOrigin);
+    return new URL(resolveUrl(input)).origin === normalizeESCodeEndpointOrigin(endpointOrigin);
   } catch {
     return false;
   }
 }
 
-function withZCodeEndpointHeaders(
+function withESCodeEndpointHeaders(
   headers: RequestInit["headers"] | undefined,
   endpointOrigin: string,
 ): RequestInit["headers"] {
-  const next = new Headers(buildZCodeSourceHeaders());
+  const next = new Headers(buildESCodeSourceHeaders());
   if (headers) {
     new Headers(headers).forEach((value, key) => {
       next.set(key, value);
     });
   }
 
-  if (next.get("HTTP-Referer") === DEFAULT_ZCODE_ENDPOINT_ORIGIN) {
+  if (next.get("HTTP-Referer") === DEFAULT_ESCODE_ENDPOINT_ORIGIN) {
     next.set("HTTP-Referer", endpointOrigin);
   }
   return next;
@@ -68,30 +68,30 @@ function resolveRequestHeaders(
     return headers;
   }
 
-  // ZCode 后端请求以前只有部分业务路径手动补来源头。
+  // ESCode 后端请求以前只有部分业务路径手动补来源头。
   // 统一在 ApiClient 出口按 endpoint origin 注入，避免 OAuth/config/billing/snapshot 等链路遗漏。
-  return withZCodeEndpointHeaders(headers, endpointOrigin);
+  return withESCodeEndpointHeaders(headers, endpointOrigin);
 }
 
 export class NodeApiClient implements ApiClient {
   private readonly fetchImpl?: typeof fetch;
-  private readonly resolveZCodeEndpointOrigin?: () => Promise<string> | string;
-  private readonly onZcodeJwtInvalid?: (input: string | URL, headers: Headers) => void;
-  private readonly isZcodeJwtRequest?: NodeApiClientOptions["isZcodeJwtRequest"];
+  private readonly resolveESCodeEndpointOrigin?: () => Promise<string> | string;
+  private readonly onEscodeJwtInvalid?: (input: string | URL, headers: Headers) => void;
+  private readonly isEscodeJwtRequest?: NodeApiClientOptions["isEscodeJwtRequest"];
 
   constructor(options: NodeApiClientOptions = {}) {
     this.fetchImpl = options.fetchImpl;
-    this.onZcodeJwtInvalid = options.onZcodeJwtInvalid;
-    this.isZcodeJwtRequest = options.isZcodeJwtRequest;
-    this.resolveZCodeEndpointOrigin = options.resolveZCodeEndpointOrigin;
+    this.onEscodeJwtInvalid = options.onEscodeJwtInvalid;
+    this.isEscodeJwtRequest = options.isEscodeJwtRequest;
+    this.resolveESCodeEndpointOrigin = options.resolveESCodeEndpointOrigin;
   }
 
   async request(input: string | URL, init?: ApiRequestInit): Promise<Response> {
-    const endpointOrigin = this.resolveZCodeEndpointOrigin
-      ? await this.resolveZCodeEndpointOrigin()
+    const endpointOrigin = this.resolveESCodeEndpointOrigin
+      ? await this.resolveESCodeEndpointOrigin()
       : undefined;
-    const activeEndpointOrigin = endpointOrigin ?? DEFAULT_ZCODE_ENDPOINT_ORIGIN;
-    const requestInput = rewriteZCodeEndpointUrl(input, activeEndpointOrigin);
+    const activeEndpointOrigin = endpointOrigin ?? DEFAULT_ESCODE_ENDPOINT_ORIGIN;
+    const requestInput = rewriteESCodeEndpointUrl(input, activeEndpointOrigin);
     const url = resolveUrl(requestInput);
     const method = resolveMethod(init);
     const timeoutMs = init?.timeoutMs;
@@ -120,7 +120,7 @@ export class NodeApiClient implements ApiClient {
       );
       if (isRequestForEndpoint(requestInput, activeEndpointOrigin)) {
         // 调试说明：这里只记录 header key，避免 Authorization / token 等敏感值落盘。
-        log.debug(undefined, "zcode endpoint request headers prepared", {
+        log.debug(undefined, "escode endpoint request headers prepared", {
           headerKeys: readHeaderKeys(requestHeaders),
           method,
           url,
@@ -133,11 +133,11 @@ export class NodeApiClient implements ApiClient {
       });
       if (response.status === 401) {
         try {
-          if (await this.isZcodeJwtRequest?.(requestInput, new Headers(requestHeaders))) {
-            this.onZcodeJwtInvalid?.(requestInput, new Headers(requestHeaders));
+          if (await this.isEscodeJwtRequest?.(requestInput, new Headers(requestHeaders))) {
+            this.onEscodeJwtInvalid?.(requestInput, new Headers(requestHeaders));
           }
         } catch (error) {
-          log.warn("zcode jwt invalid response observation failed", { error });
+          log.warn("escode jwt invalid response observation failed", { error });
         }
       }
       return response;

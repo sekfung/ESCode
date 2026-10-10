@@ -1,0 +1,428 @@
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { answerHostRequest } from "./escode-cli-rust-fixture-host.js";
+import { withDefaultMode } from "./escode-cli-rust-fixture-mode.js";
+import { createServer, type ServerResponse } from "node:http";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
+import { once } from "node:events";
+import { randomUUID } from "node:crypto";
+import assert from "node:assert/strict";
+import { setTimeout as delay } from "node:timers/promises";
+import { ESCodeProtocolClient } from "../src/escode-agent/escodeProtocolClient.js";
+import { ESCodeStdioTransport } from "../src/escode-agent/escodeStdioTransport.js";
+import { escodeProtocolMessageSchema } from "@escode/shared";
+import {
+  commandAckSchema,
+  conversationTopicWireFrameSchema,
+  sessionsIndexTopicWireFrameSchema,
+  workspaceConfigTopicWireFrameSchema,
+  v4ConversationSubscribeResultSchema,
+  v4ConversationRowsRangeResultSchema,
+} from "@escode/shared/escode-protocol-v4";
+import { shellHeartbeatCommand } from "./escode-cli-rust-shell-probe.js";
+import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
+import { isKnownNodeExitCrash } from "./escode-cli-rust-exit.js";
+
+export const binary = resolve(
+  `apps/escode-cli-rust/target/debug/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
+);
+
+export async function waitForFile(path: string): Promise<string> {
+  const started = Date.now();
+  while (true) {
+    try {
+      const content = await readFile(path, "utf8");
+      if (content.trim()) return content;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    assert.ok(Date.now() - started < 3000, `File was not produced: ${path}`);
+    await delay(10);
+  }
+}
+type Message = Record<string, any>;
+
+export async function fixture(
+  options: {
+    binary?: string;
+    /** 自定义 spawn 命令（Node runtime 用 process.execPath + bundle 路径）。 */
+    command?: string;
+    /** 自定义 argv；可传函数以便使用 fixture 生成的路径（Node runtime 不接受 Rust 专属参数）。 */
+    args?:
+      | string[]
+      | ((paths: { cwd: string; dataDir: string; root: string; config: string }) => string[]);
+    /** 复用已有目录（例如先由 Node runtime 落一份 TS 数据，再用 Rust 导入）。 */
+    root?: string;
+    respond?: (request: Message, response: ServerResponse, attempt: number) => void | Promise<void>;
+    /**
+     * 会话标题 sidecar 请求（docs/specs/rust-session-title.md）默认由 fixture 以空标题应答且不计入 requests，
+     * 用例的请求下标/条数只反映主循环；"respond" 时交给 respond 并记录（标题差分用例）。
+     */
+    titleRequests?: "respond";
+    config?: Message;
+    env?: Record<string, string>;
+    registry?: boolean;
+    legacy?: boolean;
+    surface?: "desktop" | "terminal";
+    /**
+     * 输入未写 mode 时由 harness 补上的协作模式。runtime 默认 build（写/Shell 先确认），
+     * 验证运行时一致性而非权限的用例在此显式声明 yolo；不设置时保持 runtime 真实默认。
+     */
+    mode?: "yolo" | "build" | "edit";
+  } = {},
+) {
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), "escode-cli-rust-test-")));
+  const cwd = join(root, "workspace");
+  const dataDir = join(root, "data");
+  const config = join(root, "model.json");
+  // 复用已有 root（Node → Rust 导入）时 workspace 可能已存在。
+  await mkdir(cwd, { recursive: true });
+  const requests: Message[] = [];
+  const requestBodies: string[] = [];
+  const connectionPorts: number[] = [];
+  const requestPaths: string[] = [];
+  const requestHeaders: Record<string, string | string[] | undefined>[] = [];
+  const server = createServer(async (req, res) => {
+    // HTTP chunk 可在多字节字符中间切开；逐 Buffer 隐式转字符串会伪造 U+FFFD 和字节超限。
+    req.setEncoding("utf8");
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const request = JSON.parse(body);
+    if (options.titleRequests !== "respond" && titleRequest(request))
+      return titleReply(res, request, "");
+    requests.push(request);
+    requestPaths.push(req.url ?? "");
+    requestHeaders.push(req.headers);
+    requestBodies.push(body);
+    connectionPorts.push(req.socket.remotePort ?? 0);
+    if (options.respond) {
+      await options.respond(request, res, requests.length);
+      return;
+    }
+    const text = request.messages.findLast((m: Message) => m.role === "user")?.content ?? "";
+    res.writeHead(200, { "Content-Type": "text/event-stream" });
+    const last = request.messages.at(-1);
+    if (text === "large") {
+      event(res, { content: "x".repeat(160_000) });
+      end(res, "stop");
+      return;
+    }
+    if (text === "slow") {
+      await delay(2000);
+      if (res.destroyed) return;
+    }
+    if ((text === "write" || text === "deny") && last.role !== "tool") {
+      event(res, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "call-write",
+            type: "function",
+            function: { name: "Write", arguments: '{"file_path":"result.txt",' },
+          },
+        ],
+      });
+      event(res, {
+        tool_calls: [{ index: 0, function: { arguments: '"content":"written by Rust"}' } }],
+      });
+      end(res, "tool_calls");
+      return;
+    }
+    if ((text === "shell" || text === "slow-shell") && last.role !== "tool") {
+      event(res, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "call-shell",
+            type: "function",
+            function: {
+              name: "Bash",
+              arguments: JSON.stringify({
+                command:
+                  text === "slow-shell"
+                    ? shellHeartbeatCommand()
+                    : process.platform === "win32"
+                      ? "echo core-shell"
+                      : "printf core-shell",
+              }),
+            },
+          },
+        ],
+      });
+      end(res, "tool_calls");
+      return;
+    }
+    // 刻意在中文 UTF-8 字符中间拆 TCP chunk，验证 parser 不能按每个 chunk 解码。
+    const bytes = Buffer.from(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "你好" } }] })}\r\n\r\n`,
+    );
+    const split = bytes.indexOf(Buffer.from("你好")) + 1;
+    res.write(bytes.subarray(0, split));
+    await delay(10);
+    res.write(bytes.subarray(split));
+    await delay(10);
+    event(res, { content: " Rust" });
+    end(res, "stop");
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Missing fixture address");
+  await writeFile(
+    config,
+    JSON.stringify({
+      providerId: "fixture",
+      modelId: "core-model",
+      reasoningLevel: "none",
+      reasoningParameters: { reasoning_effort: "none" },
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      requestTimeoutSeconds: 5,
+      ...options.config,
+    }),
+  );
+  const children: Harness[] = [];
+  const start = (identity?: string) => {
+    const child = spawn(
+      options.command ?? options.binary ?? binary,
+      (typeof options.args === "function"
+        ? options.args({ cwd, dataDir, root, config })
+        : options.args) ?? [
+        "app-server",
+        "--stdio",
+        "--surface",
+        options.surface ?? "terminal",
+        "--cwd",
+        cwd,
+        "--data-dir",
+        dataDir,
+        ...(options.registry ? [] : ["--config", config]),
+        ...(options.legacy ? ["--import-ts-db", join(root, "ts.sqlite")] : []),
+      ],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          // 模型 fixture 在 127.0.0.1；开发机的 HTTP(S)_PROXY 会让 reqwest 把本地请求转给代理而挂起。
+          NO_PROXY: "127.0.0.1,localhost",
+          no_proxy: "127.0.0.1,localhost",
+          HOME: root,
+          USERPROFILE: root,
+          ESCODE_SESSION_DB_PATH: join(root, "ts.sqlite"),
+          ...options.env,
+          ...(options.registry
+            ? {
+                ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: join(root, "builtin.json"),
+                ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: join(root, "personal.json"),
+              }
+            : {}),
+          ESCODE_WORKSPACE_IDENTITY: identity ?? "",
+        },
+      },
+    );
+    const harness = new Harness(child, identity ?? cwd, options.mode);
+    children.push(harness);
+    return harness;
+  };
+  return {
+    root,
+    cwd,
+    dataDir,
+    config,
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    requests,
+    requestBodies,
+    connectionPorts,
+    requestPaths,
+    requestHeaders,
+    start,
+    async close() {
+      const exits = await Promise.allSettled(children.map((child) => child.close()));
+      server.closeAllConnections();
+      await new Promise<void>((r) => server.close(() => r()));
+      // 调用方自带 root 时由调用方拥有生命周期：数据要在多个 runtime 之间传递（见 migration-live 用例）。
+      if (!options.root) await rm(root, { recursive: true, force: true });
+      const failure = exits.find((result) => result.status === "rejected");
+      if (failure?.status === "rejected") throw failure.reason;
+    },
+  };
+}
+export function event(res: ServerResponse, delta: Message) {
+  res.write(`data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`);
+}
+export function end(res: ServerResponse, reason: string) {
+  res.end(
+    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: reason }], usage: { prompt_tokens: 10, completion_tokens: 4 } })}\n\ndata: [DONE]\n\n`,
+  );
+}
+
+export class Harness {
+  readonly transport: ESCodeStdioTransport;
+  readonly client: ESCodeProtocolClient;
+  readonly messages: Message[] = [];
+  readonly schemaErrors: string[] = [];
+  private buffer = "";
+  private waiters = new Set<() => void>();
+  private closed = false;
+  stderr = "";
+  readonly exited: Promise<unknown>;
+  constructor(
+    readonly child: ChildProcessWithoutNullStreams,
+    readonly workspace: string,
+    private readonly defaultMode?: string,
+  ) {
+    this.exited = once(child, "close");
+    child.stderr.setEncoding("utf8").on("data", (data: string) => {
+      this.stderr += data;
+    });
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (data: string) => {
+      this.buffer += data;
+      let newline: number;
+      while ((newline = this.buffer.indexOf("\n")) >= 0) {
+        const line = this.buffer.slice(0, newline);
+        this.buffer = this.buffer.slice(newline + 1);
+        try {
+          const message = JSON.parse(line);
+          escodeProtocolMessageSchema.parse(message);
+          if (message.method === "v4/conversation/frame") {
+            const wire = message.params;
+            const schema = wire.topic.startsWith("conversation/")
+              ? conversationTopicWireFrameSchema
+              : wire.topic.startsWith("sessions-index/")
+                ? sessionsIndexTopicWireFrameSchema
+                : workspaceConfigTopicWireFrameSchema;
+            schema.parse(wire);
+          }
+          // 到达时刻供性能诊断使用；不可枚举，不影响任何比较或序列化。
+          Object.defineProperty(message, "__receivedAt", { value: performance.now() });
+          this.messages.push(message);
+        } catch (error) {
+          this.schemaErrors.push(String(error));
+        }
+      }
+      for (const wake of this.waiters) wake();
+    });
+    this.transport = new ESCodeStdioTransport(child);
+    this.client = new ESCodeProtocolClient(this.transport, {
+      requireStorageStartup: true,
+      // 请求上限默认 5s；安装包演练（慢 runner）由 CI 调大。
+      requestTimeoutMs: Number(process.env.ESCODE_TEST_REQUEST_MS ?? 5000),
+    });
+    // 与真实 Host（escodeAgentService 的 onRequest）一致应答运行时偏好与脚本化反向请求。
+    this.client.onRequest((request) => answerHostRequest(this, request));
+  }
+  /** 用例脚本化的 Host 反向请求应答（method → 结果或 {error:{code,message}}）。 */
+  hostHandlers: Record<string, (params: any) => unknown> = {};
+  readonly hostRequests: { method: string; params: unknown }[] = [];
+  /** 模拟设置页的终端 shell 选择；缺省表示 auto。 */
+  integratedTerminalShell?: Message;
+  memoryEnabled?: boolean;
+  readonly runtimePreferenceRequests: unknown[] = [];
+  envelope(type: string, sessionId: string | null, payload: Message = {}) {
+    return {
+      commandId: randomUUID(),
+      clientId: "fixture-client",
+      sessionId,
+      type,
+      payload: withDefaultMode(type, payload, this.defaultMode),
+      issuedAt: Date.now(),
+    };
+  }
+  command(command: Message) {
+    return this.client.request("v4/command", command, commandAckSchema);
+  }
+  async create(text?: string) {
+    const ack = await this.command(
+      this.envelope("createSession", null, {
+        workspaceId: this.workspace,
+        ...(text ? { firstInput: { text } } : {}),
+      }),
+    );
+    const id = (ack.result as { sessionId: string }).sessionId;
+    return id;
+  }
+  subscribe(topic: string, connectionId = "fixture-desktop", clientMode = "desktop-continuous") {
+    return this.client.request(
+      "v4/conversation/subscribe",
+      { topic, connectionId, clientMode },
+      v4ConversationSubscribeResultSchema,
+    );
+  }
+  rows(sessionId: string) {
+    return this.client.request(
+      "v4/conversation/rowsRange",
+      { sessionId, limit: 200 },
+      v4ConversationRowsRangeResultSchema,
+    );
+  }
+  async wait(predicate: (message: Message) => boolean, after = 0): Promise<Message> {
+    const find = () => this.messages.slice(after).find(predicate);
+    const existing = find();
+    if (existing) return existing;
+    return new Promise((resolveWait, reject) => {
+      const wake = () => {
+        const message = find();
+        if (message) {
+          cleanup();
+          resolveWait(message);
+        }
+      };
+      const timer = setTimeout(
+        () => {
+          cleanup();
+          // 超时时附带子进程 stderr 末尾，便于在 CI 上定位卡住的一侧。
+          reject(
+            new Error(
+              `Timed out; schema errors: ${this.schemaErrors.join("\n")}; stderr tail: ${this.stderr.slice(-2000)}`,
+            ),
+          );
+          // 真实模型服务的长回复可能超过默认 8s；只有显式设置时才放宽，普通用例保持原超时。
+        },
+        Number(process.env.ESCODE_TEST_WAIT_MS ?? 8000),
+      );
+      const cleanup = () => {
+        clearTimeout(timer);
+        this.waiters.delete(wake);
+      };
+      this.waiters.add(wake);
+      wake();
+    });
+  }
+  async completed(sessionId: string, after = 0) {
+    return this.wait(
+      (m) =>
+        m.params?.topic === `conversation/${sessionId}` &&
+        m.params.frame?.payload?.deltas?.some(
+          (d: Message) => d.patch?.control?.phase === "completedSuccess",
+        ),
+      after,
+    );
+  }
+  async permission(sessionId: string) {
+    const message = await this.wait(
+      (m) =>
+        m.params?.topic === `conversation/${sessionId}` &&
+        m.params.frame?.payload?.deltas?.some((d: Message) => d.patch?.pendingInteractions?.length),
+    );
+    return message.params.frame.payload.deltas.find(
+      (d: Message) => d.patch?.pendingInteractions?.length,
+    ).patch.pendingInteractions[0];
+  }
+  async close(expectedExit = 0) {
+    if (this.closed) return;
+    this.closed = true;
+    if (this.child.exitCode === null) this.child.stdin.end();
+    // 退出等待上限：默认 4s；安装包演练在 Rosetta（mac x64）下翻译运行 Electron，退出明显更慢，由 CI 调大。
+    const timer = setTimeout(() => this.child.kill("SIGKILL"), Number(process.env.ESCODE_TEST_EXIT_MS ?? 4000));
+    const status = await this.exited;
+    clearTimeout(timer);
+    this.client.dispose();
+    if (expectedExit === 0 && isKnownNodeExitCrash(status, this.stderr)) return;
+    assert.deepEqual(
+      status,
+      [expectedExit, null],
+      `Rust process failed to exit cleanly: ${this.stderr}`,
+    );
+  }
+}

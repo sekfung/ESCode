@@ -5,10 +5,10 @@
 逐条对齐 TS：
 
 - 工具：`core/src/tool/handlers/off-peak.ts`、`contracts/src/tools/off-peak.ts`；
-- 协议端口：`bootstrap/src/zcode-protocol/offpeak-port.ts`、`off-peak-tool-policy.ts`；
+- 协议端口：`bootstrap/src/escode-protocol/offpeak-port.ts`、`off-peak-tool-policy.ts`；
 - 派发轮：`server-operations.ts`（`resolvePromptTurnOffPeakTaskId`、turn denylist）、
   `core/src/runtime/methods/turn-loop-state.ts`（`isOffPeakCreateRestrictedTurn`）、`bash.ts`、`send-message.ts`；
-- 执行模型：`bootstrap/src/zcode-protocol/model-execution.ts`、`core/src/runtime/methods/turn-model.ts`、
+- 执行模型：`bootstrap/src/escode-protocol/model-execution.ts`、`core/src/runtime/methods/turn-model.ts`、
   `adapters/src/model/runner.ts`（off-peak 账号鉴权）。
 
 ## 所有者与流程
@@ -33,7 +33,7 @@ sequenceDiagram
   两者都不是时不注册。子代理（subagent_child）不注册。会话激活（冷恢复）读进程级结论。
 - `workspace/updateOffPeakToolPolicy`：参数 `{workspace, enabled}`（strict），结果原样回显 `{workspace, enabled}`。
 - 定义：`OffPeakCreate` / `OffPeakList` 的 schema、描述（含 modelInstructions 拼成的 Usage 列表）与 provider 顺序
-  由 `scripts/generate-zcode-cli-rust-tool-schemas.mjs` 从 TS 生成。
+  由 `scripts/generate-escode-cli-rust-tool-schemas.mjs` 从 TS 生成。
 - OffPeakCreate：
   1. 闲时派发轮拒绝：`OffPeakCreate is not allowed while running an idle-time task.`；
   2. 入参按 TS schema（trim、strict）；
@@ -82,7 +82,7 @@ sequenceDiagram
   - 会话忙时收到 modelExecution 输入：TS core admission 拒绝（不排队、不 steer）；V4 层收口为
     **failed + `activePrompt`**，文案 `Core prompt admission rejected: turn_not_steerable`（活跃轮；
     只排队而没活跃轮时 core reason 是 `no_active_turn`）。Rust 已按此对齐（2026-09-30 App 差分确认：
-    `packages/services/tests/zcode-cli-rust-model-execution-admission.test.ts`）。
+    `packages/services/tests/escode-cli-rust-model-execution-admission.test.ts`）。
 
 ## 验收
 

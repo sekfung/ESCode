@@ -1,4 +1,4 @@
-export const SERVICE_AUTHORITY_MODE_ENV = "ZCODE_SERVICE_AUTHORITY_MODE";
+export const SERVICE_AUTHORITY_MODE_ENV = "ESCODE_SERVICE_AUTHORITY_MODE";
 
 export const serviceAuthorityModes = [
   "desktop-local",

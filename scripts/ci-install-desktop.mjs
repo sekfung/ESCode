@@ -3,8 +3,8 @@
 //   node scripts/ci-install-desktop.mjs <安装包目录>
 // - Windows：NSIS 静默安装（/S /D=…）；macOS：挂载 dmg 拷出 .app；Linux：apt 安装 deb。
 // - 启动检查：应用主进程起来后 20s 内不退出（Linux 用 xvfb-run）。
-// - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ZCODE_INSTALLED_APP / ZCODE_INSTALLED_GLM），供
-//   zcode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
+// - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
+//   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
 import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -31,7 +31,7 @@ let app;
 let glm;
 if (process.platform === "win32") {
   const installer = pick(".exe");
-  const target = join(temp, "zcode-install");
+  const target = join(temp, "escode-install");
   // NSIS 约定：/D= 必须是最后一个参数且不加引号（runner 临时目录不含空格）。
   run(installer, ["/S", `/D=${target}`]);
   const exe = readdirSync(target).find((name) => name.endsWith(".exe") && !/^uninstall/i.test(name));
@@ -40,7 +40,7 @@ if (process.platform === "win32") {
   glm = join(target, "resources", "glm");
 } else if (process.platform === "darwin") {
   const dmg = pick(".dmg");
-  const mount = join(temp, "zcode-dmg");
+  const mount = join(temp, "escode-dmg");
   mkdirSync(mount, { recursive: true });
   run("hdiutil", ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, dmg]);
   try {
@@ -61,13 +61,13 @@ if (process.platform === "win32") {
   const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
-    .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
-  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
+    .find((line) => line.endsWith("/resources/glm/escode.cjs"));
+  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/escode.cjs`);
   glm = dirname(entry);
   const base = dirname(dirname(glm));
   app = join(base, pkg);
 }
-for (const path of [app, glm, join(glm, "zcode.cjs")]) {
+for (const path of [app, glm, join(glm, "escode.cjs")]) {
   if (!existsSync(path)) throw new Error(`Installed path missing: ${path}`);
 }
 console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
@@ -94,5 +94,5 @@ await new Promise((done, fail) => {
 });
 
 if (process.env.GITHUB_ENV) {
-  appendFileSync(process.env.GITHUB_ENV, `ZCODE_INSTALLED_APP=${app}\nZCODE_INSTALLED_GLM=${glm}\n`);
+  appendFileSync(process.env.GITHUB_ENV, `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n`);
 }

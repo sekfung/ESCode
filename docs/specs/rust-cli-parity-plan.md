@@ -1,4 +1,4 @@
-# zcode-cli-rust 功能对齐与替换计划
+# escode-cli-rust 功能对齐与替换计划
 
 日期：2026-09-21。源码基线：`main` / `872ad96`，包含工作区尚未提交的 Rust 核心。
 
@@ -43,7 +43,7 @@ P1/P2 继续保留：附件剩余差分/context refs、完整上下文、Todo �
 
 ## 以替换 App stdio runtime 为目标的优先级（2026-09-22）
 
-用户明确目标是接替既有 zcode-cli 的 stdio 进程。以 App 真实调用链是否可用、既有数据是否保留来决定关键性。App 继续使用现有服务、协议与状态归属；允许必要的启动器/能力协商适配，不维护另一套 Rust 专用业务流程。正常用户不需要另写 Rust 模型 JSON、复制账号密钥或清空旧历史。
+用户明确目标是接替既有 escode-cli 的 stdio 进程。以 App 真实调用链是否可用、既有数据是否保留来决定关键性。App 继续使用现有服务、协议与状态归属；允许必要的启动器/能力协商适配，不维护另一套 Rust 专用业务流程。正常用户不需要另写 Rust 模型 JSON、复制账号密钥或清空旧历史。
 
 此排序覆盖下文原始实施阶段的推进顺序；原阶段编号保留为功能分类。已完成的请求/loop/压缩不重复重写，只在兼容差分发现缺口时修改。权限仍只支持 yolo，不实现 TUI。
 
@@ -84,7 +84,7 @@ sequenceDiagram
 
 所有者不变：Host 的账号源提供账号事实和请求期凭据；Registry adapter 解析既有配置规则并提供模型解析结果；Session owner 管理会话选型、输入、队列和历史。默认选型沿用既有配置仓储契约，与会话当前选型区分；不能把账号密钥写进会话来换取恢复。Desktop continuous 和 mobile replayable 的差异继续由原订阅/恢复边界承担。
 
-直接依据：`packages/services/src/zcode-agent/zcodeAgentService.ts` 的 `syncAccountProviderConfigToClient` 和 `interactionRequestProviderRuntimeHeaders` 分派、`independentPlanSupport.ts` 的连接级 capability 缓存、`packages/shared/src/zcode-protocol-v4/command.ts` 的 `switchModelConfig` 等命令，以及 Rust `queries.rs` / `input_validation.rs` 当前的能力和固定选型限制。现有 feature graph 的 Rust/存储/身份/投影边界仍适用；本轮仅改优先级，不把计划能力标成已经实现。
+直接依据：`packages/services/src/escode-agent/escodeAgentService.ts` 的 `syncAccountProviderConfigToClient` 和 `interactionRequestProviderRuntimeHeaders` 分派、`independentPlanSupport.ts` 的连接级 capability 缓存、`packages/shared/src/escode-protocol-v4/command.ts` 的 `switchModelConfig` 等命令，以及 Rust `queries.rs` / `input_validation.rs` 当前的能力和固定选型限制。现有 feature graph 的 Rust/存储/身份/投影边界仍适用；本轮仅改优先级，不把计划能力标成已经实现。
 
 | 场景           | Setup / action                                                    | 必须断言                                                                             | 验证状态                                        |
 | -------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
@@ -110,12 +110,12 @@ sequenceDiagram
 
 | 对齐对象      | 当前权威源码                                                                                                                              | 需要保持的契约                                                                     |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| App 请求/事件 | `packages/shared/src/zcode-protocol/index.ts`、`packages/shared/src/zcode-protocol-v4/command.ts`、`transport.ts`                         | 严格 schema、ACK、错误码、ID、epoch/revision、连续序号、分页和大帧                 |
-| Agent 状态机  | `apps/zcode-cli/packages/core/src/runtime/methods/turn-loop.ts`、`turn-model-step.ts`、`turn-tools.ts`、`runtime-command-queue.ts`        | admission、工具/模型顺序、stop、follow-up、迟到事件隔离                            |
-| 模型请求      | `apps/zcode-cli/packages/adapters/src/model/runner-stream.ts`、`runner-retry.ts`、`stream-retry-boundary.ts`、`runner-runtime-headers.ts` | 消息规范化、重试边界、推理历史、鉴权刷新、取消                                     |
-| 工具          | `apps/zcode-cli/packages/contracts/src/tools/`、`packages/core/src/tool/handlers/index.ts`                                                | 实际注册面、schema、返回值、权限、超时、取消、可并发性、结果预算                   |
-| 存储          | `apps/zcode-cli/packages/adapters/src/storage/session-store/`                                                                             | transcript/输入事实/索引/权限/usage 分别验证；不直接拿 SQLite 格式等价代替恢复语义 |
-| Host          | `packages/services/src/zcode-agent/`、`packages/desktop/src/host/storagePreparationProcesses.ts`                                          | 启动与退出、身份、owner/lease、账号配置同步、窗口/远端隔离                         |
+| App 请求/事件 | `packages/shared/src/escode-protocol/index.ts`、`packages/shared/src/escode-protocol-v4/command.ts`、`transport.ts`                         | 严格 schema、ACK、错误码、ID、epoch/revision、连续序号、分页和大帧                 |
+| Agent 状态机  | `apps/escode-cli/packages/core/src/runtime/methods/turn-loop.ts`、`turn-model-step.ts`、`turn-tools.ts`、`runtime-command-queue.ts`        | admission、工具/模型顺序、stop、follow-up、迟到事件隔离                            |
+| 模型请求      | `apps/escode-cli/packages/adapters/src/model/runner-stream.ts`、`runner-retry.ts`、`stream-retry-boundary.ts`、`runner-runtime-headers.ts` | 消息规范化、重试边界、推理历史、鉴权刷新、取消                                     |
+| 工具          | `apps/escode-cli/packages/contracts/src/tools/`、`packages/core/src/tool/handlers/index.ts`                                                | 实际注册面、schema、返回值、权限、超时、取消、可并发性、结果预算                   |
+| 存储          | `apps/escode-cli/packages/adapters/src/storage/session-store/`                                                                             | transcript/输入事实/索引/权限/usage 分别验证；不直接拿 SQLite 格式等价代替恢复语义 |
+| Host          | `packages/services/src/escode-agent/`、`packages/desktop/src/host/storagePreparationProcesses.ts`                                          | 启动与退出、身份、owner/lease、账号配置同步、窗口/远端隔离                         |
 
 ```mermaid
 sequenceDiagram
@@ -178,9 +178,9 @@ Session owner 唯一管理已接受输入、消息、权限、队列、run gener
 | 内存                          | 新启动空闲 RSS 初始预算 ≤ 50 MiB/进程；1/10/100 会话与大产物单独测峰值，不能将缓存无界加载到内存                 |
 | 耐久写                        | semantic boundary 即时提交，展示 checkpoint ≤ 250 ms 一次；记录事务次数/写入字节，不拿缓存延迟冒充性能收益       |
 
-现有脚本：`node scripts/bench-zcode-cli-rust.mjs <release-binary> 8`。本机 darwin/arm64 初版 Rust 单次诊断基线：启动 9.84 ms，8 轮总时长 76.04 s，单轮由 1.02 s 增至 18.74 s，控制 RPC p95 7.49 ms。每轮固定 2,048 个 SSE 文本片段。它证明历史增长退化，尚不代表 TS/Rust 性能比较；脚本尚未采集 RSS，统计也未达到重复测量的性能发布门槛。
+现有脚本：`node scripts/bench-escode-cli-rust.mjs <release-binary> 8`。本机 darwin/arm64 初版 Rust 单次诊断基线：启动 9.84 ms，8 轮总时长 76.04 s，单轮由 1.02 s 增至 18.74 s，控制 RPC p95 7.49 ms。每轮固定 2,048 个 SSE 文本片段。它证明历史增长退化，尚不代表 TS/Rust 性能比较；脚本尚未采集 RSS，统计也未达到重复测量的性能发布门槛。
 
-本轮增量存储/checkpoint 收口后，同机同负载 release 单次结果为总时长 3.33 s，首轮 441 ms、第 8 轮 415 ms，控制 RPC p95 0.66 ms；启动 19.02 ms。当前产物消除了这个负载中的历史增长退化，但尚未完成 HTTP 池和流式合并，不能将此单次诊断推广为完整性能承诺。原始记录保存在工作区 `.zcode-runtime/rust-bench/baseline.json` 和 `incremental.json`，该目录不参与发布。
+本轮增量存储/checkpoint 收口后，同机同负载 release 单次结果为总时长 3.33 s，首轮 441 ms、第 8 轮 415 ms，控制 RPC p95 0.66 ms；启动 19.02 ms。当前产物消除了这个负载中的历史增长退化，但尚未完成 HTTP 池和流式合并，不能将此单次诊断推广为完整性能承诺。原始记录保存在工作区 `.escode-runtime/rust-bench/baseline.json` 和 `incremental.json`，该目录不参与发布。
 
 ## 验收组织
 
@@ -192,7 +192,7 @@ Session owner 唯一管理已接受输入、消息、权限、队列、run gener
 4. **App E2E**：现有 UI 创建、模型切换、输入/附件、yolo 自动执行、终端、压缩、队列与历史恢复；同时验桌面 continuous 和手机 replayable。跨窗口、远端和多 session 单列。
 5. **发布验证**：release 三平台产物、远端安装、升级与回退；真实供应商小矩阵与代理/证书环境。性能至少多次重复，报告中位数/p95、机器/产物/样本量。
 
-当前可执行命令是 `pnpm test:zcode-cli-rust`、`pnpm check:zcode-cli-rust`、`pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`。完整 TS 差分驱动、Renderer E2E、更大规模多会话基准和三平台 CI 属于待新增项；RSS 和四会话重复基准已完成，见第一交付包报告。
+当前可执行命令是 `pnpm test:escode-cli-rust`、`pnpm check:escode-cli-rust`、`pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`。完整 TS 差分驱动、Renderer E2E、更大规模多会话基准和三平台 CI 属于待新增项；RSS 和四会话重复基准已完成，见第一交付包报告。
 
 ## 最近三个交付包
 
@@ -204,7 +204,7 @@ Session owner 唯一管理已接受输入、消息、权限、队列、run gener
 
 ## 第一交付包进度（2026-09-22）
 
-请求与耐久 loop 已实现：连接池、一次请求编码、线性 SSE/参数汇编、定时/字节合并、reasoning 回传、结构化错误、CLI 默认重试/Retry-After/空响应预算、闲置与显式总超时、apiRetry 投影、取消、提交屏障与存储失败收口。Read/List 启用四并发，写/Shell 保持屏障；未提前发布尚未实现的新工具。11 个 Rust 测试和 23 个 App/native 集成测试通过。重复 release 性能结果与限制记录在 `../reports/zcode-cli-rust-requests-2026-09-22.md`。常用 Coding 与全量 headless 两个替换里程碑尚未达到，下一包是规范 Coding 工具。
+请求与耐久 loop 已实现：连接池、一次请求编码、线性 SSE/参数汇编、定时/字节合并、reasoning 回传、结构化错误、CLI 默认重试/Retry-After/空响应预算、闲置与显式总超时、apiRetry 投影、取消、提交屏障与存储失败收口。Read/List 启用四并发，写/Shell 保持屏障；未提前发布尚未实现的新工具。11 个 Rust 测试和 23 个 App/native 集成测试通过。重复 release 性能结果与限制记录在 `../reports/escode-cli-rust-requests-2026-09-22.md`。常用 Coding 与全量 headless 两个替换里程碑尚未达到，下一包是规范 Coding 工具。
 
 ## 第二交付包进度（2026-09-22）
 

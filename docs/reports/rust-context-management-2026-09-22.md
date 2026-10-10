@@ -1,6 +1,6 @@
 # Rust 上下文与队列交付记录
 
-ZCode-Pro main / 872ad96，2026-09-22，基于前两包未提交工作继续实现；默认 TS、Rust 显式选择，权限仅 yolo。
+ESCode-Pro main / 872ad96，2026-09-22，基于前两包未提交工作继续实现；默认 TS、Rust 显式选择，权限仅 yolo。
 
 ## 已完成
 
@@ -30,7 +30,7 @@ Apple M1 Max / macOS arm64；release 串行交替，每版本、每场景五次�
 
 长历史总耗时仍增加约 3.3%；后续首段分别较基线增加 0.23 / 0.07 / 0.49 ms。新增每次请求的 context usage 通知会增加协议帧。RSS 为采样峰值，存储是 SQLite/WAL/SHM 占用，不是累计物理写入量。不能据此宣称所有场景更快。
 
-原始样本：`.zcode-runtime/rust-bench/context/final-incremental`，前两次优化过程也保留。第二包二进制 SHA256 `2a5b6118099074423577d6174765ea69f328adb2ed8531ba0648d5f2c3cded78`；第三包 `3edd350b3a23bfef00a66f12e5a47736d93df8c89ec98e9ce0191c354829cc6a`。
+原始样本：`.escode-runtime/rust-bench/context/final-incremental`，前两次优化过程也保留。第二包二进制 SHA256 `2a5b6118099074423577d6174765ea69f328adb2ed8531ba0648d5f2c3cded78`；第三包 `3edd350b3a23bfef00a66f12e5a47736d93df8c89ec98e9ce0191c354829cc6a`。
 
 ## 未完成
 

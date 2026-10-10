@@ -1,6 +1,6 @@
 # Rust stdio 核心扩展交付与验收
 
-2026-09-22，当前工作区 `/Users/mbear/bearspace/ZCode-Pro`，macOS arm64。完成用户指定的 MCP、Skill、子代理、Goal、session 按需加载、重试回复、编辑重跑、分支和文件回退的核心链路。默认仍为 TS；Rust 显式选择、仅 yolo、没有 TUI。以下区分实现、真实 App 验收和仍未通过的发布门槛。
+2026-09-22，当前工作区 `/Users/mbear/bearspace/ESCode-Pro`，macOS arm64。完成用户指定的 MCP、Skill、子代理、Goal、session 按需加载、重试回复、编辑重跑、分支和文件回退的核心链路。默认仍为 TS；Rust 显式选择、仅 yolo、没有 TUI。以下区分实现、真实 App 验收和仍未通过的发布门槛。
 
 ## 实现
 
@@ -18,7 +18,7 @@
 
 ## 自动化验收
 
-最终 `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`：**57 个 Rust 测试、185 个 App client/schema 集成用例全部通过**，无跳过。使用真实 Rust 子进程，包含已有模型/工具/存储/协议回归。
+最终 `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`：**57 个 Rust 测试、185 个 App client/schema 集成用例全部通过**，无跳过。使用真实 Rust 子进程，包含已有模型/工具/存储/协议回归。
 
 本工作包重点新增/扩展：
 
@@ -32,11 +32,11 @@
 
 检查结果：Rust fmt、Clippy `--all-targets -- -D warnings`、Rust 源码边界检查、根 typecheck、lint、格式检查、`architecture:check --changed` 均通过。Lint 保留 **70 个既有 warning，0 errors**；架构 **0 violations / baseline 0**。
 
-完整日志保存在 `.zcode-runtime/rust-critical-20260922/validation/`；首次故障测试及修复过程日志在 `/tmp/rust-*.log`，不把失败尝试计作最终通过。
+完整日志保存在 `.escode-runtime/rust-critical-20260922/validation/`；首次故障测试及修复过程日志在 `/tmp/rust-*.log`，不把失败尝试计作最终通过。
 
 ## 真实 App 验收
 
-通过隔离的 `ZCode Rust E2E` App 启动 Rust debug stdio，使用真实账号模型 GLM-5.3。生产 App 未关闭、用户配置未覆盖。清理的是隔离 App 可再生成缓存，约 54 MiB，历史数据库/备份未删除。
+通过隔离的 `ESCode Rust E2E` App 启动 Rust debug stdio，使用真实账号模型 GLM-5.3。生产 App 未关闭、用户配置未覆盖。清理的是隔离 App 可再生成缓存，约 54 MiB，历史数据库/备份未删除。
 
 - Skill `rust-app-check` 返回 `RUST_SKILL_APP_OK`。
 - 本地 MCP `mcp__rust-e2e__ping` 返回 `RUST_MCP_APP_OK`。
@@ -47,7 +47,7 @@
 - 再次退出/启动 App，打开分支仍看到相同历史与 Goal 完成状态，文件回退事实保留，无自动重放。
 - 当前 App 源码明确不渲染普通 retry 按钮（`ConversationRowView.tsx` 的协议兼容注释）；`retryTurn` 由真实 stdio client/schema 自动化验收，未宣称点击过不存在的按钮。
 
-证据目录 `.zcode-runtime/rust-e2e/20260922/`：`critical-acceptance-evidence.json`、`critical-goal-fork.png`、`critical-cold.png`、两份 snapshot 文本及 `critical-*-app.log`。Renderer errors 为空；已有的 `v4/conversation/workflowRuns` unsupported 仍存在，工作流未在本包实现。
+证据目录 `.escode-runtime/rust-e2e/20260922/`：`critical-acceptance-evidence.json`、`critical-goal-fork.png`、`critical-cold.png`、两份 snapshot 文本及 `critical-*-app.log`。Renderer errors 为空；已有的 `v4/conversation/workflowRuns` unsupported 仍存在，工作流未在本包实现。
 
 ## 性能
 
@@ -61,7 +61,7 @@
 | 100 轮历史                  | 7.57 → 8.98 | 151.36 → 244.38 | 1.16 → 0.73 | 375.88 → 593.28 | 0.42 → 0.71 | 24.59 → 28.33 | 5.16 → 5.34    |
 | 4 会话                      | 8.19 → 9.02 | 151.67 → 252.15 | 2.92 → 1.43 | 251.30 → 368.79 | 1.54 → 1.37 | 30.73 → 37.81 | 6.09 → 6.45    |
 
-原始数据：`.zcode-runtime/rust-bench/critical-20260922/results-idle/summary.json`，包含每场景 5 次明细和机器/二进制信息。
+原始数据：`.escode-runtime/rust-bench/critical-20260922/results-idle/summary.json`，包含每场景 5 次明细和机器/二进制信息。
 
 启动指 storage ready；首段包含该进程第一次模型 client/上下文初始化；steady 是后续轮。RSS 是采样峰值，storageBytes 包含 SQLite/WAL 文件占用。单次几十至数百毫秒的本机 fixture 受系统调度影响，不代表供应商网络耗时。
 

@@ -1,6 +1,6 @@
 # Rust 本地会话与子代理详情修复
 
-2026-09-23，macOS arm64。用户运行 `pnpm dev:desktop:zcode-cli-rust` 后，本地会话的归档入口呈现远程语义，Agent 工具无法点击查看子代理详情。真实启动日志与 stdio 记录证明连接为本地 `desktop-continuous`，进程为 Rust `app-server --stdio`；传输没有切换成远控。
+2026-09-23，macOS arm64。用户运行 `pnpm dev:desktop:escode-cli-rust` 后，本地会话的归档入口呈现远程语义，Agent 工具无法点击查看子代理详情。真实启动日志与 stdio 记录证明连接为本地 `desktop-continuous`，进程为 Rust `app-server --stdio`；传输没有切换成远控。
 
 ## 原因与修复
 
@@ -25,10 +25,10 @@
 | tasks-index      | 测试任务 workspace_identity 为 NULL                                 |
 | Renderer 异常    | 连接自动化工具后的 errors 输出为空                                  |
 
-本地截图在 `.zcode-runtime/rust-projection-20260923/`：`child-detail.png`、`cold-child-detail.png`、`local-archive.png`、`archived.png`。测试不是手机远控或真实供应商的重新验收。
+本地截图在 `.escode-runtime/rust-projection-20260923/`：`child-detail.png`、`cold-child-detail.png`、`local-archive.png`、`archived.png`。测试不是手机远控或真实供应商的重新验收。
 
-自动化：61 个 Rust 测试、190 个 App 集成测试通过；Rust fmt、Clippy 全 targets `-D warnings`、根 typecheck、fmt 和架构检查通过。Lint 为 0 errors、70 条既有 warnings。release 二进制重新构建，日常入口仍为 `pnpm dev:desktop:zcode-cli-rust`。
+自动化：61 个 Rust 测试、190 个 App 集成测试通过；Rust fmt、Clippy 全 targets `-D warnings`、根 typecheck、fmt 和架构检查通过。Lint 为 0 errors、70 条既有 warnings。release 二进制重新构建，日常入口仍为 `pnpm dev:desktop:escode-cli-rust`。
 
 ## 测试隔离记录
 
-首轮测试脚本仅隔离 data/profile，没有隔离设置服务的 home，误写了真实配置的最近工作区及界面偏好。已停止该实例，使用测试前最近日志快照恢复并逐字段验证完整配置一致（包含历史字段）；会话数据库未改写。后续脚本显式设置 `ZCODE_DESKTOP_HOME_DIR`，退出后再次核对真实配置不变。测试进程、临时数据库和模型服务均已清理，保留本地截图和结果。
+首轮测试脚本仅隔离 data/profile，没有隔离设置服务的 home，误写了真实配置的最近工作区及界面偏好。已停止该实例，使用测试前最近日志快照恢复并逐字段验证完整配置一致（包含历史字段）；会话数据库未改写。后续脚本显式设置 `ESCODE_DESKTOP_HOME_DIR`，退出后再次核对真实配置不变。测试进程、临时数据库和模型服务均已清理，保留本地截图和结果。

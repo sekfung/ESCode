@@ -1,4 +1,4 @@
-import type { SerialChunk, SerialSnapshot, SerialStats } from "@zcode/services";
+import type { SerialChunk, SerialSnapshot, SerialStats } from "@escode/services";
 
 /** 与 Host 环形缓冲上限一致；渲染侧只是镜像，不是串口数据的事实来源。 */
 const DEFAULT_LIMIT_BYTES = 1024 * 1024;

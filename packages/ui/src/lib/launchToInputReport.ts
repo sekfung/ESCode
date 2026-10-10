@@ -1,4 +1,4 @@
-import type { LaunchMarks } from "@zcode/shared";
+import type { LaunchMarks } from "@escode/shared";
 
 export function shouldReportLaunchToInput(state: {
   isStartupRenderBlocked: boolean;
@@ -15,14 +15,14 @@ export function readRendererLaunchTimings(): {
   reactCommit: number;
 } | null {
   const w = window as Window & {
-    __ZCODE_LAUNCH_MARKS__?: LaunchMarks | null;
-    __ZCODE_RENDERER_START__?: number;
-    __ZCODE_REACT_COMMIT_AT__?: number;
+    __ESCODE_LAUNCH_MARKS__?: LaunchMarks | null;
+    __ESCODE_RENDERER_START__?: number;
+    __ESCODE_REACT_COMMIT_AT__?: number;
   };
-  const rendererStart = w.__ZCODE_RENDERER_START__;
-  const reactCommit = w.__ZCODE_REACT_COMMIT_AT__;
+  const rendererStart = w.__ESCODE_RENDERER_START__;
+  const reactCommit = w.__ESCODE_REACT_COMMIT_AT__;
   if (typeof rendererStart !== "number" || typeof reactCommit !== "number") {
     return null;
   }
-  return { marks: w.__ZCODE_LAUNCH_MARKS__ ?? null, rendererStart, reactCommit };
+  return { marks: w.__ESCODE_LAUNCH_MARKS__ ?? null, rendererStart, reactCommit };
 }

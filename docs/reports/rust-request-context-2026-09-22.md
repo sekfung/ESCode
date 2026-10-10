@@ -4,13 +4,13 @@
 
 ## 实现与证据
 
-- 三段 system 的静态文案直接从当前 TS 构造器生成；`generate-zcode-cli-rust-prompt.mjs --check` 已接入 `pnpm test:zcode-cli-rust`，漂移会失败。运行时只读编译进产物的模板，不启动 Node。
+- 三段 system 的静态文案直接从当前 TS 构造器生成；`generate-escode-cli-rust-prompt.mjs --check` 已接入 `pnpm test:escode-cli-rust`，漂移会失败。运行时只读编译进产物的模板，不启动 Node。
 - ContextPort 负责有界异步 IO，Session actor 唯一持有 durable 环境/Git/日期快照。首次普通请求先提交快照，再发模型请求；每模型步骤重新读取 AGENTS 并使用已绑定模型的真实名称。当前 surface 来自进程参数，跨 desktop/terminal 冷恢复不沿用旧文案。
 - AGENTS 按 TS 当前实际规则加载用户默认和最近工作区文件，Git 根截断查找，不拼接所有父子目录。每份最多读取 100 KiB；超限、跨 UTF-8 边界、缺失/目录、去重及嵌套 reminder 标签均处理。
 - AGENTS/日期是 user reminder 请求投影，压缩和用户历史不增加假输入。三协议传递相同正文语义；Anthropic 保留三段 system 及 ephemeral cache hints。
 - Git 状态/最近提交只在首次初始化探测，后续步骤、回合及冷恢复不反复扫描仓库。探测有输出/时间上界，取消收回探测进程，控制 RPC 不被阻塞。
 
-详细行为及所有者时序图见 [spec](../specs/rust-request-context.md)。改动位于 `zcode-cli-rust` 的 domain/app/adapters，未新增 App 协议或服务层实现依赖。TS source adapter 仅新增非空来源守卫：差分测试的严格索引类型检查暴露了原有隐含不变量，没有更改有效来源的装配规则。
+详细行为及所有者时序图见 [spec](../specs/rust-request-context.md)。改动位于 `escode-cli-rust` 的 domain/app/adapters，未新增 App 协议或服务层实现依赖。TS source adapter 仅新增非空来源守卫：差分测试的严格索引类型检查暴露了原有隐含不变量，没有更改有效来源的装配规则。
 
 ## 测试
 
@@ -20,8 +20,8 @@
 
 | 检查                                | 结果                                           |
 | ----------------------------------- | ---------------------------------------------- |
-| `pnpm test:zcode-cli-rust`          | 34 Rust / 97 App 集成测试通过，0 失败、0 跳过  |
-| `pnpm check:zcode-cli-rust`         | 边界、fmt、全 target Clippy `-D warnings` 通过 |
+| `pnpm test:escode-cli-rust`          | 34 Rust / 97 App 集成测试通过，0 失败、0 跳过  |
+| `pnpm check:escode-cli-rust`         | 边界、fmt、全 target Clippy `-D warnings` 通过 |
 | `pnpm typecheck`                    | 通过                                           |
 | `pnpm lint`                         | 0 errors / 70 条既有 warnings                  |
 | `pnpm fmt:check`                    | 通过                                           |
@@ -35,11 +35,11 @@
 
 模型回复 `PROMPT_CONTEXT_CEDAR_58`，UI 显示完成，SQLite 确认 `completedSuccess`、0 toolCall、1 canonical user 消息及已提交的 PromptSnapshot；Renderer 未捕获异常。实际 native PID 55276，产物 SHA-256 `ec5761a07c2e3bb30ab80fdf01f4b433fd730dd6c209b9b16ac57eca8655d6e2`。没有通过内部 RPC 或修改 Renderer store 伪造输入。
 
-证据位于 `.zcode-runtime/rust-e2e/20260922/prompt-evidence.json`、`prompt-renderer-errors.txt` 和 `screenshots/17-prompt-context.png`，检查日志在 `checks/request-context/`。本次启动显式跳过测试进程的 TS 库导入，保留现有 Rust 库；清理后六份保留备份数量未增加。普通生产导入路径未被这个测试覆盖。
+证据位于 `.escode-runtime/rust-e2e/20260922/prompt-evidence.json`、`prompt-renderer-errors.txt` 和 `screenshots/17-prompt-context.png`，检查日志在 `checks/request-context/`。本次启动显式跳过测试进程的 TS 库导入，保留现有 Rust 库；清理后六份保留备份数量未增加。普通生产导入路径未被这个测试覆盖。
 
 ## 缓存与磁盘
 
-按用户要求清理了 1.9 GiB Rust debug 增量缓存、两个已退出测试的临时目录，以及五份无导入记录引用、无打开句柄的旧导入副本（共 4,999 MiB）。所有已提交导入所引用的备份、每来源最新副本、实时数据库、测试截图与检查结果保留。后续本包构建使用 `CARGO_INCREMENTAL=0`。可用空间由约 4.4 GiB 回升到约 11 GiB；本地明细在 `.zcode-runtime/rust-e2e/20260922/cache-cleanup.json`。
+按用户要求清理了 1.9 GiB Rust debug 增量缓存、两个已退出测试的临时目录，以及五份无导入记录引用、无打开句柄的旧导入副本（共 4,999 MiB）。所有已提交导入所引用的备份、每来源最新副本、实时数据库、测试截图与检查结果保留。后续本包构建使用 `CARGO_INCREMENTAL=0`。可用空间由约 4.4 GiB 回升到约 11 GiB；本地明细在 `.escode-runtime/rust-e2e/20260922/cache-cleanup.json`。
 
 ## 尚未完成
 

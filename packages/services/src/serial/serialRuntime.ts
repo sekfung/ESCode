@@ -27,7 +27,7 @@ async function loadNativeBinding(): Promise<BindingInterface> {
 }
 
 /**
- * E2E 专用接缝：设置 ZCODE_SERIAL_MOCK_PORTS（逗号分隔）时改用 binding-mock 的回环虚拟串口，
+ * E2E 专用接缝：设置 ESCODE_SERIAL_MOCK_PORTS（逗号分隔）时改用 binding-mock 的回环虚拟串口，
  * 不触碰真实硬件。binding-mock 只是开发依赖，安装包里不存在，生产环境即使误设也只会报 nativeUnavailable。
  */
 async function loadMockBinding(paths: string[]): Promise<BindingInterface> {
@@ -49,7 +49,7 @@ async function loadMockBinding(paths: string[]): Promise<BindingInterface> {
 }
 
 export function loadDefaultSerialBinding(): Promise<BindingInterface> {
-  const mockPorts = process.env.ZCODE_SERIAL_MOCK_PORTS?.split(",")
+  const mockPorts = process.env.ESCODE_SERIAL_MOCK_PORTS?.split(",")
     .map((path) => path.trim())
     .filter(Boolean);
   return mockPorts?.length ? loadMockBinding(mockPorts) : loadNativeBinding();

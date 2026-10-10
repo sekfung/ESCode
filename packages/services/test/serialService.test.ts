@@ -340,10 +340,10 @@ test("只有 Desktop Local Host 注册串口服务", () => {
   assert.equal(shouldRegisterSerialService(undefined), false);
 });
 
-test("设置 ZCODE_SERIAL_MOCK_PORTS 时默认 binding 使用回环虚拟串口（仅供 E2E）", async () => {
+test("设置 ESCODE_SERIAL_MOCK_PORTS 时默认 binding 使用回环虚拟串口（仅供 E2E）", async () => {
   const { loadDefaultSerialBinding } = await import("../src/serial/serialService.js");
-  const previous = process.env.ZCODE_SERIAL_MOCK_PORTS;
-  process.env.ZCODE_SERIAL_MOCK_PORTS = "COM_MOCK_A, COM_MOCK_B";
+  const previous = process.env.ESCODE_SERIAL_MOCK_PORTS;
+  process.env.ESCODE_SERIAL_MOCK_PORTS = "COM_MOCK_A, COM_MOCK_B";
   const mocked = createSerialService({
     loadBinding: loadDefaultSerialBinding,
     coalesceWindowMs: 0,
@@ -372,7 +372,7 @@ test("设置 ZCODE_SERIAL_MOCK_PORTS 时默认 binding 使用回环虚拟串口�
     );
   } finally {
     await mocked.disposeAllAndWait();
-    if (previous === undefined) delete process.env.ZCODE_SERIAL_MOCK_PORTS;
-    else process.env.ZCODE_SERIAL_MOCK_PORTS = previous;
+    if (previous === undefined) delete process.env.ESCODE_SERIAL_MOCK_PORTS;
+    else process.env.ESCODE_SERIAL_MOCK_PORTS = previous;
   }
 });

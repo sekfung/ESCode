@@ -1,0 +1,83 @@
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { fixture } from "./escode-cli-rust-fixture.js";
+export async function configureRegistry(
+  f: Awaited<ReturnType<typeof fixture>>,
+  account = false,
+  /** 个人 provider 的 API 类型与模型属性（如 inputFormat），供媒体/协议差分使用。 */
+  options: {
+    apiType?: string;
+    properties?: Record<string, unknown>;
+    /** 账号 provider 的访问模式（off-peak 模型只用单次执行凭据，docs/specs/rust-offpeak.md 第三期）。 */
+    accountMode?: string;
+  } = {},
+) {
+  const builtin = JSON.parse(await readFile(resolve("config/provider/escode-builtin.json"), "utf8"));
+  builtin.config.providerConfigRules.providerRules = account
+    ? [
+        {
+          providerId: "account:fixture",
+          config: {
+            group: "zai-family",
+            api: { type: "openai-chat-completions", baseUrl: f.baseUrl },
+            access: {
+              type: "zhipu-account",
+              accountType: "zai",
+              mode: options.accountMode ?? "individual-coding-plan",
+            },
+            builtinModelIds: ["model-a"],
+          },
+        },
+      ]
+    : [];
+  await writeFile(join(f.root, "builtin.json"), JSON.stringify(builtin));
+  const personal = {
+    schemaVersion: 1,
+    config: {
+      providerConfigRules: {
+        providerRules: account
+          ? []
+          : [
+              {
+                providerId: "personal:fixture",
+                providerName: "Fixture",
+                config: {
+                  group: "standard-personal",
+                  access: { type: "api-key", apiKey: "fixture-personal-key" },
+                  api: { type: options.apiType ?? "openai-chat-completions", baseUrl: f.baseUrl },
+                  personalModelIds: ["model-a", "model-b"],
+                },
+              },
+            ],
+      },
+      modelConfigRules: {
+        providerModelRules: ["model-a", "model-b"].map((modelId) => ({
+          providerId: account ? "account:fixture" : "personal:fixture",
+          modelId,
+          config: {
+            ...(options.properties ? { properties: options.properties } : {}),
+            optionSpecs: {
+              reasoningLevel: {
+                values: ["low", "high"],
+                map: "{'reasoning_effort': reasoningLevel}",
+              },
+            },
+          },
+        })),
+        manualProviderModelRules: [],
+      },
+      defaultModelSelection: {
+        providerId: account ? "account:fixture" : "personal:fixture",
+        modelId: "model-a",
+        options: { reasoningLevel: "low" },
+      },
+    },
+  };
+  await writeFile(join(f.root, "personal.json"), JSON.stringify(personal));
+  return {
+    personal,
+    builtin,
+    revision: `escode-builtin:${builtin.revision}:${createHash("sha256").update(join(f.root, "builtin.json")).digest("hex")}`,
+  };
+}

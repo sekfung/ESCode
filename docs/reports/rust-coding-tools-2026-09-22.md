@@ -1,6 +1,6 @@
 # Rust Coding 工具交付记录
 
-2026-09-22，ZCode-Pro main / 872ad96。基于第一包未提交改动继续实现。默认 runtime 仍为 TS，Rust 显式选择；本包权限范围仅 yolo。
+2026-09-22，ESCode-Pro main / 872ad96。基于第一包未提交改动继续实现。默认 runtime 仍为 TS，Rust 显式选择；本包权限范围仅 yolo。
 
 ## 交付内容
 
@@ -25,7 +25,7 @@ Node 的 SQLite ExperimentalWarning 属于现有测试运行时提示。测试�
 
 ## release 回归测量
 
-Apple M1 Max / darwin arm64；Rust 1.95.0、Node 24.14.0、pnpm 10.33.2。第一包 release 与本包 release，串行交替，每版本/场景各五次，共 30 样本。耗时和 RSS 取中位数，RPC 是各次 p95 的中位数。首段列为后续回合样本中位数；启动列为首个 RPC。原始样本和 summary 在 `.zcode-runtime/rust-bench/coding-tools-final`。
+Apple M1 Max / darwin arm64；Rust 1.95.0、Node 24.14.0、pnpm 10.33.2。第一包 release 与本包 release，串行交替，每版本/场景各五次，共 30 样本。耗时和 RSS 取中位数，RPC 是各次 p95 的中位数。首段列为后续回合样本中位数；启动列为首个 RPC。原始样本和 summary 在 `.escode-runtime/rust-bench/coding-tools-final`。
 
 | 负载                                | 总耗时：第一包 → 本包 | 本包启动 | 本包后续首段 | 本包 RPC p95 | 本包采样峰值 RSS |
 | ----------------------------------- | --------------------: | -------: | -----------: | -----------: | ---------------: |
@@ -35,10 +35,10 @@ Apple M1 Max / darwin arm64；Rust 1.95.0、Node 24.14.0、pnpm 10.33.2。第一
 
 本测量验证新增工具定义和状态字段没有带来数量级的流式回归；小幅涨跌不作显著性结论。负载仍是本地确定性 SSE，不执行搜索/后台任务，不是新工具吞吐量或真实供应商生成速度测试。RSS 是采样峰值；存储字段为 SQLite/WAL/SHM 占用，不是物理写入量。
 
-- baseline SHA-256：`518fca0037b6467f0429cae984b0fe859ada4b610c2a5893369d38f460a6aadf`，文件 `.zcode-runtime/rust-bench/coding-baseline`。
-- candidate SHA-256：`2a5b6118099074423577d6174765ea69f328adb2ed8531ba0648d5f2c3cded78`，文件 `apps/zcode-cli-rust/target/release/zcode-cli-rust`。
+- baseline SHA-256：`518fca0037b6467f0429cae984b0fe859ada4b610c2a5893369d38f460a6aadf`，文件 `.escode-runtime/rust-bench/coding-baseline`。
+- candidate SHA-256：`2a5b6118099074423577d6174765ea69f328adb2ed8531ba0648d5f2c3cded78`，文件 `apps/escode-cli-rust/target/release/escode-cli-rust`。
 
-复现：`node scripts/bench-zcode-cli-rust-suite.mjs .zcode-runtime/rust-bench/coding-baseline apps/zcode-cli-rust/target/release/zcode-cli-rust`。
+复现：`node scripts/bench-escode-cli-rust-suite.mjs .escode-runtime/rust-bench/coding-baseline apps/escode-cli-rust/target/release/escode-cli-rust`。
 
 ## 明确保留的差异
 

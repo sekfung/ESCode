@@ -1,0 +1,130 @@
+use escode_cli_core_api as contract;
+use escode_cli_domain as domain;
+mod agent_profiles;
+mod atomic_dir;
+mod browser_broker;
+mod browser_broker_listen;
+mod serial_broker;
+mod mcp_serial;
+pub mod bash_git_safety;
+mod checkpoint_blobs;
+mod config_file;
+mod bundled_skills;
+mod custom_command_shell;
+mod custom_commands;
+#[cfg(test)]
+mod custom_commands_tests;
+mod edit_apply;
+mod eval_workflow_snippet;
+mod edit_match;
+mod edit_quotes;
+mod embedded_search;
+mod extension_config;
+mod extension_plugins;
+mod file_atomic;
+mod file_changes;
+mod file_checkpoints;
+mod file_rewind;
+mod lexical_path;
+mod mcp_config;
+mod plugin_config;
+mod plugin_describe;
+mod plugin_describe_scan;
+mod plugin_frontmatter;
+mod plugin_git;
+mod plugin_install;
+mod plugin_install_cache;
+mod plugin_install_entry;
+mod plugin_install_source;
+mod plugin_list;
+mod plugin_list_components;
+mod plugin_market_params;
+mod plugin_market_source;
+mod plugin_market_write;
+mod plugin_listing;
+mod plugin_marketplace;
+mod plugin_overview;
+mod plugin_reference;
+mod plugin_suggested;
+mod plugin_uninstall;
+mod plugin_validate;
+mod plugin_validate_mcp;
+#[cfg(test)]
+mod plugin_validate_mcp_tests;
+mod plugin_validate_shape;
+mod plugin_zip;
+mod workflow_analyzer;
+mod workflow_host;
+mod workflow_tools;
+mod hooks;
+mod model_admission;
+mod mcp_connection;
+mod mcp_http_capture;
+mod mcp_http;
+mod mcp_hub;
+mod bash_image;
+mod bash_read_state;
+mod disk_space;
+mod file_missing;
+mod file_state;
+mod file_patch;
+mod mcp_node_repl;
+mod mcp_raw_capture;
+mod mcp_request_meta;
+mod mcp_oauth_client;
+mod mcp_oauth_credentials;
+mod mcp_oauth_flow;
+mod mcp_oauth_http;
+mod mcp_oauth_store;
+mod mcp_official_client;
+mod mcp_official_stdio;
+mod mcp_sse;
+mod official_plugins;
+mod official_plugins_cache;
+mod official_plugins_lock;
+mod official_plugins_marketplace;
+mod plan_tools;
+#[cfg(unix)]
+mod process_tree;
+mod project_memory;
+mod read_image;
+mod read_pdf;
+// 第 2 期存储层：ListSavedWorkflows / SaveWorkflow 与 `workflows/*` 管理方法随开关（第 1 期）接入。
+pub mod saved_workflows;
+mod saved_workflows_hub;
+mod saved_workflows_model;
+mod saved_workflows_move;
+#[cfg(test)]
+mod saved_workflows_tests;
+mod save_workflow;
+mod shell_select;
+mod shell_snapshot;
+mod tool_args;
+mod tool_capability;
+mod tool_files;
+mod tool_process;
+mod tool_search;
+mod tool_shell;
+mod tool_skills;
+mod tool_surface;
+pub mod tools;
+mod workspace_tools;
+mod web_fetch;
+mod web_fetch_http;
+#[cfg(windows)]
+mod win_job;
+pub use tools::WorkspaceTools;
+use escode_cli_host::{id, now};
+
+/// 配置文件的 `network` 段（user 视图与 user + project 合并视图），进程启动时交给
+/// `host::net_config`（docs/specs/rust-net-proxy.md「配置文件 `network` 段」）。
+pub async fn network_file_config(
+    cwd: &std::path::Path,
+) -> anyhow::Result<escode_cli_host::net_config::NetworkFileLayers> {
+    use escode_cli_host::net_config::{NetworkFileConfig, NetworkFileLayers};
+    let layers = extension_config::load_layers(cwd).await?;
+    Ok(NetworkFileLayers {
+        user: NetworkFileConfig::from_config(&layers.user),
+        workspace: NetworkFileConfig::from_config(&layers.merged()),
+    })
+}

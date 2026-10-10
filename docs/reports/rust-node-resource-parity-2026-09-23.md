@@ -1,20 +1,20 @@
 # Node.js 与 Rust CLI 资源和功能对照
 
-测试日期：2026-09-23。测试机为 Apple M2 Pro、macOS arm64、Node.js 24.14.0、Rust release 二进制。Node 版本由 [`apps/zcode-cli/packages/cli/src/main.ts`](../../apps/zcode-cli/packages/cli/src/main.ts) 构建，Rust 版本由 [`apps/zcode-cli-rust/src/main.rs`](../../apps/zcode-cli-rust/src/main.rs) 构建。
+测试日期：2026-09-23。测试机为 Apple M2 Pro、macOS arm64、Node.js 24.14.0、Rust release 二进制。Node 版本由 [`apps/escode-cli/packages/cli/src/main.ts`](../../apps/escode-cli/packages/cli/src/main.ts) 构建，Rust 版本由 [`apps/escode-cli-rust/src/main.rs`](../../apps/escode-cli-rust/src/main.rs) 构建。
 
 ## 资源对比
 
 基准使用同一个本地 OpenAI Chat Completions SSE fixture，8 个回合，每回合 256 个流式 chunk，单 session，context window 256000。两端都通过 stdio App Server 创建 session、订阅 conversation、发送文本并等待 `completedSuccess`；Node 通过 Provider Registry 选中 fixture，Rust 通过等价的显式模型 JSON 选中 fixture。两端均使用临时 HOME、工作区和 SQLite，未读取用户历史或真实模型。
 
-脚本按 Node/Rust 交错顺序各运行 5 次，记录 `ps` 的 RSS 和累计 CPU time，汇总取中位数。RSS 是采样峰值，不是分配瞬间的硬峰值；平均 CPU 是 `CPU time / workload wall time`，超过 100% 时表示使用了多个核心。原始样本保存在本机 `.zcode-runtime/node-rust-bench-5/`，可用以下命令复现：
+脚本按 Node/Rust 交错顺序各运行 5 次，记录 `ps` 的 RSS 和累计 CPU time，汇总取中位数。RSS 是采样峰值，不是分配瞬间的硬峰值；平均 CPU 是 `CPU time / workload wall time`，超过 100% 时表示使用了多个核心。原始样本保存在本机 `.escode-runtime/node-rust-bench-5/`，可用以下命令复现：
 
 ```sh
-pnpm --filter @zcode/cli build
-CARGO_INCREMENTAL=0 cargo build --locked --release --manifest-path apps/zcode-cli-rust/Cargo.toml
-node scripts/bench-zcode-cli-node-rust.mjs \
-  apps/zcode-cli/packages/cli/dist/zcode.cjs \
-  apps/zcode-cli-rust/target/release/zcode-cli-rust \
-  .zcode-runtime/node-rust-bench 5
+pnpm --filter @escode/cli build
+CARGO_INCREMENTAL=0 cargo build --locked --release --manifest-path apps/escode-cli-rust/Cargo.toml
+node scripts/bench-escode-cli-node-rust.mjs \
+  apps/escode-cli/packages/cli/dist/escode.cjs \
+  apps/escode-cli-rust/target/release/escode-cli-rust \
+  .escode-runtime/node-rust-bench 5
 ```
 
 | 指标（中位数）                |   Node.js |     Rust |        Rust 相对 Node |

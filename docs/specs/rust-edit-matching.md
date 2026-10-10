@@ -3,7 +3,7 @@
 2026-09-25。此前 Rust `Edit` 只做精确子串匹配，模型传入的 `old_string` 与文件有弯引号、`Read` 行号前缀、
 转义字符或缩进差异时直接失败，而 Node runtime 能匹配成功——同一轮对话在两个 runtime 上结果不同。
 
-## 规则（唯一事实源：`apps/zcode-cli/packages/core/src/tool/edit-matchers.ts`）
+## 规则（唯一事实源：`apps/escode-cli/packages/core/src/tool/edit-matchers.ts`）
 
 - 文件内容、`old_string`、`new_string` 先统一 `\r\n → \n`（现状不变）。
 - 精确匹配优先；没有精确候选时按顺序尝试，**第一个有候选的策略决定结果**：
@@ -22,5 +22,5 @@
 ## 验收
 
 - Rust 单测覆盖每个策略、`replace_all` 跳过宽泛策略、歧义与引号风格保留。
-- `zcode-cli-rust-tool-parity.test.ts`：同一文件与参数分别交给 TS `editToolEntry` 与 Rust `Edit`，
+- `escode-cli-rust-tool-parity.test.ts`：同一文件与参数分别交给 TS `editToolEntry` 与 Rust `Edit`，
   比对写入后的文件内容与结果字段（不含路径/patch），覆盖全部策略与失败场景。

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useReducer } from "react";
 import useSWR from "swr";
-import type { IZCodeSessionService } from "@zcode/services";
-import { ZCODE_AGENT_PROVIDER, type ZCodeProvider } from "@zcode/shared";
-import { prepareWorkspaceWithZCodeSessionService } from "./workspacePrepareRpc.js";
-import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import type { IESCodeSessionService } from "@escode/services";
+import { ESCODE_AGENT_PROVIDER, type ESCodeProvider } from "@escode/shared";
+import { prepareWorkspaceWithESCodeSessionService } from "./workspacePrepareRpc.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 
 const serviceIds = new WeakMap<object, number>();
 let nextServiceId = 0;
@@ -20,16 +20,16 @@ function serviceId(service: object): number {
 export function useWorkspacePresentation(params: {
   workspacePath: string;
   workspaceIdentity?: string;
-  provider?: ZCodeProvider;
+  provider?: ESCodeProvider;
   enabled: boolean;
-  service: IZCodeSessionService;
+  service: IESCodeSessionService;
   onRuntimeRestart?: (listener: () => void) => () => void;
   onRuntimeLifecycle?: (listener: (state: "available" | "unavailable") => void) => () => void;
 }) {
   const {
     workspacePath,
     workspaceIdentity,
-    provider = ZCODE_AGENT_PROVIDER,
+    provider = ESCODE_AGENT_PROVIDER,
     enabled,
     service,
     onRuntimeRestart,
@@ -59,11 +59,11 @@ export function useWorkspacePresentation(params: {
   const read = useSWR(
     key,
     () =>
-      prepareWorkspaceWithZCodeSessionService({
+      prepareWorkspaceWithESCodeSessionService({
         workspacePath,
         workspaceIdentity,
         provider,
-        zcodeSessionService: service,
+        escodeSessionService: service,
       }),
     {
       keepPreviousData: false,
@@ -75,7 +75,7 @@ export function useWorkspacePresentation(params: {
   );
   const ready = enabled && Boolean(read.data) && !read.isValidating && !read.error;
   useEffect(() => {
-    const store = useZCodeSessionStore.getState();
+    const store = useESCodeSessionStore.getState();
     if (!ready || !read.data) {
       store.setConfigOptionsStatus(
         workspacePath,

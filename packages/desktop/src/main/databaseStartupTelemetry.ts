@@ -1,9 +1,9 @@
 import armsRum from "@arms/rum-electron";
 import {
-  ZCODE_VERSION,
+  ESCODE_VERSION,
   type DatabaseStartupState,
   type ArmsCustomEventPayload,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
 import { buildFinalArmsCustomEventPayload } from "./desktopArmsCustomEvent.js";
 import { logger } from "./logger.js";
@@ -38,7 +38,7 @@ function send(
       context: {
         deviceMid,
         platform: process.platform,
-        appVersion: ZCODE_VERSION,
+        appVersion: ESCODE_VERSION,
         armsEnv: armsRum.getConfig().env === "prod" ? "prod" : "local",
         rendererId: 0,
       },

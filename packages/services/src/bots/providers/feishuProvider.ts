@@ -6,7 +6,7 @@ import type {
   BotOutboundMessage,
   BotProvider,
   SelectionPrompt,
-} from "@zcode/shared";
+} from "@escode/shared";
 import type {
   BotProviderAdapter,
   BotStreamingReplyCardHandle,
@@ -304,7 +304,7 @@ function buildFeishuElicitationForm(
         type: "callback",
         value: {
           command: buildFeishuElicitationFormCommand(selection.token),
-          zcodeCardText: message.text,
+          escodeCardText: message.text,
         },
       },
     ],
@@ -506,7 +506,7 @@ function getFeishuDomainProvider(bot: Pick<BotConfig, "provider">): "feishu" | "
 }
 
 function readFeishuPayloadProvider(payload: Record<string, unknown>): BotProvider {
-  return readString(payload, "zcodeProvider") === "lark" ? "lark" : "feishu";
+  return readString(payload, "escodeProvider") === "lark" ? "lark" : "feishu";
 }
 
 function getFeishuBaseUrl(bot: Pick<BotConfig, "provider">): string {
@@ -823,9 +823,9 @@ function readFeishuCardOriginalText(payload: unknown): string | null {
   const behavior = Array.isArray(action?.behaviors) ? action.behaviors.find(isRecord) : null;
   const behaviorValue = isRecord(behavior?.value) ? behavior.value : null;
   return (
-    readString(value, "zcodeCardText") ||
+    readString(value, "escodeCardText") ||
     readString(value, "cardText") ||
-    readString(behaviorValue, "zcodeCardText") ||
+    readString(behaviorValue, "escodeCardText") ||
     readString(behaviorValue, "cardText") ||
     null
   );
@@ -879,7 +879,7 @@ function buildFeishuButtonElement(params: {
         type: "callback",
         value: {
           command: params.command,
-          zcodeCardText: params.originalText,
+          escodeCardText: params.originalText,
         },
       },
     ],
@@ -1460,7 +1460,7 @@ export function createFeishuWebSocketEventHandlers(params: {
   const { bot, onPayload } = params;
   return {
     "im.message.receive_v1": async (payload: unknown) => {
-      await onPayload({ botId: bot.id, zcodeProvider: bot.provider, ...(isRecord(payload) ? payload : { payload }) });
+      await onPayload({ botId: bot.id, escodeProvider: bot.provider, ...(isRecord(payload) ? payload : { payload }) });
     },
     // Bugfix: 我们用 Typing reaction 模拟输入中状态，飞书会把自己创建的 reaction 再推回长连接。
     // 业务不需要处理这个事件，但不注册 handler 时 SDK 会持续打印 warn 干扰排查。
@@ -1468,12 +1468,12 @@ export function createFeishuWebSocketEventHandlers(params: {
     "card.action.trigger": async (payload: unknown) => {
       const callbackPayload = {
         botId: bot.id,
-        zcodeProvider: bot.provider,
-        zcodeFeishuSynchronousCardAction: true,
+        escodeProvider: bot.provider,
+        escodeFeishuSynchronousCardAction: true,
         ...(isRecord(payload) ? payload : { payload }),
       };
       // 修复原因：飞书点击后的同步响应才是客户端可靠采用的卡片状态。传输层不能再从
-      // zcodeCardText 拼简化卡，也不能返回 undefined 后依赖旁路 PATCH；它必须消费业务层
+      // escodeCardText 拼简化卡，也不能返回 undefined 后依赖旁路 PATCH；它必须消费业务层
       // 已推进完成的完整 outbound，并用同一份 elicitation 状态生成下一题卡片。
       const message = await onPayload(callbackPayload);
       if (!message) {

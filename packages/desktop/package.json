@@ -1,8 +1,8 @@
 {
-  "name": "@zcode/desktop",
+  "name": "@escode/desktop",
   "private": true,
-  "description": "ZCode Desktop App",
-  "author": "ZCode",
+  "description": "ESCode Desktop App",
+  "author": "ESCode",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
@@ -42,15 +42,15 @@
     "@opentelemetry/sdk-trace-base": "2.6.1",
     "@serialport/bindings-cpp": "13.0.1",
     "@serialport/stream": "13.0.0",
-    "@zcode/client": "workspace:*",
-    "@zcode/provider": "workspace:*",
-    "@zcode/provider-node": "workspace:*",
-    "@zcode/rpc": "workspace:*",
-    "@zcode/server": "workspace:*",
-    "@zcode/services": "workspace:*",
-    "@zcode/shared": "workspace:*",
-    "@zcode/ui": "workspace:*",
-    "@zcode/zcode-cua": "workspace:*",
+    "@escode/client": "workspace:*",
+    "@escode/provider": "workspace:*",
+    "@escode/provider-node": "workspace:*",
+    "@escode/rpc": "workspace:*",
+    "@escode/server": "workspace:*",
+    "@escode/services": "workspace:*",
+    "@escode/shared": "workspace:*",
+    "@escode/ui": "workspace:*",
+    "@escode/escode-cua": "workspace:*",
     "electron-updater": "^6.8.3",
     "module-details-from-path": "^1.0.4",
     "node-forge": "^1.4.0",
@@ -86,5 +86,5 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.2"
   },
-  "productName": "ZCode"
+  "productName": "ESCode"
 }

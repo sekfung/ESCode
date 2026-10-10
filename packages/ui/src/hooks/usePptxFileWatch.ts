@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { IDisposable } from "@zcode/rpc";
-import type { IFileWatcherService } from "@zcode/services";
-import type { FileWatchEvent } from "@zcode/shared";
+import type { IDisposable } from "@escode/rpc";
+import type { IFileWatcherService } from "@escode/services";
+import type { FileWatchEvent } from "@escode/shared";
 import { logger } from "@/logger.js";
 import { getContainingDirectoryPath } from "@/lib/path.js";
 

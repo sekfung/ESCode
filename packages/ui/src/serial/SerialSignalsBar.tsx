@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-react";
-import type { SerialSignalPulse, SerialSignals } from "@zcode/services";
+import type { SerialSignalPulse, SerialSignals } from "@escode/services";
 import { Button } from "@/components/ui/button.js";
 import {
   DropdownMenu,
@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.js";
 import { Switch } from "@/components/ui/switch.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 
 /**
  * DTR/RTS 手动控制与复位脉冲（docs/specs/serial-port-debugger-phase3.md 第 2 节）。
@@ -28,7 +28,7 @@ export function SerialSignalsBar({
   onChange: (patch: { dtr?: boolean; rts?: boolean }) => void;
   onPulse: (pulse: SerialSignalPulse) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const current = signals ?? { dtr: true, rts: true };
   return (
     <div className="flex flex-wrap items-center gap-3 text-ui-sm text-foreground-subtle">
