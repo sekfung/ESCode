@@ -1,21 +1,21 @@
 import {
-  CIRCUIT_RESPONSE_MAX_BYTES,
   type CircuitComponent,
   type CircuitIR,
 } from "@escode/shared/circuit";
 import type { CircuitQueryParams, CircuitQueryResult } from "../contract.js";
 import { CircuitServiceError } from "../domain/circuitErrors.js";
+import { decodeCircuitCursor, encodeCircuitCursor } from "./circuitCursor.js";
+import { pageByByteBudget } from "./analysisPagination.js";
 
 /**
  * `circuit_query` 的服务端实现（§5）：按 ref / net / block 过滤，或从 componentId(+pin) 出发追踪连接。
- * 所有列表结果都按「序列化后不超过响应上限」分页，游标是不透明字符串（这里用 base64url JSON 实现）。
+ * 所有列表结果都按「序列化后不超过响应上限」分页，游标是不透明字符串（实现见 circuitCursor.ts，
+ * 与 circuit_check / circuit_compare_firmware 共用）。
  */
-
-const PAGE_BYTE_BUDGET = Math.floor(CIRCUIT_RESPONSE_MAX_BYTES * 0.75);
 
 export function runCircuitQuery(ir: CircuitIR, params: CircuitQueryParams): CircuitQueryResult {
   const signature = querySignature(ir.irId, params);
-  const offset = decodeCursor(params.cursor, signature);
+  const offset = decodeCircuitCursor(params.cursor, signature);
   switch (params.by) {
     case "ref": {
       const ref = params.ref;
@@ -96,32 +96,7 @@ function querySignature(irId: string, params: CircuitQueryParams): string {
 }
 
 export function encodeCursor(signature: string, offset: number): string {
-  return Buffer.from(JSON.stringify({ q: hash(signature), o: offset }), "utf8").toString("base64url");
-}
-
-function decodeCursor(cursor: string | undefined, signature: string): number {
-  if (cursor === undefined) return 0;
-  let parsed: { q?: string; o?: number };
-  try {
-    parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
-      q?: string;
-      o?: number;
-    };
-  } catch {
-    throw new CircuitServiceError("invalid_ir", "cursor 无法解析");
-  }
-  if (parsed.q !== hash(signature) || typeof parsed.o !== "number" || parsed.o < 0)
-    throw new CircuitServiceError("invalid_ir", "cursor 与当前查询不匹配");
-  return parsed.o;
-}
-
-function hash(value: string): string {
-  let result = 2166136261;
-  for (const char of value) {
-    result ^= char.codePointAt(0)!;
-    result = Math.imul(result, 16777619);
-  }
-  return (result >>> 0).toString(16);
+  return encodeCircuitCursor(signature, offset);
 }
 
 /** 按字节预算分页：至少给一条，超出预算的条目留到下一页。 */
@@ -131,15 +106,7 @@ function paginate<T>(
   by: "ref" | "net" | "block" | "trace",
   signature: string,
 ): CircuitQueryResult {
-  const page: T[] = [];
-  let bytes = 0;
-  for (const item of items.slice(offset)) {
-    const itemBytes = Buffer.byteLength(JSON.stringify(item), "utf8");
-    if (page.length > 0 && bytes + itemBytes > PAGE_BYTE_BUDGET) break;
-    page.push(item);
-    bytes += itemBytes;
-  }
-  const consumed = offset + page.length;
-  const nextCursor = consumed < items.length ? encodeCursor(signature, consumed) : undefined;
+  const { page, hasMore } = pageByByteBudget(items, offset);
+  const nextCursor = hasMore ? encodeCircuitCursor(signature, offset + page.length) : undefined;
   return { by, items: page, ...(nextCursor ? { nextCursor } : {}) } as CircuitQueryResult;
 }

@@ -4,9 +4,12 @@ import {
   type CircuitComponent,
   type CircuitCorrectionOp,
   type CircuitDiagnostic,
+  type CircuitFirmwareDifference,
   type CircuitIrSummary,
   type CircuitNet,
   type CircuitQueryTraceResult,
+  type CircuitRuleConfigStatus,
+  type CircuitRuleResult,
   type CircuitSourceKind,
 } from "@escode/shared/circuit";
 import { ServiceChannels } from "@escode/shared";
@@ -80,6 +83,29 @@ export interface CircuitExportParams extends CircuitIrParams {
 
 export interface CircuitExportResult {
   path: string;
+}
+
+/** `circuit_check` 的参数（§5、§6）：只读检查，不需要 baseRevision；cursor 用于翻页。 */
+export interface CircuitCheckParams extends CircuitIrParams {
+  cursor?: string;
+}
+
+/** 规则检查结果：配置加载状态 + 规则条目；超出响应上限时分页（§6.1 的「结果中报告」就是 config）。 */
+export interface CircuitCheckResult {
+  config: CircuitRuleConfigStatus;
+  items: CircuitRuleResult[];
+  nextCursor?: string;
+}
+
+/** `circuit_compare_firmware` 的参数（§5、§7）：files 是 workspace 相对路径列表。 */
+export interface CircuitFirmwareCompareParams extends CircuitIrParams {
+  files: string[];
+  cursor?: string;
+}
+
+export interface CircuitFirmwareCompareResult {
+  items: CircuitFirmwareDifference[];
+  nextCursor?: string;
 }
 
 /**
@@ -190,6 +216,16 @@ export interface ICircuitService {
   /** 渲染几何；网表/BOM 这类没有几何的来源返回 undefined（面板显示语义视图）。 */
   getLayout(params: CircuitIrParams): Promise<CircuitLayout | undefined>;
   query(params: CircuitQueryParams): Promise<CircuitQueryResult>;
+  /**
+   * 内置规则检查（§6）：读 workspace 下 `.escode/circuit-rules.json`（只读，配置不合法整份忽略并报告），
+   * 对 IR 跑六条确定性规则；条目涉及低置信度元素时 `lowConfidence=true`。
+   */
+  check(params: CircuitCheckParams): Promise<CircuitCheckResult>;
+  /**
+   * 固件比对（§7）：服务端确定性解析 devicetree / `.ioc` / C 头文件引脚宏，与 IR 的 MCU 引脚比对，
+   * 输出四类差异；`file` 是 workspace 相对路径，`line` 尽量给出固件声明行号。
+   */
+  compareFirmware(params: CircuitFirmwareCompareParams): Promise<CircuitFirmwareCompareResult>;
   /**
    * 应用修正。baseRevision 与当前 revision 不一致时抛 `stale_revision`（调用方重读后重试）；
    * 不覆盖、不合并（§3.3）。新元素 id 由服务端生成。

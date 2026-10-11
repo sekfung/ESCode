@@ -90,6 +90,49 @@ gerber、钻孔文件、BOM/CPL、PDF、图片、缓存文件（`*-cache.lib`、
 上游只包含 KiCad 5 legacy 格式（`EESchema Schematic File`）或 Altium/其它格式的板子也未收录。
 单文件均小于 1 MB（最大 551088 字节），单块板设计文件总量 0.14–0.71 MiB（141553–742968 字节）。
 
+## 手工构造的 fixture（本仓库原创）
+
+`rules/` 与 `firmware/` 下的文件是**本仓库自己手写**的最小样例，没有从任何第三方项目复制，
+不涉及第三方许可证；上面 3 块开源板子保持上游字节原样，未做任何改动。
+
+### `rules/`：内置规则的命中 / 不命中（§10.1）
+
+每条内置规则一对：`rules/<ruleId>/hit.kicad_sch`（应当命中）与 `rules/<ruleId>/miss.kicad_sch`
+（不应命中）。全部是 1–3 个器件的最小原理图，只保留该规则需要的结构：
+
+| fixture              | 命中（hit）                                                       | 不命中（miss）                             |
+| -------------------- | ----------------------------------------------------------------- | ------------------------------------------ |
+| `unconnected-pin`    | R1.2 什么都没接（未命名的单引脚网络）                             | R1、R2 的四个引脚两两成网                  |
+| `single-pin-net`     | SENSE / RET 两个单引脚网络                                        | A、B 两个网络各有两个引脚                  |
+| `undriven-power`     | +3V3 上只有 U1.VDD 与 C1（没有驱动源）                            | 同一网络上有 U2.VOUT（LoadSwitch 输出）    |
+| `i2c-missing-pullup` | I2C1_SDA / I2C1_SCL 都没有上拉电阻                                | 两个网络各有 4k7 上拉到 +3V3               |
+| `missing-decoupling` | U2.VDD 的 +3V3 上没有接地的电容                                   | +3V3 与 GND 之间有 C1                      |
+| `net-name-conflict`  | 同一子图纸实例化两次，两处 local 标签 CLK 各自成网（同名不连通）  | 子图纸只实例化一次                         |
+
+`net-name-conflict` 是唯一带子图纸的一对（`{hit,miss}-child.kicad_sch`）：同名网络的「没有连通」
+只会在同一子图纸的多个实例上出现，其余 fixture 都是单页。
+
+### `firmware/`：固件比对样例（§10.1）
+
+- `schematic.kicad_sch`：手写的 STM32 最小系统，U1 的引脚名为 `PA2` / `PA3` / `PA4` / `PA9` / `PB6` / `PB7`
+  （**故意没有 PB8**），各自接一个具名网络；VDD / VSS 接 +3V3 / GND。
+- `board.dts`：devicetree 片段，`led0`→PB6、`led1`→PA9、`uart2.tx-gpios`→PA2、`i2c1.sda-gpios`→PB7、
+  `i2c1.scl-gpios`→PB8。
+- `board.ioc`：STM32CubeMX 片段，PA2 / PA3 / PB6 用 `.GPIO_Label` 给出信号名，PB7 用 `.Signal=I2C1_SDA`，
+  PB8 是没写标签的通用 GPIO（解析时应跳过）。
+- `board_pins.h`：CubeMX 风格的 `_PIN` + `_GPIO_Port` / `_PORT` 宏（含一个 `LL_GPIO_PIN_8`）。
+
+三份固件样例**故意埋了 4 处引脚不一致**（与 `schematic.kicad_sch` 对照）：
+
+1. `led1` 声明在 PA9，原理图上 PA9 接的是 LED2 → `pin-mismatch`；
+2. `I2C1_SCL` 声明在 PB8，原理图上没有 PB8 → `firmware-only`；
+3. 原理图上的 PA4（UART2_CTS）在固件里没有声明 → `schematic-only`；
+4. `I2C1_SDA` 在 `board.dts` 是 PB7、在 `board_pins.h` 是 PB8 → `peripheral-conflict`（并各带出
+   一条 `firmware-only`）。
+
+断言见 `packages/services/test/circuit/circuitFirmware.test.ts`；断言里的行号以这些文件当前内容为准，
+改动 fixture 时要同步更新。
+
 ## 已排除的候选（许可证核实记录）
 
 以下项目曾作为候选，实际下载并核对 LICENSE 原文后排除，记录备查：

@@ -18,11 +18,17 @@ import {
 
 const fixturesDir = fileURLToPath(new URL("../fixtures/circuit/", import.meta.url));
 
+/**
+ * 只枚举完整的 vendored 工程（目录里有 `.kicad_pro` 的那个 3 块开源板子）。
+ * `rules/` 与 `firmware/` 是本仓库手写的最小片段（见该目录 README），不是完整板子，不在这里跑。
+ */
 async function listBoardFiles(): Promise<string[]> {
   const files: string[] = [];
   for (const board of await readdir(fixturesDir, { withFileTypes: true })) {
     if (!board.isDirectory()) continue;
-    for (const entry of await readdir(join(fixturesDir, board.name)))
+    const entries = await readdir(join(fixturesDir, board.name));
+    if (!entries.some((name) => name.endsWith(".kicad_pro"))) continue;
+    for (const entry of entries)
       if (/\.kicad_(?:sch|pcb)$/u.test(entry)) files.push(`${board.name}/${entry}`);
   }
   return files.sort();

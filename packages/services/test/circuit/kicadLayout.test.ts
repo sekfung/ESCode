@@ -344,7 +344,13 @@ const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/circuit/", import.meta.u
 function boardNames(): string[] {
   if (!existsSync(FIXTURE_ROOT)) return [];
   return readdirSync(FIXTURE_ROOT, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    // 只跑完整的 vendored 工程（目录里有 .kicad_pro）；rules/ 与 firmware/ 是本仓库手写的最小片段，
+    // 不是完整板子，不参与「真实板子：坐标变换」回归（见该目录 README）。
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        readdirSync(join(FIXTURE_ROOT, entry.name)).some((name) => name.endsWith(".kicad_pro")),
+    )
     .map((entry) => entry.name)
     .sort();
 }

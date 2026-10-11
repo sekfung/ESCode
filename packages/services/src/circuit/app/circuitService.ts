@@ -1,11 +1,15 @@
 import { Emitter } from "@escode/rpc";
 import type {
   CircuitChangedEvent,
+  CircuitCheckParams,
+  CircuitCheckResult,
   CircuitCorrectParams,
   CircuitCorrectionListEntry,
   CircuitExportParams,
   CircuitExportResult,
   CircuitFindBySourceParams,
+  CircuitFirmwareCompareParams,
+  CircuitFirmwareCompareResult,
   CircuitIrParams,
   CircuitIrView,
   CircuitLayout,
@@ -20,6 +24,8 @@ import { CircuitServiceError } from "../domain/circuitErrors.js";
 import { assembleCircuitIr, revalidateCircuitIr } from "../domain/irBuild.js";
 import { circuitIrViewOf } from "./irView.js";
 import { runCircuitQuery } from "./circuitQuery.js";
+import { runCircuitCheck } from "./circuitCheck.js";
+import { runCircuitFirmwareCompare } from "./circuitFirmwareCompare.js";
 import { writeCircuitSnapshot } from "./circuitExport.js";
 import { CircuitWriteQueue } from "./circuitWriteQueue.js";
 import {
@@ -29,16 +35,15 @@ import {
   type CircuitLocation,
 } from "./circuitLocation.js";
 import { detectCircuitSourceKind, extractCircuitSource } from "./sourceExtraction.js";
+import {
+  dropOrphanedCorrection,
+  requireCircuitRevision,
+} from "./correctionMaintenance.js";
 import type { CircuitServicePorts, CircuitSourceWatch, StoredCircuit } from "./ports.js";
 
 /**
  * CircuitService：Circuit IR 的唯一所有者（ADR 0005）。
- *
- * 写入路径与事件顺序（§3.3、§3.4）：
- *   write{irId, baseRevision} → baseRevision 落后就拒绝 stale_revision → 校验 ops → 应用 → revision++ →
- *   异步持久化完成 → emit circuit.changed{irId, revision, stale}。
- * 同一 sourcePath 的写入按队列串行；事件一定在持久化之后发出，因此事件里的 revision 一定可读。
- * 源文件变化只翻转 stale（revision 不变）；重新解析才 +1，并按键值重新套用修正、套不上的标 orphaned。
+ * 写入路径与事件顺序（§3.3、§3.4）、规则检查与固件比对的只读边界，都见 CONTRACT.md。
  */
 
 const log = createServiceLogger("circuit");
@@ -101,17 +106,25 @@ class CircuitServiceImpl implements CircuitService {
     return runCircuitQuery((await this.recordFor(params)).ir, params);
   }
 
+  check(params: CircuitCheckParams): Promise<CircuitCheckResult> {
+    return runCircuitCheck(params, this.options.ports.source, async () => (await this.recordFor(params)).ir);
+  }
+
+  compareFirmware(params: CircuitFirmwareCompareParams): Promise<CircuitFirmwareCompareResult> {
+    return runCircuitFirmwareCompare(
+      params,
+      this.options.ports.source,
+      async () => (await this.recordFor(params)).ir,
+    );
+  }
+
   async correct(params: CircuitCorrectParams): Promise<CircuitIrView> {
     const location = await this.locationFor(params);
     return this.writes.run(keyOf(location), async () => {
       const state = await this.stateFor(location);
       if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
       const record = state.record;
-      if (params.baseRevision !== record.ir.revision)
-        throw new CircuitServiceError(
-          "stale_revision",
-          `当前 revision 为 ${record.ir.revision}，收到 baseRevision ${params.baseRevision}；请重读后再写入`,
-        );
+      requireCircuitRevision(record, params.baseRevision);
       const { ir: corrected, applied } = applyCircuitCorrections(
         record.ir,
         params.ops,
@@ -175,21 +188,10 @@ class CircuitServiceImpl implements CircuitService {
       const state = await this.stateFor(location);
       if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
       const record = state.record;
-      if (params.baseRevision !== record.ir.revision)
-        throw new CircuitServiceError(
-          "stale_revision",
-          `当前 revision 为 ${record.ir.revision}，收到 baseRevision ${params.baseRevision}`,
-        );
-      const entry = record.corrections[params.index];
-      if (!entry) throw new CircuitServiceError("invalid_ir", `修正记录下标 ${params.index} 不存在`);
-      if (!entry.orphaned)
-        throw new CircuitServiceError("invalid_ir", "只能删除已失效（orphaned）的修正记录");
-      const next: StoredCircuit = {
-        ...record,
-        corrections: record.corrections.filter((_, index) => index !== params.index),
-      };
+      requireCircuitRevision(record, params.baseRevision);
+      const next = dropOrphanedCorrection(record, params.index);
       await this.persist(state, next);
-      log.info("circuit drop orphaned correction", { irId: record.irId, index: params.index });
+      log.info("circuit drop orphaned correction", { irId: next.irId, index: params.index });
       return circuitIrViewOf(next.ir);
     });
   }

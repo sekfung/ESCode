@@ -1,0 +1,36 @@
+/dts-v1/;
+
+/*
+ * ESCode G3 手工固件样例（本仓库原创，无第三方许可问题，见 fixtures/circuit/README.md）。
+ * 与同目录的 schematic.kicad_sch 对照，故意埋了引脚不一致：
+ *   - led1 声明在 PA9，原理图上 PA9 接的是 LED2；
+ *   - i2c1 的 scl-gpios 声明在 PB8，原理图上没有 PB8。
+ */
+/ {
+	model = "escode-g3-demo";
+	compatible = "escode,g3-demo";
+
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led_0 {
+			gpios = <&gpiob 6 GPIO_ACTIVE_HIGH>;
+		};
+
+		led1: led_1 {
+			gpios = <&gpioa 9 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&uart2 {
+	status = "okay";
+	tx-gpios = <&gpioa 2 GPIO_ACTIVE_HIGH>;
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+	sda-gpios = <&gpiob 7 (GPIO_OPEN_DRAIN | GPIO_PULL_UP)>;
+	scl-gpios = <&gpiob 8 (GPIO_OPEN_DRAIN | GPIO_PULL_UP)>;
+};
