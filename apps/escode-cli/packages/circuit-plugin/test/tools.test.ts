@@ -35,7 +35,7 @@ const okSend =
   async () => ({ ok: true, result });
 
 describe("circuit-plugin 工具清单", () => {
-  it("注册已接入的七个工具，未注册的 G6 工具不出现", () => {
+  it("注册 §5 的全部八个工具", () => {
     const names = CIRCUIT_TOOLS.map((tool) => tool.name).sort();
     expect(names).toEqual([
       "circuit_check",
@@ -45,8 +45,9 @@ describe("circuit-plugin 工具清单", () => {
       "circuit_get",
       "circuit_parse",
       "circuit_query",
+      "circuit_submit_recognition",
     ]);
-    expect(names).not.toContain(CIRCUIT_TOOL_NAMES.submitRecognition);
+    expect(names).toContain(CIRCUIT_TOOL_NAMES.submitRecognition);
   });
 
   it("annotations 区分只读与写类工具，inputSchema 可由工具 schema 生成", () => {
@@ -55,9 +56,21 @@ describe("circuit-plugin 工具清单", () => {
       expect(byName.get(name)?.annotations?.readOnlyHint).toBe(true);
     for (const name of ["circuit_correct", "circuit_export"])
       expect(byName.get(name)?.annotations?.destructiveHint).toBe(true);
-    // parse 只重建 IR，不改用户文件：非只读、也非破坏性。
+    // parse 与 submit_recognition 只重建 IR，不改用户文件：非只读、也非破坏性（§5 需要批准：否）。
     expect(byName.get("circuit_parse")?.annotations).toEqual({ title: "circuit_parse" });
+    expect(byName.get("circuit_submit_recognition")?.annotations).toEqual({
+      title: "circuit_submit_recognition",
+    });
     for (const tool of CIRCUIT_TOOLS) expect(tool.inputSchema.type).toBe("object");
+    // submit_recognition 的请求 schema 带 path + 草稿（可选 baseRevision）。
+    expect(byName.get("circuit_submit_recognition")?.inputSchema).toMatchObject({
+      properties: {
+        path: expect.anything(),
+        draft: expect.anything(),
+        baseRevision: expect.anything(),
+      },
+      required: expect.arrayContaining(["path", "draft"]),
+    });
     // export 的请求 schema 带 irId + workspace 相对路径。
     expect(byName.get("circuit_export")?.inputSchema).toMatchObject({
       properties: { irId: expect.anything(), path: expect.anything() },
@@ -215,8 +228,46 @@ describe("circuit-plugin 分页与错误码", () => {
     });
     expect(unauthenticated.content[0]!.text).toMatch(/^\[unavailable\]/u);
 
-    const unknown = await call(CIRCUIT_TOOL_NAMES.submitRecognition, { path: "board.pdf" }, send);
+    const unknown = await call("circuit_unknown", { path: "board.pdf" }, send);
     expect(unknown.content[0]!.text).toMatch(/^\[invalidInput\] Unknown tool/u);
+  });
+
+  it("submit_recognition 的调用带 op 与会话上下文，草稿在插件层就做严格校验", async () => {
+    const sent: Array<{ op: string; args: unknown }> = [];
+    const send: CircuitBrokerSend = async (request) => {
+      sent.push({ op: request.op, args: request.args });
+      return { ok: true, result: { ok: true, summary } };
+    };
+    const draft = {
+      components: [{ id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition" } }],
+      nets: [],
+    };
+    const result = await call(
+      "circuit_submit_recognition",
+      { path: "board.pdf", draft, baseRevision: 2 },
+      send,
+    );
+    expect(sent).toEqual([
+      { op: "submitRecognition", args: { path: "board.pdf", draft, baseRevision: 2 } },
+    ]);
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0]!.text)).toEqual({ ok: true, summary });
+
+    // 草稿里带 confidence 由 shared 的请求 schema 拒绝（Agent 不能自己给置信度，§2 规则 2）。
+    const withConfidence = await call(
+      "circuit_submit_recognition",
+      {
+        path: "board.pdf",
+        draft: {
+          components: [
+            { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition", confidence: 1 } },
+          ],
+          nets: [],
+        },
+      },
+      send,
+    );
+    expect(withConfidence.content[0]!.text).toMatch(/^\[invalidInput\]/u);
   });
 
   it("分析工具：分页游标与失败信封同样透传，参数在插件层严格校验", async () => {

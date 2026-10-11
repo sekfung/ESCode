@@ -11,6 +11,9 @@ const SERVER_INSTRUCTIONS =
   "Call circuit_parse first (then circuit_get) before answering anything about a schematic or PCB, " +
   "and use circuit_query for details instead of guessing. Cite reference designators (R1, U3) and net names " +
   "when you explain or conclude anything, and say which conclusions depend on low-confidence elements. " +
+  "For an image or PDF there is no deterministic parse: read the drawing, tell the user what you are about to send, " +
+  "then submit the draft with circuit_submit_recognition — it assigns element ids and confidence, and for vector PDFs " +
+  "it re-derives the confidence from the PDF's own text and line segments. " +
   "circuit_check and circuit_compare_firmware are read-only: report their deterministic findings separately " +
   "from your own suggestions, and pass nextCursor back as cursor when a result is paged. " +
   "circuit_correct changes the IR the user sees in the circuit panel; circuit_export needs the user's approval. " +

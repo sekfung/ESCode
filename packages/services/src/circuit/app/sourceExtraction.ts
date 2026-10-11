@@ -29,6 +29,23 @@ export function detectCircuitSourceKind(path: string): CircuitSourceKind {
   );
 }
 
+/** 识别来源的扩展名（§5 circuit_submit_recognition 只接受 PDF 与图片）。 */
+const RECOGNITION_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"] as const;
+
+/**
+ * 识别来源分派（§5）：`.pdf` 走矢量提取（页内只有位图时按 image 处理），
+ * 常见图片扩展名按 image；其余（例如 `.kicad_sch`）报 `unsupported_format`，确定性解析走 `circuit_parse`。
+ */
+export function detectRecognitionSourceKind(path: string): "pdf_vector" | "image" {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".pdf")) return "pdf_vector";
+  if (RECOGNITION_IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "image";
+  throw new CircuitServiceError(
+    "unsupported_format",
+    `circuit_submit_recognition 只支持 PDF 与图片（${RECOGNITION_IMAGE_EXTENSIONS.join(" / ")}）：${path}`,
+  );
+}
+
 export async function extractCircuitSource(params: {
   kind: CircuitSourceKind;
   text: string;

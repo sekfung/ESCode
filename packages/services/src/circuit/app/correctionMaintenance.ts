@@ -12,6 +12,24 @@ export function requireCircuitRevision(record: StoredCircuit, baseRevision: numb
   );
 }
 
+/**
+ * 重新解析 / 重新识别已有 IR 的前置条件（§3.4、§5）：必须带当前 revision，落后就拒绝。
+ * 没带 baseRevision 时报 `invalid_ir`（调用方应先 get / findBySource 读到当前 revision）；
+ * `parse` 与 `submitRecognition` 共用这一段判定，避免两条链路出现不同口径。
+ */
+export function requireReparseRevision(
+  record: StoredCircuit,
+  baseRevision: number | undefined,
+): number {
+  if (baseRevision === undefined)
+    throw new CircuitServiceError(
+      "invalid_ir",
+      "该源文件已有 IR，重新解析 / 重新识别需要 baseRevision（先读再改）",
+    );
+  requireCircuitRevision(record, baseRevision);
+  return baseRevision;
+}
+
 /** 删除一条 orphaned 修正记录；未失效的记录不允许删除（会与 IR 状态不一致）。 */
 export function dropOrphanedCorrection(record: StoredCircuit, index: number): StoredCircuit {
   const entry = record.corrections[index];

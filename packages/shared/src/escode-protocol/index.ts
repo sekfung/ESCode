@@ -4231,6 +4231,7 @@ export const escodeProtocolMethods = {
   interactionSerialCancel: escodeSerialCancelMethod,
   // Agent 电路工具：agent broker 转发 MCP circuit 工具调用，host 交给持有 CircuitService 的 Host（§5）。
   interactionCircuitParse: escodeCircuitMethods.parse,
+  interactionCircuitSubmitRecognition: escodeCircuitMethods.submitRecognition,
   interactionCircuitGet: escodeCircuitMethods.get,
   interactionCircuitQuery: escodeCircuitMethods.query,
   interactionCircuitCorrect: escodeCircuitMethods.correct,
@@ -4365,6 +4366,10 @@ export const escodeProtocolSessionMethodContracts = {
   [escodeProtocolMethods.interactionCircuitParse]: {
     params: escodeCircuitMethodParamsSchemas.parse,
     result: circuitToolResponseSchemas.parse,
+  },
+  [escodeProtocolMethods.interactionCircuitSubmitRecognition]: {
+    params: escodeCircuitMethodParamsSchemas.submitRecognition,
+    result: circuitToolResponseSchemas.submitRecognition,
   },
   [escodeProtocolMethods.interactionCircuitGet]: {
     params: escodeCircuitMethodParamsSchemas.get,

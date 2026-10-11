@@ -16,36 +16,39 @@ import type {
   CircuitParseParams,
   CircuitQueryParams,
   CircuitQueryResult,
+  CircuitSubmitRecognitionParams,
   ICircuitService,
 } from "../contract.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";
-import { applyCircuitCorrections, reapplyCircuitCorrections } from "../domain/circuitCorrections.js";
+import { applyCircuitCorrections } from "../domain/circuitCorrections.js";
 import { CircuitServiceError } from "../domain/circuitErrors.js";
-import { assembleCircuitIr, revalidateCircuitIr } from "../domain/irBuild.js";
+import { revalidateCircuitIr } from "../domain/irBuild.js";
 import { circuitIrViewOf } from "./irView.js";
 import { runCircuitQuery } from "./circuitQuery.js";
 import { runCircuitCheck } from "./circuitCheck.js";
 import { runCircuitFirmwareCompare } from "./circuitFirmwareCompare.js";
 import { writeCircuitSnapshot } from "./circuitExport.js";
+import { planCircuitParse } from "./circuitParse.js";
+import { planCircuitRecognition } from "./circuitRecognition.js";
 import { CircuitWriteQueue } from "./circuitWriteQueue.js";
 import {
-  circuitIrIdOf,
   circuitLocationKey as keyOf,
   circuitLocationOf as locationOf,
+  indexCircuitIrId,
   type CircuitLocation,
 } from "./circuitLocation.js";
-import { detectCircuitSourceKind, extractCircuitSource } from "./sourceExtraction.js";
+import { watchCircuitSourceFiles } from "./sourceWatching.js";
 import {
   dropOrphanedCorrection,
   requireCircuitRevision,
+  requireReparseRevision,
 } from "./correctionMaintenance.js";
 import type { CircuitServicePorts, CircuitSourceWatch, StoredCircuit } from "./ports.js";
 
 /**
- * CircuitService：Circuit IR 的唯一所有者（ADR 0005）。
- * 写入路径与事件顺序（§3.3、§3.4）、规则检查与固件比对的只读边界，都见 CONTRACT.md。
+ * CircuitService：Circuit IR 的唯一所有者（ADR 0005）。写入路径与事件顺序（§3.3、§3.4）、
+ * 规则检查 / 固件比对 / 识别的只读与写入边界，都见 CONTRACT.md。
  */
-
 const log = createServiceLogger("circuit");
 
 export interface CreateCircuitServiceOptions {
@@ -80,6 +83,32 @@ class CircuitServiceImpl implements CircuitService {
   async parse(params: CircuitParseParams): Promise<CircuitIrView> {
     const location = locationOf(params);
     return this.writes.run(keyOf(location), () => this.parseInternal(location, params));
+  }
+
+  /**
+   * 提交识别结果（§5）：与 parse 同一条写入路径与事件顺序——
+   * 校验/重映射在 planCircuitRecognition 里完成，持久化（store 写入 + 源文件监听）走 commit，
+   * 事件在持久化之后发出（§3.3）。
+   */
+  async submitRecognition(params: CircuitSubmitRecognitionParams): Promise<CircuitIrView> {
+    const location = locationOf(params);
+    return this.writes.run(keyOf(location), async () => {
+      const state = await this.stateFor(location);
+      const plan = await planCircuitRecognition({
+        location,
+        params,
+        ...(state ? { stored: state.record } : {}),
+        source: this.options.ports.source,
+        vector: this.options.ports.vector,
+      });
+      const committed = await this.commit(state, location, plan.record, [location.sourcePath]);
+      this.changed.fire({
+        irId: committed.record.irId,
+        revision: committed.record.ir.revision,
+        stale: false,
+      });
+      return circuitIrViewOf(committed.record.ir);
+    });
   }
 
   async findBySource(
@@ -211,56 +240,19 @@ class CircuitServiceImpl implements CircuitService {
     const started = Date.now();
     const state = await this.stateFor(location);
     const stored = state?.record;
-    if (stored) {
-      if (params.baseRevision === undefined)
-        throw new CircuitServiceError(
-          "invalid_ir",
-          "该源文件已有 IR，重新解析需要 baseRevision（先读再改）",
-        );
-      if (params.baseRevision !== stored.ir.revision)
-        throw new CircuitServiceError(
-          "stale_revision",
-          `当前 revision 为 ${stored.ir.revision}，收到 baseRevision ${params.baseRevision}`,
-        );
-    }
-    const kind = detectCircuitSourceKind(location.sourcePath);
-    const text = await this.options.ports.source.readText({
-      workspacePath: location.workspacePath,
-      relativePath: location.sourcePath,
-    });
-    const contentHash = this.options.ports.source.hashContent(text);
-    const irId = stored?.ir.irId ?? circuitIrIdOf(location, this.options.ports.source.hashContent);
-    const revision = (stored?.ir.revision ?? 0) + 1;
-    const sourceFiles = new Set<string>([location.sourcePath]);
-    const { elements, layout } = await extractCircuitSource({
-      kind,
-      text,
-      workspacePath: location.workspacePath,
-      sourcePath: location.sourcePath,
-      irId,
-      revision,
+    if (stored) requireReparseRevision(stored, params.baseRevision);
+    const plan = await planCircuitParse({
+      location,
+      params,
+      ...(stored ? { stored } : {}),
       source: this.options.ports.source,
-      sourceFiles,
     });
-    const parsed = assembleCircuitIr({
-      irId,
-      revision,
-      source: { kind, path: location.sourcePath, contentHash },
-      stale: false,
-      elements,
-    });
-    const reapplied = reapplyCircuitCorrections(parsed, stored?.corrections ?? []);
-    const record: StoredCircuit = {
-      irId,
-      ir: reapplied.ir,
-      ...(layout ? { layout: { ...layout, revision } } : {}),
-      corrections: reapplied.records,
-    };
-    await this.commit(state, location, record, [...sourceFiles]);
+    const committed = await this.commit(state, location, plan.record, plan.sourceFiles);
+    const record = committed.record;
     log.info("circuit parse", {
-      irId,
-      kind,
-      revision,
+      irId: record.irId,
+      kind: record.ir.source.kind,
+      revision: record.ir.revision,
       components: record.ir.components.length,
       nets: record.ir.nets.length,
       diagnostics: record.ir.diagnostics.length,
@@ -268,7 +260,7 @@ class CircuitServiceImpl implements CircuitService {
       ms: Date.now() - started,
     });
     // 持久化完成之后才发事件（§3.3）。
-    this.changed.fire({ irId, revision, stale: false });
+    this.changed.fire({ irId: record.irId, revision: record.ir.revision, stale: false });
     return circuitIrViewOf(record.ir);
   }
 
@@ -285,61 +277,41 @@ class CircuitServiceImpl implements CircuitService {
     });
   }
 
-  private async persist(state: CircuitState, record: StoredCircuit): Promise<void> {
+  /** store 写入只有这一处（§3.2）：持久化先于内存与事件，任何写入路径都经这里。 */
+  private async writeStore(location: CircuitLocation, record: StoredCircuit): Promise<void> {
     await this.options.ports.store.write({
-      identityKey: state.location.identityKey,
-      sourcePath: state.location.sourcePath,
+      identityKey: location.identityKey,
+      sourcePath: location.sourcePath,
       record,
     });
-    this.stateByKey.set(keyOf(state.location), { ...state, record });
-    this.keyByIrId.set(record.irId, keyOf(state.location));
   }
 
-  /** 首次解析：持久化 → 更新内存 → 监听这次真正读到的源文件（含子图纸）。 */
+  private async persist(state: CircuitState, record: StoredCircuit): Promise<void> {
+    await this.writeStore(state.location, record);
+    this.stateByKey.set(keyOf(state.location), { ...state, record });
+    indexCircuitIrId(this.keyByIrId, state.location, record.irId, state.record.irId);
+  }
+
+  /** 首次解析 / 首次识别：持久化 → 更新内存 → 监听这次真正读到的源文件（含子图纸）。 */
   private async commit(
     state: CircuitState | undefined,
     location: CircuitLocation,
     record: StoredCircuit,
     sourceFiles: string[],
   ): Promise<CircuitState> {
-    await this.options.ports.store.write({
-      identityKey: location.identityKey,
-      sourcePath: location.sourcePath,
-      record,
-    });
+    await this.writeStore(location, record);
     for (const watch of state?.watches ?? []) watch.dispose();
-    const watches = await this.watchSourceFiles(location, record, sourceFiles);
+    const watches = await watchCircuitSourceFiles({
+      watcher: this.options.ports.watcher,
+      location,
+      irId: record.irId,
+      sourceFiles,
+      onChange: () => void this.markStale(location),
+    });
     const committed: CircuitState = { location, record, watches };
     this.stateByKey.set(keyOf(location), committed);
-    this.keyByIrId.set(record.irId, keyOf(location));
+    indexCircuitIrId(this.keyByIrId, location, record.irId, state?.record.irId);
     return committed;
-  }
-
-  private async watchSourceFiles(
-    location: CircuitLocation,
-    record: StoredCircuit,
-    sourceFiles: string[],
-  ): Promise<CircuitSourceWatch[]> {
-    const watches: CircuitSourceWatch[] = [];
-    for (const relativePath of sourceFiles) {
-      try {
-        watches.push(
-          await this.options.ports.watcher.watch({
-            workspacePath: location.workspacePath,
-            relativePath,
-            onChange: () => void this.markStale(location),
-          }),
-        );
-      } catch (error) {
-        // 监听失败不阻塞解析：IR 仍可用，只是不会自动标 stale。
-        log.warn("circuit source watch failed", {
-          irId: record.irId,
-          path: relativePath,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-    return watches;
   }
 
   private async stateFor(

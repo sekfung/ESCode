@@ -12,6 +12,7 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 1. **`circuit_parse`** with the workspace-relative `path` of the source file (`.kicad_sch`, `.kicad_pcb`, netlist, BOM). It returns `irId`, `revision` and a summary (component/net/block counts, diagnostics).
    - Re-parsing a file that already has an IR **must** pass the current `baseRevision`.
    - `stale: true` means the source file changed on disk: re-parse with `baseRevision` before trusting the IR.
+   - For an image or PDF use **`circuit_submit_recognition`** instead — see "Input that is not text" below; it returns the same kind of summary.
 2. **`circuit_get`** with `irId` to read the summary, the diagnostics list and how many elements are low-confidence. Do this before explaining anything.
 3. **`circuit_query`** as needed:
    - `by: "ref"` → one component (pins, footprint, part number, the net of each pin).
@@ -48,8 +49,19 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 
 ## Input that is not text
 
-- Vector PDFs and screenshots cannot be parsed by `circuit_parse`. Recognition from images is a separate capability and may not be available in this build — if the tools do not offer it, tell the user instead of guessing element values.
-- Before sending any image or PDF content to a model for recognition, tell the user what will be sent and why.
+Screenshots and PDFs have no deterministic parse — **you** read the drawing and submit the result as a recognition draft. The Host stays the judge: it validates the draft, assigns the final element ids and derives every confidence value (§2 rules 2–4).
+
+1. **Tell the user before any image or PDF goes to a model** (§2 rule 7): say which file you are about to read or send (path, and that its contents will be sent to the configured model), and why — before you do it, not after. Never send a schematic image to a model silently.
+2. **A vector PDF first goes to the Host, not to your eyes**: call `circuit_submit_recognition` with the draft you can already derive, and check the returned summary. The Host extracts the PDF's own text items and line segments and marks every element whose `ref` or net name it finds there as `parser` with confidence 1 — those elements need no model interpretation at all. Only fill in what the text/segment extraction cannot give you, and prefer reading the PDF yourself over the screenshot when both exist.
+3. **Submit the draft (no confidence)** with `circuit_submit_recognition`:
+   - `path` is the workspace-relative image/PDF; `draft.components[]` carry `id` (draft-local), `ref`, optional `value`/`partNumber`/`footprint`, `pins[]` and `origin: { by: "recognition", region }`.
+   - Put the box you read the element from into `origin.region` (`{ x, y, w, h }`, optionally `page`) — the panel overlays it on the original image. Origin is the top-left corner of the rendered page; coordinates are pixels for an image and PDF points for a PDF.
+   - Element ids are draft-local: reference components by their draft id in `nets[].pinRefs[].componentId` and `blocks[].componentIds`. **Never** put `confidence` anywhere — it is rejected, and you cannot set a confidence of 1.
+   - Re-submitting the same file content needs the current `baseRevision` (read it with `circuit_get` first); if the file changed, the submission becomes a new IR and previous corrections are not migrated.
+   - The response is a summary: `revision`, element counts, diagnostics and `lowConfidenceCount`.
+4. **Say what is uncertain.** After submitting, read the IR back with `circuit_get` and tell the user which elements are low-confidence (anything below 0.7 after the Host's scoring, e.g. a single-pin net, a pin count that contradicts the footprint, a duplicate reference designator, or a net referencing a component you did not list) and which diagnostics were raised. Never present a recognition result as a deterministic parse, and do not silently "fix" a low-confidence value — propose a `circuit_correct` instead.
+
+If a tool answers `unsupported_format` for a `.kicad_sch`/`.kicad_pcb`/netlist/BOM file, use `circuit_parse` instead: those have a deterministic parser and must never be hand-recognised.
 
 ## When tools answer `unavailable`
 

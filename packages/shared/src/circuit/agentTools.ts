@@ -14,11 +14,12 @@ export const CIRCUIT_BROKER_SOCKET_ENV = "ESCODE_CIRCUIT_BROKER_SOCKET";
 export const CIRCUIT_BROKER_TOKEN_ENV = "ESCODE_CIRCUIT_BROKER_TOKEN";
 
 /**
- * 注册到 Agent 的工具子集（G4 + G3 的分析工具）。`circuit_submit_recognition`（G6）尚未注册，
- * 也不在这里列名：它合入时再补 op、反向方法与插件工具，避免出现没有实现方的协议分支。
+ * 注册到 Agent 的八个工具：§5 的读/写工具（G4）+ 只读分析工具（G3）+ 识别提交（G6）。
+ * 每个 op 都在 Host 侧有真实实现（circuitAgentBridge 的 handler），不列没有实现方的分支。
  */
 export const CIRCUIT_AGENT_TOOL_OPS = [
   "parse",
+  "submitRecognition",
   "get",
   "query",
   "correct",
@@ -41,6 +42,12 @@ const brokerRequestBase = z.object({
 export const circuitBrokerRequestSchema = z.discriminatedUnion("op", [
   brokerRequestBase
     .extend({ op: z.literal("parse"), args: circuitToolRequestSchemas.parse })
+    .strict(),
+  brokerRequestBase
+    .extend({
+      op: z.literal("submitRecognition"),
+      args: circuitToolRequestSchemas.submitRecognition,
+    })
     .strict(),
   brokerRequestBase.extend({ op: z.literal("get"), args: circuitToolRequestSchemas.get }).strict(),
   brokerRequestBase
@@ -78,6 +85,7 @@ export type CircuitBrokerResponse = z.infer<typeof circuitBrokerResponseSchema>;
 
 export const escodeCircuitMethods = {
   parse: "interaction/circuitParse",
+  submitRecognition: "interaction/circuitSubmitRecognition",
   get: "interaction/circuitGet",
   query: "interaction/circuitQuery",
   correct: "interaction/circuitCorrect",
@@ -98,6 +106,9 @@ const protocolParamsBase = z.object({
 
 export const escodeCircuitMethodParamsSchemas = {
   parse: protocolParamsBase.extend({ args: circuitToolRequestSchemas.parse }).strict(),
+  submitRecognition: protocolParamsBase
+    .extend({ args: circuitToolRequestSchemas.submitRecognition })
+    .strict(),
   get: protocolParamsBase.extend({ args: circuitToolRequestSchemas.get }).strict(),
   query: protocolParamsBase.extend({ args: circuitToolRequestSchemas.query }).strict(),
   correct: protocolParamsBase.extend({ args: circuitToolRequestSchemas.correct }).strict(),

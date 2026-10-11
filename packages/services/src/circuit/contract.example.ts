@@ -11,6 +11,7 @@ import type {
   CircuitLayout,
   CircuitParseParams,
   CircuitQueryResult,
+  CircuitSubmitRecognitionParams,
 } from "./contract.js";
 import type { CircuitCorrectionRecord } from "./domain/circuitCorrections.js";
 
@@ -19,6 +20,41 @@ import type { CircuitCorrectionRecord } from "./domain/circuitCorrections.js";
 export const exampleCircuitParseParams: CircuitParseParams = {
   workspacePath: "C:/work/board",
   path: "hardware/board.kicad_sch",
+};
+
+/** 识别草稿的元素 id 只在草稿内互引（§5）；置信度由服务端给，所以这里没有 confidence 字段。 */
+export const exampleCircuitSubmitRecognitionParams: CircuitSubmitRecognitionParams = {
+  workspacePath: "C:/work/board",
+  path: "hardware/board.png",
+  draft: {
+    components: [
+      {
+        id: "draft-u1",
+        ref: "U1",
+        value: "MPU-6050",
+        footprint: "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm",
+        pins: [
+          { number: "1", name: "VDD", netId: "draft-net-vdd" },
+          { number: "2", name: "SDA", netId: "draft-net-sda" },
+        ],
+        origin: { by: "recognition", region: { x: 120, y: 80, w: 90, h: 70 } },
+      },
+    ],
+    nets: [
+      {
+        id: "draft-net-vdd",
+        name: "3V3",
+        pinRefs: [{ componentId: "draft-u1", pin: "1" }],
+        origin: { by: "recognition" },
+      },
+      {
+        id: "draft-net-sda",
+        name: "I2C1_SDA",
+        pinRefs: [{ componentId: "draft-u1", pin: "2" }],
+        origin: { by: "recognition" },
+      },
+    ],
+  },
 };
 
 export const exampleCircuitCorrectParams: CircuitCorrectParams = {
