@@ -147,8 +147,8 @@ test("Desktop storage preparation and Host service use the real native runtime",
     const workspace = { workspacePath: f.cwd };
     assert.equal((await service.initialize(workspace)).available, true);
     assert.deepEqual((await service.readWorkspacePresentation(workspace)).executionCapabilities, {
-      // build/edit 与独立 plan 状态均已实现（plan 审批与 Node 差分一致，见 rust-plan-mode.md）。
-      permissionModes: ["yolo", "build", "edit"],
+      // build/edit/guarded 与独立 plan 状态均已实现（见 rust-plan-mode.md、rust-v3.15.1-drift.md）。
+      permissionModes: ["yolo", "build", "edit", "guarded"],
       independentPlanState: true,
     });
     const envelope = (

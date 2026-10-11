@@ -108,7 +108,7 @@ pub(super) fn commit(
     trusted_id: Option<&str>,
 ) -> Result<Json> {
     let name = loaded.name.as_str();
-    if name == OFFICIAL_MARKETPLACE && Some(name) != trusted_id {
+    if super::plugin_marketplace::is_official_marketplace(name) && Some(name) != trusted_id {
         bail!(
             "Cannot add a marketplace named \"{name}\": that id is reserved for the official marketplace."
         );

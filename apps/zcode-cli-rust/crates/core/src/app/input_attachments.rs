@@ -92,6 +92,13 @@ impl Engine {
     }
     pub(super) fn input_content(&self, id: &str, p: &Value) -> Result<Value> {
         let text = p["text"].as_str().context("Input text missing")?;
+        // v3.15.1 对话引用：只在模型边界转为材料（TS withConversationQuotes），不混入行正文。
+        let quoted = crate::domain::conversation_input::with_conversation_material(
+            text,
+            &p["conversationQuotes"],
+            &p["botGroupSource"],
+        );
+        let text = quoted.as_str();
         let refs = p["attachments"].as_array().filter(|a| !a.is_empty());
         let Some(refs) = refs else {
             return Ok(text.into());

@@ -170,6 +170,10 @@ async function observeBrowser(kind: "node" | "rust") {
     await h.subscribe(`conversation/${id}`);
     await h.command(h.envelope("sendText", id, { text: "list tabs" }));
     await h.completed(id);
+    // v3.15.1：node_repl 用过的 browser 在轮尾收到 turnEnded（异步，等它到达再关闭）。
+    const ended = () =>
+      h.hostRequests.filter((r: any) => r.params?.command?.method === "turnEnded").length;
+    for (let i = 0; i < 100 && ended() < 1; i++) await new Promise((r) => setTimeout(r, 50));
     await h.close();
     const browserRequests = h.hostRequests
       .filter((r: any) => r.method.startsWith("interaction/browser"))
@@ -193,7 +197,7 @@ test("node_repl browser calls go through the runtime broker to the Host the same
   const node = await observeBrowser("node");
   const rust = await observeBrowser("rust");
   assert.match(String(node.toolResult), /iab-1/);
-  // Node 的 app-server 路径实测不发 turnEnded（rust-browser-use.md），两侧请求序列逐项一致。
+  // v3.15.1 起 node_repl 与 runtime 共享连接记忆，两侧都在轮尾发 turnEnded，请求序列逐项一致。
   assert.deepEqual(rust, node);
 });
 

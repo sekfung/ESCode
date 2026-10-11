@@ -201,10 +201,14 @@ impl Engine {
             | "workflows/updateMeta"
             | "workflows/delete"
             | "workflows/move"
-            | "workflows/runs" => {
+            | "workflows/runs"
+            | "workflows/save"
+            | "workflows/forRun" => {
                 let op = request.method.trim_start_matches("workflows/").to_owned();
                 if op == "runs" {
                     self.saved_workflow_runs(&request.params).await
+                } else if op == "save" || op == "forRun" {
+                    self.saved_workflow_from_run(&op, &request.params).await
                 } else {
                     self.saved_workflow_op(&op, &request.params).await
                 }

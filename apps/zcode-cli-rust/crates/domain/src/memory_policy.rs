@@ -269,5 +269,6 @@ pub fn permission_override(
     Decision {
         behavior: Behavior::Allow,
         rule_id: "memory.file.markdown",
+        user_once: false,
     }
 }

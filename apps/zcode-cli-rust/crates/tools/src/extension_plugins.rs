@@ -164,7 +164,7 @@ pub(super) async fn discover(
         let enabled = config["plugins"]["enabledPlugins"][&id]
             .as_bool()
             .unwrap_or(default || defaults.contains(&id));
-        plugins.push(Plugin {
+        let plugin = Plugin {
             id,
             root,
             name,
@@ -173,7 +173,15 @@ pub(super) async fn discover(
             marketplace: market,
             source,
             enabled,
-        });
+        };
+        // TS resolveEnabledComponents：启用插件在发现时解析 MCP，变量缺失的诊断紧随该插件。
+        if enabled {
+            let options = &config["plugins"]["options"][&plugin.id];
+            let data_root = storage.join("data");
+            super::mcp_config::plugin_servers(&plugin, cwd, &data_root, options, &mut diagnostics)
+                .await?;
+        }
+        plugins.push(plugin);
     }
     Ok((plugins, diagnostics))
 }

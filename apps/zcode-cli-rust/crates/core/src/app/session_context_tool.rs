@@ -16,7 +16,14 @@ pub(super) async fn execute(
     sink: &EventSink,
     cancel: &CancellationToken,
 ) -> Result<ToolOutput> {
-    let input = Input::parse(args).map_err(|message| anyhow!(message))?;
+    let mut input = Input::parse(args).map_err(|message| anyhow!(message))?;
+    // 真实话题请求中模型并不知道 session id；当前任务身份来自工具上下文（TS handler 同一处理）。
+    if input.session_id == "current" {
+        input.session_id = sink.session_id.clone();
+    }
+    if input.strategy == "topic" && input.session_id != sink.session_id {
+        bail!("Topic history can only be read from the current session");
+    }
     let (reply, loaded) = oneshot::channel();
     sink.send(Event::SessionContext {
         id: input.session_id.clone(),
@@ -30,6 +37,13 @@ pub(super) async fn execute(
     let output = match loaded {
         Err(error) => failed_output(&input, &format!("{error:#}")),
         Ok(None) => not_found_output(&input),
+        // topic：Rust 会话没有已接纳的机器人话题授权（TS 同样在找不到授权时报错）。
+        Ok(Some(_)) if input.strategy == "topic" && input.attachment.is_some() => {
+            bail!("No admitted topic authorization is available for this input")
+        }
+        Ok(Some(_)) if input.strategy == "topic" => {
+            crate::domain::session_context::topic_archive_output(&input).map_err(|e| anyhow!(e))?
+        }
         Ok(Some((info, messages))) => {
             // TS auxiliaryModelOptions：最低推理档；每次调用的 maxOutputTokens 由 with_max_output_tokens 按模型上限收紧。
             let auxiliary = model.auxiliary().or_else(|| model.bind());

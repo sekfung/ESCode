@@ -14,14 +14,59 @@ pub(super) use super::plugin_listing::{author, component_types, listing, source_
 
 pub(super) const OFFICIAL_MARKETPLACE: &str = "zcode-plugins-official";
 
+/// TS `CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE`（v3.15.1 内置的 Claude Code 官方市场）。
+pub(super) const CLAUDE_OFFICIAL_MARKETPLACE: &str = "claude-plugins-official";
+
+/// TS `isOfficialMarketplaceId`：两个内置官方市场 id 都是 Host 保留身份。
+pub(super) fn is_official_marketplace(id: &str) -> bool {
+    id == OFFICIAL_MARKETPLACE || id == CLAUDE_OFFICIAL_MARKETPLACE
+}
+
 /// TS `OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME`：官方市场里的宿主插件，不计入可见数量。
 pub(super) const NODE_REPL_HOST: &str = "node-repl-host";
 
-const DEFAULT_OFFICIAL_SOURCE: &str =
-    "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json";
+/// TS `DEFAULT_PLUGIN_MARKETPLACES`（id, source, description）：v3.15.1 起内置 ZCode 官方市场与
+/// Claude Code 官方市场（GitHub 源，首次刷新前数量未知）。
+const DEFAULT_MARKETPLACES: [(&str, &str, &str); 2] = [
+    (
+        OFFICIAL_MARKETPLACE,
+        "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
+        "Official ZCode plugins marketplace: built-in and community plugins for ZCode.",
+    ),
+    (
+        CLAUDE_OFFICIAL_MARKETPLACE,
+        "anthropics/claude-plugins-official",
+        "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+    ),
+];
 
-const DEFAULT_OFFICIAL_DESCRIPTION: &str =
-    "Official ZCode plugins marketplace: built-in and community plugins for ZCode.";
+/// TS `defaultMarketplaceSourceFromString`：`owner/repo[#ref|@ref]`（不含冒号）为 GitHub 源，其余为 URL 源。
+fn default_source(source: &str) -> Json {
+    let trimmed = source.trim();
+    let mut out = Json::object();
+    let slash = trimmed.split_once('/');
+    let github = !trimmed.contains(':')
+        && slash.is_some_and(|(owner, rest)| {
+            let repo = rest.split(['#', '@']).next().unwrap_or_default();
+            !owner.is_empty() && !repo.is_empty() && !repo.contains('/')
+        });
+    if github {
+        // splitGitHubShorthand：首个 `#` 或 `@` 之后为 ref。
+        let (repo, git_ref) = match trimmed.find(['#', '@']) {
+            Some(at) => (&trimmed[..at], Some(&trimmed[at + 1..])),
+            None => (trimmed, None),
+        };
+        out.set("source", Json::str("github"));
+        out.set("repo", Json::str(repo));
+        if let Some(git_ref) = git_ref.filter(|r| !r.is_empty()) {
+            out.set("ref", Json::str(git_ref));
+        }
+    } else {
+        out.set("source", Json::str("url"));
+        out.set("url", Json::str(trimmed));
+    }
+    out
+}
 
 /// TS `readJsonFileSync`：读不到或不是 JSON 一律视为缺失。
 /// 未实现 `recoverAtomicTargetSync` 的崩溃恢复（Rust 不写这些目录，见 spec 第 3 期说明）。
@@ -50,7 +95,7 @@ pub(super) fn known_marketplaces(storage: &Path) -> Vec<Value> {
     records.into_iter().filter(is_known_record).collect()
 }
 
-/// TS `ensureDefaultPluginMarketplaces`：缺官方市场记录时补一条并整份重写
+/// TS `ensureDefaultPluginMarketplaces`：缺内置市场记录时按默认顺序补齐并整份重写
 /// `{version: 1, marketplaces: [...]}`（保序：已有记录原样、未通过校验的记录被丢弃，与 TS 相同）。
 pub(super) fn ensure_default_marketplaces(storage: &Path) -> std::io::Result<()> {
     let path = storage.join("known_marketplaces.json");
@@ -66,23 +111,29 @@ pub(super) fn ensure_default_marketplaces(storage: &Path) -> std::io::Result<()>
     records.retain(|record| {
         serde_json::from_str::<Value>(&record.compact()).is_ok_and(|v| is_known_record(&v))
     });
-    let has_official = records
+    let existing: Vec<String> = records
         .iter()
-        .any(|record| record.get("id").and_then(Json::as_str) == Some(OFFICIAL_MARKETPLACE));
-    if has_official {
+        .filter_map(|record| record.get("id").and_then(Json::as_str).map(str::to_owned))
+        .collect();
+    let now = iso_now();
+    let missing: Vec<Json> = DEFAULT_MARKETPLACES
+        .iter()
+        .filter(|(id, _, _)| !existing.iter().any(|known| known == id))
+        .map(|(id, source, description)| {
+            let mut record = Json::object();
+            record.set("id", Json::str(*id));
+            record.set("source", default_source(source));
+            record.set("name", Json::str(*id));
+            record.set("description", Json::str(*description));
+            record.set("addedAt", Json::str(now.clone()));
+            record.set("pluginCount", Json::Number(0.into()));
+            record
+        })
+        .collect();
+    if missing.is_empty() {
         return Ok(());
     }
-    let mut source = Json::object();
-    source.set("source", Json::str("url"));
-    source.set("url", Json::str(DEFAULT_OFFICIAL_SOURCE));
-    let mut record = Json::object();
-    record.set("id", Json::str(OFFICIAL_MARKETPLACE));
-    record.set("source", source);
-    record.set("name", Json::str(OFFICIAL_MARKETPLACE));
-    record.set("description", Json::str(DEFAULT_OFFICIAL_DESCRIPTION));
-    record.set("addedAt", Json::str(iso_now()));
-    record.set("pluginCount", Json::Number(0.into()));
-    records.push(record);
+    records.extend(missing);
     let mut file = Json::object();
     file.set("version", Json::Number(1.into()));
     file.set("marketplaces", Json::Array(records));

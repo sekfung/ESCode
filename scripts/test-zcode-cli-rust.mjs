@@ -136,6 +136,9 @@ for (const script of [
   "scripts/generate-zcode-cli-rust-dwf-journal-corpus.mjs",
   "scripts/generate-zcode-cli-rust-model-catalog-corpus.mjs",
   "scripts/generate-zcode-cli-rust-workflow-analysis-corpus.mjs",
+  // v3.15.1 对齐（docs/specs/rust-v3.15.1-drift.md）：guarded 危险命令匹配与输入的模型边界材料。
+  "scripts/generate-zcode-cli-rust-guarded-corpus.mjs",
+  "scripts/generate-zcode-cli-rust-conversation-input-corpus.mjs",
 ])
   await run(process.execPath, ["--import", "tsx", script, "--check"]);
 // 测试导入的工作区包（@zcode/rpc 等）类型入口指向 dist/*.d.ts；干净检出（CI）没有 dist 时，tsc 会退回按源码

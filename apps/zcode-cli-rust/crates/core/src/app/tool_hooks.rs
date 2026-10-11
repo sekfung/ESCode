@@ -169,6 +169,7 @@ pub(super) fn merge_permission(
             Decision {
                 behavior: Behavior::Allow,
                 rule_id: "hook.PreToolUse.allow",
+                user_once: false,
             },
             None,
         ),
@@ -176,6 +177,7 @@ pub(super) fn merge_permission(
             Decision {
                 behavior: Behavior::Ask,
                 rule_id: "hook.PreToolUse.ask",
+                user_once: false,
             },
             Some(reason.unwrap_or_else(|| "Tool requires approval by PreToolUse hook".into())),
         ),

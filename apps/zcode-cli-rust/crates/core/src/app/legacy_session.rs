@@ -97,7 +97,7 @@ impl Engine {
         );
         let mode = p["mode"].as_str();
         ensure!(
-            mode.is_none_or(|m| matches!(m, "yolo" | "build" | "edit" | "plan")),
+            mode.is_none_or(|m| matches!(m, "yolo" | "build" | "edit" | "guarded" | "plan")),
             "Unsupported core execution mode"
         );
         let persistence = p["persistence"].as_str().unwrap_or(PERSISTENCE_IMMEDIATE);
@@ -201,7 +201,7 @@ impl Engine {
     ) -> Result<()> {
         let payload = match mode {
             "plan" => json!({ "planEnabled": true }),
-            "yolo" | "build" | "edit" => json!({ "mode": mode, "planEnabled": false }),
+            "yolo" | "build" | "edit" | "guarded" => json!({ "mode": mode, "planEnabled": false }),
             _ => bail!("Unsupported core execution mode"),
         };
         let command = self.legacy_command(

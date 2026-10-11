@@ -118,6 +118,24 @@ pub fn is_silent(command: &str) -> bool {
     counted
 }
 
+/// TS `stripClaudeCodeHintLines`（v3.15.1）：成功路径上先剥离内部 `<claude-code-hint … />` 行，
+/// 再做图片识别；这些内部 hint 不应成为 provider 可见的 Bash stdout。
+pub fn strip_claude_code_hint_lines(stdout: &str) -> String {
+    use std::sync::OnceLock;
+    static HINT: OnceLock<regex::Regex> = OnceLock::new();
+    static BLANKS: OnceLock<regex::Regex> = OnceLock::new();
+    if !stdout.contains("<claude-code-hint") {
+        return stdout.to_owned();
+    }
+    let hint = HINT.get_or_init(|| {
+        regex::Regex::new(r"(?m)^[ \t]*<claude-code-hint\s+([^>]*?)\s*/>[ \t]*$").unwrap()
+    });
+    let blanks = BLANKS.get_or_init(|| regex::Regex::new(r"\n{3,}").unwrap());
+    blanks
+        .replace_all(&hint.replace_all(stdout, ""), "\n\n")
+        .into_owned()
+}
+
 /// TS `isBashProviderErrorStatus`。
 pub fn is_provider_error(data: &Value) -> bool {
     data["status"] == "failed"

@@ -42,6 +42,8 @@ import { EvalWorkflowSnippetInputJsonSchema } from "../../../apps/zcode-cli/pack
 import { AmendWorkflowInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/amend-workflow.js";
 import { ResumeWorkflowRunInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/resume-workflow-run.js";
 import { ResolveWorkflowQuestionInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/resolve-workflow-question.js";
+import { FillWorkflowHoleInputJsonSchema } from "../../../apps/zcode-cli/packages/contracts/src/tools/fill-workflow-hole.js";
+import { replyToChannelToolEntry } from "../../../apps/zcode-cli/packages/core/src/tool/handlers/reply-to-channel.js";
 import {
   OffPeakCreateInputJsonSchema,
   OffPeakListInputJsonSchema,
@@ -245,6 +247,9 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       AmendWorkflow: AmendWorkflowInputJsonSchema,
       ResumeWorkflowRun: ResumeWorkflowRunInputJsonSchema,
       ResolveWorkflowQuestion: ResolveWorkflowQuestionInputJsonSchema,
+      // v3.15.1：留白补全与机器人会话追加回复（后者的 provider schema 定义在 core handler 上）。
+      FillWorkflowHole: FillWorkflowHoleInputJsonSchema,
+      ReplyToChannel: replyToChannelToolEntry.inputSchema,
       ...Object.fromEntries(
         Object.entries(entries).map(([key, entry]) => [key, entry.inputSchema]),
       ),

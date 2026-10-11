@@ -71,6 +71,9 @@ impl Engine {
         if let Event::TodoReminder { reply } = event.event {
             return self.todo_reminder(&id, reply).await;
         }
+        if let Event::PersistedNotice { message, reply } = event.event {
+            return self.persisted_notice(&id, message, reply).await;
+        }
         if let Event::Question {
             call_id,
             input,
@@ -139,7 +142,7 @@ impl Engine {
             | Event::GoalStep { .. }
             | Event::GoalVerdict { .. }
             | Event::SkillsInitialized { .. }
-            | Event::TodoReminder { .. } | Event::HookContext { .. } | Event::ShellNotice { .. }
+            | Event::TodoReminder { .. } | Event::PersistedNotice { .. } | Event::HookContext { .. } | Event::ShellNotice { .. }
             | Event::StreamRecovery { .. }
             | Event::Question { .. }
             | Event::PlanEnter { .. }
@@ -228,6 +231,17 @@ impl Engine {
                     s.record_response(&turn);
                 }
                 super::goal_events::account_usage(s, &usage, now);
+                // v3.15.1 TS onModelComplete：主会话的单 Turn 输出 token 在权威事件投影中累计到 turnHeader。
+                if s.agent_profile.is_none()
+                    && let Some(row) = s
+                        .rows
+                        .iter_mut()
+                        .find(|r| r["kind"] == "turnHeader" && r["turnId"] == turn)
+                {
+                    let output = usage["completion_tokens"].as_u64().unwrap_or(0);
+                    row["outputTokens"] = (row["outputTokens"].as_u64().unwrap_or(0) + output).into();
+                    deltas.push(json!({"op":"row.upserted","row":row}));
+                }
                 if s.goal.as_ref().is_some_and(|g| g.active() && g.exhausted()) {
                     s.goal.as_mut().unwrap().pause(now);
                     // 预算耗尽的 assistant 事实先提交；取消后绝不能再执行它声明的工具。

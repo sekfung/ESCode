@@ -188,6 +188,9 @@ pub(super) async fn execute(
             Ok(args) if name.starts_with("Cron") => {
                 super::cron_tool::execute(name, &args, turn, sink, cancel).await
             }
+            Ok(args) if name == "ReplyToChannel" => {
+                super::channel_reply_tool::execute(&args, turn, call["id"].as_str().unwrap_or_default(), sink, cancel).await
+            }
             Ok(args) if name == "ReadSessionContext" => {
                 super::session_context_tool::execute(model, &args, sink, cancel).await
             }
@@ -198,7 +201,7 @@ pub(super) async fn execute(
                 )
             }
             Ok(args) if let Some(output) = tools
-                .execute_workflow(&sink.session_id, call["id"].as_str().unwrap_or_default(), name, &args, &selection_json, cancel)
+                .execute_workflow(&sink.session_id, call["id"].as_str().unwrap_or_default(), name, &args, &selection_json, &turn.mode, cancel)
                 .await =>
             {
                 output

@@ -11,6 +11,8 @@ use crate::json_order::Json;
 /// （工具面上限 + 1 的截断探测行不许在这里被吃掉）。
 #[derive(Clone, Debug, Default)]
 pub struct RunQuery {
+    /// 只取这一个 run（v3.15.1 `workflows/save` / `workflows/forRun` 按 runId 读）。
+    pub run_id: Option<String>,
     pub cwd: Option<String>,
     pub name: Option<String>,
     /// 可选状态子集（逻辑状态词）：缺省即不过滤；**空数组**即「不匹配任何状态」（回空页）。

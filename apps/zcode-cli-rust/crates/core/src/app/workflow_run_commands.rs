@@ -66,6 +66,14 @@ impl Engine {
         ensure!(self.auxiliary.len() < 16, "Too many auxiliary requests");
         let session = c.session_id.clone().context("Session id required")?;
         self.ensure_session(&session).await?;
+        // v3.15.1 onDemand：GUI 对本会话的 run 恢复 / 配置、或从中枢直接启动，即激活工作流工具面——
+        // 其后的通知要模型去调 GetWorkflowRun（TS activateDynamicWorkflowTools source=run_control）。
+        if matches!(
+            c.kind.as_str(),
+            "resumeWorkflowRun" | "startSavedWorkflow" | "amendWorkflowRunSettings"
+        ) {
+            self.activate_dynamic_workflow(&session);
+        }
         if c.kind == "startSavedWorkflow" {
             return self.start_saved_workflow_command(request, c, session).await;
         }
@@ -152,6 +160,8 @@ impl Engine {
                 params[key] = c.payload[key].clone();
             }
         }
+        // v3.15.1：脚本点名的模型对着同一份模型目录解析（与 amendWorkflowRunSettings 同一来源）。
+        params["models"] = self.session_model_catalog(&session);
         let id = format!("workflow-run:{}", self.clock.id());
         self.auxiliary.insert(
             id.clone(),

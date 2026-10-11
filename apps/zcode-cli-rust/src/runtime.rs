@@ -155,15 +155,21 @@ pub async fn build_engine(
         RuntimePorts {
             // 修复：提示词里的工作目录与 AGENTS/Git 查找用 Host 提交的路径（TS 同样不 realpath）；
             // 原先用 realpath，macOS /var→/private/var、Windows 8.3 短名会与 Node 不一致。
-            context: Arc::new(WorkspaceContext::new(
-                workspace_path.clone(),
-                std::env::var_os("HOME")
-                    .filter(|s| !s.is_empty())
-                    .or_else(|| std::env::var_os("USERPROFILE"))
-                    .map(PathBuf::from)
-                    .unwrap_or_default(),
-                desktop,
-            )),
+            context: Arc::new(
+                WorkspaceContext::new(
+                    workspace_path.clone(),
+                    std::env::var_os("HOME")
+                        .filter(|s| !s.is_empty())
+                        .or_else(|| std::env::var_os("USERPROFILE"))
+                        .map(PathBuf::from)
+                        .unwrap_or_default(),
+                    desktop,
+                )
+                .with_gen_ui(
+                    std::env::var_os("ZCODE_GEN_UI_OUTPUT_ROOT").map(PathBuf::from),
+                    ws.identity.clone(),
+                ),
+            ),
             store: Arc::new(store),
             model,
             tools: Arc::new(

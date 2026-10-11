@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./zcode-cli-rust-fixture.js";
 import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
@@ -11,6 +11,8 @@ import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 // fork 出的 child 在 Node 与 Rust 上身份（id/taskType/title/titleSource）、列表可见性、
 // 边界行、child 首次模型请求的会话部分，以及 session/read 的 session 投影一致。
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
+// v3.15.1 官方插件自带子代理与技能：Rust 与 Node 读同一官方插件根目录，避免把插件可见性差异误判为运行时差异。
+const rustPluginEnv = { ZCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
 const any = z.any();
 type Runtime = "node" | "rust";
 
@@ -43,7 +45,7 @@ async function observe(kind: Runtime) {
           registry: true,
           respond,
         })
-      : await fixture({ root, registry: true, respond });
+      : await fixture({ root, registry: true, respond, env: rustPluginEnv });
   try {
     await configureRegistry(f);
     const h = f.start();
@@ -93,7 +95,10 @@ async function observe(kind: Runtime) {
         kind: forkRow?.kind,
         lane: forkRow?.lane,
         visibility: forkRow?.visibility,
-        marker: { ...forkRow?.marker, parentSessionId: mapped(String(forkRow?.marker?.parentSessionId)) },
+        marker: {
+          ...forkRow?.marker,
+          parentSessionId: mapped(String(forkRow?.marker?.parentSessionId)),
+        },
       },
       // createdAtSeq（Node 按父会话 seq 续号、Rust 从 1 起）与 turnId（Node 新建、Rust 复用被选行）
       // 是已知取值差异，不参与比较；turnHeader 之外的行序与内容必须一致。
@@ -134,7 +139,8 @@ async function observe(kind: Runtime) {
         .filter((m: any) => m.role !== "system")
         .map((m: any) => ({ role: m.role, content: mapped(text(m.content)) }))
         .filter(
-          (m: any) => !UNRELATED_REMINDERS.some((r) => m.content.startsWith(`<system-reminder>\n${r}`)),
+          (m: any) =>
+            !UNRELATED_REMINDERS.some((r) => m.content.startsWith(`<system-reminder>\n${r}`)),
         ),
     };
   } finally {
@@ -148,7 +154,11 @@ test("forked session child keeps Node identity, fork boundary and provider trans
   assert.deepEqual(rust, node);
   assert.equal(node.childIdPrefix, "sess_");
   assert.deepEqual(node.ack, { status: "accepted", reasonCode: null, type: "forkAssistant" });
-  assert.deepEqual(node.forkRow.marker, { type: "forkNotice", parentSessionId: "<parent>", parentRowId: 0 });
+  assert.deepEqual(node.forkRow.marker, {
+    type: "forkNotice",
+    parentSessionId: "<parent>",
+    parentRowId: 0,
+  });
   assert.equal(node.forkRow.kind, "timelineMarker");
   assert.equal(node.forkRow.lane, "turnTailBoundary");
   assert.equal(node.childRefersToTargetEntity, true);

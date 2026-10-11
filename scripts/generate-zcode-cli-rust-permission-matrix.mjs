@@ -33,6 +33,8 @@ const modes = [
   ["yolo", true],
   ["auto", null],
   ["auto", true],
+  ["guarded", null],
+  ["guarded", true],
 ];
 const flags = [
   "readOnly",
@@ -75,7 +77,9 @@ function recordReason(result, toolName) {
   const template = (result.reason ?? "").split(toolName).join("{tool}");
   const known = reasons[result.ruleId];
   if (known !== undefined && known !== template) {
-    throw new Error(`${result.decision} reason for ${result.ruleId} depends on more than the tool name`);
+    throw new Error(
+      `${result.decision} reason for ${result.ruleId} depends on more than the tool name`,
+    );
   }
   reasons[result.ruleId] = template;
 }
@@ -144,7 +148,7 @@ const inputs = [
   ["AlwaysAskTool", { command: "safe" }],
   ["CuaTool", { action: "click" }],
 ];
-const ruleModes = ["build", "plan", "yolo", "edit"];
+const ruleModes = ["build", "plan", "yolo", "edit", "guarded"];
 let ruleDecisions = "";
 for (const project of rulesets) {
   for (const session of sessionRules) {
@@ -207,7 +211,7 @@ const configTools = [
     capability: { riskLevel: "high", sideEffectScope: "workspace" },
   },
 ];
-const configModes = ["build", "plan", "yolo", "edit"];
+const configModes = ["build", "plan", "yolo", "edit", "guarded"];
 let configDecisions = "";
 for (const config of configs) {
   for (const { toolName, input, capability } of configTools) {
@@ -228,6 +232,54 @@ for (const config of configs) {
       if (index < 0) index = outcomes.push(key) - 1;
       configDecisions += String.fromCharCode(48 + index);
     }
+  }
+}
+
+// ── guarded 段（v3.15.1）：YOLO 基础策略 + userApprovalRule 的单次确认，以及 ReplyToChannel 预批 ──
+// 结果额外记录 approvalMode（user-once 不提供会话/项目授权），编码为 `decision:ruleId:approvalMode`。
+const replyToChannel = {
+  sideEffectScope: "network",
+  riskLevel: "medium",
+  destructive: false,
+  needsApproval: false,
+  permission: { permission: "channel.reply" },
+};
+const guardedTools = [
+  { toolName: "Bash", capability: { userApprovalRule: "safety.bash.remove-critical-path" } },
+  { toolName: "Bash", capability: undefined },
+  { toolName: "Write", capability: undefined },
+  { toolName: "AlwaysAskTool", capability: { alwaysAsk: true } },
+  {
+    toolName: "AlwaysAskTool",
+    capability: { alwaysAsk: true, userApprovalRule: "safety.bash.git-reset-hard" },
+  },
+  { toolName: "ReplyToChannel", capability: replyToChannel },
+  { toolName: "ReplyToChannel", capability: { ...replyToChannel, needsApproval: true } },
+  { toolName: "OtherNetworkTool", capability: replyToChannel },
+];
+const guardedModes = [
+  ["guarded", null],
+  ["guarded", true],
+  ["guarded", false],
+  ["plan", null],
+  ["yolo", null],
+  ["build", null],
+];
+const guardedDecisions = [];
+for (const { toolName, capability } of guardedTools) {
+  for (const [mode, planEnabled] of guardedModes) {
+    const result = new PermissionService().checkPermission(
+      {
+        toolName,
+        input: {},
+        riskLevel: "low",
+        mode,
+        ...(planEnabled === null ? {} : { planEnabled }),
+      },
+      capability,
+    );
+    recordReason(result, toolName);
+    guardedDecisions.push(`${result.decision}:${result.ruleId}:${result.approvalMode ?? ""}`);
   }
 }
 
@@ -261,8 +313,13 @@ const content = `${JSON.stringify({
   // 配置段枚举顺序：config → tool → mode。
   configAxes: { configs, tools: configTools, modes: configModes },
   configDecisions,
+  // guarded 段枚举顺序：tool → mode。
+  guardedAxes: { tools: guardedTools, modes: guardedModes },
+  guardedDecisions,
   askReasons: Object.fromEntries(Object.entries(askReasons).sort(([a], [b]) => a.localeCompare(b))),
-  denyReasons: Object.fromEntries(Object.entries(denyReasons).sort(([a], [b]) => a.localeCompare(b))),
+  denyReasons: Object.fromEntries(
+    Object.entries(denyReasons).sort(([a], [b]) => a.localeCompare(b)),
+  ),
 })}\n`;
 const target = new URL(
   "../apps/zcode-cli-rust/crates/domain/tests/fixtures/permission_matrix.json",

@@ -60,6 +60,7 @@ fn rust_matches_ts_permission_matrix() {
                         risk_level: Some(risk(&r)),
                         permission_name: name.as_str().map(str::to_owned),
                         permission_capability_group: None,
+                        user_approval_rule: None,
                     });
                 }
             }
@@ -320,4 +321,49 @@ fn deny_reasons_match_ts() {
             "{rule}"
         );
     }
+}
+
+/// guarded 段（v3.15.1）：YOLO 基础 + userApprovalRule 单次确认、ReplyToChannel 预批；
+/// 结果编码 `decision:ruleId:approvalMode`。
+#[test]
+fn rust_matches_ts_guarded_permissions() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/permission_matrix.json")).unwrap();
+    let axes = &fixture["guardedAxes"];
+    let expected = strings(&fixture["guardedDecisions"]);
+    let mut got = Vec::new();
+    for tool in axes["tools"].as_array().unwrap() {
+        let name = tool["toolName"].as_str().unwrap();
+        let cap = tool.get("capability").filter(|c| c.is_object()).map(|c| Capability {
+            always_ask: c["alwaysAsk"].as_bool(),
+            destructive: c["destructive"].as_bool(),
+            needs_approval: c["needsApproval"].as_bool(),
+            side_effect_scope: c["sideEffectScope"].as_str().map(str::to_owned),
+            risk_level: c["riskLevel"].as_str().map(risk),
+            permission_name: c["permission"]["permission"].as_str().map(str::to_owned),
+            user_approval_rule: c["userApprovalRule"].as_str().map(str::to_owned),
+            ..Default::default()
+        });
+        for m in axes["modes"].as_array().unwrap() {
+            let decision = check(
+                &Context {
+                    tool_name: name,
+                    mode: Mode::parse(m[0].as_str().unwrap()).unwrap(),
+                    plan_enabled: m[1].as_bool(),
+                    input: &Value::Null,
+                    project: None,
+                    session: None,
+                    config: None,
+                },
+                cap.as_ref(),
+            );
+            got.push(format!(
+                "{}:{}:{}",
+                decision.behavior.as_str(),
+                decision.rule_id,
+                if decision.user_once { "user-once" } else { "" }
+            ));
+        }
+    }
+    assert_eq!(got, expected);
 }

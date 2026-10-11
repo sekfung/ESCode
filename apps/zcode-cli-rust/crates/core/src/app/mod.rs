@@ -25,6 +25,7 @@ mod context;
 mod context_projection;
 mod create_session;
 mod cron_tool;
+mod channel_reply_tool;
 mod dynamic_workflow;
 mod off_peak;
 mod model_execution;

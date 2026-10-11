@@ -319,9 +319,12 @@ pub fn parse(argv: Vec<String>) -> Result<Parsed, ArgError> {
     }
     if let Some(mode) = last("mode") {
         let lower = mode.to_lowercase();
-        if !matches!(lower.as_str(), "build" | "plan" | "edit" | "yolo") {
+        if !matches!(
+            lower.as_str(),
+            "build" | "plan" | "edit" | "yolo" | "guarded"
+        ) {
             return Err(plain(format!(
-                "Unsupported --mode value: {mode}. Supported modes: build, edit, plan, yolo."
+                "Unsupported --mode value: {mode}. Supported modes: build, edit, plan, yolo, guarded."
             )));
         }
         parsed.mode = Some(lower);

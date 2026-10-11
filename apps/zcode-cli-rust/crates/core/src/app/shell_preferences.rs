@@ -28,6 +28,13 @@ pub(super) struct ShellPreferences {
     pub(super) executions: super::model_execution::Executions,
 }
 
+impl ShellPreferences {
+    /// 已缓存的（会话, scope）偏好；未请求过即 `None`。
+    pub(super) fn cached(&self, session: &str, scope: &'static str) -> Option<&Value> {
+        self.cache.get(&(session.to_owned(), scope))
+    }
+}
+
 impl Engine {
     fn request_runtime_preferences(&mut self, session: &str, scope: &'static str, waiter: Waiter) {
         let key = (session.to_owned(), scope);
@@ -73,7 +80,7 @@ impl Engine {
     }
 
     /// `user-execution` 偏好的归属会话：子会话归其根会话（TS 的继承语义），主会话归自己。
-    fn shell_owner_session(&self, session: &str) -> String {
+    pub(super) fn shell_owner_session(&self, session: &str) -> String {
         let mut current = session;
         // 深度上限与子代理嵌套上限一致，父链异常时不至于死循环。
         for _ in 0..8 {

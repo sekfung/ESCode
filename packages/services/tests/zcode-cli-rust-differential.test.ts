@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -9,6 +9,11 @@ import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 import { z } from "zod";
 
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
+// 两侧的官方插件根目录必须相同：Node 从 CLI 产物位置按候选目录找到 packages/*-plugin，Rust 默认只看
+// 二进制与 cwd。v3.15.1 起官方插件自带子代理（agent 目录提醒），不对齐根目录会把夹具差异误判成运行时差异。
+const rustPluginEnv = { ZCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+// 新数据目录首次 seed 全部官方插件在 debug 构建上要 5 秒左右，超过夹具默认的 5 秒请求超时。
+process.env.ZCODE_TEST_REQUEST_MS ??= "30000";
 
 type Runtime = "node" | "rust";
 
@@ -53,7 +58,12 @@ async function observe(
           registry: true,
           respond: (req, res) => respond(req, res, tool),
         })
-      : await fixture({ root, registry: true, respond: (req, res) => respond(req, res, tool) });
+      : await fixture({
+          root,
+          env: rustPluginEnv,
+          registry: true,
+          respond: (req, res) => respond(req, res, tool),
+        });
   try {
     // 两侧都要有同一份 provider 配置：Node 从环境变量读，Rust 也从同一组环境键读。
     await configureRegistry(f);
@@ -180,6 +190,7 @@ async function observePermission(kind: Runtime) {
         })
       : await fixture({
           root,
+          env: rustPluginEnv,
           registry: true,
           respond: (req, res) =>
             respond(req, res, {
@@ -276,7 +287,7 @@ async function observeStop(kind: Runtime) {
           registry: true,
           respond: slow,
         })
-      : await fixture({ root, registry: true, respond: slow });
+      : await fixture({ root, env: rustPluginEnv, registry: true, respond: slow });
   try {
     await configureRegistry(f);
     const h = f.start();
@@ -343,7 +354,7 @@ async function observeList(kind: Runtime) {
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
-      : await fixture({ root, registry: true });
+      : await fixture({ root, env: rustPluginEnv, registry: true });
   try {
     await configureRegistry(f);
     const h = f.start();
@@ -394,7 +405,7 @@ async function observeAttachment(
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
-      : await fixture({ root, registry: true });
+      : await fixture({ root, env: rustPluginEnv, registry: true });
   try {
     await configureRegistry(f);
     const { writeFile } = await import("node:fs/promises");
@@ -538,7 +549,7 @@ async function observeListAppend(kind: Runtime) {
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
-      : await fixture({ root, registry: true });
+      : await fixture({ root, env: rustPluginEnv, registry: true });
   try {
     await configureRegistry(f);
     const h = f.start();

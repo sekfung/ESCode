@@ -149,7 +149,13 @@ impl Engine {
                 session.plan_enabled = true;
             }
             _ if profile.name == "Explore" && profile.source == "built-in" => {
-                session.mode = "yolo".into();
+                // TS inheritGuardedMode：父 guarded 只收紧内部 YOLO 派生（危险命令仍需单次确认）。
+                session.mode = if self.sessions[parent].mode == "guarded" {
+                    "guarded"
+                } else {
+                    "yolo"
+                }
+                .into();
                 session.plan_enabled = false;
             }
             _ => {

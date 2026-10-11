@@ -163,7 +163,7 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
     Ok(expanded)
 }
 
-/// 把附件 reminder 移到所属 user 消息之前；剩余正文只有一段文本时收成字符串（TS normalizeRealUserContent）。
+/// 把附件 reminder 移到所属 user 消息之前（紧邻其前的 agent 目录提醒之前）；剩余正文只有一段文本时收成字符串（TS normalizeRealUserContent）。
 fn hoist_reminders(messages: &mut Vec<Value>) {
     let mut out = Vec::with_capacity(messages.len());
     for mut message in std::mem::take(messages) {
@@ -173,7 +173,15 @@ fn hoist_reminders(messages: &mut Vec<Value>) {
             let (reminders, rest): (Vec<Value>, Vec<Value>) = std::mem::take(parts)
                 .into_iter()
                 .partition(|p| p["type"] == "_zcode_reminder");
+            // TS：本轮的 agent_listing_delta 位于附件 reminder 之后、正文之前；被插在本消息之前的目录
+            // 提醒先让位，附件 reminder 落在它们前面。
+            let listing_at = out
+                .iter()
+                .rposition(|m: &Value| m["_zcode_source"] != "agent_listing_delta")
+                .map_or(0, |i| i + 1);
+            let listings = out.split_off(listing_at);
             out.extend(reminders.into_iter().map(|r| r["message"].clone()));
+            out.extend(listings);
             message["content"] = match rest.as_slice() {
                 [] => Value::String(String::new()),
                 [only] if only["type"] == "text" => only["text"].clone(),

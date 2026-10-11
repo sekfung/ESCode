@@ -11,16 +11,44 @@ pub struct WorkspaceContext {
     cwd: PathBuf,
     home: PathBuf,
     desktop: bool,
+    /// Host 经 `ZCODE_GEN_UI_OUTPUT_ROOT` 提供的输出根与工作区身份 key（identity || path）。
+    gen_ui: Option<(PathBuf, String)>,
 }
 impl WorkspaceContext {
     pub fn new(cwd: PathBuf, home: PathBuf, desktop: bool) -> Self {
-        Self { cwd, home, desktop }
+        Self {
+            cwd,
+            home,
+            desktop,
+            gen_ui: None,
+        }
     }
+    /// 输出根必须是绝对路径（TS getGenUiOutputDirectory 同一校验），否则不启用。
+    pub fn with_gen_ui(mut self, root: Option<PathBuf>, workspace_key: String) -> Self {
+        self.gen_ui = root
+            .filter(|root| root.is_absolute())
+            .map(|root| (root, workspace_key));
+        self
+    }
+}
+
+/// TS `getGenUiOutputDirectory`：`<root>/<sha256(JSON.stringify([workspaceKey, sessionId]))>`。
+pub fn gen_ui_output_directory(root: &Path, workspace_key: &str, session_id: &str) -> PathBuf {
+    use sha2::{Digest, Sha256};
+    let key = serde_json::to_string(&[workspace_key, session_id]).unwrap_or_default();
+    root.join(format!("{:x}", Sha256::digest(key.as_bytes())))
 }
 #[async_trait::async_trait]
 impl ContextPort for WorkspaceContext {
     fn desktop(&self) -> bool {
         self.desktop
+    }
+    async fn gen_ui_directory(&self, session_id: &str) -> Option<String> {
+        let (root, key) = self.gen_ui.as_ref().filter(|_| self.desktop)?;
+        let directory = gen_ui_output_directory(root, key, session_id);
+        // 只有成功创建后才向模型声明可写目录；失败不能让模型把可视化写进 Git 工作区。
+        tokio::fs::create_dir_all(&directory).await.ok()?;
+        Some(directory.to_string_lossy().into_owned())
     }
     async fn snapshot(&self, cancel: &CancellationToken) -> Result<PromptSnapshot> {
         let platform = match std::env::consts::OS {
@@ -100,6 +128,36 @@ async fn read_source(path: &Path, user: bool) -> Result<InstructionSource> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn gen_ui_directory_matches_ts_hash_and_requires_desktop_absolute_root() {
+        // 期望值由 TS getGenUiOutputDirectory 的同一算法（sha256(JSON.stringify([key, sessionId]))）算出。
+        let root = tempfile::tempdir().unwrap();
+        let expected = root
+            .path()
+            .join("342b53d3df2fd7df8a08812a113b84ea456420a32ea3a2ce6d7aaa69e5d579a2");
+        assert_eq!(
+            gen_ui_output_directory(root.path(), "remote-1", "sess_abc"),
+            expected
+        );
+        assert_eq!(
+            gen_ui_output_directory(Path::new("/r"), "C:\repo \"x\"", "sess_1"),
+            Path::new("/r")
+                .join("72fede38cca1534af7c99b67039375d4472d00a1052cde28af12539b8ef2b23c")
+        );
+        let context = WorkspaceContext::new(root.path().into(), root.path().into(), true)
+            .with_gen_ui(Some(root.path().into()), "remote-1".into());
+        assert_eq!(
+            context.gen_ui_directory("sess_abc").await,
+            Some(expected.to_string_lossy().into_owned())
+        );
+        assert!(expected.is_dir());
+        let cli = WorkspaceContext::new(root.path().into(), root.path().into(), false)
+            .with_gen_ui(Some(root.path().into()), "remote-1".into());
+        assert_eq!(cli.gen_ui_directory("sess_abc").await, None);
+        let relative = WorkspaceContext::new(root.path().into(), root.path().into(), true)
+            .with_gen_ui(Some(PathBuf::from("relative")), "remote-1".into());
+        assert_eq!(relative.gen_ui_directory("sess_abc").await, None);
+    }
     #[tokio::test]
     async fn same_user_and_workspace_path_is_injected_once_and_non_files_are_skipped() {
         let root = tempfile::tempdir().unwrap();

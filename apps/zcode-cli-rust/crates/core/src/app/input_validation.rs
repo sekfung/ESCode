@@ -5,11 +5,11 @@ use serde_json::Value;
 
 impl Engine {
     pub(super) fn validate_selection(&self, p: &Value) -> Result<()> {
-        // yolo/build/edit 与独立 plan 状态（planEnabled）已实现；mode 取值 plan/auto 仍拒绝
+        // yolo/build/edit/guarded 与独立 plan 状态（planEnabled）已实现；mode 取值 plan/auto 仍拒绝
         // （TS 以 planEnabled 表达 plan，auto 同样保留未实现），显式拒绝而不是静默忽略。
         if p["mode"]
             .as_str()
-            .is_some_and(|mode| !matches!(mode, "yolo" | "build" | "edit"))
+            .is_some_and(|mode| !matches!(mode, "yolo" | "build" | "edit" | "guarded"))
             || p["followupMode"]
                 .as_str()
                 .is_some_and(|mode| !matches!(mode, "queue" | "guide"))

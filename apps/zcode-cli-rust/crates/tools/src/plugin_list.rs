@@ -96,7 +96,11 @@ pub(super) async fn info(
         info["commandRootCount"] = json!(command_roots.len() + generated_command_root(plugin));
         info["skillCount"] = json!(count_skill_files(&skill_roots).await?);
         let mut names: Vec<Value> = vec![];
-        for (name, server) in mcp_config::plugin_servers(plugin, cwd, data_root).await? {
+        // 变量诊断已在发现阶段给出，这里只取可用的 server 名。
+        let options = &config["plugins"]["options"][&plugin.id];
+        for (name, server) in
+            mcp_config::plugin_servers(plugin, cwd, data_root, options, &mut vec![]).await?
+        {
             if !server.invalid {
                 names.push(name.into());
             }

@@ -22,7 +22,7 @@ impl Engine {
                 self.fix_off_peak(&id, enabled);
             }
             if let Some(enabled) = p["dynamicWorkflowEnabled"].as_bool() {
-                self.fix_dynamic_workflow(&id, enabled);
+                self.fix_dynamic_workflow(&id, enabled, p.get("dynamicWorkflowMode"));
             }
             if let Some(servers) = p.get("mcpServers") {
                 self.tools.configure_mcp(&id, servers).await?;

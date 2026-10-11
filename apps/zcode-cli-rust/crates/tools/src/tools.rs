@@ -26,6 +26,7 @@ impl ToolPort for WorkspaceTools {
         name: &str,
         args: &Value,
         selection: &Value,
+        mode: &str,
         cancel: &CancellationToken,
     ) -> Option<Result<ToolOutput>> {
         if super::workflow_tools::ACTOR_TOOLS.contains(&name) {
@@ -34,7 +35,7 @@ impl ToolPort for WorkspaceTools {
         if !super::workflow_host::routes(name, args) {
             return None;
         }
-        Some(super::workflow_tools::execute(self, session, call_id, name, args, selection, cancel).await)
+        Some(super::workflow_tools::execute(self, session, call_id, name, args, selection, mode, cancel).await)
     }
     async fn workflow_actor_event(&self, actor_session: &str, event: Value) {
         self.workflow_host.notify("actor.event", serde_json::json!({ "actorSession": actor_session, "event": event }));
@@ -289,6 +290,14 @@ impl ToolPort for WorkspaceTools {
     async fn saved_workflow_op(&self, op: &str, params: &Value) -> Result<Value> {
         super::saved_workflows_hub::op(op, params)
     }
+    async fn saved_workflow_run_op(
+        &self,
+        op: &str,
+        params: &Value,
+        run: Option<&Value>,
+    ) -> Result<Value> {
+        super::saved_workflows_run::op(&self.analyzer, op, params, run).await
+    }
     async fn load_skill(
         &self,
         skill: &crate::domain::skills::Skill,
@@ -310,6 +319,9 @@ impl ToolPort for WorkspaceTools {
         input: &Value,
     ) -> Option<zcode_cli_domain::permission::Capability> {
         super::tool_capability::capability(&self.cwd, name, input)
+    }
+    fn guarded_rule(&self, input: &Value, shell_override: Option<&Value>) -> Option<String> {
+        super::tool_capability::guarded_rule(input, shell_override)
     }
     async fn project_memory(&self) -> Option<crate::contract::ProjectMemory> {
         super::project_memory::resolve(&self.cwd, &self.workspace_path).await

@@ -38,6 +38,8 @@ const content = `${JSON.stringify(
     cli: buildCliPrefixSection().content,
     identity: buildIdentitySection().content,
     desktop: buildDesktopContextSection().content,
+    // Host 提供 Gen UI 输出目录时的变体：目录以 JSON 字面量出现，Rust 用同样的 JSON 编码替换占位。
+    desktopGenUi: buildDesktopContextSection("{genUiDirectory}").content,
     behavior: buildDynamicBehaviorSection().content,
     contextManagement: buildContextManagementSection().content,
   },

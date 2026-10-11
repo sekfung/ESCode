@@ -100,6 +100,9 @@ pub fn ask_reason(rule_id: &str, tool: &str) -> String {
         "rule.project.ask" => format!("Tool {tool} requires approval by project permission rules"),
         "tool.alwaysAsk" => format!("Tool {tool} always requires explicit approval"),
         "tool.userInteraction" => format!("Tool {tool} requires user interaction"),
+        rule if rule.starts_with("safety.bash.") => {
+            "Dangerous command requires your approval for this execution".into()
+        }
         // TS 事件层的兜底文案（executor/events.ts：`reason ?? Tool X requires approval`）。
         _ => format!("Tool {tool} requires approval"),
     }

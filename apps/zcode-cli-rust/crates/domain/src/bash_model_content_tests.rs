@@ -73,3 +73,14 @@ fn stop_messages_match_ts() {
     assert_eq!(stop_message("cancelled", None, false).as_deref(), Some("Execution cancelled"));
     assert_eq!(stop_message("failed", None, false), None);
 }
+
+#[test]
+fn strips_claude_code_hint_lines_like_ts() {
+    let strip = strip_claude_code_hint_lines;
+    assert_eq!(strip("plain\n"), "plain\n");
+    assert_eq!(
+        strip("a\n  <claude-code-hint kind=\"x\" />  \n\n\n\nb\n"),
+        "a\n\nb\n"
+    );
+    assert_eq!(strip("keep <claude-code-hint x /> inline\n"), "keep <claude-code-hint x /> inline\n");
+}

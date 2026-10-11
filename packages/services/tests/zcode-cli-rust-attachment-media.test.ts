@@ -40,6 +40,13 @@ function grayPng(): Buffer {
   ]);
 }
 const png = grayPng();
+/** Anthropic 合并后的 user 内容开头的 system-reminder 文本块数。 */
+const leadingReminders = (content: any[]) => {
+  const index = content.findIndex(
+    (part) => part.type !== "text" || !String(part.text).startsWith("<system-reminder>"),
+  );
+  return index === -1 ? content.length : index;
+};
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Rust ${apiType} preserves the TS gateway video content shape`, async () => {
     const f = await fixture({
@@ -70,9 +77,10 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
       );
       await h.completed(id);
       const content = f.requests[0]!.messages.findLast((m: any) => m.role === "user").content;
-      // Anthropic 合并相邻 user 消息，context reminder 位于实际附件文本之前。
-      if (apiType === "anthropic-messages") assert.match(content[0].text, /^<system-reminder>/);
-      const video = content[apiType === "anthropic-messages" ? 2 : 1];
+      // Anthropic 合并相邻 user 消息，context reminder 与 v3.15.1 的 Agent 列表 reminder 位于实际附件文本之前。
+      const leading = apiType === "anthropic-messages" ? leadingReminders(content) : 0;
+      if (apiType === "anthropic-messages") assert.ok(leading >= 1);
+      const video = content[leading + 1];
       if (apiType === "anthropic-messages")
         assert.deepEqual(video, {
           type: "video",
@@ -190,9 +198,9 @@ for (const apiType of ["openai-chat-completions", "openai-responses", "anthropic
         (m: any) => m.role === "user",
       ).content;
       if (apiType === "anthropic-messages") {
-        assert.equal(content[0].type, "text");
-        assert.match(content[0].text, /^<system-reminder>/);
-        content = content.slice(1);
+        const leading = leadingReminders(content);
+        assert.ok(leading >= 1);
+        content = content.slice(leading);
       }
       assert.deepEqual(
         content.map((p: any) => p.type),

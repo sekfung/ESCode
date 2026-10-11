@@ -33,6 +33,11 @@ pub trait AuthPort: Send + Sync {
 #[async_trait]
 pub trait ContextPort: Send + Sync {
     fn desktop(&self) -> bool;
+    /// 会话的 Gen UI 输出目录（TS resolveGenUiOutputDirectory + ensureGenUiOutputDirectory）：
+    /// 仅桌面且 Host 提供输出根时存在，返回前已创建；创建失败即不声明。
+    async fn gen_ui_directory(&self, _session_id: &str) -> Option<String> {
+        None
+    }
     async fn snapshot(
         &self,
         cancel: &CancellationToken,

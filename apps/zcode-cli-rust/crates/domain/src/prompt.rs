@@ -35,6 +35,7 @@ struct Templates {
     cli: String,
     identity: String,
     desktop: String,
+    desktop_gen_ui: String,
     behavior: String,
     context_management: String,
 }
@@ -64,20 +65,35 @@ pub fn date_change_reminder(previous: Option<&str>, current: &str) -> Option<Val
         "_zcode_source": "date_change",
     }))
 }
+/// TS `withConversationQuotes` 的引用段（无机器人来源时）；完整实现见 [`crate::conversation_input`]。
+pub fn with_conversation_quotes(text: &str, quotes: &Value) -> String {
+    crate::conversation_input::with_conversation_material(text, quotes, &Value::Null)
+}
+
 pub fn prefix(
     snapshot: &PromptSnapshot,
     sources: &[InstructionSource],
     model: Option<(&str, &str)>,
     desktop: bool,
+    gen_ui_directory: Option<&str>,
     skill_guidance: bool,
     memory: Option<(&str, Option<&str>)>,
     actor_identity: Option<&str>,
 ) -> Vec<Value> {
     let templates = templates();
-    let stable = if desktop {
-        format!("{}\n\n{}", templates.identity, templates.desktop)
-    } else {
-        templates.identity.clone()
+    // TS buildDesktopContextSection(genUiOutputDirectory)：只有 Host 提供并已创建会话目录时才声明 Gen UI。
+    let stable = match (desktop, gen_ui_directory) {
+        (true, Some(directory)) => format!(
+            "{}\n\n{}",
+            templates.identity,
+            templates.desktop_gen_ui.replacen(
+                "\"{genUiDirectory}\"",
+                &serde_json::to_string(directory).unwrap_or_default(),
+                1,
+            )
+        ),
+        (true, None) => format!("{}\n\n{}", templates.identity, templates.desktop),
+        (false, _) => templates.identity.clone(),
     };
     let mut env = format!(
         "# Environment\nYou have been invoked in the following environment:\n- Primary working directory: {}\n- Is a git repository: {}\n- Platform: {}\n- Shell: {}\n- OS Version: {}",
@@ -221,5 +237,23 @@ mod date_change_tests {
 The date has changed. Today's date is now 2026-09-27. DO NOT mention this to the user explicitly because they are already aware.
 </system-reminder>"
         );
+    }
+}
+
+#[cfg(test)]
+mod conversation_quote_tests {
+    use super::with_conversation_quotes;
+    use serde_json::json;
+
+    #[test]
+    fn quotes_render_like_ts_with_conversation_quotes() {
+        // 期望值来自 TS：parts.push(`<conversation_quote>\n${JSON.stringify(quotes)}\n</conversation_quote>`)。
+        let quotes = json!([{"senderName": "s", "path": "p", "text": "a\"b"}]);
+        assert_eq!(
+            with_conversation_quotes("hi", &quotes),
+            "hi\n\n<conversation_quote>\n[{\"text\":\"a\\\"b\",\"path\":\"p\",\"senderName\":\"s\"}]\n</conversation_quote>"
+        );
+        assert_eq!(with_conversation_quotes("hi", &json!([])), "hi");
+        assert!(with_conversation_quotes("", &quotes).starts_with("<conversation_quote>"));
     }
 }

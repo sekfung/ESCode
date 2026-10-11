@@ -13,8 +13,12 @@
 // 阶段——那些是编译产物，住在快照的 `holes[]` 与 `scriptPath` 上。所以这里读一次端口快照（有界：
 // 一处留白一次），端口缺席或读不到时退回载荷自己说得出的字段，通知照发、只是少几句。
 
-import type { DynamicWorkflowRunHole } from "@zcode/contracts";
-import type { DynamicWorkflowRunProgressPayload, TraceContext } from "../deps.js";
+import type {
+  BackgroundResultOriginMeta,
+  DynamicWorkflowRunHole,
+  DynamicWorkflowRunPort,
+} from "@zcode/contracts";
+import type { DynamicWorkflowRunProgressPayload, Logger, TraceContext } from "../deps.js";
 import { formatWorkflowHoleNotification } from "../../runtime-task/workflow-notification-copy.js";
 import type { AgentRuntimeInternal } from "../internal.js";
 
@@ -31,23 +35,45 @@ export async function notifyHoleReached(
   traceContext: TraceContext,
 ): Promise<void> {
   if (payload.eventType !== HOLE_REACHED_EVENT_TYPE) return;
+  // 展示名的兜底链与另两条通知同源：registry 条目的 description → runId。
+  const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
+  const notification = await buildWorkflowHoleNotification(
+    payload,
+    runLabel,
+    this.dynamicWorkflowRunPort,
+    this.logger,
+  );
+  if (notification === undefined) return;
+  // taskId 让通知继承该 run 的 branchGeneration（迟到通知的 fencing）；丢弃后的兜底是快照查询。
+  this.enqueueBackgroundTaskNotification({ ...notification, taskId: payload.runId, traceContext });
+}
+
+/**
+ * `hole-reached` → 模型可见文本 + originMeta 的构造（其余事件回 undefined）。Rust runtime 的工作流宿主
+ * 复用它（docs/specs/rust-v3.15.1-drift.md），两侧逐字一致；`port` 用于读一次快照补齐类型 / 草稿 / 阶段。
+ */
+export async function buildWorkflowHoleNotification(
+  payload: DynamicWorkflowRunProgressPayload,
+  runLabel: string,
+  port: DynamicWorkflowRunPort | undefined,
+  logger?: Logger,
+): Promise<{ text: string; originMeta: BackgroundResultOriginMeta } | undefined> {
+  if (payload.eventType !== HOLE_REACHED_EVENT_TYPE) return undefined;
   const instance = payload.payload.instance as Record<string, unknown> | undefined;
   const siteId = stringField(instance, "siteId");
   const ordinal = numberField(instance, "ordinal");
   const name = stringField(payload.payload, "name");
   if (siteId === undefined || ordinal === undefined || name === undefined) {
-    this.logger?.warn?.("Dynamic workflow hole notification skipped: malformed payload", {
+    logger?.warn?.("Dynamic workflow hole notification skipped: malformed payload", {
       event: "dynamic_workflow.hole.notification_skipped",
       module: "core.runtime",
       runId: payload.runId,
       sequence: payload.sequence,
     });
-    return;
+    return undefined;
   }
 
-  const snapshot = await readHoleSnapshot(this, payload.runId, siteId, ordinal);
-  // 展示名的兜底链与另两条通知同源：registry 条目的 description → runId。
-  const runLabel = this.runtimeTaskRegistry.get(payload.runId)?.description ?? payload.runId;
+  const snapshot = await readHoleSnapshot(port, logger, payload.runId, siteId, ordinal);
   const prompt = boundPrompt(stringField(payload.payload, "prompt"));
   // 类型、行号与前后阶段来自快照的留白条目；载荷上若也带（未来的引擎版本）以载荷为准。
   const type = stringField(payload.payload, "type") ?? snapshot.hole?.type ?? "unknown";
@@ -64,7 +90,7 @@ export async function notifyHoleReached(
     ...(before === undefined ? {} : { before }),
     ...(after === undefined ? {} : { after }),
   };
-  this.enqueueBackgroundTaskNotification({
+  return {
     originMeta: {
       backgroundSource: "workflow",
       title: runLabel,
@@ -81,8 +107,6 @@ export async function notifyHoleReached(
         ...(reachedAt === undefined ? {} : { reachedAt }),
       },
     },
-    // taskId 让通知继承该 run 的 branchGeneration（迟到通知的 fencing）；丢弃后的兜底是快照查询。
-    taskId: payload.runId,
     text: formatWorkflowHoleNotification({
       runLabel,
       runId: payload.runId,
@@ -91,18 +115,17 @@ export async function notifyHoleReached(
       type,
       ...facts,
     }),
-    traceContext,
-  });
+  };
 }
 
 /** 读一次快照取这处留白的条目与草稿路径；端口缺席 / 读失败 / 没有条目都只是「没有」。 */
 async function readHoleSnapshot(
-  runtime: AgentRuntimeInternal,
+  port: DynamicWorkflowRunPort | undefined,
+  logger: Logger | undefined,
   runId: string,
   siteId: string,
   ordinal: number,
 ): Promise<{ hole?: DynamicWorkflowRunHole; scriptPath?: string }> {
-  const port = runtime.dynamicWorkflowRunPort;
   if (port === undefined) return {};
   try {
     const snapshot = await port.getTask(runId);
@@ -116,7 +139,7 @@ async function readHoleSnapshot(
       ...(snapshot.scriptPath === undefined ? {} : { scriptPath: snapshot.scriptPath }),
     };
   } catch (error) {
-    runtime.logger?.warn?.("Dynamic workflow hole notification: snapshot read failed", {
+    logger?.warn?.("Dynamic workflow hole notification: snapshot read failed", {
       event: "dynamic_workflow.hole.snapshot_failed",
       module: "core.runtime",
       runId,

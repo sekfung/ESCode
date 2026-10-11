@@ -25,6 +25,9 @@ pub struct Invocation {
     pub name: String,
     pub operator_before: Option<&'static str>,
     pub redirects: Vec<Redirect>,
+    /// guarded 匹配用的单词事实（TS `BashCommandInvocation.words`，不含赋值前缀与重定向；
+    /// 管道的 `time` 前缀按 TS 恢复为首词）。偏移为 UTF-16。
+    pub words: Vec<crate::guarded::CommandWord>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -131,9 +134,13 @@ impl Parser<'_> {
 
     fn pipeline(&mut self, before: Option<&'static str>) {
         // unbash 把 `time [-p]` 解析为管道前缀而不是命令名，与 TS 保持一致。
-        if matches!(self.tokens.get(self.i), Some(Token::Word(w)) if w.value == "time" && !w.dynamic)
+        let mut time = None;
+        if let Some(Token::Word(w)) = self.tokens.get(self.i)
+            && w.value == "time"
+            && !w.dynamic
             && matches!(self.tokens.get(self.i + 1), Some(Token::Word(_)))
         {
+            time = Some(self.word_fact(&w.clone()));
             self.i += 1;
             if matches!(self.tokens.get(self.i), Some(Token::Word(w)) if w.value == "-p") {
                 self.i += 1;
@@ -146,7 +153,13 @@ impl Parser<'_> {
                 return self.stop();
             }
         }
+        let first = self.out.commands.len();
         self.command(before);
+        // TS：unbash 把 time 关键字提升为 Pipeline.time，collectPipelineCommands 再把它恢复为首个命令的
+        // 首词，否则 `time -o file rm -rf x` 的参数会被误当成 executable（guarded 漏判）。
+        if let (Some(time), Some(command)) = (time, self.out.commands.get_mut(first)) {
+            command.words.insert(0, time);
+        }
         while let Some(Token::Op(op @ ("|" | "|&"))) = self.tokens.get(self.i) {
             let op = *op;
             self.i += 1;
@@ -173,6 +186,9 @@ impl Parser<'_> {
     }
 
     fn command(&mut self, before: Option<&'static str>) {
+        if self.skip_compound() {
+            return;
+        }
         match self.tokens.get(self.i) {
             Some(Token::Op("(")) => return self.unsupported_until_separator(),
             // 命令位置上的 `}`（`{ls;}` 拆成 `{ls` `;` `}`）：unbash 静默停止，不记不支持。
@@ -235,12 +251,68 @@ impl Parser<'_> {
             return;
         }
         inv.argv = words.iter().map(|w| w.value.clone()).collect();
+        inv.words = words.iter().map(|w| self.word_fact(w)).collect();
         inv.name = inv.argv.first().cloned().unwrap_or_default();
         inv.command_text = self.src[start..end].to_owned();
         inv.has_dynamic_words = dynamic;
         self.out.has_dynamic_words |= dynamic;
         self.out.has_redirects |= !inv.redirects.is_empty();
         self.out.commands.push(inv);
+    }
+
+    fn word_fact(&self, w: &Word) -> crate::guarded::CommandWord {
+        let utf16 = |byte: usize| self.src[..byte].encode_utf16().count();
+        crate::guarded_word::bash_word(&self.src[w.start..w.end], utf16(w.start), utf16(w.end))
+    }
+
+    /// 复合命令（子 shell、`{ }`、`[[ ]]`、if / for / while / until / select / case）：记不支持后跳过整个
+    /// 结构（含其后的重定向），之后的独立命令照常收集——unbash 把它们当作局部不支持节点，不丢弃后续
+    /// 命令（guarded 语料：`for …; done; rm -rf build` 必须命中）。关键字按非动态词计数，是近似：
+    /// 计数失配只会让后续词多收或少收，标志位已记不支持，只读判定不会因此放宽。
+    fn skip_compound(&mut self) -> bool {
+        let word = |token: Option<&Token>| match token {
+            Some(Token::Word(w)) if !w.dynamic => Some(w.value.clone()),
+            _ => None,
+        };
+        let (open, close): (&[&str], &[&str]) = match self.tokens.get(self.i) {
+            Some(Token::Op("(")) => (&["("], &[")"]),
+            _ => match word(self.tokens.get(self.i)).as_deref() {
+                Some("{") => (&["{"], &["}"]),
+                Some("[[") => (&["[["], &["]]"]),
+                Some("if") => (&["if"], &["fi"]),
+                Some("case") => (&["case"], &["esac"]),
+                Some("for" | "while" | "until" | "select") => {
+                    (&["for", "while", "until", "select"], &["done"])
+                }
+                _ => return false,
+            },
+        };
+        let is_op = open == ["("];
+        let mut depth = 0usize;
+        while self.i < self.tokens.len() {
+            let text = match &self.tokens[self.i] {
+                Token::Op(op) if is_op => Some((*op).to_owned()),
+                token if !is_op => word(Some(token)),
+                _ => None,
+            };
+            self.i += 1;
+            match text.as_deref() {
+                Some(t) if open.contains(&t) => depth += 1,
+                Some(t) if close.contains(&t) => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        while matches!(self.tokens.get(self.i), Some(Token::Redirect { .. })) {
+            self.out.has_redirects = true;
+            self.i += 1;
+        }
+        self.out.has_unsupported_syntax = true;
+        true
     }
 
     /// 不支持的结构：记标志并跳到语句结束（权限上已判为非只读，无需精确解析其内部）。

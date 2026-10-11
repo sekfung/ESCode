@@ -19,8 +19,7 @@ async function write(path: string, content: string) {
 
 async function seed(root: string) {
   const dir = (name: string) => join(root, "plugins", name);
-  const manifest = (name: string, kind = ".zcode-plugin") =>
-    join(dir(name), kind, "plugin.json");
+  const manifest = (name: string, kind = ".zcode-plugin") => join(dir(name), kind, "plugin.json");
   await write(manifest("ok"), JSON.stringify({ name: " ok " }));
   await write(manifest("broken"), "{ not json");
   await write(manifest("array"), "[]");
@@ -28,20 +27,14 @@ async function seed(root: string) {
   await mkdir(dir("no-manifest"), { recursive: true });
   // .zcode-plugin 存在但非法时不回退到 .claude-plugin（TS findManifest 取第一个存在的文件）。
   await write(manifest("shadowed"), JSON.stringify({ name: "" }));
-  await write(
-    manifest("shadowed", ".claude-plugin"),
-    JSON.stringify({ name: "shadowed" }),
-  );
+  await write(manifest("shadowed", ".claude-plugin"), JSON.stringify({ name: "shadowed" }));
   await write(
     manifest("claude", ".claude-plugin"),
     JSON.stringify({ name: "claude", version: "2.0.0" }),
   );
   await write(manifest("dup-a"), JSON.stringify({ name: "dup" }));
   await write(manifest("dup-b"), JSON.stringify({ name: "dup" }));
-  await write(
-    manifest("extras"),
-    JSON.stringify({ name: "extras", settings: {}, lspServers: {} }),
-  );
+  await write(manifest("extras"), JSON.stringify({ name: "extras", settings: {}, lspServers: {} }));
   return [
     "ok",
     "broken",
@@ -70,13 +63,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -86,20 +73,11 @@ async function observe(kind: Runtime) {
     await configureRegistry(f);
     const dirs = await seed(root);
     const userConfigPath = join(root, ".zcode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
-    await write(
-      userConfigPath,
-      JSON.stringify({ ...before, plugins: { dirs } }),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
+    await write(userConfigPath, JSON.stringify({ ...before, plugins: { dirs } }));
     const h = f.start();
     const workspace = { workspacePath: f.cwd, workspaceKey: f.cwd };
-    const result = (await h.client.request(
-      "plugins/list",
-      { workspace },
-      z.any(),
-    )) as any;
+    const result = (await h.client.request("plugins/list", { workspace }, z.any())) as any;
     const scrub = (text: string) => text.replaceAll(root, "<root>");
     const observation = {
       plugins: (result.plugins as any[])
@@ -138,16 +116,16 @@ test("Node and Rust report the same plugin discovery diagnostics", async () => {
   assert.deepEqual(node.schemaErrors, []);
   // 自检。
   const ids = node.plugins.map((plugin: any) => plugin.id);
-  assert.deepEqual(ids, [
-    "ok@inline",
-    "claude@inline",
-    "dup@inline",
-    "extras@inline",
-  ]);
+  assert.deepEqual(ids, ["ok@inline", "claude@inline", "dup@inline", "extras@inline"]);
   assert.equal(node.plugins[0]?.version, "0.0.0");
   // 只看 fixture 插件产生的诊断（随包官方插件可能另有 root_not_found，两侧同样产出、已在上方比对）。
   const codes = node.diagnostics
-    .filter((item: any) => !item.message.includes("zcode-plugins-official"))
+    // 只自检种子插件：官方插件的诊断（如 v3.15.1 image-search 的 ZCODE_BASE_URL 缺失）随环境而变。
+    .filter(
+      (item: any) =>
+        !item.message.includes("zcode-plugins-official") &&
+        !String(item.pluginId ?? "").endsWith("@zcode-plugins-official"),
+    )
     .map((item: any) => item.code)
     .sort();
   assert.deepEqual(codes, [

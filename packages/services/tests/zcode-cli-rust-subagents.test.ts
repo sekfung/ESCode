@@ -187,8 +187,13 @@ test("Subagent profile constrains dispatched tools and maxTurns, and foreign ses
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const last = request.messages.at(-1);
       if (last.content === "profile") {
+        // v3.15.1：profile 目录不再内嵌在 Agent 描述里，改由 agent_listing_delta 提醒通告。
         assert.match(
-          request.tools.find((t: any) => t.function.name === "Agent").function.description,
+          JSON.stringify(
+            request.messages.filter((m: any) =>
+              String(m.content).includes("Available agent types for the Agent tool:"),
+            ),
+          ),
           /limited/,
         );
         call(response, [

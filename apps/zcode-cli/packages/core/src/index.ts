@@ -28,6 +28,7 @@ export {
   formatWorkflowTaskNotificationText,
 } from "./tool/executor/background-tasks.js";
 export { buildWorkflowRunProgressNotification } from "./runtime/methods/dynamic-workflow-run-progress.js";
+export { buildWorkflowHoleNotification } from "./runtime/methods/dynamic-workflow-run-hole-notification.js";
 // Rust runtime 的工作流宿主用同一段「零会话副作用」实现直接启动已保存工作流
 // （docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」）。
 export { launchSavedWorkflowRun } from "./runtime/methods/dynamic-workflow-saved-launch.js";

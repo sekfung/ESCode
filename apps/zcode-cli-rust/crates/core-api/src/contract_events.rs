@@ -42,6 +42,12 @@ pub enum Event {
     TodoReminder {
         reply: oneshot::Sender<Value>,
     },
+    /// 已成形的持久化系统提醒（如 agent_listing_delta）：owner 追加进会话消息并落库后回执，
+    /// 失败不能让后续请求误判为已通告（TS persistSyntheticUserNoticeForSession 后才提交）。
+    PersistedNotice {
+        message: Value,
+        reply: oneshot::Sender<()>,
+    },
     /// hooks 追加的上下文（docs/specs/rust-hooks.md）：`Some` 落进会话消息（`before_input` 时插在本轮输入之前），
     /// `None` 撤回本轮输入（UserPromptSubmit 阻止继续）。
     HookContext {

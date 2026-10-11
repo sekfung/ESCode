@@ -109,6 +109,9 @@ sequenceDiagram
   - 生命周期：TS 的 node_repl broker 与会话 runtime 各持一个 BrowserControlPort，`turnEnded` 与 `closeSession`
     只覆盖 runtime 自己操作过的 browser（轮尾截图）。一旦截图过，此后每个 turn 收尾都发 `turnEnded`（任何结局）。
     第 2 期「Node 不发 turnEnded」的结论只适用于未截图的会话，已按此修正。
+  - v3.15.1：TS 让 node_repl broker 与 runtime 端口共享连接记忆，node_repl 用过的 browser 每个 turn 收尾都收到
+    `turnEnded`、关闭会话时收到 `closeSession`。Rust `Broker::execute` 过会话校验后同样记连接。子会话登记
+    （`forChildSession`，dwf / Agent 子代理经父会话用 Browser）未跟进，Rust 仍按 runtimeScope 拒绝 subagent。
   - `browserAmbientContext`：
     - 输入校验从「不支持」改为按协议 schema 校验；
     - 模型可见正文按 TS 模板包装，展示行保持原文。

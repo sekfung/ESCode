@@ -95,14 +95,18 @@ pub(super) async fn run(
     } else {
         vec![]
     };
-    if let Some(agent) = definitions
+    let agent_listed = if let Some(agent) = definitions
         .iter_mut()
         .find(|d| d["function"]["name"] == "Agent")
     {
-        // 按 TS 模板内联当前 profile 目录（此前追加的自拟 catalog 段 Node 没有，见 rust-tool-surface.md）。
+        // v3.15.1：描述是静态的，profile 目录改由每步的 agent_listing_delta 提醒通告
+        // （docs/specs/rust-v3.15.1-drift.md）。
         agent["function"]["description"] =
-            crate::domain::agent_description::render(&profiles, true).into();
-    }
+            crate::domain::agent_description::description().into();
+        true
+    } else {
+        false
+    };
     let tool_tokens = definitions
         .iter()
         .map(|d| d.to_string().encode_utf16().count().div_ceil(3))
@@ -133,6 +137,35 @@ pub(super) async fn run(
         if cancel.is_cancelled() {
             bail!("Cancelled");
         }
+        // TS appendRuntimeAgentListing：输出续写之外的每步按历史已通告集合补发增量，先持久化再进请求。
+        if continuations == 0
+            && agent_listed
+            && let Some((content, delta)) =
+                crate::domain::agent_description::listing_delta(&profiles, &history.messages, true)
+        {
+            use crate::domain::agent_description::{LISTING_DELTA_KEY, LISTING_SOURCE};
+            let message = json!({
+                "role": "user",
+                "content": format!("<system-reminder>
+{content}
+</system-reminder>"),
+                "_zcode_source": LISTING_SOURCE,
+                LISTING_DELTA_KEY: delta,
+            });
+            let (reply, receipt) = oneshot::channel();
+            sink.send(Event::PersistedNotice {
+                message: message.clone(),
+                reply,
+            })
+            .await?;
+            tokio::select! {biased;
+                _=cancel.cancelled()=>bail!("Cancelled"),
+                done=receipt=>done.context("Agent listing commit failed")?,
+            }
+            // 规范历史只追加（落库按长度增量）；Node 请求里本轮增量位于输入正文之前，由请求投影
+            // `agent_description::order_listing_before_input` 还原该顺序。
+            history.push(message);
+        }
         if continuations == 0
             && definitions
                 .iter()
@@ -156,6 +189,11 @@ pub(super) async fn run(
             context.instructions(cancel).await?
         };
         let identity = model.identity();
+        let gen_ui_directory = if history.agent_profile.is_none() {
+            context.gen_ui_directory(&sink.session_id).await
+        } else {
+            None
+        };
         let mut prefix = crate::domain::prompt::prefix(
             history.prompt_snapshot.as_ref().unwrap(),
             &instructions,
@@ -163,6 +201,7 @@ pub(super) async fn run(
                 .as_ref()
                 .map(|id| (id.provider_id.as_str(), id.model_id.as_str())),
             context.desktop(),
+            gen_ui_directory.as_deref(),
             // 主会话暴露 Skill 且目录非空时才有该段（子代理与 TS 工作流 actor 不输出）。
             history.agent_profile.is_none() && skills.enabled && !skills.skills.is_empty(),
             history

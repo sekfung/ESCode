@@ -44,6 +44,7 @@ fn query(corpus: &Json, case: &Json) -> journal::RunQuery {
     let params = case.get("params").unwrap();
     let global = params.get("scope").and_then(Json::as_str) == Some("global");
     journal::RunQuery {
+        run_id: None,
         cwd: if global {
             None
         } else {
@@ -114,6 +115,7 @@ fn workflow_run_list_matches_ts() {
     for case in corpus.get("listCases").unwrap().as_array().unwrap() {
         let port = case.get("portInput").unwrap();
         let query = journal::RunQuery {
+            run_id: None,
             cwd: port.get("cwd").and_then(Json::as_str).map(str::to_owned),
             name: None,
             statuses: None,

@@ -49,16 +49,33 @@ impl Engine {
             let _ = reply.send(PermissionOutcome::deny(denied_content(None)));
             return Ok(());
         };
+        // 群任务的会话级授权代替项目规则（TS loadProjectPermissionRuleset 的 scope=session 分支）。
+        let scoped = session
+            .scoped_permission
+            .as_ref()
+            .map(crate::domain::permission::Ruleset::from_json);
         let ctx = PermissionContext {
             tool_name: &tool,
             mode: Mode::parse(&session.mode).unwrap_or(Mode::Build),
             plan_enabled: Some(session.plan_enabled),
             input: &input,
-            project: self.project_rules.as_ref(),
+            project: scoped.as_ref().or(self.project_rules.as_ref()),
             session: None,
             config: Some(&self.permission_config),
         };
-        let capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
+        let mut capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
+        // guarded（v3.15.1）：Bash 命中危险命令时附带 userApprovalRule，由 check 走 user-once 确认。
+        if ctx.mode == Mode::Guarded && tool == "Bash" {
+            let owner = self.shell_owner_session(id);
+            let shell = self
+                .shell
+                .cached(&owner, "user-execution")
+                .and_then(|value| value.get("integratedTerminalShell"))
+                .filter(|value| !value.is_null());
+            if let Some(rule) = self.tools.guarded_rule(&input, shell) {
+                capability.get_or_insert_with(Capability::default).user_approval_rule = Some(rule);
+            }
+        }
         // 主会话记忆 Markdown 写入放行（docs/specs/rust-project-memory.md）。
         let decision = crate::domain::memory::permission_override(
             check(&ctx, capability.as_ref()),
@@ -68,7 +85,13 @@ impl Engine {
             &self.workspace_path,
         );
         let always_ask = capability.as_ref().and_then(|c| c.always_ask) == Some(true);
-        let (decision, hook_reason) = super::tool_hooks::merge_permission(decision, hook.as_ref(), always_ask);
+        // TS：user-once（guarded 危险命令）不经 PreToolUse 改判，也不被工具预览的 proceed 放行。
+        let user_once = decision.user_once;
+        let (decision, hook_reason) = if user_once {
+            (decision, None)
+        } else {
+            super::tool_hooks::merge_permission(decision, hook.as_ref(), always_ask)
+        };
         // 待产品确认：TS 对声明 requiresUserInteraction 的工具（AskUserQuestion）在
         // checkPermission 里同样返回 ask，而该工具自身的提问界面才是这次「用户交互」。
         // Rust 现有问句流程与既有集成用例都按「不额外弹权限确认」实现，这里先按原行为放行，
@@ -92,7 +115,7 @@ impl Engine {
                 Ok(())
             }
             // TS approval-gate：工具答复 proceed 时 ask 直接放行（只能收窄 ask，不能把 deny 变成 allow）。
-            crate::domain::permission::Behavior::Ask if approval_proceed => {
+            crate::domain::permission::Behavior::Ask if approval_proceed && !user_once => {
                 let _ = reply.send(PermissionOutcome::allow());
                 Ok(())
             }
@@ -110,7 +133,7 @@ impl Engine {
             }
             crate::domain::permission::Behavior::Ask => {
                 let reason = hook_reason.unwrap_or_else(|| ask_reason(decision.rule_id, &tool));
-                self.register_permission(id, run, turn, call, &tool, &input, reason, reply)
+                self.register_permission(id, run, turn, call, &tool, &input, reason, user_once, reply)
                     .await
             }
         }
@@ -126,15 +149,25 @@ impl Engine {
         tool: &str,
         input: &Value,
         reason: String,
+        user_once: bool,
         reply: oneshot::Sender<PermissionOutcome>,
     ) -> Result<()> {
         if reply.is_closed() {
             return Ok(());
         }
-        let suggested = suggested_rules(tool, input);
+        // user-once 不建议任何持久 / 会话规则（TS suggestedPermissionUpdates = []）。
+        let suggested = if user_once {
+            vec![]
+        } else {
+            suggested_rules(tool, input)
+        };
         let hook_reason = reason.clone();
-        // 项目规则可由 store 持久化时才投放 allowAlways，避免给出无法兑现的授权。
-        let persistent = self.project_rules_persistent;
+        // 项目规则可由 store 持久化时才投放 allowAlways，避免给出无法兑现的授权；会话级授权随会话落库。
+        let persistent = self.project_rules_persistent
+            || self
+                .sessions
+                .get(id)
+                .is_some_and(|s| s.scoped_permission.is_some());
         let interaction = self.clock.id();
         let now = self.clock.now();
         let call_id = call["id"].as_str().unwrap_or("").to_owned();
@@ -158,11 +191,19 @@ impl Engine {
             "summary": reason,
             "detail": input,
             "freeText": true,
-            "options": options_for(tool, &suggested, persistent),
+            "options": if user_once {
+                // TS buildPermissionOptions：user-once 只留「允许一次 / 拒绝」。
+                options_for(tool, &suggested, persistent)
+                    .into_iter()
+                    .filter(|option| matches!(option["kind"].as_str(), Some("allowOnce" | "deny")))
+                    .collect()
+            } else {
+                options_for(tool, &suggested, persistent)
+            },
         });
         // TS 仅对主会话的确认提供「完全访问」（子代理来源的确认不带该选项）；声明了选项策略的工具
         // （工作流的 Create / Amend / Save）同样不带。
-        if s.parent_id.is_none() && !OPTIONS_POLICY_TOOLS.contains(&tool) {
+        if s.parent_id.is_none() && !OPTIONS_POLICY_TOOLS.contains(&tool) && !user_once {
             payload["fullAccessOption"] = full_access_option();
         }
         s.pending.push(json!({
@@ -196,7 +237,9 @@ impl Engine {
         let call_id = call["id"].as_str().unwrap_or_default();
         let p = super::telemetry::Permission { phase: "requested", call_id, tool: Some(tool), request_id: Some(&interaction), decision: None };
         self.telemetry_permission(id, Some(turn), p);
-        self.spawn_permission_hook(id, turn, call, input, &interaction, &hook_reason);
+        if !user_once {
+            self.spawn_permission_hook(id, turn, call, input, &interaction, &hook_reason);
+        }
         self.publish(id, deltas)?;
         self.persist(id, None).await
     }
@@ -218,8 +261,9 @@ pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
 /// 不是「记住这次决定」而是把这道确认永久关掉，所以只给「允许一次 / 拒绝」。
 const NO_ALWAYS_ALLOW: [&str; 1] = ["SaveWorkflow"];
 /// TS `askOptions.allowAlways: "session"`：只给会话作用域的免确认（不落项目规则）。
-const SESSION_ALWAYS_ALLOW: [&str; 2] = ["CreateWorkflow", "AmendWorkflow"];
-const OPTIONS_POLICY_TOOLS: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow"];
+const SESSION_ALWAYS_ALLOW: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "FillWorkflowHole"];
+const OPTIONS_POLICY_TOOLS: [&str; 4] =
+    ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow", "FillWorkflowHole"];
 
 fn options_for(tool: &str, suggested: &[Rule], persistent: bool) -> Vec<Value> {
     let mut list = if SESSION_ALWAYS_ALLOW.contains(&tool) {
@@ -273,7 +317,39 @@ pub(super) fn suggested_rules(tool: &str, input: &Value) -> Vec<Rule> {
     default_updates(tool, input)
 }
 
+/// 把建议规则并入一份 ruleset JSON 的 allow 段（去重）。
+fn merge_allow_rules(json: &mut Value, rules: &[Rule]) {
+    let mut merged = json["allow"].as_array().cloned().unwrap_or_default();
+    for rule in rules {
+        let entry = match &rule.rule_content {
+            Some(content) => json!({"toolName": rule.tool_name, "ruleContent": content}),
+            None => json!({"toolName": rule.tool_name}),
+        };
+        let duplicate = merged.iter().any(|existing| {
+            existing["toolName"] == entry["toolName"] && existing["ruleContent"] == entry["ruleContent"]
+        });
+        if !duplicate {
+            merged.push(entry);
+        }
+    }
+    json["allow"] = Value::Array(merged);
+}
+
 impl Engine {
+    /// 「总是允许」落点：群任务写会话级授权（随会话落库，TS persistProjectPermissionUpdates 的
+    /// scope=session 分支），否则写项目规则。失败时拒绝这次授权而不是静默放行。
+    pub(super) async fn merge_allow_always(&mut self, id: &str, rules: &[Rule]) -> bool {
+        let Some(scoped) = self
+            .sessions
+            .get_mut(id)
+            .and_then(|s| s.scoped_permission.as_mut())
+        else {
+            return self.merge_project_rules(rules).await;
+        };
+        merge_allow_rules(scoped, rules);
+        self.persist(id, None).await.is_ok()
+    }
+
     /// 「总是允许」：把建议规则并入项目规则集并落库；失败时拒绝这次授权而不是静默放行。
     pub(super) async fn merge_project_rules(&mut self, rules: &[Rule]) -> bool {
         if !self.project_rules_persistent {
@@ -283,21 +359,7 @@ impl Engine {
             .project_rules_json
             .clone()
             .unwrap_or_else(|| json!({"version": 1}));
-        let mut merged = json["allow"].as_array().cloned().unwrap_or_default();
-        for rule in rules {
-            let entry = match &rule.rule_content {
-                Some(content) => json!({"toolName": rule.tool_name, "ruleContent": content}),
-                None => json!({"toolName": rule.tool_name}),
-            };
-            let duplicate = merged.iter().any(|existing| {
-                existing["toolName"] == entry["toolName"]
-                    && existing["ruleContent"] == entry["ruleContent"]
-            });
-            if !duplicate {
-                merged.push(entry);
-            }
-        }
-        json["allow"] = Value::Array(merged);
+        merge_allow_rules(&mut json, rules);
         if self
             .store
             .save_project_rules(&self.workspace, &json)

@@ -58,9 +58,10 @@ async function observeResume(kind: Runtime, clientMode: string) {
       deliveryKind: resumed.params.deliveryKind,
       fromSeq: resumed.params.frame.fromSeq - baseSeq,
       reachesLatest: resumed.params.frame.toSeq === lastSeq,
-      // 续传必须恰好覆盖 (base, current]：seq 与增量一一对应。
+      // 续传必须覆盖 (base, current]：每个 seq 至少一条增量。v3.15.1 起 Node 把同一次提交的多条增量
+      // 归到同一个 seq（原子组），不再一一对应；Rust 仍逐条分配 seq，两者对 reducer 等价。
       coversRange:
-        (resumed.params.frame.payload.deltas ?? []).length ===
+        (resumed.params.frame.payload.deltas ?? []).length >=
         resumed.params.frame.toSeq - resumed.params.frame.fromSeq,
       // 流式发布粒度不同（Rust 以 row.delta 推送文本分片），只比较变更种类。
       opKinds: [

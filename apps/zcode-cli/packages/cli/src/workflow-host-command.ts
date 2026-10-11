@@ -48,6 +48,7 @@ import {
 } from "@zcode/shared/zcode-protocol-v4";
 import {
   BackgroundTaskTracker,
+  buildWorkflowHoleNotification,
   buildWorkflowRunProgressNotification,
   builtInTools,
   InMemoryRuntimeTaskRegistry,
@@ -65,6 +66,8 @@ const HOST_TOOLS = new Set([
   "ResumeWorkflowRun",
   "GetWorkflowRun",
   "ResolveWorkflowQuestion",
+  // v3.15.1 留白补全：TS handler 只依赖 run 端口、会话与 cwd，与 AmendWorkflow 同路转发。
+  "FillWorkflowHole",
   // 只在 task_id 指向工作流 run 时由 Rust 转来（TS 后台任务控制端口的 local_dynamic_workflow 分支
   // 与运行时任务注册表）。
   "TaskStop",
@@ -115,6 +118,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
   const actorBridges = new Map<string, ReturnType<typeof createActorBridge>>();
   /** 每个父会话最近一次工作流工具调用带来的模型选择（actor 的模型基线）。 */
   const selections = new Map<string, Record<string, unknown>>();
+  // 会话当前权限模式（Rust 随工具调用递来）：建 run 时记进 `run-launched` 的 subagentPermissionMode。
+  const permissionModes = new Map<string, string>();
   /**
    * 每个父会话一份 TS 运行时任务注册表与后台追踪器（Node 里它们属于该会话的 AgentRuntime）：run 的登记、
    * 结算、resultText、通知认领（TaskOutput 读到终态即认领）与 superseded 抑制都走 TS 原实现。
@@ -208,6 +213,7 @@ export async function runWorkflowHostCommand(): Promise<number> {
       existing = createDynamicWorkflowRunService({
         journal,
         parentSessionId: session,
+        permissionMode: () => permissionModes.get(session) as never,
         fileSystemPort,
         executionPort,
         ...(artifactStore === undefined ? {} : { artifactStore }),
@@ -235,6 +241,15 @@ export async function runWorkflowHostCommand(): Promise<number> {
             send({ event: "workflowRuns", params: { session: owner, kind: "telemetry", fact: fields } });
           }
           const runLabel = tracking(session).registry.get(progress.runId)?.description ?? progress.runId;
+          const holeSession = routing.parentSessionId ?? session;
+          // 留白（hole-reached）要读一次快照补齐类型 / 草稿 / 阶段，异步构造后同样作为 run 中通知交给 Rust。
+          void buildWorkflowHoleNotification(progress, runLabel, services.get(session)).then((hole) => {
+            if (hole === undefined) return;
+            send({
+              event: "runNotice",
+              params: { session: holeSession, taskId: progress.runId, noticeId: `hole-reached:${progress.sequence}`, ...hole },
+            });
+          });
           const notification = buildWorkflowRunProgressNotification(progress, runLabel);
           if (notification === undefined) return;
           const noticeId = String(progress.payload.qid ?? `${progress.eventType}:${progress.sequence}`);
@@ -301,6 +316,9 @@ export async function runWorkflowHostCommand(): Promise<number> {
     const params = request.params ?? {};
     if (typeof params.session === "string" && params.selection !== undefined) {
       selections.set(params.session, params.selection);
+    }
+    if (typeof params.session === "string" && typeof params.permissionMode === "string") {
+      permissionModes.set(params.session, params.permissionMode);
     }
     switch (request.method) {
       case "init": {

@@ -18,12 +18,13 @@ use tokio::sync::{Mutex, oneshot};
 
 const COMMAND: &str = "__zcode-workflow-host";
 /// 宿主负责的工作流工具（其余由 Rust 原生实现）。
-pub(crate) const TOOLS: [&str; 5] = [
+pub(crate) const TOOLS: [&str; 6] = [
     "CreateWorkflow",
     "AmendWorkflow",
     "ResumeWorkflowRun",
     "GetWorkflowRun",
     "ResolveWorkflowQuestion",
+    "FillWorkflowHole",
 ];
 
 /// 交给宿主执行的调用：宿主工具，以及指向工作流 run 的 TaskStop / TaskOutput（TS 后台任务控制端口的

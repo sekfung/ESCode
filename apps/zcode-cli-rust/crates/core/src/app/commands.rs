@@ -159,7 +159,7 @@ impl Engine {
             "switchCollaborationMode" => {
                 let mode = c.payload["mode"].as_str();
                 let plan = c.payload["planEnabled"].as_bool();
-                if mode.is_some_and(|m| !matches!(m, "yolo" | "build" | "edit"))
+                if mode.is_some_and(|m| !matches!(m, "yolo" | "build" | "edit" | "guarded"))
                     || (mode.is_none() && plan.is_none())
                     || s.running()
                 {

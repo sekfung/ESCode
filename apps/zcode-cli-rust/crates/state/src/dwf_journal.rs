@@ -105,6 +105,10 @@ pub fn list_runs(conn: &Connection, query: &RunQuery) -> Result<Vec<RunRow>> {
          spent_tokens, status, failure_json, time_created, time_updated from dwf_run where 1 = 1",
     );
     let mut values: Vec<SqlValue> = Vec::new();
+    if let Some(run_id) = &query.run_id {
+        sql.push_str(" and id = ?");
+        values.push(SqlValue::Text(run_id.clone()));
+    }
     if let Some(cwd) = &query.cwd {
         sql.push_str(" and cwd = ?");
         values.push(SqlValue::Text(cwd.clone()));

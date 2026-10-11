@@ -139,6 +139,35 @@ impl Lexer<'_> {
         while matches!(self.peek(0), Some(' ' | '\t')) {
             self.i += 1;
         }
+        // 修复（对齐 unbash，guarded 语料发现）：输入末尾的悬空重定向（`git reset --hard >`、`2>`）unbash
+        // 不报解析错误，目标取到前一个词（有 fd 时为 fd 数字）；Rust 原先记解析错误，guarded 因而把
+        // `git reset --hard 2>` 判成 unsupported 而漏掉确认。重定向仍在，只读判定不受放宽。
+        if self.peek(0).is_none() && op != "<<" && op != "<<-" {
+            let value = fd.map(|fd| fd.to_string()).unwrap_or_else(|| {
+                self.tokens
+                    .iter()
+                    .rev()
+                    .find_map(|token| match token {
+                        Token::Word(word) => Some(word.value.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+            });
+            let end = self.pos();
+            self.tokens.push(Token::Redirect {
+                fd,
+                op,
+                target: Word {
+                    value,
+                    start: end,
+                    end,
+                    ..Default::default()
+                },
+                body_dynamic: false,
+                start,
+            });
+            return;
+        }
         if self.peek(0).is_none_or(|c| "\n;&|()<>".contains(c)) {
             self.error = true;
             return;

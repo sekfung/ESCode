@@ -15,7 +15,7 @@ const IN_BOUND_SESSION: &str = "This session already has a pending idle-time tas
 const BOUND_CHECK_FAILED: &str =
     "Cannot verify whether this session already has a pending idle-time task; try again later.";
 const TERMINAL: [&str; 3] = ["completed", "failed", "cancelled"];
-const MODES: [&str; 4] = ["build", "edit", "plan", "yolo"];
+const MODES: [&str; 5] = ["build", "edit", "plan", "yolo", "guarded"];
 
 /// 闲时派发轮额外隐藏的工具（TS `OFF_PEAK_MUTATION_TOOL_NAMES`，docs/specs/rust-offpeak.md 第二期）。
 pub const MUTATION_TOOLS: [&str; 3] = ["OffPeakCreate", "SendMessage", "Workflow"];

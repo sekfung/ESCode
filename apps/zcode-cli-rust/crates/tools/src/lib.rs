@@ -48,6 +48,7 @@ mod plugin_reference;
 mod plugin_suggested;
 mod plugin_uninstall;
 mod plugin_validate;
+mod plugin_mcp_vars;
 mod plugin_validate_mcp;
 #[cfg(test)]
 mod plugin_validate_mcp_tests;
@@ -92,6 +93,7 @@ mod read_pdf;
 // 第 2 期存储层：ListSavedWorkflows / SaveWorkflow 与 `workflows/*` 管理方法随开关（第 1 期）接入。
 pub mod saved_workflows;
 mod saved_workflows_hub;
+mod saved_workflows_run;
 mod saved_workflows_model;
 mod saved_workflows_move;
 #[cfg(test)]

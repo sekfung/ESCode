@@ -164,7 +164,9 @@ pub(super) async fn configured(
     let serial = super::mcp_serial::server(&loaded, cwd);
     let data_root = config::storage(&config).join("data");
     for plugin in loaded {
-        for (name, server) in plugin_servers(&plugin, cwd, &data_root).await? {
+        let options = &config["plugins"]["options"][&plugin.id];
+        for (name, server) in plugin_servers(&plugin, cwd, &data_root, options, &mut vec![]).await?
+        {
             merged.insert(name, server);
         }
     }
@@ -210,14 +212,40 @@ pub(super) async fn plugin_servers(
     plugin: &plugins::Plugin,
     cwd: &Path,
     data_root: &Path,
+    options: &Value,
+    diagnostics: &mut Vec<Value>,
 ) -> Result<Vec<(String, Server)>> {
     let mut servers = vec![];
+    let data = data_root.join(crate::domain::custom_command::sanitize_plugin_id(
+        &plugin.id,
+    ));
+    let (root, data, project) = (
+        plugin.root.to_string_lossy(),
+        data.to_string_lossy(),
+        cwd.to_string_lossy(),
+    );
+    let context = super::plugin_mcp_vars::Context {
+        root: &root,
+        data: &data,
+        project: &project,
+        manifest: &plugin.manifest,
+        options,
+    };
     for (key, raw) in plugin_definitions(plugin).await? {
         let name = format!("plugin:{}:{key}", plugin.name);
         let mut raw = raw;
-        let root = plugin.root.to_string_lossy();
         replace_root(&mut raw, &root);
         plugin_stdio_env(&mut raw, cwd, plugin, data_root);
+        // TS resolvePluginMcpServers：变量缺失时该 MCP 不注入，诊断随插件发现结果返回。
+        if let Err(message) = super::plugin_mcp_vars::resolve_server(&mut raw, &context) {
+            diagnostics.push(json!({
+                "code": "plugin_variable_missing",
+                "message": message,
+                "severity": "error",
+                "pluginId": plugin.id,
+            }));
+            continue;
+        }
         // TS resolveMcpServerConfig 只取白名单字段，插件里的 protocolVersion/isolation 不生效（走默认协商与隔离）；
         // 之前 Rust 原样保留，官方 MCP 差分中出现请求序列分叉（docs/specs/rust-mcp-official-auth.md）。
         if let Some(object) = raw.as_object_mut() {
@@ -270,7 +298,11 @@ fn official_plugin(mut server: Server, plugin_id: &str, mcp_key: &str) -> Server
         Ok(false) => return server,
         Ok(true) => {
             let headers = server.raw["headers"].as_object();
-            let reserved = rules::reserved_headers(headers.into_iter().flat_map(|h| h.keys().map(String::as_str)));
+            let reserved = rules::reserved_headers(
+                headers
+                    .into_iter()
+                    .flat_map(|h| h.keys().map(String::as_str)),
+            );
             server.transport != "sse"
                 && server.raw.get("oauth").is_none()
                 && (server.transport == "stdio" || reserved.is_empty())
@@ -278,7 +310,8 @@ fn official_plugin(mut server: Server, plugin_id: &str, mcp_key: &str) -> Server
         Err(_) => false,
     };
     if valid {
-        server.raw["official"] = serde_json::json!({"mcpKey": mcp_key, "pluginId": plugin_id, "source": "plugin"});
+        server.raw["official"] =
+            serde_json::json!({"mcpKey": mcp_key, "pluginId": plugin_id, "source": "plugin"});
     } else {
         server.invalid = true;
     }
@@ -294,7 +327,9 @@ fn plugin_stdio_env(raw: &mut Value, cwd: &Path, plugin: &plugins::Plugin, data_
         return;
     };
     let (project, root) = (cwd.to_string_lossy(), plugin.root.to_string_lossy());
-    let data = data_root.join(crate::domain::custom_command::sanitize_plugin_id(&plugin.id));
+    let data = data_root.join(crate::domain::custom_command::sanitize_plugin_id(
+        &plugin.id,
+    ));
     let data = data.to_string_lossy();
     let mut env = json!({
         "CLAUDE_PROJECT_DIR": project, "ZCODE_PLUGIN_DATA": data, "ZCODE_PLUGIN_ROOT": root,

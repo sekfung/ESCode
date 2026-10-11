@@ -272,6 +272,11 @@ pub(super) async fn run(
     // TS toBashOutput：提供方错误时不识别图片、不给 GitHub 限流提示；提示按原始 stdout 判断。
     if !crate::domain::bash_model_content::is_provider_error(&data) {
         super::bash_image::apply_gh_hint(&mut data, command_text);
+        // v3.15.1：限流提示仍按原始 stdout 判断，之后再剥离内部 hint 行并识别图片（TS toBashOutput 同序）。
+        let stripped = crate::domain::bash_model_content::strip_claude_code_hint_lines(
+            data["stdout"].as_str().unwrap_or_default(),
+        );
+        data["stdout"] = stripped.into();
         super::bash_image::apply_image(&mut data, truncated.then_some(path)).await;
     }
     if truncated || backgrounded {

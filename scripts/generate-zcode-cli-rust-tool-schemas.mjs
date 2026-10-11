@@ -5,6 +5,7 @@ import { format } from "oxfmt";
 import { askUserQuestionToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/ask-user-question.ts";
 import { skillToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/skill.ts";
 import { createAgentToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/agent.ts";
+import { replyToChannelToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/reply-to-channel.ts";
 import { sendMessageToolEntry } from "../apps/zcode-cli/packages/core/src/tool/handlers/send-message.ts";
 import { builtInTools } from "../apps/zcode-cli/packages/core/src/tool/handlers/index.ts";
 import { createToolRegistry } from "../apps/zcode-cli/packages/core/src/tool/registry.ts";
@@ -27,7 +28,7 @@ import {
 } from "../apps/zcode-cli/packages/core/src/tool/handlers/todo.ts";
 import { createBashProviderDescription } from "../apps/zcode-cli/packages/core/src/tool/handlers/bash-prompt.ts";
 import { createEnterPlanModeProviderDescription } from "../apps/zcode-cli/packages/core/src/tool/handlers/plan-mode-prompts.ts";
-import { formatAgentProfilesForPrompt } from "../apps/zcode-cli/packages/core/src/subagent/profile.ts";
+import { collectAgentListingAttachment } from "../apps/zcode-cli/packages/core/src/subagent/listing.ts";
 import { formatExploreAllowedToolsForAgentDescription } from "../apps/zcode-cli/packages/core/src/subagent/explore-tools.ts";
 import { orderProviderVisibleToolContracts } from "../apps/zcode-cli/packages/core/src/tool/provider-visible-order.ts";
 import {
@@ -62,7 +63,12 @@ const tools = [
   ["ListWorkflowRuns", "list-workflow-runs", "ListWorkflowRunsInputJsonSchema"],
   ["AmendWorkflow", "amend-workflow", "AmendWorkflowInputJsonSchema"],
   ["ResumeWorkflowRun", "resume-workflow-run", "ResumeWorkflowRunInputJsonSchema"],
-  ["ResolveWorkflowQuestion", "resolve-workflow-question", "ResolveWorkflowQuestionInputJsonSchema"],
+  [
+    "ResolveWorkflowQuestion",
+    "resolve-workflow-question",
+    "ResolveWorkflowQuestionInputJsonSchema",
+  ],
+  ["FillWorkflowHole", "fill-workflow-hole", "FillWorkflowHoleInputJsonSchema"],
   ["Grep", "grep", "GrepInputJsonSchema"],
   ["Bash", "bash", "BashInputJsonSchema"],
   ["TaskOutput", "task-output", "TaskOutputInputJsonSchema"],
@@ -92,6 +98,8 @@ const schemas = {};
 for (const [name, file, key] of tools) {
   schemas[name] = (await import(`../apps/zcode-cli/packages/contracts/src/tools/${file}.ts`))[key];
 }
+// ReplyToChannel 的 provider schema 定义在 core handler 上（contracts 中没有），直接取 entry 的 inputSchema。
+schemas.ReplyToChannel = replyToChannelToolEntry.inputSchema;
 // 权限判定所需的工具能力表：逐项来自 TS 工具元数据，避免 Rust 侧硬编码再次漂移。
 const capabilities = Object.fromEntries(
   builtInTools
@@ -136,6 +144,7 @@ const staticDescriptions = Object.fromEntries(
     "TaskStop",
     "WebFetch",
     "ReadSessionContext",
+    "ReplyToChannel",
     "CronCreate",
     "CronList",
     "CronUpdate",
@@ -152,34 +161,52 @@ const staticDescriptions = Object.fromEntries(
     "AmendWorkflow",
     "ResumeWorkflowRun",
     "ResolveWorkflowQuestion",
+    "FillWorkflowHole",
   ].map((name) => [name, providerDescriptions[name]]),
 );
 const branches = { embedded: true, direct: false };
-const agentTemplate = Object.fromEntries(
-  Object.entries(branches).map(([branch, embeddedSearchEnabled]) => {
-    const description = createAgentToolEntry({
-      embeddedSearchEnabled,
-      dynamicWorkflowEnabled: false,
-    }).metadata.description;
-    const list = formatAgentProfilesForPrompt([], { embeddedSearchEnabled });
-    const index = description.indexOf(list);
-    if (index < 0) throw new Error("Agent description no longer embeds the profile list");
-    return [
-      branch,
-      {
-        head: description.slice(0, index),
-        tail: description.slice(index + list.length),
-        listHeader: list.split("\n")[0],
-        exploreTools: formatExploreAllowedToolsForAgentDescription({ embeddedSearchEnabled }),
-      },
-    ];
-  }),
+// v3.15.1 起 Agent 工具描述不再内嵌 profile 列表（改为 agent_listing_delta 系统提醒），两个搜索分支的描述
+// 必须逐字相同；列表的标题与提示语从 TS 收集器的真实输出切出，避免复制 listing.ts 的私有常量。
+const agentDescriptions = Object.fromEntries(
+  Object.entries(branches).map(([branch, embeddedSearchEnabled]) => [
+    branch,
+    createAgentToolEntry({ embeddedSearchEnabled, dynamicWorkflowEnabled: false }).metadata
+      .description,
+  ]),
 );
-if (
-  agentTemplate.embedded.head !== agentTemplate.direct.head ||
-  agentTemplate.embedded.tail !== agentTemplate.direct.tail
-)
-  throw new Error("Agent description frame now depends on the search branch");
+if (agentDescriptions.embedded !== agentDescriptions.direct)
+  throw new Error("Agent description now depends on the search branch");
+const listingProbe = { name: "probe", description: "probe", source: "user", systemPrompt: "" };
+const collectListing = (activeAgents, entries = []) =>
+  collectAgentListingAttachment({
+    definitions: { activeAgents },
+    entries,
+    tools: [{ name: "Agent" }],
+    embeddedSearchEnabled: true,
+  });
+const initialListing = collectListing([listingProbe]);
+const removedListing = collectListing([], [initialListing]);
+const addedListing = collectListing(
+  [listingProbe, { ...listingProbe, name: "probe2" }],
+  [initialListing],
+);
+const listingSections = (attachment) => attachment.content.split("\n\n");
+const [initialSection, concurrencyNote] = listingSections(initialListing);
+const [addedSection] = listingSections(addedListing);
+const [removedSection, ambientNote] = listingSections(removedListing);
+const agentListing = {
+  initialHeading: initialSection.split("\n")[0],
+  addedHeading: addedSection.split("\n")[0],
+  removedHeading: removedSection.split("\n")[0],
+  ambientNote,
+  concurrencyNote,
+};
+const agentTemplate = Object.fromEntries(
+  Object.entries(branches).map(([branch, embeddedSearchEnabled]) => [
+    branch,
+    { exploreTools: formatExploreAllowedToolsForAgentDescription({ embeddedSearchEnabled }) },
+  ]),
+);
 // TS 排序：参考集合内按 localeCompare，其余保持注册顺序。逐个探测集合成员，避免复制 TS 常量。
 const providerOrder = builtInTools
   .map((entry) => entry.metadata.name)
@@ -274,11 +301,8 @@ for (const [file, data] of [
   [
     "../domain/agent_description_template.json",
     {
-      frame: {
-        head: agentTemplate.embedded.head,
-        tail: agentTemplate.embedded.tail,
-        listHeader: agentTemplate.embedded.listHeader,
-      },
+      description: agentDescriptions.embedded,
+      listing: agentListing,
       exploreTools: {
         embedded: agentTemplate.embedded.exploreTools,
         direct: agentTemplate.direct.exploreTools,

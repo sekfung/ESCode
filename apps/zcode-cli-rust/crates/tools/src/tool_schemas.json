@@ -235,8 +235,9 @@
     "properties": {
       "sessionId": {
         "type": "string",
-        "pattern": "^sess_[A-Za-z0-9._-]+$",
-        "description": "Target ZCode session id to read from persisted session history."
+        "pattern": "^(?:current|sess_[A-Za-z0-9._-]+)$",
+        "default": "current",
+        "description": "For topic strategy omit this field to use the current task. Other strategies require an explicit sess_* target."
       },
       "query": {
         "type": "string",
@@ -246,9 +247,37 @@
       },
       "strategy": {
         "type": "string",
-        "enum": ["relevant", "handoff"],
+        "enum": ["relevant", "handoff", "topic"],
         "default": "relevant",
-        "description": "Use relevant for focused retrieval, or handoff for a bounded continuation summary."
+        "description": "Use relevant for focused session retrieval, handoff for a continuation summary, or topic for original archived discussion in the current session."
+      },
+      "cursor": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Topic archive page offset returned by the previous call."
+      },
+      "attachment": {
+        "type": "object",
+        "properties": {
+          "inputId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Snapshot inputId from the topic history file; selects only an admitted input in this task."
+          },
+          "messageId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["messageId"],
+        "additionalProperties": false,
+        "description": "With topic strategy, download an archived message attachment to a managed local file. Index selects a resource in rich text, starting at zero."
       },
       "maxTokens": {
         "type": "integer",
@@ -257,7 +286,7 @@
         "description": "Approximate maximum tokens to return to the model."
       }
     },
-    "required": ["sessionId", "query"],
+    "required": ["query"],
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
@@ -406,8 +435,8 @@
       },
       "permissionMode": {
         "type": "string",
-        "enum": ["build", "edit", "plan", "yolo"],
-        "description": "Unattended run permission mode. Omit for the default full-automatic mode (yolo). Set only when the user explicitly asks for confirmation-gated execution: 'build' pauses for approval before changes, 'edit' auto-applies edits, 'plan' is read-only planning."
+        "enum": ["build", "edit", "plan", "yolo", "guarded"],
+        "description": "Unattended run permission mode. Omit for the default full-automatic mode (yolo). Set only when the user explicitly asks for confirmation-gated execution: 'build' pauses for approval before changes, 'edit' auto-applies edits, 'plan' is read-only planning, 'guarded' runs like yolo but pauses once for explicitly recognized dangerous shell commands (rm -rf, git reset --hard, force push, rsync --delete, etc.)."
       },
       "model": {
         "type": "string",
@@ -489,7 +518,7 @@
       "max_concurrency": {
         "type": "integer",
         "exclusiveMinimum": 0,
-        "description": "Upper bound on subagents working at once. Only when the user asks to limit parallelism; never as a reaction to provider errors."
+        "description": "Subagents working at once, above or below the default. Only when the user asks for more or less parallelism; never as a reaction to provider errors."
       },
       "subagent_model": {
         "type": "string",
@@ -562,6 +591,11 @@
         "type": "string",
         "enum": ["project", "global"],
         "description": "\"project\" when the script depends on this repository; \"global\" when it depends on nothing in it. Required, no default."
+      },
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Provenance only: the id of the run this workflow was distilled from, when saving a workflow that just ran. Pass it whenever you know it; it does not change what is saved."
       },
       "path": {
         "type": "string",
@@ -673,7 +707,7 @@
         "description": "Display label for the new run; defaults to the predecessor's."
       },
       "max_concurrency": {
-        "description": "Omit to keep the predecessor's limit, null to remove it, a number to set one (only when the user asks).",
+        "description": "Omit to keep the predecessor's limit, null to return to the default, a number to set one above or below it (only when the user asks).",
         "oneOf": [
           {
             "type": "integer",
@@ -729,6 +763,34 @@
       }
     },
     "required": ["question_id", "answer"],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "FillWorkflowHole": {
+    "type": "object",
+    "properties": {
+      "run_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "ID of the run that is waiting at the hole (from the hole notification)."
+      },
+      "hole_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The hole's site id from the notification or from GetWorkflowRun's holes, e.g. `hole#21b40fca`."
+      },
+      "script": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The body: only the statements of the hole's function, inline. This OR `path`, never both. It is compiled where the hole stands and sees every binding declared before it; it must return the hole's type."
+      },
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A file holding those statements — usually the fill file named by a rejected attempt, edited in place. This OR `script`, never both."
+      }
+    },
+    "required": ["run_id", "hole_id"],
     "additionalProperties": false,
     "$schema": "https://json-schema.org/draft/2020-12/schema"
   },
@@ -1008,5 +1070,51 @@
     "required": ["plan"],
     "additionalProperties": {},
     "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "ReplyToChannel": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["parts"],
+    "properties": {
+      "parts": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 50,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["text", "mention", "mentionName"]
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Required only for type=text; omit refId."
+            },
+            "refId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Required only for type=mention; use the current trusted reference and omit text."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Required only for mentionName: recipient name or partial name supplied by the user; preserve internal spaces, one explicit list item per part; omit text/refId."
+            },
+            "candidateRef": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Only for mentionName after the user explicitly selects a returned candidate; never invent or auto-select."
+            }
+          }
+        }
+      }
+    }
   }
 }

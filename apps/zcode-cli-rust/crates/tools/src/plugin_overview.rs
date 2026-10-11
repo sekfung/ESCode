@@ -155,7 +155,7 @@ fn summary(record: &Value, manifest: Option<&market::Manifest>) -> Value {
         "name": record["name"],
         "source": record["source"],
         "pluginCount": visible.map_or_else(|| record["pluginCount"].clone(), Value::from),
-        "isOfficial": id == OFFICIAL_MARKETPLACE,
+        "isOfficial": market::is_official_marketplace(id),
     });
     for key in ["description", "lastUpdated"] {
         if record[key].as_str().is_some_and(|s| !s.is_empty()) {
@@ -215,7 +215,7 @@ fn effective_marketplaces(known: &[Value], declared: &[(String, Value)]) -> Vec<
         .map(|record| {
             let id = record["id"].as_str().unwrap_or_default();
             match declared.iter().find(|(declared_id, _)| declared_id == id) {
-                Some((_, source)) if *source != record["source"] && id != OFFICIAL_MARKETPLACE => {
+                Some((_, source)) if *source != record["source"] && !market::is_official_marketplace(id) => {
                     (declared_record(id, source), false)
                 }
                 _ => (record.clone(), true),
@@ -224,7 +224,7 @@ fn effective_marketplaces(known: &[Value], declared: &[(String, Value)]) -> Vec<
         .collect();
     for (id, source) in declared {
         let is_known = known.iter().any(|record| record["id"] == id.as_str());
-        if !is_known && id != OFFICIAL_MARKETPLACE {
+        if !is_known && !market::is_official_marketplace(id) {
             records.push((declared_record(id, source), false));
         }
     }
@@ -240,7 +240,7 @@ fn declaration_diagnostics(known: &[Value], declared: &[(String, Value)]) -> Vec
     declared
         .iter()
         .filter(|(id, source)| {
-            id == OFFICIAL_MARKETPLACE
+            market::is_official_marketplace(id)
                 && !known
                     .iter()
                     .any(|record| record["id"] == id.as_str() && record["source"] == *source)

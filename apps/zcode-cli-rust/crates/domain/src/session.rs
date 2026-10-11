@@ -104,6 +104,14 @@ pub struct Session {
     /// `workflowRunDeltas` 能力的订阅者。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_runs_legacy: Option<Value>,
+    /// 动态工作流工具面已按需激活（v3.15.1 onDemand，TS SESSION_ENTRY_DYNAMIC_WORKFLOW_ACTIVATION）：
+    /// 只加不减，随会话落库，冷恢复沿用。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dynamic_workflow_activated: bool,
+    /// 群任务的会话级授权（v3.15.1 `permissionScope: "session"`，TS session.permission scope=session）：
+    /// 在场即以它代替项目规则判权，「始终允许」写回这里而不是项目规则；随会话落库。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoped_permission: Option<Value>,
     /// V4 `workspaceHookAdmission` 软门禁状态（H2，宿主准入事件）：本进程运行期事实，不落库（TS 新 Runtime 重新上报）。
     /// `Some(Null)` 表示清空提示条。
     #[serde(skip)]
@@ -358,3 +366,4 @@ impl Session {
         self.recover_subagent_rows();
     }
 }
+

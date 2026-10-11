@@ -1,6 +1,6 @@
 /**
  * Rust runtime 的 V4 工作流只读查询（docs/specs/rust-dynamic-workflow.md M3）：`v4/conversation/workflowRun*`
- * 由 Rust 原样转到工作流宿主。参数校验、分页（多取一条判 hasMore）、钳制与结果 schema 逐字照 Node 的
+ * 由 Rust 原样转到工作流宿主。参数校验、分页界、钳制与结果 schema 逐字照 Node 的
  * v4-gateway；取数照 create-app 把这些读面映射到 run 服务端口的那一层。授权（run 属于该会话）在端口内。
  */
 
@@ -20,6 +20,7 @@ import {
   v4ConversationWorkflowRunWorkspaceParamsSchema,
   v4ConversationWorkflowRunWorkspaceResultSchema,
   WORKFLOW_ARTIFACT_LIMITS,
+  WORKFLOW_RUN_EVENTS_PAGE_LIMITS,
   WORKFLOW_WORKSPACE_LIMITS,
 } from "@zcode/shared/zcode-protocol-v4";
 
@@ -43,18 +44,15 @@ export async function runWorkflowQuery(
 ): Promise<unknown> {
   switch (method) {
     case "workflowRunEvents": {
+      // v3.15.1：run 服务的 listEvents 自己按条数与字节两道界分页并判定 hasMore（页可能因字节提前
+      // 收尾，「多取一条」已不是判据）；照 v4-gateway 给全两道界。
       const params = v4ConversationWorkflowRunEventsParamsSchema.parse(rawParams);
-      const limit = params.limit;
-      const events = await port(params.sessionId).listEvents(params.runId, {
+      const page = await port(params.sessionId).listEvents(params.runId, {
         ...(params.afterSequence === undefined ? {} : { afterSequence: params.afterSequence }),
-        // 多取一条只为判定 hasMore；它不进结果页。
-        ...(limit === undefined ? {} : { limit: limit + 1 }),
+        limit: params.limit ?? WORKFLOW_RUN_EVENTS_PAGE_LIMITS.maxEvents,
+        maxBytes: WORKFLOW_RUN_EVENTS_PAGE_LIMITS.maxBytes,
       });
-      const hasMore = limit !== undefined && events.length > limit;
-      return v4ConversationWorkflowRunEventsResultSchema.parse({
-        events: hasMore ? events.slice(0, limit) : events,
-        hasMore,
-      });
+      return v4ConversationWorkflowRunEventsResultSchema.parse(page);
     }
     case "workflowRuns": {
       const params = v4ConversationWorkflowRunsParamsSchema.parse(rawParams);

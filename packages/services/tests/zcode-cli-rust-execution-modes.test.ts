@@ -8,9 +8,10 @@ import {
 import { fixture } from "./zcode-cli-rust-fixture.js";
 
 // build/edit 的判定、确认交互与项目规则持久化已实现；独立 plan 状态与审批已与 Node 差分一致
-// （rust-plan-mode.md）；auto 在 TS 同样保留未实现。
+// （rust-plan-mode.md）；guarded（危险命令单次确认）随 v3.15.1 对齐（rust-v3.15.1-drift.md）；
+// auto 在 TS 同样保留未实现。
 const native = runtimeExecutionCapabilitiesSchema.parse({
-  permissionModes: ["yolo", "build", "edit"],
+  permissionModes: ["yolo", "build", "edit", "guarded"],
   independentPlanState: true,
 });
 
@@ -20,6 +21,7 @@ test("Execution capabilities gate permissions and Plan without changing the user
   assert.deepEqual(build, { mode: "build", planEnabled: false });
   assert.equal(supportsRuntimeExecution({ mode: "edit", planEnabled: false }, native), true);
   assert.equal(supportsRuntimeExecution({ mode: "yolo", planEnabled: false }, native), true);
+  assert.equal(supportsRuntimeExecution({ mode: "guarded", planEnabled: false }, native), true);
   assert.equal(supportsRuntimeExecution({ mode: "yolo", planEnabled: true }, native), true);
   // 旧的 mode=plan 解析为 build + planEnabled，两者均已宣告。
   assert.equal(supportsRuntimeExecution({ mode: "plan" }, native), true);

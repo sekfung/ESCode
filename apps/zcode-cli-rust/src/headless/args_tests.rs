@@ -108,7 +108,7 @@ fn validation_errors_match_node_run() {
         ),
         (
             &["-p", "x", "--mode", "bad"],
-            "Unsupported --mode value: bad. Supported modes: build, edit, plan, yolo.",
+            "Unsupported --mode value: bad. Supported modes: build, edit, plan, yolo, guarded.",
         ),
         (
             &["-p", "x", "--resume", "a", "-c"],

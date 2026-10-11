@@ -111,7 +111,7 @@ impl Engine {
                 "allowOnce" | "allowSession" => crate::contract::PermissionOutcome::allow(),
                 "allowAlways" => {
                     let rules = waiting.suggested.clone();
-                    let merged = self.merge_project_rules(&rules).await;
+                    let merged = self.merge_allow_always(id, &rules).await;
                     if merged {
                         crate::contract::PermissionOutcome::allow()
                     } else {

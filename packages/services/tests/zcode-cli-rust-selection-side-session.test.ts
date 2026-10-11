@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./zcode-cli-rust-fixture.js";
@@ -11,6 +11,8 @@ import { configureRegistry } from "./zcode-cli-rust-registry-fixture.js";
 // docs/specs/rust-v4-command-gaps.md：createSelectionSideSession（框选副屏）在 Node 与 Rust 上的
 // ACK、子会话可见行、模型请求的会话部分、列表可见性与副屏受限命令一致。
 const nodeBundle = resolve("apps/zcode-cli/packages/cli/dist/zcode.cjs");
+// v3.15.1 官方插件自带子代理与技能：Rust 与 Node 读同一官方插件根目录，避免把插件可见性差异误判为运行时差异。
+const rustPluginEnv = { ZCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
 const any = z.any();
 type Runtime = "node" | "rust";
 
@@ -63,7 +65,7 @@ async function observe(kind: Runtime) {
           registry: true,
           respond,
         })
-      : await fixture({ root, registry: true, respond });
+      : await fixture({ root, registry: true, respond, env: rustPluginEnv });
   try {
     await configureRegistry(f);
     const h = f.start();

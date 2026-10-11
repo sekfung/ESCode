@@ -24,6 +24,7 @@ impl Engine {
         let limit = p["limit"].as_u64().filter(|value| (1..=50).contains(value)).context("Invalid limit")?;
         let global = p.get("scope").and_then(Value::as_str) == Some("global");
         let query = dwf_journal::RunQuery {
+            run_id: None,
             cwd: if global {
                 None
             } else {
@@ -47,5 +48,29 @@ impl Engine {
             value.set("truncated", crate::domain::json_order::Json::Bool(true));
         }
         Ok(dwf_journal::to_value(&value))
+    }
+
+    /// v3.15.1 `workflows/save` / `workflows/forRun`（TS saved-workflows-run.ts）：按 runId 读 journal 的
+    /// 脚本 / 名字 / 实参，交给存储层落盘或比对。journal 缺席即 run 不在（TS 同款）。
+    pub(super) async fn saved_workflow_from_run(&mut self, op: &str, p: &Value) -> Result<Value> {
+        self.validate_workspace(p)?;
+        let run_id = p["runId"].as_str().filter(|id| !id.is_empty()).context("Invalid runId")?;
+        let query = dwf_journal::RunQuery {
+            run_id: Some(run_id.to_owned()),
+            limit: 1,
+            ..Default::default()
+        };
+        let run = self.store.workflow_runs(&query).await?.into_iter().next().map(|run| {
+            serde_json::json!({
+                "script": run.row.script_text,
+                "name": run.row.name,
+                "args": run
+                    .row
+                    .args_json
+                    .as_deref()
+                    .and_then(|args| serde_json::from_str::<Value>(args).ok()),
+            })
+        });
+        self.tools.saved_workflow_run_op(op, p, run.as_ref()).await
     }
 }

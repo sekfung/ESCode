@@ -3,7 +3,6 @@
 use super::plugin_market_write::*;
 
 use super::plugin_git;
-use super::plugin_marketplace::OFFICIAL_MARKETPLACE;
 use crate::domain::json_order::Json;
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
@@ -19,7 +18,7 @@ pub(super) fn summary(record: &Json) -> Value {
         "name": record["name"],
         "source": record["source"],
         "pluginCount": record["pluginCount"],
-        "isOfficial": id == OFFICIAL_MARKETPLACE,
+        "isOfficial": super::plugin_marketplace::is_official_marketplace(id),
     });
     for key in ["description", "lastUpdated"] {
         if record[key].as_str().is_some_and(|s| !s.is_empty()) {

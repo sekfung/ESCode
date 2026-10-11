@@ -42,12 +42,15 @@ pub(crate) async fn execute(
     name: &str,
     args: &Value,
     selection: &Value,
+    mode: &str,
     cancel: &CancellationToken,
 ) -> Result<ToolOutput> {
     let request = tools.workflow_host.request(
         "tool.execute",
         json!({
             "selection": selection,
+            // v3.15.1：建 run 那一刻的会话权限模式记进 `run-launched`（TS run 服务的 permissionMode）。
+            "permissionMode": mode,
             "session": session,
             "cwd": tools.workspace_path.to_string_lossy(),
             "tool": name,

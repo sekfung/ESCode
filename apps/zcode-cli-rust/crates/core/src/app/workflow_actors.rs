@@ -19,12 +19,14 @@ pub(super) struct ActorTurn {
 
 /// TS workflow_child runtime 的结构性缺席：`WORKFLOW_CHILD_DISALLOWED_TOOLS`（tool-allowlist.ts），
 /// `subagents: { enabled: false }`（无 Agent / SendMessage），以及 child 不装定时任务端口（无 Cron*）。
-const WORKFLOW_CHILD_ABSENT: [&str; 11] = [
+const WORKFLOW_CHILD_ABSENT: [&str; 12] = [
     "CreateWorkflow",
     "AmendWorkflow",
     "SaveWorkflow",
     "ResumeWorkflowRun",
     "ResolveWorkflowQuestion",
+    // v3.15.1：留白是脚本向主代理要代码，子代理不得替它写（TS WORKFLOW_CHILD_DISALLOWED_TOOLS）。
+    "FillWorkflowHole",
     "Agent",
     "SendMessage",
     "CronCreate",
@@ -178,11 +180,10 @@ impl Engine {
             .into();
         session.title_source = "custom".into();
         session.workspace_path = Some(self.workspace_path.clone());
-        // TS actor runtime 的技能端口只扫用户 / 项目技能根（createNodeSkillAdapter），不含插件与内置技能包。
+        // v3.15.1 TS createWorkflowChildSkillPort：用户 / 项目技能根加主会话同一份插件技能根；捆绑技能包
+        // （只有 dynamic-workflows，子代理不能起工作流）不在内。
         session.skills = parent_session.skills.clone().map(|mut catalog| {
-            catalog
-                .skills
-                .retain(|skill| skill.plugin_name.is_none() && skill.scope != "system");
+            catalog.skills.retain(|skill| skill.scope != "system");
             catalog
         });
         session.prompt_snapshot = parent_session.prompt_snapshot.clone();

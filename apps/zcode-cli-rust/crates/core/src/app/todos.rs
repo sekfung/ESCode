@@ -74,4 +74,16 @@ impl Engine {
         let _ = reply.send(message);
         Ok(())
     }
+    pub(super) async fn persisted_notice(
+        &mut self,
+        id: &str,
+        message: Value,
+        reply: oneshot::Sender<()>,
+    ) -> Result<()> {
+        let s = self.sessions.get_mut(id).unwrap();
+        s.append_message(message);
+        self.persist(id, None).await?;
+        let _ = reply.send(());
+        Ok(())
+    }
 }

@@ -54,6 +54,8 @@ impl Session {
             shell_notice: None,
             workflow_runs: None,
             workflow_runs_legacy: None,
+            dynamic_workflow_activated: false,
+            scoped_permission: None,
             workspace_hook_admission: None,
             id,
             workspace,

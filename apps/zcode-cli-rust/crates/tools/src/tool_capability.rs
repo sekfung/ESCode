@@ -45,5 +45,31 @@ pub(crate) fn capability(
         needs_approval: entry["needsApproval"].as_bool(),
         permission_name: entry["permissionName"].as_str().map(str::to_owned),
         permission_capability_group: None,
+        user_approval_rule: None,
     })
+}
+
+/// TS `resolveBashPermissionCapability` 的 guarded 分支：方言取会话 Shell 选择（与 Bash 执行同一解析；
+/// 尚未请求过 Host 偏好时按自动探测），命中即回 `safety.bash.*` 规则 id。
+pub(crate) fn guarded_rule(input: &Value, shell_override: Option<&Value>) -> Option<String> {
+    use zcode_cli_domain::guarded::{Dialect, Outcome, match_dangerous_command};
+    let command = input["command"].as_str().filter(|c| !c.is_empty())?;
+    let over = shell_override.and_then(crate::shell_select::parse_override);
+    let env: Vec<(String, String)> = std::env::vars().collect();
+    let selection = crate::shell_select::resolve(
+        crate::shell_select::Platform::current(),
+        &env,
+        over.as_ref(),
+        &|p| Path::new(p).is_file(),
+    );
+    let dialect = match selection.dialect {
+        crate::shell_select::Dialect::Posix => Dialect::Posix,
+        crate::shell_select::Dialect::GitBash => Dialect::GitBash,
+        crate::shell_select::Dialect::Cmd => Dialect::Cmd,
+        crate::shell_select::Dialect::Legacy => Dialect::LegacyShell,
+    };
+    match match_dangerous_command(command, dialect) {
+        Outcome::Matched { rule_id, .. } => Some(rule_id),
+        Outcome::NotMatched | Outcome::Unsupported => None,
+    }
 }

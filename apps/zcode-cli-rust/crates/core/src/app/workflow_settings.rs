@@ -211,7 +211,7 @@ impl Engine {
     }
 
     /// 会话模型目录：`registry.model_catalog()` 补 `current`（会话当前 provider/model 那一条为真）。
-    fn session_model_catalog(&self, session: &str) -> Value {
+    pub(super) fn session_model_catalog(&self, session: &str) -> Value {
         let Some(registry) = &self.registry else {
             return json!([]);
         };

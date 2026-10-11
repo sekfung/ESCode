@@ -30,6 +30,7 @@ pub(super) async fn execute(
         .as_array()
         .map(|values| values.iter().filter_map(serde_json::Value::as_str).map(str::to_owned).collect());
     let query = RunQuery {
+        run_id: None,
         cwd: Some(cwd.to_owned()),
         name: None,
         statuses,

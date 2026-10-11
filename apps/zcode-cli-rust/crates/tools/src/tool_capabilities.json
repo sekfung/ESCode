@@ -131,6 +131,17 @@
     "needsApproval": true,
     "permissionName": "plan.exit"
   },
+  "FillWorkflowHole": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "none",
+    "riskLevel": "low",
+    "needsApproval": true,
+    "permissionName": "createWorkflow",
+    "alwaysAsk": true
+  },
   "GetWorkflowRun": {
     "allowedInPlanMode": false,
     "readOnly": true,
@@ -230,6 +241,16 @@
     "riskLevel": "low",
     "needsApproval": false,
     "permissionName": "session.context.read"
+  },
+  "ReplyToChannel": {
+    "allowedInPlanMode": false,
+    "readOnly": false,
+    "destructive": false,
+    "requiresUserInteraction": false,
+    "sideEffectScope": "network",
+    "riskLevel": "medium",
+    "needsApproval": false,
+    "permissionName": "channel.reply"
   },
   "ResolveWorkflowQuestion": {
     "allowedInPlanMode": false,

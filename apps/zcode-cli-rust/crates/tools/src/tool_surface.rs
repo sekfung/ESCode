@@ -48,6 +48,8 @@ pub(super) fn definitions() -> Vec<Value> {
     definitions.push(json!({"type":"function","function":{"name":"WebSearch","description":crate::domain::web_search::description(year, month),"parameters":schemas["WebSearch"]}}));
     // 非参考集合的工具按 TS 注册顺序排列：ReadSessionContext 在 SendMessage 之后。
     definitions.push(json!({"type":"function","function":{"name":"ReadSessionContext","description":surface["descriptions"]["ReadSessionContext"],"parameters":schemas["ReadSessionContext"]}}));
+    // v3.15.1：机器人会话追加回复，TS 注册顺序紧随 ReadSessionContext，默认工具面始终提供。
+    definitions.push(json!({"type":"function","function":{"name":"ReplyToChannel","description":surface["descriptions"]["ReplyToChannel"],"parameters":schemas["ReplyToChannel"]}}));
     // 已保存工作流清单（docs/specs/rust-dynamic-workflow.md 第 2 期）：只读、无 gate，是否可见由
     // 动态工作流灰度门决定（保留给各期实现顺序里的最后一个工作流工具之前）。
     // run 内省（第 6 期）：TS 注册顺序里在保存/模型目录之前。
@@ -61,6 +63,8 @@ pub(super) fn definitions() -> Vec<Value> {
     definitions.push(json!({"type":"function","function":{"name":"GetWorkflowRun","description":surface["descriptions"]["GetWorkflowRun"],"parameters":schemas["GetWorkflowRun"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ResumeWorkflowRun","description":surface["descriptions"]["ResumeWorkflowRun"],"parameters":schemas["ResumeWorkflowRun"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ResolveWorkflowQuestion","description":surface["descriptions"]["ResolveWorkflowQuestion"],"parameters":schemas["ResolveWorkflowQuestion"]}}));
+    // v3.15.1 留白补全（工作流宿主转发 TS handler）：TS 注册顺序紧随 ResolveWorkflowQuestion。
+    definitions.push(json!({"type":"function","function":{"name":"FillWorkflowHole","description":surface["descriptions"]["FillWorkflowHole"],"parameters":schemas["FillWorkflowHole"]}}));
     definitions.push(json!({"type":"function","function":{"name":"ListSavedWorkflows","description":surface["descriptions"]["ListSavedWorkflows"],"parameters":schemas["ListSavedWorkflows"]}}));
     // 模型目录（第 6 期）：同为只读发现面，可见性由动态工作流灰度门决定（TS 注册顺序里紧随其后）。
     definitions.push(json!({"type":"function","function":{"name":"ListModels","description":surface["descriptions"]["ListModels"],"parameters":schemas["ListModels"]}}));

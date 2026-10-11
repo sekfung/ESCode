@@ -37,6 +37,15 @@ impl Engine {
     ) -> Result<(String, String)> {
         // `/init` 与 TS 一样展开成普通用户提示词（builtin-prompt-command.ts），不改变其余 admission 语义。
         let mut model_text = command;
+        // v3.15.1 onDemand：用户敲 `/workflow` 即激活本会话的工作流工具面（TS source=command）。
+        if c.kind == "sendText"
+            && c.payload["text"]
+                .as_str()
+                .is_some_and(super::dynamic_workflow::is_workflow_command)
+            && self.dynamic_workflow_enabled(id)
+        {
+            self.activate_dynamic_workflow(id);
+        }
         if c.kind == "sendText"
             && let Some(text) = c.payload["text"].as_str()
         {
@@ -92,7 +101,7 @@ impl Engine {
         // 输入携带的协作模式即会话模式（TS resolveExecutionState）；缺省保持会话现值。
         if let Some(mode) = c.payload["mode"]
             .as_str()
-            .filter(|mode| matches!(*mode, "yolo" | "build" | "edit"))
+            .filter(|mode| matches!(*mode, "yolo" | "build" | "edit" | "guarded"))
             && s.mode != mode
         {
             s.mode = mode.into();
@@ -217,6 +226,13 @@ impl Engine {
         row["clientId"] = c.client_id.clone().into();
         if let Some(refs) = c.payload.get("attachments") {
             row["attachments"] = refs.clone();
+        }
+        // TS buildUserInputRow：引用随行投影供 GUI 展示，正文仍是用户输入。
+        if let Some(quotes) = c.payload["conversationQuotes"]
+            .as_array()
+            .filter(|quotes| !quotes.is_empty())
+        {
+            row["conversationQuotes"] = quotes.clone().into();
         }
         s.rows.push(row);
         // goalSet 在 TS 是 stateOnly，不产时间线行（隐形行会污染轮次分组）。

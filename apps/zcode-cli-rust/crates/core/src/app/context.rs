@@ -35,6 +35,8 @@ pub(super) struct TurnFacts {
     pub prompt: Option<String>,
     /// 本进程内本会话首轮：SessionStart 的 source（startup / resume）。
     pub session_start: Option<&'static str>,
+    /// 本轮用户输入的 sourceCommandId（ReplyToChannel 的 inputId；TS 取 assistant 父 user 消息的输入身份）。
+    pub source_command_id: Option<String>,
 }
 
 pub(super) struct RunContext {
@@ -155,6 +157,7 @@ impl RunContext {
             messages
         };
         messages.splice(0..0, prefix.iter().cloned());
+        crate::domain::agent_description::order_listing_before_input(&mut messages);
         // 长历史的 token 估算在边界加载时计算一次，追加时增量维护；不要每次请求重复扫描历史。
         if tokens >= micro_threshold {
             messages = microcompact(messages, 0);

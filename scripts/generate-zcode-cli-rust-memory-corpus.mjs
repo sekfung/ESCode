@@ -5,6 +5,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { formatProjectMemoryIndexContent } from "../apps/zcode-cli/packages/core/src/memory/index-content.ts";
 import { buildMemorySection } from "../apps/zcode-cli/packages/core/src/context/sections/memory.ts";
+import { ACTIVE_PROJECT_MEMORY_RETRIEVAL_BRANCH } from "../apps/zcode-cli/packages/core/src/memory/project-memory-retrieval-branch.ts";
 import {
   buildMemoryExtractionPrompt,
   createMemoryExtractionScheduler,
@@ -45,8 +46,10 @@ const indexes = [
   wide,
   `${long}\n${wide}`,
 ].map((content) => ({ content, formatted: formatProjectMemoryIndexContent(content) }));
+// 与 ContextBuilder 同一检索分支（默认 default-index：保留 MEMORY.md 索引指引）。
 const section = buildMemorySection(
   "/store/cli/memories/projects/repo-0123456789abcdef/memory",
+  ACTIVE_PROJECT_MEMORY_RETRIEVAL_BRANCH,
 ).content;
 
 // ---- manifest 与提取提示词 ----

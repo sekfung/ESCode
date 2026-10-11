@@ -107,6 +107,9 @@ async function observe(kind: Runtime) {
 
 /** 只比对外可见、跨 runtime 可比的字段（id/时间/revision 各自生成）。 */
 function project(snapshot: any) {
+  // v3.15.1 起 Node 把 agent_listing_delta 持久化成 synthetic、model-only 的 user 消息（App 不显示）；
+  // Rust 的快照消息按行投影，不含 model-only 提醒。只比对 UI 可见的消息（spec 已知差异）。
+  const messages = snapshot.messages.filter((m: any) => m.info.visibility !== "model-only");
   return {
     sessionKind: snapshot.session.sessionKind,
     status: snapshot.session.status,
@@ -116,10 +119,10 @@ function project(snapshot: any) {
     // `projection.mode` 单列比对：冷恢复时 Node 会给出 "build"（materialize 用
     // derivePersistedSessionMode 的 hint，取不到就回落默认），而 settings.mode.current 是
     // 会话真实模式 "yolo"；Rust 两处都按持久化模式。见 spec 的已知差异。
-    messageRoles: snapshot.messages.map((m: any) => m.info.role),
+    messageRoles: messages.map((m: any) => m.info.role),
     // AI SDK 的 step-start/step-finish 只有 Node 的流式转换会产（App 不按名字消费），
     // 属既有的消息 part 粒度差异，不在本用例范围。
-    partKinds: snapshot.messages.flatMap((m: any) =>
+    partKinds: messages.flatMap((m: any) =>
       m.parts
         .map((p: any) => (p.type === "tool" ? "tool" : p.type))
         .filter((kind: string) => !kind.startsWith("step-")),

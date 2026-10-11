@@ -240,6 +240,7 @@ pub trait ToolPort: Send + Sync {
         _name: &str,
         _args: &Value,
         _selection: &Value,
+        _mode: &str,
         _cancel: &CancellationToken,
     ) -> Option<Result<crate::ToolOutput>> {
         None
@@ -309,6 +310,16 @@ pub trait ToolPort: Send + Sync {
     async fn saved_workflow_op(&self, op: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("Unsupported saved workflow operation: {op}")
     }
+    /// v3.15.1 `workflows/save` / `workflows/forRun`：`run` 是 core 从 journal 查出的
+    /// `{script?, name?, args?}`（run 不在即 `None`）。
+    async fn saved_workflow_run_op(
+        &self,
+        op: &str,
+        _params: &Value,
+        _run: Option<&Value>,
+    ) -> Result<Value> {
+        anyhow::bail!("Unsupported saved workflow operation: {op}")
+    }
     async fn load_skill(
         &self,
         _skill: &zcode_cli_domain::skills::Skill,
@@ -325,6 +336,11 @@ pub trait ToolPort: Send + Sync {
         _name: &str,
         _input: &Value,
     ) -> Option<zcode_cli_domain::permission::Capability> {
+        None
+    }
+    /// guarded 模式下 Bash 命中的危险命令规则（TS resolveBashPermissionCapability 的 guarded 分支）：
+    /// 方言按与 Bash 执行同一 Shell 选择解析；`shell_override` 是会话已缓存的 integratedTerminalShell。
+    fn guarded_rule(&self, _input: &Value, _shell_override: Option<&Value>) -> Option<String> {
         None
     }
     fn concurrent_safe(&self, _name: &str) -> bool {

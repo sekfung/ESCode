@@ -122,10 +122,17 @@ test("native desktop and terminal request prefixes match the current TS ContextB
             : afterSystem(messages, 0).content,
           wrapSystemReminderForSource("context_prefix", expected.metaUserAttachments[0]!.content),
         );
-        assert.equal(
+        // v3.15.1：agent 目录以 agent_listing_delta 提醒位于上下文前缀与本轮输入正文之间（与 Node 一致）。
+        assert.match(
           apiType === "anthropic-messages"
             ? messages[0].content[1].text
             : afterSystem(messages, 1).content,
+          /^<system-reminder>\nAvailable agent types for the Agent tool:\n/,
+        );
+        assert.equal(
+          apiType === "anthropic-messages"
+            ? messages[0].content[2].text
+            : afterSystem(messages, 2).content,
           "hello",
         );
         if (apiType === "anthropic-messages")
@@ -197,17 +204,22 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
     assert.equal(environment(systemText(f.requests[2]!.messages)), environment(systemText(first)));
     assert.match(afterSystem(f.requests[2]!.messages, 0).content, /COLD_RULE/);
     const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"));
-    const row = db.prepare("SELECT body FROM rust_session WHERE id=?").get(id)!;
-    assert.equal(JSON.parse(String(row.body)).promptSnapshot.git.branch, "main");
-    assert.equal(
-      db
-        .prepare(
-          "SELECT count(*) AS n FROM rust_message WHERE session=? AND json_extract(body, '$.role')='user'",
-        )
-        .get(id)!.n,
-      3,
-    );
-    db.close();
+    try {
+      const row = db.prepare("SELECT body FROM rust_session WHERE id=?").get(id)!;
+      assert.equal(JSON.parse(String(row.body)).promptSnapshot.git.branch, "main");
+      assert.equal(
+        db
+          .prepare(
+            // 只数真实用户输入：v3.15.1 的 agent 目录提醒（_zcode_source）同样以 user 角色落库。
+            "SELECT count(*) AS n FROM rust_message WHERE session=? AND json_extract(body, '$.role')='user' AND json_extract(body, '$._zcode_source') IS NULL",
+          )
+          .get(id)!.n,
+        3,
+      );
+    } finally {
+      // 断言失败时也要先关库，否则 Windows 清理临时目录报 EBUSY 并掩盖真实断言。
+      db.close();
+    }
     assert.deepEqual([...h.schemaErrors, ...resumed.schemaErrors], []);
   } finally {
     await f.close();

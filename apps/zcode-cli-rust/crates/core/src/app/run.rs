@@ -69,14 +69,18 @@ impl Engine {
         history.goal = session.goal.clone();
         history.agent_profile = session.agent_profile.clone();
         history.workflow_actor = session.workflow_actor.clone();
-        let input = session
+        let boundary = session
             .history
             .inputs
             .iter()
             .rev()
-            .find(|i| i.turn == turn_id_for_facts)
-            .map(|i| i.payload.clone())
-            .unwrap_or_default();
+            .find(|i| i.turn == turn_id_for_facts);
+        let input = boundary.map(|i| i.payload.clone()).unwrap_or_default();
+        let source_command_id = boundary
+            .and_then(|i| session.rows.get(i.user_row))
+            .and_then(|row| row["sourceCommandId"].as_str())
+            .filter(|id| !id.is_empty())
+            .map(str::to_owned);
         history.turn = super::context::TurnFacts {
             automation_id: input["automationId"].as_str().map(str::to_owned),
             disallowed: input["toolDisallowlist"]
@@ -118,6 +122,7 @@ impl Engine {
             } else {
                 serde_json::json!({"providerId": session.provider, "modelId": session.model, "options": {"reasoningLevel": session.reasoning_level}})
             }),
+            source_command_id,
             ..Default::default()
         };
         // 闲时派发事实（docs/specs/rust-offpeak.md 第二期）：admission 固化的闲时身份；禁用列表含 OffPeakCreate 视为受限轮。
@@ -125,8 +130,9 @@ impl Engine {
         history.turn.off_peak_restricted = history.turn.off_peak_task_id.is_some()
             || history.turn.disallowed.iter().any(|t| t == "OffPeakCreate");
         history.turn.off_peak_tools = self.off_peak_enabled(id);
-        // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）。
-        history.turn.dynamic_workflow = self.dynamic_workflow_enabled(id);
+        // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）；
+        // onDemand 会话在激活前不带工作流工具（v3.15.1）。
+        history.turn.dynamic_workflow = self.dynamic_workflow_visible(id);
         // ListModels 的目录（第 6 期）：每轮取一次注册表视图（工具调用时不再现读）。
         history.turn.model_catalog = self
             .registry

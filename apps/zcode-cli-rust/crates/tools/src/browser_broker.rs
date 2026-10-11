@@ -115,6 +115,14 @@ impl Broker {
                 let browser = request["browserId"].as_str().filter(|b| !b.trim().is_empty());
                 let browser = browser.ok_or_else(|| anyhow::anyhow!("Browser request is missing browserId"))?;
                 let generation = request["browserGeneration"].as_u64().unwrap_or(0);
+                // v3.15.1 TS：node_repl 的 execute 与 runtime 的 turnEnded / closeSession 共享连接记忆
+                // （原先只记轮尾截图用过的 browser，用了 Browser 的轮次收不到 turnEnded）。先过会话校验再记。
+                self.connections
+                    .lock()
+                    .unwrap()
+                    .entry(session.into())
+                    .or_default()
+                    .insert((browser.to_owned(), generation));
                 params["browserId"] = browser.into();
                 params["browserGeneration"] = generation.into();
                 params["command"] = request["command"].clone();
@@ -188,7 +196,7 @@ impl Broker {
         Some(display)
     }
 
-    /// turn 结束 / 关闭会话：对 runtime 操作过的每个 browser 发生命周期命令（TS `sendLifecycle`，失败不影响主流程）。
+    /// turn 结束 / 关闭会话：对本会话用过的每个 browser（node_repl 与轮尾截图）发生命周期命令（TS `sendLifecycle`，失败不影响主流程）。
     pub async fn lifecycle(&self, session: &str, turn: Option<&str>, close: bool) {
         let connections: Vec<_> = if close {
             self.connections.lock().unwrap().remove(session).into_iter().flatten().collect()

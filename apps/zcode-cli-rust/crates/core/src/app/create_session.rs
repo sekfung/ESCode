@@ -44,11 +44,22 @@ impl Engine {
         if let Some(servers) = c.payload.get("mcpServers") {
             self.tools.configure_mcp(&id, servers).await?;
         }
+        // v3.15.1 群任务：授权隔离在会话里（不读写项目规则、不继承工作区默认模式），起始 build。
+        let scoped = c.payload["permissionScope"] == "session";
+        if scoped {
+            session.scoped_permission = Some(serde_json::json!({"version": 1}));
+            session.mode = "build".into();
+            session.plan_enabled = false;
+        }
         self.sessions.insert(id.clone(), session);
         // OffPeak 工具面开关随会话创建固化（docs/specs/rust-offpeak.md 第一期）。
         self.fix_off_peak(&id, c.payload["offPeakToolEnabled"] == true);
         // 动态工作流灰度门随会话创建固化（docs/specs/rust-dynamic-workflow.md 第 1 期）。
-        self.fix_dynamic_workflow(&id, c.payload["dynamicWorkflowEnabled"] == true);
+        self.fix_dynamic_workflow(
+            &id,
+            c.payload["dynamicWorkflowEnabled"] == true,
+            c.payload.get("dynamicWorkflowMode"),
+        );
         self.apply_selection(&id, config)?;
         let mut ack = c.ack("accepted", 0, None);
         ack["result"] = json!({"type":"createSession","sessionId":id});

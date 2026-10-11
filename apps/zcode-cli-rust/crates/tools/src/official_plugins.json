@@ -116,8 +116,59 @@
       }
     },
     {
+      "name": "visualize",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/visualize-plugin",
+        "../visualize-plugin",
+        "../../visualize-plugin",
+        "../../../visualize-plugin"
+      ],
+      "requiredSeedPaths": [
+        "skills/visualize/SKILL.md",
+        "skills/visualize/references/api.md",
+        "skills/visualize/references/styles.md",
+        "skills/visualize/tweak.md",
+        "skills/visualize/LICENSE.md",
+        "skills/visualize/scripts/render.py",
+        "skills/visualize/assets/visualize.css",
+        "skills/visualize/assets/visualize.html",
+        "skills/visualize/assets/calendar.js",
+        "skills/visualize/assets/runtime-manifest.json",
+        "skills/visualize/scripts/vendor.py",
+        "skills/visualize/assets/vendor/manifest.json",
+        "skills/visualize/assets/vendor/floating-ui-core-1.7.3.min.js",
+        "skills/visualize/assets/vendor/floating-ui-core-1.7.3.min.js.LICENSE",
+        "skills/visualize/assets/vendor/floating-ui-dom-1.7.4.min.js",
+        "skills/visualize/assets/vendor/floating-ui-dom-1.7.4.min.js.LICENSE",
+        "skills/visualize/assets/vendor/lucide-1.17.0.js",
+        "skills/visualize/assets/vendor/lucide-1.17.0.js.LICENSE",
+        "skills/visualize/assets/vendor/d3-7.9.0.min.js",
+        "skills/visualize/assets/vendor/d3-7.9.0.min.js.LICENSE",
+        "skills/visualize/widgets/calendar.md",
+        "skills/visualize/examples/calendar.html",
+        "skills/visualize/assets/standalone-host-bridge.js",
+        "skills/visualize/assets/standalone-shell.js"
+      ],
+      "runtimeTopLevelPaths": [],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "productivity",
+        "displayName": "Visualize",
+        "displayName_i18n": {
+          "zh-CN": "交互视图"
+        },
+        "description_i18n": {
+          "zh-CN": "在对话中创建交互图表、解释和设计预览。"
+        }
+      }
+    },
+    {
       "name": "node-repl-host",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "rootCandidates": [
         "packages/node-repl-host",
         "../node-repl-host",
@@ -192,7 +243,7 @@
     },
     {
       "name": "documents",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "rootCandidates": [
         "packages/documents-plugin",
         "../documents-plugin",
@@ -219,7 +270,7 @@
     },
     {
       "name": "pdf",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "rootCandidates": [
         "packages/pdf-plugin",
         "../pdf-plugin",
@@ -246,7 +297,7 @@
     },
     {
       "name": "presentations",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "rootCandidates": [
         "packages/presentations-plugin",
         "../presentations-plugin",
@@ -273,7 +324,7 @@
     },
     {
       "name": "spreadsheets",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "rootCandidates": [
         "packages/spreadsheets-plugin",
         "../spreadsheets-plugin",
@@ -442,19 +493,14 @@
     },
     {
       "name": "zcode-guide",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "rootCandidates": [
         "packages/zcode-guide-plugin",
         "../zcode-guide-plugin",
         "../../zcode-guide-plugin",
         "../../../zcode-guide-plugin"
       ],
-      "requiredSeedPaths": [
-        "commands/workflow.md",
-        "skills/dynamic-workflows/SKILL.md",
-        "skills/dynamic-workflows/examples.md",
-        "skills/dynamic-workflows/patterns.md"
-      ],
+      "requiredSeedPaths": ["skills/zcode-configuration-guide/SKILL.md"],
       "runtimeTopLevelPaths": [],
       "listing": {
         "author": {
@@ -481,7 +527,7 @@
     },
     {
       "name": "computer-use",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "rootCandidates": [
         "packages/zcode-cua-plugin",
         "../zcode-cua-plugin",
@@ -493,7 +539,7 @@
         "scripts/computer-use-client.mjs",
         "skills/computer-use/SKILL.md"
       ],
-      "runtimeTopLevelPaths": [],
+      "runtimeTopLevelPaths": ["node_modules"],
       "listing": {
         "author": {
           "name": "Z.ai",

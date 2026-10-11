@@ -11,6 +11,8 @@ pub enum Mode {
     Edit,
     Plan,
     Yolo,
+    /// v3.15.1：YOLO 基础策略 + 明确危险命令（`userApprovalRule`）的用户单次批准。
+    Guarded,
     Auto,
 }
 
@@ -21,6 +23,7 @@ impl Mode {
             "edit" => Self::Edit,
             "plan" => Self::Plan,
             "yolo" => Self::Yolo,
+            "guarded" => Self::Guarded,
             "auto" => Self::Auto,
             _ => return None,
         })
@@ -67,6 +70,8 @@ pub struct Capability {
     pub permission_name: Option<String>,
     /// 对应 TS `permissionCapabilityGroup`；仅 Host 验证过的官方 CUA 工具携带。
     pub permission_capability_group: Option<String>,
+    /// TS `userApprovalRule`：guarded 匹配器命中的危险命令规则（`safety.bash.*`）。
+    pub user_approval_rule: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -106,6 +111,8 @@ impl Config {
 pub struct Decision {
     pub behavior: Behavior,
     pub rule_id: &'static str,
+    /// TS `approvalMode: "user-once"`：只允许本次批准，不提供会话 / 项目永久授权或 Full access。
+    pub user_once: bool,
 }
 
 struct Resolved {
@@ -176,7 +183,11 @@ fn resolve(name: &str, cap: Option<&Capability>) -> Resolved {
 }
 
 fn d(behavior: Behavior, rule_id: &'static str) -> Decision {
-    Decision { behavior, rule_id }
+    Decision {
+        behavior,
+        rule_id,
+        user_once: false,
+    }
 }
 
 pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
@@ -201,6 +212,19 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
         }
         return d(Ask, "tool.userInteraction");
     }
+    // 独立 Plan 优先于 Guarded 的 YOLO 基础策略，审批不能解除 Plan 的执行限制。
+    if !plan_enabled
+        && ctx.mode == Mode::Guarded
+        && let Some(rule) = cap
+            .and_then(|c| c.user_approval_rule.as_deref())
+            .and_then(crate::guarded::static_rule_id)
+    {
+        return Decision {
+            behavior: Ask,
+            rule_id: rule,
+            user_once: true,
+        };
+    }
     if c.always_ask {
         if ctx.mode == Mode::Auto {
             return d(Deny, "mode.auto.unimplemented");
@@ -216,7 +240,7 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
         }
         return d(Ask, "tool.alwaysAsk");
     }
-    if ctx.mode == Mode::Yolo && !plan_enabled {
+    if matches!(ctx.mode, Mode::Yolo | Mode::Guarded) && !plan_enabled {
         return d(Allow, "mode.yolo");
     }
     if ctx.mode == Mode::Auto {
@@ -231,6 +255,16 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     }
     if rule(ctx.project, B::Ask) {
         return d(Ask, "rule.project.ask");
+    }
+    // 原会话回复的接收范围由 Host 再次校验；放在显式 deny/ask 之后，且同时匹配内置工具名和能力。
+    if ctx.tool_name == "ReplyToChannel"
+        && c.permission_name.as_deref() == Some("channel.reply")
+        && c.side_effect_scope == "network"
+        && c.risk == Risk::Medium
+        && !c.destructive
+        && !c.needs_approval
+    {
+        return d(Allow, "tool.channelReply.preapproved");
     }
     if plan_enabled {
         return check_plan(&c);
