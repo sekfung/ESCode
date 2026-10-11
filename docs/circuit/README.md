@@ -174,7 +174,7 @@ interface Origin {
 | `circuit_parse`              | `path`；已有 IR 时需要 `baseRevision`                                  | `irId`、`revision`、摘要                          | 否                                |
 | `circuit_submit_recognition` | `path`（图片或 PDF）、IR 草稿（无 `confidence`）                       | `irId`、`revision`、`diagnostics` 摘要            | 否                                |
 | `circuit_get`                | `irId`                                                                 | 摘要：器件数、网络数、模块、stale、低置信度元素数 | 否                                |
-| `circuit_query`              | `irId`；按 `ref` / `net` / `block` 查询，或 `trace` 追踪连接；`cursor` | 分页结果 + `nextCursor`                           | 否                                |
+| `circuit_query`              | `irId`；按 `ref` / `net` / `block` 查询（省略过滤条件时列出该类全部，面板 BOM 与网络表即此），或 `trace` 追踪连接；`cursor` | 分页结果 + `nextCursor`                           | 否                                |
 | `circuit_correct`            | `irId`、`baseRevision`、`ops[]`                                        | 新 `revision`                                     | 否（记录 author=agent，面板可见） |
 | `circuit_check`              | `irId`                                                                 | 规则结果（`ruleId`、严重级别、涉及元素），分页    | 否                                |
 | `circuit_compare_firmware`   | `irId`、固件文件路径列表                                               | 差异列表（引脚、网络、固件声明、来源行号）        | 否                                |

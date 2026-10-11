@@ -9,6 +9,7 @@ import { pageByByteBudget } from "./analysisPagination.js";
 
 /**
  * `circuit_query` 的服务端实现（§5）：按 ref / net / block 过滤，或从 componentId(+pin) 出发追踪连接。
+ * 过滤条件省略时列出该类全部元素（面板的 BOM 与网络表就走这条路，读的仍然是 IR）；
  * 所有列表结果都按「序列化后不超过响应上限」分页，游标是不透明字符串（实现见 circuitCursor.ts，
  * 与 circuit_check / circuit_compare_firmware 共用）。
  */
@@ -19,25 +20,28 @@ export function runCircuitQuery(ir: CircuitIR, params: CircuitQueryParams): Circ
   switch (params.by) {
     case "ref": {
       const ref = params.ref;
-      if (ref === undefined) throw new CircuitServiceError("invalid_ir", "按 ref 查询需要 ref");
-      const items = ir.components
-        .filter((component) => component.ref === ref)
-        .sort((a, b) => a.id.localeCompare(b.id));
+      const items = (
+        ref === undefined ? ir.components : ir.components.filter((component) => component.ref === ref)
+      ).sort((a, b) => a.id.localeCompare(b.id));
       return paginate(items, offset, "ref", signature);
     }
     case "net": {
       const items = ir.nets
-        .filter((net) =>
-          params.netId !== undefined ? net.id === params.netId : net.name === params.netName,
-        )
+        .filter((net) => {
+          if (params.netId !== undefined) return net.id === params.netId;
+          if (params.netName !== undefined) return net.name === params.netName;
+          return true;
+        })
         .sort((a, b) => a.id.localeCompare(b.id));
       return paginate(items, offset, "net", signature);
     }
     case "block": {
       const items = ir.blocks
-        .filter((block) =>
-          params.blockId !== undefined ? block.id === params.blockId : block.name === params.blockName,
-        )
+        .filter((block) => {
+          if (params.blockId !== undefined) return block.id === params.blockId;
+          if (params.blockName !== undefined) return block.name === params.blockName;
+          return true;
+        })
         .sort((a, b) => a.id.localeCompare(b.id));
       return paginate(items, offset, "block", signature);
     }

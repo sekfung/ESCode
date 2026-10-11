@@ -58,10 +58,16 @@ export const circuitGetResponseSchema = z
 
 // --- circuit_query ---------------------------------------------------------------
 
-/** 按 ref / net / block 查询，或从 componentId(+pin) 出发追踪连接（一跳）。 */
+/**
+ * 按 ref / net / block 查询，或从 componentId(+pin) 出发追踪连接（一跳）。
+ * ref / netId / netName / blockId / blockName 全部省略时列出该类全部元素（同样按响应上限分页）；
+ * id 与名字同时给出无法判断意图，仍然拒绝。
+ */
 export const circuitQueryRequestSchema = z
   .discriminatedUnion("by", [
-    z.object({ ...irIdField, ...cursorField, by: z.literal("ref"), ref: refSchema }).strict(),
+    z
+      .object({ ...irIdField, ...cursorField, by: z.literal("ref"), ref: refSchema.optional() })
+      .strict(),
     z
       .object({
         ...irIdField,
@@ -91,19 +97,16 @@ export const circuitQueryRequestSchema = z
       .strict(),
   ])
   .superRefine((request, context) => {
-    if (request.by === "net" && (request.netId === undefined) === (request.netName === undefined))
+    if (request.by === "net" && request.netId !== undefined && request.netName !== undefined)
       context.addIssue({
         code: "custom",
-        message: "Pass exactly one of netId or netName",
+        message: "Pass at most one of netId or netName",
         path: ["netId"],
       });
-    if (
-      request.by === "block" &&
-      (request.blockId === undefined) === (request.blockName === undefined)
-    )
+    if (request.by === "block" && request.blockId !== undefined && request.blockName !== undefined)
       context.addIssue({
         code: "custom",
-        message: "Pass exactly one of blockId or blockName",
+        message: "Pass at most one of blockId or blockName",
         path: ["blockId"],
       });
   });

@@ -113,17 +113,23 @@ describe("Circuit 工具请求校验", () => {
     ).toBe(false);
   });
 
-  it("circuit_query 的四种模式与 net/block 二选一", () => {
+  it("circuit_query 的四种模式：省略过滤 = 列出全部，id 与名字最多给一个", () => {
     const irId = "ir-1";
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "ref", ref: "U1" }).success).toBe(true);
+    // 面板的 BOM / 网络表：不带过滤条件列出该类全部元素。
+    expect(circuitQueryRequestSchema.safeParse({ irId, by: "ref" }).success).toBe(true);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "net", netId: "net-1" }).success).toBe(true);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "net", netName: "3V3" }).success).toBe(true);
-    expect(circuitQueryRequestSchema.safeParse({ irId, by: "net" }).success).toBe(false);
+    expect(circuitQueryRequestSchema.safeParse({ irId, by: "net" }).success).toBe(true);
     expect(
       circuitQueryRequestSchema.safeParse({ irId, by: "net", netId: "net-1", netName: "3V3" }).success,
     ).toBe(false);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "block", blockName: "MCU" }).success).toBe(true);
-    expect(circuitQueryRequestSchema.safeParse({ irId, by: "block" }).success).toBe(false);
+    expect(circuitQueryRequestSchema.safeParse({ irId, by: "block" }).success).toBe(true);
+    expect(
+      circuitQueryRequestSchema.safeParse({ irId, by: "block", blockId: "b-1", blockName: "MCU" })
+        .success,
+    ).toBe(false);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "trace", componentId: "uuid-u1" }).success).toBe(true);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "trace", componentId: "uuid-u1", pin: "1" }).success).toBe(true);
     expect(circuitQueryRequestSchema.safeParse({ irId, by: "trace" }).success).toBe(false);
