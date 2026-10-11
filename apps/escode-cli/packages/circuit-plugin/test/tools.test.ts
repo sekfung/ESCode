@@ -203,7 +203,13 @@ describe("circuit-plugin 分页与错误码", () => {
 
   it("参数不合法、缺少会话上下文、未知工具都以文本失败", async () => {
     const send = okSend({ ok: true, summary });
-    const invalid = await call("circuit_query", { irId: "ir:1", by: "net" }, send);
+    // 省略过滤条件 = 列出全部（面板 BOM / 网络表走这条只读路径）；
+    // netId 与 netName 同时给出无法判断意图，仍然是非法输入。
+    const invalid = await call(
+      "circuit_query",
+      { irId: "ir:1", by: "net", netId: "net-1", netName: "3V3" },
+      send,
+    );
     expect(invalid.content[0]!.text).toMatch(/^\[invalidInput\]/u);
 
     const unauthenticated = await handleCircuitToolCall({

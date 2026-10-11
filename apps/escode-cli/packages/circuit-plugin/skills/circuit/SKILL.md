@@ -14,9 +14,9 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
    - `stale: true` means the source file changed on disk: re-parse with `baseRevision` before trusting the IR.
 2. **`circuit_get`** with `irId` to read the summary, the diagnostics list and how many elements are low-confidence. Do this before explaining anything.
 3. **`circuit_query`** as needed:
-   - `by: "ref"` → one component (pins, footprint, part number, the net of each pin).
-   - `by: "net"` with `netName` (or `netId`) → which pins/net names belong to that net.
-   - `by: "block"` → the functional blocks the user/agent defined.
+   - `by: "ref"` → one component (pins, footprint, part number, the net of each pin); omit `ref` to page through every component (the panel uses the same read path for its BOM).
+   - `by: "net"` with `netName` (or `netId`) → which pins/net names belong to that net; omit both to list every net.
+   - `by: "block"` → the functional blocks the user/agent defined; omit the filter to list them all.
    - `by: "trace"` with `componentId` (+ optional `pin`) → everything reachable on that pin's net.
    - Results are paged: when the answer contains `nextCursor`, pass it back as `cursor` to read the next page (the cursor is opaque — never build or edit one).
 4. **`circuit_check`** for a design review and **`circuit_compare_firmware`** for hardware/firmware bring-up (§5). Both are read-only and both page their results with `nextCursor` → `cursor`.

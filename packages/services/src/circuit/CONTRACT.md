@@ -14,6 +14,9 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
   源文件变化只把 `stale` 翻成 true、`revision` 不变（§3.4）。面板按 `(revision, stale)` 与本地状态比对决定刷新，
   §3.3 的「忽略 revision ≤ 本地」只适用于 revision 前进的刷新，stale 翻转由 `stale` 字段触发。
 - 同一 `(identityKey, sourcePath)` 的写入串行执行；事件因此按 revision 单调递增。
+- `query` 的 `ref` / `netId` / `netName` / `blockId` / `blockName` 都是可选过滤：省略即列出该类全部元素
+  （面板的 BOM 与网络表走这条只读路径，不另开契约，也不从 layout 反推 IR 事实）；
+  id 与名字同时给出无法判断意图，schema 直接拒绝。结果同样按响应上限分页。
 - 只读分析：`check`（§6）与 `compareFirmware`（§7）都不写状态、不需要 `baseRevision`。
   两者的结果都按响应上限（§5）分页，游标实现与 `query` 共用一份（`app/circuitCursor.ts` +
   `app/analysisPagination.ts`），签名绑定各自的查询参数，拿错游标报 `invalid_ir`。

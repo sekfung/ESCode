@@ -17,6 +17,9 @@ Circuit IR v1、识别草稿与 Circuit MCP 工具的线协议（docs/circuit/RE
 - `contentHash` 是 sha256 十六进制；图片和 PDF 以内容哈希区分版本（§3.2）。
 - 分页游标 `cursor` / `nextCursor` 是不透明字符串，内容由服务端定义；缺失 `nextCursor` 表示没有下一页。
   单次响应上限 `CIRCUIT_RESPONSE_MAX_BYTES`（64 KiB）。
+- `circuit_query` 的 `ref` / `netId` / `netName` / `blockId` / `blockName` 都是可选过滤：全部省略即列出
+  该类全部元素（同样分页），面板的 BOM 与网络表走这条只读路径；`netId` 与 `netName`（或 `blockId` 与
+  `blockName`）同时给出时无法判断意图，schema 拒绝。`circuit_get` 仍只返回摘要，不承担元素列表。
 - 错误码固定为 `unavailable | not_found | unsupported_format | invalid_ir | stale_revision | too_large | io_error`。
 - 路径与格式判定、批准拦截（`circuit_export`）都不在本模块：批准由插件层负责（§5）。
 - Agent 链路（`agentTools.ts`）：broker 信封 + 反向方法 `interaction/circuit*` 与 serial 同构；

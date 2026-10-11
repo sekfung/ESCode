@@ -409,4 +409,28 @@ describe("CircuitService 查询", () => {
       ).rejects.toThrow(/cursor/u);
     }
   });
+
+  // 面板的 BOM 与网络表要读全量元素（§8）：省略过滤条件 = 列出该类全部，读的仍是 IR。
+  it("省略 ref / net 过滤时列出全部器件与网络", async () => {
+    const harness = createHarness();
+    harness.files.set(parseParams.path, schematic(`${R1}\n  ${R2}\n  ${WIRE}`));
+    const parsed = await harness.service.parse(parseParams);
+    const base = { workspacePath: "/ws", irId: parsed.summary.irId };
+
+    const allRefs = await harness.service.query({ ...base, by: "ref" });
+    expect(allRefs.by === "ref" && allRefs.items.map((item) => item.ref)).toEqual(["R1", "R2"]);
+    expect(allRefs.by === "ref" && allRefs.items[0]?.value).toBe("10k");
+    expect(allRefs.by === "ref" && allRefs.nextCursor).toBeUndefined();
+
+    const allNets = await harness.service.query({ ...base, by: "net" });
+    expect(allNets.by === "net" && allNets.items.map((item) => item.name ?? item.id)).toContain("MID");
+
+    // 省略过滤的游标仍与查询签名绑定：换成带过滤的查询会被拒绝。
+    const page = await harness.service.query({ ...base, by: "net" });
+    if (page.by === "net" && page.nextCursor) {
+      await expect(
+        harness.service.query({ ...base, by: "net", netName: "MID", cursor: page.nextCursor }),
+      ).rejects.toThrow(/cursor/u);
+    }
+  });
 });
