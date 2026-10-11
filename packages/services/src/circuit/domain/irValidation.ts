@@ -3,9 +3,12 @@ import type { CircuitDiagnostic, CircuitIR } from "@escode/shared/circuit";
 /**
  * IR 一致性校验（§4）：识别结果与解析结果都用同一套判定。
  * 校验不通过的元素只写 diagnostics，不在这里降置信度——降置信度是提交识别时的服务端行为。
+ * 只读 components / nets / blocks，因此识别草稿重映射后的元素（还没有 irId / revision）也能直接校验。
  * 输出按 (code, 元素 id) 排序，保证同一份 IR 每次校验得到同样的顺序。
  */
-export function validateCircuitIr(ir: CircuitIR): CircuitDiagnostic[] {
+export function validateCircuitIr(
+  ir: Pick<CircuitIR, "components" | "nets" | "blocks">,
+): CircuitDiagnostic[] {
   const diagnostics: CircuitDiagnostic[] = [];
   const componentById = new Map(ir.components.map((component) => [component.id, component]));
   const netById = new Map(ir.nets.map((net) => [net.id, net]));

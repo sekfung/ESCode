@@ -20,20 +20,28 @@ import {
   exampleCircuitLayout,
   exampleCircuitParseParams,
   exampleCircuitQueryResult,
+  exampleCircuitSubmitRecognitionParams,
 } from "./contract.example.js";
 
 /**
  * contract 的消费方式：这里实现一个最小的内存版 ICircuitService，
  * 保证契约声明（方法名、参数、事件）能被真实调用方按预期使用；具体语义由服务测试覆盖。
  */
-function createFakeService(): ICircuitService & { fireChanged: (event: CircuitChangedEvent) => void } {
+function createFakeService(): ICircuitService & {
+  fireChanged: (event: CircuitChangedEvent) => void;
+} {
   const changed = new Emitter<CircuitChangedEvent>();
   const view = (): CircuitIrView => structuredClone(exampleCircuitIrView);
   return {
     onChanged: changed.event,
     fireChanged: (event) => changed.fire(event),
     parse: async (params) => {
-      if (params.path !== exampleCircuitParseParams.path) throw new Error("not_found: 未注册的源文件");
+      if (params.path !== exampleCircuitParseParams.path)
+        throw new Error("not_found: 未注册的源文件");
+      return view();
+    },
+    submitRecognition: async (params) => {
+      if (params.draft.components.length === 0) throw new Error("invalid_ir: 草稿里没有器件");
       return view();
     },
     findBySource: async () => ({
@@ -76,6 +84,20 @@ describe("circuit-service 契约", () => {
     });
     expect(layout?.revision).toBe(parsed.summary.revision);
     expect(layout?.sheets[0]?.symbols[0]?.elementId).toBe(exampleCircuitCorrectionRecord.target.id);
+  });
+
+  it("识别提交只收草稿：无 confidence、元素 id 由服务端生成", async () => {
+    const service = createFakeService();
+    const view = await service.submitRecognition(exampleCircuitSubmitRecognitionParams);
+    expect(view.summary.irId).toBe(exampleCircuitIrView.summary.irId);
+    // 草稿里的引用只在草稿内成立；服务端才是最终 id 与置信度的写入方。
+    expect(JSON.stringify(exampleCircuitSubmitRecognitionParams)).not.toContain("confidence");
+    await expect(
+      service.submitRecognition({
+        ...exampleCircuitSubmitRecognitionParams,
+        draft: { ...exampleCircuitSubmitRecognitionParams.draft, components: [] },
+      }),
+    ).rejects.toThrow(/invalid_ir/u);
   });
 
   it("修正必须带 baseRevision，变更后 revision 递增", async () => {

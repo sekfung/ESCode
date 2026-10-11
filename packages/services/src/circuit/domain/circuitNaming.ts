@@ -35,6 +35,16 @@ export function makeNamedElementId(prefix: "net" | "block", name: string, scope?
 }
 
 /**
+ * 识别得到的器件 id（§4「识别结果由服务端生成」）：绑定位号，同一草稿重新提交得到同样的 id；
+ * 重复位号由调用方给出序号（2 起）追加 `#n`，保证 id 唯一。位号里的非法字符与 makeNamedElementId 同样处理。
+ */
+export function makeRecognitionComponentId(ref: string, occurrence = 1): string {
+  const readable = ref.replace(/[^\w.:+-]+/gu, "_").slice(0, 96);
+  const suffix = ref.length > readable.length ? `:${hashPrefix(`ref:${ref}`)}` : "";
+  return `recognition:${readable}${suffix}${occurrence > 1 ? `#${occurrence}` : ""}`;
+}
+
+/**
  * 网络 id：优先用源文件里的网络名（global / 电源 / hierarchy / local 标签），
  * 未命名网络用排序后的首个引脚做锚点；两种都只依赖源文件内容，重新解析后保持稳定。
  *

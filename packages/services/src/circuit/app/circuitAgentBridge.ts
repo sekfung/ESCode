@@ -14,9 +14,6 @@ import { CircuitServiceError } from "../domain/circuitErrors.js";
  * 工具失败用响应信封 `{ ok: false, error: { code, message } }` 表达：
  * `CircuitServiceError.code` 原样成为 `error.code`（规格的七个错误码），
  * 因此这条链路上 broker 与插件都只透传结果，不需要解析 JSON-RPC error.data。
- *
- * 未注册的 op 只有 `circuit_submit_recognition`（G6）：它合入时再补反向方法与 handler，
- * 现在不写占位实现，避免出现没有真实实现方的协议分支。
  */
 export interface CircuitAgentBridge {
   handle<Op extends CircuitAgentToolOp>(
@@ -67,6 +64,12 @@ export function createCircuitAgentBridge(options: {
   } = {
     async parse(service, params) {
       const view = await service.parse({ ...workspaceRef(params), ...params.args });
+      return { ok: true, summary: view.summary };
+    },
+
+    async submitRecognition(service, params) {
+      // §5：草稿只带结构，置信度与最终元素 id 由服务端给出；响应只回摘要。
+      const view = await service.submitRecognition({ ...workspaceRef(params), ...params.args });
       return { ok: true, summary: view.summary };
     },
 

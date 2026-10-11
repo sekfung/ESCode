@@ -30,7 +30,7 @@ const protocolBase = {
 };
 
 describe("circuit broker / 反向协议", () => {
-  it("env 常量与 serial 同构，且列出已注册的七个 op", () => {
+  it("env 常量与 serial 同构，且列出 §5 的全部八个 op", () => {
     expect([ESCODE_HOST_CIRCUIT_ENV, CIRCUIT_BROKER_SOCKET_ENV, CIRCUIT_BROKER_TOKEN_ENV]).toEqual([
       "ESCODE_HOST_CIRCUIT",
       "ESCODE_CIRCUIT_BROKER_SOCKET",
@@ -38,6 +38,7 @@ describe("circuit broker / 反向协议", () => {
     ]);
     expect([...CIRCUIT_AGENT_TOOL_OPS]).toEqual([
       "parse",
+      "submitRecognition",
       "get",
       "query",
       "correct",
@@ -47,6 +48,7 @@ describe("circuit broker / 反向协议", () => {
     ]);
     expect(Object.values(escodeCircuitMethods)).toEqual([
       "interaction/circuitParse",
+      "interaction/circuitSubmitRecognition",
       "interaction/circuitGet",
       "interaction/circuitQuery",
       "interaction/circuitCorrect",
@@ -104,15 +106,43 @@ describe("circuit broker / 反向协议", () => {
         args: { irId: "ir:1", files: [] },
       }).success,
     ).toBe(false);
-    // 未注册的 op（G6）没有协议分支
+    // 识别提交：草稿结构由工具总表校验（带 confidence 会被拒），baseRevision 可选。
     expect(
       circuitBrokerRequestSchema.safeParse({
         ...brokerBase,
         op: "submitRecognition",
-        args: { path: "board.pdf", draft: {} },
+        args: {
+          path: "board.pdf",
+          draft: {
+            components: [{ id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition" } }],
+            nets: [],
+          },
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "submitRecognition",
+        args: {
+          path: "board.pdf",
+          draft: {
+            components: [
+              { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition", confidence: 1 } },
+            ],
+            nets: [],
+          },
+        },
       }).success,
     ).toBe(false);
-    expect(circuitBrokerRequestSchema.safeParse({ ...brokerBase, op: "get", args: { irId: "ir:1" }, extra: 1 }).success).toBe(false);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "get",
+        args: { irId: "ir:1" },
+        extra: 1,
+      }).success,
+    ).toBe(false);
   });
 
   it("反向方法参数是 workspace 相对请求：缺 sessionId / 绝对路径被拒绝", () => {

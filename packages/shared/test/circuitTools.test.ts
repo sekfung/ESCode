@@ -86,7 +86,7 @@ describe("Circuit 工具请求校验", () => {
     expect(circuitToolRequestSchemas.parse.safeParse({}).success).toBe(false);
   });
 
-  it("circuit_submit_recognition 拒绝带 confidence 的草稿", () => {
+  it("circuit_submit_recognition 拒绝带 confidence 的草稿，baseRevision 可选", () => {
     const request = {
       path: "hw/top.png",
       draft: {
@@ -96,9 +96,16 @@ describe("Circuit 工具请求校验", () => {
         nets: [],
       },
     };
+    expect(circuitToolRequestSchemas.submitRecognition.safeParse(request).success).toBe(true);
+    // 同一份内容重新提交要带当前 revision（与 parse 的前置条件一致）。
     expect(
-      circuitToolRequestSchemas.submitRecognition.safeParse(request).success,
+      circuitToolRequestSchemas.submitRecognition.safeParse({ ...request, baseRevision: 2 })
+        .success,
     ).toBe(true);
+    expect(
+      circuitToolRequestSchemas.submitRecognition.safeParse({ ...request, path: "/abs/top.png" })
+        .success,
+    ).toBe(false);
     const withConfidence = {
       ...request,
       draft: {
@@ -240,11 +247,10 @@ describe("Circuit 工具请求校验", () => {
       }).success,
     ).toBe(true);
     expect(
-      circuitCorrectRequestSchema.safeParse({ ...base, ops: [{ op: "add-component", ref: "U9" }] }).success,
+      circuitCorrectRequestSchema.safeParse({ ...base, ops: [{ op: "add-component", ref: "U9" }] })
+        .success,
     ).toBe(false);
-    expect(
-      circuitCorrectRequestSchema.safeParse({ irId: "ir-1", ops: [] }).success,
-    ).toBe(false);
+    expect(circuitCorrectRequestSchema.safeParse({ irId: "ir-1", ops: [] }).success).toBe(false);
     expect(
       circuitCorrectRequestSchema.safeParse({
         irId: "ir-1",

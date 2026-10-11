@@ -8,6 +8,7 @@ import {
   type CircuitIrSummary,
   type CircuitNet,
   type CircuitQueryTraceResult,
+  type CircuitRecognitionDraft,
   type CircuitRuleConfigStatus,
   type CircuitRuleResult,
   type CircuitSourceKind,
@@ -35,6 +36,17 @@ export interface CircuitParseParams extends CircuitWorkspaceRef {
   /** workspace 相对路径（见 §4 source.path）。 */
   path: string;
   /** 已有 IR 且要重新解析时必须带当前 revision（§3.4）。 */
+  baseRevision?: number;
+}
+
+/**
+ * `circuit_submit_recognition`（§5）：模型识别出的 IR 草稿 + 源文件路径（图片或 PDF）。
+ * 草稿不带 confidence；最终元素 id、置信度与 diagnostics 都由服务端生成（§2 规则 2、§4）。
+ * 同一份内容的 IR 已经存在时必须带 baseRevision，与 `parse` 的前置条件一致（§3.2/§3.4）。
+ */
+export interface CircuitSubmitRecognitionParams extends CircuitWorkspaceRef {
+  path: string;
+  draft: CircuitRecognitionDraft;
   baseRevision?: number;
 }
 
@@ -208,6 +220,11 @@ export interface CircuitChangedEvent {
 export interface ICircuitService {
   /** 确定性解析（KiCad / 网表 / BOM）；已有 IR 时必须带 baseRevision（§3.4、§5）。 */
   parse(params: CircuitParseParams): Promise<CircuitIrView>;
+  /**
+   * 提交模型识别结果（§5）：草稿经 §4 校验、id 重映射、置信度由服务端给出；
+   * 矢量 PDF 的文本证据命中的元素按确定性解析记 1。只接受图片/PDF，其它来源抛 `unsupported_format`。
+   */
+  submitRecognition(params: CircuitSubmitRecognitionParams): Promise<CircuitIrView>;
   /** 按源文件路径查已有 IR；没有返回 undefined。面板用它判断「还没有 IR」并拿到 baseRevision。 */
   findBySource(
     params: CircuitFindBySourceParams,

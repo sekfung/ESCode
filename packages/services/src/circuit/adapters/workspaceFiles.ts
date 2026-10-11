@@ -100,6 +100,25 @@ function resolveWorkspaceFile(workspacePath: string, relativePath: string): stri
 }
 
 export function createWorkspaceSource(): CircuitSourcePort {
+  /** readText / readBytes 共用的读取前检查：常规文件、大小上限（避免巨文件占满 Host 内存）。 */
+  async function readSourceFile(workspacePath: string, relativePath: string): Promise<Buffer> {
+    const target = resolveWorkspaceFile(workspacePath, relativePath);
+    const label = relativePath.trim();
+    try {
+      // 先 stat 再读：把超大文件挡在 readFile 之前。
+      const info = await stat(target);
+      if (!info.isFile()) {
+        throw new Error(`io_error: 源文件不是常规文件：${label}`);
+      }
+      if (info.size > MAX_SOURCE_BYTES) {
+        throw new Error(`too_large: 源文件超过 16 MiB：${label}`);
+      }
+      return await readFile(target);
+    } catch (error) {
+      throw toSourceError(error, label);
+    }
+  }
+
   return {
     async readText({
       workspacePath,
@@ -108,21 +127,17 @@ export function createWorkspaceSource(): CircuitSourcePort {
       workspacePath: string;
       relativePath: string;
     }): Promise<string> {
-      const target = resolveWorkspaceFile(workspacePath, relativePath);
-      const label = relativePath.trim();
-      try {
-        // 先 stat 再读：把超大文件挡在 readFile 之前，避免巨文件占满 Host 内存。
-        const info = await stat(target);
-        if (!info.isFile()) {
-          throw new Error(`io_error: 源文件不是常规文件：${label}`);
-        }
-        if (info.size > MAX_SOURCE_BYTES) {
-          throw new Error(`too_large: 源文件超过 16 MiB：${label}`);
-        }
-        return await readFile(target, "utf-8");
-      } catch (error) {
-        throw toSourceError(error, label);
-      }
+      return (await readSourceFile(workspacePath, relativePath)).toString("utf-8");
+    },
+
+    async readBytes({
+      workspacePath,
+      relativePath,
+    }: {
+      workspacePath: string;
+      relativePath: string;
+    }): Promise<Uint8Array> {
+      return await readSourceFile(workspacePath, relativePath);
     },
 
     async exists({
@@ -149,6 +164,10 @@ export function createWorkspaceSource(): CircuitSourcePort {
 
     hashContent(text: string): string {
       return createHash("sha256").update(text).digest("hex");
+    },
+
+    hashBytes(bytes: Uint8Array): string {
+      return createHash("sha256").update(bytes).digest("hex");
     },
   };
 }
