@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createClientConfigService } from "../src/client-config/clientConfigService.js";
-import type { ApiClient } from "@zcode/shared";
+import type { ApiClient } from "@escode/shared";
 
 const order = {
   code: { categoryOrder: ["developer-tools"] },

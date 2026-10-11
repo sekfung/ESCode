@@ -23,9 +23,9 @@ vi.mock("@/mentions/providers/fileMentionProvider.js", () => ({
 vi.mock("@/mentions/providers/sessionsMentionProvider.js", () => ({
   useSessionsMentionProvider: mocks.sessions,
 }));
-vi.mock("@/v4/activeTaskProvider.js", () => ({ useChatViewActiveTaskProvider: () => "zcode" }));
+vi.mock("@/v4/activeTaskProvider.js", () => ({ useChatViewActiveTaskProvider: () => "escode" }));
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
+  useESCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
 }));
 vi.mock("@/ControlHintTooltip.js", () => ({
   ControlHintTooltip: ({ children }: { children: ReactNode }) => children,

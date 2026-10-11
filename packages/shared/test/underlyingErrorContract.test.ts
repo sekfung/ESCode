@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { zcodeProtocolErrorDetailSchema } from "../src/zcode-protocol/index.js";
-import { sessionErrorInfoSchema } from "../src/zcode-protocol-v4/snapshot.js";
+import { escodeProtocolErrorDetailSchema } from "../src/escode-protocol/index.js";
+import { sessionErrorInfoSchema } from "../src/escode-protocol-v4/snapshot.js";
 
 describe("underlying error wire contract", () => {
   const fields = {
@@ -10,7 +10,7 @@ describe("underlying error wire contract", () => {
 
   it("retains optional details through protocol and V4 snapshot validation", () => {
     expect(
-      zcodeProtocolErrorDetailSchema.parse({
+      escodeProtocolErrorDetailSchema.parse({
         type: "ModelError",
         message: "Request failed",
         ...fields,
@@ -30,7 +30,7 @@ describe("underlying error wire contract", () => {
 
   it("rejects non-string detail instead of silently stripping it", () => {
     expect(
-      zcodeProtocolErrorDetailSchema.safeParse({
+      escodeProtocolErrorDetailSchema.safeParse({
         type: "ModelError",
         message: "Request failed",
         underlyingErrorDetail: {},

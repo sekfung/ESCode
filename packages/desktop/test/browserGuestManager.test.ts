@@ -891,7 +891,7 @@ describe("BrowserGuestManager", () => {
 
     const snap = await mgr.execute("k2", { method: "snapshot" });
     expect(snap.ok).toBe(true);
-    expect(spy.lastScript).toContain("__zcodeRefs");
+    expect(spy.lastScript).toContain("__escodeRefs");
     expect(snap.snapshot?.elements[0]?.ref).toBe("e1");
   });
 

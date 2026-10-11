@@ -9,11 +9,11 @@ import {
 describe("buildEditCodeViewerSource", () => {
   it("uses the real file path instead of the display directory", () => {
     const source = buildEditCodeViewerSource({
-      path: "/Users/dev/Projects/z-code/packages/ui/src/i18n/locales/zh-CN.ts",
+      path: "/Users/dev/Projects/escode/packages/ui/src/i18n/locales/zh-CN.ts",
       actionLabel: "Edited",
       operationKind: "update",
       fileName: "zh-CN.ts",
-      filePath: "/Users/dev/Projects/z-code/packages/ui/src/i18n/locales/",
+      filePath: "/Users/dev/Projects/escode/packages/ui/src/i18n/locales/",
       fileIconSrc: "/material-icons/typescript.svg",
       changeStat: { added: 1, removed: 0 },
       patch:
@@ -28,7 +28,7 @@ describe("buildEditCodeViewerSource", () => {
     expect(source).toMatchObject({
       type: "patch",
       title: "zh-CN.ts",
-      path: "/Users/dev/Projects/z-code/packages/ui/src/i18n/locales/zh-CN.ts",
+      path: "/Users/dev/Projects/escode/packages/ui/src/i18n/locales/zh-CN.ts",
     });
   });
 });

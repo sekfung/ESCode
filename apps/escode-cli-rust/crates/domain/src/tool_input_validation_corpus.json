@@ -1,0 +1,794 @@
+[
+  {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 5
+        },
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "ratio": {
+          "type": "number"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "slow"
+          ]
+        },
+        "kind": {
+          "const": "tab"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 2
+        },
+        "nested": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "either": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "multi": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "loose": {}
+      },
+      "required": [
+        "title",
+        "code",
+        "mode",
+        "ghost"
+      ],
+      "additionalProperties": false
+    },
+    "cases": [
+      {
+        "input": {
+          "title": "ok",
+          "code": "x",
+          "mode": "fast",
+          "ghost": 1
+        },
+        "issues": [
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nAn unexpected parameter `ghost` was provided</tool_use_error>"
+      },
+      {
+        "input": {},
+        "issues": [
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "title"
+            ],
+            "message": "Invalid input: expected string, received undefined"
+          },
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "code"
+            ],
+            "message": "Invalid input: expected string, received undefined"
+          },
+          {
+            "code": "invalid_value",
+            "values": [
+              "fast",
+              "slow"
+            ],
+            "path": [
+              "mode"
+            ],
+            "message": "Invalid option: expected one of \"fast\"|\"slow\""
+          },
+          {
+            "expected": "unknown",
+            "code": "invalid_type",
+            "path": [
+              "ghost"
+            ],
+            "message": "Invalid input: expected unknown, received undefined"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nThe required parameter `title` is missing\nThe required parameter `code` is missing\nThe required parameter `ghost` is missing</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "x",
+          "code": 1,
+          "mode": "medium",
+          "extra": true,
+          "another": 2
+        },
+        "issues": [
+          {
+            "origin": "string",
+            "code": "too_small",
+            "minimum": 2,
+            "inclusive": true,
+            "path": [
+              "title"
+            ],
+            "message": "Too small: expected string to have >=2 characters"
+          },
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "code"
+            ],
+            "message": "Invalid input: expected string, received number"
+          },
+          {
+            "code": "invalid_value",
+            "values": [
+              "fast",
+              "slow"
+            ],
+            "path": [
+              "mode"
+            ],
+            "message": "Invalid option: expected one of \"fast\"|\"slow\""
+          },
+          {
+            "expected": "unknown",
+            "code": "invalid_type",
+            "path": [
+              "ghost"
+            ],
+            "message": "Invalid input: expected unknown, received undefined"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "extra",
+              "another"
+            ],
+            "path": [],
+            "message": "Unrecognized keys: \"extra\", \"another\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nThe required parameter `ghost` is missing\nAn unexpected parameter `extra` was provided\nAn unexpected parameter `another` was provided\nThe parameter `code` type is expected as `string` but provided as `number`</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "toolong",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "count": 1.5
+        },
+        "issues": [
+          {
+            "origin": "string",
+            "code": "too_big",
+            "maximum": 5,
+            "inclusive": true,
+            "path": [
+              "title"
+            ],
+            "message": "Too big: expected string to have <=5 characters"
+          },
+          {
+            "expected": "int",
+            "format": "safeint",
+            "code": "invalid_type",
+            "path": [
+              "count"
+            ],
+            "message": "Invalid input: expected int, received number"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nAn unexpected parameter `ghost` was provided\nThe parameter `count` type is expected as `int` but provided as `number`</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "count": 9,
+          "ratio": "1"
+        },
+        "issues": [
+          {
+            "origin": "number",
+            "code": "too_big",
+            "maximum": 3,
+            "inclusive": true,
+            "path": [
+              "count"
+            ],
+            "message": "Too big: expected number to be <=3"
+          },
+          {
+            "expected": "number",
+            "code": "invalid_type",
+            "path": [
+              "ratio"
+            ],
+            "message": "Invalid input: expected number, received string"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nAn unexpected parameter `ghost` was provided\nThe parameter `ratio` type is expected as `number` but provided as `string`</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "kind": "window",
+          "tags": []
+        },
+        "issues": [
+          {
+            "code": "invalid_value",
+            "values": [
+              "tab"
+            ],
+            "path": [
+              "kind"
+            ],
+            "message": "Invalid input: expected \"tab\""
+          },
+          {
+            "origin": "array",
+            "code": "too_small",
+            "minimum": 1,
+            "inclusive": true,
+            "path": [
+              "tags"
+            ],
+            "message": "Too small: expected array to have >=1 items"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nAn unexpected parameter `ghost` was provided</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "tags": [
+            1,
+            "a",
+            "b"
+          ]
+        },
+        "issues": [
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "tags",
+              0
+            ],
+            "message": "Invalid input: expected string, received number"
+          },
+          {
+            "origin": "array",
+            "code": "too_big",
+            "maximum": 2,
+            "inclusive": true,
+            "path": [
+              "tags"
+            ],
+            "message": "Too big: expected array to have <=2 items"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nAn unexpected parameter `ghost` was provided\nThe parameter `tags[0]` type is expected as `string` but provided as `number`</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "nested": {
+            "other": 1
+          }
+        },
+        "issues": [
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "nested",
+              "id"
+            ],
+            "message": "Invalid input: expected string, received undefined"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "other"
+            ],
+            "path": [
+              "nested"
+            ],
+            "message": "Unrecognized key: \"other\""
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issues:\nThe required parameter `nested.id` is missing\nAn unexpected parameter `other` was provided\nAn unexpected parameter `ghost` was provided</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "either": true,
+          "multi": 3
+        },
+        "issues": [
+          {
+            "code": "invalid_union",
+            "errors": [
+              [
+                {
+                  "expected": "string",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected string, received boolean"
+                }
+              ],
+              [
+                {
+                  "expected": "number",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected number, received boolean"
+                }
+              ]
+            ],
+            "path": [
+              "either"
+            ],
+            "message": "Invalid input"
+          },
+          {
+            "code": "invalid_union",
+            "errors": [
+              [
+                {
+                  "expected": "string",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected string, received number"
+                }
+              ],
+              [
+                {
+                  "expected": "null",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected null, received number"
+                }
+              ]
+            ],
+            "path": [
+              "multi"
+            ],
+            "message": "Invalid input"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nAn unexpected parameter `ghost` was provided</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "code": "c",
+          "mode": "slow",
+          "ghost": 0,
+          "count": 0
+        },
+        "issues": [
+          {
+            "origin": "number",
+            "code": "too_small",
+            "minimum": 1,
+            "inclusive": true,
+            "path": [
+              "count"
+            ],
+            "message": "Too small: expected number to be >=1"
+          },
+          {
+            "code": "unrecognized_keys",
+            "keys": [
+              "ghost"
+            ],
+            "path": [],
+            "message": "Unrecognized key: \"ghost\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nAn unexpected parameter `ghost` was provided</tool_use_error>"
+      },
+      {
+        "input": [],
+        "issues": [
+          {
+            "expected": "object",
+            "code": "invalid_type",
+            "path": [],
+            "message": "Invalid input: expected object, received array"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nThe parameter `` type is expected as `object` but provided as `array`</tool_use_error>"
+      },
+      {
+        "input": "text",
+        "issues": [
+          {
+            "expected": "object",
+            "code": "invalid_type",
+            "path": [],
+            "message": "Invalid input: expected object, received string"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nThe parameter `` type is expected as `object` but provided as `string`</tool_use_error>"
+      }
+    ]
+  },
+  {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 5
+        },
+        "code": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "ratio": {
+          "type": "number"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "slow"
+          ]
+        },
+        "kind": {
+          "const": "tab"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 2
+        },
+        "nested": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "either": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "multi": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "loose": {}
+      },
+      "required": [
+        "title"
+      ]
+    },
+    "cases": [
+      {
+        "input": {
+          "title": "x"
+        },
+        "issues": [
+          {
+            "origin": "string",
+            "code": "too_small",
+            "minimum": 2,
+            "inclusive": true,
+            "path": [
+              "title"
+            ],
+            "message": "Too small: expected string to have >=2 characters"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: [\n  {\n    \"origin\": \"string\",\n    \"code\": \"too_small\",\n    \"minimum\": 2,\n    \"inclusive\": true,\n    \"path\": [\n      \"title\"\n    ],\n    \"message\": \"Too small: expected string to have >=2 characters\"\n  }\n]</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "mode": "medium",
+          "kind": "window"
+        },
+        "issues": [
+          {
+            "code": "invalid_value",
+            "values": [
+              "fast",
+              "slow"
+            ],
+            "path": [
+              "mode"
+            ],
+            "message": "Invalid option: expected one of \"fast\"|\"slow\""
+          },
+          {
+            "code": "invalid_value",
+            "values": [
+              "tab"
+            ],
+            "path": [
+              "kind"
+            ],
+            "message": "Invalid input: expected \"tab\""
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"fast\",\n      \"slow\"\n    ],\n    \"path\": [\n      \"mode\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"fast\\\"|\\\"slow\\\"\"\n  },\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"tab\"\n    ],\n    \"path\": [\n      \"kind\"\n    ],\n    \"message\": \"Invalid input: expected \\\"tab\\\"\"\n  }\n]</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "count": 0,
+          "tags": []
+        },
+        "issues": [
+          {
+            "origin": "number",
+            "code": "too_small",
+            "minimum": 1,
+            "inclusive": true,
+            "path": [
+              "count"
+            ],
+            "message": "Too small: expected number to be >=1"
+          },
+          {
+            "origin": "array",
+            "code": "too_small",
+            "minimum": 1,
+            "inclusive": true,
+            "path": [
+              "tags"
+            ],
+            "message": "Too small: expected array to have >=1 items"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: [\n  {\n    \"origin\": \"number\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"count\"\n    ],\n    \"message\": \"Too small: expected number to be >=1\"\n  },\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"tags\"\n    ],\n    \"message\": \"Too small: expected array to have >=1 items\"\n  }\n]</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "tags": [
+            "a",
+            "b",
+            "c"
+          ],
+          "either": true
+        },
+        "issues": [
+          {
+            "origin": "array",
+            "code": "too_big",
+            "maximum": 2,
+            "inclusive": true,
+            "path": [
+              "tags"
+            ],
+            "message": "Too big: expected array to have <=2 items"
+          },
+          {
+            "code": "invalid_union",
+            "errors": [
+              [
+                {
+                  "expected": "string",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected string, received boolean"
+                }
+              ],
+              [
+                {
+                  "expected": "number",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected number, received boolean"
+                }
+              ]
+            ],
+            "path": [
+              "either"
+            ],
+            "message": "Invalid input"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: [\n  {\n    \"origin\": \"array\",\n    \"code\": \"too_big\",\n    \"maximum\": 2,\n    \"inclusive\": true,\n    \"path\": [\n      \"tags\"\n    ],\n    \"message\": \"Too big: expected array to have <=2 items\"\n  },\n  {\n    \"code\": \"invalid_union\",\n    \"errors\": [\n      [\n        {\n          \"expected\": \"string\",\n          \"code\": \"invalid_type\",\n          \"path\": [],\n          \"message\": \"Invalid input: expected string, received boolean\"\n        }\n      ],\n      [\n        {\n          \"expected\": \"number\",\n          \"code\": \"invalid_type\",\n          \"path\": [],\n          \"message\": \"Invalid input: expected number, received boolean\"\n        }\n      ]\n    ],\n    \"path\": [\n      \"either\"\n    ],\n    \"message\": \"Invalid input\"\n  }\n]</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "nested": {},
+          "multi": 3
+        },
+        "issues": [
+          {
+            "expected": "string",
+            "code": "invalid_type",
+            "path": [
+              "nested",
+              "id"
+            ],
+            "message": "Invalid input: expected string, received undefined"
+          },
+          {
+            "code": "invalid_union",
+            "errors": [
+              [
+                {
+                  "expected": "string",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected string, received number"
+                }
+              ],
+              [
+                {
+                  "expected": "null",
+                  "code": "invalid_type",
+                  "path": [],
+                  "message": "Invalid input: expected null, received number"
+                }
+              ]
+            ],
+            "path": [
+              "multi"
+            ],
+            "message": "Invalid input"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: mcp__demo__run failed due to the following issue:\nThe required parameter `nested.id` is missing</tool_use_error>"
+      },
+      {
+        "input": {
+          "title": "ab",
+          "count": 5,
+          "ratio": 1e+21
+        },
+        "issues": [
+          {
+            "origin": "number",
+            "code": "too_big",
+            "maximum": 3,
+            "inclusive": true,
+            "path": [
+              "count"
+            ],
+            "message": "Too big: expected number to be <=3"
+          }
+        ],
+        "content": "<tool_use_error>InputValidationError: [\n  {\n    \"origin\": \"number\",\n    \"code\": \"too_big\",\n    \"maximum\": 3,\n    \"inclusive\": true,\n    \"path\": [\n      \"count\"\n    ],\n    \"message\": \"Too big: expected number to be <=3\"\n  }\n]</tool_use_error>"
+      }
+    ]
+  }
+]

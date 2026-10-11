@@ -6,21 +6,21 @@
 
 ## Context
 
-当前 z-code 的构建和发布已经拆开，但候选 manifest、审批文件和产物仍依赖 GitLab runner 共享目录。这个边界无法被独立打包平台稳定消费，也无法提供统一的重试、审计、幂等和跨平台状态。
+当前 escode 的构建和发布已经拆开，但候选 manifest、审批文件和产物仍依赖 GitLab runner 共享目录。这个边界无法被独立打包平台稳定消费，也无法提供统一的重试、审计、幂等和跨平台状态。
 
 ## Decision
 
 引入版本化的 `release-candidate.v1` 契约，并将打包平台作为 Release Candidate 的唯一状态源：
 
 ```text
-z-code worker                    Packaging Platform
+escode worker                    Packaging Platform
 build/sign/notarize              candidate state machine
 upload immutable artifacts  ---> object storage + manifest
 submit build result         ---> approval / publication
                                   final latest*.yml + rollout
 ```
 
-z-code worker 不得直接写稳定 feed、调用正式 release API 或持有长期 OSS 凭据。最终唯一的 `latest.yml` 由平台基于不可变 `update.base.yml`、artifact digest 和已审批 notes revision 生成，多语言日志统一写入 `releaseNotesByLocale`。
+escode worker 不得直接写稳定 feed、调用正式 release API 或持有长期 OSS 凭据。最终唯一的 `latest.yml` 由平台基于不可变 `update.base.yml`、artifact digest 和已审批 notes revision 生成，多语言日志统一写入 `releaseNotesByLocale`。
 
 跨系统契约固定使用：
 
@@ -40,7 +40,7 @@ z-code worker 不得直接写稳定 feed、调用正式 release API 或持有长
 
 平台可以存文件，但无法可靠验证版本、平台、digest、基础 update metadata 和 provenance。拒绝。
 
-### 平台只做审批，z-code 继续发布
+### 平台只做审批，escode 继续发布
 
 人工体验改善有限，正式 feed/API 仍然由 worker 控制，无法实现权限隔离和统一发布状态。拒绝。
 
@@ -56,9 +56,9 @@ z-code worker 不得直接写稳定 feed、调用正式 release API 或持有长
 代价与风险：
 
 - 需要维护一个候选状态服务和对象存储生命周期。
-- v1 契约需要兼容旧 z-code CI 一段迁移期。
+- v1 契约需要兼容旧 escode CI 一段迁移期。
 - 平台必须承担 digest 校验、幂等处理和发布失败恢复。
 
 ## Rollback
 
-迁移期间保留 z-code 的兼容发布路径开关。若平台不可用，可以回退到旧 CI release 链路；回退不得让 test/sandbox 链路越过正式环境守卫，也不得复用平台未确认的 notes revision。
+迁移期间保留 escode 的兼容发布路径开关。若平台不可用，可以回退到旧 CI release 链路；回退不得让 test/sandbox 链路越过正式环境守卫，也不得复用平台未确认的 notes revision。

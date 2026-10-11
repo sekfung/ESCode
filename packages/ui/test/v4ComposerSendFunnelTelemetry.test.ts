@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ArmsCustomEventPayload, IPlatformService } from "@zcode/shared";
+import type { ArmsCustomEventPayload, IPlatformService } from "@escode/shared";
 import { resetMessageTelemetryForTest } from "@/lib/messageTelemetry.js";
 import {
   clearSendFunnelArmsReporterForTest,
@@ -416,7 +416,7 @@ describe("Composer 发送漏斗埋点（ARMS）", () => {
   });
 
   // 「发送成功」= 用户消息真的画到对话历史里，不是 ACK 被 Host 受理。
-  // z-code 没有乐观渲染，两者之间还隔着一次投影回流 + 一次 React 渲染。
+  // escode 没有乐观渲染，两者之间还隔着一次投影回流 + 一次 React 渲染。
   describe("待渲染等待（send_result 端到端口径）", () => {
     beforeEach(() => {
       vi.useFakeTimers();

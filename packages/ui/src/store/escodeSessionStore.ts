@@ -1,0 +1,53 @@
+/**
+ * ESCode session UI 状态 store
+ *
+ * 一个 tab 对应一个 workspace，所以聊天相关状态也必须按 workspace 分桶保存。
+ * 这样切换标签页时，当前任务、输入中的草稿态和初始化状态才不会互相串台。
+ */
+import { create } from "zustand";
+import { shouldExposeE2EStoreBridge } from "@/lib/e2eStoreBridge.js";
+import { type ESCodeSessionStoreState } from "./escodeSessionStoreTypes.js";
+import { getWorkspaceState } from "./escodeSessionStoreSelectors.js";
+import { createNavigationSlice } from "./escodeSessionStoreNavigation.js";
+import { createTaskSlice } from "./escodeSessionStoreTaskSlice.js";
+import { createWorkspaceSlice } from "./escodeSessionStoreWorkspaceSlice.js";
+import { uiMemoryDiagnosticsRegistry } from "@/lib/memoryDiagnostics.js";
+
+export const useESCodeSessionStore = create<ESCodeSessionStoreState>()((set, get) => ({
+  workspaces: {},
+  ...createNavigationSlice(set, get),
+  ...createWorkspaceSlice(set),
+  ...createTaskSlice(set),
+  getWorkspaceState: (workspacePath: string, workspaceIdentity?: string) =>
+    getWorkspaceState(get(), workspacePath, workspaceIdentity),
+}));
+
+type ESCodeSessionStoreE2EBridge = typeof useESCodeSessionStore;
+
+declare global {
+  interface Window {
+    __escodeSessionStoreE2E?: ESCodeSessionStoreE2EBridge;
+  }
+}
+
+if (shouldExposeE2EStoreBridge()) {
+  // E2E 诊断入口必须由 WDIO 显式打开，不能复用 ESCODE_ENV=test，避免产品测试环境暴露可变全局 store。
+  window.__escodeSessionStoreE2E = useESCodeSessionStore;
+}
+
+// ────────────────────────────────────────────
+// Re-exports: 保持外部 `from '@/store/escodeSessionStore'` 的导入路径继续工作
+// ────────────────────────────────────────────
+export * from "./escodeSessionStoreTypes.js";
+export * from "./escodeSessionStoreSelectors.js";
+// Re-export navigation types used externally:
+export type {
+  TaskNavigationHistory,
+  TaskNavEntry,
+  WorkspaceNavEntry,
+} from "@/lib/taskNavigationHistory.js";
+
+// 内存诊断计数器：workspace 桶全仓无删除路径，先落日志。
+uiMemoryDiagnosticsRegistry.register("sessionStore", () => ({
+  workspaces: Object.keys(useESCodeSessionStore.getState().workspaces).length,
+}));

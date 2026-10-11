@@ -10,14 +10,14 @@ import {
 import type { KeyboardEvent } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type {
-  ZCodeGroupedTaskViewNode,
-  ZCodeTaskGroupColor,
-} from "@zcode/services";
+  ESCodeGroupedTaskViewNode,
+  ESCodeTaskGroupColor,
+} from "@escode/services";
 import {
   CRON_DEFAULT_GROUP_ID,
   OFF_PEAK_DEFAULT_GROUP_ID,
-  type ZCodeTaskMeta,
-} from "@zcode/shared";
+  type ESCodeTaskMeta,
+} from "@escode/shared";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { isImeComposingKeyEvent } from "@/lib/imeComposition.js";
 import { EmptyGroupDropZone } from "@/workspace-grouped-tasks/task-item.js";
@@ -98,21 +98,21 @@ export function GroupItem({
   activeDragGroupId,
   tooltipsDisabled,
 }: {
-  node: Extract<ZCodeGroupedTaskViewNode, { type: "group" }>;
+  node: Extract<ESCodeGroupedTaskViewNode, { type: "group" }>;
   groups: TaskGroupMenuItem[];
   activeWorkspacePath: string;
   activeWorkspaceIdentity?: string;
   activeTaskId: string | null;
   mobileActiveTaskKey?: string | null;
-  getTaskRemoteSessionId: (task: ZCodeTaskMeta) => string | undefined;
-  getTaskWorkspaceLabel: (task: ZCodeTaskMeta) => string;
+  getTaskRemoteSessionId: (task: ESCodeTaskMeta) => string | undefined;
+  getTaskWorkspaceLabel: (task: ESCodeTaskMeta) => string;
   onSelectTask: (
     workspacePath: string,
     taskId: string,
     workspaceIdentity?: string,
   ) => void;
-  onCloseTask: (task: ZCodeTaskMeta) => void;
-  onOpenFileTree?: (task: ZCodeTaskMeta) => void;
+  onCloseTask: (task: ESCodeTaskMeta) => void;
+  onOpenFileTree?: (task: ESCodeTaskMeta) => void;
   onCreateTask: () => void;
   hasDraftTask?: boolean;
   draftTaskActive?: boolean;
@@ -120,13 +120,13 @@ export function GroupItem({
   onSelectDraftTask?: () => void;
   onCloseDraftTask?: () => void;
   onRenameGroup: (groupId: string, title: string) => void;
-  onUpdateGroupColor: (groupId: string, color: ZCodeTaskGroupColor) => void;
+  onUpdateGroupColor: (groupId: string, color: ESCodeTaskGroupColor) => void;
   onUngroupGroup: (groupId: string) => void;
-  onMoveTaskToGroup: (task: ZCodeTaskMeta, groupId: string | null) => void;
-  onMoveTaskToTop: (task: ZCodeTaskMeta) => void;
-  onStartRenameTask: (task: ZCodeTaskMeta) => void;
-  onArchiveTask: (task: ZCodeTaskMeta) => void;
-  onMarkTaskAsUnread: (task: ZCodeTaskMeta) => void;
+  onMoveTaskToGroup: (task: ESCodeTaskMeta, groupId: string | null) => void;
+  onMoveTaskToTop: (task: ESCodeTaskMeta) => void;
+  onStartRenameTask: (task: ESCodeTaskMeta) => void;
+  onArchiveTask: (task: ESCodeTaskMeta) => void;
+  onMarkTaskAsUnread: (task: ESCodeTaskMeta) => void;
   newGroupSetup: boolean;
   onNewGroupSetupStarted: (groupId: string) => void;
   collapsed: boolean;
@@ -135,7 +135,7 @@ export function GroupItem({
   activeDragGroupId?: string | null;
   tooltipsDisabled?: boolean;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const [renaming, setRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState(node.group.title);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -442,7 +442,7 @@ export function GroupItem({
 
   const handleGroupColorChange = useCallback(
     (color: string) => {
-      onUpdateGroupColor(node.group.id, color as ZCodeTaskGroupColor);
+      onUpdateGroupColor(node.group.id, color as ESCodeTaskGroupColor);
     },
     [node.group.id, onUpdateGroupColor],
   );

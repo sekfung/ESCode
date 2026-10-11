@@ -18,7 +18,7 @@ import {
   TID_AUTOMATIONS_OPEN,
   TID_CRON_CREATE_CARD,
   TID_CRON_CREATE_OPEN,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   clearAppData,
   clickTestIdByDom,
@@ -192,7 +192,7 @@ interface AutomationRecord {
 }
 
 function automationDatabasePath(): string {
-  return join(homedir(), ".zcode", "v2", "tasks-index.sqlite");
+  return join(homedir(), ".escode", "v2", "tasks-index.sqlite");
 }
 
 function readAutomationRecordById(

@@ -1,0 +1,333 @@
+//! 权限判定纯函数：逐位对应 TS `core/src/permission/service.ts::checkPermission`，
+//! 见 docs/specs/rust-permission-modes.md。差分 oracle 为 tests/fixtures/permission_matrix.json。
+//! 规则匹配见 permission_rules.rs；Bash rulePolicy 尚未接入（配置为空）。
+pub use crate::permission_rules::{Rule, RuleBehavior, Ruleset};
+use crate::permission_rules::{RuleBehavior as B, matches, webfetch_preapproved};
+use serde_json::Value;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    Build,
+    Edit,
+    Plan,
+    Yolo,
+    /// v3.15.1：YOLO 基础策略 + 明确危险命令（`userApprovalRule`）的用户单次批准。
+    Guarded,
+    Auto,
+}
+
+impl Mode {
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(match value {
+            "build" => Self::Build,
+            "edit" => Self::Edit,
+            "plan" => Self::Plan,
+            "yolo" => Self::Yolo,
+            "guarded" => Self::Guarded,
+            "auto" => Self::Auto,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Behavior {
+    Allow,
+    Ask,
+    Deny,
+}
+
+impl Behavior {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::Ask => "ask",
+            Self::Deny => "deny",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Risk {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// 工具声明的能力；`None` 字段按 TS `resolveCapability` 的工具名默认值补齐。
+#[derive(Clone, Debug, Default)]
+pub struct Capability {
+    pub allowed_in_plan_mode: Option<bool>,
+    pub always_ask: Option<bool>,
+    pub read_only: Option<bool>,
+    pub destructive: Option<bool>,
+    pub requires_user_interaction: Option<bool>,
+    pub side_effect_scope: Option<String>,
+    pub risk_level: Option<Risk>,
+    pub needs_approval: Option<bool>,
+    /// 对应 TS `permission.permission`（如 `edit`、`mcp`）。
+    pub permission_name: Option<String>,
+    /// 对应 TS `permissionCapabilityGroup`；仅 Host 验证过的官方 CUA 工具携带。
+    pub permission_capability_group: Option<String>,
+    /// TS `userApprovalRule`：guarded 匹配器命中的危险命令规则（`safety.bash.*`）。
+    pub user_approval_rule: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Context<'a> {
+    pub tool_name: &'a str,
+    pub mode: Mode,
+    pub plan_enabled: Option<bool>,
+    pub input: &'a Value,
+    /// 项目规则（TS `loadProjectPermissionRuleset`）。
+    pub project: Option<&'a Ruleset>,
+    /// 会话免确认规则，只服务 alwaysAsk 门（TS `sessionRules`）。
+    pub session: Option<&'a Ruleset>,
+    /// 用户配置（TS `PermissionService` 构造参数）；缺省即全空/false。
+    pub config: Option<&'a Config>,
+}
+
+/// TS `PermissionConfig`：`allowedTools` / `disallowedTools` 是**精确名字**集合
+/// （`--allowed-tools`、`--disallowed-tools` 与 config `permission.*` 同源），
+/// 不做通配；`autoApproveHighRisk` 只影响 build 模式的高风险分支。
+#[derive(Clone, Debug, Default)]
+pub struct Config {
+    pub allowed: Vec<String>,
+    pub disallowed: Vec<String>,
+    pub auto_approve_high_risk: bool,
+}
+
+impl Config {
+    pub fn disallows(&self, tool: &str) -> bool {
+        self.disallowed.iter().any(|t| t == tool)
+    }
+    pub fn allows(&self, tool: &str) -> bool {
+        self.allowed.iter().any(|t| t == tool)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Decision {
+    pub behavior: Behavior,
+    pub rule_id: &'static str,
+    /// TS `approvalMode: "user-once"`：只允许本次批准，不提供会话 / 项目永久授权或 Full access。
+    pub user_once: bool,
+}
+
+struct Resolved {
+    allowed_in_plan_mode: bool,
+    always_ask: bool,
+    read_only: bool,
+    destructive: bool,
+    requires_user_interaction: bool,
+    side_effect_scope: String,
+    risk: Risk,
+    needs_approval: bool,
+    permission_name: Option<String>,
+}
+
+const READ_ONLY_TOOLS: [&str; 7] = [
+    "Read",
+    "Glob",
+    "Grep",
+    "WebSearch",
+    "WebFetch",
+    "TodoRead",
+    "TodoWrite",
+];
+const WRITE_TOOLS: [&str; 4] = ["Write", "Edit", "ApplyPatch", "Bash"];
+
+fn is_read_only(name: &str) -> bool {
+    READ_ONLY_TOOLS.contains(&name)
+}
+
+fn is_destructive(name: &str) -> bool {
+    name == "Bash"
+}
+
+fn default_risk(name: &str) -> Risk {
+    if is_read_only(name) {
+        Risk::Low
+    } else if WRITE_TOOLS.contains(&name) {
+        Risk::Medium
+    } else if is_destructive(name) {
+        Risk::High
+    } else {
+        Risk::Medium
+    }
+}
+
+fn resolve(name: &str, cap: Option<&Capability>) -> Resolved {
+    let default = Capability::default();
+    let cap = cap.unwrap_or(&default);
+    Resolved {
+        allowed_in_plan_mode: cap.allowed_in_plan_mode.unwrap_or(false),
+        always_ask: cap.always_ask.unwrap_or(false),
+        read_only: cap.read_only.unwrap_or_else(|| is_read_only(name)),
+        destructive: cap.destructive.unwrap_or_else(|| is_destructive(name)),
+        requires_user_interaction: cap
+            .requires_user_interaction
+            .unwrap_or_else(|| cap.side_effect_scope.as_deref() == Some("userInteraction")),
+        side_effect_scope: cap.side_effect_scope.clone().unwrap_or_else(|| {
+            if is_read_only(name) {
+                "none".into()
+            } else {
+                "workspace".into()
+            }
+        }),
+        risk: cap.risk_level.unwrap_or_else(|| default_risk(name)),
+        needs_approval: cap.needs_approval.unwrap_or_else(|| !is_read_only(name)),
+        permission_name: cap.permission_name.clone(),
+    }
+}
+
+fn d(behavior: Behavior, rule_id: &'static str) -> Decision {
+    Decision {
+        behavior,
+        rule_id,
+        user_once: false,
+    }
+}
+
+pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
+    use Behavior::*;
+    let c = resolve(ctx.tool_name, cap);
+    let plan_enabled = ctx.plan_enabled.unwrap_or(ctx.mode == Mode::Plan);
+    // plan 模式切换工具先于一切能力判断（TS plan-mode-policy.ts）。
+    if ctx.tool_name == "EnterPlanMode" {
+        return d(Allow, "tool.plan.enter");
+    }
+    if ctx.tool_name == "ExitPlanMode" && !plan_enabled {
+        return d(Deny, "mode.plan.exitOnly");
+    }
+    let group = cap.and_then(|c| c.permission_capability_group.as_deref());
+    let rule =
+        |set: Option<&Ruleset>, behavior| matches(set, behavior, ctx.tool_name, ctx.input, group);
+    let disallowed = ctx.config.is_some_and(|c| c.disallows(ctx.tool_name));
+    if c.requires_user_interaction {
+        // TS：硬禁用先于交互工具的 ask，避免被禁用的工具「弹个窗就能跑」。
+        if disallowed {
+            return d(Deny, "rule.disallowedTools");
+        }
+        return d(Ask, "tool.userInteraction");
+    }
+    // 独立 Plan 优先于 Guarded 的 YOLO 基础策略，审批不能解除 Plan 的执行限制。
+    if !plan_enabled
+        && ctx.mode == Mode::Guarded
+        && let Some(rule) = cap
+            .and_then(|c| c.user_approval_rule.as_deref())
+            .and_then(crate::guarded::static_rule_id)
+    {
+        return Decision {
+            behavior: Ask,
+            rule_id: rule,
+            user_once: true,
+        };
+    }
+    if c.always_ask {
+        if ctx.mode == Mode::Auto {
+            return d(Deny, "mode.auto.unimplemented");
+        }
+        if disallowed {
+            return d(Deny, "rule.disallowedTools");
+        }
+        if rule(ctx.project, B::Deny) {
+            return d(Deny, "rule.project.deny");
+        }
+        if rule(ctx.session, B::Allow) {
+            return d(Allow, "rule.session.allow");
+        }
+        return d(Ask, "tool.alwaysAsk");
+    }
+    if matches!(ctx.mode, Mode::Yolo | Mode::Guarded) && !plan_enabled {
+        return d(Allow, "mode.yolo");
+    }
+    if ctx.mode == Mode::Auto {
+        return d(Deny, "mode.auto.unimplemented");
+    }
+    // TS 位置：yolo 直通之后、项目规则之前；即 yolo 仍可越过 disallowedTools。
+    if disallowed {
+        return d(Deny, "rule.disallowedTools");
+    }
+    if rule(ctx.project, B::Deny) {
+        return d(Deny, "rule.project.deny");
+    }
+    if rule(ctx.project, B::Ask) {
+        return d(Ask, "rule.project.ask");
+    }
+    // 原会话回复的接收范围由 Host 再次校验；放在显式 deny/ask 之后，且同时匹配内置工具名和能力。
+    if ctx.tool_name == "ReplyToChannel"
+        && c.permission_name.as_deref() == Some("channel.reply")
+        && c.side_effect_scope == "network"
+        && c.risk == Risk::Medium
+        && !c.destructive
+        && !c.needs_approval
+    {
+        return d(Allow, "tool.channelReply.preapproved");
+    }
+    if plan_enabled {
+        return check_plan(&c);
+    }
+    if rule(ctx.project, B::Allow) {
+        return d(Allow, "rule.project.allow");
+    }
+    if webfetch_preapproved(ctx.tool_name, ctx.input) {
+        return d(Allow, "tool.webfetch.preapproved");
+    }
+    if ctx.config.is_some_and(|c| c.allows(ctx.tool_name)) {
+        return d(Allow, "rule.allowedTools");
+    }
+    if ctx.mode == Mode::Edit
+        && c.permission_name.as_deref() == Some("edit")
+        && c.side_effect_scope == "workspace"
+    {
+        return d(Allow, "mode.edit.fileEdit");
+    }
+    check_build(
+        &c,
+        ctx.config.is_some_and(|c| c.auto_approve_high_risk),
+    )
+}
+
+fn check_plan(c: &Resolved) -> Decision {
+    use Behavior::*;
+    if c.read_only && !c.destructive {
+        return d(Allow, "mode.plan.readOnly");
+    }
+    if c.permission_name.as_deref() == Some("mcp") && !c.destructive {
+        return d(Allow, "mode.plan.mcp");
+    }
+    if c.allowed_in_plan_mode
+        && c.side_effect_scope == "session"
+        && !c.destructive
+        && !c.needs_approval
+    {
+        return d(Allow, "mode.plan.explicitSessionCapability");
+    }
+    d(Deny, "mode.plan.nonReadOnly")
+}
+
+fn check_build(c: &Resolved, auto_approve_high_risk: bool) -> Decision {
+    use Behavior::*;
+    if c.read_only && !c.destructive && !c.needs_approval {
+        return d(Allow, "mode.build.readOnly");
+    }
+    if c.risk == Risk::Critical {
+        return d(Ask, "mode.build.criticalRisk");
+    }
+    if c.risk == Risk::High && !auto_approve_high_risk {
+        return d(Ask, "mode.build.highRisk");
+    }
+    if c.side_effect_scope == "session"
+        && c.risk == Risk::Low
+        && !c.destructive
+        && !c.needs_approval
+    {
+        return d(Allow, "mode.build.sessionState");
+    }
+    if c.needs_approval || c.destructive || c.side_effect_scope != "none" {
+        return d(Ask, "mode.build.sideEffect");
+    }
+    d(Allow, "mode.build.lowRisk")
+}

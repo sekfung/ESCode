@@ -1,4 +1,4 @@
-import type { OAuthCachedSessionRestoreResult, UserInfo } from "@zcode/shared";
+import type { OAuthCachedSessionRestoreResult, UserInfo } from "@escode/shared";
 import type { AlertDialogRequest } from "@/store/alertDialogStore.js";
 
 export async function applyCachedOAuthSessionRestoreResult(params: {

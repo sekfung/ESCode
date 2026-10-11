@@ -1,8 +1,8 @@
 import { act, createElement, type DragEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IPromptAttachmentTransferService } from "@zcode/services";
-import type { PromptAttachmentTransferProgress } from "@zcode/services";
+import type { IPromptAttachmentTransferService } from "@escode/services";
+import type { PromptAttachmentTransferProgress } from "@escode/services";
 import {
   OversizedInlineImageAttachmentError,
   OversizedInlineVideoAttachmentError,
@@ -37,7 +37,7 @@ vi.mock("@/hooks/useServices.js", () => ({
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }) => id,
     },

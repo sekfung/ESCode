@@ -1,7 +1,12 @@
-import { resolveExecutionState, type ModelSelection } from "@zcode/shared";
-import { submissionModeSchema, type SubmissionMode } from "@zcode/shared/zcode-protocol-v4";
-import type { ModelSelectionView } from "@zcode/services";
-import { validateModelSelectionOptions } from "@zcode/provider";
+import {
+  resolveExecutionState,
+  supportsRuntimeExecution,
+  type RuntimeExecutionCapabilities,
+  type ModelSelection,
+} from "@escode/shared";
+import { submissionModeSchema, type SubmissionMode } from "@escode/shared/escode-protocol-v4";
+import type { ModelSelectionView } from "@escode/services";
+import { validateModelSelectionOptions } from "@escode/provider";
 
 export interface ComposerSubmissionConfig {
   modelSelection: ModelSelection;
@@ -16,10 +21,11 @@ export function createComposerSubmissionConfig(
     | null
     | undefined,
   view: ModelSelectionView | null,
+  capabilities?: RuntimeExecutionCapabilities,
 ): ComposerSubmissionConfig | null {
   // 只读子会话和未挂载 Composer 的 SessionPane 不提供草稿；这类场景没有可提交配置，
   // 不能因为渲染提交门禁而读取 undefined 并让整个会话区域崩溃。
-  if (!composer) {
+  if (!composer || !supportsRuntimeExecution(composer, capabilities)) {
     return null;
   }
   const selection = composer.modelSelection;

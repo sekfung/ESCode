@@ -6,9 +6,9 @@
 >
 > 日期：2026-09-04
 >
-> 执行环境：MacBook Air 的独立干净工作树 `/Users/dev/Desktop/projects/z-code-e2e`；所有后续 Provider/Desktop E2E 暂时统一在该机器执行。
+> 执行环境：MacBook Air 的独立干净工作树 `/Users/dev/Desktop/projects/escode-e2e`；所有后续 Provider/Desktop E2E 暂时统一在该机器执行。
 
-> 基线：以同步到该工作树的当前待验证提交为准，不复用 Air 原有 `z-code` 目录中的旧提交或未提交改动。
+> 基线：以同步到该工作树的当前待验证提交为准，不复用 Air 原有 `escode` 目录中的旧提交或未提交改动。
 
 ## 1. 目的
 
@@ -95,5 +95,5 @@ Off-Peak 阻塞的运行时证据（Air 首轮日志）已进一步确认：Host
 
 ## 6. 当前执行条件记录（2026-09-04）
 
-- 当前代码工作区为 Linux；正式 Desktop E2E 统一使用 MacBook Air 独立工作树，不复用 Air 原有 `z-code` 目录。
+- 当前代码工作区为 Linux；正式 Desktop E2E 统一使用 MacBook Air 独立工作树，不复用 Air 原有 `escode` 目录。
 - 不把 Linux 静态检查或旧提交结果冒充图形证据；真实 SSH Remote 用例仍按 Todo 57 的凭据阻塞记录处理。

@@ -1,0 +1,238 @@
+# 发布：Rust runtime 二进制（6 个目标）与桌面安装包（内置 Rust runtime，默认仍用 Node）。
+# 触发：推送 v* 标签；手动运行；或在 feat/** 分支上改动发布链路本身（后两者只上传构建产物，不创建 Release）。
+# 当前不签名（macOS 未签名、未公证；Windows 未签名）。见 docs/specs/rust-ci.md。
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+    # workflow_dispatch 要求工作流已在默认分支；合入前用分支推送验证发布链路。
+    branches: ["feat/**"]
+    paths:
+      - .github/workflows/release.yml
+      - packages/desktop/scripts/**
+      - packages/desktop/electron-builder.config.js
+      - scripts/ci-install-desktop.mjs
+      - packages/services/tests/escode-cli-rust-installed.test.ts
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # 仓库默认的 Electron 镜像面向国内网络；GitHub runner 直接用官方地址。
+  ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+
+jobs:
+  rust-runtime:
+    name: rust runtime (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, exe: "" }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm, exe: "" }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, exe: .exe }
+          - { target: aarch64-pc-windows-msvc, os: windows-latest, exe: .exe }
+          - { target: x86_64-apple-darwin, os: macos-latest, exe: "" }
+          - { target: aarch64-apple-darwin, os: macos-latest, exe: "" }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: ${{ matrix.target }}
+      - name: build
+        run: cargo build --release --locked --target ${{ matrix.target }} -p escode-cli-rust
+        working-directory: apps/escode-cli-rust
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="escode-cli-rust-${GITHUB_REF_NAME//\//-}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp "apps/escode-cli-rust/target/${{ matrix.target }}/release/escode-cli-rust${{ matrix.exe }}" "dist/$name/"
+          cd dist
+          if [[ "${{ matrix.exe }}" == ".exe" ]]; then 7z a -tzip "$name.zip" "$name" > /dev/null; archive="$name.zip";
+          else tar -czf "$name.tar.gz" "$name"; archive="$name.tar.gz"; fi
+          if command -v sha256sum > /dev/null; then sha256sum "$archive" > "$archive.sha256";
+          else shasum -a 256 "$archive" > "$archive.sha256"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-runtime-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+  desktop:
+    name: desktop (${{ matrix.os }}-${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: win, arch: x64, runner: windows-latest }
+          - { os: mac, arch: arm64, runner: macos-latest }
+          - { os: mac, arch: x64, runner: macos-latest }
+          - { os: linux, arch: x64, runner: ubuntu-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      # 安装包内置 Rust runtime（resources/glm/escode-cli-rust[.exe]），通过 ESCODE_AGENT_SERVER_RUNTIME 选用。
+      ESCODE_BUNDLE_RUST_AGENT: "1"
+      # 远程部署资产（mock-cdn 跨平台包）不进桌面安装包。
+      ESCODE_SKIP_REMOTE_ASSETS: "1"
+      ESCODE_TARGET_OS: ${{ matrix.os }}
+      ESCODE_TARGET_ARCH: ${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: rust target
+        shell: bash
+        run: |
+          case "${{ matrix.os }}-${{ matrix.arch }}" in
+            win-x64) echo "RUST_TARGET=x86_64-pc-windows-msvc" >> "$GITHUB_ENV" ;;
+            mac-arm64) echo "RUST_TARGET=aarch64-apple-darwin" >> "$GITHUB_ENV" ;;
+            mac-x64) echo "RUST_TARGET=x86_64-apple-darwin" >> "$GITHUB_ENV" ;;
+            linux-x64) echo "RUST_TARGET=x86_64-unknown-linux-gnu" >> "$GITHUB_ENV" ;;
+          esac
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.RUST_TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: desktop-${{ env.RUST_TARGET }}
+      - name: linux packaging tools
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm libarchive-tools
+      - run: pnpm install --frozen-lockfile
+      - name: bundle desktop
+        run: pnpm bundle:desktop -- --os ${{ matrix.os }} --arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.AppImage
+            packages/desktop/dist/*.deb
+            packages/desktop/dist/*.rpm
+            packages/desktop/dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  # 安装包真机演练（docs/specs/rust-release-rollback.md）：在各平台 runner 上安装真实安装包、确认应用能启动，
+  # 再用包内的 Node 与 Rust runtime 在同一数据目录上走 Node → Rust → 回退 Node。发布前必须通过。
+  installed:
+    name: installed (${{ matrix.os }}-${{ matrix.arch }})
+    needs: desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: win, arch: x64, runner: windows-latest }
+          - { os: mac, arch: arm64, runner: macos-latest }
+          # x64 安装包在原生 Intel runner 上验证（不经 Rosetta）。
+          - { os: mac, arch: x64, runner: macos-15-intel }
+          - { os: linux, arch: x64, runner: ubuntu-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      ESCODE_TEST_SERIAL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: linux display
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      # 回退演练用例复用差分 fixture：其依赖包走 dist 入口。
+      - run: node apps/escode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs
+      - run: pnpm --dir apps/escode-cli --filter "@escode/bootstrap^..." build
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: installer
+      - name: install and launch
+        run: node scripts/ci-install-desktop.mjs installer
+      - name: Node → Rust → Node rollback rehearsal on the installed package
+        shell: bash
+        env:
+          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.escode-cli-rust.json
+          # 安装包首次运行与退出比开发态慢，进程退出与请求等待放宽（仍要求正常退出与正确结果）。
+          ESCODE_TEST_EXIT_MS: "30000"
+          ESCODE_TEST_REQUEST_MS: "60000"
+        run: |
+          set -uo pipefail
+          # 预热：首次启动（Gatekeeper 扫描等）明显更慢，先各跑一次两个 runtime。
+          "$ESCODE_INSTALLED_GLM/escode-cli-rust" --help > /dev/null || true
+          ELECTRON_RUN_AS_NODE=1 "$ESCODE_INSTALLED_APP" -e "0" || true
+          node --import tsx --test packages/services/tests/escode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # 日志需要登录才能读；失败要点转成公开的注解。
+            grep -E "✖|Error|assert|expected|actual|Timed out|stderr" installed-test.log | head -40 | while IFS= read -r line; do
+              echo "::error title=installed rehearsal::${line//%/%25}"
+            done
+          fi
+          exit "$status"
+
+  publish:
+    name: publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [rust-runtime, desktop, installed]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: artifacts/*
+          body: |
+            Unsigned build. The desktop app defaults to the bundled Rust runtime and falls back to the
+            bundled Node runtime if Rust fails before becoming ready; set ESCODE_AGENT_SERVER_RUNTIME=node to
+            force the Node runtime.
+      # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
+      - name: verify published assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          # GitHub 上传资产时把文件名里的空格换成 "."（"ESCode Preview-…" → "ESCode.Preview-…"）。
+          expected=$(ls artifacts | sed 's/ /./g' | sort)
+          published=$(gh release view "$tag" --json assets --jq '.assets[].name' | sort)
+          diff <(echo "$expected") <(echo "$published")
+          mkdir -p verify && cd verify
+          gh release download "$tag" --pattern 'escode-cli-rust-*'
+          for sum in *.sha256; do sha256sum -c "$sum"; done
+          echo "verified $(ls *.sha256 | wc -l) runtime archives on release $tag" >> "$GITHUB_STEP_SUMMARY"

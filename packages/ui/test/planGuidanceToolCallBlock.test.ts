@@ -1,9 +1,9 @@
-import type { IBroadcastService, IServiceAccessor } from "@zcode/services";
+import type { IBroadcastService, IServiceAccessor } from "@escode/services";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ServiceProvider } from "@/hooks/useServices.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { StoreProvider } from "@/store/StoreProvider.js";
 import { PlanGuidanceToolCallBlock } from "../src/ToolCallBlocks/renderers/plan-guidance.js";
 
@@ -58,7 +58,7 @@ function renderPlanGuidanceBlock(
 ) {
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(
         ServiceProvider,

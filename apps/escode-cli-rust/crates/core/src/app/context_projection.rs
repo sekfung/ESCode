@@ -1,0 +1,149 @@
+use super::Engine;
+use crate::contract::Event;
+use anyhow::{Result, ensure};
+use serde_json::json;
+impl Engine {
+    pub(super) async fn context_event(&mut self, id: &str, event: Event) -> Result<()> {
+        let turn = self.active[id].turn_id.clone();
+        let event = match event {
+            Event::SkillsInitialized { catalog, reply } => Event::SkillsInitialized {
+                catalog: self.freeze_skills(id, catalog),
+                reply,
+            },
+            Event::PromptInitialized {
+                snapshot,
+                skills,
+                committed,
+            } => Event::PromptInitialized {
+                snapshot,
+                skills: self.freeze_skills(id, skills),
+                committed,
+            },
+            other => other,
+        };
+        let session = self.sessions.get_mut(id).unwrap();
+        let mut deltas = vec![];
+        let mut receipt = None;
+        let mut compaction = None;
+        match event {
+            Event::SkillsInitialized { catalog, reply } => {
+                // catalog RPC 可能先于发现事件完成；统一返回 owner 已提交的快照，避免两份能力目录。
+                if session.skills.is_none() {
+                    session.skills = Some(catalog);
+                    self.persist(id, None).await?;
+                }
+                let _ = reply.send(self.sessions[id].skills.clone().unwrap());
+                return Ok(());
+            }
+            Event::PromptInitialized {
+                snapshot,
+                skills,
+                committed,
+            } => {
+                // 首次环境快照必须先提交；数据库失败时不得继续向模型发送未确定的请求上下文。
+                ensure!(
+                    session.prompt_snapshot.is_none(),
+                    "Prompt snapshot already initialized"
+                );
+                session.prompt_snapshot = Some(*snapshot);
+                if session.skills.is_none() {
+                    session.skills = Some(skills);
+                }
+                self.persist(id, None).await?;
+                let _ = committed.send(self.sessions[id].skills.clone().unwrap());
+                return Ok(());
+            }
+            Event::ContextUsage(usage) => session.usage["contextWindow"] = usage,
+            // 断流恢复（docs/specs/rust-model-retry.md）：作废流式尾部并显示恢复态。
+            Event::StreamRecovery {
+                retry_number,
+                max_retries,
+                reason_code,
+            } => {
+                deltas.extend(session.discard_stream_tail(&turn));
+                session.api_retry = Some(crate::contract::RetryState {
+                    attempt: retry_number,
+                    max_attempts: max_retries + 1,
+                    next_retry_at: self.clock.now(),
+                    reason_code,
+                    reason: reason_code,
+                });
+            }
+            Event::ShellNotice { at, message } => {
+                session.shell_notice = Some((session.context.offset + at, message));
+                return Ok(());
+            }
+            Event::CompactStarted {
+                id,
+                manual,
+                tokens,
+                committed,
+            } => {
+                let mut row = session.row("timelineMarker", &turn, &id, self.clock.now());
+                row["lane"] = "assistantWork".into();
+                row["marker"] = json!({"type":"compact","origin":if manual {"manual"} else {"auto"},"status":"running","tokensBefore":tokens});
+                session.rows.push(row.clone());
+                deltas.push(json!({"op":"row.appended","row":row}));
+                receipt = Some(committed);
+            }
+            Event::CompactDone {
+                id,
+                context,
+                tokens,
+                usage,
+                committed,
+            } => {
+                ensure!(
+                    context.offset >= session.context.offset
+                        && context.offset <= session.messages.len(),
+                    "Invalid context boundary"
+                );
+                let changed = context.offset > session.context.offset;
+                session.context = context;
+                session.context_tokens = Some(tokens);
+                if session.usage["contextWindow"].is_object() {
+                    session.usage["contextWindow"]["usedTokens"] = tokens.into();
+                }
+                for (from, to) in [
+                    ("prompt_tokens", "inputTokens"),
+                    ("completion_tokens", "outputTokens"),
+                ] {
+                    session.usage["cumulative"][to] = session.usage["cumulative"][to]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .saturating_add(usage[from].as_u64().unwrap_or(0))
+                        .into();
+                }
+                let model = (session.model.clone(), session.provider.clone());
+                let row = session
+                    .rows
+                    .iter_mut()
+                    .find(|r| r["entityId"] == id)
+                    .ok_or_else(|| anyhow::anyhow!("Compaction marker missing"))?;
+                row["marker"]["status"] = if changed { "success" } else { "noop" }.into();
+                row["marker"]["tokensAfter"] = tokens.into();
+                // TS compaction.terminal（CompactCompleted）：按压缩操作给出触发方式、前后 token 与模型。
+                compaction = Some(json!({
+                    "operationId": id, "status": "completed",
+                    "trigger": if row["marker"]["origin"] == "manual" { "manual" } else { "auto" },
+                    "startedAt": row["createdAt"], "endedAt": self.clock.now(),
+                    "preCompactTokenCount": row["marker"]["tokensBefore"], "postCompactTokenCount": tokens,
+                    "modelName": model.0, "modelProvider": model.1,
+                }));
+                deltas.push(json!({"op":"row.upserted","row":row}));
+                receipt = Some(committed);
+                session.revision += 1;
+            }
+            _ => unreachable!(),
+        }
+        self.publish(id, deltas)?;
+        if let Some(fields) = compaction {
+            self.emit_fact(id, Some(&turn), "compaction.terminal", fields);
+        }
+        if let Some(receipt) = receipt {
+            self.persist(id, None).await?;
+            let _ = receipt.send(());
+        }
+        Ok(())
+    }
+}

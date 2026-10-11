@@ -1,11 +1,11 @@
 import type {
-  ZCodeTaskRuntimeStatus,
-  ZCodeTaskMeta,
+  ESCodeTaskRuntimeStatus,
+  ESCodeTaskMeta,
   WebRemoteControlTaskDisplayStatus,
   WebRemoteControlTaskTarget,
   WebRemoteControlWorkspaceTarget,
-} from "@zcode/shared";
-import { resolveWebRemoteControlWorkspaceKey } from "@zcode/shared";
+} from "@escode/shared";
+import { resolveWebRemoteControlWorkspaceKey } from "@escode/shared";
 import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { compareTaskListItemsWithRunningFirst } from "@/lib/taskListOrdering.js";
 import { isLiveTaskRuntimeStatus } from "@/lib/taskRuntimeDisplayStatus.js";
@@ -91,7 +91,7 @@ export function shouldRetryWebRemoteControlTaskIndexLoad({
 }
 
 type WebRemoteControlTaskRuntimeSnapshot = Partial<
-  Record<string, { status: ZCodeTaskRuntimeStatus } | undefined>
+  Record<string, { status: ESCodeTaskRuntimeStatus } | undefined>
 >;
 
 type WebRemoteControlTaskRuntimeByWorkspaceKey = Partial<
@@ -138,8 +138,8 @@ function resolveWebRemoteControlTaskDisplayStatus({
   task,
   runtimeStatus,
 }: {
-  task: ZCodeTaskMeta;
-  runtimeStatus?: ZCodeTaskRuntimeStatus;
+  task: ESCodeTaskMeta;
+  runtimeStatus?: ESCodeTaskRuntimeStatus;
 }): WebRemoteControlTaskDisplayStatus {
   const activity = getTaskListRowActivity(task);
   if (activity) {
@@ -174,7 +174,7 @@ export function buildWebRemoteControlTaskTargets({
   archived = false,
 }: {
   workspaceTabs: WorkspaceTabState[];
-  tasks: ZCodeTaskMeta[];
+  tasks: ESCodeTaskMeta[];
   taskRuntimeByWorkspaceKey?: WebRemoteControlTaskRuntimeByWorkspaceKey;
   pinned?: boolean;
   archived?: boolean;

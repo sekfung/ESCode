@@ -1,4 +1,4 @@
-import { TID_TASK_ITEM, testId } from "@zcode/shared";
+import { TID_TASK_ITEM, testId } from "@escode/shared";
 import {
   clearAppData,
   getActiveWorkspacePath,
@@ -235,12 +235,12 @@ async function installSidebarIndicatorProbe(taskId: string) {
   const installed = await browser.execute(
     (taskItemTestId) => {
       type ProbeWindow = Window & {
-        __zcodeSidebarIndicatorProbe?: SidebarIndicatorProbe & {
+        __escodeSidebarIndicatorProbe?: SidebarIndicatorProbe & {
           observer: MutationObserver;
         };
       };
       const probeWindow = window as ProbeWindow;
-      probeWindow.__zcodeSidebarIndicatorProbe?.observer.disconnect();
+      probeWindow.__escodeSidebarIndicatorProbe?.observer.disconnect();
       const probe = {
         seenTerminal: false,
         loadingReappeared: false,
@@ -263,7 +263,7 @@ async function installSidebarIndicatorProbe(taskId: string) {
         subtree: true,
         attributes: true,
       });
-      probeWindow.__zcodeSidebarIndicatorProbe = probe;
+      probeWindow.__escodeSidebarIndicatorProbe = probe;
       sample();
       return Boolean(
         document.querySelector(`[data-testid="${taskItemTestId}"]`),
@@ -278,9 +278,9 @@ async function getSidebarIndicatorProbe(): Promise<SidebarIndicatorProbe | null>
   return browser.execute(() => {
     const probe = (
       window as Window & {
-        __zcodeSidebarIndicatorProbe?: SidebarIndicatorProbe;
+        __escodeSidebarIndicatorProbe?: SidebarIndicatorProbe;
       }
-    ).__zcodeSidebarIndicatorProbe;
+    ).__escodeSidebarIndicatorProbe;
     return probe
       ? {
           seenTerminal: probe.seenTerminal,
@@ -293,13 +293,13 @@ async function getSidebarIndicatorProbe(): Promise<SidebarIndicatorProbe | null>
 async function disposeSidebarIndicatorProbe() {
   await browser.execute(() => {
     type ProbeWindow = Window & {
-      __zcodeSidebarIndicatorProbe?: SidebarIndicatorProbe & {
+      __escodeSidebarIndicatorProbe?: SidebarIndicatorProbe & {
         observer?: MutationObserver;
       };
     };
     const probeWindow = window as ProbeWindow;
-    probeWindow.__zcodeSidebarIndicatorProbe?.observer?.disconnect();
-    delete probeWindow.__zcodeSidebarIndicatorProbe;
+    probeWindow.__escodeSidebarIndicatorProbe?.observer?.disconnect();
+    delete probeWindow.__escodeSidebarIndicatorProbe;
   });
 }
 

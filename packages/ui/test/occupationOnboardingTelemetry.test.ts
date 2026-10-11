@@ -31,14 +31,14 @@ vi.mock("@/onboarding/useOnboardingTrigger.js", () => ({
   useOnboardingTrigger: () => [mocks.needs, vi.fn()],
 }));
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStore: (selector: (state: unknown) => unknown) =>
+  useESCodeStore: (selector: (state: unknown) => unknown) =>
     selector({ ...mocks.store, newUserOnboardingOpen: mocks.requested }),
 }));
 vi.mock("@/shortcuts/useShortcutBindings.js", () => ({
   useEffectiveShortcutBindings: () => ({ toggleInterfaceMode: [], openOnboarding: ["Alt+o"] }),
 }));
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }) => (mocks.locale === "zh" ? zhCN : enUS)[id] ?? id,
     },

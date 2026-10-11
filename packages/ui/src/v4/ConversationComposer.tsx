@@ -1,3 +1,4 @@
+import { supportsRuntimeExecution, type RuntimeExecutionCapabilities } from "@escode/shared";
 /* oxlint-disable eslint(max-lines) -- composer 集中收口输入区 wiring（附件/草稿/历史/mention），拆分会打散收口粒度。 */
 import { getLocalTtftObserver } from "@/v4/telemetry/localTtftObserver.js";
 /**
@@ -45,13 +46,13 @@ import {
   testId,
   type HighspeedCardSnapshot,
   type PlanIdentitySnapshot,
-  type ZCodeProvider,
-} from "@zcode/shared";
+  type ESCodeProvider,
+} from "@escode/shared";
 import type {
   AttachmentRef,
   ConversationSnapshot,
   SessionConfigState,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import {
   ArrowUpIcon,
   ClipboardPenLineIcon,
@@ -91,14 +92,14 @@ import {
 import type { LexicalChatInputHandle } from "@/LexicalChatInput.js";
 import { ChatPromptEditor } from "@/prompt-editor/ChatPromptEditor.js";
 import { usePromptEditorDragState } from "@/prompt-editor/usePromptEditorDragState.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { advanceComposerDraftRevision } from "@/v4/composer/composerDraftRevision.js";
 import type { AppSlashCommand } from "@/slashCommandHelpers.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
 import { logger } from "@/logger.js";
 import { runUserAction, startUserAction } from "@/lib/userActionTelemetry.js";
-import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
-import type { ComposerMentionPrefill } from "@/store/zcodeSessionStoreTypes.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
+import type { ComposerMentionPrefill } from "@/store/escodeSessionStoreTypes.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
 import {
   isImageChatComposerAttachment,
@@ -126,9 +127,9 @@ import {
 } from "@/lib/workspaceFileDrag.js";
 import { appendWorkspaceFileMentionToComposer } from "@/lib/workspaceFileComposer.js";
 import { resolveProviderBaseURL } from "@/lib/registryProviderView.js";
-import type { ModelSelectionView } from "@zcode/services";
+import type { ModelSelectionView } from "@escode/services";
 import type { ModelSelectionState } from "@/hooks/useModelSelectionView.js";
-import type { ZCodeUiError } from "@/lib/zcodeUiError.js";
+import type { ESCodeUiError } from "@/lib/escodeUiError.js";
 import {
   resolveComposerAutoFocus,
   type ComposerAutoFocusOptions,
@@ -195,14 +196,14 @@ export interface ConversationComposerSendOptions {
   attachments?: AttachmentRef[];
   /** Prompt 文本内携带的上下文附件数量；用于阻止 /goal 等本地命令误消费。 */
   contextAttachmentCount?: number;
-  conversationQuotes?: import("@zcode/shared").ConversationSelectionText[];
+  conversationQuotes?: import("@escode/shared").ConversationSelectionText[];
   /** renderer-only：ACK accepted 后由 SessionPane 绑定真实 commandId/sessionId。 */
   telemetrySeed?: ConversationPromptTelemetrySeed;
   /** 本次 busy input 的一次性投递覆盖，不改 session 偏好。 */
   requestedDelivery?: "startNow" | "queue" | "guide";
   sharedContextRefs?: Array<{ kind: "shared_context_import"; context_id: string }>;
   /** 插件 UI 代发：随 sendText 持久化，用户消息卡片显示"来自插件 X"。 */
-  source?: import("@zcode/shared/zcode-protocol-v4").ConversationInputSource;
+  source?: import("@escode/shared/escode-protocol-v4").ConversationInputSource;
 }
 
 export type ConversationComposerSendResult = "sent" | "blocked" | "confirmationRequired";
@@ -378,6 +379,9 @@ export interface ConversationComposerProps {
   draftMode?: boolean;
   /** renderer 当前草稿配置意图；只在 draftMode 下覆盖迟到的 prewarm projection。 */
   draftConfig?: Partial<SessionConfigState>;
+  executionCapabilities?: RuntimeExecutionCapabilities;
+  executionReady?: boolean;
+  executionError?: boolean;
   /** SessionPane 注入的完整 Draft owner；生产路径不再由编辑器直接覆盖持久记录。 */
   composerDraft: V4ComposerDraft;
   updateComposerContent: (
@@ -431,7 +435,7 @@ export interface ConversationComposerProps {
   onRuntimeRestart?: (listener: () => void) => () => void;
   /** 承载 transport 暴露 runtime 存活态时优先用它，替代 onRuntimeRestart。 */
   onRuntimeLifecycle?: (listener: (state: "available" | "unavailable") => void) => () => void;
-  provider?: ZCodeProvider;
+  provider?: ESCodeProvider;
   /** 宿主 pane 与 workspace 遮罩共同裁决的真实可见性，仅用于 visible-only telemetry。 */
   telemetryVisible?: boolean;
   /** 点击发送时读取套餐身份；二次确认会继续复用同一份冻结 seed。 */
@@ -470,7 +474,7 @@ export interface ConversationComposerProps {
   /** context usage 面板的 /compact 入口（宿主走 v4 compact 命令）。 */
   onSendCompressionCommand?: (command: string) => void;
   /** v4 会话级错误（snapshot.control.lastError），展示在输入框上方。 */
-  error?: ZCodeUiError | null;
+  error?: ESCodeUiError | null;
   onDismissError?: () => void;
   /** 无可用模型横幅的恢复动作；由 SessionPane 注入壳层导航，组件不直接操作 tab。 */
   onOpenModelSettings?: () => void;
@@ -512,6 +516,9 @@ function ConversationComposerImpl({
   skillCatalogSessionId = sessionId,
   draftMode = false,
   draftConfig,
+  executionCapabilities,
+  executionReady = true,
+  executionError = false,
   composerDraft,
   updateComposerContent,
   replaceComposerDraft,
@@ -566,7 +573,7 @@ function ConversationComposerImpl({
   appSlashCommands,
   onDropTargetControllerChange,
 }: ConversationComposerProps) {
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const services = useOptionalServices();
   const conversationTelemetry = useScopedConversationTelemetrySupervisor({
     workspacePath,
@@ -886,7 +893,7 @@ function ConversationComposerImpl({
   // 触发源：startDraft 递增的 draftFocusVersion（覆盖 Cmd/Ctrl+N 与所有「新建任务」入口）、
   // sessionId→draftScopeId 变化（切会话/切草稿）、以及挂载。三者置位聚焦意图；因切到需
   // 连接的会话时 composer 短暂 disabled，聚焦意图暂存，待可编辑时兑现一次。
-  const draftFocusVersion = useZCodeSessionStore(
+  const draftFocusVersion = useESCodeSessionStore(
     (state) => state.getWorkspaceState(workspacePath, workspaceIdentity).draftFocusVersion,
   );
   const pendingFocusRef = useRef(false);
@@ -2280,6 +2287,8 @@ function ConversationComposerImpl({
           workspaceIdentity={workspaceIdentity}
           provider={provider}
           draftConfig={draftConfig}
+          executionCapabilities={executionCapabilities}
+          executionReady={executionReady}
           disabled={disabled}
           activeConfigPicker={activeConfigPicker}
           onConfigPickerOpenChange={handleConfigPickerOpenChange}
@@ -2307,6 +2316,8 @@ function ConversationComposerImpl({
       canStop,
       disabled,
       draftConfig,
+      executionCapabilities,
+      executionReady,
       handleConfigPickerOpenChange,
       isWebRemoteControl,
       backgroundWorkOpenTarget,
@@ -2351,6 +2362,25 @@ function ConversationComposerImpl({
         className="hidden"
         onChange={attachmentsApi.handleAttachmentInputChange}
       />
+      {(!executionReady || !supportsRuntimeExecution(draftConfig ?? {}, executionCapabilities)) && (
+        <div
+          role="status"
+          data-testid="runtime-execution-notice"
+          className="mb-2 px-2 text-ui-caption text-foreground-subtle"
+        >
+          {intl.formatMessage({
+            id: !executionReady
+              ? executionError
+                ? "chat.runtimeModes.failed"
+                : "chat.runtimeModes.loading"
+              : executionCapabilities?.permissionModes.length === 1 &&
+                  executionCapabilities.permissionModes[0] === "yolo" &&
+                  !executionCapabilities.independentPlanState
+                ? "chat.runtimeModes.yoloOnly"
+                : "chat.runtimeModes.unsupported",
+          })}
+        </div>
+      )}
       {visibleError ? (
         // 仅展示附件错误会漏掉会话级 lastError，任务失败后也应在输入框上方显示原因。
         // 这里复用旧 ChatErrorBanner 壳，只接收 SessionPane 已归一化后的当前错误。

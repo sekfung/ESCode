@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { IServiceAccessor } from "@zcode/services";
+import type { IServiceAccessor } from "@escode/services";
 import {
   resolveWorkspaceRemoteSessionId,
   resolveWorkspaceServices,

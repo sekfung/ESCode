@@ -1,8 +1,9 @@
 import type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
+import type { SerialChecksumConfig } from "./serial/serialChecksum.js";
 import type { RemoteResourcePackageSelection } from "./remoteResourcePackages.js";
 import type { ProviderFamilyDomain } from "./model-provider-family.js";
 import type { ProviderFamilyConnectionSelectionSettings } from "./provider-family-connection-selection.js";
-import type { ZCodeProvider } from "./zcode-task-types-core.js";
+import type { ESCodeProvider } from "./escode-task-types-core.js";
 import type { WorkspacePurpose } from "./workspacePurpose.js";
 import type { DynamicWorkflowMode } from "./dynamic-workflow-feature.js";
 import type { EmbeddedBrowserViewportPreference } from "./browser-use/command-metadata.js";
@@ -78,8 +79,8 @@ export type Locale = "zh-CN" | "en-US";
 /** 界面语言偏好；system 表示跟随当前运行端系统语言。 */
 export type LocalePreference = "system" | Locale;
 
-/** ZCode 运行中继续输入时的交互行为 */
-export type ZCodeInteractionBehavior = "queue" | "guide";
+/** ESCode 运行中继续输入时的交互行为 */
+export type ESCodeInteractionBehavior = "queue" | "guide";
 
 /** 桌面端 Electron 自动更新发布通道。 */
 export type ElectronReleaseChannel = "stable" | "preview";
@@ -219,7 +220,7 @@ export type ResourceUsageBaseGroupKey = "main" | "gpu" | "renderer" | "host" | "
 /** 资源管理器中的一个进程行（CPU 为整机归一化百分比，内存为字节） */
 export interface ResourceUsageProcess {
   pid: number;
-  /** 进程显示名，如 zcode-main / zcode-agent-zcode-demo / node_repl */
+  /** 进程显示名，如 escode-main / escode-agent-escode-demo / node_repl */
   name: string;
   category: ResourceUsageCategory;
   groupKey: string;
@@ -249,6 +250,31 @@ export interface ResourceUsageSnapshot {
   processes: ResourceUsageProcess[];
 }
 
+export interface SerialPortConfigPreference {
+  baudRate: number;
+  dataBits: 5 | 6 | 7 | 8;
+  parity: "none" | "even" | "odd" | "mark" | "space";
+  stopBits: 1 | 1.5 | 2;
+  rtscts: boolean;
+  autoReconnect: boolean;
+}
+
+export interface SerialPortPreferences {
+  lastPath?: string;
+  byPath: Record<string, SerialPortConfigPreference>;
+}
+
+/** 串口快捷指令（docs/specs/serial-port-debugger-phase3.md 第 3 节），全局共用。 */
+export interface SerialQuickCommand {
+  id: string;
+  name: string;
+  data: string;
+  mode: "text" | "hex";
+  lineEnding: "none" | "cr" | "lf" | "crlf";
+  /** 附加在内容之后、行尾之前的校验和；缺省不附加。 */
+  checksum?: SerialChecksumConfig;
+}
+
 export interface AppSettings {
   /** 当前 App/Host 不再显示提交前体验套餐推荐；不改变任何入口的模型选择。 */
   startPlanRecommendationDismissed?: boolean;
@@ -276,11 +302,15 @@ export interface AppSettings {
   httpProxyCaCertPath?: string;
   /**
    * 内置浏览器忽略 HTTPS 证书校验错误（自签名、过期、域名不匹配等），用于访问内网测试站点。
-   * 只影响内置浏览器出口，不影响 ZCode 自身对后端与模型 API 的请求。默认关闭，重启后生效。
+   * 只影响内置浏览器出口，不影响 ESCode 自身对后端与模型 API 的请求。默认关闭，重启后生效。
    */
   embeddedBrowserAllowInsecureCertificates?: boolean;
   /** 人类用户主动打开 Browser tab 时的一次性显示偏好；Agent Browser Use 不读写。 */
   embeddedBrowserViewportPreference?: EmbeddedBrowserViewportPreference;
+  /** 串口调试器上次使用的串口与按串口名记住的参数；只用于预填，不会自动连接。 */
+  serialPortPreferences?: SerialPortPreferences;
+  /** 串口快捷指令，最多 100 条，所有串口共用。 */
+  serialQuickCommands?: SerialQuickCommand[];
   /**
    * 用户已在设置页关闭输入框的「电脑操作」按钮（内部 hidden 态）。
    * 取 hidden 语义而非 visible：undefined 即默认显示，老用户无需数据迁移。
@@ -326,8 +356,8 @@ export interface AppSettings {
   toolGroupingTerminalEnabled?: boolean;
   /** 是否把连续的 Write/Edit/ApplyPatch 工具调用聚合成 Changes。 */
   toolGroupingChangesEnabled?: boolean;
-  /** ZCode 运行中继续输入时，是排队到下一轮，还是引导到下一次工具调用后运行 */
-  zcodeInteractionBehavior?: ZCodeInteractionBehavior;
+  /** ESCode 运行中继续输入时，是排队到下一轮，还是引导到下一次工具调用后运行 */
+  escodeInteractionBehavior?: ESCodeInteractionBehavior;
   /** Agent 提问五分钟无人回答时是否允许自动继续；缺失按开启兼容旧配置。 */
   askUserQuestionAutoResolutionEnabled?: boolean;
   /** 是否完整保留 Model I/O；开启后不轮转、不限额重置、不压缩或裁剪，鉴权信息仍会脱敏。 */
@@ -338,7 +368,7 @@ export interface AppSettings {
    */
   dynamicWorkflowMode?: DynamicWorkflowMode;
   /** 已启用的内置 Agent CLI；UI 对外仍展示为“Install”，底层语义保持为启用内置能力。 */
-  enabledBuiltinAgentCliProviders?: ZCodeProvider[];
+  enabledBuiltinAgentCliProviders?: ESCodeProvider[];
   /** 设置页中每个 Provider Family 当前唯一的结构化连接选择。 */
   providerFamilyConnectionSelections?: ProviderFamilyConnectionSelectionSettings;
   /** 用户通过 WelcomeScreen 成功连接后确认的 ZAI / BigModel provider family 运行域。 */
@@ -374,7 +404,7 @@ export interface AppSettings {
   lastActiveTabIndex?: number;
   /** 每个 workspace 的最后活跃 taskId，下次打开自动恢复 */
   lastActiveTaskByWorkspace?: Record<string, string>;
-  /** 数据目录的根路径（替代 homedir），默认为 os.homedir()；.zcode/v2 后缀不变 */
+  /** 数据目录的根路径（替代 homedir），默认为 os.homedir()；.escode/v2 后缀不变 */
   dataBaseDir?: string;
   /** 自动更新安装完成后，等待首次启动展示的版本说明 */
   pendingPostUpdateReleaseNotes?: {
@@ -402,6 +432,6 @@ export interface AppSettings {
     workspaceIdentity?: string;
     initialTaskId?: string;
   };
-  /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 ZCODE_BASE_URL env 管理。 */
-  zcodeEndpointOrigin?: string;
+  /** 设置页里的临时 endpoint override；正式/测试默认 base url 由 ESCODE_BASE_URL env 管理。 */
+  escodeEndpointOrigin?: string;
 }

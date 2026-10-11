@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task with review checkpoints.
 
-**Goal:** 在 Windows 本地桌面 Host 中按需启动 `C:\Users\dev\zcode-cua` 源码构建出的独立 Node Helper，让官方 `zcode-cua` plugin 获得随机 named pipe、token 和 authority，并在记事本完成 UIA 观察、点击和输入闭环。
+**Goal:** 在 Windows 本地桌面 Host 中按需启动 `C:\Users\dev\escode-cua` 源码构建出的独立 Node Helper，让官方 `escode-cua` plugin 获得随机 named pipe、token 和 authority，并在记事本完成 UIA 观察、点击和输入闭环。
 
-**Architecture:** 保留 macOS 现有 `Host -> Helper -> broker -> MCP plugin` 分层。Windows 新增源码开发专用 Helper 入口和 Host lifecycle adapter；Helper 使用 `process.execPath + ELECTRON_RUN_AS_NODE=1` 运行，自动加载源码树的 `build/Release/ax_native.node`。ZCode Host 只负责源码根校验、子进程生命周期、健康检查和凭据注入；UIA、输入与 Windows system surface 仍归 `zcode-cua`。本计划不增加 tool、不修改 tool schema、不接入 SSH/WSL/Docker，也不做 WGC、完整指针或产品打包。
+**Architecture:** 保留 macOS 现有 `Host -> Helper -> broker -> MCP plugin` 分层。Windows 新增源码开发专用 Helper 入口和 Host lifecycle adapter；Helper 使用 `process.execPath + ELECTRON_RUN_AS_NODE=1` 运行，自动加载源码树的 `build/Release/ax_native.node`。ESCode Host 只负责源码根校验、子进程生命周期、健康检查和凭据注入；UIA、输入与 Windows system surface 仍归 `escode-cua`。本计划不增加 tool、不修改 tool schema、不接入 SSH/WSL/Docker，也不做 WGC、完整指针或产品打包。
 
 **Tech Stack:** TypeScript 5/6、Node.js 24、Electron utility process、Vitest 4、Node `child_process.fork`、Windows named pipe、N-API/node-addon-api、C++/UI Automation、pnpm 10。
 
@@ -24,7 +24,7 @@
 
 ## File Structure Map
 
-### `C:\Users\dev\zcode-cua`
+### `C:\Users\dev\escode-cua`
 
 - Modify: `package.json`
 - Modify: `pnpm-lock.yaml`
@@ -52,10 +52,10 @@
 - Modify: `docs/KNOWN-ISSUES.md`
 - Modify: `docs/platforms.md`
 
-### `C:\Users\dev\z-code`
+### `C:\Users\dev\escode`
 
 - Modify: `docs/superpowers/specs/2026-07-28-windows-cua-development-runtime-design.md`
-- Modify: `apps/zcode-cli/docs/design/v2/tool/00-tool-change-chain.md`
+- Modify: `apps/escode-cli/docs/design/v2/tool/00-tool-change-chain.md`
 - Add: `packages/services/src/cua-permission-broker/windowsCuaDevRuntime.ts`
 - Add: `packages/services/src/cua-permission-broker/windowsCuaDevHelperHost.ts`
 - Modify: `packages/services/src/cua-permission-broker/index.ts`
@@ -73,17 +73,17 @@
 
 **Files:**
 
-- Modify: `C:\Users\dev\zcode-cua\package.json`
-- Modify: `C:\Users\dev\zcode-cua\pnpm-lock.yaml`
+- Modify: `C:\Users\dev\escode-cua\package.json`
+- Modify: `C:\Users\dev\escode-cua\pnpm-lock.yaml`
 - Modify: Windows-invalid test files listed in the file map
-- Modify: `C:\Users\dev\zcode-cua\docs\KNOWN-ISSUES.md`
+- Modify: `C:\Users\dev\escode-cua\docs\KNOWN-ISSUES.md`
 
 **Step 1: Record the current failing baseline**
 
 Run:
 
 ```powershell
-cd C:\Users\dev\zcode-cua
+cd C:\Users\dev\escode-cua
 pnpm typecheck
 pnpm lint
 pnpm test -- --reporter=verbose
@@ -119,7 +119,7 @@ Expected: native rebuild exits `0`; the final command prints `True`.
 
 **Step 3: Repair the lint dependency**
 
-Add `oxlint` to `devDependencies` at the version used by ZCode (`^1.57.0`), run `pnpm install`, and verify:
+Add `oxlint` to `devDependencies` at the version used by ESCode (`^1.57.0`), run `pnpm install`, and verify:
 
 ```powershell
 pnpm lint
@@ -132,7 +132,7 @@ Expected: exit `0`.
 Change `test/broker/helpers/tempSocket.ts` so live broker tests use:
 
 ```text
-win32 -> \\.\pipe\zcode-cua-test-<random>
+win32 -> \\.\pipe\escode-cua-test-<random>
 other -> <fresh tmpdir>/broker.sock
 ```
 
@@ -206,10 +206,10 @@ git commit -m "test(windows): establish CUA development baseline"
 
 **Files:**
 
-- Add: `C:\Users\dev\zcode-cua\src\broker\server\windowsSystemSurface.ts`
-- Modify: `C:\Users\dev\zcode-cua\src\broker\server\nodeSystemSurface.ts`
-- Modify: `C:\Users\dev\zcode-cua\src\broker\server\index.ts`
-- Add: `C:\Users\dev\zcode-cua\test\broker\windowsSystemSurface.test.ts`
+- Add: `C:\Users\dev\escode-cua\src\broker\server\windowsSystemSurface.ts`
+- Modify: `C:\Users\dev\escode-cua\src\broker\server\nodeSystemSurface.ts`
+- Modify: `C:\Users\dev\escode-cua\src\broker\server\index.ts`
+- Add: `C:\Users\dev\escode-cua\test\broker\windowsSystemSurface.test.ts`
 
 **Step 1: Write failing tests**
 
@@ -270,20 +270,20 @@ git commit -m "feat(windows): add CUA system surface"
 
 **Files:**
 
-- Add: `C:\Users\dev\zcode-cua\src\broker\server\windowsDevHelperMain.ts`
-- Add: `C:\Users\dev\zcode-cua\src\windows-helper.ts`
-- Modify: `C:\Users\dev\zcode-cua\scripts\build.mjs`
-- Modify: `C:\Users\dev\zcode-cua\src\broker\server\index.ts`
-- Add: `C:\Users\dev\zcode-cua\test\windowsDevHelperMain.test.ts`
-- Modify: `C:\Users\dev\zcode-cua\docs\platforms.md`
+- Add: `C:\Users\dev\escode-cua\src\broker\server\windowsDevHelperMain.ts`
+- Add: `C:\Users\dev\escode-cua\src\windows-helper.ts`
+- Modify: `C:\Users\dev\escode-cua\scripts\build.mjs`
+- Modify: `C:\Users\dev\escode-cua\src\broker\server\index.ts`
+- Add: `C:\Users\dev\escode-cua\test\windowsDevHelperMain.test.ts`
+- Modify: `C:\Users\dev\escode-cua\docs\platforms.md`
 
 **Step 1: Write failing parser and lifecycle tests**
 
 The versioned Host/Helper control protocol is:
 
 ```json
-{"protocol":"zcode-cua-windows-dev/v1","type":"ready","socketPath":"\\\\.\\pipe\\...","pid":123}
-{"protocol":"zcode-cua-windows-dev/v1","type":"shutdown"}
+{"protocol":"escode-cua-windows-dev/v1","type":"ready","socketPath":"\\\\.\\pipe\\...","pid":123}
+{"protocol":"escode-cua-windows-dev/v1","type":"shutdown"}
 ```
 
 Cover:
@@ -291,7 +291,7 @@ Cover:
 1. only `win32` is accepted;
 2. `--socket` must be a Windows named pipe;
 3. `--parent-pid` must be a positive integer;
-4. token is required from `ZCODE_CUA_PERMISSION_BROKER_TOKEN`;
+4. token is required from `ESCODE_CUA_PERMISSION_BROKER_TOKEN`;
 5. `--token` is rejected and token text never appears in errors/messages;
 6. native addon and system surface are injected into `runHelper`;
 7. ready is sent only after broker bind;
@@ -392,14 +392,14 @@ git commit -m "feat(windows): add source Computer Use Helper entry"
 
 ---
 
-### Task 4: Resolve and validate the ZCode Windows development runtime
+### Task 4: Resolve and validate the ESCode Windows development runtime
 
 **Files:**
 
-- Modify: `C:\Users\dev\z-code\docs\superpowers\specs\2026-07-28-windows-cua-development-runtime-design.md`
-- Modify: `C:\Users\dev\z-code\apps\zcode-cli\docs\design\v2\tool\00-tool-change-chain.md`
-- Add: `C:\Users\dev\z-code\packages\services\src\cua-permission-broker\windowsCuaDevRuntime.ts`
-- Add: `C:\Users\dev\z-code\packages\services\test\windowsCuaDevRuntime.test.ts`
+- Modify: `C:\Users\dev\escode\docs\superpowers\specs\2026-07-28-windows-cua-development-runtime-design.md`
+- Modify: `C:\Users\dev\escode\apps\escode-cli\docs\design\v2\tool\00-tool-change-chain.md`
+- Add: `C:\Users\dev\escode\packages\services\src\cua-permission-broker\windowsCuaDevRuntime.ts`
+- Add: `C:\Users\dev\escode\packages\services\test\windowsCuaDevRuntime.test.ts`
 
 **Step 1: Close the spec’s accepted open item**
 
@@ -410,7 +410,7 @@ command = process.execPath
 env.ELECTRON_RUN_AS_NODE = "1"
 ```
 
-Reason: desktop Host already uses this pattern for zcode-agent; CLI/test hosts naturally have `process.execPath` pointing to Node. The addon is N-API and is rebuilt on the target Windows machine.
+Reason: desktop Host already uses this pattern for escode-agent; CLI/test hosts naturally have `process.execPath` pointing to Node. The addon is N-API and is rebuilt on the target Windows machine.
 
 Update the tool change chain before implementation. Record that the existing 30 tools, schemas, side-effect annotations and delivery-state semantics are unchanged; only the Windows backend admission/execution route becomes available.
 
@@ -418,9 +418,9 @@ Update the tool change chain before implementation. Record that the existing 30 
 
 Cover:
 
-1. only `platform="win32"` accepts `ZCODE_CUA_DEV_ROOT`;
+1. only `platform="win32"` accepts `ESCODE_CUA_DEV_ROOT`;
 2. empty, relative or nonexistent roots fail with a structured reason;
-3. `package.json.name` must equal `@zcode/zcode-cua`;
+3. `package.json.name` must equal `@escode/escode-cua`;
 4. `dist/windows-helper.js` and `build/Release/ax_native.node` must both be files;
 5. resolved command is `process.execPath`;
 6. child env includes `ELECTRON_RUN_AS_NODE=1` but no broker token yet;
@@ -453,7 +453,7 @@ export async function resolveWindowsCuaDevRuntime(
 ): Promise<WindowsCuaDevRuntime>;
 ```
 
-The default root comes only from `ZCODE_CUA_DEV_ROOT`. Do not search sibling directories or silently fall back to a macOS Helper path.
+The default root comes only from `ESCODE_CUA_DEV_ROOT`. Do not search sibling directories or silently fall back to a macOS Helper path.
 
 **Step 4: Verify and commit**
 
@@ -468,7 +468,7 @@ pnpm lint
 Expected: pass.
 
 ```powershell
-git add docs/superpowers/specs/2026-07-28-windows-cua-development-runtime-design.md apps/zcode-cli/docs/design/v2/tool/00-tool-change-chain.md packages/services/src/cua-permission-broker/windowsCuaDevRuntime.ts packages/services/test/windowsCuaDevRuntime.test.ts
+git add docs/superpowers/specs/2026-07-28-windows-cua-development-runtime-design.md apps/escode-cli/docs/design/v2/tool/00-tool-change-chain.md packages/services/src/cua-permission-broker/windowsCuaDevRuntime.ts packages/services/test/windowsCuaDevRuntime.test.ts
 git diff --cached --check
 git commit -m "docs(cua): finalize Windows runtime contract"
 ```
@@ -479,9 +479,9 @@ git commit -m "docs(cua): finalize Windows runtime contract"
 
 **Files:**
 
-- Add: `C:\Users\dev\z-code\packages\services\src\cua-permission-broker\windowsCuaDevHelperHost.ts`
-- Modify: `C:\Users\dev\z-code\packages\services\src\cua-permission-broker\index.ts`
-- Add: `C:\Users\dev\z-code\packages\services\test\windowsCuaDevHelperHost.test.ts`
+- Add: `C:\Users\dev\escode\packages\services\src\cua-permission-broker\windowsCuaDevHelperHost.ts`
+- Modify: `C:\Users\dev\escode\packages\services\src\cua-permission-broker\index.ts`
+- Add: `C:\Users\dev\escode\packages\services\test\windowsCuaDevHelperHost.test.ts`
 
 **Step 1: Write failing lifecycle tests**
 
@@ -490,7 +490,7 @@ Use an injected child-process adapter and health probe. Cover:
 1. concurrent `start()` calls share one fork;
 2. fork command is `runtime.command`, entry is `runtime.entryPath`, cwd is `runtime.root`;
 3. argv includes pipe and parent PID but never token;
-4. child env contains token, `ZCODE_CUA_HELPER_ADDON=runtime.addonPath` and `ELECTRON_RUN_AS_NODE=1`;
+4. child env contains token, `ESCODE_CUA_HELPER_ADDON=runtime.addonPath` and `ELECTRON_RUN_AS_NODE=1`;
 5. only a valid v1 ready message for the minted pipe is accepted;
 6. health must pass before `start()` returns a handle;
 7. handle contains random pipe/token, Host-stable authority, entry path and child PID;
@@ -512,7 +512,7 @@ Expected: fail because the host does not exist.
 
 **Step 2: Define the minimal common Host contract**
 
-Use the existing `CuaProductHelperHost` resolver contract and add the two lifecycle capabilities ZCode owns:
+Use the existing `CuaProductHelperHost` resolver contract and add the two lifecycle capabilities ESCode owns:
 
 ```ts
 export type ManagedCuaProductHelperHost = CuaProductHelperHost & {
@@ -559,20 +559,20 @@ git commit -m "feat(cua): manage Windows development Helper"
 
 ---
 
-### Task 6: Wire Windows admission and broker credentials into ZCode
+### Task 6: Wire Windows admission and broker credentials into ESCode
 
 **Files:**
 
-- Modify: `C:\Users\dev\z-code\packages\services\src\node.ts`
-- Modify: `C:\Users\dev\z-code\packages\services\test\cuaPermissionBrokerProductAgentEnv.test.ts`
-- Modify: `C:\Users\dev\z-code\packages\services\test\cuaPermissionBrokerServiceDispose.test.ts`
+- Modify: `C:\Users\dev\escode\packages\services\src\node.ts`
+- Modify: `C:\Users\dev\escode\packages\services\test\cuaPermissionBrokerProductAgentEnv.test.ts`
+- Modify: `C:\Users\dev\escode\packages\services\test\cuaPermissionBrokerServiceDispose.test.ts`
 
 **Step 1: Write failing admission tests**
 
 Add cases proving:
 
 1. macOS feature admission remains unchanged;
-2. Windows is admitted only when the internal CUA feature is enabled and `ZCODE_CUA_DEV_ROOT` is non-empty;
+2. Windows is admitted only when the internal CUA feature is enabled and `ESCODE_CUA_DEV_ROOT` is non-empty;
 3. Linux remains disabled in this product Host path;
 4. `isDesktopAttachedRemote=true` prevents Windows Host creation;
 5. an injected resolver prevents duplicate Host creation;
@@ -640,8 +640,8 @@ git commit -m "feat(cua): enable Windows source Helper"
 
 **Files:**
 
-- Add: `C:\Users\dev\z-code\packages\services\test\windowsCuaDevHelper.integration.test.ts`
-- Add: `C:\Users\dev\z-code\docs\cua\windows-source-development.md`
+- Add: `C:\Users\dev\escode\packages\services\test\windowsCuaDevHelper.integration.test.ts`
+- Add: `C:\Users\dev\escode\docs\cua\windows-source-development.md`
 
 **Step 1: Write the opt-in real integration test**
 
@@ -649,7 +649,7 @@ The test runs only when all are true:
 
 ```text
 process.platform === "win32"
-ZCODE_CUA_DEV_ROOT is set
+ESCODE_CUA_DEV_ROOT is set
 dist/windows-helper.js exists
 build/Release/ax_native.node exists
 ```
@@ -667,7 +667,7 @@ It must:
 Run:
 
 ```powershell
-$env:ZCODE_CUA_DEV_ROOT='C:\Users\dev\zcode-cua'
+$env:ESCODE_CUA_DEV_ROOT='C:\Users\dev\escode-cua'
 pnpm exec vitest run packages/services/test/windowsCuaDevHelper.integration.test.ts
 ```
 
@@ -678,7 +678,7 @@ Expected: pass with the real named pipe and addon.
 Run the existing plugin tests with:
 
 ```powershell
-pnpm --filter @zcode/zcode-cua-plugin test
+pnpm --filter @escode/escode-cua-plugin test
 ```
 
 Expected:
@@ -694,22 +694,22 @@ Do not update the plugin dependency or tool surface in this milestone unless an 
 `docs/cua/windows-source-development.md` must include:
 
 ```powershell
-cd C:\Users\dev\zcode-cua
+cd C:\Users\dev\escode-cua
 pnpm install
 pnpm rebuild:native
 pnpm build
 pnpm test
 
-cd C:\Users\dev\z-code
-$env:ZCODE_CUA_DEV_MODE='1'
-$env:ZCODE_CUA_DEV_ROOT='C:\Users\dev\zcode-cua'
+cd C:\Users\dev\escode
+$env:ESCODE_CUA_DEV_MODE='1'
+$env:ESCODE_CUA_DEV_ROOT='C:\Users\dev\escode-cua'
 pnpm dev:desktop:prod
 ```
 
 Also document:
 
-- official `zcode-cua` plugin must be enabled;
-- source changes require rebuilding `zcode-cua`, while ZCode product packaging is not required;
+- official `escode-cua` plugin must be enabled;
+- source changes require rebuilding `escode-cua`, while ESCode product packaging is not required;
 - expected process tree and named-pipe shape;
 - log locations and token-redaction rule;
 - Windows lock screen/Session 0 fail-closed behavior;
@@ -748,14 +748,14 @@ git commit -m "test(cua): verify Windows source runtime"
 Run:
 
 ```powershell
-cd C:\Users\dev\zcode-cua
+cd C:\Users\dev\escode-cua
 pnpm rebuild:native
 pnpm build
 pnpm typecheck
 pnpm lint
 pnpm test
 
-cd C:\Users\dev\z-code
+cd C:\Users\dev\escode
 pnpm typecheck
 pnpm lint
 pnpm exec vitest run packages/services/test/windowsCuaDevRuntime.test.ts packages/services/test/windowsCuaDevHelperHost.test.ts packages/services/test/windowsCuaDevHelper.integration.test.ts packages/services/test/cuaPermissionBrokerProductAgentEnv.test.ts packages/services/test/cuaPermissionBrokerServiceDispose.test.ts
@@ -763,11 +763,11 @@ pnpm exec vitest run packages/services/test/windowsCuaDevRuntime.test.ts package
 
 Expected: every command exits `0`.
 
-**Step 2: Start ZCode source development**
+**Step 2: Start ESCode source development**
 
 ```powershell
-$env:ZCODE_CUA_DEV_MODE='1'
-$env:ZCODE_CUA_DEV_ROOT='C:\Users\dev\zcode-cua'
+$env:ESCODE_CUA_DEV_MODE='1'
+$env:ESCODE_CUA_DEV_ROOT='C:\Users\dev\escode-cua'
 pnpm dev:desktop:prod
 ```
 
@@ -776,18 +776,18 @@ Confirm before invoking a CUA task:
 - no Helper is created for remote hosts;
 - local official plugin admission creates at most one Helper generation;
 - process command line has entry/pipe/parent PID and no token;
-- pipe is random under `\\.\pipe\zcode-cua-helper-*`.
+- pipe is random under `\\.\pipe\escode-cua-helper-*`.
 
 **Step 3: Execute the Notepad scenario**
 
-Use one ZCode task to:
+Use one ESCode task to:
 
 1. call `list_apps`;
 2. open `notepad.exe` without shell;
 3. obtain the Notepad app/window and UIA state;
 4. select the editor by element target;
 5. click the editor;
-6. type `ZCode Windows CUA Phase 1`;
+6. type `ESCode Windows CUA Phase 1`;
 7. re-observe and verify the text through UIA;
 8. press `Ctrl+A`, type replacement text, and verify again.
 
@@ -800,12 +800,12 @@ Acceptance:
 
 **Step 4: Exercise recovery and teardown**
 
-While ZCode remains open:
+While ESCode remains open:
 
 1. end the Helper process;
 2. wait for liveness recovery;
 3. verify the next official CUA admission receives a new pipe/token and the same Host authority;
-4. close ZCode;
+4. close ESCode;
 5. confirm no Windows Helper child remains and the old pipe cannot be connected.
 
 Expected: no orphan Helper and no stale credential reuse.
@@ -823,7 +823,7 @@ If the first live attempt fails, collect the actual service log, child stderr, p
 
 **Step 6: Run repository-wide mandatory gates**
 
-In `C:\Users\dev\z-code`:
+In `C:\Users\dev\escode`:
 
 ```powershell
 pnpm typecheck
@@ -831,7 +831,7 @@ pnpm lint
 pnpm test:unit:affected
 ```
 
-In `C:\Users\dev\zcode-cua`:
+In `C:\Users\dev\escode-cua`:
 
 ```powershell
 pnpm typecheck
@@ -847,10 +847,10 @@ Expected: all exit `0`.
 Run:
 
 ```powershell
-git -C C:\Users\dev\z-code status --short
-git -C C:\Users\dev\zcode-cua status --short
-git -C C:\Users\dev\z-code log --oneline -5
-git -C C:\Users\dev\zcode-cua log --oneline -5
+git -C C:\Users\dev\escode status --short
+git -C C:\Users\dev\escode-cua status --short
+git -C C:\Users\dev\escode log --oneline -5
+git -C C:\Users\dev\escode-cua log --oneline -5
 ```
 
 Expected: both worktrees clean; each task has an independently reviewable Conventional Commit.
@@ -861,14 +861,14 @@ Do not tag, publish, push a release, build a signed package or close Phase 2/3 i
 
 ## Completion Criteria
 
-- `zcode-cua` builds `dist/windows-helper.js` and `build/Release/ax_native.node` on Windows.
-- ZCode local Host starts exactly one on-demand Windows Helper using `process.execPath`.
+- `escode-cua` builds `dist/windows-helper.js` and `build/Release/ax_native.node` on Windows.
+- ESCode local Host starts exactly one on-demand Windows Helper using `process.execPath`.
 - Helper receives token only through controlled env and publishes credentials only after health passes.
 - Official plugin obtains pipe/token/authority; attacker-authored or unbrokered CUA configs remain fail-closed.
 - Notepad UIA observe/click/type/re-observe succeeds without screenshots.
 - Helper restart rotates pipe/token; Host authority stays stable.
-- ZCode exit leaves no Helper child.
+- ESCode exit leaves no Helper child.
 - macOS and Linux focused regression suites pass.
-- ZCode `pnpm typecheck` and `pnpm lint` pass.
-- `zcode-cua` typecheck, lint, full test and build pass on Windows.
+- ESCode `pnpm typecheck` and `pnpm lint` pass.
+- `escode-cua` typecheck, lint, full test and build pass on Windows.
 - WGC, scroll/drag/move/down/up, UIA worker isolation and product packaging remain explicitly deferred to separate Phase 2/3 plans.

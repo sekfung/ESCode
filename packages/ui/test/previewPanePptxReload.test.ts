@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { Emitter } from "@zcode/rpc";
-import type { FileWatchEvent } from "@zcode/shared";
+import { Emitter } from "@escode/rpc";
+import type { FileWatchEvent } from "@escode/shared";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 const h = vi.hoisted(() => ({
   currentByte: 1,
@@ -56,7 +56,7 @@ vi.mock("@/hooks/useWorkspaceOpenInEditorTarget.js", () => ({
 }));
 
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStore: <T,>(selector: (state: Record<string, unknown>) => T) =>
+  useESCodeStore: <T,>(selector: (state: Record<string, unknown>) => T) =>
     selector({
       codePreviewSettings: {
         darkTheme: "github-dark",
@@ -111,7 +111,7 @@ describe("PreviewPane PPTX file reload", () => {
     const { PreviewPane } = await import("@/PreviewPane.js");
     const view = render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(PreviewPane, {
           onClose: vi.fn(),

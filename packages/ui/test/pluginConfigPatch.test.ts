@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ZCodePluginInfo } from "@zcode/shared";
+import type { ESCodePluginInfo } from "@escode/shared";
 import { buildPluginConfigPatch } from "../src/settings/pluginConfigPatch.js";
 
 const plugin = {
@@ -18,7 +18,7 @@ const plugin = {
     enabled: true,
     retries: 3,
   },
-} as ZCodePluginInfo;
+} as ESCodePluginInfo;
 
 describe("plugin config patch", () => {
   it("没有显式 draft 时返回空 patch", () => {

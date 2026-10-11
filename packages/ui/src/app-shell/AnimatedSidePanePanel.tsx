@@ -2,7 +2,7 @@
 import { ServiceProvider } from "@/hooks/useServices.js";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import type { IServiceAccessor } from "@zcode/services";
+import type { IServiceAccessor } from "@escode/services";
 import {
   closestCenter,
   DndContext,
@@ -14,9 +14,10 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortable";
-import type { BrowserViewScreenshotSurfacePreparePayload, GitChangeSourceId } from "@zcode/shared";
+import type { BrowserViewScreenshotSurfacePreparePayload, GitChangeSourceId } from "@escode/shared";
 import { PreviewPane } from "@/PreviewPane.js";
 import { SidePaneTerminalPane } from "@/SidePaneTerminalPane.js";
+import { SerialPane } from "@/serial/SerialPane.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
 import { WorkspaceSidePaneToggleButton } from "@/WorkspaceSidePaneToggleButton.js";
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
@@ -91,9 +92,10 @@ import {
 import { inferMediaPreview, type CodeViewerSource } from "@/lib/codeViewer.js";
 import type { MessageFileLinkTarget } from "@/components/ai-elements/message.js";
 import { getVisibleSidePaneTabs } from "@/lib/workspaceSidePane.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   BugIcon,
+  UsbIcon,
   FileDiffIcon,
   GlobeIcon,
   MessageSquareTextIcon,
@@ -291,6 +293,7 @@ export function AnimatedSidePanePanel({
   recentClosedSidePaneTabs,
   isBrowserOpen,
   supportsEmbeddedBrowser = true,
+  supportsSerialPort = false,
   workspaceAbsPath,
   workspaceIdentity,
   workspaceRemoteSessionId,
@@ -320,8 +323,11 @@ export function AnimatedSidePanePanel({
   onOpenBrowserPermissionSettings,
   onOpenWhiteboard: _onOpenWhiteboard,
   onOpenDeveloperTools,
+  onOpenSerialTab,
+  onBindSerialTab,
   onOpenTerminalTab,
   onOpenReviewTab,
+  onSelectTask,
   onOpenSelectionSideConversation,
   onRevealGitFileInTree,
   onOpenBrowserUrl,
@@ -359,6 +365,8 @@ export function AnimatedSidePanePanel({
   recentClosedSidePaneTabs: RecentClosedSidePaneTab[];
   isBrowserOpen: boolean;
   supportsEmbeddedBrowser?: boolean;
+  /** 平台声明的本机串口能力（仅 Desktop）。 */
+  supportsSerialPort?: boolean;
   workspaceAbsPath: string;
   workspaceIdentity?: string;
   workspaceRemoteSessionId?: string;
@@ -389,7 +397,11 @@ export function AnimatedSidePanePanel({
   onOpenBrowserPermissionSettings?: (origin: string) => void;
   onOpenWhiteboard: () => void;
   onOpenDeveloperTools: () => void;
+  onOpenSerialTab: () => void;
+  onBindSerialTab: (tabId: string, path: string) => void;
   onOpenTerminalTab: () => void;
+  /** 串口面板中点击 Agent 标注时跳转到对应会话。 */
+  onSelectTask?: (workspacePath: string, taskId: string, workspaceIdentity?: string) => void;
   onOpenReviewTab: () => void;
   onOpenSelectionSideConversation: () => void;
   onRevealGitFileInTree?: (path: string) => void;
@@ -415,7 +427,7 @@ export function AnimatedSidePanePanel({
   mobileStacked?: boolean;
 }) {
   const onOpenPluginUi = useOpenPluginUi();
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const isOfficeMode = useIsOfficeMode();
   const developerToolsEnabled = useDeveloperToolsVisibility();
   const isMobileTextInputViewport = useIsMobileTextInputViewport();
@@ -763,6 +775,17 @@ export function AnimatedSidePanePanel({
             <span>{intl.formatMessage({ id: "browser.title" })}</span>
           </DropdownMenuItem>
         ) : null}
+        {supportsSerialPort ? (
+          <DropdownMenuItem
+            data-side-pane-add-item="serial"
+            onSelect={() => {
+              onOpenSerialTab();
+            }}
+          >
+            <UsbIcon className="size-4" />
+            <span>{intl.formatMessage({ id: "serial.title" })}</span>
+          </DropdownMenuItem>
+        ) : null}
         {developerToolsEnabled ? (
           <DropdownMenuItem
             data-side-pane-add-item="developer-tools"
@@ -813,6 +836,12 @@ export function AnimatedSidePanePanel({
       icon: GlobeIcon,
       onOpen: onOpenBrowserTab,
     },
+    serial: {
+      id: "serial",
+      label: intl.formatMessage({ id: "serial.title" }),
+      icon: UsbIcon,
+      onOpen: onOpenSerialTab,
+    },
     "developer-tools": {
       id: "developer-tools",
       label: intl.formatMessage({ id: "developerTools.title" }),
@@ -825,6 +854,7 @@ export function AnimatedSidePanePanel({
     developerToolsEnabled,
     hasReviewTab,
     supportsEmbeddedBrowser,
+    supportsSerialPort,
   })
     .filter((itemId) => !isOfficeMode || (itemId !== "terminal" && itemId !== "review"))
     .map((itemId) => openTabLauncherItemById[itemId]);
@@ -923,6 +953,7 @@ export function AnimatedSidePanePanel({
         developerToolsTitle: intl.formatMessage({
           id: "developerTools.title",
         }),
+        serialTitle: intl.formatMessage({ id: "serial.title" }),
         browserPermissionsTitle: intl.formatMessage({
           id: "browser.permission.settings",
         }),
@@ -1310,6 +1341,14 @@ export function AnimatedSidePanePanel({
                               enabled={isVisible && tab.id === visibleActiveTabId}
                             />
                           </ServiceProvider>
+                        ) : tab.type === "serial" ? (
+                          <SerialPane
+                            services={services}
+                            isVisible={isVisible && tab.id === visibleActiveTabId}
+                            path={tab.path}
+                            onBindPath={(path) => onBindSerialTab(tab.id, path)}
+                            onOpenSession={onSelectTask}
+                          />
                         ) : tab.type === "terminal" ? (
                           <SidePaneTerminalPane
                             services={services}

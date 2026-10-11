@@ -1,5 +1,5 @@
 {
-  "name": "@zcode/services",
+  "name": "@escode/services",
   "private": true,
   "type": "module",
   "imports": {
@@ -19,11 +19,13 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.1",
     "@larksuiteoapi/node-sdk": "1.64.0",
-    "@zcode/provider": "workspace:*",
-    "@zcode/provider-node": "workspace:*",
-    "@zcode/rpc": "workspace:*",
-    "@zcode/shared": "workspace:*",
-    "@zcode/zcode-cua": "workspace:*",
+    "@serialport/bindings-cpp": "13.0.1",
+    "@serialport/stream": "13.0.0",
+    "@escode/provider": "workspace:*",
+    "@escode/provider-node": "workspace:*",
+    "@escode/rpc": "workspace:*",
+    "@escode/shared": "workspace:*",
+    "@escode/escode-cua": "workspace:*",
     "chokidar": "4.0.3",
     "croner": "^10.0.1",
     "ignore": "^5.3.2",
@@ -38,6 +40,7 @@
   },
   "devDependencies": {
     "@pierre/diffs": "^1.1.22",
+    "@serialport/binding-mock": "10.2.2",
     "@types/node": "^25.5.0",
     "@types/yauzl": "^2.10.3",
     "esbuild": "^0.25.0",

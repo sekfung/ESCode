@@ -2,10 +2,10 @@
 import { act, renderHook, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackgroundBashOutput } from "@/hooks/useBackgroundBashOutput.js";
-import type { BackgroundBashOutputResult } from "@zcode/shared";
+import type { BackgroundBashOutputResult } from "@escode/shared";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn(), stop: vi.fn() }));
-vi.mock("@/hooks/useZCodeAgentService.js", () => ({ useZCodeAgentService: () => service }));
+vi.mock("@/hooks/useESCodeAgentService.js", () => ({ useESCodeAgentService: () => service }));
 vi.mock("@/v4/agentV4ConnectionHandshake.js", () => ({
   ensureAgentV4ConnectionHandshake: async () => ({}),
 }));

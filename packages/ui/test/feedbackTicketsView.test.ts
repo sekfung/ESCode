@@ -2,14 +2,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { IFeedbackService } from "@zcode/services";
-import type { FeedbackTicketSummary } from "@zcode/shared";
+import type { IFeedbackService } from "@escode/services";
+import type { FeedbackTicketSummary } from "@escode/shared";
 import {
   FeedbackTicketList,
   TicketsInitialLoadingState,
   TicketsView,
 } from "@/feedback/TicketsView.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 function createFeedbackService(): IFeedbackService {
   return {
@@ -32,7 +32,7 @@ function createFeedbackService(): IFeedbackService {
 function renderTicketsView(locale: "zh-CN" | "en-US") {
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(TicketsView, {
         feedbackService: createFeedbackService(),
@@ -62,7 +62,7 @@ describe("TicketsView", () => {
     };
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(FeedbackTicketList, {
           items: [ticket],
@@ -82,7 +82,7 @@ describe("TicketsView", () => {
   it("renders the initial ticket list loading state centered in the content area", () => {
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(TicketsInitialLoadingState),
       ),

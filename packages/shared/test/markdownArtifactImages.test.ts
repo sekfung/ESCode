@@ -11,39 +11,39 @@ describe("Markdown artifact image references", () => {
     expect(
       extractMarkdownArtifactImageRefs(
         [
-          "![first](zcode-artifact://session/a)",
-          "[download](zcode-artifact://session/not-an-image)",
-          '![again](<zcode-artifact://session/a> "preview")',
-          "![second](zcode-artifact://session/b 'title')",
+          "![first](escode-artifact://session/a)",
+          "[download](escode-artifact://session/not-an-image)",
+          '![again](<escode-artifact://session/a> "preview")',
+          "![second](escode-artifact://session/b 'title')",
         ].join("\n"),
       ),
-    ).toEqual(["zcode-artifact://session/a", "zcode-artifact://session/b"]);
+    ).toEqual(["escode-artifact://session/a", "escode-artifact://session/b"]);
   });
 
   it("does not authorize image-looking text inside fenced code", () => {
     expect(
       extractMarkdownArtifactImageRefs(
-        "```md\n![secret](zcode-artifact://session/secret)\n```\n![ok](zcode-artifact://session/ok)",
+        "```md\n![secret](escode-artifact://session/secret)\n```\n![ok](escode-artifact://session/ok)",
       ),
-    ).toEqual(["zcode-artifact://session/ok"]);
+    ).toEqual(["escode-artifact://session/ok"]);
   });
 
   it("rewrites artifact image destinations to a harden-safe relative source", () => {
     const rewritten = rewriteMarkdownArtifactImageSources(
-      "before ![shot](zcode-artifact://session/shot-1) after",
+      "before ![shot](escode-artifact://session/shot-1) after",
     );
-    expect(rewritten).not.toContain("zcode-artifact://");
+    expect(rewritten).not.toContain("escode-artifact://");
     const source = rewritten.match(/!\[shot\]\(([^)]+)\)/u)?.[1];
     expect(source).toBeTruthy();
-    expect(decodeMarkdownArtifactImageSource(source ?? "")).toBe("zcode-artifact://session/shot-1");
+    expect(decodeMarkdownArtifactImageSource(source ?? "")).toBe("escode-artifact://session/shot-1");
   });
 
   it("leaves normal images, links, and fenced examples unchanged", () => {
     const markdown = [
       "![web](https://example.com/image.png)",
-      "[artifact](zcode-artifact://session/file)",
+      "[artifact](escode-artifact://session/file)",
       "```md",
-      "![example](zcode-artifact://session/example)",
+      "![example](escode-artifact://session/example)",
       "```",
     ].join("\n");
     expect(rewriteMarkdownArtifactImageSources(markdown)).toBe(markdown);

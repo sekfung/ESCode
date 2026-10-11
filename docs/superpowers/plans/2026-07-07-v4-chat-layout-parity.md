@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Align v4 conversation layout with z-code-2 so the message list and composer share one scroll viewport and one `max-w-3xl` content column.
+**Goal:** Align v4 conversation layout with escode-2 so the message list and composer share one scroll viewport and one `max-w-3xl` content column.
 
 **Architecture:** Keep `ConversationTimeline` as the owner of virtual scrolling and bottom-following state, but add a `bottomDock` render slot inside its scroll viewport. `SessionPane` passes the existing composer node through that slot for bound sessions and keeps draft layout unchanged.
 
@@ -37,9 +37,9 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ConversationSnapshot,
   UserInputRow,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { SessionPane } from "@/v4/SessionPane.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 const projectionState = vi.hoisted(() => ({
   current: null as {
@@ -65,7 +65,7 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 }));
 
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useESCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
 }));
 
 vi.mock("@/v4/composer/useDraftConfigControl.js", () => ({
@@ -215,7 +215,7 @@ function renderPane(): string {
 
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(SessionPane, {
         paneId: "workspace-main",

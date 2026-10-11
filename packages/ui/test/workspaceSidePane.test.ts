@@ -1291,8 +1291,8 @@ describe("workspaceSidePane", () => {
   });
 
   it("can open multiple terminal tabs with workspace titles", () => {
-    const first = openTerminalSidePane(null, { title: "z-code" });
-    const second = openTerminalSidePane(first, { title: "z-code 2" });
+    const first = openTerminalSidePane(null, { title: "escode" });
+    const second = openTerminalSidePane(first, { title: "escode 2" });
 
     expect(withoutOpenedAt(second)).toEqual({
       activeTabId: second.activeTabId,
@@ -1300,12 +1300,12 @@ describe("workspaceSidePane", () => {
         {
           id: first.activeTabId,
           type: "terminal",
-          title: "z-code",
+          title: "escode",
         },
         {
           id: second.activeTabId,
           type: "terminal",
-          title: "z-code 2",
+          title: "escode 2",
         },
       ],
     });
@@ -1652,9 +1652,9 @@ describe("workspaceSidePane", () => {
     const encodedSource = {
       type: "file" as const,
       title: "engine.ts",
-      path: "/Users/dev/ZCodeProject/323/Auto%20Snake/src/game/engine.ts",
+      path: "/Users/dev/ESCodeProject/323/Auto%20Snake/src/game/engine.ts",
     };
-    const decodedPath = "/Users/dev/ZCodeProject/323/Auto Snake/src/game/engine.ts";
+    const decodedPath = "/Users/dev/ESCodeProject/323/Auto Snake/src/game/engine.ts";
 
     const first = openCodeViewerSidePane(null, encodedSource);
     const second = openCodeViewerSidePane(first, {

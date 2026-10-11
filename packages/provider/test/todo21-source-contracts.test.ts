@@ -3,12 +3,12 @@ import {
   parseAccountProviderConfigMap,
   parsePersonalModelConfigRules,
   parsePersonalProviderConfigMap,
-  parseZCodeBuiltinProviderConfigMap,
+  parseESCodeBuiltinProviderConfigMap,
 } from "../src/index.js";
 
 describe("Todo 21 source contracts", () => {
-  it("ZCode Built-in Provider 只接受 Account Family Provider", () => {
-    const providers = parseZCodeBuiltinProviderConfigMap([
+  it("ESCode Built-in Provider 只接受 Account Family Provider", () => {
+    const providers = parseESCodeBuiltinProviderConfigMap([
       {
         providerId: "builtin",
         config: {
@@ -27,7 +27,7 @@ describe("Todo 21 source contracts", () => {
 
     expect(providers.get("builtin")?.group).toBe("zai-family");
     expect(() =>
-      parseZCodeBuiltinProviderConfigMap([
+      parseESCodeBuiltinProviderConfigMap([
         {
           providerId: "invalid",
           config: { group: "standard-personal", personalModelIds: ["model-a"] },
@@ -35,7 +35,7 @@ describe("Todo 21 source contracts", () => {
       ]),
     ).toThrow();
     expect(() =>
-      parseZCodeBuiltinProviderConfigMap([
+      parseESCodeBuiltinProviderConfigMap([
         { providerId: "invalid", config: { access: { type: "api-key" } } },
       ]),
     ).toThrow();
@@ -101,7 +101,7 @@ describe("Todo 21 source contracts", () => {
           },
         ],
       }),
-    ).toThrow("固定 Account Provider 的 Access 只能由 ZCode Built-in Config 声明");
+    ).toThrow("固定 Account Provider 的 Access 只能由 ESCode Built-in Config 声明");
   });
 
   it("Personal Provider 缺失 access 时保持不完整，不从 group 推断 Access", () => {
@@ -117,7 +117,7 @@ describe("Todo 21 source contracts", () => {
   });
 
   it("智谱产品模式属于 Provider Access", () => {
-    const providers = parseZCodeBuiltinProviderConfigMap([
+    const providers = parseESCodeBuiltinProviderConfigMap([
       {
         providerId: "offpeak",
         config: {

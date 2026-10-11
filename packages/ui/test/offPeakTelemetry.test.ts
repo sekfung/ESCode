@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { IPlatformService, OffPeakTaskCreateResult } from "@zcode/shared";
+import type { IPlatformService, OffPeakTaskCreateResult } from "@escode/shared";
 import {
   buildOffPeakCreateResultTelemetryPayload,
   createAndReportOffPeakTask,

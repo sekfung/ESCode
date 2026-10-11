@@ -4,14 +4,14 @@ import {
   mergeAutomationMutationToolDenylist,
   mergeOffPeakMutationToolDenylist,
   OFF_PEAK_MUTATION_TOOL_NAMES,
-} from "../src/zcode-agent/automationToolPolicy.js";
+} from "../src/escode-agent/automationToolPolicy.js";
 import {
   resolveOffPeakAllowedModels,
   resolveOffPeakCreateModel,
   resolveOffPeakToolSelection,
   toProtocolOffPeakTaskSnapshot,
-} from "../src/zcode-agent/zcodeAgentService.js";
-import { OFF_PEAK_PROVIDER_IDS } from "@zcode/shared";
+} from "../src/escode-agent/escodeAgentService.js";
+import { OFF_PEAK_PROVIDER_IDS } from "@escode/shared";
 import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
 
 describe("off-peak tool policy（D49）", () => {

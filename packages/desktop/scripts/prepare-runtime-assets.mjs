@@ -19,7 +19,7 @@ const nativeSearchReleasePlan = resolveNativeSearchReleasePlan({
 // Windows Chrome 导入入口未启用，默认构建继续编译 helper 会增加 CI 时间和发布签名面。
 // 保留显式开关，后续恢复入口时仍可复用既有原生实现和供应链校验。
 const shouldPrepareWindowsBrowserImportHelper =
-  target.os === "win32" && process.env.ZCODE_ENABLE_WINDOWS_BROWSER_IMPORT === "1";
+  target.os === "win32" && process.env.ESCODE_ENABLE_WINDOWS_BROWSER_IMPORT === "1";
 // Windows Computer Use Helper 由真实 producer 提供；开源占位包没有 Helper runtime，跳过准备。
 const shouldPrepareWindowsCuaHelper =
   target.os === "win32" && isRealComputerUseProducerInstalled({ desktopPackageRoot: desktopRoot });
@@ -29,10 +29,13 @@ const shouldPrepareMacosWindowBounds = target.os === "darwin";
 
 // 本机桌面包内置 agent 的 JS bundle（prepare:agent-bundle），运行时由 app 的 Electron Node runtime 执行。
 // 远端跨平台原生二进制仍由上面的 prepare:remote-assets 提供。
-// native-search 由 prepare-native-search-tools.mjs 统一准备：内网依赖源已配置时下载固定摘要的归档，
-// 未配置时解包仓库内置的同名归档，两种情况都不需要额外开关。
+// native-search 归档随仓库分发，准备步骤只做本地解包校验，不需要任何下载源配置。
+// Rust runtime 默认随包（默认 runtime 已切到 Rust，见 docs/specs/rust-packaging.md）；ESCODE_BUNDLE_RUST_AGENT=0 可关闭，
+// 此时安装包只含 Node runtime，桌面端自动用 Node。
+const shouldPrepareRustAgent = process.env.ESCODE_BUNDLE_RUST_AGENT !== "0";
 const localRuntimeScripts = [
   "prepare:agent-bundle",
+  ...(shouldPrepareRustAgent ? ["prepare:rust-agent"] : []),
   ...(shouldPrepareWindowsCuaHelper ? ["prepare:windows-cua-helper"] : []),
   ...(nativeSearchReleasePlan.enabled ? ["prepare:native-search"] : []),
   ...(shouldPrepareWindowsBrowserImportHelper ? ["prepare:browser-import-helper"] : []),
@@ -54,7 +57,7 @@ function runTimedPnpmScript(scriptName) {
   }
 }
 
-const shouldSkipRemoteAssets = process.env.ZCODE_SKIP_REMOTE_ASSETS === "1";
+const shouldSkipRemoteAssets = process.env.ESCODE_SKIP_REMOTE_ASSETS === "1";
 
 if (!shouldSkipRemoteAssets) {
   runTimedPnpmScript("prepare:remote-assets");
@@ -62,7 +65,7 @@ if (!shouldSkipRemoteAssets) {
   // Windows build job 的桌面安装包不依赖 mock-cdn remote 资产。
   // 之前这里无条件执行 prepare:remote-assets，会在同一个 job 里串行下载/打包跨平台资源，
   // 导致 CI 时间被白白拉长并逼近 1 小时上限。增加显式开关，只在需要时才准备 remote 资产。
-  console.log("[prepare:runtime-assets] skip prepare:remote-assets (ZCODE_SKIP_REMOTE_ASSETS=1)");
+  console.log("[prepare:runtime-assets] skip prepare:remote-assets (ESCODE_SKIP_REMOTE_ASSETS=1)");
 }
 
 for (const scriptName of localRuntimeScripts) {

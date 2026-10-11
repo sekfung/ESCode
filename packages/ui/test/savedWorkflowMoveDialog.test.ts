@@ -7,8 +7,8 @@ import {
   TID_WORKFLOW_MOVE_DIALOG,
   TID_WORKFLOW_MOVE_DIALOG_SUBMIT,
   TID_WORKFLOW_MOVE_DIALOG_TARGET,
-} from "@zcode/shared";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+} from "@escode/shared";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   resolveAutomationWorkspaceSelectionKey,
   type AutomationWorkspaceOption,
@@ -41,7 +41,7 @@ function mount(props: Partial<Parameters<typeof SavedWorkflowMoveDialog>[0]> = {
   };
   render(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(SavedWorkflowMoveDialog, merged),
     ),

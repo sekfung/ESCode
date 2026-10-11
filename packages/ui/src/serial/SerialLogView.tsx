@@ -1,0 +1,281 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownToLineIcon, DownloadIcon, EraserIcon, PauseIcon, PlayIcon } from "lucide-react";
+import type { SerialChunk } from "@escode/services";
+import { Button } from "@/components/ui/button.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.js";
+import { Switch } from "@/components/ui/switch.js";
+import { toast } from "@/components/ui/toast.js";
+import { usePlatform } from "@/hooks/usePlatform.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
+import {
+  buildSerialDisplayRows,
+  buildSerialExportText,
+  type SerialDisplayEncoding,
+  type SerialSendMode,
+} from "@/lib/serial/serialFormat.js";
+import {
+  buildSerialFramedRows,
+  parseSerialFramingInputs,
+  type SerialFramedRow,
+} from "@/lib/serial/serialFraming.js";
+import { buildSerialPlotCsv, SerialPlotBuffer } from "@/lib/serial/serialPlot.js";
+import { IconToggle, SegmentedToggle } from "@/serial/SerialControls.js";
+import { SerialPlotView } from "@/serial/SerialPlotView.js";
+import {
+  DEFAULT_SERIAL_FRAMING_SETTINGS,
+  SerialFramingPopover,
+  type SerialFramingSettings,
+} from "@/serial/SerialFramingControls.js";
+import { cn } from "@/components/lib/utils.js";
+
+/** 渲染层显示上限；超出时只截断显示，不影响 Host 缓冲与导出。 */
+const MAX_RENDERED_ROWS = 2000;
+
+function formatTime(at: number): string {
+  const date = new Date(at);
+  const pad = (value: number, length = 2) => String(value).padStart(length, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+}
+
+export function SerialLogView({
+  chunks,
+  onClear,
+  getAgentLabel,
+  onOpenAgentSession,
+}: {
+  chunks: readonly SerialChunk[];
+  onClear: () => void;
+  /** Agent 写入行的会话标注；查不到标题时由调用方回退为会话 ID 前缀。 */
+  getAgentLabel: (sessionId: string | undefined) => string;
+  onOpenAgentSession?: (sessionId: string) => void;
+}) {
+  const { intl } = useESCodeIntl();
+  const platform = usePlatform();
+  const [displayMode, setDisplayMode] = useState<SerialSendMode | "plot">("text");
+  const plotMode = displayMode === "plot";
+  // 波形模式按文本解码；日志行只在非波形模式下构建。
+  const textMode: SerialSendMode = plotMode ? "text" : displayMode;
+  const [encoding, setEncoding] = useState<SerialDisplayEncoding>("utf-8");
+  const [showTimestamp, setShowTimestamp] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  // 暂停只冻结显示；Host 继续接收并记录数据，恢复后一次性补齐。
+  const [pausedChunks, setPausedChunks] = useState<readonly SerialChunk[] | null>(null);
+  const visibleChunks = pausedChunks ?? chunks;
+  const [framing, setFraming] = useState<SerialFramingSettings>(DEFAULT_SERIAL_FRAMING_SETTINGS);
+  const rows = useMemo((): SerialFramedRow[] => {
+    if (plotMode) return [];
+    const parsedFraming = framing.enabled ? parseSerialFramingInputs(framing.inputs) : null;
+    // 分帧参数非法时退回普通显示，错误提示留在分帧设置里。
+    const all = parsedFraming?.ok
+      ? buildSerialFramedRows(visibleChunks, {
+          mode: textMode,
+          encoding,
+          framing: parsedFraming.framing,
+          ...(framing.verify ? { verify: framing.verify } : {}),
+        })
+      : buildSerialDisplayRows(visibleChunks, { mode: textMode, encoding, showTimestamp });
+    return all.length > MAX_RENDERED_ROWS ? all.slice(-MAX_RENDERED_ROWS) : all;
+  }, [encoding, framing, plotMode, showTimestamp, textMode, visibleChunks]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!autoScroll || !scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [autoScroll, rows]);
+
+  const handleClear = useCallback(() => {
+    setPausedChunks((current) => (current ? [] : current));
+    onClear();
+  }, [onClear]);
+
+  const handleExport = useCallback(async () => {
+    if (!platform.saveFile) return;
+    // 波形模式导出 CSV：按与视图相同的规则对完整缓冲重新解析一次。
+    let text: string;
+    if (plotMode) {
+      const plot = new SerialPlotBuffer(encoding);
+      plot.push(chunks);
+      text = buildSerialPlotCsv(plot.series, plot.rows);
+    } else {
+      text = buildSerialExportText(chunks, { mode: textMode, encoding });
+    }
+    const data = new TextEncoder().encode(text);
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const reportFailure = (message: string) =>
+      toast(intl.formatMessage({ id: "serial.exportFailed" }, { message }));
+    try {
+      const result = await platform.saveFile({
+        data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+        suggestedName: plotMode ? `serial-plot-${stamp}.csv` : `serial-${stamp}.log`,
+      });
+      if (!result.success && !result.canceled) reportFailure(result.error ?? "");
+    } catch (error) {
+      reportFailure(error instanceof Error ? error.message : String(error));
+    }
+  }, [chunks, encoding, intl, platform, plotMode, textMode]);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1">
+        <SegmentedToggle
+          value={displayMode}
+          onChange={setDisplayMode}
+          options={[
+            { value: "text", label: intl.formatMessage({ id: "serial.mode.text" }) },
+            { value: "hex", label: "HEX" },
+            { value: "plot", label: intl.formatMessage({ id: "serial.plot.title" }) },
+          ]}
+          testId="serial-display-mode"
+        />
+        <Select
+          value={encoding}
+          onValueChange={(value) => setEncoding(value as SerialDisplayEncoding)}
+          disabled={displayMode === "hex"}
+        >
+          <SelectTrigger size="sm" aria-label={intl.formatMessage({ id: "serial.encoding" })}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="utf-8">UTF-8</SelectItem>
+            <SelectItem value="gbk">GBK</SelectItem>
+          </SelectContent>
+        </Select>
+        {plotMode ? null : (
+          <label className="flex items-center gap-1.5 px-1 text-ui-sm text-foreground-subtle">
+            <Switch size="sm" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
+            {intl.formatMessage({ id: "serial.timestamp" })}
+          </label>
+        )}
+        <div className="ml-auto flex items-center gap-0.5">
+          {plotMode ? null : (
+            <>
+              <SerialFramingPopover settings={framing} onChange={setFraming} />
+              <IconToggle
+                active={autoScroll}
+                label={intl.formatMessage({ id: "serial.autoScroll" })}
+                onClick={() => setAutoScroll((current) => !current)}
+              >
+                <ArrowDownToLineIcon />
+              </IconToggle>
+            </>
+          )}
+          <IconToggle
+            active={pausedChunks !== null}
+            label={intl.formatMessage({ id: pausedChunks ? "serial.resume" : "serial.pause" })}
+            onClick={() => setPausedChunks((current) => (current ? null : chunks))}
+          >
+            {pausedChunks ? <PlayIcon /> : <PauseIcon />}
+          </IconToggle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClear}
+            aria-label={intl.formatMessage({ id: "serial.clear" })}
+            title={intl.formatMessage({ id: "serial.clear" })}
+            data-testid="serial-clear"
+          >
+            <EraserIcon />
+          </Button>
+          {platform.saveFile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => void handleExport()}
+              aria-label={intl.formatMessage({ id: "serial.export" })}
+              title={intl.formatMessage({ id: "serial.export" })}
+              data-testid="serial-export"
+            >
+              <DownloadIcon />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {plotMode ? (
+        <>
+          {pausedChunks ? (
+            <div className="text-ui-xs text-warning">
+              {intl.formatMessage({ id: "serial.paused" })}
+            </div>
+          ) : null}
+          {/* 切换编码时重建解析缓冲。 */}
+          <SerialPlotView key={encoding} chunks={visibleChunks} encoding={encoding} />
+        </>
+      ) : (
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-surface p-2 font-mono text-ui-sm"
+          data-testid="serial-log"
+          onWheel={(event) => {
+            // 用户向上翻阅时停止自动滚动，避免新数据把视图拉回底部。
+            if (event.deltaY < 0 && autoScroll) setAutoScroll(false);
+          }}
+        >
+          {pausedChunks ? (
+            <div className="mb-1 text-ui-xs text-warning">
+              {intl.formatMessage({ id: "serial.paused" })}
+            </div>
+          ) : null}
+          {rows.map((row) => (
+            <div
+              key={row.key}
+              className={cn(
+                "flex gap-2 break-all whitespace-pre-wrap",
+                row.direction === "tx"
+                  ? "text-icon-blue"
+                  : row.checksum && !row.checksum.ok
+                    ? "text-destructive"
+                    : "text-foreground",
+              )}
+              data-direction={row.direction}
+              data-checksum={row.checksum ? (row.checksum.ok ? "ok" : "failed") : undefined}
+            >
+              {showTimestamp ? (
+                <span className="shrink-0 text-foreground-subtlest">{formatTime(row.at)}</span>
+              ) : null}
+              {row.direction === "tx" ? <span className="shrink-0">→</span> : null}
+              {row.source === "agent" ? (
+                <button
+                  type="button"
+                  className="shrink-0 text-foreground-subtle hover:text-foreground hover:underline disabled:no-underline"
+                  disabled={!row.sessionId || !onOpenAgentSession}
+                  onClick={() => row.sessionId && onOpenAgentSession?.(row.sessionId)}
+                  data-testid="serial-agent-label"
+                >
+                  [Agent·{getAgentLabel(row.sessionId)}]
+                </button>
+              ) : null}
+              <span className={cn("min-w-0", row.partial && "text-foreground-subtle")}>
+                {row.text}
+              </span>
+              {row.checksum ? (
+                <span
+                  className={cn(
+                    "shrink-0",
+                    row.checksum.ok ? "text-foreground-subtlest" : "text-destructive",
+                  )}
+                  title={intl.formatMessage(
+                    { id: "serial.framing.checksumDetail" },
+                    { expected: row.checksum.expected || "-", actual: row.checksum.actual || "-" },
+                  )}
+                >
+                  {row.checksum.ok
+                    ? "✓"
+                    : `✗ ${intl.formatMessage(
+                        { id: "serial.framing.checksumExpected" },
+                        { expected: row.checksum.expected || "-" },
+                      )}`}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

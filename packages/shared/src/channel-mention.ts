@@ -1,4 +1,4 @@
-import { zcodeProtocolTraceSchema } from "./zcode-protocol/trace.js";
+import { escodeProtocolTraceSchema } from "./escode-protocol/trace.js";
 import { z } from "zod";
 
 export const channelMentionSchema = z
@@ -122,7 +122,7 @@ export function resolveChannelReplyParts(
 
 export const channelReplyHostRequestSchema = channelReplyRequestSchema
   .extend({
-    trace: zcodeProtocolTraceSchema.optional(),
+    trace: escodeProtocolTraceSchema.optional(),
     workspacePath: z.string().min(1),
     workspaceIdentity: z.string().optional(),
     remoteSessionId: z.string().optional(),

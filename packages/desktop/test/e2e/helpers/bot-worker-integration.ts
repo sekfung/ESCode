@@ -7,20 +7,20 @@ import {
   ModelPropertiesConfig,
   ProviderApiConfig,
   ProviderConfig,
-} from "@zcode/provider";
+} from "@escode/provider";
 import {
   NodePersonalProviderConfigRepository,
   NodeProviderRegistryRuntime,
   createNodeModelSelectionFacade,
-} from "@zcode/provider-node";
+} from "@escode/provider-node";
 import {
-  createZCodeAgentService,
-  createZCodeTaskServiceAdapter,
+  createESCodeAgentService,
+  createESCodeTaskServiceAdapter,
   getDataBaseDir,
   setDataBaseDir,
-} from "@zcode/services/node";
+} from "@escode/services/node";
 import { TaskIndexRepo } from "../../../../services/src/session/taskIndexRepo.js";
-import { createZCodeTaskIndexSyncer } from "../../../../services/src/zcode-agent/zcodeTaskIndexSyncer.js";
+import { createESCodeTaskIndexSyncer } from "../../../../services/src/escode-agent/escodeTaskIndexSyncer.js";
 import { getE2EAppDataPaths } from "./desktop-app.js";
 import {
   createBotsServiceHarness,
@@ -47,7 +47,7 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
     if (errors.length) throw new AggregateError(errors, "Bot worker fixture cleanup failed");
   };
   try {
-    const personalFilePath = join(home, ".zcode/v2/provider_config.json");
+    const personalFilePath = join(home, ".escode/v2/provider_config.json");
     const modelSelection = {
       providerId: "e2e-bot-worker",
       modelId: "e2e-bot-model",
@@ -86,10 +86,10 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
       ),
     }));
     personal.dispose();
-    const builtin = resolve("../../config/provider/zcode-builtin.json");
+    const builtin = resolve("../../config/provider/escode-builtin.json");
     const runtime = new NodeProviderRegistryRuntime({
       personalFilePath,
-      zcodeBuiltinFilePath: builtin,
+      escodeBuiltinFilePath: builtin,
       watch: false,
       personalPollingIntervalMs: false,
     });
@@ -134,21 +134,21 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
     });
     const reverseReplies: unknown[] = [];
     const reverseResources: unknown[] = [];
-    const agent = createZCodeAgentService({
+    const agent = createESCodeAgentService({
       commandResolver: () => ({
         command: process.execPath,
         args: [
-          resolve("../../apps/zcode-cli/packages/cli/dist/zcode.cjs"),
+          resolve("../../apps/escode-cli/packages/cli/dist/escode.cjs"),
           "app-server",
           "--stdio",
         ],
         env: {
           HOME: home,
           USERPROFILE: home,
-          ZCODE_DATA_BASE_DIR: home,
-          ZCODE_RUNTIME_ENV: "development",
-          ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
-          ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,
+          ESCODE_DATA_BASE_DIR: home,
+          ESCODE_RUNTIME_ENV: "development",
+          ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
+          ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,
         },
       }),
       modelSelectionReadinessSource: modelSelectionService,
@@ -201,15 +201,15 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
     }
     const repo = new TaskIndexRepo();
     cleanup.push(() => repo.close());
-    const syncer = createZCodeTaskIndexSyncer({ agentService: agent, taskIndexRepo: repo });
+    const syncer = createESCodeTaskIndexSyncer({ agentService: agent, taskIndexRepo: repo });
     cleanup.push(() => syncer.disposeAll());
     cleanup.push(() => bot.service.disposeAllAndWait());
-    const task = createZCodeTaskServiceAdapter({
-      zcodeAgentService: agent,
+    const task = createESCodeTaskServiceAdapter({
+      escodeAgentService: agent,
       taskIndexRepo: repo,
       taskIndexSyncer: syncer,
     });
-    Object.assign(bot.zcodeTaskService, task);
+    Object.assign(bot.escodeTaskService, task);
     return {
       home,
       workspacePath,

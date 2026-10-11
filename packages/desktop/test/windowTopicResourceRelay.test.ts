@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ServiceCollection, type IBotsService } from "@zcode/services";
+import { ServiceCollection, type IBotsService } from "@escode/services";
 import { createWindowTopicResourceRelay } from "../src/host/windowTopicResourceRelay.js";
 
 const request = {

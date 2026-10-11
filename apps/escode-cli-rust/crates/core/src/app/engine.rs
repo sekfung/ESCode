@@ -1,0 +1,322 @@
+use super::{Event, RunEvent, subscriptions::Subscription};
+use crate::{
+    contract::{
+        Input, ModelIdentity, ModelPort, Output, RuntimeClock, RuntimePorts, SessionStore,
+        StorageCommitFailure, ToolPort,
+    },
+    domain::{protocol::rpc_error, session::Session},
+};
+use anyhow::{Context, Result};
+use serde_json::Value;
+use std::{collections::BTreeMap, sync::Arc};
+use tokio::sync::{mpsc, oneshot};
+use tokio_util::sync::CancellationToken;
+
+pub(super) use super::run::Active;
+pub struct Engine {
+    pub(super) child_updates:
+        BTreeMap<String, tokio::sync::watch::Sender<crate::domain::subagent::Task>>,
+    pub(super) uploads: crate::domain::attachment_upload::Uploads,
+    pub(super) auxiliary: BTreeMap<String, super::auxiliary::Auxiliary>,
+    pub(super) registry: Option<Arc<dyn crate::contract::ModelRegistry>>,
+    pub(super) workspace_path: String,
+    pub(super) auth: BTreeMap<String, (String, String, Value, oneshot::Sender<Value>)>,
+    pub(super) shell: super::shell_preferences::ShellPreferences,
+    pub(super) host_requests: std::collections::HashMap<String, crate::contract::HostReply>,
+    pub(super) workspace: String,
+    pub(super) config: Option<ModelIdentity>,
+    pub(super) store: Arc<dyn SessionStore>,
+    pub(super) model: Option<Arc<dyn ModelPort>>,
+    pub(super) context: Arc<dyn crate::contract::ContextPort>,
+    pub(super) tools: Arc<dyn ToolPort>,
+    pub(super) clock: Arc<dyn RuntimeClock>,
+    pub(super) sessions: BTreeMap<String, Session>,
+    pub(super) index: BTreeMap<String, Value>,
+    pub(super) closed: std::collections::BTreeSet<String>,
+    /// 会话冻结的插件引用身份目录（`plugins/referenceCatalog` 带 sessionId；见 plugin_catalog.rs）。
+    pub(super) plugin_catalogs: BTreeMap<String, Value>,
+    pub(super) session_access: BTreeMap<String, u64>,
+    pub(super) access_seq: u64,
+    pub(super) durable_acks: std::collections::BTreeSet<String>,
+    pub(super) acks: BTreeMap<String, Value>,
+    pub(super) active: BTreeMap<String, Active>,
+    /// 挂起中的权限确认（等待 resolveInteraction）。
+    pub(super) waiting_permissions: BTreeMap<String, super::permission_flow::WaitingPermission>,
+    /// 挂起中的 ExitPlanMode 审批。
+    pub(super) plan_exits: BTreeMap<String, super::plan_mode::WaitingPlan>,
+    /// 项目权限规则：允许「总是允许」在项目内跨会话生效。
+    pub(super) project_rules: Option<crate::domain::permission::Ruleset>,
+    pub(super) project_rules_persistent: bool,
+    pub(super) project_rules_json: Option<Value>,
+    /// 权限配置（`permission.allowedTools`/`disallowedTools`/`autoApproveHighRisk`）：
+    /// 与 TS 一样在启动时读取一次，运行期不再变（改配置需重启 runtime）。
+    pub(super) permission_config: crate::domain::permission::Config,
+    /// `features.subagent`：false 时 Agent/SendMessage 不进工具面，直接调用也拒绝。
+    pub(super) subagents_enabled: bool,
+    pub(super) subscriptions: BTreeMap<String, Subscription>,
+    pub(super) epoch: String,
+    pub(super) index_seq: u64,
+    pub(super) config_seq: u64,
+    pub(super) outbox: Vec<Value>,
+    pub(super) auto_resolution_preference: bool,
+    pub(super) questions: BTreeMap<String, super::questions::WaitingQuestion>,
+    /// 本进程内已跑过 SessionStart hooks 的会话（TS `sessionStartHookRan`）。
+    pub(super) session_started: std::collections::BTreeSet<String>,
+    pub(super) question_timing: (u64, u64),
+    /// 自动生成会话标题（`-p` 关闭，与 Node `titleGenerationEnabled: false` 相同，docs/specs/rust-headless-prompt.md）。
+    pub(super) title_generation: bool,
+    /// 无审批面（`-p`）：需要审批时直接拒绝，同 Node headless deny broker（docs/specs/rust-headless-prompt.md）。
+    pub(super) headless_permissions: bool,
+    pub(super) events: mpsc::Sender<RunEvent>,
+    pub(super) event_rx: mpsc::Receiver<RunEvent>,
+    /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
+    pub(super) slash_commands: Vec<Value>,
+    /// 项目记忆：每会话的提取调度与会话内固定的记忆根/索引（docs/specs/rust-project-memory.md）。
+    pub(super) memory_schedulers: BTreeMap<String, super::memory_extraction::SharedScheduler>,
+    pub(super) memory_prompts: BTreeMap<String, crate::contract::ProjectMemory>,
+    /// 会话标题 sidecar：会话 → 作业 id（docs/specs/rust-session-title.md）。
+    pub(super) title_jobs: BTreeMap<String, String>,
+    /// 工作流 actor 在飞的一轮（应答句柄与用量，workflow_actors.rs）。
+    pub(super) actor_turns: BTreeMap<String, super::workflow_actors::ActorTurn>,
+    /// 实时遥测事实的会话序号与流式首块记录（telemetry.rs）。
+    pub(super) telemetry: super::telemetry::State,
+    /// 本地首 token 时延观测（local_ttft.rs）。
+    pub(super) local_ttft: super::local_ttft::Recorder,
+}
+impl Engine {
+    pub async fn new(
+        workspace: String,
+        config: Option<ModelIdentity>,
+        ports: RuntimePorts,
+    ) -> Result<Self> {
+        let RuntimePorts {
+            context,
+            store,
+            model,
+            tools,
+            clock,
+        } = ports;
+        // 仅未完成的文件事务需要冷读对应 session；普通启动仍然只读取 metadata 索引。
+        for id in tools.pending_rewinds().await? {
+            let session = store.load_session(&workspace, &id).await?;
+            if let Some(session) = session {
+                tools
+                    .recover_rewind(&id, session.rewind_committed.as_deref())
+                    .await?;
+            }
+        }
+        // 项目权限规则：「总是允许」的作用域；store 不支持持久化时该选项不投放。
+        let (project_rules_json, project_rules_persistent) =
+            match store.load_project_rules(&workspace).await {
+                Ok(rules) => (rules, true),
+                Err(_) => (None, false),
+            };
+        let index = store.load_index(&workspace).await?;
+        let permission_config = tools.permission_config().await;
+        let subagents_enabled = tools.subagents_enabled().await;
+        let (events, event_rx) = mpsc::channel(128);
+        tools.attach_host(crate::contract::EventSink {
+            session_id: crate::contract::HOST_CHANNEL.into(),
+            run_id: crate::contract::HOST_CHANNEL.into(),
+            tx: events.clone(),
+        });
+        Ok(Self {
+            child_updates: BTreeMap::new(),
+            uploads: Default::default(),
+            auxiliary: BTreeMap::new(),
+            registry: None,
+            workspace_path: workspace.clone(),
+            project_rules_json: project_rules_json.clone(),
+            auth: BTreeMap::new(),
+            shell: Default::default(),
+            host_requests: Default::default(),
+            workspace,
+            config,
+            store,
+            model,
+            tools,
+            clock: clock.clone(),
+            context,
+            sessions: BTreeMap::new(),
+            index,
+            closed: Default::default(),
+            plugin_catalogs: BTreeMap::new(),
+            session_access: Default::default(),
+            access_seq: 0,
+            durable_acks: Default::default(),
+            acks: BTreeMap::new(),
+            active: BTreeMap::new(),
+            waiting_permissions: BTreeMap::new(),
+            plan_exits: BTreeMap::new(),
+            project_rules: project_rules_json
+                .as_ref()
+                .map(crate::domain::permission::Ruleset::from_json),
+            project_rules_persistent,
+            permission_config,
+            subagents_enabled,
+            subscriptions: BTreeMap::new(),
+            epoch: clock.id(),
+            index_seq: 0,
+            config_seq: 0,
+            outbox: vec![],
+            auto_resolution_preference: true,
+            questions: BTreeMap::new(),
+            session_started: Default::default(),
+            question_timing: (60_000, 300_000),
+            title_generation: true,
+            headless_permissions: false,
+            events,
+            event_rx,
+            slash_commands: crate::domain::custom_command::builtin_catalog(),
+            memory_schedulers: BTreeMap::new(),
+            memory_prompts: BTreeMap::new(),
+            title_jobs: BTreeMap::new(),
+            actor_turns: BTreeMap::new(),
+            telemetry: Default::default(),
+            local_ttft: super::local_ttft::Recorder::new(clock.id()),
+        })
+    }
+    pub async fn serve(
+        mut self,
+        mut input: mpsc::Receiver<Input>,
+        output: Output,
+        cancel: CancellationToken,
+    ) -> Result<()> {
+        let mut refresh = tokio::time::interval(std::time::Duration::from_secs(1));
+        refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let serving = async {
+            loop {
+                let question_delay = self.question_delay();
+                tokio::select! {
+                    _=async {if let Some(delay)=question_delay {tokio::time::sleep(delay).await} else {std::future::pending::<()>().await}}=>{self.advance_questions().await?;self.flush(&output).await?;},
+                    _=cancel.cancelled()=>break,
+                    message=input.recv()=>match message {
+                        Some(Input::Request(request))=>self.request(request,&output).await?,
+                        Some(Input::Response{id,result,error,raw_result})=> self.resolve_response(&id, result, error, raw_result),
+                        Some(Input::Invalid)=>output.send(vec![rpc_error(&None,-32700,"Invalid protocol request")]).await?,
+                        Some(Input::TooLarge)=>{output.send(vec![rpc_error(&None,-32600,"Request exceeds size limit")]).await?;break;},
+                        _=>break,
+                    },
+                    Some(event)=self.event_rx.recv()=>{
+                        let terminal=matches!(&event.event,Event::Finished {..}) || matches!(&event.event,Event::Background {task,..} if task.status!="running");
+                        self.apply_event(event).await?;self.flush(&output).await?;
+                        if terminal {self.trim_resident().await?;}
+                    },
+                    _=refresh.tick()=>{
+                        self.uploads.prune(self.clock.now());
+                        if let Some(registry) = &self.registry && registry.refresh(None).await.unwrap_or(false) { self.refresh_catalog()?; self.flush(&output).await?; }
+                    },
+                }
+            }
+            Ok::<_, anyhow::Error>(())
+        };
+        let mut result =
+            tokio::select! {biased; _=cancel.cancelled()=>Ok(()), result=serving=>result};
+        let mut storage_failed = result
+            .as_ref()
+            .err()
+            .is_some_and(|e| e.is::<StorageCommitFailure>());
+        if result.is_err() {
+            self.child_updates.clear();
+        }
+        for active in self.active.values() {
+            active.cancel.cancel();
+        }
+        for job in self.auxiliary.values() {
+            job.cancel.cancel();
+        }
+        self.auxiliary.clear();
+        for session in self.sessions.values_mut() {
+            if let Some(goal) = &mut session.goal {
+                goal.pause(self.clock.now());
+            }
+            session.auto_drain = false;
+            session.queued_now = None;
+        }
+        self.waiting_permissions.clear();
+        self.plan_exits.clear();
+        self.questions.clear();
+        self.auth.clear();
+        for id in self.sessions.keys() {
+            self.tools.cancel_session(id, None).await?;
+        }
+        // 必须等待拥有的工具 task 收口后再释放 runtime；只 drop Tokio task 会漏掉 Shell 后代。
+        // 清理期限由工具 adapter 的 TERM/KILL 生命周期拥有；不能在 1200ms
+        // 提前 drop 仍处于 1500ms 宽限期的前台任务，留下工作进程或丢失终态。
+        while !self.active.is_empty()
+            || (!storage_failed
+                && self
+                    .sessions
+                    .values()
+                    .any(|s| s.background.values().any(|t| t.status == "running")))
+        {
+            match self.event_rx.recv().await {
+                Some(event) => {
+                    // 事务失败后的内存事实不可再提交；否则一次失败的 ACK/工具结果会被收口路径复活。
+                    if storage_failed {
+                        if matches!(event.event, Event::Finished { .. })
+                            && self
+                                .active
+                                .get(&event.session_id)
+                                .is_some_and(|active| active.run_id == event.run_id)
+                        {
+                            self.active.remove(&event.session_id);
+                        }
+                    } else if let Err(error) = self.apply_event(event).await {
+                        storage_failed = true;
+                        self.child_updates.clear();
+                        result = Err(error);
+                    }
+                    self.outbox.clear();
+                }
+                _ => break,
+            }
+        }
+        self.event_rx.close();
+        self.tools.shutdown().await?;
+        // EOF 后持久化中断态，再结束 actor；不等待挂起权限或再次启动队列。
+        for session in self.sessions.values_mut() {
+            if (session.running() || session.background.values().any(|t| t.status == "running"))
+                && !storage_failed
+            {
+                session.recover(self.clock.id(), self.clock.now());
+                self.store
+                    .commit_receipt(&self.workspace, Some(session), None)
+                    .await?;
+            }
+        }
+        result
+    }
+    async fn flush(&mut self, output: &Output) -> Result<()> {
+        if !self.outbox.is_empty() {
+            output.send(std::mem::take(&mut self.outbox)).await?;
+        }
+        Ok(())
+    }
+    pub(super) async fn persist(&mut self, id: &str, ack: Option<(String, Value)>) -> Result<()> {
+        if let Some(session) = self.sessions.get_mut(id) {
+            session.resident_bytes = None;
+        }
+        // 导入候选还没有可见 row，但它已是 durable session；只有真正 draft 可以跳过提交。
+        if self.sessions.get(id).is_some_and(|s| s.phase == "draft") {
+            return Ok(());
+        }
+        let mut keys = self
+            .sessions
+            .get(id)
+            .map(|s| s.pending_acks.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        if let Some((key, _)) = &ack {
+            keys.push(key.clone());
+        }
+        if let Some((key, _)) = self.sessions.get(id).and_then(|s| s.creation_ack.as_ref()) {
+            keys.push(key.clone());
+        }
+        self.store
+            .commit_receipt(&self.workspace, self.sessions.get_mut(id), ack)
+            .await
+            .context(StorageCommitFailure)?;
+        self.durable_acks.extend(keys);
+        Ok(())
+    }
+}

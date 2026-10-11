@@ -1,6 +1,6 @@
 # Release Platform Contract
 
-这是 z-code 与独立打包平台之间的 v1 契约入口。
+这是 escode 与独立打包平台之间的 v1 契约入口。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -17,4 +17,4 @@
 4. 平台服务端必须重新读取对象并校验大小、SHA-256、SHA-512 和基础更新 YAML。
 5. 发布接口必须实现幂等、审计和 `publish_failed_retryable` 重试。
 
-当前 z-code 中的 `release:approve` 和 runner 共享目录属于迁移期兼容路径，不是平台 v1 的最终状态源；仓库内不再额外生成 `candidate-manifest.json`。
+当前 escode 中的 `release:approve` 和 runner 共享目录属于迁移期兼容路径，不是平台 v1 的最终状态源；仓库内不再额外生成 `candidate-manifest.json`。

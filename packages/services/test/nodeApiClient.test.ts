@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@zcode/shared";
+import { ApiError } from "@escode/shared";
 import { createNodeApiClient } from "../src/providers/api/nodeApiClient.js";
 
 describe("nodeApiClient", () => {
@@ -36,8 +36,8 @@ describe("nodeApiClient", () => {
     expect(headers.get("x-request-id")).toBe("caller-request-id");
   });
 
-  it("401 且请求携带当前 ZCode JWT 时通知回调", async () => {
-    const onZcodeJwtInvalid = vi.fn();
+  it("401 且请求携带当前 ESCode JWT 时通知回调", async () => {
+    const onEscodeJwtInvalid = vi.fn();
     const fetchImpl = vi.fn(
       async () =>
         new Response("", {
@@ -46,37 +46,37 @@ describe("nodeApiClient", () => {
     );
     const client = createNodeApiClient({
       fetchImpl,
-      onZcodeJwtInvalid,
-      isZcodeJwtRequest: (_input, headers) => headers.get("authorization") === "Bearer jwt",
+      onEscodeJwtInvalid,
+      isEscodeJwtRequest: (_input, headers) => headers.get("authorization") === "Bearer jwt",
     });
 
     await client.request("https://example.com/model", { headers: { Authorization: "Bearer jwt" } });
 
-    expect(onZcodeJwtInvalid).toHaveBeenCalledTimes(1);
+    expect(onEscodeJwtInvalid).toHaveBeenCalledTimes(1);
   });
 
-  it("普通 401 不通知 ZCode JWT 失效", async () => {
-    const onZcodeJwtInvalid = vi.fn();
+  it("普通 401 不通知 ESCode JWT 失效", async () => {
+    const onEscodeJwtInvalid = vi.fn();
     const fetchImpl = vi.fn(async () => new Response("", { status: 401 }));
-    const client = createNodeApiClient({ fetchImpl, onZcodeJwtInvalid });
+    const client = createNodeApiClient({ fetchImpl, onEscodeJwtInvalid });
 
     await client.request("https://example.com/model");
 
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
   });
 
   it("HTTP 200 业务 401 复用失效通知，保留原响应正文", async () => {
     const payload = { code: 401, msg: "登录状态已过期", success: false };
     const response = Response.json(payload);
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => true,
+      isEscodeJwtRequest: () => true,
       isBusinessUnauthorizedRequest: () => true,
-      onZcodeJwtInvalid,
+      onEscodeJwtInvalid,
     });
     const result = await client.request("https://example.com/userinfo");
-    expect(onZcodeJwtInvalid).toHaveBeenCalledOnce();
+    expect(onEscodeJwtInvalid).toHaveBeenCalledOnce();
     expect(result).toBe(response);
     expect(result.status).toBe(200);
     expect(result.bodyUsed).toBe(false);
@@ -94,29 +94,29 @@ describe("nodeApiClient", () => {
     '{"code":500,"msg":"登录状态已过期"}',
     '{"code":200,"success":true}',
   ])("HTTP 200 非明确业务 401 不通知失效，保留原正文：%s", async (body) => {
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => new Response(body),
-      isZcodeJwtRequest: () => true,
-      onZcodeJwtInvalid,
+      isEscodeJwtRequest: () => true,
+      onEscodeJwtInvalid,
     });
     const response = await client.request("https://example.com/userinfo");
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
     expect(await response.text()).toBe(body);
   });
 
   it("不匹配当前凭据的 HTTP 200 不读取响应副本", async () => {
     const response = Response.json({ code: 401 });
     const clone = vi.spyOn(response, "clone");
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => false,
-      onZcodeJwtInvalid,
+      isEscodeJwtRequest: () => false,
+      onEscodeJwtInvalid,
     });
     expect(await client.request("https://example.com/model")).toBe(response);
     expect(clone).not.toHaveBeenCalled();
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
   });
 
   it("当前 JWT 的 SSE 不读取正文，不等待 continuous 流结束", async () => {
@@ -124,15 +124,15 @@ describe("nodeApiClient", () => {
       headers: { "Content-Type": "text/event-stream; charset=utf-8" },
     });
     const clone = vi.spyOn(response, "clone");
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => true,
-      onZcodeJwtInvalid,
+      isEscodeJwtRequest: () => true,
+      onEscodeJwtInvalid,
     });
     expect(await client.request("https://example.com/stream")).toBe(response);
     expect(clone).not.toHaveBeenCalled();
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
     await response.body?.cancel();
   });
 
@@ -140,50 +140,50 @@ describe("nodeApiClient", () => {
     const response = new Response(new ReadableStream(), {
       headers: { "Content-Type": "application/json" },
     });
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => true,
+      isEscodeJwtRequest: () => true,
       isBusinessUnauthorizedRequest: () => true,
-      onZcodeJwtInvalid,
+      onEscodeJwtInvalid,
       businessUnauthorizedObservationTimeoutMs: 10,
     });
     const request = client.request("https://bigmodel.cn/api/biz/customer/getCustomerInfo", {
       headers: { Authorization: "Bearer jwt" },
     });
     await expect(request).resolves.toBe(response);
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
     await response.body?.cancel();
   });
 
   it("普通当前 JWT 请求不会读取 HTTP 200 响应副本", async () => {
     const response = Response.json({ code: 401 });
     const clone = vi.spyOn(response, "clone");
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => true,
-      onZcodeJwtInvalid,
+      isEscodeJwtRequest: () => true,
+      onEscodeJwtInvalid,
     });
     await expect(client.request("https://example.com/model")).resolves.toBe(response);
     expect(clone).not.toHaveBeenCalled();
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
   });
 
   it("业务 401 观察超过正文预算后放行原响应", async () => {
     const body = "x".repeat(64 * 1024 + 1);
     const response = new Response(body, { headers: { "Content-Type": "application/json" } });
-    const onZcodeJwtInvalid = vi.fn();
+    const onEscodeJwtInvalid = vi.fn();
     const client = createNodeApiClient({
       fetchImpl: async () => response,
-      isZcodeJwtRequest: () => true,
+      isEscodeJwtRequest: () => true,
       isBusinessUnauthorizedRequest: () => true,
-      onZcodeJwtInvalid,
+      onEscodeJwtInvalid,
     });
     await expect(
       client.request("https://bigmodel.cn/api/biz/customer/getCustomerInfo"),
     ).resolves.toBe(response);
-    expect(onZcodeJwtInvalid).not.toHaveBeenCalled();
+    expect(onEscodeJwtInvalid).not.toHaveBeenCalled();
     expect((await response.text()).length).toBe(body.length);
   });
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { ZCodeContextCompactionTimelineMeta } from "@zcode/shared";
+import type { ESCodeContextCompactionTimelineMeta } from "@escode/shared";
 import {
   isRunningContextCompactionTimeline,
   shouldContextCompactionTimelineCompleteTask,
 } from "../src/lib/contextCompactionRuntime.js";
 
 function createTimeline(
-  overrides: Partial<ZCodeContextCompactionTimelineMeta>,
-): ZCodeContextCompactionTimelineMeta {
+  overrides: Partial<ESCodeContextCompactionTimelineMeta>,
+): ESCodeContextCompactionTimelineMeta {
   return {
     version: 1,
     kind: "synthetic",

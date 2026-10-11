@@ -41,7 +41,7 @@ vi.mock("@/v4/workbenchNewTaskTarget.js", () => ({
 }));
 vi.mock("@/components/ui/toast.js", () => ({ toast: mocks.toast }));
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
+  useESCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
 }));
 vi.mock("@/logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
 import { usePluginCreator } from "@/hooks/usePluginCreator.js";

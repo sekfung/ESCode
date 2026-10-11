@@ -1,0 +1,102 @@
+import {
+  buildSerialSendPayload,
+  escapeSerialPreview,
+  formatSerialHex,
+  serialToolArgsSchemas,
+} from "@escode/shared/serial";
+
+/** 审批卡片最多预览的字节数；字节总数单独显示，避免长数据撑开卡片。 */
+const PREVIEW_BYTES = 256;
+const TOOL_PREFIX = "mcp__serial__";
+
+export type SerialPermissionPreview =
+  | {
+      kind: "write";
+      bytes: number;
+      text: string;
+      hex: string;
+      truncated: boolean;
+      /** 工具输入指定的串口；省略时由卡片按当前会话推断。 */
+      path?: string;
+    }
+  | { kind: "open"; path: string; params: string }
+  | { kind: "close"; path?: string }
+  | {
+      kind: "signals";
+      path?: string;
+      dtr?: boolean;
+      rts?: boolean;
+      pulse?: "esp32" | "arduino";
+    }
+  /** 参数无法解析（如非法 HEX）；Host 会拒绝该调用，卡片提示而不是猜测内容。 */
+  | { kind: "invalid" };
+
+/**
+ * 由串口写类工具的输入生成审批预览。与 Host 使用同一份编解码（@escode/shared/serial），
+ * 保证用户批准看到的字节就是实际写出的字节。只读工具与其它 MCP 工具返回 null。
+ */
+export function buildSerialPermissionPreview(
+  toolName: string,
+  input: unknown,
+): SerialPermissionPreview | null {
+  if (!toolName.startsWith(TOOL_PREFIX)) return null;
+  const tool = toolName.slice(TOOL_PREFIX.length);
+  if (tool === "serial_close") {
+    const parsed = serialToolArgsSchemas.close.safeParse(input ?? {});
+    if (!parsed.success) return { kind: "invalid" };
+    return parsed.data.path ? { kind: "close", path: parsed.data.path } : { kind: "close" };
+  }
+  if (tool === "serial_set_signals") {
+    const parsed = serialToolArgsSchemas.setSignals.safeParse(input ?? {});
+    if (!parsed.success) return { kind: "invalid" };
+    const { path, dtr, rts, pulse } = parsed.data;
+    return {
+      kind: "signals",
+      ...(path ? { path } : {}),
+      ...(dtr !== undefined ? { dtr } : {}),
+      ...(rts !== undefined ? { rts } : {}),
+      ...(pulse ? { pulse } : {}),
+    };
+  }
+  if (tool === "serial_open") {
+    const parsed = serialToolArgsSchemas.open.safeParse(input ?? {});
+    if (!parsed.success) return { kind: "invalid" };
+    const { baudRate, dataBits, parity, stopBits, rtscts } = parsed.data;
+    const parityLetter = parity[0]!.toUpperCase();
+    return {
+      kind: "open",
+      path: parsed.data.path,
+      params: `${baudRate} ${dataBits}${parityLetter}${stopBits}${rtscts ? " RTS/CTS" : ""}`,
+    };
+  }
+  if (tool !== "serial_write") return null;
+  const parsed = serialToolArgsSchemas.write.safeParse(input ?? {});
+  if (!parsed.success) return { kind: "invalid" };
+  const payload = buildSerialSendPayload({
+    input: parsed.data.data,
+    mode: parsed.data.encoding === "hex" ? "hex" : "text",
+    lineEnding: parsed.data.lineEnding,
+  });
+  if (!payload.ok) return { kind: "invalid" };
+  const head = payload.bytes.subarray(0, PREVIEW_BYTES);
+  return {
+    kind: "write",
+    bytes: payload.bytes.byteLength,
+    text: escapeSerialPreview(head),
+    hex: formatSerialHex(head),
+    truncated: payload.bytes.byteLength > PREVIEW_BYTES,
+    ...(parsed.data.path ? { path: parsed.data.path } : {}),
+  };
+}
+
+const bit = (value: boolean) => (value ? "1" : "0");
+
+/** 审批卡片中的信号变化：已知当前状态时显示 `DTR 1→0`，未知时只显示目标值 `DTR →0`。 */
+export function describeSerialSignalChange(
+  target: { dtr?: boolean; rts?: boolean },
+  current: { dtr: boolean; rts: boolean } | undefined,
+): string[] {
+  return (["dtr", "rts"] as const)
+    .filter((key) => target[key] !== undefined)
+    .map((key) => `${key.toUpperCase()} ${current ? bit(current[key]) : ""}→${bit(target[key]!)}`);
+}

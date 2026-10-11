@@ -2,7 +2,7 @@
 // Bug 背景（2026-07-07 v4 首测）：工具条门控在投影 config!==null 上，草稿态整体不渲染；
 // 修复后草稿以 renderer intent 为显示真值，目录只在无 intent 时提供初始回落。
 import { describe, expect, it } from "vitest";
-import type { ModelSelectionView } from "@zcode/services";
+import type { ModelSelectionView } from "@escode/services";
 import {
   resolveDraftDisplayedConfig,
   resolveDraftModelThoughtOption,
@@ -11,7 +11,6 @@ import {
 import {
   applyDraftModelSelection,
   buildDraftCreateConfigPayload,
-  shouldHydrateWorkspaceCatalog,
 } from "@/v4/composer/useDraftConfigControl.js";
 
 describe("resolveDraftDisplayedConfig", () => {
@@ -266,63 +265,5 @@ describe("buildDraftCreateConfigPayload", () => {
 
   it("空 Composer 不制造 config", () => {
     expect(buildDraftCreateConfigPayload({}, null)).toEqual({});
-  });
-});
-
-describe("shouldHydrateWorkspaceCatalog", () => {
-  const modePresentation = [
-    {
-      id: "mode",
-      name: "Mode",
-      category: "mode" as const,
-      type: "select" as const,
-      currentValue: "build",
-      options: [{ value: "build", name: "build" }],
-    },
-  ];
-  const slashCatalog = [{ name: "review", description: "Review changes" }];
-
-  it("模型目录已继承但 slash 目录被 task → draft 清空时仍需水合", () => {
-    expect(
-      shouldHydrateWorkspaceCatalog({
-        configOptions: modePresentation,
-        sessionId: null,
-        slashCommands: [],
-      }),
-    ).toBe(true);
-  });
-
-  it("任一目录缺失时水合；两份目录均就绪时跳过", () => {
-    expect(
-      shouldHydrateWorkspaceCatalog({
-        configOptions: [],
-        sessionId: null,
-        slashCommands: slashCatalog,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHydrateWorkspaceCatalog({
-        configOptions: modePresentation,
-        sessionId: null,
-        slashCommands: slashCatalog,
-      }),
-    ).toBe(false);
-  });
-
-  it("已有 session 仍独立水合 workspace slash 与非模型 mode 展示", () => {
-    expect(
-      shouldHydrateWorkspaceCatalog({
-        configOptions: [],
-        sessionId: "session-known",
-        slashCommands: slashCatalog,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHydrateWorkspaceCatalog({
-        configOptions: modePresentation,
-        sessionId: "session-known",
-        slashCommands: [],
-      }),
-    ).toBe(true);
   });
 });

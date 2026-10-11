@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IPlatformService } from "@zcode/shared";
+import type { IPlatformService } from "@escode/shared";
 import type { PresentationPreviewDocument } from "@/presentation/types.js";
 import {
   materializePrintableFontFamilies,
@@ -90,11 +90,11 @@ const labels: PptxPreviewViewerLabels = {
 };
 
 function queryPrintHost() {
-  return document.querySelector("[data-zcode-pptx-print-host]");
+  return document.querySelector("[data-escode-pptx-print-host]");
 }
 
 function queryPrintStyle() {
-  return document.querySelector("style[data-zcode-pptx-print-style]");
+  return document.querySelector("style[data-escode-pptx-print-style]");
 }
 
 beforeEach(() => {
@@ -122,7 +122,7 @@ describe("renderPresentationToPrintHost", () => {
     expect(renderOrder).toEqual([0, 1, 2]);
     const host = queryPrintHost();
     expect(host).toBeTruthy();
-    expect(host?.querySelectorAll("[data-zcode-pptx-print-page]")).toHaveLength(3);
+    expect(host?.querySelectorAll("[data-escode-pptx-print-page]")).toHaveLength(3);
     const style = queryPrintStyle();
     expect(style?.textContent).toContain("@page");
     expect(style?.textContent).toContain("size: 1280px 720px");

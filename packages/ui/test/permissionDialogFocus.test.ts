@@ -3,10 +3,10 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ZCodePermissionRequest } from "@zcode/shared";
-import type { ConversationSnapshot } from "@zcode/shared/zcode-protocol-v4";
+import type { ESCodePermissionRequest } from "@escode/shared";
+import type { ConversationSnapshot } from "@escode/shared/escode-protocol-v4";
 import { PermissionDialog } from "@/PermissionDialog.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { V4InteractionDialogs } from "@/v4/V4InteractionDialogs.js";
 
 vi.mock("@/v4/V4ConversationContext.js", () => ({
@@ -82,7 +82,7 @@ describe("PermissionDialog focus", () => {
     vi.unstubAllGlobals();
   });
 
-  const request: ZCodePermissionRequest = {
+  const request: ESCodePermissionRequest = {
     type: "permission_request",
     taskId: "task-focus",
     traceId: "trace-focus",
@@ -113,7 +113,7 @@ describe("PermissionDialog focus", () => {
     const onRespond = vi.fn();
     const view = render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(PermissionDialog, {
           request: {
@@ -288,7 +288,7 @@ describe("PermissionDialog focus", () => {
 
     render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(PermissionDialog, {
           request: {
@@ -338,7 +338,7 @@ describe("PermissionDialog focus", () => {
     installAnimationFrameController();
     const renderDialog = (interactionId: string) =>
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(V4InteractionDialogs, {
           sessionId: "task-focus",

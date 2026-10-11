@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IBroadcastService } from "@zcode/services";
+import type { IBroadcastService } from "@escode/services";
 import { INTERFACE_MODE_STORAGE_KEY, normalizeInterfaceMode } from "@/lib/interfaceMode.js";
-import { createZCodeStore } from "@/store/index.js";
+import { createESCodeStore } from "@/store/index.js";
 
 describe("界面模式偏好", () => {
   beforeEach(() => localStorage.clear());
@@ -36,7 +36,7 @@ describe("界面模式偏好", () => {
       },
     };
     localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, "office");
-    const store = createZCodeStore(service);
+    const store = createESCodeStore(service);
     expect(store.getState().interfaceMode).toBe("office");
     store.getState().setCodePreviewSettings({ wrapLongLines: false });
     store.getState().setInterfaceMode("coding");

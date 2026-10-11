@@ -1,4 +1,8 @@
-import type { ZCodePluginMarketplaceSummary } from "@zcode/shared";
+import type { ESCodePluginMarketplaceSummary } from "@escode/shared";
+import {
+  ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_DISPLAY_NAME,
+  ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+} from "@escode/shared";
 import { DEFAULT_MARKETPLACE_ID } from "@/settings/recommendedPlugins.js";
 
 // 官方插件在 agent 侧的 source 取值；其余取值（如 inline 本地目录）一律按「内置」处理。
@@ -12,11 +16,15 @@ const MARKETPLACE_INSTALLED_SOURCE = "cache";
  */
 export function resolveMarketplaceDisplayName(
   marketplaceId: string,
-  marketplaces: readonly ZCodePluginMarketplaceSummary[],
+  marketplaces: readonly ESCodePluginMarketplaceSummary[],
   claudeCodePluginsLabel: string,
 ): string {
   if (marketplaceId === DEFAULT_MARKETPLACE_ID) {
     return claudeCodePluginsLabel;
+  }
+  // 官方市场的概览 name 就是保留的 canonical id，直接展示会露出 `zcode-plugins-official`。
+  if (marketplaceId === ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID) {
+    return ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_DISPLAY_NAME;
   }
   const matched = marketplaces.find((marketplace) => marketplace.id === marketplaceId);
   return matched?.name ?? marketplaceId;
@@ -30,7 +38,7 @@ export function resolveMarketplaceDisplayName(
 export function resolvePluginSourceLabel(input: {
   source: string;
   marketplace: string;
-  marketplaces: readonly ZCodePluginMarketplaceSummary[];
+  marketplaces: readonly ESCodePluginMarketplaceSummary[];
   builtinLabel: string;
   claudeCodePluginsLabel: string;
   formatFromMarketplace: (marketplaceName: string) => string;

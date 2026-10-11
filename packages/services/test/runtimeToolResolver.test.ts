@@ -22,9 +22,9 @@ describe("runtimeToolResolver", () => {
   });
 
   it("会发现内置 bfs 和 ugrep 并把两个原生目录追加到 PATH", () => {
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-native-search-tools-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-native-search-tools-"));
     createdDirs.push(sandboxRoot);
-    const appRepoDir = join(sandboxRoot, "z-code-2");
+    const appRepoDir = join(sandboxRoot, "escode-2");
     const userBinDir = join(sandboxRoot, "user-bin");
     const platformKey = `${process.platform}-${process.arch}`;
     const executableSuffix = process.platform === "win32" ? ".exe" : "";
@@ -59,18 +59,18 @@ describe("runtimeToolResolver", () => {
       PATH: userBinDir,
     });
 
-    expect(realpathSync(envPatch.ZCODE_BFS_BINARY!)).toBe(realpathSync(bfsPath));
-    expect(realpathSync(envPatch.ZCODE_UGREP_BINARY!)).toBe(realpathSync(ugrepPath));
+    expect(realpathSync(envPatch.ESCODE_BFS_BINARY!)).toBe(realpathSync(bfsPath));
+    expect(realpathSync(envPatch.ESCODE_UGREP_BINARY!)).toBe(realpathSync(ugrepPath));
     const pathEntries = envPatch.PATH?.split(delimiter) ?? [];
     expect(realpathSync(pathEntries.at(-2)!)).toBe(realpathSync(dirname(bfsPath)));
     expect(realpathSync(pathEntries.at(-1)!)).toBe(realpathSync(dirname(ugrepPath)));
   });
 
   it("会从 bundled-tools 平台目录发现 ripgrep binary 并追加到 PATH", () => {
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-ripgrep-tool-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-ripgrep-tool-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "z-code-2");
+    const appRepoDir = join(sandboxRoot, "escode-2");
     const userBinDir = join(sandboxRoot, "user-bin");
     const platformKey = `${process.platform}-${process.arch}`;
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
@@ -99,14 +99,14 @@ describe("runtimeToolResolver", () => {
       PATH: userBinDir,
     });
 
-    expect(realpathSync(envPatch.ZCODE_RG_BINARY!)).toBe(realpathSync(binaryPath));
+    expect(realpathSync(envPatch.ESCODE_RG_BINARY!)).toBe(realpathSync(binaryPath));
     expect(realpathSync(envPatch.PATH?.split(delimiter).at(-1) ?? "")).toBe(
       realpathSync(dirname(binaryPath)),
     );
   });
 
   it("优先使用调用方环境指定的 runtime binary", () => {
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-runtime-tool-env-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-runtime-tool-env-"));
     createdDirs.push(sandboxRoot);
     const binaryPath = join(sandboxRoot, process.platform === "win32" ? "bfs.exe" : "bfs");
     writeFileSync(binaryPath, "bfs\n");
@@ -117,7 +117,7 @@ describe("runtimeToolResolver", () => {
     expect(
       findRuntimeToolBinary("bfs", {
         PATH: "",
-        ZCODE_BFS_BINARY: binaryPath,
+        ESCODE_BFS_BINARY: binaryPath,
       }),
     ).toBe(binaryPath);
   });

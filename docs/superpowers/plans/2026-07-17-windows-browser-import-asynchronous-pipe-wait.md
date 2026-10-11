@@ -108,10 +108,10 @@ Expected: 14 tests passed；BS-030 测试证明服务端异步、客户端同步
 Run:
 
 ```powershell
-pnpm --filter @zcode/desktop prepare:browser-import-helper
+pnpm --filter @escode/desktop prepare:browser-import-helper
 ```
 
-Expected: 输出 `[browser-import-helper] built ...zcode-browser-import-helper.exe`，C# 注释和 `PipeOptions.Asynchronous` 能被当前 Roslyn/.NET Framework 编译链接受。
+Expected: 输出 `[browser-import-helper] built ...escode-browser-import-helper.exe`，C# 注释和 `PipeOptions.Asynchronous` 能被当前 Roslyn/.NET Framework 编译链接受。
 
 - [ ] **Step 4: 更新验证状态**
 
@@ -181,7 +181,7 @@ Run:
 
 ```powershell
 pnpm exec vitest run packages/desktop/test/windowsChromeAppBoundKey.test.ts
-pnpm --filter @zcode/desktop prepare:browser-import-helper
+pnpm --filter @escode/desktop prepare:browser-import-helper
 git diff --check
 git status --short
 ```
@@ -190,7 +190,7 @@ Expected: 14 tests passed；helper built；`git diff --check` 通过；状态只
 
 - [ ] **Step 5: 清理临时运行时探针**
 
-用 `apply_patch` 删除三个 `.ps1`，并在确认路径均位于 `C:\Users\dev\z-code` 后删除四个 `.txt` 结果文件。再次运行 `git status --short`，不得残留 `.tmp-*`。
+用 `apply_patch` 删除三个 `.ps1`，并在确认路径均位于 `C:\Users\dev\escode` 后删除四个 `.txt` 结果文件。再次运行 `git status --short`，不得残留 `.tmp-*`。
 
 - [ ] **Step 6: 提交实现**
 

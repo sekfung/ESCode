@@ -6,7 +6,7 @@ import {
   CREDENTIAL_DECRYPT_ERROR_CODE,
   type OAuthProviderId,
   type OAuthProviderMeta,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { useOAuth } from "@/hooks/useOAuth.js";
 
 const mocks = vi.hoisted(() => ({
@@ -41,13 +41,13 @@ vi.mock("@/hooks/usePlatform.js", () => ({
 }));
 
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStore: (
+  useESCodeStore: (
     selector: (state: { setOAuthPollingActive: typeof mocks.setOAuthPollingActive }) => unknown,
   ) => selector({ setOAuthPollingActive: mocks.setOAuthPollingActive }),
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: (descriptor: { id: string }) => descriptor.id,
     },

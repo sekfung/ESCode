@@ -10,13 +10,13 @@ overrides:
 
 patchedDependencies:
   '@ai-sdk/anthropic@3.0.81':
-    hash: d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18
+    hash: ba7424dbd605bb1314b450a9cd5a7abc14af9cae39f46ce857462168a5275b7d
     path: patches/@ai-sdk__anthropic@3.0.81.patch
   '@ai-sdk/openai-compatible@2.0.60':
-    hash: 9632fe9d821b3dc20939ae509cc35b968d90d018bbd1d812390718898182a38b
+    hash: 9a2b4fd1b35908b7f56684e6a380fe357c5e314024b5a6292a7586f4c8d1cdfb
     path: patches/@ai-sdk__openai-compatible@2.0.60.patch
   '@arms/rum-electron@0.0.3':
-    hash: 36855354851ea495bc47a03340b0484ff62836b739cad56904b8a69f18e2ae97
+    hash: 65a6b22505ca23ccc8dd6560046a2cfbd49df7edf4375c9eae0473c7adf59eef
     path: patches/@arms__rum-electron@0.0.3.patch
   vitest@4.1.7:
     hash: 11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0
@@ -149,7 +149,7 @@ importers:
         specifier: ^8.0.2
         version: 8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0)
 
-  apps/zcode-cli:
+  apps/escode-cli:
     dependencies:
       dotenv:
         specifier: ^17.4.2
@@ -195,38 +195,38 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/adapters:
+  apps/escode-cli/packages/adapters:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: 3.0.81
-        version: 3.0.81(patch_hash=d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18)(zod@4.6.5)
+        version: 3.0.81(patch_hash=ba7424dbd605bb1314b450a9cd5a7abc14af9cae39f46ce857462168a5275b7d)(zod@4.6.5)
       '@ai-sdk/openai':
         specifier: ^3.0.58
         version: 3.0.65(zod@4.6.5)
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.58
-        version: 2.0.60(patch_hash=9632fe9d821b3dc20939ae509cc35b968d90d018bbd1d812390718898182a38b)(zod@4.6.5)
+        version: 2.0.60(patch_hash=9a2b4fd1b35908b7f56684e6a380fe357c5e314024b5a6292a7586f4c8d1cdfb)(zod@4.6.5)
+      '@escode/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@escode/dynamic-workflow':
+        specifier: workspace:*
+        version: link:../dynamic-workflow
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../../../../packages/escode-cua
+      '@escode/model-option-map':
+        specifier: workspace:*
+        version: link:../../../../packages/model-option-map
+      '@escode/provider':
+        specifier: workspace:*
+        version: link:../../../../packages/provider
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
       '@modelcontextprotocol/client':
         specifier: 2.0.0
         version: 2.0.0
-      '@zcode/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@zcode/dynamic-workflow':
-        specifier: workspace:*
-        version: link:../dynamic-workflow
-      '@zcode/model-option-map':
-        specifier: workspace:*
-        version: link:../../../../packages/model-option-map
-      '@zcode/provider':
-        specifier: workspace:*
-        version: link:../../../../packages/provider
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../../../../packages/shared
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../../../../packages/zcode-cua
       ai:
         specifier: 6.0.193
         version: 6.0.193(zod@4.6.5)
@@ -274,7 +274,7 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/android-emulator-plugin:
+  apps/escode-cli/packages/android-emulator-plugin:
     dependencies:
       '@modelcontextprotocol/server':
         specifier: 2.0.0
@@ -296,36 +296,36 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/bootstrap:
+  apps/escode-cli/packages/bootstrap:
     dependencies:
-      '@zcode/adapters':
+      '@escode/adapters':
         specifier: workspace:*
         version: link:../adapters
-      '@zcode/contracts':
+      '@escode/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@zcode/core':
+      '@escode/core':
         specifier: workspace:*
         version: link:../core
-      '@zcode/dynamic-workflow':
+      '@escode/dynamic-workflow':
         specifier: workspace:*
         version: link:../dynamic-workflow
-      '@zcode/dynamic-workflow-runtime':
+      '@escode/dynamic-workflow-runtime':
         specifier: workspace:*
         version: link:../dynamic-workflow-runtime
-      '@zcode/i18n':
+      '@escode/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@zcode/provider':
+      '@escode/provider':
         specifier: workspace:*
         version: link:../../../../packages/provider
-      '@zcode/provider-node':
+      '@escode/provider-node':
         specifier: workspace:*
         version: link:../../../../packages/provider-node
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../../../../packages/shared
-      '@zcode/telemetry':
+      '@escode/telemetry':
         specifier: workspace:*
         version: link:../telemetry
       diff:
@@ -335,52 +335,52 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@escode/formal-proof':
+        specifier: workspace:*
+        version: link:../../../../packages/formal-proof
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.2
       '@types/yazl':
         specifier: ^3.3.1
         version: 3.3.1
-      '@zcode/formal-proof':
-        specifier: workspace:*
-        version: link:../../../../packages/formal-proof
       yazl:
         specifier: ^3.3.1
         version: 3.3.1
 
-  apps/zcode-cli/packages/browser-use-plugin:
+  apps/escode-cli/packages/browser-use-plugin:
     dependencies:
+      '@escode/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@escode/core':
+        specifier: workspace:*
+        version: link:../core
+      '@escode/node-repl-host':
+        specifier: workspace:*
+        version: link:../node-repl-host
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
-      '@zcode/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@zcode/core':
-        specifier: workspace:*
-        version: link:../core
-      '@zcode/node-repl-host':
-        specifier: workspace:*
-        version: link:../node-repl-host
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../../../../packages/shared
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@escode/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@escode/bootstrap':
+        specifier: workspace:*
+        version: link:../bootstrap
       '@modelcontextprotocol/client':
         specifier: 2.0.0
         version: 2.0.0
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.2
-      '@zcode/adapters':
-        specifier: workspace:*
-        version: link:../adapters
-      '@zcode/bootstrap':
-        specifier: workspace:*
-        version: link:../bootstrap
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
@@ -394,36 +394,39 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/cli:
+  apps/escode-cli/packages/cli:
     dependencies:
-      '@zcode/adapters':
+      '@escode/adapters':
         specifier: workspace:*
         version: link:../adapters
-      '@zcode/bootstrap':
+      '@escode/bootstrap':
         specifier: workspace:*
         version: link:../bootstrap
-      '@zcode/contracts':
+      '@escode/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@zcode/core':
+      '@escode/core':
         specifier: workspace:*
         version: link:../core
-      '@zcode/dynamic-workflow-runtime':
+      '@escode/dynamic-workflow':
+        specifier: workspace:*
+        version: link:../dynamic-workflow
+      '@escode/dynamic-workflow-runtime':
         specifier: workspace:*
         version: link:../dynamic-workflow-runtime
-      '@zcode/i18n':
+      '@escode/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@zcode/provider-node':
+      '@escode/provider-node':
         specifier: workspace:*
         version: link:../../../../packages/provider-node
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../../../../packages/shared
-      '@zcode/shared-types':
+      '@escode/shared-types':
         specifier: workspace:*
         version: link:../shared-types
-      '@zcode/tui':
+      '@escode/tui':
         specifier: workspace:*
         version: link:../tui
       dotenv:
@@ -433,9 +436,9 @@ importers:
         specifier: 1.59.1
         version: 1.59.1
 
-  apps/zcode-cli/packages/contracts:
+  apps/escode-cli/packages/contracts:
     dependencies:
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../../../../packages/shared
       zod:
@@ -452,23 +455,23 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/core:
+  apps/escode-cli/packages/core:
     dependencies:
-      '@zcode/contracts':
+      '@escode/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@zcode/dynamic-workflow':
+      '@escode/dynamic-workflow':
         specifier: workspace:*
         version: link:../dynamic-workflow
-      '@zcode/shared':
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../../../../packages/escode-cua
+      '@escode/shared':
         specifier: workspace:*
         version: link:../../../../packages/shared
-      '@zcode/shared-types':
+      '@escode/shared-types':
         specifier: workspace:*
         version: link:../shared-types
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../../../../packages/zcode-cua
       cheerio:
         specifier: ^1.0.0
         version: 1.2.0
@@ -498,14 +501,14 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/debug:
+  apps/escode-cli/packages/debug:
     dependencies:
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
       '@hono/node-server':
         specifier: ^1.14.4
         version: 1.19.14(hono@4.12.12)
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../../../../packages/shared
       hono:
         specifier: ^4.10.7
         version: 4.12.12
@@ -550,9 +553,9 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@7.3.3(@types/node@24.12.2)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/documents-plugin: {}
+  apps/escode-cli/packages/documents-plugin: {}
 
-  apps/zcode-cli/packages/dynamic-workflow:
+  apps/escode-cli/packages/dynamic-workflow:
     dependencies:
       typescript:
         specifier: ^5.9.0
@@ -565,9 +568,9 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/dynamic-workflow-runtime:
+  apps/escode-cli/packages/dynamic-workflow-runtime:
     dependencies:
-      '@zcode/dynamic-workflow':
+      '@escode/dynamic-workflow':
         specifier: workspace:*
         version: link:../dynamic-workflow
     devDependencies:
@@ -578,9 +581,24 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/i18n:
+  apps/escode-cli/packages/escode-cua-plugin:
     dependencies:
-      '@zcode/contracts':
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../../../../packages/escode-cua
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
+  apps/escode-cli/packages/escode-guide-plugin: {}
+
+  apps/escode-cli/packages/i18n:
+    dependencies:
+      '@escode/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -588,9 +606,9 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.2))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/image-search-plugin: {}
+  apps/escode-cli/packages/image-search-plugin: {}
 
-  apps/zcode-cli/packages/ios-simulator-plugin:
+  apps/escode-cli/packages/ios-simulator-plugin:
     dependencies:
       '@modelcontextprotocol/server':
         specifier: 2.0.0
@@ -612,23 +630,23 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/node-repl-host:
+  apps/escode-cli/packages/node-repl-host:
     dependencies:
+      '@escode/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@escode/core':
+        specifier: workspace:*
+        version: link:../core
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../../../../packages/escode-cua
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
-      '@zcode/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@zcode/core':
-        specifier: workspace:*
-        version: link:../core
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../../../../packages/shared
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../../../../packages/zcode-cua
       zod:
         specifier: ^4.4.3
         version: 4.6.5
@@ -649,34 +667,59 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/pdf-plugin: {}
+  apps/escode-cli/packages/pdf-plugin: {}
 
-  apps/zcode-cli/packages/plugin-creator-plugin: {}
+  apps/escode-cli/packages/plugin-creator-plugin: {}
 
-  apps/zcode-cli/packages/presentations-plugin: {}
+  apps/escode-cli/packages/presentations-plugin: {}
 
-  apps/zcode-cli/packages/restore-legacy-sessions-plugin: {}
+  apps/escode-cli/packages/restore-legacy-sessions-plugin: {}
 
-  apps/zcode-cli/packages/shared-types:
+  apps/escode-cli/packages/serial-plugin:
+    dependencies:
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
+      '@modelcontextprotocol/server':
+        specifier: 2.0.0
+        version: 2.0.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
+  apps/escode-cli/packages/shared-types:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.2
 
-  apps/zcode-cli/packages/skill-creator-plugin: {}
+  apps/escode-cli/packages/skill-creator-plugin: {}
 
-  apps/zcode-cli/packages/spreadsheets-plugin: {}
+  apps/escode-cli/packages/spreadsheets-plugin: {}
 
-  apps/zcode-cli/packages/superpowers-plugin: {}
+  apps/escode-cli/packages/superpowers-plugin: {}
 
-  apps/zcode-cli/packages/swift-bridge:
+  apps/escode-cli/packages/swift-bridge:
     dependencies:
-      '@zcode/shared-types':
+      '@escode/shared-types':
         specifier: workspace:*
         version: link:../shared-types
 
-  apps/zcode-cli/packages/telemetry:
+  apps/escode-cli/packages/telemetry:
     dependencies:
+      '@escode/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -701,9 +744,6 @@ importers:
       '@opentelemetry/sdk-trace-base':
         specifier: 2.6.1
         version: 2.6.1(@opentelemetry/api@1.9.1)
-      '@zcode/contracts':
-        specifier: workspace:*
-        version: link:../contracts
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
@@ -712,23 +752,23 @@ importers:
         specifier: ^4.1.5
         version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
-  apps/zcode-cli/packages/tui:
+  apps/escode-cli/packages/tui:
     dependencies:
+      '@escode/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@escode/i18n':
+        specifier: workspace:*
+        version: link:../i18n
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../../../../packages/shared
       '@mbears/opentui-core':
         specifier: 0.2.15
         version: 0.2.15(typescript@6.0.2)(web-tree-sitter@0.25.10)
       '@mbears/opentui-react':
         specifier: 0.2.15
         version: 0.2.15(react-devtools-core@7.0.1)(react@19.2.7)(typescript@6.0.2)(web-tree-sitter@0.25.10)(ws@8.18.0)
-      '@zcode/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@zcode/i18n':
-        specifier: workspace:*
-        version: link:../i18n
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../../../../packages/shared
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -752,24 +792,9 @@ importers:
         specifier: ^4.20.0
         version: 4.21.0
 
-  apps/zcode-cli/packages/visualize-plugin: {}
+  apps/escode-cli/packages/visualize-plugin: {}
 
-  apps/zcode-cli/packages/zcode-cua-plugin:
-    dependencies:
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../../../../packages/zcode-cua
-    devDependencies:
-      '@types/node':
-        specifier: ^24.0.0
-        version: 24.12.2
-      typescript:
-        specifier: ^5.9.0
-        version: 5.9.3
-
-  apps/zcode-cli/packages/zcode-guide-plugin: {}
-
-  apps/zcode-cli/tools/prompt-trajectory:
+  apps/escode-cli/tools/prompt-trajectory:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
@@ -781,17 +806,17 @@ importers:
         specifier: ^5.9.0
         version: 5.9.3
 
-  apps/zcode-cli/tools/typescript: {}
+  apps/escode-cli/tools/typescript: {}
 
   packages/client:
     dependencies:
-      '@zcode/rpc':
+      '@escode/rpc':
         specifier: workspace:*
         version: link:../rpc
-      '@zcode/services':
+      '@escode/services':
         specifier: workspace:*
         version: link:../services
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -803,10 +828,40 @@ importers:
     dependencies:
       '@arms/rum-electron':
         specifier: ^0.0.3
-        version: 0.0.3(patch_hash=36855354851ea495bc47a03340b0484ff62836b739cad56904b8a69f18e2ae97)(@babel/runtime@7.29.7)(electron@41.0.3)
+        version: 0.0.3(patch_hash=65a6b22505ca23ccc8dd6560046a2cfbd49df7edf4375c9eae0473c7adf59eef)(@babel/runtime@7.29.7)(electron@41.0.3)
       '@babel/runtime':
         specifier: ^7.24.5
         version: 7.29.7
+      '@escode/client':
+        specifier: workspace:*
+        version: link:../client
+      '@escode/e2e-report':
+        specifier: workspace:*
+        version: link:../e2e-report
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../escode-cua
+      '@escode/provider':
+        specifier: workspace:*
+        version: link:../provider
+      '@escode/provider-node':
+        specifier: workspace:*
+        version: link:../provider-node
+      '@escode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@escode/server':
+        specifier: workspace:*
+        version: link:../server
+      '@escode/services':
+        specifier: workspace:*
+        version: link:../services
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@escode/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@fiahfy/icns':
         specifier: ^0.0.7
         version: 0.0.7
@@ -846,36 +901,12 @@ importers:
       '@opentelemetry/sdk-trace-base':
         specifier: 2.6.1
         version: 2.6.1(@opentelemetry/api@1.9.1)
-      '@zcode/client':
-        specifier: workspace:*
-        version: link:../client
-      '@zcode/e2e-report':
-        specifier: workspace:*
-        version: link:../e2e-report
-      '@zcode/provider':
-        specifier: workspace:*
-        version: link:../provider
-      '@zcode/provider-node':
-        specifier: workspace:*
-        version: link:../provider-node
-      '@zcode/rpc':
-        specifier: workspace:*
-        version: link:../rpc
-      '@zcode/server':
-        specifier: workspace:*
-        version: link:../server
-      '@zcode/services':
-        specifier: workspace:*
-        version: link:../services
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@zcode/ui':
-        specifier: workspace:*
-        version: link:../ui
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../zcode-cua
+      '@serialport/bindings-cpp':
+        specifier: 13.0.1
+        version: 13.0.1
+      '@serialport/stream':
+        specifier: 13.0.0
+        version: 13.0.0
       electron-updater:
         specifier: ^6.8.3
         version: 6.8.3
@@ -1050,6 +1081,60 @@ importers:
         specifier: ^8.0.2
         version: 8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0)
 
+  packages/escode-cua: {}
+
+  packages/escode-server-cli:
+    dependencies:
+      '@escode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@escode/services':
+        specifier: workspace:*
+        version: link:../services
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@hono/node-server':
+        specifier: ^1.19.11
+        version: 1.19.14(hono@4.12.12)
+      '@hono/node-ws':
+        specifier: ^1.3.0
+        version: 1.3.0(@hono/node-server@1.19.14(hono@4.12.12))(hono@4.12.12)
+      hono:
+        specifier: ^4.12.9
+        version: 4.12.12
+      ws:
+        specifier: ^8.20.0
+        version: 8.20.0
+      yauzl:
+        specifier: ^3.3.0
+        version: 3.3.0
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.6.0
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      '@types/yauzl':
+        specifier: ^2.10.3
+        version: 2.10.3
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)(yaml@2.9.0)
+      tsx:
+        specifier: ^4.19.4
+        version: 4.21.0
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.1
+        version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.2))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+
   packages/formal-proof:
     dependencies:
       d3:
@@ -1077,10 +1162,10 @@ importers:
 
   packages/provider:
     dependencies:
-      '@zcode/model-option-map':
+      '@escode/model-option-map':
         specifier: workspace:*
         version: link:../model-option-map
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -1096,22 +1181,22 @@ importers:
 
   packages/provider-node:
     dependencies:
-      '@zcode/provider':
+      '@escode/provider':
         specifier: workspace:*
         version: link:../provider
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@escode/model-option-map':
+        specifier: workspace:*
+        version: link:../model-option-map
       '@types/node':
         specifier: ^25.5.0
         version: 25.6.0
-      '@zcode/model-option-map':
-        specifier: workspace:*
-        version: link:../model-option-map
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
@@ -1130,6 +1215,18 @@ importers:
 
   packages/server:
     dependencies:
+      '@escode/client':
+        specifier: workspace:*
+        version: link:../client
+      '@escode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@escode/services':
+        specifier: workspace:*
+        version: link:../services
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@hono/node-server':
         specifier: ^1.19.11
         version: 1.19.14(hono@4.12.12)
@@ -1148,18 +1245,6 @@ importers:
       '@lydell/node-pty-linux-x64':
         specifier: 1.2.0-beta.10
         version: 1.2.0-beta.10
-      '@zcode/client':
-        specifier: workspace:*
-        version: link:../client
-      '@zcode/rpc':
-        specifier: workspace:*
-        version: link:../rpc
-      '@zcode/services':
-        specifier: workspace:*
-        version: link:../services
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
       axios:
         specifier: ^1.13.6
         version: 1.13.6
@@ -1230,24 +1315,30 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^0.21.1
         version: 0.21.1(zod@4.6.5)
+      '@escode/escode-cua':
+        specifier: workspace:*
+        version: link:../escode-cua
+      '@escode/provider':
+        specifier: workspace:*
+        version: link:../provider
+      '@escode/provider-node':
+        specifier: workspace:*
+        version: link:../provider-node
+      '@escode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@larksuiteoapi/node-sdk':
         specifier: 1.64.0
         version: 1.64.0
-      '@zcode/provider':
-        specifier: workspace:*
-        version: link:../provider
-      '@zcode/provider-node':
-        specifier: workspace:*
-        version: link:../provider-node
-      '@zcode/rpc':
-        specifier: workspace:*
-        version: link:../rpc
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@zcode/zcode-cua':
-        specifier: workspace:*
-        version: link:../zcode-cua
+      '@serialport/bindings-cpp':
+        specifier: 13.0.1
+        version: 13.0.1
+      '@serialport/stream':
+        specifier: 13.0.0
+        version: 13.0.0
       chokidar:
         specifier: 4.0.3
         version: 4.0.3
@@ -1285,6 +1376,9 @@ importers:
       '@pierre/diffs':
         specifier: ^1.1.22
         version: 1.1.22(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@serialport/binding-mock':
+        specifier: 10.2.2
+        version: 10.2.2
       '@types/node':
         specifier: ^25.5.0
         version: 25.6.0
@@ -1321,6 +1415,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@extend-ai/react-docx':
         specifier: ^0.8.1
         version: 0.8.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1372,12 +1469,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.10.1
         version: 12.10.2(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
       ai:
         specifier: ^6.0.138
-        version: 6.0.159(zod@4.6.5)
+        version: 6.0.159(zod@3.25.76)
       ansi-to-react:
         specifier: ^6.2.6
         version: 6.2.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1493,7 +1587,7 @@ importers:
 
   packages/shared:
     dependencies:
-      '@zcode/model-option-map':
+      '@escode/model-option-map':
         specifier: workspace:*
         version: link:../model-option-map
       zod:
@@ -1564,6 +1658,18 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@escode/provider':
+        specifier: workspace:*
+        version: link:../provider
+      '@escode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@escode/services':
+        specifier: workspace:*
+        version: link:../services
+      '@escode/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@extend-ai/react-docx':
         specifier: ^0.8.1
         version: 0.8.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1627,18 +1733,6 @@ importers:
       '@xyflow/react':
         specifier: ^12.10.1
         version: 12.10.2(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@zcode/provider':
-        specifier: workspace:*
-        version: link:../provider
-      '@zcode/rpc':
-        specifier: workspace:*
-        version: link:../rpc
-      '@zcode/services':
-        specifier: workspace:*
-        version: link:../services
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
       ai:
         specifier: ^6.0.138
         version: 6.0.159(zod@4.6.5)
@@ -1790,13 +1884,13 @@ importers:
 
   packages/web:
     dependencies:
-      '@zcode/client':
+      '@escode/client':
         specifier: workspace:*
         version: link:../client
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../shared
-      '@zcode/ui':
+      '@escode/ui':
         specifier: workspace:*
         version: link:../ui
       react:
@@ -1833,10 +1927,10 @@ importers:
 
   packages/web-share:
     dependencies:
-      '@zcode/share-ui':
+      '@escode/share-ui':
         specifier: workspace:*
         version: link:../share-ui
-      '@zcode/shared':
+      '@escode/shared':
         specifier: workspace:*
         version: link:../shared
       lucide-react:
@@ -1870,60 +1964,6 @@ importers:
       vite:
         specifier: ^8.0.2
         version: 8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0)
-
-  packages/zcode-cua: {}
-
-  packages/zcode-server-cli:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.11
-        version: 1.19.14(hono@4.12.12)
-      '@hono/node-ws':
-        specifier: ^1.3.0
-        version: 1.3.0(@hono/node-server@1.19.14(hono@4.12.12))(hono@4.12.12)
-      '@zcode/rpc':
-        specifier: workspace:*
-        version: link:../rpc
-      '@zcode/services':
-        specifier: workspace:*
-        version: link:../services
-      '@zcode/shared':
-        specifier: workspace:*
-        version: link:../shared
-      hono:
-        specifier: ^4.12.9
-        version: 4.12.12
-      ws:
-        specifier: ^8.20.0
-        version: 8.20.0
-      yauzl:
-        specifier: ^3.3.0
-        version: 3.3.0
-      zod:
-        specifier: 4.6.5
-        version: 4.6.5
-    devDependencies:
-      '@types/node':
-        specifier: ^25.5.0
-        version: 25.6.0
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      '@types/yauzl':
-        specifier: ^2.10.3
-        version: 2.10.3
-      tsup:
-        specifier: ^8.4.0
-        version: 8.5.1(jiti@2.6.1)(postcss@8.5.9)(tsx@4.21.0)(typescript@6.0.2)(yaml@2.9.0)
-      tsx:
-        specifier: ^4.19.4
-        version: 4.21.0
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
-      vitest:
-        specifier: ^4.1.1
-        version: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@25.6.0)(typescript@6.0.2))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
 packages:
 
@@ -5335,6 +5375,30 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
+  '@serialport/binding-mock@10.2.2':
+    resolution: {integrity: sha512-HAFzGhk9OuFMpuor7aT5G1ChPgn5qSsklTFOTUX72Rl6p0xwcSVsRtG/xaGp6bxpN7fI9D/S8THLBWbBgS6ldw==}
+    engines: {node: '>=12.0.0'}
+
+  '@serialport/bindings-cpp@13.0.1':
+    resolution: {integrity: sha512-j8nD5Om5MaQwzptncOiajIKj5RuMy7RiretZYmW4ZpaaLBc5XrapdojjL6AVwhpMWao8iSstlwEx/hpTIAp6mw==}
+    engines: {node: '>=18.0.0'}
+
+  '@serialport/bindings-interface@1.2.2':
+    resolution: {integrity: sha512-CJaUd5bLvtM9c5dmO9rPBHPXTa9R2UwpkJ0wdh9JCYcbrPWsKz+ErvR0hBLeo7NPeiFdjFO4sonRljiw4d2XiA==}
+    engines: {node: ^12.22 || ^14.13 || >=16}
+
+  '@serialport/parser-delimiter@13.0.0':
+    resolution: {integrity: sha512-Qqyb0FX1avs3XabQqNaZSivyVbl/yl0jywImp7ePvfZKLwx7jBZjvL+Hawt9wIG6tfq6zbFM24vzCCK7REMUig==}
+    engines: {node: '>=20.0.0'}
+
+  '@serialport/parser-readline@13.0.0':
+    resolution: {integrity: sha512-dov3zYoyf0dt1Sudd1q42VVYQ4WlliF0MYvAMA3MOyiU1IeG4hl0J6buBA2w4gl3DOCC05tGgLDN/3yIL81gsA==}
+    engines: {node: '>=20.0.0'}
+
+  '@serialport/stream@13.0.0':
+    resolution: {integrity: sha512-F7xLJKsjGo2WuEWMSEO1SimRcOA+WtWICsY13r0ahx8s2SecPQH06338g28OT7cW7uRXI7oEQAk62qh5gHJW3g==}
+    engines: {node: '>=20.0.0'}
+
   '@shikijs/core@3.23.0':
     resolution: {integrity: sha512-NSWQz0riNb67xthdm5br6lAkvpDJRTgB36fxlo37ZzM2yq0PQFFzbd8psqC2XMPgCzo1fW6cVi18+ArJ44wqgA==}
 
@@ -7210,6 +7274,15 @@ packages:
 
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+
+  debug@4.4.0:
+    resolution: {integrity: sha512-6WTZ/IxCY/T6BALoZHaE4ctp9xm+Z5kY/pzYaCHRFeyVhojxlrm+46y68HA6hr0TcwEssoxNiDEUJQjfPZ/RYA==}
+    engines: {node: '>=6.0'}
     peerDependencies:
       supports-color: '*'
     peerDependenciesMeta:
@@ -9388,6 +9461,10 @@ packages:
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
+
+  node-addon-api@8.3.0:
+    resolution: {integrity: sha512-8VOpLHFrOQlAH+qA0ZzuGRlALRA6/LVh8QJldbrC4DY0hXoMP0l4Acq8TzFC018HztWiRqyCEj2aTWY2UvnJUg==}
+    engines: {node: ^18 || ^20 || >= 21}
 
   node-api-version@0.2.1:
     resolution: {integrity: sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q==}
@@ -11949,7 +12026,7 @@ snapshots:
     dependencies:
       zod: 4.6.5
 
-  '@ai-sdk/anthropic@3.0.81(patch_hash=d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18)(zod@4.6.5)':
+  '@ai-sdk/anthropic@3.0.81(patch_hash=ba7424dbd605bb1314b450a9cd5a7abc14af9cae39f46ce857462168a5275b7d)(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@ai-sdk/provider-utils': 4.0.27(zod@4.6.5)
@@ -11962,6 +12039,13 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 4.6.5
 
+  '@ai-sdk/gateway@3.0.96(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
+      '@vercel/oidc': 3.1.0
+      zod: 3.25.76
+
   '@ai-sdk/gateway@3.0.96(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -11969,7 +12053,7 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 4.6.5
 
-  '@ai-sdk/openai-compatible@2.0.60(patch_hash=9632fe9d821b3dc20939ae509cc35b968d90d018bbd1d812390718898182a38b)(zod@4.6.5)':
+  '@ai-sdk/openai-compatible@2.0.60(patch_hash=9a2b4fd1b35908b7f56684e6a380fe357c5e314024b5a6292a7586f4c8d1cdfb)(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 3.0.14
       '@ai-sdk/provider-utils': 4.0.39(zod@4.6.5)
@@ -11980,6 +12064,13 @@ snapshots:
       '@ai-sdk/provider': 3.0.10
       '@ai-sdk/provider-utils': 4.0.27(zod@4.6.5)
       zod: 4.6.5
+
+  '@ai-sdk/provider-utils@4.0.23(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.1.0
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.23(zod@4.6.5)':
     dependencies:
@@ -12037,7 +12128,7 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.7
 
-  '@arms/rum-electron@0.0.3(patch_hash=36855354851ea495bc47a03340b0484ff62836b739cad56904b8a69f18e2ae97)(@babel/runtime@7.29.7)(electron@41.0.3)':
+  '@arms/rum-electron@0.0.3(patch_hash=65a6b22505ca23ccc8dd6560046a2cfbd49df7edf4375c9eae0473c7adf59eef)(@babel/runtime@7.29.7)(electron@41.0.3)':
     dependencies:
       '@arms/rum-browser': 0.1.8(@babel/runtime@7.29.7)
       '@arms/rum-core': 0.1.4(@babel/runtime@7.29.7)
@@ -15210,6 +15301,38 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
+  '@serialport/binding-mock@10.2.2':
+    dependencies:
+      '@serialport/bindings-interface': 1.2.2
+      debug: 4.4.3(supports-color@8.1.1)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@serialport/bindings-cpp@13.0.1':
+    dependencies:
+      '@serialport/bindings-interface': 1.2.2
+      '@serialport/parser-readline': 13.0.0
+      debug: 4.4.0
+      node-addon-api: 8.3.0
+      node-gyp-build: 4.8.4
+    transitivePeerDependencies:
+      - supports-color
+
+  '@serialport/bindings-interface@1.2.2': {}
+
+  '@serialport/parser-delimiter@13.0.0': {}
+
+  '@serialport/parser-readline@13.0.0':
+    dependencies:
+      '@serialport/parser-delimiter': 13.0.0
+
+  '@serialport/stream@13.0.0':
+    dependencies:
+      '@serialport/bindings-interface': 1.2.2
+      debug: 4.4.0
+    transitivePeerDependencies:
+      - supports-color
+
   '@shikijs/core@3.23.0':
     dependencies:
       '@shikijs/types': 3.23.0
@@ -15925,7 +16048,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@5.9.3))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.7(patch_hash=11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0)(@opentelemetry/api@1.9.1)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.7)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.13.3(@types/node@24.12.2)(typescript@6.0.2))(vite@8.0.8(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@4.1.4':
     dependencies:
@@ -16362,6 +16485,14 @@ snapshots:
   agent-base@7.1.4: {}
 
   agent-base@9.0.0: {}
+
+  ai@6.0.159(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 3.0.96(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
 
   ai@6.0.159(zod@4.6.5):
     dependencies:
@@ -17445,6 +17576,10 @@ snapshots:
   debug@2.6.9:
     dependencies:
       ms: 2.0.0
+
+  debug@4.4.0:
+    dependencies:
+      ms: 2.1.3
 
   debug@4.4.3(supports-color@8.1.1):
     dependencies:
@@ -20143,6 +20278,8 @@ snapshots:
 
   node-addon-api@7.1.1: {}
 
+  node-addon-api@8.3.0: {}
+
   node-api-version@0.2.1:
     dependencies:
       semver: 7.7.4
@@ -20159,8 +20296,7 @@ snapshots:
 
   node-forge@1.4.0: {}
 
-  node-gyp-build@4.8.4:
-    optional: true
+  node-gyp-build@4.8.4: {}
 
   node-gyp@11.5.0:
     dependencies:

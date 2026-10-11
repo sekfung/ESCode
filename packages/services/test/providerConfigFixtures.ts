@@ -7,7 +7,7 @@ import {
   type ProviderApiType,
   type ProviderLogoRef,
   type ZhipuAccountMode,
-} from "@zcode/provider";
+} from "@escode/provider";
 
 interface CommonProviderFixtureInput {
   readonly label?: string | null;

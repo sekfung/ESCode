@@ -1,0 +1,258 @@
+use super::{Engine, workflow_run_commands::saved_start_accepted};
+use crate::{
+    contract::{Event, EventSink, ModelFailure, RunEvent},
+    domain::protocol::{Request, RequestId, rpc_error},
+};
+use anyhow::{Context, Result, ensure};
+use serde_json::{Value, json};
+use tokio_util::sync::CancellationToken;
+pub(super) struct Auxiliary {
+    pub request: Option<RequestId>,
+    pub cancel: CancellationToken,
+    pub operation: Option<String>,
+    /// 代表某个会话运行的后台作业（记忆提取）：shell 偏好转给该会话。
+    pub session: Option<String>,
+}
+impl Engine {
+    pub(super) fn start_auxiliary(&mut self, request: &Request) -> Result<()> {
+        self.query("runtime/capabilities", &request.params)?; // 复用 workspace identity 验证。
+        ensure!(self.auxiliary.len() < 16, "Too many workspace requests");
+        let p = &request.params;
+        let selected = self.select(&json!({"modelSelection":p["selection"]}), None)?;
+        let mut model = if let Some(registry) = &self.registry {
+            registry.resolve(&selected)?
+        } else {
+            self.model.clone().context("Model required")?
+        };
+        if let Some(max) = p["maxOutputTokens"].as_u64()
+            && let Some(bound) = model.with_max_output_tokens(max as usize)?
+        {
+            model = bound;
+        }
+        let connectivity = request.method == "provider/testModelConnectivity";
+        let mut messages = p["messages"].as_array().cloned().unwrap_or_default();
+        if let Some(prompt) = p["prompt"].as_str() {
+            messages.push(json!({"role":"user","content":prompt}));
+        }
+        if connectivity {
+            messages = vec![json!({"role":"user","content":"Reply OK."})];
+        }
+        ensure!(!messages.is_empty(), "Prompt or messages required");
+        for m in &mut messages {
+            ensure!(
+                matches!(
+                    m["role"].as_str(),
+                    Some("system" | "user" | "assistant" | "tool")
+                ) && m["content"].is_string(),
+                "Invalid workspace message"
+            );
+            if let Some(calls) = m["toolCalls"].as_array() {
+                m["tool_calls"]=calls.iter().map(|c|json!({"id":c["id"],"type":"function","function":{"name":c["name"],"arguments":c["input"].to_string()}})).collect();
+            }
+            if m["role"] == "tool" {
+                m["tool_call_id"] = m["toolCallId"].clone();
+            }
+            for key in ["toolCalls", "toolCallId", "toolName", "isError"] {
+                m.as_object_mut().unwrap().remove(key);
+            }
+        }
+        let tools=p["tools"].as_array().map(|tools|tools.iter().map(|t|json!({"type":"function","function":{"name":t["name"],"description":t["description"].as_str().unwrap_or(""),"parameters":t["inputSchema"]}})).collect::<Vec<_>>()).unwrap_or_default();
+        let operation = p["operationId"].as_str().map(str::to_owned);
+        ensure!(
+            operation.is_none() || !self.auxiliary.values().any(|j| j.operation == operation),
+            "Duplicate operation id"
+        );
+        let id = format!("workspace-query:{}", self.clock.id());
+        let cancel = CancellationToken::new();
+        self.auxiliary.insert(
+            id.clone(),
+            Auxiliary {
+                request: request.id.clone(),
+                cancel: cancel.clone(),
+                operation,
+                session: None,
+            },
+        );
+        let sink = EventSink {
+            session_id: id.clone(),
+            run_id: id,
+            tx: self.events.clone(),
+        };
+        // TS workspace-generate-text：连通性测试固定 provider_settings_connectivity，其余用调用方给的 querySource。
+        let query_source = if connectivity {
+            Some("provider_settings_connectivity".to_owned())
+        } else {
+            p["querySource"].as_str().map(str::to_owned)
+        };
+        let model_call = crate::contract::ModelCallScope {
+            session_id: None,
+            turn_id: None,
+            query_source,
+            trace_id: None,
+        };
+        tokio::spawn(async move {
+            let result=crate::contract::with_model_call(model_call, model.complete(messages,&tools,&sink,&cancel)).await.map(|out|{
+                if connectivity {return json!({"success":true});}
+                json!({"text":out.message["content"].as_str().unwrap_or(""),"selection":{"providerId":selected.provider_id,"modelId":selected.model_id,"options":{"reasoningLevel":selected.reasoning_level}},"toolCalls":out.calls.iter().map(|c|json!({"id":c["id"],"name":c["function"]["name"],"input":serde_json::from_str::<Value>(c["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or(Value::Null)})).collect::<Vec<_>>(),"finishReason":if out.output_limit{"length"}else if out.calls.is_empty(){"stop"}else{"tool-calls"},"usage":{"inputTokens":out.usage["prompt_tokens"].as_u64().unwrap_or(0),"outputTokens":out.usage["completion_tokens"].as_u64().unwrap_or(0)}})
+            });
+            let _ = sink.send(Event::AuxiliaryDone { result }).await;
+        });
+        Ok(())
+    }
+    /// 辅助请求与工具层 Host 通道的事件都不依附会话，由 `auxiliary_event` 处理。
+    pub(super) fn auxiliary_owned(&self, id: &str) -> bool {
+        id == crate::contract::HOST_CHANNEL || self.auxiliary.contains_key(id)
+    }
+    pub(super) async fn auxiliary_event(&mut self, event: RunEvent) -> Result<()> {
+        if event.session_id == crate::contract::HOST_CHANNEL {
+            match event.event {
+                Event::WorkflowSettled { session, notice } => {
+                    return self.workflow_settled(&session, notice).await;
+                }
+                Event::ActorRequest {
+                    method,
+                    params,
+                    reply,
+                } => {
+                    return self.actor_request(&method, &params, reply).await;
+                }
+                other => {
+                    self.host_channel_event(other);
+                    return Ok(());
+                }
+            }
+        }
+        let id = event.session_id;
+        if event.run_id != id {
+            return Ok(());
+        }
+        match event.event {
+            Event::ToolCleanupFailed(message) => anyhow::bail!("{message}"),
+            // off-peak 账号模型只认单次执行凭据；辅助作业没有执行材料，直接鉴权失败，不向 Host 请求 header
+            // （TS ModelRequestAuthMissing，docs/specs/rust-offpeak.md 第三期）。
+            Event::RequestAuth { access, reply, .. } if access["mode"] == "off-peak" => {
+                let _ = reply.send(json!({"headersApplied": false}));
+            }
+            Event::RequestAuth {
+                provider,
+                selection,
+                access,
+                reply,
+            } if !self.auxiliary[&id].cancel.is_cancelled() && !reply.is_closed() => {
+                let request_id = format!("rust-auth-{}", self.clock.id());
+                let workspace = json!({"workspaceKey":self.workspace,"workspacePath":self.workspace_path,"workspaceIdentity":self.workspace});
+                let params = json!({"requestId":request_id,"sessionId":id,"workspace":workspace,"providerId":provider,"modelSelection":selection,"accountAccess":access,"reason":"model-request"});
+                self.auth
+                    .insert(request_id.clone(), (id.clone(), id, workspace, reply));
+                self.outbox.push(json!({"id":request_id,"method":"interaction/requestProviderRuntimeHeaders","params":params}));
+            }
+            // 后台作业不做文件 checkpoint（记忆写入不进入会话回退），直接确认提交。
+            Event::FilePrepared { committed, .. } => {
+                let _ = committed.send(());
+            }
+            Event::ShellPreference { reply } => match self.auxiliary[&id].session.clone() {
+                Some(session) => self.request_shell_preference(&session, reply),
+                None => {
+                    let _ = reply.send(None);
+                }
+            },
+            // 中枢直接启动工作流的启动轮：会话状态的唯一写入点在 owner（docs/specs/rust-v4-command-gaps.md）。
+            Event::WorkflowLaunchTurn {
+                session,
+                command,
+                launched,
+                reply,
+            } => {
+                // 提交之后的记账失败不回滚：run 已在飞、可在侧板取消，ACK 仍按成功回（TS 同规矩）。
+                let ack = match self
+                    .apply_workflow_launch_turn(&session, &command, &launched)
+                    .await
+                {
+                    Ok(ack) => ack,
+                    Err(_) => {
+                        saved_start_accepted(&command, self.sessions[&session].revision, &launched)
+                    }
+                };
+                let _ = reply.send(ack);
+            }
+            // GUI「配置」修订的设置轮：会话 owner 落行（忙时暂存），ACK 经 reply 应答
+            // （docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」）。
+            Event::WorkflowSettingsTurn {
+                session,
+                command,
+                applied,
+                reply,
+            } => {
+                let ack = match self
+                    .apply_workflow_settings_turn(&session, &command, &applied)
+                    .await
+                {
+                    Ok(ack) => ack,
+                    Err(_) => super::workflow_settings::settings_accepted(
+                        &command,
+                        self.sessions[&session].revision,
+                        &applied,
+                    ),
+                };
+                let _ = reply.send(ack);
+            }
+            // 标题 sidecar 的候选：由会话 owner 校验后写回（docs/specs/rust-session-title.md）。
+            Event::SessionTitle {
+                session,
+                entity,
+                title,
+                write_session,
+                goal_target,
+            } => {
+                if !self.auxiliary[&id].cancel.is_cancelled() {
+                    self.apply_session_title(
+                        &session,
+                        &entity,
+                        title.as_deref(),
+                        write_session,
+                        goal_target.as_deref(),
+                    )
+                    .await?;
+                }
+            }
+            Event::AuxiliaryNotify { method, params } => {
+                self.outbox.push(json!({ "method": method, "params": params }));
+            }
+            Event::AuxiliaryReply { result } => {
+                let job = self.auxiliary.remove(&id).unwrap();
+                if job.request.is_some() {
+                    self.outbox.push(match result {
+                        Ok(value) => json!({"id":job.request,"result":value}),
+                        Err(error) => rpc_error(&job.request, -32000, &error),
+                    });
+                }
+            }
+            Event::AuxiliaryDone { result } => {
+                self.cancel_auth(&id);
+                let job = self.auxiliary.remove(&id).unwrap();
+                // 标题作业结束即释放登记（否则 map 随会话数无界增长）。
+                if let Some(session) = job.session.as_deref()
+                    && self
+                        .title_jobs
+                        .get(session)
+                        .is_some_and(|title_job| title_job == &id)
+                {
+                    self.title_jobs.remove(session);
+                }
+                let result = if job.cancel.is_cancelled() {
+                    Err(ModelFailure::cancelled())
+                } else {
+                    result
+                };
+                if job.request.is_some() {
+                    self.outbox.push(match result {
+                        Ok(value) => json!({"id":job.request,"result":value}),
+                        Err(error) => rpc_error(&job.request, -32000, &error.to_string()),
+                    });
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}

@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type {
   BrowserViewScreenshotSurfacePreparePayload,
   EmbeddedBrowserViewportPreference,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { cn } from "@/components/lib/utils.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useWebElementPicker } from "@/hooks/useWebElementPicker.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { BrowserSiteSettingsEntry } from "@/browser-use/BrowserSiteSettingsEntry.js";
 import { BrowserToolbar } from "@/EmbeddedBrowserPaneParts.js";
@@ -125,7 +125,7 @@ export function UnifiedBrowserView({
   ) => void;
 }): React.JSX.Element {
   const platform = usePlatform();
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const desktopZoomFactor = useDesktopZoomFactor();
 
   const [addressValue, setAddressValue] = useState("");

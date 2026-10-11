@@ -4,15 +4,15 @@
 
 用户取得声明的入口：
 
-- Desktop：安装目录的 `resources/THIRD-PARTY-NOTICES.md`；macOS 为 `ZCode.app/Contents/Resources/THIRD-PARTY-NOTICES.md`。`Resources/licenses/electron/` 另外保存目标平台 Electron 原文、Chromium 汇总及校验清单。
+- Desktop：安装目录的 `resources/THIRD-PARTY-NOTICES.md`；macOS 为 `ESCode.app/Contents/Resources/THIRD-PARTY-NOTICES.md`。`Resources/licenses/electron/` 另外保存目标平台 Electron 原文、Chromium 汇总及校验清单。
 - Web：部署根目录的 `THIRD-PARTY-NOTICES.md`；构建后的 HTML 带 `rel="license"` 链接。
-- 发行 CLI：`dist/THIRD-PARTY-NOTICES.md` 作为伴随文件随构建产出，`pnpm build:zcode` 的统一分发包复制到 `agent/THIRD-PARTY-NOTICES.md`。`zcode --licenses` 入口与 SEA 内嵌 Node 精确版本许可尚未接入：SEA 基底取构建机 Node 版本，而 `runtime/sources.json` 只登记 22.16.0 与 24.14.0，CI 浮动 Node 24 时会因缺少对应原文而无法构建。开发态 `tsx src/main.ts` 不经过发行入口。
+- 发行 CLI：`dist/THIRD-PARTY-NOTICES.md` 作为伴随文件随构建产出，`pnpm build:escode` 的统一分发包复制到 `agent/THIRD-PARTY-NOTICES.md`。`escode --licenses` 入口与 SEA 内嵌 Node 精确版本许可尚未接入：SEA 基底取构建机 Node 版本，而 `runtime/sources.json` 只登记 22.16.0 与 24.14.0，CI 浮动 Node 24 时会因缺少对应原文而无法构建。开发态 `tsx src/main.ts` 不经过发行入口。
 - 搜索工具：准备后的每个工具目录包含 `THIRD-PARTY-NOTICES.txt` 和 `SOURCES.json`（内网镜像下载与仓库归档两条准备路径都写入，缓存命中也刷新）。SEA 同时嵌入这些材料。producer 打出的 tar/zip 仍只含二进制，保持与已固定 SHA-256 的归档逐字节一致。
 - 远端 Node 和独立 Server 的 node-runtime 组件：`LICENSE.node.txt` 与 `NODE-SOURCES.json`。缓存命中也刷新材料。Server、Agent、插件与搜索工具的独立组件分别附带适用声明，在计算组件哈希前完成复制。
 
 ## 当前依赖树的生成状态
 
-`THIRD-PARTY-NOTICES.md` 与 `inventory.json` 已在冻结安装后按当前锁文件重新生成，基础许可标识与声明新鲜度检查通过。开源导出流程会再按开源树的实际依赖重新生成，两棵树不共用生成结果。
+`THIRD-PARTY-NOTICES.md` 与 `inventory.json` 的最近一次生成早于产品更名提交 `13c5a1a2`；该提交只机械替换了文件里的旧名字符串，没有重新生成（详见「已知问题」）。开源导出流程会再按开源树的实际依赖重新生成，两棵树不共用生成结果。
 
 基础检查通过不代表材料缺口已关闭：`inventory.json` 的 `reviewRequired` 仍保留待补齐的原文和来源证据。当前覆盖的精确包版本、复制组件与待核验数量以生成清单为准，避免文档中的历史数量被误当作当前状态。
 
@@ -27,6 +27,13 @@ node scripts/licenses.mjs check --strict
 ```
 
 严格检查目前只作为显式命令运行，尚未接入 SEA 的 CI 发布和手动 SMB 上传入口：当前清单仍有已登记缺口，接入后这两条发布路径会立即失败。本地构建仍可用于核验修复，基础检查会明确提示未解决数量。
+
+### 已知问题（2026-10-12 复查）
+
+- **`node scripts/licenses.mjs notices|check` 在仓库钉住的 pnpm 10.33.2 上无法运行**：`pnpm -r ls --lockfile-only` 被该版本拒绝（`Unknown option`，但 `pnpm ls --help` 里列有它）；本机核实的 10.14.0 同样拒绝、12.11.2 接受，不换 pnpm 版本就无法重新生成或跑 check。
+- **换 pnpm 12 重生成会丢材料**：pnpm 12 的 `ls` 输出不再展开由 peer 满足的依赖子树，本仓库生产图由 1219 个包缩到 1093，`@electron/get` → `got` → `keyv` 等链被丢掉，直接重生成会删掉这些包的声明；且当前 node_modules 缺这 126 个包，`missingProductionPackages` 会先报缺失。修复前先定版本口径：升级 `mise.toml` / `packageManager` 钉住的 pnpm，或让 `readWorkspaceProductionGraph` 直接从 `pnpm-lock.yaml` 取锁定图。
+- **清单自更名提交起过期**：`13c5a1a2` 只改了 `THIRD-PARTY-NOTICES.md` 与 `inventory.json` 里的旧名字符串，没重算内容哈希。当前 226 个 `inputs` 哈希过期、`noticesSha256` 与声明文件不符；在能跑起来的 pnpm 上 `licenses.mjs check` 会以「Third-party input changed / notices changed」失败，需按 SPEC.md「正式生成声明在 macOS 上执行」的口径确认 pnpm 版本后重新生成关闭。
+- `copied-components.json` 的三处旧路径与生成器 `copiedFiles` 的存在性守卫已于 2026-10-12 修正（旧路径会让 `notices` 直接抛 ENOENT）；下一次重新生成时自然生效。
 
 生成器以根锁文件的生产依赖图为覆盖集合，先比较实际安装图，再按精确版本读取内容；旧安装图必须先 frozen install，不能直接重生成。标识门禁和声明生成共用递归扫描，覆盖所有 workspace、嵌套版本和符号链接，并按真实目录防环。相同原文按 SHA-256 去重；同名不同版本分别记录。支持的平台可选包必须已安装。三个未安装 Canvas 目标（Android、Linux armv7、Linux riscv64）不属于当前桌面发行目标。
 
@@ -65,7 +72,7 @@ ugrep 的 BSD-3-Clause 版权、条件和免责声明完整保留。ripgrep 保�
 
 Knip 文档镜像现已登记：原始导入的 169 个文件与上游 Knip 6.0.6 的固定参考提交逐一匹配，补齐 ISC 原文；随镜像复制的 Source Sans Pro 与 Hack 字体按字体内版本单独登记原始许可。来源、版本与本地改动说明见 [镜像 README](../docs/knip/docs/README.md)。
 
-Apache-2.0 复制内容中的 148 个已确认改编文件包含文件内来源和 `Modified by ZCode:` 声明，并登记到 `modifiedFiles`；生成时校验该声明仍存在。Markdown frontmatter、脚本 shebang 和 JavaScript directive 保持有效。未确认源自上游的自有文件不追加上游归属。
+Apache-2.0 复制内容中的 148 个已确认改编文件包含文件内来源和 `Modified by ESCode:` 声明，并登记到 `modifiedFiles`；生成时校验该声明仍存在。Markdown frontmatter、脚本 shebang 和 JavaScript directive 保持有效。未确认源自上游的自有文件不追加上游归属。
 
 | 内容                                  | 本地范围                                                                                           | 上游许可与修改说明                                                                                                                                   |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -82,6 +89,6 @@ Apache-2.0 复制内容中的 148 个已确认改编文件包含文件内来源�
 - React Best Practices：上游 `vercel-labs/agent-skills` 的固定参考 `063bee94c3f4df8453406c830b0a7df0f2860278` 中，根 README 与技能 frontmatter 声明 MIT，但树中无完整 LICENSE 文件。保留本地 Shu Ding / Vercel 署名；未编造上游版权年份或许可证原文。现已登记到 `copied-components.json`，参与输入哈希和严格门禁。来源：[README](https://github.com/vercel-labs/agent-skills/blob/063bee94c3f4df8453406c830b0a7df0f2860278/README.md)、[技能声明](https://github.com/vercel-labs/agent-skills/blob/063bee94c3f4df8453406c830b0a7df0f2860278/skills/react-best-practices/SKILL.md)。
 - `webfetch-processing.ts` 的清单判词称其提示词来自 Gemini CLI，但本次取得的上游 `cfbcaa8df13ea4610bb379b377b56d62980c0032` 的 `web-fetch.ts` 未找到被指认的句子；无法据此添加 Google 归属并宣称问题解决。
 - Windows 浏览器导入中的解密实现、混合来源技能描述、商标资产和兼容层的授权/来源问题，需要各自的证据，不能通过追加通用 NOTICE 关闭。
-- 原清单提及 `apps/zcode-cli/.agents/skills/` 下的技能，但该目录在当前 checkout 中不存在；锁文件中残留来源信息不代表还分发那些文件。
+- 原清单提及 `apps/escode-cli/.agents/skills/` 下的技能，该目录当前只含 opentui、vercel-react-best-practices、vercel-react-view-transitions；锁文件中残留来源信息不代表还分发那些文件。
 
 待核验条目以当前 `inventory.json` 的 `reviewRequired` 为准。其余来源疑点尚未证明属于第三方复制，不凭相似性推定权利人；需要另行核对。基础声明新鲜度检查通过不代表这些边界问题已经解决。具体规则与验收见 [SPEC.md](SPEC.md)。

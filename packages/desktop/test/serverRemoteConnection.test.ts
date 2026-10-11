@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AddressInfo } from "node:net";
 import { WebSocket, type RawData } from "ws";
-import { Emitter, Event, SocketProtocol, VSBuffer, type ISocket } from "@zcode/rpc";
-import { ServiceCollection, ISystemService, IZCodeAgentService } from "@zcode/services";
-import { createHttpServer } from "@zcode/server";
-import { createTopicResourcePeers, createTopicResourceRelayChannel } from "@zcode/services/node";
-import { connectViaProtocol, connectViaWebSocket } from "@zcode/client";
+import { Emitter, Event, SocketProtocol, VSBuffer, type ISocket } from "@escode/rpc";
+import { ServiceCollection, ISystemService, IESCodeAgentService } from "@escode/services";
+import { createHttpServer } from "@escode/server";
+import { createTopicResourcePeers, createTopicResourceRelayChannel } from "@escode/services/node";
+import { connectViaProtocol, connectViaWebSocket } from "@escode/client";
 import {
   connectServerRemote,
   resolveServerRemoteEndpoints,
 } from "../src/host/serverRemoteConnection.js";
 import { registerHostServiceResourceTelemetry } from "../src/host/hostServiceResourceTelemetry.js";
-import { serverRemoteInfoSchema, type AgentLaneResourceSample } from "@zcode/shared";
+import { serverRemoteInfoSchema, type AgentLaneResourceSample } from "@escode/shared";
 
 function wrapNodeWebSocket(socket: WebSocket): ISocket {
   const onData = new Emitter<VSBuffer>();
@@ -110,11 +110,11 @@ describe("server remote connection", () => {
   });
 
   it("resolves info and websocket endpoints from an HTTP server URL", () => {
-    expect(resolveServerRemoteEndpoints("https://studio.example.com/zcode/")).toEqual({
-      infoUrl: "https://studio.example.com/zcode/api/server-info",
-      wsUrl: "wss://studio.example.com/zcode/ws",
-      hostCapabilityUrl: "https://studio.example.com/zcode/api/rpc-host-capability",
-      hostWsUrl: "wss://studio.example.com/zcode/ws/host",
+    expect(resolveServerRemoteEndpoints("https://studio.example.com/escode/")).toEqual({
+      infoUrl: "https://studio.example.com/escode/api/server-info",
+      wsUrl: "wss://studio.example.com/escode/ws",
+      hostCapabilityUrl: "https://studio.example.com/escode/api/rpc-host-capability",
+      hostWsUrl: "wss://studio.example.com/escode/ws/host",
     });
     expect(resolveServerRemoteEndpoints("ws://127.0.0.1:3030/ws")).toEqual({
       infoUrl: "http://127.0.0.1:3030/api/server-info",
@@ -126,7 +126,7 @@ describe("server remote connection", () => {
 
   it("routes reverse resource RPC to the exact authenticated Desktop peer and removes it on close", async () => {
     const peers = createTopicResourcePeers();
-    const services = new ServiceCollection().register(IZCodeAgentService, {
+    const services = new ServiceCollection().register(IESCodeAgentService, {
       queryConversationCommandsV4: async () => ({ results: [] }),
     } as never);
     const server = createHttpServer(services, 0, { topicResourcePeers: peers });
@@ -155,7 +155,7 @@ describe("server remote connection", () => {
       workspaceIdentity: "server://host/work",
       remoteSessionId: "remote-a",
     };
-    await connection.services.zcodeAgentService.queryConversationCommandsV4({
+    await connection.services.escodeAgentService.queryConversationCommandsV4({
       ...request,
       commands: [],
     });
@@ -166,7 +166,7 @@ describe("server remote connection", () => {
     await vi.waitFor(() => expect(() => peers.getChannel(request)).toThrow());
   });
 
-  it("connects to a running zcode server over websocket RPC", async () => {
+  it("connects to a running escode server over websocket RPC", async () => {
     const info = vi.fn(async () => ({
       homedir: "/home/dev",
       platform: "linux",
@@ -185,7 +185,7 @@ describe("server remote connection", () => {
           totalTargets: 0,
         })),
       })
-      .register(IZCodeAgentService, {
+      .register(IESCodeAgentService, {
         helloConversationV4: vi.fn(),
         initializeConversationV4: vi.fn(),
       } as never);
@@ -220,7 +220,7 @@ describe("server remote connection", () => {
       workspaces: [{ path: "/home/dev/project" }],
     });
     await expect(
-      connection.services.zcodeAgentService.helloConversationV4(),
+      connection.services.escodeAgentService.helloConversationV4(),
     ).resolves.toMatchObject({
       clientMode: "desktop-continuous",
       deliveryProfile: "continuous",
@@ -230,7 +230,7 @@ describe("server remote connection", () => {
     const browserServices = await connectViaWebSocket(`ws://127.0.0.1:${address.port}/ws`, {
       onOpenSocket: (socket) => (browserSocket = socket),
     });
-    await expect(browserServices.zcodeAgentService.helloConversationV4()).resolves.toMatchObject({
+    await expect(browserServices.escodeAgentService.helloConversationV4()).resolves.toMatchObject({
       clientMode: "web-remote-replayable",
       deliveryProfile: "replayable",
     });
@@ -240,7 +240,7 @@ describe("server remote connection", () => {
       "x-zcode-rpc-client-mode": "desktop-continuous",
     });
     await expect(
-      legacyHeaderConnection.services.zcodeAgentService.helloConversationV4(),
+      legacyHeaderConnection.services.escodeAgentService.helloConversationV4(),
     ).resolves.toMatchObject({
       clientMode: "web-remote-replayable",
       deliveryProfile: "replayable",
@@ -250,7 +250,7 @@ describe("server remote connection", () => {
   });
 
   it("connector 使用 token 贯穿受保护的 capability endpoint 与 /ws/host", async () => {
-    const services = new ServiceCollection().register(IZCodeAgentService, {
+    const services = new ServiceCollection().register(IESCodeAgentService, {
       helloConversationV4: vi.fn(),
       initializeConversationV4: vi.fn(),
     } as never);
@@ -278,7 +278,7 @@ describe("server remote connection", () => {
     disposables.push(connection);
 
     await expect(
-      connection.services.zcodeAgentService.helloConversationV4(),
+      connection.services.escodeAgentService.helloConversationV4(),
     ).resolves.toMatchObject({
       clientMode: "desktop-continuous",
       deliveryProfile: "continuous",
@@ -309,7 +309,7 @@ describe("server remote connection", () => {
           : {}),
       };
       const server = createHttpServer(
-        new ServiceCollection().register(IZCodeAgentService, service as never),
+        new ServiceCollection().register(IESCodeAgentService, service as never),
         0,
       );
       servers.push(server);
@@ -330,8 +330,8 @@ describe("server remote connection", () => {
       const postMessage = vi.fn();
       const telemetry = registerHostServiceResourceTelemetry({
         services: new ServiceCollection().register(
-          IZCodeAgentService,
-          connection.services.zcodeAgentService,
+          IESCodeAgentService,
+          connection.services.escodeAgentService,
         ),
         runtimeSurface: "remote",
         telemetrySupported: connection.serverInfo.capabilities.processResourceTelemetry === true,
@@ -341,7 +341,7 @@ describe("server remote connection", () => {
 
       // 同一连接的 RPC 应答是前面 EventListen 已处理的屏障，无需 sleep 猜测订阅时序。
       await expect(
-        connection.services.zcodeAgentService.helloConversationV4(),
+        connection.services.escodeAgentService.helloConversationV4(),
       ).resolves.toMatchObject({
         deliveryProfile: "continuous",
       });
@@ -364,7 +364,7 @@ describe("server remote connection", () => {
   );
 
   it("/ws/host 只接受已申请的一次性 capability，重放被拒绝", async () => {
-    const services = new ServiceCollection().register(IZCodeAgentService, {
+    const services = new ServiceCollection().register(IESCodeAgentService, {
       helloConversationV4: vi.fn(),
       initializeConversationV4: vi.fn(),
     } as never);
@@ -395,7 +395,7 @@ describe("server remote connection", () => {
     const trusted = await connectNodeRpc(wsHost, {
       "x-zcode-rpc-host-capability": ticket.capability,
     });
-    await expect(trusted.services.zcodeAgentService.helloConversationV4()).resolves.toMatchObject({
+    await expect(trusted.services.escodeAgentService.helloConversationV4()).resolves.toMatchObject({
       clientMode: "desktop-continuous",
       deliveryProfile: "continuous",
     });

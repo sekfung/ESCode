@@ -6,9 +6,9 @@ import {
   resolveModelProviderFamilySpecByProviderId,
   type UsageEntitlementSubscriptionDetail,
   type UsageQuotaLimit,
-  type ZCodeAccountAccess,
-  type ZCodeProviderAccountAccess,
-} from "@zcode/shared";
+  type ESCodeAccountAccess,
+  type ESCodeProviderAccountAccess,
+} from "@escode/shared";
 import { InfoIcon, Loader2Icon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button.js";
@@ -21,7 +21,7 @@ import {
   CodingPlanBillingDiscountBadge,
   useCodingPlanBillingDiscount,
 } from "@/CodingPlanBillingDiscount.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { formatQuotaResetTime, isSameLimitCategory } from "@/lib/codingPlanQuotaPresentation.js";
 import {
@@ -122,7 +122,7 @@ export function PresetProviderPlaceholderCard({
   displayName: string;
   messageId?: string;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
 
   return (
     <div className="bg-background/50 rounded-2xl p-3">
@@ -214,10 +214,10 @@ export function CodingPlanStatusPanel({
   teamPlanAvailabilityReason?: TeamPlanAvailabilityReason;
   /** Team Plan 必须传完整连接 key，避免与同 provider 的个人套餐共享重置状态。 */
   quotaResetSourceKey?: string;
-  quotaResetAccountAccess?: ZCodeProviderAccountAccess | ZCodeAccountAccess;
+  quotaResetAccountAccess?: ESCodeProviderAccountAccess | ESCodeAccountAccess;
   onQuotaResetEntitlementRefresh?: () => void | Promise<void>;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const billingDiscount = useCodingPlanBillingDiscount();
   const [internalUpgradePlansVisible, setInternalUpgradePlansVisible] = useState(false);
   const [startPlanEntitlementRefreshing, setStartPlanEntitlementRefreshing] = useState(false);
@@ -729,10 +729,10 @@ function CodingPlanUsageSummaryCards({
   mcpQuotaLimit: UsageQuotaLimit | null;
   sourceKey: string;
   preferredProviderId: string;
-  accountAccess?: ZCodeProviderAccountAccess | ZCodeAccountAccess;
+  accountAccess?: ESCodeProviderAccountAccess | ESCodeAccountAccess;
   onEntitlementRefresh?: () => void | Promise<void>;
 }) {
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const [quotaResetDialogOpen, setQuotaResetDialogOpen] = useState(false);
   const resetUi = useCodingPlanQuotaResetUi({
     sourceKey,
@@ -897,7 +897,7 @@ function CodingPlanUsageSummaryCards({
             infoDescription={
               card.key === "serverMcp"
                 ? intl.formatMessage({
-                    id: "sidebar.usage.plan.zcodeMcpDescription",
+                    id: "sidebar.usage.plan.escodeMcpDescription",
                   })
                 : undefined
             }
@@ -959,7 +959,7 @@ function isDisplayableUsageLimit(limit: UsageQuotaLimit): boolean {
 
 function resolveGenericUsageLimitLabel(
   limit: UsageQuotaLimit,
-  intl: ReturnType<typeof useZCodeIntl>["intl"],
+  intl: ReturnType<typeof useESCodeIntl>["intl"],
 ): string {
   if (limit.type === "TIME_LIMIT") {
     return intl.formatMessage({
@@ -988,7 +988,7 @@ function PlanUsageMetricCard({
   progressColor: string;
   resetTimeFormat: "date" | "dateTime";
 }) {
-  const { locale } = useZCodeIntl();
+  const { locale } = useESCodeIntl();
   const remainingPercentage = resolveLimitRemainingPercentage(limit);
   const progressPercentage = remainingPercentage ?? 0;
   const modelLabel = limit && limit.type !== "TIME_LIMIT" ? formatLimitModels(limit) : "";
@@ -1011,7 +1011,7 @@ function PlanUsageMetricCard({
                 type="button"
                 aria-label={infoDescription}
                 className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:text-foreground"
-                data-zcode-mcp-info="model-settings"
+                data-escode-mcp-info="model-settings"
               >
                 <InfoIcon className="size-3.5" aria-hidden="true" />
               </button>

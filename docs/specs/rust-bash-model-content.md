@@ -1,0 +1,111 @@
+# Rust Bash 模型可见内容
+
+## 背景
+
+Browser Use 第 4 期差分中发现，Rust 前台 Bash 的工具结果以结果对象 JSON 进入模型上下文，形如
+`{"stdout":…,"stderr":…,"status":…,"persistedOutputPath":…}`。TS 由
+`core/src/tool/handlers/bash-model-content.ts` 的 `formatBashModelContent` 生成纯文本。
+Bash 是最常用的工具，这一差异影响每一轮模型请求，也让每次结果都暴露内部落盘路径。
+
+## 规则（对齐 TS）
+
+所有者：Rust 工具层 `tools::tool_process::shell_output` 生成 `ToolOutput.content`；纯格式化规则在
+`domain::bash_model_content`。结构化结果（`ToolOutput.data`，行投影用）不变。
+
+1. 提供方错误：`status == "failed"`，退出码为非 0 数字，且返回码解释不是语义非错误
+   （`Condition is false`、`Files differ`、`No matches found`、`Some directories were inaccessible`）。
+   提供方错误时，正文为以下各行，过滤空行后以换行连接：
+   - `Exit code <n>`；
+   - stdout 段；
+   - stderr 段；
+   - 后台说明。
+2. 其他情况的正文为以下各段，过滤空段后以换行连接：
+   - stdout 段；
+   - stderr 段；
+   - 后台说明。
+3. stdout 段：
+   - 去掉开头的空白行，并去掉末尾空白；
+   - 结果带落盘路径（非后台）时，改为 `<persisted-output>` 信封：
+     - 字节数用 1024 进制，保留一位小数，去掉 `.0`；
+     - 预览最多 2000 字符，在后半段的换行处截断，截断时追加 `...`。
+4. stderr 段：
+   - 取 stderr 并去掉首尾空白；
+   - 被终止的命令没有 stderr 文本时，stderr 为 TS 执行错误文案：`Command timed out after <时长>`（TS
+     `formatTimeoutDuration`）、`Execution cancelled`、`Execution output exceeded the persisted output limit`；
+   - 中断（超时或取消）时追加 `<error>Command was aborted before completion</error>`。
+5. 后台说明：
+   - 只在有 `backgroundTaskId` 时出现；
+   - 文案按 TS 区分三种情况：自动转后台、用户手动转后台、普通后台；
+   - 输出路径取单一输出文件。
+6. 输出语义（TS `BashFileOutput`）：
+   - stdout 与 stderr 写入同一个输出文件；
+   - 结果的 `stdout` 为文件前 30,000 字节（TS `MAX_INLINE_OUTPUT_BYTES`），`stderr` 为空；
+   - `stdoutBytes` 为文件大小，超过内联上限时 `stdoutTruncated` 为真；
+   - Rust 之前分别捕获两路（24 KiB），并额外写 `.stdout`/`.stderr` 文件，改为只写合并文件。
+   - Rust 让 stdout 与 stderr 共用一个 OS 管道，由单一读取方写入合并文件，交错顺序与进程实际写入一致。
+     分开读两条管道会产生顺序竞争，Linux/macOS CI 上 stderr 曾先于 stdout 落盘。
+7. 落盘路径：
+   - 前台结果只在输出被截断时保留输出文件，并设置 `persistedOutputPath`、`rawOutputPath`、
+     `stdoutPersistedOutputPath` 与对应大小；
+   - 未截断时删除输出文件，不设置这些字段，模型正文里也不出现路径；
+   - 后台任务保留输出文件路径（TS 同）。
+   - 暂不移植：空输出且非 0 退出时的「输出丢失」诊断（`diagnoseLostBashOutput`）。
+8. 返回码解释（`interpretBashReturnCode`）：
+   - 超时：`Command timed out`；
+   - 取消：`Command was cancelled`；
+   - 启动失败：`Command failed to start`；
+   - 非 0 退出码：`Command exited with code <n>`；
+     - 例外：最后一条命令为 grep/rg 等且退出码为 1 时，使用语义解释，例如 `No matches found`；
+   - 信号：`Command exited due to signal <sig>`。
+9. 附加信息（2026-09-27 补齐）：
+   - 图片 stdout（TS `prepareBashImageOutput`）：
+     - 非提供方错误、stdout 为严格的图片 data URL 时（已落盘则取完整文件，≤20 MiB），最长边缩到 2000；
+     - 结果标 `isImage`，以图片块进入模型；
+     - 缩放失败而原图 magic 与声明一致时保留原图，否则按文本处理。
+   - GitHub 限流提示（TS `getGhRateLimitHint`）：
+     - 命令中有非管理类 `gh` 子命令，且 stdout 含限流文案时，末尾附 `<system-reminder>`；
+     - 全进程 60s 冷却。
+   - 过期读取提示（TS `applyBashReadFileStateEffects`）：
+     - 格式化/修复类命令（`--write`、`cargo fmt` 等）之后，已读文件中在命令开始后被改动的，附
+       `[This command modified N file(s) you've previously read: … Call Read before editing.]`；
+     - TS 还要求晚于读取时的 mtime；读取总在命令之前，二者等价。
+   - 读取状态回填：cat/head/tail/sed -n/单条 grep 读过的文件记为已读（非 partial view），之后可直接 Edit/Write；
+     同一范围的 Read 返回未变提示（见 rust-file-tool-results.md）。识别规则按 TS oracle 语料逐项校验。
+   - 输出丢失诊断（TS `diagnoseLostBashOutput`）：输出为空、非 0 退出且不是 137 时，
+     检查输出目录所在文件系统，可用空间 < 10 MB 或 inode 剩余 < 1000（Windows 不报告 inode）时，stdout 为 ENOSPC 诊断文案。
+     无法在测试中构造磁盘满，只做了代码审查；Unix 用 `statvfs`，Windows 用 `GetDiskFreeSpaceExW`。
+   - 暂不移植：工作目录变化后追加到 stderr 的提示以外的 cwd 持久化（App 模式下 TS 也不保留）。
+10. 结果对象另外带 `returnCodeInterpretation` 与 `noOutputExpected`（TS `isSilentBashCommand`：
+    解析成功、无动态词，且每条命令都属于静默命令集，`||` 之后的中性命令除外）。
+
+11. 通用空结果占位（TS `serializeOutput`）：任何工具的模型可见内容为空白且没有媒体时，改为
+    `(<工具名> completed with no output)`；被拒绝的调用除外。Rust 在 core 工具分发处统一处理。
+12. 后续单独对齐：TS 前台 Bash 超时后不终止，而是转为后台任务（`auto_on_timeout`；以 `sleep` 开头的命令除外），
+    模型收到后台说明。见 rust-bash-auto-background.md。
+
+## 验收
+
+- 单测覆盖以下情况：
+  - 成功；
+  - 空输出；
+  - 前导空行；
+  - 提供方错误；
+  - grep 无匹配（退出码 1，不算错误）；
+  - 超时与中断标注；
+  - 后台三种文案；
+  - 落盘信封的字节格式与预览截断。
+- Node 对 Rust 差分：
+  - 以下命令的模型可见 tool 消息逐字一致：成功、失败、grep 无匹配、stderr、超时、后台；
+  - 大输出落盘的模型正文结构一致（路径不同，按占位比较）。
+
+## 实测记录：Windows CI 上 Node 的读取状态回填（2026-09-27）
+
+- CI run 36303238291（Windows runner）：`cat existing.txt` 之后，Node 的 Edit 报「File has not been read yet」，
+  即回填未生效；Rust 正常回填并完成 Edit。同一用例在本机 Windows 与 Linux/macOS CI 上 Node 都生效。
+- runner 的临时目录为 8.3 短名（`C:\Users\RUNNER~1\...`）。推测是 TS 的读取状态键在短名与长名之间不一致，
+  但未取得 Node 侧日志，原因**未确认**。
+- CI run 36309417875 再次观测到：只要执行过一次 Bash，Node 之后对先前已读文件的 Edit 就报「File has not been read yet」。
+  本机验证：App 模式下 Node 不会因 Bash `cd` 改变文件工具的工作目录。因此「Bash 后工作目录变为长名路径」的推测不成立，
+  原因仍未确认。
+- Rust 按 realpath 记录读取状态，不受短名影响，不复制这一环境相关的失败。差分在短名临时目录下跳过，
+  待确认原因后再决定是否需要处理。

@@ -1,0 +1,369 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredAttachment {
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_path: Option<String>,
+    pub media_type: String,
+    pub total_bytes: u64,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Session {
+    #[serde(default)]
+    pub file_checkpoints: Vec<super::file_checkpoint::FileCheckpoint>,
+    #[serde(default)]
+    pub rewind_committed: Option<String>,
+    #[serde(default, skip_serializing)]
+    pub history: super::history::History,
+    #[serde(default)]
+    pub row_highwater: u64,
+    #[serde(skip)]
+    pub history_rewrite: bool,
+    #[serde(default)]
+    pub agent_profile: Option<super::subagent::Profile>,
+    #[serde(default)]
+    pub children: std::collections::BTreeMap<String, super::subagent::Task>,
+    #[serde(default)]
+    pub mailbox: Vec<Value>,
+    /// plan 审批后待追加的消息（退出 reminder / 用户反馈）；StepBoundary 写入历史并交给 loop。
+    #[serde(skip)]
+    pub plan_followups: Vec<Value>,
+    #[serde(default)]
+    pub goal: Option<super::goal::Goal>,
+    #[serde(default)]
+    pub skills: Option<super::skills::SkillCatalog>,
+    #[serde(default)]
+    pub shared_context: Option<super::shared_context::SharedContext>,
+    #[serde(default)]
+    pub legacy_shared_context: bool,
+    #[serde(default)]
+    pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub workspace_directory: Option<String>,
+    #[serde(default)]
+    pub trace_id: Option<String>,
+    #[serde(default)]
+    pub todos: Vec<super::todo::TodoItem>,
+    #[serde(default)]
+    pub todos_updated_at: u64,
+    #[serde(default)]
+    pub prompt_snapshot: Option<super::prompt::PromptSnapshot>,
+    #[serde(default)]
+    pub context: super::context::ContextState,
+    #[serde(skip)]
+    pub context_tokens: Option<usize>,
+    #[serde(skip)]
+    pub compact_instructions: Option<String>,
+    #[serde(skip)]
+    pub queued_now: Option<String>,
+    #[serde(skip)]
+    pub pending_acks: std::collections::BTreeMap<String, Value>,
+    #[serde(default = "legacy_mode")]
+    pub mode: String,
+    #[serde(default)]
+    pub plan_enabled: bool,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default = "interactive")]
+    pub task_type: String,
+    #[serde(default)]
+    pub archived_at: Option<u64>,
+    #[serde(default)]
+    pub archived: bool,
+    #[serde(default = "yes")]
+    pub listed: bool,
+    #[serde(default)]
+    pub attachments: std::collections::BTreeMap<String, StoredAttachment>,
+    #[serde(default)]
+    pub background: std::collections::BTreeMap<String, super::background::BackgroundTask>,
+    /// 已结算、尚未交给模型的工作流 run 完成通知（`{taskId, toolCallId, text, originMeta}`，
+    /// docs/specs/rust-dynamic-workflow.md M1）：会话空闲时作为后台结果轮注入。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub workflow_notices: Vec<Value>,
+    /// GUI「配置」已提交、尚未落行的设置轮（docs/specs/rust-v4-command-gaps.md
+    /// 「amendWorkflowRunSettings」）：会话忙时先入列，空闲时落行（早于 `deliver_workflow_notices`）。
+    /// 只存内存、不落库、`recover()` 清空——与 TS 的运行时命令队列同为进程内事实。
+    #[serde(skip)]
+    pub settings_turns: Vec<Value>,
+    /// 工作流 actor 会话的配置（`{identityPrompt, remoteTools, disallowed}`，docs/specs/rust-dynamic-workflow.md M2）：
+    /// 在场即走 actor 的系统提示词变体与工具面。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_actor: Option<Value>,
+    /// 恢复后的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：插在 `messages[位置]` 之前，只在本进程内
+    /// 进模型请求，不落库、不复制给 fork / 副屏 child（child 首轮自己判定）。
+    #[serde(skip)]
+    pub shell_notice: Option<(usize, Value)>,
+    /// V4 `workflowRuns` 状态键（宿主用 TS reduceWorkflowRunsState 归约进度事件，M3）：在场即进 state patch。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_runs: Option<Value>,
+    /// `workflowRuns` 的旧界裁剪版（宿主 clampWorkflowRunsForLegacy；与整键相同时缺席）：发给没有
+    /// `workflowRunDeltas` 能力的订阅者。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_runs_legacy: Option<Value>,
+    /// 动态工作流工具面已按需激活（v3.15.1 onDemand，TS SESSION_ENTRY_DYNAMIC_WORKFLOW_ACTIVATION）：
+    /// 只加不减，随会话落库，冷恢复沿用。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dynamic_workflow_activated: bool,
+    /// 群任务的会话级授权（v3.15.1 `permissionScope: "session"`，TS session.permission scope=session）：
+    /// 在场即以它代替项目规则判权，「始终允许」写回这里而不是项目规则；随会话落库。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoped_permission: Option<Value>,
+    /// V4 `workspaceHookAdmission` 软门禁状态（H2，宿主准入事件）：本进程运行期事实，不落库（TS 新 Runtime 重新上报）。
+    /// `Some(Null)` 表示清空提示条。
+    #[serde(skip)]
+    pub workspace_hook_admission: Option<Value>,
+    pub id: String,
+    pub workspace: String,
+    pub title: String,
+    pub title_source: String,
+    /// 标题 sidecar 的 seed 与尝试标记（内存态；重启不补跑，见 docs/specs/rust-session-title.md）。
+    #[serde(skip)]
+    pub title_seed: Option<super::session_title::TitleSeed>,
+    #[serde(skip)]
+    pub title_attempted: bool,
+    /// 本运行时上一次轮次的本地日期（TS `lastEmittedLocalDate`；冷加载即重置，与 TS resume 相同）。
+    #[serde(skip)]
+    pub last_local_date: Option<String>,
+    pub provider: String,
+    pub model: String,
+    pub reasoning_level: String,
+    #[serde(default)]
+    pub thought_levels: Vec<String>,
+    pub epoch: String,
+    pub seq: u64,
+    /// 已发布增量的内存日志，供带 base 的订阅续传；不持久化（冷启动后回落 snapshot）。
+    #[serde(skip)]
+    pub delta_log: super::delta_log::DeltaLog,
+    pub revision: u64,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub phase: String,
+    #[serde(default, skip_serializing)]
+    pub rows: Vec<Value>,
+    #[serde(default, skip_serializing)]
+    pub messages: Vec<Value>,
+    #[serde(skip)]
+    pub saved_rows: usize,
+    #[serde(skip)]
+    pub resident_bytes: Option<usize>,
+    #[serde(skip)]
+    pub saved_inputs: usize,
+    #[serde(skip)]
+    pub saved_responses: usize,
+    #[serde(skip)]
+    pub saved_messages: usize,
+    #[serde(skip)]
+    pub checkpoint_at: u64,
+    #[serde(skip)]
+    pub api_retry: Option<super::model::RetryState>,
+    pub usage: Value,
+    pub last_error: Option<Value>,
+    /// 本进程内最近一次运行的模型失败分类（工作流 actor 回合失败按它回报给 TS driver 分类，不落库）。
+    #[serde(skip)]
+    pub last_model_failure: Option<crate::model::ModelFailure>,
+    #[serde(default)]
+    pub creation_ack: Option<(String, Value)>,
+    #[serde(default)]
+    pub pending: Vec<Value>,
+    #[serde(skip)]
+    pub queue: Vec<Value>,
+    #[serde(default = "yes")]
+    pub auto_drain: bool,
+    #[serde(default = "queue_mode")]
+    pub followup_mode: String,
+    #[serde(skip)]
+    pub run_id: Option<String>,
+}
+pub(crate) fn queue_mode() -> String {
+    "queue".into()
+}
+pub(crate) fn legacy_mode() -> String {
+    "build".into()
+}
+pub(crate) fn interactive() -> String {
+    "interactive".into()
+}
+fn yes() -> bool {
+    true
+}
+
+impl Session {
+    pub fn active_context_tokens(&mut self) -> usize {
+        *self.context_tokens.get_or_insert_with(|| {
+            super::context::estimate(&self.messages[self.context.offset..])
+                + super::context::estimate(&super::context::with_summary(
+                    self.context.summary.as_deref(),
+                    &[],
+                ))
+        })
+    }
+    pub fn append_message(&mut self, message: Value) {
+        // canonical 消息只有 actor 追加；估算随追加增量更新，避免长历史每轮重复扫描。
+        if let Some(tokens) = &mut self.context_tokens {
+            *tokens += super::context::estimate(std::slice::from_ref(&message));
+        }
+        self.messages.push(message);
+    }
+    pub fn ended(&self) -> bool {
+        self.phase.starts_with("completed")
+    }
+    /// 会话是否已有标题来源。TS `mapSessionInfo` 直发会话记录里的 `titleSource`：新建的会话在 Node 侧
+    /// 该字段还没设置（`input.session?.titleSource` → undefined，序列化后整个键消失）。Rust 的内部初值
+    /// `default`（`session_new.rs`）表示同一状态，读口要还原成「不发送」，见 `session_read.rs`。
+    pub fn titled(&self) -> bool {
+        self.title_source != "default"
+    }
+    fn projected_title_source(&self) -> &str {
+        // TS stored 身份有 first_input，V4 只有三值；与 product-projection 统一映射，避免冷恢复帧被拒绝。
+        if self.title_source == "first_input" {
+            "generated"
+        } else {
+            &self.title_source
+        }
+    }
+    pub fn running(&self) -> bool {
+        self.run_id.is_some()
+    }
+    pub fn current_rows_start(&self) -> usize {
+        self.rows
+            .iter()
+            .rposition(|row| row["kind"] == "turnHeader")
+            .unwrap_or(0)
+    }
+    pub fn row(&mut self, kind: &str, turn: &str, entity: &str, now: u64) -> Value {
+        self.row_highwater = self.row_highwater.max(
+            self.rows
+                .last()
+                .and_then(|r| r["rowId"].as_u64())
+                .unwrap_or(0),
+        ) + 1;
+        super::session_recovery::row_base(json!({"rowId":self.row_highwater,
+            "turnId":turn,"productTurnId":turn,"entityId":entity,"kind":kind,"createdAt":now,"createdAtSeq":self.seq+1}))
+    }
+    pub fn patch(&self) -> Value {
+        let mut patch = json!({"revision":self.revision,
+            "control":{"phase":self.phase,"sessionEnded":self.ended(),"canStop":self.running(),
+                "stopState":if self.running(){"stoppable"}else{"idle"},"stopTargetKind":if self.running(){"mixed"}else{"unknown"},
+                "activeWorks":self.run_id.as_ref().map(|id| vec![json!({"kind":"primaryTurn","foregroundExecutionId":id,"startedAt":self.updated_at})]).unwrap_or_default(),
+                "lastError":self.last_error,"apiRetry":self.api_retry},
+            "availability":{"fork":if self.history.responses.is_empty(){json!({"allowed":false,"reasonCode":"guard.forkTargetNotStable"})}else{json!({"allowed":true})},"compact":{"allowed":true},"switchModelConfig":{"allowed":true},
+                "setFollowupMode":{"allowed":true},"queueEdit":{"allowed":true},"sendQueuedNow":if self.queued_now.is_none(){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":"guard.queuePromotionBusy"})},
+                "pauseGoal":if self.goal.as_ref().is_some_and(|g|g.active()){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":if self.goal.is_none(){"noGoalToPause"}else{"goalNotActive"}})},
+                "resumeGoal":if self.goal.as_ref().is_some_and(|g|matches!(g.status.as_str(),"paused"|"failed"|"notSatisfied")) && !self.running(){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":if self.goal.is_none(){"noGoalToResume"}else{"goalNotPaused"}})}},
+            "inputRouting":{"mode":if self.running(){if self.followup_mode=="guide"{"guide"}else{"enqueue"}}else if !self.auto_drain && !self.queue.is_empty(){"choice"}else{"startNow"}},
+            "meta":{"title":self.title,"titleSource":self.projected_title_source()},
+            "config":{"provider":self.provider,"model":self.model,"thought":self.reasoning_level,"thoughtLevels":if self.thought_levels.is_empty(){vec![self.reasoning_level.clone()]}else{self.thought_levels.clone()},
+                "modelSelection":{"providerId":self.provider,"modelId":self.model,"options":{"reasoningLevel":self.reasoning_level}},"followupMode":self.followup_mode,"mode":self.mode,"planEnabled":self.plan_enabled},
+            "usage":self.usage,"queue":{"items":self.queue.iter().filter(|q|q["delivery"]["admitted"]!="startNow").collect::<Vec<_>>(),"autoDrain":self.auto_drain},
+            "pendingInteractions":self.pending,"pendingCommands":[],"backgroundWorks":self.background.values().filter(|t|t.status=="running").map(|t|t.projection()).collect::<Vec<_>>(),"goal":self.goal.as_ref().map(|g|g.projection()),"plan":super::todo::plan(&self.todos,self.todos_updated_at)});
+        if self.provider.is_empty() || self.model.is_empty() {
+            patch["config"]
+                .as_object_mut()
+                .unwrap()
+                .remove("modelSelection");
+        } else if self.reasoning_level.is_empty() {
+            // 修复：导入的旧会话可能没有思考深度；App schema 要求 reasoningLevel 非空，
+            // 空值会让整份快照被拒。无深度时与 TS 一样省略 options，thoughtLevels 取默认空表。
+            patch["config"]["modelSelection"]
+                .as_object_mut()
+                .unwrap()
+                .remove("options");
+            if self.thought_levels.is_empty() {
+                patch["config"]["thoughtLevels"] = json!([]);
+            }
+        }
+        if let Some(context) = &self.shared_context {
+            patch["sharedContextImport"] = context.projection(&self.title);
+        } else if self.legacy_shared_context {
+            patch["sharedContextImport"] = json!({"title":self.title});
+        }
+        super::subagent::projection(self, &mut patch);
+        if let Some(runs) = &self.workflow_runs {
+            patch["workflowRuns"] = runs.clone();
+        }
+        if let Some(admission) = &self.workspace_hook_admission {
+            patch["workspaceHookAdmission"] = admission.clone();
+        }
+        patch
+    }
+    pub fn snapshot(&self) -> Value {
+        let mut value = self.patch();
+        let tail = self.rows.len().saturating_sub(60);
+        value["protocolVersion"] = 1.into();
+        value["sessionId"] = self.id.clone().into();
+        value["logEpoch"] = self.epoch.clone().into();
+        value["seq"] = self.seq.into();
+        value["rows"] = json!({"window":self.rows[tail..],"totalCount":self.rows.len(),"firstRowId":self.rows.first().map(|v|&v["rowId"])});
+        value
+    }
+    pub fn summary(&self) -> Value {
+        let mut summary = json!({"sessionId":self.id,"workspaceId":self.workspace,"title":self.title,"titleSource":self.projected_title_source(),
+            "phase":self.phase,"sessionEnded":self.ended(),"hasBackgroundWork":self.background.values().any(|t|t.status=="running"),"lastActivityAt":self.updated_at,"createdAt":self.created_at,
+            "pendingInteractionSummary":{"permissionCount":self.pending.iter().filter(|p|p["kind"]=="permission").count(),"userInputCount":self.pending.iter().filter(|p|p["kind"]=="userInput").count()}});
+        if let Some(p) = self.pending.first() {
+            let mut interaction = json!({"interactionId":p["interactionId"],"kind":p["kind"]});
+            if let Some(name) = p["payload"].get("toolName") {
+                interaction["toolName"] = name.clone();
+            }
+            if let Some(a) = p.get("autoResolution") {
+                interaction["autoResolution"] = a.clone();
+            }
+            summary["pendingInteraction"] = interaction;
+        }
+        if let Some(parent) = &self.parent_id {
+            summary["parentSessionId"] = parent.clone().into();
+        }
+        if let Some(goal) = &self.goal {
+            summary["goalStatus"] = goal.status.clone().into();
+        }
+        if self.children.values().any(|t| t.running()) {
+            summary["hasBackgroundWork"] = true.into();
+        }
+        summary
+    }
+    pub fn recover(&mut self, epoch: String, now: u64) {
+        for task in self.children.values_mut() {
+            if task.running() {
+                task.status = "lost".into();
+                task.ended_at = Some(now);
+                task.notified = true;
+                task.output =
+                    "Child execution was interrupted by runtime exit; it was not replayed.".into();
+            }
+        }
+        if let Some(goal) = &mut self.goal {
+            // 重启只结算最后确认的活跃时间，不把进程离线期间算作模型工作。
+            goal.pause(goal.last_seen.unwrap_or(now));
+        }
+        if let Some(context) = &mut self.shared_context {
+            context.release(None);
+        }
+        self.epoch = epoch;
+        self.seq = 0;
+        self.run_id = None;
+        self.api_retry = None;
+        self.pending.clear();
+        self.queue.clear();
+        self.settings_turns.clear();
+        for task in self.background.values_mut() {
+            if task.status == "running" {
+                task.status = "interrupted".into();
+                task.ended_at = Some(now);
+            }
+        }
+        if self.phase == "running" || self.phase == "prewarming" {
+            self.phase = "completedInterrupted".into();
+            self.auto_drain = false;
+            self.finish_rows("interrupted", now);
+            // 崩溃可能发生于 assistant tool_calls 已保存但 tool result 尚未返回；
+            // 补齐取消结果只用于模型语法恢复，绝不能重新执行有副作用的工具。
+            self.close_unfinished_tools();
+        }
+        self.recover_subagent_rows();
+    }
+}
+

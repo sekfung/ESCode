@@ -1,7 +1,7 @@
 import {
   TID_CHAT_SUMMARY_PANEL,
   TID_V4_SUBAGENT_OPEN_SIDE_PANE,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import { waitForUpstreamRequest } from "../../../helpers/conversation-session-network.js";
 import {

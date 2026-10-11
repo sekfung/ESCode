@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FeedbackTicketDetail, FeedbackTicketSummary } from "@zcode/shared";
-import type { FeedbackUploadProgress, IFeedbackService } from "@zcode/services";
+import type { FeedbackTicketDetail, FeedbackTicketSummary } from "@escode/shared";
+import type { FeedbackUploadProgress, IFeedbackService } from "@escode/services";
 import {
   cancelFeedbackCreateSubmissionJob,
   dismissFeedbackSubmissionJob,

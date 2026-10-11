@@ -7,6 +7,25 @@ const SUPPORTED_DESKTOP_PLATFORM_KEYS = [
   "win32-x64",
 ];
 
+// @serialport/bindings-cpp 13.x 随包发布的 N-API prebuild 目录；N-API 与 Electron ABI 无关，无需 rebuild。
+const SERIALPORT_PREBUILD_KEYS = [
+  "android-arm",
+  "android-arm64",
+  "darwin-x64+arm64",
+  "linux-arm",
+  "linux-arm64",
+  "linux-x64",
+  "win32-arm64",
+  "win32-ia32",
+  "win32-x64",
+];
+
+export function resolveSerialportPrebuildKey(targetPlatformKey) {
+  assertSupportedTargetPlatformKey(targetPlatformKey);
+  // macOS prebuild 是 x64+arm64 universal 单目录。
+  return targetPlatformKey.startsWith("darwin-") ? "darwin-x64+arm64" : targetPlatformKey;
+}
+
 function assertSupportedTargetPlatformKey(targetPlatformKey) {
   if (!SUPPORTED_DESKTOP_PLATFORM_KEYS.includes(targetPlatformKey)) {
     throw new Error(`不支持的桌面目标平台: ${targetPlatformKey}`);
@@ -29,6 +48,12 @@ export function createDesktopNativePackagePrunePatterns(targetPlatformKey) {
     ...SUPPORTED_DESKTOP_PLATFORM_KEYS.filter((key) => key !== targetPlatformKey).map(
       (key) => `!node_modules/node-pty/prebuilds/${key}/**`,
     ),
+    // 串口原生模块只保留目标平台 prebuild；桌面 Linux 包面向 glibc，musl 变体不进安装包。
+    ...SERIALPORT_PREBUILD_KEYS.filter(
+      (key) => key !== resolveSerialportPrebuildKey(targetPlatformKey),
+    ).map((key) => `!node_modules/@serialport/bindings-cpp/prebuilds/${key}/**`),
+    "!node_modules/@serialport/bindings-cpp/prebuilds/*/*.musl.node",
+    "!node_modules/@serialport/bindings-cpp/build/**",
   ];
 }
 
@@ -88,6 +113,16 @@ export function findDesktopNativePackageViolations(entries, targetPlatformKey) {
     const nodePtyPrebuildMatch = /^\/node_modules\/node-pty\/prebuilds\/([^/]+)/.exec(path);
     if (nodePtyPrebuildMatch && nodePtyPrebuildMatch[1] !== targetPlatformKey) {
       violations.push(`node-pty 包含非目标平台 prebuild: ${path}`);
+      continue;
+    }
+
+    const serialportPrebuildMatch =
+      /^\/node_modules\/@serialport\/bindings-cpp\/prebuilds\/([^/]+)/.exec(path);
+    if (
+      serialportPrebuildMatch &&
+      serialportPrebuildMatch[1] !== resolveSerialportPrebuildKey(targetPlatformKey)
+    ) {
+      violations.push(`serialport 包含非目标平台 prebuild: ${path}`);
       continue;
     }
 

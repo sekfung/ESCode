@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type {
-  ZCodeAutomationBotDeliveryTarget,
-  ZCodeStreamEvent,
-} from "@zcode/shared";
-import { AutomationRepo, setDataBaseDir } from "@zcode/services/node";
+  ESCodeAutomationBotDeliveryTarget,
+  ESCodeStreamEvent,
+} from "@escode/shared";
+import { AutomationRepo, setDataBaseDir } from "@escode/services/node";
 
 import {
   createBotsServiceHarness,
@@ -63,7 +63,7 @@ describe("Bot automation terminal result delivery E2E", () => {
       "Bot prompt dispatch",
     );
     const creationPrompt = harness.sendPromptCalls[0] as {
-      botDeliveryTarget?: ZCodeAutomationBotDeliveryTarget;
+      botDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
     };
     expect(creationPrompt.botDeliveryTarget).toEqual({
       provider: "feishu",
@@ -72,7 +72,7 @@ describe("Bot automation terminal result delivery E2E", () => {
       chatType: "private",
     });
 
-    dataDir = await mkdtemp(join(tmpdir(), "zcode-bot-automation-e2e-"));
+    dataDir = await mkdtemp(join(tmpdir(), "escode-bot-automation-e2e-"));
     setDataBaseDir(dataDir);
     repo = new AutomationRepo();
     const automation = await repo.create(
@@ -154,7 +154,7 @@ describe("Bot automation terminal result delivery E2E", () => {
   });
 });
 
-function streamEvent(event: ZCodeStreamEvent): ZCodeStreamEvent {
+function streamEvent(event: ESCodeStreamEvent): ESCodeStreamEvent {
   return event;
 }
 

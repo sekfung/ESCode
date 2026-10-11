@@ -1,14 +1,14 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { ZCodeTaskPendingInteraction } from "@zcode/shared";
-import { ZCodeIntlProvider } from "../src/i18n/IntlProvider.js";
+import type { ESCodeTaskPendingInteraction } from "@escode/shared";
+import { ESCodeIntlProvider } from "../src/i18n/IntlProvider.js";
 import {
   TaskInteractionBadge,
   getTaskInteractionBadgePresentation,
 } from "../src/TaskInteractionBadge.js";
 
-const countdown: ZCodeTaskPendingInteraction = {
+const countdown: ESCodeTaskPendingInteraction = {
   interactionId: "ask-1",
   kind: "userInput",
   toolName: "AskUserQuestion",
@@ -106,7 +106,7 @@ describe("TaskInteractionBadge", () => {
     const render = (locale: "zh-CN" | "en-US") =>
       renderToStaticMarkup(
         createElement(
-          ZCodeIntlProvider,
+          ESCodeIntlProvider,
           { initialLocale: locale },
           createElement(TaskInteractionBadge, {
             interaction: countdown,

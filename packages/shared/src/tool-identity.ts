@@ -1,4 +1,4 @@
-export const ZCODE_KNOWN_TOOL_NAMES = [
+export const ESCODE_KNOWN_TOOL_NAMES = [
   "Read",
   "Write",
   "Edit",
@@ -39,9 +39,9 @@ export const ZCODE_KNOWN_TOOL_NAMES = [
   "submit_result",
 ] as const;
 
-export type ZCodeKnownToolName = (typeof ZCODE_KNOWN_TOOL_NAMES)[number];
+export type ESCodeKnownToolName = (typeof ESCODE_KNOWN_TOOL_NAMES)[number];
 
-export type ZCodeToolFamily =
+export type ESCodeToolFamily =
   | "file-read"
   | "file-write"
   | "shell"
@@ -57,7 +57,7 @@ export type ZCodeToolFamily =
   | "node-repl"
   | "workflow";
 
-const TOOL_FAMILY_BY_NAME: Record<ZCodeKnownToolName, ZCodeToolFamily> = {
+const TOOL_FAMILY_BY_NAME: Record<ESCodeKnownToolName, ESCodeToolFamily> = {
   Read: "file-read",
   Write: "file-write",
   Edit: "file-write",
@@ -95,13 +95,13 @@ const TOOL_FAMILY_BY_NAME: Record<ZCodeKnownToolName, ZCodeToolFamily> = {
   submit_result: "workflow",
 };
 
-const TOOL_NAME_BY_LOWER = new Map<string, ZCodeKnownToolName>(
-  ZCODE_KNOWN_TOOL_NAMES.map((toolName) => [toolName.toLowerCase(), toolName]),
+const TOOL_NAME_BY_LOWER = new Map<string, ESCodeKnownToolName>(
+  ESCODE_KNOWN_TOOL_NAMES.map((toolName) => [toolName.toLowerCase(), toolName]),
 );
 
-export function normalizeZCodeToolName(
+export function normalizeESCodeToolName(
   value: string | null | undefined,
-): ZCodeKnownToolName | null {
+): ESCodeKnownToolName | null {
   const normalized = value?.trim();
   if (!normalized) {
     return null;
@@ -110,20 +110,20 @@ export function normalizeZCodeToolName(
   return TOOL_NAME_BY_LOWER.get(normalized.toLowerCase()) ?? null;
 }
 
-export function getZCodeToolFamilyForName(
+export function getESCodeToolFamilyForName(
   value: string | null | undefined,
-): ZCodeToolFamily | null {
-  const toolName = normalizeZCodeToolName(value);
+): ESCodeToolFamily | null {
+  const toolName = normalizeESCodeToolName(value);
   return toolName ? TOOL_FAMILY_BY_NAME[toolName] : null;
 }
 
-export function isZCodeToolFamily(
+export function isESCodeToolFamily(
   value: string | null | undefined,
-  family: ZCodeToolFamily,
+  family: ESCodeToolFamily,
 ): boolean {
-  return getZCodeToolFamilyForName(value) === family;
+  return getESCodeToolFamilyForName(value) === family;
 }
 
-export function isZCodeFileContentWriteToolName(value: string | null | undefined): boolean {
-  return normalizeZCodeToolName(value) === "Write";
+export function isESCodeFileContentWriteToolName(value: string | null | undefined): boolean {
+  return normalizeESCodeToolName(value) === "Write";
 }

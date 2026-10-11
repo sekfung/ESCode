@@ -7,7 +7,7 @@ import {
   InternalChannels,
   PlatformChannels,
   type RemoteTarget,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { createRemoteWorkspaceSessionManager } from "../src/main/desktopRemoteSessions.js";
 
 const { browserWindowMock, channels } = vi.hoisted(() => {

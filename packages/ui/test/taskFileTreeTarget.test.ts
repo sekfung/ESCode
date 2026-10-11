@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import type { WorkspaceTabState } from "../src/store/tabStore.js";
 import {
   resolveTaskFileTreeTarget,
   resolveTaskFileTreeTargetFromTabs,
 } from "../src/lib/taskFileTreeTarget.js";
 
-function task(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function task(overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     taskId: "task-1",
     workspacePath: "/work/repo",
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
-  } as ZCodeTaskMeta;
+  } as ESCodeTaskMeta;
 }
 
 function tab(overrides: Partial<WorkspaceTabState> = {}): WorkspaceTabState {

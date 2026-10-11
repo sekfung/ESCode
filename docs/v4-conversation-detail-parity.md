@@ -1,6 +1,6 @@
 # v4 Conversation Detail Parity
 
-本文记录 v4 会话渲染在重构后需要补齐的 z-code-2 细节回归。范围只限 renderer /
+本文记录 v4 会话渲染在重构后需要补齐的 escode-2 细节回归。范围只限 renderer /
 adapter 层，不改变 protocol、runtime、host process、relay 或 session stream 语义。
 
 ## P0 行为合同
@@ -30,7 +30,7 @@ ToolCallRow(status=error)
 
 ### 文件链接右侧详情
 
-assistant markdown 中的本地文件链接继续走旧版 z-code-2 的宿主分流：
+assistant markdown 中的本地文件链接继续走旧版 escode-2 的宿主分流：
 
 ```text
 MessageResponse file link
@@ -61,7 +61,7 @@ Windows 目录仍使用 `shell.openPath`；macOS Finder、WSL UNC 分支和手�
 
 ## P1 审计清单
 
-以下细节来自 z-code-2 对照，本次只登记，不在 P0 中实现：
+以下细节来自 escode-2 对照，本次只登记，不在 P0 中实现：
 
 - Assistant Preview Card 的 file target 预览优先级仍需单独审计，避免目录卡片绕过 shell `stat` 分流。
 - 旧版低噪音 tool diagnostics 可用于排查“任务结束但工具仍显示运行中”。

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PlatformChannels } from "@zcode/shared";
+import { PlatformChannels } from "@escode/shared";
 
 const electronMocks = vi.hoisted(() => ({
   appShow: vi.fn(),
@@ -82,10 +82,10 @@ describe("desktop second-instance workspace deep link routing", () => {
     targetWindow.webContents.send.mockClear();
     const handled = handleSecondInstanceWorkspaceRequest({
       additionalData: createDeepLinkSingleInstanceData([
-        "ZCode",
+        "ESCode",
         buildWorkspaceOpenUrl(workspacePath),
       ]),
-      argv: ["ZCode"],
+      argv: ["ESCode"],
       focusForceUpdateGateWindow: vi.fn(),
       forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
@@ -124,11 +124,11 @@ describe("desktop second-instance workspace deep link routing", () => {
 
     const handled = handleSecondInstanceWorkspaceRequest({
       additionalData: createDeepLinkSingleInstanceData([
-        "ZCode",
+        "ESCode",
         "--open-workspace",
         workspacePath,
       ]),
-      argv: ["ZCode"],
+      argv: ["ESCode"],
       focusForceUpdateGateWindow: vi.fn(),
       forceUpdateBlocked: false,
       handleDeepLink: vi.fn(() => false),
@@ -160,10 +160,10 @@ describe("desktop second-instance workspace deep link routing", () => {
 
     const handled = handleSecondInstanceWorkspaceRequest({
       additionalData: createDeepLinkSingleInstanceData([
-        "ZCode",
+        "ESCode",
         buildWorkspaceOpenUrl(workspacePath),
       ]),
-      argv: ["ZCode"],
+      argv: ["ESCode"],
       focusForceUpdateGateWindow: vi.fn(),
       forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
@@ -201,10 +201,10 @@ describe("desktop second-instance workspace deep link routing", () => {
 
     const handled = handleSecondInstanceWorkspaceRequest({
       additionalData: createDeepLinkSingleInstanceData([
-        "ZCode",
+        "ESCode",
         buildWorkspaceOpenUrl("\\\\attacker\\share"),
       ]),
-      argv: ["ZCode"],
+      argv: ["ESCode"],
       focusForceUpdateGateWindow: vi.fn(),
       forceUpdateBlocked: false,
       handleDeepLink: (url, options) =>
@@ -247,7 +247,7 @@ async function importHarness() {
 }
 
 function createTempWorkspace(): string {
-  const dir = mkdtempSync(join(tmpdir(), "zcode-second-instance-deep-link-"));
+  const dir = mkdtempSync(join(tmpdir(), "escode-second-instance-deep-link-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -267,5 +267,5 @@ function createMockWindow(webContentsId: number) {
 }
 
 function buildWorkspaceOpenUrl(workspacePath: string): string {
-  return `zcode://workspace/open?path=${encodeURIComponent(workspacePath)}`;
+  return `escode://workspace/open?path=${encodeURIComponent(workspacePath)}`;
 }

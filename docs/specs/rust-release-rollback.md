@@ -1,0 +1,152 @@
+# Rust runtime 发布与回退（WP10 前置）
+
+2026-09-24。本文定义 runtime 切换面、回退步骤与验收。**2026-10-03 门槛全部通过、经用户决定，默认已切换为 Rust runtime**（见文末）。
+
+## 切换面
+
+App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode-agent/escodeAgentProcessManager.ts`）：
+
+| 变量                           | 作用                                                                                                                                                                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ESCODE_AGENT_SERVER_COMMAND`   | Agent 可执行文件；指向 Rust 二进制即启用 Rust runtime                                                                                                                                                                                  |
+| `ESCODE_AGENT_SERVER_RUNTIME`   | `escode-cli-rust`：有 `ESCODE_AGENT_SERVER_COMMAND` 时用该命令，否则用随包 `resources/glm/escode-cli-rust[.exe]`（缺失则回退 Node 并告警）；均附加 `--cwd <workspacePath>` 与 process 存储握手。`node`：显式使用 Node（回退）。其他值报错 |
+| `ESCODE_AGENT_SERVER_ARGS_JSON` | 附加参数；Rust 模式下不允许自带 `--cwd`（Host 注入）                                                                                                                                                                                   |
+
+未设置这些变量（或设为 `node`）时，Host 启动随包分发的 Node CLI——这就是回退路径。随包 Rust 二进制由 `ESCODE_BUNDLE_RUST_AGENT=1` 的打包流程产出（见 rust-packaging.md），默认不随包。
+
+## 回退步骤（可执行）
+
+1. 移除/清空 `ESCODE_AGENT_SERVER_RUNTIME`（以及只想用 Node 时的 `ESCODE_AGENT_SERVER_COMMAND`）；
+2. 重启 App（或重建窗口的 Local Host）；
+3. 确认 Agent 进程是 Node CLI（`escode-agent` 日志中的 runtime 事件）。
+
+回退**不需要**数据迁移：Rust runtime 只读 TS 存储（见下），Node 继续使用原有 `ts.sqlite`。
+
+## 数据边界与已知限制
+
+- Rust 导入 TS 数据时只读源库并以备份方式复制（`crates/state/src/legacy_storage.rs`），源库与 TS 附件目录逐字节不变，因此回退无损。
+- Rust 自己的会话写在 `<dataDir>/rust-sessions.sqlite`。**回退到 Node 后这些会话在 Node 侧不可见**（Node 不读该库）；数据仍在磁盘上，重新启用 Rust 即可再次打开。2026-09-26 用户确认：该单向模型满足发布门槛，不实现 Rust→TS 反向导出；切换前的历史回退无损。
+- workspace 独占锁（`workspace-<hash>.lock`）在进程退出后释放；回退或重启后另一 runtime 可立即接管同一 workspace。
+- 同 data dir 的并发导入/写入已修复：导入事务改为 IMMEDIATE，避免 DEFERRED 升级失败（SQLITE_BUSY_SNAPSHOT）。
+
+## 功能缺口范围（2026-09-25 用户决定）
+
+| 缺口                                       | 决定                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| 动态工作流                                 | 已实现（2026-10，TS 引擎跑在工作流宿主、Rust 驱动；见 rust-dynamic-workflow.md）              |
+| Cron 工具（CronCreate/List/Update/Delete） | 实现，与 Node 对齐                                                                            |
+| ReadSessionContext                         | 完整对齐：跨 workspace 查 Rust 库，未导入的会话只读回落 TS 库；注入 `#sess_*` 引用提醒        |
+| output style / 自定义 system               | 无需实现：App stdio 链路没有入口（插件 `outputStyles` 仅诊断，`systemPrompt` 只供工作流使用） |
+| 自定义斜杠命令                             | 已实现，与 Node 差分一致（rust-custom-commands.md）                                           |
+| 主代理记忆索引 / 提取                      | 已实现，与 Node 差分一致（rust-project-memory.md）                                            |
+| MCP OAuth、媒体 Read（大图缩放、PDF 等）   | 实现                                                                                          |
+
+## 发布门槛（全部通过才切换默认 runtime）
+
+| 维度     | 验收方式                                                                           | 现状                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 功能对齐 | App 集成套件 + 各能力差分语料（权限、Bash、代理、prompt 等）                       | 三平台 CI 243 用例通过、Edit 宽松匹配已与 TS 差分对齐（rust-edit-matching.md，2026-09-25）；模型可见工具面（名称/顺序/描述/embedded search 与 Bash prelude）已与 Node 请求逐字对齐（rust-tool-surface.md）；WebFetch 已实现并与 Node 实网差分一致（rust-webfetch.md）；ReadSessionContext（含跨 workspace、TS 库回落、`#sess_*` 提醒、`sess_` 会话 id）已实现并与 Node 差分一致（rust-read-session-context.md）；Cron 工具与自动化轮守卫已实现并与 Node 差分一致（rust-cron.md）；自定义斜杠命令（目录、参数与 shell 展开、插件命令、失败 ACK）已实现并与 Node 差分一致（rust-custom-commands.md）；项目记忆（Memory 段、MEMORY.md 索引、记忆写入放行与来源补写、轮次后自动提取）已实现并与 Node 差分一致（rust-project-memory.md）；output style / 自定义 system 在 App 链路无入口，无需实现；媒体 Read（图片预算压缩、PDF 原生与页渲染、视频）、工具结果媒体投影、附件大图缩放与来源路径已实现并与 Node 差分一致（rust-media-read.md 第 1–4 期）；MCP 工具结果格式与图片结果（含超预算图片 artifact）已对齐（rust-mcp-parity.md 第 1–2 期）；会话标题与 Goal 摘要标题（`titleFromInput` 公式、辅助模型 sidecar、`/goal` 即时生成与兜底摘要、`custom` 优先与首条输入回退校验）已实现并与 Node 差分一致（rust-session-title.md，2026-09-26）；WebSearch（provider-native 搜索，仅声明 `supportsNativeWebSearch` 的 Anthropic 模型）已实现并与 Node 差分一致（rust-websearch.md）；MCP OAuth 授权码 + PKCE 已实现并与 Node 差分一致（授权、跨 runtime 凭据复用、refresh、invalid_grant；rust-mcp-oauth.md，2026-09-26），client_credentials 已实现并与 Node 差分一致，官方 MCP（http 身份头、stdio `_meta`）已与 Node 差分一致；**仍缺**：浏览器截图压缩（rust-mcp-parity.md 第 4 期，依赖未提供的浏览器工具）；跨日 reminder 已实现（rust-date-change.md）；差分中新发现：官方插件 seed 已实现并与 Node 双向字节一致（rust-official-plugin-seed.md）；新会话 system prompt 的 Chat 合并与 Shell 名称已对齐（rust-request-context.md）；工作流只读查询已经工作流宿主应答（`crates/core/src/app/engine_requests.rs:125-133`，2026-10-12 复查修正此前「按用户决定声明 unsupported」的表述），其余缺口的范围见下节 |
+| 性能     | 首段延迟、会话加载、空闲驻留、大历史查询（见 rust-runtime-performance.md）         | 真实模型服务（自建 DeepSeek 与公网供应商）、长历史重开均已测，见 rust-perf-2026-09-25-real-provider；三平台原生 release 基准已由 CI `bench` job 实测（run 36237407731）：Linux/macOS/Windows 上 Rust 启动 8/28/114ms vs Node 990/1310/1604ms，空闲内存 12.7/11.5/8.6MiB vs 362/401/264MiB（rust-runtime-performance.md）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 数据迁移 | TS 导入用例 + 源库字节不变 + 大库实测 + 真实 runtime 产出的数据 + 真实用户数据演练 | 合成大库、真实 Node runtime 写出的会话均通过；**本机真实用户数据只读演练（3 会话）与 Node 逐会话一致**，演练发现并修复 4 处导入差异；其他机器/更大真实库需用 `escode-cli-rust-real-data-rehearsal.test.ts` 复核                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 跨平台   | 三平台各自构建并跑同一套件                                                         | **Windows（MSVC）/ macOS（arm64）/ Linux CI 全部通过**；6 目标 release 与 4 个安装包构建通过（rust-ci.md）；macOS/Linux 安装包未真机运行                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 发布回退 | 本文两条自动化用例 + 回退步骤演练                                                  | 用例通过；安装包内置 Rust 与 Node 两种 runtime 已在产物中核实；回退后 Rust 期会话在 Node 侧不可见，已由用户确认可接受（不做反向导出）；未做真实发布演练                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+### 2026-10-03 功能对齐更新
+
+- 动态工作流：CreateWorkflow / actor / Resume / Amend / 升级问答 / `/workflow` / run 查询、`workflowRuns` 投影（键级增量与旧界裁剪）、
+  模型失败分类与进程级并发治理器均已与 Node 差分一致（rust-dynamic-workflow.md）。
+- Hooks：用户 / 插件 hooks 七个事件、`hookInvocation` 行、PermissionRequest 竞速、工作区 hooks 软门禁 / 审核 / 信任授权、
+  mailbox 内部 hooks 均已与 Node 差分一致（rust-hooks.md）。
+- Browser / Computer Use 经 `node_repl` 实现（rust-browser-use.md）；遥测事实、本地 TTFT、用量统计、`computer-use/operation-event`
+  已对齐；`v4/cua/permission-observation` 在当前产品不可达（rust-parity-remaining.md）。
+- 已知残余差异各自记录在对应 spec 的「已知差异」节，均不改变协议形状。
+
+### 2026-10-03 跨平台真机与发布回退验收（GitHub CI）
+
+- 三平台测试（rust-runtime-ci run 37097969881，提交 1c6857c）：Linux / Windows（MSVC）/ macOS（arm64）的 cargo 全工作区测试与
+  App 集成差分套件全部通过。期间修复：Linux 上目录项顺序（libuv 按字节序排序）、工作流分析语料行尾、tool-parity 基准表、
+  runtime_consistency 模拟工具注册表；工作流恢复用例改为不依赖核数（3 核 runner 上并发天花板为 1）。
+- 安装包真机演练（release 工作流 `installed` 作业）：Windows x64、macOS arm64、macOS x64（原生 Intel runner
+  `macos-15-intel`）、Linux x64 上安装真实安装包（NSIS 静默 / dmg / deb），确认应用能启动并持续运行，再用包内 Node 与 Rust
+  runtime 在同一数据目录上走 Node → Rust → 回退 Node：Rust 读到 Node 写的会话并能继续对话，TS 源库逐字节不变，回退后
+  Node 原会话完好且可继续（`escode-cli-rust-installed.test.ts`）。
+- 真实发布（标签 `v3.14.0-rust-rc.1`，release run 37100036941）：6 个 Rust runtime 目标与 4 个平台安装包构建、四平台演练全部
+  通过后创建**草稿** Release（21 个资产）；从 Release 下载 6 个 Rust runtime 压缩包，sha256 全部一致。资产名比对因 GitHub
+  把空格换成 "." 误报，已修正比对规则。
+
+至此功能对齐、性能、数据迁移、跨平台与发布回退五项门槛均有自动化验收记录。其他机器上更大真实库的迁移复核可用
+`escode-cli-rust-real-data-rehearsal.test.ts` 继续补充。
+
+### 2026-10-03 切换默认 runtime（用户决定）
+
+- 桌面端 `resolveDefaultESCodeAgentCommand`：未设置 `ESCODE_AGENT_SERVER_RUNTIME`、没有自定义命令且不在 monorepo 开发态时，
+  默认用随包 `resources/glm/escode-cli-rust`；找不到二进制或 Rust 就绪前失败即回退包内 Node runtime（同一 manager 内
+  记住失败）。开发态与自定义命令保持原 Node 语义。
+- 打包默认随包 Rust runtime（`ESCODE_BUNDLE_RUST_AGENT=0` 可关闭，此时安装包只有 Node，桌面端自动用 Node）。
+- 回退：设置 `ESCODE_AGENT_SERVER_RUNTIME=node` 后重启 App；数据边界不变（Rust 只读 TS 库，回退后 Rust 期会话在
+  Node 侧不可见，已由用户确认可接受）。
+- 草稿 Release `v3.14.0-rust-rc.1` 保留为草稿（用户决定），未公开。
+
+### 2026-10-10 发布回退复验（对照 ESCode-rs 补齐六项之后）
+
+`-p` 无头模式、断流恢复、重试原因码、日志保留、Bash 解析对齐、客户端 / 归因头合入后（提交 5b78d41），重新复验：
+
+- rust-runtime-ci run 37789222331：checks 与三平台 test / bench 全部通过。
+- release 工作流 run 38018557841（workflow_dispatch，不发布）：6 个 Rust runtime 目标（含 x86_64 / aarch64 MSVC）、
+  4 个平台安装包、四平台安装包 Node → Rust → Node 演练全部通过；`publish GitHub Release` 按设计跳过。
+
+默认 runtime 维持 Rust。
+
+补充硬性要求：发布验收必须用 MSVC 目标构建——已由 GitHub CI 与 release 工作流满足（2026-09-25）。
+
+## 自动化验收（已实现）
+
+`packages/services/tests/escode-cli-rust-rollback.test.ts`：
+
+1. `Rust import leaves TS storage byte-identical and frees the workspace for rollback`
+   - 导入后 `ts.sqlite` 的 sha256 与导入前一致；TS store 仍可读到原会话；
+   - Rust 进程退出后可再次启动并读到会话（owner lock 已释放）；
+   - 第二轮运行后源库仍逐字节不变。
+2. `Rust storage stays readable after the process exits`
+   - `rust-sessions.sqlite` 在进程退出后可直接读取，结构化事实（mode 等）确实落盘。
+
+## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
+
+`packages/services/tests/escode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）
+分别驱动 Node 与 Rust，比对协议投影。结论：
+
+| 字段                             | Node   | Rust                      | 说明                                                                        |
+| -------------------------------- | ------ | ------------------------- | --------------------------------------------------------------------------- |
+| `independentPlanState`           | `true` | `true`（2026-09-24 起）   | 两侧一致；plan 审批三种应答与 EnterPlanMode 已差分对齐（rust-plan-mode.md） |
+| `permissionModes`                | 不声明 | `["yolo","build","edit"]` | Rust 显式声明支持的模式；Node 省略，Host 对缺席字段按「都支持」处理         |
+| `workspaceExecutionCapabilities` | 不声明 | `true`                    | Rust 能提供 workspace 执行能力块（`includeExecutionCapabilities`）          |
+| `accountProviderConfig`          | 不声明 | `true`（有 registry 时）  | Rust 显式声明账号 provider 配置能力                                         |
+
+行级投影（行种类、工具名、工具状态）两侧完全一致，schema 校验两侧均无错误。
+
+### 差分用例发现并已修复的不一致（2026-09-24）
+
+| 场景                 | Node                                                         | Rust 原行为               | 处理                                                     |
+| -------------------- | ------------------------------------------------------------ | ------------------------- | -------------------------------------------------------- |
+| 工具失败的错误码     | `tool_execution_failed`（contracts `ToolExecutionFailed`）   | `fault.tool.failed`       | 改用 TS 码                                               |
+| 未指定 mode 的会话   | 默认 `build`，写文件先确认                                   | 默认 `yolo`，**直接写入** | 默认 `build`；移除 yolo 时代的 compact/队列/goal 门禁    |
+| 权限弹窗 `summary`   | 判定原因（如 `Tool has side effects and requires approval`） | `Allow {tool}?`           | `ask_reason` 按 ruleId 取 TS 原文，矩阵生成器导出 oracle |
+| 权限弹窗「完全访问」 | 主会话提供 `fullAccessOption`，选中后会话切 yolo 并放行      | 无该选项                  | 实现（排队输入一并切 yolo，与 ACK 同一次提交）           |
+| 被拒工具行           | `cancelled`，无输出/错误                                     | `error` + 拒绝文案输出    | `ToolDone.denied` 收口为 `cancelled`；模型侧拒绝文案不变 |
+
+| session/list `traceId` | 会话创建即分配 | 仅 shared context 会话有 | 新会话与子代理创建即分配 |
+| 文本附件进入模型请求 | 伪 Read 调用的独立 system-reminder，位于正文之前 | 拼进用户消息、自拟文案、64 KiB 截断 | 对齐 TS 形态，五种文件形态逐字一致（rust-attachment-prompt.md） |
+
+stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一致（无需修复）。
+
+### 仍存在、未纳入断言的差异
+
+- 行投影字段已逐字段对齐（rust-row-projection.md，2026-09-26）。包括：
+  - `visibility`、turnHeader 的 `executionKind`/`activeMs`/`historyRoundCount`；
+  - userInput 的 `rootSourceCommandId`；
+  - toolCall 的 `assistantResponseId`/`input`；
+  - `/goal` 的 controlOnly query 轮与 goalContinuation 执行轮。
+    仍存在的差异只剩 id 的取值方式：Node 的 userInput 与 assistantText 的 `entityId` 分别取 turn id 与响应 id。
+
+该用例把上述差异写成**契约**：出现新的差异键即失败，从而在后续改动中持续守住功能对齐。
+新增能力位必须同步更新本表与用例。

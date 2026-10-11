@@ -15,7 +15,8 @@ export type QuickPickCommandIcon =
   | "skills"
   | "themeDark"
   | "themeLight"
-  | "terminal";
+  | "terminal"
+  | "serial";
 
 export type QuickPickCommandSectionId =
   | "suggested"
@@ -63,6 +64,7 @@ interface QuickPickCommandHandlers {
   openTerminalTab: () => void;
   openBrowserTab: () => void;
   openReviewTab: () => void;
+  openSerialTab: () => void;
 }
 
 interface CreateQuickPickCommandsOptions {
@@ -71,6 +73,8 @@ interface CreateQuickPickCommandsOptions {
   isSidebarVisible: boolean;
   isLoggedIn: boolean;
   supportsEmbeddedBrowser?: boolean;
+  /** 平台声明的本机串口能力（仅 Desktop）。 */
+  supportsSerialPort?: boolean;
   supportsTerminal?: boolean;
   supportsReview?: boolean;
   themeTarget: "dark" | "light";
@@ -89,6 +93,7 @@ export function createQuickPickCommands({
   isSidebarVisible,
   isLoggedIn,
   supportsEmbeddedBrowser = true,
+  supportsSerialPort = false,
   supportsTerminal = true,
   supportsReview = true,
   themeTarget,
@@ -181,6 +186,18 @@ export function createQuickPickCommands({
             icon: "browser",
             keywords: ["add", "browser", "tab", "preview", "添加浏览器", "浏览器标签"],
             run: handlers.openBrowserTab,
+          } satisfies QuickPickCommand,
+        ]
+      : []),
+    ...(supportsSerialPort
+      ? [
+          {
+            id: "add-serial-tab",
+            sectionId: "panels",
+            titleId: "quickPick.command.addSerialTab",
+            icon: "serial",
+            keywords: ["add", "serial", "port", "uart", "com", "tty", "串口", "串口调试"],
+            run: handlers.openSerialTab,
           } satisfies QuickPickCommand,
         ]
       : []),

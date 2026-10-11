@@ -1,0 +1,162 @@
+# Rust runtime Windows 对齐（WP2）
+
+2026-09-24。分支此前只在 macOS arm64 验证；在 Windows 11 x64 上跑 App 集成测试暴露以下与 TS 不一致的行为。Shell 选择单独见 [rust-shell-selection.md](rust-shell-selection.md)。
+
+| 问题             | TS 行为                                                                                       | Rust 原行为                                                                                                                           | 处理                                                                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| realpath 形态    | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `escode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                           |
+| 模型可见路径     | 工具 `file_path` 只做词法归一（`resolveWorkspacePath`：折叠 `.`/`..`，不解析软链接/8.3 短名） | 工具结果 `filePath` 与媒体 Read 文案走 realpath，Windows（`RUNNER~1`→`runneradmin`）与 macOS（`/var`→`/private/var`）下与 Node 不一致 | 词法解析收敛到 `crates/tools/src/lexical_path.rs`（Node `path.resolve` 语义），模型可见路径一律用它；realpath 仅保留给状态键与检查点 |
+| 路径拼接         | `path.join` 使用平台分隔符                                                                    | `join(".escode/AGENTS.md")` 生成 `\.escode/AGENTS.md` 混合分隔符                                                                        | 所有多段字面量改为逐段 `join`                                                                                                        |
+| OS Version       | `os.release()` = `10.0.26100`                                                                 | `Version.ToString()` = `10.0.26100.0`                                                                                                 | 输出 `major.minor.build`                                                                                                             |
+| 生成资产换行     | —                                                                                             | `core.autocrlf` 检出 CRLF，漂移检查误报                                                                                               | `.gitattributes` 固定 LF                                                                                                             |
+| 记忆模板分隔符   | 运行时追加 `path.sep`                                                                         | 资产固化生成机分隔符                                                                                                                  | `{sep}` 占位，运行时填充                                                                                                             |
+| 只读句柄 fsync   | —                                                                                             | 导入附件时 `File::open` 只读后 `sync_all`，Windows 返回 os error 5，整个 TS 导入回滚                                                  | 写入与落盘使用同一可写句柄                                                                                                           |
+| 产物 URI 解码    | `decodeURIComponent`                                                                          | 借 `file:///` URL 转路径解码，Windows 无盘符必失败（Invalid artifact identity）                                                       | 直接 percent-decode                                                                                                                  |
+| 进程树清理       | Windows job object（MCP stdio 已用）                                                          | `process_tree` 仅 unix，Windows 只有 `taskkill /T`，Git Bash 的 MSYS 后代失去父链后仍持有输出管道                                     | Bash 放入 `KILL_ON_JOB_CLOSE` Job（`crates/tools/src/win_job.rs`），终止时 `TerminateJobObject`，附加失败退回 taskkill               |
+| 工具输出旧代码页 | `outputEncoding.ts`：非法 UTF-8 按 `chcp` / locale 推断的旧代码页（中文为 GB18030）解码       | 一律 UTF-8 lossy，中文 Windows 上 cmd `ver` 等输出乱码（英文 CI 测不到）                                                              | `host::output_encoding`（2026-10-08），见 [rust-windows-output-encoding.md](rust-windows-output-encoding.md)                         |
+
+## 代理环境变量（已收敛）
+
+生产语义已在 [rust-net-proxy.md](rust-net-proxy.md) 与 TS 逐项比对并实现（含配置文件 `network` 段的分作用域读取，
+2026-10-08）。测试 fixture 仍显式设置 `NO_PROXY=127.0.0.1,localhost`，隔离开发机代理。
+
+## 验收
+
+- `pnpm check:escode-cli-rust` 与 `pnpm test:escode-cli-rust` 在 Windows 通过（结果见提交说明）。
+- 仍以 `skip: win32` 跳过的集成用例逐个评估，能在 Git Bash 下运行的解除跳过。
+
+## 验收记录（2026-09-24，Windows 11 x64，Node 26.7 非锁定版本）
+
+工具链：本机无 MSVC，改用 `stable-x86_64-pc-windows-gnu` + MSYS2 GCC 构建（见下节）；
+产物是 **GNU 目标**，结论为源码级证据，发布验收仍需 MSVC 重跑。
+
+- Rust 测试：`cargo +…-gnu test --workspace -- --test-threads=1` 全部通过（0 失败）。
+  并发跑同一套会出现超时假失败（每文件起一个 runtime + HTTP fixture，本机 3s 的 receive 超时会被压满）。
+- App 集成：`node --import tsx --test --test-concurrency=1 packages/services/tests/escode-cli-rust-*.test.ts`
+  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@escode/*` 解析失败）→ **196 用例：194 通过、2 跳过、0 失败**。
+- 跳过用例：**2 条**（原 13 条）。改写方式：用「心跳文件」替代 POSIX PID 断言——shell 循环追加时间戳，
+  进程（含子进程）被回收后文件不再增长；`GIT_TRACE2_EVENT` 替代无扩展名的伪造 git 脚本；
+  Windows 上没有 SIGTERM 的用例改用 stdin EOF 或 Job Object 语义。仍跳过的两条：
+  1. prompt 的慢 git 探测：需要伪造 PATH 上的 `git`，而 Windows 的 CreateProcess 只解析 `.exe`，属测试夹具限制；
+  2. transport 的 SIGTERM 背压用例：Windows 没有 SIGTERM，只在 POSIX 运行；背压下的 EOF 退出缺陷已于 2026-09-25 修复，Windows 由新增的 EOF 变体覆盖（见 rust-runtime-performance.md）。
+- 本轮修复：`os_release` 不再 spawn PowerShell（首个请求 1830ms → 35ms，见下节）；
+  导入源库的 busy timeout 由 20ms 放宽到 5s（两个 runtime 同时启动时的瞬时锁竞争）；
+  权限确认相关的既有用例按 build/edit 新契约改写（stdio / migration / host）。
+
+## 无 MSVC 时的可运行验证路径
+
+本机 2026-09-24 缺 MSVC/SDK（`VC\Tools\MSVC`、`Windows Kits\10\Lib` 均不在），`link.exe` 不可用；
+而 rustup 装了 `stable-x86_64-pc-windows-gnu`，MSYS2 提供 mingw64 的 gcc/ld，因此可以：
+
+```
+PATH=/c/msys64/mingw64/bin:$PATH cargo +stable-x86_64-pc-windows-gnu build --locked --offline --target x86_64-pc-windows-gnu
+cp target/x86_64-pc-windows-gnu/debug/escode-cli-rust.exe target/debug/escode-cli-rust.exe
+```
+
+`packages/services/tests/escode-cli-rust-fixture.ts` 固定读取 `target/debug/escode-cli-rust.exe`，替换后即可跑 App 集成套件。
+
+注意：这是 GNU 目标产物，与发行用的 MSVC 目标不同（CRT 与部分平台行为有差异）。用它得出的是**源码级**结论，
+不能替代 MSVC 构建的发布验收；MSVC 环境恢复后必须重跑并以此为准。
+
+## 本机复现与差分准备（2026-10-12 自更名手册并入）
+
+本机（Windows 11 x64）无可用 MSVC 链接器，Rust 一律用 GNU 工具链 + MSYS2 GCC：
+
+```bash
+export PATH=/c/msys64/mingw64/bin:$PATH
+cargo +1.95.0-x86_64-pc-windows-gnu {build|test|check} --locked \
+  --manifest-path apps/escode-cli-rust/Cargo.toml --target x86_64-pc-windows-gnu
+# 格式化只用带工具链与 manifest 的形式，不要在 crate 目录里跑裸 cargo fmt：
+cargo +1.95.0-x86_64-pc-windows-gnu fmt --manifest-path apps/escode-cli-rust/Cargo.toml
+```
+
+App 差分套件（`packages/services/tests/escode-cli-rust-*.test.ts`）的准备步骤：
+
+1. 用同一工具链与 target 先 `cargo build --examples` 再 `cargo build`；把
+   `target/x86_64-pc-windows-gnu/debug/escode-cli-rust.exe` 复制到 `target/debug/`，
+   把 `target/x86_64-pc-windows-gnu/debug/examples/*.exe` 复制到 `target/debug/examples/`
+   （夹具 `escode-cli-rust-fixture.ts` 固定读这些路径）。
+2. `node scripts/build-desktop-agent-cli.mjs` 构建 Node CLI bundle（`apps/escode-cli/packages/cli/dist/escode.cjs`）。
+3. 运行（`ESCODE_TEST_SERIAL=1 pnpm test:escode-cli-rust` 是等价入口）：
+
+   ```bash
+   export TSX_TSCONFIG_PATH="$(pwd)/packages/services/tests/tsconfig.escode-cli-rust.json" ESCODE_TEST_REQUEST_MS=30000 ESCODE_TEST_WAIT_MS=30000
+   node --import tsx --test --test-concurrency=1 --test-timeout=300000 --test-force-exit packages/services/tests/escode-cli-rust-*.test.ts
+   ```
+
+   全量约 2.5 小时；**差分与 cargo test 不要并行**，CPU 争用会造成超时假失败。
+
+其它本机坑：
+
+- 漂移生成器偶发 Windows 文件锁（`UNKNOWN: open` / `Errno 22`）：重试即可，重试后必须再跑一次 `--check`。
+- 测试日志带 ANSI 颜色码，统计 `✔` / `✖` 前先 `sed 's/\x1b\[[0-9;]*m//g'`。
+- `pnpm install` 需要 `npm_config_manage_package_manager_versions=false`（否则 EPERM）；CLI 子仓 typecheck 用
+  `cd apps/escode-cli && ../../node_modules/.bin/turbo run typecheck`。
+- `pnpm fmt:check` 在全仓库有大量既有失败（`.agents/skills/*`、`docs/electron` 镜像等），只对自己改过的文件跑
+  `npx oxfmt <files>`。
+
+
+## 性能：prompt 快照不再启动 PowerShell
+
+`os_release` 原先在 Windows 上 spawn `powershell.exe` 取版本号。本机一次 PowerShell 启动约 1.5s，
+而这段位于 prompt 快照的关键路径，导致**首个模型请求延迟约 1.83s**（实测三次 1830/1827/1830 ms），
+并使「1s 内发出首个请求」的用例必然超时。
+
+改为读注册表 `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` 的
+`CurrentMajorVersionNumber` / `CurrentMinorVersionNumber` / `CurrentBuildNumber`，
+输出仍是 Node `os.release()` 的 `major.minor.build`（如 `10.0.26100`）。
+
+实测：首个请求 1830ms → **35ms**（36/34 ms）；provider 的 stop 用例由必然失败变为 515ms 通过；
+prompt 用例（含 `OS Version: win32 10.0.26100 x64`）保持通过。
+
+## Linux 验证（2026-09-24）
+
+把 Linux 目标依赖（`linux-raw-sys` 等）先在 Windows 上 `cargo fetch --target x86_64-unknown-linux-gnu` 取进共享的
+cargo 缓存，WSL Ubuntu 即可离线构建并运行整套 Rust 测试：
+
+```
+# Windows 侧取依赖（一次性）
+cargo fetch --target x86_64-unknown-linux-gnu
+# WSL 侧运行
+CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/escode-target \
+  cargo test --offline --workspace -- --test-threads=1
+```
+
+结果：**29 个测试二进制的 Rust 测试全部通过、0 失败**（含 `crates/tools` 的 git 安全语料与 POSIX 分支、
+`crates/domain` 的权限/规则/代理解析差分，以及 app-server/core/state/model/host）。
+这覆盖了 POSIX 专属路径（进程组回收、`/bin/bash` 选择、`uname` 版本探测）。
+
+跨平台现状：Windows（MSVC 目标未跑，用 GNU 目标）与 Linux 均已通过 Rust 测试与（Windows 侧）App 集成套件；
+**macOS 未验证**（本机无 macOS 环境），发布验收仍须在 MSVC 目标与三平台原生环境重跑。
+
+## 模型可见路径改回词法解析（2026-09-26）
+
+媒体 Read 的差分用例在 CI 的 Windows 与 macOS runner 上同时失败：Rust 把请求路径 realpath 后写进
+`filePath` 与媒体文案，Windows 展开 8.3 短名（`RUNNER~1`→`runneradmin`）、macOS 展开 `/var`→`/private/var`，
+而 TS 的 `resolveWorkspacePath` 只做词法归一，两侧文本不同。
+
+处理：新增 `crates/tools/src/lexical_path.rs`（`normalize`/`resolve` 复刻 Node `path.resolve`），
+`tool_args::resolve` 与 `extension_config::resolve`、官方插件根探测共用它；`crates/tools/src/tool_files.rs` 的
+Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点仍用 realpath。
+本地回归：`escode-cli-rust-tool-parity.test.ts` 新增「Node 与 Rust 回显同一词法请求路径」用例
+（绝对/相对 + `.`/`..` 折叠、目录 junction/软链接原样回显、Write 的相对路径回显），
+用旧 `join` 实现构建 fixture 时该用例失败、换成词法实现后通过。
+差异只剩绝对路径的尾部分隔符（Node `normalize` 保留、这里去掉），工具路径不靠它区分实体。
+
+## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
+
+`pnpm test:escode-cli-rust`（`ESCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
+2026-10-02 在 `8f0e7a7`（插件写面 W1–W5 全部落地后）复跑：**349 用例，341 通过、0 失败、8 跳过**（同样 8 条按条件跳过），约 19 分钟。
+这是首次在原生 MSVC 目标（非 WSL/GNU）上跑完整套件。跳过项均为环境门控：真实供应商/真实数据库基准（3）、未打包
+Rust 二进制的 Host 解析（1）、Windows 上 Git Bash 快照超时的 shell init 用例（1，测试自身声明跳过）及 3 个用例自身
+声明 SKIP 的项。
+
+本机复现条件（缺任一项会出现与代码无关的失败）：
+
+- 先用 `node scripts/build-desktop-agent-cli.mjs` 构建 Node CLI：它同时构建随包官方插件（node-repl-host 的
+  `dist/mcp/server.js`、browser-use 的 `scripts/browser-client.mjs`）。只用 turbo 构建 `escode.cjs` 时测试脚本会跳过这一步，
+  node_repl / CUA / 官方插件 seed 用例在 Node 与 Rust 两侧同时失败。
+- 网络用例需要 `openssl`：Git for Windows 自带（`C:\Program Files\Git\usr\bin`），加进 PATH 即可。
+- 测试脚本会 shell 调 `pnpm`，需全局 pnpm（仅 `npx pnpm` 不够）。
+- 8 GB 内存机器上 pnpm 并行 `tsc` 会 OOM：`npm_config_workspace_concurrency=1`。
+- 套件运行期间不要改工作树：它的 cargo 步骤会编译当时的源码。

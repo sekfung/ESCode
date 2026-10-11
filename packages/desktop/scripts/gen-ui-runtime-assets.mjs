@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 const source = new URL(
-  "../../../apps/zcode-cli/packages/visualize-plugin/skills/visualize/assets/",
+  "../../../apps/escode-cli/packages/visualize-plugin/skills/visualize/assets/",
   import.meta.url,
 );
 

@@ -19,14 +19,14 @@ function restoreEnv(name: string, value: string | undefined): void {
 
 describe("providerRuntimeResolver glm workdir discovery", () => {
   const originalCwd = process.cwd();
-  const originalZCodeAgentWorkdir = process.env.ZCODE_AGENT_WORKDIR;
+  const originalESCodeAgentWorkdir = process.env.ESCODE_AGENT_WORKDIR;
   const originalGlmBinaryPath = process.env.GLM_BINARY_PATH;
   const originalHome = process.env.HOME;
   const createdDirs: string[] = [];
 
   afterEach(() => {
     process.chdir(originalCwd);
-    restoreEnv("ZCODE_AGENT_WORKDIR", originalZCodeAgentWorkdir);
+    restoreEnv("ESCODE_AGENT_WORKDIR", originalESCodeAgentWorkdir);
     restoreEnv("GLM_BINARY_PATH", originalGlmBinaryPath);
     restoreEnv("HOME", originalHome);
 
@@ -35,14 +35,14 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     }
   });
 
-  it("会在当前仓库旁边自动发现 zcode-cli 作为 glm 工作目录", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+  it("会在当前仓库旁边自动发现 escode-cli 作为 glm 工作目录", () => {
+    delete process.env.ESCODE_AGENT_WORKDIR;
 
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-workdir-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-glm-workdir-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "z-code-2");
-    const glmRepoDir = join(sandboxRoot, "zcode-cli");
+    const appRepoDir = join(sandboxRoot, "escode-2");
+    const glmRepoDir = join(sandboxRoot, "escode-cli");
     mkdirSync(appRepoDir, { recursive: true });
     mkdirSync(join(glmRepoDir, "packages", "cli", "src"), { recursive: true });
     writeFileSync(join(glmRepoDir, "packages", "cli", "src", "main.ts"), "console.log('glm');\n");
@@ -54,15 +54,15 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     );
   });
 
-  it("desktop dev cwd 在 packages/desktop 时仍会发现仓库相邻的 zcode-cli", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+  it("desktop dev cwd 在 packages/desktop 时仍会发现仓库相邻的 escode-cli", () => {
+    delete process.env.ESCODE_AGENT_WORKDIR;
 
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-desktop-cwd-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-glm-desktop-cwd-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "z-code-3");
+    const appRepoDir = join(sandboxRoot, "escode-3");
     const desktopDir = join(appRepoDir, "packages", "desktop");
-    const glmRepoDir = join(sandboxRoot, "zcode-cli");
+    const glmRepoDir = join(sandboxRoot, "escode-cli");
     mkdirSync(desktopDir, { recursive: true });
     mkdirSync(join(glmRepoDir, "packages", "cli", "src"), { recursive: true });
     writeFileSync(join(appRepoDir, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
@@ -75,14 +75,14 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     );
   });
 
-  it("zcode-cli 源码入口会作为 glm dev binary 被发现", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+  it("escode-cli 源码入口会作为 glm dev binary 被发现", () => {
+    delete process.env.ESCODE_AGENT_WORKDIR;
 
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-src-cli-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-glm-src-cli-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "z-code");
-    const glmRepoDir = join(sandboxRoot, "zcode-cli");
+    const appRepoDir = join(sandboxRoot, "escode");
+    const glmRepoDir = join(sandboxRoot, "escode-cli");
     mkdirSync(appRepoDir, { recursive: true });
     mkdirSync(join(glmRepoDir, "src"), { recursive: true });
     writeFileSync(join(glmRepoDir, "src", "cli.ts"), "console.log('glm');\n");
@@ -92,22 +92,22 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     expect(realpathSync(findBinary("glm")!)).toBe(realpathSync(join(glmRepoDir, "src", "cli.ts")));
   });
 
-  it("无源码仓库时会回退到准备好的 zcode-agent 二进制", () => {
-    delete process.env.ZCODE_AGENT_WORKDIR;
+  it("无源码仓库时会回退到准备好的 escode-agent 二进制", () => {
+    delete process.env.ESCODE_AGENT_WORKDIR;
     delete process.env.GLM_BINARY_PATH;
 
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-glm-binary-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-glm-binary-"));
     createdDirs.push(sandboxRoot);
     // Keep the fallback test hermetic: a developer may already have a valid
-    // ~/.zcode/server/agents runtime, which intentionally outranks repository
+    // ~/.escode/server/agents runtime, which intentionally outranks repository
     // bundled resources in production.
     process.env.HOME = sandboxRoot;
 
-    const appRepoDir = join(sandboxRoot, "z-code-2");
-    // Bugfix: GLM 生产态二进制名会按平台解析，Windows 下实际查找的是 zcode-agent.exe。
+    const appRepoDir = join(sandboxRoot, "escode-2");
+    // Bugfix: GLM 生产态二进制名会按平台解析，Windows 下实际查找的是 escode-agent.exe。
     // 之前测试固定写成无后缀文件，导致 findBinary("glm") 返回 null，
     // 最终被 realpathSync(null) 表现成对 ...\\null 的 lstat，掩盖了真实原因。
-    const binaryName = process.platform === "win32" ? "zcode-agent.exe" : "zcode-agent";
+    const binaryName = process.platform === "win32" ? "escode-agent.exe" : "escode-agent";
     const binaryPath = join(appRepoDir, "bundled-resources", "glm", binaryName);
     mkdirSync(join(appRepoDir, "bundled-resources", "glm"), { recursive: true });
     writeFileSync(binaryPath, "binary\n");
@@ -117,14 +117,14 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     expect(realpathSync(findBinary("glm")!)).toBe(realpathSync(binaryPath));
   });
 
-  it("ZCODE_AGENT_WORKDIR 可显式指定 zcode-cli 源码入口", () => {
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "zcode-agent-workdir-priority-"));
+  it("ESCODE_AGENT_WORKDIR 可显式指定 escode-cli 源码入口", () => {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-workdir-priority-"));
     createdDirs.push(sandboxRoot);
 
-    const workdir = join(sandboxRoot, "zcode-cli");
+    const workdir = join(sandboxRoot, "escode-cli");
     mkdirSync(join(workdir, "packages", "cli", "src"), { recursive: true });
     writeFileSync(join(workdir, "packages", "cli", "src", "main.ts"), "console.log('new');\n");
-    process.env.ZCODE_AGENT_WORKDIR = workdir;
+    process.env.ESCODE_AGENT_WORKDIR = workdir;
 
     expect(realpathSync(findBinary("glm")!)).toBe(
       realpathSync(join(workdir, "packages", "cli", "src", "main.ts")),
@@ -144,8 +144,8 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
     }
   });
 
-  it("GLM 配置目录由 ZCode Agent home 统一承载，不再按 workspaceIdentity 计算", () => {
-    const home = mkdtempSync(join(tmpdir(), "zcode-agent-resolver-home-"));
+  it("GLM 配置目录由 ESCode Agent home 统一承载，不再按 workspaceIdentity 计算", () => {
+    const home = mkdtempSync(join(tmpdir(), "escode-agent-resolver-home-"));
     createdDirs.push(home);
     process.env.HOME = home;
     // Bugfix: paths.ts 会在模块加载时固定默认 dataBaseDir，测试不能只改 HOME。
@@ -155,12 +155,12 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
     const workspaceIdentity = "remote:ssh:localhost:2223:dev:/home/dev";
 
     expect(resolveProviderConfigDir("glm", workspacePath, workspaceIdentity)).toBe(
-      join(home, ".zcode", "cli"),
+      join(home, ".escode", "cli"),
     );
   });
 
-  it("本地 GLM 配置目录同样使用 ZCode Agent home", () => {
-    const home = mkdtempSync(join(tmpdir(), "zcode-agent-resolver-home-"));
+  it("本地 GLM 配置目录同样使用 ESCode Agent home", () => {
+    const home = mkdtempSync(join(tmpdir(), "escode-agent-resolver-home-"));
     createdDirs.push(home);
     process.env.HOME = home;
     // Bugfix: paths.ts 会在模块加载时固定默认 dataBaseDir，测试不能只改 HOME。
@@ -168,7 +168,7 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
 
     const workspacePath = "/Users/demo/project";
 
-    expect(resolveProviderConfigDir("glm", workspacePath)).toBe(join(home, ".zcode", "cli"));
+    expect(resolveProviderConfigDir("glm", workspacePath)).toBe(join(home, ".escode", "cli"));
   });
 });
 
@@ -195,11 +195,11 @@ describe("providerRuntimeResolver clean env", () => {
   });
 
   it("glm clean env 会把 HOME 切到 dataBaseDir，保证 session 读写目录一致", () => {
-    const dataBaseDir = mkdtempSync(join(tmpdir(), "zcode-glm-home-"));
+    const dataBaseDir = mkdtempSync(join(tmpdir(), "escode-glm-home-"));
     createdDirs.push(dataBaseDir);
     setDataBaseDir(dataBaseDir);
 
-    const env = buildCleanEnv("glm", join(dataBaseDir, ".zcode", "cli"));
+    const env = buildCleanEnv("glm", join(dataBaseDir, ".escode", "cli"));
 
     expect(env.HOME).toBe(dataBaseDir);
     if (process.platform === "win32") {

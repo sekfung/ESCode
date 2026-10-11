@@ -11,29 +11,29 @@ const productionRoots = [
   "packages/ui/src",
   "packages/desktop/src",
   "packages/shared/src",
-  "apps/zcode-cli/packages/adapters/src",
-  "apps/zcode-cli/packages/bootstrap/src",
-  "apps/zcode-cli/packages/cli/src",
-  "apps/zcode-cli/packages/contracts/src",
-  "apps/zcode-cli/packages/core/src",
-  "apps/zcode-cli/packages/tui/src",
+  "apps/escode-cli/packages/adapters/src",
+  "apps/escode-cli/packages/bootstrap/src",
+  "apps/escode-cli/packages/cli/src",
+  "apps/escode-cli/packages/contracts/src",
+  "apps/escode-cli/packages/core/src",
+  "apps/escode-cli/packages/tui/src",
 ] as const;
 
 const legacyDtoOwners = new Set([
   "packages/services/src/model-provider/legacyModelProviderSerialized.ts",
-  "packages/services/src/model-provider/legacyZCodeConfigProviderReader.ts",
+  "packages/services/src/model-provider/legacyESCodeConfigProviderReader.ts",
   "packages/services/src/model-provider/legacyPersonalProviderConfigImporter.ts",
   "packages/services/src/model-provider/providerConfigRuntime.ts",
 ]);
 const legacyDtoTestOwners = new Set([
-  "packages/services/test/legacyZCodeConfigProviderReader.test.ts",
+  "packages/services/test/legacyESCodeConfigProviderReader.test.ts",
   "packages/services/test/legacyPersonalProviderConfigImporter.test.ts",
   "packages/services/test/providerConfigRuntime.test.ts",
   "packages/ui/test/providerSettingsFormBoundary.test.ts",
 ]);
 const legacyApiFormatOwners = new Set([
   "packages/services/src/model-provider/legacyModelProviderSerialized.ts",
-  "packages/services/src/model-provider/legacyZCodeConfigProviderReader.ts",
+  "packages/services/src/model-provider/legacyESCodeConfigProviderReader.ts",
 ]);
 const testRoots = [
   "packages/desktop/test",
@@ -75,7 +75,7 @@ describe("M2 completion boundary", () => {
   });
 
   it.each([
-    "ZCodeProviderRegistrySnapshot",
+    "ESCodeProviderRegistrySnapshot",
     "workspace/updateProviderRegistry",
     "RuntimeModelOverlayManager",
     "ModelProviderService",
@@ -84,7 +84,7 @@ describe("M2 completion boundary", () => {
     "workspaceModelCatalogs",
     "workspaceModelMirror",
     "setModelCatalogOverlay",
-    "ZCodeWorkspaceModelCatalogState",
+    "ESCodeWorkspaceModelCatalogState",
     "setProviderRuntimeHeaders",
     "session/updateRuntimeModelConfig",
     "hasProcessProviderRegistry",

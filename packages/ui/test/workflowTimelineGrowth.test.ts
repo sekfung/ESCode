@@ -4,13 +4,13 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkflowRunState } from "@zcode/shared/zcode-protocol-v4";
+import type { WorkflowRunState } from "@escode/shared/escode-protocol-v4";
 import type { WorkflowCausalityGraphData } from "@/components/workflow-graph/types.js";
 import { STATION_PITCH } from "@/components/workflow-timeline/timeline-geometry.js";
 import { buildWorkflowTimeline } from "@/components/workflow-timeline/timeline-model.js";
 import { SLIDE_MS, fillGrowth } from "@/components/workflow-timeline/use-fill-growth.js";
 import { WorkflowTimeline } from "@/components/workflow-timeline/WorkflowTimeline.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 // 留白 id 是名字键 `hole#<8 位十六进制>`（docs/analysis.md「Sites」）；渲染器只认形状。
 const H1 = "hole#a0000001"; // 决定分组
@@ -150,7 +150,7 @@ describe("WorkflowTimeline · 生长的滑动", () => {
 
   function view(model: ReturnType<typeof buildWorkflowTimeline>) {
     return createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(WorkflowTimeline, { model }),
     );

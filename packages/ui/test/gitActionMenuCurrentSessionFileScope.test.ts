@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type {
   GitRepositorySummary,
-  ZCodeTaskChangeSummary,
-} from "@zcode/shared";
+  ESCodeTaskChangeSummary,
+} from "@escode/shared";
 import type { GitBranchCommitPreviewFile } from "@/git-branch-switcher/display.js";
 import {
   filterCommitPreviewFilesByCurrentSession,
@@ -39,7 +39,7 @@ function createChange(
   };
 }
 
-function createSummary(path: string): ZCodeTaskChangeSummary {
+function createSummary(path: string): ESCodeTaskChangeSummary {
   return {
     fileCount: 1,
     added: 1,

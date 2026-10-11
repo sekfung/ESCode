@@ -1,7 +1,7 @@
-import type { ZCodeEnv } from "@zcode/shared";
+import type { ESCodeEnv } from "@escode/shared";
 
 export function shouldShowRemoteConnectionEntry(params: {
-  env: ZCodeEnv;
+  env: ESCodeEnv;
   isIntranet: boolean;
 }): boolean {
   void params;

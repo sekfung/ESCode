@@ -12,7 +12,7 @@ import {
   resolveWebRemoteControlWorkspaceKey,
   testId,
   type WebRemoteControlTaskTarget,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   useCallback,
   useState,

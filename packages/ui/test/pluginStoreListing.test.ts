@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type {
-  ZCodeAvailablePluginSummary,
-  ZCodeInstalledPluginSummary,
-  ZCodePluginInfo,
-  ZCodePluginMarketplaceSummary,
-} from "@zcode/shared";
+  ESCodeAvailablePluginSummary,
+  ESCodeInstalledPluginSummary,
+  ESCodePluginInfo,
+  ESCodePluginMarketplaceSummary,
+} from "@escode/shared";
 import {
   buildStoreItems,
   canUpdatePluginItem,
@@ -23,8 +23,8 @@ import {
 } from "../src/settings/pluginStoreListing.js";
 
 function makeSummary(
-  overrides: Partial<ZCodeAvailablePluginSummary> & { id: string },
-): ZCodeAvailablePluginSummary {
+  overrides: Partial<ESCodeAvailablePluginSummary> & { id: string },
+): ESCodeAvailablePluginSummary {
   const [name = "", marketplace = ""] = overrides.id.split("@");
   return {
     name,
@@ -34,7 +34,7 @@ function makeSummary(
   };
 }
 
-function makeInfo(overrides: Partial<ZCodePluginInfo> & { id: string }): ZCodePluginInfo {
+function makeInfo(overrides: Partial<ESCodePluginInfo> & { id: string }): ESCodePluginInfo {
   const [name = "", marketplace = ""] = overrides.id.split("@");
   return {
     name,
@@ -50,8 +50,8 @@ function makeInfo(overrides: Partial<ZCodePluginInfo> & { id: string }): ZCodePl
 }
 
 function makeMarketplace(
-  overrides: Partial<ZCodePluginMarketplaceSummary> & { id: string },
-): ZCodePluginMarketplaceSummary {
+  overrides: Partial<ESCodePluginMarketplaceSummary> & { id: string },
+): ESCodePluginMarketplaceSummary {
   return {
     name: overrides.id,
     source: {},
@@ -107,7 +107,7 @@ describe("pluginStoreListing", () => {
 
   it("formats marketplace slugs as display names", () => {
     expect(formatCanonicalMarketplaceName("zcode-plugins-official", "en-US")).toBe(
-      "ZCode Plugins Official",
+      "ESCode Plugins Official",
     );
     expect(formatCanonicalMarketplaceName("claude-plugins-official", "en-US")).toBe(
       "Claude Plugins Official",
@@ -137,7 +137,7 @@ describe("pluginStoreListing", () => {
           marketplace: "zcode-plugins-official",
           enabled: true,
           scope: "user",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
       ],
       plugins: [
         makeInfo({ id: "a@zcode-plugins-official" }),
@@ -232,7 +232,7 @@ describe("pluginStoreListing", () => {
           marketplace: "zcode-plugins-official",
           enabled: true,
           scope: "user",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
       ],
       plugins: [makeInfo({ id: "document-skills@zcode-plugins-official", enabled: true })],
       restorableBuiltins: [makeSummary({ id: "document-skills@zcode-plugins-official" })],
@@ -260,7 +260,7 @@ describe("pluginStoreListing", () => {
           enabled: true,
           scope: "user",
           updateStatus: "update-available",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
       ],
       plugins: [makeInfo({ id: "orphan@personal-market" })],
       restorableBuiltins: [],
@@ -275,7 +275,7 @@ describe("pluginStoreListing", () => {
   });
 
   it("does not infer orphaned from a missing catalog listing when the source still exists", () => {
-    const installedMeta: ZCodeInstalledPluginSummary = {
+    const installedMeta: ESCodeInstalledPluginSummary = {
       id: "installed@personal-market",
       name: "installed",
       marketplace: "personal-market",
@@ -340,7 +340,7 @@ describe("pluginStoreListing", () => {
   });
 
   it("allows updates only when the installed item still has a marketplace source", () => {
-    const installedMeta: ZCodeInstalledPluginSummary = {
+    const installedMeta: ESCodeInstalledPluginSummary = {
       id: "plugin@personal-market",
       name: "plugin",
       marketplace: "personal-market",
@@ -454,7 +454,7 @@ describe("pluginStoreListing", () => {
     });
     expect(item).toBeDefined();
     expect(resolveItemDisplayName(item!, "en-US")).toBe("Cloudbase Skills");
-    expect(formatCanonicalPluginName("zcode-guide", "en-US")).toBe("ZCode Guide");
+    expect(formatCanonicalPluginName("escode-guide", "en-US")).toBe("ESCode Guide");
     expect(formatCanonicalPluginName("aws-mcp-server", "en-US")).toBe("AWS MCP Server");
     expect(formatCanonicalPluginName("AWS_mCp_tools", "en-US")).toBe("AWS MCP Tools");
   });
@@ -475,7 +475,7 @@ describe("pluginStoreListing", () => {
           enabled: true,
           scope: "user",
           installedAt: "2026-01-01T00:00:00Z",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
         {
           id: "new@m",
           name: "new",
@@ -483,7 +483,7 @@ describe("pluginStoreListing", () => {
           enabled: true,
           scope: "user",
           installedAt: "2026-07-01T00:00:00Z",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
         {
           id: "builtin@zcode-plugins-official",
           name: "builtin",
@@ -491,7 +491,7 @@ describe("pluginStoreListing", () => {
           enabled: true,
           scope: "user",
           installedAt: "2025-01-01T00:00:00Z",
-        } as ZCodeInstalledPluginSummary,
+        } as ESCodeInstalledPluginSummary,
       ],
       plugins: [
         makeInfo({ id: "old@m" }),
@@ -508,7 +508,7 @@ describe("pluginStoreListing", () => {
   it("orders personal marketplace groups by lastUpdated descending, sinking unknown to the end", () => {
     const groups = [
       { marketplace: "claude-plugins-official", title: "Claude Code Plugins", items: [] },
-      { marketplace: "zcode-plugins-test", title: "zcode-plugins-test", items: [] },
+      { marketplace: "escode-plugins-test", title: "escode-plugins-test", items: [] },
       { marketplace: "never-refreshed", title: "never-refreshed", items: [] },
       { marketplace: "paid-demo-market", title: "paid-demo-market", items: [] },
     ];
@@ -516,16 +516,16 @@ describe("pluginStoreListing", () => {
       groups,
       [
         makeMarketplace({ id: "claude-plugins-official", lastUpdated: "2026-01-01T00:00:00Z" }),
-        makeMarketplace({ id: "zcode-plugins-test", lastUpdated: "2026-08-20T12:00:00Z" }),
+        makeMarketplace({ id: "escode-plugins-test", lastUpdated: "2026-08-20T12:00:00Z" }),
         makeMarketplace({ id: "paid-demo-market", lastUpdated: "2026-08-20T12:00:00Z" }),
         // never-refreshed 无记录：没有 lastUpdated，按缺失沉底。
       ],
       "en-US",
     );
     expect(sorted.map((group) => group.marketplace)).toEqual([
-      // 最近刷新的在前；同刻（zcode-plugins-test / paid-demo-market）按显示名字母序。
+      // 最近刷新的在前；同刻（escode-plugins-test / paid-demo-market）按显示名字母序。
+      "escode-plugins-test",
       "paid-demo-market",
-      "zcode-plugins-test",
       "claude-plugins-official",
       "never-refreshed",
     ]);
@@ -539,8 +539,8 @@ describe("pluginStoreListing", () => {
           name: "Never Refreshed",
         }),
         makeMarketplace({
-          id: "zcode-plugins-test",
-          name: "zcode-plugins-test",
+          id: "escode-plugins-test",
+          name: "escode-plugins-test",
           lastUpdated: "2026-08-20T12:00:00Z",
         }),
         makeMarketplace({
@@ -554,8 +554,8 @@ describe("pluginStoreListing", () => {
           lastUpdated: "2026-08-20T23:00:00Z",
         }),
         makeMarketplace({
-          id: "zcode-labs",
-          name: "zcode-labs",
+          id: "escode-labs",
+          name: "escode-labs",
           lastUpdated: "2026-08-20T12:00:00Z",
         }),
       ],
@@ -565,8 +565,8 @@ describe("pluginStoreListing", () => {
     expect(sorted.map((marketplace) => marketplace.id)).toEqual([
       "zcode-plugins-official",
       "claude-plugins-official",
-      "zcode-labs",
-      "zcode-plugins-test",
+      "escode-labs",
+      "escode-plugins-test",
       "never-refreshed",
     ]);
   });

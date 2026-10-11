@@ -4,7 +4,7 @@ import {
   WEB_REMOTE_CONTROL_WORKSPACE_RECONNECT_TIMEOUT_MS,
   webRemoteControlReconnectWorkspaceResultSchema,
   type WebRemoteControlReconnectWorkspaceRequest,
-} from "@zcode/shared";
+} from "@escode/shared";
 
 export function reconnectWebRemoteControlWorkspaceInRenderer(
   windowId: number,

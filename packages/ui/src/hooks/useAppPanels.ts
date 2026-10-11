@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createUuid } from "@zcode/shared";
-import type { EmbeddedBrowserOpenUrlRequest, IPlatformService } from "@zcode/shared";
+import { createUuid } from "@escode/shared";
+import type { EmbeddedBrowserOpenUrlRequest, IPlatformService } from "@escode/shared";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
 // 保活：side pane terminal 跨 workspace 会话上移到模块级 registry。
 // 关闭 terminal tab 时必须显式 release，杀掉 PTY，避免常驻 registry 造成孤儿进程。
@@ -34,6 +34,8 @@ import {
   openWorkflowWorkspaceSidePane,
   openWorkflowArtifactSidePane,
   activateDeveloperToolsSidePane,
+  openSerialSidePane,
+  bindSerialSidePaneTab,
   openBrowserSidePane,
   openBrowserPermissionsSidePane,
   openOrActivateBrowserSidePaneByUrl,
@@ -176,7 +178,7 @@ export function useAppPanels(options: {
   } = options;
   const supportsEmbeddedBrowser = explicitSupportsEmbeddedBrowser ?? Boolean(isDesktop);
   const activeWorkspaceKey = workspaceIdentity?.trim() || workspaceAbsPath;
-  const { zcodeAgentService, zcodeSessionService } = useServices();
+  const { escodeAgentService, escodeSessionService } = useServices();
   const isOfficeMode = useIsOfficeMode();
   const sidePaneMemoryKey = useMemo(
     () =>
@@ -804,6 +806,15 @@ export function useAppPanels(options: {
     });
   }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner, workspaceAbsPath]);
 
+  const handleOpenSerialTab = useCallback(() => {
+    revealSidePaneForCurrentOwner();
+    commitOpenedSidePaneState((current) => {
+      const next = openSerialSidePane(current);
+      logger.info(`[App] 打开右侧面板 mode=serial tabs=${next.tabs.length}`);
+      return next;
+    });
+  }, [commitOpenedSidePaneState, revealSidePaneForCurrentOwner]);
+
   const handleOpenTerminalTab = useCallback(() => {
     if (isOfficeMode) return;
     revealSidePaneForCurrentOwner();
@@ -1160,7 +1171,7 @@ export function useAppPanels(options: {
         try {
           // 判据已经保证是本地 workspace（无 workspaceIdentity / remoteSessionId），
           // 这里只带 workspacePath。
-          const result = await zcodeAgentService.conversationWorkflowRunArtifactsV4({
+          const result = await escodeAgentService.conversationWorkflowRunArtifactsV4({
             workspacePath: request.workspacePath,
             sessionId: request.parentSessionId,
             runId: request.runId,
@@ -1191,7 +1202,7 @@ export function useAppPanels(options: {
       commitOpenedSidePaneState,
       openFileUrlInBrowserSidePane,
       supportsEmbeddedBrowser,
-      zcodeAgentService,
+      escodeAgentService,
     ],
   );
 
@@ -1199,7 +1210,7 @@ export function useAppPanels(options: {
     (tab: Extract<WorkspaceSidePaneTab, { type: "selection-side-chat" }>) => {
       clearSelectionSideChat(tab.childSessionId);
       clearConversationSelectionReferenceScope(tab.childSessionId, tab.workspaceKey);
-      void zcodeSessionService
+      void escodeSessionService
         .closeSession({
           workspacePath: tab.workspacePath,
           ...(tab.workspaceIdentity ? { workspaceIdentity: tab.workspaceIdentity } : {}),
@@ -1213,7 +1224,7 @@ export function useAppPanels(options: {
           });
         });
     },
-    [zcodeSessionService],
+    [escodeSessionService],
   );
 
   useEffect(() => {
@@ -1581,6 +1592,14 @@ export function useAppPanels(options: {
     setBrowserNavigationRequest((current) => (current?.id === requestId ? null : current));
   }, []);
 
+  const handleBindSerialTab = useCallback(
+    (tabId: string, path: string) => {
+      // 串口标签绑定的 path 存在标签状态里（唯一来源），重启后用于预选。
+      commitSidePaneState((current) => bindSerialSidePaneTab(current, tabId, path));
+    },
+    [commitSidePaneState],
+  );
+
   const handleBrowserPageMetadataChange = useCallback(
     (tabId: string, metadata: BrowserSidePaneMetadata) => {
       // 交互说明：Browser 的 title/favicon 来自 webview 事件，必须按 tab id 写回。
@@ -1623,6 +1642,8 @@ export function useAppPanels(options: {
     handleOpenTreemapping,
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
+    handleOpenSerialTab,
+    handleBindSerialTab,
     handleOpenTerminalTab,
     handleOpenModelTrajectory,
     handleOpenSubagentSession,

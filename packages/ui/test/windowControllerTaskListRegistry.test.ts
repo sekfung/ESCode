@@ -1,14 +1,14 @@
-import { Emitter } from "@zcode/rpc";
+import { Emitter } from "@escode/rpc";
 import type {
   IWindowControllerService,
   WindowHostControllerFrame,
   WindowHostControllerTaskListResult,
-} from "@zcode/services";
+} from "@escode/services";
 import {
   CONTROLLER_TASKS_INDEX_TOPIC,
   CONTROLLER_WORKSPACES_TOPIC,
   type WindowHostControllerTaskRow,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { describe, expect, it, vi } from "vitest";
 import { getWindowControllerTaskListRegistry } from "@/v4/windowControllerTaskListRegistry.js";
 

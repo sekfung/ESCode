@@ -2,7 +2,7 @@ import {
   TID_CHAT_ASSISTANT_HISTORY_CONTENT,
   TID_CHAT_ASSISTANT_HISTORY_TRIGGER,
   TID_CHAT_ASSISTANT_MESSAGE,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   getLatestUpstreamToolResultByToolCallId,
   type UpstreamToolResultSnapshot,

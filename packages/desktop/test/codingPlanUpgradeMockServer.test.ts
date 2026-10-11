@@ -18,7 +18,7 @@ describe("Coding Plan upgrade E2E mock server", () => {
       const response = await fetch(`${server.baseUrl}/${lang}/rewards?embedded=app`);
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("text/html");
-      expect(await response.text()).toContain("zcode-rewards-context");
+      expect(await response.text()).toContain("escode-rewards-context");
     }
   });
   it("holds the query snapshot captured before a cancellation", async () => {
@@ -289,7 +289,7 @@ describe("Coding Plan upgrade E2E mock server", () => {
 
     expect(pendingBalance.code).toBe(0);
     expect(pendingBalance.data.plans).toEqual([
-      expect.objectContaining({ plan_id: "zcode-v3-start-plan", status: "active" }),
+      expect.objectContaining({ plan_id: "escode-v3-start-plan", status: "active" }),
       expect.objectContaining({
         plan_id: "weekend-plan-e2e",
         status: "active",

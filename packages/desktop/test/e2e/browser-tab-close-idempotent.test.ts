@@ -45,9 +45,9 @@ async function requestCloseTabViaIpc(tabId: string): Promise<CloseTabProbeResult
   return browser.execute(async (targetTabId) => {
     const bridge = (
       window as unknown as {
-        zcode?: { browserViewCloseTab?: (payload: Record<string, unknown>) => Promise<void> };
+        escode?: { browserViewCloseTab?: (payload: Record<string, unknown>) => Promise<void> };
       }
-    ).zcode;
+    ).escode;
     if (!bridge?.browserViewCloseTab) {
       return { ok: false, message: "preload 没有暴露 browserViewCloseTab" };
     }

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use systematic debugging for any failed runtime verification, and update this plan before changing code if product semantics change.
 
-**Goal:** Restore v4 `/goal` parity with z-code-2 for the visible composer command path: draft-first `/goal` must set or replace the session target through the goal command channel, queued `/goal` must stay a goal command, and no `/goal` command may be downgraded into an ordinary model prompt.
+**Goal:** Restore v4 `/goal` parity with escode-2 for the visible composer command path: draft-first `/goal` must set or replace the session target through the goal command channel, queued `/goal` must stay a goal command, and no `/goal` command may be downgraded into an ordinary model prompt.
 
 **Architecture:** Keep goal state owned by the agent/session runtime and surfaced through v4 conversation snapshots. UI parses visible slash commands at the send boundary, then routes them through `v4/command`. Running or compacting sessions keep the existing command barrier for immediate target writes, but enqueue `/goal` as a command-aware pending item and consume it only through the goal command path.
 
-**Tech Stack:** React UI in `packages/ui/src/v4`, protocol schemas in `packages/shared/src/zcode-protocol-v4`, bootstrap command handlers in `apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4`, core queue/runtime contracts in `apps/zcode-cli/packages/contracts` and `apps/zcode-cli/packages/core`.
+**Tech Stack:** React UI in `packages/ui/src/v4`, protocol schemas in `packages/shared/src/escode-protocol-v4`, bootstrap command handlers in `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4`, core queue/runtime contracts in `apps/escode-cli/packages/contracts` and `apps/escode-cli/packages/core`.
 
 ## Scope
 
@@ -15,7 +15,7 @@ This plan covers `/goal`, `/target`, `/goal replace`, and `/goal resume` on the 
 Out of scope for this pass:
 
 - The `Multiple system messages that are separated by user/assistant messages` failure. That is a provider SDK/version issue and should not be mixed into this fix.
-- Full standalone goal setup mode parity (`direct` / `quick` / `grill` and `ExitGoalSetup` approval cards). z-code-2 added that later, but current v4 protocol only exposes `sendGoalCommand(text)` and `resumeGoal`.
+- Full standalone goal setup mode parity (`direct` / `quick` / `grill` and `ExitGoalSetup` approval cards). escode-2 added that later, but current v4 protocol only exposes `sendGoalCommand(text)` and `resumeGoal`.
 - `/goal show`, `/goal pause`, and `/goal clear` protocol behavior. The old parser recognized these actions, but v4 has no matching command payloads yet.
 - UI redesign of the goal card/sidebar. The target of this plan is command semantics and queue preservation.
 
@@ -25,12 +25,12 @@ Current v4 source of truth:
 
 - `docs/conversation-protocol-declaration.md`: `/goal xxx` sets or updates the session goal; running and compacting `/goal xxx` append to the queue.
 - `docs/testing/conversation-session-goal-specific-coverage-matrix.md`: G0/G1/G2 define completed replacement, running queue, queue edit/delete/reorder, send-now, and compact interaction expectations.
-- `packages/shared/src/zcode-protocol-v4/command.ts`: v4 currently has `sendGoalCommand({ text, heldQueueDisposition? })` and `resumeGoal({})`.
-- `packages/shared/src/zcode-protocol-v4/snapshot.ts`: queue items already have `kind: "sendText" | "sendGoalCommand"`, with a comment saying `/goal` stores the user original.
-- `apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/commands/handlers/goal-compact.ts`: `sendGoalCommand` already implements set/replace by reading existing target, but rejects active turns.
+- `packages/shared/src/escode-protocol-v4/command.ts`: v4 currently has `sendGoalCommand({ text, heldQueueDisposition? })` and `resumeGoal({})`.
+- `packages/shared/src/escode-protocol-v4/snapshot.ts`: queue items already have `kind: "sendText" | "sendGoalCommand"`, with a comment saying `/goal` stores the user original.
+- `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/commands/handlers/goal-compact.ts`: `sendGoalCommand` already implements set/replace by reading existing target, but rejects active turns.
 - `packages/ui/src/v4/SessionPane.tsx`: slash parsing only runs when `sessionId` exists, so draft-first `/goal` falls through to `createSession(firstInput)` + `sendText`.
 
-z-code-2 evidence:
+escode-2 evidence:
 
 - `0e3ad860b fix: route visible slash commands`: parsed visible `/compact`, `/goal`, and `/target` at submit boundary; draft/no-task slash commands created or resumed a session first, then ran the session control command instead of sending ordinary prompt text.
 - `ea2848b5e fix(ui): preserve queued goal semantics`: classified queued prompt kind as goal/compact/text and restored `/goal` prefix when a queued goal was edited to objective-only text.
@@ -61,7 +61,7 @@ z-code-2 evidence:
    The v4 queue handler reads item text, removes the item, waits idle, then calls `startPromptTurn`. For a goal queue item, this would again become an ordinary user prompt.
 
 7. Queue editing can lose command syntax.
-   z-code-2 restored `/goal` when a queued goal was edited to just the objective. v4 needs the same behavior, preferably using `queueItem.kind` as authority.
+   escode-2 restored `/goal` when a queued goal was edited to just the objective. v4 needs the same behavior, preferably using `queueItem.kind` as authority.
 
 ## Target Behavior
 
@@ -196,7 +196,7 @@ Core pending input auto-drain must distinguish text from commands:
   - only run when queue `autoDrain` is true;
   - only consume the head item;
   - preserve FIFO by blocking later text behind a queued goal until the goal command is consumed;
-  - apply the same active-lock wait/retry guard as z-code-2's ready-boundary fixes.
+  - apply the same active-lock wait/retry guard as escode-2's ready-boundary fixes.
 
 ### Phase 4: Fix queue actions
 
@@ -265,6 +265,6 @@ Required checks before commit:
 
 ## Open Product Questions
 
-- Should v4 show a visible command row for `/goal <objective>`, or should it only surface the target card/banner? z-code-2 preserved the visible command shape, but current v4 acceptance can first assert the stronger invariant: it must not become an ordinary model prompt.
+- Should v4 show a visible command row for `/goal <objective>`, or should it only surface the target card/banner? escode-2 preserved the visible command shape, but current v4 acceptance can first assert the stronger invariant: it must not become an ordinary model prompt.
 - Should `/goal show`, `/goal pause`, and `/goal clear` be added to v4 command schema now, or left for full standalone parity?
-- Should setup-mode parity from z-code-2 (`direct` / `quick` / `grill`) be planned as a separate v4 protocol extension after this command-routing fix?
+- Should setup-mode parity from escode-2 (`direct` / `quick` / `grill`) be planned as a separate v4 protocol extension after this command-routing fix?

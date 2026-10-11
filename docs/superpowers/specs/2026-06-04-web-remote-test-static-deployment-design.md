@@ -10,8 +10,8 @@ v2:
   -> base=/remote/
   -> Dockerfile.web-remote-control
   -> nginx.web-remote-control.conf
-  -> uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-v2
-  -> zcode/frontend/deployment-remote.yaml
+  -> uhub.service.ucloud.cn/tianqi/escode-remote-mobile-v2
+  -> escode/frontend/deployment-remote.yaml
   -> /remote
 
 v3:
@@ -19,27 +19,27 @@ v3:
   -> base=/remote/v3/
   -> Dockerfile.web-remote-control-v3
   -> nginx.web-remote-control-v3.conf
-  -> uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-v3
-  -> zcode/frontend/deployment-remote-v3.yaml
+  -> uhub.service.ucloud.cn/tianqi/escode-remote-mobile-v3
+  -> escode/frontend/deployment-remote-v3.yaml
   -> /remote/v3
 ```
 
 新需求是在同一套远控 Web 代码上新增测试资源路径 `/remote/__test__`，并让发布脚本最终只更新
-`cgx-dev-k8s` 仓库中的 `zcode/frontend/deployment-remote-test.yaml`。
+`cgx-dev-k8s` 仓库中的 `escode/frontend/deployment-remote-test.yaml`。
 
 ## 目标
 
 1. 新增 `/remote/__test__` 静态资源部署链路。
 2. `/remote/__test__` 使用独立构建脚本、Dockerfile、nginx 配置、镜像名和 k8s deployment 文件。
-3. 发布脚本最后只修改 `zcode/frontend/deployment-remote-test.yaml`。
+3. 发布脚本最后只修改 `escode/frontend/deployment-remote-test.yaml`。
 4. 保持 `/remote` 和 `/remote/v3` 现有链路不变。
-5. 不修改 desktop 默认二维码 URL；测试入口通过 `ZCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote/__test__` 指定。
+5. 不修改 desktop 默认二维码 URL；测试入口通过 `ESCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote/__test__` 指定。
 6. 不修改 relay 协议、shared-host attachment、task stream、snapshot、queue 或 replayable 恢复语义。
 
 ## 非目标
 
 1. 不把 `/remote/__test__` 合并到 v2 或 v3 容器中做子路由复用。
-2. 不在 z-code 发布脚本里创建 k8s deployment、service 或 ingress。
+2. 不在 escode 发布脚本里创建 k8s deployment、service 或 ingress。
 3. 不修改 `packages/desktop/src/main/index.ts` 的默认 `mobileRemoteControlUrl`。
 4. 不改变 `/web-remote` OAuth 兼容入口。
 5. 不新增独立 Agent runtime、local host、SSH/WSL/Docker session 或 relay 业务状态。
@@ -54,8 +54,8 @@ test:
   -> packages/web/dist, base=/remote/__test__/
   -> Dockerfile.web-remote-control-test
   -> nginx.web-remote-control-test.conf
-  -> image uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-test:<tag>
-  -> zcode/frontend/deployment-remote-test.yaml
+  -> image uhub.service.ucloud.cn/tianqi/escode-remote-mobile-test:<tag>
+  -> escode/frontend/deployment-remote-test.yaml
   -> /remote/__test__
 ```
 
@@ -67,7 +67,7 @@ test:
 在根目录 `package.json` 新增脚本：
 
 ```json
-"build:web-remote-control:test": "pnpm --filter @zcode/web exec vite build --base=/remote/__test__/"
+"build:web-remote-control:test": "pnpm --filter @escode/web exec vite build --base=/remote/__test__/"
 ```
 
 `packages/web/dist` 仍是唯一输出目录。发布脚本在 Docker build 前执行 test build，因此不需要新增单独
@@ -114,11 +114,11 @@ Vite base 规范化为 QR 入口路径：
 新增 `scripts/docker-build-and-push-web-remote-control-test.sh`，从 v3 脚本复制并收敛默认值：
 
 ```text
-DOCKER_IMAGE_NAME=uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-test
+DOCKER_IMAGE_NAME=uhub.service.ucloud.cn/tianqi/escode-remote-mobile-test
 DOCKERFILE=Dockerfile.web-remote-control-test
-K8S_DEPLOYMENT_FILE=zcode/frontend/deployment-remote-test.yaml
-K8S_BRANCH_NAME=deploy/zcode-remote-mobile-test-<tag>
-MR title=chore: update zcode remote test image to <tag>
+K8S_DEPLOYMENT_FILE=escode/frontend/deployment-remote-test.yaml
+K8S_BRANCH_NAME=deploy/escode-remote-mobile-test-<tag>
+MR title=chore: update escode remote test image to <tag>
 build command=pnpm run build:web-remote-control:test
 ```
 
@@ -130,11 +130,11 @@ pnpm run build:web-remote-control:test
 docker build --platform <platform> -f Dockerfile.web-remote-control-test -t <image> .
 docker push <image>
 git -C <cgx-dev-k8s> checkout/update base branch
-replace first image field in zcode/frontend/deployment-remote-test.yaml
+replace first image field in escode/frontend/deployment-remote-test.yaml
 commit and push MR branch
 ```
 
-如果 `deployment-remote-test.yaml` 不存在，脚本直接失败并提示，避免 z-code 仓库越权生成 k8s 资源。
+如果 `deployment-remote-test.yaml` 不存在，脚本直接失败并提示，避免 escode 仓库越权生成 k8s 资源。
 
 ## Desktop 入口
 
@@ -143,16 +143,16 @@ commit and push MR branch
 测试 `/remote/__test__` 时通过环境变量覆盖：
 
 ```bash
-ZCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote/__test__ pnpm dev:desktop
+ESCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote/__test__ pnpm dev:desktop
 ```
 
 该方式保留线上默认行为，同时允许 test 部署独立回归。
 
 ## k8s 配套要求
 
-z-code 发布脚本只更新 deployment image。k8s 仓库需要提前准备：
+escode 发布脚本只更新 deployment image。k8s 仓库需要提前准备：
 
-1. `zcode/frontend/deployment-remote-test.yaml`
+1. `escode/frontend/deployment-remote-test.yaml`
 2. 指向 test deployment 的 service
 3. ingress 中 `/remote/__test__` 前缀指向 test service
 4. ingress 中 `/remote` 和 `/remote/v3` 前缀继续指向原服务
@@ -198,10 +198,10 @@ bash scripts/test-web-remote-control-test-docker-build.sh
 
 1. `packages/web/dist` 是共享输出目录。缓解方式是发布脚本每次 docker build 前先执行对应版本 build。
 2. test 发布脚本误改 v2/v3 deployment。缓解方式是独立脚本默认固定
-   `zcode/frontend/deployment-remote-test.yaml`，并在测试中断言脚本文本。
+   `escode/frontend/deployment-remote-test.yaml`，并在测试中断言脚本文本。
 3. test 资源路径被旧 `/remote` ingress 吞掉。缓解方式是在 k8s 仓库配置更具体的
    `/remote/__test__` 前缀。
-4. desktop 默认入口误切到 test。缓解方式是不改默认二维码 URL，只通过 `ZCODE_WEB_REMOTE_CONTROL_URL`
+4. desktop 默认入口误切到 test。缓解方式是不改默认二维码 URL，只通过 `ESCODE_WEB_REMOTE_CONTROL_URL`
    做测试覆盖。
 5. Web 入口识别漏掉 test base。缓解方式是为 `resolveWebRemoteControlRoutePathFromBaseUrl()` 增加
    `/remote/__test__/` 单元测试。

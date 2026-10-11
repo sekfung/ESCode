@@ -2,7 +2,7 @@
 
 ## 背景
 
-v4 会话区已经恢复旧版 composer 外观，但消息列表与 composer 的父级布局仍和 z-code-2 不一致。z-code-2 的对话区把消息内容和底部输入区放在同一个滚动容器里：滚动条可以滚到包含输入框的最底部，消息主列与 composer 都使用同一套最大宽度。
+v4 会话区已经恢复旧版 composer 外观，但消息列表与 composer 的父级布局仍和 escode-2 不一致。escode-2 的对话区把消息内容和底部输入区放在同一个滚动容器里：滚动条可以滚到包含输入框的最底部，消息主列与 composer 都使用同一套最大宽度。
 
 当前 v4 的 `ConversationTimeline` 自己持有滚动容器，`ConversationComposer` 是 `SessionPane` 的兄弟节点。结果是滚动条只覆盖 timeline，composer 不属于同一个滚动上下文；同时 row 渲染没有统一的主内容最大宽度，宽屏下文本和工具输出会比旧版发散。
 

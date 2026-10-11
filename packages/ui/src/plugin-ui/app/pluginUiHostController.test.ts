@@ -1,4 +1,4 @@
-import type { PluginSandboxHandle } from "@zcode/shared/mcp-apps";
+import type { PluginSandboxHandle } from "@escode/shared/mcp-apps";
 import { describe, expect, it, vi } from "vitest";
 import {
   createPluginUiHostController,

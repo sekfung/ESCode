@@ -1,6 +1,6 @@
 import { resolveSelectionSideInheritedModel } from "@/lib/selectionSideInheritedModel.js";
 import { useStartPlanRecommendation } from "@/hooks/useStartPlanRecommendation.js";
-import type { SessionCreateSource } from "@zcode/shared";
+import type { SessionCreateSource } from "@escode/shared";
 import { reportSessionCreate } from "@/lib/sessionCreateTelemetry.js";
 import { getLocalTtftObserver } from "@/v4/telemetry/localTtftObserver.js";
 import { BotGroupDeliveryProvider } from "@/v4/BotGroupDeliveryAction.js";
@@ -23,8 +23,8 @@ import {
   TID_CHAT_EMPTY,
   TID_V4_SESSION_PANE,
   testId,
-  ZCODE_AGENT_PROVIDER,
-} from "@zcode/shared";
+  ESCODE_AGENT_PROVIDER,
+} from "@escode/shared";
 import type {
   ConversationShareAccessMode,
   GitChangeSourceId,
@@ -32,9 +32,9 @@ import type {
   HighspeedPrepareTurnResult,
   GitRepositorySummary,
   ModelSelection,
-  ZCodeProvider,
-  ZCodeTaskChangeSummary,
-} from "@zcode/shared";
+  ESCodeProvider,
+  ESCodeTaskChangeSummary,
+} from "@escode/shared";
 import type {
   AttachmentRef,
   CommandAck,
@@ -46,7 +46,7 @@ import type {
   SessionModelTransition,
   UserInputRow,
   V4ConversationFileChangesResult,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { logger } from "@/logger.js";
 import { PluginUiSessionProvider } from "@/plugin-ui/index.js";
 import {
@@ -55,16 +55,16 @@ import {
   resolveConversationSharePublishErrorMessageId,
   sanitizeConversationShareWarnings,
 } from "@/lib/conversationShareError.js";
-import { localizeConversationShareUrl } from "@zcode/shared";
+import { localizeConversationShareUrl } from "@escode/shared";
 import type {
   ConversationShareAllowedArtifact,
   ConversationShareTurnPreflightResult,
   ImportedConversationShare,
-} from "@zcode/services";
+} from "@escode/services";
 import { useCodingPlanBillingDiscountFromService } from "@/CodingPlanBillingDiscount.js";
 import { toast } from "@/components/ui/toast.js";
 import { cn } from "@/components/lib/utils.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import type { OpenAutomationsMain } from "@/lib/taskNavigationHistory.js";
@@ -121,15 +121,15 @@ import {
 import { useWorkflowRunJournalSummaries } from "@/hooks/useWorkflowRunJournalSummaries.js";
 import { usePlanIdentitySnapshot } from "@/hooks/usePlanIdentitySnapshot.js";
 import { useBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
-import { buildGenUiModelContext } from "@zcode/shared/gen-ui";
+import { buildGenUiModelContext } from "@escode/shared/gen-ui";
 import { useWorkspaceHomePath } from "@/hooks/useWorkspaceHomePath.js";
-import { prepareWorkspaceWithZCodeSessionService } from "@/hooks/useWorkspacePrepare.js";
+import { prepareWorkspaceWithESCodeSessionService } from "@/hooks/useWorkspacePrepare.js";
 import {
   createCodingPlanFunnelContext,
   resolveCodingPlanEntryPlanState,
 } from "@/lib/codingPlanFunnelTelemetry.js";
-import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
-import { parseModelPickerValue } from "@/lib/zcodeSessionProjection.js";
+import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/escodeCustomModelValue.js";
+import { parseModelPickerValue } from "@/lib/escodeSessionProjection.js";
 import { captureComposerRecentSubmission } from "@/lib/composerRecent.js";
 import { resolveProviderLabel } from "@/lib/registryProviderView.js";
 import { resolveEntitledAccountProviderAccess } from "@/lib/accountProviderAccess.js";
@@ -150,8 +150,8 @@ import { projectSessionConfigToTaskConfigOptions } from "@/v4/composer/sessionCo
 import { useDraftRuntimeRebuildGate } from "@/v4/composer/useDraftRuntimeRebuildGate.js";
 import { useDraftModelReadinessGate } from "@/v4/composer/useDraftModelReadinessGate.js";
 import { useSettings } from "@/hooks/useSettingService.js";
-import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
-import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { useESCodeStoreWithDefault } from "@/store/StoreProvider.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import {
   DEFAULT_CONVERSATION_SHARE_ACCESS_MODE,
   DEFAULT_CONVERSATION_SHARE_DOCK_STATE,
@@ -161,7 +161,7 @@ import {
   useConversationShareSelectionStore,
   type ConversationShareDisplayWarnings,
 } from "@/store/conversationShareSelectionStore.js";
-import type { GroupedDraftTaskState } from "@/store/zcodeSessionStoreTypes.js";
+import type { GroupedDraftTaskState } from "@/store/escodeSessionStoreTypes.js";
 import {
   ConversationComposer,
   type ComposerRestoreRequest,
@@ -289,7 +289,7 @@ import {
   hasChatLoadingBlockingActiveWork,
   hasChatLoadingBlockingInteraction,
 } from "@/v4/chatLoadingVisibility.js";
-import type { ZCodeUiError } from "@/lib/zcodeUiError.js";
+import type { ESCodeUiError } from "@/lib/escodeUiError.js";
 import { isProviderNotReadyError } from "@/lib/chatPrepareError.js";
 import { useOptionalCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { setPendingSettingsSectionIntent } from "@/lib/settingsNavigation.js";
@@ -355,7 +355,7 @@ export interface SessionPaneProps {
   /** Prompt 模板埋点当前仅覆盖 Desktop；Web / 手机远控保留 UI 行为但不触发该事件。 */
   isDesktop?: boolean;
   compactForRemoteControl?: boolean;
-  provider?: ZCodeProvider;
+  provider?: ESCodeProvider;
   onSessionCreated?: (sessionId: string) => void;
   /** deleteSession：删除当前会话后回到 draft（shell 起新草稿）。 */
   onSessionDeleted?: () => void;
@@ -391,7 +391,7 @@ export interface SessionPaneProps {
   gitDirtyFileCount?: number;
   gitWorktreeReviewSourceId?: GitChangeSourceId | null;
   gitWorktreeChangeSummary?: { added: number; removed: number } | null;
-  activeTaskChangeSummary?: ZCodeTaskChangeSummary | null;
+  activeTaskChangeSummary?: ESCodeTaskChangeSummary | null;
   summaryPanelVariantOverride?: ChatViewSummaryPanelVariant | null;
   onSummaryPanelVariantOverrideChange?: (variant: ChatViewSummaryPanelVariant | null) => void;
   onRefreshGit?: () => void;
@@ -450,7 +450,7 @@ const MAX_CONVERSATION_FILE_CHANGES_CACHE_ENTRIES = 20;
 function toComposerUiError(
   sessionId: string | null | undefined,
   error: SessionErrorInfo,
-): ZCodeUiError {
+): ESCodeUiError {
   return {
     code: error.code,
     message: error.message,
@@ -626,10 +626,10 @@ export function SessionPane({
     highspeedCardService,
     modelSelectionService,
     usageStatsService,
-    zcodeSessionService,
-    zcodeTaskService,
+    escodeSessionService,
+    escodeTaskService,
   } = useServices();
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const slashCommands = useSlashCommands(workspacePath, workspaceIdentity);
   const baseWorkspaceServices = useBaseWorkspaceServices();
   const workspaceHomePath = useWorkspaceHomePath({
@@ -1112,7 +1112,7 @@ export function SessionPane({
   const pluginReferenceIconsEnabled =
     isSessionPluginCatalogReady(state.status, sessionId, snapshot?.sessionId) &&
     hasPluginReferenceUserRows(snapshot?.rows.window ?? []);
-  // send_result 的落定信号：用户消息真正画进对话历史。z-code 没有乐观渲染，
+  // send_result 的落定信号：用户消息真正画进对话历史。escode 没有乐观渲染，
   // 气泡必须等投影回流出 userInput row 才出现，所以 ACK accepted 不能算发送完成。
   // 取 useEffect 而非 store 订阅回调 —— effect 在 DOM commit 之后跑，此刻气泡已在屏幕上。
   useEffect(() => {
@@ -1132,7 +1132,7 @@ export function SessionPane({
     [fileChanges, sessionId, snapshot?.logEpoch],
   );
   const [dismissedErrorKeys, setDismissedErrorKeys] = useState<readonly string[]>([]);
-  const [sendSubmissionError, setSendSubmissionError] = useState<ZCodeUiError | null>(null);
+  const [sendSubmissionError, setSendSubmissionError] = useState<ESCodeUiError | null>(null);
   const [paneLocalSummaryPanelVariantOverride, setPaneLocalSummaryPanelVariantOverride] =
     useState<ChatViewSummaryPanelVariant | null>(null);
   const [terminalSectionOpen, setTerminalSectionOpen] = useState(false);
@@ -1552,7 +1552,7 @@ export function SessionPane({
       }
     }
   }, [highspeedAutoShareClock, highspeedCardService, highspeedTurnVersion, sessionId, snapshot]);
-  const workspaceConfigOptions = useZCodeSessionStore(
+  const workspaceConfigOptions = useESCodeSessionStore(
     (store) => store.getWorkspaceState(workspacePath, workspaceIdentity).configOptions,
   );
   useEffect(() => {
@@ -1568,7 +1568,7 @@ export function SessionPane({
     // Bug 原因：V4 session 配置只存在 ConversationSnapshot，legacy task 配置桶一直为空；
     // 用户从 custom model 会话新建任务时，startDraft 只能继承 workspace 默认模型。
     // 这里仅把权威配置叠到完整目录并按 task 缓存，不改变 session 或 workspace 事实源。
-    useZCodeSessionStore
+    useESCodeSessionStore
       .getState()
       .setTaskConfigOptions(
         workspacePath,
@@ -1615,19 +1615,19 @@ export function SessionPane({
     // 生命周期边界，避免长时间 workbench 中 Set 随会话数增长。
     autoOpenedAssistantPptxKeysRef.current.clear();
   }, [sessionId, snapshot?.logEpoch, workspaceKey]);
-  const composerTextInsertRequest = useZCodeSessionStore(
+  const composerTextInsertRequest = useESCodeSessionStore(
     (store) => store.getWorkspaceState(workspacePath, workspaceIdentity).composerTextInsertRequest,
   );
-  const timelineBottomRequest = useZCodeSessionStore(
+  const timelineBottomRequest = useESCodeSessionStore(
     (store) => store.getWorkspaceState(workspacePath, workspaceIdentity).timelineBottomRequest,
   );
-  const draftRuntimeInvalidationVersion = useZCodeSessionStore(
+  const draftRuntimeInvalidationVersion = useESCodeSessionStore(
     (store) =>
       store.getWorkspaceState(workspacePath, workspaceIdentity).draftRuntimeInvalidationVersion,
   );
   const handleExternalTextInsertApplied = useCallback(
     (requestId: number) => {
-      useZCodeSessionStore
+      useESCodeSessionStore
         .getState()
         .clearComposerTextInsertRequest(workspacePath, requestId, workspaceIdentity);
     },
@@ -1677,6 +1677,10 @@ export function SessionPane({
   // Composer 保存下一次 Submission 的 renderer intent；prewarm session 仅承载草稿预热。
   const {
     composerDraft,
+    executionCapabilities,
+    executionReady,
+    executionError,
+    executionSupported,
     modelSelectionRead,
     draftConfig,
     draftConfigRef,
@@ -1695,6 +1699,8 @@ export function SessionPane({
     sessionId,
     sessionConfig: snapshot?.sessionId === sessionId ? snapshot.config : null,
     agentStartupAllowed: draftAgentStartupAllowed,
+    onRuntimeRestart,
+    onRuntimeLifecycle,
     modelSelectionService,
   });
   useEffect(() => {
@@ -1749,23 +1755,33 @@ export function SessionPane({
     // Selection View。旧预热会话冻结了早期 fallback，即使最新 View 已包含当前账号连接，
     // Renderer 也会永久停在旧模型。未发送且无显式选择的草稿不是执行事实；View 更新时
     // 回收并按最新选择事实重建，已显式选择和正式会话仍保持冻结。
-    useZCodeSessionStore.getState().invalidateDraftRuntime(workspacePath, workspaceIdentity);
+    useESCodeSessionStore.getState().invalidateDraftRuntime(workspacePath, workspaceIdentity);
   }, [draftConfigRef, modelSelectionView?.revision, sessionId, workspaceIdentity, workspacePath]);
   const recommendStartPlan = useStartPlanRecommendation(modelSelectionView);
   const createSubmissionFromComposer = useCallback(
-    () => createComposerSubmissionConfig(draftConfigRef.current, modelSelectionView),
-    [draftConfigRef, modelSelectionView],
+    () =>
+      executionReady
+        ? createComposerSubmissionConfig(
+            draftConfigRef.current,
+            modelSelectionView,
+            executionCapabilities,
+          )
+        : null,
+    [draftConfigRef, modelSelectionView, executionReady, executionCapabilities],
   );
   const composerSubmissionReady = useMemo(
-    () => createComposerSubmissionConfig(draftConfig, modelSelectionView) !== null,
-    [draftConfig, modelSelectionView],
+    () =>
+      executionReady &&
+      createComposerSubmissionConfig(draftConfig, modelSelectionView, executionCapabilities) !==
+        null,
+    [draftConfig, modelSelectionView, executionReady, executionCapabilities],
   );
   const codingPlanUpgradeDialog = useOptionalCodingPlanUpgradeDialog();
   const openSettingsTab = useOptionalTabStore((state) => state.openSettingsTab);
   const billingDiscount = useCodingPlanBillingDiscountFromService(
     baseWorkspaceServices.codingPlanSubscriptionService,
   );
-  const promoteGroupedDraftTask = useZCodeSessionStore((state) => state.promoteGroupedDraftTask);
+  const promoteGroupedDraftTask = useESCodeSessionStore((state) => state.promoteGroupedDraftTask);
   // 首发 commandId 在 accepted 时已存在，也是 completion 的 message_id；不必等回复完成。
   const reportDraftCreated = useCallback(
     (createdSessionId: string, source: SessionCreateSource, messageId: string) => {
@@ -1853,8 +1869,8 @@ export function SessionPane({
 
   // 注入模式对齐 PermissionDialog：theme/codePreviewSettings 在宿主取 store，
   // 经稳定引用的 rowContext 下发给 memo 行组件（MessageResponse/ToolCallBlocks）。
-  const theme = useZCodeStoreWithDefault((state) => state.theme, "system");
-  const codePreviewSettings = useZCodeStoreWithDefault(
+  const theme = useESCodeStoreWithDefault((state) => state.theme, "system");
+  const codePreviewSettings = useESCodeStoreWithDefault(
     (state) => state.codePreviewSettings,
     DEFAULT_CODE_PREVIEW_SETTINGS,
   );
@@ -1906,7 +1922,7 @@ export function SessionPane({
       // 必须早于第一次上行：transport error/renderer refresh 后仍有可查询线索。
       const groupedDraftTask =
         type === "createSession"
-          ? useZCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
+          ? useESCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
               .groupedDraftTask
           : null;
       pendingCommandRegistry.record(
@@ -1920,7 +1936,7 @@ export function SessionPane({
               ...(groupedDraftTask ? { groupedDraftTask } : {}),
               sessionCreateSource:
                 sessionCreateSource ??
-                useZCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
+                useESCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
                   .draftCreateSource,
             }
           : undefined,
@@ -2396,7 +2412,7 @@ export function SessionPane({
         let replacesChildSessionId: string | undefined;
         if (targetChildSessionId) {
           try {
-            await zcodeSessionService.readSession({
+            await escodeSessionService.readSession({
               workspacePath,
               ...(workspaceIdentity ? { workspaceIdentity } : {}),
               sessionId: targetChildSessionId,
@@ -2474,7 +2490,7 @@ export function SessionPane({
       workspaceIdentity,
       workspaceKey,
       workspacePath,
-      zcodeSessionService,
+      escodeSessionService,
     ],
   );
 
@@ -2676,7 +2692,7 @@ export function SessionPane({
   );
 
   /**
-   * 「让 ZCode 帮我提炼保存」那条用户消息的发送口（docs/dynamic-workflow/transcript-and-notifications.md
+   * 「让 ESCode 帮我提炼保存」那条用户消息的发送口（docs/dynamic-workflow/transcript-and-notifications.md
    * 「The message the lead sends」）：与中枢的「提升为全局」同一条先例——GUI 写、自动发、用户不再确认。
    *
    * 经 ref 转一手而不是直接引 `handleSendText`：后者定义在本文件更下面，而 rowContext 的 memo
@@ -2687,7 +2703,7 @@ export function SessionPane({
     const send = sendTextRef.current;
     if (send === null) throw new Error("send path not mounted");
     const result = await send(text);
-    // 被挡下（会话忙着确认别的、队列暂停待确认）就不是「已交给 ZCode」：抛回弹层，让它留在原处。
+    // 被挡下（会话忙着确认别的、队列暂停待确认）就不是「已交给 ESCode」：抛回弹层，让它留在原处。
     if (result !== "sent") throw new Error(`workflow save request not sent: ${result}`);
   }, []);
 
@@ -2827,7 +2843,7 @@ export function SessionPane({
   // pane 未绑定会话时后台建 phase=draft 会话作预热载体：配置写 CAS 直达、首发复用。
   // 对外绑定语义不变（shell activeTaskId 仍 null），预热会话只是 pane 内部 effective 订阅目标。
   const { binding: prewarmBinding } = useDraftSessionPrewarm({
-    enabled: sessionId === null && draftAgentStartupAllowed,
+    enabled: sessionId === null && draftAgentStartupAllowed && executionSupported,
     workspaceKey,
     paneId,
     invalidationVersion: draftRuntimeInvalidationVersion,
@@ -3067,7 +3083,7 @@ export function SessionPane({
 
   const readGroupedDraftId = useCallback(
     () =>
-      useZCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
+      useESCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
         .groupedDraftTask?.draftId ?? null,
     [workspacePath, workspaceIdentity],
   );
@@ -3283,7 +3299,7 @@ export function SessionPane({
       // placement 必须绑定发送开始时的稳定 identity，不能在完成回调里读取当前 workspace 草稿。
       const groupedDraftTaskAtSend =
         sessionId === null
-          ? useZCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
+          ? useESCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
               .groupedDraftTask
           : null;
       const selectionSideSlashCommand =
@@ -3643,7 +3659,7 @@ export function SessionPane({
 
   const dispatchSendText = useCallback(
     (text: string, options?: ConversationComposerSendOptions) => {
-      const createSource = useZCodeSessionStore
+      const createSource = useESCodeSessionStore
         .getState()
         .getWorkspaceState(workspacePath, workspaceIdentity).draftCreateSource;
       const submissionOptions = {
@@ -3720,7 +3736,7 @@ export function SessionPane({
         // 这里把 admission 前失败收口为 pane-local 错误横幅，不改变 desktop continuous 或
         // Web remote replayable 的发送/恢复语义，草稿仍由 Composer 原路径保留。
         setSendSubmissionError({
-          code: runtimeModelUnavailable ? "ZCODE_RUNTIME_MODEL_UNAVAILABLE" : "SEND_FAILED",
+          code: runtimeModelUnavailable ? "ESCODE_RUNTIME_MODEL_UNAVAILABLE" : "SEND_FAILED",
           message: runtimeModelUnavailable
             ? detail
             : intl.formatMessage({ id: "chat.error.sendFailed" }),
@@ -3788,7 +3804,7 @@ export function SessionPane({
       newText: string,
       attachments?: readonly AttachmentRef[],
       workspaceMode: "preserve" | "rewind" = "preserve",
-      conversationQuotes?: import("@zcode/shared").ConversationSelectionText[],
+      conversationQuotes?: import("@escode/shared").ConversationSelectionText[],
     ) => {
       const current = snapshotRef.current;
       if (!sessionId || current === null) return false;
@@ -4234,7 +4250,7 @@ export function SessionPane({
       if (!decoded?.providerId) {
         return;
       }
-      const displayProvider = provider ?? ZCODE_AGENT_PROVIDER;
+      const displayProvider = provider ?? ESCODE_AGENT_PROVIDER;
       let modelValue = value;
       if (!decoded.modelName) {
         const fallbackModel =
@@ -4257,7 +4273,7 @@ export function SessionPane({
         provider: modelSelection.providerId,
         model: modelSelection.modelId,
       });
-      const store = useZCodeSessionStore.getState();
+      const store = useESCodeSessionStore.getState();
       store.setModelSelectionResolution(
         workspacePath,
         {
@@ -4276,18 +4292,18 @@ export function SessionPane({
       });
 
       try {
-        await zcodeTaskService.restartWorkspaceProcess({
+        await escodeTaskService.restartWorkspaceProcess({
           workspacePath,
           workspaceIdentity,
           provider: displayProvider,
           bumpRuntimeEpoch: true,
         });
 
-        const prepareResult = await prepareWorkspaceWithZCodeSessionService({
+        const prepareResult = await prepareWorkspaceWithESCodeSessionService({
           workspacePath,
           workspaceIdentity,
           provider: displayProvider,
-          zcodeSessionService,
+          escodeSessionService,
         });
         handleDraftSelectModel(modelSelection.providerId, modelSelection.modelId);
         store.setConfigOptions(workspacePath, prepareResult.configOptions ?? [], workspaceIdentity);
@@ -4317,8 +4333,8 @@ export function SessionPane({
       showModelChangeNotice,
       workspaceIdentity,
       workspacePath,
-      zcodeSessionService,
-      zcodeTaskService,
+      escodeSessionService,
+      escodeTaskService,
     ],
   );
 
@@ -4575,7 +4591,7 @@ export function SessionPane({
       scrollToBottom();
       secondFrame = window.requestAnimationFrame(() => {
         if (!scrollToBottom()) return;
-        useZCodeSessionStore
+        useESCodeSessionStore
           .getState()
           .clearTimelineBottomRequest(
             workspacePath,
@@ -5184,6 +5200,9 @@ export function SessionPane({
       skillCatalogSessionId={effectiveSessionId}
       draftMode={isDraft}
       draftConfig={draftConfig}
+      executionCapabilities={executionCapabilities}
+      executionReady={executionReady}
+      executionError={executionError}
       composerDraft={composerDraft}
       replaceComposerDraft={replaceComposerDraft}
       submissionReady={composerSubmissionReady}
@@ -5637,7 +5656,7 @@ export function SessionPane({
                   })}
                   headerSlot={
                     // unsupportedRowCount 也要开这个门：整份副本的行都被本 build 跳过时
-                    // rows 为空，但只读块必须留下来显示「需要更新 ZCode」，不能整块消失。
+                    // rows 为空，但只读块必须留下来显示「需要更新 ESCode」，不能整块消失。
                     importedShare &&
                     (importedShare.rows.length > 0 || importedShare.unsupportedRowCount > 0) ? (
                       <ConversationShareImportNotice

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResourceUsageProcess } from "@zcode/shared";
+import type { ResourceUsageProcess } from "@escode/shared";
 import {
   formatBytes,
   formatPercent,

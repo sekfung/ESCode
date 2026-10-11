@@ -6,17 +6,17 @@ import {
   ProviderConfigMap,
   ProviderConfigResolver,
   ZhipuAccountAccessConfig,
-} from "@zcode/provider";
-import { NodeZCodeBuiltinProviderConfigSource } from "../src/index.js";
+} from "@escode/provider";
+import { NodeESCodeBuiltinProviderConfigSource } from "../src/index.js";
 import { fileURLToPath } from "node:url";
 
 const bundledFilePath = fileURLToPath(
-  new URL("../../../config/provider/zcode-builtin.json", import.meta.url),
+  new URL("../../../config/provider/escode-builtin.json", import.meta.url),
 );
 
 describe("Account preset membership", () => {
   it("trims only individual/team defaults and keeps personal additions executable", async () => {
-    const source = new NodeZCodeBuiltinProviderConfigSource({ bundledFilePath, watch: false });
+    const source = new NodeESCodeBuiltinProviderConfigSource({ bundledFilePath, watch: false });
     try {
       const snapshot = await source.read();
       for (const family of ["zai", "bigmodel"]) {
@@ -27,9 +27,9 @@ describe("Account preset membership", () => {
             "GLM-5.3-Flash",
           ]);
           const result = new ProviderConfigResolver().resolve({
-            zcodeBuiltinProviders: snapshot.providers,
-            zcodeBuiltinProviderTemplates: snapshot.providerTemplates,
-            zcodeBuiltinModelRules: snapshot.models,
+            escodeBuiltinProviders: snapshot.providers,
+            escodeBuiltinProviderTemplates: snapshot.providerTemplates,
+            escodeBuiltinModelRules: snapshot.models,
             accountProviders: new ProviderConfigMap([
               [
                 providerId,

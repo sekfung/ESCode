@@ -9,9 +9,9 @@ import {
   shouldAutoCloseFeedbackOnTicketCreated,
 } from "@/feedback/FeedbackSubmitForm.js";
 import { startSimplifiedFeedbackSubmission } from "@/feedback/feedbackSubmitSubmission.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
-import type { IFeedbackService } from "@zcode/services";
-import type { FeedbackTicketDetail, FeedbackTicketSummary, IPlatformService } from "@zcode/shared";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import type { IFeedbackService } from "@escode/services";
+import type { FeedbackTicketDetail, FeedbackTicketSummary, IPlatformService } from "@escode/shared";
 import { TabStoreProvider } from "@/store/TabStoreProvider.js";
 import { dismissFeedbackSubmissionJob } from "@/feedback/feedbackSubmissionJob.js";
 
@@ -54,7 +54,7 @@ function createTicket(id: string): FeedbackTicketDetail {
 function renderFeedbackSubmitForm(locale: "zh-CN" | "en-US" = "zh-CN") {
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(
         TabStoreProvider,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { projectTokenSuccessCodeSchema } from "./project-access-token-response.js";
 import { API_KEY_USAGE_SCENE } from "./api-key-usage-scene.js";
 import { ProjectAccessTokenCache, ProjectAccessTokenError } from "./project-access-token.js";
-import { ZCODE_VERSION } from "./version.js";
+import { ESCODE_VERSION } from "./version.js";
 
 const DEFAULT_ORGANIZATION_NAME = "默认机构";
 const DEFAULT_PROJECT_NAME = "默认项目";
@@ -187,8 +187,8 @@ export class ProjectAccessTokenClient {
               method: "POST",
               headers,
               body: JSON.stringify({
-                clientType: "zcode",
-                clientVersion: ZCODE_VERSION,
+                clientType: "escode",
+                clientVersion: ESCODE_VERSION,
               }),
             },
           );
@@ -277,7 +277,7 @@ export class ProjectAccessTokenClient {
       };
     }
     const url = keyListUrl(origin, location);
-    const name = input.team ? "zcode-team-api-key" : "zcode-api-key";
+    const name = input.team ? "escode-team-api-key" : "escode-api-key";
     const keyHeaders = input.team
       ? {
           ...headers,

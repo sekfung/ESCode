@@ -52,12 +52,12 @@ describe("mcpStore", () => {
   it("目录配置读取失败时保持现有 MCP，并返回未加载", async () => {
     vi.stubGlobal("window", {});
     const existingServer = {
-      id: "zcodeagentmcp-global-everything",
+      id: "escodeagentmcp-global-everything",
       name: "everything",
       config: { type: "stdio" as const, command: "node", args: ["server.mjs"] },
       enabled: true,
       status: "connected" as const,
-      source: "zcodeagentmcp" as const,
+      source: "escodeagentmcp" as const,
       scope: "user" as const,
       toolCount: 1,
     };
@@ -90,7 +90,7 @@ describe("mcpStore", () => {
     const platformLoad = vi.fn(async () => ({
       servers: [
         {
-          source: "zcodeagentmcp" as const,
+          source: "escodeagentmcp" as const,
           scope: "user" as const,
           name: "local-http",
           config: { type: "http" as const, url: "https://local.example.test/mcp" },
@@ -111,7 +111,7 @@ describe("mcpStore", () => {
       loadMcpFromUserDirectory: vi.fn(async () => ({
         servers: [
           {
-            source: "zcodeagentmcp" as const,
+            source: "escodeagentmcp" as const,
             scope: "user" as const,
             name: "remote-http",
             config: { type: "http" as const, url: "https://remote.example.test/mcp" },
@@ -145,7 +145,7 @@ describe("mcpStore", () => {
         };
         name: string;
         scope: "user";
-        source: "zcodeagentmcp";
+        source: "escodeagentmcp";
       }>;
     }) => void;
     const platformLoad = vi.fn(
@@ -159,7 +159,7 @@ describe("mcpStore", () => {
             };
             name: string;
             scope: "user";
-            source: "zcodeagentmcp";
+            source: "escodeagentmcp";
           }>;
         }>((resolve) => {
           resolveLocalLoad = resolve;
@@ -179,7 +179,7 @@ describe("mcpStore", () => {
       loadMcpFromUserDirectory: vi.fn(async () => ({
         servers: [
           {
-            source: "zcodeagentmcp" as const,
+            source: "escodeagentmcp" as const,
             scope: "user" as const,
             name: "remote-b",
             config: {
@@ -210,7 +210,7 @@ describe("mcpStore", () => {
     resolveLocalLoad({
       servers: [
         {
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
           name: "local-a-secret",
           config: {
@@ -235,8 +235,8 @@ describe("mcpStore", () => {
   it("远端 workspace attachment 绑定前不把预期断连记录成 MCP 警告", async () => {
     vi.stubGlobal("window", {});
     const disconnectedError = Object.assign(
-      new Error("ZCODE_REMOTE_WORKSPACE_DISCONNECTED"),
-      { code: "ZCODE_REMOTE_WORKSPACE_DISCONNECTED" },
+      new Error("ESCODE_REMOTE_WORKSPACE_DISCONNECTED"),
+      { code: "ESCODE_REMOTE_WORKSPACE_DISCONNECTED" },
     );
     const directoryService = {
       loadMcpFromUserDirectory: vi.fn(async () => {
@@ -306,7 +306,7 @@ describe("mcpStore", () => {
       .mockResolvedValueOnce({
         servers: [
           {
-            source: "zcodeagentmcp" as const,
+            source: "escodeagentmcp" as const,
             scope: "user" as const,
             name: "legacyHttp",
             config: {
@@ -331,7 +331,7 @@ describe("mcpStore", () => {
       loadMcpFromUserDirectory: vi.fn(async () => ({
         servers: [
           {
-            source: "zcodeagentmcp" as const,
+            source: "escodeagentmcp" as const,
             scope: "user" as const,
             name: "remote-http",
             config: { type: "http" as const, url: "https://remote.example.test/mcp" },
@@ -350,7 +350,7 @@ describe("mcpStore", () => {
     expect(platformLoad).toHaveBeenCalledWith({ workspacePath: "/local/workspace" });
     expect(platformSave).toHaveBeenCalledWith({
       action: "upsert",
-      source: "zcodeagentmcp",
+      source: "escodeagentmcp",
       name: "legacyHttp",
       config: {
         type: "http",
@@ -362,17 +362,17 @@ describe("mcpStore", () => {
     ]);
   });
 
-  it("批量合并只更新 ZCode Agent MCP 行且清理 changed", () => {
+  it("批量合并只更新 ESCode Agent MCP 行且清理 changed", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-filesystem",
+          id: "escodeagentmcp-global-filesystem",
           name: "filesystem",
           config: { type: "stdio", command: "node", args: ["server.js"] },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
         {
@@ -401,8 +401,8 @@ describe("mcpStore", () => {
       epoch,
     );
 
-    const [zcodeServer, claudeServer] = useMcpStore.getState().servers;
-    expect(zcodeServer).toMatchObject({
+    const [escodeServer, claudeServer] = useMcpStore.getState().servers;
+    expect(escodeServer).toMatchObject({
       status: "connected",
       toolCount: 2,
       changed: false,
@@ -417,7 +417,7 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-notion",
+          id: "escodeagentmcp-global-notion",
           name: "notion",
           config: {
             type: "http",
@@ -427,7 +427,7 @@ describe("mcpStore", () => {
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -464,24 +464,24 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-everything",
+          id: "escodeagentmcp-global-everything",
           name: "everything",
           config: { type: "stdio", command: "npx", args: ["everything"] },
           enabled: true,
           changed: false,
           status: "connected",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
           toolCount: 9,
         },
         {
-          id: "zcodeagentmcp-global-plugin-canva",
+          id: "escodeagentmcp-global-plugin-canva",
           name: "plugin:canva:canva",
           config: { type: "http", url: "https://mcp.canva.example.test/mcp" },
           enabled: true,
           changed: false,
           status: "connecting",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
           authorization: {
             authorizationUrl: "https://auth.canva.example.test/authorize",
@@ -554,13 +554,13 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-canva",
+          id: "escodeagentmcp-global-canva",
           name: "canva",
           config: { type: "http", url: "https://mcp.canva.example.test/mcp" },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -590,20 +590,20 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-filesystem",
+          id: "escodeagentmcp-global-filesystem",
           name: "filesystem",
           config: { type: "stdio", command: "node", args: ["server.js"] },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
     });
 
     const epoch = useMcpStore.getState().beginServerStatusListRefresh();
-    useMcpStore.getState().updateServerStatus("zcodeagentmcp-global-filesystem", "error", "manual");
+    useMcpStore.getState().updateServerStatus("escodeagentmcp-global-filesystem", "error", "manual");
     useMcpStore.getState().mergeServerStatusSnapshots(
       {
         filesystem: {
@@ -626,13 +626,13 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-filesystem",
+          id: "escodeagentmcp-global-filesystem",
           name: "filesystem",
           config: { type: "stdio", command: "node", args: ["server.js"] },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -640,7 +640,7 @@ describe("mcpStore", () => {
 
     const epoch = useMcpStore.getState().beginServerStatusListRefresh();
     useMcpStore.getState().updateServerStatus(
-      "zcodeagentmcp-global-filesystem",
+      "escodeagentmcp-global-filesystem",
       "connecting",
       undefined,
       { invalidateStatusListRequests: false },
@@ -663,11 +663,11 @@ describe("mcpStore", () => {
     });
   });
 
-  it("批量状态刷新开始时会立即标记待检查的 ZCode Agent MCP 为连接中", () => {
+  it("批量状态刷新开始时会立即标记待检查的 ESCode Agent MCP 为连接中", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-context7",
+          id: "escodeagentmcp-global-context7",
           name: "context7",
           config: { type: "stdio", command: "npx", args: ["-y", "@upstash/context7-mcp"], timeoutMs: 3 },
           enabled: true,
@@ -675,18 +675,18 @@ describe("mcpStore", () => {
           status: "unknown",
           error: "old error",
           toolCount: 2,
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
         {
-          id: "zcodeagentmcp-global-exa",
+          id: "escodeagentmcp-global-exa",
           name: "exa",
           config: { type: "http", url: "https://mcp.exa.ai/mcp" },
           enabled: true,
           changed: false,
           status: "connected",
           toolCount: 2,
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
         {
@@ -727,7 +727,7 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-pending",
+          id: "escodeagentmcp-global-pending",
           name: "pending",
           config: { type: "http", url: "https://mcp.example.test/pending" },
           enabled: true,
@@ -736,7 +736,7 @@ describe("mcpStore", () => {
           authorization,
           error: "keep display state",
           toolCount: 3,
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -757,13 +757,13 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-new-server",
+          id: "escodeagentmcp-global-new-server",
           name: "new-server",
           config: { type: "stdio", command: "new-server" },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -791,17 +791,17 @@ describe("mcpStore", () => {
     });
   });
 
-  it("批量状态刷新失败时会把当前连接中的 ZCode Agent MCP 收口为错误", () => {
+  it("批量状态刷新失败时会把当前连接中的 ESCode Agent MCP 收口为错误", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-broken",
+          id: "escodeagentmcp-global-broken",
           name: "broken",
           config: { type: "stdio", command: "missing-mcp-command" },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -843,7 +843,7 @@ describe("mcpStore", () => {
       },
       servers: [
         {
-          id: "zcodeagentmcp-global-local",
+          id: "escodeagentmcp-global-local",
           name: "local",
           config: { type: "http", url: "https://mcp.example.test/local" },
           enabled: true,
@@ -853,7 +853,7 @@ describe("mcpStore", () => {
             authorizationUrl: "https://oauth.example.test/local",
             startedAt: "2026-07-10T00:00:00.000Z",
           },
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -889,13 +889,13 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-broken",
+          id: "escodeagentmcp-global-broken",
           name: "broken",
           config: { type: "stdio", command: "missing-mcp-command" },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -916,13 +916,13 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-broken",
+          id: "escodeagentmcp-global-broken",
           name: "broken",
           config: { type: "stdio", command: "missing-mcp-command" },
           enabled: true,
           changed: true,
           status: "unknown",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
@@ -940,7 +940,7 @@ describe("mcpStore", () => {
 
   it("更新 MCP 配置后会清理旧健康状态并重新标记 changed", async () => {
     const server = {
-      source: "zcodeagentmcp" as const,
+      source: "escodeagentmcp" as const,
       scope: "user" as const,
       name: "context7",
       config: {
@@ -956,20 +956,20 @@ describe("mcpStore", () => {
       nativeServers: [server],
       servers: [
         {
-          id: "zcodeagentmcp-global-context7",
+          id: "escodeagentmcp-global-context7",
           name: "context7",
           config: server.config,
           enabled: true,
           changed: false,
           status: "error",
           error: "MCP server context7 connection timed out after 3ms",
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
         },
       ],
     });
 
-    await useMcpStore.getState().updateScopedMcpServer("zcodeagentmcp", "context7", {
+    await useMcpStore.getState().updateScopedMcpServer("escodeagentmcp", "context7", {
       ...server.config,
       timeoutMs: 30000,
     });
@@ -1003,18 +1003,18 @@ describe("mcpStore", () => {
     useMcpStore.setState({
       servers: [
         {
-          id: "zcodeagentmcp-global-broken",
+          id: "escodeagentmcp-global-broken",
           name: "broken",
           config: { type: "stdio", command: "missing-mcp-command" },
           enabled: false,
-          source: "zcodeagentmcp",
+          source: "escodeagentmcp",
           scope: "user",
           status: "unknown",
         },
       ],
     });
 
-    const toggle = useMcpStore.getState().toggleServer("zcodeagentmcp-global-broken", true);
+    const toggle = useMcpStore.getState().toggleServer("escodeagentmcp-global-broken", true);
     await Promise.resolve();
 
     expect(useMcpStore.getState().servers[0]?.enabled).toBe(false);
@@ -1023,7 +1023,7 @@ describe("mcpStore", () => {
         action: "set-enabled",
         enabled: true,
         name: "broken",
-        source: "zcodeagentmcp",
+        source: "escodeagentmcp",
       }),
     );
 

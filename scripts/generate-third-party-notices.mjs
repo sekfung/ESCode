@@ -54,10 +54,13 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
       sha256: addText(bytes, `${item.name}@${item.version}`, member),
     })),
   }));
-  async function copiedFiles(file, files) {
-    if ((await stat(join(root, file))).isDirectory()) {
+  async function copiedFiles(recordId, file, files) {
+    // 修复：更名后清单里的旧路径曾让这里直接抛 ENOENT，报错必须点名记录与路径。
+    const info = await stat(join(root, file)).catch(() => null);
+    if (!info) throw new Error(`Missing copied source for ${recordId}: ${file}`);
+    if (info.isDirectory()) {
       for (const child of (await readdir(join(root, file))).sort())
-        await copiedFiles(`${file}/${child}`, files);
+        await copiedFiles(recordId, `${file}/${child}`, files);
     } else {
       const bytes = await readInput(file);
       files.push({ file, sha256: hashBytes(bytes) });
@@ -74,12 +77,12 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
       throw new Error(`Missing copied-source license or review: ${record.id}`);
     }
     const files = [];
-    for (const file of record.roots) await copiedFiles(file, files);
+    for (const file of record.roots) await copiedFiles(record.id, file, files);
     for (const file of record.modifiedFiles ?? []) {
       // 修复：集中 NOTICE 不能替代 Apache 4(b) 的文件内修改声明，重新生成时也不能抹掉这一义务。
       if (!files.some((entry) => entry.file === file))
         throw new Error(`Modified source outside copied roots: ${file}`);
-      if (!(await readFile(join(root, file), "utf8")).includes("Modified by ZCode:"))
+      if (!(await readFile(join(root, file), "utf8")).includes("Modified by ESCode:"))
         throw new Error(`Missing file-local modification notice: ${file}`);
     }
     copiedInventory.push({ ...record, files });
@@ -147,7 +150,7 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
     "## Modified npm packages",
     ...patches.map(
       (item) =>
-        `- ${item.package}: modified by ZCode; the changes are recorded in ${item.file} in the source repository.`,
+        `- ${item.package}: modified by ESCode; the changes are recorded in ${item.file} in the source repository.`,
     ),
     "## License and NOTICE texts",
   ];

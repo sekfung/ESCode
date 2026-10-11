@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type {
   SkillSummary,
-  ZCodeCommand,
-  ZCodeMcpServer,
-  ZCodePluginComponentGroup,
-  ZCodePluginInfo,
-} from "@zcode/shared";
+  ESCodeCommand,
+  ESCodeMcpServer,
+  ESCodePluginComponentGroup,
+  ESCodePluginInfo,
+} from "@escode/shared";
 import {
   buildInstalledPluginDisplayGroups,
   buildPluginMcpServerItems,
@@ -68,7 +68,7 @@ describe("pluginManagedResourceGroups", () => {
         enabled: true,
         id: "local",
         name: "local-review",
-        path: "/workspace/.zcode/skills/local-review/SKILL.md",
+        path: "/workspace/.escode/skills/local-review/SKILL.md",
         scope: "workspace",
       },
       {
@@ -77,7 +77,7 @@ describe("pluginManagedResourceGroups", () => {
         enabled: true,
         id: "plugin",
         name: "ios-dev",
-        path: "/home/.zcode/cli/plugins/cache/zcode-plugins-official/ios/0.1.0/skills/ios-dev/SKILL.md",
+        path: "/home/.escode/cli/plugins/cache/zcode-plugins-official/ios/0.1.0/skills/ios-dev/SKILL.md",
         pluginName: "ios-simulator",
         scope: "plugin",
       },
@@ -90,18 +90,18 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("groups user and plugin commands separately", () => {
-    const commands: ZCodeCommand[] = [
+    const commands: ESCodeCommand[] = [
       {
-        agentSource: "zcodeAgent",
+        agentSource: "escodeAgent",
         content: "local",
         description: "local command",
         enabled: true,
-        filePath: "/home/.zcode/commands/review.md",
-        id: "zcodeAgent:zcode:global:/review",
+        filePath: "/home/.escode/commands/review.md",
+        id: "escodeAgent:escode:global:/review",
         location: {
-          directoryPath: "/home/.zcode/commands",
+          directoryPath: "/home/.escode/commands",
           scope: "user",
-          source: "zcode",
+          source: "escode",
         },
         name: "/review",
         prompt: "local",
@@ -112,7 +112,7 @@ describe("pluginManagedResourceGroups", () => {
         content: "plugin",
         description: "plugin command",
         enabled: true,
-        filePath: "/home/.zcode/cli/plugins/cache/plugin/commands/ios-dev.md",
+        filePath: "/home/.escode/cli/plugins/cache/plugin/commands/ios-dev.md",
         id: "plugin:zcode-plugins-official:ios-simulator:/ios-dev",
         name: "/ios-dev",
         pluginEnabled: true,
@@ -131,14 +131,14 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("builds plugin MCP items from enabled plugin metadata", () => {
-    const servers: ZCodeMcpServer[] = [
+    const servers: ESCodeMcpServer[] = [
       {
         config: { command: "npx", type: "stdio" },
         enabled: true,
-        id: "zcodeagentmcp-global-memory",
+        id: "escodeagentmcp-global-memory",
         name: "memory",
         scope: "user",
-        source: "zcodeagentmcp",
+        source: "escodeagentmcp",
       },
       {
         config: { command: "npx", type: "stdio" },
@@ -149,7 +149,7 @@ describe("pluginManagedResourceGroups", () => {
         source: "codexclimcp",
       },
     ];
-    const plugins: ZCodePluginInfo[] = [
+    const plugins: ESCodePluginInfo[] = [
       {
         commandRootCount: 0,
         declaredMcpServerNames: ["ios-simulator", "ios-helper"],
@@ -192,7 +192,7 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("marks plugin MCP items active when runtime server names are namespaced", () => {
-    const plugins: ZCodePluginInfo[] = [
+    const plugins: ESCodePluginInfo[] = [
       {
         commandRootCount: 0,
         declaredMcpServerNames: ["chrome-devtools"],
@@ -222,7 +222,7 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("maps Browser host MCP metadata to the unprefixed node_repl runtime", () => {
-    const plugins: ZCodePluginInfo[] = [
+    const plugins: ESCodePluginInfo[] = [
       {
         commandRootCount: 0,
         declaredMcpServerNames: [],
@@ -267,7 +267,7 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("attaches plugin MCP OAuth authorization from runtime status snapshots", () => {
-    const plugins: ZCodePluginInfo[] = [
+    const plugins: ESCodePluginInfo[] = [
       {
         commandRootCount: 0,
         declaredMcpServerNames: ["canva"],
@@ -319,7 +319,7 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   it("ignores stale plugin MCP runtime authorization when plugin is disabled", () => {
-    const plugins: ZCodePluginInfo[] = [
+    const plugins: ESCodePluginInfo[] = [
       {
         commandRootCount: 0,
         declaredMcpServerNames: ["canva"],
@@ -363,7 +363,7 @@ describe("pluginManagedResourceGroups", () => {
   });
 
   describe("buildInstalledPluginDisplayGroups", () => {
-    function makeComponents(): ZCodePluginComponentGroup[] {
+    function makeComponents(): ESCodePluginComponentGroup[] {
       return [
         {
           kind: "skill",
@@ -373,7 +373,7 @@ describe("pluginManagedResourceGroups", () => {
       ];
     }
 
-    function makePlugin(overrides: Partial<ZCodePluginInfo> = {}): ZCodePluginInfo {
+    function makePlugin(overrides: Partial<ESCodePluginInfo> = {}): ESCodePluginInfo {
       return {
         commandRootCount: 0,
         enabled: true,

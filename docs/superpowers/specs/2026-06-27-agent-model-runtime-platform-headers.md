@@ -9,12 +9,12 @@ agent runtime 所在机器的操作系统、CPU 架构和系统版本，用来�
 
 ## 目标
 
-- 所有 zcode-cli agent 模型请求默认携带运行环境 header：
+- 所有 escode-cli agent 模型请求默认携带运行环境 header：
   - `X-Platform`: `${process.platform}-${arch()}`
   - `X-Os-Category`: `macos` / `windows` / `linux`
   - `X-Os-Version`: `release()`
 - header 语义表示真正发起模型请求的 agent runtime 机器。远程 SSH / WSL / Docker workspace
-  由远端 zcode-cli runtime 生成 header，因此记录远端环境，不记录本机桌面或手机 `/remote`
+  由远端 escode-cli runtime 生成 header，因此记录远端环境，不记录本机桌面或手机 `/remote`
   客户端环境。
 - 复用 app 侧已有的 header 名称，不新增 `X-ZCode-OS` / `X-ZCode-Arch` / `X-ZCode-OS-Version`。
 - header 值只允许可打印 ASCII；无法生成安全值时省略对应可选 header，避免 HTTP fetch
@@ -23,14 +23,14 @@ agent runtime 所在机器的操作系统、CPU 架构和系统版本，用来�
 
 ## 非目标
 
-- 不修改 `@zcode/protocol`，这些环境信息不需要从 app 传给 agent。
+- 不修改 `@escode/protocol`，这些环境信息不需要从 app 传给 agent。
 - 不改变 `x-request-id`、`x-zcode-trace-id`、`x-session-id`、`x-query-id` 的请求级归因语义。
 - 不把手机 `/remote` 的设备信息写入 agent 模型请求 header。
 - 不新增环境变量或用户可见设置。
 
 ## 设计
 
-运行环境 header 在 `apps/zcode-cli/packages/bootstrap/src/model-config.ts` 的 provider 默认
+运行环境 header 在 `apps/escode-cli/packages/bootstrap/src/model-config.ts` 的 provider 默认
 header 生成阶段构造，和 `User-Agent`、`X-ZCode-App-Version`、`X-Title`、`X-ZCode-Agent`
 保持同一层级。
 
@@ -53,6 +53,6 @@ header 生成阶段构造，和 `User-Agent`、`X-ZCode-App-Version`、`X-Title`
 
 ## 验证
 
-- 执行 `pnpm --dir apps/zcode-cli --filter @zcode/bootstrap test -- model-config`。
-- 执行 `pnpm --dir apps/zcode-cli --filter @zcode/adapters test -- runner-options`。
+- 执行 `pnpm --dir apps/escode-cli --filter @escode/bootstrap test -- model-config`。
+- 执行 `pnpm --dir apps/escode-cli --filter @escode/adapters test -- runner-options`。
 - 按仓库要求执行 `pnpm typecheck` 和 `pnpm lint`。

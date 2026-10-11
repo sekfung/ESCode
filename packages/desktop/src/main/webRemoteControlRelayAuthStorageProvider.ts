@@ -1,5 +1,5 @@
-import type { ICredentialService } from "@zcode/services";
-import type { AppSettings } from "@zcode/shared";
+import type { ICredentialService } from "@escode/services";
+import type { AppSettings } from "@escode/shared";
 
 export const WEB_REMOTE_CONTROL_EXTERNAL_RELAY_PASS_HASH_CREDENTIAL_KEY =
   "web-remote-control:external-relay:pass_hash";

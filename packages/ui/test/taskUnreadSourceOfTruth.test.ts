@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import { countWorkspaceUnreadTasks } from "@/lib/unreadTaskCount.js";
-import { getTaskMeta, getTaskUnreadIndicator } from "@/store/zcodeSessionStore.js";
-import { getDefaultWorkspaceState } from "@/store/zcodeSessionStoreTypes.js";
+import { getTaskMeta, getTaskUnreadIndicator } from "@/store/escodeSessionStore.js";
+import { getDefaultWorkspaceState } from "@/store/escodeSessionStoreTypes.js";
 
-function createTaskMeta(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function createTaskMeta(overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     taskId: "task-unread",
     traceId: "trace-unread",

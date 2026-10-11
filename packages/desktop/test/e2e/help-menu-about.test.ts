@@ -8,7 +8,7 @@ import {
   PlatformChannels,
   type UpdateStatePayload,
   type UpdateCheckResultPayload,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   DEFAULT_WORKSPACE,
   clickTestIdByWebDriver,
@@ -20,9 +20,9 @@ import { startHelpConfigFixture } from "./helpers/help-client-config-fixture.js"
 
 // Node 侧 shared 常量没有 renderer 的编译 define，不能据此跳过 production 分支。
 // 默认正式套件构建 Preview；production 用显式参数独立验证，不能静默跳过。
-const expectedFlavor = process.env.ZCODE_E2E_HELP_MENU_FLAVOR ?? "preview";
+const expectedFlavor = process.env.ESCODE_E2E_HELP_MENU_FLAVOR ?? "preview";
 if (expectedFlavor !== "production" && expectedFlavor !== "preview") {
-  throw new Error("请设置 ZCODE_E2E_HELP_MENU_FLAVOR=production 或 preview，并构建对应产品身份");
+  throw new Error("请设置 ESCODE_E2E_HELP_MENU_FLAVOR=production 或 preview，并构建对应产品身份");
 }
 const production = expectedFlavor === "production";
 
@@ -103,11 +103,11 @@ async function assertLogExport(label: string, pendingLabel: string) {
       { timeout: 30_000, timeoutMsg: "点击导出日志后未生成归档并请求系统定位" },
     );
     const archivePath = String(reveal.mock.calls[0]?.[0]);
-    expect(archivePath).toMatch(/zcode-logs-[^/\\]+\.zip$/);
+    expect(archivePath).toMatch(/escode-logs-[^/\\]+\.zip$/);
     const archive = await readFile(archivePath);
     expect(archive.subarray(0, 4).toString("hex")).toBe("504b0304");
     await browser.waitUntil(
-      async () => !(await $("#zcode-toast-host").getText()).includes(pendingLabel),
+      async () => !(await $("#escode-toast-host").getText()).includes(pendingLabel),
       { timeout: 10_000, timeoutMsg: "日志导出完成后提示未关闭" },
     );
   } finally {
@@ -130,7 +130,7 @@ async function assertAboutWindow() {
           );
           return (
             typeof title === "string" &&
-            title.includes("ZCode") &&
+            title.includes("ESCode") &&
             title.includes(electron.app.getVersion())
           );
         }),
@@ -160,7 +160,7 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await seedSettings({
       locale: "en-US",
       localePreference: "en-US",
-      zcodeEndpointOrigin: helpConfig.origin,
+      escodeEndpointOrigin: helpConfig.origin,
     });
     await browser.refresh();
     await enterWorkspace();
@@ -190,13 +190,13 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
       "Export logs",
       "Resource manager",
       ...(production ? ["Check for updates"] : []),
-      "About ZCode",
+      "About ESCode",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
-    await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-en-light.png"));
+    await browser.saveScreenshot(join(tmpdir(), "escode-help-export-en-light.png"));
     await assertLogExport("Export logs", "Exporting logs...");
     await openMenu();
-    await $('[role="menuitem"]*=About ZCode').click();
+    await $('[role="menuitem"]*=About ESCode').click();
     await assertAboutWindow();
   });
 
@@ -247,14 +247,14 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     expect(await browser.electron.execute((electron) => electron.app.isPackaged)).toBe(false);
     await browser.execute(() => {
       const target = window as unknown as {
-        zcode: {
+        escode: {
           onUpdateCheckResult(callback: (payload: UpdateCheckResultPayload) => void): () => void;
         };
         __helpUpdateResult?: UpdateCheckResultPayload;
         __helpUpdateDispose?: () => void;
       };
       target.__helpUpdateResult = undefined;
-      target.__helpUpdateDispose = target.zcode.onUpdateCheckResult((payload) => {
+      target.__helpUpdateDispose = target.escode.onUpdateCheckResult((payload) => {
         target.__helpUpdateResult = payload;
       });
     });
@@ -300,13 +300,13 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
       "导出日志",
       "资源管理器",
       ...(production ? ["检查更新"] : []),
-      "关于 ZCode",
+      "关于 ESCode",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
-    await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-zh-dark.png"));
+    await browser.saveScreenshot(join(tmpdir(), "escode-help-export-zh-dark.png"));
     await assertLogExport("导出日志", "正在导出日志中");
     await openMenu();
-    await $('[role="menuitem"]*=关于 ZCode').click();
+    await $('[role="menuitem"]*=关于 ESCode').click();
     await assertAboutWindow();
   });
 });

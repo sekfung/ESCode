@@ -1,4 +1,4 @@
-import { TID_TOOL_SUMMARY_TRIGGER } from "@zcode/shared";
+import { TID_TOOL_SUMMARY_TRIGGER } from "@escode/shared";
 
 export type ConversationToolGroupName =
   | "Explore"

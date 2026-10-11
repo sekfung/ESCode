@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ZCodePluginMarketplaceSummary } from "@zcode/shared";
+import type { ESCodePluginMarketplaceSummary } from "@escode/shared";
 import {
   resolveMarketplaceDisplayName,
   resolvePluginSourceLabel,
@@ -8,8 +8,8 @@ import {
 const CLAUDE_CODE_PLUGINS = "Claude Code Plugins";
 
 function makeMarketplace(
-  overrides: Partial<ZCodePluginMarketplaceSummary> = {},
-): ZCodePluginMarketplaceSummary {
+  overrides: Partial<ESCodePluginMarketplaceSummary> = {},
+): ESCodePluginMarketplaceSummary {
   return {
     id: "acme",
     name: "Acme Marketplace",

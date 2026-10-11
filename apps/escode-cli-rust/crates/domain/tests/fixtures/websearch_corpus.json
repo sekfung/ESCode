@@ -1,0 +1,281 @@
+{
+ "description": "Search the web. Returns result blocks with titles and URLs. US-only.\n\n- The current month is September 2026 — use this when searching for recent information.\n- `allowed_domains` / `blocked_domains` filter results.\n- After answering from results, end with a \"Sources:\" list of the URLs you used as markdown links.",
+ "schema": {
+  "type": "object",
+  "properties": {
+   "query": {
+    "type": "string",
+    "minLength": 2,
+    "description": "The search query to use"
+   },
+   "allowed_domains": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Only include search results from these domains"
+   },
+   "blocked_domains": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    },
+    "description": "Never include search results from these domains"
+   }
+  },
+  "required": [
+   "query"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+ },
+ "outputs": [
+  {
+   "text": "",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": []
+   },
+   "content": "Web search results for query: \"rust async\"\n\nLinks:\n- No links found.\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "   ",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": []
+   },
+   "content": "Web search results for query: \"rust async\"\n\nLinks:\n- No links found.\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Plain answer without links.",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [],
+    "summary": "Plain answer without links."
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nPlain answer without links.\n\nLinks:\n- No links found.\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "See [Rust](https://www.rust-lang.org) and [Docs](https://doc.rust-lang.org/).",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://www.rust-lang.org",
+      "title": "Rust"
+     },
+     {
+      "url": "https://doc.rust-lang.org/",
+      "title": "Docs"
+     }
+    ],
+    "summary": "See [Rust](https://www.rust-lang.org) and [Docs](https://doc.rust-lang.org/)."
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nSee [Rust](https://www.rust-lang.org) and [Docs](https://doc.rust-lang.org/).\n\nLinks:\n- [Rust](https://www.rust-lang.org)\n- [Docs](https://doc.rust-lang.org/)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Dup [A](https://A.example/x) and [a](https://a.example/x) again.",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://A.example/x",
+      "title": "A"
+     }
+    ],
+    "summary": "Dup [A](https://A.example/x) and [a](https://a.example/x) again."
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nDup [A](https://A.example/x) and [a](https://a.example/x) again.\n\nLinks:\n- [A](https://A.example/x)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Image ![logo](https://img.example/logo.png) then [site](https://site.example).",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://site.example",
+      "title": "site"
+     }
+    ],
+    "summary": "Image ![logo](https://img.example/logo.png) then [site](https://site.example)."
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nImage ![logo](https://img.example/logo.png) then [site](https://site.example).\n\nLinks:\n- [site](https://site.example)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Non-http [local](file:///tmp/x) and [ftp](ftp://x) and [ok](http://ok.example).",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "http://ok.example",
+      "title": "ok"
+     }
+    ],
+    "summary": "Non-http [local](file:///tmp/x) and [ftp](ftp://x) and [ok](http://ok.example)."
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nNon-http [local](file:///tmp/x) and [ftp](ftp://x) and [ok](http://ok.example).\n\nLinks:\n- [ok](http://ok.example)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Multi\nline [one](https://one.example)\n\n[two](https://two.example/path?q=1)",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://one.example",
+      "title": "one"
+     },
+     {
+      "url": "https://two.example/path?q=1",
+      "title": "two"
+     }
+    ],
+    "summary": "Multi\nline [one](https://one.example)\n\n[two](https://two.example/path?q=1)"
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nMulti\nline [one](https://one.example)\n\n[two](https://two.example/path?q=1)\n\nLinks:\n- [one](https://one.example)\n- [two](https://two.example/path?q=1)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "Many links:\n- [Doc 0](https://example.com/0)\n- [Doc 1](https://example.com/1)\n- [Doc 2](https://example.com/2)\n- [Doc 3](https://example.com/3)\n- [Doc 4](https://example.com/4)\n- [Doc 5](https://example.com/5)\n- [Doc 6](https://example.com/6)\n- [Doc 7](https://example.com/7)\n- [Doc 8](https://example.com/8)\n- [Doc 9](https://example.com/9)\n- [Doc 10](https://example.com/10)\n- [Doc 11](https://example.com/11)\n- [Doc 12](https://example.com/12)\n- [Doc 13](https://example.com/13)\n- [Doc 14](https://example.com/14)\n- [Doc 15](https://example.com/15)\n- [Doc 16](https://example.com/16)\n- [Doc 17](https://example.com/17)\n- [Doc 18](https://example.com/18)\n- [Doc 19](https://example.com/19)\n- [Doc 20](https://example.com/20)\n- [Doc 21](https://example.com/21)\n- [Doc 22](https://example.com/22)\n- [Doc 23](https://example.com/23)\n- [Doc 24](https://example.com/24)",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://example.com/0",
+      "title": "Doc 0"
+     },
+     {
+      "url": "https://example.com/1",
+      "title": "Doc 1"
+     },
+     {
+      "url": "https://example.com/2",
+      "title": "Doc 2"
+     },
+     {
+      "url": "https://example.com/3",
+      "title": "Doc 3"
+     },
+     {
+      "url": "https://example.com/4",
+      "title": "Doc 4"
+     },
+     {
+      "url": "https://example.com/5",
+      "title": "Doc 5"
+     },
+     {
+      "url": "https://example.com/6",
+      "title": "Doc 6"
+     },
+     {
+      "url": "https://example.com/7",
+      "title": "Doc 7"
+     },
+     {
+      "url": "https://example.com/8",
+      "title": "Doc 8"
+     },
+     {
+      "url": "https://example.com/9",
+      "title": "Doc 9"
+     },
+     {
+      "url": "https://example.com/10",
+      "title": "Doc 10"
+     },
+     {
+      "url": "https://example.com/11",
+      "title": "Doc 11"
+     },
+     {
+      "url": "https://example.com/12",
+      "title": "Doc 12"
+     },
+     {
+      "url": "https://example.com/13",
+      "title": "Doc 13"
+     },
+     {
+      "url": "https://example.com/14",
+      "title": "Doc 14"
+     },
+     {
+      "url": "https://example.com/15",
+      "title": "Doc 15"
+     },
+     {
+      "url": "https://example.com/16",
+      "title": "Doc 16"
+     },
+     {
+      "url": "https://example.com/17",
+      "title": "Doc 17"
+     },
+     {
+      "url": "https://example.com/18",
+      "title": "Doc 18"
+     },
+     {
+      "url": "https://example.com/19",
+      "title": "Doc 19"
+     },
+     {
+      "url": "https://example.com/20",
+      "title": "Doc 20"
+     },
+     {
+      "url": "https://example.com/21",
+      "title": "Doc 21"
+     },
+     {
+      "url": "https://example.com/22",
+      "title": "Doc 22"
+     },
+     {
+      "url": "https://example.com/23",
+      "title": "Doc 23"
+     },
+     {
+      "url": "https://example.com/24",
+      "title": "Doc 24"
+     }
+    ],
+    "summary": "Many links:\n- [Doc 0](https://example.com/0)\n- [Doc 1](https://example.com/1)\n- [Doc 2](https://example.com/2)\n- [Doc 3](https://example.com/3)\n- [Doc 4](https://example.com/4)\n- [Doc 5](https://example.com/5)\n- [Doc 6](https://example.com/6)\n- [Doc 7](https://example.com/7)\n- [Doc 8](https://example.com/8)\n- [Doc 9](https://example.com/9)\n- [Doc 10](https://example.com/10)\n- [Doc 11](https://example.com/11)\n- [Doc 12](https://example.com/12)\n- [Doc 13](https://example.com/13)\n- [Doc 14](https://example.com/14)\n- [Doc 15](https://example.com/15)\n- [Doc 16](https://example.com/16)\n- [Doc 17](https://example.com/17)\n- [Doc 18](https://example.com/18)\n- [Doc 19](https://example.com/19)\n- [Doc 20](https://example.com/20)\n- [Doc 21](https://example.com/21)\n- [Doc 22](https://example.com/22)\n- [Doc 23](https://example.com/23)\n- [Doc 24](https://example.com/24)"
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\nMany links:\n- [Doc 0](https://example.com/0)\n- [Doc 1](https://example.com/1)\n- [Doc 2](https://example.com/2)\n- [Doc 3](https://example.com/3)\n- [Doc 4](https://example.com/4)\n- [Doc 5](https://example.com/5)\n- [Doc 6](https://example.com/6)\n- [Doc 7](https://example.com/7)\n- [Doc 8](https://example.com/8)\n- [Doc 9](https://example.com/9)\n- [Doc 10](https://example.com/10)\n- [Doc 11](https://example.com/11)\n- [Doc 12](https://example.com/12)\n- [Doc 13](https://example.com/13)\n- [Doc 14](https://example.com/14)\n- [Doc 15](https://example.com/15)\n- [Doc 16](https://example.com/16)\n- [Doc 17](https://example.com/17)\n- [Doc 18](https://example.com/18)\n- [Doc 19](https://example.com/19)\n- [Doc 20](https://example.com/20)\n- [Doc 21](https://example.com/21)\n- [Doc 22](https://example.com/22)\n- [Doc 23](https://example.com/23)\n- [Doc 24](https://example.com/24)\n\nLinks:\n- [Doc 0](https://example.com/0)\n- [Doc 1](https://example.com/1)\n- [Doc 2](https://example.com/2)\n- [Doc 3](https://example.com/3)\n- [Doc 4](https://example.com/4)\n- [Doc 5](https://example.com/5)\n- [Doc 6](https://example.com/6)\n- [Doc 7](https://example.com/7)\n- [Doc 8](https://example.com/8)\n- [Doc 9](https://example.com/9)\n- [Doc 10](https://example.com/10)\n- [Doc 11](https://example.com/11)\n- [Doc 12](https://example.com/12)\n- [Doc 13](https://example.com/13)\n- [Doc 14](https://example.com/14)\n- [Doc 15](https://example.com/15)\n- [Doc 16](https://example.com/16)\n- [Doc 17](https://example.com/17)\n- [Doc 18](https://example.com/18)\n- [Doc 19](https://example.com/19)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "  [spaced title ](https://spaced.example)  ",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [
+     {
+      "url": "https://spaced.example",
+      "title": "spaced title"
+     }
+    ],
+    "summary": "[spaced title ](https://spaced.example)"
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\n[spaced title ](https://spaced.example)\n\nLinks:\n- [spaced title](https://spaced.example)\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  },
+  {
+   "text": "[](https://empty-title.example)",
+   "output": {
+    "query": "rust async",
+    "results": [],
+    "sources": [],
+    "summary": "[](https://empty-title.example)"
+   },
+   "content": "Web search results for query: \"rust async\"\n\nSummary:\n[](https://empty-title.example)\n\nLinks:\n- No links found.\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks."
+  }
+ ]
+}

@@ -2,8 +2,8 @@
 
 import { createElement, type ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
-import type { CodingPlanUsageSnapshot, ZCodeAccountAccess } from "@zcode/shared";
-import type { IServiceAccessor } from "@zcode/services";
+import type { CodingPlanUsageSnapshot, ESCodeAccountAccess } from "@escode/shared";
+import type { IServiceAccessor } from "@escode/services";
 import { describe, expect, it, vi } from "vitest";
 import { ServiceProvider } from "@/hooks/useServices.js";
 import {
@@ -11,13 +11,13 @@ import {
   useCodingPlanUsageStats,
 } from "@/hooks/useUsageStats.js";
 
-const accountAccessByScope = new Map<string, ZCodeAccountAccess>();
+const accountAccessByScope = new Map<string, ESCodeAccountAccess>();
 
-function createAccountAccess(organizationId?: string, projectId?: string): ZCodeAccountAccess {
+function createAccountAccess(organizationId?: string, projectId?: string): ESCodeAccountAccess {
   const key = `${organizationId ?? ""}:${projectId ?? ""}`;
   const existing = accountAccessByScope.get(key);
   if (existing) return existing;
-  const access: ZCodeAccountAccess =
+  const access: ESCodeAccountAccess =
     organizationId && projectId
       ? {
           type: "zhipu-account",

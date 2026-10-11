@@ -1,4 +1,4 @@
-import type { WorkspacePurpose } from "@zcode/shared";
+import type { WorkspacePurpose } from "@escode/shared";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 
 export function getWorkspacePurpose(target: {

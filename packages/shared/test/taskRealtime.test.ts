@@ -15,7 +15,7 @@ import {
   hostIncomingMessageSchema,
   hostResponseMessageSchema,
   resolveWorkspaceKey,
-} from "@zcode/shared";
+} from "@escode/shared";
 
 function makeRealtimeEvent(overrides: Record<string, unknown> = {}) {
   return {

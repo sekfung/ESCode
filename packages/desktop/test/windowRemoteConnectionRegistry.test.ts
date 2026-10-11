@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RemoteTarget } from "@zcode/shared";
+import type { RemoteTarget } from "@escode/shared";
 import {
   WindowRemoteConnectionUnavailableError,
   createWindowRemoteConnectionRegistry,

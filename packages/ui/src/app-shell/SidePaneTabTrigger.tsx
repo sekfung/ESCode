@@ -6,6 +6,7 @@ import {
   BotIcon,
   BotMessageSquareIcon,
   BugIcon,
+  UsbIcon,
   FileCode2Icon,
   FileDiffIcon,
   MapIcon,
@@ -337,6 +338,10 @@ export function SidePaneTabIcon({ tab }: { tab: WorkspaceSidePaneTab }) {
     return <BugIcon className="size-3.5" />;
   }
 
+  if (tab.type === "serial") {
+    return <UsbIcon className="size-3.5" />;
+  }
+
   if (tab.type === "terminal" || tab.type === "bash-output") {
     return <SquareTerminalIcon className="size-3.5" />;
   }
@@ -547,6 +552,11 @@ export function getSidePaneTabTitle(
 
   if (tab.type === "developer-tools") {
     return formatMessage({ id: "developerTools.title" });
+  }
+
+  if (tab.type === "serial") {
+    // 多个串口标签并排时标题会被截断：只显示串口名，USB 图标已表明是串口标签。
+    return tab.path || formatMessage({ id: "serial.title" });
   }
 
   if (tab.type === "terminal" || tab.type === "bash-output") {

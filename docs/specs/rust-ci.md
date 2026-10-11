@@ -1,0 +1,97 @@
+# Rust runtime 的 GitHub CI 与发布（跨平台验收）
+
+2026-09-25，用户要求：增加 GitHub CI，支持 Windows、macOS、Linux 的构建发布；范围确认为「Rust runtime + 测试 + 桌面安装包」，
+macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 GitLab CI）。
+
+## 工作流
+
+### `.github/workflows/rust-runtime-ci.yml`（push 到 main / `feat/**`、PR、手动）
+
+| job               | runner                                        | 内容                                                                                               |
+| ----------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| checks            | ubuntu-latest                                 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`typecheck`、`lint`、`architecture:check`        |
+| test (matrix × 3) | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件 |
+
+- Windows runner 默认 MSVC 工具链，覆盖此前本机只能用 GNU 目标得出源码级结论的缺口；macOS runner 为 arm64。
+- `ESCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
+- `ELECTRON_SKIP_BINARY_DOWNLOAD=1`：测试不需要 Electron 运行时。
+
+### `.github/workflows/release.yml`（推送 `v*` 标签、手动，或 `feat/**` 上改动发布链路时）
+
+- `rust-runtime`：6 个目标（`x86_64/aarch64` × `linux-gnu / windows-msvc / apple-darwin`）的 release 二进制，打包为
+  `.tar.gz` / `.zip` 并附 sha256。Linux arm64 用 `ubuntu-24.04-arm`；macOS x64 在 arm64 runner 上交叉编译。
+- `desktop`：`pnpm bundle:desktop -- --os <os> --arch <arch>`，矩阵 win-x64、mac-arm64、mac-x64（arm64 runner 交叉打包）、linux-x64；
+  `ESCODE_BUNDLE_RUST_AGENT=1` 把 Rust runtime 放进 `resources/glm`（仍需 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust` 才会选用，默认 Node）；
+  `ESCODE_SKIP_REMOTE_ASSETS=1` 不打远程部署资产；Linux 额外安装 `rpm`、`libarchive-tools`（rpm/pacman 目标）。
+- `publish`：仅标签触发，汇总全部产物创建**草稿** GitHub Release（人工确认后发布）。
+- Electron 与 electron-builder 二进制镜像在 CI 中改为官方 GitHub 地址（仓库默认镜像面向国内网络）。
+
+## 签名
+
+- 当前全部未签名：macOS 未签名未公证（用户确认），Windows 未签名。
+- `prepare-rust-agent.mjs` 的 macOS 规则改为跟随应用的签名开关：`ESCODE_ENABLE_MAC_SIGN=1` 时用同一身份
+  （`ESCODE_RUST_CODESIGN_IDENTITY` / `APPLE_SIGNING_IDENTITY` / `CSC_NAME`，缺失即失败）以 hardened runtime 签名；
+  未开启时整个应用都不签名，Rust 二进制保持未签名（此前的「macOS 必须提供身份」会让未签名 CI 构建直接失败）。
+- 以后开启签名：在仓库 secrets 配置证书与 Apple 凭据，工作流设置 `ESCODE_ENABLE_MAC_SIGN=1` 等变量即可，无需改脚本。
+
+## 本机准备工作
+
+- 测试文件此前从未在 CI 中做类型检查，`tsconfig.escode-cli-rust.json` 下有 28 处类型错误（均为测试代码的类型标注问题，不影响行为），
+  已修复，否则 CI 在 `test:escode-cli-rust` 的 tsc 步骤就会失败。
+- 本机已验证：YAML 语法、全仓 `architecture:check`、`lint`、`typecheck`、测试 tsconfig 类型检查、受影响用例。
+
+## GitHub 实测结果（2026-09-25）
+
+- 首次运行（36096673890）：init-prompt 语料在 Linux/macOS 上路径分隔符漂移、Windows 上 rpc 源码类型错误（干净检出缺少 `dist/*.d.ts`）。
+  修复：语料统一 `/`；测试前 `tsc -b` 构建依赖包。
+- 第二次（36097526844）：三平台均 210/243，27 个失败原因相同，无平台特有失败——干净检出没有
+  `apps/escode-cli/packages/cli/dist/escode.cjs`（差分用例的 Node 一侧），以及工具定义对照表缺 plan 工具。
+  修复：缺失时用 `scripts/build-desktop-agent-cli.mjs` 构建；对照表补 EnterPlanMode/ExitPlanMode。
+- 第三次（36098587168）：checks 与 Windows（MSVC）/ macOS（arm64）/ Linux 测试**全部通过**。
+- 2026-09-26（36209338763，提交 3b9b23b）：checks 与三平台测试全部通过。
+  前一次运行在 Windows/macOS 上，因 PDF 路径未做 realpath 失败，已由 2b74cfe 修复。
+- 2026-09-26（36213030115，提交 cdf9783）：checks、Linux、macOS 通过；Windows 上新增的两个 MCP 差分用例失败。
+  原因是 **Node** 子进程在退出时触发 libuv 断言 `UV_HANDLE_CLOSING`（退出码 0xC0000409），Rust 一侧正常；
+  该崩溃只在 Node 持有过 MCP HTTP 连接后偶发，本机未复现。
+  后续运行（36216871411）在未使用 MCP 的 WebSearch 差分中复现，说明它是 Node 在 Windows 上的通用退出崩溃。
+  处理：`Harness.close` 只在 Windows、退出码 0xC0000409 且 stderr 含该 libuv 断言时放行；该文本只可能来自 Node，
+  其余非零退出照常失败。
+- 同一运行中的 busy-input 用例：Windows Git Bash 的 `$$` 是 MSYS pid，而不是 Windows pid，
+  因此 `kill(pid, 0)` 的 ESRCH 断言会在碰到无关进程时偶发失败。改为优先写入 `/proc/$$/winpid`。
+- 36214138039（含重跑）：Windows 上 PDF anthropic pages=1 的 Node 一侧两次超时，原始错误被关闭断言掩盖；
+  改为保留原始错误、超时附带 stderr 之后，36216871411 未复现，继续观察。
+- 36218149923（提交 bb0ba94）：checks、Linux、macOS 通过。
+  Windows 首次运行 account-host 用例 5s 内未收到 completedSuccess（该用例在 Windows 上通常约 2s），重跑后全部通过。
+  暂按偶发处理；若再次出现，按真实挂起排查（需 Host 侧 stderr）。
+
+- 2026-09-27 多次运行，Windows 上的等待超时，均为 fixture 默认 8s 的 `Timed out`，不是结果不一致：
+  - 36261737439：定时任务差分在首个命令上超时，重跑通过；
+  - 36291966777：child-env 与跨工作区 session-context 超时，重跑通过；
+    重跑中 PDF 差分的 Node 一侧超时（第三次出现）；
+  - 处理：这些每例多次冷启动 Node/Shell 的差分改为 30s 等待上限（与其他多步差分一致）。
+    同批 macOS/Linux 全部通过。
+
+- 36309417875（提交 14a0d0b，Windows）：
+  - 标题差分中是 Node 一侧未生成标题（回落为用户原文，`node.longMeta.title` 断言失败），Rust 未参与判定；
+    上一运行同一用例通过，按 Node 侧偶发处理。
+  - builtin-results 的 Edit 用例：Node 在执行过 Bash 之后丢失读取状态（见 rust-bash-model-content.md 实测记录），
+    已把依赖读取状态的用例排在 Bash 之前。
+
+- 36317829803（提交 ff32f5d，Windows）：Bash 正文差分中 Node 一侧多记录一条结果（11 对 10）。
+  原因：后台任务完成后多出一次模型请求，fixture 按请求追加记录。已改为按结果序号记录。
+
+- 36323437572（提交 f1c902a，Windows）：目标标题差分中一次 `v4/command` 超过测试客户端固定的 5s 请求上限，
+  日志无法区分是哪一侧；重跑该任务通过，按偶发记录。若再现，先定位慢的一侧，不直接调大超时。
+
+## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
+
+- 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。
+- 4 个桌面安装包全部成功：win-x64（148 MB）、mac-arm64（362 MB）、mac-x64（373 MB）、linux-x64（deb/rpm/AppImage/pacman，共 572 MB）。
+- 抽查：linux pacman 包 `resources/glm/` 同时含 `escode-cli-rust` 与 Node `escode.cjs`；
+  `x86_64-pc-windows-msvc` 压缩包 sha256 校验通过，在本机 Windows 11 运行 `--help` 与 `app-server --stdio` 启动握手正常。
+- `publish` 按设计跳过（非标签）。
+
+## 未验证
+
+- 标签触发的草稿 Release 未实际创建（打版本标签由维护者决定）。
+- 安装包未在 macOS/Linux 真机上安装运行；macOS 未签名包需用户手动放行。

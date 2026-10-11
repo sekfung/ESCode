@@ -1,4 +1,4 @@
-import type { BotCommand } from "@zcode/shared";
+import type { BotCommand } from "@escode/shared";
 
 function splitCommand(text: string): { name: string; rest: string } | null {
   const trimmed = text.trim();

@@ -1,16 +1,16 @@
 import { useEffect } from "react";
-import type { CuaAccessibilitySettingsResult, CuaPermissionKind } from "@zcode/shared";
-import { requiredCuaPermissionsForRequestAccessStatus } from "@zcode/shared/zcode-protocol-v4";
+import type { CuaAccessibilitySettingsResult, CuaPermissionKind } from "@escode/shared";
+import { requiredCuaPermissionsForRequestAccessStatus } from "@escode/shared/escode-protocol-v4";
 import {
   isCuaPermissionStatusAvailable,
   type CuaPermissionRestartOptions,
   type CuaPermissionStatusResult,
-  type ZCodeAgentCuaPermissionObservation,
-} from "@zcode/services";
+  type ESCodeAgentCuaPermissionObservation,
+} from "@escode/services";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useServices } from "@/hooks/useServices.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { shouldRestartHelperAfterCuaPermissionReturn } from "@/lib/cuaPermissionAction.js";
 import { createCuaPermissionOnboardingOperationId } from "@/lib/cuaPermissionOnboardingOperation.js";
 import { fetchCuaPermissionStatus } from "@/lib/cuaPermissionStatusStore.js";
@@ -54,7 +54,7 @@ async function runWithOneRetry<T>(
 }
 
 export function cuaPermissionObservationKey(
-  observation: ZCodeAgentCuaPermissionObservation,
+  observation: ESCodeAgentCuaPermissionObservation,
 ): string {
   const workspaceKey = observation.workspaceIdentity?.trim() || observation.workspacePath;
   const missing = requiredCuaPermissionsForRequestAccessStatus(observation.permissionStatus);
@@ -115,14 +115,14 @@ export function CuaPermissionObservationAttachment() {
   const services = useServices();
   const platform = usePlatform();
   const confirmDialog = useConfirmDialog();
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
 
   useEffect(() => {
     const permissionService = services.cuaPermissionService;
     if (
       !permissionService ||
       !platform.openCuaPermissionOnboarding ||
-      typeof services.zcodeAgentService.onDynamicCuaPermissionObservation !== "function"
+      typeof services.escodeAgentService.onDynamicCuaPermissionObservation !== "function"
     ) {
       return;
     }
@@ -132,7 +132,7 @@ export function CuaPermissionObservationAttachment() {
     let chain = Promise.resolve();
     let activeOperationId: string | null = null;
     let disposed = false;
-    const subscription = services.zcodeAgentService.onDynamicCuaPermissionObservation()(
+    const subscription = services.escodeAgentService.onDynamicCuaPermissionObservation()(
       (observation) => {
         const missing = requiredCuaPermissionsForRequestAccessStatus(observation.permissionStatus);
         const key = cuaPermissionObservationKey(observation);

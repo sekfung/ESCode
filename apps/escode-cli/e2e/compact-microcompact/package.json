@@ -1,0 +1,11 @@
+{
+  "name": "escode-compact-microcompact-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dry-run": "node run.mjs --dry-run",
+    "e2e": "node run.mjs",
+    "docker:build": "docker build -f Dockerfile -t escode-compact-microcompact ../..",
+    "docker:e2e": "docker run --rm -e ESCODE_API_KEY escode-compact-microcompact"
+  }
+}

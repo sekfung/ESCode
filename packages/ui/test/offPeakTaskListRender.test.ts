@@ -2,27 +2,27 @@
 import { createElement } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TID_OFFPEAK_CARD, TID_OFFPEAK_CARD_SESSION, type ZCodeOffPeakTask } from "@zcode/shared";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { TID_OFFPEAK_CARD, TID_OFFPEAK_CARD_SESSION, type ESCodeOffPeakTask } from "@escode/shared";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { OffPeakTaskList } from "@/settings/OffPeakTaskList.js";
 
 afterEach(cleanup);
 
-function task(overrides: Partial<ZCodeOffPeakTask> & { offPeakTaskId: string }): ZCodeOffPeakTask {
+function task(overrides: Partial<ESCodeOffPeakTask> & { offPeakTaskId: string }): ESCodeOffPeakTask {
   return {
     title: overrides.offPeakTaskId,
     prompt: "prompt",
     status: "queued",
     createdAt: 1,
     ...overrides,
-  } as ZCodeOffPeakTask;
+  } as ESCodeOffPeakTask;
 }
 
-function renderList(tasks: ZCodeOffPeakTask[]) {
+function renderList(tasks: ESCodeOffPeakTask[]) {
   const noop = vi.fn();
   return render(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(OffPeakTaskList, {
         tasks,
@@ -68,7 +68,7 @@ describe("OffPeakTaskList render", () => {
 
     view.rerender(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(OffPeakTaskList, {
           tasks: [...eight, task({ offPeakTaskId: "t-8" })],

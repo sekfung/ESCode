@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GitRepositorySummary } from "@zcode/shared";
+import type { GitRepositorySummary } from "@escode/shared";
 import type {
   BackgroundWorkSummary,
   GoalState,
@@ -7,7 +7,7 @@ import type {
   ToolCallRow,
   WorkflowRunNode,
   WorkflowRunState,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import {
   buildConversationStatusPanelModel,
   resolveSoleRunningWorkflowRunTarget,
@@ -595,7 +595,7 @@ describe("buildConversationStatusPanelModel", () => {
 });
 
 describe("conversation status panel layout", () => {
-  it("uses the z-code-2 inline offset for the conversation column", () => {
+  it("uses the escode-2 inline offset for the conversation column", () => {
     expect(CONVERSATION_STATUS_PANEL_INLINE_OFFSET_PX).toBe(168);
     expect(CONVERSATION_STATUS_PANEL_INLINE_OFFSET_CLASS_NAME).toBe("-translate-x-42");
     expect(CONVERSATION_STATUS_PANEL_WIDE_OFFSET_CLASS_NAME).toBe(

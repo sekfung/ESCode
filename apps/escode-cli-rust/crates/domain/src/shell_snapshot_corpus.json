@@ -1,0 +1,107 @@
+{
+  "scripts": [
+    {
+      "shell": "/bin/bash",
+      "exists": true,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-q3eRRa\\.bashrc",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-q3eRRa\\root\\shell-snapshots\\snapshot-bash-1790487245744-vonmim.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-q3eRRa\\root\\shell-snapshots\\snapshot-bash-1790487245744-vonmim.sh'\nsource \"C:\\\\Users\\\\sekfung\\\\AppData\\\\Local\\\\Temp\\\\snap-home-q3eRRa\\\\.bashrc\" < /dev/null\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\necho \"# Functions\" >> \"$SNAPSHOT_FILE\"\n\n# Force autoload all functions first\ndeclare -f > /dev/null 2>&1\n\n# Now get user function names - filter completion functions (single underscore prefix)\n# but keep double-underscore helpers (e.g. __zsh_like_cd from mise, __pyenv_init)\ndeclare -F | cut -d' ' -f3 | grep -vE '^_[^_]' | while read func; do\n  # Encode the function to base64, preserving all special characters\n  encoded_func=$(declare -f \"$func\" | base64 )\n  # Write the function definition to the snapshot\n  echo \"eval \\\"\\$(echo '$encoded_func' | base64 -d)\\\" > /dev/null 2>&1\" >> \"$SNAPSHOT_FILE\"\ndone\n\necho \"# Shell Options\" >> \"$SNAPSHOT_FILE\"\nshopt -p | head -n 1000 >> \"$SNAPSHOT_FILE\"\nset -o | grep \"on\" | awk '{print \"set -o \" $1}' | head -n 1000 >> \"$SNAPSHOT_FILE\"\necho \"shopt -s expand_aliases\" >> \"$SNAPSHOT_FILE\"\necho \"# Aliases\" >> \"$SNAPSHOT_FILE\"\n# Filter out winpty aliases on Windows to avoid \"stdin is not a tty\" errors\n# Git Bash automatically creates aliases like \"alias node='winpty node.exe'\" for\n# programs that need Win32 Console in mintty, but winpty fails when there's no TTY\nif [[ \"$OSTYPE\" == \"msys\" ]] || [[ \"$OSTYPE\" == \"cygwin\" ]]; then\n  alias | grep -v \"='winpty \" | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nelse\n  alias | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nfi\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    },
+    {
+      "shell": "/bin/bash",
+      "exists": false,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-zhj3M0\\.bashrc",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-zhj3M0\\root\\shell-snapshots\\snapshot-bash-1790487245747-hsoae2.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-zhj3M0\\root\\shell-snapshots\\snapshot-bash-1790487245747-hsoae2.sh'\n# No user config file to source\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\necho \"shopt -s expand_aliases\" >> \"$SNAPSHOT_FILE\"\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    },
+    {
+      "shell": "/usr/bin/zsh",
+      "exists": true,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-MXIAGj\\.zshrc",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-MXIAGj\\root\\shell-snapshots\\snapshot-zsh-1790487245749-niz7g3.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-MXIAGj\\root\\shell-snapshots\\snapshot-zsh-1790487245749-niz7g3.sh'\nsource \"C:\\\\Users\\\\sekfung\\\\AppData\\\\Local\\\\Temp\\\\snap-home-MXIAGj\\\\.zshrc\" < /dev/null\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\necho \"# Functions\" >> \"$SNAPSHOT_FILE\"\n\n# Force autoload all functions first\ntypeset -f > /dev/null 2>&1\n\n# Now get user function names - filter completion functions (single underscore prefix)\n# but keep double-underscore helpers (e.g. __zsh_like_cd from mise, __pyenv_init)\ntypeset +f | grep -vE '^_[^_]' | while read func; do\n  typeset -f \"$func\" >> \"$SNAPSHOT_FILE\"\ndone\n\necho \"# Shell Options\" >> \"$SNAPSHOT_FILE\"\nsetopt | sed 's/^/setopt /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\necho \"# Aliases\" >> \"$SNAPSHOT_FILE\"\n# Filter out winpty aliases on Windows to avoid \"stdin is not a tty\" errors\n# Git Bash automatically creates aliases like \"alias node='winpty node.exe'\" for\n# programs that need Win32 Console in mintty, but winpty fails when there's no TTY\nif [[ \"$OSTYPE\" == \"msys\" ]] || [[ \"$OSTYPE\" == \"cygwin\" ]]; then\n  alias | grep -v \"='winpty \" | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nelse\n  alias | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nfi\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    },
+    {
+      "shell": "/usr/bin/zsh",
+      "exists": false,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-exd2Ub\\.zshrc",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-exd2Ub\\root\\shell-snapshots\\snapshot-zsh-1790487245750-53ayqd.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-exd2Ub\\root\\shell-snapshots\\snapshot-zsh-1790487245750-53ayqd.sh'\n# No user config file to source\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    },
+    {
+      "shell": "/bin/sh",
+      "exists": true,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-HYhJkv\\.profile",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-HYhJkv\\root\\shell-snapshots\\snapshot-sh-1790487245753-40b79o.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-HYhJkv\\root\\shell-snapshots\\snapshot-sh-1790487245753-40b79o.sh'\nsource \"C:\\\\Users\\\\sekfung\\\\AppData\\\\Local\\\\Temp\\\\snap-home-HYhJkv\\\\.profile\" < /dev/null\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\necho \"# Functions\" >> \"$SNAPSHOT_FILE\"\n\n# Force autoload all functions first\ndeclare -f > /dev/null 2>&1\n\n# Now get user function names - filter completion functions (single underscore prefix)\n# but keep double-underscore helpers (e.g. __zsh_like_cd from mise, __pyenv_init)\ndeclare -F | cut -d' ' -f3 | grep -vE '^_[^_]' | while read func; do\n  # Encode the function to base64, preserving all special characters\n  encoded_func=$(declare -f \"$func\" | base64 )\n  # Write the function definition to the snapshot\n  echo \"eval \\\"\\$(echo '$encoded_func' | base64 -d)\\\" > /dev/null 2>&1\" >> \"$SNAPSHOT_FILE\"\ndone\n\necho \"# Shell Options\" >> \"$SNAPSHOT_FILE\"\nshopt -p | head -n 1000 >> \"$SNAPSHOT_FILE\"\nset -o | grep \"on\" | awk '{print \"set -o \" $1}' | head -n 1000 >> \"$SNAPSHOT_FILE\"\necho \"shopt -s expand_aliases\" >> \"$SNAPSHOT_FILE\"\necho \"# Aliases\" >> \"$SNAPSHOT_FILE\"\n# Filter out winpty aliases on Windows to avoid \"stdin is not a tty\" errors\n# Git Bash automatically creates aliases like \"alias node='winpty node.exe'\" for\n# programs that need Win32 Console in mintty, but winpty fails when there's no TTY\nif [[ \"$OSTYPE\" == \"msys\" ]] || [[ \"$OSTYPE\" == \"cygwin\" ]]; then\n  alias | grep -v \"='winpty \" | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nelse\n  alias | sed 's/^alias //g' | sed 's/^/alias -- /' | head -n 1000 >> \"$SNAPSHOT_FILE\"\nfi\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    },
+    {
+      "shell": "/bin/sh",
+      "exists": false,
+      "configPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-3ad6sw\\.profile",
+      "pathValue": "/usr/bin:/bin:/it's here",
+      "snapshotPath": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-3ad6sw\\root\\shell-snapshots\\snapshot-sh-1790487245754-4h4r5u.sh",
+      "script": "SNAPSHOT_FILE='C:\\Users\\sekfung\\AppData\\Local\\Temp\\snap-home-3ad6sw\\root\\shell-snapshots\\snapshot-sh-1790487245754-4h4r5u.sh'\n# No user config file to source\n\n# First, create/clear the snapshot file\necho \"# Snapshot file\" >| \"$SNAPSHOT_FILE\"\n\n# When this file is sourced, we first unalias to avoid conflicts\n# This is necessary because aliases get \"frozen\" inside function definitions at definition time,\n# which can cause unexpected behavior when functions use commands that conflict with aliases\necho \"# Unset all aliases to avoid conflicts with functions\" >> \"$SNAPSHOT_FILE\"\necho \"unalias -a 2>/dev/null || true\" >> \"$SNAPSHOT_FILE\"\n\necho \"shopt -s expand_aliases\" >> \"$SNAPSHOT_FILE\"\n\n# Add PATH to the file\ncat >> \"$SNAPSHOT_FILE\" << 'PATH_END_ESCODE_SHELL_INIT_SNAPSHOT'\nexport PATH='/usr/bin:/bin:/it'\\''s here'\nPATH_END_ESCODE_SHELL_INIT_SNAPSHOT\n\n# Exit silently on success, only report errors\nif [ ! -f \"$SNAPSHOT_FILE\" ]; then\n  echo \"Error: Snapshot file was not created at $SNAPSHOT_FILE\" >&2\n  exit 1\nfi"
+    }
+  ],
+  "captures": [
+    {
+      "dialect": "posix",
+      "cwdFile": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\escode-2ddbddcc-76fd-4e39-a03d-7f57900c60c5-cwd",
+      "command": "echo 'hi'\nfalse\n__escode_status=$?\nif [ \"$__escode_status\" -eq 0 ]; then pwd -P > 'C:\\Users\\sekfung\\AppData\\Local\\Temp\\escode-2ddbddcc-76fd-4e39-a03d-7f57900c60c5-cwd'; fi\nexit \"$__escode_status\""
+    },
+    {
+      "dialect": "cmd",
+      "cwdFile": "C:\\Users\\sekfung\\AppData\\Local\\Temp\\escode-e4405fdb-ece7-421e-9f74-f885acde4475-cwd",
+      "command": "echo 'hi'\nfalse\r\nset \"__escode_status=%ERRORLEVEL%\"\r\nif \"%__escode_status%\"==\"0\" cd > \"C:\\Users\\sekfung\\AppData\\Local\\Temp\\escode-e4405fdb-ece7-421e-9f74-f885acde4475-cwd\"\r\nexit /b %__escode_status%"
+    }
+  ],
+  "gitBash": [
+    {
+      "value": "/c/Users/a b/x",
+      "windows": "C:\\Users\\a b\\x"
+    },
+    {
+      "value": "/cygdrive/d/work",
+      "windows": "D:\\work"
+    },
+    {
+      "value": "/c",
+      "windows": "C:\\"
+    },
+    {
+      "value": "//server/share/x",
+      "windows": "\\\\server\\share\\x"
+    },
+    {
+      "value": "/tmp/x",
+      "windows": "\\tmp\\x"
+    },
+    {
+      "value": "/c/",
+      "windows": "C:\\"
+    }
+  ],
+  "suffix": [
+    {
+      "stderr": "",
+      "root": "/w",
+      "result": "Shell cwd was reset to /w"
+    },
+    {
+      "stderr": "err\n\n",
+      "root": "/w",
+      "result": "err\nShell cwd was reset to /w"
+    },
+    {
+      "stderr": "a\r\nb\r\n",
+      "root": "C:\\w",
+      "result": "a\r\nb\nShell cwd was reset to C:\\w"
+    }
+  ]
+}

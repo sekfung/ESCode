@@ -1,0 +1,216 @@
+# Rust 插件市场写面（install / uninstall / update / marketplace*）
+
+2026-10-02。插件读面（list / setEnabled / overview / referenceCatalog / configure / resetConfig）已对齐
+（[rust-plugins.md](rust-plugins.md)）。App 插件商店的**安装、卸载、更新、恢复内置、市场增删刷新**仍全部只在
+Node 上可用：Rust 对这些方法回 method-not-found，用户在 Rust 会话里点「安装」会直接失败。本文件拆分这块写面。
+
+## TS 基准
+
+- 协议：`bootstrap/src/escode-protocol/plugins.ts`（`installPlugin` / `uninstallPlugin` / `updatePlugin` /
+  `restoreBuiltinPlugin` / `addPluginMarketplace` / `removePluginMarketplace` / `updatePluginMarketplace` /
+  `validatePlugin` / `describePlugin`）、`plugin-reference-catalog.ts::resolveSuggestedPluginReference`。
+- 核心：`bootstrap/src/plugins.ts::installESCodeMarketplacePlugin` / `uninstallESCodeMarketplacePlugin` /
+  `restoreBuiltinPlugin`；存储：`adapters/src/plugins/marketplace.ts`（约 2.7k 行）、`atomic-directory.ts`、
+  `zip-source.ts`、`github-archive-source.ts`。
+- 并发：`withPluginStorageLock` 只是**进程内**按 storageRoot 串行（TS 明确不做跨进程锁）→ Rust 用同等的
+  per-storage async 锁即可。
+
+## 关键语义（已核对）
+
+- 安装：`ensureDefaultPluginMarketplaces` → （声明市场按需物化）→ `installMarketplacePlugin`：解析依赖闭包
+  （`allowCrossMarketplaceDependenciesOn`）→ 逐个 `cacheMarketplacePlugin`（解析源根 → 读真实版本
+  `resolveInstalledPluginVersion` → 原子激活到 `cache/<market>/<name>/<version>`，内置 filesystem/sea 源的 cachePath
+  即目标时不拷贝 → 补 manifest）→ 写 `installed_plugins.json`；任何一步失败按逆序回滚已激活目录。
+- 安装后：官方市场清掉同 id 的 `suppressedBuiltins`；`enablePluginsByDefaultInFileConfig` 只给**用户配置里尚未
+  显式声明**的 id 写 `true`（停用后重装不被覆盖）；scope 一律按 user（workspace scope 只为旧协议兼容）。
+- 失败不抛协议错误：返回 `diagnostics`（`toMarketplaceInstallDiagnostic`）+ 空 `installedPlugins`。
+- 被抑制的内置官方插件（filesystem/sea 源）走 `restoreBuiltinPlugin` 而不是写 installed record。
+- 源类型：`"filesystem"|"sea"`（内置 cachePath）、字符串相对路径（市场目录内）、`{source:"directory"}`、
+  `{source:"url", type:"zip", url, sha256, path?, stripRoot?, headers?}`、`github` / `git` / `git-subdir` /
+  `url`（git）；`npm` / `pip` 明确不支持。
+- 卸载：从 `installed_plugins.json` 移除；`removeCache` 时删安装目录与 `data/<id>`（`keepData` 保留数据）。
+
+## 分期
+
+1. **W1 本地源安装 + 卸载**：内置 filesystem/sea、市场目录内相对路径、`directory` 源；依赖闭包；原子激活与回滚；
+   installed record；默认启用与清 suppression；`restoreBuiltin`；`uninstall`（含 removeCache / keepData）；
+   per-storage 锁；`operationId` 进度通知按 TS 形状。
+2. **W2 zip 源**：下载（代理/CA 与模型请求同一套）、sha256 校验、解压（防 zip-slip、`path` / `stripRoot`）。
+3. **W3 git / github 源**：与 TS 一样调系统 git（重试、sparse path、ref/sha pin）。
+4. **W4 市场写面**：`marketplace/add|remove|update`（CDN / url / github / 本地目录源），刷新失败落
+   `lastRefreshFailure`。
+5. **W5 其余**：`update`（逐条重装、诊断聚合）、`validate` / `describe`、`resolveSuggestedReference`、
+   `cancelOperation`。
+
+## 验收
+
+每期 App 差分：同一 fixture（本地市场目录 / 本地 zip 服务 / 本地 git 仓库）下 Node 与 Rust 执行相同操作，比对协议返回、
+`installed_plugins.json`（去掉时间戳）、缓存目录文件树与哈希、用户配置字节，以及随后 `plugins/list` / `overview`。
+
+## 实现与验证（W1a：uninstall / restoreBuiltin，2026-10-02）
+
+`crates/tools/src/plugin_uninstall.rs`：
+
+- 选择器：`pluginId`，否则 `pluginName@marketplace`，都没有报 `pluginId or pluginName + marketplace is required`。
+- 安装记录优先：`installed_plugins.json` 有该 id → 移除并整份重写 `{version:1, plugins:[...]}`（Claude 风格对象写法
+  归一化成数组；数组逐条校验、记录原样保留）；默认 `removeCache` → 删安装目录与 `data/<sanitized id>`；用户配置删
+  启用覆盖与选项、清掉同 id 的 suppression。
+- 否则若是已发现的官方插件 → 用户配置追加 `suppressedBuiltins`（规范 id、去别名）、删启用覆盖与选项、删数据目录；
+  **官方缓存保留**。返回的 `removedPlugin` 按 TS `toInstalledPluginData(record, false)` 投影。
+- `restoreBuiltin`：computer-use 需 CUA 特性（否则写盘前拒绝）；清 suppression 后立即重新 seed（不受进程内
+  `seed_once` 缓存影响）。
+- 并发：per-storage async 锁（TS `withPluginStorageLock` 同为进程内）。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-uninstall.test.ts`——卸载市场安装插件（缓存/数据删除、另一条
+记录与其额外字段保留、用户配置清理含残留 suppression）、按 name+marketplace 卸载内置（suppression、数据删、缓存留、
+list 不再出现）、未知 id、缺选择器、恢复内置（list 重新出现）；每步的协议返回、`installed_plugins.json` 与用户配置
+字节、目录存在性 Node/Rust 一致。
+
+## 实现与验证（W1b：本地源安装，2026-10-02）
+
+- `crates/tools/src/atomic_dir.rs`：与 TS `atomic-directory.ts` 同布局的目录原子激活（同目录暂存 → 排他写 v2 事务标记
+  `.<name>.transaction.json`（owner pid / ownerId / transactionId / authorityPath）→ 旧目标改名 `.<name>.backup` → 暂存改名为
+  目标），`finalize` 删备份与标记、`rollback` 还原备份；`recover` 按 TS `recoverAtomicTargetSync` 规则收拾任一 runtime 崩溃
+  留下的半成品（存活写者不动；权威状态含同一 `cacheTransactionId` 视为已提交）。进程存活判断复用 host 的 Node 语义
+  `process_alive`。
+- `crates/tools/src/plugin_install.rs`：依赖闭包（后序、去重、环检测、跨市场白名单 `allowCrossMarketplaceDependenciesOn`、
+  `name@^x` 约束后缀剥离）→ 解析源根（内置 filesystem/sea 的 cachePath、市场目录内相对路径（含 `metadata.pluginRoot`）、
+  `directory`、无 source 时按名字目录）→ 版本取源根 plugin.json 的非空 version，否则条目 version，否则 0.0.0 → 原子激活到
+  `cache/<market>/<name>/<version>`（源即目标时不拷贝）→ `strict:false` 无 manifest 时合成 `.claude-plugin/plugin.json`
+  （剔除来源/商店展示字段）→ 重写 `installed_plugins.json`（已有记录原地覆盖、保留首次 installedAt、带 cacheTransactionId）；
+  任一步失败逆序回滚。之后官方市场清 suppression、默认启用只写尚未声明的 id。错误按 TS `toMarketplaceInstallDiagnostic`
+  归类为诊断返回（不抛协议错误）。被抑制的内置官方插件走 restore。
+- 远端源（github / git / url / git-subdir）在 W2/W3 前返回 `plugin_marketplace_source_unsupported`；`dryRun` 校验与
+  市场按需刷新（manifest 不在本地时）尚未支持，明确报错而不是伪造结果。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-install.test.ts`——本地市场：相对路径插件依赖 directory 源插件
+（`helper@^1.0`）、用户配置显式停用依赖、重装（installedAt 保留）、`strict:false` 合成 manifest、依赖环 / 跨市场 /
+依赖缺失 / 非法 source kind / 未知插件五种诊断；协议返回、`installed_plugins.json`、缓存文件树与内容哈希、用户配置字节、
+合成 manifest 与随后 `plugins/list`，Node 与 Rust 逐值一致。
+
+## 实现与验证（W2：zip 源，2026-10-02）
+
+`crates/tools/src/plugin_zip.rs`（新增依赖 `zip`，仅 deflate），对齐 TS `zip-source.ts`：
+
+- 字段读取顺序同 TS（url → headers → path → sha256 → stripRoot），文案逐字；URL 只允许 HTTPS，回环（localhost /
+  127.x / ::1）允许 HTTP；禁用 `authorization` / `cookie` / `proxy-authorization` / `set-cookie` 头；sha256 必须 64 位 hex。
+- 下载：与 WebFetch 共用 `web_fetch::proxied_client`（同一套代理解析与设置页 CA，不自动跟随重定向）；手动重定向最多 5 次，
+  跨源丢弃自定义头；200 MiB 上限、180 s 超时；sha256 不符报 `expected=…, actual=…`。
+- 解压：路径规范化（拒绝空段 / `.` / `..` / 反斜杠 / 绝对路径 / 盘符）、拒绝加密、符号链接与非常规类型条目；条目数 ≤ 20000、
+  单文件 ≤ 50 MiB、总量 ≤ 500 MiB。
+- 根定位：显式 `path` > 解压根已有 manifest > `stripRoot`（缺省 true）且只有一个顶层目录 > 解压根；安装前按 TS
+  `assertZipPluginInstallRoot` 要求根能形成合法插件且 manifest 名与条目一致；临时目录在激活后清理。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-install-zip.test.ts`——回环 HTTP 服务（yazl 生成 zip）：单顶层 strip、
+显式 path、同源重定向转发自定义头、sha256 不符、manifest 名不符、多顶层无 manifest、非 HTTPS、禁用头；协议返回（下载类
+错误只比 code）、`installed_plugins.json`、缓存文件树与服务端收到的请求（路径与自定义头），Node 与 Rust 一致。
+
+## 实现与验证（W3：仓库类源，2026-10-02）
+
+`crates/tools/src/plugin_git.rs`，对齐 TS `resolveRepositoryPluginSource` / `github-archive-source.ts` / `clonePluginSource`：
+
+- 分流（`plugin_install::repository_source`）：`github`（`repo` → `https://github.com/<repo>.git`）、`git`、`url`（无 type 或
+  `git`）、`git-subdir`（`owner/repo` 简写补 GitHub HTTPS）；必填字段文案逐字；pin 取 `sha`，其次旧写法 `commit`。
+- 公开 GitHub HTTPS 仓库先走 Archive：`api.github.com/repos/<o>/<r>/zipball/<sha ?? ref ?? HEAD>`，复用 W2 下载解压（要求单顶层、
+  不校验 sha）；submodule / Git LFS（含父目录继承的 `.gitattributes`）需要完整 Git 语义时回退。回退条件同 TS：非公开 GitHub、
+  401/403/404、符号链接/特殊条目；其余 Archive 失败报 `plugin_archive_fetch_failed`（URL 凭据脱敏）。
+- 系统 Git：`ESCODE_GIT_BINARY` 可覆盖；子进程环境走 host `child_env::apply(…, true)`（清洗后恢复出网配置，同 TS
+  `buildMarketplaceGitEnv`）；无 sha 时 `--depth 1`、`--branch <ref>`、sha 时 clone 后 `checkout`；网络型错误最多 3 次、
+  间隔 1 s × 次数；90 s 超时；git 不存在报 `plugin_git_unavailable`。
+- `zip` 模块抽出 `resolve_http`（可选 sha、`require_single_root`）与带 HTTP 状态的 `ZipDownloadError`。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-install-git.test.ts`——测试内建本地仓库（两次提交 + `v2` 分支 + 子包）：
+普通 clone、ref、sha pin（检出旧提交）、git-subdir、子目录缺失、仓库不存在、缺 url；以及 `ESCODE_GIT_BINARY` 指向不存在路径时的
+Git 不可用诊断。协议返回（git 子进程原文只比 code）、安装记录与缓存文件树 Node/Rust 一致。GitHub Archive 主链路需要访问
+api.github.com，未在离线差分里覆盖（回退判定与 URL 解析有单测）。
+
+## 实现与验证（W4：市场写面，2026-10-02）
+
+`crates/tools/src/plugin_market_write.rs`，对齐 TS adapters `addMarketplace` / `updateMarketplace` / `removeMarketplace` 与
+bootstrap `addESCodePluginMarketplace` / `updateESCodePluginMarketplace`：
+
+- `plugins/marketplace/add`：`parseMarketplaceSourceInput`（URL：`.git` / `/_git/` / github.com 路径 → git，其它 → url；
+  Git SSH；本地路径 → file（须 .json）/ directory，相对路径按工作区；`owner/repo[#@]ref` → github）→ 加载（file / directory /
+  url（手动重定向、10 MiB、180 s）/ github / git（复用 W3：Archive 或 clone）/ settings；npm / hostPattern / pathPattern 不支持）→
+  manifest 规范化（name trim、`plugins` 对象写法原位转数组）→ 官方 id 保留守卫 → 激活 `marketplaces/<name>`（源树 + 规范 manifest，
+  与 known 记录同一 `cacheTransactionId`；无源树时只放 manifest）→ upsert `known_marketplaces.json`（保留 addedAt、清旧事务 id 与
+  refresh failure）。官方市场写 CDN 分片并与内置分片重建合并目录。`dryRun` 返回 `dry-run` 摘要。
+- `plugins/marketplace/update`：指定 id 时，用户层声明（`extraKnownMarketplaces`）尚未物化 → 按声明 add（`expectedId`）；声明与
+  已知 source 不同 → repoint 诊断；否则用记录 source 受信任刷新，失败写 `lastRefreshFailure`（code 按 TS
+  `toValidationDiagnostic`）；不指定 id 刷新全部已知市场。返回更新后的摘要 + 声明诊断 + 选中市场的刷新失败。
+- `plugins/marketplace/remove`：从 known 记录删除（不删目录，同 TS）。
+- 安装前 `ensure_manifest`：本地没有目录 manifest 但有已知记录时先用其 source 受信任拉取（TS `ensureMarketplaceManifestAvailable`）。
+- `atomic_dir::activate` 支持无源树（manifest-only）；`official_plugins_marketplace` 抽出 `rebuild` / `write_cdn`。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-marketplace.test.ts`——目录市场（对象写法 plugins、metadata.description、
+featured）、.json 文件市场、回环 URL 市场、dryRun、保留官方 id、非法名、路径不存在、用户声明的本地 git 市场按 update 物化、
+目录市场刷新、URL 市场刷新失败（500 → lastRefreshFailure）、未知 id、删除本地目录后安装触发按需拉取、remove；协议返回、
+`known_marketplaces.json` 字节、`marketplaces/` 文件树与随后 overview 的市场摘要，Node 与 Rust 一致。不刷新官方 CDN（离线）。
+
+## 实现与验证（W5a：后台作业、取消与 plugins/update，2026-10-02）
+
+- **慢操作走后台作业**（`crates/core/src/app/plugin_jobs.rs`）：`plugins/install`、`plugins/update`、`plugins/marketplace/add`、
+  `plugins/marketplace/update` 不再在 engine actor 里 await，而是 spawn 后经新事件 `Event::AuxiliaryReply`（错误按原文）回复；
+  其它请求在下载 / clone 期间照常应答。
+- **`plugins/cancelOperation`**：按 `operationId` 找到进行中的作业置位取消令牌，返回 `{operationId, cancelled}`（同 id 再取消为
+  false）。操作在安全点检查（安装：按需拉取前、每个插件物化前、写权威状态前；市场：加载后提交前），提交点之后不再响应——与
+  TS `throwIfPluginOperationAborted` 同一语义；不丢弃进行中的 future（避免存储锁先于阻塞写者释放）。取消导致的市场刷新失败不落
+  `lastRefreshFailure`。
+- **`plugins/update`**：按 `pluginId` / `marketplace` / 全部过滤已安装记录，在同一把存储锁里逐个按原市场重装，聚合
+  `installedPlugins` / `dependencyClosure` / `diagnostics`（同 TS 协议 `updatePlugin`，不先刷新市场）。
+
+与 TS 的差异（有意保留）：Node 的 app-server 在插件安装进行中不应答其它请求——`plugins/list` 与 `plugins/cancelOperation` 都会等到
+安装结束（实测在 5 s 客户端超时内无应答），因此进行中取消在 Node 上实际不可用；Rust 按 TS 取消 API 的设计意图实现。长下载内部
+（单个 HTTP 响应 / 单次 git clone）尚不可中途打断，取消在其结束后的下一个安全点生效。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-operations.test.ts`——源目录升版后按 id / 市场 / 全部重装、无匹配记录、
+未知 operationId，Node/Rust 一致；Rust 独有断言：慢 zip 下载期间 `plugins/list` 应答、取消返回 true、再次取消 false、安装以
+「Plugin operation cancelled」诊断结束且不落盘。全部插件差分回归通过。
+
+## 实现与验证（W5b-1：plugins/validate，2026-10-02）
+
+- `crates/tools/src/plugin_validate.rs`：对齐 TS `validatePlugin` → `validateESCodePlugin`。
+  - `source`：`parse_source_input` → `plugin_market_write::load`（不落盘）→ 逐条目形状校验（无 source、npm/pip、
+    url type / zip sha256 等字段）、依赖闭包（根市场用加载的 manifest 原文，`closure_in`）、远端条目
+    `plugin_validation_deferred`（附条目兼容性诊断）、本地条目按市场源目录解析后深扫根目录。
+  - `marketplace` + `pluginName`：按需拉取市场 → 依赖诊断 → `materialize`（zip / 仓库 / 本地，临时目录用完即删）→
+    `validatePluginRoot`（manifest 读取 / 名字一致 / 兼容性：diagnostic-only 字段、必填无默认 userConfig、MCPB/DXT）。
+  - 插件 MCP 声明校验按 TS `loadPluginMcpServerDefinitions` + `resolvePluginMcpServers`（env / options 为空）：
+    `.mcp.json` 与 manifest `mcpServers`（路径 / 数组 / 对象）合并、传输类型、官方鉴权、oauth、保留头、
+    模板变量（会话 / skill 上下文、user_config 敏感与缺省、环境变量）的首个错误。
+  - 以后台作业执行（`PLUGIN_JOB_METHODS`），远端深扫不阻塞其它请求。
+- `plugin_install.rs`：抽出 `entry_in` / `closure_in` / `materialize` / `valid_plugin_name` 供安装与校验共用。
+- 差分：`escode-cli-rust-plugins-validate.test.ts`（11 个市场内插件 + 未知市场 + 4 种 source + 空参数）。
+  JSON 语法错误文案两端来源不同（V8 vs Rust），样例不覆盖。
+
+## 实现与验证（W5b-2：plugins/describe，2026-10-02）
+
+- `crates/tools/src/plugin_describe.rs`：对齐 TS `describePlugin` → `describeMarketplacePlugin`。已安装记录且安装目录存在时
+  读安装目录（不读源）；否则按需拉取市场 → 条目 → `materialize` 后枚举，临时目录用完即删。
+- 组件枚举（TS `enumeratePluginComponents`）：agents / commands（对象声明在前，再扫默认目录与 manifest 路径下的 `.md`，
+  frontmatter name 优先、按名去重）、skills（不跟随符号链接，根自身 SKILL.md + 一层子目录，跳过隐藏 / 构建目录，按文件与名去重）、
+  hooks（`hooks/hooks.json` + manifest 路径 / 内联 / 数组，重复文件按 realpath 跳过，只取受支持事件名并记诊断）、
+  MCP（复用 validate 的 `mcp_definitions`）；manifest 不可用时只按目录约定枚举前三类。
+- frontmatter 解析移植 TS `markdown-frontmatter.ts`（`>` / `|` 块标量、引号去除、空值省略）。
+- 元数据：author（字符串或 {name,url}，trim）/ authorUrl / homepage / version。
+- 差分：`escode-cli-rust-plugins-describe.test.ts`（完整组件、strict:false、无 manifest、非法名、已安装、安装目录缺失兜底、
+  源目录缺失、未知插件 / 市场）。hooks 文件 JSON 语法错误的文案两端不同，样例不覆盖。
+
+## 实现与验证（W5b-3：plugins/install dryRun，2026-10-02）
+
+- `plugin_validate::install_dry_run`（TS `installESCodeMarketplacePlugin` dryRun 分支，持存储锁）：用户配置声明的市场源与已知记录
+  源不同 → 改指诊断；声明了但未知或 manifest 未落盘 → `validateMarketplaceSource`（expectedId 不一致报错、只校验目标条目，
+  缺失为 `plugin_not_found`）；否则按需拉取后 `validateMarketplacePlugin`。结果恒为空闭包 / 空安装，只带诊断，不写存储。
+- 差分：`escode-cli-rust-plugins-install-dry-run.test.ts`（冲突、已知市场正常 / 源缺失 / 条目缺失、声明市场正常 / 条目缺失 / id 不一致、
+  未知市场，并断言没有写 installed / cache / 市场目录）。
+
+## 实现与验证（W5b-4：plugins/resolveSuggestedReference，2026-10-02）
+
+- `crates/tools/src/plugin_suggested.rs`：对齐 TS `resolveSuggestedPluginReference`。非官方市场 / 不合 stable id 正则 →
+  `plugin_suggested_reference_untrusted_source`；本地引用目录命中（含停用）→ ready / disabled / conflict（图标取缓存 listing）；
+  否则刷新官方市场（`update_params`，10 s 超时即中止并报 `marketplace_refresh_failed`；刷新诊断里有官方市场失败同样不可用；
+  取消 → `plugin_operation_cancelled`），再查本地，仍无则按刷新后 overview 返回 missing（带 icon / listing）或 `not_listed`。
+- 两段式 `ToolPort::plugin_suggested_reference(params, refresh, cancel)`：engine 后台作业先本地判定，未命中时经新事件
+  `Event::AuxiliaryNotify` 先发 `plugins/operationProgress {operationId, state:"refreshing"}`，再刷新并回复（通知先于回复）。
+- 差分：`escode-cli-rust-plugins-suggested.test.ts`（内置官方插件、非官方 / 非法 / 缺名 id、回环服务充当 CDN 的 missing、
+  未列出、刷新 500 失败；同时比对 refreshing 通知）。W5 至此全部完成；全部 17 个插件差分用例通过。

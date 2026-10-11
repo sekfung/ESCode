@@ -4,9 +4,9 @@ import {
   TID_CONFIRM_DIALOG_CONFIRM,
   TID_WORKSPACE_CLOSE,
   TID_WORKSPACE_ITEM,
-  formatZCodeAgentProcessName,
+  formatESCodeAgentProcessName,
   testId,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   clearAppData,
   clickTestIdByDom,
@@ -88,8 +88,8 @@ describe("workspace removal runtime release E2E", () => {
 });
 
 function buildAgentWorkspaceNameSuffix(workspacePath: string): string {
-  const placeholderPrefix = formatZCodeAgentProcessName("placeholder");
-  const formatted = formatZCodeAgentProcessName("placeholder", workspacePath);
+  const placeholderPrefix = formatESCodeAgentProcessName("placeholder");
+  const formatted = formatESCodeAgentProcessName("placeholder", workspacePath);
   return formatted.slice(placeholderPrefix.length);
 }
 

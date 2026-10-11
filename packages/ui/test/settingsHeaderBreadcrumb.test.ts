@@ -31,7 +31,7 @@ describe("SettingsHeaderBreadcrumb", () => {
         ariaLabel: "Settings path",
         items: [
           { label: "Memory", onSelect: onOpenMemory },
-          { label: "z-code", onSelect: onOpenProject },
+          { label: "escode", onSelect: onOpenProject },
           { label: "MEMORY.md" },
         ],
       }),
@@ -40,7 +40,7 @@ describe("SettingsHeaderBreadcrumb", () => {
     const navigation = screen.getByRole("navigation", {
       name: "Settings path",
     });
-    expect(navigation.textContent).toBe("Memoryz-codeMEMORY.md");
+    expect(navigation.textContent).toBe("MemoryescodeMEMORY.md");
     expect(navigation.className).toContain("px-2.5");
     expect(navigation.className).not.toContain("px-4");
     expect(navigation.querySelector("ol")?.className).toContain("gap-0");
@@ -79,7 +79,7 @@ describe("SettingsHeaderBreadcrumb", () => {
     ).not.toContain("px-1");
 
     fireEvent.click(screen.getByRole("button", { name: "Memory" }));
-    fireEvent.click(screen.getByRole("button", { name: "z-code" }));
+    fireEvent.click(screen.getByRole("button", { name: "escode" }));
     expect(onOpenMemory).toHaveBeenCalledOnce();
     expect(onOpenProject).toHaveBeenCalledOnce();
   });
@@ -94,7 +94,7 @@ describe("SettingsHeaderBreadcrumb", () => {
         { onItemsChange, sectionLabel: "Memory" },
         createElement(SettingsBreadcrumbReporter, {
           items: [
-            { label: "z-code", onSelect: onOpenProject },
+            { label: "escode", onSelect: onOpenProject },
             { label: "MEMORY.md" },
           ],
           onSectionSelect: onOpenSection,
@@ -105,7 +105,7 @@ describe("SettingsHeaderBreadcrumb", () => {
     const items = onItemsChange.mock.lastCall?.[0];
     expect(items?.map((item: { label: string }) => item.label)).toEqual([
       "Memory",
-      "z-code",
+      "escode",
       "MEMORY.md",
     ]);
     expect(items?.[0].onSelect).toEqual(expect.any(Function));

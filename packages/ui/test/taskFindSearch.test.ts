@@ -9,7 +9,7 @@ const tasks = [
   {
     taskId: "task-1",
     title: "Quick pick keyboard search",
-    workspacePath: "/workspace/z-code",
+    workspacePath: "/workspace/escode",
     traceId: "trace-1",
     createdAt: 1,
     updatedAt: 3,
@@ -18,13 +18,13 @@ const tasks = [
       fileCount: 1,
       added: 12,
       removed: 3,
-      files: [{ path: "/workspace/z-code/packages/ui/src/App.tsx", added: 12, removed: 3 }],
+      files: [{ path: "/workspace/escode/packages/ui/src/App.tsx", added: 12, removed: 3 }],
     },
   },
   {
     taskId: "task-2",
     title: "Remote workspace identity fix",
-    workspacePath: "/workspace/z-code",
+    workspacePath: "/workspace/escode",
     traceId: "trace-2",
     createdAt: 2,
     updatedAt: 2,
@@ -33,7 +33,7 @@ const tasks = [
   {
     taskId: "task-3",
     title: "Quick file search",
-    workspacePath: "/workspace/z-code",
+    workspacePath: "/workspace/escode",
     traceId: "trace-3",
     createdAt: 3,
     updatedAt: 1,
@@ -44,7 +44,7 @@ const tasks = [
       removed: 0,
       files: [
         {
-          path: "/workspace/z-code/packages/ui/src/quickpick/TaskFindDialog.tsx",
+          path: "/workspace/escode/packages/ui/src/quickpick/TaskFindDialog.tsx",
           added: 4,
           removed: 0,
         },

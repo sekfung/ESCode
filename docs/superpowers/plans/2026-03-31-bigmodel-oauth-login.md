@@ -45,7 +45,7 @@
 | `packages/ui/src/App.tsx` | 右上角：未登录显示登录按钮，已登录显示退出按钮; +onLogin prop |
 | `packages/ui/src/store/index.ts` | 删除 MOCK_USER 相关；新增 oauthError 字段用于 Root→LoginDialog 错误传递 |
 | `packages/web/src/main.tsx` | platform 适配（-loginSuccess/-logout; +空实现） |
-| `AGENTS.md` | 更新 window.zcode 允许列表 |
+| `AGENTS.md` | 更新 window.escode 允许列表 |
 
 ### Deleted files
 | File |
@@ -84,35 +84,35 @@ PlatformChannels 删除 LoginSuccess 和 Logout，新增 OAuth 相关：
 ```ts
 export const PlatformChannels = {
   /** 打开系统目录选择框 */
-  SelectDirectory: "zcode:select-directory",
+  SelectDirectory: "escode:select-directory",
   /** 检查目录是否已在其他窗口打开，如果是则激活该窗口 */
-  ActivateOrSetWorkspace: "zcode:activate-or-set-workspace",
+  ActivateOrSetWorkspace: "escode:activate-or-set-workspace",
   /** 建立 SSH 远程连接 */
-  ConnectRemote: "zcode:connect-remote",
+  ConnectRemote: "escode:connect-remote",
   /** Renderer 日志转发到 main 进程统一存储 */
-  Log: "zcode:log",
+  Log: "escode:log",
   /** Renderer → Main：同步当前窗口所有 tab 的 workspace 路径 */
-  SyncWindowTabs: "zcode:sync-window-tabs",
+  SyncWindowTabs: "escode:sync-window-tabs",
   /** Main → Renderer：聚焦到指定 workspace 路径的 tab */
-  FocusTab: "zcode:focus-tab",
+  FocusTab: "escode:focus-tab",
   /** Main → Renderer：菜单触发新建 tab */
-  NewTab: "zcode:new-tab",
+  NewTab: "escode:new-tab",
   /** Main → Renderer：菜单触发新建任务 */
-  NewTask: "zcode:new-task",
+  NewTask: "escode:new-task",
   /** Renderer → Main：把本地工作区加入系统最近文档 */
-  AddRecentDocument: "zcode:add-recent-document",
+  AddRecentDocument: "escode:add-recent-document",
   /** 获取进程指标（进程树形式） */
-  GetProcessMetrics: "zcode:get-process-metrics",
+  GetProcessMetrics: "escode:get-process-metrics",
   /** 打开进程监控窗口（其他窗口触发） */
-  OpenProcessMonitor: "zcode:open-process-monitor",
+  OpenProcessMonitor: "escode:open-process-monitor",
   /** Renderer → Main：打开外部 URL（用于 OAuth 跳转浏览器） */
-  OpenExternal: "zcode:open-external",
+  OpenExternal: "escode:open-external",
   /** Renderer → Main：上报 OAuth state 用于 deep link 路由 */
-  OAuthRegisterState: "zcode:oauth-register-state",
+  OAuthRegisterState: "escode:oauth-register-state",
   /** Main → Renderer：转发 deep link URL */
-  OAuthCallback: "zcode:oauth-callback",
+  OAuthCallback: "escode:oauth-callback",
   /** Renderer → Main：renderer 已就绪，可接收缓存的 deep link */
-  RendererReady: "zcode:renderer-ready",
+  RendererReady: "escode:renderer-ready",
 } as const;
 ```
 
@@ -135,8 +135,8 @@ export const BIGMODEL_OAUTH_CONFIG = {
   /** 待确认：用户信息端点（可选） */
   userinfoUrl: "https://bigmodel.cn/api/oauth/userinfo",
   /** 待确认：应用 ID */
-  appId: "zcode-bigmodel-app",
-  redirectUri: "zcode://bigmodel-auth/callback",
+  appId: "escode-bigmodel-app",
+  redirectUri: "escode://bigmodel-auth/callback",
 } as const;
 ```
 
@@ -147,7 +147,7 @@ export const BIGMODEL_OAUTH_CONFIG = {
 import type { SSHConnectOptions } from "./index.js";
 
 /**
- * 平台操作接口 —— 替代直接访问 window.zcode
+ * 平台操作接口 —— 替代直接访问 window.escode
  *
  * 定义需要宿主环境（Electron main / Web server）参与的操作。
  * Desktop 和 Web 各自提供不同的实现，UI 层通过此接口统一消费。
@@ -241,9 +241,9 @@ git commit -m "feat(shared): add OAuth channels, config, and platform types; rem
 
 创建 `packages/services/src/oauth/oauth.ts`：
 ```ts
-import { ServiceChannels } from "@zcode/shared";
+import { ServiceChannels } from "@escode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
-import type { UserInfo } from "@zcode/shared";
+import type { UserInfo } from "@escode/shared";
 
 /**
  * OAuth 认证服务
@@ -261,7 +261,7 @@ export interface IOAuthService {
 
   /**
    * 处理 OAuth 回调：校验 state，用 code + code_verifier 换 token，存凭据
-   * @param url - 完整的 deep link URL (zcode://bigmodel-auth/callback?code=xxx&state=xxx)
+   * @param url - 完整的 deep link URL (escode://bigmodel-auth/callback?code=xxx&state=xxx)
    */
   handleCallback(url: string): Promise<UserInfo>;
 
@@ -301,8 +301,8 @@ git commit -m "feat(services): add IOAuthService interface and descriptor"
 创建 `packages/services/src/oauth/oauthService.ts`：
 ```ts
 import { randomBytes, createHash } from "node:crypto";
-import { BIGMODEL_OAUTH_CONFIG } from "@zcode/shared";
-import type { UserInfo } from "@zcode/shared";
+import { BIGMODEL_OAUTH_CONFIG } from "@escode/shared";
+import type { UserInfo } from "@escode/shared";
 import type { IOAuthService } from "./oauth.js";
 import type { ICredentialService } from "../credential/credential.js";
 
@@ -573,7 +573,7 @@ export { createOAuthService } from "./oauth/oauthService.js";
 import {
   ...existing imports,
   IOAuthService,
-} from "@zcode/services";
+} from "@escode/services";
 ```
 
 添加字段和构造器中的初始化：
@@ -594,8 +594,8 @@ Remote 模式的 ServiceCollection（`InitRemote` 分支）不走 `createLocalSe
 
 添加 import：
 ```ts
-import { IOAuthService } from "@zcode/services";
-import { createOAuthService, createCredentialService } from "@zcode/services/node";
+import { IOAuthService } from "@escode/services";
+import { createOAuthService, createCredentialService } from "@escode/services/node";
 ```
 
 在 remote 模式的 `new ServiceCollection()` 链中添加（OAuth 是本地操作，不走 SSH）：
@@ -628,8 +628,8 @@ git commit -m "feat(services): wire IOAuthService into accessor, registry, remot
 替换 `packages/desktop/src/preload/index.ts` 为：
 ```ts
 import { contextBridge, ipcRenderer } from "electron";
-import type { SSHConnectOptions } from "@zcode/shared";
-import { PlatformChannels, InternalChannels } from "@zcode/shared";
+import type { SSHConnectOptions } from "@escode/shared";
+import { PlatformChannels, InternalChannels } from "@escode/shared";
 
 /**
  * Preload bridge —— 仅暴露需要 main 进程参与的平台操作
@@ -640,7 +640,7 @@ import { PlatformChannels, InternalChannels } from "@zcode/shared";
  * loginSuccess/logout 已删除：登录/登出不再涉及窗口切换，
  * 完全在 UI/Hook 层通过 credentialService + Zustand 处理。
  */
-contextBridge.exposeInMainWorld("zcode", {
+contextBridge.exposeInMainWorld("escode", {
   connectRemote: (options: SSHConnectOptions) =>
     ipcRenderer.invoke(PlatformChannels.ConnectRemote, options),
   /** renderer 日志通过 IPC 传到 main 进程统一存储 */
@@ -696,21 +696,21 @@ ipcRenderer.on(InternalChannels.ServicePort, (event) => {
 });
 ```
 
-- [ ] **Step 2: 修改 globals.d.ts — 同步更新 window.zcode 类型**
+- [ ] **Step 2: 修改 globals.d.ts — 同步更新 window.escode 类型**
 
 替换 `packages/client/src/globals.d.ts` 为：
 ```ts
-import type { SSHConnectOptions } from "@zcode/shared";
+import type { SSHConnectOptions } from "@escode/shared";
 
 /**
- * window.zcode 类型定义 —— 仅包含需要 main 进程参与的平台操作
+ * window.escode 类型定义 —— 仅包含需要 main 进程参与的平台操作
  *
  * 凭据管理已迁移到 ICredentialService（通过 RPC），不再经过此接口。
  * loginSuccess/logout 已删除：登录/登出不再涉及窗口切换。
  */
 declare global {
   interface Window {
-    zcode: {
+    escode: {
       connectRemote(options: SSHConnectOptions): Promise<{ success: boolean; error?: string }>;
       /** renderer 日志通过 IPC 传到 main 进程统一存储 */
       log(level: "info" | "warn" | "error", args: unknown[]): void;
@@ -777,8 +777,8 @@ git commit -m "feat(desktop): update preload bridge and globals.d.ts for OAuth; 
 // Custom Protocol 注册 + 单实例锁
 // ============================================================================
 
-// 注册 zcode:// 协议（必须在 ready 之前）
-app.setAsDefaultProtocolClient("zcode");
+// 注册 escode:// 协议（必须在 ready 之前）
+app.setAsDefaultProtocolClient("escode");
 
 // macOS: deep link 通过 open-url 事件传递（必须在 ready 之前注册）
 app.on("open-url", (event, url) => {
@@ -794,7 +794,7 @@ if (!gotTheLock) {
 
 // Windows/Linux: 第二个实例启动时，deep link 通过命令行参数传入
 app.on("second-instance", (_event, argv) => {
-  const url = argv.find((arg) => arg.startsWith("zcode://"));
+  const url = argv.find((arg) => arg.startsWith("escode://"));
   if (url) handleDeepLink(url);
 
   // 聚焦已有窗口
@@ -821,7 +821,7 @@ const oauthStateToWindow = new Map<string, number>();
 let pendingDeepLinkUrl: string | null = null;
 
 function handleDeepLink(url: string) {
-  if (!url.startsWith("zcode://bigmodel-auth/callback")) return;
+  if (!url.startsWith("escode://bigmodel-auth/callback")) return;
 
   let state: string | null = null;
   try {
@@ -910,7 +910,7 @@ function handleDeepLink(url: string) {
   createWindow();
 
   // Windows/Linux 冷启动：检查 process.argv 中的 deep link
-  const protocolUrl = process.argv.find((arg) => arg.startsWith("zcode://"));
+  const protocolUrl = process.argv.find((arg) => arg.startsWith("escode://"));
   if (protocolUrl) handleDeepLink(protocolUrl);
 ```
 
@@ -951,19 +951,19 @@ git commit -m "feat(desktop): add protocol registration, deep link routing; remo
 ```ts
 // Desktop 平台操作实现：通过 preload bridge 调用 main 进程
 const desktopPlatform: IPlatformService = {
-  selectDirectory: () => window.zcode.selectDirectory(),
+  selectDirectory: () => window.escode.selectDirectory(),
   activateOrSetWorkspace: (path) =>
-    window.zcode.activateOrSetWorkspace?.(path) ?? Promise.resolve({ activated: false }),
-  connectRemote: (options: SSHConnectOptions) => window.zcode.connectRemote(options),
-  openExternal: (url) => window.zcode.openExternal(url),
-  registerOAuthState: (state) => window.zcode.registerOAuthState(state),
-  onOAuthCallback: (cb) => window.zcode.onOAuthCallback(cb),
-  notifyRendererReady: () => window.zcode.notifyRendererReady(),
-  syncWindowTabs: (paths) => window.zcode.syncWindowTabs(paths),
-  onFocusTab: (handler) => window.zcode.onFocusTab(handler),
-  onNewTab: (handler) => window.zcode.onNewTab(handler),
-  onNewTask: (handler) => window.zcode.onNewTask(handler),
-  addRecentDocument: (path) => window.zcode.addRecentDocument(path),
+    window.escode.activateOrSetWorkspace?.(path) ?? Promise.resolve({ activated: false }),
+  connectRemote: (options: SSHConnectOptions) => window.escode.connectRemote(options),
+  openExternal: (url) => window.escode.openExternal(url),
+  registerOAuthState: (state) => window.escode.registerOAuthState(state),
+  onOAuthCallback: (cb) => window.escode.onOAuthCallback(cb),
+  notifyRendererReady: () => window.escode.notifyRendererReady(),
+  syncWindowTabs: (paths) => window.escode.syncWindowTabs(paths),
+  onFocusTab: (handler) => window.escode.onFocusTab(handler),
+  onNewTab: (handler) => window.escode.onNewTab(handler),
+  onNewTask: (handler) => window.escode.onNewTask(handler),
+  addRecentDocument: (path) => window.escode.addRecentDocument(path),
 };
 ```
 
@@ -1185,9 +1185,9 @@ git commit -m "feat(ui): add useOAuth and useTokenRefresh hooks"
  */
 import { useEffect } from "react";
 import { LogInIcon, TriangleAlertIcon, Loader2Icon } from "lucide-react";
-import { TID_OAUTH_LOGIN_BUTTON, TID_OAUTH_CANCEL, TID_OAUTH_ERROR } from "@zcode/shared";
+import { TID_OAUTH_LOGIN_BUTTON, TID_OAUTH_CANCEL, TID_OAUTH_ERROR } from "@escode/shared";
 import { useOAuth } from "./hooks/useOAuth.js";
-import { useZCodeStore } from "./store/StoreProvider.js";
+import { useESCodeStore } from "./store/StoreProvider.js";
 import { Alert, AlertDescription } from "./components/ui/alert.js";
 import { Button } from "./components/ui/button.js";
 import {
@@ -1197,7 +1197,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./components/ui/dialog.js";
-import { useZCodeIntl } from "./i18n/IntlProvider.js";
+import { useESCodeIntl } from "./i18n/IntlProvider.js";
 
 interface LoginDialogProps {
   open: boolean;
@@ -1205,11 +1205,11 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const { startLogin, cancel, reset, status, error } = useOAuth();
-  const user = useZCodeStore((s) => s.user);
-  const oauthError = useZCodeStore((s) => s.oauthError);
-  const setOAuthError = useZCodeStore((s) => s.setOAuthError);
+  const user = useESCodeStore((s) => s.user);
+  const oauthError = useESCodeStore((s) => s.oauthError);
+  const setOAuthError = useESCodeStore((s) => s.setOAuthError);
 
   // Root 层 OAuth 回调失败时写入 Zustand oauthError → 弹窗显示错误
   useEffect(() => {
@@ -1347,14 +1347,14 @@ git commit -m "feat(ui): replace WelcomeScreen with LoginDialog for BigModel OAu
 
 - [ ] **Step 1.5: 修改 store/index.ts — 新增 oauthError 字段**
 
-在 `packages/ui/src/store/index.ts` 的 `ZCodeState` 接口中添加：
+在 `packages/ui/src/store/index.ts` 的 `ESCodeState` 接口中添加：
 ```ts
   /** OAuth 回调错误（Root 层写入，LoginDialog 读取） */
   oauthError: string | null;
   setOAuthError: (error: string | null) => void;
 ```
 
-在 `create<ZCodeState>()` 的初始值中添加：
+在 `create<ESCodeState>()` 的初始值中添加：
 ```ts
     oauthError: null,
     setOAuthError: (error: string | null) => set({ oauthError: error }),
@@ -1369,8 +1369,8 @@ git commit -m "feat(ui): replace WelcomeScreen with LoginDialog for BigModel OAu
 3. RootProps 中删除 `skipAuth`
 4. 将 `const [user, setUser] = useState<UserInfo | null>(skipAuth ? MOCK_USER : null)` 改为：
    ```ts
-   const user = useZCodeStore((s) => s.user);
-   const setUser = useZCodeStore((s) => s.setUser);
+   const user = useESCodeStore((s) => s.user);
+   const setUser = useESCodeStore((s) => s.setUser);
    ```
 5. 删除 `const [checked, setChecked] = useState(!!skipAuth)` — 改为根据 token 加载状态控制
 6. 启动时的 token 检查改为：
@@ -1398,7 +1398,7 @@ git commit -m "feat(ui): replace WelcomeScreen with LoginDialog for BigModel OAu
 7. 添加常驻的 OAuth 回调监听（在 RootInner 的 useEffect 中）：
    ```ts
    // 在组件顶层通过 hook 获取 setter
-   const setOAuthError = useZCodeStore((s) => s.setOAuthError);
+   const setOAuthError = useESCodeStore((s) => s.setOAuthError);
 
    useEffect(() => {
      const dispose = platform.onOAuthCallback(async (url) => {
@@ -1590,20 +1590,20 @@ git commit -m "chore(desktop): remove login window, old login e2e tests, fix see
   // OAuth deep link 协议注册（macOS 打包后需要 Info.plist 中声明 CFBundleURLTypes）
   protocols: [
     {
-      name: "zcode",
-      schemes: ["zcode"],
+      name: "escode",
+      schemes: ["escode"],
     },
   ],
   mac: {
 ```
 
-- [ ] **Step 2: 修改 AGENTS.md — 更新 window.zcode 允许列表和描述**
+- [ ] **Step 2: 修改 AGENTS.md — 更新 window.escode 允许列表和描述**
 
 在 `AGENTS.md` 第 92 行，更新"包括登录窗口"为"包括远程窗口"（删除登录窗口引用）。
 
 第 99 行更新为：
 ```
-* `window.zcode` 上只剩 `selectDirectory`、`activateOrSetWorkspace`、`connectRemote`、`log`、`openExternal`、`registerOAuthState`、`onOAuthCallback`、`notifyRendererReady`，不包含 credential
+* `window.escode` 上只剩 `selectDirectory`、`activateOrSetWorkspace`、`connectRemote`、`log`、`openExternal`、`registerOAuthState`、`onOAuthCallback`、`notifyRendererReady`，不包含 credential
 ```
 
 - [ ] **Step 3: 验证**

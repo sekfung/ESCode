@@ -3,7 +3,7 @@ import {
   createUuid,
   type BrowserTabResidencyState,
   type BrowserViewRestoredTabShell,
-} from "@zcode/shared";
+} from "@escode/shared";
 import type { PluginUiSidePaneTab } from "@/plugin-ui/contract.js";
 import { inferMediaPreview, isPptxPreviewPath, type CodeViewerSource } from "@/lib/codeViewer.js";
 import { normalizeCodeViewerSource } from "@/lib/codeViewerSource.js";
@@ -97,6 +97,20 @@ export interface DeveloperToolsSidePaneTab {
   ownerTaskId?: string | null;
   workspaceKey?: string | null;
   openedAt?: number;
+}
+
+/**
+ * 串口调试器标签；串口会话属于窗口级 Local Host。可多开，每个标签绑定一个串口路径
+ * （未绑定时为空），关闭标签不关闭串口（docs/specs/serial-port-debugger-phase3.md）。
+ */
+export interface SerialSidePaneTab {
+  id: string;
+  type: "serial";
+  ownerTaskId?: string | null;
+  workspaceKey?: string | null;
+  openedAt?: number;
+  /** 绑定的串口路径；应用重启后保留用于预选，不自动连接。 */
+  path?: string;
 }
 
 export interface TerminalSidePaneTab {
@@ -538,6 +552,7 @@ export type WorkspaceSidePaneTab =
   | ModelTrajectorySidePaneTab
   | DeveloperToolsSidePaneTab
   | TerminalSidePaneTab
+  | SerialSidePaneTab
   | BrowserUseSidePaneTab
   | SubagentSessionSidePaneTab
   | SubagentDirectorySidePaneTab
@@ -695,6 +710,14 @@ function createDeveloperToolsSidePaneTab(): DeveloperToolsSidePaneTab {
   return {
     id: "developer-tools",
     type: "developer-tools",
+    openedAt: Date.now(),
+  };
+}
+
+function createSerialSidePaneTab(): SerialSidePaneTab {
+  return {
+    id: `serial:${createUuid()}`,
+    type: "serial",
     openedAt: Date.now(),
   };
 }
@@ -1088,6 +1111,11 @@ export function isWorkspaceGlobalSidePaneTab(tab: WorkspaceSidePaneTab): boolean
   return WORKSPACE_GLOBAL_SIDE_PANE_TAB_TYPES.has(tab.type);
 }
 
+/** 串口设备在本机、会话跟随窗口：切换 workspace（含远程）或对话都不隐藏该标签。 */
+function isWindowGlobalSidePaneTab(tab: WorkspaceSidePaneTab): boolean {
+  return tab.type === "serial";
+}
+
 export interface SidePaneVisibilityScope {
   workspaceKey: string | null;
   ownerTaskId: string | null;
@@ -1120,7 +1148,9 @@ export function stampSidePaneTabsOwnership(
     return {
       ...tab,
       ownerTaskId: ownership.ownerTaskId,
-      workspaceKey: tab.workspaceKey ?? ownership.workspaceKey,
+      workspaceKey: isWindowGlobalSidePaneTab(tab)
+        ? null
+        : (tab.workspaceKey ?? ownership.workspaceKey),
       ...((tab.type === "browser" || tab.type === "browser-use") && ownership.remoteSessionId
         ? { remoteSessionId: ownership.remoteSessionId }
         : {}),
@@ -1135,6 +1165,7 @@ function getVisibleSidePaneTabsByScope(
 ): WorkspaceSidePaneTab[] {
   const ownerKey = sidePaneOwnerKey(scope.ownerTaskId);
   return tabs.filter((tab) => {
+    if (isWindowGlobalSidePaneTab(tab)) return true;
     if (!sidePaneTabMatchesWorkspace(tab, scope.workspaceKey)) return false;
     if (isWorkspaceGlobalSidePaneTab(tab)) return true;
     if (tab.type === "browser-use") return tab.sessionId === scope.ownerTaskId;
@@ -1738,6 +1769,29 @@ export function activateDeveloperToolsSidePane(
   current: WorkspaceSidePaneState | null,
 ): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createDeveloperToolsSidePaneTab());
+}
+
+/** 新开一个未绑定的串口标签；多串口时每个标签对应一个串口。 */
+export function openSerialSidePane(
+  current: WorkspaceSidePaneState | null,
+): WorkspaceSidePaneState {
+  return activateSidePaneTab(current, createSerialSidePaneTab());
+}
+
+/** 标签绑定（或改绑）串口路径；未知标签原样返回。 */
+export function bindSerialSidePaneTab(
+  current: WorkspaceSidePaneState | null,
+  tabId: string,
+  path: string,
+): WorkspaceSidePaneState | null {
+  if (!current) return current;
+  let changed = false;
+  const tabs = current.tabs.map((tab) => {
+    if (tab.id !== tabId || tab.type !== "serial" || tab.path === path) return tab;
+    changed = true;
+    return { ...tab, path };
+  });
+  return changed ? { ...current, tabs } : current;
 }
 
 export function openTerminalSidePane(
