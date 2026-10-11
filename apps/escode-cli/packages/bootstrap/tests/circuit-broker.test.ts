@@ -329,6 +329,7 @@ describe("circuit 注册门控与批准", () => {
       "mcp__circuit__circuit_get",
       "mcp__circuit__circuit_parse",
       "mcp__circuit__circuit_query",
+      "mcp__circuit__circuit_submit_recognition",
     ]);
     expect(allowed).not.toContain("mcp__circuit__circuit_export");
   });
