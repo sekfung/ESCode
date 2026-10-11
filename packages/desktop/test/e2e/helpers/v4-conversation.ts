@@ -1126,6 +1126,38 @@ export function getV4ModelConfig(): Promise<{
   }, TID_V4_MODEL_CONFIG);
 }
 
+/** 读取 Composer 工具条的会话生成速度读数（本地观测；锚点见 docs/specs/conversation-generation-speed.md）。 */
+export function getV4GenerationSpeed(): Promise<{
+  mode: string | null;
+  value: string | null;
+  text: string | null;
+}> {
+  return browser.execute(() => {
+    const el = document.querySelector<HTMLElement>("[data-generation-speed-mode]");
+    return {
+      mode: el?.getAttribute("data-generation-speed-mode") ?? null,
+      value: el?.getAttribute("data-generation-speed-value") ?? null,
+      text: el?.textContent?.trim() ?? null,
+    };
+  });
+}
+
+/** 等待生成速度读数进入某个语义态：none（占位符）/ live（实时）/ average（上一轮平均）。 */
+export async function waitForV4GenerationSpeedMode(
+  mode: "none" | "live" | "average",
+  timeout = 30_000,
+) {
+  let latest = await getV4GenerationSpeed();
+  await browser.waitUntil(
+    async () => {
+      latest = await getV4GenerationSpeed();
+      return latest.mode === mode;
+    },
+    { timeout, timeoutMsg: `生成速度读数没有进入 ${mode} 态: ${JSON.stringify(latest)}` },
+  );
+  return latest;
+}
+
 /** 等待当前 Composer 已从持久 Draft 完成 mode/模型选择初始化。 */
 export async function waitForV4ComposerSelectionReady(timeout = 30_000) {
   let latest = await getV4ModelConfig();

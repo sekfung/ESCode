@@ -1,4 +1,5 @@
 import { sendWithConversationDelayE2E } from "@/v4/conversationTransportDelayE2E.js";
+import { getLocalGenerationSpeedTracker } from "@/v4/telemetry/localGenerationSpeed.js";
 import { getLocalTtftObserver } from "@/v4/telemetry/localTtftObserver.js";
 import { calibrateLocalTtftClock, localTtftNow } from "@escode/shared";
 /* oxlint-disable eslint(max-lines) -- transport 将上传、分块读取和 runtime 生命周期保持在同一 host 边界。 */
@@ -150,6 +151,9 @@ export function createAgentConversationTransport(
           // 首输出时校准已超过 60 秒有效期，跨进程阶段被整体丢弃。内容帧到达即刷新过期校准。
           calibrate();
         }
+        // 生成速度是两端都要的本机观测：本地 workspace 与远控（手机 Web replayable）共用同一观测器，
+        // 缺口语义只由 deliveryKind 表达，不能和桌面独占的 TTFT 观测绑在一起。
+        getLocalGenerationSpeedTracker().receive(frame, deliveryKind);
       } catch (error) {
         logger.debug("[local-ttft] observation failed", { error });
       }

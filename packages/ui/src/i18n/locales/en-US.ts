@@ -5205,6 +5205,10 @@ const enUS: Record<string, string> = {
   "chat.contextUsage.breakdown.mcpTools": "MCP tools",
   "chat.contextUsage.compress": "Compress",
   "chat.contextUsage.compressDescription": "Send {command} to compress the current context",
+  "chat.generationSpeed.unit": "tok/s",
+  "chat.generationSpeed.live": "Live generation speed {value}",
+  "chat.generationSpeed.average": "Last turn average generation speed {value}",
+  "chat.generationSpeed.unknown": "Generation speed has no reading yet",
   "tokenDebug.open": "Open token debug",
   "tokenDebug.column.tps": "TPS (tokens/s)",
   "tokenDebug.tpsDescription":

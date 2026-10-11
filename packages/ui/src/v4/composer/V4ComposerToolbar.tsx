@@ -57,6 +57,7 @@ import { ThoughtLevelCycleControl } from "@/chat-input-toolbar/ThoughtLevelCycle
 import { getNextThoughtLevelValue } from "@/chat-input-toolbar/thoughtLevelOptions.js";
 import type { V4ComposerConfigPicker } from "@/v4/composer/configPickerState.js";
 import { useToolbarShortcutBindings } from "@/v4/composer/toolbarShortcuts.js";
+import { V4ComposerGenerationSpeed } from "@/v4/composer/V4ComposerGenerationSpeed.js";
 import {
   resolveModelSelectTriggerDisplay,
   shouldShowManageModelsAction,
@@ -429,6 +430,7 @@ export interface V4ComposerToolbarProps {
 function V4ComposerModelControlsImpl({
   workspacePath,
   workspaceIdentity,
+  sessionId,
   modelSelectionView = null,
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
@@ -1088,6 +1090,8 @@ function V4ComposerModelControlsImpl({
         data-usage-max={usage?.contextWindow?.maxTokens ?? ""}
         className="hidden"
       />
+      {/* 生成速度读数：上下文容量左侧、草稿态不渲染；不受 modelLocked 影响（highspeed 轮同样要看速度）。 */}
+      {sessionId ? <V4ComposerGenerationSpeed sessionId={sessionId} /> : null}
       {/* Highspeed 卡激活即锁定模型；不能等动效交接完成才隐藏，否则 usage 圈圈会短暂闪现。 */}
       {!modelLocked ? (
         <ChatContextUsage

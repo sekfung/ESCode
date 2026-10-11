@@ -320,6 +320,7 @@ staging 的 BG45 历史 focused replay artifact 为 `desktop-e2e-20260903-111126
 | `TP`   | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-compact-timeline-projection.test.ts`                                                                                                                                                                                                    |
 | `TS`   | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-turn-steer-probe.test.ts`                                                                                                                                                                                                               |
 | `GS`   | `packages/desktop/test/e2e/conversation-session/conversation-session-running-guide-steer.test.ts`                                                                                                                                                                                                                                  |
+| `GSP`  | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-generation-speed.test.ts`                                                                                                                                                                                                               |
 | `GI`   | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-goal-interruptions.test.ts`                                                                                                                                                                                                             |
 | `BGS`  | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-background-guide-steer.test.ts`                                                                                                                                                                                                         |
 | `BFD`  | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-background-file-diff.test.ts`                                                                                                                                                                                                           |
@@ -2833,3 +2834,19 @@ PA158 合并最新 staging 后 Linux Electron 复跑 1/1 通过，run `desktop-e
 ## Bot Worker 正式用例（2026-09-23）
 
 用户确认转正的 `conversation-session-bot-channel-worker.test.ts`、`conversation-session-bot-topic-worker.test.ts`、`conversation-session-bot-continuous-worker.test.ts` 位于 `packages/desktop/test/e2e/conversation-session/`，覆盖真实 CLI 的群回复工具、话题续接/资源和持续订阅。详细验收与证据见 [Bot 覆盖矩阵](bots-e2e-coverage-matrix.md#2026-09-23-用户确认转正)。未进行 Docker/CI 准入。
+
+## 生成速度读数覆盖口径（2026-10-12）
+
+Composer 工具条新增会话实时 token 生成速度读数，规格见
+[docs/specs/conversation-generation-speed.md](../specs/conversation-generation-speed.md)，所有权决策见
+[docs/adr/0006](../adr/0006-generation-speed-observed-in-renderer.md)。观测完全在 Renderer 本地完成：只采信
+`online` 投递的 `row.delta`，`recovery` / snapshot resync 按投递缺口处理；不改协议、不改 Host/relay 行为，
+桌面 `desktop-continuous` 与手机 `web-remote-replayable` 共用同一实现。窗口排空回占位符、缺口不留平均值、
+新轮清空保留值等时序语义由 focused 单测断言，E2E 只证明工具条上读数存在并按实时 → 平均值迁移。
+
+| Catalog ID | 覆盖状态 | 自动化   | 备注                                                                                                                                                                                                 |
+| ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GSP01      | partial  | GSP-UT   | `packages/ui/test/localGenerationSpeed.test.ts` 13/13（窗口统计与起步归一、排空回占位符、工具执行与等待交互区间不计入分母、后台化工具不阻塞、recovery/resync 缺口不留平均值、订阅时已在生成只观测尾巴、新轮清空保留值、轮末按 `turnHeader.outputTokens` 修正分子）；`packages/ui/test/v4ComposerGenerationSpeed.test.ts` 5/5 覆盖读数呈现（格式、占位符、无障碍标签、data-* 锚点、实时/保留态色彩） |
+| GSP02      | partial  | GSP      | pending spec 断言流式中出现 live 读数（数值 > 0、单位 `tok/s`）、轮末切换为 average；需要 controlled-stream fixture（replay capture 未完成，尚未转正）                                                  |
+| GSP03      | partial  | GSP-UT   | 手机远控重连后该轮只保留实时值的语义由单测覆盖（`recovery` 投递）；手机端正式远控 E2E 未补                                                                                                            |
+| GSP04      | partial  | GSP-UT   | 中断/失败轮次同样结算平均值（`completedInterrupted`）；失败态 E2E 未补                                                                                                                                |
