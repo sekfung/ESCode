@@ -241,6 +241,15 @@ const officialPluginPackages = [
     stagedPath: "packages/serial-plugin",
   },
   {
+    // 电路官方插件：同样必须同时 stage MCP runtime 与 circuit skill（seed 的 requiredSeedPaths）。
+    packageName: "@escode/circuit-plugin",
+    relativePath: "apps/escode-cli/packages/circuit-plugin",
+    requiresRuntime: true,
+    requiredRuntimePaths: ["dist/mcp/server.js", "skills/circuit/SKILL.md"],
+    runtimeBuildScript: "scripts/build.mjs",
+    stagedPath: "packages/circuit-plugin",
+  },
+  {
     // CUA 插件只携带 SDK/skill/docs；node_repl MCP runtime 归 @escode/node-repl-host。
     packageName: "@escode/escode-cua-plugin",
     relativePath: "apps/escode-cli/packages/escode-cua-plugin",

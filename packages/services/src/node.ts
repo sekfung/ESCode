@@ -321,7 +321,8 @@ import { createSerialService, shouldRegisterSerialService } from "./serial/seria
 import { createSerialAgentBridge } from "./serial/serialAgentBridge.js";
 import { ESCODE_HOST_SERIAL_ENV } from "@escode/shared/serial";
 import { ICircuitService } from "./circuit/contract.js";
-import { createLocalCircuitService } from "./circuit/node.js";
+import { createCircuitAgentBridge, createLocalCircuitService } from "./circuit/node.js";
+import { ESCODE_HOST_CIRCUIT_ENV } from "@escode/shared/circuit";
 import { ISettingService } from "./setting/setting.js";
 import { IOnboardingRecordService } from "./onboarding/onboardingRecord.js";
 import { ICredentialService } from "./credential/credential.js";
@@ -2015,6 +2016,10 @@ export function createLocalServices(options: {
           (await settingService.get()).serialPortPreferences?.byPath[path]?.autoReconnect,
       })
     : undefined;
+  // 电路工具走同一条反向请求路由：bridge 只做 op → CircuitService 方法映射，IR 仍由服务独占。
+  const circuitAgentBridge = circuitService
+    ? createCircuitAgentBridge({ getCircuitService: () => circuitService })
+    : undefined;
   const escodeAgentService = createESCodeAgentService({
     ...(agentAccountProviderConfigSource
       ? { accountProviderConfigSource: agentAccountProviderConfigSource }
@@ -2045,6 +2050,7 @@ export function createLocalServices(options: {
     // browser-use：host→main 执行桥透传给 agent service 的 onRequest browserExecute 路由。
     browserControlExecutor: options?.browserControlExecutor,
     serialAgentBridge,
+    circuitAgentBridge,
     // 机器人凭据只归属于授权 Host；远端独立服务不能借用本机配置扩大读取范围。
     channelReplyExecutor: async (value) => {
       const request = channelReplyHostRequestSchema.parse(value);
@@ -2185,6 +2191,8 @@ export function createLocalServices(options: {
         ...cuaProductHelperEnv,
         // 只有本 Host 拥有串口会话时才告诉 Agent 运行时注册 serial MCP server。
         ...(serialService ? { [ESCODE_HOST_SERIAL_ENV]: "1" } : {}),
+        // 同理：只有持有 CircuitService 的 Host 才让 Agent 运行时注册 circuit MCP server（§3.5）。
+        ...(circuitService ? { [ESCODE_HOST_CIRCUIT_ENV]: "1" } : {}),
         ...buildAgentTelemetrySpawnEnv({
           deviceMid: telemetryDeviceMid,
           runtimeSurface: options?.agentTelemetry?.runtimeSurface ?? "remote_workspace_host",

@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import type { CircuitSourcePort } from "../app/ports.js";
+import type { CircuitSnapshotPort, CircuitSourcePort } from "../app/ports.js";
 
 /**
- * workspace 源文件读取适配器（docs/circuit/README.md §3.4）。
- * 只读、异步；源文件路径必须先证明落在 workspace 根目录内，避免越权读取宿主文件。
+ * workspace 源文件读取与导出快照写入适配器（docs/circuit/README.md §3.4、§2 规则 8）。
+ * 只读 + 单点写入；源文件与导出路径都必须先证明落在 workspace 根目录内，避免越权访问宿主文件。
  */
 
 /** 单文件读取上限：超过 16 MiB 的源文件（多为位图/PDF）不读进内存，直接报 too_large。 */
@@ -37,6 +37,16 @@ function toSourceError(error: unknown, relativePath: string): Error {
   }
   return new Error(
     `io_error: 读取源文件失败：${relativePath}（${error instanceof Error ? error.message : String(error)}）`,
+  );
+}
+
+/** 写入失败一律 io_error：导出目标的父目录不存在也属于写入失败，不隐式创建。 */
+function toSnapshotError(error: unknown, relativePath: string): Error {
+  if (hasCodePrefix(error)) {
+    return error;
+  }
+  return new Error(
+    `io_error: 写入导出快照失败：${relativePath}（${error instanceof Error ? error.message : String(error)}）`,
   );
 }
 
@@ -139,6 +149,32 @@ export function createWorkspaceSource(): CircuitSourcePort {
 
     hashContent(text: string): string {
       return createHash("sha256").update(text).digest("hex");
+    },
+  };
+}
+
+/**
+ * 导出快照写入适配器（§2 规则 8）：只往 workspace 内写派生产物，同样先证明路径落在 workspace 根内。
+ * 目录不存在时报 io_error，不隐式创建目录——导出目标由 Agent 明确给出（§5 circuit_export）。
+ */
+export function createWorkspaceSnapshotWriter(): CircuitSnapshotPort {
+  return {
+    async write({
+      workspacePath,
+      relativePath,
+      content,
+    }: {
+      workspacePath: string;
+      relativePath: string;
+      content: string;
+    }): Promise<void> {
+      const target = resolveWorkspaceFile(workspacePath, relativePath);
+      const label = relativePath.trim();
+      try {
+        await writeFile(target, content, "utf-8");
+      } catch (error) {
+        throw toSnapshotError(error, label);
+      }
     },
   };
 }

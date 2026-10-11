@@ -41,6 +41,7 @@ ${symbols}
 function createHarness() {
   const files = new Map<string, string>();
   const records = new Map<string, StoredCircuit>();
+  const snapshots = new Map<string, string>();
   const timeline: string[] = [];
   const events: CircuitChangedEvent[] = [];
   const watchers = new Set<() => void>();
@@ -83,6 +84,12 @@ function createHarness() {
         };
       },
     },
+    snapshot: {
+      async write({ relativePath, content }) {
+        timeline.push(`snapshot:${relativePath}`);
+        snapshots.set(relativePath, content);
+      },
+    },
   };
   const service = createCircuitService({
     ports,
@@ -95,6 +102,7 @@ function createHarness() {
   return {
     files,
     records,
+    snapshots,
     timeline,
     events,
     service,
@@ -314,6 +322,60 @@ describe("CircuitService 修正", () => {
     ).rejects.toThrow(/invalid_ir/u);
     expect(harness.timeline.length).toBe(before);
     expect(harness.storedRecord(parseParams.path)!.ir.revision).toBe(1);
+  });
+});
+
+describe("CircuitService 导出快照", () => {
+  it("写入带派生产物标记的快照，且不改动 IR 与 revision", async () => {
+    const harness = createHarness();
+    harness.files.set(parseParams.path, schematic(`${R1}\n  ${R2}\n  ${WIRE}`));
+    const parsed = await harness.service.parse(parseParams);
+
+    const result = await harness.service.exportSnapshot({
+      workspacePath: "/ws",
+      irId: parsed.summary.irId,
+      path: "out/board.circuit.json",
+    });
+    expect(result).toEqual({ path: "out/board.circuit.json" });
+    const snapshot = JSON.parse(harness.snapshots.get("out/board.circuit.json")!) as {
+      derived: boolean;
+      irId: string;
+      revision: number;
+      ir: { revision: number };
+    };
+    expect(snapshot.derived).toBe(true);
+    expect(snapshot.irId).toBe(parsed.summary.irId);
+    expect(snapshot.revision).toBe(1);
+    expect(snapshot.ir.revision).toBe(1);
+    // 导出是只读派生：不写 store、不发事件、不产生第二次持久化。
+    expect(harness.timeline.filter((entry) => entry.startsWith("snapshot:"))).toEqual([
+      "snapshot:out/board.circuit.json",
+    ]);
+    expect(harness.timeline.filter((entry) => entry.startsWith("event:"))).toEqual(["event:1:fresh"]);
+    expect(harness.storedRecord(parseParams.path)!.ir.revision).toBe(1);
+  });
+
+  it("目标不是 .circuit.json 或 irId 不在本 workspace 时拒绝", async () => {
+    const harness = createHarness();
+    harness.files.set(parseParams.path, schematic(`${R1}\n  ${R2}\n  ${WIRE}`));
+    const parsed = await harness.service.parse(parseParams);
+
+    await expect(
+      harness.service.exportSnapshot({
+        workspacePath: "/ws",
+        irId: parsed.summary.irId,
+        path: "out/board.json",
+      }),
+    ).rejects.toThrow(/unsupported_format/u);
+    // irId 由 (identityKey, sourcePath) 派生且无法反解：服务只按请求方 workspace 反查（见 locationFor）。
+    await expect(
+      harness.service.exportSnapshot({
+        workspacePath: "/ws",
+        irId: "ir:unknown",
+        path: "out/board.circuit.json",
+      }),
+    ).rejects.toThrow(/not_found/u);
+    expect(harness.snapshots.size).toBe(0);
   });
 });
 

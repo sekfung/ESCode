@@ -99,9 +99,12 @@ import {
 } from "./node-repl-browser-broker.js";
 import { resolveBuiltInNodeReplMcpServers } from "./built-in-node-repl.js";
 import { resolveBuiltInSerialMcpServers } from "./built-in-serial.js";
+import { resolveBuiltInCircuitMcpServers } from "./built-in-circuit.js";
 import { resolveOfficialPluginDefaultAllowedTools } from "./official-plugin-definitions.js";
 import { injectSerialBroker } from "./serial-broker.js";
+import { injectCircuitBroker } from "./circuit-broker.js";
 import { SERIAL_MCP_SERVER_NAME } from "@escode/shared/serial";
+import { CIRCUIT_MCP_SERVER_NAME } from "@escode/shared/circuit";
 import { resolveESCodeCustomCommandPrompt } from "../custom-command-prompt.js";
 import { resolveESCodeBuiltinPromptCommandInvocation } from "../builtin-prompt-command.js";
 import { BUILTIN_WORKFLOW_COMMAND_NAME } from "../builtin-workflow-command.js";
@@ -269,6 +272,11 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
         pluginOutcome,
         workingDirectory,
       }),
+      ...resolveBuiltInCircuitMcpServers({
+        brokerAvailable: options.circuitBroker !== undefined,
+        pluginOutcome,
+        workingDirectory,
+      }),
     };
     // 用户目录已在 loader 前完成原地迁移；不能给项目/插件旧身份加内存兼容旁路。
     const subagentProfiles = [...escodeSubagentProfiles, ...pluginSubagentProfiles];
@@ -328,6 +336,13 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
       runtimeConfig.mcp = {
         ...runtimeConfig.mcp,
         servers: injectSerialBroker(runtimeConfig.mcp.servers ?? {}, options.serialBroker),
+      };
+    }
+    if (options.circuitBroker && runtimeConfig.mcp?.servers?.[CIRCUIT_MCP_SERVER_NAME]) {
+      configuredMcpServers = injectCircuitBroker(configuredMcpServers, options.circuitBroker);
+      runtimeConfig.mcp = {
+        ...runtimeConfig.mcp,
+        servers: injectCircuitBroker(runtimeConfig.mcp.servers ?? {}, options.circuitBroker),
       };
     }
     startupTimer.mark("ESCode runtime configuration resolved", {

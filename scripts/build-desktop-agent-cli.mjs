@@ -74,6 +74,11 @@ const requiredDevPluginRuntimeBuilds = [
     packageName: "@escode/serial-plugin",
     artifactPath: "serial-plugin/dist/mcp/server.js",
   },
+  {
+    // 电路官方插件：circuit MCP server 由宿主按 ESCODE_HOST_CIRCUIT 注入，产物随插件携带。
+    packageName: "@escode/circuit-plugin",
+    artifactPath: "circuit-plugin/dist/mcp/server.js",
+  },
 ];
 const defaultBuildFilters = [
   ...cliWorkspaceBuilds.map(({ packageName }) => packageName),

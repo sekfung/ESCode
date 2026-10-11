@@ -1,6 +1,8 @@
 import type {
   CircuitChangedEvent,
   CircuitCorrectParams,
+  CircuitExportParams,
+  CircuitExportResult,
   CircuitIrView,
   CircuitLayout,
   CircuitParseParams,
@@ -51,6 +53,16 @@ export const exampleCircuitIrView: CircuitIrView = {
     },
   ],
   truncated: false,
+};
+
+export const exampleCircuitExportParams: CircuitExportParams = {
+  workspacePath: "C:/work/board",
+  irId: "ir:0123456789abcdef",
+  path: "hardware/exports/board.circuit.json",
+};
+
+export const exampleCircuitExportResult: CircuitExportResult = {
+  path: "hardware/exports/board.circuit.json",
 };
 
 export const exampleCircuitLayout: CircuitLayout = {

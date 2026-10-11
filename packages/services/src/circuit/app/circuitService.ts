@@ -3,6 +3,8 @@ import type {
   CircuitChangedEvent,
   CircuitCorrectParams,
   CircuitCorrectionListEntry,
+  CircuitExportParams,
+  CircuitExportResult,
   CircuitFindBySourceParams,
   CircuitIrParams,
   CircuitIrView,
@@ -18,7 +20,10 @@ import { CircuitServiceError } from "../domain/circuitErrors.js";
 import { assembleCircuitIr, revalidateCircuitIr } from "../domain/irBuild.js";
 import { circuitIrViewOf } from "./irView.js";
 import { runCircuitQuery } from "./circuitQuery.js";
+import { writeCircuitSnapshot } from "./circuitExport.js";
+import { CircuitWriteQueue } from "./circuitWriteQueue.js";
 import {
+  circuitIrIdOf,
   circuitLocationKey as keyOf,
   circuitLocationOf as locationOf,
   type CircuitLocation,
@@ -60,7 +65,7 @@ class CircuitServiceImpl implements CircuitService {
   readonly onChanged = this.changed.event;
   private readonly stateByKey = new Map<string, CircuitState>();
   private readonly keyByIrId = new Map<string, string>();
-  private readonly queues = new Map<string, Promise<unknown>>();
+  private readonly writes = new CircuitWriteQueue();
   private readonly now: () => string;
 
   constructor(private readonly options: CreateCircuitServiceOptions) {
@@ -69,7 +74,7 @@ class CircuitServiceImpl implements CircuitService {
 
   async parse(params: CircuitParseParams): Promise<CircuitIrView> {
     const location = locationOf(params);
-    return this.enqueue(location, () => this.parseInternal(location, params));
+    return this.writes.run(keyOf(location), () => this.parseInternal(location, params));
   }
 
   async findBySource(
@@ -98,7 +103,7 @@ class CircuitServiceImpl implements CircuitService {
 
   async correct(params: CircuitCorrectParams): Promise<CircuitIrView> {
     const location = await this.locationFor(params);
-    return this.enqueue(location, async () => {
+    return this.writes.run(keyOf(location), async () => {
       const state = await this.stateFor(location);
       if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
       const record = state.record;
@@ -146,11 +151,27 @@ class CircuitServiceImpl implements CircuitService {
     return record.corrections.map((entry, index) => ({ index, record: entry }));
   }
 
+  /** 导出只读快照（§2 规则 8）：委托给 app/circuitExport，服务只提供当前记录与写入端口。 */
+  async exportSnapshot(params: CircuitExportParams): Promise<CircuitExportResult> {
+    const location = await this.locationFor(params);
+    const state = await this.stateFor(location);
+    if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
+    const result = await writeCircuitSnapshot({
+      location,
+      record: state.record,
+      params,
+      snapshot: this.options.ports.snapshot,
+      now: this.now,
+    });
+    log.info("circuit export", { irId: state.record.irId, revision: state.record.ir.revision });
+    return result;
+  }
+
   async dropCorrection(
     params: CircuitIrParams & { baseRevision: number; index: number },
   ): Promise<CircuitIrView> {
     const location = await this.locationFor(params);
-    return this.enqueue(location, async () => {
+    return this.writes.run(keyOf(location), async () => {
       const state = await this.stateFor(location);
       if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
       const record = state.record;
@@ -206,7 +227,7 @@ class CircuitServiceImpl implements CircuitService {
       relativePath: location.sourcePath,
     });
     const contentHash = this.options.ports.source.hashContent(text);
-    const irId = stored?.ir.irId ?? this.makeIrId(location);
+    const irId = stored?.ir.irId ?? circuitIrIdOf(location, this.options.ports.source.hashContent);
     const revision = (stored?.ir.revision ?? 0) + 1;
     const sourceFiles = new Set<string>([location.sourcePath]);
     const { elements, layout } = await extractCircuitSource({
@@ -251,7 +272,7 @@ class CircuitServiceImpl implements CircuitService {
 
   /** 源文件变化：只翻转 stale，revision 不变（§3.4）。已在 stale 状态时不再重复发事件。 */
   private async markStale(location: CircuitLocation): Promise<void> {
-    await this.enqueue(location, async () => {
+    await this.writes.run(keyOf(location), async () => {
       const state = await this.stateFor(location);
       if (!state || state.record.ir.stale) return;
       const record = state.record;
@@ -319,13 +340,6 @@ class CircuitServiceImpl implements CircuitService {
     return watches;
   }
 
-  private makeIrId(location: CircuitLocation): string {
-    const digest = this.options.ports.source.hashContent(
-      `${location.identityKey}\n${location.sourcePath}`,
-    );
-    return `ir:${digest.slice(0, 16)}`;
-  }
-
   private async stateFor(
     location: CircuitLocation,
     record?: StoredCircuit,
@@ -375,21 +389,6 @@ class CircuitServiceImpl implements CircuitService {
     const state = await this.stateFor(location);
     if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
     return state.record;
-  }
-
-  /** 同一 sourcePath 的写入串行执行（§3.3）；前一个任务失败不影响后续任务。 */
-  private enqueue<T>(location: CircuitLocation, task: () => Promise<T>): Promise<T> {
-    const key = keyOf(location);
-    const previous = this.queues.get(key) ?? Promise.resolve();
-    const next = previous.then(task, task);
-    this.queues.set(
-      key,
-      next.then(
-        () => undefined,
-        () => undefined,
-      ),
-    );
-    return next;
   }
 }
 

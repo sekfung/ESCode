@@ -1,0 +1,8 @@
+{
+  "name": "circuit",
+  "version": "0.1.0",
+  "description": "Read and analyse KiCad schematics and PCBs through the Circuit IR held by ESCode Desktop: extract components and nets, query connections by reference designator or net name, and apply corrections.",
+  "author": { "name": "Z.ai" },
+  "license": "MIT",
+  "skills": "skills"
+}

@@ -19,6 +19,14 @@ Circuit IR v1、识别草稿与 Circuit MCP 工具的线协议（docs/circuit/RE
   单次响应上限 `CIRCUIT_RESPONSE_MAX_BYTES`（64 KiB）。
 - 错误码固定为 `unavailable | not_found | unsupported_format | invalid_ir | stale_revision | too_large | io_error`。
 - 路径与格式判定、批准拦截（`circuit_export`）都不在本模块：批准由插件层负责（§5）。
+- Agent 链路（`agentTools.ts`）：broker 信封 + 反向方法 `interaction/circuit*` 与 serial 同构；
+  工具参数/响应直接复用本模块的工具总表，协议层不另造字段。当前只列 G4 注册的五个 op
+  （parse/get/query/correct/export），`circuit_submit_recognition`（G6）与 `circuit_check` /
+  `circuit_compare_firmware`（G3）合入时再补，不预留空实现。
+- 连接材料 env（`ESCODE_CIRCUIT_BROKER_SOCKET` / `ESCODE_CIRCUIT_BROKER_TOKEN`）只定向注入 circuit server；
+  Host 能力标记 `ESCODE_HOST_CIRCUIT` 由 Agent 运行时用来决定是否注册 circuit MCP server。
+- 工具失败走响应信封 `{ ok: false, error: { code, message } }`（不是 JSON-RPC error）：
+  `CircuitServiceError.code` 原样成为 `error.code`，broker 与插件只透传、不改写。
 
 ## 待定（需要时按规格补充，不要在本模块自造兜底）
 
@@ -26,4 +34,4 @@ Circuit IR v1、识别草稿与 Circuit MCP 工具的线协议（docs/circuit/RE
 - `circuit_submit_recognition` 对同一 `contentHash` 重复提交的语义（服务端决定）。
 - `circuit_get` 附带 `diagnostics` 明细、`circuitReferenceSchema` 的 `componentCount` / `netCount`
   是为满足 §3.5 降级卡片与「校验问题可见」补的字段，规格只写了摘要要点。
-- `circuit_export` 的目标文件扩展名（§8 提到 `.circuit.json`）由服务端约束。
+- `circuit_export` 的目标文件扩展名由服务端约束为 `.circuit.json`（导出 `CIRCUIT_EXPORT_SUFFIX` 供插件描述复用）。

@@ -21,6 +21,12 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
 - 修正记录（corrections.json）保留作者、会话 id、时间、目标元素与修正内容；重新解析后套用不上的记录
   保留在磁盘并标 `orphaned`，面板列出后由用户确认或删除（只能删除 orphaned 的记录）。
 - `CircuitLayout` 是渲染几何的只读派生视图：与 IR 同一次解析产出、按 revision 对齐、不进 IR、不参与修正（§8）。
+- 导出走 `exportSnapshot`（契约方法，实现见 `app/circuitExport.ts`）：写入 `snapshot` 端口的 workspace 派生产物，
+  内容带 `derived: true` 标记；路径必须落在 workspace 内且以 `.circuit.json` 结尾，否则抛 `unsupported_format`。
+  导出**不写 store、不发事件、不注册监听**，服务永远不读回这份快照（§2 规则 8）。
+- Agent 链路（§5）在 `app/circuitAgentBridge.ts`（op → 服务方法、错误码 → 失败信封）与
+  `app/circuitAgentRequestRouter.ts`（`interaction/circuit*` 严格校验与应答）；
+  `app/circuitWriteQueue.ts` 持有「同一 IR 写入串行」队列。桥接层不持有状态、不缓存 IR。
 - 日志用 `createServiceLogger("circuit")`，只记 id、计数、耗时，不写电路内容与文件内容（§9）。
 
 ## P1 已知边界（按规格声明，不另加兜底）

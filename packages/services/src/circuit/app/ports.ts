@@ -44,6 +44,15 @@ export interface CircuitSourceWatch {
   dispose(): void;
 }
 
+/**
+ * 导出快照的写入端口（§2 规则 8、§5）：只写 workspace 内的派生产物。
+ * 「服务永远不读回它」由实现保证：该路径不进入 store、也不注册源文件监听。
+ */
+export interface CircuitSnapshotPort {
+  /** 写入 workspace 相对路径；越界、绝对路径与 `..` 段一律抛 `io_error`。 */
+  write(params: { workspacePath: string; relativePath: string; content: string }): Promise<void>;
+}
+
 export interface CircuitSourceWatcherPort {
   /**
    * 监听单个源文件的变化（去掉防抖后再回调）。文件被删除、替换也要回调一次，
@@ -60,4 +69,5 @@ export interface CircuitServicePorts {
   store: CircuitStorePort;
   source: CircuitSourcePort;
   watcher: CircuitSourceWatcherPort;
+  snapshot: CircuitSnapshotPort;
 }

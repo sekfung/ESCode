@@ -4,3 +4,4 @@ export * from "./toolEnvelope.js";
 export * from "./irTools.js";
 export * from "./analysisTools.js";
 export * from "./tools.js";
+export * from "./agentTools.js";

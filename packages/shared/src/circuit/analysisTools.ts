@@ -95,6 +95,9 @@ export const circuitCompareFirmwareResponseSchema = z
 
 // --- circuit_export --------------------------------------------------------------
 
+/** 导出快照的文件后缀（§8：文件树里以 `.circuit.json` 打开只读展示）。 */
+export const CIRCUIT_EXPORT_SUFFIX = ".circuit.json";
+
 /** 导出需要用户批准（§5），批准由插件层拦截；schema 只描述请求。 */
 export const circuitExportRequestSchema = z
   .object({ ...irIdField, path: circuitWorkspacePathSchema })

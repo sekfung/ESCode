@@ -51,6 +51,8 @@ import { acquireProtocolStartupResource } from "./escode-protocol/startup-resour
 import { prepareESCodeTelemetryEnv, shutdownESCodeTelemetry } from "./telemetry-bootstrap.js";
 import { createSerialBroker, type SerialBroker } from "./app/serial-broker.js";
 import { isHostSerialAvailable } from "./app/built-in-serial.js";
+import { createCircuitBroker, type CircuitBroker } from "./app/circuit-broker.js";
+import { isHostCircuitAvailable } from "./app/built-in-circuit.js";
 import type { ESCodeProcessResourceSampler } from "./process-resource-sampler.js";
 
 export function applyProtocolPresentationSurface(
@@ -129,6 +131,7 @@ export async function runESCodeProtocolAgent(
   let serverForCleanup: ESCodeProtocolAgentServer | undefined;
   let nodeReplBrowserBroker: NodeReplBrowserBroker | undefined;
   let serialBroker: SerialBroker | undefined;
+  let circuitBroker: CircuitBroker | undefined;
   let mcpConnectionPool: McpConnectionPool | undefined;
   let mcpPort: McpPort | undefined;
   let mcpTelemetryTracker: McpTelemetryTracker | undefined;
@@ -299,6 +302,7 @@ export async function runESCodeProtocolAgent(
           },
           ...(nodeReplBrowserBroker ? { nodeReplBrowserBroker } : {}),
           ...(serialBroker ? { serialBroker } : {}),
+          ...(circuitBroker ? { circuitBroker } : {}),
           ...(mcpConnectionPool
             ? {
                 mcpPortFactory: () =>
@@ -351,6 +355,20 @@ export async function runESCodeProtocolAgent(
           signal: options.lifecycle?.signal,
           logger,
           create: () => createdSerialBroker.ready,
+        });
+      }
+      // 同理：只有持有 CircuitService 的 Host 才注入能力标记，其它宿主不注册电路工具。
+      if (isHostCircuitAvailable(process.env)) {
+        const createdCircuitBroker = createCircuitBroker({
+          port: server.circuitControlPort,
+          logger,
+          platform: process.platform,
+        });
+        circuitBroker = createdCircuitBroker;
+        await acquireProtocolStartupResource({
+          signal: options.lifecycle?.signal,
+          logger,
+          create: () => createdCircuitBroker.ready,
         });
       }
     }
@@ -410,6 +428,7 @@ export async function runESCodeProtocolAgent(
       mcpTelemetryTracker,
       nodeReplBrowserBroker,
       serialBroker,
+      circuitBroker,
       mcpPort,
       mcpConnectionPool,
       sessionStore,

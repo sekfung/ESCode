@@ -72,6 +72,16 @@ export interface CircuitCorrectParams extends CircuitIrParams {
   author: { kind: "user" | "agent"; sessionId?: string };
 }
 
+/** `circuit_export`：把当前 IR 快照写入 workspace（§2 规则 8、§5）。 */
+export interface CircuitExportParams extends CircuitIrParams {
+  /** workspace 相对路径，必须以 `.circuit.json` 结尾（§8 的导出快照）。 */
+  path: string;
+}
+
+export interface CircuitExportResult {
+  path: string;
+}
+
 /**
  * 渲染几何（§8「KiCad 根据解析出的几何信息自己渲染 SVG」）。
  * 这是解析产物的只读派生视图，按 revision 与 IR 对齐，不进 IR、不参与修正：
@@ -193,6 +203,11 @@ export interface ICircuitService {
   dropCorrection(
     params: CircuitIrParams & { baseRevision: number; index: number },
   ): Promise<CircuitIrView>;
+  /**
+   * 导出只读快照：写入 workspace 的派生产物，带派生产物标记；服务永远不读回它（§2 规则 8）。
+   * 导出路径必须落在 workspace 内且以 `.circuit.json` 结尾。
+   */
+  exportSnapshot(params: CircuitExportParams): Promise<CircuitExportResult>;
   onChanged: Event<CircuitChangedEvent>;
 }
 

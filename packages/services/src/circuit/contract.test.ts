@@ -11,6 +11,8 @@ import {
   exampleCircuitChangedEvent,
   exampleCircuitCorrectParams,
   exampleCircuitCorrectionRecord,
+  exampleCircuitExportParams,
+  exampleCircuitExportResult,
   exampleCircuitIrView,
   exampleCircuitLayout,
   exampleCircuitParseParams,
@@ -46,6 +48,7 @@ function createFakeService(): ICircuitService & { fireChanged: (event: CircuitCh
     },
     listCorrections: async () => [{ index: 0, record: exampleCircuitCorrectionRecord }],
     dropCorrection: async () => view(),
+    exportSnapshot: async (params) => ({ path: params.path }),
   };
 }
 
@@ -74,6 +77,13 @@ describe("circuit-service 契约", () => {
     await expect(
       service.correct({ ...exampleCircuitCorrectParams, baseRevision: 99 }),
     ).rejects.toThrow(/stale_revision/u);
+  });
+
+  it("导出只经契约返回写入路径，调用方不接触文件系统", async () => {
+    const service = createFakeService();
+    await expect(service.exportSnapshot(exampleCircuitExportParams)).resolves.toEqual(
+      exampleCircuitExportResult,
+    );
   });
 
   it("onChanged 只描述事实：irId、revision 与 stale", async () => {

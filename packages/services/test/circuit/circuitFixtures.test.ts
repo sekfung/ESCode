@@ -6,7 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCircuitService, type CircuitService } from "../../src/circuit/app/circuitService.js";
 import { createFsCircuitStore } from "../../src/circuit/adapters/fsCircuitStore.js";
 import { createFsSourceWatcher } from "../../src/circuit/adapters/sourceWatcher.js";
-import { createWorkspaceSource } from "../../src/circuit/adapters/workspaceFiles.js";
+import {
+  createWorkspaceSnapshotWriter,
+  createWorkspaceSource,
+} from "../../src/circuit/adapters/workspaceFiles.js";
 
 /**
  * 用真实开源板子（packages/services/test/fixtures/circuit，来源与许可证见该目录 README）验证整条链路：
@@ -36,6 +39,7 @@ describe("真实开源板子端到端解析", () => {
         store: createFsCircuitStore({ rootDir: dataDir }),
         source: createWorkspaceSource(),
         watcher: createFsSourceWatcher(),
+        snapshot: createWorkspaceSnapshotWriter(),
       },
     });
   });
