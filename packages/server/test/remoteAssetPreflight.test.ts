@@ -1,11 +1,11 @@
 import { PassThrough } from "node:stream";
 
-import type { IDisposable, Event } from "@zcode/rpc";
+import type { IDisposable, Event } from "@escode/rpc";
 import type {
   IRemoteBackend,
   StdioStream,
-} from "@zcode/server/remote/backend.js";
-import { detectRemoteAssetTools } from "@zcode/server/remote/remoteAssetPreflight.js";
+} from "@escode/server/remote/backend.js";
+import { detectRemoteAssetTools } from "@escode/server/remote/remoteAssetPreflight.js";
 import { describe, expect, it } from "vitest";
 
 interface PreflightBackendOptions {

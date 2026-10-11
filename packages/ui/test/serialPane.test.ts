@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SerialChunk, SerialSnapshot } from "@zcode/services";
+import type { SerialChunk, SerialSnapshot } from "@escode/services";
 import {
   buildSerialSendPayload,
   createSerialStreamDecoder,

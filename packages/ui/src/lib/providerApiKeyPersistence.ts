@@ -1,5 +1,5 @@
-import type { IProviderSettingsService, ProviderSettingsView } from "@zcode/services";
-import { isApiKeyAccess } from "@zcode/provider";
+import type { IProviderSettingsService, ProviderSettingsView } from "@escode/services";
+import { isApiKeyAccess } from "@escode/provider";
 
 type ProviderSettingsApiKeyService = Pick<
   IProviderSettingsService,

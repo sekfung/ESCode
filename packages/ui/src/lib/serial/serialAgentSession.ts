@@ -1,6 +1,6 @@
-import type { ZCodeTaskMeta } from "@zcode/shared";
-import type { ZCodeSessionStoreState } from "@/store/zcodeSessionStoreTypes.js";
-import { getTaskMeta } from "@/store/zcodeSessionStoreSelectors.js";
+import type { ESCodeTaskMeta } from "@escode/shared";
+import type { ESCodeSessionStoreState } from "@/store/escodeSessionStoreTypes.js";
+import { getTaskMeta } from "@/store/escodeSessionStoreSelectors.js";
 
 const SESSION_ID_FALLBACK_LENGTH = 8;
 
@@ -15,11 +15,11 @@ export interface SerialAgentSession {
  * 供面板标注 `[Agent·标题]` 并跳转；查不到（会话未加载或已删除）时返回 null，由调用方回退显示 ID。
  */
 export function resolveSerialAgentSession(
-  workspaces: ZCodeSessionStoreState["workspaces"],
+  workspaces: ESCodeSessionStoreState["workspaces"],
   sessionId: string,
 ): SerialAgentSession | null {
   for (const [workspaceKey, workspaceState] of Object.entries(workspaces)) {
-    const task: ZCodeTaskMeta | null = getTaskMeta(workspaceState, sessionId);
+    const task: ESCodeTaskMeta | null = getTaskMeta(workspaceState, sessionId);
     if (!task) continue;
     return {
       ...(task.title?.trim() ? { title: task.title.trim() } : {}),

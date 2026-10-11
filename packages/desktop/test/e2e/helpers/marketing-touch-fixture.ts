@@ -353,7 +353,7 @@ export async function createMarketingTouchFixture() {
                                 {
                                   text: { ...text(""), format: "" },
                                   action: {
-                                    type: "claim_zcode_plan",
+                                    type: "claim_escode_plan",
                                     args: { plan_id: "weekend-plan-e2e" },
                                   },
                                 },

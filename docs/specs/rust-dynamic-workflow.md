@@ -82,34 +82,34 @@
   （fail-closed、创建参数优先、翻转不回收已固化会话），`core/src/app/dynamic_workflow.rs` 提供
   `workspace/updateDynamicWorkflowPolicy`、会话创建固化与工具面过滤（`DYNAMIC_WORKFLOW_TOOL_NAMES`）。
   验收：domain 单测（读法）、`tests/dynamic_workflow_policy.rs`（strict 参数与回显）、App 差分
-  `packages/services/tests/zcode-cli-rust-dynamic-workflow-policy.test.ts`（Node/Rust 回显同形，关闭态
+  `packages/services/tests/escode-cli-rust-dynamic-workflow-policy.test.ts`（Node/Rust 回显同形，关闭态
   工具名逐字一致）。工具在实现前不注册，所以**开启态**的工具面差分要等第 2/6 期工具落地。
 - 2026-09-30 第 2 期存储与编解码已落地：`domain/src/saved_workflow.rs`（frontmatter 编解码、
   元数据校验、参数校验）、`domain/src/yaml_emit.rs`（对齐 TS `yaml` 缺省 `stringify`）与
   `tools/src/saved_workflows.rs`（作用域根、解析、枚举、写入、遮蔽、全局→项目搬运）。
-  验收语料：`scripts/generate-zcode-cli-rust-saved-workflow-corpus.mjs`（编解码，逐字节）与
-  `scripts/generate-zcode-cli-rust-saved-workflow-store-corpus.mjs`（存储，读用例全文 + 写用例
-  的文件快照）；两者都纳入 `pnpm test:zcode-cli-rust` 的 `--check`。
+  验收语料：`scripts/generate-escode-cli-rust-saved-workflow-corpus.mjs`（编解码，逐字节）与
+  `scripts/generate-escode-cli-rust-saved-workflow-store-corpus.mjs`（存储，读用例全文 + 写用例
+  的文件快照）；两者都纳入 `pnpm test:escode-cli-rust` 的 `--check`。
   `invalid_yaml` 的解析器措辞与 `read_error` 的 OS 文案跨平台不同，语料只比 kind（规格已记）。
 - 工具（ListSavedWorkflows / SaveWorkflow）与 `workflows/*` 管理方法需要第 1 期开关的可见性裁剪，
   且 SaveWorkflow 的诊断来自第 3 期的静态分析；为此存储层先以 `pub mod` 落地，接入时改回私有。
 - 2026-09-30 ListSavedWorkflows 已按第 1 期开关接入：模型面（XML 容器、24 KiB 预算）、行级
   display（`saved_workflow_list`、元文本 2 KiB 上限）与结构化输出对齐 TS；校验为
   `crates/tools/tests/fixtures/saved_workflow_tool_corpus.json`（TS 工具条目 + display 构造）+ App 差分
-  `packages/services/tests/zcode-cli-rust-saved-workflow-tool.test.ts`（灰度为开时两侧模型面与 display
+  `packages/services/tests/escode-cli-rust-saved-workflow-tool.test.ts`（灰度为开时两侧模型面与 display
   逐字一致）。其余九个工作流工具未实现，所以**开启态**的工具名清单仍与 Node 不同（Node 十个、Rust 一个），
   这是刻意的分期状态；SaveWorkflow 随第 3 期静态分析落地。
 - 2026-09-30 GUI 中枢 `workflows/list|get|updateMeta|delete|move` 已落地（workspace 级、无会话，
   每次现扫目录，定向 scope；失败面按协议 schema 收口，不泄漏文件路径）。`runs` 是 run 历史，
   依赖第 4 期的 journal，**暂不实现**（未知方法照旧报错，不用空页冒充）。验收：App 差分
-  `packages/services/tests/zcode-cli-rust-saved-workflow-hub.test.ts`（五方法逐字一致 + 落盘文件
+  `packages/services/tests/escode-cli-rust-saved-workflow-hub.test.ts`（五方法逐字一致 + 落盘文件
   与目录状态一致）。
 - 2026-09-30 `workflows/runs` 与 dwf journal 读面提前落地（第 4 期的存储底座）：`state` 建
   `0019_dwf_journal` 的四张表与索引（与 TS 同一 DDL），`domain::dwf_journal` 负责物理列→逻辑
   记录的解码（stopped/errored/interrupted、信封嗅探失败退化成 user）、产物归并（同 id 版本、
   失败发布、预置看板 itemCount、primary 置前）与协议行投影，core 在 `workflows/runs` 里按
   scope 决定是否下推 cwd、多取一条判 `truncated`。验收语料
-  `scripts/generate-zcode-cli-rust-dwf-journal-corpus.mjs` 用**真实 TS session store 建库**（迁移即
+  `scripts/generate-escode-cli-rust-dwf-journal-corpus.mjs` 用**真实 TS session store 建库**（迁移即
   DDL）、插行、再跑真实 `listSavedWorkflowRunsOp`，Rust 用同一份 DDL/行重建库后逐字比对 7 组查询。
   写入方（引擎）与其余 run 内省方法（ListWorkflowRuns / GetWorkflowRun）仍属第 4 期。
 - 2026-09-30 `ListModels` 已接入（第 6 期前置的只读发现面）：model crate 的注册表快照新增
@@ -117,7 +117,7 @@
   与 picker 面同源但字段集独立；`providerLabel` 保持「没取过名就缺席」），core 在轮次开始时取一次
   目录、`ListModels` 由 owner 侧直接应答（模型面 + `list_models` display + 结构化输出；没有注册表时
   按 TS 的 `model_catalog_unavailable` 报业务失败，不静默回空列表）。可见性仍由第 1 期开关裁剪。
-  验收：App 差分 `packages/services/tests/zcode-cli-rust-list-models-tool.test.ts`（灰度为开、注册表
+  验收：App 差分 `packages/services/tests/escode-cli-rust-list-models-tool.test.ts`（灰度为开、注册表
   两个模型带档位表与上下文窗时，模型面、display 与行状态逐字/逐值一致）。
 - 2026-09-30 `ListWorkflowRuns` 的读面已落地（第 6 期前置）：journal 查询补 `script_text` /
   `resumed_from`，`domain::workflow_run_list` 实现标签派生（name → 脚本首个非空行截 80 UTF-16 且不留
@@ -129,7 +129,7 @@
   工具定义与派发已接线：schema/描述取自同一套生成资产（TS 注册顺序里在保存/模型目录之前），
   `statuses` 过滤下推 SQL（`stopped`/`errored` 与 TS 同谓词：物理 `failed` 靠 failure_json 的
   `$.code` 分辨 `Interrupted`），journal 读经 `Event::WorkflowRunList` 交回会话 owner（工具在
-  回合里执行，存储不在它的手里）。验收另有 App 差分 `zcode-cli-rust-list-workflow-runs-tool.test.ts`：
+  回合里执行，存储不在它的手里）。验收另有 App 差分 `escode-cli-rust-list-workflow-runs-tool.test.ts`：
   两侧各自的库（Node `ts.sqlite`、Rust `data/rust-sessions.sqlite`）播同一组 run 行后，模型面与
   display 逐字一致，并覆盖 `statuses: ["stopped"]` 的下推面。
 
@@ -139,19 +139,19 @@
 同为 Node 子进程沙箱（桌面复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`；远程/无界面随二进制附带 Node），
 NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同一份 TS 代码，验收以 TS 直调结果逐字比对桥接结果。
 第 3 期据此开工，SaveWorkflow 随之接入。
-- 2026-10-02 第 3 期分析桥已落地：Node CLI 隐藏子命令 `__zcode-workflow-analyzer`（`cli/src/workflow-analyzer-command.ts`，
+- 2026-10-02 第 3 期分析桥已落地：Node CLI 隐藏子命令 `__escode-workflow-analyzer`（`cli/src/workflow-analyzer-command.ts`，
   在导入 `run` 之前分派，只加载分析器）NDJSON 一问一答，结果是 `analyzeWorkflowScript` 的 JSON 形（`core` 经
   `encodeAnalysisCore`）。Rust 客户端 `tools/src/workflow_analyzer.rs`：经 Host 的 Node 启动器
-  （`ZCODE_PLUGIN_HOST_EXEC_PATH` / `_ENTRYPOINT`，`ELECTRON_RUN_AS_NODE=1`）常驻、串行，60 s 超时 / 崩溃即杀掉重拉，
-  保留 TS 的单槽记忆。验收：`scripts/generate-zcode-cli-rust-workflow-analysis-corpus.mjs` 以内置技能示例 + 编译错误
-  样例生成 TS 直调语料，Rust 经桥逐字比对（12 例全部一致）；`test:zcode-cli-rust` 加 `--check` 防漂移，并在
+  （`ESCODE_PLUGIN_HOST_EXEC_PATH` / `_ENTRYPOINT`，`ELECTRON_RUN_AS_NODE=1`）常驻、串行，60 s 超时 / 崩溃即杀掉重拉，
+  保留 TS 的单槽记忆。验收：`scripts/generate-escode-cli-rust-workflow-analysis-corpus.mjs` 以内置技能示例 + 编译错误
+  样例生成 TS 直调语料，Rust 经桥逐字比对（12 例全部一致）；`test:escode-cli-rust` 加 `--check` 防漂移，并在
   CLI 产物就绪后带启动器单独跑桥接用例。SaveWorkflow 接入是下一步。
 - 2026-10-02 内置技能包（`bundled-skills/dynamic-workflows`）接入 Rust 技能发现：`tools/src/bundled_skills.rs` 沿 TS
-  `candidateBaseDirs` 同款候选（`ZCODE_OFFICIAL_PLUGINS_BASE_DIR`、Host 给的 Node 入口目录、二进制目录、cwd）×
+  `candidateBaseDirs` 同款候选（`ESCODE_OFFICIAL_PLUGINS_BASE_DIR`、Host 给的 Node 入口目录、二进制目录、cwd）×
   `packages/bundled-skills` / `../bundled-skills` / … 查找，三个必需文件缺一即拒绝整包；作为 `system` scope 根排在
   插件根之后。`SkillCatalog::response`（`skills/referenceCatalog`）排除 `system`，与 TS 按 `source: "bundled"` 排除同义；
   动态工作流关闭的会话在固化技能目录时去掉它（core `freeze_skills`，TS `collectDynamicWorkflowDisabledSkillPaths`）。
-  验收：`zcode-cli-rust-bundled-skills.test.ts`（开启态模型可见、关闭态不可见、引用面板不含，两侧一致）。
+  验收：`escode-cli-rust-bundled-skills.test.ts`（开启态模型可见、关闭态不可见、引用面板不含，两侧一致）。
   这是 SaveWorkflow 技能门的前置（门要求会话里成功加载过 `dynamic-workflows`）。
 - 2026-10-02 **SaveWorkflow 已接入**（第 2/3 期合流）：`tools/src/save_workflow.rs` 按 TS 生命周期实现——validateInput
   （名字、唯一来源、内联脚本不得自带元数据块）→ resolveInput（技能门 → `script_path` 读成正文并丢掉元数据块 →
@@ -161,16 +161,16 @@ NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同
   handler 读同一份），审批门 proceed 经 `Event::Permission.approval_proceed` 让 ask 直接放行（deny 仍生效）。
   技能门按模型可见历史判定（`domain::skills::loaded_in_history`，TS `sessionHasLoadedSkill`）；确认选项对
   Create/Amend/SaveWorkflow 去掉「总是允许」（TS `askOptions.allowAlways: false`）。工具 schema 与描述由生成脚本产出。
-  验收：`zcode-cli-rust-save-workflow.test.ts`（技能门、三种入参拒绝、编译诊断、新建 / 覆盖 / 草稿存全局三次确认，
+  验收：`escode-cli-rust-save-workflow.test.ts`（技能门、三种入参拒绝、编译诊断、新建 / 覆盖 / 草稿存全局三次确认，
   模型面结果、确认窗载荷与落盘内容两侧逐字一致）；相关对比用例 37/37（1 跳过）。已知：子代理停止用例
-  （`zcode-cli-rust-subagents.test.ts`）在本机内存紧张的分组运行里偶发贴超时失败，单独与复跑均通过。
+  （`escode-cli-rust-subagents.test.ts`）在本机内存紧张的分组运行里偶发贴超时失败，单独与复跑均通过。
 - 2026-10-02 **EvalWorkflowSnippet 已接入**（第 6 期首个运行工具，同时打通第 5 期执行器的 Node 沙箱路线）：
   `tools/src/eval_workflow_snippet.rs`——validateInput（`code` / `path` 二选一）→ resolveInput（技能门 → `path` 整份读成
   `code`、路径写绝对形）→ prepareApproval（分析子进程新方法 `snippetGate`：编得过且带 world.run 才问）→ handler：执行面就是
   Node runtime 的 snippet 服务（bootstrap 新导出 `createDynamicWorkflowSnippetService`，CLI 隐藏子命令
-  `__zcode-workflow-snippet`，一次调用一个进程；取消写 `cancel` 行让 harness 收尾，5 s 宽限后强杀；660 s 外层兜底）。
+  `__escode-workflow-snippet`，一次调用一个进程；取消写 `cancel` 行让 harness 收尾，5 s 宽限后强杀；660 s 外层兜底）。
   返回值序列化同在 Node 侧（`serializeWorkflowArtifact`），Rust 只按 TS 模板渲染 response。启动器缺席时诚实降级为
-  UNAVAILABLE。验收：`zcode-cli-rust-eval-workflow-snippet.test.ts`（技能门、二选一、内联 / 文件诊断、返回值与日志、抛错、
+  UNAVAILABLE。验收：`escode-cli-rust-eval-workflow-snippet.test.ts`（技能门、二选一、内联 / 文件诊断、返回值与日志、抛错、
   无返回值，7 例两侧逐字一致，耗时抹掉）。
 
 ## 第 4 期边界已定（2026-10-02，按用户「性能或性价比高」的要求选定）
@@ -184,7 +184,7 @@ journal 读写、`emit` 运行事件、world read）经 NDJSON 回调 Rust——
 
 ## 运行面实现计划（第 4–7 期，2026-10-02）
 
-边界（承上节）：**Node 工作流宿主**（CLI 隐藏子命令 `__zcode-workflow-host`，每个 Rust 进程一个、常驻）复用 TS 的
+边界（承上节）：**Node 工作流宿主**（CLI 隐藏子命令 `__escode-workflow-host`，每个 Rust 进程一个、常驻）复用 TS 的
 run 服务（`createDynamicWorkflowRunService`：launch / submit / 标签 / 生命周期 / world read / 结算）与工作流工具 handler
 （CreateWorkflow / AmendWorkflow / ResumeWorkflowRun / GetWorkflowRun / ResolveWorkflowQuestion 的 validate / resolve /
 prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`，`node:sqlite`）直接写 Rust 会话库的 `dwf_*`
@@ -209,7 +209,7 @@ prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`�
   core `workflow_notices.rs`（结算通知持久在 `Session.workflow_notices`，会话空闲时注入后台结果轮，行带
   `originMeta`）。顺带修正两处既有差异：后台任务完成通知进模型时补上 TS 的 `<system-reminder>` 「不是用户输入」
   包装（子代理同样适用）；工作流确认选项按 TS（Create = 允许一次 / 本会话总是允许 / 拒绝 / Refine，Amend / Save
-  无总是允许，三者都不带完全访问）。验收：`zcode-cli-rust-create-workflow.test.ts`（技能 → 提交 → 确认 → 后台运行 →
+  无总是允许，三者都不带完全访问）。验收：`escode-cli-rust-create-workflow.test.ts`（技能 → 提交 → 确认 → 后台运行 →
   完成通知续跑，工具结果、确认选项与通知全文两侧一致）；相关对比用例 37/37（1 跳过）。
 
 ### M2 设计（actor 执行，2026-10-02）
@@ -239,7 +239,7 @@ epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模�
 `workflow subagent <ref>`）。为与 Node 的 `script-workflow-child-runtime` 逐字一致，actor 会话还：
 环境段 Shell 取 `basename(SHELL ?? ComSpec)`（child 不套会话 shell 选择）；技能清单只保留用户 / 项目技能（child 的技能端口
 不含插件与内置技能包）；工具面另减 workflow_child 的结构性缺席（`WORKFLOW_CHILD_DISALLOWED_TOOLS`、subagents 关闭的
-Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
+Agent / SendMessage、无定时任务端口的 Cron*）。验收：`escode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
 工具面、submit_result schema、CreateWorkflow 结果与完成通知两侧一致）。`resumeFromStore`（转录种子）留在 M3。
 
 **M3 进度（2026-10-02）**：
@@ -249,7 +249,7 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
   重水化（`resumeFromStore` → `actor.resume`）。
 - 回合内 steer：Node 在回合进行中到达的后台通知于下一个步边界并入本回合（`drainPendingRuntimeCommandsForActiveLoop`，
   `task_notification_steer`）；Rust 的工作流通知已按此在 StepBoundary 并入（与 mailbox 同一机制）。后台子代理 / 后台 Bash
-  完成通知已同样补齐（`zcode-cli-rust-subagent-steer`、`bash-background-notice` 差分；Bash 通知、TaskOutput / TaskStop 模型面、
+  完成通知已同样补齐（`escode-cli-rust-subagent-steer`、`bash-background-notice` 差分；Bash 通知、TaskOutput / TaskStop 模型面、
   任务 id 与输出文件名一并对齐 Node）。
 - 已落地：TaskOutput 读工作流 run（宿主复用 TS BackgroundTaskTracker）。
 - 已落地：V4 `workflowRuns` 投影（宿主 TS 归约，整键进会话状态）；没有 `workflowRunDeltas` 能力的订阅者收宿主
@@ -265,11 +265,11 @@ Agent / SendMessage、无定时任务端口的 Cron*）。验收：`zcode-cli-ru
   `inspectWorkflowModelFailure`（停 run / 重驱 / ContextLimit 与 Node 一致）。
 - 已落地：进程级并发治理器——宿主 run 服务注入 `getWorkflowConcurrencyGovernor()`；Rust 的 `workflow_child`
   每次模型尝试先经 `actor.admission.acquire` 取票，网络状态事件依序投给票据、尝试结束释放（退避期间不持票），
-  `concurrency-changed` 与 run 的 `concurrency` 状态因此与 Node 一致。差分：`zcode-cli-rust-workflow-model-failure.test.ts`。
+  `concurrency-changed` 与 run 的 `concurrency` 状态因此与 Node 一致。差分：`escode-cli-rust-workflow-model-failure.test.ts`。
 
 ## 停止后的结算通知顺序（2026-10-08）
 
-- 现象（CI 复现，`zcode-cli-rust-workflow-resume.test.ts`）：慢机器上 StopWorkflowRun 的工具结果先于 run 的 `runSettled`
+- 现象（CI 复现，`escode-cli-rust-workflow-resume.test.ts`）：慢机器上 StopWorkflowRun 的工具结果先于 run 的 `runSettled`
   通知到达 Rust，「已停止」通知落到下一次模型请求，而 Node 在同一次请求里带上。
 - 原因：Node 里终态通知由 run 的 waiter 在 cancel 之后异步铸造，与工具结果之间本就是竞态；同进程时几乎总能赶上下一个
   步边界。Rust 经工作流宿主子进程多一跳转发，更容易错过。

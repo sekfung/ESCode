@@ -42,7 +42,7 @@
 - 已知差异：Rust 编码器与 Jimp 输出的字节不同。因此压缩后的字节不比对，边界附近选中的候选也可能不同；比对的是策略顺序、尺寸与格式。预算内原图字节一致。
 - 模型可见内容：只有一个 image 块，不附尺寸说明（TS `formatReadImageOutput`）。
 - 持久化：
-  - 媒体字节写入附件存储，会话消息只保留 `_zcode_attachment` 引用，与用户附件同一机制，base64 不进入会话库；
+  - 媒体字节写入附件存储，会话消息只保留 `_escode_attachment` 引用，与用户附件同一机制，base64 不进入会话库；
   - 本次运行内的后续请求直接使用内存中的数据。
 - 投影（TS `transform.ts`）：
   - Chat Completions：
@@ -93,17 +93,17 @@
 对齐 TS `attachment-image.ts#prepareImageDataUrl`、`attachment-media-resolver.ts` 与
 `media-attachment-path.ts#projectMessagesWithMediaAttachmentPaths`。
 
-- 用户图片附件与 Read 共用同一预算实现（`zcode_cli_host::image_budget::prepare`：2000 边长、3.75MB 原始字节、
+- 用户图片附件与 Read 共用同一预算实现（`escode_cli_host::image_budget::prepare`：2000 边长、3.75MB 原始字节、
   5MB base64）。预算在模型请求物化时应用；附件快照不可变，结果按快照在进程内缓存（64MiB，淘汰只导致重新编码）。
 - 无法解码或压不进预算：该附件以 `[Attached <mime>: <路径或文件名>]` 文本交付，请求照常发出。
 - 来源路径：用户消息中每个成功交付的图片/视频/PDF 附件，按顺序在消息末尾追加 `[Image|Video|PDF: source: <path>]`：
   - 本地文件附件用用户给出的路径；
-  - 上传附件（`zcode-artifact://<session>/…`）派生一份原始字节的本地副本
+  - 上传附件（`escode-artifact://<session>/…`）派生一份原始字节的本地副本
     `<storageRoot>/cli/{image,video,pdf}-cache/<session>/<kind>-<sha256(ref)[..32]><ext>`（`storageRoot` 取 TS 存储配置，
-    默认 `~/.zcode`；扩展名按原 MIME，未知 MIME 不派生、不附路径）。派生失败使请求失败（TS 同样抛错）。
+    默认 `~/.escode`；扩展名按原 MIME，未知 MIME 不派生、不附路径）。派生失败使请求失败（TS 同样抛错）。
   - 工具结果媒体不追加来源路径。
 - 附件行 `ref` 随 canonical 附件描述保存；此前的历史没有 `ref`，上传附件不追加派生路径。
 - App 附件预览仍读取原始快照；TS 的上传产物同样保留原始数据，行为一致。
 
-验收：`zcode-cli-rust-media-read-differential.test.ts` 的四个附件用例（预算内原样、超尺寸缩放为 2000 边长 JPEG、
+验收：`escode-cli-rust-media-read-differential.test.ts` 的四个附件用例（预算内原样、超尺寸缩放为 2000 边长 JPEG、
 不可解码占位、上传派生路径与字节）Node/Rust 请求逐项一致。

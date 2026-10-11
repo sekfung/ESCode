@@ -1,10 +1,10 @@
-# zcode-cli-rust 核心与 App stdio 接入
+# escode-cli-rust 核心与 App stdio 接入
 
 状态：核心切片已实现并完成本地集成验证。基线：2026-09-21，`main` / `872ad96`。本轮范围是可独立运行的核心，不是现有约 23 万行核心相关 TypeScript 的全量功能替换。
 
 ## 产品边界
 
-- 新增 `apps/zcode-cli-rust`，产物 `zcode-cli-rust app-server --stdio`，不包含 TUI。
+- 新增 `apps/escode-cli-rust`，产物 `escode-cli-rust app-server --stdio`，不包含 TUI。
 - 首版支持本地文本 Coding Agent：创建/恢复/重命名会话、流式正文、模型工具循环、读/列举/写入/精确替换文件、Shell、工具批准/拒绝、取消、FIFO 后续输入、进程重启后历史读取。
 - 首版模型执行支持 OpenAI Chat Completions 兼容服务。明确拒绝未实现的模型协议、模型选择和附件，不能静默丢字段后声称成功。
 - App Composer 必须提交 reasoningLevel。首版将模型和 reasoningLevel 一起固定在配置中，接受相同档位的选择并在投影中返回该档位；reasoningParameters 显式映射到模型 HTTP 参数。不同档位返回不支持，不能拒绝所有带 options 的正常 App 输入。
@@ -17,12 +17,12 @@
 
 | 边界          | 当前源码                                                                                                                  | 迁移要求                                                            |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 进程启动      | `packages/services/src/zcode-agent/zcodeAgentProcessManager.ts`                                                           | 保留 Host 的进程 owner/generation；明确 native 启动描述             |
+| 进程启动      | `packages/services/src/escode-agent/escodeAgentProcessManager.ts`                                                           | 保留 Host 的进程 owner/generation；明确 native 启动描述             |
 | 桌面存储准备  | `packages/desktop/src/host/storagePreparationProcesses.ts`                                                                | 当前只支持 Node Worker；增加原生子进程适配，不能把二进制传给 Worker |
-| RPC           | `packages/shared/src/zcode-protocol/index.ts`                                                                             | NDJSON，无 `jsonrpc` 字段；保留 string/number request id、错误形状  |
-| 会话流        | `packages/shared/src/zcode-protocol-v4/`                                                                                  | wireVersion=3、snapshot protocolVersion=1；ACK 先于 initial frame   |
-| stdio client  | `packages/services/src/zcode-agent/zcodeProtocolClient.ts`                                                                | 用现有客户端和运行时 schema 实测，不能只用 Rust 自测                |
-| Node 专属能力 | `apps/zcode-cli/packages/bootstrap/src/app/built-in-node-repl.ts`、`apps/zcode-cli/packages/cli/src/dwf-child-command.ts` | 后续通过独立执行适配器迁移，不揉进核心                              |
+| RPC           | `packages/shared/src/escode-protocol/index.ts`                                                                             | NDJSON，无 `jsonrpc` 字段；保留 string/number request id、错误形状  |
+| 会话流        | `packages/shared/src/escode-protocol-v4/`                                                                                  | wireVersion=3、snapshot protocolVersion=1；ACK 先于 initial frame   |
+| stdio client  | `packages/services/src/escode-agent/escodeProtocolClient.ts`                                                                | 用现有客户端和运行时 schema 实测，不能只用 Rust 自测                |
+| Node 专属能力 | `apps/escode-cli/packages/bootstrap/src/app/built-in-node-repl.ts`、`apps/escode-cli/packages/cli/src/dwf-child-command.ts` | 后续通过独立执行适配器迁移，不揉进核心                              |
 
 ## 单一所有者与依赖方向
 
@@ -63,7 +63,7 @@ sequenceDiagram
 ## 核心接口与失败语义
 
 - 入口兼容 `app-server --stdio --cwd <path> --surface desktop`；Rust 参数定义在本包 CLI contract。
-- 开发接入复用 `ZCODE_AGENT_SERVER_COMMAND` / `ZCODE_AGENT_SERVER_ARGS_JSON`。新增显式选择 `ZCODE_AGENT_SERVER_RUNTIME=zcode-cli-rust`：只在同时指定 command 时生效，声明 native 存储启动能力；未知值报错，不影响缺省 TS 路径。该变量不进入模型或工具环境中的业务逻辑。
+- 开发接入复用 `ESCODE_AGENT_SERVER_COMMAND` / `ESCODE_AGENT_SERVER_ARGS_JSON`。新增显式选择 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust`：只在同时指定 command 时生效，声明 native 存储启动能力；未知值报错，不影响缺省 TS 路径。该变量不进入模型或工具环境中的业务逻辑。
 - `runtime/capabilities.accountProviderConfig=false` 表示该核心不接收账号 Registry Overlay；Host 只在明确 false 时跳过该同步，旧 runtime 缺省保持原行为。核心模型选择必须匹配显式 config，并需在 App 中选择同名 provider/model；它不冒充账号模型可用。
 - `--data-dir` 指定独立 Rust 存储；`--config` 指定只属于本轮开发核心的显式模型执行配置。配置不写回 App Registry；provider/model/reasoningLevel 必须与发送的 modelSelection 一致。
 - 模型配置保存 endpoint/provider/model、固定 reasoningLevel/参数映射和密钥环境变量名；密钥从该变量读取，模型适配器不将其写入 stdout、数据库、测试 fixture 或错误。该配置是第一阶段边界，完整 Registry 迁移前不能宣称支持当前所有模型设置。
@@ -110,15 +110,15 @@ sequenceDiagram
 - 已确认当前 checkout 无既有 CLI 单测/E2E 目录，不能引用其他分支历史覆盖。
 - 实现前 `pnpm architecture:check --changed`：0 violations。
 - Node/pnpm 已按 `mise.toml` 核验；`pnpm install --frozen-lockfile` 已完成。
-- `pnpm check:zcode-cli-rust`：Rust 源码依赖方向检查、cargo fmt、Clippy（warnings as errors）全部通过。仓库 JS/TS 架构 checker 不解析 Rust，因此不把其 0 violations 当作 Rust 架构完整证明。
-- `pnpm test:zcode-cli-rust`：测试代码类型检查、4 个 Rust 测试、12 个 Node 集成测试全部通过；真实 debug 二进制由脚本重新构建，未替换为 mock runtime。
+- `pnpm check:escode-cli-rust`：Rust 源码依赖方向检查、cargo fmt、Clippy（warnings as errors）全部通过。仓库 JS/TS 架构 checker 不解析 Rust，因此不把其 0 violations 当作 Rust 架构完整证明。
+- `pnpm test:escode-cli-rust`：测试代码类型检查、4 个 Rust 测试、12 个 Node 集成测试全部通过；真实 debug 二进制由脚本重新构建，未替换为 mock runtime。
 - RC01–RC07、RC10：现有 App client/schema/assembler、实际 Composer 选择、Host service、HTTP fixture、SQLite、真实文件/Shell 覆盖。Host 创建与提交携带 reasoningLevel，检查实际 HTTP 参数；stop 后确认运行中的 Shell PID 已退出且下一轮可执行。
 - RC08：已验证坏 JSON、跨 chunk UTF-8、超限请求、EOF、stdout EPIPE、饱和输出时 SIGTERM。有界关闭输出时可返回 transport failure；未独立注入 stderr EPIPE。
 - RC09：桌面 `prepareSessionStorage` 原生握手、preparedPaths 去重、预先取消，以及保留的 JS Worker 分支通过；JS 分支使用协议 fixture，未构建完整旧 CLI bundle 做回归。
 - `pnpm typecheck`：通过。`pnpm lint`：0 errors、70 warnings；未修改这些 warning 对应的既有代码。`pnpm architecture:check --changed`：baseline 0 / new 0。
 - 改动文件格式检查和 `git diff --check`：通过。开发启动脚本已验证参数入口；完整 Electron Renderer、Windows/Linux 实机、真实供应商和 release 打包尚未验证。
-- 执行入口：`pnpm build:zcode-cli-rust`、`pnpm check:zcode-cli-rust`、`pnpm test:zcode-cli-rust`；接入方法见 `apps/zcode-cli-rust/README.md`。
-- 变更范围：新增 zcode-cli-rust 模块约 2,700 行 Rust；services/desktop/shared 只增加显式 native 接入与能力协商。本轮净增约 6,100 行（含 Cargo.lock、测试、文档和脚本），未删除原 TypeScript runtime。
+- 执行入口：`pnpm build:escode-cli-rust`、`pnpm check:escode-cli-rust`、`pnpm test:escode-cli-rust`；接入方法见 `apps/escode-cli-rust/README.md`。
+- 变更范围：新增 escode-cli-rust 模块约 2,700 行 Rust；services/desktop/shared 只增加显式 native 接入与能力协商。本轮净增约 6,100 行（含 Cargo.lock、测试、文档和脚本），未删除原 TypeScript runtime。
 
 ## 后续规划风险
 
@@ -141,13 +141,13 @@ sequenceDiagram
 
 新增验收：限流后恢复且请求一致；可见文本后断流不重放；退避/闲置时 stop；碎片工具参数与推理回传；工具部分失败后继续模型；读取并发与写屏障；规范参数、分页/搜索/替换与外部变更；旧 Rust 数据迁移和重启恢复。性能记录冷启动、首文本、总时长、RPC p95、协议帧数和 SQLite 字节数，比较相同机器/负载的 release 产物，不能用 debug 对 release 得出收益。
 
-2026-09-21 收口状态：增量存储、原生 v1 迁移、250 ms 流式 checkpoint 节流、字符串原地追加、模型/工具结果 commit receipt、独立 agent_loop 模块已实现。5 个 Rust 测试及 12 个 App/native 集成测试通过；typecheck、Rust fmt/Clippy、架构检查通过，lint 为 0 errors / 70 个既有 warnings。请求重试/连接池、工具规范扩展等仍是计划内容，不能视为第二轮全部完成。后续以 `zcode-cli-rust-parity-plan.md` 的功能矩阵与分阶段验收推进。
+2026-09-21 收口状态：增量存储、原生 v1 迁移、250 ms 流式 checkpoint 节流、字符串原地追加、模型/工具结果 commit receipt、独立 agent_loop 模块已实现。5 个 Rust 测试及 12 个 App/native 集成测试通过；typecheck、Rust fmt/Clippy、架构检查通过，lint 为 0 errors / 70 个既有 warnings。请求重试/连接池、工具规范扩展等仍是计划内容，不能视为第二轮全部完成。后续以 `escode-cli-rust-parity-plan.md` 的功能矩阵与分阶段验收推进。
 
 ## 2026-09-22 第一交付包执行契约
 
 - 一个 HttpModel 复用一个 reqwest Client；每个 complete 编码一次请求体，每次尝试重新读取 env 鉴权并复用编码 bytes。取消覆盖连接/响应体/退避/事件通道等待。错误不包含原始 body、URL 或密钥。
 - ModelPort 返回结构化 ModelFailure（code、reason、retryable、HTTP status、Retry-After、outputCommitted）；错误分类覆盖当前 TS 通用 HTTP/网络/TLS、已知供应商业务码、额度与上下文错误。业务码优先于通用 HTTP 状态。未知业务码按当前 TS 的状态与可恢复网络/超时规则处理。
-- 默认 10 retries/11 attempts，2 s 指数退避、因子 2、60 s 上限、50%–100% jitter；沿用 ZCODE*MODEL_RETRY*\* 环境配置。可选 config.retry 字段优先于 env；不增加无界重试档位。Retry-After-ms 优先于 Retry-After（秒/HTTP date），x-should-retry=false 阻止使用该等待提示；合理范围按现有 TS runner-retry 保留。空响应（无正文、无工具、无 usage）最多额外重试一次且占用总预算。
+- 默认 10 retries/11 attempts，2 s 指数退避、因子 2、60 s 上限、50%–100% jitter；沿用 ESCODE*MODEL_RETRY*\* 环境配置。可选 config.retry 字段优先于 env；不增加无界重试档位。Retry-After-ms 优先于 Retry-After（秒/HTTP date），x-should-retry=false 阻止使用该等待提示；合理范围按现有 TS runner-retry 保留。空响应（无正文、无工具、无 usage）最多额外重试一次且占用总预算。
 - requestTimeoutSeconds 改为可选：显式值保持每次 HTTP 尝试总时长上限；省略时不设置总上限。streamIdleTimeoutMs 默认 600000，重试每次增加 30000 ms；零表示显式禁用 idle timeout。等待 response headers 同样有 idle 边界。有效 SSE 事件刷新 idle 计时，注释/半行不延长等待；网络闲置与 stdout 背压分开处理。
 - 输出第一次交付给 owner 后标记不可重试。工具参数前奏在本次尝试内缓存，失败时可整体丢弃，不产生工具副作用。正文/推理已交付后失败保留中断行，不自动重发请求；reasoning_content 成功后与正文一起持久化并回传下一轮。
 - SSE 不按 TCP chunk 大小限流，仅按单行/单事件和累计模型输出计数；解析须线性且保留 UTF-8。首段立即发送；后续以 16 ms/8 KiB 合并，切换正文/推理、工具边界和结束/错误前刷新。每个 tool call 使用独立 String，完整结束才进入 loop。
@@ -158,7 +158,7 @@ sequenceDiagram
 
 实现补充：HTTP client 在首次请求时通过 OnceCell 初始化，系统证书的阻塞读取交给阻塞线程池，后续请求复用同一 client。2 MiB 请求预算在唯一一次 HTTP body 编码后检查，预算包含 messages、tools 和 reasoning 参数；超限返回 model_context_exceeded，自动压缩仍留在后续交付包。权限批准和 ACK 只提交一次，成功后才唤醒工具。TLS 分类展开多层 io::Error.get_ref，不能将证书错误误判为可重试网络错误。
 
-2026-09-22 验证：8 个 Rust 单测、3 个受控 runtime/storage 测试、23 个真实 App/native 集成测试通过；包括本地自签名 HTTPS、真实 socket reset、SSE 错误、空闲期间定时 flush、权限提交失败和异步工具结果顺序。类型检查、Rust fmt/Clippy、源码边界及仓库架构检查通过；lint 0 errors / 70 个既有 warnings。完整 Electron Renderer、真实供应商和 Windows/Linux 实机仍未在本包验证。性能和产物证据见 `../reports/zcode-cli-rust-requests-2026-09-22.md`。
+2026-09-22 验证：8 个 Rust 单测、3 个受控 runtime/storage 测试、23 个真实 App/native 集成测试通过；包括本地自签名 HTTPS、真实 socket reset、SSE 错误、空闲期间定时 flush、权限提交失败和异步工具结果顺序。类型检查、Rust fmt/Clippy、源码边界及仓库架构检查通过；lint 0 errors / 70 个既有 warnings。完整 Electron Renderer、真实供应商和 Windows/Linux 实机仍未在本包验证。性能和产物证据见 `../reports/escode-cli-rust-requests-2026-09-22.md`。
 
 ## 第二交付包覆盖规则（2026-09-22）
 

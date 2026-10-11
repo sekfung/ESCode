@@ -2,7 +2,7 @@
 
 ## 目的
 
-安装包、签名、公证、blockmap 和 Electron Builder 生成的 `latest.yml` 在构建阶段完成。发布日志由 infra 通过 API 直接编辑共享目录中的更新清单；z-code CI 的人工确认只决定是否继续上传/发布，不再读取仓库 changelog 或改写更新清单。
+安装包、签名、公证、blockmap 和 Electron Builder 生成的 `latest.yml` 在构建阶段完成。发布日志由 infra 通过 API 直接编辑共享目录中的更新清单；escode CI 的人工确认只决定是否继续上传/发布，不再读取仓库 changelog 或改写更新清单。
 
 ## 当前 CI 时序
 

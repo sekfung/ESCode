@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { EllipsisIcon, PencilIcon, PlusIcon, RepeatIcon, Trash2Icon } from "lucide-react";
-import type { SerialQuickCommand } from "@zcode/shared";
+import type { SerialQuickCommand } from "@escode/shared";
 import { Button } from "@/components/ui/button.js";
 import {
   DropdownMenu,
@@ -27,7 +27,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.js";
 import { toast } from "@/components/ui/toast.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   addSerialQuickCommand,
   exportSerialQuickCommands,
@@ -57,7 +57,7 @@ function QuickCommandChip({
   onEdit: () => void;
   onRemove: () => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: command.id,
   });
@@ -129,7 +129,7 @@ export function SerialQuickCommandsBar({
   onLoop: (command: SerialQuickCommand) => void;
   onChange: (commands: SerialQuickCommand[]) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const platform = usePlatform();
   const [editing, setEditing] = useState<SerialQuickCommand | "new" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);

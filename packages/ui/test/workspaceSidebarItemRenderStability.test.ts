@@ -1,20 +1,20 @@
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 
-const { taskListCalls, stableServices, zcodeSessionStoreState } = vi.hoisted(() => ({
+const { taskListCalls, stableServices, escodeSessionStoreState } = vi.hoisted(() => ({
   taskListCalls: [] as Array<Record<string, unknown>>,
   stableServices: {
-    zcodeTaskService: {
+    escodeTaskService: {
       archiveTask: async () => null,
       renameTask: async () => null,
       setTaskPinned: async () => null,
       setTaskUnread: async () => null,
     },
   },
-  zcodeSessionStoreState: {
+  escodeSessionStoreState: {
     removeOptimisticTaskListItem: () => {},
     removeTaskState: () => {},
     setTaskUnreadIndicator: () => {},
@@ -96,7 +96,7 @@ vi.mock("@/WorkspaceSidebar/ReconnectingRemoteWorkspaceLogTooltip.js", () => ({
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }) => id,
     },
@@ -108,13 +108,13 @@ vi.mock("@/hooks/useWorkspaceServices.js", () => ({
   useWorkspaceServices: () => stableServices,
 }));
 
-vi.mock("@/store/zcodeSessionStore.js", () => ({
-  selectWorkspaceZCodeState: () => ({
+vi.mock("@/store/escodeSessionStore.js", () => ({
+  selectWorkspaceESCodeState: () => ({
     activeTaskId: null,
     selectedProvider: "codex",
   }),
-  useZCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector(zcodeSessionStoreState),
+  useESCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector(escodeSessionStoreState),
 }));
 
 vi.mock("@/store/taskQueryCacheStore.js", () => ({
@@ -211,7 +211,7 @@ function installMinimalDom() {
   return createMinimalElement(documentMock);
 }
 
-function createTask(): ZCodeTaskMeta {
+function createTask(): ESCodeTaskMeta {
   return {
     createdAt: 1,
     mode: "default",
@@ -297,7 +297,7 @@ describe("WorkspaceSidebarItem render stability", () => {
     const tab = createWorkspaceTab();
     const task = createTask();
 
-    function renderWithTaskItems(taskItems: ZCodeTaskMeta[]) {
+    function renderWithTaskItems(taskItems: ESCodeTaskMeta[]) {
       act(() => {
         root.render(
           createElement(WorkspaceSidebarItem, {

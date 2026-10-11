@@ -8,7 +8,7 @@ describe("createOpenInEditorRemoteTarget", () => {
       host: "jumpserver.example.com",
       port: 2222,
       username: "root",
-      sshConfigAlias: "zcode",
+      sshConfigAlias: "escode",
       password: "secret-password",
       privateKeyPath: "~/.ssh/id_ed25519",
       privateKeyPassphrase: "secret-passphrase",
@@ -19,7 +19,7 @@ describe("createOpenInEditorRemoteTarget", () => {
       host: "jumpserver.example.com",
       port: 2222,
       username: "root",
-      sshConfigAlias: "zcode",
+      sshConfigAlias: "escode",
     });
     expect(remoteTarget).not.toHaveProperty("password");
     expect(remoteTarget).not.toHaveProperty("privateKeyPath");

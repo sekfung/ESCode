@@ -4,7 +4,7 @@ import type {
   ReasoningRow,
   SubagentRow,
   ToolCallRow,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { buildAssistantWorkRenderItems } from "@/v4/conversationAssistantWorkItems.js";
 
 const SHOW_ALL_REASONING = { messageStreamShowReasoning: true } as const;

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModelSelectionView } from "@zcode/provider";
-import type { UsageEntitlementSnapshot } from "@zcode/shared";
+import type { ModelSelectionView } from "@escode/provider";
+import type { UsageEntitlementSnapshot } from "@escode/shared";
 import { resolveStartPlanRecommendation } from "@/lib/startPlanRecommendation.js";
 
 const selection = {

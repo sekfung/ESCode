@@ -20,16 +20,16 @@ describe("OpenRouter attribution headers", () => {
 
   it("只给 OpenRouter baseURL 添加 attribution headers", () => {
     expect(
-      withOpenRouterAttributionHeaders({ "X-Title": "Z Code@cli" }, "https://openrouter.ai/api/v1"),
+      withOpenRouterAttributionHeaders({ "X-Title": "ESCode@cli" }, "https://openrouter.ai/api/v1"),
     ).toEqual({
-      "X-Title": "Z Code@cli",
-      "X-OpenRouter-Title": "ZCode",
+      "X-Title": "ESCode@cli",
+      "X-OpenRouter-Title": "ESCode",
       "X-OpenRouter-Categories": "programming-app",
     });
     expect(
-      withOpenRouterAttributionHeaders({ "X-Title": "Z Code@cli" }, "https://api.openai.com/v1"),
+      withOpenRouterAttributionHeaders({ "X-Title": "ESCode@cli" }, "https://api.openai.com/v1"),
     ).toEqual({
-      "X-Title": "Z Code@cli",
+      "X-Title": "ESCode@cli",
     });
   });
 });

@@ -1,7 +1,7 @@
 # Rust 会话行投影字段对齐
 
 2026-09-26。承接 rust-release-rollback.md「仍存在、未纳入断言的差异」。以 TS
-`bootstrap/src/zcode-protocol-v4/{projection-rows,product-projection}.ts` 为 oracle。
+`bootstrap/src/escode-protocol-v4/{projection-rows,product-projection}.ts` 为 oracle。
 差分实测：一次 Read 工具调用的完整 turn，逐行比较两侧的字段集合。
 
 ## 差异与处理
@@ -31,7 +31,7 @@
 
 ## 验收
 
-- `zcode-cli-rust-differential.test.ts` 逐行比较字段集合与上述字段的值（id 与时间戳归一化）；
+- `escode-cli-rust-differential.test.ts` 逐行比较字段集合与上述字段的值（id 与时间戳归一化）；
   出现新的差异字段即失败。
 - goal 差分覆盖 `/goal` query 轮的 `executionKind`。
 
@@ -47,5 +47,5 @@ Node 把 `/goal` 拆成两轮，Rust 之前在同一个 agent 轮里执行：
 
 - 输入边界仍记在 query 轮上（edit/rewind 以它为准）。
 - 本次输入的行从 query 轮 header 起发布（`new_input_rows`），两轮在同一批增量中下发。
-- 验收：`zcode-cli-rust-title-differential.test.ts` 逐行比较 `/goal` 会话的轮次归属、种类、origin、executionKind、
+- 验收：`escode-cli-rust-title-differential.test.ts` 逐行比较 `/goal` 会话的轮次归属、种类、origin、executionKind、
   状态与 actions，两侧一致。

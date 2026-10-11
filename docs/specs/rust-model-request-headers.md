@@ -1,6 +1,6 @@
 # Rust 模型请求头与 Node 对齐
 
-2026-10-08。对照 MBearo/ZCode-rs 的 `net` crate（device / gateway 头）核对发现：Node 每次模型请求都带一组客户端头与
+2026-10-08。对照 MBearo/ESCode-rs 的 `net` crate（device / gateway 头）核对发现：Node 每次模型请求都带一组客户端头与
 归因头，Rust 只发 `authorization` / `content-type` / `accept`。这些头供网关做来源归因、会话追踪与统计
 （Coding Plan 按 `x-zcode-session-type` 区分 main / subagent / other），缺失会让 Rust 的请求在服务端无法归因。
 
@@ -10,15 +10,15 @@ App 差分实测（同一 Registry 夹具）Node 的请求头：`http-referer`�
 
 ## 规则
 
-### 静态客户端头（TS `bootstrap/src/model-config.ts` buildCliZCodeSourceHeaders，进程内不变）
+### 静态客户端头（TS `bootstrap/src/model-config.ts` buildCliESCodeSourceHeaders，进程内不变）
 
 | 头                    | 值                                                                                                       |
 | --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `http-referer`        | `ZCODE_BASE_URL` ?? `ZCODE_ENDPOINT_ORIGIN` 的 origin，缺省 `https://zcode.z.ai`                         |
-| `user-agent`          | `ZCode/{appVersion}`                                                                                     |
-| `x-zcode-app-version` | `ZCODE_APP_VERSION`（Host 给两个 runtime 都注入）；缺省时 Node 用 CLI 自身版本，Rust 用 runtime 自身版本 |
-| `x-title`             | `Z Code@electron`（argv 含 `app-server` / `agent-server`），否则 `Z Code@cli`                            |
-| `x-release-channel`   | `ZCODE_ENV` 为 `test` → `test`，否则 `production`                                                        |
+| `http-referer`        | `ESCODE_BASE_URL` ?? `ESCODE_ENDPOINT_ORIGIN` 的 origin，缺省 `https://zcode.z.ai`                         |
+| `user-agent`          | `ESCode/{appVersion}`                                                                                     |
+| `x-zcode-app-version` | `ESCODE_APP_VERSION`（Host 给两个 runtime 都注入）；缺省时 Node 用 CLI 自身版本，Rust 用 runtime 自身版本 |
+| `x-title`             | `ESCode@electron`（argv 含 `app-server` / `agent-server`），否则 `ESCode@cli`                            |
+| `x-release-channel`   | `ESCODE_ENV` 为 `test` → `test`，否则 `production`                                                        |
 | `x-client-language`   | 进程默认 locale（BCP 47，如 `zh-CN`），不可打印时 `unknown`                                              |
 | `x-client-timezone`   | 本机 IANA 时区（如 `Asia/Shanghai`），不可打印时 `unknown`                                               |
 | `x-zcode-agent`       | `glm`                                                                                                    |
@@ -46,13 +46,13 @@ App 差分实测（同一 Registry 夹具）Node 的请求头：`http-referer`�
 
 ## 所有者
 
-- `zcode_cli_host::client_platform`：平台事实（platform / arch / os 版本 / locale / 时区），进程内解析一次。
-- `zcode_cli_model::client_headers`：静态头与归因头的组装；归因来源为 `core_api::model_call::ModelCallScope`
+- `escode_cli_host::client_platform`：平台事实（platform / arch / os 版本 / locale / 时区），进程内解析一次。
+- `escode_cli_model::client_headers`：静态头与归因头的组装；归因来源为 `core_api::model_call::ModelCallScope`
   （新增 `trace_id`，由 run 作用域填入会话 trace id）。
 
 ## 已知差异
 
-- `user-agent`：Node 由 ai-sdk 追加 `ai-sdk/provider-utils/{ver} runtime/node.js/{ver}` 后缀，Rust 只发配置值 `ZCode/{ver}`，
+- `user-agent`：Node 由 ai-sdk 追加 `ai-sdk/provider-utils/{ver} runtime/node.js/{ver}` 后缀，Rust 只发配置值 `ESCode/{ver}`，
   不伪造 Node 运行时标识。
 - `x-query-id`：Node 取 traceContext 的 queryId，Rust 取本轮 turn id（同为每轮唯一）；两侧取值来源不同，差分只比格式。
 - `accept` / `accept-language` / `sec-fetch-mode`：Node fetch（undici）自带，非产品语义，不对齐。
@@ -63,5 +63,5 @@ App 差分实测（同一 Registry 夹具）Node 的请求头：`http-referer`�
 ## 验收
 
 - 单测：前缀剥离、会话类型映射、OpenCode 判定、合并去重覆盖、可打印校验、locale 规范化。
-- App 差分：`zcode-cli-rust-model-headers.test.ts`（同一夹具与环境，两侧静态头逐字一致；归因头的键集合一致、
+- App 差分：`escode-cli-rust-model-headers.test.ts`（同一夹具与环境，两侧静态头逐字一致；归因头的键集合一致、
   会话类型 / trace / session 值与格式一致；重试时 `x-request-id` 变化）。

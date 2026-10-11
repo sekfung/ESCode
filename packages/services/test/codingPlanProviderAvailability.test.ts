@@ -1,4 +1,4 @@
-import { BUILTIN_MODEL_PROVIDER_IDS, type ApiClient } from "@zcode/shared";
+import { BUILTIN_MODEL_PROVIDER_IDS, type ApiClient } from "@escode/shared";
 import { describe, expect, it, vi } from "vitest";
 import {
   validateBigModelAccountProviderAvailability,
@@ -177,7 +177,7 @@ describe("codingPlanProviderAvailability", () => {
                   balances: [],
                   plans: [
                     {
-                      plan_id: "zcode-v3-start-plan",
+                      plan_id: "escode-v3-start-plan",
                       status: "active",
                       entitlements: [{ effective_at: effectiveAt }],
                     },
@@ -194,7 +194,7 @@ describe("codingPlanProviderAvailability", () => {
           {
             apiClient,
             credentialService: {
-              load: async (key) => (key === "zcodejwttoken" ? "jwt" : null),
+              load: async (key) => (key === "escodejwttoken" ? "jwt" : null),
             },
           },
         ),
@@ -234,7 +234,7 @@ describe("codingPlanProviderAvailability", () => {
               data: {
                 plans: [
                   {
-                    plan_id: "zcode-v3-start-plan",
+                    plan_id: "escode-v3-start-plan",
                     status: "active",
                   },
                 ],
@@ -255,7 +255,7 @@ describe("codingPlanProviderAvailability", () => {
         {
           apiClient,
           credentialService: {
-            load: async (key) => (key === "zcodejwttoken" ? "jwt" : null),
+            load: async (key) => (key === "escodejwttoken" ? "jwt" : null),
           },
         },
       ),
@@ -276,7 +276,7 @@ describe("codingPlanProviderAvailability", () => {
               data: {
                 plans: [
                   {
-                    plan_id: "zcode-v3-start-plan",
+                    plan_id: "escode-v3-start-plan",
                     status: "active",
                   },
                 ],
@@ -294,7 +294,7 @@ describe("codingPlanProviderAvailability", () => {
         {
           apiClient,
           credentialService: {
-            load: async (key) => (key === "zcodejwttoken" ? "jwt" : null),
+            load: async (key) => (key === "escodejwttoken" ? "jwt" : null),
           },
         },
       ),
@@ -498,7 +498,7 @@ function createZaiCredentialService(): {
   load(key: string): Promise<string | null>;
 } {
   return {
-    load: async (key) => (key === "zcodejwttoken" ? "start-plan-jwt" : null),
+    load: async (key) => (key === "escodejwttoken" ? "start-plan-jwt" : null),
   };
 }
 
@@ -517,7 +517,7 @@ function createZaiPairApiClient(options: {
             success: true,
             data: {
               plans: options.startPlanActive
-                ? [{ plan_id: "zcode-v3-start-plan", status: "active" }]
+                ? [{ plan_id: "escode-v3-start-plan", status: "active" }]
                 : [],
             },
           }),

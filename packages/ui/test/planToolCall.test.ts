@@ -8,7 +8,7 @@ describe("planToolCall", () => {
         {
           input: {
             plan: "# 计划\n\n- 第一步",
-            planFilePath: ".zcode/plans/demo.md",
+            planFilePath: ".escode/plans/demo.md",
           },
           output: "fallback",
         },
@@ -16,7 +16,7 @@ describe("planToolCall", () => {
       ),
     ).toEqual({
       markdown: "# 计划\n\n- 第一步",
-      planFilePath: "/workspace/.zcode/plans/demo.md",
+      planFilePath: "/workspace/.escode/plans/demo.md",
     });
   });
 

@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   TurnHeaderRow,
   V4ConversationFileChangesResult,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { ConversationFileSummaryPanel } from "@/v4/ConversationFileSummaryPanel.js";
 import type { ConversationRowRenderContext } from "@/v4/conversationRowContext.js";
 
@@ -102,7 +102,7 @@ function renderPanel(contextOverrides: Partial<ConversationRowRenderContext> = {
   };
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(ConversationFileSummaryPanel, {
         header: header(),
@@ -257,7 +257,7 @@ describe("ConversationFileSummaryPanel", () => {
       await act(async () => {
         root.render(
           createElement(
-            ZCodeIntlProvider,
+            ESCodeIntlProvider,
             { initialLocale: "zh-CN" },
             createElement(ConversationFileSummaryPanel, {
               header: header({
@@ -295,7 +295,7 @@ describe("ConversationFileSummaryPanel", () => {
     await act(async () => {
       root.render(
         createElement(
-          ZCodeIntlProvider,
+          ESCodeIntlProvider,
           { initialLocale: "zh-CN" },
           createElement(ConversationFileSummaryPanel, {
             header: header(),
@@ -338,7 +338,7 @@ describe("ConversationFileSummaryPanel", () => {
     };
     const render = (rowId: number) =>
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(ConversationFileSummaryPanel, {
           header: header({ rowId, entityId: `header-${rowId}` }),
@@ -376,7 +376,7 @@ describe("ConversationFileSummaryPanel", () => {
     await act(async () =>
       root.render(
         createElement(
-          ZCodeIntlProvider,
+          ESCodeIntlProvider,
           { initialLocale: "zh-CN" },
           createElement(ConversationFileSummaryPanel, {
             header: header(),
@@ -398,7 +398,7 @@ describe("ConversationFileSummaryPanel", () => {
     await act(async () => root.unmount());
   });
 
-  it("matches z-code-2 summary card visual shell", () => {
+  it("matches escode-2 summary card visual shell", () => {
     const html = renderPanel();
 
     expect(html).toContain("rounded-xl border border-border bg-card shadow-none");
@@ -445,7 +445,7 @@ describe("ConversationFileSummaryPanel", () => {
     await act(async () => {
       root.render(
         createElement(
-          ZCodeIntlProvider,
+          ESCodeIntlProvider,
           { initialLocale: "zh-CN" },
           createElement(ConversationFileSummaryPanel, {
             header: header(),
@@ -531,7 +531,7 @@ describe("ConversationFileSummaryPanel", () => {
     };
     const renderPanelForState = (state: TurnHeaderRow["state"]) =>
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(ConversationFileSummaryPanel, {
           header: header({ state }),
@@ -594,7 +594,7 @@ describe("ConversationFileSummaryPanel", () => {
     };
     const renderPanelForFileState = (state: "active" | "reverted") =>
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(ConversationFileSummaryPanel, {
           header: header({

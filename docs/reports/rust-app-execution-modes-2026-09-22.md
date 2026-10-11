@@ -1,6 +1,6 @@
 # Rust App 执行模式对齐
 
-2026-09-22，ZCode-Pro 当前工作树，macOS arm64。解决 App 在 Rust yolo-only runtime 下仍显示可选 build/edit/Plan，并按默认 build 预热失败的问题。默认 TS runtime 不变；Rust 仍显式选择，权限仍仅支持 yolo。
+2026-09-22，ESCode-Pro 当前工作树，macOS arm64。解决 App 在 Rust yolo-only runtime 下仍显示可选 build/edit/Plan，并按默认 build 预热失败的问题。默认 TS runtime 不变；Rust 仍显式选择，权限仍仅支持 yolo。
 
 ## 行为和边界
 
@@ -24,18 +24,18 @@
 
 | 门禁                                            | 本轮结果                       |
 | ----------------------------------------------- | ------------------------------ |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | 36 Rust / 103 App 通过，0 跳过 |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | Rust 边界、fmt、Clippy 通过    |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 36 Rust / 103 App 通过，0 跳过 |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | Rust 边界、fmt、Clippy 通过    |
 | `pnpm typecheck`                                | 通过                           |
 | `pnpm lint`                                     | 0 错误、原有 70 条警告         |
 | `pnpm fmt:check`                                | 通过                           |
 | `pnpm architecture:check --changed`             | 0 新增、0 基线违反             |
 
-日志：`.zcode-runtime/rust-e2e/20260922/checks/execution-modes/`。
+日志：`.escode-runtime/rust-e2e/20260922/checks/execution-modes/`。
 
 ## 真实 Desktop
 
-使用隔离 `ZCode Rust E2E`、真实 GLM-5.3 Max 和 stdio Rust 子进程。通过原生 Open folder 新增 `mode-workspace` 测试项目，未手改 App 设置或草稿数据。
+使用隔离 `ESCode Rust E2E`、真实 GLM-5.3 Max 和 stdio Rust 子进程。通过原生 Open folder 新增 `mode-workspace` 测试项目，未手改 App 设置或草稿数据。
 
 1. 全新项目默认仍为 Ask before changes；填入正文后 Send 禁用，显示 yolo-only 提示。菜单当前 build 仍选中，build/edit/Plan 禁用，Full access 可选。
 2. 选择前 stdio 实测 `createSession=0`、`sendText=0`、presentation 读取 1 次。选择 Full access 后才预热，Send 可用；首发实际返回 `RUST_MODE_GATE_OK`。

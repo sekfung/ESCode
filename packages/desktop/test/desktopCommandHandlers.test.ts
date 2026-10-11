@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { join } from "node:path";
-import { DesktopCommandIds } from "@zcode/shared";
+import { DesktopCommandIds } from "@escode/shared";
 
 const appMock = {
   isPackaged: false,
-  getAppPath: vi.fn(() => "/Applications/ZCode.app/Contents/Resources/app.asar"),
+  getAppPath: vi.fn(() => "/Applications/ESCode.app/Contents/Resources/app.asar"),
   getVersion: vi.fn(() => "3.5.0"),
 };
 const browserWindowInstances: Array<{
@@ -261,10 +261,10 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     expect(
       resolveLocalAppConfigPath({
         isPackaged: true,
-        resourcesPath: "/Applications/ZCode.app/Contents/Resources",
-        appPath: "/Applications/ZCode.app/Contents/Resources/app.asar",
+        resourcesPath: "/Applications/ESCode.app/Contents/Resources",
+        appPath: "/Applications/ESCode.app/Contents/Resources/app.asar",
       }),
-    ).toBe(join("/Applications/ZCode.app/Contents/Resources", "config/default.json"));
+    ).toBe(join("/Applications/ESCode.app/Contents/Resources", "config/default.json"));
     expect(
       resolveLocalAppConfigPath({
         isPackaged: false,
@@ -288,7 +288,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     const { executeDesktopCommand } = await import("../src/main/desktopCommandHandlers.js");
     const { shell } = await import("electron");
     const commandOptions = createCommandOptions({
-      settings: { zcodeEndpointOrigin: "https://zcode.z.ai" },
+      settings: { escodeEndpointOrigin: "https://zcode.z.ai" },
     });
 
     await executeDesktopCommand({
@@ -322,8 +322,8 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       command: DesktopCommandIds.ClearCodingPlanWebviewStorage,
     });
 
-    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:zcode-coding-plan");
-    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:zcode-rewards");
+    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:escode-coding-plan");
+    expect(sessionFromPartitionMock).toHaveBeenCalledWith("persist:escode-rewards");
     expect(codingPlanPartitionSession.clearStorageData).toHaveBeenCalledTimes(2);
     expect(commandOptions.logger.info).toHaveBeenCalledWith(
       "[coding-plan-webview] cleared persistent partition storage",
@@ -332,49 +332,49 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
 
   it("非生产 endpoint 菜单命令能保存 test、自定义和 reset", async () => {
     const { executeDesktopCommand } = await import("../src/main/desktopCommandHandlers.js");
-    const onZCodeEndpointChanged = vi.fn();
-    const commandOptions = createCommandOptions({ onZCodeEndpointChanged });
+    const onESCodeEndpointChanged = vi.fn();
+    const commandOptions = createCommandOptions({ onESCodeEndpointChanged });
 
     await executeDesktopCommand({
       ...commandOptions,
-      command: DesktopCommandIds.SetZCodeEndpointTest,
+      command: DesktopCommandIds.SetESCodeEndpointTest,
     });
     expect(commandOptions.settingService.update).toHaveBeenLastCalledWith({
-      zcodeEndpointOrigin: "https://zcode.z.ai",
+      escodeEndpointOrigin: "https://zcode.z.ai",
     });
 
     await executeDesktopCommand({
       ...commandOptions,
-      command: DesktopCommandIds.ResetZCodeEndpoint,
+      command: DesktopCommandIds.ResetESCodeEndpoint,
     });
     expect(commandOptions.settingService.update).toHaveBeenLastCalledWith({
-      zcodeEndpointOrigin: undefined,
+      escodeEndpointOrigin: undefined,
     });
-    expect(onZCodeEndpointChanged).toHaveBeenCalledTimes(2);
+    expect(onESCodeEndpointChanged).toHaveBeenCalledTimes(2);
   });
 
   it("Custom endpoint 菜单打开主进程输入窗并保存提交值", async () => {
     const { executeDesktopCommand } = await import("../src/main/desktopCommandHandlers.js");
-    const onZCodeEndpointChanged = vi.fn();
-    const commandOptions = createCommandOptions({ onZCodeEndpointChanged });
+    const onESCodeEndpointChanged = vi.fn();
+    const commandOptions = createCommandOptions({ onESCodeEndpointChanged });
 
     const commandPromise = executeDesktopCommand({
       ...commandOptions,
-      command: DesktopCommandIds.SetZCodeEndpointCustom,
+      command: DesktopCommandIds.SetESCodeEndpointCustom,
     });
     await vi.waitFor(() => expect(BrowserWindowMock).toHaveBeenCalledTimes(1));
     const promptWindow = browserWindowInstances[0];
     expect(promptWindow?.loadURL).toHaveBeenCalledWith(expect.stringContaining("data:text/html"));
 
     promptWindow?.emitTitle(
-      "zcode-endpoint-submit:" + encodeURIComponent("http://localhost:3030/path"),
+      "escode-endpoint-submit:" + encodeURIComponent("http://localhost:3030/path"),
     );
     await commandPromise;
 
     expect(commandOptions.settingService.update).toHaveBeenCalledWith({
-      zcodeEndpointOrigin: "http://localhost:3030",
+      escodeEndpointOrigin: "http://localhost:3030",
     });
-    expect(onZCodeEndpointChanged).toHaveBeenCalledTimes(1);
+    expect(onESCodeEndpointChanged).toHaveBeenCalledTimes(1);
   });
 
   it("系统缩放命令会限制在缩小 3 档和放大 5 档之间", async () => {
@@ -386,11 +386,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     expect(targetWindow.webContents.setZoomFactor).toHaveBeenLastCalledWith(Math.pow(1.1, 5));
     expect(targetWindow.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 22, y: 44 });
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: 5 },
     );
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
-      "zcode:window-controls-overlay-changed",
+      "escode:window-controls-overlay-changed",
       { leftPaddingPx: 60 },
     );
 
@@ -398,7 +398,7 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     updateDesktopZoomLevel(targetWindow, "in");
     expect(targetWindow.webContents.setZoomFactor).toHaveBeenLastCalledWith(Math.pow(1.1, 5));
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: 5 },
     );
 
@@ -407,11 +407,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     expect(targetWindow.webContents.setZoomFactor).toHaveBeenLastCalledWith(Math.pow(1.1, -3));
     expect(targetWindow.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 22, y: 14 });
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
-      "zcode:window-controls-overlay-changed",
+      "escode:window-controls-overlay-changed",
       { leftPaddingPx: 128 },
     );
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: -3 },
     );
 
@@ -420,11 +420,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
     expect(targetWindow.webContents.setZoomFactor).toHaveBeenLastCalledWith(1);
     expect(targetWindow.setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 22, y: 23 });
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
-      "zcode:window-controls-overlay-changed",
+      "escode:window-controls-overlay-changed",
       { leftPaddingPx: 96 },
     );
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: 0 },
     );
   });
@@ -444,11 +444,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       height: 77,
     });
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
-      "zcode:window-controls-overlay-changed",
+      "escode:window-controls-overlay-changed",
       { rightPaddingPx: 84, titleBarHeightPx: 77 },
     );
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: 5 },
     );
 
@@ -460,11 +460,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
       height: 36,
     });
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
-      "zcode:window-controls-overlay-changed",
+      "escode:window-controls-overlay-changed",
       { rightPaddingPx: 181, titleBarHeightPx: 36 },
     );
     expect(targetWindow.webContents.send).toHaveBeenLastCalledWith(
-      "zcode:desktop-zoom-level-changed",
+      "escode:desktop-zoom-level-changed",
       { zoomLevel: -3 },
     );
   });
@@ -489,11 +489,11 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
 
       expect(customWindow.setTitleBarOverlay).not.toHaveBeenCalled();
       expect(customWindow.webContents.send).toHaveBeenCalledWith(
-        "zcode:window-controls-overlay-changed",
+        "escode:window-controls-overlay-changed",
         { rightPaddingPx: 136 },
       );
       expect(nativeWindow.webContents.send).toHaveBeenCalledWith(
-        "zcode:window-controls-overlay-changed",
+        "escode:window-controls-overlay-changed",
         { rightPaddingPx: nativePadding, titleBarHeightPx: height },
       );
       for (const targetWindow of [customWindow, nativeWindow]) {
@@ -541,21 +541,21 @@ function createZoomWindow(initialZoomFactor: number) {
 function createCommandOptions(options?: {
   onDesktopZoomChanged?: () => void;
   onRelaunchApp?: () => Promise<void>;
-  onZCodeEndpointChanged?: () => void;
-  settings?: { zcodeEndpointOrigin?: string; desktopZoomLevel?: number };
+  onESCodeEndpointChanged?: () => void;
+  settings?: { escodeEndpointOrigin?: string; desktopZoomLevel?: number };
 }) {
   return {
     command: DesktopCommandIds.OpenChangelog,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    updateZCodeStdioTapDevMenuState: vi.fn(),
+    updateESCodeStdioTapDevMenuState: vi.fn(),
     onDesktopZoomChanged: options?.onDesktopZoomChanged ?? vi.fn(),
-    onZCodeEndpointChanged: options?.onZCodeEndpointChanged ?? vi.fn(),
+    onESCodeEndpointChanged: options?.onESCodeEndpointChanged ?? vi.fn(),
     onRelaunchApp: options?.onRelaunchApp ?? vi.fn(async () => undefined),
     settingService: {
       get: vi.fn(async () => options?.settings ?? {}),
       update: vi.fn(async () => undefined),
     },
-    credentialsDir: "/tmp/zcode-test",
+    credentialsDir: "/tmp/escode-test",
     currentApplicationLocale: "zh-CN" as const,
   };
 }

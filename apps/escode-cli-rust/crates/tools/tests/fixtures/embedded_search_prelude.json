@@ -1,0 +1,216 @@
+{
+ "cases": [
+  {
+   "env": {},
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {},
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {},
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {},
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "/opt/escode/bfs",
+    "ESCODE_UGREP_BINARY": "/opt/escode/ugrep",
+    "ESCODE_RG_BINARY": "/opt/escode/rg"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v /opt/escode/bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command /opt/escode/bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/escode/ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/escode/ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v /opt/escode/rg >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command /opt/escode/rg \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "/opt/escode/bfs",
+    "ESCODE_UGREP_BINARY": "/opt/escode/ugrep",
+    "ESCODE_RG_BINARY": "/opt/escode/rg"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/escode/ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/escode/ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v /opt/escode/rg >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command /opt/escode/rg \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "/opt/escode/bfs",
+    "ESCODE_UGREP_BINARY": "/opt/escode/ugrep",
+    "ESCODE_RG_BINARY": "/opt/escode/rg"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "/opt/escode/bfs",
+    "ESCODE_UGREP_BINARY": "/opt/escode/ugrep",
+    "ESCODE_RG_BINARY": "/opt/escode/rg"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "C:\\Program Files\\ESCode\\bfs.exe",
+    "ESCODE_UGREP_BINARY": "C:\\Program Files\\ESCode\\ugrep.exe",
+    "ESCODE_RG_BINARY": "C:\\Program Files\\ESCode\\rg.exe"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v 'C:\\Program Files\\ESCode\\bfs.exe' >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command 'C:\\Program Files\\ESCode\\bfs.exe' -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v 'C:\\Program Files\\ESCode\\ugrep.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command 'C:\\Program Files\\ESCode\\ugrep.exe' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v 'C:\\Program Files\\ESCode\\rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command 'C:\\Program Files\\ESCode\\rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "C:\\Program Files\\ESCode\\bfs.exe",
+    "ESCODE_UGREP_BINARY": "C:\\Program Files\\ESCode\\ugrep.exe",
+    "ESCODE_RG_BINARY": "C:\\Program Files\\ESCode\\rg.exe"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/c/Program Files/ESCode/ugrep.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/c/Program Files/ESCode/ugrep.exe' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v '/c/Program Files/ESCode/rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command '/c/Program Files/ESCode/rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "C:\\Program Files\\ESCode\\bfs.exe",
+    "ESCODE_UGREP_BINARY": "C:\\Program Files\\ESCode\\ugrep.exe",
+    "ESCODE_RG_BINARY": "C:\\Program Files\\ESCode\\rg.exe"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_BFS_BINARY": "C:\\Program Files\\ESCode\\bfs.exe",
+    "ESCODE_UGREP_BINARY": "C:\\Program Files\\ESCode\\ugrep.exe",
+    "ESCODE_RG_BINARY": "C:\\Program Files\\ESCode\\rg.exe"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ESCODE_RG_BINARY": "rg"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/it'\\''s/ugrep' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/it'\\''s/ugrep' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ESCODE_RG_BINARY": "rg"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v '/it'\\''s/ugrep' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command '/it'\\''s/ugrep' -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ESCODE_RG_BINARY": "rg"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_UGREP_BINARY": "  /it's/ugrep  ",
+    "ESCODE_RG_BINARY": "rg"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v bfs >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command bfs -S dfs -regextype findutils-default \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v '\\\\server\\share\\rg.exe' >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command '\\\\server\\share\\rg.exe' \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v ugrep >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command ugrep -G --ignore-files --hidden -I --exclude-dir=.git --exclude-dir=.svn --exclude-dir=.hg --exclude-dir=.bzr --exclude-dir=.jj --exclude-dir=.sl \"$@\"\n}\nif ! (unalias rg 2>/dev/null; command -v rg) >/dev/null 2>&1; then\n  unalias rg 2>/dev/null || true\n  rg() {\n    command -v //server/share/rg.exe >/dev/null 2>&1 || { command rg \"$@\"; return; }\n    command //server/share/rg.exe \"$@\"\n  }\nfi"
+  },
+  {
+   "env": {
+    "ESCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_RG_BINARY": "\\\\server\\share\\rg.exe"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "/opt/escode/escode"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v /opt/escode/escode >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command /opt/escode/escode __internal-search find \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/escode/escode >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/escode/escode __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "/opt/escode/escode"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /opt/escode/escode >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /opt/escode/escode __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "/opt/escode/escode"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "/opt/escode/escode"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ESCode\\escode.exe",
+    "ESCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "posix",
+   "content": "unalias find 2>/dev/null || true\nunalias grep 2>/dev/null || true\nfind() {\n  command -v 'C:\\ESCode\\escode.exe' >/dev/null 2>&1 || { command find \"$@\"; return; }\n  command 'C:\\ESCode\\escode.exe' __internal-search find \"$@\"\n}\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v 'C:\\ESCode\\escode.exe' >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command 'C:\\ESCode\\escode.exe' __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ESCode\\escode.exe",
+    "ESCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "git-bash",
+   "content": "unalias grep 2>/dev/null || true\ngrep() {\n  local _escode_grep_arg\n  for _escode_grep_arg in \"$@\"; do\n    case \"$_escode_grep_arg\" in -*-filter*|-*-pager*|-*-view*|-*-format-open*|-*-config*|---*|-@*|-*-save-config*|-[Zz]*|-[!-]*[Zz]*|--null|--null-data) command grep \"$@\"; return ;; esac\n  done\n  command -v /c/ESCode/escode.exe >/dev/null 2>&1 || { command grep \"$@\"; return; }\n  command /c/ESCode/escode.exe __internal-search grep \"$@\"\n}"
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ESCode\\escode.exe",
+    "ESCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "cmd",
+   "content": null
+  },
+  {
+   "env": {
+    "ESCODE_EMBEDDED_SEARCH_COMMAND": "C:\\ESCode\\escode.exe",
+    "ESCODE_BFS_BINARY": "/ignored"
+   },
+   "dialect": "legacy-shell",
+   "content": null
+  }
+ ]
+}

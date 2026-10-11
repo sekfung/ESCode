@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { ZCodeSkillsReferenceCatalogResult } from "@zcode/shared";
+import type { ESCodeSkillsReferenceCatalogResult } from "@escode/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSkillReferenceCatalog =
-  vi.fn<(params: unknown) => Promise<ZCodeSkillsReferenceCatalogResult>>();
+  vi.fn<(params: unknown) => Promise<ESCodeSkillsReferenceCatalogResult>>();
 let runtimeRestartListener: ((event: { workspaceKey: string }) => void) | undefined;
 const runtimeRestartSubscription = { dispose: vi.fn() };
 const onAgentRuntimeRestarted = vi.fn((listener: (event: { workspaceKey: string }) => void) => {
@@ -14,7 +14,7 @@ const onAgentRuntimeRestarted = vi.fn((listener: (event: { workspaceKey: string 
 });
 const resolution = {
   services: {
-    zcodeAgentService: {
+    escodeAgentService: {
       getSkillReferenceCatalog,
       onAgentRuntimeRestarted,
     },
@@ -34,15 +34,15 @@ function catalog(name: string, authority: "session" | "workspace") {
     authority,
     skills: [
       {
-        id: `glm:workspace:/workspace/.zcode/skills/${name}/SKILL.md`,
+        id: `glm:workspace:/workspace/.escode/skills/${name}/SKILL.md`,
         name,
         description: `${name} description`,
-        path: `/workspace/.zcode/skills/${name}/SKILL.md`,
+        path: `/workspace/.escode/skills/${name}/SKILL.md`,
         scope: "workspace" as const,
         enabled: true,
       },
     ],
-  } satisfies ZCodeSkillsReferenceCatalogResult;
+  } satisfies ESCodeSkillsReferenceCatalogResult;
 }
 
 function deferred<T>() {
@@ -96,8 +96,8 @@ describe("useSkills conversation catalog", () => {
   });
 
   it("refetches after runtime restart and rejects a late previous-runtime result", async () => {
-    const oldRuntime = deferred<ZCodeSkillsReferenceCatalogResult>();
-    const newRuntime = deferred<ZCodeSkillsReferenceCatalogResult>();
+    const oldRuntime = deferred<ESCodeSkillsReferenceCatalogResult>();
+    const newRuntime = deferred<ESCodeSkillsReferenceCatalogResult>();
     getSkillReferenceCatalog
       .mockReturnValueOnce(oldRuntime.promise)
       .mockReturnValueOnce(newRuntime.promise);

@@ -5,8 +5,8 @@ import { createElement, type ChangeEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TID_SUBAGENT_BUILT_IN_MODEL_TRIGGER, TID_SUBAGENT_ROW, testId } from "@zcode/shared";
-import { encodeCustomModelValue } from "../src/lib/zcodeCustomModelValue.js";
+import { TID_SUBAGENT_BUILT_IN_MODEL_TRIGGER, TID_SUBAGENT_ROW, testId } from "@escode/shared";
+import { encodeCustomModelValue } from "../src/lib/escodeCustomModelValue.js";
 
 const capturedButtons: Array<Record<string, unknown>> = [];
 const capturedModelConfigSelects: Array<Record<string, unknown>> = [];
@@ -317,7 +317,7 @@ vi.mock("@/hooks/useModelSelectionView.js", () => {
   };
 });
 
-vi.mock("@/hooks/useZCodeConfig.js", () => ({
+vi.mock("@/hooks/useESCodeConfig.js", () => ({
   useToolbarConfigOptions: () => ({
     configOptions: mockToolbarConfigState.configOptions,
     loading: mockToolbarConfigState.status === "loading",
@@ -336,7 +336,7 @@ vi.mock("@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js", 
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }, values?: Record<string, string | number>) => {
         const messages: Record<string, string> = {
@@ -503,14 +503,14 @@ describe("SubagentsSection", () => {
         scope: "workspace",
         source: "plugin",
         enabled: true,
-        pluginId: "zcode-cua@custom-marketplace",
-        pluginName: "zcode-cua",
+        pluginId: "escode-cua@custom-marketplace",
+        pluginName: "escode-cua",
       },
     ]);
 
     expect(groups.map(([key, items]) => [key, items[0]?.id])).toEqual([
       ["computer-use@zcode-plugins-official", "official-agent"],
-      ["zcode-cua@custom-marketplace", "custom-agent"],
+      ["escode-cua@custom-marketplace", "custom-agent"],
     ]);
   });
 

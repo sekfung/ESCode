@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restore the v4 timeline scroll-to-bottom control to the icon-only design used by `~/workspace/z-code-2` while preserving its position and accessible name.
+**Goal:** Restore the v4 timeline scroll-to-bottom control to the icon-only design used by `~/workspace/escode-2` while preserving its position and accessible name.
 
 **Architecture:** Keep `ConversationTimeline` as the owner of visibility and click behavior. Add one module-level button renderer that uses the shared `Button` primitive and `ArrowDownIcon`, then reuse it in both the composer-dock and no-dock placements.
 
@@ -47,7 +47,7 @@ Expected: FAIL because `ConversationTimeline.tsx` still renders the visible text
 
 - [x] **Step 3: Implement the minimal icon-only control**
 
-In `ConversationTimeline.tsx`, import `ArrowDownIcon`, the shared `Button`, and `useZCodeIntl`. Define a module-level `ConversationBackToBottomButton` that renders:
+In `ConversationTimeline.tsx`, import `ArrowDownIcon`, the shared `Button`, and `useESCodeIntl`. Define a module-level `ConversationBackToBottomButton` that renders:
 
 ```tsx
 <Button

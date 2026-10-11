@@ -1,4 +1,4 @@
-import type { SerialPortInfo, SerialSessionSummary } from "@zcode/services";
+import type { SerialPortInfo, SerialSessionSummary } from "@escode/services";
 
 export interface SerialPortOption {
   path: string;

@@ -1,5 +1,5 @@
-import type { Event } from "@zcode/rpc";
-import { ServiceChannels } from "@zcode/shared";
+import type { Event } from "@escode/rpc";
+import { ServiceChannels } from "@escode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
 
 /** 写入来源；rx 方向固定为 "user"（表示外部设备），不代表人工操作。 */

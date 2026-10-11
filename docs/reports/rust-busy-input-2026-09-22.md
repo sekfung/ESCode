@@ -1,6 +1,6 @@
 # Rust 运行中输入对齐与 App 验收
 
-2026-09-22，ZCode-Pro 当前工作树，macOS arm64，Rust debug 子进程与真实 GLM-5.3 Max。新增 guide、busy startNow 与 setFollowupMode；默认 TS runtime 和 yolo-only 边界保持不变。
+2026-09-22，ESCode-Pro 当前工作树，macOS arm64，Rust debug 子进程与真实 GLM-5.3 Max。新增 guide、busy startNow 与 setFollowupMode；默认 TS runtime 和 yolo-only 边界保持不变。
 
 ## 完成内容
 
@@ -20,18 +20,18 @@
 
 | 验证                                            | 结果                               |
 | ----------------------------------------------- | ---------------------------------- |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | 40 Rust / 110 App，全通过，0 跳过  |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 40 Rust / 110 App，全通过，0 跳过  |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
 | `pnpm typecheck`                                | 通过                               |
 | `pnpm lint`                                     | 0 错误；既有 70 条警告             |
 | `pnpm fmt:check`                                | 通过                               |
 | `pnpm architecture:check --changed`             | 0 违反、0 新增                     |
 
-完整日志保存在 `.zcode-runtime/rust-e2e/20260922/checks/busy-input/`。本轮一次新增测试的 trait 返回类型编译失败已修正，之后全量重新执行通过；未把中途失败列为通过。
+完整日志保存在 `.escode-runtime/rust-e2e/20260922/checks/busy-input/`。本轮一次新增测试的 trait 返回类型编译失败已修正，之后全量重新执行通过；未把中途失败列为通过。
 
 ## 真实 App
 
-通过 Electron/agent-browser 操作隔离 `ZCode Rust E2E`，使用原 App 设置页与 Composer；工作区为隔离 `mode-workspace`，会话为 `2266a711-b002-4841-9136-e4acb2678e80`。
+通过 Electron/agent-browser 操作隔离 `ESCode Rust E2E`，使用原 App 设置页与 Composer；工作区为隔离 `mode-workspace`，会话为 `2266a711-b002-4841-9136-e4acb2678e80`。
 
 1. 在设置页把 Queue 切换为 Guide，stdio 收到 setFollowupMode 并 accepted。Bash 前台执行 25 秒等待时发送引导；工具只执行一次，随后回复 `RUST_GUIDE_APP_OK`。数据库确认两个 userInput 属于同一 turn，第二条 guided=true。
 2. 在设置页恢复 Queue。Bash 运行中先普通 Enter 排队，再用 macOS Meta+Enter 立即发送。旧 Shell PID 已退出、旧轮 completedInterrupted，新轮回复 `RUST_START_NOW_APP_OK`，原队列随后回复 `RUST_AFTER_NOW_QUEUE_OK`。输入顺序和 ACK delivery 与预期一致。

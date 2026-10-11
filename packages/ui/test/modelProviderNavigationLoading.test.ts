@@ -11,7 +11,7 @@ import {
 } from "@/settings/model-provider-section/Navigation.js";
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }) => id,
     },

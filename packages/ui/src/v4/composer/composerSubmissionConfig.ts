@@ -3,10 +3,10 @@ import {
   supportsRuntimeExecution,
   type RuntimeExecutionCapabilities,
   type ModelSelection,
-} from "@zcode/shared";
-import { submissionModeSchema, type SubmissionMode } from "@zcode/shared/zcode-protocol-v4";
-import type { ModelSelectionView } from "@zcode/services";
-import { validateModelSelectionOptions } from "@zcode/provider";
+} from "@escode/shared";
+import { submissionModeSchema, type SubmissionMode } from "@escode/shared/escode-protocol-v4";
+import type { ModelSelectionView } from "@escode/services";
+import { validateModelSelectionOptions } from "@escode/provider";
 
 export interface ComposerSubmissionConfig {
   modelSelection: ModelSelection;

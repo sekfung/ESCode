@@ -28,7 +28,7 @@ sequenceDiagram
 - 所有者：会话读取由 Engine（持有 store 与驻留会话）完成；工具只经事件请求，不直接访问存储。
 - 视图：统一为 TS `MessageWithParts` 的 JSON 形态。TS 库会话原样读取；Rust 会话由 `rust_message`（顺序、工具调用与结果）
   与 `rust_row`（时间、id）转换：用户消息 → text part；assistant 消息 → tool parts（在前）+ text part + step-finish
-  （有工具调用为 `tool-calls`，否则 `stop`）；以 `<system-reminder>` 开头或带 `_zcode_source` 的用户消息视为 model-only。
+  （有工具调用为 `tool-calls`，否则 `stop`）；以 `<system-reminder>` 开头或带 `_escode_source` 的用户消息视为 model-only。
 - 工具 input 保留原始键顺序：TS 为 `JSON.stringify` 的插入顺序；Rust 以原始 JSON 文本（压缩空白）携带，
   不经 serde_json 重排。
 - 字符串长度、截断与切片按 UTF-16 码元，与 TS 一致；`created` 按 `toISOString()` 格式（毫秒 + Z）。
@@ -44,7 +44,7 @@ sequenceDiagram
 
 ## 验收
 
-- `scripts/generate-zcode-cli-rust-session-context-corpus.mjs`：以 TS handler + 假 store / 假模型为 oracle 的 14 个场景
+- `scripts/generate-escode-cli-rust-session-context-corpus.mjs`：以 TS handler + 假 store / 假模型为 oracle 的 14 个场景
   （local、单次 lite、NO_RELEVANT/空/异常回落、多块抽取与合成、handoff、各类 part、compaction 保留段、空会话、未找到），
   Rust 逐条比对辅助调用、输出与模型可见文案。
 - App 差分：同一段对话在 Node 与 Rust 各跑一次，另一会话读取它；归一化 id 与时间后辅助调用与工具结果一致。

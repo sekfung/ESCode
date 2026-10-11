@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import type {
   WebRemoteControlMobileNavigationIntent,
   WebRemoteControlTaskTarget,
-} from "@zcode/shared";
-import { resolveWebRemoteControlWorkspaceKey } from "@zcode/shared";
+} from "@escode/shared";
+import { resolveWebRemoteControlWorkspaceKey } from "@escode/shared";
 import { logger } from "@/logger.js";
 import type { WebRemoteControlWorkspaceSwitcherApi } from "@/root/types.js";
 

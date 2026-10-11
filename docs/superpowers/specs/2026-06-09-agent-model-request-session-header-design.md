@@ -34,7 +34,7 @@ Agent 发起模型请求时，adapter 层已经会把 `TraceContext.traceId` 写
 
 ## 设计
 
-模型请求 header 继续在 `apps/zcode-cli/packages/adapters/src/model/runner-options.ts`
+模型请求 header 继续在 `apps/escode-cli/packages/adapters/src/model/runner-options.ts`
 中合并：
 
 1. provider 静态 header 先进入请求。

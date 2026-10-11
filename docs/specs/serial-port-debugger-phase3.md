@@ -150,7 +150,7 @@ interface ISerialService {
 ## 验收
 
 每一项交付都包含对应的单元测试，交互改动补充 `docs/test-cases/e2e/serial-port-debugger.feature` 场景，
-并在开发版上以 `ZCODE_SERIAL_MOCK_PORTS` 虚拟串口实际驱动验证：
+并在开发版上以 `ESCODE_SERIAL_MOCK_PORTS` 虚拟串口实际驱动验证：
 
 - 多串口：两个虚拟串口同时打开、各自收发互不串扰、第 5 个返回上限错误；关闭标签后挂回运行中会话；
   Agent 工具缺省 `path` 的三种情况；整链路测试覆盖带 `path` 的调用。

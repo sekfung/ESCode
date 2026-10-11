@@ -20,11 +20,11 @@ import {
   marketingSettingsSections,
   waitForMarketingCapability,
 } from "@/lib/marketingNavigation.js";
-import { BUILTIN_MODEL_PROVIDER_IDS, ZCODE_ENV } from "@zcode/shared";
+import { BUILTIN_MODEL_PROVIDER_IDS, ESCODE_ENV } from "@escode/shared";
 import { useServices } from "@/hooks/useServices.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { useZCodeStore } from "@/store/StoreProvider.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeStore } from "@/store/StoreProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useCloudHeroEnvironment } from "@/components/cloud-content-dialog/useCloudHeroEnvironment.js";
 import { MarketingDialogs } from "@/components/marketing-touch/MarketingDialogs.js";
 import { toast } from "@/components/ui/toast.js";
@@ -73,13 +73,13 @@ export function MarketingTouchProvider({
   });
   const upgradeTargetRef = useRef(upgradeTargetProviderId);
   upgradeTargetRef.current = upgradeTargetProviderId;
-  const user = useZCodeStore((state) => state.user);
-  const restoring = useZCodeStore((state) => state.isRestoringOAuthSession);
-  const requestLogin = useZCodeStore((state) => state.requestLoginEntry);
+  const user = useESCodeStore((state) => state.user);
+  const restoring = useESCodeStore((state) => state.isRestoringOAuthSession);
+  const requestLogin = useESCodeStore((state) => state.requestLoginEntry);
   const openRewards = useOpenRewards();
   const openRewardsRef = useRef(openRewards);
   openRewardsRef.current = openRewards;
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const startEntitlement = useStartPlanEntitlement(
     BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan,
     services.usageStatsService,
@@ -295,7 +295,7 @@ export function MarketingTouchProvider({
       },
     });
     poller = createMarketingTouchPoller({
-      intervalMs: resolveMarketingTouchPollIntervalMs(import.meta.env.PROD, ZCODE_ENV),
+      intervalMs: resolveMarketingTouchPollIntervalMs(import.meta.env.PROD, ESCODE_ENV),
       query: async () => {
         await controller.refresh();
         await controller.showPending();
@@ -360,14 +360,14 @@ export function MarketingBanner() {
 function ConnectedBanner({ controller }: { controller: MarketingTouchController }) {
   const state = useStore(controller.store);
   const { dark } = useCloudHeroEnvironment();
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const banner = state.banner;
   useRequestVerificationPrewarm(
     Boolean(
       banner?.delivery.resource_position === "banner" &&
       (banner.image || banner.bannerHero) &&
       banner.delivery.banner.buttons.find((button) => button.action.type !== "close")?.action
-        .type === "claim_zcode_plan",
+        .type === "claim_escode_plan",
     ),
   );
   // 与仲裁层（SidebarBottomActivity）共用同一可见性谓词，避免两处判断漂移。

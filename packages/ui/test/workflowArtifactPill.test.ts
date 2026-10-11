@@ -6,7 +6,7 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   WorkflowArtifactPill,
   type ArtifactPillData,
@@ -27,7 +27,7 @@ function renderPill(
 ) {
   return render(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(WorkflowArtifactPill, { artifact: BOOK, ...props }),
     ),
@@ -42,7 +42,7 @@ function renderStrip(
 ) {
   return render(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(WorkflowArtifactStrip, {
         testId: "strip",
@@ -167,7 +167,7 @@ describe("WorkflowArtifactStrip", () => {
     const onOpenArtifact = vi.fn();
     const view = render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           "div",
@@ -199,7 +199,7 @@ describe("WorkflowArtifactStrip", () => {
     const outer = vi.fn();
     const view = render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           "div",

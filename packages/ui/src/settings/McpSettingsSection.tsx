@@ -3,7 +3,7 @@
  * MCP Settings Section
  *
  * Manages MCP server configuration in the settings page.
- * Supports the unified ZCode Agent MCP source backed by settings directories.
+ * Supports the unified ESCode Agent MCP source backed by settings directories.
  */
 import {
   useCallback,
@@ -13,28 +13,28 @@ import {
   useState,
 } from "react";
 import {
-  convertToZCodeAgentMcpServer,
+  convertToESCodeAgentMcpServer,
   TID_MCP_OPEN_AUTHORIZATION_BUTTON,
   TID_PLUGIN_MCP_SERVER_ROW,
   testId,
-} from "@zcode/shared";
+} from "@escode/shared";
 import type {
   RemoteTarget,
-  ZCodeAvailablePluginSummary,
-  ZCodeAgentMcpServer,
-  ZCodeMcpListMode,
-  ZCodeMcpServer,
-  ZCodeMcpServerStatusSnapshot,
-  ZCodePluginInfo,
-} from "@zcode/shared";
+  ESCodeAvailablePluginSummary,
+  ESCodeAgentMcpServer,
+  ESCodeMcpListMode,
+  ESCodeMcpServer,
+  ESCodeMcpServerStatusSnapshot,
+  ESCodePluginInfo,
+} from "@escode/shared";
 import {
-  isZCodeAgentMcpStatusModeUnsupportedError,
+  isESCodeAgentMcpStatusModeUnsupportedError,
   type IMcpSyncService,
-} from "@zcode/services";
+} from "@escode/services";
 import { Button } from "@/components/ui/button.js";
 import { toast } from "@/components/ui/toast.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { logger } from "@/logger.js";
 import { McpServerForm } from "@/settings/McpServerForm.js";
@@ -88,7 +88,7 @@ import { SettingsSegmentedTabs } from "@/settings/SettingsSegmentedTabs.js";
 import { formatRemoteSkillSyncTarget } from "@/settings/RemoteSkillSyncDialog.js";
 import { selectPluginsForScope } from "@/settings/pluginCapabilityProjection.js";
 
-const DEFAULT_MCP_SOURCE: ServerScope = "zcodeagentmcp";
+const DEFAULT_MCP_SOURCE: ServerScope = "escodeagentmcp";
 const MCP_OAUTH_AUTHORIZATION_STATUS_REFRESH_MS = 1_000;
 const MCP_OAUTH_AUTHORIZATION_STATUS_REFRESH_DURATION_MS = 5 * 60_000;
 const MCP_OAUTH_AUTHORIZATION_FOLLOWUP_REFRESH_ATTEMPTS = 10;
@@ -123,24 +123,24 @@ export async function refreshMcpServerStatusList({
   workspacePath,
   mcpSyncService,
 }: {
-  beginServerStatusListRefresh: (mode?: ZCodeMcpListMode) => number;
+  beginServerStatusListRefresh: (mode?: ESCodeMcpListMode) => number;
   markServerStatusListRefreshFailed?: (
     error: string,
     requestEpoch: number,
-    mode?: ZCodeMcpListMode,
+    mode?: ESCodeMcpListMode,
   ) => void;
   mergeServerStatusSnapshots: (
-    statuses: Record<string, ZCodeMcpServerStatusSnapshot>,
+    statuses: Record<string, ESCodeMcpServerStatusSnapshot>,
     requestEpoch: number,
-    mode?: ZCodeMcpListMode,
+    mode?: ESCodeMcpListMode,
   ) => void;
   getCurrentWorkspaceKey: () => string;
-  mode?: ZCodeMcpListMode;
-  mcpServers?: ZCodeAgentMcpServer[];
+  mode?: ESCodeMcpListMode;
+  mcpServers?: ESCodeAgentMcpServer[];
   requestedWorkspaceKey: string;
   workspaceIdentity?: string;
   workspacePath: string;
-  // mcp/list 收敛到 IMcpSyncService——UI 不直接触达 zcodeAgentService。
+  // mcp/list 收敛到 IMcpSyncService——UI 不直接触达 escodeAgentService。
   mcpSyncService: Pick<IMcpSyncService, "listWorkspaceMcpServerStatuses">;
 }): Promise<McpServerStatusListRefreshOutcome> {
   if (
@@ -169,7 +169,7 @@ export async function refreshMcpServerStatusList({
     }
     if (
       refreshMode === "status" &&
-      isZCodeAgentMcpStatusModeUnsupportedError(error)
+      isESCodeAgentMcpStatusModeUnsupportedError(error)
     ) {
       return "status-mode-unsupported";
     }
@@ -183,7 +183,7 @@ export async function refreshMcpServerStatusList({
 }
 
 export interface McpOAuthAuthorizationPendingRefresh {
-  mcpServers: ZCodeAgentMcpServer[];
+  mcpServers: ESCodeAgentMcpServer[];
   pendingKey: string;
   workspaceKey: string;
 }
@@ -204,7 +204,7 @@ export function transitionMcpAutoStatusListRefreshKey(
 }
 
 export interface McpOAuthAuthorizationFollowupRefresh {
-  mcpServers: ZCodeAgentMcpServer[];
+  mcpServers: ESCodeAgentMcpServer[];
   refreshKey: string;
   workspaceKey: string;
 }
@@ -219,7 +219,7 @@ export function transitionMcpOAuthAuthorizationPendingRefresh({
 }: {
   activeWorkspaceKey: string;
   existingFollowup?: McpOAuthAuthorizationFollowupRefresh | null;
-  mcpServers: ZCodeAgentMcpServer[];
+  mcpServers: ESCodeAgentMcpServer[];
   now?: () => number;
   pendingKey: string;
   previous: McpOAuthAuthorizationPendingRefresh | null;
@@ -336,9 +336,9 @@ export function createMcpStatusListRefreshQueue(): McpStatusListRefreshQueue {
 }
 
 export function buildMcpOAuthAuthorizationStatusRefreshServers(
-  servers: ZCodeMcpServer[],
-  statusSnapshots: Record<string, ZCodeMcpServerStatusSnapshot> = {},
-): ZCodeAgentMcpServer[] {
+  servers: ESCodeMcpServer[],
+  statusSnapshots: Record<string, ESCodeMcpServerStatusSnapshot> = {},
+): ESCodeAgentMcpServer[] {
   const pendingSnapshotNames = new Set(
     Object.entries(statusSnapshots)
       .filter(([, snapshot]) =>
@@ -346,11 +346,11 @@ export function buildMcpOAuthAuthorizationStatusRefreshServers(
       )
       .map(([serverName]) => serverName),
   );
-  const result: ZCodeAgentMcpServer[] = [];
+  const result: ESCodeAgentMcpServer[] = [];
   const seenNames = new Set<string>();
 
   for (const server of servers) {
-    if (server.source !== "zcodeagentmcp" || !server.enabled) {
+    if (server.source !== "escodeagentmcp" || !server.enabled) {
       continue;
     }
     const hasPendingAuthorization =
@@ -359,25 +359,25 @@ export function buildMcpOAuthAuthorizationStatusRefreshServers(
     if (!hasPendingAuthorization || seenNames.has(server.name)) {
       continue;
     }
-    const zcodeAgentServer = convertToZCodeAgentMcpServer(
+    const escodeAgentServer = convertToESCodeAgentMcpServer(
       server.name,
       server.config,
     );
-    if (!zcodeAgentServer) {
+    if (!escodeAgentServer) {
       continue;
     }
     seenNames.add(server.name);
-    result.push(zcodeAgentServer);
+    result.push(escodeAgentServer);
   }
 
   return result;
 }
 
 export function buildMcpOAuthAuthorizationStatusRefreshOptions(
-  mcpServers: ZCodeAgentMcpServer[],
+  mcpServers: ESCodeAgentMcpServer[],
 ): {
   mode: "status";
-  mcpServers: ZCodeAgentMcpServer[];
+  mcpServers: ESCodeAgentMcpServer[];
 } {
   return {
     // OAuth pending/follow-up/focus 刷新只读运行态，不能让 pending 子集进入 connect replace 路径。
@@ -386,9 +386,9 @@ export function buildMcpOAuthAuthorizationStatusRefreshOptions(
   };
 }
 
-export function buildMcpServerStatusListKey(servers: ZCodeMcpServer[]): string {
+export function buildMcpServerStatusListKey(servers: ESCodeMcpServer[]): string {
   return servers
-    .filter((server) => server.source === "zcodeagentmcp")
+    .filter((server) => server.source === "escodeagentmcp")
     .map((server) => {
       const enabledKey = server.enabled ? "enabled" : "disabled";
       return `${server.id}:${enabledKey}:${JSON.stringify(server.config)}`;
@@ -397,7 +397,7 @@ export function buildMcpServerStatusListKey(servers: ZCodeMcpServer[]): string {
 }
 
 export function buildPluginMcpServerStatusListKey(
-  plugins: ZCodePluginInfo[],
+  plugins: ESCodePluginInfo[],
 ): string {
   return plugins
     .map((plugin) => {
@@ -432,13 +432,13 @@ export function shouldShowPluginMcpServersInMcpSettings(
 }
 
 export function buildPendingMcpOAuthAuthorizationRefreshKey(
-  servers: ZCodeMcpServer[],
-  statusSnapshots: Record<string, ZCodeMcpServerStatusSnapshot> = {},
+  servers: ESCodeMcpServer[],
+  statusSnapshots: Record<string, ESCodeMcpServerStatusSnapshot> = {},
 ): string {
   const localPendingKeys = servers
     .filter(
       (server) =>
-        server.source === "zcodeagentmcp" &&
+        server.source === "escodeagentmcp" &&
         server.enabled &&
         Boolean(server.authorization?.authorizationUrl),
     )
@@ -462,11 +462,11 @@ function PluginMcpServerList({
   items: PluginMcpServerItem[];
   pluginListingById: ReadonlyMap<
     string,
-    ZCodeAvailablePluginSummary["listing"]
+    ESCodeAvailablePluginSummary["listing"]
   >;
   onOpenAuthorization?: (item: PluginMcpServerItem) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const openAuthorizationLabel = intl.formatMessage({
     id: "settings.mcp.oauth.openAuthorization",
   });
@@ -629,7 +629,7 @@ export function McpSettingsSection({
   onOpenPluginStore,
   showMarketplaceBreadcrumb = false,
 }: McpSettingsSectionProps) {
-  const { intl, locale } = useZCodeIntl();
+  const { intl, locale } = useESCodeIntl();
   const confirmDialog = useConfirmDialog();
   const services = useWorkspaceServices(
     workspacePath,
@@ -709,7 +709,7 @@ export function McpSettingsSection({
 
   const [showForm, setShowForm] = useState(false);
   const [formScopeKey, setFormScopeKey] = useState(parentScopeKey);
-  const [editingServer, setEditingServer] = useState<ZCodeMcpServer | null>(
+  const [editingServer, setEditingServer] = useState<ESCodeMcpServer | null>(
     null,
   );
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -823,8 +823,8 @@ export function McpSettingsSection({
   const lastAutoStatusListRefreshKeyRef = useRef("");
   const requestMcpServerStatusList = useCallback(
     async (options?: {
-      mcpServers?: ZCodeAgentMcpServer[];
-      mode?: ZCodeMcpListMode;
+      mcpServers?: ESCodeAgentMcpServer[];
+      mode?: ESCodeMcpListMode;
       trigger?: McpStatusListRefreshTrigger;
     }) => {
       const trigger = options?.trigger ?? "auto";
@@ -865,7 +865,7 @@ export function McpSettingsSection({
       if (!requestedWorkspacePath) return;
       const requestedMcpServers =
         options?.mcpServers ??
-        useMcpStore.getState().getEnabledMcpServersForZCode("zcode");
+        useMcpStore.getState().getEnabledMcpServersForESCode("escode");
       await statusListRefreshQueueRef.current?.request(async () => {
         if (!isRequestCurrent()) {
           return;
@@ -1407,7 +1407,7 @@ export function McpSettingsSection({
     void requestMcpServerStatusList();
   }
 
-  async function handleSave(form: FormState, prev?: ZCodeMcpServer) {
+  async function handleSave(form: FormState, prev?: ESCodeMcpServer) {
     if (!activeWorkspacePath) {
       return;
     }
@@ -1449,7 +1449,7 @@ export function McpSettingsSection({
     onFormScopeKeyChange?.(null);
   }
 
-  async function handleDelete(server: ZCodeMcpServer) {
+  async function handleDelete(server: ESCodeMcpServer) {
     const confirmed = await confirmDialog({
       title: intl.formatMessage(
         { id: "settings.mcp.deleteConfirmTitle" },
@@ -1475,7 +1475,7 @@ export function McpSettingsSection({
     onFormScopeKeyChange?.(null);
   }
 
-  function handleEdit(server: ZCodeMcpServer) {
+  function handleEdit(server: ESCodeMcpServer) {
     const ownerWorkspace = workspaceTabs.find(
       (tab) => tab.workspacePath === server.projectPath,
     );
@@ -1500,7 +1500,7 @@ export function McpSettingsSection({
     setShowForm(true);
   }
 
-  function handleOpenAuthorization(server: ZCodeMcpServer) {
+  function handleOpenAuthorization(server: ESCodeMcpServer) {
     const authorizationUrl = server.authorization?.authorizationUrl;
     if (!authorizationUrl) {
       return;

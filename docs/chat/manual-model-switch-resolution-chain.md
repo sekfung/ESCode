@@ -130,7 +130,7 @@ ACK 通常早于 `state.updated`。为了避免新草稿在两者之间继承源
 ```text
 failed(provider.notInRegistry)
   -> 按 workspaceIdentity / remoteSessionId 同步 provider registry
-  -> zcodeSessionService.resolveRuntimeModelForV4(...)
+  -> escodeSessionService.resolveRuntimeModelForV4(...)
   -> 带 runtimeModel 和最新 revision 重试一次
   -> 成功收口；仍失败则停止，不循环
 ```
@@ -286,10 +286,10 @@ N05、N09–N14 仍应标为 planned；旧 legacy implementation plan 不能视�
 - `packages/ui/src/v4/configCommandBarrier.ts`
 - `packages/ui/src/v4/composer/modelConfigPreferenceConfirmation.ts`
 - `packages/ui/src/v4/composer/useDraftConfigControl.ts`
-- `packages/ui/src/lib/zcodeModelPreference.ts`
-- `apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/commands/handlers/model-config.ts`
-- `apps/zcode-cli/packages/bootstrap/src/zcode-protocol/workspace-model-catalog.ts`
-- `apps/zcode-cli/packages/core/src/runtime/methods/subagent.ts`
-- `apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/transcript-hydration.ts`
-- `packages/shared/src/zcode-protocol-v4/rows.ts`
-- `packages/shared/src/zcode-protocol-v4/command.ts`
+- `packages/ui/src/lib/escodeModelPreference.ts`
+- `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/commands/handlers/model-config.ts`
+- `apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts`
+- `apps/escode-cli/packages/core/src/runtime/methods/subagent.ts`
+- `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/transcript-hydration.ts`
+- `packages/shared/src/escode-protocol-v4/rows.ts`
+- `packages/shared/src/escode-protocol-v4/command.ts`

@@ -88,7 +88,7 @@ describe("filterMentionItemsWithOptions – no hard cap", () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-cd /Users/dev/workspace/z-code && npx vitest run packages/ui/test/mentionSearch.test.ts
+cd /Users/dev/workspace/escode && npx vitest run packages/ui/test/mentionSearch.test.ts
 ```
 
 Expected: first assertion FAILS — `filterMentionItemsWithOptions` without explicit limit still gets capped somewhere if called from within the provider path.
@@ -174,7 +174,7 @@ export function filterMentionItemsWithOptions(
 - [ ] **Step 5: Run the test again**
 
 ```bash
-cd /Users/dev/workspace/z-code && npx vitest run packages/ui/test/mentionSearch.test.ts
+cd /Users/dev/workspace/escode && npx vitest run packages/ui/test/mentionSearch.test.ts
 ```
 
 Expected: ALL PASS. The 500-item test passes (under the 1000 cap); the limit-10 test passes.
@@ -448,7 +448,7 @@ function OptionRow({
 - [ ] **Step 2: Verify the app builds**
 
 ```bash
-cd /Users/dev/workspace/z-code && npm run build
+cd /Users/dev/workspace/escode && npm run build
 ```
 
 Expected: No TypeScript or build errors.
@@ -584,7 +584,7 @@ describe("buildVirtualRows", () => {
 - [ ] **Step 2: Run the tests**
 
 ```bash
-cd /Users/dev/workspace/z-code && npx vitest run packages/ui/test/mentionPanel.test.ts
+cd /Users/dev/workspace/escode && npx vitest run packages/ui/test/mentionPanel.test.ts
 ```
 
 Expected: ALL PASS
@@ -603,7 +603,7 @@ git commit -m "test: add unit tests for MentionPanel virtual row building"
 - [ ] **Step 1: Run all existing mention-related tests**
 
 ```bash
-cd /Users/dev/workspace/z-code && npx vitest run packages/ui/test/mentionSearch.test.ts packages/ui/test/mentionPanel.test.ts
+cd /Users/dev/workspace/escode && npx vitest run packages/ui/test/mentionSearch.test.ts packages/ui/test/mentionPanel.test.ts
 ```
 
 Expected: ALL PASS
@@ -611,7 +611,7 @@ Expected: ALL PASS
 - [ ] **Step 2: Run the full UI package test suite**
 
 ```bash
-cd /Users/dev/workspace/z-code && npx vitest run packages/ui/test/
+cd /Users/dev/workspace/escode && npx vitest run packages/ui/test/
 ```
 
 Expected: ALL PASS, no regressions.
@@ -619,7 +619,7 @@ Expected: ALL PASS, no regressions.
 - [ ] **Step 3: Build check**
 
 ```bash
-cd /Users/dev/workspace/z-code && npm run build
+cd /Users/dev/workspace/escode && npm run build
 ```
 
 Expected: Clean build, no errors.

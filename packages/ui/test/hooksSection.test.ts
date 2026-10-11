@@ -1,17 +1,17 @@
-import type { IHooksService } from "@zcode/services";
-import type { Hook } from "@zcode/shared";
+import type { IHooksService } from "@escode/services";
+import type { Hook } from "@escode/shared";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { HookForm } from "@/settings/HookForm.js";
 import { HooksList, groupHookSections } from "@/settings/HooksList.js";
 import {
   buildPluginHookRows,
   filterPluginHooksByScope,
-  isReadOnlyZCodeHook,
+  isReadOnlyESCodeHook,
   resolveLatestReviewScopeTarget,
 } from "@/settings/HooksSection.js";
 import { useHooksStore } from "@/store/hooksStore.js";
@@ -41,8 +41,8 @@ describe("Hooks settings page", () => {
           pluginEnabled: true,
         },
         {
-          pluginId: "zcode-cua@custom-marketplace",
-          pluginName: "zcode-cua",
+          pluginId: "escode-cua@custom-marketplace",
+          pluginName: "escode-cua",
           detail: { event: "PreToolUse", type: "command", command: "custom" },
           pluginEnabled: true,
         },
@@ -56,7 +56,7 @@ describe("Hooks settings page", () => {
         .flatMap((section) => section.hooks.map((hook) => hook.pluginId)),
     ).toEqual([
       "computer-use@zcode-plugins-official",
-      "zcode-cua@custom-marketplace",
+      "escode-cua@custom-marketplace",
     ]);
   });
 
@@ -187,7 +187,7 @@ describe("Hooks settings page", () => {
     expect(saved[0]?.hooks.map((hook) => hook.id)).toEqual(["hook-b"]);
   });
 
-  it("imports a compatibility hook as an enabled ZCode hook", async () => {
+  it("imports a compatibility hook as an enabled ESCode hook", async () => {
     const legacy: Hook = {
       id: "legacy",
       event: "Stop",
@@ -226,7 +226,7 @@ describe("Hooks settings page", () => {
         command: "echo legacy",
         enabled: true,
         location: expect.objectContaining({
-          source: "zcode",
+          source: "escode",
           scope: "project",
         }),
       }),
@@ -272,7 +272,7 @@ describe("Hooks settings page", () => {
 
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           TooltipProvider,
@@ -351,7 +351,7 @@ describe("Hooks settings page", () => {
     };
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(
           TooltipProvider,
@@ -378,7 +378,7 @@ describe("Hooks settings page", () => {
   it("renders an existing status message as an editable typed field", () => {
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(HookForm, {
           hook: {
@@ -439,7 +439,7 @@ describe("Hooks settings page", () => {
 
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           TooltipProvider,
@@ -474,7 +474,7 @@ describe("Hooks settings page", () => {
     const untrustedConfiguredOn = workspaceConfiguredHook("pending_trust");
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           TooltipProvider,
@@ -504,7 +504,7 @@ describe("Hooks settings page", () => {
   it("持久信任后隐藏 Trust，并恢复配置开关的真实值与可操作性", () => {
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           TooltipProvider,
@@ -530,25 +530,25 @@ describe("Hooks settings page", () => {
     expect(html).not.toMatch(/role="switch"[^>]*disabled=""/u);
   });
 
-  // P3 回归：editable=false 的上游/祖先 zcode.json Hook 是只读工作区 Hook，必须留在
+  // P3 回归：editable=false 的上游/祖先 escode.json Hook 是只读工作区 Hook，必须留在
   // Installed 分组走行内 Trust，而不是进 Legacy 显示必然失败的 Import。
-  it("readonly zcode workspace hook stays in installed section with trust, not legacy import", () => {
+  it("readonly escode workspace hook stays in installed section with trust, not legacy import", () => {
     const readOnlyHook: Hook = {
       ...workspaceConfiguredHook("pending_trust"),
       editable: false,
       location: {
-        source: "zcode",
+        source: "escode",
         scope: "project",
-        directoryPath: "/ancestor/.zcode",
+        directoryPath: "/ancestor/.escode",
         projectPath: "/workspace",
       },
     };
-    expect(isReadOnlyZCodeHook(readOnlyHook)).toBe(true);
-    expect(isReadOnlyZCodeHook(workspaceConfiguredHook("pending_trust"))).toBe(false);
+    expect(isReadOnlyESCodeHook(readOnlyHook)).toBe(true);
+    expect(isReadOnlyESCodeHook(workspaceConfiguredHook("pending_trust"))).toBe(false);
 
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(
           TooltipProvider,
@@ -713,9 +713,9 @@ function configuredHook(): Hook {
     args: ["hook.mjs"],
     enabled: true,
     location: {
-      source: "zcode",
+      source: "escode",
       scope: "project",
-      directoryPath: "/workspace/.zcode",
+      directoryPath: "/workspace/.escode",
       projectPath: "/workspace",
     },
   };
@@ -736,7 +736,7 @@ function workspaceConfiguredHook(
       declarationEnabled: true,
       runtimeHooksEnabled: true,
       configuredEnabled: true,
-      sourcePath: ".zcode/config.json",
+      sourcePath: ".escode/config.json",
       trustState,
     },
   };

@@ -19,14 +19,14 @@ describe("workspacePathNavigation", () => {
     cleanups.push(addWorkspacePathOpenRequestListener(listener));
 
     requestWorkspacePathOpen({
-      label: "z-code",
-      path: "/data/memories/projects/z-code/memory",
+      label: "escode",
+      path: "/data/memories/projects/escode/memory",
       serviceScope: "base-local",
     });
 
     expect(listener).toHaveBeenCalledWith({
-      label: "z-code",
-      path: "/data/memories/projects/z-code/memory",
+      label: "escode",
+      path: "/data/memories/projects/escode/memory",
       serviceScope: "base-local",
     });
   });

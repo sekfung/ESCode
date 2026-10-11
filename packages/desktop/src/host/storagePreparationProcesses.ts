@@ -8,13 +8,13 @@ import {
   databaseMigrationFactsSchema,
   type DatabaseMigrationFacts,
   databaseStartupErrorDetailsSchema,
-  zcodeStoragePreparationFrameSchema,
+  escodeStoragePreparationFrameSchema,
   type DatabaseStartupState,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
-  resolveDefaultZCodeAgentCommand,
+  resolveDefaultESCodeAgentCommand,
   createNativeAgentStorageProcess,
-} from "@zcode/services/storage-startup";
+} from "@escode/services/storage-startup";
 
 type Phase = NonNullable<DatabaseStartupState["databasePhase"]>;
 const workerMessageSchema = z.discriminatedUnion("type", [
@@ -119,10 +119,10 @@ export async function prepareSessionStorage(options: {
     details?: { databaseId: string; migration?: DatabaseMigrationFacts },
   ) => void;
   preparedPaths?: Set<string>;
-  resolveCommand?: typeof resolveDefaultZCodeAgentCommand;
+  resolveCommand?: typeof resolveDefaultESCodeAgentCommand;
   observePath: (path: string) => Promise<void>;
 }): Promise<void> {
-  const command = (options.resolveCommand ?? resolveDefaultZCodeAgentCommand)({
+  const command = (options.resolveCommand ?? resolveDefaultESCodeAgentCommand)({
     workspacePath: options.cwd,
     workspaceKey: options.cwd,
     presentationSurface: "desktop",
@@ -178,7 +178,7 @@ export async function prepareSessionStorage(options: {
     lines.on("line", (line) => {
       try {
         if (line.length > 65536) throw statusError("transport_closed");
-        const frame = zcodeStoragePreparationFrameSchema.parse(JSON.parse(line));
+        const frame = escodeStoragePreparationFrameSchema.parse(JSON.parse(line));
         clearTimeout(firstStateTimer);
         if (frame.method === "startup/storagePath") {
           if (pathReceived) throw statusError("transport_closed");

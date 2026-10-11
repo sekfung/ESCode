@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   ChangesGroupToolCallBlock,
   resolveFileChipAvailableWidth,
@@ -108,7 +108,7 @@ function renderChangesGroup(options: {
   }
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "en-US" },
       createElement(ChangesGroupToolCallBlock, {
         toolCallNode: {

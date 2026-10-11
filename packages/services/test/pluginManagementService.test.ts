@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createPluginManagementService } from "../src/plugins/pluginManagementService.js";
-import type { IZCodeAgentService } from "../src/zcode-agent/zcodeAgent.js";
+import type { IESCodeAgentService } from "../src/escode-agent/escodeAgent.js";
 
 describe("pluginManagementService suggested prompt operations", () => {
   it("forwards trusted resolution and cancellation to the selected Agent service", async () => {
@@ -19,11 +19,11 @@ describe("pluginManagementService suggested prompt operations", () => {
       cancelled: true,
     }));
     const service = createPluginManagementService({
-      zcodeAgentService: {
+      escodeAgentService: {
         resolveSuggestedPluginReference,
         cancelPluginOperation,
         onDynamicPluginOperationProgress,
-      } as unknown as IZCodeAgentService,
+      } as unknown as IESCodeAgentService,
     });
 
     expect(service.onDynamicPluginOperationProgress("suggested-1")).toBe(progressEvent);

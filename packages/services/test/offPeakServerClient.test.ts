@@ -23,7 +23,7 @@ const credentials = {
 };
 
 const teamCredentials = {
-  jwt: "team-zcode-jwt",
+  jwt: "team-escode-jwt",
   codingPlanApiKey: "team-api-key.team-secret-key",
   kind: "bigmodel-team" as const,
   providerFamily: "bigmodel" as const,
@@ -243,7 +243,7 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
     expect(((await unknown.json()) as { code: number }).code).toBe(3102);
   });
 
-  it("客户端错误映射：非 2xx 抛 OffPeakServerError 携带 bizCode", async () => {
+  it("客户端错误映射：非 2xx 抛 OffPeakServerError 携带 biesCode", async () => {
     // 手写一个只回 429/3103 的假服务端
     const denyServer = createServer((_req, res) => {
       res.writeHead(429, { "content-type": "application/json" });
@@ -263,7 +263,7 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
       const error = await client.takeTicket("task-x").catch((e: unknown) => e);
       expect(error).toBeInstanceOf(OffPeakServerError);
       expect((error as OffPeakServerError).httpStatus).toBe(429);
-      expect((error as OffPeakServerError).bizCode).toBe(3103);
+      expect((error as OffPeakServerError).biesCode).toBe(3103);
       expect((error as OffPeakServerError).nextTakeAt).toBe(1234);
     } finally {
       await new Promise<void>((resolve) => denyServer.close(() => resolve()));
@@ -310,7 +310,7 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
     expect(availabilityError).toBeInstanceOf(OffPeakServerError);
     expect(availabilityError).toMatchObject({
       httpStatus: 500,
-      bizCode: 2007,
+      biesCode: 2007,
       requestId: "req-team-availability",
     });
 
@@ -318,7 +318,7 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
     expect(takeError).toBeInstanceOf(OffPeakServerError);
     expect(takeError).toMatchObject({
       httpStatus: 429,
-      bizCode: undefined,
+      biesCode: undefined,
       requestId: "req-team-take",
     });
 
@@ -327,12 +327,12 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
       "/api/v1/off-peak/ticket",
     ]);
     for (const request of requests) {
-      expect(request.headers.get("authorization")).toBe("Bearer team-zcode-jwt");
+      expect(request.headers.get("authorization")).toBe("Bearer team-escode-jwt");
       expect(request.headers.get("x-coding-plan-api-key")).toBe("team-api-key.team-secret-key");
       expect(request.headers.get("bigmodel-organization")).toBe("org-team");
       expect(request.headers.get("bigmodel-project")).toBe("project-team");
       expect(request.headers.get("x-request-id")).toBeTruthy();
-      expect(request.headers.get("user-agent")).toMatch(/^ZCode\//);
+      expect(request.headers.get("user-agent")).toMatch(/^ESCode\//);
       expect(request.headers.get("http-referer")).toBeTruthy();
     }
     const serializedWarnings = JSON.stringify(warnings);
@@ -383,7 +383,7 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
       "/api/v1/off-peak/ticket/ticket-1/settle",
     ]);
     for (const request of requests) {
-      expect(request.headers.get("authorization")).toBe("Bearer team-zcode-jwt");
+      expect(request.headers.get("authorization")).toBe("Bearer team-escode-jwt");
       expect(request.headers.get("x-coding-plan-api-key")).toBe("team-api-key.team-secret-key");
       expect(request.headers.get("bigmodel-organization")).toBe("org-team");
       expect(request.headers.get("bigmodel-project")).toBe("project-team");
@@ -422,9 +422,9 @@ describe("offPeakServerClient × offPeakMockGateway 契约联测", () => {
     }
   });
 
-  it("isOffPeakMockEnabled：仅 ZCODE_OFFPEAK_MOCK=1 开启", () => {
-    expect(isOffPeakMockEnabled({ ZCODE_OFFPEAK_MOCK: "1" } as NodeJS.ProcessEnv)).toBe(true);
-    expect(isOffPeakMockEnabled({ ZCODE_OFFPEAK_MOCK: "0" } as NodeJS.ProcessEnv)).toBe(false);
+  it("isOffPeakMockEnabled：仅 ESCODE_OFFPEAK_MOCK=1 开启", () => {
+    expect(isOffPeakMockEnabled({ ESCODE_OFFPEAK_MOCK: "1" } as NodeJS.ProcessEnv)).toBe(true);
+    expect(isOffPeakMockEnabled({ ESCODE_OFFPEAK_MOCK: "0" } as NodeJS.ProcessEnv)).toBe(false);
     expect(isOffPeakMockEnabled({} as NodeJS.ProcessEnv)).toBe(false);
   });
 });

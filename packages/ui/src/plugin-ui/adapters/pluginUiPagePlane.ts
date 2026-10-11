@@ -1,5 +1,5 @@
 import { autoUpdate } from "@floating-ui/dom";
-import type { PluginSandboxHandle } from "@zcode/shared/mcp-apps";
+import type { PluginSandboxHandle } from "@escode/shared/mcp-apps";
 import type { SandboxPagePlacement } from "../contract.js";
 
 function parkingRoot(): HTMLElement {
@@ -195,7 +195,7 @@ export function createPluginUiPagePlane(events: {
       unmount();
       handleId = handle.sandboxId;
       frame = document.createElement("webview");
-      frame.setAttribute("data-zcode-retained-sandbox", "");
+      frame.setAttribute("data-escode-retained-sandbox", "");
       frame.setAttribute("src", handle.shellUrl);
       frame.setAttribute("partition", handle.partition);
       frame.setAttribute("data-testid", "plugin-ui-webview");

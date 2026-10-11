@@ -1,6 +1,6 @@
 # 对话埋点新旧版本差分与回归测试计划
 
-本文定义 `z-code-2` 与 V4 conversation 主链路的运行时埋点差分方法，以及差分确认后必须保留的
+本文定义 `escode-2` 与 V4 conversation 主链路的运行时埋点差分方法，以及差分确认后必须保留的
 自动化回归合同。目标不是只做一次人工抓包，而是把旧版兼容口径转成可重复执行的 golden、integration
 和 Electron E2E，防止后续再次因 conversation 重构删除埋点或业务触发入口。
 
@@ -9,7 +9,7 @@
 | 字段 | 结论 |
 | --- | --- |
 | 变更性质 | V4 conversation 重构后的兼容恢复与回归保护 |
-| 兼容基准 | `~/workspace/z-code-2` 的实际桌面运行行为；已确认的 V4 spec 例外优先 |
+| 兼容基准 | `~/workspace/escode-2` 的实际桌面运行行为；已确认的 V4 spec 例外优先 |
 | 主要 surface | V4 composer、session pane、assistant feedback、quota banner、错误 banner |
 | 实际上报端 | `/event/report` 与 ARMS custom event |
 | 客户端范围 | desktop `desktop-continuous` 实际上报；Web/手机仅验证 no-op 和隔离 |
@@ -74,7 +74,7 @@ case-local provider fixture / synthetic fault
         +----------+----------+
         |                     |
         v                     v
- legacy z-code-2        current z-code V4
+ legacy escode-2        current escode V4
  isolated E2E home      isolated E2E home
         |                     |
         +----------+----------+
@@ -178,7 +178,7 @@ payload。这里的“已验证”不等于 formal E2E 晋升：新差分 spec �
 
 ### 隔离运行
 
-旧版和当前版本使用独立的 `ZCODE_E2E_HOME_DIR`、network capture、artifact 和 runtime log 目录。
+旧版和当前版本使用独立的 `ESCODE_E2E_HOME_DIR`、network capture、artifact 和 runtime log 目录。
 同一 case 配对串行运行，避免端口、协议注册、provider replay 与机器负载互相干扰。每次 artifact 记录：
 
 - legacy/current git SHA、构建版本和 case ID。
@@ -265,9 +265,9 @@ Diff 分类固定为：`MISSING_EVENT`、`EXTRA_EVENT`、`MISSING_FIELD`、`EXTR
 1. **Vertical slice**：以 TDP02 建立双仓 runner、最终捕获点、归一化器和结构化 diff。
 2. **Golden 完整性**：完成 TDP04-TDP08、TDP10-TDP13 的完整 payload/fake-clock 测试。
 3. **生命周期 E2E**：完成 TDP01-TDP03、TDP09、TDP11、TDP14-TDP19 的 pending specs。
-4. **旧版认证**：逐 case 运行 `z-code-2` 与当前版本，处理所有非白名单 diff。
+4. **旧版认证**：逐 case 运行 `escode-2` 与当前版本，处理所有非白名单 diff。
 5. **Legacy golden**：人工 review 后提交脱敏 normalized golden；日常 CI 只跑当前版本，不依赖
-   `~/workspace/z-code-2`。
+   `~/workspace/escode-2`。
 6. **正式晋升**：pending fixture check -> explicit replay -> default replay -> isolated Docker ->
    human review/promotion -> Docker preset admission。
 7. **最终验证**：运行 focused tests、desktop E2E typecheck、`pnpm typecheck`、`pnpm lint`，再做一次

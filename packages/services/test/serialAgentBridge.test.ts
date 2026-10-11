@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { MockBinding } from "@serialport/binding-mock";
-import { zcodeSerialMethodParamsSchemas, type SerialToolOp } from "@zcode/shared/serial";
+import { escodeSerialMethodParamsSchemas, type SerialToolOp } from "@escode/shared/serial";
 import { SerialError } from "../src/serial/serial.js";
 import {
   createSerialAgentBridge,
@@ -18,7 +18,7 @@ let bridge: SerialAgentBridge;
 let remembered: Record<string, boolean>;
 
 function params<Op extends SerialToolOp>(op: Op, args: Record<string, unknown>, extra = {}) {
-  return zcodeSerialMethodParamsSchemas[op].parse({
+  return escodeSerialMethodParamsSchemas[op].parse({
     requestId: `req-${Math.random()}`,
     sessionId: "session-a",
     workspaceKey: "C:/work",

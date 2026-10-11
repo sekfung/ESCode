@@ -5,7 +5,7 @@ import {
   parseWebRemoteControlAppPayload,
   buildRemoteWorkspaceIdentity,
   type RemoteTarget,
-} from "@zcode/shared";
+} from "@escode/shared";
 
 describe("session_create 手机合同", () => {
   const event = {
@@ -27,8 +27,8 @@ describe("session_create 手机合同", () => {
     },
   };
   it("只允许手机 session_create，保留手机 context", () => {
-    expect(parseWebRemoteControlAppPayload({ zcode_type: "telemetry-report", event })).toEqual({
-      zcode_type: "telemetry-report",
+    expect(parseWebRemoteControlAppPayload({ escode_type: "telemetry-report", event })).toEqual({
+      escode_type: "telemetry-report",
       event,
     });
     expect(

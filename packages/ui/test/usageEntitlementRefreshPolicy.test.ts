@@ -1,5 +1,5 @@
-import type { IUsageStatsService } from "@zcode/services";
-import type { UsageEntitlementSnapshot } from "@zcode/shared";
+import type { IUsageStatsService } from "@escode/services";
+import type { UsageEntitlementSnapshot } from "@escode/shared";
 import { describe, expect, it, vi } from "vitest";
 import {
   getUsageEntitlementScheduleState,

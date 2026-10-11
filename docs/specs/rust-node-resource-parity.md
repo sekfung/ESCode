@@ -6,7 +6,7 @@
 
 ## 测量契约
 
-- 由 `scripts/bench-zcode-cli-node-rust.mjs` 独占 fixture、工作区、临时 HOME、模型服务及采样。Node 使用当前源码构建的 `zcode.cjs`；Rust 使用当前源码的 release 二进制。两者串行交错运行，每场景各五次。
+- 由 `scripts/bench-escode-cli-node-rust.mjs` 独占 fixture、工作区、临时 HOME、模型服务及采样。Node 使用当前源码构建的 `escode.cjs`；Rust 使用当前源码的 release 二进制。两者串行交错运行，每场景各五次。
 - 两端使用同一临时 OpenAI Chat Completions SSE 服务、同一模型选型、相同输入、回合数、chunk 数和上下文窗口。各自使用独立的空 SQLite/配置目录，不导入用户历史。Node 的 Provider Registry 与 Rust 的静态模型配置都指向该 fixture；配置方式的差异须在报告披露。
 - 至少覆盖空闲启动与单会话固定流式负载。所有回合必须完成并收到预期数量的模型请求；失败样本不得纳入汇总。
 - `ps` 采样进程 RSS 与累积 CPU time。记录启动后空闲 RSS、负载采样峰值 RSS、负载 CPU 秒、负载墙钟秒和由两者计算的平均单核 CPU 百分比。峰值 RSS 仅是采样最大值；CPU 百分比可能超过 100%，表示占用多个核心。记录采样间隔、版本、机器和原始 JSON。

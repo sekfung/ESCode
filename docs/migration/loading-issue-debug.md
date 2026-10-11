@@ -35,7 +35,7 @@ local services ready, all channels registered
 # 1. 停止当前进程（Ctrl+C）
 
 # 2. 清理所有构建产物
-cd E:\GitProject\z-code\z-code
+cd E:\GitProject\escode\escode
 rm -rf packages/desktop/out
 rm -rf packages/ui/dist
 rm -rf packages/services/dist

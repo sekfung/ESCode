@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLineIcon, DownloadIcon, EraserIcon, PauseIcon, PlayIcon } from "lucide-react";
-import type { SerialChunk } from "@zcode/services";
+import type { SerialChunk } from "@escode/services";
 import { Button } from "@/components/ui/button.js";
 import {
   Select,
@@ -12,7 +12,7 @@ import {
 import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
   buildSerialDisplayRows,
   buildSerialExportText,
@@ -55,7 +55,7 @@ export function SerialLogView({
   getAgentLabel: (sessionId: string | undefined) => string;
   onOpenAgentSession?: (sessionId: string) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const platform = usePlatform();
   const [displayMode, setDisplayMode] = useState<SerialSendMode | "plot">("text");
   const plotMode = displayMode === "plot";

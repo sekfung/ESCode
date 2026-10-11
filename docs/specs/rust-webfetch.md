@@ -37,7 +37,7 @@ sequenceDiagram
 - 大正文 artifact 已实现（2026-09-30）：抽取后的正文按 UTF-8 字节数超过 `MAX_MODEL_INPUT_CHARS`（100k）
   时写 tool-result artifact，形状与 TS `maybePersistRawContent` + `writeToolResultArtifact` 相同——
   `<artifacts>/<session>/<toolCallId>-tool-result-<uuid>.md|.txt`（响应含 `html` 记 `text/markdown`，
-  其余 `text/plain`），URI `zcode-artifact://<session>/tool-result-<uuid>`，`cacheHit` 复用同一 artifact
+  其余 `text/plain`），URI `escode-artifact://<session>/tool-result-<uuid>`，`cacheHit` 复用同一 artifact
   不重复落盘；`artifactUri`/`artifactPath` 随工具数据一起给 App。artifact 根目录仍是 Rust 自己的
   工具产物目录（与 TS 的 `<storageRoot>/cli/artifacts` 不同址，路径本就各自独立，文件名与 URI 格式一致）。
   验收：`crates/tools` 单测 `oversized_content_writes_a_tool_result_artifact`（注入传输层：阈值、文件名、
@@ -54,6 +54,6 @@ sequenceDiagram
 
 ## 验收
 
-- `scripts/generate-zcode-cli-rust-webfetch-corpus.mjs`：URL 59 条、重定向 45 条、正文抽取 23 条、截断 6 条、处理 16 条，Rust 逐条比对。
+- `scripts/generate-escode-cli-rust-webfetch-corpus.mjs`：URL 59 条、重定向 45 条、正文抽取 23 条、截断 6 条、处理 16 条，Rust 逐条比对。
 - tools 单测以注入的传输层覆盖：重定向跟随/跨主机终止/超过上限、HTTP 错误与 Retry-After、代理拦截头、超大响应、缓存命中。
 - 请求差分用例把 WebFetch 从待实现名单移出：描述与参数与 Node 一致。

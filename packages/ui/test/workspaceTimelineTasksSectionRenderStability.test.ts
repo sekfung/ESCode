@@ -1,7 +1,7 @@
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 
 const {
@@ -11,18 +11,18 @@ const {
   remoteWorkspaceSessionState,
   stableBaseServices,
   stableIntl,
-  zcodeSessionStoreState,
+  escodeSessionStoreState,
 } = vi.hoisted(() => ({
   capturedTaskItemProps: [] as Array<Record<string, unknown>>,
   globalTaskListResult: {
     hasMore: false,
-    items: [] as ZCodeTaskMeta[],
+    items: [] as ESCodeTaskMeta[],
     loading: false,
     total: 0,
   },
   remoteTimelineState: {
     hasMoreByWorkspaceKey: {} as Record<string, boolean>,
-    itemsByWorkspaceKey: {} as Record<string, ZCodeTaskMeta[]>,
+    itemsByWorkspaceKey: {} as Record<string, ESCodeTaskMeta[]>,
     loadingByWorkspaceKey: {} as Record<string, boolean>,
     totalByWorkspaceKey: {} as Record<string, number>,
   },
@@ -32,7 +32,7 @@ const {
     sessionsById: {} as Record<string, unknown>,
   },
   stableBaseServices: {
-    zcodeTaskService: {
+    escodeTaskService: {
       archiveTask: vi.fn(async () => null),
       renameTask: vi.fn(async () => null),
       setTaskPinned: vi.fn(async () => null),
@@ -42,7 +42,7 @@ const {
   stableIntl: {
     formatMessage: ({ id }: { id: string }) => id,
   },
-  zcodeSessionStoreState: {
+  escodeSessionStoreState: {
     removeOptimisticTaskListItem: vi.fn(),
     removeTaskState: vi.fn(),
     setTaskUnreadIndicator: vi.fn(),
@@ -77,7 +77,7 @@ vi.mock("@/hooks/useWorkspaceServices.js", () => ({
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: stableIntl,
     locale: "en",
   }),
@@ -86,7 +86,7 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
 vi.mock("@/TaskListItem.js", () => ({
   MemoTaskItem: (props: Record<string, unknown>) => {
     capturedTaskItemProps.push(props);
-    return createElement("li", null, (props.task as ZCodeTaskMeta).title);
+    return createElement("li", null, (props.task as ESCodeTaskMeta).title);
   },
   TaskListItemContextMenuContent: () => null,
 }));
@@ -103,9 +103,9 @@ vi.mock("@/TaskRenameDialog.js", () => ({
   TaskRenameDialog: () => null,
 }));
 
-vi.mock("@/store/zcodeSessionStore.js", () => ({
-  useZCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector(zcodeSessionStoreState),
+vi.mock("@/store/escodeSessionStore.js", () => ({
+  useESCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector(escodeSessionStoreState),
 }));
 
 vi.mock("@/store/taskQueryCacheStore.js", () => ({
@@ -143,7 +143,7 @@ vi.mock("@/store/remoteWorkspaceSessionStore.js", () => ({
   ) => selector(remoteWorkspaceSessionState),
 }));
 
-function createTask(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function createTask(overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     createdAt: 1,
     mode: "default",
@@ -249,10 +249,10 @@ describe("WorkspaceTimelineTasksSection render stability", () => {
     remoteTimelineState.itemsByWorkspaceKey = {};
     remoteTimelineState.loadingByWorkspaceKey = {};
     remoteTimelineState.totalByWorkspaceKey = {};
-    stableBaseServices.zcodeTaskService.archiveTask.mockReset();
-    stableBaseServices.zcodeTaskService.renameTask.mockReset();
-    stableBaseServices.zcodeTaskService.setTaskPinned.mockReset();
-    stableBaseServices.zcodeTaskService.setTaskUnread.mockReset();
+    stableBaseServices.escodeTaskService.archiveTask.mockReset();
+    stableBaseServices.escodeTaskService.renameTask.mockReset();
+    stableBaseServices.escodeTaskService.setTaskPinned.mockReset();
+    stableBaseServices.escodeTaskService.setTaskUnread.mockReset();
     delete (globalThis as { document?: unknown }).document;
     delete (globalThis as { window?: unknown }).window;
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EditorInfo } from "@zcode/shared";
+import type { EditorInfo } from "@escode/shared";
 import {
   resolveWorkspaceFileManagerEditor,
   resolveWorkspaceEditorSelection,

@@ -11,7 +11,7 @@ Workspace 文件树入口位于每个 workspace 行右侧操作区，放在更�
 - Pinned task 的文件树入口只负责 workspace 导航，不改变 pin 状态、任务排序、group membership、active task 或 conversation realtime 状态。
 - 标题显示 workspace 行上的名称；没有传入名称时再退回到路径末尾。
 - 目录内容通过 `fileService.readdir({ path, includeHidden: true })` 按需加载，只读取当前展开目录，不递归扫描整个 workspace；文件树会显示 `.gitignore`、`.env`、`.github` 等 dotfiles。
-- 文件树刷新按钮会重读 workspace 根目录以及当前已加载或已展开目录。ZCode/Agent 在已加载子目录里重命名或新增文件后，用户点击刷新必须看到最新文件列表，旧路径不能继续留在树里导致打开失败。
+- 文件树刷新按钮会重读 workspace 根目录以及当前已加载或已展开目录。ESCode/Agent 在已加载子目录里重命名或新增文件后，用户点击刷新必须看到最新文件列表，旧路径不能继续留在树里导致打开失败。
 - 文件系统 watcher 只覆盖 workspace 根目录和当前展开目录；目录折叠时必须释放对应 watcher，避免用户浏览过的目录长期占用 OS 监听句柄。展开目录内新增、删除或重命名文件时，文件树应在 watcher 事件后自动刷新对应目录；已加载但折叠的目录通过刷新按钮更新缓存。未加载的深层目录仍遵循懒加载语义，不做全仓递归扫描。
 - 可见节点通过 `flattenWorkspaceFileTreeRows` 扁平化，再交给 `@tanstack/react-virtual` 渲染，避免大目录一次性挂载大量 DOM。
 - 项目名称上方提供文件名搜索框，项目名称右侧按钮组在 Git 状态可用时提供 Git 变更过滤按钮。搜索框为空时保持当前懒加载文件树，只显示 `readdir` 已加载出的节点；搜索框非空时进入 search results mode，调用当前 workspace 所属 Host 的 `fileService.listWorkspaceFiles({ rootPath: workspacePath })` 建立候选，并复用 `@` 文件候选的文件名、相对路径、绝对路径 fuzzy 匹配与排序规则。文件树搜索不在 renderer 维护第二份黑名单，默认过滤器与 `@` 文件候选一致；远程 workspace 必须由对应 Remote Host 扫描，禁止回退到本地文件服务。Git 变更过滤按钮使用 `GitCommitVertical` 图标，位于更多菜单之后、刷新按钮之前，激活后只显示有直接变更的文件和包含变更后代的目录；非 Git workspace 或临时外部目录不显示该按钮。

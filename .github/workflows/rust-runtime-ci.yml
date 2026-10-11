@@ -21,7 +21,7 @@ env:
   # 测试只需要 Node 侧依赖，不需要 Electron 运行时。
   ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
   # 每个用例都会起 runtime + 本地模型服务；runner 上并发易被接收超时误伤。
-  ZCODE_TEST_SERIAL: "1"
+  ESCODE_TEST_SERIAL: "1"
 
 jobs:
   checks:
@@ -42,9 +42,9 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/zcode-cli-rust
+          workspaces: apps/escode-cli-rust
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check:zcode-cli-rust
+      - run: pnpm check:escode-cli-rust
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm architecture:check
@@ -71,10 +71,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/zcode-cli-rust
+          workspaces: apps/escode-cli-rust
       - run: pnpm install --frozen-lockfile
       # 生成资产漂移检查、cargo test、App 集成套件（针对 Rust 二进制）。
-      - run: pnpm test:zcode-cli-rust
+      - run: pnpm test:escode-cli-rust
         shell: bash
 
   # 三平台原生 release 延迟与内存（发布门槛「性能」：三平台 release 延迟，docs/specs/rust-runtime-performance.md）。
@@ -100,15 +100,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/zcode-cli-rust
+          workspaces: apps/escode-cli-rust
           key: release
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-desktop-agent-cli.mjs
-      - run: cargo build --release --locked --manifest-path apps/zcode-cli-rust/Cargo.toml --bin zcode-cli-rust
+      - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
       - name: Node vs Rust paired benchmark
         shell: bash
         run: |
-          node scripts/bench-zcode-cli-node-rust.mjs apps/zcode-cli/packages/cli/dist/zcode.cjs "" bench-results 5
+          node scripts/bench-escode-cli-node-rust.mjs apps/escode-cli/packages/cli/dist/escode.cjs "" bench-results 5
           {
             echo "### Node vs Rust (${{ matrix.os }}, median of 5)"
             echo '```json'

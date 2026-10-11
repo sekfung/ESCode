@@ -1,10 +1,10 @@
 // M5 ②：grouped 客户端 join（分组原始结构 + sessions-index 会话 → 旧 listGroupedTaskView 同形视图）。
 import { describe, expect, it } from "vitest";
-import type { ZCodeGroupedTaskViewStructure, ZCodeTaskGroup } from "@zcode/services";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeGroupedTaskViewStructure, ESCodeTaskGroup } from "@escode/services";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import { buildGroupedTaskViewFromSessions } from "@/lib/buildGroupedTaskViewFromSessions.js";
 
-function task(id: string, overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function task(id: string, overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     taskId: id,
     title: id,
@@ -14,16 +14,16 @@ function task(id: string, overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta
     mode: "default",
     traceId: `trace-${id}`,
     ...overrides,
-  } as ZCodeTaskMeta;
+  } as ESCodeTaskMeta;
 }
 
-function group(id: string, createdAt = 0): ZCodeTaskGroup {
+function group(id: string, createdAt = 0): ESCodeTaskGroup {
   return { id, title: id, color: "blue", createdAt, updatedAt: createdAt };
 }
 
 function structure(
-  overrides: Partial<ZCodeGroupedTaskViewStructure> = {},
-): ZCodeGroupedTaskViewStructure {
+  overrides: Partial<ESCodeGroupedTaskViewStructure> = {},
+): ESCodeGroupedTaskViewStructure {
   return { groups: [], members: [], topLevelOrders: [], ...overrides };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OffPeakPermanentDispatchError } from "@zcode/services/node";
+import { OffPeakPermanentDispatchError } from "@escode/services/node";
 import {
   assertBoundSessionDispatchable,
   OffPeakBoundSessionBusyError,

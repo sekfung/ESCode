@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
-  parseZCodeBackgroundTaskNotificationText,
-  zcodeBackgroundTaskNotificationToolUpdateStatus,
+  parseESCodeBackgroundTaskNotificationText,
+  escodeBackgroundTaskNotificationToolUpdateStatus,
 } from "../src/background-task-notifications.js";
 
 describe("background task notifications", () => {
   it("preserves stopped task-notification status and normalizes killed to stopped", () => {
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("stopped")).toBe("stopped");
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("killed")).toBe("stopped");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("stopped")).toBe("stopped");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("killed")).toBe("stopped");
   });
 
   it("normalizes terminal task-notification status", () => {
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("completed")).toBe("completed");
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("failed")).toBe("failed");
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("lost")).toBe("failed");
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus("unexpected")).toBe("completed");
-    expect(zcodeBackgroundTaskNotificationToolUpdateStatus(undefined)).toBe("completed");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("completed")).toBe("completed");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("failed")).toBe("failed");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("lost")).toBe("failed");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus("unexpected")).toBe("completed");
+    expect(escodeBackgroundTaskNotificationToolUpdateStatus(undefined)).toBe("completed");
   });
 
   it("parses failed notification error and decodes XML entities exactly once", () => {
     const providerMessage = "429 & retry; literal &amp; marker";
     const summary = `Agent general-purpose task "Review" failed. ${providerMessage}`;
-    const parsed = parseZCodeBackgroundTaskNotificationText(
+    const parsed = parseESCodeBackgroundTaskNotificationText(
       [
         "<task-notification>",
         "<task-id>agent_429</task-id>",

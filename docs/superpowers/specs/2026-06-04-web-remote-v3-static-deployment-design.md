@@ -5,8 +5,8 @@
 当前手机远控页是 `packages/web` 的 Vite SPA。生产发布链路是先执行
 `pnpm run build:web-remote-control`，把产物写入 `packages/web/dist`，再用
 `Dockerfile.web-remote-control` 将静态产物复制到 `nginx:alpine` 镜像中。现有服务路径是
-`/remote`，发布脚本默认推送 `uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-v2:<tag>`，
-并在 `cgx-dev-k8s` 仓库中更新 `zcode/frontend/deployment-remote.yaml`。
+`/remote`，发布脚本默认推送 `uhub.service.ucloud.cn/tianqi/escode-remote-mobile-v2:<tag>`，
+并在 `cgx-dev-k8s` 仓库中更新 `escode/frontend/deployment-remote.yaml`。
 
 新版本需要使用新的服务路径 `/remote/v3`，同时保留原来的 `/remote` 资源、镜像、脚本、
 deployment 和服务行为不变。
@@ -15,7 +15,7 @@ deployment 和服务行为不变。
 
 1. 新版本手机远控静态资源部署到 `/remote/v3`。
 2. 原 `/remote` 资源构建、镜像构建、发布脚本和 k8s deployment 更新路径保持不变。
-3. v3 发布脚本最后只更新 `zcode/frontend/deployment-remote-v3.yaml`。
+3. v3 发布脚本最后只更新 `escode/frontend/deployment-remote-v3.yaml`。
 4. 新版本桌面端默认二维码 URL 指向 `https://zcode.z.ai/remote/v3`。
 5. v3 静态资源继续由 nginx 托管，不引入 Node server、relay、agent runtime 或 desktop runtime 资源。
 6. `/remote` 与 `/remote/v3` 的浏览器资源路径互不依赖，避免任一版本发布影响另一版本。
@@ -24,7 +24,7 @@ deployment 和服务行为不变。
 
 1. 不修改外部 relay 协议、`rpc-frame` 透传、shared-host attachment、task stream 或 replayable 恢复语义。
 2. 不把 `/remote/v3` 做成 `/remote` 容器中的子路由复用。
-3. 不在 z-code 发布脚本里创建 k8s service、ingress 或 deployment 文件。
+3. 不在 escode 发布脚本里创建 k8s service、ingress 或 deployment 文件。
 4. 不改变旧 `/web-remote` OAuth 兼容入口。
 5. 不迁移或删除旧 `/remote` 镜像与部署。
 
@@ -38,8 +38,8 @@ v2:
   -> packages/web/dist, base=/remote/
   -> Dockerfile.web-remote-control
   -> nginx.web-remote-control.conf
-  -> image zcode-remote-mobile-v2:<tag>
-  -> zcode/frontend/deployment-remote.yaml
+  -> image escode-remote-mobile-v2:<tag>
+  -> escode/frontend/deployment-remote.yaml
   -> /remote
 
 v3:
@@ -47,8 +47,8 @@ v3:
   -> packages/web/dist, base=/remote/v3/
   -> Dockerfile.web-remote-control-v3
   -> nginx.web-remote-control-v3.conf
-  -> image zcode-remote-mobile-v3:<tag>
-  -> zcode/frontend/deployment-remote-v3.yaml
+  -> image escode-remote-mobile-v3:<tag>
+  -> escode/frontend/deployment-remote-v3.yaml
   -> /remote/v3
 ```
 
@@ -72,7 +72,7 @@ pnpm run build:web-remote-control:v3
 脚本内容使用 Vite base：
 
 ```bash
-pnpm --filter @zcode/web exec vite build --base=/remote/v3/
+pnpm --filter @escode/web exec vite build --base=/remote/v3/
 ```
 
 `packages/web/dist` 仍作为唯一静态产物目录。发布脚本顺序执行，所以 v2 和 v3 不需要同时保留两个
@@ -134,11 +134,11 @@ v3 nginx 配置不需要新增 `/web-remote` 路由。
 新增 `scripts/docker-build-and-push-web-remote-control-v3.sh`，沿用旧脚本结构，但默认值改为：
 
 ```text
-DOCKER_IMAGE_NAME=uhub.service.ucloud.cn/tianqi/zcode-remote-mobile-v3
+DOCKER_IMAGE_NAME=uhub.service.ucloud.cn/tianqi/escode-remote-mobile-v3
 DOCKERFILE=Dockerfile.web-remote-control-v3
-K8S_DEPLOYMENT_FILE=zcode/frontend/deployment-remote-v3.yaml
-K8S_BRANCH_NAME=deploy/zcode-remote-mobile-v3-<tag>
-MR title=chore: update zcode remote v3 image to <tag>
+K8S_DEPLOYMENT_FILE=escode/frontend/deployment-remote-v3.yaml
+K8S_BRANCH_NAME=deploy/escode-remote-mobile-v3-<tag>
+MR title=chore: update escode remote v3 image to <tag>
 ```
 
 脚本执行顺序：
@@ -149,12 +149,12 @@ pnpm run build:web-remote-control:v3
 docker build --platform <platform> -f Dockerfile.web-remote-control-v3 -t <image> .
 docker push <image>
 git -C <cgx-dev-k8s> checkout/update base branch
-replace first image field in zcode/frontend/deployment-remote-v3.yaml
+replace first image field in escode/frontend/deployment-remote-v3.yaml
 commit and push MR branch
 ```
 
 如果 `deployment-remote-v3.yaml` 不存在，脚本直接失败并提示。原因是 service、ingress、deployment
-资源边界属于 k8s 仓库，不应由 z-code 发布脚本临时生成。
+资源边界属于 k8s 仓库，不应由 escode 发布脚本临时生成。
 
 ## 桌面二维码 URL
 
@@ -164,19 +164,19 @@ commit and push MR branch
 https://zcode.z.ai/remote/v3
 ```
 
-`ZCODE_WEB_REMOTE_CONTROL_URL` 环境变量继续保留最高优先级，用于本地调试或临时回退：
+`ESCODE_WEB_REMOTE_CONTROL_URL` 环境变量继续保留最高优先级，用于本地调试或临时回退：
 
 ```bash
-ZCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote pnpm dev:desktop
+ESCODE_WEB_REMOTE_CONTROL_URL=https://zcode.z.ai/remote pnpm dev:desktop
 ```
 
 这样新桌面版本默认扫码进入 v3，老桌面版本仍然使用自己构建时的旧默认 `/remote`。
 
 ## k8s 配套要求
 
-z-code 发布脚本只更新 v3 deployment 的 image。k8s 仓库需要独立准备：
+escode 发布脚本只更新 v3 deployment 的 image。k8s 仓库需要独立准备：
 
-1. `zcode/frontend/deployment-remote-v3.yaml`
+1. `escode/frontend/deployment-remote-v3.yaml`
 2. 指向 v3 deployment 的 service，例如 `remote-mobile-v3`
 3. ingress 中 `/remote/v3` 前缀指向 v3 service
 4. ingress 中原 `/remote` 前缀继续指向 v2 service
@@ -235,11 +235,11 @@ bash scripts/test-web-remote-control-v3-docker-build.sh
    并在 v3 deployment MR 中验证线上路由。
 4. 新桌面版本二维码仍指向旧路径。缓解方式是改桌面默认 `mobileRemoteControlUrl`，同时保留环境变量回退。
 5. v3 发布脚本误改旧 deployment。缓解方式是新增脚本并把默认 `K8S_DEPLOYMENT_FILE` 固定为
-   `zcode/frontend/deployment-remote-v3.yaml`。
+   `escode/frontend/deployment-remote-v3.yaml`。
 
 ## 待实施文件
 
-z-code 仓库内预计改动：
+escode 仓库内预计改动：
 
 1. `package.json`
 2. `packages/web/src/main.tsx`

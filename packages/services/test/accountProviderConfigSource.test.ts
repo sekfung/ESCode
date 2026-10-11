@@ -3,8 +3,8 @@ import {
   ProviderConfigMap,
   type ProviderConfigSnapshot,
   type ProviderSource,
-} from "@zcode/provider";
-import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
+} from "@escode/provider";
+import { BUILTIN_MODEL_PROVIDER_IDS } from "@escode/shared";
 import { describe, expect, it, vi } from "vitest";
 import { createAccountProviderConfigSource } from "../src/model-provider/accountProviderConnectionResolver.js";
 import { createAccountProviderCredentialService } from "../src/model-provider/accountProviderCredentialService.js";
@@ -14,9 +14,9 @@ class StaticConfigSource implements ProviderSource<ProviderConfigSnapshot> {
   async read(): Promise<ProviderConfigSnapshot> {
     return {
       revision: "config-1",
-      zcodeBuiltinRevision: "builtin-1",
+      escodeBuiltinRevision: "builtin-1",
       personalRevision: "personal-1",
-      zcodeBuiltinProviders: new ProviderConfigMap([
+      escodeBuiltinProviders: new ProviderConfigMap([
         [
           BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
           createAccountProviderConfig({
@@ -35,7 +35,7 @@ class StaticConfigSource implements ProviderSource<ProviderConfigSnapshot> {
         ],
       ]),
       personalProviders: ProviderConfigMap.empty(),
-      zcodeBuiltinModelRules: ModelConfigRules.empty(),
+      escodeBuiltinModelRules: ModelConfigRules.empty(),
       personalModels: ModelConfigRules.empty(),
     };
   }

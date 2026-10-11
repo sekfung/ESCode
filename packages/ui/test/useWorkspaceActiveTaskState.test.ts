@@ -1,36 +1,36 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import { useWorkspaceActiveTaskState } from "@/hooks/useWorkspaceActiveTaskState.js";
 
 const { activeWorkspaceState } = vi.hoisted(() => ({
   activeWorkspaceState: {
     current: {
-      optimisticTaskListByTaskId: {} as Record<string, ZCodeTaskMeta>,
-      taskListCache: [] as ZCodeTaskMeta[],
+      optimisticTaskListByTaskId: {} as Record<string, ESCodeTaskMeta>,
+      taskListCache: [] as ESCodeTaskMeta[],
       taskMessagesByTaskId: {} as Record<string, unknown[]>,
     },
   },
 }));
 
-vi.mock("@/store/zcodeSessionStore.js", () => ({
+vi.mock("@/store/escodeSessionStore.js", () => ({
   getTaskMessages: (
     workspaceState: { taskMessagesByTaskId?: Record<string, unknown[]> },
     taskId: string,
   ) => workspaceState.taskMessagesByTaskId?.[taskId] ?? [],
   getTaskMeta: (
     workspaceState: {
-      optimisticTaskListByTaskId?: Record<string, ZCodeTaskMeta>;
-      taskListCache?: ZCodeTaskMeta[];
+      optimisticTaskListByTaskId?: Record<string, ESCodeTaskMeta>;
+      taskListCache?: ESCodeTaskMeta[];
     },
     taskId: string,
   ) =>
     workspaceState.optimisticTaskListByTaskId?.[taskId] ??
     workspaceState.taskListCache?.find((task) => task.taskId === taskId) ??
     null,
-  selectWorkspaceZCodeState: () => activeWorkspaceState.current,
-  useZCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
+  selectWorkspaceESCodeState: () => activeWorkspaceState.current,
+  useESCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({}),
 }));
 
@@ -60,7 +60,7 @@ vi.mock("@/hooks/useTaskSessionFilePath.js", () => ({
   }),
 }));
 
-function createTaskMeta(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function createTaskMeta(overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     createdAt: 1,
     mode: "default",
@@ -154,7 +154,7 @@ describe("useWorkspaceActiveTaskState", () => {
   });
 
   it("reuses resolvedActiveTaskMeta reference when stream updates keep meta fields equal", () => {
-    const observedMetas: Array<ZCodeTaskMeta | null | undefined> = [];
+    const observedMetas: Array<ESCodeTaskMeta | null | undefined> = [];
     const root: Root = createRoot(installMinimalDom());
 
     function Probe({ renderId }: { renderId: number }) {

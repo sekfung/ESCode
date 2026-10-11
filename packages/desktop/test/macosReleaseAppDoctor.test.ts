@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { HELPER_APP_NAME, HELPER_DISPLAY_NAME } from "@zcode/zcode-cua/broker/helperConstants";
+import { HELPER_APP_NAME, HELPER_DISPLAY_NAME } from "@escode/escode-cua/broker/helperConstants";
 import { afterEach, describe, expect, it } from "vitest";
 
 const isWindows = process.platform === "win32";
@@ -40,11 +40,11 @@ for arg in "$@"; do
   printf '\\t%s' "$arg" >> "${logPath}"
 done
 printf '\\n' >> "${logPath}"
-if [[ "${toolName}" == "codesign" && "\${ZCODE_FAKE_CODESIGN_FAIL_HELPER:-0}" == "1" && "$*" == *"${HELPER_APP_NAME}"* ]]; then
+if [[ "${toolName}" == "codesign" && "\${ESCODE_FAKE_CODESIGN_FAIL_HELPER:-0}" == "1" && "$*" == *"${HELPER_APP_NAME}"* ]]; then
   echo "fake helper codesign rejection" >&2
   exit 7
 fi
-if [[ "${toolName}" == "xcrun" && "\${ZCODE_FAKE_STAPLER_FAIL_HELPER:-0}" == "1" && "$*" == *"${HELPER_APP_NAME}"* ]]; then
+if [[ "${toolName}" == "xcrun" && "\${ESCODE_FAKE_STAPLER_FAIL_HELPER:-0}" == "1" && "$*" == *"${HELPER_APP_NAME}"* ]]; then
   echo "fake helper stapler rejection" >&2
   exit 8
 fi
@@ -52,7 +52,7 @@ fi
   );
 }
 
-function createReleaseApp(rootDir: string, productName = "ZCode") {
+function createReleaseApp(rootDir: string, productName = "ESCode") {
   const appPath = join(rootDir, `${productName}.app`);
 
   writeExecutable(join(appPath, "Contents", "MacOS", productName), "#!/bin/bash\n");
@@ -60,9 +60,9 @@ function createReleaseApp(rootDir: string, productName = "ZCode") {
   return { appPath };
 }
 
-function createZcodeHomeHelper(zcodeHome: string, variant?: string) {
+function createEscodeHomeHelper(escodeHome: string, variant?: string) {
   const helperAppPath = join(
-    zcodeHome,
+    escodeHome,
     "computer-use",
     ...(variant ? [variant] : []),
     HELPER_APP_NAME,
@@ -76,9 +76,9 @@ function runDoctor(appPath: string, binDir: string, extraEnv: NodeJS.ProcessEnv 
     cwd: REPO_ROOT,
     env: {
       ...process.env,
-      ZCODE_ENV: "production",
+      ESCODE_ENV: "production",
       // Test selection must not inherit a developer's active dev/preview helper variant.
-      ZCODE_CUA_HELPER_INSTALL_VARIANT: "",
+      ESCODE_CUA_HELPER_INSTALL_VARIANT: "",
       ...extraEnv,
       PATH: `${binDir}:${process.env.PATH ?? ""}`,
     },
@@ -97,17 +97,17 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
   it("keeps shell defaults aligned with producer Helper identity", () => {
     expect(doctorSource).toContain(`${HELPER_APP_NAME}}"`);
     expect(doctorSource).toContain(
-      `HELPER_EXECUTABLE_NAME="\${ZCODE_CUA_HELPER_EXECUTABLE_NAME:-${HELPER_DISPLAY_NAME}}"`,
+      `HELPER_EXECUTABLE_NAME="\${ESCODE_CUA_HELPER_EXECUTABLE_NAME:-${HELPER_DISPLAY_NAME}}"`,
     );
   });
 
   it("Preview 自动按 bundle 名推导主可执行，并验收 preview Helper 目录", () => {
-    const workspaceDir = makeTempDir("zcode-macos-preview-doctor-");
+    const workspaceDir = makeTempDir("escode-macos-preview-doctor-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
-    const { appPath } = createReleaseApp(workspaceDir, "ZCode Preview");
-    const zcodeHome = join(workspaceDir, ".zcode");
-    const helperAppPath = createZcodeHomeHelper(zcodeHome, "preview");
+    const { appPath } = createReleaseApp(workspaceDir, "ESCode Preview");
+    const escodeHome = join(workspaceDir, ".escode");
+    const helperAppPath = createEscodeHomeHelper(escodeHome, "preview");
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
@@ -115,29 +115,29 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
     writeFakeTool(binDir, "xcrun", toolLog);
 
     const output = runDoctor(appPath, binDir, {
-      ZCODE_ENV: "test",
-      ZCODE_CUA_REQUIRE_HELPER: "1",
-      ZCODE_HOME: zcodeHome,
+      ESCODE_ENV: "test",
+      ESCODE_CUA_REQUIRE_HELPER: "1",
+      ESCODE_HOME: escodeHome,
     });
 
-    expect(output).toContain(`validating ZCode Preview.app: ${appPath}`);
+    expect(output).toContain(`validating ESCode Preview.app: ${appPath}`);
     const log = readFileSync(toolLog, "utf-8");
     expect(log).toContain(`codesign\t--verify\t--deep\t--strict\t${appPath}`);
     expect(log).toContain(`codesign\t--verify\t--deep\t--strict\t${helperAppPath}`);
   });
 
-  it("默认只验收安装后的 ZCode.app，不强绑 Computer Use Helper 发布", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-");
+  it("默认只验收安装后的 ESCode.app，不强绑 Computer Use Helper 发布", () => {
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
+    const escodeHome = join(workspaceDir, ".escode");
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
     writeFakeTool(binDir, "spctl", toolLog);
 
-    const output = runDoctor(appPath, binDir, { ZCODE_HOME: zcodeHome });
+    const output = runDoctor(appPath, binDir, { ESCODE_HOME: escodeHome });
 
     expect(output).toContain("[macos-release-doctor] done");
     const log = readFileSync(toolLog, "utf-8");
@@ -147,13 +147,13 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
     expect(output).toContain("standalone Computer Use Helper.app not required");
   });
 
-  it("CUA release gate 验收外置 ZCode Computer Use.app", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-helper-");
+  it("CUA release gate 验收外置 ESCode Computer Use.app", () => {
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-helper-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
-    const helperAppPath = createZcodeHomeHelper(zcodeHome);
+    const escodeHome = join(workspaceDir, ".escode");
+    const helperAppPath = createEscodeHomeHelper(escodeHome);
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
@@ -161,8 +161,8 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
     writeFakeTool(binDir, "xcrun", toolLog);
 
     const output = runDoctor(appPath, binDir, {
-      ZCODE_CUA_REQUIRE_HELPER: "1",
-      ZCODE_HOME: zcodeHome,
+      ESCODE_CUA_REQUIRE_HELPER: "1",
+      ESCODE_HOME: escodeHome,
     });
 
     expect(output).toContain("[macos-release-doctor] done");
@@ -175,12 +175,12 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
   });
 
   it("CUA release gate 在 Helper staple 无效时应 fail-closed", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-stapler-fail-");
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-stapler-fail-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
-    const helperAppPath = createZcodeHomeHelper(zcodeHome);
+    const escodeHome = join(workspaceDir, ".escode");
+    const helperAppPath = createEscodeHomeHelper(escodeHome);
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
@@ -189,19 +189,19 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
 
     expect(() =>
       runDoctor(appPath, binDir, {
-        ZCODE_CUA_REQUIRE_HELPER: "1",
-        ZCODE_CUA_HELPER_APP_PATH: helperAppPath,
-        ZCODE_FAKE_STAPLER_FAIL_HELPER: "1",
+        ESCODE_CUA_REQUIRE_HELPER: "1",
+        ESCODE_CUA_HELPER_APP_PATH: helperAppPath,
+        ESCODE_FAKE_STAPLER_FAIL_HELPER: "1",
       }),
     ).toThrow(/fake helper stapler rejection/);
   });
 
   it("CUA release gate 缺少外置 Helper.app 时应 fail-closed", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-missing-helper-");
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-missing-helper-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
+    const escodeHome = join(workspaceDir, ".escode");
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
@@ -209,14 +209,14 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
 
     expect(() =>
       runDoctor(appPath, binDir, {
-        ZCODE_CUA_REQUIRE_HELPER: "1",
-        ZCODE_HOME: zcodeHome,
+        ESCODE_CUA_REQUIRE_HELPER: "1",
+        ESCODE_HOME: escodeHome,
       }),
     ).toThrow(/Computer Use Helper\.app missing/);
   });
 
-  it("CUA release gate 在没有 ZCODE_HOME/HOME 时应 fail-closed", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-no-home-");
+  it("CUA release gate 在没有 ESCODE_HOME/HOME 时应 fail-closed", () => {
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-no-home-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
@@ -227,20 +227,20 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
 
     expect(() =>
       runDoctor(appPath, binDir, {
-        ZCODE_CUA_REQUIRE_HELPER: "1",
-        ZCODE_HOME: "",
+        ESCODE_CUA_REQUIRE_HELPER: "1",
+        ESCODE_HOME: "",
         HOME: "",
       }),
     ).toThrow(/no product helper path/);
   });
 
   it("helper codesign 失败时不应继续判定 release app 验收成功", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-fail-helper-");
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-fail-helper-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
-    const helperAppPath = createZcodeHomeHelper(zcodeHome);
+    const escodeHome = join(workspaceDir, ".escode");
+    const helperAppPath = createEscodeHomeHelper(escodeHome);
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);
@@ -248,9 +248,9 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
 
     expect(() =>
       runDoctor(appPath, binDir, {
-        ZCODE_CUA_REQUIRE_HELPER: "1",
-        ZCODE_HOME: zcodeHome,
-        ZCODE_FAKE_CODESIGN_FAIL_HELPER: "1",
+        ESCODE_CUA_REQUIRE_HELPER: "1",
+        ESCODE_HOME: escodeHome,
+        ESCODE_FAKE_CODESIGN_FAIL_HELPER: "1",
       }),
     ).toThrow(/fake helper codesign rejection/);
 
@@ -260,12 +260,12 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
   });
 
   it("helper 主可执行仍是 shell wrapper 时应 fail-closed", () => {
-    const workspaceDir = makeTempDir("zcode-macos-release-doctor-helper-wrapper-");
+    const workspaceDir = makeTempDir("escode-macos-release-doctor-helper-wrapper-");
     const binDir = join(workspaceDir, "bin");
     const toolLog = join(workspaceDir, "tool.log");
     const { appPath } = createReleaseApp(workspaceDir);
-    const zcodeHome = join(workspaceDir, ".zcode");
-    const helperAppPath = createZcodeHomeHelper(zcodeHome);
+    const escodeHome = join(workspaceDir, ".escode");
+    const helperAppPath = createEscodeHomeHelper(escodeHome);
     writeExecutable(join(helperAppPath, "Contents", "MacOS", HELPER_DISPLAY_NAME), "#!/bin/bash\n");
 
     mkdirSync(binDir, { recursive: true });
@@ -274,8 +274,8 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
 
     expect(() =>
       runDoctor(appPath, binDir, {
-        ZCODE_CUA_REQUIRE_HELPER: "1",
-        ZCODE_HOME: zcodeHome,
+        ESCODE_CUA_REQUIRE_HELPER: "1",
+        ESCODE_HOME: escodeHome,
       }),
     ).toThrow(/not a Mach-O executable/);
     const log = existsSync(toolLog) ? readFileSync(toolLog, "utf-8") : "";

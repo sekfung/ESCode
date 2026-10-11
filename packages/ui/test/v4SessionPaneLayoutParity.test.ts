@@ -8,9 +8,9 @@ import type {
   PendingInteraction,
   SubagentRow,
   UserInputRow,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { SessionPane } from "@/v4/SessionPane.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
   OpenScopedSubagentSideTabRequest,
   OpenScopedWorkflowRunSideTabRequest,
@@ -75,12 +75,12 @@ vi.mock("@/v4/V4ConversationContext.js", () => ({
 }));
 
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
+  useESCodeStoreWithDefault: (_selector: unknown, fallback: unknown) => fallback,
 }));
 
 vi.mock("@/hooks/useSettingService.js", () => ({
   useSettings: () => ({
-    settings: { zcodeInteractionBehavior: "queue" },
+    settings: { escodeInteractionBehavior: "queue" },
     loading: false,
     error: null,
     update: vi.fn(async () => {}),
@@ -91,10 +91,10 @@ vi.mock("@/hooks/useSettingService.js", () => ({
 vi.mock("@/hooks/useServices.js", () => ({
   useOptionalServices: () => null,
   useServices: () => ({
-    zcodeSessionService: {
+    escodeSessionService: {
       updateProviderRegistry: vi.fn(),
     },
-    zcodeTaskService: {
+    escodeTaskService: {
       restartWorkspaceProcess: vi.fn(),
     },
   }),
@@ -351,7 +351,7 @@ function renderPane({
 
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(SessionPane, {
         paneId: "workspace-main",
@@ -532,7 +532,7 @@ describe("SessionPane v4 chat layout parity", () => {
     );
   });
 
-  it("uses the z-code-2 icon-only back-to-bottom control", () => {
+  it("uses the escode-2 icon-only back-to-bottom control", () => {
     const timelineSource = readFileSync(
       resolve(process.cwd(), "packages/ui/src/v4/ConversationTimeline.tsx"),
       "utf8",

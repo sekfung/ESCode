@@ -1,5 +1,5 @@
-import { NodePersonalProviderConfigRepository } from "@zcode/provider-node";
-import { manualModelConfigSchema } from "@zcode/provider";
+import { NodePersonalProviderConfigRepository } from "@escode/provider-node";
+import { manualModelConfigSchema } from "@escode/provider";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -8,7 +8,7 @@ import {
   TID_SETTINGS_SECTION_NAV,
   TID_TASK_SETTINGS_BUTTON,
   testId,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   clearAppData,
   clickTestIdByDom,

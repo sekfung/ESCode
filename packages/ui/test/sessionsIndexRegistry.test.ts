@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { Emitter } from "@zcode/rpc";
-import type { IServiceAccessor } from "@zcode/services";
+import { Emitter } from "@escode/rpc";
+import type { IServiceAccessor } from "@escode/services";
 import type {
   SessionSummary,
   SessionsIndexTopicFrame,
   SessionsIndexTopicWireFrame,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import {
   acquireSessionsIndex,
   buildSessionsIndexEntryKey,
@@ -409,7 +409,7 @@ describe("sessionsIndexRegistry", () => {
     const register = (agentService: SessionsIndexAgentService) =>
       registerRemoteWorkspaceSession({
         sessionId: scope.endpointKey,
-        services: { zcodeAgentService: agentService } as unknown as IServiceAccessor,
+        services: { escodeAgentService: agentService } as unknown as IServiceAccessor,
       });
     register(firstService);
     register(staleMiddleService);

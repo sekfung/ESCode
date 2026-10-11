@@ -1,11 +1,11 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { z } from "zod";
-import { prepareTasksIndexStorage } from "@zcode/services/storage-startup";
+import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
 import {
   classifyDatabaseStartupError,
   databaseStartupErrorDetails,
   databaseMigrationFactsSchema,
-} from "@zcode/shared";
+} from "@escode/shared";
 
 const data = z
   .object({ path: z.string().min(1) })

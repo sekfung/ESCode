@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import type { ZCodeAccountAccess, ZCodeProviderAccountAccess } from "@zcode/shared";
+import type { ESCodeAccountAccess, ESCodeProviderAccountAccess } from "@escode/shared";
 
-type StableAccountAccess = ZCodeProviderAccountAccess | ZCodeAccountAccess;
+type StableAccountAccess = ESCodeProviderAccountAccess | ESCodeAccountAccess;
 
 /** Schema 解析会为同一份 Account Access 生成新对象；hook 依赖必须按配置值稳定。 */
 export function useStableAccountAccess(

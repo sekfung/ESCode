@@ -6,22 +6,22 @@ import {
   ProviderConfigResolver,
   ProviderRegistry,
   ZhipuAccountAccessConfig,
-} from "@zcode/provider";
-import { NodeZCodeBuiltinProviderConfigSource } from "@zcode/provider-node";
+} from "@escode/provider";
+import { NodeESCodeBuiltinProviderConfigSource } from "@escode/provider-node";
 import { describe, expect, it } from "vitest";
 import { buildOffPeakModelSelectionView } from "../src/model-provider/offPeakModelSelectionView.js";
 
 describe("buildOffPeakModelSelectionView", () => {
   it("只投影 Registry 中固定的隐藏闲时 Provider", async () => {
-    const source = new NodeZCodeBuiltinProviderConfigSource({
-      bundledFilePath: join(process.cwd(), "config/provider/zcode-builtin.json"),
+    const source = new NodeESCodeBuiltinProviderConfigSource({
+      bundledFilePath: join(process.cwd(), "config/provider/escode-builtin.json"),
       watch: false,
     });
     try {
-      const zcodeBuiltin = await source.read();
+      const escodeBuiltin = await source.read();
       const resolution = new ProviderConfigResolver().resolve({
-        zcodeBuiltinProviders: zcodeBuiltin.providers,
-        zcodeBuiltinModelRules: zcodeBuiltin.models,
+        escodeBuiltinProviders: escodeBuiltin.providers,
+        escodeBuiltinModelRules: escodeBuiltin.models,
         accountProviders: new ProviderConfigMap([
           [
             "account:zai-offpeak-idle-plan",

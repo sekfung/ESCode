@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { IServiceAccessor } from "@zcode/services";
+import type { IServiceAccessor } from "@escode/services";
 import {
   closeTerminalSession,
   ensureWorkspaceTerminalState,
@@ -22,7 +22,7 @@ function createSession(
     id,
     workspaceKey,
     services,
-    cwd: "/repo/z-code",
+    cwd: "/repo/escode",
     index,
     shellLabel: null,
   };
@@ -45,8 +45,8 @@ function createState(
 
 describe("terminalPanelState", () => {
   it("keeps the first title unnumbered and adds suffixes from two", () => {
-    expect(formatTerminalTabTitle("z-code", 1)).toBe("z-code");
-    expect(formatTerminalTabTitle("z-code", 2)).toBe("z-code 2");
+    expect(formatTerminalTabTitle("escode", 1)).toBe("escode");
+    expect(formatTerminalTabTitle("escode", 2)).toBe("escode 2");
     expect(formatTerminalTabTitle("Terminal", 3)).toBe("Terminal 3");
   });
 
@@ -141,7 +141,7 @@ describe("terminalPanelState", () => {
     const recreated = ensureWorkspaceTerminalState(result.state, {
       workspaceKey: "workspace",
       services,
-      cwd: "/repo/z-code",
+      cwd: "/repo/escode",
     });
     const workspace = recreated.workspaces.workspace;
     expect(workspace?.sessionIds).toHaveLength(1);

@@ -1,4 +1,4 @@
-import { permissionRequestPayloadSchema } from "@zcode/shared/zcode-protocol-v4";
+import { permissionRequestPayloadSchema } from "@escode/shared/escode-protocol-v4";
 import { describe, expect, it } from "vitest";
 import {
   pendingUserInputToElicitationRequest,

@@ -1,6 +1,6 @@
 # Rust V4 命令缺口（2026-10-03 复查）
 
-把共享协议 `commandPayloadSchemas`（`packages/shared/src/zcode-protocol-v4/command.ts`）的全部命令类型与 Rust
+把共享协议 `commandPayloadSchemas`（`packages/shared/src/escode-protocol-v4/command.ts`）的全部命令类型与 Rust
 `crates/core` 的处理逐条比对，App 在用、Rust 完全没有处理的命令共 5 个——Rust 对未知命令一律
 `rejected / guard.capabilityUnsupported`，UI 动作直接失败。
 
@@ -20,8 +20,8 @@ Workspace hook 的四个命令（`requestWorkspaceHookReview` 等）经 `kind.co
 ## 工作流 run 的取消与恢复
 
 TS：`runtime.cancelBackgroundTask`（initiator = user，非 strict）与 `app.resumeWorkflowRun`（`port.resume` + 追踪重臂）。
-Rust 的 run 由工作流宿主（`__zcode-workflow-host`）执行，新增宿主方法 `run.cancel` / `run.resume`
-（`apps/zcode-cli/packages/cli/src/workflow-host-runs.ts`），Engine 侧 `workflow_run_commands.rs`。
+Rust 的 run 由工作流宿主（`__escode-workflow-host`）执行，新增宿主方法 `run.cancel` / `run.resume`
+（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`），Engine 侧 `workflow_run_commands.rs`。
 
 ```mermaid
 sequenceDiagram
@@ -44,7 +44,7 @@ sequenceDiagram
   `workflow run resume rejected: <reason>`；取消拒绝（未找到 / 已终态）：`failed /
   fault.command.backgroundWorkCancelRejected.<not_found|not_running>`，`message` 为
   `background work <id> was not cancelled: <reason>`——均与 Node 原文一致。
-- 验收：`zcode-cli-rust-workflow-run-commands.test.ts`（actor 挂住时 UI 取消 → 停止通知 → UI 恢复 → actor 重跑结算 →
+- 验收：`escode-cli-rust-workflow-run-commands.test.ts`（actor 挂住时 UI 取消 → 停止通知 → UI 恢复 → actor 重跑结算 →
   完成通知；未知 run 的恢复 / 取消、已完结 run 的取消，两侧 ACK 与通知逐字一致）。
 
 ## setAssistantFeedback
@@ -54,7 +54,7 @@ TS 以 transcript metadata 为持久权威、事件推进投影。Rust 的会话
 
 - CAS 命令：缺 `baseRevision` 报错；stale 在命令入口判定。
 - 目标行不存在 → `stale / proto.staleTarget`；不是 assistantText → `rejected / guard.actionUnavailable`；同值反馈仍 `accepted`。
-- 验收：`zcode-cli-rust-assistant-feedback.test.ts`（like / 重复 like / dislike / 清除 / userInput 行 / 不存在行 / 重启恢复，两侧逐字一致）。
+- 验收：`escode-cli-rust-assistant-feedback.test.ts`（like / 重复 like / dislike / 清除 / userInput 行 / 不存在行 / 重启恢复，两侧逐字一致）。
 
 ## createSelectionSideSession
 
@@ -78,7 +78,7 @@ sequenceDiagram
   的 `modelSelection`，缺省继承父会话。
 - 副屏内 `sendGoalCommand / pauseGoal / resumeGoal / editUserQuery / retryTurn / forkAssistant / discardSharedContext`
   → `failed / guard.selectionSideChatRestrictedCommand`。
-- 验收：`zcode-cli-rust-selection-side-session.test.ts`（ACK、子会话行、模型请求会话部分、sessionKind/标题、列表不可见、
+- 验收：`escode-cli-rust-selection-side-session.test.ts`（ACK、子会话行、模型请求会话部分、sessionKind/标题、列表不可见、
   受限命令、无首条输入的副屏，两侧逐字一致）。
 
 ### 已知差异
@@ -91,9 +91,9 @@ sequenceDiagram
 - **已改**：child 原先沿用父会话身份（`task_type = interactive`、id 无 `sess_` 前缀、标题与父会话相同），
   也没有 fork 边界产物。现按 TS `buildForkedSessionInput` + `buildAtomicForkNotice` 对齐：
   `sess_<uuid>` / `taskType = fork` / `Fork of {parent.title}` / `titleSource = generated`，
-  并追加 hidden model-only 提醒（`_zcode_source = "fork_notice"`）与被选轮末尾可见的
+  并追加 hidden model-only 提醒（`_escode_source = "fork_notice"`）与被选轮末尾可见的
   `timelineMarker`（`lane = turnTailBoundary`、`marker = {type:"forkNotice",…}`）。
-  逐字比较见 `zcode-cli-rust-fork-child.test.ts`。
+  逐字比较见 `escode-cli-rust-fork-child.test.ts`。
 - **验收已确认**：fork ACK、`session/list` 可见性与 `parentSessionId`、child 行、child 首次模型请求的
   会话部分（含 fork 提醒）与 Node 一致；`turnId` / `createdAtSeq` 两侧取值不同（Node 用新 turnId 且按父
   会话 seq 续号，Rust 复用被选行 turnId、child 自身从 1 起），差分测试对这两项归一。
@@ -113,7 +113,7 @@ sequenceDiagram
        （`source: "system"`），与其他改模式路径（`applyRuntimeExecutionState`）同样经事件流生效。
   - Rust 偏差：child 继承父会话**当前**模式。修复：回复边界 `history::State` 记录当时的 `mode` / `planEnabled`
     （旧边界缺席时回落父会话当前值），fork 用被选边界上的值（`history_commands.rs`）。
-  - 验收：`zcode-cli-rust-fork-child-mode.test.ts`（第一轮 yolo、第二轮 build 后 fork 第一轮：两侧 child 的
+  - 验收：`escode-cli-rust-fork-child-mode.test.ts`（第一轮 yolo、第二轮 build 后 fork 第一轮：两侧 child 的
     `session.mode` 与 `settings.permission.mode` 都是 yolo，父会话仍是 build）。
 - ~~shell 环境变更提醒~~：2026-10-08 已对齐，fork child 首个请求的提醒与位置两侧逐字一致，见 `rust-shell-resume-notice.md`。
 
@@ -129,11 +129,11 @@ sequenceDiagram
   Rust 的内部初值 `default`（`session_new.rs`）表示同一状态，读口用 `Session::titled` 还原成「不发送」。
   已有来源时两侧都发原值（首条输入后是 `first_input`，与 TS 的 stored 身份一致）。
 
-验收：`zcode-cli-rust-session-read-session.test.ts`（新会话与跑完一轮后的进程内 `session/read`，两侧
+验收：`escode-cli-rust-session-read-session.test.ts`（新会话与跑完一轮后的进程内 `session/read`，两侧
 `session` / `settings` 投影逐字段一致；用例同时自检 Node 侧确实带 `traceId`、显式 `target: null`、
 `model` 只有两个键、新会话无 `titleSource`）。
 
-**已补**：有 Goal 的会话现在也投影 `session.target`（TS `mapSessionGoal` + `zcodeSessionGoalSchema` strict）。
+**已补**：有 Goal 的会话现在也投影 `session.target`（TS `mapSessionGoal` + `escodeSessionGoalSchema` strict）。
 给 `Goal` 补了 `createdAt` / `updatedAt`（旧数据缺省 0，投影时退回会话时间），并把内部状态归一到协议词表：
 
 | 内部状态                            | 协议状态        |
@@ -143,7 +143,7 @@ sequenceDiagram
 | `paused`（预算耗尽 `exhausted()`）  | `budget_limited` |
 | `paused` / `failed`                 | `paused`        |
 
-验收：`zcode-cli-rust-goal-target.test.ts`（设 Goal 后 `session/read` 的 `session.target` 逐字段一致；
+验收：`escode-cli-rust-goal-target.test.ts`（设 Goal 后 `session/read` 的 `session.target` 逐字段一致；
 两侧同时自检 `createdAt` / `updatedAt` 是 number、`status` 在协议词表内）。
 
 ## startSavedWorkflow（2026-10-03）
@@ -159,7 +159,7 @@ sequenceDiagram
 | run 的后台追踪（注册表、终态 waiter、结算通知）                          | 工作流宿主（TS） |
 | 启动轮的标题 / 行（userInput、turnHeader）/ runtime history / ACK / 持久化 | Rust Engine      |
 
-宿主新增两个方法（`apps/zcode-cli/packages/cli/src/workflow-host-runs.ts`）：
+宿主新增两个方法（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`）：
 
 - `run.startSaved {session, cwd, name, scope?, args?}` → `{ok:true, runId, toolCallId, launchInputId,
   launchText, meta, titleInput}` 或 `{ok:false, reason, message?}`。**零会话副作用**：解析 / 校验 / 编译
@@ -196,7 +196,7 @@ sequenceDiagram
   compile_failed|session_busy|start_failed>`，`message` 用宿主诊断，缺席时 `saved workflow start rejected: <reason>`。
   `session_busy` 由 Rust 在调宿主前判定（TS `hasActiveOrQueuedTurnWork()`），不产生任何副作用。
 - 提交之后的失败（落行 / 重臂）只记 warn 不回滚：run 已在飞，可在侧板取消；ACK 仍按成功回。
-- 验收：`zcode-cli-rust-start-saved-workflow.test.ts`（成功启动的 ACK、启动轮两行、`session/read` 标题与状态、
+- 验收：`escode-cli-rust-start-saved-workflow.test.ts`（成功启动的 ACK、启动轮两行、`session/read` 标题与状态、
   下一次模型请求里的启动句、`invalid_name` / `not_found` / `invalid_args` / `session_busy` 四条拒绝的
   ACK 与零行副作用，两侧逐字一致）。
 
@@ -215,7 +215,7 @@ guard.capabilityUnsupported`），现在按 Node `app.amendWorkflowRunSettings` 
 | 设置轮的会话写入（userInput、controlOnly turnHeader、runtime history）                                          | Rust Engine      |
 | run 的后台追踪重臂（登记表、终态 waiter、结算通知）                                                            | 工作流宿主（TS） |
 
-宿主新增一个方法（`apps/zcode-cli/packages/cli/src/workflow-host-runs.ts`）：
+宿主新增一个方法（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`）：
 
 - `run.amendSettings {session, cwd, runId, subagentModel?, maxConcurrency?, models?}` →
   `{ok:true, runId, toolCallId, supersededRunId?, track, turn:{text, meta, titleInput}}` 或
@@ -270,6 +270,6 @@ Node 把设置轮排进运行时命令队列（priority `next`），与通知同
 - 拒绝 `start_failed` 的 `message`：宿主方法不存在时 Node 给 `dynamic workflow amend unavailable`，
   Rust 走宿主错误通道给 `fault.command.executionFailed`。宿主始终带该方法，属未接线的兜底面。
 
-验收：`zcode-cli-rust-amend-workflow-settings.test.ts`（修订出新 run 的 ACK / 设置轮 / 新 run 的通知顺序、
+验收：`escode-cli-rust-amend-workflow-settings.test.ts`（修订出新 run 的 ACK / 设置轮 / 新 run 的通知顺序、
 就地调并发、`unchanged`、`not_found`、`not_configurable`、`model_unavailable`、忙会话下的延迟落行，
 两侧 ACK 与行投影逐字一致）。

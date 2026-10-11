@@ -12,9 +12,9 @@ describe("codexConfigToml", () => {
           wire_api: "responses",
           requires_openai_auth: true,
           http_headers: {
-            "User-Agent": "ZCode/unknown",
+            "User-Agent": "ESCode/unknown",
             "HTTP-Referer": "https://zcode.z.ai",
-            "X-Title": "Z Code@electron",
+            "X-Title": "ESCode@electron",
           },
         },
       },
@@ -30,9 +30,9 @@ describe("codexConfigToml", () => {
       model_providers: {
         OpenAI: {
           http_headers: {
-            "User-Agent": "ZCode/unknown",
+            "User-Agent": "ESCode/unknown",
             "HTTP-Referer": "https://zcode.z.ai",
-            "X-Title": "Z Code@electron",
+            "X-Title": "ESCode@electron",
           },
         },
       },
@@ -50,7 +50,7 @@ describe("codexConfigToml", () => {
         "Provider Demo": {
           base_url: "https://example.com/v1",
           http_headers: {
-            "X-Title": "Z Code@electron",
+            "X-Title": "ESCode@electron",
           },
         },
       },
@@ -76,9 +76,9 @@ describe("codexConfigToml", () => {
             },
           },
           http_headers: {
-            "User-Agent": "ZCode/unknown",
+            "User-Agent": "ESCode/unknown",
             "HTTP-Referer": "https://zcode.z.ai",
-            "X-Title": "Z Code@electron",
+            "X-Title": "ESCode@electron",
           },
         },
       },
@@ -101,9 +101,9 @@ describe("codexConfigToml", () => {
 
     expect(parsed.model_providers?.custom?.query_params?.http_headers).toBeUndefined();
     expect(parsed.model_providers?.custom?.http_headers).toMatchObject({
-      "User-Agent": "ZCode/unknown",
+      "User-Agent": "ESCode/unknown",
       "HTTP-Referer": "https://zcode.z.ai",
-      "X-Title": "Z Code@electron",
+      "X-Title": "ESCode@electron",
     });
   });
 });

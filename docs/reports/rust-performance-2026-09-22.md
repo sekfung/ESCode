@@ -11,7 +11,7 @@
 | 空闲缓存   | 同时限制 8 个会话和 16 MiB 估计驻留内存，LRU 淘汰；单个超大空闲会话也会释放                             | 运行、订阅、队列、上传、子任务和后台状态继续 pin；16 MiB 不是进程 RSS 硬限制        |
 | 历史分页   | 从尾部逐行计数字节，去除全历史引用数组和反复编码缩小整页                                                | 200 行、900 KiB、beforeRowId、顺序、hasMore 与原路径一致                            |
 | 环境初始化 | 物理 cwd 的祖先没有 `.git` 时跳过 Git 子进程                                                            | 显式 Git 环境、worktree `.git` 文件、符号链接和不确定权限继续走 Git；取消仍回收进程 |
-| App 入口   | `pnpm dev:desktop:zcode-cli-rust` 默认构建/启动 release，`--debug` 显式选择调试构建，关闭 incremental   | 普通 App 入口继续选择 TS；本次没有自动重启用户 App                                  |
+| App 入口   | `pnpm dev:desktop:escode-cli-rust` 默认构建/启动 release，`--debug` 显式选择调试构建，关闭 incremental   | 普通 App 入口继续选择 TS；本次没有自动重启用户 App                                  |
 
 分阶段 profiler 的单次结果：非仓库环境 snapshot 从 123.105 ms 降到 3.082 ms；HTTP client 系统证书初始化从 157.539 ms 到 152.123 ms，保留系统信任与 TLS 行为。Skill、MCP definitions、profile 发现合计约数毫秒。首段回退的大头是非仓库也启动系统 Git，不是扩展发现本身。
 
@@ -45,7 +45,7 @@ WAL 占用受 checkpoint 和页面复用影响，不是累计物理写入字节�
 
 ## 大历史内存与分页：真实 App client/schema 各五次
 
-使用真实 Rust 子进程、现有 ZCodeProtocolClient 和 App runtime schemas。十二个会话各注入 4 MiB canonical 历史；启动只读 metadata，依次冷读取后测量，再保留一个订阅重复读取其他会话。数据库 fixture 由实际完成的会话派生；大 canonical 仅用于冷加载，不送入模型。OS 文件缓存保持自然状态，没有清空机器全局缓存。
+使用真实 Rust 子进程、现有 ESCodeProtocolClient 和 App runtime schemas。十二个会话各注入 4 MiB canonical 历史；启动只读 metadata，依次冷读取后测量，再保留一个订阅重复读取其他会话。数据库 fixture 由实际完成的会话派生；大 canonical 仅用于冷加载，不送入模型。OS 文件缓存保持自然状态，没有清空机器全局缓存。
 
 | 指标，中位数         | 修改前    | 修改后    | 变化     |
 | -------------------- | --------- | --------- | -------- |
@@ -72,9 +72,9 @@ RSS 是操作结束后的 `ps` 采样，采样最大值不代表分配瞬间的�
 ## 复现与证据
 
 ```sh
-CARGO_INCREMENTAL=0 cargo build --release --locked --manifest-path apps/zcode-cli-rust/Cargo.toml --bin zcode-cli-rust
-node scripts/bench-zcode-cli-rust-suite.mjs .zcode-runtime/rust-perf-20260922/baseline apps/zcode-cli-rust/target/release/zcode-cli-rust .zcode-runtime/rust-perf-20260922/final 256000 256000
-TSX_TSCONFIG_PATH=packages/services/tests/tsconfig.zcode-cli-rust.json node --import tsx scripts/bench-zcode-cli-rust-session-memory.mjs .zcode-runtime/rust-perf-20260922/baseline apps/zcode-cli-rust/target/release/zcode-cli-rust .zcode-runtime/rust-perf-20260922/memory
+CARGO_INCREMENTAL=0 cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+node scripts/bench-escode-cli-rust-suite.mjs .escode-runtime/rust-perf-20260922/baseline apps/escode-cli-rust/target/release/escode-cli-rust .escode-runtime/rust-perf-20260922/final 256000 256000
+TSX_TSCONFIG_PATH=packages/services/tests/tsconfig.escode-cli-rust.json node --import tsx scripts/bench-escode-cli-rust-session-memory.mjs .escode-runtime/rust-perf-20260922/baseline apps/escode-cli-rust/target/release/escode-cli-rust .escode-runtime/rust-perf-20260922/memory
 ```
 
 二进制 SHA-256：
@@ -82,4 +82,4 @@ TSX_TSCONFIG_PATH=packages/services/tests/tsconfig.zcode-cli-rust.json node --im
 - baseline：`d12c97f1455b773da0290a0c9384cc6c7503e7ed0ae80546ffd850fe410f9506`
 - candidate：`baa5b9d407b40bd29b321b43c527091b3b15f049cf170b1025dff19e15c57c36`
 
-原始样本在 `.zcode-runtime/rust-perf-20260922/final/`、`memory/`；首次固定负载测量保留于 `results/`。阶段 profile、清理清单和验证日志也在该目录。规范见 [性能 spec](../specs/rust-runtime-performance.md)，残余功能见 [剩余清单](../specs/rust-parity-remaining.md)。
+原始样本在 `.escode-runtime/rust-perf-20260922/final/`、`memory/`；首次固定负载测量保留于 `results/`。阶段 profile、清理清单和验证日志也在该目录。规范见 [性能 spec](../specs/rust-runtime-performance.md)，残余功能见 [剩余清单](../specs/rust-parity-remaining.md)。

@@ -1,11 +1,11 @@
 import {
   SERIAL_TOOL_OPS,
-  zcodeSerialCancelMethod,
-  zcodeSerialCancelParamsSchema,
-  zcodeSerialMethodParamsSchemas,
-  zcodeSerialMethods,
+  escodeSerialCancelMethod,
+  escodeSerialCancelParamsSchema,
+  escodeSerialMethodParamsSchemas,
+  escodeSerialMethods,
   type SerialToolOp,
-} from "@zcode/shared/serial";
+} from "@escode/shared/serial";
 import { SerialError } from "./serial.js";
 import type { SerialAgentBridge } from "./serialAgentBridge.js";
 
@@ -23,7 +23,7 @@ interface Responder {
 }
 
 const OP_BY_METHOD = new Map<string, SerialToolOp>(
-  SERIAL_TOOL_OPS.map((op) => [zcodeSerialMethods[op], op]),
+  SERIAL_TOOL_OPS.map((op) => [escodeSerialMethods[op], op]),
 );
 
 function toToolError(error: unknown) {
@@ -53,8 +53,8 @@ export function routeSerialAgentRequest(options: {
     });
   };
 
-  if (request.method === zcodeSerialCancelMethod) {
-    const parsed = zcodeSerialCancelParamsSchema.safeParse(request.params);
+  if (request.method === escodeSerialCancelMethod) {
+    const parsed = escodeSerialCancelParamsSchema.safeParse(request.params);
     if (!parsed.success) {
       reply(
         responder.respondError(request.id, {
@@ -72,7 +72,7 @@ export function routeSerialAgentRequest(options: {
 
   const op = OP_BY_METHOD.get(request.method);
   if (!op) return false;
-  const parsed = zcodeSerialMethodParamsSchemas[op].safeParse(request.params);
+  const parsed = escodeSerialMethodParamsSchemas[op].safeParse(request.params);
   if (!parsed.success) {
     reply(
       responder.respondError(request.id, {

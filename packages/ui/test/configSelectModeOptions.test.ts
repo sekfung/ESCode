@@ -101,7 +101,7 @@ import {
   isHighPermissionModeValue,
   resolveModeOptionIcon,
 } from "@/chat-input-toolbar/display.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 beforeEach(() => {
   mockSelectContentProps.length = 0;
@@ -113,7 +113,7 @@ function renderConfigSelect(
 ) {
   return renderToStaticMarkup(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(ConfigSelect, props),
     ),

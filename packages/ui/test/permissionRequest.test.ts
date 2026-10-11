@@ -1,4 +1,4 @@
-import type { ZCodePermissionRequest } from "@zcode/shared";
+import type { ESCodePermissionRequest } from "@escode/shared";
 import { describe, expect, it } from "vitest";
 import {
   getPermissionOptionDisplayKind,
@@ -7,8 +7,8 @@ import {
 } from "../src/lib/permissionRequest.js";
 
 function createPermissionRequest(
-  overrides: Partial<Pick<ZCodePermissionRequest, "title" | "description" | "kind" | "raw">> = {},
-): Pick<ZCodePermissionRequest, "title" | "description" | "kind" | "raw"> {
+  overrides: Partial<Pick<ESCodePermissionRequest, "title" | "description" | "kind" | "raw">> = {},
+): Pick<ESCodePermissionRequest, "title" | "description" | "kind" | "raw"> {
   return {
     title: "Run a shell command",
     description: "Run a shell command",
@@ -19,8 +19,8 @@ function createPermissionRequest(
         args: ["packages/ui/src/SlashCommandPlugin.tsx"],
       },
       locations: [
-        { path: "/Users/dev/workspace/z-code/packages/ui/src/SlashCommandPlugin.tsx" },
-        { path: "/Users/dev/workspace/z-code/packages/ui/src/ChatView.tsx" },
+        { path: "/Users/dev/workspace/escode/packages/ui/src/SlashCommandPlugin.tsx" },
+        { path: "/Users/dev/workspace/escode/packages/ui/src/ChatView.tsx" },
       ],
     },
     ...overrides,
@@ -64,7 +64,7 @@ describe("permissionRequest helpers", () => {
     ]);
   });
 
-  it("maps ZCode Agent option kinds to stable display kinds", () => {
+  it("maps ESCode Agent option kinds to stable display kinds", () => {
     expect(getPermissionOptionDisplayKind("allow_once")).toBe("allowOnce");
     expect(getPermissionOptionDisplayKind("allow_always")).toBe("allowAlways");
     expect(getPermissionOptionDisplayKind("reject_once")).toBe("rejectOnce");
@@ -72,14 +72,14 @@ describe("permissionRequest helpers", () => {
     expect(getPermissionOptionDisplayKind("ask_user")).toBe("custom");
   });
 
-  it("extracts commands and affected files from the raw ZCode Agent payload", () => {
+  it("extracts commands and affected files from the raw ESCode Agent payload", () => {
     const preview = getPermissionRequestPreview(createPermissionRequest());
 
     expect(preview.title).toBe("Run a shell command");
     expect(preview.command).toBe("git restore --staged packages/ui/src/SlashCommandPlugin.tsx");
     expect(preview.filePaths).toEqual([
-      "/Users/dev/workspace/z-code/packages/ui/src/SlashCommandPlugin.tsx",
-      "/Users/dev/workspace/z-code/packages/ui/src/ChatView.tsx",
+      "/Users/dev/workspace/escode/packages/ui/src/SlashCommandPlugin.tsx",
+      "/Users/dev/workspace/escode/packages/ui/src/ChatView.tsx",
     ]);
     expect(preview.scope).toBe("command");
   });
@@ -91,10 +91,10 @@ describe("permissionRequest helpers", () => {
         description: "Read files",
         raw: {
           rawInput: {
-            cwd: "/Users/dev/workspace/z-code",
+            cwd: "/Users/dev/workspace/escode",
             files: [
-              "/Users/dev/workspace/z-code/packages/ui/src/App.tsx",
-              "/Users/dev/workspace/z-code/packages/ui/src/App.tsx",
+              "/Users/dev/workspace/escode/packages/ui/src/App.tsx",
+              "/Users/dev/workspace/escode/packages/ui/src/App.tsx",
             ],
           },
         },
@@ -103,12 +103,12 @@ describe("permissionRequest helpers", () => {
 
     expect(preview.command).toBeNull();
     expect(preview.filePaths).toEqual([
-      "/Users/dev/workspace/z-code/packages/ui/src/App.tsx",
+      "/Users/dev/workspace/escode/packages/ui/src/App.tsx",
     ]);
     expect(preview.scope).toBe("file");
   });
 
-  it("extracts file scope from ZCode protocol input payloads", () => {
+  it("extracts file scope from ESCode protocol input payloads", () => {
     const preview = getPermissionRequestPreview(
       createPermissionRequest({
         title: "Write",
@@ -117,7 +117,7 @@ describe("permissionRequest helpers", () => {
         raw: {
           toolName: "Write",
           input: {
-            file_path: "/Users/dev/workspace/z-code/packages/ui/src/App.tsx",
+            file_path: "/Users/dev/workspace/escode/packages/ui/src/App.tsx",
             content: "export const value = 1;\n",
           },
         },
@@ -126,7 +126,7 @@ describe("permissionRequest helpers", () => {
 
     expect(preview.command).toBeNull();
     expect(preview.filePaths).toEqual([
-      "/Users/dev/workspace/z-code/packages/ui/src/App.tsx",
+      "/Users/dev/workspace/escode/packages/ui/src/App.tsx",
     ]);
     expect(preview.scope).toBe("file");
   });
@@ -138,7 +138,7 @@ describe("permissionRequest helpers", () => {
         description: "Apply patch",
         raw: {
           changes: {
-            "/Users/dev/workspace/z-code/README.md": {
+            "/Users/dev/workspace/escode/README.md": {
               type: "add",
               content: "\n",
             },
@@ -148,12 +148,12 @@ describe("permissionRequest helpers", () => {
     );
 
     expect(preview.fileChange).toEqual({
-      path: "/Users/dev/workspace/z-code/README.md",
+      path: "/Users/dev/workspace/escode/README.md",
       type: "add",
     });
     expect(preview.fileChanges).toEqual([
       {
-        path: "/Users/dev/workspace/z-code/README.md",
+        path: "/Users/dev/workspace/escode/README.md",
         type: "add",
       },
     ]);
@@ -166,15 +166,15 @@ describe("permissionRequest helpers", () => {
         description: "Apply patch",
         raw: {
           changes: {
-            "/Users/dev/workspace/z-code/index.html": {
+            "/Users/dev/workspace/escode/index.html": {
               type: "update",
               content: "<html></html>",
             },
-            "/Users/dev/workspace/z-code/styles.css": {
+            "/Users/dev/workspace/escode/styles.css": {
               type: "update",
               content: "body {}",
             },
-            "/Users/dev/workspace/z-code/script.js": {
+            "/Users/dev/workspace/escode/script.js": {
               type: "update",
               content: "console.log('ok')",
             },
@@ -186,15 +186,15 @@ describe("permissionRequest helpers", () => {
     expect(preview.fileChange).toBeNull();
     expect(preview.fileChanges).toEqual([
       {
-        path: "/Users/dev/workspace/z-code/index.html",
+        path: "/Users/dev/workspace/escode/index.html",
         type: "update",
       },
       {
-        path: "/Users/dev/workspace/z-code/styles.css",
+        path: "/Users/dev/workspace/escode/styles.css",
         type: "update",
       },
       {
-        path: "/Users/dev/workspace/z-code/script.js",
+        path: "/Users/dev/workspace/escode/script.js",
         type: "update",
       },
     ]);

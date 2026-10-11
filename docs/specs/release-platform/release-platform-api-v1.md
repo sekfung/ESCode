@@ -1,13 +1,13 @@
-# ZCode 打包平台 API 与契约 v1
+# ESCode 打包平台 API 与契约 v1
 
 - 状态：Proposed
 - 版本：`release-platform.v1`
 - 日期：2026-08-18
-- 适用范围：z-code 构建 worker、打包平台 control plane、审批 UI、发布服务
+- 适用范围：escode 构建 worker、打包平台 control plane、审批 UI、发布服务
 
 ## 1. 目标与非目标
 
-目标是把 z-code 变成可替换的构建 worker，并让打包平台成为 release candidate 的唯一状态源。
+目标是把 escode 变成可替换的构建 worker，并让打包平台成为 release candidate 的唯一状态源。
 
 本契约不规定平台使用 PostgreSQL、队列、对象存储或具体 Web 框架；只规定跨系统可观察和可重试的边界。
 
@@ -111,7 +111,7 @@ Content-Type: application/json
 ```json
 {
   "source": {
-    "repository": "z-code",
+    "repository": "escode",
     "commit": "40-to-64-char-git-sha",
     "version": "3.8.0",
     "ref": "refs/tags/v3.8.0"
@@ -286,7 +286,7 @@ POST /v1/release-candidates/{candidateId}/retry
 ```json
 {
   "specversion": "1.0",
-  "type": "zcode.release.candidate.state_changed.v1",
+  "type": "escode.release.candidate.state_changed.v1",
   "id": "evt_01J...",
   "source": "packaging-platform",
   "subject": "cand_01J...",
@@ -302,10 +302,10 @@ POST /v1/release-candidates/{candidateId}/retry
 
 最低事件类型：
 
-- `zcode.release.candidate.created.v1`
-- `zcode.release.build.state_changed.v1`
-- `zcode.release.notes.approval_changed.v1`
-- `zcode.release.publication.state_changed.v1`
+- `escode.release.candidate.created.v1`
+- `escode.release.build.state_changed.v1`
+- `escode.release.notes.approval_changed.v1`
+- `escode.release.publication.state_changed.v1`
 
 事件消费者必须按 `id` 去重，并以查询 API 为最终事实来源。
 
@@ -321,9 +321,9 @@ POST /v1/release-candidates/{candidateId}/retry
 
 1. 先让现有 GitLab worker 生成 v1 manifest，并把共享目录上传为候选对象。
 2. 引入 platform adapter：`create candidate -> build complete -> notes submit -> publish`。
-3. 平台接管审批和最终 YAML 生成；z-code 的 `release:approve` 只保留兼容路径。
+3. 平台接管审批和最终 YAML 生成；escode 的 `release:approve` 只保留兼容路径。
 4. 平台接管 OSS/CDN/release API 凭据和 gray/stable 状态。
-5. 删除 z-code 内部的正式发布脚本，仅保留本地 manifest/YAML 校验工具。
+5. 删除 escode 内部的正式发布脚本，仅保留本地 manifest/YAML 校验工具。
 
 ## 9. 契约验收用例
 

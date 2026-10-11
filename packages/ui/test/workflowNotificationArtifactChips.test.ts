@@ -10,17 +10,17 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TID_CHAT_WORKFLOW_ARTIFACT_CHIP } from "@zcode/shared";
-import type { IPlatformService } from "@zcode/shared";
-import type { AssistantTextRow, TurnHeaderRow } from "@zcode/shared/zcode-protocol-v4";
-import type { WorkflowNotificationMeta } from "@zcode/shared/zcode-protocol-v4";
+import { TID_CHAT_WORKFLOW_ARTIFACT_CHIP } from "@escode/shared";
+import type { IPlatformService } from "@escode/shared";
+import type { AssistantTextRow, TurnHeaderRow } from "@escode/shared/escode-protocol-v4";
+import type { WorkflowNotificationMeta } from "@escode/shared/escode-protocol-v4";
 
 vi.mock("@/hooks/useWorkspaceServices.js", () => ({
   useWorkspaceServices: () => ({}),
 }));
 
 // eslint-disable-next-line import/first -- 必须在 mock 之后再引入被测组件。
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 // eslint-disable-next-line import/first
 import { TooltipProvider } from "@/components/ui/tooltip.js";
 // eslint-disable-next-line import/first
@@ -58,7 +58,7 @@ function renderRow(notification: WorkflowNotificationMeta, options: { openable?:
   rowSeq += 1;
   return render(
     createElement(
-      ZCodeIntlProvider,
+      ESCodeIntlProvider,
       { initialLocale: "zh-CN" },
       createElement(
         TooltipProvider,
@@ -231,7 +231,7 @@ describe("ConversationTurnGroup 把通知行的 chip 变成打开请求", () => 
   ) {
     return render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(
           PlatformProvider,

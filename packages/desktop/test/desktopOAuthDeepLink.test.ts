@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PlatformChannels } from "@zcode/shared";
+import { PlatformChannels } from "@escode/shared";
 
 const electronMocks = vi.hoisted(() => ({
   appShow: vi.fn(),
@@ -70,7 +70,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
     const enCopy = resolveExternalWorkspaceOpenDialogCopy("en-US");
 
     expect(zhCopy.buttons).toEqual(["打开文件夹", "取消"]);
-    expect(zhCopy.title).toBe("打开外部 ZCode 链接？");
+    expect(zhCopy.title).toBe("打开外部 ESCode 链接？");
     expect(zhCopy.detail("/tmp/project")).toContain("只打开你信任来源的文件夹");
     expect(enCopy.buttons).toEqual(["Open folder", "Cancel"]);
   });
@@ -172,7 +172,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
       targetWindow,
       expect.objectContaining({
         buttons: ["打开文件夹", "取消"],
-        title: "打开外部 ZCode 链接？",
+        title: "打开外部 ESCode 链接？",
       }),
     );
     expect(targetWindow.webContents.send).toHaveBeenCalledWith(
@@ -196,7 +196,7 @@ describe("desktopOAuthDeepLink workspace open routing", () => {
     expect(electronMocks.showMessageBoxSync).toHaveBeenCalledWith(
       expect.objectContaining({
         buttons: ["Open folder", "Cancel"],
-        title: "Open external ZCode link?",
+        title: "Open external ESCode link?",
       }),
     );
     expect(logger.warn).toHaveBeenCalledWith(
@@ -344,27 +344,27 @@ describe("desktopOAuthDeepLink OAuth routing", () => {
       registerOAuthState(31, { state: "state-001", provider: "bigmodel" });
 
       expect(
-        handleDeepLink("zcode://oauth/callback?state=state-001&utm_source=google", logger),
+        handleDeepLink("escode://oauth/callback?state=state-001&utm_source=google", logger),
       ).toBe(true);
       expect(targetWindow.webContents.send).toHaveBeenCalledWith(
         PlatformChannels.OAuthCallback,
-        "zcode://oauth/callback?state=state-001&utm_source=google",
+        "escode://oauth/callback?state=state-001&utm_source=google",
       );
 
       targetWindow.webContents.send.mockClear();
 
       expect(
-        handleDeepLink("zcode://oauth/callback?authCode=auth-001&state=state-001", logger),
+        handleDeepLink("escode://oauth/callback?authCode=auth-001&state=state-001", logger),
       ).toBe(true);
       expect(targetWindow.webContents.send).toHaveBeenCalledWith(
         PlatformChannels.OAuthCallback,
-        "zcode://oauth/callback?authCode=auth-001&state=state-001",
+        "escode://oauth/callback?authCode=auth-001&state=state-001",
       );
 
       targetWindow.webContents.send.mockClear();
 
       expect(
-        handleDeepLink("zcode://oauth/callback?authCode=auth-002&state=state-001", logger),
+        handleDeepLink("escode://oauth/callback?authCode=auth-002&state=state-001", logger),
       ).toBe(false);
       expect(targetWindow.webContents.send).not.toHaveBeenCalled();
       expect(logger.warn).toHaveBeenLastCalledWith(
@@ -381,7 +381,7 @@ describe("desktopOAuthDeepLink OAuth routing", () => {
 });
 
 function createTempWorkspace(): string {
-  const dir = mkdtempSync(join(tmpdir(), "zcode-workspace-open-"));
+  const dir = mkdtempSync(join(tmpdir(), "escode-workspace-open-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -401,11 +401,11 @@ function createMockWindow(webContentsId: number) {
 }
 
 function buildWorkspaceOpenUrl(workspacePath: string): string {
-  return `zcode://workspace/open?path=${encodeURIComponent(workspacePath)}`;
+  return `escode://workspace/open?path=${encodeURIComponent(workspacePath)}`;
 }
 
 function buildShareImportUrl(shareCode: string): string {
-  return `zcode://share/import?code=${encodeURIComponent(shareCode)}`;
+  return `escode://share/import?code=${encodeURIComponent(shareCode)}`;
 }
 
 describe("desktopOAuthDeepLink share import routing", () => {

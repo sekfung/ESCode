@@ -60,7 +60,7 @@ vi.mock("@/components/ui/dropdown-menu.js", () => ({
 }));
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({
+  useESCodeIntl: () => ({
     intl: {
       formatMessage: ({ id }: { id: string }) => {
         const messages: Record<string, string> = {
@@ -318,8 +318,8 @@ describe("RemoteSyncActions", () => {
     capturedSkillDialogProps.length = 0;
     capturedMcpDialogProps.length = 0;
     capturedPluginDialogProps.length = 0;
-    const localZCodeAgentService = {};
-    const remoteZCodeAgentService = {};
+    const localESCodeAgentService = {};
+    const remoteESCodeAgentService = {};
 
     renderToStaticMarkup(
       createElement(RemoteSyncDialogs, {
@@ -338,8 +338,8 @@ describe("RemoteSyncActions", () => {
         remoteMcpSyncService: {} as never,
         localPluginSyncService: {} as never,
         remotePluginSyncService: {} as never,
-        localZCodeAgentService: localZCodeAgentService as never,
-        remoteZCodeAgentService: remoteZCodeAgentService as never,
+        localESCodeAgentService: localESCodeAgentService as never,
+        remoteESCodeAgentService: remoteESCodeAgentService as never,
         remoteTarget: {
           kind: "ssh",
           host: "localhost",
@@ -365,8 +365,8 @@ describe("RemoteSyncActions", () => {
     expect(capturedMcpDialogProps[0]?.workspacePath).toBe("/root/folder1");
     expect(capturedPluginDialogProps[0]?.workspacePath).toBe("/root/folder1");
     expect(capturedPluginDialogProps[0]?.localWorkspacePath).toBe("/Users/me/folder1");
-    expect(capturedPluginDialogProps[0]?.localZCodeAgentService).toBe(localZCodeAgentService);
-    expect(capturedPluginDialogProps[0]?.remoteZCodeAgentService).toBe(remoteZCodeAgentService);
+    expect(capturedPluginDialogProps[0]?.localESCodeAgentService).toBe(localESCodeAgentService);
+    expect(capturedPluginDialogProps[0]?.remoteESCodeAgentService).toBe(remoteESCodeAgentService);
     expect(capturedMcpDialogProps[0]?.localWorkspacePath).toBe("/Users/me/folder1");
     expect(capturedSkillDialogProps[0]?.workspaceIdentity).toBe(
       "remote:ssh:localhost:2223:root:/root/folder1",

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { AddMarketplaceSourceDialog } from "@/settings/AddMarketplaceSourceDialog.js";
 import {
   PluginStoreSourceRefreshFailure,
@@ -43,7 +43,7 @@ describe("PluginStoreSourcesDialog", () => {
   it("shows the persisted marketplace refresh failure beside its source", () => {
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(PluginStoreSourceRefreshFailure, {
           failure: {
@@ -68,7 +68,7 @@ describe("PluginStoreSourcesDialog", () => {
     };
     render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(PluginStoreSourcesDialog, {
           open: true,
@@ -82,8 +82,8 @@ describe("PluginStoreSourcesDialog", () => {
               refreshFailure: failure,
             },
             {
-              id: "zcode-labs",
-              name: "zcode-labs",
+              id: "escode-labs",
+              name: "escode-labs",
               source: {},
               pluginCount: 0,
               refreshFailure: failure,
@@ -102,13 +102,13 @@ describe("PluginStoreSourcesDialog", () => {
       failures[0]!
         .closest("[data-testid='plugin-store-source-row']")
         ?.getAttribute("data-marketplace-id"),
-    ).toBe("zcode-labs");
+    ).toBe("escode-labs");
   });
 
   it("renders an add failure inside the add marketplace dialog", () => {
     render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(AddMarketplaceSourceDialog, {
           open: true,
@@ -129,7 +129,7 @@ describe("PluginStoreSourcesDialog", () => {
   it("renders official sources first and custom sources by lastUpdated", () => {
     render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(PluginStoreSourcesDialog, {
           open: true,
@@ -142,8 +142,8 @@ describe("PluginStoreSourcesDialog", () => {
               pluginCount: 0,
             },
             {
-              id: "zcode-plugins-test",
-              name: "zcode-plugins-test",
+              id: "escode-plugins-test",
+              name: "escode-plugins-test",
               source: {},
               pluginCount: 0,
               lastUpdated: "2026-08-20T12:00:00Z",
@@ -163,8 +163,8 @@ describe("PluginStoreSourcesDialog", () => {
               lastUpdated: "2026-08-20T23:00:00Z",
             },
             {
-              id: "zcode-labs",
-              name: "zcode-labs",
+              id: "escode-labs",
+              name: "escode-labs",
               source: {},
               pluginCount: 0,
               lastUpdated: "2026-08-20T12:00:00Z",
@@ -184,8 +184,8 @@ describe("PluginStoreSourcesDialog", () => {
     ).toEqual([
       "zcode-plugins-official",
       "claude-plugins-official",
-      "zcode-labs",
-      "zcode-plugins-test",
+      "escode-labs",
+      "escode-plugins-test",
       "never-refreshed",
     ]);
   });

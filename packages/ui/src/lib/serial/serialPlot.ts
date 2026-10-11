@@ -1,4 +1,4 @@
-import type { SerialChunk } from "@zcode/services";
+import type { SerialChunk } from "@escode/services";
 import {
   createSerialStreamDecoder,
   type SerialDisplayEncoding,

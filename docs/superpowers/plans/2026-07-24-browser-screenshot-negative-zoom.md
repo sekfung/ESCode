@@ -617,8 +617,8 @@ logical `1280 × 720` viewport with `dontSetVisibleSize: true`.
 Temporarily execute the baseline branch before applying capture scale:
 
 ```powershell
-$env:ZCODE_SCREENSHOT_SMOKE_SCALE_FACTOR='1.25'
-pnpm --filter @zcode/desktop test:browser-screenshot-surface-smoke
+$env:ESCODE_SCREENSHOT_SMOKE_SCALE_FACTOR='1.25'
+pnpm --filter @escode/desktop test:browser-screenshot-surface-smoke
 ```
 
 Expected: non-zero exit with `stale tiled surface detected` or a corner sentinel mismatch.
@@ -649,9 +649,9 @@ Capture, validate, and restore the normal metrics override in `finally`.
 Run:
 
 ```powershell
-$env:ZCODE_SCREENSHOT_SMOKE_SCALE_FACTOR='1.25'
-pnpm --filter @zcode/desktop test:browser-screenshot-surface-smoke
-Remove-Item Env:ZCODE_SCREENSHOT_SMOKE_SCALE_FACTOR
+$env:ESCODE_SCREENSHOT_SMOKE_SCALE_FACTOR='1.25'
+pnpm --filter @escode/desktop test:browser-screenshot-surface-smoke
+Remove-Item Env:ESCODE_SCREENSHOT_SMOKE_SCALE_FACTOR
 ```
 
 Expected stdout:
@@ -705,7 +705,7 @@ Expected: both exit `0`.
 - [ ] **Step 3: Restart the dev desktop**
 
 Stop only the dev processes launched from
-`C:\Users\dev\z-code\.worktrees\fix-browser-screenshot-negative-zoom`, verify their resolved
+`C:\Users\dev\escode\.worktrees\fix-browser-screenshot-negative-zoom`, verify their resolved
 paths, and restart the existing dev command with hidden helper windows. Confirm the Electron main
 process is alive and CDP port `9229` responds.
 

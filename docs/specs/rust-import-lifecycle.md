@@ -64,20 +64,20 @@ sequenceDiagram
 变成硬失败（`source remains unchanged`），真实用户因此完全无法迁移；TS 对同类输入只产出文本占位。
 只读文件的解析改为惰性（`resolve()`），占位分支不再读取大附件字节。
 
-验证：`zcode-cli-rust-migration-scale.test.ts` 导入 120 会话（含 1.5 MiB 未支持 MIME 附件）约 0.9s 完成，
+验证：`escode-cli-rust-migration-scale.test.ts` 导入 120 会话（含 1.5 MiB 未支持 MIME 附件）约 0.9s 完成，
 且 1 个会话的占位文本出现在 provider 请求中；导入幂等（`rust_legacy_import` 仅 1 行，二次启动行数不变）。
 
 ## 真实 runtime 产出的数据（2026-09-24）
 
-`zcode-cli-rust-migration-live.test.ts`：先用 **Node runtime** 在 fixture 环境里真实跑一轮
-（`node zcode.cjs app-server --stdio`，registry 模式指向本地 provider），写出会话、用户输入、
+`escode-cli-rust-migration-live.test.ts`：先用 **Node runtime** 在 fixture 环境里真实跑一轮
+（`node escode.cjs app-server --stdio`，registry 模式指向本地 provider），写出会话、用户输入、
 Write 工具调用与助手回复；再用 Rust runtime 导入同一目录，逐行核对 turnHeader / userInput /
 toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方持有生命周期，不被清理）、
 `command`/`args`（可指向 Node CLI，忽略 Rust 专属参数）与幂等的 workspace 创建。
 
 ## 已修复：并发写入下的导入 BUSY（2026-09-24）
 
-`zcode-cli-rust-migration.test.ts` 的「TS migration preserves workspace identity…」用例偶发失败，
+`escode-cli-rust-migration.test.ts` 的「TS migration preserves workspace identity…」用例偶发失败，
 报 `TS history import failed; source remains unchanged: database is locked: Error code 5`：
 
 - 单独运行（`--test-name-pattern`）稳定通过；整文件运行时约 1/3–4/5 概率失败，与机器负载相关。
@@ -95,7 +95,7 @@ toolCall(Write) / assistantText 都在。fixture 为此新增 `root`（调用方
 
 ## 真实数据演练发现：model_change 时间线字段（2026-09-25）
 
-用户授权的真实数据只读演练（`~/.zcode/cli/db` 备份副本导入临时目录）发现：TS 自 migration 0020 起把
+用户授权的真实数据只读演练（`~/.escode/cli/db` 备份副本导入临时目录）发现：TS 自 migration 0020 起把
 model_change 的真实选择写在 `toModelSelection` / `fromModelSelection`，`toModel` 只保留给旧 Reader 的
 兼容对象（`providerID`/`modelID`/`variant`）。Rust 导入读的是 `toModel.providerId`，得到 null，
 产出的 `timelineMarker` 不满足任何 `modelChange` 变体，App schema 拒绝整页 rows。
@@ -111,15 +111,15 @@ model_change 的真实选择写在 `toModelSelection` / `fromModelSelection`，`
 
 | 问题                     | Node（oracle）                                                                                                                                             | Rust 原行为                                                              | 修复                                                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| conversation_rewind 分支 | 活跃分支 = `keptMessageIDs` + `branchCutAfterMessageID` 之后追加的消息（`@zcode/contracts` `selectActiveConversationBranch`）；无 `targetMessageID` 不过滤 | 按旧式 `messageID`/`partID` 截断；`messageID` 指向首条消息时整段历史丢失 | `domain/rewind_branch.rs` 逐行移植，750 条 TS 语料校验（`--check`）                     |
+| conversation_rewind 分支 | 活跃分支 = `keptMessageIDs` + `branchCutAfterMessageID` 之后追加的消息（`@escode/contracts` `selectActiveConversationBranch`）；无 `targetMessageID` 不过滤 | 按旧式 `messageID`/`partID` 截断；`messageID` 指向首条消息时整段历史丢失 | `domain/rewind_branch.rs` 逐行移植，750 条 TS 语料校验（`--check`）                     |
 | 空文本推理               | `reasoning` part 文本为空时不成行（部分供应商只在 metadata 保存加密推理）                                                                                  | 产生空 `reasoning` 行                                                    | 空文本的 text/reasoning part 不成行；模型上下文不受影响                                 |
 | model_change 标记        | 无来源的 ∅→X 边界总是落；有来源时首轮之前不落（silentInitial），之后仅在模型身份改变时落                                                                   | 每个 part 都落                                                           | 按 Node 规则；首轮之前的标记归属随后的第一轮（否则 `productTurnId` 为空被 schema 拒绝） |
 | 无思考深度的会话         | 省略 `modelSelection.options`                                                                                                                              | `reasoningLevel: ""`，App schema 拒绝整份快照                            | 为空时省略 options，`thoughtLevels` 取空表                                              |
 
-回归：`zcode-cli-rust-migration-shapes.test.ts` 用真实 TS store 写出上述形态（不依赖用户数据），Node 与 Rust 打开结果逐行一致。
+回归：`escode-cli-rust-migration-shapes.test.ts` 用真实 TS store 写出上述形态（不依赖用户数据），Node 与 Rust 打开结果逐行一致。
 
 ### 演练工具与结果
 
-`zcode-cli-rust-real-data-rehearsal.test.ts`：默认跳过；`ZCODE_REHEARSAL_DB=<db.sqlite>` 时以 SQLite backup 取副本、复制附件目录，Node 与 Rust 各开一份，逐会话比较行种类计数、附件数、todo 数，只输出计数；并断言原库与副本哈希不变。
+`escode-cli-rust-real-data-rehearsal.test.ts`：默认跳过；`ESCODE_REHEARSAL_DB=<db.sqlite>` 时以 SQLite backup 取副本、复制附件目录，Node 与 Rust 各开一份，逐会话比较行种类计数、附件数、todo 数，只输出计数；并断言原库与副本哈希不变。
 
 本机实测（Windows，GNU 目标，用户授权）：3 个会话（3 个 workspace，43 条消息、126 个 part，含 2 个 conversation_rewind、6 个附件、6 个 todo、0 条工作流数据）全部一致；原库哈希前后不变。样本小，只能证明上述形态；其他机器与更大的真实库仍需用同一工具复核。

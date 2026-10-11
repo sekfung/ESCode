@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { isValidCronExpr, type IClientScenesService } from "@zcode/services";
+import { isValidCronExpr, type IClientScenesService } from "@escode/services";
 import {
   isClientScenesBusinessError,
   useClientScenesResource,

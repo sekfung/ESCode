@@ -31,7 +31,7 @@ fork 边界本身也要同时体现在模型上下文与 UI（TS `buildAtomicFor
 
 - canonical messages 追加一条 hidden 的 model-only user 消息，正文为
   `formatConversationForkNoticeBody`（parentSessionId / targetMessageId / 不恢复 checkpoint / 从分支继续），
-  以 `<system-reminder>` 外壳注入，标记 `_zcode_source = "fork_notice"`；provider 可见、UI 不渲染成用户气泡。
+  以 `<system-reminder>` 外壳注入，标记 `_escode_source = "fork_notice"`；provider 可见、UI 不渲染成用户气泡。
 - 被选轮末尾追加一条可见 `timelineMarker` 行：`lane = "turnTailBoundary"`、
   `marker = {type:"forkNotice", parentSessionId, parentRowId:0}`、
   `entityId = "fork:{parentSessionId}:{targetMessageId}"`，targetMessageId 取被选 assistant 行的 entityId。

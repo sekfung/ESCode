@@ -27,7 +27,7 @@ sequenceDiagram
 - rowsRange 从请求游标向前取有界尾页，逐行计数字节，不反复编码缩小的整页；保持 200 行、900 KiB、顺序与 hasMore 语义。
 - 非 Git 工作区通过祖先 `.git` 文件/目录快速否定探测；显式 `GIT_DIR` / `GIT_WORK_TREE`、权限不确定性继续交给 Git。每次重新检查，避免缓存不存在状态导致新仓库漏检。
 
-- App 的显式 Rust 启动入口 `pnpm dev:desktop:zcode-cli-rust` 默认构建并运行 release，避免实际接入仍使用未优化的 debug 二进制；`--debug` 显式选择调试构建。入口固定 `CARGO_INCREMENTAL=0`，TS 默认选择不变。
+- App 的显式 Rust 启动入口 `pnpm dev:desktop:escode-cli-rust` 默认构建并运行 release，避免实际接入仍使用未优化的 debug 二进制；`--debug` 显式选择调试构建。入口固定 `CARGO_INCREMENTAL=0`，TS 默认选择不变。
 
 ## 验收
 
@@ -43,7 +43,7 @@ sequenceDiagram
 
 - 运行时先因 stdout 管道满而阻塞在写响应上；stdin 读取线程随后因输入队列（容量 64）已满而阻塞在入队上，
   **因此连 EOF 都观测不到**，`stdio::finish` 只能等 2s 后超时报错；实测进程直到测试看门狗 SIGKILL（5s）才结束。
-- 相关用例 `zcode-cli-rust-transport.test.ts` 的 Windows 变体（用 EOF 代替 SIGTERM）因此保持跳过，
+- 相关用例 `escode-cli-rust-transport.test.ts` 的 Windows 变体（用 EOF 代替 SIGTERM）因此保持跳过，
   跳过理由已写明指向本条。
 - 曾尝试的修法（输入关闭时取消一个 shutdown token，让被背压挡住的写入放弃）已回退：仅在「输入已关闭」时放弃输出
   会丢掉仍在读取的 Host 的在途响应（EOF/EPIPE 用例立刻失败）；根因是 EOF 检测本身被满队列挡住，需要在 stdio
@@ -59,14 +59,14 @@ sequenceDiagram
 
 ## 2026-09-24：Node/Rust 同口径实测
 
-用仓库自带 `bench-zcode-cli-node-rust.mjs` 在 WSL2（Linux x64）跑 5 次配对：Rust 启动 15.7ms vs Node 3305ms、
+用仓库自带 `bench-escode-cli-node-rust.mjs` 在 WSL2（Linux x64）跑 5 次配对：Rust 启动 15.7ms vs Node 3305ms、
 空闲 RSS 11.3MiB vs 339MiB、峰值 19.5MiB vs 394MiB、同一 workload 墙钟 0.18s vs 15.9s。
 完整数据、读法与仍缺的口径（三平台原生、真实供应商、大历史、p95/p99）见
 [性能报告](../reports/rust-perf-2026-09-24.md)。
 
 ## 2026-09-26：三平台原生 release 基准
 
-`bench-zcode-cli-node-rust.mjs` 改为三平台可运行：
+`bench-escode-cli-node-rust.mjs` 改为三平台可运行：
 
 - Windows 用 `Get-Process` 取工作集与累计 CPU，其余平台仍用 `ps`；
 - 两侧都设置 `NO_PROXY`：runner 或开发机的代理会把本地 fixture 请求转走，Rust 会一直重试；
@@ -99,8 +99,8 @@ CI 三平台（run 36237407731，提交 ac2d0db，5 次配对中位数，GitHub 
 
 Node 的模型 runner 对每次尝试发 `SessionEventType.ModelNetworkStatus`（`model_request_started|
 queued|admitted|completed|failed`），CLI 的 V4 网关用 `LocalTtftRecorder`
-（`bootstrap/src/zcode-protocol-v4/local-ttft.ts`）把它们与入站命令的 `ttft` 上下文对齐，产出
-`frame.ttft` / `frame.ttftRelated`（协议里可选）并经 `zcode:report-local-ttft-batch` 上报给 App 侧
+（`bootstrap/src/escode-protocol-v4/local-ttft.ts`）把它们与入站命令的 `ttft` 上下文对齐，产出
+`frame.ttft` / `frame.ttftRelated`（协议里可选）并经 `escode:report-local-ttft-batch` 上报给 App 侧
 遥测；同一事件在 `conversation-telemetry-facts.ts` 里还生成每请求的遥测事实（耗时、首字节/首文本、
 重试与错误原因、请求响应头计数等）。Rust runtime **既不产这些事件，也不产 `frame.ttft` 事实**，
 因此 App 侧针对 Rust 会话的 local TTFT / 请求级遥测是缺失的（功能与用户可见行为不受影响，

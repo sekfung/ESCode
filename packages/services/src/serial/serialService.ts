@@ -1,6 +1,6 @@
-import { Emitter } from "@zcode/rpc";
+import { Emitter } from "@escode/rpc";
 import type { BindingInterface } from "@serialport/bindings-cpp";
-import type { ServiceAuthorityMode } from "@zcode/shared";
+import type { ServiceAuthorityMode } from "@escode/shared";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import {
   SERIAL_MAX_ACTIVE_SESSIONS,

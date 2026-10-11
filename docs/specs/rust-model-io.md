@@ -2,14 +2,14 @@
 
 2026-10-02。方法级 diff 把 `workspace/updateModelIoPreferences` 记成「App 容忍 method-not-found，只是设置不生效」。
 核查后发现缺口更大：**Rust 根本不写 model-IO 记录**，所以 App 的「模型调用轨迹」侧栏
-（`packages/services/src/zcode-agent/modelTrajectory.ts::readModelTrajectory`，读
-`~/.zcode/cli/{debug,rollout}/model-io-<session>.jsonl`）对所有 Rust 会话都是空的。全量保留开关只是这个缺口露在外面的一角。
+（`packages/services/src/escode-agent/modelTrajectory.ts::readModelTrajectory`，读
+`~/.escode/cli/{debug,rollout}/model-io-<session>.jsonl`）对所有 Rust 会话都是空的。全量保留开关只是这个缺口露在外面的一角。
 
 ## TS 基准
 
-- 写入：`apps/zcode-cli/packages/adapters/src/model/runner-debug.ts`（`recordGenerateTextDebug` / `recordStreamTextDebug`
+- 写入：`apps/escode-cli/packages/adapters/src/model/runner-debug.ts`（`recordGenerateTextDebug` / `recordStreamTextDebug`
   → `writeModelIODebugRecord`），脱敏在 `runner-debug-redaction.ts`。每次 HTTP 尝试一条 `type: "model_io"` 记录。
-- 开关：`ZCODE_RUNTIME_ENV=test` 不写；`development` 写 `~/.zcode/cli/debug`；其余（含未设置）写 `~/.zcode/cli/rollout`。
+- 开关：`ESCODE_RUNTIME_ENV=test` 不写；`development` 写 `~/.escode/cli/debug`；其余（含未设置）写 `~/.escode/cli/rollout`。
 - 一个 session 一个 `model-io-<sanitized sessionId>.jsonl`（sessionId 只保留 `[A-Za-z0-9_-]`、其余折叠为 `-`、去首尾 `-`、
   截 80；缺失为 `no-session`），新请求 append。
 - 生产（rollout）：新 session 文件前把目录内 `model-io-*.jsonl` 按 mtime 淘汰到最多 3 个；单文件 64 MiB 上限
@@ -36,7 +36,7 @@ toolCalls[{id,name,input}],usage{inputTokens,outputTokens,totalTokens,cacheReadT
 - **调用元数据**（sessionId / turnId / querySource / model role）由 core 在各调用点用 task-local 作用域提供
   （定义在 core-api，避免 `ModelPort` 签名变更扩散到所有实现）；缺失时 `sessionId` 为空（文件名 `no-session`）。
 - `request.messages` 由 Rust 内部 OpenAI-chat 形历史投影成 TS `ModelInputMessage` 形：assistant `toolCalls`
-  `[{id,name,input}]`、tool 消息 `toolCallId`/`toolName`/`isError` + 字符串 content；`_zcode_*` 内部字段不落盘。
+  `[{id,name,input}]`、tool 消息 `toolCallId`/`toolName`/`isError` + 字符串 content；`_escode_*` 内部字段不落盘。
 - **不写 headers**：UI 不读，且请求头里有鉴权；TS 写了但要过一层脱敏。少写比漏脱敏安全，差异记录在案。
 - 压缩状态只在 Rust 进程内使用，指纹算法不必与 TS 字节一致（只决定 delta 还是 baseline），但 delta/baseline
   的输出语义必须让 App 还原出相同的消息序列。
@@ -50,7 +50,7 @@ updatedSessionCount}`。
 
 ## 验收
 
-- App 差分：同一 fixture（`ZCODE_RUNTIME_ENV=development`，HOME 指临时 root）跑同一段多回合对话（含工具调用），
+- App 差分：同一 fixture（`ESCODE_RUNTIME_ENV=development`，HOME 指临时 root）跑同一段多回合对话（含工具调用），
   分别用 App 的 `readModelTrajectory` 读 Node 与 Rust 的 model-io 文件，比对映射后的 `records`
   （去掉 requestId/时间/耗时/responseId 等非确定字段）：callSource、model、request.messages 序列、toolNames、
   response 文本/工具调用/usage/finishReason 一致。
@@ -65,7 +65,7 @@ updatedSessionCount}`。
   workspace generate-text（连通性测试 `provider_settings_connectivity`，否则调用方给的 querySource）。
 - `workspace/updateModelIoPreferences`：`crates/core/src/app/model_io_preferences.rs`，进程级开关，
   `updatedSessionCount` 为当前内存中的会话数。
-- tool 消息的 `toolName`：持久化历史只在带媒体时保留 `_zcode_tool_name`，投影时按 `tool_call_id` 回查前面
+- tool 消息的 `toolName`：持久化历史只在带媒体时保留 `_escode_tool_name`，投影时按 `tool_call_id` 回查前面
   assistant 的 `tool_calls`。
 - 性能：生产态成功记录要删 `body.messages`，此时用 `RawValue` 跳过它，不为可达近百 MB 的附件请求体构建值树。
 
@@ -78,7 +78,7 @@ updatedSessionCount}`。
 - 被取消（`cancel` 抢占）的尝试不落盘：TS 会记一条 abort 错误。
 - 标题请求：Node 非流式、Rust 流式（既有传输差异，不影响记录内容）。
 
-验收：`packages/services/tests/zcode-cli-rust-model-io.test.ts`——两回合（含推理、工具调用、工具结果、第二回合）
+验收：`packages/services/tests/escode-cli-rust-model-io.test.ts`——两回合（含推理、工具调用、工具结果、第二回合）
 
 - 标题，Node 与 Rust 的 model-io 文件经 App `readModelTrajectory` 读出的 4 条记录逐条一致（callSource、model、
   request.messages、toolNames、response 文本/推理/工具调用/usage/finishReason）；全量保留模式下偏好回显一致、

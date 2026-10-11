@@ -35,7 +35,7 @@ it("adds every public header and re-reads authorization on retry and logout", as
     osVersion: "24.0",
     releaseChannel: "test",
     randomUUID: () => "device-1",
-    resolveZCodeEndpointOrigin: () => "https://zcode.z.ai",
+    resolveESCodeEndpointOrigin: () => "https://zcode.z.ai",
     sleep: async () => {
       token = "Bearer second";
     },
@@ -44,9 +44,9 @@ it("adds every public header and re-reads authorization on retry and logout", as
   expect(fetchImpl.mock.calls[0]?.[1]?.redirect).toBe("error");
   expect(fetchImpl.mock.calls[0]?.[1]?.headers).toEqual({
     "Content-Type": "application/json",
-    "User-Agent": "ZCode/1.2.3",
+    "User-Agent": "ESCode/1.2.3",
     "HTTP-Referer": "https://zcode.z.ai",
-    "X-Title": "Z Code@electron",
+    "X-Title": "ESCode@electron",
     "X-ZCode-App-Version": "1.2.3",
     "X-Platform": "darwin-arm64",
     "X-Release-Channel": "test",
@@ -76,12 +76,12 @@ it.each(["zai", "bigmodel"])(
     const values: Record<string, string> = {
       "oauth:active_provider": provider,
       [`oauth:${provider}:user_info`]: '{"id":"u1"}',
-      zcodejwttoken: "jwt-1",
+      escodejwttoken: "jwt-1",
     };
     const load = vi.fn(async (key: string) => values[key] ?? null);
     const authorization = createTelemetryAuthorizationLoader({ load });
     expect(await authorization("u1")).toBe("Bearer jwt-1");
-    values.zcodejwttoken = "jwt-2";
+    values.escodejwttoken = "jwt-2";
     expect(await authorization("u1")).toBe("Bearer jwt-2");
     expect(await authorization("other-user")).toBeNull();
     delete values["oauth:active_provider"];

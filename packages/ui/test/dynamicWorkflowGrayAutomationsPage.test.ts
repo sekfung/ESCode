@@ -9,8 +9,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { TID_AUTOMATIONS_PAGE_TAB, testId } from "@zcode/shared";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { TID_AUTOMATIONS_PAGE_TAB, testId } from "@escode/shared";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   AutomationsPageTitle,
   type AutomationsPageTab,
@@ -25,7 +25,7 @@ function Title({
 }) {
   const [tab, setTab] = useState<AutomationsPageTab>("automation");
   return createElement(
-    ZCodeIntlProvider,
+    ESCodeIntlProvider,
     { initialLocale: locale },
     createElement(AutomationsPageTitle, {
       workflowTabEnabled,

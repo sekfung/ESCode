@@ -5,7 +5,7 @@
 - `adapters/src/commands/{index,roots}.ts`：发现、frontmatter、命名、禁用。
 - `contracts/src/commands/index.ts`：模板展开与提示词格式。
 - `bootstrap/src/custom-command-{prompt,shell-expansion}.ts`、`custom-commands.ts`：解析入口与 shell 展开。
-- `bootstrap/src/slash-command-surface.ts`、`zcode-protocol/slash-commands.ts`：保留名与协议目录。
+- `bootstrap/src/slash-command-surface.ts`、`escode-protocol/slash-commands.ts`：保留名与协议目录。
 - `adapters/src/plugins/index.ts`：`resolveCommandRoots` 与 `materializeCommandMetadataRoot`。
 
 ## 所有者与流程
@@ -36,8 +36,8 @@ sequenceDiagram
 ## 规则
 
 - 根目录按优先级依次为：
-  - `~/.zcode/commands`、`~/.agents/commands`（user）；
-  - cwd 到 git 根之间每一级目录的 `.zcode/commands`、`.agents/commands`（project）；如果不在 git 仓库内，只取 cwd 这一级；
+  - `~/.escode/commands`、`~/.agents/commands`（user）；
+  - cwd 到 git 根之间每一级目录的 `.escode/commands`、`.agents/commands`（project）；如果不在 git 仓库内，只取 cwd 这一级；
   - 已启用插件的 `commands` 目录与 manifest `commands` 路径（官方插件为 system，其余为 user，source 都是 plugin）；
   - manifest `commands` 为对象时生成的 `<storage>/data/<pluginId>/generated-commands`。
 - 递归扫描 `.md` 文件，深度不超过 12，并跟随 symlink。命令名为相对路径，分隔符换成 `:` 后转小写，
@@ -52,7 +52,7 @@ sequenceDiagram
   - 输出头部为 `Run custom command /x.`、`Command source: scope/source.` 与 skills 指令。
 - shell 展开：
   - 按出现顺序执行，只替换 stdout（去掉尾部空白）；
-  - 环境变量注入 `CLAUDE_/ZCODE_PROJECT_DIR`、会话 id 与插件变量；
+  - 环境变量注入 `CLAUDE_/ESCODE_PROJECT_DIR`、会话 id 与插件变量；
   - 用到缺失上下文的变量时直接报错；
   - 非零退出时按 TS 文案报错。
 - 协议目录 `slashCommands` 依次为：
@@ -62,7 +62,7 @@ sequenceDiagram
 
 ## 验收
 
-- `scripts/generate-zcode-cli-rust-custom-commands.mjs` 从 TS 生成：
+- `scripts/generate-escode-cli-rust-custom-commands.mjs` 从 TS 生成：
   - 内置目录与保留名资产；
   - 真实 adapter 与模板函数在固定目录树上的发现与展开语料。
     Rust 须逐条一致。

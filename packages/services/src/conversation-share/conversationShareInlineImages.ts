@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { ConversationShareCapabilities } from "@zcode/shared";
-import type { ConversationRow } from "@zcode/shared/zcode-protocol-v4";
+import type { ConversationShareCapabilities } from "@escode/shared";
+import type { ConversationRow } from "@escode/shared/escode-protocol-v4";
 import type { ConversationShareFailureIssue } from "./conversationShare.js";
 
 /** 内嵌图片转为既有 artifact；预检和发布使用同一份确定性转换，不新增文件读取通道。 */

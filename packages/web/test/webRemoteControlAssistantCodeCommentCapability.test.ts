@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AssistantCodeCommentCards } from "@/AssistantCodeCommentCards.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   buildAssistantCodeCommentCards,
   projectAssistantCodeComments,
@@ -39,7 +39,7 @@ describe("web remote control Assistant code-comment capability", () => {
     );
     const ordinaryWebServerRoot = sliceBetween(
       source,
-      'document.title = "ZCode - Web + Server";',
+      'document.title = "ESCode - Web + Server";',
       "} catch (error) {",
     );
 
@@ -66,7 +66,7 @@ describe("web remote control Assistant code-comment capability", () => {
 
     render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(AssistantCodeCommentCards, {
           cards,

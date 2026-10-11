@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ZCodePluginsOverviewResult, ZCodePluginInfo } from "@zcode/shared";
-import type { IPluginManagementService } from "@zcode/services";
+import type { ESCodePluginsOverviewResult, ESCodePluginInfo } from "@escode/shared";
+import type { IPluginManagementService } from "@escode/services";
 import { usePluginManagementStore } from "../src/store/pluginManagementStore.js";
 import { buildStoreItems } from "../src/settings/pluginStoreListing.js";
 
-function makePlugin(overrides: Partial<ZCodePluginInfo> = {}): ZCodePluginInfo {
+function makePlugin(overrides: Partial<ESCodePluginInfo> = {}): ESCodePluginInfo {
   return {
     id: "skill-creator@zcode-plugins-official",
     name: "skill-creator",
@@ -54,8 +54,8 @@ function createPluginServiceMock(overrides?: {
 }
 
 function makeOverview(
-  overrides: Partial<ZCodePluginsOverviewResult> = {},
-): ZCodePluginsOverviewResult {
+  overrides: Partial<ESCodePluginsOverviewResult> = {},
+): ESCodePluginsOverviewResult {
   return {
     marketplaces: [
       {
@@ -149,7 +149,7 @@ describe("pluginManagementStore", () => {
     const pending = new Map<string, () => void>();
     const listPlugins = vi.fn(
       ({ configScope }: { configScope?: "user" | "workspace" }) =>
-        new Promise<{ plugins: ZCodePluginInfo[]; diagnostics: [] }>((resolve) => {
+        new Promise<{ plugins: ESCodePluginInfo[]; diagnostics: [] }>((resolve) => {
           pending.set(configScope ?? "effective", () =>
             resolve({
               plugins: [
@@ -303,10 +303,10 @@ describe("pluginManagementStore", () => {
   });
 
   it("ignores a stale toggle response after the selected configuration scope changes", async () => {
-    let resolveWrite: ((value: { plugin: ZCodePluginInfo; enabled: boolean }) => void) | undefined;
+    let resolveWrite: ((value: { plugin: ESCodePluginInfo; enabled: boolean }) => void) | undefined;
     const setPluginEnabled = vi.fn(
       () =>
-        new Promise<{ plugin: ZCodePluginInfo; enabled: boolean }>((resolve) => {
+        new Promise<{ plugin: ESCodePluginInfo; enabled: boolean }>((resolve) => {
           resolveWrite = resolve;
         }),
     );
@@ -856,10 +856,10 @@ describe("pluginManagementStore", () => {
   });
 
   it("reuses an in-flight load for the same workspace", async () => {
-    let resolveList: ((value: { plugins: ZCodePluginInfo[]; diagnostics: [] }) => void) | undefined;
+    let resolveList: ((value: { plugins: ESCodePluginInfo[]; diagnostics: [] }) => void) | undefined;
     const listPlugins = vi.fn(
       () =>
-        new Promise<{ plugins: ZCodePluginInfo[]; diagnostics: [] }>((resolve) => {
+        new Promise<{ plugins: ESCodePluginInfo[]; diagnostics: [] }>((resolve) => {
           resolveList = resolve;
         }),
     );

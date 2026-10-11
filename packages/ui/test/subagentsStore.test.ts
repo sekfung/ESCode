@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentSummary } from "@zcode/shared";
-import type { ISubagentsService } from "@zcode/services";
+import type { AgentSummary } from "@escode/shared";
+import type { ISubagentsService } from "@escode/services";
 import {
   refreshLoadedSubagentsStoreForWorkspace,
   useSubagentsStore,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultWorkspaceState } from "@/store/zcodeSessionStoreTypes.js";
+import { createDefaultWorkspaceState } from "@/store/escodeSessionStoreTypes.js";
 import { resolveWorkspaceSwitchDraftProvider } from "@/lib/workspaceDraftProvider.js";
 
 describe("workspace draft provider", () => {

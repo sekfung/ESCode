@@ -9,8 +9,8 @@ import {
   ProviderApiConfig,
   ProviderConfig,
   ProviderConfigMap,
-} from "@zcode/provider";
-import { encodeProviderConfigFile } from "@zcode/provider-node";
+} from "@escode/provider";
+import { encodeProviderConfigFile } from "@escode/provider-node";
 import { createProviderRuntime } from "../src/model-provider/providerRuntime.js";
 
 describe("Todo104 Services 规则读写完整链路", () => {
@@ -47,8 +47,8 @@ describe("Todo104 Services 规则读写完整链路", () => {
       ),
     );
     const runtime = createProviderRuntime({
-      zcodeBuiltinFilePath: fileURLToPath(
-        new URL("../../../config/provider/zcode-builtin.json", import.meta.url),
+      escodeBuiltinFilePath: fileURLToPath(
+        new URL("../../../config/provider/escode-builtin.json", import.meta.url),
       ),
       personalFilePath,
       watch: false,

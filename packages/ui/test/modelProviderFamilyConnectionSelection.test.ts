@@ -4,7 +4,7 @@ import {
   type ProviderFamilyConnectionSelection,
   type EnterpriseCodingPlanPricingProduct,
   type UsageEntitlementSnapshot,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   resolveAutomaticModelProviderFamilyConnectionSelection,
   resolveModelProviderFamilyConnectionProviderId,

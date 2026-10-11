@@ -1,6 +1,6 @@
 # Rust 模型可见工具面与 Node 对齐
 
-2026-09-25。在 `zcode-cli-rust-history-request-differential.test.ts` 中抓取两个 runtime 同一轮真实请求的 `tools`
+2026-09-25。在 `escode-cli-rust-history-request-differential.test.ts` 中抓取两个 runtime 同一轮真实请求的 `tools`
 （App 默认配置、Windows），逐项比对后发现模型看到的工具面并不相同。工具面决定模型行为，属于功能对齐门槛。
 
 ## 实测差异（Node 为准）
@@ -21,7 +21,7 @@
 
 - **embedded search 分支**（与 TS `resolveRuntimeEmbeddedSearchEnabled` 一致）：Bash 在当前工具面可用即开启；
   开启时主会话与子代理都不暴露 Glob/Grep。
-- **描述**：由 `scripts/generate-zcode-cli-rust-tool-schemas.mjs` 从 TS 生成 embedded 分支下的 provider 描述
+- **描述**：由 `scripts/generate-escode-cli-rust-tool-schemas.mjs` 从 TS 生成 embedded 分支下的 provider 描述
   （`crates/tools/src/tool_surface.json`，Agent 模板在 `crates/domain/src/agent_description_template.json`）；Bash 用 `createBashProviderDescription`（默认 120000 / 最大 600000 ms，与 Rust 超时策略一致）。
 - **Agent 描述**：生成 TS `buildAgentProviderDescription` 的头尾模板（`dynamicWorkflowEnabled=false`，Rust 不支持工作流），
   Rust 按当前 profile 目录渲染 `- name: description (Tools: …)`；内置 Explore 用 TS embedded 分支的工具文案，
@@ -29,8 +29,8 @@
 - **顺序**：TS `orderProviderVisibleToolContracts`——参考集合内的工具按 `localeCompare` 排序在前（生成资产 `providerOrder`），其余（SendMessage、MCP 等）保持原顺序在后。
 - **Bash prelude**：会话 shell 为 posix 或 git-bash 时，把 TS `buildEmbeddedSearchPreludeContent` 同等内容写入
   `<artifacts>/bash-startup/<session>/embedded-search-startup-<sha256前16位>.sh`，命令前追加 `. '<path>'`；
-  backend 与 TS `resolveDefaultEmbeddedSearchBackend` 相同：设置了 `ZCODE_EMBEDDED_SEARCH_COMMAND` 时为 internal-cli，
-  否则为 native-binaries（`ZCODE_BFS_BINARY` / `ZCODE_UGREP_BINARY` / `ZCODE_RG_BINARY`，由 Host 注入，缺省为命令名）。
+  backend 与 TS `resolveDefaultEmbeddedSearchBackend` 相同：设置了 `ESCODE_EMBEDDED_SEARCH_COMMAND` 时为 internal-cli，
+  否则为 native-binaries（`ESCODE_BFS_BINARY` / `ESCODE_UGREP_BINARY` / `ESCODE_RG_BINARY`，由 Host 注入，缺省为命令名）。
   cmd / legacy shell 不注入。
 
 ## 已知差异（阶段 1 之后）

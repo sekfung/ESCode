@@ -5,15 +5,15 @@
 
 ## 现状与触达路径（探针实测）
 
-同一组请求分别打到 Node 与 Rust（`zcode-cli-rust-legacy-session.test.ts`），Node 全部受理，Rust 结果如下：
+同一组请求分别打到 Node 与 Rust（`escode-cli-rust-legacy-session.test.ts`），Node 全部受理，Rust 结果如下：
 
 | 方法                      | Rust 原行为                         | App 触达路径                                                                                                |
 | ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `session/create`（普通）  | `Null shared import field` / 缺字段 | 定时任务首跑（`host/index.ts` cron createTask）、闲时任务首跑、task facade 默认建会话                       |
 | `session/send`            | `Unsupported method`                | task facade 带附件输入：Bots 收到图片/文件、手机 replayable 附件首发                                        |
-| `session/setModel`        | `Unsupported method`                | Bots `/model`、facade `setConfigOption(model)`、desktop `zcodeSessionService.setModel`、replayable 草稿复用 |
-| `session/setThoughtLevel` | `Unsupported method`                | 打开历史任务时重放 task 思考档位（`zcodeSessionService.resumeSession`）、replayable 草稿复用                |
-| `session/setMode`         | `Unsupported method`                | facade 切到 `auto`（Rust 不声明 auto，见下）、`zcodeSessionService.setMode`                                 |
+| `session/setModel`        | `Unsupported method`                | Bots `/model`、facade `setConfigOption(model)`、desktop `escodeSessionService.setModel`、replayable 草稿复用 |
+| `session/setThoughtLevel` | `Unsupported method`                | 打开历史任务时重放 task 思考档位（`escodeSessionService.resumeSession`）、replayable 草稿复用                |
+| `session/setMode`         | `Unsupported method`                | facade 切到 `auto`（Rust 不声明 auto，见下）、`escodeSessionService.setMode`                                 |
 | `session/close`           | `Unsupported method`                | 关闭框选副屏 runtime（`useAppPanels`）、草稿 Skill 失效、条件关闭 deferred 草稿、facade `closeTask`         |
 
 `session/compact` 与 `session/goal` 只在 task facade 中声明，App 内没有调用点，本期不实现（与
@@ -70,7 +70,7 @@ sequenceDiagram
 
 ## 验收
 
-`packages/services/tests/zcode-cli-rust-legacy-session.test.ts`（Node / Rust 同场景、逐字比较，2026-10-03 通过）：
+`packages/services/tests/escode-cli-rust-legacy-session.test.ts`（Node / Rust 同场景、逐字比较，2026-10-03 通过）：
 
 1. 普通 `session/create`（model + thoughtLevel + mode=build）两侧快照的模型/档位/模式一致；带 `sessionId` 无导入时两侧都报错。
 2. `setModel` / `setThoughtLevel` / `setMode(edit → plan → build)` 后快照的模型/档位/模式一致。

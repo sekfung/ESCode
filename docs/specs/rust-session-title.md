@@ -79,10 +79,10 @@ sequenceDiagram
 
 ## 验收
 
-- 纯规则语料：`scripts/generate-zcode-cli-rust-title-corpus.mjs` 从 TS oracle 生成
+- 纯规则语料：`scripts/generate-escode-cli-rust-title-corpus.mjs` 从 TS oracle 生成
   `crates/domain/tests/fixtures/title_corpus.json`（system prompt、first_input、normalize、清洗/解析各分支），
-  Rust 逐条一致；`--check` 参与 `pnpm test:zcode-cli-rust` 的漂移检查。
-- App 差分：`packages/services/tests/zcode-cli-rust-title-differential.test.ts` 在 Node 与 Rust 上比对
+  Rust 逐条一致；`--check` 参与 `pnpm test:escode-cli-rust` 的漂移检查。
+- App 差分：`packages/services/tests/escode-cli-rust-title-differential.test.ts` 在 Node 与 Rust 上比对
   - 首条输入后的 meta 标题与 `titleSource`；
   - 生成的标题请求（system 首段、user 内容、无工具、思考档位与输出上限）；
   - 清洗后的标题与 meta（含 JSON/围栏/首行三种返回形态）；

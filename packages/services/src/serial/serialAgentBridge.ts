@@ -4,10 +4,10 @@ import {
   formatSerialHex,
   type SerialDisplayEncoding,
   type SerialToolOp,
-  type ZCodeSerialCancelParams,
-  type ZCodeSerialMethodParams,
-  type ZCodeSerialMethodResult,
-} from "@zcode/shared/serial";
+  type ESCodeSerialCancelParams,
+  type ESCodeSerialMethodParams,
+  type ESCodeSerialMethodResult,
+} from "@escode/shared/serial";
 import { SerialError, type SerialChunk, type SerialConfig, type SerialStatus } from "./serial.js";
 import type { SerialService } from "./serialService.js";
 
@@ -21,10 +21,10 @@ const TAIL_SOURCE_BYTES = 1024 * 1024;
 export interface SerialAgentBridge {
   handle<Op extends SerialToolOp>(
     op: Op,
-    params: ZCodeSerialMethodParams<Op>,
-  ): Promise<ZCodeSerialMethodResult<Op>>;
+    params: ESCodeSerialMethodParams<Op>,
+  ): Promise<ESCodeSerialMethodResult<Op>>;
   /** 终止同一会话中仍在进行的 waitFor；目标不存在或已结束时为空操作（幂等）。 */
-  cancel(params: ZCodeSerialCancelParams): void;
+  cancel(params: ESCodeSerialCancelParams): void;
 }
 
 interface DecodedSegment {
@@ -72,7 +72,7 @@ function formatRead(
 function sameConfig(
   status: SerialStatus,
   path: string,
-  args: ZCodeSerialMethodParams<"open">["args"],
+  args: ESCodeSerialMethodParams<"open">["args"],
 ) {
   const config = status.config;
   return (
@@ -156,8 +156,8 @@ export function createSerialAgentBridge(options: {
   const handlers: {
     [Op in SerialToolOp]: (
       service: SerialService,
-      params: ZCodeSerialMethodParams<Op>,
-    ) => Promise<ZCodeSerialMethodResult<Op>>;
+      params: ESCodeSerialMethodParams<Op>,
+    ) => Promise<ESCodeSerialMethodResult<Op>>;
   } = {
     async list(service) {
       const ports = await service.list();
@@ -300,8 +300,8 @@ export function createSerialAgentBridge(options: {
       const service = requireService(params);
       const handler = handlers[op] as (
         service: SerialService,
-        params: ZCodeSerialMethodParams<typeof op>,
-      ) => Promise<ZCodeSerialMethodResult<typeof op>>;
+        params: ESCodeSerialMethodParams<typeof op>,
+      ) => Promise<ESCodeSerialMethodResult<typeof op>>;
       return handler(service, params);
     },
     cancel({ sessionId, targetRequestId }) {

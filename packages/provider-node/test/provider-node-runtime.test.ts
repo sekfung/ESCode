@@ -2,32 +2,32 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compileModelOptionMap } from "@zcode/model-option-map";
+import { compileModelOptionMap } from "@escode/model-option-map";
 import {
   ApiKeyAccessConfig,
   ModelConfigRules,
   ProviderConfig,
   ProviderConfigMap,
   type ProviderConfigLayerUpdate,
-} from "@zcode/provider";
+} from "@escode/provider";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  NodeZCodeBuiltinProviderConfigSource,
+  NodeESCodeBuiltinProviderConfigSource,
   NodePersonalProviderConfigRepository,
   NodeProviderConfigRuntime,
   NodeProviderRegistryRuntime,
   createNodeProviderRuntimePathEnv,
-  materializeZCodeBuiltinProviderConfig,
+  materializeESCodeBuiltinProviderConfig,
   encodeProviderConfigFile,
-  resolveZCodeBuiltinCachePaths,
+  resolveESCodeBuiltinCachePaths,
   resolveNodeProviderRuntimePaths,
-  ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
-  ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
+  ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
+  ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV,
 } from "../src/index.js";
 
 const temporaryDirectories: string[] = [];
-const zcodeBuiltinProviderConfigFilePath = fileURLToPath(
-  new URL("../../../config/provider/zcode-builtin.json", import.meta.url),
+const escodeBuiltinProviderConfigFilePath = fileURLToPath(
+  new URL("../../../config/provider/escode-builtin.json", import.meta.url),
 );
 
 afterEach(async () => {
@@ -41,10 +41,10 @@ afterEach(async () => {
   );
 });
 
-describe("@zcode/provider-node", () => {
+describe("@escode/provider-node", () => {
   it("从 Built-in Model Config Rules 解析 ox-alpha 同策略别名和 API-specific reasoning", async () => {
-    const source = new NodeZCodeBuiltinProviderConfigSource({
-      bundledFilePath: zcodeBuiltinProviderConfigFilePath,
+    const source = new NodeESCodeBuiltinProviderConfigSource({
+      bundledFilePath: escodeBuiltinProviderConfigFilePath,
       watch: false,
     });
     const snapshot = await source.read();
@@ -109,8 +109,8 @@ describe("@zcode/provider-node", () => {
   });
 
   it("从 Built-in Config 解析模型能力、Access 协议和 Tool Schema 兼容事实", async () => {
-    const source = new NodeZCodeBuiltinProviderConfigSource({
-      bundledFilePath: zcodeBuiltinProviderConfigFilePath,
+    const source = new NodeESCodeBuiltinProviderConfigSource({
+      bundledFilePath: escodeBuiltinProviderConfigFilePath,
       watch: false,
     });
     const snapshot = await source.read();
@@ -191,7 +191,7 @@ describe("@zcode/provider-node", () => {
         providerConfigRules: {
           providerRules: [
             {
-              providerId: "zcodeBuiltin",
+              providerId: "escodeBuiltin",
               config: {
                 group: "zai-family",
                 access: {
@@ -215,93 +215,93 @@ describe("@zcode/provider-node", () => {
       },
     });
 
-    const firstPath = await materializeZCodeBuiltinProviderConfig({
+    const firstPath = await materializeESCodeBuiltinProviderConfig({
       environmentConfigRoot: root,
       content: firstContent,
     });
-    const repeatedPath = await materializeZCodeBuiltinProviderConfig({
+    const repeatedPath = await materializeESCodeBuiltinProviderConfig({
       environmentConfigRoot: root,
       content: firstContent,
     });
-    const secondPath = await materializeZCodeBuiltinProviderConfig({
+    const secondPath = await materializeESCodeBuiltinProviderConfig({
       environmentConfigRoot: root,
       content: secondContent,
     });
 
     expect(repeatedPath).toBe(firstPath);
-    expect(firstPath).toBe(join(root, "runtime", "provider", "bundled", "zcode-builtin.json"));
+    expect(firstPath).toBe(join(root, "runtime", "provider", "bundled", "escode-builtin.json"));
     expect(secondPath).toBe(firstPath);
     expect(JSON.parse(await readFile(secondPath, "utf8"))).toEqual(JSON.parse(secondContent));
     expect(await readdir(join(root, "runtime", "provider", "bundled"))).toEqual([
-      "zcode-builtin.json",
+      "escode-builtin.json",
     ]);
   });
 
-  it("只在 ZCode Built-in 与 Personal 路径同时存在时启用进程 Registry", () => {
+  it("只在 ESCode Built-in 与 Personal 路径同时存在时启用进程 Registry", () => {
     expect(resolveNodeProviderRuntimePaths({})).toBeNull();
     expect(() =>
       resolveNodeProviderRuntimePaths({
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
+        [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/escodeBuiltin.json",
       }),
     ).toThrow("必须同时提供");
     expect(
       resolveNodeProviderRuntimePaths({
-        [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: " /zcodeBuiltin.json ",
-        [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: " /personal.json ",
+        [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: " /escodeBuiltin.json ",
+        [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: " /personal.json ",
       }),
     ).toEqual({
-      zcodeBuiltinFilePath: "/zcodeBuiltin.json",
+      escodeBuiltinFilePath: "/escodeBuiltin.json",
       personalFilePath: "/personal.json",
     });
     expect(
       createNodeProviderRuntimePathEnv({
-        zcodeBuiltinFilePath: "/zcodeBuiltin.json",
+        escodeBuiltinFilePath: "/escodeBuiltin.json",
         personalFilePath: "/personal.json",
       }),
     ).toEqual({
-      [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/zcodeBuiltin.json",
-      [ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: "/personal.json",
+      [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: "/escodeBuiltin.json",
+      [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: "/personal.json",
     });
   });
 
-  it("ZCode Built-in Source 每次读取当前版本化文件，revision 随内容改变", async () => {
+  it("ESCode Built-in Source 每次读取当前版本化文件，revision 随内容改变", async () => {
     const root = await temporaryDirectory();
-    const filePath = join(root, "zcodeBuiltin.json");
-    await writeZCodeBuiltin(filePath, "model-a");
-    const source = new NodeZCodeBuiltinProviderConfigSource({
+    const filePath = join(root, "escodeBuiltin.json");
+    await writeESCodeBuiltin(filePath, "model-a");
+    const source = new NodeESCodeBuiltinProviderConfigSource({
       bundledFilePath: filePath,
       watch: false,
     });
 
     const first = await source.read();
-    await writeZCodeBuiltin(filePath, "model-b");
+    await writeESCodeBuiltin(filePath, "model-b");
     const second = await source.read();
 
-    expect(first.providers.get("zcodeBuiltin")?.builtinModelIds).toEqual(["model-a"]);
-    expect(second.providers.get("zcodeBuiltin")?.builtinModelIds).toEqual(["model-b"]);
+    expect(first.providers.get("escodeBuiltin")?.builtinModelIds).toEqual(["model-a"]);
+    expect(second.providers.get("escodeBuiltin")?.builtinModelIds).toEqual(["model-b"]);
     expect(second.revision).not.toBe(first.revision);
     source.dispose();
   });
 
-  it("ZCode Built-in Source 只为新的 content revision 发布一次变化", async () => {
+  it("ESCode Built-in Source 只为新的 content revision 发布一次变化", async () => {
     const root = await temporaryDirectory();
-    const filePath = join(root, "zcodeBuiltin.json");
-    await writeZCodeBuiltin(filePath, "model-a");
-    const source = new NodeZCodeBuiltinProviderConfigSource({ bundledFilePath: filePath });
+    const filePath = join(root, "escodeBuiltin.json");
+    await writeESCodeBuiltin(filePath, "model-a");
+    const source = new NodeESCodeBuiltinProviderConfigSource({ bundledFilePath: filePath });
     const reasons: string[] = [];
     source.onDidChange((reason) => reasons.push(reason));
     await source.read();
 
-    await writeZCodeBuiltin(filePath, "model-a");
+    await writeESCodeBuiltin(filePath, "model-a");
     await settleFileWatcher();
     expect(reasons).toEqual([]);
 
-    await writeZCodeBuiltin(filePath, "model-b");
+    await writeESCodeBuiltin(filePath, "model-b");
     await vi.waitFor(() => expect(reasons).toContain("file-changed"));
     await settleFileWatcher();
 
     expect(reasons).toEqual(["file-changed"]);
-    expect((await source.read()).providers.get("zcodeBuiltin")?.builtinModelIds).toEqual([
+    expect((await source.read()).providers.get("escodeBuiltin")?.builtinModelIds).toEqual([
       "model-b",
     ]);
     source.dispose();
@@ -436,9 +436,9 @@ describe("@zcode/provider-node", () => {
 
   it("Node Config Runtime 在新目标缺失时调用外部 Legacy Importer 并不产生备份", async () => {
     const root = await temporaryDirectory();
-    const zcodeBuiltinFilePath = join(root, "zcodeBuiltin.json");
+    const escodeBuiltinFilePath = join(root, "escodeBuiltin.json");
     const personalFilePath = join(root, "provider_config.json");
-    await writeZCodeBuiltin(zcodeBuiltinFilePath, "zcodeBuiltin-model");
+    await writeESCodeBuiltin(escodeBuiltinFilePath, "escodeBuiltin-model");
     const importLegacy = vi.fn(async () => {
       return Object.freeze({
         providers: new ProviderConfigMap([["legacy", personalProviderConfig(false)]]),
@@ -446,7 +446,7 @@ describe("@zcode/provider-node", () => {
       });
     });
     const runtime = new NodeProviderConfigRuntime({
-      zcodeBuiltinFilePath,
+      escodeBuiltinFilePath,
       personalFilePath,
       importLegacy,
       watch: false,
@@ -472,7 +472,7 @@ describe("@zcode/provider-node", () => {
       throw new Error("已有 Personal Config 时不应再次导入旧 Provider Store");
     });
     const restartedRuntime = new NodeProviderConfigRuntime({
-      zcodeBuiltinFilePath,
+      escodeBuiltinFilePath,
       personalFilePath,
       importLegacy: repeatedImport,
       watch: false,
@@ -519,15 +519,15 @@ describe("@zcode/provider-node", () => {
 
   it("Endpoint-scoped Config Runtime 向 Agent 暴露当前 Endpoint 的 Active 路径", async () => {
     const root = await temporaryDirectory();
-    const zcodeBuiltinFilePath = join(root, "zcodeBuiltin.json");
+    const escodeBuiltinFilePath = join(root, "escodeBuiltin.json");
     const environmentConfigRoot = join(root, "environment");
     const personalFilePath = join(root, "config.json");
     const endpointOrigin = "https://api.example.com";
-    await writeZCodeBuiltin(zcodeBuiltinFilePath, "zcodeBuiltin-model");
+    await writeESCodeBuiltin(escodeBuiltinFilePath, "escodeBuiltin-model");
     const runtime = new NodeProviderConfigRuntime({
-      zcodeBuiltinFilePath,
+      escodeBuiltinFilePath,
       personalFilePath,
-      zcodeBuiltinEnvironment: {
+      escodeBuiltinEnvironment: {
         environmentConfigRoot,
         platform: "darwin-aarch64",
         appVersion: "3.9.2",
@@ -540,29 +540,29 @@ describe("@zcode/provider-node", () => {
 
     await runtime.start();
 
-    await expect(runtime.resolveZCodeBuiltinActiveFilePath()).resolves.toBe(
-      resolveZCodeBuiltinCachePaths({
+    await expect(runtime.resolveESCodeBuiltinActiveFilePath()).resolves.toBe(
+      resolveESCodeBuiltinCachePaths({
         environmentConfigRoot,
         platform: "darwin-aarch64",
         appVersion: "3.9.2",
-        zcodeEndpointOrigin: endpointOrigin,
+        escodeEndpointOrigin: endpointOrigin,
       }).activeFilePath,
     );
     // start 不等待后台下载；释放临时目录前等待首轮控制文件 lease 收尾，不能和 rm 竞态。
-    await runtime.refreshZCodeBuiltin();
+    await runtime.refreshESCodeBuiltin();
     runtime.dispose();
   });
 
   it("正式 Personal Config 损坏时保留原文件且不误调 Legacy Importer", async () => {
     const root = await temporaryDirectory();
-    const zcodeBuiltinFilePath = join(root, "zcodeBuiltin.json");
+    const escodeBuiltinFilePath = join(root, "escodeBuiltin.json");
     const personalFilePath = join(root, "provider_config.json");
     const invalidText = JSON.stringify({ provider: { unsupported: {} } }, null, 2);
-    await writeZCodeBuiltin(zcodeBuiltinFilePath, "zcodeBuiltin-model");
+    await writeESCodeBuiltin(escodeBuiltinFilePath, "escodeBuiltin-model");
     await writeFile(personalFilePath, invalidText, "utf8");
     const importLegacy = vi.fn(async () => emptyUpdate());
     const runtime = new NodeProviderConfigRuntime({
-      zcodeBuiltinFilePath,
+      escodeBuiltinFilePath,
       personalFilePath,
       importLegacy,
       watch: false,
@@ -579,16 +579,16 @@ describe("@zcode/provider-node", () => {
 
   it("Node Registry Runtime 在进程级聚合 Config，并只发布完整 API Provider", async () => {
     const root = await temporaryDirectory();
-    const zcodeBuiltinFilePath = join(root, "zcodeBuiltin.json");
+    const escodeBuiltinFilePath = join(root, "escodeBuiltin.json");
     const personalFilePath = join(root, "personal.json");
-    await writeCompleteZCodeBuiltin(zcodeBuiltinFilePath);
+    await writeCompleteESCodeBuiltin(escodeBuiltinFilePath);
     await writeFile(
       personalFilePath,
       JSON.stringify(
         storedConfig({
           providers: new ProviderConfigMap([
             {
-              providerId: "zcodeBuiltin",
+              providerId: "escodeBuiltin",
               templateId: "test-api",
               config: new ProviderConfig({
                 group: "standard-personal",
@@ -602,7 +602,7 @@ describe("@zcode/provider-node", () => {
       "utf8",
     );
     const runtime = new NodeProviderRegistryRuntime({
-      zcodeBuiltinFilePath,
+      escodeBuiltinFilePath,
       personalFilePath,
       watch: false,
     });
@@ -612,7 +612,7 @@ describe("@zcode/provider-node", () => {
 
     expect(snapshot.registry.providers).toHaveLength(1);
     expect(
-      runtime.registryService.getModel("zcodeBuiltin", "model-a")?.config.properties,
+      runtime.registryService.getModel("escodeBuiltin", "model-a")?.config.properties,
     ).toMatchObject({
       contextWindow: 200_000,
       inputFormat: expect.objectContaining({ supportsVideo: false }),
@@ -622,7 +622,7 @@ describe("@zcode/provider-node", () => {
 });
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "zcode-provider-node-"));
+  const directory = await mkdtemp(join(tmpdir(), "escode-provider-node-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -649,7 +649,7 @@ function storedConfig(update: ProviderConfigLayerUpdate): object {
   return encodeProviderConfigFile(update);
 }
 
-async function writeZCodeBuiltin(filePath: string, modelId: string): Promise<void> {
+async function writeESCodeBuiltin(filePath: string, modelId: string): Promise<void> {
   await writeFile(
     filePath,
     JSON.stringify({
@@ -659,7 +659,7 @@ async function writeZCodeBuiltin(filePath: string, modelId: string): Promise<voi
         providerConfigRules: {
           providerRules: [
             {
-              providerId: "zcodeBuiltin",
+              providerId: "escodeBuiltin",
               config: {
                 group: "zai-family",
                 access: {
@@ -686,7 +686,7 @@ async function writeZCodeBuiltin(filePath: string, modelId: string): Promise<voi
   );
 }
 
-async function writeCompleteZCodeBuiltin(filePath: string): Promise<void> {
+async function writeCompleteESCodeBuiltin(filePath: string): Promise<void> {
   await writeFile(
     filePath,
     JSON.stringify({

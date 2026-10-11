@@ -12,28 +12,28 @@ describe("fsFaultInjection", () => {
         code: "ENOSPC",
         id: "D01-session-history-enospc",
         operations: ["writeFile"],
-        pathIncludes: "\\.zcode\\",
+        pathIncludes: "\\.escode\\",
       },
     ]);
 
     expect(() =>
       injector.maybeThrow({
         operation: "rename",
-        path: "/tmp/demo/.zcode/session.json",
+        path: "/tmp/demo/.escode/session.json",
       }),
     ).not.toThrow();
 
     expect(() =>
       injector.maybeThrow({
         operation: "writeFile",
-        path: "/tmp/demo/.zcode/session.json",
+        path: "/tmp/demo/.escode/session.json",
       }),
     ).toThrow(
       expect.objectContaining({
         code: "ENOSPC",
-        path: "/tmp/demo/.zcode/session.json",
+        path: "/tmp/demo/.escode/session.json",
         syscall: "writeFile",
-        zcodeFsFaultId: "D01-session-history-enospc",
+        escodeFsFaultId: "D01-session-history-enospc",
       }),
     );
 
@@ -43,7 +43,7 @@ describe("fsFaultInjection", () => {
         id: "D01-session-history-enospc",
         matchIndex: 1,
         operation: "writeFile",
-        path: "/tmp/demo/.zcode/session.json",
+        path: "/tmp/demo/.escode/session.json",
       },
     ]);
   });
@@ -61,13 +61,13 @@ describe("fsFaultInjection", () => {
     expect(() =>
       injector.maybeThrow({
         operation: "writeFile",
-        path: "/tmp/home/.zcode/v2/provider_config.json",
+        path: "/tmp/home/.escode/v2/provider_config.json",
       }),
     ).toThrow(expect.objectContaining({ code: "EACCES" }));
     expect(() =>
       injector.maybeThrow({
         operation: "writeFile",
-        path: "/tmp/home/.zcode/v2/provider_config.json",
+        path: "/tmp/home/.escode/v2/provider_config.json",
       }),
     ).not.toThrow();
     expect(injector.getHits()).toHaveLength(1);
@@ -106,29 +106,29 @@ describe("fsFaultInjection", () => {
 
     const productionInjector = createFsFaultInjectorFromEnv({
       NODE_ENV: "production",
-      ZCODE_E2E_FS_FAULTS: rawRules,
-      ZCODE_ENV: "production",
+      ESCODE_E2E_FS_FAULTS: rawRules,
+      ESCODE_ENV: "production",
     });
     expect(productionInjector.isEnabled()).toBe(false);
 
     const testInjector = createFsFaultInjectorFromEnv({
       NODE_ENV: "production",
-      ZCODE_E2E_FS_FAULTS: rawRules,
-      ZCODE_ENV: "test",
+      ESCODE_E2E_FS_FAULTS: rawRules,
+      ESCODE_ENV: "test",
     });
     expect(testInjector.isEnabled()).toBe(true);
 
     const explicitlyAllowedInjector = createFsFaultInjectorFromEnv({
       NODE_ENV: "production",
-      ZCODE_E2E_FS_FAULTS: rawRules,
-      ZCODE_E2E_FS_FAULTS_ALLOW: "1",
-      ZCODE_ENV: "production",
+      ESCODE_E2E_FS_FAULTS: rawRules,
+      ESCODE_E2E_FS_FAULTS_ALLOW: "1",
+      ESCODE_ENV: "production",
     });
     expect(explicitlyAllowedInjector.isEnabled()).toBe(true);
   });
 
   it("rejects malformed env rules early as infra errors", () => {
-    expect(() => parseFsFaultRulesFromEnvValue("{")).toThrow(/Invalid ZCODE_E2E_FS_FAULTS/);
+    expect(() => parseFsFaultRulesFromEnvValue("{")).toThrow(/Invalid ESCODE_E2E_FS_FAULTS/);
     expect(() => parseFsFaultRulesFromEnvValue("{}")).toThrow(/expected a JSON array/);
     expect(() =>
       createFsFaultInjector([

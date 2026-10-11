@@ -2,7 +2,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ZCodePluginInfo, ZCodePluginUserConfigOption } from "@zcode/shared";
+import type { ESCodePluginInfo, ESCodePluginUserConfigOption } from "@escode/shared";
 
 // 复用 taskListItemHoverActions.test.ts 的「mock Button 捕获 onClick」套路：
 // renderToStaticMarkup 不会派发真实点击事件，故把 Button 替换成记录 props 的桩，
@@ -18,7 +18,7 @@ vi.mock("@/components/ui/button.js", () => ({
   },
 }));
 
-function basePlugin(overrides: Partial<ZCodePluginInfo> = {}): ZCodePluginInfo {
+function basePlugin(overrides: Partial<ESCodePluginInfo> = {}): ESCodePluginInfo {
   return {
     id: "skill-creator@zcode-plugins-official",
     name: "skill-creator",
@@ -40,13 +40,13 @@ function basePlugin(overrides: Partial<ZCodePluginInfo> = {}): ZCodePluginInfo {
 
 const sharedPanelProps = {
   getPluginOptionValue: (
-    _plugin: ZCodePluginInfo,
+    _plugin: ESCodePluginInfo,
     _key: string,
-    option: ZCodePluginUserConfigOption,
+    option: ESCodePluginUserConfigOption,
   ) => option.default ?? "",
   onSavePluginOptions: () => {},
   setPluginOptionDraft: () => {},
-  renderPluginSource: (target: ZCodePluginInfo) => target.marketplace,
+  renderPluginSource: (target: ESCodePluginInfo) => target.marketplace,
 } as const;
 
 function createMinimalElement(ownerDocument: Document, tagName = "div") {
@@ -130,11 +130,11 @@ describe("InstalledPluginDetailPanel update badge", () => {
     const { InstalledPluginDetailPanel } = await import(
       "../src/settings/InstalledPluginManagement.js"
     );
-    const { ZCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
+    const { ESCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
 
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(InstalledPluginDetailPanel, {
           ...sharedPanelProps,
@@ -157,11 +157,11 @@ describe("InstalledPluginDetailPanel update badge", () => {
     const { InstalledPluginDetailPanel } = await import(
       "../src/settings/InstalledPluginManagement.js"
     );
-    const { ZCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
+    const { ESCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
 
     const html = renderToStaticMarkup(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(InstalledPluginDetailPanel, {
           ...sharedPanelProps,
@@ -182,14 +182,14 @@ describe("InstalledPluginDetailPanel update badge", () => {
     const { InstalledPluginDetailPanel } = await import(
       "../src/settings/InstalledPluginManagement.js"
     );
-    const { ZCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
+    const { ESCodeIntlProvider } = await import("@/i18n/IntlProvider.js");
     const onRequestUpdate = vi.fn();
     const root: Root = createRoot(installMinimalDom());
 
     act(() => {
       root.render(
         createElement(
-          ZCodeIntlProvider,
+          ESCodeIntlProvider,
           { initialLocale: "en-US" },
           createElement(InstalledPluginDetailPanel, {
             ...sharedPanelProps,

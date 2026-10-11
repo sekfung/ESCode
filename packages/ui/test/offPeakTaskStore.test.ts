@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ICodingPlanSubscriptionService, IOffPeakTaskService } from "@zcode/services";
+import type { ICodingPlanSubscriptionService, IOffPeakTaskService } from "@escode/services";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   type OffPeakTaskCreateResult,
-  type ZCodeOffPeakTask,
-} from "@zcode/shared";
+  type ESCodeOffPeakTask,
+} from "@escode/shared";
 import {
   isCurrentOffPeakCodingPlanSupported,
   isOffPeakQuotaError,
@@ -30,7 +30,7 @@ const createdTask = {
   queuedAt: 1,
   createdAt: 1,
   updatedAt: 1,
-} satisfies ZCodeOffPeakTask;
+} satisfies ESCodeOffPeakTask;
 
 const successResult = {
   ok: true,

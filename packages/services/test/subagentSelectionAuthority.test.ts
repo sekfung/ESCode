@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSubagentMarkdownSelection } from "@zcode/shared";
+import { parseSubagentMarkdownSelection } from "@escode/shared";
 import { parseSubagentMarkdown } from "../src/subagents/subagentMarkdown.js";
 
 describe("Subagent 正式 Markdown 字段", () => {

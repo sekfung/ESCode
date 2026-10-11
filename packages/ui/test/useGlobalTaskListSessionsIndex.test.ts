@@ -4,19 +4,19 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Emitter } from "@zcode/rpc";
-import type { IServiceAccessor, ZCodeTaskListKind } from "@zcode/services";
-import type { ZCodeTaskMeta } from "@zcode/shared";
+import { Emitter } from "@escode/rpc";
+import type { IServiceAccessor, ESCodeTaskListKind } from "@escode/services";
+import type { ESCodeTaskMeta } from "@escode/shared";
 import type {
   SessionsIndexTopicFrame,
   SessionsIndexTopicWireFrame,
   SessionSummary,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import { ServiceProvider } from "@/hooks/useServices.js";
 import { useGlobalTaskList } from "@/hooks/useGlobalTaskList.js";
 import { useRemoteWorkspaceSessionStore } from "@/store/remoteWorkspaceSessionStore.js";
 import { useTaskQueryCacheStore } from "@/store/taskQueryCacheStore.js";
-import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import type { WorkspaceTabState } from "@/store/tabStore.js";
 
 function createSession(overrides: Partial<SessionSummary> = {}): SessionSummary {
@@ -42,7 +42,7 @@ function createWorkspaceTab(): WorkspaceTabState {
   };
 }
 
-function createTaskMeta(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
+function createTaskMeta(overrides: Partial<ESCodeTaskMeta> = {}): ESCodeTaskMeta {
   return {
     createdAt: 1,
     mode: "default",
@@ -52,7 +52,7 @@ function createTaskMeta(overrides: Partial<ZCodeTaskMeta> = {}): ZCodeTaskMeta {
     updatedAt: 2,
     workspacePath: "/workspace",
     ...overrides,
-  } as ZCodeTaskMeta;
+  } as ESCodeTaskMeta;
 }
 
 function createMinimalElement(ownerDocument: Document, tagName = "div") {
@@ -165,15 +165,15 @@ function physicalFrame(
 }
 
 interface HarnessOptions {
-  kind: ZCodeTaskListKind;
+  kind: ESCodeTaskListKind;
   expanded?: boolean;
   searchQuery?: string;
   sessions: SessionSummary[];
   pinnedIds?: string[];
   archivedTaskIds?: string[];
-  activeTaskMetas?: ZCodeTaskMeta[];
-  archivedTaskMetas?: ZCodeTaskMeta[];
-  pinnedTaskMetas?: ZCodeTaskMeta[];
+  activeTaskMetas?: ESCodeTaskMeta[];
+  archivedTaskMetas?: ESCodeTaskMeta[];
+  pinnedTaskMetas?: ESCodeTaskMeta[];
 }
 
 function v4Handshake() {
@@ -232,7 +232,7 @@ async function renderHarness(options: HarnessOptions) {
       createTaskMeta({ taskId, title: taskId, traceId: `trace-${taskId}` }),
     );
   const controllerFrames = new Emitter<never>();
-  const controllerListTaskList = vi.fn(async (params: { kind: ZCodeTaskListKind; search?: string; limit?: number }) => {
+  const controllerListTaskList = vi.fn(async (params: { kind: ESCodeTaskListKind; search?: string; limit?: number }) => {
     if (params.search) {
       return listTaskList();
     }
@@ -282,7 +282,7 @@ async function renderHarness(options: HarnessOptions) {
       unsubscribeControllerV4: vi.fn(async () => {}),
       onDynamicControllerFrame: () => controllerFrames.event,
     },
-    zcodeTaskService: {
+    escodeTaskService: {
       listTaskList,
       listPinnedTaskIds: vi.fn(async () => options.pinnedIds ?? []),
       listArchivedTasks: vi.fn(async () => archivedTaskMetas),
@@ -290,7 +290,7 @@ async function renderHarness(options: HarnessOptions) {
       listPinnedTasks: vi.fn(async () => pinnedTaskMetas),
       onDynamicWorkspaceEvent: () => () => ({ dispose() {} }),
     },
-    zcodeAgentService: {
+    escodeAgentService: {
       ...v4Handshake(),
       subscribeSessionsIndexV4: vi.fn(async () => {
         const initial = snapshotFrame(options.sessions);
@@ -349,7 +349,7 @@ describe("useGlobalTaskList tasks-index 行 + sessions-index detail", () => {
       sessionIdByWorkspaceIdentity: {},
       sessionIdByWorkspacePath: {},
     });
-    useZCodeSessionStore.setState({ workspaces: {} });
+    useESCodeSessionStore.setState({ workspaces: {} });
     delete (globalThis as { document?: unknown }).document;
     delete (globalThis as { window?: unknown }).window;
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown }).IS_REACT_ACT_ENVIRONMENT;

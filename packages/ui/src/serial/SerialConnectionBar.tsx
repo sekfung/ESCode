@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RefreshCwIcon } from "lucide-react";
-import type { SerialConfig } from "@zcode/services";
+import type { SerialConfig } from "@escode/services";
 import type { SerialPortOption } from "@/lib/serial/serialPortChoice.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { SerialConfigPopover } from "@/serial/SerialControls.js";
 
 const BAUD_RATE_PRESETS = [
@@ -41,7 +41,7 @@ export function SerialConnectionBar({
   onConfigChange: (updater: (current: SerialConfig) => SerialConfig) => void;
   onToggleOpen: () => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const [customBaud, setCustomBaud] = useState(false);
   const baudValue =
     customBaud || !BAUD_RATE_PRESETS.includes(config.baudRate)

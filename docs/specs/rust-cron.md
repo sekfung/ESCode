@@ -2,7 +2,7 @@
 
 2026-09-25。用户决定实现（rust-release-rollback.md「功能缺口范围」）。App 的定时任务由 Host 持有（调度、持久化、派发），
 runtime 只做入参校验、守卫与协议转发；逐条对齐 TS `core/src/tool/handlers/cron.ts` 与
-`bootstrap/src/zcode-protocol/automation-port.ts`、`zcode-protocol-v4/commands/prompt-turn.ts`。
+`bootstrap/src/escode-protocol/automation-port.ts`、`escode-protocol-v4/commands/prompt-turn.ts`。
 
 ## 所有者与流程
 
@@ -44,7 +44,7 @@ sequenceDiagram
 
 ## 验收
 
-- `scripts/generate-zcode-cli-rust-cron-corpus.mjs`：真实 handler + 真实协议端口 + 脚本化 Host 的 21 个流程与 39 个校验用例，
+- `scripts/generate-escode-cli-rust-cron-corpus.mjs`：真实 handler + 真实协议端口 + 脚本化 Host 的 21 个流程与 39 个校验用例，
   Rust 逐条比对请求序列与参数、输出、模型可见文案、错误、创建上限与标题冻结。
 - App 差分：同一段对话在 Node 与 Rust 上创建/列出/更新/删除定时任务，Host 收到的请求与模型看到的结果一致；
   自动化轮中写工具不可见且被拒绝。

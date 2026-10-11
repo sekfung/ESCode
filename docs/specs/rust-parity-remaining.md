@@ -36,7 +36,7 @@
 
 ## App 协议方法级 diff（2026-09-30）
 
-做法：把 App 客户端（`packages/services/src/zcode-agent/*`）引用的 `zcodeProtocolMethods.*` 与 Rust engine 的
+做法：把 App 客户端（`packages/services/src/escode-agent/*`）引用的 `escodeProtocolMethods.*` 与 Rust engine 的
 method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust 无实现"的项再做真机探针。
 
 - **已修**：`session/resume`（探针实测 Node 正常、Rust 回 `-32601 Unsupported method`；实现与验收见
@@ -57,10 +57,10 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
   - `session/messages`：**已实现**（`afterMessageId`/`limit` 分页语义与 TS 一致，见
     [rust-session-loading.md](rust-session-loading.md)）；但该方法的 App 调用方 `readSessionMessages`
     当前没有活跃 UI 消费者，且 Node 返回的 legacy 形状过不了 App 自己的
-    `zcodeSessionMessagesResultSchema`——要不要保留这条 legacy 面需要产品决定。
+    `escodeSessionMessagesResultSchema`——要不要保留这条 legacy 面需要产品决定。
   - `workspace/updateModelIoPreferences`：**已实现**，且补上了它背后真正的缺口——Rust 之前完全不写 model-io，App「模型调用轨迹」侧栏对 Rust 会话为空；见 [rust-model-io.md](rust-model-io.md)。
   - `computer-use/operation-event`：**已实现**（2026-10-03，由遥测事实派生 turn-started / tool-scheduled（含 CUA
-    引导语句判定）/ tool-started / turn-completed|failed；差分 `zcode-cli-rust-cua-operation-event.test.ts`）。
+    引导语句判定）/ tool-started / turn-completed|failed；差分 `escode-cli-rust-cua-operation-event.test.ts`）。
   - `v4/cua/permission-observation`：已核对为**当前产品不可达**——TS 只对 `kind: "cua"` 展示（`mcp__computer_use__*`
     工具）的 `request_access` 结果发出，而 TS 与 Rust 都把除 `node_repl` 外的 CUA 形 MCP 服务器退役（`isRetiredCuaMcpServer`），
     `node_repl` 的 CUA 走 `node_repl_images` 展示（Rust 已对齐）。Rust 不实现，若 TS 恢复 computer-use MCP 再补。

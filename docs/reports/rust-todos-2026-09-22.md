@@ -1,6 +1,6 @@
 # Rust Todo 与 App 工作计划验收
 
-2026-09-22，ZCode-Pro 当前工作树，macOS arm64。已实现主会话 TodoRead/TodoWrite、持久化、提醒和 App 计划摘要，保持 yolo-only、TS 默认、Rust 显式选择。规则与所有权见 [spec](../specs/rust-todos.md)。
+2026-09-22，ESCode-Pro 当前工作树，macOS arm64。已实现主会话 TodoRead/TodoWrite、持久化、提醒和 App 计划摘要，保持 yolo-only、TS 默认、Rust 显式选择。规则与所有权见 [spec](../specs/rust-todos.md)。
 
 ## 行为与数据
 
@@ -20,22 +20,22 @@ TS 新导入从一致性备份读取 todo 表。旧版本已导入却缺少 todo
 
 | 检查                                            | 结果                                   |
 | ----------------------------------------------- | -------------------------------------- |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | 49 Rust / 134 App，通过；0 跳过        |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | 原生边界、fmt、Clippy -D warnings 通过 |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 49 Rust / 134 App，通过；0 跳过        |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | 原生边界、fmt、Clippy -D warnings 通过 |
 | `pnpm typecheck`                                | 通过                                   |
 | `pnpm lint`                                     | 0 错误，既有 70 条警告                 |
 | `pnpm fmt:check`                                | 通过                                   |
 | `pnpm architecture:check --changed`             | 0 违反，0 新增                         |
 
-日志位于 `.zcode-runtime/rust-e2e/20260922/checks/todos/`。最终 App 集成测试耗时 23231.8ms，仅作本次运行记录，不作为 release 性能对比。
+日志位于 `.escode-runtime/rust-e2e/20260922/checks/todos/`。最终 App 集成测试耗时 23231.8ms，仅作本次运行记录，不作为 release 性能对比。
 
 过程中修正了三个测试问题，未放宽产品断言：HTTP fixture 分块 Buffer 隐式转字符串损坏跨块中文，改为流式 UTF-8 解码；Coding fixture 将新的隐藏 Todo 提醒错当测试指令，改为跳过已知系统通知；直接静态导入整个 TS runtime reminder 模块会把无关 CLI 浏览器/子代理源码纳入测试专用 tsconfig，现以运行期路径导入真实 formatter，保持差分执行和测试编译边界。上述修正后全量重跑通过，Node SQLite 实验性提示保留。
 
-新增 Rust 源文件 3 个，共 313 行，均在 zcode-cli-rust 的既有 domain/app/adapters 层内；没有增加状态 owner、跨模块运行时依赖或协议版本。原生目录此前已是未跟踪工作，因此该数字不是相对 HEAD 的整包净增统计。
+新增 Rust 源文件 3 个，共 313 行，均在 escode-cli-rust 的既有 domain/app/adapters 层内；没有增加状态 owner、跨模块运行时依赖或协议版本。原生目录此前已是未跟踪工作，因此该数字不是相对 HEAD 的整包净增统计。
 
 ## 真实 App 验收
 
-复用隔离 `ZCode Rust E2E`、GLM-5.3 Max、`mode-workspace` 和会话 `2266a711-b002-4841-9136-e4acb2678e80`，通过原 Composer 提交，未直接调用 UI 内部 store。
+复用隔离 `ESCode Rust E2E`、GLM-5.3 Max、`mode-workspace` 和会话 `2266a711-b002-4841-9136-e4acb2678e80`，通过原 Composer 提交，未直接调用 UI 内部 store。
 
 1. TodoWrite 创建“检查清单 / in_progress / high”和“验证恢复 / pending / medium”，模型回复 `RUST_TODO_CREATED`，顶部显示“检查清单”。
 2. TodoWrite 更新为 completed 和 in_progress，回复 `RUST_TODO_UPDATED`，顶部切换到“验证恢复”。

@@ -3,7 +3,7 @@ import type {
   CommandAck,
   CommandEnvelope,
   ConversationSnapshot,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import {
   PENDING_COMMAND_TTL_MS,
   PendingCommandRegistry,

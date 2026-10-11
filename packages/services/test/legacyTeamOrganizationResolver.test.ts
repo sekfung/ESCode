@@ -3,7 +3,7 @@ import {
   resolveBigModelApiOrigin,
   resolveZaiBusinessBaseUrl,
   type ApiRequestInit,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { createLegacyTeamOrganizationResolver } from "../src/model-provider/legacyTeamOrganizationResolver.js";
 
 describe("旧 Team 组织查询", () => {
@@ -20,7 +20,7 @@ describe("旧 Team 组织查询", () => {
       );
       const load = vi.fn(async () => ({
         accessToken: "oauth-only",
-        zcodeJwtToken: "different-jwt",
+        escodeJwtToken: "different-jwt",
       }));
       const resolve = createLegacyTeamOrganizationResolver({
         apiClient: { request },

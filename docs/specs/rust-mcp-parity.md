@@ -17,7 +17,7 @@
 
 ## 分期
 
-1. （已完成）结果格式对齐：文本拼接、structuredContent、isError 前缀、audio/resource 文案；通过 MCP 差分覆盖（`zcode-cli-rust-mcp-result-differential.test.ts`，Chat 与 Anthropic 两种协议）。
+1. （已完成）结果格式对齐：文本拼接、structuredContent、isError 前缀、audio/resource 文案；通过 MCP 差分覆盖（`escode-cli-rust-mcp-result-differential.test.ts`，Chat 与 Anthropic 两种协议）。
    - 缩进 JSON 按 rmcp 类型字段的顺序输出，resource 与 Node 一致。
    - `structuredContent` 在 rmcp 中是无序 Value，多键时键序可能与 server 原序不同（已知差异）。
 2. （已完成）图片结果：
@@ -26,12 +26,12 @@
      `<artifacts>/<session>/<toolCallId>-tool-result-<uuid><ext>`（扩展名按 TS `extensionForMimeType`，未知为 `.bin`），
      告知模型 `MCP image content saved instead of being inlined: …
 Artifact: <path>
-Artifact URI: zcode-artifact://<session>/tool-result-<uuid>`；
+Artifact URI: escode-artifact://<session>/tool-result-<uuid>`；
      tool call id 经 `ToolPort::execute_mcp` 传入。artifact 根目录是 Rust 工具产物目录（与 Bash 输出文件相同），
      与 TS 的 `<storageRoot>/cli/artifacts` 不同址——两侧工具产物路径本就各自独立，文件名与 URI 格式一致；
    - 写 artifact 失败使工具调用失败（TS 同样抛错）；未提供 call id 的内部调用仍给出「无 artifact store」说明；
    - node_repl 截图压缩属于浏览器工具，Rust 未提供该工具，归入第 4 期；
-   - 差分：`zcode-cli-rust-mcp-result-differential.test.ts` 的 `big` 形态核对两侧文案、文件名格式与落盘字节。
+   - 差分：`escode-cli-rust-mcp-result-differential.test.ts` 的 `big` 形态核对两侧文案、文件名格式与落盘字节。
 3. （已完成，授权码 + PKCE）OAuth：见 rust-mcp-oauth.md。
 4. 截图 artifact 与 CUA 帧：依赖官方插件运行时，单独评估。
 
@@ -70,11 +70,11 @@ schema 顺序差分发现：legacy streamable HTTP server 以 SSE（`text/event-
 - 其它请求的 SSE 应答不变；流结束仍未读到应答时，按 rmcp 原语义报 "empty sse stream"。
 
 验收：以 SSE 应答、对 `server/discover` 回 -32601 的 HTTP fixture，两侧都回落 `initialize` 并把工具发给模型
-（`zcode-cli-rust-tool-schema-order.test.ts` 的 http 用例）。
+（`escode-cli-rust-tool-schema-order.test.ts` 的 http 用例）。
 
 ## 关闭语义（2026-09-26）
 
 - Node（SDK 2.0 `transport.close`）关闭 Streamable HTTP 连接时不终止会话，不发送 `DELETE`。
 - rmcp 的 reqwest client 默认在关闭时发送 `DELETE`。
 - Rust 的所有 HTTP 连接（无鉴权、OAuth、client_credentials、官方）都经自有 client，其 `delete_session` 为空操作，与 Node 一致。
-- 验收：`zcode-cli-rust-mcp-negotiation-differential.test.ts` 比较服务端收到的 `DELETE` 次数（两侧均为 0）。
+- 验收：`escode-cli-rust-mcp-negotiation-differential.test.ts` 比较服务端收到的 `DELETE` 次数（两侧均为 0）。

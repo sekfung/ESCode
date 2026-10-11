@@ -2,7 +2,7 @@
 
 ## 现有契约
 
-以 TS `commands/handlers/session-mgmt.ts` 的 `deleteSession`、`zcode-protocol/v4-bridge.ts` 的 closeSession 及 `v4-gateway.ts` 的 disposeSession 为准：删除命令关闭 runtime、释放订阅和上传状态、通知 sessions-index 移除，已持久化历史不删除。再次 conversation subscribe 从持久层冷恢复。空预热草稿不产生历史记录。此语义不等同于归档，也不引入永久删除功能。
+以 TS `commands/handlers/session-mgmt.ts` 的 `deleteSession`、`escode-protocol/v4-bridge.ts` 的 closeSession 及 `v4-gateway.ts` 的 disposeSession 为准：删除命令关闭 runtime、释放订阅和上传状态、通知 sessions-index 移除，已持久化历史不删除。再次 conversation subscribe 从持久层冷恢复。空预热草稿不产生历史记录。此语义不等同于归档，也不引入永久删除功能。
 
 ## 所有者与顺序
 

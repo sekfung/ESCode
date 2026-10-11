@@ -62,7 +62,7 @@ sequenceDiagram
   participant M as 模型
   participant R as Agent 运行时（TS / Rust，含 serial broker）
   participant P as serial MCP server（内置插件）
-  participant H as Desktop Local Host（zcodeAgentService）
+  participant H as Desktop Local Host（escodeAgentService）
   participant S as SerialService
   M->>R: tools/call mcp__serial__serial_write
   R->>R: 权限：只读工具按插件 defaultAllowedTools 放行；写类工具走审批卡片
@@ -81,25 +81,25 @@ sequenceDiagram
 
 - broker 由 Agent 进程持有，一个 Agent 进程一个（一个 workspaceKey 对应一个 Agent 进程），
   命名、token 和请求格式照搬 node_repl browser broker：
-  - Windows 为 `\\.\pipe\zcode-serial-<uuid>`，其他平台为 `<tmpdir>/zsr-<uuid>.sock`；
-  - token 为 32 字节随机数，只通过 env（`ZCODE_SERIAL_BROKER_SOCKET` / `ZCODE_SERIAL_BROKER_TOKEN`）
+  - Windows 为 `\\.\pipe\escode-serial-<uuid>`，其他平台为 `<tmpdir>/zsr-<uuid>.sock`；
+  - token 为 32 字节随机数，只通过 env（`ESCODE_SERIAL_BROKER_SOCKET` / `ESCODE_SERIAL_BROKER_TOKEN`）
     注入 serial MCP server；
   - 每个请求一行 JSON，上限 1 MiB。
 - 会话身份以运行时从 MCP `_meta` 中取得并通过 `requireSession` 确认的 `sessionId` 为准；
   MCP server 不能自报会话。
-- Host 在 `zcodeAgentService.onRequest` 中处理 `interaction/serial*`，直接调用同进程的 `ISerialService`。
+- Host 在 `escodeAgentService.onRequest` 中处理 `interaction/serial*`，直接调用同进程的 `ISerialService`。
   `packages/server`（远程或独立 server）没有串口服务，返回 `unavailable`。
 
 ## 启用门控
 
 - Host 只在 `shouldRegisterSerialService(serviceAuthorityMode)` 为真时，向 Agent spawn env
-  注入 `ZCODE_HOST_SERIAL=1`。
+  注入 `ESCODE_HOST_SERIAL=1`。
 - 运行时（TS 与 Rust）仅在看到该标记、且 `serial` 官方插件处于启用状态时，注册 serial MCP server
   并创建 broker。
 - broker 的 socket 与 token 只写入 serial server 配置的 env，从不进入 Agent 进程的全局环境，
   因此不会泄露给 Bash 或其他 MCP。两者都**不能**加入 CLI 的 sanitize 列表：CLI 入口会在启动时就地清理
-  该列表，serial server 本身也由 CLI（`__zcode-plugin-host`）启动，加入后会读不到连接材料；
-  `ZCODE_HOST_SERIAL` 同理会在运行时入口读取之前被清掉。`ZCODE_HOST_SERIAL=1` 只是非机密的能力标记。
+  该列表，serial server 本身也由 CLI（`__escode-plugin-host`）启动，加入后会读不到连接材料；
+  `ESCODE_HOST_SERIAL` 同理会在运行时入口读取之前被清掉。`ESCODE_HOST_SERIAL=1` 只是非机密的能力标记。
 
 ## 取消
 
@@ -126,16 +126,16 @@ sequenceDiagram
 - Host 进程内接口 `SerialService`（不在 RPC 契约 `ISerialService` 上，因为参数含回调与 `AbortSignal`）新增：
   - `readSince({ sinceSeq, direction, maxBytes })`
   - `waitFor({ sinceSeq, timeoutMs, signal, test })`
-- 编解码（HEX 解析、行尾、流式解码、预览转义）移入 `@zcode/shared/serial`，UI 面板、审批预览与 Host 共用一份。
+- 编解码（HEX 解析、行尾、流式解码、预览转义）移入 `@escode/shared/serial`，UI 面板、审批预览与 Host 共用一份。
 - 面板中 Agent 写入的 TX 行显示 `[Agent·<会话标题>]`。标题从现有任务列表查找，查不到时显示 sessionId 前 8 位；
   点击跳转到该会话。
 
 ## 插件与打包
 
-- 新包 `apps/zcode-cli/packages/serial-plugin`：包含 manifest、MCP server（`dist/mcp/server.js`，stdio）和一份
+- 新包 `apps/escode-cli/packages/serial-plugin`：包含 manifest、MCP server（`dist/mcp/server.js`，stdio）和一份
   使用说明 skill，说明典型的“烧录后等待启动日志”流程。
 - 作为官方插件随 Desktop 分发，seed 与路径改写沿用现有官方插件机制
-  （`__zcode-plugin-host`，`ELECTRON_RUN_AS_NODE=1`）。
+  （`__escode-plugin-host`，`ELECTRON_RUN_AS_NODE=1`）。
 
 ## 验收
 
@@ -148,5 +148,5 @@ sequenceDiagram
   门控（无标记或插件关闭时不注册）、`defaultAllowedTools` 只对本插件生效。
 - Rust 运行时：与 TS 相同的 broker 与门控测试，以及 `defaultAllowedTools` 测试。
 - UI：TX 行来源标注与标题回退。
-- 端到端：开发版 Desktop 以 `ZCODE_SERIAL_MOCK_PORTS` 启动，真实模型会话完成
+- 端到端：开发版 Desktop 以 `ESCODE_SERIAL_MOCK_PORTS` 启动，真实模型会话完成
   list → open（审批）→ write（审批）→ wait_for 回环数据 → read → close；面板同步显示 `[Agent·…]` 行。

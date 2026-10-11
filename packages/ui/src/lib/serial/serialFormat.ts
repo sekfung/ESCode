@@ -1,4 +1,4 @@
-import type { SerialChunk } from "@zcode/services";
+import type { SerialChunk } from "@escode/services";
 
 export {
   buildSerialSendPayload,
@@ -10,13 +10,13 @@ export {
   type SerialLineEnding,
   type SerialSendMode,
   type SerialStreamDecoder,
-} from "@zcode/shared/serial";
+} from "@escode/shared/serial";
 import {
   createSerialStreamDecoder,
   formatSerialHex,
   type SerialDisplayEncoding,
   type SerialSendMode,
-} from "@zcode/shared/serial";
+} from "@escode/shared/serial";
 
 export interface SerialDisplayRow {
   key: string;

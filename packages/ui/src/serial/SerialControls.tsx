@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Settings2Icon } from "lucide-react";
-import type { SerialConfig } from "@zcode/services";
+import type { SerialConfig } from "@escode/services";
 import { Button } from "@/components/ui/button.js";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.js";
 import {
@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.js";
 import { Switch } from "@/components/ui/switch.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { cn } from "@/components/lib/utils.js";
 
 export function SegmentedToggle<T extends string>({
@@ -83,7 +83,7 @@ export function SerialConfigPopover({
   disabled: boolean;
   onChange: (updater: (current: SerialConfig) => SerialConfig) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl } = useESCodeIntl();
   const field = (labelId: string, control: ReactNode) => (
     <label className="flex items-center justify-between gap-3 text-ui-sm text-foreground-subtle">
       {intl.formatMessage({ id: labelId })}

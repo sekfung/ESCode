@@ -3,7 +3,7 @@ import {
   INTRANET_MACHINE_HOST,
   INTRANET_PROBE_SERVICE_PORT,
   type IntranetProbeRequest,
-} from "@zcode/shared";
+} from "@escode/shared";
 import {
   createIntranetProbeRequestStableKey,
   shouldApplyIntranetProbeRunResult,
@@ -23,7 +23,7 @@ describe("useSystemService intranet probe request key", () => {
         {
           kind: "service",
           url: `http://${INTRANET_MACHINE_HOST}:${INTRANET_PROBE_SERVICE_PORT}/healthz`,
-          expectedMarker: "zcode-intranet",
+          expectedMarker: "escode-intranet",
           token: "probe-token",
         },
       ],
@@ -41,7 +41,7 @@ describe("useSystemService intranet probe request key", () => {
         {
           kind: "service",
           url: `http://${INTRANET_MACHINE_HOST}:${INTRANET_PROBE_SERVICE_PORT}/healthz`,
-          expectedMarker: "zcode-intranet",
+          expectedMarker: "escode-intranet",
           token: "probe-token",
         },
       ],

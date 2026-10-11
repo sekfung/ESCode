@@ -1,6 +1,6 @@
 # Rust Bash 进程树回收与 App 验收
 
-2026-09-22，ZCode-Pro 当前工作树，macOS arm64。修复停止工具时的后代泄漏与 30 秒收口延迟，保持 yolo-only、TS 默认、Rust 显式选择。
+2026-09-22，ESCode-Pro 当前工作树，macOS arm64。修复停止工具时的后代泄漏与 30 秒收口延迟，保持 yolo-only、TS 默认、Rust 显式选择。
 
 ## 原因与实现
 
@@ -18,20 +18,20 @@
 
 | 验证                                            | 结果                               |
 | ----------------------------------------------- | ---------------------------------- |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | 46 Rust / 115 App，通过；0 跳过    |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 46 Rust / 115 App，通过；0 跳过    |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | 边界、fmt、Clippy -D warnings 通过 |
 | `pnpm typecheck`                                | 通过                               |
 | `pnpm lint`                                     | 0 错误；既有 70 条警告             |
 | `pnpm fmt:check`                                | 通过                               |
 | `pnpm architecture:check --changed`             | 0 违反、0 新增                     |
 
-失败前后及最终日志保存在 `.zcode-runtime/rust-e2e/20260922/checks/shell-lifecycle/`。初版测试使用 macOS Bash 不提供的 BASHPID，已改为子 Bash 的 `$$` 并清理该失败 fixture；最终验证全部重新执行。Node SQLite 实验性提示单列保留。
+失败前后及最终日志保存在 `.escode-runtime/rust-e2e/20260922/checks/shell-lifecycle/`。初版测试使用 macOS Bash 不提供的 BASHPID，已改为子 Bash 的 `$$` 并清理该失败 fixture；最终验证全部重新执行。Node SQLite 实验性提示单列保留。
 
 旧 30.02 秒回归用例在修复后重复五次：测试进程 wall time 为 82.99、75.48、67.13、62.77、62.23ms，测试体为 0.06–0.07 秒。随后全量重跑仍为 0.07 秒。这是同机 debug 回收回归测量，不替代 TS/Rust release 性能验收。
 
 ## 实际 App 验收
 
-隔离 `ZCode Rust E2E` 使用原 Composer、停止按钮和 Meta+Enter，真实 GLM-5.3 Max，工作区为 `mode-workspace`。
+隔离 `ESCode Rust E2E` 使用原 Composer、停止按钮和 Meta+Enter，真实 GLM-5.3 Max，工作区为 `mode-workspace`。
 
 - Stop：父 PID 34094、子 PID 34095，PGID 不同，子进程忽略 TERM。点击停止后 1745.83ms 内两者均已退出；stdio 从 stop 到 completedInterrupted 为 1607ms，App 显示 Stopped。
 - 立即发送：父 PID 34663、子 PID 34664，同样跨 PGID 且忽略 TERM。Meta+Enter 后 1759.84ms 内两者均已退出；旧轮中断提交后，新轮回复 `RUST_SHELL_NOW_OK`。新轮创建时间晚于进程退出观测点，原生集成测试另在下一模型请求入口断言旧进程已消失。

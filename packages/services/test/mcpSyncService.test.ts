@@ -6,15 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMcpSyncService } from "../src/mcp-sync/mcpSyncService.js";
 
 function makeHome() {
-  return mkdtempSync(join(tmpdir(), "zcode-mcp-sync-home-"));
+  return mkdtempSync(join(tmpdir(), "escode-mcp-sync-home-"));
 }
 
-async function writeZcodeUserMcp(
+async function writeEscodeUserMcp(
   home: string,
   servers: Record<string, Record<string, unknown>>,
 ) {
-  const configPath = join(home, ".zcode", "cli", "config.json");
-  await mkdir(join(home, ".zcode", "cli"), { recursive: true });
+  const configPath = join(home, ".escode", "cli", "config.json");
+  await mkdir(join(home, ".escode", "cli"), { recursive: true });
   await writeFile(
     configPath,
     `${JSON.stringify({ mcp: { servers } }, null, 2)}\n`,
@@ -35,8 +35,8 @@ async function writeAgentsUserMcp(
   return configPath;
 }
 
-async function readRemoteZcodeServers(home: string) {
-  const raw = await readFile(join(home, ".zcode", "cli", "config.json"), "utf-8");
+async function readRemoteEscodeServers(home: string) {
+  const raw = await readFile(join(home, ".escode", "cli", "config.json"), "utf-8");
   const parsed = JSON.parse(raw) as {
     mcp?: { servers?: Record<string, Record<string, unknown>> };
   };
@@ -54,10 +54,10 @@ describe("mcp sync service", () => {
     process.env.HOME = originalHome;
   });
 
-  it("lists user zcode MCP servers as local candidates", async () => {
+  it("lists user escode MCP servers as local candidates", async () => {
     const home = makeHome();
     process.env.HOME = home;
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       context7: {
         type: "stdio",
         command: "npx",
@@ -73,8 +73,8 @@ describe("mcp sync service", () => {
       {
         name: "context7",
         enabled: true,
-        source: "zcode",
-        path: join(home, ".zcode", "cli", "config.json"),
+        source: "escode",
+        path: join(home, ".escode", "cli", "config.json"),
         config: {
           command: "npx",
           args: ["-y", "@upstash/context7-mcp"],
@@ -87,7 +87,7 @@ describe("mcp sync service", () => {
     const home = makeHome();
     process.env.HOME = home;
     // 外部工具/手工编辑写的是 enabled:false；同步侧不能把它当成启用状态。
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       context7: {
         type: "stdio",
         command: "npx",
@@ -106,7 +106,7 @@ describe("mcp sync service", () => {
     const home = makeHome();
     process.env.HOME = home;
     // 线上配置里 enable 与 enabled 并存，切换开关后不能再留下自相矛盾的字段。
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       context7: {
         command: "npx",
         args: ["-y", "@upstash/context7-mcp"],
@@ -117,12 +117,12 @@ describe("mcp sync service", () => {
 
     await service.saveMcpToUserDirectory({
       action: "set-enabled",
-      source: "zcodeagentmcp",
+      source: "escodeagentmcp",
       name: "context7",
       enabled: false,
     });
 
-    expect((await readRemoteZcodeServers(home)).context7).toEqual({
+    expect((await readRemoteEscodeServers(home)).context7).toEqual({
       command: "npx",
       args: ["-y", "@upstash/context7-mcp"],
       enabled: false,
@@ -130,12 +130,12 @@ describe("mcp sync service", () => {
 
     await service.saveMcpToUserDirectory({
       action: "set-enabled",
-      source: "zcodeagentmcp",
+      source: "escodeagentmcp",
       name: "context7",
       enabled: true,
     });
 
-    expect((await readRemoteZcodeServers(home)).context7).toEqual({
+    expect((await readRemoteEscodeServers(home)).context7).toEqual({
       command: "npx",
       args: ["-y", "@upstash/context7-mcp"],
     });
@@ -145,7 +145,7 @@ describe("mcp sync service", () => {
     const home = makeHome();
     process.env.HOME = home;
     // 存量配置只有桌面端历史写入的 enable；同步侧读取时应就地迁移成契约字段 enabled。
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       context7: {
         command: "npx",
         args: ["-y", "@upstash/context7-mcp"],
@@ -157,7 +157,7 @@ describe("mcp sync service", () => {
     const result = await service.listLocalUserMcpCandidates();
 
     expect(result.candidates[0]).toMatchObject({ name: "context7", enabled: false });
-    expect((await readRemoteZcodeServers(home)).context7).toEqual({
+    expect((await readRemoteEscodeServers(home)).context7).toEqual({
       command: "npx",
       args: ["-y", "@upstash/context7-mcp"],
       enabled: false,
@@ -168,7 +168,7 @@ describe("mcp sync service", () => {
     const home = makeHome();
     process.env.HOME = home;
     // 线上事故配置：停用写了 enable:false，但外部导入残留 enabled:true。迁移必须保住停用语义。
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       context7: {
         command: "npx",
         args: ["-y", "@upstash/context7-mcp"],
@@ -181,7 +181,7 @@ describe("mcp sync service", () => {
     const result = await service.listLocalUserMcpCandidates();
 
     expect(result.candidates[0]).toMatchObject({ name: "context7", enabled: false });
-    expect((await readRemoteZcodeServers(home)).context7).toEqual({
+    expect((await readRemoteEscodeServers(home)).context7).toEqual({
       command: "npx",
       args: ["-y", "@upstash/context7-mcp"],
       enabled: false,
@@ -193,8 +193,8 @@ describe("mcp sync service", () => {
     process.env.HOME = home;
     // 迁移必须幂等：没有残留字段时不能重写文件，否则每次列举候选都会动用户的配置。
     // 故意用非规范化的紧凑 JSON 落盘，任何重写都会改变字节内容。
-    const configPath = join(home, ".zcode", "cli", "config.json");
-    await mkdir(join(home, ".zcode", "cli"), { recursive: true });
+    const configPath = join(home, ".escode", "cli", "config.json");
+    await mkdir(join(home, ".escode", "cli"), { recursive: true });
     const raw = JSON.stringify({
       mcp: {
         servers: {
@@ -223,25 +223,25 @@ describe("mcp sync service", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      path: join(remoteHome, ".zcode", "cli"),
+      path: join(remoteHome, ".escode", "cli"),
     });
   });
 
   it("reports remote MCP write preflight failure when cli path is not a directory", async () => {
     const remoteHome = makeHome();
     process.env.HOME = remoteHome;
-    await mkdir(join(remoteHome, ".zcode"), { recursive: true });
-    await writeFile(join(remoteHome, ".zcode", "cli"), "not a directory");
+    await mkdir(join(remoteHome, ".escode"), { recursive: true });
+    await writeFile(join(remoteHome, ".escode", "cli"), "not a directory");
     const service = createMcpSyncService();
 
     const result = await service.checkRemoteUserMcpWriteAccess();
 
     expect(result.ok).toBe(false);
-    expect(result.path).toBe(join(remoteHome, ".zcode", "cli"));
+    expect(result.path).toBe(join(remoteHome, ".escode", "cli"));
     expect(result.error).toBeTruthy();
   });
 
-  it("falls back to user agents MCP servers when zcode user MCP is empty", async () => {
+  it("falls back to user agents MCP servers when escode user MCP is empty", async () => {
     const home = makeHome();
     process.env.HOME = home;
     await writeAgentsUserMcp(home, {
@@ -266,7 +266,7 @@ describe("mcp sync service", () => {
   it("imports stdio and HTTP MCP servers while preserving secrets", async () => {
     const localHome = makeHome();
     process.env.HOME = localHome;
-    await writeZcodeUserMcp(localHome, {
+    await writeEscodeUserMcp(localHome, {
       context7: {
         type: "stdio",
         command: "npx",
@@ -299,7 +299,7 @@ describe("mcp sync service", () => {
       { name: "context7", status: "synced" },
       { name: "docsApi", status: "synced" },
     ]);
-    const remoteServers = await readRemoteZcodeServers(remoteHome);
+    const remoteServers = await readRemoteEscodeServers(remoteHome);
     expect(remoteServers.context7).toMatchObject({
       command: "npx",
       args: ["-y", "@upstash/context7-mcp"],
@@ -327,8 +327,8 @@ describe("mcp sync service", () => {
           {
             id: "docs-api",
             name: "docsApi",
-            source: "zcode",
-            path: "/Users/local/.zcode/cli/config.json",
+            source: "escode",
+            path: "/Users/local/.escode/cli/config.json",
             enabled: true,
             config: {
               type: "http",
@@ -341,7 +341,7 @@ describe("mcp sync service", () => {
         overwrite: false,
       });
 
-      const configMode = (await stat(join(remoteHome, ".zcode", "cli", "config.json")))
+      const configMode = (await stat(join(remoteHome, ".escode", "cli", "config.json")))
         .mode;
       expect(configMode & 0o777).toBe(0o600);
     } finally {
@@ -349,10 +349,10 @@ describe("mcp sync service", () => {
     }
   });
 
-  it("fails remote import without overwriting an invalid zcode config file", async () => {
+  it("fails remote import without overwriting an invalid escode config file", async () => {
     const localHome = makeHome();
     process.env.HOME = localHome;
-    await writeZcodeUserMcp(localHome, {
+    await writeEscodeUserMcp(localHome, {
       context7: {
         type: "stdio",
         command: "npx",
@@ -367,8 +367,8 @@ describe("mcp sync service", () => {
 
     const remoteHome = makeHome();
     process.env.HOME = remoteHome;
-    const invalidConfigPath = join(remoteHome, ".zcode", "cli", "config.json");
-    await mkdir(join(remoteHome, ".zcode", "cli"), { recursive: true });
+    const invalidConfigPath = join(remoteHome, ".escode", "cli", "config.json");
+    await mkdir(join(remoteHome, ".escode", "cli"), { recursive: true });
     await writeFile(invalidConfigPath, '{"mcp":');
     const remoteService = createMcpSyncService();
 
@@ -390,7 +390,7 @@ describe("mcp sync service", () => {
 
     await service.saveMcpToUserDirectory({
       action: "upsert",
-      source: "zcodeagentmcp",
+      source: "escodeagentmcp",
       name: "deepwiki",
       config: {
         type: "http",
@@ -402,7 +402,7 @@ describe("mcp sync service", () => {
 
     expect(result.servers).toMatchObject([
       {
-        source: "zcodeagentmcp",
+        source: "escodeagentmcp",
         scope: "user",
         name: "deepwiki",
         config: {
@@ -412,7 +412,7 @@ describe("mcp sync service", () => {
       },
     ]);
     expect(result.servers[0]?.file?.filePath).toBe(
-      join(home, ".zcode", "cli", "config.json"),
+      join(home, ".escode", "cli", "config.json"),
     );
   });
 
@@ -420,12 +420,12 @@ describe("mcp sync service", () => {
     const home = makeHome();
     const workspace = join(home, "workspace");
     process.env.HOME = home;
-    await writeZcodeUserMcp(home, {
+    await writeEscodeUserMcp(home, {
       userOnly: { type: "http", url: "https://user.example.test/mcp" },
     });
-    await mkdir(join(workspace, ".zcode"), { recursive: true });
+    await mkdir(join(workspace, ".escode"), { recursive: true });
     await writeFile(
-      join(workspace, ".zcode", "config.json"),
+      join(workspace, ".escode", "config.json"),
       JSON.stringify(
         {
           mcp: {
@@ -453,9 +453,9 @@ describe("mcp sync service", () => {
 
   it("rewrites filesystem MCP home and workspace paths for the remote host", async () => {
     const localHome = makeHome();
-    const localWorkspacePath = join(localHome, "workspace", "z-code");
+    const localWorkspacePath = join(localHome, "workspace", "escode");
     process.env.HOME = localHome;
-    await writeZcodeUserMcp(localHome, {
+    await writeEscodeUserMcp(localHome, {
       filesystem: {
         type: "stdio",
         command: "npx",
@@ -480,15 +480,15 @@ describe("mcp sync service", () => {
       servers: exported.servers,
       localHomeDir: exported.localHomeDir,
       localWorkspacePath,
-      remoteWorkspacePath: "/srv/z-code",
+      remoteWorkspacePath: "/srv/escode",
       overwrite: false,
     });
 
-    const remoteServers = await readRemoteZcodeServers(remoteHome);
+    const remoteServers = await readRemoteEscodeServers(remoteHome);
     expect(remoteServers.filesystem?.args).toEqual([
       "-y",
       "@modelcontextprotocol/server-filesystem",
-      "/srv/z-code/src",
+      "/srv/escode/src",
       join(remoteHome, "Documents"),
     ]);
   });
@@ -496,7 +496,7 @@ describe("mcp sync service", () => {
   it("skips same-name remote MCP servers without overwriting", async () => {
     const localHome = makeHome();
     process.env.HOME = localHome;
-    await writeZcodeUserMcp(localHome, {
+    await writeEscodeUserMcp(localHome, {
       context7: {
         type: "stdio",
         command: "npx",
@@ -511,7 +511,7 @@ describe("mcp sync service", () => {
 
     const remoteHome = makeHome();
     process.env.HOME = remoteHome;
-    await writeZcodeUserMcp(remoteHome, {
+    await writeEscodeUserMcp(remoteHome, {
       context7: {
         type: "stdio",
         command: "existing-command",
@@ -530,10 +530,10 @@ describe("mcp sync service", () => {
       {
         name: "context7",
         status: "skipped",
-        path: join(remoteHome, ".zcode", "cli", "config.json"),
+        path: join(remoteHome, ".escode", "cli", "config.json"),
       },
     ]);
-    const remoteServers = await readRemoteZcodeServers(remoteHome);
+    const remoteServers = await readRemoteEscodeServers(remoteHome);
     expect(remoteServers.context7).toMatchObject({
       command: "existing-command",
     });

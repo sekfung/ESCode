@@ -6,7 +6,7 @@ Grouped task view bootstraps existing visible tasks by workspace.
 
 - On the first grouped-view query that runs workspace bootstrap, visible tasks in the current scopes are moved into generated workspace groups.
 - Completed tasks older than seven days in the current scopes are archived before workspace bootstrap reads visible tasks.
-- The generated group title uses the workspace path leaf, such as `z-code`.
+- The generated group title uses the workspace path leaf, such as `escode`.
 - The generated group id is deterministic from `workspaceIdentity || workspacePath`, so remote workspace identity remains isolated from local path display.
 - The generated group color is deterministically distributed across the non-gray palette from the same workspace key.
 - The generated group receives top-level grouped ordering.

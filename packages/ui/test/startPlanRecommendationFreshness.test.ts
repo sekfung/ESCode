@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { ModelSelectionView } from "@zcode/provider";
-import type { IUsageStatsService, ProviderSettingsView } from "@zcode/services";
-import type { UsageEntitlementSnapshot } from "@zcode/shared";
+import type { ModelSelectionView } from "@escode/provider";
+import type { IUsageStatsService, ProviderSettingsView } from "@escode/services";
+import type { UsageEntitlementSnapshot } from "@escode/shared";
 import { useStartPlanRecommendation } from "@/hooks/useStartPlanRecommendation.js";
 import { useUsageEntitlementWithService } from "@/hooks/useUsageEntitlement.js";
 import { buildStartPlanEntitlementOptions } from "@/lib/startPlanEntitlementOptions.js";
@@ -24,7 +24,7 @@ vi.mock("@/hooks/useProviderSettingsView.js", () => ({
   useProviderSettingsView: () => ({ state: { status: "ready", view: settingsView() } }),
 }));
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
+  useESCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
 }));
 const startId = "account:bigmodel-start-plan";
 const paid = {

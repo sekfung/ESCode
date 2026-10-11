@@ -6,7 +6,7 @@ import type {
   ToolCallRow,
   TurnHeaderRow,
   UserInputRow,
-} from "@zcode/shared/zcode-protocol-v4";
+} from "@escode/shared/escode-protocol-v4";
 import {
   buildConversationFindIndex,
   findConversationMatchIndexByKey,

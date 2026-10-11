@@ -61,11 +61,11 @@
 
 ## 验收
 
-- 语料：`scripts/generate-zcode-cli-rust-websearch-corpus.mjs` 以 TS `formatWebSearchModelContent`/`buildWebSearchOutput`
+- 语料：`scripts/generate-escode-cli-rust-websearch-corpus.mjs` 以 TS `formatWebSearchModelContent`/`buildWebSearchOutput`
   为 oracle 覆盖 summary 链接抽取、去重、20 条上限、无链接与无 summary。
 - 附带修复：Anthropic 非缓存请求（标题、WebFetch 处理、WebSearch、压缩摘要）的 `system` 与 AI SDK 一致，
   始终为文本块数组、无 system 时省略（此前拼成字符串）。
-- App 差分（`zcode-cli-rust-websearch-differential.test.ts`，已通过）：模型声明 `supportsNativeWebSearch` 的 Anthropic 协议下，Node 与 Rust
+- App 差分（`escode-cli-rust-websearch-differential.test.ts`，已通过）：模型声明 `supportsNativeWebSearch` 的 Anthropic 协议下，Node 与 Rust
   - 主请求工具面包含同样的 WebSearch 定义；
   - 内部搜索请求的 system/user/工具/`max_tokens`/beta 头一致；
   - 响应含 `server_tool_use` / `web_search_tool_result` / `citations_delta` 时，工具结果文本一致；

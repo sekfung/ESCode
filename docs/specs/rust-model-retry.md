@@ -1,6 +1,6 @@
 # Rust 模型重试状态与断流恢复
 
-2026-10-08。对照 MBearo/ZCode-rs 的 M7 发现的两处缺口，均以当前 Node 源码为基准。
+2026-10-08。对照 MBearo/ESCode-rs 的 M7 发现的两处缺口，均以当前 Node 源码为基准。
 
 ## 1. 重试原因码（V4 `control.apiRetry.reasonCode`）
 
@@ -11,9 +11,9 @@
   （`auth_refresh`、`reasoning_signature_repair` 等）→ `fault.provider.requestFailed`。
 - 缺陷：Rust 原先把适配层原始 reason（如 `rate_limited`）直接作为 reasonCode，UI 按 `fault.*` 取的重试文案无法命中。
 - 修复：`domain::model::retry_reason_code`；`RetryState` 同时保留原始 `reason`（不序列化）。
-- 旧 `session/read` 的 `runtime.apiRetry.error` 不变：TS `normalizeZCodeApiRetryStatus` 在事件没有 error/message 时回落
+- 旧 `session/read` 的 `runtime.apiRetry.error` 不变：TS `normalizeESCodeApiRetryStatus` 在事件没有 error/message 时回落
   原始 reason，Rust 继续给原始 reason。
-- 验收：domain 单测逐项对照；`zcode-cli-rust-network.test.ts`、`zcode-cli-rust-provider.test.ts` 的 reasonCode 断言改为 `fault.*`。
+- 验收：domain 单测逐项对照；`escode-cli-rust-network.test.ts`、`escode-cli-rust-provider.test.ts` 的 reasonCode 断言改为 `fault.*`。
 
 ## 2. 断流恢复（已有可见输出后失败）
 
@@ -54,10 +54,10 @@ sequenceDiagram
     Node 静默接受截断输出属于缺陷，Rust 不照搬。
   - 只有推理时，Node 走适配层的空回复重试，推理行收口为 `complete`；Rust 走断流恢复，推理行为 `interrupted`。
     两侧都重发且最终回答一致，只有被作废推理行的状态不同。
-  - 对应 Rust 用例：`zcode-cli-rust-provider.test.ts`「…recovers truncated text or reasoning by discarding the tail」。
+  - 对应 Rust 用例：`escode-cli-rust-provider.test.ts`「…recovers truncated text or reasoning by discarding the tail」。
 
 ## 验收
 
 - 单测：`stream_recovery` 的可恢复判定与原因码。
-- App 差分：`zcode-cli-rust-stream-recovery.test.ts`（推理 + 部分正文后断开：请求次数、请求体、行状态、恢复态与清空两侧
+- App 差分：`escode-cli-rust-stream-recovery.test.ts`（推理 + 部分正文后断开：请求次数、请求体、行状态、恢复态与清空两侧
   一致；冷恢复按上述已知差异分别断言）。

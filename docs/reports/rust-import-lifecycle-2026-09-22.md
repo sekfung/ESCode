@@ -1,6 +1,6 @@
 # Rust 导入生命周期与缓存清理复验
 
-2026-09-22，macOS arm64，同一 ZCode-Pro 工作树。本轮修复旧库导入失败时重复占用磁盘及部分历史提交；全量替换目标仍未完成，默认 runtime 仍为 TS。
+2026-09-22，macOS arm64，同一 ESCode-Pro 工作树。本轮修复旧库导入失败时重复占用磁盘及部分历史提交；全量替换目标仍未完成，默认 runtime 仍为 TS。
 
 ## 已完成
 
@@ -25,24 +25,24 @@
 
 | 门禁                                | 结果                                 |
 | ----------------------------------- | ------------------------------------ |
-| `pnpm test:zcode-cli-rust`          | 36 Rust / 101 App，通过，0 跳过      |
-| `pnpm check:zcode-cli-rust`         | 边界、fmt、Clippy `-D warnings` 通过 |
+| `pnpm test:escode-cli-rust`          | 36 Rust / 101 App，通过，0 跳过      |
+| `pnpm check:escode-cli-rust`         | 边界、fmt、Clippy `-D warnings` 通过 |
 | `pnpm typecheck`                    | 通过                                 |
 | `pnpm lint`                         | 0 错误，原有 70 条警告               |
 | `pnpm fmt:check`                    | 通过                                 |
 | `pnpm architecture:check --changed` | 0 违反、0 基线、0 新增               |
 
-门禁日志与修复前失败证据：`.zcode-runtime/rust-e2e/20260922/checks/import-lifecycle/`。
+门禁日志与修复前失败证据：`.escode-runtime/rust-e2e/20260922/checks/import-lifecycle/`。
 
 ## 真实 Desktop
 
-重启隔离的 `ZCode Rust E2E`，App PID 83927，测试 workspace native PID 84600；显式 `zcode-cli-rust` 和 `app-server --stdio`，使用原有隔离 profile / 数据库。GLM-5.3 Max / yolo。
+重启隔离的 `ESCode Rust E2E`，App PID 83927，测试 workspace native PID 84600；显式 `escode-cli-rust` 和 `app-server --stdio`，使用原有隔离 profile / 数据库。GLM-5.3 Max / yolo。
 
 新二进制 SHA256：`4968f5336b60a6f13c89c1d8b6152f81d045c8f446f7c0a25795c53fc406dcea`。
 
 打开原有上下文验证会话，再发送重启续聊请求，实际返回 `RUST_IMPORT_RESTART_OK`。SQLite 显示 completedSuccess、2 条 canonical user 消息、0 工具行；原先的 `PROMPT_CONTEXT_CEDAR_58` 仍在 UI。renderer error 为空。证据：`import-lifecycle-evidence.json`、`screenshots/18-import-lifecycle-restart.png`、`import-lifecycle-app.log`（均位于上述隔离目录）。
 
-本次真实 App 通过进程级 `ZCODE_SESSION_DB_PATH` 指向不存在的测试源，避免再次复制开发者大库；本轮导入故障证据来自真实 TS fixture 与真实 Rust 子进程，不能据此宣称生产大库导入已经完整验收。
+本次真实 App 通过进程级 `ESCODE_SESSION_DB_PATH` 指向不存在的测试源，避免再次复制开发者大库；本轮导入故障证据来自真实 TS fixture 与真实 Rust 子进程，不能据此宣称生产大库导入已经完整验收。
 
 ## 磁盘与边界
 

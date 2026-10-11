@@ -42,7 +42,7 @@ describe("BrowserOAuthCredentialRepo", () => {
 
     repo.saveTokenSet(
       {
-        zcodeJwtToken: "jwt-token",
+        escodeJwtToken: "jwt-token",
         zaiAccessToken: "zai-token",
       },
       "zai",
@@ -64,7 +64,7 @@ describe("BrowserOAuthCredentialRepo", () => {
       displayName: "Ada",
       avatarUrl: "https://example.com/a.png",
     });
-    expect(localStorage.getItem("zcodejwttoken")).toBe("jwt-token");
+    expect(localStorage.getItem("escodejwttoken")).toBe("jwt-token");
     expect(localStorage.getItem("oauth:zai:access_token")).toBe("zai-token");
   });
 
@@ -74,12 +74,12 @@ describe("BrowserOAuthCredentialRepo", () => {
     const repo = new BrowserOAuthCredentialRepo({ localStorage, sessionStorage });
 
     localStorage.setItem("oauth:active_provider", "zai");
-    localStorage.setItem("zcodejwttoken", "jwt-token");
+    localStorage.setItem("escodejwttoken", "jwt-token");
     localStorage.setItem("oauth:zai:user_info", JSON.stringify({ user_id: "u_1", name: "Ada" }));
 
     expect(repo.loadCachedSession()).toBeNull();
     expect(localStorage.getItem("oauth:active_provider")).toBeNull();
-    expect(localStorage.getItem("zcodejwttoken")).toBeNull();
+    expect(localStorage.getItem("escodejwttoken")).toBeNull();
     expect(localStorage.getItem("oauth:zai:user_info")).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe("BrowserOAuthCredentialRepo", () => {
     const sessionStorage = new MemoryStorage();
     const repo = new BrowserOAuthCredentialRepo({ localStorage, sessionStorage });
 
-    repo.saveTokenSet({ zcodeJwtToken: "jwt-token", accessToken: "bigmodel-token" }, "bigmodel");
+    repo.saveTokenSet({ escodeJwtToken: "jwt-token", accessToken: "bigmodel-token" }, "bigmodel");
     repo.saveUserInfo({ user_id: "53291785835589288", name: "Ada" }, "bigmodel");
     repo.setActiveProvider("bigmodel");
 
@@ -99,7 +99,7 @@ describe("BrowserOAuthCredentialRepo", () => {
       username: "Ada",
       displayName: "Ada",
     });
-    expect(repo.loadZCodeJwtToken()).toBe("jwt-token");
+    expect(repo.loadESCodeJwtToken()).toBe("jwt-token");
     expect(localStorage.getItem("oauth:bigmodel:access_token")).toBe("bigmodel-token");
     // 不能污染 zai 的 key 段
     expect(localStorage.getItem("oauth:zai:access_token")).toBeNull();
@@ -110,12 +110,12 @@ describe("BrowserOAuthCredentialRepo", () => {
     const sessionStorage = new MemoryStorage();
     const repo = new BrowserOAuthCredentialRepo({ localStorage, sessionStorage });
 
-    repo.saveTokenSet({ zcodeJwtToken: "jwt-zai", zaiAccessToken: "zai-token" }, "zai");
+    repo.saveTokenSet({ escodeJwtToken: "jwt-zai", zaiAccessToken: "zai-token" }, "zai");
     repo.saveUserInfo({ user_id: "uuid-1", name: "Ada" }, "zai");
     repo.setActiveProvider("zai");
 
     repo.clearAll();
-    repo.saveTokenSet({ zcodeJwtToken: "jwt-bm", accessToken: "bm-token" }, "bigmodel");
+    repo.saveTokenSet({ escodeJwtToken: "jwt-bm", accessToken: "bm-token" }, "bigmodel");
     repo.saveUserInfo({ user_id: "53291785835589288", name: "Ada" }, "bigmodel");
     repo.setActiveProvider("bigmodel");
 
@@ -150,7 +150,7 @@ describe("BrowserOAuthCredentialRepo", () => {
     );
 
     localStorage.setItem("oauth:active_provider", "zai");
-    localStorage.setItem("zcodejwttoken", createUnsignedJwt({ exp: 1_000 }));
+    localStorage.setItem("escodejwttoken", createUnsignedJwt({ exp: 1_000 }));
     localStorage.setItem("oauth:zai:access_token", "zai-token");
     localStorage.setItem("oauth:zai:user_info", JSON.stringify({ user_id: "u_1", name: "Ada" }));
 
@@ -159,7 +159,7 @@ describe("BrowserOAuthCredentialRepo", () => {
       reason: "jwt-expired",
     });
     expect(localStorage.getItem("oauth:active_provider")).toBeNull();
-    expect(localStorage.getItem("zcodejwttoken")).toBeNull();
+    expect(localStorage.getItem("escodejwttoken")).toBeNull();
     expect(localStorage.getItem("oauth:zai:access_token")).toBeNull();
     expect(localStorage.getItem("oauth:zai:user_info")).toBeNull();
   });

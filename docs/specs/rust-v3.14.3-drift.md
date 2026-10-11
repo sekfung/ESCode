@@ -6,13 +6,13 @@
 
 | 资产                           | 结果                                                                           | 处理                                                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `prompt_templates.json`        | 内容无漂移；Windows 上因 CRLF 检出而误报                                       | `.gitattributes` 固定 `apps/zcode-cli-rust/** eol=lf`                                                         |
+| `prompt_templates.json`        | 内容无漂移；Windows 上因 CRLF 检出而误报                                       | `.gitattributes` 固定 `apps/escode-cli-rust/** eol=lf`                                                         |
 | `tool_schemas.json` 等工具资产 | 无 v3.14.3 漂移                                                                | —                                                                                                             |
 | `agent_memory_templates.json`  | 生成结果随生成机平台变化：TS 追加 `path.sep`，macOS 生成 `/`、Windows 生成 `\` | 生成器改写为 `{memoryRoot}{sep}` 占位；Rust `memory_root_with_sep` 按 `MAIN_SEPARATOR` 且与 TS 一样不重复追加 |
 
 修复后两项 `--check` 在 Windows 通过。
 
-## 协议（`packages/shared/src/zcode-protocol*`）
+## 协议（`packages/shared/src/escode-protocol*`）
 
 | 变更                                                                   | Rust 影响                                               | 结论                                              |
 | ---------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------- |

@@ -16,15 +16,15 @@
 
 | 命令                                | 结果                                    |
 | ----------------------------------- | --------------------------------------- |
-| `pnpm test:zcode-cli-rust`          | 28 个 Rust 测试、84 个 App 集成测试通过 |
-| `pnpm check:zcode-cli-rust`         | Rust 边界/fmt/Clippy 全 target 通过     |
+| `pnpm test:escode-cli-rust`          | 28 个 Rust 测试、84 个 App 集成测试通过 |
+| `pnpm check:escode-cli-rust`         | Rust 边界/fmt/Clippy 全 target 通过     |
 | `pnpm typecheck`                    | 通过                                    |
 | `pnpm lint`                         | 0 errors / 70 条既有 warnings           |
 | `pnpm fmt:check`                    | 通过                                    |
 | `pnpm architecture:check --changed` | baseline 0 / new 0 / violations 0       |
 | release 构建                        | 通过                                    |
 
-测试入口为 `zcode-cli-rust-attachments.test.ts`、`zcode-cli-rust-attachment-media.test.ts`、Rust `attachment_upload.rs` 和 `runtime_consistency.rs`。新用例已先在旧二进制复现缺失接口/仅附件输入失败，再在新二进制通过。新增媒体场景包含超过 2 MiB 的请求和缺失快照恢复；测试检查真实请求体、磁盘和数据库事实，不只检查 ACK。
+测试入口为 `escode-cli-rust-attachments.test.ts`、`escode-cli-rust-attachment-media.test.ts`、Rust `attachment_upload.rs` 和 `runtime_consistency.rs`。新用例已先在旧二进制复现缺失接口/仅附件输入失败，再在新二进制通过。新增媒体场景包含超过 2 MiB 的请求和缺失快照恢复；测试检查真实请求体、磁盘和数据库事实，不只检查 ACK。
 
 首次验收因 Mac 锁屏而暂停；16:12–16:20 已在可操作的真实 App 中重新构建、重启并补验本地文本附件。Composer 选择文件、附件内容驱动 Write/Read/Bash、源文件移走后的冷重启续聊均通过。详见 [真实 App 复验](rust-app-e2e-attachments-2026-09-22.md)；图片/PDF/视频与 Web 上传的真实界面路径仍待验。
 
@@ -38,7 +38,7 @@ Apple M1 Max / macOS arm64；已有 P0 release 对本轮候选，每场景各 5 
 | history  | 7.39→7.31 | 152.68→150.59 |   1.14→1.18 | 378.79→384.00 |  0.44→0.46 |      24.06→23.69 | 5430944→5410416 |
 | sessions | 7.22→7.17 | 153.51→150.99 |   2.96→2.76 | 258.50→254.04 |  2.79→1.26 |      31.50→30.56 | 6364904→6368976 |
 
-未出现数量级退化；小样本 RPC 波动不作为确定加速承诺。原始样本在 `.zcode-runtime/rust-bench/attachments-20260922/`。RSS 是采样峰值，存储是文件占用，均不是精确分配/物理写入计数。这不是 TS/Rust 对照，也不证明大附件内存上界或实际模型供应商性能。
+未出现数量级退化；小样本 RPC 波动不作为确定加速承诺。原始样本在 `.escode-runtime/rust-bench/attachments-20260922/`。RSS 是采样峰值，存储是文件占用，均不是精确分配/物理写入计数。这不是 TS/Rust 对照，也不证明大附件内存上界或实际模型供应商性能。
 
 - 基线 SHA256：`bf587951abfec3b619d05560042703d737efef8e1a24997adfaabc3bf2843754`。
 - 候选 SHA256：`964dac28bd72eba2d868ef532c729931322a3ec95999b98f4098e233571f324b`。

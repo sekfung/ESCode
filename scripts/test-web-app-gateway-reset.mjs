@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 const repoRoot = resolve(import.meta.dirname, "..");
 const startScript = join(repoRoot, "docker/web-app/start.mjs");
 
-const tempDir = await mkdtemp(join(tmpdir(), "zcode-web-app-gateway-reset-"));
+const tempDir = await mkdtemp(join(tmpdir(), "escode-web-app-gateway-reset-"));
 const dataDir = join(tempDir, "data");
 const workspaceDir = join(tempDir, "workspace");
 const webDistDir = join(tempDir, "web");
@@ -26,7 +26,7 @@ try {
   await mkdir(dataDir, { recursive: true });
   await mkdir(workspaceDir, { recursive: true });
   await mkdir(webDistDir, { recursive: true });
-  await writeFile(join(webDistDir, "index.html"), "<!doctype html><html><body>ZCode test</body></html>\n");
+  await writeFile(join(webDistDir, "index.html"), "<!doctype html><html><body>ESCode test</body></html>\n");
   await writeFile(agentEntry, "module.exports = {};\n");
   await writeFile(
     injectResetEntry,
@@ -42,7 +42,7 @@ try {
     backendEntry,
     `import { createServer } from "node:http";
 
-const startDelayMs = Number(process.env.ZCODE_TEST_BACKEND_START_DELAY_MS || 0);
+const startDelayMs = Number(process.env.ESCODE_TEST_BACKEND_START_DELAY_MS || 0);
 
 setTimeout(() => {
   const server = createServer((req, res) => {
@@ -74,14 +74,14 @@ setTimeout(() => {
       ...process.env,
       NODE_OPTIONS: appendNodeImport(process.env.NODE_OPTIONS, injectResetEntry),
       PORT: String(publicPort),
-      ZCODE_BACKEND_PORT: String(backendPort),
-      ZCODE_DATA_BASE_DIR: dataDir,
-      ZCODE_SERVER_ENTRY: backendEntry,
-      ZCODE_AGENT_ENTRY: agentEntry,
-      ZCODE_SERVER_WORKSPACE: workspaceDir,
-      ZCODE_STORAGE_DIR: join(dataDir, ".zcode"),
-      ZCODE_TEST_BACKEND_START_DELAY_MS: "1000",
-      ZCODE_WEB_DIST_DIR: webDistDir,
+      ESCODE_BACKEND_PORT: String(backendPort),
+      ESCODE_DATA_BASE_DIR: dataDir,
+      ESCODE_SERVER_ENTRY: backendEntry,
+      ESCODE_AGENT_ENTRY: agentEntry,
+      ESCODE_SERVER_WORKSPACE: workspaceDir,
+      ESCODE_STORAGE_DIR: join(dataDir, ".escode"),
+      ESCODE_TEST_BACKEND_START_DELAY_MS: "1000",
+      ESCODE_WEB_DIST_DIR: webDistDir,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

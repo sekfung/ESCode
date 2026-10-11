@@ -4,9 +4,9 @@
 
 | 问题             | TS 行为                                                                                       | Rust 原行为                                                                                                                           | 处理                                                                                                                                 |
 | ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| realpath 形态    | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `zcode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                           |
+| realpath 形态    | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `escode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                           |
 | 模型可见路径     | 工具 `file_path` 只做词法归一（`resolveWorkspacePath`：折叠 `.`/`..`，不解析软链接/8.3 短名） | 工具结果 `filePath` 与媒体 Read 文案走 realpath，Windows（`RUNNER~1`→`runneradmin`）与 macOS（`/var`→`/private/var`）下与 Node 不一致 | 词法解析收敛到 `crates/tools/src/lexical_path.rs`（Node `path.resolve` 语义），模型可见路径一律用它；realpath 仅保留给状态键与检查点 |
-| 路径拼接         | `path.join` 使用平台分隔符                                                                    | `join(".zcode/AGENTS.md")` 生成 `\.zcode/AGENTS.md` 混合分隔符                                                                        | 所有多段字面量改为逐段 `join`                                                                                                        |
+| 路径拼接         | `path.join` 使用平台分隔符                                                                    | `join(".escode/AGENTS.md")` 生成 `\.escode/AGENTS.md` 混合分隔符                                                                        | 所有多段字面量改为逐段 `join`                                                                                                        |
 | OS Version       | `os.release()` = `10.0.26100`                                                                 | `Version.ToString()` = `10.0.26100.0`                                                                                                 | 输出 `major.minor.build`                                                                                                             |
 | 生成资产换行     | —                                                                                             | `core.autocrlf` 检出 CRLF，漂移检查误报                                                                                               | `.gitattributes` 固定 LF                                                                                                             |
 | 记忆模板分隔符   | 运行时追加 `path.sep`                                                                         | 资产固化生成机分隔符                                                                                                                  | `{sep}` 占位，运行时填充                                                                                                             |
@@ -22,7 +22,7 @@
 
 ## 验收
 
-- `pnpm check:zcode-cli-rust` 与 `pnpm test:zcode-cli-rust` 在 Windows 通过（结果见提交说明）。
+- `pnpm check:escode-cli-rust` 与 `pnpm test:escode-cli-rust` 在 Windows 通过（结果见提交说明）。
 - 仍以 `skip: win32` 跳过的集成用例逐个评估，能在 Git Bash 下运行的解除跳过。
 
 ## 验收记录（2026-09-24，Windows 11 x64，Node 26.7 非锁定版本）
@@ -32,8 +32,8 @@
 
 - Rust 测试：`cargo +…-gnu test --workspace -- --test-threads=1` 全部通过（0 失败）。
   并发跑同一套会出现超时假失败（每文件起一个 runtime + HTTP fixture，本机 3s 的 receive 超时会被压满）。
-- App 集成：`node --import tsx --test --test-concurrency=1 packages/services/tests/zcode-cli-rust-*.test.ts`
-  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@zcode/*` 解析失败）→ **196 用例：194 通过、2 跳过、0 失败**。
+- App 集成：`node --import tsx --test --test-concurrency=1 packages/services/tests/escode-cli-rust-*.test.ts`
+  （须带 runner 的 `TSX_TSCONFIG_PATH`，否则 `@escode/*` 解析失败）→ **196 用例：194 通过、2 跳过、0 失败**。
 - 跳过用例：**2 条**（原 13 条）。改写方式：用「心跳文件」替代 POSIX PID 断言——shell 循环追加时间戳，
   进程（含子进程）被回收后文件不再增长；`GIT_TRACE2_EVENT` 替代无扩展名的伪造 git 脚本；
   Windows 上没有 SIGTERM 的用例改用 stdin EOF 或 Job Object 语义。仍跳过的两条：
@@ -50,10 +50,10 @@
 
 ```
 PATH=/c/msys64/mingw64/bin:$PATH cargo +stable-x86_64-pc-windows-gnu build --locked --offline --target x86_64-pc-windows-gnu
-cp target/x86_64-pc-windows-gnu/debug/zcode-cli-rust.exe target/debug/zcode-cli-rust.exe
+cp target/x86_64-pc-windows-gnu/debug/escode-cli-rust.exe target/debug/escode-cli-rust.exe
 ```
 
-`packages/services/tests/zcode-cli-rust-fixture.ts` 固定读取 `target/debug/zcode-cli-rust.exe`，替换后即可跑 App 集成套件。
+`packages/services/tests/escode-cli-rust-fixture.ts` 固定读取 `target/debug/escode-cli-rust.exe`，替换后即可跑 App 集成套件。
 
 注意：这是 GNU 目标产物，与发行用的 MSVC 目标不同（CRT 与部分平台行为有差异）。用它得出的是**源码级**结论，
 不能替代 MSVC 构建的发布验收；MSVC 环境恢复后必须重跑并以此为准。
@@ -80,7 +80,7 @@ cargo 缓存，WSL Ubuntu 即可离线构建并运行整套 Rust 测试：
 # Windows 侧取依赖（一次性）
 cargo fetch --target x86_64-unknown-linux-gnu
 # WSL 侧运行
-CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/zcode-target \
+CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/escode-target \
   cargo test --offline --workspace -- --test-threads=1
 ```
 
@@ -100,14 +100,14 @@ CARGO_HOME=/mnt/c/Users/sekfung/.cargo CARGO_TARGET_DIR=$HOME/zcode-target \
 处理：新增 `crates/tools/src/lexical_path.rs`（`normalize`/`resolve` 复刻 Node `path.resolve`），
 `tool_args::resolve` 与 `extension_config::resolve`、官方插件根探测共用它；`crates/tools/src/tool_files.rs` 的
 Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点仍用 realpath。
-本地回归：`zcode-cli-rust-tool-parity.test.ts` 新增「Node 与 Rust 回显同一词法请求路径」用例
+本地回归：`escode-cli-rust-tool-parity.test.ts` 新增「Node 与 Rust 回显同一词法请求路径」用例
 （绝对/相对 + `.`/`..` 折叠、目录 junction/软链接原样回显、Write 的相对路径回显），
 用旧 `join` 实现构建 fixture 时该用例失败、换成词法实现后通过。
 差异只剩绝对路径的尾部分隔符（Node `normalize` 保留、这里去掉），工具路径不靠它区分实体。
 
 ## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
 
-`pnpm test:zcode-cli-rust`（`ZCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
+`pnpm test:escode-cli-rust`（`ESCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
 2026-10-02 在 `8f0e7a7`（插件写面 W1–W5 全部落地后）复跑：**349 用例，341 通过、0 失败、8 跳过**（同样 8 条按条件跳过），约 19 分钟。
 这是首次在原生 MSVC 目标（非 WSL/GNU）上跑完整套件。跳过项均为环境门控：真实供应商/真实数据库基准（3）、未打包
 Rust 二进制的 Host 解析（1）、Windows 上 Git Bash 快照超时的 shell init 用例（1，测试自身声明跳过）及 3 个用例自身
@@ -116,7 +116,7 @@ Rust 二进制的 Host 解析（1）、Windows 上 Git Bash 快照超时的 shel
 本机复现条件（缺任一项会出现与代码无关的失败）：
 
 - 先用 `node scripts/build-desktop-agent-cli.mjs` 构建 Node CLI：它同时构建随包官方插件（node-repl-host 的
-  `dist/mcp/server.js`、browser-use 的 `scripts/browser-client.mjs`）。只用 turbo 构建 `zcode.cjs` 时测试脚本会跳过这一步，
+  `dist/mcp/server.js`、browser-use 的 `scripts/browser-client.mjs`）。只用 turbo 构建 `escode.cjs` 时测试脚本会跳过这一步，
   node_repl / CUA / 官方插件 seed 用例在 Node 与 Rust 两侧同时失败。
 - 网络用例需要 `openssl`：Git for Windows 自带（`C:\Program Files\Git\usr\bin`），加进 PATH 即可。
 - 测试脚本会 shell 调 `pnpm`，需全局 pnpm（仅 `npx pnpm` 不够）。

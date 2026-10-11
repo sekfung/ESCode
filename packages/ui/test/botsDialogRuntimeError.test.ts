@@ -1,11 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { BotConfig, BotRuntimeInfo } from "@zcode/shared";
-import { ALL_BOT_WORKSPACES } from "@zcode/shared";
+import type { BotConfig, BotRuntimeInfo } from "@escode/shared";
+import { ALL_BOT_WORKSPACES } from "@escode/shared";
 import { BotSummaryCard } from "@/BotsDialog/BotSummaryCard.js";
 import { ProviderSettingsCard } from "@/BotsDialog/ProviderSettingsCard.js";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 
 const bot: BotConfig = {
   id: "feishu-bot",
@@ -29,7 +29,7 @@ const runtime: BotRuntimeInfo = {
 
 function renderZh(element: ReturnType<typeof createElement>): string {
   return renderToStaticMarkup(
-    createElement(ZCodeIntlProvider, { initialLocale: "zh-CN" }, element),
+    createElement(ESCodeIntlProvider, { initialLocale: "zh-CN" }, element),
   );
 }
 

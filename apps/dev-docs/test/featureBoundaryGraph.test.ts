@@ -104,7 +104,7 @@ describe("feature boundary graph helpers", () => {
     const source = await readFile(
       resolve(
         process.cwd(),
-        "../../.agents/skills/feature-boundary-planner/references/zcode-feature-graph.yaml",
+        "../../.agents/skills/feature-boundary-planner/references/escode-feature-graph.yaml",
       ),
       "utf8",
     );
@@ -125,7 +125,7 @@ describe("feature boundary graph helpers", () => {
     const source = await readFile(
       resolve(
         process.cwd(),
-        "../../.agents/skills/feature-boundary-planner/references/zcode-feature-graph.yaml",
+        "../../.agents/skills/feature-boundary-planner/references/escode-feature-graph.yaml",
       ),
       "utf8",
     );
@@ -134,12 +134,12 @@ describe("feature boundary graph helpers", () => {
     const capability = graph.nodes.find((node) => node.id === capabilityId);
     expect(capability?.docs).toContain("docs/dangerous-command-approval-v1-plan.md");
     expect(capability?.codeSeeds).toEqual([
-      "matchDangerousCommand · apps/zcode-cli/packages/core/src/tool/handlers/guarded/command.ts",
-      "resolveToolPermission · apps/zcode-cli/packages/core/src/tool/executor/permission-flow.ts",
-      "buildProtocolPermissionOptions · apps/zcode-cli/packages/bootstrap/src/permission-options.ts",
-      "getZCodeAgentAvailableModes · packages/shared/src/zcode-agent-model-state.ts",
+      "matchDangerousCommand · apps/escode-cli/packages/core/src/tool/handlers/guarded/command.ts",
+      "resolveToolPermission · apps/escode-cli/packages/core/src/tool/executor/permission-flow.ts",
+      "buildProtocolPermissionOptions · apps/escode-cli/packages/bootstrap/src/permission-options.ts",
+      "getESCodeAgentAvailableModes · packages/shared/src/escode-agent-model-state.ts",
       "buildAutomationModeOption · packages/ui/src/settings/automationAgentConfigOptions.ts",
-      "filterModeOptions · apps/zcode-cli/packages/tui/src/app-mode-command.ts",
+      "filterModeOptions · apps/escode-cli/packages/tui/src/app-mode-command.ts",
     ]);
     expect(graph.edges.filter((edge) => edge.from === capabilityId).map((edge) => edge.to)).toEqual(
       [

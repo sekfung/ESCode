@@ -10,8 +10,8 @@ import {
   fireEvent,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { BUILTIN_MODEL_PROVIDER_IDS as ids } from "@zcode/shared";
-import type { ProviderSettingsView } from "@zcode/services";
+import { BUILTIN_MODEL_PROVIDER_IDS as ids } from "@escode/shared";
+import type { ProviderSettingsView } from "@escode/services";
 const h = vi.hoisted(() => ({
   user: { id: "first" },
   view: {
@@ -44,7 +44,7 @@ vi.mock("@/hooks/useServices.js", () => {
   return { useServices: () => services };
 });
 vi.mock("@/store/StoreProvider.js", () => ({
-  useZCodeStore: (select: (state: unknown) => unknown) => select({ user: h.user }),
+  useESCodeStore: (select: (state: unknown) => unknown) => select({ user: h.user }),
 }));
 vi.mock("@/settings/model-provider-section/useCodingPlanEntitlements.js", () => ({
   useCodingPlanEntitlements: (params: unknown) => {
@@ -57,7 +57,7 @@ vi.mock("@/settings/CodingPlanUpgradeDialogProvider.js", () => ({
   useOptionalCodingPlanUpgradeDialog: () => ({ inventory: useCodingPlanEntryPlanList() }),
 }));
 vi.mock("@/i18n/IntlProvider.js", () => ({
-  useZCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
+  useESCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
 }));
 import { CodingPlanEntryButton } from "@/settings/CodingPlanEntryButton.js";
 afterEach(() => {

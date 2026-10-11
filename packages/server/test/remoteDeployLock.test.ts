@@ -1,11 +1,11 @@
 import { PassThrough } from "node:stream";
-import { Emitter } from "@zcode/rpc";
+import { Emitter } from "@escode/rpc";
 import type {
   IRemoteBackend,
   RemoteEnvironment,
   StdioStream,
-} from "@zcode/server/remote/backend.js";
-import { acquireRemoteDeployLock } from "@zcode/server/remote/remoteDeployLock.js";
+} from "@escode/server/remote/backend.js";
+import { acquireRemoteDeployLock } from "@escode/server/remote/remoteDeployLock.js";
 import { describe, expect, it, vi } from "vitest";
 
 class ControlledLockBackend implements IRemoteBackend {
@@ -62,7 +62,7 @@ describe("acquireRemoteDeployLock", () => {
     const backend = new ControlledLockBackend();
     let resolved = false;
     const acquirePromise = acquireRemoteDeployLock(backend, {
-      lockDir: "~/.zcode/server/.deploy.lock",
+      lockDir: "~/.escode/server/.deploy.lock",
       ownerToken: "owner-test",
     }).then((handle) => {
       resolved = true;
@@ -87,9 +87,9 @@ describe("acquireRemoteDeployLock", () => {
     expect(lockScript).toContain("sleep 30");
     expect(lockScript).toContain("-ge 600");
     expect(lockScript).toContain("current_owner");
-    expect(lockScript).toContain("zcode-deploy-lock-acquired:owner-test");
+    expect(lockScript).toContain("escode-deploy-lock-acquired:owner-test");
 
-    backend.stdout.write("zcode-deploy-lock-acquired:owner-test\n");
+    backend.stdout.write("escode-deploy-lock-acquired:owner-test\n");
     const handle = await acquirePromise;
     expect(handle.ownerToken).toBe("owner-test");
 
@@ -100,7 +100,7 @@ describe("acquireRemoteDeployLock", () => {
     const releasePromise = handle.release();
     await vi.waitFor(() =>
       expect(stdinChunks.join("")).toContain(
-        "zcode-deploy-lock-release:owner-test",
+        "escode-deploy-lock-release:owner-test",
       ),
     );
     backend.closeEmitter.fire(0);
@@ -156,7 +156,7 @@ describe("acquireRemoteDeployLock", () => {
       releaseTimeoutMs: 20,
     });
     await vi.waitFor(() => expect(backend.commands).toHaveLength(1));
-    backend.stdout.write("zcode-deploy-lock-acquired:owner-timeout\n");
+    backend.stdout.write("escode-deploy-lock-acquired:owner-timeout\n");
     const handle = await acquirePromise;
 
     vi.useFakeTimers();

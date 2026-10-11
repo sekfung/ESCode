@@ -6,8 +6,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement, createRef, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER } from "@zcode/shared";
-import type { CommandAck, WorkflowRunState } from "@zcode/shared/zcode-protocol-v4";
+import { TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER } from "@escode/shared";
+import type { CommandAck, WorkflowRunState } from "@escode/shared/escode-protocol-v4";
 import type { WorkflowRunCardSummary } from "@/ToolCallBlocks/shared.js";
 
 vi.mock("@/logger.js", () => ({ logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
@@ -47,7 +47,7 @@ vi.mock("@/hooks/useModelSelectionView.js", () => ({
 }));
 
 // eslint-disable-next-line import/first -- 必须在 mock 之后再引入被测组件。
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 // eslint-disable-next-line import/first
 import {
   WorkflowRunSettingsPopover,
@@ -117,7 +117,7 @@ function renderPopover(
     apply,
     view: render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: options.locale ?? "en-US" },
         createElement(WorkflowRunSettingsPopover, {
           anchorRef,
@@ -355,7 +355,7 @@ describe("run 卡上的 Configure", () => {
   function renderCard(run: WorkflowRunState, withHost: boolean) {
     return render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "en-US" },
         createElement(WorkflowRunDigest, {
           graph: undefined,
@@ -405,7 +405,7 @@ describe("run 卡上的 Configure", () => {
     const onAmendWorkflowRunSettings = vi.fn(async () => ({ status: "accepted" }) as CommandAck);
     const view = render(
       createElement(
-        ZCodeIntlProvider,
+        ESCodeIntlProvider,
         { initialLocale: "zh-CN" },
         createElement(ConversationWorkflowDigests, {
           turnKey: "t",

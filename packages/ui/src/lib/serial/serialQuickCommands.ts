@@ -3,7 +3,7 @@ import {
   SERIAL_QUICK_COMMANDS_MAX,
   serialQuickCommandSchema,
   type SerialQuickCommand,
-} from "@zcode/shared";
+} from "@escode/shared";
 import { buildSerialSendPayload, type SerialBytesResult } from "@/lib/serial/serialFormat.js";
 
 /**

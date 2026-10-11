@@ -9,7 +9,7 @@ describe("DesktopWindowFrame", () => {
       createElement(
         DesktopWindowFrame,
         {
-          title: "ZCode",
+          title: "ESCode",
           isDesktop: true,
           isMacDesktop: false,
           isWindowsDesktop: false,
@@ -32,7 +32,7 @@ describe("DesktopWindowFrame", () => {
       createElement(
         DesktopWindowFrame,
         {
-          title: "ZCode",
+          title: "ESCode",
         },
         createElement("div", null, "content"),
       ),
@@ -52,7 +52,7 @@ it.each([
   ({ isMacDesktop, isWindowsDesktop, opaque }) => {
     const html = renderToStaticMarkup(
       createElement(DesktopWindowFrame, {
-        title: "ZCode",
+        title: "ESCode",
         isDesktop: true,
         isMacDesktop,
         isWindowsDesktop,

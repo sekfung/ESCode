@@ -1,17 +1,17 @@
 # Rust runtime 文件日志与保留
 
-2026-10-08。对照 MBearo/ZCode-rs 的 M9.1 发现：Rust 只把少量诊断写 stderr，不写 Node 的 JSONL 日志目录；桌面「导出日志 /
-反馈」打包的是 `~/.zcode/cli/log`（`packages/desktop/src/main/exportLogs.ts`），Rust 作为默认 runtime 时反馈里没有
+2026-10-08。对照 MBearo/ESCode-rs 的 M9.1 发现：Rust 只把少量诊断写 stderr，不写 Node 的 JSONL 日志目录；桌面「导出日志 /
+反馈」打包的是 `~/.escode/cli/log`（`packages/desktop/src/main/exportLogs.ts`），Rust 作为默认 runtime 时反馈里没有
 runtime 日志，也没有保留清理。
 
 ## 规则（对齐 Node `adapters/src/logging`）
 
-- 目录：`ZCODE_LOG_DIR`，缺省 `~/.zcode/cli/log`（与 Node 相同，导出日志自动带上）。
-- 文件：`zcode-rust-YYYY-MM-DD.jsonl`（本地日期）。与 Node 的 `zcode-YYYY-MM-DD.jsonl` 分开：两个 runtime 各写各的、
+- 目录：`ESCODE_LOG_DIR`，缺省 `~/.escode/cli/log`（与 Node 相同，导出日志自动带上）。
+- 文件：`escode-rust-YYYY-MM-DD.jsonl`（本地日期）。与 Node 的 `escode-YYYY-MM-DD.jsonl` 分开：两个 runtime 各写各的、
   各清各的，回退或并存时互不删除对方文件。
 - 条目：与 Node `toSerializableEntry` 同形，一行一条 JSON，未定义字段省略：
   `timestamp`（ISO UTC）、`level`（debug/info/warn/error）、`event`、`module`、`message`、`sessionId`、`context`。
-- 级别：缺省 info；`ZCODE_RUNTIME_ENV=development` 时 debug（Node `getDefaultMinLevel`）。
+- 级别：缺省 info；`ESCODE_RUNTIME_ENV=development` 时 debug（Node `getDefaultMinLevel`）。
 - 脱敏：`context` 里键名匹配 `api[-_]?key|authorization|cookie|credential|password|secret|token`（不区分大小写）的值替换为
   `[Redacted]`，深度超过 8 替换为 `[Redacted:DepthLimit]`（Node `DefaultLogRedactor`）。
 - 写入失败不影响运行（Node：logging must never break the agent execution path）。warn / error 同时写 stderr，保留原有
@@ -22,7 +22,7 @@ runtime 日志，也没有保留清理。
 
 ## 所有者
 
-`zcode_cli_host::file_log`：进程级唯一写者（后台线程按序追加），调用方只投递条目、不等待写入。
+`escode_cli_host::file_log`：进程级唯一写者（后台线程按序追加），调用方只投递条目、不等待写入。
 
 ## 写入点
 
@@ -33,4 +33,4 @@ runtime 日志，也没有保留清理。
 ## 验收
 
 - 单测：条目格式与字段省略、脱敏（含嵌套与深度）、保留的截止日期边界、非法日期与他人文件名不处理、删除失败不影响其他文件。
-- App 冒烟：启动 Rust app-server 后日志目录出现当天的 `zcode-rust-*.jsonl`，含 `runtime.started`。
+- App 冒烟：启动 Rust app-server 后日志目录出现当天的 `escode-rust-*.jsonl`，含 `runtime.started`。

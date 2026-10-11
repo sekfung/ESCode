@@ -1,5 +1,5 @@
-import { Event, type IChannel, type IChannelClient } from "@zcode/rpc";
-import { IModelSelectionService, IProviderSettingsService } from "@zcode/services";
+import { Event, type IChannel, type IChannelClient } from "@escode/rpc";
+import { IModelSelectionService, IProviderSettingsService } from "@escode/services";
 import { describe, expect, it, vi } from "vitest";
 import { RemoteServiceAccess } from "../src/remoteServiceAccess.js";
 

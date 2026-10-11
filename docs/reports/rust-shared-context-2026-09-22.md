@@ -22,8 +22,8 @@ SQLite trigger fixture 分别令导入和输入提交失败，验证没有成功
 
 | 检查                                            | 结果                                                                                       |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `CARGO_INCREMENTAL=0 pnpm test:zcode-cli-rust`  | Rust 50 / App 154 全通过，0 跳过；包含测试 TypeScript 编译及生成 prompt/tool schema 一致性 |
-| `CARGO_INCREMENTAL=0 pnpm check:zcode-cli-rust` | Rust boundary / fmt / Clippy `-D warnings` 通过                                            |
+| `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | Rust 50 / App 154 全通过，0 跳过；包含测试 TypeScript 编译及生成 prompt/tool schema 一致性 |
+| `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | Rust boundary / fmt / Clippy `-D warnings` 通过                                            |
 | `pnpm typecheck`                                | 通过                                                                                       |
 | `pnpm lint`                                     | 0 errors，70 个既有 warnings                                                               |
 | `pnpm fmt:check`                                | 通过                                                                                       |
@@ -31,7 +31,7 @@ SQLite trigger fixture 分别令导入和输入提交失败，验证没有成功
 
 ## 真实 App 与真实模型
 
-通过现有 TS Store 和 formatSharedContextV1 构造隔离的小型历史库，包含只出现在隐藏上下文中的校验码。启动隔离 Electron profile、真实 Host 与 Rust CLI，保留正式 ZCode 进程。
+通过现有 TS Store 和 formatSharedContextV1 构造隔离的小型历史库，包含只出现在隐藏上下文中的校验码。启动隔离 Electron profile、真实 Host 与 Rust CLI，保留正式 ESCode 进程。
 
 1. App 任务列表显示已导入任务；Composer 自动从 snapshot 携带 `context_refs`。通过 UI 提问后，Rust 状态由 pending 变为 attached，GLM-5.3 回复 `RUST_SHARED_CONTEXT_PROVIDER_OK`；数据库只有一条隐藏共享消息，界面不泄露候选正文。
 2. 关闭并重新启动整个测试 App，从任务列表打开该历史，再经 Composer 续聊。真实 stdio 续聊不再携带引用，GLM-5.3 再次返回相同校验码，历史内共享正文仍只有一份，源 TS 数据库 SHA-256 不变。
@@ -41,7 +41,7 @@ SQLite trigger fixture 分别令导入和输入提交失败，验证没有成功
 
 冷启动进程：Electron 37028、Host 37652、测试 workspace Rust 37720。最后验证二进制 SHA-256：`970717123fba8b29b97e47d2b0c5c82ddbe0838d25f02314eef08d94adf2edad`。两次 Renderer errors 均为空。已有 workflowRuns 未实现仍在剩余清单。
 
-证据位于 `.zcode-runtime/rust-e2e/20260922/`：`shared-context-evidence.json`、`shared-context-{app,cold-app}.log`、`shared-context-cache-cleanup.json`、`screenshots/43-shared-context-attach.png`、`44-shared-context-cold.png`、`45-shared-context-only.png` 和 `checks/shared-context/`。日志与本地账号配置不纳入提交。
+证据位于 `.escode-runtime/rust-e2e/20260922/`：`shared-context-evidence.json`、`shared-context-{app,cold-app}.log`、`shared-context-cache-cleanup.json`、`screenshots/43-shared-context-attach.png`、`44-shared-context-cold.png`、`45-shared-context-only.png` 和 `checks/shared-context/`。日志与本地账号配置不纳入提交。
 
 两次停止测试 App 后共清理约 108 MiB 可再生成的 Chromium 缓存，保留会话/备份/附件/截图。构建始终 `CARGO_INCREMENTAL=0`，incremental 为 0 B，完成时磁盘约 11 GiB 可用。
 
