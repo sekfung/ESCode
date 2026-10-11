@@ -284,7 +284,7 @@ impl ToolPort for WorkspaceTools {
         &self,
         cancel: &CancellationToken,
     ) -> Result<crate::domain::skills::SkillCatalog> {
-        super::tool_skills::discover(&self.cwd, cancel).await
+        super::tool_skills::discover(&self.cwd, self.include_visualize, cancel).await
     }
     /// 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）。
     async fn saved_workflow_op(&self, op: &str, params: &Value) -> Result<Value> {

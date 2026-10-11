@@ -1,6 +1,6 @@
 # Rust 核心替换推进顺序
 
-2026-09-22 用户明确调整：MCP、Skill、子代理、Goal，与 session 按需加载、重试回复、编辑重跑、分支、文件回退同为本阶段关键能力。此前把扩展执行统一排在 P2 的排序不再适用。权限仍仅 yolo，无 TUI；保留现有 App/Host/stdin-stdout 协议与身份隔离。
+2026-09-22 用户明确调整：MCP、Skill、子代理、Goal，与 session 按需加载、重试回复、编辑重跑、分支、文件回退同为本阶段关键能力。此前把扩展执行统一排在 P2 的排序不再适用。权限模式已从仅 yolo 扩到 `yolo/build/edit/guarded`（`apps/escode-cli-rust/crates/core/src/app/queries.rs:31-35` 的 `execution_capabilities`），无 TUI；保留现有 App/Host/stdin-stdout 协议与身份隔离。
 
 执行依赖顺序：session 按需加载 → MCP/Skill 真实发现与调用 → 子代理/Goal 生命周期 → 会话历史操作与文件回退。每项单独补充契约与故障验收后实现，完成一项不代表其他项已经交付。账号、模型、工具 IO 继续走现有 ports。
 

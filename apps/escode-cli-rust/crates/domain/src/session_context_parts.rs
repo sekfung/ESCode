@@ -9,14 +9,16 @@ const TOOL_INPUT_PREVIEW_CHARS: usize = 900;
 const TOOL_OUTPUT_PREVIEW_CHARS: usize = 1600;
 const TEXT_PART_PREVIEW_CHARS: usize = 3000;
 const FILE_PREVIEW_CHARS: usize = 1600;
-const SKIPPED_SYNTHETIC_SOURCES: [&str; 9] = [
+const SKIPPED_SYNTHETIC_SOURCES: [&str; 11] = [
     "background_task",
     "subagent_message",
     "diagnostics",
     "goal_state_change",
     "hook_context",
+    "memory_update",
     "model_anomaly",
     "queued_system_notification",
+    "relevant_memory",
     "runtime_mode",
     "todo_reminder",
 ];

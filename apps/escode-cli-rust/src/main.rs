@@ -143,10 +143,18 @@ async fn run() -> Result<()> {
             .map_err(Into::into)
     } else {
         async {
-            runtime::build_engine(&ws, store, args.config.as_ref(), args.surface == "desktop")
-                .await?
-                .serve(input, output.clone(), cancel)
-                .await
+            // 协议入口服务桌面/远控等 UI 客户端，有内联视图宿主：保留官方 visualize 技能
+            // （Node 协议入口 includeVisualize=true）。
+            runtime::build_engine(
+                &ws,
+                store,
+                args.config.as_ref(),
+                args.surface == "desktop",
+                true,
+            )
+            .await?
+            .serve(input, output.clone(), cancel)
+            .await
         }
         .await
     };

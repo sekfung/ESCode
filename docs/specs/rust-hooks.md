@@ -1,6 +1,6 @@
 # Rust runtime：Hooks（生命周期钩子）
 
-> 状态：H1 / H2 / H3 已实现（2026-10-03），默认仍为 Node runtime。
+> 状态：H1 / H2 / H3 已实现（2026-10-03）；桌面安装态默认 runtime 已切换为 Rust（commit `7950284d`，见 [rust-cli-architecture.md](rust-cli-architecture.md)，2026-10-12 复查修正此前「默认仍为 Node runtime」的表述）。
 
 ## 背景
 

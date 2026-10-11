@@ -121,11 +121,14 @@ pub async fn import_history(
 }
 
 /// 构建 Engine：模型（`--config` 或 Registry 环境变量）、工作区上下文、存储与工具端口。
+/// `desktop` 为呈现面（`--surface desktop`）；`include_visualize` 表示入口是否有内联视图宿主
+/// （Node includeVisualize：协议入口 true，`-p` 无头终端入口 false，见 tool_skills 门禁）。
 pub async fn build_engine(
     ws: &Workspace,
     store: Store,
     config: Option<&PathBuf>,
     desktop: bool,
+    include_visualize: bool,
 ) -> Result<Engine> {
     // TS 派生媒体缓存位于 `<storageRoot>/cli/{image,pdf,video}-cache`（docs/specs/rust-media-read.md 第 4 期）。
     if let Ok(root) = legacy_paths::storage_root(&ws.requested_cwd).await {
@@ -176,6 +179,7 @@ pub async fn build_engine(
                 WorkspaceTools::new(ws.cwd.clone(), ws.data_dir.join("tool-results"))
                     .with_workspace_path(workspace_path)
                     .with_session_db(ws.db.clone())
+                    .with_include_visualize(include_visualize)
                     .with_model_admission(),
             ),
             clock: Arc::new(SystemClock),

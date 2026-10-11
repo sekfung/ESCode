@@ -31,6 +31,9 @@ pub struct WorkspaceTools {
     pub(super) workflow_host: Arc<super::workflow_host::WorkflowHost>,
     /// 会话是否配置了 hooks（hooks.rs）：首次调用时判定并缓存。
     pub(super) hook_presence: Mutex<HashMap<String, bool>>,
+    /// 入口是否保留官方 visualize 插件的技能根（Node includeVisualize）：
+    /// 协议入口（桌面/远控客户端有内联视图宿主）为 true，`-p` 无头终端入口为 false。
+    pub(super) include_visualize: bool,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
@@ -47,6 +50,7 @@ impl WorkspaceTools {
             models: Mutex::new(HashMap::new()),
             writes: Arc::new(Mutex::new(())),
             shell: ShellTasks::default(),
+            include_visualize: false,
         }
     }
     /// 修复：记忆根此前按 realpath 后的 cwd 哈希，macOS `/var`→`/private/var`、Windows 8.3 短名展开后
@@ -58,6 +62,11 @@ impl WorkspaceTools {
     /// 本进程的会话库：工作流宿主用 TS journal 仓储写其中的 dwf_* 表。
     pub fn with_session_db(self, path: PathBuf) -> Self {
         self.workflow_host.set_db_path(path);
+        self
+    }
+    /// 协议入口保留官方 visualize 插件的技能根（Node includeVisualize；门禁语义见 tool_skills）。
+    pub fn with_include_visualize(mut self, include: bool) -> Self {
+        self.include_visualize = include;
         self
     }
     pub async fn call(

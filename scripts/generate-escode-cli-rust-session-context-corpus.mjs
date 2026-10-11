@@ -54,6 +54,9 @@ const variety = () => [
     text("Please check the attachment and fix auth"),
     text("<system-reminder>\nhidden\n</system-reminder>"),
     text("synthetic todo", { synthetic: true, metadata: { source: "todo_reminder" } }),
+    // v3.15.1 起记忆类合成提醒同样按来源跳过（Node SKIPPED_SYNTHETIC_TEXT_SOURCES 新增两项）。
+    text("synthetic memory update", { synthetic: true, metadata: { source: "memory_update" } }),
+    text("synthetic relevant memory", { synthetic: true, metadata: { source: "relevant_memory" } }),
     text("synthetic kept", { synthetic: true, metadata: { source: "user_upload" } }),
     text("ignored", { ignored: true }),
     {

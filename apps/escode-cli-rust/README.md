@@ -22,7 +22,7 @@ crate 边界见 [架构规格](../../docs/specs/rust-cli-architecture.md)：`pro
 - 当前 TS SQLite 的只读备份与幂等导入，保留身份、消息/工具、压缩边界和输入处置；附件独立快照及已有分块预览接口。
 - 模型/工具结果及后台登记提交屏障；Read/List/Glob/Grep 最多四并发，写入/Shell 顺序执行；存储失败停止执行且禁止收口再次提交失败状态。
 
-尚未替换默认 TypeScript runtime。不支持 MCP/插件、子代理、Plan 执行、context refs、Node REPL 和工作流；未支持的命令明确拒绝。Todo 工作计划不启用 Plan 执行开关。Composer 附件已支持分片上传与文本/图片/PDF 基础链路，剩余媒体和容量边界见[对齐清单](../../docs/specs/rust-parity-remaining.md)。部分高级 UI 入口尚未隐藏。重连通过新 snapshot 恢复，不承诺增量日志 replay。Shell 使用 yolo 权限，不提供 OS sandbox。
+本 runtime 与 Node runtime 的差分对齐以 `docs/specs/rust-*.md` 各规格为准；桌面安装态默认 runtime 已是 Rust（未设置 `ESCODE_AGENT_SERVER_RUNTIME` 且无自定义命令时使用随包 Rust，二进制缺失或就绪前失败回退包内 Node；`ESCODE_AGENT_SERVER_RUNTIME=node` 显式回退），monorepo 开发态与自定义命令保持 Node 语义（见[架构规格](../../docs/specs/rust-cli-architecture.md)）。已支持 MCP（含 OAuth）、插件读面与市场写面、hooks、Skill、子代理、Goal、Plan 与按需激活的工作流工具面、Cron/OffPeak 自动任务、浏览器工具（内置 node_repl）、ReadSessionContext 与 shared context、Node REPL 和项目记忆；权限模式宣告 `yolo/build/edit/guarded`（不提供 OS sandbox），未支持的命令明确拒绝。Composer 附件已支持分片上传与文本/图片/PDF 基础链路，剩余媒体和容量边界见[对齐清单](../../docs/specs/rust-parity-remaining.md)；已知未跟进的缺口（插件 UI 面板、话题附件与归档、子代理运行时配置、记忆 Dream / Semantic Recall 等）见 [v3.15.1 漂移表](../../docs/specs/rust-v3.15.1-drift.md)。这两份文档是 Rust runtime 能力矩阵的权威来源。
 
 ## 构建与验证
 
@@ -108,9 +108,9 @@ Rust 默认写入 `~/.escode/rust/rust-sessions.sqlite`，可用 `ESCODE_CLI_RUS
 
 ## Coding 工具与后台执行
 
-新会话 mode=yolo；原生旧数据缺少 mode 时仍视为 build，历史可读，通过现有 switchCollaborationMode(yolo) 显式切换后才能继续。后台任务绑定 session，正常前台结束后继续运行；TaskOutput 可查询或等待，TaskStop 和 App cancelBackgroundWork 可停止。stop 和 EOF 收回任务进程树。冷恢复保留任务记录/输出文件、标记中断，不重启未知副作用。
+新会话未显式指定模式时按 build 处理（`crates/domain/src/session.rs:184-186` 的 `legacy_mode`）；原生旧数据缺少 mode 时同样视为 build，历史可读，通过现有 switchCollaborationMode 显式切换后才能继续。后台任务绑定 session，正常前台结束后继续运行；TaskOutput 可查询或等待，TaskStop 和 App cancelBackgroundWork 可停止。stop 和 EOF 收回任务进程树。冷恢复保留任务记录/输出文件、标记中断，不重启未知副作用。
 
-Read 使用 file_path/offset/limit；Write 使用 file_path/content；Edit 使用 file_path/old_string/new_string/replace_all。相对路径按 cwd 解析，也允许显式访问工作区外路径（与 TS yolo 一致）。已有文件必须先 Read，外部变化会要求重读；Write 要求完整读取，Edit 支持新鲜的部分读取。当前编辑匹配为精确匹配及 CRLF 归一化，TS 其它宽松匹配策略仍待补齐。读取观察缓存只在当前进程、当前 session 有效，冷恢复需重新读取。
+Read 使用 file_path/offset/limit；Write 使用 file_path/content；Edit 使用 file_path/old_string/new_string/replace_all。相对路径按 cwd 解析，也允许显式访问工作区外路径（与 TS yolo 一致）。已有文件必须先 Read，外部变化会要求重读；Write 要求完整读取，Edit 支持新鲜的部分读取。编辑匹配已按 TS `edit-matchers.ts` 对齐（精确、引号归一、行号前缀剥离、转义归一、行首尾裁剪、缩进弹性与块锚定等策略及歧义文案，见 [编辑匹配规格](../../docs/specs/rust-edit-matching.md)）。读取观察缓存只在当前进程、当前 session 有效，冷恢复需重新读取。
 
 Read 展示最多 64 KiB；修改文件最多 8 MiB；Grep 单文件最多 16 MiB，输出最多 20 KB；Glob 最多 100 项。搜索支持 ignore、正则、glob/type、大小写、上下文、多行与分页，耗时最多 30 秒。大文件/复杂方言的全量 TS 对齐尚未宣称完成。
 

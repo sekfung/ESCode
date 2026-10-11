@@ -114,8 +114,9 @@ async fn execute(parsed: &Parsed, cancel: CancellationToken) -> Result<(String, 
             .context("Session storage failed")?;
         escode_cli_core_api::set_model_usage_sink(store.usage_recorder());
         crate::runtime::import_history(&store, &ws, None, parsed.config.is_none(), &cancel).await?;
+        // `-p` 是无头终端入口，没有内联视图宿主：过滤官方 visualize 技能（Node 不传 includeVisualize）。
         let engine =
-            crate::runtime::build_engine(&ws, store, parsed.config.as_ref(), parsed.desktop)
+            crate::runtime::build_engine(&ws, store, parsed.config.as_ref(), parsed.desktop, false)
                 .await?
                 // Node `-p` 不生成会话标题（titleGenerationEnabled: false）。
                 .without_title_generation()

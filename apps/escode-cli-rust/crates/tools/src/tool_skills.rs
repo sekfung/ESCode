@@ -17,10 +17,25 @@ struct Root {
     plugin_name: Option<String>,
     plugin_root: Option<PathBuf>,
 }
-pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<SkillCatalog> {
-    tokio::select! {biased; _=cancel.cancelled()=>anyhow::bail!("Cancelled"), result=discover_inner(cwd,cancel)=>result}
+/// Node `visualize-skill-gate` 的身份判断：只有官方市场（`zcode-plugins-official`）的 visualize
+/// 插件在无内联视图宿主的入口被隐藏；用户/项目自定义的同名技能不受影响。
+pub(super) fn hides_visualize_skills(name: &str, marketplace: &str, include_visualize: bool) -> bool {
+    !include_visualize
+        && name == "visualize"
+        && marketplace == super::plugin_marketplace::OFFICIAL_MARKETPLACE
 }
-async fn discover_inner(cwd: &Path, cancel: &CancellationToken) -> Result<SkillCatalog> {
+pub(super) async fn discover(
+    cwd: &Path,
+    include_visualize: bool,
+    cancel: &CancellationToken,
+) -> Result<SkillCatalog> {
+    tokio::select! {biased; _=cancel.cancelled()=>anyhow::bail!("Cancelled"), result=discover_inner(cwd,include_visualize,cancel)=>result}
+}
+async fn discover_inner(
+    cwd: &Path,
+    include_visualize: bool,
+    cancel: &CancellationToken,
+) -> Result<SkillCatalog> {
     let config = config::load(cwd).await?;
     let mut catalog = SkillCatalog {
         enabled: config["features"]["skill"] != false && config["skills"]["enabled"] != false,
@@ -60,6 +75,11 @@ async fn discover_inner(cwd: &Path, cancel: &CancellationToken) -> Result<SkillC
         }
     }
     for plugin in plugins::enabled(cwd, &config, cancel).await? {
+        // Node visualize-skill-gate：终端/无头入口没有内联视图宿主，默认过滤官方 visualize 插件的
+        // 技能根；只按官方插件身份判断，避免误伤用户/项目自定义的同名技能（协议入口显式保留）。
+        if hides_visualize_skills(&plugin.name, &plugin.marketplace, include_visualize) {
+            continue;
+        }
         let mut paths = vec!["skills"];
         paths.extend(config::strings(&plugin.manifest["skills"]));
         for path in paths {
@@ -208,3 +228,6 @@ async fn read(path: &Path, limit: u64) -> Result<(String, bool)> {
     bytes.truncate(limit as usize);
     Ok((String::from_utf8_lossy(&bytes).into_owned(), truncated))
 }
+#[cfg(test)]
+#[path = "tool_skills_tests.rs"]
+mod tests;

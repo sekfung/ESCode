@@ -55,6 +55,8 @@
 | 插件 MCP 变量展开                | 官方 image-search 新增 `.mcp.json`，URL 为 `${ESCODE_BASE_URL}/…`；`resolveTemplate` 展开插件根 / 数据 / 项目目录、`ESCODE_*` 环境变量、`user_config.*`（敏感字段才展开普通 env），缺失时该 MCP 不注入并出 `plugin_variable_missing` | 修复既有缺口（Rust 原先只替换插件根，image-search 会连向字面量地址）：`plugin_mcp_vars` 逐条移植并按 TS 取字段顺序展开；变量诊断在发现阶段紧随该插件输出（`plugins/list` 与 overview 的诊断顺序与 TS 一致）                                                                                                                                                                                       |
 | run 子代理权限模式               | `run-launched` 记建 run 时会话的模式（`subagentPermissionMode`，plan 记作 build），actor 跑在该模式上                                                                                                                              | Rust actor 原本就继承父会话模式；工作流工具调用随带会话模式，宿主的 run 服务据此写入 `run-launched`                                                                                                                                                                                                                                                                                               |
 | 脚本点名模型                     | 直接启动与 GUI 配置都按模型目录绑定                                                                                                                                                                                                | 宿主 `run.startSaved` 与 `run.amendSettings` 都由 Rust 递模型目录                                                                                                                                                                                                                                                                                                                                 |
+| visualize 技能门禁               | `filterVisualizeSkillRoots`：普通 CLI / `-p` 默认隐藏官方 `visualize@zcode-plugins-official` 的技能根（终端没有内联视图宿主），协议入口显式保留；只按官方插件身份过滤，不误伤同名自定义技能 | `tool_skills::hides_visualize_skills`（name + marketplace 身份判定）；协议入口 `build_engine(…, include_visualize=true)`（app-server，任意 surface）、`-p` 无头入口 false；单测 `tool_skills_tests.rs`。2026-10-12 复查补齐（此前 Rust 在 `-p` 也列出 visualize 技能）                                                                                                                        |
+| session-context 合成提醒跳过集   | v3.15.1 给 `SKIPPED_SYNTHETIC_TEXT_SOURCES` 加入 `memory_update` / `relevant_memory`                                                                                                                                               | `session_context_parts` 跳过集 11 条；语料 `variety` 夹具新增两段合成提醒，`session_context::tests::read_session_context_matches_ts` 覆盖（回退到 9 条立即失败）。2026-10-12 复查补齐                                                                                     |
 
 ## 不跟进 / 缺口（已知影响）
 
@@ -66,8 +68,12 @@
 | 子代理运行时配置（`subagents/readRuntimeConfig`）               | Agent→Host 方向，Rust 子代理配置仍按自身注册表                                         | 不发送该请求                                                                          |
 | 记忆 Dream / Semantic Recall                                    | 上游默认检索分支关闭 semantic recall；Dream 为后台整理                                 | 未实现，默认路径不受影响                                                              |
 | 官方 Coding Plan 网关、业务 token 缓存等供应商专属请求改动      | Rust 模型层按 Host 每请求下发的凭据工作                                                | 未逐项比对，需在请求头差分用例里复核                                                  |
-| AmendWorkflow / FillWorkflowHole 的「本会话 run 免确认」        | Rust 权限判定尚无 `predecessor` / `hole` 回填事实（v3.14.3 起即如此）                  | 照常询问（更保守）                                                                    |
+| FillWorkflowHole 的「本会话 run 免确认」                        | Rust 权限判定尚无 `hole` 回填事实（v3.14.3 起即如此）；AmendWorkflow 的免确认已由宿主的 `isAmendWorkflowOwnedPredecessor` 实现（差分用例 `escode-cli-rust-amend-workflow.test.ts`） | 仅 FillWorkflowHole 照常询问（更保守）                                                |
 | Agent 描述里的 CreateWorkflow 行                                | Rust 模板按 `dynamicWorkflowEnabled=false` 生成（既有差异）                            | 不含该行                                                                              |
+| highspeed 加速卡（`modelExecution.selectionFallback` 等）        | Coding Plan（Z.ai 套餐）派生能力；ESCode 不接 Z.ai 登录与套餐（docs/specs/escode-rebrand.md），2026-10-12 复查确认不跟进 | 严格 schema 拒 `selectionFallback`（`requestAuth` 的 `apiKeyId` / `accountScope` 同样被拒），且缺 single-attempt 重试预算与 highspeed 凭据门禁（`host_requests` 只认 `off-peak`）；加速轮在 Rust runtime 直接失败，与 services「执行身份不能静默剥掉」的语义一致 |
+| 确认窗内调整 run 设置（`adjustable_settings`）                   | v3.15.1 新增，待补实现（2026-10-12 复查确认为下一项对齐工作）                          | 确认窗只显示只读设置，窗内调整不生效                                                  |
+| MCP elicitation                                                  | v3.15.1 新增能力声明，Rust 无实现（已登记 docs/specs/rust-user-questions.md 剩余清单） | 不声明 elicitation 能力                                                               |
+| ApplyPatch                                                       | 上游 v3.15.1 新增 handler 但 Node entry 仍注释，两侧模型面都不暴露（docs/specs/rust-cli-parity-plan.md） | 无 handler / schema；权限 `WRITE_TOOLS` 已含该名，无行为差异                          |
 
 ## App 差分用例的夹具调整
 
@@ -85,3 +91,10 @@
 - Rust：`cargo test --workspace`（GNU 工具链，见仓库记忆）全部通过；新增 guarded 语料、对话材料语料、权限矩阵 guarded 段、Gen UI 哈希、ReadSessionContext topic、onDemand 策略、forRun 查找等单测。
 - 漂移检查：30 个生成器 `--check` 全部通过。
 - Node：根 `pnpm typecheck`、CLI 全包 typecheck（31/31）、`pnpm lint` 通过；core 中工作流设置 / 启动 / 进度 / 留白用例通过。
+
+### 2026-10-12 复查（visualize 门禁与跳过集补齐）
+
+- 改动：新增 `tool_skills::hides_visualize_skills` 与 `WorkspaceTools::with_include_visualize`（协议入口 true、`-p` false，见「已对齐」表新增行）；`session_context_parts` 跳过集 9 → 11 条，语料 `variety` 夹具新增 `memory_update` / `relevant_memory` 两段合成提醒。
+- 复验：30 个生成器 `--check` 通过（本机 GNU 工具链 `+1.95.0-x86_64-pc-windows-gnu`）；`cargo test --workspace` 321 通过 / 0 失败（319 基线 + 2 个门禁单测）；差分子集（`session-context-differential` / `skills` / `bundled-skills` / `prompt`，共 11 用例）10 通过 / 0 失败 / 1 条按条件跳过（慢 Git 初始化，Windows 夹具限制）；`pnpm typecheck`、`pnpm lint`（82 警告为既有基线）、`pnpm architecture:check --changed`、`cargo fmt --check` 通过；clippy 放行 5 条既有 lint 后全 workspace 干净。
+- 未复跑：App 差分全量（约 2.5 小时）；上次记录为 `13c5a1a2`（400 用例 / 391 通过 / 0 失败 / 9 跳过），其后仅 `f28e1933`（仅改 `.gitattributes`）与本轮文档 / 门禁改动。
+- 发现但未修（均早于本轮、非本轮引入；逐项见下）：`pnpm check:escode-cli-rust` 当前为红——单文件 400 行边界 4 个（`core/src/app/agent_loop.rs` 427、`core/src/app/event_projection.rs` 409、`tools/src/mcp_hub.rs` 410、`tools/src/tools.rs` 415，自 `aff7afe2` 起），clippy `-D warnings` 5 条（`domain/src/agent_description.rs:89`、`domain/src/guarded_rules.rs:298`、`domain/src/prompt.rs:73`、`core/src/app/auxiliary.rs:207`、`tools/src/plugin_validate_mcp.rs:276`）。
