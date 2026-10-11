@@ -320,6 +320,8 @@ import { ISerialService } from "./serial/serial.js";
 import { createSerialService, shouldRegisterSerialService } from "./serial/serialService.js";
 import { createSerialAgentBridge } from "./serial/serialAgentBridge.js";
 import { ESCODE_HOST_SERIAL_ENV } from "@escode/shared/serial";
+import { ICircuitService } from "./circuit/contract.js";
+import { createLocalCircuitService } from "./circuit/node.js";
 import { ISettingService } from "./setting/setting.js";
 import { IOnboardingRecordService } from "./onboarding/onboardingRecord.js";
 import { ICredentialService } from "./credential/credential.js";
@@ -1999,6 +2001,13 @@ export function createLocalServices(options: {
   const serialService = shouldRegisterSerialService(options?.serviceAuthorityMode)
     ? createSerialService()
     : undefined;
+  // Circuit IR 属于 workspace 所在的 Host（§3.5）：本地桌面与远程 workspace 的 Host 都注册；
+  // standalone-server（Web 客户端）不注册，::circuit 在那里只显示静态降级卡片。
+  const circuitService =
+    options?.serviceAuthorityMode === "desktop-local" ||
+    options?.serviceAuthorityMode === "desktop-attached-remote"
+      ? createLocalCircuitService()
+      : undefined;
   const serialAgentBridge = serialService
     ? createSerialAgentBridge({
         getSerialService: () => serialService,
@@ -2662,6 +2671,7 @@ export function createLocalServices(options: {
     )
     .register(IPromptAttachmentTransferService, createLocalPromptAttachmentTransferService());
   if (serialService) services.register(ISerialService, serialService);
+  if (circuitService) services.register(ICircuitService, circuitService);
 
   // 即使初始配置关闭也必须登记 lifecycle disposer：terminal fence 需要早于任意延迟 setting/acquire
   // 恢复，不能把"当前还没有 Helper"误当成"不需要生命周期所有者"。dispose 时串行 stop host。
@@ -2805,6 +2815,10 @@ export function disposeServiceResources(services: ServiceCollection): void {
   (
     services.getOptional(IGenUiService) as (IGenUiService & { dispose?(): void }) | undefined
   )?.dispose?.();
+  // CircuitService 持有源文件监听，窗口 Host 退出时释放。
+  (
+    services.getOptional(ICircuitService) as (ICircuitService & { dispose?(): void }) | undefined
+  )?.dispose?.();
   // Bugfix: host process 退出前以前没有统一遍历本地服务做资源回收，
   // terminal/task wrapper 这类会拉起子进程的服务只能等宿主进程自己结束，时序上可能留下短暂残留。
   // 这里集中调用各服务的本地 disposeAll 钩子，把“退出 app = 回收所有托管资源”落成机械动作。
@@ -2844,6 +2858,10 @@ export function disposeServiceResources(services: ServiceCollection): void {
 export async function disposeServiceResourcesAndWait(services: ServiceCollection): Promise<void> {
   (
     services.getOptional(IGenUiService) as (IGenUiService & { dispose?(): void }) | undefined
+  )?.dispose?.();
+  // CircuitService 持有源文件监听，窗口 Host 退出时释放。
+  (
+    services.getOptional(ICircuitService) as (ICircuitService & { dispose?(): void }) | undefined
   )?.dispose?.();
   // app 关闭时 host 需要等 agent 进程树完成 graceful + force 清理。
   // 旧的同步 dispose 会在 host 退出时丢掉强杀 timer，导致 escode-cli/app-server 变成孤儿进程。
