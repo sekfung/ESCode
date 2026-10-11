@@ -4234,6 +4234,8 @@ export const escodeProtocolMethods = {
   interactionCircuitGet: escodeCircuitMethods.get,
   interactionCircuitQuery: escodeCircuitMethods.query,
   interactionCircuitCorrect: escodeCircuitMethods.correct,
+  interactionCircuitCheck: escodeCircuitMethods.check,
+  interactionCircuitCompareFirmware: escodeCircuitMethods.compareFirmware,
   interactionCircuitExport: escodeCircuitMethods.export,
 } as const;
 
@@ -4375,6 +4377,14 @@ export const escodeProtocolSessionMethodContracts = {
   [escodeProtocolMethods.interactionCircuitCorrect]: {
     params: escodeCircuitMethodParamsSchemas.correct,
     result: circuitToolResponseSchemas.correct,
+  },
+  [escodeProtocolMethods.interactionCircuitCheck]: {
+    params: escodeCircuitMethodParamsSchemas.check,
+    result: circuitToolResponseSchemas.check,
+  },
+  [escodeProtocolMethods.interactionCircuitCompareFirmware]: {
+    params: escodeCircuitMethodParamsSchemas.compareFirmware,
+    result: circuitToolResponseSchemas.compareFirmware,
   },
   [escodeProtocolMethods.interactionCircuitExport]: {
     params: escodeCircuitMethodParamsSchemas.export,

@@ -288,6 +288,21 @@ describe("Circuit 分析工具契约", () => {
         files: ["firmware/app.overlay"],
       }).success,
     ).toBe(true);
+    // §5 的分页对分析工具成立：游标是不透明字符串，可带可不带。
+    expect(
+      circuitToolRequestSchemas.compareFirmware.safeParse({
+        irId: "ir-1",
+        files: ["firmware/app.overlay"],
+        cursor: "opaque-cursor",
+      }).success,
+    ).toBe(true);
+    expect(
+      circuitToolRequestSchemas.compareFirmware.safeParse({
+        irId: "ir-1",
+        files: ["firmware/app.overlay"],
+        cursor: "",
+      }).success,
+    ).toBe(false);
     expect(
       circuitToolRequestSchemas.compareFirmware.safeParse({ irId: "ir-1", files: [] }).success,
     ).toBe(false);

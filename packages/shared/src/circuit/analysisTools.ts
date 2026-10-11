@@ -78,10 +78,12 @@ export const circuitFirmwareDifferenceSchema = z
   .strict();
 export type CircuitFirmwareDifference = z.infer<typeof circuitFirmwareDifferenceSchema>;
 
+/** `cursor` 与 `circuit_check` / `circuit_query` 同口径：服务端按响应上限分页（§5），拿错游标报 invalid_ir。 */
 export const circuitCompareFirmwareRequestSchema = z
   .object({
     ...irIdField,
     files: z.array(circuitWorkspacePathSchema).min(1),
+    ...cursorField,
   })
   .strict();
 

@@ -14,11 +14,18 @@ export const CIRCUIT_BROKER_SOCKET_ENV = "ESCODE_CIRCUIT_BROKER_SOCKET";
 export const CIRCUIT_BROKER_TOKEN_ENV = "ESCODE_CIRCUIT_BROKER_TOKEN";
 
 /**
- * G4 注册到 Agent 的工具子集。`circuit_submit_recognition`（G6）与依赖 G3 的
- * `circuit_check` / `circuit_compare_firmware` 暂不注册，也不在这里列名：
- * 它们合入时再补 op、反向方法与插件工具，避免出现没有实现方的协议分支。
+ * 注册到 Agent 的工具子集（G4 + G3 的分析工具）。`circuit_submit_recognition`（G6）尚未注册，
+ * 也不在这里列名：它合入时再补 op、反向方法与插件工具，避免出现没有实现方的协议分支。
  */
-export const CIRCUIT_AGENT_TOOL_OPS = ["parse", "get", "query", "correct", "export"] as const;
+export const CIRCUIT_AGENT_TOOL_OPS = [
+  "parse",
+  "get",
+  "query",
+  "correct",
+  "check",
+  "compareFirmware",
+  "export",
+] as const;
 export type CircuitAgentToolOp = (typeof CIRCUIT_AGENT_TOOL_OPS)[number];
 
 // --- broker（MCP server → Agent 运行时） -----------------------------------------
@@ -41,6 +48,12 @@ export const circuitBrokerRequestSchema = z.discriminatedUnion("op", [
     .strict(),
   brokerRequestBase
     .extend({ op: z.literal("correct"), args: circuitToolRequestSchemas.correct })
+    .strict(),
+  brokerRequestBase
+    .extend({ op: z.literal("check"), args: circuitToolRequestSchemas.check })
+    .strict(),
+  brokerRequestBase
+    .extend({ op: z.literal("compareFirmware"), args: circuitToolRequestSchemas.compareFirmware })
     .strict(),
   brokerRequestBase
     .extend({ op: z.literal("export"), args: circuitToolRequestSchemas.export })
@@ -68,6 +81,8 @@ export const escodeCircuitMethods = {
   get: "interaction/circuitGet",
   query: "interaction/circuitQuery",
   correct: "interaction/circuitCorrect",
+  check: "interaction/circuitCheck",
+  compareFirmware: "interaction/circuitCompareFirmware",
   export: "interaction/circuitExport",
 } as const satisfies Record<CircuitAgentToolOp, string>;
 
@@ -86,6 +101,10 @@ export const escodeCircuitMethodParamsSchemas = {
   get: protocolParamsBase.extend({ args: circuitToolRequestSchemas.get }).strict(),
   query: protocolParamsBase.extend({ args: circuitToolRequestSchemas.query }).strict(),
   correct: protocolParamsBase.extend({ args: circuitToolRequestSchemas.correct }).strict(),
+  check: protocolParamsBase.extend({ args: circuitToolRequestSchemas.check }).strict(),
+  compareFirmware: protocolParamsBase
+    .extend({ args: circuitToolRequestSchemas.compareFirmware })
+    .strict(),
   export: protocolParamsBase.extend({ args: circuitToolRequestSchemas.export }).strict(),
 } as const;
 export type ESCodeCircuitMethodParams<Op extends CircuitAgentToolOp> = z.infer<

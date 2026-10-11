@@ -134,11 +134,18 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // 电路工具由宿主按 Host 能力标记（ESCODE_HOST_CIRCUIT）注入：只有持有 CircuitService 的
     // Desktop 本地 / 远程 workspace Host 才有；默认启用不会在其它环境注入工具，也不拉起常驻进程。
     //
-    // defaultAllowedTools 与规格 §5 的「需要批准」列一致：parse/get/query/correct 免批准，
-    // circuit_export 不在名单里 → 导出仍要用户批准（批准在权限层，不在服务层）。
-    // circuit_correct 会写 IR，但按规格免批准，因此这里不按 readOnlyHint 推断名单。
+    // defaultAllowedTools 与规格 §5 的「需要批准」列一致：parse/get/query/correct 与只读的
+    // check/compare_firmware 免批准，circuit_export 不在名单里 → 导出仍要用户批准（批准在权限层，
+    // 不在服务层）。circuit_correct 会写 IR，但按规格免批准，因此这里不按 readOnlyHint 推断名单。
     defaultEnabled: true,
-    defaultAllowedTools: ["circuit_parse", "circuit_get", "circuit_query", "circuit_correct"],
+    defaultAllowedTools: [
+      "circuit_parse",
+      "circuit_get",
+      "circuit_query",
+      "circuit_correct",
+      "circuit_check",
+      "circuit_compare_firmware",
+    ],
     hostMcpServerNames: [OFFICIAL_CIRCUIT_PLUGIN_NAME],
     listing: {
       author: ZAI_AUTHOR,

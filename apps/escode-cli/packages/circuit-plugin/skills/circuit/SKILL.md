@@ -19,6 +19,18 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
    - `by: "block"` → the functional blocks the user/agent defined.
    - `by: "trace"` with `componentId` (+ optional `pin`) → everything reachable on that pin's net.
    - Results are paged: when the answer contains `nextCursor`, pass it back as `cursor` to read the next page (the cursor is opaque — never build or edit one).
+4. **`circuit_check`** for a design review and **`circuit_compare_firmware`** for hardware/firmware bring-up (§5). Both are read-only and both page their results with `nextCursor` → `cursor`.
+
+## Rule checks and firmware comparison
+
+- **`circuit_check`** runs the six deterministic built-in rules (§6) over the IR: `unconnected-pin`, `single-pin-net`, `undriven-power`, `i2c-missing-pullup`, `missing-decoupling`, `net-name-conflict`. It returns `config` (the `.escode/circuit-rules.json` status: `default` / `applied` / `invalid`) and `items` with `ruleId`, `severity`, the involved component/net ids and `lowConfidence`.
+  - **Present rule findings and your own review comments separately** (§2 rule 5): report each rule hit as a fact with its rule id and severity, and put your own opinions in a clearly labelled "suggestions" part. Never present a model opinion as a rule result.
+  - When `config.status` is `invalid`, say that the workspace rule config was ignored and the default configuration was used (quote `config.reason`); `default` means no config file was found.
+  - Items touching low-confidence elements carry `lowConfidence: true` — call those out as with any other low-confidence data.
+- **`circuit_compare_firmware`** is the software/hardware bring-up check (§7): pass the IR and workspace-relative firmware files (Zephyr devicetree `.dts`/`.dtsi`/`.overlay`, STM32CubeMX `.ioc`, or C headers with `_PIN` + `_GPIO_PORT` macros) and it returns differences as `pin-mismatch`, `firmware-only`, `schematic-only` or `peripheral-conflict`, each with pin, net, firmware symbol, file and line.
+  - Report each difference with the firmware `file`/`line` and the schematic ref/net so the user knows which side to change; a difference is not by itself proof of which side is wrong.
+  - Only the constructs listed in §7.1 are parsed. Pin assignments scattered through Arduino/PlatformIO code are not parsed — if you infer them yourself, label the result as a low-confidence suggestion.
+  - `files` must stay within the workspace; an unsupported extension answers `unsupported_format`, an IR without recognizable MCU pin names answers `invalid_ir`.
 
 ## Explaining a circuit
 
@@ -30,7 +42,9 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 ## Exporting
 
 - `circuit_export` writes a read-only `.circuit.json` snapshot into the workspace. It **requires the user's approval**, and it is a derived artifact: it is never read back, and editing it does not change the IR. Ask before calling it, and pass a path ending in `.circuit.json`.
-- To open the interactive panel for a result, put a reference on its own line in your reply: `::circuit{"irId":"…","title":"…"}`. Do not put it inside a code block.
+- To open the interactive panel for a result, put a reference on its own line in your reply: `::circuit{"irId":"…","title":"…","componentCount":53,"netCount":39}`. Do not put it inside a code block.
+  - Order matters: `circuit_parse` (or a recognition submission) → `circuit_get` → the reference card. Take `componentCount` and `netCount` from the `circuit_get` summary and always include them (the same counts the panel shows) — e.g. `::circuit{"irId":"ir:1","title":"电源板","componentCount":53,"netCount":39}`.
+  - These two counts feed the static fallback card on Web and mobile, where the circuit panel is not available; the Desktop panel reads the IR itself and does not depend on them.
 
 ## Input that is not text
 

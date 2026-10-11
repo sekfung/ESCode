@@ -11,6 +11,8 @@ const SERVER_INSTRUCTIONS =
   "Call circuit_parse first (then circuit_get) before answering anything about a schematic or PCB, " +
   "and use circuit_query for details instead of guessing. Cite reference designators (R1, U3) and net names " +
   "when you explain or conclude anything, and say which conclusions depend on low-confidence elements. " +
+  "circuit_check and circuit_compare_firmware are read-only: report their deterministic findings separately " +
+  "from your own suggestions, and pass nextCursor back as cursor when a result is paged. " +
   "circuit_correct changes the IR the user sees in the circuit panel; circuit_export needs the user's approval. " +
   "If a tool answers 'unavailable', tell the user the circuit tools need ESCode Desktop.";
 

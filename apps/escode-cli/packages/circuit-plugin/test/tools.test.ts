@@ -35,26 +35,23 @@ const okSend =
   async () => ({ ok: true, result });
 
 describe("circuit-plugin 工具清单", () => {
-  it("只注册 G4 的五个工具，且 G3/G6 的工具不出现", () => {
+  it("注册已接入的七个工具，未注册的 G6 工具不出现", () => {
     const names = CIRCUIT_TOOLS.map((tool) => tool.name).sort();
     expect(names).toEqual([
+      "circuit_check",
+      "circuit_compare_firmware",
       "circuit_correct",
       "circuit_export",
       "circuit_get",
       "circuit_parse",
       "circuit_query",
     ]);
-    for (const absent of [
-      CIRCUIT_TOOL_NAMES.submitRecognition,
-      CIRCUIT_TOOL_NAMES.check,
-      CIRCUIT_TOOL_NAMES.compareFirmware,
-    ])
-      expect(names).not.toContain(absent);
+    expect(names).not.toContain(CIRCUIT_TOOL_NAMES.submitRecognition);
   });
 
   it("annotations 区分只读与写类工具，inputSchema 可由工具 schema 生成", () => {
     const byName = new Map(CIRCUIT_TOOLS.map((tool) => [tool.name, tool]));
-    for (const name of ["circuit_get", "circuit_query"])
+    for (const name of ["circuit_get", "circuit_query", "circuit_check", "circuit_compare_firmware"])
       expect(byName.get(name)?.annotations?.readOnlyHint).toBe(true);
     for (const name of ["circuit_correct", "circuit_export"])
       expect(byName.get(name)?.annotations?.destructiveHint).toBe(true);
@@ -65,6 +62,15 @@ describe("circuit-plugin 工具清单", () => {
     expect(byName.get("circuit_export")?.inputSchema).toMatchObject({
       properties: { irId: expect.anything(), path: expect.anything() },
       required: expect.arrayContaining(["irId", "path"]),
+    });
+    // 分析工具：check 只要 irId（+ 可选 cursor），compare_firmware 还要 files。
+    expect(byName.get("circuit_check")?.inputSchema).toMatchObject({
+      properties: { irId: expect.anything(), cursor: expect.anything() },
+      required: ["irId"],
+    });
+    expect(byName.get("circuit_compare_firmware")?.inputSchema).toMatchObject({
+      properties: { irId: expect.anything(), files: expect.anything(), cursor: expect.anything() },
+      required: expect.arrayContaining(["irId", "files"]),
     });
   });
 
@@ -106,6 +112,39 @@ describe("circuit-plugin 工具清单", () => {
     ]);
     expect(result.isError).toBeUndefined();
     expect(JSON.parse(result.content[0]!.text)).toEqual({ ok: true, summary });
+  });
+
+  it("只读分析工具的调用带 op 与会话上下文，结果原样交回模型", async () => {
+    const sent: Array<{ op: string; args: unknown }> = [];
+    const send: CircuitBrokerSend = async (request) => {
+      sent.push({ op: request.op, args: request.args });
+      return request.op === "check"
+        ? { ok: true, result: { ok: true, config: { status: "default" }, items: [] } }
+        : { ok: true, result: { ok: true, items: [], nextCursor: "opaque-2" } };
+    };
+    const checked = await call("circuit_check", { irId: "ir:1", cursor: "opaque-1" }, send);
+    expect(sent[0]).toEqual({ op: "check", args: { irId: "ir:1", cursor: "opaque-1" } });
+    expect(JSON.parse(checked.content[0]!.text)).toEqual({
+      ok: true,
+      config: { status: "default" },
+      items: [],
+    });
+    expect(checked.isError).toBeUndefined();
+
+    const compared = await call(
+      "circuit_compare_firmware",
+      { irId: "ir:1", files: ["firmware/board.dts"] },
+      send,
+    );
+    expect(sent[1]).toEqual({
+      op: "compareFirmware",
+      args: { irId: "ir:1", files: ["firmware/board.dts"] },
+    });
+    expect(JSON.parse(compared.content[0]!.text)).toEqual({
+      ok: true,
+      items: [],
+      nextCursor: "opaque-2",
+    });
   });
 });
 
@@ -176,8 +215,43 @@ describe("circuit-plugin 分页与错误码", () => {
     });
     expect(unauthenticated.content[0]!.text).toMatch(/^\[unavailable\]/u);
 
-    const unknown = await call("circuit_check", { irId: "ir:1" }, send);
+    const unknown = await call(CIRCUIT_TOOL_NAMES.submitRecognition, { path: "board.pdf" }, send);
     expect(unknown.content[0]!.text).toMatch(/^\[invalidInput\] Unknown tool/u);
+  });
+
+  it("分析工具：分页游标与失败信封同样透传，参数在插件层严格校验", async () => {
+    const sent: Array<{ args: unknown }> = [];
+    const send: CircuitBrokerSend = async (request) => {
+      sent.push({ args: request.args });
+      return { ok: true, result: { ok: true, items: [], nextCursor: "opaque-2" } };
+    };
+    const paged = await call(
+      "circuit_compare_firmware",
+      { irId: "ir:1", files: ["firmware/board.dts"], cursor: "opaque-1" },
+      send,
+    );
+    expect(sent[0]!.args).toEqual({
+      irId: "ir:1",
+      files: ["firmware/board.dts"],
+      cursor: "opaque-1",
+    });
+    expect(
+      circuitToolResponseSchemas.compareFirmware.safeParse(JSON.parse(paged.content[0]!.text)).success,
+    ).toBe(true);
+
+    const failed = await call("circuit_check", { irId: "ir:1" }, async () => ({
+      ok: false,
+      error: { code: "invalid_ir", message: "cursor 与当前查询不匹配" },
+    }));
+    expect(failed.isError).toBe(true);
+    expect(JSON.parse(failed.content[0]!.text)).toEqual({
+      ok: false,
+      error: { code: "invalid_ir", message: "cursor 与当前查询不匹配" },
+    });
+
+    // files 至少一个由 shared 的请求 schema 管，插件层直接以 invalidInput 拒绝。
+    const emptyFiles = await call("circuit_compare_firmware", { irId: "ir:1", files: [] }, send);
+    expect(emptyFiles.content[0]!.text).toMatch(/^\[invalidInput\]/u);
   });
 });
 

@@ -110,13 +110,61 @@ describe("circuit broker", () => {
       );
       expect(subagent).toMatchObject({ ok: false, error: { code: "unavailable" } });
 
-      // 未注册的 op（G3/G6）在协议层就没有分支：broker 直接拒绝（invalidInput），不转发给 Host。
+      // 未注册的 op（G6 的 submitRecognition）在协议层就没有分支：broker 直接拒绝（invalidInput），不转发给 Host。
       const unknownOp = await send(
         broker.socketPath,
-        request(broker.token, { op: "check", args: { irId: "ir:1" } }),
+        request(broker.token, {
+          op: "submitRecognition",
+          args: { path: "board.pdf", draft: {} },
+        }),
       );
       expect(unknownOp).toMatchObject({ ok: false, error: { code: "invalidInput" } });
     });
+  });
+
+  it("分发只读分析 op 到端口（check / compareFirmware 的参数契约与写类一致严格）", async () => {
+    const calls: Array<{ op: string; args: unknown }> = [];
+    await withBroker(
+      {
+        request: async (op, args) => {
+          calls.push({ op, args });
+          return op === "check"
+            ? { ok: true, config: { status: "default" }, items: [] }
+            : { ok: true, items: [] };
+        },
+      },
+      async (broker) => {
+        const checked = await send(
+          broker.socketPath,
+          request(broker.token, { op: "check", args: { irId: "ir:1", cursor: "opaque-1" } }),
+        );
+        expect(checked).toMatchObject({
+          ok: true,
+          result: { ok: true, config: { status: "default" }, items: [] },
+        });
+
+        const compared = await send(
+          broker.socketPath,
+          request(broker.token, {
+            op: "compareFirmware",
+            args: { irId: "ir:1", files: ["firmware/board.dts"] },
+          }),
+        );
+        expect(compared).toMatchObject({ ok: true, result: { ok: true, items: [] } });
+        expect(calls).toEqual([
+          { op: "check", args: { irId: "ir:1", cursor: "opaque-1" } },
+          { op: "compareFirmware", args: { irId: "ir:1", files: ["firmware/board.dts"] } },
+        ]);
+
+        // 分析工具的 args 也按 shared 的请求 schema 校验：空 files 不转发给 Host。
+        const invalidArgs = await send(
+          broker.socketPath,
+          request(broker.token, { op: "compareFirmware", args: { irId: "ir:1", files: [] } }),
+        );
+        expect(invalidArgs).toMatchObject({ ok: false, error: { code: "invalidInput" } });
+        expect(calls).toHaveLength(2);
+      },
+    );
   });
 
   it("把 Host 的工具错误码透传给 MCP server", async () => {
@@ -209,6 +257,36 @@ describe("circuit 反向协议端口", () => {
     ).rejects.toThrow(/not active/u);
     expect(requests).toHaveLength(0);
   });
+
+  it("分析 op 走 interaction/circuitCompareFirmware，args 与 cursor 原样带给 Host", async () => {
+    const requests: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const context = {
+      sessions: new Map([["session-a", { workspace: { workspacePath: "C:/work" } }]]),
+      deps: {},
+      requestClient: (
+        method: string,
+        params: Record<string, unknown>,
+        schema: { parse(value: unknown): unknown },
+      ) => {
+        requests.push({ method, params });
+        return Promise.resolve(schema.parse({ ok: true, items: [], nextCursor: "opaque-2" }));
+      },
+    };
+    const port = createProtocolCircuitControlPort(context as never);
+    const result = await port.request(
+      "compareFirmware",
+      { irId: "ir:1", files: ["firmware/board.dts"], cursor: "opaque-1" } as never,
+      { sessionId: "session-a" },
+    );
+    expect(result).toEqual({ ok: true, items: [], nextCursor: "opaque-2" });
+    expect(requests[0]?.method).toBe(escodeCircuitMethods.compareFirmware);
+    expect(requests[0]?.params.workspaceKey).toBe("C:/work");
+    expect(requests[0]?.params.args).toEqual({
+      irId: "ir:1",
+      files: ["firmware/board.dts"],
+      cursor: "opaque-1",
+    });
+  });
 });
 
 describe("circuit 注册门控与批准", () => {
@@ -239,12 +317,14 @@ describe("circuit 注册门控与批准", () => {
     expect(Object.keys(resolve(true, false))).toHaveLength(0);
   });
 
-  it("免批准名单与规格 §5 一致：circuit_export 不在名单里", () => {
+  it("免批准名单与规格 §5 一致：只读分析工具在内，circuit_export 不在名单里", () => {
     const allowed = resolveOfficialPluginDefaultAllowedTools({
       enabledPluginIds: new Set([OFFICIAL_CIRCUIT_PLUGIN_ID]),
       registeredMcpServerNames: new Set(["circuit"]),
     }).sort();
     expect(allowed).toEqual([
+      "mcp__circuit__circuit_check",
+      "mcp__circuit__circuit_compare_firmware",
       "mcp__circuit__circuit_correct",
       "mcp__circuit__circuit_get",
       "mcp__circuit__circuit_parse",

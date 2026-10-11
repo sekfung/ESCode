@@ -7,12 +7,16 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { CIRCUIT_BROKER_SOCKET_ENV, CIRCUIT_BROKER_TOKEN_ENV } from "@escode/shared/circuit";
+import {
+  CIRCUIT_BROKER_SOCKET_ENV,
+  CIRCUIT_BROKER_TOKEN_ENV,
+  circuitToolResponseSchemas,
+} from "@escode/shared/circuit";
 import {
   createCircuitBroker,
   type CircuitBroker,
@@ -32,9 +36,13 @@ const SERVER_SCRIPT = resolve(
 const FIXTURE = fileURLToPath(
   new URL("./fixtures/circuit/mpu6050-imu/MPU6050.kicad_sch", import.meta.url),
 );
+const FIRMWARE_DIR = fileURLToPath(new URL("./fixtures/circuit/firmware/", import.meta.url));
 const SESSION = "session-chain";
 const WORKSPACE = "C:/work/board";
 const SOURCE_PATH = "MPU6050.kicad_sch";
+/** 固件比对用的原理图（MCU 引脚名与 fixtures/circuit/firmware 下的固件声明对应）。 */
+const FIRMWARE_SOURCE_PATH = "firmware/schematic.kicad_sch";
+const RULES_CONFIG_PATH = ".escode/circuit-rules.json";
 const META = {
   "com.escode/request-context": { session_id: SESSION, turn_id: "turn-1", runtime_scope: "main" },
 };
@@ -43,6 +51,8 @@ let service: CircuitService;
 let broker: CircuitBroker;
 let client: Client;
 let schematic: string;
+/** beforeAll 里直接解析一次（重新解析已有 IR 需要 baseRevision，分析测试只读它）。 */
+let firmwareIrId: string;
 /** 导出快照落点（真实服务只写 workspace 内的派生产物，这里用内存端口捕获）。 */
 const snapshots = new Map<string, string>();
 
@@ -95,8 +105,20 @@ beforeAll(async () => {
     `missing ${SERVER_SCRIPT}; build @escode/circuit-plugin first`,
   ).toBe(true);
   schematic = await readFile(FIXTURE, "utf-8");
-  const files = new Map([[SOURCE_PATH, schematic]]);
+  const files = new Map([
+    [SOURCE_PATH, schematic],
+    [FIRMWARE_SOURCE_PATH, await readFile(join(FIRMWARE_DIR, "schematic.kicad_sch"), "utf-8")],
+    ["firmware/board.dts", await readFile(join(FIRMWARE_DIR, "board.dts"), "utf-8")],
+    ["firmware/board.ioc", await readFile(join(FIRMWARE_DIR, "board.ioc"), "utf-8")],
+    ["firmware/board_pins.h", await readFile(join(FIRMWARE_DIR, "board_pins.h"), "utf-8")],
+    // §6.1 的规则配置：check 读取它并把 severity 覆写反映到条目（配置由端口提供，不落盘）。
+    [RULES_CONFIG_PATH, JSON.stringify({ rules: { "unconnected-pin": { severity: "info" } } })],
+  ]);
   service = createCircuitService({ ports: createPorts(files) });
+  // 分析工具只读：这里先把固件比对用的原理图解析好（链路上重新解析需要 baseRevision）。
+  firmwareIrId = (
+    await service.parse({ workspacePath: WORKSPACE, path: FIRMWARE_SOURCE_PATH })
+  ).summary.irId;
   const bridge = createCircuitAgentBridge({ getCircuitService: () => service });
   // 协议上下文：requestClient 模拟 Agent→Host 的 JSON-RPC 往返，Host 侧走真实路由。
   const context = {
@@ -157,9 +179,11 @@ async function call(name: string, args: Record<string, unknown> = {}): Promise<T
 
 const json = (result: ToolResult) => JSON.parse(result.content[0]!.text) as Record<string, unknown>;
 
-it("工具清单经真实 MCP server 暴露 G4 的五个工具", async () => {
+it("工具清单经真实 MCP server 暴露已注册的七个工具", async () => {
   const { tools } = await client.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual([
+    "circuit_check",
+    "circuit_compare_firmware",
     "circuit_correct",
     "circuit_export",
     "circuit_get",
@@ -229,6 +253,48 @@ describe("整链路", () => {
     expect(snapshot.derived).toBe(true);
     expect(snapshot.irId).toBe(irId);
     expect(snapshot.ir.revision).toBe(3);
+  });
+
+  it("circuit_check 走通整条链路：读 workspace 规则配置，条目按配置覆写级别", async () => {
+    const checked = await call("circuit_check", { irId: firmwareIrId });
+    expect(checked.isError).toBeUndefined();
+    const envelope = json(checked);
+    expect(envelope.config).toEqual({ status: "applied", path: RULES_CONFIG_PATH });
+    expect(Array.isArray(envelope.items)).toBe(true);
+    for (const item of envelope.items as Array<{ ruleId: string; severity: string }>)
+      if (item.ruleId === "unconnected-pin") expect(item.severity).toBe("info");
+    expect(circuitToolResponseSchemas.check.safeParse(envelope).success).toBe(true);
+    // 游标与查询绑定：拿别的查询的游标翻页报 invalid_ir（服务端定义，链路只透传）。
+    const wrongCursor = await call("circuit_check", { irId: firmwareIrId, cursor: "bogus" });
+    expect(wrongCursor.isError).toBe(true);
+    expect(json(wrongCursor)).toMatchObject({ ok: false, error: { code: "invalid_ir" } });
+  });
+
+  it("circuit_compare_firmware 比对固件与原理图，格式错误同样走失败信封", async () => {
+    const compared = await call("circuit_compare_firmware", {
+      irId: firmwareIrId,
+      files: ["firmware/board.dts", "firmware/board.ioc", "firmware/board_pins.h"],
+    });
+    expect(compared.isError).toBeUndefined();
+    const envelope = json(compared);
+    expect(envelope.ok).toBe(true);
+    expect((envelope.items as unknown[])[0]).toMatchObject({
+      kind: "pin-mismatch",
+      pin: "PA9",
+      netName: "LED2",
+      firmwareSymbol: "LED1",
+      file: "firmware/board.dts",
+      line: 21,
+    });
+    expect(circuitToolResponseSchemas.compareFirmware.safeParse(envelope).success).toBe(true);
+
+    // 扩展名先判后读：不支持的文件直接报 unsupported_format，不读盘。
+    const unsupported = await call("circuit_compare_firmware", {
+      irId: firmwareIrId,
+      files: ["firmware/notes.txt"],
+    });
+    expect(unsupported.isError).toBe(true);
+    expect(json(unsupported)).toMatchObject({ ok: false, error: { code: "unsupported_format" } });
   });
 
   it("没有会话上下文时返回 unavailable", async () => {

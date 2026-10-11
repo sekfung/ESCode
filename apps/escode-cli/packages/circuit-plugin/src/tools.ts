@@ -25,12 +25,16 @@ const DESCRIPTIONS: Record<CircuitAgentToolOp, string> = {
     "Query one IR by ref (component), net (by netId or netName), block (by blockId or blockName), or trace the connections of a component (optionally a single pin). Large results are paged: pass the returned nextCursor back to continue reading.",
   correct:
     "Apply corrections to one IR: rename/update a component (ref, value, partNumber, footprint), connect or disconnect a pin, add/update/remove a functional block. Requires the current baseRevision — a write with a stale revision is rejected so nothing is silently merged. Corrections stay visible in the user's circuit panel as agent-authored.",
+  check:
+    "Run the built-in deterministic rules on one IR (unconnected pin, single-pin net, undriven power, missing I2C pull-up, missing decoupling, net-name conflict) and return the rule config status (default/applied/invalid from .escode/circuit-rules.json) plus items with ruleId, severity, the involved component/net ids and a lowConfidence flag. Read-only. Report these findings separately from your own review comments; page large results by passing nextCursor back as cursor.",
+  compareFirmware:
+    "Compare one IR against firmware pin declarations for hardware/firmware bring-up: Zephyr devicetree (.dts/.dtsi/.overlay), STM32CubeMX .ioc, or C headers with GPIO_PIN/port macros. Returns pin-mismatch, firmware-only, schematic-only and peripheral-conflict differences with pin, net, firmware symbol, file and line. Read-only. Page large results by passing nextCursor back as cursor.",
   export:
     `Write a read-only snapshot of one IR into the workspace at the given ${CIRCUIT_EXPORT_SUFFIX} path. The snapshot is a derived artifact: it is never read back and editing it does not change the IR. Requires the user's approval.`,
 };
 
-/** 只读工具：get/query 不改任何状态，plan 模式可用。correct/export 写状态或 workspace，标 destructive。 */
-const READ_ONLY_OPS = new Set<CircuitAgentToolOp>(["get", "query"]);
+/** 只读工具：get/query/check/compareFirmware 不改任何状态，plan 模式可用。correct/export 写状态或 workspace，标 destructive。 */
+const READ_ONLY_OPS = new Set<CircuitAgentToolOp>(["get", "query", "check", "compareFirmware"]);
 const DESTRUCTIVE_OPS = new Set<CircuitAgentToolOp>(["correct", "export"]);
 
 interface JsonSchemaNode {

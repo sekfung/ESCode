@@ -33,7 +33,8 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
   内容带 `derived: true` 标记；路径必须落在 workspace 内且以 `.circuit.json` 结尾，否则抛 `unsupported_format`。
   导出**不写 store、不发事件、不注册监听**，服务永远不读回这份快照（§2 规则 8）。
 - Agent 链路（§5）在 `app/circuitAgentBridge.ts`（op → 服务方法、错误码 → 失败信封）与
-  `app/circuitAgentRequestRouter.ts`（`interaction/circuit*` 严格校验与应答）；
+  `app/circuitAgentRequestRouter.ts`（`interaction/circuit*` 严格校验与应答），覆盖已注册的七个 op
+  （parse/get/query/correct 与只读的 check/compareFirmware、export）；
   `app/circuitWriteQueue.ts` 持有「同一 IR 写入串行」队列。桥接层不持有状态、不缓存 IR。
 - 日志用 `createServiceLogger("circuit")`，只记 id、计数、耗时，不写电路内容与文件内容（§9）。
 

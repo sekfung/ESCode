@@ -30,18 +30,28 @@ const protocolBase = {
 };
 
 describe("circuit broker / 反向协议", () => {
-  it("env 常量与 serial 同构，且只列 G4 注册的五个 op", () => {
+  it("env 常量与 serial 同构，且列出已注册的七个 op", () => {
     expect([ESCODE_HOST_CIRCUIT_ENV, CIRCUIT_BROKER_SOCKET_ENV, CIRCUIT_BROKER_TOKEN_ENV]).toEqual([
       "ESCODE_HOST_CIRCUIT",
       "ESCODE_CIRCUIT_BROKER_SOCKET",
       "ESCODE_CIRCUIT_BROKER_TOKEN",
     ]);
-    expect([...CIRCUIT_AGENT_TOOL_OPS]).toEqual(["parse", "get", "query", "correct", "export"]);
+    expect([...CIRCUIT_AGENT_TOOL_OPS]).toEqual([
+      "parse",
+      "get",
+      "query",
+      "correct",
+      "check",
+      "compareFirmware",
+      "export",
+    ]);
     expect(Object.values(escodeCircuitMethods)).toEqual([
       "interaction/circuitParse",
       "interaction/circuitGet",
       "interaction/circuitQuery",
       "interaction/circuitCorrect",
+      "interaction/circuitCheck",
+      "interaction/circuitCompareFirmware",
       "interaction/circuitExport",
     ]);
   });
@@ -61,10 +71,46 @@ describe("circuit broker / 反向协议", () => {
         args: { irId: "ir:1", extra: true },
       }).success,
     ).toBe(false);
-    // 未注册的 op（G3/G6）没有协议分支
+    // 分析类工具：check 只有 irId + 可选 cursor，compareFirmware 还要 files。
     expect(
       circuitBrokerRequestSchema.safeParse({ ...brokerBase, op: "check", args: { irId: "ir:1" } })
         .success,
+    ).toBe(true);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "check",
+        args: { irId: "ir:1", cursor: "opaque-1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "check",
+        args: { irId: "ir:1", files: ["firmware/app.overlay"] },
+      }).success,
+    ).toBe(false);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "compareFirmware",
+        args: { irId: "ir:1", files: ["firmware/app.overlay"], cursor: "opaque-1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "compareFirmware",
+        args: { irId: "ir:1", files: [] },
+      }).success,
+    ).toBe(false);
+    // 未注册的 op（G6）没有协议分支
+    expect(
+      circuitBrokerRequestSchema.safeParse({
+        ...brokerBase,
+        op: "submitRecognition",
+        args: { path: "board.pdf", draft: {} },
+      }).success,
     ).toBe(false);
     expect(circuitBrokerRequestSchema.safeParse({ ...brokerBase, op: "get", args: { irId: "ir:1" }, extra: 1 }).success).toBe(false);
   });
@@ -94,6 +140,35 @@ describe("circuit broker / 反向协议", () => {
     ).toBe(false);
   });
 
+  it("分析类工具的反向参数同样严格：cursor 合法、绝对固件路径被拒", () => {
+    expect(
+      escodeCircuitMethodParamsSchemas.check.safeParse({
+        ...protocolBase,
+        args: { irId: "ir:1", cursor: "opaque-1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      escodeCircuitMethodParamsSchemas.check.safeParse({
+        ...protocolBase,
+        args: { irId: "ir:1", files: ["firmware/app.overlay"] },
+      }).success,
+    ).toBe(false);
+    expect(
+      escodeCircuitMethodParamsSchemas.compareFirmware.safeParse({
+        ...protocolBase,
+        workspaceIdentity: "identity-1",
+        remoteSessionId: "remote-1",
+        args: { irId: "ir:1", files: ["firmware/app.overlay"], cursor: "opaque-1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      escodeCircuitMethodParamsSchemas.compareFirmware.safeParse({
+        ...protocolBase,
+        args: { irId: "ir:1", files: ["/etc/app.overlay"] },
+      }).success,
+    ).toBe(false);
+  });
+
   it("工具失败信封与响应总表一致（错误码固定七个）", () => {
     const failure = { ok: false, error: { code: "stale_revision", message: "版本落后" } };
     expect(circuitToolResponseSchemas.correct.safeParse(failure).success).toBe(true);
@@ -101,6 +176,15 @@ describe("circuit broker / 反向协议", () => {
       circuitToolResponseSchemas.correct.safeParse({
         ok: false,
         error: { code: "busy", message: "x" },
+      }).success,
+    ).toBe(false);
+    // 分析类工具同样只认规格的七个错误码。
+    expect(circuitToolResponseSchemas.check.safeParse(failure).success).toBe(true);
+    expect(circuitToolResponseSchemas.compareFirmware.safeParse(failure).success).toBe(true);
+    expect(
+      circuitToolResponseSchemas.compareFirmware.safeParse({
+        ok: false,
+        error: { code: "unsupported", message: "x" },
       }).success,
     ).toBe(false);
   });
