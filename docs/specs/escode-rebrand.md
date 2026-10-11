@@ -30,7 +30,7 @@
 | `zcode-websearch-client`                                                                       | 联网搜索服务的客户端标识                                                                                                                                                                            |
 | 官方插件市场 id `zcode-plugins-official`                                                       | 必须与 Z.ai 插件 CDN `marketplace.json` 的 `name` 一致，否则官方市场刷新被保留名校验拒绝；内置插件 id 因此仍为 `<name>@zcode-plugins-official`。UI 展示名不按 slug 推导，使用固定展示名 `ESCode Plugins Official`（`ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_DISPLAY_NAME`） |
 | 旧插件清单目录 `.zcode-plugin/`                                                                | CDN 与既有第三方插件仍以它发布：通用发现 / 安装 / zip / 同步按 `.escode-plugin` → `.zcode-plugin` → `.claude-plugin` → `.codex-plugin` 取第一个存在的 manifest；本仓库自带插件只用 `.escode-plugin` |
-| `LICENSE`、`third-party/upstream-zcode/`、第三方目录与文档镜像（`docs/electron`、`docs/knip`） | 许可与上游 / 第三方原文                                                                                                                                                                             |
+| `LICENSE`、`third-party/upstream-zcode/`、上游许可与第三方原文、文档镜像（`docs/electron/docs/**`、`docs/knip/**`） | 许可与上游 / 第三方原文。口径收紧（2026-10-12）：`docs/electron/*.md` 是本仓库自有文档、`third-party/{README.md,SPEC.md}` 是自有维护文档，均需随实现同步，不属镜像豁免 |
 | README 与 `NOTICE.md` 中的上游署名（ZCode、Z.AI Co., Ltd）                                     | Apache-2.0 §4(b)/(d) 要求的衍生作品与修改声明、上游署名，不能删除                                                                                                                                   |
 
 ## 不保留的 Z.ai 专属契约（2026-10-11 用户确认）
@@ -53,8 +53,17 @@ remote runtime 的发布路径前缀在不同位置口径不一，两处都是�
 
 正式构建走 CI 注入的 `__ESCODE_REMOTE_CDN_RELEASE_ROOTS__`，两者只影响未注入时的兜底；需按实际 CDN 发布位置收敛为一处。
 
+2026-10-12 复查：两处口径仍未收敛，阻塞于发布侧确认（海外 CDN 的实际发布前缀，CI 定义在本仓库之外）。已确认 `remoteCdn.ts` 兜底按「当前发布域名」写的是真实地址；确定实际前缀后再统一，不先行改动。
+
+## 更名工具（一次性）
+
+批量替换与图标生成在仓库外 `C:\Users\sekfung\Projects\escode-rebrand-tools\`：`rebrand.py`（批量替换）、`finish_paths.py`（嵌套路径改名）、`logos.py`（内联标识替换）、`legacy_manifest.py`（`.zcode-plugin` 回退）、`deeplink_revert.py`（撤销 `zcode://` 别名）均已执行，**不要再跑**；`icons/` 是图标生成器（`node build.mjs out`，`out/` 为产物），可在需要时重新生成图标——安装素材 `icon_installer.*` 为浅底变体，与应用图标成对且可区分。
+
+批量文本替换要单独检查含字面 NUL 分隔符的文件（如 `packages/ui/src/hooks/useWorkflowRunNodeResult.ts`），通用脚本会把它当二进制跳过。
+
 ## 验收
 
-- 残留扫描：除上表保留项外，受控文件中不再出现 `zcode`（大小写不敏感）。
+- 残留扫描：除上表保留项外，受控文件中不再出现 `zcode`（大小写不敏感）。`docs/electron/*.md`、`third-party/{README.md,SPEC.md}` 是本仓库自有文档（非镜像豁免），2026-10-12 已同步为 ESCode 现状。
 - `pnpm typecheck`、`pnpm lint`、CLI 全包 typecheck、Rust `cargo test --workspace` 与漂移检查通过。
-- 桌面图标与 dmg 背景为 ESCode 标识。
+- 桌面图标与 dmg 背景为 ESCode 标识；安装素材 `icon_installer.*` 为浅底变体（2026-10-12 重新生成——更名时曾与应用图标逐字节同源，与 electron-builder 注释的「专用素材」不符）。
+- 更名操作手册 `docs/handoff/2026-10-11-escode-rebrand-handoff.md` 已删除，可复用内容（本机 GNU 工具链、App 差分准备与本机坑）并入 `docs/specs/rust-windows-parity.md`。

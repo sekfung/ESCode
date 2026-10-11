@@ -58,6 +58,44 @@ cp target/x86_64-pc-windows-gnu/debug/escode-cli-rust.exe target/debug/escode-cl
 注意：这是 GNU 目标产物，与发行用的 MSVC 目标不同（CRT 与部分平台行为有差异）。用它得出的是**源码级**结论，
 不能替代 MSVC 构建的发布验收；MSVC 环境恢复后必须重跑并以此为准。
 
+## 本机复现与差分准备（2026-10-12 自更名手册并入）
+
+本机（Windows 11 x64）无可用 MSVC 链接器，Rust 一律用 GNU 工具链 + MSYS2 GCC：
+
+```bash
+export PATH=/c/msys64/mingw64/bin:$PATH
+cargo +1.95.0-x86_64-pc-windows-gnu {build|test|check} --locked \
+  --manifest-path apps/escode-cli-rust/Cargo.toml --target x86_64-pc-windows-gnu
+# 格式化只用带工具链与 manifest 的形式，不要在 crate 目录里跑裸 cargo fmt：
+cargo +1.95.0-x86_64-pc-windows-gnu fmt --manifest-path apps/escode-cli-rust/Cargo.toml
+```
+
+App 差分套件（`packages/services/tests/escode-cli-rust-*.test.ts`）的准备步骤：
+
+1. 用同一工具链与 target 先 `cargo build --examples` 再 `cargo build`；把
+   `target/x86_64-pc-windows-gnu/debug/escode-cli-rust.exe` 复制到 `target/debug/`，
+   把 `target/x86_64-pc-windows-gnu/debug/examples/*.exe` 复制到 `target/debug/examples/`
+   （夹具 `escode-cli-rust-fixture.ts` 固定读这些路径）。
+2. `node scripts/build-desktop-agent-cli.mjs` 构建 Node CLI bundle（`apps/escode-cli/packages/cli/dist/escode.cjs`）。
+3. 运行（`ESCODE_TEST_SERIAL=1 pnpm test:escode-cli-rust` 是等价入口）：
+
+   ```bash
+   export TSX_TSCONFIG_PATH="$(pwd)/packages/services/tests/tsconfig.escode-cli-rust.json" ESCODE_TEST_REQUEST_MS=30000 ESCODE_TEST_WAIT_MS=30000
+   node --import tsx --test --test-concurrency=1 --test-timeout=300000 --test-force-exit packages/services/tests/escode-cli-rust-*.test.ts
+   ```
+
+   全量约 2.5 小时；**差分与 cargo test 不要并行**，CPU 争用会造成超时假失败。
+
+其它本机坑：
+
+- 漂移生成器偶发 Windows 文件锁（`UNKNOWN: open` / `Errno 22`）：重试即可，重试后必须再跑一次 `--check`。
+- 测试日志带 ANSI 颜色码，统计 `✔` / `✖` 前先 `sed 's/\x1b\[[0-9;]*m//g'`。
+- `pnpm install` 需要 `npm_config_manage_package_manager_versions=false`（否则 EPERM）；CLI 子仓 typecheck 用
+  `cd apps/escode-cli && ../../node_modules/.bin/turbo run typecheck`。
+- `pnpm fmt:check` 在全仓库有大量既有失败（`.agents/skills/*`、`docs/electron` 镜像等），只对自己改过的文件跑
+  `npx oxfmt <files>`。
+
+
 ## 性能：prompt 快照不再启动 PowerShell
 
 `os_release` 原先在 Windows 上 spawn `powershell.exe` 取版本号。本机一次 PowerShell 启动约 1.5s，
