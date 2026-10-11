@@ -9,8 +9,11 @@ import {
 } from "./contract.js";
 import {
   exampleCircuitChangedEvent,
+  exampleCircuitCheckResult,
   exampleCircuitCorrectParams,
   exampleCircuitCorrectionRecord,
+  exampleCircuitFirmwareCompareParams,
+  exampleCircuitFirmwareCompareResult,
   exampleCircuitIrView,
   exampleCircuitLayout,
   exampleCircuitParseParams,
@@ -39,6 +42,11 @@ function createFakeService(): ICircuitService & { fireChanged: (event: CircuitCh
     get: async () => view(),
     getLayout: async (): Promise<CircuitLayout> => structuredClone(exampleCircuitLayout),
     query: async (): Promise<CircuitQueryResult> => structuredClone(exampleCircuitQueryResult),
+    check: async () => structuredClone(exampleCircuitCheckResult),
+    compareFirmware: async (params) => {
+      if (params.files.length === 0) throw new Error("invalid_ir: 没有固件文件");
+      return structuredClone(exampleCircuitFirmwareCompareResult);
+    },
     correct: async (params) => {
       if (params.baseRevision !== exampleCircuitIrView.summary.revision)
         throw new Error("stale_revision: 版本落后");
@@ -85,5 +93,31 @@ describe("circuit-service 契约", () => {
     subscription.dispose();
     service.fireChanged({ ...exampleCircuitChangedEvent, revision: 5 });
     expect(seen).toHaveLength(1);
+  });
+
+  it("规则检查结果带配置状态与低置信度标记", async () => {
+    const service = createFakeService();
+    const result = await service.check({
+      workspacePath: exampleCircuitParseParams.workspacePath,
+      irId: exampleCircuitIrView.summary.irId,
+    });
+    expect(result.config).toEqual({ status: "applied", path: ".escode/circuit-rules.json" });
+    expect(result.items[0]?.ruleId).toBe("unconnected-pin");
+    expect(result.items[0]?.lowConfidence).toBe(false);
+  });
+
+  it("固件比对返回带来源文件与行号的差异条目", async () => {
+    const service = createFakeService();
+    const result = await service.compareFirmware(exampleCircuitFirmwareCompareParams);
+    expect(result.items[0]).toMatchObject({
+      kind: "pin-mismatch",
+      pin: "PA9",
+      firmwareSymbol: "LED1",
+      file: "firmware/app.overlay",
+      line: 12,
+    });
+    await expect(
+      service.compareFirmware({ ...exampleCircuitFirmwareCompareParams, files: [] }),
+    ).rejects.toThrow(/invalid_ir/u);
   });
 });

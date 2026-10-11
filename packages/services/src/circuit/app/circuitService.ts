@@ -1,9 +1,14 @@
 import { Emitter } from "@escode/rpc";
+import type { CircuitIR } from "@escode/shared/circuit";
 import type {
   CircuitChangedEvent,
+  CircuitCheckParams,
+  CircuitCheckResult,
   CircuitCorrectParams,
   CircuitCorrectionListEntry,
   CircuitFindBySourceParams,
+  CircuitFirmwareCompareParams,
+  CircuitFirmwareCompareResult,
   CircuitIrParams,
   CircuitIrView,
   CircuitLayout,
@@ -18,6 +23,9 @@ import { CircuitServiceError } from "../domain/circuitErrors.js";
 import { assembleCircuitIr, revalidateCircuitIr } from "../domain/irBuild.js";
 import { circuitIrViewOf } from "./irView.js";
 import { runCircuitQuery } from "./circuitQuery.js";
+import { runCircuitCheck } from "./circuitCheck.js";
+import { runCircuitFirmwareCompare } from "./circuitFirmwareCompare.js";
+import { watchCircuitSourceFiles } from "./sourceWatching.js";
 import {
   circuitLocationKey as keyOf,
   circuitLocationOf as locationOf,
@@ -28,12 +36,7 @@ import type { CircuitServicePorts, CircuitSourceWatch, StoredCircuit } from "./p
 
 /**
  * CircuitService：Circuit IR 的唯一所有者（ADR 0005）。
- *
- * 写入路径与事件顺序（§3.3、§3.4）：
- *   write{irId, baseRevision} → baseRevision 落后就拒绝 stale_revision → 校验 ops → 应用 → revision++ →
- *   异步持久化完成 → emit circuit.changed{irId, revision, stale}。
- * 同一 sourcePath 的写入按队列串行；事件一定在持久化之后发出，因此事件里的 revision 一定可读。
- * 源文件变化只翻转 stale（revision 不变）；重新解析才 +1，并按键值重新套用修正、套不上的标 orphaned。
+ * 写入路径、事件顺序（§3.3、§3.4）与规则检查 / 固件比对的只读边界见 CONTRACT.md。
  */
 
 const log = createServiceLogger("circuit");
@@ -94,6 +97,14 @@ class CircuitServiceImpl implements CircuitService {
 
   async query(params: CircuitQueryParams): Promise<CircuitQueryResult> {
     return runCircuitQuery((await this.recordFor(params)).ir, params);
+  }
+
+  check(params: CircuitCheckParams): Promise<CircuitCheckResult> {
+    return runCircuitCheck(params, this.options.ports.source, () => this.irFor(params));
+  }
+
+  compareFirmware(params: CircuitFirmwareCompareParams): Promise<CircuitFirmwareCompareResult> {
+    return runCircuitFirmwareCompare(params, this.options.ports.source, () => this.irFor(params));
   }
 
   async correct(params: CircuitCorrectParams): Promise<CircuitIrView> {
@@ -285,38 +296,17 @@ class CircuitServiceImpl implements CircuitService {
       record,
     });
     for (const watch of state?.watches ?? []) watch.dispose();
-    const watches = await this.watchSourceFiles(location, record, sourceFiles);
+    const watches = await watchCircuitSourceFiles({
+      watcher: this.options.ports.watcher,
+      location,
+      irId: record.irId,
+      sourceFiles,
+      onChange: () => void this.markStale(location),
+    });
     const committed: CircuitState = { location, record, watches };
     this.stateByKey.set(keyOf(location), committed);
     this.keyByIrId.set(record.irId, keyOf(location));
     return committed;
-  }
-
-  private async watchSourceFiles(
-    location: CircuitLocation,
-    record: StoredCircuit,
-    sourceFiles: string[],
-  ): Promise<CircuitSourceWatch[]> {
-    const watches: CircuitSourceWatch[] = [];
-    for (const relativePath of sourceFiles) {
-      try {
-        watches.push(
-          await this.options.ports.watcher.watch({
-            workspacePath: location.workspacePath,
-            relativePath,
-            onChange: () => void this.markStale(location),
-          }),
-        );
-      } catch (error) {
-        // 监听失败不阻塞解析：IR 仍可用，只是不会自动标 stale。
-        log.warn("circuit source watch failed", {
-          irId: record.irId,
-          path: relativePath,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-    return watches;
   }
 
   private makeIrId(location: CircuitLocation): string {
@@ -375,6 +365,11 @@ class CircuitServiceImpl implements CircuitService {
     const state = await this.stateFor(location);
     if (!state) throw new CircuitServiceError("not_found", `IR ${params.irId} 不存在`);
     return state.record;
+  }
+
+  /** 只读分析（check / compareFirmware）用：定位 IR 并取出当前 IR。 */
+  private async irFor(params: CircuitIrParams): Promise<CircuitIR> {
+    return (await this.recordFor(params)).ir;
   }
 
   /** 同一 sourcePath 的写入串行执行（§3.3）；前一个任务失败不影响后续任务。 */

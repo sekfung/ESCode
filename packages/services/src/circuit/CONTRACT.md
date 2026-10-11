@@ -14,6 +14,14 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
   源文件变化只把 `stale` 翻成 true、`revision` 不变（§3.4）。面板按 `(revision, stale)` 与本地状态比对决定刷新，
   §3.3 的「忽略 revision ≤ 本地」只适用于 revision 前进的刷新，stale 翻转由 `stale` 字段触发。
 - 同一 `(identityKey, sourcePath)` 的写入串行执行；事件因此按 revision 单调递增。
+- 只读分析：`check`（§6）与 `compareFirmware`（§7）都不写状态、不需要 `baseRevision`。
+  两者的结果都按响应上限（§5）分页，游标实现与 `query` 共用一份（`app/circuitCursor.ts` +
+  `app/analysisPagination.ts`），签名绑定各自的查询参数，拿错游标报 `invalid_ir`。
+- `check` 读 workspace 下 `.escode/circuit-rules.json`（只读）：没有 → `config.status="default"`；
+  合法 → `"applied"`；解析失败 / 结构不符 → **整份忽略**并返回 `"invalid"` + `reason`（按默认配置检查）。
+  条目涉及的器件或网络低置信度时 `lowConfidence=true`。
+- `compareFirmware` 先按扩展名判格式（`.dts` / `.dtsi` / `.overlay` / `.ioc` / `.h`，其余报
+  `unsupported_format`）再读文件；IR 里没有可识别的 MCU 引脚名时报 `invalid_ir`，不做静默降级。
 - 元素 id：根图纸元素是 KiCad UUID，子图纸元素带实例路径前缀（`/<sheetUuid>/<uuid>`）；
   网表 / BOM 没有 UUID，用 `netlist:<位号>`、`bom:<位号>`。网络 id 由名字（global/电源/hierarchy/local 标签）
   或首个引脚锚点派生；同名 local / hierarchy 标签只在同一图纸实例内成网，所以这类网络 id 带作用域后缀。
@@ -23,6 +31,20 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
 - `CircuitLayout` 是渲染几何的只读派生视图：与 IR 同一次解析产出、按 revision 对齐、不进 IR、不参与修正（§8）。
 - 日志用 `createServiceLogger("circuit")`，只记 id、计数、耗时，不写电路内容与文件内容（§9）。
 
+## 规则判定口径（§6、§6.2）
+
+规则只读 Circuit IR（§2 规则 1），IR v1 不带引脚电气类型（`power_in` / `no_connect`）、不带 `.kicad_sch`
+的 no-connect 标记、也只留同一网络的一个标签名。下面的代理口径是确定性的（domain/circuitRules*.ts）：
+
+| ruleId               | 判定                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `unconnected-pin`    | 引脚没有 `netId`，或所属的**未命名**单引脚网络（解析器的 `Net-(…)` 约定 / 识别结果没给名字）只有它自己。跳过引脚号为空（机械孔）与引脚名形如 `NC` / `N.C.` / `DNC` 的引脚 |
+| `single-pin-net`     | `net.pinRefs.length === 1`（零引脚网络由 `dangling-net` 诊断负责）                                                     |
+| `undriven-power`     | 网络上有电源输入引脚（引脚名匹配 `VCC`/`VDD`/`VBAT`/`VIN`/`+3V3`/`1V8`…，不含 GND/VSS 族），且网上没有任何驱动源：连接器/电池类位号（`J`/`P`/`CN`/`USB`/`PS`/`BT`/`BAT`）的任一引脚，或无源件（`C`/`L`/`FB`/`F`/`D`/`Y`/`X`/`R`/`RN`/`TP`/`JP`）之外器件的非电源输入引脚（如 LDO 的 `VOUT`） |
+| `i2c-missing-pullup` | 网名以 `SDA` / `SCL` 结尾（`SCLK`、`SDIO` 不算）的网络里没有电阻（`R` / `RN`）的另一端连到非地电源轨              |
+| `missing-decoupling` | IC（`U` / `IC` 前缀）的电源输入引脚所在网络上没有电容（`C` 前缀）落在 GND/VSS 族网络；IR 无坐标，「附近」用同一网络代替 |
+| `net-name-conflict`  | 同名但 id 不同的多个网络（例如同一子图纸实例化两次时各自成网的 local 标签）。「同一网络有多个名称」在 IR v1 里不可见，属已声明边界 |
+
 ## P1 已知边界（按规格声明，不另加兜底）
 
 - 总线成员不展开：`(bus)` 只记入 `limitations`，总线分支上的标签照常成网。
@@ -30,6 +52,14 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
 - `.kicad_pcb` 的 layout 只给器件落点与板框尺寸，不画铜箔与走线。
 - PDF / 图片不在这里解析（属于 `circuit_submit_recognition`，G6）。
 - 同一个 workspace 被多个窗口 Host 同时打开时，revision 检查是各自服务内的乐观并发，不做跨进程锁。
+- 规则：IR 不含电气类型与 no-connect 标记，`unconnected-pin` 只能用引脚名排除 NC；`undriven-power`
+  与 `missing-decoupling` 用引脚名 + 位号前缀判断角色；`net-name-conflict` 只能检出「同名不连通」，
+  检不出「同一网络多个名称」。要更精确需要 IR 增加电气类型 / 别名 / 坐标，属 P2 讨论范围。
+- 固件比对：只解析 §7.1 列出的构造。devicetree 的 `pinctrl-0 = <&label>` 间接引用与 `NRF_PSEL(...)`
+  跳过；字母端口按 `P<口><脚>` 比对，数字端口控制器（`&gpio1 13`）按 `P<口>.<脚>` 与 `GPIO<脚>` 两种
+  候选匹配 IR 引脚名（同一控制器的两种写法用信号名消歧）；`.ioc` 的通用 GPIO 无标签时跳过。
+  固件内部冲突与引脚声明冲突都按「排序在后的那条声明」给出（码点序，保证跨平台一致），
+  因此「原理图独有」条目的 `file` 是原理图源文件、`line` 省略。
 
 ## 待定（需要时按规格补充）
 

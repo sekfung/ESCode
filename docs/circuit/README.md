@@ -198,11 +198,55 @@ interface Origin {
 - 配置文件：workspace 下 `.escode/circuit-rules.json`，服务只读，可启用/停用规则、调整级别。配置不合法时整份忽略，并在结果中报告。
 - 规则结果中涉及低置信度元素的条目要标出来。
 
+### 6.1 规则配置格式
+
+```json
+{
+  "rules": {
+    "missing-decoupling": { "enabled": false },
+    "i2c-missing-pullup": { "severity": "error" }
+  }
+}
+```
+
+- `rules` 可省略；键是规则 id，值是 `{ enabled?: boolean, severity?: "info" | "warning" | "error" }`，不接受其它字段。
+- 没有该文件时 `config.status = "default"`；文件存在且合法时 `"applied"`（带 `path`）；
+  JSON 解析失败或结构不符时整份忽略并返回 `"invalid"` + `reason`，此时按默认配置检查。
+- 文件里没有出现的规则用上表的默认级别与启用状态。
+
+### 6.2 判定口径与 P1 边界
+
+规则只读 Circuit IR（§2 规则 1），判定以 IR 真实携带的字段为准。IR 不含引脚电气类型
+（`power_in` / `no_connect`）、不含 `.kicad_sch` 的 no-connect 标记、也不保留同一网络的多个标签名，
+因此「非 NC 引脚」「电源输入引脚」「同一网络有多个名称」只能用引脚名、位号前缀与网络名做确定性代理；
+逐条口径与限制见 `packages/services/src/circuit/CONTRACT.md`。条目涉及的器件或网络
+`confidence` 低于 `CIRCUIT_LOW_CONFIDENCE_THRESHOLD` 时 `lowConfidence = true`（§2 规则 4）。
+
 ## 7. 固件比对
 
 - 由服务端做确定性解析的格式：Zephyr/Linux devicetree（`.dts` / `.dtsi` / `.overlay`）、STM32CubeMX `.ioc`、C 头文件中的引脚宏（`#define XXX_PIN` / `GPIO_PIN_n` / `PORT` 组合）。
 - 输出差异类型：引脚不一致、固件里有而原理图里没有、原理图里有而固件里没有、外设复用冲突。
 - Arduino、PlatformIO 这类散落在代码中的引脚写法不经过比对器，由 Agent 自行推断，结果标为低置信度。
+
+### 7.1 P1 解析范围
+
+只解析下列构造，其它写法不猜（在报告中说明）：
+
+- devicetree（`.dts` / `.dtsi` / `.overlay`）：`<&gpio<口> <脚> …>` 形式的 GPIO 描述符，属性名是
+  `gpios` / `*-gpio` / `*-gpios` / `*-pins` 时取用；信号名取「属性前缀 + 节点名（有标签则用标签）」，
+  如 `&i2c1 { sda-gpios = <&gpiob 7 …>; }` → `I2C1_SDA`。`pinctrl-0 = <&label>` 这类间接引用与
+  `NRF_PSEL(...)` 忽略；字母端口按 `P<口><脚>` 比对，数字端口控制器（`&gpio1 13`）没有端口语义，
+  按 `P<口>.<脚>` 与 `GPIO<脚>` 两种候选与 IR 引脚名比对（Nordic 与 ESP 系列各自命中，
+  同一控制器的两种写法用信号名消歧）。
+- STM32CubeMX `.ioc`：`P<口><脚>.Signal=` 行；值为通用 GPIO（`GPIO_Input` / `GPIO_Output` 等）时改用同组的
+  `.GPIO_Label=` 作信号名，没有标签就跳过（没有可比的网络名）。
+- C 头文件：`#define <前缀>_PIN`（值是 `GPIO_PIN_<n>` / `LL_GPIO_PIN_<n>`）配同前缀的
+  `_GPIO_PORT` / `_GPIO_Port` / `_PORT` / `_Port`（值是 `GPIO<口>`），如 CubeMX 生成的 `main.h`。
+- 比对以 MCU 引脚名为锚（`P[A-K]<脚>`、`P<口>.<脚>`、`GPIO<脚>`）：固件声明的信号名与原理图上该引脚的
+  网络名不一致 → 引脚不一致；固件声明了原理图没有网络可对应的引脚 → 固件独有；原理图 MCU 引脚接了具名网络
+  而固件没有声明 → 原理图独有；同一引脚在固件里被声明成两个信号、或同一信号落在两个引脚 → 外设复用冲突。
+- 条目里的 `file` 与 `line` 指向固件声明所在位置（workspace 相对路径、1 起始行号）；
+  「原理图独有」条目的 `file` 是原理图源文件（IR 不记录行号，`line` 省略）。
 
 ## 8. 电路面板（Desktop）
 
