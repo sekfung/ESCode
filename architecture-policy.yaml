@@ -75,6 +75,19 @@ modules:
     publicEntrypoints: [packages/shared/src/gen-ui/index.ts, packages/shared/src/gen-ui/contract.ts]
     layers: { domain: "." }
     owner: conversation
+
+  # 电路识别与分析的线协议（docs/circuit/README.md §4、§5）；IR 由 Host 内的 CircuitService 持有（ADR 0005）。
+  - id: circuit-protocol
+    roots: [packages/shared/src/circuit]
+    managed: true
+    requires: []
+    publicEntrypoints:
+      [
+        packages/shared/src/circuit/index.ts,
+        packages/shared/src/circuit/contract.ts,
+      ]
+    layers: { domain: "." }
+    owner: circuit
   - id: gen-ui-service
     roots: [packages/services/src/gen-ui]
     managed: true
