@@ -155,8 +155,12 @@ jobs:
           set -euo pipefail
           dest="$RUNNER_TEMP/remote-rust/linux-${{ matrix.arch }}"
           mkdir -p "$dest"
-          tar -xzf "$RUNNER_TEMP"/remote-rust-artifact/*.tar.gz -C "$RUNNER_TEMP/remote-rust-artifact"
-          cp "$RUNNER_TEMP"/remote-rust-artifact/*/escode-cli-rust "$dest/escode-cli-rust"
+          # Windows 上 $RUNNER_TEMP 形如 D:\a\_temp：GNU tar 会把盘符后的冒号当成远程主机
+          # （host:path）去连 rsh，报 "Cannot connect to D"；同一路径里的反斜杠还会让 bash 通配
+          # 不展开（* 会原样传给 tar/cp）。因此先切进目录，只用相对路径。
+          cd "$RUNNER_TEMP/remote-rust-artifact"
+          tar -xzf ./*.tar.gz
+          cp ./*/escode-cli-rust "$dest/escode-cli-rust"
           chmod 755 "$dest/escode-cli-rust"
           echo "ESCODE_REMOTE_RUST_BINARIES_DIR=$RUNNER_TEMP/remote-rust" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
