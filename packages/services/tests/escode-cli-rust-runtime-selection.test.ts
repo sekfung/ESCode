@@ -10,6 +10,7 @@ const KEYS = [
   "ESCODE_AGENT_SERVER_ARGS_JSON",
   "ESCODE_AGENT_SERVER_CWD",
   "ESCODE_DESKTOP_PACKAGED",
+  "ESCODE_REMOTE_PACKAGED_RUNTIME",
 ] as const;
 
 function withEnv<T>(env: Partial<Record<(typeof KEYS)[number], string>>, run: () => T): T {
@@ -83,6 +84,23 @@ test("the default runtime is the bundled Rust binary in an installed app", () =>
 test("an installed app without the Rust binary reports an error instead of switching to Node", () => {
   assert.throws(
     () => withEnv(PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installedMissing)),
+    /Rust runtime \(escode-cli-rust\) is not installed/,
+  );
+});
+
+// docs/specs/rust-packaging.md「远程环境使用 Rust」：桌面安装包部署的远端 server 同样默认 Rust、缺二进制报错，
+// 且不因远端 cwd 位于 monorepo 内而误选开发入口。
+const REMOTE_PACKAGED = { ESCODE_REMOTE_PACKAGED_RUNTIME: "1" } as const;
+
+test("a remote server deployed by an installed app defaults to the Rust runtime", () => {
+  const command = withEnv(REMOTE_PACKAGED, () => resolveDefaultESCodeAgentCommand(context, bundled));
+  assert.equal(command?.command, "/res/glm/escode-cli-rust");
+  assert.equal(command?.runtime, "escode-cli-rust");
+});
+
+test("a remote server deployed by an installed app reports a missing Rust binary", () => {
+  assert.throws(
+    () => withEnv(REMOTE_PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installedMissing)),
     /Rust runtime \(escode-cli-rust\) is not installed/,
   );
 });

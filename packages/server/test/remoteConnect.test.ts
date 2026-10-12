@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { Emitter, ChannelClient, SocketProtocol, type IDisposable, type Event } from "@escode/rpc";
 import { ESCODE_VERSION, TOPIC_RESOURCE_RELAY_CHANNEL } from "@escode/shared";
 import { wrapStdioStream } from "../src/remote/stdio-socket.js";
-import { connectRemote, pickRemoteRuntimeEnv } from "../src/remote/connect.js";
+import {
+  buildRemoteServerCommand,
+  connectRemote,
+  pickRemoteRuntimeEnv,
+} from "../src/remote/connect.js";
 import type { IRemoteBackend, RemoteDisconnectEvent, StdioStream } from "../src/remote/backend.js";
 
 class FakeConnectBackend implements IRemoteBackend {
@@ -143,6 +147,17 @@ describe("connectRemote", () => {
     ).toEqual({
       ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED: "1",
     });
+  });
+
+  // docs/specs/rust-packaging.md「远程环境使用 Rust」：只有桌面安装包部署的远端带 Rust 二进制，
+  // 远端据此默认 Rust 且不回退 Node；开发态 App 只同步 JS bundle，不能让远端误选 Rust。
+  it("仅桌面安装包的 Host 给远端 server 注入打包运行时标记", () => {
+    expect(
+      buildRemoteServerCommand(undefined, undefined, { ESCODE_DESKTOP_PACKAGED: "1" }),
+    ).toContain("ESCODE_REMOTE_PACKAGED_RUNTIME='1'");
+    expect(buildRemoteServerCommand(undefined, undefined, {})).not.toContain(
+      "ESCODE_REMOTE_PACKAGED_RUNTIME",
+    );
   });
 
   // DWG-06（docs/dynamic-workflow/launch.md「Gray release」）：Dynamic Workflow 的档位由

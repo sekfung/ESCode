@@ -50,6 +50,8 @@ const FIXTURE_COMPONENTS: FixtureComponent[] = [
     mount: `glm/${remotePlatform}`,
     files: {
       "zcode.cjs": "agent",
+      // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+      "escode-cli-rust": "rust agent",
       ...Object.fromEntries(
         REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map((relativePath) => [
           `packages/${relativePath}`,
@@ -175,6 +177,7 @@ describe("prepare-bundled-remote-assets", () => {
       // 远程制品名沿用发布侧约定：server/zcode-server.cjs、glm/<arch>/zcode.cjs。
       expect(existsSync(join(releaseDir, "server", "zcode-server.cjs"))).toBe(true);
       expect(existsSync(join(releaseDir, "glm", remotePlatform, "zcode.cjs"))).toBe(true);
+      expect(existsSync(join(releaseDir, "glm", remotePlatform, "escode-cli-rust"))).toBe(true);
       expect(existsSync(join(releaseDir, "node", remotePlatform, "node"))).toBe(true);
       expect(existsSync(join(releaseDir, "node-pty", remotePlatform, "pty.node"))).toBe(true);
       expect(existsSync(join(releaseDir, "tools", remotePlatform, "bfs", "bfs"))).toBe(true);

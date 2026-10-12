@@ -78,3 +78,52 @@ sequenceDiagram
   三处同口径），打包态的 runtime 选择与 cwd 无关。
 - 打包：`ESCODE_BUNDLE_RUST_AGENT` 默认开启（`=0` 关闭时安装包只含 Node，须同时设置 `ESCODE_AGENT_SERVER_RUNTIME=node`，否则启动报错）。
 - 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖默认选 Rust、二进制缺失报错、开发态 / 显式 node / 非桌面安装包保持 Node。
+
+## 远程环境使用 Rust（2026-10-12，用户决定）
+
+远程工作区（SSH / WSL / Docker）此前只部署 `glm/<platform>/zcode.cjs`，远端 agent 永远是 Node。与桌面一致，
+打包产物的远程环境也默认使用 Rust，且不回退 Node。
+
+### 制品
+
+| 远程平台 | Rust target | 说明 |
+| --- | --- | --- |
+| `linux-x64` | `x86_64-unknown-linux-musl` | 静态链接，不依赖远端 glibc 版本（用户选择方案 a） |
+| `linux-arm64` | `aarch64-unknown-linux-musl` | 同上 |
+| `darwin-x64` / `darwin-arm64` | `x86_64-apple-darwin` / `aarch64-apple-darwin` | macOS 远端 |
+
+- 位置：远程 release 的 glm 组件内 `glm/<platform>/escode-cli-rust`，与 `zcode.cjs` 同一组件（同一 manifest SHA）。
+- 来源（`scripts/prepare-prebuilds.mjs` → `scripts/remote-rust-agent.mjs`，唯一 owner）：
+  1. `ESCODE_REMOTE_RUST_BINARIES_DIR=<dir>`：取 `<dir>/<platform>/escode-cli-rust`（CI 由 `rust-runtime` job 产物提供）；
+  2. 未设置时用本机 cargo 构建对应 target（Linux musl 需要 `musl-tools`）；
+  3. 都拿不到即构建失败——远程 Rust 是默认 runtime，不能产出缺二进制的远程包。
+- 打包范围：`prepare-runtime-assets` 在未显式设置 `ESCODE_REMOTE_ASSET_PLATFORMS` 时只构建 `linux-<目标架构>`
+  （安装包只内置这一份，与 release job 同口径），避免本地打包要求交叉编译全部 musl / darwin 目标。直接运行
+  `prepare:remote-assets` 仍缺省构建全部远程平台（开发 / e2e mock-cdn），需要对应工具链或预构建目录。
+- 校验：`prepare-bundled-remote-assets` 必需条目、`afterPack` 产物断言、运行时本地 release 完整性
+  （`deploy.ts` glm 组件必需路径）都包含 `glm/<platform>/escode-cli-rust`。
+
+### 部署与选择
+
+- 部署（`escodeAgentDeploy.ts`）：上传为 `~/.escode/server/agents/glm/escode-cli-rust` 并设为可执行；跳过部署的判定
+  同样要求该文件存在。Node bundle 与 wrapper 继续部署（Rust 的官方插件宿主与显式 `node` 选择需要它们）。
+- 远端选择：桌面安装包的 Host 连接远程时给远端 server 注入 `ESCODE_REMOTE_PACKAGED_RUNTIME=1`。resolver 视
+  `ESCODE_DESKTOP_PACKAGED=1` 或 `ESCODE_REMOTE_PACKAGED_RUNTIME=1` 为「打包运行时」：跳过 monorepo 开发入口探测、
+  默认 Rust、缺二进制直接报错。开发态 App（未打包）连接远程时不注入，远端维持 Node（开发部署只同步 JS bundle）。
+- 远端插件宿主：Rust 命令的 `ESCODE_PLUGIN_HOST_EXEC_PATH` / `ESCODE_PLUGIN_HOST_ENTRYPOINT` 在远端取
+  `$ESCODE_SERVER_RUNTIME_ROOT/node` 与 `~/.escode/server/agents/glm/zcode.cjs`（存在时）。
+- 数据：远端 Rust 会话库 `~/.escode/rust/rust-sessions.sqlite`；首次打开 workspace 时只读导入远端既有 TS 历史
+  （`~/.escode/cli/db/db.sqlite`），与桌面同一迁移语义。
+
+### CI
+
+`release.yml` 的 `rust-runtime` 矩阵增加 `x86_64-unknown-linux-musl`（ubuntu-latest）与 `aarch64-unknown-linux-musl`
+（ubuntu-24.04-arm），安装 `musl-tools`；`desktop` job 依赖 `rust-runtime`，下载目标架构的 musl 产物，解压到
+`ESCODE_REMOTE_RUST_BINARIES_DIR/linux-<arch>/escode-cli-rust`。
+
+### 验收
+
+- 单测：平台 → target 映射；二进制来源（目录优先、缺失报错）；resolver 在远程打包运行时默认 Rust、缺二进制报错、
+  未注入时维持 Node；远程 server 启动命令仅在桌面打包态注入标记；部署上传可执行的 Rust 二进制、缺失时不跳过部署。
+- 本机：`x86_64-unknown-linux-musl` release 构建成功并能以 `app-server --stdio` 完成启动握手（见提交说明）。
+- 未验证：aarch64 musl 与 macOS 远端产物（本机无对应工具链），真实 SSH 远端连接（需要 CI / 真机）。

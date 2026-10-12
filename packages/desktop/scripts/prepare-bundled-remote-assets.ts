@@ -21,6 +21,7 @@ import { REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS } from "@escode/se
 import { extractTarGzArchive } from "@escode/server/remote/localTarGz.js";
 import { normalizeRemoteAssetRelativePath } from "@escode/server/remote/remoteAssetCdn.js";
 import { REQUIRED_SERVER_BUNDLE_MARKERS } from "@escode/server/remote/serverBundleDeployCheck.js";
+import { REMOTE_AGENT_RUST_BINARY_NAME } from "@escode/server/remote/escodeAgentBundleWrapper.js";
 import { getBuildMetadata } from "./build-metadata.mjs";
 import { getTargetPlatform } from "./target-platform.mjs";
 
@@ -64,6 +65,7 @@ function resolveRequiredEntries(): string[] {
     join("node", remotePlatform, "node"),
     join("node-pty", remotePlatform, "pty.node"),
     join("glm", remotePlatform, "zcode.cjs"),
+    join("glm", remotePlatform, REMOTE_AGENT_RUST_BINARY_NAME),
     ...REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map((relativePath) =>
       join("glm", remotePlatform, "packages", ...relativePath.split("/")),
     ),

@@ -41,6 +41,7 @@ import {
   packSourceAsDeterministicTarGzip as packComponentSourceAsArchive,
 } from "./deterministic-tar-archive.mjs";
 import { runCommand } from "./spawn-command.mjs";
+import { stageRemoteRustAgent } from "./remote-rust-agent.mjs";
 
 export { computeComponentSourceSha256, packComponentSourceAsArchive };
 
@@ -702,7 +703,7 @@ function stageRemoteAgentBundles() {
 
   for (const platformKey of remotePlatforms) {
     const glmDir = join(releaseDir, "glm", platformKey);
-    // 干净重建：glm 组件现在只含 zcode.cjs，清掉历史遗留的原生二进制 / 旧 meta，
+    // 干净重建：glm 组件只含 zcode.cjs、escode-cli-rust 与插件资产，清掉历史遗留的原生二进制 / 旧 meta，
     // 避免被打进组件 tar 把远端资源撑大。
     rmSync(glmDir, { recursive: true, force: true });
     mkdirSync(glmDir, { recursive: true });
@@ -710,6 +711,9 @@ function stageRemoteAgentBundles() {
     stageRemoteOfficialPlugins(glmDir);
     stageRemoteBundledSkillPack(glmDir);
     console.log(`  [ok] mock-cdn glm/${platformKey}/zcode.cjs`);
+    // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）：与 zcode.cjs 同一组件。
+    stageRemoteRustAgent({ platformKey, glmDir, rootDir });
+    console.log(`  [ok] mock-cdn glm/${platformKey}/escode-cli-rust`);
   }
 }
 

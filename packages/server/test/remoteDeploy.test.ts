@@ -52,6 +52,8 @@ const retiredProxyRuntimeId = `${retiredProtocolPrefix}-proxy-runtime`;
 // 远端 ESCode Agent bundle 文件名（与 REMOTE_AGENT_BUNDLE_NAME 保持一致）。
 const REMOTE_AGENT_BUNDLE_FILE_NAME = "zcode.cjs";
 const REMOTE_AGENT_WRAPPER_FILE_NAME = "escode-agent";
+// 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」），与 zcode.cjs 同在 glm 组件。
+const REMOTE_AGENT_RUST_FILE_NAME = "escode-cli-rust";
 const BROWSER_USE_REQUIRED_RELATIVE_PATHS = [
   // node_repl 宿主已抽成 @escode/node-repl-host，browser-use 不再产出 dist/mcp/server.js。
   "browser-use-plugin/docs/api.json",
@@ -520,6 +522,11 @@ async function stageRemoteRuntimeRelease(
         `${provider} bundle`,
         "utf8",
       );
+      await writeFile(
+        join(binaryDir, REMOTE_AGENT_RUST_FILE_NAME),
+        `${provider} rust runtime`,
+        "utf8",
+      );
       for (const relativePath of OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS) {
         await mkdir(dirname(join(binaryDir, "packages", relativePath)), {
           recursive: true,
@@ -596,6 +603,8 @@ function createFullyDeployedRemoteFiles(
       }
       files[`${remoteProviderDir}/${REMOTE_AGENT_BUNDLE_FILE_NAME}`] =
         `${provider} bundle`;
+      files[`${remoteProviderDir}/${REMOTE_AGENT_RUST_FILE_NAME}`] =
+        `${provider} rust runtime`;
       for (const relativePath of OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS) {
         files[`${remoteProviderDir}/packages/${relativePath}`] =
           `${provider} official plugin ${relativePath}`;
@@ -1900,6 +1909,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
     expect(installedFiles).toEqual([
       "glm:~/.escode/server/agents/glm/zcode.cjs",
+      "glm:~/.escode/server/agents/glm/escode-cli-rust",
     ]);
     expect(installedDirectories).toEqual([
       {
@@ -1957,6 +1967,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(installRequests).toEqual([
       { componentId: "glm", forceRefresh: true, kind: "file" },
       { componentId: "glm", forceRefresh: true, kind: "directory" },
+      { componentId: "glm", forceRefresh: true, kind: "file" },
     ]);
   });
 
@@ -2037,6 +2048,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
     expect(installedFiles).toEqual([
       "glm:~/.escode/server/agents/glm/zcode.cjs",
+      "glm:~/.escode/server/agents/glm/escode-cli-rust",
     ]);
     expect(backend.uploads.map((upload) => upload.remotePath)).toContain(
       `~/.escode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`,
@@ -2107,6 +2119,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         kind: "directory",
         remoteDir: "~/.escode/server/agents/glm/packages",
       },
+      {
+        componentId: "glm",
+        forceRefresh: false,
+        kind: "file",
+        remotePath: "~/.escode/server/agents/glm/escode-cli-rust",
+      },
     ]);
     const permissionRepairCommand = backend.commands.find((command) =>
       command.includes("command chmod -R u+rwX"),
@@ -2160,6 +2178,48 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         command.includes("command chmod -R u+rwX"),
       ),
     ).toBe(false);
+  });
+
+  // docs/specs/rust-packaging.md「远程环境使用 Rust」：旧版本部署过的远端没有 Rust runtime，
+  // 即使 glm 制品 SHA 相同也必须补部署，且以可执行方式上传（远端默认 runtime 为 Rust，不回退 Node）。
+  it("GLM 制品 hash 匹配但远端缺 Rust runtime 时应补部署可执行二进制", async () => {
+    const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
+    delete remoteFiles["~/.escode/server/agents/glm/escode-cli-rust"];
+    remoteFiles["~/.escode/server/.asset-components/glm.json"] = JSON.stringify({
+      id: "glm",
+      version: ESCODE_AGENT_RUNTIME.version,
+      sha256: TEST_GLM_ARTIFACT_SHA256,
+      platformArch: "linux-arm64",
+    });
+    const backend = new FakeRemoteBackend(remoteFiles);
+    const installRequests: Array<{ remotePath: string; executable: boolean; source: string }> = [];
+    const warnings: string[] = [];
+    const installer: RemoteAssetInstaller = {
+      mode: "local-download-upload",
+      async resolveComponentSha256() {
+        return TEST_GLM_ARTIFACT_SHA256;
+      },
+      async installFile({ remotePath, executable, sourceRelativePath }) {
+        installRequests.push({ remotePath, executable, source: sourceRelativePath });
+      },
+      async installDirectory() {},
+    };
+
+    await deployESCodeAgentRuntime(
+      backend,
+      { platform: "linux", arch: "arm64" },
+      { platformArch: "linux-arm64", installer },
+      { log: () => undefined, logWarn: (message) => warnings.push(message) },
+    );
+
+    expect(
+      warnings.some((message) => message.includes("reason=remote rust runtime missing")),
+    ).toBe(true);
+    expect(installRequests).toContainEqual({
+      remotePath: "~/.escode/server/agents/glm/escode-cli-rust",
+      executable: true,
+      source: "glm/linux-arm64/escode-cli-rust",
+    });
   });
 
   it("GLM 版本相同但制品 hash 变化时应重新部署并修复旧目录权限", async () => {
@@ -2236,6 +2296,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         kind: "directory",
         remoteDir: "~/.escode/server/agents/glm/packages",
       },
+      {
+        componentId: "glm",
+        forceRefresh: false,
+        kind: "file",
+        remotePath: "~/.escode/server/agents/glm/escode-cli-rust",
+      },
     ]);
   });
 
@@ -2281,6 +2347,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(installRequests).toEqual([
       "glm:directory:~/.escode/server/agents/glm/packages",
       "glm:file:~/.escode/server/agents/glm/zcode.cjs",
+      "glm:file:~/.escode/server/agents/glm/escode-cli-rust",
     ]);
   });
 
@@ -4117,7 +4184,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       );
 
       expect(deployed).toBe(true);
-      expect(backend.uploads).toHaveLength(3);
+      expect(backend.uploads).toHaveLength(4);
       expect(backend.uploads.map((upload) => upload.remotePath)).toEqual(
         expect.arrayContaining([
           expect.stringMatching(
@@ -4125,6 +4192,9 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           ),
           expect.stringMatching(
             /^~\/.escode\/server\/agents\/glm\/zcode\.cjs\.new-[\w-]+$/u,
+          ),
+          expect.stringMatching(
+            /^~\/.escode\/server\/agents\/glm\/escode-cli-rust\.new-[\w-]+$/u,
           ),
           expect.stringMatching(
             /^~\/.escode\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,

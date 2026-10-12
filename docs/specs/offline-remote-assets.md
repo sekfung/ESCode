@@ -62,6 +62,7 @@ resources/remote-assets/
     ├── node/linux-<arch>/node
     ├── node-pty/linux-<arch>/pty.node
     ├── glm/linux-<arch>/zcode.cjs
+    ├── glm/linux-<arch>/escode-cli-rust   # musl 静态 Rust runtime，远程默认 runtime（rust-packaging.md「远程环境使用 Rust」）
     └── tools/linux-<arch>/{bfs,rg,ugrep}/
 ```
 
@@ -93,6 +94,7 @@ pnpm build
   └─ prepare:runtime-assets
        ├─ prepare:remote-assets         # 从本仓库源码构建远程 release 到 mock-cdn/releases/<version>/
        │                                #   （server-bundle、glm、官方插件、node-pty、tools；node 二进制取 Node dist）
+       │                                #   glm 另含 escode-cli-rust：ESCODE_REMOTE_RUST_BINARIES_DIR 提供或本机 cargo 构建
        │                                # ESCODE_REMOTE_ASSET_PLATFORMS 限定平台，缺省 4 个远程平台
        └─ prepare:bundled-remote-assets # 取 mock-cdn 中目标架构的 linux release：
                                         #   manifest → 组件归档 → sha256 校验 → 解压到 mount

@@ -5,6 +5,7 @@ import type { ESCodeAgentStorageStartupSnapshot } from "#src/escode-agent/escode
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { Emitter } from "@escode/rpc";
@@ -21,6 +22,7 @@ import {
   ESCODE_AGENT_RUNTIME,
   ESCODE_AGENT_PROVIDER,
   ESCODE_DESKTOP_PACKAGED_ENV,
+  ESCODE_REMOTE_PACKAGED_RUNTIME_ENV,
   ESCODE_RUNTIME_ENV_KEY,
   resolveWorkspaceKey,
   resolveESCodeRuntimeEnv,
@@ -404,6 +406,17 @@ function resolveBundledWorkspaceESCodeAgentCommand(
 }
 
 /**
+ * 打包运行时：桌面安装包的 Local Host，或桌面安装包部署并拉起的远程 server。二者都随包带 Rust 二进制，
+ * 默认 runtime 为 Rust 且不回退 Node（docs/specs/rust-packaging.md「不回退 Node」「远程环境使用 Rust」）。
+ */
+function isPackagedAgentRuntime(): boolean {
+  return (
+    process.env[ESCODE_DESKTOP_PACKAGED_ENV] === "1" ||
+    process.env[ESCODE_REMOTE_PACKAGED_RUNTIME_ENV] === "1"
+  );
+}
+
+/**
  * monorepo 开发入口（dist / tsx 源码）。
  * Bugfix：findUpward 从 process.cwd() 向上探测，安装包在仓库目录下启动时（CI installed job、开发者从终端启动）
  * 会误命中仓库源码入口：默认 runtime 退回 Node，且 tsx 入口没有 storagePreparationEntry，数据库启动报
@@ -412,7 +425,7 @@ function resolveBundledWorkspaceESCodeAgentCommand(
 function resolveWorkspaceDevESCodeAgentCommand(
   context: ESCodeAgentCommandResolverContext,
 ): ESCodeAgentCommand | null {
-  if (process.env[ESCODE_DESKTOP_PACKAGED_ENV] === "1") return null;
+  if (isPackagedAgentRuntime()) return null;
   return resolveBundledWorkspaceESCodeAgentCommand(context);
 }
 
@@ -484,10 +497,31 @@ function rustPluginHostEnv(
     resolveWorkspaceDevESCodeAgentCommand(context) ??
     resolveElectronRuntimeESCodeAgentCommand(context);
   const entrypoint = node?.args?.[0];
-  if (!node || !entrypoint?.endsWith(".cjs")) return {};
+  if (node && entrypoint?.endsWith(".cjs")) {
+    return {
+      env: {
+        ESCODE_PLUGIN_HOST_EXEC_PATH: node.command,
+        ESCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
+      },
+    };
+  }
+  return remotePluginHostEnv();
+}
+
+/**
+ * 远端没有 Electron：插件宿主用远程部署的独立 node（与 zcode-server.cjs 同一份）执行 agents/glm/zcode.cjs，
+ * 与远端 wrapper（escodeAgentBundleWrapper）同一布局。
+ */
+function remotePluginHostEnv(): Pick<ESCodeAgentCommand, "env"> {
+  if (process.env[ESCODE_REMOTE_PACKAGED_RUNTIME_ENV] !== "1") return {};
+  const runtimeRoot =
+    process.env.ESCODE_SERVER_RUNTIME_ROOT?.trim() || join(homedir(), ".escode", "server");
+  const nodePath = join(runtimeRoot, "node");
+  const entrypoint = findESCodeAgentRuntimeNodeBundle();
+  if (!entrypoint || !existsSync(nodePath)) return {};
   return {
     env: {
-      ESCODE_PLUGIN_HOST_EXEC_PATH: node.command,
+      ESCODE_PLUGIN_HOST_EXEC_PATH: nodePath,
       ESCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
     },
   };
@@ -510,11 +544,11 @@ export function resolveDefaultESCodeAgentCommand(
   if (runtime && runtime !== "escode-cli-rust" && runtime !== "node") {
     throw new Error("Unsupported ESCODE_AGENT_SERVER_RUNTIME");
   }
-  // 默认 Rust 只属于桌面安装包（Main 注入 ESCODE_DESKTOP_PACKAGED=1，且随包带 Rust 二进制）。远程服务端
-  // （SSH 部署的 entry-stdio）没有随包 Rust 二进制，未设置时保持 Node 链，不因「不回退」而整体不可用。
+  // 默认 Rust 属于打包运行时（桌面安装包，或其部署的远程 server，二者都随包带 Rust 二进制）。开发态 App
+  // 部署的远端只有 JS bundle，未注入标记时保持 Node 链。
   const defaultRust =
     runtime === undefined &&
-    process.env[ESCODE_DESKTOP_PACKAGED_ENV] === "1" &&
+    isPackagedAgentRuntime() &&
     !process.env.ESCODE_AGENT_SERVER_COMMAND?.trim() &&
     (deps.findDevCommand ?? resolveWorkspaceDevESCodeAgentCommand)(context) === null;
   const rust = runtime === "escode-cli-rust" || defaultRust;

@@ -342,6 +342,8 @@ function assertPackagedBundledRemoteAssets(context) {
     resolve(releaseDir, "server", "zcode-server.cjs"),
     resolve(releaseDir, "node", remotePlatform, "node"),
     resolve(releaseDir, "glm", remotePlatform, "zcode.cjs"),
+    // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+    resolve(releaseDir, "glm", remotePlatform, "escode-cli-rust"),
     resolve(releaseDir, "tools", remotePlatform, "ripgrep", "rg"),
   ];
   const missingPaths = requiredPaths.filter((entry) => !existsSync(entry));

@@ -6,6 +6,8 @@ import {
   TOPIC_RESOURCE_RELAY_CHANNEL,
   ESCODE_APP_VERSION_ENV,
   ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
+  ESCODE_DESKTOP_PACKAGED_ENV,
+  ESCODE_REMOTE_PACKAGED_RUNTIME_ENV,
   ESCODE_DYNAMIC_WORKFLOW_MODE_ENV,
   formatLogPrefix,
   ESCODE_REMOTE_HTTP_PROXY_ENV_KEY,
@@ -373,14 +375,20 @@ async function resolveRemoteRuntimeNetwork(
   }
 }
 
-function buildRemoteServerCommand(
+export function buildRemoteServerCommand(
   options: ConnectOptions | undefined,
   remoteRuntimeNetwork: RemoteRuntimeNetworkOptions | undefined,
+  hostEnv: Record<string, string | undefined> = process.env,
 ): string {
   const envParts = [
     `${SERVICE_AUTHORITY_MODE_ENV}="desktop-attached-remote"`,
     'ESCODE_SERVER_RUNTIME_ROOT="$HOME/.escode/server"',
   ];
+  // 只有桌面安装包部署的远端才带 Rust 二进制：远端据此默认 Rust 且不回退 Node。
+  // 开发态 App 只同步 JS bundle，远端维持 Node（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+  if (hostEnv[ESCODE_DESKTOP_PACKAGED_ENV] === "1") {
+    envParts.push(`${ESCODE_REMOTE_PACKAGED_RUNTIME_ENV}='1'`);
+  }
   for (const [key, value] of Object.entries(
     pickRemoteRuntimeEnv(options?.remoteRuntimeEnv ?? {}),
   )) {

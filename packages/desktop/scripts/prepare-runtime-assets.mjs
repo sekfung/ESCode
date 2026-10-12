@@ -67,6 +67,9 @@ const shouldSkipBundledRemoteAssets =
   shouldSkipRemoteAssets || process.env.ESCODE_SKIP_BUNDLED_REMOTE_ASSETS === "1";
 
 if (!shouldSkipRemoteAssets) {
+  // 安装包只内置目标架构的 linux release；远程 glm 组件现含 musl Rust runtime，构建全部 4 个远程平台需要本机
+  // 能交叉编译 musl 与 darwin 目标。打包流程未显式指定时只构建会进包的平台（与 release job 同口径）。
+  process.env.ESCODE_REMOTE_ASSET_PLATFORMS ||= `linux-${target.arch}`;
   runTimedPnpmScript("prepare:remote-assets");
 } else {
   console.log("[prepare-runtime-assets] skip prepare:remote-assets (ESCODE_SKIP_REMOTE_ASSETS=1)");

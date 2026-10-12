@@ -35,6 +35,9 @@ jobs:
         include:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, exe: "" }
           - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm, exe: "" }
+          # 远程环境的 Rust runtime：musl 静态链接，不依赖远端 glibc（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, exe: "" }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, exe: "" }
           - { target: x86_64-pc-windows-msvc, os: windows-latest, exe: .exe }
           - { target: aarch64-pc-windows-msvc, os: windows-latest, exe: .exe }
           - { target: x86_64-apple-darwin, os: macos-latest, exe: "" }
@@ -50,6 +53,9 @@ jobs:
         with:
           workspaces: apps/escode-cli-rust
           key: ${{ matrix.target }}
+      - name: musl toolchain
+        if: endsWith(matrix.target, '-linux-musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: build
         run: cargo build --release --locked --target ${{ matrix.target }} -p escode-cli-rust
         working-directory: apps/escode-cli-rust
@@ -76,6 +82,8 @@ jobs:
 
   desktop:
     name: desktop (${{ matrix.os }}-${{ matrix.arch }})
+    # 内置远程资源需要目标架构的 musl Rust runtime（远程默认 runtime 为 Rust）。
+    needs: rust-runtime
     strategy:
       fail-fast: false
       matrix:
@@ -126,6 +134,27 @@ jobs:
       - name: linux packaging tools
         if: matrix.os == 'linux'
         run: sudo apt-get update && sudo apt-get install -y rpm libarchive-tools
+      - name: remote rust runtime target
+        shell: bash
+        run: |
+          case "${{ matrix.arch }}" in
+            x64) echo "REMOTE_RUST_TARGET=x86_64-unknown-linux-musl" >> "$GITHUB_ENV" ;;
+            arm64) echo "REMOTE_RUST_TARGET=aarch64-unknown-linux-musl" >> "$GITHUB_ENV" ;;
+          esac
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-runtime-${{ env.REMOTE_RUST_TARGET }}
+          path: ${{ runner.temp }}/remote-rust-artifact
+      - name: stage remote rust runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/remote-rust/linux-${{ matrix.arch }}"
+          mkdir -p "$dest"
+          tar -xzf "$RUNNER_TEMP"/remote-rust-artifact/*.tar.gz -C "$RUNNER_TEMP/remote-rust-artifact"
+          cp "$RUNNER_TEMP"/remote-rust-artifact/*/escode-cli-rust "$dest/escode-cli-rust"
+          chmod 755 "$dest/escode-cli-rust"
+          echo "ESCODE_REMOTE_RUST_BINARIES_DIR=$RUNNER_TEMP/remote-rust" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       - name: bundle desktop
         run: pnpm bundle:desktop -- --os ${{ matrix.os }} --arch ${{ matrix.arch }}

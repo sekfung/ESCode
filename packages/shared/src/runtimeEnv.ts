@@ -12,6 +12,11 @@ export const ESCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY = "ESCODE_TOOL_ENV_PASSTHROUGH_
 export const ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV = "ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED";
 /** Desktop Main 在 app.isPackaged 时传给 Local Host；Agent 命令解析据此跳过 monorepo 开发入口探测。 */
 export const ESCODE_DESKTOP_PACKAGED_ENV = "ESCODE_DESKTOP_PACKAGED";
+/**
+ * 桌面安装包的 Host 连接远程时注入远端 server：远端 Agent 命令解析视同打包运行时（默认 Rust、缺二进制报错、
+ * 跳过 monorepo 开发入口探测）。开发态 App 不注入（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+ */
+export const ESCODE_REMOTE_PACKAGED_RUNTIME_ENV = "ESCODE_REMOTE_PACKAGED_RUNTIME";
 export const ESCODE_CUA_PRODUCT_HELPER_ENV_KEY = "ESCODE_CUA_PRODUCT_HELPER";
 export const ESCODE_CUA_BROKER_SOCKET_ENV_KEY = "ESCODE_CUA_PERMISSION_BROKER_SOCKET";
 /** Shared node_repl host marker; unlike the broker bearer values it is not a secret. */

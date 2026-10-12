@@ -17,6 +17,7 @@ import {
   buildRemoteAgentBundleWrapper,
   isRemoteAgentBundleWrapperCurrent,
   REMOTE_AGENT_BUNDLE_NAME,
+  REMOTE_AGENT_RUST_BINARY_NAME,
 } from "@escode/server/remote/escodeAgentBundleWrapper.js";
 import {
   deployRemoteAgentWrapper,
@@ -57,6 +58,7 @@ async function shouldSkipESCodeAgentDeploy(params: {
   backend: IRemoteBackend;
   remoteBinaryPath: string;
   remoteBundlePath: string;
+  remoteRustBinaryPath: string;
   runtimeResourceDir: string;
   expectedArtifactSha256: string | null;
   componentId: string;
@@ -118,6 +120,14 @@ async function shouldSkipESCodeAgentDeploy(params: {
     return false;
   }
 
+  // 远程默认 runtime 是 Rust：旧版本部署过的远端没有该二进制，必须重新部署（不回退 Node）。
+  if (!(await params.backend.exists(params.remoteRustBinaryPath))) {
+    params.loggers.logWarn(
+      `[remote-assets] ${params.installer.mode === "remote-download" ? "download required" : "upload required"}: component=${params.componentId} reason=remote rust runtime missing path=${params.remoteRustBinaryPath}`,
+    );
+    return false;
+  }
+
   if (params.missingOfficialPluginAssetPaths.length > 0) {
     params.loggers.logWarn(
       `[remote-assets] ${params.installer.mode === "remote-download" ? "download required" : "upload required"}: component=${params.componentId} reason=official plugin assets missing paths=${params.missingOfficialPluginAssetPaths.join(",")}`,
@@ -175,6 +185,7 @@ export async function deployESCodeAgentRuntime(
   const remoteVersionFile = `${remoteProviderDir}/.version`;
   const remoteBinaryPath = `${remoteProviderDir}/${binaryName}`;
   const remoteBundlePath = `${remoteProviderDir}/${REMOTE_AGENT_BUNDLE_NAME}`;
+  const remoteRustBinaryPath = `${remoteProviderDir}/${REMOTE_AGENT_RUST_BINARY_NAME}`;
   const remoteOfficialPluginDir = buildRemoteAgentOfficialPluginDir(remoteProviderDir);
   const missingOfficialPluginAssetPaths = await findMissingRemoteOfficialPluginAssetPaths(
     backend,
@@ -213,6 +224,7 @@ export async function deployESCodeAgentRuntime(
       backend,
       remoteBinaryPath,
       remoteBundlePath,
+      remoteRustBinaryPath,
       runtimeResourceDir: runtime.bundledResourceDir,
       expectedArtifactSha256,
       componentId,
@@ -266,7 +278,15 @@ export async function deployESCodeAgentRuntime(
     // 2) packages 替换成功后再安装编译产物 zcode.cjs（跨平台同一份，glm 组件里就是它）。
     await installBundle();
   }
-  // 3) 写入 wrapper（即 resolver 期望的 escode-agent），用远端已部署的 node 执行 zcode.cjs。
+  // 3) 安装远程默认 runtime：Rust 二进制（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+  await options.installer.installFile({
+    componentId,
+    sourceRelativePath: `${runtime.bundledResourceDir}/${options.platformArch}/${REMOTE_AGENT_RUST_BINARY_NAME}`,
+    remotePath: remoteRustBinaryPath,
+    executable: true,
+    forceRefresh: forceRefreshRuntimeAsset,
+  });
+  // 4) 写入 wrapper（即 resolver 期望的 escode-agent），用远端已部署的 node 执行 zcode.cjs。
   await deployRemoteAgentWrapper({
     backend,
     content: buildRemoteAgentBundleWrapper(runtime.bundledResourceDir),

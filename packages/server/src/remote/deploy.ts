@@ -28,6 +28,7 @@ import { quotePosixPathArg } from "@escode/server/remote/posixShell.js";
 import { checkServerBundleRequiredMarkers } from "@escode/server/remote/serverBundleDeployCheck.js";
 import { deployRuntimeTools } from "@escode/server/remote/runtimeToolDeploy.js";
 import { REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS } from "@escode/server/remote/escodeAgentOfficialPluginAssets.js";
+import { REMOTE_AGENT_RUST_BINARY_NAME } from "@escode/server/remote/escodeAgentBundleWrapper.js";
 import {
   ensureRemoteReleaseDirFromCdn,
   selectRemoteAssetManifestComponents,
@@ -731,6 +732,7 @@ function resolveRequiredMockReleasePaths(
         break;
       case "glm":
         requiredPaths.add(`glm/${platformArch}/zcode.cjs`);
+        requiredPaths.add(`glm/${platformArch}/${REMOTE_AGENT_RUST_BINARY_NAME}`);
         for (const relativePath of REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS) {
           requiredPaths.add(`glm/${platformArch}/packages/${relativePath}`);
         }

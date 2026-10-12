@@ -7,6 +7,9 @@
 // 开发态与生产态共用同一份 wrapper 语义。
 
 export const REMOTE_AGENT_BUNDLE_NAME = "zcode.cjs";
+// 远端 Rust runtime（docs/specs/rust-packaging.md「远程环境使用 Rust」）：与 zcode.cjs 同在 agents/<provider>/。
+// 远端只支持 POSIX，文件名不带 .exe；与 shared 描述符的 rustBinaryName 保持一致。
+export const REMOTE_AGENT_RUST_BINARY_NAME = "escode-cli-rust";
 
 export function buildRemoteAgentBundleWrapper(runtimeResourceDir: string): string {
   return [
