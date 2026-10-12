@@ -205,9 +205,11 @@ async fn background_registration_requires_commit_and_eof_reaps_processes() {
     }
     let started = task.await.unwrap().unwrap();
     assert_eq!(started.data["status"], "backgrounded");
-    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+    // 后台 shell 落盘 pid 才算真正启动：首次启动要写 Shell 初始化快照，慢 runner 上可能超过 1s；
+    // 原来的 yield_now 自旋还会与被等的进程抢 CPU（2 vCPU runner 上偶发超时）。
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
         while tokio::fs::metadata(root.path().join("pid")).await.is_err() {
-            tokio::task::yield_now().await;
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     })
     .await
