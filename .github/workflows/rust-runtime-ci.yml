@@ -22,6 +22,10 @@ env:
   ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
   # 每个用例都会起 runtime + 本地模型服务；runner 上并发易被接收超时误伤。
   ESCODE_TEST_SERIAL: "1"
+  # fixture 的请求上限默认 5s，慢 runner 上 runtime 启动（Node bundle / Rust debug 二进制）会超：
+  # macos runner 实测 subscribe 超 5s，整套 12 个用例报 ESCodeProtocolRequestTimeoutError。
+  # 与安装包演练（release.yml）取同一放宽值；真挂死仍由 300s 用例超时兜底。
+  ESCODE_TEST_REQUEST_MS: "60000"
 
 jobs:
   checks:
