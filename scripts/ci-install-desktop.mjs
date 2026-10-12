@@ -76,7 +76,7 @@ console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
 // 启动检查：主进程 20s 内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
 // Bugfix：之前只看进程存活，数据库启动失败（如 unsupported_runtime）时应用仍停在错误页不退出，作业照样通过。
 // 主进程把 "[database-startup] terminal { …, status: '<phase>', … }" 打到 stdout，这里据此判定终态。
-const DATABASE_TERMINAL_PATTERN = /[database-startup] terminal {[^}]*?status: '([a-z_]+)'/;
+const DATABASE_TERMINAL_PATTERN = /\[database-startup\] terminal \{[^}]*?status: '([a-z_]+)'/;
 const launchCwd = mkdtempSync(join(temp, "escode-launch-"));
 await new Promise((done, fail) => {
   const [command, args] =
