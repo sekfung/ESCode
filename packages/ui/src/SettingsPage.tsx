@@ -77,6 +77,7 @@ import { PluginsSection } from "@/settings/PluginsSection.js";
 import { HooksSection } from "@/settings/HooksSection.js";
 import { WorkspaceFileSearchSection } from "@/settings/WorkspaceFileSearchSection.js";
 import { MemorySettingsSection } from "@/settings/MemorySettingsSection.js";
+import { KnowledgeSettingsSection } from "@/settings/KnowledgeSettingsSection.js";
 import { BrowserSettingsSection } from "@/settings/BrowserSettingsSection.js";
 import { ComputerUseSection } from "@/settings/ComputerUseSection.js";
 import { ShortcutSettingsSection } from "@/settings/ShortcutSettingsSection.js";
@@ -1886,6 +1887,14 @@ export function SettingsPage({
                               workspaceDisplayNames={memoryWorkspaceDisplayNames}
                             />
                           </ServiceProvider>
+                        ) : activeSection === "knowledge" ? (
+                          // 知识库属于当前 workspace 的 runtime（global + 该项目），远程 workspace 经其 Host 查询。
+                          <KnowledgeSettingsSection
+                            workspacePath={activeWorkspacePath}
+                            workspaceIdentity={activeWorkspaceIdentity}
+                            remoteSessionId={activeWorkspaceTab?.remoteSessionId}
+                            remoteTarget={activeWorkspaceTab?.remoteTarget}
+                          />
                         ) : activeSection === "plugin" ? (
                           <PluginsSection
                             key={`plugin:${settingsSectionNavigationVersion}`}

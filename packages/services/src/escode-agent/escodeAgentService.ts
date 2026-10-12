@@ -4086,7 +4086,16 @@ export function createESCodeAgentService(
     // 参数先经严格 schema 校验再发出，结果按 schema 解析，不信任未声明字段。
     async getWikiStatus(params: ESCodeAgentWorkspaceTarget) {
       const client = await getReadOnlyClient(params);
-      return client.request(V4_WIKI_METHODS.status, {}, v4WikiStatusResultSchema);
+      try {
+        return await client.request(V4_WIKI_METHODS.status, {}, v4WikiStatusResultSchema);
+      } catch (error) {
+        // LLM Wiki 只由 Rust runtime 实现；TS runtime/旧 CLI 回 -32601 是能力缺失而不是故障，
+        // 在服务层统一折算为 supported=false，UI 只看这一个信号决定「不支持」态。
+        if (isProtocolMethodNotFoundError(error)) {
+          return { supported: false, enabled: false };
+        }
+        throw error;
+      }
     },
 
     async getWikiGraph(params: ESCodeAgentWikiGraphParams) {

@@ -166,6 +166,37 @@ UI：入口位于设置导航「知识库」分区（桌面与手机 Web 同一�
 筛选 scope/kind/status，点击节点显示详情（正文、来源定位、冲突、审核历史），对 proposal 提供「批准/拒绝」，对 approved 提供「弃用」（确认对话框）。
 手机宽度下图谱与详情改为上下布局；主题 token 与 `text-ui-*` 遵循 DESIGN.md；中英文案。
 
+UI 状态所有者与顺序：
+
+- 知识事实（条目、状态、来源、冲突）唯一所有者是 runtime 内的 WikiService；Renderer 只持有最近一次请求的快照，
+  以及局部的筛选、选中节点和布局，不做乐观更新。
+- 运行时能力：`v4/wiki/status` 返回 `-32601`（TS runtime / 旧 CLI）时，服务层折算为 `{supported:false}`，页面显示「当前 runtime 不支持」，
+  不再发图谱请求。`enabled:false` 显示「未启用」，并给出 `wiki.enabled` 配置提示。
+- 工作区目标：使用当前激活 workspace 的 `workspacePath + workspaceIdentity (+ remoteSessionId)`，经 `useWorkspaceServicesResolution` 选 Host。
+  `rpcReady=false` 时等待，不发请求。
+- 请求序号：每次加载递增 requestId，只接受最新序号的结果，切换 workspace 或筛选时旧响应作废。
+- 治理操作完成后重新拉取 status、graph 与当前条目，界面以服务端结果为准。
+
+```mermaid
+sequenceDiagram
+  participant UI as Knowledge 设置页（Renderer）
+  participant S as escodeAgentService
+  participant R as Rust runtime（Engine→WikiService）
+  UI->>S: getWikiStatus(target)
+  S->>R: v4/wiki/status
+  R-->>S: status | -32601
+  S-->>UI: status | {supported:false}
+  UI->>S: getWikiGraph(target, filters)
+  S->>R: v4/wiki/graph
+  R-->>UI: nodes/edges（requestId 不匹配则丢弃）
+  UI->>UI: 用户点击节点 → getWikiEntry
+  UI->>UI: 批准/拒绝/弃用 → 确认对话框
+  UI->>S: manageWiki(action, ids, by=desktop)
+  S->>R: v4/wiki/manage（落盘 + 审计）
+  R-->>UI: {ok, summary}
+  UI->>S: 重新拉取 status + graph + entry
+```
+
 ## 12. 配置（`config.json` 的 `wiki` 段，用户层 < 项目层）
 
 ```jsonc

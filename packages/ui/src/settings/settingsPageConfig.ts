@@ -18,6 +18,7 @@ import {
   WandSparkles,
   Keyboard,
   FileSearch,
+  Network,
 } from "lucide-react";
 import { isSettingsSectionEnabled, type SettingsSectionId } from "@/lib/settingsNavigation.js";
 import type { Theme } from "@/useTheme.js";
@@ -77,6 +78,13 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     id: "memory",
     icon: Brain,
     titleId: "settings.memory",
+    groupId: "agentCapabilities",
+  },
+  // 知识库（LLM Wiki 知识图谱）紧跟记忆：两者都是 Agent 的长期上下文来源，但知识库是用户审核过的规范。
+  {
+    id: "knowledge",
+    icon: Network,
+    titleId: "settings.knowledge.title",
     groupId: "agentCapabilities",
   },
   {

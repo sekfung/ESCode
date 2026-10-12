@@ -8,6 +8,7 @@ export type SettingsSectionId =
   | "browser"
   | "modelProvider"
   | "memory"
+  | "knowledge"
   | "plugin"
   | "mcp"
   | "skill"
@@ -65,6 +66,7 @@ function isSettingsSectionId(value: string): value is SettingsSectionId {
     value === "browser" ||
     value === "modelProvider" ||
     value === "memory" ||
+    value === "knowledge" ||
     value === "plugin" ||
     value === "mcp" ||
     value === "skill" ||
