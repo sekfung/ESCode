@@ -2607,6 +2607,53 @@ const enUS: Record<string, string> = {
     "Use enhanced Find and Grep in new sessions and sessions restored after an app restart. Active sessions keep their current setting; Find remains unchanged on Windows.",
   "settings.memory": "Memory",
   "settings.knowledge.title": "Knowledge Base",
+  "settings.knowledge.import.open": "Import documents",
+  "settings.knowledge.import.title": "Import documents",
+  "settings.knowledge.import.doneTitle": "Import finished",
+  "settings.knowledge.import.sources": "Sources",
+  "settings.knowledge.import.pickFiles": "Choose files",
+  "settings.knowledge.import.pickFolder": "Choose folder",
+  "settings.knowledge.import.placeholder": "docs/architecture\n/path/to/api-contract.docx",
+  "settings.knowledge.import.pathHint":
+    "One path per line. Relative paths resolve against the current workspace.",
+  "settings.knowledge.import.remotePathHint":
+    "One path per line, on the machine running this workspace. Relative paths resolve against the workspace.",
+  "settings.knowledge.import.formats":
+    "Markdown, TXT, CSV/TSV, JSON, YAML, XML, RST, DOCX, XLSX, PPTX and text PDF. DOC/XLS need the Office converter. Unsupported files inside folders are ignored.",
+  "settings.knowledge.import.target": "Import into",
+  "settings.knowledge.import.scope.project.title": "Project wiki",
+  "settings.knowledge.import.scope.project.location": "<project>/.escode/wiki",
+  "settings.knowledge.import.scope.project.description":
+    "Committed with the repository and visible only to this project. For this project's standards, architecture, contracts and business rules.",
+  "settings.knowledge.import.scope.global.title": "Global wiki",
+  "settings.knowledge.import.scope.global.location": "~/.escode/wiki",
+  "settings.knowledge.import.scope.global.description":
+    "Visible to every project and not committed. For conventions shared across projects.",
+  "settings.knowledge.import.approve": "Approve imported knowledge as standards",
+  "settings.knowledge.import.approveHint":
+    "Off by default: imports become proposals that you review in the graph.",
+  "settings.knowledge.import.confirmApprove.title": "Approve everything you import?",
+  "settings.knowledge.import.confirmApprove.description":
+    "Knowledge extracted from {count} source(s) will be approved as standards in the {scope} wiki without individual review.",
+  "settings.knowledge.import.submit": "Import",
+  "settings.knowledge.import.running": "Importing…",
+  "settings.knowledge.import.summary": "{scope}: {files} file(s), {created} created, {updated} updated",
+  "settings.knowledge.import.summaryIssues": "; {failed} failed, {skipped} skipped",
+  "settings.knowledge.import.done": "Done",
+  "settings.knowledge.import.created": "{count} created",
+  "settings.knowledge.import.updated": "{count} updated",
+  "settings.knowledge.import.proposals": "{count} update proposals",
+  "settings.knowledge.import.status.imported": "Imported",
+  "settings.knowledge.import.status.updated": "Updated",
+  "settings.knowledge.import.status.unchanged": "Unchanged",
+  "settings.knowledge.import.status.degraded": "Imported with warnings",
+  "settings.knowledge.import.status.skipped": "Skipped",
+  "settings.knowledge.import.status.failed": "Failed",
+  "settings.knowledge.import.status.unknown": "Unknown",
+  "settings.knowledge.action.promote": "Promote to global",
+  "settings.knowledge.confirm.promote.title": "Promote this entry to the global wiki?",
+  "settings.knowledge.confirm.promote.description":
+    "{id} will be copied to the global wiki as a new proposal, visible to every project after you approve it there. The project entry is kept.",
   "settings.knowledge.description":
     "LLM Wiki knowledge graph for the global wiki and the current project. Approved entries are injected into agent turns; proposals only take effect after you approve them.",
   "settings.knowledge.project": "Project",
@@ -2641,7 +2688,7 @@ const enUS: Record<string, string> = {
   "settings.knowledge.legend.source": "Source document",
   "settings.knowledge.truncated":
     "Showing the first {count} nodes. Narrow the filters to see the rest.",
-  "settings.knowledge.empty": "No knowledge yet. Import documents with:",
+  "settings.knowledge.empty": "No knowledge yet. Import documents to get started.",
   "settings.knowledge.graphLabel": "Knowledge graph",
   "settings.knowledge.selectHint":
     "Select a node to view its details, sources, conflicts and review history.",

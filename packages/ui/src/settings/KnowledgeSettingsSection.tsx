@@ -1,7 +1,7 @@
 // 设置 →「知识库」：LLM Wiki 知识图谱（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）。
-// 只展示 runtime 的事实快照；批准/拒绝/弃用需要用户在确认框中显式同意，由 runtime 落盘与审计。
+// 只展示 runtime 的事实快照；导入、批准/拒绝/弃用、提升到全局都需要用户显式操作并经确认，由 runtime 落盘与审计。
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
+import { FileUp, RefreshCw } from "lucide-react";
 import {
   WIKI_KINDS,
   WIKI_SCOPES,
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
 import { cn } from "@/components/lib/utils.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
+import { useOptionalPlatform } from "@/hooks/usePlatform.js";
 import {
   DEFAULT_WIKI_GRAPH_FILTERS,
   useWikiKnowledge,
@@ -22,9 +23,14 @@ import {
   type WikiKnowledgeTarget,
 } from "@/hooks/useWikiKnowledge.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
-import { WIKI_TONE_CLASS, wikiKindTone, type WikiReviewAction } from "@/lib/wikiGraph.js";
+import { WIKI_TONE_CLASS, wikiKindTone, type WikiEntryAction } from "@/lib/wikiGraph.js";
+import { canPickImportPaths } from "@/lib/wikiImport.js";
 import { KnowledgeEntryDetail } from "@/settings/KnowledgeEntryDetail.js";
 import { KnowledgeGraphCanvas } from "@/settings/KnowledgeGraphCanvas.js";
+import {
+  KnowledgeImportDialog,
+  type KnowledgeImportRequest,
+} from "@/settings/KnowledgeImportDialog.js";
 
 type Translate = (id: string, values?: Record<string, string | number>) => string;
 
@@ -197,6 +203,24 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
   const [filters, setFilters] = useState<WikiGraphFilters>(DEFAULT_WIKI_GRAPH_FILTERS);
   const wiki = useWikiKnowledge(target, filters);
   const [selectedNode, setSelectedNode] = useState<V4WikiGraphNode | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const platform = useOptionalPlatform();
+  const canPickPaths = canPickImportPaths({
+    canSelectFilePath: platform?.canSelectFilePath,
+    remoteSessionId: target.remoteSessionId,
+    remoteTarget: target.remoteTarget,
+  });
+  const canImport = wiki.canManage && wiki.phase === "ready";
+  const handleImport = useCallback(
+    (request: KnowledgeImportRequest) =>
+      wiki.manage({
+        action: "ingest",
+        paths: request.paths,
+        scope: request.scope,
+        approveImported: request.approveImported,
+      }),
+    [wiki],
+  );
 
   const nodes = useMemo(() => wiki.graph?.nodes ?? [], [wiki.graph]);
   const edges = useMemo(() => wiki.graph?.edges ?? [], [wiki.graph]);
@@ -215,12 +239,12 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
   );
 
   const handleReview = useCallback(
-    async (action: WikiReviewAction, id: string) => {
+    async (action: WikiEntryAction, id: string) => {
       const confirmed = await confirm({
         title: t(`settings.knowledge.confirm.${action}.title`),
         description: t(`settings.knowledge.confirm.${action}.description`, { id }),
         confirmLabel: t(`settings.knowledge.action.${action}`),
-        confirmVariant: action === "approve" ? "default" : "destructive",
+        confirmVariant: action === "approve" || action === "promote" ? "default" : "destructive",
         testId: "knowledge-review-confirm",
       });
       if (!confirmed) return;
@@ -255,6 +279,12 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
           <RefreshCw className={cn(wiki.phase === "loading" && "animate-spin")} />
           {t("common.refresh")}
         </Button>
+        {canImport ? (
+          <Button size="sm" onClick={() => setImportOpen(true)} data-testid="knowledge-import-open">
+            <FileUp />
+            {t("settings.knowledge.import.open")}
+          </Button>
+        ) : null}
       </div>
       {wiki.status && wiki.phase === "ready" ? <Summary status={wiki.status} t={t} /> : null}
       <KnowledgePhaseNotice
@@ -327,9 +357,17 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
                   <div className="text-ui-base text-foreground">
                     {t("settings.knowledge.empty")}
                   </div>
-                  <div className="font-mono text-ui-sm text-foreground-subtle">
-                    escode-cli-rust wiki ingest docs/
-                  </div>
+                  {canImport ? (
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => setImportOpen(true)}
+                      data-testid="knowledge-import-open-empty"
+                    >
+                      <FileUp />
+                      {t("settings.knowledge.import.open")}
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <KnowledgeGraphCanvas
@@ -361,6 +399,14 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
           </div>
         </>
       ) : null}
+      <KnowledgeImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        status={wiki.status}
+        canPickPaths={canPickPaths}
+        busy={wiki.busy}
+        onImport={handleImport}
+      />
     </div>
   );
 }

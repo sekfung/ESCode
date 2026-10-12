@@ -5,7 +5,7 @@ import type { V4WikiEntryResult, V4WikiGraphNode } from "@escode/shared/escode-p
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
-import { wikiReviewActions, type WikiReviewAction } from "@/lib/wikiGraph.js";
+import { wikiEntryActions, type WikiEntryAction } from "@/lib/wikiGraph.js";
 
 function Badge({
   children,
@@ -66,7 +66,7 @@ export function KnowledgeEntryDetail({
   busy: boolean;
   canManage: boolean;
   onClose: () => void;
-  onReview: (action: WikiReviewAction, id: string) => void;
+  onReview: (action: WikiEntryAction, id: string) => void;
 }) {
   const { intl } = useESCodeIntl();
   const t = (id: string, values?: Record<string, string | number>) =>
@@ -126,14 +126,18 @@ export function KnowledgeEntryDetail({
           {entry.validity_reason ? (
             <p className="text-ui-sm text-warning">{entry.validity_reason}</p>
           ) : null}
-          {canManage && wikiReviewActions(entry.status).length > 0 ? (
+          {canManage && wikiEntryActions(entry.scope, entry.status).length > 0 ? (
             <div className="flex flex-wrap gap-2" data-testid="knowledge-entry-actions">
-              {wikiReviewActions(entry.status).map((action) => (
+              {wikiEntryActions(entry.scope, entry.status).map((action) => (
                 <Button
                   key={action}
                   size="sm"
                   variant={
-                    action === "approve" ? "default" : action === "reject" ? "outline" : "warning"
+                    action === "approve"
+                      ? "default"
+                      : action === "deprecate"
+                        ? "warning"
+                        : "outline"
                   }
                   disabled={busy}
                   data-testid={`knowledge-entry-${action}`}

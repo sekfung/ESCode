@@ -4,6 +4,7 @@ import type {
   V4WikiGraphEdge,
   V4WikiGraphNode,
   WikiKind,
+  WikiScope,
   WikiStatus,
 } from "@escode/shared/escode-protocol-v4";
 
@@ -237,6 +238,20 @@ export function wikiReviewActions(status: WikiStatus): WikiReviewAction[] {
     default:
       return [];
   }
+}
+
+/** 条目操作：审核动作 + 作用域调整（项目 → 全局提升）。 */
+export type WikiEntryAction = WikiReviewAction | "promote";
+
+/**
+ * 详情面板可用的操作。只有项目条目可提升到全局（复制为全局候选，spec §11「作用域调整」）；
+ * 已退役（弃用/取代/拒绝）的条目不再提升。全局条目不提供降级。
+ */
+export function wikiEntryActions(scope: WikiScope, status: WikiStatus): WikiEntryAction[] {
+  const actions: WikiEntryAction[] = wikiReviewActions(status);
+  const retired = status === "deprecated" || status === "superseded" || status === "rejected";
+  if (scope === "project" && !retired) actions.push("promote");
+  return actions;
 }
 
 /** 节点度数，用于详情中的关联数量与图上节点尺寸。 */

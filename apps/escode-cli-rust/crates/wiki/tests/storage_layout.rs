@@ -237,3 +237,54 @@ async fn committed_knowledge_works_in_a_clone_on_another_machine() {
         before
     );
 }
+
+#[tokio::test]
+async fn desktop_import_request_lands_in_the_chosen_scope() {
+    // Desktop「导入文档」对话框发出的 v4/wiki/manage ingest：作用域决定写入哪个存储，
+    // items 带 UI 解析的字段（path/status/created/updated/proposals/error）。
+    let env = Env::new();
+    let repo = env.repo("app", Some("https://h/o/layout5"));
+    write(
+        &repo.join("docs/team.md"),
+        "# Team\n\n## Reviews\n\nEvery change must be reviewed by a second engineer.\n",
+    );
+    write(&repo.join("docs/blob.bin"), "\u{0}\u{1}binary");
+    let wiki = env.service(&repo);
+    let result = wiki
+        .request(
+            "v4/wiki/manage",
+            &serde_json::json!({"action": "ingest", "paths": ["docs", "docs/blob.bin"], "scope": "global", "approveImported": false}),
+        )
+        .await
+        .unwrap();
+    let items = result["items"].as_array().unwrap();
+    let md = items
+        .iter()
+        .find(|i| i["path"].as_str().unwrap().ends_with("team.md"))
+        .unwrap();
+    assert_eq!(md["status"], "imported");
+    assert!(md["created"].as_u64().unwrap() >= 1);
+    for key in ["updated", "proposals"] {
+        assert!(md[key].is_u64(), "{key} must be present for the UI");
+    }
+    assert!(
+        items
+            .iter()
+            .any(|i| i["status"] == "skipped" && i["error"].is_string()),
+        "an explicitly listed unsupported file reports a reason: {items:?}"
+    );
+    // 写入全局，不在仓库里生成项目 Wiki；条目是候选。
+    assert!(!repo.join(".escode/wiki").exists());
+    let global = wiki.settings().await.root.join("entries");
+    let files: Vec<_> = std::fs::read_dir(&global).unwrap().collect();
+    assert!(!files.is_empty());
+    let graph = wiki.graph(&serde_json::json!({})).await.unwrap();
+    assert!(
+        graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|n| n["type"] == "entry")
+            .all(|n| n["scope"] == "global" && n["status"] == "proposal")
+    );
+}

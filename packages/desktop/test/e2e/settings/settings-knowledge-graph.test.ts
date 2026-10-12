@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -65,6 +65,23 @@ async function seedGlobalProposal(): Promise<string> {
     "utf-8",
   );
   return file;
+}
+
+/** KG-02 在 KG-01 之后运行：设置页可能仍打开，此时只切换分区。 */
+async function ensureKnowledgeSettings() {
+  if (
+    await $(sel(TID_SETTINGS_PAGE))
+      .isDisplayed()
+      .catch(() => false)
+  ) {
+    await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "knowledge"), {
+      timeout: 15000,
+      timeoutMsg: "设置页没有出现「知识库」分区入口",
+    });
+    await $(sel("knowledge-settings-section")).waitForDisplayed({ timeout: 15000 });
+    return;
+  }
+  await openKnowledgeSettings();
 }
 
 async function openKnowledgeSettings() {
@@ -148,5 +165,68 @@ describe("设置 · 知识库图谱 E2E", () => {
       timeoutMsg: "批准后详情没有刷新为已批准状态",
     });
     expect(await $(sel("knowledge-entry-approve")).isExisting()).toBe(false);
+  });
+
+  it("KG-02: 从「导入文档」导入到项目 Wiki，并把条目提升到全局", async function () {
+    this.timeout(120000);
+    if ((await appEnv("ESCODE_AGENT_SERVER_RUNTIME")) !== "escode-cli-rust") {
+      // Node runtime 没有导入能力（KG-01 已验证不支持态）。
+      this.skip();
+    }
+    const docDir = join(DEFAULT_WORKSPACE, "docs");
+    await mkdir(docDir, { recursive: true });
+    await writeFile(
+      join(docDir, "kg-import.md"),
+      "# KG import\n\n## Paging contract\n\nList APIs must return a next_cursor field.\n",
+      "utf-8",
+    );
+    await ensureKnowledgeSettings();
+    await clickTestIdByDom("knowledge-import-open", {
+      timeout: 15000,
+      timeoutMsg: "缺少「导入文档」入口",
+    });
+    await $(sel("knowledge-import-dialog")).waitForDisplayed({ timeout: 15000 });
+    await $(sel("knowledge-import-paths")).setValue("docs/kg-import.md");
+    // 默认目标为项目 Wiki。
+    expect(await $(sel("knowledge-import-scope-project")).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    await clickTestIdByDom("knowledge-import-submit", {
+      timeout: 15000,
+      timeoutMsg: "缺少导入按钮",
+    });
+    await $('[data-testid="knowledge-import-result"] li[data-status="imported"]').waitForDisplayed({
+      timeout: 30000,
+      timeoutMsg: "导入结果中没有 imported 行",
+    });
+    await clickTestIdByDom("knowledge-import-done", { timeout: 15000, timeoutMsg: "缺少完成按钮" });
+
+    // 项目 Wiki 落在工作区内，只有知识本体入库。
+    const projectWiki = join(DEFAULT_WORKSPACE, ".escode", "wiki");
+    const entries = (await readdir(join(projectWiki, "entries"))).filter((f) => f.endsWith(".md"));
+    expect(entries.length).toBeGreaterThan(0);
+    expect(await readFile(join(projectWiki, ".gitignore"), "utf-8")).toContain("sources/");
+
+    // 选中新条目 → 提升到全局 → 确认 → 全局存储出现 <id>.global.md。
+    const node = await $(
+      '[data-testid="knowledge-graph-node"][data-node-type="entry"]*=Paging contract',
+    );
+    await node.waitForDisplayed({ timeout: 30000, timeoutMsg: "图谱中没有出现导入的条目" });
+    await node.click();
+    await clickTestIdByDom("knowledge-entry-promote", {
+      timeout: 15000,
+      timeoutMsg: "缺少「提升到全局」",
+    });
+    await $(sel("knowledge-review-confirm")).waitForDisplayed({ timeout: 15000 });
+    await clickTestIdByDom(TID_CONFIRM_DIALOG_CONFIRM, {
+      timeout: 15000,
+      timeoutMsg: "确认框缺少确认按钮",
+    });
+    const globalEntries = await wikiGlobalEntriesDir();
+    await browser.waitUntil(
+      async () =>
+        (await readdir(globalEntries).catch(() => [])).some((f) => f.endsWith(".global.md")),
+      { timeout: 20000, timeoutMsg: "提升后全局存储没有出现 .global 副本" },
+    );
   });
 });

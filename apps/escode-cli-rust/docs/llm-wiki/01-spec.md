@@ -201,7 +201,7 @@ UI：入口位于设置导航「知识库」分区（桌面与手机 Web 同一�
 
 导入入口（知识库页「导入文档」对话框，`v4/wiki/manage` action=ingest）：
 
-> 状态：方案待用户确认，UI 尚未实现。当前导入通过 CLI `wiki ingest --scope project|global` 或 WikiManage 完成。
+> 入口：知识库页头「导入文档」按钮；图谱为空时空状态里也提供该按钮。只针对 Desktop 设计，不做手机端适配。
 
 - **来源**：
   - 本地 workspace 且平台能给出本机路径（Desktop，`platform.canSelectFilePath`）时，用系统对话框多选文件或选择文件夹。
