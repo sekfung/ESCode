@@ -13,6 +13,9 @@ import {
 } from "@escode/provider-node";
 import {
   TID_COMPOSER_WORKSPACE_TRIGGER,
+  TID_LOGIN_MENU_ITEM,
+  TID_LOGIN_TRIGGER,
+  TID_LOGIN_USE_API_KEY_BUTTON,
   TID_V4_SESSION_PANE,
   TID_WORKSPACE_ITEM,
   TID_WORKSPACE_PATH,
@@ -273,6 +276,105 @@ export async function clickTestIdByDom(
     throw new Error(`${timeoutMsg}: ${latestReason}`, {
       cause: error,
     });
+  }
+}
+
+/**
+ * 点击“可见”的 test id 元素。
+ * Radix 菜单触发器依赖 pointerdown 激活，单发 `element.click()` 不会展开菜单，
+ * 因此这里派发完整指针事件序列（对齐 e2ecase-regression）；同时跳过
+ * display:none / visibility:hidden / opacity:0 / aria-hidden 祖先下的同名节点，
+ * 避免命中被 Radix `forceMount` 保留在 DOM 里的隐藏菜单内容。
+ */
+export async function clickVisibleTestIdByDom(
+  targetTestId: string,
+  {
+    timeout = 10000,
+    timeoutMsg = `页面没有可见可点击的 test id: ${targetTestId}`,
+  }: DomTestIdOptions = {},
+): Promise<void> {
+  let latestReason = "not-started";
+  await browser.waitUntil(
+    async () => {
+      const result = (await browser.execute((testIdValue: string) => {
+        function isVisible(element: HTMLElement) {
+          const style = window.getComputedStyle(element);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            Number(style.opacity) === 0
+          ) {
+            return false;
+          }
+          if (element.getClientRects().length === 0) {
+            return false;
+          }
+          return !element.closest('[aria-hidden="true"], [hidden]');
+        }
+
+        const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
+          (item) => item.dataset.testid === testIdValue && isVisible(item),
+        );
+        if (!element) {
+          return { clicked: false, reason: "missing-visible" };
+        }
+
+        element.focus();
+        const usePointerEvent = typeof window.PointerEvent === "function";
+        for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+          const event = usePointerEvent
+            ? new PointerEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                pointerId: 1,
+                pointerType: "mouse",
+                isPrimary: true,
+              })
+            : new MouseEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+              });
+          element.dispatchEvent(event);
+        }
+        return { clicked: true };
+      }, targetTestId)) as { clicked: boolean; reason?: string };
+      latestReason = result.reason ?? "clicked";
+      return result.clicked;
+    },
+    {
+      timeout,
+      timeoutMsg: `${timeoutMsg}: ${latestReason}`,
+    },
+  );
+}
+
+export async function hasApiKeyLoginButton(): Promise<boolean> {
+  return (await browser
+    .execute(
+      (currentTestId) => Boolean(document.querySelector(`[data-testid="${currentTestId}"]`)),
+      TID_LOGIN_USE_API_KEY_BUTTON,
+    )
+    .catch(() => false)) as boolean;
+}
+
+/**
+ * 打开（或确认已经打开）API Key 登录面板。
+ * 免登录发行版冷启动不再自动弹 WelcomeScreen，手动入口收敛到侧栏头像菜单：
+ * `TID_LOGIN_TRIGGER` 打开菜单，`TID_LOGIN_MENU_ITEM` 才真正打开欢迎页。
+ * 菜单项点击后欢迎页异步挂载，因此这里只负责触发，等待交给调用方。
+ */
+export async function openApiKeyLoginPanel(): Promise<boolean> {
+  if (await hasApiKeyLoginButton()) {
+    return true;
+  }
+
+  try {
+    await clickVisibleTestIdByDom(TID_LOGIN_TRIGGER, { timeout: 15000 });
+    await clickVisibleTestIdByDom(TID_LOGIN_MENU_ITEM, { timeout: 15000 });
+    return true;
+  } catch {
+    return false;
   }
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isProviderStartupSyncPending,
+  resolveAutomaticLoginEntryReason,
   shouldEnableProviderAvailabilityLoginEntryGuard,
   shouldResolveProviderStartupState,
   shouldBlockRootRender,
@@ -128,5 +129,21 @@ describe("Root startup gate", () => {
         activeWorkspacePath: "/Users/dev/workspace/cgx-dev-web",
       }),
     ).toBe(false);
+  });
+
+  it("免登录发行版不把账号或 provider 不可用升级为自动登录入口", () => {
+    expect(resolveAutomaticLoginEntryReason("startup-provider-required", false)).toBeNull();
+    expect(resolveAutomaticLoginEntryReason("session-expired", false)).toBeNull();
+    expect(resolveAutomaticLoginEntryReason("logout-provider-required", false)).toBeNull();
+  });
+
+  it("官方账号登录策略启用时保留自动登录入口", () => {
+    expect(resolveAutomaticLoginEntryReason("startup-provider-required", true)).toBe(
+      "startup-provider-required",
+    );
+    expect(resolveAutomaticLoginEntryReason("session-expired", true)).toBe("session-expired");
+    expect(resolveAutomaticLoginEntryReason("logout-provider-required", true)).toBe(
+      "logout-provider-required",
+    );
   });
 });

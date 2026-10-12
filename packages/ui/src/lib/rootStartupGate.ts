@@ -30,6 +30,24 @@ interface ProviderStartupResolutionState {
   providerAvailabilityStartupCheckCompleted: boolean;
 }
 
+/** 由账号/供应商状态自动推导出的登录入口理由；用户显式发起的入口不在其中。 */
+export type AutomaticLoginEntryReason =
+  | "startup-provider-required"
+  | "session-expired"
+  | "logout-provider-required";
+
+/**
+ * 自动登录入口只在官方账号登录策略启用时成立。
+ * 免登录发行版保留这些理由的全部判定链路，但不把用户带离主界面；
+ * 显式入口（`manual-login` / `provider-request`）不经过这里，始终可用。
+ */
+export function resolveAutomaticLoginEntryReason(
+  reason: AutomaticLoginEntryReason,
+  officialAccountLoginRequired: boolean,
+): AutomaticLoginEntryReason | null {
+  return officialAccountLoginRequired ? reason : null;
+}
+
 export function shouldBlockRootRender(state: RootStartupGateState): boolean {
   return (
     state.isResolvingStartupAuthState ||

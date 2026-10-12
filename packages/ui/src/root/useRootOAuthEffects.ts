@@ -26,8 +26,12 @@ import { applyCachedOAuthSessionRestoreResult } from "@/root/oauthCachedSessionR
 import { markEscodeJwtInvalidRestart } from "@/root/escodeJwtInvalidRestartMarker.js";
 import { shouldApplyOAuthPollingFailure } from "@/root/oauthLoginAttemptGuard.js";
 import { useAccountConnectionLossNotification } from "@/root/useAccountConnectionLossNotification.js";
+import { isOfficialAccountLoginRequired } from "@/lib/officialAccountLogin.js";
 
 export { refreshRestoredOAuthProviderFamilyAfterStartup } from "@/root/oauthProviderFamilySelectionRefresh.js";
+
+/** 免登录发行版下替代“会话失效”提示：不弹窗，恢复流程照常收尾。 */
+const IGNORE_REAUTHENTICATION_ALERT = async () => false;
 
 export async function handleOAuthCallbackSuccess(params: {
   result: OAuthSessionCallbackResult;
@@ -104,6 +108,7 @@ export function useRootOAuthEffects({
   setOAuthPollingActive,
   markOAuthSuccess,
   onReauthenticationRequired,
+  officialAccountLoginRequired = isOfficialAccountLoginRequired(),
 }: {
   accountIntentKey: string;
   platform: IPlatformService;
@@ -117,6 +122,7 @@ export function useRootOAuthEffects({
   setOAuthPollingActive: (active: boolean) => void;
   markOAuthSuccess: (provider?: OAuthProviderId) => void;
   onReauthenticationRequired: () => void;
+  officialAccountLoginRequired?: boolean;
 }) {
   useAccountConnectionLossNotification(services, accountIntentKey, refreshAppSettings);
   const requestAlert = useAlertDialog();
@@ -143,7 +149,9 @@ export function useRootOAuthEffects({
         hasRestoredUser = await applyCachedOAuthSessionRestoreResult({
           result,
           setUser,
-          requestAlert,
+          // 免登录发行版不把缓存会话失效升级成“请重新登录”提示；
+          // 凭据清理与 setUser(null) 仍走同一条恢复路径，只去掉提示与强制登录入口。
+          requestAlert: officialAccountLoginRequired ? requestAlert : IGNORE_REAUTHENTICATION_ALERT,
           onReauthenticationRequired,
           copy: {
             title: intl.formatMessage({ id: "login.expired.title" }),
@@ -191,6 +199,7 @@ export function useRootOAuthEffects({
     };
   }, [
     intl,
+    officialAccountLoginRequired,
     onReauthenticationRequired,
     refreshAppSettings,
     refreshProviderState,
@@ -207,6 +216,11 @@ export function useRootOAuthEffects({
         return;
       }
       void (async () => {
+        if (!officialAccountLoginRequired) {
+          // 免登录发行版不把官方 JWT 失效升级为提示 + 重启重新登录，只记录事实。
+          logger.warn("[Root] 官方 JWT 失效，免登录发行版不触发重新登录引导");
+          return;
+        }
         const confirmed = await requestAlert({
           title: intl.formatMessage({ id: "login.expired.title" }),
           description: intl.formatMessage({ id: "login.expired.description" }),
@@ -232,7 +246,14 @@ export function useRootOAuthEffects({
       disposed = true;
       disposable.dispose();
     };
-  }, [intl, onReauthenticationRequired, platform, requestAlert, services.broadcastService]);
+  }, [
+    intl,
+    officialAccountLoginRequired,
+    onReauthenticationRequired,
+    platform,
+    requestAlert,
+    services.broadcastService,
+  ]);
 
   useEffect(() => {
     if (!oauthPollingActive) {

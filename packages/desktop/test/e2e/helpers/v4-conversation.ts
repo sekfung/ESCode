@@ -66,6 +66,7 @@ import {
 import {
   clickTestIdByDom,
   dispatchMouseDownByExactTestId,
+  openApiKeyLoginPanel,
   setInputValueByTestIdDom,
   waitForDefaultWorkspaceReady,
 } from "./desktop-app.js";
@@ -155,23 +156,13 @@ async function ensureV4ShellReady() {
     await waitForDefaultWorkspaceReady(30000);
     return;
   } catch (error) {
-    if (!(await hasApiKeyLoginButton())) {
+    if (!(await openApiKeyLoginPanel())) {
       throw error;
     }
     await loginWithApiKey();
     await skipOccupationOnboardingIfPresent();
     await waitForDefaultWorkspaceReady(30000);
   }
-}
-
-async function hasApiKeyLoginButton() {
-  const exists = await browser
-    .execute(
-      (currentTestId) => Boolean(document.querySelector(`[data-testid="${currentTestId}"]`)),
-      TID_LOGIN_USE_API_KEY_BUTTON,
-    )
-    .catch(() => false);
-  return Boolean(exists);
 }
 
 export async function loginWithApiKey() {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { UserInfo } from "@escode/shared";
 import type { ModelSelectionView } from "@escode/services";
 import { resolveProviderAvailabilityState } from "@/lib/modelProviderAvailability.js";
+import { isOfficialAccountLoginRequired } from "@/lib/officialAccountLogin.js";
 import { logger } from "@/logger.js";
 
 export interface ProviderAvailabilityLoginEntryGuardResult {
@@ -12,6 +13,7 @@ export interface ProviderAvailabilityLoginEntryGuardResult {
 
 export function useProviderAvailabilityLoginEntryGuard({
   enabled = true,
+  officialAccountLoginRequired = isOfficialAccountLoginRequired(),
   user,
   isRestoringOAuthSession,
   providerFamilyDomain,
@@ -22,6 +24,7 @@ export function useProviderAvailabilityLoginEntryGuard({
   setLoginEntryOpen,
 }: {
   enabled?: boolean;
+  officialAccountLoginRequired?: boolean;
   user: UserInfo | null;
   isRestoringOAuthSession: boolean;
   providerFamilyDomain: string | null | undefined;
@@ -54,9 +57,11 @@ export function useProviderAvailabilityLoginEntryGuard({
         : modelSelectionView;
       const availability = resolveProviderAvailabilityState({ modelSelectionView: refreshedView });
       const { hasUsableProvider, providerCount } = availability;
-      const shouldOpenLoginEntry = !providerFamilyDomain || (!user && !hasUsableProvider);
+      // 免登录发行版不因为账号或模型缺失打开登录入口，只保留可用性事实供日志与首页横幅使用。
+      const shouldOpenLoginEntry =
+        officialAccountLoginRequired && (!providerFamilyDomain || (!user && !hasUsableProvider));
 
-      // 未登录且没有可用模型配置时必须引导用户连接账号或填写 API Key。
+      // 官方账号登录策略启用时，未登录且没有可用模型配置必须引导用户连接账号或填写 API Key。
       // 启动检查、API Key 设置回流等入口统一走这里，避免各处复制判断后语义分叉。
       logger.info("[Root] provider 可用性登录入口守卫完成检查", {
         reason: options.reason,
@@ -65,6 +70,7 @@ export function useProviderAvailabilityLoginEntryGuard({
         hasUsableProvider,
         hasUser: Boolean(user),
         hasProviderFamilyDomain: Boolean(providerFamilyDomain),
+        officialAccountLoginRequired,
         shouldOpenLoginEntry,
       });
       setLoginEntryOpen(shouldOpenLoginEntry);
@@ -77,6 +83,7 @@ export function useProviderAvailabilityLoginEntryGuard({
     [
       enabled,
       modelSelectionView,
+      officialAccountLoginRequired,
       providerFamilyDomain,
       refreshProviderState,
       readModelSelectionView,

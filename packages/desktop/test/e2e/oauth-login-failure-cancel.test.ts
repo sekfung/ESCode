@@ -5,7 +5,12 @@ import {
   TID_OAUTH_ERROR,
   TID_OAUTH_LOGIN_BUTTON,
 } from "@escode/shared";
-import { clearAppData, clickTestIdByDom, waitForTestIdByDom } from "./helpers/desktop-app.js";
+import {
+  clearAppData,
+  clickTestIdByDom,
+  clickVisibleTestIdByDom,
+  waitForTestIdByDom,
+} from "./helpers/desktop-app.js";
 
 const CASE_TIMEOUT_MS = 240_000;
 // PlatformChannels.OAuthCallback 的 channel 值(main 进程 execute 里无法 import @escode/shared,
@@ -76,70 +81,6 @@ async function ensureLoginPanelOpen(): Promise<void> {
     timeout: 20_000,
     timeoutMsg: "头像菜单里没有登录菜单项",
   });
-}
-
-async function clickVisibleTestIdByDom(
-  targetTestId: string,
-  {
-    timeout = 10_000,
-    timeoutMsg = `页面没有可见可点击的 test id: ${targetTestId}`,
-  }: { timeout?: number; timeoutMsg?: string } = {},
-): Promise<void> {
-  let latestReason = "not-started";
-  await browser.waitUntil(
-    async () => {
-      const result = (await browser.execute((testIdValue: string) => {
-        function isVisible(element: HTMLElement) {
-          const style = window.getComputedStyle(element);
-          if (
-            style.display === "none" ||
-            style.visibility === "hidden" ||
-            Number(style.opacity) === 0
-          ) {
-            return false;
-          }
-          if (element.getClientRects().length === 0) {
-            return false;
-          }
-          return !element.closest('[aria-hidden="true"], [hidden]');
-        }
-
-        const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
-          (item) => item.dataset.testid === testIdValue && isVisible(item),
-        );
-        if (!element) {
-          return { clicked: false, reason: "missing-visible" };
-        }
-
-        // Radix 菜单触发器依赖 pointerdown 激活,单发 element.click() 会让菜单不展开。
-        element.focus();
-        const usePointerEvent = typeof window.PointerEvent === "function";
-        for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
-          const event = usePointerEvent
-            ? new PointerEvent(type, {
-                bubbles: true,
-                cancelable: true,
-                pointerId: 1,
-                pointerType: "mouse",
-                isPrimary: true,
-              })
-            : new MouseEvent(type, {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-              });
-          element.dispatchEvent(event);
-        }
-        return { clicked: true };
-      }, targetTestId)) as { clicked: boolean; reason?: string };
-      latestReason = result.reason ?? "clicked";
-      return result.clicked;
-    },
-    {
-      timeout,
-      timeoutMsg: `${timeoutMsg}: ${latestReason}`,
-    },
-  );
 }
 
 async function deliverTamperedOAuthCallback(): Promise<void> {

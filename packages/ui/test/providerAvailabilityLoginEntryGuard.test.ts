@@ -58,4 +58,46 @@ describe("useProviderAvailabilityLoginEntryGuard", () => {
     await waitFor(() => expect(setLoginEntryOpen).toHaveBeenCalledWith(false));
     expect(refreshProviderState).not.toHaveBeenCalled();
   });
+
+  it("免登录发行版下没有账号和可用 Provider 也不打开登录入口", async () => {
+    const setLoginEntryOpen = vi.fn();
+    const emptyView = { revision: 1, providers: [] };
+    const { result } = renderHook(() =>
+      useProviderAvailabilityLoginEntryGuard({
+        enabled: true,
+        officialAccountLoginRequired: false,
+        user: null,
+        isRestoringOAuthSession: false,
+        providerFamilyDomain: undefined,
+        modelSelectionView: emptyView,
+        refreshProviderState: vi.fn(async () => {}),
+        readModelSelectionView: async () => emptyView,
+        setLoginEntryOpen,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.startupCheckCompleted).toBe(true));
+    expect(setLoginEntryOpen).toHaveBeenCalledWith(false);
+  });
+
+  it("官方账号登录策略启用时没有账号和可用 Provider 会打开登录入口", async () => {
+    const setLoginEntryOpen = vi.fn();
+    const emptyView = { revision: 1, providers: [] };
+    const { result } = renderHook(() =>
+      useProviderAvailabilityLoginEntryGuard({
+        enabled: true,
+        officialAccountLoginRequired: true,
+        user: null,
+        isRestoringOAuthSession: false,
+        providerFamilyDomain: undefined,
+        modelSelectionView: emptyView,
+        refreshProviderState: vi.fn(async () => {}),
+        readModelSelectionView: async () => emptyView,
+        setLoginEntryOpen,
+      }),
+    );
+
+    await waitFor(() => expect(setLoginEntryOpen).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(result.current.startupCheckCompleted).toBe(true));
+  });
 });

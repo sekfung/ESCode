@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import {
   BIGMODEL_PROVIDER_ID,
+  TID_LOGIN_MENU_ITEM,
   TID_LOGIN_TRIGGER,
   TID_OAUTH_ERROR,
   TID_OAUTH_LOGIN_BUTTON,
@@ -9,7 +10,7 @@ import {
 } from "@escode/shared";
 import {
   clearAppData,
-  clickTestIdByDom,
+  clickVisibleTestIdByDom,
   getE2EAppDataPaths,
   waitForTestIdByDom,
 } from "./helpers/desktop-app.js";
@@ -116,12 +117,16 @@ async function ensureOAuthLoginPanelOpen() {
     return;
   }
 
-  // Bugfix: OAuth 凭据恢复 spec 只要求用户重新登录入口可用；当启动期已有可用
-  // workspace shell 时，登录面板需要从 sidebar 手动打开，不能把“未自动弹 WelcomeScreen”
-  // 误判为恢复失败。
-  await clickTestIdByDom(TID_LOGIN_TRIGGER, {
+  // 免登录发行版冷启动不再自动弹 WelcomeScreen，登录面板要从 sidebar 头像菜单手动打开：
+  // TID_LOGIN_TRIGGER 打开菜单，TID_LOGIN_MENU_ITEM 才真正打开 WelcomeScreen。
+  // 不能把“未自动弹登录页”误判为凭据恢复失败。
+  await clickVisibleTestIdByDom(TID_LOGIN_TRIGGER, {
     timeout: 20000,
-    timeoutMsg: "损坏 OAuth 凭据恢复后没有可点击的手动登录入口",
+    timeoutMsg: "损坏 OAuth 凭据恢复后没有可点击的头像菜单入口",
+  });
+  await clickVisibleTestIdByDom(TID_LOGIN_MENU_ITEM, {
+    timeout: 20000,
+    timeoutMsg: "头像菜单里没有登录菜单项",
   });
 }
 

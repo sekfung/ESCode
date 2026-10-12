@@ -20,13 +20,18 @@ const OAUTH_CREDENTIAL_KEYS = [
   "escodejwttoken",
 ] as const;
 
-describe("ESCode JWT 401 自动退出", () => {
+// “不应该发生”的断言需要留出广播送达并可能触发 UI 的窗口，取足够大的收敛时间。
+const FORBIDDEN_REACTION_SETTLE_MS = 8000;
+
+// 免登录发行版回归锚点：运行中官方 JWT 失效仍然清理失效凭据，
+// 但不再提示“登录已过期”、也不再重启应用进入登录流程。产品规则见 docs/ui/login-page.md。
+describe("ESCode JWT 401 不触发强制重新登录", () => {
   after(async () => {
     await browser.electron.restoreAllMocks();
     await clearAppData();
   });
 
-  it("运行中收到普通 401 后清理凭据并确认重启", async function () {
+  it("运行中收到普通 401 后清理凭据，但不提示登录过期也不重启", async function () {
     this.timeout(120_000);
 
     await waitForDefaultWorkspaceReady(60_000);
@@ -52,46 +57,25 @@ describe("ESCode JWT 401 自动退出", () => {
       timeoutMsg: "设置页没有出现模型供应商分区入口",
     });
 
-    await waitForExpiredLoginAlert();
+    // Host 侧失效观察与凭据清理不属于“强制登录入口”，必须继续执行。
     await waitForOAuthCredentialsCleanup();
-
-    await clickExpiredLoginAlertAction();
-    await browser.waitUntil(async () => relaunchMock.mock.calls.length > 0, {
-      timeout: 10000,
-      timeoutMsg: "确认登录失效提示后没有调用 RelaunchApp",
-    });
-    expect(quitMock.mock.calls.length).toBeGreaterThan(0);
     expect(networkMock.mock.calls.length).toBeGreaterThan(0);
+
+    // 自动登录入口关闭：既不弹“登录已过期”，也不发出重启/退出命令。
+    await browser.pause(FORBIDDEN_REACTION_SETTLE_MS);
+    expect(await hasExpiredLoginAlert()).toBe(false);
+    expect(relaunchMock.mock.calls.length).toBe(0);
+    expect(quitMock.mock.calls.length).toBe(0);
   });
 });
 
-async function waitForExpiredLoginAlert(): Promise<void> {
-  await browser.waitUntil(
-    async () =>
-      (await browser.execute(() => {
-        const content = document.querySelector<HTMLElement>('[data-slot="alert-dialog-content"]');
-        return /登录已过期|Your session has expired/u.test(
-          content?.querySelector<HTMLElement>('[data-slot="alert-dialog-title"]')?.textContent ??
-            "",
-        );
-      })) as boolean,
-    {
-      timeout: 30000,
-      timeoutMsg: "运行中收到 401 后没有出现登录失效提示",
-    },
-  );
-}
-
-async function clickExpiredLoginAlertAction(): Promise<void> {
-  await browser.execute(() => {
-    const button = document.querySelector<HTMLButtonElement>(
-      '[data-slot="alert-dialog-content"] button',
+async function hasExpiredLoginAlert(): Promise<boolean> {
+  return (await browser.execute(() => {
+    const content = document.querySelector<HTMLElement>('[data-slot="alert-dialog-content"]');
+    return /登录已过期|Your session has expired/u.test(
+      content?.querySelector<HTMLElement>('[data-slot="alert-dialog-title"]')?.textContent ?? "",
     );
-    if (!button) {
-      throw new Error("登录失效提示缺少确认按钮");
-    }
-    button.click();
-  });
+  })) as boolean;
 }
 
 async function waitForOAuthCredentialsCleanup(): Promise<void> {
@@ -108,7 +92,7 @@ async function waitForOAuthCredentialsCleanup(): Promise<void> {
     },
     {
       timeout: 10000,
-      timeoutMsg: "401 后确认提示出现前 OAuth/JWT 凭据没有清理",
+      timeoutMsg: "401 后 OAuth/JWT 凭据没有清理",
     },
   );
 }

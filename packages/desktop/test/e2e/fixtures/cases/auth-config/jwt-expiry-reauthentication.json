@@ -9,7 +9,7 @@
     {
       "kind": "app-config-seed",
       "path": "~/.escode/v2/credentials.json",
-      "purpose": "冷启动前写入完整 OAuth 缓存与已过期 escodejwttoken，验证清理和重新认证交互。"
+      "purpose": "冷启动前写入完整 OAuth 缓存与已过期 escodejwttoken，验证失效登录态被清理且冷启动直接进入主界面（免登录发行版不弹登录过期提示、不进登录页）。"
     }
   ],
   "requests": []

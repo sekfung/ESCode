@@ -17,6 +17,7 @@ import {
 import {
   clearAppData,
   clickTestIdByDom,
+  openApiKeyLoginPanel,
   readModelProvider,
   setInputValueByTestIdDom,
   waitForDefaultWorkspaceReady,
@@ -54,6 +55,9 @@ describe("Provider/model readiness 只门禁模型执行", () => {
   it("I23/I24: 空配置只启动唯一只读 Agent，保存 API Key provider 后复用并水合草稿模型", async function () {
     this.timeout(120000);
 
+    // 免登录发行版冷启动不再自动弹欢迎页，API Key 入口要从侧栏头像菜单打开。
+    const loginPanelOpened = await openApiKeyLoginPanel();
+    expect(loginPanelOpened).toBe(true);
     await waitForTestIdByDom(TID_LOGIN_USE_API_KEY_BUTTON, {
       timeout: 30000,
       timeoutMsg: "空 auth/provider 冷启动后没有展示 API Key 配置入口",

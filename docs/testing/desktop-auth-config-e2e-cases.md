@@ -51,7 +51,7 @@ Electron 用例不声称覆盖这些微观竞态。AUTH-06 保持 pending，Pro 
 1. WDIO `beforeSession` 清理隔离 HOME。
 2. `wdio.conf.ts` 识别 `oauth-credential-recovery.test.ts` 后，在 `~/.escode/v2/credentials.json` 写入损坏 OAuth seed。
 3. 启动桌面端本地默认窗口。
-4. 等待登录入口渲染。
+4. 打开登录入口：启动已经进入主界面时，从侧栏头像菜单点击 `TID_LOGIN_TRIGGER` 再点 `TID_LOGIN_MENU_ITEM`；免登录发行版不再由启动门禁自动弹出欢迎页。
 5. 检查 Z.ai 与 BigModel 登录渠道均可见。
 6. 检查没有展示 OAuth 错误提示。
 7. 读取隔离 HOME 下 `credentials.json`，确认损坏 OAuth 登录态已清理。
@@ -99,22 +99,22 @@ Docker 准入暂不执行：该 case 不依赖 provider replay，也不属于 co
 
 ### 测试场景
 
-desktop local 使用隔离 HOME 冷启动；CLI session DB 预置一条 interactive 历史，但用户没有 OAuth 登录态、API Key 或其它结构可用 provider。登录入口完成渲染后，用户暂时跳过并进入默认 workspace；sessions-index 必须按需启动唯一只读会话 Agent，把这条真实历史展示在侧栏，点击后能读取已持久化正文，同时首页继续展示 `modelConfigMissing` banner。用户新建草稿并尝试首发时不得创建 session/model command。随后重新打开登录/provider 配置入口，保存一个已启用、具有 runtime Base URL、未禁用模型和所需 credential 的 provider；同一 workspace 必须复用该 Agent、保持数量为 1，完成草稿模型水合，并清除该 banner。
+desktop local 使用隔离 HOME 冷启动；CLI session DB 预置一条 interactive 历史，但用户没有 OAuth 登录态、API Key 或其它结构可用 provider。免登录发行版冷启动直接进入默认 workspace，登录入口需要从侧栏头像菜单打开（`TID_LOGIN_TRIGGER` → `TID_LOGIN_MENU_ITEM`）；用户暂时跳过并进入默认 workspace；sessions-index 必须按需启动唯一只读会话 Agent，把这条真实历史展示在侧栏，点击后能读取已持久化正文，同时首页继续展示 `modelConfigMissing` banner。用户新建草稿并尝试首发时不得创建 session/model command。随后重新打开登录/provider 配置入口，保存一个已启用、具有 runtime Base URL、未禁用模型和所需 credential 的 provider；同一 workspace 必须复用该 Agent、保持数量为 1，完成草稿模型水合，并清除该 banner。
 
 本 case 只验证本地结构 readiness、进程启动边界和草稿水合，不发送 prompt、不联网验证 provider 连通性，也不覆盖插件/MCP management Agent。remote workspace 使用 service/integration case 验证 desktop registry 下发前后边界。
 
 ### 验证条目
 
-| 编号      | 验证项                                          | 有效性说明                                                                                                                                                          |
-| --------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AUTH-02-A | 未配置时登录/provider 入口可用                  | `waitForTestIdByDom(TID_LOGIN_USE_API_KEY_BUTTON)`                                                                                                                  |
-| AUTH-02-B | 跳过后草稿首页展示缺模型 banner                 | `TID_CHAT_ERROR_BANNER` 回显“当前没有可用模型”                                                                                                                      |
-| AUTH-02-C | 未配置时点击发送被 UI admission 拒绝            | composer 原文保留；没有 `createSession` pending 记录或 unknown/discarded 恢复横幅                                                                                   |
-| AUTH-02-D | 未配置时历史可见且可读                          | 预置 interactive CLI session 的侧栏 row、用户正文与助手正文均可见，证明真实 sessions-index/conversation topic 已工作                                                |
-| AUTH-02-E | 未配置时没有 deferred draft/retry               | service/UI focused tests 断言 `provider_not_ready` 保持 idle 且投影 banner                                                                                          |
+| 编号      | 验证项                                          | 有效性说明                                                                                                                                                         |
+| --------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AUTH-02-A | 未配置时登录/provider 入口可用                  | `clickVisibleTestIdByDom(TID_LOGIN_TRIGGER)` + `TID_LOGIN_MENU_ITEM` 后 `waitForTestIdByDom(TID_LOGIN_USE_API_KEY_BUTTON)`；免登录发行版不再由启动门禁自动弹出     |
+| AUTH-02-B | 跳过后草稿首页展示缺模型 banner                 | `TID_CHAT_ERROR_BANNER` 回显“当前没有可用模型”                                                                                                                     |
+| AUTH-02-C | 未配置时点击发送被 UI admission 拒绝            | composer 原文保留；没有 `createSession` pending 记录或 unknown/discarded 恢复横幅                                                                                  |
+| AUTH-02-D | 未配置时历史可见且可读                          | 预置 interactive CLI session 的侧栏 row、用户正文与助手正文均可见，证明真实 sessions-index/conversation topic 已工作                                               |
+| AUTH-02-E | 未配置时没有 deferred draft/retry               | service/UI focused tests 断言 `provider_not_ready` 保持 idle 且投影 banner                                                                                         |
 | AUTH-02-F | 未配置时目标 workspace 只读 Agent 数为 1        | 资源管理器快照按 `ESCodeProject` workspace tag 断言为 1；系统 conversation sibling 不计入，只允许 sessions-index/history 读取，不产生 session create/model command |
-| AUTH-02-G | 保存 provider 后仍复用目标 workspace 唯一 Agent | 资源管理器对同一 workspace 的 Agent 行数保持 1，稳定窗口后二次断言仍为 1，read→write 不重复启动                                                                      |
-| AUTH-02-H | 草稿模型水合且缺模型 banner 清除                | 模型 trigger 回显首个未禁用模型，`TID_CHAT_ERROR_BANNER` 不再存在                                                                                                   |
+| AUTH-02-G | 保存 provider 后仍复用目标 workspace 唯一 Agent | 资源管理器对同一 workspace 的 Agent 行数保持 1，稳定窗口后二次断言仍为 1，read→write 不重复启动                                                                    |
+| AUTH-02-H | 草稿模型水合且缺模型 banner 清除                | 模型 trigger 回显首个未禁用模型，`TID_CHAT_ERROR_BANNER` 不再存在                                                                                                  |
 
 ### Fixture 合同
 
@@ -134,7 +134,7 @@ desktop local 使用隔离 HOME 冷启动；CLI session DB 预置一条 interact
 
 Docker 准入不执行：该 auth/config case 不依赖 provider replay，也不属于 conversation Docker preset。
 
-## AUTH-03: ESCode JWT 过期后重新认证
+## AUTH-03: ESCode JWT 过期后的免登录冷启动
 
 ### Case 定义
 
@@ -143,11 +143,11 @@ Docker 准入不执行：该 auth/config case 不依赖 provider replay，也不
 | Spec             | `packages/desktop/test/e2e/manual-review/pending/jwt-expiry-reauthentication.test.ts`   |
 | Fixture manifest | `packages/desktop/test/e2e/fixtures/cases/auth-config/jwt-expiry-reauthentication.json` |
 | Provider fixture | 无，`providerRequestPolicy: "none"`                                                     |
-| 当前状态         | 候选 case，等待人工确认过期提示与重新登录入口后转正                                     |
+| 当前状态         | 候选 case（免登录发行版回归锚点），等待人工确认后转正                                   |
 
 ### 测试场景
 
-desktop local 使用隔离 HOME 冷启动；`credentials.json` 预置一份完整 Z.ai OAuth 缓存会话，以及一枚 `exp` 明确早于当前时间的 `escodejwttoken`。Local Host 恢复缓存会话时必须先清理失效认证事实，再通知 renderer 显示“登录已过期”提示；用户点击“重新登录”后直接进入现有 Welcome 登录页，不经过主动退出确认或 App relaunch。
+desktop local 使用隔离 HOME 冷启动；`credentials.json` 预置一份完整 Z.ai OAuth 缓存会话，以及一枚 `exp` 明确早于当前时间的 `escodejwttoken`。当前发行版免登录（`OFFICIAL_ACCOUNT_LOGIN_ENABLED = false`，见 `docs/ui/login-page.md`），因此 Local Host 恢复缓存会话时仍然清理失效认证事实，但 renderer 不再弹“登录已过期”提示、不进入 `session-expired` 登录入口，冷启动直接落在主界面。
 
 本 case 只验证 desktop local 的冷启动恢复和 UI 交互，不触发真实 OAuth callback、token refresh、provider/model 请求，也不修改 remote workspace、手机 `/remote` 或 task/session realtime 状态。
 
@@ -160,29 +160,26 @@ WDIO 冷启动 seed
              v
 Local Host restoreCachedSessionState
              |
-             +--> 先清理 active provider / token / user_info / JWT
+             +--> 清理 active provider / token / user_info / JWT
              |
              v
-renderer 显示“登录已过期” AlertDialog
+renderer: 登录态落定为未登录（restore 结果为 reauthentication-required）
              |
-             +--> 弹窗仍打开时读取 credentials.json，确认清理完成
-             |
-             v
-用户点击“重新登录”
+             +--> 自动登录入口全部关闭（无 AlertDialog、无 WelcomeScreen）
              |
              v
-Welcome 展示 Z.ai + BigModel 登录入口
+主界面（默认 workspace shell，侧栏显式登录入口保留）
 ```
 
 ### 验证条目
 
-| 编号      | 验证项                        | 有效性说明                                                               |
-| --------- | ----------------------------- | ------------------------------------------------------------------------ |
-| AUTH-03-A | 过期提示标题和说明可见        | 证明结构化 `reauthentication-required` 已传到 renderer，而非恢复伪登录态 |
-| AUTH-03-B | 提示确认前认证凭据已清理      | 证明 AlertDialog 不是清理认证事实的阻塞点                                |
-| AUTH-03-C | 点击“重新登录”进入 Welcome    | 证明用户能从过期态回到现有登录流程，不会停留在无法退出/无法重登的死态    |
-| AUTH-03-D | Z.ai 与 BigModel 登录入口可见 | 证明重新认证页具备完整 provider 选择能力                                 |
-| AUTH-03-E | 不展示主动退出确认            | 证明过期恢复没有误走“确认断开连接”或运行中会话二次确认流程               |
+| 编号      | 验证项                        | 有效性说明                                               |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| AUTH-03-A | 冷启动直接进入主界面          | 证明失效登录态不再把用户强制带到登录入口                 |
+| AUTH-03-B | 不展示“登录已过期”AlertDialog | 证明会话失效只清理事实，不升级为重新登录提示             |
+| AUTH-03-C | 不展示 Welcome 登录渠道入口   | 证明 `session-expired` 自动入口在免登录发行版被抑制      |
+| AUTH-03-D | 失效认证凭据已清理            | 证明清理不依赖用户确认弹窗，仍由恢复流程自身完成         |
+| AUTH-03-E | 侧栏显式登录入口可见          | 证明登录代码没有随门禁一起移除，显式入口不受策略开关影响 |
 
 ### Fixture 合同
 
@@ -194,18 +191,20 @@ Welcome 展示 Z.ai + BigModel 登录入口
 
 ### 自动运行结论
 
-2026-08-06 已执行：
+2026-08-06（免登录改造前）已执行：
 
 - `ESCODE_E2E_MANUAL_REVIEW=1 pnpm --filter @escode/desktop test:e2e -- --spec ./test/e2e/manual-review/pending/jwt-expiry-reauthentication.test.ts`
   - 结果：通过，1 个 spec / 1 个 case passed。
   - Artifact：`packages/desktop/.e2e-artifacts/desktop-e2e-20260806040559238-p94707-95e800e8762670fe/summary.md`。
   - 运行时发现并修复：provider 启动门禁的 `open=false` 曾无条件清空 `session-expired`，导致用户确认后重新登录页被工作区覆盖；现在门禁只关闭自己拥有的 `startup-provider-required`。
   - Provider capture 没有模型请求，符合 `providerRequestPolicy: "none"`。
+  - 该记录说的是“过期提示 + 重新登录”旧行为，免登录改造后已不再适用，仅作为历史证据保留。
 
-当前只完成自动运行，尚未记录人工视觉验收，因此继续保留在 `manual-review/pending`，不执行转正或 Docker 准入。
+免登录改造后本 case 尚未重新执行（需要桌面 GUI 环境与 `ESCODE_E2E_MANUAL_REVIEW=1`）：判定改为上表 AUTH-03-A～E，断言不再包含 AlertDialog 与“重新登录”交互。执行通过并完成人工视觉验收前，继续保留在 `manual-review/pending`，不执行转正或 Docker 准入。
 
 <!-- 固定 staging 的 JWT 场景原编号 AUTH-05，与上方登录取消编号冲突；此处命名为 AUTH-JWT-401，历史证据不算本轮通过。 -->
-## AUTH-JWT-401: 运行中 ESCode JWT 401 退出并重启
+
+## AUTH-JWT-401: 运行中 ESCode JWT 401 不触发强制重新登录
 
 ### Case 定义
 
@@ -214,16 +213,17 @@ Welcome 展示 Z.ai + BigModel 登录入口
 | Spec             | `packages/desktop/test/e2e/manual-review/pending/jwt-401-auto-logout.test.ts`   |
 | Fixture manifest | `packages/desktop/test/e2e/fixtures/cases/auth-config/jwt-401-auto-logout.json` |
 | Provider fixture | 无，`providerRequestPolicy: "none"`                                             |
-| 当前状态         | 候选 case，等待人工确认 401 触发提示、凭据清理和重启动作后转正                  |
+| 当前状态         | 候选 case（免登录发行版回归锚点），等待人工确认后转正                           |
 
 ### 测试场景
 
 desktop local 使用隔离 HOME 冷启动并恢复一份有效 OAuth 会话。进入工作区后，测试通过 Electron 网络 mock
 让后续 ESCode 控制面请求返回普通 HTTP 401；请求携带的 Authorization 与本地 `escodejwttoken` 相同，
-因此必须触发 Host 的统一 logout，而不是展示普通网络错误。测试断言凭据在提示确认前已清理，用户确认后
-调用现有 `RelaunchApp`，避免真实退出测试进程。
+因此必须触发 Host 的统一 logout，而不是展示普通网络错误。Host 侧凭据清理与“是否强制重新登录”无关，
+必须继续执行；renderer 侧的失效提示与应用重启属于自动登录入口，在免登录发行版关闭
+（`OFFICIAL_ACCOUNT_LOGIN_ENABLED = false`，见 `docs/ui/login-page.md`）。
 
-本 case 只验证运行中 desktop local 的 401 失效观察、凭据清理、提示和重启命令；不覆盖真实 revoke、
+本 case 只验证运行中 desktop local 的 401 失效观察、凭据清理和自动入口关闭；不覆盖真实 revoke、
 Agent 模型 transport、Official MCP、remote workspace 或手机 `/remote`。
 
 ### 状态与操作时序
@@ -240,30 +240,27 @@ Electron net.fetch mock 返回 401
              v
 Host 比对当前 JWT -> logout 清理凭据 -> 广播失效事件
              |
-             v
-Renderer 显示“登录已过期”
-             |
-             +--> 确认前：credentials.json 已无 OAuth/JWT key
+             +--> credentials.json 已无 OAuth/JWT key（不受 renderer 反应影响）
              |
              v
-用户确认 -> DesktopCommandIds.RelaunchApp
+Renderer 收到失效事件：自动入口关闭（无 AlertDialog、无 RelaunchApp）
 ```
 
 ### 验证条目
 
-| 编号      | 验证项                         | 有效性说明                                            |
-| --------- | ------------------------------ | ----------------------------------------------------- |
-| AUTH-JWT-401-A | 运行中 401 能显示登录过期提示  | 证明请求出口观察和 Host 广播链路实际工作              |
-| AUTH-JWT-401-B | 确认前 OAuth/JWT 凭据已清理    | 证明提示框不会阻塞认证事实清理                        |
-| AUTH-JWT-401-C | 确认后调用 `RelaunchApp`       | 证明提示动作复用现有重启流程                          |
-| AUTH-JWT-401-D | 普通 401 mock 不依赖专用响应头 | 证明兼容当前没有 `X-ZCode-JWT-Invalid` 响应头的服务端 |
+| 编号           | 验证项                           | 有效性说明                                            |
+| -------------- | -------------------------------- | ----------------------------------------------------- |
+| AUTH-JWT-401-A | 运行中 401 仍清理 OAuth/JWT 凭据 | 证明请求出口观察与 Host 统一 logout 链路实际工作      |
+| AUTH-JWT-401-B | 不显示“登录已过期”提示           | 证明失效提示属于被关闭的自动登录入口                  |
+| AUTH-JWT-401-C | 不调用 `RelaunchApp`/退出        | 证明不再把运行中失效升级为强制重启重新登录            |
+| AUTH-JWT-401-D | 普通 401 mock 不依赖专用响应头   | 证明兼容当前没有 `X-ZCode-JWT-Invalid` 响应头的服务端 |
 
 ### Fixture 合同
 
 - manifest 使用 `providerRequestPolicy: "none"`、`noProviderRequests: true` 和空 `requests`。
 - 输入 fixture 是默认 E2E 启动凭据 seed；运行中 401 由 Electron `net.fetch` mock 注入，不访问真实服务。
 - mock 只返回状态和成功标志，不记录或暴露 Authorization/JWT 值。
-- 当前位于 `manual-review/pending`；人工确认后再转正，不执行 Docker 准入。
+- 当前位于 `manual-review/pending`；免登录改造后尚未重新执行，人工确认后再转正，不执行 Docker 准入。
 
 ## AUTH-04: 登录后 Subagent Coding Plan Model Selection 就绪
 
@@ -354,15 +351,17 @@ desktop local 使用隔离 HOME 冷启动：OAuth 凭据为空，当前 Environm
 该 case 已从 `manual-review/pending` 移入正式路径。它不发送模型请求，不依赖 provider replay，也不属于 conversation Docker preset；正式准入以 case manifest 的 `providerRequestPolicy: "none"`、本地正式路径运行和默认 desktop E2E 收集为边界。
 
 <!-- 以下 AUTH-06 场景与运行记录来自固定 staging，运行编号不是 Todo103 本轮结果。 -->
-## AUTH-06: 用户资料 access token HTTP/业务 401 复用退出提示
+
+## AUTH-06: 用户资料 access token HTTP/业务 401 清理登录但不强制重新登录
 
 - 候选 spec：`packages/desktop/test/e2e/manual-review/pending/access-token-401-auto-logout.test.ts`。
 - manifest：`packages/desktop/test/e2e/fixtures/cases/auth-config/access-token-401-auto-logout.json`。
 - 输入：隔离 HOME 的 BigModel 旧版用户资料缓存、不同值的业务 access token 与未被判定过期的 ESCode JWT，以及一个独立 Bot 凭据。
 - 动作：启动资料迁移真实发出 userinfo 请求；本地 HTTP fixture 暂停响应，待 UI 可用后返回 HTTP 401，或通过 `ESCODE_E2E_AUTH_EXPIRY_HTTP_STATUS=200` 返回 HTTP 200 + `{"code":401,"msg":"登录状态已过期","success":false}`。用例确认 fixture 实际启用的状态码；其它控制面请求返回正常 200，避免 JWT 401 掩盖新增判断。
-- 断言：fixture 确认请求用的是业务 token；原过期弹窗出现；确认前 active/token/profile/JWT 已清除且 Bot 凭据保留；确认后经 preload 发出原 RelaunchApp 命令。测试在主进程 IPC 边界截断命令，不实际执行退出/重启，避免 Host 关闭屏障干扰 WebDriver 收尾。
+- 断言：fixture 确认请求用的是业务 token；active/token/profile/JWT 已清除且 Bot 凭据保留。免登录发行版下“登录已过期”弹窗与 `RelaunchApp` 属于被关闭的自动登录入口（见 `docs/ui/login-page.md`），因此断言改为弹窗不再出现、IPC 边界不再收到 `RelaunchApp` 命令。测试在主进程 IPC 边界记录命令，不实际执行退出/重启，避免 Host 关闭屏障干扰 WebDriver 收尾。
 - HTTP fixture 不记录凭据原文；不访问真实平台，不需要模型请求。支付、API key、旧请求与多平台判定由服务层单测覆盖。
 - desktop local 的 HTTP/Host/Renderer 链路必须自动运行通过；人工验收、手机 shared-host 与跨平台 UI 回归未完成前保持 pending，不宣称完整多端验证。
+- 免登录改造后本 case 尚未重新执行；下方 2026-09-08 起的记录对应“复用退出提示 + 确认重启”旧行为，仅作为历史证据保留。
 
 ```text
 隔离旧缓存 -> 后台 userinfo 请求 -> fixture 暂停
@@ -371,7 +370,9 @@ desktop local 使用隔离 HOME 冷启动：OAuth 凭据为空，当前 Environm
                                       |
                      当前 access token 匹配 -> 原 logout
                                       |
-                        清凭据 -> 弹窗 -> 确认重启
+                    清凭据（Bot 凭据保留）
+                                      |
+        Renderer 收到失效事件：自动入口关闭（无弹窗、无重启）
 ```
 
 ### AUTH-06 自动验证记录（2026-09-08）

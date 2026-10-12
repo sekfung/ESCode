@@ -9,6 +9,7 @@ import {
 import {
   clearAppData,
   clickTestIdByDom,
+  openApiKeyLoginPanel,
   waitForDefaultWorkspaceReady,
   waitForTestIdByDom,
 } from "./helpers/desktop-app.js";
@@ -38,6 +39,9 @@ windowsDescribe("Windows Agent 指标采集 main process 门禁", () => {
   it("PERF-RES-01: 真实 Agent 注册后的资源采样日志只记录 skipped，不启动外部 probe", async function () {
     this.timeout(90000);
 
+    // 免登录发行版冷启动不再自动弹欢迎页，API Key 入口要从侧栏头像菜单打开。
+    const loginPanelOpened = await openApiKeyLoginPanel();
+    expect(loginPanelOpened).toBe(true);
     await waitForTestIdByDom(TID_LOGIN_USE_API_KEY_BUTTON, {
       timeout: 30000,
       timeoutMsg: "空 auth/provider 冷启动后没有展示 API Key 配置入口",

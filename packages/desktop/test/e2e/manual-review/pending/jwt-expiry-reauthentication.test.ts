@@ -1,13 +1,9 @@
 import { readFile } from "node:fs/promises";
-import {
-  TID_OAUTH_LOGIN_BUTTON,
-  testId,
-  ZAI_PROVIDER_ID,
-} from "@escode/shared";
+import { TID_LOGIN_TRIGGER, TID_OAUTH_LOGIN_BUTTON, testId, ZAI_PROVIDER_ID } from "@escode/shared";
 import {
   clearAppData,
   getE2EAppDataPaths,
-  waitForTestIdByDom,
+  waitForDefaultWorkspaceReady,
 } from "../../helpers/desktop-app.js";
 
 const EXPIRED_SESSION_CREDENTIAL_KEYS = [
@@ -18,54 +14,37 @@ const EXPIRED_SESSION_CREDENTIAL_KEYS = [
   "escodejwttoken",
 ] as const;
 
-describe("ESCode JWT 过期后重新认证", () => {
+// 免登录发行版回归锚点：官方 JWT 失效只清理失效登录态，不再提示重新登录、
+// 也不再把用户从主界面带到登录入口。产品规则见 docs/ui/login-page.md。
+describe("ESCode JWT 过期后的免登录冷启动", () => {
   after(async () => {
     await browser.electron.restoreAllMocks();
     await clearAppData();
   });
 
-  it("冷启动先清理过期登录态，提示用户后进入完整登录流程", async () => {
-    const alert = await waitForExpiredLoginAlert();
-    expect(alert.title).toMatch(/登录已过期|Your session has expired/u);
-    expect(alert.description).toMatch(/请重新登录|sign in again/u);
+  it("冷启动清理过期登录态后直接进入主界面，不弹登录过期提示也不进登录页", async () => {
+    await waitForDefaultWorkspaceReady(60000);
 
-    // Bug 回归边界：认证事实必须在提示框确认前清理，否则用户停留在弹窗时仍会
-    // 携带过期 JWT 发请求，复现“看似登录但无法恢复”的分裂状态。
+    // 认证事实必须在启动阶段被清理，否则主界面会带着过期 JWT 发请求。
     await waitForExpiredSessionCredentialsCleanup();
 
-    await clickExpiredLoginAlertAction();
-    await waitForTestIdByDom(testId(TID_OAUTH_LOGIN_BUTTON, ZAI_PROVIDER_ID), {
-      timeout: 20000,
-      timeoutMsg: "确认登录过期提示后没有展示 Z.ai 登录入口",
-    });
-    await waitForTestIdByDom(TID_OAUTH_LOGIN_BUTTON, {
-      timeout: 20000,
-      timeoutMsg: "确认登录过期提示后没有展示 BigModel 登录入口",
-    });
-    await expectBigModelLoginButton();
-    await expectExpiredAlertClosed();
+    // 提醒与强制登录入口属于“自动登录入口”，免登录发行版必须全部关闭。
+    await expectNoExpiredLoginAlert();
+    await expectNoLoginChannelEntry();
+
+    // 登录代码本身保留：主界面仍提供显式登录入口。
+    await expectVisibleLoginTrigger();
   });
 });
 
-async function waitForExpiredLoginAlert(): Promise<{ title: string; description: string }> {
-  await browser.waitUntil(
-    async () => {
-      const snapshot = await readAlertSnapshot();
-      return /登录已过期|Your session has expired/u.test(snapshot.title);
-    },
-    {
-      timeout: 60000,
-      timeoutMsg: "已过期 JWT 冷启动后没有展示登录过期提示",
-    },
-  );
-  return readAlertSnapshot();
+async function expectNoExpiredLoginAlert() {
+  const snapshot = await readAlertSnapshot();
+  expect(snapshot.title).not.toMatch(/登录已过期|Your session has expired/u);
 }
 
 async function readAlertSnapshot(): Promise<{ title: string; description: string }> {
   return (await browser.execute(() => {
-    const content = document.querySelector<HTMLElement>(
-      '[data-slot="alert-dialog-content"]',
-    );
+    const content = document.querySelector<HTMLElement>('[data-slot="alert-dialog-content"]');
     return {
       title:
         content
@@ -79,16 +58,31 @@ async function readAlertSnapshot(): Promise<{ title: string; description: string
   })) as { title: string; description: string };
 }
 
-async function clickExpiredLoginAlertAction() {
-  await browser.execute(() => {
-    const button = document.querySelector<HTMLButtonElement>(
-      '[data-slot="alert-dialog-content"] button',
-    );
-    if (!button) {
-      throw new Error("登录过期提示缺少重新登录按钮");
-    }
-    button.click();
-  });
+async function expectNoLoginChannelEntry() {
+  const hasZaiLoginButton = (await browser.execute(
+    (zaiLoginButtonId: string) => {
+      return Boolean(document.querySelector(`[data-testid="${zaiLoginButtonId}"]`));
+    },
+    testId(TID_OAUTH_LOGIN_BUTTON, ZAI_PROVIDER_ID),
+  )) as boolean;
+
+  expect(hasZaiLoginButton).toBe(false);
+}
+
+async function expectVisibleLoginTrigger() {
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute((loginTriggerId: string) => {
+        const element = Array.from(
+          document.querySelectorAll<HTMLElement>(`[data-testid="${loginTriggerId}"]`),
+        ).find((candidate) => candidate.getClientRects().length > 0);
+        return Boolean(element);
+      }, TID_LOGIN_TRIGGER)) as boolean,
+    {
+      timeout: 20000,
+      timeoutMsg: "免登录冷启动后主界面没有保留显式登录入口",
+    },
+  );
 }
 
 async function waitForExpiredSessionCredentialsCleanup() {
@@ -100,7 +94,7 @@ async function waitForExpiredSessionCredentialsCleanup() {
       },
       {
         timeout: 10000,
-        timeoutMsg: "登录过期提示确认前认证凭据没有完成清理",
+        timeoutMsg: "过期认证凭据没有被清理",
       },
     );
   } catch (error) {
@@ -110,30 +104,6 @@ async function waitForExpiredSessionCredentialsCleanup() {
       cause: error,
     });
   }
-}
-
-async function expectBigModelLoginButton() {
-  const text = (await browser.execute((buttonId) => {
-    return (
-      document.querySelector<HTMLElement>(`[data-testid="${buttonId}"]`)?.textContent?.trim() ??
-      ""
-    );
-  }, TID_OAUTH_LOGIN_BUTTON)) as string;
-  expect(text).toContain("BigModel");
-}
-
-async function expectExpiredAlertClosed() {
-  await browser.waitUntil(
-    async () => {
-      return (await browser.execute(() => {
-        return !document.querySelector('[data-slot="alert-dialog-content"]');
-      })) as boolean;
-    },
-    {
-      timeout: 5000,
-      timeoutMsg: "进入登录页后登录过期提示没有关闭",
-    },
-  );
 }
 
 async function readCredentials(): Promise<Record<string, string>> {

@@ -24,6 +24,7 @@ import {
 import AppPage from "../pages/app.page.js";
 import {
   clickTestIdByDom,
+  openApiKeyLoginPanel,
   setInputValueByTestIdDom,
   waitForDefaultWorkspaceReady,
 } from "./desktop-app.js";
@@ -182,26 +183,15 @@ async function ensureConversationShellReady() {
     await waitForDefaultWorkspaceReady(30000);
     return;
   } catch (error) {
-    if (!(await hasApiKeyLoginButton())) {
+    if (!(await openApiKeyLoginPanel())) {
       throw error;
     }
 
     // 修复原因：renderer target 切换失败时曾被登录兜底吞掉，误报成
-    // “欢迎页没有出现 API Key 登录入口”。只有确认当前页面真是欢迎页时才回退登录。
+    // “欢迎页没有出现 API Key 登录入口”。只有确实能打开欢迎页时才回退登录。
     await loginWithApiKey();
     await waitForDefaultWorkspaceReady(30000);
   }
-}
-
-async function hasApiKeyLoginButton() {
-  const exists = await browser
-    .execute(
-      (currentTestId) =>
-        Boolean(document.querySelector(`[data-testid="${currentTestId}"]`)),
-      TID_LOGIN_USE_API_KEY_BUTTON,
-    )
-    .catch(() => false);
-  return Boolean(exists);
 }
 
 export async function loginWithApiKey() {

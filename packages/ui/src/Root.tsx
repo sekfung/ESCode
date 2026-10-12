@@ -36,12 +36,15 @@ import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
 import { countAllUnreadTasks } from "@/lib/unreadTaskCount.js";
 import {
   isProviderStartupSyncPending,
+  resolveAutomaticLoginEntryReason,
   shouldEnableProviderAvailabilityLoginEntryGuard,
   shouldResolveProviderStartupState,
   shouldBlockRootRender,
   shouldShowRootStartupLoading,
   shouldOpenFallbackWorkspaceAfterCreate,
+  type AutomaticLoginEntryReason,
 } from "@/lib/rootStartupGate.js";
+import { isOfficialAccountLoginRequired } from "@/lib/officialAccountLogin.js";
 import { StoreProvider, useESCodeStore } from "@/store/StoreProvider.js";
 import { setMcpStorePlatform } from "@/store/mcpStore.js";
 import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
@@ -114,12 +117,8 @@ interface RemoteConnectionOpenPreference {
   preferredWslDistro?: string;
 }
 
-type WelcomeScreenOpenReason =
-  | "startup-provider-required"
-  | "manual-login"
-  | "provider-request"
-  | "logout-provider-required"
-  | "session-expired";
+// 自动入口的理由由账号 / provider 状态推导，显式入口（手动登录、供应商连接）另行处理。
+type WelcomeScreenOpenReason = AutomaticLoginEntryReason | "manual-login" | "provider-request";
 
 function WebRemoteControlTaskSync({
   syncWebRemoteControlTasks,
@@ -360,10 +359,17 @@ function RootInner({
     escodeAgentService: services.escodeAgentService,
     codingPlanSubscriptionService: services.codingPlanSubscriptionService,
   });
+  // 官方账号登录策略的唯一开关；免登录发行版为 false，自动登录入口据此全部关闭。
+  const officialAccountLoginRequired = isOfficialAccountLoginRequired();
   const [welcomeScreenOpenReason, setWelcomeScreenOpenReason] =
-    useState<WelcomeScreenOpenReason | null>(() =>
-      consumeEscodeJwtInvalidRestartMarker() ? "session-expired" : null,
-    );
+    useState<WelcomeScreenOpenReason | null>(() => {
+      // 重启标记是一次性的：无论策略如何都必须消费掉，避免残留到下次启动；
+      // 只是免登录发行版不再把它升级成登录入口。
+      const jwtInvalidRestart = consumeEscodeJwtInvalidRestartMarker();
+      return jwtInvalidRestart
+        ? resolveAutomaticLoginEntryReason("session-expired", officialAccountLoginRequired)
+        : null;
+    });
   const [providerFamilyDomainMigrationComplete, setProviderFamilyDomainMigrationComplete] =
     useState(false);
   const loginEntryRequest = useESCodeStore((state) => state.loginEntryRequest);
@@ -610,6 +616,7 @@ function RootInner({
   const { startupCheckCompleted: providerAvailabilityStartupCheckCompleted } =
     useProviderAvailabilityLoginEntryGuard({
       enabled: providerAvailabilityLoginEntryGuardEnabled,
+      officialAccountLoginRequired,
       user,
       isRestoringOAuthSession: isResolvingStartupAuthState || providerStartupSyncPending,
       providerFamilyDomain: appSettings?.providerFamilyDomain,
@@ -661,9 +668,19 @@ function RootInner({
   const handleOpenDirectoryBrowser = useCallback(() => {
     setDirectoryBrowserOpen(true);
   }, []);
+  // 所有自动登录入口的唯一写入口：免登录发行版下这些理由不成立，显式入口不走这里。
+  const openAutomaticLoginEntry = useCallback(
+    (reason: AutomaticLoginEntryReason) => {
+      const nextReason = resolveAutomaticLoginEntryReason(reason, officialAccountLoginRequired);
+      if (nextReason) {
+        setWelcomeScreenOpenReason(nextReason);
+      }
+    },
+    [officialAccountLoginRequired],
+  );
   const handleReauthenticationRequired = useCallback(() => {
-    setWelcomeScreenOpenReason("session-expired");
-  }, []);
+    openAutomaticLoginEntry("session-expired");
+  }, [openAutomaticLoginEntry]);
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
@@ -696,7 +713,7 @@ function RootInner({
     setOAuthError,
     setUser,
     onProviderFamilyDomainClearedAfterLogout: () => {
-      setWelcomeScreenOpenReason("logout-provider-required");
+      openAutomaticLoginEntry("logout-provider-required");
     },
     userId: user?.id,
     onOpenRemoteConnection: allowRemoteWorkspace ? handleOpenRemoteConnection : undefined,
@@ -940,6 +957,7 @@ function RootInner({
     setOAuthPollingActive,
     markOAuthSuccess,
     onReauthenticationRequired: handleReauthenticationRequired,
+    officialAccountLoginRequired,
   });
 
   useEffect(
