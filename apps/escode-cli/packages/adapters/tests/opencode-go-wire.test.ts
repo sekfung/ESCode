@@ -124,7 +124,12 @@ describe("Todo149 OpenCode Go 正式 SDK 请求", () => {
           .filter((k) => k in body)
           .map((k) => [k, body[k]]),
       );
-      expect(reasoning).toEqual(
+      const expectedReasoning: {
+        reasoning_effort?: string;
+        reasoning?: { effort: string };
+        thinking?: { type: string; budget_tokens?: number };
+        output_config?: { effort: string };
+      } =
         mode === "effort"
           ? { reasoning_effort: reasoningLevel }
           : mode === "responses"
@@ -142,8 +147,17 @@ describe("Todo149 OpenCode Go 正式 SDK 请求", () => {
                             ? "adaptive"
                             : "enabled",
                     },
-                  },
-      );
+                  };
+      if (expectedReasoning.thinking?.type === "enabled") {
+        // Anthropic 规范要求 enabled 带预算（最终正文按 max_tokens 补齐）；撑不起下限时省略 thinking。
+        const budget = Math.min(
+          Math.max(1024, Math.floor(maxOutputTokens / 2)),
+          maxOutputTokens - 1,
+        );
+        if (budget < 1024) delete expectedReasoning.thinking;
+        else expectedReasoning.thinking.budget_tokens = budget;
+      }
+      expect(reasoning).toEqual(expectedReasoning);
     }
     expect(requests).toHaveLength(levels.length * 2);
   });

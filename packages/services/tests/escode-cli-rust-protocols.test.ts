@@ -21,7 +21,7 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
         reasoningParameters:
           protocol === "openai-responses"
             ? { reasoning: { effort: "low", summary: "auto" } }
-            : { thinking: { type: "enabled", budget_tokens: 1024 } },
+            : { thinking: { type: "enabled" } },
       },
       env: { RUST_FIXTURE_KEY: "fixture-key" },
       respond(_req, res, attempt) {
@@ -69,6 +69,11 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
         assert(
           f.requests[0]!.system.every((block: any) => block.cache_control.type === "ephemeral"),
         );
+        // 配置只给档位语义，规范要求的 thinking 预算由运行时在最终正文上补齐。
+        assert.equal(f.requests[0]!.thinking.type, "enabled");
+        assert(Number.isInteger(f.requests[0]!.thinking.budget_tokens));
+        assert(f.requests[0]!.thinking.budget_tokens >= 1024);
+        assert(f.requests[0]!.thinking.budget_tokens < f.requests[0]!.max_tokens);
       }
       assert(!JSON.stringify(h.messages).includes("signature-fixture"));
       assert(!JSON.stringify(h.messages).includes("opaque-fixture"));

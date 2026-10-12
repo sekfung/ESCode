@@ -113,7 +113,7 @@ pub(super) fn project(
                 super::model_media::anthropic(&Value::Array(parts))?.into()
             } else {
                 strip(&mut parts);
-                super::model_media::responses(&Value::Array(parts), "user")?.into()
+                super::model_media::responses(&Value::Array(parts))?.into()
             };
         } else if let Some(parts) = message["content"].as_array_mut() {
             strip(parts);

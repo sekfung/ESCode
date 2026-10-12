@@ -15,14 +15,17 @@ export function createModelOptionMapFetch(input: {
   readonly fetch: ProviderFetch;
   readonly maps: CompiledModelOptionMaps;
   readonly values: ModelOptionValues;
+  /** 打补丁之后、捕获与发送之前，对最终正文做协议补齐（如 Anthropic thinking 预算）。 */
+  readonly finalizeBody?: (body: JsonObject) => JsonObject;
 }): ProviderFetch {
   return async (request, init) => {
     const bodyText = await readRequestBody(request, init);
     if (bodyText === undefined) return input.fetch(request, init);
     const body = parseJsonObject(bodyText);
     const patched = input.maps.apply(body, input.values);
-    if (input.capture) input.capture.body = patched;
-    const patchedBody = JSON.stringify(patched);
+    const finalized = input.finalizeBody ? input.finalizeBody(patched) : patched;
+    if (input.capture) input.capture.body = finalized;
+    const patchedBody = JSON.stringify(finalized);
     if (request instanceof Request) {
       return input.fetch(new Request(request, { ...init, body: patchedBody }));
     }

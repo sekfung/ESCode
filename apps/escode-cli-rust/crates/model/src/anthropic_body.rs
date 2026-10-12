@@ -2,6 +2,31 @@
 use super::{config::ModelConfig, contract::ModelFailure};
 use serde_json::{Value, json};
 
+/// Anthropic 规范要求 `thinking.type == "enabled"` 必带 `budget_tokens`（1024 ≤ budget < max_tokens）。
+/// 选项映射只输出档位语义且无法引用 maxOutputTokens，因此在最终正文上补齐；依据
+/// [Anthropic Messages Thinking Budget Protocol](../../../../../docs/anthropic-thinking-budget-protocol.md)。
+pub(super) fn ensure_thinking_budget(body: &mut Value) {
+    if body["thinking"]["type"] != "enabled" {
+        return;
+    }
+    if body["thinking"]["budget_tokens"]
+        .as_u64()
+        .is_some_and(|budget| budget > 0)
+    {
+        return;
+    }
+    let Some(max_tokens) = body["max_tokens"].as_u64().filter(|m| *m > 0) else {
+        return;
+    };
+    let budget = (max_tokens / 2).max(1024).min(max_tokens - 1);
+    if budget < 1024 {
+        // max_tokens 撑不起规范下限：省略 thinking（不启用思考），不发必然被拒的正文。
+        body.as_object_mut().unwrap().remove("thinking");
+        return;
+    }
+    body["thinking"]["budget_tokens"] = budget.into();
+}
+
 pub(super) fn body(
     config: &ModelConfig,
     messages: &[Value],

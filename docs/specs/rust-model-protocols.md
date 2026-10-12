@@ -7,8 +7,8 @@
 - 显式原生配置新增 apiType：openai-chat-completions（兼容缺省）、openai-responses、anthropic-messages。baseUrl 为 API 根：Chat/Responses 分别追加 chat/completions、responses；Anthropic 与 TS 一致，缺少 /v1 时先追加 /v1，再追加 /messages（保留网关路径）。Anthropic 同时发送 x-api-key 与 Bearer Authorization，并发送 anthropic-version；不根据模型名称猜协议。
 - HttpModel 仍唯一拥有 HTTP client、一次请求编码及重试/取消策略。所有协议复用 SSE decoder、TextBuffer 和现有模型错误类型；不能在 app/domain 引入网络或 provider 实现。
 - canonical assistant / tool 仍由 Session actor 提交；供应商事件映射为同一 Text、ModelDone、ToolDone，App 无协议版本变化。正文、推理首段和后续合并规则保持一致。
-- Responses 使用 store=false、完整 input item history；工具定义使用平铺 function，工具结果关联 call_id。保留 reasoning items 的 encrypted_content 与 summary，下一次请求原样回传，不能把加密元数据展示为正文。
-- Anthropic system 与 messages 分开；assistant 的 text/thinking/redacted_thinking/tool_use 和 user tool_result 依原协议传递，保留签名。工具参数独立增量汇编，块关闭后校验 JSON 对象；只有 message_stop + 合法 stop_reason 才能交付工具。
+- Responses 使用 store=false、完整 input item history；工具定义使用平铺 function，工具结果关联 call_id。保留 reasoning items 的 encrypted_content 与 summary，下一次请求原样回传，不能把加密元数据展示为正文。assistant 历史按 EasyInputMessage 回放：纯文本折叠为 string content，其余文本块使用 input_text，input item 中不使用 output_text（[OpenAI Responses Input Item Protocol](../openai-responses-input-item-protocol.md)）。
+- Anthropic system 与 messages 分开；assistant 的 text/thinking/redacted_thinking/tool_use 和 user tool_result 依原协议传递，保留签名。工具参数独立增量汇编，块关闭后校验 JSON 对象；只有 message_stop + 合法 stop_reason 才能交付工具。`thinking.type == "enabled"` 的请求必须带 `budget_tokens`：缺省时按 `max_tokens` 推导（[Anthropic Messages Thinking Budget Protocol](../anthropic-thinking-budget-protocol.md)）。
 - canonical 的供应商元数据仅由对应 serializer 消费，不泄漏到 Chat Completions body 或 App。工具失败通过 Anthropic is_error 映射。
 - 所有协议验证工具 id/name/参数与结束状态；缺失终止事件不得执行工具。可见正文/推理后断流不透明重放。未知无业务含义事件忽略；未支持的工具类型明确失败。
 - 显式 reasoningParameters 按协议校验：Chat 使用 reasoning_effort/thinking/enable_thinking，Responses 使用 reasoning 对象或 reasoning_effort 转 effort（二者互斥），Anthropic 使用 thinking。maxOutputTokens 分别映射 max_tokens/max_output_tokens。
@@ -45,3 +45,22 @@ vLLM 等新版 OpenAI 兼容服务只发 `delta.reasoning`（自建 DeepSeek 实
 `reasoning_content`）。Rust 原先只认 `reasoning_content`，推理既不显示也不写入历史：用户在推理阶段看到数秒空白
 （热轮首个可见内容 3.8s，Node 0.49s）。修复后首个推理行约 0.3s 出现（`model_stream.rs::reasoning_field`，含单测；
 基准 trace 复核）。回传历史时仍写 `reasoning_content`，与 AI SDK 一致。
+
+## Responses assistant 历史 item 形态（2026-10-12，自建 vLLM 报错发现）
+
+自建 vLLM（私有部署 deepseek-v4.1-flash）上，Responses 协议第二轮起 HTTP 400：`body.input.6` 的
+`EasyInputMessageParam.content.0.ResponseInputTextParam.type` 期望 `input_text` 却收到 `output_text`。
+`EasyInputMessageParam` 的 content 列表只允许 `input_*` 类型，`output_text` 只合法于带 `id`/`status` 的
+`ResponseOutputMessage` item；Node 侧 `@ai-sdk/openai` 生成的混合形态只有 OpenAI 官方服务容忍。
+修复：`model_media::responses` 的文本块恒为 `input_text`（原来按 role 区分），纯文本 assistant 消息在
+`model_protocol` 中仍以 string content 回放。规则与证据见
+[OpenAI Responses Input Item Protocol](../openai-responses-input-item-protocol.md)。
+
+## Anthropic thinking 预算补齐（2026-10-12，自建 vLLM 报错发现）
+
+切换到 anthropic-messages 协议后，自建 vLLM 返回 400：`body.thinking.enabled.budget_tokens` 缺失。
+内置映射只输出 `{"thinking":{"type":"enabled"}}`，而 Anthropic 规范要求 `enabled` 必带 `budget_tokens`；
+映射表达式无法引用 `maxOutputTokens`（实测 `unknown identifier`），固定预算又会与小输出上限的请求冲突。
+修复：在最终正文上补齐预算，`anthropic_body::ensure_thinking_budget`
+（`budget = min(max(1024, max_tokens / 2), max_tokens - 1)`，`max_tokens <= 1024` 时省略 `thinking`）。
+规则与证据见 [Anthropic Messages Thinking Budget Protocol](../anthropic-thinking-budget-protocol.md)。

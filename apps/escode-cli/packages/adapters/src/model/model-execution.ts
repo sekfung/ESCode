@@ -23,9 +23,11 @@ import {
 import type { RegistryProviderConfig } from "@escode/provider";
 import { withOpenRouterAttributionHeaders } from "@escode/shared";
 import { createAnthropicCompatFetch } from "./anthropic-stream-compat.js";
+import { ensureAnthropicThinkingBudget } from "./anthropic-thinking-budget.js";
 import { createModelRequestSecurityState } from "./request-security-edition/index.js";
 import type { ModelRequestSecurityState, ModelRequestSecurityPort } from "./request-security.js";
 import { createOpenAIResponsesJsonCompatFetch } from "./openai-responses-json-compat.js";
+import { createOpenAIResponsesInputCompatFetch } from "./openai-responses-input-compat.js";
 import { createModelOptionMapFetch, type RawRequestBodyCapture } from "./model-option-map-fetch.js";
 import { createNetworkProxyFetch } from "../network/proxy-fetch.js";
 import { createProviderEndpointRoutingFetch } from "./provider-endpoint-routing-fetch.js";
@@ -307,6 +309,9 @@ export class AiSdkModelExecution {
       optionMaps && optionValues
         ? createModelOptionMapFetch({
             capture: rawRequestBodyCapture,
+            ...(providerConfig.kind === "anthropic"
+              ? { finalizeBody: ensureAnthropicThinkingBudget }
+              : {}),
             fetch,
             maps: optionMaps,
             values: optionValues,
@@ -318,7 +323,9 @@ export class AiSdkModelExecution {
         const provider = createOpenAI({
           apiKey,
           baseURL: providerConfig.baseURL,
-          fetch: createOpenAIResponsesJsonCompatFetch(optionFetch),
+          fetch: createOpenAIResponsesInputCompatFetch(
+            createOpenAIResponsesJsonCompatFetch(optionFetch),
+          ),
           headers,
         });
         return provider.responses as LanguageModelFactory;

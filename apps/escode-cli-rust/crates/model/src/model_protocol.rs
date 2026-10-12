@@ -97,7 +97,7 @@ pub(super) fn body(
                 if role == "tool" {
                     input.push(json!({"type":"function_call_output","call_id":message["tool_call_id"],"output":message["content"]}));
                 } else if message["content"].is_array() {
-                    let content = super::model_media::responses(&message["content"], role)?;
+                    let content = super::model_media::responses(&message["content"])?;
                     if !content.is_empty() {
                         input.push(json!({"role":role,"content":content}));
                     }
@@ -130,6 +130,10 @@ pub(super) fn body(
     }
     for patch in &config.option_patches {
         crate::domain::option_map::merge_patch(&mut body, patch);
+    }
+    // 选项映射只输出档位语义，Anthropic 的 thinking 预算在最终正文上补齐。
+    if config.api_type == ApiType::Anthropic {
+        super::anthropic_body::ensure_thinking_budget(&mut body);
     }
     Ok(body)
 }
@@ -211,6 +215,7 @@ mod tests {
             if api == ApiType::Responses {
                 assert_eq!(body["input"][0]["content"][1]["type"], "input_image");
                 assert_eq!(body["input"][0]["content"][2]["type"], "input_file");
+                assert!(!body.to_string().contains("output_text"));
             }
             if api == ApiType::Anthropic {
                 assert_eq!(body["messages"][0]["content"][1]["source"]["data"], "aW1n");
@@ -218,6 +223,49 @@ mod tests {
             }
         }
         assert_eq!(history[1]["reasoning_content"], "private");
+    }
+    #[test]
+    fn anthropic_fills_thinking_budget_from_max_tokens() {
+        let mut config: ModelConfig = serde_json::from_value(json!({"apiType":"anthropic-messages","providerId":"fixture","modelId":"fixture","reasoningLevel":"none","baseUrl":"https://example.invalid"})).unwrap();
+        config.reasoning_parameters =
+            serde_json::from_value(json!({"thinking":{"type":"enabled"}})).unwrap();
+        let messages = vec![json!({"role":"user","content":"task"})];
+        config.max_output_tokens = 32000;
+        let request = body(&config, messages.clone(), &[]).unwrap();
+        assert_eq!(
+            request["thinking"],
+            json!({"type":"enabled","budget_tokens":16000})
+        );
+        // 显式预算与关闭档位不动。
+        config.reasoning_parameters =
+            serde_json::from_value(json!({"thinking":{"type":"enabled","budget_tokens":2048}}))
+                .unwrap();
+        let request = body(&config, messages.clone(), &[]).unwrap();
+        assert_eq!(request["thinking"]["budget_tokens"], 2048);
+        config.reasoning_parameters = serde_json::from_value(json!({})).unwrap();
+        let request = body(&config, messages.clone(), &[]).unwrap();
+        assert!(request.get("thinking").is_none());
+        // max_tokens 撑不起规范下限时省略 thinking。
+        config.reasoning_parameters =
+            serde_json::from_value(json!({"thinking":{"type":"enabled"}})).unwrap();
+        config.max_output_tokens = 1024;
+        let request = body(&config, messages, &[]).unwrap();
+        assert!(request.get("thinking").is_none());
+    }
+    #[test]
+    fn responses_assistant_history_avoids_output_text_in_input() {
+        let config: ModelConfig = serde_json::from_value(json!({"apiType":"openai-responses","providerId":"fixture","modelId":"fixture","reasoningLevel":"none","baseUrl":"https://example.invalid"})).unwrap();
+        let messages = vec![
+            json!({"role":"user","content":"task"}),
+            json!({"role":"assistant","content":"plain answer"}),
+            json!({"role":"assistant","content":[{"type":"text","text":"structured answer"}]}),
+        ];
+        let body = body(&config, messages, &[]).unwrap();
+        assert!(!body.to_string().contains("output_text"));
+        // 纯文本 assistant 继续以 string content 回放；分块内容里的文本块用 input_text。
+        assert_eq!(body["input"][1]["content"], "plain answer");
+        assert_eq!(body["input"][2]["content"][0]["type"], "input_text");
+        assert_eq!(body["input"][2]["content"][0]["text"], "structured answer");
     }
     #[test]
     fn anthropic_does_not_replay_reasoning_only_assistants() {

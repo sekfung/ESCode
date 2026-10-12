@@ -1,9 +1,12 @@
 use crate::contract::ModelFailure;
 use serde_json::{Value, json};
 type Result<T> = std::result::Result<T, ModelFailure>;
-pub(super) fn responses(content: &Value, role: &str) -> Result<Vec<Value>> {
+pub(super) fn responses(content: &Value) -> Result<Vec<Value>> {
     content.as_array().ok_or_else(ModelFailure::invalid)?.iter().map(|p|Ok(match p["type"].as_str(){
-        Some("text")=>json!({"type":if role=="assistant"{"output_text"}else{"input_text"},"text":p["text"]}),
+        // EasyInputMessage 的 content 列表只接受 input_* 类型，`output_text` 只合法于带 id/status 的
+        // ResponseOutputMessage item；旧写法按 role 给 assistant 发 output_text 会被严格实现（vLLM）拒绝。
+        // 依据：docs/openai-responses-input-item-protocol.md。
+        Some("text")=>json!({"type":"input_text","text":p["text"]}),
         Some("image_url")=>json!({"type":"input_image","image_url":p["image_url"]["url"]}),
         Some("video_url")=>return Err(ModelFailure::new("attachment_unsupported", false)),
         Some("file")=>{let data=p["file"]["file_data"].as_str().ok_or_else(ModelFailure::invalid)?;if data.starts_with("data:"){json!({"type":"input_file","filename":p["file"]["filename"],"file_data":data})}else{json!({"type":"input_file","file_url":data})}},
