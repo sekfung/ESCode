@@ -46,6 +46,18 @@ pub(super) enum Operation {
 }
 pub(super) type SessionContextSource = escode_cli_domain::session_context::SessionSource;
 
+/// 工作区 owner 锁被另一个进程持有：所有权冲突，等持有者退出后可重试。
+#[derive(Debug)]
+pub struct WorkspaceOwned;
+impl std::fmt::Display for WorkspaceOwned {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Workspace runtime is already owned or cannot be locked")
+    }
+}
+impl std::error::Error for WorkspaceOwned {}
+/// app-server 因 [`WorkspaceOwned`] 退出时的进程退出码（sysexits EX_TEMPFAIL）。Host 协议契约的一部分。
+pub const WORKSPACE_OWNED_EXIT_CODE: i32 = 75;
+
 #[derive(Clone)]
 pub struct Store {
     pub(super) tx: mpsc::Sender<Operation>,
@@ -66,9 +78,14 @@ impl Store {
                 .open(&target)
                 .with_context(|| format!("Workspace lock file unavailable: {}", target.display()))?;
             // SQLite 的写锁不能阻止第二个 actor 先读取旧状态并执行恢复，必须先锁 owner。
-            file.try_lock()
-                .context("Workspace runtime is already owned or cannot be locked")?;
-            Ok(file)
+            // 被其他进程持有（WouldBlock）是可重试的所有权冲突，用 WorkspaceOwned 标记，入口据此给出
+            // 专用退出码，Host 不能把它当成 Rust runtime 本身故障（docs/specs/rust-release-rollback.md）。
+            match file.try_lock() {
+                Ok(()) => Ok(file),
+                Err(std::fs::TryLockError::WouldBlock) => Err(WorkspaceOwned.into()),
+                Err(std::fs::TryLockError::Error(error)) => Err(anyhow::Error::new(error)
+                    .context("Workspace runtime is already owned or cannot be locked")),
+            }
         })
         .await?
     }

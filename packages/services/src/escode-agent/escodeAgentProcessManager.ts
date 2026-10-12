@@ -58,8 +58,6 @@ export interface ESCodeAgentCommand {
 
 export interface ESCodeAgentCommandResolverContext {
   presentationSurface?: ESCodeAgentPresentationSurface;
-  /** 本 manager 此前以 Rust 启动且在就绪前失败；resolver 应改用 Node。 */
-  rustRuntimeFailed?: boolean;
   workspacePath: string;
   workspaceIdentity?: string;
   workspaceKey: string;
@@ -120,6 +118,11 @@ interface ManagedESCodeAgentProcess {
   child: ChildProcessWithoutNullStreams;
   cleanupPromise?: Promise<void>;
   exited: boolean;
+  /** 子进程退出（或 spawn 失败且无 pid）时 resolve；新一代 runtime 据此等待旧 owner 释放 workspace。 */
+  exitPromise: Promise<void>;
+  resolveExit: () => void;
+  /** 首次进入回收编排（含重试）后的整体结束信号，不论成败；用于给“等待旧 owner”提供生命周期边界。 */
+  retirementSettled?: Promise<void>;
   firstCleanupReason?: AgentProcessCleanupReason;
   idleTimer?: ReturnType<typeof setTimeout>;
   readyAt?: number;
@@ -500,25 +503,21 @@ export function resolveDefaultESCodeAgentCommand(
   context: ESCodeAgentCommandResolverContext,
   deps: ESCodeAgentCommandResolverDeps = { findRustBinary: () => findESCodeAgentRustBinary() },
 ): ESCodeAgentCommand | null {
-  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：默认用随包 Rust runtime（找不到二进制或就绪前失败即回退
-  // Node），ESCODE_AGENT_SERVER_RUNTIME=node 显式回退 Node。monorepo 开发态（源码 / dist 入口在场）与自定义命令保持
-  // 原有 Node 语义：开发改源码要立刻生效，自定义命令的协议形态由调用方决定。
+  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：默认用随包 Rust runtime，找不到二进制直接报错、
+  // 就绪前失败也不改选 Node（不自动回退）；ESCODE_AGENT_SERVER_RUNTIME=node 是显式选择 Node。monorepo 开发态
+  // （源码 / dist 入口在场）与自定义命令保持原有 Node 语义：开发改源码要立刻生效，自定义命令的协议形态由调用方决定。
   const runtime = process.env.ESCODE_AGENT_SERVER_RUNTIME?.trim() || undefined;
   if (runtime && runtime !== "escode-cli-rust" && runtime !== "node") {
     throw new Error("Unsupported ESCODE_AGENT_SERVER_RUNTIME");
   }
+  // 默认 Rust 只属于桌面安装包（Main 注入 ESCODE_DESKTOP_PACKAGED=1，且随包带 Rust 二进制）。远程服务端
+  // （SSH 部署的 entry-stdio）没有随包 Rust 二进制，未设置时保持 Node 链，不因「不回退」而整体不可用。
   const defaultRust =
     runtime === undefined &&
+    process.env[ESCODE_DESKTOP_PACKAGED_ENV] === "1" &&
     !process.env.ESCODE_AGENT_SERVER_COMMAND?.trim() &&
     (deps.findDevCommand ?? resolveWorkspaceDevESCodeAgentCommand)(context) === null;
-  const wantsRust = runtime === "escode-cli-rust" || defaultRust;
-  const rustFailed = wantsRust && context.rustRuntimeFailed === true;
-  const rust = wantsRust && !rustFailed;
-  if (rustFailed) {
-    warnLog("escode-cli-rust runtime failed before becoming ready; using Node", {
-      event: "escode_agent.runtime.rust_fallback",
-    });
-  }
+  const rust = runtime === "escode-cli-rust" || defaultRust;
   const baseArgs = parseArgsJson(process.env.ESCODE_AGENT_SERVER_ARGS_JSON) ?? [
     "app-server",
     "--stdio",
@@ -532,8 +531,7 @@ export function resolveDefaultESCodeAgentCommand(
     cwd,
     ...rustPluginHostEnv(context),
   });
-  // 显式命令在 Rust 启动失败后同样让位给 Node 链：该命令本身就是失败的 Rust 二进制。
-  const command = rustFailed ? undefined : process.env.ESCODE_AGENT_SERVER_COMMAND?.trim();
+  const command = process.env.ESCODE_AGENT_SERVER_COMMAND?.trim();
   if (command) {
     const cwd = process.env.ESCODE_AGENT_SERVER_CWD?.trim() || context.workspacePath;
     return applyPresentationSurfaceToCommand(
@@ -549,11 +547,15 @@ export function resolveDefaultESCodeAgentCommand(
         context.presentationSurface,
       );
     }
-    // 没有随包二进制（显式选择或默认）：回退 Node 保证可用，同时留下可诊断的记录。
-    warnLog("escode-cli-rust runtime selected but no bundled binary was found; using Node", {
+    // 修复原因：旧实现在这里静默改用 Node，Rust 期会话（rust-sessions.sqlite）随之全部打不开。
+    // 选中 Rust 却没有随包二进制属于安装包缺陷，直接报错，不切换 runtime。
+    errorLog("escode-cli-rust runtime selected but no bundled binary was found", {
       event: "escode_agent.runtime.rust_binary_missing",
       explicit: runtime === "escode-cli-rust",
     });
+    throw new Error(
+      "ESCode Rust runtime (escode-cli-rust) is not installed. Reinstall ESCode, or set ESCODE_AGENT_SERVER_RUNTIME=node to use the Node runtime explicitly.",
+    );
   }
 
   // 顺序：env 显式覆盖 → monorepo dev 源码/dist（dev 改源码立刻生效，不会被远端历史装的 native binary
@@ -641,6 +643,12 @@ export function wrapESCodeAgentCommandWithStdioTapDevProxy(
   };
 }
 
+/**
+ * Rust runtime 因 workspace owner 锁被其他进程持有而退出的退出码（apps/escode-cli-rust
+ * WORKSPACE_OWNED_EXIT_CODE）。这是所有权冲突，不是 runtime 故障，不能触发 Node 回退。
+ */
+export const RUST_WORKSPACE_OWNED_EXIT_CODE = 75;
+
 export class ESCodeAgentProcessManager {
   private readonly processesByWorkspaceKey = new Map<string, ManagedESCodeAgentProcess>();
   private readonly ownedProcesses = new Set<ManagedESCodeAgentProcess>();
@@ -672,8 +680,6 @@ export class ESCodeAgentProcessManager {
   }
 
   private readonly commandResolver: ESCodeAgentCommandResolver;
-  /** 以 Rust 启动的进程在就绪前失败过；只增不减，之后解析一律走 Node（rust-packaging.md）。 */
-  private rustRuntimeFailed = false;
   private readonly presentationSurface: ESCodeAgentProcessManagerOptions["presentationSurface"];
   private readonly requestTimeoutMs: number | undefined;
   private readonly processLifecycleReporter: RuntimeProcessLifecycleReporter | undefined;
@@ -814,19 +820,32 @@ export class ESCodeAgentProcessManager {
     });
   }
 
-  /** Rust 进程就绪前失败：记录一次并让后续解析回退 Node；已就绪后的故障按普通重启处理。 */
+  /**
+   * Rust 进程就绪前失败只做诊断记录，不改变后续 runtime 选择（docs/specs/rust-packaging.md「不回退 Node」）。
+   * 修复原因：旧实现在这里置位只增不减的 rustRuntimeFailed，之后本 manager 一律改用 Node；Rust 期会话
+   * 存在 rust-sessions.sqlite，Node 读不到，打开历史会话即报 fault.subscribe.sessionNotFound。
+   */
   private noteRustStartupFailure(
     command: ESCodeAgentCommand,
     managed: ManagedESCodeAgentProcess,
     reason: "spawn_error" | "exit_before_ready",
+    exitCode?: number | null,
   ): void {
-    if (command.runtime !== "escode-cli-rust" || managed.readyAt != null || this.rustRuntimeFailed) {
+    if (command.runtime !== "escode-cli-rust" || managed.readyAt != null) {
       return;
     }
-    this.rustRuntimeFailed = true;
-    warnLog("ESCode agent Rust runtime failed before ready; later starts use Node", {
+    if (exitCode === RUST_WORKSPACE_OWNED_EXIT_CODE) {
+      warnLog("ESCode agent Rust runtime found the workspace owned by another runtime", {
+        event: "escode_agent.runtime.rust_workspace_owned",
+        workspaceKey: managed.runtimeIdentity.workspaceKey,
+        runtimeIdentity: managed.runtimeIdentity.identity,
+      });
+      return;
+    }
+    errorLog("ESCode agent Rust runtime failed before ready", {
       event: "escode_agent.runtime.rust_startup_failed",
       reason,
+      ...(exitCode != null ? { exitCode } : {}),
       workspaceKey: managed.runtimeIdentity.workspaceKey,
       runtimeIdentity: managed.runtimeIdentity.identity,
     });
@@ -920,7 +939,21 @@ export class ESCodeAgentProcessManager {
     );
   }
 
-  private async cleanupManagedProcessWithRetry(
+  private cleanupManagedProcessWithRetry(
+    managed: ManagedESCodeAgentProcess,
+    reason: AgentProcessCleanupReason,
+    retryReason: AgentProcessCleanupReason,
+    retryScope: string,
+  ): Promise<void> {
+    const run = this.runCleanupManagedProcessWithRetry(managed, reason, retryReason, retryScope);
+    managed.retirementSettled ??= run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async runCleanupManagedProcessWithRetry(
     managed: ManagedESCodeAgentProcess,
     reason: AgentProcessCleanupReason,
     retryReason: AgentProcessCleanupReason,
@@ -1073,6 +1106,37 @@ export class ESCodeAgentProcessManager {
     this.reportRuntimeReady(managed);
   }
 
+  /**
+   * 修复原因：请求超时 / 协议关闭会先把旧一代 runtime 移出注册表、再异步回收进程树。旧实现紧接着就为同一
+   * workspace 拉起新一代，旧进程仍持有 Rust workspace owner 锁 → 新进程以 75 退出 → 被误判为 Rust 故障。
+   * 这里在解析命令前等待同 workspace 的退休进程退出；边界由旧进程自身的回收编排给出（回收结束即放行，
+   * 即使回收失败也不无限等待），不额外引入超时。
+   */
+  private async waitForRetiringRuntimes(workspaceKey: string): Promise<void> {
+    const retiring = [...this.ownedProcesses].filter(
+      (managed) =>
+        managed.runtimeIdentity.workspaceKey === workspaceKey &&
+        !managed.exited &&
+        managed.retirementSettled !== undefined &&
+        this.processesByWorkspaceKey.get(workspaceKey) !== managed,
+    );
+    if (retiring.length === 0) return;
+    const waitStartedAt = Date.now();
+    log("ESCode agent waiting for retiring runtime before start", {
+      workspaceKey,
+      pids: retiring.map((managed) => managed.child.pid),
+    });
+    await Promise.all(
+      retiring.map((managed) =>
+        Promise.race([managed.exitPromise, managed.retirementSettled as Promise<void>]),
+      ),
+    );
+    log("ESCode agent retiring runtime wait completed", {
+      workspaceKey,
+      durationMs: Date.now() - waitStartedAt,
+    });
+  }
+
   private async startClient(
     params: {
       workspacePath: string;
@@ -1083,11 +1147,11 @@ export class ESCodeAgentProcessManager {
     admissionSignal: AbortSignal,
   ): Promise<ESCodeProtocolClient> {
     const startStartedAt = Date.now();
+    await this.waitForRetiringRuntimes(workspaceKey);
     const resolveCommandStartedAt = Date.now();
     const command = await this.commandResolver({
       ...params,
       ...(this.presentationSurface ? { presentationSurface: this.presentationSurface } : {}),
-      ...(this.rustRuntimeFailed ? { rustRuntimeFailed: true } : {}),
       workspaceKey,
     });
     const resolveCommandDurationMs = Date.now() - resolveCommandStartedAt;
@@ -1237,10 +1301,16 @@ export class ESCodeAgentProcessManager {
       ...(this.lane ? { lane: this.lane } : {}),
       workspaceKey,
     };
+    let resolveExit!: () => void;
+    const exitPromise = new Promise<void>((resolve) => {
+      resolveExit = resolve;
+    });
     const managed: ManagedESCodeAgentProcess = {
       child,
       client,
       exited: false,
+      exitPromise,
+      resolveExit,
       readyReported: false,
       runtimeIdentity,
       runtimeInstanceId,
@@ -1349,6 +1419,7 @@ export class ESCodeAgentProcessManager {
       this.noteRustStartupFailure(effectiveCommand, managed, "spawn_error");
       if (child.pid == null) {
         this.ownedProcesses.delete(managed);
+        managed.resolveExit();
       }
     });
     child.once("exit", async (code, signal) => {
@@ -1357,8 +1428,10 @@ export class ESCodeAgentProcessManager {
       const endedAt = Date.now();
       const terminationKind = managed.terminationIntent?.kind ?? "unexpected";
       if (terminationKind === "unexpected") {
-        this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready");
+        this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready", code);
       }
+      // 必须在回退判定之后放行：等待中的新一代 runtime 解析命令时要看到本次判定结果。
+      managed.resolveExit();
       // 协议解析/stream 故障会先触发 protocol-close，再由 Host 用 SIGTERM
       // 回收仍存活的进程。若只透传主动 termination intent，desktop 只能看到最终信号，
       // 无法区分协议故障与受控退出；保留首次 cleanup 原因作为结构化根因。
@@ -1459,11 +1532,8 @@ export class ESCodeAgentProcessManager {
         runtimeIdentity: runtimeIdentity.identity,
         wasActiveClient,
       });
-      // 协议关闭先于 child exit 事件到达，且会立即移除登记；若只在 exit 里判定，
-      // 订阅方紧接着的重连仍会解析到失败的 Rust。非主动终止的关闭在这里就记下。
-      if (!managed.terminationIntent) {
-        this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready");
-      }
+      // Rust 就绪前失败的判定统一放在 exit 里（需要退出码区分 workspace 所有权冲突）。协议关闭先于 exit
+      // 到达也不会让紧接着的重连解析到失败的 Rust：startClient 会先等待本进程退出（waitForRetiringRuntimes）。
       if (wasActiveClient) {
         this.processesByWorkspaceKey.delete(workspaceKey);
       }
@@ -1505,8 +1575,7 @@ export class ESCodeAgentProcessManager {
       const command = await this.commandResolver({
         ...params,
         ...(this.presentationSurface ? { presentationSurface: this.presentationSurface } : {}),
-        ...(this.rustRuntimeFailed ? { rustRuntimeFailed: true } : {}),
-        workspaceKey,
+          workspaceKey,
       });
       return command
         ? { available: true, workspaceKey }

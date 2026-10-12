@@ -4,7 +4,7 @@ use crate::{
     contract::{Output, StorageCommitFailure},
     domain::protocol::{Request, rpc_error},
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde_json::json;
 
 impl Engine {
@@ -111,15 +111,32 @@ impl Engine {
             // 应用用量统计（TS getUsageStats：queryAppUsage + buildAppUsageSnapshot）。
             "v4/usage/stats" => self.usage_stats(&request.params).await,
             // 会话用量（TS getTaskTokenUsage → usage store queryTaskUsage）。
+            // 修复原因：分支内的 `?` 会让 request() 本身返回 Err，serve 循环随之退出、进程 exit 1；
+            // 参数校验失败只能作为本请求的 RPC 错误返回（见 docs/specs/rust-plugins.md「请求级错误隔离」）。
             "v4/conversation/usage" => {
-                let session = request.params["sessionId"].as_str().filter(|s| !s.is_empty()).context("sessionId is required")?;
-                self.store.usage(serde_json::json!({ "op": "task", "sessionId": session })).await
+                match request.params["sessionId"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                {
+                    Some(session) => {
+                        self.store
+                            .usage(serde_json::json!({ "op": "task", "sessionId": session }))
+                            .await
+                    }
+                    None => Err(anyhow::anyhow!("sessionId is required")),
+                }
             }
             // 后台 Bash 详情的输出尾窗：观察查询，不恢复冷会话（TS readBackgroundBashOutputFromOwner）。
             "v4/conversation/backgroundBashOutput" => {
-                let session = request.params["sessionId"].as_str().context("sessionId is required")?;
-                let work = request.params["workId"].as_str().filter(|w| !w.is_empty()).context("workId is required")?;
-                Ok(self.tools.background_bash_output(session, work).await)
+                let session = request.params["sessionId"].as_str();
+                let work = request.params["workId"].as_str().filter(|w| !w.is_empty());
+                match (session, work) {
+                    (None, _) => Err(anyhow::anyhow!("sessionId is required")),
+                    (_, None) => Err(anyhow::anyhow!("workId is required")),
+                    (Some(session), Some(work)) => {
+                        Ok(self.tools.background_bash_output(session, work).await)
+                    }
+                }
             }
             // V4 工作流只读查询（run 枚举 / 事件 / 产物 / 工作区）：工作流宿主按 Node 网关应答。
             "v4/conversation/workflowRuns"
@@ -138,49 +155,33 @@ impl Engine {
             "session/resume" => self.resume_session(&request.params).await,
             // legacy 消息分页读（TS readMessages；App `readSessionMessages` 仍在用）。
             "session/messages" => self.read_messages(&request.params),
+            // 修复原因：plugins/* 是控制面方法。Host 的插件管理进程固定以 ~/.escode/plugin-workspace 为 cwd，
+            // 真实 workspace 由协议参数 `workspace.workspacePath` 给出（与 Node 一致，不比对 runtime 自身
+            // workspace）。旧实现在这里 validate_workspace()? 必然不匹配，且 `?` 直接结束进程，Host 因此把
+            // Rust 判为「就绪前失败」（docs/specs/rust-plugins.md「插件控制面的 workspace 语义」）。
             // App 插件页读面（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话。
-            "plugins/list" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_list(&request.params).await
-            }
+            "plugins/list" => self.tools.plugin_list(&request.params).await,
             // 插件页开关（第 2 期）：落盘 enabledPlugins，新会话按新配置装载插件。
-            "plugins/setEnabled" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_set_enabled(&request.params).await
-            }
+            "plugins/setEnabled" => self.tools.plugin_set_enabled(&request.params).await,
             // 插件选项面（第 4 期）：写 options / 恢复继承。
             "plugins/configure" => {
-                self.validate_workspace(&request.params)?;
                 self.tools
                     .plugin_configure(&request.params, request.raw_params.as_deref())
                     .await
             }
-            "plugins/resetConfig" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_reset_config(&request.params).await
-            }
+            "plugins/resetConfig" => self.tools.plugin_reset_config(&request.params).await,
             // 市场删除（写面 W4）；安装 / 更新 / 市场增刷走后台作业（plugin_jobs.rs）。
             "plugins/marketplace/remove" => {
-                self.validate_workspace(&request.params)?;
                 self.tools
                     .plugin_operation(&request.method, &request.params, &Default::default())
                     .await
             }
             "plugins/cancelOperation" => self.cancel_plugin_operation(&request.params),
             // 插件卸载 / 恢复内置（写面 W1a）。
-            "plugins/uninstall" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_uninstall(&request.params).await
-            }
-            "plugins/restoreBuiltin" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_restore_builtin(&request.params).await
-            }
+            "plugins/uninstall" => self.tools.plugin_uninstall(&request.params).await,
+            "plugins/restoreBuiltin" => self.tools.plugin_restore_builtin(&request.params).await,
             // 插件页概览（第 3 期）：市场摘要 + 目录条目 + 已安装记录 + 可恢复内置。
-            "plugins/overview" => {
-                self.validate_workspace(&request.params)?;
-                self.tools.plugin_overview(&request.params).await
-            }
+            "plugins/overview" => self.tools.plugin_overview(&request.params).await,
             // 对话 Picker 的插件引用目录（第 3 期）：session 冻结身份 / workspace 现算。
             "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory" => {
                 self.plugin_reference_catalog(&request.method, &request.params)

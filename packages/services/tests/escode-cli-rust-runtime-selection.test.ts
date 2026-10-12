@@ -63,7 +63,9 @@ test("the Rust command carries the Node plugin host used by official plugin seed
   });
 });
 
-// 默认 runtime 为 Rust（安装态，没有 monorepo 开发入口）：不设变量即用随包二进制；开发态与显式 node 保持 Node。
+// 默认 runtime 为 Rust（桌面安装包：Main 注入 ESCODE_DESKTOP_PACKAGED=1，没有 monorepo 开发入口）：不设变量即用随包
+// 二进制；开发态、显式 node 与非桌面安装包（远程服务端）保持 Node。不存在自动回退（docs/specs/rust-packaging.md）。
+const PACKAGED = { ESCODE_DESKTOP_PACKAGED: "1" } as const;
 const installed = { ...bundled, findDevCommand: () => null };
 const installedMissing = { ...missing, findDevCommand: () => null };
 const dev = {
@@ -72,21 +74,30 @@ const dev = {
 };
 
 test("the default runtime is the bundled Rust binary in an installed app", () => {
-  const command = withEnv({}, () => resolveDefaultESCodeAgentCommand(context, installed));
+  const command = withEnv(PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installed));
   assert.equal(command?.command, "/res/glm/escode-cli-rust");
   assert.equal(command?.runtime, "escode-cli-rust");
   assert.deepEqual(command?.args, ["app-server", "--stdio", "--cwd", "/work/space"]);
 });
 
-test("the default falls back to Node when the binary is missing, in development, after a Rust failure, or when node is chosen", () => {
-  const notRust = (command: ReturnType<typeof resolveDefaultESCodeAgentCommand>) =>
-    assert.notEqual(command?.command, "/res/glm/escode-cli-rust");
-  notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, installedMissing)));
-  notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, dev)));
-  notRust(
-    withEnv({}, () => resolveDefaultESCodeAgentCommand({ ...context, rustRuntimeFailed: true }, installed)),
+test("an installed app without the Rust binary reports an error instead of switching to Node", () => {
+  assert.throws(
+    () => withEnv(PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installedMissing)),
+    /Rust runtime \(escode-cli-rust\) is not installed/,
   );
-  notRust(withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "node" }, () => resolveDefaultESCodeAgentCommand(context, installed)));
+});
+
+test("development, an explicit node choice and non-desktop hosts keep the Node runtime", () => {
+  const notRust = (command: ReturnType<typeof resolveDefaultESCodeAgentCommand>) => {
+    assert.notEqual(command?.command, "/res/glm/escode-cli-rust");
+    assert.equal(command?.runtime, undefined);
+  };
+  notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, dev)));
+  notRust(withEnv({ ...PACKAGED, ESCODE_AGENT_SERVER_RUNTIME: "node" }, () =>
+    resolveDefaultESCodeAgentCommand(context, installed),
+  ));
+  // 远程服务端（entry-stdio）没有桌面打包标记，也不带随包 Rust 二进制：维持 Node 链。
+  notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, installedMissing)));
 });
 
 // docs/specs/rust-packaging.md「打包态隔离」：用例在仓库内运行，cwd 向上必能探测到 monorepo 开发入口。
@@ -109,12 +120,14 @@ test("a packaged app ignores monorepo dev entries found above its cwd", () => {
   assert.notEqual(development?.command, "/res/glm/escode-cli-rust");
 });
 
-test("a missing bundled Rust binary falls back to the Node runtime instead of failing", () => {
-  const command = withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust" }, () =>
-    resolveDefaultESCodeAgentCommand(context, missing),
+test("an explicit escode-cli-rust choice without the binary fails instead of using Node", () => {
+  assert.throws(
+    () =>
+      withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust" }, () =>
+        resolveDefaultESCodeAgentCommand(context, missing),
+      ),
+    /Rust runtime \(escode-cli-rust\) is not installed/,
   );
-  assert.notEqual(command?.command, "/res/glm/escode-cli-rust");
-  assert(!command?.args?.includes("--cwd"), "Node fallback must not receive Rust-only --cwd");
 });
 
 test("an explicit command still wins and keeps the Rust contract when the runtime is Rust", () => {
@@ -206,21 +219,14 @@ test("the Host resolves a staged bundled Rust binary and it completes a turn", a
   }
 });
 
-test("after a Rust startup failure the resolver ignores both the bundled and the explicit Rust command", () => {
-  const failed = { ...context, rustRuntimeFailed: true };
-  const bundledRust = withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust" }, () =>
-    resolveDefaultESCodeAgentCommand(failed, bundled),
-  );
-  assert.notEqual(bundledRust?.command, "/res/glm/escode-cli-rust");
-  assert.equal(bundledRust?.runtime, undefined);
-  const explicitRust = withEnv(
-    { ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust", ESCODE_AGENT_SERVER_COMMAND: "/custom/rust" },
-    () => resolveDefaultESCodeAgentCommand(failed, bundled),
-  );
-  assert.notEqual(explicitRust?.command, "/custom/rust");
-  // Rust 命令都带标记，manager 据此判断失败的是 Rust。
+test("Rust commands are marked so the manager can attribute startup failures", () => {
   const rust = withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust" }, () =>
     resolveDefaultESCodeAgentCommand(context, bundled),
   );
   assert.equal(rust?.runtime, "escode-cli-rust");
+  const explicitRust = withEnv(
+    { ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust", ESCODE_AGENT_SERVER_COMMAND: "/custom/rust" },
+    () => resolveDefaultESCodeAgentCommand(context, bundled),
+  );
+  assert.equal(explicitRust?.runtime, "escode-cli-rust");
 });

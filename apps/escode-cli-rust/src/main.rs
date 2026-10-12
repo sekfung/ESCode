@@ -26,6 +26,10 @@ async fn main() {
             &error.to_string(),
             serde_json::Value::Null,
         );
+        // 所有权冲突用专用退出码，Host 据此等待旧 owner 退出后重试，而不是判定 Rust 不可用。
+        if error.is::<escode_cli_state::WorkspaceOwned>() {
+            std::process::exit(escode_cli_state::WORKSPACE_OWNED_EXIT_CODE);
+        }
         std::process::exit(1);
     }
     escode_cli_host::file_log::info(

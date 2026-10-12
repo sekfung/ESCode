@@ -19,5 +19,5 @@ mod storage_read;
 mod storage_session_context;
 mod storage_usage;
 mod storage_usage_app;
-pub use storage::Store;
+pub use storage::{Store, WORKSPACE_OWNED_EXIT_CODE, WorkspaceOwned};
 use escode_cli_host::id;

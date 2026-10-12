@@ -22,7 +22,7 @@ pub(super) const PLUGIN_JOB_METHODS: &[&str] = &[
 
 impl Engine {
     pub(super) fn start_plugin_job(&mut self, request: &Request) -> Result<()> {
-        self.validate_workspace(&request.params)?;
+        // 与 engine_requests 的 plugins/* 同理：后台插件作业按协议参数里的 workspace 执行，不比对 runtime cwd。
         let operation = request.params["operationId"]
             .as_str()
             .map(str::trim)

@@ -269,3 +269,21 @@ scope configure（清键 + 新键顺序 + 非原始值丢弃）、dryRun、user 
 以及每步之后两份配置文件的完整字节；Node 与 Rust 逐值一致。
 
 仍属第 4 期后半（4b）：hook 源发现、`hookDetails` 与 components 的 hook 分组、`packageStatus`。
+
+## 插件控制面的 workspace 语义与请求级错误隔离（2026-10-12）
+
+现场：Host 的插件管理进程固定以 `~/.escode/plugin-workspace` 为 cwd（`ensurePluginManagementWorkspacePath`），真实
+workspace 经协议参数 `workspace.workspacePath` 传入。Rust 的 `plugins/*` 分支先做 `validate_workspace(...)?`，参数与
+runtime 自身 workspace 必然不同；且分支内的 `?` 让 `request()` 返回 `Err`，`serve` 循环随之结束、进程 exit 1
+（stderr `Workspace identity mismatch`）。Host 把它记为 Rust 就绪前失败。
+
+规则：
+
+- `plugins/list|setEnabled|configure|resetConfig|marketplace/remove|uninstall|restoreBuiltin|overview` 与后台插件作业
+  （`plugin_jobs.rs`）按参数里的 workspace 执行，不与 runtime workspace 比对（与 Node `server.ts` 一致）；缺少
+  `workspacePath` 由插件工具返回 RPC 错误。`plugins/referenceCatalog*` 的会话/workspace 权威不变。
+- 请求级错误（参数缺失、校验失败）只能作为该请求的 JSON-RPC 错误返回；只有存储提交失败与传输错误可以结束进程。
+  `v4/conversation/usage`、`v4/conversation/backgroundBashOutput` 的必填参数校验同步修正。
+- 用例：`packages/services/tests/escode-cli-rust-plugins-control-plane.test.ts`（参数 workspace ≠ cwd 时 list/overview
+  正常；缺参数回 RPC 错误后进程继续服务；owner 被占用时第二个 runtime 以 75 退出）。修复前两条用例以与现场相同的
+  stderr 失败。
