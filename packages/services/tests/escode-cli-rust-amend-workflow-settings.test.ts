@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dirname, join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
-import { availableParallelism, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { resolveWorkflowDefaultConcurrency } from "../../../apps/escode-cli/packages/bootstrap/src/app/workflow-default-concurrency.js";
 
-// 修复（CI macOS 偶发失败）：run 的并发天花板是 `max(1, min(16, availableParallelism()-2))`（TS
-// workflow-concurrency-ceiling.ts）。3 核的 macOS runner 上天花板就是 1，就地调到 1 会被读成 unchanged，
-// 不落设置轮，用例一直等第四行直到超时。天花板为 1 时没有更低的界可调，此时只校验两侧同样拒绝。
-const CAN_RETUNE = Math.max(1, Math.min(16, availableParallelism() - 2)) > 1;
+// 默认并发直接问实现（bootstrap/app/workflow-default-concurrency.ts 是唯一实现，
+// docs/dynamic-workflow/concurrency.md）：`max(4, min(16, availableParallelism() − 2))`。
+// 这里曾抄公式且地板仍是 1：3 核的 macOS runner 上默认并发其实是 4，就地调到 1 是有效 retune，
+// 抄来的公式却判 unchanged，macOS CI 必红。地板为 4 时 CAN_RETUNE 恒真，else 分支只作防御保留。
+const CAN_RETUNE = resolveWorkflowDefaultConcurrency() > 1;
 const SETTINGS_ROWS = CAN_RETUNE ? 4 : 2;
 
 // docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」：run 卡 / 详情页「配置」的「应用」在
