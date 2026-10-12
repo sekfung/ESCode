@@ -13,7 +13,12 @@ SilentInstall silent
 !define APP_FILENAME "ESCode"
 !define APP_ID "dev.escode.preserve-files-smoke"
 !define UNINSTALL_FILENAME "uninstaller.exe"
-!define isUpdated `1 == 1`
+!ifdef FULL_UNINSTALL
+  ; 普通卸载（非覆盖更新）路径：验证安装目录树内 .escode 的保留语义。
+  !define isUpdated `1 == 0`
+!else
+  !define isUpdated `1 == 1`
+!endif
 ; This fixture has no electron-builder uninstaller.nsh section; use a normal function for log smoke coverage.
 !ifdef BUILD_UNINSTALLER
   !define ESCODE_UNINSTALLER_FUNCTION_PREFIX ""
@@ -45,6 +50,12 @@ Section
   FileOpen $0 "$INSTDIR\user-data.txt" w
   FileWrite $0 "keep me"
   FileClose $0
+  !ifdef NESTED_DATA_DIR
+    CreateDirectory "$INSTDIR\data\.escode\cli\db"
+    FileOpen $0 "$INSTDIR\data\.escode\cli\db\db.sqlite" w
+    FileWrite $0 "session data"
+    FileClose $0
+  !endif
   !insertmacro customRemoveFiles
   IfFileExists "$INSTDIR\owned-by-escode.txt" 0 escodeOwnedRemoved
     StrCpy $1 "present"

@@ -20,11 +20,32 @@ managed 覆盖更新只清理由 ESCode 发行包声明拥有的文件，安装�
 
 ## 兼容和边界
 
-- 普通卸载（无 `--updated`）继续由 electron-builder 默认流程处理；本规范只改变覆盖更新的清理阶段。
+- 普通卸载（无 `--updated`）默认仍整目录删除 `$INSTDIR`，但有一个例外，见下节「普通卸载的数据保留」。
 - 安装目录之外的数据目录（例如 `%USERPROFILE%\.escode`）不在清单范围内，也不会被更新清理。
 - 清单只记录文件，不主动删除空目录，因此目录中无关文件和目录结构均保留。
+
+## 普通卸载的数据保留
+
+历史版本允许把数据存储目录（`dataBaseDir`）放进安装目录。普通卸载的 `RMDir /r $INSTDIR` 会把其中的
+`.escode`（任务索引 `v2/`、会话库 `cli/db/`）一起删除；重装后任务列表与会话正文可能都丢失，或者只剩一边，
+打开历史会话时报 `fault.subscribe.sessionNotFound`。
+
+规则（`customRemoveFiles`，仅卸载器编译 `BUILD_UNINSTALLER` 生效）：
+
+| 清理模式 | 触发条件 | 行为 |
+|---|---|---|
+| `manifest` | 覆盖更新（`--updated`） | 原有清单删除语义，不变 |
+| `preserve-data` | 普通卸载，且 `$INSTDIR` 及其任意子目录存在 `.escode` | 只按清单删除 ESCode 文件，再删除卸载器自身；`.escode`、空目录和清单外文件全部保留；清单缺失时不删除任何文件 |
+| `full` | 普通卸载，且安装目录树内没有 `.escode` | 保持 electron-builder 的整目录删除 |
+
+- `.escode` 的判定与安装器阻断页一致：递归查找，命中第一个即停。
+- 命中后写卸载器日志 `uninstall-preserve-data path=<路径>`，并弹出提示框（静默卸载自动确认），告知数据保留位置，
+  重装时需选择其他安装目录，并建议在「设置 → 通用 → 数据存储路径」中迁出。
+- 保留后的安装目录不再含清单，重装到同一目录时由安装器阻断页拦截，引导用户换目录。
 
 ## 验证要求
 
 - NSIS 隔离夹具验证：带清单时列出的旧应用文件被删除、未列出的 `user-data.txt` 保留；新卸载器清单缺失时所有旧文件保留；删除被 Windows 文件句柄阻断时返回非零并写入 `cleanup-failed` 与数字 PID。旧卸载器的 legacy 递归清理不在本阶段覆盖范围内。
+- 普通卸载夹具（`FULL_UNINSTALL`）：安装目录含 `data\.escode\cli\db\db.sqlite` 时数据与 `user-data.txt` 保留、清单文件被删除、日志含 `uninstall-preserve-data`；不含 `.escode` 时整目录删除。
+- Linux/macOS 上只做 `/WX` 编译校验；运行时断言（`scripts/test-installer-preserve-files.mjs`）只在 Windows 执行。
 - 夹具使用 electron-builder 对应的真实 NSIS 编译器；不写入真实安装目录、桌面、开始菜单或产品注册表。

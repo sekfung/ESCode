@@ -123,6 +123,53 @@ if (process.platform !== "win32") {
       throw new Error(`uninstaller log is missing a positive PID: ${failureLog}`);
     }
 
+    // 普通卸载（非覆盖更新）：安装目录树内有 .escode 时只按清单删除并保留数据；没有时整目录删除。
+    for (const [scenario, nestedDataDir] of [
+      ["full-uninstall-with-data", true],
+      ["full-uninstall-without-data", false],
+    ]) {
+      const outputPath = join(tempRoot, `${scenario}.exe`);
+      const installDir = join(tempRoot, scenario);
+      const compileArgs = [
+        "/V2",
+        "/WX",
+        "/DBUILD_UNINSTALLER",
+        "/DFULL_UNINSTALL",
+        `/DNSIS_INCLUDE_DIR=${resolve(nsisDir, "Include")}`,
+        `/DELECTRON_BUILDER_NSIS_INCLUDE_DIR=${resolve(appBuilderLibDir, "templates/nsis/include")}`,
+        `/DNSIS_PLUGIN_DIR=${resolve(nsisResourcesDir, "plugins/x86-unicode")}`,
+        `/DESCODE_INSTALLER_NSH=${installerNshPath}`,
+        `/DFIXTURE_EXE=${process.env.ComSpec ?? "C:\\Windows\\System32\\cmd.exe"}`,
+        `/DOUTPUT_FILE=${outputPath}`,
+        `/DESCODE_UNINSTALLER_LOG_PATH=${join(tempRoot, `${scenario}-uninstaller.log`)}`,
+      ];
+      if (nestedDataDir) compileArgs.push("/DNESTED_DATA_DIR");
+      compileArgs.push(fixturePath);
+      execFileSync(makensisPath, compileArgs, {
+        cwd: workspaceDir,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      execFileSync(outputPath, ["/S", `/D=${installDir}`], { encoding: "utf-8" });
+      if (nestedDataDir) {
+        if (!existsSync(join(installDir, "data", ".escode", "cli", "db", "db.sqlite"))) {
+          throw new Error(`${scenario}: nested .escode data was removed`);
+        }
+        if (existsSync(join(installDir, "owned-by-escode.txt"))) {
+          throw new Error(`${scenario}: manifest-owned file was not removed`);
+        }
+        if (!existsSync(join(installDir, "user-data.txt"))) {
+          throw new Error(`${scenario}: unrelated file was removed`);
+        }
+        const log = readFileSync(join(tempRoot, `${scenario}-uninstaller.log`), "utf8");
+        if (!log.includes("uninstall-preserve-data path=")) {
+          throw new Error(`${scenario}: uninstaller log is missing preserve marker: ${log}`);
+        }
+      } else if (existsSync(join(installDir, "owned-by-escode.txt"))) {
+        throw new Error(`${scenario}: full uninstall did not remove the install directory`);
+      }
+    }
+
     process.stdout.write("[installer-preserve-files] passed\n");
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });

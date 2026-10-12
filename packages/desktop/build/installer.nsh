@@ -69,12 +69,73 @@
   !macro customRemoveFilesDiagnosticsComplete
     !insertmacro ESCodeReportUninstallerStage "cleanup-completed"
   !macroend
+
+  Var ESCodeUninstallDataDir
+
+  ; 修复原因：历史版本允许把数据存储目录放进安装目录，普通卸载的 RMDir /r $INSTDIR
+  ; 会连同 .escode（会话库 cli/db、任务索引 v2）一起删除，重装后历史会话无法打开。
+  ; 与安装器阻断页同一判据：递归命中安装目录树中任意 .escode 即视为用户数据，命中即停。
+  Function ${ESCODE_UNINSTALLER_FUNCTION_PREFIX}ESCodeFindUninstallDataDir
+    Exch $R9
+    Push $0
+    Push $1
+
+    IfFileExists "$R9\.escode\*.*" escodeFindUninstallDataDirHit 0
+    IfFileExists "$R9\.escode" escodeFindUninstallDataDirHit escodeFindUninstallDataDirListChildren
+
+    escodeFindUninstallDataDirHit:
+      StrCpy $ESCodeUninstallDataDir "$R9\.escode"
+      Goto escodeFindUninstallDataDirDone
+
+    escodeFindUninstallDataDirListChildren:
+      FindFirst $0 $1 "$R9\*"
+      IfErrors escodeFindUninstallDataDirDone
+
+    escodeFindUninstallDataDirNext:
+      StrCmp $1 "" escodeFindUninstallDataDirClose
+      StrCmp $1 "." escodeFindUninstallDataDirContinue
+      StrCmp $1 ".." escodeFindUninstallDataDirContinue
+      IfFileExists "$R9\$1\*.*" 0 escodeFindUninstallDataDirContinue
+        Push "$R9\$1"
+        Call ${ESCODE_UNINSTALLER_FUNCTION_PREFIX}ESCodeFindUninstallDataDir
+        StrCmp $ESCodeUninstallDataDir "" escodeFindUninstallDataDirContinue escodeFindUninstallDataDirClose
+
+    escodeFindUninstallDataDirContinue:
+      FindNext $0 $1
+      IfErrors escodeFindUninstallDataDirClose
+      Goto escodeFindUninstallDataDirNext
+
+    escodeFindUninstallDataDirClose:
+      FindClose $0
+
+    escodeFindUninstallDataDirDone:
+      Pop $1
+      Pop $0
+      Pop $R9
+  FunctionEnd
 !endif
 
 !macro customRemoveFiles
   ; Bugfix：electron-builder 默认在更新时递归删除整个 $INSTDIR，用户放入的无关文件也会被清掉。
   ; 只按上一版本随包生成的所有权清单删除，清单缺失时迁移旧版本采用 fail-open 保留策略。
+  ; $R3 是本次清理模式：full（普通卸载、无数据）/ manifest（覆盖更新）/ preserve-data
+  ; （普通卸载但安装目录树内有 .escode：只删清单文件，保留用户数据）。
+  StrCpy $R3 "full"
   ${if} ${isUpdated}
+    StrCpy $R3 "manifest"
+  ${else}
+    !ifdef BUILD_UNINSTALLER
+      StrCpy $ESCodeUninstallDataDir ""
+      Push "$INSTDIR"
+      Call ${ESCODE_UNINSTALLER_FUNCTION_PREFIX}ESCodeFindUninstallDataDir
+      StrCmp $ESCodeUninstallDataDir "" escodeRemoveModeResolved 0
+        StrCpy $R3 "preserve-data"
+        !insertmacro ESCodeReportUninstallerStage "uninstall-preserve-data path=$ESCodeUninstallDataDir"
+      escodeRemoveModeResolved:
+    !endif
+  ${endIf}
+
+  ${if} $R3 != "full"
     !ifdef BUILD_UNINSTALLER
       !insertmacro customRemoveFilesDiagnosticsStart
     !endif
@@ -131,8 +192,15 @@
       !ifdef BUILD_UNINSTALLER
         !insertmacro customRemoveFilesDiagnosticsComplete
       !endif
+    ${if} $R3 == "preserve-data"
+      ; 清单跳过了卸载器自身；普通卸载结束后它不再有用，单独删除。空目录和 .escode 保留。
+      Delete "$INSTDIR\${UNINSTALL_FILENAME}"
+      !ifdef BUILD_UNINSTALLER
+        MessageBox MB_OK|MB_ICONINFORMATION "安装目录中检测到 ESCode 数据目录，已保留未删除：$\r$\n$ESCodeUninstallDataDir$\r$\n$\r$\n重新安装时请选择其他安装目录；应用仍会从该位置读取数据，建议之后在「设置 → 通用 → 数据存储路径」中迁移到安装目录之外。" /SD IDOK
+      !endif
+    ${endIf}
   ${else}
-    ; 普通卸载仍保持 electron-builder 的全量删除语义；ownership 清单只约束覆盖更新。
+    ; 普通卸载且安装目录树内没有 .escode：保持 electron-builder 的全量删除语义。
     SetOutPath $TEMP
     RMDir /r $INSTDIR
   ${endIf}

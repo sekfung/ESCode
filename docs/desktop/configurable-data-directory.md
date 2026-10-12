@@ -83,6 +83,11 @@ Windows 安装包不会禁止用户选择任意安装目录。为覆盖历史版
 
 该阻断保护只面向安装包流程，不替代设置页的数据迁移校验。
 
+### 卸载保留保护
+
+普通卸载命中安装目录树内的 `.escode` 时，卸载器只删除清单内的应用文件并保留数据目录，详见
+[windows-installer-preserve-files.md](./windows-installer-preserve-files.md)「普通卸载的数据保留」。
+
 ## UI 交互流程
 
 1. 只读路径框默认显示当前生效路径（已配置的路径或 homedir）
