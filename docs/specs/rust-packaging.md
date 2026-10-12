@@ -54,5 +54,9 @@ sequenceDiagram
 
 - 选择顺序：`ESCODE_AGENT_SERVER_RUNTIME=node` → Node；`=escode-cli-rust` → Rust；**未设置**时，若无自定义命令且不在 monorepo
   开发态（开发入口在场即保持 Node，改源码立刻生效），用随包 Rust 二进制。找不到二进制、或 Rust 就绪前失败，回退包内 Node。
+- 打包态隔离（2026-10-12）：开发入口按 `process.cwd()` 向上探测，安装包在仓库目录下启动（CI installed job、开发者从终端启动）
+  会误命中 monorepo 源码入口，回到 Node 且因 tsx 入口没有 `storagePreparationEntry` 报 `unsupported_runtime`。Main 在
+  `app.isPackaged` 时向 Host 注入 `ESCODE_DESKTOP_PACKAGED=1`，解析器据此跳过开发入口探测（默认选择、Node 回退链与插件宿主 env
+  三处同口径），打包态的 runtime 选择与 cwd 无关。
 - 打包：`ESCODE_BUNDLE_RUST_AGENT` 默认开启（`=0` 关闭，此时安装包只含 Node，桌面端自动用 Node）。
 - 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖默认选 Rust、二进制缺失 / 开发态 / Rust 失败 / 显式 node 四种回退。

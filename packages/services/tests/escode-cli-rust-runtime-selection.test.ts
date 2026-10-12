@@ -9,6 +9,7 @@ const KEYS = [
   "ESCODE_AGENT_SERVER_COMMAND",
   "ESCODE_AGENT_SERVER_ARGS_JSON",
   "ESCODE_AGENT_SERVER_CWD",
+  "ESCODE_DESKTOP_PACKAGED",
 ] as const;
 
 function withEnv<T>(env: Partial<Record<(typeof KEYS)[number], string>>, run: () => T): T {
@@ -86,6 +87,26 @@ test("the default falls back to Node when the binary is missing, in development,
     withEnv({}, () => resolveDefaultESCodeAgentCommand({ ...context, rustRuntimeFailed: true }, installed)),
   );
   notRust(withEnv({ ESCODE_AGENT_SERVER_RUNTIME: "node" }, () => resolveDefaultESCodeAgentCommand(context, installed)));
+});
+
+// docs/specs/rust-packaging.md「打包态隔离」：用例在仓库内运行，cwd 向上必能探测到 monorepo 开发入口。
+// 安装包从仓库目录启动时同样如此，打包标记必须让默认选择、Node 回退与插件宿主 env 都忽略开发入口。
+test("a packaged app ignores monorepo dev entries found above its cwd", () => {
+  const packaged = withEnv({ ESCODE_DESKTOP_PACKAGED: "1" }, () =>
+    resolveDefaultESCodeAgentCommand(context, bundled),
+  );
+  assert.equal(packaged?.command, "/res/glm/escode-cli-rust");
+  assert.equal(packaged?.env, undefined, "dev entries must not leak into the plugin host env");
+  const packagedNode = withEnv(
+    { ESCODE_DESKTOP_PACKAGED: "1", ESCODE_AGENT_SERVER_RUNTIME: "node" },
+    () => resolveDefaultESCodeAgentCommand(context, bundled),
+  );
+  assert(
+    !packagedNode?.args?.some((arg) => arg.includes("apps/escode-cli") || arg.includes("apps\\escode-cli")),
+    "packaged Node fallback must not resolve the monorepo CLI entry",
+  );
+  const development = withEnv({}, () => resolveDefaultESCodeAgentCommand(context, bundled));
+  assert.notEqual(development?.command, "/res/glm/escode-cli-rust");
 });
 
 test("a missing bundled Rust binary falls back to the Node runtime instead of failing", () => {

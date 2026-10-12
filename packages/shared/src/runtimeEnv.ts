@@ -10,6 +10,8 @@ export const ESCODE_AGENT_CA_CERT_ENV_KEY = "ESCODE_AGENT_CA_CERT";
 export const ESCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY = "ESCODE_TOOL_ENV_PASSTHROUGH_JSON";
 /** Desktop Main 将服务端裁决的单功能灰度结果传给 Local/Remote Host。 */
 export const ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV = "ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED";
+/** Desktop Main 在 app.isPackaged 时传给 Local Host；Agent 命令解析据此跳过 monorepo 开发入口探测。 */
+export const ESCODE_DESKTOP_PACKAGED_ENV = "ESCODE_DESKTOP_PACKAGED";
 export const ESCODE_CUA_PRODUCT_HELPER_ENV_KEY = "ESCODE_CUA_PRODUCT_HELPER";
 export const ESCODE_CUA_BROKER_SOCKET_ENV_KEY = "ESCODE_CUA_PERMISSION_BROKER_SOCKET";
 /** Shared node_repl host marker; unlike the broker bearer values it is not a secret. */

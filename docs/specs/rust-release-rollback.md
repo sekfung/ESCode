@@ -67,7 +67,9 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
   App 集成差分套件全部通过。期间修复：Linux 上目录项顺序（libuv 按字节序排序）、工作流分析语料行尾、tool-parity 基准表、
   runtime_consistency 模拟工具注册表；工作流恢复用例改为不依赖核数（3 核 runner 上并发天花板为 1）。
 - 安装包真机演练（release 工作流 `installed` 作业）：Windows x64、macOS arm64、macOS x64（原生 Intel runner
-  `macos-15-intel`）、Linux x64 上安装真实安装包（NSIS 静默 / dmg / deb），确认应用能启动并持续运行，再用包内 Node 与 Rust
+  `macos-15-intel`）、Linux x64 上安装真实安装包（NSIS 静默 / dmg / deb），在空临时目录下启动（不继承仓库 checkout 的 cwd），
+  确认应用持续运行 20s 且该窗口内主进程日志 `[database-startup] terminal` 的终态为 `ready`（2026-10-12 起；此前只看进程
+  存活，数据库启动报 `unsupported_runtime` 时作业仍通过），再用包内 Node 与 Rust
   runtime 在同一数据目录上走 Node → Rust → 回退 Node：Rust 读到 Node 写的会话并能继续对话，TS 源库逐字节不变，回退后
   Node 原会话完好且可继续（`escode-cli-rust-installed.test.ts`）。
 - 真实发布（标签 `v3.14.0-rust-rc.1`，release run 37100036941）：6 个 Rust runtime 目标与 4 个平台安装包构建、四平台演练全部

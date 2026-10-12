@@ -381,8 +381,13 @@ export function resolveRemoteAssetDirs(
 }
 
 function resolveBundledESCodeAgentBinaryPath(): string | undefined {
+  return resolveBundledESCodeAgentResourcePath(
+    ESCODE_AGENT_RUNTIME.resolveEntrySegments(process.platform),
+  );
+}
+
+function resolveBundledESCodeAgentResourcePath(entrySegments: string[]): string | undefined {
   const runtime = ESCODE_AGENT_RUNTIME;
-  const entrySegments = runtime.resolveEntrySegments(process.platform);
   const platformKey = resolvePlatformKeyForPackagedApp();
   const candidates = [
     isElectronAppPackaged()
@@ -446,6 +451,25 @@ function resolveBundledLarkCliBinaryPath(): string | undefined {
 
 export function resolveBundledGlmBinaryPath(): string | undefined {
   return resolveBundledESCodeAgentBinaryPath();
+}
+
+/**
+ * 安装包实际随附的 Agent runtime：Rust 二进制与 Electron Node 执行的 zcode.cjs。
+ * Bugfix：启动诊断此前只查旧原生 escode-agent（GLM_BINARY_PATH 语义），它已不再随包，
+ * 每次启动都误报 "missing providers: glm" / "glm binary path: <not found>"，干扰排障。
+ */
+export function resolveBundledAgentRuntimePaths(): {
+  rustBinary: string | undefined;
+  nodeBundle: string | undefined;
+} {
+  return {
+    rustBinary: resolveBundledESCodeAgentResourcePath(
+      ESCODE_AGENT_RUNTIME.resolveRustBinarySegments(process.platform),
+    ),
+    nodeBundle: resolveBundledESCodeAgentResourcePath(
+      ESCODE_AGENT_RUNTIME.resolveNodeBundleSegments(),
+    ),
+  };
 }
 
 function resolveHostProcessBinaryEnv(

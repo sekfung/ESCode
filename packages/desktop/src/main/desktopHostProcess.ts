@@ -22,6 +22,7 @@ import {
   RUNTIME_ESCODE_DEBUG,
   serializeLaunchMarks,
   ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
+  ESCODE_DESKTOP_PACKAGED_ENV,
 } from "@escode/shared";
 import type {
   PluginSandboxHandle,
@@ -44,7 +45,7 @@ import { ingestHostNetworkObservations } from "./desktopNetworkTelemetry.js";
 import {
   buildHostProcessEnv,
   hostModulePath,
-  resolveBundledGlmBinaryPath,
+  resolveBundledAgentRuntimePaths,
 } from "./desktopRuntimeEnv.js";
 import { ingestHostNetworkCapture } from "./resourceManagerNetwork.js";
 import { buildHostE2ECoverageEnv } from "./e2eCoverage.js";
@@ -259,7 +260,7 @@ export function spawnHostProcess(
   options?: SpawnHostProcessOptions,
 ): ElectronUtilityProcess {
   const hostId = randomUUID();
-  const glmBinaryPath = resolveBundledGlmBinaryPath();
+  const bundledAgentRuntime = resolveBundledAgentRuntimePaths();
   const execArgv = [
     ...(RUNTIME_ESCODE_DEBUG ? [`--inspect-brk=${RUNTIME_ESCODE_DEBUG}`] : []),
     "--no-warnings",
@@ -271,6 +272,9 @@ export function spawnHostProcess(
       ...buildHostProcessEnv(dependencies.hostProcessLocalEnv),
       ...buildHostE2ECoverageEnv(),
       ESCODE_PROCESS_LABEL: label,
+      // Bugfix：Host 的 Agent 命令解析按 cwd 向上探测 monorepo 开发入口，安装包在仓库目录下启动时会误选源码入口，
+      // 数据库启动报 unsupported_runtime。打包态由 Main 明确告知 Host，runtime 选择不再取决于 cwd。
+      ...(app.isPackaged ? { [ESCODE_DESKTOP_PACKAGED_ENV]: "1" } : {}),
       // macOS-only: the Computer Use Helper launcher runs inside this forked host utilityProcess, whose
       // code-signing identity is a nested Electron helper (NOT dev.escode.app). Publish THIS (main
       // Electron) process's pid — which IS dev.escode.app — so helperLauncher passes it as
@@ -292,7 +296,10 @@ export function spawnHostProcess(
     `[spawnHostProcess] forked host process for (${label}), pid=${child.pid}`,
   );
   dependencies.logger.info(`[spawnHostProcess] host module path: ${hostModulePath}`);
-  dependencies.logger.info(`[spawnHostProcess] glm binary path: ${glmBinaryPath ?? "<not found>"}`);
+  // 只记录随包 runtime 是否在场；实际选用哪个 runtime 由 Host 内 resolveDefaultESCodeAgentCommand 决定并记录。
+  dependencies.logger.info(
+    `[spawnHostProcess] bundled agent runtime: rust=${bundledAgentRuntime.rustBinary ?? "<not found>"} node-bundle=${bundledAgentRuntime.nodeBundle ?? "<not found>"}`,
+  );
   dependencies.logger.info(
     `[spawnHostProcess] BIGMODEL_OAUTH_APP_SECRET source: ${process.env.BIGMODEL_OAUTH_APP_SECRET ? "process" : dependencies.hostProcessLocalEnv.BIGMODEL_OAUTH_APP_SECRET ? "dotenv" : "fallback"}`,
   );

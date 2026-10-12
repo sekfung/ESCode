@@ -2,11 +2,12 @@
 // 「安装包真机演练」）。
 //   node scripts/ci-install-desktop.mjs <安装包目录>
 // - Windows：NSIS 静默安装（/S /D=…）；macOS：挂载 dmg 拷出 .app；Linux：apt 安装 deb。
-// - 启动检查：应用主进程起来后 20s 内不退出（Linux 用 xvfb-run）。
+// - 启动检查：应用主进程起来后 20s 内不退出（Linux 用 xvfb-run），且该窗口内数据库启动终态为 ready。
+//   在空临时目录下启动：runner 的 cwd 是仓库 checkout，会掩盖/诱发打包态与开发入口探测的耦合。
 // - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
 //   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 const source = resolve(process.argv[2] ?? "artifacts");
@@ -72,24 +73,60 @@ for (const path of [app, glm, join(glm, "zcode.cjs")]) {
 }
 console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
 
-// 启动检查：主进程 20s 内不崩即视为可启动（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
+// 启动检查：主进程 20s 内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
+// Bugfix：之前只看进程存活，数据库启动失败（如 unsupported_runtime）时应用仍停在错误页不退出，作业照样通过。
+// 主进程把 "[database-startup] terminal { …, status: '<phase>', … }" 打到 stdout，这里据此判定终态。
+const DATABASE_TERMINAL_PATTERN = /[database-startup] terminal {[^}]*?status: '([a-z_]+)'/;
+const launchCwd = mkdtempSync(join(temp, "escode-launch-"));
 await new Promise((done, fail) => {
   const [command, args] =
     process.platform === "linux" ? ["xvfb-run", ["-a", app, "--no-sandbox"]] : [app, []];
-  const child = spawn(command, args, { stdio: "inherit", env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" } });
-  let exited = false;
-  child.once("error", fail);
-  child.once("exit", (code, signal) => {
-    exited = true;
-    fail(new Error(`Application exited during startup: ${signal ?? code}`));
+  const child = spawn(command, args, {
+    cwd: launchCwd,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" },
   });
-  setTimeout(() => {
-    if (exited) return;
+  let output = "";
+  let databaseStatus;
+  let settled = false;
+  const stop = () => {
     child.removeAllListeners("exit");
     if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
     else child.kill("SIGKILL");
-    console.log("application stayed up for 20s");
-    done();
+  };
+  const finish = (error) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    if (error) fail(error);
+    else done();
+  };
+  const onData = (stream) => (chunk) => {
+    stream.write(chunk);
+    if (databaseStatus) return;
+    output += chunk.toString();
+    const match = DATABASE_TERMINAL_PATTERN.exec(output);
+    if (!match) return;
+    databaseStatus = match[1];
+    if (databaseStatus !== "ready") {
+      stop();
+      finish(new Error(`Database startup did not become ready: status=${databaseStatus}`));
+    }
+  };
+  child.stdout.on("data", onData(process.stdout));
+  child.stderr.on("data", onData(process.stderr));
+  child.once("error", finish);
+  child.once("exit", (code, signal) => {
+    finish(new Error(`Application exited during startup: ${signal ?? code}`));
+  });
+  const timer = setTimeout(() => {
+    stop();
+    if (databaseStatus !== "ready") {
+      finish(new Error("Database startup reached no terminal state within 20s"));
+      return;
+    }
+    console.log("application stayed up for 20s with database startup ready");
+    finish();
   }, 20_000);
 });
 

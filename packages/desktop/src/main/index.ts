@@ -165,7 +165,7 @@ import {
   listAvailableDockerContainers,
   listAvailableWSLDistros,
   loadHostProcessEnvFromLocalFiles,
-  resolveBundledGlmBinaryPath,
+  resolveBundledAgentRuntimePaths,
   resolveRemoteAssetDirs,
   resolveESCodeEndpointEnvBaseOrigin,
   desktopRuntimeEnv,
@@ -1369,20 +1369,17 @@ function logWindowsBundledRuntimeIntegrityDiagnostic() {
     return;
   }
 
-  const binaryPaths = {
-    glm: resolveBundledGlmBinaryPath(),
-  };
-  const missingProviders = Object.entries(binaryPaths)
-    .filter(([, binaryPath]) => !binaryPath)
-    .map(([provider]) => provider);
-  if (missingProviders.length === 0) {
+  // Bugfix：此前检查的是已不再随包的原生 escode-agent，每次启动都误报 glm 缺失。
+  // 改为检查 Electron Node 执行的 zcode.cjs：它是 Rust 失败时的兜底 runtime，必须随包；
+  // Rust 二进制可按 ESCODE_BUNDLE_RUST_AGENT=0 不打包，不计入完整性缺失，路径由 Host 启动日志如实记录。
+  const { nodeBundle } = resolveBundledAgentRuntimePaths();
+  if (nodeBundle) {
     return;
   }
 
-  // bundled runtime 缺失不一定影响用户当前 provider，启动阶段只静默落日志。
-  // 这样既能在下次用户日志里确认安装资源是否已损坏，也不会因为未使用的 provider 缺失打断启动。
+  // bundled runtime 缺失启动阶段只静默落日志，便于在用户日志里确认安装资源是否已损坏。
   logger.warn(
-    `[startup] Windows bundled runtime missing providers: ${missingProviders.join(", ")} resources=${JSON.stringify(
+    `[startup] Windows bundled runtime missing node bundle (glm/zcode.cjs) resources=${JSON.stringify(
       snapshotWindowsPackagedResources(process.resourcesPath),
     )}`,
   );

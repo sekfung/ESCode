@@ -20,6 +20,7 @@ import {
 import {
   ESCODE_AGENT_RUNTIME,
   ESCODE_AGENT_PROVIDER,
+  ESCODE_DESKTOP_PACKAGED_ENV,
   ESCODE_RUNTIME_ENV_KEY,
   resolveWorkspaceKey,
   resolveESCodeRuntimeEnv,
@@ -399,6 +400,19 @@ function resolveBundledWorkspaceESCodeAgentCommand(
   };
 }
 
+/**
+ * monorepo 开发入口（dist / tsx 源码）。
+ * Bugfix：findUpward 从 process.cwd() 向上探测，安装包在仓库目录下启动时（CI installed job、开发者从终端启动）
+ * 会误命中仓库源码入口：默认 runtime 退回 Node，且 tsx 入口没有 storagePreparationEntry，数据库启动报
+ * unsupported_runtime。打包态的 runtime 选择不能取决于 cwd，因此 Main 注入打包标记时整体跳过开发入口探测。
+ */
+function resolveWorkspaceDevESCodeAgentCommand(
+  context: ESCodeAgentCommandResolverContext,
+): ESCodeAgentCommand | null {
+  if (process.env[ESCODE_DESKTOP_PACKAGED_ENV] === "1") return null;
+  return resolveBundledWorkspaceESCodeAgentCommand(context);
+}
+
 function resolveDeployedESCodeAgentBinaryCommand(
   context: ESCodeAgentCommandResolverContext,
 ): ESCodeAgentCommand | null {
@@ -464,7 +478,7 @@ function rustPluginHostEnv(
   context: ESCodeAgentCommandResolverContext,
 ): Pick<ESCodeAgentCommand, "env"> {
   const node =
-    resolveBundledWorkspaceESCodeAgentCommand(context) ??
+    resolveWorkspaceDevESCodeAgentCommand(context) ??
     resolveElectronRuntimeESCodeAgentCommand(context);
   const entrypoint = node?.args?.[0];
   if (!node || !entrypoint?.endsWith(".cjs")) return {};
@@ -496,7 +510,7 @@ export function resolveDefaultESCodeAgentCommand(
   const defaultRust =
     runtime === undefined &&
     !process.env.ESCODE_AGENT_SERVER_COMMAND?.trim() &&
-    (deps.findDevCommand ?? resolveBundledWorkspaceESCodeAgentCommand)(context) === null;
+    (deps.findDevCommand ?? resolveWorkspaceDevESCodeAgentCommand)(context) === null;
   const wantsRust = runtime === "escode-cli-rust" || defaultRust;
   const rustFailed = wantsRust && context.rustRuntimeFailed === true;
   const rust = wantsRust && !rustFailed;
@@ -545,7 +559,7 @@ export function resolveDefaultESCodeAgentCommand(
   // 顺序：env 显式覆盖 → monorepo dev 源码/dist（dev 改源码立刻生效，不会被远端历史装的 native binary
   // 抢先匹配）→ 桌面打包态 Electron Node runtime 跑 zcode.cjs → 已部署 native binary（远端 SSH 兜底）。
   const bundled =
-    resolveBundledWorkspaceESCodeAgentCommand(context) ??
+    resolveWorkspaceDevESCodeAgentCommand(context) ??
     resolveElectronRuntimeESCodeAgentCommand(context);
   return applyPresentationSurfaceToCommand(
     bundled
