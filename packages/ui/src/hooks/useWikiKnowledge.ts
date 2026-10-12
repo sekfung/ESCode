@@ -5,6 +5,7 @@ import type {
   V4WikiEntryResult,
   V4WikiGraphParams,
   V4WikiGraphResult,
+  V4WikiManageParams,
   V4WikiManageResult,
   V4WikiStatusResult,
   WikiKind,
@@ -12,7 +13,6 @@ import type {
   WikiStatus,
 } from "@escode/shared/escode-protocol-v4";
 import { useWorkspaceServicesResolution } from "@/hooks/useWorkspaceServices.js";
-import type { WikiReviewAction } from "@/lib/wikiGraph.js";
 import { logger } from "@/logger.js";
 
 export interface WikiKnowledgeTarget {
@@ -181,28 +181,23 @@ export function useWikiKnowledge(target: WikiKnowledgeTarget, filters: WikiGraph
     setEntry(null);
   }, [workspaceTarget]);
 
-  const review = useCallback(
-    async (
-      action: WikiReviewAction,
-      ids: string[],
-      options: { reason?: string; supersededBy?: string } = {},
-    ): Promise<V4WikiManageResult | null> => {
-      if (!workspaceTarget || !agent.manageWiki || ids.length === 0) return null;
+  /** 所有写操作（审核、提升、导入）的唯一入口：发给 runtime，完成后无论成败都重拉，界面以 runtime 为准。 */
+  const manage = useCallback(
+    async (request: V4WikiManageParams): Promise<V4WikiManageResult | null> => {
+      if (!workspaceTarget || !agent.manageWiki) return null;
       setBusy(true);
       try {
-        const result = await agent.manageWiki({
-          ...workspaceTarget,
-          request: { action, ids, ...options },
-        });
-        logger.info("[KnowledgeSettings] review finished", {
-          action,
-          count: ids.length,
+        const result = await agent.manageWiki({ ...workspaceTarget, request });
+        // 只记动作与数量，不记路径或条目内容。
+        logger.info("[KnowledgeSettings] manage finished", {
+          action: request.action,
+          ids: request.ids?.length ?? 0,
+          paths: request.paths?.length ?? 0,
           ok: result.ok,
         });
         return result;
       } finally {
         setBusy(false);
-        // 以 runtime 为准：无论成败都重拉，避免界面停留在过期状态。
         await load();
         await loadEntry(selectedId);
       }
@@ -222,6 +217,6 @@ export function useWikiKnowledge(target: WikiKnowledgeTarget, filters: WikiGraph
     canManage: Boolean(agent.manageWiki),
     reload: load,
     select: loadEntry,
-    review,
+    manage,
   };
 }

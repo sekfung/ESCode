@@ -225,7 +225,7 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
       });
       if (!confirmed) return;
       try {
-        const result = await wiki.review(action, [id]);
+        const result = await wiki.manage({ action, ids: [id] });
         if (result)
           toast(
             result.ok

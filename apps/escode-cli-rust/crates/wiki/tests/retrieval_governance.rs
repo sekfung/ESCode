@@ -292,6 +292,16 @@ async fn governance_flows() {
         (store.scope, promoted.meta.status),
         (Scope::Global, Status::Proposal)
     );
+    // 已批准的全局副本不会被再次提升覆盖。
+    wiki.review("approve", std::slice::from_ref(&new_id), None, None, "cli")
+        .await
+        .unwrap();
+    let again = wiki.promote(&replacement, "cli").await.unwrap_err();
+    assert!(again.to_string().contains("already promoted"), "{again}");
+    assert_eq!(
+        wiki.locate(&new_id).await.unwrap().1.meta.status,
+        Status::Approved
+    );
     // lint 与审计记录。
     let lint = wiki.lint().await.unwrap();
     assert!(lint.iter().all(|i| i.severity != "error"), "{lint:?}");

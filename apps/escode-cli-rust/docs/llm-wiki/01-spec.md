@@ -199,6 +199,25 @@ UI：入口位于设置导航「知识库」分区（桌面与手机 Web 同一�
 筛选 scope/kind/status，点击节点显示详情（正文、来源定位、冲突、审核历史），对 proposal 提供「批准/拒绝」，对 approved 提供「弃用」（确认对话框）。
 手机宽度下图谱与详情改为上下布局；主题 token 与 `text-ui-*` 遵循 DESIGN.md；中英文案。
 
+导入入口（知识库页「导入文档」对话框，`v4/wiki/manage` action=ingest）：
+
+> 状态：方案待用户确认，UI 尚未实现。当前导入通过 CLI `wiki ingest --scope project|global` 或 WikiManage 完成。
+
+- **来源**：
+  - 本地 workspace 且平台能给出本机路径（Desktop，`platform.canSelectFilePath`）时，用系统对话框多选文件或选择文件夹。
+  - 远程 workspace 与手机 Web 改为输入路径，每行一个。相对路径以当前 workspace 为基准，由 runtime 所在主机解析；本机对话框给出的路径在远程主机上无效，因此不提供。
+- **目标作用域**：导入时由用户选择，决定条目写入哪个存储，导入后不会自动复制到另一个作用域。
+  - 项目 Wiki（默认）：`<项目根>/.escode/wiki/`，随仓库提交，只对本项目可见。适合项目自己的规范、架构、契约。
+  - 全局 Wiki：`<storage>/wiki/`，所有项目可见，不入仓库。适合跨项目通用的个人或团队规范。
+- **直接批准**：默认关闭，导入结果为候选。勾选后提交前弹确认框，对应 `approveImported`。
+- **结果展示**：逐文件显示 imported / updated / unchanged / degraded / skipped / failed 及原因，然后重拉 status 与图谱。
+
+作用域调整：
+
+- 项目条目在详情中提供「提升到全局」（action=promote，经确认框）。复制为全局候选 `<id>.global`，需在全局再批准；原项目条目保留，可之后弃用并指定 `superseded_by`。
+- 同一条目重复提升会被拒绝，不覆盖已有的全局副本。
+- 不提供「全局降为项目」：项目内需要不同版本时，以项目作用域重新导入，或提交项目候选。
+
 UI 状态所有者与顺序：
 
 - 知识事实（条目、状态、来源、冲突）唯一所有者是 runtime 内的 WikiService；Renderer 只持有最近一次请求的快照，

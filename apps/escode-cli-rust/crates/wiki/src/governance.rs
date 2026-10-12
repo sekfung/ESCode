@@ -334,6 +334,12 @@ impl WikiService {
             "{}.global",
             entry.meta.id.chars().take(120).collect::<String>()
         );
+        // 修复原因：重复提升会用新提案覆盖已存在的全局副本（已批准的全局规范被打回 proposal、审核历史丢失）。
+        // 全局副本已存在时拒绝，由用户在 Global Wiki 中审核或弃用该副本。
+        ensure!(
+            global.read_entry(&new_id).await?.is_none(),
+            "entry {id} was already promoted as global entry {new_id}"
+        );
         let stamp = now();
         let mut copy = entry.clone();
         copy.meta.id = new_id.clone();
