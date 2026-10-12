@@ -22,13 +22,24 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
     if !host_serial_available() {
         return None;
     }
-    let root = plugins.iter().find(|p| p.id == PLUGIN)?.root.clone();
-    let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
-    let (exec, entrypoint) = (launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?, launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?);
-    Server::parse(NAME, config(&root, cwd, &exec, &entrypoint), cwd).ok()
+    host_plugin_server(NAME, PLUGIN, TIMEOUT_MS, plugins, cwd)
 }
 
-fn config(root: &Path, cwd: &Path, exec: &str, entrypoint: &str) -> Value {
+/// 宿主注入的官方插件 MCP server（serial / circuit 共用）：插件启用时经 Host 插件启动器运行其 `dist/mcp/server.js`。
+pub(super) fn host_plugin_server(
+    name: &str,
+    plugin: &str,
+    timeout_ms: u64,
+    plugins: &[Plugin],
+    cwd: &Path,
+) -> Option<Server> {
+    let root = plugins.iter().find(|p| p.id == plugin)?.root.clone();
+    let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
+    let (exec, entrypoint) = (launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?, launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?);
+    Server::parse(name, config(&root, cwd, &exec, &entrypoint, timeout_ms), cwd).ok()
+}
+
+fn config(root: &Path, cwd: &Path, exec: &str, entrypoint: &str, timeout_ms: u64) -> Value {
     let script = root.join("dist").join("mcp").join("server.js");
     json!({
         "type": "stdio",
@@ -38,9 +49,9 @@ fn config(root: &Path, cwd: &Path, exec: &str, entrypoint: &str) -> Value {
         // 桌面打包态启动器是 ESCode Helper；缺少 Node 模式会误进 Electron main。
         "env": {"ELECTRON_RUN_AS_NODE": "1", "ESCODE_PLUGIN_ROOT": root.to_string_lossy()},
         "isolation": "workspace",
-        // serial server 只接受现代协商（serveStdio legacy: "reject"），与 node_repl 一样固定协议版本。
+        // serial / circuit server 只接受现代协商（serveStdio legacy: "reject"），与 node_repl 一样固定协议版本。
         "protocolVersion": "2026-07-28",
-        "timeoutMs": TIMEOUT_MS,
+        "timeoutMs": timeout_ms,
     })
 }
 
@@ -58,7 +69,7 @@ mod tests {
 
     #[test]
     fn config_runs_plugin_server_through_host_launcher() {
-        let config = config(Path::new("/plugins/serial"), Path::new("/work"), "/bin/escode-helper", "/app/escode.cjs");
+        let config = config(Path::new("/plugins/serial"), Path::new("/work"), "/bin/escode-helper", "/app/escode.cjs", TIMEOUT_MS);
         assert_eq!(config["command"], "/bin/escode-helper");
         assert_eq!(config["args"][0], "/app/escode.cjs");
         assert_eq!(config["args"][1], HOST_COMMAND);

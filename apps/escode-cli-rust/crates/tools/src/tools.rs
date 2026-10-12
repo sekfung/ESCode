@@ -177,10 +177,13 @@ impl ToolPort for WorkspaceTools {
     /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
     async fn permission_config(&self) -> crate::domain::permission::Config {
         let mut config = super::extension_config::permission_config(&self.cwd).await;
-        // 官方 serial 插件的只读工具免审批（TS resolveOfficialPluginDefaultAllowedTools）。
+        // 官方 serial / circuit 插件的 defaultAllowedTools 免审批（TS resolveOfficialPluginDefaultAllowedTools）。
         config
             .allowed
             .extend(super::mcp_serial::default_allowed_tools(super::mcp_serial::host_serial_available()));
+        config
+            .allowed
+            .extend(super::mcp_circuit::default_allowed_tools(super::mcp_circuit::host_circuit_available()));
         config
     }
     async fn subagents_enabled(&self) -> bool {

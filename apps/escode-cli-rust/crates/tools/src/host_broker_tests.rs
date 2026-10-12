@@ -3,8 +3,14 @@ use tokio::io::AsyncWriteExt;
 
 const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-fn broker(host: Arc<OnceLock<EventSink>>) -> Arc<SerialBroker> {
-    Arc::new(SerialBroker { socket: String::new(), token: TOKEN.into(), host, sessions: Mutex::default() })
+const CANCEL_METHOD: &str = "interaction/serialCancel";
+
+fn broker_for(spec: &'static Spec, host: Arc<OnceLock<EventSink>>) -> Arc<HostBroker> {
+    Arc::new(HostBroker { spec, socket: String::new(), token: TOKEN.into(), host, sessions: Mutex::default() })
+}
+
+fn broker(host: Arc<OnceLock<EventSink>>) -> Arc<HostBroker> {
+    broker_for(&SERIAL, host)
 }
 
 fn request(extra: Value) -> Value {
@@ -51,7 +57,7 @@ fn fake_host(
     (host, seen)
 }
 
-async fn roundtrip(broker: Arc<SerialBroker>, payload: Value) -> Value {
+async fn roundtrip(broker: Arc<HostBroker>, payload: Value) -> Value {
     let (mut client, server) = tokio::io::duplex(64 * 1024);
     let serving = tokio::spawn(broker.serve(server));
     client.write_all(format!("{payload}\n").as_bytes()).await.unwrap();
@@ -96,10 +102,11 @@ fn builds_host_params_from_remembered_session_and_rejects_unknown_ones() {
 #[test]
 fn host_error_keeps_tool_error_code_from_data() {
     assert_eq!(
-        host_error("Serial port is not open".into(), &json!({"code": "notOpen"})),
+        host_error(&SERIAL, "Serial port is not open".into(), &json!({"code": "notOpen"})),
         BrokerError::new("notOpen", "Serial port is not open"),
     );
-    assert_eq!(host_error("boom".into(), &Value::Null).code, "io");
+    assert_eq!(host_error(&SERIAL, "boom".into(), &Value::Null).code, "io");
+    assert_eq!(host_error(&CIRCUIT, "boom".into(), &Value::Null).code, "io_error");
 }
 
 #[tokio::test]
@@ -152,4 +159,55 @@ async fn completed_requests_do_not_send_cancel() {
     broker.execute(&request(json!({"op": "waitFor", "args": {"pattern": "x"}}))).await.unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     assert!(seen.lock().unwrap().iter().all(|(m, _)| m != CANCEL_METHOD));
+}
+
+#[test]
+fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
+    let broker = broker_for(&CIRCUIT, Arc::default());
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "remote:id", "workspace_path": "/w", "workspace_identity": "remote:id", "remote_session_id": "rs1"}),
+    );
+    let (method, params) =
+        broker.params(&request(json!({"op": "submitRecognition", "args": {"path": "a.png"}}))).unwrap();
+    assert_eq!(method, "interaction/circuitSubmitRecognition");
+    assert_eq!(params["workspaceIdentity"], "remote:id");
+    assert_eq!(params["remoteSessionId"], "rs1");
+    for (op, expected) in CIRCUIT.methods {
+        assert_eq!(broker.params(&request(json!({"op": op, "args": {}}))).unwrap().0, *expected);
+    }
+    // serial 的 op 不能经 circuit broker 打到 Host。
+    assert_eq!(broker.params(&request(json!({"op": "list"}))).unwrap_err().code, "invalidInput");
+    let wrong = broker.authorize(&request(json!({"token": "b".repeat(64)}))).unwrap_err();
+    assert_eq!(wrong.code, "unavailable");
+    let subagent = broker.authorize(&request(json!({"runtimeScope": "subagent"}))).unwrap_err();
+    assert_eq!(subagent.message, "Circuit tools are not available in subagents");
+    assert_eq!(broker.env(), json!({"ESCODE_CIRCUIT_BROKER_SOCKET": "", "ESCODE_CIRCUIT_BROKER_TOKEN": TOKEN}));
+}
+
+#[tokio::test]
+async fn circuit_forwards_request_and_never_sends_cancel() {
+    let (host, seen) = fake_host(|_, _| Some(Ok(json!({"ok": true, "irId": "ir_1", "revision": 1}))));
+    let broker = broker_for(&CIRCUIT, host);
+    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
+    let payload = request(json!({"op": "parse", "args": {"path": "board.kicad_sch"}}));
+    let response = roundtrip(broker, payload.clone()).await;
+    assert_eq!(response["ok"], true);
+    assert_eq!(response["result"]["irId"], "ir_1");
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].0, "interaction/circuitParse");
+}
+
+#[tokio::test]
+async fn circuit_oversized_request_reports_too_large() {
+    let broker = broker_for(&CIRCUIT, Arc::default());
+    let (mut client, server) = tokio::io::duplex(4 * 1024 * 1024);
+    let serving = tokio::spawn(broker.serve(server));
+    client.write_all(&vec![b'x'; MAX_REQUEST_BYTES + 1]).await.unwrap();
+    let mut response = String::new();
+    client.read_to_string(&mut response).await.unwrap();
+    serving.await.unwrap();
+    let response: Value = serde_json::from_str(response.trim()).unwrap();
+    assert_eq!(response["error"]["code"], "too_large");
 }

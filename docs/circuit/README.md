@@ -108,6 +108,17 @@ KiCad 源文件变化 ──watch──▶ 标记 stale=true，emit circuit.chan
 | 纯 CLI/TUI             | broker 连接材料缺失，所有工具返回 `unavailable`，提示"请在 ESCode Desktop 中使用"                 |
 | Web 客户端 / 手机      | `::circuit` 显示静态降级卡片（标题、器件数、网络数、"仅 Desktop 可用"），不加载面板，也不订阅事件 |
 
+运行时注册（TS CLI 与 Rust runtime 行为一致，与 serial 同构，见 `docs/specs/serial-agent-tools.md`）：
+
+- 只有 Host 注入 `ESCODE_HOST_CIRCUIT=1` 且 `circuit` 官方插件启用时，运行时才注册内置 `circuit` MCP server；
+  它最后合并，同名的用户或插件配置不能覆盖它。设置页 `mcp/list` 不列出该 server。
+- broker 的 socket 与 token（`ESCODE_CIRCUIT_BROKER_SOCKET` / `ESCODE_CIRCUIT_BROKER_TOKEN`）只注入 circuit server 的 env。
+  broker 拒绝子 agent，并把请求转成 `interaction/circuit*` 反向请求，带上会话的 workspace 身份与 `remoteSessionId`。
+  电路工具都是短请求，没有取消方法。
+- 免批准的工具（第 5 节「需要批准」为否的七个）并入权限 `allowedTools`；`circuit_export` 仍需批准。
+- broker 自身的错误码：token 不符或子 agent 返回 `unavailable`，请求超过 1 MiB 返回 `too_large`，
+  请求形状不合法返回 `invalidInput`，连接失败或 Host 未带 `error.data.code` 时返回 `io_error`。
+
 ## 4. Circuit IR（v1）
 
 ```ts
