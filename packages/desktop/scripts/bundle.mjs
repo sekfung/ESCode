@@ -118,6 +118,10 @@ const requiredRuntimeModules = [
   "asn1",
   "bcrypt-pbkdf",
   "tweetnacl",
+  // 与 afterPack 注入名单同口径：串口运行时闭包（node-gyp-build、bindings-interface 等）缺失时，
+  // 安装包只会在用户打开串口时报 Cannot find module，这里在 bundle 阶段直接拦截。
+  "@serialport/bindings-cpp",
+  "@serialport/stream",
 ];
 const electronBuilderRetryCount = 3;
 const electronBuilderRetryDelayMs = 5_000;

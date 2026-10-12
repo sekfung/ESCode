@@ -152,6 +152,12 @@ const REQUIRED_ASAR_RUNTIME_MODULES = [
   // 已在线上触发安装包启动即报 Cannot find module 'ms'（Require stack: debug/src/common.js），
   // 自动更新链路直接崩。ms 是叶子包，显式注入即可让 debug 在 app.asar 内稳定解析。
   "ms",
+  // Bugfix：串口原生模块作为 tsup external 保留运行时 require。pnpm hoisted 布局下 electron-builder
+  // 只把 @serialport/bindings-cpp 本体打进 app.asar，漏掉 node-gyp-build、bindings-interface、
+  // parser-readline 等子依赖，安装包打开串口即报 Cannot find module 'node-gyp-build'。
+  // 以 bindings-cpp 与 stream 作为闭包根注入，递归带齐串口运行时解析链。
+  "@serialport/bindings-cpp",
+  "@serialport/stream",
 ];
 // pacman 依赖必须使用 Arch 官方仓库中的包名。electron-builder 的历史默认集合包含
 // 已移除的 libappindicator-gtk3/http-parser，且缺少 Electron 实际需要的运行库；显式
