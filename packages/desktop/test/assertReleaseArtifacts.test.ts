@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { createPackage } from "@electron/asar";
 import { describe, expect, it } from "vitest";
 import {
+  asarEntryPath,
   assertReleaseArtifacts,
   findNonReleaseArtifactNames,
   findSourcemapLeaks,
@@ -48,6 +49,13 @@ describe("release artifact hygiene", () => {
       "app.asar/out/main/index.js.map (sourcemap file)",
       "resources/glm/zcode.cjs (sourceMappingURL)",
     ]);
+  });
+
+  it("reports asar entries with forward slashes on every platform", () => {
+    // Windows 上 createPackage 以 `\` 建键、listPackage 也返回原生分隔符：报告路径须与打包平台无关。
+    expect(asarEntryPath("out\\main\\index.js")).toBe("app.asar/out/main/index.js");
+    expect(asarEntryPath("/out/main/index.js")).toBe("app.asar/out/main/index.js");
+    expect(asarEntryPath("out/main/index.js")).toBe("app.asar/out/main/index.js");
   });
 
   it("builds Rust runtimes stripped in the release profile", () => {

@@ -73,6 +73,13 @@ function findPackagedResourcesDirs(distDir) {
   return result;
 }
 
+/** 归档内条目对外报告的路径。
+ *  asar 的键按创建平台用分隔符（Windows 上是 `\`，listPackage 返回原生形式，statFile /
+ *  extractFile 也按 path.sep 拆分），报告路径统一成 `/`，不随打包平台变化。 */
+export function asarEntryPath(file) {
+  return `app.asar/${file.replace(/^[\\/]+/u, "").split(/[\\/]/u).join("/")}`;
+}
+
 function collectResourcesEntries(resourcesDir) {
   const asar = require("@electron/asar");
   const entries = [];
@@ -87,7 +94,7 @@ function collectResourcesEntries(resourcesDir) {
     }
     if (!isFile) continue;
     entries.push({
-      path: `app.asar/${relative}`,
+      path: asarEntryPath(relative),
       read: () => asar.extractFile(appAsar, relative).toString("utf8"),
     });
   }

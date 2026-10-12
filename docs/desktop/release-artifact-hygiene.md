@@ -36,5 +36,6 @@
 ## 验收
 
 - 单测 `packages/desktop/test/assertReleaseArtifacts.test.ts`：文件名判据、sourcemap 判据、Cargo release profile 必须 strip、
-  release 工作流必须为生产环境并运行门禁、对真实 asar 组成的 electron-builder 输出目录拦截不合规产物并放行干净产物。
+  release 工作流必须为生产环境并运行门禁、对真实 asar 组成的 electron-builder 输出目录拦截不合规产物并放行干净产物；
+  归档内路径按 `/` 报告，不随打包平台（Windows 的 `\`）变化。
 - 未在本机验证：完整的 electron-builder 打包（本机无法下载 Electron 二进制），由 release 工作流的门禁步骤在 CI 上验证。
