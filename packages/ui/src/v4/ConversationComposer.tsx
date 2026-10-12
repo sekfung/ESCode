@@ -1200,6 +1200,9 @@ function ConversationComposerImpl({
   const canStop = Boolean(snapshot?.control.canStop);
   const modifiedEnterReversesDelivery = modifiedEnterSubmits && canStop;
   const hasText = text.trim().length > 0;
+  // 同一次接入遗漏的其余三处：可提交草稿判定、草稿内容判定与 allowSubmitWhenEmpty 也必须与
+  // 其它五类上下文一致地包含电路引用，否则「只带电路 chip 的草稿」显示不出来也发不出去
+  // （submit 路径本身已经支持它，见下方 hasPendingCircuitDraftReferences）。
   const hasDraftToSubmit =
     hasText ||
     hasAttachments ||
@@ -1207,6 +1210,7 @@ function ConversationComposerImpl({
     hasWebElementContexts ||
     hasPptxElementReferences ||
     hasConversationSelectionReferences ||
+    circuitDraftReferences.length > 0 ||
     hasPluginUiContexts ||
     Boolean(pendingShareContext);
   const hasComposerDraftContent =
@@ -1216,6 +1220,7 @@ function ConversationComposerImpl({
     hasWebElementContexts ||
     hasPptxElementReferences ||
     hasConversationSelectionReferences ||
+    circuitDraftReferences.length > 0 ||
     hasPluginUiContexts ||
     Boolean(pendingShareContext);
   useEffect(() => {
@@ -1821,12 +1826,17 @@ function ConversationComposerImpl({
     [composerAttachments],
   );
   const topContentNode = useMemo(() => {
+    // Bug 根因：G5 接入电路引用时漏了这个前置短路——它枚举了其它五类上下文，唯独没有
+    // circuitDraftReferences。只有电路 chip 时 memo 提前返回 null，等于把输入框上方整行
+    // 附件/chip 一起隐藏（后续 JSX 里的条件虽然包含电路引用，但走不到）。修复：与其余
+    // 上下文类型同源枚举，草稿里只要有电路引用就渲染这一行。
     if (
       composerAttachments.length === 0 &&
       codeCommentContexts.length === 0 &&
       webElementContexts.length === 0 &&
       pptxElementReferences.length === 0 &&
       conversationSelectionReferences.length === 0 &&
+      circuitDraftReferences.length === 0 &&
       pluginUiContexts.length === 0
     ) {
       return null;
@@ -2472,6 +2482,7 @@ function ConversationComposerImpl({
             hasWebElementContexts ||
             hasPptxElementReferences ||
             hasConversationSelectionReferences ||
+            circuitDraftReferences.length > 0 ||
             hasPluginUiContexts
           }
           enterSubmits={enterSubmits}

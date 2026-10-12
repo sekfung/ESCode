@@ -13,20 +13,25 @@ import {
   DEFAULT_WORKSPACE,
   clearAppData,
   clickTestIdByDom,
+  getE2EAppDataPaths,
   setInputValueByTestIdDom,
   waitForDefaultWorkspaceReady,
   waitForTestIdByDom,
+  waitForWorkspaceApp,
 } from "./helpers/desktop-app.js";
+import { reloadElectronSessionSafely } from "./helpers/e2e-electron-reload.js";
+import { seedHistoryFixtureIntoExistingDatabases } from "./helpers/provider-readiness-history-fixture.js";
+import { selectV4TaskById, waitForV4TimelineContaining } from "./helpers/v4-conversation.js";
 
 /**
  * 电路面板 Desktop E2E（docs/test-cases/e2e/circuit-panel.feature、规格 §10.3）。
  *
  * 覆盖：① 文件树打开 .kicad_sch → 原理图/BOM/网络表联动；② 面板改属性 → revision 加 1、作者=用户；
  * ③ 过期 baseRevision 写入被拒且不覆盖数据；④ 源文件外部变化 → stale → 重新解析按 UUID 保留修正；
- * ⑥ 选中器件/网络插入到输入框 → 生成引用草稿、草稿不发送（chip 的渲染与按 workspace 隔离由
- *    packages/ui/test/circuit/circuitReferenceCardStatic.test.ts 覆盖：本 E2E 运行里 composer
- *    的附件行没有渲染出 chip，原因未定，见报告）。
- * ⑤（::circuit 卡片）需要注入 assistant 消息；⑦（Web 降级卡片）在 Web/UI 层覆盖，见报告。
+ * ⑤ 对话里的 ::circuit 卡片 → 打开面板定位同一 IR（assistant 消息由 session 回放夹具注入，
+ *    不调用真实模型；围栏内的同一行引用不渲染卡片）；
+ * ⑥ 选中器件/网络插入到输入框 → 输入框上方出现引用 chip、草稿不发送。
+ * ⑦（Web 降级卡片）在 Web/UI 层覆盖，见 packages/ui/test/circuit/circuitReferenceCardStatic.test.ts。
  *
  * 数据：packages/services/test/fixtures/circuit/rp2040-minimal（复制到临时 workspace，`.kicad_sch` /
  * `.kicad_pcb` / `.kicad_pro` 都带上）。每个场景用**独立的板子副本**，让每个场景都从 revision r1 开始
@@ -71,7 +76,13 @@ const CASE_NAMES = [
   "case-conflict",
   "case-reparse",
   "case-draft",
+  "case-card",
 ] as const;
+
+/** 场景 ⑤ 的 session 回放夹具（不调用真实模型，由 tasks-index + CLI session 冷恢复提供）。 */
+const CARD_SESSION_ID = "sess_e2e_circuit_reference_card";
+const CARD_TASK_TITLE = "E2E_CIRCUIT_REFERENCE_CARD 电路引用卡片";
+const CARD_MARKER = "E2E_CIRCUIT_CARD_MARKER";
 
 describe("电路面板 E2E", () => {
   before(async function () {
@@ -279,12 +290,10 @@ describe("电路面板 E2E", () => {
     await openCircuitViewer(boardPath("case-draft"));
     const irId = (await readPanelSnapshot()).irId;
     expect(irId).not.toBe(null);
-    // 面板「插入到输入框」只写 renderer 草稿：这里记录它派发的 window 事件与用户看到的结果。
-    // 见报告：本 E2E 渲染进程里 composer 的 chip 行没有渲染（附件行数 0），chip 的渲染与按
-    // workspace 隔离由 packages/ui/test/circuit/circuitReferenceCardStatic.test.ts 覆盖。
     await startCircuitDraftReferenceRecorder();
 
-    // 选中 U1 → 插入到输入框：派发一条指向该器件的引用草稿，并提示草稿未发送。
+    // 选中 U1 → 插入到输入框：派发一条指向该器件的引用草稿，提示草稿未发送，并在输入框上方
+    // 渲染出引用 chip（G5 曾漏掉 composer 只含电路引用时的渲染短路，见 ConversationComposer）。
     await clickCircuitBomRow(U1_ID);
     await clickTestIdByDom("circuit-insert-reference", { timeoutMsg: "插入到输入框按钮不可点击" });
     await waitForCircuitReferenceDrafts(1, "插入 U1 后没有生成电路引用草稿");
@@ -292,17 +301,101 @@ describe("电路面板 E2E", () => {
     expect(await readCircuitDraftReferenceEvents()).toEqual([DEFAULT_WORKSPACE]);
     expect(await readToastText()).toContain("U1");
     expect(await readToastText()).toMatch(/(草稿未发送|not sent)/iu);
+    await waitForComposerChipRow("插入 U1 后输入框上方没有出现引用 chip");
+    expect(await readComposerChipCount()).toBe(1);
+    expect(await readComposerChipHoverLabels()).toEqual(["U1"]);
 
-    // 改选网络 +3V3 再插入：草稿累计到两条引用（网络引用带 NET: 前缀）。
+    // 改选网络 +3V3 再插入：草稿累计到两条引用（网络引用带 NET: 前缀），chip 同步更新。
     await clickTestIdByDom("circuit-side-tab-nets", { timeoutMsg: "网络表页签不可点击" });
     await clickCircuitNetRow("+3V3");
     await clickTestIdByDom("circuit-insert-reference", { timeoutMsg: "插入到输入框按钮不可点击" });
     await waitForCircuitReferenceDrafts(2, "插入网络后草稿没有累计到两条引用");
     expect(await readToastText()).toContain("NET:+3V3");
+    await waitForComposerChipCount(2, "插入网络后 chip 没有累计到两枚引用");
+    expect(await readComposerChipHoverLabels()).toEqual(["U1", "NET:+3V3"]);
 
     // 草稿没有自动发送：对话行数不变、输入框仍然为空。
     expect(await countElementsWithTestIdPrefix("v4-row-")).toBe(messageRowsBefore);
     expect(await readComposerInputText()).toBe("");
+  });
+
+  it("点击对话里的 ::circuit 卡片打开面板并定位到同一 IR，围栏内的引用不渲染卡片", async function () {
+    this.timeout(300000);
+    // ① 先用文件树打开板子：拿到真实 irId（卡片消息必须引用已存在的 IR），面板落在 r1。
+    await openCircuitViewer(boardPath("case-card"));
+    await waitForCircuitPanelReady();
+    const opened = await readPanelSnapshot();
+    const irId = opened.irId;
+    expect(irId).not.toBe(null);
+    expect(opened.revision).toBe(1);
+
+    // ② 固定 assistant 消息（session 回放夹具，不调用真实模型）：独占一行的 ::circuit 引用，
+    //    外加 ```text 围栏里的同一行引用——围栏内不识别，正文保持原样。
+    const referenceLine = `::circuit{"irId":"${irId}","title":"RP2040_minimal"}`;
+    seedHistoryFixtureIntoExistingDatabases({
+      e2eHomeDir: getE2EAppDataPaths().homeDir,
+      history: {
+        assistantInputTokens: 0,
+        assistantOutputTokens: 0,
+        assistantText: [
+          CARD_MARKER,
+          "",
+          referenceLine,
+          "",
+          "```text",
+          referenceLine,
+          "```",
+        ].join("\n"),
+        modelId: "missing-model",
+        runtimeProviderId: "missing-provider",
+        sessionId: CARD_SESSION_ID,
+        taskProviderId: "glm",
+        title: CARD_TASK_TITLE,
+        userText: `${CARD_MARKER}_USER 看一下这块板子的 I2C 连接`,
+      },
+      workspacePath: DEFAULT_WORKSPACE,
+    });
+
+    // ③ 整机冷启动：tasks-index membership 与 CLI session 正文只在 Host 冷启动时被读取（见
+    //    provider-readiness-history-fixture）。冷启动后重新装回「登录失效不重启客户端」的两个 mock。
+    await reloadElectronSessionSafely(browser);
+    await browser.electron.mock("app", "relaunch");
+    await browser.electron.mock("app", "quit");
+    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 60000);
+
+    // ④ 从侧栏打开回放的会话：assistant 正文投影出 circuit-card（Desktop 形态）。
+    await selectV4TaskById(CARD_SESSION_ID, 60000);
+    await waitForV4TimelineContaining(CARD_MARKER, 60000);
+    await waitForTestIdByDom("circuit-card", {
+      timeout: 20000,
+      timeoutMsg: "回放的 assistant 消息没有渲染 circuit-card",
+    });
+    expect(await readTestIdAttribute("circuit-card", "data-circuit-card-mode")).toBe("desktop");
+    expect(await readTestIdText("circuit-card")).toContain("RP2040_minimal");
+    // 围栏内的同一行引用不渲染卡片：整条消息只有一张卡片，代码块里的正文原样保留。
+    expect(await countElementsWithTestId("circuit-card")).toBe(1);
+    try {
+      await waitForTimelineRawText(referenceLine, "围栏里的 ::circuit 引用没有原样保留在正文里");
+    } catch (error) {
+      throw new Error(
+        `围栏里的 ::circuit 引用没有原样保留在正文里；诊断=${await readAssistantRowDiagnostics()}`,
+        { cause: error },
+      );
+    }
+
+    // ⑤ 点击「打开面板」：右侧打开电路面板并定位到卡片引用的 IR；IR 已存在，直接读取不变 revision。
+    await clickTestIdByDom("circuit-card-open", { timeoutMsg: "引用卡片的打开面板按钮不可点击" });
+    await waitForTestIdByDom(TID_PREVIEW_PANE, {
+      timeout: 20000,
+      timeoutMsg: "点击引用卡片后没有打开 PreviewPane",
+    });
+    await waitForCircuitPanelReady();
+    const panel = await readPanelSnapshot();
+    expect(panel.irId).toBe(irId);
+    expect(panel.requestedIrId).toBe(irId);
+    expect(panel.revision).toBe(1);
+    expect(await readTestIdText("circuit-revision")).toBe("r1");
+    expect(await hasTestId("circuit-stale-banner")).toBe(false);
   });
 });
 
@@ -622,6 +715,76 @@ async function expectCircuitSvgHighlight(
   expect(await readCircuitSvgHighlight()).toEqual(expected);
 }
 
+/** 输入框上方出现引用 chip：chip 必须落在 composer 的上下文附件行里，且整行位于输入框上方。 */
+async function waitForComposerChipRow(timeoutMsg: string) {
+  await browser.waitUntil(
+    async () => (await countElementsWithTestId("circuit-reference-chip")) === 1,
+    { timeout: 15000, timeoutMsg },
+  );
+  const placement = (await browser.execute((inputTestId) => {
+    const chip = document.querySelector<HTMLElement>('[data-testid="circuit-reference-chip"]');
+    const row = chip?.closest<HTMLElement>("[data-composer-context-attachments-row]") ?? null;
+    const input = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
+      (element) => element.dataset.testid === inputTestId,
+    );
+    if (!chip || !row || !input) return null;
+    return {
+      inComposerForm: Boolean(input.closest("form")?.contains(row)),
+      inputTop: input.getBoundingClientRect().top,
+      rowBottom: row.getBoundingClientRect().bottom,
+      rowCount: document.querySelectorAll("[data-composer-context-attachments-row]").length,
+    };
+  }, TID_V4_COMPOSER_INPUT)) as {
+    inComposerForm: boolean;
+    inputTop: number;
+    rowBottom: number;
+    rowCount: number;
+  } | null;
+  expect(placement).not.toBe(null);
+  // 只有 composer 的一行上下文附件；chip 与输入框同在一个 form 内，且整行在输入框上方。
+  expect(placement?.rowCount).toBe(1);
+  expect(placement?.inComposerForm).toBe(true);
+  expect(placement?.rowBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+    (placement?.inputTop ?? 0) + 1,
+  );
+}
+
+async function waitForComposerChipCount(count: number, timeoutMsg: string) {
+  await browser.waitUntil(
+    async () => (await readComposerChipCount()) === count,
+    { timeout: 15000, timeoutMsg },
+  );
+}
+
+async function readComposerChipCount(): Promise<number | null> {
+  const raw = await browser.execute(() => {
+    const chip = document.querySelector<HTMLElement>('[data-testid="circuit-reference-chip"]');
+    return chip?.getAttribute("data-circuit-reference-count") ?? null;
+  });
+  return raw === null ? null : Number(raw);
+}
+
+/** chip 详情浮层里的逐条引用（Radix HoverCard 内容走 Portal，聚焦 trigger 即展开）。 */
+async function readComposerChipHoverLabels(): Promise<string[]> {
+  await browser.execute(() => {
+    const chip = document.querySelector<HTMLElement>('[data-testid="circuit-reference-chip"]');
+    chip?.dispatchEvent(new FocusEvent("focusin", { bubbles: true, relatedTarget: null }));
+  });
+  await browser.waitUntil(
+    async () => (await countElementsWithTestId("circuit-reference-chip-label")) > 0,
+    { timeout: 5000, timeoutMsg: "聚焦引用 chip 后没有展开详情浮层" },
+  );
+  const labels = (await browser.execute(() =>
+    Array.from(document.querySelectorAll<HTMLElement>('[data-testid="circuit-reference-chip-label"]'))
+      .map((element) => (element.textContent ?? "").trim()),
+  )) as string[];
+  await browser.execute(() => {
+    const chip = document.querySelector<HTMLElement>('[data-testid="circuit-reference-chip"]');
+    chip?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+  });
+  return labels;
+}
+
 /** 面板「插入到输入框」派发的 window 事件（renderer 草稿，不发送）。 */
 const CIRCUIT_DRAFT_REFERENCE_EVENT = "escode:circuit-reference-draft-add";
 
@@ -695,6 +858,59 @@ async function readTestIdText(testIdValue: string): Promise<string | null> {
     );
     return element?.textContent?.trim() ?? null;
   }, testIdValue)) as string | null;
+}
+
+/**
+ * 围栏里的 directive 必须原样出现在对话流里（正文保持原样、没有被投影成卡片）。
+ * 代码块（@pierre/diffs）的行文本在异步创建的 Shadow DOM 中：先滚动 assistant 行让它渲染，
+ * 再同时收集 light DOM 与 shadow root 的文本节点。
+ */
+async function waitForTimelineRawText(text: string, timeoutMsg: string) {
+  await browser.waitUntil(
+    async () =>
+      browser.execute((needle) => {
+        const collectText = (root: Node): string => {
+          let collected = "";
+          const walk = (node: Node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+              collected += node.nodeValue ?? "";
+              return;
+            }
+            // ShadowRoot 是 DOCUMENT_FRAGMENT_NODE：不认这一类会漏掉 @pierre/diffs 的代码行。
+            const isTraversable =
+              node.nodeType === Node.ELEMENT_NODE ||
+              node.nodeType === Node.DOCUMENT_NODE ||
+              node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
+            if (!isTraversable) return;
+            const shadow = (node as Element).shadowRoot;
+            if (shadow) walk(shadow);
+            for (const child of Array.from(node.childNodes)) walk(child);
+          };
+          walk(root);
+          return collected;
+        };
+        const rows = Array.from(
+          document.querySelectorAll<HTMLElement>('[data-conversation-selectable="true"]'),
+        );
+        for (const row of rows) row.scrollIntoView({ block: "center" });
+        return rows.some((row) => collectText(row).includes(needle));
+      }, text),
+    { timeout: 20000, timeoutMsg },
+  );
+}
+
+/** 断言失败时的现场摘要：assistant 行的 HTML 片段（含内容长度）。 */
+async function readAssistantRowDiagnostics(): Promise<string> {
+  return (await browser.execute(() =>
+    JSON.stringify(
+      Array.from(document.querySelectorAll<HTMLElement>('[data-conversation-selectable="true"]')).map(
+        (row) => ({
+          html: (row.innerHTML ?? "").replace(/\s+/gu, " ").slice(0, 600),
+          length: (row.textContent ?? "").length,
+        }),
+      ),
+    ),
+  )) as string;
 }
 
 async function readTestIdAttribute(testIdValue: string, attribute: string): Promise<string | null> {
