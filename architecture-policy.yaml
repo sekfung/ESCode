@@ -75,6 +75,34 @@ modules:
     publicEntrypoints: [packages/shared/src/gen-ui/index.ts, packages/shared/src/gen-ui/contract.ts]
     layers: { domain: "." }
     owner: conversation
+
+  # 电路识别与分析的线协议（docs/circuit/README.md §4、§5）；IR 由 Host 内的 CircuitService 持有（ADR 0005）。
+  - id: circuit-protocol
+    roots: [packages/shared/src/circuit]
+    managed: true
+    requires: []
+    publicEntrypoints:
+      [
+        packages/shared/src/circuit/index.ts,
+        packages/shared/src/circuit/contract.ts,
+      ]
+    layers: { domain: "." }
+    owner: circuit
+
+  # CircuitService：Circuit IR 的唯一所有者（ADR 0005）；domain 纯解析规则，app 管状态与事件顺序，adapters 管 IO。
+  - id: circuit-service
+    roots: [packages/services/src/circuit]
+    managed: true
+    requires: [services, shared, rpc, circuit-protocol]
+    publicEntrypoints:
+      [
+        packages/services/src/circuit/index.ts,
+        packages/services/src/circuit/contract.ts,
+        packages/services/src/circuit/node.ts,
+      ]
+    layers: { domain: domain, app: app, adapters: adapters }
+    layerOrder: [domain, app, adapters]
+    owner: circuit
   - id: gen-ui-service
     roots: [packages/services/src/gen-ui]
     managed: true

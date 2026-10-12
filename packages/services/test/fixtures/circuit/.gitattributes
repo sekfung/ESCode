@@ -1,0 +1,7 @@
+# 上游 KiCad 设计文件按字节 vendored（上游 blob 本身是 CRLF）。
+# Windows 上 core.autocrlf=true 会在提交时把 CRLF 转成 LF，导致 fixture 与上游不再逐字节一致，
+# 因此这里显式声明 -text 关闭换行转换，与仓库根 .gitattributes 中 PDF / 上游许可原文的处理方式一致。
+# 只匹配设计文件扩展名，避免影响同目录下 *.sh 的 eol=lf 规则。
+*.kicad_sch -text
+*.kicad_pcb -text
+*.kicad_pro -text

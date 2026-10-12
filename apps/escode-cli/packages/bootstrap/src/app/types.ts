@@ -109,6 +109,7 @@ import type { SessionTranscriptMessage } from "../session-transcript.js";
 import type { NodeReplBrowserBroker } from "./node-repl-browser-broker.js";
 import type { ProviderRegistryModelSource } from "./provider-registry-model-runtime.js";
 import type { SerialBroker } from "./serial-broker.js";
+import type { CircuitBroker } from "./circuit-broker.js";
 import type { WorkspaceHookReviewCommandResult } from "./workspace-hook-review-controller.js";
 export type { ESCodeModelOption } from "@escode/shared";
 
@@ -185,6 +186,11 @@ export interface ESCodeAppOptions {
    * 注入后才注册 serial MCP server；缺省则模型看不到串口工具。
    */
   serialBroker?: Pick<SerialBroker, "socketPath" | "token">;
+  /**
+   * 协议宿主在 Host 声明持有 CircuitService（ESCODE_HOST_CIRCUIT=1）时创建的进程级电路 broker。
+   * 注入后才注册 circuit MCP server；缺省则模型看不到电路工具（docs/circuit/README.md §3.5）。
+   */
+  circuitBroker?: Pick<CircuitBroker, "socketPath" | "token">;
   fileSystemPort?: FileSystemPort;
   httpClientPort?: HttpClientPort;
   imageProcessorPort?: ImageProcessorPort;

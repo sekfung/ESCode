@@ -90,6 +90,8 @@ import {
   escodeSerialMethodResultSchemas,
   escodeSerialMethods,
 } from "../serial/serialAgentTools.js";
+import { escodeCircuitMethodParamsSchemas, escodeCircuitMethods } from "../circuit/agentTools.js";
+import { circuitToolResponseSchemas } from "../circuit/tools.js";
 import {
   escodeSyntheticUserMessageSourceSchema as legacyEscodeSyntheticUserMessageSourceSchema,
   escodeDeliveryKindSchema,
@@ -4227,6 +4229,15 @@ export const escodeProtocolMethods = {
   interactionSerialClose: escodeSerialMethods.close,
   interactionSerialSetSignals: escodeSerialMethods.setSignals,
   interactionSerialCancel: escodeSerialCancelMethod,
+  // Agent 电路工具：agent broker 转发 MCP circuit 工具调用，host 交给持有 CircuitService 的 Host（§5）。
+  interactionCircuitParse: escodeCircuitMethods.parse,
+  interactionCircuitSubmitRecognition: escodeCircuitMethods.submitRecognition,
+  interactionCircuitGet: escodeCircuitMethods.get,
+  interactionCircuitQuery: escodeCircuitMethods.query,
+  interactionCircuitCorrect: escodeCircuitMethods.correct,
+  interactionCircuitCheck: escodeCircuitMethods.check,
+  interactionCircuitCompareFirmware: escodeCircuitMethods.compareFirmware,
+  interactionCircuitExport: escodeCircuitMethods.export,
 } as const;
 
 export type ESCodeProtocolMethod = (typeof escodeProtocolMethods)[keyof typeof escodeProtocolMethods];
@@ -4351,6 +4362,38 @@ export const escodeProtocolSessionMethodContracts = {
   [escodeProtocolMethods.interactionSerialCancel]: {
     params: escodeSerialCancelParamsSchema,
     result: escodeProtocolEmptyResultSchema,
+  },
+  [escodeProtocolMethods.interactionCircuitParse]: {
+    params: escodeCircuitMethodParamsSchemas.parse,
+    result: circuitToolResponseSchemas.parse,
+  },
+  [escodeProtocolMethods.interactionCircuitSubmitRecognition]: {
+    params: escodeCircuitMethodParamsSchemas.submitRecognition,
+    result: circuitToolResponseSchemas.submitRecognition,
+  },
+  [escodeProtocolMethods.interactionCircuitGet]: {
+    params: escodeCircuitMethodParamsSchemas.get,
+    result: circuitToolResponseSchemas.get,
+  },
+  [escodeProtocolMethods.interactionCircuitQuery]: {
+    params: escodeCircuitMethodParamsSchemas.query,
+    result: circuitToolResponseSchemas.query,
+  },
+  [escodeProtocolMethods.interactionCircuitCorrect]: {
+    params: escodeCircuitMethodParamsSchemas.correct,
+    result: circuitToolResponseSchemas.correct,
+  },
+  [escodeProtocolMethods.interactionCircuitCheck]: {
+    params: escodeCircuitMethodParamsSchemas.check,
+    result: circuitToolResponseSchemas.check,
+  },
+  [escodeProtocolMethods.interactionCircuitCompareFirmware]: {
+    params: escodeCircuitMethodParamsSchemas.compareFirmware,
+    result: circuitToolResponseSchemas.compareFirmware,
+  },
+  [escodeProtocolMethods.interactionCircuitExport]: {
+    params: escodeCircuitMethodParamsSchemas.export,
+    result: circuitToolResponseSchemas.export,
   },
 } as const satisfies Partial<
   Record<ESCodeProtocolMethod, { params: z.ZodTypeAny; result: z.ZodTypeAny }>

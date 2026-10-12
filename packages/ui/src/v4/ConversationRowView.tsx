@@ -1,4 +1,5 @@
-import { GenUiMessageResponse } from "@/gen-ui/index.js";
+import { CircuitMessageResponse } from "@/circuit/index.js";
+import { CircuitReferenceChip } from "@/circuit/index.js";
 import { ConversationUserInputBubble } from "@/v4/ConversationUserInputBubble.js";
 import { expandTopicInputMessages } from "@/v4/topicInputMessages.js";
 import { ConnectedBotGroupDeliveryAction } from "@/v4/BotGroupDeliveryAction.js";
@@ -996,6 +997,7 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
   const webElementContexts = parsedPrompt.webElements;
   const pptxElementReferences = parsedPrompt.pptxElements;
   const conversationSelections = parsedPrompt.conversationSelections;
+  const circuitReferences = parsedPrompt.circuitReferences;
   const hasAttachments = (row.attachments?.length ?? 0) > 0;
   const hasMediaAttachments =
     row.attachments?.some(
@@ -1015,6 +1017,7 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
     webElementContexts.length > 0 ||
     pptxElementReferences.length > 0 ||
     conversationSelections.length > 0 ||
+    circuitReferences.length > 0 ||
     pluginUiContexts.length > 0;
   const hasAttachmentArea = hasAttachments || hasContextReferences;
   const hasAttachmentPills =
@@ -1022,6 +1025,7 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
     codeCommentContexts.length > 0 ||
     webElementContexts.length > 0 ||
     pptxElementReferences.length > 0 ||
+    circuitReferences.length > 0 ||
     (!row.botGroupSource && conversationSelections.length > 0);
   // Bug 根因：旧逻辑只接受 schedule runId，导致用户点击「立即运行」产生的 manual run
   // 没有来源标识。两种合法 automation runId 都应展示；普通会话输入仍因解析失败而不展示。
@@ -1376,6 +1380,7 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
                 />
               ) : null}
               <PluginUiModelContextChip contexts={pluginUiContexts} contentAlign="end" />
+              <CircuitReferenceChip references={circuitReferences} contentAlign="end" />
             </div>
           ) : null}
         </div>
@@ -1697,7 +1702,7 @@ const AssistantTextRowView = memo(function AssistantTextRowView({
           导致 assistant 正文虽然在 JSX 上标了 selectable，框选逻辑却永远找不到该区域。
           selectable 语义必须放在稳定的 DOM 包装层上，完成态和 streaming 共用同一路径。 */}
       <div data-conversation-selectable="true" className="w-full text-ui-base">
-        <GenUiMessageResponse
+        <CircuitMessageResponse
           completed={row.state === "complete"}
           messageKey={`${row.rowId}:${row.entityId ?? ""}`}
           renderESCodeFileCitations
@@ -1715,7 +1720,7 @@ const AssistantTextRowView = memo(function AssistantTextRowView({
           readAttachment={context.readAttachment}
         >
           {visibleText}
-        </GenUiMessageResponse>
+        </CircuitMessageResponse>
       </div>
       {codeCommentCardsEnabled && codeCommentCards && codeCommentCards.length > 0 ? (
         <div className="mt-3">

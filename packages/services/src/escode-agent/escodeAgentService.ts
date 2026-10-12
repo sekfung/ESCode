@@ -371,6 +371,9 @@ import type { PipSessionEvent } from "@escode/escode-cua/pip-session";
 import { registerMemoryDiagnosticsProvider } from "#src/memoryDiagnostics.js";
 import type { SerialAgentBridge } from "../serial/serialAgentBridge.js";
 import { routeSerialAgentRequest } from "../serial/serialAgentRequestRouter.js";
+// 受管模块 circuit-service 只经公开入口（node.ts）暴露桥接与反向请求路由。
+import type { CircuitAgentBridge } from "../circuit/node.js";
+import { routeCircuitAgentRequest } from "../circuit/node.js";
 
 import {
   escodeMcpUiResourceSubscriptionResultSchema as mcpUiEmptyResultSchema,
@@ -1019,6 +1022,11 @@ interface CreateESCodeAgentServiceOptions extends Omit<
    * 缺省时这些请求一律返回 unavailable 工具错误。
    */
   serialAgentBridge?: SerialAgentBridge;
+  /**
+   * Agent 电路工具：interaction/circuit* 反向请求交给它处理（docs/circuit/README.md §5）。
+   * 持有 CircuitService 的 Host（Desktop 本地与远程 workspace Host）装配；缺省时工具失败为 unavailable。
+   */
+  circuitAgentBridge?: CircuitAgentBridge;
   /**
    * 官方 Server MCP 身份头解析器。Agent 进程不持有用户身份权威，
    * 经 interaction/requestOfficialMcpAuthHeaders 向 host 索取本次请求的身份头。
@@ -2305,6 +2313,15 @@ export function createESCodeAgentService(
           routeSerialAgentRequest({
             request,
             bridge: options?.serialAgentBridge,
+            responder: client,
+          })
+        ) {
+          return;
+        }
+        if (
+          routeCircuitAgentRequest({
+            request,
+            bridge: options?.circuitAgentBridge,
             responder: client,
           })
         ) {

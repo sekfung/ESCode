@@ -33,6 +33,8 @@ export const OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME = "node-repl-host";
 export const OFFICIAL_NODE_REPL_HOST_PLUGIN_ID = `${OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_SERIAL_PLUGIN_NAME = "serial";
 export const OFFICIAL_SERIAL_PLUGIN_ID = `${OFFICIAL_SERIAL_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
+const OFFICIAL_CIRCUIT_PLUGIN_NAME = "circuit";
+export const OFFICIAL_CIRCUIT_PLUGIN_ID = `${OFFICIAL_CIRCUIT_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 export const OFFICIAL_CUA_PLUGIN_NAME = "computer-use";
 export const OFFICIAL_CUA_PLUGIN_ID = `${OFFICIAL_CUA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 
@@ -97,6 +99,11 @@ const OFFICIAL_SERIAL_REQUIRED_SEED_PATHS = [
   "skills/serial-port/SKILL.md",
 ] as const;
 
+const OFFICIAL_CIRCUIT_REQUIRED_SEED_PATHS = [
+  "dist/mcp/server.js",
+  "skills/circuit/SKILL.md",
+] as const;
+
 export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = [
   {
     // 串口工具由宿主按 Host 能力标记（ESCODE_HOST_SERIAL）注入，只有 Desktop Local Host 才有；
@@ -120,6 +127,43 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       "../serial-plugin",
       "../../serial-plugin",
       "../../../serial-plugin",
+    ],
+    version: "0.1.0",
+  },
+  {
+    // 电路工具由宿主按 Host 能力标记（ESCODE_HOST_CIRCUIT）注入：只有持有 CircuitService 的
+    // Desktop 本地 / 远程 workspace Host 才有；默认启用不会在其它环境注入工具，也不拉起常驻进程。
+    //
+    // defaultAllowedTools 与规格 §5 的「需要批准」列一致：parse/submit_recognition、get/query/correct
+    // 与只读的 check/compare_firmware 免批准，circuit_export 不在名单里 → 导出仍要用户批准（批准在权限层，
+    // 不在服务层）。circuit_correct 会写 IR，但按规格免批准，因此这里不按 readOnlyHint 推断名单。
+    defaultEnabled: true,
+    defaultAllowedTools: [
+      "circuit_parse",
+      "circuit_submit_recognition",
+      "circuit_get",
+      "circuit_query",
+      "circuit_correct",
+      "circuit_check",
+      "circuit_compare_firmware",
+    ],
+    hostMcpServerNames: [OFFICIAL_CIRCUIT_PLUGIN_NAME],
+    listing: {
+      author: ZAI_AUTHOR,
+      category: "developer-tools",
+      displayName: "Circuit Analysis",
+      displayName_i18n: { "zh-CN": "电路分析" },
+      description_i18n: {
+        "zh-CN": "读取 KiCad 原理图与 PCB：解释电路结构、按位号与网络查询连接、应用修正。",
+      },
+    },
+    name: OFFICIAL_CIRCUIT_PLUGIN_NAME,
+    requiredSeedPaths: OFFICIAL_CIRCUIT_REQUIRED_SEED_PATHS,
+    rootCandidates: [
+      "packages/circuit-plugin",
+      "../circuit-plugin",
+      "../../circuit-plugin",
+      "../../../circuit-plugin",
     ],
     version: "0.1.0",
   },

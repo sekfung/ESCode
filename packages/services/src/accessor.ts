@@ -13,6 +13,7 @@ import type { IGitCheckpointService } from "./git/gitCheckpoint.js";
 import type { ISystemService } from "./system/system.js";
 import type { ITerminalService } from "./terminal/terminal.js";
 import type { ISerialService } from "./serial/serial.js";
+import type { ICircuitService } from "./circuit/contract.js";
 import type { ISettingService } from "./setting/setting.js";
 import type { ICredentialService } from "./credential/credential.js";
 import type { IBroadcastService } from "./broadcast/broadcast.js";
@@ -61,6 +62,10 @@ export interface IServiceAccessor {
   readonly terminalService: ITerminalService;
   /** 本机串口调试器；仅 Desktop Local Host 注册，UI 按平台能力 supportsSerialPort 决定是否使用。 */
   readonly serialService?: ISerialService;
+  /**
+   * 电路识别与分析（Circuit IR 的唯一所有者，ADR 0005）；持有该 workspace 的 Host 注册，
+   * 独立 server / Web 客户端没有该服务，面板入口由平台能力决定。 */
+  readonly circuitService?: ICircuitService;
   readonly settingService: ISettingService;
   /** Onboarding 完成记录（本地持久化）；旧测试 double / 不支持的 host 可不提供。 */
   readonly onboardingRecordService?: IOnboardingRecordService;
