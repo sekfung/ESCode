@@ -194,6 +194,9 @@ pub(super) async fn execute(
             Ok(args) if name == "ReadSessionContext" => {
                 super::session_context_tool::execute(model, &args, sink, cancel).await
             }
+            Ok(args) if crate::domain::wiki::tools::is_wiki_tool(name) => {
+                super::wiki_context::execute(turn.wiki.as_deref(), name, &args, &sink.session_id).await
+            }
             Ok(_) if name == "ListModels" => {
                 super::model_catalog_tool::execute(
                     turn.model_catalog.as_deref(),

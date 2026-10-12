@@ -55,6 +55,12 @@ pub enum Event {
         before_input: bool,
         committed: oneshot::Sender<()>,
     },
+    /// LLM Wiki 检索结果（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §9.2）：隐藏上下文消息由 owner
+    /// 插到本轮输入之前并落库（与 hooks 上下文同一提交路径），回执后 loop 才继续请求模型。
+    WikiContext {
+        message: Value,
+        committed: oneshot::Sender<()>,
+    },
     /// 恢复会话首轮判定出的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：`at` 是相对本次运行
     /// 消息窗口（`messages[context.offset..]`）的锚点；owner 只记在内存，不落库。
     ShellNotice { at: usize, message: Value },

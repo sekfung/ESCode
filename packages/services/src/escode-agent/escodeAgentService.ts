@@ -211,6 +211,9 @@ import type {
   ESCodeAgentSessionTarget,
   ESCodeAgentSessionRuntimePreferencesRequest,
   ESCodeAgentTaskTokenUsageParams,
+  ESCodeAgentWikiEntryParams,
+  ESCodeAgentWikiGraphParams,
+  ESCodeAgentWikiManageParams,
   ESCodeAgentSetModeParams,
   ESCodeAgentSetModelParams,
   ESCodeAgentSetPluginEnabledParams,
@@ -298,6 +301,14 @@ import {
   MAX_LEGACY_TASK_IDS_PER_SUBSCRIBE,
   V4_METHODS,
   V4_NOTIFICATIONS,
+  V4_WIKI_METHODS,
+  v4WikiEntryParamsSchema,
+  v4WikiEntryResultSchema,
+  v4WikiGraphParamsSchema,
+  v4WikiGraphResultSchema,
+  v4WikiManageParamsSchema,
+  v4WikiManageResultSchema,
+  v4WikiStatusResultSchema,
   v4AttachmentAbortResultSchema,
   v4AttachmentBeginResultSchema,
   v4AttachmentChunkResultSchema,
@@ -4067,6 +4078,41 @@ export function createESCodeAgentService(
         V4_METHODS.usageStats,
         { range: params.range, timeZone: params.timeZone },
         v4UsageStatsResultSchema,
+      );
+    },
+
+    // LLM Wiki（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：只有 Rust runtime 实现 v4/wiki/*。
+    // 只读查询走 read-only client（不改变会话生命周期）；manage 是用户在图谱页的显式操作。
+    // 参数先经严格 schema 校验再发出，结果按 schema 解析，不信任未声明字段。
+    async getWikiStatus(params: ESCodeAgentWorkspaceTarget) {
+      const client = await getReadOnlyClient(params);
+      return client.request(V4_WIKI_METHODS.status, {}, v4WikiStatusResultSchema);
+    },
+
+    async getWikiGraph(params: ESCodeAgentWikiGraphParams) {
+      const client = await getReadOnlyClient(params);
+      return client.request(
+        V4_WIKI_METHODS.graph,
+        v4WikiGraphParamsSchema.parse(params.query ?? {}),
+        v4WikiGraphResultSchema,
+      );
+    },
+
+    async getWikiEntry(params: ESCodeAgentWikiEntryParams) {
+      const client = await getReadOnlyClient(params);
+      return client.request(
+        V4_WIKI_METHODS.entry,
+        v4WikiEntryParamsSchema.parse({ id: params.id }),
+        v4WikiEntryResultSchema,
+      );
+    },
+
+    async manageWiki(params: ESCodeAgentWikiManageParams) {
+      const client = await getReadOnlyClient(params);
+      return client.request(
+        V4_WIKI_METHODS.manage,
+        v4WikiManageParamsSchema.parse(params.request),
+        v4WikiManageResultSchema,
       );
     },
 

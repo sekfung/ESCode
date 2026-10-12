@@ -152,6 +152,7 @@ pub async fn build_engine(
         .map(HttpModel::new)
         .map(|m| Arc::new(m) as Arc<dyn ModelPort>);
     let workspace_path = std::path::absolute(&ws.requested_cwd).unwrap_or_else(|_| ws.cwd.clone());
+    let wiki = Arc::new(wiki_service(&workspace_path));
     Ok(Engine::new(
         ws.identity.clone(),
         identity,
@@ -187,7 +188,18 @@ pub async fn build_engine(
     )
     .await?
     .with_question_timing(question_timing.0, question_timing.1)
+    // LLM Wiki（apps/escode-cli-rust/docs/llm-wiki）：按 workspace 绑定项目身份；关闭由 wiki.enabled 控制。
+    .with_wiki(wiki)
     .with_registry(registry, ws.requested_cwd.to_string_lossy().into_owned()))
+}
+
+/// 绑定当前 workspace 的 Wiki 服务：远程/显式身份来自 `ESCODE_WORKSPACE_IDENTITY`（与会话身份同源）。
+pub fn wiki_service(workspace_path: &std::path::Path) -> escode_cli_wiki::WikiService {
+    escode_cli_wiki::WikiService::new(
+        workspace_path.to_owned(),
+        std::env::var("ESCODE_WORKSPACE_IDENTITY").ok(),
+        escode_cli_wiki::settings::home(),
+    )
 }
 
 /// 模型是否已配置（`-p` 在建 Engine 前给出明确错误）。

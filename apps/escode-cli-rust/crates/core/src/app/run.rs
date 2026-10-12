@@ -138,6 +138,7 @@ impl Engine {
             .registry
             .as_ref()
             .map(|registry| registry.model_catalog());
+        history.turn.wiki = self.wiki.clone();
         // ListWorkflowRuns 的项目键：会话工作目录（TS `context.workingDirectory`）。
         history.turn.cwd = Some(self.workspace_path.clone());
         // hooks（docs/specs/rust-hooks.md）：真实用户输入轮带提示正文；本进程首轮带 SessionStart 的 source。

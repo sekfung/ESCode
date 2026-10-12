@@ -3,6 +3,7 @@ import { localTtftFactsSchema } from "../localTtft.js";
 // 传输外壳：连接握手 / 订阅 / 帧信封。
 // 阶段为类型占位（后半接通道层时启用），数据形状已按规范定稿。
 import { z } from "zod";
+import { V4_WIKI_METHODS } from "./wiki.js";
 import { APP_USAGE_RANGES, appUsageSnapshotSchema } from "../usage-stats.js";
 import { escodeWorkspaceRefSchema } from "../escode-protocol-legacy-types.js";
 import {
@@ -381,6 +382,11 @@ export const V4_METHODS = {
   attachmentPreviewSource: "v4/attachment/previewSource",
   commandsQuery: "v4/commands/query",
   command: "v4/command",
+  // LLM Wiki 知识图谱（只由 Rust runtime 实现；只读查询 + 用户显式的治理操作），schema 在 wiki.ts。
+  wikiStatus: V4_WIKI_METHODS.status,
+  wikiGraph: V4_WIKI_METHODS.graph,
+  wikiEntry: V4_WIKI_METHODS.entry,
+  wikiManage: V4_WIKI_METHODS.manage,
 } as const;
 export type V4Method = (typeof V4_METHODS)[keyof typeof V4_METHODS];
 

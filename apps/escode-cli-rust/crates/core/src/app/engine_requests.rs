@@ -46,6 +46,14 @@ impl Engine {
             }
             return Ok(());
         }
+        if super::wiki_requests::WIKI_METHODS.contains(&request.method.as_str()) {
+            if let Err(error) = self.start_wiki_request(&request) {
+                output
+                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                    .await?;
+            }
+            return Ok(());
+        }
         if super::plugin_jobs::PLUGIN_JOB_METHODS.contains(&request.method.as_str()) {
             if let Err(error) = self.start_plugin_job(&request) {
                 output

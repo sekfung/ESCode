@@ -77,6 +77,11 @@ impl Engine {
             self.hook_context(&id, message, before_input, committed).await?;
             return Ok(None);
         }
+        if let Event::WikiContext { message, committed } = event.event {
+            // 与 hooks 上下文同一提交路径：插在本轮输入之前并落库后回执。
+            self.hook_context(&id, Some(message), true, committed).await?;
+            return Ok(None);
+        }
         if let Event::Todos {
             call_id,
             write,

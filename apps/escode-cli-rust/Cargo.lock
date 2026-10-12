@@ -752,6 +752,7 @@ dependencies = [
  "chrono",
  "escode-cli-core-api",
  "escode-cli-domain",
+ "escode-cli-host",
  "lopdf",
  "quick-xml",
  "saphyr",

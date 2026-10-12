@@ -243,6 +243,12 @@ impl Engine {
 }
 
 impl super::Engine {
+    /// 注入 LLM Wiki 端口（apps/escode-cli-rust/docs/llm-wiki）。
+    pub fn with_wiki(mut self, wiki: Arc<dyn crate::contract::WikiPort>) -> Self {
+        self.wiki = Some(wiki);
+        self
+    }
+
     pub fn with_registry(
         mut self,
         registry: Option<Arc<dyn crate::contract::ModelRegistry>>,

@@ -35,6 +35,8 @@ pub(super) struct TurnFacts {
     pub prompt: Option<String>,
     /// 本进程内本会话首轮：SessionStart 的 source（startup / resume）。
     pub session_start: Option<&'static str>,
+    /// LLM Wiki 端口（docs/llm-wiki）：Engine 组合时注入，缺席即本 runtime 不提供 Wiki。
+    pub wiki: Option<std::sync::Arc<dyn crate::contract::WikiPort>>,
     /// 本轮用户输入的 sourceCommandId（ReplyToChannel 的 inputId；TS 取 assistant 父 user 消息的输入身份）。
     pub source_command_id: Option<String>,
 }

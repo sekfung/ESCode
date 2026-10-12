@@ -63,7 +63,9 @@ impl Engine {
             session: None,
             config: Some(&self.permission_config),
         };
-        let mut capability: Option<Capability> = self.tools.permission_capability(&tool, &input);
+        // Wiki 工具只存在于 Rust runtime，能力表在 domain::wiki（WikiManage 为 alwaysAsk）。
+        let mut capability: Option<Capability> = crate::domain::wiki::tools::capability(&tool)
+            .or_else(|| self.tools.permission_capability(&tool, &input));
         // guarded（v3.15.1）：Bash 命中危险命令时附带 userApprovalRule，由 check 走 user-once 确认。
         if ctx.mode == Mode::Guarded && tool == "Bash" {
             let owner = self.shell_owner_session(id);

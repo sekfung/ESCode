@@ -9,7 +9,7 @@ const TOOL_INPUT_PREVIEW_CHARS: usize = 900;
 const TOOL_OUTPUT_PREVIEW_CHARS: usize = 1600;
 const TEXT_PART_PREVIEW_CHARS: usize = 3000;
 const FILE_PREVIEW_CHARS: usize = 1600;
-const SKIPPED_SYNTHETIC_SOURCES: [&str; 11] = [
+const SKIPPED_SYNTHETIC_SOURCES: [&str; 12] = [
     "background_task",
     "subagent_message",
     "diagnostics",
@@ -21,6 +21,8 @@ const SKIPPED_SYNTHETIC_SOURCES: [&str; 11] = [
     "relevant_memory",
     "runtime_mode",
     "todo_reminder",
+    // LLM Wiki 检索上下文（docs/llm-wiki）：隐藏的 runtime 注入，不是会话内容。
+    "wiki_knowledge",
 ];
 
 /// 把 TS JSON 文本解析为消息，并为工具 part 补上保持原键顺序的 `inputJson`。

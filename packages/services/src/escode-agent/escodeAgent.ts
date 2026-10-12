@@ -121,6 +121,14 @@ import type {
   V4WorkspaceConfigSubscribeResult,
   WorkspaceConfigTopicWireCandidate,
 } from "@escode/shared/escode-protocol-v4";
+import type {
+  V4WikiEntryResult,
+  V4WikiGraphParams,
+  V4WikiGraphResult,
+  V4WikiManageParams,
+  V4WikiManageResult,
+  V4WikiStatusResult,
+} from "@escode/shared/escode-protocol-v4";
 import { createServiceDescriptor } from "../descriptors.js";
 
 export * from "./escodeAgentPluginParams.js";
@@ -248,6 +256,19 @@ export interface ESCodeAgentListSessionSubagentsParams extends ESCodeAgentSessio
   endedLimit?: number;
   /** 远程 workspace 的宿主连接身份；只用于选择现有 Host，不进入 CLI wire query。 */
   remoteSessionId?: string;
+}
+
+/** LLM Wiki 图谱查询：作用域由 workspace 决定，参数里没有项目字段。 */
+export interface ESCodeAgentWikiGraphParams extends ESCodeAgentWorkspaceTarget {
+  query?: V4WikiGraphParams;
+}
+
+export interface ESCodeAgentWikiEntryParams extends ESCodeAgentWorkspaceTarget {
+  id: string;
+}
+
+export interface ESCodeAgentWikiManageParams extends ESCodeAgentWorkspaceTarget {
+  request: V4WikiManageParams;
 }
 
 export interface ESCodeAgentAppUsageParams {
@@ -640,6 +661,14 @@ export interface IESCodeAgentService {
     params: ESCodeAgentListSessionSubagentsParams,
   ): Promise<ESCodeSessionSubagentsResult>;
   getAppUsageStats(params: ESCodeAgentAppUsageParams): Promise<AppUsageSnapshot>;
+  /**
+   * LLM Wiki（仅 Rust runtime）。可选：旧 Host / 代理实现缺席时 UI 显示「不支持」。
+   * TS runtime 不认识 v4/wiki/* 方法，请求会以协议错误返回。
+   */
+  getWikiStatus?(params: ESCodeAgentWorkspaceTarget): Promise<V4WikiStatusResult>;
+  getWikiGraph?(params: ESCodeAgentWikiGraphParams): Promise<V4WikiGraphResult>;
+  getWikiEntry?(params: ESCodeAgentWikiEntryParams): Promise<V4WikiEntryResult>;
+  manageWiki?(params: ESCodeAgentWikiManageParams): Promise<V4WikiManageResult>;
   getTaskTokenUsage(params: ESCodeAgentTaskTokenUsageParams): Promise<ESCodeTaskTokenUsageResult>;
   readSession(params: ESCodeAgentReadSessionParams): Promise<ESCodeSessionStateSnapshot>;
   readSessionMessages(

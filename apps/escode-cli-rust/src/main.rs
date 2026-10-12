@@ -1,6 +1,7 @@
 mod args;
 mod headless;
 mod runtime;
+mod wiki_cli;
 use anyhow::Result;
 use args::Args;
 use clap::Parser;
@@ -14,6 +15,10 @@ use tokio_util::sync::CancellationToken;
 async fn main() {
     // `app-server` 走协议入口；其余参数按 Node 全局参数处理（`-p` 无头模式，docs/specs/rust-headless-prompt.md）。
     let argv: Vec<String> = std::env::args().skip(1).collect();
+    // `wiki`：LLM Wiki 运维子命令（apps/escode-cli-rust/docs/llm-wiki/03-usage.md）。
+    if argv.first().map(String::as_str) == Some("wiki") {
+        std::process::exit(wiki_cli::run(argv[1..].to_vec()).await);
+    }
     if argv.first().map(String::as_str) != Some("app-server") {
         let code = headless::run(argv).await;
         std::process::exit(code);

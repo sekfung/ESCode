@@ -19,6 +19,8 @@ pub struct Engine {
     pub(super) uploads: crate::domain::attachment_upload::Uploads,
     pub(super) auxiliary: BTreeMap<String, super::auxiliary::Auxiliary>,
     pub(super) registry: Option<Arc<dyn crate::contract::ModelRegistry>>,
+    /// LLM Wiki 端口（组合根按 workspace 注入；缺席时 Wiki 工具不注册、`v4/wiki/*` 报不支持）。
+    pub(super) wiki: Option<Arc<dyn crate::contract::WikiPort>>,
     pub(super) workspace_path: String,
     pub(super) auth: BTreeMap<String, (String, String, Value, oneshot::Sender<Value>)>,
     pub(super) shell: super::shell_preferences::ShellPreferences,
@@ -125,6 +127,7 @@ impl Engine {
             uploads: Default::default(),
             auxiliary: BTreeMap::new(),
             registry: None,
+            wiki: None,
             workspace_path: workspace.clone(),
             project_rules_json: project_rules_json.clone(),
             auth: BTreeMap::new(),

@@ -70,6 +70,7 @@ pub(super) async fn run(
             &properties["inputFormat"],
         )
         .await;
+    let wiki = super::wiki_context::prepare(history, &mut definitions).await;
     // 会话级 hooks（docs/specs/rust-hooks.md）：SessionStart / UserPromptSubmit 在首个模型请求之前。
     let model_label = history.turn.model_selection.as_ref().and_then(|s| {
         Some(format!("{}/{}", s["providerId"].as_str()?, s["modelId"].as_str()?))
@@ -77,6 +78,7 @@ pub(super) async fn run(
     if super::turn_hooks::before_turn(tools, model_label, history, sink, cancel).await? {
         return Ok(());
     }
+    super::wiki_context::before_turn(history, wiki, sink, cancel).await?;
     let surface = super::agent_loop_surface::prepare_tool_surface(
         tools,
         model,

@@ -36,7 +36,7 @@ impl Engine {
             | Event::GoalStep { .. }
             | Event::GoalVerdict { .. }
             | Event::SkillsInitialized { .. }
-            | Event::TodoReminder { .. } | Event::PersistedNotice { .. } | Event::HookContext { .. } | Event::ShellNotice { .. }
+            | Event::TodoReminder { .. } | Event::PersistedNotice { .. } | Event::HookContext { .. } | Event::WikiContext { .. } | Event::ShellNotice { .. }
             | Event::StreamRecovery { .. }
             | Event::Question { .. }
             | Event::PlanEnter { .. }
