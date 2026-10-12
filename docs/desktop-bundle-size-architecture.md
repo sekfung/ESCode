@@ -51,15 +51,15 @@
 
 ## agent 准备链路
 
-当前 desktop 与 remote 默认都使用编译后的 `escode.cjs`，不再按平台下载内嵌 Node 的原生
+当前 desktop 与 remote 默认都使用编译后的 `zcode.cjs`，不再按平台下载内嵌 Node 的原生
 `escode-agent`：
 
 1. `scripts/build-desktop-agent-cli.mjs` 构建 `apps/escode-cli/packages/cli/dist/escode.cjs`，并构建、校验
    CUA 等 Dev 必需的官方插件 runtime。`pnpm dev:desktop` 在 `pre-dev` 后执行该脚本，开发态 resolver
    优先直接使用 workspace 内的 bundle。
-2. 桌面打包的 `prepare:agent-bundle` 将 `escode.cjs` 和官方插件 seed 资源写入
+2. 桌面打包的 `prepare:agent-bundle` 将 `zcode.cjs` 和官方插件 seed 资源写入
    `packages/desktop/bundled-agents/<platform>/glm/`，再由 electron-builder 复制到安装包。
-3. remote 资产的 `prepare-prebuilds.mjs` 复用同一份 `escode.cjs`，写入各平台
+3. remote 资产的 `prepare-prebuilds.mjs` 复用同一份 `zcode.cjs`，写入各平台
    `packages/desktop/mock-cdn/releases/<version>/glm/<platform>/` 后产出 component artifact；远端使用已部署的
    Node 执行该 bundle。
 
@@ -76,14 +76,14 @@ remote 资产准备链路。
 
 `pnpm dev:desktop` 会先构建 `apps/escode-cli/packages/cli/dist/escode.cjs`。在
 本地开发运行且该文件存在时，SSH remote deploy 的 `glm` 组件不再使用
-mock-cdn / CDN 里的 `escode-agent` native binary，而是把本地 `escode.cjs` 上传到远端
-`~/.escode/server/agents/glm/escode.cjs`，并生成一个可执行的
+mock-cdn / CDN 里的 `escode-agent` native binary，而是把本地 `zcode.cjs` 上传到远端
+`~/.escode/server/agents/glm/zcode.cjs`，并生成一个可执行的
 `~/.escode/server/agents/glm/escode-agent` wrapper。wrapper 使用远端已部署的
 `~/.escode/server/node` 启动这份 bundle，因此 agent 仍运行在目标 SSH 机器内，文件、
 Git、terminal cwd 都保持远端语义。
 
 远端同时写入 `.dev-version` 内容 hash；只有该标记匹配、必要资源完整且远端
-`escode.cjs` 的实际 SHA-256 与本地一致时才跳过重复上传。发布包或另一客户端覆盖
+`zcode.cjs` 的实际 SHA-256 与本地一致时才跳过重复上传。发布包或另一客户端覆盖
 bundle 但残留开发标记时，必须重新上传；无法校验实际内容也按需重新部署。
 生产态不启用该覆盖，仍严格使用 manifest/component 资源。开发时如需临时关闭覆盖，可设置
 `ESCODE_REMOTE_DEV_AGENT_BUNDLE=0`。

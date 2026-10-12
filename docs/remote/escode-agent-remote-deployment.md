@@ -27,11 +27,11 @@ Remote server base path:
 ```text
 ~/.escode/server/
 ├── node
-├── escode-server.cjs
+├── zcode-server.cjs
 ├── build/Release/pty.node
 ├── agents/glm/
 │   ├── .version
-│   ├── escode.cjs
+│   ├── zcode.cjs
 │   └── escode-agent
 ├── .asset-components/
 │   ├── server-bundle.json

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* oxlint-disable eslint(max-lines) -- 官方插件清单与 CUA/串口原生依赖的 stage 校验必须共用同一份打包上下文。 */
 
-// 桌面打包态的 agent 运行时资产：把 agent 的 JS bundle（escode.cjs）放进 bundled-agents/<platform>/glm，
+// 桌面打包态的 agent 运行时资产：把 agent 的 JS bundle（zcode.cjs）放进 bundled-agents/<platform>/glm，
 // 由 app 内置的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行，替代以前随包内置的独立 Node 二进制。
 //
 // 为什么这么做：
@@ -78,7 +78,7 @@ const arch = normalizeArch(process.env.ESCODE_TARGET_ARCH || "") || process.arch
 const platformKey = `${platform}-${arch}`;
 
 const glmDir = resolve(desktopRoot, "bundled-agents", platformKey, "glm");
-// escode.cjs / .node-bundle-meta.json 的落点由 stage-agent-bundle.mjs 自己解析（同源）。
+// zcode.cjs / .node-bundle-meta.json 的落点由 stage-agent-bundle.mjs 自己解析（同源）。
 // node_repl 宿主抽成独立包
 // @escode/node-repl-host 之后，browser-use 不再产出 dist/mcp/server.js，CUA 资产
 // （docs/computer-use.md、scripts/computer-use-client.mjs）也已归 @escode/escode-cua-plugin。
@@ -258,7 +258,7 @@ const officialPluginPackages = [
   },
 ];
 // 随 CLI 内置的技能包（不是插件）：bootstrap 的 resolveBundledSkillRoots 沿官方插件同款候选目录
-// 在 escode.cjs 旁找 packages/bundled-skills 并原地读取。漏 stage 它，桌面包的 /workflow 会展开成
+// 在 zcode.cjs 旁找 packages/bundled-skills 并原地读取。漏 stage 它，桌面包的 /workflow 会展开成
 // 「先加载 dynamic-workflows 技能」而技能不存在——这正是把它从可卸载的 escode-guide 插件搬出来要修的事故形态。
 const bundledSkillPack = {
   relativePath: "apps/escode-cli/packages/bundled-skills",
@@ -481,10 +481,10 @@ function stageKoffiForCuaPlugin() {
   );
 }
 
-// 修复原因：Electron 生产包只带 resources/glm/escode.cjs 时，app-server 进程的
+// 修复原因：Electron 生产包只带 resources/glm/zcode.cjs 时，app-server 进程的
 // __dirname 附近没有官方插件目录，启动时 seed 找不到 source，用户侧不会自动得到内置插件。
 // 这里把官方插件按 bootstrap 的 rootCandidates 期望放到 glm/packages/*-plugin，
-// 让 Electron Node 运行 escode.cjs 时复用同一套 filesystem seed 逻辑。
+// 让 Electron Node 运行 zcode.cjs 时复用同一套 filesystem seed 逻辑。
 // browser-use runtime 的声明生成依赖 @escode/core/dist。CI 干净检出没有该产物，
 // 必须先构建 CLI 依赖，再构建官方插件；开发机残留的 dist 曾掩盖这个顺序问题。
 buildCliBundle();

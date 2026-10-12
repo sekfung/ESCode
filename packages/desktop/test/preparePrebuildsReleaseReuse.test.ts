@@ -341,7 +341,7 @@ describe("prepare-prebuilds release asset reuse", () => {
       "old-rg",
       "utf8",
     );
-    writeFileSync(join(previousReleaseDir, "server", "escode-server.cjs"), "old-server", "utf8");
+    writeFileSync(join(previousReleaseDir, "server", "zcode-server.cjs"), "old-server", "utf8");
     writeDefaultManifest(previousReleaseDir, platformKey);
 
     restoreReusableReleaseAssets({
@@ -379,7 +379,7 @@ describe("prepare-prebuilds release asset reuse", () => {
       readFileSync(join(currentReleaseDir, "tools", platformKey, "ripgrep", "rg"), "utf8"),
     ).toBe("old-rg");
     expect(() =>
-      readFileSync(join(currentReleaseDir, "server", "escode-server.cjs"), "utf8"),
+      readFileSync(join(currentReleaseDir, "server", "zcode-server.cjs"), "utf8"),
     ).toThrow();
   });
 

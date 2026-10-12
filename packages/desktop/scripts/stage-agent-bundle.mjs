@@ -18,7 +18,7 @@ export function resolveAgentBundlePaths({ repoRoot, platformKey }) {
   return {
     cliBundlePath: resolve(repoRoot, AGENT_BUNDLE_SOURCE_RELATIVE),
     glmDir,
-    stagedBundlePath: resolve(glmDir, "escode.cjs"),
+    stagedBundlePath: resolve(glmDir, "zcode.cjs"),
     stagedMetaPath: resolve(glmDir, ".node-bundle-meta.json"),
   };
 }
@@ -41,7 +41,7 @@ export function stageAgentBundle({ repoRoot, platformKey, log = console.log }) {
   copyFileSync(cliBundlePath, stagedBundlePath);
   const meta = {
     runtime: "electron-node",
-    entry: "escode.cjs",
+    entry: "zcode.cjs",
     platform: platformKey,
     source: AGENT_BUNDLE_SOURCE_RELATIVE,
   };

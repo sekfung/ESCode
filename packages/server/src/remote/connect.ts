@@ -405,5 +405,5 @@ function buildRemoteServerCommand(
       );
     }
   }
-  return `${envParts.join(" ")} ~/.escode/server/node ~/.escode/server/escode-server.cjs`;
+  return `${envParts.join(" ")} ~/.escode/server/node ~/.escode/server/zcode-server.cjs`;
 }

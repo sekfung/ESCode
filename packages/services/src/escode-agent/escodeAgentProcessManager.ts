@@ -403,7 +403,7 @@ function resolveDeployedESCodeAgentBinaryCommand(
   context: ESCodeAgentCommandResolverContext,
 ): ESCodeAgentCommand | null {
   // 旧 resolver 只识别 ESCODE_AGENT_SERVER_COMMAND env 和 monorepo 源码树。
-  // SSH 远端把 escode-server.cjs 单文件部署到 ~/.escode/server/，宿主进程的 cwd 不在仓库内、
+  // SSH 远端把 zcode-server.cjs 单文件部署到 ~/.escode/server/，宿主进程的 cwd 不在仓库内、
   // env 也不会被 ssh exec 继承，即使 escode-agent 已经部署到 ~/.escode/server/agents/glm/，
   // resolver 也找不到，第一次 getClient 就抛 "ESCode agent server command is not configured"。
   // 这里复用 findESCodeAgentRuntimeBinary 的候选链（含 GLM_BINARY_PATH env、

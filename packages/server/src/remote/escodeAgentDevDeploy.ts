@@ -99,7 +99,7 @@ async function computeDevelopmentAgentAssetsSha256(params: {
   repoRoot: string;
 }): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("bundle:escode.cjs\n");
+  hash.update("bundle:zcode.cjs\n");
   hash.update(await readFile(params.localBundlePath));
   for (const packageName of REMOTE_AGENT_OFFICIAL_PLUGIN_PACKAGE_NAMES) {
     const packageRoot = join(params.repoRoot, "apps", "escode-cli", "packages", packageName);
@@ -262,7 +262,7 @@ async function shouldSkipDevelopmentESCodeAgentDeploy(params: {
   }
 
   params.loggers.log(
-    `[escode-agent-deploy] ${ESCODE_AGENT_PROVIDER}: 开发态 escode.cjs 未变化，跳过`,
+    `[escode-agent-deploy] ${ESCODE_AGENT_PROVIDER}: 开发态 zcode.cjs 未变化，跳过`,
   );
   return true;
 }
@@ -410,12 +410,12 @@ export async function deployDevelopmentESCodeAgentRuntime(
     return true;
   }
 
-  // 开发态 SSH 远端过去只会部署本地 escode.cjs，不会携带 packages/*-plugin。
+  // 开发态 SSH 远端过去只会部署本地 zcode.cjs，不会携带 packages/*-plugin。
   // builtin plugin seed 依赖 agent 包旁边的官方插件源资源，所以 dev 部署需要同步 bundle 与插件资源。
   // 本地修改 apps/escode-cli 后，远端测试仍运行滞后的发布包。这里改为上传 dev 启动时刚构建的
-  // dist/escode.cjs，并用远端已部署的 node 包一层 wrapper 启动，保证 agent 仍运行在目标机器内。
+  // dist/zcode.cjs，并用远端已部署的 node 包一层 wrapper 启动，保证 agent 仍运行在目标机器内。
   loggers.log(
-    `[escode-agent-deploy] ${ESCODE_AGENT_PROVIDER}: 开发态上传本地 escode.cjs ${devVersion.slice(0, 12)}`,
+    `[escode-agent-deploy] ${ESCODE_AGENT_PROVIDER}: 开发态上传本地 zcode.cjs ${devVersion.slice(0, 12)}`,
   );
   const mkdirStream = await backend.exec(`mkdir -p ${quotePosixPathArg(params.remoteProviderDir)}`);
   await waitForClose(mkdirStream);

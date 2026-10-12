@@ -11,7 +11,7 @@ export interface ESCodeAgentRuntimeDescriptor {
   missingBinaryMessage: string;
   resolveEntrySegments(platform: string): string[];
   /**
-   * 桌面端把 agent 的 JS bundle（escode.cjs）打进 resources/glm，由 app 内置的 Electron Node runtime
+   * 桌面端把 agent 的 JS bundle（zcode.cjs）打进 resources/glm，由 app 内置的 Electron Node runtime
    * （ELECTRON_RUN_AS_NODE）直接执行，避免再随包内置一份独立 Node 二进制。
    * 这里只放纯 JS 入口文件名，平台无关（与 resolveEntrySegments 的原生二进制路径平行）。
    */
@@ -40,7 +40,7 @@ export const ESCODE_AGENT_RUNTIME: ESCodeAgentRuntimeDescriptor = {
   missingBinaryMessage:
     "[ESCode Agent] glm binary 未找到，请设置 ESCODE_AGENT_WORKDIR、GLM_BINARY_PATH 或先准备 GLM 运行时资源",
   resolveEntrySegments: (platform) => [resolvePlatformBinaryName("escode-agent", platform)],
-  nodeBundleEntryFile: "escode.cjs",
+  nodeBundleEntryFile: "zcode.cjs",
   resolveNodeBundleSegments() {
     return [this.nodeBundleEntryFile];
   },

@@ -7,7 +7,7 @@ ESCode Agent 以前每个平台都内置一份独立的原生二进制 `escode-a
 但无论桌面还是远端，运行 agent 的环境里**本来就已经有一份 Node**：
 
 - **桌面**：Host 跑在 Electron `utilityProcess`，`process.execPath` 指向 Electron Helper，内置 Node 24.x（Electron 41）。
-- **远端 SSH/WSL/Docker**：部署时会下发一份独立 `node`（`<REMOTE_BASE>/node`，v22.16.0）用来跑 `escode-server.cjs`。
+- **远端 SSH/WSL/Docker**：部署时会下发一份独立 `node`（`<REMOTE_BASE>/node`，v22.16.0）用来跑 `zcode-server.cjs`。
 
 所以 agent 没必要再带一份 Node，直接用这份已有的 Node 执行编译产物 `escode.cjs` 即可。
 
@@ -50,7 +50,7 @@ esbuild `target` 从 `node26` 降到 **`node22`**，取两端运行时里最低�
 **远端**
 - `escodeAgentBundleWrapper.ts`（新）：`REMOTE_AGENT_BUNDLE_NAME` + `buildRemoteAgentBundleWrapper()`，dev / 生产共用一份 wrapper 语义。
 - `escodeAgentDeploy.ts`：去掉「只支持 native binary」的限制；改为 ① `installFile` 安装 `escode.cjs` 到 `agents/glm/escode.cjs`，② 写 wrapper 到 `agents/glm/escode-agent`。skip 检查同时校验 wrapper 与 bundle 存在。
-- 生产态 `glm/escode.cjs` 始终跟随 ESCode app/server 版本：主 `escode-server.cjs` 因 app 版本变化进入部署路径时强制刷新 `glm`；本地上传模式必须从当前 app release 取文件覆盖，远端下载模式必须按当前 manifest 的组件内容刷新远端 cache 后再覆盖，避免同一语义 runtime 版本但内容 hash 不同的旧 `escode.cjs` 被重复安装。app 版本未变化时不再单独判断或补传 `glm`。
+- 生产态 `glm/escode.cjs` 始终跟随 ESCode app/server 版本：主 `zcode-server.cjs` 因 app 版本变化进入部署路径时强制刷新 `glm`；本地上传模式必须从当前 app release 取文件覆盖，远端下载模式必须按当前 manifest 的组件内容刷新远端 cache 后再覆盖，避免同一语义 runtime 版本但内容 hash 不同的旧 `escode.cjs` 被重复安装。app 版本未变化时不再单独判断或补传 `glm`。
 - `escodeAgentDevDeploy.ts`：复用上面的共享 wrapper（删掉本地副本）。
 - mock-cdn（`prepare-prebuilds.mjs`）：`stageRemoteAgentBundles()` 构建 cli 后把 `escode.cjs` 放进各平台 `releases/<ver>/glm/<platform>/`，替代原来逐平台下载原生二进制；glm 组件复用 required-paths 改为 `["escode.cjs"]`。组件 tar.gz / manifest / sha 机制不变，只是包里的文件从二进制换成 JS。
 

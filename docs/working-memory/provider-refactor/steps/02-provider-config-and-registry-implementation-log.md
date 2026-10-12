@@ -2302,7 +2302,7 @@ Provider、Services 与 UI 共 274 条定向测试通过；Provider、Shared、S
 ## 161. 远端 Environment 建立自己的 Provider Runtime
 
 检查 desktop-attached remote 的真实启动链路后发现，新 Config/Registry 虽已能在 Services 中装配，远端
-`escode-server.cjs` 却没有携带 Official Config。`createStdioServices()` 因而无法创建 Provider Runtime，实际
+`zcode-server.cjs` 却没有携带 Official Config。`createStdioServices()` 因而无法创建 Provider Runtime，实际
 执行仍依赖 Desktop Renderer 把本地完整 Registry 与 `runtimeModel` 推给远端。
 
 本轮先补齐远端事实来源。远端 Server 构建时嵌入仓库唯一的 `config/provider/official.json`；启动时按内容

@@ -50,7 +50,7 @@ import {
 const retiredProtocolPrefix = `${"a"}${"cp"}`;
 const retiredProxyRuntimeId = `${retiredProtocolPrefix}-proxy-runtime`;
 // 远端 ESCode Agent bundle 文件名（与 REMOTE_AGENT_BUNDLE_NAME 保持一致）。
-const REMOTE_AGENT_BUNDLE_FILE_NAME = "escode.cjs";
+const REMOTE_AGENT_BUNDLE_FILE_NAME = "zcode.cjs";
 const REMOTE_AGENT_WRAPPER_FILE_NAME = "escode-agent";
 const BROWSER_USE_REQUIRED_RELATIVE_PATHS = [
   // node_repl 宿主已抽成 @escode/node-repl-host，browser-use 不再产出 dist/mcp/server.js。
@@ -238,7 +238,7 @@ class FakeRemoteBackend implements IRemoteBackend {
       );
     }
 
-    const versionCommand = `"${"$HOME"}"'/.escode/server/node' "${"$HOME"}"'/.escode/server/escode-server.cjs' --version`;
+    const versionCommand = `"${"$HOME"}"'/.escode/server/node' "${"$HOME"}"'/.escode/server/zcode-server.cjs' --version`;
     if (command === versionCommand) {
       const versionSource =
         this.serverVersions.length > 1
@@ -267,7 +267,7 @@ class FakeRemoteBackend implements IRemoteBackend {
     return (
       this.remoteFiles.has(remotePath) ||
       remotePath === "~/.escode/server/node" ||
-      remotePath === "~/.escode/server/escode-server.cjs"
+      remotePath === "~/.escode/server/zcode-server.cjs"
     );
   }
 
@@ -342,9 +342,9 @@ class FailFirstGlmUploadRemoteBackend extends FakeRemoteBackend {
   override async upload(localPath: string, remotePath: string): Promise<void> {
     if (
       this.shouldFailGlmUpload &&
-      (remotePath === "~/.escode/server/agents/glm/escode.cjs.new" ||
+      (remotePath === "~/.escode/server/agents/glm/zcode.cjs.new" ||
         remotePath.startsWith(
-          "~/.escode/server/agents/glm/escode.cjs.new-",
+          "~/.escode/server/agents/glm/zcode.cjs.new-",
         ))
     ) {
       this.shouldFailGlmUpload = false;
@@ -447,7 +447,7 @@ async function stageRemoteRuntimeRelease(
   await mkdir(nodePtyDir, { recursive: true });
   await writeFile(join(nodeDir, "node"), "node runtime", "utf8");
   await writeFile(
-    join(serverDir, "escode-server.cjs"),
+    join(serverDir, "zcode-server.cjs"),
     "// remote server bundle\n",
     "utf8",
   );
@@ -512,7 +512,7 @@ async function stageRemoteRuntimeRelease(
     const binaryDir = join(releaseDir, runtime.bundledResourceDir, platformKey);
     await mkdir(binaryDir, { recursive: true });
     await writeFile(join(binaryDir, binaryName), `${provider} binary`, "utf8");
-    // ESCode Agent（glm）远端不再发原生二进制，而是发编译产物 escode.cjs，
+    // ESCode Agent（glm）远端不再发原生二进制，而是发编译产物 zcode.cjs，
     // 由远端已部署的 node 通过 wrapper 执行，故 source release 需提供该 bundle。
     if (provider === "glm") {
       await writeFile(
@@ -588,7 +588,7 @@ function createFullyDeployedRemoteFiles(
         ] = "claude native binary";
       }
     } else if (provider === "glm") {
-      // ESCode Agent 远端部署后：wrapper（escode-agent）+ 编译产物 bundle（escode.cjs）。
+      // ESCode Agent 远端部署后：wrapper（escode-agent）+ 编译产物 bundle（zcode.cjs）。
       const entrySegments = runtime.resolveEntrySegments(platform);
       const wrapperName = entrySegments[entrySegments.length - 1];
       if (wrapperName) {
@@ -993,7 +993,7 @@ async function computeDevelopmentAgentAssetsSha256ForTest(
   cliBundlePath: string,
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("bundle:escode.cjs\n");
+  hash.update("bundle:zcode.cjs\n");
   hash.update(await readFile(cliBundlePath));
   for (const packageName of OFFICIAL_PLUGIN_PACKAGE_NAMES) {
     const packageRoot = join(
@@ -1191,7 +1191,7 @@ const DEV_CLI_BUNDLE_TEST_SUFFIX = join(
   "packages",
   "cli",
   "dist",
-  "escode.cjs",
+  "zcode.cjs",
 );
 
 afterEach(async () => {
@@ -1408,7 +1408,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/agents/glm/escode.cjs.new",
+        "~/.escode/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
@@ -1482,7 +1482,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/escode-server.cjs.new",
+        "~/.escode/server/zcode-server.cjs.new",
       ),
     ).toBe(true);
     expect(backend.commands.join("\n")).toContain("skill-sync");
@@ -1523,7 +1523,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/agents/glm/escode.cjs.new",
+        "~/.escode/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
@@ -1640,7 +1640,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/agents/glm/escode.cjs.new",
+        "~/.escode/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
     expect(
@@ -1861,7 +1861,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/agents/glm/escode.cjs.new",
+        "~/.escode/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(true);
   });
@@ -1899,7 +1899,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     expect(installedFiles).toEqual([
-      "glm:~/.escode/server/agents/glm/escode.cjs",
+      "glm:~/.escode/server/agents/glm/zcode.cjs",
     ]);
     expect(installedDirectories).toEqual([
       {
@@ -2011,7 +2011,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     remoteFiles[
       `~/.escode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}`
     ] =
-      '#!/bin/sh\nset -eu\nruntime_root="/home/dev/.escode/server"\nexec "/node" "/home/dev/.escode/server/agents/glm/escode.cjs" ""\n';
+      '#!/bin/sh\nset -eu\nruntime_root="/home/dev/.escode/server"\nexec "/node" "/home/dev/.escode/server/agents/glm/zcode.cjs" ""\n';
     const backend = new FakeWslRemoteBackend(remoteFiles);
     const installedFiles: string[] = [];
     const installedDirectories: string[] = [];
@@ -2036,7 +2036,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     expect(installedFiles).toEqual([
-      "glm:~/.escode/server/agents/glm/escode.cjs",
+      "glm:~/.escode/server/agents/glm/zcode.cjs",
     ]);
     expect(backend.uploads.map((upload) => upload.remotePath)).toContain(
       `~/.escode/server/agents/glm/${REMOTE_AGENT_WRAPPER_FILE_NAME}.new`,
@@ -2099,7 +2099,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         componentId: "glm",
         forceRefresh: false,
         kind: "file",
-        remotePath: "~/.escode/server/agents/glm/escode.cjs",
+        remotePath: "~/.escode/server/agents/glm/zcode.cjs",
       },
       {
         componentId: "glm",
@@ -2228,7 +2228,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         componentId: "glm",
         forceRefresh: false,
         kind: "file",
-        remotePath: "~/.escode/server/agents/glm/escode.cjs",
+        remotePath: "~/.escode/server/agents/glm/zcode.cjs",
       },
       {
         componentId: "glm",
@@ -2280,7 +2280,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     ).toBe(true);
     expect(installRequests).toEqual([
       "glm:directory:~/.escode/server/agents/glm/packages",
-      "glm:file:~/.escode/server/agents/glm/escode.cjs",
+      "glm:file:~/.escode/server/agents/glm/zcode.cjs",
     ]);
   });
 
@@ -2359,7 +2359,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "escode.cjs",
+      "zcode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(cliBundlePath, "console.log('dev escode agent');\n", "utf8");
@@ -2405,7 +2405,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(backend.uploads).toEqual([]);
   });
 
-  it("开发态 SSH 部署应上传本地 escode.cjs 并生成远端 wrapper", async () => {
+  it("开发态 SSH 部署应上传本地 zcode.cjs 并生成远端 wrapper", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "escode-remote-dev-agent-"));
     tempDirs.push(rootDir);
     const repoDir = join(rootDir, "escode");
@@ -2416,7 +2416,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "escode.cjs",
+      "zcode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(cliBundlePath, "console.log('dev escode agent');\n", "utf8");
@@ -2454,9 +2454,9 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(installedFiles).toEqual([]);
     const devBundleUpload = backend.uploads.find(
       (upload) =>
-        upload.remotePath === "~/.escode/server/agents/glm/escode.cjs.new" ||
+        upload.remotePath === "~/.escode/server/agents/glm/zcode.cjs.new" ||
         upload.remotePath.startsWith(
-          "~/.escode/server/agents/glm/escode.cjs.new-",
+          "~/.escode/server/agents/glm/zcode.cjs.new-",
         ),
     );
     expect(
@@ -2465,7 +2465,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       backend.commands.some(
         (command) =>
-          command.includes("escode-agent.new") && command.includes("escode.cjs"),
+          command.includes("escode-agent.new") && command.includes("zcode.cjs"),
       ),
     ).toBe(true);
     expect(
@@ -2514,7 +2514,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "escode.cjs",
+      "zcode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(
@@ -2535,7 +2535,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "~/.escode/server/agents/glm/.version": `${ESCODE_AGENT_RUNTIME.version}\n`,
       "~/.escode/server/agents/glm/.dev-version": `${devVersion}\n`,
       "~/.escode/server/agents/glm/escode-agent": "dev wrapper",
-      "~/.escode/server/agents/glm/escode.cjs": bundleMatches
+      "~/.escode/server/agents/glm/zcode.cjs": bundleMatches
         ? "console.log('same dev escode agent');\n"
         : "old published bundle without PAT support",
       ...Object.fromEntries(
@@ -2571,7 +2571,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
 
     expect(installedFiles).toEqual([]);
-    expect(backend.uploads.some((upload) => upload.remotePath.endsWith("escode.cjs.new"))).toBe(!bundleMatches);
+    expect(backend.uploads.some((upload) => upload.remotePath.endsWith("zcode.cjs.new"))).toBe(!bundleMatches);
     expect(
       backend.commands.some((command) =>
         command.includes("command chmod -R u+rwX"),
@@ -2798,7 +2798,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -2887,7 +2887,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
     } finally {
@@ -2995,7 +2995,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         ESCODE_VERSION,
         "glm",
         "linux-arm64",
-        "escode.cjs",
+        "zcode.cjs",
       ),
       "new CDN GLM bytes under the same semantic version",
       "utf8",
@@ -3019,7 +3019,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         ESCODE_VERSION,
         "glm",
         "linux-arm64",
-        "escode.cjs",
+        "zcode.cjs",
       ),
     );
     const remoteFiles = createFullyDeployedRemoteFiles("linux-arm64");
@@ -3041,7 +3041,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(backend.commands.join("\n")).toContain(cdnGlm?.sha256);
@@ -3087,7 +3087,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
     await mkdir(staleComponentDir, { recursive: true });
     await writeFile(join(staleComponentDir, ".ready"), "ready\n", "utf8");
-    await writeFile(join(staleComponentDir, "escode.cjs"), "stale glm bundle");
+    await writeFile(join(staleComponentDir, "zcode.cjs"), "stale glm bundle");
     for (const relativePath of OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS) {
       const stalePluginPath = join(
         staleComponentDir,
@@ -3152,7 +3152,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         ),
       ).resolves.toContain("glm official plugin");
       await expect(
-        readFile(join(staleComponentDir, "escode.cjs"), "utf8"),
+        readFile(join(staleComponentDir, "zcode.cjs"), "utf8"),
       ).resolves.toBe("stale glm bundle");
     } finally {
       await cdnServer.close();
@@ -3196,7 +3196,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     );
     await mkdir(staleComponentDir, { recursive: true });
     await writeFile(join(staleComponentDir, ".ready"), "ready\n", "utf8");
-    await writeFile(join(staleComponentDir, "escode.cjs"), "stale glm bundle");
+    await writeFile(join(staleComponentDir, "zcode.cjs"), "stale glm bundle");
     const requiredReleasePath =
       "glm/linux-arm64/packages/skill-creator-plugin/.escode-plugin/plugin.json";
     const cdnServer = await createStaticFileServer(cdnRoot);
@@ -3934,7 +3934,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -4255,7 +4255,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -4357,7 +4357,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       const serverReplaceCommandIndex = firstAttemptCommands.findIndex(
         (command) =>
           command.includes("command mv -f ") &&
-          command.includes("escode-server.cjs.new"),
+          command.includes("zcode-server.cjs.new"),
       );
       expect(refreshPendingCommandIndex).toBeGreaterThanOrEqual(0);
       expect(serverReplaceCommandIndex).toBeGreaterThan(
@@ -4390,7 +4390,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -4832,7 +4832,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       const warnLines = warnSpy.mock.calls.map((args) =>
@@ -4882,7 +4882,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     expect(
       hasUploadForStagingTarget(
         backend,
-        "~/.escode/server/agents/glm/escode.cjs.new",
+        "~/.escode/server/agents/glm/zcode.cjs.new",
       ),
     ).toBe(false);
     expect(
@@ -5136,7 +5136,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           ESCODE_VERSION,
           "glm",
           "linux-arm64",
-          "escode.cjs",
+          "zcode.cjs",
         ),
         "glm bundle republished with the same semantic version",
         "utf8",
@@ -5167,7 +5167,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/agents/glm/escode.cjs.new",
+          "~/.escode/server/agents/glm/zcode.cjs.new",
         ),
       ).toBe(true);
       expect(
@@ -5205,7 +5205,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     await mkdir(legacyServerCacheDir, { recursive: true });
     await writeFile(join(legacyServerCacheDir, ".ready"), "ready\n", "utf8");
     await writeFile(
-      join(legacyServerCacheDir, "escode-server.cjs"),
+      join(legacyServerCacheDir, "zcode-server.cjs"),
       "// stale semantic-version server cache\n",
       "utf8",
     );
@@ -5227,12 +5227,12 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(
         hasUploadForStagingTarget(
           backend,
-          "~/.escode/server/escode-server.cjs.new",
+          "~/.escode/server/zcode-server.cjs.new",
         ),
       ).toBe(true);
       const initialServerUpload = findUploadForStagingTarget(
         backend,
-        "~/.escode/server/escode-server.cjs.new",
+        "~/.escode/server/zcode-server.cjs.new",
       );
       await expect(
         readFile(initialServerUpload?.localPath ?? "", "utf8"),
@@ -5255,7 +5255,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           "releases",
           ESCODE_VERSION,
           "server",
-          "escode-server.cjs",
+          "zcode-server.cjs",
         ),
         "// server bundle republished under the same App version\n",
         "utf8",
@@ -5279,7 +5279,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
 
       const serverUpload = findUploadForStagingTarget(
         backend,
-        "~/.escode/server/escode-server.cjs.new",
+        "~/.escode/server/zcode-server.cjs.new",
       );
       expect(serverUpload).toBeDefined();
       await expect(readFile(serverUpload?.localPath ?? "", "utf8")).resolves
@@ -5424,7 +5424,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
         ESCODE_VERSION,
         "glm",
         "linux-arm64",
-        "escode.cjs",
+        "zcode.cjs",
       ),
       "new GLM bytes under the same semantic version",
       "utf8",
@@ -5528,7 +5528,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       platformArch: "linux-arm64",
       componentIds: ["glm"],
       requiredReleasePaths: [
-        "glm/linux-arm64/escode.cjs",
+        "glm/linux-arm64/zcode.cjs",
         ...OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map(
           (relativePath) => `glm/linux-arm64/packages/${relativePath}`,
         ),
@@ -5569,7 +5569,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(cdnServer.getRequestCount(artifactRequestPath)).toBe(1);
       await expect(
         readFile(
-          join(forceReleaseDir, "glm", "linux-arm64", "escode.cjs"),
+          join(forceReleaseDir, "glm", "linux-arm64", "zcode.cjs"),
           "utf8",
         ),
       ).resolves.toBe("glm bundle");

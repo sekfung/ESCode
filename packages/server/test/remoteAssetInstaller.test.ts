@@ -310,7 +310,7 @@ describe("LocalUploadAssetInstaller", () => {
   it("已取消连接不得开始写入远端 staging", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "escode-installer-pre-cancel-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "escode-server.cjs"), "server", "utf8");
+    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
     const controller = new AbortController();
     controller.abort();
     const backend = new InstallerBackend();
@@ -336,8 +336,8 @@ describe("LocalUploadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/escode-server.cjs",
-        remotePath: "~/.escode/server/escode-server.cjs",
+        sourceRelativePath: "server/zcode-server.cjs",
+        remotePath: "~/.escode/server/zcode-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
@@ -349,7 +349,7 @@ describe("LocalUploadAssetInstaller", () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "escode-installer-abort-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
     await writeFile(
-      join(releaseDir, "server", "escode-server.cjs"),
+      join(releaseDir, "server", "zcode-server.cjs"),
       "server",
       "utf8",
     );
@@ -367,8 +367,8 @@ describe("LocalUploadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     expect(backend.uploads[0]?.signal).toBe(controller.signal);
@@ -377,7 +377,7 @@ describe("LocalUploadAssetInstaller", () => {
   it("新的 SSH 文件上传会先清理超过 24 小时的同路径 owner staging", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "escode-installer-stale-file-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "escode-server.cjs"), "server", "utf8");
+    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
     const controller = new AbortController();
     const backend = new InstallerBackend();
     const installer = new LocalUploadAssetInstaller(
@@ -392,12 +392,12 @@ describe("LocalUploadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     expect(backend.commands[0]).toContain("find");
-    expect(backend.commands[0]).toContain("escode-server.cjs.new-");
+    expect(backend.commands[0]).toContain("zcode-server.cjs.new-");
     expect(backend.commands[0]).toContain("-mtime +0");
     expect(backend.commands[0]).toContain("-exec rm -rf");
   });
@@ -409,8 +409,8 @@ describe("LocalUploadAssetInstaller", () => {
       const remoteDir = join(rootDir, "remote");
       await mkdir(join(releaseDir, "server"), { recursive: true });
       await mkdir(remoteDir, { recursive: true });
-      await writeFile(join(releaseDir, "server", "escode-server.cjs"), "server", "utf8");
-      const targetPath = join(remoteDir, "escode-server.cjs");
+      await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
+      const targetPath = join(remoteDir, "zcode-server.cjs");
       const stalePath = `${targetPath}.new-stale`;
       const freshPath = `${targetPath}.new-fresh`;
       await writeFile(targetPath, "final", "utf8");
@@ -432,7 +432,7 @@ describe("LocalUploadAssetInstaller", () => {
 
       await installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/escode-server.cjs",
+        sourceRelativePath: "server/zcode-server.cjs",
         remotePath: toLocalShellPath(targetPath),
       });
       await execFileAsync(localShellCommand!, ["-c", backend.commands[0]!]);
@@ -448,7 +448,7 @@ describe("LocalUploadAssetInstaller", () => {
   it("文件上传取消后不再执行正式文件替换", async () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "escode-installer-cancel-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "escode-server.cjs"), "server", "utf8");
+    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server", "utf8");
     const controller = new AbortController();
     const backend = new InstallerBackend();
     let markUploadStarted!: () => void;
@@ -484,8 +484,8 @@ describe("LocalUploadAssetInstaller", () => {
 
     const installing = installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
     await uploadStarted;
     controller.abort();
@@ -605,7 +605,7 @@ describe("LocalUploadAssetInstaller", () => {
     const releaseDir = await mkdtemp(join(tmpdir(), "escode-installer-test-"));
     await mkdir(join(releaseDir, "server"), { recursive: true });
     await writeFile(
-      join(releaseDir, "server", "escode-server.cjs"),
+      join(releaseDir, "server", "zcode-server.cjs"),
       "server",
       "utf8",
     );
@@ -618,8 +618,8 @@ describe("LocalUploadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     expect(backend.uploads[0]?.remotePath).toMatch(
@@ -712,13 +712,13 @@ describe("LocalUploadAssetInstaller", () => {
     ).resolves.toBeNull();
 
     await mkdir(join(releaseDir, "server"), { recursive: true });
-    await writeFile(join(releaseDir, "server", "escode-server.cjs"), "server");
+    await writeFile(join(releaseDir, "server", "zcode-server.cjs"), "server");
     await expect(
       installer.tryResolveLocalPath(
         ["server-bundle"],
-        "server/escode-server.cjs",
+        "server/zcode-server.cjs",
       ),
-    ).resolves.toBe(join(releaseDir, "server", "escode-server.cjs"));
+    ).resolves.toBe(join(releaseDir, "server", "zcode-server.cjs"));
   });
 
   it("creates directory upload archives without relying on local system tar", async () => {
@@ -878,8 +878,8 @@ describe("RemoteDownloadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/escode-server.cjs",
-        remotePath: "~/.escode/server/escode-server.cjs",
+        sourceRelativePath: "server/zcode-server.cjs",
+        remotePath: "~/.escode/server/zcode-server.cjs",
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
 
@@ -916,8 +916,8 @@ describe("RemoteDownloadAssetInstaller", () => {
     try {
       await installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/escode-server.cjs",
-        remotePath: "~/.escode/server/escode-server.cjs",
+        sourceRelativePath: "server/zcode-server.cjs",
+        remotePath: "~/.escode/server/zcode-server.cjs",
       });
 
       expect(directFetch).not.toHaveBeenCalled();
@@ -966,8 +966,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     const installing = installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
     await headStarted;
     controller.abort();
@@ -999,8 +999,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     const command = backend.commands.join("\n");
@@ -1045,8 +1045,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     expect(logs).toContain(
@@ -1072,8 +1072,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     expect(backend.commands.join("\n")).toContain("total=2097152");
@@ -1116,8 +1116,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "server-bundle",
-      sourceRelativePath: "server/escode-server.cjs",
-      remotePath: "~/.escode/server/escode-server.cjs",
+      sourceRelativePath: "server/zcode-server.cjs",
+      remotePath: "~/.escode/server/zcode-server.cjs",
     });
 
     const commands = backend.commands.join("\n");
@@ -1212,8 +1212,8 @@ describe("RemoteDownloadAssetInstaller", () => {
     await expect(
       installer.installFile({
         componentId: "server-bundle",
-        sourceRelativePath: "server/escode-server.cjs",
-        remotePath: "~/.escode/server/escode-server.cjs",
+        sourceRelativePath: "server/zcode-server.cjs",
+        remotePath: "~/.escode/server/zcode-server.cjs",
       }),
     ).rejects.toThrow("sha256 is invalid");
     vi.unstubAllGlobals();
