@@ -9,6 +9,7 @@ mod model_call;
 mod runtime;
 mod tool_output;
 mod web_fetch;
+mod wiki;
 pub use contract::*;
 pub use memory::{MemorySnapshot, ProjectMemory};
 pub use model_call::{
@@ -18,3 +19,6 @@ pub use model_call::{
 };
 pub use runtime::*;
 pub use web_fetch::WebFetchPage;
+pub use wiki::{
+    WikiInjected, WikiPort, WikiSurface, WikiToolResult, WikiTurnInput, WikiTurnRetrieval,
+};

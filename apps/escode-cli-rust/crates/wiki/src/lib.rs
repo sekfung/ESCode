@@ -1,0 +1,20 @@
+//! LLM Wiki 适配器（apps/escode-cli-rust/docs/llm-wiki/01-spec.md）：存储、项目身份、文档导入与检索服务。
+pub mod apply;
+pub mod changes;
+pub mod fsio;
+pub mod identity;
+pub mod ingest;
+pub mod ingest_service;
+pub mod pipeline;
+pub mod report;
+pub mod retrieval;
+pub mod service;
+pub mod settings;
+pub mod store;
+pub mod sync;
+pub use service::WikiService;
+pub mod governance;
+pub mod health;
+pub mod port;
+pub mod rpc;
+pub mod tool_handlers;

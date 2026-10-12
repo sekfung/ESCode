@@ -18,7 +18,7 @@ async function walk(directory) {
     if (source.split("\n").length > 400) failures.push(`${file}: exceeds 400 lines`);
     if (
       crate === "domain" &&
-      /\b(?:tokio|reqwest|rusqlite|escode_cli_(?:state|model|tools|host))\s*::|\bstd\s*::\s*(?:fs|process|net)\b/.test(
+      /\b(?:tokio|reqwest|rusqlite|escode_cli_(?:state|model|tools|host|wiki))\s*::|\bstd\s*::\s*(?:fs|process|net)\b/.test(
         code,
       )
     )
@@ -28,12 +28,13 @@ async function walk(directory) {
       /\bescode_cli_(?:core|core_api|state|model|tools|host)\s*::/.test(code)
     )
       failures.push(`${file}: protocol imports core or adapters`);
-    if (crate === "core" && /\bescode_cli_(?:state|model|tools|host|app_server|tui)\s*::/.test(code))
+    if (crate === "core" && /\bescode_cli_(?:state|model|tools|host|wiki|app_server|tui)\s*::/.test(code))
       failures.push(`${file}: core imports an adapter or frontend`);
-    if (crate === "tui" && /\bescode_cli_(?:state|model|tools|host)\s*::/.test(code))
+    if (crate === "tui" && /\bescode_cli_(?:state|model|tools|host|wiki)\s*::/.test(code))
       failures.push(`${file}: tui imports an adapter`);
     if (
-      ["state", "model", "tools", "host"].includes(crate) &&
+      // wiki：LLM Wiki 适配器（apps/escode-cli-rust/docs/llm-wiki），与其他 adapter 同一约束。
+      ["state", "model", "tools", "host", "wiki"].includes(crate) &&
       /\bescode_cli_(?:core|app_server|tui)\s*::/.test(code)
     )
       failures.push(`${file}: adapter imports core or frontend`);

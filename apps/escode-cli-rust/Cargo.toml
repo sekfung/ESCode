@@ -11,6 +11,7 @@ members = [
   "crates/tools",
   "crates/app-server",
   "crates/tui",
+  "crates/wiki",
 ]
 resolver = "2"
 
@@ -73,6 +74,10 @@ percent-encoding = "2"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Registry", "Win32_System_Threading", "Win32_System_WindowsProgramming"] }
 
 libc = "0.2"
+# LLM Wiki 文档导入（apps/escode-cli-rust/docs/llm-wiki）：OOXML / XML 解析与文本型 PDF 抽取，均 MIT。
+quick-xml = "0.42"
+lopdf = { version = "0.45", default-features = false }
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
 tempfile = "3"
 escode-cli-protocol = { path = "crates/protocol" }
 escode-cli-domain = { path = "crates/domain" }
@@ -84,6 +89,7 @@ escode-cli-model = { path = "crates/model" }
 escode-cli-tools = { path = "crates/tools" }
 escode-cli-app-server = { path = "crates/app-server" }
 escode-cli-tui = { path = "crates/tui" }
+escode-cli-wiki = { path = "crates/wiki" }
 
 [package]
 name = "escode-cli-rust"
@@ -121,6 +127,7 @@ escode-cli-model.workspace = true
 escode-cli-tools.workspace = true
 escode-cli-app-server.workspace = true
 escode-cli-tui.workspace = true
+escode-cli-wiki.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
