@@ -24,9 +24,17 @@ pub(super) async fn prepare(history: &RunContext, definitions: &mut Vec<Value>) 
     let surface = port.surface().await;
     if surface.tools {
         for definition in crate::domain::wiki::tools::definitions() {
-            let name = definition["function"]["name"].as_str().unwrap_or_default().to_owned();
-            let allowed = history.agent_profile.as_ref().is_none_or(|p| p.allows(&name));
-            let present = definitions.iter().any(|d| d["function"]["name"] == name.as_str());
+            let name = definition["function"]["name"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            let allowed = history
+                .agent_profile
+                .as_ref()
+                .is_none_or(|p| p.allows(&name));
+            let present = definitions
+                .iter()
+                .any(|d| d["function"]["name"] == name.as_str());
             if allowed && !present && !history.turn.disallowed.contains(&name) {
                 definitions.push(definition);
             }
@@ -41,7 +49,8 @@ pub(super) async fn before_turn(
     sink: &EventSink,
     cancel: &CancellationToken,
 ) -> Result<()> {
-    let (Some(port), Some(prompt)) = (history.turn.wiki.clone(), history.turn.prompt.clone()) else {
+    let (Some(port), Some(prompt)) = (history.turn.wiki.clone(), history.turn.prompt.clone())
+    else {
         return Ok(());
     };
     if !surface.auto_inject || !main_session(history) || prompt.trim().is_empty() {

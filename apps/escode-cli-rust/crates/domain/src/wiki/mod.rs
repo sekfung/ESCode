@@ -12,6 +12,7 @@ pub mod lint;
 pub mod project;
 pub mod rank;
 pub mod reminder;
+pub mod similarity;
 pub mod source;
 #[cfg(test)]
 pub(crate) mod tests;
@@ -19,6 +20,8 @@ pub(crate) mod tests;
 mod tests_extract;
 #[cfg(test)]
 mod tests_governance;
+#[cfg(test)]
+mod tests_similarity;
 pub mod text;
 pub mod tools;
 pub mod workflow;

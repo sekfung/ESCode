@@ -196,7 +196,12 @@ fn graph_projects_edges_and_respects_filters() {
         limit: 100,
         ..Default::default()
     };
-    let g = graph::build(&[a.clone(), b.clone()], std::slice::from_ref(&source), &[], &filter);
+    let g = graph::build(
+        &[a.clone(), b.clone()],
+        std::slice::from_ref(&source),
+        &[],
+        &filter,
+    );
     let kinds: Vec<&str> = g.edges.iter().map(|e| e.edge_type).collect();
     assert!(
         kinds.contains(&"related") && kinds.contains(&"supersedes") && kinds.contains(&"source"),

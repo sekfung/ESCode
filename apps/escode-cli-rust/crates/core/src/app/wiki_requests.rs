@@ -9,12 +9,20 @@ use anyhow::{Result, ensure};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
-pub(super) const WIKI_METHODS: &[&str] = &["v4/wiki/status", "v4/wiki/graph", "v4/wiki/entry", "v4/wiki/manage"];
+pub(super) const WIKI_METHODS: &[&str] = &[
+    "v4/wiki/status",
+    "v4/wiki/graph",
+    "v4/wiki/entry",
+    "v4/wiki/manage",
+];
 const MAX_PARALLEL: usize = 16;
 
 impl Engine {
     pub(super) fn start_wiki_request(&mut self, request: &Request) -> Result<()> {
-        ensure!(self.auxiliary.len() < MAX_PARALLEL, "Too many workspace requests");
+        ensure!(
+            self.auxiliary.len() < MAX_PARALLEL,
+            "Too many workspace requests"
+        );
         let id = format!("wiki-op:{}", self.clock.id());
         self.auxiliary.insert(
             id.clone(),
@@ -34,8 +42,13 @@ impl Engine {
         let (method, params) = (request.method.clone(), request.params.clone());
         tokio::spawn(async move {
             let result = match wiki {
-                Some(port) => port.request(&method, &params).await.map_err(|e| format!("{e:#}")),
-                None if method == "v4/wiki/status" => Ok(json!({"supported": false, "enabled": false})),
+                Some(port) => port
+                    .request(&method, &params)
+                    .await
+                    .map_err(|e| format!("{e:#}")),
+                None if method == "v4/wiki/status" => {
+                    Ok(json!({"supported": false, "enabled": false}))
+                }
                 None => Err("wiki_unavailable: this runtime has no LLM Wiki configured".to_owned()),
             };
             let _ = sink.send(Event::AuxiliaryReply { result }).await;

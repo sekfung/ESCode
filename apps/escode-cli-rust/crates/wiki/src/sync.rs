@@ -50,9 +50,13 @@ impl WikiService {
                     });
                 }
                 Some(_) => {
-                    let item = self
+                    let (item, changed) = self
                         .ingest_file(&store, &settings.config, &path, false, &mut index)
                         .await?;
+                    if changed {
+                        // 同步通常只涉及少数改动文件；逐个落盘保持与 missing_source 一致的语义。
+                        store.write_index(&index).await?;
+                    }
                     report.items.push(item);
                 }
                 None => {

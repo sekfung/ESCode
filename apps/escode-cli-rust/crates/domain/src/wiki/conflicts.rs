@@ -2,9 +2,10 @@
 //! 规范语句极性相反、Global 与 Project 规则冲突、待处理的来源更新、重复条目、断链、来源失效、版本不适用、
 //! 条目声明的代码路径已不存在。
 use super::entry::{Entry, Scope, Status, Validity};
+use super::similarity::similar_pairs;
 use super::text::tokenize;
 use serde::Serialize;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ConflictParty {
@@ -59,6 +60,11 @@ fn party(entry: &Entry) -> ConflictParty {
 
 /// 规范句：含规范词的句子，返回（极性, 去掉规范词后的主题词集合, 原句）。
 fn normative_clauses(body: &str) -> Vec<(bool, BTreeSet<String>, String)> {
+    let noise: BTreeSet<String> = POSITIVE
+        .iter()
+        .chain(NEGATIVE)
+        .flat_map(|w| tokenize(w))
+        .collect();
     body.split(['.', '。', '\n', ';', '；', '!', '！'])
         .filter_map(|sentence| {
             let lower = sentence.to_lowercase();
@@ -67,11 +73,6 @@ fn normative_clauses(body: &str) -> Vec<(bool, BTreeSet<String>, String)> {
             if !negative && !positive {
                 return None;
             }
-            let noise: BTreeSet<String> = POSITIVE
-                .iter()
-                .chain(NEGATIVE)
-                .flat_map(|w| tokenize(w))
-                .collect();
             let topic: BTreeSet<String> = tokenize(sentence)
                 .into_iter()
                 .filter(|t| !noise.contains(t))
@@ -79,12 +80,6 @@ fn normative_clauses(body: &str) -> Vec<(bool, BTreeSet<String>, String)> {
             (topic.len() >= 2).then(|| (positive, topic, sentence.trim().to_owned()))
         })
         .collect()
-}
-
-fn jaccard(a: &BTreeSet<String>, b: &BTreeSet<String>) -> f64 {
-    let inter = a.intersection(b).count() as f64;
-    let union = a.union(b).count() as f64;
-    if union == 0.0 { 0.0 } else { inter / union }
 }
 
 fn active(entry: &Entry) -> bool {
@@ -105,37 +100,66 @@ pub fn detect(
         .iter()
         .map(|e| tokenize(&e.body).into_iter().collect())
         .collect();
-    for i in 0..entries.len() {
-        for j in i + 1..entries.len() {
-            let (a, b) = (&entries[i], &entries[j]);
-            if !active(a) || !active(b) {
-                continue;
-            }
-            if let Some((ca, cb)) = clauses[i].iter().find_map(|ca| {
-                clauses[j]
-                    .iter()
-                    .find(|cb| ca.0 != cb.0 && jaccard(&ca.1, &cb.1) >= 0.5)
-                    .map(|cb| (ca, cb))
-            }) {
-                let cross = a.meta.scope != b.meta.scope;
-                out.push(Conflict {
-                    kind: if cross { "global_project_conflict" } else { "normative_contradiction" },
-                    parties: vec![party(a), party(b)],
-                    evidence: format!("\"{}\" vs \"{}\"", ca.2, cb.2),
-                    suggestion: if cross {
-                        "Decide whether the project rule intentionally overrides the global one; record the decision (e.g. supersedes) or deprecate one entry.".into()
-                    } else {
-                        "Review both entries with their sources and deprecate or supersede the outdated one.".into()
-                    },
-                });
-            } else if jaccard(&bodies[i], &bodies[j]) >= 0.9 && bodies[i].len() >= 8 {
-                out.push(Conflict {
-                    kind: "duplicate",
-                    parties: vec![party(a), party(b)],
-                    evidence: "bodies are at least 90% identical".into(),
-                    suggestion: "Keep one entry and deprecate the other with superseded_by.".into(),
-                });
-            }
+    // 修复原因：原实现对全部条目两两做集合 Jaccard（O(n²) 次集合运算），1500 条目时 status/graph
+    // 需要数十秒；改为前缀过滤生成候选后精确校验（similarity.rs），判定结果与两两比较一致。
+    let items: Vec<(usize, usize)> = clauses
+        .iter()
+        .enumerate()
+        .flat_map(|(entry, list)| (0..list.len()).map(move |clause| (entry, clause)))
+        .collect();
+    let clause_sets: Vec<&BTreeSet<String>> =
+        items.iter().map(|&(e, c)| &clauses[e][c].1).collect();
+    let mut contradictions: BTreeMap<(usize, usize), (usize, usize)> = BTreeMap::new();
+    let opposite = |x: usize, y: usize| {
+        let ((ex, cx), (ey, cy)) = (items[x], items[y]);
+        ex != ey
+            && active(&entries[ex])
+            && active(&entries[ey])
+            && clauses[ex][cx].0 != clauses[ey][cy].0
+    };
+    for (x, y) in similar_pairs(&clause_sets, 0.5, &opposite) {
+        let ((mut ei, mut ci), (mut ej, mut cj)) = (items[x], items[y]);
+        if ei > ej {
+            (ei, ej, ci, cj) = (ej, ei, cj, ci);
+        }
+        // 与原先「i 的子句顺序优先、再取 j 的首个匹配」一致：保留字典序最小的子句对作为证据。
+        let slot = contradictions.entry((ei, ej)).or_insert((ci, cj));
+        *slot = (*slot).min((ci, cj));
+    }
+    let body_sets: Vec<&BTreeSet<String>> = bodies.iter().collect();
+    let duplicate = |a: usize, b: usize| {
+        active(&entries[a])
+            && active(&entries[b])
+            && bodies[a].len() >= 8
+            && !contradictions.contains_key(&(a, b))
+    };
+    let duplicates: BTreeSet<(usize, usize)> = similar_pairs(&body_sets, 0.9, &duplicate)
+        .into_iter()
+        .collect();
+    let pairs: BTreeSet<(usize, usize)> =
+        contradictions.keys().copied().chain(duplicates).collect();
+    for (i, j) in pairs {
+        let (a, b) = (&entries[i], &entries[j]);
+        if let Some(&(ci, cj)) = contradictions.get(&(i, j)) {
+            let (ca, cb) = (&clauses[i][ci], &clauses[j][cj]);
+            let cross = a.meta.scope != b.meta.scope;
+            out.push(Conflict {
+                kind: if cross { "global_project_conflict" } else { "normative_contradiction" },
+                parties: vec![party(a), party(b)],
+                evidence: format!("\"{}\" vs \"{}\"", ca.2, cb.2),
+                suggestion: if cross {
+                    "Decide whether the project rule intentionally overrides the global one; record the decision (e.g. supersedes) or deprecate one entry.".into()
+                } else {
+                    "Review both entries with their sources and deprecate or supersede the outdated one.".into()
+                },
+            });
+        } else {
+            out.push(Conflict {
+                kind: "duplicate",
+                parties: vec![party(a), party(b)],
+                evidence: "bodies are at least 90% identical".into(),
+                suggestion: "Keep one entry and deprecate the other with superseded_by.".into(),
+            });
         }
     }
     for entry in entries {

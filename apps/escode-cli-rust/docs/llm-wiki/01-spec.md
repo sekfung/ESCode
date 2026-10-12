@@ -93,7 +93,9 @@ Markdown + YAML frontmatter。字段：`schema_version`、`id`（`[a-z0-9][a-z0-
 ## 7. 一致性与并发
 
 - 写操作持有 scope 根 `.lock` 目录锁（`create_dir` 原子；记录 pid/时间；超过 120s 视为陈旧可回收）；拿不到锁返回 `wiki_locked`。
-- 原子写（临时文件 + rename）；顺序：条目 → 来源 → 索引 → 审计。
+- 原子写（临时文件 + fsync + rename）。每个文件依次写条目、来源；索引在导入批次结束时写一次，最后写审计。
+  中途崩溃时，索引指纹与条目不符，下次加载会重建，因此重试是幂等的。
+- 冲突检测（重复、规范矛盾）使用 Jaccard 阈值的精确前缀过滤生成候选，避免 O(n²) 两两集合运算，结果与两两比较一致。
 - 索引含 `entries_fingerprint`；加载时与条目目录不符则重建并记 `index_rebuilt`。
 
 ## 8. 检索

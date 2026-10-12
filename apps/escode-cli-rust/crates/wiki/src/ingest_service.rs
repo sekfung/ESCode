@@ -1,5 +1,6 @@
 //! 导入编排（spec §6、§7、§9）：持 scope 写锁，逐文件执行管道；单个文件失败不影响其他文件，
-//! 也不改动已有知识。每个文件完成后立即写来源记录与索引，批次中途崩溃可重试（幂等）。
+//! 也不改动已有知识。每个文件完成后立即写条目与来源记录；索引是派生数据，批次结束时写一次，
+//! 中途崩溃时其指纹与条目不符，下次加载自动重建（store.index），因此重试仍幂等。
 use super::apply::{Context, apply};
 use super::fsio::ScopeLock;
 use super::pipeline;
@@ -50,11 +51,17 @@ impl WikiService {
         }
         let loaded = store.load().await?;
         let (mut index, _) = store.index(&loaded.entries, true).await?;
+        let mut index_changed = false;
         for file in files {
-            let item = self
+            let (item, changed) = self
                 .ingest_file(&store, &settings.config, &file, approve, &mut index)
                 .await?;
+            index_changed |= changed;
             report.items.push(item);
+        }
+        // 修复原因：原先每个文件都整体重写 index.json，500 个文件时写入量随条目数平方增长（首导 >2 分钟）。
+        if index_changed {
+            store.write_index(&index).await?;
         }
         store.audit(json!({"event": "ingest", "at": now(), "scope": scope.as_str(), "approve": approve, "summary": report.summary()})).await?;
         self.invalidate().await;
@@ -62,6 +69,7 @@ impl WikiService {
     }
 
     /// 单文件导入；返回 Err 只表示存储写失败（批次中止），解析失败记在 Item 里。
+    /// 第二个返回值表示内存索引是否变化，由调用方在批次结束时统一落盘。
     pub(crate) async fn ingest_file(
         &self,
         store: &ScopeStore,
@@ -69,7 +77,7 @@ impl WikiService {
         file: &Path,
         approve: bool,
         index: &mut Index,
-    ) -> Result<Item> {
+    ) -> Result<(Item, bool)> {
         let started = Instant::now();
         let real = tokio::fs::canonicalize(file)
             .await
@@ -102,14 +110,14 @@ impl WikiService {
                     &failure,
                 )
                 .await?;
-                return Ok(finish(item));
+                return Ok((finish(item), false));
             }
         };
         let Some(format) = read.format else {
             item.status = "skipped";
             item.error = Some("unsupported or unrecognized format".into());
             item.warnings = read.warnings;
-            return Ok(finish(item));
+            return Ok((finish(item), false));
         };
         item.format = Some(format.into());
         if !config.format_enabled(format) {
@@ -117,7 +125,7 @@ impl WikiService {
             item.error = Some(format!(
                 "format {format} is disabled by wiki.formats.{format}"
             ));
-            return Ok(finish(item));
+            return Ok((finish(item), false));
         }
         if let Some(prev) = &previous
             && prev.content_hash == read.hash
@@ -130,7 +138,7 @@ impl WikiService {
             record.checked_at = now();
             store.write_source(&record).await?;
             item.status = "unchanged";
-            return Ok(finish(item));
+            return Ok((finish(item), false));
         }
         let hash = read.hash.clone();
         let ir = match store
@@ -156,7 +164,7 @@ impl WikiService {
                         &failure,
                     )
                     .await?;
-                    return Ok(finish(item));
+                    return Ok((finish(item), false));
                 }
             },
         };
@@ -209,15 +217,12 @@ impl WikiService {
         for entry in &applied.changed {
             index.upsert(entry);
         }
-        if !applied.changed.is_empty() {
-            store.write_index(index).await?;
-        }
         item.status = match (previous.is_some(), ir.parse_status) {
             (_, escode_cli_domain::wiki::ir::ParseStatus::Degraded) => "degraded",
             (true, _) => "updated",
             (false, _) => "imported",
         };
-        Ok(finish(item))
+        Ok((finish(item), !applied.changed.is_empty()))
     }
 
     #[allow(clippy::too_many_arguments)]

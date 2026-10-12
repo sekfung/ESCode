@@ -106,7 +106,10 @@ impl WikiService {
             }
             other => bail!("unknown wiki action '{other}'"),
         };
-        if !matches!(input.action.as_str(), "status" | "lint" | "validate" | "conflicts") {
+        if !matches!(
+            input.action.as_str(),
+            "status" | "lint" | "validate" | "conflicts"
+        ) {
             // 生命周期事件：只记动作、发起方、结果与摘要（摘要不含文档正文）。
             escode_cli_host::file_log::info(
                 "wiki.manage",
