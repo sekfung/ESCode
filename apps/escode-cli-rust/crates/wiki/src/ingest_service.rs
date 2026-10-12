@@ -2,7 +2,6 @@
 //! 也不改动已有知识。每个文件完成后立即写条目与来源记录；索引是派生数据，批次结束时写一次，
 //! 中途崩溃时其指纹与条目不符，下次加载自动重建（store.index），因此重试仍幂等。
 use super::apply::{Context, apply};
-use super::fsio::ScopeLock;
 use super::pipeline;
 use super::report::{Item, Report};
 use super::service::{WikiService, now};
@@ -25,7 +24,7 @@ impl WikiService {
             "wiki is disabled (wiki.enabled=false)"
         );
         let store = self.store_for(&settings, scope).await;
-        let _lock = ScopeLock::acquire(&store.root).await?;
+        let _lock = store.lock().await?;
         let absolute: Vec<PathBuf> = paths
             .iter()
             .map(|p| {
@@ -36,7 +35,8 @@ impl WikiService {
                 }
             })
             .collect();
-        let (files, rejected) = pipeline::collect(&absolute, &settings.root).await;
+        let (files, rejected) =
+            pipeline::collect(&absolute, &self.storage_roots(&settings).await).await;
         let mut report = Report {
             scope: scope.as_str().into(),
             items: vec![],

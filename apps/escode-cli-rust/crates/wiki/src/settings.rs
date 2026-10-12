@@ -1,18 +1,20 @@
 //! Wiki 配置与根目录（spec §3、§12）。读取与 ESCode 其他能力相同的配置文件：
 //! 用户层 `~/.escode/cli/config.json`，项目层（Git 根 → cwd 的 `escode.json`、`.escode/config.json`）。
-//! 安全：项目层来自仓库内容（不可信），只允许调整检索/格式/开关，**不能**设置 `root`（重定向知识库存储）
+//! 安全：项目层来自仓库内容（不可信），只允许调整检索/格式/开关，**不能**设置 `root`（重定向 Global Wiki 存储）
 //! 或 `converters`/`ocr`（会执行外部命令）；这些键只认用户层。
+//! Global Wiki 根目录：用户层 `wiki.root`，否则 `<storage>/wiki`（storage = ESCODE_STORAGE_DIR → 用户层 storage.dir → ~/.escode）。
+//! Project Wiki 不在这里：它固定在项目工作区的 `.escode/wiki/`（store::PROJECT_WIKI_DIR）。
 use escode_cli_domain::wiki::config::WikiConfig;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 const MAX_CONFIG_BYTES: u64 = 4 * 1024 * 1024;
-const PROJECT_FORBIDDEN_KEYS: [&str; 4] = ["root", "converters", "ocr", "projectStorage"];
+const PROJECT_FORBIDDEN_KEYS: [&str; 3] = ["root", "converters", "ocr"];
 
 #[derive(Clone, Debug)]
 pub struct Settings {
     pub config: WikiConfig,
-    /// Wiki 根目录（含 global/ 与 projects/）。
+    /// Global Wiki 根目录（即 Global 存储本身）。
     pub root: PathBuf,
     /// 被忽略的项目层键（诊断用）。
     pub ignored_project_keys: Vec<String>,
@@ -93,16 +95,11 @@ pub async fn load(cwd: &Path, home_dir: &Path) -> Settings {
         .or_else(|| user["storage"]["dir"].as_str().map(str::to_owned))
         .map(|p| expand(home_dir, &p))
         .unwrap_or_else(|| home_dir.join(".escode"));
-    let cli = if storage.file_name().is_some_and(|n| n == "cli") {
-        storage
-    } else {
-        storage.join("cli")
-    };
     let root = config
         .root
         .as_deref()
         .map(|r| expand(home_dir, r))
-        .unwrap_or_else(|| cli.join("wiki"));
+        .unwrap_or_else(|| storage.join("wiki"));
     Settings {
         config,
         root,

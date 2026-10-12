@@ -1,6 +1,8 @@
-//! 单个 scope（global 或某个项目）的持久化（spec §2–§3、§7）。条目文件是唯一事实来源；
+//! 单个 scope（global 或当前项目）的持久化（spec §2–§3、§7）。条目文件是唯一事实来源；
 //! 来源记录、IR 缓存与索引都是派生/辅助数据。写入顺序：条目 → 来源 → 索引 → 审计。
-use super::fsio::{append_line, list_files, read_optional, write_atomic};
+//! 布局：Global 存储即 Global 根目录；Project 存储在项目工作区 `<项目根>/.escode/wiki/`，
+//! 条目与 project.json 随仓库入库，其余为本机数据（由 `.gitignore` 排除）。
+use super::fsio::{ScopeLock, append_line, list_files, read_optional, write_atomic};
 use anyhow::{Context, Result};
 use escode_cli_domain::wiki::entry::{Entry, Scope, valid_id};
 use escode_cli_domain::wiki::frontmatter;
@@ -16,7 +18,16 @@ pub struct ScopeStore {
     pub scope: Scope,
     /// project scope 的项目 ID；global 为 None。条目的 project_id 必须与之相同。
     pub project_id: Option<String>,
+    /// project scope 的显示名（写 project.json 用）。
+    pub project_name: Option<String>,
 }
+
+/// Project Wiki 相对项目根的位置（与项目层配置 `.escode/config.json` 同在 `.escode/` 下）。
+pub const PROJECT_WIKI_DIR: &str = ".escode/wiki";
+
+/// 入库的 `.gitignore`：只让知识本体（entries/、project.json）进入版本管理。
+const PROJECT_GITIGNORE: &str = "# ESCode LLM Wiki：只提交 entries/ 与 project.json；以下为本机数据（来源记录含本机路径、派生缓存、审计、锁）。\n\
+sources/\nir/\nindex.json\naudit.jsonl\n.lock/\n*.tmp\n";
 
 /// 一次全量加载的结果；无法解析的条目文件单独列出，不静默丢弃（lint 报告）。
 #[derive(Clone, Debug, Default)]
@@ -26,20 +37,46 @@ pub struct Loaded {
 }
 
 impl ScopeStore {
+    /// Global 存储即 Global Wiki 根目录本身。
     pub fn global(root: &Path) -> Self {
         Self {
-            root: root.join("global"),
+            root: root.to_owned(),
             scope: Scope::Global,
             project_id: None,
+            project_name: None,
         }
     }
 
-    pub fn project(root: &Path, project_id: &str) -> Self {
+    /// Project 存储位于项目根下的 `.escode/wiki/`。
+    pub fn project(project_root: &Path, project_id: &str, project_name: &str) -> Self {
         Self {
-            root: root.join("projects").join(project_id),
+            root: project_root.join(PROJECT_WIKI_DIR),
             scope: Scope::Project,
             project_id: Some(project_id.to_owned()),
+            project_name: Some(project_name.to_owned()),
         }
+    }
+
+    /// 写操作入口：取得 scope 写锁。Project 存储首次写入时才创建 `.gitignore` 与 `project.json`，
+    /// 只读路径（检索、status、graph）因此不会在用户仓库里生成任何文件。
+    pub async fn lock(&self) -> Result<ScopeLock> {
+        let lock = ScopeLock::acquire(&self.root).await?;
+        if self.scope == Scope::Project {
+            let ignore = self.root.join(".gitignore");
+            if read_optional(&ignore).await?.is_none() {
+                write_atomic(&ignore, PROJECT_GITIGNORE.as_bytes()).await?;
+            }
+            if read_project_id(&self.root).await.is_none() {
+                let value = serde_json::json!({
+                    "schema_version": 1,
+                    "id": self.project_id,
+                    "name": self.project_name,
+                    "created_at": super::service::now(),
+                });
+                self.write_json("project.json", &value).await?;
+            }
+        }
+        Ok(lock)
     }
 
     fn entries_dir(&self) -> PathBuf {
@@ -234,4 +271,12 @@ impl ScopeStore {
             .await
             .with_context(|| format!("write {name}"))
     }
+}
+
+/// 读入库的 `project.json` 中固定下来的 Project ID（格式不合法时忽略，回退到计算值）。
+pub async fn read_project_id(wiki_dir: &Path) -> Option<String> {
+    let bytes = read_optional(&wiki_dir.join("project.json")).await.ok()??;
+    let value: Value = serde_json::from_slice(&bytes).ok()?;
+    let id = value["id"].as_str()?;
+    valid_id(id).then(|| id.to_owned())
 }

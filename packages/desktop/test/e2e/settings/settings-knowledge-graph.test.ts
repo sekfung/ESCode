@@ -31,11 +31,10 @@ async function appEnv(name: string): Promise<string | undefined> {
   return browser.electron.execute((_electron, key: string) => process.env[key], name);
 }
 
-/** 与 Rust runtime 的 settings::load 一致：ESCODE_STORAGE_DIR 优先，缺省 ~/.escode，其下 cli/wiki。 */
+/** 与 Rust runtime 的 settings::load 一致：ESCODE_STORAGE_DIR 优先，缺省 ~/.escode；Global Wiki 根为 <storage>/wiki。 */
 async function wikiGlobalEntriesDir(): Promise<string> {
   const storage = (await appEnv("ESCODE_STORAGE_DIR"))?.trim() || join(homedir(), ".escode");
-  const cli = storage.endsWith("cli") ? storage : join(storage, "cli");
-  return join(cli, "wiki", "global", "entries");
+  return join(storage, "wiki", "entries");
 }
 
 async function seedGlobalProposal(): Promise<string> {

@@ -1,6 +1,5 @@
 //! 治理写操作（spec §6.5、§12）：提案、批准、拒绝、弃用/替代、提升作用域、重建索引。
 //! 全部在 scope 写锁内执行并写审计；批准只能由用户显式触发（CLI / Desktop / alwaysAsk 工具）。
-use super::fsio::ScopeLock;
 use super::service::{WikiService, now};
 use super::store::ScopeStore;
 use anyhow::{Result, bail, ensure};
@@ -140,7 +139,7 @@ impl WikiService {
             slug(&input.title, 48),
             short_hash(&format!("{}\n{}", input.title, input.body), 6)
         );
-        let _lock = ScopeLock::acquire(&store.root).await?;
+        let _lock = store.lock().await?;
         if let Some(existing) = store.read_entry(&id).await? {
             return Ok((existing, duplicates));
         }
@@ -235,7 +234,7 @@ impl WikiService {
         by: &str,
     ) -> Result<String> {
         let (store, mut entry) = self.locate(id).await?;
-        let _lock = ScopeLock::acquire(&store.root).await?;
+        let _lock = store.lock().await?;
         let stamp = now();
         let mut touched = vec![];
         let event = |action: &str| ReviewEvent {
@@ -330,7 +329,7 @@ impl WikiService {
         );
         let settings = self.settings().await;
         let global = ScopeStore::global(&settings.root);
-        let _lock = ScopeLock::acquire(&global.root).await?;
+        let _lock = global.lock().await?;
         let new_id = format!(
             "{}.global",
             entry.meta.id.chars().take(120).collect::<String>()
@@ -366,7 +365,7 @@ impl WikiService {
         let (project, global) = self.stores(&settings).await;
         let mut out = vec![];
         for store in [project, global] {
-            let _lock = ScopeLock::acquire(&store.root).await?;
+            let _lock = store.lock().await?;
             let loaded = store.load().await?;
             let mut index = Index::build(loaded.entries.iter());
             index.version = store.index_version().await + 1;

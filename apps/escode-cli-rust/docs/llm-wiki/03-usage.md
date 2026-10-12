@@ -9,20 +9,35 @@ Agent 在编码和 Code Review 时自动检索相关条目并注入上下文。�
 
 ## 1. 两层作用域
 
-| 作用域 | 存储 | 谁能看到 |
-| --- | --- | --- |
-| Global Wiki | `<wiki.root>/global/` | 所有项目 |
-| Project Wiki | `<wiki.root>/projects/<project_id>/` | 只有身份相同的项目 |
+| 作用域 | 存储位置 | 谁能看到 | 版本管理 |
+| --- | --- | --- | --- |
+| Global Wiki | `<storage>/wiki/` | 所有项目 | 否（用户本机） |
+| Project Wiki | `<项目根>/.escode/wiki/` | 只有这个项目 | 是，随仓库提交 |
 
-`wiki.root` 缺省为 `<storage.dir>/cli/wiki`，即 `~/.escode/cli/wiki`；设置了 `ESCODE_STORAGE_DIR` 时跟随该目录。
+- **Global 根目录**：`<storage>` 依次取 `ESCODE_STORAGE_DIR`、用户层 `storage.dir`，都没有时用 `~/.escode`，所以默认路径是 `~/.escode/wiki/`。用户层 `wiki.root` 可直接指定其他位置。
+- **项目根**：最近的 Git 工作树根；无 Git 时为打开的 workspace 目录。Project Wiki 跟着用户打开的项目走。
 
-项目身份按以下优先级确定：
+Project Wiki 的目录内容：
+
+```
+.escode/wiki/
+  entries/<id>.md    提交：知识条目（含来源引用、审核历史）
+  project.json       提交：固定的项目 ID
+  .gitignore         提交：忽略下面的本机数据
+  sources/ ir/ index.json audit.jsonl .lock/   不提交（本机路径、派生缓存、审计、锁）
+```
+
+- 目录只在第一次写入时创建（导入、提交候选、审核等）。只是打开项目、检索或查看图谱不会往仓库里写文件。
+- 队友拉取仓库后直接可用：条目随仓库到达，`project.json` 保证项目 ID 一致。在新克隆里再次导入同一份文档，会命中已有条目，不会产生重复。
+- 批准、弃用等操作会修改 `entries/` 下的文件，应像普通代码一样提交并经过评审。仓库里已提交的 `approved` 条目即视为团队批准的规范。
+
+项目身份（用于生成首个项目 ID 和展示，写入 `project.json` 后以文件为准）按以下优先级确定：
 1. Git 远端 URL（规范化后，同一仓库的不同克隆、工作树共享知识）。
 2. 无远端时用 Git 本地根目录。
 3. 远程 workspace 使用 `workspaceIdentity`。
 4. 都没有时用规范化路径。
 
-`wiki status` 会显示当前身份与依据。
+`wiki status` 会显示当前身份、依据和两个存储的实际路径。
 
 ## 2. 导入文档
 
@@ -127,6 +142,7 @@ escode-cli-rust wiki read api-error-envelope
 ```
 
 - 项目层不能修改以下几项，写了会被忽略并在 `wiki status` 中报告：
-  - `root`、`projectStorage`、`converters`、`ocr`。
-  - 原因：防止仓库内配置重定向知识存储或执行外部命令。
+  - `root`、`converters`、`ocr`。
+  - 原因：防止仓库内配置重定向 Global Wiki 存储或执行外部命令。
+- `projectStorage` 已移除：Project Wiki 固定在项目内的 `.escode/wiki/`。
 - `enabled: false` 时不注入、不提供工具；Agent 其余功能不受影响。

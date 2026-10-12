@@ -2,7 +2,7 @@
 //! 只能打开 global 与本项目两个存储——没有任何入口能按名字打开其他项目（规则 2）。
 use super::identity::resolve_project;
 use super::settings::{Settings, load};
-use super::store::{Loaded, ScopeStore};
+use super::store::{Loaded, PROJECT_WIKI_DIR, ScopeStore, read_project_id};
 use anyhow::Result;
 use escode_cli_domain::wiki::entry::{Entry, Scope};
 use escode_cli_domain::wiki::index::Index;
@@ -58,19 +58,36 @@ impl WikiService {
         load(&self.cwd, &self.home).await
     }
 
+    /// 项目身份。Project Wiki 已存在时以入库 `project.json` 的 ID 为准：无 remote 仓库的身份键含本机路径，
+    /// 各机器算出的 ID 不同，固定 ID 才能让克隆到其他机器的条目（`project_id`）仍然有效。
     pub async fn project(&self) -> &ProjectIdentity {
         self.project
-            .get_or_init(|| resolve_project(&self.cwd, self.workspace_identity.as_deref()))
+            .get_or_init(|| async {
+                let mut identity =
+                    resolve_project(&self.cwd, self.workspace_identity.as_deref()).await;
+                let wiki_dir = PathBuf::from(&identity.root).join(PROJECT_WIKI_DIR);
+                if let Some(id) = read_project_id(&wiki_dir).await {
+                    identity.id = id;
+                }
+                identity
+            })
             .await
     }
 
     /// global 与当前项目的存储（顺序固定：project 在前，同 ID 时项目知识优先展示）。
+    /// Project 存储在项目工作区内（随仓库版本管理），Global 存储是用户级根目录。
     pub async fn stores(&self, settings: &Settings) -> (ScopeStore, ScopeStore) {
         let project = self.project().await;
         (
-            ScopeStore::project(&settings.root, &project.id),
+            ScopeStore::project(Path::new(&project.root), &project.id, &project.name),
             ScopeStore::global(&settings.root),
         )
+    }
+
+    /// 导入时必须排除的目录：Wiki 自身的存储（不把条目文件当文档再导入）。
+    pub async fn storage_roots(&self, settings: &Settings) -> Vec<PathBuf> {
+        let (project, global) = self.stores(settings).await;
+        vec![project.root, global.root]
     }
 
     pub async fn store_for(&self, settings: &Settings, scope: Scope) -> ScopeStore {

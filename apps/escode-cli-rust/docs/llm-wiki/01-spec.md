@@ -4,10 +4,12 @@
 
 ## 1. 产品规则
 
-1. **Global Wiki**：用户级知识，所有项目可检索。**Project Wiki**：按稳定 Project ID 隔离。
+1. **Global Wiki**：用户级知识，存放在用户存储目录，所有项目可检索。**Project Wiki**：存放在项目工作区内（`.escode/wiki/`），随仓库版本管理，只对该项目可见。
 2. 会话只检索 Global + 当前项目。提及其他项目名不构成授权；协议与工具参数中不存在「项目」参数。
 3. **导入 ≠ 批准**：导入生成 `proposal`；只有用户显式批准（CLI `wiki approve`、`wiki ingest --approve`、
    Desktop 图谱页「批准」、或 `WikiManage` 经 `alwaysAsk` 确认）后才是 `approved`。
+   Project Wiki 随仓库进入工作区：仓库中已提交的 `approved` 条目视为团队经仓库评审后批准，信任等级与 AGENTS.md 相同；
+   注入时仍按「参考数据」包裹，不能覆盖系统、安全或权限约束（规则 5）。
 4. 自动注入只用 `approved` 与 `needs-review`（后者标注「待验证」，不得作为违规依据）；
    `proposal`/`rejected`/`deprecated`/`superseded` 永不自动注入。`WikiSearch` 可显式 `include_proposals`，结果标注「未审核」。
 5. Wiki 内容是不可信数据，不能改变系统/安全/权限约束，不能覆盖用户当前指令。权威等级 `system-safety`、`user-instruction` 不可写入。
@@ -31,15 +33,41 @@ core 只经 `WikiPort` 访问；隐藏上下文由 Session owner 提交（与 ho
 
 ## 3. 存储布局
 
-根目录：配置 `wiki.root`，缺省 `<storage.dir>/cli/wiki`（`storage.dir` 来自用户/项目 `config.json`，缺省 `~/.escode`）。
+**Global Wiki**：根目录就是 Global 存储本身，中间不再有 `cli/`、`global/` 层级。
+
+- 根目录 = 用户层 `wiki.root`；未设置时为 `<storage>/wiki`。
+- `storage` 依次取 `ESCODE_STORAGE_DIR`、用户层 `storage.dir`、`~/.escode`。
+- 项目层配置不能修改 `wiki.root`。
 
 ```
-wiki/
-  global/{entries,sources,ir}/ index.json audit.jsonl .lock/
-  projects/<project_id>/{entries,sources,ir}/ index.json audit.jsonl project.json .lock/
+<storage>/wiki/
+  entries/<id>.md  sources/<doc>.json  ir/<hash>.json  index.json  audit.jsonl  .lock/
 ```
 
-原文件默认不复制；保留路径、`sha256` 内容哈希、解析器版本与 IR。
+**Project Wiki**：位于 `<项目根>/.escode/wiki/`，随用户打开的项目走，跟着仓库做版本管理。项目根 = 最近的 Git 工作树根；无 Git 时为 workspace 的真实路径。
+
+```
+<项目根>/.escode/wiki/
+  entries/<id>.md      入库：知识本体（含来源引用与审核历史）
+  project.json         入库：{schema_version, id, name, created_at}，固定 Project ID
+  .gitignore           入库：忽略下列本机数据
+  sources/ ir/ index.json audit.jsonl .lock/ *.tmp     不入库
+```
+
+不入库的原因：
+
+- 来源记录含本机绝对路径和检查时间，每次 sync 都会变化。
+- IR、索引是派生数据。
+- 审计是本机行为记录。
+
+规则：
+
+- **只读不落盘**：只有写操作才会创建目录、`.gitignore` 和 `project.json`。写操作指 ingest、sync、propose、review、promote（写 global）、rebuild-index。检索、status、graph、entry 不在仓库里创建任何文件。检索审计在项目 Wiki 为空时写入 Global。
+- **新克隆**：仓库里没有 `sources/`。首次导入同一文档时，按稳定条目 id（文档 + 章节）命中已提交的条目，不产生重复；内容未变时不改写文件，避免无意义的 diff。`validate`/`sync` 只覆盖本机导入过的来源。
+- **多工作树与分支**：每个工作树各有一份，随分支切换和合并；冲突按普通文本文件处理。
+- **不导入自身**：Global 根目录与项目的 `.escode/wiki/` 都拒绝作为导入源。
+- **原文件不复制**：只保留路径、`sha256` 内容哈希、解析器版本与 IR。
+- **迁移**：旧布局 `~/.escode/cli/wiki/{global,projects}` 从未发布（只在 dev 分支存在过），不做迁移。
 
 ## 4. 项目身份
 
@@ -52,7 +80,10 @@ wiki/
    **移动/重命名/复制**保持同一项目；**分叉**（remote 不同）为不同项目。
 5. 有 Git 无 remote：key=`git-local:<commondir 规范化真实路径>`。
 6. 无 Git：key=`workspaceIdentity?.trim() || path:<规范化真实路径>`（远程 workspace 的 identity 含主机，避免同路径合并）。
-7. Project ID=`<slug>-<sha256(key)[..16]>`；`project.json` 记录 key、kind、显示名、见过的路径。从不自动合并。
+7. 计算出的 Project ID=`<slug>-<sha256(key)[..16]>`。
+   - 首次写 Project Wiki 时把它写入入库的 `project.json`；此后以 `project.json` 的 `id` 为准。
+   - 这样同一仓库在其他机器上的克隆使用同一个 ID。无 remote 的仓库，其 key 含本机路径，不写入仓库。
+   - 条目的 `project_id` 必须等于所在存储的 ID。
    多根工作区：当前 runtime 只有单一 cwd；未来每个根独立解析。
 
 ## 5. 知识条目（`schema_version: 1`）
@@ -203,7 +234,7 @@ sequenceDiagram
 
 ```jsonc
 "wiki": {
-  "enabled": true, "root": "~/.escode/cli/wiki", "projectStorage": "user-data",
+  "enabled": true, "root": "~/.escode/wiki",
   "autoInject": true, "agentTools": "auto",
   "retrieval": { "maxResults": 5, "maxInjectedTokens": 1500, "maxEntryTokens": 600, "minScore": 0.3, "timeoutMs": 3000 },
   "formats": { "docx": true, "doc": true, "xlsx": true, "xls": true, "pdf": true, "markdown": true, "txt": true, "csv": true, "json": true, "yaml": true, "xml": true, "pptx": true, "rst": true },

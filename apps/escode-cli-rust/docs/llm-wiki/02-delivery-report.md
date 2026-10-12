@@ -78,14 +78,15 @@ Desktop：Engine::request v4/wiki/* → wiki_requests（Auxiliary 异步）→ W
 
 ## 4. 作用域、项目身份与存储路径
 
-- **根目录**：`wiki.root`，缺省 `<storage.dir>/cli/wiki`，跟随 `ESCODE_STORAGE_DIR`，否则为 `~/.escode/cli/wiki`。项目层配置不能改根目录。
-- **目录结构**：
-  - `global/{entries,sources,ir}/`
-  - `projects/<slug>-<sha256[..16]>/{entries,sources,ir}/`
-  - 两者都有 `index.json`、`audit.jsonl`、`.lock/`；项目目录另有 `project.json`。
+- **Global Wiki**：`<storage>/wiki/`，根目录即存储本身，中间没有 `cli/`、`global/` 层级。`storage` 依次取 `ESCODE_STORAGE_DIR`、用户层 `storage.dir`、`~/.escode`；用户层 `wiki.root` 可覆盖，项目层不能修改。
+- **Project Wiki**：`<项目根>/.escode/wiki/`，随项目走并做版本管理。
+  - 提交：`entries/`、`project.json`、`.gitignore`。
+  - 不提交：`sources/`、`ir/`、`index.json`、`audit.jsonl`、`.lock/`，由 `.gitignore` 排除。
+  - 首次写入时才创建；只读操作不在仓库里生成文件（`storage_layout` 测试覆盖）。
+- **项目 ID**：首次写入时把计算出的 ID 固定到 `project.json`，此后以文件为准。无 remote 仓库克隆到其他机器后，ID 和条目依然有效（`committed_knowledge_works_in_a_clone_on_another_machine`）。
 - **身份优先级**：Git 远端（规范化）> Git 本地根（多工作树经 commondir 归并）> `workspaceIdentity` > 规范化真实路径。
   - 嵌套仓库取最近者；符号链接先解析为真实路径；大小写不敏感的文件系统上键会小写化。
-- **隔离**：检索作用域固定为 global + 当前项目，所有入口（工具、Desktop 参数、CLI）都无法指定其他项目。
+- **隔离**：Project 存储就是当前项目工作区里的目录；检索作用域固定为 global + 当前项目，所有入口（工具、Desktop 参数、CLI）都无法指定其他项目。
   - 检索缓存键包含项目 id 与两个作用域的索引版本。
 
 ## 5. 格式支持矩阵、依赖与降级
@@ -137,7 +138,7 @@ YAML 复用已有的 `saphyr`。没有新增 npm 依赖：图谱复用已有的 
 | --- | --- | --- |
 | Rust 全工作区测试 | `cargo test --workspace --no-fail-fast` | ✅ 最终代码：53 个测试二进制、384 个测试全部通过。rebase 到 `02f54e97` 后，`escode-cli-tools` + `escode-cli-wiki` 117 个、`wiki_runtime` 6 个复跑通过 |
 | Wiki domain 测试 | `cargo test -p escode-cli-domain wiki::` | ✅ 21 个通过（含前缀过滤与暴力比较的等价性测试） |
-| Wiki adapter 测试 | `cargo test -p escode-cli-wiki` | ✅ 30 个通过（scope_identity 4、ingest_incremental 5、formats_text 7、formats_office 6、retrieval_governance 3、security 4、单元 1） |
+| Wiki adapter 测试 | `cargo test -p escode-cli-wiki` | ✅ 34 个通过（scope_identity 4、storage_layout 4、ingest_incremental 5、formats_text 7、formats_office 6、retrieval_governance 3、security 4、单元 1） |
 | Runtime 集成 | `tests/wiki_runtime.rs` | ✅ 6 个通过 |
 | TS 单测（新增） | `vitest run packages/ui/test/knowledgeGraph.test.ts packages/services/test/escodeAgentService.wiki.test.ts` | ✅ 15 + 4 通过 |
 | TS 回归（受影响） | `pnpm run test:unit:affected`（模拟 pre-push，673 个文件） | 🟡 659 个文件通过。13 个文件失败，其中 `settingsPageConfig.test.ts` 因新增分区而失败，已更新期望，12/12 通过。其余 12 个文件、63 个失败在基线 `origin/dev` worktree 上逐条复现，失败清单完全相同，属环境问题：Electron 未安装、Node 版本不符 |
@@ -196,6 +197,7 @@ YAML 复用已有的 `saphyr`。没有新增 npm 依赖：图谱复用已有的 
 - **路径与作用域**：条目 id 经白名单校验，无法逃出存储目录。
   - 项目层配置不能重定向存储，也不能启用转换器或 OCR。
   - 跨项目访问不可表达。
+- **项目知识的信任**：Project Wiki 随仓库进入工作区，已提交的 `approved` 条目与 AGENTS.md 同等信任，由仓库评审把关；注入时同样按参考数据包裹。
 - **候选不生效**：导入和 WikiPropose 的产物都是 proposal，不会被注入。
   - 只有用户显式操作（CLI 确认、Desktop 确认框、WikiManage 审批）才能批准。
 - **机密筛查**：WikiPropose 拒绝疑似密钥或凭据。

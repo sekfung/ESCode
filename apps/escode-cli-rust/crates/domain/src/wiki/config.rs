@@ -171,12 +171,10 @@ impl WikiConfig {
             .unwrap_or("soffice")
             .to_owned();
         let office_timeout = num("/converters/office/timeoutMs", 120_000, &mut issues);
-        if wiki
-            .get("projectStorage")
-            .and_then(Value::as_str)
-            .is_some_and(|m| m != "user-data")
-        {
-            issues.push("wiki.projectStorage only supports \"user-data\"".into());
+        if wiki.get("projectStorage").is_some() {
+            issues.push(
+                "wiki.projectStorage was removed: the project wiki always lives in <project>/.escode/wiki".into(),
+            );
         }
         WikiConfig {
             enabled,

@@ -1,7 +1,6 @@
 //! 增量同步（spec §6「删除/移动」、§9）：检查已知来源的内容哈希；变化的重新导入，
 //! 缺失的先在项目根内找同哈希文件（移动/重命名，保持 document_id），找不到则标 missing，
 //! 关联条目标 `broken-source`——从不删除知识。
-use super::fsio::ScopeLock;
 use super::report::{Item, Report};
 use super::service::{WikiService, now};
 use super::store::ScopeStore;
@@ -22,7 +21,7 @@ impl WikiService {
             "wiki is disabled (wiki.enabled=false)"
         );
         let store = self.store_for(&settings, scope).await;
-        let _lock = ScopeLock::acquire(&store.root).await?;
+        let _lock = store.lock().await?;
         let loaded = store.load().await?;
         let (mut index, _) = store.index(&loaded.entries, true).await?;
         let mut report = Report {

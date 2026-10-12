@@ -20,13 +20,19 @@ const SKIPPED_DIRS: [&str; 6] = [
 /// 展开路径参数：文件原样，目录递归收集支持的扩展名（不跟随目录符号链接，跳过构建/依赖目录）。
 pub async fn collect(
     paths: &[PathBuf],
-    wiki_root: &Path,
+    wiki_roots: &[PathBuf],
 ) -> (Vec<PathBuf>, Vec<(PathBuf, String)>) {
     let mut files = vec![];
     let mut rejected = vec![];
-    let wiki_root = tokio::fs::canonicalize(wiki_root)
-        .await
-        .unwrap_or_else(|_| wiki_root.to_owned());
+    // Global 根与项目内 `.escode/wiki/` 都是 Wiki 存储：其中的条目文件不能再被当作文档导入。
+    let mut excluded = vec![];
+    for root in wiki_roots {
+        excluded.push(
+            tokio::fs::canonicalize(root)
+                .await
+                .unwrap_or_else(|_| root.to_owned()),
+        );
+    }
     let mut queue: Vec<PathBuf> = paths.to_vec();
     while let Some(path) = queue.pop() {
         let Ok(meta) = tokio::fs::symlink_metadata(&path).await else {
@@ -36,7 +42,7 @@ pub async fn collect(
         let real = tokio::fs::canonicalize(&path)
             .await
             .unwrap_or_else(|_| path.clone());
-        if real.starts_with(&wiki_root) {
+        if excluded.iter().any(|root| real.starts_with(root)) {
             rejected.push((
                 path,
                 "files inside the wiki storage cannot be ingested".into(),
