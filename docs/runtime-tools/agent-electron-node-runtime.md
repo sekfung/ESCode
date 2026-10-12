@@ -1,4 +1,4 @@
-# ESCode Agent 用「已有 Node + 编译产物 escode.cjs」运行（桌面 & 远端）
+# ESCode Agent 用「已有 Node + 编译产物 zcode.cjs」运行（桌面 & 远端）
 
 ## 核心思路
 
@@ -9,11 +9,20 @@ ESCode Agent 以前每个平台都内置一份独立的原生二进制 `escode-a
 - **桌面**：Host 跑在 Electron `utilityProcess`，`process.execPath` 指向 Electron Helper，内置 Node 24.x（Electron 41）。
 - **远端 SSH/WSL/Docker**：部署时会下发一份独立 `node`（`<REMOTE_BASE>/node`，v22.16.0）用来跑 `zcode-server.cjs`。
 
-所以 agent 没必要再带一份 Node，直接用这份已有的 Node 执行编译产物 `escode.cjs` 即可。
+所以 agent 没必要再带一份 Node，直接用这份已有的 Node 执行编译产物 `zcode.cjs` 即可。
 
-关键前提：**ESCode Agent 没有任何原生 NAPI 插件**——`ripgrep` 是 WASM/WASI，其余依赖（cheerio / iconv-lite / jimp / ai-sdk / mcp-sdk / zod 等）全是纯 JS。`escode.cjs` 是 esbuild 打的单文件 bundle（除 `@escode/tui` 外全部 inline），跨平台同一份；`app-server` 命令路径永不加载 `@escode/tui`，所以远端只需要这一个文件、无需 node_modules，桌面也不打包 TUI。
+关键前提：**ESCode Agent 没有任何原生 NAPI 插件**——`ripgrep` 是 WASM/WASI，其余依赖（cheerio / iconv-lite / jimp / ai-sdk / mcp-sdk / zod 等）全是纯 JS。`zcode.cjs` 是 esbuild 打的单文件 bundle（除 `@escode/tui` 外全部 inline），跨平台同一份；`app-server` 命令路径永不加载 `@escode/tui`，所以远端只需要这一个文件、无需 node_modules，桌面也不打包 TUI。
 
 收益：单平台 ~180MB → ~16MB；同一份 JS 跨平台；桌面/远端统一一种 agent 形态。
+
+## 文件名：构建产物 `escode.cjs` → 随包/部署 `zcode.cjs`
+
+CLI 的构建产物仍是 `apps/escode-cli/packages/cli/dist/escode.cjs`（未改名），所有真正被执行的实例都在暂存或部署时改名为 `zcode.cjs`，与上游制品名对齐：
+
+- 桌面：`stage-agent-bundle.mjs` 把 dist 产物拷成 `bundled-agents/<平台>/glm/zcode.cjs`。
+- 远端：`REMOTE_AGENT_BUNDLE_NAME = "zcode.cjs"`，mock-cdn 也按 `zcode.cjs` 打包（`prepare-prebuilds.mjs`）。
+
+因此**除 `dist/escode.cjs` 外的任何路径都不应再出现 `escode.cjs`**；运行时入口名由 `escode-agent-runtime.ts` 的 `nodeBundleEntryFile` 单点决定。改名时漏改引用方会让安装包校验（`ci-install-desktop.mjs`）与回退演练（`escode-cli-rust-installed.test.ts`）误报缺文件。
 
 ## 运行方式
 
@@ -21,38 +30,38 @@ ESCode Agent 以前每个平台都内置一份独立的原生二进制 `escode-a
 
 ```
 process.execPath  <Electron Helper>
-  args: [resources/glm/escode.cjs, app-server, --stdio]
+  args: [resources/glm/zcode.cjs, app-server, --stdio]
   env:  { ELECTRON_RUN_AS_NODE: "1" }   // 必须，否则子进程被当成 Chromium 子进程卡在 GPU 初始化
 ```
 
-**远端**（无 Electron，复用 dev 已有机制）：部署 `escode.cjs` 到 `~/.escode/server/agents/glm/escode.cjs`，再写一个**同名 wrapper**（就是 resolver 期望的可执行入口 `escode-agent`）：
+**远端**（无 Electron，复用 dev 已有机制）：部署 `zcode.cjs` 到 `~/.escode/server/agents/glm/zcode.cjs`，再写一个**同名 wrapper**（就是 resolver 期望的可执行入口 `escode-agent`）：
 
 ```sh
 #!/bin/sh
 set -eu
 runtime_root="${ESCODE_SERVER_RUNTIME_ROOT:-$HOME/.escode/server}"
-exec "$runtime_root/node" "$HOME/.escode/server/agents/glm/escode.cjs" "$@"
+exec "$runtime_root/node" "$HOME/.escode/server/agents/glm/zcode.cjs" "$@"
 ```
 
-这样 provider runtime resolver **不需要为远端改任何代码**——照旧找 `escode-agent` 这个可执行文件，找到的是 wrapper，由它用远端 node 执行 `escode.cjs`。
+这样 provider runtime resolver **不需要为远端改任何代码**——照旧找 `escode-agent` 这个可执行文件，找到的是 wrapper，由它用远端 node 执行 `zcode.cjs`。
 
 ## 实现
 
 **bundle 目标版本**（`apps/escode-cli/packages/cli/scripts/build.mjs`）
-esbuild `target` 从 `node26` 降到 **`node22`**，取两端运行时里最低的 Node 版本（远端 v22.16）。保证同一份 `escode.cjs` 在桌面 Node 24 和远端 Node 22 上都不会用到目标运行时不支持的语法。
+esbuild `target` 从 `node26` 降到 **`node22`**，取两端运行时里最低的 Node 版本（远端 v22.16）。保证同一份 bundle 在桌面 Node 24 和远端 Node 22 上都不会用到目标运行时不支持的语法。
 
 **桌面**
-- `escode-agent-runtime.ts`：描述符加 `nodeBundleEntryFile: "escode.cjs"` + `resolveNodeBundleSegments()`。
-- `providerRuntimeResolver.ts`：`findESCodeAgentRuntimeNodeBundle()` 定位 `resources/glm/escode.cjs`。
+- `escode-agent-runtime.ts`：描述符加 `nodeBundleEntryFile: "zcode.cjs"` + `resolveNodeBundleSegments()`。
+- `providerRuntimeResolver.ts`：`findESCodeAgentRuntimeNodeBundle()` 定位 `resources/glm/zcode.cjs`。
 - `escodeAgentProcessManager.ts`：`resolveElectronRuntimeESCodeAgentCommand`，插在 monorepo dev 与 native-binary 兜底之间。
-- 打包：`prepare:agent-bundle`（`prepare-agent-node-bundle.mjs`）构建 cli、把 `escode.cjs` stage 进 `bundled-agents/<平台>/glm/`、删掉旧原生 `escode-agent`；`prepare:runtime-assets` 本机列表用它替换 `prepare:glm`；electron-builder 整目录拷 `resources/glm`。
+- 打包：`prepare:agent-bundle`（`prepare-agent-node-bundle.mjs`）构建 cli、把 `zcode.cjs` stage 进 `bundled-agents/<平台>/glm/`、删掉旧原生 `escode-agent`；`prepare:runtime-assets` 本机列表用它替换 `prepare:glm`；electron-builder 整目录拷 `resources/glm`。
 
 **远端**
 - `escodeAgentBundleWrapper.ts`（新）：`REMOTE_AGENT_BUNDLE_NAME` + `buildRemoteAgentBundleWrapper()`，dev / 生产共用一份 wrapper 语义。
-- `escodeAgentDeploy.ts`：去掉「只支持 native binary」的限制；改为 ① `installFile` 安装 `escode.cjs` 到 `agents/glm/escode.cjs`，② 写 wrapper 到 `agents/glm/escode-agent`。skip 检查同时校验 wrapper 与 bundle 存在。
-- 生产态 `glm/escode.cjs` 始终跟随 ESCode app/server 版本：主 `zcode-server.cjs` 因 app 版本变化进入部署路径时强制刷新 `glm`；本地上传模式必须从当前 app release 取文件覆盖，远端下载模式必须按当前 manifest 的组件内容刷新远端 cache 后再覆盖，避免同一语义 runtime 版本但内容 hash 不同的旧 `escode.cjs` 被重复安装。app 版本未变化时不再单独判断或补传 `glm`。
+- `escodeAgentDeploy.ts`：去掉「只支持 native binary」的限制；改为 ① `installFile` 安装 `zcode.cjs` 到 `agents/glm/zcode.cjs`，② 写 wrapper 到 `agents/glm/escode-agent`。skip 检查同时校验 wrapper 与 bundle 存在。
+- 生产态 `glm/zcode.cjs` 始终跟随 ESCode app/server 版本：主 `zcode-server.cjs` 因 app 版本变化进入部署路径时强制刷新 `glm`；本地上传模式必须从当前 app release 取文件覆盖，远端下载模式必须按当前 manifest 的组件内容刷新远端 cache 后再覆盖，避免同一语义 runtime 版本但内容 hash 不同的旧 `zcode.cjs` 被重复安装。app 版本未变化时不再单独判断或补传 `glm`。
 - `escodeAgentDevDeploy.ts`：复用上面的共享 wrapper（删掉本地副本）。
-- mock-cdn（`prepare-prebuilds.mjs`）：`stageRemoteAgentBundles()` 构建 cli 后把 `escode.cjs` 放进各平台 `releases/<ver>/glm/<platform>/`，替代原来逐平台下载原生二进制；glm 组件复用 required-paths 改为 `["escode.cjs"]`。组件 tar.gz / manifest / sha 机制不变，只是包里的文件从二进制换成 JS。
+- mock-cdn（`prepare-prebuilds.mjs`）：`stageRemoteAgentBundles()` 构建 cli 后把 `zcode.cjs` 放进各平台 `releases/<ver>/glm/<platform>/`，替代原来逐平台下载原生二进制；glm 组件复用 required-paths 改为 `["zcode.cjs"]`。组件 tar.gz / manifest / sha 机制不变，只是包里的文件从二进制换成 JS。
 
 resolver 在远端**无需改动**：wrapper 名仍是 `escode-agent`，由 `findESCodeAgentRuntimeBinary` 命中。
 

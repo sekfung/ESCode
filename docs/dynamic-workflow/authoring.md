@@ -596,7 +596,7 @@ How the pack reaches each runtime:
 - Development and the Electron desktop resolve `packages/bundled-skills` on disk next to the
   CLI entry, through the same candidate-directory walk official plugins use, and read it in
   place; nothing is copied. `packages/desktop/scripts/prepare-agent-node-bundle.mjs` stages
-  it beside `resources/glm/escode.cjs`; `scripts/prepare-prebuilds.mjs` stages it for remote
+  it beside `resources/glm/zcode.cjs`; `scripts/prepare-prebuilds.mjs` stages it for remote
   hosts.
 - SEA binaries embed `skills/**` under the `escode-bundled-skills/` asset prefix
   (`cli/scripts/sea-bundled-skill-assets.mjs`) with a manifest whose hash covers every file.

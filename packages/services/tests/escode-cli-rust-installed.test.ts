@@ -9,7 +9,7 @@ import { fixture, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 
 // docs/specs/rust-release-rollback.md「安装包真机演练」：在 CI runner 上**安装真实安装包**之后，用包里自带的两种
-// runtime（Electron-as-Node 跑 resources/glm/escode.cjs、resources/glm/escode-cli-rust）在同一数据目录上走一遍
+// runtime（Electron-as-Node 跑 resources/glm/zcode.cjs、resources/glm/escode-cli-rust）在同一数据目录上走一遍
 // Node → Rust → 回退 Node：
 //   1. 包内 Node runtime 写出一段会话（含 Write 工具调用）；
 //   2. 切到包内 Rust runtime：导入并读到该会话、跑一轮新会话；TS 源库逐字节不变；
@@ -27,7 +27,7 @@ async function digest(path: string): Promise<string> {
 const nodeOptions = (root: string) => ({
   root,
   command: app!,
-  args: ({ cwd }: { cwd: string }) => [join(glm!, "escode.cjs"), "app-server", "--stdio", "--cwd", cwd],
+  args: ({ cwd }: { cwd: string }) => [join(glm!, "zcode.cjs"), "app-server", "--stdio", "--cwd", cwd],
   registry: true,
   mode: "yolo" as const,
   // 与桌面 Host 一致：用应用自带的 Electron 作为 Node 运行 agent bundle。
@@ -46,7 +46,7 @@ test(
   { skip: !app || !glm ? "ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM not set" : false },
   async () => {
     const rust = join(glm!, `escode-cli-rust${exe}`);
-    assert.ok(existsSync(join(glm!, "escode.cjs")), "installed package lacks resources/glm/escode.cjs");
+    assert.ok(existsSync(join(glm!, "zcode.cjs")), "installed package lacks resources/glm/zcode.cjs");
     assert.ok(existsSync(rust), "installed package lacks the bundled Rust runtime");
     const root = await mkdtemp(join(tmpdir(), "escode-installed-"));
 

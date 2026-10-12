@@ -846,8 +846,8 @@ export default {
       : []),
     {
       // agent 运行时资产，打包到 resources/glm。
-      // 桌面端内置的是 agent 的 JS bundle（glm/escode.cjs，由 prepare:agent-bundle 生成），
-      // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `escode.cjs app-server --stdio`。
+      // 桌面端内置的是 agent 的 JS bundle（glm/zcode.cjs，由 prepare:agent-bundle 生成），
+      // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `zcode.cjs app-server --stdio`。
       from: `bundled-agents/${targetPlatform.key}/glm`,
       to: "glm",
       filter: ["**/*", "!**/*.map"],

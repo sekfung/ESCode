@@ -22,7 +22,7 @@ or the composer's `$` skill picker. The runtime discovers its `skills/` director
   `escode-bundled-skills/` asset prefix. On start the CLI extracts them once into
   `~/.escode/cli/bundled-skills/<content-hash>/` and reads from there.
 - **Remote hosts**: `scripts/prepare-prebuilds.mjs` stages the directory next to the remote
-  `escode.cjs`, like the official plugin packages.
+  `zcode.cjs`, like the official plugin packages.
 
 The resolver is `apps/escode-cli/packages/bootstrap/src/app/bundled-skills.ts`. Every file
 under `skills/dynamic-workflows/` is a required asset: a stage or seed that loses one refuses

@@ -61,13 +61,13 @@ if (process.platform === "win32") {
   const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
-    .find((line) => line.endsWith("/resources/glm/escode.cjs"));
-  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/escode.cjs`);
+    .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
+  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
   glm = dirname(entry);
   const base = dirname(dirname(glm));
   app = join(base, pkg);
 }
-for (const path of [app, glm, join(glm, "escode.cjs")]) {
+for (const path of [app, glm, join(glm, "zcode.cjs")]) {
   if (!existsSync(path)) throw new Error(`Installed path missing: ${path}`);
 }
 console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
