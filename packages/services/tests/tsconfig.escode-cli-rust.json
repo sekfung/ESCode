@@ -12,5 +12,7 @@
       "@escode/model-option-map": ["../../model-option-map/src/index.ts"]
     }
   },
-  "include": ["./escode-cli-rust-*.ts"]
+  // 测试经相对路径 import 服务源码，program 会比 include 更宽：源码依赖的 ambient 声明
+  // （pdfjs worker、yazl）不在 include 里就会报 TS7016，这里显式带上。
+  "include": ["./escode-cli-rust-*.ts", "../src/types/*.d.ts"]
 }
