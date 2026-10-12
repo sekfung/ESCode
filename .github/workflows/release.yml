@@ -1,4 +1,6 @@
-# 发布：Rust runtime 二进制（6 个目标）与桌面安装包（内置 Rust runtime，默认仍用 Node）。
+# 发布：Rust runtime 二进制（含远程用 musl 目标）与桌面安装包（默认 Rust runtime，不回退 Node）。
+# 安装包是正式版：生产后端与正式身份（无 _TEST / Preview），不带 sourcemap，Rust 二进制 strip
+# （docs/desktop/release-artifact-hygiene.md，打包后由 assert-release-artifacts.mjs 门禁）。
 # 触发：推送 v* 标签；手动运行；或在 feat/** 分支上改动发布链路本身（后两者只上传构建产物，不创建 Release）。
 # 当前不签名（macOS 未签名、未公证；Windows 未签名）。见 docs/specs/rust-ci.md。
 name: release
@@ -20,6 +22,8 @@ permissions:
   contents: write
 
 env:
+  # 正式版：生产后端、正式身份与生产内置配置（未设置时按 test 处理，会产出 "ESCode Preview" 与 _TEST 后缀）。
+  ESCODE_ENV: production
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   # 仓库默认的 Electron 镜像面向国内网络；GitHub runner 直接用官方地址。
@@ -158,6 +162,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: bundle desktop
         run: pnpm bundle:desktop -- --os ${{ matrix.os }} --arch ${{ matrix.arch }}
+      - name: assert release artifacts
+        run: node packages/desktop/scripts/assert-release-artifacts.mjs packages/desktop/dist
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}-${{ matrix.arch }}
@@ -249,9 +255,8 @@ jobs:
           draft: true
           files: artifacts/*
           body: |
-            Unsigned build. The desktop app defaults to the bundled Rust runtime and falls back to the
-            bundled Node runtime if Rust fails before becoming ready; set ESCODE_AGENT_SERVER_RUNTIME=node to
-            force the Node runtime.
+            Unsigned build. The desktop app and remote workspaces use the bundled Rust runtime; set
+            ESCODE_AGENT_SERVER_RUNTIME=node to use the Node runtime explicitly.
       # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
       - name: verify published assets
         shell: bash
@@ -261,7 +266,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          # GitHub 上传资产时把文件名里的空格换成 "."（"ESCode Preview-…" → "ESCode.Preview-…"）。
+          # GitHub 上传资产时把文件名里的空格换成 "."（产品名含空格时，如 "A B-…" → "A.B-…"）。
           expected=$(ls artifacts | sed 's/ /./g' | sort)
           published=$(gh release view "$tag" --json assets --jq '.assets[].name' | sort)
           diff <(echo "$expected") <(echo "$published")

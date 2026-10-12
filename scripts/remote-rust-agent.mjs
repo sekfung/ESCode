@@ -51,7 +51,15 @@ export function resolveRemoteRustBinarySource(platformKey, { env = process.env, 
 export function stageRemoteRustAgent({ platformKey, glmDir, rootDir, env = process.env }) {
   const source = resolveRemoteRustBinarySource(platformKey, { env, rootDir });
   if (source.kind === "cargo") {
-    const args = ["build", "--release", "--locked", "--target", source.target, "-p", "escode-cli-rust"];
+    const args = [
+      "build",
+      "--release",
+      "--locked",
+      "--target",
+      source.target,
+      "-p",
+      "escode-cli-rust",
+    ];
     if (env.ESCODE_RUST_OFFLINE === "1") args.push("--offline");
     try {
       runCommand("cargo", args, { cwd: source.workspace, env });
