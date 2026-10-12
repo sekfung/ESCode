@@ -14,6 +14,8 @@ const forkIsolatedTests = [
   "packages/desktop/test/windowsInstallerCompile.test.ts",
   "packages/desktop/test/cdnPreloadScript.test.ts",
   "packages/desktop/test/desktopRuntimeEnv.test.ts",
+  // 与 desktopRuntimeEnv 同因：就地造异构夹具并 spawn 构建脚本，不能和其它用例并发。
+  "packages/desktop/test/prepareBundledRemoteAssets.test.ts",
   "packages/desktop/test/e2eDesktopBuildCache.test.ts",
   "packages/desktop/test/e2eSummarySpecCoverage.test.ts",
   "packages/desktop/test/migrateStableFeedScript.test.ts",

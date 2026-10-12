@@ -44,16 +44,31 @@
 
 `pnpm-lock.yaml`、`Cargo.lock` 与生成资产在更名后重新生成而非手改。
 
-### 已知不一致（待用户确认）
+### CDN 发布路径与远程制品命名（已按官方仓库收敛）
 
-remote runtime 的发布路径前缀在不同位置口径不一，两处都是外部地址，本次未擅自改动：
+更名时 `zcode` 被一并替换成 `escode`，把 CDN 对象前缀和远程制品的文件名也改错了。
+两者都是发布侧的真实约定，不是品牌标识，已恢复为官方值：
 
-- `packages/desktop/src/main/remoteCdn.ts` 的 `overseas` 兜底仍是 `https://cdn-zcode.z.ai/zcode/electron/releases`（`remoteCdn.test.ts`、`.env.example` 与之一致）。
-- `packages/desktop/tsup.config.ts` 的 `OSS_PATH_PREFIX` 默认值与 CI 文档是 `escode/electron/releases`（`docs/desktop-bundle-size-architecture.md`、`docs/desktop-ci-cd.md`）。
+- 发布路径前缀统一为 `zcode/electron/releases`。单一口径在
+  `scripts/remote-cdn-roots.mjs`（`DEFAULT_OSS_PATH_PREFIX` 与 `REMOTE_CDN_RELEASE_ROOTS`）：
+  运行时 `remoteCdn.ts`、构建期注入 `tsup.config.ts`、构建期下载
+  `prepare-bundled-remote-assets.ts` 都从它取值。此前 `remoteCdn.ts` 的 `domestic` 兜底是
+  `https://cdn.codegeex.cn/escode/electron/releases`（实测 404），已修正。
+- 远程制品名统一为上游名：server bundle `zcode-server.cjs`、agent bundle `zcode.cjs`
+  （`escode-server.cjs` / `escode.cjs` 在远程发布链路上已全面替换）。
+  CLI 自身构建产物 `apps/escode-cli/packages/cli/dist/escode.cjs` 不属远程制品，保持原名。
 
-正式构建走 CI 注入的 `__ESCODE_REMOTE_CDN_RELEASE_ROOTS__`，两者只影响未注入时的兜底；需按实际 CDN 发布位置收敛为一处。
+依据（2026-10-12 核对）：
 
-2026-10-12 复查：两处口径仍未收敛，阻塞于发布侧确认（海外 CDN 的实际发布前缀，CI 定义在本仓库之外）。已确认 `remoteCdn.ts` 兜底按「当前发布域名」写的是真实地址；确定实际前缀后再统一，不先行改动。
+- 官方仓库 `zai-org/ZCode`：`remoteCdn.ts` 国内根为 `https://cdn.codegeex.cn/zcode/electron/releases`；
+  `tsup.config.ts` 的 `OSS_PATH_PREFIX` 默认值为 `zcode/electron/releases`；`remoteCdn.test.ts` 断言同值。
+- 线上正式包 `app.asar` 注入的候选列表是 `https://cdn-zcode.z.ai/zcode/electron/releases`，
+  且不含任何 `escode/electron/releases`。
+- CDN 实测：`.../escode/electron/releases/3.14.5/manifest-linux-x64.json` 返回 404，
+  `.../zcode/electron/releases/3.14.5/manifest-linux-x64.json` 正常；
+  该版本 server-bundle / glm 归档解出的是 `zcode-server.cjs` 与 `zcode.cjs`。
+
+`*.example.com` 之类的占位域名未改（其路径不代表真实发布位置）。
 
 ## 更名工具（一次性）
 

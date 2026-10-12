@@ -21,7 +21,7 @@ describe("remoteCdn", () => {
         version: "0.0.0-test",
       }),
     ).toEqual([
-      "https://cdn.codegeex.cn/escode/electron/releases/0.0.0-test",
+      "https://cdn.codegeex.cn/zcode/electron/releases/0.0.0-test",
       "https://cdn-zcode.z.ai/zcode/electron/releases/0.0.0-test",
     ]);
   });
@@ -48,7 +48,7 @@ describe("remoteCdn", () => {
       }),
     ).toEqual([
       "https://cdn-zcode.z.ai/zcode/electron/releases/0.0.0-test",
-      "https://cdn.codegeex.cn/escode/electron/releases/0.0.0-test",
+      "https://cdn.codegeex.cn/zcode/electron/releases/0.0.0-test",
     ]);
   });
 

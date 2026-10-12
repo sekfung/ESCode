@@ -77,7 +77,7 @@ describe("stdio Desktop presentation surface", () => {
     process.env[ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV] = "1";
     process.env.ESCODE_AGENT_SERVER_COMMAND = process.execPath;
     process.env.ESCODE_AGENT_SERVER_ARGS_JSON = JSON.stringify([
-      "escode.cjs",
+      "zcode.cjs",
       "app-server",
       "--stdio",
     ]);
@@ -225,7 +225,7 @@ describe("stdio Desktop presentation surface", () => {
         }),
       );
       expect(resolvedCommand).toEqual({
-        args: ["escode.cjs", "app-server", "--stdio", "--surface", "desktop"],
+        args: ["zcode.cjs", "app-server", "--stdio", "--surface", "desktop"],
         command: process.execPath,
         cwd: "/workspace/project",
       });

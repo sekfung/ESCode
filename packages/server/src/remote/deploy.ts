@@ -662,7 +662,8 @@ async function resolveReleaseDir(
     );
   }
 
-  // 生产态不再打包 remote 资源，必须先从 CDN 下载到本地 cache。
+  // 本地 release 目录不可用（未内置该平台 / 内置资源不完整）时下载到本地 cache：
+  // 安装包只内置与构建目标同架构的 Linux 远程资源，其余平台和缺失场景仍走 CDN。
   // 这里统一把“拿 releaseDir”的逻辑收口，避免后续各资源分支继续散落占位判断。
   return ensureRemoteReleaseDirFromCdn(
     {
@@ -729,7 +730,7 @@ function resolveRequiredMockReleasePaths(
         }
         break;
       case "glm":
-        requiredPaths.add(`glm/${platformArch}/escode.cjs`);
+        requiredPaths.add(`glm/${platformArch}/zcode.cjs`);
         for (const relativePath of REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS) {
           requiredPaths.add(`glm/${platformArch}/packages/${relativePath}`);
         }

@@ -61,7 +61,7 @@ resources/remote-assets/
     │   └── zcode-server.cjs
     ├── node/linux-<arch>/node
     ├── node-pty/linux-<arch>/pty.node
-    ├── glm/linux-<arch>/escode.cjs
+    ├── glm/linux-<arch>/zcode.cjs
     └── tools/linux-<arch>/{bfs,rg,ugrep}/
 ```
 
@@ -91,17 +91,29 @@ deploy（local-download-upload）
 ```text
 pnpm build
   └─ prepare:runtime-assets
-       ├─ prepare:remote-assets        # mock-cdn/releases/<version>（默认四平台）
-       └─ prepare:bundled-remote-assets # 按 arch 挑选 → bundled-remote-assets/releases/<version>
-                                        # 关键条目缺失直接失败
+       ├─ prepare:remote-assets         # 仅开发/e2e 需要；ESCODE_SKIP_REMOTE_ASSETS=1 可跳过
+       └─ prepare:bundled-remote-assets # 构建期从 CDN 下载当前版本制品：
+                                        #   manifest → 组件归档 → sha256 校验 → 解压到 mount
+                                        # 组装 bundled-remote-assets/releases/<version>/
+                                        # 关键条目缺失或校验失败直接失败
 electron-builder
   └─ extraResources: bundled-remote-assets → resources/remote-assets
        └─ afterPack: assertPackagedBundledRemoteAssets 复核产物
 ```
 
-- `ESCODE_REMOTE_ASSET_PLATFORMS`：逗号分隔的远程平台子集，用于让每个桌面构建 job 只准备自己内置的那一份
-  （桌面 CI 设置为 `linux-<arch>`），缺省仍准备全部四平台。
-- `ESCODE_SKIP_REMOTE_ASSETS=1`：源码态调试可跳过，跳过时安装包不含内置资源，远程连接回到 CDN 下载。
+下载源与运行时使用同一优先级（`scripts/remote-cdn-roots.mjs`）：显式
+`ESCODE_REMOTE_ASSET_CDN_BASE_URL` > CI 注入 `CDN_DOMAIN`/`OSS_PATH_PREFIX` > 官方兜底。
+制品只存在于构建工作区（`bundled-remote-assets/` 已 gitignore），不需要入库。
+
+- `ESCODE_SKIP_REMOTE_ASSETS=1`：跳过 mock-cdn 准备（桌面发布 job 使用），不影响内置资源下载。
+- `ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1`：跳过内置资源下载，安装包回到 CDN 下载语义。
+
+只维护一个版本号并与上游发布对齐：仓库版本（`package.json` 的 `version`，运行时即
+`ESCODE_VERSION`）必须等于 CDN 上已发布的上游版本号，不再单独维护制品源版本。
+构建期按该版本取 manifest 与组件，并校验 `manifest.appVersion` 等于它；版本没对齐时构建直接失败
+（这是让两者保持一致的强制约束），不猜版本。
+
+下载失败即构建失败，避免产出缺离线能力的包。
 
 ## 8. 体积与已知限制
 

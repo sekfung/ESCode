@@ -1191,7 +1191,7 @@ const DEV_CLI_BUNDLE_TEST_SUFFIX = join(
   "packages",
   "cli",
   "dist",
-  "zcode.cjs",
+  "escode.cjs",
 );
 
 afterEach(async () => {
@@ -2359,7 +2359,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "zcode.cjs",
+      "escode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(cliBundlePath, "console.log('dev escode agent');\n", "utf8");
@@ -2416,7 +2416,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "zcode.cjs",
+      "escode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(cliBundlePath, "console.log('dev escode agent');\n", "utf8");
@@ -2514,7 +2514,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       "packages",
       "cli",
       "dist",
-      "zcode.cjs",
+      "escode.cjs",
     );
     await mkdir(dirname(cliBundlePath), { recursive: true });
     await writeFile(
@@ -2693,7 +2693,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       {
         commandPlans: [
           {
-            matcher: /command mv -f .*escode-server\.cjs/,
+            matcher: /command mv -f .*zcode-server\.cjs/,
             exitCode: 23,
             stderrText: "mock mv failed",
           },
@@ -4121,10 +4121,10 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       expect(backend.uploads.map((upload) => upload.remotePath)).toEqual(
         expect.arrayContaining([
           expect.stringMatching(
-            /^~\/.escode\/server\/escode-server\.cjs\.new-[\w-]+$/u,
+            /^~\/.escode\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
           ),
           expect.stringMatching(
-            /^~\/.escode\/server\/agents\/glm\/escode\.cjs\.new-[\w-]+$/u,
+            /^~\/.escode\/server\/agents\/glm\/zcode\.cjs\.new-[\w-]+$/u,
           ),
           expect.stringMatching(
             /^~\/.escode\/server\/agents\/glm\/packages\.tar\.gz-[\w-]+$/u,
@@ -4304,7 +4304,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
       serverVersion: () => remoteServerVersion,
       commandPlans: [
         {
-          matcher: /command mv -f .*escode-server\.cjs\.new.*escode-server\.cjs/u,
+          matcher: /command mv -f .*zcode-server\.cjs\.new.*zcode-server\.cjs/u,
           exitCode: 0,
           onExec: () => {
             remoteServerVersion = ESCODE_VERSION;
@@ -4547,7 +4547,7 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
           stdoutText: "download=curl\ntar=tar\nsha256=sha256sum\n",
         },
         {
-          matcher: /command mv -f .*escode-server\.cjs\.new.*escode-server\.cjs/u,
+          matcher: /command mv -f .*zcode-server\.cjs\.new.*zcode-server\.cjs/u,
           exitCode: 0,
           onExec: () => {
             remoteServerVersion = ESCODE_VERSION;

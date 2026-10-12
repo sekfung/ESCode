@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { defineConfig } from "tsup";
 import { getBuildMetadata } from "./scripts/build-metadata.mjs";
 import { resolveDesktopProductFlavor } from "./scripts/desktop-product-identity.mjs";
+import { DEFAULT_OSS_PATH_PREFIX } from "../../scripts/remote-cdn-roots.mjs";
 const { copyGenUiRuntimeAssets } = await import(
   pathToFileURL(resolve(import.meta.dirname, "scripts/gen-ui-runtime-assets.mjs")).href
 );
@@ -81,7 +82,9 @@ function parseCsvEnv(value: string | undefined): string[] {
 
 export function resolveBuildRemoteCdnReleaseRoots(runtimeEnv: Record<string, string | undefined>) {
   const domains = parseCsvEnv(runtimeEnv.CDN_DOMAIN);
-  const pathPrefixes = parseCsvEnv(runtimeEnv.OSS_PATH_PREFIX || "escode/electron/releases");
+  // 默认前缀与官方 zcode 发布路径一致（单一口径见 scripts/remote-cdn-roots.mjs）：
+  // CI 未注入 OSS_PATH_PREFIX 时仍要拼出真实可用的对象前缀，不能跟随品牌更名改成 `escode/...`。
+  const pathPrefixes = parseCsvEnv(runtimeEnv.OSS_PATH_PREFIX || DEFAULT_OSS_PATH_PREFIX);
   if (domains.length === 0) {
     return [];
   }

@@ -1,9 +1,10 @@
 # Desktop Bundle Size Architecture
 
-桌面端打包现在改成“两套资源明确分层”：
+桌面端打包现在改成“三套资源明确分层”：
 
 - desktop 本地 agent 运行时按当前平台准备后进入安装包
-- remote 专用资源只产出到 `mock-cdn/releases/...`，不再进入安装包
+- 离线远程连接的内置资源按构建目标**架构**从 CDN 下载后进入安装包（见 [离线远程连接规格](./specs/offline-remote-assets.md)）
+- 其余 remote 专用资源只产出到 `mock-cdn/releases/...`，不进入安装包
 
 ## 目录约定
 
@@ -11,20 +12,25 @@
   - 当前目标平台的最小运行时目录
   - 当前产品路径只要求 `glm/`
   - 同目录下会生成 `*-<platform>.tgz` 归档，便于审计和后续远程分发复用
+- `packages/desktop/bundled-remote-assets/releases/<version>/`
+  - 离线远程连接的安装包内置资源，由 `prepare:bundled-remote-assets` 在构建期从 CDN 下载当前版本制品组装而成
+  - 打包时映射到 `resources/remote-assets`，主进程按 `process.resourcesPath/remote-assets` 读取
+  - 只存在于构建工作区（已 gitignore），不上仓库
 - `packages/desktop/mock-cdn/`
   - 开发态 remote 资源入口
   - 统一按 `releases/<version>/...` 布局保存 `node`、`server`、`node-pty`、`glm`、`tools`
 
 ## 生产态
 
-- 生产安装包不再包含 `remote-assets`
-- 生产态 remote 资源通过 CDN 的 `manifest-<platform-arch>.json` 与跨版本 `components/...` 分发
-- 首次 remote 连接时会按 manifest 下载缺失组件，解压到本地 component cache，并组装到 `remoteCacheDir/releases/<version>/<platform-arch>/`；后续命中缓存不重复下载
+- 生产安装包包含与构建目标同架构的 Linux `remote-assets`（x64 → `linux-x64`，arm64 → `linux-arm64`）；
+  该平台的 SSH / WSL / Docker 首次连接直接使用内置资源，不再下载
+- 未内置的远程平台仍通过 CDN 的 `manifest-<platform-arch>.json` 与跨版本 `components/...` 分发
+- 需要 CDN 时首次 remote 连接会按 manifest 下载缺失组件，解压到本地 component cache，并组装到 `remoteCacheDir/releases/<version>/<platform-arch>/`；后续命中缓存不重复下载
 - `ESCODE_ENV=production` 时默认内置两组官方 CDN：
-  - 国内：`https://cdn.codegeex.cn/escode/electron/releases/<version>`
+  - 国内：`https://cdn.codegeex.cn/zcode/electron/releases/<version>`
   - 海外：`https://cdn-zcode.z.ai/zcode/electron/releases/<version>`
 - CI 若配置 `CDN_DOMAIN` / `OSS_PATH_PREFIX`，生产包会在构建期把这些变量展开为 remote CDN 候选列表。
-  `CDN_DOMAIN` 的仓库默认值统一为 `cdn-zcode.z.ai`，覆盖 CI 全局变量、CDN URL 前缀校验、OSS 上传 URL 生成和 CDN 预热脚本；默认发布路径仍为 `escode/electron/releases`。显式配置单域名或多域名列表时，继续按配置顺序解析 bucket、路径和预热账号。
+  `CDN_DOMAIN` 的仓库默认值统一为 `cdn-zcode.z.ai`，覆盖 CI 全局变量、CDN URL 前缀校验、OSS 上传 URL 生成和 CDN 预热脚本；默认发布路径仍为 `zcode/electron/releases`。显式配置单域名或多域名列表时，继续按配置顺序解析 bucket、路径和预热账号。
   迁移期可使用逗号列表让 `3.1.3` 优先新 CDN、保留旧 CDN 兜底；切换完成后把 CI 变量收敛为单个新 CDN 即可。
 - 默认优先级按“应用语言 + 本地时区”决定：
   - `locale` 为中文，且时区处于 UTC+8：优先国内 CDN，海外 CDN 作为备选
@@ -88,14 +94,16 @@ bundle 但残留开发标记时，必须重新上传；无法校验实际内容�
 生产态不启用该覆盖，仍严格使用 manifest/component 资源。开发时如需临时关闭覆盖，可设置
 `ESCODE_REMOTE_DEV_AGENT_BUNDLE=0`。
 
-## 哪些资源允许跨平台但禁止进包
+## 哪些资源允许跨平台但默认不进包
 
 - `mock-cdn/releases/<version>/node-pty/linux-x64`
 - `mock-cdn/releases/<version>/node-pty/linux-arm64`
 - `mock-cdn/releases/<version>/glm/<platform>/`
 - `mock-cdn/releases/<version>/tools/<platform>/ripgrep/`
 
-这些目录是 remote 功能专用入口，可以按远程目标平台保留多份，但不应再被 electron-builder 复制进 `.app`。
+这些目录是 remote 功能专用入口，可以按远程目标平台保留多份。只有与构建目标同架构的那一份
+Linux release 会经 `bundled-remote-assets` 进入安装包，其余平台不进包（见
+[离线远程连接规格](./specs/offline-remote-assets.md)）。
 
 ## 哪些资源禁止进入安装包
 

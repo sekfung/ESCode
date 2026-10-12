@@ -623,7 +623,7 @@ describe("LocalUploadAssetInstaller", () => {
     });
 
     expect(backend.uploads[0]?.remotePath).toMatch(
-      /^~\/\.escode\/server\/escode-server\.cjs\.new-[\w-]+$/u,
+      /^~\/\.escode\/server\/zcode-server\.cjs\.new-[\w-]+$/u,
     );
     expect(backend.commands.join("\n")).toContain(
       backend.uploads[0]!.remotePath.split("/").at(-1),
@@ -849,7 +849,7 @@ describe("LocalUploadAssetInstaller", () => {
 
     const startedAt = Date.now();
     await expect(
-      installer.tryResolveLocalPath(["glm"], "glm/linux-x64/missing-escode.cjs"),
+      installer.tryResolveLocalPath(["glm"], "glm/linux-x64/missing-zcode.cjs"),
     ).resolves.toBeNull();
     expect(Date.now() - startedAt).toBeLessThan(1_000);
     expect(fetchMock).toHaveBeenCalled();
@@ -1016,7 +1016,7 @@ describe("RemoteDownloadAssetInstaller", () => {
     );
     expect(command).toContain('kill "$lock_heartbeat_pid"');
     expect(command).toMatch(/\.new-[^\s']+/u);
-    expect(command).toMatch(/escode-server\.cjs\.new-[\w-]+/u);
+    expect(command).toMatch(/zcode-server\.cjs\.new-[\w-]+/u);
     expect(command).toContain("curl -fL");
     expect(command).toContain("sha256sum");
     vi.unstubAllGlobals();
@@ -1172,8 +1172,8 @@ describe("RemoteDownloadAssetInstaller", () => {
 
     await installer.installFile({
       componentId: "glm",
-      sourceRelativePath: "glm/linux-x64/escode.cjs",
-      remotePath: "~/.escode/server/agents/glm/escode.cjs",
+      sourceRelativePath: "glm/linux-x64/zcode.cjs",
+      remotePath: "~/.escode/server/agents/glm/zcode.cjs",
     });
 
     const commands = backend.commands.join("\n");

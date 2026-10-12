@@ -235,6 +235,28 @@ function resolveAvailableDevelopmentMockCdnDir(): string | undefined {
   return existsSync(releaseDir) ? mockCdnDir : undefined;
 }
 
+/**
+ * 安装包内置远程资源的打包态判据。
+ *
+ * 安装包构建期已按构建目标架构从 CDN 下载对应的 Linux 远程 release（见
+ * docs/specs/offline-remote-assets.md），落在 resources/remote-assets/releases/<version>/。
+ * 运行时把它当作本地 release 源直接上传，使 SSH / WSL / Docker 首次连接不再访问 CDN。
+ *
+ * 未内置的远程平台（例如只带 linux-x64 却连接 darwin 远端）由 deploy 侧按组件回退 CDN。
+ */
+function resolveAvailableBundledRemoteAssetsDir(): string | undefined {
+  const resourcesPath = process.resourcesPath;
+  if (typeof resourcesPath !== "string" || resourcesPath.length === 0) {
+    return undefined;
+  }
+
+  const bundledDir = join(resourcesPath, "remote-assets");
+  const releaseDir = join(bundledDir, "releases", ESCODE_VERSION);
+  // 与 mock-cdn 同一判据：App 版本目录缺失时不能暴露本地源，否则连接会先命中
+  // 一个必然缺失的路径，遮蔽已有的 CDN/cache fallback。
+  return existsSync(releaseDir) ? bundledDir : undefined;
+}
+
 function isTruthyEnvFlag(value: string | undefined): boolean {
   if (!value) {
     return false;
@@ -329,14 +351,20 @@ export function resolveRemoteAssetDirs(
   const remoteCdnBaseUrls = resolveRemoteCdnBaseUrls(options, localEnv);
   const remoteCdnBaseUrl = remoteCdnBaseUrls[0];
 
-  // remote 资源之前和 desktop 本地 provider 资源共用安装包内路径，
-  // 结果打包后会把整套 Linux 远程运行时一起塞进 .app，和“remote 资源走 CDN / mock-cdn”的职责边界冲突。
-  // 这里改成显式分流：开发态只读仓库里的 mock-cdn；生产态统一走 CDN + 本地缓存目录，
-  // 不再暴露任何安装包内 remote-assets 路径，避免 remote 资源再次被塞回安装包。
-  // 功能开关：开发态默认继续走 mock-cdn，只有显式打开开关才切到公网 CDN。
-  // 这样能兼容离线开发场景，同时允许在开发环境提前验证真实 CDN 下载链路。
+  // remote 资源和 desktop 本地 provider 资源曾共用安装包内路径，打包后会把整套 Linux
+  // 远程运行时塞进 .app。现在按用途显式分流：
+  // - 开发态：只读仓库里的 mock-cdn（默认），显式开关才切到公网 CDN 验证真实下载链路；
+  // - 打包态：读取安装包按构建目标架构内置的 remote-assets（离线免下载），
+  //   其余远程平台仍走 CDN + 本地缓存目录。
+  // 两条本地源都只在当前 App 版本目录存在时才暴露，缺失时保持原有 CDN/cache 回退。
   if (isElectronAppPackaged() || shouldUseRemoteCdnInDevelopment(localEnv)) {
+    // 内置远程资源的安装包同样暴露本地 release 源：离线时免下载，
+    // 该平台未内置或本地资源不完整时由 deploy 侧回退 CDN/cache。
+    const bundledRemoteAssetsDir = isElectronAppPackaged()
+      ? resolveAvailableBundledRemoteAssetsDir()
+      : undefined;
     return {
+      ...(bundledRemoteAssetsDir ? { mockCdnDir: bundledRemoteAssetsDir } : {}),
       remoteCdnBaseUrl,
       remoteCdnBaseUrls,
       remoteCacheDir: resolveRemoteAssetCacheDir(localEnv),

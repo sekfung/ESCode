@@ -241,7 +241,7 @@ rpm Requires 在 electron-builder 默认集（gtk3、nss、libnotify、libXScrnS
 - `ESCODE_NATIVE_SEARCH_DEPS_ROOT`：`ci:ensure-native-search-deps` 使用的共享 deps 根。平台 job 分别从上述 macOS、Linux container 与 Windows 根自动推导，通常不需要单独配置
 - `ESCODE_NATIVE_SEARCH_ALLOW_PUBLISH`：显式补产开关。三个平台打包 template 已设为 `1`；其他调用方只应在确认具有共享 deps 写入职责时设置。protected ref 即使未设置也可补齐缺失的自产归档
 - `LINUX_SHARED_OUTPUT_ROOT`（可选，仅 Linux Docker）：覆盖容器内产物收集根目录
-- `OSS_BUCKET` / `OSS_PATH_PREFIX` / `CDN_DOMAIN`：OSS 上传与主 CDN URL 生成所需变量（仓库 `.gitlab-ci.yml` 默认：`cgx-public`、`escode/electron/releases`、`cdn-zcode.z.ai`；可在 GitLab CI/CD 设置中覆盖）。CI URL 校验、upload 和 preload 脚本的域名兜底也统一为 `cdn-zcode.z.ai`。`CDN_DOMAIN` 和 `OSS_BUCKET` 支持逗号列表并按顺序对应；`OSS_PATH_PREFIX` 支持单值复用，也可配置同样数量的逗号列表。upload/publish 阶段会展开全部目标；桌面包不再把这些变量写入可配置的旧 generic feed。
+- `OSS_BUCKET` / `OSS_PATH_PREFIX` / `CDN_DOMAIN`：OSS 上传与主 CDN URL 生成所需变量（仓库 `.gitlab-ci.yml` 默认：`cgx-public`、`zcode/electron/releases`、`cdn-zcode.z.ai`；可在 GitLab CI/CD 设置中覆盖）。CI URL 校验、upload 和 preload 脚本的域名兜底也统一为 `cdn-zcode.z.ai`。`CDN_DOMAIN` 和 `OSS_BUCKET` 支持逗号列表并按顺序对应；`OSS_PATH_PREFIX` 支持单值复用，也可配置同样数量的逗号列表。upload/publish 阶段会展开全部目标；桌面包不再把这些变量写入可配置的旧 generic feed。
 - `OSS_CONFIG_FILE`：可选，控制每组 OSS 目标调用 `ossutil` 时使用的配置文件。支持单值复用，或配置为与 `CDN_DOMAIN` 等长的逗号列表；为空时使用 runner 默认 ossutil 配置。新旧 OSS AK/SK 或 region 不一致时，应把 AK/SK 和 region 写入对应配置文件，并按 `CDN_DOMAIN` 顺序配置文件路径。
 - `CDN_PRELOAD_PROFILE` / `ALIYUN_CDN_PROFILE`：可选，控制 `cdn-preload.sh` 调用阿里云 CDN OpenAPI 时使用的 aliyun CLI profile。`CDN_PRELOAD_PROFILE` 优先级更高；支持单值复用，或配置为与 `CDN_DOMAIN` 等长的逗号列表。预热脚本不显式传 `--region`，region 由对应 profile 或 aliyun CLI 默认配置决定，避免覆盖多账号迁移时每个 profile 自带的 endpoint 配置。
 - `CDN_PRELOAD_DOMAINS`：历史兼容变量；当前 upload/preload 链路不再读取，新 OSS/CDN 迁移通过 `CDN_DOMAIN` 列表展开预热域名。

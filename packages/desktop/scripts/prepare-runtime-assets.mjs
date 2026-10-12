@@ -57,15 +57,26 @@ function runTimedPnpmScript(scriptName) {
   }
 }
 
+// mock-cdn 是开发/e2e 的本地远程资源入口，与安装包内置的离线资源无关：
+// 桌面发布 job 可以只跳过它，内置资源仍由下面的下载步骤提供。
 const shouldSkipRemoteAssets = process.env.ESCODE_SKIP_REMOTE_ASSETS === "1";
+// 离线/无外网环境下构建安装包时关掉内置资源下载；关掉后安装包的远程连接回到 CDN 下载语义。
+const shouldSkipBundledRemoteAssets = process.env.ESCODE_SKIP_BUNDLED_REMOTE_ASSETS === "1";
 
 if (!shouldSkipRemoteAssets) {
   runTimedPnpmScript("prepare:remote-assets");
 } else {
-  // Windows build job 的桌面安装包不依赖 mock-cdn remote 资产。
-  // 之前这里无条件执行 prepare:remote-assets，会在同一个 job 里串行下载/打包跨平台资源，
-  // 导致 CI 时间被白白拉长并逼近 1 小时上限。增加显式开关，只在需要时才准备 remote 资产。
-  console.log("[prepare:runtime-assets] skip prepare:remote-assets (ESCODE_SKIP_REMOTE_ASSETS=1)");
+  console.log("[prepare-runtime-assets] skip prepare:remote-assets (ESCODE_SKIP_REMOTE_ASSETS=1)");
+}
+
+if (!shouldSkipBundledRemoteAssets) {
+  // 安装包内置的离线远程资源：构建期直接从 CDN 下载当前版本已发布的制品。
+  // 既不依赖本地 mock-cdn，也不需要把制品放进仓库；下载失败即构建失败，避免产出缺离线能力的包。
+  runTimedPnpmScript("prepare:bundled-remote-assets");
+} else {
+  console.log(
+    "[prepare-runtime-assets] skip prepare:bundled-remote-assets (ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1)",
+  );
 }
 
 for (const scriptName of localRuntimeScripts) {

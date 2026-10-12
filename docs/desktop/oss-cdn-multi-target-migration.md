@@ -11,7 +11,7 @@
 ```bash
 CDN_DOMAIN=cdn-zcode.z.ai,cdn.escode-ai.com,cdn.codegeex.cn
 OSS_BUCKET=new-bucket,old-bucket-a,old-bucket-b
-OSS_PATH_PREFIX=escode/electron/releases
+OSS_PATH_PREFIX=zcode/electron/releases
 OSS_CONFIG_FILE=/etc/ossutil/new,/etc/ossutil/old-a,/etc/ossutil/old-b
 ```
 

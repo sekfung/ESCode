@@ -76,6 +76,10 @@ const runtimeModuleLookupRoots = [
   resolve(workspaceRoot, "node_modules", ".pnpm", "node_modules"),
 ];
 const desktopDistDir = process.env.ESCODE_DESKTOP_DIST_DIR || "dist";
+// 离线远程连接的内置资源根：prepare:bundled-remote-assets 已在构建期按目标架构从 CDN 下载。
+// 缺失（例如显式跳过内置资源下载）时不挂载，安装包回到 CDN 下载语义。
+const bundledRemoteAssetsDir = resolve(desktopPackageRoot, "bundled-remote-assets");
+const shouldPackageBundledRemoteAssets = existsSync(bundledRemoteAssetsDir);
 const bundledCuaHelperSource = resolve(
   desktopPackageRoot,
   "bundled-cua-helper",
@@ -307,6 +311,41 @@ function resolvePackagedResourcesDir(context) {
   }
 
   return resolve(context.appOutDir, "resources");
+}
+
+/**
+ * 复核最终安装包里确实带了当前版本的离线远程资源。
+ *
+ * extraResources 的 from 目录缺失时 electron-builder 只会告警、不会让构建失败，
+ * 那会让「离线可用」的安装包静默退化成 CDN 下载。这里按产物再校验一次关键条目。
+ */
+function assertPackagedBundledRemoteAssets(context) {
+  if (!shouldPackageBundledRemoteAssets) {
+    return;
+  }
+
+  const remotePlatform = `linux-${targetPlatform.arch}`;
+  const releaseDir = resolve(
+    resolvePackagedResourcesDir(context),
+    "remote-assets",
+    "releases",
+    buildMetadata.appVersion,
+  );
+  const requiredPaths = [
+    resolve(releaseDir, `manifest-${remotePlatform}.json`),
+    resolve(releaseDir, "server", "zcode-server.cjs"),
+    resolve(releaseDir, "node", remotePlatform, "node"),
+    resolve(releaseDir, "glm", remotePlatform, "zcode.cjs"),
+    resolve(releaseDir, "tools", remotePlatform, "ripgrep", "rg"),
+  ];
+  const missingPaths = requiredPaths.filter((entry) => !existsSync(entry));
+  if (missingPaths.length > 0) {
+    throw new Error(
+      `[electron-builder] packaged remote-assets incomplete (${targetPlatform.key}): ` +
+        `${missingPaths.join(", ")}。构建必须走 prepare:runtime-assets（内含 prepare:bundled-remote-assets），` +
+        "且不能设置 ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1。",
+    );
+  }
 }
 
 function normalizeAsarEntry(entry) {
@@ -697,6 +736,9 @@ export default {
     runTimedSync("afterPack:assertPackagedCuaSharp", () => assertPackagedCuaSharp(context));
     runTimedSync("afterPack:assertPackagedCuaKoffi", () => assertPackagedCuaKoffi(context));
     runTimedSync("afterPack:assertPackagedCuaHelper", () => assertPackagedCuaHelper(context));
+    runTimedSync("afterPack:assertPackagedBundledRemoteAssets", () =>
+      assertPackagedBundledRemoteAssets(context),
+    );
     if (actualWindowsTarget && shouldPackageComputerUseHelper) {
       await runTimedAsync("afterPack:finalizePackagedWindowsCuaHelper", () =>
         finalizePackagedWindowsCuaHelper({
@@ -805,12 +847,24 @@ export default {
     {
       // agent 运行时资产，打包到 resources/glm。
       // 桌面端内置的是 agent 的 JS bundle（glm/escode.cjs，由 prepare:agent-bundle 生成），
-      // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `escode.cjs app-server --stdio`，
-      // 不再随包内置独立 Node 二进制。远端 SSH/WSL 仍走原生二进制（无 Electron）。
+      // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `escode.cjs app-server --stdio`。
       from: `bundled-agents/${targetPlatform.key}/glm`,
       to: "glm",
       filter: ["**/*", "!**/*.map"],
     },
+    ...(shouldPackageBundledRemoteAssets
+      ? [
+          {
+            // 离线远程连接：内置与构建目标同架构的 Linux 远程 release，
+            // 使 SSH / WSL / Docker 首次连接不再从 CDN 下载目标平台运行时。
+            // 平台映射与体积取舍见 docs/specs/offline-remote-assets.md；主进程按
+            // process.resourcesPath/remote-assets 解析，缺当前版本目录时回退 CDN。
+            from: "bundled-remote-assets",
+            to: "remote-assets",
+            filter: ["**/*", "!**/*.tsbuildinfo"],
+          },
+        ]
+      : []),
     {
       // agent shell 之前完全依赖宿主系统 PATH，GUI 启动时经常拿不到用户自己装的 rg。
       // 这里把 ripgrep 作为桌面端内置 runtime tool 打进 resources/tools，

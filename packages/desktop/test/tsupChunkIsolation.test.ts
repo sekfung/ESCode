@@ -111,12 +111,22 @@ describe("desktop tsup chunk isolation", () => {
     expect(
       resolveBuildRemoteCdnReleaseRoots({
         CDN_DOMAIN: "cdn-zcode.z.ai,cdn.escode-ai.com",
-        OSS_PATH_PREFIX: "escode/electron/releases",
+        OSS_PATH_PREFIX: "zcode/electron/releases",
       }),
     ).toEqual([
-      "https://cdn-zcode.z.ai/escode/electron/releases",
-      "https://cdn.escode-ai.com/escode/electron/releases",
+      "https://cdn-zcode.z.ai/zcode/electron/releases",
+      "https://cdn.escode-ai.com/zcode/electron/releases",
     ]);
+  });
+
+  it("未配置 OSS_PATH_PREFIX 时应使用官方 zcode 发布前缀", () => {
+    // 品牌更名曾把默认前缀替换成 `escode/electron/releases`，会让兜底 CDN 地址整体 404。
+    // 该前缀是发布侧的真实对象 key，必须与官方仓库一致。
+    expect(
+      resolveBuildRemoteCdnReleaseRoots({
+        CDN_DOMAIN: "cdn-zcode.z.ai",
+      }),
+    ).toEqual(["https://cdn-zcode.z.ai/zcode/electron/releases"]);
   });
 
   it("remote runtime CDN 根的路径前缀数量不匹配时应失败", () => {

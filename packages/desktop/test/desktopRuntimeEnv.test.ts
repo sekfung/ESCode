@@ -16,6 +16,24 @@ const appMock = {
   getPath: vi.fn((name: string) => `/mock/${name}`),
 };
 
+// 打包态内置远程资源按 process.resourcesPath 解析；Node(vitest) 下该属性不存在，
+// 这里显式注入/清理，保证用例与 Electron 运行时的判据一致。
+// Electron 类型把 resourcesPath 声明为必填 string，注入/删除都要走索引签名，
+// 否则 `delete` 在只读声明上无法通过类型检查。
+interface ProcessBag {
+  [key: string]: unknown;
+}
+const processBag = process as unknown as ProcessBag;
+const originalResourcesPath = processBag["resourcesPath"];
+
+function setTestResourcesPath(resourcesPath: string | undefined): void {
+  if (resourcesPath === undefined) {
+    delete processBag["resourcesPath"];
+    return;
+  }
+  processBag["resourcesPath"] = resourcesPath;
+}
+
 // 编译期常量 ESCODE_PRODUCT_FLAVOR 决定 isPreviewPackagedRuntime；Dynamic Workflow 灰度的
 // 「打包 production」档位必须能与 preview 区分，因此这里改成可切换的持有者，默认仍是 preview。
 const productFlavorMock = { value: "preview" as string };
@@ -265,12 +283,15 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     vi.resetModules();
     appMock.isPackaged = false;
     appMock.getPath.mockImplementation((name: string) => `/mock/${name}`);
+    setTestResourcesPath(undefined);
     delete process.env["ESCODE_DEV_REMOTE_ASSET_USE_CDN"];
     delete process.env["ESCODE_REMOTE_ASSET_CDN_BASE_URL"];
     delete process.env["ESCODE_REMOTE_ASSET_CACHE_DIR"];
   });
 
   afterAll(() => {
+    setTestResourcesPath(originalResourcesPath);
+
     if (originalUseCdnSwitch == null) {
       delete process.env["ESCODE_DEV_REMOTE_ASSET_USE_CDN"];
     } else {
@@ -351,7 +372,7 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
   });
 
-  it("生产态应始终走 CDN 分支", async () => {
+  it("生产态未内置远程资源时应走 CDN 分支", async () => {
     appMock.isPackaged = true;
     process.env["ESCODE_DEV_REMOTE_ASSET_USE_CDN"] = "0";
     process.env["ESCODE_REMOTE_ASSET_CDN_BASE_URL"] = "https://cdn.example.com/releases///";
@@ -365,6 +386,56 @@ describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
     expect(dirs.remoteCdnBaseUrl).toBe("https://cdn.example.com/releases");
     expect(dirs.remoteCdnBaseUrls).toEqual(["https://cdn.example.com/releases"]);
     expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
+  });
+
+  it("生产态内置当前版本远程资源时应暴露本地 release 源", async () => {
+    const resourcesPath = mkdtempSync(join(tmpdir(), "escode-bundled-remote-assets-"));
+    mkdirSync(join(resourcesPath, "remote-assets", "releases", "0.0.0-test"), {
+      recursive: true,
+    });
+
+    try {
+      appMock.isPackaged = true;
+      setTestResourcesPath(resourcesPath);
+      const { resolveRemoteAssetDirs } = await import("../src/main/desktopRuntimeEnv.js");
+      const dirs = resolveRemoteAssetDirs({
+        locale: "zh-CN",
+        timeZone: "Asia/Shanghai",
+      });
+
+      expect(dirs.mockCdnDir).toBe(join(resourcesPath, "remote-assets"));
+      // 内置资源只覆盖同架构 Linux；其他远程平台仍要保留 CDN 候选。
+      expect(dirs.remoteCdnBaseUrl).toBe(
+        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+      );
+      expect(dirs.remoteCacheDir).toMatch(/[\\/]userData[\\/]remote-assets-cache$/);
+    } finally {
+      rmSync(resourcesPath, { recursive: true, force: true });
+    }
+  });
+
+  it("生产态内置资源缺当前版本目录时不暴露本地源", async () => {
+    const resourcesPath = mkdtempSync(join(tmpdir(), "escode-bundled-remote-assets-"));
+    // 版本目录缺失（例如安装包残留旧版本资源）时必须继续走 CDN/cache，
+    // 否则连接会先命中一个必然缺失的本地路径。
+    mkdirSync(join(resourcesPath, "remote-assets", "releases", "9.9.9"), { recursive: true });
+
+    try {
+      appMock.isPackaged = true;
+      setTestResourcesPath(resourcesPath);
+      const { resolveRemoteAssetDirs } = await import("../src/main/desktopRuntimeEnv.js");
+      const dirs = resolveRemoteAssetDirs({
+        locale: "zh-CN",
+        timeZone: "Asia/Shanghai",
+      });
+
+      expect(dirs.mockCdnDir).toBeUndefined();
+      expect(dirs.remoteCdnBaseUrl).toBe(
+        "http://intranet.example.invalid:12345/ssh-remote-assets/0.0.0-test",
+      );
+    } finally {
+      rmSync(resourcesPath, { recursive: true, force: true });
+    }
   });
 
   it("remote asset cache 目录支持环境变量覆盖", async () => {

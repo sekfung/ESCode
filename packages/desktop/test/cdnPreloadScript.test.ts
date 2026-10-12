@@ -145,7 +145,7 @@ process.stdout.write("\\n");
       cdnUrlsIn,
       [
         "https://cdn-zcode.z.ai/zcode/electron/releases/1.3.0/ESCode-1.3.0-linux-arm64.AppImage\t3145728",
-        "https://cdn.escode-ai.com/escode/electron/releases/1.3.0/ESCode-1.3.0-linux-arm64.AppImage\t3145728",
+        "https://cdn.escode-ai.com/zcode/electron/releases/1.3.0/ESCode-1.3.0-linux-arm64.AppImage\t3145728",
       ].join("\n"),
       "utf-8",
     );
@@ -263,8 +263,8 @@ else process.stdout.write("\\n");
     writeFileSync(
       cdnUrlsIn,
       [
-        "https://cdn.codegeex.cn/escode/electron/releases/1.3.0/ESCode-1.3.0-mac-arm64.dmg\t3145728",
-        "https://cdn.codegeex.cn/escode/electron/releases/update/mac/arm64/latest-mac.yml\t128",
+        "https://cdn.codegeex.cn/zcode/electron/releases/1.3.0/ESCode-1.3.0-mac-arm64.dmg\t3145728",
+        "https://cdn.codegeex.cn/zcode/electron/releases/update/mac/arm64/latest-mac.yml\t128",
       ].join("\n"),
       "utf-8",
     );
@@ -342,7 +342,7 @@ else process.stdout.write("\\n");
     mkdirSync(binDir, { recursive: true });
     writeFileSync(
       cdnUrlsIn,
-      "https://cdn.codegeex.cn/escode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
+      "https://cdn.codegeex.cn/zcode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
       "utf-8",
     );
 
@@ -423,7 +423,7 @@ else process.stdout.write("\\n");
     mkdirSync(binDir, { recursive: true });
     writeFileSync(
       cdnUrlsIn,
-      "https://cdn.codegeex.cn/escode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
+      "https://cdn.codegeex.cn/zcode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
       "utf-8",
     );
 
@@ -488,7 +488,7 @@ process.stdout.write("\\n");
     mkdirSync(binDir, { recursive: true });
     writeFileSync(
       cdnUrlsIn,
-      "https://cdn.codegeex.cn/escode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
+      "https://cdn.codegeex.cn/zcode/electron/releases/1.6.0/ESCode-1.6.0-mac-arm64.dmg\t3145728\n",
       "utf-8",
     );
 

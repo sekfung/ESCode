@@ -1,118 +1,257 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { packSourceAsDeterministicTarGzip } from "../../../scripts/deterministic-tar-archive.mjs";
 import { getBuildMetadata } from "../scripts/build-metadata.mjs";
 import { getTargetPlatform } from "../scripts/target-platform.mjs";
 
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const scriptPath = join(desktopRoot, "scripts", "prepare-bundled-remote-assets.mjs");
-
+const scriptPath = join(desktopRoot, "scripts", "prepare-bundled-remote-assets.ts");
 const version = getBuildMetadata().appVersion;
+// 只维护一个版本号：CDN 上的制品版本必须等于 App 版本，不一致时构建应失败。
+const mismatchedVersion = "9.9.9-mismatch-test";
 const remotePlatform = `linux-${getTargetPlatform().arch}`;
 const otherPlatform = remotePlatform === "linux-x64" ? "linux-arm64" : "linux-x64";
 
-const mockCdnDir = join(desktopRoot, "mock-cdn");
 const bundledDir = join(desktopRoot, "bundled-remote-assets");
-const releaseDir = join(mockCdnDir, "releases", version);
-const bundledReleaseDir = join(bundledDir, "releases", version);
+const releaseDir = join(bundledDir, "releases", version);
 
-/** 与脚本一致的必需条目；缺任意一项都必须让构建失败。 */
-const requiredEntries = [
-  `manifest-${remotePlatform}.json`,
-  join("server", "zcode-server.cjs"),
-  join("node", remotePlatform, "node"),
-  join("node-pty", remotePlatform, "pty.node"),
-  join("glm", remotePlatform, "escode.cjs"),
-  join("tools", remotePlatform, "bfs", "bfs"),
-  join("tools", remotePlatform, "ripgrep", "rg"),
-  join("tools", remotePlatform, "ugrep", "ugrep"),
+interface FixtureComponent {
+  id: string;
+  mount: string;
+  files: Record<string, string>;
+}
+
+/** 与运行时必需条目对齐：断言脚本产出的布局可被直接消费。 */
+const FIXTURE_COMPONENTS: FixtureComponent[] = [
+  { id: "server-bundle", mount: "server", files: { "zcode-server.cjs": "server" } },
+  { id: "node-runtime", mount: `node/${remotePlatform}`, files: { node: "node" } },
+  { id: "node-pty", mount: `node-pty/${remotePlatform}`, files: { "pty.node": "pty" } },
+  {
+    id: "glm",
+    mount: `glm/${remotePlatform}`,
+    files: {
+      "zcode.cjs": "agent",
+      "packages/skill-creator-plugin/.escode-plugin/plugin.json": "{}",
+    },
+  },
+  { id: "bfs", mount: `tools/${remotePlatform}/bfs`, files: { bfs: "bfs" } },
+  { id: "ripgrep", mount: `tools/${remotePlatform}/ripgrep`, files: { rg: "rg" } },
+  { id: "ugrep", mount: `tools/${remotePlatform}/ugrep`, files: { ugrep: "ugrep" } },
 ];
 
-// 脚本按 packages/desktop 相对路径解析输入/输出，只能就地造夹具。
-// 这里沿用 desktopRuntimeEnv.test.ts 的「备份挪走 + 结束还原」约定，
-// 并把它放进 fork-isolated 组，避免与其它用例并发争用 mock-cdn。
-function moveAside(dir: string): string | null {
-  if (!existsSync(dir)) {
-    return null;
-  }
-  const backupDir = `${dir}.test-backup`;
-  rmSync(backupDir, { recursive: true, force: true });
-  renameSync(dir, backupDir);
-  return backupDir;
+/** 制品版本带 `+`（真实清单即 v0.13.3+04947e21cce0），用于锁定 %2B 编码行为。 */
+function componentArtifactVersion(id: string): string {
+  return `v1.0.0+${id.replace(/[^a-z]/g, "").slice(0, 6)}`;
 }
 
-function restoreAside(dir: string, backupDir: string | null): void {
-  rmSync(dir, { recursive: true, force: true });
-  if (backupDir) {
-    renameSync(backupDir, dir);
-  }
+function artifactPathFor(component: FixtureComponent): string {
+  return `components/${remotePlatform}/${component.id}/${componentArtifactVersion(component.id)}.tar.gz`;
 }
 
-const mockCdnBackupDir = moveAside(mockCdnDir);
-const bundledBackupDir = moveAside(bundledDir);
+interface FakeCdnOptions {
+  omitComponents?: string[];
+  corruptShaFor?: string;
+  skipManifest?: boolean;
+}
+
+interface FakeCdn {
+  baseUrl: string;
+  close: () => Promise<void>;
+}
+
+async function startFakeCdn(options: FakeCdnOptions = {}): Promise<FakeCdn> {
+  const root = mkdtempSync(join(tmpdir(), "escode-fake-cdn-"));
+  const included = FIXTURE_COMPONENTS.filter(
+    (component) => !options.omitComponents?.includes(component.id),
+  );
+
+  const components: Array<Record<string, string>> = [];
+  for (const component of included) {
+    const sourceDir = join(root, "src", component.id);
+    for (const [relativePath, content] of Object.entries(component.files)) {
+      const targetPath = join(sourceDir, ...relativePath.split("/"));
+      mkdirSync(dirname(targetPath), { recursive: true });
+      writeFileSync(targetPath, content);
+    }
+    const archivePath = join(root, "serve", artifactPathFor(component));
+    mkdirSync(dirname(archivePath), { recursive: true });
+    packSourceAsDeterministicTarGzip(sourceDir, archivePath);
+
+    components.push({
+      id: component.id,
+      version: componentArtifactVersion(component.id),
+      sha256:
+        component.id === options.corruptShaFor
+          ? "0".repeat(64)
+          : createHash("sha256").update(readFileSync(archivePath)).digest("hex"),
+      artifactPath: artifactPathFor(component),
+      mount: component.mount,
+    });
+  }
+
+  if (!options.skipManifest) {
+    const manifestPath = join(root, "serve", version, `manifest-${remotePlatform}.json`);
+    mkdirSync(dirname(manifestPath), { recursive: true });
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        appVersion: options.manifestAppVersion ?? version,
+        platformArch: remotePlatform,
+        components,
+      }),
+    );
+  }
+
+  const serveRoot = join(root, "serve");
+  const server: Server = createServer((request, response) => {
+    const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
+    const filePath = join(serveRoot, ...pathname.split("/").filter(Boolean));
+    // 未内置的平台（例如 darwin）在这里必然 404，与真实 CDN 行为一致。
+    if (!filePath.startsWith(serveRoot) || !existsSync(filePath)) {
+      response.writeHead(404).end("not found");
+      return;
+    }
+    response.writeHead(200).end(readFileSync(filePath));
+  });
+  await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: async () => {
+      await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
+
+// 脚本按 packages/desktop 相对路径解析输出目录，只能就地验证；沿用备份挪走 + 结束还原的约定。
+const bundledBackupDir = existsSync(bundledDir) ? `${bundledDir}.test-backup` : null;
+if (bundledBackupDir) {
+  rmSync(bundledBackupDir, { recursive: true, force: true });
+  renameSync(bundledDir, bundledBackupDir);
+}
 
 afterAll(() => {
-  restoreAside(mockCdnDir, mockCdnBackupDir);
-  restoreAside(bundledDir, bundledBackupDir);
+  rmSync(bundledDir, { recursive: true, force: true });
+  if (bundledBackupDir) {
+    renameSync(bundledBackupDir, bundledDir);
+  }
 });
 
-function stageRelease(entries: string[]): void {
-  rmSync(releaseDir, { recursive: true, force: true });
-  for (const entry of entries) {
-    const targetPath = join(releaseDir, entry);
-    mkdirSync(dirname(targetPath), { recursive: true });
-    writeFileSync(targetPath, `synthetic ${entry}`);
-  }
-}
+/**
+ * 必须用异步 spawn：夹具 CDN 跑在本进程的 HTTP server 上，
+ * spawnSync 会阻塞事件循环，导致子进程的请求永远等不到响应而死锁。
+ */
+function runPrepareScript(baseUrl: string): Promise<{ status: number | null; stderr: string }> {
+  const env = { ...process.env };
+  // 走同一优先级里的显式覆盖，避免 CI 注入的 CDN_DOMAIN 干扰夹具。
+  delete env["CDN_DOMAIN"];
+  delete env["OSS_PATH_PREFIX"];
+  env["ESCODE_REMOTE_ASSET_CDN_BASE_URL"] = baseUrl;
 
-function runPrepareScript(): { status: number | null; stderr: string } {
-  const result = spawnSync(process.execPath, [scriptPath], {
-    cwd: desktopRoot,
-    encoding: "utf8",
+  return new Promise((resolvePromise) => {
+    const child = spawn(process.execPath, ["--import", "tsx", scriptPath], {
+      cwd: desktopRoot,
+      env,
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on("close", (status) => resolvePromise({ status, stderr }));
   });
-  return { status: result.status, stderr: result.stderr ?? "" };
 }
 
 describe("prepare-bundled-remote-assets", () => {
-  it("只暂存构建目标架构的 linux release，并保留平台无关的 server 目录", () => {
-    stageRelease([
-      ...requiredEntries,
-      `manifest-${otherPlatform}.json`,
-      join("node", otherPlatform, "node"),
-      join("tools", otherPlatform, "ripgrep", "rg"),
-      join("server", "nested", "lib.js"),
-    ]);
+  it("从 CDN 下载当前版本制品、校验 sha256 并组装成运行时可直接消费的 release 目录", async () => {
+    const cdn = await startFakeCdn();
+    try {
+      const result = await runPrepareScript(cdn.baseUrl);
 
-    const result = runPrepareScript();
-
-    expect(result.status).toBe(0);
-    expect(existsSync(join(bundledReleaseDir, `manifest-${remotePlatform}.json`))).toBe(true);
-    expect(existsSync(join(bundledReleaseDir, "node", remotePlatform, "node"))).toBe(true);
-    // 平台无关目录整棵复制。
-    expect(existsSync(join(bundledReleaseDir, "server", "nested", "lib.js"))).toBe(true);
-    // 非目标平台不得进包，否则安装包会带上用不到的数百 MiB 资源。
-    expect(existsSync(join(bundledReleaseDir, "node", otherPlatform))).toBe(false);
-    expect(existsSync(join(bundledReleaseDir, `manifest-${otherPlatform}.json`))).toBe(false);
-    expect(existsSync(join(bundledReleaseDir, "tools", otherPlatform))).toBe(false);
+      expect(result.status).toBe(0);
+      // 制品名必须是上游名：server/zcode-server.cjs、glm/<arch>/zcode.cjs。
+      expect(existsSync(join(releaseDir, "server", "zcode-server.cjs"))).toBe(true);
+      expect(existsSync(join(releaseDir, "glm", remotePlatform, "zcode.cjs"))).toBe(true);
+      expect(existsSync(join(releaseDir, "node", remotePlatform, "node"))).toBe(true);
+      expect(existsSync(join(releaseDir, "node-pty", remotePlatform, "pty.node"))).toBe(true);
+      expect(existsSync(join(releaseDir, "tools", remotePlatform, "bfs", "bfs"))).toBe(true);
+      expect(existsSync(join(releaseDir, "tools", remotePlatform, "ripgrep", "rg"))).toBe(true);
+      expect(existsSync(join(releaseDir, "tools", remotePlatform, "ugrep", "ugrep"))).toBe(true);
+      expect(existsSync(join(releaseDir, `manifest-${remotePlatform}.json`))).toBe(true);
+      // 落盘目录用 App 版本（运行时按 ESCODE_VERSION 找），内容来自上游源版本。
+      const stagedManifest = JSON.parse(
+        readFileSync(join(releaseDir, `manifest-${remotePlatform}.json`), "utf8"),
+      ) as { appVersion: string };
+      expect(stagedManifest.appVersion).toBe(version);
+      // 非目标平台不得进包。
+      expect(existsSync(join(releaseDir, "node", otherPlatform))).toBe(false);
+    } finally {
+      await cdn.close();
+    }
   });
 
-  it("release 缺少必需条目时构建失败", () => {
-    stageRelease(requiredEntries.filter((entry) => !entry.includes("ugrep")));
+  it("制品 sha256 与清单不一致时构建失败", async () => {
+    const cdn = await startFakeCdn({ corruptShaFor: "glm" });
+    try {
+      const result = await runPrepareScript(cdn.baseUrl);
 
-    const result = runPrepareScript();
-
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("mock-cdn release incomplete");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("sha256 mismatch");
+    } finally {
+      await cdn.close();
+    }
   });
 
-  it("mock-cdn 版本目录缺失时构建失败", () => {
-    rmSync(releaseDir, { recursive: true, force: true });
+  it("清单缺少必需组件时构建失败", async () => {
+    const cdn = await startFakeCdn({ omitComponents: ["ugrep"] });
+    try {
+      const result = await runPrepareScript(cdn.baseUrl);
 
-    const result = runPrepareScript();
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("staged release incomplete");
+    } finally {
+      await cdn.close();
+    }
+  });
 
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("missing mock-cdn release dir");
+  it("CDN 上的 manifest 版本与 App 版本不一致时构建失败", async () => {
+    const cdn = await startFakeCdn({ manifestAppVersion: mismatchedVersion });
+    try {
+      const result = await runPrepareScript(cdn.baseUrl);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("manifest identity mismatch");
+    } finally {
+      await cdn.close();
+    }
+  });
+
+  it("该版本制品尚未发布时按候选给出可诊断的失败", async () => {
+    const cdn = await startFakeCdn({ skipManifest: true });
+    try {
+      const result = await runPrepareScript(cdn.baseUrl);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("未找到");
+    } finally {
+      await cdn.close();
+    }
   });
 });

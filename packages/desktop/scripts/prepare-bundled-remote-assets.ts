@@ -47,11 +47,11 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, "..");
 const bundledDir = join(desktopDir, "bundled-remote-assets");
 
-// 与运行时 ESCODE_VERSION 必须逐字一致：主进程按 <resources>/remote-assets/releases/<ESCODE_VERSION>
-// 判断内置资源是否可用，版本目录名对不上会静默退回 CDN 下载。
-const version = getBuildMetadata().appVersion;
+// 目录名必须与运行时 ESCODE_VERSION 逐字一致：主进程按
+// <resources>/remote-assets/releases/<ESCODE_VERSION> 判断内置资源是否可用，名字对不上会静默退回 CDN。
+const stagedVersion = getBuildMetadata().appVersion;
 const remotePlatform = `linux-${getTargetPlatform().arch}`;
-const releaseDir = join(bundledDir, "releases", version);
+const releaseDir = join(bundledDir, "releases", stagedVersion);
 
 /**
  * 必须存在的条目：与运行时 findMissingMockReleasePaths 的组件必需路径保持一致。
@@ -62,7 +62,7 @@ function resolveRequiredEntries(): string[] {
     join("server", "zcode-server.cjs"),
     join("node", remotePlatform, "node"),
     join("node-pty", remotePlatform, "pty.node"),
-    join("glm", remotePlatform, "escode.cjs"),
+    join("glm", remotePlatform, "zcode.cjs"),
     join("tools", remotePlatform, "bfs", "bfs"),
     join("tools", remotePlatform, "ripgrep", "rg"),
     join("tools", remotePlatform, "ugrep", "ugrep"),
@@ -92,12 +92,12 @@ async function fetchOrNull(url: string, label: string): Promise<Response | null>
 
 async function downloadManifest(
   baseCandidates: string[],
-): Promise<{ manifest: RemoteAssetManifest; releaseBase: string }> {
+): Promise<{ manifest: RemoteAssetManifest; manifestFileName: string; releaseBase: string }> {
   const manifestFileName = `manifest-${remotePlatform}.json`;
   // URL 拼装与运行时同源：组件版本含 `+`（如 v1.3.0+abcd）时会按路径段编码成 %2B，
   // 手写模板会在 CDN 侧 404。
   const manifestUrlCandidates = buildReleaseAssetUrlCandidates(
-    buildReleaseBaseCandidates(baseCandidates, version),
+    buildReleaseBaseCandidates(baseCandidates, stagedVersion),
     [manifestFileName],
   );
 
@@ -108,18 +108,19 @@ async function downloadManifest(
     }
 
     const manifest = (await response.json()) as RemoteAssetManifest;
-    if (manifest.appVersion !== version || manifest.platformArch !== remotePlatform) {
+    // 只维护一个版本号：CDN 上该版本的制品必须就是当前 App 版本，否则说明版本没有对齐。
+    if (manifest.appVersion !== stagedVersion || manifest.platformArch !== remotePlatform) {
       throw new Error(
         `[prepare-bundled-remote-assets] manifest identity mismatch: ` +
-          `expected ${version}/${remotePlatform}, got ${manifest.appVersion}/${manifest.platformArch} (${url})`,
+          `expected ${stagedVersion}/${remotePlatform}, got ${manifest.appVersion}/${manifest.platformArch} (${url})`,
       );
     }
     console.log(`[prepare-bundled-remote-assets] manifest: ${url}`);
-    return { manifest, releaseBase: url.slice(0, -manifestFileName.length - 1) };
+    return { manifest, manifestFileName, releaseBase: url.slice(0, -manifestFileName.length - 1) };
   }
 
   throw new Error(
-    `[prepare-bundled-remote-assets] 未找到 ${version} 的 ${remotePlatform} manifest。` +
+    `[prepare-bundled-remote-assets] 未找到 ${stagedVersion} 的 ${remotePlatform} manifest。` +
       `候选=${manifestUrlCandidates.join(", ")}。该版本的 remote 制品需要先发布到 CDN；` +
       `也可以设置 ESCODE_REMOTE_ASSET_CDN_BASE_URL 指向同一份发布的镜像。`,
   );
@@ -136,7 +137,7 @@ async function downloadComponentArchive(
   const urlCandidates = buildComponentArtifactUrlCandidates(
     [releaseBase],
     artifactPath,
-    version,
+    stagedVersion,
   );
 
   for (const url of urlCandidates) {
@@ -183,11 +184,19 @@ async function assertRequiredEntriesPresent(): Promise<void> {
 
 async function main(): Promise<void> {
   const baseCandidates = resolveRemoteCdnReleaseBaseCandidates(process.env);
-  const { manifest, releaseBase } = await downloadManifest(baseCandidates);
+  const { manifest, manifestFileName, releaseBase } = await downloadManifest(baseCandidates);
 
   // 旧版本目录会随版本号累积；只保留当前版本，避免上一次构建的旧资源被一起打进安装包。
   await rm(releaseDir, { recursive: true, force: true });
   await mkdir(releaseDir, { recursive: true });
+
+  // 运行时的本地源会读 release 目录里的 manifest（mock 分支据此做组件身份判断），
+  // 少了它连接时会退回 CDN 请求。
+  await writeFile(
+    join(releaseDir, manifestFileName),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
 
   const tempDir = await mkdtemp(join(tmpdir(), "escode-bundled-remote-assets-"));
   try {
@@ -204,7 +213,8 @@ async function main(): Promise<void> {
 
   await assertRequiredEntriesPresent();
   console.log(
-    `[prepare-bundled-remote-assets] staged ${remotePlatform} remote release ${version} -> ${releaseDir}`,
+    `[prepare-bundled-remote-assets] staged ${remotePlatform} remote release ${stagedVersion}` +
+      ` -> ${releaseDir} (app ${stagedVersion})`,
   );
 }
 

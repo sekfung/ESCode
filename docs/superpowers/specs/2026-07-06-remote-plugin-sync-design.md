@@ -53,7 +53,7 @@ Plugin 比 Skill/MCP 更复杂：它不是单一资源，而是插件目录、`p
 - 远端资源布局：`glm/<platform>/packages/<plugin-package>` 打进远端资源包，部署到 `~/.escode/server/agents/glm/packages/<plugin-package>`。
 - seed 过程：远端 agent 启动时复用现有 official plugin filesystem seed，把这些资源物化到远端 `~/.escode/plugins/cache/zcode-plugins-official/<name>/<version>`。
 - 资源白名单：官方插件的 `.escode-plugin`、`skills`、`commands`、`hooks`、`.mcp.json` 和 `docs` 都属于可 seed 资源。`browser` 没有 MCP runtime，但 `runtimeFeatures.browserDocumentationRoot` 指向 `docs/`，缺失时 `agent.browsers.documentation()` 会退化。
-- 部署校验：远端已有 `escode.cjs` 和 wrapper 但缺 `packages/*-plugin/.escode-plugin/plugin.json` 时，不能跳过 ESCode Agent 部署，必须刷新 `glm` 组件并补齐 packages。
+- 部署校验：远端已有 `zcode.cjs` 和 wrapper 但缺 `packages/*-plugin/.escode-plugin/plugin.json` 时，不能跳过 ESCode Agent 部署，必须刷新 `glm` 组件并补齐 packages。
 - 归档权限：本地下载上传和开发态上传会在桌面侧重新生成 tar；目录条目必须使用跨平台稳定的 `0755`，不能直接使用本地 `stat.mode`。Windows 只实现有限的读写权限语义，直接透传会把目录写成不含执行位的 mode，远端解包后无法遍历或删除。
 - 损坏迁移：旧版本已经生成的 `0644` packages 会让新版本在解包前的 `rm -rf` 继续失败。部署检测到 builtin manifest 不可达且 packages 根存在时，必须先对该产品自有目录执行 owner `rwX` 修复，再刷新资源；不得递归修改用户 plugin 目录。
 - 手动同步边界：不新增“手动同步 builtin plugin”入口，避免把 builtin 误导入为 inline plugin 或让每台远端都依赖用户手动修复。
@@ -92,10 +92,10 @@ marketplace installed:
 
 builtin official:
 远端 resource build
-  -> glm/<platform>/escode.cjs
+  -> glm/<platform>/zcode.cjs
   -> glm/<platform>/packages/*-plugin
 SSH deploy
-  -> ~/.escode/server/agents/glm/escode.cjs
+  -> ~/.escode/server/agents/glm/zcode.cjs
   -> ~/.escode/server/agents/glm/packages/*-plugin
 远端 agent 启动
   -> filesystem seed
@@ -146,7 +146,7 @@ UI 始终用 base services 做本机枚举和导出，用当前 workspace servic
 
 不应混入当前 plugin 同步主流程的是未安装 marketplace 候选和 builtin/suppressed builtin 状态。未安装候选更像远端 Discover 安装或 marketplace source 同步；builtin 状态则和远端操作系统、内置插件可用性相关，应单独做兼容性判断后再同步启停状态。
 
-对于 builtin plugin，最新结论是：资产缺失属于远端资源包构建/部署问题，不属于用户手动同步问题。远端理论上应原生支持 builtin plugin；如果远端插件页显示 0 个内置插件，根因应优先检查 `~/.escode/server/agents/glm/packages/*-plugin` 是否随 `escode.cjs` 一起部署。手动同步 builtin 会把产品原生能力变成用户补救步骤，还容易把官方插件误导入成 inline 插件，因此当前不做。
+对于 builtin plugin，最新结论是：资产缺失属于远端资源包构建/部署问题，不属于用户手动同步问题。远端理论上应原生支持 builtin plugin；如果远端插件页显示 0 个内置插件，根因应优先检查 `~/.escode/server/agents/glm/packages/*-plugin` 是否随 `zcode.cjs` 一起部署。手动同步 builtin 会把产品原生能力变成用户补救步骤，还容易把官方插件误导入成 inline 插件，因此当前不做。
 
 ## UI 行为
 
@@ -200,9 +200,9 @@ UI 始终用 base services 做本机枚举和导出，用当前 workspace servic
 | RPS-UX-02 | 同步过程中点击某个 plugin 的 stop | 该 plugin 结果变为 stopped，队列继续后续 plugin；若当前步骤是 marketplace add/install，则发送对应 operationId 的远端取消请求 |
 | RPS-UX-03 | 同步完成页展示失败项 | 右侧结果状态使用紧凑状态徽标，不使用高窄按钮状容器 |
 | RPS-UX-04 | 同步日志较长 | 日志浮层可滚动，不使用非交互 tooltip 承载长日志 |
-| RPS-BUILTIN-01 | 生产远端资源包构建 | `glm/<platform>` 同时包含 `escode.cjs` 和 `packages/*-plugin/.escode-plugin/plugin.json` |
-| RPS-BUILTIN-02 | 远端已有同版本 `escode.cjs` 但缺 builtin packages | 部署不能跳过 ESCode Agent；必须补齐 `~/.escode/server/agents/glm/packages/*-plugin` |
-| RPS-BUILTIN-03 | 开发态 SSH 部署本地 `escode.cjs` | 同步上传本地官方插件 packages，远端 `plugins list` 能发现 `source:"official"` 插件 |
+| RPS-BUILTIN-01 | 生产远端资源包构建 | `glm/<platform>` 同时包含 `zcode.cjs` 和 `packages/*-plugin/.escode-plugin/plugin.json` |
+| RPS-BUILTIN-02 | 远端已有同版本 `zcode.cjs` 但缺 builtin packages | 部署不能跳过 ESCode Agent；必须补齐 `~/.escode/server/agents/glm/packages/*-plugin` |
+| RPS-BUILTIN-03 | 开发态 SSH 部署本地 `zcode.cjs` | 同步上传本地官方插件 packages，远端 `plugins list` 能发现 `source:"official"` 插件 |
 | RPS-BUILTIN-04 | Windows / macOS / Linux 桌面侧为 SSH 本地上传重打 builtin packages tar | tar 中所有目录条目均为 `0755`；远端解包后 `rm -rf ~/.escode/server/agents/glm/packages` 可正常更新资源 |
 | RPS-BUILTIN-05 | 远端遗留不可遍历的 `~/.escode/server/agents/glm/packages`，builtin manifest 检查失败 | 部署先执行 owner `rwX` 修复，再进入正常 packages 刷新，用户无需手工 chmod |
 
