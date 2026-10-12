@@ -85,14 +85,28 @@ await new Promise((done, fail) => {
     cwd: launchCwd,
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" },
+    // POSIX 下自成进程组，结束时整组回收（见 stop）。
+    detached: process.platform !== "win32",
   });
   let output = "";
   let databaseStatus;
   let settled = false;
   const stop = () => {
     child.removeAllListeners("exit");
-    if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
-    else child.kill("SIGKILL");
+    if (process.platform === "win32") {
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+    } else {
+      // Bugfix：Linux 上 child 是 xvfb-run 脚本，SIGKILL 它不会连带结束 Electron/Xvfb；
+      // 孤儿进程继续持有 stdout/stderr 管道，事件循环无法退出，installed (linux-x64) 卡到作业超时。
+      // 按进程组整组 SIGKILL，并销毁管道，保证启动检查结束后脚本必然退出。
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
+    }
+    child.stdout.destroy();
+    child.stderr.destroy();
   };
   const finish = (error) => {
     if (settled) return;
