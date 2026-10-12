@@ -1,7 +1,8 @@
 import type { IRemoteBackend, StdioStream } from "@escode/server/remote/backend.js";
 import { quotePosixPathArg, quotePosixShellArg } from "@escode/server/remote/posixShell.js";
 
-const REQUIRED_SERVER_BUNDLE_MARKERS = [
+/** 远端检查与构建期内置资源校验（prepare-bundled-remote-assets）共用同一份能力标记。 */
+export const REQUIRED_SERVER_BUNDLE_MARKERS = [
   "skill-sync",
   "mcp-sync",
   "plugin-sync",

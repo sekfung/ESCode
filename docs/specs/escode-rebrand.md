@@ -51,8 +51,8 @@
 
 - 发布路径前缀统一为 `zcode/electron/releases`。单一口径在
   `scripts/remote-cdn-roots.mjs`（`DEFAULT_OSS_PATH_PREFIX` 与 `REMOTE_CDN_RELEASE_ROOTS`）：
-  运行时 `remoteCdn.ts`、构建期注入 `tsup.config.ts`、构建期下载
-  `prepare-bundled-remote-assets.ts` 都从它取值。此前 `remoteCdn.ts` 的 `domestic` 兜底是
+  运行时 `remoteCdn.ts`、构建期注入 `tsup.config.ts` 都从它取值（内置远程资源已改为本仓库源码构建，
+  不再从 CDN 下载，见 `offline-remote-assets.md` §7）。此前 `remoteCdn.ts` 的 `domestic` 兜底是
   `https://cdn.codegeex.cn/escode/electron/releases`（实测 404），已修正。
 - 远程制品名统一为上游名：server bundle `zcode-server.cjs`、agent bundle `zcode.cjs`
   （`escode-server.cjs` / `escode.cjs` 在远程发布链路上已全面替换）。

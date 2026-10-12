@@ -89,8 +89,12 @@ jobs:
     env:
       # 安装包内置 Rust runtime（resources/glm/escode-cli-rust[.exe]），通过 ESCODE_AGENT_SERVER_RUNTIME 选用。
       ESCODE_BUNDLE_RUST_AGENT: "1"
-      # 远程部署资产（mock-cdn 跨平台包）不进桌面安装包。
-      ESCODE_SKIP_REMOTE_ASSETS: "1"
+      # 安装包内置的离线远程资源从本仓库源码构建（docs/specs/offline-remote-assets.md §7「制品来源」）：
+      # prepare:remote-assets 只构建目标架构的 linux release，prepare:bundled-remote-assets 再从 mock-cdn 取用。
+      # 不再下载上游 CDN 制品，其契约（server 能力标记、官方插件目录）与本仓库不一致。
+      ESCODE_REMOTE_ASSET_PLATFORMS: linux-${{ matrix.arch }}
+      # 远程 Node 运行时二进制：GitHub runner 直接用官方地址（仓库默认镜像面向国内网络）。
+      ESCODE_NODE_DIST_MIRROR: https://nodejs.org/dist
       ESCODE_TARGET_OS: ${{ matrix.os }}
       ESCODE_TARGET_ARCH: ${{ matrix.arch }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"

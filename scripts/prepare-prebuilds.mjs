@@ -58,7 +58,27 @@ const ESCODE_AGENT_RUNTIME = {
 const releaseDir = join(mockCdnDir, "releases", version);
 const nodeVersion = "v22.16.0";
 const componentSchemaVersion = 1;
-const remotePlatforms = ["linux-arm64", "linux-x64", "darwin-arm64", "darwin-x64"];
+const SUPPORTED_REMOTE_PLATFORMS = ["linux-arm64", "linux-x64", "darwin-arm64", "darwin-x64"];
+const remotePlatforms = resolveRemotePlatforms(process.env);
+
+/**
+ * 桌面发布 job 只内置目标架构的 linux release（docs/specs/offline-remote-assets.md §7），
+ * 用 ESCODE_REMOTE_ASSET_PLATFORMS 限定平台，避免为不进包的平台下载 Node 与准备 native 工具。
+ * 缺省构建全部远程平台（开发/e2e 的 mock-cdn 语义不变）。
+ */
+export function resolveRemotePlatforms(env = process.env) {
+  const raw = env.ESCODE_REMOTE_ASSET_PLATFORMS?.trim();
+  if (!raw) return [...SUPPORTED_REMOTE_PLATFORMS];
+  const platforms = [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
+  const unsupported = platforms.filter((entry) => !SUPPORTED_REMOTE_PLATFORMS.includes(entry));
+  if (platforms.length === 0 || unsupported.length > 0) {
+    throw new Error(
+      `ESCODE_REMOTE_ASSET_PLATFORMS 含不支持的平台: ${unsupported.join(", ") || "<empty>"}；` +
+        `可选 ${SUPPORTED_REMOTE_PLATFORMS.join(", ")}`,
+    );
+  }
+  return platforms;
+}
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const isBootstrapWithRemote = process.env.ESCODE_BOOTSTRAP_WITH_REMOTE === "1";
 

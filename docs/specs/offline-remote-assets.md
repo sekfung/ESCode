@@ -91,8 +91,10 @@ deploy（local-download-upload）
 ```text
 pnpm build
   └─ prepare:runtime-assets
-       ├─ prepare:remote-assets         # 仅开发/e2e 需要；ESCODE_SKIP_REMOTE_ASSETS=1 可跳过
-       └─ prepare:bundled-remote-assets # 构建期从 CDN 下载当前版本制品：
+       ├─ prepare:remote-assets         # 从本仓库源码构建远程 release 到 mock-cdn/releases/<version>/
+       │                                #   （server-bundle、glm、官方插件、node-pty、tools；node 二进制取 Node dist）
+       │                                # ESCODE_REMOTE_ASSET_PLATFORMS 限定平台，缺省 4 个远程平台
+       └─ prepare:bundled-remote-assets # 取 mock-cdn 中目标架构的 linux release：
                                         #   manifest → 组件归档 → sha256 校验 → 解压到 mount
                                         # 组装 bundled-remote-assets/releases/<version>/
                                         # 关键条目缺失或校验失败直接失败
@@ -101,19 +103,34 @@ electron-builder
        └─ afterPack: assertPackagedBundledRemoteAssets 复核产物
 ```
 
-下载源与运行时使用同一优先级（`scripts/remote-cdn-roots.mjs`）：显式
-`ESCODE_REMOTE_ASSET_CDN_BASE_URL` > CI 注入 `CDN_DOMAIN`/`OSS_PATH_PREFIX` > 官方兜底。
-制品只存在于构建工作区（`bundled-remote-assets/` 已 gitignore），不需要入库。
+### 制品来源：本仓库源码构建（2026-10-12，用户决定）
 
-- `ESCODE_SKIP_REMOTE_ASSETS=1`：跳过 mock-cdn 准备（桌面发布 job 使用），不影响内置资源下载。
-- `ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1`：跳过内置资源下载，安装包回到 CDN 下载语义。
+此前内置资源在构建期从 Z.ai CDN 下载**上游 ZCode** 已发布的制品。更名后本地侧契约已改为 escode，
+与上游制品不再一致，远程连接出现两类必然故障：
 
-只维护一个版本号并与上游发布对齐：仓库版本（`package.json` 的 `version`，运行时即
-`ESCODE_VERSION`）必须等于 CDN 上已发布的上游版本号，不再单独维护制品源版本。
-构建期按该版本取 manifest 与组件，并校验 `manifest.appVersion` 等于它；版本没对齐时构建直接失败
-（这是让两者保持一致的强制约束），不猜版本。
+- server bundle 能力标记 `__escode_rpc_nested_uint8array_v1` 在上游 `zcode-server.cjs` 中是
+  `__zcode_rpc_nested_uint8array_v1`：每次连接都判定缺标记并重传 server；该标记同时是 RPC 嵌套
+  `Uint8Array` 的线上编码键，本地与远端编解码不一致。
+- 官方插件必需路径 `<package>/.escode-plugin/plugin.json`（含 `escode-cua-plugin`、`escode-guide-plugin`）
+  在上游 glm 组件中是 `.zcode-plugin` 与 `zcode-*` 包名：本地 release 被判不完整，glm 回退 CDN。
 
-下载失败即构建失败，避免产出缺离线能力的包。
+因此内置资源改为由 `prepare:remote-assets`（`scripts/prepare-prebuilds.mjs`）从本仓库源码构建，
+`prepare:bundled-remote-assets` 只从本地 `mock-cdn` 取目标平台的 manifest 与组件归档，不再访问网络。
+本地与远端运行同一份源码，契约天然一致；manifest 的 `appVersion` 即仓库版本，不再要求与上游发布对齐。
+
+- `ESCODE_REMOTE_ASSET_PLATFORMS=linux-x64,...`：`prepare:remote-assets` 只构建列出的远程平台；
+  发布 job 按目标架构只构建对应的 linux 平台。
+- `ESCODE_SKIP_REMOTE_ASSETS=1`：跳过 mock-cdn 准备，并随之跳过内置资源（本地 bootstrap、`--dir` 验收沿用）。
+- `ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1`：只跳过内置资源，安装包回到 CDN 下载语义。
+- 两种跳过都会清掉构建工作区里残留的 `bundled-remote-assets/`：electron-builder 只要该目录存在就会打包，
+  残留的旧产物（如曾下载的上游制品）会让「跳过」名不副实。
+- `prepare:bundled-remote-assets` 单独运行时找不到本地 manifest 会直接失败，提示先运行 `prepare:remote-assets`。
+
+制品只存在于构建工作区（`mock-cdn/`、`bundled-remote-assets/` 已 gitignore），不需要入库。
+本地源不完整即构建失败，避免产出缺离线能力的包。
+
+运行时 CDN 回退（未内置平台、`remote-download` 模式）仍指向上游 CDN，取到的是契约不一致的上游制品；
+本仓库目前没有自有 CDN 发布，这些路径的远程连接不保证可用（§8 已知限制 5）。
 
 ## 8. 体积与已知限制
 
@@ -139,6 +156,9 @@ electron-builder
    紧急热修需要随新版安装包发布。
 4. 旧版安装包连接由新版 App 部署过的远端时，仍按 App 版本差异触发强制刷新并部署本版本的资源，
    这一点与改造前一致（CDN 路径同样是取当前 App 版本的 manifest）。
+5. 运行时 CDN 回退指向上游 Z.ai CDN，制品与本仓库契约不一致（见 §7「制品来源」）；未内置的远程平台
+   （macOS 远端、另一架构的 Linux）与 `remote-download` 模式在本仓库建立自有发布前不保证可用。
+   Preview 包（`ESCODE_ENV=test`）的 CDN 根是测试占位地址，回退必然失败。
 
 ## 9. 验收
 
@@ -150,7 +170,7 @@ electron-builder
 ## 10. 相关文件
 
 - `packages/desktop/src/main/desktopRuntimeEnv.ts`（`resolveRemoteAssetDirs`）
-- `packages/desktop/scripts/prepare-bundled-remote-assets.mjs`
+- `packages/desktop/scripts/prepare-bundled-remote-assets.ts`
 - `packages/desktop/scripts/prepare-runtime-assets.mjs`
 - `packages/desktop/electron-builder.config.js`（`extraResources`、`assertPackagedBundledRemoteAssets`）
 - `scripts/prepare-prebuilds.mjs`（`ESCODE_REMOTE_ASSET_PLATFORMS`）

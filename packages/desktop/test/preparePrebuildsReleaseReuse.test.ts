@@ -526,3 +526,38 @@ describe("prepare-prebuilds release asset reuse", () => {
     ).toBe(false);
   });
 });
+
+// docs/specs/offline-remote-assets.md §7：发布 job 只为目标架构构建 linux release。
+describe("ESCODE_REMOTE_ASSET_PLATFORMS", () => {
+  async function load() {
+    const moduleUrl = pathToFileURL(
+      resolve(import.meta.dirname, "../../../scripts/prepare-prebuilds.mjs"),
+    ).href;
+    return (await import(moduleUrl)) as {
+      resolveRemotePlatforms: (env: Record<string, string | undefined>) => string[];
+    };
+  }
+
+  it("缺省构建全部远程平台，设置后只构建列出的平台", async () => {
+    const { resolveRemotePlatforms } = await load();
+    expect(resolveRemotePlatforms({})).toEqual([
+      "linux-arm64",
+      "linux-x64",
+      "darwin-arm64",
+      "darwin-x64",
+    ]);
+    expect(resolveRemotePlatforms({ ESCODE_REMOTE_ASSET_PLATFORMS: " linux-x64 ,linux-x64" })).toEqual([
+      "linux-x64",
+    ]);
+  });
+
+  it("不支持的平台直接失败，而不是静默产出不完整的 release", async () => {
+    const { resolveRemotePlatforms } = await load();
+    expect(() => resolveRemotePlatforms({ ESCODE_REMOTE_ASSET_PLATFORMS: "win32-x64" })).toThrow(
+      /win32-x64/,
+    );
+    expect(() => resolveRemotePlatforms({ ESCODE_REMOTE_ASSET_PLATFORMS: " , " })).toThrow(
+      /<empty>/,
+    );
+  });
+});

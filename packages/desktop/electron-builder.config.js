@@ -76,7 +76,7 @@ const runtimeModuleLookupRoots = [
   resolve(workspaceRoot, "node_modules", ".pnpm", "node_modules"),
 ];
 const desktopDistDir = process.env.ESCODE_DESKTOP_DIST_DIR || "dist";
-// 离线远程连接的内置资源根：prepare:bundled-remote-assets 已在构建期按目标架构从 CDN 下载。
+// 离线远程连接的内置资源根：prepare:bundled-remote-assets 已在构建期按目标架构从本仓库构建的 mock-cdn 组装。
 // 缺失（例如显式跳过内置资源下载）时不挂载，安装包回到 CDN 下载语义。
 const bundledRemoteAssetsDir = resolve(desktopPackageRoot, "bundled-remote-assets");
 const shouldPackageBundledRemoteAssets = existsSync(bundledRemoteAssetsDir);

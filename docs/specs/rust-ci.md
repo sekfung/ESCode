@@ -22,7 +22,8 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   `.tar.gz` / `.zip` 并附 sha256。Linux arm64 用 `ubuntu-24.04-arm`；macOS x64 在 arm64 runner 上交叉编译。
 - `desktop`：`pnpm bundle:desktop -- --os <os> --arch <arch>`，矩阵 win-x64、mac-arm64、mac-x64（arm64 runner 交叉打包）、linux-x64；
   `ESCODE_BUNDLE_RUST_AGENT=1` 把 Rust runtime 放进 `resources/glm`（仍需 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust` 才会选用，默认 Node）；
-  `ESCODE_SKIP_REMOTE_ASSETS=1` 不打远程部署资产；Linux 额外安装 `rpm`、`libarchive-tools`（rpm/pacman 目标）。
+  `ESCODE_REMOTE_ASSET_PLATFORMS=linux-<arch>` 从源码构建目标架构的远程 release 并内置进安装包
+  （`offline-remote-assets.md` §7「制品来源」，2026-10-12 起；此前 `ESCODE_SKIP_REMOTE_ASSETS=1` 并下载上游制品）；Linux 额外安装 `rpm`、`libarchive-tools`（rpm/pacman 目标）。
 - `publish`：仅标签触发，汇总全部产物创建**草稿** GitHub Release（人工确认后发布）。
 - Electron 与 electron-builder 二进制镜像在 CI 中改为官方 GitHub 地址（仓库默认镜像面向国内网络）。
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { rm } from "node:fs/promises";
 import process from "node:process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,11 +58,13 @@ function runTimedPnpmScript(scriptName) {
   }
 }
 
-// mock-cdn 是开发/e2e 的本地远程资源入口，与安装包内置的离线资源无关：
-// 桌面发布 job 可以只跳过它，内置资源仍由下面的下载步骤提供。
+// mock-cdn 是从本仓库源码构建的远程 release：开发/e2e 直接把它当本地资源源，
+// 安装包内置的离线资源也从这里取（docs/specs/offline-remote-assets.md §7「制品来源」），
+// 因此跳过它即同时跳过内置资源（本地 bootstrap 与 --dir 验收沿用 ESCODE_SKIP_REMOTE_ASSETS=1）。
 const shouldSkipRemoteAssets = process.env.ESCODE_SKIP_REMOTE_ASSETS === "1";
-// 离线/无外网环境下构建安装包时关掉内置资源下载；关掉后安装包的远程连接回到 CDN 下载语义。
-const shouldSkipBundledRemoteAssets = process.env.ESCODE_SKIP_BUNDLED_REMOTE_ASSETS === "1";
+// 不内置远程资源时，安装包的远程连接回到 CDN 下载语义。
+const shouldSkipBundledRemoteAssets =
+  shouldSkipRemoteAssets || process.env.ESCODE_SKIP_BUNDLED_REMOTE_ASSETS === "1";
 
 if (!shouldSkipRemoteAssets) {
   runTimedPnpmScript("prepare:remote-assets");
@@ -70,12 +73,16 @@ if (!shouldSkipRemoteAssets) {
 }
 
 if (!shouldSkipBundledRemoteAssets) {
-  // 安装包内置的离线远程资源：构建期直接从 CDN 下载当前版本已发布的制品。
-  // 既不依赖本地 mock-cdn，也不需要把制品放进仓库；下载失败即构建失败，避免产出缺离线能力的包。
+  // 安装包内置的离线远程资源：取上面 prepare:remote-assets 产出的目标架构 linux release。
+  // 本地源缺失或不完整即构建失败，避免产出缺离线能力或与本地契约不一致的包。
   runTimedPnpmScript("prepare:bundled-remote-assets");
 } else {
+  // electron-builder 只要目录存在就会打包内置资源；残留的上次产物（如曾下载的上游制品）
+  // 会让「跳过」名不副实，因此跳过时清掉构建工作区里的旧目录。
+  await rm(resolve(desktopRoot, "bundled-remote-assets"), { recursive: true, force: true });
   console.log(
-    "[prepare-runtime-assets] skip prepare:bundled-remote-assets (ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1)",
+    "[prepare-runtime-assets] skip prepare:bundled-remote-assets " +
+      "(ESCODE_SKIP_REMOTE_ASSETS=1 or ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1); cleared stale bundled-remote-assets",
   );
 }
 
