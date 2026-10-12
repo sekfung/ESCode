@@ -135,18 +135,18 @@ YAML 复用已有的 `saphyr`。没有新增 npm 依赖：图谱复用已有的 
 
 | 项目 | 命令 | 结果 |
 | --- | --- | --- |
-| Rust 全工作区测试 | `cargo test --workspace --no-fail-fast` | ✅ 53 个测试二进制、382 个测试全部通过（第 5 阶段提交时） |
+| Rust 全工作区测试 | `cargo test --workspace --no-fail-fast` | ✅ 最终代码：53 个测试二进制、384 个测试全部通过。rebase 到 `02f54e97` 后，`escode-cli-tools` + `escode-cli-wiki` 117 个、`wiki_runtime` 6 个复跑通过 |
 | Wiki domain 测试 | `cargo test -p escode-cli-domain wiki::` | ✅ 21 个通过（含前缀过滤与暴力比较的等价性测试） |
 | Wiki adapter 测试 | `cargo test -p escode-cli-wiki` | ✅ 30 个通过（scope_identity 4、ingest_incremental 5、formats_text 7、formats_office 6、retrieval_governance 3、security 4、单元 1） |
 | Runtime 集成 | `tests/wiki_runtime.rs` | ✅ 6 个通过 |
 | TS 单测（新增） | `vitest run packages/ui/test/knowledgeGraph.test.ts packages/services/test/escodeAgentService.wiki.test.ts` | ✅ 15 + 4 通过 |
 | TS 回归（受影响） | `pnpm run test:unit:affected`（模拟 pre-push，673 个文件） | 🟡 659 个文件通过。13 个文件失败，其中 `settingsPageConfig.test.ts` 因新增分区而失败，已更新期望，12/12 通过。其余 12 个文件、63 个失败在基线 `origin/dev` worktree 上逐条复现，失败清单完全相同，属环境问题：Electron 未安装、Node 版本不符 |
-| 类型检查 | `tsc -b packages/shared packages/services packages/ui packages/desktop/tsconfig.e2e.json` | ✅ 0 错误 |
+| 类型检查 | `pnpm typecheck`（全量） | ✅ 0 错误 |
 | Lint | `pnpm lint` | ✅ 0 错误；82 个警告均为基线已有，新增文件 0 警告 |
 | 格式 | `oxfmt --check`（新增和改动的 TS 文件） | ✅ |
 | 架构检查 | `pnpm architecture:check --changed` | ✅ 0 违规 |
 | Rust 边界 | `check-escode-cli-rust-boundaries.mjs` | ✅ 只有基线已有的 `state/src/storage.rs` 超长 |
-| Clippy | `cargo clippy`（core、wiki、core-api、binary，all-targets） | ✅ 0 警告；基线 `agent_description.rs` 在 1.97 下有一条 `cloned_ref_to_slice_refs`，与本改动无关 |
+| Clippy | `cargo clippy -p escode-cli-{wiki,core,core-api,rust} --all-targets -D warnings` 与 `-p escode-cli-domain --lib -D warnings` | ✅ 通过。domain 的测试目标被基线 `agent_description.rs:282` 的 `cloned_ref_to_slice_refs`（1.97 新增 lint）阻断，该文件未改动，因此 domain 测试文件未经 clippy 检查 |
 | rustfmt | 新增文件已格式化 | 🟡 本机 rustfmt 1.97 对约 80 个基线文件也报差异，因此未运行全量 `cargo fmt --check`，也未用 1.95 复核 |
 | Desktop E2E | `packages/desktop/test/e2e/settings/settings-knowledge-graph.test.ts` | ⚠️ 已编写并通过类型检查。本容器的 Electron 安装失败，未执行 |
 | UI 实际渲染 | Vite + Chromium 截图（桌面亮色、暗色中文、390px 手机） | ✅ 22 个节点和 21 条边全部渲染，无页面错误，手机宽度无横向溢出；据此修复了标签重叠和英文复数措辞 |
