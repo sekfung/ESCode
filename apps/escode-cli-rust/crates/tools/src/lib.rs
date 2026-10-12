@@ -102,6 +102,7 @@ mod save_workflow;
 mod shell_select;
 mod shell_snapshot;
 mod tool_args;
+mod tool_port_plugins;
 mod tool_capability;
 mod tool_files;
 mod tool_process;

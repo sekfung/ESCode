@@ -1,6 +1,6 @@
 //! MCP hub 的浏览器与工具卡部分（docs/specs/rust-browser-use.md 第 2–3 期）：broker 生命周期、轮尾截图、
 //! 会话中 MCP 工具的 `mcp_tool` 工具卡。
-use super::{Binding, Hub};
+use super::{Hub, binding::Binding};
 use serde_json::Value;
 use std::sync::Arc;
 

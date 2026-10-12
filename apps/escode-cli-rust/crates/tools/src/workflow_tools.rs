@@ -35,6 +35,7 @@ pub(crate) async fn prepare(
     Ok(Ok((reply["input"].clone(), reply["ask"] == true)))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute(
     tools: &WorkspaceTools,
     session: &str,

@@ -295,12 +295,10 @@ pub(crate) fn match_robocopy_delete(args: &[CommandWord], dialect: Dialect) -> R
         } else if value == "/XF"
             || value == "/XD"
             || ROBOCOPY_FLAGS.split(' ').any(|known| known == value)
-        {
-            continue;
-        } else if value.contains(':')
-            && ROBOCOPY_VALUES
-                .split(' ')
-                .any(|known| Some(known) == value.split(':').next())
+            || (value.contains(':')
+                && ROBOCOPY_VALUES
+                    .split(' ')
+                    .any(|known| Some(known) == value.split(':').next()))
         {
             continue;
         } else {

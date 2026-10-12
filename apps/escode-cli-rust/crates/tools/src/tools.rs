@@ -19,6 +19,7 @@ impl ToolPort for WorkspaceTools {
     async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> { self.run_hook_inner(session, input, call_id).await }
     async fn workspace_hooks(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
     async fn workflow_run(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
+    #[allow(clippy::too_many_arguments)]
     async fn execute_workflow(
         &self,
         session: &str,
@@ -188,44 +189,25 @@ impl ToolPort for WorkspaceTools {
             .unwrap_or_else(|_| serde_json::json!({}));
         config["features"]["subagent"] != false
     }
-    /// `plugins/list`（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话。
     async fn plugin_list(&self, params: &Value) -> Result<Value> {
-        let cwd = super::plugin_list::workspace_path(params)?;
-        let layers = super::plugin_list::layers_for(&cwd, params).await?;
-        super::plugin_list::list(&cwd, &layers, &CancellationToken::new()).await
+        super::tool_port_plugins::list(params).await
     }
-    /// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）。
     async fn plugin_set_enabled(&self, params: &Value) -> Result<Value> {
-        super::plugin_list::set_enabled(params, &CancellationToken::new()).await
+        super::tool_port_plugins::set_enabled(params).await
     }
-    /// `plugins/configure` / `plugins/resetConfig`（docs/specs/rust-plugins.md 第 4 期选项面）。
     async fn plugin_configure(&self, params: &Value, raw_params: Option<&str>) -> Result<Value> {
-        super::plugin_config::configure(params, raw_params, &CancellationToken::new()).await
+        super::tool_port_plugins::configure(params, raw_params).await
     }
     async fn plugin_reset_config(&self, params: &Value) -> Result<Value> {
-        super::plugin_config::reset(params).await
+        super::tool_port_plugins::reset_config(params).await
     }
-    /// 插件写面的慢操作（docs/specs/rust-plugin-marketplace-write.md W1b–W5）。
     async fn plugin_operation(
         &self,
         method: &str,
         params: &Value,
         cancel: &CancellationToken,
     ) -> Result<Value> {
-        match method {
-            "plugins/install" => super::plugin_install::install(params, cancel).await,
-            "plugins/update" => super::plugin_install::update(params, cancel).await,
-            "plugins/describe" => super::plugin_describe::describe(params).await,
-            "plugins/validate" => super::plugin_validate::validate(params).await,
-            "plugins/marketplace/add" => {
-                super::plugin_market_write::add_params(params, cancel).await
-            }
-            "plugins/marketplace/remove" => super::plugin_market_write::remove_params(params).await,
-            "plugins/marketplace/update" => {
-                super::plugin_market_write::update_params(params, cancel).await
-            }
-            _ => anyhow::bail!("Unsupported plugin operation: {method}"),
-        }
+        super::tool_port_plugins::operation(method, params, cancel).await
     }
     async fn prepare_tool(
         &self,
@@ -257,28 +239,24 @@ impl ToolPort for WorkspaceTools {
         refresh: bool,
         cancel: &CancellationToken,
     ) -> Result<Option<Value>> {
-        super::plugin_suggested::resolve(params, refresh, cancel).await
+        super::tool_port_plugins::suggested_reference(params, refresh, cancel).await
     }
-    /// `plugins/uninstall` / `plugins/restoreBuiltin`（docs/specs/rust-plugin-marketplace-write.md W1a）。
     async fn plugin_uninstall(&self, params: &Value) -> Result<Value> {
-        super::plugin_uninstall::uninstall(params, &CancellationToken::new()).await
+        super::tool_port_plugins::uninstall(params).await
     }
     async fn plugin_restore_builtin(&self, params: &Value) -> Result<Value> {
-        super::plugin_uninstall::restore_builtin(params).await
+        super::tool_port_plugins::restore_builtin(params).await
     }
-    /// `plugins/overview`（docs/specs/rust-plugins.md 第 3 期）。
     async fn plugin_overview(&self, params: &Value) -> Result<Value> {
-        super::plugin_overview::overview(params, &CancellationToken::new()).await
+        super::tool_port_plugins::overview(params).await
     }
-    /// `plugins/referenceCatalog(WithCategory)`（docs/specs/rust-plugins.md 第 3 期）。
     async fn plugin_reference_catalog(
         &self,
         params: &Value,
         frozen: Option<&Value>,
         include_category: bool,
     ) -> Result<Value> {
-        let cancel = CancellationToken::new();
-        super::plugin_reference::catalog(params, frozen, include_category, &cancel).await
+        super::tool_port_plugins::reference_catalog(params, frozen, include_category).await
     }
     async fn discover_skills(
         &self,

@@ -3,6 +3,7 @@ mod commands;
 mod engine;
 mod engine_requests;
 mod event_projection;
+mod event_projection_dispatch;
 mod host_requests;
 mod model_config;
 mod permission_flow;
@@ -17,6 +18,8 @@ pub use engine::Engine;
 mod input_validation;
 
 mod agent_loop;
+mod agent_loop_step;
+mod agent_loop_surface;
 mod memory_extraction;
 mod memory_run;
 mod tool_dispatch;

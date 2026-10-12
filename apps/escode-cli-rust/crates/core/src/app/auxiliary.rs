@@ -203,17 +203,15 @@ impl Engine {
                 title,
                 write_session,
                 goal_target,
-            } => {
-                if !self.auxiliary[&id].cancel.is_cancelled() {
-                    self.apply_session_title(
-                        &session,
-                        &entity,
-                        title.as_deref(),
-                        write_session,
-                        goal_target.as_deref(),
-                    )
-                    .await?;
-                }
+            } if !self.auxiliary[&id].cancel.is_cancelled() => {
+                self.apply_session_title(
+                    &session,
+                    &entity,
+                    title.as_deref(),
+                    write_session,
+                    goal_target.as_deref(),
+                )
+                .await?;
             }
             Event::AuxiliaryNotify { method, params } => {
                 self.outbox.push(json!({ "method": method, "params": params }));

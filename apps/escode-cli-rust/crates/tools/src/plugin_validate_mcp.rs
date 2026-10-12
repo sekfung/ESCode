@@ -273,7 +273,7 @@ fn check_oauth(value: Option<&Json>, context: &VariableContext) -> Result<bool, 
     let fields: &[(&str, bool)] = match text("type") {
         Some("client_credentials") => {
             for (field, label) in [("clientId", "clientId"), ("clientSecret", "clientSecret")] {
-                if !text(field).is_some_and(|v| !v.is_empty()) {
+                if text(field).is_none_or(|v| v.is_empty()) {
                     return Err((
                         false,
                         format!("MCP OAuth client_credentials requires {label}"),

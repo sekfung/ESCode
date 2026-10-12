@@ -233,7 +233,7 @@ pub trait ToolPort: Send + Sync {
     }
     /// 工作流宿主负责的工具（CreateWorkflow 等，docs/specs/rust-dynamic-workflow.md M1）：带会话与调用 id 执行，
     /// 后台 run 结算后宿主经 Host 通道报告 `Event::WorkflowSettled`。`None`：该工具不归宿主。
-    async fn execute_workflow(
+    #[allow(clippy::too_many_arguments)] async fn execute_workflow(
         &self,
         _session: &str,
         _call_id: &str,

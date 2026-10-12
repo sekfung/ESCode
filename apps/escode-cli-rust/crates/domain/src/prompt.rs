@@ -70,6 +70,7 @@ pub fn with_conversation_quotes(text: &str, quotes: &Value) -> String {
     crate::conversation_input::with_conversation_material(text, quotes, &Value::Null)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prefix(
     snapshot: &PromptSnapshot,
     sources: &[InstructionSource],

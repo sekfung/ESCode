@@ -86,7 +86,7 @@ pub fn listing_delta(
     }
     let mut added: Vec<&Profile> = profiles
         .iter()
-        .filter(|profile| !announced.iter().any(|name| *name == profile.name))
+        .filter(|profile| !announced.contains(&profile.name))
         .collect();
     let mut removed: Vec<String> = announced
         .iter()

@@ -77,36 +77,21 @@ pub(super) async fn run(
     if super::turn_hooks::before_turn(tools, model_label, history, sink, cancel).await? {
         return Ok(());
     }
-    // 本轮事实只读，移出 history 以免与工具结果写回的可变借用冲突。
-    let turn_facts = std::mem::take(&mut history.turn);
-    super::off_peak::retain_visible(&mut definitions, &turn_facts, profile.is_some());
-    super::dynamic_workflow::retain_visible(&mut definitions, &turn_facts);
-    // TS 注册表（registerBuiltInTools 的结果）：其后只是本轮可见性过滤，被隐藏的工具仍按注册表执行
-    // （自动化轮的 Cron 写工具回自动化拒绝），注册表里没有的名字回 `Tool not found`。
-    let registered = definitions.clone();
-    super::off_peak::hide_restricted(&mut definitions, &turn_facts);
-    // TS shouldExposeWebSearch：只有声明 provider-native 搜索的模型才看到 WebSearch（rust-websearch.md）。
-    if !model.native_web_search() {
-        definitions.retain(|d| d["function"]["name"] != "WebSearch");
-    }
-    super::cron_tool::retain_visible(&mut definitions, &turn_facts, profile.is_some());
-    let profiles = if definitions.iter().any(|d| d["function"]["name"] == "Agent") {
-        tools.agent_profiles(cancel).await?
-    } else {
-        vec![]
-    };
-    let agent_listed = if let Some(agent) = definitions
-        .iter_mut()
-        .find(|d| d["function"]["name"] == "Agent")
-    {
-        // v3.15.1：描述是静态的，profile 目录改由每步的 agent_listing_delta 提醒通告
-        // （docs/specs/rust-v3.15.1-drift.md）。
-        agent["function"]["description"] =
-            crate::domain::agent_description::description().into();
-        true
-    } else {
-        false
-    };
+    let surface = super::agent_loop_surface::prepare_tool_surface(
+        tools,
+        model,
+        history,
+        &mut definitions,
+        profile.is_some(),
+        cancel,
+    )
+    .await?;
+    let super::agent_loop_surface::ToolSurface {
+        turn_facts,
+        registered,
+        profiles,
+        agent_listed,
+    } = surface;
     let tool_tokens = definitions
         .iter()
         .map(|d| d.to_string().encode_utf16().count().div_ceil(3))
@@ -137,49 +122,16 @@ pub(super) async fn run(
         if cancel.is_cancelled() {
             bail!("Cancelled");
         }
-        // TS appendRuntimeAgentListing：输出续写之外的每步按历史已通告集合补发增量，先持久化再进请求。
-        if continuations == 0
-            && agent_listed
-            && let Some((content, delta)) =
-                crate::domain::agent_description::listing_delta(&profiles, &history.messages, true)
-        {
-            use crate::domain::agent_description::{LISTING_DELTA_KEY, LISTING_SOURCE};
-            let message = json!({
-                "role": "user",
-                "content": format!("<system-reminder>
-{content}
-</system-reminder>"),
-                "_escode_source": LISTING_SOURCE,
-                LISTING_DELTA_KEY: delta,
-            });
-            let (reply, receipt) = oneshot::channel();
-            sink.send(Event::PersistedNotice {
-                message: message.clone(),
-                reply,
-            })
-            .await?;
-            tokio::select! {biased;
-                _=cancel.cancelled()=>bail!("Cancelled"),
-                done=receipt=>done.context("Agent listing commit failed")?,
-            }
-            // 规范历史只追加（落库按长度增量）；Node 请求里本轮增量位于输入正文之前，由请求投影
-            // `agent_description::order_listing_before_input` 还原该顺序。
-            history.push(message);
-        }
-        if continuations == 0
-            && definitions
-                .iter()
-                .any(|d| d["function"]["name"] == "TodoWrite")
-            && crate::domain::todo::should_remind(&history.messages)
-        {
-            let (reply, receipt) = oneshot::channel();
-            sink.send(Event::TodoReminder { reply }).await?;
-            let message = tokio::select! {biased;
-                _=cancel.cancelled()=>bail!("Cancelled"),
-                message=receipt=>message.context("Todo reminder commit failed")?,
-            };
-            history.push(message);
-        }
+        super::agent_loop_step::append_step_reminders(
+            sink,
+            cancel,
+            history,
+            &definitions,
+            continuations,
+            agent_listed,
+            &profiles,
+        )
+        .await?;
         let instructions = if profile
             .as_ref()
             .is_some_and(|p| p.inject_agents_md == Some(false))

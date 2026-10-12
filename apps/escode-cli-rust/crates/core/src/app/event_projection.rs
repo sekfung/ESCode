@@ -1,123 +1,17 @@
 use super::{Engine, Event, RunEvent};
+use super::event_projection_dispatch::DispatchedRunEvent;
 use anyhow::{Result, bail};
 use serde_json::json;
 impl Engine {
-    pub(super) async fn apply_event(&mut self, mut event: RunEvent) -> Result<()> {
-        if self.auxiliary_owned(&event.session_id) {
-            return self.auxiliary_event(event).await;
-        }
-        if let Event::ToolCleanupFailed(message) = event.event {
-            let owned = self
-                .active
-                .get(&event.session_id)
-                .is_some_and(|a| a.run_id == event.run_id)
-                || self.sessions.get(&event.session_id).is_some_and(|s| {
-                    s.background
-                        .values()
-                        .any(|task| task.run_id == event.run_id && task.status == "running")
-                });
-            if owned {
-                bail!("{message}");
-            }
-            return Ok(());
-        }
-        if let Event::Background { task, committed } = event.event {
-            return self
-                .background_event(&event.session_id, &event.run_id, task, committed)
-                .await;
-        }
-        let id = event.session_id;
-        let Some(active) = self.active.get(&id) else {
+    pub(super) async fn apply_event(&mut self, event: RunEvent) -> Result<()> {
+        let Some(dispatched) = self.dispatch_run_event(event).await? else {
             return Ok(());
         };
-        if active.run_id != event.run_id {
-            return Ok(());
-        }
-        let cancelled = active.cancel.is_cancelled();
-        if cancelled && !matches!(event.event, Event::Finished { .. }) {
-            return Ok(());
-        }
-        if matches!(
-            event.event,
-            Event::SkillsInitialized { .. }
-                | Event::PromptInitialized { .. }
-                | Event::ContextUsage(_) | Event::ShellNotice { .. } | Event::StreamRecovery { .. }
-                | Event::CompactStarted { .. }
-                | Event::CompactDone { .. }
-        ) {
-            return self.context_event(&id, event.event).await;
-        }
-        let turn = active.turn_id.clone();
-        if matches!(event.event, Event::FilePrepared { .. }) {
-            return self.file_checkpoint_event(&id, event.event).await;
-        }
-        if matches!(event.event, Event::Subagent { .. }) {
-            return self.subagent_event(&id, event.event).await;
-        }
-        if matches!(event.event, Event::GoalStep { .. } | Event::GoalVerdict { .. }) {
-            return self.goal_event(&id, event.event).await;
-        }
-        if let Event::HookContext { message, before_input, committed } = event.event {
-            return self.hook_context(&id, message, before_input, committed).await;
-        }
-        if let Event::Todos {
-            call_id,
-            write,
-            reply,
-        } = event.event
-        {
-            return self.todo_tool(&id, &call_id, write, reply).await;
-        }
-        if let Event::TodoReminder { reply } = event.event {
-            return self.todo_reminder(&id, reply).await;
-        }
-        if let Event::PersistedNotice { message, reply } = event.event {
-            return self.persisted_notice(&id, message, reply).await;
-        }
-        if let Event::Question {
-            call_id,
-            input,
-            reply,
-        } = event.event
-        {
-            return self
-                .register_question(&id, &event.run_id, &call_id, *input, reply)
-                .await;
-        }
-        if matches!(
-            event.event,
-            Event::PlanEnter { .. } | Event::PlanExit { .. }
-        ) {
-            return self
-                .plan_event(&id, &event.run_id, &turn, event.event)
-                .await;
-        }
-        if let Event::StepBoundary { committed } = event.event {
-            if let Some(messages) = self.drain_step_messages(&id, &turn).await? {
-                let _ = committed.send(Some(messages));
-                return Ok(());
-            }
-            return self.drain_guide(&id, &turn, committed).await;
-        }
-        if matches!(
-            event.event,
-            Event::HostRequest { .. }
-                | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
-                | Event::SessionContext { .. }
-                | Event::WorkflowRunList { .. }
-                | Event::ShellPreference { .. }
-                | Event::MemoryPreference { .. }
-                | Event::MemoryResolved(_)
-                | Event::MemoryExtract(_)
-                | Event::RequestAuth { .. }
-        ) {
-            self.owner_request(&id, &event.run_id, &turn, event.event);
-            return Ok(());
-        }
-        if matches!(event.event, Event::Finished { .. }) {
-            self.cancel_auth(&id);
-            self.notify_turn_ended(&id, &turn);
-        }
+        let DispatchedRunEvent {
+            mut event,
+            id,
+            turn,
+        } = dispatched;
         // 工具结果媒体先落附件存储，会话消息只保留引用（base64 不进入会话库）。
         let stored = match &mut event.event {
             Event::ToolDone { media, .. } if !media.is_empty() => {

@@ -1,5 +1,5 @@
 use super::{
-    mcp_config::{self, Server},
+    mcp_config::{self},
     mcp_connection::Connection,
 };
 use oauth::{PendingAuthorization, failure_kind};
@@ -14,16 +14,8 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
-#[derive(Clone)]
-struct Binding {
-    name: String,
-    server: String,
-    original: String,
-    key: String,
-    safe: bool,
-    definition: Value,
-    connection: Arc<Connection>,
-}
+use binding::{Binding, bind};
+
 #[derive(Default)]
 struct State {
     borrowed: BTreeSet<String>,
@@ -369,42 +361,11 @@ impl Hub {
         self.prune().await
     }
 }
+#[path = "mcp_hub_binding.rs"]
+mod binding;
 #[path = "mcp_hub_browser.rs"]
 mod browser;
 #[path = "mcp_hub_oauth.rs"]
 mod oauth;
 #[path = "mcp_hub_serial.rs"]
 mod serial;
-fn bind(
-    server: &Server,
-    key: &str,
-    connection: &Arc<Connection>,
-    names: &mut BTreeSet<String>,
-) -> Result<Vec<Binding>> {
-    let mut bindings = vec![];
-    for tool in &connection.tools {
-        let original = tool["name"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .context("MCP tool name required")?;
-        let name = mcp_config::tool_name(&server.name, original);
-        ensure!(names.insert(name.clone()), "MCP tool namespace collision");
-        ensure!(tool["inputSchema"].is_object(), "MCP tool schema required");
-        let definition = json!({"type":"function","function":{"name":name,"description":tool["description"].as_str().unwrap_or(""),"parameters":tool["inputSchema"]}});
-        ensure!(
-            definition.to_string().len() <= 256 * 1024,
-            "MCP schema exceeds size limit"
-        );
-        bindings.push(Binding {
-            name,
-            server: server.name.clone(),
-            original: original.into(),
-            key: key.into(),
-            safe: tool["annotations"]["readOnlyHint"] == true
-                && tool["annotations"]["destructiveHint"] == false,
-            definition,
-            connection: connection.clone(),
-        });
-    }
-    Ok(bindings)
-}
