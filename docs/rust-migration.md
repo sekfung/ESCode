@@ -30,7 +30,7 @@
 
 ## 环境要求
 
-- Rust `1.89` 或更高版本
+- Rust `1.95` 或更高版本
 - Node.js 和 pnpm（桌面联调、集成测试及仓库脚本需要；版本以 [`mise.toml`](mise.toml) 为准）
 - macOS、Linux 或 Windows
 

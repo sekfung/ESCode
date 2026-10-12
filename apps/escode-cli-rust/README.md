@@ -26,7 +26,7 @@ crate 边界见 [架构规格](../../docs/specs/rust-cli-architecture.md)：`pro
 
 ## 构建与验证
 
-仓库根目录执行。Rust >= 1.89，当前验证工具链为 1.95.0；Node/pnpm 依 `mise.toml`。
+仓库根目录执行。Rust >= 1.95（代码用到 1.95 才稳定的 `if let` guards，1.93 会报 `E0658`），当前验证工具链为 1.95.0；Node/pnpm 依 `mise.toml`。
 
 ```sh
 pnpm build:escode-cli-rust
