@@ -40,7 +40,6 @@ describe("settingsPageConfig", () => {
         id: "agentCapabilities",
         sections: [
           "memory",
-          "knowledge",
           "subagents",
           "plugin",
           "mcp",
@@ -60,7 +59,6 @@ describe("settingsPageConfig", () => {
       "appearance",
       "modelProvider",
       "memory",
-      "knowledge",
       "subagents",
       "plugin",
       "mcp",
@@ -82,7 +80,6 @@ describe("settingsPageConfig", () => {
       "appearance",
       "modelProvider",
       "memory",
-      "knowledge",
       "subagents",
       "plugin",
       "mcp",

@@ -34,7 +34,15 @@ export interface PluginStoreNavEntry extends WorkspaceNavEntryBase {
   kind: "plugin-store";
 }
 
-export type WorkspaceNavEntry = TaskNavEntry | AutomationsNavEntry | PluginStoreNavEntry;
+export interface KnowledgeNavEntry extends WorkspaceNavEntryBase {
+  kind: "knowledge";
+}
+
+export type WorkspaceNavEntry =
+  | TaskNavEntry
+  | AutomationsNavEntry
+  | PluginStoreNavEntry
+  | KnowledgeNavEntry;
 
 export interface TaskNavigationHistory {
   entries: WorkspaceNavEntry[];
@@ -62,6 +70,10 @@ export function isAutomationsNavEntry(
 
 export function isPluginStoreNavEntry(entry: WorkspaceNavEntry): entry is PluginStoreNavEntry {
   return entry.kind === "plugin-store";
+}
+
+export function isKnowledgeNavEntry(entry: WorkspaceNavEntry): entry is KnowledgeNavEntry {
+  return entry.kind === "knowledge";
 }
 
 function isSameNavEntry(
@@ -157,6 +169,18 @@ export function pushPluginStoreNavEntry(
   });
 }
 
+export function pushKnowledgeNavEntry(
+  history: TaskNavigationHistory,
+  workspacePath: string,
+  workspaceIdentity?: string,
+): TaskNavigationHistory {
+  return pushEntry(history, {
+    kind: "knowledge",
+    workspacePath,
+    ...(workspaceIdentity ? { workspaceIdentity } : {}),
+  });
+}
+
 export function canGoBack(history: TaskNavigationHistory): boolean {
   return history.cursor > 0;
 }
@@ -207,7 +231,7 @@ export function goForward(
 
 /**
  * 从历史中移除指定 taskId 的所有 task 条目（task 被删除时调用）。
- * Automations 条目不属于 task 生命周期，必须原样保留。
+ * Automations / 插件市场 / 知识库等主视图条目不属于 task 生命周期，必须原样保留。
  */
 export function removeTaskFromHistory(
   history: TaskNavigationHistory,

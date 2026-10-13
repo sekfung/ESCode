@@ -895,6 +895,9 @@ export function App({
     preserveNextSettingsExit();
     setWorkspaceMainView("plugin-store");
   }, [preserveNextSettingsExit]);
+  const handleNavigateToKnowledgeMain = useCallback(() => {
+    setWorkspaceMainView("knowledge");
+  }, []);
   const handleOpenAutomationConsumed = useCallback(() => {
     setOpenAutomationId(null);
     setOpenAutomationTab(null);
@@ -906,6 +909,7 @@ export function App({
     handleSelectTask,
     handleOpenAutomations,
     handleOpenPluginStore,
+    handleOpenKnowledge,
     handleTaskNavBack,
     handleTaskNavForward,
     canGoBack,
@@ -920,6 +924,7 @@ export function App({
     onNavigateToTask: handleNavigateToTaskMain,
     onNavigateToAutomations: handleNavigateToAutomationsMain,
     onNavigateToPluginStore: handleNavigateToPluginStoreMain,
+    onNavigateToKnowledge: handleNavigateToKnowledgeMain,
   });
   // 完成卡「已保存」芯片的落点（docs/dynamic-workflow/transcript-and-notifications.md「Saving the
   // run, and running it again」）：走「自动化」入口的同一条导航（进历史、切主视图），落在「工作流」
@@ -1211,6 +1216,7 @@ export function App({
           onOpenAutomationConsumed={handleOpenAutomationConsumed}
           handleOpenAutomations={handleOpenAutomations}
           handleOpenPluginStore={handleOpenPluginStoreForScope}
+          handleOpenKnowledge={handleOpenKnowledge}
           handleManageInstalledPlugins={handleManageInstalledPlugins}
           onConnectRemote={onConnectRemote}
           onSelectRemoteProject={onSelectRemoteProject}

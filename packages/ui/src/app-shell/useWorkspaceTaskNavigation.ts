@@ -5,6 +5,7 @@ import {
   canGoBack as navCanGoBack,
   canGoForward as navCanGoForward,
   isAutomationsNavEntry,
+  isKnowledgeNavEntry,
   isPluginStoreNavEntry,
   type AutomationsNavigationTab,
 } from "@/lib/taskNavigationHistory.js";
@@ -41,6 +42,7 @@ export function useWorkspaceTaskNavigation({
   onNavigateToTask,
   onNavigateToAutomations,
   onNavigateToPluginStore,
+  onNavigateToKnowledge,
 }: {
   intl: { formatMessage: (descriptor: { id: string }) => string };
   workspaceAbsPath: string;
@@ -49,6 +51,7 @@ export function useWorkspaceTaskNavigation({
   onNavigateToTask?: () => void;
   onNavigateToAutomations?: (target: AutomationsNavigationTarget) => void;
   onNavigateToPluginStore?: (target: Omit<AutomationsNavigationTarget, "automationId">) => void;
+  onNavigateToKnowledge?: () => void;
 }) {
   // 跨 workspace 选择会先同步切换 tab，但本次 React render 捕获的 ambient
   // services 仍可能属于旧 remote attachment。local 目标必须固定从 window base attachment
@@ -59,6 +62,7 @@ export function useWorkspaceTaskNavigation({
   const taskNavHistory = useESCodeSessionStore((s) => s.taskNavHistory);
   const taskNavPushAutomations = useESCodeSessionStore((s) => s.taskNavPushAutomations);
   const taskNavPushPluginStore = useESCodeSessionStore((s) => s.taskNavPushPluginStore);
+  const taskNavPushKnowledge = useESCodeSessionStore((s) => s.taskNavPushKnowledge);
   const taskNavGoBack = useESCodeSessionStore((s) => s.taskNavGoBack);
   const taskNavGoForward = useESCodeSessionStore((s) => s.taskNavGoForward);
   const removeTaskFromNavHistory = useESCodeSessionStore((s) => s.removeTaskFromNavHistory);
@@ -224,6 +228,13 @@ export function useWorkspaceTaskNavigation({
     onNavigateToPluginStore?.({ workspacePath: workspaceAbsPath, workspaceIdentity });
   }, [onNavigateToPluginStore, taskNavPushPluginStore, workspaceAbsPath, workspaceIdentity]);
 
+  const handleOpenKnowledge = useCallback(() => {
+    // 与插件市场同语义：主视图切换本身不携带业务参数，但导航历史必须记录 workspace 身份，
+    // 否则后退/前进回放时会在同一路径的本地/远端 workspace 之间误匹配。
+    taskNavPushKnowledge(workspaceAbsPath, workspaceIdentity);
+    onNavigateToKnowledge?.();
+  }, [onNavigateToKnowledge, taskNavPushKnowledge, workspaceAbsPath, workspaceIdentity]);
+
   const handleTaskNavBack = useCallback(() => {
     const currentWorkspaceState = useESCodeSessionStore
       .getState()
@@ -277,6 +288,16 @@ export function useWorkspaceTaskNavigation({
         onNavigateToPluginStore?.(currentEntry);
         return;
       }
+      if (isKnowledgeNavEntry(currentEntry)) {
+        activateTabByPath(
+          currentEntry.workspacePath,
+          currentEntry.workspaceIdentity
+            ? { workspaceIdentity: currentEntry.workspaceIdentity }
+            : undefined,
+        );
+        onNavigateToKnowledge?.();
+        return;
+      }
       const navWorkspaceState = useESCodeSessionStore
         .getState()
         .getWorkspaceState(currentEntry.workspacePath, currentEntry.workspaceIdentity);
@@ -305,6 +326,7 @@ export function useWorkspaceTaskNavigation({
     handleSelectTask,
     intl,
     onNavigateToAutomations,
+    onNavigateToKnowledge,
     onNavigateToPluginStore,
     removeTaskFromNavHistory,
     taskNavGoBack,
@@ -363,6 +385,16 @@ export function useWorkspaceTaskNavigation({
         onNavigateToPluginStore?.(currentEntry);
         return;
       }
+      if (isKnowledgeNavEntry(currentEntry)) {
+        activateTabByPath(
+          currentEntry.workspacePath,
+          currentEntry.workspaceIdentity
+            ? { workspaceIdentity: currentEntry.workspaceIdentity }
+            : undefined,
+        );
+        onNavigateToKnowledge?.();
+        return;
+      }
       const navWorkspaceState = useESCodeSessionStore
         .getState()
         .getWorkspaceState(currentEntry.workspacePath, currentEntry.workspaceIdentity);
@@ -390,6 +422,7 @@ export function useWorkspaceTaskNavigation({
     handleSelectTask,
     intl,
     onNavigateToAutomations,
+    onNavigateToKnowledge,
     onNavigateToPluginStore,
     removeTaskFromNavHistory,
     taskNavGoForward,
@@ -410,6 +443,7 @@ export function useWorkspaceTaskNavigation({
     handleSelectTask,
     handleOpenAutomations,
     handleOpenPluginStore,
+    handleOpenKnowledge,
     handleTaskNavBack,
     handleTaskNavForward,
     canGoBack,

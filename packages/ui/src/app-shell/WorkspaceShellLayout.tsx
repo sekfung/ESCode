@@ -50,6 +50,7 @@ import type {
 } from "@/settings/saved-workflows/SavedWorkflowsSection.js";
 import { AutomationsMainBreadcrumbFrame } from "@/settings/AutomationsMainBreadcrumbFrame.js";
 import { PluginStorePage } from "@/settings/PluginStorePage.js";
+import { KnowledgeSettingsSection } from "@/settings/KnowledgeSettingsSection.js";
 import { TaskFindDialog } from "@/quickpick/TaskFindDialog.js";
 import { WebRemoteControlMobileShell } from "@/WebRemoteControlMobileShell.js";
 import { WorkspaceHeader } from "@/WorkspaceHeader.js";
@@ -270,6 +271,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   onOpenAutomationConsumed,
   handleOpenAutomations,
   handleOpenPluginStore,
+  handleOpenKnowledge,
   handleManageInstalledPlugins,
   onConnectRemote,
   onSelectRemoteProject,
@@ -1126,10 +1128,12 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   useEffect(() => {
     if (
       isWebRemoteControlShell &&
-      (workspaceMainView === "automations" || workspaceMainView === "plugin-store")
+      (workspaceMainView === "automations" ||
+        workspaceMainView === "plugin-store" ||
+        workspaceMainView === "knowledge")
     ) {
       // 修复原因：手机远控复用桌面 shell 时可能保留上一次主视图状态；
-      // 远控不承载 Automations，必须立即回落到 continuous/replayable 边界之外的聊天页。
+      // 远控不承载 Automations 与知识库，必须立即回落到 continuous/replayable 边界之外的聊天页。
       onWorkspaceMainViewChange("chat");
     }
   }, [isWebRemoteControlShell, onWorkspaceMainViewChange, workspaceMainView]);
@@ -1832,7 +1836,9 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   // 与 Task Header 分叉。桌面端统一复用 WorkspaceHeader，只由 variant 裁剪 task 专属内容；
   // 手机远控无 active task 时仍不渲染桌面 chrome，继续遵守 replayable overlay 边界。
   const shouldRenderMainViewHeader =
-    workspaceMainView !== "automations" && workspaceMainView !== "plugin-store";
+    workspaceMainView !== "automations" &&
+    workspaceMainView !== "plugin-store" &&
+    workspaceMainView !== "knowledge";
   const shouldRenderWorkspaceHeader =
     shouldRenderMainViewHeader && (activeTaskId !== null || isDesktop);
   // 修复原因：ErrorBoundary resetKeys 的数组如果每次 render 都重新创建，
@@ -1845,6 +1851,35 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   const workspaceSidebarVisibilityResetKeys = useMemo(
     () => [workspaceKey, isSidebarVisible],
     [workspaceKey, isSidebarVisible],
+  );
+  // 知识库主视图（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：与 automations/plugin-store
+  // 共用桌面拖拽条 + 面包屑骨架。手机远控不承载该视图，两个主区渲染分支复用同一份 JSX。
+  const renderKnowledgeMainView = () => (
+    <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
+      <AutomationsMainBreadcrumbFrame
+        isDesktop={Boolean(isDesktop)}
+        sectionLabel={intl.formatMessage({ id: "settings.knowledge.title" })}
+        ariaLabel={intl.formatMessage({ id: "settings.breadcrumbLabel" })}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+          <ScopedErrorBoundary
+            scope="knowledge-main"
+            resetKeys={workspaceOnlyResetKeys}
+            variant="panel"
+            className="min-h-full"
+          >
+            <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-4 md:px-6 md:py-6">
+              <KnowledgeSettingsSection
+                workspacePath={workspaceAbsPath}
+                workspaceIdentity={workspaceIdentity}
+                remoteSessionId={workspaceRemoteSessionId}
+                remoteTarget={workspaceRemoteTarget}
+              />
+            </div>
+          </ScopedErrorBoundary>
+        </div>
+      </AutomationsMainBreadcrumbFrame>
+    </main>
   );
 
   if (
@@ -2014,6 +2049,8 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                   </div>
                 </AutomationsMainBreadcrumbFrame>
               </main>
+            ) : workspaceMainView === "knowledge" && !isWebRemoteControlShell ? (
+              renderKnowledgeMainView()
             ) : (
               <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
                 {/* Bugfix: 手机远控聊天页中间层必须继续提供 flex 高度链。
@@ -2204,6 +2241,8 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                       automationsActive={workspaceMainView === "automations"}
                       onOpenPluginStore={handleOpenPluginStore}
                       pluginStoreActive={workspaceMainView === "plugin-store"}
+                      onOpenKnowledge={handleOpenKnowledge}
+                      knowledgeActive={workspaceMainView === "knowledge"}
                       onFileTreeOpenChange={setIsSidebarFileTreeOpen}
                       onWebRemoteTaskOpen={handleWebRemoteTaskOpen}
                       onWebRemoteTaskSwitchingChange={handleWebRemoteTaskSwitchingChange}
@@ -2479,6 +2518,8 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                               </div>
                             </AutomationsMainBreadcrumbFrame>
                           </main>
+                        ) : workspaceMainView === "knowledge" && !isWebRemoteControlShell ? (
+                          renderKnowledgeMainView()
                         ) : (
                           <main className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
                             {renderChatFindDialog()}
@@ -2561,7 +2602,10 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                     </section>
                   </ResizablePanel>
                   {isWebRemoteControlShell ||
-                  (workspaceMainView !== "automations" && workspaceMainView !== "plugin-store") ? (
+                  (workspaceMainView !== "automations" &&
+                    workspaceMainView !== "plugin-store" &&
+                    // 知识库与 automations/plugin-store 一样是整页主视图，不并挂终端面板。
+                    workspaceMainView !== "knowledge") ? (
                     <AnimatedTerminalPanel
                       frameClassName={cn(
                         isSidePaneVisible

@@ -4,6 +4,7 @@ import {
   goBack,
   goForward,
   pushAutomationsNavEntry,
+  pushKnowledgeNavEntry,
   pushPluginStoreNavEntry,
   pushNavEntry,
   removeTaskFromHistory,
@@ -103,6 +104,60 @@ describe("workspace navigation history", () => {
           kind: "automations",
           workspacePath: "/workspace",
           automationId: "automation-a",
+        },
+      ],
+      cursor: 0,
+    });
+  });
+
+  it("将知识库主视图作为独立 workspace 目标记录，删除 task 时保留", () => {
+    const taskHistory = pushNavEntry(
+      createTaskNavigationHistory(),
+      "/workspace",
+      "task-a",
+      "remote:ssh:dev:22:user:/workspace",
+    );
+    const knowledgeHistory = pushKnowledgeNavEntry(
+      taskHistory,
+      "/workspace",
+      "remote:ssh:dev:22:user:/workspace",
+    );
+    expect(knowledgeHistory.entries).toEqual([
+      {
+        kind: "task",
+        workspacePath: "/workspace",
+        workspaceIdentity: "remote:ssh:dev:22:user:/workspace",
+        taskId: "task-a",
+      },
+      {
+        kind: "knowledge",
+        workspacePath: "/workspace",
+        workspaceIdentity: "remote:ssh:dev:22:user:/workspace",
+      },
+    ]);
+
+    // 连续打开同一知识库目标不会重复入栈，后退再前进能恢复该页。
+    expect(
+      pushKnowledgeNavEntry(
+        knowledgeHistory,
+        "/workspace",
+        "remote:ssh:dev:22:user:/workspace",
+      ),
+    ).toBe(knowledgeHistory);
+    const back = goBack(knowledgeHistory);
+    expect(back?.entry).toMatchObject({ kind: "task", taskId: "task-a" });
+    expect(back ? goForward(back.history)?.entry : null).toEqual({
+      kind: "knowledge",
+      workspacePath: "/workspace",
+      workspaceIdentity: "remote:ssh:dev:22:user:/workspace",
+    });
+
+    expect(removeTaskFromHistory(knowledgeHistory, "task-a")).toEqual({
+      entries: [
+        {
+          kind: "knowledge",
+          workspacePath: "/workspace",
+          workspaceIdentity: "remote:ssh:dev:22:user:/workspace",
         },
       ],
       cursor: 0,

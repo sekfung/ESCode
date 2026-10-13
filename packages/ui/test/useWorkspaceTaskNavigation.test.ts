@@ -66,6 +66,7 @@ function renderNavigation(params: {
   workspacePath?: string;
   workspaceIdentity?: string;
   onNavigateToAutomations?: ReturnType<typeof vi.fn>;
+  onNavigateToKnowledge?: ReturnType<typeof vi.fn>;
 }) {
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(ServiceProvider, { services: params.ambientServices }, children);
@@ -78,6 +79,7 @@ function renderNavigation(params: {
           params.workspaceIdentity ?? "remote:ssh:dev:22:user:/home/dev",
         activateTabByPath: params.activateTabByPath,
         onNavigateToAutomations: params.onNavigateToAutomations,
+        onNavigateToKnowledge: params.onNavigateToKnowledge,
       }),
     { wrapper },
   );
@@ -165,6 +167,67 @@ describe("useWorkspaceTaskNavigation", () => {
       workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
       automationTab: "idle",
     });
+    hook.unmount();
+  });
+
+  it("打开知识库主视图时写入 workspace 身份并切换主视图", () => {
+    const onNavigateToKnowledge = vi.fn();
+    const hook = renderNavigation({
+      ambientServices: servicesWithSetTaskUnread(vi.fn()),
+      activateTabByPath: vi.fn(() => true),
+      onNavigateToKnowledge,
+    });
+
+    act(() => {
+      hook.result.current.handleOpenKnowledge();
+    });
+
+    expect(onNavigateToKnowledge).toHaveBeenCalledTimes(1);
+    expect(useESCodeSessionStore.getState().taskNavHistory.entries).toEqual([
+      {
+        kind: "knowledge",
+        workspacePath: "/home/dev",
+        workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
+      },
+    ]);
+    hook.unmount();
+  });
+
+  it("前进回放时恢复知识库主视图", () => {
+    const onNavigateToKnowledge = vi.fn();
+    const activateTabByPath = vi.fn(() => true);
+    useESCodeSessionStore.setState({
+      taskNavHistory: {
+        entries: [
+          {
+            kind: "task",
+            workspacePath: "/home/dev",
+            workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
+            taskId: "task-before-knowledge",
+          },
+          {
+            kind: "knowledge",
+            workspacePath: "/home/dev",
+            workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
+          },
+        ],
+        cursor: 0,
+      },
+    });
+    const hook = renderNavigation({
+      ambientServices: servicesWithSetTaskUnread(vi.fn()),
+      activateTabByPath,
+      onNavigateToKnowledge,
+    });
+
+    act(() => {
+      hook.result.current.handleTaskNavForward();
+    });
+
+    expect(activateTabByPath).toHaveBeenCalledWith("/home/dev", {
+      workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
+    });
+    expect(onNavigateToKnowledge).toHaveBeenCalledTimes(1);
     hook.unmount();
   });
 

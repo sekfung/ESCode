@@ -23,7 +23,7 @@
 | Agent 工具 | ✅ | WikiSearch、WikiRead、WikiPropose、WikiManage（每次都询问用户，yolo 模式也不例外） |
 | 治理 | ✅ | 候选、批准、拒绝、弃用（含 superseded_by）、提升到全局；冲突、失效来源、lint、审计 |
 | CLI 运维 | ✅ | `escode-cli-rust wiki status\|ingest\|sync\|search\|read\|propose\|approve\|reject\|deprecate\|promote\|lint\|validate\|conflicts\|rebuild-index\|audit\|graph` |
-| Desktop 知识图谱 | ✅（E2E ⚠️） | 设置 →「知识库」：力导向图、筛选、详情、带确认框的审核操作；中英文；明暗主题 |
+| Desktop 知识图谱 | ✅（E2E ⚠️） | 侧边栏主视图入口（搜索下方）：力导向图、筛选、详情、带确认框的审核操作；设置页不再提供该分区；中英文；明暗主题 |
 | Desktop 导入与作用域调整 | ✅（E2E ⚠️） | 「导入文档」对话框：选文件或文件夹、输入路径（远程工作区）、选项目或全局、可选直接批准、逐文件结果；详情中「提升到全局」 |
 | 非 Rust runtime | ✅ | 页面显示「当前 runtime 不支持」，不发出图谱请求 |
 

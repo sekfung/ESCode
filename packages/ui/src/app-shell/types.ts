@@ -125,7 +125,7 @@ export interface GitChangeSummary {
   removed: number;
 }
 
-export type WorkspaceMainView = "chat" | "automations" | "plugin-store";
+export type WorkspaceMainView = "chat" | "automations" | "plugin-store" | "knowledge";
 
 export interface WorkspaceShellLayoutProps extends Omit<AppProps, "baseFeedbackService"> {
   workspaceReadOnlyReason?: string;
@@ -145,6 +145,8 @@ export interface WorkspaceShellLayoutProps extends Omit<AppProps, "baseFeedbackS
   onOpenAutomationConsumed: () => void;
   handleOpenAutomations: OpenAutomationsMain;
   handleOpenPluginStore: () => void;
+  /** 侧边栏「知识库」主视图入口（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）。 */
+  handleOpenKnowledge: () => void;
   handleManageInstalledPlugins: () => void;
   workspaceShellESCodeState: WorkspaceShellESCodeState;
   theme: Theme;

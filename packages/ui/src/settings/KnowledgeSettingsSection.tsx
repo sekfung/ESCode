@@ -1,4 +1,5 @@
-// 设置 →「知识库」：LLM Wiki 知识图谱（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）。
+// 知识库：LLM Wiki 知识图谱（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）。
+// 主视图入口：workspace 侧边栏「知识库」（搜索入口下方）；设置页不再提供该分区（settingsNavigation 中隐藏）。
 // 只展示 runtime 的事实快照；导入、批准/拒绝/弃用、提升到全局都需要用户显式操作并经确认，由 runtime 落盘与审计。
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { FileUp, RefreshCw } from "lucide-react";

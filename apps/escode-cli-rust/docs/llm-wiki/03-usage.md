@@ -5,7 +5,7 @@ Agent 在编码和 Code Review 时自动检索相关条目并注入上下文。�
 实现与验证结果见 [02-delivery-report.md](02-delivery-report.md)。
 
 > 只有 Rust runtime（`escode-cli-rust`）实现 LLM Wiki。桌面安装包默认使用 Rust runtime；
-> 如果设置页「知识库」显示「当前 runtime 不支持」，说明当前 workspace 跑的是 Node runtime（开发态或 `ESCODE_AGENT_SERVER_RUNTIME=node`）。
+> 如果知识库页显示「当前 runtime 不支持」，说明当前 workspace 跑的是 Node runtime（开发态或 `ESCODE_AGENT_SERVER_RUNTIME=node`）。
 
 ## 1. 两层作用域
 
@@ -41,7 +41,7 @@ Project Wiki 的目录内容：
 
 ## 2. 导入文档
 
-**Desktop**：设置 → 知识库 → 页头「导入文档」（图谱为空时空状态里也有）。
+**Desktop**：侧边栏「知识库」（搜索入口下方）→ 页头「导入文档」（图谱为空时空状态里也有）。
 
 1. **选择来源**：本地工作区可点「选择文件」或「选择文件夹」。远程工作区需在文本框中输入路径，每行一个，路径指运行该工作区的机器，相对路径以工作区为准。
 2. **选择「导入到」**：
@@ -101,7 +101,7 @@ escode-cli-rust wiki read api-error-envelope
 
 1. **产生候选**：来源可以是导入（默认）、Agent 调用 `WikiPropose`，或 `wiki propose --title … --kind … --body … --rationale …`。
 2. **查看**：
-   - Desktop：设置 → 知识库 → 点击图谱节点，查看正文、来源定位、冲突和审核历史。
+   - Desktop：侧边栏「知识库」→ 点击图谱节点，查看正文、来源定位、冲突和审核历史。
    - 命令行：`wiki read <id>`、`wiki conflicts`。
 3. **决定**：
    - `approve`：成为规范，并按 kind 授予权威等级。
@@ -129,7 +129,9 @@ escode-cli-rust wiki read api-error-envelope
 
 ## 6. Desktop 知识图谱
 
-位置：设置 → Agent 能力 →「知识库」。桌面与手机 Web 使用同一页面；手机宽度下图谱与详情改为上下排列。
+位置：workspace 侧边栏「知识库」（搜索入口下方，与「自动化」「插件市场」同级）。设置页不再提供该分区；
+入口只在桌面 / 普通 Web 提供，手机远控不承载该主视图。
+手机 / 窄宽度下图谱与详情改为上下排列。
 
 - **节点颜色**表示类型（规范与规则、架构与契约、指南与模式、参考、反模式、候选类）。
   - 虚线描边：候选；警示描边：待复核；淡化：已弃用、已取代或已拒绝。

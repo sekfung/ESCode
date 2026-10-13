@@ -25,6 +25,7 @@ import {
   MessageCircleCheck,
   MessageCirclePlus,
   Minimize2,
+  Network,
   Plus,
   Search,
   X,
@@ -266,8 +267,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter,
   onOpenAutomations,
   onOpenPluginStore,
+  onOpenKnowledge,
   automationsActive = false,
   pluginStoreActive = false,
+  knowledgeActive = false,
   onFileTreeOpenChange,
   onWebRemoteTaskOpen,
   onWebRemoteTaskSwitchingChange,
@@ -322,8 +325,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter: () => void;
   onOpenAutomations?: () => void;
   onOpenPluginStore?: () => void;
+  onOpenKnowledge?: () => void;
   automationsActive?: boolean;
   pluginStoreActive?: boolean;
+  knowledgeActive?: boolean;
   onFileTreeOpenChange?: (open: boolean) => void;
   onWebRemoteTaskOpen?: (options: { crossWorkspace: boolean }) => void;
   onWebRemoteTaskSwitchingChange?: (switching: boolean) => void;
@@ -866,6 +871,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   const handleOpenPluginStoreMain = useCallback(() => {
     onOpenPluginStore?.();
   }, [onOpenPluginStore]);
+  const handleOpenKnowledgeMain = useCallback(() => {
+    onOpenKnowledge?.();
+  }, [onOpenKnowledge]);
   const handleOpenAutomationsMain = useCallback(() => {
     onOpenAutomations?.();
   }, [onOpenAutomations]);
@@ -1515,6 +1523,25 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                 {commandCenterShortcutLabel}
               </span>
             </Button>
+            {/* 知识库（LLM Wiki 知识图谱，apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：
+                与「自动化」「插件市场」同级的主视图入口；手机远控不承载该主视图，不显示入口。 */}
+            {!isWebRemoteControlSidebar ? (
+              <Button
+                variant="ghost"
+                onClick={handleOpenKnowledgeMain}
+                data-icon="inline-start"
+                data-testid="knowledge-sidebar-open"
+                size="lg"
+                aria-pressed={knowledgeActive}
+                className={cn(
+                  "w-full justify-start gap-2 text-foreground hover:bg-surface-hover hover:text-foreground",
+                  knowledgeActive && "bg-selected text-foreground",
+                )}
+              >
+                <Network className="size-4" />
+                {intl.formatMessage({ id: "workspace.openKnowledge" })}
+              </Button>
+            ) : null}
             {/* Bugfix: 远程入口展示策略统一走 useRemoteConnectionEntryVisibility，避免与其他入口出现分叉。 */}
             {/* {showRemoteConnectionEntry ? (
               <SSHDialog

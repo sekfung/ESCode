@@ -1692,6 +1692,7 @@ const zhCN: Record<string, string> = {
   "workspace.startFromScratch": "从空目录开始",
   "workspace.openFolder": "打开文件夹",
   "workspace.openPluginsSettings": "插件市场",
+  "workspace.openKnowledge": "知识库",
   "workspace.backToWorkspace": "返回工作区",
   "workspace.noActiveForNewTask": "当前还没有可用的工作区，请先打开一个工作区。",
   "workspace.wslUncPrompt.title": "建议通过 WSL 远程连接打开",
@@ -2467,16 +2468,19 @@ const zhCN: Record<string, string> = {
   "settings.knowledge.import.pickFolder": "选择文件夹",
   "settings.knowledge.import.placeholder": "docs/architecture\n/path/to/api-contract.docx",
   "settings.knowledge.import.pathHint": "每行一个路径，相对路径以当前工作区为准。",
-  "settings.knowledge.import.remotePathHint": "每行一个路径，指运行该工作区的机器上的路径；相对路径以工作区为准。",
+  "settings.knowledge.import.remotePathHint":
+    "每行一个路径，指运行该工作区的机器上的路径；相对路径以工作区为准。",
   "settings.knowledge.import.formats":
     "支持 Markdown、TXT、CSV/TSV、JSON、YAML、XML、RST、DOCX、XLSX、PPTX、文本型 PDF；DOC/XLS 需开启 Office 转换器；文件夹中不支持的文件会被忽略。",
   "settings.knowledge.import.target": "导入到",
   "settings.knowledge.import.scope.project.title": "项目 Wiki",
   "settings.knowledge.import.scope.project.location": "<项目>/.escode/wiki",
-  "settings.knowledge.import.scope.project.description": "随仓库提交，仅本项目可见。适合本项目的规范、架构、接口契约、业务规则。",
+  "settings.knowledge.import.scope.project.description":
+    "随仓库提交，仅本项目可见。适合本项目的规范、架构、接口契约、业务规则。",
   "settings.knowledge.import.scope.global.title": "全局 Wiki",
   "settings.knowledge.import.scope.global.location": "~/.escode/wiki",
-  "settings.knowledge.import.scope.global.description": "所有项目可见，不入仓库。适合跨项目通用的编码规范与团队约定。",
+  "settings.knowledge.import.scope.global.description":
+    "所有项目可见，不入仓库。适合跨项目通用的编码规范与团队约定。",
   "settings.knowledge.import.approve": "导入后直接批准为规范",
   "settings.knowledge.import.approveHint": "默认关闭：导入结果为候选，在图谱中逐条审核。",
   "settings.knowledge.import.confirmApprove.title": "直接批准全部导入内容？",
@@ -2484,7 +2488,8 @@ const zhCN: Record<string, string> = {
     "从 {count} 个来源抽取的知识将不经逐条审核，直接成为{scope} Wiki 中的规范。",
   "settings.knowledge.import.submit": "导入",
   "settings.knowledge.import.running": "导入中…",
-  "settings.knowledge.import.summary": "{scope}：{files} 个文件，新建 {created} 条，更新 {updated} 条",
+  "settings.knowledge.import.summary":
+    "{scope}：{files} 个文件，新建 {created} 条，更新 {updated} 条",
   "settings.knowledge.import.summaryIssues": "；失败 {failed} 个，跳过 {skipped} 个",
   "settings.knowledge.import.done": "完成",
   "settings.knowledge.import.created": "新建 {count}",
@@ -2499,7 +2504,8 @@ const zhCN: Record<string, string> = {
   "settings.knowledge.import.status.unknown": "未知",
   "settings.knowledge.action.promote": "提升到全局",
   "settings.knowledge.confirm.promote.title": "提升到全局 Wiki？",
-  "settings.knowledge.confirm.promote.description": "{id} 将复制到全局 Wiki 作为新的候选，在全局批准后对所有项目可见；项目条目保留。",
+  "settings.knowledge.confirm.promote.description":
+    "{id} 将复制到全局 Wiki 作为新的候选，在全局批准后对所有项目可见；项目条目保留。",
   "settings.knowledge.description":
     "全局 Wiki 与当前项目的 LLM Wiki 知识图谱。已批准的条目会注入到 Agent 的对话轮次中；候选知识需要你批准后才会生效。",
   "settings.knowledge.project": "项目",
@@ -2509,7 +2515,8 @@ const zhCN: Record<string, string> = {
   "settings.knowledge.waiting": "正在等待工作区连接…",
   "settings.knowledge.disabled": "当前工作区未启用 LLM Wiki，可在 config.json 中开启：",
   "settings.knowledge.unsupported": "当前 Agent runtime 不支持 LLM Wiki。",
-  "settings.knowledge.unsupportedHint": "知识库由 Rust runtime 提供，请将 Agent runtime 切换为 Rust 后使用。",
+  "settings.knowledge.unsupportedHint":
+    "知识库由 Rust runtime 提供，请将 Agent runtime 切换为 Rust 后使用。",
   "settings.knowledge.loadFailed": "知识库加载失败。",
   "settings.knowledge.filter.scope": "作用域",
   "settings.knowledge.filter.status": "状态",
@@ -2547,7 +2554,8 @@ const zhCN: Record<string, string> = {
   "settings.knowledge.action.deprecate": "弃用",
   "settings.knowledge.actionFailed": "操作失败：{summary}",
   "settings.knowledge.confirm.approve.title": "批准为规范？",
-  "settings.knowledge.confirm.approve.description": "{id} 将成为已批准的规范，并可能注入到该作用域内的 Agent 对话轮次中。",
+  "settings.knowledge.confirm.approve.description":
+    "{id} 将成为已批准的规范，并可能注入到该作用域内的 Agent 对话轮次中。",
   "settings.knowledge.confirm.reject.title": "拒绝这条候选知识？",
   "settings.knowledge.confirm.reject.description": "{id} 将被标记为已拒绝，不会再被注入。",
   "settings.knowledge.confirm.deprecate.title": "弃用该条目？",
@@ -7262,8 +7270,10 @@ const zhCN: Record<string, string> = {
   "globalNotice.highspeed.close": "关闭加速分享卡片",
   // 电路面板（docs/circuit/README.md §8）：面板、引用卡片、引用 chip 与修正入口。
   "circuit.loading": "正在读取电路…",
-  "circuit.unavailable": "电路面板仅 Desktop 可用：当前环境没有运行该 workspace 的 CircuitService。",
-  "circuit.unsupported": "该文件不是电路面板支持的来源（支持 .kicad_sch、.kicad_pcb、.circuit.json）。",
+  "circuit.unavailable":
+    "电路面板仅 Desktop 可用：当前环境没有运行该 workspace 的 CircuitService。",
+  "circuit.unsupported":
+    "该文件不是电路面板支持的来源（支持 .kicad_sch、.kicad_pcb、.circuit.json）。",
   "circuit.retryParse": "重新解析",
   "circuit.refresh": "刷新",
   "circuit.summary.counts": "{components} 个器件 · {nets} 条网络",

@@ -62,7 +62,8 @@ const enUS: Record<string, string> = {
   "occupationOnboarding.migration": "Migrate conversations",
   "occupationOnboarding.migrationDescription": "Migrate conversation history from Claude Code",
   "occupationOnboarding.memory": "Enable Workspace Memory",
-  "occupationOnboarding.memoryDescription": "Let ESCode remember your preferences and work context.",
+  "occupationOnboarding.memoryDescription":
+    "Let ESCode remember your preferences and work context.",
   "occupationOnboarding.suggestions": "Enable proactive task suggestions",
   "occupationOnboarding.suggestionsDescription":
     "Show suggestions in new conversations. Click to fill the composer.",
@@ -1077,7 +1078,8 @@ const enUS: Record<string, string> = {
   "browser.permission.deviceBluetooth": "Bluetooth devices",
   "browser.permission.unknownCapability": "an unknown capability",
   "browser.permission.screenShareTitle": "{origin} wants to share your screen",
-  "browser.permission.screenShareDescription": "Choose the screen or window to share. This choice applies only to this session.",
+  "browser.permission.screenShareDescription":
+    "Choose the screen or window to share. This choice applies only to this session.",
   "browser.permission.deviceTitle": "{origin} wants to connect a device",
   "browser.permission.connect": "Connect",
   "browser.permission.screenGroup.screen": "Entire Screen",
@@ -1819,6 +1821,7 @@ const enUS: Record<string, string> = {
   "workspace.startFromScratch": "Start from scratch",
   "workspace.openFolder": "Open folder",
   "workspace.openPluginsSettings": "Plugin Marketplace",
+  "workspace.openKnowledge": "Knowledge Base",
   "workspace.backToWorkspace": "Back to workspace",
   "workspace.noActiveForNewTask": "There is no available workspace yet. Open a workspace first.",
   "workspace.wslUncPrompt.title": "Open this through WSL remote connection?",
@@ -2637,7 +2640,8 @@ const enUS: Record<string, string> = {
     "Knowledge extracted from {count} source(s) will be approved as standards in the {scope} wiki without individual review.",
   "settings.knowledge.import.submit": "Import",
   "settings.knowledge.import.running": "Importing…",
-  "settings.knowledge.import.summary": "{scope}: {files} file(s), {created} created, {updated} updated",
+  "settings.knowledge.import.summary":
+    "{scope}: {files} file(s), {created} created, {updated} updated",
   "settings.knowledge.import.summaryIssues": "; {failed} failed, {skipped} skipped",
   "settings.knowledge.import.done": "Done",
   "settings.knowledge.import.created": "{count} created",
@@ -4162,7 +4166,8 @@ const enUS: Record<string, string> = {
   "sidebar.usage.plan.toolCalls": "Tool calls",
   "sidebar.usage.plan.mcp": "ESCode MCP",
   "sidebar.usage.plan.escodeMcp": "ESCode MCP",
-  "sidebar.usage.plan.escodeMcpDescription": "Daily aggregate quota for ESCode built-in plugin MCPs",
+  "sidebar.usage.plan.escodeMcpDescription":
+    "Daily aggregate quota for ESCode built-in plugin MCPs",
   "chat.planUsage.title": "Plan usage",
   "chat.planUsage.titleWithPlan": "{plan} Plan usage",
   "chat.planUsage.providerFallback": "Current provider",
@@ -4938,7 +4943,8 @@ const enUS: Record<string, string> = {
   "settings.workspaceFileSearch.transformFailed":
     "Failed to apply the section operation; check the logs",
   "settings.workspaceFileSearch.reveal": "Reveal file location",
-  "settings.workspaceFileSearch.revealHint": "Save first; .escodeignore lives at the workspace root",
+  "settings.workspaceFileSearch.revealHint":
+    "Save first; .escodeignore lives at the workspace root",
   "settings.workspaceFileSearch.unsaved": "Unsaved changes",
   "settings.workspaceFileSearch.noWorkspace":
     "No workspace is open, so search ignore rules cannot be configured.",
@@ -6691,7 +6697,8 @@ const enUS: Record<string, string> = {
   // ESCode Agent
   "escode.unavailable": "AI agent not available",
   "escode.initFailed": "Failed to start AI agent",
-  "escode.error.TASK_OWNED_BY_OTHER_HOST": "This task is already running in another connected view.",
+  "escode.error.TASK_OWNED_BY_OTHER_HOST":
+    "This task is already running in another connected view.",
   "escode.error.STALE_TASK_OWNER_COMMAND": "This action belongs to an older run and was ignored.",
   "escode.error.NO_ACTIVE_TASK_OWNER": "No active task owner is available for this action.",
   "escode.error.OWNER_COMMAND_FAILED": "The task owner could not complete this action.",
@@ -7649,7 +7656,8 @@ const enUS: Record<string, string> = {
   "circuit.schematic.aria": "Circuit schematic",
   "circuit.lowConfidence": "Low confidence",
   "circuit.sheet.root": "Root sheet",
-  "circuit.noLayout": "This source has no renderable geometry (netlist / BOM only have a semantic view).",
+  "circuit.noLayout":
+    "This source has no renderable geometry (netlist / BOM only have a semantic view).",
   "circuit.truncated": "Too many elements; the list was truncated at the response limit.",
   "circuit.side.bom": "BOM",
   "circuit.side.nets": "Nets",

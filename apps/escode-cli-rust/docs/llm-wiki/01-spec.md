@@ -195,7 +195,17 @@ needs-review 条目不能作为 violation 依据；不得把偏好写成规范�
 节点：`{id, type: entry|source, label, scope, kind?, status?, authority?, validity?, format?, sourceStatus?}`；
 边：`{id, from, to, type: related|supersedes|source|conflict}`。schema 在 `packages/shared/src/escode-protocol-v4/wiki.ts`（zod strict）。
 
-UI：入口位于设置导航「知识库」分区（桌面与手机 Web 同一页面）；力导向图（节点颜色=kind，形状/描边=status，source 节点为方块），
+UI 只有主视图一个入口：
+
+- **主视图入口（桌面）**：workspace 侧边栏「知识库」按钮，位于搜索（命令中心）入口下方，与「自动化」「插件市场」同级。
+  点击后切换 `workspaceMainView = "knowledge"`，并作为 workspace 身份隔离的正式导航目标入栈（`kind: "knowledge"`），
+  顶部前进/后退可返回或恢复该页。与 automations / plugin-store 一致：不渲染 `WorkspaceHeader`，
+  桌面顶部由 `AutomationsMainBreadcrumbFrame` 提供 48px 拖拽区（docs/automations-main-window-drag-region.md）。
+  手机远控（web remote）不承载该主视图，侧边栏不显示该按钮；进入远控时主视图回落到对话。
+- 设置页不再提供「知识库」分区：`knowledge` 加入 `HIDDEN_SETTINGS_SECTIONS`（与 `automations` 同一处理），
+  分区 id 与设置页分支保留只为兼容旧深链（会被折算到 fallback 分区），导航中不再渲染。
+
+页面内容：力导向图（节点颜色=kind，形状/描边=status，source 节点为方块），
 筛选 scope/kind/status，点击节点显示详情（正文、来源定位、冲突、审核历史），对 proposal 提供「批准/拒绝」，对 approved 提供「弃用」（确认对话框）。
 手机宽度下图谱与详情改为上下布局；主题 token 与 `text-ui-*` 遵循 DESIGN.md；中英文案。
 

@@ -7,7 +7,7 @@ function readSource(path: string) {
 }
 
 describe("workspace main view drag region", () => {
-  it("keeps a desktop-only drag strip when automations or plugins hide WorkspaceHeader", () => {
+  it("keeps a desktop-only drag strip when automations/plugins/knowledge hide WorkspaceHeader", () => {
     const layoutSource = readSource(
       "packages/ui/src/app-shell/WorkspaceShellLayout.tsx",
     );
@@ -19,6 +19,10 @@ describe("workspace main view drag region", () => {
     expect(layoutSource).toMatch(
       /workspaceMainView !== "automations"\s*&&\s*workspaceMainView !== "plugin-store"/,
     );
+    // 知识库与 automations/plugin-store 同级：不渲染 WorkspaceHeader，共用同一拖拽/面包屑骨架。
+    expect(layoutSource).toMatch(
+      /workspaceMainView !== "plugin-store"\s*&&\s*workspaceMainView !== "knowledge"/,
+    );
     expect(frameSource).toContain('data-testid="automations-main-drag-region"');
     expect(frameSource).toContain("h-12 shrink-0 [app-region:drag]");
     expect(frameSource).toContain("isDesktop ? (");
@@ -26,15 +30,17 @@ describe("workspace main view drag region", () => {
       "min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]",
     );
 
+    // 三个整页主视图（automations / plugin-store / knowledge）× 两个主区渲染分支，
+    // 再加知识库共用的 renderKnowledgeMainView：4 + 1。
     expect(
       layoutSource.match(/<AutomationsMainBreadcrumbFrame/gu)?.length,
-    ).toBe(4);
+    ).toBe(5);
     expect(
       frameSource.match(/data-testid="automations-main-drag-region"/gu)?.length,
     ).toBe(1);
   });
 
-  it("reserves scrollbar space in automations and plugins shell layouts", () => {
+  it("reserves scrollbar space in automations, plugins and knowledge shell layouts", () => {
     const layoutSource = readSource(
       "packages/ui/src/app-shell/WorkspaceShellLayout.tsx",
     );
@@ -44,6 +50,6 @@ describe("workspace main view drag region", () => {
         /min-h-0 flex-1 overflow-y-auto \[scrollbar-gutter:stable\]/gu,
       )?.length ?? 0;
 
-    expect(stableScrollerCount).toBe(4);
+    expect(stableScrollerCount).toBe(5);
   });
 });

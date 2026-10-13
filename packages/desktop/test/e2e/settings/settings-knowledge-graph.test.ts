@@ -2,7 +2,9 @@ import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+  TID_AUTOMATIONS_OPEN,
   TID_CONFIRM_DIALOG_CONFIRM,
+  TID_SETTINGS_BACK_BUTTON,
   TID_SETTINGS_PAGE,
   TID_SETTINGS_SECTION_NAV,
   TID_TASK_SETTINGS_BUTTON,
@@ -18,7 +20,7 @@ import {
 import { skipOccupationOnboardingIfPresent } from "../helpers/occupation-onboarding.js";
 import { sel } from "../helpers/selectors.js";
 
-// 设置 →「知识库」（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）。
+// 知识库页（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：入口是 workspace 侧边栏「知识库」主视图，设置页不再提供该分区。
 // - Node runtime（开发态 E2E 默认）：页面必须明确显示「当前 runtime 不支持」，不渲染图谱。
 // - Rust runtime（ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust）：预置一条全局候选知识，
 //   在图谱中选中 → 批准 → 确认框确认 → 条目文件状态落盘为 approved 且详情刷新。
@@ -67,37 +69,28 @@ async function seedGlobalProposal(): Promise<string> {
   return file;
 }
 
-/** KG-02 在 KG-01 之后运行：设置页可能仍打开，此时只切换分区。 */
-async function ensureKnowledgeSettings() {
-  if (
-    await $(sel(TID_SETTINGS_PAGE))
-      .isDisplayed()
-      .catch(() => false)
-  ) {
-    await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "knowledge"), {
-      timeout: 15000,
-      timeoutMsg: "设置页没有出现「知识库」分区入口",
-    });
-    await $(sel("knowledge-settings-section")).waitForDisplayed({ timeout: 15000 });
-    return;
-  }
-  await openKnowledgeSettings();
-}
-
-async function openKnowledgeSettings() {
-  await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON, {
+/** 知识库主视图入口在 workspace 侧边栏搜索下方；设置页已不再提供该分区（spec §11）。 */
+async function openKnowledgeMainView() {
+  await clickTestIdByDom("knowledge-sidebar-open", {
     timeout: 15000,
-    timeoutMsg: "没有找到设置入口按钮",
-  });
-  await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
-  await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "knowledge"), {
-    timeout: 15000,
-    timeoutMsg: "设置页没有出现「知识库」分区入口",
+    timeoutMsg: "workspace 侧边栏没有「知识库」入口",
   });
   await $(sel("knowledge-settings-section")).waitForDisplayed({ timeout: 15000 });
 }
 
-describe("设置 · 知识库图谱 E2E", () => {
+/** KG-02 在 KG-01 之后运行：知识库页可能已经打开，此时不重复点击入口。 */
+async function ensureKnowledgeMainView() {
+  if (
+    await $(sel("knowledge-settings-section"))
+      .isDisplayed()
+      .catch(() => false)
+  ) {
+    return;
+  }
+  await openKnowledgeMainView();
+}
+
+describe("知识库 · 图谱 E2E", () => {
   let seededFile: string | null = null;
 
   after(async () => {
@@ -116,7 +109,7 @@ describe("设置 · 知识库图谱 E2E", () => {
     await skipOccupationOnboardingIfPresent();
     await waitForDefaultWorkspaceReady(30000);
     await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
-    await openKnowledgeSettings();
+    await openKnowledgeMainView();
 
     if (!rust) {
       const notice = await $('[data-testid="knowledge-phase-notice"][data-phase="unsupported"]');
@@ -180,7 +173,7 @@ describe("设置 · 知识库图谱 E2E", () => {
       "# KG import\n\n## Paging contract\n\nList APIs must return a next_cursor field.\n",
       "utf-8",
     );
-    await ensureKnowledgeSettings();
+    await ensureKnowledgeMainView();
     await clickTestIdByDom("knowledge-import-open", {
       timeout: 15000,
       timeoutMsg: "缺少「导入文档」入口",
@@ -228,5 +221,70 @@ describe("设置 · 知识库图谱 E2E", () => {
         (await readdir(globalEntries).catch(() => [])).some((f) => f.endsWith(".global.md")),
       { timeout: 20000, timeoutMsg: "提升后全局存储没有出现 .global 副本" },
     );
+  });
+
+  it("KG-03: 设置页不再提供知识库分区，入口位于侧边栏搜索下方并可切换主视图", async function () {
+    this.timeout(120000);
+    await skipOccupationOnboardingIfPresent();
+    await waitForDefaultWorkspaceReady(30000);
+    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
+
+    // 知识库已从设置导航移除（产品语义：它是 workspace 主视图）。
+    await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON, {
+      timeout: 15000,
+      timeoutMsg: "没有找到设置入口按钮",
+    });
+    await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
+    expect(
+      await $(
+        sel(testId(TID_SETTINGS_SECTION_NAV, "knowledge")),
+      ).isExisting(),
+    ).toBe(false);
+    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
+      timeout: 15000,
+      timeoutMsg: "设置页没有返回按钮",
+    });
+    await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ reverse: true, timeout: 15000 });
+
+    await clickTestIdByDom("knowledge-sidebar-open", {
+      timeout: 15000,
+      timeoutMsg: "workspace 侧边栏没有「知识库」入口",
+    });
+    // 主视图渲染的是知识库页面（页面内容由 KG-01/KG-02 覆盖）。
+    await $(sel("knowledge-settings-section")).waitForDisplayed({ timeout: 15000 });
+    // 与 automations/plugin-store 一致：工作区顶栏让位给主视图拖拽/面包屑骨架。
+    await $(sel("automations-main-drag-region")).waitForDisplayed({ timeout: 15000 });
+
+    // 入口顺序：搜索（命令中心）→ 知识库 → 自动化。桌面侧边栏按渲染顺序取行的绝对位置比较。
+    const order = await browser.execute(() => {
+      const sidebar = document.querySelector('[data-testid="sidebar"]');
+      if (!sidebar) return null;
+      const buttons = Array.from(sidebar.querySelectorAll("button"));
+      const indexOfTestId = (id: string) =>
+        buttons.findIndex((button) => button.getAttribute("data-testid") === id);
+      const searchIndex = buttons.findIndex((button) =>
+        Boolean(button.querySelector("svg.lucide-search")),
+      );
+      return {
+        searchIndex,
+        knowledgeIndex: indexOfTestId("knowledge-sidebar-open"),
+        automationsIndex: indexOfTestId("automations-open"),
+      };
+    });
+    if (!order) {
+      throw new Error("侧边栏没有渲染，入口顺序无法断言");
+    }
+    expect(order.searchIndex).toBeGreaterThanOrEqual(0);
+    expect(order.knowledgeIndex).toBe(order.searchIndex + 1);
+    if (order.automationsIndex >= 0) {
+      expect(order.knowledgeIndex).toBeLessThan(order.automationsIndex);
+    }
+
+    // 主视图导航可离开知识库：切到「自动化」后知识库页面卸载。
+    await clickTestIdByDom(TID_AUTOMATIONS_OPEN, {
+      timeout: 15000,
+      timeoutMsg: "侧边栏没有「自动化」入口",
+    });
+    await $(sel("knowledge-settings-section")).waitForDisplayed({ reverse: true, timeout: 15000 });
   });
 });

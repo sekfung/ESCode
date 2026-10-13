@@ -25,7 +25,10 @@ import {
 } from "@/lib/wikiGraph.js";
 import { KnowledgeEntryDetail } from "@/settings/KnowledgeEntryDetail.js";
 import { KnowledgePhaseNotice } from "@/settings/KnowledgeSettingsSection.js";
-import { createSettingsPageConfig } from "@/settings/settingsPageConfig.js";
+import {
+  createSettingsPageConfig,
+  resolveSettingsSectionForPlatform,
+} from "@/settings/settingsPageConfig.js";
 
 const ids = (count: number) => Array.from({ length: count }, (_, index) => ({ id: `n${index}` }));
 
@@ -175,13 +178,17 @@ describe("knowledge data rules", () => {
     });
   });
 
-  it("registers the knowledge section after memory on desktop and web", () => {
+  it("knowledge 是 workspace 主视图：设置导航不再注册该分区，旧落点折算到 general", () => {
     for (const options of [{ isDesktop: true }, {}]) {
-      const { settingsSectionGroups } = createSettingsPageConfig(options);
-      const agent = settingsSectionGroups.find((group) => group.id === "agentCapabilities");
-      const sectionIds = agent?.sections.map((section) => section.id) ?? [];
-      expect(sectionIds).toContain("knowledge");
-      expect(sectionIds.indexOf("knowledge")).toBe(sectionIds.indexOf("memory") + 1);
+      const { settingsSectionGroups, settingsSections } = createSettingsPageConfig(options);
+      const sectionIds = settingsSectionGroups.flatMap((group) =>
+        group.sections.map((section) => section.id),
+      );
+      expect(sectionIds).not.toContain("knowledge");
+      // 旧深链或历史偏好仍可能带 knowledge，必须折算到 fallback 分区而不是渲染空页面。
+      expect(resolveSettingsSectionForPlatform("knowledge", settingsSections, "general")).toBe(
+        "general",
+      );
     }
   });
 });
