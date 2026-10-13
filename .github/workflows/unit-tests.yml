@@ -1,0 +1,64 @@
+# 单元测试门禁：按 diff 选测试（scripts/run-affected-unit-tests.mjs），PR 上只跑改动波及的用例。
+#
+# 为什么必须 fetch-depth: 0：受影响 runner 要对基线 commit 做 diff（ESCODE_AFFECTED_TEST_BASE）；
+# actions/checkout 默认浅克隆只有 1 个 commit，diff 无从谈起 —— 那样它会静默退化成全量或报错。
+#
+# 与 pre-push 的关系：本仓库本地门禁是 verify:pre-push（lint + architecture:check --changed +
+# test:unit:affected），但那只在开发机上跑、且只覆盖已提交的区间。这个 job 把其中唯一缺席 CI 的一环
+# 补上：lint 与 architecture:check 已在 rust-runtime-ci 的 checks job 里跑。
+name: unit-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 与 rust-runtime-ci 一致：单元测试不启动 Electron，省掉每次约 120 MB 的二进制下载。
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  # 部分用例会起本地服务与子进程；runner 争用时容易撞接收超时（rust-runtime-ci 的同名放宽）。
+  ESCODE_TEST_REQUEST_MS: "60000"
+
+jobs:
+  affected:
+    name: unit tests (affected)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 受影响 runner 需要基线 commit 才能算 diff；浅克隆会让它退化成全量或直接失败。
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # 基线取 PR 的目标分支 sha；push 取本次推送前的 sha。拿不到有效 commit（新分支的零 sha、
+      # 强推、深历史缺失等）时回落全量单测 —— 宁可多跑，也不让门禁静默失效。
+      - name: 受影响单测（无有效基线时回落全量）
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -n "$BASE" ] && printf '%s' "$BASE" | grep -qE '^[0-9a-f]{40}$' && ! printf '%s' "$BASE" | grep -qE '^0{40}$' && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "受影响单测，基线 $BASE"
+            ESCODE_AFFECTED_TEST_BASE="$BASE" pnpm test:unit:affected
+          else
+            echo "没有可用基线（base='$BASE'），回落全量单测"
+            pnpm test:unit
+          fi
