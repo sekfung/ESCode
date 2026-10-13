@@ -62,3 +62,23 @@ jobs:
             echo "没有可用基线（base='$BASE'），回落全量单测"
             pnpm test:unit
           fi
+
+  # bootstrap 套件此前没有任何 CI 覆盖：rust-runtime-ci 的 checks 只跑 check:escode-cli-rust /
+  # typecheck / lint / architecture:check，test job 跑的是 test:escode-cli-rust（Rust 侧脚本与
+  # packages/services 的 escode-cli-rust 集成用例），都不含 packages/bootstrap 的 vitest 套件。
+  bootstrap:
+    name: bootstrap suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
+      - run: pnpm --filter @escode/bootstrap exec vitest run tests
