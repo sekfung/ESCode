@@ -4,6 +4,7 @@ import { readFile, readdir, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { promisify } from "node:util";
 import { resolveSpawnRuntimeOptions } from "./spawn-command.mjs";
+import { readLockfileProductionGraph } from "./third-party-lockfile-graph.mjs";
 
 const exec = promisify(execFile);
 export const hashBytes = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -142,50 +143,79 @@ export function productionPackages(projects, isInstallable = () => true) {
   return required;
 }
 
-export function assertProductionGraphs(lockedProjects, installedProjects, isInstallable) {
-  const locked = productionPackages(lockedProjects, isInstallable);
-  const installed = productionPackages(installedProjects, isInstallable);
-  const missing = [...locked].filter(([key]) => !installed.has(key));
-  const stale = [...installed.keys()].filter((key) => !locked.has(key));
-  if (missing.length || stale.length) {
-    throw new Error(
-      `Installed production graph differs from pnpm-lock.yaml. Run pnpm install --frozen-lockfile.\nMissing: ${missing.map(([key]) => key).join(", ")}\nStale: ${stale.join(", ")}`,
-    );
-  }
-  return locked;
-}
-
 export async function readWorkspaceProductionGraph(root) {
   root = await realpath(root);
-  // 修复：pnpm ls 默认读取安装快照，不能把旧图与当前锁文件哈希拼成有效声明。
-  const [locked, actual] = await Promise.all(
-    [true, false].map(async (lockfileOnly) => {
-      const { stdout } = await exec(
-        "pnpm",
-        [
-          "-r",
-          "ls",
-          "--prod",
-          "--json",
-          "--depth",
-          "Infinity",
-          ...(lockfileOnly ? ["--lockfile-only"] : []),
-        ],
-        {
-          cwd: root,
-          maxBuffer: 256 * 1024 * 1024,
-          ...resolveSpawnRuntimeOptions("pnpm"),
-        },
-      );
-      return JSON.parse(stdout);
-    }),
-  );
+  // 两侧都不再依赖 pnpm 的依赖图输出：
+  //   - required：直接解析 pnpm-lock.yaml 得生产闭包（scripts/third-party-lockfile-graph.mjs）；
+  //   - installed：按真实安装目录递归扫描（scanInstalledPackages）。hoisted 布局下 pnpm ls 会漏掉
+  //     嵌套副本（本文件早已因同一原因改用目录匹配），拿它做交叉核对只会误报。
+  // 原先那一半 `pnpm ls --lockfile-only` 在 pnpm 9.15.9 与 10.33.2 上都只出现在 --help 里、解析器一律
+  // 拒绝（实测），整条 notices 流水线因此恒抛。现在缺包由 missingProductionPackages 判定，
+  // 多余包由锁文件全量闭包（含 dev）判定，两个方向都还在，且都基于确定的事实源。
+  const [{ projects: lockedProjects, allPackages }, projects] = await Promise.all([
+    readLockfileProductionGraph(root),
+    readPnpmProjectList(root),
+  ]);
   const isInstallable = createInstallablePackageFilter(
     readLockfilePlatformConstraints(await readFile(join(root, "pnpm-lock.yaml"), "utf8")),
     await readInstallTargets(root),
   );
-  const required = assertProductionGraphs(locked, actual, isInstallable);
-  return { required, projects: actual };
+  const required = productionPackages(lockedProjects, isInstallable);
+  const installed = await scanInstalledPackages(root, projects);
+  // 多余包判定：装上了、但既不在锁文件全量闭包里，也不是 workspace 包本身或 vendored 运行时（见下）。
+  const ownNames = new Set(projects.map((project) => project.name));
+  const vendored = await readVendoredRuntimePackages(root);
+  const unknown = [...installed.keys()].filter((key) => {
+    if (allPackages.has(key) || vendored.has(key)) return false;
+    const name = key.slice(0, key.startsWith("@") ? key.indexOf("@", 1) : key.indexOf("@"));
+    return !ownNames.has(name);
+  });
+  if (unknown.length > 0) {
+    throw new Error(
+      `Installed packages are absent from pnpm-lock.yaml. Run pnpm install --frozen-lockfile.\n${unknown.join(", ")}`,
+    );
+  }
+  return { required, projects, installed };
+}
+
+/**
+ * vendored 运行时的逐包清单（third-party/runtime/sources.json 的 rea 条目等）。
+ *
+ * 这些包随插件分发、不进 workspace 依赖图，所以锁文件不认识它们 —— 但它们不是"多余包"。
+ * 交付声明里它们由 `## Vendored runtimes` 一节单独交代，这里只负责把它们从多余包判定里排除。
+ * 清单缺失（例如还没跑过生成器）时返回空集：宁可让门禁报警，也不要静默放行。
+ */
+async function readVendoredRuntimePackages(root) {
+  const allowed = new Set();
+  let registries;
+  try {
+    registries = JSON.parse(await readFile(join(root, "third-party", "runtime", "sources.json"), "utf8"));
+  } catch {
+    return allowed;
+  }
+  for (const runtime of Object.values(registries).flat()) {
+    if (!runtime?.dependencies) continue;
+    try {
+      const manifest = JSON.parse(await readFile(join(root, runtime.dependencies), "utf8"));
+      for (const item of manifest.packages ?? []) allowed.add(`${item.name}@${item.version}`);
+    } catch {
+      // 清单缺失不改判定范围：该运行时会被判成多余包并在错误信息里点名，便于发现漏跑生成器。
+    }
+  }
+  return allowed;
+}
+
+/**
+ * pnpm 的项目清单（name/version/path/private）。`--depth -1` 只列项目、不建依赖图，所以不会像
+ * `-r ls --depth Infinity` 那样在这个体量的 monorepo 上开爆 fd（Windows 实测 EMFILE）。
+ */
+async function readPnpmProjectList(root) {
+  const { stdout } = await exec("pnpm", ["-r", "ls", "--json", "--depth", "-1"], {
+    cwd: root,
+    maxBuffer: 256 * 1024 * 1024,
+    ...resolveSpawnRuntimeOptions("pnpm"),
+  });
+  return JSON.parse(stdout);
 }
 
 export async function scanInstalledPackages(root, projects) {
@@ -238,9 +268,9 @@ export function missingProductionPackages(required, installed) {
 
 export async function collectNpmNotices(root, overrides) {
   root = await realpath(root);
-  const { required, projects } = await readWorkspaceProductionGraph(root);
-  // 修复：标识门禁和声明生成必须扫描同一安装集合，避免嵌套版本只进声明、不进门禁。
-  const installed = await scanInstalledPackages(root, projects);
+  // 标识门禁和声明生成必须扫描同一安装集合，避免嵌套版本只进声明、不进门禁 ——
+  // 扫描已由 readWorkspaceProductionGraph 完成，这里复用同一份结果，不再重复走一遍目录树。
+  const { required, projects, installed } = await readWorkspaceProductionGraph(root);
   const packages = [];
   const missing = [];
   const notInstalled = missingProductionPackages(required, installed);

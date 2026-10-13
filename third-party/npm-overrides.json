@@ -479,14 +479,6 @@
     "evidence": "The package does not declare a license field; its license contains the MIT grant and copyright notice."
   },
   {
-    "package": "keyv@4.5.4",
-    "file": "third-party/upstream/6f7e6eae2a2afbaa67b266650f7342e7bf8e82cb57f6ab98148b3d6e0fb4450a.txt",
-    "sha256": "6f7e6eae2a2afbaa67b266650f7342e7bf8e82cb57f6ab98148b3d6e0fb4450a",
-    "source": "https://registry.npmjs.org/keyv/4.5.4",
-    "evidenceKind": "publisher-license-identifier-and-standard-terms",
-    "license": "MIT"
-  },
-  {
     "package": "@arms/rum-browser@0.1.8",
     "file": "third-party/upstream/2c976d327b293bd74c257cd53e9b4ecef97a06b1651baa3b24327c97192cb3de.txt",
     "sha256": "2c976d327b293bd74c257cd53e9b4ecef97a06b1651baa3b24327c97192cb3de",
@@ -539,5 +531,19 @@
     "file": "third-party/upstream/e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c.txt",
     "sha256": "e49e62397b603438476e0d6b5ca3b6e6d4f23a80594e596aff29ac04fa3e1b1c",
     "source": "https://raw.githubusercontent.com/rrweb-io/rrweb/%40rrweb%2Futils%402.0.0/LICENSE"
+  },
+  {
+    "package": "@electron-internal/extract-zip@1.0.5",
+    "repo": "electron/extract-zip",
+    "refs": ["v1.0.5", "@electron-internal/extract-zip@1.0.5", "1.0.5"],
+    "source": "https://registry.npmjs.org/@electron-internal/extract-zip/1.0.5",
+    "evidenceKind": "publisher-license-identifier-only",
+    "license": "BSD-2-Clause",
+    "acceptedMissingNotice": "Published 1.0.5 ships no standalone LICENSE and the v1.0.5 tag has none either — the only statements are the package metadata and a README license section. The upstream repository (main) carries MIT, so the terms governing this published version need maintainer review.",
+    "reviewEvidence": {
+      "checkedOn": "2026-10-14",
+      "result": "Became a production dependency through the Electron 41.0.3 → 41.10.7 upgrade (@electron/get@5.1.0 now depends on it). No standalone LICENSE in the npm archive; https://raw.githubusercontent.com/electron/extract-zip/v1.0.5/LICENSE returns 404; the main branch LICENSE is reported by GitHub as MIT while the published metadata says BSD-2-Clause. No complete version-pinned copyright/license material obtained.",
+      "sourceRevision": null
+    }
   }
 ]

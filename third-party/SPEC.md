@@ -70,5 +70,5 @@ sequenceDiagram
 
 1. `node --test scripts/third-party-notices.test.mjs`：缺少 inventory 或哈希过期时构建复制仍成功，显式校验失败；严格校验拒绝待核验项；缺少声明时保留 ENOENT。
 2. 独立 Server staging 的组件归档分别包含 npm、Node 与搜索工具声明，工具声明缺失时 staging 失败。
-3. 执行 `node scripts/licenses.mjs check`，如实记录在当前依赖树上的结果；不以更新哈希代替重新生成与审核。（2026-10-12 复查：当前 pnpm 版本口径下该命令无法运行，且清单自更名提交起过期，见 README.md「已知问题」。）
+3. 执行 `node scripts/licenses.mjs check`，如实记录在当前依赖树上的结果；不以更新哈希代替重新生成与审核。（2026-10-14：该命令已可在仓库钉住的 pnpm 上运行，并已重新生成声明 —— 锁文件与安装树两侧都不再依赖 pnpm 的依赖图输出；`check` 退出码 0，报告 20 项待补齐/核验材料，发布前须以 `--strict` 复核，见 README.md「已知问题」。）
 4. 最终安装包未实际构建时，不声称完成全平台安装包审计。

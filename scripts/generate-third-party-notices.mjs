@@ -23,6 +23,17 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
     if (hashBytes(await readInput(runtime.file)) !== runtime.sha256)
       throw new Error(`Changed Node ${runtime.version} license`);
   }
+  // vendored 运行时（rea）：本体许可原文逐字节校验；依赖树按平台安装、不入库，改由
+  // third-party/runtime/rea-dependencies.json 记录逐包许可（含平台无关子集的稳定哈希）。
+  for (const runtime of runtimes.rea ?? []) {
+    if (hashBytes(await readInput(runtime.file)) !== runtime.sha256)
+      throw new Error(`Changed ${runtime.package ?? runtime.version} license`);
+    const dependencies = await readJson(runtime.dependencies);
+    if (dependencies.runtime !== runtime.package)
+      throw new Error(
+        `Runtime dependencies manifest mismatch: ${runtime.dependencies} is for ${dependencies.runtime}, registry says ${runtime.package}`,
+      );
+  }
   const pkg = await readJson("package.json");
   await readInput("pnpm-lock.yaml");
   await readInput("pnpm-workspace.yaml");
@@ -141,6 +152,14 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
         `- ${item.id} (${item.license ?? "not established"}): ${item.roots.join(", ")}. License reference: ${item.source ?? "not established"}. Original import revision: ${item.importRevision ?? "not recorded"}.${item.reviewRequired ? ` Review required: ${item.reviewRequired}` : ""}`,
     ),
     "Fig autocomplete source carries the repository's MIT license; the generated registry records npm @withfig/autocomplete@2.692.3 metadata as ISC. The original source MIT notice is retained below.",
+    "## Vendored runtimes",
+    "Runtimes that ship inside an installer or agent bundle rather than through the workspace dependency graph. Platform-specific dependency closures are recorded per package rather than hashed here.",
+    ...Object.entries(runtimes).flatMap(([family, list]) =>
+      list.map(
+        (runtime) =>
+          `- ${runtime.package ?? (family === "node" ? `Node.js ${runtime.version}` : `${family}@${runtime.version}`)} — license text: ${runtime.file}; source: ${runtime.source}.${runtime.dependencies ? ` Dependency licenses: ${runtime.dependencies} (per-package license identifiers from npm metadata; the complete texts ship with the runtime).` : ""}${runtime.reviewRequired ? ` Review required: ${runtime.reviewRequired}` : ""}`,
+      ),
+    ),
     "## Embedded native and WASM components",
     ...embedded.map(
       (item) =>
@@ -194,6 +213,13 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
       ...embedded
         .filter((item) => item.reviewRequired)
         .map((item) => ({ id: item.id, reason: item.reviewRequired })),
+      ...Object.values(runtimes)
+        .flat()
+        .filter((item) => item.reviewRequired)
+        .map((item) => ({
+          id: item.package ?? `runtime ${item.version}`,
+          reason: item.reviewRequired,
+        })),
       ...native.inventory.components
         .filter((item) => !item.notices.length)
         .map((item) => ({

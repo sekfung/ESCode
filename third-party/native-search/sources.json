@@ -7,7 +7,7 @@
     "gcc-runtime": "GPL-3.0 with GCC Runtime Library Exception 3.1; this does not relicense ESCode as GPL"
   },
   "inputs": {
-    "scripts/native-search-tools-config.mjs": "06e9d2b066a22f4bb731fb7356d786b52cf08e20dd6faf91e1a82b167d7462e8",
+    "scripts/native-search-tools-config.mjs": "83bbe926d4a8b9dba9beeb7d8136fcc0a8b67776b51861aef5ee9134329285b0",
     "scripts/remote-native-search-tools-config.mjs": "2ddb7054e219ea487596cbdcb83d5c7eac9f239cfe169cfac22e3759d95d7c35"
   },
   "archives": [

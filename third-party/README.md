@@ -28,11 +28,11 @@ node scripts/licenses.mjs check --strict
 
 严格检查目前只作为显式命令运行，尚未接入 SEA 的 CI 发布和手动 SMB 上传入口：当前清单仍有已登记缺口，接入后这两条发布路径会立即失败。本地构建仍可用于核验修复，基础检查会明确提示未解决数量。
 
-### 已知问题（2026-10-12 复查）
+### 已知问题（2026-10-14 更新）
 
-- **`node scripts/licenses.mjs notices|check` 在仓库钉住的 pnpm 10.33.2 上无法运行**：`pnpm -r ls --lockfile-only` 被该版本拒绝（`Unknown option`，但 `pnpm ls --help` 里列有它）；本机核实的 10.14.0 同样拒绝、12.11.2 接受，不换 pnpm 版本就无法重新生成或跑 check。
-- **换 pnpm 12 重生成会丢材料**：pnpm 12 的 `ls` 输出不再展开由 peer 满足的依赖子树，本仓库生产图由 1219 个包缩到 1093，`@electron/get` → `got` → `keyv` 等链被丢掉，直接重生成会删掉这些包的声明；且当前 node_modules 缺这 126 个包，`missingProductionPackages` 会先报缺失。修复前先定版本口径：升级 `mise.toml` / `packageManager` 钉住的 pnpm，或让 `readWorkspaceProductionGraph` 直接从 `pnpm-lock.yaml` 取锁定图。
-- **清单自更名提交起过期**：`13c5a1a2` 只改了 `THIRD-PARTY-NOTICES.md` 与 `inventory.json` 里的旧名字符串，没重算内容哈希。当前 226 个 `inputs` 哈希过期、`noticesSha256` 与声明文件不符；在能跑起来的 pnpm 上 `licenses.mjs check` 会以「Third-party input changed / notices changed」失败，需按 SPEC.md「正式生成声明在 macOS 上执行」的口径确认 pnpm 版本后重新生成关闭。
+- **已修复：`node scripts/licenses.mjs notices|check` 不再需要挑选 pnpm 版本。** 原先 `readWorkspaceProductionGraph` 两次调用 `pnpm -r ls`，其中 `--lockfile-only` 在 10.14.0 / 10.33.2 上被拒绝（`Unknown option`，而 `pnpm ls --help` 里列有它），整条流水线恒抛。现在锁文件一侧直接解析 `pnpm-lock.yaml`（`scripts/third-party-lockfile-graph.mjs`，即下一条给出的两个选项中的后者），安装侧改用递归目录扫描，两侧都不再依赖 pnpm 的依赖图输出：既可在仓库钉住的 pnpm 10.33.2 上运行，也顺带消除了 Windows 上 `pnpm -r ls --depth Infinity` 的 `EMFILE: too many open files`。
+- **已作废的口径冲突：pnpm 12 的 `ls` 会丢材料。** pnpm 12 输出不再展开由 peer 满足的依赖子树（本仓库生产图 1219 → 1093），因此换 pnpm 版本重生成会删掉 `@electron/get` → `got` → `keyv` 一类链的声明。既然锁文件一侧已改为自行解析，这条版本口径不再需要裁决；**不要**为此升级 `mise.toml` / `packageManager` 钉住的 pnpm。
+- **已关闭：清单过期。** 2026-10-14 在修复上述两项后重新生成：`notices` 跑到底并写出 `THIRD-PARTY-NOTICES.md`（1178 个包版本、13 个 copied 组件、18 个原生归档）与 `inventory.json`，`check` 通过（退出码 0）。生成前的三道门分别处理：`sources.json` 的原生配置哈希按本文「原生搜索」一节的口径**先核对组件与版本未变**再刷新（`native-search-tools-config.mjs`，只改一行）；`@electron-internal/extract-zip@1.0.5` 作为 Electron 升级引入的新生产包补登 override（其发布版缺完整许可、元数据 BSD-2-Clause 与上游 main 的 MIT 不一致，标为待复核）；`keyv@4.5.4` 的 override 因该链移出生产闭包而过期，已连其孤立的原文快照一并删除。生成口径已核对与既有产物一致（`supportedArchitectures` 是跨平台并集，musl 变体包含在内）。**仍未关闭**的是 20 项待补齐/核验材料，发布前须以 `check --strict` 复核，不得把基础检查通过视为合规完成。
 - `copied-components.json` 的三处旧路径与生成器 `copiedFiles` 的存在性守卫已于 2026-10-12 修正（旧路径会让 `notices` 直接抛 ENOENT）；下一次重新生成时自然生效。
 
 生成器以根锁文件的生产依赖图为覆盖集合，先比较实际安装图，再按精确版本读取内容；旧安装图必须先 frozen install，不能直接重生成。标识门禁和声明生成共用递归扫描，覆盖所有 workspace、嵌套版本和符号链接，并按真实目录防环。相同原文按 SHA-256 去重；同名不同版本分别记录。支持的平台可选包必须已安装。三个未安装 Canvas 目标（Android、Linux armv7、Linux riscv64）不属于当前桌面发行目标。

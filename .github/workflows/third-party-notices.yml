@@ -1,0 +1,71 @@
+# 第三方声明的新鲜度门禁：`licenses.mjs check` 在改动依赖或许可材料时验证
+# 「声明仍与当前锁文件/材料一致」，否则报 Third-party input changed / notices changed 并失败。
+#
+# 为什么门禁是 check 而不是「重生成 + git diff --exit-code」：
+# check 校验的是 inventory 记录的每个 inputs 哈希（其中包含 pnpm-lock.yaml 与各 manifest）与
+# THIRD-PARTY-NOTICES.md 的 noticesSha256，所以「改了依赖却没重新生成」会被它直接抓住，且与宿主平台无关。
+# 而重生成会随宿主的 libc 口径变化（Linux 上 hostLibc() 返回 glibc，会排除 2 个 musl 专用包；
+# macOS/Windows 上为 null，与既有产物一致），在 Linux 上 diff 必然分叉 —— 按 SPEC.md 的口径，
+# 正式生成只在 macOS 上做，这里不重复它。
+#
+# 已知未清零项：inventory 里仍有待补齐/核验材料（`check --strict` 会在发布前拦下）。基础 check 通过
+# 只说明材料与标识新鲜，不等于合规完成。
+name: third-party-notices
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/third-party-notices.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "scripts/generate-third-party-notices.mjs"
+      - "scripts/licenses.mjs"
+      - "scripts/native-search-tools-config.mjs"
+      - "scripts/remote-native-search-tools-config.mjs"
+      - "scripts/third-party-lockfile-graph.mjs"
+      - "scripts/third-party-npm.mjs"
+      - "scripts/third-party-notices.mjs"
+      - "third-party/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/third-party-notices.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "scripts/generate-third-party-notices.mjs"
+      - "scripts/licenses.mjs"
+      - "scripts/native-search-tools-config.mjs"
+      - "scripts/remote-native-search-tools-config.mjs"
+      - "scripts/third-party-lockfile-graph.mjs"
+      - "scripts/third-party-npm.mjs"
+      - "scripts/third-party-notices.mjs"
+      - "third-party/**"
+  workflow_dispatch:
+
+concurrency:
+  group: third-party-notices-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: licenses check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      # check 要扫描真实安装树（缺包按安装目录判定），所以必须先装依赖；这里也顺便验证锁文件与清单一致。
+      - run: pnpm install --frozen-lockfile
+      - run: node --test scripts/third-party-notices.test.mjs
+      - run: node scripts/licenses.mjs check

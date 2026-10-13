@@ -16,7 +16,6 @@ import { readVerifiedNotices } from "./third-party-notices.mjs";
 import { readFile } from "node:fs/promises";
 import {
   readWorkspaceProductionGraph,
-  scanInstalledPackages,
   missingProductionPackages,
 } from "./third-party-npm.mjs";
 import path from "node:path";
@@ -30,7 +29,8 @@ if (command === "notices") {
 }
 
 // 标识门禁与声明生成共用 workspace 图和递归扫描，不按包名猜测生产范围。
-const { required, projects } = await readWorkspaceProductionGraph(ROOT);
+// 扫描已由 readWorkspaceProductionGraph 完成（同一份安装集合），这里复用而不是再走一遍目录树。
+const { required, projects, installed: scanned } = await readWorkspaceProductionGraph(ROOT);
 const ownNames = new Set(projects.map((project) => project.name));
 const installed = new Map();
 const MANUAL_LICENSE = {
@@ -45,7 +45,6 @@ function normLicense(value) {
   if (Array.isArray(value)) return value.map(normLicense).join(" OR ");
   return value?.type?.trim() || "(missing)";
 }
-const scanned = await scanInstalledPackages(ROOT, projects);
 missingProductionPackages(required, scanned);
 for (const [key, { pkg }] of scanned) {
   if (ownNames.has(pkg.name)) continue;
