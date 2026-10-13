@@ -6,7 +6,7 @@ ESCode Agent 以前每个平台都内置一份独立的原生二进制 `escode-a
 
 但无论桌面还是远端，运行 agent 的环境里**本来就已经有一份 Node**：
 
-- **桌面**：Host 跑在 Electron `utilityProcess`，`process.execPath` 指向 Electron Helper，内置 Node 24.x（Electron 41）。
+- **桌面**：Host 跑在 Electron `utilityProcess`，`process.execPath` 指向 Electron Helper，内置 Node 24.x（Electron 41.10.7 → Node 24.18.0；`ELECTRON_RUN_AS_NODE=1 <helper>` 可实测）。这个版本不是随手取的：REA 插件的 SQLite 能力要求 Node ≥24.15，4.8 以下的 Electron 41 补丁（41.0.3 → Node 24.14.0）不满足；升级 Electron 时请一并复核 `node:sqlite` 是否仍可用（`ELECTRON_RUN_AS_NODE=1 <helper> -e "import('node:sqlite')"`）。
 - **远端 SSH/WSL/Docker**：部署时会下发一份独立 `node`（`<REMOTE_BASE>/node`，v22.16.0）用来跑 `zcode-server.cjs`。
 
 所以 agent 没必要再带一份 Node，直接用这份已有的 Node 执行编译产物 `zcode.cjs` 即可。
