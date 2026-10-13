@@ -46,11 +46,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # 这些套件会 import 工作区包的入口（exports 指向 dist/）。全新 checkout 里没有构建产物时，
-      # 失败形态是 ERR_MODULE_NOT_FOUND / "Failed to resolve entry for package"（本机因早已构建过而看不出）。
-      # 构建口径用仓库既有划分：根侧 packages + agent 侧 turbo，避开 @escode/desktop 的重资产构建。
-      - run: pnpm -r --filter "./packages/*" --filter "!@escode/desktop" build
-      - run: pnpm --dir apps/escode-cli run build
+      # 这些套件 import 的是工作区包的 dist 入口，全新 checkout 缺构建产物会以 ERR_MODULE_NOT_FOUND /
+      # "Failed to resolve entry for package" 失败（本机因早已构建过而看不出）。只构建单测真正用到的
+      # 库与 agent 包闭包：测试从不 import web / web-share / e2e-report 这类前端应用包，而它们的发行构建
+      # 在全新 checkout 里有既有的子路径解析问题（@escode/shared/mcp-apps），单测并不需要。
+      # @escode/rea-plugin 单独列出：它的 seed 断言会检查 dist/mcp/server.js 存在。
+      - name: 构建单测依赖的工作区包
+        run: |
+          pnpm -r \
+            --filter "@escode/bootstrap..." \
+            --filter "@escode/rpc..." \
+            --filter "@escode/services..." \
+            --filter "@escode/server..." \
+            --filter "@escode/node-repl-host..." \
+            --filter "@escode/escode-cua..." \
+            --filter "@escode/rea-plugin..." \
+            build
 
       # 基线取 PR 的目标分支 sha；push 取本次推送前的 sha。拿不到有效 commit（新分支的零 sha、
       # 强推、深历史缺失等）时回落全量单测 —— 宁可多跑，也不让门禁静默失效。
@@ -87,9 +98,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # 与 affected job 同样的构建口径：bootstrap 的测试 import 的是工作区包的 dist 入口。
-      # agent 侧构建还会产出 REA 插件的 dist/mcp/server.js —— 该包的 seed 断言会检查它存在。
-      - run: pnpm -r --filter "./packages/*" --filter "!@escode/desktop" build
-      - run: pnpm --dir apps/escode-cli run build
+      # 与 affected job 同样的构建口径（见那里的说明）：单测 import 的是库与 agent 包的 dist 入口，
+      # 前端应用包的发行构建单测不需要；@escode/rea-plugin 的 dist/mcp/server.js 会被该包的 seed 断言检查。
+      - name: 构建单测依赖的工作区包
+        run: |
+          pnpm -r \
+            --filter "@escode/bootstrap..." \
+            --filter "@escode/rpc..." \
+            --filter "@escode/services..." \
+            --filter "@escode/server..." \
+            --filter "@escode/node-repl-host..." \
+            --filter "@escode/escode-cua..." \
+            --filter "@escode/rea-plugin..." \
+            build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
       - run: pnpm --filter @escode/bootstrap exec vitest run tests
