@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { CircuitBoardIcon, MonitorIcon } from "lucide-react";
+import { CircuitBoardIcon } from "lucide-react";
 import type { CircuitReference } from "@escode/shared/circuit";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import { Button } from "@/components/ui/button.js";
@@ -12,9 +12,8 @@ import { describeCircuitError } from "@/circuit/domain/circuitPanelSource.js";
 
 /**
  * `::circuit` 引用卡片（规格 §8、§3.5）。
- * Desktop（有 CircuitService）：点击经服务把 irId 解析成源文件路径，再打开右侧电路面板；
- * Web / 手机（没有 CircuitService）：只显示静态降级卡片（标题、器件数、网络数、"仅 Desktop 可用"），
- * 不加载面板、不订阅事件、也不向服务发起任何请求。
+ * 只在 Desktop（有能力位与 CircuitService）渲染：点击经服务把 irId 解析成源文件路径，再打开右侧电路面板。
+ * Web / 手机没有 CircuitService，`::circuit` 不渲染任何内容——不给一个点不动的降级占位。
  */
 
 export interface CircuitCardWorkspace {
@@ -41,14 +40,6 @@ export function CircuitReferenceCard({
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const title = reference.title?.trim() || reference.irId;
-  const counts = [
-    reference.componentCount === undefined
-      ? null
-      : intl.formatMessage({ id: "circuit.card.componentCount" }, { count: reference.componentCount }),
-    reference.netCount === undefined
-      ? null
-      : intl.formatMessage({ id: "circuit.card.netCount" }, { count: reference.netCount }),
-  ].filter((item): item is string => item !== null);
 
   const openPanel = useCallback(async () => {
     if (!desktopCircuitAvailable || !circuitService || !workspace.workspacePath) return;
@@ -86,26 +77,7 @@ export function CircuitReferenceCard({
     }
   }, [circuitService, desktopCircuitAvailable, intl, onOpenCodeViewer, reference.irId, workspace]);
 
-  if (!desktopCircuitAvailable || !circuitService)
-    return (
-      <section
-        className="my-3 flex w-full items-center gap-3 rounded-xl border border-card-border bg-card px-3 py-2"
-        data-testid="circuit-card"
-        data-circuit-card-mode="static"
-      >
-        <CircuitBoardIcon className="size-5 shrink-0 text-foreground-subtle" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-ui-base">{title}</p>
-          <p className="text-ui-sm text-foreground-subtle">
-            {counts.length > 0 ? `${counts.join(" · ")} · ` : ""}
-            <span className="inline-flex items-center gap-1">
-              <MonitorIcon className="size-3" />
-              {intl.formatMessage({ id: "circuit.card.desktopOnly" })}
-            </span>
-          </p>
-        </div>
-      </section>
-    );
+  if (!desktopCircuitAvailable || !circuitService) return null;
 
   return (
     <section
@@ -116,9 +88,9 @@ export function CircuitReferenceCard({
       <CircuitBoardIcon className="size-5 shrink-0 text-foreground-subtle" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-ui-base">{title}</p>
-        <p className="text-ui-sm text-foreground-subtle">
-          {counts.length > 0 ? counts.join(" · ") : reference.irId}
-        </p>
+        {reference.title ? (
+          <p className="truncate text-ui-sm text-foreground-subtle">{reference.irId}</p>
+        ) : null}
         {error ? (
           <p className="break-words text-ui-xs text-destructive" role="alert">
             {error}

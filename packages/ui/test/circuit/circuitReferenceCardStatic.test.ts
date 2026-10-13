@@ -7,9 +7,9 @@ import { projectCircuitReferences } from "@/circuit/domain/circuitReferences.js"
 import { CircuitMessageResponse } from "@/circuit/components/CircuitMessageResponse.js";
 
 /**
- * `::circuit` 引用卡片的降级契约（docs/circuit/README.md §8、§3.5、feature 第 7 条）。
- * Web / 手机没有 CircuitService：只渲染静态卡片（标题、器件数、网络数、「仅 Desktop 可用」），
- * 不加载电路面板、不订阅 circuit.changed、也不向服务发起任何请求。
+ * `::circuit` 引用卡片在非 Desktop 的行为（docs/circuit/README.md §8、§3.5、feature 第 7 条）。
+ * Web / 手机没有 CircuitService：`::circuit` 不渲染任何内容，不加载电路面板、不订阅 circuit.changed、
+ * 也不向服务发起任何请求。
  * 桌面 E2E（wdio）只覆盖 Desktop 客户端，这里的平台能力用 mock 固定。
  */
 
@@ -44,8 +44,7 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
   }),
 }));
 
-const REFERENCE_TEXT =
-  '::circuit{"irId":"ir:rp2040-minimal","title":"RP2040_minimal","componentCount":24,"netCount":41}';
+const REFERENCE_TEXT = '::circuit{"irId":"ir:rp2040-minimal","title":"RP2040_minimal"}';
 
 afterEach(() => {
   cleanup();
@@ -53,7 +52,7 @@ afterEach(() => {
   h.platform.supportsCircuit = undefined;
 });
 
-it("Web 客户端把 ::circuit 渲染成静态降级卡片，不加载面板也不订阅事件", () => {
+it("Web 客户端不渲染 ::circuit 卡片，不加载面板也不订阅事件", () => {
   render(
     createElement(CircuitMessageResponse, {
       children: REFERENCE_TEXT,
@@ -62,17 +61,9 @@ it("Web 客户端把 ::circuit 渲染成静态降级卡片，不加载面板也�
     }),
   );
 
-  const card = screen.getByTestId("circuit-card");
-  expect(card.getAttribute("data-circuit-card-mode")).toBe("static");
-  const text = card.textContent ?? "";
-  expect(text).toContain("RP2040_minimal");
-  expect(text).toContain("24 个器件");
-  expect(text).toContain("41 条网络");
-  expect(text).toContain("仅 Desktop 可用");
-
-  // 没有「打开面板」入口，也没有电路面板；能力位为假时不读服务、不订阅事件。
+  // 非 Desktop 不渲染任何卡片：也没有「打开面板」入口，也不读服务、不订阅事件。
+  expect(screen.queryByTestId("circuit-card")).toBeNull();
   expect(screen.queryByTestId("circuit-card-open")).toBeNull();
-  expect(text).not.toContain(zhCN["circuit.card.open"]);
   expect(screen.queryByTestId("circuit-panel")).toBeNull();
   expect(h.circuitService.get).not.toHaveBeenCalled();
   expect(h.circuitService.onChanged).not.toHaveBeenCalled();

@@ -31,8 +31,7 @@ Circuit IR v1 与 Circuit MCP 工具的线协议（docs/circuit/README.md §4、
 ## 待定（需要时按规格补充，不要在本模块自造兜底）
 
 - `correction` 元素的 `confidence` 取值规则（服务端决定）。
-- `circuit_get` 附带 `diagnostics` 明细、`circuitReferenceSchema` 的 `componentCount` / `netCount`
-  是为满足 §3.5 降级卡片与「校验问题可见」补的字段，规格只写了摘要要点。
+- `circuit_get` 附带 `diagnostics` 明细是为满足「校验问题可见」补的字段，规格只写了摘要要点。
 - `circuit_compare_firmware` 的请求带可选 `cursor`：规格 §5 表格只列了 `irId` / `files`，
   但同一条「超出部分通过 cursor 分页获取」对全部工具成立，服务端按响应上限分页，
   因此请求 schema 显式带上它（缺失 `nextCursor` 表示没有下一页）。

@@ -64,15 +64,13 @@ export const circuitExportResponseSchema = z
 // --- ::circuit 引用载荷 ----------------------------------------------------------
 
 /**
- * `::circuit{"irId":"…","title":"…"}` 引用卡片载荷（§8）。
- * componentCount / netCount 供 Web 与手机的静态降级卡片显示（§3.5）；Desktop 面板不依赖它们。
+ * `::circuit{"irId":"…","title":"…"}` 引用卡片载荷（§8）。只在 Desktop 渲染为卡片；
+ * 非 Desktop 环境不渲染（§3.5）。
  */
 export const circuitReferenceSchema = z
   .object({
     irId: circuitIrIdSchema,
     title: z.string().trim().min(1).max(250).optional(),
-    componentCount: z.number().int().nonnegative().optional(),
-    netCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 export type CircuitReference = z.infer<typeof circuitReferenceSchema>;

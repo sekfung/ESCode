@@ -298,13 +298,10 @@ describe("Circuit 分析工具契约", () => {
     ).toBe(true);
   });
 
-  it("::circuit 引用载荷接受可选标题与计数，拒绝未知字段", () => {
+  it("::circuit 引用载荷接受可选标题，拒绝未知字段", () => {
     expect(circuitReferenceSchema.safeParse({ irId: "ir-1" }).success).toBe(true);
-    expect(
-      circuitReferenceSchema.safeParse({ irId: "ir-1", title: "电源板", componentCount: 12, netCount: 30 })
-        .success,
-    ).toBe(true);
-    expect(circuitReferenceSchema.safeParse({ irId: "ir-1", componentCount: -1 }).success).toBe(false);
+    expect(circuitReferenceSchema.safeParse({ irId: "ir-1", title: "电源板" }).success).toBe(true);
+    expect(circuitReferenceSchema.safeParse({ irId: "ir-1", componentCount: 12 }).success).toBe(false);
     expect(circuitReferenceSchema.safeParse({ irId: "ir-1", path: "x" }).success).toBe(false);
   });
 });

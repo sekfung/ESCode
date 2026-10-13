@@ -26,7 +26,7 @@
 ### 非目标（P1）
 
 - 不支持纯 CLI/TUI：没有 Desktop Host 时工具返回 `unavailable`，不提供 CLI 内的降级引擎。
-- 不支持手机端和 Web 客户端：遇到 `::circuit` 引用时只显示静态降级卡片。
+- 不支持手机端和 Web 客户端：没有 CircuitService，`::circuit` 引用不渲染任何内容。
 - 不联网：不访问第三方器件库或在线 datasheet，也不下载模型。只会调用用户配置的模型服务。
 - 不做完整的原理图编辑器，面板只支持修改属性和增删连接。
 
@@ -99,7 +99,7 @@
 | Desktop 本地 workspace | 窗口内的 Local Host 运行 `CircuitService`                                                         |
 | Desktop 远程 workspace | 持有该 workspace 的 Host 运行；请求贯穿携带 `workspaceIdentity` 与 `remoteSessionId`              |
 | 纯 CLI/TUI             | broker 连接材料缺失，所有工具返回 `unavailable`，提示"请在 ESCode Desktop 中使用"                 |
-| Web 客户端 / 手机      | `::circuit` 显示静态降级卡片（标题、器件数、网络数、"仅 Desktop 可用"），不加载面板，也不订阅事件 |
+| Web 客户端 / 手机      | `::circuit` 不渲染任何内容，不加载面板，也不订阅事件                                              |
 
 运行时注册（TS CLI 与 Rust runtime 行为一致，与 serial 同构，见 `docs/specs/serial-agent-tools.md`）：
 
@@ -257,7 +257,7 @@ interface Origin {
 4. 在外部修改源文件 → 面板显示 stale 提示 → 重新解析，修正按 UUID 保留，找不到对应元素的修正标为失效。
 5. 点击对话中的 `::circuit` 卡片 → 打开面板，定位到对应的 IR。
 6. 选中器件后插入输入框 → 生成引用 chip，草稿没有发送。
-7. Web 客户端里的 `::circuit` → 显示静态降级卡片。
+7. Web 客户端里的 `::circuit` → 不渲染卡片。
 
 由 Agent 驱动的流程（固件比对）用插件契约测试和服务层测试覆盖，E2E 不依赖真实模型。
 

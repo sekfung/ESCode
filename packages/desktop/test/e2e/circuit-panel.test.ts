@@ -28,13 +28,11 @@ import { selectV4TaskById, waitForV4TimelineContaining } from "./helpers/v4-conv
  * 电路面板 Desktop E2E（docs/test-cases/e2e/circuit-panel.feature、规格 §10.3）。
  *
  * 覆盖：① 文件树打开 .kicad_sch → 原理图/BOM/网络表联动；② 面板改属性 → revision 加 1、作者=用户；
- * ③ 过期 baseRevision 写入被拒且不覆盖数据；④ 源文件外部变化 → stale → 重新解析按 UUID 保留修正；
+ * ③ 过期 baseRevision 写入被拒且不覆盖数据；④ 源文件外部变化 → stale → 重新解析按元素 id 保留修正；
  * ⑤ 对话里的 ::circuit 卡片 → 打开面板定位同一 IR（assistant 消息由 session 回放夹具注入，
  *    不调用真实模型；围栏内的同一行引用不渲染卡片）；
  * ⑥ 选中器件/网络插入到输入框 → 输入框上方出现引用 chip、草稿不发送。
- * ⑦（Web 降级卡片）在 Web/UI 层覆盖，见 packages/ui/test/circuit/circuitReferenceCardStatic.test.ts。
- * ⑧ 图片识别源：卡片 → 面板直读识别 IR，原图作底叠加识别框并联动 BOM / 网络表（IR 按服务的
- *    持久化布局预置，不调用真实模型）。
+ * ⑦（非 Desktop 不渲染卡片）在 Web/UI 层覆盖，见 packages/ui/test/circuit/circuitReferenceCardStatic.test.ts。
  *
  * 数据：packages/services/test/fixtures/circuit/rp2040-minimal（复制到临时 workspace，`.kicad_sch` /
  * `.kicad_pcb` / `.kicad_pro` 都带上）。每个场景用**独立的板子副本**，让每个场景都从 revision r1 开始

@@ -4,12 +4,11 @@ import { projectCircuitReferences } from "@/circuit/domain/circuitReferences.js"
 /**
  * `::circuit` 引用解析（docs/circuit/README.md §8、§10.2）。
  * 规则与 Gen UI 引用一致：代码块内不识别、消息完成后才渲染、流式半截先隐藏；
- * 载荷必须过 `circuitReferenceSchema`（元件数 / 网络数是数字，key=value 形态给不了）。
+ * 载荷必须过 `circuitReferenceSchema`（只接受 irId 与可选 title）。
  */
 
 const jsonDirective = '::circuit{"irId":"ir:0123456789abcdef","title":"RP2040_minimal"}';
-const withCounts =
-  '::circuit{"irId":"ir:0123456789abcdef","title":"RP2040_minimal","componentCount":24,"netCount":41}';
+const secondDirective = '::circuit{"irId":"ir:fedcba9876543210","title":"电源板"}';
 const inlineDirective = '::circuit{irId="ir:0123456789abcdef" title="RP2040_minimal"}';
 
 describe("::circuit 引用投影", () => {
@@ -35,15 +34,8 @@ describe("::circuit 引用投影", () => {
     ]);
   });
 
-  it("保留降级卡片要用的器件数与网络数", () => {
-    expect(projectCircuitReferences(withCounts, true)[0]).toMatchObject({
-      kind: "circuit",
-      reference: { componentCount: 24, netCount: 41 },
-    });
-  });
-
   it("同一段正文里的多处引用都各自渲染", () => {
-    const text = `${jsonDirective}\n\n${withCounts}`;
+    const text = `${jsonDirective}\n\n${secondDirective}`;
     const parts = projectCircuitReferences(text, true).filter((part) => part.kind === "circuit");
     expect(parts).toHaveLength(2);
     expect(parts.map((part) => part.kind === "circuit" && part.offset)).toEqual([
@@ -89,7 +81,7 @@ describe("::circuit 引用投影", () => {
     '::circuit{"irId":"ir:1","componentCount":"24"}',
     '::circuit{"irId":"ir:1","netCount":-1}',
     '::circuit{"irId":""}',
-    '::circuit{irId="ir:1" componentCount="24"}',
+    '::circuit{irId="ir:1" extra="24"}',
     '::circuit{"irId":"ir:1","unknown":true}',
     '::circuit{"irId":"ir:1"',
   ])("拒绝不合法载荷：%s", (text) => {

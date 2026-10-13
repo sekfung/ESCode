@@ -29,5 +29,5 @@ Agent ─MCP─▶ circuit-plugin ─broker─▶ CircuitService ◀─hooks─ 
 - IR 只有一条写入路径，校验、revision 和置信度规则由服务强制执行。
 - 纯 CLI/TUI 下没有 broker，电路工具返回 `unavailable`；不提供 CLI 内的降级引擎，以免出现第二个所有者。
 - 需要新增 shared schema、协议字段、服务、broker 端点、远程服务访问和 UI hooks，实现成本高于以文件为事实来源的方案。
-- 手机端和 Web 客户端不在 P1 范围内，`::circuit` 引用在这两个环境只显示静态降级卡片。将来如果要支持，需要另外补充 `web-remote-replayable` 的"快照 + revision"恢复语义。
+- 手机端和 Web 客户端不在 P1 范围内，`::circuit` 引用在这两个环境不渲染。将来如果要支持，需要另外补充 `web-remote-replayable` 的"快照 + revision"恢复语义。
 - 如果 IR 需要纳入版本控制，只能通过 `circuit_export` 导出快照。

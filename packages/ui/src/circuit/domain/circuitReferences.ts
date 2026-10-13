@@ -28,8 +28,7 @@ interface CircuitReferenceCandidate {
   decode(): unknown;
 }
 
-// JSON 参数前缀：允许字符串与数字（componentCount / netCount 是数字），
-// 与 Gen UI 的同名常量分工一致——只隐藏仍然是「参数前缀」的半截内容。
+// JSON 参数前缀：允许字符串与数字，与 Gen UI 的同名常量分工一致——只隐藏仍然是「参数前缀」的半截内容。
 const jsonString = String.raw`"(?:[^"\\\r\n]|\\.)*"`;
 const jsonParameterPrefix = new RegExp(
   String.raw`^\s*(?:${jsonString}\s*:\s*(?:${jsonString}|-?\d+(?:\.\d+)?)\s*,\s*)*(?:${jsonString}(?:\s*:\s*(?:${jsonString}|-?\d+(?:\.\d+)?)?)?)?\s*$`,
@@ -43,8 +42,7 @@ export function projectCircuitReferences(text: string, completed: boolean): Circ
     CIRCUIT_DIRECTIVE_NAME,
   ).map((directive) => ({
     ...directive,
-    // key=value 形态与 JSON 形态都接受：key=value 只能给字符串字段（irId/title），
-    // JSON 形态才能带 componentCount / netCount（降级卡片的器件数与网络数）。
+    // key=value 形态与 JSON 形态都接受：key=value 只能给字符串字段（irId/title）。
     decode: () =>
       directive.parameters ?? JSON.parse(directive.raw.slice(directive.raw.indexOf("{"))),
   }));

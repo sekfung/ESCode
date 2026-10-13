@@ -64,9 +64,9 @@
     当 用户发送任意文本
     那么 发送内容带上电路引用块，用户消息行上显示 "U1" 与 "NET:I2C1_SDA" 两枚 chip
 
-  场景: Web 客户端里的 ::circuit 显示静态降级卡片
+  场景: Web 客户端里的 ::circuit 不渲染卡片
     假如 用户使用 Web 客户端打开含该 IR 的 workspace
-    并且 对话里有一条带 '::circuit{"irId":"<IR>","title":"RP2040_minimal","componentCount":24,"netCount":41}' 的 assistant 消息
+    并且 对话里有一条带 '::circuit{"irId":"<IR>","title":"RP2040_minimal"}' 的 assistant 消息
     当 消息渲染完成
-    那么 显示静态卡片：标题 "RP2040_minimal"、器件数 "24"、网络数 "41"、"仅 Desktop 可用"
-    并且 卡片没有"打开面板"入口，也不加载电路面板、不订阅 circuit.changed 事件
+    那么 不渲染任何电路卡片（"circuit-card" 不存在）
+    并且 不加载电路面板、不订阅 circuit.changed 事件

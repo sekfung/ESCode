@@ -38,9 +38,8 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 ## Exporting
 
 - `circuit_export` writes a read-only `.circuit.json` snapshot into the workspace. It **requires the user's approval**, and it is a derived artifact: it is never read back, and editing it does not change the IR. Ask before calling it, and pass a path ending in `.circuit.json`.
-- To open the interactive panel for a result, put a reference on its own line in your reply: `::circuit{"irId":"…","title":"…","componentCount":53,"netCount":39}`. Do not put it inside a code block.
-  - Order matters: `circuit_parse` (or a recognition submission) → `circuit_get` → the reference card. Take `componentCount` and `netCount` from the `circuit_get` summary and always include them (the same counts the panel shows) — e.g. `::circuit{"irId":"ir:1","title":"电源板","componentCount":53,"netCount":39}`.
-  - These two counts feed the static fallback card on Web and mobile, where the circuit panel is not available; the Desktop panel reads the IR itself and does not depend on them.
+- To open the interactive panel for a result, put a reference on its own line in your reply: `::circuit{"irId":"…","title":"…"}`. Do not put it inside a code block.
+  - Order matters: `circuit_parse` → `circuit_get` → the reference card. The card renders only in the ESCode Desktop app; on Web and mobile nothing is rendered.
 
 ## When tools answer `unavailable`
 
