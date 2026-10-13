@@ -71,7 +71,10 @@ function reviewTarget(input: Record<string, any>) {
 function mailboxPort() {
   const flag = process.env.ESCODE_MESSAGE_ENABLED;
   if (flag !== "1" && flag !== "true") return undefined;
-  const root = (process.env.ESCODE_MAILBOX_ROOT ?? "~/.escode/mailbox").replace(/^~(?=$|[\/])/u, homedir());
+  const root = (process.env.ESCODE_MAILBOX_ROOT ?? "~/.escode/mailbox").replace(
+    /^~(?=$|[/])/u,
+    homedir(),
+  );
   return createNodeSessionMailboxAdapter({ rootDir: root });
 }
 
