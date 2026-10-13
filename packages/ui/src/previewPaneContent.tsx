@@ -194,12 +194,13 @@ export function PreviewPaneContent({
     );
   }
 
-  // 电路面板入口（docs/circuit/README.md §8）：只按 KiCad 源文件与导出快照的扩展名路由；
+  // 电路面板入口（docs/circuit/README.md §8）：只按 KiCad / EasyEDA 源文件与导出快照的扩展名路由；
   // 普通图片与 PDF 预览保持原样（否则会把每一张图、每个 PDF 都换成电路面板）。
   const circuitFileKind = circuitPanelFileKind(source.path);
   const routesToCircuitPanel =
     circuitFileKind === "kicad_sch" ||
     circuitFileKind === "kicad_pcb" ||
+    circuitFileKind === "easyeda_sch" ||
     circuitFileKind === "snapshot";
   if (routesToCircuitPanel) {
     return (

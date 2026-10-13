@@ -38,6 +38,22 @@ Agent 经 broker、面板经 hooks 访问它，两者都不直接读写 IR 文�
   `app/circuitWriteQueue.ts` 持有「同一 IR 写入串行」队列。桥接层不持有状态、不缓存 IR。
 - 日志用 `createServiceLogger("circuit")`，只记 id、计数、耗时，不写电路内容与文件内容（§9）。
 
+## 立创EDA（EasyEDA）原理图提取（§4）
+
+输入是新版 `.eprj3` 工程里的 `.esch2` 原理图页（V3 日志格式）。链路：`domain/easyedaLog.ts` 解码日志
+（DOCHEAD 划分文档、`(type, id)` 按 ticket 收敛且同票比 client、内层空串为删除），
+`domain/easyedaSchematic.ts` 取 SYMBOL 文档的 PART/PIN 与 SCH_PAGE 的 COMPONENT/WIRE/BUS，
+`domain/easyedaDesign.ts` 变换引脚并推出网络。元素 `by = "parser"`、confidence 1。
+
+- 器件 id 用 `easyeda:<COMPONENT 记录 id>`（文件内稳定，重新解析后不变，修正能按 id 重新套用）。
+- 网络：引脚连接点按文档口径变换（绕原点逆时针旋转 `rotation` → 按 `isMirror` 绕 Y 轴镜像 → 平移
+  `position`）后与导线 `dots` 落在同一坐标系，同点同网；同名 `NET` 的多段导线按名字合并。
+- 已声明边界（不猜、也不兜底）：不做符号库解析——符号必须与页面在同一份 `.esch2` 内，解析不到符号的器件
+  引脚为空；没有 `Designator` 的器件（电源/网络标志等）跳过；`BUS` 按普通导线参与连通、不展开总线成员；
+  不产出渲染几何；一次只读一页（省略 `pageUuid` 时取第一个 `SCH_PAGE`）。
+- **待验证**：坐标与旋转口径按上面的文档实现，但仓库里没有真实导出的 `.eprj3` 样例，
+  旋转 / 镜像器件的连通性未经实机校验；接入真实工程前需要一份导出样例回归。
+
 ## P1 已知边界（按规格声明，不另加兜底）
 
 - 总线成员不展开：`(bus)` 只记入 `limitations`，总线分支上的标签照常成网。

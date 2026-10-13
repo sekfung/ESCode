@@ -18,8 +18,8 @@
 
 | 阶段   | 输入                                                                         | 能力                                                   |
 | ------ | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
-| **P1** | KiCad（`.kicad_sch` / `.kicad_pcb`）、网表、BOM | 结构化提取、电路解释、固件比对、电路面板 |
-| P2     | Altium、Eagle、立创 EDA、Gerber/ODB++          | PCB 层面分析                            |
+| **P1** | KiCad（`.kicad_sch` / `.kicad_pcb`）、立创EDA（`.esch2`）、网表、BOM | 结构化提取、电路解释、固件比对、电路面板 |
+| P2     | Altium、Eagle、立创EDA PCB（`.epcb2`）、Gerber/ODB++          | PCB 层面分析                            |
 
 本文只规定 P1。P2、P3 开工前另行补充规格。
 
@@ -29,6 +29,8 @@
 - 不支持手机端和 Web 客户端：没有 CircuitService，`::circuit` 引用不渲染任何内容。
 - 不联网：不访问第三方器件库或在线 datasheet，也不下载模型。只会调用用户配置的模型服务。
 - 不做完整的原理图编辑器，面板只支持修改属性和增删连接。
+- 立创EDA 只支持新版 `.eprj3` 工程里的 `.esch2` 原理图页（旧版 `.eprj`/`.eprj2` 是二进制/SQLite，不解析）；
+  不做符号库解析（符号必须与页面在同一份文件内）、不做多页/层次网络合并、不产出渲染几何。
 
 ## 2. 产品规则
 
@@ -120,7 +122,7 @@ interface CircuitIR {
   irId: string;
   revision: number;
   source: {
-    kind: "kicad_sch" | "kicad_pcb" | "netlist" | "bom";
+    kind: "kicad_sch" | "kicad_pcb" | "easyeda_sch" | "netlist" | "bom";
     path: string; // workspace 相对路径
     contentHash: string;
   };
@@ -132,7 +134,7 @@ interface CircuitIR {
 }
 
 interface Component {
-  id: string; // KiCad 使用其 UUID；网表 / BOM 用 `<kind>:<位号>`
+  id: string; // KiCad 使用其 UUID；立创EDA 用 `easyeda:<记录 id>`；网表 / BOM 用 `<kind>:<位号>`
   ref: string; // 位号，如 U3
   value?: string;
   partNumber?: string;
@@ -215,10 +217,11 @@ interface Origin {
 
 - **入口**
   - Agent 回复中独占一行的 `::circuit{"irId":"…","title":"…"}` 引用卡片，解析规则沿用 Gen UI 引用（代码块内不识别，消息完成后才渲染）。
-  - 在文件树中打开 `.kicad_sch`、`.kicad_pcb`、`.circuit.json`（导出快照，只读展示）。
+  - 在文件树中打开 `.kicad_sch`、`.kicad_pcb`、`.esch2`、`.circuit.json`（导出快照，只读展示）。
 - **还没有 IR 时**：KiCad 文件通过 hook 直接请求 `CircuitService` 做确定性解析。
 - **渲染**
   - KiCad：根据解析出的几何信息自己渲染 SVG。
+  - 立创EDA：暂不产出渲染几何，主区显示语义视图（BOM 与网络表照常）。
   - 低置信度元素用醒目颜色标出。
 - **交互**
   - 点击器件或网络，高亮整条连接，侧栏的 BOM 和网络表同步选中。
@@ -239,12 +242,13 @@ interface Origin {
 ### 10.1 测试数据
 
 - 3 块许可宽松的开源 KiCad 板子：MCU 最小系统、电源板、I²C 传感器板，在 `fixtures/README` 中记录来源与许可证。
+- 手写的立创EDA 最小原理图（`fixtures/circuit/easyeda/minimal.esch2`）：两个器件、两条命名导线。
 - 固件样例：手写的 `.dts`、`.ioc`、头文件，故意埋入 2 到 3 处引脚不一致。
 - 不使用任何真实客户的设计。
 
 ### 10.2 单元测试
 
-- `services/circuit`：KiCad 解析；IR 合并；`stale_revision` 拒绝；按 UUID 重新套用修正与 orphaned；固件解析与比对；置信度只能由服务端给出。
+- `services/circuit`：KiCad 解析；立创EDA 日志解码与原理图提取；IR 合并；`stale_revision` 拒绝；按 id 重新套用修正与 orphaned；固件解析与比对；置信度只能由服务端给出。
 - `shared/circuit`：IR 与工具 schema 的运行时校验（合法和非法输入）。
 - `circuit-plugin`：工具契约，包括缺少 broker 时返回 `unavailable`、分页游标、错误码映射。
 - `ui`：`::circuit` 引用解析（参照 `gen-ui/domain/references.test.ts`）。

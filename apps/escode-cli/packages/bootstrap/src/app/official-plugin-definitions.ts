@@ -152,7 +152,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       displayName: "Circuit Analysis",
       displayName_i18n: { "zh-CN": "电路分析" },
       description_i18n: {
-        "zh-CN": "读取 KiCad 原理图与 PCB：解释电路结构、按位号与网络查询连接、应用修正。",
+        "zh-CN": "读取 KiCad / 立创EDA 原理图与 PCB：解释电路结构、按位号与网络查询连接、应用修正。",
       },
     },
     name: OFFICIAL_CIRCUIT_PLUGIN_NAME,

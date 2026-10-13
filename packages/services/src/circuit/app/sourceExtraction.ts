@@ -12,6 +12,8 @@ import {
   elementsFromSchematicDesign,
   type ParsedCircuitElements,
 } from "../domain/irBuild.js";
+import { elementsFromEasyedaSchematic } from "../domain/easyedaDesign.js";
+import { parseEasyedaSchematic } from "../domain/easyedaSchematic.js";
 import type { CircuitSourcePort, StoredCircuit } from "./ports.js";
 import { loadSchematicDocuments } from "./schematicLoader.js";
 
@@ -20,11 +22,12 @@ export function detectCircuitSourceKind(path: string): CircuitSourceKind {
   const lower = path.toLowerCase();
   if (lower.endsWith(".kicad_sch")) return "kicad_sch";
   if (lower.endsWith(".kicad_pcb")) return "kicad_pcb";
+  if (lower.endsWith(".esch2")) return "easyeda_sch";
   if (lower.endsWith(".net") || lower.endsWith(".netlist")) return "netlist";
   if (lower.endsWith(".csv")) return "bom";
   throw new CircuitServiceError(
     "unsupported_format",
-    `只支持 .kicad_sch / .kicad_pcb / .net / .csv（收到 ${path}）`,
+    `只支持 .kicad_sch / .kicad_pcb / .esch2 / .net / .csv（收到 ${path}）`,
   );
 }
 
@@ -79,6 +82,8 @@ export async function extractCircuitSource(params: {
         }),
       };
     }
+    case "easyeda_sch":
+      return { elements: elementsFromEasyedaSchematic(parseEasyedaSchematic(params.text)) };
     case "netlist":
       return { elements: elementsFromNetlist(parseKicadNetlist(params.text)) };
     case "bom":

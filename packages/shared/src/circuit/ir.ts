@@ -41,7 +41,13 @@ export const circuitContentHashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/u, "Expected a sha256 hex digest");
 
-export const circuitSourceKindSchema = z.enum(["kicad_sch", "kicad_pcb", "netlist", "bom"]);
+export const circuitSourceKindSchema = z.enum([
+  "kicad_sch",
+  "kicad_pcb",
+  "netlist",
+  "bom",
+  "easyeda_sch",
+]);
 export type CircuitSourceKind = z.infer<typeof circuitSourceKindSchema>;
 
 export const circuitAuthorSchema = z

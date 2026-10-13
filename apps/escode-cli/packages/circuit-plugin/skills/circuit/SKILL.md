@@ -9,7 +9,7 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 
 ## Workflow
 
-1. **`circuit_parse`** with the workspace-relative `path` of the source file (`.kicad_sch`, `.kicad_pcb`, netlist, BOM). It returns `irId`, `revision` and a summary (component/net/block counts, diagnostics).
+1. **`circuit_parse`** with the workspace-relative `path` of the source file (`.kicad_sch`, `.kicad_pcb`, EasyEDA `.esch2`, netlist, BOM). It returns `irId`, `revision` and a summary (component/net/block counts, diagnostics).
    - Re-parsing a file that already has an IR **must** pass the current `baseRevision`.
    - `stale: true` means the source file changed on disk: re-parse with `baseRevision` before trusting the IR.
 2. **`circuit_get`** with `irId` to read the summary, the diagnostics list and how many elements are low-confidence. Do this before explaining anything.
