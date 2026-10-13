@@ -63,7 +63,7 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.14.0
+          node-version: 24.15.0
           cache: pnpm
       # check 要扫描真实安装树（缺包按安装目录判定），所以必须先装依赖；这里也顺便验证锁文件与清单一致。
       - run: pnpm install --frozen-lockfile
