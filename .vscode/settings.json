@@ -7,5 +7,6 @@
   "[typescript]": {
     "editor.defaultFormatter": "oxc.oxc-vscode",
     "editor.formatOnSave": true
-  }
+  },
+  "cmake.sourceDirectory": "C:/Users/sekfung/Projects/ESCode/scripts/native-search-tools-windows"
 }
