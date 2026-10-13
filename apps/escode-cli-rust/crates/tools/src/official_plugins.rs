@@ -25,6 +25,9 @@ pub(crate) struct Definition {
     root_candidates: Vec<String>,
     pub required: Vec<String>,
     runtime_top_level: Vec<String>,
+    /// definition 的免审批工具名（TS `defaultAllowedTools`）。目前只有 rea 声明：上百个名字手抄到
+    /// Rust 必然漂移，所以随生成物下发；TS 侧由 bootstrap/tests/rea-plugin.test.ts 与 pin 版本对齐。
+    pub default_allowed_tools: Vec<String>,
     pub listing: Option<Json>,
 }
 
@@ -86,6 +89,7 @@ pub(crate) fn assets() -> &'static Assets {
                     root_candidates: list(d.get("rootCandidates")),
                     required: list(d.get("requiredSeedPaths")),
                     runtime_top_level: list(d.get("runtimeTopLevelPaths")),
+                    default_allowed_tools: list(d.get("defaultAllowedTools")),
                     listing: d.get("listing").cloned(),
                 })
                 .collect(),

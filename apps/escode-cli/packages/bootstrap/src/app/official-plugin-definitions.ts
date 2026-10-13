@@ -1,4 +1,5 @@
 import { ESCODE_OFFICIAL_PLUGIN_MARKETPLACE } from "@escode/contracts";
+import { REA_AUTO_APPROVED_TOOLS } from "./rea-auto-approved-tools.js";
 
 // 内置插件的商店信息 seed（原样写入官方 marketplace.json 的条目 raw，键名与 CDN 目录
 // schema 一致：displayName_i18n / examplePrompts_i18n 等），解析复用 adapter 的
@@ -35,6 +36,8 @@ const OFFICIAL_SERIAL_PLUGIN_NAME = "serial";
 export const OFFICIAL_SERIAL_PLUGIN_ID = `${OFFICIAL_SERIAL_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_CIRCUIT_PLUGIN_NAME = "circuit";
 export const OFFICIAL_CIRCUIT_PLUGIN_ID = `${OFFICIAL_CIRCUIT_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
+const OFFICIAL_REA_PLUGIN_NAME = "rea";
+export const OFFICIAL_REA_PLUGIN_ID = `${OFFICIAL_REA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 export const OFFICIAL_CUA_PLUGIN_NAME = "computer-use";
 export const OFFICIAL_CUA_PLUGIN_ID = `${OFFICIAL_CUA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 
@@ -484,6 +487,54 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     // 这里的 version 追踪上游 escode-cua runtime 版本，使插件 UI 展示、缓存路径、
     // marketplace 条目都对齐；具体版本由原子 producer bump 工作流维护。
     version: "0.6.4",
+  },
+  {
+    // 第三方逆向分析工具（morluto/rea，MIT）。与 serial/circuit 同构：server 由宿主注入，
+    // 用自带 Node 经 Host 启动器运行插件里的 vendored 运行时 —— 不要求用户装 Node/npm，
+    // 也不走 npx（打包桌面默认的 Rust 宿主执行不了 .cmd shim）。
+    // 不设 defaultEnabled：170 个工具的 compact 输入 schema 约 253 KB，交给用户按需开启。
+    listing: {
+      author: { name: "morluto", url: "https://github.com/morluto/rea" },
+      category: "developer-tools",
+      description_i18n: {
+        "zh-CN": "通过一个 MCP 服务逆向分析二进制文件、应用程序与运行时行为。",
+      },
+      displayName: "REA",
+      displayName_i18n: { "zh-CN": "REA 逆向分析" },
+      examplePrompts: [
+        "Explain how this app's search feature works, with evidence.",
+        "Compare these two builds and tell me what changed.",
+      ],
+      examplePrompts_i18n: {
+        "zh-CN": [
+          "解释这个应用的搜索功能是怎么实现的，并给出证据。",
+          "对比这两个构建版本，告诉我改了什么。",
+        ],
+      },
+      homepage: "https://github.com/morluto/rea",
+    },
+    name: "rea",
+    hostMcpServerNames: ["rea"],
+    // 免审批边界：读语义工具。规则与清单由 scripts/generate-rea-auto-approved-tools.mjs 从已安装的
+    // REA 生成（113/170），避免上百个名字手抄到 TS 与 Rust 两边漂移。这是权限放行清单、不是注册面
+    // 过滤，不会隐藏其余工具：写、执行、运行时附加、驱动 GUI、网络与会话启动类一律保持逐次审批。
+    defaultAllowedTools: REA_AUTO_APPROVED_TOOLS,
+    // node_modules 刻意不进 requiredSeedPaths：它由打包脚本按平台安装（约 100 MB），
+    // 列在这里会让任何未安装运行时的 checkout 直接判为残缺 seed。运行时的缺失由打包脚本与
+    // 插件入口 dist/mcp/server.js 各自负责报错。
+    // 刻意不声明 runtimeTopLevelPaths：REA 运行时（约 100 MB / 6,555 个文件）不能走插件 seed。
+    // seed 会在每次启动 walk + sha256 全部插件文件（实测这棵树 915 ms），并在首次填缓存时整棵复制；
+    // 实测把它列进白名单后 bootstrap 的 plugins 测试直接从 ~3s 变成 5s 超时。
+    // 运行时改由打包/开发链路单独 stage，宿主把路径注入给 MCP server（见 built-in-rea.ts）。
+    // 缺失由打包脚本与插件入口 dist/mcp/server.js 各自负责报错。
+    requiredSeedPaths: ["dist/mcp/server.js", "skills/reverse-engineer-anything/SKILL.md"],
+    rootCandidates: [
+      "packages/rea-plugin",
+      "../rea-plugin",
+      "../../rea-plugin",
+      "../../../rea-plugin",
+    ],
+    version: "0.1.0",
   },
 ];
 

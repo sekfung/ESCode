@@ -150,13 +150,19 @@ impl Hub {
         cancel: &CancellationToken,
     ) -> Result<()> {
         let configs = tokio::select! {biased;_=cancel.cancelled()=>anyhow::bail!("Cancelled"),result=mcp_config::configured(&self.cwd,overrides,cancel)=>result?};
-        // 内置 node_repl 只属于会话运行时；设置页 mcp/list 不列出、也不为此启动宿主（TS 同）。
+        // 内置 node_repl / serial / circuit / rea 只属于会话运行时；设置页 mcp/list 不列出，
+        // 也不为看状态拉起宿主（rea 会连带拉起重型分析进程，TS 同）。
         let configs: Vec<_> = configs
             .into_iter()
             .filter(|c| {
                 session != "mcp-status"
-                    || ![super::mcp_node_repl::NAME, super::mcp_serial::NAME, super::mcp_circuit::NAME]
-                        .contains(&c.name.as_str())
+                    || ![
+                        super::mcp_node_repl::NAME,
+                        super::mcp_serial::NAME,
+                        super::mcp_circuit::NAME,
+                        super::mcp_rea::NAME,
+                    ]
+                    .contains(&c.name.as_str())
             })
             .map(|mut c| {
                 // serial / circuit 经私有 broker 访问 Host 的串口会话与 CircuitService：socket 与 token 只注入各自的 env。

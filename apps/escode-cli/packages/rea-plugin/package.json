@@ -3,8 +3,12 @@
   "name": "@escode/rea-plugin",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "license": "MIT",
   "description": "Official ESCode plugin for REA: reverse engineer binaries, applications and runtime behavior through one MCP server.",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
   "escodePlugin": {
     "reaAgentsVersion": "6.4.0"
   }

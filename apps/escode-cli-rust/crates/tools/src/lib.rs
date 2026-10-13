@@ -6,6 +6,7 @@ mod browser_broker;
 mod browser_broker_listen;
 mod host_broker;
 mod mcp_circuit;
+mod mcp_rea;
 mod mcp_serial;
 pub mod bash_git_safety;
 mod checkpoint_blobs;

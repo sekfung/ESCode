@@ -300,5 +300,17 @@
     "provenance": "Bundled font name table identifies Hack 3.003 and retains Source Foundry, Bitstream Vera, and DejaVu license statements. The upstream v3.003 license is retained verbatim, including the DejaVu public-domain statement.",
     "importRevision": null,
     "sha256": "1f61bb7c790c59b4b0ecdf304628b94e42ae4c8020094a8c3da73381ab212623"
+  },
+  {
+    "id": "REA reverse-engineer-anything skill",
+    "referenceRevision": "rea-agents-6.4.0",
+    "source": "https://raw.githubusercontent.com/morluto/rea/rea-agents-6.4.0/.agents/skills/reverse-engineer-anything/SKILL.md",
+    "file": "third-party/upstream/c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864.txt",
+    "sha256": "c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864",
+    "importRevision": null,
+    "provenance": "Copied byte-for-byte from the pinned npm package rea-agents@6.4.0 (skills/reverse-engineer-anything), which carries the same MIT LICENSE as the repository root; apps/escode-cli/packages/rea-plugin/skills/** is pinned to LF in .gitattributes so the recorded hash stays stable across platforms.",
+    "roots": ["apps/escode-cli/packages/rea-plugin/skills/reverse-engineer-anything"],
+    "scope": "Vendored upstream investigation skill (SKILL.md plus its six references), copied whole and unmodified; the plugin launcher, manifest and store listing are ESCode's own.",
+    "license": "MIT"
   }
 ]

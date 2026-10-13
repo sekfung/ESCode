@@ -27,7 +27,7 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
     if !host_circuit_available() {
         return None;
     }
-    super::mcp_serial::host_plugin_server(NAME, PLUGIN, TIMEOUT_MS, plugins, cwd)
+    super::mcp_serial::host_plugin_server(NAME, PLUGIN, TIMEOUT_MS, "workspace", &[], plugins, cwd)
 }
 
 /// 并入权限 `allowedTools` 的免批准电路工具。只有 Host 声明电路能力时才加入；插件关闭时这些工具不存在，放行项不生效。

@@ -706,6 +706,12 @@ test("includes bundled official plugin assets", async () => {
       manifest.plugins.some((item) => item.name === "superpowers"),
       false,
     );
+    // REA 也一样：它的运行时约 100 MB / 6,555 文件，嵌进独立 SEA 二进制不可接受
+    // （docs/specs/rea-plugin.md「运行时安放」）。SEA 只是打包链路之一，桌面/远端各自 stage。
+    assert.equal(
+      manifest.plugins.some((item) => item.name === "rea"),
+      false,
+    );
     assert.equal(iosPaths.has(".escode-plugin/plugin.json"), true);
     assert.equal(iosPaths.has("commands/ios-dev.md"), true);
     assert.equal(iosPaths.has("skills/ios-dev/SKILL.md"), true);

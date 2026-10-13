@@ -22,3 +22,7 @@ apps/escode-cli-rust/** text=auto eol=lf
 # Gen UI 运行时供应商资源按 manifest 的 sha256 逐字节校验；
 # 同样会被 Windows 的 CRLF 检出影响，必须固定 LF，否则 Windows 打包失败。
 apps/escode-cli/packages/visualize-plugin/skills/visualize/assets/vendor/** text=auto eol=lf
+
+# REA 插件 vendored 的上游技能（MIT）按原字节保存：第三方声明生成器会对这些文件取证哈希，
+# 与 node_modules 里的 npm 原始副本逐字节比对；Windows 的 CRLF 检出会让哈希漂移。
+apps/escode-cli/packages/rea-plugin/skills/** text=auto eol=lf

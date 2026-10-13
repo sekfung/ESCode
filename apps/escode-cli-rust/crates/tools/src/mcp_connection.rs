@@ -22,6 +22,16 @@ use tokio_util::{
 };
 
 type Service = RunningService<RoleClient, ClientConfig>;
+
+/// 单条 stdio 帧（JSON-RPC 消息）的上限。SDK 默认读行无界，这里必须给界，否则坏帧会无限缓存。
+///
+/// 16 MiB 是给 MCP server 的结果预算留的余量：官方 REA 插件按 10 MiB 的 stdio 接收缓冲准备结果
+/// （`REA_MCP_MAX_RESPONSE_BYTES` 的下限就是 10485760，不能调小），而 TS 侧 SDK 的
+/// `STDIO_DEFAULT_MAX_BUFFER_SIZE` 也正好是 10 MiB。原来这里是 8 MiB，比 REA 的预算**低** 2 MiB ——
+/// 大结果不会被干净拒绝，而是帧校验失败、连接被丢弃（见 docs/specs/rea-plugin.md 的验收记录）。
+/// 代价是单帧最坏占用 16 MiB 内存，相对收益可以接受。
+const MCP_CODEC_MAX_LENGTH_BYTES: usize = 16 * 1024 * 1024;
+
 pub(super) struct Connection {
     pub peer: Peer<RoleClient>,
     pub tools: Vec<Value>,
@@ -98,14 +108,14 @@ impl Connection {
                     output,
                     rmcp::transport::async_rw::JsonRpcMessageCodec::<
                         rmcp::model::ServerJsonRpcMessage,
-                    >::new_with_max_length(8 * 1024 * 1024),
+                    >::new_with_max_length(MCP_CODEC_MAX_LENGTH_BYTES),
                 )
                 .take_while(|r| std::future::ready(r.is_ok()))
                 .filter_map(|r| std::future::ready(r.ok()));
                 let writer = FramedWrite::new(
                     input,
                     rmcp::transport::async_rw::JsonRpcMessageCodec::<Value>::new_with_max_length(
-                        8 * 1024 * 1024,
+                        MCP_CODEC_MAX_LENGTH_BYTES,
                     ),
                 );
                 let meta = official.clone();

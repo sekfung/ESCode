@@ -12,5 +12,17 @@
       "file": "third-party/runtime/node-24.14.0-LICENSE.txt",
       "sha256": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18"
     }
+  ],
+  "rea": [
+    {
+      "version": "6.4.0",
+      "source": "https://github.com/morluto/rea/releases/tag/rea-agents-6.4.0",
+      "package": "rea-agents@6.4.0",
+      "file": "third-party/upstream/c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864.txt",
+      "sha256": "c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864",
+      "installer": "apps/escode-cli/packages/rea-plugin/scripts/install-rea-runtime.mjs",
+      "dependencies": "third-party/runtime/rea-dependencies.json",
+      "reviewRequired": "本体的 MIT 许可原文已逐字节入库；其依赖树按目标平台安装、不入库（且含嵌套副本），无法逐字节哈希登记，因此逐包许可标识记录在同目录的 rea-dependencies.json（由 npm 元数据生成，含平台无关子集的稳定哈希），上游 tarball 自带的 licenses/ 与 third_party/*/LICENSE 随运行时原样分发。"
+    }
   ]
 }

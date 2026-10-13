@@ -1,0 +1,151 @@
+# 上游 REA 版本巡检：每天比对 npm 上的 rea-agents 与仓库里 pin 的版本，
+# 有新版就跑升级脚本（改 pin → 重装运行时 → 重新 vendor 技能 → 重生成 TS/Rust 生成物）并开 PR。
+#
+# 为什么是 PR 而不是直接推：升级能不能直接用取决于上游那一版的 BREAKING CHANGES
+# （入口形态 scripts/rea.mjs、MCP 模式 argv、技能目录、新增必需 env），这需要人看 release notes；
+# 另外放行清单（免审批面）每版都可能变，diff 本身就需要复核。
+#
+# 注意：用 GITHUB_TOKEN 开的 PR 不会触发其它 workflow（GitHub 的既定行为），所以这个 PR 上不会有
+# 常规 CI 检查。要让它也跑 CI，给仓库配一个 PAT（细粒度、contents+pull-requests 写）存成
+# REA_WATCH_TOKEN secret，下面的步骤会自动优先用它。
+name: rea-upstream-watch
+
+on:
+  schedule:
+    # 每天 06:00 UTC（14:00 北京）。上游发布接近每日，日检足够。
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 指定要升到的版本（留空则取 npm 上的 latest）
+        required: false
+        type: string
+
+concurrency:
+  group: rea-upstream-watch-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  watch:
+    name: check upstream rea-agents and open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 用 PAT 时才能触发后续 CI；未配置则回落 GITHUB_TOKEN。
+          token: ${{ secrets.REA_WATCH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+
+      - name: Guard（该 ref 上还没有 REA 插件时跳过）
+        id: guard
+        run: |
+          if [ ! -f scripts/upgrade-rea.mjs ] || [ ! -f apps/escode-cli/packages/rea-plugin/package.json ]; then
+            echo "REA 插件尚未在 ${GITHUB_REF_NAME} 落地，跳过。"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve 上游版本并与 pin 比对
+        id: version
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          TARGET="${{ inputs.version }}"
+          if [ -z "$TARGET" ]; then
+            TARGET="$(npm view rea-agents version)"
+          fi
+          CURRENT="$(node -p "require('./apps/escode-cli/packages/rea-plugin/package.json').escodePlugin.reaAgentsVersion")"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          if [ "$TARGET" = "$CURRENT" ]; then
+            echo "已是 $CURRENT，无新版。" >> "$GITHUB_STEP_SUMMARY"
+            echo "outdated=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "REA $CURRENT -> $TARGET" >> "$GITHUB_STEP_SUMMARY"
+            echo "outdated=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 安装依赖（升级脚本需要 tsx / vitest）
+        if: steps.version.outputs.outdated == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: 跑升级脚本（改 pin、装运行时、重新 vendor 技能、重生成生成物）
+        if: steps.version.outputs.outdated == 'true'
+        run: node scripts/upgrade-rea.mjs "${{ steps.version.outputs.target }}"
+
+      - name: 校验生成物与免审批清单
+        if: steps.version.outputs.outdated == 'true'
+        run: |
+          # 免审批清单：版本必须等于新 pin，且不含任何「必须审批前缀」的名字。
+          pnpm --filter @escode/bootstrap exec vitest run tests/rea-plugin.test.ts
+          # Rust 侧清单随生成物下发：逐字节比对，防止漏跑生成器。
+          node --import tsx scripts/generate-escode-cli-rust-official-plugins.mjs --check
+
+      - name: 开 PR（同版本分支已存在时更新它）
+        if: steps.version.outputs.outdated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.REA_WATCH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET="${{ steps.version.outputs.target }}"
+          CURRENT="${{ steps.version.outputs.current }}"
+          BRANCH="chore/rea-upstream-${TARGET}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          # 只提交升级脚本会改的工件：运行时的 node_modules 是 .gitignore 的，不该进库。
+          git add apps/escode-cli/packages/rea-plugin/package.json \
+                  apps/escode-cli/packages/rea-plugin/skills \
+                  apps/escode-cli/packages/bootstrap/src/app/rea-auto-approved-tools.ts \
+                  apps/escode-cli-rust/crates/tools/src/official_plugins.json
+          git commit -m "chore(rea): 跟进上游 rea-agents@${TARGET}" \
+            -m "由 rea-upstream-watch 生成：pin ${CURRENT} -> ${TARGET}，并重跑免审批清单与 Rust 生成物。" \
+            -m "合并前请读该版 release notes 的 BREAKING CHANGES，并跑一次真实分析回填 docs/specs/rea-plugin.md 的验收记录。"
+          # 这个分支只由本 workflow 写，同版本重复运行时直接覆盖。
+          git push --force origin "$BRANCH"
+
+          if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')" != "0" ]; then
+            echo "已有同版本 PR，已更新分支。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # 正文写进文件再传：heredoc 在 YAML 块里会带上缩进，直接塞进 --body 会把缩进带进正文，
+          # 且反引号/引用在嵌套 $() 里容易出错。
+          cat > /tmp/rea-pr-body.md <<BODY
+          ## 由 \`.github/workflows/rea-upstream-watch.yml\` 自动生成
+
+          上游 REA 发布新版本：
+
+          - pin：\`${CURRENT}\` → \`${TARGET}\`
+          - 重装运行时（按平台、约 100 MB，只在 CI 上执行，不入库）
+          - 重新 vendor 上游技能 \`skills/reverse-engineer-anything/\`（逐字节取 npm 原始副本）
+          - 重生成免审批清单 \`rea-auto-approved-tools.ts\` 与 Rust 侧 \`official_plugins.json\`
+
+          ### 合并前需要人工完成
+
+          1. 读该版 release notes 的 **BREAKING CHANGES**（https://github.com/morluto/rea/releases/tag/rea-agents-${TARGET}）：
+             入口形态（\`scripts/rea.mjs\`）、MCP 模式 argv、技能目录结构、新增必需 env 这几类变了才需要改代码。
+          2. 复核免审批面的 diff：工具面每版都可能增减 —— 新出现的读语义工具应进清单，写/执行/运行时附加类不该进。
+          3. 跑一次真实分析（免引擎目标），把结果回填 \`docs/specs/rea-plugin.md\` 的验收记录。
+
+          > 用 \`GITHUB_TOKEN\` 开的 PR 不会触发其它 workflow，因此这里可能没有常规 CI 检查；
+          > 配置 \`REA_WATCH_TOKEN\` secret 后可自动触发。
+          BODY
+          # 去掉 YAML 块缩进带来的前导空格。
+          sed -i -E 's/^ {10}//' /tmp/rea-pr-body.md
+
+          gh pr create --base "${GITHUB_REF_NAME}" --head "$BRANCH" \
+            --title "chore(rea): 跟进上游 rea-agents@${TARGET}" \
+            --body-file /tmp/rea-pr-body.md

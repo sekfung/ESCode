@@ -100,6 +100,7 @@ import {
 import { resolveBuiltInNodeReplMcpServers } from "./built-in-node-repl.js";
 import { resolveBuiltInSerialMcpServers } from "./built-in-serial.js";
 import { resolveBuiltInCircuitMcpServers } from "./built-in-circuit.js";
+import { resolveBuiltInReaMcpServers } from "./built-in-rea.js";
 import { resolveOfficialPluginDefaultAllowedTools } from "./official-plugin-definitions.js";
 import { injectSerialBroker } from "./serial-broker.js";
 import { injectCircuitBroker } from "./circuit-broker.js";
@@ -274,6 +275,10 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
       }),
       ...resolveBuiltInCircuitMcpServers({
         brokerAvailable: options.circuitBroker !== undefined,
+        pluginOutcome,
+        workingDirectory,
+      }),
+      ...resolveBuiltInReaMcpServers({
         pluginOutcome,
         workingDirectory,
       }),

@@ -1,0 +1,78 @@
+{
+  "name": "rea",
+  "version": "0.1.0",
+  "description": "Reverse engineer binaries, applications and runtime behavior with REA through one MCP server.",
+  "description_i18n": {
+    "en": "Reverse engineer binaries, applications and runtime behavior with REA through one MCP server.",
+    "zh-CN": "通过一个 MCP 服务逆向分析二进制文件、应用程序与运行时行为。"
+  },
+  "author": {
+    "name": "morluto",
+    "url": "https://github.com/morluto/rea"
+  },
+  "homepage": "https://github.com/morluto/rea",
+  "license": "MIT",
+  "skills": "skills",
+  "userConfig": {
+    "extraEnvJson": {
+      "description": "Additional REA environment variables as a JSON object (escape hatch for REA_* knobs not listed here).",
+      "title": "Extra environment (JSON)",
+      "type": "string"
+    },
+    "ghidraInstallDir": {
+      "description": "Ghidra install directory, for native decompilation on Windows/Linux/macOS.",
+      "title": "Ghidra install directory",
+      "type": "directory"
+    },
+    "hopperLauncherPath": {
+      "description": "Hopper launcher path (macOS native decompilation).",
+      "title": "Hopper launcher",
+      "type": "string"
+    },
+    "javaHome": {
+      "description": "JAVA_HOME for the JDK used by headless JADX (Android APK analysis).",
+      "title": "Java home",
+      "type": "directory"
+    },
+    "reaAnalysisProvider": {
+      "description": "Force the native analysis provider instead of auto-detection (auto, hopper, ghidra or ida).",
+      "title": "Analysis provider",
+      "type": "string"
+    },
+    "reaBrowserExecutable": {
+      "description": "Chrome-family browser executable for website and Electron runtime targets. Leave empty to use the system-installed browser.",
+      "title": "Browser executable",
+      "type": "string"
+    },
+    "reaGhidraStartupTimeoutMs": {
+      "description": "Raise Ghidra's startup deadline in milliseconds for large binaries.",
+      "title": "Ghidra startup timeout (ms)",
+      "type": "number"
+    },
+    "reaIdaMcpConfig": {
+      "description": "Config path for the caller-started IDA MCP bridge.",
+      "title": "IDA MCP config",
+      "type": "file"
+    },
+    "reaIlspyCmdPath": {
+      "description": "ilspycmd path for .NET decompilation (optional; static .NET inspection needs nothing).",
+      "title": "ilspycmd path",
+      "type": "string"
+    },
+    "reaJebMcpUrl": {
+      "description": "URL of a caller-started JEB client serving MCP.",
+      "title": "JEB MCP URL",
+      "type": "string"
+    },
+    "reaTsharkCommand": {
+      "description": "tshark command for packet capture analysis (Linux).",
+      "title": "tshark command",
+      "type": "string"
+    },
+    "reaWabtBinDirectory": {
+      "description": "WABT 1.0.42 bin directory used to decode WASM artifacts.",
+      "title": "WABT bin directory",
+      "type": "directory"
+    }
+  }
+}

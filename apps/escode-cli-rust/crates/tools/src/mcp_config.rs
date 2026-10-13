@@ -164,6 +164,8 @@ pub(super) async fn configured(
     let serial = super::mcp_serial::server(&loaded, cwd);
     let circuit = super::mcp_circuit::server(&loaded, cwd);
     let data_root = config::storage(&config).join("data");
+    // rea 需要插件数据目录（诊断落盘），所以放在 data_root 之后。
+    let rea = super::mcp_rea::server(&loaded, cwd, &config["plugins"]["options"], &data_root);
     for plugin in loaded {
         let options = &config["plugins"]["options"][&plugin.id];
         for (name, server) in plugin_servers(&plugin, cwd, &data_root, options, &mut vec![]).await?
@@ -197,8 +199,8 @@ pub(super) async fn configured(
     if let Some(server) = node_repl {
         merged.insert(server.name.clone(), server);
     }
-    // 内置 serial / circuit 同理最后合并：同名用户/插件配置不能劫持 broker 的连接材料。
-    for server in [serial, circuit].into_iter().flatten() {
+    // 内置 serial / circuit / rea 同理最后合并：同名用户/插件配置不能劫持注入的 env 与启动器。
+    for server in [serial, circuit, rea].into_iter().flatten() {
         merged.insert(server.name.clone(), server);
     }
     // 退役的 CUA 形态 MCP 不连接、不列出（TS isRetiredCuaMcpServer）；CUA 只经 node_repl 承载。

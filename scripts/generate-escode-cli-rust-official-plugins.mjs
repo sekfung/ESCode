@@ -78,6 +78,10 @@ const assets = {
     rootCandidates: definition.rootCandidates,
     requiredSeedPaths: definition.requiredSeedPaths ?? [],
     runtimeTopLevelPaths: definition.runtimeTopLevelPaths ?? [],
+    // rea 的免审批名单有上百个名字，手抄到 Rust 必然漂移：随生成物一起下发，mcp_rea 直接读它。
+    ...(definition.defaultAllowedTools
+      ? { defaultAllowedTools: definition.defaultAllowedTools }
+      : {}),
     ...(definition.listing ? { listing: definition.listing } : {}),
   })),
 };

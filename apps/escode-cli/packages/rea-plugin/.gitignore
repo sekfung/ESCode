@@ -1,0 +1,2 @@
+# 由 scripts/install-rea-runtime.mjs 按目标平台安装，不提交（含 .rea-runtime.json 标记）。
+node_modules/

@@ -256,6 +256,16 @@ const officialPluginPackages = [
     requiresRuntime: false,
     stagedPath: "packages/escode-cua-plugin",
   },
+  {
+    // REA（第三方逆向分析，MIT）：dist 由插件构建产出；约 100 MB 的运行时**不进**插件 seed，
+    // 由 stageReaRuntime 单独放进 glm/rea-runtime/node_modules，宿主按同一约定把路径注入 server。
+    packageName: "@escode/rea-plugin",
+    relativePath: "apps/escode-cli/packages/rea-plugin",
+    requiresRuntime: true,
+    requiredRuntimePaths: ["dist/mcp/server.js"],
+    runtimeBuildScript: "scripts/build.mjs",
+    stagedPath: "packages/rea-plugin",
+  },
 ];
 // 随 CLI 内置的技能包（不是插件）：bootstrap 的 resolveBundledSkillRoots 沿官方插件同款候选目录
 // 在 zcode.cjs 旁找 packages/bundled-skills 并原地读取。漏 stage 它，桌面包的 /workflow 会展开成
@@ -431,6 +441,36 @@ function stageBundledSkillPack() {
   console.log(`[prepare:agent-bundle] staged bundled skill pack ${bundledSkillPack.stagedPath}`);
 }
 
+const REA_RUNTIME_DIR_NAME = "rea-runtime";
+
+/**
+ * REA 运行时（rea-agents 及其依赖树，约 100 MB / 6,555 文件）刻意不进插件 seed：seed 每次启动都会
+ * walk + sha256 全部插件文件（实测这棵树 915 ms），首次填缓存还会整棵复制 —— 实测会让 bootstrap 的
+ * plugins 测试从 ~3s 变成 5s 超时。照 sharp/koffi 的先例直接 stage 进 agent bundle，
+ * 宿主（built-in-rea.ts）按同一约定把 <glm>/rea-runtime/node_modules 注入给 MCP server。
+ *
+ * 运行时由插件自身的 build（scripts/build.mjs → install-rea-runtime.mjs）按目标平台装好；
+ * 这里只搬运并校验，不重复安装逻辑。
+ */
+function stageReaRuntime() {
+  const source = resolve(repoRoot, "apps/escode-cli/packages/rea-plugin/node_modules");
+  const target = resolve(glmDir, REA_RUNTIME_DIR_NAME, "node_modules");
+  const sourceEntry = resolve(source, "rea-agents", "scripts", "rea.mjs");
+  if (!existsSync(sourceEntry)) {
+    throw new Error(
+      `[prepare:agent-bundle] missing REA runtime before staging: ${sourceEntry}；` +
+        "先运行 pnpm --filter @escode/rea-plugin build（按目标平台安装约 100 MB）",
+    );
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  cpSync(source, target, { dereference: true, recursive: true });
+  const stagedEntry = resolve(target, "rea-agents", "scripts", "rea.mjs");
+  if (!existsSync(stagedEntry)) {
+    throw new Error(`[prepare:agent-bundle] REA runtime staging incomplete: ${stagedEntry}`);
+  }
+  console.log(`[prepare:agent-bundle] staged REA runtime into ${target} (${platform}-${arch})`);
+}
+
 function stageSharpForNodeReplPlugin() {
   if (!isSharpRequiredByComputerUse({ desktopPackageRoot: desktopRoot })) {
     console.log(
@@ -491,6 +531,7 @@ buildCliBundle();
 buildOfficialPluginRuntimes();
 stageBundle();
 stageOfficialPlugins();
+stageReaRuntime();
 stageBundledSkillPack();
 stageKoffiForCuaPlugin();
 stageSharpForNodeReplPlugin();
