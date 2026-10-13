@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@escode/rea-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Official ESCode plugin for REA: reverse engineer binaries, applications and runtime behavior through one MCP server.",
+  "escodePlugin": {
+    "reaAgentsVersion": "6.4.0"
+  }
+}

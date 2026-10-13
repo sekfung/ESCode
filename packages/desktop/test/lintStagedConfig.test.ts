@@ -82,4 +82,33 @@ describe("lint-staged config", () => {
       expect(callback(["packages/desktop/test/e2e/example.test.ts"])).toEqual([]);
     }
   });
+
+  it("substitutes directly-importing guards for i18n locale files", () => {
+    const commands = lintStagedConfig["packages/**/*.{js,jsx,ts,tsx,json}"]([
+      "packages/ui/src/i18n/locales/zh-CN.ts",
+      "packages/ui/src/example.ts",
+    ]);
+    const manifest = readSingleCommandManifest(commands);
+
+    expect(manifest.mode).toBe("related");
+    // 文案文件本身不能进种子：related 会经 IntlProvider 算出接近整个 UI 套件的闭包。
+    expect(manifest.files).not.toContain("packages/ui/src/i18n/locales/zh-CN.ts");
+    expect(manifest.files).toContain("packages/ui/src/example.ts");
+    // 直接 import locale 的用例被补回来当哨兵，数量应远小于闭包。
+    expect(manifest.files).toContain("packages/ui/test/remoteSyncLocale.test.ts");
+    expect(manifest.files.length).toBeLessThan(100);
+  });
+
+  it("runs only the locale guards when the change is copy-only", () => {
+    const manifest = readSingleCommandManifest(
+      lintStagedConfig["packages/**/*.{js,jsx,ts,tsx,json}"]([
+        "packages/ui/src/i18n/locales/zh-CN.ts",
+        "packages/ui/src/i18n/locales/en-US.ts",
+      ]),
+    );
+
+    expect(manifest.mode).toBe("related");
+    expect(manifest.files.length).toBeGreaterThan(0);
+    expect(manifest.files.every((file: string) => file.endsWith(".test.ts"))).toBe(true);
+  });
 });
