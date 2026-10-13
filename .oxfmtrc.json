@@ -9,6 +9,7 @@
     "third-party/native-search/licenses/**",
     "third-party/runtime/*.txt",
     "docs/knip/docs/LICENSE",
-    "docs/knip/docs/licenses/**"
+    "docs/knip/docs/licenses/**",
+    "docs/electron/docs/**"
   ]
 }
