@@ -1,10 +1,5 @@
 import { toCircuitIrSummary } from "./ir.js";
-import type {
-  CircuitIR,
-  CircuitRecognitionDraft,
-  CircuitToolRequest,
-  CircuitToolResponse,
-} from "./contract.js";
+import type { CircuitIR, CircuitToolRequest, CircuitToolResponse } from "./contract.js";
 
 const EXAMPLE_CONTENT_HASH = "0".repeat(64);
 
@@ -79,27 +74,6 @@ export const exampleCircuitIr: CircuitIR = {
 };
 
 export const exampleCircuitSummary = toCircuitIrSummary(exampleCircuitIr);
-
-/** 识别草稿示例：元素 id 只作草稿内引用，提交后由服务端生成最终 id。 */
-export const exampleRecognitionDraft: CircuitRecognitionDraft = {
-  components: [
-    {
-      id: "draft-c1",
-      ref: "U1",
-      value: "STM32F103C8T6",
-      pins: [{ number: "1", netId: "draft-n1" }],
-      origin: { by: "recognition", region: { x: 120, y: 80, w: 64, h: 48 } },
-    },
-  ],
-  nets: [
-    {
-      id: "draft-n1",
-      name: "3V3",
-      pinRefs: [{ componentId: "draft-c1", pin: "1" }],
-      origin: { by: "recognition" },
-    },
-  ],
-};
 
 export const exampleParseRequest: CircuitToolRequest<"parse"> = {
   path: "hardware/example/example.kicad_sch",

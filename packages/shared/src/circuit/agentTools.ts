@@ -14,16 +14,14 @@ export const CIRCUIT_BROKER_SOCKET_ENV = "ESCODE_CIRCUIT_BROKER_SOCKET";
 export const CIRCUIT_BROKER_TOKEN_ENV = "ESCODE_CIRCUIT_BROKER_TOKEN";
 
 /**
- * 注册到 Agent 的八个工具：§5 的读/写工具（G4）+ 只读分析工具（G3）+ 识别提交（G6）。
+ * 注册到 Agent 的六个工具：§5 的读/写工具（G4）+ 只读分析工具（G3）。
  * 每个 op 都在 Host 侧有真实实现（circuitAgentBridge 的 handler），不列没有实现方的分支。
  */
 export const CIRCUIT_AGENT_TOOL_OPS = [
   "parse",
-  "submitRecognition",
   "get",
   "query",
   "correct",
-  "check",
   "compareFirmware",
   "export",
 ] as const;
@@ -43,21 +41,12 @@ export const circuitBrokerRequestSchema = z.discriminatedUnion("op", [
   brokerRequestBase
     .extend({ op: z.literal("parse"), args: circuitToolRequestSchemas.parse })
     .strict(),
-  brokerRequestBase
-    .extend({
-      op: z.literal("submitRecognition"),
-      args: circuitToolRequestSchemas.submitRecognition,
-    })
-    .strict(),
   brokerRequestBase.extend({ op: z.literal("get"), args: circuitToolRequestSchemas.get }).strict(),
   brokerRequestBase
     .extend({ op: z.literal("query"), args: circuitToolRequestSchemas.query })
     .strict(),
   brokerRequestBase
     .extend({ op: z.literal("correct"), args: circuitToolRequestSchemas.correct })
-    .strict(),
-  brokerRequestBase
-    .extend({ op: z.literal("check"), args: circuitToolRequestSchemas.check })
     .strict(),
   brokerRequestBase
     .extend({ op: z.literal("compareFirmware"), args: circuitToolRequestSchemas.compareFirmware })
@@ -85,11 +74,9 @@ export type CircuitBrokerResponse = z.infer<typeof circuitBrokerResponseSchema>;
 
 export const escodeCircuitMethods = {
   parse: "interaction/circuitParse",
-  submitRecognition: "interaction/circuitSubmitRecognition",
   get: "interaction/circuitGet",
   query: "interaction/circuitQuery",
   correct: "interaction/circuitCorrect",
-  check: "interaction/circuitCheck",
   compareFirmware: "interaction/circuitCompareFirmware",
   export: "interaction/circuitExport",
 } as const satisfies Record<CircuitAgentToolOp, string>;
@@ -106,13 +93,9 @@ const protocolParamsBase = z.object({
 
 export const escodeCircuitMethodParamsSchemas = {
   parse: protocolParamsBase.extend({ args: circuitToolRequestSchemas.parse }).strict(),
-  submitRecognition: protocolParamsBase
-    .extend({ args: circuitToolRequestSchemas.submitRecognition })
-    .strict(),
   get: protocolParamsBase.extend({ args: circuitToolRequestSchemas.get }).strict(),
   query: protocolParamsBase.extend({ args: circuitToolRequestSchemas.query }).strict(),
   correct: protocolParamsBase.extend({ args: circuitToolRequestSchemas.correct }).strict(),
-  check: protocolParamsBase.extend({ args: circuitToolRequestSchemas.check }).strict(),
   compareFirmware: protocolParamsBase
     .extend({ args: circuitToolRequestSchemas.compareFirmware })
     .strict(),

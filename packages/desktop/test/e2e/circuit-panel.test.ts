@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   TID_PREVIEW_PANE,
   TID_V4_COMPOSER_INPUT,
@@ -32,6 +33,8 @@ import { selectV4TaskById, waitForV4TimelineContaining } from "./helpers/v4-conv
  *    不调用真实模型；围栏内的同一行引用不渲染卡片）；
  * ⑥ 选中器件/网络插入到输入框 → 输入框上方出现引用 chip、草稿不发送。
  * ⑦（Web 降级卡片）在 Web/UI 层覆盖，见 packages/ui/test/circuit/circuitReferenceCardStatic.test.ts。
+ * ⑧ 图片识别源：卡片 → 面板直读识别 IR，原图作底叠加识别框并联动 BOM / 网络表（IR 按服务的
+ *    持久化布局预置，不调用真实模型）。
  *
  * 数据：packages/services/test/fixtures/circuit/rp2040-minimal（复制到临时 workspace，`.kicad_sch` /
  * `.kicad_pcb` / `.kicad_pro` 都带上）。每个场景用**独立的板子副本**，让每个场景都从 revision r1 开始
@@ -397,6 +400,7 @@ describe("电路面板 E2E", () => {
     expect(await readTestIdText("circuit-revision")).toBe("r1");
     expect(await hasTestId("circuit-stale-banner")).toBe(false);
   });
+
 });
 
 // ── workspace / 文件树 ────────────────────────────────────────────────────────

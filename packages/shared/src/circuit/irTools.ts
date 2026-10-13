@@ -6,13 +6,12 @@ import {
   circuitElementIdSchema,
   circuitIrSummarySchema,
   circuitNetSchema,
-  circuitRecognitionDraftSchema,
   circuitWorkspacePathSchema,
 } from "./ir.js";
 import { circuitCursorSchema, circuitToolFailureSchema } from "./toolEnvelope.js";
 import { cursorField, irIdField, nameSchema, pinNumberSchema, refSchema, revisionSchema } from "./fields.js";
 
-/** IR 读写类工具：circuit_parse / circuit_submit_recognition / circuit_get / circuit_query / circuit_correct。 */
+/** IR 读写类工具：circuit_parse / circuit_get / circuit_query / circuit_correct。 */
 
 // --- circuit_parse ---------------------------------------------------------------
 
@@ -25,25 +24,6 @@ export const circuitParseRequestSchema = z
   .strict();
 
 export const circuitParseResponseSchema = z
-  .object({ ok: z.literal(true), summary: circuitIrSummarySchema })
-  .strict();
-
-// --- circuit_submit_recognition --------------------------------------------------
-
-/**
- * 识别草稿不带 confidence；source 的 kind / contentHash 由服务端判定并写入 IR。
- * `baseRevision` 与 `circuit_parse` 同义：同一份内容的 IR 已经存在时必须带当前 revision
- * 才能重新提交（§3.2/§3.4 的前置条件对齐；见 circuit/CONTRACT.md）。
- */
-export const circuitSubmitRecognitionRequestSchema = z
-  .object({
-    path: circuitWorkspacePathSchema,
-    draft: circuitRecognitionDraftSchema,
-    baseRevision: revisionSchema.optional(),
-  })
-  .strict();
-
-export const circuitSubmitRecognitionResponseSchema = z
   .object({ ok: z.literal(true), summary: circuitIrSummarySchema })
   .strict();
 

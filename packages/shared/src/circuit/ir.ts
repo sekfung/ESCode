@@ -1,20 +1,20 @@
 import { z } from "zod";
 
 /**
- * Circuit IR v1 与识别草稿（docs/circuit/README.md §4、§5，ADR 0005）。
+ * Circuit IR v1（docs/circuit/README.md §4、§5，ADR 0005）。
  * 纯 domain 契约：只定义线格式与运行时校验，不做任何 IO。
  * IR 的唯一所有者是 Host 内的 CircuitService；本模块只被服务、插件、面板和远程访问层共享。
  */
 
 export const CIRCUIT_IR_SCHEMA_VERSION = 1;
 
-/** 识别结果的低置信度阈值（§2 低置信度必须可见）：confidence 低于该值的元素计入摘要并在面板标出。 */
+/** 低置信度阈值（§2 低置信度必须可见）：confidence 低于该值的元素计入摘要并在面板标出。 */
 export const CIRCUIT_LOW_CONFIDENCE_THRESHOLD = 0.7;
 
 /** IR 标识：由 CircuitService 生成，对调用方不透明。 */
 export const circuitIrIdSchema = z.string().trim().min(1).max(128);
 
-/** 元素 id。KiCad 元素使用源文件里的 UUID；识别元素的最终 id 由服务端生成。 */
+/** 元素 id。KiCad 元素使用源文件里的 UUID；网表 / BOM 用 `<kind>:<位号>`。 */
 export const circuitElementIdSchema = z.string().trim().min(1).max(128);
 
 /**
@@ -36,32 +36,13 @@ export const circuitWorkspacePathSchema = z
     );
   }, "Expected a workspace-relative path");
 
-/** 内容哈希：sha256 十六进制。图片和 PDF 以内容哈希区分版本（§3.2）。 */
+/** 内容哈希：sha256 十六进制（源文件变化检测）。 */
 export const circuitContentHashSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/u, "Expected a sha256 hex digest");
 
-export const circuitSourceKindSchema = z.enum([
-  "kicad_sch",
-  "kicad_pcb",
-  "netlist",
-  "bom",
-  "pdf_vector",
-  "image",
-]);
+export const circuitSourceKindSchema = z.enum(["kicad_sch", "kicad_pcb", "netlist", "bom"]);
 export type CircuitSourceKind = z.infer<typeof circuitSourceKindSchema>;
-
-/** 源文件坐标区域；识别结果用它记录原图区域（§4 Origin.region、§8 识别框叠加）。 */
-export const circuitRegionSchema = z
-  .object({
-    page: z.number().int().positive().optional(),
-    x: z.number().finite(),
-    y: z.number().finite(),
-    w: z.number().finite().nonnegative(),
-    h: z.number().finite().nonnegative(),
-  })
-  .strict();
-export type CircuitRegion = z.infer<typeof circuitRegionSchema>;
 
 export const circuitAuthorSchema = z
   .object({
@@ -72,15 +53,14 @@ export const circuitAuthorSchema = z
 export type CircuitAuthor = z.infer<typeof circuitAuthorSchema>;
 
 /**
- * 元素来源。confidence 只能由 CircuitService 写入（§4）：
- * parser 恒为 1，recognition 必须小于 1；correction 的具体取值规则由服务端决定，
+ * 元素来源。confidence 只能由 CircuitService 写入（§4）：parser 恒为 1；
+ * correction 的取值规则由服务端决定（人工修正 1、Agent 新建元素 0.5），
  * 本 schema 只要求 correction 带 author（§5 circuit_correct 记录 author=agent）。
  */
 export const circuitOriginSchema = z
   .object({
-    by: z.enum(["parser", "recognition", "correction"]),
+    by: z.enum(["parser", "correction"]),
     confidence: z.number().min(0).max(1),
-    region: circuitRegionSchema.optional(),
     author: circuitAuthorSchema.optional(),
   })
   .strict()
@@ -89,12 +69,6 @@ export const circuitOriginSchema = z
       context.addIssue({
         code: "custom",
         message: "Parser origin confidence must be 1",
-        path: ["confidence"],
-      });
-    if (origin.by === "recognition" && origin.confidence >= 1)
-      context.addIssue({
-        code: "custom",
-        message: "Recognition origin confidence must stay below 1",
         path: ["confidence"],
       });
     if (origin.by === "correction" && !origin.author)
@@ -213,65 +187,7 @@ export const circuitIrSchema = z
   .strict();
 export type CircuitIR = z.infer<typeof circuitIrSchema>;
 
-/**
- * 识别草稿（§5 circuit_submit_recognition）：去掉 confidence 的 IR 元素。
- * 元素 id 只在草稿内部互相引用；提交后由 CircuitService 生成最终 id 并写回 IR（§4「识别结果由服务端生成」）。
- * 元素一律 .strict()，因此带 confidence 的输入会被拒绝——Agent 不能自己给置信度（§2 规则 2）。
- */
-export const circuitDraftOriginSchema = z
-  .object({ by: z.literal("recognition"), region: circuitRegionSchema.optional() })
-  .strict();
-export type CircuitDraftOrigin = z.infer<typeof circuitDraftOriginSchema>;
-
-export const circuitDraftPinSchema = z
-  .object({
-    number: z.string().trim().min(1).max(64),
-    name: z.string().trim().min(1).max(256).optional(),
-    netId: circuitElementIdSchema.optional(),
-  })
-  .strict();
-
-export const circuitDraftComponentSchema = z
-  .object({
-    id: circuitElementIdSchema,
-    ref: z.string().trim().min(1).max(64),
-    value: z.string().max(256).optional(),
-    partNumber: z.string().max(256).optional(),
-    footprint: z.string().max(256).optional(),
-    pins: z.array(circuitDraftPinSchema),
-    origin: circuitDraftOriginSchema,
-  })
-  .strict();
-
-export const circuitDraftNetSchema = z
-  .object({
-    id: circuitElementIdSchema,
-    name: z.string().trim().min(1).max(256).optional(),
-    pinRefs: z.array(circuitPinRefSchema),
-    origin: circuitDraftOriginSchema,
-  })
-  .strict();
-
-export const circuitDraftBlockSchema = z
-  .object({
-    id: circuitElementIdSchema,
-    name: z.string().trim().min(1).max(256),
-    componentIds: z.array(circuitElementIdSchema),
-    origin: circuitDraftOriginSchema,
-  })
-  .strict();
-
-export const circuitRecognitionDraftSchema = z
-  .object({
-    components: z.array(circuitDraftComponentSchema),
-    nets: z.array(circuitDraftNetSchema),
-    // 识别不要求划分功能模块；blocks 可由 Agent 通过修正补充（§4）。
-    blocks: z.array(circuitDraftBlockSchema).optional(),
-  })
-  .strict();
-export type CircuitRecognitionDraft = z.infer<typeof circuitRecognitionDraftSchema>;
-
-/** 工具结果里的 IR 摘要（§5 circuit_parse / circuit_get / circuit_submit_recognition）。 */
+/** 工具结果里的 IR 摘要（§5 circuit_parse / circuit_get）。 */
 export const circuitIrSummarySchema = z
   .object({
     irId: circuitIrIdSchema,

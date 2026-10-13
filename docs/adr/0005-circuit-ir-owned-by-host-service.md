@@ -5,7 +5,7 @@
 
 ## Context
 
-电路识别与分析（见 [docs/circuit](../circuit/README.md)）需要让 Agent 和电路面板读写同一份 Circuit IR：Agent 负责解析、提交识别结果和修正，用户在面板里修正识别错误。我们考虑过两种所有权方案：
+电路识别与分析（见 [docs/circuit](../circuit/README.md)）需要让 Agent 和电路面板读写同一份 Circuit IR：Agent 负责解析与修正，用户在面板里修正解析结果。我们考虑过两种所有权方案：
 
 - **以文件为事实来源**：IR 和人工修正分别写进 workspace 里的两个文件，各有一个写入方；面板通过文件服务监听变化。纯 CLI、远程 workspace 和手机端都能直接使用，不需要新增 Host 服务和协议。缺点是 Agent 可以用通用的 Edit 工具直接改文件，多出一条绕过校验的写入路径；而且 revision、冲突检测、置信度只能由服务端写入，这些约束只能靠约定来维持。
 - **Host 服务持有**：仿照 `serial`，由 `CircuitService` 持有 IR，Agent 通过 MCP 和 broker 访问，面板通过 hooks 访问。

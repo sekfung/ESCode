@@ -169,8 +169,8 @@ fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
         &json!({"workspace_key": "remote:id", "workspace_path": "/w", "workspace_identity": "remote:id", "remote_session_id": "rs1"}),
     );
     let (method, params) =
-        broker.params(&request(json!({"op": "submitRecognition", "args": {"path": "a.png"}}))).unwrap();
-    assert_eq!(method, "interaction/circuitSubmitRecognition");
+        broker.params(&request(json!({"op": "parse", "args": {"path": "a.kicad_sch"}}))).unwrap();
+    assert_eq!(method, "interaction/circuitParse");
     assert_eq!(params["workspaceIdentity"], "remote:id");
     assert_eq!(params["remoteSessionId"], "rs1");
     for (op, expected) in CIRCUIT.methods {

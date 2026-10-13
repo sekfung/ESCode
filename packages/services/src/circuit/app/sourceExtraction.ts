@@ -16,7 +16,6 @@ import type { CircuitSourcePort, StoredCircuit } from "./ports.js";
 import { loadSchematicDocuments } from "./schematicLoader.js";
 
 /** 确定性解析的来源分派（§3.1）：按扩展名决定用哪个解析器，产出 IR 元素与渲染几何。 */
-
 export function detectCircuitSourceKind(path: string): CircuitSourceKind {
   const lower = path.toLowerCase();
   if (lower.endsWith(".kicad_sch")) return "kicad_sch";
@@ -26,23 +25,6 @@ export function detectCircuitSourceKind(path: string): CircuitSourceKind {
   throw new CircuitServiceError(
     "unsupported_format",
     `只支持 .kicad_sch / .kicad_pcb / .net / .csv（收到 ${path}）`,
-  );
-}
-
-/** 识别来源的扩展名（§5 circuit_submit_recognition 只接受 PDF 与图片）。 */
-const RECOGNITION_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"] as const;
-
-/**
- * 识别来源分派（§5）：`.pdf` 走矢量提取（页内只有位图时按 image 处理），
- * 常见图片扩展名按 image；其余（例如 `.kicad_sch`）报 `unsupported_format`，确定性解析走 `circuit_parse`。
- */
-export function detectRecognitionSourceKind(path: string): "pdf_vector" | "image" {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".pdf")) return "pdf_vector";
-  if (RECOGNITION_IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "image";
-  throw new CircuitServiceError(
-    "unsupported_format",
-    `circuit_submit_recognition 只支持 PDF 与图片（${RECOGNITION_IMAGE_EXTENSIONS.join(" / ")}）：${path}`,
   );
 }
 

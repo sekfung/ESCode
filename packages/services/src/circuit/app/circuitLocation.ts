@@ -27,7 +27,7 @@ export function circuitLocationKey(location: CircuitLocation): string {
 
 /**
  * irId → 记录位置的索引（§3.2）：同一位置换了源文件内容就是一份新 IR，旧 irId 必须从索引里删掉，
- * 否则拿着旧 irId 还能读到新 IR 的内容。确定性解析的 irId 不随内容变化，只有识别链路（内容哈希派生）会换。
+ * 否则拿着旧 irId 还能读到新 IR 的内容。
  */
 export function indexCircuitIrId(
   index: Map<string, string>,
@@ -45,16 +45,4 @@ export function indexCircuitIrId(
  */
 export function circuitIrIdOf(location: CircuitLocation, hashContent: (text: string) => string): string {
   return `ir:${hashContent(`${location.identityKey}\n${location.sourcePath}`).slice(0, 16)}`;
-}
-
-/**
- * 图片 / PDF 的 irId 还要带内容哈希（§3.2）：内容一变就是一份新的 IR，旧修正不迁移。
- * 同一份内容重新提交仍是同一个 irId，因此能沿用 `parse` 的 baseRevision 前置条件（§3.4）。
- */
-export function circuitContentIrIdOf(
-  location: CircuitLocation,
-  contentHash: string,
-  hash: (text: string) => string,
-): string {
-  return `ir:${hash(`${location.identityKey}\n${location.sourcePath}\n${contentHash}`).slice(0, 16)}`;
 }

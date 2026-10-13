@@ -122,27 +122,16 @@ describe("circuit broker", () => {
     });
   });
 
-  it("分发只读分析 op 到端口（check / compareFirmware 的参数契约与写类一致严格）", async () => {
+  it("分发只读分析 op 到端口（compareFirmware 的参数契约与写类一致严格）", async () => {
     const calls: Array<{ op: string; args: unknown }> = [];
     await withBroker(
       {
         request: async (op, args) => {
           calls.push({ op, args });
-          return op === "check"
-            ? { ok: true, config: { status: "default" }, items: [] }
-            : { ok: true, items: [] };
+          return { ok: true, items: [] };
         },
       },
       async (broker) => {
-        const checked = await send(
-          broker.socketPath,
-          request(broker.token, { op: "check", args: { irId: "ir:1", cursor: "opaque-1" } }),
-        );
-        expect(checked).toMatchObject({
-          ok: true,
-          result: { ok: true, config: { status: "default" }, items: [] },
-        });
-
         const compared = await send(
           broker.socketPath,
           request(broker.token, {
@@ -152,7 +141,6 @@ describe("circuit broker", () => {
         );
         expect(compared).toMatchObject({ ok: true, result: { ok: true, items: [] } });
         expect(calls).toEqual([
-          { op: "check", args: { irId: "ir:1", cursor: "opaque-1" } },
           { op: "compareFirmware", args: { irId: "ir:1", files: ["firmware/board.dts"] } },
         ]);
 
@@ -162,7 +150,7 @@ describe("circuit broker", () => {
           request(broker.token, { op: "compareFirmware", args: { irId: "ir:1", files: [] } }),
         );
         expect(invalidArgs).toMatchObject({ ok: false, error: { code: "invalidInput" } });
-        expect(calls).toHaveLength(2);
+        expect(calls).toHaveLength(1);
       },
     );
   });
@@ -323,13 +311,11 @@ describe("circuit 注册门控与批准", () => {
       registeredMcpServerNames: new Set(["circuit"]),
     }).sort();
     expect(allowed).toEqual([
-      "mcp__circuit__circuit_check",
       "mcp__circuit__circuit_compare_firmware",
       "mcp__circuit__circuit_correct",
       "mcp__circuit__circuit_get",
       "mcp__circuit__circuit_parse",
       "mcp__circuit__circuit_query",
-      "mcp__circuit__circuit_submit_recognition",
     ]);
     expect(allowed).not.toContain("mcp__circuit__circuit_export");
   });

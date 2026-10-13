@@ -7637,8 +7637,6 @@ const enUS: Record<string, string> = {
   "circuit.loading": "Reading circuit…",
   "circuit.unavailable":
     "The circuit panel is Desktop-only: no CircuitService is running for this workspace here.",
-  "circuit.recognitionNeeded":
-    "This file needs Agent recognition first: ask the Agent in the conversation to recognize this schematic. The panel never starts model recognition.",
   "circuit.unsupported":
     "This file is not a circuit panel source (supported: .kicad_sch, .kicad_pcb, .circuit.json).",
   "circuit.retryParse": "Re-parse",

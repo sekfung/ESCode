@@ -1,19 +1,13 @@
 import { circuitIrSchema, type CircuitIR } from "@escode/shared/circuit";
 import { CIRCUIT_EXPORT_SUFFIX } from "@escode/shared/circuit";
-import { inferImageMediaType, isPdfPreviewPath } from "@/lib/codeViewer.js";
 
 /**
  * 面板入口的文件分类与导出快照解析（规格 §8）。
  * 入口只有三类：KiCad 原理图/PCB（让 hook 直接请求确定性解析）、导出快照（只读展示）、
- * PDF / 图片（显示「让 Agent 识别」提示，面板不发起模型识别）。
+ * 其余文件不受支持。
  */
 
-export type CircuitPanelFileKind =
-  | "kicad_sch"
-  | "kicad_pcb"
-  | "snapshot"
-  | "recognition"
-  | "unsupported";
+export type CircuitPanelFileKind = "kicad_sch" | "kicad_pcb" | "snapshot" | "unsupported";
 
 export function circuitPanelFileKind(path: string | undefined | null): CircuitPanelFileKind {
   if (!path) return "unsupported";
@@ -21,7 +15,6 @@ export function circuitPanelFileKind(path: string | undefined | null): CircuitPa
   if (lower.endsWith(CIRCUIT_EXPORT_SUFFIX)) return "snapshot";
   if (lower.endsWith(".kicad_sch")) return "kicad_sch";
   if (lower.endsWith(".kicad_pcb")) return "kicad_pcb";
-  if (isPdfPreviewPath(path) || inferImageMediaType(path) !== null) return "recognition";
   return "unsupported";
 }
 

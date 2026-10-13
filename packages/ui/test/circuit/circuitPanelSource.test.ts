@@ -27,8 +27,8 @@ describe("面板入口分类", () => {
     ["hardware/board.kicad_sch", "kicad_sch"],
     ["hardware/BOARD.KICAD_PCB", "kicad_pcb"],
     ["out/board.circuit.json", "snapshot"],
-    ["docs/schematic.pdf", "recognition"],
-    ["docs/photo.png", "recognition"],
+    ["docs/schematic.pdf", "unsupported"],
+    ["docs/photo.png", "unsupported"],
     ["src/main.ts", "unsupported"],
   ] as const)("%s → %s", (path, expected) => {
     expect(circuitPanelFileKind(path)).toBe(expected);

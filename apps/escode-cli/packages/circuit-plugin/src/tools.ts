@@ -20,15 +20,11 @@ export interface CircuitToolDefinition {
 const DESCRIPTIONS: Record<CircuitAgentToolOp, string> = {
   parse:
     "Parse a KiCad schematic/PCB, netlist or BOM file into the Circuit IR held by the ESCode Host, and return its summary (irId, revision, component/net counts, diagnostics). Re-parsing an existing IR requires baseRevision; if the source file changed, the IR is marked stale and must be re-parsed this way.",
-  submitRecognition:
-    "Submit a recognition draft (components/nets you read off a schematic image or vector PDF) for one image/PDF file. The draft carries no confidence: the Host validates it against the IR rules, assigns the final element ids and derives each element's confidence. Elements whose reference designator or net name is found in the text of a vector PDF are treated as deterministic (confidence 1); everything else is scored from the validation result. Tell the user before sending an image or PDF to a model, and prefer this text/segment extraction for vector PDFs. Re-submitting the same content requires baseRevision. Returns irId, revision and a summary with the diagnostics and low-confidence counts.",
   get: "Read one IR: summary, stale flag, low-confidence element count and the full list of diagnostics (truncated=true when the response hit its size limit). Call it after circuit_parse to see what was extracted.",
   query:
     "Query one IR by ref (component), net (by netId or netName), block (by blockId or blockName), or trace the connections of a component (optionally a single pin). Large results are paged: pass the returned nextCursor back to continue reading.",
   correct:
     "Apply corrections to one IR: rename/update a component (ref, value, partNumber, footprint), connect or disconnect a pin, add/update/remove a functional block. Requires the current baseRevision — a write with a stale revision is rejected so nothing is silently merged. Corrections stay visible in the user's circuit panel as agent-authored.",
-  check:
-    "Run the built-in deterministic rules on one IR (unconnected pin, single-pin net, undriven power, missing I2C pull-up, missing decoupling, net-name conflict) and return the rule config status (default/applied/invalid from .escode/circuit-rules.json) plus items with ruleId, severity, the involved component/net ids and a lowConfidence flag. Read-only. Report these findings separately from your own review comments; page large results by passing nextCursor back as cursor.",
   compareFirmware:
     "Compare one IR against firmware pin declarations for hardware/firmware bring-up: Zephyr devicetree (.dts/.dtsi/.overlay), STM32CubeMX .ioc, or C headers with GPIO_PIN/port macros. Returns pin-mismatch, firmware-only, schematic-only and peripheral-conflict differences with pin, net, firmware symbol, file and line. Read-only. Page large results by passing nextCursor back as cursor.",
   export:
@@ -36,11 +32,11 @@ const DESCRIPTIONS: Record<CircuitAgentToolOp, string> = {
 };
 
 /**
- * 只读工具：get/query/check/compareFirmware 不改任何状态，plan 模式可用。
- * correct/export 写状态或 workspace，标 destructive；parse/submitRecognition 只重建 IR 本身、
- * 不改用户文件，因此两者都不标（与 §5 的「需要批准：否」一致）。
+ * 只读工具：get/query/compareFirmware 不改任何状态，plan 模式可用。
+ * correct/export 写状态或 workspace，标 destructive；parse 只重建 IR 本身、
+ * 不改用户文件，因此不标（与 §5 的「需要批准：否」一致）。
  */
-const READ_ONLY_OPS = new Set<CircuitAgentToolOp>(["get", "query", "check", "compareFirmware"]);
+const READ_ONLY_OPS = new Set<CircuitAgentToolOp>(["get", "query", "compareFirmware"]);
 const DESTRUCTIVE_OPS = new Set<CircuitAgentToolOp>(["correct", "export"]);
 
 interface JsonSchemaNode {

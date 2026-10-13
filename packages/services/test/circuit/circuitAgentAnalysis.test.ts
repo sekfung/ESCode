@@ -10,20 +10,11 @@ import { routeCircuitAgentRequest } from "../../src/circuit/app/circuitAgentRequ
 import { CircuitServiceError } from "../../src/circuit/domain/circuitErrors.js";
 
 /**
- * 只读分析工具的 Agent 链路契约（docs/circuit/README.md §5、§6、§7）：
- * op → service.check / service.compareFirmware 的映射、cursor 与 files 的透传、
- * 错误码 → 失败信封，以及反向路由的严格校验与响应复核。
+ * 只读分析工具（固件比对）的 Agent 链路契约（docs/circuit/README.md §5、§7）：
+ * op → service.compareFirmware 的映射、cursor 与 files 的透传、错误码 → 失败信封，
+ * 以及反向路由的严格校验与响应复核。
  * 读写 op（parse/get/query/correct/export）的同类契约见 circuitAgentBridge.test.ts。
  */
-
-const ruleItem = {
-  ruleId: "single-pin-net",
-  severity: "warning",
-  message: "网络 MID 只连了一个引脚",
-  componentIds: ["uuid-u1"],
-  netIds: ["net-mid"],
-  lowConfidence: false,
-} as const;
 
 const firmwareDifference = {
   kind: "pin-mismatch",
@@ -34,7 +25,7 @@ const firmwareDifference = {
   line: 21,
 } as const;
 
-/** 分析 handler 只调用同名服务方法：这里只桩出这两个方法，其余成员不参与这条路径。 */
+/** 分析 handler 只调用同名服务方法：这里只桩出这个方法，其余成员不参与这条路径。 */
 function serviceWith(impl: Partial<ICircuitService>): ICircuitService {
   return impl as ICircuitService;
 }
@@ -53,20 +44,11 @@ const methodParams = <Op extends keyof typeof escodeCircuitMethods>(
   }) as ESCodeCircuitMethodParams<Op>;
 
 describe("只读分析工具的桥接", () => {
-  it("check/compareFirmware 映射到服务方法，并透传 cursor 与 files", async () => {
+  it("compareFirmware 映射到服务方法，并透传 cursor 与 files", async () => {
     const calls: Array<{ method: string; params: unknown }> = [];
     const bridge = createCircuitAgentBridge({
       getCircuitService: () =>
         serviceWith({
-          async check(params) {
-            calls.push({ method: "check", params });
-            // 带 cursor 的请求表示在翻页：这一页是最后一页。
-            return {
-              config: { status: "applied", path: ".escode/circuit-rules.json" },
-              items: [ruleItem],
-              ...(params.cursor ? {} : { nextCursor: "c-check" }),
-            };
-          },
           async compareFirmware(params) {
             calls.push({ method: "compareFirmware", params });
             return {
@@ -78,54 +60,43 @@ describe("只读分析工具的桥接", () => {
     });
 
     expect(
-      await bridge.handle("check", methodParams("check", { irId: "ir:1", cursor: "opaque-0" })),
-    ).toEqual({
-      ok: true,
-      config: { status: "applied", path: ".escode/circuit-rules.json" },
-      items: [ruleItem],
-    });
+      await bridge.handle(
+        "compareFirmware",
+        methodParams("compareFirmware", {
+          irId: "ir:1",
+          files: ["firmware/board.dts"],
+          cursor: "opaque-0",
+        }),
+      ),
+    ).toEqual({ ok: true, items: [firmwareDifference] });
     expect(calls[0]).toEqual({
-      method: "check",
-      params: {
-        workspacePath: "C:/work",
-        workspaceIdentity: "identity-1",
-        irId: "ir:1",
-        cursor: "opaque-0",
-      },
-    });
-
-    const compared = await bridge.handle(
-      "compareFirmware",
-      methodParams("compareFirmware", { irId: "ir:1", files: ["firmware/board.dts"] }),
-    );
-    expect(compared).toEqual({ ok: true, items: [firmwareDifference], nextCursor: "c-fw" });
-    expect(calls[1]).toEqual({
       method: "compareFirmware",
       params: {
         workspacePath: "C:/work",
         workspaceIdentity: "identity-1",
         irId: "ir:1",
         files: ["firmware/board.dts"],
+        cursor: "opaque-0",
       },
     });
+
+    const firstPage = await bridge.handle(
+      "compareFirmware",
+      methodParams("compareFirmware", { irId: "ir:1", files: ["firmware/board.dts"] }),
+    );
+    expect(firstPage).toEqual({ ok: true, items: [firmwareDifference], nextCursor: "c-fw" });
   });
 
   it("服务错误码原样进入失败信封，消息去掉重复前缀", async () => {
     const bridge = createCircuitAgentBridge({
       getCircuitService: () =>
         serviceWith({
-          async check() {
-            throw new CircuitServiceError("invalid_ir", "cursor 与当前查询不匹配");
-          },
           async compareFirmware() {
             throw new CircuitServiceError("unsupported_format", "不支持的固件文件：fw/main.c");
           },
         }),
     });
 
-    expect(
-      await bridge.handle("check", methodParams("check", { irId: "ir:1", cursor: "wrong" })),
-    ).toEqual({ ok: false, error: { code: "invalid_ir", message: "cursor 与当前查询不匹配" } });
     expect(
       await bridge.handle(
         "compareFirmware",
@@ -165,13 +136,9 @@ describe("分析 op 的反向路由", () => {
     const bridge = createCircuitAgentBridge({
       getCircuitService: () =>
         serviceWith({
-          async check() {
+          async compareFirmware() {
             called += 1;
-            return {
-              config: { status: "applied", path: ".escode/circuit-rules.json" },
-              items: [ruleItem],
-              nextCursor: "c-check",
-            };
+            return { items: [firmwareDifference], nextCursor: "c-fw" };
           },
         }),
     });
@@ -193,20 +160,15 @@ describe("分析 op 的反向路由", () => {
     routeCircuitAgentRequest({
       request: {
         id: 2,
-        method: escodeCircuitMethods.check,
-        params: methodParams("check", { irId: "ir:1" }),
+        method: escodeCircuitMethods.compareFirmware,
+        params: methodParams("compareFirmware", { irId: "ir:1", files: ["firmware/board.dts"] }),
       },
       bridge,
       responder,
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(responded[0]).toEqual({
-      ok: true,
-      config: { status: "applied", path: ".escode/circuit-rules.json" },
-      items: [ruleItem],
-      nextCursor: "c-check",
-    });
-    expect(circuitToolResponseSchemas.check.safeParse(responded[0]).success).toBe(true);
+    expect(responded[0]).toEqual({ ok: true, items: [firmwareDifference], nextCursor: "c-fw" });
+    expect(circuitToolResponseSchemas.compareFirmware.safeParse(responded[0]).success).toBe(true);
   });
 
   it("响应不合契约时按 -32603 报告，不静默透传", async () => {
@@ -214,15 +176,15 @@ describe("分析 op 的反向路由", () => {
     routeCircuitAgentRequest({
       request: {
         id: 1,
-        method: escodeCircuitMethods.check,
-        params: methodParams("check", { irId: "ir:1" }),
+        method: escodeCircuitMethods.compareFirmware,
+        params: methodParams("compareFirmware", { irId: "ir:1", files: ["firmware/board.dts"] }),
       },
       bridge: createCircuitAgentBridge({
         getCircuitService: () =>
           serviceWith({
-            async check() {
-              // 结构缺陷：config.status 不在枚举里。
-              return { config: { status: "nonsense" }, items: [] } as never;
+            async compareFirmware() {
+              // 结构缺陷：kind 不在枚举里。
+              return { items: [{ kind: "nonsense", file: "firmware/board.dts" }] } as never;
             },
           }),
       }),

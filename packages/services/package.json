@@ -31,7 +31,6 @@
     "ignore": "^5.3.2",
     "node-forge": "^1.4.0",
     "node-pty": "^1.0.0",
-    "pdfjs-dist": "5.4.296",
     "smol-toml": "^1.6.1",
     "undici": "^6.23.0",
     "yaml": "^2.9.0",

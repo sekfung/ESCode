@@ -7263,8 +7263,6 @@ const zhCN: Record<string, string> = {
   // 电路面板（docs/circuit/README.md §8）：面板、引用卡片、引用 chip 与修正入口。
   "circuit.loading": "正在读取电路…",
   "circuit.unavailable": "电路面板仅 Desktop 可用：当前环境没有运行该 workspace 的 CircuitService。",
-  "circuit.recognitionNeeded":
-    "这个文件需要先由 Agent 识别：请在对话里让 Agent 识别这张原理图，面板不发起模型识别。",
   "circuit.unsupported": "该文件不是电路面板支持的来源（支持 .kicad_sch、.kicad_pcb、.circuit.json）。",
   "circuit.retryParse": "重新解析",
   "circuit.refresh": "刷新",

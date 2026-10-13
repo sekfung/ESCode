@@ -6,7 +6,7 @@
 #   （RP2040_minimal.kicad_sch / .kicad_pcb）与 firmware/ 里的固件样例；源文件改动直接用测试写盘完成。
 # - 第 5、7 条需要一条带 `::circuit{"irId":"…"}` 的 assistant 消息：由 session replay fixture 提供，
 #   不调用真实模型（§10.3「E2E 不依赖真实模型」）。
-# - 第 7 条用普通 Web 客户端：Web 没有 CircuitService，只验证静态降级卡片。
+# - 第 7 条用普通 Web 客户端：Web 没有 CircuitService，只验证 ::circuit 在非 Desktop 不渲染卡片。
 功能: 电路面板
 
   场景: 在文件树中打开 .kicad_sch 后渲染并联动 BOM 与网络表
@@ -34,13 +34,13 @@
     当 用户点击提示里的"刷新"
     那么 面板 revision 变为 "r2" 并显示外部写入后的值
 
-  场景: 源文件外部变化后重新解析，修正按 UUID 保留，失效的标记出来
+  场景: 源文件外部变化后重新解析，修正按元素 id 保留，失效的标记出来
     假如 电路面板已打开 "hardware/RP2040_minimal.kicad_sch" 且已有一条针对 "R1" 的修正
     当 用户在外部把源文件里的 "R2" 删除并保存
     那么 面板出现 stale 提示（"circuit-stale-banner"）
     当 用户点击提示里的"重新解析"
     那么 stale 提示消失，revision 加 1
-    并且 针对 "R1"（UUID 未变）的修正仍然保留在修正记录里，且未标记失效
+    并且 针对 "R1"（元素 id 未变）的修正仍然保留在修正记录里，且未标记失效
     并且 修正记录里出现标记为"已失效"的记录，可供用户删除
     当 用户点击该失效记录的"删除"
     那么 该记录从修正记录列表中消失，其它修正不受影响

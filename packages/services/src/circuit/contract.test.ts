@@ -9,7 +9,6 @@ import {
 } from "./contract.js";
 import {
   exampleCircuitChangedEvent,
-  exampleCircuitCheckResult,
   exampleCircuitCorrectParams,
   exampleCircuitCorrectionRecord,
   exampleCircuitExportParams,
@@ -20,7 +19,6 @@ import {
   exampleCircuitLayout,
   exampleCircuitParseParams,
   exampleCircuitQueryResult,
-  exampleCircuitSubmitRecognitionParams,
 } from "./contract.example.js";
 
 /**
@@ -40,10 +38,6 @@ function createFakeService(): ICircuitService & {
         throw new Error("not_found: 未注册的源文件");
       return view();
     },
-    submitRecognition: async (params) => {
-      if (params.draft.components.length === 0) throw new Error("invalid_ir: 草稿里没有器件");
-      return view();
-    },
     findBySource: async () => ({
       irId: exampleCircuitIrView.summary.irId,
       revision: exampleCircuitIrView.summary.revision,
@@ -52,7 +46,6 @@ function createFakeService(): ICircuitService & {
     get: async () => view(),
     getLayout: async (): Promise<CircuitLayout> => structuredClone(exampleCircuitLayout),
     query: async (): Promise<CircuitQueryResult> => structuredClone(exampleCircuitQueryResult),
-    check: async () => structuredClone(exampleCircuitCheckResult),
     compareFirmware: async (params) => {
       if (params.files.length === 0) throw new Error("invalid_ir: 没有固件文件");
       return structuredClone(exampleCircuitFirmwareCompareResult);
@@ -86,20 +79,6 @@ describe("circuit-service 契约", () => {
     expect(layout?.sheets[0]?.symbols[0]?.elementId).toBe(exampleCircuitCorrectionRecord.target.id);
   });
 
-  it("识别提交只收草稿：无 confidence、元素 id 由服务端生成", async () => {
-    const service = createFakeService();
-    const view = await service.submitRecognition(exampleCircuitSubmitRecognitionParams);
-    expect(view.summary.irId).toBe(exampleCircuitIrView.summary.irId);
-    // 草稿里的引用只在草稿内成立；服务端才是最终 id 与置信度的写入方。
-    expect(JSON.stringify(exampleCircuitSubmitRecognitionParams)).not.toContain("confidence");
-    await expect(
-      service.submitRecognition({
-        ...exampleCircuitSubmitRecognitionParams,
-        draft: { ...exampleCircuitSubmitRecognitionParams.draft, components: [] },
-      }),
-    ).rejects.toThrow(/invalid_ir/u);
-  });
-
   it("修正必须带 baseRevision，变更后 revision 递增", async () => {
     const service = createFakeService();
     const view = await service.correct(exampleCircuitCorrectParams);
@@ -125,17 +104,6 @@ describe("circuit-service 契约", () => {
     subscription.dispose();
     service.fireChanged({ ...exampleCircuitChangedEvent, revision: 5 });
     expect(seen).toHaveLength(1);
-  });
-
-  it("规则检查结果带配置状态与低置信度标记", async () => {
-    const service = createFakeService();
-    const result = await service.check({
-      workspacePath: exampleCircuitParseParams.workspacePath,
-      irId: exampleCircuitIrView.summary.irId,
-    });
-    expect(result.config).toEqual({ status: "applied", path: ".escode/circuit-rules.json" });
-    expect(result.items[0]?.ruleId).toBe("unconnected-pin");
-    expect(result.items[0]?.lowConfidence).toBe(false);
   });
 
   it("固件比对返回带来源文件与行号的差异条目", async () => {

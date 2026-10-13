@@ -61,6 +61,7 @@ export function CircuitPanel({
       service: circuitAvailable ? services.circuitService : undefined,
       workspace,
       path,
+      requestedIrId,
       snapshotText,
       enabled,
     });
@@ -148,12 +149,6 @@ export function CircuitPanel({
     return (
       <PanelMessage title={panelTitle} testId="circuit-panel-unavailable">
         {intl.formatMessage({ id: "circuit.unavailable" })}
-      </PanelMessage>
-    );
-  if (state.status === "recognition")
-    return (
-      <PanelMessage title={panelTitle} testId="circuit-panel-recognition">
-        {intl.formatMessage({ id: "circuit.recognitionNeeded" })}
       </PanelMessage>
     );
   if (state.status === "unsupported")

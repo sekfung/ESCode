@@ -34,7 +34,6 @@ const MAX_QUERY_PAGES = 20;
 export type CircuitPanelStatus =
   | "unavailable"
   | "unsupported"
-  | "recognition"
   | "loading"
   | "ready"
   | "empty"
@@ -76,6 +75,11 @@ export interface UseCircuitPanelOptions {
   workspace: CircuitWorkspaceScope | null;
   /** workspace 相对路径（服务契约要求，调用方负责把绝对路径转相对）。 */
   path: string | undefined;
+  /**
+   * `::circuit` 卡片带来的 irId（§8）：优先按它读取已存在的 IR。
+   * 卡片只引用已存在的 IR；找不到该 irId 时按 not_found 报错，由用户重新打开。
+   */
+  requestedIrId?: string;
   /** 导出快照文本；PreviewPane 已经读过的文件内容复用给它，避免二次 IO。 */
   snapshotText?: string | null;
   enabled: boolean;
@@ -113,7 +117,7 @@ async function collectPaged<T>(
 }
 
 export function useCircuitPanel(options: UseCircuitPanelOptions) {
-  const { service, workspace, path, snapshotText, enabled } = options;
+  const { service, workspace, path, requestedIrId, snapshotText, enabled } = options;
   const [state, setState] = useState<CircuitPanelState>(IDLE_STATE);
   /** 「还没有 IR / 读取失败」时的重试开关：重跑一次解析流程，不改变写入路径。 */
   const [resolveNonce, setResolveNonce] = useState(0);
@@ -172,7 +176,8 @@ export function useCircuitPanel(options: UseCircuitPanelOptions) {
     [applyData, service, workspaceRef],
   );
 
-  // 初次解析 / 读取：KiCad 文件没有 IR 时直接请求确定性解析（§8「还没有 IR 时」）。
+  // 初次解析 / 读取（§8「还没有 IR 时」）：卡片带来的 irId 直接读取已存在的 IR；
+  // 没有 requestedIrId 时先按源文件找回已有的 IR；KiCad 文件没有 IR 时请求确定性解析。
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
@@ -182,17 +187,8 @@ export function useCircuitPanel(options: UseCircuitPanelOptions) {
         cancelled = true;
       };
     }
-    if (!workspace || !path || fileKind === "unsupported" || fileKind === "recognition") {
-      setState({
-        ...IDLE_STATE,
-        status:
-          !workspace || !path
-            ? "unsupported"
-            : fileKind === "recognition"
-              ? "recognition"
-              : "unsupported",
-        fileKind,
-      });
+    if (!workspace || !path || fileKind === "unsupported") {
+      setState({ ...IDLE_STATE, status: "unsupported", fileKind });
       return () => {
         cancelled = true;
       };
@@ -234,10 +230,17 @@ export function useCircuitPanel(options: UseCircuitPanelOptions) {
         return;
       }
       try {
-        const existing = await service.findBySource({ ...workspaceRef, path });
-        const irId = existing?.irId ?? (await service.parse({ ...workspaceRef, path })).summary.irId;
+        const existing = requestedIrId
+          ? { irId: requestedIrId }
+          : await service.findBySource({ ...workspaceRef, path });
+        if (existing) {
+          if (cancelled) return;
+          await load(existing.irId, "initial");
+          return;
+        }
+        const parsed = await service.parse({ ...workspaceRef, path });
         if (cancelled) return;
-        await load(irId, "initial");
+        await load(parsed.summary.irId, "initial");
       } catch (error) {
         if (cancelled) return;
         setState({ ...IDLE_STATE, status: "empty", fileKind, error: describeCircuitError(error) });
@@ -247,7 +250,7 @@ export function useCircuitPanel(options: UseCircuitPanelOptions) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, fileKind, load, path, resolveNonce, service, snapshotText, workspace, workspaceRef]);
+  }, [enabled, fileKind, load, path, requestedIrId, resolveNonce, service, snapshotText, workspace, workspaceRef]);
 
   // 事件订阅：同一 irId 才处理；revision 前进或 stale 翻转都触发刷新（§3.3、§3.4）。
   useEffect(() => {
@@ -268,7 +271,7 @@ export function useCircuitPanel(options: UseCircuitPanelOptions) {
     await load(known.irId, "refresh");
   }, [load, service]);
 
-  /** 重新解析（stale 提示上的操作）：带当前 baseRevision 请求重解析，修正按 UUID 重新套用。 */
+  /** 重新解析（stale 提示上的操作）：带当前 baseRevision 请求重解析，修正按元素 id 重新套用。 */
   const reparse = useCallback(async () => {
     const known = revisionRef.current;
     if (!service || !workspace || !path || !known) return;

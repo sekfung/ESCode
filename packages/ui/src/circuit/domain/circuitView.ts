@@ -1,4 +1,9 @@
-import { isLowConfidence, type CircuitComponent, type CircuitNet, type CircuitOrigin } from "@escode/shared/circuit";
+import {
+  isLowConfidence,
+  type CircuitComponent,
+  type CircuitNet,
+  type CircuitOrigin,
+} from "@escode/shared/circuit";
 import type { CircuitLayoutSheet, CircuitLayoutSymbol } from "@escode/services";
 
 /**

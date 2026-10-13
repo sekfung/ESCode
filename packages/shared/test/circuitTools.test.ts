@@ -32,11 +32,9 @@ describe("Circuit 工具契约信封", () => {
   it("固定工具名、错误码与响应上限", () => {
     expect(Object.values(CIRCUIT_TOOL_NAMES)).toEqual([
       "circuit_parse",
-      "circuit_submit_recognition",
       "circuit_get",
       "circuit_query",
       "circuit_correct",
-      "circuit_check",
       "circuit_compare_firmware",
       "circuit_export",
     ]);
@@ -84,40 +82,6 @@ describe("Circuit 工具请求校验", () => {
       circuitToolRequestSchemas.parse.safeParse({ path: "hw/board.kicad_sch", baseRevision: -1 }).success,
     ).toBe(false);
     expect(circuitToolRequestSchemas.parse.safeParse({}).success).toBe(false);
-  });
-
-  it("circuit_submit_recognition 拒绝带 confidence 的草稿，baseRevision 可选", () => {
-    const request = {
-      path: "hw/top.png",
-      draft: {
-        components: [
-          { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition" } },
-        ],
-        nets: [],
-      },
-    };
-    expect(circuitToolRequestSchemas.submitRecognition.safeParse(request).success).toBe(true);
-    // 同一份内容重新提交要带当前 revision（与 parse 的前置条件一致）。
-    expect(
-      circuitToolRequestSchemas.submitRecognition.safeParse({ ...request, baseRevision: 2 })
-        .success,
-    ).toBe(true);
-    expect(
-      circuitToolRequestSchemas.submitRecognition.safeParse({ ...request, path: "/abs/top.png" })
-        .success,
-    ).toBe(false);
-    const withConfidence = {
-      ...request,
-      draft: {
-        ...request.draft,
-        components: [
-          { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition", confidence: 0.9 } },
-        ],
-      },
-    };
-    expect(
-      circuitToolRequestSchemas.submitRecognition.safeParse(withConfidence).success,
-    ).toBe(false);
   });
 
   it("circuit_query 的四种模式：省略过滤 = 列出全部，id 与名字最多给一个", () => {
@@ -261,38 +225,6 @@ describe("Circuit 工具请求校验", () => {
 });
 
 describe("Circuit 分析工具契约", () => {
-  it("circuit_check 报告规则配置状态与低置信度标记", () => {
-    const ok = {
-      ok: true,
-      config: { status: "applied", path: ".escode/circuit-rules.json" },
-      items: [
-        {
-          ruleId: "i2c-missing-pullup",
-          severity: "warning",
-          message: "网络 I2C1_SDA 缺少上拉",
-          componentIds: ["uuid-u1"],
-          netIds: ["net-sda"],
-          lowConfidence: true,
-        },
-      ],
-    };
-    expect(circuitToolResponseSchemas.check.safeParse(ok).success).toBe(true);
-    expect(
-      circuitToolResponseSchemas.check.safeParse({
-        ...ok,
-        config: { status: "invalid", reason: "JSON 解析失败" },
-      }).success,
-    ).toBe(true);
-    expect(
-      circuitToolResponseSchemas.check.safeParse({ ...ok, items: [{ ...ok.items[0], ruleId: "custom-rule" }] })
-        .success,
-    ).toBe(false);
-    expect(
-      circuitToolResponseSchemas.check.safeParse({ ...ok, items: [{ ...ok.items[0], lowConfidence: "yes" }] })
-        .success,
-    ).toBe(false);
-  });
-
   it("circuit_compare_firmware 校验固件文件与差异类型", () => {
     expect(
       circuitToolRequestSchemas.compareFirmware.safeParse({

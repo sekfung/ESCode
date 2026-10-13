@@ -1,9 +1,0 @@
-(kicad_sch (version 20231120) (generator eeschema) (uuid 0f000000-0000-4000-8000-000000000001) (paper "A4")
-  (lib_symbols
-
-  )
-  (sheet (at 50 50) (size 30 20) (fields_autoplaced yes) (stroke (width 0.1524) (type solid)) (fill (color 0 0 0 0.0000)) (uuid aaaaaaaa-0000-4000-8000-000000000003)
-    (property "Sheetname" "only" (at 50 49.2884 0) (effects (font (size 1.27 1.27)) (justify left bottom)))
-    (property "Sheetfile" "miss-child.kicad_sch" (at 50 70.7507 0) (effects (font (size 1.27 1.27)) (justify left top)))
-    (instances (project "g3-fixture" (path "/0f000000-0000-4000-8000-000000000001" (page "2")))))
-)

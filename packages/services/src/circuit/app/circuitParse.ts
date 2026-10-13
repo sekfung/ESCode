@@ -8,7 +8,7 @@ import { detectCircuitSourceKind, extractCircuitSource } from "./sourceExtractio
 /**
  * `circuit_parse` 的编排（§3.1、§3.4）：读源文件 → 确定性提取（含子图纸与渲染几何）→ 组装 IR →
  * 按 id 重新套用已有修正（套不上的标 orphaned）。持久化与事件由调用方（CircuitService）在写入队列里完成。
- * 与 `planCircuitRecognition` 对称：两者都只算「下一份记录」，不碰 store，也不发事件。
+ * 只算「下一份记录」，不碰 store，也不发事件。
  */
 
 export interface CircuitParsePlan {

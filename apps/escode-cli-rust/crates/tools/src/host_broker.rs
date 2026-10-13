@@ -65,11 +65,9 @@ pub(super) static CIRCUIT: Spec = Spec {
     token_env: "ESCODE_CIRCUIT_BROKER_TOKEN",
     methods: &[
         ("parse", "interaction/circuitParse"),
-        ("submitRecognition", "interaction/circuitSubmitRecognition"),
         ("get", "interaction/circuitGet"),
         ("query", "interaction/circuitQuery"),
         ("correct", "interaction/circuitCorrect"),
-        ("check", "interaction/circuitCheck"),
         ("compareFirmware", "interaction/circuitCompareFirmware"),
         ("export", "interaction/circuitExport"),
     ],

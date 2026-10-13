@@ -35,52 +35,34 @@ const okSend =
   async () => ({ ok: true, result });
 
 describe("circuit-plugin 工具清单", () => {
-  it("注册 §5 的全部八个工具", () => {
+  it("注册 §5 的全部六个工具", () => {
     const names = CIRCUIT_TOOLS.map((tool) => tool.name).sort();
     expect(names).toEqual([
-      "circuit_check",
       "circuit_compare_firmware",
       "circuit_correct",
       "circuit_export",
       "circuit_get",
       "circuit_parse",
       "circuit_query",
-      "circuit_submit_recognition",
     ]);
-    expect(names).toContain(CIRCUIT_TOOL_NAMES.submitRecognition);
+    expect(names).toContain(CIRCUIT_TOOL_NAMES.parse);
   });
 
   it("annotations 区分只读与写类工具，inputSchema 可由工具 schema 生成", () => {
     const byName = new Map(CIRCUIT_TOOLS.map((tool) => [tool.name, tool]));
-    for (const name of ["circuit_get", "circuit_query", "circuit_check", "circuit_compare_firmware"])
+    for (const name of ["circuit_get", "circuit_query", "circuit_compare_firmware"])
       expect(byName.get(name)?.annotations?.readOnlyHint).toBe(true);
     for (const name of ["circuit_correct", "circuit_export"])
       expect(byName.get(name)?.annotations?.destructiveHint).toBe(true);
-    // parse 与 submit_recognition 只重建 IR，不改用户文件：非只读、也非破坏性（§5 需要批准：否）。
+    // parse 只重建 IR，不改用户文件：非只读、也非破坏性（§5 需要批准：否）。
     expect(byName.get("circuit_parse")?.annotations).toEqual({ title: "circuit_parse" });
-    expect(byName.get("circuit_submit_recognition")?.annotations).toEqual({
-      title: "circuit_submit_recognition",
-    });
     for (const tool of CIRCUIT_TOOLS) expect(tool.inputSchema.type).toBe("object");
-    // submit_recognition 的请求 schema 带 path + 草稿（可选 baseRevision）。
-    expect(byName.get("circuit_submit_recognition")?.inputSchema).toMatchObject({
-      properties: {
-        path: expect.anything(),
-        draft: expect.anything(),
-        baseRevision: expect.anything(),
-      },
-      required: expect.arrayContaining(["path", "draft"]),
-    });
     // export 的请求 schema 带 irId + workspace 相对路径。
     expect(byName.get("circuit_export")?.inputSchema).toMatchObject({
       properties: { irId: expect.anything(), path: expect.anything() },
       required: expect.arrayContaining(["irId", "path"]),
     });
-    // 分析工具：check 只要 irId（+ 可选 cursor），compare_firmware 还要 files。
-    expect(byName.get("circuit_check")?.inputSchema).toMatchObject({
-      properties: { irId: expect.anything(), cursor: expect.anything() },
-      required: ["irId"],
-    });
+    // 分析工具：compare_firmware 要 irId 与 files（+ 可选 cursor）。
     expect(byName.get("circuit_compare_firmware")?.inputSchema).toMatchObject({
       properties: { irId: expect.anything(), files: expect.anything(), cursor: expect.anything() },
       required: expect.arrayContaining(["irId", "files"]),
@@ -131,25 +113,14 @@ describe("circuit-plugin 工具清单", () => {
     const sent: Array<{ op: string; args: unknown }> = [];
     const send: CircuitBrokerSend = async (request) => {
       sent.push({ op: request.op, args: request.args });
-      return request.op === "check"
-        ? { ok: true, result: { ok: true, config: { status: "default" }, items: [] } }
-        : { ok: true, result: { ok: true, items: [], nextCursor: "opaque-2" } };
+      return { ok: true, result: { ok: true, items: [], nextCursor: "opaque-2" } };
     };
-    const checked = await call("circuit_check", { irId: "ir:1", cursor: "opaque-1" }, send);
-    expect(sent[0]).toEqual({ op: "check", args: { irId: "ir:1", cursor: "opaque-1" } });
-    expect(JSON.parse(checked.content[0]!.text)).toEqual({
-      ok: true,
-      config: { status: "default" },
-      items: [],
-    });
-    expect(checked.isError).toBeUndefined();
-
     const compared = await call(
       "circuit_compare_firmware",
       { irId: "ir:1", files: ["firmware/board.dts"] },
       send,
     );
-    expect(sent[1]).toEqual({
+    expect(sent[0]).toEqual({
       op: "compareFirmware",
       args: { irId: "ir:1", files: ["firmware/board.dts"] },
     });
@@ -158,6 +129,7 @@ describe("circuit-plugin 工具清单", () => {
       items: [],
       nextCursor: "opaque-2",
     });
+    expect(compared.isError).toBeUndefined();
   });
 });
 
@@ -238,44 +210,6 @@ describe("circuit-plugin 分页与错误码", () => {
     expect(unknown.content[0]!.text).toMatch(/^\[invalidInput\] Unknown tool/u);
   });
 
-  it("submit_recognition 的调用带 op 与会话上下文，草稿在插件层就做严格校验", async () => {
-    const sent: Array<{ op: string; args: unknown }> = [];
-    const send: CircuitBrokerSend = async (request) => {
-      sent.push({ op: request.op, args: request.args });
-      return { ok: true, result: { ok: true, summary } };
-    };
-    const draft = {
-      components: [{ id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition" } }],
-      nets: [],
-    };
-    const result = await call(
-      "circuit_submit_recognition",
-      { path: "board.pdf", draft, baseRevision: 2 },
-      send,
-    );
-    expect(sent).toEqual([
-      { op: "submitRecognition", args: { path: "board.pdf", draft, baseRevision: 2 } },
-    ]);
-    expect(result.isError).toBeUndefined();
-    expect(JSON.parse(result.content[0]!.text)).toEqual({ ok: true, summary });
-
-    // 草稿里带 confidence 由 shared 的请求 schema 拒绝（Agent 不能自己给置信度，§2 规则 2）。
-    const withConfidence = await call(
-      "circuit_submit_recognition",
-      {
-        path: "board.pdf",
-        draft: {
-          components: [
-            { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition", confidence: 1 } },
-          ],
-          nets: [],
-        },
-      },
-      send,
-    );
-    expect(withConfidence.content[0]!.text).toMatch(/^\[invalidInput\]/u);
-  });
-
   it("分析工具：分页游标与失败信封同样透传，参数在插件层严格校验", async () => {
     const sent: Array<{ args: unknown }> = [];
     const send: CircuitBrokerSend = async (request) => {
@@ -296,10 +230,14 @@ describe("circuit-plugin 分页与错误码", () => {
       circuitToolResponseSchemas.compareFirmware.safeParse(JSON.parse(paged.content[0]!.text)).success,
     ).toBe(true);
 
-    const failed = await call("circuit_check", { irId: "ir:1" }, async () => ({
-      ok: false,
-      error: { code: "invalid_ir", message: "cursor 与当前查询不匹配" },
-    }));
+    const failed = await call(
+      "circuit_compare_firmware",
+      { irId: "ir:1", files: ["firmware/board.dts"] },
+      async () => ({
+        ok: false,
+        error: { code: "invalid_ir", message: "cursor 与当前查询不匹配" },
+      }),
+    );
     expect(failed.isError).toBe(true);
     expect(JSON.parse(failed.content[0]!.text)).toEqual({
       ok: false,

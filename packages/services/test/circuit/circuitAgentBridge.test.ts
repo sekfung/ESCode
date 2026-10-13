@@ -43,10 +43,6 @@ function createStubService(overrides: Partial<ICircuitService> = {}) {
       calls.push({ method: "parse", params });
       return view;
     },
-    async submitRecognition(params) {
-      calls.push({ method: "submitRecognition", params });
-      return { ...view, summary: { ...view.summary, revision: 1 } };
-    },
     async findBySource() {
       return undefined;
     },
@@ -137,46 +133,6 @@ describe("CircuitAgentBridge", () => {
       methodParams("export", { irId: "ir:1", path: "out/board.circuit.json" }),
     );
     expect(exported).toEqual({ ok: true, path: "out/board.circuit.json" });
-  });
-
-  it("submitRecognition 把草稿与 workspace 身份一并交给服务，只回摘要", async () => {
-    const { service, calls } = createStubService();
-    const bridge = createCircuitAgentBridge({ getCircuitService: () => service });
-    const draft = {
-      components: [
-        {
-          id: "draft-u1",
-          ref: "U1",
-          pins: [{ number: "1", netId: "draft-3v3" }],
-          origin: { by: "recognition" as const },
-        },
-      ],
-      nets: [
-        {
-          id: "draft-3v3",
-          name: "3V3",
-          pinRefs: [{ componentId: "draft-u1", pin: "1" }],
-          origin: { by: "recognition" as const },
-        },
-      ],
-    };
-
-    const result = await bridge.handle(
-      "submitRecognition",
-      methodParams("submitRecognition", { path: "board.pdf", draft, baseRevision: 2 }),
-    );
-    expect(result).toEqual({ ok: true, summary: { ...view.summary, revision: 1 } });
-    // 桥接层不生成 id、不给置信度，也不改写草稿：原样交给服务（§2 规则 2）。
-    expect(calls[0]).toEqual({
-      method: "submitRecognition",
-      params: {
-        workspacePath: "C:/work",
-        workspaceIdentity: "identity-1",
-        path: "board.pdf",
-        draft,
-        baseRevision: 2,
-      },
-    });
   });
 
   it("query 的 cursor 原样透传，nextCursor 原样回给调用方", async () => {

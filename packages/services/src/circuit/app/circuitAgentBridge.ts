@@ -67,12 +67,6 @@ export function createCircuitAgentBridge(options: {
       return { ok: true, summary: view.summary };
     },
 
-    async submitRecognition(service, params) {
-      // §5：草稿只带结构，置信度与最终元素 id 由服务端给出；响应只回摘要。
-      const view = await service.submitRecognition({ ...workspaceRef(params), ...params.args });
-      return { ok: true, summary: view.summary };
-    },
-
     async get(service, params) {
       const view: CircuitIrView = await service.get({ ...workspaceRef(params), ...params.args });
       return {
@@ -97,12 +91,6 @@ export function createCircuitAgentBridge(options: {
         author: { kind: "agent", sessionId: params.sessionId },
       });
       return { ok: true, summary: view.summary };
-    },
-
-    async check(service, params) {
-      // §6：只读规则检查；cursor 与 query 一样原样透传，分页由服务端定义。
-      const result = await service.check({ ...workspaceRef(params), ...params.args });
-      return { ok: true, ...result };
     },
 
     async compareFirmware(service, params) {

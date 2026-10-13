@@ -1,7 +1,5 @@
 import type {
   CircuitChangedEvent,
-  CircuitCheckParams,
-  CircuitCheckResult,
   CircuitCorrectParams,
   CircuitExportParams,
   CircuitExportResult,
@@ -11,7 +9,6 @@ import type {
   CircuitLayout,
   CircuitParseParams,
   CircuitQueryResult,
-  CircuitSubmitRecognitionParams,
 } from "./contract.js";
 import type { CircuitCorrectionRecord } from "./domain/circuitCorrections.js";
 
@@ -20,41 +17,6 @@ import type { CircuitCorrectionRecord } from "./domain/circuitCorrections.js";
 export const exampleCircuitParseParams: CircuitParseParams = {
   workspacePath: "C:/work/board",
   path: "hardware/board.kicad_sch",
-};
-
-/** 识别草稿的元素 id 只在草稿内互引（§5）；置信度由服务端给，所以这里没有 confidence 字段。 */
-export const exampleCircuitSubmitRecognitionParams: CircuitSubmitRecognitionParams = {
-  workspacePath: "C:/work/board",
-  path: "hardware/board.png",
-  draft: {
-    components: [
-      {
-        id: "draft-u1",
-        ref: "U1",
-        value: "MPU-6050",
-        footprint: "Package_DFN_QFN:QFN-24-1EP_4x4mm_P0.5mm",
-        pins: [
-          { number: "1", name: "VDD", netId: "draft-net-vdd" },
-          { number: "2", name: "SDA", netId: "draft-net-sda" },
-        ],
-        origin: { by: "recognition", region: { x: 120, y: 80, w: 90, h: 70 } },
-      },
-    ],
-    nets: [
-      {
-        id: "draft-net-vdd",
-        name: "3V3",
-        pinRefs: [{ componentId: "draft-u1", pin: "1" }],
-        origin: { by: "recognition" },
-      },
-      {
-        id: "draft-net-sda",
-        name: "I2C1_SDA",
-        pinRefs: [{ componentId: "draft-u1", pin: "2" }],
-        origin: { by: "recognition" },
-      },
-    ],
-  },
 };
 
 export const exampleCircuitCorrectParams: CircuitCorrectParams = {
@@ -164,26 +126,6 @@ export const exampleCircuitQueryResult: CircuitQueryResult = {
         { componentId: "6f0a6d0e-0000-4000-8000-000000000002", pin: "1" },
       ],
       origin: { by: "parser", confidence: 1 },
-    },
-  ],
-};
-
-export const exampleCircuitCheckParams: CircuitCheckParams = {
-  workspacePath: "C:/work/board",
-  irId: "ir:0123456789abcdef",
-};
-
-/** 配置生效时的检查结果；不合法时 config 变成 `{ status: "invalid", path, reason }`，items 按默认配置给出。 */
-export const exampleCircuitCheckResult: CircuitCheckResult = {
-  config: { status: "applied", path: ".escode/circuit-rules.json" },
-  items: [
-    {
-      ruleId: "unconnected-pin",
-      severity: "warning",
-      message: "器件 R1 的引脚 2 所在网络 Net-(R1-Pad2) 没有其它引脚",
-      componentIds: ["6f0a6d0e-0000-4000-8000-000000000001"],
-      netIds: ["net:Net-(R1-Pad2)"],
-      lowConfidence: false,
     },
   ],
 };

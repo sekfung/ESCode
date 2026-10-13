@@ -30,7 +30,7 @@ const protocolBase = {
 };
 
 describe("circuit broker / 反向协议", () => {
-  it("env 常量与 serial 同构，且列出 §5 的全部八个 op", () => {
+  it("env 常量与 serial 同构，且列出 §5 的全部六个 op", () => {
     expect([ESCODE_HOST_CIRCUIT_ENV, CIRCUIT_BROKER_SOCKET_ENV, CIRCUIT_BROKER_TOKEN_ENV]).toEqual([
       "ESCODE_HOST_CIRCUIT",
       "ESCODE_CIRCUIT_BROKER_SOCKET",
@@ -38,21 +38,17 @@ describe("circuit broker / 反向协议", () => {
     ]);
     expect([...CIRCUIT_AGENT_TOOL_OPS]).toEqual([
       "parse",
-      "submitRecognition",
       "get",
       "query",
       "correct",
-      "check",
       "compareFirmware",
       "export",
     ]);
     expect(Object.values(escodeCircuitMethods)).toEqual([
       "interaction/circuitParse",
-      "interaction/circuitSubmitRecognition",
       "interaction/circuitGet",
       "interaction/circuitQuery",
       "interaction/circuitCorrect",
-      "interaction/circuitCheck",
       "interaction/circuitCompareFirmware",
       "interaction/circuitExport",
     ]);
@@ -73,25 +69,7 @@ describe("circuit broker / 反向协议", () => {
         args: { irId: "ir:1", extra: true },
       }).success,
     ).toBe(false);
-    // 分析类工具：check 只有 irId + 可选 cursor，compareFirmware 还要 files。
-    expect(
-      circuitBrokerRequestSchema.safeParse({ ...brokerBase, op: "check", args: { irId: "ir:1" } })
-        .success,
-    ).toBe(true);
-    expect(
-      circuitBrokerRequestSchema.safeParse({
-        ...brokerBase,
-        op: "check",
-        args: { irId: "ir:1", cursor: "opaque-1" },
-      }).success,
-    ).toBe(true);
-    expect(
-      circuitBrokerRequestSchema.safeParse({
-        ...brokerBase,
-        op: "check",
-        args: { irId: "ir:1", files: ["firmware/app.overlay"] },
-      }).success,
-    ).toBe(false);
+    // 分析类工具：compareFirmware 要 irId + files（+ 可选 cursor）。
     expect(
       circuitBrokerRequestSchema.safeParse({
         ...brokerBase,
@@ -104,35 +82,6 @@ describe("circuit broker / 反向协议", () => {
         ...brokerBase,
         op: "compareFirmware",
         args: { irId: "ir:1", files: [] },
-      }).success,
-    ).toBe(false);
-    // 识别提交：草稿结构由工具总表校验（带 confidence 会被拒），baseRevision 可选。
-    expect(
-      circuitBrokerRequestSchema.safeParse({
-        ...brokerBase,
-        op: "submitRecognition",
-        args: {
-          path: "board.pdf",
-          draft: {
-            components: [{ id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition" } }],
-            nets: [],
-          },
-        },
-      }).success,
-    ).toBe(true);
-    expect(
-      circuitBrokerRequestSchema.safeParse({
-        ...brokerBase,
-        op: "submitRecognition",
-        args: {
-          path: "board.pdf",
-          draft: {
-            components: [
-              { id: "draft-u1", ref: "U1", pins: [], origin: { by: "recognition", confidence: 1 } },
-            ],
-            nets: [],
-          },
-        },
       }).success,
     ).toBe(false);
     expect(
@@ -172,18 +121,6 @@ describe("circuit broker / 反向协议", () => {
 
   it("分析类工具的反向参数同样严格：cursor 合法、绝对固件路径被拒", () => {
     expect(
-      escodeCircuitMethodParamsSchemas.check.safeParse({
-        ...protocolBase,
-        args: { irId: "ir:1", cursor: "opaque-1" },
-      }).success,
-    ).toBe(true);
-    expect(
-      escodeCircuitMethodParamsSchemas.check.safeParse({
-        ...protocolBase,
-        args: { irId: "ir:1", files: ["firmware/app.overlay"] },
-      }).success,
-    ).toBe(false);
-    expect(
       escodeCircuitMethodParamsSchemas.compareFirmware.safeParse({
         ...protocolBase,
         workspaceIdentity: "identity-1",
@@ -209,7 +146,6 @@ describe("circuit broker / 反向协议", () => {
       }).success,
     ).toBe(false);
     // 分析类工具同样只认规格的七个错误码。
-    expect(circuitToolResponseSchemas.check.safeParse(failure).success).toBe(true);
     expect(circuitToolResponseSchemas.compareFirmware.safeParse(failure).success).toBe(true);
     expect(
       circuitToolResponseSchemas.compareFirmware.safeParse({

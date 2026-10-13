@@ -8,8 +8,7 @@ import { CircuitPanel } from "@/circuit/components/CircuitPanel.js";
 
 /**
  * PreviewPane 里的电路入口（规格 §8「在文件树中打开 .kicad_sch / .kicad_pcb / .circuit.json」）。
- * 文件树沿既有的 code-viewer 面板打开文件，这里按扩展名把内容路由到电路面板：
- * PDF / 图片显示「让 Agent 识别」提示，面板不发起模型识别；快照只读展示。
+ * 文件树沿既有的 code-viewer 面板打开文件，这里按扩展名把内容路由到电路面板；快照只读展示。
  */
 
 export function CircuitPreviewContent({

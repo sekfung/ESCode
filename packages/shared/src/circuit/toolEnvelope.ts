@@ -10,11 +10,9 @@ export const CIRCUIT_MCP_SERVER_NAME = "circuit";
 
 export const CIRCUIT_TOOL_NAMES = {
   parse: "circuit_parse",
-  submitRecognition: "circuit_submit_recognition",
   get: "circuit_get",
   query: "circuit_query",
   correct: "circuit_correct",
-  check: "circuit_check",
   compareFirmware: "circuit_compare_firmware",
   export: "circuit_export",
 } as const;

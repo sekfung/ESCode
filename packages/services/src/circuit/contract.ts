@@ -8,9 +8,6 @@ import {
   type CircuitIrSummary,
   type CircuitNet,
   type CircuitQueryTraceResult,
-  type CircuitRecognitionDraft,
-  type CircuitRuleConfigStatus,
-  type CircuitRuleResult,
   type CircuitSourceKind,
 } from "@escode/shared/circuit";
 import { ServiceChannels } from "@escode/shared";
@@ -36,17 +33,6 @@ export interface CircuitParseParams extends CircuitWorkspaceRef {
   /** workspace 相对路径（见 §4 source.path）。 */
   path: string;
   /** 已有 IR 且要重新解析时必须带当前 revision（§3.4）。 */
-  baseRevision?: number;
-}
-
-/**
- * `circuit_submit_recognition`（§5）：模型识别出的 IR 草稿 + 源文件路径（图片或 PDF）。
- * 草稿不带 confidence；最终元素 id、置信度与 diagnostics 都由服务端生成（§2 规则 2、§4）。
- * 同一份内容的 IR 已经存在时必须带 baseRevision，与 `parse` 的前置条件一致（§3.2/§3.4）。
- */
-export interface CircuitSubmitRecognitionParams extends CircuitWorkspaceRef {
-  path: string;
-  draft: CircuitRecognitionDraft;
   baseRevision?: number;
 }
 
@@ -95,18 +81,6 @@ export interface CircuitExportParams extends CircuitIrParams {
 
 export interface CircuitExportResult {
   path: string;
-}
-
-/** `circuit_check` 的参数（§5、§6）：只读检查，不需要 baseRevision；cursor 用于翻页。 */
-export interface CircuitCheckParams extends CircuitIrParams {
-  cursor?: string;
-}
-
-/** 规则检查结果：配置加载状态 + 规则条目；超出响应上限时分页（§6.1 的「结果中报告」就是 config）。 */
-export interface CircuitCheckResult {
-  config: CircuitRuleConfigStatus;
-  items: CircuitRuleResult[];
-  nextCursor?: string;
 }
 
 /** `circuit_compare_firmware` 的参数（§5、§7）：files 是 workspace 相对路径列表。 */
@@ -220,11 +194,6 @@ export interface CircuitChangedEvent {
 export interface ICircuitService {
   /** 确定性解析（KiCad / 网表 / BOM）；已有 IR 时必须带 baseRevision（§3.4、§5）。 */
   parse(params: CircuitParseParams): Promise<CircuitIrView>;
-  /**
-   * 提交模型识别结果（§5）：草稿经 §4 校验、id 重映射、置信度由服务端给出；
-   * 矢量 PDF 的文本证据命中的元素按确定性解析记 1。只接受图片/PDF，其它来源抛 `unsupported_format`。
-   */
-  submitRecognition(params: CircuitSubmitRecognitionParams): Promise<CircuitIrView>;
   /** 按源文件路径查已有 IR；没有返回 undefined。面板用它判断「还没有 IR」并拿到 baseRevision。 */
   findBySource(
     params: CircuitFindBySourceParams,
@@ -233,11 +202,6 @@ export interface ICircuitService {
   /** 渲染几何；网表/BOM 这类没有几何的来源返回 undefined（面板显示语义视图）。 */
   getLayout(params: CircuitIrParams): Promise<CircuitLayout | undefined>;
   query(params: CircuitQueryParams): Promise<CircuitQueryResult>;
-  /**
-   * 内置规则检查（§6）：读 workspace 下 `.escode/circuit-rules.json`（只读，配置不合法整份忽略并报告），
-   * 对 IR 跑六条确定性规则；条目涉及低置信度元素时 `lowConfidence=true`。
-   */
-  check(params: CircuitCheckParams): Promise<CircuitCheckResult>;
   /**
    * 固件比对（§7）：服务端确定性解析 devicetree / `.ioc` / C 头文件引脚宏，与 IR 的 MCU 引脚比对，
    * 输出四类差异；`file` 是 workspace 相对路径，`line` 尽量给出固件声明行号。

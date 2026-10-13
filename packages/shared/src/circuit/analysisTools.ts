@@ -3,55 +3,7 @@ import { circuitElementIdSchema, circuitIrIdSchema, circuitWorkspacePathSchema }
 import { circuitCursorSchema } from "./toolEnvelope.js";
 import { cursorField, irIdField, nameSchema, pinNumberSchema } from "./fields.js";
 
-/** 分析类工具：circuit_check / circuit_compare_firmware，以及需要批准的 circuit_export。 */
-
-// --- circuit_check ---------------------------------------------------------------
-
-/** P1 内置规则（§6）。 */
-export const circuitRuleIdSchema = z.enum([
-  "unconnected-pin",
-  "single-pin-net",
-  "undriven-power",
-  "i2c-missing-pullup",
-  "missing-decoupling",
-  "net-name-conflict",
-]);
-export type CircuitRuleId = z.infer<typeof circuitRuleIdSchema>;
-
-export const circuitRuleResultSchema = z
-  .object({
-    ruleId: circuitRuleIdSchema,
-    severity: z.enum(["info", "warning", "error"]),
-    message: z.string().trim().min(1).max(1024),
-    componentIds: z.array(circuitElementIdSchema),
-    netIds: z.array(circuitElementIdSchema),
-    /** 条目涉及低置信度元素时置 true（§6）。 */
-    lowConfidence: z.boolean(),
-  })
-  .strict();
-export type CircuitRuleResult = z.infer<typeof circuitRuleResultSchema>;
-
-/** 规则配置文件位置与加载结果（§6：配置不合法时整份忽略并报告）。 */
-export const CIRCUIT_RULE_CONFIG_PATH = ".escode/circuit-rules.json";
-export const circuitRuleConfigStatusSchema = z
-  .object({
-    status: z.enum(["default", "applied", "invalid"]),
-    path: circuitWorkspacePathSchema.optional(),
-    reason: z.string().trim().min(1).max(1024).optional(),
-  })
-  .strict();
-export type CircuitRuleConfigStatus = z.infer<typeof circuitRuleConfigStatusSchema>;
-
-export const circuitCheckRequestSchema = z.object({ ...irIdField, ...cursorField }).strict();
-
-export const circuitCheckResponseSchema = z
-  .object({
-    ok: z.literal(true),
-    config: circuitRuleConfigStatusSchema,
-    items: z.array(circuitRuleResultSchema),
-    nextCursor: circuitCursorSchema.optional(),
-  })
-  .strict();
+/** 分析类工具：circuit_compare_firmware，以及需要批准的 circuit_export。 */
 
 // --- circuit_compare_firmware ----------------------------------------------------
 

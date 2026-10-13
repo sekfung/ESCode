@@ -1,6 +1,6 @@
 ---
 name: circuit
-description: Use when the user asks to read, explain, review or debug a schematic or PCB (KiCad, netlist, BOM, PDF) in the ESCode Desktop app — understanding a circuit, checking connections, tracing a net, or comparing a design against firmware pin definitions.
+description: Use when the user asks to read, explain, review or debug a schematic or PCB (KiCad, netlist, BOM) in the ESCode Desktop app — understanding a circuit, checking connections, tracing a net, or comparing a design against firmware pin definitions.
 ---
 
 # Circuit analysis
@@ -12,7 +12,6 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 1. **`circuit_parse`** with the workspace-relative `path` of the source file (`.kicad_sch`, `.kicad_pcb`, netlist, BOM). It returns `irId`, `revision` and a summary (component/net/block counts, diagnostics).
    - Re-parsing a file that already has an IR **must** pass the current `baseRevision`.
    - `stale: true` means the source file changed on disk: re-parse with `baseRevision` before trusting the IR.
-   - For an image or PDF use **`circuit_submit_recognition`** instead — see "Input that is not text" below; it returns the same kind of summary.
 2. **`circuit_get`** with `irId` to read the summary, the diagnostics list and how many elements are low-confidence. Do this before explaining anything.
 3. **`circuit_query`** as needed:
    - `by: "ref"` → one component (pins, footprint, part number, the net of each pin); omit `ref` to page through every component (the panel uses the same read path for its BOM).
@@ -20,14 +19,10 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
    - `by: "block"` → the functional blocks the user/agent defined; omit the filter to list them all.
    - `by: "trace"` with `componentId` (+ optional `pin`) → everything reachable on that pin's net.
    - Results are paged: when the answer contains `nextCursor`, pass it back as `cursor` to read the next page (the cursor is opaque — never build or edit one).
-4. **`circuit_check`** for a design review and **`circuit_compare_firmware`** for hardware/firmware bring-up (§5). Both are read-only and both page their results with `nextCursor` → `cursor`.
+4. **`circuit_compare_firmware`** for hardware/firmware bring-up (§7). Read-only; pages its results with `nextCursor` → `cursor`.
 
-## Rule checks and firmware comparison
+## Firmware comparison
 
-- **`circuit_check`** runs the six deterministic built-in rules (§6) over the IR: `unconnected-pin`, `single-pin-net`, `undriven-power`, `i2c-missing-pullup`, `missing-decoupling`, `net-name-conflict`. It returns `config` (the `.escode/circuit-rules.json` status: `default` / `applied` / `invalid`) and `items` with `ruleId`, `severity`, the involved component/net ids and `lowConfidence`.
-  - **Present rule findings and your own review comments separately** (§2 rule 5): report each rule hit as a fact with its rule id and severity, and put your own opinions in a clearly labelled "suggestions" part. Never present a model opinion as a rule result.
-  - When `config.status` is `invalid`, say that the workspace rule config was ignored and the default configuration was used (quote `config.reason`); `default` means no config file was found.
-  - Items touching low-confidence elements carry `lowConfidence: true` — call those out as with any other low-confidence data.
 - **`circuit_compare_firmware`** is the software/hardware bring-up check (§7): pass the IR and workspace-relative firmware files (Zephyr devicetree `.dts`/`.dtsi`/`.overlay`, STM32CubeMX `.ioc`, or C headers with `_PIN` + `_GPIO_PORT` macros) and it returns differences as `pin-mismatch`, `firmware-only`, `schematic-only` or `peripheral-conflict`, each with pin, net, firmware symbol, file and line.
   - Report each difference with the firmware `file`/`line` and the schematic ref/net so the user knows which side to change; a difference is not by itself proof of which side is wrong.
   - Only the constructs listed in §7.1 are parsed. Pin assignments scattered through Arduino/PlatformIO code are not parsed — if you infer them yourself, label the result as a low-confidence suggestion.
@@ -37,8 +32,8 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 
 - **Always cite reference designators and net names** (`U3`, `R12`, `NET:I2C1_SDA`). A conclusion without refs and nets is not useful.
 - Split the explanation by function (power, MCU, interfaces, protection) and describe the signal flow between blocks; use `circuit_query` to confirm each hop instead of assuming.
-- **Say which conclusions depend on low-confidence data.** Any element whose `origin.by` is `recognition` (or that `circuit_get` counts as low-confidence) must be called out, including in the diagnostics. Deterministic parses are confidence 1 and need no caveat.
-- Rule-check results and firmware comparisons are separate from your own review comments; label model opinions as suggestions.
+- **Say which conclusions depend on low-confidence data.** Any element with confidence below 1 (e.g. a net or a block an agent correction created) must be called out, including in the diagnostics. Deterministic parses are confidence 1 and need no caveat.
+- Firmware comparisons are separate from your own review comments; label model opinions as suggestions.
 
 ## Exporting
 
@@ -46,22 +41,6 @@ The `mcp__circuit__*` tools read the **Circuit IR**: one structured, Host-owned 
 - To open the interactive panel for a result, put a reference on its own line in your reply: `::circuit{"irId":"…","title":"…","componentCount":53,"netCount":39}`. Do not put it inside a code block.
   - Order matters: `circuit_parse` (or a recognition submission) → `circuit_get` → the reference card. Take `componentCount` and `netCount` from the `circuit_get` summary and always include them (the same counts the panel shows) — e.g. `::circuit{"irId":"ir:1","title":"电源板","componentCount":53,"netCount":39}`.
   - These two counts feed the static fallback card on Web and mobile, where the circuit panel is not available; the Desktop panel reads the IR itself and does not depend on them.
-
-## Input that is not text
-
-Screenshots and PDFs have no deterministic parse — **you** read the drawing and submit the result as a recognition draft. The Host stays the judge: it validates the draft, assigns the final element ids and derives every confidence value (§2 rules 2–4).
-
-1. **Tell the user before any image or PDF goes to a model** (§2 rule 7): say which file you are about to read or send (path, and that its contents will be sent to the configured model), and why — before you do it, not after. Never send a schematic image to a model silently.
-2. **A vector PDF first goes to the Host, not to your eyes**: call `circuit_submit_recognition` with the draft you can already derive, and check the returned summary. The Host extracts the PDF's own text items and line segments and marks every element whose `ref` or net name it finds there as `parser` with confidence 1 — those elements need no model interpretation at all. Only fill in what the text/segment extraction cannot give you, and prefer reading the PDF yourself over the screenshot when both exist.
-3. **Submit the draft (no confidence)** with `circuit_submit_recognition`:
-   - `path` is the workspace-relative image/PDF; `draft.components[]` carry `id` (draft-local), `ref`, optional `value`/`partNumber`/`footprint`, `pins[]` and `origin: { by: "recognition", region }`.
-   - Put the box you read the element from into `origin.region` (`{ x, y, w, h }`, optionally `page`) — the panel overlays it on the original image. Origin is the top-left corner of the rendered page; coordinates are pixels for an image and PDF points for a PDF.
-   - Element ids are draft-local: reference components by their draft id in `nets[].pinRefs[].componentId` and `blocks[].componentIds`. **Never** put `confidence` anywhere — it is rejected, and you cannot set a confidence of 1.
-   - Re-submitting the same file content needs the current `baseRevision` (read it with `circuit_get` first); if the file changed, the submission becomes a new IR and previous corrections are not migrated.
-   - The response is a summary: `revision`, element counts, diagnostics and `lowConfidenceCount`.
-4. **Say what is uncertain.** After submitting, read the IR back with `circuit_get` and tell the user which elements are low-confidence (anything below 0.7 after the Host's scoring, e.g. a single-pin net, a pin count that contradicts the footprint, a duplicate reference designator, or a net referencing a component you did not list) and which diagnostics were raised. Never present a recognition result as a deterministic parse, and do not silently "fix" a low-confidence value — propose a `circuit_correct` instead.
-
-If a tool answers `unsupported_format` for a `.kicad_sch`/`.kicad_pcb`/netlist/BOM file, use `circuit_parse` instead: those have a deterministic parser and must never be hand-recognised.
 
 ## When tools answer `unavailable`
 

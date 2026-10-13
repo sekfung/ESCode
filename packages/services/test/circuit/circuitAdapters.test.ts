@@ -242,32 +242,6 @@ describe("workspace 源文件读取适配器", () => {
     ).resolves.toBe(true);
   });
 
-  it("读取二进制源文件（识别用的图片 / PDF）并给出字节级 sha256", async () => {
-    const root = await makeTempDir("circuit-adapters-");
-    await mkdir(join(root, "recognition"), { recursive: true });
-    const bytes = Buffer.from("%PDF-1.4 二进制内容 \u0000\u0001", "latin1");
-    await writeFile(join(root, "recognition", "board.pdf"), bytes);
-    const source = createWorkspaceSource();
-
-    const read = await source.readBytes({
-      workspacePath: root,
-      relativePath: "recognition/board.pdf",
-    });
-    expect(Buffer.from(read).equals(bytes)).toBe(true);
-    expect(source.hashBytes(read)).toBe(createHash("sha256").update(bytes).digest("hex"));
-    // 内容哈希按字节算：同一份内容稳定，改动一个字节就变（§3.2 图片/PDF 按内容哈希区分版本）。
-    expect(source.hashBytes(read)).toBe(source.hashBytes(bytes));
-    expect(source.hashBytes(Buffer.from("%PDF-1.4 二进制内容 \u0000\u0002", "latin1"))).not.toBe(
-      source.hashBytes(read),
-    );
-    await expect(
-      source.readBytes({ workspacePath: root, relativePath: "recognition/missing.png" }),
-    ).rejects.toThrow(/^not_found: /u);
-    await expect(
-      source.readBytes({ workspacePath: root, relativePath: "../outside.pdf" }),
-    ).rejects.toThrow(/^io_error: /u);
-  });
-
   it("源文件不存在时抛 not_found，越界路径抛 io_error 且 exists 返回 false", async () => {
     const root = await makeTempDir("circuit-adapters-");
     const outside = await makeTempDir("circuit-adapters-outside-");

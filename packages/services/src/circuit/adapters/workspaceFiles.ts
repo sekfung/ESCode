@@ -100,7 +100,7 @@ function resolveWorkspaceFile(workspacePath: string, relativePath: string): stri
 }
 
 export function createWorkspaceSource(): CircuitSourcePort {
-  /** readText / readBytes 共用的读取前检查：常规文件、大小上限（避免巨文件占满 Host 内存）。 */
+  /** 读取前检查：常规文件、大小上限（避免巨文件占满 Host 内存）。 */
   async function readSourceFile(workspacePath: string, relativePath: string): Promise<Buffer> {
     const target = resolveWorkspaceFile(workspacePath, relativePath);
     const label = relativePath.trim();
@@ -130,16 +130,6 @@ export function createWorkspaceSource(): CircuitSourcePort {
       return (await readSourceFile(workspacePath, relativePath)).toString("utf-8");
     },
 
-    async readBytes({
-      workspacePath,
-      relativePath,
-    }: {
-      workspacePath: string;
-      relativePath: string;
-    }): Promise<Uint8Array> {
-      return await readSourceFile(workspacePath, relativePath);
-    },
-
     async exists({
       workspacePath,
       relativePath,
@@ -164,10 +154,6 @@ export function createWorkspaceSource(): CircuitSourcePort {
 
     hashContent(text: string): string {
       return createHash("sha256").update(text).digest("hex");
-    },
-
-    hashBytes(bytes: Uint8Array): string {
-      return createHash("sha256").update(bytes).digest("hex");
     },
   };
 }

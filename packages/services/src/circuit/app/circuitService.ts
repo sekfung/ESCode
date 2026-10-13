@@ -1,8 +1,6 @@
 import { Emitter } from "@escode/rpc";
 import type {
   CircuitChangedEvent,
-  CircuitCheckParams,
-  CircuitCheckResult,
   CircuitCorrectParams,
   CircuitCorrectionListEntry,
   CircuitExportParams,
@@ -16,7 +14,6 @@ import type {
   CircuitParseParams,
   CircuitQueryParams,
   CircuitQueryResult,
-  CircuitSubmitRecognitionParams,
   ICircuitService,
 } from "../contract.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";
@@ -25,11 +22,9 @@ import { CircuitServiceError } from "../domain/circuitErrors.js";
 import { revalidateCircuitIr } from "../domain/irBuild.js";
 import { circuitIrViewOf } from "./irView.js";
 import { runCircuitQuery } from "./circuitQuery.js";
-import { runCircuitCheck } from "./circuitCheck.js";
 import { runCircuitFirmwareCompare } from "./circuitFirmwareCompare.js";
 import { writeCircuitSnapshot } from "./circuitExport.js";
 import { planCircuitParse } from "./circuitParse.js";
-import { planCircuitRecognition } from "./circuitRecognition.js";
 import { CircuitWriteQueue } from "./circuitWriteQueue.js";
 import {
   circuitLocationKey as keyOf,
@@ -47,7 +42,7 @@ import type { CircuitServicePorts, CircuitSourceWatch, StoredCircuit } from "./p
 
 /**
  * CircuitService：Circuit IR 的唯一所有者（ADR 0005）。写入路径与事件顺序（§3.3、§3.4）、
- * 规则检查 / 固件比对 / 识别的只读与写入边界，都见 CONTRACT.md。
+ * 固件比对的只读边界，都见 CONTRACT.md。
  */
 const log = createServiceLogger("circuit");
 
@@ -85,32 +80,6 @@ class CircuitServiceImpl implements CircuitService {
     return this.writes.run(keyOf(location), () => this.parseInternal(location, params));
   }
 
-  /**
-   * 提交识别结果（§5）：与 parse 同一条写入路径与事件顺序——
-   * 校验/重映射在 planCircuitRecognition 里完成，持久化（store 写入 + 源文件监听）走 commit，
-   * 事件在持久化之后发出（§3.3）。
-   */
-  async submitRecognition(params: CircuitSubmitRecognitionParams): Promise<CircuitIrView> {
-    const location = locationOf(params);
-    return this.writes.run(keyOf(location), async () => {
-      const state = await this.stateFor(location);
-      const plan = await planCircuitRecognition({
-        location,
-        params,
-        ...(state ? { stored: state.record } : {}),
-        source: this.options.ports.source,
-        vector: this.options.ports.vector,
-      });
-      const committed = await this.commit(state, location, plan.record, [location.sourcePath]);
-      this.changed.fire({
-        irId: committed.record.irId,
-        revision: committed.record.ir.revision,
-        stale: false,
-      });
-      return circuitIrViewOf(committed.record.ir);
-    });
-  }
-
   async findBySource(
     params: CircuitFindBySourceParams,
   ): Promise<{ irId: string; revision: number; stale: boolean } | undefined> {
@@ -133,10 +102,6 @@ class CircuitServiceImpl implements CircuitService {
 
   async query(params: CircuitQueryParams): Promise<CircuitQueryResult> {
     return runCircuitQuery((await this.recordFor(params)).ir, params);
-  }
-
-  check(params: CircuitCheckParams): Promise<CircuitCheckResult> {
-    return runCircuitCheck(params, this.options.ports.source, async () => (await this.recordFor(params)).ir);
   }
 
   compareFirmware(params: CircuitFirmwareCompareParams): Promise<CircuitFirmwareCompareResult> {

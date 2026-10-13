@@ -13,9 +13,8 @@ export function requireCircuitRevision(record: StoredCircuit, baseRevision: numb
 }
 
 /**
- * 重新解析 / 重新识别已有 IR 的前置条件（§3.4、§5）：必须带当前 revision，落后就拒绝。
- * 没带 baseRevision 时报 `invalid_ir`（调用方应先 get / findBySource 读到当前 revision）；
- * `parse` 与 `submitRecognition` 共用这一段判定，避免两条链路出现不同口径。
+ * 重新解析已有 IR 的前置条件（§3.4）：必须带当前 revision，落后就拒绝。
+ * 没带 baseRevision 时报 `invalid_ir`（调用方应先 get / findBySource 读到当前 revision）。
  */
 export function requireReparseRevision(
   record: StoredCircuit,
@@ -24,7 +23,7 @@ export function requireReparseRevision(
   if (baseRevision === undefined)
     throw new CircuitServiceError(
       "invalid_ir",
-      "该源文件已有 IR，重新解析 / 重新识别需要 baseRevision（先读再改）",
+      "该源文件已有 IR，重新解析需要 baseRevision（先读再改）",
     );
   requireCircuitRevision(record, baseRevision);
   return baseRevision;

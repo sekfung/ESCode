@@ -43,8 +43,6 @@ const forkIsolatedTests = [
   // 波及面收敛到本文件，其余测试结果可完整收集；崩溃根因见
   // docs/windows-test-compatibility.md。
   "packages/ui/test/pdfJsCMapSupport.test.ts",
-  // 同上：circuit 的矢量 PDF 证据提取直接用 pdfjs-dist legacy build（§5 circuit_submit_recognition）。
-  "packages/services/test/circuit/pdfVector.test.ts",
 ];
 
 export default defineConfig({
@@ -101,8 +99,6 @@ export default defineConfig({
             "packages/shared/src/node/genUiPaths.test.ts",
             "packages/services/src/gen-ui/**/*.test.ts",
             "scripts/assert-safe-cua-helper-zip.test.mjs",
-            // §10.4 识别评测的比对口径是纯函数，跟着单测跑；评测脚本本身（需要 kicad-cli 与模型）不进 CI。
-            "scripts/circuit-recognition-metrics.test.mjs",
             "scripts/ci/ci-telemetry-keyword-guard.test.mjs",
           ],
           exclude: ["packages/desktop/test/e2e/**", ...forkIsolatedTests],

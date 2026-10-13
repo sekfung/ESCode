@@ -1,6 +1,6 @@
 import type { CircuitFirmwareDifference, CircuitIR } from "@escode/shared/circuit";
 import { CircuitServiceError } from "./circuitErrors.js";
-import { isGroundNetName, isPowerNetName, isSynthesizedNetName } from "./circuitRuleFacts.js";
+import { isGroundNetName, isPowerNetName, isSynthesizedNetName } from "./netNameFacts.js";
 import {
   canonicalMcuPinName,
   compareFirmwareText,

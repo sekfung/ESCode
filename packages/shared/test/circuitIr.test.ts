@@ -5,8 +5,6 @@ import {
   circuitContentHashSchema,
   circuitIrSchema,
   circuitOriginSchema,
-  circuitRecognitionDraftSchema,
-  circuitRegionSchema,
   circuitWorkspacePathSchema,
   countCircuitDiagnostics,
   countLowConfidenceElements,
@@ -36,6 +34,7 @@ function buildIr(overrides: Partial<CircuitIR> = {}): CircuitIR {
         origin: { by: "parser", confidence: 1 },
       },
       {
+        // Agent 修正新建的元素记 0.5：低于阈值，计入低置信度摘要（§2 低置信度必须可见）。
         id: "uuid-c1",
         ref: "C1",
         value: "100nF",
@@ -43,7 +42,7 @@ function buildIr(overrides: Partial<CircuitIR> = {}): CircuitIR {
           { number: "1", netId: "net-3v3" },
           { number: "2", netId: "net-gnd" },
         ],
-        origin: { by: "recognition", confidence: 0.4 },
+        origin: { by: "correction", confidence: 0.5, author: { kind: "agent" } },
       },
     ],
     nets: [
@@ -105,26 +104,14 @@ describe("Circuit IR v1 校验", () => {
     ).toBe(false);
   });
 
-  it("只允许服务端写 confidence：parser=1、recognition<1、correction 必须带 author", () => {
-    expect(
-      circuitOriginSchema.safeParse({ by: "parser", confidence: 1 }).success,
-    ).toBe(true);
-    expect(
-      circuitOriginSchema.safeParse({ by: "parser", confidence: 0.99 }).success,
-    ).toBe(false);
-    expect(
-      circuitOriginSchema.safeParse({ by: "recognition", confidence: 0.99 }).success,
-    ).toBe(true);
-    expect(
-      circuitOriginSchema.safeParse({ by: "recognition", confidence: 1 }).success,
-    ).toBe(false);
-    expect(
-      circuitOriginSchema.safeParse({ by: "correction", confidence: 1 }).success,
-    ).toBe(false);
+  it("只允许服务端写 confidence：parser=1、correction 必须带 author", () => {
+    expect(circuitOriginSchema.safeParse({ by: "parser", confidence: 1 }).success).toBe(true);
+    expect(circuitOriginSchema.safeParse({ by: "parser", confidence: 0.99 }).success).toBe(false);
+    expect(circuitOriginSchema.safeParse({ by: "correction", confidence: 1 }).success).toBe(false);
     expect(
       circuitOriginSchema.safeParse({
         by: "correction",
-        confidence: 1,
+        confidence: 0.5,
         author: { kind: "agent", sessionId: "s-9" },
       }).success,
     ).toBe(true);
@@ -132,7 +119,7 @@ describe("Circuit IR v1 校验", () => {
     expect(circuitOriginSchema.safeParse({ by: "parser", confidence: -0.1 }).success).toBe(false);
   });
 
-  it("校验源文件路径、内容哈希与识别区域", () => {
+  it("校验源文件路径与内容哈希", () => {
     for (const path of ["board.kicad_sch", "hardware/board.kicad_sch", "hardware\\sub\\board.kicad_pcb"])
       expect(circuitWorkspacePathSchema.safeParse(path).success).toBe(true);
     for (const path of [
@@ -151,57 +138,21 @@ describe("Circuit IR v1 校验", () => {
     expect(circuitContentHashSchema.safeParse(contentHash).success).toBe(true);
     for (const hash of [contentHash.toUpperCase(), contentHash.slice(1), `${contentHash}00`, "zz"])
       expect(circuitContentHashSchema.safeParse(hash).success).toBe(false);
-
-    expect(circuitRegionSchema.safeParse({ x: 1, y: 2, w: 3, h: 4 }).success).toBe(true);
-    expect(circuitRegionSchema.safeParse({ page: 2, x: 1.5, y: 2, w: 0, h: 0 }).success).toBe(true);
-    expect(circuitRegionSchema.safeParse({ x: 1, y: 2, w: -1, h: 4 }).success).toBe(false);
-    expect(circuitRegionSchema.safeParse({ page: 0, x: 1, y: 2, w: 3, h: 4 }).success).toBe(false);
-    expect(circuitRegionSchema.safeParse({ x: 1, y: 2, w: Infinity, h: 4 }).success).toBe(false);
-  });
-
-  it("识别草稿不含 confidence，且拒绝草稿级多余字段", () => {
-    const draft = {
-      components: [
-        {
-          id: "draft-c1",
-          ref: "U1",
-          pins: [{ number: "1", netId: "draft-n1" }],
-          origin: { by: "recognition", region: { x: 10, y: 20, w: 30, h: 40 } },
-        },
-      ],
-      nets: [
-        {
-          id: "draft-n1",
-          name: "3V3",
-          pinRefs: [{ componentId: "draft-c1", pin: "1" }],
-          origin: { by: "recognition" },
-        },
-      ],
-    };
-    expect(circuitRecognitionDraftSchema.safeParse(draft).success).toBe(true);
-    expect(circuitRecognitionDraftSchema.safeParse({ ...draft, blocks: [] }).success).toBe(true);
-
-    const withConfidence = {
-      ...draft,
-      components: [{ ...draft.components[0], origin: { by: "recognition", confidence: 0.8 } }],
-    };
-    expect(circuitRecognitionDraftSchema.safeParse(withConfidence).success).toBe(false);
-
-    for (const extra of [{ irId: "ir-1" }, { revision: 1 }, { stale: false }, { diagnostics: [] }])
-      expect(circuitRecognitionDraftSchema.safeParse({ ...draft, ...extra }).success).toBe(false);
-
-    const missingOrigin = {
-      ...draft,
-      components: [{ id: "draft-c1", ref: "U1", pins: [] }],
-    };
-    expect(circuitRecognitionDraftSchema.safeParse(missingOrigin).success).toBe(false);
   });
 
   it("摘要与低置信度计数使用唯一的阈值来源", () => {
     const ir = buildIr();
     expect(countLowConfidenceElements(ir)).toBe(1);
-    expect(isLowConfidence({ by: "recognition", confidence: CIRCUIT_LOW_CONFIDENCE_THRESHOLD })).toBe(false);
-    expect(isLowConfidence({ by: "recognition", confidence: CIRCUIT_LOW_CONFIDENCE_THRESHOLD - 0.01 })).toBe(true);
+    expect(
+      isLowConfidence({ by: "correction", confidence: CIRCUIT_LOW_CONFIDENCE_THRESHOLD, author: { kind: "agent" } }),
+    ).toBe(false);
+    expect(
+      isLowConfidence({
+        by: "correction",
+        confidence: CIRCUIT_LOW_CONFIDENCE_THRESHOLD - 0.01,
+        author: { kind: "agent" },
+      }),
+    ).toBe(true);
     expect(countCircuitDiagnostics(ir.diagnostics)).toEqual({
       total: 2,
       error: 1,

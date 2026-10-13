@@ -69,20 +69,10 @@ function createHarness() {
         if (text === undefined) throw new Error(`not_found: ${relativePath}`);
         return text;
       },
-      async readBytes({ relativePath }) {
-        // 解析链路不读二进制；识别链路的行为见 circuitRecognition.test.ts。
-        throw new Error(`not_found: ${relativePath}`);
-      },
       async exists({ relativePath }) {
         return files.has(relativePath);
       },
       hashContent: (text) => createHash("sha256").update(text).digest("hex"),
-      hashBytes: (bytes) => createHash("sha256").update(bytes).digest("hex"),
-    },
-    vector: {
-      async extract() {
-        return undefined;
-      },
     },
     watcher: {
       async watch({ onChange }) {

@@ -1,6 +1,5 @@
 import type { CircuitIR } from "@escode/shared/circuit";
 import type { CircuitCorrectionRecord } from "../domain/circuitCorrections.js";
-import type { CircuitVectorEvidence } from "../domain/recognitionEvidence.js";
 import type { CircuitLayout } from "../contract.js";
 
 /**
@@ -34,23 +33,11 @@ export interface CircuitStorePort {
 }
 
 export interface CircuitSourcePort {
-  /** 读 workspace 内的文本文件；不存在抛 `not_found`，其余 IO 失败抛 `io_error`。 */
+  /** 读 workspace 内的文本文件；不存在抛 `not_found`，其余 IO 失败抛 `io_error`，超大抛 `too_large`。 */
   readText(params: { workspacePath: string; relativePath: string }): Promise<string>;
-  /** 读 workspace 内的二进制源文件（识别用的图片 / PDF）；错误码同 readText，超大抛 `too_large`。 */
-  readBytes(params: { workspacePath: string; relativePath: string }): Promise<Uint8Array>;
   exists(params: { workspacePath: string; relativePath: string }): Promise<boolean>;
-  /** sha256 十六进制内容哈希（§3.2 用它区分图片/PDF 的版本，也用于判断源文件是否变化）。 */
+  /** sha256 十六进制内容哈希（§3.2：判断源文件是否变化）。 */
   hashContent(text: string): string;
-  /** 二进制内容的 sha256；图片/PDF 的 irId 与 source.contentHash 都由它派生（§3.2）。 */
-  hashBytes(bytes: Uint8Array): string;
-}
-
-/**
- * 矢量 PDF 的确定性证据提取（§2 规则 3）：adapters 用 pdfjs 读文本项与线段，domain 保持零 IO。
- * 不是 PDF、或 pdfjs 解析失败抛 `io_error`；解析成功但没有可提取的文本/线段（纯位图 PDF）返回 undefined。
- */
-export interface CircuitVectorPort {
-  extract(bytes: Uint8Array): Promise<CircuitVectorEvidence | undefined>;
 }
 
 export interface CircuitSourceWatch {
@@ -83,6 +70,4 @@ export interface CircuitServicePorts {
   source: CircuitSourcePort;
   watcher: CircuitSourceWatcherPort;
   snapshot: CircuitSnapshotPort;
-  /** 识别链路（§5 circuit_submit_recognition）：矢量 PDF 的文本/线段提取。 */
-  vector: CircuitVectorPort;
 }

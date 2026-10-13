@@ -11,13 +11,11 @@ const HOST_FLAG: &str = "ESCODE_HOST_CIRCUIT";
 /// 电路工具都是短请求，留出 Host 往返与 64 KiB 分页响应余量（TS CIRCUIT_MCP_TIMEOUT_MS 同）。
 const TIMEOUT_MS: u64 = 60_000;
 /// 官方插件 `defaultAllowedTools`（§5「需要批准」为否）：`circuit_export` 不在名单里，导出仍需用户批准。
-const ALLOWED_TOOLS: [&str; 7] = [
+const ALLOWED_TOOLS: [&str; 5] = [
     "circuit_parse",
-    "circuit_submit_recognition",
     "circuit_get",
     "circuit_query",
     "circuit_correct",
-    "circuit_check",
     "circuit_compare_firmware",
 ];
 
@@ -47,7 +45,7 @@ mod tests {
     #[test]
     fn allowed_tools_exclude_export_and_require_host_flag() {
         let allowed = default_allowed_tools(true);
-        assert_eq!(allowed.len(), 7);
+        assert_eq!(allowed.len(), 5);
         assert!(allowed.contains(&"mcp__circuit__circuit_parse".to_owned()));
         assert!(allowed.contains(&"mcp__circuit__circuit_correct".to_owned()));
         assert!(!allowed.iter().any(|tool| tool.ends_with("circuit_export")));
