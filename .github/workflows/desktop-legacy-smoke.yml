@@ -1,0 +1,192 @@
+# macOS 12 / Windows 10 的**打包 + 安装可运行验证**：装完能起来即可，不上传安装包。
+#
+# 为什么单列：release.yml 的 desktop / installed 矩阵跑在 windows-latest 与 macos-latest（= 当前最新镜像），
+# 覆盖不到更老的受支持系统 —— 而 Electron 41 仍支持 macOS 12，Win10 也是要顾的下限。
+#
+# 托管 runner 的现实（据 actions/runner-images 当前清单核对）：**没有 macOS 12 也没有 Windows 10**，
+# 最老只到 macOS 14（已弃用）/ macOS 15 与 Server 2022（macos-13 与 windows-2019 均已退役）。
+# 因此默认取最接近的两个：
+#   macos-15-intel —— 现存最老的 x64 macOS（x64 正是 macOS 12 目标架构；Intel 镜像才能原生构建 x64）
+#   windows-2022   —— Server 2022（与同代消费版共用内核与安装器行为，是现存最老的 Windows）
+# 这两个默认值只能验证"装机后能起来"这条链路；**要真机覆盖 macOS 12 / Windows 10 必须用自托管 runner**：
+# workflow_dispatch 传 mac_runner / win_runner（如 `[self-hosted, macOS-12]` 这类标签），
+# 或直接改下面的 `|| 'macos-15-intel'` / `|| 'windows-2022'` 默认值。
+#
+# 验证口径与 release.yml 的 installed job 一致：`scripts/ci-install-desktop.mjs` 在 runner 上真装
+# （Windows NSIS 静默安装、macOS 挂 dmg 拷出 .app），再启动应用、要求主进程 20s 内不退出且数据库启动
+# 终态为 ready，并在空临时目录下启动以避开开发入口探测。
+#
+# 不上传安装包：只在 runner 上构建与验证，产物随 job 结束丢弃；job 之间传递的是远程 runtime 二进制
+# （内部临时 artifact），不是安装包。
+name: desktop-legacy-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      mac_runner:
+        description: macOS 打包与安装验证的 runner（自托管 macOS 12 填自己的标签，如 self-hosted 组合）
+        type: string
+        default: macos-15-intel
+      win_runner:
+        description: Windows 打包与安装验证的 runner（自托管 Windows 10 填自己的标签）
+        type: string
+        default: windows-2022
+  # 打包链路变动时在 PR 上就跑（PR 的 workflow 取 PR head，因此不必先合进默认分支）。
+  pull_request:
+    paths:
+      - ".github/workflows/desktop-legacy-smoke.yml"
+      - "packages/desktop/electron-builder.config.js"
+      - "packages/desktop/scripts/**"
+      - "scripts/build-desktop-agent-cli.mjs"
+      - "scripts/prepare-prebuilds.mjs"
+      - "scripts/build-sea.mjs"
+  schedule:
+    # 每周日 20:00 UTC（周一 04:00 北京）。打包两平台各约 40 分钟，不值得更频繁。
+    - cron: "0 20 * * 0"
+
+concurrency:
+  group: desktop-legacy-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # 打包需要目标架构的 linux musl Rust runtime（安装包内置离线远程资源），而 macOS/Windows 上无法
+  # 构建 musl —— 与 release.yml 一样先在 ubuntu 产出，再交给平台 job（release 里是同名的 rust-runtime job）。
+  remote-rust-runtime:
+    name: remote rust runtime (x86_64-unknown-linux-musl)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: legacy-smoke-musl
+      - name: musl toolchain
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: build
+        run: cargo build --release --locked --target x86_64-unknown-linux-musl -p escode-cli-rust
+        working-directory: apps/escode-cli-rust
+      - name: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="escode-cli-rust-x86_64-unknown-linux-musl"
+          mkdir -p "dist/$name"
+          cp "apps/escode-cli-rust/target/x86_64-unknown-linux-musl/release/escode-cli-rust" "dist/$name/"
+          cd dist && tar -czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-runtime-x86_64-unknown-linux-musl
+          path: dist/*.tar.gz
+
+  mac:
+    name: mac x64 packaging + install smoke
+    needs: remote-rust-runtime
+    runs-on: ${{ inputs.mac_runner || 'macos-15-intel' }}
+    timeout-minutes: 150
+    env:
+      ESCODE_BUNDLE_RUST_AGENT: "1"
+      ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
+      ESCODE_NODE_DIST_MIRROR: https://nodejs.org/dist
+      ESCODE_TARGET_OS: mac
+      ESCODE_TARGET_ARCH: x64
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: legacy-smoke-mac-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-runtime-x86_64-unknown-linux-musl
+          path: ${{ runner.temp }}/remote-rust-artifact
+      - name: stage remote rust runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/remote-rust/linux-x64"
+          mkdir -p "$dest"
+          cd "$RUNNER_TEMP/remote-rust-artifact"
+          tar -xzf ./*.tar.gz
+          cp ./*/escode-cli-rust "$dest/escode-cli-rust"
+          chmod 755 "$dest/escode-cli-rust"
+          echo "ESCODE_REMOTE_RUST_BINARIES_DIR=$RUNNER_TEMP/remote-rust" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: bundle desktop
+        run: pnpm bundle:desktop -- --os mac --arch x64
+      - name: assert release artifacts
+        run: node packages/desktop/scripts/assert-release-artifacts.mjs packages/desktop/dist
+      # 安装 + 启动验证：装完主进程 20s 内不退出且数据库启动就绪。
+      - name: install and launch
+        run: node scripts/ci-install-desktop.mjs packages/desktop/dist
+
+  win:
+    name: win x64 packaging + install smoke
+    needs: remote-rust-runtime
+    runs-on: ${{ inputs.win_runner || 'windows-2022' }}
+    timeout-minutes: 150
+    env:
+      ESCODE_BUNDLE_RUST_AGENT: "1"
+      ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
+      ESCODE_NODE_DIST_MIRROR: https://nodejs.org/dist
+      ESCODE_TARGET_OS: win
+      ESCODE_TARGET_ARCH: x64
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: legacy-smoke-win-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-runtime-x86_64-unknown-linux-musl
+          path: ${{ runner.temp }}/remote-rust-artifact
+      - name: stage remote rust runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/remote-rust/linux-x64"
+          mkdir -p "$dest"
+          # Windows 上 $RUNNER_TEMP 形如 D:\a\_temp：GNU tar 会把盘符后的冒号当成远程主机，
+          # 反斜杠还会让通配不展开，所以先切进目录、只用相对路径（与 release.yml 同一处理）。
+          cd "$RUNNER_TEMP/remote-rust-artifact"
+          tar -xzf ./*.tar.gz
+          cp ./*/escode-cli-rust "$dest/escode-cli-rust"
+          chmod 755 "$dest/escode-cli-rust"
+          echo "ESCODE_REMOTE_RUST_BINARIES_DIR=$RUNNER_TEMP/remote-rust" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: bundle desktop
+        run: pnpm bundle:desktop -- --os win --arch x64
+      - name: assert release artifacts
+        run: node packages/desktop/scripts/assert-release-artifacts.mjs packages/desktop/dist
+      # 安装 + 启动验证：NSIS 静默安装后启动，主进程 20s 内不退出且数据库启动就绪。
+      - name: install and launch
+        run: node scripts/ci-install-desktop.mjs packages/desktop/dist
