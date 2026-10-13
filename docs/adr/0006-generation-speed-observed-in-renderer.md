@@ -1,6 +1,6 @@
 # 生成速度由 Renderer 本地观测
 
-- 状态：Accepted
+- 状态：部分被取代（[0007](0007-generation-speed-split-ownership.md) 取代了轮末平均值的归属；实时接收速率部分仍然有效）
 - 日期：2026-10-12
 
 ## Context

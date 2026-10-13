@@ -9,7 +9,6 @@ import type {
   ConversationDelta,
   ConversationSnapshot,
   ConversationTopicFrame,
-  StatePatch,
   ToolCallRow,
   TurnHeaderRow,
 } from "@escode/shared/escode-protocol-v4";
@@ -54,7 +53,15 @@ function toolRow(rowId: number, status: ToolCallRow["status"], extra: Partial<To
   return row;
 }
 
-function turnRow(rowId: number, state: TurnHeaderRow["state"], outputTokens?: number) {
+/**
+ * 轮末解码速度只读 CLI 投影写入的权威字段（规格 4.2）：用例通过这两个字段构造读数，
+ * 不用本地估算或本机耗时去推算。
+ */
+function turnRow(
+  rowId: number,
+  state: TurnHeaderRow["state"],
+  decode?: { decodeMs: number; decodeTokens: number },
+) {
   const row: TurnHeaderRow = {
     ...baseFields(rowId),
     kind: "turnHeader",
@@ -62,7 +69,10 @@ function turnRow(rowId: number, state: TurnHeaderRow["state"], outputTokens?: nu
     state,
     startedAt: 0,
   };
-  if (outputTokens !== undefined) row.outputTokens = outputTokens;
+  if (decode) {
+    row.decodeMs = decode.decodeMs;
+    row.decodeTokens = decode.decodeTokens;
+  }
   return row;
 }
 
@@ -76,18 +86,6 @@ function upsert(row: AssistantTextRow | ToolCallRow | TurnHeaderRow): Conversati
 
 function append(row: AssistantTextRow | ToolCallRow | TurnHeaderRow): ConversationDelta {
   return { op: "row.appended", row };
-}
-
-/** 只读 length；这里不构造完整 permission/userInput 载荷（tracker 不解释内容）。 */
-function interactionsPatch(count: number): ConversationDelta {
-  return {
-    op: "state.updated",
-    patch: {
-      pendingInteractions: Array.from({ length: count }, (_, index) => ({
-        interactionId: `i${index}`,
-      })),
-    } as StatePatch,
-  };
 }
 
 function seededFrame(
@@ -164,76 +162,50 @@ describe("LocalGenerationSpeedTracker", () => {
     expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
   });
 
-  it("工具执行区间不计入分母，轮末用服务端 outputTokens 修正分子", () => {
+  it("工具参数也是模型生成的 token，计入实时窗口", () => {
     const tracker = trackerInstance();
     startTurn(tracker, 1, 2);
+    tracker.receive(deltasFrame([textDelta(2, "abcdef")]), "online");
+    expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
 
-    // [0,1s) 正文生成。
+    // toolCall 行的 inputText 与正文同属一个生成段：2+3=5 token ÷ 1s。
+    tracker.receive(deltasFrame([append(toolRow(3, "inputStreaming"))]), "online");
+    clock.now = 1_000;
+    tracker.receive(deltasFrame([textDelta(3, "abcdefghi", "inputText")]), "online");
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "live", value: 5 });
+  });
+
+  it("轮末解码速度读权威字段，不用本机耗时推算", () => {
+    const tracker = trackerInstance();
+    startTurn(tracker, 1, 2);
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
+
+    // 本机只过了 1 秒，但权威区间是 4 秒 / 100 token → 25 tok/s。
     clock.now = 1_000;
     tracker.receive(
-      deltasFrame([append(toolRow(3, "inputStreaming")), textDelta(3, "abcdef", "inputText")]),
+      deltasFrame([upsert(turnRow(1, "completedSuccess", { decodeMs: 4_000, decodeTokens: 100 }))]),
       "online",
     );
-
-    // [1s,2s) 工具参数仍属生成，然后工具开始执行。
-    clock.now = 2_000;
-    tracker.receive(deltasFrame([upsert(toolRow(3, "running"))]), "online");
-
-    // [2s,7s) 工具执行：整段排除。
-    clock.now = 7_000;
-    tracker.receive(deltasFrame([upsert(toolRow(3, "success"))]), "online");
-
-    clock.now = 8_000;
-    tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
-
-    // 4 秒生成时间：0-1s、1-2s、7-8s、8-9s；10 token ÷ 4s = 2.5 tok/s。
-    clock.now = 9_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 10))]), "online");
-    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 2.5 });
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 25 });
   });
 
-  it("等待授权/用户回答的区间不计入分母", () => {
-    const tracker = trackerInstance();
-    startTurn(tracker, 1, 2);
-    tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
-
-    clock.now = 1_000;
-    tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
-
-    // [1s,2s) 正常生成，随后进入等待。
-    clock.now = 2_000;
-    tracker.receive(deltasFrame([interactionsPatch(1)]), "online");
-
-    // [2s,5s) 等待区间排除。
-    clock.now = 5_000;
-    tracker.receive(deltasFrame([interactionsPatch(0)]), "online");
-
-    // 3 秒生成时间：0-1s、1-2s、5-6s；4 token ÷ 3s。
-    clock.now = 6_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedInterrupted", 4))]), "online");
-    const view = tracker.read(SESSION_ID);
-    expect(view.mode).toBe("average");
-    expect(view.value).toBeCloseTo(4 / 3, 6);
+  it("缺权威字段、分母为零或分子非正时不留读数", () => {
+    const cases: Array<Parameters<typeof turnRow>[2]> = [
+      undefined,
+      { decodeMs: 0, decodeTokens: 10 },
+      { decodeMs: 4_000, decodeTokens: 0 },
+    ];
+    for (const decode of cases) {
+      const tracker = trackerInstance();
+      startTurn(tracker, 1, 2);
+      tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
+      clock.now = 1_000;
+      tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", decode))]), "online");
+      expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
+    }
   });
 
-  it("后台化的工具不阻塞分母", () => {
-    const tracker = trackerInstance();
-    startTurn(tracker, 1, 2);
-    tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
-
-    // 后台 Bash 与模型并行：整段时间仍属生成。
-    clock.now = 1_000;
-    tracker.receive(deltasFrame([append(toolRow(3, "running", { backgrounded: true }))]), "online");
-    clock.now = 3_000;
-    tracker.receive(deltasFrame([upsert(toolRow(3, "success", { backgrounded: true }))]), "online");
-
-    clock.now = 4_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 8))]), "online");
-    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 2 });
-  });
-
-  it("投递缺口既不计入窗口，也不留平均值", () => {
+  it("投递缺口只清实时窗口，不影响轮末读数", () => {
     const tracker = trackerInstance();
     startTurn(tracker, 1, 2);
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
@@ -254,12 +226,16 @@ describe("LocalGenerationSpeedTracker", () => {
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
     expect(tracker.read(SESSION_ID).mode).toBe("live");
 
+    // 漏帧只影响实时值：轮末读数由 CLI 投影累计，与客户端是否漏帧无关（规格 5.2）。
     clock.now = 7_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 6))]), "online");
-    expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
+    tracker.receive(
+      deltasFrame([upsert(turnRow(1, "completedSuccess", { decodeMs: 2_000, decodeTokens: 50 }))]),
+      "online",
+    );
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 25 });
   });
 
-  it("桌面投影 resync（online snapshot）同样按缺口处理", () => {
+  it("桌面投影 resync（online snapshot）同样只清实时窗口", () => {
     const tracker = trackerInstance();
     startTurn(tracker, 1, 2);
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
@@ -271,8 +247,11 @@ describe("LocalGenerationSpeedTracker", () => {
     clock.now = 3_000;
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
     clock.now = 4_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 5))]), "online");
-    expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
+    tracker.receive(
+      deltasFrame([upsert(turnRow(1, "completedSuccess", { decodeMs: 1_000, decodeTokens: 20 }))]),
+      "online",
+    );
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 20 });
   });
 
   it("新轮开始清空上一轮保留值", () => {
@@ -280,8 +259,11 @@ describe("LocalGenerationSpeedTracker", () => {
     startTurn(tracker, 1, 2);
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
     clock.now = 1_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 3))]), "online");
-    expect(tracker.read(SESSION_ID).mode).toBe("average");
+    tracker.receive(
+      deltasFrame([upsert(turnRow(1, "completedSuccess", { decodeMs: 1_000, decodeTokens: 30 }))]),
+      "online",
+    );
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 30 });
 
     clock.now = 2_000;
     startTurn(tracker, 9, 10);
@@ -293,7 +275,7 @@ describe("LocalGenerationSpeedTracker", () => {
     expect(tracker.read(SESSION_ID).mode).toBe("live");
   });
 
-  it("订阅时这一轮已在生成：只观测到尾巴，不留平均值", () => {
+  it("订阅时这一轮已在生成：实时值从订阅点重新累积，轮末仍读权威字段", () => {
     const tracker = trackerInstance();
     tracker.receive(seededFrame([turnRow(1, "running"), textRow(2)]), "initial");
 
@@ -306,13 +288,19 @@ describe("LocalGenerationSpeedTracker", () => {
     expect(tracker.read(SESSION_ID).mode).toBe("live");
 
     clock.now = 3_000;
-    tracker.receive(deltasFrame([upsert(turnRow(1, "completedSuccess", 6))]), "online");
-    expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
+    tracker.receive(
+      deltasFrame([upsert(turnRow(1, "completedSuccess", { decodeMs: 3_000, decodeTokens: 60 }))]),
+      "online",
+    );
+    expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 20 });
   });
 
-  it("订阅时无运行轮：后续一轮照常给出平均值", () => {
+  it("订阅时无运行轮：上一轮已结算的读数不回填", () => {
     const tracker = trackerInstance();
-    tracker.receive(seededFrame([turnRow(1, "completedSuccess", 7)]), "initial");
+    tracker.receive(
+      seededFrame([turnRow(1, "completedSuccess", { decodeMs: 2_000, decodeTokens: 40 })]),
+      "initial",
+    );
     expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);
 
     clock.now = 1_000;
@@ -320,10 +308,14 @@ describe("LocalGenerationSpeedTracker", () => {
     tracker.receive(deltasFrame([textDelta(6, "abc")]), "online");
     clock.now = 2_000;
     tracker.receive(deltasFrame([textDelta(6, "abc")]), "online");
+    expect(tracker.read(SESSION_ID).mode).toBe("live");
 
-    // 2 秒生成时间、服务端计量 6 token → 3 tok/s。
+    // 2 秒区间、6 token → 3 tok/s。
     clock.now = 3_000;
-    tracker.receive(deltasFrame([upsert(turnRow(5, "completedSuccess", 6))]), "online");
+    tracker.receive(
+      deltasFrame([upsert(turnRow(5, "completedSuccess", { decodeMs: 2_000, decodeTokens: 6 }))]),
+      "online",
+    );
     expect(tracker.read(SESSION_ID)).toEqual({ mode: "average", value: 3 });
   });
 

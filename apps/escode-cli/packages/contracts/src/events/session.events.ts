@@ -829,6 +829,8 @@ export interface ModelCompletePayload {
   content: string;
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
   contextWindow?: number;
+  /** 本次调用的首个非空生成 delta → 末个非空生成 delta 的毫秒数；无区间或跨度为零时缺失。 */
+  decodeMs?: number;
   fileChanges?: TurnFileChangeSummary;
   querySource?: string;
   stopReason: string;

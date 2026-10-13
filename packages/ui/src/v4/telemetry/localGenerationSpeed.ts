@@ -10,12 +10,15 @@ import {
 } from "@escode/shared/escode-protocol-v4";
 
 /**
- * 会话实时 token 生成速度的本地观测器。
+ * 会话**实时接收速率**的本地观测器。
  *
- * 为什么在 Renderer 而不是 Runtime：流式阶段协议不携带逐 chunk token 数，provider 只在每次模型请求
- * finish 时给 usage（见 `core/src/runtime/methods/model.ts`），任何一层的实时值都只能是按流出文本的估算。
- * 观测口径、缺口语义与显示规则见 `docs/specs/conversation-generation-speed.md` 与
- * `docs/adr/0006-generation-speed-observed-in-renderer.md`。
+ * 本模块只负责显示矩阵里的"实时值"：3 秒滑窗内估算 token ÷ 窗口时长。它是本机体感指标，
+ * 不追求跨设备一致——流式阶段协议不携带逐 chunk token 数，provider 只在每次模型请求 finish 时给
+ * usage（见 `core/src/runtime/methods/model.ts`），任何一层的实时值都只能是按流出文本的估算。
+ *
+ * **轮末解码速度不在这里**：那是会话事实，由 CLI 投影按次调用的"首个生成 delta → 末个生成 delta"
+ * 累计到 `turnHeader.decodeMs / decodeTokens`，本观测器只读，不做任何本地结算。
+ * 口径见 `docs/specs/conversation-generation-speed.md` 与 `docs/adr/0007-generation-speed-split-ownership.md`。
  *
  * 与 `LocalTtftObserver` 并列：同样只采信 `online` 投递、使用本地单调时钟、恢复/resync 一律排除。
  */
@@ -57,28 +60,14 @@ interface SpeedRecord {
   samples: SpeedSample[];
   /** rowId → 流式行类型。 */
   rowKindByRowId: Map<number, CountedRowKind>;
-  /** 处于 `running` 状态的工具行；工具执行区间不计入本轮生成时间（规格 4.3）。 */
-  runningToolRows: Set<number>;
-  /** 快照/补丁里最后一次可见的待交互数量（授权、用户回答、Hook 审核）。 */
-  pendingInteractions: number;
   /** 当前 product turn 的 turnHeader rowId；进度 upsert 与新一轮靠它区分。 */
   turnRowId: number | null;
   turnRunning: boolean;
   /** 本轮首个 delta 的本地时间；用于起步阶段归一，缺口后重置为 null。 */
   segmentStartedAt: number | null;
-  /** 上次结算时间的锚点；缺口帧把它前移以排除未知区间。 */
-  lastAccountedAt: number | null;
-  /** 本轮累计生成时间（毫秒），已排除工具执行与等待交互区间。 */
-  activeMs: number;
-  /** 本轮估算 token 累计。 */
-  estimatedTokens: number;
-  /** 本轮是否出现过投递缺口（重连、投影 resync、订阅时已在生成）。 */
-  gap: boolean;
   settled: boolean;
+  /** 轮末解码速度（tok/s），读自 turnHeader 的权威字段；未知时为 null。 */
   average: number | null;
-  /** 结算请求：本帧观察到回合结束，等本次时间结算完成后再提交平均值。 */
-  settleRequested: boolean;
-  settleExactTokens: number | null;
   /** 已发布视图；对象身份只在语义变化时替换。 */
   view: GenerationSpeedView;
   listeners: Set<() => void>;
@@ -92,24 +81,31 @@ const COUNTED_ROW_KINDS: Record<string, CountedRowKind | undefined> = {
   toolCall: "toolCall",
 };
 
+/**
+ * 轮末解码速度：`decodeTokens ÷ (decodeMs / 1000)`。
+ *
+ * 两个字段由 CLI 投影同进同出（规格 4.2）：缺任一、分母为零、或分子非正时一律未知——
+ * 旧 CLI 不下发这两个字段，此时**不回退**到本机估算，同一标签下静默换口径比没有读数更糟。
+ */
+function readDecodeSpeed(row: TurnHeaderRow): number | null {
+  const { decodeMs, decodeTokens } = row;
+  if (decodeMs === undefined || decodeTokens === undefined) return null;
+  if (!Number.isFinite(decodeMs) || decodeMs <= 0) return null;
+  if (!Number.isFinite(decodeTokens) || decodeTokens <= 0) return null;
+  const value = decodeTokens / (decodeMs / 1_000);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function createRecord(sessionId: string): SpeedRecord {
   return {
     sessionId,
     samples: [],
     rowKindByRowId: new Map(),
-    runningToolRows: new Set(),
-    pendingInteractions: 0,
     turnRowId: null,
     turnRunning: false,
     segmentStartedAt: null,
-    lastAccountedAt: null,
-    activeMs: 0,
-    estimatedTokens: 0,
-    gap: false,
     settled: false,
     average: null,
-    settleRequested: false,
-    settleExactTokens: null,
     view: NO_GENERATION_SPEED,
     listeners: new Set(),
     timer: null,
@@ -140,21 +136,16 @@ export class LocalGenerationSpeedTracker {
     }
     if (delivery !== "online") {
       // recovery 会重放错过的 deltas；按"本机实时观测"口径它们不是刚刚生成的，一律排除。
-      this.markGap(record, at);
+      this.discardWindow(record, at);
       return;
     }
     if (frame.payload.kind === "snapshot") {
       // online snapshot = 桌面连续订阅在缓冲溢出/投影重建后用快照代替 deltas，无法逐条归因。
-      this.markGap(record, at);
+      this.discardWindow(record, at);
       return;
     }
 
-    // 先取本帧之前的"阻塞"状态：区间 [上一帧, 本帧] 的归属由起点状态决定，
-    // 反过来会把工具执行的整段时间算进分母（工具置 running 的那帧之后、结束那帧之前）。
-    const blockedBefore = this.blocked(record);
-    const counted = this.applyDeltas(record, frame, at);
-    this.advance(record, at, blockedBefore, counted);
-    if (record.settleRequested) this.commitSettle(record);
+    this.applyDeltas(record, frame, at);
     this.refresh(record, at);
     this.evict();
   }
@@ -204,67 +195,37 @@ export class LocalGenerationSpeedTracker {
     }
   }
 
-  /**
-   * 工具执行与等待授权/用户回答期间模型没有生成，不能进分母。
-   *
-   * 注意这是区间起点的状态而不是"本帧是否在跑工具"：后台工具与模型并行生成时，区间会因为
-   * 末尾带着 counted delta 而被计入，不会把并行生成的时间错误地整段排除。
-   */
-  private blocked(record: SpeedRecord): boolean {
-    return record.pendingInteractions > 0 || record.runningToolRows.size > 0;
-  }
-
-  private advance(record: SpeedRecord, at: number, blockedBefore: boolean, counted: boolean): void {
-    if (record.lastAccountedAt === null) return;
-    if (record.turnRunning && !record.settled && (!blockedBefore || counted))
-      record.activeMs += Math.max(0, at - record.lastAccountedAt);
-    record.lastAccountedAt = at;
-  }
-
   private seed(record: SpeedRecord, snapshot: ConversationSnapshot, at: number): void {
-    record.pendingInteractions = snapshot.pendingInteractions.length;
-    record.runningToolRows.clear();
     record.rowKindByRowId.clear();
     let latestTurn: TurnHeaderRow | undefined;
     for (const row of snapshot.rows.window) {
       const kind = COUNTED_ROW_KINDS[row.kind];
       if (kind) this.rememberRowKind(record, row.rowId, kind);
-      if (row.kind === "toolCall" && row.status === "running" && row.backgrounded !== true)
-        record.runningToolRows.add(row.rowId);
       if (row.kind === "turnHeader") latestTurn = row;
     }
     record.turnRowId = latestTurn?.rowId ?? null;
     record.turnRunning = latestTurn?.state === "running";
+    // 订阅时的快照只做状态对账：快照里的整段文本不是"刚生成的"，窗口与保留值都从零开始。
     record.settled = false;
     record.average = null;
     record.samples = [];
     record.segmentStartedAt = null;
-    record.lastAccountedAt = null;
-    record.activeMs = 0;
-    record.estimatedTokens = 0;
-    if (record.turnRunning) {
-      // 订阅时这一轮已经在生成：本轮只剩尾巴，不能给出一个"看起来完整"的平均值。
-      record.gap = true;
-      record.lastAccountedAt = at;
-    } else {
-      record.gap = false;
-      record.settleRequested = false;
-    }
     this.refresh(record, at);
   }
 
-  private markGap(record: SpeedRecord, at: number): void {
-    record.gap = true;
-    // 缺口覆盖了多少生成时间无从得知，不能计入分母；窗口也从头累积（规格 5）。
+  /**
+   * 投递缺口（重连、投影 resync、订阅时已在生成）里重放的内容不是"刚刚生成的"，
+   * 一律不计入窗口，并清空当前窗口与生成段（规格 5.1）。缺口只影响实时值：轮末解码速度
+   * 由 CLI 投影累计，与客户端是否漏帧无关。
+   */
+  private discardWindow(record: SpeedRecord, at: number): void {
     record.samples = [];
     record.segmentStartedAt = null;
-    if (record.lastAccountedAt !== null) record.lastAccountedAt = at;
     this.refresh(record, at);
   }
 
-  private applyDeltas(record: SpeedRecord, frame: ConversationTopicFrame, at: number): boolean {
-    if (frame.payload.kind !== "deltas") return false;
-    let counted = false;
+  private applyDeltas(record: SpeedRecord, frame: ConversationTopicFrame, at: number): void {
+    if (frame.payload.kind !== "deltas") return;
     for (const delta of frame.payload.deltas) {
       switch (delta.op) {
         case "row.appended":
@@ -272,21 +233,15 @@ export class LocalGenerationSpeedTracker {
           this.applyRow(record, delta.row);
           break;
         case "row.delta":
-          if (this.applyStreamDelta(record, delta.rowId, delta.path, delta.append, at))
-            counted = true;
+          this.applyStreamDelta(record, delta.rowId, delta.path, delta.append, at);
           break;
         case "row.removed":
           this.applyRowRemoved(record, delta.fromRowId);
-          break;
-        case "state.updated":
-          if (delta.patch.pendingInteractions !== undefined)
-            record.pendingInteractions = delta.patch.pendingInteractions.length;
           break;
         default:
           break;
       }
     }
-    return counted;
   }
 
   private applyRow(record: SpeedRecord, row: ConversationRow): void {
@@ -297,12 +252,6 @@ export class LocalGenerationSpeedTracker {
     const kind = COUNTED_ROW_KINDS[row.kind];
     if (!kind) return;
     this.rememberRowKind(record, row.rowId, kind);
-    if (row.kind !== "toolCall") return;
-    // 只有主链路正在等待的工具执行才算"阻塞"：后台化的工具与模型并行，不能据此排除生成时间，
-    // 否则一个长跑的后台 Bash 会把整轮分母抹掉。
-    if (row.status === "running" && row.backgrounded !== true)
-      record.runningToolRows.add(row.rowId);
-    else record.runningToolRows.delete(row.rowId);
   }
 
   private applyTurnHeader(record: SpeedRecord, row: TurnHeaderRow): void {
@@ -314,41 +263,28 @@ export class LocalGenerationSpeedTracker {
     }
     if (record.settled) return;
     if (record.turnRowId !== null && record.turnRowId !== row.rowId) return;
-    // 结算推迟到本帧的时间结算之后：最后一个取值区间仍属于本轮。
-    record.settleRequested = true;
-    record.settleExactTokens = row.outputTokens ?? null;
+    this.settle(record, row);
   }
 
   private startTurn(record: SpeedRecord, rowId: number): void {
     record.turnRowId = rowId;
     record.turnRunning = true;
     record.settled = false;
-    record.gap = false;
     record.samples = [];
     record.segmentStartedAt = null;
-    record.lastAccountedAt = null;
-    record.activeMs = 0;
-    record.estimatedTokens = 0;
     // 规格 2.1：新轮开始清空上一轮保留值，回到占位符。
     record.average = null;
-    record.settleRequested = false;
-    record.settleExactTokens = null;
     // 行 ID 每轮新增，历史行不会在下一轮继续追加；保留登记表只会让增量停在旧轮。
     record.rowKindByRowId.clear();
   }
 
-  private commitSettle(record: SpeedRecord): void {
-    record.settleRequested = false;
+  /** 结算即读权威字段：本模块不参与轮末口径的推导（规格 4.2）。 */
+  private settle(record: SpeedRecord, row: TurnHeaderRow): void {
     record.settled = true;
     record.turnRunning = false;
     record.samples = [];
     record.segmentStartedAt = null;
-    const seconds = record.activeMs / 1_000;
-    // 规格 4.3：有缺口不给平均值；分子优先用服务端 output 计量（规格 4.2 的轮末修正）。
-    const numerator = record.gap ? null : (record.settleExactTokens ?? record.estimatedTokens);
-    const average = numerator !== null && numerator > 0 && seconds > 0 ? numerator / seconds : null;
-    record.average = Number.isFinite(average) ? average : null;
-    record.settleExactTokens = null;
+    record.average = readDecodeSpeed(row);
   }
 
   private rememberRowKind(record: SpeedRecord, rowId: number, kind: CountedRowKind): void {
@@ -362,8 +298,6 @@ export class LocalGenerationSpeedTracker {
   private applyRowRemoved(record: SpeedRecord, fromRowId: number): void {
     for (const rowId of record.rowKindByRowId.keys())
       if (rowId >= fromRowId) record.rowKindByRowId.delete(rowId);
-    for (const rowId of record.runningToolRows)
-      if (rowId >= fromRowId) record.runningToolRows.delete(rowId);
   }
 
   /**
@@ -376,20 +310,15 @@ export class LocalGenerationSpeedTracker {
     path: StreamablePath,
     append: string,
     at: number,
-  ): boolean {
-    if (!append) return false;
+  ): void {
+    if (!append) return;
     const kind = record.rowKindByRowId.get(rowId);
-    if (!kind) return false;
-    if (kind === "toolCall" ? path !== "inputText" : path !== "text") return false;
+    if (!kind) return;
+    if (kind === "toolCall" ? path !== "inputText" : path !== "text") return;
     const tokens = estimateTokens(append);
-    if (tokens <= 0) return false;
+    if (tokens <= 0) return;
     record.samples.push({ at, tokens });
-    record.estimatedTokens += tokens;
-    if (record.segmentStartedAt === null) {
-      record.segmentStartedAt = at;
-      record.lastAccountedAt = at;
-    }
-    return true;
+    if (record.segmentStartedAt === null) record.segmentStartedAt = at;
   }
 
   private prune(record: SpeedRecord, at: number): void {

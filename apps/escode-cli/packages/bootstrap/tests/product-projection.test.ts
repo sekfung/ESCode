@@ -186,6 +186,84 @@ describe("ProductProjection 黄金测试（L1）", () => {
     expect(conversationSnapshotSchema.parse(snapshot).rows.window).toEqual(snapshot.rows.window);
   });
 
+  it("单 Turn 解码区间与 output token 由权威投影累计，不合格调用分子分母一起剔除", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "first", inputId: "command-1", messageId: "user-1" },
+      { turnId: "turn-1" },
+    );
+    // 两次可计量调用：区间 1s / 2s、output 5 / 7，分子按"区间覆盖 N−1 个 token 间隔"各扣一个。
+    for (const [decodeMs, outputTokens] of [
+      [1_000, 5],
+      [2_000, 7],
+    ] as const) {
+      log.push(
+        SessionEventType.ModelComplete,
+        {
+          content: "step",
+          decodeMs,
+          stopReason: "end_turn",
+          querySource: "main_turn",
+          usage: { inputTokens: 10, outputTokens },
+        },
+        { turnId: "turn-1" },
+      );
+    }
+    // 单 token 的调用量不出速率，整段剔除——不能只钳时间却把 token 留在分子里。
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "single",
+        decodeMs: 9_000,
+        stopReason: "end_turn",
+        querySource: "main_turn",
+        usage: { inputTokens: 10, outputTokens: 1 },
+      },
+      { turnId: "turn-1" },
+    );
+    // 无区间不可计量。
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "untimed",
+        stopReason: "end_turn",
+        querySource: "main_turn",
+        usage: { inputTokens: 10, outputTokens: 40 },
+      },
+      { turnId: "turn-1" },
+    );
+    // 非主链路不进主会话水位（与 outputTokens 同一门）。
+    log.push(
+      SessionEventType.ModelComplete,
+      {
+        content: "child",
+        decodeMs: 5_000,
+        stopReason: "end_turn",
+        querySource: "subagent",
+        usage: { inputTokens: 10, outputTokens: 40 },
+      },
+      { turnId: "turn-1" },
+    );
+    log.push(
+      SessionEventType.TurnComplete,
+      { response: "done", tokenCount: 12, toolCallCount: 0, duration: 100, resultType: "success" },
+      { turnId: "turn-1" },
+    );
+
+    const snapshot = runAll(log.events).projection.getSnapshot();
+    const headers = snapshot.rows.window.filter((row) => row.kind === "turnHeader");
+    expect(headers).toEqual([
+      expect.objectContaining({
+        sourceCommandId: "command-1",
+        decodeMs: 3_000,
+        decodeTokens: 10,
+      }),
+    ]);
+    expect(conversationSnapshotSchema.parse(snapshot).rows.window).toEqual(snapshot.rows.window);
+  });
+
   it("Highspeed turn 终态持久化 CLI 聚合的模型/工具真实耗时", () => {
     const log = new EventLog();
     const turnId = "turn-highspeed-timing";

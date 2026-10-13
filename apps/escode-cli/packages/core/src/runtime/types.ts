@@ -885,6 +885,8 @@ export interface StreamedToolExecutionResult {
 
 export interface RuntimeModelTextResult {
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
+  /** 首个非空生成 delta → 末个非空生成 delta 的本地毫秒数；无区间或跨度为零时缺席。 */
+  decodeMs?: number;
   finishReason: string;
   providerMetadata?: Record<string, unknown>;
   reasoning?: ModelReasoningContentBlock[];

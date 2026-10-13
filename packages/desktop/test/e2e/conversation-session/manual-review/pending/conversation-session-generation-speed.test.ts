@@ -1,11 +1,11 @@
-// Manual review pending：会话实时 token 生成速度读数（docs/specs/conversation-generation-speed.md）。
+// Manual review pending：会话 token 生成速度读数（docs/specs/conversation-generation-speed.md）。
 // 证据层 L3：
 // 1) 流式期间 Composer 工具条出现 live 读数（data-generation-speed-mode="live"，数值 > 0）；
-// 2) 轮末读数切换为 average，数值为"服务端 outputTokens ÷ 本地实测生成时间"；
+// 2) 轮末读数切换为 average，数值来自 CLI 投影累计的 turnHeader.decodeTokens / decodeMs；
 // 3) 读数与上下文容量同簇（输入框工具条），且不因 modelLocked 隐藏逻辑缺失。
 // 本 case 需要 controlled-stream 时序：真实 replay 若一次吐完整段，live 窗口无法稳定断言；
 // fixture 断言只读 Read 工具调用（buildReadonlyToolPrompt）与最终文本两个 marker。
-// 窗口排空回占位符、投递缺口不留平均值、新轮清空保留值由单测覆盖
+// 窗口排空回占位符、投递缺口只清实时窗口、新轮清空保留值由单测覆盖
 // （packages/ui/test/localGenerationSpeed.test.ts），不在此 spec 重复断言时序竞态。
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import { buildReadonlyToolPrompt } from "../../../helpers/conversation-session-readonly-tool.js";
@@ -23,7 +23,7 @@ describe("会话生成速度读数", () => {
     await clearAppData();
   });
 
-  it("流式中显示实时速度，轮末保留本轮平均值", async function () {
+  it("流式中显示实时速度，轮末保留本轮解码速度", async function () {
     this.timeout(240000);
     await prepareV4ConversationE2E();
 

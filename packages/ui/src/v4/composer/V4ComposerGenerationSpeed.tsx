@@ -2,7 +2,7 @@ import { cn } from "@/components/lib/utils.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useLocalGenerationSpeed } from "@/v4/telemetry/useLocalGenerationSpeed.js";
 
-/** 占位符：速度未定义时的显示（规格 2.1）——窗口排空、等待首 token、有缺口。 */
+/** 占位符：速度未定义时的显示（规格 2.1）——窗口排空、等待首 token、或缺权威读数。 */
 const SPEED_PLACEHOLDER = "—";
 
 /** 显示格式：整数；小于 1 时保留一位小数（规格 2.1）。 */
@@ -13,7 +13,8 @@ function formatSpeedValue(value: number): string {
 /**
  * 输入框工具条里的会话生成速度读数（规格 2.2：位于上下文容量左侧、独立于 modelLocked 渲染）。
  *
- * 读数只来自 Renderer 本地观测（`localGenerationSpeed.ts`），不写会话状态、不进 Composer 的 memo 依赖。
+ * 实时值来自 Renderer 本地观测、轮末解码速度读自 `turnHeader` 的 CLI 投影字段——两个量、两个所有者
+ * （`localGenerationSpeed.ts`，规格 4）。读数不写会话状态、不进 Composer 的 memo 依赖。
  */
 export function V4ComposerGenerationSpeed({ sessionId }: { sessionId: string }) {
   const { intl } = useESCodeIntl();

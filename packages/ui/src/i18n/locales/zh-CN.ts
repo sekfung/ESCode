@@ -4980,7 +4980,7 @@ const zhCN: Record<string, string> = {
   "chat.contextUsage.compressDescription": "发送 {command} 压缩当前上下文",
   "chat.generationSpeed.unit": "tok/s",
   "chat.generationSpeed.live": "实时生成速度 {value}",
-  "chat.generationSpeed.average": "上一轮平均生成速度 {value}",
+  "chat.generationSpeed.average": "上一轮解码速度 {value}",
   "chat.generationSpeed.unknown": "生成速度暂无读数",
   "tokenDebug.open": "打开 Token 调试",
   "tokenDebug.column.tps": "TPS (tokens/s)",

@@ -414,6 +414,25 @@ function nonNegativeInteger(value: number, fallback: number): number {
   return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
 }
 
+/**
+ * 一次模型调用对 turn 解码计量的贡献。
+ *
+ * 口径见 `docs/specs/conversation-generation-speed.md` 4.2：解码区间覆盖的是 N 个 token 之间的
+ * N−1 个间隔，所以分子取 `outputTokens − 1`，直接用 N 会高估 N/(N−1)。
+ * 无区间、跨度为 0、有效 token 少于 2、或 usage 缺失时返回 undefined，让调用方把**分子与分母一起**
+ * 剔除——只把时间钳到 0 却保留 token，会让单次调用注水整轮读数。
+ */
+function decodeContribution(
+  decodeMs: number | undefined,
+  outputTokens: number | undefined,
+): { decodeMs: number; decodeTokens: number } | undefined {
+  if (decodeMs === undefined || !Number.isFinite(decodeMs) || decodeMs <= 0) return undefined;
+  if (outputTokens === undefined || !Number.isFinite(outputTokens) || outputTokens < 2) {
+    return undefined;
+  }
+  return { decodeMs, decodeTokens: outputTokens - 1 };
+}
+
 interface FileToolInputPreviewState {
   lastPublishedAt: number | null;
   pendingAppend: string;
@@ -4838,6 +4857,7 @@ export class ProductProjection {
               },
             }
           : {};
+      const decode = decodeContribution(payload.decodeMs, usage.outputTokens);
       if (isMainTurn || "fileChanges" in fileChanges) {
         deltas.push({
           op: "row.upserted",
@@ -4847,7 +4867,16 @@ export class ProductProjection {
             // Bug 根因：Renderer 观察 running 快照的时机不可靠，continuous 可合并更新，
             // replayable 也可能首次恢复即终态。单 Turn token 必须在权威事件投影中累计。
             ...(isMainTurn
-              ? { outputTokens: (headerRow.outputTokens ?? 0) + (usage.outputTokens ?? 0) }
+              ? {
+                  outputTokens: (headerRow.outputTokens ?? 0) + (usage.outputTokens ?? 0),
+                  // 解码区间与 output token 一起在权威投影里累计，Renderer 不再本地结算。
+                  ...(decode === undefined
+                    ? {}
+                    : {
+                        decodeMs: (headerRow.decodeMs ?? 0) + decode.decodeMs,
+                        decodeTokens: (headerRow.decodeTokens ?? 0) + decode.decodeTokens,
+                      }),
+                }
               : {}),
           },
         });

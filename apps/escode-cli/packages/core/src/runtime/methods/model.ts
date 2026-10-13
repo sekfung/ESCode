@@ -163,6 +163,17 @@ export async function runModelTextRequest(
   const toolCalls: ModelToolCall[] = [];
   const toolCallIds = new Set<string>();
   const toolInputDeltaBuffers = new Map<ToolCallId, string>();
+  // 解码区间的两个边界：首个与末个**非空**生成 delta 的本地时间。空 delta、`*_start` / `*_end`、
+  // `tool_call` 与 `finish` 都不是生成——用消息装配完成或收尾 chunk 当终点会把不产 token 的时间算进分母。
+  // adapter 的 attempt 重试只能发生在任何可见生成 delta 之前（失败 attempt 的 prelude 被丢弃），
+  // core 级断流恢复又是一次新的调用，所以这里量到的区间天然只属于一个成功 attempt。
+  let firstGenerationDeltaAt: number | undefined;
+  let lastGenerationDeltaAt: number | undefined;
+  const markGenerationDelta = () => {
+    const at = Date.now();
+    firstGenerationDeltaAt ??= at;
+    lastGenerationDeltaAt = at;
+  };
   const publishStreamSnapshot = () => options.onStreamSnapshot?.({ reasoning, text });
   const streamingEventQueue = createModelStreamingEventQueue({
     events: options.events,
@@ -252,6 +263,7 @@ export async function runModelTextRequest(
         }
 
         case "text_delta": {
+          if (event.text) markGenerationDelta();
           text += event.text;
           options.onStreamTextDelta?.(event.text);
           publishStreamSnapshot();
@@ -294,6 +306,7 @@ export async function runModelTextRequest(
         }
 
         case "reasoning_delta": {
+          if (event.text) markGenerationDelta();
           const block = getOrCreateReasoningBlock({
             id: event.id,
             providerMetadata: event.providerMetadata,
@@ -352,6 +365,7 @@ export async function runModelTextRequest(
         }
 
         case "tool_input_delta": {
+          if (event.delta) markGenerationDelta();
           await appendToolInputDelta(event.id as ToolCallId, event.delta);
           break;
         }
@@ -505,8 +519,17 @@ export async function runModelTextRequest(
     });
   }
 
+  // 跨度为零（只有一个生成 delta，或时间戳退化为同毫秒）时没有可计量的解码区间，不下发。
+  const decodeMs =
+    firstGenerationDeltaAt !== undefined &&
+    lastGenerationDeltaAt !== undefined &&
+    lastGenerationDeltaAt > firstGenerationDeltaAt
+      ? lastGenerationDeltaAt - firstGenerationDeltaAt
+      : undefined;
+
   return {
     ...(contextUsageBreakdown.length > 0 ? { contextUsageBreakdown } : {}),
+    ...(decodeMs === undefined ? {} : { decodeMs }),
     finishReason,
     providerMetadata,
     reasoning: reasoning.length > 0 ? reasoning : undefined,

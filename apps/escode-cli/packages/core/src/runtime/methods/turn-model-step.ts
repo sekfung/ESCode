@@ -651,6 +651,8 @@ async function runModelBackedTurnStepImpl(
       querySource,
       stopReason: result.finishReason,
       usage: result.usage,
+      // 不下发主链路口径：运行时报事实，由各消费者（product-projection 的水位、埋点）自行设门。
+      ...(result.decodeMs === undefined ? {} : { decodeMs: result.decodeMs }),
       ...(cacheHit ? { cacheHit } : {}),
       ...(fileChanges ? { fileChanges } : {}),
       ...(querySource === "main_turn" && result.contextUsageBreakdown

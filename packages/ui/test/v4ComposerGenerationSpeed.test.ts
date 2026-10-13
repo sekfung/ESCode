@@ -114,7 +114,7 @@ describe("V4ComposerGenerationSpeed", () => {
     expect(element.getAttribute("data-generation-speed-value")).toBe("0.8");
   });
 
-  it("轮末保留平均值并弱化显示", () => {
+  it("轮末保留解码速度并弱化显示", () => {
     const tracker = newTracker();
     beginTurn(tracker);
     tracker.receive(
@@ -141,7 +141,9 @@ describe("V4ComposerGenerationSpeed", () => {
             origin: "userInput",
             state: "completedSuccess",
             startedAt: 0,
-            outputTokens: 10,
+            // 权威字段：2 秒解码区间 / 10 token → 5 tok/s。
+            decodeMs: 2_000,
+            decodeTokens: 10,
           },
         },
       ]),
@@ -151,7 +153,7 @@ describe("V4ComposerGenerationSpeed", () => {
     const { element } = renderReadout("zh-CN");
     expect(element.textContent).toBe("5 tok/s");
     expect(element.getAttribute("data-generation-speed-mode")).toBe("average");
-    expect(element.getAttribute("aria-label")).toContain("上一轮平均生成速度");
+    expect(element.getAttribute("aria-label")).toContain("上一轮解码速度");
     expect(element.className).toContain("text-foreground-subtlest");
   });
 
