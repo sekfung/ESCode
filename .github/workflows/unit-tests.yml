@@ -42,7 +42,7 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
@@ -77,7 +77,7 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。

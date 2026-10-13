@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "inputHashEncoding": "UTF-8 with CRLF normalized to LF; notice and source snapshot hashes remain byte-exact",
   "scope": "Production dependency union across current workspace projects, copied source/assets and native tools; not a per-installer SBOM or a certification of all licensing obligations.",
-  "noticesSha256": "9340aaf95aeee2a1555e906a2a30c114dc9509167329662a47ab4ddc18f0e7fe",
+  "noticesSha256": "cd7d4097b86bb69e40216c846df1d5d1c278214f136a4f84481d067f28452b22",
   "inputs": {
     ".agents/skills/agent-browser/references/authentication.md": "732e4fdf872f91bce54d5009212b11c6a6f21a355003420069bf5c5de51191e7",
     ".agents/skills/agent-browser/references/commands.md": "716aeac4c39753ec2ce229297b66539c8754d0f216e4bdb367c5e39f597dc2f2",
@@ -225,7 +225,7 @@
     ".agents/skills/react-best-practices/rules/server-serialization.md": "f4c7d68b29c82381baad059c4a7f09e868e71ec9c3115a26ad3ae7d24c0dfe1f",
     ".agents/skills/react-best-practices/SKILL.md": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
     "apps/dev-docs/package.json": "2bb394cace35d62b572d2815afa4a463b7fbfdbe4099837a8a153b6616d10f57",
-    "apps/escode-cli/package.json": "5299a2b668d5d4ec0797852bf8abba4c87fb8e3a161b1ec52d0ee38272be2ec2",
+    "apps/escode-cli/package.json": "13111cb1714fdb679788332fd7e7e397833073460a3b679d5b6912388c38c85f",
     "apps/escode-cli/packages/adapters/package.json": "80c8b3c2a0c9753322077dcf88105ee1392477f2121b22ca053368f04656b347",
     "apps/escode-cli/packages/android-emulator-plugin/package.json": "0866eebb850c18e77795f480d509d7e5f8b0c60abb27f29209b61bfee143c07b",
     "apps/escode-cli/packages/bootstrap/package.json": "4501ea7ba3c07ff8f778c5ac13d4e0ac6ac635572a7bbb853550ed0a0a6b9801",
@@ -3016,9 +3016,9 @@
     "third-party/native-search/sources.json": "f44bf987766676aadf1c2b35fa83df1efcb8acc033af5442b2b688dfe0f16372",
     "third-party/npm-overrides.json": "af7ffb8da46d7eed92cccaebcb85e18d06b9111100ea62e402ae32c50c25595d",
     "third-party/runtime/node-22.16.0-LICENSE.txt": "1ae62e2015784ba438db7b04ebd33f3c4ff3efdb824c111c4ececd99945fd52d",
-    "third-party/runtime/node-24.14.0-LICENSE.txt": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18",
+    "third-party/runtime/node-24.18.0-LICENSE.txt": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5",
     "third-party/runtime/rea-dependencies.json": "1d1043b2d3802b484fe1ab95b1fdef1601125de4df21b09328b9c23af1d19dc0",
-    "third-party/runtime/sources.json": "90a02dc058528198d11f901c74fbf08933e09dde1f62b94b1b5926316901c630",
+    "third-party/runtime/sources.json": "a12282ca196138e4f7ae21638bcdec07437127f72750fcf73e4a4faacfd67973",
     "third-party/upstream/000ffa2d773c511f4459fb31d89f841806f93bf5caf2050468ab2097c081b443.txt": "000ffa2d773c511f4459fb31d89f841806f93bf5caf2050468ab2097c081b443",
     "third-party/upstream/014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff.txt": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff",
     "third-party/upstream/0a7cda7d15aca7baaa3035e1f90466dde9ecc980c103cd230382d6675714bf2a.txt": "0a7cda7d15aca7baaa3035e1f90466dde9ecc980c103cd230382d6675714bf2a",
@@ -31474,10 +31474,10 @@
         "sha256": "1ae62e2015784ba438db7b04ebd33f3c4ff3efdb824c111c4ececd99945fd52d"
       },
       {
-        "version": "24.14.0",
-        "source": "https://raw.githubusercontent.com/nodejs/node/v24.14.0/LICENSE",
-        "file": "third-party/runtime/node-24.14.0-LICENSE.txt",
-        "sha256": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18"
+        "version": "24.18.0",
+        "source": "https://raw.githubusercontent.com/nodejs/node/v24.18.0/LICENSE",
+        "file": "third-party/runtime/node-24.18.0-LICENSE.txt",
+        "sha256": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5"
       }
     ],
     "rea": [

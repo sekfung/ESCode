@@ -45,7 +45,7 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
 
       - name: Guard（该 ref 上还没有 REA 插件时跳过）

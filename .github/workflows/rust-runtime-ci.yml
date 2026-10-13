@@ -39,10 +39,11 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.95.0
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
@@ -69,10 +70,12 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
       # windows-latest 默认即 MSVC 工具链（x86_64-pc-windows-msvc），补上本仓库此前无法在本机验证的 MSVC 目标。
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/escode-cli-rust
@@ -99,7 +102,7 @@ jobs:
           version: 10.33.2
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: 24.18.0
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2

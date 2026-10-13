@@ -2434,7 +2434,7 @@ Runtimes that ship inside an installer or agent bundle rather than through the w
 
 - Node.js 22.16.0 — license text: third-party/runtime/node-22.16.0-LICENSE.txt; source: https://raw.githubusercontent.com/nodejs/node/v22.16.0/LICENSE.
 
-- Node.js 24.14.0 — license text: third-party/runtime/node-24.14.0-LICENSE.txt; source: https://raw.githubusercontent.com/nodejs/node/v24.14.0/LICENSE.
+- Node.js 24.18.0 — license text: third-party/runtime/node-24.18.0-LICENSE.txt; source: https://raw.githubusercontent.com/nodejs/node/v24.18.0/LICENSE.
 
 - rea-agents@6.4.0 — license text: third-party/upstream/c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864.txt; source: https://github.com/morluto/rea/releases/tag/rea-agents-6.4.0. Dependency licenses: third-party/runtime/rea-dependencies.json (per-package license identifiers from npm metadata; the complete texts ship with the runtime). Review required: 本体的 MIT 许可原文已逐字节入库；其依赖树按目标平台安装、不入库（且含嵌套副本），无法逐字节哈希登记，因此逐包许可标识记录在同目录的 rea-dependencies.json（由 npm 元数据生成，含平台无关子集的稳定哈希），上游 tarball 自带的 licenses/ 与 third_party/*/LICENSE 随运行时原样分发。
 
