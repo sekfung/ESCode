@@ -86,6 +86,14 @@ export function CircuitPanel({
     if (sheets.length === 0) return undefined;
     return sheets.find((sheet) => sheet.path === activeSheetPath) ?? sheets[0];
   }, [activeSheetPath, sheets]);
+  // CircuitSchematicView 是 memo 组件：内联对象每次渲染都换身份，会让 memo 与画布重绘失去意义。
+  const schematicLabels = useMemo(
+    () => ({
+      schematic: intl.formatMessage({ id: "circuit.schematic.aria" }),
+      lowConfidence: intl.formatMessage({ id: "circuit.lowConfidence" }),
+    }),
+    [intl],
+  );
 
   const selectComponent = useCallback(
     (componentId: string) => setSelection({ componentId, sheetPath: activeSheetPath }),
@@ -309,10 +317,7 @@ export function CircuitPanel({
                 selectedComponentId={selection.componentId}
                 onSelectComponent={selectComponent}
                 onSelectNetName={selectNetByName}
-                labels={{
-                  schematic: intl.formatMessage({ id: "circuit.schematic.aria" }),
-                  lowConfidence: intl.formatMessage({ id: "circuit.lowConfidence" }),
-                }}
+                labels={schematicLabels}
               />
             ) : (
               <p className="p-3 text-ui-sm text-foreground-subtle" data-testid="circuit-no-layout">
