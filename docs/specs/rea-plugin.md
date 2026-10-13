@@ -351,8 +351,19 @@ native 反编译（Hopper/Ghidra/IDA）不在本次验收范围。
 `get_evidence_bundle` 的入参语义（踩过两次，记下来）：带 `filters.evidence_id` 这类记录过滤时
 `detail` 只能是 `summary`；`complete` 是**全量 canonical bundle**（不带 filters）专用的。
 
-**5. 本机未能验证的部分（如实记录）**
-- 没跑真实桌面应用（需要显示环境），也没跑 Rust 宿主端到端起 MCP 的完整链路；Rust 侧验证到编译、
-  单测（90 passed）与 codec 上限的代码比对。
-- `node scripts/licenses.mjs notices` 在本机跑不通（既有阻塞，见 P4）。
-- macOS / Linux 未在本机验证（按约定不阻断）。
+**5. 本机未能验证的部分（如实记录，已按项交接）**
+- **未跑真实桌面应用**（需要显示环境），也没跑 **Rust 宿主端到端起 MCP 的完整链路**；Rust 侧验证到
+  编译、单测（90 passed）与 codec 上限的代码比对，REA 与 Node 的交互是在 Electron-as-node 下单独验证的。
+- **受影响单测与 bootstrap 套件 → 交给 CI**（`.github/workflows/unit-tests.yml`）：新增 `affected` job
+  （`test:unit:affected`，`fetch-depth: 0` + PR/push 基线校验，拿不到基线回落全量）与 `bootstrap` job
+  （`pnpm --filter @escode/bootstrap exec vitest run tests` —— 该套件此前在 CI 里没有任何覆盖，
+  rust-runtime-ci 的三个 job 都不含它）。本机只跑到：`lint` 退出码 0（89 既有 warning）、
+  `architecture:check --changed` violations 0、`typecheck` 退出码 0；受影响单测本机 28 分钟未跑完
+  （被自己的超时 SIGTERM，非失败），bootstrap 整包套件在本机（Node 26.7，非仓库要求的 24.14.0）
+  有 210 个用例失败、多为环境依赖类且未逐条归因 —— 两者都以 CI 在 24.14.0 上的首跑结果为准。
+  两个 job 都刻意不设 `continue-on-error`：静默门禁正是 notices 流水线此前烂掉的原因。
+- **打包链路端到端核对 → 交给一次真实打包**（CI 的 desktop 任务或本地 `pnpm bundle:desktop`）：
+  `resources/glm/packages/rea-plugin/` 是否含 `dist/mcp/server.js`、`skills/`、`node_modules/rea-agents/**`，
+  以及安装包体积是否在 500 MiB 门限内；本机只单独验证过 `stageReaRuntime` 的搬运（6,555 文件 / 6.5 s）。
+- **macOS / Linux** 未在本机验证（按约定不阻断），由 CI 矩阵覆盖。
+- **20 项待补齐/核验材料**是发布前的合规门（`licenses.mjs check --strict`），不是代码问题。
