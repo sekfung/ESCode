@@ -1,4 +1,5 @@
 use super::mcp_config::Server;
+use super::mcp_image_artifacts::ImageArtifacts;
 use crate::contract::{ProcessCleanupFailure, ToolOutput};
 use anyhow::{Context, Result, bail, ensure};
 use futures_util::StreamExt;
@@ -58,9 +59,8 @@ impl Connection {
             let oauth = oauth.clone().filter(|a| !matches!(a, Auth::Official(_)));
             super::mcp_oauth_client::AuthClient::new(http, oauth.unwrap_or(Auth::Plain))
         });
-        let official_failure = || -> Option<anyhow::Error> {
-            Some(official.as_ref()?.connect_failure()?.into())
-        };
+        let official_failure =
+            || -> Option<anyhow::Error> { Some(official.as_ref()?.connect_failure()?.into()) };
         // TS resolveVersionNegotiationMode：未写或 auto 时协商（先 server/discover），SSE 只承载 legacy；
         // 之前未写时直接 initialize，与 Node 的默认请求序列不同（docs/specs/rust-mcp-parity.md「协议协商默认值」）。
         let mode = match config.raw["protocolVersion"].as_str() {
@@ -101,7 +101,8 @@ impl Connection {
                 let pid = child.id().context("process_start_failed")?;
                 let input = child.stdin.take().unwrap();
                 // 旁路保存 tools/list 原文，保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
-                let output = super::mcp_raw_capture::Tee::new(child.stdout.take().unwrap(), raw.clone());
+                let output =
+                    super::mcp_raw_capture::Tee::new(child.stdout.take().unwrap(), raw.clone());
                 owned = Some((child, pid));
                 // SDK 默认读行无界；使用有界 codec，坏帧立即断开而非无限缓存或跳过。
                 let reader = FramedRead::new(
@@ -175,17 +176,45 @@ impl Connection {
                 use super::mcp_http_capture::Capture;
                 let service = match (auth.clone(), official.clone()) {
                     (_, Some(official)) => {
-                        let official_client = super::mcp_official_client::OfficialClient::new(http, official);
-                        let transport = StreamableHttpClientTransport::with_client(Capture::new(official_client, raw.clone()), options);
-                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                        let official_client =
+                            super::mcp_official_client::OfficialClient::new(http, official);
+                        let transport = StreamableHttpClientTransport::with_client(
+                            Capture::new(official_client, raw.clone()),
+                            options,
+                        );
+                        serve_client_with_lifecycle_and_ct(
+                            client,
+                            transport,
+                            mode,
+                            lifecycle.clone(),
+                        )
+                        .await
                     }
                     (Some(auth), None) => {
-                        let transport = StreamableHttpClientTransport::with_client(Capture::new(auth, raw.clone()), options);
-                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                        let transport = StreamableHttpClientTransport::with_client(
+                            Capture::new(auth, raw.clone()),
+                            options,
+                        );
+                        serve_client_with_lifecycle_and_ct(
+                            client,
+                            transport,
+                            mode,
+                            lifecycle.clone(),
+                        )
+                        .await
                     }
                     (None, None) => {
-                        let transport = StreamableHttpClientTransport::with_client(Capture::new(http, raw.clone()), options);
-                        serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone()).await
+                        let transport = StreamableHttpClientTransport::with_client(
+                            Capture::new(http, raw.clone()),
+                            options,
+                        );
+                        serve_client_with_lifecycle_and_ct(
+                            client,
+                            transport,
+                            mode,
+                            lifecycle.clone(),
+                        )
+                        .await
                     }
                 };
                 Ok(service.context("protocol_negotiation_failed")?)
@@ -198,8 +227,9 @@ impl Connection {
                 lifecycle.cancel();
                 cleanup_child(&mut owned).await?;
                 // 需要交互授权时以分类结果替换握手错误，交给 hub 发起授权（TS openServerConnection catch 分支）。
-                if let Some(super::mcp_oauth_client::Failure::Required(required)) =
-                    auth.as_ref().and_then(|a| a.take_failure())
+                if let Some(super::mcp_oauth_client::Failure::Required(required)) = auth
+                    .as_ref()
+                    .and_then(super::mcp_oauth_client::AuthClient::take_failure)
                 {
                     return Err(required.into());
                 }
@@ -356,49 +386,4 @@ async fn cleanup_child(child: &mut Option<(Child, u32)>) -> Result<()> {
         return Err(error.context(ProcessCleanupFailure));
     }
     Ok(())
-}
-
-/// MCP 超预算图片的二进制 artifact 目标（TS `writeToolResultBinaryArtifact`）：
-/// `<root>/<session>/<toolCallId>-tool-result-<uuid><ext>`，URI `escode-artifact://<session>/tool-result-<uuid>`。
-#[derive(Clone, Copy)]
-pub struct ImageArtifacts<'a> {
-    pub root: &'a std::path::Path,
-    pub session: &'a str,
-    pub call_id: &'a str,
-}
-/// TS `sanitizePathSegment`（存储版）：非 `[A-Za-z0-9._-]` 换成 `_`，最长 120，空串为 unknown。
-pub(crate) fn sanitize(value: &str) -> String {
-    let out: String = value
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .take(120)
-        .collect();
-    if out.is_empty() {
-        "unknown".to_owned()
-    } else {
-        out
-    }
-}
-impl ImageArtifacts<'_> {
-    async fn write(&self, mime: &str, bytes: &[u8]) -> Result<(String, String)> {
-        let artifact = format!("tool-result-{}", escode_cli_host::id());
-        let dir = self.root.join(sanitize(self.session));
-        let path = dir.join(format!(
-            "{}-{artifact}{}",
-            sanitize(self.call_id),
-            crate::domain::mcp_result::image_extension(mime)
-        ));
-        tokio::fs::create_dir_all(&dir).await?;
-        tokio::fs::write(&path, bytes).await?;
-        Ok((
-            path.to_string_lossy().into_owned(),
-            format!("escode-artifact://{}/{artifact}", self.session),
-        ))
-    }
 }

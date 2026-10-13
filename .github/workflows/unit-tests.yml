@@ -46,6 +46,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # 这些套件会 import 工作区包的入口（exports 指向 dist/）。全新 checkout 里没有构建产物时，
+      # 失败形态是 ERR_MODULE_NOT_FOUND / "Failed to resolve entry for package"（本机因早已构建过而看不出）。
+      # 构建口径用仓库既有划分：根侧 packages + agent 侧 turbo，避开 @escode/desktop 的重资产构建。
+      - run: pnpm -r --filter "./packages/*" --filter "!@escode/desktop" build
+      - run: pnpm --dir apps/escode-cli run build
+
       # 基线取 PR 的目标分支 sha；push 取本次推送前的 sha。拿不到有效 commit（新分支的零 sha、
       # 强推、深历史缺失等）时回落全量单测 —— 宁可多跑，也不让门禁静默失效。
       - name: 受影响单测（无有效基线时回落全量）
@@ -80,5 +86,10 @@ jobs:
           node-version: 24.18.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+
+      # 与 affected job 同样的构建口径：bootstrap 的测试 import 的是工作区包的 dist 入口。
+      # agent 侧构建还会产出 REA 插件的 dist/mcp/server.js —— 该包的 seed 断言会检查它存在。
+      - run: pnpm -r --filter "./packages/*" --filter "!@escode/desktop" build
+      - run: pnpm --dir apps/escode-cli run build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
       - run: pnpm --filter @escode/bootstrap exec vitest run tests
