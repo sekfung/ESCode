@@ -61,9 +61,44 @@ sequenceDiagram
   M->>G2: resolve + spawn
 ```
 
+## owner 冲突如实上报与启动退避（2026-10-13）
+
+现场（安装版 + dev 应用同时打开同一 workspace）：dev 流程的 debug CLI 先取得 owner 锁，安装版每次 spawn 都在上报任何
+`startup/storageState` 之前以 75 退出；Host 侧存储启动门禁被 transport 关闭触发 dispose，把失败翻译成
+`SQLite startup failed: transport_closed`——UI（例如「添加模型 → 测试连接」）因此看到与数据库无关的假象错误。同时调用方
+重试没有节流：spawn 风暴达到 130–175 次/分钟，单日 `rust_workspace_owned` 1.4 万次、桌面日志 158 MB。
+
+- 就绪边界（`ESCodeAgentProcessManager.getClient`，唯一 owner）：命令声明 `supportsStorageStartup` 时，返回 client 即代表
+  存储启动已有首个终态——ready 才返回；就绪前进程退出在启动处归因，不再把注定失败的 client 交给调用方。
+- 归因：就绪前退出码 75（`RUST_WORKSPACE_OWNED_EXIT_CODE`，Host 协议契约）→ `ESCodeAgentWorkspaceOwnedError`，文案可执行
+  （`The workspace runtime is already owned by another instance; close it and retry.`）。stdout EOF 可能先于 exit 事件到达，
+  归因在 250ms 宽限内等待 `exit` 取退出码；非 75 的就绪前失败维持原错误（含 `startup_status_timeout`），不改写。
+- 退避：owner 冲突按 workspaceKey 记录退避窗口 `1s → 2s → 4s`（上限 5s）；窗口内不再 spawn，直接以同一错误快速失败。
+  记录只在成功接管（storage ready）时清除；退出码 75 只可能出现在取得 owner 锁之前，ready 之后无需重复判定。
+- 边界：崩溃、主动回收、spawn 失败（如 ENOENT）不建立退避——这些失败之后必须能立即重新拉起。归因与退避都归
+  `ESCodeAgentProcessManager`（workspace runtime 代际的唯一 owner），CLI 侧退出码契约不变。
+
+```mermaid
+sequenceDiagram
+  participant Req as 请求方
+  participant M as ProcessManager
+  participant A as 另一实例（持有 owner 锁）
+  participant G as 新一代 Rust
+  Req->>M: getClient
+  M->>M: 退避窗口内？→ 是：以 owner 冲突错误快速失败（不 spawn）
+  M->>G: resolve + spawn（窗口已过）
+  G-->>M: 未上报 storageState 即 exit 75
+  M->>M: 记录退避（1s→2s→4s，上限 5s）
+  M-->>Req: ESCodeAgentWorkspaceOwnedError（close it and retry）
+  Note over A: 持有者退出后，下一次尝试 spawn 成功
+```
+
 ## 验收
 
 - 单测：Rust 选择、缺失报错、显式命令优先、非法 runtime 抛错；平台 → triple 映射。
+- 单测（`escodeAgentProcessManager.test.ts`）：声明存储启动的 fake CLI 报 ready 后 `getClient` 才返回；就绪前 exit 75 →
+  `getClient` 抛 `ESCodeAgentWorkspaceOwnedError` 且窗口内不再 spawn（窗口过期后允许再次尝试）；就绪前非 75 → 维持原
+  `SQLite startup failed: transport_closed` 错误且不建立退避（下一次立即重试）。
 - `escode-cli-rust-startup-failure.test.ts`：就绪前失败后仍用 Rust；退休进程未退出时新一代不启动（去掉等待即失败）。
 - 本机已验证（2026-09-25）：`ESCODE_RUST_TARGET=x86_64-pc-windows-gnu` 下 `prepare:rust-agent` 产出 release 二进制 `bundled-agents/win32-x64/glm/escode-cli-rust.exe`（24 MB）；Host 真实解析链（未注入）按规则 2 选中它，并在 App harness 下完成一轮（`escode-cli-rust-runtime-selection.test.ts`，未随包时该用例跳过）。
 - 未验证：MSVC 目标构建、macOS 签名与公证、Linux 包（本机环境限制，如实标注）。

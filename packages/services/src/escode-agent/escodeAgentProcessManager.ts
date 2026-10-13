@@ -120,6 +120,11 @@ interface ManagedESCodeAgentProcess {
   child: ChildProcessWithoutNullStreams;
   cleanupPromise?: Promise<void>;
   exited: boolean;
+  /**
+   * 退出码/信号。就绪前退出的归因只认这里的事实（75 = workspace owner 冲突），
+   * 不能从 transport 关闭的文案反推；exit 事件晚于 stdout EOF 时由归因方等待本字段。
+   */
+  exitInfo?: { code: number | null; signal: NodeJS.Signals | null };
   /** 子进程退出（或 spawn 失败且无 pid）时 resolve；新一代 runtime 据此等待旧 owner 释放 workspace。 */
   exitPromise: Promise<void>;
   resolveExit: () => void;
@@ -683,6 +688,26 @@ export function wrapESCodeAgentCommandWithStdioTapDevProxy(
  */
 export const RUST_WORKSPACE_OWNED_EXIT_CODE = 75;
 
+/**
+ * owner 冲突退避窗口：锁的持有者是另一个存活实例，重试必须等它退出；无节流的 spawn 重试会形成风暴
+ * （2026-10-13 现场 130–175 次/分钟）。首个窗口足够短，让「持有者刚好退出」的常规场景快速恢复。
+ */
+const WORKSPACE_OWNED_BACKOFF_BASE_MS = 1_000;
+const WORKSPACE_OWNED_BACKOFF_MAX_MS = 5_000;
+/** stdout EOF 可能先于 exit 事件；归因就绪前退出码时等待 exit 的上界。 */
+const STARTUP_EXIT_CODE_GRACE_MS = 250;
+
+/**
+ * workspace owner 锁被另一个存活实例持有：就绪前以退出码 75 退出。等持有者退出后重试即可，
+ * 因此不再按请求节奏反复 spawn，而是如实上报（docs/specs/rust-packaging.md「owner 冲突如实上报与启动退避」）。
+ */
+export class ESCodeAgentWorkspaceOwnedError extends Error {
+  constructor() {
+    super("The workspace runtime is already owned by another instance; close it and retry.");
+    this.name = "ESCodeAgentWorkspaceOwnedError";
+  }
+}
+
 export class ESCodeAgentProcessManager {
   private readonly processesByWorkspaceKey = new Map<string, ManagedESCodeAgentProcess>();
   private readonly ownedProcesses = new Set<ManagedESCodeAgentProcess>();
@@ -690,6 +715,11 @@ export class ESCodeAgentProcessManager {
   private readonly restartGenerationByWorkspaceKey = new Map<string, number>();
   private readonly runtimeGenerationByWorkspaceKey = new Map<string, number>();
   private readonly availableRuntimeIdentityByWorkspaceKey = new Map<string, string>();
+  /** owner 冲突退避：持有者是另一存活实例，窗口内不再 spawn。 */
+  private readonly workspaceOwnedConflictByWorkspaceKey = new Map<
+    string,
+    { attempts: number; retryAt: number }
+  >();
   private readonly startAdmissionAbortControllersByWorkspaceKey = new Map<
     string,
     Set<AbortController>
@@ -1027,6 +1057,11 @@ export class ESCodeAgentProcessManager {
     }
   }
 
+  /**
+   * 返回可用的 protocol client。命令声明 `supportsStorageStartup` 时，返回即代表存储已就绪：
+   * 就绪前进程退出、启动超时、owner 冲突都在这里以归因后的错误抛出（owner 冲突见
+   * `ESCodeAgentWorkspaceOwnedError`），不会把一个注定失败的 client 交给调用方。
+   */
   async getClient(params: {
     workspacePath: string;
     workspaceIdentity?: string;
@@ -1141,6 +1176,76 @@ export class ESCodeAgentProcessManager {
   }
 
   /**
+   * owner 冲突退避：每个窗口按连续冲突次数指数增长（1s → 2s → 4s，上限 5s）。窗口只限制 spawn 频率，
+   * 不改变「持有者退出后即可恢复」的语义——成功接管（storage ready）时清除记录。
+   */
+  private noteWorkspaceOwnedConflict(workspaceKey: string): void {
+    const conflict = this.workspaceOwnedConflictByWorkspaceKey.get(workspaceKey);
+    const attempts = (conflict?.attempts ?? 0) + 1;
+    const backoffMs = Math.min(
+      WORKSPACE_OWNED_BACKOFF_BASE_MS * 2 ** (attempts - 1),
+      WORKSPACE_OWNED_BACKOFF_MAX_MS,
+    );
+    this.workspaceOwnedConflictByWorkspaceKey.set(workspaceKey, {
+      attempts,
+      retryAt: Date.now() + backoffMs,
+    });
+  }
+
+  private clearWorkspaceOwnedConflict(workspaceKey: string): void {
+    this.workspaceOwnedConflictByWorkspaceKey.delete(workspaceKey);
+  }
+
+  /** 窗口内不 spawn：持有者仍是另一个存活实例，重复 spawn 只会再以 75 退出一次。 */
+  private throwIfWorkspaceOwnedConflictActive(workspaceKey: string): void {
+    const conflict = this.workspaceOwnedConflictByWorkspaceKey.get(workspaceKey);
+    if (conflict && Date.now() < conflict.retryAt) {
+      throw new ESCodeAgentWorkspaceOwnedError();
+    }
+  }
+
+  /**
+   * 存储启动是 client 的真实可用边界。就绪前把 client 交给调用方，失败只能被 transport 关闭统一翻译成
+   * `SQLite startup failed: transport_closed`——owner 冲突、启动超时都会退化成与数据库无关的假象描述。
+   * 这里等首个终态并在同一处归因，让调用方拿到的错误与真实原因一致。
+   */
+  private async waitForStorageStartupOrThrow(managed: ManagedESCodeAgentProcess): Promise<void> {
+    const { client } = managed;
+    if (!client.storageStartup.isWaiting) {
+      return;
+    }
+    try {
+      await client.storageStartup.wait();
+      this.clearWorkspaceOwnedConflict(managed.runtimeIdentity.workspaceKey);
+    } catch (error) {
+      throw await this.classifyStartupFailure(managed, error);
+    }
+  }
+
+  /**
+   * 就绪前退出的归因：退出码是唯一事实（75 = owner 锁被另一进程持有）。stdout EOF 可能先于 exit 事件到达，
+   * 因此在宽限窗口内等待 exit 取码；非 75 的失败维持原错误，不改写。
+   */
+  private async classifyStartupFailure(
+    managed: ManagedESCodeAgentProcess,
+    fallback: unknown,
+  ): Promise<unknown> {
+    if (managed.exitInfo === undefined && !managed.exited) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, STARTUP_EXIT_CODE_GRACE_MS);
+        timer.unref?.();
+        void managed.exitPromise.then(() => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+    }
+    return managed.exitInfo?.code === RUST_WORKSPACE_OWNED_EXIT_CODE
+      ? new ESCodeAgentWorkspaceOwnedError()
+      : fallback;
+  }
+
+  /**
    * 修复原因：请求超时 / 协议关闭会先把旧一代 runtime 移出注册表、再异步回收进程树。旧实现紧接着就为同一
    * workspace 拉起新一代，旧进程仍持有 Rust workspace owner 锁 → 新进程以 75 退出 → 被误判为 Rust 故障。
    * 这里在解析命令前等待同 workspace 的退休进程退出；边界由旧进程自身的回收编排给出（回收结束即放行，
@@ -1181,6 +1286,7 @@ export class ESCodeAgentProcessManager {
     admissionSignal: AbortSignal,
   ): Promise<ESCodeProtocolClient> {
     const startStartedAt = Date.now();
+    this.throwIfWorkspaceOwnedConflictActive(workspaceKey);
     await this.waitForRetiringRuntimes(workspaceKey);
     const resolveCommandStartedAt = Date.now();
     const command = await this.commandResolver({
@@ -1458,11 +1564,23 @@ export class ESCodeAgentProcessManager {
     });
     child.once("exit", async (code, signal) => {
       managed.exited = true;
+      // 退出码先于任何 await 落账：startClient 的就绪等待与 waitForRetiringRuntimes 之后
+      // 都按这里的事实归因（stdout EOF 可能先于 exit 事件，读取方会等待 exitPromise）。
+      managed.exitInfo = { code, signal };
       this.clearIdleTimer(managed);
       const endedAt = Date.now();
       const terminationKind = managed.terminationIntent?.kind ?? "unexpected";
       if (terminationKind === "unexpected") {
         this.noteRustStartupFailure(effectiveCommand, managed, "exit_before_ready", code);
+      }
+      // owner 冲突是唯一需要启动退避的失败：锁的持有者是另一个存活进程，无节流的重试只会反复
+      // spawn 再以 75 退出。退出码 75 只可能出现在取得 owner 锁之前，因此这里只按「未 ready + 75」
+      // 记录，清除只发生在成功接管（storage ready）时。
+      if (
+        code === RUST_WORKSPACE_OWNED_EXIT_CODE &&
+        client.storageStartup.snapshot?.phase !== "ready"
+      ) {
+        this.noteWorkspaceOwnedConflict(workspaceKey);
       }
       // 必须在回退判定之后放行：等待中的新一代 runtime 解析命令时要看到本次判定结果。
       managed.resolveExit();
@@ -1583,6 +1701,11 @@ export class ESCodeAgentProcessManager {
         ).catch(() => undefined);
       }
     });
+    // 命令声明存储启动时，client 只有就绪后才可用：就绪前进程退出会在这里以归因后的错误抛出，
+    // 而不是把注定失败的 client 交给调用方（docs/specs/rust-packaging.md「owner 冲突如实上报与启动退避」）。
+    if (effectiveCommand.supportsStorageStartup) {
+      await this.waitForStorageStartupOrThrow(managed);
+    }
     return client;
   }
 

@@ -24,6 +24,7 @@ import {
   resolveDefaultESCodeAgentCommand,
   wrapESCodeAgentCommandWithStdioTapDevProxy,
   ESCodeAgentProcessManager,
+  ESCodeAgentWorkspaceOwnedError,
   type ESCodeAgentCommand,
 } from "../src/escode-agent/escodeAgentProcessManager.js";
 import { setDataBaseDir } from "../src/paths.js";
@@ -1043,6 +1044,114 @@ setInterval(() => {}, 1000);
       await client.storageStartup.wait();
       expect(client.storageStartup.snapshot?.phase).toBe("ready");
       await vi.waitFor(() => expect(client.isDisposed).toBe(true));
+    } finally {
+      await manager.disposeAllAndWait();
+    }
+  });
+
+  // docs/specs/rust-packaging.md「owner 冲突如实上报与启动退避」：声明存储启动的命令，
+  // getClient 只在存储就绪后返回；就绪前的失败在启动处归因，不再被 transport 关闭翻译成通用存储错误。
+  it("命令声明存储启动时 getClient 只在 ready 后返回", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "escode-agent-storage-ready-"));
+    createdDirs.push(workspacePath);
+    const manager = new ESCodeAgentProcessManager({
+      commandResolver: () => ({
+        runtime: "escode-cli-rust",
+        supportsStorageStartup: true,
+        command: process.execPath,
+        cwd: workspacePath,
+        args: [
+          "-e",
+          `
+          const send = value => process.stdout.write(JSON.stringify(value) + "\\n");
+          const state = (phase, sequence) => send({method:"startup/storageState",params:{schemaVersion:1,attemptId:"ready-fixture",databaseId:"db",databaseKind:"session",phase,sequence,elapsedMs:0}});
+          state("checking", 1);
+          setTimeout(() => state("ready", 2), 150);
+          process.stdin.resume();
+          process.stdin.on("end", () => process.exit(0));
+        `,
+        ],
+      }),
+    });
+
+    try {
+      const client = await manager.getClient({ workspacePath });
+      expect(client.storageStartup.snapshot?.phase).toBe("ready");
+    } finally {
+      await manager.disposeAllAndWait();
+    }
+  });
+
+  it("就绪前以 75 退出时 getClient 报 owner 冲突，并在退避窗口内不再 spawn", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "escode-agent-owner-conflict-"));
+    createdDirs.push(workspacePath);
+    let resolveCalls = 0;
+    const manager = new ESCodeAgentProcessManager({
+      commandResolver: () => {
+        resolveCalls += 1;
+        return {
+          runtime: "escode-cli-rust",
+          supportsStorageStartup: true,
+          command: process.execPath,
+          // 真实 Rust owner 冲突：进程在发出任何 startup/storageState 之前以 75（EX_TEMPFAIL）退出。
+          args: ["-e", "process.exit(75)"],
+          cwd: workspacePath,
+        } satisfies ESCodeAgentCommand;
+      },
+    });
+
+    try {
+      await expect(manager.getClient({ workspacePath })).rejects.toBeInstanceOf(
+        ESCodeAgentWorkspaceOwnedError,
+      );
+      expect(resolveCalls).toBe(1);
+
+      // 退避窗口内：不再 spawn，每次调用都以同一可执行错误快速失败。
+      // 修复原因：旧实现按请求节奏重复 spawn，现场达到 130–175 次/分钟。
+      await expect(manager.getClient({ workspacePath })).rejects.toThrow(/already owned/);
+      await expect(manager.getClient({ workspacePath })).rejects.toBeInstanceOf(
+        ESCodeAgentWorkspaceOwnedError,
+      );
+      expect(resolveCalls).toBe(1);
+
+      // 窗口过期后允许再次 spawn（该次仍以 75 退出）：退避只限制频率，不是永久封锁。
+      const retryDeadline = Date.now() + 5_000;
+      while (resolveCalls < 2 && Date.now() < retryDeadline) {
+        await manager.getClient({ workspacePath }).catch(() => undefined);
+        if (resolveCalls < 2) await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(resolveCalls).toBeGreaterThanOrEqual(2);
+    } finally {
+      await manager.disposeAllAndWait();
+    }
+  });
+
+  it("就绪前非 75 退出维持原存储启动错误且不建立退避", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "escode-agent-startup-crash-"));
+    createdDirs.push(workspacePath);
+    let resolveCalls = 0;
+    const manager = new ESCodeAgentProcessManager({
+      commandResolver: () => {
+        resolveCalls += 1;
+        return {
+          runtime: "escode-cli-rust",
+          supportsStorageStartup: true,
+          command: process.execPath,
+          args: ["-e", "process.exit(3)"],
+          cwd: workspacePath,
+        } satisfies ESCodeAgentCommand;
+      },
+    });
+
+    try {
+      await expect(manager.getClient({ workspacePath })).rejects.toThrow(
+        /SQLite startup failed: transport_closed/,
+      );
+      // 崩溃、spawn 失败等不受 owner 退避影响：下一次调用必须立即重新 spawn。
+      await expect(manager.getClient({ workspacePath })).rejects.toThrow(
+        /SQLite startup failed: transport_closed/,
+      );
+      expect(resolveCalls).toBe(2);
     } finally {
       await manager.disposeAllAndWait();
     }
