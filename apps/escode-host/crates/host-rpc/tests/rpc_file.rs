@@ -29,7 +29,10 @@ async fn conversation_workspace_uses_the_main_provided_data_base_dir() {
         .join(".escode")
         .join("workspace")
         .join("default");
-    assert_eq!(created["path"], serde_json::json!(expected.to_string_lossy()));
+    assert_eq!(
+        created["path"],
+        serde_json::json!(expected.to_string_lossy())
+    );
     assert_eq!(created["created"], serde_json::json!(true));
     assert_eq!(
         created["workspacePurpose"],
@@ -82,7 +85,11 @@ async fn conversation_workspace_uses_the_main_provided_data_base_dir() {
         })
         .collect();
     // 目录组在前；组内 `localeCompare`（下划线 < 字母 < 重音，且区分大小写档次）。
-    assert_eq!(names, vec!["zDir", "_x", "A.txt", "b.txt", "é.txt"], "{names:?}");
+    assert_eq!(
+        names,
+        vec!["zDir", "_x", "A.txt", "b.txt", "é.txt"],
+        "{names:?}"
+    );
 
     // 默认/命名工作区仍按 home（homedir 语义）派生，与 dataBaseDir 无关。
     call(

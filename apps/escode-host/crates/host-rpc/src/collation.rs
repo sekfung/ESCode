@@ -65,21 +65,23 @@ fn collator() -> &'static CollatorBorrowed<'static> {
 /// 按 locale 建排序器；无该 locale 数据时退回根 collation（与 ICU 的回退一致）。
 fn build(locale: &str) -> CollatorBorrowed<'static> {
     let locale = locale.parse::<Locale>().unwrap_or(Locale::UNKNOWN);
-    CollatorBorrowed::try_new(CollatorPreferences::from(&locale), CollatorOptions::default())
-        .unwrap_or_else(|_| {
-            CollatorBorrowed::try_new(
-                CollatorPreferences::from(&Locale::UNKNOWN),
-                CollatorOptions::default(),
-            )
-            .expect("root collation builds")
-        })
+    CollatorBorrowed::try_new(
+        CollatorPreferences::from(&locale),
+        CollatorOptions::default(),
+    )
+    .unwrap_or_else(|_| {
+        CollatorBorrowed::try_new(
+            CollatorPreferences::from(&Locale::UNKNOWN),
+            CollatorOptions::default(),
+        )
+        .expect("root collation builds")
+    })
 }
 
 /// 与 `localeCompare` 同义的比较（供 `sort_by`；稳定排序保留 readdir 的原始顺序作为末位键）。
 pub(crate) fn compare_names(left: &str, right: &str) -> std::cmp::Ordering {
     collator().compare(left, right)
 }
-
 
 #[cfg(test)]
 #[path = "collation_tests.rs"]

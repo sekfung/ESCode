@@ -81,8 +81,7 @@ fn readdir_filters_hidden_and_resolves_types() {
         "path": root.to_string_lossy(),
         "includeHidden": true,
     }))
-    .expect("readdir")
-    else {
+    .expect("readdir") else {
         panic!("array")
     };
     assert!(
@@ -91,8 +90,8 @@ fn readdir_filters_hidden_and_resolves_types() {
     );
 
     // 目录不存在：Node `scandir` 文案（op 与 TS `fs.readdir` 一致）。
-    let error = readdir(&json!({"path": root.join("missing").to_string_lossy()}))
-        .expect_err("ENOENT");
+    let error =
+        readdir(&json!({"path": root.join("missing").to_string_lossy()})).expect_err("ENOENT");
     assert_eq!(error.0, "NodeIoError");
     assert!(error.1.starts_with("ENOENT:"), "{error:?}");
     assert!(error.1.contains("scandir"), "{error:?}");

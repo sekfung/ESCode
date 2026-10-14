@@ -36,10 +36,7 @@ pub(crate) fn readdir(params: &Value) -> ChannelResult {
             .file_type()
             .map(|kind| kind.is_symlink())
             .unwrap_or(false);
-        let is_directory = entry
-            .file_type()
-            .map(|kind| kind.is_dir())
-            .unwrap_or(false);
+        let is_directory = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
         let kind = if is_directory {
             "directory"
         } else if !is_symlink {

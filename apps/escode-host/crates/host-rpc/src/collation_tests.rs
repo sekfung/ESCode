@@ -31,10 +31,7 @@ fn locale_resolution_follows_node_precedence() {
 #[test]
 fn precedence_prefers_the_first_set_variable() {
     assert_eq!(
-        resolve(&[
-            ("LANG", "zh_CN.UTF-8"),
-            ("LC_MESSAGES", "fr_FR.UTF-8"),
-        ]),
+        resolve(&[("LANG", "zh_CN.UTF-8"), ("LC_MESSAGES", "fr_FR.UTF-8"),]),
         "fr-FR",
         "LC_MESSAGES 覆盖 LANG"
     );
@@ -85,9 +82,34 @@ fn ordering_matches_node_locale_compare_for_root_and_zh() {
     ];
     // en-US 的期望顺序：由 `node -e 'names.sort((a,b)=>a.localeCompare(b))'` 生成（Node 24.14）。
     let expected_en = [
-        "_x", "1.txt", "10.txt", "2.txt", "a", "A", "a 1", "a_1", "a-1", "a.1", "a1", "a10", "a2",
-        "dir_b", "dirA", "é.txt", "file.TXT", "FILE.txt", "file(1).txt", "file[1].txt",
-        "file~1.txt", "ö", "Ø", "README.md", "ß", "Z", "z.txt", "Ω",
+        "_x",
+        "1.txt",
+        "10.txt",
+        "2.txt",
+        "a",
+        "A",
+        "a 1",
+        "a_1",
+        "a-1",
+        "a.1",
+        "a1",
+        "a10",
+        "a2",
+        "dir_b",
+        "dirA",
+        "é.txt",
+        "file.TXT",
+        "FILE.txt",
+        "file(1).txt",
+        "file[1].txt",
+        "file~1.txt",
+        "ö",
+        "Ø",
+        "README.md",
+        "ß",
+        "Z",
+        "z.txt",
+        "Ω",
     ];
     let mut sorted: Vec<&str> = names.to_vec();
     let collator = build("en-US");

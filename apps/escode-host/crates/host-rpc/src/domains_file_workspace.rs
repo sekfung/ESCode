@@ -50,7 +50,10 @@ pub(crate) fn create_scratch_workspace(home: &std::path::Path, params: &Value) -
 /// （`created=false`），本次建出叶子时为创建路径（`created=true`）。
 /// mkdir 失败时按 TS 的 catch 分支处置：路径存在但不是目录 → 「not a directory」；否则原样报 mkdir 错误。
 pub(crate) fn ensure_conversation_workspace(data_base_dir: &std::path::Path) -> ChannelResult {
-    let path = data_base_dir.join(".escode").join("workspace").join("default");
+    let path = data_base_dir
+        .join(".escode")
+        .join("workspace")
+        .join("default");
     let existed = path.is_dir();
     if let Err(error) = std::fs::create_dir_all(&path) {
         // TS catch 分支：路径存在但不是目录 → 「not a directory」；否则原样报 mkdir 错误。

@@ -68,9 +68,9 @@ pub fn file_channel(home: PathBuf, data_base_dir: Option<PathBuf>) -> Channel {
     let conversation_workspace = match data_base_dir {
         Some(data_base_dir) => handler(move |_arg: Wire| {
             let data_base_dir = data_base_dir.clone();
-            Box::pin(
-                async move { blocking(move || ensure_conversation_workspace(&data_base_dir)).await },
-            )
+            Box::pin(async move {
+                blocking(move || ensure_conversation_workspace(&data_base_dir)).await
+            })
         }),
         None => handler(move |_arg: Wire| {
             // Main 未提交 dataBaseDir：显式缺口而不是按 HOME 猜路径（Host 不推断业务事实）。

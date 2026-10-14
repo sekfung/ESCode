@@ -331,7 +331,10 @@ fn conversation_workspace_follows_data_base_dir_and_reports_created() {
     else {
         panic!("object")
     };
-    let expected = data_base_dir.join(".escode").join("workspace").join("default");
+    let expected = data_base_dir
+        .join(".escode")
+        .join("workspace")
+        .join("default");
     assert_eq!(
         first["path"].as_str(),
         Some(expected.to_string_lossy().as_ref())
@@ -345,7 +348,8 @@ fn conversation_workspace_follows_data_base_dir_and_reports_created() {
     );
 
     // 已存在：created=false（Node recursive mkdir 返回 undefined）。
-    let Wire::Object(second) = ensure_conversation_workspace(&data_base_dir).expect("幂等") else {
+    let Wire::Object(second) = ensure_conversation_workspace(&data_base_dir).expect("幂等")
+    else {
         panic!("object")
     };
     assert_eq!(second["created"], false);
@@ -354,7 +358,10 @@ fn conversation_workspace_follows_data_base_dir_and_reports_created() {
     let blocked_root = dir.path().join("blocked-data");
     std::fs::create_dir_all(blocked_root.join(".escode").join("workspace")).unwrap();
     std::fs::write(
-        blocked_root.join(".escode").join("workspace").join("default"),
+        blocked_root
+            .join(".escode")
+            .join("workspace")
+            .join("default"),
         "x",
     )
     .unwrap();
@@ -377,8 +384,5 @@ async fn conversation_workspace_without_data_base_dir_is_an_explicit_gap() {
         .await
         .expect_err("explicit gap");
     assert_eq!(error.0, "InvalidRequest");
-    assert!(
-        error.1.contains("Main must pass dataBaseDir"),
-        "{error:?}"
-    );
+    assert!(error.1.contains("Main must pass dataBaseDir"), "{error:?}");
 }
