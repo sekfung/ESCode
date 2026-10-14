@@ -80,7 +80,14 @@ pub enum ControlMessage {
     SurfaceListening { addr: String },
     /// Main→Host：请求开启 Renderer RPC 面（`@escode/rpc` 协议跑在 WebSocket 上）。
     /// `home` 是设置域根目录（Main 决定，Host 不读进程 env 推断业务事实）。
-    RpcListen { bind: String, home: String },
+    /// `dataBaseDir` 是应用数据根（TS `getDataBaseDir()`：设置项 `dataBaseDir` >
+    /// `ESCODE_DATA_BASE_DIR` > HOME），供会话工作区等路径派生；缺省时相关方法回显式缺口。
+    RpcListen {
+        bind: String,
+        home: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        data_base_dir: Option<String>,
+    },
     /// Host→Main：RPC 面已监听（Main 交给 Renderer 的 `ws://addr/ws` 与 capability 端点）。
     RpcListening { addr: String },
 }

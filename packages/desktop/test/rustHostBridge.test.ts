@@ -43,7 +43,12 @@ describe("rust host dev switch", () => {
     async () => {
       const root = await mkdtemp(join(tmpdir(), "escode-rust-host-bridge-"));
       const home = join(root, "home");
-      handle = await startRustHost({ binary: hostBinary, home });
+      // dataBaseDir 经 rpcListen 下发给 Host（与 home 不同，见 rustHostRpc.test.ts 同理）。
+      handle = await startRustHost({
+        binary: hostBinary,
+        home,
+        dataBaseDir: join(root, "data-base"),
+      });
 
       // Main 侧：renderer 拿到 port1（Electron `MessageChannelMain` 同形），Main 桥接 port2。
       // 测试用进程内端口对（vitest 下真实 `worker_threads` MessagePort 的投递不可靠；

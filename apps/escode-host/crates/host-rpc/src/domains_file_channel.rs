@@ -10,15 +10,18 @@ use crate::domains_file::{
     Cache, blocking, check_files_exist, read_file_range, read_text_file, resolve_path, stat,
 };
 use crate::domains_file_preview::{read_binary_preview, read_media_preview};
-use crate::domains_file_workspace::{create_default_workspace, create_scratch_workspace};
+use crate::domains_file_workspace::{
+    create_default_workspace, create_scratch_workspace, ensure_conversation_workspace,
+};
 use crate::session::ChannelResult;
 use crate::session::{Channel, handler};
 use crate::wire::Wire;
 
 /// `file` channel（TS `ServiceChannels.File` = `"file"`）。`home` 与 settings/system 同源
-/// （Main 经 `rpcListen` 给出），供工作区创建类方法构造默认路径。
-/// 方法表即分派：表里没有的方法（`readdir`/搜索/索引/会话工作区等）由 `respond` 回显式缺口。
-pub fn file_channel(home: PathBuf) -> Channel {
+/// （Main 经 `rpcListen` 给出），供 homedir 派生的工作区创建方法用；`data_base_dir` 供
+/// 会话工作区（`<dataBaseDir>/.escode/workspace/default`）。
+/// 方法表即分派：表里没有的方法（`readdir`/搜索/索引等）由 `respond` 回显式缺口。
+pub fn file_channel(home: PathBuf, data_base_dir: Option<PathBuf>) -> Channel {
     let cache = Arc::new(std::sync::Mutex::new(Cache::default()));
     let with_cache = |method: fn(&std::sync::Mutex<Cache>, &Value) -> ChannelResult| {
         let cache = Arc::clone(&cache);
@@ -61,6 +64,23 @@ pub fn file_channel(home: PathBuf) -> Channel {
         let params = first_object(arg);
         Box::pin(async move { blocking(move || read_binary_preview(&params)).await })
     });
+    let conversation_workspace = match data_base_dir {
+        Some(data_base_dir) => handler(move |_arg: Wire| {
+            let data_base_dir = data_base_dir.clone();
+            Box::pin(
+                async move { blocking(move || ensure_conversation_workspace(&data_base_dir)).await },
+            )
+        }),
+        None => handler(move |_arg: Wire| {
+            // Main 未提交 dataBaseDir：显式缺口而不是按 HOME 猜路径（Host 不推断业务事实）。
+            Box::pin(async move {
+                Err((
+                    "InvalidRequest".to_owned(),
+                    "Host has no dataBaseDir: Main must pass dataBaseDir in rpcListen.".to_owned(),
+                ))
+            })
+        }),
+    };
     Channel::new(
         "file",
         vec![
@@ -76,6 +96,7 @@ pub fn file_channel(home: PathBuf) -> Channel {
                 "createScratchWorkspace",
                 with_home(create_scratch_workspace),
             ),
+            ("ensureConversationWorkspace", conversation_workspace),
         ],
     )
 }

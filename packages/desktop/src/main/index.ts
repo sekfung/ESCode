@@ -835,6 +835,9 @@ const webRemoteControlAuthProvider = createNodeWebRemoteControlRelayAuthProvider
 const rustHostManager = createRustHostManager({
   binary: defaultRustHostBinary(app.getAppPath(), app.isPackaged),
   home: app.getPath("home"),
+  // 会话工作区等路径按 TS `getDataBaseDir()` 派生（设置项 dataBaseDir 由 bootstrap 注入）；
+  // 启动后不再变，与 `conversationWorkspaceDir` 的取值时机一致（见上面 resolveStartupWindowBootstrap）。
+  dataBaseDir: getDataBaseDir(),
   log: logger,
 });
 const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAttachments({

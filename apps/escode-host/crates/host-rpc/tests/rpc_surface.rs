@@ -160,6 +160,7 @@ async fn settings_round_trip_and_unimplemented_channels_report_gaps() {
 async fn non_loopback_bind_is_refused() {
     let channels: Channels = escode_host_rpc::domains::channels(
         std::path::PathBuf::from("/tmp"),
+        None,
         escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
         std::sync::Arc::new(|workspace: &escode_host_control::WorkspaceDescriptor| {
             escode_cli_rust::embed::RuntimeOptions {

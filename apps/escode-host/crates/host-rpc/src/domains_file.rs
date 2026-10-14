@@ -2,18 +2,16 @@
 //!
 //! 已实现（逐字对齐 `packages/services/src/file/fileService.ts`）：
 //! `stat` / `checkFilesExist` / `resolvePath` / `readFileRange` / `readTextFile`（预览两法见
-//! `domains_file_preview`）——这些方法只依赖绝对路径，不需要 workspace 上下文与 runtime 实例。
+//! `domains_file_preview`，工作区创建三法见 `domains_file_workspace`）——这些方法只依赖
+//! 绝对路径与 Host 路径配置，不需要 workspace 上下文与 runtime 实例。
 //!
 //! 未实现（各附原因，`--` 为运行时缺口可见）：
 //! - `readdir`：TS 排序第二键用 `localeCompare`（ICU 默认 locale）；实测与码点序明显不同
 //!   （`["_x","a","A","dir_b","dirA","é","README.md","z.txt"]` vs
 //!   `["A","README.md","_x","a","dirA","dir_b","z.txt","é"]`）。要严格等价需 ICU collation，
 //!   不能用品近似——登记为待定，避免引入未登记的可见偏移。
-//! - `readMediaPreview` / `readBinaryPreview`：需 MIME 判定与 base64 预览预算（见 `domains_file_preview`）。
 //! - `searchWorkspaceFiles` / `listWorkspaceFilesRange` / `workspaceFileListLength`：需 Host 侧
 //!   文件索引（`.escodeignore` 指纹、60s TTL 缓存与分块打包）。
-//! - `ensureConversationWorkspace` / `createDefaultWorkspace` / `createScratchWorkspace`：需
-//!   Host 侧路径配置（会话工作区根、临时工作区命名）。
 
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

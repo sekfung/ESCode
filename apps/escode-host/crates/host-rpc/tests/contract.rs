@@ -29,7 +29,12 @@ fn live_channels() -> escode_host_rpc::Channels {
                 config: None,
             }
         });
-    escode_host_rpc::domains::channels(std::path::PathBuf::from("/tmp"), instances, options)
+    escode_host_rpc::domains::channels(
+        std::path::PathBuf::from("/tmp"),
+        None,
+        instances,
+        options,
+    )
 }
 
 /// 清单里某个状态的 RPC 面 (channel, method) 集合。

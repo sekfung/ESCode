@@ -129,8 +129,10 @@ describe("rust host rpc surface", () => {
       const ready = await nextMeaningful(host);
       expect(ready.kind).toBe("hostReady");
 
-      // Main 让 Host 开 RPC 面（设置根目录由 Main 指定）。
-      host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
+      // Main 让 Host 开 RPC 面（设置根目录与应用数据根由 Main 指定；dataBaseDir 故意与 home 不同，
+      // 用来证明会话工作区取 Main 提交的值，而不是 Host 进程 HOME 派生）。
+      const dataBaseDir = join(root, "data-base");
+      host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir });
       const listening = await nextMeaningful(host);
       expect(listening.kind).toBe("rpcListening");
       const addr = String(listening.addr);
@@ -247,6 +249,17 @@ describe("rust host rpc surface", () => {
       await expect(
         services.fileService.createScratchWorkspace({ name: "a/b" }),
       ).rejects.toThrow(/cannot contain path separators/);
+
+      // 会话工作区：`<dataBaseDir>/.escode/workspace/default`（TS `getConversationWorkspaceDir()`），
+      // 首建 created=true，再调 created=false。
+      const conversation = await services.fileService.ensureConversationWorkspace();
+      const expectedConversation = join(dataBaseDir, ".escode", "workspace", "default");
+      expect(conversation.path).toBe(expectedConversation);
+      expect(conversation.created).toBe(true);
+      expect(conversation.workspacePurpose).toBe("conversation");
+      expect(existsSync(expectedConversation)).toBe(true);
+      const conversationAgain = await services.fileService.ensureConversationWorkspace();
+      expect(conversationAgain.created).toBe(false);
 
       // 未迁移方法：显式缺口。
       await expect(

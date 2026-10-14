@@ -37,6 +37,11 @@ export interface StartRustHostOptions {
   binary: string;
   /** 设置域根目录（Host 不读进程 env 推断业务事实，由 Main 指定）。 */
   home: string;
+  /**
+   * 应用数据根（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir）。
+   * 会话工作区 `<dataBaseDir>/.escode/workspace/default` 等路径由它派生；缺省时相关方法回显式缺口。
+   */
+  dataBaseDir?: string;
   /** 追加/覆盖的环境变量。 */
   env?: NodeJS.ProcessEnv;
   /** 启动超时（默认 10s）。 */
@@ -57,7 +62,12 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
   try {
     await withTimeout(control.next(), timeoutMs, "Rust Host did not report hostReady");
     child.stdin.write(
-      `${JSON.stringify({ kind: "rpcListen", bind: "127.0.0.1:0", home: options.home })}\n`,
+      `${JSON.stringify({
+        kind: "rpcListen",
+        bind: "127.0.0.1:0",
+        home: options.home,
+        ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
+      })}\n`,
     );
     const listening = await withTimeout(
       control.nextMatching((message) => message.kind === "rpcListening" || message.kind === "failed"),

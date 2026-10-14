@@ -17,6 +17,8 @@ export interface RustHostManagerOptions {
   binary: string;
   /** 设置域根目录（Main 决定）。 */
   home: string;
+  /** 应用数据根（TS `getDataBaseDir()`，Main 决定；供会话工作区等路径派生）。 */
+  dataBaseDir?: string;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
   /** 日志钩子。 */
@@ -50,7 +52,11 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
 
   async function ensureStarted(): Promise<RustHostHandle> {
     if (handle) return handle;
-    starting ??= startRustHost({ binary: options.binary, home: options.home })
+    starting ??= startRustHost({
+      binary: options.binary,
+      home: options.home,
+      ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
+    })
       .then((started) => {
         handle = started;
         options.log?.info(`[rust-host] started at ${started.addr}`);

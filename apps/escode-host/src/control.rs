@@ -127,10 +127,11 @@ async fn write_message(
 }
 
 /// `WorkspaceDescriptor` → 实例 `RuntimeOptions`：env 由 Main 提供（业务事实不从 Host
-/// 进程 env 推断），HOME 缺省取进程 HOME（组合根职责，与 CLI main.rs 同）。
+/// 进程 env 推断）。`home` 是实例进程的用户主目录（Node `os.homedir()` 语义：读
+/// HOME/USERPROFILE），经 `core_api::env` 统一出口解析——crate 内不出现裸 `std::env`。
 pub fn runtime_options(workspace: &WorkspaceDescriptor) -> RuntimeOptions {
-    let home = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
+    let home = escode_cli_core_api::env::var_os("HOME")
+        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .unwrap_or_default();
     let mut env = BTreeMap::new();

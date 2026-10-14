@@ -171,7 +171,7 @@ pub const METHODS: &[Method] = &[
     Method {
         channel: "file",
         method: "ensureConversationWorkspace",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "file",

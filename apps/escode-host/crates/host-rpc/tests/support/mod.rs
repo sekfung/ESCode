@@ -16,6 +16,14 @@ pub use tokio_tungstenite::tungstenite::Message;
 pub type Socket = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 pub async fn start(home: &std::path::Path) -> RpcSurface {
+    start_with_data_base_dir(home, home).await
+}
+
+/// `home` = 设置域根（homedir 语义）；`data_base_dir` = Main 提交的应用数据根（会话工作区用）。
+pub async fn start_with_data_base_dir(
+    home: &std::path::Path,
+    data_base_dir: &std::path::Path,
+) -> RpcSurface {
     let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
     let options: escode_host_surface::OptionsFactory = std::sync::Arc::new({
         let home = home.to_path_buf();
@@ -33,8 +41,12 @@ pub async fn start(home: &std::path::Path) -> RpcSurface {
             }
         }
     });
-    let channels =
-        escode_host_rpc::domains::channels(home.to_path_buf(), instances.clone(), options);
+    let channels = escode_host_rpc::domains::channels(
+        home.to_path_buf(),
+        Some(data_base_dir.to_path_buf()),
+        instances.clone(),
+        options,
+    );
     escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, Some(instances))
         .await
         .expect("rpc surface starts")

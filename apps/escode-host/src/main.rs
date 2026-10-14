@@ -168,7 +168,11 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     }
                 }
             }
-            ControlMessage::RpcListen { bind, home } => {
+            ControlMessage::RpcListen {
+                bind,
+                home,
+                data_base_dir,
+            } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
@@ -176,6 +180,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     std::sync::Arc::new(control::runtime_options);
                 let channels = escode_host_rpc::domains::channels(
                     std::path::PathBuf::from(home),
+                    data_base_dir.map(std::path::PathBuf::from),
                     instances.clone(),
                     options,
                 );

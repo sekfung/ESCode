@@ -1,7 +1,9 @@
 #[cfg(test)]
 use super::*;
 use crate::domains_file_preview::{node_extname, read_binary_preview, read_media_preview};
-use crate::domains_file_workspace::{create_default_workspace, create_scratch_workspace};
+use crate::domains_file_workspace::{
+    create_default_workspace, create_scratch_workspace, ensure_conversation_workspace,
+};
 
 #[test]
 fn cache_expires_and_evicts_oldest() {
@@ -316,4 +318,67 @@ fn workspace_creation_methods_match_ts_paths_and_validation() {
     std::fs::write(file_home.join("ESCodeProject"), "x").unwrap();
     let error = create_default_workspace(&file_home).expect_err("EEXIST");
     assert!(error.1.starts_with("EEXIST:"), "{error:?}");
+}
+
+#[test]
+fn conversation_workspace_follows_data_base_dir_and_reports_created() {
+    let dir = tempfile::tempdir().unwrap();
+    let data_base_dir = dir.path().join("data");
+
+    // `<dataBaseDir>/.escode/workspace/default`；首次 created=true（Node `mkdir` 返回创建路径）。
+    let Wire::Object(first) =
+        ensure_conversation_workspace(&data_base_dir).expect("create conversation workspace")
+    else {
+        panic!("object")
+    };
+    let expected = data_base_dir.join(".escode").join("workspace").join("default");
+    assert_eq!(
+        first["path"].as_str(),
+        Some(expected.to_string_lossy().as_ref())
+    );
+    assert_eq!(first["created"], true);
+    assert_eq!(first["workspacePurpose"], "conversation");
+    assert!(expected.is_dir());
+    assert!(
+        data_base_dir.is_dir() && expected.parent().is_some_and(std::path::Path::is_dir),
+        "递归建出中间目录"
+    );
+
+    // 已存在：created=false（Node recursive mkdir 返回 undefined）。
+    let Wire::Object(second) = ensure_conversation_workspace(&data_base_dir).expect("幂等") else {
+        panic!("object")
+    };
+    assert_eq!(second["created"], false);
+
+    // 叶子被同名文件占位：目录断言失败（文案逐字对齐 TS）。
+    let blocked_root = dir.path().join("blocked-data");
+    std::fs::create_dir_all(blocked_root.join(".escode").join("workspace")).unwrap();
+    std::fs::write(
+        blocked_root.join(".escode").join("workspace").join("default"),
+        "x",
+    )
+    .unwrap();
+    let error = ensure_conversation_workspace(&blocked_root).expect_err("not a directory");
+    assert_eq!(error.0, "InvalidRequest");
+    assert!(
+        error.1.starts_with("Workspace path is not a directory: "),
+        "{error:?}"
+    );
+}
+
+/// dataBaseDir 缺省（Main 未提交）时回显式缺口，不按 HOME 猜路径。
+#[tokio::test]
+async fn conversation_workspace_without_data_base_dir_is_an_explicit_gap() {
+    let channel = crate::domains_file_channel::file_channel(std::path::PathBuf::from("/tmp"), None);
+    let handler = channel
+        .handler("ensureConversationWorkspace")
+        .expect("method table entry");
+    let error = handler(crate::wire::Wire::Undefined)
+        .await
+        .expect_err("explicit gap");
+    assert_eq!(error.0, "InvalidRequest");
+    assert!(
+        error.1.contains("Main must pass dataBaseDir"),
+        "{error:?}"
+    );
 }

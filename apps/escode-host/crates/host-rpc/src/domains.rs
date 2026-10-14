@@ -237,8 +237,10 @@ fn node_platform() -> &'static str {
 }
 
 /// 组合根登记全部已迁移的 channel（Host 进程一处装配）。
+/// `home` = 设置域根（homedir 语义）；`data_base_dir` = Main 提交的应用数据根（会话工作区用）。
 pub fn channels(
     home: std::path::PathBuf,
+    data_base_dir: Option<std::path::PathBuf>,
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
@@ -246,7 +248,7 @@ pub fn channels(
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
-        crate::domains_file_channel::file_channel(home_for_file),
+        crate::domains_file_channel::file_channel(home_for_file, data_base_dir),
         session_channel(instances, options),
     ])
 }
@@ -275,7 +277,8 @@ mod tests {
                 }
             });
         channels(
-            home,
+            home.clone(),
+            Some(home),
             escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
             options,
         )
