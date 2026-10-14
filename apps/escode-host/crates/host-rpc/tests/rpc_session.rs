@@ -216,3 +216,43 @@ async fn session_writes_forward_legacy_methods() {
 
     surface.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn workspace_presentation_reads_capabilities_first() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let workspace = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let surface = start(&home).await;
+    let mut socket = connect(surface.addr, "/ws", None).await;
+    let path = workspace.to_string_lossy().into_owned();
+
+    call(
+        &mut socket,
+        41,
+        "escode-session",
+        "readWorkspacePresentation",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": path,
+            "workspaceIdentity": path,
+        }))]),
+    )
+    .await;
+    let presentation = read_response(&mut socket, 41)
+        .await
+        .into_object()
+        .expect("object");
+    // 运行时展示面字段（模式 + 斜杠命令目录）；执行能力位由运行时能力协商决定。
+    assert_eq!(presentation["mode"], "build", "{presentation}");
+    assert!(
+        presentation["slashCommands"].is_array(),
+        "展示面应带斜杠命令目录: {presentation}"
+    );
+    assert!(
+        presentation["executionCapabilities"].is_object(),
+        "运行时声明 workspaceExecutionCapabilities 时应带执行能力位: {presentation}"
+    );
+
+    surface.shutdown().await;
+}

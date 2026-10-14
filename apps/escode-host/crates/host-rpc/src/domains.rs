@@ -48,7 +48,7 @@ pub fn setting_channel(home: std::path::PathBuf) -> (&'static str, ChannelHandle
     ("setting", handler)
 }
 
-use crate::forward::{Extract, runtime_call};
+use crate::forward::{Extract, runtime_call, runtime_call_with};
 
 /// `escode-session`（TS `ServiceChannels.ESCodeSession` = `"escode-session"`）：
 /// TS Host 该域是对 Agent 协议的直接转发（`result` / `result.<field>` 原样返回），
@@ -99,6 +99,37 @@ pub fn session_channel(
                         "session/messages",
                         params,
                         Extract::Field("messages"),
+                    )
+                    .await
+                }
+                // workspace 展示面：TS agent 层先读 `runtime/capabilities` 再带
+                // `includeExecutionCapabilities` 读 `workspace/readPresentation`，这里同序转发。
+                // 已登记差异：TS 读取前会同步账号 provider 配置（Host 侧 registry 同步属 providers/account 域，
+                // 尚未迁移）；运行时按 Main 提供的配置自行解析。
+                "readWorkspacePresentation" => {
+                    let capabilities = runtime_call(
+                        &instances,
+                        &options,
+                        "runtime/capabilities",
+                        params.clone(),
+                        Extract::Result,
+                    )
+                    .await?;
+                    let Wire::Object(capabilities) = capabilities else {
+                        return Err((
+                            "Fatal".to_owned(),
+                            "runtime/capabilities answer is not an object".to_owned(),
+                        ));
+                    };
+                    let extra = (capabilities["workspaceExecutionCapabilities"] == true)
+                        .then_some(("includeExecutionCapabilities", Value::Bool(true)));
+                    runtime_call_with(
+                        &instances,
+                        &options,
+                        "workspace/readPresentation",
+                        params,
+                        extra,
+                        Extract::Result,
                     )
                     .await
                 }

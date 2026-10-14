@@ -175,6 +175,14 @@ describe("rust host rpc surface", () => {
         } as never),
       ).rejects.toThrow(/Session unavailable/);
 
+      // workspace 展示面：先读运行时能力再带执行能力位读展示面（TS agent 层同序）。
+      const presentation = (await services.escodeSessionService.readWorkspacePresentation({
+        workspacePath,
+        workspaceIdentity: workspacePath,
+      } as never)) as Record<string, unknown>;
+      expect(presentation.mode).toBe("build");
+      expect(Array.isArray(presentation.slashCommands)).toBe(true);
+
       // 写面转发：closeSession 按运行时语义返回「条件关闭成立」（未加载会话为 true）。
       const closed = (await services.escodeSessionService.closeSession({
         workspacePath,

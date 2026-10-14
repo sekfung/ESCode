@@ -93,6 +93,23 @@ pub enum Extract {
     FieldOr(&'static str, bool),
 }
 
+/// 同上，但允许在转发前注入额外字段（如 `includeExecutionCapabilities`，
+/// 由运行时能力协商决定 —— TS agent 层同序：先 `runtime/capabilities` 再 `workspace/readPresentation`）。
+pub async fn runtime_call_with(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    method: &str,
+    params: Value,
+    extra: Option<(&str, Value)>,
+    extract: Extract,
+) -> ChannelResult {
+    let mut target = runtime_target(params)?;
+    if let (Some((key, value)), Value::Object(request)) = (extra, &mut target.request) {
+        request.insert(key.to_owned(), value);
+    }
+    forward_target(instances, options, method, target, extract).await
+}
+
 /// 把一次服务调用转发给该 workspace 的 runtime 实例。
 pub async fn runtime_call(
     instances: &escode_host_runtime::Instances,
@@ -102,6 +119,16 @@ pub async fn runtime_call(
     extract: Extract,
 ) -> ChannelResult {
     let target = runtime_target(params)?;
+    forward_target(instances, options, method, target, extract).await
+}
+
+async fn forward_target(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    method: &str,
+    target: RuntimeTarget,
+    extract: Extract,
+) -> ChannelResult {
     let instance = instances
         .get(&target.identity, || options(&target.descriptor))
         .await
