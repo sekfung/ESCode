@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { WebSocket, type RawData } from "ws";
@@ -174,6 +174,37 @@ describe("rust host rpc surface", () => {
           deliveryKind: "desktop-continuous",
         } as never),
       ).rejects.toThrow(/Session unavailable/);
+
+      // file 域精确子集：stat / checkFilesExist / resolvePath / readFileRange。
+      const probeFile = join(workspacePath, "probe.txt");
+      await writeFile(probeFile, "hello world");
+      const fileStat = (await services.fileService.stat({ path: probeFile })) as Record<string, unknown>;
+      expect(fileStat.type).toBe("file");
+      expect(fileStat.size).toBe(11);
+      expect(typeof fileStat.mtimeMs).toBe("number");
+      const dirStat = (await services.fileService.stat({ path: workspacePath })) as Record<string, unknown>;
+      expect(dirStat.type).toBe("directory");
+      expect(dirStat.size).toBeUndefined();
+
+      const existence = (await services.fileService.checkFilesExist({
+        paths: [probeFile, workspacePath, join(workspacePath, "missing.txt")],
+      })) as Array<{ path: string; exists: boolean }>;
+      expect(existence.map((row) => row.exists)).toEqual([true, false, false]);
+
+      const resolved = await services.fileService.resolvePath({ path: workspacePath });
+      expect(await realpath(workspacePath)).toBe(resolved);
+
+      const range = (await services.fileService.readFileRange({
+        path: probeFile,
+        offset: 6,
+        length: 5,
+      })) as Uint8Array;
+      expect(new TextDecoder().decode(range)).toBe("world");
+
+      // 未迁移方法：显式缺口。
+      await expect(
+        services.fileService.readdir({ path: workspacePath }),
+      ).rejects.toThrow(/does not implement `file\.readdir`/);
 
       // system 域：info() 返回 homedir + Node 口径 platform。
       const systemInfo = (await services.systemService.info()) as Record<string, unknown>;

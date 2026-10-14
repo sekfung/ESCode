@@ -255,6 +255,7 @@ pub fn channels(
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
+        crate::domains_file::file_channel(),
         session_channel(instances, options),
     ])
 }

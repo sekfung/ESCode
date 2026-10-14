@@ -22,7 +22,9 @@ escode-host-services.workspace = true
 escode-host-surface.workspace = true
 escode-host-runtime.workspace = true
 escode-host-control.workspace = true
+escode-cli-host.workspace = true
 
 [dev-dependencies]
 escode-cli-rust.workspace = true
+escode-cli-host.workspace = true
 tempfile.workspace = true
