@@ -129,7 +129,9 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 
 契约清单已与源码对账：`host-proto` 的 `control`/`settings` 通道登记 `Implemented`，并由 `control_inventory_matches_the_protocol_enum` 漂移测试保证与 `ControlMessage` 的 kind 集合一致（新增消息不登记即失败）。
 
-未落地（u2a 余项）：Renderer 直连的 **WebSocket surface**（capability 握手 + 分片预算；当前通路是 Main 经控制通道转发，`host-gateway` 已备好连接注册表/到达序 lane 供其叠加）、Main 侧 dev 开关 `ESCODE_RUST_HOST` 与 TS 侧接线、CI 作业接入（`pnpm check:escode-host` / `pnpm test:escode-host` 已就绪，随 u2b 一并进 workflow）、`host-services` 骨架（随第一个服务域 settings 一起建）。
+CI（2026-10-14 已接入 `rust-runtime-ci.yml`）：checks 作业加 `pnpm check:escode-host`（边界 + fmt + clippy）与 host 工作区缓存；test 作业（三平台）加 `pnpm test:escode-host`（cargo 单测 + 双 Host settings 交替写读演练）。
+
+未落地（u2a 余项）：Renderer 直连的 **WebSocket surface**（capability 握手 + 分片预算；当前通路是 Main 经控制通道转发，`host-gateway` 已备好连接注册表/到达序 lane 供其叠加）、Main 侧 dev 开关 `ESCODE_RUST_HOST` 与 TS 侧接线。
 
 TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与 `escode-cli-host`，本工作区不重复实现（已验证可跨 workspace path 依赖）。
 

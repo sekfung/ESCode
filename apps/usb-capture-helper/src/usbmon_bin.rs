@@ -116,11 +116,15 @@ pub struct MonHeader {
 
 impl MonHeader {
     pub fn parse(bytes: &[u8]) -> Option<Self> {
+        eprintln!("DBG parse len={}", bytes.len());
         if bytes.len() < MON_HEADER_LEN {
             return None;
         }
         let mut setup = [0u8; 8];
         setup.copy_from_slice(&bytes[40..48]);
+        eprintln!("DBG a={:?}", bytes[0..8].try_into().map(|v: [u8;8]| v));
+        eprintln!("DBG b={:?}", bytes[24..28].try_into().map(|v: [u8;4]| v));
+        eprintln!("DBG c={:?}", bytes[12..14].try_into().map(|v: [u8;2]| v));
         Some(Self {
             id: u64::from_le_bytes(bytes[0..8].try_into().ok()?),
             tag: bytes[8],

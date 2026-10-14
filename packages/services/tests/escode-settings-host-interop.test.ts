@@ -13,7 +13,9 @@ import { createSettingService } from "@escode/services/node";
 // 一侧是真实 TS 设置服务（createSettingService），另一侧是真实 `escode-host` 进程
 // （控制通道的 settingsRead/settingsWrite 消息）。
 
-const hostBinary = resolve("apps/escode-host/target/debug/escode-host");
+const hostBinary = resolve(
+  `apps/escode-host/target/debug/escode-host${process.platform === "win32" ? ".exe" : ""}`,
+);
 
 interface HostChild {
   send(message: Record<string, unknown>): Promise<void>;

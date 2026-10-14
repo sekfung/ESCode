@@ -174,7 +174,7 @@ fn enhanced_packet_block_layout_and_timestamp_high_word_first() {
     assert_eq!(&epb.body[20..20 + USB_MON_HEADER_LEN], &header[..], "数据区前 64 字节是内核头原样");
     assert_eq!(&epb.body[20 + USB_MON_HEADER_LEN..20 + data.len()], &payload[..]);
     assert_eq!(epb.total_length % 4, 0);
-    assert_eq!(epb.total_length, (32 + data.len()) as u32);
+    assert_eq!(epb.total_length, 32 + (data.len() as u32).next_multiple_of(4));
     // 67 字节数据区要补 1 个 0 才是 4 的倍数。
     assert_eq!(epb.body[20 + data.len()], 0, "载荷后的对齐填充");
 }

@@ -50,9 +50,13 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/escode-cli-rust
+          workspaces: |
+            apps/escode-cli-rust
+            apps/escode-host
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:escode-cli-rust
+      # 阶段 2 Host 工作区（apps/escode-host）：边界（分层/400 行/0 处进程 env）+ fmt + clippy。
+      - run: pnpm check:escode-host
       # 依赖与许可证策略（apps/escode-cli-rust/deny.toml）：advisories / licenses 白名单 / bans / sources。
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
@@ -91,6 +95,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # 生成资产漂移检查、cargo test/nextest、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:escode-cli-rust
+        shell: bash
+      # 阶段 2 Host：cargo 单测（实例表/控制通路/入口端到端/settings 域）+ 双 Host settings 交替写读演练。
+      - run: pnpm test:escode-host
         shell: bash
 
   # 三平台原生 release 延迟与内存（发布门槛「性能」：三平台 release 延迟，docs/specs/rust-runtime-performance.md）。

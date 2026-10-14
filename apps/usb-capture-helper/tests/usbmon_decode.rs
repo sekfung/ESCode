@@ -83,10 +83,6 @@ impl Builder {
         out.extend_from_slice(&self.payload);
         out
     }
-
-    fn header(&self) -> [u8; MON_HEADER_LEN] {
-        self.header
-    }
 }
 
 fn expect_event<'a>(record: &'a [u8]) -> escode_usb_capture::usbmon_bin::Event<'a> {

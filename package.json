@@ -80,6 +80,8 @@
     "check:escode-host": "node scripts/check-escode-host-boundaries.mjs && cargo fmt --manifest-path apps/escode-host/Cargo.toml --all --check && cargo clippy --manifest-path apps/escode-host/Cargo.toml --workspace --all-targets -- -D warnings",
     "test:escode-host": "cargo test --manifest-path apps/escode-host/Cargo.toml --workspace && node scripts/test-escode-host-interop.mjs",
     "test:escode-host-interop": "node scripts/test-escode-host-interop.mjs",
+    "check:usb-capture-helper": "cargo fmt --manifest-path apps/usb-capture-helper/Cargo.toml --all --check && cargo clippy --locked --manifest-path apps/usb-capture-helper/Cargo.toml --all-targets -- -D warnings",
+    "test:usb-capture-helper": "cargo test --locked --manifest-path apps/usb-capture-helper/Cargo.toml",
     "check:escode-cli-rust:deny": "cargo deny --manifest-path apps/escode-cli-rust/Cargo.toml check",
     "test:escode-cli-rust": "node scripts/test-escode-cli-rust.mjs",
     "dev:desktop:escode-cli-rust": "node scripts/dev-desktop-escode-cli-rust.mjs",
