@@ -201,6 +201,25 @@ describe("rust host rpc surface", () => {
       })) as Uint8Array;
       expect(new TextDecoder().decode(range)).toBe("world");
 
+      const textSlice = (await services.fileService.readTextFile({
+        path: probeFile,
+        offset: 6,
+        length: 5,
+      })) as Record<string, unknown>;
+      expect(textSlice.content).toBe("world");
+      expect(textSlice.bytesRead).toBe(5);
+      expect(textSlice.totalBytes).toBe(11);
+      expect(textSlice.truncated).toBe(false);
+      expect(textSlice.isBinary).toBe(false);
+
+      const binaryFile = join(workspacePath, "probe.bin");
+      await writeFile(binaryFile, Buffer.from([1, 0, 2, 3, 4, 5]));
+      const binarySlice = (await services.fileService.readTextFile({
+        path: binaryFile,
+      })) as Record<string, unknown>;
+      expect(binarySlice.isBinary).toBe(true);
+      expect(binarySlice.content).toBe("");
+
       // 未迁移方法：显式缺口。
       await expect(
         services.fileService.readdir({ path: workspacePath }),

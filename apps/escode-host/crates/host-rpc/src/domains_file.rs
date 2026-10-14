@@ -33,6 +33,9 @@ const FILE_EXISTENCE_CACHE_MAX_ENTRIES: usize = 100;
 /// TS `DEFAULT_BINARY_READ_BYTES` / `MAX_BINARY_READ_BYTES`。
 const DEFAULT_BINARY_READ_BYTES: u64 = 256 * 1024;
 const MAX_BINARY_READ_BYTES: u64 = 1024 * 1024;
+/// TS `DEFAULT_TEXT_READ_BYTES` / `MAX_TEXT_READ_BYTES`。
+const DEFAULT_TEXT_READ_BYTES: u64 = 128 * 1024;
+const MAX_TEXT_READ_BYTES: u64 = 256 * 1024;
 
 /// `file` channel（TS `ServiceChannels.File` = `"file"`）。
 pub fn file_channel() -> (&'static str, ChannelHandler) {
@@ -52,6 +55,7 @@ pub fn file_channel() -> (&'static str, ChannelHandler) {
                     let cache = Arc::clone(&cache);
                     blocking(move || check_files_exist(&cache, &params)).await
                 }
+                "readTextFile" => blocking(move || read_text_file(&params)).await,
                 "resolvePath" => resolve_path(&params).await,
                 "readFileRange" => blocking(move || read_file_range(&params)).await,
                 other => Err(not_implemented(other)),
@@ -145,6 +149,93 @@ async fn resolve_path(params: &Value) -> ChannelResult {
             format!("ENOENT: no such file or directory, realpath '{path}'"),
         )),
     }
+}
+
+/// TS `readTextFile`：文本切片（二进制探测命中时 `content` 为空串）。
+/// 读取上限固定 256 KiB（缺省 128 KiB），`truncated` 由「offset + bytesRead < totalBytes」判定。
+fn read_text_file(params: &Value) -> ChannelResult {
+    let path = require_path(params)?;
+    let metadata = std::fs::metadata(&path)
+        .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "stat", &path)))?;
+    if !metadata.is_file() {
+        return Err((
+            "InvalidRequest".to_owned(),
+            format!("Path is not a file: {path}"),
+        ));
+    }
+    let size = metadata.len();
+    let offset = params["offset"].as_f64().unwrap_or(0.0).max(0.0).trunc() as u64;
+    if offset >= size {
+        return Ok(Wire::Object(json!({
+            "path": path,
+            "content": "",
+            "offset": offset,
+            "bytesRead": 0,
+            "totalBytes": size,
+            "truncated": false,
+            "isBinary": false,
+        })));
+    }
+    let requested = params["length"]
+        .as_f64()
+        .filter(|value| value.is_finite())
+        .map_or(DEFAULT_TEXT_READ_BYTES, |value| value.trunc() as u64);
+    let length = requested.clamp(1, MAX_TEXT_READ_BYTES).min(size - offset);
+    let chunk = read_at(&path, offset, length)?;
+    let is_binary = is_probably_binary(&chunk);
+    let bytes_read = chunk.len() as u64;
+    Ok(Wire::Object(json!({
+        "path": path,
+        "content": if is_binary { String::new() } else { String::from_utf8_lossy(&chunk).into_owned() },
+        "offset": offset,
+        "bytesRead": bytes_read,
+        "totalBytes": size,
+        "truncated": offset + bytes_read < size,
+        "isBinary": is_binary,
+    })))
+}
+
+/// 从 `offset` 起读 `length` 字节（EOF 返回短数组）。
+fn read_at(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, (String, String)> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "open", path)))?;
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "read", path)))?;
+    let mut buffer = vec![0_u8; length as usize];
+    let mut filled = 0_usize;
+    while filled < buffer.len() {
+        match file.read(&mut buffer[filled..]) {
+            Ok(0) => break,
+            Ok(read) => filled += read,
+            Err(error) => {
+                return Err(("NodeIoError".to_owned(), node_error(&error, "read", path)));
+            }
+        }
+    }
+    buffer.truncate(filled);
+    Ok(buffer)
+}
+
+/// TS `isProbablyBinary`：空缓冲 false；出现 NUL 立即 true；
+/// 控制字符（1–8 / 14–31 / 127，常见空白 9/10/12/13 除外）占比 **> 0.3** 判二进制。
+fn is_probably_binary(buffer: &[u8]) -> bool {
+    if buffer.is_empty() {
+        return false;
+    }
+    let mut suspicious = 0_usize;
+    for value in buffer {
+        let value = *value;
+        if value == 0 {
+            return true;
+        }
+        let common_whitespace = matches!(value, 9 | 10 | 12 | 13);
+        let control = (1..=8).contains(&value) || (14..=31).contains(&value) || value == 127;
+        if !common_whitespace && control {
+            suspicious += 1;
+        }
+    }
+    (suspicious as f64) / (buffer.len() as f64) > 0.3
 }
 
 /// TS `readFileRange`：非文件报错；`offset = max(0, trunc(offset))`；`offset ≥ size` → 空；

@@ -120,3 +120,83 @@ fn read_file_range_clamps_offsets_and_lengths() {
     let error = read_file_range(&json!({"path": dir.path().to_string_lossy()})).expect_err("dir");
     assert!(error.1.starts_with("Path is not a file: "), "{error:?}");
 }
+
+#[test]
+fn read_text_file_slices_and_detects_binary() {
+    let dir = tempfile::tempdir().unwrap();
+    let text = dir.path().join("a.txt");
+    std::fs::write(&text, "hello world").unwrap();
+    let path = text.to_string_lossy().into_owned();
+
+    let Wire::Object(slice) = read_text_file(&json!({"path": path})).expect("read") else {
+        panic!("object")
+    };
+    assert_eq!(slice["content"], "hello world");
+    assert_eq!(slice["offset"], 0);
+    assert_eq!(slice["bytesRead"], 11);
+    assert_eq!(slice["totalBytes"], 11);
+    assert_eq!(slice["truncated"], false);
+    assert_eq!(slice["isBinary"], false);
+
+    // offset 超过 EOF：空内容 + truncated=false。
+    let Wire::Object(slice) = read_text_file(&json!({"path": path, "offset": 99})).expect("read")
+    else {
+        panic!("object")
+    };
+    assert_eq!(slice["content"], "");
+    assert_eq!(slice["bytesRead"], 0);
+    assert_eq!(slice["truncated"], false);
+
+    // 局部读取：offset=6 length=5 → "world"；offset+bytesRead < total → truncated=true。
+    let Wire::Object(slice) =
+        read_text_file(&json!({"path": path, "offset": 6, "length": 5})).expect("read")
+    else {
+        panic!("object")
+    };
+    assert_eq!(slice["content"], "world");
+    assert_eq!(
+        slice["truncated"], false,
+        "读到 EOF 不算截断（TS: offset + bytesRead < totalBytes）"
+    );
+
+    // 未读到 EOF：offset=0 length=5 → truncated=true。
+    let Wire::Object(slice) =
+        read_text_file(&json!({"path": path, "offset": 0, "length": 5})).expect("read")
+    else {
+        panic!("object")
+    };
+    assert_eq!(slice["content"], "hello");
+    assert_eq!(slice["bytesRead"], 5);
+    assert_eq!(slice["truncated"], true);
+
+    // 二进制：含 NUL 即判二进制且内容为空。
+    let binary = dir.path().join("b.bin");
+    std::fs::write(&binary, [1_u8, 0, 2, 3, 4, 5]).unwrap();
+    let Wire::Object(slice) =
+        read_text_file(&json!({"path": binary.to_string_lossy()})).expect("read")
+    else {
+        panic!("object")
+    };
+    assert_eq!(slice["isBinary"], true);
+    assert_eq!(slice["content"], "");
+
+    // 非文件：报错。
+    let error = read_text_file(&json!({"path": dir.path().to_string_lossy()})).expect_err("dir");
+    assert!(error.1.starts_with("Path is not a file: "), "{error:?}");
+}
+
+#[test]
+fn binary_detection_follows_the_ts_threshold() {
+    // 控制字符占比恰好 0.3 时不算二进制（TS 用严格大于）。
+    let mut buffer = vec![b'a'; 7];
+    buffer.extend_from_slice(&[1_u8, 2, 3]);
+    assert!(!is_probably_binary(&buffer), "0.3 不触发");
+    let mut buffer = vec![b'a'; 6];
+    buffer.extend_from_slice(&[1_u8, 2, 3, 4]);
+    assert!(is_probably_binary(&buffer), "0.4 触发");
+    assert!(!is_probably_binary(&[]), "空缓冲不算二进制");
+    assert!(
+        !is_probably_binary(b"tab\tcr\rlf\nform\x0c"),
+        "常见空白不算可疑"
+    );
+}
