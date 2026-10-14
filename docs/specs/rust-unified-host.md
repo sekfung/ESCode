@@ -104,7 +104,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 
 ### 阶段 2：Rust Host 骨架与分域迁移（估算 6–10 周）
 
-> 进度（2026-10-14，子 spec `rust-u2-host-skeleton.md`）：**u2a 骨架与通路完成**——`apps/escode-host` 工作区（host-core 有界通道/原子写、host-proto 契约清单 + 与 `ControlMessage` 的漂移门禁、host-gateway 连接注册表/到达序 lane/capability 握手、host-control typed 控制消息、host-runtime runtime-link 选择器（embedded/child）与实例表（single-flight、懒重启 generation、收口残余清单）、进程入口 attach/detach/转发/扇出/收口端到端）。**u2b 第一域 settings 完成**——与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进），双 Host 交替写读演练通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留）。CI 已接入 `pnpm check:escode-host`（checks 作业）与 `pnpm test:escode-host`（三平台 test 作业）。剩余：Renderer WebSocket surface 与 Main dev 开关、以及优先序 4–9 的服务域。
+> 进度（2026-10-14，子 spec `rust-u2-host-skeleton.md`）：**u2a 骨架与通路完成**——`apps/escode-host` 工作区（host-core 有界通道/原子写、host-proto 契约清单 + 与 `ControlMessage` 的漂移门禁、host-gateway 连接注册表/到达序 lane/capability 握手、host-control typed 控制消息、host-runtime runtime-link 选择器（embedded/child）与实例表（single-flight、懒重启 generation、收口残余清单）、进程入口 attach/detach/转发/扇出/收口端到端）。**u2b 第一域 settings 完成**——与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进），双 Host 交替写读演练通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留）。CI 已接入 `pnpm check:escode-host`（checks 作业）与 `pnpm test:escode-host`（三平台 test 作业）。剩余：Main 侧 dev 开关与 TS 接线、以及优先序 4–9 的服务域（Renderer 直连的 WebSocket surface 已完成，见子 spec 实施进度表）。
 
 工作区结构：新增 `apps/escode-host`（独立 Cargo workspace），共用基础代码放独立 shared workspace（对标三 workspace 结构，理由：Host 不拖 CLI 编译与依赖）。注意现有 `apps/escode-cli-rust/crates/host` 是 CLI 的配置/路径 adapter，与新 Host 概念重名，子 spec 中明确更名或文档注明。
 

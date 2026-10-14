@@ -1,0 +1,27 @@
+[package]
+name = "escode-host-surface"
+description = "ESCode Host 的 Renderer 传输面：WebSocket + capability 握手 + 按实例帧泵"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+escode-host-control.workspace = true
+escode-host-gateway.workspace = true
+escode-host-runtime.workspace = true
+escode-cli-rust.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+escode-cli-rust.workspace = true

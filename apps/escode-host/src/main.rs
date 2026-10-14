@@ -73,6 +73,8 @@ fn link_from_env() -> Link {
 async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> {
     // window → 实例身份（attachment 路由由 Host 拥有）。
     let mut attachments: BTreeMap<String, String> = BTreeMap::new();
+    // Renderer 传输面（WSPort）：随 Host 收口关闭。
+    let mut surfaces: Vec<escode_host_surface::Surface> = Vec::new();
     while let Some(message) = control.recv().await {
         match message {
             ControlMessage::WindowAttach {
@@ -164,6 +166,34 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     }
                 }
             }
+            ControlMessage::SurfaceListen { bind } => {
+                let addr: std::net::SocketAddr = bind
+                    .parse()
+                    .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+                let options: escode_host_surface::OptionsFactory =
+                    std::sync::Arc::new(control::runtime_options);
+                match escode_host_surface::Surface::start(addr, instances.clone(), options).await {
+                    Ok(surface) => {
+                        control
+                            .send(ControlMessage::SurfaceListening {
+                                addr: surface.addr.to_string(),
+                            })
+                            .await?;
+                        // 传输面随 Host 进程存活；句柄留在这里以便 Shutdown 时收口。
+                        surfaces.push(surface);
+                    }
+                    Err(error) => {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!("surface listen failed: {error:#}"),
+                                },
+                            })
+                            .await?;
+                    }
+                }
+            }
             ControlMessage::SettingsRead { home } => {
                 let settings = escode_host_services::settings::read(std::path::Path::new(&home))
                     .await
@@ -200,6 +230,9 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 }
             }
             ControlMessage::Shutdown { reason } => {
+                for surface in surfaces.drain(..) {
+                    surface.shutdown().await;
+                }
                 control.stop_pumps();
                 let _ = control
                     .send(ControlMessage::LogBatch {
@@ -225,10 +258,14 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::LogBatch { .. }
             | ControlMessage::Failed { .. }
             | ControlMessage::Stopped { .. }
-            | ControlMessage::SettingsValue { .. } => {}
+            | ControlMessage::SettingsValue { .. }
+            | ControlMessage::SurfaceListening { .. } => {}
         }
     }
-    // 输入关闭（Main 退出）= 收口全部实例。
+    // 输入关闭（Main 退出）= 收口全部实例与传输面。
+    for surface in surfaces.drain(..) {
+        surface.shutdown().await;
+    }
     control.stop_pumps();
     let residual = instances.shutdown().await;
     if residual.is_empty() {

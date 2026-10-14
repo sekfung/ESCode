@@ -8,6 +8,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 
+use futures_util::{SinkExt, StreamExt};
+
 use escode_host_control::{ControlMessage, WorkspaceDescriptor};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -250,4 +252,87 @@ async fn unattached_window_requests_are_rejected_with_structured_error() {
         "结构化错误点名窗口: {error:?}"
     );
     assert_eq!(host.shutdown().await, 0);
+}
+
+/// 传输面端到端：Main 让 Host 开监听（`surfaceListen`），Renderer 连 WS 后走同一实例。
+#[tokio::test(flavor = "multi_thread")]
+async fn surface_listen_serves_renderer_connections() {
+    let fixture = Fixture::new();
+    let mut host = Host::start().await;
+    let ready = host.recv().await;
+    assert!(matches!(ready, ControlMessage::HostReady { .. }));
+
+    host.send(&ControlMessage::SurfaceListen {
+        bind: "127.0.0.1:0".to_owned(),
+    })
+    .await;
+    let listening = host
+        .recv_until("SurfaceListening", |message| {
+            matches!(message, ControlMessage::SurfaceListening { .. })
+        })
+        .await;
+    let ControlMessage::SurfaceListening { addr } = listening else {
+        unreachable!()
+    };
+    let addr: std::net::SocketAddr = addr.parse().expect("addr parses");
+
+    // Renderer：握手 + 请求往返（不需要先经 Main attach：连接自带 workspace 描述）。
+    let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{addr}"))
+        .await
+        .expect("ws connect");
+    let hello = serde_json::json!({
+        "windowId": "win-ws",
+        "clientId": "renderer",
+        "workspace": {
+            "path": fixture.descriptor().path,
+            "identity": fixture.descriptor().identity,
+            "dataDir": fixture.descriptor().data_dir,
+        },
+        "capabilities": ["session/list"],
+    });
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            hello.to_string().into(),
+        ))
+        .await
+        .expect("hello");
+    let ready = next_ws_json(&mut socket).await;
+    assert_eq!(ready["type"], "ready", "{ready}");
+    assert_eq!(ready["generation"], 1);
+    let _ = next_ws_json(&mut socket).await; // 实例就绪帧
+
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            serde_json::json!({"id": "ws-1", "method": "session/list", "params": {}})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .expect("request");
+    loop {
+        let frame = next_ws_json(&mut socket).await;
+        if frame["id"] == "ws-1" {
+            assert_eq!(frame["result"]["sessions"], serde_json::json!([]));
+            break;
+        }
+    }
+    let _ = socket.close(None).await;
+    assert_eq!(host.shutdown().await, 0, "干净退出");
+}
+
+async fn next_ws_json(
+    socket: &mut tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >,
+) -> Value {
+    loop {
+        let message = tokio::time::timeout(Duration::from_secs(30), socket.next())
+            .await
+            .expect("ws frame within timeout")
+            .expect("socket open")
+            .expect("frame ok");
+        if let tokio_tungstenite::tungstenite::Message::Text(text) = message {
+            return serde_json::from_str(&text).expect("JSON frame");
+        }
+    }
 }

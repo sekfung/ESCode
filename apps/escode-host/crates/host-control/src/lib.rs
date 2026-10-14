@@ -74,6 +74,10 @@ pub enum ControlMessage {
     },
     /// Host→Main：设置内容（读应答与写回执共用）。
     SettingsValue { settings: serde_json::Value },
+    /// Main→Host：请求开启 Renderer 传输面（WebSocket 监听）。
+    SurfaceListen { bind: String },
+    /// Host→Main：传输面已监听（Main 据此把端口交给 Renderer）。
+    SurfaceListening { addr: String },
 }
 
 impl ControlMessage {
@@ -94,6 +98,8 @@ impl ControlMessage {
             Self::SettingsRead { .. } => "settingsRead",
             Self::SettingsWrite { .. } => "settingsWrite",
             Self::SettingsValue { .. } => "settingsValue",
+            Self::SurfaceListen { .. } => "surfaceListen",
+            Self::SurfaceListening { .. } => "surfaceListening",
         }
     }
 }
