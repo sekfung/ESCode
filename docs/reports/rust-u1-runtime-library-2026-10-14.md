@@ -83,6 +83,14 @@ embed::spawn ─► 实例根未来（INSTANCE.scope）
 - **u2a 骨架**：`apps/escode-host` 工作区（host-core 有界通道/原子写、host-proto 契约清单与漂移门禁、host-gateway 到达序 lane 与 capability 握手、host-control typed 控制消息、host-runtime runtime-link 选择器与实例表）+ Host 进程入口（attach/detach/转发/扇出/收口，端到端 2 例）。
 - **u2b 第一域 settings**：`host-services::settings` 与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进），控制协议 `settingsRead/Write/Value`；**双 Host 交替写读演练**通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留 + 缩进一致）。这正是父计划 §阶段 2 验收里「双 Host 交替写读演练」的第一份证据。
 
+## 5.3 P1 #6 网络出口单入口后的差分复跑与归因（2026-10-14）
+
+本批（`crates/net` 出口收口）后跑了一次全量差分：407 例 / 384 通过 / 11 失败 / 12 跳过。逐个归因结论：
+
+- **与本批无关**（用阶段 0 基线二进制 `1d94fb38` 重建后复现同一签名）：`legacy session methods`、`Corrupt persisted history boundaries`、`Rust writes model-io ...` 与 `full model-IO retention`。
+- **并发工作流造成的中间态**：仓库工作树在本轮同时有另一条工作流（usb agent tools：`apps/escode-cli/packages/usb-plugin`、`apps/usb-capture-helper`、`official_plugins.json` 的 usb 条目、`plugin-marketplaces.ts` 等，`docs/specs/usb-agent-tools.md` 的 mtime 在本轮之后仍在变）在改。插件类失败（`official plugin cache` 播种两例、plugins overview/list/uninstall 三例）在**当前构建**下隔离复跑全部通过，用阶段 0 二进制（其内嵌目录无 usb）则稳定失败——失败来自"二进制/夹具与仓库插件目录的版本错配"，不是本批改动。workflow actor 与 hooks 两例为满载串行下的超时（隔离复跑通过）。
+- **教训（已写入计划 §阶段 1 运行纪律）**：① 差分套件运行期间禁止并发 `cargo` 构建；② **禁止 `git add -A`**——共享工作树里可能有其他工作流的未提交改动，按路径精确暂存。
+
 ## 6. 遗留与移交（u2 输入）
 
 0. **已知失败**：`escode-cli-rust-legacy-session.test.ts` 在本机对阶段 0 与本批二进制同样失败（见 §5 判据），列为本机环境既存问题；阶段 2 差分维护项，需在本机以外（CI 三平台）确认是否复现。
