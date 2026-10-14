@@ -1,5 +1,6 @@
 // Run with node --import tsx. 把 TS Bash 只读策略表导出为 Rust 内嵌资产。
 // 回调以函数名导出，Rust 按名实现；新增回调或改动表项时 --check 会失败，迫使 Rust 同步。
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { BASH_COMMAND_REGISTRY } from "../apps/escode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts";
 import {
@@ -67,7 +68,18 @@ const target = new URL(
   import.meta.url,
 );
 // fig 命令树：Bash 规则匹配与「总是允许」建议用它解析稳定命令前缀（TS resolveStableCommandPrefix）。
-const registry = `${JSON.stringify(BASH_COMMAND_REGISTRY)}
+// 包装 version + hash：hash 是 commands 按键排序后的规范 JSON 的 sha256，
+// Rust 侧（bash_registry.rs）在加载期断言 version、在测试里重算 hash（P1 #11 完整性断言）。
+const REGISTRY_VERSION = 1;
+const sortedCommands = Object.fromEntries(
+  Object.keys(BASH_COMMAND_REGISTRY)
+    .sort()
+    .map((name) => [name, BASH_COMMAND_REGISTRY[name]]),
+);
+const registryHash = createHash("sha256")
+  .update(JSON.stringify(sortedCommands))
+  .digest("hex");
+const registry = `${JSON.stringify({ version: REGISTRY_VERSION, hash: registryHash, commands: sortedCommands })}
 `;
 const registryTarget = new URL(
   "../apps/escode-cli-rust/crates/domain/src/bash_command_registry.json",

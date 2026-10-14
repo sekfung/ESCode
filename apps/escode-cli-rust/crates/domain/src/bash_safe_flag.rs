@@ -1,8 +1,9 @@
 //! `safeFlags` 的值域（rust-unified-host.md P1 #11：类型化，未知 kind 不再静默不匹配）。
 //! 名字与生成器语料一一对应；`bash_callback_reconciliation` 测试双向对账。
+//! 反序列化即校验：未知 kind 在表加载期报错，不会走到运行期的静默不匹配。
+use serde::Deserialize;
 /// `safeFlags` 的值域（生成器导出的 kind 字符串；P1 #11 类型化）。
-/// 未知 kind 在表加载时显式失败（`decode_kind` panic）而不是静默按“不安全”吞掉；
-/// 对账测试在固定语料上保证该 panic 不可达——TS 新增 kind 会先在构建期失败。
+/// 未知 kind 在反序列化（表加载）时即报错，不会静默按“不安全”吞掉。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SafeFlagKind {
     /// 无值旗标（`--flag`；带内联值即拒绝）。
@@ -51,5 +52,17 @@ impl SafeFlagKind {
             Self::Object => value == "{}",
             Self::Eof => value == "EOF",
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for SafeFlagKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Self::parse(&raw).ok_or_else(|| {
+            serde::de::Error::custom(format!("Unsupported Bash safeFlags kind: {raw}"))
+        })
     }
 }

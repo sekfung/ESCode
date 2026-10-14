@@ -29,9 +29,9 @@
 | guarded | U | 只有 U 有 guarded 维度（`guarded.rs` + 314 行 matcher + 1353 条逐字段语料） |
 
 改进清单（按性价比）：
-- [ ] registry 类型化（typed `HashMap<String,Node>` + version/hash 断言），消掉 DOM 与 unwrap 面
+- [x] registry 类型化（typed `HashMap<String,Node>` + version/hash 断言），消掉 DOM 与 unwrap 面 —— 2026-10-14 完成：`bash_registry.rs`（Node/OptionSpec 位置数组反序列化 + `child()`/`option()` 访问器 + version 加载期断言 + hash 测试重算；生成器输出 `{version,hash,commands}`）；`bash_rule_prefix.rs` 全部改 typed 访问（原 `node[1]/[2]/[3]` 下标清零）
 - [ ] `bash_readonly_corpus` 全量逐字段化 + 补种子化 fuzz（拼接+变异、超时/surrogate 过滤）
-- [ ] policy schema 收紧：enum + `deny_unknown_fields`（`bash_policy.rs:31-47`）
+- [x] policy schema 收紧：enum + `deny_unknown_fields`（`bash_policy.rs:31-47`）—— 2026-10-14 完成：`bash_policy_tables.rs` serde 形状（`deny_unknown_fields`；`SafeFlagKind` 实现 `Deserialize`，未知 kind 即加载期错误），DOM 下标解析与 `unwrap` 清零
 - [ ] callback 双向对账：`--check` 断言生成器导出的名字集合 == Rust 实现集合（现在是 `_ => true` 静默）
 - [ ] 补病态输入性能预算测试（heredoc 陈旧目标、深嵌套、hang 边界）
 

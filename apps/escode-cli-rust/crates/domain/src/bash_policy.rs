@@ -3,7 +3,6 @@
 //! （不含带工作目录上下文的 git 运行时检查，见 docs/specs/rust-permission-modes.md）。
 use crate::bash_parse::{Invocation, analyze};
 pub use crate::bash_safe_flag::SafeFlagKind;
-use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
@@ -29,74 +28,16 @@ pub(crate) struct Tables {
     pub git_dangerous: Vec<String>,
 }
 
-/// 语料 kind 字符串 → 枚举；未知 kind 显式失败（对账测试保证固定语料不可达）。
-fn decode_kind(raw: &str) -> SafeFlagKind {
-    SafeFlagKind::parse(raw).unwrap_or_else(|| panic!("Unsupported Bash safeFlags kind: {raw}"))
-}
-
-fn policy(v: &Value) -> Policy {
-    Policy {
-        safe_flags: v["safeFlags"].as_object().map(|m| {
-            m.iter()
-                .map(|(k, v)| (k.clone(), decode_kind(v.as_str().unwrap())))
-                .collect()
-        }),
-        allow_any_args: v["allowAnyArgs"] == true,
-        allow_compact_numeric: v["allowCompactNumericCountFlag"] == true,
-        command_only: v["commandOnly"] == true,
-        respects_double_dash: v["respectsDoubleDash"].as_bool(),
-        regex: v["regex"]["source"]
-            .as_str()
-            .map(|s| regex::Regex::new(s).expect("generated Bash policy regex")),
-        callback: v["callback"].as_str().map(str::to_owned),
-    }
-}
-
-fn strings(v: &Value) -> Vec<String> {
-    v.as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s.as_str().unwrap().to_owned())
-        .collect()
-}
-
-/// TS 按前缀词数降序做稳定排序；同长度保持表内原序。
-fn ordered(v: &Value) -> Vec<(String, Policy)> {
-    let mut entries: Vec<(String, Policy)> = v
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| (e[0].as_str().unwrap().to_owned(), policy(&e[1])))
-        .collect();
-    entries.sort_by_key(|(k, _)| std::cmp::Reverse(k.split(' ').count()));
-    entries
-}
-
+/// 策略表（加载期校验：deny_unknown_fields + SafeFlagKind 值域）。
 pub(crate) fn tables() -> &'static Tables {
     static TABLES: OnceLock<Tables> = OnceLock::new();
     TABLES.get_or_init(|| {
-        let j: Value = serde_json::from_str(include_str!("bash_policies.json"))
-            .expect("generated Bash policies");
-        Tables {
-            commands: j["commands"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|e| (e[0].as_str().unwrap().to_owned(), policy(&e[1])))
-                .collect(),
-            multiword: ordered(&j["multiword"]),
-            git: ordered(&j["gitSubcommands"]),
-            allow_any: strings(&j["allowAnyArgCommands"]).into_iter().collect(),
-            allow_any_prefixes: j["allowAnyArgCommandPrefixes"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(strings)
-                .collect(),
-            git_no_value: strings(&j["gitGlobalNoValueFlags"]).into_iter().collect(),
-            git_value: strings(&j["gitGlobalValueFlags"]).into_iter().collect(),
-            git_dangerous: strings(&j["gitGlobalDangerousFlags"]),
-        }
+        // serde 反序列化即校验（deny_unknown_fields + SafeFlagKind 值域）：
+        // TS 侧新增策略字段/kind 会在这里显式失败，而不是被 DOM 下标静默忽略。
+        let raw: super::bash_policy_tables::TablesJson =
+            serde_json::from_str(include_str!("bash_policies.json"))
+                .expect("generated Bash policies");
+        raw.into_tables()
     })
 }
 

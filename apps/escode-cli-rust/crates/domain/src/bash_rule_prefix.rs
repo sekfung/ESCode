@@ -1,7 +1,7 @@
 //! Bash 稳定命令前缀解析：对应 TS `bash-command-permission-policy.ts` 的
 //! resolveStableCommandPrefix 及其辅助（包装器剥离、选项跳过、深度覆盖）。
 use crate::bash_parse::Invocation;
-use serde_json::Value;
+use crate::bash_registry::{self, Node, Registry};
 use std::sync::OnceLock;
 
 const HIGH_RISK: [&str; 16] = [
@@ -70,12 +70,9 @@ pub(crate) fn wrapper_value_options(name: &str) -> Option<&'static [&'static str
     })
 }
 
-pub(crate) fn registry() -> &'static Value {
-    static R: OnceLock<Value> = OnceLock::new();
-    R.get_or_init(|| {
-        serde_json::from_str(include_str!("bash_command_registry.json"))
-            .expect("generated registry")
-    })
+pub(crate) fn registry() -> &'static Registry {
+    static R: OnceLock<Registry> = OnceLock::new();
+    R.get_or_init(bash_registry::parse)
 }
 
 pub(crate) fn basename(token: &str) -> String {
@@ -136,11 +133,7 @@ pub(crate) fn stable_prefix(i: &Invocation) -> Option<String> {
             continue;
         }
         let token = &remaining[index];
-        let child = node[3]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|c| c[0].as_array().unwrap().iter().any(|n| n == token.as_str()));
+        let child = node.child(token);
         if let Some(child) = child {
             prefix.push(token.clone());
             matched = true;
@@ -148,9 +141,7 @@ pub(crate) fn stable_prefix(i: &Invocation) -> Option<String> {
             index += 1;
             continue;
         }
-        if node[2].as_u64().unwrap_or(0) & (ARG_IS_COMMAND | ARG_IS_MODULE) != 0
-            && !path_or_url(token)
-        {
+        if node.arg_flags & (ARG_IS_COMMAND | ARG_IS_MODULE) != 0 && !path_or_url(token) {
             prefix.push(token.clone());
             matched = true;
         }
@@ -159,7 +150,7 @@ pub(crate) fn stable_prefix(i: &Invocation) -> Option<String> {
     if matched { serialize(&prefix) } else { None }
 }
 
-pub(crate) fn skip_leading_options(node: &Value, args: &[String]) -> usize {
+pub(crate) fn skip_leading_options(node: &Node, args: &[String]) -> usize {
     let mut index = 0;
     while index < args.len() {
         match skip_option(node, args, index) {
@@ -170,7 +161,7 @@ pub(crate) fn skip_leading_options(node: &Value, args: &[String]) -> usize {
     index
 }
 
-pub(crate) fn skip_option(node: &Value, args: &[String], index: usize) -> Option<usize> {
+pub(crate) fn skip_option(node: &Node, args: &[String], index: usize) -> Option<usize> {
     let token = &args[index];
     if !token.starts_with('-') || token == "-" {
         return None;
@@ -179,13 +170,10 @@ pub(crate) fn skip_option(node: &Value, args: &[String], index: usize) -> Option
         return Some(index + 1);
     }
     let name = token.split('=').next().unwrap();
-    let option = node[1]
-        .as_array()?
-        .iter()
-        .find(|o| o[0].as_array().unwrap().iter().any(|n| n == name))?;
+    let option = node.option(name)?;
     Some(
         index
-            + if option[1] == 1 && !token.contains('=') {
+            + if option.takes_value == 1 && !token.contains('=') {
                 2
             } else {
                 1

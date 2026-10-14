@@ -108,3 +108,41 @@ fn safe_flag_kind_matching_follows_the_corpus_semantics() {
     assert!(SafeFlagKind::Eof.matches("EOF"));
     assert!(!SafeFlagKind::Eof.matches("eof"));
 }
+
+/// 策略表形状门禁（P1 #11「policy enum + deny_unknown_fields」）：
+/// 生成器之外的字段/未知 kind 必须在加载期失败，而不是被 DOM 下标静默忽略。
+#[test]
+fn policy_tables_reject_unknown_fields_and_kinds() {
+    use crate::bash_policy_tables::TablesJson;
+
+    let base = r#"{"commands":[["alias",{"commandOnly":true}]],"multiword":[],"gitSubcommands":[],
+        "allowAnyArgCommands":[],"allowAnyArgCommandPrefixes":[],"gitGlobalNoValueFlags":[],
+        "gitGlobalValueFlags":[],"gitGlobalDangerousFlags":[]}"#;
+    serde_json::from_str::<TablesJson>(base).expect("规范形状可解析");
+
+    // 未知字段（TS 新增策略键而 Rust 未同步）→ 失败。
+    let unknown_field = base.replace(r#""commandOnly":true"#, r#""commandOnly":true,"newKey":1"#);
+    let error = match serde_json::from_str::<TablesJson>(&unknown_field) {
+        Ok(_) => panic!("未知策略字段必须失败"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("newKey"), "{error}");
+
+    // 未知 safeFlags kind → 失败（不再静默按“不安全”吞掉）。
+    let unknown_kind = base.replace(
+        r#""commandOnly":true"#,
+        r#""safeFlags":{"--flag":"futureKind"}"#,
+    );
+    let error = match serde_json::from_str::<TablesJson>(&unknown_kind) {
+        Ok(_) => panic!("未知 safeFlags kind 必须失败"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("futureKind"), "{error}");
+
+    // 顶层未知字段同样失败。
+    let unknown_top = base.replacen('{', r#"{"extra":1,"#, 1);
+    assert!(
+        serde_json::from_str::<TablesJson>(&unknown_top).is_err(),
+        "顶层未知字段必须失败"
+    );
+}
