@@ -147,7 +147,7 @@
 改进清单：
 - [ ] 抽 `crates/plugins` + `Ports` 注入（先迁 atomic_dir/git/zip/install 闭环）
 - [ ] 插件错误类型化（enum + downcast 取 code）
-- [ ] SKILL.md 扫描合并为单一实现
+- [x] SKILL.md 扫描合并为单一实现 —— 2026-10-14 完成：`crates/tools/src/plugin_skill_files.rs`（逐字对齐 TS `scanSkillFilesUnderRootSync(followSymbolicLinks:false)`：根自身+一级子目录、真实文件、不跟随符号链接、**readdir 顺序不排序**），三处调用（`skill_files_under` / `count_skill_files` / `plugin_describe_scan`）全部改走单点；含扫描与逃逸防线单测，插件 describe/control-plane 差分对拍通过
 - [ ] hooks 最小 Rust 化：`HookEvent`/matcher 校验提为 domain 类型 + `hook_rows` 投影补单测
 - [ ] 保持子代理与 cron 的现有实现与语料
 

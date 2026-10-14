@@ -131,44 +131,9 @@ pub(super) async fn skill_components(plugin: &plugins::Plugin) -> Result<Vec<Val
     Ok(items)
 }
 
-/// 与 `count_skill_files` 相同的两级扫描，返回命中的 SKILL.md 路径。
+/// 两级扫描（根自身 + 一级子目录的真实 SKILL.md）；语义见 `plugin_skill_files`（TS 同序）。
 pub(super) async fn skill_files_under(root: &Path) -> Result<Vec<PathBuf>> {
-    let mut files: Vec<PathBuf> = vec![];
-    if tokio::fs::symlink_metadata(root)
-        .await
-        .is_ok_and(|m| m.file_type().is_symlink())
-        || !tokio::fs::metadata(root).await.is_ok_and(|m| m.is_dir())
-    {
-        return Ok(files);
-    }
-    let mut candidates = vec![root.join("SKILL.md")];
-    if let Ok(mut entries) = tokio::fs::read_dir(root).await {
-        while let Some(entry) = entries.next_entry().await? {
-            if !entry.file_type().await?.is_dir() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if should_walk(&name) {
-                candidates.push(entry.path().join("SKILL.md"));
-            }
-        }
-    }
-    candidates.sort();
-    for candidate in candidates {
-        if tokio::fs::symlink_metadata(&candidate)
-            .await
-            .is_ok_and(|m| m.file_type().is_symlink())
-        {
-            continue;
-        }
-        if tokio::fs::metadata(&candidate)
-            .await
-            .is_ok_and(|m| m.is_file())
-        {
-            files.push(candidate);
-        }
-    }
-    Ok(files)
+    Ok(super::plugin_skill_files::scan_skill_files_under(root).await)
 }
 
 /// TS `readMarkdownFrontmatter` 的 name/description 抽取（块标量交给现有 frontmatter 解析器，
@@ -250,66 +215,18 @@ pub(super) fn generated_command_root(plugin: &plugins::Plugin) -> usize {
         .into()
 }
 
-/// TS `countSkillFiles` + `scanSkillFilesUnderRootSync(followSymbolicLinks: false)`：
-/// 根自身的 SKILL.md 与一级子目录的 SKILL.md（真实文件，不跟随符号链接）。
+/// TS `countSkillFiles`：多根去重后的 SKILL.md 数量（扫描语义见 `plugin_skill_files`）。
 pub(super) async fn count_skill_files(roots: &[PathBuf]) -> Result<usize> {
-    let mut files: Vec<PathBuf> = vec![];
+    let mut files: Vec<PathBuf> = Vec::new();
     for root in roots {
-        if tokio::fs::symlink_metadata(root)
-            .await
-            .is_ok_and(|m| m.file_type().is_symlink())
-            || !tokio::fs::metadata(root).await.is_ok_and(|m| m.is_dir())
-        {
-            continue;
-        }
-        let mut candidates = vec![root.join("SKILL.md")];
-        if let Ok(mut entries) = tokio::fs::read_dir(root).await {
-            while let Some(entry) = entries.next_entry().await? {
-                if !entry.file_type().await?.is_dir() {
-                    continue;
-                }
-                let name = entry.file_name().to_string_lossy().into_owned();
-                if !should_walk(&name) {
-                    continue;
-                }
-                candidates.push(entry.path().join("SKILL.md"));
-            }
-        }
-        for candidate in candidates {
-            if files.contains(&candidate) {
-                continue;
-            }
-            if tokio::fs::symlink_metadata(&candidate)
-                .await
-                .is_ok_and(|m| m.file_type().is_symlink())
-            {
-                continue;
-            }
-            if tokio::fs::metadata(&candidate)
-                .await
-                .is_ok_and(|m| m.is_file())
-            {
-                files.push(candidate);
+        for file in super::plugin_skill_files::scan_skill_files_under(root).await {
+            if !files.contains(&file) {
+                files.push(file);
             }
         }
     }
     Ok(files.len())
 }
 
-/// 与 TS `shouldWalkSkillDirectoryEntry` 同义：跳过隐藏目录与常见构建/依赖目录。
-pub(super) fn should_walk(name: &str) -> bool {
-    if name.starts_with('.') && name != ".system" {
-        return false;
-    }
-    ![
-        "node_modules",
-        "dist",
-        "build",
-        "out",
-        "target",
-        "vendor",
-        "coverage",
-        "__pycache__",
-    ]
-    .contains(&name)
-}
+/// 保留导出：`plugin_list` 等调用方经此访问共享判定（单点仍在 `plugin_skill_files`）。
+pub(super) use super::plugin_skill_files::should_walk;

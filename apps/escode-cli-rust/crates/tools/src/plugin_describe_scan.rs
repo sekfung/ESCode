@@ -110,26 +110,12 @@ pub(super) fn skill_components(root: &Path, field: Option<&Json>) -> Vec<Value> 
     let mut items = vec![];
     let mut seen_files = HashSet::new();
     let mut seen_names = HashSet::new();
-    let is_real_file =
-        |path: &Path| std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file());
     for dir in component_dirs(root, field, "skills") {
         if !std::fs::symlink_metadata(&dir).is_ok_and(|m| m.is_dir()) {
             continue;
         }
-        let mut files = vec![];
-        let own = dir.join("SKILL.md");
-        if is_real_file(&own) {
-            files.push(own);
-        }
-        for (name, kind) in entries(&dir) {
-            if !kind.is_dir() || !super::plugin_list::should_walk(&name) {
-                continue;
-            }
-            let candidate = dir.join(&name).join("SKILL.md");
-            if is_real_file(&candidate) {
-                files.push(candidate);
-            }
-        }
+        // 扫描语义单点（TS `scanSkillFilesUnderRootSync` 同序，不跟随符号链接）。
+        let files = super::plugin_skill_files::scan_skill_files_under_sync(&dir);
         for file in files {
             if !seen_files.insert(file.clone()) {
                 continue;

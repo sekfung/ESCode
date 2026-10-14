@@ -78,6 +78,7 @@ mod plugin_marketplace;
 mod plugin_mcp_vars;
 mod plugin_overview;
 mod plugin_reference;
+mod plugin_skill_files;
 mod plugin_suggested;
 mod plugin_uninstall;
 mod plugin_validate;
