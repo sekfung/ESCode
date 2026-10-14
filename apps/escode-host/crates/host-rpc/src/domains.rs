@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
-use serde_json::{Value, json};
+use serde_json::Value;
 
-use crate::session::{ChannelHandler, ChannelResult, Channels};
+use crate::session::{ChannelHandler, Channels};
 use crate::wire::Wire;
 
 /// `settingService`（TS `ServiceChannels.Setting` = `"setting"`）：
@@ -48,138 +48,15 @@ pub fn setting_channel(home: std::path::PathBuf) -> (&'static str, ChannelHandle
     ("setting", handler)
 }
 
-/// 从服务级参数里抽出运行时路由信息，并构造 CLI 形状的请求参数。
-///
-/// - 路由键（workspacePath / workspaceIdentity / remoteSessionId / dataDir / config / runtimePolicy）
-///   只用于 Host 侧建实例，不转发；
-/// - `workspace` 引用按 TS `buildWorkspaceRef` 构造（运行时用它做 workspace 校验）；
-/// - 其余字段原样转发，`null` 一律省略（运行时的可选字段解析严格拒绝 null）。
-struct RuntimeTarget {
-    identity: String,
-    descriptor: escode_host_control::WorkspaceDescriptor,
-    request: Value,
-}
-
-fn runtime_target(params: Value) -> Result<RuntimeTarget, (String, String)> {
-    let object = params.as_object().cloned().unwrap_or_default();
-    let workspace_ref = object.get("workspace").cloned().unwrap_or(Value::Null);
-    let pick = |key: &str| {
-        object
-            .get(key)
-            .filter(|value| !value.is_null())
-            .cloned()
-            .or_else(|| {
-                workspace_ref
-                    .get(key)
-                    .filter(|value| !value.is_null())
-                    .cloned()
-            })
-    };
-    let path = pick("workspacePath")
-        .and_then(|value| value.as_str().map(str::to_owned))
-        .unwrap_or_default();
-    if path.is_empty() {
-        return Err((
-            "InvalidRequest".to_owned(),
-            "escode-session calls require workspacePath".to_owned(),
-        ));
-    }
-    let identity = pick("workspaceIdentity")
-        .and_then(|value| value.as_str().map(str::trim).map(str::to_owned))
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| path.clone());
-    let remote_session_id =
-        pick("remoteSessionId").and_then(|value| value.as_str().map(str::to_owned));
-    let descriptor = escode_host_control::WorkspaceDescriptor {
-        path: path.clone(),
-        identity: Some(identity.clone()),
-        data_dir: pick("dataDir").and_then(|value| value.as_str().map(str::to_owned)),
-        config: pick("config").and_then(|value| value.as_str().map(str::to_owned)),
-    };
-    let mut request = object;
-    for key in [
-        "workspacePath",
-        "workspaceIdentity",
-        "remoteSessionId",
-        "workspaceKey",
-        "dataDir",
-        "config",
-        "runtimePolicy",
-        "workspace",
-    ] {
-        request.remove(key);
-    }
-    // 可选字段缺省即省略（运行时 workspace 引用解析严格拒绝 null）。
-    let mut workspace = json!({
-        "workspacePath": path,
-        "workspaceIdentity": identity,
-        "workspaceKey": identity,
-    });
-    if let Some(remote_session_id) = remote_session_id {
-        workspace["remoteSessionId"] = Value::String(remote_session_id);
-    }
-    request.insert("workspace".to_owned(), workspace);
-    Ok(RuntimeTarget {
-        identity,
-        descriptor,
-        request: Value::Object(request),
-    })
-}
-
-/// 应答抽取：`Result` = 整个 `result`；`Field` = `result.<field>`。
-#[derive(Clone, Copy)]
-enum Extract {
-    Result,
-    Field(&'static str),
-}
-
-/// 把一次服务调用转发给该 workspace 的 runtime 实例。
-async fn runtime_call(
-    instances: &escode_host_runtime::Instances,
-    options: &escode_host_surface::OptionsFactory,
-    method: &str,
-    params: Value,
-    extract: Extract,
-) -> ChannelResult {
-    let target = runtime_target(params)?;
-    let instance = instances
-        .get(&target.identity, || options(&target.descriptor))
-        .await
-        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
-    let answer = instance
-        .call(method, target.request, std::time::Duration::from_secs(30))
-        .await
-        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
-    if let Some(error) = answer.get("error") {
-        return Err((
-            "RuntimeError".to_owned(),
-            error["message"]
-                .as_str()
-                .map(str::to_owned)
-                .unwrap_or_else(|| error.to_string()),
-        ));
-    }
-    let result = answer.get("result").cloned().ok_or_else(|| {
-        (
-            "Fatal".to_owned(),
-            format!("runtime `{method}` answer lacks `result`: {answer}"),
-        )
-    })?;
-    match extract {
-        Extract::Result => Ok(Wire::Object(result)),
-        Extract::Field(field) => result.get(field).cloned().map(Wire::Object).ok_or_else(|| {
-            (
-                "Fatal".to_owned(),
-                format!("runtime `{method}` answer lacks `result.{field}`: {result}"),
-            )
-        }),
-    }
-}
+use crate::forward::{Extract, runtime_call};
 
 /// `escode-session`（TS `ServiceChannels.ESCodeSession` = `"escode-session"`）：
 /// TS Host 该域是对 Agent 协议的直接转发（`result` / `result.<field>` 原样返回），
 /// Rust Host 同构——按 params 的 workspace 建/复用实例后转发。
-/// 未迁移的方法（createSession / closeSession / setModel / …）回显式缺口。
+/// 未迁移的方法回显式缺口：`createSession` / `resumeSession`（需 Host 侧特性门
+/// offPeak/dynamicWorkflow 参数整形）、`closeDeferredDraftSession` / `promoteDeferredDraftSession`
+/// （需 Host 侧 deferred-draft 注册表）、`readSessionEvents`（运行时无 `session/events`）、
+/// 以及 workspace / provider 握手类方法（属各自域）。
 pub fn session_channel(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
@@ -225,6 +102,47 @@ pub fn session_channel(
                     )
                     .await
                 }
+                // 写面：legacy `session/*` 转发（TS agent 层同构；运行时把 legacy 翻译成 V4 命令走同一写路径）。
+                "closeSession" => {
+                    runtime_call(
+                        &instances,
+                        &options,
+                        "session/close",
+                        params,
+                        Extract::FieldOr("closed", true),
+                    )
+                    .await
+                }
+                "setModel" => {
+                    runtime_call(
+                        &instances,
+                        &options,
+                        "session/setModel",
+                        params,
+                        Extract::Result,
+                    )
+                    .await
+                }
+                "setThoughtLevel" => {
+                    runtime_call(
+                        &instances,
+                        &options,
+                        "session/setThoughtLevel",
+                        params,
+                        Extract::Result,
+                    )
+                    .await
+                }
+                "setMode" => {
+                    runtime_call(
+                        &instances,
+                        &options,
+                        "session/setMode",
+                        params,
+                        Extract::Result,
+                    )
+                    .await
+                }
                 other => Err((
                     "NotImplemented".to_owned(),
                     format!("Host does not implement `escode-session.{other}` yet"),
@@ -255,6 +173,7 @@ mod tests {
         RESPONSE_PROMISE_SUCCESS, initialize_frame, parse_request, respond,
     };
     use crate::wire::{Reader, Writer};
+    use serde_json::json;
 
     fn test_channels(home: std::path::PathBuf) -> Channels {
         let options: escode_host_surface::OptionsFactory =

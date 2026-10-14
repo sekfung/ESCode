@@ -6,6 +6,7 @@
 //! 未迁移的 channel 回 `NotImplemented`（Renderer 见显式缺口，不挂起）。
 
 pub mod domains;
+pub mod forward;
 pub mod frame;
 pub mod http;
 pub mod session;

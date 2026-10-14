@@ -175,14 +175,21 @@ describe("rust host rpc surface", () => {
         } as never),
       ).rejects.toThrow(/Session unavailable/);
 
-      // 写面尚未迁移：显式 NotImplemented。
+      // 写面转发：closeSession 按运行时语义返回「条件关闭成立」（未加载会话为 true）。
+      const closed = (await services.escodeSessionService.closeSession({
+        workspacePath,
+        workspaceIdentity: workspacePath,
+        sessionId: "sess_missing",
+      } as never)) as boolean;
+      expect(closed).toBe(true);
+
+      // 未迁移的写方法（需 Host 侧特性门/draft 注册表）：显式 NotImplemented。
       await expect(
-        services.escodeSessionService.closeSession({
+        services.escodeSessionService.createSession({
           workspacePath,
           workspaceIdentity: workspacePath,
-          sessionId: "sess_missing",
         } as never),
-      ).rejects.toThrow(/does not implement `escode-session.closeSession`/);
+      ).rejects.toThrow(/does not implement `escode-session.createSession`/);
 
       // 未迁移的 channel：显式 NotImplemented，且消息里带已实现清单。
       const client = new ChannelClient(new SocketProtocol(wrapNodeWebSocket(new WebSocket(`ws://${addr}/ws`))));
