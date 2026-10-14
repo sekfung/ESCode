@@ -211,6 +211,41 @@ pub fn session_channel(
     ("escode-session", handler)
 }
 
+/// `system`（TS `ServiceChannels.System` = `"system"`）：`info()` 返回
+/// `{homedir, platform}`（TS `os.homedir()` + `process.platform`；Main 经 `rpcListen`
+/// 给出的 home 与 Host 进程 HOME 同源）。其余方法（终端 shell 探测、内网探测）尚未迁移。
+pub fn system_channel(home: std::path::PathBuf) -> (&'static str, ChannelHandler) {
+    let handler: ChannelHandler = Arc::new(move |method: String, _arg: Wire| {
+        let home = home.clone();
+        Box::pin(async move {
+            match method.as_str() {
+                "info" => Ok(Wire::Object(json!({
+                    "homedir": home.to_string_lossy(),
+                    "platform": node_platform(),
+                }))),
+                other => Err((
+                    "NotImplemented".to_owned(),
+                    format!("Host does not implement `system.{other}` yet"),
+                )),
+            }
+        })
+    });
+    ("system", handler)
+}
+
+/// `process.platform` 口径（TS 用 Node 名字：darwin / win32 / linux）。
+fn node_platform() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "darwin"
+    } else if cfg!(target_os = "windows") {
+        "win32"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        std::env::consts::OS
+    }
+}
+
 /// 组合根登记全部已迁移的 channel（Host 进程一处装配）。
 pub fn channels(
     home: std::path::PathBuf,
@@ -218,7 +253,8 @@ pub fn channels(
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
     Channels::new(vec![
-        setting_channel(home),
+        setting_channel(home.clone()),
+        system_channel(home),
         session_channel(instances, options),
     ])
 }

@@ -175,6 +175,13 @@ describe("rust host rpc surface", () => {
         } as never),
       ).rejects.toThrow(/Session unavailable/);
 
+      // system 域：info() 返回 homedir + Node 口径 platform。
+      const systemInfo = (await services.systemService.info()) as Record<string, unknown>;
+      expect(systemInfo.homedir).toBe(home);
+      expect(["darwin", "win32", "linux", "freebsd", "openbsd", "sunos", "aix"]).toContain(
+        systemInfo.platform,
+      );
+
       // workspace 预热：等运行时报到后返回协议常量（首屏不因 agent 缺失崩溃）。
       const initialized = (await services.escodeSessionService.initializeWorkspace({
         workspacePath,

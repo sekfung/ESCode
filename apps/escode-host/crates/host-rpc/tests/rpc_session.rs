@@ -324,3 +324,54 @@ async fn initialize_workspace_prewarms_and_reports_protocol() {
 
     surface.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn system_info_reports_home_and_node_platform() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let surface = start(&home).await;
+    let mut socket = connect(surface.addr, "/ws", None).await;
+
+    call(&mut socket, 61, "system", "info", &Wire::Array(Vec::new())).await;
+    let info = read_response(&mut socket, 61)
+        .await
+        .into_object()
+        .expect("object");
+    let expected_home = home.to_string_lossy().into_owned();
+    assert_eq!(
+        info["homedir"].as_str(),
+        Some(expected_home.as_str()),
+        "{info}"
+    );
+    let expected_platform = if cfg!(target_os = "macos") {
+        "darwin"
+    } else if cfg!(target_os = "windows") {
+        "win32"
+    } else {
+        "linux"
+    };
+    assert_eq!(info["platform"], expected_platform, "{info}");
+
+    // 未迁移方法：显式缺口。
+    call(
+        &mut socket,
+        62,
+        "system",
+        "listIntegratedTerminalShells",
+        &Wire::Array(Vec::new()),
+    )
+    .await;
+    let error = read_response(&mut socket, 62)
+        .await
+        .into_object()
+        .expect("error");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("system.listIntegratedTerminalShells")
+    );
+
+    surface.shutdown().await;
+}
