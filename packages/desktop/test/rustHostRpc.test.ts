@@ -220,6 +220,21 @@ describe("rust host rpc surface", () => {
       expect(binarySlice.isBinary).toBe(true);
       expect(binarySlice.content).toBe("");
 
+      const mediaPreview = (await services.fileService.readMediaPreview({
+        path: probeFile,
+      })) as Record<string, unknown>;
+      expect(mediaPreview.mediaType).toBe("application/octet-stream");
+      expect(Buffer.from(String(mediaPreview.dataBase64), "base64").toString("utf8")).toBe(
+        "hello world",
+      );
+
+      const binaryPreview = (await services.fileService.readBinaryPreview({
+        path: binaryFile,
+      })) as Record<string, unknown>;
+      expect(Buffer.from(String(binaryPreview.dataBase64), "base64")).toEqual(
+        Buffer.from([1, 0, 2, 3, 4, 5]),
+      );
+
       // 未迁移方法：显式缺口。
       await expect(
         services.fileService.readdir({ path: workspacePath }),

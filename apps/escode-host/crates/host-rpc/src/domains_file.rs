@@ -1,15 +1,15 @@
 //! `file` 域（rust-u2-host-skeleton.md §5 优先序 4）：精确子集。
 //!
 //! 已实现（逐字对齐 `packages/services/src/file/fileService.ts`）：
-//! `stat` / `checkFilesExist` / `resolvePath` / `readFileRange`——四个方法只依赖绝对路径，
-//! 不需要 workspace 上下文与 runtime 实例，是纯 Host 实现。
+//! `stat` / `checkFilesExist` / `resolvePath` / `readFileRange` / `readTextFile`（预览两法见
+//! `domains_file_preview`）——这些方法只依赖绝对路径，不需要 workspace 上下文与 runtime 实例。
 //!
 //! 未实现（各附原因，`--` 为运行时缺口可见）：
 //! - `readdir`：TS 排序第二键用 `localeCompare`（ICU 默认 locale）；实测与码点序明显不同
 //!   （`["_x","a","A","dir_b","dirA","é","README.md","z.txt"]` vs
 //!   `["A","README.md","_x","a","dirA","dir_b","z.txt","é"]`）。要严格等价需 ICU collation，
 //!   不能用品近似——登记为待定，避免引入未登记的可见偏移。
-//! - `readTextFile` / `readMediaPreview` / `readBinaryPreview`：需二进制探测与 MIME 判定子系统。
+//! - `readMediaPreview` / `readBinaryPreview`：需 MIME 判定与 base64 预览预算（见 `domains_file_preview`）。
 //! - `searchWorkspaceFiles` / `listWorkspaceFilesRange` / `workspaceFileListLength`：需 Host 侧
 //!   文件索引（`.escodeignore` 指纹、60s TTL 缓存与分块打包）。
 //! - `ensureConversationWorkspace` / `createDefaultWorkspace` / `createScratchWorkspace`：需
@@ -21,6 +21,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
+pub(crate) use crate::domains_file_preview::{read_binary_preview, read_media_preview};
 use crate::session::{ChannelHandler, ChannelResult};
 use crate::wire::Wire;
 
@@ -36,7 +37,6 @@ const MAX_BINARY_READ_BYTES: u64 = 1024 * 1024;
 /// TS `DEFAULT_TEXT_READ_BYTES` / `MAX_TEXT_READ_BYTES`。
 const DEFAULT_TEXT_READ_BYTES: u64 = 128 * 1024;
 const MAX_TEXT_READ_BYTES: u64 = 256 * 1024;
-
 /// `file` channel（TS `ServiceChannels.File` = `"file"`）。
 pub fn file_channel() -> (&'static str, ChannelHandler) {
     let cache = Arc::new(std::sync::Mutex::new(Cache::default()));
@@ -56,6 +56,8 @@ pub fn file_channel() -> (&'static str, ChannelHandler) {
                     blocking(move || check_files_exist(&cache, &params)).await
                 }
                 "readTextFile" => blocking(move || read_text_file(&params)).await,
+                "readMediaPreview" => blocking(move || read_media_preview(&params)).await,
+                "readBinaryPreview" => blocking(move || read_binary_preview(&params)).await,
                 "resolvePath" => resolve_path(&params).await,
                 "readFileRange" => blocking(move || read_file_range(&params)).await,
                 other => Err(not_implemented(other)),
@@ -195,7 +197,6 @@ fn read_text_file(params: &Value) -> ChannelResult {
     })))
 }
 
-/// 从 `offset` 起读 `length` 字节（EOF 返回短数组）。
 fn read_at(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, (String, String)> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = std::fs::File::open(path)
@@ -291,7 +292,7 @@ fn empty_bytes() -> Wire {
     }
 }
 
-fn require_path(params: &Value) -> Result<String, (String, String)> {
+pub(crate) fn require_path(params: &Value) -> Result<String, (String, String)> {
     params["path"]
         .as_str()
         .map(str::to_owned)
@@ -311,7 +312,7 @@ fn mtime_ms(metadata: &std::fs::Metadata) -> f64 {
 
 /// Node 常见 errno 文案（`{CODE}: {description}, {op} '{path}'`）。
 /// 未覆盖的 errno 保留系统文案（登记为已批准差异：客户端不解析该文案，仅展示）。
-fn node_error(error: &std::io::Error, op: &str, path: &str) -> String {
+pub(crate) fn node_error(error: &std::io::Error, op: &str, path: &str) -> String {
     // `ErrorKind::{NotADirectory, IsADirectory, FilesystemLoop}` 在本工具链仍不稳定：
     // unix 用 raw errno 判（跨平台只覆盖 NXIO 之外的常见码），其余保留系统文案。
     let from_errno = match error.raw_os_error() {

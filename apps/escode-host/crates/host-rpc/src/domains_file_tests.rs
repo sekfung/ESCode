@@ -1,5 +1,6 @@
 #[cfg(test)]
 use super::*;
+use crate::domains_file_preview::node_extname;
 
 #[test]
 fn cache_expires_and_evicts_oldest() {
@@ -199,4 +200,68 @@ fn binary_detection_follows_the_ts_threshold() {
         !is_probably_binary(b"tab\tcr\rlf\nform\x0c"),
         "常见空白不算可疑"
     );
+}
+
+#[test]
+fn previews_round_trip_base64_and_resolve_media_type() {
+    let dir = tempfile::tempdir().unwrap();
+    let image = dir.path().join("pixel.PNG");
+    std::fs::write(&image, [1_u8, 2, 3, 4]).unwrap();
+    let Wire::Object(preview) =
+        read_media_preview(&json!({"path": image.to_string_lossy()})).expect("preview")
+    else {
+        panic!("object")
+    };
+    assert_eq!(preview["mediaType"], "image/png", "扩展名大小写不敏感");
+    assert_eq!(preview["dataBase64"], "AQIDBA==");
+    assert_eq!(preview["totalBytes"], 4);
+
+    // 非图片走共享媒体格式表（endsWith），其余兜底 octet-stream。
+    let video = dir.path().join("clip.MP4");
+    std::fs::write(&video, [9_u8]).unwrap();
+    let Wire::Object(preview) =
+        read_media_preview(&json!({"path": video.to_string_lossy()})).expect("preview")
+    else {
+        panic!("object")
+    };
+    assert_eq!(preview["mediaType"], "video/mp4");
+    let other = dir.path().join("notes.txt");
+    std::fs::write(&other, b"hi").unwrap();
+    let Wire::Object(preview) =
+        read_media_preview(&json!({"path": other.to_string_lossy()})).expect("preview")
+    else {
+        panic!("object")
+    };
+    assert_eq!(preview["mediaType"], "application/octet-stream");
+
+    // 二进制预览：完整 base64，无 mediaType 字段。
+    let Wire::Object(binary) =
+        read_binary_preview(&json!({"path": other.to_string_lossy()})).expect("preview")
+    else {
+        panic!("object")
+    };
+    assert_eq!(binary["dataBase64"], "aGk=");
+    assert!(binary.get("mediaType").is_none());
+
+    // 超过上限：报 too large（maxBytes 压低到 2 字节）。
+    let error = read_media_preview(&json!({"path": image.to_string_lossy(), "maxBytes": 2}))
+        .expect_err("too large");
+    assert!(
+        error.1.starts_with("File is too large to preview: "),
+        "{error:?}"
+    );
+    // 非文件：Path is not a file。
+    let error =
+        read_binary_preview(&json!({"path": dir.path().to_string_lossy()})).expect_err("dir");
+    assert!(error.1.starts_with("Path is not a file: "), "{error:?}");
+}
+
+#[test]
+fn extname_matches_node_semantics() {
+    assert_eq!(node_extname("/a/b/c.PNG"), ".PNG");
+    assert_eq!(node_extname("/a/b/.bashrc"), "");
+    assert_eq!(node_extname("/a/b/name.tar.gz"), ".gz");
+    assert_eq!(node_extname("/a/b/trailing."), ".");
+    assert_eq!(node_extname("noext"), "");
+    assert_eq!(node_extname("C:\\dir\\file.MP4"), ".MP4");
 }
