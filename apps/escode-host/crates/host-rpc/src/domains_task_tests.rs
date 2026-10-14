@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 /// 夹具：按生成资产建库并写入若干行（provider/pinned/archived/updated_at 组合各异）。
 fn fixture() -> (tempfile::TempDir, PathBuf) {
@@ -67,7 +68,7 @@ fn fixture() -> (tempfile::TempDir, PathBuf) {
 fn channel_for(path: &Path) -> Channel {
     // `<dataBaseDir>/.escode/v2/tasks-index.sqlite` → dataBaseDir 是上三级。
     let data_base_dir = path.parent().unwrap().parent().unwrap().parent().unwrap();
-    task_channel(Some(data_base_dir.to_path_buf()))
+    task_channel(Some(data_base_dir.to_path_buf()), None)
 }
 
 async fn call(channel: &Channel, method: &str, params: Value) -> Result<Wire, (String, String)> {
@@ -154,7 +155,7 @@ async fn list_partitions_follow_the_ts_filters_and_order() {
 
 #[tokio::test]
 async fn missing_data_base_dir_reports_an_explicit_gap_for_every_read() {
-    let channel = task_channel(None);
+    let channel = task_channel(None, None);
     for method in [
         "getTaskMeta",
         "listTasks",
@@ -162,6 +163,9 @@ async fn missing_data_base_dir_reports_an_explicit_gap_for_every_read() {
         "listPinnedTasks",
         "listDeletedTaskIds",
         "listArchivedTasks",
+        "listTaskList",
+        "listGroupedTaskViewStructure",
+        "getTaskModelSelection",
     ] {
         let error = call(&channel, method, serde_json::json!({}))
             .await

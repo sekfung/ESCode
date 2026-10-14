@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::session::{MethodHandler, handler};
 use crate::wire::Wire;
 
-use crate::domains_task::{GLM_PROVIDER, ReadContext, context_ref, first_object};
+use crate::domains_task_support::{GLM_PROVIDER, ReadContext, context_ref, first_object};
 
 /// `listTaskList`：多 workspace 聚合 + kind 分区 + 搜索/分页。
 pub(super) fn list_task_list_handler(context: ReadContext) -> MethodHandler {

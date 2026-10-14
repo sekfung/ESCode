@@ -153,6 +153,28 @@ locale 命中时才可见（SQL 侧 `LOWER()` 两端口径一致，为 ASCII-onl
 双向写读对账（`双 Host 交替写读`）随 S2b 的 `createTask` 一起做——那时才存在可对账的
 服务级写入口。
 
+## 6.3 任务目标注册表 + `getTaskModelSelection`（2026-10-15）
+
+`{taskId}` 单参方法需要把 taskId 解析回 workspace，TS 靠进程内 `taskTargets` 注册表。
+本轮落地：
+
+- `task_targets.rs`：两条写入路径**语义不同、不能合并**——`remember`（`rememberTaskTarget`，
+  缺省**保留**既有 cronAutomationId）与 `remember_indexed_meta`（索引 meta 为权威，可清空 cron）；
+  未命中报 `ESCODE_SESSION_TARGET_NOT_FOUND`（同 code 同文案）。
+- 已把注册表接进**既有的读路径**（TS 同样在这里登记）：`getTaskMeta`、四个列表分区、
+  `listTaskList`，逐条 `rememberIndexedTaskMeta`。此前这些路径没有登记，属已交付代码的语义缺口，
+  本轮补齐。
+- `getTaskModelSelection`：注册表解析目标 → 运行时 `session/read` → 回 `settings.model.current`
+  （TS 同序；缺值时回 `undefined`，TS 回 `null`）。task channel 因此拿到与 session 域同一套
+  `Instances`/`OptionsFactory`（同一 workspace 只会有一个实例）。
+
+验证：host 101 passed / 0 failed（新增目标注册表 4 例：cron 保留 vs 权威覆盖、typed error、
+meta 行登记；端到端 2 例：未注册任务的 typed error、列表读登记后调用被路由到运行时会话读并
+透传运行时的语义错误）。`pnpm check:escode-host` 全绿。
+
+**下一步**：`getTaskSnapshot`（resume + snapshot→meta 投影 + 索引写）与 `getTaskConfigOptions`
+（`settingsToConfigOptions` 投影）——两者的前置件（注册表/写入层/运行时转发）本片已就位。
+
 ## 7. 验收与环境
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；

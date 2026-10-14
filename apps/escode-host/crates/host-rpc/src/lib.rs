@@ -14,10 +14,12 @@ mod domains_file_readdir;
 mod domains_file_workspace;
 pub mod domains_task;
 mod domains_task_query;
+mod domains_task_support;
 pub mod forward;
 pub mod frame;
 pub mod http;
 pub mod session;
+mod task_targets;
 pub mod wire;
 
 use std::net::SocketAddr;

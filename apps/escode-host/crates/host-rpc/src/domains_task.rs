@@ -15,82 +15,26 @@
 //! 索引库路径：`<dataBaseDir>/.escode/v2/tasks-index.sqlite`（TS `getTasksIndexDatabasePath`）。
 //! 懒打开：TS Host 可能尚未建库，首次调用时打开失败按结构化错误回报，下次调用重试。
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use escode_host_services::tasks_index::{TaskFilters, TasksIndex};
+use escode_host_services::tasks_index::TaskFilters;
 use serde_json::Value;
 
 use super::domains_task_query;
-use crate::domains_file::spawn_blocking_io;
+use crate::domains_task_support::{
+    GLM_PROVIDER, LazyIndex, ReadContext, RuntimeAccess, context_ref, first_object,
+    tasks_index_path, workspace_identity_of, workspace_path_of,
+};
 use crate::session::{Channel, handler};
+use crate::task_targets::{TaskTargets, remember_from_meta};
 use crate::wire::Wire;
 
-/// TS `ESCODE_AGENT_PROVIDER`：任务列表只接受当前 glm provider 的行。
-pub(crate) const GLM_PROVIDER: &str = "glm";
-
-/// TS `getAppConfigDir()` = `<dataBaseDir>/.escode/v2`，索引文件名 `tasks-index.sqlite`。
-fn tasks_index_path(data_base_dir: &Path) -> PathBuf {
-    data_base_dir
-        .join(".escode")
-        .join("v2")
-        .join("tasks-index.sqlite")
-}
-
-/// 懒打开的索引句柄（失败不缓存，下次调用重试）。
-#[derive(Default)]
-pub(crate) struct LazyIndex {
-    index: Option<TasksIndex>,
-}
-
-impl LazyIndex {
-    pub(crate) fn with<T>(
-        &mut self,
-        path: &Path,
-        read: impl FnOnce(&TasksIndex) -> Result<T, String>,
-    ) -> Result<T, (String, String)> {
-        if self.index.is_none() {
-            self.index = Some(TasksIndex::open(path).map_err(|error| {
-                // 结构化错误：Main/Renderer 可据此区分「未建库」「账本不符」。
-                ("TasksIndexUnavailable".to_owned(), error.to_string())
-            })?);
-        }
-        let index = self.index.as_ref().expect("index opened above");
-        read(index).map_err(|error| ("TasksIndexUnavailable".to_owned(), error))
-    }
-}
-
-/// 调用上下文：索引路径 + 懒句柄 + 参数。
-pub(crate) struct ReadContext {
-    pub(crate) path: PathBuf,
-    pub(crate) index: Arc<Mutex<LazyIndex>>,
-}
-
-impl ReadContext {
-    /// 在阻塞线程里取锁并执行一次索引读。
-    pub(crate) async fn run<T, F>(&self, read: F) -> Result<T, (String, String)>
-    where
-        T: Send + 'static,
-        F: FnOnce(&TasksIndex) -> Result<T, String> + Send + 'static,
-    {
-        let index = Arc::clone(&self.index);
-        let path = self.path.clone();
-        spawn_blocking_io(move || {
-            let mut guard = index.lock().map_err(|_| {
-                (
-                    "TasksIndexUnavailable".to_owned(),
-                    "tasks-index lock poisoned".to_owned(),
-                )
-            })?;
-            guard.with(&path, read)
-        })
-        .await
-    }
-}
-
 /// `escode-task` channel。`data_base_dir` 由 Main 经 `rpcListen` 提交；缺省时显式缺口。
-pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
+/// `runtime` 用于 `getTaskModelSelection` 这类需要读运行时会话状态的方法（TS 同样读运行时）。
+pub fn task_channel(data_base_dir: Option<PathBuf>, runtime: Option<RuntimeAccess>) -> Channel {
     let index = Arc::new(Mutex::new(LazyIndex::default()));
+    let targets = Arc::new(TaskTargets::new());
     let Some(data_base_dir) = data_base_dir else {
         let gap = "Host has no dataBaseDir: Main must pass dataBaseDir in rpcListen.";
         let missing = || {
@@ -110,6 +54,7 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
                 ("listArchivedTasks", missing()),
                 ("listTaskList", missing()),
                 ("listGroupedTaskViewStructure", missing()),
+                ("getTaskModelSelection", missing()),
             ],
         );
     };
@@ -119,6 +64,8 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         let context = ReadContext {
             path: path.clone(),
             index: Arc::clone(&index),
+            targets: Arc::clone(&targets),
+            runtime: runtime.clone(),
         };
         move |arg: Wire| {
             let params = first_object(arg);
@@ -146,14 +93,25 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
     });
 
     // 列表分区：同一份 SQL，只是过滤组合不同（与 TS 三个服务方法一一对应）。
-    let partition = |provider: bool, pinned: Option<bool>, archived: Option<bool>| {
+    // 闭包只借用下面的两个句柄副本（move 闭包不能直接借用外层的 Arc）。
+    let targets_for_partition = Arc::clone(&targets);
+    let runtime_for_partition = runtime.clone();
+    let path_for_partition = path.clone();
+    let index_for_partition = Arc::clone(&index);
+    let partition = move |provider: bool, pinned: Option<bool>, archived: Option<bool>| {
+        let targets = Arc::clone(&targets_for_partition);
+        let runtime = runtime_for_partition.clone();
         let context = ReadContext {
-            path: path.clone(),
-            index: Arc::clone(&index),
+            path: path_for_partition.clone(),
+            index: Arc::clone(&index_for_partition),
+            targets: Arc::clone(&targets),
+            runtime,
         };
         handler(move |arg: Wire| {
             let params = first_object(arg);
             let context = context_ref(&context);
+            // 每次调用克隆一次的 Arc（闭包是 Fn：不能把捕获的 Arc move 出去）。
+            let targets_for_read = Arc::clone(&targets);
             Box::pin(async move {
                 let workspace_path = workspace_path_of(&params);
                 let identity = workspace_identity_of(&params);
@@ -173,7 +131,12 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
                         };
                         index
                             .list_task_metas(&filters)
-                            .map(|metas| Wire::Array(metas.into_iter().map(Wire::Object).collect()))
+                            .map(|metas| {
+                                for meta in &metas {
+                                    remember_from_meta(&targets_for_read, meta);
+                                }
+                                Wire::Array(metas.into_iter().map(Wire::Object).collect())
+                            })
                             .map_err(|error| error.to_string())
                     })
                     .await
@@ -185,6 +148,8 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         let context = ReadContext {
             path: path.clone(),
             index: Arc::clone(&index),
+            targets: Arc::clone(&targets),
+            runtime: runtime.clone(),
         };
         move |arg: Wire| {
             let params = first_object(arg);
@@ -221,6 +186,8 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         let context = ReadContext {
             path: path.clone(),
             index: Arc::clone(&index),
+            targets: Arc::clone(&targets),
+            runtime: runtime.clone(),
         };
         handler(move |_arg: Wire| {
             let context = context_ref(&context);
@@ -260,10 +227,71 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
     let list_task_list = domains_task_query::list_task_list_handler(ReadContext {
         path: path.clone(),
         index: Arc::clone(&index),
+        targets: Arc::clone(&targets),
+        runtime: runtime.clone(),
     });
     let list_grouped_structure = domains_task_query::list_grouped_structure_handler(ReadContext {
-        path: path.clone(),
+        path,
         index: Arc::clone(&index),
+        targets: Arc::clone(&targets),
+        runtime: runtime.clone(),
+    });
+
+    // `getTaskModelSelection`：只有 `{taskId}` 入参 —— 注册表解析目标后读运行时会话的当前模型。
+    let get_task_model_selection = handler(move |arg: Wire| {
+        let params = first_object(arg);
+        let targets = Arc::clone(&targets);
+        let runtime = runtime.clone();
+        Box::pin(async move {
+            let task_id = params["taskId"].as_str().unwrap_or_default().to_owned();
+            if task_id.is_empty() {
+                return Err((
+                    "InvalidRequest".to_owned(),
+                    "taskId is required.".to_owned(),
+                ));
+            }
+            let target = targets.get(&task_id)?;
+            let Some(runtime) = runtime.as_ref() else {
+                return Err((
+                    "NotImplemented".to_owned(),
+                    "escode-task runtime access is not configured for this Host".to_owned(),
+                ));
+            };
+            let mut request = serde_json::json!({
+                "workspacePath": target.workspace_path,
+                "sessionId": task_id,
+            });
+            if let Some(identity) = target.workspace_identity.as_ref() {
+                request["workspaceIdentity"] = Value::String(identity.clone());
+            }
+            // TS `getTaskModelSelection`：直接读运行时 `session/read` 的 `settings.model.current`。
+            let answer = crate::forward::runtime_call(
+                &runtime.instances,
+                &runtime.options,
+                "session/read",
+                request,
+                crate::forward::Extract::Result,
+            )
+            .await?;
+            // `Extract::Result` 已把 `result` 解包成对象；服务面只回 `settings.model.current`。
+            let Wire::Object(answer) = answer else {
+                return Err((
+                    "Fatal".to_owned(),
+                    "session/read returned a non-object result".to_owned(),
+                ));
+            };
+            let current = answer
+                .get("settings")
+                .and_then(|settings| settings.get("model"))
+                .and_then(|model| model.get("current"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            Ok(if current.is_null() {
+                Wire::Undefined
+            } else {
+                Wire::Object(current)
+            })
+        })
     });
 
     let mut methods: Vec<(&'static str, crate::session::MethodHandler)> = vec![
@@ -276,43 +304,10 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         ("listDeletedTaskIds", list_deleted_task_ids),
         ("listTaskList", list_task_list),
         ("listGroupedTaskViewStructure", list_grouped_structure),
+        ("getTaskModelSelection", get_task_model_selection),
     ];
     methods.shrink_to_fit();
     Channel::new("escode-task", methods)
-}
-
-/// 参数取值：`workspacePath` 缺省为空串（`listPinnedTaskIds` 不传）。
-fn workspace_path_of(params: &Value) -> String {
-    params["workspacePath"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned()
-}
-
-/// `workspaceIdentity` 空白视同未提供（AGENTS.md Workspace Identity）。
-fn workspace_identity_of(params: &Value) -> Option<String> {
-    params["workspaceIdentity"]
-        .as_str()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_owned)
-}
-
-/// RPC 实参：`ProxyChannel.toService` 把 JS 实参打包成数组，取第一个并当对象用。
-pub(crate) fn first_object(arg: Wire) -> Value {
-    arg.into_args()
-        .into_iter()
-        .next()
-        .and_then(Wire::into_object)
-        .unwrap_or(Value::Null)
-}
-
-/// 借出上下文（闭包捕获需要 `'static`，这里只取字段的引用副本）。
-pub(crate) fn context_ref(context: &ReadContext) -> ReadContext {
-    ReadContext {
-        path: context.path.clone(),
-        index: Arc::clone(&context.index),
-    }
 }
 
 #[cfg(test)]

@@ -246,11 +246,16 @@ pub fn channels(
 ) -> Channels {
     let home_for_file = home.clone();
     let data_base_dir_for_task = data_base_dir.clone();
+    // 任务域与 session 域共用同一套实例表/装配工厂（同一 workspace 只会有一个实例）。
+    let task_runtime = crate::domains_task_support::RuntimeAccess {
+        instances: instances.clone(),
+        options: options.clone(),
+    };
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir),
-        crate::domains_task::task_channel(data_base_dir_for_task),
+        crate::domains_task::task_channel(data_base_dir_for_task, Some(task_runtime)),
         session_channel(instances, options),
     ])
 }

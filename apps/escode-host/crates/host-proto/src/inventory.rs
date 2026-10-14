@@ -236,6 +236,11 @@ pub const METHODS: &[Method] = &[
     },
     Method {
         channel: "escode-task",
+        method: "getTaskModelSelection",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
         method: "sendPrompt",
         state: State::Pending,
     },

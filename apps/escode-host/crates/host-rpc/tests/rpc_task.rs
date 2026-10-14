@@ -6,7 +6,7 @@ use support::*;
 use escode_host_services::tasks_index::schema::MIGRATED_DDL;
 
 /// 按 TS 迁移后的物理 DDL 建一个空库并写入一行任务。
-fn seed(data_base_dir: &std::path::Path, task_id: &str) -> std::path::PathBuf {
+fn seed(data_base_dir: &std::path::Path, workspace: &str, task_id: &str) -> std::path::PathBuf {
     let path = data_base_dir
         .join(".escode")
         .join("v2")
@@ -28,7 +28,7 @@ fn seed(data_base_dir: &std::path::Path, task_id: &str) -> std::path::PathBuf {
         "taskId": task_id,
         "traceId": format!("escode-{task_id}"),
         "title": "评审 Rust Host",
-        "workspacePath": "/w",
+        "workspacePath": workspace,
         "createdAt": 100,
         "updatedAt": 200,
         "mode": "build",
@@ -39,8 +39,13 @@ fn seed(data_base_dir: &std::path::Path, task_id: &str) -> std::path::PathBuf {
             "INSERT INTO tasks (
                workspace_key, workspace_path, task_id, title, mode, provider, created_at, updated_at,
                searchable_text, meta_json
-             ) VALUES ('/w', '/w', ?1, '列标题', 'build', 'glm', 100, 200, ?2, ?3)",
-            rusqlite::params![task_id, "评审 Rust Host 的迁移进度", meta.to_string()],
+             ) VALUES (?4, ?4, ?1, '列标题', 'build', 'glm', 100, 200, ?2, ?3)",
+            rusqlite::params![
+                task_id,
+                "评审 Rust Host 的迁移进度",
+                meta.to_string(),
+                workspace
+            ],
         )
         .unwrap();
     path
@@ -52,7 +57,10 @@ async fn get_task_meta_reads_the_shared_index() {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let data_base_dir = dir.path().join("data-base");
-    seed(&data_base_dir, "task_1");
+    let workspace_path = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace_path).unwrap();
+    let workspace = workspace_path.to_string_lossy().into_owned();
+    seed(&data_base_dir, &workspace, "task_1");
 
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
     let mut socket = connect(surface.addr, "/ws", None).await;
@@ -63,7 +71,7 @@ async fn get_task_meta_reads_the_shared_index() {
         "escode-task",
         "getTaskMeta",
         &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": "/w",
+            "workspacePath": workspace.clone(),
             "taskId": "task_1",
         }))]),
     )
@@ -74,7 +82,7 @@ async fn get_task_meta_reads_the_shared_index() {
         .expect("object");
     assert_eq!(meta["taskId"], "task_1");
     assert_eq!(meta["title"], "评审 Rust Host", "meta_json 优先于列");
-    assert_eq!(meta["workspacePath"], "/w");
+    assert_eq!(meta["workspacePath"], serde_json::json!(workspace));
     assert_eq!(meta["createdAt"], 100);
     assert_eq!(meta["titleOverridden"], false);
 
@@ -85,7 +93,7 @@ async fn get_task_meta_reads_the_shared_index() {
         "escode-task",
         "getTaskMeta",
         &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": "/w",
+            "workspacePath": workspace.clone(),
             "taskId": "task_missing",
         }))]),
     )
@@ -104,7 +112,7 @@ async fn get_task_meta_reads_the_shared_index() {
         &Wire::Array(vec![Wire::Object(serde_json::json!({
             "kind": "timeline",
             "sortBy": "updated",
-            "workspaceScopes": [{"workspacePath": "/w", "workspacePurpose": "project"}],
+            "workspaceScopes": [{"workspacePath": workspace.clone(), "workspacePurpose": "project"}],
         }))]),
     )
     .await;
@@ -123,7 +131,7 @@ async fn get_task_meta_reads_the_shared_index() {
         &Wire::Array(vec![Wire::Object(serde_json::json!({
             "kind": "timeline",
             "sortBy": "updated",
-            "workspaceScopes": [{"workspacePath": "/w"}],
+            "workspaceScopes": [{"workspacePath": workspace.clone()}],
             "search": "评审",
             "limit": 1,
         }))]),
@@ -148,7 +156,7 @@ async fn get_task_meta_reads_the_shared_index() {
         "escode-task",
         "listGroupedTaskViewStructure",
         &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspaceScopes": [{"workspacePath": "/w"}],
+            "workspaceScopes": [{"workspacePath": workspace.clone()}],
         }))]),
     )
     .await;
@@ -160,6 +168,64 @@ async fn get_task_meta_reads_the_shared_index() {
     assert!(
         structure["topLevelOrders"].as_array().is_some(),
         "{structure}"
+    );
+
+    // getTaskModelSelection：`{taskId}` 入参靠**任务目标注册表**解析 workspace。
+    // 1) 未注册的任务：TS 同款结构化错误（code + 文案）。
+    call(
+        &mut socket,
+        51,
+        "escode-task",
+        "getTaskModelSelection",
+        &Wire::Array(vec![Wire::Object(
+            serde_json::json!({"taskId": "task_never_seen"}),
+        )]),
+    )
+    .await;
+    let Wire::Object(error) = read_response(&mut socket, 51).await else {
+        panic!("error object")
+    };
+    assert_eq!(error["name"], "ESCODE_SESSION_TARGET_NOT_FOUND", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("target is not loaded: task_never_seen"),
+        "{error}"
+    );
+
+    // 2) 列表读登记目标后，调用被路由到该 workspace 的运行时会话读；
+    //    这里没有活跃会话，运行时按语义拒绝（证明注册表 → 运行时路由打通）。
+    call(
+        &mut socket,
+        52,
+        "escode-task",
+        "listTasks",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": workspace.clone(),
+        }))]),
+    )
+    .await;
+    let listed = read_response(&mut socket, 52).await;
+    assert!(matches!(listed, Wire::Array(_)), "列表读成功");
+    call(
+        &mut socket,
+        53,
+        "escode-task",
+        "getTaskModelSelection",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({"taskId": "task_1"}))]),
+    )
+    .await;
+    let Wire::Object(error) = read_response(&mut socket, 53).await else {
+        panic!("error object")
+    };
+    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Session"),
+        "运行时会话读的语义错误应透传: {error}"
     );
 
     // 未迁移方法：显式缺口（列出已实现的方法）。
