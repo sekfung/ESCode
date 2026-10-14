@@ -5,7 +5,9 @@ use tokio::sync::mpsc;
 pub mod link;
 pub mod stdio;
 mod stdio_input;
-pub use link::{EmbeddedIo, Link, MemoryLink, StdioLink, Streams};
+pub use link::{
+    EmbeddedIo, EmbeddedIoReader, EmbeddedIoWriter, Link, MemoryLink, StdioLink, Streams,
+};
 pub use stdio::{finish, start_io, storage_prepare};
 
 /// App Server projection over the shared core runtime. Framing stays in

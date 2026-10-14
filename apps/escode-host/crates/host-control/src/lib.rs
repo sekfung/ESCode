@@ -7,17 +7,47 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-/// 控制消息（Main↔Host）。
+/// 一个 workspace 的装配描述（Main 提交；Host 据此建实例，业务事实不从 Host env 推断）。
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceDescriptor {
+    /// Host 提交的 workspace 路径（不 realpath，提示词与身份用它）。
+    pub path: String,
+    /// 远程/显式身份（缺省按路径，AGENTS.md Workspace Identity）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<String>,
+}
+
+/// 控制消息（Main↔Host）。方向按变体语义：`WindowRequest` 为 Main→Host，
+/// `WindowAttached` / `WindowFrame` 为 Host→Main（u2a 的 Host 内协议；Renderer 直连的
+/// WebSocket surface 在其上叠加，见 u2 子 spec §3.4）。
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ControlMessage {
     /// Main→Host：窗口接入（window→Host attachment）。
     WindowAttach {
         window_id: String,
         client_id: String,
+        workspace: WorkspaceDescriptor,
     },
+    /// Host→Main：接入完成（含该 workspace 的实例代次）。
+    WindowAttached { window_id: String, generation: u64 },
+    /// Main→Host：转发一条 Renderer 请求行（NDJSON）。
+    WindowRequest { window_id: String, line: String },
+    /// Host→Main：转发一条 runtime 出站帧（NDJSON）。
+    WindowFrame { window_id: String, line: String },
     /// Main→Host：窗口断开（Host 保留 runtime；attachment 只是视图）。
     WindowDetach { window_id: String },
+    /// Host→Main：窗口断开完成（若该实例已无 attachment，代次仍在，仅记录）。
+    WindowDetached { window_id: String },
     /// Host→Main：实例就绪（含协议版本与 workspace 数量，供 Main 日志与健康检查）。
     HostReady {
         protocol_version: u32,
@@ -31,6 +61,10 @@ pub enum ControlMessage {
         level: LogLevel,
         lines: Vec<String>,
     },
+    /// Host→Main：请求失败（结构化 code，Main 据此决定重试或回退 Node Host）。
+    Failed { error: ControlError },
+    /// Host→Main：收口完成（残余任务/进程清单；空 = 干净退出）。
+    Stopped { residual: Vec<String> },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

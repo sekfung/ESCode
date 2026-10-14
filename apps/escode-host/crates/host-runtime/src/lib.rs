@@ -44,10 +44,14 @@ pub struct Instances {
 }
 
 /// 一个已启动的运行时实例：链路 + 世代 + 收口句柄。
+/// 读端与写端各持一把锁（帧泵长期持读锁，写请求不能被它阻塞）；
+/// 生命周期（存活/收口）在第三把同步锁下，与读写互不等待。
 pub struct Instance {
     pub identity: String,
     pub generation: u64,
-    runtime: AsyncMutex<RuntimeLink>,
+    reader: tokio::sync::Mutex<link::RuntimeReader>,
+    writer: tokio::sync::Mutex<link::RuntimeWriter>,
+    lifecycle: tokio::sync::Mutex<link::Lifecycle>,
 }
 
 impl Instances {
@@ -111,10 +115,17 @@ impl Instances {
                 return Err(error);
             }
         };
+        let link::RuntimeLink {
+            reader,
+            writer,
+            lifecycle,
+        } = runtime;
         let instance = Arc::new(Instance {
             identity: identity.to_owned(),
             generation,
-            runtime: AsyncMutex::new(runtime),
+            reader: tokio::sync::Mutex::new(reader),
+            writer: tokio::sync::Mutex::new(writer),
+            lifecycle: tokio::sync::Mutex::new(lifecycle),
         });
         if let Some(slot) = self.lock().slots.get_mut(identity) {
             slot.instance = Some(Arc::clone(&instance));
@@ -199,32 +210,30 @@ impl Instances {
 }
 
 impl Instance {
-    /// 实例是否仍在运行。锁被占用（有请求在飞）时按存活处理：真正的关闭
-    /// 会在下一次 send/line 上暴露，这里不做阻塞判定也不 panic。
+    /// 实例是否仍在运行。同步判定：生命周期锁在收口/等待期间被持有，
+    /// 此时按存活处理（真正的关闭会在下一次读写上暴露）。
     pub fn is_alive(&self) -> bool {
-        match self.runtime.try_lock() {
-            Ok(runtime) => runtime.is_alive(),
+        match self.lifecycle.try_lock() {
+            Ok(lifecycle) => lifecycle.is_alive(),
             Err(_) => true,
         }
     }
 
-    /// 写入一行请求帧。
+    /// 写入一行请求帧（只竞争写锁）。
     pub async fn send_line(&self, line: &str) -> Result<()> {
-        self.runtime.lock().await.send_line(line).await
+        self.writer.lock().await.send_line(line).await
     }
 
-    /// 读一行出站帧。
+    /// 读一行出站帧（只竞争读锁；帧泵独占读端）。
     pub async fn line(&self) -> Option<String> {
-        self.runtime.lock().await.line().await
+        self.reader.lock().await.line().await
     }
 
     /// 请求收口并等待（宽限内）。
     pub async fn shutdown(&self, grace: std::time::Duration) -> Vec<String> {
-        let mut runtime = self.runtime.lock().await;
-        if let Err(error) = runtime.cancel().await {
-            return vec![format!("{}: {error}", self.identity)];
-        }
-        match runtime.wait(grace).await {
+        let mut lifecycle = self.lifecycle.lock().await;
+        lifecycle.cancel();
+        match lifecycle.wait(grace).await {
             Ok(residual) => residual,
             Err(error) => vec![format!("{}: {error}", self.identity)],
         }

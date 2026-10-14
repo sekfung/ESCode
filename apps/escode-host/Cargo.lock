@@ -761,6 +761,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "escode-host"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "escode-cli-core-api",
+ "escode-cli-rust",
+ "escode-host-control",
+ "escode-host-runtime",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "escode-host-control"
 version = "0.1.0"
 dependencies = [

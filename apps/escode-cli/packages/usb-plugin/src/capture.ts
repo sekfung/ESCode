@@ -8,6 +8,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, readFile, rename, stat, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { selectCaptureBackend } from "./backends.js";
 import { readCaptureData } from "./pcap/pcapng.js";
 import type { ProbeCapture } from "./probe.js";
 
@@ -81,7 +82,10 @@ function resolveOutputPath(input: {
   return join(input.pluginData, "captures", name);
 }
 
-function pickBus(request: CaptureRequest, probe: ProbeCapture): { bus: number; notes: string[] } {
+function pickBus(
+  request: CaptureRequest,
+  offline: Pick<ProbeCapture, "interfaces" | "reason" | "remediation">,
+): { bus: number; notes: string[] } {
   if (request.bus !== undefined) return { bus: request.bus, notes: [] };
   if (request.busDev) {
     const bus = Number.parseInt(request.busDev.split("-")[0] ?? "", 10);
@@ -89,7 +93,7 @@ function pickBus(request: CaptureRequest, probe: ProbeCapture): { bus: number; n
       return { bus, notes: [`按 busDev=${request.busDev} 推导总线号 ${bus}：抓的仍是整条总线，过滤在解码期做。`] };
     }
   }
-  const candidates = probe.interfaces.filter((entry) => entry.bus !== undefined);
+  const candidates = offline.interfaces.filter((entry) => entry.bus !== undefined);
   const only = candidates.length === 1 ? candidates[0] : undefined;
   if (only?.bus !== undefined) {
     return { bus: only.bus, notes: [`未指定总线：使用唯一的候选 ${only.label}。`] };
@@ -141,6 +145,120 @@ async function countRecords(path: string): Promise<{ packets: number; bytes: num
   return { packets, bytes: data.byteLength };
 }
 
+/** 自研抓包器（builtin 后端）：它自己写 `.partial` 并在正常收尾时改名成最终文件。 */
+async function runBuiltinCapture(input: {
+  helper: string;
+  request: CaptureRequest;
+  bus: number;
+  busDev?: string;
+  outputPath: string;
+  signal: AbortSignal;
+  notes: string[];
+}): Promise<CaptureOutcome> {
+  const args = [
+    "--bus",
+    String(input.bus),
+    "--duration-ms",
+    String(input.request.durationMs),
+    "--max-bytes",
+    String(input.request.maxBytes),
+    "--output",
+    input.outputPath,
+  ];
+  const child = spawn(input.helper, args, {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+    if (stderr.length > 8192) stderr = stderr.slice(-8192);
+  });
+
+  const aborted = new Promise<never>((_, reject) => {
+    const onAbort = (): void => {
+      killChild(child);
+      reject(new CaptureError("io", "抓包被取消（工具调用中止或 MCP 连接断开）"));
+    };
+    if (input.signal.aborted) onAbort();
+    else input.signal.addEventListener("abort", onAbort, { once: true });
+  });
+  const timeout = setTimeout(() => {
+    // 自研抓包器自己按 duration-ms 收尾；这里只是兜底，防止它卡住不退出。
+    killChild(child);
+  }, input.request.durationMs + 5000);
+
+  const exitCode = await Promise.race([
+    new Promise<number | null>((resolveExit) => {
+      child.once("close", (code) => resolveExit(code));
+      child.once("error", (error) => {
+        stderr += error.message;
+        resolveExit(-1);
+      });
+    }),
+    aborted,
+  ]).finally(() => clearTimeout(timeout));
+
+  // 契约是「恒为一行 JSON」，取最后一行：途中可能有诊断输出。
+  const line = stdout.trim().split("\n").filter(Boolean).pop();
+  let payload: Record<string, unknown> | undefined;
+  if (line) {
+    try {
+      payload = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      payload = undefined;
+    }
+  }
+  const notes = [...input.notes];
+  if (payload?.ok === true) {
+    if (typeof payload.dropped === "number" && payload.dropped > 0) {
+      notes.push(`抓包器报告丢弃 ${payload.dropped} 个事件（usbmon 环形缓冲溢出）：结论要按「可能缺报文」来读。`);
+    }
+    if (typeof payload.skippedIsochronous === "number" && payload.skippedIsochronous > 0) {
+      notes.push(`跳过 ${payload.skippedIsochronous} 个等时传输事件（不在解码范围内）。`);
+    }
+    const counted = await countRecords(input.outputPath);
+    const stoppedBy =
+      payload.stoppedBy === "maxBytes" || payload.stoppedBy === "signal"
+        ? payload.stoppedBy
+        : "duration";
+    return {
+      path: input.outputPath,
+      bytes: typeof payload.bytes === "number" ? payload.bytes : counted.bytes,
+      packets: typeof payload.packets === "number" ? payload.packets : counted.packets,
+      stoppedBy,
+      backend: "builtin",
+      target: { bus: input.bus, ...(input.busDev ? { busDev: input.busDev } : {}) },
+      notes,
+    };
+  }
+
+  // 失败：优先用 helper 自报的错误码与 remediation（它比我们更清楚缺哪一步权限）。
+  const error = (payload?.error ?? undefined) as Record<string, unknown> | undefined;
+  const code =
+    error?.code === "permission" || error?.code === "no-interface" || error?.code === "busy"
+      ? error.code
+      : error?.code === "invalidInput"
+        ? "invalidInput"
+        : "io";
+  const partialNote = await stat(`${input.outputPath}.partial`)
+    .then(() => `已保留部分文件：${input.outputPath}.partial（可先用 usb_decode 分析已抓到的部分）。`)
+    .catch(() => undefined);
+  throw new CaptureError(
+    code === "no-interface" ? "invalidInput" : code,
+    typeof error?.message === "string"
+      ? error.message
+      : `抓包器失败（退出码 ${exitCode ?? "?"}）：${(stderr.trim() || "无输出").split("\n").slice(-2).join(" | ")}`,
+    [typeof error?.remediation === "string" ? error.remediation : undefined, partialNote]
+      .filter(Boolean)
+      .join("\n") || undefined,
+  );
+}
+
 export async function runCapture(input: {
   request: CaptureRequest;
   probe: ProbeCapture;
@@ -155,30 +273,59 @@ export async function runCapture(input: {
   if (request.maxBytes > CAPTURE_MAX_BYTES || request.maxBytes < 1) {
     throw new CaptureError("invalidInput", `maxBytes 必须在 1–${CAPTURE_MAX_BYTES} 之间`);
   }
-  if (!probe.available || probe.backend === "none" || !probe.command) {
+  const selection = selectCaptureBackend({
+    ...(probe.preferred ? { preferred: probe.preferred } : {}),
+    backends: probe.backends,
+  });
+  if (!selection.backend) {
+    const failure = selection.failure;
     throw new CaptureError(
       "unavailable",
-      probe.reason ?? "本机没有可用的 USB 抓包后端。",
-      probe.remediation,
+      failure?.reason ?? probe.reason ?? "本机没有可用的 USB 抓包后端。",
+      failure?.remediation ?? probe.remediation,
     );
   }
-  const { bus, notes } = pickBus(request, probe);
+  const activeBackend = selection.backend;
+  const { bus, notes } = pickBus(request, {
+    interfaces: activeBackend.interfaces,
+    reason: activeBackend.reason,
+    remediation: activeBackend.remediation,
+  });
   const outputPath = resolveOutputPath({
     request,
     workspace: input.workspace,
     pluginData: input.pluginData,
   });
-  const partialPath = `${outputPath}.partial`;
-  const jobKey = `${probe.backend}:${bus}`;
+  const jobKey = `${activeBackend.id}:${bus}`;
   if (activeCaptures.has(jobKey)) {
     throw new CaptureError(
       "busy",
       `同一条总线（${bus}）上已经有一次抓包在进行中。`,
-      "等它结束后重试；Windows 的 USBPcap 驱动同一控制设备不允许两个读者。",
+      "等它结束后重试；不同总线可以并发抓包。",
     );
   }
 
   await mkdir(dirname(outputPath), { recursive: true });
+  // builtin 后端自己负责 .partial 与改名；dumpcap 路径由这里改名。
+  if (activeBackend.id === "builtin" && activeBackend.command) {
+    activeCaptures.add(jobKey);
+    try {
+      if (input.signal.aborted) throw new CaptureError("io", "调用在开始抓包前被取消");
+      return await runBuiltinCapture({
+        helper: activeBackend.command,
+        request,
+        bus,
+        ...(request.busDev ? { busDev: request.busDev } : {}),
+        outputPath,
+        signal: input.signal,
+        notes,
+      });
+    } finally {
+      activeCaptures.delete(jobKey);
+    }
+  }
+
+  const partialPath = `${outputPath}.partial`;
   activeCaptures.add(jobKey);
   let child: ChildProcess | undefined;
   /** 由定时器、体积监视或取消回调写入；dumpcap 自己按 -a duration 收尾时保持未设置。 */
@@ -188,22 +335,24 @@ export async function runCapture(input: {
     if (input.signal.aborted) throw new CaptureError("io", "调用在开始抓包前被取消");
 
     const durationSeconds = Math.max(1, Math.ceil(request.durationMs / 1000));
-    const args =
-      probe.backend === "dumpcap"
-        ? [
-            "-i",
-            `usbmon${bus}`,
-            "-a",
-            `duration:${durationSeconds}`,
-            "-a",
-            `filesize:${Math.max(1, Math.ceil(request.maxBytes / 1024))}`,
-            "-q",
-            "-w",
-            partialPath,
-          ]
-        : ["-d", `\\\\.\\USBPcap${bus}`, "-o", partialPath];
+    // dumpcap 用 -a 自己收尾，USBPcapCMD 没有时长参数、只能由我们终止；两者参数不同。
+    const isDumpcap = activeBackend.id === "dumpcap" && !(activeBackend.command ?? "").includes("USBPcapCMD");
+    const command = activeBackend.command ?? "";
+    const args = isDumpcap
+      ? [
+          "-i",
+          `usbmon${bus}`,
+          "-a",
+          `duration:${durationSeconds}`,
+          "-a",
+          `filesize:${Math.max(1, Math.ceil(request.maxBytes / 1024))}`,
+          "-q",
+          "-w",
+          partialPath,
+        ]
+      : ["-d", `\\\\.\\USBPcap${bus}`, "-o", partialPath];
 
-    child = spawn(probe.command, args, { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
+    child = spawn(command, args, { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     child.stderr?.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
@@ -215,10 +364,10 @@ export async function runCapture(input: {
       // dumpcap 自己按 -a duration 收尾；这个兜底主要给 USBPcapCMD（没有时长参数）。
       stopReason = "duration";
       killChild(child);
-    }, request.durationMs + (probe.backend === "dumpcap" ? 4000 : 200));
-    const sizeMonitor =
-      probe.backend === "usbpcap"
-        ? setInterval(() => {
+    }, request.durationMs + (isDumpcap ? 4000 : 200));
+    const sizeMonitor = isDumpcap
+      ? undefined
+      : setInterval(() => {
             void stat(partialPath)
               .then((info) => {
                 if (info.size >= request.maxBytes) {
@@ -227,8 +376,7 @@ export async function runCapture(input: {
                 }
               })
               .catch(() => undefined);
-          }, 500)
-        : undefined;
+          }, 500);
 
     const aborted = new Promise<never>((_, reject) => {
       const onAbort = (): void => {
@@ -260,7 +408,7 @@ export async function runCapture(input: {
     const hasData = (partialInfo?.size ?? 0) > 24;
     if ((exitCode ?? 0) !== 0 && !hasData && stopReason !== "signal") {
       await unlink(partialPath).catch(() => undefined);
-      throw classifyFailure(stderr, probe.command);
+      throw classifyFailure(stderr, activeBackend.command ?? "dumpcap");
     }
     if (stderr.trim()) notesOut.push(`抓包工具输出：${stderr.trim().split("\n").slice(-3).join(" | ")}`);
     await rename(partialPath, outputPath);
@@ -276,7 +424,7 @@ export async function runCapture(input: {
       bytes: counted.bytes,
       packets: counted.packets,
       stoppedBy: stopReason ?? "duration",
-      backend: probe.backend,
+      backend: activeBackend.id,
       target: { bus, ...(request.busDev ? { busDev: request.busDev } : {}) },
       notes: notesOut,
     };

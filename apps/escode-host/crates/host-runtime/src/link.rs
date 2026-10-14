@@ -22,26 +22,39 @@ pub enum Link {
     Child { binary: PathBuf },
 }
 
-/// 一条已打开的 runtime 链路。
-/// 两个变体的体量差异大（embedded 持有句柄束），装箱对齐尺寸。
-pub enum RuntimeLink {
+/// 一条已打开的 runtime 链路。读端由帧泵独占，写端可并发（读不阻塞写）。
+pub struct RuntimeLink {
+    pub reader: RuntimeReader,
+    pub writer: RuntimeWriter,
+    pub lifecycle: Lifecycle,
+}
+
+pub enum RuntimeReader {
+    Embedded(escode_cli_app_server::EmbeddedIoReader),
+    Child(BufReader<tokio::process::ChildStdout>),
+}
+
+pub enum RuntimeWriter {
+    Embedded(escode_cli_app_server::EmbeddedIoWriter),
+    Child(tokio::process::ChildStdin),
+}
+
+/// 链路的生命周期句柄（存活判定与收口）。
+pub enum Lifecycle {
     Embedded(Box<EmbeddedRuntime>),
     Child(Box<ChildRuntime>),
 }
 
-/// child 链路的句柄束（子进程 + 双向管道）。
-pub struct ChildRuntime {
-    child: Child,
-    stdin: tokio::process::ChildStdin,
-    stdout: BufReader<tokio::process::ChildStdout>,
-}
-
 /// embedded 链路的句柄束（实例任务、取消令牌、残余账目）。
 pub struct EmbeddedRuntime {
-    io: escode_cli_app_server::EmbeddedIo,
     task: tokio::task::JoinHandle<Result<()>>,
     cancel: CancellationToken,
     tasks: std::sync::Arc<escode_cli_core_api::scope::Spawner>,
+}
+
+/// child 链路的句柄束（子进程）。
+pub struct ChildRuntime {
+    child: Child,
 }
 
 impl RuntimeLink {
@@ -50,12 +63,16 @@ impl RuntimeLink {
         match link {
             Link::Embedded => {
                 let embedded = embed::spawn(options);
-                Ok(Self::Embedded(Box::new(EmbeddedRuntime {
-                    io: embedded.io,
-                    task: embedded.task,
-                    cancel: embedded.cancel,
-                    tasks: embedded.tasks,
-                })))
+                let (reader, writer) = embedded.io.split();
+                Ok(Self {
+                    reader: RuntimeReader::Embedded(reader),
+                    writer: RuntimeWriter::Embedded(writer),
+                    lifecycle: Lifecycle::Embedded(Box::new(EmbeddedRuntime {
+                        task: embedded.task,
+                        cancel: embedded.cancel,
+                        tasks: embedded.tasks,
+                    })),
+                })
             }
             Link::Child { binary } => {
                 let mut command = tokio::process::Command::new(binary);
@@ -91,15 +108,17 @@ impl RuntimeLink {
                     .stdout
                     .take()
                     .context("Runtime child stdout missing")?;
-                Ok(Self::Child(Box::new(ChildRuntime {
-                    child,
-                    stdin,
-                    stdout: BufReader::new(stdout),
-                })))
+                Ok(Self {
+                    reader: RuntimeReader::Child(BufReader::new(stdout)),
+                    writer: RuntimeWriter::Child(stdin),
+                    lifecycle: Lifecycle::Child(Box::new(ChildRuntime { child })),
+                })
             }
         }
     }
+}
 
+impl RuntimeWriter {
     /// 写入一行请求（缺换行自动补）。
     pub async fn send_line(&mut self, line: &str) -> Result<()> {
         let mut bytes = line.as_bytes().to_vec();
@@ -107,39 +126,45 @@ impl RuntimeLink {
             bytes.push(b'\n');
         }
         match self {
-            Self::Embedded(runtime) => {
-                runtime.io.send_line(bytes).await;
+            Self::Embedded(writer) => {
+                writer.send_line(bytes).await;
                 Ok(())
             }
-            Self::Child(runtime) => {
-                runtime
-                    .stdin
+            Self::Child(stdin) => {
+                stdin
                     .write_all(&bytes)
                     .await
                     .context("Runtime child stdin closed")?;
-                runtime
-                    .stdin
-                    .flush()
-                    .await
-                    .context("Runtime child flush failed")
+                stdin.flush().await.context("Runtime child flush failed")
             }
         }
     }
+}
 
+impl RuntimeReader {
     /// 读一行出站帧（含换行）；None = 链路关闭。
     pub async fn line(&mut self) -> Option<String> {
         match self {
-            Self::Embedded(runtime) => {
-                let bytes = runtime.io.line().await?;
+            Self::Embedded(reader) => {
+                let bytes: Vec<u8> = reader.line().await?;
                 Some(String::from_utf8_lossy(&bytes).into_owned())
             }
-            Self::Child(runtime) => {
+            Self::Child(stdout) => {
                 let mut line = String::new();
-                match runtime.stdout.read_line(&mut line).await {
+                match stdout.read_line(&mut line).await {
                     Ok(0) | Err(_) => None,
                     Ok(_) => Some(line),
                 }
             }
+        }
+    }
+}
+
+impl Lifecycle {
+    /// 请求终止 child 进程（embedded 用取消令牌）。
+    pub fn start_kill(&mut self) {
+        if let Self::Child(runtime) = self {
+            let _ = runtime.child.start_kill();
         }
     }
 
@@ -151,18 +176,11 @@ impl RuntimeLink {
         }
     }
 
-    /// 请求收口：embedded 走 cancel（与 SIGTERM 同路径）；child 先关 stdin 再终止进程。
-    pub async fn cancel(&mut self) -> Result<()> {
+    /// 请求收口：embedded 走 cancel（与 SIGTERM 同路径）；child 终止进程。
+    pub fn cancel(&mut self) {
         match self {
-            Self::Embedded(runtime) => {
-                runtime.cancel.cancel();
-                Ok(())
-            }
-            Self::Child(runtime) => {
-                // 关 stdin = Host 关闭输入（与 embedded 的 drop(io) 同语义），再由调用方终止进程。
-                let _ = runtime.child.start_kill();
-                Ok(())
-            }
+            Self::Embedded(runtime) => runtime.cancel.cancel(),
+            Self::Child(_) => self.start_kill(),
         }
     }
 

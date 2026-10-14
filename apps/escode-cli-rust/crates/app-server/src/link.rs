@@ -57,7 +57,57 @@ pub struct EmbeddedIo {
     pending: Vec<u8>,
 }
 
+/// 嵌入链路按读写拆开（Host 的帧泵长期持有读端，写端必须能并发进请求）。
+pub struct EmbeddedIoReader {
+    outbound: mpsc::Receiver<Vec<u8>>,
+    pending: Vec<u8>,
+}
+
+pub struct EmbeddedIoWriter {
+    inbound: mpsc::Sender<Vec<u8>>,
+}
+
+impl EmbeddedIoReader {
+    /// 接收一行出站 NDJSON（含结尾换行）；None = 实例 output 已关闭。
+    pub async fn line(&mut self) -> Option<Vec<u8>> {
+        loop {
+            if let Some(end) = self.pending.iter().position(|b| *b == b'\n') {
+                let rest = self.pending.split_off(end + 1);
+                return Some(std::mem::replace(&mut self.pending, rest));
+            }
+            match self.outbound.recv().await {
+                Some(chunk) => self.pending.extend(chunk),
+                None => return None,
+            }
+        }
+    }
+}
+
+impl EmbeddedIoWriter {
+    /// 发送一行 NDJSON（含或不含结尾换行均可）；实例已收口时丢弃（与写 stdin 到已退出进程一致）。
+    pub async fn send_line(&self, line: impl AsRef<[u8]>) {
+        let mut bytes = line.as_ref().to_vec();
+        if bytes.last() != Some(&b'\n') {
+            bytes.push(b'\n');
+        }
+        let _ = self.inbound.send(bytes).await;
+    }
+}
+
 impl EmbeddedIo {
+    /// 拆成读写两端：读端可被单个泵独占，写端可并发使用。
+    pub fn split(self) -> (EmbeddedIoReader, EmbeddedIoWriter) {
+        (
+            EmbeddedIoReader {
+                outbound: self.outbound,
+                pending: self.pending,
+            },
+            EmbeddedIoWriter {
+                inbound: self.inbound,
+            },
+        )
+    }
+
     /// 发送一行 NDJSON（含或不含结尾换行均可；帧上限与 stdio 同一检查）。
     pub async fn send_line(&self, line: impl AsRef<[u8]>) {
         let mut bytes = line.as_ref().to_vec();

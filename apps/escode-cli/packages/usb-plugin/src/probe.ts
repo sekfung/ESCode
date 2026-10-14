@@ -5,11 +5,16 @@
  * 接了哪些设备、已经有哪些抓包文件。任何提权动作都不在这里做——把命令告诉用户，让他自己决定。
  */
 
-import { access, readdir, readFile, stat } from "node:fs/promises";
-import { constants } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import {
+  resolveCaptureBackends,
+  type CaptureBackendId,
+  type CaptureBackendStatus,
+  type CaptureInterfaceRef,
+} from "./backends.js";
 import { interfaceClassName, protocolsForInterfaceClass, type ProtocolName } from "./types.js";
 
 const run = promisify(execFile);
@@ -29,14 +34,17 @@ export interface ProbeDevice {
   addressNote?: string;
 }
 
+/** 顶层字段取自**首选**后端，便于调用方直接展示；完整候选在 `backends` 里。 */
 export interface ProbeCapture {
   available: boolean;
-  backend: "dumpcap" | "usbpcap" | "none";
+  backend: CaptureBackendId | "none";
+  preferred?: CaptureBackendId;
   command?: string;
-  interfaces: Array<{ id: string; bus?: number; label: string }>;
+  interfaces: CaptureInterfaceRef[];
   privilege: "ok" | "denied" | "unknown";
   reason?: string;
   remediation?: string;
+  backends: CaptureBackendStatus[];
 }
 
 export interface ProbeResult {
@@ -53,123 +61,8 @@ export interface ProbeInput {
   pluginData: string;
 }
 
-async function isExecutable(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** 抓包后端探测已移到 backends.ts（builtin 优先、dumpcap 回退）；这里只做环境清单。 */
 
-async function which(command: string, env: Record<string, string | undefined>): Promise<string | undefined> {
-  const pathValue = env.PATH ?? "";
-  for (const dir of pathValue.split(":")) {
-    if (!dir) continue;
-    const candidate = join(dir, command);
-    if (await isExecutable(candidate)) return candidate;
-  }
-  return undefined;
-}
-
-/** dumpcap 需要 cap_net_raw + cap_net_admin（或 wireshark 组、或 root）才能打开 usbmon。 */
-async function probeDumpcap(
-  command: string,
-): Promise<Pick<ProbeCapture, "interfaces" | "privilege" | "reason" | "remediation">> {
-  let interfaces: ProbeCapture["interfaces"] = [];
-  try {
-    const { stdout } = await run(command, ["-D"], { timeout: PROBE_TIMEOUT_MS });
-    interfaces = stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.includes("usbmon"))
-      .map((line) => {
-        const match = /^(\d+)\.\s+(\S+)/u.exec(line);
-        const id = match?.[2] ?? line;
-        const bus = /usbmon(\d+)/u.exec(id)?.[1];
-        return { id, label: line, ...(bus ? { bus: Number(bus) } : {}) };
-      });
-  } catch (error) {
-    return {
-      interfaces,
-      privilege: "unknown",
-      reason: `dumpcap -D 执行失败：${error instanceof Error ? error.message : String(error)}`,
-      remediation: `确认 ${command} 可用，然后重新运行 usb_probe。`,
-    };
-  }
-  if (interfaces.length === 0) {
-    return {
-      interfaces,
-      privilege: "denied",
-      reason: "dumpcap 没有列出任何 usbmon 接口。",
-      remediation:
-        "加载 usbmon 内核模块后重试：`sudo modprobe usbmon`。" +
-        "容器里通常没有 usbmon，需要在宿主机抓包后把 pcapng 交给 usb_decode。",
-    };
-  }
-  let privileged = process.getuid?.() === 0;
-  if (!privileged) {
-    try {
-      const { stdout } = await run("getcap", [command], { timeout: PROBE_TIMEOUT_MS });
-      privileged = /cap_net_(raw|admin)/u.test(stdout);
-    } catch {
-      privileged = false;
-    }
-  }
-  if (!privileged) {
-    try {
-      const { stdout } = await run("id", ["-nG"], { timeout: PROBE_TIMEOUT_MS });
-      privileged = stdout.split(/\s+/u).includes("wireshark");
-    } catch {
-      privileged = false;
-    }
-  }
-  if (privileged) return { interfaces, privilege: "ok" };
-  return {
-    interfaces,
-    privilege: "denied",
-    reason: "dumpcap 存在，但当前用户没有抓包权限（需要 CAP_NET_RAW/CAP_NET_ADMIN 或 wireshark 组成员）。",
-    remediation:
-      `授予能力：sudo setcap cap_net_raw,cap_net_admin+eip ${command}` +
-      "；或把用户加入 wireshark 组后重新登录。完成后重试 usb_probe。",
-  };
-}
-
-async function probeUsbpcap(
-  command: string,
-): Promise<Pick<ProbeCapture, "interfaces" | "privilege" | "reason" | "remediation">> {
-  try {
-    const { stdout } = await run(command, ["--extcap-interfaces"], { timeout: PROBE_TIMEOUT_MS });
-    const interfaces = stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith("value") && line.includes("usbcap"))
-      .map((line) => {
-        const parts = line.split(",");
-        const label = parts.find((part) => part.startsWith("{name=")) ?? "";
-        const id = parts[parts.length - 1] ?? "";
-        const bus = /usbcap(\d+)/iu.exec(id)?.[1];
-        return {
-          id,
-          label: `${id} ${label.replace(/[{}]/gu, "")}`,
-          ...(bus ? { bus: Number(bus) } : {}),
-        };
-      });
-    if (interfaces.length > 0) return { interfaces, privilege: "unknown" };
-  } catch {
-    // 走兜底：USBPcapCMD 的 extcap 协议不可用时，至少给出控制设备命名约定。
-  }
-  return {
-    interfaces: Array.from({ length: 4 }, (_, index) => ({
-      id: `\\\\.\\USBPcap${index + 1}`,
-      label: `\\\\.\\USBPcap${index + 1}（未能枚举，按控制设备编号约定候选）`,
-      bus: index + 1,
-    })),
-    privilege: "unknown",
-    reason: "USBPcapCMD 存在，但无法确认驱动是否已安装、当前是否以管理员身份运行。",
-    remediation: "以管理员身份运行 ESCode，或先单独执行 `USBPcapCMD.exe --extcap-interfaces` 确认驱动可用。",
-  };
-}
 
 /** Linux：/sys/bus/usb/devices 不需要特权，接口类目都在这里。 */
 async function probeLinuxDevices(): Promise<ProbeDevice[]> {
@@ -325,99 +218,44 @@ export async function listCaptureFiles(input: {
 export async function probeEnvironment(input: ProbeInput): Promise<ProbeResult> {
   const notes: string[] = [];
   const platform = process.platform;
-  const configuredDumpcap = input.env.USB_PLUGIN_DUMPCAP_PATH?.trim();
-  const configuredUsbpcap = input.env.USB_PLUGIN_USBPCAP_CMD_PATH?.trim();
-
-  let capture: ProbeCapture = {
-    available: false,
-    backend: "none",
-    interfaces: [],
-    privilege: "unknown",
+  const backends = await resolveCaptureBackends({ env: input.env, platform });
+  const preferred = backends.backends.find((backend) => backend.id === backends.preferred);
+  const capture: ProbeCapture = {
+    available: preferred !== undefined,
+    backend: preferred?.id ?? "none",
+    ...(backends.preferred ? { preferred: backends.preferred } : {}),
+    // 顶层字段取自首选后端；多个候选的完整状态都在 backends 里。
+    interfaces: preferred?.interfaces ?? [],
+    privilege: preferred?.privilege ?? "unknown",
+    ...(preferred?.command ? { command: preferred.command } : {}),
+    ...(preferred?.reason ? { reason: preferred.reason } : {}),
+    ...(preferred?.remediation ? { remediation: preferred.remediation } : {}),
+    backends: backends.backends,
   };
-  if (platform === "linux") {
-    const command =
-      (configuredDumpcap && (await isExecutable(configuredDumpcap)) ? configuredDumpcap : undefined) ??
-      (await which("dumpcap", input.env));
-    if (command) {
-      const details = await probeDumpcap(command);
-      capture = {
-        available: details.interfaces.length > 0,
-        backend: "dumpcap",
-        command,
-        interfaces: details.interfaces,
-        privilege: details.privilege,
-        ...(details.reason ? { reason: details.reason } : {}),
-        ...(details.remediation ? { remediation: details.remediation } : {}),
-      };
-    } else {
-      capture = {
+  if (platform === "darwin") {
+    // macOS 是明确的例外：没有后端，也没有「装点什么就能抓」的路径。
+    capture.backends = [
+      {
+        id: "builtin",
         available: false,
-        backend: "none",
-        interfaces: [],
         privilege: "unknown",
-        reason: "没有找到 dumpcap（Wireshark 的命令行抓包工具）。",
-        remediation:
-          "安装 Wireshark（Debian/Ubuntu：`sudo apt install tshark`）后授予能力：" +
-          "`sudo setcap cap_net_raw,cap_net_admin+eip $(which dumpcap)`；" +
-          "也可以先在别的机器上抓包，把 pcapng 交给我用 usb_decode 分析。",
-      };
-    }
-  } else if (platform === "win32") {
-    const candidates = [
-      configuredUsbpcap,
-      await which("USBPcapCMD.exe", input.env),
-      input.env.ProgramFiles ? join(input.env.ProgramFiles, "USBPcap", "USBPcapCMD.exe") : undefined,
-      input.env["ProgramFiles(x86)"]
-        ? join(input.env["ProgramFiles(x86)"], "Wireshark", "USBPcapCMD.exe")
-        : undefined,
-    ].filter((value): value is string => Boolean(value));
-    let command: string | undefined;
-    for (const candidate of candidates) {
-      if (await isExecutable(candidate)) {
-        command = candidate;
-        break;
-      }
-    }
-    if (command) {
-      const details = await probeUsbpcap(command);
-      capture = {
-        available: true,
-        backend: "usbpcap",
-        command,
-        interfaces: details.interfaces,
-        privilege: details.privilege,
-        ...(details.reason ? { reason: details.reason } : {}),
-        ...(details.remediation ? { remediation: details.remediation } : {}),
-      };
-    } else {
-      capture = {
-        available: false,
-        backend: "none",
         interfaces: [],
-        privilege: "unknown",
-        reason: "没有找到 USBPcapCMD.exe。",
+        reason: "macOS 没有公开的内核级 USB 抓包接口。",
         remediation:
-          "安装 Wireshark（安装时勾选 USBPcap）或单独安装 USBPcap，之后以管理员身份运行 ESCode；" +
-          "也可以在别的机器上抓包后把 pcapng 交给我分析。",
-      };
-    }
-  } else {
-    capture = {
-      available: false,
-      backend: "none",
-      interfaces: [],
-      privilege: "unknown",
-      reason: `${platform} 没有公开的内核级 USB 抓包接口。`,
-      remediation:
-        "用硬件分析仪（Lecroy / Beagle / Total Phase）或另一台 Linux/Windows 机器抓包，" +
-        "把 pcapng 文件交给我用 usb_decode 分析；离线分析在本机完全可用。",
-    };
+          "用硬件分析仪（Lecroy / Beagle / Total Phase）或另一台 Linux/Windows 机器抓包，" +
+          "把 pcapng 文件交给我用 usb_decode 分析；离线分析在本机完全可用。",
+      },
+    ];
   }
 
-  if (platform === "linux" && capture.available && capture.privilege !== "ok") {
-    // 能力可用但没权限：u_probe 的 available 仍为 true（后端存在、接口可枚举），
-    // 由 remediation 说明为什么 usb_capture 会失败——这比直接说「不可用」更有用。
-    notes.push("后端存在但权限不足：usb_capture 会返回 permission 与 remediation，不要编造抓包结果。");
+  if (capture.available && capture.privilege !== "ok") {
+    // 后端存在但没权限：available 仍为 true（接口可枚举），由 remediation 说明 usb_capture 为什么会失败——
+    // 这比直接说「不可用」更有用，同时提醒模型不要编造抓包结果。
+    notes.push("抓包后端存在但权限不足：usb_capture 会返回 permission 与 remediation，不要编造抓包结果。");
+  }
+  const unavailable = backends.backends.filter((backend) => !backend.available);
+  if (!capture.available && unavailable.length > 1) {
+    notes.push(`两个抓包后端都不可用：${unavailable.map((backend) => `${backend.id}（${backend.reason ?? "原因未知"}）`).join("；")}`);
   }
 
   const devices =
