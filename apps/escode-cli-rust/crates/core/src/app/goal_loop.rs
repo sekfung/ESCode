@@ -27,22 +27,18 @@ pub(super) async fn advance(
     let (mut messages, _) = history.projection(prefix, 0, usize::MAX);
     messages.push(json!({"role":"user","content":goal.prompt("goalVerify", None)}));
     let verify = hidden_summary(model, messages, sink, cancel);
-    let (verdict, usage) = match crate::contract::with_query_source(
-        "target_completion_verification",
-        verify,
-    )
-    .await
-    {
-        Ok(output) if !output.output_limit && output.calls.is_empty() => (
-            Verdict::parse(output.message["content"].as_str().unwrap_or("")),
-            output.usage,
-        ),
-        Ok(output) => (
-            Verdict::failed("The completion verifier returned tools or truncated output."),
-            output.usage,
-        ),
-        Err(error) => (Verdict::failed(error.to_string()), Value::Null),
-    };
+    let (verdict, usage) =
+        match crate::contract::with_query_source("target_completion_verification", verify).await {
+            Ok(output) if !output.output_limit && output.calls.is_empty() => (
+                Verdict::parse(output.message["content"].as_str().unwrap_or("")),
+                output.usage,
+            ),
+            Ok(output) => (
+                Verdict::failed("The completion verifier returned tools or truncated output."),
+                output.usage,
+            ),
+            Err(error) => (Verdict::failed(error.to_string()), Value::Null),
+        };
     if cancel.is_cancelled() {
         bail!("Cancelled");
     }

@@ -30,7 +30,11 @@ impl Hub {
     /// 会话中 MCP 工具的工具卡（ToolStart 时投影到行级 display）。
     pub fn tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> {
         let state = self.state.read().unwrap();
-        let binding = state.bindings.get(session)?.iter().find(|b| b.name == name)?;
+        let binding = state
+            .bindings
+            .get(session)?
+            .iter()
+            .find(|b| b.name == name)?;
         Some(crate::contract::McpTool {
             display: binding.display(),
         })

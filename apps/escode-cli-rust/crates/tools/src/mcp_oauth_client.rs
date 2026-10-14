@@ -63,7 +63,15 @@ impl AuthClient {
         self.record(match error.downcast::<AuthorizationRequired>() {
             Ok(required) => Failure::Required(required),
             Err(error) => {
-                escode_cli_host::file_log::warn("mcp.oauth.token_unavailable", "tools.mcp", &format!("MCP server {} OAuth token unavailable: {error:#}", self.oauth.name()), serde_json::Value::Null);
+                escode_cli_host::file_log::warn(
+                    "mcp.oauth.token_unavailable",
+                    "tools.mcp",
+                    &format!(
+                        "MCP server {} OAuth token unavailable: {error:#}",
+                        self.oauth.name()
+                    ),
+                    serde_json::Value::Null,
+                );
                 Failure::Other
             }
         });
@@ -82,7 +90,9 @@ impl AuthClient {
         let challenge = match &result {
             Err(StreamableHttpError::AuthRequired(e)) => e.www_authenticate_header.clone(),
             // client_credentials 按 SDK：403 以 challenge scope 重新取 token 后重试一次，没有交互授权。
-            Err(StreamableHttpError::InsufficientScope(e)) if matches!(self.oauth, Auth::Credentials(_)) => {
+            Err(StreamableHttpError::InsufficientScope(e))
+                if matches!(self.oauth, Auth::Credentials(_)) =>
+            {
                 e.www_authenticate_header.clone()
             }
             Err(StreamableHttpError::InsufficientScope(e)) => {
@@ -157,8 +167,15 @@ impl StreamableHttpClient for AuthClient {
         _auth: Option<String>,
         headers: Headers,
     ) -> Result<StreamableHttpPostResponse, HttpError> {
-        self.post_message_with_max_sse_event_size(uri, message, session_id, None, headers, usize::MAX)
-            .await
+        self.post_message_with_max_sse_event_size(
+            uri,
+            message,
+            session_id,
+            None,
+            headers,
+            usize::MAX,
+        )
+        .await
     }
     async fn post_message_with_max_sse_event_size(
         &self,
@@ -200,8 +217,15 @@ impl StreamableHttpClient for AuthClient {
         _auth: Option<String>,
         headers: Headers,
     ) -> Result<BoxStream<'static, Result<Sse, SseError>>, HttpError> {
-        self.get_stream_with_max_sse_event_size(uri, session_id, last_event_id, None, headers, usize::MAX)
-            .await
+        self.get_stream_with_max_sse_event_size(
+            uri,
+            session_id,
+            last_event_id,
+            None,
+            headers,
+            usize::MAX,
+        )
+        .await
     }
     async fn get_stream_with_max_sse_event_size(
         &self,

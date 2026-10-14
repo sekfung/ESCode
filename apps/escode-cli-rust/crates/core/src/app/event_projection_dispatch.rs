@@ -53,7 +53,9 @@ impl Engine {
             event.event,
             Event::SkillsInitialized { .. }
                 | Event::PromptInitialized { .. }
-                | Event::ContextUsage(_) | Event::ShellNotice { .. } | Event::StreamRecovery { .. }
+                | Event::ContextUsage(_)
+                | Event::ShellNotice { .. }
+                | Event::StreamRecovery { .. }
                 | Event::CompactStarted { .. }
                 | Event::CompactDone { .. }
         ) {
@@ -69,12 +71,21 @@ impl Engine {
             self.subagent_event(&id, event.event).await?;
             return Ok(None);
         }
-        if matches!(event.event, Event::GoalStep { .. } | Event::GoalVerdict { .. }) {
+        if matches!(
+            event.event,
+            Event::GoalStep { .. } | Event::GoalVerdict { .. }
+        ) {
             self.goal_event(&id, event.event).await?;
             return Ok(None);
         }
-        if let Event::HookContext { message, before_input, committed } = event.event {
-            self.hook_context(&id, message, before_input, committed).await?;
+        if let Event::HookContext {
+            message,
+            before_input,
+            committed,
+        } = event.event
+        {
+            self.hook_context(&id, message, before_input, committed)
+                .await?;
             return Ok(None);
         }
         if let Event::WikiContext { message, committed } = event.event {
@@ -129,7 +140,8 @@ impl Engine {
         if matches!(
             event.event,
             Event::HostRequest { .. }
-                | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
+                | Event::WorkflowSettled { .. }
+                | Event::ActorRequest { .. }
                 | Event::SessionContext { .. }
                 | Event::WorkflowRunList { .. }
                 | Event::ShellPreference { .. }

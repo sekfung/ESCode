@@ -64,17 +64,38 @@ impl Engine {
         }
         self.refresh_slash_commands(&request.method).await;
         let result = match request.method.as_str() {
-            "v4/command" => match serde_json::from_value(request.params.clone()) {
+            "v4/command" => match serde_json::from_value::<crate::domain::protocol::Command>(
+                request.params.clone(),
+            ) {
                 Ok(command) => {
                     // 本地 TTFT 观测（TS LocalTtftRecorder.receive / admitted）：只观察，不改变命令结果。
                     let ttft_admitted = self.local_ttft_receive(&request.params);
-                    let command_id = request.params["commandId"].as_str().unwrap_or_default().to_owned();
+                    let command_id = request.params["commandId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_owned();
+                    // accepted 结算需要命令的会话身份：createSession 用结果里的新会话、其余用信封 sessionId
+                    // （TS v4-gateway accepted 结算同口径，差分账本 C-2）。
+                    let envelope_session = command.session_id.clone();
+                    let envelope_kind = command.kind.clone();
                     let ack = self.command(command).await;
                     ack.map(|mut ack| {
                         if !ttft_admitted {
                             ack["ttftExcluded"] = "capacity".into();
                         } else if ack["status"] == "accepted" {
                             self.local_ttft_admitted(&command_id);
+                            // 物化期（C-1）已解析偏好时带上 memoryEnabled；未解析（旧 Host/超时）不带。
+                            let target = if envelope_kind == "createSession" {
+                                ack["result"]["sessionId"].as_str().map(str::to_owned)
+                            } else {
+                                envelope_session.clone()
+                            };
+                            if let Some(prefs) = target
+                                .as_deref()
+                                .and_then(|id| self.shell.cached(id, "runtime-materialization"))
+                            {
+                                ack["memoryEnabled"] = (prefs["memoryEnabled"] == true).into();
+                            }
                         }
                         ack
                     })
@@ -241,7 +262,7 @@ impl Engine {
         let storage_failed = result
             .as_ref()
             .err()
-            .is_some_and(|e| e.is::<StorageCommitFailure>());
+            .is_some_and(anyhow::Error::is::<StorageCommitFailure>);
         let response = match result {
             Ok(value) => json!({"id":request.id,"result":value}),
             Err(error) => {

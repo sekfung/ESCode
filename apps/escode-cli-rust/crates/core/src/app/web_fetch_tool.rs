@@ -47,8 +47,8 @@ pub(super) async fn execute(
                 "web_fetch_processing",
                 super::context::hidden_summary(processing, messages, sink, cancel),
             )
-                .await
-                .map_err(|error| anyhow!("{error}"))?;
+            .await
+            .map_err(|error| anyhow!("{error}"))?;
             let text = reply.message["content"].as_str().unwrap_or_default();
             (rules::processing_result(text), truncated)
         };

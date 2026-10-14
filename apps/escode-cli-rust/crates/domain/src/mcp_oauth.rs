@@ -71,7 +71,10 @@ pub fn key_prefix(name: &str, url: &str, config: &CodeConfig) -> String {
         config.redirect_path.as_deref().unwrap_or(""),
     ]
     .join("\n");
-    format!("mcp:oauth:{}", &hex(&Sha256::digest(joined.as_bytes()))[..24])
+    format!(
+        "mcp:oauth:{}",
+        &hex(&Sha256::digest(joined.as_bytes()))[..24]
+    )
 }
 pub fn key(prefix: &str, name: &str) -> String {
     format!("{prefix}:{name}")
@@ -80,7 +83,13 @@ pub fn key(prefix: &str, name: &str) -> String {
 pub fn sanitize_key_prefix(prefix: &str) -> String {
     prefix
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect()
 }
 
@@ -192,7 +201,9 @@ pub fn protected_resource_urls(server_url: &str) -> Option<(String, Option<Strin
     if path.ends_with('/') {
         path.pop();
     }
-    let mut first = issuer.join(&format!("/.well-known/oauth-protected-resource{path}")).ok()?;
+    let mut first = issuer
+        .join(&format!("/.well-known/oauth-protected-resource{path}"))
+        .ok()?;
     first.set_query(issuer.query());
     let fallback = (issuer.path() != "/")
         .then(|| issuer.join("/.well-known/oauth-protected-resource").ok())
@@ -209,15 +220,27 @@ pub fn discovery_urls(authorization_server: &str) -> Vec<(String, bool)> {
     let origin = url.origin().ascii_serialization();
     if url.path() == "/" {
         return vec![
-            (format!("{origin}/.well-known/oauth-authorization-server"), false),
+            (
+                format!("{origin}/.well-known/oauth-authorization-server"),
+                false,
+            ),
             (format!("{origin}/.well-known/openid-configuration"), true),
         ];
     }
     let path = url.path().trim_end_matches('/');
     vec![
-        (format!("{origin}/.well-known/oauth-authorization-server{path}"), false),
-        (format!("{origin}/.well-known/openid-configuration{path}"), true),
-        (format!("{origin}{path}/.well-known/openid-configuration"), true),
+        (
+            format!("{origin}/.well-known/oauth-authorization-server{path}"),
+            false,
+        ),
+        (
+            format!("{origin}/.well-known/openid-configuration{path}"),
+            true,
+        ),
+        (
+            format!("{origin}{path}/.well-known/openid-configuration"),
+            true,
+        ),
     ]
 }
 
@@ -232,16 +255,24 @@ pub fn resource_allowed(requested: &str, configured: &str) -> bool {
     let (Ok(requested), Ok(configured)) = (Url::parse(requested), Url::parse(configured)) else {
         return false;
     };
-    if requested.origin() != configured.origin()
-        || requested.path().len() < configured.path().len()
+    if requested.origin() != configured.origin() || requested.path().len() < configured.path().len()
     {
         return false;
     }
-    let slash = |p: &str| if p.ends_with('/') { p.to_owned() } else { format!("{p}/") };
+    let slash = |p: &str| {
+        if p.ends_with('/') {
+            p.to_owned()
+        } else {
+            format!("{p}/")
+        }
+    };
     slash(requested.path()).starts_with(&slash(configured.path()))
 }
 /// SDK `selectResourceURL`（无 provider 校验）：无 resource metadata 时不带 resource；不匹配报错。
-pub fn select_resource(server_url: &str, resource_metadata: &Value) -> Result<Option<String>, String> {
+pub fn select_resource(
+    server_url: &str,
+    resource_metadata: &Value,
+) -> Result<Option<String>, String> {
     let Some(configured) = resource_metadata["resource"].as_str() else {
         return Ok(None);
     };
@@ -265,7 +296,11 @@ pub fn client_auth_method(client: &Value, supported: &[&str]) -> &'static str {
         return known;
     }
     if supported.is_empty() {
-        return if has_secret { "client_secret_basic" } else { "none" };
+        return if has_secret {
+            "client_secret_basic"
+        } else {
+            "none"
+        };
     }
     if has_secret && supported.contains(&"client_secret_basic") {
         return "client_secret_basic";
@@ -276,7 +311,11 @@ pub fn client_auth_method(client: &Value, supported: &[&str]) -> &'static str {
     if supported.contains(&"none") {
         return "none";
     }
-    if has_secret { "client_secret_post" } else { "none" }
+    if has_secret {
+        "client_secret_post"
+    } else {
+        "none"
+    }
 }
 
 /// SDK `deriveApplicationType`。
@@ -286,14 +325,22 @@ fn application_type(redirect_uris: &[&str]) -> &'static str {
         if !matches!(url.scheme(), "http" | "https") {
             return "native";
         }
-        if matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "::1")) {
+        if matches!(
+            url.host_str(),
+            Some("localhost" | "127.0.0.1" | "[::1]" | "::1")
+        ) {
             return "native";
         }
     }
     "web"
 }
 /// TS `InteractiveAuthorizationProvider.clientMetadata` 经 SDK `resolveClientMetadata` 补默认值后的 DCR 请求体。
-pub fn client_metadata(config: &CodeConfig, server_name: &str, redirect_url: &str, scope: Option<&str>) -> Value {
+pub fn client_metadata(
+    config: &CodeConfig,
+    server_name: &str,
+    redirect_url: &str,
+    scope: Option<&str>,
+) -> Value {
     let mut metadata = json!({
         "client_name": config.client_name.clone().unwrap_or_else(|| format!("ESCode {server_name}")),
         "grant_types": ["authorization_code", "refresh_token"],

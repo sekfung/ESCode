@@ -1,8 +1,8 @@
 //! TUI frontend contract. Rendering stays outside the core runtime so the
 //! terminal UI cannot create a second session owner.
+use escode_cli_core_api::{RuntimeEvent, SessionRuntime};
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use escode_cli_core_api::{RuntimeEvent, SessionRuntime};
 
 pub struct TuiFrontend<R> {
     runtime: Arc<R>,

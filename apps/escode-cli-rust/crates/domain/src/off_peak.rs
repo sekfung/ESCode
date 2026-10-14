@@ -83,8 +83,19 @@ fn parse_create(input: &Value) -> Result<Vec<(&'static str, String)>, String> {
         .iter()
         .map(|issue| {
             let mut object = Json::object();
-            for key in ["code", "minimum", "type", "inclusive", "exact", "message", "path"] {
-                object.set(key, Json::parse(&issue[key].to_string()).unwrap_or(Json::Null));
+            for key in [
+                "code",
+                "minimum",
+                "type",
+                "inclusive",
+                "exact",
+                "message",
+                "path",
+            ] {
+                object.set(
+                    key,
+                    Json::parse(&issue[key].to_string()).unwrap_or(Json::Null),
+                );
             }
             object
         })
@@ -95,7 +106,14 @@ fn parse_create(input: &Value) -> Result<Vec<(&'static str, String)>, String> {
 /// TS `toOffPeakTaskSummary`：只保留快照字段，按固定顺序、省略缺失的可选字段。
 fn summary(task: &Json) -> Json {
     let mut out = Json::object();
-    for key in ["offPeakTaskId", "title", "status", "queuePosition", "sessionId", "createdAt"] {
+    for key in [
+        "offPeakTaskId",
+        "title",
+        "status",
+        "queuePosition",
+        "sessionId",
+        "createdAt",
+    ] {
         if let Some(value) = task.get(key).filter(|v| !matches!(v, Json::Null)) {
             out.set(key, value.clone());
         }
@@ -112,14 +130,28 @@ fn finish(output: Json) -> Outcome {
 /// TS `throwOffPeakCreateFailure`：按分类与错误码给出稳定文案，不按 message 猜测。
 fn failure_detail(category: &str, code: &str) -> &'static str {
     match (category, code) {
-        ("quota_3103", _) => "The idle-time task quota is used up for now. Tell the user the free quota is exhausted and they can retry later or review tasks in Automations.",
-        ("eligibility_3101", _) => "The current account has no eligible Coding Plan connection for idle-time tasks. Tell the user to select a ZAI/BigModel Coding Plan connection first.",
-        ("client_validation", "model_not_allowed") => "The requested model is not in the idle-time allowed model list. Omit the model field to use the default allowed model.",
-        ("client_validation", "session_bound") => "This session already has a pending idle-time task. Tell the user to wait for it to finish or cancel it in Automations before creating another one here.",
-        ("client_validation", "offpeak_disabled") => "Idle-time tasks are not enabled for this account right now. Tell the user the feature is unavailable; do not retry with different parameters.",
+        ("quota_3103", _) => {
+            "The idle-time task quota is used up for now. Tell the user the free quota is exhausted and they can retry later or review tasks in Automations."
+        }
+        ("eligibility_3101", _) => {
+            "The current account has no eligible Coding Plan connection for idle-time tasks. Tell the user to select a ZAI/BigModel Coding Plan connection first."
+        }
+        ("client_validation", "model_not_allowed") => {
+            "The requested model is not in the idle-time allowed model list. Omit the model field to use the default allowed model."
+        }
+        ("client_validation", "session_bound") => {
+            "This session already has a pending idle-time task. Tell the user to wait for it to finish or cancel it in Automations before creating another one here."
+        }
+        ("client_validation", "offpeak_disabled") => {
+            "Idle-time tasks are not enabled for this account right now. Tell the user the feature is unavailable; do not retry with different parameters."
+        }
         ("client_validation", _) => "The idle-time task input was rejected by validation.",
-        ("network", _) => "The idle-time ticket service is unreachable. Tell the user to retry later.",
-        _ => "Creating the idle-time task failed. Tell the user to retry from the Automations page.",
+        ("network", _) => {
+            "The idle-time ticket service is unreachable. Tell the user to retry later."
+        }
+        _ => {
+            "Creating the idle-time task failed. Tell the user to retry from the Automations page."
+        }
     }
 }
 
@@ -130,8 +162,13 @@ where
     Fut: Future<Output = Result<Json, HostError>>,
 {
     if tool == "OffPeakList" {
-        let listed = call("offPeak/list", json!({})).await.map_err(|e| e.message)?;
-        let tasks = listed.get("tasks").and_then(Json::as_array).unwrap_or_default();
+        let listed = call("offPeak/list", json!({}))
+            .await
+            .map_err(|e| e.message)?;
+        let tasks = listed
+            .get("tasks")
+            .and_then(Json::as_array)
+            .unwrap_or_default();
         let mut output = Json::object();
         output.set("tasks", Json::Array(tasks.iter().map(summary).collect()));
         return finish(output);
@@ -140,15 +177,29 @@ where
         return Err(off_peak_turn_denial("OffPeakCreate", None));
     }
     let fields = parse_create(input)?;
-    if turn.active_off_peak_task_id.as_deref().is_some_and(|id| !id.trim().is_empty()) {
+    if turn
+        .active_off_peak_task_id
+        .as_deref()
+        .is_some_and(|id| !id.trim().is_empty())
+    {
         return Err(FROM_OFF_PEAK_RUN.into());
     }
     // 绑定守卫：本会话已有未终态任务即拒绝；查询失败 fail-closed（TS 不把未知当作未绑定）。
-    let listed = call("offPeak/list", json!({})).await.map_err(|_| BOUND_CHECK_FAILED.to_owned())?;
-    let bound = listed.get("tasks").and_then(Json::as_array).unwrap_or_default().iter().any(|task| {
-        task.get("sessionId").and_then(Json::as_str) == Some(turn.session_id.as_str())
-            && !task.get("status").and_then(Json::as_str).is_some_and(|s| TERMINAL.contains(&s))
-    });
+    let listed = call("offPeak/list", json!({}))
+        .await
+        .map_err(|_| BOUND_CHECK_FAILED.to_owned())?;
+    let bound = listed
+        .get("tasks")
+        .and_then(Json::as_array)
+        .unwrap_or_default()
+        .iter()
+        .any(|task| {
+            task.get("sessionId").and_then(Json::as_str) == Some(turn.session_id.as_str())
+                && !task
+                    .get("status")
+                    .and_then(Json::as_str)
+                    .is_some_and(|s| TERMINAL.contains(&s))
+        });
     if bound {
         return Err(IN_BOUND_SESSION.into());
     }
@@ -157,15 +208,23 @@ where
         params.insert(key.into(), value.into());
     }
     params.insert("boundSessionId".into(), turn.session_id.clone().into());
-    let result = call("offPeak/create", Value::Object(params)).await.map_err(|e| e.message)?;
+    let result = call("offPeak/create", Value::Object(params))
+        .await
+        .map_err(|e| e.message)?;
     if result.get("ok") != Some(&Json::Bool(true)) {
         let text = |key| result.get(key).and_then(Json::as_str).unwrap_or_default();
         return Err(failure_detail(text("errorCategory"), text("errorCode")).into());
     }
     let task = summary(result.get("task").unwrap_or(&Json::Null));
-    let id = task.get("offPeakTaskId").and_then(Json::as_str).unwrap_or_default().to_owned();
+    let id = task
+        .get("offPeakTaskId")
+        .and_then(Json::as_str)
+        .unwrap_or_default()
+        .to_owned();
     let message = match task.get("queuePosition") {
-        Some(Json::Number(position)) => format!("Created idle-time task {id} (#{position} in queue)."),
+        Some(Json::Number(position)) => {
+            format!("Created idle-time task {id} (#{position} in queue).")
+        }
         _ => format!("Created idle-time task {id}."),
     };
     let mut output = Json::object();

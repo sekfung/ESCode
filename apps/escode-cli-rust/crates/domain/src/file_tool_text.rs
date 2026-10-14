@@ -2,11 +2,9 @@
 //! `core/src/tool/handlers/{write,edit,read}.ts`。纯函数。
 
 pub const NOT_READ: &str = "File has not been read yet. Read it first before writing to it.";
-pub const STALE: &str =
-    "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.";
+pub const STALE: &str = "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.";
 /// TS `FILE_UNCHANGED_STUB`（重复 Read 同一未变范围）。
-pub const FILE_UNCHANGED: &str =
-    "Wasted call \u{2014} file unchanged since your last Read. Refer to that earlier tool_result instead.";
+pub const FILE_UNCHANGED: &str = "Wasted call \u{2014} file unchanged since your last Read. Refer to that earlier tool_result instead.";
 pub const NO_CHANGE: &str = "No changes to make: old_string and new_string are exactly the same.";
 pub const EXISTS_NO_OLD_STRING: &str = "Cannot create new file - file already exists.";
 const FRESH: &str = " (file state is current in your context \u{2014} no need to Read it back)";
@@ -23,7 +21,9 @@ pub fn write_success(path: &str, created: bool) -> String {
 /// TS `formatEditModelContent`（未经用户改写）。
 pub fn edit_success(path: &str, replace_all: bool) -> String {
     if replace_all {
-        format!("The file {path} has been updated. All occurrences were successfully replaced.{FRESH}")
+        format!(
+            "The file {path} has been updated. All occurrences were successfully replaced.{FRESH}"
+        )
     } else {
         format!("The file {path} has been updated successfully.{FRESH}")
     }
@@ -57,7 +57,10 @@ pub fn similar_filename(target: &str, names: &[String]) -> Option<String> {
     if let Some(same) = entries.iter().find(|n| self::stem(n) == stem) {
         return Some((*same).clone());
     }
-    entries.into_iter().find(|n| levenshtein(n, target) <= 3).cloned()
+    entries
+        .into_iter()
+        .find(|n| levenshtein(n, target) <= 3)
+        .cloned()
 }
 
 /// Node `path.basename(name, path.extname(name))`：扩展名为最后一个点起的部分，开头的点不算扩展名。
@@ -69,14 +72,19 @@ fn stem(name: &str) -> &str {
 }
 
 fn levenshtein(left: &str, right: &str) -> usize {
-    let (left, right): (Vec<u16>, Vec<u16>) = (left.encode_utf16().collect(), right.encode_utf16().collect());
+    let (left, right): (Vec<u16>, Vec<u16>) = (
+        left.encode_utf16().collect(),
+        right.encode_utf16().collect(),
+    );
     let mut previous: Vec<usize> = (0..=right.len()).collect();
     let mut current = vec![0; right.len() + 1];
     for (i, l) in left.iter().enumerate() {
         current[0] = i + 1;
         for (j, r) in right.iter().enumerate() {
             let cost = usize::from(l != r);
-            current[j + 1] = (current[j] + 1).min(previous[j + 1] + 1).min(previous[j] + cost);
+            current[j + 1] = (current[j] + 1)
+                .min(previous[j + 1] + 1)
+                .min(previous[j] + cost);
         }
         previous.clone_from(&current);
     }
@@ -87,19 +95,34 @@ fn levenshtein(left: &str, right: &str) -> usize {
 /// （docs/specs/rust-file-tool-results.md「Read 入参语义检查」；之前 Rust 先查存在性，文案不同）。
 pub fn read_path_refusal(file_path: &str) -> Option<String> {
     const DEVICES: [&str; 12] = [
-        "/dev/console", "/dev/fd/0", "/dev/fd/1", "/dev/fd/2", "/dev/full", "/dev/random",
-        "/dev/stderr", "/dev/stdin", "/dev/stdout", "/dev/tty", "/dev/urandom", "/dev/zero",
+        "/dev/console",
+        "/dev/fd/0",
+        "/dev/fd/1",
+        "/dev/fd/2",
+        "/dev/full",
+        "/dev/random",
+        "/dev/stderr",
+        "/dev/stdin",
+        "/dev/stdout",
+        "/dev/tty",
+        "/dev/urandom",
+        "/dev/zero",
     ];
     const BINARY: [&str; 19] = [
-        ".7z", ".a", ".bin", ".bz2", ".class", ".dll", ".dmg", ".dylib", ".exe", ".gz", ".jar", ".o",
-        ".pyc", ".rar", ".so", ".tar", ".tgz", ".wasm", ".zip",
+        ".7z", ".a", ".bin", ".bz2", ".class", ".dll", ".dmg", ".dylib", ".exe", ".gz", ".jar",
+        ".o", ".pyc", ".rar", ".so", ".tar", ".tgz", ".wasm", ".zip",
     ];
     let lower = file_path.to_lowercase();
     if DEVICES.contains(&lower.as_str()) {
-        return Some(format!("Cannot read '{file_path}': this device file would block or produce infinite output."));
+        return Some(format!(
+            "Cannot read '{file_path}': this device file would block or produce infinite output."
+        ));
     }
     let basename = lower.rsplit(['/', '\\']).next().unwrap_or_default();
-    let extension = basename.rfind('.').filter(|&i| i > 0).map(|i| &basename[i..])?;
+    let extension = basename
+        .rfind('.')
+        .filter(|&i| i > 0)
+        .map(|i| &basename[i..])?;
     BINARY.contains(&extension).then(|| {
         format!("This tool cannot read binary files. The file appears to be a binary {extension} file. Please use appropriate tools for binary file analysis.")
     })
@@ -110,15 +133,24 @@ mod tests {
     use super::*;
 
     fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(|s| s.to_string()).collect()
+        list.iter().map(std::string::ToString::to_string).collect()
     }
 
     #[test]
     fn suggests_same_stem_then_close_names() {
         let listed = names(&["new.txt", "existing.txt", "empty.txt"]);
-        assert_eq!(similar_filename("existin.txt", &listed).as_deref(), Some("existing.txt"));
-        assert_eq!(similar_filename("nope.txt", &listed).as_deref(), Some("new.txt"));
-        assert_eq!(similar_filename("existing.md", &listed).as_deref(), Some("existing.txt"));
+        assert_eq!(
+            similar_filename("existin.txt", &listed).as_deref(),
+            Some("existing.txt")
+        );
+        assert_eq!(
+            similar_filename("nope.txt", &listed).as_deref(),
+            Some("new.txt")
+        );
+        assert_eq!(
+            similar_filename("existing.md", &listed).as_deref(),
+            Some("existing.txt")
+        );
         assert_eq!(similar_filename("zzzzzzzz.rs", &listed), None);
         assert_eq!(stem(".bashrc"), ".bashrc");
         assert_eq!(stem("a.b.c"), "a.b");
@@ -126,16 +158,35 @@ mod tests {
 
     #[test]
     fn success_variants_match_ts() {
-        assert_eq!(write_success("a.txt", true), "File created successfully at: a.txt (file state is current in your context \u{2014} no need to Read it back)");
-        assert!(write_success("a.txt", false).starts_with("The file a.txt has been updated successfully. ("));
-        assert!(edit_success("a.txt", true).starts_with("The file a.txt has been updated. All occurrences were successfully replaced. ("));
-        assert_eq!(missing_file("/w", Some("b.txt")), "File does not exist. Note: your current working directory is /w. Did you mean b.txt?");
+        assert_eq!(
+            write_success("a.txt", true),
+            "File created successfully at: a.txt (file state is current in your context \u{2014} no need to Read it back)"
+        );
+        assert!(
+            write_success("a.txt", false)
+                .starts_with("The file a.txt has been updated successfully. (")
+        );
+        assert!(edit_success("a.txt", true).starts_with(
+            "The file a.txt has been updated. All occurrences were successfully replaced. ("
+        ));
+        assert_eq!(
+            missing_file("/w", Some("b.txt")),
+            "File does not exist. Note: your current working directory is /w. Did you mean b.txt?"
+        );
     }
 
     #[test]
     fn read_path_refusal_matches_ts() {
-        assert!(read_path_refusal("/dev/ZERO").unwrap().starts_with("Cannot read '/dev/ZERO': this device"));
-        assert!(read_path_refusal("C:\\x\\App.EXE").unwrap().contains("binary .exe file"));
+        assert!(
+            read_path_refusal("/dev/ZERO")
+                .unwrap()
+                .starts_with("Cannot read '/dev/ZERO': this device")
+        );
+        assert!(
+            read_path_refusal("C:\\x\\App.EXE")
+                .unwrap()
+                .contains("binary .exe file")
+        );
         assert!(read_path_refusal("dir.zip/a.txt").is_none());
         assert!(read_path_refusal(".zip").is_none());
         assert!(read_path_refusal("a.txt").is_none());

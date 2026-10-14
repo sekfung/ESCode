@@ -97,7 +97,12 @@ impl rmcp::transport::Transport<RoleClient> for Transport {
         let cancel = self.cancel.clone();
         let auth = self.auth.clone();
         async move {
-            let post = || client.post(endpoint.as_ref()).headers(headers.clone()).json(&item);
+            let post = || {
+                client
+                    .post(endpoint.as_ref())
+                    .headers(headers.clone())
+                    .json(&item)
+            };
             tokio::select! {biased;_=cancel.cancelled()=>Err(std::io::Error::other("MCP SSE closed")),result=send(&auth,post)=>{
                 result.and_then(|r|Ok(r.error_for_status()?)).map(|_|()).map_err(|_|std::io::Error::other("MCP SSE post failed"))
             }}

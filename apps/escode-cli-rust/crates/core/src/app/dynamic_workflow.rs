@@ -89,7 +89,9 @@ impl Engine {
 fn parse_mode(mode: Option<&Value>) -> Result<Option<&str>> {
     match mode {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(mode)) if matches!(mode.as_str(), "disabled" | "onDemand" | "alwaysOn") => {
+        Some(Value::String(mode))
+            if matches!(mode.as_str(), "disabled" | "onDemand" | "alwaysOn") =>
+        {
             Ok(Some(mode.as_str()))
         }
         Some(_) => anyhow::bail!("Invalid mode"),

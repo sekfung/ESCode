@@ -81,7 +81,8 @@ pub(super) fn resolve(
                             .option(key)
                             .ok_or_else(|| format!("Missing plugin user_config value: {key}"))
                     }
-                } else if name.starts_with("ESCODE_") || (allow_sensitive && ENV_NAME.is_match(name))
+                } else if name.starts_with("ESCODE_")
+                    || (allow_sensitive && ENV_NAME.is_match(name))
                 {
                     // 普通 env 只在敏感 sink（env / headers / clientSecret）展开，避免 secret 进 args 或 URL。
                     std::env::var(name).map_err(|_| format!("Missing environment variable: {name}"))

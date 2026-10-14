@@ -35,7 +35,10 @@ pub(super) async fn execute(
             data: Value::Null,
             failed: true,
             display: None,
-            control: crate::contract::ToolControl { denied: true, stop_turn: false },
+            control: crate::contract::ToolControl {
+                denied: true,
+                stop_turn: false,
+            },
         });
     }
     // 模型生成的 answers 不能替代用户回执；yolo 也必须进入 owner 的澄清等待。

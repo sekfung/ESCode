@@ -1,7 +1,7 @@
 //! 差分：Rust conversation_input 与 TS withConversationQuotes 逐字一致
 //! （语料由 scripts/generate-escode-cli-rust-conversation-input-corpus.mjs 从 TS 生成）。
-use serde_json::Value;
 use escode_cli_domain::conversation_input::with_conversation_material;
+use serde_json::Value;
 
 #[test]
 fn rust_conversation_material_matches_ts() {

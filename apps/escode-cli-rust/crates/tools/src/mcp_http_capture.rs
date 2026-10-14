@@ -28,7 +28,10 @@ impl<C> Capture<C> {
         let raw = self.raw.clone();
         stream
             .inspect(move |event| {
-                if let Ok(Sse { data: Some(data), .. }) = event {
+                if let Ok(Sse {
+                    data: Some(data), ..
+                }) = event
+                {
                     raw.offer(data.as_bytes());
                 }
             })
@@ -43,8 +46,12 @@ impl<C> Capture<C> {
         E: std::error::Error + Send + Sync + 'static,
     {
         match response {
-            StreamableHttpPostResponse::Sse(stream, session) if discover => first_reply(stream, session).await,
-            StreamableHttpPostResponse::Sse(stream, session) => Ok(StreamableHttpPostResponse::Sse(self.tee(stream), session)),
+            StreamableHttpPostResponse::Sse(stream, session) if discover => {
+                first_reply(stream, session).await
+            }
+            StreamableHttpPostResponse::Sse(stream, session) => {
+                Ok(StreamableHttpPostResponse::Sse(self.tee(stream), session))
+            }
             other => Ok(other),
         }
     }
@@ -57,7 +64,10 @@ fn is_discover(message: &ClientJsonRpcMessage) -> bool {
 /// rmcp 启动阶段读 SSE 应答（`expect_initialized`）只认 `Response`、跳过 `Error`，legacy server 以 SSE 回的
 /// `server/discover` 错误因此被当作空流，连接失败；Node 判为 legacy 后回落 `initialize`
 /// （docs/specs/rust-mcp-parity.md「SSE 应答的 server/discover 错误」）。这里读到第一条应答或错误即转为 JSON 应答。
-async fn first_reply<E>(mut stream: Stream, session: Option<String>) -> Result<StreamableHttpPostResponse, StreamableHttpError<E>>
+async fn first_reply<E>(
+    mut stream: Stream,
+    session: Option<String>,
+) -> Result<StreamableHttpPostResponse, StreamableHttpError<E>>
 where
     E: std::error::Error + Send + Sync + 'static,
 {
@@ -67,11 +77,16 @@ where
             continue;
         }
         let message: ServerJsonRpcMessage = serde_json::from_str(&payload)?;
-        if matches!(message, ServerJsonRpcMessage::Response(_) | ServerJsonRpcMessage::Error(_)) {
+        if matches!(
+            message,
+            ServerJsonRpcMessage::Response(_) | ServerJsonRpcMessage::Error(_)
+        ) {
             return Ok(StreamableHttpPostResponse::Json(message, session));
         }
     }
-    Err(StreamableHttpError::UnexpectedServerResponse("empty sse stream".into()))
+    Err(StreamableHttpError::UnexpectedServerResponse(
+        "empty sse stream".into(),
+    ))
 }
 
 impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
@@ -85,7 +100,10 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         headers: Headers,
     ) -> Result<StreamableHttpPostResponse, StreamableHttpError<C::Error>> {
         let discover = is_discover(&message);
-        let response = self.inner.post_message(uri, message, session_id, auth, headers).await?;
+        let response = self
+            .inner
+            .post_message(uri, message, session_id, auth, headers)
+            .await?;
         self.adapt(discover, response).await
     }
     async fn post_message_with_max_sse_event_size(
@@ -98,8 +116,10 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         max: usize,
     ) -> Result<StreamableHttpPostResponse, StreamableHttpError<C::Error>> {
         let discover = is_discover(&message);
-        let response =
-            self.inner.post_message_with_max_sse_event_size(uri, message, session_id, auth, headers, max).await?;
+        let response = self
+            .inner
+            .post_message_with_max_sse_event_size(uri, message, session_id, auth, headers, max)
+            .await?;
         self.adapt(discover, response).await
     }
     async fn delete_session(
@@ -109,7 +129,9 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         auth: Option<String>,
         headers: Headers,
     ) -> Result<(), StreamableHttpError<C::Error>> {
-        self.inner.delete_session(uri, session_id, auth, headers).await
+        self.inner
+            .delete_session(uri, session_id, auth, headers)
+            .await
     }
     async fn get_stream(
         &self,
@@ -119,7 +141,10 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         auth: Option<String>,
         headers: Headers,
     ) -> Result<Stream, StreamableHttpError<C::Error>> {
-        let stream = self.inner.get_stream(uri, session_id, last_event_id, auth, headers).await?;
+        let stream = self
+            .inner
+            .get_stream(uri, session_id, last_event_id, auth, headers)
+            .await?;
         Ok(self.tee(stream))
     }
     async fn get_stream_with_max_sse_event_size(
@@ -131,8 +156,10 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         headers: Headers,
         max: usize,
     ) -> Result<Stream, StreamableHttpError<C::Error>> {
-        let stream =
-            self.inner.get_stream_with_max_sse_event_size(uri, session_id, last_event_id, auth, headers, max).await?;
+        let stream = self
+            .inner
+            .get_stream_with_max_sse_event_size(uri, session_id, last_event_id, auth, headers, max)
+            .await?;
         Ok(self.tee(stream))
     }
 }
@@ -142,21 +169,35 @@ mod tests {
     use super::*;
 
     fn events(data: &[&str]) -> Stream {
-        let items: Vec<Result<Sse, SseError>> =
-            data.iter().map(|d| Ok(Sse { data: Some((*d).to_owned()), ..Default::default() })).collect();
+        let items: Vec<Result<Sse, SseError>> = data
+            .iter()
+            .map(|d| {
+                Ok(Sse {
+                    data: Some((*d).to_owned()),
+                    ..Default::default()
+                })
+            })
+            .collect();
         futures_util::stream::iter(items).boxed()
     }
 
     #[tokio::test]
     async fn discover_error_over_sse_becomes_json_reply() {
         let error = r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"legacy"}}"#;
-        let reply = first_reply::<std::io::Error>(events(&["", error]), Some("s1".into())).await.unwrap();
-        assert!(matches!(reply, StreamableHttpPostResponse::Json(ServerJsonRpcMessage::Error(_), Some(ref s)) if s == "s1"));
+        let reply = first_reply::<std::io::Error>(events(&["", error]), Some("s1".into()))
+            .await
+            .unwrap();
+        assert!(
+            matches!(reply, StreamableHttpPostResponse::Json(ServerJsonRpcMessage::Error(_), Some(ref s)) if s == "s1")
+        );
     }
 
     #[tokio::test]
     async fn stream_without_reply_keeps_rmcp_error() {
         let result = first_reply::<std::io::Error>(events(&[]), None).await;
-        assert!(matches!(result, Err(StreamableHttpError::UnexpectedServerResponse(_))));
+        assert!(matches!(
+            result,
+            Err(StreamableHttpError::UnexpectedServerResponse(_))
+        ));
     }
 }

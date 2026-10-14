@@ -1,32 +1,17 @@
 //! Public runtime ports. The application owns state; adapters own external IO.
 use anyhow::Result;
 use async_trait::async_trait;
+pub use escode_cli_domain::model::{ModelFailure, RetryState};
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-pub use escode_cli_domain::model::{ModelFailure, RetryState};
 
 #[allow(unused_imports)]
 pub use super::contract_model::{ModelPort, ModelRegistry, RewindTransaction};
 #[allow(unused_imports)]
 pub use super::contract_store::{DurableCommitReceipt, SessionStore};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ModelIdentity {
-    pub provider_id: String,
-    pub model_id: String,
-    pub reasoning_level: String,
-}
-
-pub type Output = mpsc::Sender<Vec<Value>>;
-
-pub struct ChildHandle {
-    pub task: escode_cli_domain::subagent::Task,
-    pub updates: tokio::sync::watch::Receiver<escode_cli_domain::subagent::Task>,
-    pub message_id: Option<String>,
-    pub delivery: Option<String>,
-}
+pub use super::contract_types::{ChildHandle, ModelIdentity, Output};
 pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure, ToolHandlerFailure};
 
 pub use crate::contract_events::{
@@ -233,7 +218,8 @@ pub trait ToolPort: Send + Sync {
     }
     /// 工作流宿主负责的工具（CreateWorkflow 等，docs/specs/rust-dynamic-workflow.md M1）：带会话与调用 id 执行，
     /// 后台 run 结算后宿主经 Host 通道报告 `Event::WorkflowSettled`。`None`：该工具不归宿主。
-    #[allow(clippy::too_many_arguments)] async fn execute_workflow(
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_workflow(
         &self,
         _session: &str,
         _call_id: &str,
@@ -252,7 +238,12 @@ pub trait ToolPort: Send + Sync {
         serde_json::json!({ "kind": "unsupported", "workId": work_id })
     }
     /// Hooks（docs/specs/rust-hooks.md）：执行一次 hook 事件，返回 TS HookRunResult；本会话没有 hooks 时 None。
-    async fn run_hook(&self, _session: &str, _input: Value, _call_id: Option<&str>) -> Option<Value> {
+    async fn run_hook(
+        &self,
+        _session: &str,
+        _input: Value,
+        _call_id: Option<&str>,
+    ) -> Option<Value> {
         None
     }
     /// 工作区 hooks 的审核命令与无会话授权（H2）：转给工作流宿主（`hooks.review` / `hooks.trustGrant`）。

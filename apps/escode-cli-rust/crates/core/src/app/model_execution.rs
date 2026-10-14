@@ -33,7 +33,10 @@ pub(super) struct Executions {
 
 impl Engine {
     pub(super) fn stash_execution(&mut self, turn: &str, execution: ModelExecution) {
-        self.shell.executions.pending.insert(turn.to_owned(), execution);
+        self.shell
+            .executions
+            .pending
+            .insert(turn.to_owned(), execution);
     }
     /// 运行开始：本轮有执行标记则取出暂存材料，否则取子会话继承的材料。
     pub(super) fn begin_execution(
@@ -46,28 +49,50 @@ impl Engine {
     ) -> Option<Live> {
         let executions = &mut self.shell.executions;
         let (execution, selection) = if payload.get(MARKER).is_some() {
-            let execution = executions.pending.remove(turn).unwrap_or_else(|| ModelExecution {
-                // 重启后暂存凭据已不在内存：保留约束，凭据缺失时 off-peak 模型请求失败（TS ModelRequestAuthMissing）。
-                skip_memory: payload[MARKER]["skipMemory"] == true,
-                request_auth: None,
-                subagents: payload[MARKER]["subagents"] == true,
-            });
+            let execution = executions
+                .pending
+                .remove(turn)
+                .unwrap_or_else(|| ModelExecution {
+                    // 重启后暂存凭据已不在内存：保留约束，凭据缺失时 off-peak 模型请求失败（TS ModelRequestAuthMissing）。
+                    skip_memory: payload[MARKER]["skipMemory"] == true,
+                    request_auth: None,
+                    subagents: payload[MARKER]["subagents"] == true,
+                });
             (execution, selection.clone())
         } else {
             executions.inherit.remove(id)?
         };
-        let live = Live { run_id: run_id.to_owned(), execution, selection };
+        let live = Live {
+            run_id: run_id.to_owned(),
+            execution,
+            selection,
+        };
         executions.live.insert(id.to_owned(), live.clone());
         Some(live)
     }
     pub(super) fn live_execution(&self, id: &str, run_id: &str) -> Option<&Live> {
-        self.shell.executions.live.get(id).filter(|live| live.run_id == run_id)
+        self.shell
+            .executions
+            .live
+            .get(id)
+            .filter(|live| live.run_id == run_id)
     }
     /// 前台子代理继承父轮的执行模型与凭据（TS subagentModelOverride）。
     pub(super) fn inherit_execution(&mut self, parent: &str, child: &str) {
-        let parent_run = self.active.get(parent).map(|a| a.run_id.clone()).unwrap_or_default();
-        if let Some(live) = self.live_execution(parent, &parent_run).filter(|l| l.execution.subagents).cloned() {
-            self.shell.executions.inherit.insert(child.to_owned(), (live.execution, live.selection));
+        let parent_run = self
+            .active
+            .get(parent)
+            .map(|a| a.run_id.clone())
+            .unwrap_or_default();
+        if let Some(live) = self
+            .live_execution(parent, &parent_run)
+            .filter(|l| l.execution.subagents)
+            .cloned()
+        {
+            self.shell
+                .executions
+                .inherit
+                .insert(child.to_owned(), (live.execution, live.selection));
         }
     }
 }

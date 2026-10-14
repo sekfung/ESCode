@@ -42,7 +42,8 @@ pub(crate) fn static_headers() -> &'static [(String, String)] {
                 app_version: printable(env("ESCODE_APP_VERSION").as_deref())
                     .or_else(|| Some(env!("CARGO_PKG_VERSION").to_owned())),
                 electron,
-                release_test: env("ESCODE_ENV").is_some_and(|v| v.trim().eq_ignore_ascii_case("test")),
+                release_test: env("ESCODE_ENV")
+                    .is_some_and(|v| v.trim().eq_ignore_ascii_case("test")),
             },
             platform,
         )
@@ -61,10 +62,16 @@ fn build_static(
     platform: &escode_cli_host::client_platform::ClientPlatform,
 ) -> Vec<(String, String)> {
     let mut headers = vec![
-        ("http-referer".to_owned(), endpoint_origin(input.base_url.clone())),
+        (
+            "http-referer".to_owned(),
+            endpoint_origin(input.base_url.clone()),
+        ),
         (
             "user-agent".to_owned(),
-            format!("ESCode/{}", input.app_version.as_deref().unwrap_or("unknown")),
+            format!(
+                "ESCode/{}",
+                input.app_version.as_deref().unwrap_or("unknown")
+            ),
         ),
     ];
     if let Some(version) = &input.app_version {
@@ -74,7 +81,12 @@ fn build_static(
     headers.push(("x-title".into(), format!("ESCode@{title}")));
     headers.push((
         "x-release-channel".into(),
-        if input.release_test { "test" } else { "production" }.into(),
+        if input.release_test {
+            "test"
+        } else {
+            "production"
+        }
+        .into(),
     ));
     headers.push((
         "x-client-language".into(),
@@ -85,7 +97,10 @@ fn build_static(
         printable(platform.timezone.as_deref()).unwrap_or_else(|| "unknown".into()),
     ));
     headers.push(("x-zcode-agent".into(), "glm".into()));
-    if let (Some(p), Some(a)) = (printable(Some(platform.platform)), printable(Some(platform.arch))) {
+    if let (Some(p), Some(a)) = (
+        printable(Some(platform.platform)),
+        printable(Some(platform.arch)),
+    ) {
         headers.push(("x-platform".into(), format!("{p}-{a}")));
     }
     headers.push(("x-os-category".into(), platform.os_category.into()));
@@ -138,7 +153,10 @@ pub(crate) fn attribution(scope: &ModelCallScope, url: &str) -> Vec<(String, Str
         ),
         (
             "x-zcode-trace-id".to_owned(),
-            scope.trace_id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            scope
+                .trace_id
+                .clone()
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
         ),
     ];
     if let Some(turn) = scope.turn_id.as_deref().filter(|t| !t.is_empty()) {
@@ -211,7 +229,12 @@ mod tests {
             },
             &platform(),
         );
-        let get = |k: &str| headers.iter().find(|(key, _)| key == k).map(|(_, v)| v.as_str());
+        let get = |k: &str| {
+            headers
+                .iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
         assert_eq!(get("http-referer"), Some("https://example.test:8443"));
         assert_eq!(get("user-agent"), Some("ESCode/3.14.0"));
         assert_eq!(get("x-zcode-app-version"), Some("3.14.0"));
@@ -224,10 +247,24 @@ mod tests {
         assert_eq!(get("x-os-category"), Some("windows"));
         assert_eq!(get("x-os-version"), Some("10.0.26100"));
         let fallback = build_static(
-            &StaticInputs { base_url: Some("not a url".into()), app_version: None, electron: false, release_test: true },
-            &ClientPlatform { locale: Some("日本".into()), timezone: None, ..platform() },
+            &StaticInputs {
+                base_url: Some("not a url".into()),
+                app_version: None,
+                electron: false,
+                release_test: true,
+            },
+            &ClientPlatform {
+                locale: Some("日本".into()),
+                timezone: None,
+                ..platform()
+            },
         );
-        let get = |k: &str| fallback.iter().find(|(key, _)| key == k).map(|(_, v)| v.as_str());
+        let get = |k: &str| {
+            fallback
+                .iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
         assert_eq!(get("http-referer"), Some(DEFAULT_ENDPOINT_ORIGIN));
         assert_eq!(get("user-agent"), Some("ESCode/unknown"));
         assert_eq!(get("x-zcode-app-version"), None);
@@ -246,7 +283,12 @@ mod tests {
             trace_id: Some("trace-1".into()),
         };
         let headers = attribution(&scope, "https://api.example.test/v1");
-        let get = |k: &str| headers.iter().find(|(key, _)| key == k).map(|(_, v)| v.as_str());
+        let get = |k: &str| {
+            headers
+                .iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
         assert_eq!(get("x-zcode-session-type"), Some("main"));
         assert_eq!(get("x-zcode-trace-id"), Some("trace-1"));
         assert_eq!(get("x-session-id"), Some("abc"));
@@ -254,21 +296,33 @@ mod tests {
         assert_eq!(get("x-opencode-session"), None);
         assert_ne!(
             get("x-request-id"),
-            attribution(&scope, "").iter().find(|(k, _)| k == "x-request-id").map(|(_, v)| v.as_str())
+            attribution(&scope, "")
+                .iter()
+                .find(|(k, _)| k == "x-request-id")
+                .map(|(_, v)| v.as_str())
         );
-        assert_eq!(strip_prefixes("sess_subagent_agent_x", &SESSION_PREFIXES), "x");
+        assert_eq!(
+            strip_prefixes("sess_subagent_agent_x", &SESSION_PREFIXES),
+            "x"
+        );
         assert_eq!(strip_prefixes("sess_", &SESSION_PREFIXES), "sess_");
         assert_eq!(session_type(Some("subagent")), "subagent");
         assert_eq!(session_type(Some("session_title")), "other");
         assert_eq!(session_type(None), "other");
         let open = attribution(&scope, "https://x.opencode.ai/zen/go/v1/");
-        assert!(open.iter().any(|(k, v)| k == "x-opencode-session" && v == "abc"));
+        assert!(
+            open.iter()
+                .any(|(k, v)| k == "x-opencode-session" && v == "abc")
+        );
         assert!(!is_opencode_go("https://opencode.ai/zen/v1"));
     }
 
     #[test]
     fn merge_overrides_case_insensitively_without_duplicates() {
-        let a = vec![("x-zcode-session-type".to_owned(), "other".to_owned()), ("User-Agent".to_owned(), "a".to_owned())];
+        let a = vec![
+            ("x-zcode-session-type".to_owned(), "other".to_owned()),
+            ("User-Agent".to_owned(), "a".to_owned()),
+        ];
         let b = vec![("X-ZCode-Session-Type".to_owned(), "main".to_owned())];
         let merged = merge(&[&a, &b]);
         assert_eq!(merged.len(), 2);

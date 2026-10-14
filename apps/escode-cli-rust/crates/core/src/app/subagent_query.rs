@@ -33,7 +33,7 @@ impl Engine {
             end["nextCursor"] = (offset + items.len()).to_string().into();
         }
         Ok(
-            json!({"revision":s.revision,"childSessionIds":s.children.values().map(|t|&t.child_id).collect::<Vec<_>>(),"running":s.children.values().filter(|t|t.running()).map(|t|t.summary()).collect::<Vec<_>>(),"ended":end}),
+            json!({"revision":s.revision,"childSessionIds":s.children.values().map(|t|&t.child_id).collect::<Vec<_>>(),"running":s.children.values().filter(|t|t.running()).map(escode_cli_domain::subagent::Task::summary).collect::<Vec<_>>(),"ended":end}),
         )
     }
 }

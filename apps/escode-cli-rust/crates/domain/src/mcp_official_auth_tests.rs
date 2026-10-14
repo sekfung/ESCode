@@ -2,7 +2,10 @@ use super::*;
 use serde_json::{Value, json};
 
 fn corpus() -> Value {
-    serde_json::from_str(include_str!("../tests/fixtures/mcp_official_auth_corpus.json")).unwrap()
+    serde_json::from_str(include_str!(
+        "../tests/fixtures/mcp_official_auth_corpus.json"
+    ))
+    .unwrap()
 }
 
 #[test]
@@ -13,14 +16,22 @@ fn origin_trust_matches_ts() {
             case["devTrustedOriginsRaw"].as_str(),
             case["escodeApiOrigin"].as_str(),
         );
-        assert_eq!(json!({"trusted": trusted, "detail": detail}), case["result"], "{case}");
+        assert_eq!(
+            json!({"trusted": trusted, "detail": detail}),
+            case["result"],
+            "{case}"
+        );
     }
 }
 
 #[test]
 fn reserved_headers_match_ts() {
     for case in corpus()["reserved"].as_array().unwrap() {
-        let names = case["headers"].as_object().unwrap().keys().map(String::as_str);
+        let names = case["headers"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str);
         assert_eq!(json!(reserved_headers(names)), case["result"], "{case}");
     }
 }
@@ -63,7 +74,10 @@ fn merge_overrides_identity_and_drops_reserved_and_correlation_headers() {
         s("Content-Type", "application/json"),
         s("x-bigmodel-authorization", "stale"),
     ];
-    let auth = [s("Authorization", "Bearer jwt"), s("X-Bigmodel-Authorization", "plan")];
+    let auth = [
+        s("Authorization", "Bearer jwt"),
+        s("X-Bigmodel-Authorization", "plan"),
+    ];
     assert_eq!(
         merge_headers(&incoming, &auth),
         vec![
@@ -80,18 +94,48 @@ fn merge_overrides_identity_and_drops_reserved_and_correlation_headers() {
 fn response_classification_follows_ts() {
     let json_ct = "application/json; charset=utf-8";
     assert_eq!(classify_response(429, "", None), Some("rate_limited"));
-    assert_eq!(classify_response(502, json_ct, None), Some("server_internal_error"));
+    assert_eq!(
+        classify_response(502, json_ct, None),
+        Some("server_internal_error")
+    );
     assert_eq!(classify_response(200, "text/event-stream", None), None);
-    assert_eq!(classify_response(404, "text/plain", None), Some("connection_failed"));
-    assert_eq!(classify_response(200, json_ct, Some(r#"{"code":3001}"#)), Some("server_not_found"));
-    assert_eq!(classify_response(400, json_ct, Some(r#"{"code":1000}"#)), Some("server_unavailable"));
+    assert_eq!(
+        classify_response(404, "text/plain", None),
+        Some("connection_failed")
+    );
+    assert_eq!(
+        classify_response(200, json_ct, Some(r#"{"code":3001}"#)),
+        Some("server_not_found")
+    );
+    assert_eq!(
+        classify_response(400, json_ct, Some(r#"{"code":1000}"#)),
+        Some("server_unavailable")
+    );
     let rpc = |code: i64| format!(r#"{{"jsonrpc":"2.0","id":1,"error":{{"code":{code}}}}}"#);
-    assert_eq!(classify_response(200, json_ct, Some(&rpc(1006))), Some("not_authenticated"));
-    assert_eq!(classify_response(200, json_ct, Some(&rpc(3101))), Some("coding_plan_required"));
-    assert_eq!(classify_response(200, json_ct, Some(&rpc(-32601))), Some("protocol_error"));
-    assert_eq!(classify_response(200, json_ct, Some(r#"{"jsonrpc":"2.0","result":{}}"#)), None);
-    assert_eq!(classify_response(400, json_ct, Some("not json")), Some("connection_failed"));
-    assert_eq!(classify_response(400, json_ct, Some("[1]")), Some("connection_failed"));
+    assert_eq!(
+        classify_response(200, json_ct, Some(&rpc(1006))),
+        Some("not_authenticated")
+    );
+    assert_eq!(
+        classify_response(200, json_ct, Some(&rpc(3101))),
+        Some("coding_plan_required")
+    );
+    assert_eq!(
+        classify_response(200, json_ct, Some(&rpc(-32601))),
+        Some("protocol_error")
+    );
+    assert_eq!(
+        classify_response(200, json_ct, Some(r#"{"jsonrpc":"2.0","result":{}}"#)),
+        None
+    );
+    assert_eq!(
+        classify_response(400, json_ct, Some("not json")),
+        Some("connection_failed")
+    );
+    assert_eq!(
+        classify_response(400, json_ct, Some("[1]")),
+        Some("connection_failed")
+    );
     assert_eq!(auth_failure(401), Some("official_auth_rejected"));
     assert_eq!(auth_failure(403), Some("official_auth_forbidden"));
     assert_eq!(auth_failure(307), Some("official_auth_redirect_blocked"));

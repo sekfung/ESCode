@@ -1,0 +1,6 @@
+# Clippy 配置（docs/specs/rust-unified-host.md「实现质量对齐工作包」）：
+# 测试代码放宽 unwrap/expect/print；生产代码的 unwrap_used / expect_used 属渐进清零项，
+# 按 crate 清零后在 Cargo.toml 的 [workspace.lints.clippy] 逐项加入。
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-print-in-tests = true

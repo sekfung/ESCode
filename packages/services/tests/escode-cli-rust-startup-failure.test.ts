@@ -31,7 +31,7 @@ test("a Rust runtime that exits before ready does not switch later starts to Nod
   const manager = new ESCodeAgentProcessManager({
     commandResolver: (context) => {
       assert.equal(
-        (context as Record<string, unknown>).rustRuntimeFailed,
+        (context as { rustRuntimeFailed?: unknown }).rustRuntimeFailed,
         undefined,
         "the resolver receives no fallback state",
       );

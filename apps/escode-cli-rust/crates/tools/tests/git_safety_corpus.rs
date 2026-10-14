@@ -1,9 +1,9 @@
 //! 差分：Rust `bash_git_safety::is_runtime_context_unsafe` 与 TS `isGitRuntimeContextUnsafe`。
 //! 语料由 scripts/generate-escode-cli-rust-git-safety-corpus.mjs 生成：每例描述一棵目录树，
 //! 这里重建同构目录后比对结论。symlink 用例在无权限的平台上跳过。
+use escode_cli_tools::bash_git_safety::is_runtime_context_unsafe;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use escode_cli_tools::bash_git_safety::is_runtime_context_unsafe;
 
 /// 每个用例独占一个临时目录；本 crate 不引入 tempfile，避免为测试新增依赖。
 struct TempDir(PathBuf);
@@ -12,8 +12,10 @@ impl TempDir {
     fn new(tag: &str) -> Self {
         static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("escode-git-safety-{tag}-{}-{n}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "escode-git-safety-{tag}-{}-{n}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).unwrap();
         Self(path)

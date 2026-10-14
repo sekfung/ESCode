@@ -79,7 +79,10 @@ fn writer() -> Option<&'static Writer> {
 fn append(dir: &Path, line: &str) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join(file_name(Local::now().date_naive()));
-    let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
     writeln!(file, "{line}")
 }
 
@@ -97,7 +100,12 @@ fn entry(
     context: Value,
 ) -> String {
     let mut value = Map::new();
-    value.insert("timestamp".into(), Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true).into());
+    value.insert(
+        "timestamp".into(),
+        Utc::now()
+            .to_rfc3339_opts(SecondsFormat::Millis, true)
+            .into(),
+    );
     value.insert("level".into(), level.name().into());
     value.insert("event".into(), event.into());
     value.insert("module".into(), module.into());
@@ -121,7 +129,11 @@ fn redact(value: Value, depth: usize) -> Value {
         Value::Object(map) => map
             .into_iter()
             .map(|(key, v)| {
-                let v = if sensitive(&key) { "[Redacted]".into() } else { redact(v, depth + 1) };
+                let v = if sensitive(&key) {
+                    "[Redacted]".into()
+                } else {
+                    redact(v, depth + 1)
+                };
                 (key, v)
             })
             .collect::<Map<_, _>>()
@@ -132,13 +144,30 @@ fn redact(value: Value, depth: usize) -> Value {
 
 fn sensitive(key: &str) -> bool {
     let key = key.to_ascii_lowercase();
-    ["apikey", "api-key", "api_key", "authorization", "cookie", "credential", "password", "secret", "token"]
-        .iter()
-        .any(|needle| key.contains(needle))
+    [
+        "apikey",
+        "api-key",
+        "api_key",
+        "authorization",
+        "cookie",
+        "credential",
+        "password",
+        "secret",
+        "token",
+    ]
+    .iter()
+    .any(|needle| key.contains(needle))
 }
 
 /// 记一条日志。warn / error 同时写 stderr，保留原有诊断输出（Host 从 stderr 收集）。
-pub fn log(level: Level, event: &str, module: &str, message: &str, session_id: Option<&str>, context: Value) {
+pub fn log(
+    level: Level,
+    event: &str,
+    module: &str,
+    message: &str,
+    session_id: Option<&str>,
+    context: Value,
+) {
     if level >= Level::Warn {
         let _ = writeln!(std::io::stderr().lock(), "escode-cli-rust: {message}");
     }
@@ -146,7 +175,9 @@ pub fn log(level: Level, event: &str, module: &str, message: &str, session_id: O
     if level < writer.min {
         return;
     }
-    let _ = writer.lines.send(entry(level, event, module, message, session_id, context));
+    let _ = writer
+        .lines
+        .send(entry(level, event, module, message, session_id, context));
 }
 
 pub fn info(event: &str, module: &str, message: &str, context: Value) {
@@ -175,12 +206,19 @@ fn file_date(name: &str) -> Option<NaiveDate> {
     let shape = bytes.len() == 10
         && bytes[4] == b'-'
         && bytes[7] == b'-'
-        && bytes.iter().enumerate().all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit());
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit());
     shape.then(|| NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())?
 }
 
 /// 删除早于 `today - 7 + 1` 的本 runtime 日文件；单个失败不影响其余。目录不存在视为完成。
-fn cleanup(dir: &Path, today: NaiveDate, remove: &dyn Fn(&Path) -> std::io::Result<()>) -> std::io::Result<Cleanup> {
+fn cleanup(
+    dir: &Path,
+    today: NaiveDate,
+    remove: &dyn Fn(&Path) -> std::io::Result<()>,
+) -> std::io::Result<Cleanup> {
     let cutoff = today - Duration::days(RETENTION_DAYS - 1);
     let mut result = Cleanup::default();
     let entries = match std::fs::read_dir(dir) {
@@ -195,7 +233,9 @@ fn cleanup(dir: &Path, today: NaiveDate, remove: &dyn Fn(&Path) -> std::io::Resu
         .collect();
     names.sort();
     for name in names {
-        let Some(date) = file_date(&name) else { continue };
+        let Some(date) = file_date(&name) else {
+            continue;
+        };
         result.scanned += 1;
         if date >= cutoff {
             continue;
@@ -211,8 +251,15 @@ fn cleanup(dir: &Path, today: NaiveDate, remove: &dyn Fn(&Path) -> std::io::Resu
 
 /// 启动 60 秒后在后台清理一次（Node LOG_CLEANUP_STARTUP_DELAY_MS），不阻塞请求与退出。
 pub fn schedule_retention() {
-    let Some(dir) = writer().map(|w| w.dir.clone()) else { return };
-    info("log.retention.cleanup.scheduled", "host.file_log", "Log retention cleanup scheduled", json!({"retentionDays": RETENTION_DAYS}));
+    let Some(dir) = writer().map(|w| w.dir.clone()) else {
+        return;
+    };
+    info(
+        "log.retention.cleanup.scheduled",
+        "host.file_log",
+        "Log retention cleanup scheduled",
+        json!({"retentionDays": RETENTION_DAYS}),
+    );
     let _ = std::thread::Builder::new().name("escode-log-retention".into()).spawn(move || {
         std::thread::sleep(CLEANUP_DELAY);
         match cleanup(&dir, Local::now().date_naive(), &|path| std::fs::remove_file(path)) {
@@ -251,7 +298,8 @@ mod tests {
         assert_eq!(value["context"]["nested"]["ok"], 1);
         assert_eq!(value["context"]["list"][0]["refresh_token"], "[Redacted]");
         assert!(value["timestamp"].as_str().unwrap().ends_with('Z'));
-        let bare: Value = serde_json::from_str(&entry(Level::Warn, "e", "m", "x", None, Value::Null)).unwrap();
+        let bare: Value =
+            serde_json::from_str(&entry(Level::Warn, "e", "m", "x", None, Value::Null)).unwrap();
         assert!(bare.get("sessionId").is_none() && bare.get("context").is_none());
     }
 
@@ -298,11 +346,20 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result.scanned, 4);
-        assert_eq!(result.deleted, vec!["escode-rust-2026-09-30.jsonl", "escode-rust-2026-10-01.jsonl"]);
+        assert_eq!(
+            result.deleted,
+            vec![
+                "escode-rust-2026-09-30.jsonl",
+                "escode-rust-2026-10-01.jsonl"
+            ]
+        );
         assert_eq!(result.failed, vec!["escode-rust-2026-09-29.jsonl"]);
         assert!(dir.join("escode-rust-2026-10-02.jsonl").exists());
         assert!(dir.join("escode-2026-09-01.jsonl").exists());
         std::fs::remove_dir_all(&dir).unwrap();
-        assert_eq!(cleanup(&dir, today, &|p| std::fs::remove_file(p)).unwrap(), Cleanup::default());
+        assert_eq!(
+            cleanup(&dir, today, &|p| std::fs::remove_file(p)).unwrap(),
+            Cleanup::default()
+        );
     }
 }

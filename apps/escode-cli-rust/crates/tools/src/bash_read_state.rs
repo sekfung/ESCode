@@ -11,7 +11,13 @@ const MAX_FILE_BYTES: u64 = 10 * 1024 * 1024;
 const MAX_HINT_PATHS: usize = 5;
 
 /// 前台 Bash 结果之后调用；`started` 为命令开始时间。改动了结果时重新生成模型正文。
-pub(super) async fn apply(state: &Mutex<FileState>, workspace: &Path, output: &mut ToolOutput, command: &str, started: SystemTime) {
+pub(super) async fn apply(
+    state: &Mutex<FileState>,
+    workspace: &Path,
+    output: &mut ToolOutput,
+    command: &str,
+    started: SystemTime,
+) {
     let data = &output.data;
     // TS shouldSkipBashReadFileStateEffects：后台、图片、中断与提供方错误都不影响读取状态。
     if data.get("backgroundTaskId").is_some()
@@ -31,11 +37,18 @@ pub(super) async fn apply(state: &Mutex<FileState>, workspace: &Path, output: &m
 }
 
 /// 命令开始后被改动过的已读文件（TS 另要求晚于读取时的 mtime；读取总在命令之前，二者等价）。
-async fn stale_hint(state: &Mutex<FileState>, workspace: &Path, started: SystemTime) -> Option<String> {
+async fn stale_hint(
+    state: &Mutex<FileState>,
+    workspace: &Path,
+    started: SystemTime,
+) -> Option<String> {
     let paths = state.lock().await.paths();
     let mut changed = vec![];
     for path in paths {
-        let modified = tokio::fs::metadata(&path).await.ok().and_then(|m| m.modified().ok());
+        let modified = tokio::fs::metadata(&path)
+            .await
+            .ok()
+            .and_then(|m| m.modified().ok());
         if modified.is_some_and(|m| m > started) {
             changed.push(path);
         }
@@ -43,14 +56,24 @@ async fn stale_hint(state: &Mutex<FileState>, workspace: &Path, started: SystemT
     if changed.is_empty() {
         return None;
     }
-    let root = escode_cli_host::realpath(workspace).await.unwrap_or_else(|_| workspace.to_owned());
+    let root = escode_cli_host::realpath(workspace)
+        .await
+        .unwrap_or_else(|_| workspace.to_owned());
     let shown: Vec<String> = changed
         .iter()
         .take(MAX_HINT_PATHS)
-        .map(|p| p.strip_prefix(&root).map(|r| r.to_string_lossy().into_owned()).unwrap_or_else(|_| p.to_string_lossy().into_owned()))
+        .map(|p| {
+            p.strip_prefix(&root)
+                .map(|r| r.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| p.to_string_lossy().into_owned())
+        })
         .collect();
     let hidden = changed.len().saturating_sub(MAX_HINT_PATHS);
-    let more = if hidden > 0 { format!(" and {hidden} more") } else { String::new() };
+    let more = if hidden > 0 {
+        format!(" and {hidden} more")
+    } else {
+        String::new()
+    };
     let word = if changed.len() == 1 { "file" } else { "files" };
     Some(format!(
         "[This command modified {} {word} you've previously read: {}{more}. Call Read before editing.]",
@@ -59,13 +82,21 @@ async fn stale_hint(state: &Mutex<FileState>, workspace: &Path, started: SystemT
     ))
 }
 
-async fn backfill(state: &Mutex<FileState>, workspace: &Path, data: &serde_json::Value, command: &str) {
+async fn backfill(
+    state: &Mutex<FileState>,
+    workspace: &Path,
+    data: &serde_json::Value,
+    command: &str,
+) {
     // 截断的 stdout 不代表模型看到了完整内容，不能绕过读后再写的约束。
     if data["stdoutTruncated"] == true {
         return;
     }
     let exit_zero = data["exitCode"].as_i64() == Some(0);
-    for source in sources::collect(command).into_iter().filter(|s| !s.requires_exit_zero || exit_zero) {
+    for source in sources::collect(command)
+        .into_iter()
+        .filter(|s| !s.requires_exit_zero || exit_zero)
+    {
         let requested = workspace.join(&source.file_path);
         let Ok(key) = escode_cli_host::realpath(&requested).await else {
             continue;

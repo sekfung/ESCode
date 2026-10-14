@@ -185,7 +185,7 @@ fn search_ranks_relevant_entries_and_excludes_proposals_by_default() {
     let hits = rank::search(&idx, &q);
     assert_eq!(hits.first().map(|h| h.id.as_str()), Some("err"));
     assert!(hits.iter().all(|h| h.id != "prop"));
-    let mut with = q.clone();
+    let mut with = q;
     with.include_proposals = true;
     assert!(rank::search(&idx, &with).iter().any(|h| h.id == "prop"));
     assert!(

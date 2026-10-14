@@ -46,9 +46,10 @@ impl State {
 
     fn flush_command(&mut self, end: usize, offsets: &[usize]) {
         self.flush_word(end, offsets);
-        let comment = self.words.first().is_some_and(|word| {
-            word.value.eq_ignore_ascii_case("rem") || word.value == "::"
-        });
+        let comment = self
+            .words
+            .first()
+            .is_some_and(|word| word.value.eq_ignore_ascii_case("rem") || word.value == "::");
         let words = std::mem::take(&mut self.words);
         if !self.invalid_segment && self.block_depth == 0 && !words.is_empty() && !comment {
             self.commands.push(words);
@@ -137,7 +138,10 @@ pub(crate) fn analyze(source: &str) -> (Vec<Vec<CommandWord>>, bool) {
         }
         if !s.quote && (c == '<' || c == '>') {
             // 2>&1 等 fd 重定向不是命令分隔符，也不是 argv。
-            if s.start.is_some() && !s.value.is_empty() && s.value.chars().all(|d| d.is_ascii_digit()) {
+            if s.start.is_some()
+                && !s.value.is_empty()
+                && s.value.chars().all(|d| d.is_ascii_digit())
+            {
                 s.value.clear();
                 s.start = None;
             }
@@ -199,6 +203,9 @@ fn starts_comment(rest: &[char]) -> bool {
         return true;
     }
     rest.len() >= 4
-        && rest[..3].iter().collect::<String>().eq_ignore_ascii_case("rem")
+        && rest[..3]
+            .iter()
+            .collect::<String>()
+            .eq_ignore_ascii_case("rem")
         && (rest[3].is_whitespace() || rest[3] == '\u{feff}')
 }

@@ -124,14 +124,28 @@ fn decode_code_page(bytes: &[u8], code_page: u32) -> Option<String> {
     }
     let length = i32::try_from(bytes.len()).ok()?;
     let needed = unsafe {
-        MultiByteToWideChar(code_page, 0, bytes.as_ptr(), length, std::ptr::null_mut(), 0)
+        MultiByteToWideChar(
+            code_page,
+            0,
+            bytes.as_ptr(),
+            length,
+            std::ptr::null_mut(),
+            0,
+        )
     };
     if needed <= 0 {
         return None;
     }
     let mut wide = vec![0u16; needed as usize];
     let written = unsafe {
-        MultiByteToWideChar(code_page, 0, bytes.as_ptr(), length, wide.as_mut_ptr(), needed)
+        MultiByteToWideChar(
+            code_page,
+            0,
+            bytes.as_ptr(),
+            length,
+            wide.as_mut_ptr(),
+            needed,
+        )
     };
     (written > 0).then(|| String::from_utf16_lossy(&wide[..written as usize]))
 }

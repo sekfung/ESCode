@@ -45,8 +45,7 @@ pub(super) async fn prepare_tool_surface(
     {
         // v3.15.1：描述是静态的，profile 目录改由每步的 agent_listing_delta 提醒通告
         // （docs/specs/rust-v3.15.1-drift.md）。
-        agent["function"]["description"] =
-            crate::domain::agent_description::description().into();
+        agent["function"]["description"] = crate::domain::agent_description::description().into();
         true
     } else {
         false

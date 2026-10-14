@@ -2,9 +2,9 @@
 //! 用 TS 建出的同一份 DDL/行重建库，再用 Rust 的读面跑同一批查询。
 //! 覆盖物理→逻辑状态解码（stopped/errored/interrupted、信封嗅探失败退化成 user）、
 //! 产物归并（同 id 版本、失败发布、预置看板 itemCount、primary 排序）与截断探测。
-use crate::dwf_journal as store;
-use crate::domain::{dwf_journal as journal, json_order::Json};
 use crate::domain::workflow_run_list;
+use crate::domain::{dwf_journal as journal, json_order::Json};
+use crate::dwf_journal as store;
 use rusqlite::{Connection, params_from_iter, types::Value as SqlValue};
 
 const CORPUS: &str = include_str!("../tests/fixtures/dwf_journal_corpus.json");
@@ -15,8 +15,13 @@ fn corpus() -> Json {
 
 fn insert_rows(conn: &Connection, table: &str, rows: &[Json]) {
     for row in rows {
-        let Json::Object(columns) = row else { panic!("行必须是对象") };
-        let names = columns.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>();
+        let Json::Object(columns) = row else {
+            panic!("行必须是对象")
+        };
+        let names = columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>();
         let values = columns
             .iter()
             .map(|(_, value)| match value {
@@ -72,8 +77,16 @@ fn workflow_runs_reads_match_ts() {
         conn.execute_batch(statement.as_str().unwrap()).unwrap();
     }
     let rows = corpus.get("rows").unwrap();
-    insert_rows(&conn, "dwf_run", rows.get("dwf_run").unwrap().as_array().unwrap());
-    insert_rows(&conn, "dwf_node", rows.get("dwf_node").unwrap().as_array().unwrap());
+    insert_rows(
+        &conn,
+        "dwf_run",
+        rows.get("dwf_run").unwrap().as_array().unwrap(),
+    );
+    insert_rows(
+        &conn,
+        "dwf_node",
+        rows.get("dwf_node").unwrap().as_array().unwrap(),
+    );
 
     for case in corpus.get("cases").unwrap().as_array().unwrap() {
         let expected = case.get("result").unwrap();
@@ -81,13 +94,13 @@ fn workflow_runs_reads_match_ts() {
         let limit = (query.limit - 1) as usize;
         let found = store::journal_runs(&conn, &query).unwrap();
         let (projected, truncated) = journal::protocol_page(&found, limit);
-        let actual =
-            serde_json::from_str::<serde_json::Value>(&journal::to_value(&Json::Array(projected)).to_string())
-                .unwrap();
-        let expected_runs = serde_json::from_str::<serde_json::Value>(
-            &expected.get("runs").unwrap().compact(),
+        let actual = serde_json::from_str::<serde_json::Value>(
+            &journal::to_value(&Json::Array(projected)).to_string(),
         )
         .unwrap();
+        let expected_runs =
+            serde_json::from_str::<serde_json::Value>(&expected.get("runs").unwrap().compact())
+                .unwrap();
         assert_eq!(actual, expected_runs, "{case:?}");
         assert_eq!(
             truncated,
@@ -108,8 +121,16 @@ fn workflow_run_list_matches_ts() {
         conn.execute_batch(statement.as_str().unwrap()).unwrap();
     }
     let rows = corpus.get("rows").unwrap();
-    insert_rows(&conn, "dwf_run", rows.get("dwf_run").unwrap().as_array().unwrap());
-    insert_rows(&conn, "dwf_node", rows.get("dwf_node").unwrap().as_array().unwrap());
+    insert_rows(
+        &conn,
+        "dwf_run",
+        rows.get("dwf_run").unwrap().as_array().unwrap(),
+    );
+    insert_rows(
+        &conn,
+        "dwf_node",
+        rows.get("dwf_node").unwrap().as_array().unwrap(),
+    );
     let owner = corpus.get("owner").unwrap().as_str().unwrap();
 
     for case in corpus.get("listCases").unwrap().as_array().unwrap() {
@@ -119,16 +140,22 @@ fn workflow_run_list_matches_ts() {
             cwd: port.get("cwd").and_then(Json::as_str).map(str::to_owned),
             name: None,
             statuses: None,
-            limit: port.get("limit").and_then(|value| match value {
-                Json::Number(number) => number.as_i64(),
-                _ => None,
-            })
-            .unwrap(),
+            limit: port
+                .get("limit")
+                .and_then(|value| match value {
+                    Json::Number(number) => number.as_i64(),
+                    _ => None,
+                })
+                .unwrap(),
         };
         let limit = (query.limit - 1) as usize;
         let found = store::journal_runs(&conn, &query).unwrap();
         let truncated = found.len() > limit;
-        let page = if truncated { &found[..limit] } else { &found[..] };
+        let page = if truncated {
+            &found[..limit]
+        } else {
+            &found[..]
+        };
         let items = page
             .iter()
             .map(|entry| workflow_run_list::item(&entry.row, owner))
@@ -136,7 +163,8 @@ fn workflow_run_list_matches_ts() {
         let output = workflow_run_list::output(&items, truncated);
         let expected = case.get("result").unwrap();
         assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&journal::to_value(&output).to_string()).unwrap(),
+            serde_json::from_str::<serde_json::Value>(&journal::to_value(&output).to_string())
+                .unwrap(),
             serde_json::from_str::<serde_json::Value>(&expected.compact()).unwrap(),
             "{case:?}"
         );
@@ -150,10 +178,8 @@ fn workflow_run_list_matches_ts() {
                 &journal::to_value(&workflow_run_list::display(&output)).to_string()
             )
             .unwrap(),
-            serde_json::from_str::<serde_json::Value>(
-                &case.get("display").unwrap().compact()
-            )
-            .unwrap(),
+            serde_json::from_str::<serde_json::Value>(&case.get("display").unwrap().compact())
+                .unwrap(),
             "{case:?}"
         );
     }

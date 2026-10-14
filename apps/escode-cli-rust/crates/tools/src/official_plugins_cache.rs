@@ -259,7 +259,7 @@ pub(crate) fn usable_fallback(storage: &Path, definition: &Definition) -> Option
     let parent = target.parent()?;
     let mut names: Vec<String> = std::fs::read_dir(parent)
         .ok()?
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .filter(|n| {

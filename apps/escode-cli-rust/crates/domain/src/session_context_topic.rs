@@ -30,7 +30,10 @@ pub(crate) fn parse_attachment(value: &Value) -> Result<Value, String> {
 /// TS `readTopicArchive` 在会话里没有可信 botGroupSource 时的结果（Rust runtime 不承载机器人
 /// 话题输入，见 docs/specs/rust-v3.15.1-drift.md）：预算校验同 TS，返回 not_found 与空记录。
 pub fn topic_archive_output(input: &Input) -> Result<Value, String> {
-    let budget = input.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS).min(MAX_TOKENS);
+    let budget = input
+        .max_tokens
+        .unwrap_or(DEFAULT_MAX_TOKENS)
+        .min(MAX_TOKENS);
     if budget < 256 {
         return Err("Topic retrieval budget must be at least 256 tokens".into());
     }
@@ -45,7 +48,6 @@ pub fn topic_archive_output(input: &Input) -> Result<Value, String> {
         "messageCount": 0, "selectedMessageCount": 0, "truncated": false, "references": [],
     }))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -71,8 +73,10 @@ mod tests {
                 .is_err()
         );
         assert!(
-            parse(json!({"query": "q", "strategy": "topic", "attachment": {"messageId": "m", "x": 1}}))
-                .is_err()
+            parse(
+                json!({"query": "q", "strategy": "topic", "attachment": {"messageId": "m", "x": 1}})
+            )
+            .is_err()
         );
         let output = topic_archive_output(&topic).unwrap();
         assert_eq!(output["status"], "not_found");

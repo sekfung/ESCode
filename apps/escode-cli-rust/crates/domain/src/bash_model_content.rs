@@ -12,11 +12,16 @@ const SEMANTIC_NON_ERRORS: [&str; 4] = [
 ];
 const NEUTRAL: [&str; 6] = ["", ":", "echo", "false", "printf", "true"];
 const SILENT: [&str; 14] = [
-    "cd", "chgrp", "chmod", "chown", "cp", "export", "ln", "mkdir", "mv", "rm", "rmdir", "touch", "unset", "wait",
+    "cd", "chgrp", "chmod", "chown", "cp", "export", "ln", "mkdir", "mv", "rm", "rmdir", "touch",
+    "unset", "wait",
 ];
 
 /// TS `interpretBashReturnCode`（输出超限在 Rust 中以 stderr 文案表达，不单独解释）。
-pub fn return_code_interpretation(command: &str, status: &str, exit_code: Option<i64>) -> Option<String> {
+pub fn return_code_interpretation(
+    command: &str,
+    status: &str,
+    exit_code: Option<i64>,
+) -> Option<String> {
     match status {
         "timed_out" => return Some("Command timed out".into()),
         "cancelled" => return Some("Command was cancelled".into()),
@@ -71,7 +76,10 @@ fn semantic_exit_one(command: &str, code: i64) -> Option<&'static str> {
 /// TS `statusFailure` 的执行错误文案：没有 stderr 文本时作为 stderr（TS `stderr.text || error.message`）。
 pub fn stop_message(status: &str, timeout_ms: Option<u64>, output_limit: bool) -> Option<String> {
     match status {
-        "timed_out" => Some(format!("Command timed out after {}", timeout_duration(timeout_ms.unwrap_or(120_000)))),
+        "timed_out" => Some(format!(
+            "Command timed out after {}",
+            timeout_duration(timeout_ms.unwrap_or(120_000))
+        )),
         "cancelled" => Some("Execution cancelled".into()),
         _ if output_limit => Some("Execution output exceeded the persisted output limit".into()),
         _ => None,
@@ -177,13 +185,18 @@ fn stdout_section(data: &Value) -> String {
     let start = stdout[..blank].rfind('\n').map_or(0, |i| i + 1);
     let content = stdout[start..].trim_end();
     let path = (data["status"] != "backgrounded")
-        .then(|| data["persistedOutputPath"].as_str().or(data["rawOutputPath"].as_str()))
+        .then(|| {
+            data["persistedOutputPath"]
+                .as_str()
+                .or(data["rawOutputPath"].as_str())
+        })
         .flatten();
     let Some(path) = path else {
         return content.to_owned();
     };
     let bytes = data["persistedOutputSize"].as_u64().unwrap_or_else(|| {
-        data["stdoutBytes"].as_u64().unwrap_or(content.len() as u64) + data["stderrBytes"].as_u64().unwrap_or(0)
+        data["stdoutBytes"].as_u64().unwrap_or(content.len() as u64)
+            + data["stderrBytes"].as_u64().unwrap_or(0)
     });
     persisted_envelope(content, bytes, path)
 }
@@ -192,10 +205,17 @@ fn background_section(data: &Value) -> String {
     let Some(id) = data["backgroundTaskId"].as_str() else {
         return String::new();
     };
-    let path = ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath", "stderrPersistedOutputPath"]
-        .iter()
-        .find_map(|k| data[*k].as_str());
-    let output = path.map(|p| format!(" Output is being written to: {p}.")).unwrap_or_default();
+    let path = [
+        "rawOutputPath",
+        "persistedOutputPath",
+        "stdoutPersistedOutputPath",
+        "stderrPersistedOutputPath",
+    ]
+    .iter()
+    .find_map(|k| data[*k].as_str());
+    let output = path
+        .map(|p| format!(" Output is being written to: {p}."))
+        .unwrap_or_default();
     if data["assistantAutoBackgrounded"] == true {
         return format!(
             "Command exceeded the assistant-mode blocking budget ({ASSISTANT_BLOCKING_BUDGET_SECS}s) and was moved to the background with ID: {id}. It is still running \u{2014} you will be notified when it completes.{output} In assistant mode, delegate long-running work to a subagent or use run_in_background to keep this conversation responsive."
@@ -207,8 +227,14 @@ fn background_section(data: &Value) -> String {
             output.strip_suffix('.').unwrap_or(&output)
         );
     }
-    let hint = if output.is_empty() { "" } else { " To check interim output, use Read on that file path." };
-    format!("Command running in background with ID: {id}.{output} You will be notified when it completes.{hint}")
+    let hint = if output.is_empty() {
+        ""
+    } else {
+        " To check interim output, use Read on that file path."
+    };
+    format!(
+        "Command running in background with ID: {id}.{output} You will be notified when it completes.{hint}"
+    )
 }
 
 /// TS `formatPersistedOutputEnvelope`（Bash 字节格式：1024 进制，一位小数去 `.0`）。
@@ -216,7 +242,10 @@ pub fn persisted_envelope(content: &str, bytes: u64, path: &str) -> String {
     let (preview, more) = preview(content, PREVIEW_CHARS);
     let mut lines = vec![
         "<persisted-output>".to_owned(),
-        format!("Output too large ({}). Full output saved to: {path}", byte_size(bytes)),
+        format!(
+            "Output too large ({}). Full output saved to: {path}",
+            byte_size(bytes)
+        ),
         String::new(),
         format!("Preview (first {}):", byte_size(PREVIEW_CHARS as u64)),
         preview.to_owned(),

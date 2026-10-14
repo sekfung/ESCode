@@ -25,10 +25,17 @@ pub(super) async fn execute(
     let Some(cwd) = cwd else {
         return Ok(unavailable());
     };
-    let limit = args["limit"].as_u64().filter(|value| (1..=50).contains(value)).unwrap_or(DEFAULT_LIMIT);
-    let statuses = args["statuses"]
-        .as_array()
-        .map(|values| values.iter().filter_map(serde_json::Value::as_str).map(str::to_owned).collect());
+    let limit = args["limit"]
+        .as_u64()
+        .filter(|value| (1..=50).contains(value))
+        .unwrap_or(DEFAULT_LIMIT);
+    let statuses = args["statuses"].as_array().map(|values| {
+        values
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .collect()
+    });
     let query = RunQuery {
         run_id: None,
         cwd: Some(cwd.to_owned()),
@@ -49,7 +56,11 @@ pub(super) async fn execute(
         Err(_) => return Ok(unavailable()),
     };
     let truncated = rows.len() as u64 > limit;
-    let page = if truncated { &rows[..limit as usize] } else { &rows[..] };
+    let page = if truncated {
+        &rows[..limit as usize]
+    } else {
+        &rows[..]
+    };
     let items = page
         .iter()
         .map(|entry| workflow_run_list::item(&entry.row, &sink.session_id))

@@ -209,7 +209,7 @@ impl Engine {
             self.refresh_catalog()?;
         }
         Ok(
-            json!({"receivedRevision":p["revision"],"providerCount":p["providers"].as_object().map_or(0,|o|o.len()),"status":if received{"received"}else{"unchanged"}}),
+            json!({"receivedRevision":p["revision"],"providerCount":p["providers"].as_object().map_or(0,serde_json::Map::len),"status":if received{"received"}else{"unchanged"}}),
         )
     }
     pub(super) fn refresh_catalog(&mut self) -> Result<()> {

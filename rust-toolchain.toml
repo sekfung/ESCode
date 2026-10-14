@@ -1,0 +1,5 @@
+# 工具链统一入口（docs/specs/rust-unified-host.md 阶段 0）：与 apps/escode-cli-rust 的 rust-version（1.95）
+# 一致，本地与 CI 使用同一版本，避免 stable 漂移导致的格式化与 lint 差异。
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]

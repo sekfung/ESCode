@@ -19,7 +19,11 @@ pub(super) fn request_meta(base: &Value) -> Option<Value> {
     ];
     let mut context = serde_json::Map::new();
     for key in order {
-        let value = if key == "span_id" { Some(Value::from(span.clone())) } else { base.get(key).cloned() };
+        let value = if key == "span_id" {
+            Some(Value::from(span.clone()))
+        } else {
+            base.get(key).cloned()
+        };
         if let Some(value) = value {
             context.insert(key.into(), value);
         }

@@ -34,7 +34,11 @@ fn reason_code(failure: &ModelFailure) -> &'static str {
 }
 
 /// 通知 owner 作废失败尾部并显示恢复态；随后由调用方用未变的历史重发请求。
-pub(super) async fn start(sink: &EventSink, retry_number: u32, failure: &ModelFailure) -> Result<()> {
+pub(super) async fn start(
+    sink: &EventSink,
+    retry_number: u32,
+    failure: &ModelFailure,
+) -> Result<()> {
     sink.send(Event::StreamRecovery {
         retry_number,
         max_retries: MAX_RETRIES,
@@ -66,8 +70,17 @@ mod tests {
 
     #[test]
     fn reason_codes_follow_ts_failure_kinds() {
-        assert_eq!(reason_code(&failure("stream_idle_timeout", true, true)), "fault.network.timeout");
-        assert_eq!(reason_code(&failure("network_error", true, true)), "fault.network.unreachable");
-        assert_eq!(reason_code(&failure("server_error", true, true)), "fault.network.sseDisconnected");
+        assert_eq!(
+            reason_code(&failure("stream_idle_timeout", true, true)),
+            "fault.network.timeout"
+        );
+        assert_eq!(
+            reason_code(&failure("network_error", true, true)),
+            "fault.network.unreachable"
+        );
+        assert_eq!(
+            reason_code(&failure("server_error", true, true)),
+            "fault.network.sseDisconnected"
+        );
     }
 }

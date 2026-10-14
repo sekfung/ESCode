@@ -247,7 +247,8 @@ mod tests {
 
     #[test]
     fn listing_moves_before_the_input_it_was_announced_for() {
-        let listing = serde_json::json!({"role":"user","content":"l","_escode_source":LISTING_SOURCE});
+        let listing =
+            serde_json::json!({"role":"user","content":"l","_escode_source":LISTING_SOURCE});
         let mut first = vec![
             serde_json::json!({"role":"user","content":"hi"}),
             listing.clone(),
@@ -279,7 +280,14 @@ mod tests {
             "_escode_source": LISTING_SOURCE,
             LISTING_DELTA_KEY: delta,
         });
-        assert!(listing_delta(&[general.clone(), custom], &[announced.clone()], true).is_none());
+        assert!(
+            listing_delta(
+                &[general.clone(), custom],
+                std::slice::from_ref(&announced),
+                true
+            )
+            .is_none()
+        );
         let extra = profile("Explore", "built-in", None, &[]);
         let (changed, _) = listing_delta(&[general, extra], &[announced], true).unwrap();
         assert_eq!(

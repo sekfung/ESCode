@@ -16,9 +16,13 @@ pub(super) fn anthropic_tool(tool: &Value) -> Option<Value> {
     if !is_native(tool) {
         return None;
     }
-    let mut native = json!({"type":"web_search_20260209","name":"web_search","max_uses":tool["max_uses"]});
+    let mut native =
+        json!({"type":"web_search_20260209","name":"web_search","max_uses":tool["max_uses"]});
     for key in ["allowed_domains", "blocked_domains"] {
-        if tool[key].as_array().is_some_and(|domains| !domains.is_empty()) {
+        if tool[key]
+            .as_array()
+            .is_some_and(|domains| !domains.is_empty())
+        {
             native[key] = tool[key].clone();
         }
     }
@@ -55,7 +59,9 @@ mod tests {
             json!({"type":"web_search_20260209","name":"web_search","max_uses":8,"allowed_domains":["a.example"]})
         );
         assert!(anthropic_tool(&json!({"type":"function"})).is_none());
-        assert!(needs_beta(&json!({"tools":[anthropic_tool(&marker).unwrap()]})));
+        assert!(needs_beta(
+            &json!({"tools":[anthropic_tool(&marker).unwrap()]})
+        ));
         assert_eq!(merge_beta(None), ANTHROPIC_BETA);
         assert_eq!(merge_beta(Some("x-1")), format!("x-1,{ANTHROPIC_BETA}"));
         assert_eq!(merge_beta(Some(ANTHROPIC_BETA)), ANTHROPIC_BETA);

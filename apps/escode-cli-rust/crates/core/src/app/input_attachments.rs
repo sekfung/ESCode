@@ -138,8 +138,9 @@ impl Engine {
                 .context("Tool media must be a base64 data URL")?;
             let bytes = base64::engine::general_purpose::STANDARD.decode(data)?;
             let asset = self.store.put_attachment(&[bytes], mime).await?;
-            stored
-                .push(json!({"type":"_escode_attachment","asset":asset,"name":part["_escode_name"]}));
+            stored.push(
+                json!({"type":"_escode_attachment","asset":asset,"name":part["_escode_name"]}),
+            );
         }
         Ok(stored)
     }

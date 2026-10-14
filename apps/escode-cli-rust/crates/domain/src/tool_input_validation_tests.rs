@@ -11,7 +11,11 @@ fn matches_ts_oracle_corpus() {
             let input = case.get("input").unwrap();
             let issues = validate(input, schema);
             let label = input.compact();
-            assert_eq!(Json::Array(issues.clone()).compact(), case.get("issues").unwrap().compact(), "{label}");
+            assert_eq!(
+                Json::Array(issues.clone()).compact(),
+                case.get("issues").unwrap().compact(),
+                "{label}"
+            );
             let expected = case.get("content").and_then(Json::as_str);
             let actual = (!issues.is_empty()).then(|| model_content("mcp__demo__run", &issues));
             assert_eq!(actual.as_deref(), expected, "{label}");

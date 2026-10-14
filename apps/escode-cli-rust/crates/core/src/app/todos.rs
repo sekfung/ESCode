@@ -59,7 +59,10 @@ impl Engine {
         s.updated_at = now;
         self.persist(id, None).await?;
         self.publish(id, vec![json!({"op":"row.upserted","row":row})])?;
-        let _ = reply.send(ToolOutput::new(content, serde_json::from_str(&data).unwrap_or_default()));
+        let _ = reply.send(ToolOutput::new(
+            content,
+            serde_json::from_str(&data).unwrap_or_default(),
+        ));
         Ok(())
     }
     pub(super) async fn todo_reminder(

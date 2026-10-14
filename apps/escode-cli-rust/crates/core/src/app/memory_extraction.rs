@@ -194,7 +194,7 @@ async fn extract(
             model.complete(messages.clone(), &snapshot.definitions, sink, cancel),
         )
         .await
-            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         messages.push(output.message.clone());
         if output.calls.is_empty() {
             break;

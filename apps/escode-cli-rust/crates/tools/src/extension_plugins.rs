@@ -210,7 +210,12 @@ async fn load_manifest(root: &Path, diagnostics: &mut Vec<Value>) -> Option<Valu
     }
     let mut manifest_path = None;
     // 旧 manifest 目录：Z.ai 官方 CDN 与既有第三方插件仍以 .zcode-plugin 发布（docs/specs/escode-rebrand.md）。
-    for dir in [".escode-plugin", ".zcode-plugin", ".claude-plugin", ".codex-plugin"] {
+    for dir in [
+        ".escode-plugin",
+        ".zcode-plugin",
+        ".claude-plugin",
+        ".codex-plugin",
+    ] {
         let path = root.join(dir).join("plugin.json");
         if tokio::fs::metadata(&path).await.is_ok_and(|m| m.is_file()) {
             manifest_path = Some(path);

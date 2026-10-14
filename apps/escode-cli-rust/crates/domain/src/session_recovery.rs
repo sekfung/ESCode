@@ -10,8 +10,17 @@ pub struct ToolResult {
 impl Session {
     /// 工具结果收口到行。被拒收口为 cancelled 且不写结果字段（TS settlePermission）；node_repl 图片只走行级 display，
     /// 行级 display 只接受 TS `toProtocolToolCallDisplay` 白名单中的 kind。
-    pub fn finish_tool_row(&mut self, turn: &str, call_id: &str, done: ToolResult, now: u64) -> Option<Value> {
-        let row = self.rows.iter_mut().find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)?;
+    pub fn finish_tool_row(
+        &mut self,
+        turn: &str,
+        call_id: &str,
+        done: ToolResult,
+        now: u64,
+    ) -> Option<Value> {
+        let row = self
+            .rows
+            .iter_mut()
+            .find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)?;
         if done.denied {
             row["status"] = "cancelled".into();
         } else {
@@ -27,14 +36,22 @@ impl Session {
                 }
             }
             if done.failed {
-                row["error"] = json!({"code":"tool_execution_failed","message":"Tool execution failed"});
+                row["error"] =
+                    json!({"code":"tool_execution_failed","message":"Tool execution failed"});
             }
         }
         row.as_object_mut()?.remove("approvalInteractionId");
         Some(row.clone())
     }
     /// TS appendBrowserTurnScreenshot 的工具行：`mcp__node_repl__js`，input `{source: browser_turn_end}`，空输出，图片卡。
-    pub fn turn_screenshot_row(&mut self, turn: &str, response: Option<String>, display: Value, id: &str, now: u64) -> Value {
+    pub fn turn_screenshot_row(
+        &mut self,
+        turn: &str,
+        response: Option<String>,
+        display: Value,
+        id: &str,
+        now: u64,
+    ) -> Value {
         let input = json!({"source": "browser_turn_end"});
         let call = json!({"id": format!("tool_{id}"), "function": {"name": "mcp__node_repl__js", "arguments": input.to_string()}});
         let mut row = self.tool_call_row(turn, &call, response, now);
@@ -46,13 +63,27 @@ impl Session {
         row
     }
     /// 运行中的工具行；带发出调用的模型响应 id 与结构化 input（TS toolCall，rust-row-projection.md）。
-    pub fn tool_call_row(&mut self, turn: &str, call: &Value, response_id: Option<String>, now: u64) -> Value {
-        let mut row = self.row("toolCall", turn, call["id"].as_str().unwrap_or_default(), now);
+    pub fn tool_call_row(
+        &mut self,
+        turn: &str,
+        call: &Value,
+        response_id: Option<String>,
+        now: u64,
+    ) -> Value {
+        let mut row = self.row(
+            "toolCall",
+            turn,
+            call["id"].as_str().unwrap_or_default(),
+            now,
+        );
         row["toolCallId"] = call["id"].clone();
         row["toolName"] = call["function"]["name"].clone();
         row["inputText"] = call["function"]["arguments"].clone();
         row["assistantResponseId"] = response_id.into();
-        if let Some(input) = call["function"]["arguments"].as_str().and_then(|a| serde_json::from_str::<Value>(a).ok()) {
+        if let Some(input) = call["function"]["arguments"]
+            .as_str()
+            .and_then(|a| serde_json::from_str::<Value>(a).ok())
+        {
             row["input"] = input;
         }
         row["status"] = "running".into();
@@ -90,7 +121,9 @@ impl Session {
     /// （docs/specs/rust-model-retry.md）。
     pub fn text_row_to_continue(&mut self, response_id: &str, kind: &str) -> Option<&mut Value> {
         self.rows.iter_mut().rev().find(|r| {
-            r["assistantResponseId"] == response_id && r["kind"] == kind && r["state"] != "interrupted"
+            r["assistantResponseId"] == response_id
+                && r["kind"] == kind
+                && r["state"] != "interrupted"
         })
     }
     /// 断流恢复作废本轮仍在流式的 assistant 尾部（TS onStreamRecoveryTailDiscarded 的 closeStreamingRows("interrupted")）。
@@ -160,9 +193,14 @@ impl Session {
                 row["endedAt"] = now.into();
                 // TS upsertTurnHeader：agent 轮写工时；controlOnly 没有 Agent 工时（UI 会把 0 秒显示成「已工作 1 秒」）。
                 if row["executionKind"] != "controlOnly" {
-                    row["activeMs"] = now.saturating_sub(row["startedAt"].as_u64().unwrap_or(now)).into();
+                    row["activeMs"] = now
+                        .saturating_sub(row["startedAt"].as_u64().unwrap_or(now))
+                        .into();
                 }
-                let rounds = history_rounds.get(row["turnId"].as_str().unwrap_or("")).copied().unwrap_or(0);
+                let rounds = history_rounds
+                    .get(row["turnId"].as_str().unwrap_or(""))
+                    .copied()
+                    .unwrap_or(0);
                 // controlOnly 轮只有产生历史（如 compact 摘要）时才有该字段（TS payload 缺省）。
                 if row["executionKind"] != "controlOnly" || rounds > 0 {
                     row["historyRoundCount"] = rounds.into();

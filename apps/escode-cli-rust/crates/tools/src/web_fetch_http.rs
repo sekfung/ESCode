@@ -6,9 +6,9 @@ use std::time::Duration;
 
 use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
+use escode_cli_domain::web_fetch as rules;
 use tokio_util::sync::CancellationToken;
 use url::Url;
-use escode_cli_domain::web_fetch as rules;
 
 /// 应用层下载用的 reqwest 客户端：代理按 TS web-fetch 规则逐 URL 解析（显式配置、ESCODE_HTTP_PROXY、
 /// ESCODE_NO_PROXY 与捕获的宿主代理），不跟随重定向，信任设置页自定义 CA。WebFetch 与插件 zip 下载共用。
@@ -59,7 +59,8 @@ impl Transport for HttpTransport {
             target,
             Duration::from_millis(rules::TIMEOUT_MS),
             escode_cli_host::net_config::NetworkScope::Workspace,
-        ).await?;
+        )
+        .await?;
         let request = client
             .get(url.as_str())
             .header("User-Agent", rules::USER_AGENT)

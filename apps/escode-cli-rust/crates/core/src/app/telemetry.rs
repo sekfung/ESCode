@@ -21,6 +21,13 @@ impl Engine {
     pub(super) fn emit_fact(&mut self, id: &str, turn: Option<&str>, kind: &str, fields: Value) {
         let seq = self.telemetry.seq.entry(id.to_owned()).or_default();
         let mut fact = Map::new();
+        // 会话创建期采用的 App Memory 开关（TS ConversationTelemetryFactNormalizer 的
+        // runtimeMetadata.memoryEnabled，shared schema factBaseFields；只表示开关，不表示读写结果）。
+        // TS 侧该值来自会话物化时解析的偏好回包，而 shared schema 对 memoryEnabled 有 default(false)
+        // （旧 Host 缺字段同样归一为 false），所以物化完成后两侧都带该字段、取值等于 memory 行为缺省。
+        if let Some(prefs) = self.shell.cached(id, "runtime-materialization") {
+            fact.insert("memoryEnabled".into(), (prefs["memoryEnabled"] == true).into());
+        }
         fact.insert("version".into(), 1.into());
         fact.insert("eventId".into(), self.clock.id().into());
         fact.insert("eventSeq".into(), (*seq).into());
@@ -45,7 +52,8 @@ impl Engine {
         let fact = Value::Object(fact);
         self.local_ttft_fact(&fact);
         self.cua_from_fact(&fact);
-        self.outbox.push(json!({ "method": "v4/telemetry/event", "params": fact }));
+        self.outbox
+            .push(json!({ "method": "v4/telemetry/event", "params": fact }));
     }
 
     /// 本轮的输入 id（TS admission 的 inputId = 发起命令 id；用户轮与后台唤醒轮都有）。

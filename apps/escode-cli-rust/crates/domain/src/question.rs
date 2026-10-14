@@ -108,13 +108,16 @@ impl QuestionInput {
                     validate_preview(preview)?;
                 }
             }
-            let labels: std::collections::BTreeSet<_> = q.options.iter().map(|o| &o.label).collect();
+            let labels: std::collections::BTreeSet<_> =
+                q.options.iter().map(|o| &o.label).collect();
             ensure!(
                 labels.len() == q.options.len(),
                 "Option labels must be unique within each question"
             );
             ensure!(
-                !q.options.iter().any(|o| o.label.trim().to_lowercase() == "other"),
+                !q.options
+                    .iter()
+                    .any(|o| o.label.trim().to_lowercase() == "other"),
                 "Do not include an Other option; clients provide it automatically"
             );
         }
@@ -122,7 +125,8 @@ impl QuestionInput {
     }
     /// 输入层 refine（对象其余字段都通过后才执行）。
     pub fn refine_input(&self) -> Result<()> {
-        let questions: std::collections::BTreeSet<_> = self.questions.iter().map(|q| &q.question).collect();
+        let questions: std::collections::BTreeSet<_> =
+            self.questions.iter().map(|q| &q.question).collect();
         ensure!(
             questions.len() == self.questions.len(),
             "Question texts must be unique"
@@ -165,7 +169,10 @@ pub fn annotation_issue(input: &Value) -> Option<String> {
             .map(|k| format!("'{k}'"))
             .collect();
         if !unknown.is_empty() {
-            return Some(format!("Unrecognized key(s) in object: {}", unknown.join(", ")));
+            return Some(format!(
+                "Unrecognized key(s) in object: {}",
+                unknown.join(", ")
+            ));
         }
     }
     None
@@ -220,8 +227,14 @@ mod tests {
     #[test]
     fn annotation_issue_matches_zod_first_issue() {
         let issue = |v: Value| annotation_issue(&json!({ "annotations": v }));
-        assert_eq!(issue(json!({"Q?": {"notes": null}})).as_deref(), Some("Expected string, received null"));
-        assert_eq!(issue(json!({"Q?": "x"})).as_deref(), Some("Expected object, received string"));
+        assert_eq!(
+            issue(json!({"Q?": {"notes": null}})).as_deref(),
+            Some("Expected string, received null")
+        );
+        assert_eq!(
+            issue(json!({"Q?": "x"})).as_deref(),
+            Some("Expected object, received string")
+        );
         assert_eq!(
             issue(json!({"Q?": {"notes": "n", "a": 1, "b": 2}})).as_deref(),
             Some("Unrecognized key(s) in object: 'a', 'b'")

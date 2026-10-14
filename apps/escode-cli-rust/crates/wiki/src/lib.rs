@@ -14,6 +14,7 @@ pub mod store;
 pub mod sync;
 pub use service::WikiService;
 pub mod governance;
+pub mod governance_rules;
 pub mod health;
 pub mod port;
 pub mod rpc;

@@ -79,7 +79,9 @@ impl WikiService {
         index: &mut Index,
     ) -> Result<(Item, bool)> {
         let started = Instant::now();
-        let real = tokio::fs::canonicalize(file)
+        // 修复：与 wiki 根的 realpath 同形态（host::realpath 去 Windows `\\?\` 前缀），
+        // 否则 Windows 上 display_path 的相对化会失败、报告里泄漏 verbatim 绝对路径。
+        let real = escode_cli_host::realpath(file)
             .await
             .unwrap_or_else(|_| file.to_owned());
         let display = self.display_path(&real).await;

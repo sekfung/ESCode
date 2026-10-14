@@ -1,3 +1,4 @@
+use super::agent_support::{durable, safe};
 use crate::contract::{ContextPort, Event, EventSink, ModelPort, ToolPort};
 use anyhow::{Context, Result, bail};
 use futures_util::{StreamExt, stream};
@@ -73,7 +74,11 @@ pub(super) async fn run(
     let wiki = super::wiki_context::prepare(history, &mut definitions).await;
     // 会话级 hooks（docs/specs/rust-hooks.md）：SessionStart / UserPromptSubmit 在首个模型请求之前。
     let model_label = history.turn.model_selection.as_ref().and_then(|s| {
-        Some(format!("{}/{}", s["providerId"].as_str()?, s["modelId"].as_str()?))
+        Some(format!(
+            "{}/{}",
+            s["providerId"].as_str()?,
+            s["modelId"].as_str()?
+        ))
     });
     if super::turn_hooks::before_turn(tools, model_label, history, sink, cancel).await? {
         return Ok(());
@@ -167,7 +172,10 @@ pub(super) async fn run(
         // Node 的请求里技能提醒位于上下文提醒（As you answer the user…）之前；之前追加在末尾，
         // 有插件技能时两条 reminder 顺序与 Node 相反（node_repl 差分发现）。
         if let Some(reminder) = skills.reminder() {
-            let at = prefix.iter().position(|m| m["role"] == "user").unwrap_or(prefix.len());
+            let at = prefix
+                .iter()
+                .position(|m| m["role"] == "user")
+                .unwrap_or(prefix.len());
             prefix.insert(at, reminder);
         }
         if let Some(profile) = &profile {
@@ -241,7 +249,10 @@ pub(super) async fn run(
         if persist {
             history.push(output.message.clone());
         }
-        let response_text = output.message["content"].as_str().unwrap_or_default().to_owned();
+        let response_text = output.message["content"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
         let (committed, receipt) = oneshot::channel();
         sink.send(Event::ModelDone {
             response_id: output.response_id.clone(),
@@ -348,34 +359,33 @@ pub(super) async fn run(
                 history.push(message);
             }
         } else if !has_tools
-            && super::turn_hooks::stop(tools, &turn_facts, history, &mut stop_continuations, (&response_text, tool_calls), sink, cancel)
-                .await?
+            && super::turn_hooks::stop(
+                tools,
+                &turn_facts,
+                history,
+                &mut stop_continuations,
+                (&response_text, tool_calls),
+                sink,
+                cancel,
+            )
+            .await?
         {
             // Stop hook 要求续跑：上下文已追加，同一轮继续请求模型。
         } else if !has_tools
             && !super::goal_loop::advance(model, history, &prefix, sink, cancel).await?
         {
             // TS appendBrowserTurnScreenshot：成功收尾且本轮用过浏览器时追加轮尾截图（docs/specs/rust-browser-use.md 第 3 期）。
-            let turn = turn_facts.mcp_meta["turn_id"].as_str().unwrap_or_default().to_owned();
+            let turn = turn_facts.mcp_meta["turn_id"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
             if let Some(display) = tools.browser_turn_screenshot(&sink.session_id, &turn).await {
                 let (committed, receipt) = oneshot::channel();
-                sink.send(Event::BrowserTurnScreenshot { display, committed }).await?;
+                sink.send(Event::BrowserTurnScreenshot { display, committed })
+                    .await?;
                 durable(receipt, cancel).await?;
             }
             return Ok(());
         }
-    }
-}
-fn safe(tools: &dyn ToolPort, session: &str, call: &Value) -> bool {
-    let name = call["function"]["name"].as_str().unwrap_or("");
-    tools.concurrent_safe_scoped(session, name) && !tools.requires_permission(name)
-}
-pub(super) async fn durable(
-    receipt: oneshot::Receiver<()>,
-    cancel: &CancellationToken,
-) -> Result<()> {
-    tokio::select! {biased;
-        _=cancel.cancelled()=>bail!("Cancelled"),
-        result=receipt=>result.context("Session owner stopped before durable commit"),
     }
 }

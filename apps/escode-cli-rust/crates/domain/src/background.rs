@@ -62,7 +62,11 @@ impl BackgroundTask {
             ("failed", None) => format!("{prefix} failed"),
             _ => format!("{prefix} was stopped"),
         };
-        let escape = |v: &str| v.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+        let escape = |v: &str| {
+            v.replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+        };
         let mut lines = vec![
             "<task-notification>".to_owned(),
             format!("<task-id>{}</task-id>", escape(&self.id)),
@@ -71,7 +75,10 @@ impl BackgroundTask {
             lines.push(format!("<tool-use-id>{}</tool-use-id>", escape(call)));
         }
         if !self.output_file.is_empty() {
-            lines.push(format!("<output-file>{}</output-file>", escape(&self.output_file)));
+            lines.push(format!(
+                "<output-file>{}</output-file>",
+                escape(&self.output_file)
+            ));
         }
         lines.push(format!("<status>{status}</status>"));
         lines.push(format!("<summary>{}</summary>", escape(&summary)));
@@ -84,8 +91,13 @@ impl BackgroundTask {
             .find(|t| !t.is_empty())
             .unwrap_or("Bash");
         let meta = json!({"backgroundSource":"bash","title":title,"workId":self.id});
-        (lines.join("
-"), meta)
+        (
+            lines.join(
+                "
+",
+            ),
+            meta,
+        )
     }
 }
 

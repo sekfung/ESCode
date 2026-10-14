@@ -63,7 +63,14 @@ const NON_PASSTHROUGH: &[&str] = &[
     CUA_TOKEN_KEY,
 ];
 
-const PROXY_KEYS: [&str; 6] = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"];
+const PROXY_KEYS: [&str; 6] = [
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+];
 const NO_PROXY_KEYS: [&str; 2] = ["NO_PROXY", "no_proxy"];
 const CA_KEYS: [&str; 5] = [
     "NODE_EXTRA_CA_CERTS",
@@ -74,7 +81,9 @@ const CA_KEYS: [&str; 5] = [
 ];
 
 fn is_telemetry(upper: &str) -> bool {
-    upper.starts_with("OTEL_") || upper.starts_with("ESCODE_TELEMETRY_") || upper == "ESCODE_MODEL_TELEMETRY_ENABLED"
+    upper.starts_with("OTEL_")
+        || upper.starts_with("ESCODE_TELEMETRY_")
+        || upper == "ESCODE_MODEL_TELEMETRY_ENABLED"
 }
 
 /// TS `shouldSanitizeESCodeRuntimeEnvKey`：清单按大写比较，包管理器模式不区分大小写。
@@ -86,7 +95,10 @@ pub fn is_sanitized(key: &str) -> bool {
     let lower = key.to_ascii_lowercase();
     ["npm_config_", "yarn_", "pnpm_"].iter().any(|prefix| {
         lower.strip_prefix(prefix).is_some_and(|rest| {
-            matches!(rest, "http_proxy" | "https_proxy" | "proxy" | "all_proxy" | "no_proxy" | "cafile" | "ca")
+            matches!(
+                rest,
+                "http_proxy" | "https_proxy" | "proxy" | "all_proxy" | "no_proxy" | "cafile" | "ca"
+            )
         })
     })
 }
@@ -99,7 +111,10 @@ pub fn is_passthrough_capturable(key: &str) -> bool {
 
 fn valid_key(key: &str) -> bool {
     let mut chars = key.chars();
-    chars.next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// TS `buildESCodeToolEnvPassthroughEnv`：已有 JSON 的合法可捕获键，再由启动环境的可捕获键覆盖。
@@ -131,9 +146,19 @@ fn passthrough(env: &[(String, String)]) -> Vec<(String, String)> {
 
 /// 子进程差量。`tool` 为 Bash/自定义命令/MCP stdio；其余内部子进程只清洗。
 /// `windows` 时环境键大小写不敏感：写入前删除所有同名变体。
-pub fn child_env(env: &[(String, String)], tool: bool, windows: bool) -> Vec<(String, Option<String>)> {
+pub fn child_env(
+    env: &[(String, String)],
+    tool: bool,
+    windows: bool,
+) -> Vec<(String, Option<String>)> {
     let mut changes: Vec<(String, Option<String>)> = vec![];
-    let same = |a: &str, b: &str| if windows { a.eq_ignore_ascii_case(b) } else { a == b };
+    let same = |a: &str, b: &str| {
+        if windows {
+            a.eq_ignore_ascii_case(b)
+        } else {
+            a == b
+        }
+    };
     let remove = |changes: &mut Vec<(String, Option<String>)>, key: &str| {
         for (existing, _) in env.iter().filter(|(k, _)| same(k, key)) {
             changes.push((existing.clone(), None));
@@ -162,17 +187,31 @@ pub fn child_env(env: &[(String, String)], tool: bool, windows: bool) -> Vec<(St
         set(&mut changes, &key, value);
     }
     if let Some(proxy) = lookup("ESCODE_HTTP_PROXY") {
-        let proxy = if has_scheme(&proxy) { proxy } else { format!("http://{proxy}") };
+        let proxy = if has_scheme(&proxy) {
+            proxy
+        } else {
+            format!("http://{proxy}")
+        };
         for key in PROXY_KEYS {
             set(&mut changes, key, proxy.clone());
         }
     }
-    if let Some(no_proxy) = env.iter().find(|(k, _)| same(k, "ESCODE_NO_PROXY")).map(|(_, v)| v.clone()).filter(|v| !v.trim().is_empty()) {
+    if let Some(no_proxy) = env
+        .iter()
+        .find(|(k, _)| same(k, "ESCODE_NO_PROXY"))
+        .map(|(_, v)| v.clone())
+        .filter(|v| !v.trim().is_empty())
+    {
         for key in NO_PROXY_KEYS {
             set(&mut changes, key, no_proxy.clone());
         }
     }
-    if let Some(ca) = env.iter().find(|(k, _)| same(k, "ESCODE_AGENT_CA_CERT")).map(|(_, v)| v.clone()).filter(|v| !v.trim().is_empty()) {
+    if let Some(ca) = env
+        .iter()
+        .find(|(k, _)| same(k, "ESCODE_AGENT_CA_CERT"))
+        .map(|(_, v)| v.clone())
+        .filter(|v| !v.trim().is_empty())
+    {
         for key in CA_KEYS {
             set(&mut changes, key, ca.clone());
         }

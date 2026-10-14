@@ -166,11 +166,7 @@ mod tests {
     // 非法值静默丢弃；项目级来源一律剥离（仓库内容不能提升子运行时的权限）。
     #[test]
     fn permission_mode_follows_ts_source_rules() {
-        let user = profile(
-            "name: A\ndescription: d\npermissionMode: plan\n",
-            "user",
-        )
-        .unwrap();
+        let user = profile("name: A\ndescription: d\npermissionMode: plan\n", "user").unwrap();
         assert_eq!(user.permission_mode.as_deref(), Some("plan"));
 
         let plugin = profile(
@@ -189,11 +185,8 @@ mod tests {
             assert_eq!(value.permission_mode, None, "{invalid} must be dropped");
         }
 
-        let project = profile(
-            "name: A\ndescription: d\npermissionMode: plan\n",
-            "project",
-        )
-        .unwrap();
+        let project =
+            profile("name: A\ndescription: d\npermissionMode: plan\n", "project").unwrap();
         assert_eq!(project.permission_mode, None);
 
         let absent = profile("name: A\ndescription: d\n", "user").unwrap();

@@ -87,7 +87,7 @@ pub(super) async fn pre_tool_use(
             .as_str()
             .unwrap_or_default()
             .to_owned();
-        match super::tool_dispatch::checked_input(definitions, &name, call) {
+        match super::tool_input_checks::checked_input(definitions, &name, call) {
             Err(content) => {
                 let output = ToolOutput {
                     failed: true,

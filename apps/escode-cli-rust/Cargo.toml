@@ -25,6 +25,30 @@ publish = false
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
 
+# 规则来源：docs/specs/rust-unified-host.md「实现质量对齐工作包」（对标仓库同一份列表的子集，渐进收紧；
+# unwrap_used / expect_used / undocumented_unsafe_blocks 按 crate 清零后逐 crate 加入）。
+[workspace.lints.clippy]
+await_holding_lock = "deny"
+manual_clamp = "deny"
+manual_filter = "deny"
+manual_find = "deny"
+manual_flatten = "deny"
+manual_map = "deny"
+manual_ok_or = "deny"
+manual_range_contains = "deny"
+manual_retain = "deny"
+manual_strip = "deny"
+manual_unwrap_or = "deny"
+needless_borrow = "deny"
+needless_collect = "deny"
+needless_question_mark = "deny"
+redundant_clone = "deny"
+redundant_closure = "deny"
+redundant_closure_for_method_calls = "deny"
+trivially_copy_pass_by_ref = "deny"
+unnecessary_lazy_evaluations = "deny"
+unnecessary_to_owned = "deny"
+
 [workspace.dependencies]
 anyhow = "1"
 async-trait = "0.1"

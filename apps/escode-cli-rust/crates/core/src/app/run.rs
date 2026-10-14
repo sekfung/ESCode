@@ -11,7 +11,14 @@ impl Engine {
         let payload = self
             .sessions
             .get(id)
-            .and_then(|s| s.history.inputs.iter().rev().find(|i| i.turn == turn_id).map(|i| i.payload.clone()))
+            .and_then(|s| {
+                s.history
+                    .inputs
+                    .iter()
+                    .rev()
+                    .find(|i| i.turn == turn_id)
+                    .map(|i| i.payload.clone())
+            })
             .unwrap_or_default();
         // 执行作用域：本轮模型取输入的 modelSelection，不读写会话选择（docs/specs/rust-offpeak.md 第三期）。
         let identity = if payload.get(super::model_execution::MARKER).is_some() {
@@ -91,7 +98,8 @@ impl Engine {
                         .collect()
                 })
                 .unwrap_or_default(),
-            bot_delivery_target: Some(input["botDeliveryTarget"].clone()).filter(|v| v.is_object()),
+            bot_delivery_target: Some(input["botDeliveryTarget"].clone())
+                .filter(serde_json::Value::is_object),
             mode: session.mode.clone(),
             mcp_meta: {
                 let client = self
@@ -144,9 +152,14 @@ impl Engine {
         // hooks（docs/specs/rust-hooks.md）：真实用户输入轮带提示正文；本进程首轮带 SessionStart 的 source。
         let session = &self.sessions[id];
         let user_turn = session.rows.iter().any(|r| {
-            r["kind"] == "userInput" && r["turnId"] == turn_id_for_facts.as_str() && r["origin"] != "backgroundResult"
+            r["kind"] == "userInput"
+                && r["turnId"] == turn_id_for_facts.as_str()
+                && r["origin"] != "backgroundResult"
         });
-        history.turn.prompt = input["text"].as_str().filter(|_| user_turn).map(str::to_owned);
+        history.turn.prompt = input["text"]
+            .as_str()
+            .filter(|_| user_turn)
+            .map(str::to_owned);
         let resumed = session.messages[..super::turn_hooks::input_start(&session.messages)]
             .iter()
             .any(|m| m.get("_escode_input").is_some());
@@ -176,10 +189,15 @@ impl Engine {
                 .into(),
             ),
             // 与 MCP 请求上下文同一个 trace id（模型请求的 x-zcode-trace-id 归因头）。
-            trace_id: history.turn.mcp_meta["trace_id"].as_str().map(str::to_owned),
+            trace_id: history.turn.mcp_meta["trace_id"]
+                .as_str()
+                .map(str::to_owned),
         };
         tokio::spawn(async move {
-            let result = crate::contract::with_model_call(
+            // 修复：run 任务 panic 时 tokio 只结束这个任务，Finished 永远不会发出（会话停在 running、
+            // Engine 关闭时一直等它）。把 panic 转成本轮失败，保证终态一定发出
+            // （docs/specs/rust-unified-host.md P0#1）。
+            let result = crate::contract::catch_panic(crate::contract::with_model_call(
                 model_call,
                 super::agent_loop::run(
                     model.as_ref(),
@@ -189,8 +207,9 @@ impl Engine {
                     &sink,
                     &cancel,
                 ),
-            )
-            .await;
+            ))
+            .await
+            .unwrap_or_else(|panicked| Err(super::panicked("run", panicked)));
             let model_failure = result
                 .as_ref()
                 .err()

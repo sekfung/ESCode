@@ -68,7 +68,8 @@ pub fn result(old: &[TodoItem], next: Option<&[TodoItem]>) -> String {
     struct Listed<'a> {
         todos: &'a [TodoItem],
     }
-    let count = |todos: &[TodoItem], f: fn(&Status) -> bool| todos.iter().filter(|t| f(&t.status)).count();
+    let count =
+        |todos: &[TodoItem], f: fn(&Status) -> bool| todos.iter().filter(|t| f(&t.status)).count();
     let text = match next {
         None => serde_json::to_string(&Listed { todos: old }),
         Some(todos) => serde_json::to_string(&Written {

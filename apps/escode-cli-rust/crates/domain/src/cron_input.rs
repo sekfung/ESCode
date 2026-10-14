@@ -129,7 +129,11 @@ fn refine(tool: &str, p: &Map<String, Value>) -> Result<(), String> {
     let recurring_false = p.get("recurring") == Some(&Value::Bool(false));
     let rules: Vec<(bool, &str, &str)> = if tool == "CronCreate" {
         vec![
-            (!relative && !has("cron"), "cron is required when delayMinutes is not set", "cron"),
+            (
+                !relative && !has("cron"),
+                "cron is required when delayMinutes is not set",
+                "cron",
+            ),
             (
                 relative && has("cron"),
                 "a relative delay must omit cron; the host computes the schedule from its real clock",
@@ -140,13 +144,21 @@ fn refine(tool: &str, p: &Map<String, Value>) -> Result<(), String> {
                 "a relative delay creates a one-shot automation and cannot use recurring=true",
                 "recurring",
             ),
-            (relative && has("maxRuns"), "a relative delay runs once and cannot use maxRuns", "maxRuns"),
+            (
+                relative && has("maxRuns"),
+                "a relative delay runs once and cannot use maxRuns",
+                "maxRuns",
+            ),
             (
                 carrier && relative,
                 "intervalUnit is a recurring carrier and cannot combine with a relative delayMinutes",
                 "intervalUnit",
             ),
-            (!paired, "intervalUnit and interval must be set together", "interval"),
+            (
+                !paired,
+                "intervalUnit and interval must be set together",
+                "interval",
+            ),
             (
                 carrier && recurring_false,
                 "intervalUnit is a recurring carrier and requires recurring=true",
@@ -159,10 +171,22 @@ fn refine(tool: &str, p: &Map<String, Value>) -> Result<(), String> {
             ),
         ]
     } else {
-        let fields = ["cron", "prompt", "title", "recurring", "maxRuns", "intervalUnit", "interval"];
+        let fields = [
+            "cron",
+            "prompt",
+            "title",
+            "recurring",
+            "maxRuns",
+            "intervalUnit",
+            "interval",
+        ];
         let clearing = p.get("maxRuns") == Some(&Value::Null);
         vec![
-            (!fields.iter().any(|f| has(f)), "CronUpdate requires at least one field to update", ""),
+            (
+                !fields.iter().any(|f| has(f)),
+                "CronUpdate requires at least one field to update",
+                "",
+            ),
             (
                 clearing && !recurring_true,
                 "Clearing maxRuns requires recurring=true in the same update",
@@ -173,7 +197,11 @@ fn refine(tool: &str, p: &Map<String, Value>) -> Result<(), String> {
                 "recurring=true cannot be combined with a numeric maxRuns",
                 "maxRuns",
             ),
-            (!paired, "intervalUnit and interval must be set together", "interval"),
+            (
+                !paired,
+                "intervalUnit and interval must be set together",
+                "interval",
+            ),
             (
                 carrier && recurring_false,
                 "intervalUnit is a recurring carrier and cannot combine with recurring=false",

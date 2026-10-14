@@ -24,14 +24,11 @@ impl Engine {
         };
         let target = &c.payload["target"];
         let s = self.sessions.get_mut(id).context("Session unavailable")?;
-        let index = target
-            .as_object()
-            .filter(|t| t.len() == 2)
-            .and_then(|_| {
-                s.rows
-                    .iter()
-                    .position(|r| r["rowId"] == target["rowId"] && r["entityId"] == target["entityId"])
-            });
+        let index = target.as_object().filter(|t| t.len() == 2).and_then(|_| {
+            s.rows
+                .iter()
+                .position(|r| r["rowId"] == target["rowId"] && r["entityId"] == target["entityId"])
+        });
         let Some(index) = index else {
             // TS 行目标解析不到时按过期目标处理（差分实测 stale / proto.staleTarget）。
             return Ok(c.ack("stale", s.revision, Some("proto.staleTarget")));

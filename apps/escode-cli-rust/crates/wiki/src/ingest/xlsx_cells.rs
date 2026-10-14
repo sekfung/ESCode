@@ -153,17 +153,17 @@ pub fn parse_sheet(
                             sheet.hidden_rows.insert(r);
                         }
                     }
-                    "col" => {
-                        if super::ooxml::attr(&e, "hidden").is_some_and(|v| v == "1" || v == "true")
-                        {
-                            let min: u32 = super::ooxml::attr(&e, "min")
-                                .and_then(|v| v.parse().ok())
-                                .unwrap_or(0);
-                            let max: u32 = super::ooxml::attr(&e, "max")
-                                .and_then(|v| v.parse().ok())
-                                .unwrap_or(min);
-                            sheet.hidden_cols.extend(min..=max.min(min + 16_384));
-                        }
+                    "col"
+                        if super::ooxml::attr(&e, "hidden")
+                            .is_some_and(|v| v == "1" || v == "true") =>
+                    {
+                        let min: u32 = super::ooxml::attr(&e, "min")
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(0);
+                        let max: u32 = super::ooxml::attr(&e, "max")
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(min);
+                        sheet.hidden_cols.extend(min..=max.min(min + 16_384));
                     }
                     "c" => {
                         if *budget == 0 {

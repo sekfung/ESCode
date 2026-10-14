@@ -29,11 +29,18 @@ pub(super) const SIDE_CHAT_RESTRICTED: [&str; 7] = [
 impl Engine {
     pub(super) async fn create_selection_side_session(&mut self, c: &Command) -> Result<Value> {
         let parent_id = c.session_id.as_deref().context("Session id required")?;
-        let parent = self.sessions.get(parent_id).context("Session unavailable")?;
+        let parent = self
+            .sessions
+            .get(parent_id)
+            .context("Session unavailable")?;
         if parent.task_type == "subagent_child" {
             return Ok(c.ack("rejected", parent.revision, Some("guard.subagentReadOnly")));
         }
-        let first = c.payload.get("firstInput").filter(|v| !v.is_null()).cloned();
+        let first = c
+            .payload
+            .get("firstInput")
+            .filter(|v| !v.is_null())
+            .cloned();
         if let Some(input) = &first {
             ensure!(
                 input.as_object().is_some_and(|o| o
@@ -94,7 +101,10 @@ impl Engine {
         let parent_revision = parent.revision;
         let id = child.id.clone();
         self.sessions.insert(id.clone(), child);
-        match self.commit_side_session(c, parent_id, &id, selection, first, parent_revision).await {
+        match self
+            .commit_side_session(c, parent_id, &id, selection, first, parent_revision)
+            .await
+        {
             Ok(ack) => Ok(ack),
             Err(error) => {
                 // 提交失败不能留下未持久化的 child runtime。
@@ -122,7 +132,8 @@ impl Engine {
             let mut input_command = c.clone();
             input_command.session_id = Some(id.to_owned());
             input_command.kind = "sendText".into();
-            input_command.payload = json!({ "text": input["text"], "requestedDelivery": "startNow" });
+            input_command.payload =
+                json!({ "text": input["text"], "requestedDelivery": "startNow" });
             if let Some(model) = input.get("modelSelection") {
                 input_command.payload["modelSelection"] = model.clone();
             }

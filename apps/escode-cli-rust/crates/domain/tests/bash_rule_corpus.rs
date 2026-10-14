@@ -1,7 +1,7 @@
 //! 差分：Rust BashRulePolicy 与 TS resolveBashPermissionRulePolicy 的规则判定与「总是允许」建议逐条一致。
-use serde_json::Value;
 use escode_cli_domain::bash_rule_policy::BashRulePolicy;
 use escode_cli_domain::permission::Rule;
+use serde_json::Value;
 
 #[test]
 fn rust_bash_rule_policy_matches_ts() {

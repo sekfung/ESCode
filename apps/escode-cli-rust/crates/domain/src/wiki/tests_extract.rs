@@ -22,7 +22,7 @@ fn block(order: usize, t: BlockType, path: &[&str], loc: (&str, &str), text: &st
     Block {
         order,
         block_type: t,
-        heading_path: path.iter().map(|s| s.to_string()).collect(),
+        heading_path: path.iter().map(std::string::ToString::to_string).collect(),
         level: None,
         locator: ir::locator(loc.0, loc.1),
         text: text.into(),

@@ -84,7 +84,9 @@ test("Personal manual rules, null clearing, dictionary replacement and ordering 
         escodeBuiltinProviders: providers,
         escodeBuiltinProviderTemplates: providerTemplates,
         personalProviders: parsePersonalProviderConfigMap(personal.config.providerConfigRules),
-        escodeBuiltinModelRules: parseESCodeBuiltinModelConfigRules(builtin.config.modelConfigRules),
+        escodeBuiltinModelRules: parseESCodeBuiltinModelConfigRules(
+          builtin.config.modelConfigRules,
+        ),
         personalModels: parsePersonalModelConfigRules(personal.config.modelConfigRules),
         accountProviders: parseAccountProviderConfigMap({}),
         personalProviderOrder: personal.config.providerOrder,
@@ -119,7 +121,8 @@ test("Personal manual rules, null clearing, dictionary replacement and ordering 
       );
       await h.completed(id);
       assert.equal(f.requests.at(-1)?.reasoning_effort, "extra");
-      assert.equal(f.requests.at(-1)?.max_tokens, 2048);
+      // 字段名与 TS/AI SDK 的默认映射对齐（max_completion_tokens；见差分账本 M-1 与 parity 证据），2026-10-14 起 Rust 不再手写 max_tokens。
+      assert.equal(f.requests.at(-1)?.max_completion_tokens, 2048);
       assert.equal(f.requestHeaders.at(-1)?.["x-template"], undefined);
     }
     assert.equal(f.requestHeaders[0]?.["x-personal"], undefined);
@@ -183,7 +186,9 @@ test("Native Registry catalog matches TS builtin/template/overlay model ordering
         escodeBuiltinProviders: providers,
         escodeBuiltinProviderTemplates: providerTemplates,
         personalProviders: parsePersonalProviderConfigMap(personal.config.providerConfigRules),
-        escodeBuiltinModelRules: parseESCodeBuiltinModelConfigRules(builtin.config.modelConfigRules),
+        escodeBuiltinModelRules: parseESCodeBuiltinModelConfigRules(
+          builtin.config.modelConfigRules,
+        ),
         personalModels: parsePersonalModelConfigRules(personal.config.modelConfigRules),
         accountProviders: parseAccountProviderConfigMap(accounts),
         accountStates: states,

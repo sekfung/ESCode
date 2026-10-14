@@ -13,7 +13,10 @@ fn leaf(value: &str) -> &str {
 
 fn matches_spec(candidate: &str) -> bool {
     let c = candidate.replace('_', "-");
-    c == "escode-cua" || ["escode-cua[", "escode-cua@", "escode-cua==", "escode-cua."].iter().any(|p| c.starts_with(p))
+    c == "escode-cua"
+        || ["escode-cua[", "escode-cua@", "escode-cua==", "escode-cua."]
+            .iter()
+            .any(|p| c.starts_with(p))
 }
 
 /// TS `isESCodeCuaMcpCommand` / `isESCodeCuaMcpPackageArg`（两者判定相同）。
@@ -72,11 +75,29 @@ mod tests {
 
     #[test]
     fn retires_cua_shaped_stdio_servers_except_node_repl() {
-        assert!(is_retired("computer-use", &json!({"type": "stdio", "command": "x"})));
-        assert!(is_retired("a", &json!({"command": "uvx", "args": ["--from", "escode-cua", "run"]})));
-        assert!(is_retired("a", &json!({"type": "stdio", "command": "h", "env": {"ESCODE_PLUGIN_ID": " Computer-Use@zcode-plugins-official "}})));
-        assert!(!is_retired(NODE_REPL, &json!({"type": "stdio", "command": "escode-cua"})));
-        assert!(!is_retired("computer-use", &json!({"type": "http", "url": "http://x"})));
-        assert!(!is_retired("a", &json!({"type": "stdio", "command": "node", "args": ["server.js"]})));
+        assert!(is_retired(
+            "computer-use",
+            &json!({"type": "stdio", "command": "x"})
+        ));
+        assert!(is_retired(
+            "a",
+            &json!({"command": "uvx", "args": ["--from", "escode-cua", "run"]})
+        ));
+        assert!(is_retired(
+            "a",
+            &json!({"type": "stdio", "command": "h", "env": {"ESCODE_PLUGIN_ID": " Computer-Use@zcode-plugins-official "}})
+        ));
+        assert!(!is_retired(
+            NODE_REPL,
+            &json!({"type": "stdio", "command": "escode-cua"})
+        ));
+        assert!(!is_retired(
+            "computer-use",
+            &json!({"type": "http", "url": "http://x"})
+        ));
+        assert!(!is_retired(
+            "a",
+            &json!({"type": "stdio", "command": "node", "args": ["server.js"]})
+        ));
     }
 }

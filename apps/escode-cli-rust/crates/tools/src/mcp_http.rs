@@ -19,7 +19,9 @@ pub(super) fn client_with_timeout(
 fn builder(target: &str, timeout: Option<std::time::Duration>) -> Result<reqwest_mcp::Client> {
     let resolution = escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
         target,
-        &escode_cli_host::net_config::proxy_options(escode_cli_host::net_config::NetworkScope::Process),
+        &escode_cli_host::net_config::proxy_options(
+            escode_cli_host::net_config::NetworkScope::Process,
+        ),
     );
     let mut builder = reqwest_mcp::Client::builder()
         .redirect(reqwest_mcp::redirect::Policy::none())
@@ -32,7 +34,9 @@ fn builder(target: &str, timeout: Option<std::time::Duration>) -> Result<reqwest
     } else if resolution.no_proxy_matched {
         builder = builder.no_proxy();
     }
-    for bytes in escode_cli_host::tls_ca::extra_ca_certificates(escode_cli_host::net_config::NetworkScope::Process)? {
+    for bytes in escode_cli_host::tls_ca::extra_ca_certificates(
+        escode_cli_host::net_config::NetworkScope::Process,
+    )? {
         let certificates = match reqwest_mcp::Certificate::from_pem_bundle(&bytes) {
             Ok(certificates) => certificates,
             Err(_) => vec![reqwest_mcp::Certificate::from_der(&bytes)?],

@@ -1,7 +1,7 @@
 //! 差分：Rust guarded::match_dangerous_command 与 TS matchDangerousCommand 逐条一致
 //! （语料由 scripts/generate-escode-cli-rust-guarded-corpus.mjs 从 TS 生成）。
-use serde_json::{Value, json};
 use escode_cli_domain::guarded::{Dialect, Outcome, match_dangerous_command};
+use serde_json::{Value, json};
 
 #[test]
 fn rust_guarded_matcher_matches_ts_corpus() {

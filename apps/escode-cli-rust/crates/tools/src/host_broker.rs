@@ -87,13 +87,19 @@ struct BrokerError {
 }
 impl BrokerError {
     fn new(code: &str, message: impl Into<String>) -> Self {
-        Self { code: code.into(), message: message.into() }
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
     }
 }
 
 impl Spec {
     fn method(&self, op: &str) -> Option<&'static str> {
-        self.methods.iter().find(|(name, _)| *name == op).map(|(_, method)| *method)
+        self.methods
+            .iter()
+            .find(|(name, _)| *name == op)
+            .map(|(_, method)| *method)
     }
 }
 
@@ -112,10 +118,20 @@ impl HostBroker {
         let socket = if cfg!(windows) {
             format!(r"\\.\pipe\{}-{id}", spec.pipe_prefix)
         } else {
-            std::env::temp_dir().join(format!("{}-{id}.sock", spec.file_prefix)).to_string_lossy().into_owned()
+            std::env::temp_dir()
+                .join(format!("{}-{id}.sock", spec.file_prefix))
+                .to_string_lossy()
+                .into_owned()
         };
-        let token = super::mcp_oauth_flow::hex(&escode_cli_host::credential_cipher::random_bytes(32));
-        let broker = Arc::new(Self { spec, socket, token, host, sessions: Mutex::default() });
+        let token =
+            super::mcp_oauth_flow::hex(&escode_cli_host::credential_cipher::random_bytes(32));
+        let broker = Arc::new(Self {
+            spec,
+            socket,
+            token,
+            host,
+            sessions: Mutex::default(),
+        });
         let serving = broker.clone();
         super::browser_broker_listen::listen_socket(
             &broker.socket,
@@ -126,7 +142,10 @@ impl HostBroker {
     }
     pub fn remember(&self, session: &str, meta: &Value) {
         if meta.is_object() {
-            self.sessions.lock().unwrap().insert(session.into(), meta.clone());
+            self.sessions
+                .lock()
+                .unwrap()
+                .insert(session.into(), meta.clone());
         }
     }
     pub fn env(&self) -> Value {
@@ -154,7 +173,9 @@ impl HostBroker {
         .await;
         let response = match outcome {
             Ok(result) => json!({"id": id, "ok": true, "result": result}),
-            Err(error) => json!({"id": id, "ok": false, "error": {"code": error.code, "message": error.message}}),
+            Err(error) => {
+                json!({"id": id, "ok": false, "error": {"code": error.code, "message": error.message}})
+            }
         };
         let _ = stream.write_all(format!("{response}\n").as_bytes()).await;
         let _ = stream.shutdown().await;
@@ -164,7 +185,11 @@ impl HostBroker {
         let token = request["token"].as_str().unwrap_or_default();
         let (actual, expected) = (token.as_bytes(), self.token.as_bytes());
         let equal = actual.len() == expected.len()
-            && actual.iter().zip(expected).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
+            && actual
+                .iter()
+                .zip(expected)
+                .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+                == 0;
         if !equal {
             let message = format!("{} broker request is not authorized", self.spec.label);
             return Err(BrokerError::new(self.spec.unauthorized_code, message));
@@ -179,20 +204,31 @@ impl HostBroker {
     fn params(&self, request: &Value) -> Result<(&'static str, Value), BrokerError> {
         let label = self.spec.label;
         let op = request["op"].as_str().unwrap_or_default();
-        let method = self
-            .spec
-            .method(op)
-            .ok_or_else(|| BrokerError::new("invalidInput", format!("Unknown {} op: {op}", label.to_lowercase())))?;
+        let method = self.spec.method(op).ok_or_else(|| {
+            BrokerError::new(
+                "invalidInput",
+                format!("Unknown {} op: {op}", label.to_lowercase()),
+            )
+        })?;
         if !request["args"].is_object() {
-            return Err(BrokerError::new("invalidInput", format!("{label} broker request is missing args")));
+            return Err(BrokerError::new(
+                "invalidInput",
+                format!("{label} broker request is missing args"),
+            ));
         }
-        let session = request["sessionId"].as_str().filter(|s| !s.trim().is_empty());
-        let session =
-            session.ok_or_else(|| BrokerError::new("invalidInput", format!("{label} request is missing sessionId")))?;
+        let session = request["sessionId"]
+            .as_str()
+            .filter(|s| !s.trim().is_empty());
+        let session = session.ok_or_else(|| {
+            BrokerError::new(
+                "invalidInput",
+                format!("{label} request is missing sessionId"),
+            )
+        })?;
         let sessions = self.sessions.lock().unwrap();
-        let meta = sessions
-            .get(session)
-            .ok_or_else(|| BrokerError::new("unavailable", format!("Session not found: {session}")))?;
+        let meta = sessions.get(session).ok_or_else(|| {
+            BrokerError::new("unavailable", format!("Session not found: {session}"))
+        })?;
         let mut params = json!({
             "requestId": uuid::Uuid::new_v4().to_string(),
             "sessionId": session,
@@ -200,7 +236,10 @@ impl HostBroker {
             "workspacePath": meta["workspace_path"],
             "args": request["args"],
         });
-        if let Some(turn) = request["turnId"].as_str().or_else(|| meta["turn_id"].as_str()) {
+        if let Some(turn) = request["turnId"]
+            .as_str()
+            .or_else(|| meta["turn_id"].as_str())
+        {
             params["turnId"] = turn.into();
         }
         if let Some(identity) = meta["workspace_identity"].as_str() {
@@ -227,16 +266,26 @@ impl HostBroker {
     }
 
     async fn host_request(&self, method: &str, params: Value) -> Result<Value, BrokerError> {
-        let host = self
-            .host
-            .get()
-            .ok_or_else(|| BrokerError::new("unavailable", format!("{} host is unavailable", self.spec.label)))?;
+        let host = self.host.get().ok_or_else(|| {
+            BrokerError::new(
+                "unavailable",
+                format!("{} host is unavailable", self.spec.label),
+            )
+        })?;
         let (reply, receive) = tokio::sync::oneshot::channel();
-        host.send(Event::HostRequest { method: method.into(), params, reply })
+        host.send(Event::HostRequest {
+            method: method.into(),
+            params,
+            reply,
+        })
+        .await
+        .map_err(|e| BrokerError::new(self.spec.io_code, e.to_string()))?;
+        match receive
             .await
-            .map_err(|e| BrokerError::new(self.spec.io_code, e.to_string()))?;
-        match receive.await.map_err(|e| BrokerError::new(self.spec.io_code, e.to_string()))? {
-            Ok(text) => serde_json::from_str(&text).map_err(|e| BrokerError::new(self.spec.io_code, e.to_string())),
+            .map_err(|e| BrokerError::new(self.spec.io_code, e.to_string()))?
+        {
+            Ok(text) => serde_json::from_str(&text)
+                .map_err(|e| BrokerError::new(self.spec.io_code, e.to_string())),
             Err((_, message, data)) => Err(host_error(self.spec, message, &data)),
         }
     }
@@ -244,7 +293,10 @@ impl HostBroker {
 
 /// Host 的业务失败经 JSON-RPC `error.data.code` 带回；缺失时按读写错误处理（TS toBrokerError 同）。
 fn host_error(spec: &Spec, message: String, data: &Value) -> BrokerError {
-    BrokerError { code: data["code"].as_str().unwrap_or(spec.io_code).to_owned(), message }
+    BrokerError {
+        code: data["code"].as_str().unwrap_or(spec.io_code).to_owned(),
+        message,
+    }
 }
 
 /// wait_for 被放弃（对端断开导致 select 丢弃 future）时通知 Host 按 requestId 结束等待并释放订阅。
@@ -261,21 +313,40 @@ impl CancelOnDrop {
 }
 impl Drop for CancelOnDrop {
     fn drop(&mut self) {
-        let (Some(host), Some(params), method) = (self.host.take(), self.params.take(), self.method) else { return };
+        let (Some(host), Some(params), method) =
+            (self.host.take(), self.params.take(), self.method)
+        else {
+            return;
+        };
         tokio::spawn(async move {
             let (reply, _receive) = tokio::sync::oneshot::channel();
-            let _ = host.send(Event::HostRequest { method: method.into(), params, reply }).await;
+            let _ = host
+                .send(Event::HostRequest {
+                    method: method.into(),
+                    params,
+                    reply,
+                })
+                .await;
         });
     }
 }
 
-async fn read_line<S: AsyncRead + Unpin>(spec: &Spec, stream: &mut S) -> Result<String, BrokerError> {
+async fn read_line<S: AsyncRead + Unpin>(
+    spec: &Spec,
+    stream: &mut S,
+) -> Result<String, BrokerError> {
     let mut buffer = Vec::new();
     let mut chunk = [0u8; 8192];
     loop {
-        let count = stream.read(&mut chunk).await.map_err(|e| BrokerError::new(spec.io_code, e.to_string()))?;
+        let count = stream
+            .read(&mut chunk)
+            .await
+            .map_err(|e| BrokerError::new(spec.io_code, e.to_string()))?;
         if count == 0 {
-            return Err(BrokerError::new(spec.io_code, format!("{} broker connection closed", spec.label)));
+            return Err(BrokerError::new(
+                spec.io_code,
+                format!("{} broker connection closed", spec.label),
+            ));
         }
         buffer.extend_from_slice(&chunk[..count]);
         if buffer.len() > MAX_REQUEST_BYTES {
@@ -283,7 +354,8 @@ async fn read_line<S: AsyncRead + Unpin>(spec: &Spec, stream: &mut S) -> Result<
             return Err(BrokerError::new(spec.too_large_code, message));
         }
         if let Some(end) = buffer.iter().position(|b| *b == b'\n') {
-            return String::from_utf8(buffer[..end].to_vec()).map_err(|e| BrokerError::new("invalidInput", e.to_string()));
+            return String::from_utf8(buffer[..end].to_vec())
+                .map_err(|e| BrokerError::new("invalidInput", e.to_string()));
         }
     }
 }

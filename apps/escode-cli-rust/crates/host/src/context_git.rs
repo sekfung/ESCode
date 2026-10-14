@@ -32,8 +32,7 @@ async fn command(
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true);
-    #[cfg(unix)]
-    command.process_group(0);
+    crate::process_group::isolate(&mut command);
     let mut child = command.spawn().ok()?;
     #[cfg(unix)]
     let _group = Group(child.id()?);

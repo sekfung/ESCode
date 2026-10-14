@@ -27,8 +27,9 @@ pub async fn collect(
     // Global 根与项目内 `.escode/wiki/` 都是 Wiki 存储：其中的条目文件不能再被当作文档导入。
     let mut excluded = vec![];
     for root in wiki_roots {
+        // 与 wiki 根的 realpath 同形态（host::realpath 去 Windows `\\?\` 前缀），否则 starts_with 比较会混形。
         excluded.push(
-            tokio::fs::canonicalize(root)
+            escode_cli_host::realpath(root)
                 .await
                 .unwrap_or_else(|_| root.to_owned()),
         );
@@ -39,7 +40,7 @@ pub async fn collect(
             rejected.push((path, "path does not exist".into()));
             continue;
         };
-        let real = tokio::fs::canonicalize(&path)
+        let real = escode_cli_host::realpath(&path)
             .await
             .unwrap_or_else(|_| path.clone());
         if excluded.iter().any(|root| real.starts_with(root)) {

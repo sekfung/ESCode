@@ -15,12 +15,14 @@ impl Hub {
             crate::mcp_circuit::NAME => (&self.circuit, &CIRCUIT),
             _ => return None,
         };
-        slot.get_or_init(|| HostBroker::start(spec, self.host.clone())).clone()
+        slot.get_or_init(|| HostBroker::start(spec, self.host.clone()))
+            .clone()
     }
     /// 只向 serial / circuit server 注入各自 broker 的 socket 与 token；其它 MCP / Bash 子进程拿不到 Host 通道。
     pub(super) fn inject_host_broker(&self, server: &mut Server) {
         if let Some(broker) = self.host_broker(&server.name)
-            && let (Some(env), Some(extra)) = (server.raw["env"].as_object_mut(), broker.env().as_object())
+            && let (Some(env), Some(extra)) =
+                (server.raw["env"].as_object_mut(), broker.env().as_object())
         {
             env.extend(extra.clone());
         }

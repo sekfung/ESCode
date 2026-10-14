@@ -6,7 +6,13 @@ const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 const CANCEL_METHOD: &str = "interaction/serialCancel";
 
 fn broker_for(spec: &'static Spec, host: Arc<OnceLock<EventSink>>) -> Arc<HostBroker> {
-    Arc::new(HostBroker { spec, socket: String::new(), token: TOKEN.into(), host, sessions: Mutex::default() })
+    Arc::new(HostBroker {
+        spec,
+        socket: String::new(),
+        token: TOKEN.into(),
+        host,
+        sessions: Mutex::default(),
+    })
 }
 
 fn broker(host: Arc<OnceLock<EventSink>>) -> Arc<HostBroker> {
@@ -37,14 +43,26 @@ fn fake_host(
 ) -> (Arc<OnceLock<EventSink>>, Seen) {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<crate::contract::RunEvent>(16);
     let host = Arc::new(OnceLock::new());
-    let _ = host.set(EventSink { session_id: "rust-host-channel".into(), run_id: "run".into(), tx });
+    let _ = host.set(EventSink {
+        session_id: "rust-host-channel".into(),
+        run_id: "run".into(),
+        tx,
+    });
     let seen = Arc::new(Mutex::new(vec![]));
     let record = seen.clone();
     tokio::spawn(async move {
         let mut held = vec![];
         while let Some(event) = rx.recv().await {
-            if let Event::HostRequest { method, params, reply } = event.event {
-                record.lock().unwrap().push((method.clone(), params.clone()));
+            if let Event::HostRequest {
+                method,
+                params,
+                reply,
+            } = event.event
+            {
+                record
+                    .lock()
+                    .unwrap()
+                    .push((method.clone(), params.clone()));
                 match respond(&method, &params) {
                     Some(answer) => {
                         let _ = reply.send(answer.map(|v| v.to_string()));
@@ -60,7 +78,10 @@ fn fake_host(
 async fn roundtrip(broker: Arc<HostBroker>, payload: Value) -> Value {
     let (mut client, server) = tokio::io::duplex(64 * 1024);
     let serving = tokio::spawn(broker.serve(server));
-    client.write_all(format!("{payload}\n").as_bytes()).await.unwrap();
+    client
+        .write_all(format!("{payload}\n").as_bytes())
+        .await
+        .unwrap();
     let mut response = String::new();
     client.read_to_string(&mut response).await.unwrap();
     serving.await.unwrap();
@@ -71,21 +92,30 @@ async fn roundtrip(broker: Arc<HostBroker>, payload: Value) -> Value {
 fn rejects_wrong_token_and_subagent_scope() {
     let broker = broker(Arc::default());
     assert!(broker.authorize(&request(json!({}))).is_ok());
-    let wrong = broker.authorize(&request(json!({"token": "b".repeat(64)}))).unwrap_err();
+    let wrong = broker
+        .authorize(&request(json!({"token": "b".repeat(64)})))
+        .unwrap_err();
     assert_eq!(wrong.code, "unauthorized");
-    let subagent = broker.authorize(&request(json!({"runtimeScope": "subagent"}))).unwrap_err();
+    let subagent = broker
+        .authorize(&request(json!({"runtimeScope": "subagent"})))
+        .unwrap_err();
     assert_eq!(subagent.code, "unavailable");
 }
 
 #[test]
 fn builds_host_params_from_remembered_session_and_rejects_unknown_ones() {
     let broker = broker(Arc::default());
-    assert_eq!(broker.params(&request(json!({}))).unwrap_err().code, "unavailable");
+    assert_eq!(
+        broker.params(&request(json!({}))).unwrap_err().code,
+        "unavailable"
+    );
     broker.remember(
         "sess_1",
         &json!({"workspace_key": "identity-1", "workspace_path": "C:/work", "workspace_identity": "identity-1", "turn_id": "t1"}),
     );
-    let (method, params) = broker.params(&request(json!({"op": "write", "args": {"data": "AT"}}))).unwrap();
+    let (method, params) = broker
+        .params(&request(json!({"op": "write", "args": {"data": "AT"}})))
+        .unwrap();
     assert_eq!(method, "interaction/serialWrite");
     assert_eq!(params["workspaceKey"], "identity-1");
     assert_eq!(params["workspacePath"], "C:/work");
@@ -93,51 +123,95 @@ fn builds_host_params_from_remembered_session_and_rejects_unknown_ones() {
     assert_eq!(params["turnId"], "t1");
     assert_eq!(params["args"], json!({"data": "AT"}));
     assert!(params["requestId"].as_str().is_some());
-    assert_eq!(broker.params(&request(json!({"op": "format"}))).unwrap_err().code, "invalidInput");
-    let (method, _) = broker.params(&request(json!({"op": "setSignals", "args": {"pulse": "esp32"}}))).unwrap();
+    assert_eq!(
+        broker
+            .params(&request(json!({"op": "format"})))
+            .unwrap_err()
+            .code,
+        "invalidInput"
+    );
+    let (method, _) = broker
+        .params(&request(
+            json!({"op": "setSignals", "args": {"pulse": "esp32"}}),
+        ))
+        .unwrap();
     assert_eq!(method, "interaction/serialSetSignals");
-    assert_eq!(broker.params(&request(json!({"args": null}))).unwrap_err().code, "invalidInput");
+    assert_eq!(
+        broker
+            .params(&request(json!({"args": null})))
+            .unwrap_err()
+            .code,
+        "invalidInput"
+    );
 }
 
 #[test]
 fn host_error_keeps_tool_error_code_from_data() {
     assert_eq!(
-        host_error(&SERIAL, "Serial port is not open".into(), &json!({"code": "notOpen"})),
+        host_error(
+            &SERIAL,
+            "Serial port is not open".into(),
+            &json!({"code": "notOpen"})
+        ),
         BrokerError::new("notOpen", "Serial port is not open"),
     );
     assert_eq!(host_error(&SERIAL, "boom".into(), &Value::Null).code, "io");
-    assert_eq!(host_error(&CIRCUIT, "boom".into(), &Value::Null).code, "io_error");
+    assert_eq!(
+        host_error(&CIRCUIT, "boom".into(), &Value::Null).code,
+        "io_error"
+    );
 }
 
 #[tokio::test]
 async fn forwards_request_and_returns_host_result() {
     let (host, seen) = fake_host(|_, _| Some(Ok(json!({"bytes": 4, "seq": 3}))));
     let broker = broker(host);
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "k", "workspace_path": "p"}),
+    );
     let payload = request(json!({"op": "write", "args": {"data": "AT"}}));
     let response = roundtrip(broker, payload.clone()).await;
-    assert_eq!(response, json!({"id": payload["id"], "ok": true, "result": {"bytes": 4, "seq": 3}}));
+    assert_eq!(
+        response,
+        json!({"id": payload["id"], "ok": true, "result": {"bytes": 4, "seq": 3}})
+    );
     assert_eq!(seen.lock().unwrap()[0].0, "interaction/serialWrite");
 }
 
 #[tokio::test]
 async fn host_failure_is_returned_with_its_code() {
-    let (host, _) = fake_host(|_, _| Some(Err((-32010, "busy now".into(), json!({"code": "busy"})))));
+    let (host, _) =
+        fake_host(|_, _| Some(Err((-32010, "busy now".into(), json!({"code": "busy"})))));
     let broker = broker(host);
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "k", "workspace_path": "p"}),
+    );
     let response = roundtrip(broker, request(json!({}))).await;
     assert_eq!(response["ok"], false);
-    assert_eq!(response["error"], json!({"code": "busy", "message": "busy now"}));
+    assert_eq!(
+        response["error"],
+        json!({"code": "busy", "message": "busy now"})
+    );
 }
 
 #[tokio::test]
 async fn abandoned_wait_for_sends_cancel_to_the_host() {
-    let (host, seen) = fake_host(|method, _| (method != "interaction/serialWaitFor").then(|| Ok(json!({}))));
+    let (host, seen) =
+        fake_host(|method, _| (method != "interaction/serialWaitFor").then(|| Ok(json!({}))));
     let broker = broker(host);
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "k", "workspace_path": "p"}),
+    );
     let payload = request(json!({"op": "waitFor", "args": {"pattern": "READY"}}));
     // Host 不应答 waitFor；超时丢弃 execute 等价于 serve 中对端断开的分支。
-    let abandoned = tokio::time::timeout(std::time::Duration::from_millis(50), broker.execute(&payload)).await;
+    let abandoned = tokio::time::timeout(
+        std::time::Duration::from_millis(50),
+        broker.execute(&payload),
+    )
+    .await;
     assert!(abandoned.is_err());
     for _ in 0..100 {
         if seen.lock().unwrap().iter().any(|(m, _)| m == CANCEL_METHOD) {
@@ -146,17 +220,34 @@ async fn abandoned_wait_for_sends_cancel_to_the_host() {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
     let seen = seen.lock().unwrap();
-    let wait = &seen.iter().find(|(m, _)| m == "interaction/serialWaitFor").unwrap().1;
-    let cancel = &seen.iter().find(|(m, _)| m == CANCEL_METHOD).expect("cancel sent").1;
-    assert_eq!(cancel, &json!({"sessionId": "sess_1", "targetRequestId": wait["requestId"]}));
+    let wait = &seen
+        .iter()
+        .find(|(m, _)| m == "interaction/serialWaitFor")
+        .unwrap()
+        .1;
+    let cancel = &seen
+        .iter()
+        .find(|(m, _)| m == CANCEL_METHOD)
+        .expect("cancel sent")
+        .1;
+    assert_eq!(
+        cancel,
+        &json!({"sessionId": "sess_1", "targetRequestId": wait["requestId"]})
+    );
 }
 
 #[tokio::test]
 async fn completed_requests_do_not_send_cancel() {
     let (host, seen) = fake_host(|_, _| Some(Ok(json!({"matched": false}))));
     let broker = broker(host);
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
-    broker.execute(&request(json!({"op": "waitFor", "args": {"pattern": "x"}}))).await.unwrap();
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "k", "workspace_path": "p"}),
+    );
+    broker
+        .execute(&request(json!({"op": "waitFor", "args": {"pattern": "x"}})))
+        .await
+        .unwrap();
     tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     assert!(seen.lock().unwrap().iter().all(|(m, _)| m != CANCEL_METHOD));
 }
@@ -168,28 +259,57 @@ fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
         "sess_1",
         &json!({"workspace_key": "remote:id", "workspace_path": "/w", "workspace_identity": "remote:id", "remote_session_id": "rs1"}),
     );
-    let (method, params) =
-        broker.params(&request(json!({"op": "parse", "args": {"path": "a.kicad_sch"}}))).unwrap();
+    let (method, params) = broker
+        .params(&request(
+            json!({"op": "parse", "args": {"path": "a.kicad_sch"}}),
+        ))
+        .unwrap();
     assert_eq!(method, "interaction/circuitParse");
     assert_eq!(params["workspaceIdentity"], "remote:id");
     assert_eq!(params["remoteSessionId"], "rs1");
     for (op, expected) in CIRCUIT.methods {
-        assert_eq!(broker.params(&request(json!({"op": op, "args": {}}))).unwrap().0, *expected);
+        assert_eq!(
+            broker
+                .params(&request(json!({"op": op, "args": {}})))
+                .unwrap()
+                .0,
+            *expected
+        );
     }
     // serial 的 op 不能经 circuit broker 打到 Host。
-    assert_eq!(broker.params(&request(json!({"op": "list"}))).unwrap_err().code, "invalidInput");
-    let wrong = broker.authorize(&request(json!({"token": "b".repeat(64)}))).unwrap_err();
+    assert_eq!(
+        broker
+            .params(&request(json!({"op": "list"})))
+            .unwrap_err()
+            .code,
+        "invalidInput"
+    );
+    let wrong = broker
+        .authorize(&request(json!({"token": "b".repeat(64)})))
+        .unwrap_err();
     assert_eq!(wrong.code, "unavailable");
-    let subagent = broker.authorize(&request(json!({"runtimeScope": "subagent"}))).unwrap_err();
-    assert_eq!(subagent.message, "Circuit tools are not available in subagents");
-    assert_eq!(broker.env(), json!({"ESCODE_CIRCUIT_BROKER_SOCKET": "", "ESCODE_CIRCUIT_BROKER_TOKEN": TOKEN}));
+    let subagent = broker
+        .authorize(&request(json!({"runtimeScope": "subagent"})))
+        .unwrap_err();
+    assert_eq!(
+        subagent.message,
+        "Circuit tools are not available in subagents"
+    );
+    assert_eq!(
+        broker.env(),
+        json!({"ESCODE_CIRCUIT_BROKER_SOCKET": "", "ESCODE_CIRCUIT_BROKER_TOKEN": TOKEN})
+    );
 }
 
 #[tokio::test]
 async fn circuit_forwards_request_and_never_sends_cancel() {
-    let (host, seen) = fake_host(|_, _| Some(Ok(json!({"ok": true, "irId": "ir_1", "revision": 1}))));
+    let (host, seen) =
+        fake_host(|_, _| Some(Ok(json!({"ok": true, "irId": "ir_1", "revision": 1}))));
     let broker = broker_for(&CIRCUIT, host);
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p"}));
+    broker.remember(
+        "sess_1",
+        &json!({"workspace_key": "k", "workspace_path": "p"}),
+    );
     let payload = request(json!({"op": "parse", "args": {"path": "board.kicad_sch"}}));
     let response = roundtrip(broker, payload.clone()).await;
     assert_eq!(response["ok"], true);
@@ -204,7 +324,10 @@ async fn circuit_oversized_request_reports_too_large() {
     let broker = broker_for(&CIRCUIT, Arc::default());
     let (mut client, server) = tokio::io::duplex(4 * 1024 * 1024);
     let serving = tokio::spawn(broker.serve(server));
-    client.write_all(&vec![b'x'; MAX_REQUEST_BYTES + 1]).await.unwrap();
+    client
+        .write_all(&vec![b'x'; MAX_REQUEST_BYTES + 1])
+        .await
+        .unwrap();
     let mut response = String::new();
     client.read_to_string(&mut response).await.unwrap();
     serving.await.unwrap();

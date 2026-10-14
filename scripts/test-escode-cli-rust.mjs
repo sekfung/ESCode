@@ -1,10 +1,12 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 // CI 与慢机器：每个用例都会起 runtime + 本地模型服务，并发跑会被接收超时误伤；ESCODE_TEST_SERIAL=1 时串行。
+// 慢机（debug 的 Windows 尤其）建议再设 ESCODE_TEST_REQUEST_MS=60000 与 ESCODE_TEST_EXIT_MS=15000：
+// 默认 5s 请求预算与 4s 关闭预算不够用（与 rust-runtime-ci.yml 的 env 一致，workflow 系列用例实测需要 ~20s+）。
 const serial = process.env.ESCODE_TEST_SERIAL === "1";
 async function run(command, args, env = {}) {
   await new Promise((done, fail) => {
@@ -157,14 +159,32 @@ await run(process.execPath, [
   "-p",
   "packages/services/tests/tsconfig.escode-cli-rust.json",
 ]);
-await run("cargo", [
-  "test",
-  "--locked",
-  "--workspace",
-  "--manifest-path",
-  "apps/escode-cli-rust/Cargo.toml",
-  ...(serial ? ["--", "--test-threads=1"] : []),
-]);
+// 首选 cargo-nextest（重试/慢测试超时/JUnit 见 apps/escode-cli-rust/.config/nextest.toml）；
+// 本机未安装时回退 cargo test 并给出安装提示（CI 经 taiki-e/install-action 预装）。
+const hasNextest = spawnSync("cargo", ["nextest", "--version"], { stdio: "ignore" }).status === 0;
+if (hasNextest) {
+  await run("cargo", [
+    "nextest",
+    "run",
+    "--locked",
+    "--workspace",
+    "--manifest-path",
+    "apps/escode-cli-rust/Cargo.toml",
+    ...(serial ? ["--test-threads=1"] : []),
+  ]);
+} else {
+  console.warn(
+    "[test-escode-cli-rust] cargo-nextest 未安装，回退 cargo test（安装：cargo install cargo-nextest --locked）",
+  );
+  await run("cargo", [
+    "test",
+    "--locked",
+    "--workspace",
+    "--manifest-path",
+    "apps/escode-cli-rust/Cargo.toml",
+    ...(serial ? ["--", "--test-threads=1"] : []),
+  ]);
+}
 await run("cargo", [
   "build",
   "--examples",

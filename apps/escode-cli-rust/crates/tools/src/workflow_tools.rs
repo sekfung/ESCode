@@ -76,7 +76,10 @@ pub(crate) async fn execute(
     };
     // validateInput 失败（TS ToolHandlerFailure）：可修复的工具失败。
     if reply["handlerFailure"] == true {
-        let mut output = ToolOutput::new(format!("<tool_use_error>{content}</tool_use_error>"), Value::Null);
+        let mut output = ToolOutput::new(
+            format!("<tool_use_error>{content}</tool_use_error>"),
+            Value::Null,
+        );
         output.failed = true;
         return Ok(output);
     }

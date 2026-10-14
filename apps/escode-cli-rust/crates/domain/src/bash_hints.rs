@@ -12,15 +12,20 @@ const GH_EXCLUDED: [&str; 6] = ["auth", "help", "version", "alias", "completion"
 pub fn gh_rate_limited(command: &str, output: &str) -> bool {
     static COMMAND: OnceLock<Regex> = OnceLock::new();
     static LIMIT: OnceLock<Regex> = OnceLock::new();
-    let command_re = COMMAND.get_or_init(|| Regex::new(r"(?:^|[;&|]|\b(?:then|do)\b)\s*gh\s+").unwrap());
+    let command_re =
+        COMMAND.get_or_init(|| Regex::new(r"(?:^|[;&|]|\b(?:then|do)\b)\s*gh\s+").unwrap());
     let limit_re = LIMIT.get_or_init(|| {
         Regex::new(r"(?i)API rate limit (?:already )?exceeded|exceeded a secondary rate limit|\bRATE_LIMITED\b").unwrap()
     });
     let gh = command_re.find_iter(command).any(|m| {
         let rest = &command[m.end()..];
         !GH_EXCLUDED.iter().any(|word| {
-            rest.strip_prefix(word)
-                .is_some_and(|after| after.chars().next().is_none_or(|c| !(c.is_alphanumeric() || c == '_')))
+            rest.strip_prefix(word).is_some_and(|after| {
+                after
+                    .chars()
+                    .next()
+                    .is_none_or(|c| !(c.is_alphanumeric() || c == '_'))
+            })
         })
     });
     gh && limit_re.is_match(output)
@@ -31,8 +36,13 @@ pub fn image_data_url(value: &str) -> Option<(String, String)> {
     let rest = value.trim().strip_prefix("data:")?;
     let (media, payload) = rest.split_once(";base64,")?;
     let valid_media = media.len() > "image/".len()
-        && media.get(..6).is_some_and(|p| p.eq_ignore_ascii_case("image/"))
-        && media.get(6..).is_some_and(|rest| rest.chars().all(|c| c.is_ascii_alphanumeric() || ".+_-".contains(c)));
+        && media
+            .get(..6)
+            .is_some_and(|p| p.eq_ignore_ascii_case("image/"))
+        && media.get(6..).is_some_and(|rest| {
+            rest.chars()
+                .all(|c| c.is_ascii_alphanumeric() || ".+_-".contains(c))
+        });
     if !valid_media || payload.is_empty() || payload.chars().any(char::is_whitespace) {
         return None;
     }
@@ -41,12 +51,18 @@ pub fn image_data_url(value: &str) -> Option<(String, String)> {
     let valid = payload.len() % 4 != 1
         && !body.is_empty()
         && payload.len() - body.len() <= 2
-        && body.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/');
+        && body
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/');
     if !valid {
         return None;
     }
     let media = media.to_ascii_lowercase();
-    let media = if media == "image/jpg" { "image/jpeg".to_owned() } else { media };
+    let media = if media == "image/jpg" {
+        "image/jpeg".to_owned()
+    } else {
+        media
+    };
     Some((media, payload.to_owned()))
 }
 
@@ -56,18 +72,36 @@ mod tests {
 
     #[test]
     fn gh_hint_requires_real_gh_call_and_limit_text() {
-        assert!(gh_rate_limited("gh api repos/x/y", "API rate limit exceeded for user"));
-        assert!(gh_rate_limited("cd x && gh pr list", "API rate limit already exceeded"));
-        assert!(gh_rate_limited("if true; then gh issue list; fi", "RATE_LIMITED"));
-        assert!(!gh_rate_limited("gh auth status", "API rate limit exceeded"));
+        assert!(gh_rate_limited(
+            "gh api repos/x/y",
+            "API rate limit exceeded for user"
+        ));
+        assert!(gh_rate_limited(
+            "cd x && gh pr list",
+            "API rate limit already exceeded"
+        ));
+        assert!(gh_rate_limited(
+            "if true; then gh issue list; fi",
+            "RATE_LIMITED"
+        ));
+        assert!(!gh_rate_limited(
+            "gh auth status",
+            "API rate limit exceeded"
+        ));
         assert!(!gh_rate_limited("echo gh api", "API rate limit exceeded"));
         assert!(!gh_rate_limited("gh api x", "all good"));
-        assert!(gh_rate_limited("gh authx", "exceeded a secondary rate limit"));
+        assert!(gh_rate_limited(
+            "gh authx",
+            "exceeded a secondary rate limit"
+        ));
     }
 
     #[test]
     fn parses_strict_image_data_urls() {
-        assert_eq!(image_data_url(" data:image/JPG;base64,AAAA ").unwrap().0, "image/jpeg");
+        assert_eq!(
+            image_data_url(" data:image/JPG;base64,AAAA ").unwrap().0,
+            "image/jpeg"
+        );
         assert!(image_data_url("data:image/png;base64,AA AA").is_none());
         assert!(image_data_url("data:text/plain;base64,AAAA").is_none());
         assert!(image_data_url("data:image/png;base64,AAAAA").is_none());

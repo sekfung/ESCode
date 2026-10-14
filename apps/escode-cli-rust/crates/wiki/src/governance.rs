@@ -1,70 +1,14 @@
 //! 治理写操作（spec §6.5、§12）：提案、批准、拒绝、弃用/替代、提升作用域、重建索引。
 //! 全部在 scope 写锁内执行并写审计；批准只能由用户显式触发（CLI / Desktop / alwaysAsk 工具）。
+use super::governance_rules::{core_body, looks_secret, similarity};
 use super::service::{WikiService, now};
 use super::store::ScopeStore;
 use anyhow::{Result, bail, ensure};
 use escode_cli_domain::wiki::entry::*;
 use escode_cli_domain::wiki::index::Index;
-use escode_cli_domain::wiki::text::{short_hash, slug, tokenize};
+use escode_cli_domain::wiki::text::{short_hash, slug};
 use escode_cli_domain::wiki::tools::ProposeInput;
 use serde_json::json;
-use std::collections::BTreeSet;
-
-/// 明显的密钥/凭据形态：提案里出现即拒绝（防止敏感信息沉淀到 Wiki，尤其是 Global Wiki）。
-fn looks_secret(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    if lower.contains("-----begin") && lower.contains("private key") {
-        return true;
-    }
-    let akia = text.as_bytes().windows(20).any(|w| {
-        w.starts_with(b"AKIA")
-            && w[4..]
-                .iter()
-                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
-    });
-    let assignment = [
-        "api_key",
-        "apikey",
-        "api-key",
-        "secret",
-        "password",
-        "passwd",
-        "access_token",
-        "auth_token",
-    ]
-    .iter()
-    .any(|key| {
-        lower.match_indices(key).any(|(i, _)| {
-            let rest = lower[i + key.len()..].trim_start();
-            let value = rest
-                .strip_prefix(['=', ':'])
-                .map(str::trim_start)
-                .unwrap_or("");
-            let value: String = value
-                .chars()
-                .take_while(|c| !c.is_whitespace() && *c != ',')
-                .collect();
-            value.trim_matches(['"', '\'']).len() >= 12
-        })
-    });
-    akia || assignment
-}
-
-/// 提案正文去掉追加的 Rationale / Evidence 段，只比较规则本身。
-fn core_body(body: &str) -> &str {
-    body.split("\n\n## Rationale").next().unwrap_or(body)
-}
-
-fn similarity(a: &str, b: &str) -> f64 {
-    let a: BTreeSet<String> = tokenize(a).into_iter().collect();
-    let b: BTreeSet<String> = tokenize(b).into_iter().collect();
-    let union = a.union(&b).count();
-    if union == 0 {
-        0.0
-    } else {
-        a.intersection(&b).count() as f64 / union as f64
-    }
-}
 
 pub(crate) async fn write_and_index(store: &ScopeStore, entries: &[Entry]) -> Result<()> {
     for entry in entries {
@@ -385,17 +329,5 @@ impl WikiService {
         }
         self.invalidate().await;
         Ok(out)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn secret_screening() {
-        assert!(super::looks_secret("api_key = sk_live_abcdefghijklmnop"));
-        assert!(super::looks_secret("AKIAABCDEFGHIJKLMNOP"));
-        assert!(!super::looks_secret(
-            "Never log the api_key value; read it from the vault."
-        ));
     }
 }

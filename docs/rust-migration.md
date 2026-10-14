@@ -1,10 +1,10 @@
 # ESCode CLI Rust
 
-这是将 ESCode CLI 从 TypeScript 迁移到 Rust 的工作仓库。Rust 实现位于 [`apps/escode-cli-rust/`](apps/escode-cli-rust/)，以 Cargo workspace 组织协议、Session 核心、模型适配、工具执行、App Server 和 TUI。当前 Rust runtime 通过显式命令启动，现有 TypeScript runtime 仍是默认实现。
+这是将 ESCode CLI 从 TypeScript 迁移到 Rust 的工作仓库。Rust 实现位于 [`apps/escode-cli-rust/`](apps/escode-cli-rust/)，以 Cargo workspace 组织协议、Session 核心、模型适配、工具执行、App Server 和 TUI。**自 2026-10-03 起，安装包内的桌面 App 默认使用 Rust runtime**（显式 `ESCODE_AGENT_SERVER_RUNTIME=node` 可回退，见 [`docs/specs/rust-release-rollback.md`](docs/specs/rust-release-rollback.md)）；monorepo 开发态默认保持 Node，用 `pnpm dev:desktop:escode-cli-rust` 显式选择 Rust。
 
 ## 核心目标
 
-本仓库的核心任务是把现有 Node.js/TypeScript escode CLI runtime 迁移到 Rust，在保持 App stdio/V4 协议、Session 状态、模型请求、工具执行、持久化和桌面接入语义的前提下，逐步用 Rust runtime 替换 Node.js runtime。只有功能对齐、性能、数据迁移、跨平台和发布回退完成验收后，才切换默认 runtime。
+本仓库的核心任务是把现有 Node.js/TypeScript escode CLI runtime 迁移到 Rust，在保持 App stdio/V4 协议、Session 状态、模型请求、工具执行、持久化和桌面接入语义的前提下，逐步用 Rust runtime 替换 Node.js runtime。功能对齐、性能、数据迁移、跨平台和发布回退五道门槛已通过并完成默认切换。后续桌面 Host 统一化（Rust Host + 进程内 runtime）的路线见 [`docs/specs/rust-unified-host.md`](docs/specs/rust-unified-host.md)。
 
 当前迁移已经覆盖 Rust App Server 的主要使用链路：
 
@@ -12,10 +12,10 @@
 - [x] OpenAI Chat Completions、OpenAI Responses、Anthropic Messages
 - [x] Provider Registry、模型选择、账号 overlay、yolo 能力协商
 - [x] Read/Write/Edit/Glob/Grep/Bash、后台任务、AskUserQuestion、Todo
-- [x] MCP、Skill、子代理、Goal、retry/edit、fork 和文件回退核心链路
+- [x] MCP（含 OAuth）、Skill、子代理、Goal、retry/edit、fork 和文件回退核心链路
 - [x] 文本、图片、PDF 基础附件链路
-- [ ] 权限模式、MCP OAuth、完整记忆和目录规则、高级媒体与工具能力
-- [ ] 工作流、自动任务、浏览器/CUA、远端/手机恢复和跨平台发行
+- [x] 权限模式（yolo/build/edit/guarded）、Workflow/Cron/OffPeak、浏览器工具（node_repl）、本地 TTFT 遥测
+- [ ] 剩余长尾（插件 UI 面板、话题附件、记忆 Dream/Semantic Recall、媒体预览、provider hosted tools 等）：权威清单见 [`docs/specs/rust-parity-remaining.md`](docs/specs/rust-parity-remaining.md) 与 [`docs/specs/rust-v3.15.1-drift.md`](docs/specs/rust-v3.15.1-drift.md)
 
 同一台 Apple M2 Pro 上使用本地 SSE fixture、8 回合单 Session、5 次交错测量的结果如下。Node.js 使用当前 CLI bundle，Rust 使用 release 二进制：
 
@@ -89,7 +89,7 @@ pnpm dev:desktop:escode-cli-rust \
   --data-dir /absolute/path/rust-experiment
 ```
 
-该脚本会设置 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust`，由 Host 启动 Rust App Server；未执行该脚本或未设置 runtime override 时，桌面 App 仍使用 TypeScript runtime。
+该脚本会设置 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust`，由 Host 启动 Rust App Server。安装包默认已是 Rust runtime（找不到随包二进制会直接报错，不会静默回退 Node）；monorepo 开发态默认保持 Node，未执行该脚本时 `pnpm dev:desktop` 走 TypeScript runtime。
 
 ## 构建、检查与测试
 

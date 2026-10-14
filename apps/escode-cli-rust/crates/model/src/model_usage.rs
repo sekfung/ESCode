@@ -67,7 +67,8 @@ impl Status<'_> {
         let mut ticket = self.ticket.lock().await;
         if kind == "model_request_started" {
             ticket.take();
-            *ticket = crate::contract::acquire_model_admission(self.provider_id, self.model_id).await;
+            *ticket =
+                crate::contract::acquire_model_admission(self.provider_id, self.model_id).await;
         }
         let mut status = json!({
             "type": kind, "requestId": self.request_id, "providerId": self.provider_id, "modelId": self.model_id,

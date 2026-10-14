@@ -50,8 +50,7 @@ impl Engine {
             // 文案是 `Core prompt admission rejected: <core reason>`；core reason 在活跃轮上是
             // `turn_not_steerable`（没有活跃轮而只是排队时是 `no_active_turn`）。
             let mut ack = c.ack("failed", s.revision, Some("activePrompt"));
-            ack["message"] =
-                "Core prompt admission rejected: turn_not_steerable".into();
+            ack["message"] = "Core prompt admission rejected: turn_not_steerable".into();
             return Ok(ack);
         }
         let start_now = s.running() && c.payload["requestedDelivery"] == "startNow";
@@ -187,7 +186,11 @@ impl Engine {
         let text = item["text"].as_str().context("Guide text missing")?;
         // `_escode_input`：真实用户输入及其是否满足记忆提取的散文门槛（docs/specs/rust-project-memory.md）。
         // mailbox 消息（H3，TS steerTurn）按原文进历史，不套用户中途消息的包装。
-        let content = if item["clientId"] == "session-mailbox" { text.to_owned() } else { crate::domain::prompt::user_steer(text) };
+        let content = if item["clientId"] == "session-mailbox" {
+            text.to_owned()
+        } else {
+            crate::domain::prompt::user_steer(text)
+        };
         let message = json!({"role":"user","content":content,"_escode_input":crate::domain::memory::is_prose(text)});
         s.append_message(message.clone());
         messages.push(message);

@@ -49,17 +49,30 @@ pub fn parse_auth(value: Option<&Value>, mcp_key: &str) -> Result<bool, String> 
         Some(other) => other.to_string(),
     };
     if object.get("type").and_then(Value::as_str) != Some("escode_official") {
-        return Err(format!("MCP server {mcp_key}: unsupported auth type: {}", text("type")));
+        return Err(format!(
+            "MCP server {mcp_key}: unsupported auth type: {}",
+            text("type")
+        ));
     }
     if object.get("provider").and_then(Value::as_str) != Some("jwt_token") {
-        return Err(format!("MCP server {mcp_key}: unsupported auth provider: {}", text("provider")));
+        return Err(format!(
+            "MCP server {mcp_key}: unsupported auth provider: {}",
+            text("provider")
+        ));
     }
     Ok(true)
 }
 
 /// TS `resolveRuntimeESCodeEndpointOrigin`：`ESCODE_BASE_URL`，其次 `ESCODE_ENDPOINT_ORIGIN`（均 trim 后非空），缺省生产 origin。
-pub fn escode_api_origin(base_url: Option<&str>, endpoint_origin: Option<&str>) -> Result<String, String> {
-    let pick = |v: Option<&str>| v.map(str::trim).filter(|v| !v.is_empty()).map(str::to_owned);
+pub fn escode_api_origin(
+    base_url: Option<&str>,
+    endpoint_origin: Option<&str>,
+) -> Result<String, String> {
+    let pick = |v: Option<&str>| {
+        v.map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_owned)
+    };
     let Some(origin) = pick(base_url).or_else(|| pick(endpoint_origin)) else {
         return Ok(DEFAULT_ESCODE_ORIGIN.into());
     };
@@ -85,7 +98,11 @@ fn loopback_origin(candidate: &str) -> Option<String> {
 }
 
 /// TS `isOfficialMcpOriginTrusted`：返回 (trusted, detail)。dev 开关只放开列出的 http loopback origin。
-pub fn origin_trusted(origin: &str, dev_trusted: Option<&str>, escode_api_origin: Option<&str>) -> (bool, &'static str) {
+pub fn origin_trusted(
+    origin: &str,
+    dev_trusted: Option<&str>,
+    escode_api_origin: Option<&str>,
+) -> (bool, &'static str) {
     let origin = origin.trim();
     if origin.is_empty() {
         return (false, "invalid_input");
@@ -111,7 +128,10 @@ pub fn origin_trusted(origin: &str, dev_trusted: Option<&str>, escode_api_origin
 }
 
 /// TS `mergeOfficialAuthHeaders`：身份头覆盖同名头；其余保留头（除协议头）与关联头丢弃。
-pub fn merge_headers(incoming: &[(String, String)], auth: &[(String, String)]) -> Vec<(String, String)> {
+pub fn merge_headers(
+    incoming: &[(String, String)],
+    auth: &[(String, String)],
+) -> Vec<(String, String)> {
     let auth_names: Vec<String> = auth.iter().map(|(n, _)| n.to_ascii_lowercase()).collect();
     let mut merged: Vec<(String, String)> = incoming
         .iter()
@@ -119,7 +139,9 @@ pub fn merge_headers(incoming: &[(String, String)], auth: &[(String, String)]) -
             let lower = name.to_ascii_lowercase();
             !auth_names.contains(&lower)
                 && !CORRELATION_HEADERS.contains(&lower.as_str())
-                && (!is_reserved(&lower) || lower == "mcp-session-id" || lower == "mcp-protocol-version")
+                && (!is_reserved(&lower)
+                    || lower == "mcp-session-id"
+                    || lower == "mcp-protocol-version")
         })
         .cloned()
         .collect();
@@ -138,7 +160,11 @@ pub fn auth_failure(status: u16) -> Option<&'static str> {
 }
 
 /// TS `classifyOfficialMcpResponse`（非 tools/call）：状态码与有界 JSON 体上的诊断分类。
-pub fn classify_response(status: u16, content_type: &str, body: Option<&str>) -> Option<&'static str> {
+pub fn classify_response(
+    status: u16,
+    content_type: &str,
+    body: Option<&str>,
+) -> Option<&'static str> {
     let ok = (200..300).contains(&status);
     let fallback = if ok { None } else { Some("connection_failed") };
     if status == 429 {
@@ -150,16 +176,22 @@ pub fn classify_response(status: u16, content_type: &str, body: Option<&str>) ->
     if !content_type.to_ascii_lowercase().contains("json") {
         return fallback;
     }
-    let Some(record) = body.filter(|b| !b.is_empty()).and_then(|b| serde_json::from_str::<Value>(b).ok()) else {
+    let Some(record) = body
+        .filter(|b| !b.is_empty())
+        .and_then(|b| serde_json::from_str::<Value>(b).ok())
+    else {
         return fallback;
     };
-    let Some(record) = record.as_object() else { return fallback };
+    let Some(record) = record.as_object() else {
+        return fallback;
+    };
     match record.get("code").and_then(Value::as_i64) {
         Some(3001) => return Some("server_not_found"),
         Some(1000) => return Some("server_unavailable"),
         _ => {}
     }
-    if record.get("jsonrpc").and_then(Value::as_str) == Some("2.0") && record.contains_key("error") {
+    if record.get("jsonrpc").and_then(Value::as_str) == Some("2.0") && record.contains_key("error")
+    {
         return Some(match record["error"].get("code").and_then(Value::as_i64) {
             Some(1006) => "not_authenticated",
             Some(3101) => "coding_plan_required",

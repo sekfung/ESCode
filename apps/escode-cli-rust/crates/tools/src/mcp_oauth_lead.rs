@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
-const SUCCESS_TEXT: &str = "Authorization successful! You may close this window and return to the CLI.";
+const SUCCESS_TEXT: &str =
+    "Authorization successful! You may close this window and return to the CLI.";
 const FAILURE_TEXT: &str = "Authorization failed. You may close this window and return to the CLI.";
 
 impl OAuth {
@@ -31,9 +32,17 @@ impl OAuth {
         let redirect = format!("http://127.0.0.1:{port}{path}");
         let stop = cancel.child_token();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let server = tokio::spawn(serve_callback(listener, path, state.clone(), sender, stop.clone()));
+        let server = tokio::spawn(serve_callback(
+            listener,
+            path,
+            state.clone(),
+            sender,
+            stop.clone(),
+        ));
         let result = self
-            .exchange(trigger, attempt, baseline, &state, &redirect, receiver, on_url, cancel)
+            .exchange(
+                trigger, attempt, baseline, &state, &redirect, receiver, on_url, cancel,
+            )
             .await;
         stop.cancel();
         let _ = server.await;
@@ -67,16 +76,27 @@ impl OAuth {
                     .and_then(|p| p.tokens.as_ref())
                     .and_then(|t| t["scope"].as_str())
                     .map(str::to_owned);
-                rules::scope_union(&[self.config.scope.as_deref(), token_scope.as_deref(), Some(required)])
+                rules::scope_union(&[
+                    self.config.scope.as_deref(),
+                    token_scope.as_deref(),
+                    Some(required),
+                ])
             }
             None => self.config.scope.clone(),
         };
-        let discovery = self.discover(trigger.resource_metadata_url.as_deref()).await?;
-        let server = discovery["authorizationServerUrl"].as_str().unwrap_or_default().to_owned();
+        let discovery = self
+            .discover(trigger.resource_metadata_url.as_deref())
+            .await?;
+        let server = discovery["authorizationServerUrl"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
         let metadata = discovery["authorizationServerMetadata"].clone();
         let issuer = metadata["issuer"].as_str().unwrap_or(&server).to_owned();
-        let resource = rules::select_resource(&self.url, &discovery["resourceMetadata"]).map_err(|e| anyhow!(e))?;
-        let client_metadata = rules::client_metadata(&self.config, &self.name, redirect, requested.as_deref());
+        let resource = rules::select_resource(&self.url, &discovery["resourceMetadata"])
+            .map_err(|e| anyhow!(e))?;
+        let client_metadata =
+            rules::client_metadata(&self.config, &self.name, redirect, requested.as_deref());
         let scope = rules::determine_scope(
             requested.as_deref(),
             &discovery["resourceMetadata"],
@@ -106,7 +126,16 @@ impl OAuth {
             resource.as_deref(),
         )?;
         let expires = store::now_ms() + TRANSACTION_TTL.as_millis() as u64;
-        store::publish_pending(&self.store, &self.prefix, attempt, &url, baseline, expires, state).await?;
+        store::publish_pending(
+            &self.store,
+            &self.prefix,
+            attempt,
+            &url,
+            baseline,
+            expires,
+            state,
+        )
+        .await?;
         on_url(url);
         // 只有「等人点授权」受 TTL 约束；code exchange 必须等到结束，不与超时竞速。
         let callback_url = tokio::select! {
@@ -118,15 +147,24 @@ impl OAuth {
             },
         };
         let callback_url = url::Url::parse(&callback_url)?;
-        let param = |key: &str| callback_url.query_pairs().find(|(k, _)| k == key).map(|(_, v)| v.into_owned());
-        let code = param("code").or_else(|| param("authCode")).unwrap_or_default();
+        let param = |key: &str| {
+            callback_url
+                .query_pairs()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.into_owned())
+        };
+        let code = param("code")
+            .or_else(|| param("authCode"))
+            .unwrap_or_default();
         // SDK validateAuthorizationResponseIssuer（RFC 9207）。
         if let Some(expected) = metadata["issuer"].as_str() {
             match param("iss") {
                 None if metadata["authorization_response_iss_parameter_supported"] == true => {
                     bail!("Authorization response is missing the iss parameter")
                 }
-                Some(iss) if iss != expected => bail!("Authorization response issuer mismatch: {iss}"),
+                Some(iss) if iss != expected => {
+                    bail!("Authorization response issuer mismatch: {iss}")
+                }
                 _ => {}
             }
         }
@@ -136,19 +174,31 @@ impl OAuth {
             ("code_verifier".into(), verifier),
             ("redirect_uri".into(), redirect.to_owned()),
         ];
-        let mut tokens = http::token_request(&server, &metadata, params, &client, resource.as_deref()).await?;
+        let mut tokens =
+            http::token_request(&server, &metadata, params, &client, resource.as_deref()).await?;
         tokens["issuer"] = issuer.clone().into();
         let transaction = hex(&<sha2::Sha256 as sha2::Digest>::digest(state.as_bytes()));
-        store::publish(&self.store, &self.prefix, &client, &tokens, Some(&issuer), &transaction).await?;
+        store::publish(
+            &self.store,
+            &self.prefix,
+            &client,
+            &tokens,
+            Some(&issuer),
+            &transaction,
+        )
+        .await?;
         Ok(Outcome::Authorized)
     }
 
     /// SDK `authInternal` 的 discovery 部分：共享缓存命中时补全缺失字段并在变化时回写，否则全量发现。
     async fn discover(&self, challenge_metadata_url: Option<&str>) -> Result<Value> {
         let cached = store::load_discovery(&self.store, &self.prefix, None).await?;
-        let metadata_url = challenge_metadata_url
-            .map(str::to_owned)
-            .or_else(|| cached.as_ref().and_then(|c| c["resourceMetadataUrl"].as_str()).map(str::to_owned));
+        let metadata_url = challenge_metadata_url.map(str::to_owned).or_else(|| {
+            cached
+                .as_ref()
+                .and_then(|c| c["resourceMetadataUrl"].as_str())
+                .map(str::to_owned)
+        });
         let Some(cached) = cached else {
             let state = http::server_info(&self.url, metadata_url.as_deref()).await?;
             store::save_discovery(&self.store, &self.prefix, &state).await?;
@@ -158,7 +208,9 @@ impl OAuth {
         if let Some(url) = &metadata_url {
             state["resourceMetadataUrl"] = url.clone().into();
         }
-        let server = cached["authorizationServerUrl"].as_str().unwrap_or_default();
+        let server = cached["authorizationServerUrl"]
+            .as_str()
+            .unwrap_or_default();
         let metadata = match cached.get("authorizationServerMetadata") {
             Some(metadata) if metadata.is_object() => Some(metadata.clone()),
             _ => http::authorization_server_metadata(server).await?,
@@ -201,28 +253,56 @@ async fn serve_callback(
             accepted = listener.accept() => match accepted { Ok(v) => v, Err(_) => continue },
         };
         let mut buffer = vec![0u8; 16 * 1024];
-        let read = tokio::time::timeout(std::time::Duration::from_secs(10), socket.read(&mut buffer)).await;
+        let read =
+            tokio::time::timeout(std::time::Duration::from_secs(10), socket.read(&mut buffer))
+                .await;
         let Ok(Ok(count)) = read else { continue };
         let request = String::from_utf8_lossy(&buffer[..count]);
-        let target = request.lines().next().and_then(|l| l.split(' ').nth(1)).unwrap_or("/");
+        let target = request
+            .lines()
+            .next()
+            .and_then(|l| l.split(' ').nth(1))
+            .unwrap_or("/");
         let url = url::Url::parse(&format!("http://127.0.0.1{target}"));
         let (status, settle) = match &url {
             Err(error) => (500, Some(Err(anyhow!("{error}")))),
             Ok(url) if url.path() != path => (404, None),
             Ok(url) => {
-                let param = |key: &str| url.query_pairs().find(|(k, _)| k == key).map(|(_, v)| v.into_owned());
+                let param = |key: &str| {
+                    url.query_pairs()
+                        .find(|(k, _)| k == key)
+                        .map(|(_, v)| v.into_owned())
+                };
                 if param("state").unwrap_or_default() != state {
                     (400, None)
                 } else if let Some(error) = param("error") {
-                    (400, Some(Err(anyhow!("OAuth authorization was rejected by the authorization server: {error}"))))
-                } else if param("authCode").or_else(|| param("code")).unwrap_or_default().is_empty() {
-                    (400, Some(Err(anyhow!("OAuth callback is missing an authorization code."))))
+                    (
+                        400,
+                        Some(Err(anyhow!(
+                            "OAuth authorization was rejected by the authorization server: {error}"
+                        ))),
+                    )
+                } else if param("authCode")
+                    .or_else(|| param("code"))
+                    .unwrap_or_default()
+                    .is_empty()
+                {
+                    (
+                        400,
+                        Some(Err(anyhow!(
+                            "OAuth callback is missing an authorization code."
+                        ))),
+                    )
                 } else {
                     (200, Some(Ok(url.to_string())))
                 }
             }
         };
-        let text = if status == 200 { SUCCESS_TEXT } else { FAILURE_TEXT };
+        let text = if status == 200 {
+            SUCCESS_TEXT
+        } else {
+            FAILURE_TEXT
+        };
         let reason = match status {
             200 => "OK",
             400 => "Bad Request",

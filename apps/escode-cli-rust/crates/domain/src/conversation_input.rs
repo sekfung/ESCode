@@ -54,7 +54,11 @@ pub fn with_conversation_material(text: &str, quotes: &Value, bot_source: &Value
             .iter()
             .flat_map(|message| message["contentParts"].as_array().into_iter().flatten())
             .collect(),
-        None => bot_source["contentParts"].as_array().into_iter().flatten().collect(),
+        None => bot_source["contentParts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .collect(),
     };
     let mentions: Vec<Json> = mention_parts
         .into_iter()
@@ -105,7 +109,14 @@ pub fn with_conversation_material(text: &str, quotes: &Value, bot_source: &Value
 /// `conversationQuoteSchema` 的键序：text、path、senderName、senderId、messageId、sentAt。
 fn quote_json(quote: &Value) -> Json {
     let mut item = Json::object();
-    for key in ["text", "path", "senderName", "senderId", "messageId", "sentAt"] {
+    for key in [
+        "text",
+        "path",
+        "senderName",
+        "senderId",
+        "messageId",
+        "sentAt",
+    ] {
         set_str(&mut item, key, &quote[key]);
     }
     item

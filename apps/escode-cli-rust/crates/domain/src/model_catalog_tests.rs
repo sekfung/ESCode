@@ -22,7 +22,10 @@ fn entries_of(output: &Json) -> Vec<Entry> {
         .map(|model| Entry {
             provider_id: text(model.get("providerId").unwrap()).to_owned(),
             model_id: text(model.get("modelId").unwrap()).to_owned(),
-            provider_label: model.get("providerLabel").and_then(Json::as_str).map(str::to_owned),
+            provider_label: model
+                .get("providerLabel")
+                .and_then(Json::as_str)
+                .map(str::to_owned),
             reasoning_levels: model
                 .get("reasoningLevels")
                 .and_then(Json::as_array)
@@ -38,7 +41,10 @@ fn entries_of(output: &Json) -> Vec<Entry> {
                 Json::Number(number) => number.as_i64(),
                 _ => None,
             }),
-            disabled_reason: model.get("disabledReason").and_then(Json::as_str).map(str::to_owned),
+            disabled_reason: model
+                .get("disabledReason")
+                .and_then(Json::as_str)
+                .map(str::to_owned),
         })
         .collect()
 }
@@ -62,10 +68,8 @@ fn model_content_and_display_match_ts() {
         );
         assert_eq!(
             to_value(&display(current, &entries)),
-            serde_json::from_str::<serde_json::Value>(
-                &case.get("display").unwrap().compact()
-            )
-            .unwrap(),
+            serde_json::from_str::<serde_json::Value>(&case.get("display").unwrap().compact())
+                .unwrap(),
             "{case:?}"
         );
     }

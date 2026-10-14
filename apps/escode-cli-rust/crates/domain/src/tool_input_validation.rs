@@ -2,6 +2,7 @@
 //! `core/src/tool/json-schema.ts`、`tool-input-validation-issues.ts` 与 `input-validation-model-content.ts`
 //! 的 MCP 路径（无 runtime schema，问题即 JSON Schema 问题）。问题对象的字段顺序会进入模型可见的
 //! JSON 回落文案，因此用保序的 `Json` 构造。
+use super::tool_input_issues::{invalid_type, invalid_value, matches_type, missing, size};
 use crate::json_order::Json;
 
 type Path = Vec<Json>;
@@ -20,10 +21,13 @@ pub fn validate(value: &Json, schema: &Json) -> Vec<Json> {
 
 /// TS `createInitialInputValidationModelContent`（无 runtime issue 时即 JSON 问题本身）。
 pub fn model_content(tool: &str, issues: &[Json]) -> String {
-    format!("<tool_use_error>InputValidationError: {}</tool_use_error>", format_error(tool, issues))
+    format!(
+        "<tool_use_error>InputValidationError: {}</tool_use_error>",
+        format_error(tool, issues)
+    )
 }
 
-fn node(value: Option<&Json>, schema: &Json, path: &[Json], issues: &mut Vec<Json>) {
+pub(super) fn node(value: Option<&Json>, schema: &Json, path: &[Json], issues: &mut Vec<Json>) {
     if let Some(candidates) = schema_array(schema.get("oneOf")) {
         let results: Vec<Vec<Json>> = candidates
             .iter()
@@ -65,7 +69,10 @@ fn node(value: Option<&Json>, schema: &Json, path: &[Json], issues: &mut Vec<Jso
         if !value_failed {
             match kind {
                 Json::Array(kinds) => {
-                    let errors = kinds.iter().map(|k| Json::Array(vec![invalid_type(value, k, &[])])).collect();
+                    let errors = kinds
+                        .iter()
+                        .map(|k| Json::Array(vec![invalid_type(value, k, &[])]))
+                        .collect();
                     issues.push(object(vec![
                         ("code", Json::str("invalid_union")),
                         ("errors", Json::Array(errors)),
@@ -84,12 +91,22 @@ fn node(value: Option<&Json>, schema: &Json, path: &[Json], issues: &mut Vec<Jso
             if let Some(min) = number(schema.get("minLength"))
                 && length < min
             {
-                issues.push(size("too_small", "string", schema.get("minLength").unwrap(), path));
+                issues.push(size(
+                    "too_small",
+                    "string",
+                    schema.get("minLength").unwrap(),
+                    path,
+                ));
             }
             if let Some(max) = number(schema.get("maxLength"))
                 && length > max
             {
-                issues.push(size("too_big", "string", schema.get("maxLength").unwrap(), path));
+                issues.push(size(
+                    "too_big",
+                    "string",
+                    schema.get("maxLength").unwrap(),
+                    path,
+                ));
             }
         }
         Some(Json::Number(n)) => {
@@ -97,12 +114,22 @@ fn node(value: Option<&Json>, schema: &Json, path: &[Json], issues: &mut Vec<Jso
             if let Some(min) = number(schema.get("minimum"))
                 && n < min
             {
-                issues.push(size("too_small", "number", schema.get("minimum").unwrap(), path));
+                issues.push(size(
+                    "too_small",
+                    "number",
+                    schema.get("minimum").unwrap(),
+                    path,
+                ));
             }
             if let Some(max) = number(schema.get("maximum"))
                 && n > max
             {
-                issues.push(size("too_big", "number", schema.get("maximum").unwrap(), path));
+                issues.push(size(
+                    "too_big",
+                    "number",
+                    schema.get("maximum").unwrap(),
+                    path,
+                ));
             }
         }
         Some(Json::Array(items)) => array(items, schema, path, issues),
@@ -121,7 +148,12 @@ fn array(items: &[Json], schema: &Json, path: &[Json], issues: &mut Vec<Json>) {
         .map(|_| size("too_big", "array", schema.get("maxItems").unwrap(), path));
     if let Some(item_schema) = schema.get("items").filter(|s| s.is_object()) {
         for (index, item) in items.iter().enumerate() {
-            node(Some(item), item_schema, &child(path, Json::Number(index.into())), issues);
+            node(
+                Some(item),
+                item_schema,
+                &child(path, Json::Number(index.into())),
+                issues,
+            );
         }
     }
     // 元素问题先于数组自身的长度问题（TS 注释：provider-visible 顺序）。
@@ -152,7 +184,11 @@ fn record(entries: &[(String, Json)], schema: &Json, path: &[Json], issues: &mut
     }
     for key in &required {
         if !properties.iter().any(|(k, _)| k == key) && present(key).is_none() {
-            issues.push(invalid_type(None, &Json::str("unknown"), &child(path, Json::str(*key))));
+            issues.push(invalid_type(
+                None,
+                &Json::str("unknown"),
+                &child(path, Json::str(*key)),
+            ));
         }
     }
     if matches!(schema.get("additionalProperties"), Some(Json::Bool(false))) {
@@ -163,7 +199,10 @@ fn record(entries: &[(String, Json)], schema: &Json, path: &[Json], issues: &mut
             .collect();
         if !unexpected.is_empty() {
             let plural = if unexpected.len() > 1 { "s" } else { "" };
-            let message = format!("Unrecognized key{plural}: {}", issue_values(&unexpected, ", "));
+            let message = format!(
+                "Unrecognized key{plural}: {}",
+                issue_values(&unexpected, ", ")
+            );
             issues.push(object(vec![
                 ("code", Json::str("unrecognized_keys")),
                 ("keys", Json::Array(unexpected)),
@@ -174,129 +213,82 @@ fn record(entries: &[(String, Json)], schema: &Json, path: &[Json], issues: &mut
     }
 }
 
-/// TS `createMissingPropertyIssues`：先按属性 schema 校验 undefined，没有问题时回落 invalid_type。
-fn missing(property: &Json, path: &[Json], issues: &mut Vec<Json>) {
-    if property.is_object() {
-        let mut nested = vec![];
-        node(None, property, path, &mut nested);
-        if !nested.is_empty() {
-            issues.extend(nested);
-            return;
-        }
-    }
-    let inferred = match property {
-        Json::Object(_) => match property.get("type") {
-            Some(Json::String(kind)) => kind.clone(),
-            _ if matches!(property.get("properties"), Some(Json::Object(_))) || property.get("required").and_then(Json::as_array).is_some() => "object".into(),
-            _ if matches!(property.get("items"), Some(Json::Object(_))) => "array".into(),
-            _ => "unknown".into(),
-        },
-        _ => "unknown".into(),
-    };
-    issues.push(invalid_type(None, &Json::String(inferred), path));
-}
-
-fn matches_type(value: Option<&Json>, kind: &Json) -> bool {
-    match kind {
-        Json::Array(kinds) => kinds.iter().any(|k| matches_type(value, k)),
-        Json::String(kind) => match kind.as_str() {
-            "array" => matches!(value, Some(Json::Array(_))),
-            "boolean" => matches!(value, Some(Json::Bool(_))),
-            "integer" => matches!(value, Some(Json::Number(n)) if n.as_f64().is_some_and(|f| f.fract() == 0.0)),
-            "null" => matches!(value, Some(Json::Null)),
-            "number" => matches!(value, Some(Json::Number(_))),
-            "object" => matches!(value, Some(Json::Object(_))),
-            "string" => matches!(value, Some(Json::String(_))),
-            _ => true,
-        },
-        _ => true,
-    }
-}
-
-/// TS `createInvalidTypeIssue`：integer 对有限数字报 `int`（format safeint）。
-fn invalid_type(value: Option<&Json>, kind: &Json, path: &[Json]) -> Json {
-    let kind = js_string(kind);
-    let (expected, format) = match (kind.as_str(), value) {
-        ("integer", Some(Json::Number(_))) => ("int".to_owned(), Some("safeint")),
-        ("integer", _) => ("number".to_owned(), None),
-        _ => (kind, None),
-    };
-    let message = format!("Invalid input: expected {expected}, received {}", received(value));
-    let mut fields = vec![("expected", Json::String(expected))];
-    if let Some(format) = format {
-        fields.push(("format", Json::str(format)));
-    }
-    fields.extend([
-        ("code", Json::str("invalid_type")),
-        ("path", Json::Array(path.to_vec())),
-        ("message", Json::String(message)),
-    ]);
-    object(fields)
-}
-
-fn invalid_value(values: &[Json], path: &[Json]) -> Json {
-    let message = match values {
-        [one] => format!("Invalid input: expected {}", issue_value(one)),
-        _ => format!("Invalid option: expected one of {}", issue_values(values, "|")),
-    };
-    object(vec![
-        ("code", Json::str("invalid_value")),
-        ("values", Json::Array(values.to_vec())),
-        ("path", Json::Array(path.to_vec())),
-        ("message", Json::String(message)),
-    ])
-}
-
-fn size(code: &str, origin: &str, limit: &Json, path: &[Json]) -> Json {
-    let (label, comparison, key) = if code == "too_big" { ("Too big", "<=", "maximum") } else { ("Too small", ">=", "minimum") };
-    let limit_text = js_string(limit);
-    let message = match origin {
-        "string" => format!("{label}: expected string to have {comparison}{limit_text} characters"),
-        "array" => format!("{label}: expected array to have {comparison}{limit_text} items"),
-        _ => format!("{label}: expected {origin} to be {comparison}{limit_text}"),
-    };
-    object(vec![
-        ("origin", Json::str(origin)),
-        ("code", Json::str(code)),
-        (key, limit.clone()),
-        ("inclusive", Json::Bool(true)),
-        ("path", Json::Array(path.to_vec())),
-        ("message", Json::String(message)),
-    ])
-}
-
+/// model_content 的问题格式化（issue 的构造已拆到 `tool_input_issues.rs`）。
 fn format_error(tool: &str, issues: &[Json]) -> String {
-    let code = |issue: &Json| issue.get("code").and_then(Json::as_str).unwrap_or_default().to_owned();
-    let message = |issue: &Json| issue.get("message").and_then(Json::as_str).unwrap_or_default().to_owned();
-    let path = |issue: &Json| format_path(issue.get("path").and_then(Json::as_array).unwrap_or_default());
-    let is_missing = |issue: &Json| code(issue) == "invalid_type" && message(issue).contains("received undefined");
+    let code = |issue: &Json| {
+        issue
+            .get("code")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let message = |issue: &Json| {
+        issue
+            .get("message")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let path = |issue: &Json| {
+        format_path(
+            issue
+                .get("path")
+                .and_then(Json::as_array)
+                .unwrap_or_default(),
+        )
+    };
+    let is_missing = |issue: &Json| {
+        code(issue) == "invalid_type" && message(issue).contains("received undefined")
+    };
     let mut lines: Vec<String> = issues
         .iter()
         .filter(|i| is_missing(i))
         .map(|i| format!("The required parameter `{}` is missing", path(i)))
         .collect();
     for issue in issues.iter().filter(|i| code(i) == "unrecognized_keys") {
-        for key in issue.get("keys").and_then(Json::as_array).unwrap_or_default() {
-            lines.push(format!("An unexpected parameter `{}` was provided", key.as_str().unwrap_or_default()));
+        for key in issue
+            .get("keys")
+            .and_then(Json::as_array)
+            .unwrap_or_default()
+        {
+            lines.push(format!(
+                "An unexpected parameter `{}` was provided",
+                key.as_str().unwrap_or_default()
+            ));
         }
     }
-    for issue in issues.iter().filter(|i| code(i) == "invalid_type" && !is_missing(i)) {
+    for issue in issues
+        .iter()
+        .filter(|i| code(i) == "invalid_type" && !is_missing(i))
+    {
         let text = message(issue);
         let received = text
             .split_once("received ")
             .and_then(|(_, rest)| {
-                let word: String = rest.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
+                let word: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .collect();
                 (!word.is_empty()).then_some(word)
             })
             .unwrap_or_else(|| "unknown".into());
-        let expected = issue.get("expected").and_then(Json::as_str).unwrap_or_default();
-        lines.push(format!("The parameter `{}` type is expected as `{expected}` but provided as `{received}`", path(issue)));
+        let expected = issue
+            .get("expected")
+            .and_then(Json::as_str)
+            .unwrap_or_default();
+        lines.push(format!(
+            "The parameter `{}` type is expected as `{expected}` but provided as `{received}`",
+            path(issue)
+        ));
     }
     if lines.is_empty() {
         return Json::Array(issues.to_vec()).pretty();
     }
     let noun = if lines.len() > 1 { "issues" } else { "issue" };
-    format!("{tool} failed due to the following {noun}:\n{}", lines.join("\n"))
+    format!(
+        "{tool} failed due to the following {noun}:\n{}",
+        lines.join("\n")
+    )
 }
 
 fn format_path(path: &[Json]) -> String {
@@ -314,7 +306,7 @@ fn format_path(path: &[Json]) -> String {
     out
 }
 
-fn received(value: Option<&Json>) -> &'static str {
+pub(super) fn received(value: Option<&Json>) -> &'static str {
     match value {
         None => "undefined",
         Some(Json::Null) => "null",
@@ -338,25 +330,39 @@ fn same(value: Option<&Json>, expected: &Json) -> bool {
 }
 
 /// JS `String(value)`。
-fn js_string(value: &Json) -> String {
+pub(super) fn js_string(value: &Json) -> String {
     match value {
         Json::String(text) => text.clone(),
-        Json::Array(items) => items.iter().map(|i| if matches!(i, Json::Null) { String::new() } else { js_string(i) }).collect::<Vec<_>>().join(","),
+        Json::Array(items) => items
+            .iter()
+            .map(|i| {
+                if matches!(i, Json::Null) {
+                    String::new()
+                } else {
+                    js_string(i)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(","),
         Json::Object(_) => "[object Object]".into(),
         other => other.compact(),
     }
 }
 
 /// TS `formatIssueValue`：字符串加双引号，其余 `String(value)`。
-fn issue_value(value: &Json) -> String {
+pub(super) fn issue_value(value: &Json) -> String {
     match value {
         Json::String(text) => format!("\"{text}\""),
         other => js_string(other),
     }
 }
 
-fn issue_values(values: &[Json], separator: &str) -> String {
-    values.iter().map(issue_value).collect::<Vec<_>>().join(separator)
+pub(super) fn issue_values(values: &[Json], separator: &str) -> String {
+    values
+        .iter()
+        .map(issue_value)
+        .collect::<Vec<_>>()
+        .join(separator)
 }
 
 fn number(value: Option<&Json>) -> Option<f64> {
@@ -377,7 +383,7 @@ fn child(path: &[Json], segment: Json) -> Path {
     next
 }
 
-fn object(fields: Vec<(&str, Json)>) -> Json {
+pub(super) fn object(fields: Vec<(&str, Json)>) -> Json {
     Json::Object(fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
 }
 

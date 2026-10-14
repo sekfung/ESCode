@@ -76,11 +76,16 @@ impl ClientCredentials {
     async fn authorize(&self, challenge: &str) -> Result<()> {
         let mut tokens = self.tokens.lock().await;
         let challenge = rules::parse_challenge(challenge);
-        let discovery = http::server_info(&self.url, challenge.resource_metadata_url.as_deref()).await?;
-        let server = discovery["authorizationServerUrl"].as_str().unwrap_or_default().to_owned();
+        let discovery =
+            http::server_info(&self.url, challenge.resource_metadata_url.as_deref()).await?;
+        let server = discovery["authorizationServerUrl"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
         let metadata = discovery["authorizationServerMetadata"].clone();
         let issuer = metadata["issuer"].as_str().unwrap_or(&server).to_owned();
-        let resource = rules::select_resource(&self.url, &discovery["resourceMetadata"]).map_err(|e| anyhow!(e))?;
+        let resource = rules::select_resource(&self.url, &discovery["resourceMetadata"])
+            .map_err(|e| anyhow!(e))?;
         let scope = rules::determine_scope(
             challenge.scope.as_deref(),
             &discovery["resourceMetadata"],
@@ -93,7 +98,14 @@ impl ClientCredentials {
         if let Some(scope) = scope {
             params.push(("scope".into(), scope));
         }
-        let mut issued = http::token_request(&server, &metadata, params, &self.client, resource.as_deref()).await?;
+        let mut issued = http::token_request(
+            &server,
+            &metadata,
+            params,
+            &self.client,
+            resource.as_deref(),
+        )
+        .await?;
         issued["issuer"] = issuer.into();
         *tokens = Some(issued);
         Ok(())

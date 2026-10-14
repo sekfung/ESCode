@@ -10,6 +10,7 @@ use super::super::{
 use super::{Hub, State};
 use crate::domain::mcp_oauth as rules;
 use anyhow::{Result, bail};
+use escode_cli_host::credential_store::CredentialStore;
 use serde_json::{Value, json};
 use std::{
     sync::{Arc, RwLock},
@@ -17,7 +18,6 @@ use std::{
 };
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
-use escode_cli_host::credential_store::CredentialStore;
 
 /// Session 等待授权的预算（TS `MCP_SESSION_OAUTH_AUTHORIZATION_TIMEOUT_MS`）；超时后带着授权 URL 继续，事务不中断。
 pub(super) const SESSION_BUDGET: Duration = Duration::from_secs(15);
@@ -43,14 +43,21 @@ pub(super) fn oauth_for(
 ) -> Result<Option<Auth>> {
     // 官方鉴权与 OAuth 互斥：只有插件加载器写入 provenance 的 http/stdio server 走官方身份（rust-mcp-official-auth.md）。
     if server.raw.get("official").is_some() {
-        return official().map(|o| Some(Auth::Official(o))).ok_or_else(|| anyhow::anyhow!("config_invalid"));
+        return official()
+            .map(|o| Some(Auth::Official(o)))
+            .ok_or_else(|| anyhow::anyhow!("config_invalid"));
     }
     if server.transport == "stdio" {
         return Ok(None);
     }
     if let Some(config) = rules::code_config(&server.raw, &server.transport) {
         let url = server.raw["url"].as_str().unwrap_or_default();
-        return Ok(Some(Auth::Code(Arc::new(OAuth::new(store(), &server.name, url, config)))));
+        return Ok(Some(Auth::Code(Arc::new(OAuth::new(
+            store(),
+            &server.name,
+            url,
+            config,
+        )))));
     }
     let official = server.raw.get("auth").is_some();
     match ClientCredentials::from_config(&server.name, &server.raw) {
@@ -62,7 +69,12 @@ pub(super) fn oauth_for(
 
 pub(super) fn connected(server: &Server, connection: &Connection, count: usize) -> Value {
     let mut status = mcp_config::status(server, "connected", count, None);
-    status["protocolEra"] = if connection.modern { "modern" } else { "legacy" }.into();
+    status["protocolEra"] = if connection.modern {
+        "modern"
+    } else {
+        "legacy"
+    }
+    .into();
     status
 }
 
@@ -81,7 +93,11 @@ pub(super) fn start(
         raw: server.raw.clone(),
         phase: rx,
     });
-    state.write().unwrap().auth.insert(key.clone(), task.clone());
+    state
+        .write()
+        .unwrap()
+        .auth
+        .insert(key.clone(), task.clone());
     tokio::spawn(async move {
         let on_url = {
             let (tx, state, server) = (tx.clone(), state.clone(), server.clone());
@@ -92,22 +108,44 @@ pub(super) fn start(
                     "authorizationUrl": url,
                     "startedAt": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
                 });
-                state.write().unwrap().statuses.insert(server.name.clone(), status.clone());
+                state
+                    .write()
+                    .unwrap()
+                    .statuses
+                    .insert(server.name.clone(), status.clone());
                 tx.send_replace(Phase::Url(status));
             })
         };
         let result = match oauth.authorize(&trigger, on_url, &stop).await {
             // 授权后只重连一次（TS oauthAuthorizationAttempted）；仍失败按普通连接失败分类。
-            Outcome::Authorized | Outcome::AlreadyAuthorized => Connection::open(&server, http, Some(Auth::Code(oauth)), &stop)
-                .await
-                .map(Arc::new)
-                .map_err(|error| failure_kind(&error).into()),
+            Outcome::Authorized | Outcome::AlreadyAuthorized => {
+                Connection::open(&server, http, Some(Auth::Code(oauth)), &stop)
+                    .await
+                    .map(Arc::new)
+                    .map_err(|error| failure_kind(&error).into())
+            }
             Outcome::Pending => {
-                escode_cli_host::file_log::warn("mcp.oauth.pending", "tools.mcp", &format!("MCP server {} OAuth authorization is still in progress; complete it in the browser and reconnect", server.name), serde_json::Value::Null);
+                escode_cli_host::file_log::warn(
+                    "mcp.oauth.pending",
+                    "tools.mcp",
+                    &format!(
+                        "MCP server {} OAuth authorization is still in progress; complete it in the browser and reconnect",
+                        server.name
+                    ),
+                    serde_json::Value::Null,
+                );
                 Err("oauth_authorization_failed".to_owned())
             }
             Outcome::Failed(error) => {
-                escode_cli_host::file_log::warn("mcp.oauth.failed", "tools.mcp", &format!("MCP server {} OAuth authorization failed: {error:#}", server.name), serde_json::Value::Null);
+                escode_cli_host::file_log::warn(
+                    "mcp.oauth.failed",
+                    "tools.mcp",
+                    &format!(
+                        "MCP server {} OAuth authorization failed: {error:#}",
+                        server.name
+                    ),
+                    serde_json::Value::Null,
+                );
                 Err("oauth_authorization_failed".to_owned())
             }
         };
@@ -139,7 +177,12 @@ pub(super) fn start(
 /// 调用方等待：设置页（`until_url`）拿到授权 URL 即返回；session 最多等 `SESSION_BUDGET`。
 pub(super) async fn wait(task: &Task, until_url: bool, cancel: &CancellationToken) -> Phase {
     let mut phase = task.phase.clone();
-    let deadline = tokio::time::Instant::now() + if until_url { super::super::mcp_oauth_flow::TRANSACTION_TTL } else { SESSION_BUDGET };
+    let deadline = tokio::time::Instant::now()
+        + if until_url {
+            super::super::mcp_oauth_flow::TRANSACTION_TTL
+        } else {
+            SESSION_BUDGET
+        };
     loop {
         let current = phase.borrow_and_update().clone();
         match &current {
@@ -173,10 +216,7 @@ impl Hub {
                     Some(client) => client,
                     None => {
                         let client = crate::mcp_http::client(&target)?;
-                        self.http
-                            .write()
-                            .unwrap()
-                            .insert(target, client.clone());
+                        self.http.write().unwrap().insert(target, client.clone());
                         client
                     }
                 })
@@ -184,7 +224,9 @@ impl Hub {
         };
         let credentials = || {
             self.credentials
-                .get_or_init(|| Arc::new(escode_cli_host::credential_store::CredentialStore::from_environment()))
+                .get_or_init(|| {
+                    Arc::new(escode_cli_host::credential_store::CredentialStore::from_environment())
+                })
                 .clone()
         };
         // 同配置的授权仍在进行时共享该事务：重连会作废浏览器里已打开的授权 URL 与 PKCE/state（TS 同）。
@@ -193,7 +235,11 @@ impl Hub {
             Some(task) => task,
             None => {
                 let official = || {
-                    super::super::mcp_official_client::Official::from_server(server, &self.cwd, self.host.get().cloned())
+                    super::super::mcp_official_client::Official::from_server(
+                        server,
+                        &self.cwd,
+                        self.host.get().cloned(),
+                    )
                 };
                 let oauth = oauth_for(server, credentials, official)?;
                 match Connection::open(server, http.clone(), oauth.clone(), cancel).await {
@@ -218,7 +264,9 @@ impl Hub {
             Phase::Done(Ok(connection)) => Ok(Some(connection)),
             Phase::Done(Err(kind)) => Err(anyhow::anyhow!(kind)),
             Phase::Url(status) => Err(PendingAuthorization(status).into()),
-            Phase::Starting => Err(PendingAuthorization(mcp_config::status(server, "connecting", 0, None)).into()),
+            Phase::Starting => {
+                Err(PendingAuthorization(mcp_config::status(server, "connecting", 0, None)).into())
+            }
         }
     }
 }

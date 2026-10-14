@@ -35,7 +35,9 @@ pub fn should_generate(seed: &TitleSeed) -> bool {
 
 /// `shouldAttemptGoalSummaryTitleGeneration` 的纯规则部分（无长度门槛）。
 pub fn should_generate_goal_summary(seed: &TitleSeed) -> bool {
-    seed.goal_target.as_deref().is_some_and(|t| !t.trim().is_empty())
+    seed.goal_target
+        .as_deref()
+        .is_some_and(|t| !t.trim().is_empty())
         && !seed.automation
         && !normalize_title_input(&seed.text).is_empty()
 }
@@ -204,16 +206,22 @@ pub fn clean_generated_title(raw: &str) -> Option<String> {
     };
     // `.replace(/^[\s"'`“”‘’]+|[\s"'`“”‘’]+$/g, "")`
     let quoted = |c: char| {
-        js_ws(c) || matches!(c, '"' | '\'' | '`' | '\u{201c}' | '\u{201d}' | '\u{2018}' | '\u{2019}')
+        js_ws(c)
+            || matches!(
+                c,
+                '"' | '\'' | '`' | '\u{201c}' | '\u{201d}' | '\u{2018}' | '\u{2019}'
+            )
     };
     let unquoted = without_heading.trim_matches(quoted);
     // `.replace(/[.。!！?？:：,，;；]+$/g, "")`
-    let unpunctuated = unquoted.trim_end_matches(['.', '。', '!', '！', '?', '？', ':', '：', ',', '，', ';', '；']);
+    let unpunctuated = unquoted.trim_end_matches([
+        '.', '。', '!', '！', '?', '？', ':', '：', ',', '，', ';', '；',
+    ]);
     let collapsed = collapse_whitespace(unpunctuated);
     let cleaned = js_trim(&collapsed);
-    let has_word = cleaned.chars().any(|c| {
-        c.is_ascii_alphanumeric() || matches!(c, '\u{3400}'..='\u{9fff}')
-    });
+    let has_word = cleaned
+        .chars()
+        .any(|c| c.is_ascii_alphanumeric() || matches!(c, '\u{3400}'..='\u{9fff}'));
     if !has_word {
         return None;
     }
@@ -223,4 +231,3 @@ pub fn clean_generated_title(raw: &str) -> Option<String> {
     }
     Some(cleaned.to_owned())
 }
-

@@ -1,8 +1,8 @@
 //! 差分：Rust builtin_prompt_command 与 TS resolveESCodeBuiltinPromptCommand。
 //! 语料里的路径分隔符随生成平台（Windows `\`、POSIX `/`），比较前统一归一。
+use escode_cli_domain::builtin_prompt_command::resolve_builtin_prompt_command;
 use serde_json::Value;
 use std::path::Path;
-use escode_cli_domain::builtin_prompt_command::resolve_builtin_prompt_command;
 
 fn normalize(text: &str) -> String {
     text.replace('\\', "/")

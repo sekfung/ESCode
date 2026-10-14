@@ -237,9 +237,10 @@ async fn rendered(
     media.push(json!({"type":"text","text":intro}));
     let mut placeholders = vec![intro.clone()];
     for (number, bytes) in pages_data {
-        let prepared =
-            tokio::task::spawn_blocking(move || escode_cli_host::image_budget::prepare(bytes, "image/jpeg"))
-                .await??;
+        let prepared = tokio::task::spawn_blocking(move || {
+            escode_cli_host::image_budget::prepare(bytes, "image/jpeg")
+        })
+        .await??;
         let mime = prepared.media_type;
         let name = format!("PDF page {number}");
         placeholders.push(format!("[Attached {mime}: {name}]"));

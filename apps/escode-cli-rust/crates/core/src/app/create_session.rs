@@ -61,6 +61,9 @@ impl Engine {
             c.payload.get("dynamicWorkflowMode"),
         );
         self.apply_selection(&id, config)?;
+        // 创建期发起运行期偏好请求（含 memoryEnabled）：回合开始前回包入缓存，遥测事实与后续命令 ack
+        // 才能带上该字段（差分账本 C-1/C-2；不等待回包，避免把一次往返放进创建响应路径）。
+        self.request_materialization(&id);
         let mut ack = c.ack("accepted", 0, None);
         ack["result"] = json!({"type":"createSession","sessionId":id});
         let mut turn = None;

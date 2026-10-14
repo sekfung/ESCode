@@ -50,7 +50,9 @@ fn fits(len: usize, budget: &Budget) -> bool {
     let base64 = len.div_ceil(3) * 4;
     len <= budget.max_raw
         && base64 <= budget.max_base64
-        && budget.max_tokens.is_none_or(|max| base64.div_ceil(8) <= max)
+        && budget
+            .max_tokens
+            .is_none_or(|max| base64.div_ceil(8) <= max)
 }
 /// TS detectImageMediaType（文件头）。
 pub fn detect(bytes: &[u8]) -> Option<&'static str> {
@@ -140,7 +142,11 @@ fn jpeg_quality(image: &DynamicImage, budget: &Budget) -> Result<Option<Candidat
     }
     Ok(None)
 }
-fn format_preserving(image: &DynamicImage, source: &'static str, budget: &Budget) -> Result<Option<Candidate>> {
+fn format_preserving(
+    image: &DynamicImage,
+    source: &'static str,
+    budget: &Budget,
+) -> Result<Option<Candidate>> {
     match source {
         "image/png" => candidate(image, "image/png", 0, "png-optimized", budget),
         "image/jpeg" => jpeg_quality(image, budget),
@@ -149,7 +155,11 @@ fn format_preserving(image: &DynamicImage, source: &'static str, budget: &Budget
     }
 }
 /// TS findFirstFittingCandidate（顺序逐条对应）。
-fn first_fitting(image: &DynamicImage, source: &'static str, budget: &Budget) -> Result<Option<Candidate>> {
+fn first_fitting(
+    image: &DynamicImage,
+    source: &'static str,
+    budget: &Budget,
+) -> Result<Option<Candidate>> {
     let within = longest(image) <= budget.max_dimension;
     // PNG 只在原尺寸尝试一次无损优化，失败后单向转 JPEG。
     let preserve = source != "image/png";
@@ -256,4 +266,3 @@ pub fn prepare_within(input: Vec<u8>, requested: &str, budget: &Budget) -> Resul
         size: Some(found.size),
     })
 }
-

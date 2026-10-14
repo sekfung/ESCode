@@ -195,9 +195,7 @@ pub async fn acquire(file: &Path) -> Result<FileLockGuard> {
 /// 指定等待策略的获取；超时返回可 downcast 的 [`LockTimeout`]。
 pub async fn acquire_with(file: &Path, timing: Timing) -> Result<FileLockGuard> {
     // TS acquireFileLock：有效 grace 不超过等待上限的一半。
-    let grace = timing
-        .ownerless_grace_ms
-        .min(timing.max_wait_ms / 2);
+    let grace = timing.ownerless_grace_ms.min(timing.max_wait_ms / 2);
     let local = LOCAL
         .lock()
         .unwrap()
@@ -268,7 +266,10 @@ pub async fn acquire_with(file: &Path, timing: Timing) -> Result<FileLockGuard> 
         }
         let delays = timing.retry_delays_ms;
         let delay = delays[attempt.min(delays.len() - 1)];
-        tokio::time::sleep(Duration::from_millis(delay.min(timing.max_wait_ms - elapsed))).await;
+        tokio::time::sleep(Duration::from_millis(
+            delay.min(timing.max_wait_ms - elapsed),
+        ))
+        .await;
     }
     unreachable!()
 }

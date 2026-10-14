@@ -26,9 +26,7 @@ fn entries(catalog: &[Value]) -> Vec<Entry> {
                         .collect()
                 })
                 .unwrap_or_default(),
-            default_reasoning_level: entry["defaultReasoningLevel"]
-                .as_str()
-                .map(str::to_owned),
+            default_reasoning_level: entry["defaultReasoningLevel"].as_str().map(str::to_owned),
             context_window: entry["contextWindow"].as_i64(),
             disabled_reason: entry["disabledReason"].as_str().map(str::to_owned),
         })
@@ -51,16 +49,14 @@ pub(super) fn execute(
     };
     let entries = entries(catalog);
     // current 与注册表里的 providerId/modelId 两段相等即当前选择；options 不是身份的一部分。
-    let current = selection
-        .and_then(|selection| {
-            entries
-                .iter()
-                .find(|entry| {
-                    entry.provider_id == selection.provider_id
-                        && entry.model_id == selection.model_id
-                })
-                .map(Entry::id)
-        });
+    let current = selection.and_then(|selection| {
+        entries
+            .iter()
+            .find(|entry| {
+                entry.provider_id == selection.provider_id && entry.model_id == selection.model_id
+            })
+            .map(Entry::id)
+    });
     let output = model_catalog::output(current.as_deref(), &entries);
     let mut result = ToolOutput::new(
         model_catalog::model_content(current.as_deref(), &entries),

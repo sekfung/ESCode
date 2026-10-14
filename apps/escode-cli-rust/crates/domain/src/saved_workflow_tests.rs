@@ -28,8 +28,16 @@ fn parsing_matches_ts() {
         match parse(source) {
             Ok(parsed) => {
                 assert_eq!(result.get("ok"), Some(&Json::Bool(true)), "{source:?}");
-                assert_eq!(parsed.meta.compact(), result.get("meta").unwrap().compact(), "{source:?}");
-                assert_eq!(Some(parsed.script.as_str()), result.get("script").and_then(Json::as_str), "{source:?}");
+                assert_eq!(
+                    parsed.meta.compact(),
+                    result.get("meta").unwrap().compact(),
+                    "{source:?}"
+                );
+                assert_eq!(
+                    Some(parsed.script.as_str()),
+                    result.get("script").and_then(Json::as_str),
+                    "{source:?}"
+                );
                 assert_eq!(
                     Json::Number(parsed.body_line_offset.into()).compact(),
                     result.get("bodyLineOffset").unwrap().compact(),
@@ -37,11 +45,23 @@ fn parsing_matches_ts() {
                 );
             }
             Err(failure) => {
-                assert_eq!(result.get("ok"), Some(&Json::Bool(false)), "{source:?}: {failure:?}");
-                assert_eq!(Some(failure.reason), result.get("reason").and_then(Json::as_str), "{source:?}");
+                assert_eq!(
+                    result.get("ok"),
+                    Some(&Json::Bool(false)),
+                    "{source:?}: {failure:?}"
+                );
+                assert_eq!(
+                    Some(failure.reason),
+                    result.get("reason").and_then(Json::as_str),
+                    "{source:?}"
+                );
                 // YAML 解析器的错误措辞不同（规格记录）；其余原因逐字比对。
                 if failure.reason != "invalid_yaml" {
-                    assert_eq!(Some(failure.detail.as_str()), result.get("detail").and_then(Json::as_str), "{source:?}");
+                    assert_eq!(
+                        Some(failure.detail.as_str()),
+                        result.get("detail").and_then(Json::as_str),
+                        "{source:?}"
+                    );
                 }
             }
         }

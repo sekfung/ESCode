@@ -24,7 +24,10 @@ fn key_prefixes_match_ts() {
             &config(&case["config"]),
         );
         assert_eq!(prefix, case["prefix"].as_str().unwrap());
-        assert_eq!(sanitize_key_prefix(&prefix), case["sanitized"].as_str().unwrap());
+        assert_eq!(
+            sanitize_key_prefix(&prefix),
+            case["sanitized"].as_str().unwrap()
+        );
     }
 }
 
@@ -37,16 +40,28 @@ fn credential_pairs_match_ts() {
             input["legacyClientRaw"].as_str(),
             input["legacyTokensRaw"].as_str(),
         );
-        assert_eq!(pair.map(|p| p.to_json()).unwrap_or(Value::Null), case["pair"], "{input}");
+        assert_eq!(
+            pair.map(|p| p.to_json()).unwrap_or(Value::Null),
+            case["pair"],
+            "{input}"
+        );
     }
 }
 
 #[test]
 fn scope_unions_match_ts() {
     for case in corpus()["scopeUnions"].as_array().unwrap() {
-        let scopes: Vec<Option<&str>> =
-            case["scopes"].as_array().unwrap().iter().map(Value::as_str).collect();
-        assert_eq!(scope_union(&scopes).as_deref(), case["union"].as_str(), "{case}");
+        let scopes: Vec<Option<&str>> = case["scopes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(Value::as_str)
+            .collect();
+        assert_eq!(
+            scope_union(&scopes).as_deref(),
+            case["union"].as_str(),
+            "{case}"
+        );
     }
 }
 
@@ -55,10 +70,26 @@ fn challenges_match_ts() {
     for case in corpus()["wwwAuthenticate"].as_array().unwrap() {
         let parsed = parse_challenge(case["header"].as_str().unwrap());
         let expected = &case["params"];
-        assert_eq!(parsed.resource_metadata_url.as_deref(), expected["resourceMetadataUrl"].as_str(), "{case}");
-        assert_eq!(parsed.scope.as_deref(), expected["scope"].as_str(), "{case}");
-        assert_eq!(parsed.error.as_deref(), expected["error"].as_str(), "{case}");
-        assert_eq!(parsed.error_description.as_deref(), expected["errorDescription"].as_str(), "{case}");
+        assert_eq!(
+            parsed.resource_metadata_url.as_deref(),
+            expected["resourceMetadataUrl"].as_str(),
+            "{case}"
+        );
+        assert_eq!(
+            parsed.scope.as_deref(),
+            expected["scope"].as_str(),
+            "{case}"
+        );
+        assert_eq!(
+            parsed.error.as_deref(),
+            expected["error"].as_str(),
+            "{case}"
+        );
+        assert_eq!(
+            parsed.error_description.as_deref(),
+            expected["errorDescription"].as_str(),
+            "{case}"
+        );
     }
 }
 
@@ -77,7 +108,11 @@ fn discovery_urls_match_ts() {
 fn resources_match_ts() {
     for case in corpus()["resources"].as_array().unwrap() {
         let requested = case["requested"].as_str().unwrap();
-        assert_eq!(resource_url(requested).as_deref(), case["resource"].as_str(), "{case}");
+        assert_eq!(
+            resource_url(requested).as_deref(),
+            case["resource"].as_str(),
+            "{case}"
+        );
         assert_eq!(
             resource_allowed(requested, case["configured"].as_str().unwrap()),
             case["allowed"].as_bool().unwrap(),
@@ -89,8 +124,12 @@ fn resources_match_ts() {
 #[test]
 fn client_auth_methods_match_ts() {
     for case in corpus()["authMethods"].as_array().unwrap() {
-        let supported: Vec<&str> =
-            case["supported"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+        let supported: Vec<&str> = case["supported"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
         assert_eq!(
             client_auth_method(&case["clientInformation"], &supported),
             case["method"].as_str().unwrap(),
@@ -125,19 +164,49 @@ fn code_config_follows_ts_resolution() {
     assert_eq!(code_config(&official, "http"), None);
     // sse 不在官方鉴权形态内：官方字段只对 http/stdio 生效。
     assert_eq!(code_config(&official, "sse"), Some(CodeConfig::default()));
-    let explicit = json!({"oauth":{"type":"authorization_code","clientId":"c","redirectPath":"cb"}});
+    let explicit =
+        json!({"oauth":{"type":"authorization_code","clientId":"c","redirectPath":"cb"}});
     let resolved = code_config(&explicit, "http").unwrap();
     assert_eq!(resolved.client_id.as_deref(), Some("c"));
     assert_eq!(callback_path(resolved.redirect_path.as_deref(), "s"), "/cb");
-    assert_eq!(callback_path(None, "my srv/名"), "/oauth/callback/mcp/my%20srv%2F%E5%90%8D");
+    assert_eq!(
+        callback_path(None, "my srv/名"),
+        "/oauth/callback/mcp/my%20srv%2F%E5%90%8D"
+    );
 }
 
 #[test]
 fn determine_scope_follows_sdk() {
     let offline = json!({"scopes_supported":["offline_access"]});
     let grants = ["authorization_code", "refresh_token"];
-    assert_eq!(determine_scope(Some("a"), &Value::Null, &offline, None, &grants).as_deref(), Some("a offline_access"));
-    assert_eq!(determine_scope(None, &json!({"scopes_supported":["r","w"]}), &Value::Null, Some("c"), &grants).as_deref(), Some("r w"));
-    assert_eq!(determine_scope(None, &Value::Null, &offline, Some("c"), &["authorization_code"]).as_deref(), Some("c"));
-    assert_eq!(determine_scope(None, &Value::Null, &offline, None, &grants), None);
+    assert_eq!(
+        determine_scope(Some("a"), &Value::Null, &offline, None, &grants).as_deref(),
+        Some("a offline_access")
+    );
+    assert_eq!(
+        determine_scope(
+            None,
+            &json!({"scopes_supported":["r","w"]}),
+            &Value::Null,
+            Some("c"),
+            &grants
+        )
+        .as_deref(),
+        Some("r w")
+    );
+    assert_eq!(
+        determine_scope(
+            None,
+            &Value::Null,
+            &offline,
+            Some("c"),
+            &["authorization_code"]
+        )
+        .as_deref(),
+        Some("c")
+    );
+    assert_eq!(
+        determine_scope(None, &Value::Null, &offline, None, &grants),
+        None
+    );
 }

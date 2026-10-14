@@ -2,13 +2,13 @@
 //! `bash-image-output.ts`（`prepareBashImageOutput`）与 `bash-gh-rate-limit.ts`（`getGhRateLimitHint`）。
 use crate::domain::bash_hints;
 use base64::Engine as _;
+use escode_cli_host::image_budget::{Budget, detect, prepare_within};
 use serde_json::Value;
 use std::{
     path::Path,
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
-use escode_cli_host::image_budget::{Budget, detect, prepare_within};
 
 const MAX_IMAGE_FILE_BYTES: u64 = 20 * 1024 * 1024;
 /// TS `READ_IMAGE_MAX_DIMENSION`；resizeToFit 只按最长边缩放，不设字节预算。
@@ -25,7 +25,9 @@ pub(crate) async fn apply_image(data: &mut Value, output_file: Option<&Path>) {
     let inline = data["stdout"].as_str().unwrap_or_default().to_owned();
     let source = match output_file {
         Some(path) => match tokio::fs::metadata(path).await {
-            Ok(meta) if meta.len() <= MAX_IMAGE_FILE_BYTES => tokio::fs::read_to_string(path).await.unwrap_or(inline),
+            Ok(meta) if meta.len() <= MAX_IMAGE_FILE_BYTES => {
+                tokio::fs::read_to_string(path).await.unwrap_or(inline)
+            }
             _ => inline,
         },
         None => inline,
@@ -41,7 +43,8 @@ pub(crate) async fn apply_image(data: &mut Value, output_file: Option<&Path>) {
     }
     let declared = media.clone();
     let original = bytes.clone();
-    let resized = tokio::task::spawn_blocking(move || prepare_within(bytes, &declared, &RESIZE)).await;
+    let resized =
+        tokio::task::spawn_blocking(move || prepare_within(bytes, &declared, &RESIZE)).await;
     let url = match resized {
         Ok(Ok(prepared)) => format!(
             "data:{};base64,{}",
@@ -62,11 +65,19 @@ pub(crate) fn apply_gh_hint(data: &mut Value, command: &str) {
     if !bash_hints::gh_rate_limited(command, stdout) {
         return;
     }
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     let next = NEXT_AT.load(Ordering::SeqCst);
     if now < next
         || NEXT_AT
-            .compare_exchange(next, now + bash_hints::GH_RATE_LIMIT_COOLDOWN_MS, Ordering::SeqCst, Ordering::SeqCst)
+            .compare_exchange(
+                next,
+                now + bash_hints::GH_RATE_LIMIT_COOLDOWN_MS,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
             .is_err()
     {
         return;

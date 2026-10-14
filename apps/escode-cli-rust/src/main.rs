@@ -11,8 +11,27 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use tokio_util::sync::CancellationToken;
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    // Windows 主线程默认只有 1MB 栈：工作流 TaskOutput 等深层异步调用链在 debug 构建下会以
+    // 0xC00000FD 栈溢出（workflow-task-output 差分用例实测，docs/specs/rust-unified-host.md 阶段 0）。
+    // 把整个 runtime 放到显式大栈线程上运行；join 失败按通用故障码退出。
+    let entry = std::thread::Builder::new()
+        .name("escode-runtime".to_owned())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to build the tokio runtime")
+                .block_on(runtime_main())
+        })
+        .expect("Failed to spawn the runtime thread");
+    if entry.join().is_err() {
+        std::process::exit(1);
+    }
+}
+
+async fn runtime_main() {
     // `app-server` 走协议入口；其余参数按 Node 全局参数处理（`-p` 无头模式，docs/specs/rust-headless-prompt.md）。
     let argv: Vec<String> = std::env::args().skip(1).collect();
     // `wiki`：LLM Wiki 运维子命令（apps/escode-cli-rust/docs/llm-wiki/03-usage.md）。

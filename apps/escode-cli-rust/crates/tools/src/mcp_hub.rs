@@ -2,10 +2,10 @@ use super::{
     mcp_config::{self},
     mcp_connection::Connection,
 };
-use oauth::{PendingAuthorization, failure_kind};
 use crate::contract::{ProcessCleanupFailure, ToolOutput};
 use anyhow::{Context, Result, ensure};
 use futures_util::{StreamExt, stream};
+use oauth::{PendingAuthorization, failure_kind};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -48,7 +48,7 @@ impl Hub {
         let _ = self.host.set(host);
     }
     pub fn inherit(&self, parent: &str, child: &str) {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state_mut();
         let bindings = state.bindings.get(parent).cloned().unwrap_or_default();
         state.bindings.insert(child.into(), bindings);
         state.borrowed.insert(child.into());
@@ -69,19 +69,26 @@ impl Hub {
             stop: CancellationToken::new(),
         }
     }
-    pub fn configure(&self, session: &str, servers: &Value) -> Result<()> {
-        mcp_config::explicit(servers, &self.cwd)?;
+    /// 锁中毒继续用：state 是自包含的会话表，中毒后仍是最后一次成功写入的完整状态（P0#4）。
+    fn state(&self) -> std::sync::RwLockReadGuard<'_, State> {
+        self.state
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+    fn state_mut(&self) -> std::sync::RwLockWriteGuard<'_, State> {
         self.state
             .write()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+    pub fn configure(&self, session: &str, servers: &Value) -> Result<()> {
+        mcp_config::explicit(servers, &self.cwd)?;
+        self.state_mut()
             .overrides
             .insert(session.into(), servers.clone());
         Ok(())
     }
     pub fn safe(&self, session: &str, name: &str) -> bool {
-        self.state
-            .read()
-            .unwrap()
+        self.state()
             .bindings
             .get(session)
             .and_then(|b| b.iter().find(|b| b.name == name))
@@ -92,16 +99,14 @@ impl Hub {
         session: &str,
         cancel: &CancellationToken,
     ) -> Result<Vec<Value>> {
-        let overrides = self.state.read().unwrap().overrides.get(session).cloned();
-        let borrowed = self.state.read().unwrap().borrowed.contains(session);
+        let overrides = self.state().overrides.get(session).cloned();
+        let borrowed = self.state().borrowed.contains(session);
         if !borrowed {
             self.prepare(session, overrides.as_ref(), false, cancel)
                 .await?;
         }
         Ok(self
-            .state
-            .read()
-            .unwrap()
+            .state()
             .bindings
             .get(session)
             .into_iter()
@@ -111,7 +116,7 @@ impl Hub {
     }
     pub async fn list(&self, p: &Value, cancel: &CancellationToken) -> Result<Value> {
         if p["mode"] == "status" {
-            return Ok(json!({"statuses":self.state.read().unwrap().statuses}));
+            return Ok(json!({"statuses":self.state().statuses}));
         }
         ensure!(
             p.get("mode").is_none_or(|v| v == "connect"),
@@ -119,7 +124,7 @@ impl Hub {
         );
         self.prepare("mcp-status", p.get("mcpServers"), true, cancel)
             .await?;
-        Ok(json!({"statuses":self.state.read().unwrap().statuses}))
+        Ok(json!({"statuses":self.state().statuses}))
     }
     async fn prepare(
         &self,
@@ -170,7 +175,8 @@ impl Hub {
                 // node_repl 经私有 broker 访问浏览器：socket 与 token 只注入它的 env。
                 if c.name == super::mcp_node_repl::NAME
                     && let Some(broker) = self.broker()
-                    && let (Some(env), Some(extra)) = (c.raw["env"].as_object_mut(), broker.env().as_object())
+                    && let (Some(env), Some(extra)) =
+                        (c.raw["env"].as_object_mut(), broker.env().as_object())
                 {
                     env.extend(extra.clone());
                 }
@@ -183,7 +189,7 @@ impl Hub {
         let mut futures = stream::iter(configs)
             .map(|server| async move {
                 let key = server.key(session);
-                let previous = self.state.read().unwrap().connections.get(&key).cloned();
+                let previous = self.state().connections.get(&key).cloned();
                 let result = if !server.enabled {
                     Ok(None)
                 } else if server.invalid {
@@ -214,12 +220,7 @@ impl Hub {
                         Ok(entries) => {
                             let status = oauth::connected(&server, &connection, entries.len());
                             statuses.insert(server.name, status);
-                            let old = self
-                                .state
-                                .write()
-                                .unwrap()
-                                .connections
-                                .insert(key, connection.clone());
+                            let old = self.state_mut().connections.insert(key, connection.clone());
                             if let Some(old) = old
                                 && !Arc::ptr_eq(&old, &connection)
                                 && let Err(error) = old.close().await
@@ -249,15 +250,20 @@ impl Hub {
                             pending.insert(server.name.clone(), key);
                             status
                         }
-                        Err(error) => match error.downcast::<super::mcp_official_client::OfficialFailure>() {
+                        Err(error) => match error
+                            .downcast::<super::mcp_official_client::OfficialFailure>()
+                        {
                             Ok(official) => {
-                                let mut status = mcp_config::status(&server, "failed", 0, Some(official.kind));
+                                let mut status =
+                                    mcp_config::status(&server, "failed", 0, Some(official.kind));
                                 if let Some(id) = official.server_request_id {
                                     status["serverRequestId"] = id.into();
                                 }
                                 status
                             }
-                            Err(error) => mcp_config::status(&server, "failed", 0, Some(failure_kind(&error))),
+                            Err(error) => {
+                                mcp_config::status(&server, "failed", 0, Some(failure_kind(&error)))
+                            }
                         },
                     };
                     statuses.insert(server.name.clone(), status);
@@ -265,7 +271,7 @@ impl Hub {
             }
         }
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state_mut();
             state.bindings.insert(session.into(), bindings);
             // 等待期间后台授权已结束时，保留任务在锁内写入的最终状态，不用本次的 connecting 快照覆盖。
             for (name, key) in &pending {
@@ -289,13 +295,11 @@ impl Hub {
         name: &str,
         args: &Value,
         meta: &Value,
-        artifacts: Option<super::mcp_connection::ImageArtifacts<'_>>,
+        artifacts: Option<super::mcp_image_artifacts::ImageArtifacts<'_>>,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         let binding = self
-            .state
-            .read()
-            .unwrap()
+            .state()
             .bindings
             .get(session)
             .and_then(|bs| bs.iter().find(|b| b.name == name))
@@ -320,14 +324,18 @@ impl Hub {
             && let Some(Some(broker)) = self.broker.get()
             && let Some(turn) = meta["turn_id"].as_str()
         {
-            broker.record_turn_screenshot(session, turn, &raw["_meta"]["escode/browserTurnScreenshot"]);
+            broker.record_turn_screenshot(
+                session,
+                turn,
+                &raw["_meta"]["escode/browserTurnScreenshot"],
+            );
         }
         Ok(output)
     }
     pub async fn close_session(&self, session: &str, forget: bool) -> Result<()> {
         let _gate = self.gate.lock().await;
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state_mut();
             state.bindings.remove(session);
             state.borrowed.remove(session);
             if forget {
@@ -338,13 +346,16 @@ impl Hub {
     }
     async fn prune(&self) -> Result<()> {
         let removed = {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state_mut();
             let used = state
                 .bindings
                 .values()
                 .flatten()
                 .map(|b| b.key.clone())
                 .collect::<BTreeSet<_>>();
+            // 借用检查：keys() 迭代器借住 connections，remove 需要独占借用，必须先收集 key 再删除
+            // （clippy::needless_collect 的"直接用迭代器"建议在此无法通过编译）。
+            #[allow(clippy::needless_collect)]
             let keys = state
                 .connections
                 .keys()
@@ -364,7 +375,7 @@ impl Hub {
         self.stop.cancel();
         let _gate = self.gate.lock().await;
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = self.state_mut();
             state.bindings.clear();
             state.overrides.clear();
         }
@@ -375,7 +386,7 @@ impl Hub {
 mod binding;
 #[path = "mcp_hub_browser.rs"]
 mod browser;
-#[path = "mcp_hub_oauth.rs"]
-mod oauth;
 #[path = "mcp_hub_host_tools.rs"]
 mod host_tools;
+#[path = "mcp_hub_oauth.rs"]
+mod oauth;

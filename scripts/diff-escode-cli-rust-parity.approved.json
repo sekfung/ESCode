@@ -1,0 +1,103 @@
+{
+  "_readme": "已批准差异登记表（docs/specs/rust-unified-host.md §4.1 / §4.4）。每条必须写 reason（为何允许不同）与 removal（何时移除登记）；status=open 表示已登记未修复的偏移（default 不判失败、--strict 判失败）。match 支持 index / jsonPath / containing / leftContaining / rightContaining / leftSha256 / rightSha256（双侧钉住，避免变成空白豁免）。",
+  "entries": [
+    {
+      "id": "capabilities-execution-extension",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 0,
+        "leftContaining": "\"result\":{\"independentPlanState\":true}",
+        "rightContaining": "\"workspaceExecutionCapabilities\":true"
+      },
+      "reason": "Rust 按 docs/specs/rust-app-execution-modes.md 在 runtime/capabilities 声明 workspaceExecutionCapabilities / accountProviderConfig 能力位，Host 已消费（packages/services/src/escode-agent/escodeAgentService.ts:1545、4224）；TS CLI 未声明，宿主按 undefined 走旧形状。方向是 Rust 超前而非 Rust 偏移。",
+      "removal": "TS CLI 补齐声明（双向对齐）或 Host 不再消费这些能力位时复核"
+    },
+    {
+      "id": "startup-storage-progress-granularity",
+      "scenario": "session-baseline",
+      "surface": "storageProgress",
+      "status": "approved",
+      "match": {
+        "leftSha256": "372994080eebcf394c78e80ff278e2e7e0080e5327e1a4dc0a48fbfb62e595f6",
+        "rightSha256": "190ab5d19f381d5cbaaf18eea261f9518b47f5f4840483017c22b61b653498d7"
+      },
+      "reason": "存储准备进度流的粒度不同：Node 逐步上报（checking×2 + migrating×22 + committing + ready，含 migration 明细字段），Rust 粗粒度（checking/ready，其路径无迁移步骤）。该流只驱动 Host 的启动计时与失败判定（packages/services/src/escode-agent/escodeProtocolClient.ts:334 起按 phase 消费），条数与步骤明细不构成契约。",
+      "removal": "Host 端开始依赖具体步骤/数量（如进度条按 sequence 断言）时，需在 runtime 侧对齐粒度"
+    },
+    {
+      "id": "streams-mcp-telemetry-missing-in-rust",
+      "scenario": "session-baseline",
+      "surface": "streams",
+      "status": "open",
+      "match": {
+        "leftSha256": "d6b095ad87ceb6de1e64162865ff46d5a944faaad3873297f5e6a8ef721b66a7",
+        "rightSha256": "5a9c809fcd12fc8ac9d4e1a1dcaedf6f19d02c7cd9a449d15c1dcfc6d684f594"
+      },
+      "reason": "真偏移（已登记未修复）：Node 发 process/mcpTelemetry（process_start、session_startup），Rust 未发任何 mcpTelemetry 通知。待确认 Host 消费方（MCP 进程账本/遥测）后补发；其余遥测与 computer-use 事件集两侧一致。",
+      "removal": "Rust 补发 mcpTelemetry（或确认无消费方并转 approved）后移除"
+    },
+    {
+      "id": "subscribe-ack-open-timing-diagnostics",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "leftContaining": "\"openTiming\":{\"initialFrameEncodeMs\""
+      },
+      "reason": "Node 订阅 ack 多出可选诊断块 openTiming{initialFrameEncodeMs,sessionRuntimeState,snapshotRowCount,…}（v4-gateway.ts:1470 生产）；shared schema 标记 optional（transport.ts:130 起）、宿主条件合并（escodeAgentService.ts:5967-5968）。按位置对拍钉住（配对随 C-1/T-4 变化时本条会失配并按欠账/新差异暴露，是安全失败方向）",
+      "removal": "Host 要求打开耗时分解（或 Node 去掉该诊断块）时复核"
+    },
+    {
+      "id": "model-request-messages-fixture-plugin-env",
+      "scenario": "session-baseline",
+      "surface": "modelRequests",
+      "status": "approved",
+      "match": {
+        "index": 0,
+        "leftSha256": "741f446c3b794e7ba632ec4d8a52b89511a0912b511641bb1a12f467c101bbc9",
+        "rightSha256": "ced654fa3e09ee7f14dca2ca61030d4322d9deb76a6a6cd9330abbe207871d7b"
+      },
+      "reason": "fixture 环境差异（非协议偏移）：CLI 直跑未注入插件宿主 env，Node 侧自装官方插件缓存（<storage>/cli/plugins/cache）并据此注入 skills/agents 提示，Rust 侧依赖宿主注入（桌面由 Host 提供 ESCODE_PLUGIN_HOST_ENTRYPOINT），故 messages 条数/长度不同。2026-10-14 已修复同一条目内的 max_completion_tokens/tool_choice 字段偏移（差分 M-1/M-2 收敛）。",
+      "removal": "桌面 L3 E2E 覆盖插件面（阶段 2/3）后从本条拆出；或夹具预置同等插件环境后重新对拍"
+    },
+    {
+      "id": "title-request-streaming-shape",
+      "scenario": "session-baseline",
+      "surface": "modelRequests",
+      "status": "approved",
+      "match": {
+        "index": 1,
+        "leftSha256": "55d68443fe13ab4e0604d19514d76f8cfcfd2ce9ede4392bac97ec35dafe443d",
+        "rightSha256": "edfc2d7212dfb159a4098f42e9f924c91bf6cd16aa3839657d8846fdbb083c1d"
+      },
+      "reason": "标题请求形态已知差异：Node 非流式（body 仅 model/messages/max_completion_tokens），Rust 始终流式（stream:true + stream_options）；scripts/bench-escode-cli-node-rust.mjs 已按请求 stream 分别应答并注释。字段名已与 Node 对齐为 max_completion_tokens。",
+      "removal": "统一标题请求流式形态（或确认非流式为契约）后移除"
+    },
+    {
+      "id": "create-session-ack-memory-enabled-absent",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "leftContaining": "\"result\":{\"commandId\":\"",
+        "rightContaining": "\"method\":\"session/requestRuntimePreferences\""
+      },
+      "reason": "createSession ack 缺 memoryEnabled（信息位，无 Host 消费方）：TS 的该值来自宿主本地回调（v4-bridge getSessionMemoryEnabled → 会话记录），物化期即可读；Rust 需一次协议往返，且引擎 outbox 在响应帧之后才冲刷，创建响应本身拿不到该值。Rust 已在创建期发起偏好请求，回合开始前回包入缓存，因此 inputAccepted 等后续 ack 与全部遥测事实都带上该字段（与 Node 一致，实验证：telemetry-facts 差分用例含 memoryEnabled 投影后通过）。",
+      "removal": "若出现 ack 字段消费方、或投递层重构（阶段 2 P2）后允许物化期等待回包时，改为在创建响应里带上并移除本条"
+    },
+    {
+      "id": "runtime-prefs-request-position",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "leftContaining": "\"id\":\"server-",
+        "rightContaining": "\"memoryEnabled\":false,\"result\":{\"delivery\":\"startNow\""
+      },
+      "reason": "运行期偏好请求在帧流中的位置差异（时序语义等价）：Node 的 runtime-materialization 请求在 createSession 响应前、user-execution 请求在首条消息 ack 前发出；Rust 因 outbox 冲刷时机在响应帧之后出站。两边都在首轮模型请求之前拿到偏好（evidence.timing 记录）。",
+      "removal": "投递层/物化流程重构后（阶段 2 P2）复核并对齐请求发出时机"
+    }
+  ]
+}

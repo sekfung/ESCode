@@ -56,7 +56,11 @@ mod tests {
             ("a//b", "ws/sub/a/b"),
             ("a/b/", "ws/sub/a/b"),
         ] {
-            assert_eq!(normalize(&cwd.join(input)), path(expected), "input: {input}");
+            assert_eq!(
+                normalize(&cwd.join(input)),
+                path(expected),
+                "input: {input}"
+            );
         }
     }
 

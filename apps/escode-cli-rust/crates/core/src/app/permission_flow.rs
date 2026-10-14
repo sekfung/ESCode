@@ -4,7 +4,7 @@ use super::Engine;
 use crate::contract::PermissionOutcome;
 use crate::domain::permission::Rule;
 use crate::domain::permission::{Capability, Context as PermissionContext, Mode, Ruleset, check};
-use crate::domain::permission_options::{ask_reason, default_updates, denied_content, options};
+use crate::domain::permission_options::{ask_reason, denied_content};
 use anyhow::Result;
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
@@ -75,7 +75,9 @@ impl Engine {
                 .and_then(|value| value.get("integratedTerminalShell"))
                 .filter(|value| !value.is_null());
             if let Some(rule) = self.tools.guarded_rule(&input, shell) {
-                capability.get_or_insert_with(Capability::default).user_approval_rule = Some(rule);
+                capability
+                    .get_or_insert_with(Capability::default)
+                    .user_approval_rule = Some(rule);
             }
         }
         // 主会话记忆 Markdown 写入放行（docs/specs/rust-project-memory.md）。
@@ -111,7 +113,13 @@ impl Engine {
                 let reason =
                     crate::domain::permission_options::deny_reason(decision.rule_id, &tool);
                 let call_id = call["id"].as_str().unwrap_or_default();
-                let p = super::telemetry::Permission { phase: "denied", call_id, tool: Some(&tool), request_id: None, decision: None };
+                let p = super::telemetry::Permission {
+                    phase: "denied",
+                    call_id,
+                    tool: Some(&tool),
+                    request_id: None,
+                    decision: None,
+                };
                 self.telemetry_permission(id, Some(turn), p);
                 let _ = reply.send(PermissionOutcome::deny(reason));
                 Ok(())
@@ -127,16 +135,26 @@ impl Engine {
                     let _ = reply.send(PermissionOutcome::allow());
                 } else {
                     let call_id = call["id"].as_str().unwrap_or_default();
-                    let p = super::telemetry::Permission { phase: "denied", call_id, tool: Some(&tool), request_id: None, decision: None };
+                    let p = super::telemetry::Permission {
+                        phase: "denied",
+                        call_id,
+                        tool: Some(&tool),
+                        request_id: None,
+                        decision: None,
+                    };
                     self.telemetry_permission(id, Some(turn), p);
-                    let _ = reply.send(PermissionOutcome::deny(format!("No permission client configured for {tool}")));
+                    let _ = reply.send(PermissionOutcome::deny(format!(
+                        "No permission client configured for {tool}"
+                    )));
                 }
                 Ok(())
             }
             crate::domain::permission::Behavior::Ask => {
                 let reason = hook_reason.unwrap_or_else(|| ask_reason(decision.rule_id, &tool));
-                self.register_permission(id, run, turn, call, &tool, &input, reason, user_once, reply)
-                    .await
+                self.register_permission(
+                    id, run, turn, call, &tool, &input, reason, user_once, reply,
+                )
+                .await
             }
         }
     }
@@ -237,7 +255,13 @@ impl Engine {
             deltas.push(json!({"op":"row.upserted","row":row}));
         }
         let call_id = call["id"].as_str().unwrap_or_default();
-        let p = super::telemetry::Permission { phase: "requested", call_id, tool: Some(tool), request_id: Some(&interaction), decision: None };
+        let p = super::telemetry::Permission {
+            phase: "requested",
+            call_id,
+            tool: Some(tool),
+            request_id: Some(&interaction),
+            decision: None,
+        };
         self.telemetry_permission(id, Some(turn), p);
         if !user_once {
             self.spawn_permission_hook(id, turn, call, input, &interaction, &hook_reason);
@@ -247,95 +271,10 @@ impl Engine {
     }
 }
 
-/// 形状与 TS product-projection 一致；response 是旧客户端的兼容兜底，真正语义由 optionId 决定。
-fn full_access_option() -> Value {
-    json!({
-        "optionId": FULL_ACCESS_OPTION_ID,
-        "label": "Full access",
-        "kind": "custom",
-        "response": {"decision": "deny", "reason": "Full access requires V4 approval"},
-    })
-}
-
-pub(super) const FULL_ACCESS_OPTION_ID: &str = "fullAccess";
-
-/// TS `askOptions.allowAlways: false`（no-always-allow）：每次调用都是不同代码，持久或会话规则
-/// 不是「记住这次决定」而是把这道确认永久关掉，所以只给「允许一次 / 拒绝」。
-const NO_ALWAYS_ALLOW: [&str; 1] = ["SaveWorkflow"];
-/// TS `askOptions.allowAlways: "session"`：只给会话作用域的免确认（不落项目规则）。
-const SESSION_ALWAYS_ALLOW: [&str; 3] = ["CreateWorkflow", "AmendWorkflow", "FillWorkflowHole"];
-const OPTIONS_POLICY_TOOLS: [&str; 4] =
-    ["CreateWorkflow", "AmendWorkflow", "SaveWorkflow", "FillWorkflowHole"];
-
-fn options_for(tool: &str, suggested: &[Rule], persistent: bool) -> Vec<Value> {
-    let mut list = if SESSION_ALWAYS_ALLOW.contains(&tool) {
-        options(suggested, true)
-    } else {
-        options_with_persistence(suggested, persistent)
-    };
-    if NO_ALWAYS_ALLOW.contains(&tool) {
-        list.retain(|option| option["kind"] != "allowAlways");
-    }
-    // TS product-projection：Create / Amend 的确认另带 workflow Refine（静态应答是普通拒绝，带反馈时
-    // 由交互层升级成修改意见）。
-    if matches!(tool, "CreateWorkflow" | "AmendWorkflow") {
-        list.push(json!({
-            "optionId": "workflowRefine",
-            "label": "Refine",
-            "kind": "custom",
-            "response": {"decision": "deny", "reason": "Denied"},
-        }));
-    }
-    list
-}
-
-fn options_with_persistence(suggested: &[Rule], persistent: bool) -> Vec<Value> {
-    let mut list = options(suggested, !persistent);
-    if persistent {
-        return list;
-    }
-    // 无法持久化项目规则时不投放 allowAlways；会话授权的语义见 spec。
-    list.retain(|o| o["optionId"] != "allowAlways");
-    list
-}
-
-/// 「总是允许」的规则：Bash 用稳定前缀建议，其余工具按输入键取内容。
-pub(super) fn suggested_rules(tool: &str, input: &Value) -> Vec<Rule> {
-    if tool == "Bash"
-        && let Some(command) = input["command"].as_str()
-    {
-        let rules: Vec<Rule> = crate::domain::bash_rule_policy::BashRulePolicy::new(command)
-            .suggestions
-            .into_iter()
-            .map(|content| Rule {
-                tool_name: tool.to_owned(),
-                rule_content: Some(content),
-            })
-            .collect();
-        if !rules.is_empty() {
-            return rules;
-        }
-    }
-    default_updates(tool, input)
-}
-
-/// 把建议规则并入一份 ruleset JSON 的 allow 段（去重）。
-fn merge_allow_rules(json: &mut Value, rules: &[Rule]) {
-    let mut merged = json["allow"].as_array().cloned().unwrap_or_default();
-    for rule in rules {
-        let entry = match &rule.rule_content {
-            Some(content) => json!({"toolName": rule.tool_name, "ruleContent": content}),
-            None => json!({"toolName": rule.tool_name}),
-        };
-        let duplicate = merged.iter().any(|existing| {
-            existing["toolName"] == entry["toolName"] && existing["ruleContent"] == entry["ruleContent"]
-        });
-        if !duplicate {
-            merged.push(entry);
-        }
-    }
-    json["allow"] = Value::Array(merged);
-}
+pub(super) use super::permission_rules::FULL_ACCESS_OPTION_ID;
+use super::permission_rules::{
+    OPTIONS_POLICY_TOOLS, full_access_option, merge_allow_rules, options_for, suggested_rules,
+};
 
 impl Engine {
     /// 「总是允许」落点：群任务写会话级授权（随会话落库，TS persistProjectPermissionUpdates 的

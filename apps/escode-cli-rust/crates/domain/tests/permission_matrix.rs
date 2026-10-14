@@ -1,7 +1,7 @@
 //! 差分：Rust permission::check 与 TS PermissionService 的判定矩阵逐条一致。
 //! 产物由 scripts/generate-escode-cli-rust-permission-matrix.mjs 生成，枚举顺序以其注释为准。
-use serde_json::Value;
 use escode_cli_domain::permission::{Capability, Config, Context, Mode, Risk, Ruleset, check};
+use serde_json::Value;
 
 fn strings(v: &Value) -> Vec<String> {
     v.as_array()
@@ -214,7 +214,12 @@ fn rust_matches_ts_permission_config() {
     let axes = &fixture["configAxes"];
     let names = |v: &Value| -> Vec<String> {
         v.as_array()
-            .map(|list| list.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+            .map(|list| {
+                list.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
             .unwrap_or_default()
     };
     let configs: Vec<Config> = axes["configs"]
@@ -334,16 +339,19 @@ fn rust_matches_ts_guarded_permissions() {
     let mut got = Vec::new();
     for tool in axes["tools"].as_array().unwrap() {
         let name = tool["toolName"].as_str().unwrap();
-        let cap = tool.get("capability").filter(|c| c.is_object()).map(|c| Capability {
-            always_ask: c["alwaysAsk"].as_bool(),
-            destructive: c["destructive"].as_bool(),
-            needs_approval: c["needsApproval"].as_bool(),
-            side_effect_scope: c["sideEffectScope"].as_str().map(str::to_owned),
-            risk_level: c["riskLevel"].as_str().map(risk),
-            permission_name: c["permission"]["permission"].as_str().map(str::to_owned),
-            user_approval_rule: c["userApprovalRule"].as_str().map(str::to_owned),
-            ..Default::default()
-        });
+        let cap = tool
+            .get("capability")
+            .filter(|c| c.is_object())
+            .map(|c| Capability {
+                always_ask: c["alwaysAsk"].as_bool(),
+                destructive: c["destructive"].as_bool(),
+                needs_approval: c["needsApproval"].as_bool(),
+                side_effect_scope: c["sideEffectScope"].as_str().map(str::to_owned),
+                risk_level: c["riskLevel"].as_str().map(risk),
+                permission_name: c["permission"]["permission"].as_str().map(str::to_owned),
+                user_approval_rule: c["userApprovalRule"].as_str().map(str::to_owned),
+                ..Default::default()
+            });
         for m in axes["modes"].as_array().unwrap() {
             let decision = check(
                 &Context {

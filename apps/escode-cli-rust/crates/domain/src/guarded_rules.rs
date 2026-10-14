@@ -35,7 +35,9 @@ pub(crate) fn match_git(words: &[CommandWord]) -> Rule {
     let common = common();
     let table = match head.value.as_str() {
         "reset" => OptionTable::new(
-            &format!("{common} --hard --soft --mixed --merge --keep -p --patch -N --intent-to-add --no-refresh --refresh --recurse-submodules --no-recurse-submodules"),
+            &format!(
+                "{common} --hard --soft --mixed --merge --keep -p --patch -N --intent-to-add --no-refresh --refresh --recurse-submodules --no-recurse-submodules"
+            ),
             "",
             "",
         ),
@@ -45,17 +47,23 @@ pub(crate) fn match_git(words: &[CommandWord]) -> Rule {
             "",
         ),
         "push" => OptionTable::new(
-            &format!("{common} -f --force --no-force --mirror --no-mirror -n --dry-run --no-dry-run --no-force-with-lease --force-if-includes --no-force-if-includes --all --branches --tags --delete -d --prune --atomic --no-atomic --porcelain --follow-tags --no-follow-tags --set-upstream -u --thin --no-thin --progress --no-progress --ipv4 -4 --ipv6 -6"),
+            &format!(
+                "{common} -f --force --no-force --mirror --no-mirror -n --dry-run --no-dry-run --no-force-with-lease --force-if-includes --no-force-if-includes --all --branches --tags --delete -d --prune --atomic --no-atomic --porcelain --follow-tags --no-follow-tags --set-upstream -u --thin --no-thin --progress --no-progress --ipv4 -4 --ipv6 -6"
+            ),
             "--repo --receive-pack --exec -o --push-option",
             "--force-with-lease --signed --recurse-submodules",
         ),
         "checkout" => OptionTable::new(
-            &format!("{common} -f --force --no-force --detach --ours --theirs -m --merge --conflict -p --patch --ignore-other-worktrees --recurse-submodules --no-recurse-submodules --no-overlay --overlay"),
+            &format!(
+                "{common} -f --force --no-force --detach --ours --theirs -m --merge --conflict -p --patch --ignore-other-worktrees --recurse-submodules --no-recurse-submodules --no-overlay --overlay"
+            ),
             "-b -B --orphan --conflict",
             "",
         ),
         "restore" => OptionTable::new(
-            &format!("{common} -W --worktree --no-worktree -S --staged --no-staged --ours --theirs -m --merge -p --patch --ignore-unmerged --overlay --no-overlay --recurse-submodules --no-recurse-submodules"),
+            &format!(
+                "{common} -W --worktree --no-worktree -S --staged --no-staged --ours --theirs -m --merge -p --patch --ignore-unmerged --overlay --no-overlay --recurse-submodules --no-recurse-submodules"
+            ),
             "-s --source --conflict",
             "",
         ),
@@ -67,7 +75,10 @@ pub(crate) fn match_git(words: &[CommandWord]) -> Rule {
                 return Rule::Miss;
             }
             let parsed = parse_options(&args[1..], &OptionTable::new(HELP, "", ""), COMMAND_SCAN);
-            return settle((!has_help(&parsed.flags)).then_some("git-stash-clear"), &parsed);
+            return settle(
+                (!has_help(&parsed.flags)).then_some("git-stash-clear"),
+                &parsed,
+            );
         }
         "worktree" => {
             if args.first().is_some_and(|word| word.dynamic) {
@@ -159,7 +170,9 @@ pub(crate) fn match_find_delete(args: &[CommandWord]) -> Rule {
             return Rule::Unknown;
         }
         // BSD 的 -d/-x 可位于起始路径前，不能提前进入表达式阶段而把后续路径当未知谓词。
-        if !expression && ["-H", "-L", "-P", "-O0", "-O1", "-O2", "-O3", "-d", "-x"].contains(&value) {
+        if !expression
+            && ["-H", "-L", "-P", "-O0", "-O1", "-O2", "-O3", "-d", "-x"].contains(&value)
+        {
             i += 1;
             continue;
         }
@@ -250,7 +263,11 @@ pub(crate) fn match_cmd_delete(name: &str, args: &[CommandWord]) -> Rule {
             "cmd-delete-files"
         });
     }
-    if unsupported { Rule::Unknown } else { Rule::Miss }
+    if unsupported {
+        Rule::Unknown
+    } else {
+        Rule::Miss
+    }
 }
 
 const ROBOCOPY_FLAGS: &str = "/MIR /PURGE /L /S /E /Z /B /ZB /J /EFSRAW /SEC /COPYALL /NOCOPY /SECFIX /TIMFIX /CREATE /FAT /256 /PF /SJ /SL /NODCOPY /NOOFFLOAD /COMPRESS /A /M /XC /XN /XO /XX /XL /IM /IS /IT /XJ /FFT /DST /XJD /XJF /TBD /LFSM /X /V /TS /FP /BYTES /NS /NC /NFL /NDL /NP /ETA /TEE /NJH /NJS /UNICODE /NP /?";

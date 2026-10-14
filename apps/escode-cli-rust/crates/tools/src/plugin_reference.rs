@@ -39,7 +39,10 @@ pub(super) async fn catalog(
 
 /// core `buildPluginReferenceCatalog`：全部已发现插件（含停用）；同 manifest name 的多个**启用**插件互标冲突，
 /// 停用条目不参与冲突。
-pub(super) async fn identity_entries(cwd: &std::path::Path, cancel: &CancellationToken) -> Result<Value> {
+pub(super) async fn identity_entries(
+    cwd: &std::path::Path,
+    cancel: &CancellationToken,
+) -> Result<Value> {
     let config = config::load(cwd).await?;
     let data_root = config::storage(&config).join("data");
     let discovered = plugins::all(cwd, &config, cancel).await?;

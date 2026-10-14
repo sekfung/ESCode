@@ -92,8 +92,7 @@ impl Connection {
                     .stdout(Stdio::piped())
                     .stderr(Stdio::null())
                     .kill_on_drop(true);
-                #[cfg(unix)]
-                command.process_group(0);
+                escode_cli_host::process_group::isolate(&mut command);
                 if let Some(env) = config.raw["env"].as_object() {
                     command.envs(env.iter().map(|(k, v)| (k, v.as_str().unwrap())));
                 }

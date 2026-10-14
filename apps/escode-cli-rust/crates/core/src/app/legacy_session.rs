@@ -92,7 +92,8 @@ impl Engine {
             "Unsupported legacy tool profile"
         );
         ensure!(
-            p.get("titleGenerationEnabled").is_none_or(Value::is_boolean),
+            p.get("titleGenerationEnabled")
+                .is_none_or(Value::is_boolean),
             "Invalid titleGenerationEnabled"
         );
         let mode = p["mode"].as_str();

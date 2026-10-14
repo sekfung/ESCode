@@ -95,7 +95,7 @@ fn rebuild(storage: &Path, bundled: Option<&Json>) -> Result<Json> {
         .into_iter()
         .filter(|p| name_of(p).is_some_and(|n| !cdn_names.contains(&n)))
         .collect();
-    let mut merged = manifest.clone();
+    let mut merged = manifest;
     if let Some(Json::Object(entries)) = &cdn {
         for (key, value) in entries {
             merged.set(key.as_str(), value.clone());

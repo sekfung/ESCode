@@ -72,7 +72,9 @@ test("Rust owner lock prevents a second process recovering active work; EOF clos
     other.stderr.on("data", (chunk) => {
       error += chunk;
     });
-    assert.deepEqual(await exit, [1, null]);
+    // owner 冲突是可重试的所有权冲突：退出码 75（sysexits EX_TEMPFAIL）是 Host 协议契约的一部分
+    // （docs/specs/rust-release-rollback.md）；1 是契约引入前的旧行为。
+    assert.deepEqual(await exit, [75, null]);
     assert.match(error, /already owned/);
     await h.close();
     const recovered = f.start();

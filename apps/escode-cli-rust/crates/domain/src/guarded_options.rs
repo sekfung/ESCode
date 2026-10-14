@@ -59,7 +59,11 @@ pub(crate) struct Parsed {
 }
 
 /// TS `parseOptions`：先消耗已声明 arity 的参数值；未知选项不猜 arity。
-pub(crate) fn parse_options(words: &[CommandWord], table: &OptionTable, policy: ScanPolicy) -> Parsed {
+pub(crate) fn parse_options(
+    words: &[CommandWord],
+    table: &OptionTable,
+    policy: ScanPolicy,
+) -> Parsed {
     let mut result = Parsed::default();
     let mut ended = false;
     let mut i = 0;
@@ -84,11 +88,19 @@ pub(crate) fn parse_options(words: &[CommandWord], table: &OptionTable, policy: 
         let names: Vec<String> = if long {
             vec![equals.map_or(word.value.clone(), |at| word.value[..at].to_owned())]
         } else {
-            word.value.chars().skip(1).map(|c| format!("-{c}")).collect()
+            word.value
+                .chars()
+                .skip(1)
+                .map(|c| format!("-{c}"))
+                .collect()
         };
         for (n, name) in names.iter().enumerate() {
             let arity = table.get(name);
-            let attached = if long { equals.is_some() } else { n < names.len() - 1 };
+            let attached = if long {
+                equals.is_some()
+            } else {
+                n < names.len() - 1
+            };
             // 未知选项只标记 unsupported、继续扫描，不能把已识别的 -r/-f 一并丢弃；abort 仅给 wrapper。
             if arity.is_none() || (arity == Some(Arity::Flag) && long && attached) {
                 result.unsupported = true;
@@ -165,7 +177,10 @@ pub(crate) fn unwrap_command(input: &[CommandWord], windows: bool) -> Option<Vec
         }
         words = parsed.operands;
         if name == "env" || name == "sudo" {
-            while words.first().is_some_and(|word| is_env_assignment(&word.value)) {
+            while words
+                .first()
+                .is_some_and(|word| is_env_assignment(&word.value))
+            {
                 words.remove(0);
             }
         }

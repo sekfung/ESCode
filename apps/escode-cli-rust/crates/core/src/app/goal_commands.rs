@@ -17,7 +17,8 @@ pub(super) fn date_change(session: &mut Session, date: Option<String>) {
         return;
     };
     let previous = session.last_local_date.replace(date.clone());
-    if let Some(reminder) = crate::domain::prompt::date_change_reminder(previous.as_deref(), &date) {
+    if let Some(reminder) = crate::domain::prompt::date_change_reminder(previous.as_deref(), &date)
+    {
         session.append_message(reminder);
     }
 }

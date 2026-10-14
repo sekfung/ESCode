@@ -35,7 +35,10 @@ pub(super) fn default_allowed_tools(available: bool) -> Vec<String> {
     if !available {
         return vec![];
     }
-    ALLOWED_TOOLS.iter().map(|tool| format!("mcp__{NAME}__{tool}")).collect()
+    ALLOWED_TOOLS
+        .iter()
+        .map(|tool| format!("mcp__{NAME}__{tool}"))
+        .collect()
 }
 
 #[cfg(test)]

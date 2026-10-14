@@ -89,7 +89,11 @@ impl Engine {
             "workflowRuns.prior" => {
                 let session = params["session"].as_str().unwrap_or_default();
                 match self.ensure_session(session).await {
-                    Ok(_) => Ok(self.sessions.get(session).and_then(|s| s.workflow_runs.clone()).unwrap_or(Value::Null)),
+                    Ok(_) => Ok(self
+                        .sessions
+                        .get(session)
+                        .and_then(|s| s.workflow_runs.clone())
+                        .unwrap_or(Value::Null)),
                     Err(_) => Ok(Value::Null),
                 }
             }

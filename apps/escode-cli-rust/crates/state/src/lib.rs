@@ -1,7 +1,7 @@
 use escode_cli_core_api as contract;
 use escode_cli_domain as domain;
-mod input_attachments;
 mod dwf_journal;
+mod input_attachments;
 mod legacy_attachments;
 mod legacy_attempt;
 mod legacy_projection;
@@ -19,5 +19,6 @@ mod storage_read;
 mod storage_session_context;
 mod storage_usage;
 mod storage_usage_app;
-pub use storage::{Store, WORKSPACE_OWNED_EXIT_CODE, WorkspaceOwned};
+mod storage_write;
 use escode_cli_host::id;
+pub use storage::{Store, WORKSPACE_OWNED_EXIT_CODE, WorkspaceOwned};

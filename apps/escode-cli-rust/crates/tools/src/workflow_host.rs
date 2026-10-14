@@ -66,7 +66,10 @@ impl WorkflowHost {
     /// 发一个请求并等应答。宿主不可用（无启动器 / 无会话库）时报错。
     pub(crate) async fn request(&self, method: &str, params: Value) -> Result<Value> {
         let (reply, receipt) = oneshot::channel();
-        let id = self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let id = self
+            .next_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
         {
             let mut guard = self.process.lock().await;
             if guard.is_none() {
@@ -105,8 +108,9 @@ impl WorkflowHost {
     }
 
     async fn spawn(&self) -> Result<Process> {
-        let (exec, entrypoint) = launcher()
-            .context("Workflow execution is unavailable: the Host did not provide a Node launcher")?;
+        let (exec, entrypoint) = launcher().context(
+            "Workflow execution is unavailable: the Host did not provide a Node launcher",
+        )?;
         let db_path = self
             .db_path
             .get()
@@ -122,7 +126,9 @@ impl WorkflowHost {
             .kill_on_drop(true);
         escode_cli_host::child_env::apply(&mut command, false);
         command.env("ELECTRON_RUN_AS_NODE", "1");
-        let mut child = command.spawn().context("Failed to start the workflow host")?;
+        let mut child = command
+            .spawn()
+            .context("Failed to start the workflow host")?;
         let mut stdin = child.stdin.take().context("workflow host stdin")?;
         let stdout = child.stdout.take().context("workflow host stdout")?;
         let (pending, host) = (self.pending.clone(), self.host.clone());
@@ -168,8 +174,13 @@ impl WorkflowHost {
                         if let Some(process) = process.lock().await.as_mut() {
                             let _ = process
                                 .stdin
-                                .write_all(format!("{line}
-").as_bytes())
+                                .write_all(
+                                    format!(
+                                        "{line}
+"
+                                    )
+                                    .as_bytes(),
+                                )
                                 .await;
                             let _ = process.stdin.flush().await;
                         }
@@ -186,16 +197,25 @@ impl WorkflowHost {
                 {
                     let params = message["params"].clone();
                     let session = params["session"].as_str().unwrap_or_default().to_owned();
-                    let _ = sink.send(Event::WorkflowSettled { session, notice: params }).await;
+                    let _ = sink
+                        .send(Event::WorkflowSettled {
+                            session,
+                            notice: params,
+                        })
+                        .await;
                 }
             }
             // 子进程退出：在途请求全部失败（下一次调用重新拉起）。
             pending.lock().unwrap().clear();
         });
         // init 是第一条请求：打开会话库（只碰 dwf_* 表）。
-        let init = json!({ "id": 0, "method": "init", "params": { "dbPath": db_path.to_string_lossy() } });
+        let init =
+            json!({ "id": 0, "method": "init", "params": { "dbPath": db_path.to_string_lossy() } });
         stdin.write_all(format!("{init}\n").as_bytes()).await?;
         stdin.flush().await?;
-        Ok(Process { _child: child, stdin })
+        Ok(Process {
+            _child: child,
+            stdin,
+        })
     }
 }

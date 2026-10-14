@@ -52,8 +52,13 @@ pub(super) fn ack(conn: &mut Connection, workspace: &str, key: &str) -> Result<O
                 ack["reasonCode"] = "fault.input.discardedOnRestart".into();
                 ack["result"] =
                     json!({"type":"inputDisposition","delivery":ack["result"]["delivery"]});
-                super::storage::commit(conn, workspace, None, Some((key.into(), ack.clone())))
-                    .map_err(|e| e.context(StorageCommitFailure))?;
+                super::storage_write::commit(
+                    conn,
+                    workspace,
+                    None,
+                    Some((key.into(), ack.clone())),
+                )
+                .map_err(|e| e.context(StorageCommitFailure))?;
             }
         }
     }

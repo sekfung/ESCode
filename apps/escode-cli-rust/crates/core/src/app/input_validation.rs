@@ -70,10 +70,14 @@ impl Engine {
         if p.get("botDeliveryTarget").is_some_and(|v| !v.is_object()) {
             bail!("Invalid botDeliveryTarget");
         }
-        if p.get("offPeakTaskId").is_some_and(|v| v.as_str().is_none_or(|s| s.trim().is_empty())) {
+        if p.get("offPeakTaskId")
+            .is_some_and(|v| v.as_str().is_none_or(|s| s.trim().is_empty()))
+        {
             bail!("Invalid offPeakTaskId");
         }
-        if p.get("offPeakRunType").is_some_and(|v| !matches!(v.as_str(), Some("init" | "resume"))) {
+        if p.get("offPeakRunType")
+            .is_some_and(|v| !matches!(v.as_str(), Some("init" | "resume")))
+        {
             bail!("Invalid offPeakRunType");
         }
         // 协议 superRefine：两类派发身份互斥；runType 需要闲时身份。
@@ -94,9 +98,13 @@ impl Engine {
         if let Some(ambient) = p.get("browserAmbientContext") {
             let valid = ambient.as_object().is_some_and(|o| {
                 o.keys().all(|k| k == "tabCount" || k == "currentUrl")
-                    && o.get("tabCount").and_then(Value::as_u64).is_some_and(|c| (1..=100).contains(&c))
+                    && o.get("tabCount")
+                        .and_then(Value::as_u64)
+                        .is_some_and(|c| (1..=100).contains(&c))
                     && o.get("currentUrl").is_none_or(|u| {
-                        u.as_str().is_some_and(|u| !u.trim().is_empty() && u.trim().chars().count() <= 4096)
+                        u.as_str().is_some_and(|u| {
+                            !u.trim().is_empty() && u.trim().chars().count() <= 4096
+                        })
                     })
             });
             if !valid {

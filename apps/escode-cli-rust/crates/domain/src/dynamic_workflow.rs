@@ -58,7 +58,9 @@ impl Policy {
         let (previous, previous_on_demand) = (self.process, self.process_on_demand);
         for id in live {
             self.sessions.entry(id.clone()).or_insert(previous);
-            self.on_demand.entry(id.clone()).or_insert(previous_on_demand);
+            self.on_demand
+                .entry(id.clone())
+                .or_insert(previous_on_demand);
         }
         self.process = enabled;
         self.process_on_demand = enabled && on_demand == Some(true);

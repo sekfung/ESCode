@@ -28,7 +28,9 @@ pub fn current() -> &'static ClientPlatform {
             os_category: os_category(platform),
             os_release: os_release(),
             locale: locale(),
-            timezone: iana_time_zone::get_timezone().ok().map(|tz| canonical_timezone(&tz)),
+            timezone: iana_time_zone::get_timezone()
+                .ok()
+                .map(|tz| canonical_timezone(&tz)),
         }
     })
 }
@@ -37,10 +39,29 @@ pub fn current() -> &'static ClientPlatform {
 /// `Etc/UTC`，Rust 原样发出，Node 发 `UTC`。其余 ICU 旧链接名（如 `US/Pacific`）的改写未对齐（系统时区通常已是规范名）。
 fn canonical_timezone(tz: &str) -> String {
     const UTC_ALIASES: [&str; 18] = [
-        "UTC", "Etc/UTC", "Etc/GMT", "GMT", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu",
-        "Zulu", "Etc/Greenwich", "Greenwich", "Etc/GMT0", "GMT0", "Etc/GMT+0", "Etc/GMT-0", "GMT+0", "GMT-0",
+        "UTC",
+        "Etc/UTC",
+        "Etc/GMT",
+        "GMT",
+        "Etc/UCT",
+        "UCT",
+        "Etc/Universal",
+        "Universal",
+        "Etc/Zulu",
+        "Zulu",
+        "Etc/Greenwich",
+        "Greenwich",
+        "Etc/GMT0",
+        "GMT0",
+        "Etc/GMT+0",
+        "Etc/GMT-0",
+        "GMT+0",
+        "GMT-0",
     ];
-    if UTC_ALIASES.iter().any(|alias| alias.eq_ignore_ascii_case(tz)) {
+    if UTC_ALIASES
+        .iter()
+        .any(|alias| alias.eq_ignore_ascii_case(tz))
+    {
         "UTC".to_owned()
     } else {
         tz.to_owned()

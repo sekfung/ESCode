@@ -2,8 +2,8 @@
 //! `oauth-shared.ts`（discovery 缓存）与 `oauth-lease.ts`（pending 授权）；存储为与 Node 共用的加密凭据文件。
 use crate::domain::mcp_oauth::{self as rules, Pair};
 use anyhow::Result;
-use serde_json::{Value, json};
 use escode_cli_host::credential_store::CredentialStore;
+use serde_json::{Value, json};
 
 /// discovery 缓存寿命（TS `MCP_OAUTH_DISCOVERY_TTL_MS`）。
 const DISCOVERY_TTL_MS: u64 = 24 * 60 * 60 * 1000;
@@ -37,7 +37,9 @@ pub(super) async fn load_pair(store: &CredentialStore, prefix: &str) -> Result<O
 
 /// TS `loadCanonicalCredentials`：只读 canonical，generation 用于观察换代。
 pub(super) async fn load_canonical(store: &CredentialStore, prefix: &str) -> Result<Option<Pair>> {
-    let raw = store.load(&rules::key(prefix, rules::CANONICAL_KEY)).await?;
+    let raw = store
+        .load(&rules::key(prefix, rules::CANONICAL_KEY))
+        .await?;
     Ok(raw
         .as_deref()
         .and_then(|raw| rules::derive_pair(Some(raw), None, None))
@@ -72,9 +74,18 @@ pub(super) async fn publish(
     }
     store
         .save_many(&[
-            (rules::key(prefix, rules::CANONICAL_KEY), canonical.to_string()),
-            (rules::key(prefix, rules::LEGACY_CLIENT_KEY), client.to_string()),
-            (rules::key(prefix, rules::LEGACY_TOKENS_KEY), tokens.to_string()),
+            (
+                rules::key(prefix, rules::CANONICAL_KEY),
+                canonical.to_string(),
+            ),
+            (
+                rules::key(prefix, rules::LEGACY_CLIENT_KEY),
+                client.to_string(),
+            ),
+            (
+                rules::key(prefix, rules::LEGACY_TOKENS_KEY),
+                tokens.to_string(),
+            ),
         ])
         .await?;
     Ok(generation)
@@ -88,11 +99,16 @@ pub(super) async fn invalidate(
     all: bool,
 ) -> Result<bool> {
     let canonical = rules::key(prefix, rules::CANONICAL_KEY);
-    let mut keys = vec![canonical.clone(), rules::key(prefix, rules::LEGACY_TOKENS_KEY)];
+    let mut keys = vec![
+        canonical.clone(),
+        rules::key(prefix, rules::LEGACY_TOKENS_KEY),
+    ];
     if all {
         keys.push(rules::key(prefix, rules::LEGACY_CLIENT_KEY));
     }
-    store.delete_many_if_value(&canonical, expected_raw, &keys).await
+    store
+        .delete_many_if_value(&canonical, expected_raw, &keys)
+        .await
 }
 
 /// TS `loadDiscoveryRecord`：缺时间戳、过期、解析失败或 issuer 不符均视为无缓存。
@@ -137,11 +153,21 @@ pub(super) async fn load_discovery(
     Ok(Some(state))
 }
 /// TS `saveDiscoveryRecord`：状态与时间戳分两个 key（旧 reader 只认裸状态）。
-pub(super) async fn save_discovery(store: &CredentialStore, prefix: &str, state: &Value) -> Result<()> {
+pub(super) async fn save_discovery(
+    store: &CredentialStore,
+    prefix: &str,
+    state: &Value,
+) -> Result<()> {
     store
         .save_many(&[
-            (rules::key(prefix, rules::DISCOVERY_STATE_KEY), state.to_string()),
-            (rules::key(prefix, rules::DISCOVERY_FETCHED_AT_KEY), now_ms().to_string()),
+            (
+                rules::key(prefix, rules::DISCOVERY_STATE_KEY),
+                state.to_string(),
+            ),
+            (
+                rules::key(prefix, rules::DISCOVERY_FETCHED_AT_KEY),
+                now_ms().to_string(),
+            ),
         ])
         .await
 }

@@ -11,7 +11,10 @@ impl Engine {
     pub(super) async fn refresh_slash_commands(&mut self, method: &str) {
         if matches!(
             method,
-            "v4/conversation/subscribe" | "session/read" | "session/resume" | "workspace/readPresentation"
+            "v4/conversation/subscribe"
+                | "session/read"
+                | "session/resume"
+                | "workspace/readPresentation"
         ) {
             let cancel = tokio_util::sync::CancellationToken::new();
             self.slash_commands = self.tools.slash_commands(&cancel).await;

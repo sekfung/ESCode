@@ -52,6 +52,13 @@ impl Registry {
             pool: Default::default(),
         }
     }
+    /// 锁中毒继续用：快照是整块替换的自包含值，中毒后仍是最后一次成功写入的完整状态
+    /// （P0#4：读路径不因写路径的 panic 把整个 runtime 打崩）。
+    fn snapshot(&self) -> std::sync::RwLockReadGuard<'_, Snapshot> {
+        self.snapshot
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
 }
 #[async_trait::async_trait]
 impl ModelRegistry for Registry {
@@ -59,21 +66,19 @@ impl ModelRegistry for Registry {
         self.account.lock().await.clone()
     }
     fn model_options(&self) -> Vec<Value> {
-        self.snapshot.read().unwrap().options.clone()
+        self.snapshot().options.clone()
     }
     fn catalog(&self) -> Vec<Value> {
-        self.snapshot.read().unwrap().catalog.clone()
+        self.snapshot().catalog.clone()
     }
     fn model_catalog(&self) -> Vec<Value> {
-        self.snapshot.read().unwrap().model_catalog.clone()
+        self.snapshot().model_catalog.clone()
     }
     fn default_selection(&self) -> Option<ModelIdentity> {
-        self.snapshot.read().unwrap().default.clone()
+        self.snapshot().default.clone()
     }
     fn resolve(&self, s: &ModelIdentity) -> Result<Arc<dyn ModelPort>> {
-        self.snapshot
-            .read()
-            .unwrap()
+        self.snapshot()
             .models
             .get(&(
                 s.provider_id.clone(),
@@ -109,7 +114,7 @@ impl ModelRegistry for Registry {
         hash.update(&personal);
         hash.update(serde_json::to_vec(&*account)?);
         let signature = hash.finalize().to_vec();
-        if self.snapshot.read().unwrap().signature == signature {
+        if self.snapshot().signature == signature {
             return Ok(false);
         }
         let builtin: Value =
@@ -145,7 +150,10 @@ impl ModelRegistry for Registry {
         })
         .await??;
         next.signature = signature;
-        *self.snapshot.write().unwrap() = next;
+        *self
+            .snapshot
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = next;
         Ok(true)
     }
 }

@@ -1,10 +1,10 @@
 use crate::Engine;
 use async_trait::async_trait;
+use escode_cli_core_api::{RuntimeEvent, SessionRuntime};
+use escode_cli_protocol::CommandAck;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::sync::{Mutex, broadcast, mpsc};
-use escode_cli_core_api::{RuntimeEvent, SessionRuntime};
-use escode_cli_protocol::CommandAck;
 
 /// Shared runtime handle for the TUI and App Server.
 ///
@@ -50,7 +50,7 @@ impl SessionRuntime for CoreRuntime {
         let ack: CommandAck = serde_json::from_value(payload.clone())?;
         let _ = self
             .events
-            .send(Self::command_event(&event_command, payload.clone()));
+            .send(Self::command_event(&event_command, payload));
         Ok(ack)
     }
 

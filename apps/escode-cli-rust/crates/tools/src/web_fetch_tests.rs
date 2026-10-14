@@ -1,13 +1,16 @@
 use super::*;
 
+/// 预设路由：URL、状态码、响应头、响应体。
+type Routes = Vec<(
+    &'static str,
+    u16,
+    Vec<(&'static str, &'static str)>,
+    &'static str,
+)>;
+
 /// 按 URL 返回预设响应；记录请求顺序。
 struct Fake {
-    routes: Vec<(
-        &'static str,
-        u16,
-        Vec<(&'static str, &'static str)>,
-        &'static str,
-    )>,
+    routes: Routes,
     seen: Mutex<Vec<String>>,
 }
 
@@ -32,14 +35,7 @@ impl Transport for Fake {
     }
 }
 
-fn fake(
-    routes: Vec<(
-        &'static str,
-        u16,
-        Vec<(&'static str, &'static str)>,
-        &'static str,
-    )>,
-) -> Fake {
+fn fake(routes: Routes) -> Fake {
     Fake {
         routes,
         seen: Mutex::new(vec![]),
@@ -167,8 +163,10 @@ async fn oversized_content_writes_a_tool_result_artifact() {
         vec![("content-type", "text/html; charset=utf-8")],
         body,
     )]);
-    let root =
-        std::env::temp_dir().join(format!("escode-webfetch-artifact-{}", escode_cli_host::id()));
+    let root = std::env::temp_dir().join(format!(
+        "escode-webfetch-artifact-{}",
+        escode_cli_host::id()
+    ));
     let target = ArtifactTarget {
         root: &root,
         session: "sess_test",

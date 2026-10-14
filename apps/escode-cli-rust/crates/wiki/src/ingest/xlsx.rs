@@ -98,7 +98,7 @@ fn row_values(sheet: &Sheet, row: u32, min: u32, max: u32) -> Vec<String> {
             sheet
                 .cells
                 .get(&(row, c))
-                .map(|cell| cell.display())
+                .map(super::xlsx_cells::Cell::display)
                 .unwrap_or_default()
         })
         .collect()

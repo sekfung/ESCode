@@ -1,6 +1,6 @@
 //! 差分：Rust active_branch 与 TS selectActiveConversationBranch 逐条一致。
-use serde_json::Value;
 use escode_cli_domain::rewind_branch::active_branch;
+use serde_json::Value;
 
 #[test]
 fn rust_matches_ts_active_conversation_branch() {

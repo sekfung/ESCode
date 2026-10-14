@@ -34,7 +34,10 @@ fn matches_ts_oracle_corpus() {
             .iter()
             .map(|v| v.as_str().map(str::to_owned))
             .collect();
-        let ours: Vec<Option<String>> = actual.iter().map(|s| select(content, s).map(|sel| sel.content)).collect();
+        let ours: Vec<Option<String>> = actual
+            .iter()
+            .map(|s| select(content, s).map(|sel| sel.content))
+            .collect();
         assert_eq!(ours, selected, "{command} selected");
     }
 }

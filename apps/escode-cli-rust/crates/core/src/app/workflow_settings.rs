@@ -8,9 +8,12 @@
 //! 落行 / 暂存）→ `run.track`。追踪必须晚于设置轮落定重臂——否则一个很快结算的 run 的完成通知会跑到设置轮
 //! 前面。区别在于修订在忙会话上**不拒绝**：设置轮入 `Session::settings_turns` 延迟落，`deliver_workflow_notices`
 //! 的 settings_turns 门保证通知排在它后面。
-use super::{Engine, auxiliary::Auxiliary, workflow_run_commands::{
-    HOST_FAILURE, TRACK_SAVED_METHOD, WORKFLOW_LAUNCH_ORIGIN, rejected,
-}};
+use super::{
+    Engine,
+    auxiliary::Auxiliary,
+    workflow_run_commands::{HOST_FAILURE, TRACK_SAVED_METHOD, WORKFLOW_LAUNCH_ORIGIN},
+    workflow_run_replies::rejected,
+};
 use crate::{
     contract::{Event, EventSink},
     domain::protocol::{Command, Request},
@@ -80,8 +83,12 @@ impl Engine {
                     return;
                 }
                 Err(error) => {
-                    let ack =
-                        rejected(&c, revision, HOST_FAILURE.to_owned(), Some(&error.to_string()));
+                    let ack = rejected(
+                        &c,
+                        revision,
+                        HOST_FAILURE.to_owned(),
+                        Some(&error.to_string()),
+                    );
                     let _ = sink.send(Event::AuxiliaryDone { result: Ok(ack) }).await;
                     return;
                 }
@@ -96,9 +103,7 @@ impl Engine {
                 applied: applied.clone(),
                 reply,
             };
-            if sink.send(turn).await.is_err()
-                || reply_rx.await.map_err(|_| ()).is_err()
-            {
+            if sink.send(turn).await.is_err() || reply_rx.await.map_err(|_| ()).is_err() {
                 return;
             }
             // 就地调并发那条路没有第二个后台任务（track=false），那个 run 本来就在追踪器里。
@@ -136,10 +141,18 @@ impl Engine {
                 .context("Session unavailable")?
                 .settings_turns
                 .push(applied["turn"].clone());
-            return Ok(settings_accepted(c, self.sessions[session].revision, applied));
+            return Ok(settings_accepted(
+                c,
+                self.sessions[session].revision,
+                applied,
+            ));
         }
         self.write_settings_turn(session, &applied["turn"]).await?;
-        Ok(settings_accepted(c, self.sessions[session].revision, applied))
+        Ok(settings_accepted(
+            c,
+            self.sessions[session].revision,
+            applied,
+        ))
     }
 
     /// 落设置轮（标题 / userInput / controlOnly turnHeader / runtime history）。与启动轮同形，

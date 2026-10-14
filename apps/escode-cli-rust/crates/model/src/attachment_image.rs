@@ -3,11 +3,11 @@
 //! （2000 边长、3.75MB 原始字节、5MB base64）。
 //!
 //! 附件快照不可变，结果按快照缓存：长历史每个请求都会重新物化全部附件，不能每步重新编码。
+use escode_cli_host::image_budget;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex, OnceLock},
 };
-use escode_cli_host::image_budget;
 
 /// 进程内缓存上限（按准备后的字节计）；淘汰只会导致重新编码，不影响结果。
 const CACHE_BYTES: usize = 64 * 1024 * 1024;
@@ -58,7 +58,12 @@ pub fn set_media_cache_root(root: std::path::PathBuf) {
 
 /// TS `extensionForDerivedMediaContentType`。
 fn derived_extension(mime: &str) -> Option<(&'static str, &'static str)> {
-    let normalized = mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    let normalized = mime
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
     Some(match normalized.as_str() {
         "image/png" => ("image", ".png"),
         "image/jpeg" | "image/jpg" => ("image", ".jpg"),
@@ -97,7 +102,13 @@ pub(super) async fn derived_media_path(
     // TS sanitizePathSegment：非 [A-Za-z0-9._-] 替换为 `_`，最长 120，空串为 unknown。
     let mut segment: String = session
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+                c
+            } else {
+                '_'
+            }
+        })
         .take(120)
         .collect();
     if segment.is_empty() {
@@ -109,7 +120,10 @@ pub(super) async fn derived_media_path(
     let path = dir.join(format!("{kind}-{name}{extension}"));
     if !tokio::fs::try_exists(&path).await? {
         tokio::fs::create_dir_all(&dir).await?;
-        let temporary = dir.join(format!("{kind}-{name}{extension}.tmp-{}", uuid::Uuid::new_v4()));
+        let temporary = dir.join(format!(
+            "{kind}-{name}{extension}.tmp-{}",
+            uuid::Uuid::new_v4()
+        ));
         tokio::fs::write(&temporary, bytes).await?;
         if let Err(error) = tokio::fs::rename(&temporary, &path).await {
             let _ = tokio::fs::remove_file(&temporary).await;

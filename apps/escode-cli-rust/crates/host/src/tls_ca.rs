@@ -15,9 +15,7 @@ pub const EXPLICIT_CA_ENV_KEY: &str = "ESCODE_AGENT_CA_CERT";
 pub const NODE_EXTRA_CA_ENV_KEY: &str = "NODE_EXTRA_CA_CERTS";
 
 /// 应额外信任的根证书字节（0 或 1 份文件；文件里可以有多张证书）。
-pub fn extra_ca_certificates(
-    scope: crate::net_config::NetworkScope,
-) -> Result<Vec<Vec<u8>>> {
+pub fn extra_ca_certificates(scope: crate::net_config::NetworkScope) -> Result<Vec<Vec<u8>>> {
     // 显式来源 = `ESCODE_AGENT_CA_CERT` ?? 该作用域的 `network.caCertFile`（TS 合并后的 caCertFile）。
     extra_ca_certificates_from(|key| {
         if key == EXPLICIT_CA_ENV_KEY {
@@ -28,7 +26,9 @@ pub fn extra_ca_certificates(
     })
 }
 
-fn extra_ca_certificates_from(env: impl Fn(&str) -> Option<std::ffi::OsString>) -> Result<Vec<Vec<u8>>> {
+fn extra_ca_certificates_from(
+    env: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Result<Vec<Vec<u8>>> {
     if let Some(path) = env(EXPLICIT_CA_ENV_KEY) {
         let bytes = std::fs::read(PathBuf::from(&path)).with_context(|| {
             format!("Cannot read the configured CA certificate ({EXPLICIT_CA_ENV_KEY})")
@@ -63,7 +63,8 @@ mod tests {
         );
         // 显式来源存在但读不到 → 失败（不静默回落到系统根证书或另一个变量）。
         let missing = dir.path().join("missing.pem");
-        let env = |key: &str| (key == EXPLICIT_CA_ENV_KEY).then(|| missing.clone().into_os_string());
+        let env =
+            |key: &str| (key == EXPLICIT_CA_ENV_KEY).then(|| missing.clone().into_os_string());
         assert!(extra_ca_certificates_from(env).is_err());
     }
 
@@ -72,7 +73,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         assert!(extra_ca_certificates_from(|_| None).unwrap().is_empty());
         let missing = dir.path().join("missing.pem");
-        let env = |key: &str| (key == NODE_EXTRA_CA_ENV_KEY).then(|| missing.clone().into_os_string());
+        let env =
+            |key: &str| (key == NODE_EXTRA_CA_ENV_KEY).then(|| missing.clone().into_os_string());
         assert!(extra_ca_certificates_from(env).unwrap().is_empty());
     }
 }

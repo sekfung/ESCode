@@ -101,7 +101,8 @@ pub(super) async fn run(
     let git_bash = dialect == "git-bash";
     let snapshot = match (&selection.path, matches!(dialect, "posix" | "git-bash")) {
         (Some(shell_path), true) => {
-            let overlay = crate::shell_select::spawn_plan(platform, &env, &selection, "").env_overlay;
+            let overlay =
+                crate::shell_select::spawn_plan(platform, &env, &selection, "").env_overlay;
             crate::shell_snapshot::get(shell.startup_root, git_bash, shell_path, &overlay).await
         }
         _ => None,
@@ -111,11 +112,16 @@ pub(super) async fn run(
         None => text,
     };
     // TS createCwdCapturePlan：前台 Bash 成功后记录物理 cwd，用于「离开工作区」提示。
-    let cwd_capture = (shell.lifecycle.load(Ordering::SeqCst) == FOREGROUND).then(crate::shell_snapshot::cwd_file);
+    let cwd_capture = (shell.lifecycle.load(Ordering::SeqCst) == FOREGROUND)
+        .then(crate::shell_snapshot::cwd_file);
     let text = match &cwd_capture {
         Some(file) => {
             let native = file.to_string_lossy();
-            let shown = if git_bash { crate::embedded_search::windows_path_to_git_bash(&native) } else { native.into_owned() };
+            let shown = if git_bash {
+                crate::embedded_search::windows_path_to_git_bash(&native)
+            } else {
+                native.into_owned()
+            };
             let cmd = dialect == "cmd" || (dialect == "legacy-shell" && cfg!(windows));
             crate::domain::shell_snapshot::cwd_capture(&text, &shown, cmd)
         }
@@ -137,11 +143,15 @@ pub(super) async fn run(
         .stdout(writer.try_clone()?)
         .stderr(writer)
         .kill_on_drop(true);
-    #[cfg(unix)]
-    command.process_group(0);
-    let mut child = command.spawn().context("Cannot start shell")?;
+    // 新会话（setsid）：控制终端不再继承，`/dev/tty` 凭据提示不会挂住（P0#3，见 host::process_group）。
+    escode_cli_host::process_group::isolate(&mut command);
+    let child = command.spawn().context("Cannot start shell")?;
     // 父进程持有的写端必须随 Command 释放，否则管道永远等不到 EOF。
     drop(command);
+    #[cfg(unix)]
+    let mut child = super::process_tree::GroupKillOnDrop(child);
+    #[cfg(not(unix))]
+    let mut child = child;
     let pid = child.id().context("Missing child pid")?;
     // Windows 上把 shell 放进 Job，终止时连同 MSYS 后代一起回收；附加失败时退回 taskkill。
     #[cfg(windows)]
@@ -239,13 +249,21 @@ pub(super) async fn run(
         data["exitCode"] = code.into();
     }
     let rules = crate::domain::bash_model_content::stop_message;
-    if let Some(message) = rules(reason, timeout.map(|t| t.as_millis() as u64), overflow.is_cancelled()) {
+    if let Some(message) = rules(
+        reason,
+        timeout.map(|t| t.as_millis() as u64),
+        overflow.is_cancelled(),
+    ) {
         data["stderr"] = message.into();
     }
     let interpretation = if overflow.is_cancelled() {
         Some("Command stopped because output exceeded the configured limit".to_owned())
     } else {
-        crate::domain::bash_model_content::return_code_interpretation(command_text, reason, exit_code.map(i64::from))
+        crate::domain::bash_model_content::return_code_interpretation(
+            command_text,
+            reason,
+            exit_code.map(i64::from),
+        )
     };
     if let Some(interpretation) = interpretation {
         data["returnCodeInterpretation"] = interpretation.into();
@@ -258,7 +276,11 @@ pub(super) async fn run(
     // TS decideBashCwdPolicy：前台成功且最终物理 cwd 离开工作区时，stderr 追加重置提示。
     if let Some(file) = &cwd_capture {
         let succeeded = reason == "completed" && exit_code == Some(0);
-        let resolved = if succeeded { crate::shell_snapshot::read_cwd(file, git_bash).await } else { None };
+        let resolved = if succeeded {
+            crate::shell_snapshot::read_cwd(file, git_bash).await
+        } else {
+            None
+        };
         let _ = tokio::fs::remove_file(file).await;
         if let Some(resolved) = resolved
             && !backgrounded
@@ -266,7 +288,11 @@ pub(super) async fn run(
         {
             let stderr = data["stderr"].as_str().unwrap_or_default().to_owned();
             let root = shell.workspace.to_string_lossy();
-            data["stderr"] = crate::domain::shell_snapshot::reset_suffix(&stderr, root.trim_end_matches(['/', '\\'])).into();
+            data["stderr"] = crate::domain::shell_snapshot::reset_suffix(
+                &stderr,
+                root.trim_end_matches(['/', '\\']),
+            )
+            .into();
         }
     }
     // TS toBashOutput：提供方错误时不识别图片、不给 GitHub 限流提示；提示按原始 stdout 判断。
@@ -281,7 +307,11 @@ pub(super) async fn run(
     }
     if truncated || backgrounded {
         let path = path.to_string_lossy();
-        for key in ["rawOutputPath", "persistedOutputPath", "stdoutPersistedOutputPath"] {
+        for key in [
+            "rawOutputPath",
+            "persistedOutputPath",
+            "stdoutPersistedOutputPath",
+        ] {
             data[key] = path.as_ref().into();
         }
         data["persistedOutputSize"] = size.into();

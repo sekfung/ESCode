@@ -14,8 +14,8 @@ pub use crate::session_context_lite::{
     not_found_output, run,
 };
 pub use crate::session_context_parts::message_from_ts_json;
-pub use crate::session_context_topic::topic_archive_output;
 pub use crate::session_context_rust::messages_from_rust;
+pub use crate::session_context_topic::topic_archive_output;
 
 const DEFAULT_OUTPUT_CHAR_BUDGET: usize = 24_000;
 const MAX_OUTPUT_CHAR_BUDGET: usize = 48_000;

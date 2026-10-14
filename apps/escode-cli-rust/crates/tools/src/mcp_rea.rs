@@ -40,8 +40,12 @@ pub(super) fn launcher_env_available(exec: Option<&str>, entrypoint: Option<&str
 
 pub(super) fn host_rea_available() -> bool {
     launcher_env_available(
-        std::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH").ok().as_deref(),
-        std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT").ok().as_deref(),
+        std::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH")
+            .ok()
+            .as_deref(),
+        std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
+            .ok()
+            .as_deref(),
     )
 }
 
@@ -75,7 +79,10 @@ fn option_text(value: &Value) -> Option<String> {
 fn engine_env(plugin: &Plugin, options: &Value) -> Vec<(String, String)> {
     let defaults = &plugin.manifest["userConfig"];
     let mut keys: BTreeSet<String> = BTreeSet::new();
-    for map in [options.as_object(), defaults.as_object()].into_iter().flatten() {
+    for map in [options.as_object(), defaults.as_object()]
+        .into_iter()
+        .flatten()
+    {
         keys.extend(map.keys().cloned());
     }
 
@@ -110,15 +117,19 @@ fn engine_env(plugin: &Plugin, options: &Value) -> Vec<(String, String)> {
 fn resolve_runtime_root(plugin_root: &Path) -> Option<PathBuf> {
     let entry_relative = ["rea-agents", "scripts", "rea.mjs"];
     let mut candidates = Vec::new();
-    if let Ok(entrypoint) = std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT") {
-        if let Some(directory) = Path::new(entrypoint.trim()).parent() {
-            candidates.push(directory.join("rea-runtime").join("node_modules"));
-        }
+    if let Ok(entrypoint) = std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
+        && let Some(directory) = Path::new(entrypoint.trim()).parent()
+    {
+        candidates.push(directory.join("rea-runtime").join("node_modules"));
     }
     candidates.push(plugin_root.join("node_modules"));
-    candidates
-        .into_iter()
-        .find(|candidate| candidate.join(entry_relative[0]).join(entry_relative[1]).join(entry_relative[2]).is_file())
+    candidates.into_iter().find(|candidate| {
+        candidate
+            .join(entry_relative[0])
+            .join(entry_relative[1])
+            .join(entry_relative[2])
+            .is_file()
+    })
 }
 
 fn rea_env(plugin: &Plugin, options: &Value) -> Vec<(String, String)> {
@@ -128,7 +139,10 @@ fn rea_env(plugin: &Plugin, options: &Value) -> Vec<(String, String)> {
         "compact".to_owned(),
     )];
     if let Some(root) = resolve_runtime_root(&plugin.root) {
-        env.push(("REA_RUNTIME_ROOT".to_owned(), root.to_string_lossy().into_owned()));
+        env.push((
+            "REA_RUNTIME_ROOT".to_owned(),
+            root.to_string_lossy().into_owned(),
+        ));
     }
     env.extend(engine_env(plugin, options));
     env
@@ -155,7 +169,9 @@ pub(super) fn server(
             .into_owned(),
     ));
     // session 隔离：与 TS 侧默认一致（插件/host 注入以外没有 isolation 入口，默认即 session）。
-    super::mcp_serial::host_plugin_server(NAME, PLUGIN, TIMEOUT_MS, "session", &extra_env, plugins, cwd)
+    super::mcp_serial::host_plugin_server(
+        NAME, PLUGIN, TIMEOUT_MS, "session", &extra_env, plugins, cwd,
+    )
 }
 
 /// 并入权限 `allowedTools` 的免批准工具。插件关闭时这些工具不存在，放行项不生效。
@@ -179,14 +195,20 @@ mod tests {
         assert!(!launcher_env_available(Some("/bin/escode-helper"), None));
         assert!(!launcher_env_available(None, Some("/app/escode.cjs")));
         assert!(!launcher_env_available(Some("  "), Some("/app/escode.cjs")));
-        assert!(launcher_env_available(Some("/bin/escode-helper"), Some("/app/escode.cjs")));
+        assert!(launcher_env_available(
+            Some("/bin/escode-helper"),
+            Some("/app/escode.cjs")
+        ));
     }
 
     #[test]
     fn auto_approved_tools_come_from_the_generated_asset() {
         let names = auto_approved_tool_names();
         // 生成物里必须有 rea 的 defaultAllowedTools；为空说明 TS 定义或生成器断了。
-        assert!(!names.is_empty(), "generated defaultAllowedTools missing for rea");
+        assert!(
+            !names.is_empty(),
+            "generated defaultAllowedTools missing for rea"
+        );
         assert!(names.contains(&"binary_session".to_owned()));
         assert!(names.contains(&"batch_decompile".to_owned()));
         // 破坏性与写/会话类必须逐次审批。
@@ -199,7 +221,10 @@ mod tests {
             "install_adb_package",
             "capture_web_screenshot",
         ] {
-            assert!(!names.iter().any(|name| name == gated), "{gated} must stay approval-gated");
+            assert!(
+                !names.iter().any(|name| name == gated),
+                "{gated} must stay approval-gated"
+            );
         }
         let allowed = default_allowed_tools(true);
         assert!(allowed.contains(&"mcp__rea__binary_session".to_owned()));
@@ -209,8 +234,14 @@ mod tests {
     #[test]
     fn maps_option_keys_to_screaming_snake_env_names() {
         // 与 TS optionKeyToEnvName 同规则；改成手写对照表就会在两边漂移。
-        assert_eq!(option_key_to_env_name("ghidraInstallDir"), "GHIDRA_INSTALL_DIR");
-        assert_eq!(option_key_to_env_name("reaAnalysisProvider"), "REA_ANALYSIS_PROVIDER");
+        assert_eq!(
+            option_key_to_env_name("ghidraInstallDir"),
+            "GHIDRA_INSTALL_DIR"
+        );
+        assert_eq!(
+            option_key_to_env_name("reaAnalysisProvider"),
+            "REA_ANALYSIS_PROVIDER"
+        );
         assert_eq!(option_key_to_env_name("javaHome"), "JAVA_HOME");
     }
 
@@ -241,16 +272,32 @@ mod tests {
             "javaHome": "/usr/lib/jvm/temurin-21",
             "reaAnalysisProvider": "ghidra"
         });
-        let env: std::collections::BTreeMap<String, String> = engine_env(&plugin, &options).into_iter().collect();
+        let env: std::collections::BTreeMap<String, String> =
+            engine_env(&plugin, &options).into_iter().collect();
 
-        assert_eq!(env.get("GHIDRA_INSTALL_DIR").map(String::as_str), Some("/opt/ghidra"));
-        assert_eq!(env.get("JAVA_HOME").map(String::as_str), Some("/usr/lib/jvm/temurin-21"));
-        assert_eq!(env.get("REA_ANALYSIS_PROVIDER").map(String::as_str), Some("ghidra"));
+        assert_eq!(
+            env.get("GHIDRA_INSTALL_DIR").map(String::as_str),
+            Some("/opt/ghidra")
+        );
+        assert_eq!(
+            env.get("JAVA_HOME").map(String::as_str),
+            Some("/usr/lib/jvm/temurin-21")
+        );
+        assert_eq!(
+            env.get("REA_ANALYSIS_PROVIDER").map(String::as_str),
+            Some("ghidra")
+        );
         // 用户未填但 manifest 有默认 → 按默认注入；既无值也无默认 → 不注入。
-        assert!(env.get("HOPPER_LAUNCHER_PATH").is_some_and(|value| value.contains("Hopper")));
+        assert!(
+            env.get("HOPPER_LAUNCHER_PATH")
+                .is_some_and(|value| value.contains("Hopper"))
+        );
         assert!(!env.contains_key("REA_WABT_BIN_DIRECTORY"));
         // 逃生口：JSON 对象键值并入 env，空白值不注入，选项本身不映射。
-        assert_eq!(env.get("REA_GHIDRA_LANGUAGE_ID").map(String::as_str), Some("x86:LE:64:default"));
+        assert_eq!(
+            env.get("REA_GHIDRA_LANGUAGE_ID").map(String::as_str),
+            Some("x86:LE:64:default")
+        );
         assert!(!env.contains_key("BLANK"));
         assert!(!env.contains_key("EXTRA_ENV_JSON"));
     }

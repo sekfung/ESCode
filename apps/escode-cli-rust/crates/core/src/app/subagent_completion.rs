@@ -8,7 +8,9 @@ impl Engine {
         if s.agent_profile.is_none()
             || s.running()
             || s.background.values().any(|t| t.status == "running")
-            || s.children.values().any(|t| t.running())
+            || s.children
+                .values()
+                .any(escode_cli_domain::subagent::Task::running)
         {
             return Ok(());
         }
@@ -119,7 +121,7 @@ impl Engine {
         let text = crate::domain::background::task_notification_message(
             &pending
                 .iter()
-                .map(|t| t.notification())
+                .map(escode_cli_domain::subagent::Task::notification)
                 .collect::<Vec<_>>()
                 .join("\n"),
         );
@@ -141,7 +143,11 @@ impl Engine {
 
     /// TS drainPendingRuntimeCommandsForActiveLoop：父回合进行中完成的后台子代理，通知在步边界并入本回合
     /// （每条通知一条消息），不再等回合结束开后台结果轮。
-    pub(super) async fn steer_children(&mut self, id: &str, turn: &str) -> Result<Option<Vec<Value>>> {
+    pub(super) async fn steer_children(
+        &mut self,
+        id: &str,
+        turn: &str,
+    ) -> Result<Option<Vec<Value>>> {
         let now = self.clock.now();
         let s = self.sessions.get_mut(id).unwrap();
         let pending: Vec<String> = s

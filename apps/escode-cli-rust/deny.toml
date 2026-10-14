@@ -1,0 +1,45 @@
+# 依赖与许可证策略（docs/specs/rust-unified-host.md 阶段 0；对齐对标仓库的同一份规则口径）。
+# 运行：cargo deny --manifest-path apps/escode-cli-rust/Cargo.toml check（或 pnpm check:escode-cli-rust:deny）；
+# CI 由 EmbarkStudios/cargo-deny-action 在 checks job 执行。每条 ignore / 例外都必须写明理由与移除条件。
+
+[advisories]
+# 不预置任何 ignore：出现告警时先在提交里记录理由与移除条件，再加进来。
+ignore = []
+
+[licenses]
+# 白名单覆盖当前完整的跨平台依赖树；`unused-allowed-license = "allow"` 让白名单可先行放宽再收窄。
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "0BSD",
+    "CDLA-Permissive-2.0",
+    "OpenSSL",
+    "BSL-1.0",
+]
+unused-allowed-license = "allow"
+# 本仓库 crate 是私有的（publish = false，工作区统一声明 Apache-2.0），不参与许可证探测。
+private = { ignore = true }
+
+[bans]
+# 重复版本先以 warn 暴露（跨平台依赖树差异大）；通配版本依赖任何情况下拒绝。
+multiple-versions = "warn"
+wildcards = "deny"
+# 工作区内部成员以 path 依赖互相引用（成员侧 `.workspace = true` 不写版本号属正常形态），
+# 放行的仅限本地 path 依赖；registry 依赖的通配版本仍然被 wildcards = "deny" 拒绝。
+allow-wildcard-paths = true
+
+[sources]
+# 只允许 crates.io：未知 registry / git 源一律拒绝（Cargo.lock 当前没有 git 依赖）。
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

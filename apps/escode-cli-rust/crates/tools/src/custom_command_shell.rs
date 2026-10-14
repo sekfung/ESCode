@@ -152,8 +152,7 @@ async fn run(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
-    #[cfg(unix)]
-    process.process_group(0);
+    escode_cli_host::process_group::isolate(&mut process);
     let mut child = process.spawn().context("Cannot start shell")?;
     let pid = child.id().context("Missing child pid")?;
     #[cfg(windows)]

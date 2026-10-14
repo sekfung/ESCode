@@ -1,7 +1,7 @@
 use async_trait::async_trait;
+use escode_cli_protocol::CommandAck;
 use serde_json::Value;
 use tokio::sync::mpsc;
-use escode_cli_protocol::CommandAck;
 
 /// A frontend-facing event envelope. The core owns sequencing; frontends only
 /// render or transport the resulting facts.

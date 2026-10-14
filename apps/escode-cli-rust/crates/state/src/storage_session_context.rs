@@ -4,8 +4,8 @@
 use std::path::Path;
 
 use anyhow::Result;
-use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use escode_cli_domain::session_context::{SessionInfo, message_from_ts_json, messages_from_rust};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 
 pub(super) fn read(
     conn: &Connection,

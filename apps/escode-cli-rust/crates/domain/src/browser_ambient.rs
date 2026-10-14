@@ -5,7 +5,10 @@ use serde_json::Value;
 pub fn format(input: &str, context: &Value) -> Option<String> {
     let count = context["tabCount"].as_u64().filter(|c| *c > 0)?;
     // TS Number.isInteger：非整数（如 1.5）不包装。
-    if context["tabCount"].as_f64().is_some_and(|c| c.fract() != 0.0) {
+    if context["tabCount"]
+        .as_f64()
+        .is_some_and(|c| c.fract() != 0.0)
+    {
         return None;
     }
     let label = if count == 1 { "tab" } else { "tabs" };
@@ -18,7 +21,12 @@ pub fn format(input: &str, context: &Value) -> Option<String> {
     if let Some(url) = context["currentUrl"].as_str().filter(|u| !u.is_empty()) {
         lines.push(format!("- Current URL: {url}"));
     }
-    lines.extend(["</in-app-browser-context>".to_owned(), String::new(), "## My request for ESCode:".to_owned(), input.to_owned()]);
+    lines.extend([
+        "</in-app-browser-context>".to_owned(),
+        String::new(),
+        "## My request for ESCode:".to_owned(),
+        input.to_owned(),
+    ]);
     Some(lines.join("\n"))
 }
 
@@ -29,11 +37,19 @@ mod tests {
 
     #[test]
     fn wraps_only_positive_integer_tab_counts() {
-        let wrapped = format("hi", &json!({"tabCount": 2, "currentUrl": "https://a.example/"})).unwrap();
+        let wrapped = format(
+            "hi",
+            &json!({"tabCount": 2, "currentUrl": "https://a.example/"}),
+        )
+        .unwrap();
         assert!(wrapped.starts_with("<in-app-browser-context source=\"ambient-ui-state\">\n"));
         assert!(wrapped.contains("- The user has the in-app browser open with 2 tabs.\n- Current URL: https://a.example/\n"));
         assert!(wrapped.ends_with("</in-app-browser-context>\n\n## My request for ESCode:\nhi"));
-        assert!(format("hi", &json!({"tabCount": 1})).unwrap().contains("with 1 tab.\n</in-app"));
+        assert!(
+            format("hi", &json!({"tabCount": 1}))
+                .unwrap()
+                .contains("with 1 tab.\n</in-app")
+        );
         assert_eq!(format("hi", &json!({"tabCount": 0})), None);
         assert_eq!(format("hi", &json!({"tabCount": 1.5})), None);
         assert_eq!(format("hi", &json!(null)), None);

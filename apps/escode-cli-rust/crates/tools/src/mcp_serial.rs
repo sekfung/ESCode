@@ -44,10 +44,21 @@ pub(super) fn host_plugin_server(
 ) -> Option<Server> {
     let root = plugins.iter().find(|p| p.id == plugin)?.root.clone();
     let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
-    let (exec, entrypoint) = (launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?, launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?);
+    let (exec, entrypoint) = (
+        launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?,
+        launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?,
+    );
     Server::parse(
         name,
-        config(&root, cwd, &exec, &entrypoint, timeout_ms, isolation, extra_env),
+        config(
+            &root,
+            cwd,
+            &exec,
+            &entrypoint,
+            timeout_ms,
+            isolation,
+            extra_env,
+        ),
         cwd,
     )
     .ok()
@@ -64,7 +75,8 @@ fn config(
 ) -> Value {
     let script = root.join("dist").join("mcp").join("server.js");
     // 桌面打包态启动器是 ESCode Helper；缺少 Node 模式会误进 Electron main。
-    let mut env = json!({"ELECTRON_RUN_AS_NODE": "1", "ESCODE_PLUGIN_ROOT": root.to_string_lossy()});
+    let mut env =
+        json!({"ELECTRON_RUN_AS_NODE": "1", "ESCODE_PLUGIN_ROOT": root.to_string_lossy()});
     if let Some(map) = env.as_object_mut() {
         for (key, value) in extra_env {
             map.insert(key.clone(), Value::String(value.clone()));
@@ -88,7 +100,10 @@ pub(super) fn default_allowed_tools(available: bool) -> Vec<String> {
     if !available {
         return vec![];
     }
-    READ_ONLY_TOOLS.iter().map(|tool| format!("mcp__{NAME}__{tool}")).collect()
+    READ_ONLY_TOOLS
+        .iter()
+        .map(|tool| format!("mcp__{NAME}__{tool}"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -120,7 +135,11 @@ mod tests {
     fn read_only_tools_are_allowed_only_when_host_declares_serial() {
         assert_eq!(
             default_allowed_tools(true),
-            ["mcp__serial__serial_list", "mcp__serial__serial_read", "mcp__serial__serial_wait_for"],
+            [
+                "mcp__serial__serial_list",
+                "mcp__serial__serial_read",
+                "mcp__serial__serial_wait_for"
+            ],
         );
         assert!(default_allowed_tools(false).is_empty());
     }

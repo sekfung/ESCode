@@ -15,7 +15,10 @@ pub struct ModelExecution {
 
 fn strict(value: &Value, keys: &[&str]) -> Option<Map<String, Value>> {
     let object = value.as_object()?;
-    object.keys().all(|k| keys.contains(&k.as_str())).then(|| object.clone())
+    object
+        .keys()
+        .all(|k| keys.contains(&k.as_str()))
+        .then(|| object.clone())
 }
 
 fn non_empty(value: &Value) -> bool {
@@ -24,7 +27,16 @@ fn non_empty(value: &Value) -> bool {
 
 pub fn parse(value: &Value) -> Result<ModelExecution, String> {
     let invalid = || "Invalid modelExecution".to_owned();
-    let object = strict(value, &["memoryExtraction", "selectionScope", "requestAuth", "subagents"]).ok_or_else(invalid)?;
+    let object = strict(
+        value,
+        &[
+            "memoryExtraction",
+            "selectionScope",
+            "requestAuth",
+            "subagents",
+        ],
+    )
+    .ok_or_else(invalid)?;
     if object.get("selectionScope").and_then(Value::as_str) != Some("execution") {
         return Err(invalid());
     }
@@ -42,7 +54,10 @@ pub fn parse(value: &Value) -> Result<ModelExecution, String> {
             }
             if let Some(headers) = auth.get("headers") {
                 let headers = headers.as_object().ok_or_else(invalid)?;
-                if headers.iter().any(|(name, value)| name.is_empty() || !non_empty(value)) {
+                if headers
+                    .iter()
+                    .any(|(name, value)| name.is_empty() || !non_empty(value))
+                {
                     return Err(invalid());
                 }
             }
@@ -61,7 +76,11 @@ pub fn parse(value: &Value) -> Result<ModelExecution, String> {
             true
         }
     };
-    Ok(ModelExecution { skip_memory, request_auth, subagents })
+    Ok(ModelExecution {
+        skip_memory,
+        request_auth,
+        subagents,
+    })
 }
 
 #[cfg(test)]
@@ -74,8 +93,14 @@ mod tests {
         let full = json!({"memoryExtraction":"skip","selectionScope":"execution","requestAuth":{"apiKey":"k","headers":{"X-A":"b"}},"subagents":{"foregroundModel":"submission","background":"deny"}});
         let parsed = parse(&full).unwrap();
         assert!(parsed.skip_memory && parsed.subagents);
-        assert_eq!(parsed.request_auth, Some(json!({"apiKey":"k","headers":{"X-A":"b"}})));
-        assert_eq!(parse(&json!({"selectionScope":"execution"})).unwrap(), ModelExecution::default());
+        assert_eq!(
+            parsed.request_auth,
+            Some(json!({"apiKey":"k","headers":{"X-A":"b"}}))
+        );
+        assert_eq!(
+            parse(&json!({"selectionScope":"execution"})).unwrap(),
+            ModelExecution::default()
+        );
         for bad in [
             json!({}),
             json!({"selectionScope":"session"}),

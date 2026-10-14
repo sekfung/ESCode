@@ -201,10 +201,15 @@ pub(super) fn closure_in(
 /// TS `findPluginManifestPath`。
 pub(super) fn manifest_path(root: &Path) -> Option<PathBuf> {
     // 旧 manifest 目录：Z.ai 官方 CDN 与既有第三方插件仍以 .zcode-plugin 发布（docs/specs/escode-rebrand.md）。
-    [".escode-plugin", ".zcode-plugin", ".claude-plugin", ".codex-plugin"]
-        .iter()
-        .map(|dir| root.join(dir).join("plugin.json"))
-        .find(|path| path.is_file())
+    [
+        ".escode-plugin",
+        ".zcode-plugin",
+        ".claude-plugin",
+        ".codex-plugin",
+    ]
+    .iter()
+    .map(|dir| root.join(dir).join("plugin.json"))
+    .find(|path| path.is_file())
 }
 
 /// TS `resolveInside`：相对路径解析后必须仍在 base 内。

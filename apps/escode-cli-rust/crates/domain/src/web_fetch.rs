@@ -25,7 +25,9 @@ pub fn zod_url_error(value: &str) -> Option<String> {
     if Url::parse(value).is_ok() {
         return None;
     }
-    let issue = crate::json_order::Json::parse(r#"[{"validation":"url","code":"invalid_string","message":"Invalid url","path":["url"]}]"#)?;
+    let issue = crate::json_order::Json::parse(
+        r#"[{"validation":"url","code":"invalid_string","message":"Invalid url","path":["url"]}]"#,
+    )?;
     Some(issue.pretty())
 }
 

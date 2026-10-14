@@ -11,7 +11,11 @@ pub enum ShellKind {
 impl ShellKind {
     /// TS `detectShellKind`：按 shell 文件名判断。
     pub fn detect(shell_path: &str) -> Self {
-        let name = shell_path.rsplit(['/', '\\']).next().unwrap_or(shell_path).to_lowercase();
+        let name = shell_path
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or(shell_path)
+            .to_lowercase();
         if name.contains("zsh") {
             Self::Zsh
         } else if name.contains("bash") {
@@ -38,7 +42,13 @@ impl ShellKind {
 }
 
 /// TS `buildShellInitSnapshotCreationScript`。
-pub fn creation_script(config_exists: bool, config_path: &str, path_value: &str, kind: ShellKind, snapshot_path: &str) -> String {
+pub fn creation_script(
+    config_exists: bool,
+    config_path: &str,
+    path_value: &str,
+    kind: ShellKind,
+    snapshot_path: &str,
+) -> String {
     let mut lines: Vec<String> = vec![
         format!("SNAPSHOT_FILE={}", quote_always(snapshot_path)),
         if config_exists {
@@ -58,7 +68,11 @@ pub fn creation_script(config_exists: bool, config_path: &str, path_value: &str,
         String::new(),
     ];
     if config_exists {
-        lines.extend(export_lines(kind).iter().map(|s| s.to_string()));
+        lines.extend(
+            export_lines(kind)
+                .iter()
+                .map(std::string::ToString::to_string),
+        );
     } else if kind != ShellKind::Zsh {
         lines.push(r##"echo "shopt -s expand_aliases" >> "$SNAPSHOT_FILE""##.into());
     }
@@ -79,9 +93,11 @@ pub fn creation_script(config_exists: bool, config_path: &str, path_value: &str,
 }
 
 /// TS 原文：`set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE"`。
-pub const TS_SET_O_LINE: &str = r##"set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
+pub const TS_SET_O_LINE: &str =
+    r##"set -o | grep "on" | awk '{print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
 /// 只写入状态为 on 的选项（docs/specs/rust-bash-shell-snapshot.md 的有意差异）。
-pub const TS_SET_O_LINE_FIXED: &str = r##"set -o | awk '$2 == "on" {print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
+pub const TS_SET_O_LINE_FIXED: &str =
+    r##"set -o | awk '$2 == "on" {print "set -o " $1}' | head -n 1000 >> "$SNAPSHOT_FILE""##;
 
 const ALIAS_LINES: [&str; 9] = [
     r##"echo "# Aliases" >> "$SNAPSHOT_FILE""##,
@@ -152,7 +168,10 @@ pub fn cwd_capture(command: &str, cwd_file: &str, cmd: bool) -> String {
         return [
             command.to_owned(),
             r##"set "__escode_status=%ERRORLEVEL%""##.to_owned(),
-            format!(r##"if "%__escode_status%"=="0" cd > "{}""##, cwd_file.replace('"', "\"\"")),
+            format!(
+                r##"if "%__escode_status%"=="0" cd > "{}""##,
+                cwd_file.replace('"', "\"\"")
+            ),
             "exit /b %__escode_status%".to_owned(),
         ]
         .join("\r\n");
@@ -160,7 +179,10 @@ pub fn cwd_capture(command: &str, cwd_file: &str, cmd: bool) -> String {
     [
         command.to_owned(),
         "__escode_status=$?".to_owned(),
-        format!(r##"if [ "$__escode_status" -eq 0 ]; then pwd -P > {}; fi"##, quote_always(cwd_file)),
+        format!(
+            r##"if [ "$__escode_status" -eq 0 ]; then pwd -P > {}; fi"##,
+            quote_always(cwd_file)
+        ),
         r##"exit "$__escode_status""##.to_owned(),
     ]
     .join("\n")
@@ -174,7 +196,11 @@ pub fn git_bash_to_windows(value: &str) -> String {
     let rest_to_windows = |rest: &str| {
         let converted = rest.replace('/', "\\");
         let converted = converted.trim_start_matches('\\');
-        if converted.is_empty() { "\\".to_owned() } else { format!("\\{converted}") }
+        if converted.is_empty() {
+            "\\".to_owned()
+        } else {
+            format!("\\{converted}")
+        }
     };
     let drive = |rest: &str| -> Option<(char, usize)> {
         let mut chars = rest.chars();
@@ -184,12 +210,20 @@ pub fn git_bash_to_windows(value: &str) -> String {
     if let Some(rest) = value.strip_prefix("/cygdrive/")
         && let Some((letter, len)) = drive(rest)
     {
-        return format!("{}:{}", letter.to_ascii_uppercase(), rest_to_windows(&rest[len..]));
+        return format!(
+            "{}:{}",
+            letter.to_ascii_uppercase(),
+            rest_to_windows(&rest[len..])
+        );
     }
     if let Some(rest) = value.strip_prefix('/')
         && let Some((letter, len)) = drive(rest)
     {
-        return format!("{}:{}", letter.to_ascii_uppercase(), rest_to_windows(&rest[len..]));
+        return format!(
+            "{}:{}",
+            letter.to_ascii_uppercase(),
+            rest_to_windows(&rest[len..])
+        );
     }
     value.replace('/', "\\")
 }
@@ -198,7 +232,11 @@ pub fn git_bash_to_windows(value: &str) -> String {
 pub fn reset_suffix(stderr: &str, workspace_root: &str) -> String {
     let suffix = format!("Shell cwd was reset to {workspace_root}");
     let trimmed = stderr.trim_end_matches(['\r', '\n']);
-    if trimmed.is_empty() { suffix } else { format!("{trimmed}\n{suffix}") }
+    if trimmed.is_empty() {
+        suffix
+    } else {
+        format!("{trimmed}\n{suffix}")
+    }
 }
 
 /// TS `shellQuoteAlways`。
@@ -208,7 +246,11 @@ pub fn quote_always(value: &str) -> String {
 
 /// TS `shellDoubleQuote`。
 fn double_quote(value: &str) -> String {
-    let escaped = value.replace('\\', r"\\").replace('"', r##"\""##).replace('$', r"\$").replace('`', r"\`");
+    let escaped = value
+        .replace('\\', r"\\")
+        .replace('"', r##"\""##)
+        .replace('$', r"\$")
+        .replace('`', r"\`");
     format!("\"{escaped}\"")
 }
 

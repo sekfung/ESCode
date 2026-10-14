@@ -32,8 +32,16 @@ pub(super) struct Stamp {
 impl Stamp {
     pub(super) async fn of(path: &Path) -> Option<Self> {
         let meta = tokio::fs::metadata(path).await.ok()?;
-        let mtime_ms = meta.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_millis();
-        Some(Self { mtime_ms, size: meta.len() })
+        let mtime_ms = meta
+            .modified()
+            .ok()?
+            .duration_since(UNIX_EPOCH)
+            .ok()?
+            .as_millis();
+        Some(Self {
+            mtime_ms,
+            size: meta.len(),
+        })
     }
 }
 
@@ -58,14 +66,26 @@ impl FileState {
         self.entries.keys().cloned().collect()
     }
     /// TS `createReadFileStateKey(path, offset ?? 1, limit)` 的一次非 partial view 读取（Read、Write/Edit 后、Bash 回填）。
-    pub(super) fn record_range(&mut self, path: PathBuf, offset: u64, limit: Option<u64>, stamp: Stamp) {
+    pub(super) fn record_range(
+        &mut self,
+        path: PathBuf,
+        offset: u64,
+        limit: Option<u64>,
+        stamp: Stamp,
+    ) {
         if self.ranges.len() >= LIMIT {
             self.ranges.clear();
         }
         self.ranges.insert((path, offset, limit), stamp);
     }
     /// TS `isCachedReadFresh`：同一路径与范围的上次读取之后文件未变（mtime 与大小都相同）。
-    pub(super) fn range_fresh(&self, path: &Path, offset: u64, limit: Option<u64>, stamp: Stamp) -> bool {
+    pub(super) fn range_fresh(
+        &self,
+        path: &Path,
+        offset: u64,
+        limit: Option<u64>,
+        stamp: Stamp,
+    ) -> bool {
         self.ranges.get(&(path.to_owned(), offset, limit)) == Some(&stamp)
     }
 }

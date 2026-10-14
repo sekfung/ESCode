@@ -8,9 +8,9 @@
 use super::saved_workflows::{self as store, Entry, Resolve, Scope};
 use super::workflow_analyzer::WorkflowAnalyzer;
 use anyhow::{Context, Result};
+use escode_cli_domain::{json_order::Json, saved_workflow as codec};
 use serde_json::{Value, json};
 use std::path::Path;
-use escode_cli_domain::{json_order::Json, saved_workflow as codec};
 
 /// 诊断回给 GUI 的上界（TS SAVE_DIAGNOSTICS_MAX_LINES / _MAX_CHARS）。
 const SAVE_DIAGNOSTICS_MAX_LINES: usize = 5;
@@ -133,7 +133,14 @@ fn bounded_diagnostics(diagnostics: &Value) -> String {
         .into_iter()
         .flatten()
         .take(SAVE_DIAGNOSTICS_MAX_LINES)
-        .map(|d| format!("L{}:C{} {}", d["line"], d["column"], d["message"].as_str().unwrap_or("")))
+        .map(|d| {
+            format!(
+                "L{}:C{} {}",
+                d["line"],
+                d["column"],
+                d["message"].as_str().unwrap_or("")
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
     let units: Vec<u16> = text.encode_utf16().collect();
@@ -172,7 +179,9 @@ fn for_run(cwd: &Path, home: &Path, params: &Value, run: Option<RunFacts>) -> Va
     };
     // 1. 对话说的：候选名仍要解析一遍——用户后来把那份删了，它就不再是事实。
     for candidate in params["candidates"].as_array().into_iter().flatten() {
-        let Some(candidate_name) = candidate["name"].as_str().filter(|n| store::is_valid_name(n))
+        let Some(candidate_name) = candidate["name"]
+            .as_str()
+            .filter(|n| store::is_valid_name(n))
         else {
             continue;
         };
@@ -190,7 +199,8 @@ fn for_run(cwd: &Path, home: &Path, params: &Value, run: Option<RunFacts>) -> Va
         for scope in [Scope::Project, Scope::Global] {
             let listed = store::list(cwd, home, Some(scope));
             for entry in listed.entries.into_iter().take(SCRIPT_MATCH_SCAN_LIMIT) {
-                if let Resolve::Found(resolved) = store::resolve(cwd, home, &entry.name, Some(scope))
+                if let Resolve::Found(resolved) =
+                    store::resolve(cwd, home, &entry.name, Some(scope))
                     && resolved.script == *script
                 {
                     return hit(entry, "script");
@@ -228,12 +238,28 @@ mod tests {
             name: Some(name.into()),
             args: Some(json!({"n": 1})),
         };
-        let by_candidate = for_run(&cwd, &home, &params(json!([{"name": "beta"}])), Some(run("x", "y")));
+        let by_candidate = for_run(
+            &cwd,
+            &home,
+            &params(json!([{"name": "beta"}])),
+            Some(run("x", "y")),
+        );
         assert_eq!(by_candidate["match"], "candidate");
         assert_eq!(by_candidate["entry"]["name"], "beta");
         assert_eq!(by_candidate["runArgs"], json!({"n": 1}));
-        let by_script = for_run(&cwd, &home, &params(json!([{"name": "gone"}])), Some(run("export default 1;\n", "y")));
-        assert_eq!((by_script["match"].as_str(), by_script["entry"]["name"].as_str()), (Some("script"), Some("alpha")));
+        let by_script = for_run(
+            &cwd,
+            &home,
+            &params(json!([{"name": "gone"}])),
+            Some(run("export default 1;\n", "y")),
+        );
+        assert_eq!(
+            (
+                by_script["match"].as_str(),
+                by_script["entry"]["name"].as_str()
+            ),
+            (Some("script"), Some("alpha"))
+        );
         let by_name = for_run(&cwd, &home, &params(json!([])), Some(run("other", "beta")));
         assert_eq!(by_name["match"], "name");
         assert_eq!(for_run(&cwd, &home, &params(json!([])), None), json!({}));

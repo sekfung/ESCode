@@ -125,7 +125,10 @@ impl Task {
             "failed" => "failed",
             _ => "stopped",
         };
-        let mut summary = format!("Agent {} task \"{}\" {status}.", self.agent_type, self.description);
+        let mut summary = format!(
+            "Agent {} task \"{}\" {status}.",
+            self.agent_type, self.description
+        );
         if status == "failed" && !self.output.trim().is_empty() {
             summary = format!("{summary} {}", self.output);
         }
@@ -135,11 +138,17 @@ impl Task {
             format!("<tool-use-id>{}</tool-use-id>", escape(&self.call_id)),
         ];
         if !self.output_file.is_empty() {
-            lines.push(format!("<output-file>{}</output-file>", escape(&self.output_file)));
+            lines.push(format!(
+                "<output-file>{}</output-file>",
+                escape(&self.output_file)
+            ));
         }
         lines.push(format!("<status>{status}</status>"));
         lines.push(format!("<summary>{}</summary>", escape(&summary)));
-        let duration = self.ended_at.unwrap_or(self.started_at).saturating_sub(self.started_at);
+        let duration = self
+            .ended_at
+            .unwrap_or(self.started_at)
+            .saturating_sub(self.started_at);
         match status {
             "completed" => {
                 lines.push(format!("<result>{}</result>", escape(&self.output)));
@@ -150,13 +159,19 @@ impl Task {
             }
             "failed" => {
                 lines.push(format!("<error>{}</error>", escape(&self.output)));
-                lines.push(format!("<usage><duration_ms>{duration}</duration_ms></usage>"));
+                lines.push(format!(
+                    "<usage><duration_ms>{duration}</duration_ms></usage>"
+                ));
             }
-            _ => lines.push(format!("<usage><duration_ms>{duration}</duration_ms></usage>")),
+            _ => lines.push(format!(
+                "<usage><duration_ms>{duration}</duration_ms></usage>"
+            )),
         }
         lines.push("</task-notification>".to_owned());
-        lines.join("
-")
+        lines.join(
+            "
+",
+        )
     }
     pub fn task_output(&self, timed_out: bool) -> Value {
         json!({"retrieval_status":if self.running(){if timed_out{"timeout"}else{"not_ready"}}else{"success"},
@@ -177,11 +192,11 @@ pub fn projection(s: &crate::session::Session, patch: &mut Value) {
         return;
     }
     patch["subagents"] = json!({"revision":s.revision,"childSessionIds":s.children.values().map(|t|&t.child_id).collect::<Vec<_>>(),
-        "running":s.children.values().filter(|t|t.running()).map(|t|t.summary()).collect::<Vec<_>>(),"endedTotal":s.children.values().filter(|t|!t.running()).count()});
+        "running":s.children.values().filter(|t|t.running()).map(Task::summary).collect::<Vec<_>>(),"endedTotal":s.children.values().filter(|t|!t.running()).count()});
     patch["backgroundWorks"].as_array_mut().unwrap().extend(
         s.children
             .values()
             .filter(|t| t.background && (t.running() || !t.notified))
-            .map(|t| t.background_work()),
+            .map(Task::background_work),
     );
 }

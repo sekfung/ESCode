@@ -1,7 +1,7 @@
 use super::legacy_attachments::file_content;
 use super::legacy_attempt::check;
 use super::legacy_projection::items;
-use super::storage::{SessionWrite, write};
+use super::storage_write::{SessionWrite, write};
 use crate::domain::session::Session;
 use anyhow::{Context, Result, ensure};
 use rusqlite::{Connection, params};

@@ -116,6 +116,15 @@ impl ModelPort for Model {
     ) -> std::result::Result<ModelOutput, ModelFailure> {
         self.requests.send(messages.to_vec()).unwrap();
         let first = self.calls.fetch_add(1, Ordering::SeqCst) == 0;
+        // P0#1 对照用例：末条 user 消息带标记时让模型 stub panic，模拟 run 任务崩溃（计数已先行，便于断言）。
+        if messages.last().is_some_and(|m| {
+            m["role"] == "user"
+                && m["content"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("panic-now"))
+        }) {
+            panic!("injected model panic");
+        }
         // 来自旧 generation 的文本和结束事件不能污染当前 turn。
         sink.tx
             .send(RunEvent {
@@ -347,6 +356,49 @@ async fn receive<T>(rx: &mut mpsc::UnboundedReceiver<T>) -> T {
         .await
         .unwrap()
         .unwrap()
+}
+
+// ---- 投递层（subscriptions.rs）驱动助手：边放行提交、边收集帧。 ----
+
+fn frame_notifications(batch: &[Value]) -> Vec<Value> {
+    batch
+        .iter()
+        .filter(|message| message["method"] == "v4/conversation/frame")
+        .map(|message| message["params"].clone())
+        .collect()
+}
+
+/// 处理输出与提交直到 `reply {id}` 出现；返回（含回复的批次，期间收到的全部帧）。
+async fn drive_until_reply(
+    runtime: &mut Runtime,
+    id: u64,
+    timeout_secs: u64,
+) -> (Vec<Value>, Vec<Value>) {
+    let mut frames = vec![];
+    let batch = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), async {
+        loop {
+            tokio::select! {
+                Some(batch) = runtime.output.recv() => {
+                    frames.extend(frame_notifications(&batch));
+                    if batch.iter().any(|message| message["id"].as_u64() == Some(id)) {
+                        return batch;
+                    }
+                }
+                Some(commit) = runtime.commits.recv() => commit.permit.send(true).unwrap(),
+            }
+        }
+    })
+    .await
+    .expect("reply never arrived");
+    (batch, frames)
+}
+
+fn protocol_request(id: u64, method: &str, params: Value) -> Request {
+    serde_json::from_value(json!({"id": id, "method": method, "params": params})).unwrap()
+}
+
+fn create_session_request(id: u64) -> Request {
+    serde_json::from_value(json!({"id":id,"method":"v4/command","params":{"commandId":format!("create-{id}"),"clientId":"test","sessionId":null,"type":"createSession","issuedAt":1000,"payload":{"workspaceId":"workspace","firstInput":{"text":"run","mode":"yolo"}}}})).unwrap()
 }
 
 #[tokio::test]
@@ -905,4 +957,240 @@ async fn todo_state_and_result_commits_gate_next_tools_and_recover_actual_result
         assert_eq!(runtime.tools.calls.load(Ordering::SeqCst), 0);
         assert!(runtime.commits.try_recv().is_err());
     }
+}
+
+/// P0#1 对照用例（docs/specs/rust-unified-host.md「实现质量对齐工作包」）：run 任务在模型请求处 panic，
+/// panic 必须被转成本轮失败终态（Finished.error），Engine 在 EOF 后能收尾返回。
+/// 修复前 run 任务 panic 不会发出 Finished：`active` 永不空、关闭路径永久挂起（本用例超时失败）。
+#[tokio::test]
+async fn a_panicking_run_still_reaches_a_terminal_phase() {
+    let mut runtime = start_with_input(vec![], None, json!({"text": "panic-now"})).await;
+    // 放行回合落库的提交，直到模型 stub 收到本轮请求（紧接着按标记 panic）；过早发 EOF 会让
+    // run 在被调度前取消、走不到 panic 路径。
+    let mut saw_user = false;
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            tokio::select! {
+                Some(request) = runtime.requests.recv() => break request,
+                Some(pending) = runtime.commits.recv() => {
+                    if !saw_user {
+                        assert_eq!(pending.last_role, "user");
+                        saw_user = true;
+                    }
+                    pending.permit.send(true).unwrap();
+                }
+            }
+        }
+    })
+    .await
+    .expect("model request never arrived");
+    // EOF 后 Engine 进入收尾；失败终结可能再落一次提交，需一并放行到 Engine 返回。
+    runtime.input.send(Input::Eof).await.unwrap();
+    let result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            tokio::select! {
+                result = &mut runtime.running => break result,
+                Some(pending) = runtime.commits.recv() => pending.permit.send(true).unwrap(),
+            }
+        }
+    })
+    .await
+    .expect("Engine hung after a panicking run")
+    .expect("Engine task panicked");
+    // 模型 stub 只被调用一次且发生了 panic；若 Finished 未发出，收尾会一直等 active 清空而超时。
+    assert_eq!(runtime.model.calls.load(Ordering::SeqCst), 1);
+    // run 的 panic 只影响该轮：Engine 自身正常收尾。
+    assert!(
+        result.is_ok(),
+        "Engine should wind down cleanly: {result:?}"
+    );
+}
+
+/// P0#2 投递层兜底（docs/specs/rust-unified-host.md「实现质量对齐工作包」）：订阅 ACK 先于首帧、
+/// 重复订阅替换、conversation 续传、暂停期不投递、drained 恢复、关闭连接清理与契约错误。
+/// 覆盖此前零测试的 `crates/core/src/app/subscriptions.rs`。
+#[tokio::test]
+async fn subscription_delivery_snapshot_pause_resume_close_and_replace() {
+    let mut runtime = start_with_input(vec![], None, json!({"text":"run"})).await;
+    // 创建会话的提交先放行，等 createSession 的回复（此前 Engine 不会处理后续请求）。
+    let commit = receive(&mut runtime.commits).await;
+    let session_one = commit.session_id.clone();
+    assert_eq!(commit.last_role, "user");
+    commit.permit.send(true).unwrap();
+    drive_until_reply(&mut runtime, 1, 5).await;
+
+    let index_topic = "sessions-index/workspace".to_owned();
+    // ACK 先于首帧（同一批次内 reply 在帧之前），首帧为 snapshot。
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            2,
+            "v4/conversation/subscribe",
+            json!({"topic":index_topic,"connectionId":"c1","clientMode":"desktop-continuous"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, frames) = drive_until_reply(&mut runtime, 2, 5).await;
+    assert_eq!(
+        batch[0]["id"].as_u64(),
+        Some(2),
+        "ACK 必须排在帧之前: {batch:?}"
+    );
+    let snapshot = frames.last().expect("initial snapshot frame");
+    assert_eq!(snapshot["deliveryKind"], "initial");
+    assert_eq!(snapshot["frame"]["payload"]["kind"], "snapshot");
+    assert_eq!(batch[0]["result"]["ack"]["mode"], "snapshot");
+    let sub_a = batch[0]["result"]["ack"]["subscriptionId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // 同 topic + connection 再订阅：旧订阅被替换（旧 id 不可用），新 ACK 得到新 id。
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            3,
+            "v4/conversation/subscribe",
+            json!({"topic":index_topic,"connectionId":"c1","clientMode":"desktop-continuous"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, _) = drive_until_reply(&mut runtime, 3, 5).await;
+    let sub_b = batch[0]["result"]["ack"]["subscriptionId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_ne!(sub_a, sub_b);
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            4,
+            "v4/conversation/resync",
+            json!({"subscriptionId":sub_a,"topic":index_topic,"connectionId":"c1"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, _) = drive_until_reply(&mut runtime, 4, 5).await;
+    assert!(
+        batch[0].get("error").is_some(),
+        "被替换的订阅必须不可用: {batch:?}"
+    );
+
+    // conversation 主题续传：base 与 logEpoch 一致时只补发增量（不重发快照）。
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            5,
+            "v4/conversation/subscribe",
+            json!({"topic":format!("conversation/{session_one}"),"connectionId":"c1","clientMode":"desktop-continuous"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, _) = drive_until_reply(&mut runtime, 5, 5).await;
+    let epoch_one = batch[0]["result"]["ack"]["logEpoch"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            6,
+            "v4/conversation/subscribe",
+            json!({"topic":format!("conversation/{session_one}"),"connectionId":"c1","clientMode":"desktop-continuous","base":{"logEpoch":epoch_one,"seq":0}}),
+        )))
+        .await
+        .unwrap();
+    let (batch, frames) = drive_until_reply(&mut runtime, 6, 5).await;
+    assert_eq!(batch[0]["result"]["ack"]["mode"], "resume");
+    assert_eq!(frames.last().unwrap()["frame"]["payload"]["kind"], "deltas");
+
+    // 暂停：saturated 之后新的 index 发布不得投递；drained 时以 online 帧补齐。
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            7,
+            "v4/connection/flow",
+            json!({"connectionId":"c1","state":"saturated"}),
+        )))
+        .await
+        .unwrap();
+    drive_until_reply(&mut runtime, 7, 5).await;
+    runtime
+        .input
+        .send(Input::Request(create_session_request(8)))
+        .await
+        .unwrap();
+    let (batch, frames) = drive_until_reply(&mut runtime, 8, 5).await;
+    assert_eq!(batch[0]["id"].as_u64(), Some(8));
+    assert!(
+        !frames
+            .iter()
+            .any(|wire| wire["topic"] == index_topic && wire["deliveryKind"] == "online"),
+        "暂停期间不得投递 online 帧: {frames:?}"
+    );
+
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            9,
+            "v4/connection/flow",
+            json!({"connectionId":"c1","state":"drained"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, frames) = drive_until_reply(&mut runtime, 9, 5).await;
+    assert_eq!(batch[0]["id"].as_u64(), Some(9));
+    let resumed = frames
+        .iter()
+        .find(|wire| wire["topic"] == index_topic && wire["deliveryKind"] == "online")
+        .unwrap_or_else(|| panic!("drained 后必须补发 index 帧: {batch:?}"));
+    assert_eq!(resumed["frame"]["payload"]["kind"], "snapshot");
+    let sessions = resumed["frame"]["payload"]["snapshot"]["sessions"]
+        .as_array()
+        .unwrap();
+    assert_eq!(sessions.len(), 2, "恢复快照必须包含两个会话: {resumed:?}");
+
+    // 关闭连接：订阅全部清理，已清理的 id 不可用。
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            10,
+            "v4/connection/flow",
+            json!({"connectionId":"c1","state":"closed"}),
+        )))
+        .await
+        .unwrap();
+    drive_until_reply(&mut runtime, 10, 5).await;
+    runtime
+        .input
+        .send(Input::Request(protocol_request(
+            11,
+            "v4/conversation/resync",
+            json!({"subscriptionId":sub_b,"topic":index_topic,"connectionId":"c1"}),
+        )))
+        .await
+        .unwrap();
+    let (batch, _) = drive_until_reply(&mut runtime, 11, 5).await;
+    assert!(
+        batch[0].get("error").is_some(),
+        "closed 后订阅必须清理: {batch:?}"
+    );
+
+    // 收尾：EOF 后放行余下提交直到 Engine 返回。
+    runtime.input.send(Input::Eof).await.unwrap();
+    let result = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            tokio::select! {
+                result = &mut runtime.running => break result,
+                Some(pending) = runtime.commits.recv() => pending.permit.send(true).unwrap(),
+            }
+        }
+    })
+    .await
+    .expect("Engine hung during the delivery test")
+    .expect("Engine task panicked");
+    assert!(
+        result.is_ok(),
+        "Engine should wind down cleanly: {result:?}"
+    );
 }

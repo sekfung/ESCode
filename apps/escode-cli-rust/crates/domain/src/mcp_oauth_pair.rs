@@ -22,17 +22,27 @@ impl Pair {
     /// 与 TS 对象同形的 JSON（语料比对用）。
     pub fn to_json(&self) -> Value {
         let mut value = json!({"source": if self.canonical {"canonical"} else {"legacy"}});
-        for (key, field) in [("clientInformation", &self.client), ("tokens", &self.tokens)] {
+        for (key, field) in [
+            ("clientInformation", &self.client),
+            ("tokens", &self.tokens),
+        ] {
             if let Some(v) = field {
                 value[key] = v.clone();
             }
         }
-        for (key, field) in [("generation", &self.generation), ("raw", &self.raw), ("issuer", &self.issuer)] {
+        for (key, field) in [
+            ("generation", &self.generation),
+            ("raw", &self.raw),
+            ("issuer", &self.issuer),
+        ] {
             if let Some(v) = field {
                 value[key] = v.clone().into();
             }
         }
-        for (key, field) in [("expiresAt", self.expires_at), ("obtainedAt", self.obtained_at)] {
+        for (key, field) in [
+            ("expiresAt", self.expires_at),
+            ("obtainedAt", self.obtained_at),
+        ] {
             if let Some(v) = field {
                 value[key] = json!(v);
             }
@@ -54,7 +64,9 @@ impl Pair {
 /// TS `isCanonicalCredentials`。
 fn is_canonical(value: &Value) -> bool {
     matches!(value["version"].as_f64(), Some(v) if v == 1.0 || v == 2.0)
-        && value["published_by"].as_str().is_some_and(|s| !s.is_empty())
+        && value["published_by"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty())
         && value["client_information"]["client_id"].is_string()
         && value["tokens"]["access_token"].is_string()
         && value["tokens"]["token_type"].is_string()
@@ -88,7 +100,8 @@ pub fn derive_pair(
         issuer: None,
         canonical: false,
     };
-    if let (Some(raw), Some(canonical)) = (canonical_raw, parse(canonical_raw).filter(is_canonical)) {
+    if let (Some(raw), Some(canonical)) = (canonical_raw, parse(canonical_raw).filter(is_canonical))
+    {
         let snapshot = Pair {
             client: Some(canonical["client_information"].clone()),
             tokens: Some(canonical["tokens"].clone()),
@@ -135,4 +148,3 @@ pub fn derive_pair(
     }
     Some(legacy(legacy_client, legacy_tokens))
 }
-

@@ -30,7 +30,7 @@ pub(crate) fn git_readonly(argv: &[String]) -> bool {
         }
         if t.git_value.contains(w) {
             i += 1;
-            if argv.get(i).is_none_or(|v| v.is_empty()) {
+            if argv.get(i).is_none_or(std::string::String::is_empty) {
                 return false;
             }
             i += 1;

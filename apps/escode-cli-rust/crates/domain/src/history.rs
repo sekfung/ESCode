@@ -155,9 +155,10 @@ impl Session {
         let mut wanted = Vec::new();
         // 续跑轮（如 goalContinuation）没有输入边界：稳定回复只能 fork，不能 retry（与 Node 一致）。
         if response.is_none()
-            && let Some(row) = self.rows.iter().rposition(|r| {
-                r["kind"] == "assistantText" && r["turnId"].as_str() == latest_turn
-            })
+            && let Some(row) = self
+                .rows
+                .iter()
+                .rposition(|r| r["kind"] == "assistantText" && r["turnId"].as_str() == latest_turn)
             && self.history.responses.iter().any(|b| b.row == row)
         {
             wanted.push((row, json!({"canFork":true})));
@@ -223,7 +224,11 @@ impl Session {
         self.rows.truncate(row);
         self.messages.truncate(message);
         // 被截掉的区段里的 shell 提醒随之失效；锚在截断点上的仍在重跑输入之前。
-        if self.shell_notice.as_ref().is_some_and(|(at, _)| *at > message) {
+        if self
+            .shell_notice
+            .as_ref()
+            .is_some_and(|(at, _)| *at > message)
+        {
             self.shell_notice = None;
         }
         self.history.inputs.retain(|b| b.row < row);

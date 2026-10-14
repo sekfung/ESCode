@@ -199,7 +199,9 @@ pub fn check_shell_context(
         let variable = &captures[1];
         let requirement = match variable {
             "CLAUDE_SKILL_DIR" | "ESCODE_SKILL_DIR" => Some("a skill context"),
-            "CLAUDE_CODE_SESSION_ID" | "CLAUDE_SESSION_ID" | "ESCODE_SESSION_ID" if !has_session => {
+            "CLAUDE_CODE_SESSION_ID" | "CLAUDE_SESSION_ID" | "ESCODE_SESSION_ID"
+                if !has_session =>
+            {
                 Some("a runtime session context")
             }
             "CLAUDE_PLUGIN_DATA" | "CLAUDE_PLUGIN_ROOT" | "ESCODE_PLUGIN_DATA"

@@ -19,7 +19,10 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
     }
     let host = root(HOST)?;
     let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
-    let (exec, entrypoint) = (launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?, launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?);
+    let (exec, entrypoint) = (
+        launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?,
+        launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?,
+    );
     // 桌面打包态启动器是 ESCode Helper；缺少 Node 模式会误进 Electron main。
     let mut env = json!({"ELECTRON_RUN_AS_NODE": "1"});
     if let Some(browser) = browser {

@@ -196,7 +196,9 @@ fn write(
     };
     let path = dir.join(format!("model-io-{segment}.jsonl"));
     let exists = path.exists();
-    let mut states = STATES.lock().unwrap_or_else(|e| e.into_inner());
+    let mut states = STATES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if full {
         // 全量保留：跳过淘汰、上限、裁剪与压缩；仍更新压缩状态，关闭后下一条 bounded 写入可续接 delta。
         append(&path, &record)?;

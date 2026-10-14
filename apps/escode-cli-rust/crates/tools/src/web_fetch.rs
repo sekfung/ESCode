@@ -6,10 +6,10 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
+use escode_cli_domain::web_fetch as rules;
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 use url::Url;
-use escode_cli_domain::web_fetch as rules;
 
 use crate::contract::WebFetchPage;
 
@@ -62,10 +62,10 @@ impl ArtifactTarget<'_> {
         let artifact = format!("tool-result-{}", escode_cli_host::id());
         let directory = self
             .root
-            .join(super::mcp_connection::sanitize(self.session));
+            .join(super::mcp_image_artifacts::sanitize(self.session));
         let path = directory.join(format!(
             "{}-{artifact}{extension}",
-            super::mcp_connection::sanitize(self.call_id)
+            super::mcp_image_artifacts::sanitize(self.call_id)
         ));
         tokio::fs::create_dir_all(&directory).await?;
         tokio::fs::write(&path, content).await?;

@@ -135,7 +135,12 @@ impl Goal {
     /// `session/read` 的 `session.target` 投影（TS `mapSessionGoal` + `escodeSessionGoalSchema`，strict）。
     /// 与 `projection()`（state patch 的 goal 块）不同：状态归一到协议词表，缺省的时间字段退回会话时间
     /// （旧数据没有 created_at / updated_at）。`session_id` 与缺省时间由 owner 给，Goal 不知道所属会话。
-    pub fn session_target(&self, session_id: &str, fallback_created: u64, fallback_updated: u64) -> Value {
+    pub fn session_target(
+        &self,
+        session_id: &str,
+        fallback_created: u64,
+        fallback_updated: u64,
+    ) -> Value {
         json!({
             "sessionId": session_id,
             "targetId": self.target_id,

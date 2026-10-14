@@ -72,7 +72,14 @@ pub fn oversized_images(result: &Value) -> Vec<(usize, String, String)> {
 }
 /// TS `extensionForMimeType`（MCP 图片 artifact）。
 pub fn image_extension(mime: &str) -> &'static str {
-    match mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase().as_str() {
+    match mime
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "image/png" => ".png",
         "image/jpeg" | "image/jpg" => ".jpg",
         "image/gif" => ".gif",

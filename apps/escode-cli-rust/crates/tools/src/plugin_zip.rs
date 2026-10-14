@@ -166,7 +166,12 @@ async fn download(source: &Source) -> Result<Vec<u8>> {
     let mut headers = source.headers.clone();
     for _ in 0..=MAX_REDIRECTS {
         validate_url(&current)?;
-        let client = super::web_fetch::proxied_client(current.clone(), DOWNLOAD_TIMEOUT, escode_cli_host::net_config::NetworkScope::EnvOnly).await?;
+        let client = super::web_fetch::proxied_client(
+            current.clone(),
+            DOWNLOAD_TIMEOUT,
+            escode_cli_host::net_config::NetworkScope::EnvOnly,
+        )
+        .await?;
         let mut request = client.get(&current);
         for (key, value) in &headers {
             request = request.header(key, value);
@@ -281,9 +286,14 @@ fn extract(bytes: &[u8], target: &Path) -> Result<Vec<String>> {
 
 fn has_manifest(root: &Path) -> bool {
     // 旧 manifest 目录：Z.ai 官方 CDN 与既有第三方插件仍以 .zcode-plugin 发布（docs/specs/escode-rebrand.md）。
-    [".escode-plugin", ".zcode-plugin", ".claude-plugin", ".codex-plugin"]
-        .iter()
-        .any(|dir| root.join(dir).join("plugin.json").is_file())
+    [
+        ".escode-plugin",
+        ".zcode-plugin",
+        ".claude-plugin",
+        ".codex-plugin",
+    ]
+    .iter()
+    .any(|dir| root.join(dir).join("plugin.json").is_file())
 }
 
 /// TS `resolveZipRoot`：显式 `path` > 解压根已有 manifest > `stripRoot`（缺省 true）且只有一个顶层目录 > 解压根。

@@ -4,9 +4,9 @@
 use super::contract::*;
 use anyhow::Result;
 use async_trait::async_trait;
+use escode_cli_domain::session::Session;
 use serde_json::Value;
 use std::collections::BTreeMap;
-use escode_cli_domain::session::Session;
 
 /// Receipt returned after the storage transaction is durable. The core uses
 /// this boundary before advancing the model/tool loop or publishing facts.

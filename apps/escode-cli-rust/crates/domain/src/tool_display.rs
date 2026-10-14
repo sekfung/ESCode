@@ -43,13 +43,23 @@ pub fn node_repl_images(result: &Value) -> Option<Value> {
         .flatten();
     let (mut images, mut truncated) = (Vec::new(), false);
     for candidate in candidates {
-        let Some(mime) = candidate["mimeType"].as_str().filter(|m| is_image_mime(m)) else { continue };
-        let Some(encoded) = candidate["base64"].as_str().or_else(|| candidate["data"].as_str()) else { continue };
+        let Some(mime) = candidate["mimeType"].as_str().filter(|m| is_image_mime(m)) else {
+            continue;
+        };
+        let Some(encoded) = candidate["base64"]
+            .as_str()
+            .or_else(|| candidate["data"].as_str())
+        else {
+            continue;
+        };
         let base64 = match encoded.strip_prefix("data:") {
             Some(rest) => rest.split_once(',').map_or("", |(_, b)| b),
             None => encoded,
         };
-        if base64.is_empty() || base64.len() > MAX_NODE_REPL_IMAGE_BASE64_BYTES || images.len() >= MAX_NODE_REPL_IMAGES {
+        if base64.is_empty()
+            || base64.len() > MAX_NODE_REPL_IMAGE_BASE64_BYTES
+            || images.len() >= MAX_NODE_REPL_IMAGES
+        {
             truncated = true;
             continue;
         }
@@ -68,7 +78,9 @@ pub fn node_repl_images(result: &Value) -> Option<Value> {
 fn is_image_mime(mime: &str) -> bool {
     mime.len() > 6
         && mime[..6].eq_ignore_ascii_case("image/")
-        && mime[6..].chars().all(|c| c.is_ascii_alphanumeric() || ".+-".contains(c))
+        && mime[6..]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".+-".contains(c))
 }
 
 /// TS `toProtocolToolCallDisplay`：只有这些 kind 投影到行级 `display`。
@@ -146,7 +158,10 @@ mod tests {
         );
         assert_eq!(mcp_tool("", "js", None), None);
         let long = "😀".repeat(3000);
-        let bounded = mcp_tool("s", "t", Some(&long)).unwrap()["description"].as_str().unwrap().to_owned();
+        let bounded = mcp_tool("s", "t", Some(&long)).unwrap()["description"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         assert_eq!(bounded.encode_utf16().count(), MAX_DESCRIPTION_CHARS);
     }
 
@@ -156,9 +171,14 @@ mod tests {
         let result = json!({"content":[{"type":"text","text":"x"}, img("AAAA"), img("data:image/png;base64,BBBB"), img("CCCC")]});
         assert_eq!(
             node_repl_images(&result),
-            Some(json!({"kind":"node_repl_images","images":[{"base64":"AAAA","mimeType":"image/png"},{"base64":"BBBB","mimeType":"image/png"}],"truncated":true}))
+            Some(
+                json!({"kind":"node_repl_images","images":[{"base64":"AAAA","mimeType":"image/png"},{"base64":"BBBB","mimeType":"image/png"}],"truncated":true})
+            )
         );
-        assert_eq!(node_repl_images(&json!({"content":[{"type":"text","text":"x"}]})), None);
+        assert_eq!(
+            node_repl_images(&json!({"content":[{"type":"text","text":"x"}]})),
+            None
+        );
         assert!(row_display_kind(&json!({"kind":"mcp_tool"})));
         assert!(!row_display_kind(&json!({"kind":"bash"})));
     }

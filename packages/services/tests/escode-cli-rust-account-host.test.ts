@@ -106,7 +106,8 @@ test("Existing Host account source and auth service drive native sessions, conne
       maxOutputTokens: 123,
     });
     assert.equal(generated.text, "你好 Rust");
-    assert.equal(f.requests.at(-1)?.max_tokens, 123);
+    // 字段名与 TS/AI SDK 的默认映射对齐（max_completion_tokens；见差分账本 M-1 与 parity 证据），2026-10-14 起 Rust 不再手写 max_tokens。
+    assert.equal(f.requests.at(-1)?.max_completion_tokens, 123);
     const created = await service.sendConversationCommandV4({
       ...workspace,
       envelope: {

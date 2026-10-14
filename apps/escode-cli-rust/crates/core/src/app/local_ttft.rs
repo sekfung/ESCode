@@ -83,7 +83,7 @@ impl Engine {
         let session = params["sessionId"].as_str();
         let busy = session
             .and_then(|s| self.sessions.get(s))
-            .is_some_and(|s| s.running());
+            .is_some_and(escode_cli_domain::session::Session::running);
         let mut record = Map::new();
         record.insert(
             "version".into(),
@@ -229,9 +229,7 @@ impl Engine {
                         && status == "model_request_failed"
                         && record["requestId"] == request
                     {
-                        self.local_ttft
-                            .request_state
-                            .insert(command.clone(), "failed");
+                        self.local_ttft.request_state.insert(command, "failed");
                     }
                 }
                 let details = record["details"].as_array_mut().unwrap();
@@ -324,4 +322,3 @@ impl Engine {
         self.local_ttft.completed.retain(fresh);
     }
 }
-

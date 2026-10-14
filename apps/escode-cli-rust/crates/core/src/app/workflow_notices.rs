@@ -114,8 +114,9 @@ impl Engine {
     /// （task_notification_steer），而不是等回合结束再开一个后台结果轮。
     async fn steer_workflow_notices(&mut self, id: &str, turn: &str) -> Result<Option<Vec<Value>>> {
         let s = self.sessions.get_mut(id).unwrap();
-        let (steered, kept): (Vec<Value>, Vec<Value>) =
-            std::mem::take(&mut s.workflow_notices).into_iter().partition(|n| n["steer"] != false);
+        let (steered, kept): (Vec<Value>, Vec<Value>) = std::mem::take(&mut s.workflow_notices)
+            .into_iter()
+            .partition(|n| n["steer"] != false);
         s.workflow_notices = kept;
         if steered.is_empty() {
             return Ok(None);
@@ -148,7 +149,11 @@ impl Engine {
 /// 每订阅者的 `workflowRuns` 编码（TS publisher）。日志里存原生 op 与整键 patch 两份事实：
 /// - 有 `workflowRunDeltas` 能力：收 `workflowRun.*` 键级增量，state patch 里不再带整键；
 /// - 旧消费者：丢掉 `workflowRun.*`（它们的判别式旧客户端不认），快照与 patch 里的整键换成当前旧界裁剪版。
-pub(super) fn encode_workflow_runs(payload: &mut Value, deltas_capable: bool, legacy: Option<&Value>) {
+pub(super) fn encode_workflow_runs(
+    payload: &mut Value,
+    deltas_capable: bool,
+    legacy: Option<&Value>,
+) {
     if !deltas_capable
         && let Some(legacy) = legacy
         && payload["snapshot"].get("workflowRuns").is_some()
@@ -159,7 +164,11 @@ pub(super) fn encode_workflow_runs(payload: &mut Value, deltas_capable: bool, le
         return;
     };
     if !deltas_capable {
-        deltas.retain(|d| !d["op"].as_str().is_some_and(|op| op.starts_with("workflowRun.")));
+        deltas.retain(|d| {
+            !d["op"]
+                .as_str()
+                .is_some_and(|op| op.starts_with("workflowRun."))
+        });
     }
     for delta in deltas.iter_mut() {
         let Some(patch) = delta["patch"].as_object_mut() else {

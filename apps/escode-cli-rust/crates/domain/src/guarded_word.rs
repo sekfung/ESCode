@@ -71,7 +71,6 @@ pub(crate) fn command_basename(word: &CommandWord, windows: bool) -> Option<Stri
     })
 }
 
-
 /// 由 bash 词的原文构造单词事实：dynamic / value 按 TS `literalPosixWord`；glob 只取顶层未加引号的
 /// 字面片段（TS 对带 parts 的词只看 Literal 部件），展开（`$(…)`、`${…}`、反引号、`$'…'`）与引号内
 /// 的 `*?[` 不算删除目标的词面证据。`start`/`end` 已是 UTF-16 偏移。

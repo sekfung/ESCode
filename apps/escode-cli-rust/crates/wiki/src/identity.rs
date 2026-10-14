@@ -13,7 +13,11 @@ pub async fn resolve_project(
 ) -> ProjectIdentity {
     let absolute = std::path::absolute(workspace).unwrap_or_else(|_| workspace.to_owned());
     // 符号链接：解析到真实路径，同一目录的不同链接得到同一项目。
-    let real = tokio::fs::canonicalize(&absolute).await.unwrap_or(absolute);
+    // 修复：Windows 上裸 canonicalize 返回 `\\?\C:\...` verbatim 形态，项目根带前缀进入 Wiki 存储路径与展示
+    // （storage_layout 在 Windows 失败）；统一走 host::realpath（去前缀，见 crates/host/src/realpath.rs 约定）。
+    let real = escode_cli_host::realpath(&absolute)
+        .await
+        .unwrap_or(absolute);
     let insensitive = case_insensitive(&real).await;
     if let Some((root, git_dir)) = find_git(&real).await {
         let common = common_dir(&git_dir).await;
@@ -81,7 +85,7 @@ async fn find_git(start: &Path) -> Option<(PathBuf, PathBuf)> {
             } else {
                 dir.join(path)
             };
-            let path = tokio::fs::canonicalize(&path).await.unwrap_or(path);
+            let path = escode_cli_host::realpath(&path).await.unwrap_or(path);
             return Some((dir.to_owned(), path));
         }
     }
@@ -99,7 +103,7 @@ async fn common_dir(git_dir: &Path) -> PathBuf {
     } else {
         git_dir.join(target)
     };
-    tokio::fs::canonicalize(&path).await.unwrap_or(path)
+    escode_cli_host::realpath(&path).await.unwrap_or(path)
 }
 
 /// 文件系统是否大小写不敏感：Windows 恒定；其余平台探测切换大小写后是否指向同一文件。

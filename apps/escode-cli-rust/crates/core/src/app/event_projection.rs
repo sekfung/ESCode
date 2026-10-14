@@ -1,5 +1,5 @@
-use super::{Engine, Event, RunEvent};
 use super::event_projection_dispatch::DispatchedRunEvent;
+use super::{Engine, Event, RunEvent};
 use anyhow::{Result, bail};
 use serde_json::json;
 impl Engine {
@@ -22,7 +22,9 @@ impl Engine {
         self.forward_actor_event(&id, &event.event).await;
         self.record_usage_facts(&id, &turn, &event.event);
         self.telemetry_event(&id, &turn, &event.event);
-        if matches!(event.event, Event::ModelStatus(_)) { return Ok(()); }
+        if matches!(event.event, Event::ModelStatus(_)) {
+            return Ok(());
+        }
         let now = self.clock.now();
         let s = self.sessions.get_mut(&id).unwrap();
         let mut deltas = vec![];
@@ -36,7 +38,11 @@ impl Engine {
             | Event::GoalStep { .. }
             | Event::GoalVerdict { .. }
             | Event::SkillsInitialized { .. }
-            | Event::TodoReminder { .. } | Event::PersistedNotice { .. } | Event::HookContext { .. } | Event::WikiContext { .. } | Event::ShellNotice { .. }
+            | Event::TodoReminder { .. }
+            | Event::PersistedNotice { .. }
+            | Event::HookContext { .. }
+            | Event::WikiContext { .. }
+            | Event::ShellNotice { .. }
             | Event::StreamRecovery { .. }
             | Event::Question { .. }
             | Event::PlanEnter { .. }
@@ -56,11 +62,14 @@ impl Engine {
             | Event::SessionContext { .. }
             | Event::WorkflowRunList { .. }
             | Event::HostRequest { .. }
-            | Event::WorkflowSettled { .. } | Event::ActorRequest { .. }
+            | Event::WorkflowSettled { .. }
+            | Event::ActorRequest { .. }
             | Event::ContextUsage(_)
             | Event::CompactStarted { .. }
-            | Event::CompactDone { .. } | Event::SessionTitle { .. }
-            | Event::ModelStatus(_) | Event::WorkflowLaunchTurn { .. }
+            | Event::CompactDone { .. }
+            | Event::SessionTitle { .. }
+            | Event::ModelStatus(_)
+            | Event::WorkflowLaunchTurn { .. }
             | Event::WorkflowSettingsTurn { .. } => unreachable!(),
             Event::Retry(state) => {
                 s.api_retry = state;
@@ -133,7 +142,8 @@ impl Engine {
                         .find(|r| r["kind"] == "turnHeader" && r["turnId"] == turn)
                 {
                     let output = usage["completion_tokens"].as_u64().unwrap_or(0);
-                    row["outputTokens"] = (row["outputTokens"].as_u64().unwrap_or(0) + output).into();
+                    row["outputTokens"] =
+                        (row["outputTokens"].as_u64().unwrap_or(0) + output).into();
                     deltas.push(json!({"op":"row.upserted","row":row}));
                 }
                 if s.goal.as_ref().is_some_and(|g| g.active() && g.exhausted()) {
@@ -187,14 +197,25 @@ impl Engine {
                     message["_escode_tool_name"] = tool.into();
                 }
                 s.append_message(message);
-                let done = crate::domain::ToolResult { result, display, failed, denied };
+                let done = crate::domain::ToolResult {
+                    result,
+                    display,
+                    failed,
+                    denied,
+                };
                 if let Some(row) = s.finish_tool_row(&turn, &call_id, done, now) {
                     deltas.push(json!({"op":"row.upserted","row":row}));
                 }
             }
             Event::BrowserTurnScreenshot { display, committed } => {
                 receipt = Some(committed);
-                let row = s.turn_screenshot_row(&turn, self.active[&id].response_id.clone(), display, &self.clock.id(), now);
+                let row = s.turn_screenshot_row(
+                    &turn,
+                    self.active[&id].response_id.clone(),
+                    display,
+                    &self.clock.id(),
+                    now,
+                );
                 deltas.push(json!({"op":"row.appended","row":row}));
             }
             Event::Finished {
@@ -251,7 +272,10 @@ impl Engine {
                         s.last_error = Some(json!({"code":failure.code,"message":failure.message,
                             "recoverable":failure.retryable,"at":now,"source":"provider",
                             "attribution":{"source":"provider","reason":failure.reason,"providerId":s.provider,"modelId":s.model,"retryable":failure.retryable}}));
-                        if let Some(status) = failure.status_code { s.last_error.as_mut().unwrap()["attribution"]["statusCode"] = status.into(); }
+                        if let Some(status) = failure.status_code {
+                            s.last_error.as_mut().unwrap()["attribution"]["statusCode"] =
+                                status.into();
+                        }
                         s.last_model_failure = Some(failure);
                     }
                 }

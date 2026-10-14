@@ -1,11 +1,17 @@
 use super::*;
 
 fn env(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
-    pairs.iter().map(|(k, v)| ((*k).into(), (*v).into())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| ((*k).into(), (*v).into()))
+        .collect()
 }
 
 /// 把差量顺序应用到父环境，得到子进程最终环境（大小写敏感，对应非 Windows）。
-fn apply(parent: &[(String, String)], changes: &[(String, Option<String>)]) -> Vec<(String, String)> {
+fn apply(
+    parent: &[(String, String)],
+    changes: &[(String, Option<String>)],
+) -> Vec<(String, String)> {
     let mut out = parent.to_vec();
     for (key, value) in changes {
         out.retain(|(k, _)| k != key);
@@ -28,7 +34,10 @@ fn sanitizes_runtime_keys_for_internal_children() {
         (CUA_SOCKET_KEY, "/s"),
         (CUA_AUTHORITY_KEY, "a"),
     ]);
-    assert_eq!(apply(&parent, &child_env(&parent, false, false)), env(&[("PATH", "/bin")]));
+    assert_eq!(
+        apply(&parent, &child_env(&parent, false, false)),
+        env(&[("PATH", "/bin")])
+    );
 }
 
 #[test]
@@ -41,7 +50,10 @@ fn tool_children_restore_passthrough_and_drop_credentials() {
         ("OTEL_EXPORTER_OTLP_HEADERS", "authorization=x"),
         (CUA_SOCKET_KEY, "/s"),
         (CUA_TOKEN_KEY, "legacy"),
-        (TOOL_ENV_PASSTHROUGH_KEY, r#"{"NO_PROXY":"a.test","HTTPS_PROXY":"http://old","PATH":"/evil","NODE_ENV":"x","bad-key":"y"}"#),
+        (
+            TOOL_ENV_PASSTHROUGH_KEY,
+            r#"{"NO_PROXY":"a.test","HTTPS_PROXY":"http://old","PATH":"/evil","NODE_ENV":"x","bad-key":"y"}"#,
+        ),
     ]);
     assert_eq!(
         apply(&parent, &child_env(&parent, true, false)),
@@ -63,7 +75,12 @@ fn escode_network_keys_override_all_variants() {
         ("ESCODE_AGENT_CA_CERT", "/ca.pem"),
     ]);
     let child = apply(&parent, &child_env(&parent, true, false));
-    let get = |key: &str| child.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+    let get = |key: &str| {
+        child
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    };
     for key in PROXY_KEYS {
         assert_eq!(get(key), Some("http://127.0.0.1:7890"), "{key}");
     }
@@ -79,18 +96,32 @@ fn escode_network_keys_override_all_variants() {
 
 #[test]
 fn windows_removes_case_variants_before_setting() {
-    let parent = env(&[("Http_Proxy", "http://x"), ("ESCODE_HTTP_PROXY", "socks5://p:1")]);
+    let parent = env(&[
+        ("Http_Proxy", "http://x"),
+        ("ESCODE_HTTP_PROXY", "socks5://p:1"),
+    ]);
     let changes = child_env(&parent, true, true);
     assert!(changes.contains(&("Http_Proxy".into(), None)));
-    assert!(changes.iter().any(|(k, v)| k == "all_proxy" && v.as_deref() == Some("socks5://p:1")));
+    assert!(
+        changes
+            .iter()
+            .any(|(k, v)| k == "all_proxy" && v.as_deref() == Some("socks5://p:1"))
+    );
 }
 
 #[test]
 fn cua_credentials_require_socket_and_authority() {
     assert_eq!(cua_credentials(&env(&[(CUA_SOCKET_KEY, "/s")])), None);
-    assert_eq!(cua_credentials(&env(&[(CUA_SOCKET_KEY, "/s"), (CUA_AUTHORITY_KEY, " ")])), None);
     assert_eq!(
-        cua_credentials(&env(&[(CUA_SOCKET_KEY, " /s "), (CUA_AUTHORITY_KEY, "a"), (CUA_REFRESH_MARKER_KEY, "m")])),
+        cua_credentials(&env(&[(CUA_SOCKET_KEY, "/s"), (CUA_AUTHORITY_KEY, " ")])),
+        None
+    );
+    assert_eq!(
+        cua_credentials(&env(&[
+            (CUA_SOCKET_KEY, " /s "),
+            (CUA_AUTHORITY_KEY, "a"),
+            (CUA_REFRESH_MARKER_KEY, "m")
+        ])),
         Some(CuaCredentials {
             socket: "/s".into(),
             authority: "a".into(),

@@ -197,7 +197,8 @@ test("Rust automatic and reactive compaction preserve the current input and comp
       assert(f.requests.some(summaryRequest));
       assert.equal(f.requests.at(-1)!.messages.at(-1).content, "current input");
       assert(!JSON.stringify(f.requests.at(-1)).includes("historyhistory"));
-      assert.equal(f.requests.at(-1)!.max_tokens, reactive ? 32000 : 1000);
+      // 字段名与 TS/AI SDK 的默认映射对齐（max_completion_tokens；见差分账本 M-1 与 parity 证据），2026-10-14 起 Rust 不再手写 max_tokens。
+      assert.equal(f.requests.at(-1)!.max_completion_tokens, reactive ? 32000 : 1000);
       assert.deepEqual(h.schemaErrors, []);
     } finally {
       await f.close();

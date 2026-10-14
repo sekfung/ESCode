@@ -19,7 +19,11 @@ struct Root {
 }
 /// Node `visualize-skill-gate` 的身份判断：只有官方市场（`zcode-plugins-official`）的 visualize
 /// 插件在无内联视图宿主的入口被隐藏；用户/项目自定义的同名技能不受影响。
-pub(super) fn hides_visualize_skills(name: &str, marketplace: &str, include_visualize: bool) -> bool {
+pub(super) fn hides_visualize_skills(
+    name: &str,
+    marketplace: &str,
+    include_visualize: bool,
+) -> bool {
     !include_visualize
         && name == "visualize"
         && marketplace == super::plugin_marketplace::OFFICIAL_MARKETPLACE

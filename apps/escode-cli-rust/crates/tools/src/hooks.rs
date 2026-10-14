@@ -9,7 +9,10 @@ use tokio_util::sync::CancellationToken;
 /// 只做存在性判定；确切配置（合并、matcher、enabled）由宿主按 TS 口径解析。
 async fn configured(cwd: &Path) -> bool {
     // H3：会话 mailbox 内部 hooks 的灰度（TS isMessageEnabled）。
-    if matches!(std::env::var("ESCODE_MESSAGE_ENABLED").as_deref(), Ok("1" | "true")) {
+    if matches!(
+        std::env::var("ESCODE_MESSAGE_ENABLED").as_deref(),
+        Ok("1" | "true")
+    ) {
         return true;
     }
     let config = super::extension_config::load(cwd)

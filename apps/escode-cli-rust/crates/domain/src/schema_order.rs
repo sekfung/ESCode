@@ -20,7 +20,9 @@ pub fn remember(ordered: &Json) {
     let Some((sorted, ordered)) = entry(ordered) else {
         return;
     };
-    let mut table = table().lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = table()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if table.len() >= LIMIT && !table.contains_key(&sorted) {
         table.clear();
     }
@@ -29,7 +31,11 @@ pub fn remember(ordered: &Json) {
 
 /// 按排序文本查声明顺序的文本。
 pub fn lookup(sorted: &str) -> Option<String> {
-    table().lock().unwrap_or_else(|e| e.into_inner()).get(sorted).cloned()
+    table()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(sorted)
+        .cloned()
 }
 
 /// schema 的声明顺序形式：有登记时用登记文本，否则为排序形式。
@@ -101,7 +107,12 @@ fn to_value(json: &Json) -> Value {
         Json::Number(n) => Value::Number(n.clone()),
         Json::String(s) => Value::String(s.clone()),
         Json::Array(items) => Value::Array(items.iter().map(to_value).collect()),
-        Json::Object(entries) => Value::Object(entries.iter().map(|(k, v)| (k.clone(), to_value(v))).collect()),
+        Json::Object(entries) => Value::Object(
+            entries
+                .iter()
+                .map(|(k, v)| (k.clone(), to_value(v)))
+                .collect(),
+        ),
     }
 }
 
@@ -114,16 +125,24 @@ mod tests {
     fn splices_registered_schema_and_keeps_other_bytes() {
         let raw = Json::parse(r#"{"type":"object","properties":{"text":{"type":"string"},"count":{"type":"integer","minimum":1.0}},"required":["text"]}"#).unwrap();
         let (sorted, ordered) = entry(&raw).unwrap();
-        assert_eq!(ordered, r#"{"type":"object","properties":{"text":{"type":"string"},"count":{"type":"integer","minimum":1}},"required":["text"]}"#);
+        assert_eq!(
+            ordered,
+            r#"{"type":"object","properties":{"text":{"type":"string"},"count":{"type":"integer","minimum":1}},"required":["text"]}"#
+        );
         let schema: Value = serde_json::from_str(&sorted).unwrap();
         let body = json!({"model": "m", "tools": [{"type": "function", "function": {"name": "mcp__a__b", "parameters": schema}}], "top_p": 1});
         let lookup = |key: &str| (key == sorted).then(|| ordered.clone());
         // 保序 schema 按 JS 规则输出数值（1.0 → 1，与 Node 请求相同）；其余键与 serde_json 输出一致。
         assert_eq!(
             encode(&body, lookup),
-            format!(r#"{{"model":"m","tools":[{{"function":{{"name":"mcp__a__b","parameters":{ordered}}},"type":"function"}}],"top_p":1}}"#)
+            format!(
+                r#"{{"model":"m","tools":[{{"function":{{"name":"mcp__a__b","parameters":{ordered}}},"type":"function"}}],"top_p":1}}"#
+            )
         );
-        assert_eq!(encode(&body, |_| None), serde_json::to_string(&body).unwrap());
+        assert_eq!(
+            encode(&body, |_| None),
+            serde_json::to_string(&body).unwrap()
+        );
     }
 
     #[test]

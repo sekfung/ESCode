@@ -56,6 +56,19 @@ impl Engine {
         }));
     }
 
+    /// 会话创建期发起 `runtime-materialization` 偏好请求（不等待回包）。
+    /// 差分账本 C-1/C-2（docs/reports/rust-difference-ledger-2026-10-14.md）：TS 在物化期用宿主本地
+    /// 回调取 memoryEnabled；Rust 必须走一次协议往返，且引擎 outbox 在响应帧之后才冲刷，所以创建响应
+    /// 本身拿不到该值。在创建期发起可保证回合开始前回包已入缓存：遥测事实（UI 埋点消费
+    /// fact.memoryEnabled）与后续命令 ack 都带上该字段。旧 Host/异常回包在传输层归一为 Null
+    /// （shared schema memoryEnabled 默认 false，与 memory 行为一致）。
+    pub(super) fn request_materialization(&mut self, session: &str) {
+        if self.shell.cached(session, "runtime-materialization").is_some() {
+            return;
+        }
+        self.request_runtime_preferences(session, "runtime-materialization", Box::new(|_| {}));
+    }
+
     pub(super) fn request_shell_preference(
         &mut self,
         session: &str,

@@ -144,7 +144,7 @@ async fn execute(parsed: &Parsed, cancel: CancellationToken) -> Result<(String, 
             .last_error
             .clone()
             .unwrap_or_else(|| format!("Turn ended: {}", outcome.phase));
-        return Err((anyhow::anyhow!(message), outcome.trace_id.clone()));
+        return Err((anyhow::anyhow!(message), outcome.trace_id));
     }
     Ok((
         render(&outcome, parsed.output.unwrap_or(OutputFormat::Text)),

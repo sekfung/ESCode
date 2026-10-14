@@ -60,7 +60,10 @@ impl Assembly {
         let delta = &choice["delta"];
         // 首个模型 token（文本、推理或工具调用增量）的时刻：用量事实的 TTFT（TS firstModelTokenAt）。
         if output.first_token_at.is_none()
-            && delta.as_object().is_some_and(|d| d.iter().any(|(k, v)| k != "role" && !v.is_null() && v != ""))
+            && delta.as_object().is_some_and(|d| {
+                d.iter()
+                    .any(|(k, v)| k != "role" && !v.is_null() && v != "")
+            })
         {
             output.first_token_at = Some(super::now());
         }
@@ -141,7 +144,7 @@ impl Assembly {
         if !output_limit
             && self.text.is_empty()
             && calls.is_empty()
-            && self.usage.as_object().is_none_or(|m| m.is_empty())
+            && self.usage.as_object().is_none_or(serde_json::Map::is_empty)
         {
             return Err(ModelFailure::empty());
         }

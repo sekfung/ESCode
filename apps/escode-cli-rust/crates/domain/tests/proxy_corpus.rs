@@ -1,9 +1,9 @@
 //! 差分：Rust net_proxy 与 TS resolveProxyForRequest / resolveWebFetchProxyForRequest 逐条一致。
 //! 语料由 scripts/generate-escode-cli-rust-proxy-corpus.mjs 生成（url × 显式配置 × 环境变量）。
-use serde_json::Value;
 use escode_cli_domain::net_proxy::{
     ProxyOptions, resolve_proxy_for_request, resolve_webfetch_proxy_for_request,
 };
+use serde_json::Value;
 
 fn options(fixture: &Value, oi: usize, ei: usize) -> ProxyOptions {
     let spec = &fixture["options"][oi];

@@ -15,7 +15,13 @@ pub struct Source {
 
 impl Source {
     fn file(file_path: String) -> Self {
-        Self { file_path, start_line: None, end_line: None, tail_lines: None, requires_exit_zero: false }
+        Self {
+            file_path,
+            start_line: None,
+            end_line: None,
+            tail_lines: None,
+            requires_exit_zero: false,
+        }
     }
 }
 
@@ -48,8 +54,19 @@ pub fn collect(command: &str) -> Vec<Source> {
     for part in &analysis.commands {
         let source = sed(part)
             .or_else(|| cat(part))
-            .or_else(|| head_tail(part, "head", 10).map(|(file, n)| Source { start_line: Some(1), end_line: Some(n), ..Source::file(file) }))
-            .or_else(|| head_tail(part, "tail", 10).map(|(file, n)| Source { tail_lines: Some(n), ..Source::file(file) }))
+            .or_else(|| {
+                head_tail(part, "head", 10).map(|(file, n)| Source {
+                    start_line: Some(1),
+                    end_line: Some(n),
+                    ..Source::file(file)
+                })
+            })
+            .or_else(|| {
+                head_tail(part, "tail", 10).map(|(file, n)| Source {
+                    tail_lines: Some(n),
+                    ..Source::file(file)
+                })
+            })
             .or_else(|| if single { grep(part) } else { None });
         match source {
             Some(source) => sources.push(source),
@@ -80,10 +97,18 @@ pub fn select(content: &str, source: &Source) -> Option<Selected> {
         }
         let limit = tail.min(lines.len());
         let offset = lines.len() - limit + 1;
-        return Some(Selected { content: lines[offset - 1..].join("\n"), offset: Some(offset), limit: Some(limit) });
+        return Some(Selected {
+            content: lines[offset - 1..].join("\n"),
+            offset: Some(offset),
+            limit: Some(limit),
+        });
     }
     let Some(start) = source.start_line else {
-        return Some(Selected { content: content.to_owned(), offset: None, limit: None });
+        return Some(Selected {
+            content: content.to_owned(),
+            offset: None,
+            limit: None,
+        });
     };
     let lines: Vec<&str> = content.split('\n').collect();
     let start = start.max(1);
@@ -105,13 +130,18 @@ fn simple_ignored(text: &str) -> bool {
         text.strip_prefix(w).is_some_and(|rest| {
             let next = rest.chars().next();
             // TS ``：单词结尾后需非单词字符或结尾；`:` 是非单词字符，其后必须紧跟单词字符才构成边界。
-            if *w == ":" { next.is_some_and(word) } else { next.is_none_or(|c| !word(c)) }
+            if *w == ":" {
+                next.is_some_and(word)
+            } else {
+                next.is_none_or(|c| !word(c))
+            }
         })
     })
 }
 
 fn concrete(path: Option<&str>) -> Option<String> {
-    path.filter(|p| !p.is_empty() && *p != "-").map(str::to_owned)
+    path.filter(|p| !p.is_empty() && *p != "-")
+        .map(str::to_owned)
 }
 
 fn cat(part: &Invocation) -> Option<Source> {
@@ -135,7 +165,10 @@ fn cat(part: &Invocation) -> Option<Source> {
 }
 
 fn positive(value: Option<&String>) -> Option<usize> {
-    value.filter(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit())).and_then(|v| v.parse().ok()).filter(|n| *n > 0)
+    value
+        .filter(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit()))
+        .and_then(|v| v.parse().ok())
+        .filter(|n| *n > 0)
 }
 
 fn head_tail(part: &Invocation, name: &str, default: usize) -> Option<(String, usize)> {
@@ -149,9 +182,15 @@ fn head_tail(part: &Invocation, name: &str, default: usize) -> Option<(String, u
             count = Some(positive(args.next())?);
         } else if let Some(value) = arg.strip_prefix("--lines=") {
             count = Some(positive(Some(&value.to_owned()))?);
-        } else if let Some(n) = arg.strip_prefix("-n").filter(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit())) {
+        } else if let Some(n) = arg
+            .strip_prefix("-n")
+            .filter(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+        {
             count = n.parse().ok();
-        } else if let Some(n) = arg.strip_prefix('-').filter(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit())) {
+        } else if let Some(n) = arg
+            .strip_prefix('-')
+            .filter(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+        {
             count = n.parse().ok();
         } else if arg.starts_with('-') || file.is_some() {
             return None;
@@ -191,7 +230,11 @@ fn sed(part: &Invocation) -> Option<Source> {
         return None;
     }
     let expression = expression.strip_suffix('p')?;
-    let number = |s: &str| (!s.is_empty() && s.chars().all(|c| c.is_ascii_digit())).then(|| s.parse::<usize>().ok()).flatten();
+    let number = |s: &str| {
+        (!s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
+            .then(|| s.parse::<usize>().ok())
+            .flatten()
+    };
     let (start, end) = match expression.split_once(',') {
         Some((a, b)) => (number(a)?, number(b)?),
         None => {
@@ -199,16 +242,33 @@ fn sed(part: &Invocation) -> Option<Source> {
             (line, line)
         }
     };
-    Some(Source { start_line: Some(start), end_line: Some(end), ..Source::file(file) })
+    Some(Source {
+        start_line: Some(start),
+        end_line: Some(end),
+        ..Source::file(file)
+    })
 }
 
 fn grep(part: &Invocation) -> Option<Source> {
-    if !matches!(part.argv.first().map(String::as_str), Some("grep" | "egrep" | "fgrep")) {
+    if !matches!(
+        part.argv.first().map(String::as_str),
+        Some("grep" | "egrep" | "fgrep")
+    ) {
         return None;
     }
     const LONG: [&str; 12] = [
-        "--line-number", "--ignore-case", "--word-regexp", "--line-regexp", "--extended-regexp", "--fixed-strings",
-        "--basic-regexp", "--perl-regexp", "--with-filename", "--no-filename", "--color=never", "--color=auto",
+        "--line-number",
+        "--ignore-case",
+        "--word-regexp",
+        "--line-regexp",
+        "--extended-regexp",
+        "--fixed-strings",
+        "--basic-regexp",
+        "--perl-regexp",
+        "--with-filename",
+        "--no-filename",
+        "--color=never",
+        "--color=auto",
     ];
     let digits = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit());
     let (mut pattern, mut file) = (None, None);
@@ -221,11 +281,14 @@ fn grep(part: &Invocation) -> Option<Source> {
                 }
                 continue;
             }
-            let short_context = arg.len() > 2 && matches!(&arg[..2], "-A" | "-B" | "-C") && digits(&arg[2..]);
+            let short_context =
+                arg.len() > 2 && matches!(&arg[..2], "-A" | "-B" | "-C") && digits(&arg[2..]);
             let long_context = ["--after-context=", "--before-context=", "--context="]
                 .iter()
                 .any(|p| arg.strip_prefix(p).is_some_and(digits));
-            let short_flags = arg.len() > 1 && !arg.starts_with("--") && arg[1..].chars().all(|c| "niwxEFGPHh".contains(c));
+            let short_flags = arg.len() > 1
+                && !arg.starts_with("--")
+                && arg[1..].chars().all(|c| "niwxEFGPHh".contains(c));
             if short_context || long_context || short_flags || LONG.contains(&arg.as_str()) {
                 continue;
             }
@@ -244,7 +307,10 @@ fn grep(part: &Invocation) -> Option<Source> {
     if file.contains(['*', '?', '[', '{']) {
         return None;
     }
-    Some(Source { requires_exit_zero: true, ..Source::file(file) })
+    Some(Source {
+        requires_exit_zero: true,
+        ..Source::file(file)
+    })
 }
 
 #[cfg(test)]

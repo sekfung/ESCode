@@ -1,20 +1,21 @@
-use std::path::Path;
 use escode_cli_core_api as contract;
 use escode_cli_domain as domain;
+use std::path::Path;
 pub mod child_env;
+pub mod client_platform;
 mod context_git;
 pub mod context_source;
 pub mod credential_cipher;
 pub mod credential_store;
 pub mod file_lock;
+pub mod file_log;
 pub mod image_budget;
 pub mod legacy_paths;
-pub mod client_platform;
-pub mod file_log;
 pub mod net_config;
 pub mod output_encoding;
-pub mod tls_ca;
+pub mod process_group;
 mod realpath;
+pub mod tls_ca;
 pub use realpath::{realpath, realpath_for_create, realpath_sync, simplify_verbatim};
 mod question_timing;
 pub use context_source::WorkspaceContext;
@@ -57,6 +58,24 @@ impl contract::RuntimeClock for SystemClock {
     }
 }
 
+/// TS `resolveTzOffsetMs`（usage-stats-builder.ts）：`timeZone` 在 `at_ms` 时刻相对 UTC 的偏移（ms）。
+/// Rust 不带 IANA 时区库：UTC 与本机时区（App 传的就是本机时区）精确，其余按 TS 无法解析时的回退取 0。
+pub fn tz_offset_ms(time_zone: &str, at_ms: i64) -> i64 {
+    use chrono::{Offset, TimeZone};
+    if matches!(time_zone, "UTC" | "Etc/UTC" | "GMT" | "Etc/GMT") {
+        return 0;
+    }
+    if iana_time_zone::get_timezone().ok().as_deref() != Some(time_zone) {
+        return 0;
+    }
+    chrono::Local
+        .timestamp_millis_opt(at_ms)
+        .single()
+        .map_or(0, |at| {
+            i64::from(at.offset().fix().local_minus_utc()) * 1000
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::workspace_identity;
@@ -71,20 +90,4 @@ mod tests {
         assert_eq!(workspace_identity(Some("  "), Path::new("/repo")), "/repo");
         assert_eq!(workspace_identity(None, Path::new("/repo")), "/repo");
     }
-}
-
-/// TS `resolveTzOffsetMs`（usage-stats-builder.ts）：`timeZone` 在 `at_ms` 时刻相对 UTC 的偏移（ms）。
-/// Rust 不带 IANA 时区库：UTC 与本机时区（App 传的就是本机时区）精确，其余按 TS 无法解析时的回退取 0。
-pub fn tz_offset_ms(time_zone: &str, at_ms: i64) -> i64 {
-    use chrono::{Offset, TimeZone};
-    if matches!(time_zone, "UTC" | "Etc/UTC" | "GMT" | "Etc/GMT") {
-        return 0;
-    }
-    if iana_time_zone::get_timezone().ok().as_deref() != Some(time_zone) {
-        return 0;
-    }
-    chrono::Local
-        .timestamp_millis_opt(at_ms)
-        .single()
-        .map_or(0, |at| i64::from(at.offset().fix().local_minus_utc()) * 1000)
 }

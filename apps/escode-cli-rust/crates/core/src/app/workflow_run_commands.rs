@@ -12,7 +12,13 @@
 //! 直接启动另有一条时序：宿主只做「零会话副作用」段（解析 / 校验 / 编译 / 工作副本 / `port.submit`），
 //! 启动轮由会话 owner 落，追踪必须晚于启动轮重臂（否则很快结算的 run 的通知会跑到启动轮前面）——
 //! 因此拆成 `run.startSaved` → `Event::WorkflowLaunchTurn` → `run.track` 三步。
-use super::{Engine, auxiliary::Auxiliary};
+use super::{
+    Engine,
+    auxiliary::Auxiliary,
+    workflow_run_replies::{
+        cancel_ack, rejected, resume_ack, saved_start_accepted, saved_start_rejected,
+    },
+};
 use crate::{
     contract::{Event, EventSink},
     domain::protocol::{Command, Request},
@@ -23,11 +29,6 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 const WORKFLOW_RUN_PREFIX: &str = "dwfrun-";
-const RESUME_REJECTED_PREFIX: &str = "fault.command.workflowRunResumeRejected.";
-const CANCEL_REJECTED_PREFIX: &str = "fault.command.backgroundWorkCancelRejected.";
-const SAVED_START_REJECTED_PREFIX: &str = "fault.command.savedWorkflowStartRejected.";
-/// TS 取消拒绝的 reason 去掉 `background_task_` 前缀进 reasonCode（BACKGROUND_WORK_CANCEL_REJECTED_FAULT_PREFIX）。
-const BACKGROUND_TASK_REASON_PREFIX: &str = "background_task_";
 pub(super) const HOST_FAILURE: &str = "fault.command.executionFailed";
 /// 直接启动的两个宿主方法（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`）。
 const START_SAVED_METHOD: &str = "run.startSaved";
@@ -78,7 +79,9 @@ impl Engine {
             return self.start_saved_workflow_command(request, c, session).await;
         }
         if c.kind == "amendWorkflowRunSettings" {
-            return self.amend_workflow_settings_command(request, c, session).await;
+            return self
+                .amend_workflow_settings_command(request, c, session)
+                .await;
         }
         let revision = self.sessions[&session].revision;
         let work = c.payload["workId"]
@@ -88,7 +91,8 @@ impl Engine {
             .to_owned();
         let resume = c.kind == "resumeWorkflowRun";
         let (method, params) = if resume {
-            let mut params = json!({ "session": session, "cwd": self.workspace_path, "workId": work });
+            let mut params =
+                json!({ "session": session, "cwd": self.workspace_path, "workId": work });
             if let Some(name) = c.payload["name"].as_str() {
                 params["name"] = name.into();
             }
@@ -116,7 +120,12 @@ impl Engine {
             let ack = match tools.workflow_run(method, params).await {
                 Ok(result) if resume => resume_ack(&c, revision, &result),
                 Ok(result) => cancel_ack(&c, revision, &result),
-                Err(error) => rejected(&c, revision, HOST_FAILURE.to_owned(), Some(&error.to_string())),
+                Err(error) => rejected(
+                    &c,
+                    revision,
+                    HOST_FAILURE.to_owned(),
+                    Some(&error.to_string()),
+                ),
             };
             let _ = sink.send(Event::AuxiliaryDone { result: Ok(ack) }).await;
         });
@@ -191,8 +200,12 @@ impl Engine {
                     return;
                 }
                 Err(error) => {
-                    let ack =
-                        rejected(&c, revision, HOST_FAILURE.to_owned(), Some(&error.to_string()));
+                    let ack = rejected(
+                        &c,
+                        revision,
+                        HOST_FAILURE.to_owned(),
+                        Some(&error.to_string()),
+                    );
                     let _ = sink.send(Event::AuxiliaryDone { result: Ok(ack) }).await;
                     return;
                 }
@@ -205,9 +218,7 @@ impl Engine {
                 launched: launched.clone(),
                 reply,
             };
-            if sink.send(launched_turn).await.is_err()
-                || reply_rx.await.map_err(|_| ()).is_err()
-            {
+            if sink.send(launched_turn).await.is_err() || reply_rx.await.map_err(|_| ()).is_err() {
                 return;
             }
             // 提交之后的记账失败不回滚：run 已在飞、可在侧板取消，ACK 仍按成功回（TS 同规矩，只记日志）。
@@ -226,95 +237,6 @@ impl Engine {
         });
         Ok(None)
     }
-}
-
-pub(super) fn rejected(c: &Command, revision: u64, reason: String, message: Option<&str>) -> Value {
-    // TS 网关：携带 reasonCode 的领域错误以 failed 上行，error.message 收进 ack.message。
-    let mut ack = c.ack("failed", revision, Some(&reason));
-    if let Some(message) = message {
-        ack["message"] = message.into();
-    }
-    ack
-}
-
-/// 宿主 `port.resume` 结果：`{ok:true, runId}` 或 `{ok:false, reason, message?}`。
-fn resume_ack(c: &Command, revision: u64, result: &Value) -> Value {
-    if result["ok"] == true {
-        return c.ack("accepted", revision, None);
-    }
-    let reason = result["reason"].as_str().unwrap_or("unknown");
-    // TS V4WorkflowRunResumeRejectedError：宿主没给诊断时用固定兜底句。
-    let message = result["message"]
-        .as_str()
-        .map(str::to_owned)
-        .unwrap_or_else(|| format!("workflow run resume rejected: {reason}"));
-    rejected(
-        c,
-        revision,
-        format!("{RESUME_REJECTED_PREFIX}{reason}"),
-        Some(&message),
-    )
-}
-
-/// 宿主 `stopBackgroundTask` 结果；TS cancelBackgroundTask 把已终态也报成 `background_task_not_running`。
-fn cancel_ack(c: &Command, revision: u64, result: &Value) -> Value {
-    let reason = if result["ok"] != true {
-        Some(result["reason"].as_str().unwrap_or("background_task_not_found"))
-    } else if result["alreadyTerminal"] == true {
-        Some("background_task_not_running")
-    } else {
-        None
-    };
-    match reason {
-        None => c.ack("accepted", revision, None),
-        Some(reason) => {
-            let short = reason
-                .strip_prefix(BACKGROUND_TASK_REASON_PREFIX)
-                .unwrap_or(reason);
-            // TS V4BackgroundWorkCancelRejectedError 的 message 原文。
-            let message = format!(
-                "background work {} was not cancelled: {reason}",
-                c.payload["workId"].as_str().unwrap_or_default()
-            );
-            rejected(
-                c,
-                revision,
-                format!("{CANCEL_REJECTED_PREFIX}{short}"),
-                Some(&message),
-            )
-        }
-    }
-}
-
-/// 直接启动的拒绝应答（TS V4SavedWorkflowStartRejectedError）：reasonCode 带固定前缀，`message`
-/// 直接进 ack.message（编译诊断 / 实参诊断 / 文件问题都在里面），缺席时给可读兜底。
-pub(super) fn saved_start_rejected(
-    c: &Command,
-    revision: u64,
-    reason: &str,
-    message: Option<&str>,
-) -> Value {
-    let message = message
-        .map(str::to_owned)
-        .unwrap_or_else(|| format!("saved workflow start rejected: {reason}"));
-    rejected(
-        c,
-        revision,
-        format!("{SAVED_START_REJECTED_PREFIX}{reason}"),
-        Some(&message),
-    )
-}
-
-/// 直接启动的成功应答：`result` 给 run 的两把关联键（runId ≡ backgroundTaskId ≡ 取消的 workId；
-/// toolCallId 联工具卡 → 详情页）。
-pub(super) fn saved_start_accepted(c: &Command, revision: u64, launched: &Value) -> Value {
-    let mut ack = c.ack("accepted", revision, None);
-    ack["result"] = json!({
-        "type": "startSavedWorkflow",
-        "runId": launched["runId"],
-        "toolCallId": launched["toolCallId"],
-    });
-    ack
 }
 
 impl Engine {
@@ -337,7 +259,10 @@ impl Engine {
             .context("launchText required")?
             .to_owned();
         let meta = launched["meta"].clone();
-        let title_input = launched["titleInput"].as_str().unwrap_or_default().to_owned();
+        let title_input = launched["titleInput"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
         let turn = self.clock.id();
         let now = self.clock.now();
         let s = self
@@ -388,6 +313,10 @@ impl Engine {
             ],
         )?;
         self.persist(session, None).await?;
-        Ok(saved_start_accepted(c, self.sessions[session].revision, launched))
+        Ok(saved_start_accepted(
+            c,
+            self.sessions[session].revision,
+            launched,
+        ))
     }
 }

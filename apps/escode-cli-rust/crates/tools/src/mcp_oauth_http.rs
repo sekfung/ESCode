@@ -38,14 +38,20 @@ fn fallback_status(status: u16) -> bool {
 }
 
 /// SDK `discoverOAuthProtectedResourceMetadata`（RFC 9728）：404 与不支持均为错误。
-pub(super) async fn protected_resource(server_url: &str, metadata_url: Option<&str>) -> Result<Value> {
+pub(super) async fn protected_resource(
+    server_url: &str,
+    metadata_url: Option<&str>,
+) -> Result<Value> {
     let response = match metadata_url {
         Some(url) => get(url, false).await?,
         None => {
-            let (first, fallback) = rules::protected_resource_urls(server_url).context("Invalid MCP server URL")?;
+            let (first, fallback) =
+                rules::protected_resource_urls(server_url).context("Invalid MCP server URL")?;
             let response = get(&first, false).await?;
             match fallback {
-                Some(fallback) if fallback_status(response.status().as_u16()) => get(&fallback, false).await?,
+                Some(fallback) if fallback_status(response.status().as_u16()) => {
+                    get(&fallback, false).await?
+                }
                 _ => response,
             }
         }
@@ -58,12 +64,17 @@ pub(super) async fn protected_resource(server_url: &str, metadata_url: Option<&s
         bail!("HTTP {status} trying to load well-known OAuth protected resource metadata.");
     }
     let value: Value = response.json().await?;
-    anyhow::ensure!(value["resource"].is_string(), "Invalid protected resource metadata");
+    anyhow::ensure!(
+        value["resource"].is_string(),
+        "Invalid protected resource metadata"
+    );
     Ok(value)
 }
 
 /// SDK `discoverAuthorizationServerMetadata`：按 RFC 8414 → OIDC 顺序；4xx/502 继续，其余错误中止；校验 issuer 回显。
-pub(super) async fn authorization_server_metadata(authorization_server: &str) -> Result<Option<Value>> {
+pub(super) async fn authorization_server_metadata(
+    authorization_server: &str,
+) -> Result<Option<Value>> {
     for (url, oidc) in rules::discovery_urls(authorization_server) {
         let response = get(&url, true).await?;
         let status = response.status().as_u16();
@@ -78,11 +89,16 @@ pub(super) async fn authorization_server_metadata(authorization_server: &str) ->
         }
         let metadata: Value = response.json().await?;
         for field in ["issuer", "authorization_endpoint", "token_endpoint"] {
-            anyhow::ensure!(metadata[field].is_string(), "Invalid authorization server metadata: {field}");
+            anyhow::ensure!(
+                metadata[field].is_string(),
+                "Invalid authorization server metadata: {field}"
+            );
         }
         let issuer = metadata["issuer"].as_str().unwrap();
         let exact = issuer == authorization_server
-            || authorization_server.strip_suffix('/').is_some_and(|e| e == issuer);
+            || authorization_server
+                .strip_suffix('/')
+                .is_some_and(|e| e == issuer);
         anyhow::ensure!(
             exact,
             "Authorization server metadata issuer mismatch: expected {authorization_server}, got {issuer}"
@@ -125,28 +141,46 @@ pub(super) async fn server_info(server_url: &str, metadata_url: Option<&str>) ->
 }
 
 /// SDK `registerClient`（RFC 7591）：请求体 = client metadata，`scope` 以本次选定值覆盖。
-pub(super) async fn register(authorization_server: &str, metadata: &Value, client_metadata: &Value, scope: Option<&str>) -> Result<Value> {
+pub(super) async fn register(
+    authorization_server: &str,
+    metadata: &Value,
+    client_metadata: &Value,
+    scope: Option<&str>,
+) -> Result<Value> {
     let url = match metadata.get("registration_endpoint") {
         Some(Value::String(url)) => url.clone(),
-        _ if metadata.is_object() => bail!("Incompatible auth server: does not support dynamic client registration"),
-        _ => Url::parse(authorization_server)?.join("/register")?.to_string(),
+        _ if metadata.is_object() => {
+            bail!("Incompatible auth server: does not support dynamic client registration")
+        }
+        _ => Url::parse(authorization_server)?
+            .join("/register")?
+            .to_string(),
     };
     let mut body = client_metadata.clone();
     if let Some(scope) = scope {
         body["scope"] = scope.into();
     }
-    let response = client(&url)?.post(&url).header("Content-Type", "application/json").body(body.to_string()).send().await?;
+    let response = client(&url)?
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .body(body.to_string())
+        .send()
+        .await?;
     let status = response.status().as_u16();
     if !response.status().is_success() {
         let text = response.text().await.unwrap_or_default();
         bail!("Dynamic client registration rejected: HTTP {status}: {text}");
     }
     let info: Value = response.json().await?;
-    anyhow::ensure!(info["client_id"].is_string(), "Invalid client registration response");
+    anyhow::ensure!(
+        info["client_id"].is_string(),
+        "Invalid client registration response"
+    );
     Ok(info)
 }
 
-const VERIFIER_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+const VERIFIER_CHARSET: &[u8] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 
 /// SDK `startAuthorization`：PKCE S256（43 字符 verifier，同 `pkce-challenge` 默认），参数顺序同 SDK。
 pub(super) fn authorization_url(
@@ -159,19 +193,32 @@ pub(super) fn authorization_url(
     resource: Option<&str>,
 ) -> Result<(String, String)> {
     let mut url = if metadata.is_object() {
-        let supports = |key: &str, value: &str| metadata[key].as_array().is_some_and(|a| a.iter().any(|v| v == value));
+        let supports = |key: &str, value: &str| {
+            metadata[key]
+                .as_array()
+                .is_some_and(|a| a.iter().any(|v| v == value))
+        };
         if !supports("response_types_supported", "code") {
             bail!("Incompatible auth server: does not support response type code");
         }
-        if metadata["code_challenge_methods_supported"].is_array() && !supports("code_challenge_methods_supported", "S256") {
+        if metadata["code_challenge_methods_supported"].is_array()
+            && !supports("code_challenge_methods_supported", "S256")
+        {
             bail!("Incompatible auth server: does not support code challenge method S256");
         }
-        Url::parse(metadata["authorization_endpoint"].as_str().unwrap_or_default())?
+        Url::parse(
+            metadata["authorization_endpoint"]
+                .as_str()
+                .unwrap_or_default(),
+        )?
     } else {
         Url::parse(authorization_server)?.join("/authorize")?
     };
     let random = escode_cli_host::credential_cipher::random_bytes(43);
-    let verifier: String = random.iter().map(|b| VERIFIER_CHARSET[*b as usize % VERIFIER_CHARSET.len()] as char).collect();
+    let verifier: String = random
+        .iter()
+        .map(|b| VERIFIER_CHARSET[*b as usize % VERIFIER_CHARSET.len()] as char)
+        .collect();
     let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .encode(<sha2::Sha256 as sha2::Digest>::digest(verifier.as_bytes()));
     {
@@ -198,8 +245,14 @@ pub(super) fn authorization_url(
 /// SDK `assertSecureTokenEndpoint`：非 https 仅允许 loopback。
 fn secure_token_endpoint(endpoint: &str) -> Result<Url> {
     let url = Url::parse(endpoint)?;
-    let loopback = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "::1"));
-    anyhow::ensure!(url.scheme() == "https" || loopback, "Refusing to send OAuth credentials to insecure token endpoint {url}");
+    let loopback = matches!(
+        url.host_str(),
+        Some("localhost" | "127.0.0.1" | "[::1]" | "::1")
+    );
+    anyhow::ensure!(
+        url.scheme() == "https" || loopback,
+        "Refusing to send OAuth credentials to insecure token endpoint {url}"
+    );
     Ok(url)
 }
 
@@ -213,7 +266,9 @@ pub(super) async fn token_request(
 ) -> Result<Value> {
     let endpoint = match metadata["token_endpoint"].as_str() {
         Some(endpoint) => endpoint.to_owned(),
-        None => Url::parse(authorization_server)?.join("/token")?.to_string(),
+        None => Url::parse(authorization_server)?
+            .join("/token")?
+            .to_string(),
     };
     let url = secure_token_endpoint(&endpoint)?;
     if let Some(resource) = resource {
@@ -223,7 +278,10 @@ pub(super) async fn token_request(
         .as_array()
         .map(|a| a.iter().filter_map(Value::as_str).collect())
         .unwrap_or_default();
-    let client_id = client_info["client_id"].as_str().unwrap_or_default().to_owned();
+    let client_id = client_info["client_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     let secret = client_info["client_secret"].as_str().map(str::to_owned);
     let mut request = client(url.as_str())?
         .post(url)
@@ -231,8 +289,10 @@ pub(super) async fn token_request(
         .header("Accept", "application/json");
     match rules::client_auth_method(client_info, &supported) {
         "client_secret_basic" => {
-            let secret = secret.context("client_secret_basic authentication requires a client_secret")?;
-            let encoded = base64::engine::general_purpose::STANDARD.encode(format!("{client_id}:{secret}"));
+            let secret =
+                secret.context("client_secret_basic authentication requires a client_secret")?;
+            let encoded =
+                base64::engine::general_purpose::STANDARD.encode(format!("{client_id}:{secret}"));
             request = request.header("Authorization", format!("Basic {encoded}"));
         }
         "client_secret_post" => {
@@ -243,7 +303,9 @@ pub(super) async fn token_request(
         }
         _ => params.push(("client_id".into(), client_id)),
     }
-    let body = url::form_urlencoded::Serializer::new(String::new()).extend_pairs(&params).finish();
+    let body = url::form_urlencoded::Serializer::new(String::new())
+        .extend_pairs(&params)
+        .finish();
     let response = request.body(body).send().await?;
     let status = response.status().as_u16();
     let text = response.text().await.unwrap_or_default();
@@ -251,7 +313,10 @@ pub(super) async fn token_request(
     let error = |value: Option<&Value>| match value.and_then(|v| v["error"].as_str()) {
         Some(code) => anyhow!(OAuthError {
             code: code.to_owned(),
-            description: value.and_then(|v| v["error_description"].as_str()).unwrap_or_default().to_owned(),
+            description: value
+                .and_then(|v| v["error_description"].as_str())
+                .unwrap_or_default()
+                .to_owned(),
         }),
         None => anyhow!(OAuthError {
             code: "server_error".into(),
@@ -262,17 +327,35 @@ pub(super) async fn token_request(
         return Err(error(parsed.as_ref()));
     }
     match parsed {
-        Some(tokens) if tokens["access_token"].is_string() && tokens["token_type"].is_string() => Ok(tokens),
+        Some(tokens) if tokens["access_token"].is_string() && tokens["token_type"].is_string() => {
+            Ok(tokens)
+        }
         Some(value) if value.get("error").is_some() => Err(error(Some(&value))),
         _ => Err(anyhow!("Invalid OAuth token response")),
     }
 }
 
 /// SDK `refreshAuthorization`：返回体缺 refresh_token 时保留原值。
-pub(super) async fn refresh(authorization_server: &str, metadata: &Value, client_info: &Value, refresh_token: &str, resource: Option<&str>) -> Result<Value> {
-    let params = vec![("grant_type".into(), "refresh_token".into()), ("refresh_token".into(), refresh_token.into())];
+pub(super) async fn refresh(
+    authorization_server: &str,
+    metadata: &Value,
+    client_info: &Value,
+    refresh_token: &str,
+    resource: Option<&str>,
+) -> Result<Value> {
+    let params = vec![
+        ("grant_type".into(), "refresh_token".into()),
+        ("refresh_token".into(), refresh_token.into()),
+    ];
     let mut tokens = json!({"refresh_token": refresh_token});
-    let response = token_request(authorization_server, metadata, params, client_info, resource).await?;
+    let response = token_request(
+        authorization_server,
+        metadata,
+        params,
+        client_info,
+        resource,
+    )
+    .await?;
     for (key, value) in response.as_object().into_iter().flatten() {
         tokens[key] = value.clone();
     }

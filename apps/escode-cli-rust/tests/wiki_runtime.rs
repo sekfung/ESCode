@@ -70,7 +70,7 @@ impl ModelPort for Model {
         let next = self.script.lock().unwrap().pop();
         let (message, calls) = match next {
             Some(call) => (
-                json!({"role": "assistant", "content": null, "tool_calls": [call.clone()]}),
+                json!({"role": "assistant", "content": null, "tool_calls": [call]}),
                 vec![call],
             ),
             None => (json!({"role": "assistant", "content": "ok"}), vec![]),

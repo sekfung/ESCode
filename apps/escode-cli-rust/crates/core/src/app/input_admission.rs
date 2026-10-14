@@ -74,10 +74,9 @@ impl Engine {
                 payload["text"] = prompt.clone().into();
                 self.input_content(id, &payload)?
             }
-            None => match c.payload["text"]
-                .as_str()
-                .and_then(|t| crate::domain::browser_ambient::format(t, &c.payload["browserAmbientContext"]))
-            {
+            None => match c.payload["text"].as_str().and_then(|t| {
+                crate::domain::browser_ambient::format(t, &c.payload["browserAmbientContext"])
+            }) {
                 // TS formatBrowserAmbientUserInput：只改模型可见正文，userInput 行与标题保持原文。
                 Some(text) => {
                     let mut payload = c.payload.clone();
@@ -93,7 +92,12 @@ impl Engine {
             content = crate::domain::prompt::user_steer(text).into();
         }
         // 执行作用域的选择只属于本轮，不写入会话模型（TS selectionScope "execution"，rust-offpeak.md 第三期）。
-        let execution = c.payload.get("modelExecution").map(crate::domain::model_execution::parse).transpose().map_err(anyhow::Error::msg)?;
+        let execution = c
+            .payload
+            .get("modelExecution")
+            .map(crate::domain::model_execution::parse)
+            .transpose()
+            .map_err(anyhow::Error::msg)?;
         if execution.is_none() {
             self.apply_selection(id, selected)?;
         }
@@ -329,7 +333,11 @@ impl Engine {
     /// 本次输入产生的行（从输入所在轮的 header 起）；`/goal` 的 query 轮与续跑轮一并发布。
     pub(super) fn new_input_rows(&self, id: &str) -> Vec<Value> {
         let s = &self.sessions[id];
-        let start = s.history.inputs.last().map_or(s.current_rows_start(), |b| b.row);
+        let start = s
+            .history
+            .inputs
+            .last()
+            .map_or(s.current_rows_start(), |b| b.row);
         s.rows[start.min(s.current_rows_start())..]
             .iter()
             .map(|row| json!({"op":"row.appended","row":row}))

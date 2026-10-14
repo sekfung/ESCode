@@ -1,4 +1,4 @@
-use super::{Engine, workflow_run_commands::saved_start_accepted};
+use super::{Engine, workflow_run_replies::saved_start_accepted};
 use crate::{
     contract::{Event, EventSink, ModelFailure, RunEvent},
     domain::protocol::{Request, RequestId, rpc_error},
@@ -214,7 +214,8 @@ impl Engine {
                 .await?;
             }
             Event::AuxiliaryNotify { method, params } => {
-                self.outbox.push(json!({ "method": method, "params": params }));
+                self.outbox
+                    .push(json!({ "method": method, "params": params }));
             }
             Event::AuxiliaryReply { result } => {
                 let job = self.auxiliary.remove(&id).unwrap();

@@ -51,7 +51,16 @@ impl Launch {
                 lifecycle: &launch.lifecycle,
                 workspace: &launch.workspace,
             };
-            run(&launch.cwd, &launch.command, &launch.path, launch.combined.clone(), timeout, &token, context).await
+            run(
+                &launch.cwd,
+                &launch.command,
+                &launch.path,
+                launch.combined.clone(),
+                timeout,
+                &token,
+                context,
+            )
+            .await
         })
     }
     fn task(&self, sink: &EventSink) -> BackgroundTask {
@@ -70,7 +79,9 @@ impl Launch {
         }
     }
     fn backgrounded(&self) -> ToolOutput {
-        shell_output(json!({"stdout":"","stderr":"","status":"backgrounded","interrupted":false,"backgroundTaskId":self.id,"rawOutputPath":self.path,"persistedOutputPath":self.path,"backgroundedByUser":false}))
+        shell_output(
+            json!({"stdout":"","stderr":"","status":"backgrounded","interrupted":false,"backgroundTaskId":self.id,"rawOutputPath":self.path,"persistedOutputPath":self.path,"backgroundedByUser":false}),
+        )
     }
 }
 
@@ -86,7 +97,8 @@ impl ShellTasks {
         let token = CancellationToken::new();
         let (tx, state) = watch::channel(None);
         let task = launch.task(sink);
-        self.register(&launch, sink, &task, &token, state, &tx, cancel).await?;
+        self.register(&launch, sink, &task, &token, state, &tx, cancel)
+            .await?;
         if cancel.is_cancelled() {
             token.cancel();
         }
@@ -125,11 +137,17 @@ impl ShellTasks {
         }
         let (tx, state) = watch::channel(None);
         let task = launch.task(sink);
-        if let Err(error) = self.register(&launch, sink, &task, &token, state, &tx, cancel).await {
+        if let Err(error) = self
+            .register(&launch, sink, &task, &token, state, &tx, cancel)
+            .await
+        {
             token.cancel();
             let _ = running.await;
-            let after = crate::domain::bash_model_content::timeout_duration(timeout.as_millis() as u64);
-            bail!("Command timed out after {after} and could not move to the background: {error:#}");
+            let after =
+                crate::domain::bash_model_content::timeout_duration(timeout.as_millis() as u64);
+            bail!(
+                "Command timed out after {after} and could not move to the background: {error:#}"
+            );
         }
         guard.disarm();
         tokio::spawn(finish(running, sink.clone(), task, tx));
@@ -162,7 +180,10 @@ impl ShellTasks {
                 bail!("Background task limit (16) reached");
             }
             if jobs.len() >= 128
-                && let Some(old) = jobs.iter().find(|(_, j)| j.state.borrow().is_some()).map(|(id, _)| id.clone())
+                && let Some(old) = jobs
+                    .iter()
+                    .find(|(_, j)| j.state.borrow().is_some())
+                    .map(|(id, _)| id.clone())
             {
                 jobs.remove(&old);
             }
@@ -170,8 +191,14 @@ impl ShellTasks {
         }
         let (committed, receipt) = oneshot::channel();
         let registered = async {
-            sink.send(Event::Background { task: task.clone(), committed: Some(committed) }).await?;
-            receipt.await.context("Background registration was not committed")?;
+            sink.send(Event::Background {
+                task: task.clone(),
+                committed: Some(committed),
+            })
+            .await?;
+            receipt
+                .await
+                .context("Background registration was not committed")?;
             Ok::<_, anyhow::Error>(())
         };
         let registered = tokio::select! {_=cancel.cancelled()=>Err(anyhow::anyhow!("Cancelled")),r=registered=>r};
@@ -179,9 +206,19 @@ impl ShellTasks {
             // owner 可能已经提交 running、但工具尚未收到回执；取消时也要投递终态，
             // 否则 close/EOF 会永远等待一个从未 spawn 的后台任务。
             let mut terminal = task.clone();
-            terminal.status = if cancel.is_cancelled() { "cancelled" } else { "failed" }.into();
+            terminal.status = if cancel.is_cancelled() {
+                "cancelled"
+            } else {
+                "failed"
+            }
+            .into();
             terminal.ended_at = Some(super::super::now());
-            let _ = sink.send(Event::Background { task: terminal, committed: None }).await;
+            let _ = sink
+                .send(Event::Background {
+                    task: terminal,
+                    committed: None,
+                })
+                .await;
             let _ = tx.send(Some(json!({"status":"cancelled","interrupted":true})));
             if let Some(jobs) = self.jobs.lock().await.get_mut(&launch.session) {
                 jobs.remove(&launch.id);
@@ -193,15 +230,23 @@ impl ShellTasks {
 }
 
 /// 进程结束后投递 Background 终态，再允许 TaskOutput/TaskStop 返回；同一通道保持提交先于工具结果。
-async fn finish(running: Running, sink: EventSink, mut task: BackgroundTask, tx: watch::Sender<Option<Value>>) {
+async fn finish(
+    running: Running,
+    sink: EventSink,
+    mut task: BackgroundTask,
+    tx: watch::Sender<Option<Value>>,
+) {
     let result = running.await.map_err(anyhow::Error::from).and_then(|r| r);
     if let Err(error) = &result
         && error.is::<crate::contract::ProcessCleanupFailure>()
     {
-        let _ = sink.send(Event::ToolCleanupFailed(format!("{error:#}"))).await;
+        let _ = sink
+            .send(Event::ToolCleanupFailed(format!("{error:#}")))
+            .await;
     }
-    let result = result
-        .unwrap_or_else(|e| json!({"stdout":"","stderr":e.to_string(),"status":"spawn_error","interrupted":false}));
+    let result = result.unwrap_or_else(
+        |e| json!({"stdout":"","stderr":e.to_string(),"status":"spawn_error","interrupted":false}),
+    );
     task.ended_at = Some(super::super::now());
     task.exit_code = result["exitCode"].as_i64();
     task.status = match result["status"].as_str() {
@@ -210,6 +255,11 @@ async fn finish(running: Running, sink: EventSink, mut task: BackgroundTask, tx:
         _ => "failed",
     }
     .into();
-    let _ = sink.send(Event::Background { task, committed: None }).await;
+    let _ = sink
+        .send(Event::Background {
+            task,
+            committed: None,
+        })
+        .await;
     let _ = tx.send(Some(result));
 }

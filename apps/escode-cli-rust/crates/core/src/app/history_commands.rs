@@ -165,7 +165,10 @@ impl Engine {
         self.cancel_children(id).await?;
         self.tools.cancel_session(id, None).await?;
         while self.active.contains_key(id)
-            || self.sessions[id].children.values().any(|t| t.running())
+            || self.sessions[id]
+                .children
+                .values()
+                .any(escode_cli_domain::subagent::Task::running)
             || self.sessions[id]
                 .background
                 .values()
@@ -287,8 +290,7 @@ impl Engine {
             self.clock.now(),
         );
         marker["lane"] = FORK_NOTICE_LANE.into();
-        marker["marker"] =
-            json!({"type":"forkNotice","parentSessionId":parent,"parentRowId":0});
+        marker["marker"] = json!({"type":"forkNotice","parentSessionId":parent,"parentRowId":0});
         child.rows.push(marker);
         child.phase = "completedSuccess".into();
         child.auto_drain = true;

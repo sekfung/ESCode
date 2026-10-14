@@ -105,7 +105,10 @@ pub fn format_model_content(current: Option<&str>, entries: &[Entry]) -> String 
                 .as_ref()
                 .map(|level| format!(" (default {level})"))
                 .unwrap_or_default();
-            text.push_str(&format!("; levels: {}{fallback}", entry.reasoning_levels.join(",")));
+            text.push_str(&format!(
+                "; levels: {}{fallback}",
+                entry.reasoning_levels.join(",")
+            ));
         }
         if current == Some(id.as_str()) {
             text.push_str(" [current]");

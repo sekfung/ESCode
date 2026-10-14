@@ -12,9 +12,9 @@
 //!
 //! 所有者：进程级 `OnceLock`，`main` 在建任何 HTTP 客户端前写入一次；Rust 不改写自身进程环境（多线程下
 //! `set_var` 不安全）。有效值 = 同名环境变量（非空）?? 该作用域的文件值，与 TS 的 env 层覆盖文件层一致。
+use escode_cli_domain::net_proxy::ProxyOptions;
 use serde_json::Value;
 use std::sync::OnceLock;
-use escode_cli_domain::net_proxy::ProxyOptions;
 
 pub const HTTP_PROXY_ENV_KEY: &str = "ESCODE_HTTP_PROXY";
 pub const NO_PROXY_ENV_KEY: &str = "ESCODE_NO_PROXY";
@@ -56,7 +56,10 @@ impl NetworkFileConfig {
         [
             (HTTP_PROXY_ENV_KEY, self.http_proxy.as_ref()),
             (NO_PROXY_ENV_KEY, self.no_proxy.as_ref()),
-            (crate::tls_ca::EXPLICIT_CA_ENV_KEY, self.ca_cert_file.as_ref()),
+            (
+                crate::tls_ca::EXPLICIT_CA_ENV_KEY,
+                self.ca_cert_file.as_ref(),
+            ),
         ]
     }
 }

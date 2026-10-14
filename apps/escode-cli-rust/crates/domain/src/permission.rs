@@ -284,10 +284,7 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     {
         return d(Allow, "mode.edit.fileEdit");
     }
-    check_build(
-        &c,
-        ctx.config.is_some_and(|c| c.auto_approve_high_risk),
-    )
+    check_build(&c, ctx.config.is_some_and(|c| c.auto_approve_high_risk))
 }
 
 fn check_plan(c: &Resolved) -> Decision {

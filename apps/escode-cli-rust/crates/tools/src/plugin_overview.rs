@@ -215,7 +215,9 @@ fn effective_marketplaces(known: &[Value], declared: &[(String, Value)]) -> Vec<
         .map(|record| {
             let id = record["id"].as_str().unwrap_or_default();
             match declared.iter().find(|(declared_id, _)| declared_id == id) {
-                Some((_, source)) if *source != record["source"] && !market::is_official_marketplace(id) => {
+                Some((_, source))
+                    if *source != record["source"] && !market::is_official_marketplace(id) =>
+                {
                     (declared_record(id, source), false)
                 }
                 _ => (record.clone(), true),

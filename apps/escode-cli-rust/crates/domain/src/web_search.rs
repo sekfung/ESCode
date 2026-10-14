@@ -47,7 +47,9 @@ pub struct Input {
 
 /// TS `WebSearchInputSchema`（strict）：query ≥ 2 字符，两个域名列表不能同时非空，maxUses 1–8。
 pub fn validate(args: &Value) -> Result<Input, String> {
-    let object = args.as_object().ok_or("WebSearch input must be an object")?;
+    let object = args
+        .as_object()
+        .ok_or("WebSearch input must be an object")?;
     if let Some(key) = object.keys().find(|k| {
         !matches!(
             k.as_str(),
@@ -179,7 +181,10 @@ mod tests {
 
     #[test]
     fn description_matches_ts() {
-        assert_eq!(description(2026, 9), corpus()["description"].as_str().unwrap());
+        assert_eq!(
+            description(2026, 9),
+            corpus()["description"].as_str().unwrap()
+        );
     }
 
     #[test]
@@ -188,20 +193,33 @@ mod tests {
             let text = case["text"].as_str().unwrap();
             let output = output("rust async", text);
             assert_eq!(output, case["output"], "{text:?}");
-            assert_eq!(model_content(&output), case["content"].as_str().unwrap(), "{text:?}");
+            assert_eq!(
+                model_content(&output),
+                case["content"].as_str().unwrap(),
+                "{text:?}"
+            );
         }
     }
 
     #[test]
     fn validation_follows_the_ts_schema() {
         assert!(validate(&json!({"query":"a"})).is_err());
-        assert!(validate(&json!({"query":"ab","allowed_domains":["x"],"blocked_domains":["y"]})).is_err());
+        assert!(
+            validate(&json!({"query":"ab","allowed_domains":["x"],"blocked_domains":["y"]}))
+                .is_err()
+        );
         assert!(validate(&json!({"query":"ab","extra":1})).is_err());
         assert!(validate(&json!({"query":"ab","maxUses":9})).is_err());
         let input = validate(&json!({"query":"ab","allowed_domains":["x"]})).unwrap();
         assert_eq!(input.max_uses, 8);
         let (messages, tool) = request(&input);
-        assert_eq!(messages[1]["content"], "Perform a web search for the query: ab");
-        assert_eq!(tool, json!({"type":MARKER,"max_uses":8,"allowed_domains":["x"]}));
+        assert_eq!(
+            messages[1]["content"],
+            "Perform a web search for the query: ab"
+        );
+        assert_eq!(
+            tool,
+            json!({"type":MARKER,"max_uses":8,"allowed_domains":["x"]})
+        );
     }
 }

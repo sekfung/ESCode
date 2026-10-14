@@ -3,10 +3,10 @@
 //! 不展开变量、不执行。差分 oracle 为 tests/fixtures/guarded_corpus.json
 //! （scripts/generate-escode-cli-rust-guarded-corpus.mjs）。见 docs/specs/rust-v3.15.1-drift.md。
 
+use crate::guarded_options::unwrap_command;
 pub(crate) use crate::guarded_options::{
     COMMAND_SCAN, OptionTable, ScanPolicy, WRAPPER_SCAN, enabled, parse_options, settle,
 };
-use crate::guarded_options::unwrap_command;
 use crate::guarded_rules::{match_cmd_delete, match_find_delete, match_git, match_robocopy_delete};
 pub(crate) use crate::guarded_word::command_basename;
 
@@ -204,7 +204,10 @@ fn match_invocation(name: &str, args: &[CommandWord], dialect: Dialect) -> Rule 
     });
     if ["dd", "mount", "umount", "mkfs"].contains(&name) || mkfs_variant {
         // 只豁免独立且明确的查询形式，不能把 -o/其它参数值中的 --help 当成退出选项。
-        if args.len() == 1 && !args[0].dynamic && ["--help", "--version"].contains(&args[0].value.as_str()) {
+        if args.len() == 1
+            && !args[0].dynamic
+            && ["--help", "--version"].contains(&args[0].value.as_str())
+        {
             return Rule::Miss;
         }
         if name == "mount" && args.is_empty() {
@@ -226,9 +229,11 @@ fn match_invocation(name: &str, args: &[CommandWord], dialect: Dialect) -> Rule 
             .flags
             .iter()
             .any(|f| ["-n", "--dry-run", "--help", "--version"].contains(&f.as_str()))
-            && parsed.flags.iter().any(|f| RSYNC_DELETE.contains(&f.as_str()));
+            && parsed
+                .flags
+                .iter()
+                .any(|f| RSYNC_DELETE.contains(&f.as_str()));
         return settle(hit.then_some("rsync-delete"), &parsed);
     }
     Rule::Miss
 }
-

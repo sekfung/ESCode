@@ -12,13 +12,33 @@ impl ToolPort for WorkspaceTools {
     async fn turn_ended(&self, session: &str, turn: &str) {
         self.mcp.browser_lifecycle(session, Some(turn), false).await;
     }
-    fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> { self.mcp.tool(session, name) }
-    async fn background_bash_output(&self, session: &str, work_id: &str) -> Value { self.shell.output(session, work_id).await }
-    async fn workflow_query(&self, method: &str, params: &Value) -> Result<Value> { self.workflow_host.request("v4.query", serde_json::json!({ "method": method, "params": params })).await }
-    fn attach_host(&self, host: crate::contract::EventSink) { self.workflow_host.attach_host(host.clone()); self.mcp.attach_host(host); }
-    async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> { self.run_hook_inner(session, input, call_id).await }
-    async fn workspace_hooks(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
-    async fn workflow_run(&self, method: &str, params: Value) -> Result<Value> { self.workflow_host.request(method, params).await }
+    fn mcp_tool(&self, session: &str, name: &str) -> Option<crate::contract::McpTool> {
+        self.mcp.tool(session, name)
+    }
+    async fn background_bash_output(&self, session: &str, work_id: &str) -> Value {
+        self.shell.output(session, work_id).await
+    }
+    async fn workflow_query(&self, method: &str, params: &Value) -> Result<Value> {
+        self.workflow_host
+            .request(
+                "v4.query",
+                serde_json::json!({ "method": method, "params": params }),
+            )
+            .await
+    }
+    fn attach_host(&self, host: crate::contract::EventSink) {
+        self.workflow_host.attach_host(host.clone());
+        self.mcp.attach_host(host);
+    }
+    async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> {
+        self.run_hook_inner(session, input, call_id).await
+    }
+    async fn workspace_hooks(&self, method: &str, params: Value) -> Result<Value> {
+        self.workflow_host.request(method, params).await
+    }
+    async fn workflow_run(&self, method: &str, params: Value) -> Result<Value> {
+        self.workflow_host.request(method, params).await
+    }
     #[allow(clippy::too_many_arguments)]
     async fn execute_workflow(
         &self,
@@ -30,16 +50,16 @@ impl ToolPort for WorkspaceTools {
         mode: &str,
         cancel: &CancellationToken,
     ) -> Option<Result<ToolOutput>> {
-        if super::workflow_tools::ACTOR_TOOLS.contains(&name) {
-            return Some(super::workflow_tools::execute_actor_tool(self, session, call_id, name, args).await);
-        }
-        if !super::workflow_host::routes(name, args) {
-            return None;
-        }
-        Some(super::workflow_tools::execute(self, session, call_id, name, args, selection, mode, cancel).await)
+        super::workspace_tools_misc::execute_workflow(
+            self, session, call_id, name, args, selection, mode, cancel,
+        )
+        .await
     }
     async fn workflow_actor_event(&self, actor_session: &str, event: Value) {
-        self.workflow_host.notify("actor.event", serde_json::json!({ "actorSession": actor_session, "event": event }));
+        self.workflow_host.notify(
+            "actor.event",
+            serde_json::json!({ "actorSession": actor_session, "event": event }),
+        );
     }
     async fn file_changes(
         &self,
@@ -96,16 +116,7 @@ impl ToolPort for WorkspaceTools {
         super::plan_tools::write_plan_file(&self.cwd, file_name, plan).await
     }
     async fn agent_output(&self, session: &str, text: &str) -> Result<String> {
-        let dir = self.artifacts.join(format!(
-            "{:x}",
-            <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
-        ));
-        tokio::fs::create_dir_all(&dir).await?;
-        let path = dir.join("output.txt"); // TS createSubagentLifecycle 的文件名
-        let temp = dir.join("output.txt.tmp");
-        tokio::fs::write(&temp, text).await?;
-        tokio::fs::rename(temp, &path).await?;
-        Ok(path.to_string_lossy().into_owned())
+        super::workspace_tools_misc::agent_output(self, session, text).await
     }
     async fn configure_mcp(&self, session: &str, servers: &Value) -> Result<()> {
         self.mcp.configure(session, servers)
@@ -115,14 +126,14 @@ impl ToolPort for WorkspaceTools {
     }
     /// 会话 shell 的显示名（与 Bash 执行使用同一选择与 Host 偏好）。
     async fn shell_display_name(&self, sink: &crate::contract::EventSink) -> Option<String> {
-        Some(super::tool_shell::display_name(sink).await)
+        Some(super::tool_shell_support::display_name(sink).await)
     }
     async fn shell_resume_notice(
         &self,
         sink: &crate::contract::EventSink,
         persisted: Option<&str>,
     ) -> Option<String> {
-        super::tool_shell::resume_notice(sink, persisted).await
+        super::tool_shell_support::resume_notice(sink, persisted).await
     }
     async fn web_fetch(
         &self,
@@ -176,18 +187,7 @@ impl ToolPort for WorkspaceTools {
     /// 权限配置：与 TS 同源（`~/.escode/cli/config.json` + 项目 escode.json/.escode/config.json，
     /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
     async fn permission_config(&self) -> crate::domain::permission::Config {
-        let mut config = super::extension_config::permission_config(&self.cwd).await;
-        // 官方 serial / circuit / rea 插件的 defaultAllowedTools 免审批（TS resolveOfficialPluginDefaultAllowedTools）。
-        config
-            .allowed
-            .extend(super::mcp_serial::default_allowed_tools(super::mcp_serial::host_serial_available()));
-        config
-            .allowed
-            .extend(super::mcp_circuit::default_allowed_tools(super::mcp_circuit::host_circuit_available()));
-        config
-            .allowed
-            .extend(super::mcp_rea::default_allowed_tools(super::mcp_rea::host_rea_available()));
-        config
+        super::workspace_tools_misc::permission_config(self).await
     }
     async fn subagents_enabled(&self) -> bool {
         let config = super::extension_config::load(&self.cwd)
@@ -222,22 +222,7 @@ impl ToolPort for WorkspaceTools {
         args: &Value,
         skill_loaded: bool,
     ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
-        let (cwd, analyzer) = (&self.workspace_path, &self.analyzer);
-        match name {
-            super::save_workflow::TOOL => {
-                super::save_workflow::prepare(cwd, args, skill_loaded, analyzer).await
-            }
-            super::eval_workflow_snippet::TOOL => {
-                super::eval_workflow_snippet::prepare(cwd, args, skill_loaded, analyzer).await
-            }
-            name if super::workflow_host::TOOLS.contains(&name) => {
-                return super::workflow_tools::prepare(self, session, name, args, skill_loaded)
-                    .await
-                    .map(Some);
-            }
-            _ => return Ok(None),
-        }
-        .map(Some)
+        super::workspace_tools_misc::prepare_tool(self, session, name, args, skill_loaded).await
     }
     async fn plugin_suggested_reference(
         &self,
@@ -366,14 +351,7 @@ impl ToolPort for WorkspaceTools {
         sink: &EventSink,
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
-        check_cancel(cancel)?;
-        let artifacts = super::mcp_connection::ImageArtifacts {
-            root: &self.artifacts,
-            session: &sink.session_id,
-            call_id,
-        };
-        self.mcp
-            .call(&sink.session_id, name, args, meta, Some(artifacts), cancel)
+        super::workspace_tools_misc::execute_mcp(self, name, args, call_id, meta, sink, cancel)
             .await
     }
     async fn cancel_session(&self, session: &str, task: Option<&str>) -> Result<()> {

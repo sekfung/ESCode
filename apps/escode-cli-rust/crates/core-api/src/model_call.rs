@@ -70,9 +70,11 @@ pub fn record_model_usage(fact: serde_json::Value) {
 pub trait ModelAdmissionTicket: Send + Sync {
     fn publish(&self, event: &serde_json::Value);
 }
-type AdmissionFuture = std::pin::Pin<Box<dyn Future<Output = Option<Box<dyn ModelAdmissionTicket>>> + Send>>;
+type AdmissionFuture =
+    std::pin::Pin<Box<dyn Future<Output = Option<Box<dyn ModelAdmissionTicket>>> + Send>>;
 /// 准入钩子（TS 进程级并发治理器经工作流宿主）：入参是调用作用域与 provider / model。
-pub type ModelAdmission = Box<dyn Fn(ModelCallScope, String, String) -> AdmissionFuture + Send + Sync>;
+pub type ModelAdmission =
+    Box<dyn Fn(ModelCallScope, String, String) -> AdmissionFuture + Send + Sync>;
 static ADMISSION: std::sync::OnceLock<ModelAdmission> = std::sync::OnceLock::new();
 
 pub fn set_model_admission(admission: ModelAdmission) {

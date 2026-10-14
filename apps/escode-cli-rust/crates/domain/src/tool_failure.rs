@@ -25,8 +25,14 @@ pub fn plain_error_text(message: &str) -> String {
 mod tests {
     #[test]
     fn collapses_whitespace_and_bounds_length() {
-        assert_eq!(super::plain_error_text("[\n  {\n    \"a\": 1\n  }\n]"), "[ { \"a\": 1 } ]");
+        assert_eq!(
+            super::plain_error_text("[\n  {\n    \"a\": 1\n  }\n]"),
+            "[ { \"a\": 1 } ]"
+        );
         let long = "x".repeat(600);
-        assert_eq!(super::plain_error_text(&long), format!("{}...", "x".repeat(497)));
+        assert_eq!(
+            super::plain_error_text(&long),
+            format!("{}...", "x".repeat(497))
+        );
     }
 }

@@ -41,7 +41,10 @@ impl Engine {
         let Some(s) = self.sessions.get_mut(id) else {
             return;
         };
-        if s.title_seed.as_ref().is_none_or(|seed| seed.goal_target.is_none()) {
+        if s.title_seed
+            .as_ref()
+            .is_none_or(|seed| seed.goal_target.is_none())
+        {
             return;
         }
         let seed = s.title_seed.take().unwrap();
@@ -221,7 +224,11 @@ fn fallback(s: &mut crate::domain::session::Session, target: &str) -> bool {
     let Some(goal) = s.goal.as_mut().filter(|g| g.target_id == target) else {
         return false;
     };
-    if goal.summary_title.as_deref().is_some_and(|t| !t.trim().is_empty()) {
+    if goal
+        .summary_title
+        .as_deref()
+        .is_some_and(|t| !t.trim().is_empty())
+    {
         return false;
     }
     match session_title::fallback_goal_summary_title(&goal.objective) {

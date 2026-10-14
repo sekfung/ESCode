@@ -11,7 +11,10 @@ impl Engine {
     /// 与 TS 一致，**会话已经活跃时不重放参数**（`activateSessionForResume` 命中 existing 直接返回）。
     pub(super) async fn resume_session(&mut self, p: &Value) -> Result<Value> {
         self.validate_workspace(p)?;
-        let id = p["sessionId"].as_str().context("Session id required")?.to_owned();
+        let id = p["sessionId"]
+            .as_str()
+            .context("Session id required")?
+            .to_owned();
         let was_active = self.sessions.contains_key(&id);
         // TS：持久化记录不存在时报 "Session not found"（与 requireSession 的「未活跃」区分）。
         self.ensure_session(&id).await?;

@@ -19,7 +19,7 @@ pub(super) async fn storage_lock(storage: &Path) -> tokio::sync::OwnedMutexGuard
         LazyLock::new(Default::default);
     let lock = LOCKS
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .entry(storage.to_owned())
         .or_default()
         .clone();

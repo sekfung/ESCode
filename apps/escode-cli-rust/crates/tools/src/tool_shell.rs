@@ -1,10 +1,9 @@
 use super::tool_process::{BACKGROUNDED, FOREGROUND, ShellContext, run, shell_output};
 #[path = "tool_shell_jobs.rs"]
 mod jobs;
+use super::tool_shell_support::shell_override;
 use super::tools::{boolean, keys, string, truncate_utf8, uint};
-use crate::{
-    contract::{Event, EventSink, ToolOutput},
-};
+use crate::contract::{EventSink, ToolOutput};
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use std::{
@@ -15,7 +14,7 @@ use std::{
 };
 use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
-    sync::{Mutex, oneshot, watch},
+    sync::{Mutex, watch},
 };
 use tokio_util::sync::CancellationToken;
 struct Job {
@@ -40,10 +39,7 @@ impl ShellTasks {
         cancel: &CancellationToken,
     ) -> Result<ToolOutput> {
         match name {
-            "Bash" => {
-                self.start(paths, session, args, sink, cancel)
-                    .await
-            }
+            "Bash" => self.start(paths, session, args, sink, cancel).await,
             "TaskOutput" | "TaskStop" => {
                 keys(
                     args,
@@ -58,14 +54,21 @@ impl ShellTasks {
                     .or_else(|| args["shell_id"].as_str())
                     .context("task_id required")?;
                 // TS：进程恢复后任务不重启，注册表里也就没有它；文案同 TS task-output / task-stop。
-                let Some(job) = self.jobs.lock().await.get(session).and_then(|jobs| jobs.get(id)).cloned() else {
+                let Some(job) = self
+                    .jobs
+                    .lock()
+                    .await
+                    .get(session)
+                    .and_then(|jobs| jobs.get(id))
+                    .cloned()
+                else {
                     return Err(crate::domain::file_tool_text::task_not_found(name, id));
                 };
                 let mut state = job.state.clone();
                 if name == "TaskStop" {
                     job.cancel.cancel();
                     if state.borrow().is_none() {
-                        tokio::select! {_=cancel.cancelled()=>bail!("Cancelled"),r=state.wait_for(|v|v.is_some())=>{r?;}}
+                        tokio::select! {_=cancel.cancelled()=>bail!("Cancelled"),r=state.wait_for(std::option::Option::is_some)=>{r?;}}
                     }
                     // TS task-stop：输出对象按 JSON 原样交给模型（键序 message / task_id / task_type / command）。
                     let message = format!("Successfully stopped task: {id} ({})", job.command);
@@ -96,7 +99,7 @@ impl ShellTasks {
                     if boolean(args, "block", true)? {
                         tokio::select! {
                             _=cancel.cancelled()=>bail!("Cancelled"),
-                            result=tokio::time::timeout(Duration::from_millis(timeout),state.wait_for(|s|s.is_some()))=>{match result{Ok(r)=>{r?;},Err(_)=>retrieval="timeout"}},
+                            result=tokio::time::timeout(Duration::from_millis(timeout),state.wait_for(std::option::Option::is_some))=>{match result{Ok(r)=>{r?;},Err(_)=>retrieval="timeout"}},
                         }
                     } else {
                         retrieval = "not_ready";
@@ -210,10 +213,20 @@ impl ShellTasks {
             .map(|call| {
                 let safe: String = call
                     .chars()
-                    .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' })
+                    .map(|c| {
+                        if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') {
+                            c
+                        } else {
+                            '_'
+                        }
+                    })
                     .take(120)
                     .collect();
-                if safe.is_empty() { "unknown".to_owned() } else { safe }
+                if safe.is_empty() {
+                    "unknown".to_owned()
+                } else {
+                    safe
+                }
             })
             .unwrap_or_else(super::id);
         let path = artifacts.join(format!("{file}-stdout.log"));
@@ -228,7 +241,9 @@ impl ShellTasks {
             path,
             combined,
             shell,
-            tool_call_id: args[crate::domain::background::TOOL_CALL_ID_ARG].as_str().map(str::to_owned),
+            tool_call_id: args[crate::domain::background::TOOL_CALL_ID_ARG]
+                .as_str()
+                .map(str::to_owned),
             raw_description: args["description"].as_str().map(str::to_owned),
             command,
             description,
@@ -242,8 +257,13 @@ impl ShellTasks {
                 self.start_background(launch, sink, timeout, cancel).await
             }
             (false, Some(sink)) if auto => {
-                self.start_auto(launch, sink, timeout.context("Invalid Bash timeout")?, cancel)
-                    .await
+                self.start_auto(
+                    launch,
+                    sink,
+                    timeout.context("Invalid Bash timeout")?,
+                    cancel,
+                )
+                .await
             }
             (false, _) => {
                 let context = ShellContext {
@@ -270,13 +290,35 @@ impl ShellTasks {
     /// `v4/conversation/backgroundBashOutput`（TS node-execution-adapter readBackgroundBashOutput）：后台详情的
     /// 输出尾窗（≤ 8192 字节）。任务按启动会话校验归属；先冻结状态再读文件。
     pub async fn output(&self, session: &str, work_id: &str) -> Value {
-        let job = self.jobs.lock().await.get(session).and_then(|jobs| jobs.get(work_id)).cloned();
+        let job = self
+            .jobs
+            .lock()
+            .await
+            .get(session)
+            .and_then(|jobs| jobs.get(work_id))
+            .cloned();
         let Some(job) = job else {
             return json!({ "kind": "unavailable", "workId": work_id });
         };
-        let status = match job.state.borrow().as_ref().map(|r| r["status"].as_str().unwrap_or("failed").to_owned()) {
+        let status = match job
+            .state
+            .borrow()
+            .as_ref()
+            .map(|r| r["status"].as_str().unwrap_or("failed").to_owned())
+        {
             None => "running".to_owned(),
-            Some(s) if ["completed", "failed", "timed_out", "cancelled", "spawn_error"].contains(&s.as_str()) => s,
+            Some(s)
+                if [
+                    "completed",
+                    "failed",
+                    "timed_out",
+                    "cancelled",
+                    "spawn_error",
+                ]
+                .contains(&s.as_str()) =>
+            {
+                s
+            }
             Some(_) => "failed".to_owned(),
         };
         let read = async {
@@ -286,7 +328,10 @@ impl ShellTasks {
             file.seek(std::io::SeekFrom::Start(size - length)).await?;
             let mut bytes = vec![];
             file.read_to_end(&mut bytes).await?;
-            Ok::<_, std::io::Error>((escode_cli_host::output_encoding::decode_output(&bytes), size > bytes.len() as u64))
+            Ok::<_, std::io::Error>((
+                escode_cli_host::output_encoding::decode_output(&bytes),
+                size > bytes.len() as u64,
+            ))
         };
         match read.await {
             Ok((output, truncated)) => json!({
@@ -331,7 +376,7 @@ impl ShellTasks {
         for job in jobs {
             let mut rx = job.state.clone();
             if rx.borrow().is_none() {
-                let _ = rx.wait_for(|v| v.is_some()).await;
+                let _ = rx.wait_for(std::option::Option::is_some).await;
             }
         }
         Ok(())
@@ -344,50 +389,9 @@ impl ShellTasks {
         for job in jobs.values() {
             let mut state = job.state.clone();
             if state.borrow().is_none() {
-                state.wait_for(|result| result.is_some()).await?;
+                state.wait_for(std::option::Option::is_some).await?;
             }
         }
         Ok(())
     }
-}
-/// 首个 Bash 前向会话 owner 请求用户终端偏好（TS `resolveInitialBashShellSelection`）；
-/// 无 owner（fixture/测试）、Host 不支持或超时时按自动探测处理，见 docs/specs/rust-shell-selection.md。
-pub(super) async fn shell_override(
-    sink: Option<&EventSink>,
-) -> Option<crate::shell_select::Override> {
-    let sink = sink?;
-    let (reply, rx) = oneshot::channel();
-    sink.send(Event::ShellPreference { reply }).await.ok()?;
-    let value = tokio::time::timeout(Duration::from_millis(15_000), rx)
-        .await
-        .ok()?
-        .ok()??;
-    crate::shell_select::parse_override(&value)
-}
-
-/// 会话当前的 shell 选择（与 Bash 执行同一 Host 偏好与解析）。
-async fn session_shell_selection(
-    sink: &crate::contract::EventSink,
-) -> crate::shell_select::Selection {
-    let over = shell_override(Some(sink)).await;
-    let env: Vec<(String, String)> = std::env::vars().collect();
-    crate::shell_select::resolve(
-        crate::shell_select::Platform::current(),
-        &env,
-        over.as_ref(),
-        &|p| std::path::Path::new(p).is_file(),
-    )
-}
-
-/// 恢复会话首轮的 shell 提醒（docs/specs/rust-shell-resume-notice.md）。
-pub(super) async fn resume_notice(
-    sink: &crate::contract::EventSink,
-    persisted: Option<&str>,
-) -> Option<String> {
-    crate::shell_select::resume_notice(&session_shell_selection(sink).await, persisted)
-}
-
-/// 系统提示词里的 Shell 名（与 Bash 执行同一选择）。
-pub(super) async fn display_name(sink: &crate::contract::EventSink) -> String {
-    crate::shell_select::display_name(&session_shell_selection(sink).await)
 }

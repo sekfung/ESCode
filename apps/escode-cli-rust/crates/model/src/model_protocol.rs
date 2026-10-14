@@ -74,7 +74,10 @@ pub(super) fn body(
                     obj.retain(|k, _| !k.starts_with("_escode_"));
                     // AI SDK openai-compatible：只有工具调用的 assistant 消息 content 为 null（Node 请求实测），
                     // Rust 之前发空串；部分兼容端对「空串 + tool_calls」更严格（docs/specs/rust-browser-use.md）。
-                    let calls = obj.get("tool_calls").and_then(Value::as_array).is_some_and(|c| !c.is_empty());
+                    let calls = obj
+                        .get("tool_calls")
+                        .and_then(Value::as_array)
+                        .is_some_and(|c| !c.is_empty());
                     if obj.get("role").and_then(Value::as_str) == Some("assistant")
                         && calls
                         && obj.get("content").and_then(Value::as_str) == Some("")
@@ -83,7 +86,7 @@ pub(super) fn body(
                     }
                 }
             }
-            let mut body = json!({"model":config.model_id,"stream":true,"stream_options":{"include_usage":true},"max_tokens":config.max_output_tokens,"tools":tools});
+            let mut body = json!({"model":config.model_id,"stream":true,"stream_options":{"include_usage":true},"tools":tools});
             body["messages"] = messages.into();
             body
         }
@@ -130,6 +133,18 @@ pub(super) fn body(
     }
     for patch in &config.option_patches {
         crate::domain::option_map::merge_patch(&mut body, patch);
+    }
+    // Chat 缺省字段对齐 TS（差分账本 M-1/M-2，docs/reports/rust-difference-ledger-2026-10-14.md）：
+    // TS 侧请求体由 AI SDK 组装——maxOutputTokens 只经模型 option map 落字段（默认映射
+    // `{'max_completion_tokens': maxOutputTokens}`），且有工具时补 `tool_choice:"auto"`。
+    // Rust 之前硬编码 `max_tokens` 且无 tool_choice：要么与映射重复，要么漏掉 AI SDK 的缺省字段。
+    if config.api_type == ApiType::Chat {
+        if body.get("max_completion_tokens").is_none() && body.get("max_tokens").is_none() {
+            body["max_completion_tokens"] = config.max_output_tokens.into();
+        }
+        if body["tools"].as_array().is_some_and(|tools| !tools.is_empty()) {
+            body["tool_choice"] = "auto".into();
+        }
     }
     // 选项映射只输出档位语义，Anthropic 的 thinking 预算在最终正文上补齐。
     if config.api_type == ApiType::Anthropic {
@@ -354,7 +369,7 @@ mod tests {
         assert_eq!(response["input"][4]["call_id"], "call");
         assert!(!response.to_string().contains("signature"));
         config.api_type = ApiType::Anthropic;
-        let anthropic = body(&config, messages.clone(), &[]).unwrap();
+        let anthropic = body(&config, messages, &[]).unwrap();
         assert_eq!(anthropic["messages"].as_array().unwrap().len(), 2);
         assert_eq!(
             anthropic["messages"][0]["content"][0]["signature"],

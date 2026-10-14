@@ -32,15 +32,12 @@ impl Input {
     /// TS `ReadSessionContextInputSchema`（strict）。
     pub fn parse(args: &Value) -> Result<Self, String> {
         let record = args.as_object().ok_or("Invalid ReadSessionContext input")?;
-        if let Some(key) = record
-            .keys()
-            .find(|k| {
-                !matches!(
-                    k.as_str(),
-                    "sessionId" | "query" | "strategy" | "maxTokens" | "cursor" | "attachment"
-                )
-            })
-        {
+        if let Some(key) = record.keys().find(|k| {
+            !matches!(
+                k.as_str(),
+                "sessionId" | "query" | "strategy" | "maxTokens" | "cursor" | "attachment"
+            )
+        }) {
             return Err(format!("Unrecognized key: {key}"));
         }
         // v3.15.1：sessionId 缺省为 current（只服务 topic 策略）。
@@ -72,7 +69,11 @@ impl Input {
         };
         let cursor = match record.get("cursor") {
             None => None,
-            Some(value) => Some(value.as_u64().ok_or("cursor must be a non-negative integer")?),
+            Some(value) => Some(
+                value
+                    .as_u64()
+                    .ok_or("cursor must be a non-negative integer")?,
+            ),
         };
         let attachment = match record.get("attachment") {
             None => None,

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use anyhow::Result;
-use sha2::{Digest, Sha256};
 use escode_cli_domain::json_order::Json;
+use sha2::{Digest, Sha256};
 
 use super::official_plugins_cache as cache;
 
@@ -101,7 +101,9 @@ pub(crate) fn assets() -> &'static Assets {
 pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
     static SEEDED: std::sync::Mutex<Vec<(PathBuf, Vec<PathBuf>)>> =
         std::sync::Mutex::new(Vec::new());
-    let mut seeded = SEEDED.lock().unwrap_or_else(|e| e.into_inner());
+    let mut seeded = SEEDED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some((_, roots)) = seeded.iter().find(|(root, _)| root == storage) {
         return roots.clone();
     }
@@ -120,7 +122,12 @@ pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
     let roots = match seed(storage, &base_dirs(), host.as_ref()) {
         Ok(roots) => roots,
         Err(error) => {
-            escode_cli_host::file_log::warn("official_plugins.seed.failed", "tools.official_plugins", &format!("official plugin seed failed: {error:#}"), serde_json::Value::Null);
+            escode_cli_host::file_log::warn(
+                "official_plugins.seed.failed",
+                "tools.official_plugins",
+                &format!("official plugin seed failed: {error:#}"),
+                serde_json::Value::Null,
+            );
             vec![]
         }
     };
@@ -144,7 +151,12 @@ pub(crate) fn reseed(storage: &Path) {
         _ => None,
     };
     if let Err(error) = seed(storage, &base_dirs(), host.as_ref()) {
-        escode_cli_host::file_log::warn("official_plugins.reseed.failed", "tools.official_plugins", &format!("official plugin reseed failed: {error:#}"), serde_json::Value::Null);
+        escode_cli_host::file_log::warn(
+            "official_plugins.reseed.failed",
+            "tools.official_plugins",
+            &format!("official plugin reseed failed: {error:#}"),
+            serde_json::Value::Null,
+        );
     }
 }
 

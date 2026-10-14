@@ -83,7 +83,10 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                 None
             } else if let Some(path) = asset.source_path.as_deref() {
                 Some(path.to_owned())
-            } else if let Some(uri) = part["ref"].as_str().filter(|r| r.starts_with("escode-artifact://")) {
+            } else if let Some(uri) = part["ref"]
+                .as_str()
+                .filter(|r| r.starts_with("escode-artifact://"))
+            {
                 super::attachment_image::derived_media_path(uri, mime, &bytes)
                     .await
                     .map_err(|_| ModelFailure::new("attachment_unavailable", false))?
@@ -155,7 +158,11 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                 }
             };
         }
-        parts.extend(sources.into_iter().map(|text| json!({"type":"text","text":text})));
+        parts.extend(
+            sources
+                .into_iter()
+                .map(|text| json!({"type":"text","text":text})),
+        );
     }
     if expanded {
         hoist_reminders(messages);

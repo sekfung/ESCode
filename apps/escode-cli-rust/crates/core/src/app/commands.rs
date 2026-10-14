@@ -28,7 +28,8 @@ impl Engine {
             return self.interaction_command(&c).await;
         }
         if c.kind == "createSession" {
-            return self.create(c).await;
+            let outcome = self.create(c).await;
+            return outcome;
         }
         let id = c
             .session_id

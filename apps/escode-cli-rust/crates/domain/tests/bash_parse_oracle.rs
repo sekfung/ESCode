@@ -1,7 +1,7 @@
 //! 差分：Rust bash_parse::analyze 与 TS analyzeBashCommand 的解析层 oracle。
 //! TS 判为安全（无错误/不支持/动态）的输入必须逐字段一致；其余输入 Rust 只需同样判为不安全。
-use serde_json::Value;
 use escode_cli_domain::bash_parse::analyze;
+use serde_json::Value;
 
 #[test]
 fn rust_parser_matches_ts_analysis() {

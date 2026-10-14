@@ -26,6 +26,9 @@ env:
   # macos runner 实测 subscribe 超 5s，整套 12 个用例报 ESCodeProtocolRequestTimeoutError。
   # 与安装包演练（release.yml）取同一放宽值；真挂死仍由 300s 用例超时兜底。
   ESCODE_TEST_REQUEST_MS: "60000"
+  # fixture 关闭预算（等子进程退出的上限，默认 4s）：慢机/并发负载下 workflow、hooks、媒体
+  # 场景的收尾会在 4s 边缘被 SIGKILL（本地实测）；放宽后真挂死仍由用例超时兜底。
+  ESCODE_TEST_EXIT_MS: "15000"
 
 jobs:
   checks:
@@ -50,6 +53,10 @@ jobs:
           workspaces: apps/escode-cli-rust
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:escode-cli-rust
+      # 依赖与许可证策略（apps/escode-cli-rust/deny.toml）：advisories / licenses 白名单 / bans / sources。
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: apps/escode-cli-rust/Cargo.toml
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm architecture:check
@@ -79,8 +86,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/escode-cli-rust
+      # 测试运行器：重试、慢测试超时与 JUnit 配置见 apps/escode-cli-rust/.config/nextest.toml。
+      - uses: taiki-e/install-action@nextest
       - run: pnpm install --frozen-lockfile
-      # 生成资产漂移检查、cargo test、App 集成套件（针对 Rust 二进制）。
+      # 生成资产漂移检查、cargo test/nextest、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:escode-cli-rust
         shell: bash
 
@@ -122,7 +131,25 @@ jobs:
             cat bench-results/summary.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      # 差分门禁（docs/specs/rust-unified-host.md §4.2）：同一确定性场景在 Node bundle 与 Rust
+      # 二进制上各跑一次，归一化后逐面（消息帧 / 存储进度 / 事件流 / 模型请求 / 工作区文件）对拍；
+      # 出现新差异（既非已批准、也不在欠账基线内）即失败，evidence 与报告随 artifact 上传。
+      # 观察期：基线指纹此前只在本机 Windows 验证稳定；三平台首次全绿后去掉 continue-on-error 转阻塞
+      # （转阻塞条件记录在 docs/specs/rust-unified-host.md 阶段 0 的切片条目）。
+      - name: Node vs Rust parity differential (session-baseline)
+        shell: bash
+        continue-on-error: true
+        run: |
+          node scripts/diff-escode-cli-rust-parity.mjs
+          {
+            echo "### parity (session-baseline, ${{ matrix.os }})"
+            cat .escode-runtime/parity/session-baseline.report.md
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: bench-${{ matrix.os }}
           path: bench-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parity-${{ matrix.os }}
+          path: .escode-runtime/parity

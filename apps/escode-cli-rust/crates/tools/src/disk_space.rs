@@ -31,8 +31,18 @@ fn usage(dir: &Path) -> Option<Usage> {
     let wide: Vec<u16> = dir.as_os_str().encode_wide().chain(Some(0)).collect();
     let mut available = 0u64;
     // SAFETY: `wide` 为以 NUL 结尾的 UTF-16 路径；其余输出参数允许为空。
-    let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut available, std::ptr::null_mut(), std::ptr::null_mut()) };
-    (ok != 0).then_some(Usage { available_mb: available / (1024 * 1024), inodes: None })
+    let ok = unsafe {
+        GetDiskFreeSpaceExW(
+            wide.as_ptr(),
+            &mut available,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    (ok != 0).then_some(Usage {
+        available_mb: available / (1024 * 1024),
+        inodes: None,
+    })
 }
 
 /// 返回 TS 的诊断文案；空间与 inode 都充足或无法查询时为 None。

@@ -27,7 +27,8 @@ pub fn resolve_builtin_prompt_command(
 }
 
 /// TS `BUILTIN_WORKFLOW_COMMAND_BODY`（builtin-workflow-command.ts；`$ARGUMENTS` 必须在场）。
-const WORKFLOW_BODY: &str = "Use the `dynamic-workflows` skill to design and launch a dynamic workflow for this request:
+const WORKFLOW_BODY: &str =
+    "Use the `dynamic-workflows` skill to design and launch a dynamic workflow for this request:
 
 $ARGUMENTS
 

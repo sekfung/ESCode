@@ -36,7 +36,11 @@ pub struct Item {
 
 /// TS `resolveDynamicWorkflowRunLabel`：`name` → 脚本首个非空行（trim 后截 80）→ runId。
 /// 派生结果**绝不回写** `dwf_run.name`（读时派生）。
-pub fn label(run_id: &str, name: Option<&str>, script_text: Option<&str>) -> (String, &'static str) {
+pub fn label(
+    run_id: &str,
+    name: Option<&str>,
+    script_text: Option<&str>,
+) -> (String, &'static str) {
     if let Some(name) = name.map(str::trim).filter(|name| !name.is_empty()) {
         return (name.to_owned(), "name");
     }
@@ -82,7 +86,11 @@ pub fn item(row: &RunRow, owner_session: &str) -> Item {
         None
     };
     // 后继指针只对 stopped 有意义：其余状态上即便载荷带着这个键，也读作缺席。
-    let superseded_by = if run.status == "stopped" { run.superseded_by } else { None };
+    let superseded_by = if run.status == "stopped" {
+        run.superseded_by
+    } else {
+        None
+    };
     let (label, label_source) = label(&run.run_id, run.name.as_deref(), row.script_text.as_deref());
     Item {
         run_id: run.run_id,
@@ -143,10 +151,17 @@ pub fn output(items: &[Item], truncated: bool) -> Json {
 
 /// TS `formatListWorkflowRunsModelContent`：一个 XML-ish 容器 + 一 run 一行（属性式）。
 pub fn format_model_content(output: &Json) -> String {
-    let runs = output.get("runs").and_then(Json::as_array).unwrap_or_default();
+    let runs = output
+        .get("runs")
+        .and_then(Json::as_array)
+        .unwrap_or_default();
     let truncated = output.get("truncated") == Some(&Json::Bool(true));
     let header = if truncated {
-        format!("{} {}", attribute("count", &runs.len().to_string()), attribute("truncated", "true"))
+        format!(
+            "{} {}",
+            attribute("count", &runs.len().to_string()),
+            attribute("truncated", "true")
+        )
     } else {
         attribute("count", &runs.len().to_string())
     };
@@ -185,7 +200,10 @@ pub fn format_model_content(output: &Json) -> String {
         }
         row.push(attribute(
             "spent_tokens",
-            &run.get("spentTokens").and_then(as_int).unwrap_or(0).to_string(),
+            &run.get("spentTokens")
+                .and_then(as_int)
+                .unwrap_or(0)
+                .to_string(),
         ));
         row.push(attribute(
             "created_at",
@@ -218,7 +236,10 @@ pub fn display(output: &Json) -> Json {
     value.set("kind", Json::str("list_workflow_runs"));
     value.set(
         "runs",
-        output.get("runs").cloned().unwrap_or(Json::Array(Vec::new())),
+        output
+            .get("runs")
+            .cloned()
+            .unwrap_or(Json::Array(Vec::new())),
     );
     if output.get("truncated") == Some(&Json::Bool(true)) {
         value.set("truncated", Json::Bool(true));
@@ -248,9 +269,12 @@ fn number(value: i64) -> Json {
 
 fn as_int(value: &Json) -> Option<i64> {
     match value {
-        Json::Number(number) => number
-            .as_i64()
-            .or_else(|| number.as_f64().filter(|f| f.is_finite() && f.fract() == 0.0).map(|f| f as i64)),
+        Json::Number(number) => number.as_i64().or_else(|| {
+            number
+                .as_f64()
+                .filter(|f| f.is_finite() && f.fract() == 0.0)
+                .map(|f| f as i64)
+        }),
         _ => None,
     }
 }

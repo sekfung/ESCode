@@ -11,7 +11,9 @@ pub(super) fn definitions() -> Vec<Value> {
         if let Some(crate::domain::json_order::Json::Object(entries)) =
             crate::domain::json_order::Json::parse(include_str!("tool_schemas.json"))
         {
-            entries.iter().for_each(|(_, schema)| crate::domain::schema_order::remember(schema));
+            entries
+                .iter()
+                .for_each(|(_, schema)| crate::domain::schema_order::remember(schema));
         }
     });
     // 模型可见工具面与 Node 对齐（docs/specs/rust-tool-surface.md）：描述取 TS provider 描述；

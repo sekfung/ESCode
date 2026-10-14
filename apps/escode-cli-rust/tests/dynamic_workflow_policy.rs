@@ -117,7 +117,7 @@ async fn policy_method_echoes_the_workspace_and_rejects_bad_params() {
     // strict `{workspace, enabled}`：多余键、非布尔 enabled、缺 workspace、工作区不一致都拒绝。
     for params in [
         json!({"workspace":workspace,"enabled":true,"extra":1}),
-        update(json!("yes"), workspace.clone()),
+        update(json!("yes"), workspace),
         json!({"enabled":true}),
         json!({"workspace":{"workspacePath":"other"},"enabled":true}),
     ] {

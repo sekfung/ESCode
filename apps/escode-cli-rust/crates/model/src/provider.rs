@@ -2,11 +2,11 @@ use super::{
     config::ModelConfig,
     model_failure,
     model_policy::RetryPolicy,
-    model_protocol::{self, ApiType, ProtocolStream},
+    model_protocol::{ApiType, ProtocolStream},
     model_stream::TextBuffer,
     sse::SseDecoder,
 };
-use crate::contract::{Event, EventSink, ModelFailure, ModelOutput, ModelPort, RetryState};
+use crate::contract::{EventSink, ModelFailure, ModelOutput, ModelPort};
 use bytes::Bytes;
 use futures_util::StreamExt;
 use serde_json::Value;
@@ -20,9 +20,9 @@ pub(super) use super::provider_support::{add_extra_ca_certificates, after, deadl
 type Result<T> = std::result::Result<T, ModelFailure>;
 
 pub struct HttpModel {
-    config: ModelConfig,
+    pub(super) config: ModelConfig,
     client: std::sync::Arc<tokio::sync::OnceCell<reqwest::Client>>,
-    retry: RetryPolicy,
+    pub(super) retry: RetryPolicy,
     url: String,
 }
 
@@ -63,7 +63,9 @@ impl HttpModel {
                     let resolution =
                         escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
                             &target,
-                            &escode_cli_host::net_config::proxy_options(escode_cli_host::net_config::NetworkScope::Process),
+                            &escode_cli_host::net_config::proxy_options(
+                                escode_cli_host::net_config::NetworkScope::Process,
+                            ),
                         );
                     if let Some(proxy) = resolution.proxy_url {
                         builder = builder.proxy(
@@ -85,7 +87,7 @@ impl HttpModel {
             })
             .await
     }
-    async fn request(
+    pub(super) async fn request(
         &self,
         body: Bytes,
         attempt: u32,
@@ -123,7 +125,9 @@ impl HttpModel {
                 .map(|(_, value)| value.as_str());
             super::web_search::merge_beta(existing)
         });
-        for (key, value) in super::client_headers::request_headers(&self.config.headers, beta.is_some(), &self.url) {
+        for (key, value) in
+            super::client_headers::request_headers(&self.config.headers, beta.is_some(), &self.url)
+        {
             request = request.header(key, value);
         }
         if let Some(beta) = &beta {
@@ -207,131 +211,6 @@ impl HttpModel {
             }
         }
         assembly.finish()
-    }
-    async fn complete_inner(
-        &self,
-        messages: Vec<Value>,
-        tools: &[Value],
-        sink: &EventSink,
-    ) -> Result<ModelOutput> {
-        // model-IO 记录（docs/specs/rust-model-io.md）：投影在展开附件之前做；test 环境为 None。
-        let io = super::model_io::Call::new(
-            &self.config.provider_id,
-            &self.config.model_id,
-            self.config.max_output_tokens,
-            &messages,
-            tools,
-        );
-        let mut messages = messages;
-        let has_attachments =
-            super::request_attachments::materialize(&mut messages, &self.format_properties())
-                .await?;
-        let messages =
-            super::tool_media::project(messages, self.config.api_type, &self.format_properties())?;
-        let body = model_protocol::body(&self.config, messages, tools)?;
-        // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
-        // MCP 工具 schema 按登记的声明顺序编码（docs/specs/rust-tool-schema-order.md），其余与 serde_json 相同。
-        let encoded = Bytes::from(
-            crate::domain::schema_order::encode(&body, crate::domain::schema_order::lookup)
-                .into_bytes(),
-        );
-        let native_search = super::web_search::needs_beta(&body);
-        // 大附件仅保留重试所需的已编码字节，不能在整个流期间保留多份 base64 请求树。
-        drop(body);
-        if encoded.len()
-            > if has_attachments {
-                96 * 1024 * 1024
-            } else {
-                2 * 1024 * 1024
-            }
-        {
-            return Err(ModelFailure::new("context_exceeded", false));
-        }
-        let mut empty_retries = 0;
-        let request_started = super::now();
-        let status = super::model_usage::Status { sink, provider_id: &self.config.provider_id, model_id: &self.config.model_id, request_id: uuid::Uuid::new_v4().to_string(), max_attempts: self.retry.max_attempts, ticket: Default::default() };
-        for attempt in 1..=self.retry.max_attempts {
-            if attempt > 1 {
-                sink.send(Event::Retry(None))
-                    .await
-                    .map_err(|_| ModelFailure::cancelled())?;
-            }
-            let mut output = TextBuffer::new(sink);
-            let auth = if let Some(access) = &self.config.account_access {
-                let (reply, received) = tokio::sync::oneshot::channel();
-                sink.send(Event::RequestAuth {
-                    provider: self.config.provider_id.clone(),
-                    selection: serde_json::json!({"providerId":self.config.provider_id,"modelId":self.config.model_id,"options":{"reasoningLevel":self.config.reasoning_level}}),
-                    access: access.clone(), reply,
-                }).await.map_err(|_| ModelFailure::cancelled())?;
-                let auth = tokio::time::timeout(Duration::from_secs(180), received)
-                    .await
-                    .map_err(|_| ModelFailure::new("auth_failed", false))?
-                    .map_err(|_| ModelFailure::cancelled())?;
-                if auth["headersApplied"] != true || !auth["requestAuth"].is_object() {
-                    return Err(ModelFailure::new("auth_failed", false));
-                }
-                auth
-            } else {
-                Value::Null
-            };
-            let (started, attempt_started) = (std::time::SystemTime::now(), super::now());
-            status.emit("model_request_started", attempt, serde_json::json!({})).await;
-            let result = self
-                .request(encoded.clone(), attempt, &mut output, &auth, native_search)
-                .await;
-            output.flush().await?;
-            let result = result.map(|mut result| {
-                result.response_id = output.response_id().to_owned();
-                result
-            });
-            if let Some(io) = &io {
-                io.record(attempt, started, &encoded, result.as_ref()).await;
-            }
-            status.settled(attempt, attempt_started, result.as_ref()).await;
-            match result {
-                Ok(mut result) => {
-                    super::model_usage::record(status.provider_id, status.model_id, (request_started, output.first_token_at), attempt, Ok(&result));
-                    result.message["_escode_origin"] = serde_json::json!({"provider":self.config.provider_id,"model":self.config.model_id});
-                    return Ok(result);
-                }
-                Err(mut failure) => {
-                    failure.output_committed = output.committed;
-                    if !failure.retryable
-                        || failure.output_committed
-                        || attempt == self.retry.max_attempts
-                        || (failure.empty_completion && empty_retries > 0)
-                    {
-                        super::model_usage::record(status.provider_id, status.model_id, (request_started, output.first_token_at), attempt, Err(&failure));
-                        return Err(failure);
-                    }
-                    if failure.empty_completion {
-                        empty_retries += 1;
-                    }
-                    let mask = (1u64 << 53) - 1;
-                    let random =
-                        (uuid::Uuid::new_v4().as_u128() as u64 & mask) as f64 / mask as f64;
-                    let delay_ms = self.retry.delay_ms(attempt, failure.retry_after_ms, random);
-                    let reason = if failure.empty_completion {
-                        "server_error"
-                    } else {
-                        failure.reason
-                    };
-                    status.emit("model_retry_scheduled", attempt, serde_json::json!({ "delayMs": delay_ms, "nextAttempt": attempt + 1, "reason": reason })).await;
-                    sink.send(Event::Retry(Some(RetryState {
-                        attempt,
-                        max_attempts: self.retry.max_attempts,
-                        next_retry_at: super::now().saturating_add(delay_ms),
-                        reason_code: escode_cli_domain::model::retry_reason_code(reason),
-                        reason,
-                    })))
-                    .await
-                    .map_err(|_| ModelFailure::cancelled())?;
-                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                }
-            }
-        }
-        unreachable!("positive retry budget")
     }
 }
 

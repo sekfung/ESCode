@@ -23,16 +23,24 @@ impl Responses {
         if !line.windows(7).any(|w| w == b"\"tools\"") {
             return;
         }
-        let Some(json) = std::str::from_utf8(line).ok().and_then(|t| Json::parse(t.trim())) else {
+        let Some(json) = std::str::from_utf8(line)
+            .ok()
+            .and_then(|t| Json::parse(t.trim()))
+        else {
             return;
         };
         let (Some(id), Some(_)) = (
             json.get("id"),
-            json.get("result").and_then(|r| r.get("tools")).and_then(Json::as_array),
+            json.get("result")
+                .and_then(|r| r.get("tools"))
+                .and_then(Json::as_array),
         ) else {
             return;
         };
-        let mut pending = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut pending = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if pending.len() >= MAX_PENDING {
             pending.clear();
         }
@@ -44,14 +52,26 @@ impl Responses {
         let Ok(key) = serde_json::to_string(id) else {
             return;
         };
-        let Some(raw) = self.0.lock().unwrap_or_else(|e| e.into_inner()).remove(&key) else {
+        let Some(raw) = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&key)
+        else {
             return;
         };
         let Some(json) = Json::parse(raw.trim()) else {
             return;
         };
-        let tools = json.get("result").and_then(|r| r.get("tools")).and_then(Json::as_array);
-        for schema in tools.unwrap_or_default().iter().filter_map(|t| t.get("inputSchema")) {
+        let tools = json
+            .get("result")
+            .and_then(|r| r.get("tools"))
+            .and_then(Json::as_array);
+        for schema in tools
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|t| t.get("inputSchema"))
+        {
             crate::domain::schema_order::remember(schema);
         }
     }
@@ -67,12 +87,21 @@ pub(super) struct Tee<R> {
 
 impl<R> Tee<R> {
     pub(super) fn new(inner: R, responses: Responses) -> Self {
-        Self { inner, line: Vec::new(), overflow: false, responses }
+        Self {
+            inner,
+            line: Vec::new(),
+            overflow: false,
+            responses,
+        }
     }
 }
 
 impl<R: AsyncRead + Unpin> AsyncRead for Tee<R> {
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         let before = buf.filled().len();
         ready!(Pin::new(&mut self.inner).poll_read(cx, buf))?;
         let this = &mut *self;

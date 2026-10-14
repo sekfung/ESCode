@@ -1,0 +1,9 @@
+# 测试运行器策略（docs/specs/rust-unified-host.md 阶段 0；与对标仓库同一份配置）。
+[profile.default]
+# 慢测试 30s 报告、60s 终止；失败重试一次：偶发失败标 flaky，不直接挡 CI。
+slow-timeout = { period = "30s", terminate-after = 2 }
+retries = 1
+fail-fast = false
+
+[profile.default.junit]
+path = "junit.xml"

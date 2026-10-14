@@ -135,7 +135,7 @@ pub fn attr(e: &quick_xml::events::BytesStart<'_>, local: &str) -> Option<String
         .find(|a| a.key.local_name().as_ref() == local)
         .map(|a| {
             a.normalized_value(quick_xml::XmlVersion::default())
-                .map(|v| v.into_owned())
+                .map(std::borrow::Cow::into_owned)
                 .unwrap_or_else(|_| a.value.to_string())
         })
 }

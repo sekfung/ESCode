@@ -213,12 +213,16 @@ impl Engine {
             }
             Ok::<_, anyhow::Error>(())
         };
-        let mut result =
-            tokio::select! {biased; _=cancel.cancelled()=>Ok(()), result=serving=>result};
+        // 修复：engine 循环 panic 原先直接展开 `serve`、跳过收尾（工具不 shutdown、active 不清空）；
+        // 捕获后转为错误值走正常收尾路径（docs/specs/rust-unified-host.md P0#1）。
+        let mut result = tokio::select! {biased;
+            _=cancel.cancelled()=>Ok(()),
+            result=crate::contract::catch_panic(serving)=>result.unwrap_or_else(|panicked| Err(super::panicked("engine", panicked))),
+        };
         let mut storage_failed = result
             .as_ref()
             .err()
-            .is_some_and(|e| e.is::<StorageCommitFailure>());
+            .is_some_and(anyhow::Error::is::<StorageCommitFailure>);
         if result.is_err() {
             self.child_updates.clear();
         }

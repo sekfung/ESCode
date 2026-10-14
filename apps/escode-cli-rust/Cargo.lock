@@ -566,6 +566,7 @@ dependencies = [
  "async-trait",
  "escode-cli-domain",
  "escode-cli-protocol",
+ "futures-util",
  "serde_json",
  "tokio",
  "tokio-util",

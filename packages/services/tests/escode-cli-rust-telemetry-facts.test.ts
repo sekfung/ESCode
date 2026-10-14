@@ -65,6 +65,8 @@ async function observe(kind: "node" | "rust") {
       .filter((fact: any) => !(fact.kind === "model.request.status" && fact.querySource === "session_title"))
       .map((fact: any) => ({
         kind: fact.kind,
+        // 会话创建期采用的 App Memory 开关（shared factBaseFields）；两侧都必须带同一取值。
+        ...(fact.memoryEnabled !== undefined ? { memoryEnabled: fact.memoryEnabled } : {}),
         ...(fact.phase ? { phase: fact.phase } : {}),
         ...(fact.status ? { status: fact.status } : {}),
         ...(fact.channel ? { channel: fact.channel, firstChunk: fact.firstChunk } : {}),

@@ -64,8 +64,14 @@ fn prefix_filtering_matches_brute_force() {
 #[test]
 fn eligibility_filter_and_empty_sets() {
     let sets: Vec<BTreeSet<String>> = vec![
-        ["a", "b"].iter().map(|s| s.to_string()).collect(),
-        ["a", "b"].iter().map(|s| s.to_string()).collect(),
+        ["a", "b"]
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
+        ["a", "b"]
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect(),
         BTreeSet::new(),
         BTreeSet::new(),
     ];

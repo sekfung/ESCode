@@ -1,7 +1,7 @@
 //! 差分：Rust bash_policy::is_readonly 与 TS isRuntimeReadOnlyBashCommand 在 5k+ 条语料上逐条一致。
 //! 失败时区分方向：Rust 放宽（TS 非只读而 Rust 只读）是阻断缺陷。
-use serde_json::Value;
 use escode_cli_domain::bash_policy::is_readonly;
+use serde_json::Value;
 
 #[test]
 fn rust_bash_readonly_matches_ts_corpus() {

@@ -5,6 +5,7 @@
 //! 这里只做**纯逻辑**：物理列 → 逻辑记录的解码、产物归并、以及 `workflows/runs` 的行投影。
 //! SQL 与 DDL 在 `escode-cli-state`，协议入口在 core。
 
+use super::dwf_journal_fields::{as_int, is_primary, physical, string_field};
 use crate::json_order::Json;
 
 /// `listRuns` 的查询袋（TS `DwfListRunsQuery`）：`cwd` 缺省即跨项目；`limit` 由调用方钳制
@@ -59,8 +60,6 @@ pub struct JournalRun {
 
 /// 逻辑状态（TS `RunStatus`）。
 pub const STATUSES: [&str; 5] = ["pending", "running", "completed", "stopped", "errored"];
-/// 物理列值（TS `DwfRunPhysicalStatus`）。
-const PHYSICAL: [&str; 5] = ["pending", "running", "completed", "failed", "cancelled"];
 /// TS `INTERRUPTED_CODE`：物理 `failed` 里区分「中断」与「报错」的唯一标记。
 const INTERRUPTED_CODE: &str = "Interrupted";
 /// TS `STOP_REASONS`：信封嗅探白名单——少一个值，该原因的整封 envelope 解不出来、行退化成 user。
@@ -83,28 +82,11 @@ pub struct Run {
     pub time_updated: i64,
 }
 
-fn physical(status: &str) -> &'static str {
-    PHYSICAL.iter().copied().find(|candidate| *candidate == status).unwrap_or("pending")
-}
-
-/// JS `Number.isInteger` 语义（`Json` 只有 compact/parse，读数字要自己收窄）。
-fn as_int(value: &Json) -> Option<i64> {
-    let Json::Number(number) = value else { return None };
-    number
-        .as_i64()
-        .or_else(|| number.as_f64().filter(|float| float.is_finite() && float.fract() == 0.0).map(|float| float as i64))
-}
-
-fn is_primary(value: &Json) -> bool {
-    value.get("primary") == Some(&Json::Bool(true))
-}
-
-fn string_field(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
-}
-
 /// TS `decodeRunSettlement`：物理列 + `failure_json` → 逻辑状态、停留原因与 failure。
-fn settlement(status: &str, failure_json: Option<&str>) -> (&'static str, Option<String>, Option<String>) {
+fn settlement(
+    status: &str,
+    failure_json: Option<&str>,
+) -> (&'static str, Option<String>, Option<String>) {
     let raw = failure_json.and_then(Json::parse);
     match physical(status) {
         "cancelled" => {
@@ -132,7 +114,10 @@ fn settlement(status: &str, failure_json: Option<&str>) -> (&'static str, Option
             ("stopped", Some(reason), superseded)
         }
         "failed" => {
-            let code = raw.as_ref().and_then(|value| value.get("code")).and_then(Json::as_str);
+            let code = raw
+                .as_ref()
+                .and_then(|value| value.get("code"))
+                .and_then(Json::as_str);
             if code == Some(INTERRUPTED_CODE) {
                 ("stopped", Some("interrupted".to_owned()), None)
             } else {
@@ -140,7 +125,15 @@ fn settlement(status: &str, failure_json: Option<&str>) -> (&'static str, Option
             }
         }
         "completed" => ("completed", None, None),
-        other => (if other == "running" { "running" } else { "pending" }, None, None),
+        other => (
+            if other == "running" {
+                "running"
+            } else {
+                "pending"
+            },
+            None,
+            None,
+        ),
     }
 }
 
@@ -166,10 +159,14 @@ pub fn decode_run(row: &RunRow) -> Run {
 
 /// TS `artifactsOf`：只收 `completed` 的产物行，同 id 按版本升序，顶层字段取最新版；
 /// 交付物（primary）带头。`itemCount` 由标签 `report` 行数决定（内容产物恒 0）。
-pub fn artifacts(rows: &[ArtifactRow], report_counts: Option<&[(String, i64)]>) -> Option<Vec<Json>> {
+pub fn artifacts(
+    rows: &[ArtifactRow],
+    report_counts: Option<&[(String, i64)]>,
+) -> Option<Vec<Json>> {
     let mut order: Vec<String> = Vec::new();
     let mut kinds: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    let mut versions: std::collections::BTreeMap<String, Vec<Json>> = std::collections::BTreeMap::new();
+    let mut versions: std::collections::BTreeMap<String, Vec<Json>> =
+        std::collections::BTreeMap::new();
     for row in rows {
         if row.status != "completed" {
             continue;
@@ -189,7 +186,11 @@ pub fn artifacts(rows: &[ArtifactRow], report_counts: Option<&[(String, i64)]>) 
             .filter(|value| !value.is_empty())
             .or_else(|| record.get("id").and_then(Json::as_str).map(str::to_owned));
         let Some(id) = id else { continue };
-        let Some(kind) = record.get("kind").and_then(Json::as_str).filter(|kind| ARTIFACT_KINDS.contains(kind)) else {
+        let Some(kind) = record
+            .get("kind")
+            .and_then(Json::as_str)
+            .filter(|kind| ARTIFACT_KINDS.contains(kind))
+        else {
             continue;
         };
         if !kinds.contains_key(&id) {
@@ -203,7 +204,10 @@ pub fn artifacts(rows: &[ArtifactRow], report_counts: Option<&[(String, i64)]>) 
     }
     // 标签计数只在真有**预置看板**时才扫：内容产物的 itemCount 恒 0，而计数是一次全表解码。
     let counts = |id: &str| {
-        if !kinds.values().any(|kind| PRESET_KINDS.contains(&kind.as_str())) {
+        if !kinds
+            .values()
+            .any(|kind| PRESET_KINDS.contains(&kind.as_str()))
+        {
             return 0;
         }
         report_counts
@@ -248,7 +252,10 @@ pub fn artifacts(rows: &[ArtifactRow], report_counts: Option<&[(String, i64)]>) 
 
 /// TS `artifactVersionOf`：`version` 不是正整数就整行丢弃（没有版本号的版本无法定位）。
 fn version_of(record: &Json) -> Option<Json> {
-    let version = record.get("version").and_then(as_int).filter(|value| *value >= 1)?;
+    let version = record
+        .get("version")
+        .and_then(as_int)
+        .filter(|value| *value >= 1)?;
     let mut out = Json::object();
     out.set("version", Json::Number(version.into()));
     for key in ["title", "description", "contentType"] {
@@ -347,7 +354,10 @@ pub fn protocol_run(run: &Run, artifacts: Option<&[Json]>) -> Json {
                         if let Some(title) = artifact.get("title") {
                             row.set("title", title.clone());
                         }
-                        row.set("version", artifact.get("version").cloned().unwrap_or(Json::Null));
+                        row.set(
+                            "version",
+                            artifact.get("version").cloned().unwrap_or(Json::Null),
+                        );
                         if let Some(content_type) = artifact.get("contentType") {
                             row.set("contentType", content_type.clone());
                         }

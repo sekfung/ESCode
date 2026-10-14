@@ -33,7 +33,10 @@ pub fn serialize(meta: &Json, script: &str) -> String {
             body.set(key, value.clone());
         }
     }
-    format!("{SENTINEL}\n{}{TERMINATOR}\n{script}", crate::yaml_emit::stringify(&body))
+    format!(
+        "{SENTINEL}\n{}{TERMINATOR}\n{script}",
+        crate::yaml_emit::stringify(&body)
+    )
 }
 
 /// 文件正文 → 元数据 + 脚本。四种失败各有原因：缺起始块、未闭合、YAML 坏、元数据不符。
@@ -47,7 +50,9 @@ pub fn parse(source: &str) -> Result<Parsed, Failure> {
             detail: format!("file does not start with the `{SENTINEL}` metadata block"),
         });
     };
-    let Some(end) = (start + 1..lines.len()).find(|&i| crate::web_fetch::js_trim(lines[i]) == TERMINATOR) else {
+    let Some(end) =
+        (start + 1..lines.len()).find(|&i| crate::web_fetch::js_trim(lines[i]) == TERMINATOR)
+    else {
         return Err(Failure {
             reason: "unterminated_frontmatter",
             detail: format!("metadata block is never closed with `{TERMINATOR}`"),
@@ -58,14 +63,23 @@ pub fn parse(source: &str) -> Result<Parsed, Failure> {
     // TS 按 `\n` 切行，CRLF 文件每行残留的 `\r` 被 `yaml` 当作标量内容（如 description 为 "CRLF\r"）；
     // saphyr 把 `\r` 当换行，这里先换成私用区占位符、解析后还原，与 TS 结果一致。
     let body = body.replace('\r', &CR_PLACEHOLDER.to_string());
-    let documents = YamlOwned::load_from_str(&body)
-        .map_err(|error| Failure { reason: "invalid_yaml", detail: error.to_string() })?;
+    let documents = YamlOwned::load_from_str(&body).map_err(|error| Failure {
+        reason: "invalid_yaml",
+        detail: error.to_string(),
+    })?;
     let meta = documents.first().map(to_json).unwrap_or(Json::Null);
     let issues = validate(&meta);
     if !issues.is_empty() {
-        return Err(Failure { reason: "invalid_metadata", detail: issues.join("; ") });
+        return Err(Failure {
+            reason: "invalid_metadata",
+            detail: issues.join("; "),
+        });
     }
-    Ok(Parsed { meta: shape_order(&meta), script, body_line_offset: end + 1 })
+    Ok(Parsed {
+        meta: shape_order(&meta),
+        script,
+        body_line_offset: end + 1,
+    })
 }
 
 /// zod 解析结果按 schema 字段顺序重建对象（元数据 description → whenToUse → args；
@@ -84,7 +98,12 @@ fn shape_order(meta: &Json) -> Json {
     if let Some(Json::Object(args)) = meta.get("args") {
         let ordered = args
             .iter()
-            .map(|(name, decl)| (name.clone(), pick(decl, &["type", "description", "required", "default"])))
+            .map(|(name, decl)| {
+                (
+                    name.clone(),
+                    pick(decl, &["type", "description", "required", "default"]),
+                )
+            })
             .collect();
         out.set("args", Json::Object(ordered));
     }
@@ -119,7 +138,9 @@ fn scalar_json(scalar: &ScalarOwned) -> Json {
         ScalarOwned::Null => Json::Null,
         ScalarOwned::Boolean(b) => Json::Bool(*b),
         ScalarOwned::Integer(i) => Json::Number((*i).into()),
-        ScalarOwned::FloatingPoint(f) => serde_json::Number::from_f64(f.0).map(Json::Number).unwrap_or(Json::Null),
+        ScalarOwned::FloatingPoint(f) => serde_json::Number::from_f64(f.0)
+            .map(Json::Number)
+            .unwrap_or(Json::Null),
         ScalarOwned::String(s) => Json::String(s.replace(CR_PLACEHOLDER, "\r")),
     }
 }
@@ -138,13 +159,20 @@ fn kind(value: Option<&Json>) -> &'static str {
 }
 
 fn at(path: &str) -> String {
-    if path.is_empty() { "(root)".into() } else { path.into() }
+    if path.is_empty() {
+        "(root)".into()
+    } else {
+        path.into()
+    }
 }
 
 /// 一个 strict 对象里未声明的键（zod 在该对象的已知字段之后报一条）。
 fn unknown_keys(entries: &[(String, Json)], known: &[&str]) -> Option<String> {
-    let unknown: Vec<String> =
-        entries.iter().filter(|(k, _)| !known.contains(&k.as_str())).map(|(k, _)| format!("'{k}'")).collect();
+    let unknown: Vec<String> = entries
+        .iter()
+        .filter(|(k, _)| !known.contains(&k.as_str()))
+        .map(|(k, _)| format!("'{k}'"))
+        .collect();
     (!unknown.is_empty()).then(|| format!("Unrecognized key(s) in object: {}", unknown.join(", ")))
 }
 
@@ -152,13 +180,16 @@ fn unknown_keys(entries: &[(String, Json)], known: &[&str]) -> Option<String> {
 pub fn validate(meta: &Json) -> Vec<String> {
     let mut issues = Vec::new();
     let Json::Object(entries) = meta else {
-        return vec![format!("(root): Expected object, received {}", kind(Some(meta)))];
+        return vec![format!(
+            "(root): Expected object, received {}",
+            kind(Some(meta))
+        )];
     };
     let text = |issues: &mut Vec<String>, key: &str, required: bool| match meta.get(key) {
         None if !required => {}
-        Some(Json::String(s)) if s.is_empty() => {
-            issues.push(format!("{key}: String must contain at least 1 character(s)"))
-        }
+        Some(Json::String(s)) if s.is_empty() => issues.push(format!(
+            "{key}: String must contain at least 1 character(s)"
+        )),
         Some(Json::String(_)) => {}
         None => issues.push(format!("{key}: Required")),
         other => issues.push(format!("{key}: Expected string, received {}", kind(other))),
@@ -171,7 +202,10 @@ pub fn validate(meta: &Json) -> Vec<String> {
             for (name, decl) in args {
                 let path = format!("args.{name}");
                 let Json::Object(fields) = decl else {
-                    issues.push(format!("{path}: Expected object, received {}", kind(Some(decl))));
+                    issues.push(format!(
+                        "{path}: Expected object, received {}",
+                        kind(Some(decl))
+                    ));
                     continue;
                 };
                 match decl.get("type") {
@@ -185,13 +219,24 @@ pub fn validate(meta: &Json) -> Vec<String> {
                         kind(other)
                     )),
                 }
-                if let Some(value) = decl.get("description").filter(|v| !matches!(v, Json::String(_))) {
-                    issues.push(format!("{path}.description: Expected string, received {}", kind(Some(value))));
+                if let Some(value) = decl
+                    .get("description")
+                    .filter(|v| !matches!(v, Json::String(_)))
+                {
+                    issues.push(format!(
+                        "{path}.description: Expected string, received {}",
+                        kind(Some(value))
+                    ));
                 }
                 if let Some(value) = decl.get("required").filter(|v| !matches!(v, Json::Bool(_))) {
-                    issues.push(format!("{path}.required: Expected boolean, received {}", kind(Some(value))));
+                    issues.push(format!(
+                        "{path}.required: Expected boolean, received {}",
+                        kind(Some(value))
+                    ));
                 }
-                if let Some(message) = unknown_keys(fields, &["type", "description", "required", "default"]) {
+                if let Some(message) =
+                    unknown_keys(fields, &["type", "description", "required", "default"])
+                {
                     issues.push(format!("{}: {message}", at(&path)));
                 }
             }
@@ -206,14 +251,22 @@ pub fn validate(meta: &Json) -> Vec<String> {
 
 /// TS `validateWorkflowArgs`（`tool/handlers/saved-workflows/args.ts`）：按声明校验调用方参数并补齐
 /// 默认值，一次返回**全部**违规；成功时参数的键序是**声明顺序**（TS 用 `Object.entries(declared)` 建表）。
-pub fn validate_args(declaration: Option<&Json>, provided: Option<&Json>) -> Result<Json, Vec<String>> {
+pub fn validate_args(
+    declaration: Option<&Json>,
+    provided: Option<&Json>,
+) -> Result<Json, Vec<String>> {
     let empty = Json::object();
-    let declared = declaration.filter(|value| value.is_object()).unwrap_or(&empty);
+    let declared = declaration
+        .filter(|value| value.is_object())
+        .unwrap_or(&empty);
     let given = provided.filter(|value| value.is_object()).unwrap_or(&empty);
     let (Json::Object(declared_entries), Json::Object(given_entries)) = (declared, given) else {
         unreachable!("上面已收敛到对象")
     };
-    let names: Vec<&str> = declared_entries.iter().map(|(name, _)| name.as_str()).collect();
+    let names: Vec<&str> = declared_entries
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
     let mut errors = Vec::new();
     for (key, _) in given_entries {
         if declared_entries.iter().any(|(name, _)| name == key) {
@@ -228,7 +281,10 @@ pub fn validate_args(declaration: Option<&Json>, provided: Option<&Json>) -> Res
     let mut args = Json::object();
     for (key, spec) in declared_entries {
         // 缺省与显式 undefined 一视同仁：JSON 里传不出 undefined，两者只能是同一件事。
-        let supplied = given_entries.iter().find(|(name, _)| name == key).map(|(_, value)| value);
+        let supplied = given_entries
+            .iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value);
         let Some(supplied) = supplied else {
             // 默认值与传入值走**同一条**类型检查（声明成 number 却默认写 "3"，错在保存那一刻）。
             if let Some(default) = spec.get("default") {
@@ -246,7 +302,11 @@ pub fn validate_args(declaration: Option<&Json>, provided: Option<&Json>) -> Res
             Some(message) => errors.push(message),
         }
     }
-    if errors.is_empty() { Ok(args) } else { Err(errors) }
+    if errors.is_empty() {
+        Ok(args)
+    } else {
+        Err(errors)
+    }
 }
 
 /// 类型不符时的说明，符合时 None。`json` 什么都收（连 null 都是合法 json 值）；`number` 额外拒
@@ -255,7 +315,8 @@ fn type_mismatch(key: &str, spec: &Json, value: &Json, what: &str) -> Option<Str
     let expected = match spec.get("type").and_then(Json::as_str) {
         Some("string") if matches!(value, Json::String(_)) => return None,
         Some("string") => "a string",
-        Some("number") if matches!(value, Json::Number(number) if number.as_f64().is_some_and(f64::is_finite)) => {
+        Some("number") if matches!(value, Json::Number(number) if number.as_f64().is_some_and(f64::is_finite)) =>
+        {
             return None;
         }
         Some("number") => "a finite number",
@@ -272,7 +333,9 @@ fn type_mismatch(key: &str, spec: &Json, value: &Json, what: &str) -> Option<Str
         Json::String(_) => "a string".to_owned(),
         Json::Object(_) => "a object".to_owned(),
     };
-    Some(format!("argument '{key}': expected {expected}, got {got} ({what})"))
+    Some(format!(
+        "argument '{key}': expected {expected}, got {got} ({what})"
+    ))
 }
 
 #[cfg(test)]
