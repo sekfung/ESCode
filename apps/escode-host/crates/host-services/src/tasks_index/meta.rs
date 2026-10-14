@@ -171,7 +171,7 @@ fn is_valid_meta(meta: &Value) -> bool {
     if optional_non_empty.iter().any(|key| {
         object
             .get(*key)
-            .is_some_and(|value| !value.as_str().is_some_and(|text| !text.trim().is_empty()))
+            .is_some_and(|value| value.as_str().is_none_or(|text| text.trim().is_empty()))
     }) {
         return false;
     }
@@ -179,7 +179,7 @@ fn is_valid_meta(meta: &Value) -> bool {
     if optional_number.iter().any(|key| {
         object
             .get(*key)
-            .is_some_and(|value| !value.as_i64().is_some_and(|n| n >= 0))
+            .is_some_and(|value| value.as_i64().is_none_or(|n| n < 0))
     }) {
         return false;
     }

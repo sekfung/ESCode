@@ -7,26 +7,20 @@
 pub const SCHEMA_VERSION: u32 = 1;
 
 /// 期望的迁移账本 `(id, checksum)`（按 id 升序）。
+/// 生成文本长度固定，`#[rustfmt::skip]` 保证生成结果与 rustfmt 无关（否则 `--check` 会被格式化差异干扰）。
+#[rustfmt::skip]
 pub const EXPECTED_MIGRATIONS: &[(&str, &str)] = &[
-    (
-        "0001_adopt_task_schema",
-        "3e8337b015d94b05dd31a6003f3acc649e821794cfa288bc0af3022698bd4d17",
-    ),
-    (
-        "0002_provider_selection",
-        "7244ef7c351f8d02750ab1953fff09f493a71befbf1b6e2d4bab726b0c6b48fc",
-    ),
-    (
-        "0003_official_glm_selection",
-        "8987adb50ae412a46c294141c1af89ccfc252f22d41351bdf4c7528f56edc8b4",
-    ),
+    ("0001_adopt_task_schema", "3e8337b015d94b05dd31a6003f3acc649e821794cfa288bc0af3022698bd4d17"),
+    ("0002_provider_selection", "7244ef7c351f8d02750ab1953fff09f493a71befbf1b6e2d4bab726b0c6b48fc"),
+    ("0003_official_glm_selection", "8987adb50ae412a46c294141c1af89ccfc252f22d41351bdf4c7528f56edc8b4"),
 ];
 
 /// `EXPECTED_MIGRATIONS` 的 sha256（`\t`/`\n` 连接的规范文本，加载期自校验）。
-pub const EXPECTATIONS_HASH: &str =
-    "fbe00b4f7efc67f65b1fdd2466bf7962ccfe1aa493709e16e67c812082cb755a";
+#[rustfmt::skip]
+pub const EXPECTATIONS_HASH: &str = "fbe00b4f7efc67f65b1fdd2466bf7962ccfe1aa493709e16e67c812082cb755a";
 
-/// 迁移后的物理 DDL（`sqlite_master.sql` 原样，按对象名排序；测试夹具与后续切片建库用）。
+/// 迁移后的物理 DDL（`sqlite_master.sql` 原样，先表后索引；测试夹具与后续切片建库用）。
+#[rustfmt::skip]
 pub const MIGRATED_DDL: &[&str] = &[
     "CREATE TABLE automation_runs ( run_id TEXT PRIMARY KEY, automation_id TEXT NOT NULL, workspace_key TEXT NOT NULL, scheduled_at INTEGER, trigger TEXT NOT NULL DEFAULT 'schedule', model_selection TEXT, dispatch_status TEXT NOT NULL DEFAULT 'claimed', outcome TEXT, session_id TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
     "CREATE TABLE automations ( automation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', cron_expr TEXT NOT NULL, prompt TEXT NOT NULL, model TEXT, provider TEXT, mode TEXT, thought_level TEXT, model_selection TEXT, workspace_key TEXT NOT NULL, workspace_path TEXT NOT NULL, workspace_identity TEXT, target_task_id TEXT, bot_delivery_target TEXT, location_kind TEXT NOT NULL DEFAULT 'local', recurring INTEGER NOT NULL DEFAULT 1, max_runs INTEGER, end_at INTEGER, schedule_rule TEXT, schedule_edited_by_user INTEGER NOT NULL DEFAULT 0, run_count INTEGER NOT NULL DEFAULT 0, scheduled_run_count INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, lifecycle_status TEXT NOT NULL DEFAULT 'active', next_run_at INTEGER, last_run_at INTEGER, running INTEGER NOT NULL DEFAULT 0, claimed_at INTEGER, dispatch_status TEXT NOT NULL DEFAULT 'idle', dispatch_attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER, last_error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
@@ -54,4 +48,5 @@ pub const MIGRATED_DDL: &[&str] = &[
 ];
 
 /// `MIGRATED_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。
+#[rustfmt::skip]
 pub const DDL_HASH: &str = "456cfa0ae16b4389bed328d301f6dc80c85cfd2ae6137ac19f0ff1879b4de1a7";
