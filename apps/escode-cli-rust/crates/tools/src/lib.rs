@@ -62,6 +62,7 @@ mod plan_tools;
 mod plugin_config;
 mod plugin_describe;
 mod plugin_describe_scan;
+mod plugin_failure;
 mod plugin_frontmatter;
 mod plugin_git;
 mod plugin_install;

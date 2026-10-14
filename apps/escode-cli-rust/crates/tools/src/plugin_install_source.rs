@@ -151,7 +151,10 @@ pub(super) fn source_root_in(
                     } else {
                         kind.to_owned()
                     };
-                    bail!("Plugin source is recognized but not supported in this runtime: {label}")
+                    Err(crate::plugin_failure::plugin_failure!(
+                        crate::plugin_failure::Kind::UnsupportedSource,
+                        "Plugin source is recognized but not supported in this runtime: {label}"
+                    ))
                 }
                 _ => bail!(
                     "Plugin source is invalid or unsupported for {id}: {}",

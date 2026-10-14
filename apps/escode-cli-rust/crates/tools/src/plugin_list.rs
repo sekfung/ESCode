@@ -294,7 +294,10 @@ pub(super) fn select<'a>(
         (Some(_), Some(_)) => {
             anyhow::bail!("Plugin name is ambiguous, use full plugin id: {selector}")
         }
-        _ => anyhow::bail!("Plugin not found: {selector}"),
+        _ => Err(crate::plugin_failure::plugin_failure!(
+            crate::plugin_failure::Kind::NotFound,
+            "Plugin not found: {selector}"
+        )),
     }
 }
 

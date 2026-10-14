@@ -150,10 +150,17 @@ pub(super) fn closure_in(
     ) -> Result<()> {
         let (name, market) = split_id(id)?;
         if market != root_market && !allow.iter().any(|a| a == market) {
-            bail!("Cross-marketplace dependency is blocked: {id} required by {required_by}");
+            return Err(crate::plugin_failure::plugin_failure!(
+                crate::plugin_failure::Kind::DependencyCrossMarketplace,
+                "Cross-marketplace dependency is blocked: {id} required by {required_by}"
+            ));
         }
         if visiting.iter().any(|v| v == id) {
-            bail!("Plugin dependency cycle: {} -> {id}", visiting.join(" -> "));
+            return Err(crate::plugin_failure::plugin_failure!(
+                crate::plugin_failure::Kind::DependencyCycle,
+                "Plugin dependency cycle: {} -> {id}",
+                visiting.join(" -> ")
+            ));
         }
         if out.iter().any(|v| v == id) {
             return Ok(());
@@ -162,7 +169,10 @@ pub(super) fn closure_in(
             Some(manifest) => entry_in(manifest, name),
             None => {
                 if market::manifest(storage, market).is_none() {
-                    bail!("Marketplace not found for dependency: {market}");
+                    return Err(crate::plugin_failure::plugin_failure!(
+                        crate::plugin_failure::Kind::DependencyMissing,
+                        "Marketplace not found for dependency: {market}"
+                    ));
                 }
                 ordered_entry(storage, market, name)
             }

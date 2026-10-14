@@ -146,7 +146,7 @@
 
 改进清单：
 - [ ] 抽 `crates/plugins` + `Ports` 注入（先迁 atomic_dir/git/zip/install 闭环）
-- [ ] 插件错误类型化（enum + downcast 取 code）
+- [x] 插件错误类型化（enum + downcast 取 code）—— 2026-10-14 完成：`crates/tools/src/plugin_failure.rs`（`Kind` 枚举 ↔ TS 诊断 code、`PluginFailure` 的 `Display` 就是原文案、`classify` 只做 downcast）；产生点（install_cache/install_entry/install_source/plugin_list）改抛类型化失败，`plugin_install::install_diagnostic` 与 `plugin_market_write::failure_code` 两处**重复的文案前缀匹配**收敛到同一分类单点
 - [x] SKILL.md 扫描合并为单一实现 —— 2026-10-14 完成：`crates/tools/src/plugin_skill_files.rs`（逐字对齐 TS `scanSkillFilesUnderRootSync(followSymbolicLinks:false)`：根自身+一级子目录、真实文件、不跟随符号链接、**readdir 顺序不排序**），三处调用（`skill_files_under` / `count_skill_files` / `plugin_describe_scan`）全部改走单点；含扫描与逃逸防线单测，插件 describe/control-plane 差分对拍通过
 - [ ] hooks 最小 Rust 化：`HookEvent`/matcher 校验提为 domain 类型 + `hook_rows` 投影补单测
 - [ ] 保持子代理与 cron 的现有实现与语料

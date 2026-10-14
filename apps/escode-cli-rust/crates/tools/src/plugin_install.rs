@@ -284,30 +284,10 @@ pub(super) fn iso_now() -> String {
         .to_string()
 }
 
-/// TS `toMarketplaceInstallDiagnostic`：按错误文案归类。
+/// TS `toMarketplaceInstallDiagnostic`：失败分类走类型化 downcast（`plugin_failure::classify`）。
 fn install_diagnostic(error: &anyhow::Error, plugin_id: &str) -> Value {
     let message = error.to_string();
-    let message = message.as_str();
-    let source_code = error
-        .downcast_ref::<super::plugin_git::SourceError>()
-        .map(|e| e.code);
-    let code = if let Some(code) = source_code {
-        code
-    } else if message.starts_with("Plugin not found:") {
-        "plugin_not_found"
-    } else if message.contains("Cross-marketplace dependency") {
-        "plugin_dependency_cross_marketplace"
-    } else if message.contains("dependency cycle") {
-        "plugin_dependency_cycle"
-    } else if message.contains("Dependency not found")
-        || message.contains("Marketplace not found for dependency")
-    {
-        "plugin_dependency_missing"
-    } else if message.contains("source is recognized but not supported") {
-        "plugin_marketplace_source_unsupported"
-    } else {
-        "plugin_marketplace_invalid"
-    };
+    let code = super::plugin_failure::classify(error);
     json!({ "code": code, "message": message, "severity": "error", "pluginId": plugin_id })
 }
 

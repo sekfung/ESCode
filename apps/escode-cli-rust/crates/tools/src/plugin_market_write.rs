@@ -2,8 +2,8 @@
 //! 按需拉取。对齐 TS adapters `addMarketplace` / `updateMarketplace` / `removeMarketplace` 与 bootstrap
 //! `addESCodePluginMarketplace` / `updateESCodePluginMarketplace`。
 
+use super::atomic_dir;
 use super::plugin_marketplace::{OFFICIAL_MARKETPLACE, sanitize};
-use super::{atomic_dir, plugin_git};
 use crate::domain::json_order::Json;
 use anyhow::{Result, anyhow, bail};
 use std::path::{Path, PathBuf};
@@ -195,25 +195,9 @@ pub(super) fn commit(
     Ok(merged)
 }
 
-/// TS `toValidationDiagnostic`（刷新失败落盘用的 code）。
+/// TS `toValidationDiagnostic`（刷新失败落盘用的 code）：与安装诊断共用分类单点。
 pub(super) fn failure_code(error: &anyhow::Error) -> &'static str {
-    if let Some(source) = error.downcast_ref::<plugin_git::SourceError>() {
-        return source.code;
-    }
-    let message = error.to_string();
-    if message.contains(UNSUPPORTED) {
-        "plugin_marketplace_source_unsupported"
-    } else if message.contains("Cross-marketplace dependency") {
-        "plugin_dependency_cross_marketplace"
-    } else if message.contains("dependency cycle") {
-        "plugin_dependency_cycle"
-    } else if message.contains("Dependency not found")
-        || message.contains("Marketplace not found for dependency")
-    {
-        "plugin_dependency_missing"
-    } else {
-        "plugin_marketplace_invalid"
-    }
+    super::plugin_failure::classify(error)
 }
 
 /// TS `updateMarketplace`（单个已知市场）：用记录自带 source 受信任刷新；失败写 `lastRefreshFailure`。

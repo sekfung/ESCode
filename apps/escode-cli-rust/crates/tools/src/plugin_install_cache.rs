@@ -5,7 +5,7 @@ use super::plugin_install::*;
 use super::atomic_dir;
 use super::plugin_uninstall::read_installed_sync;
 use crate::domain::json_order::Json;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
@@ -74,8 +74,12 @@ pub(super) fn install_closure(
                 bail!(CANCELLED);
             }
             let (plugin_name, plugin_market) = split_id(id)?;
-            let entry = ordered_entry(storage, plugin_market, plugin_name)
-                .ok_or_else(|| anyhow!("Plugin not found: {id}"))?;
+            let entry = ordered_entry(storage, plugin_market, plugin_name).ok_or_else(|| {
+                crate::plugin_failure::plugin_failure!(
+                    crate::plugin_failure::Kind::NotFound,
+                    "Plugin not found: {id}"
+                )
+            })?;
             // zip 源（W2）：下载解压到临时目录；激活后（无论成败）清理。
             // 远端源（W2 zip / W3 仓库）物化到临时目录；激活后（无论成败）清理。
             let root = materialize(storage, plugin_market, &entry, None)?;

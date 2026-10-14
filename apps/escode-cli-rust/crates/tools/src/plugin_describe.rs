@@ -57,6 +57,7 @@ pub(super) async fn describe(params: &Value) -> Result<Value> {
         ));
     }
     let Some(entry) = install::ordered_entry(&storage, &marketplace, &name) else {
+        // 该路径直接产出诊断（不经过错误分类）：code 与文案与 TS 逐字一致。
         let message = format!("Plugin not found: {id}");
         return Ok(result(
             (vec![], None),
