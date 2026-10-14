@@ -109,41 +109,99 @@ pub fn parse_request(body: &[u8]) -> anyhow::Result<Request> {
 
 /// 处理结果：成功数据，或 `(错误名, 消息)`。
 pub type ChannelResult = Result<Wire, (String, String)>;
-/// channel 处理函数（方法名 + 入参 → 结果）。
-pub type ChannelHandler =
-    Arc<dyn Fn(String, Wire) -> Pin<Box<dyn Future<Output = ChannelResult> + Send>> + Send + Sync>;
+/// 单个方法的处理函数（入参 → 结果）。方法名由所属 [`Channel`] 的表键给出。
+pub type MethodHandler =
+    Arc<dyn Fn(Wire) -> Pin<Box<dyn Future<Output = ChannelResult> + Send>> + Send + Sync>;
+
+/// 一个 channel：方法表即分派本身（**单一来源**）。
+///
+/// 契约清单（`host_proto::METHODS`）与 `host-rpc` 的实现集合由
+/// `tests/contract.rs` 双向对账：表里多出的方法在清单里必须是 `Implemented`，
+/// 清单里标 `Implemented` 的方法必须能在表里找到——"缺口显式可见"因此是机器校验的。
+pub struct Channel {
+    pub name: &'static str,
+    methods: Vec<(&'static str, MethodHandler)>,
+}
+
+/// 把一个闭包包装为方法处理函数（表项用）。
+pub fn handler<F>(f: F) -> MethodHandler
+where
+    F: Fn(Wire) -> Pin<Box<dyn Future<Output = ChannelResult> + Send>> + Send + Sync + 'static,
+{
+    Arc::new(f)
+}
+
+impl Channel {
+    pub fn new(name: &'static str, methods: Vec<(&'static str, MethodHandler)>) -> Self {
+        Self { name, methods }
+    }
+
+    pub fn handler(&self, method: &str) -> Option<MethodHandler> {
+        self.methods
+            .iter()
+            .find(|(name, _)| *name == method)
+            .map(|(_, handler)| Arc::clone(handler))
+    }
+
+    /// 该 channel 已实现的方法名（按声明序）。
+    pub fn methods(&self) -> Vec<&'static str> {
+        self.methods.iter().map(|(name, _)| *name).collect()
+    }
+}
 
 /// channel 表：已迁移的服务域登记在这里；未登记即显式缺口。
 #[derive(Default)]
 pub struct Channels {
-    entries: Vec<(&'static str, ChannelHandler)>,
+    entries: Vec<Channel>,
 }
 
 impl Channels {
-    pub fn new(entries: Vec<(&'static str, ChannelHandler)>) -> Self {
+    pub fn new(entries: Vec<Channel>) -> Self {
         Self { entries }
     }
 
-    pub fn handler(&self, channel: &str) -> Option<ChannelHandler> {
-        self.entries
-            .iter()
-            .find(|(name, _)| *name == channel)
-            .map(|(_, handler)| Arc::clone(handler))
+    pub fn channel(&self, name: &str) -> Option<&Channel> {
+        self.entries.iter().find(|channel| channel.name == name)
     }
 
     /// 已登记的 channel 名（能力清单与诊断用）。
     pub fn names(&self) -> Vec<&'static str> {
-        self.entries.iter().map(|(name, _)| *name).collect()
+        self.entries.iter().map(|channel| channel.name).collect()
+    }
+
+    /// 已实现集合（channel, method）——契约清单对账与 `/api/server-info` 用。
+    pub fn inventory(&self) -> Vec<(&'static str, &'static str)> {
+        self.entries
+            .iter()
+            .flat_map(|channel| {
+                channel
+                    .methods()
+                    .into_iter()
+                    .map(move |method| (channel.name, method))
+            })
+            .collect()
     }
 }
 
 /// 处理一条请求，返回要回给客户端的响应 body（可能为空：取消类请求无响应）。
 pub async fn respond(channels: &Channels, request: &Request) -> Vec<u8> {
     match request.kind {
-        REQUEST_PROMISE => match channels.handler(&request.channel) {
-            Some(handler) => match handler(request.method.clone(), request.arg.clone()).await {
-                Ok(data) => success_frame(request.id, &data),
-                Err((name, message)) => error_frame(request.id, &name, &message),
+        REQUEST_PROMISE => match channels.channel(&request.channel) {
+            Some(channel) => match channel.handler(&request.method) {
+                Some(handler) => match handler(request.arg.clone()).await {
+                    Ok(data) => success_frame(request.id, &data),
+                    Err((name, message)) => error_frame(request.id, &name, &message),
+                },
+                None => error_frame(
+                    request.id,
+                    "NotImplemented",
+                    &format!(
+                        "Host does not implement `{}.{}` yet (implemented: {})",
+                        request.channel,
+                        request.method,
+                        channel.methods().join(", ")
+                    ),
+                ),
             },
             None => error_frame(
                 request.id,

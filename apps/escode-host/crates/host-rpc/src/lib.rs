@@ -7,6 +7,7 @@
 
 pub mod domains;
 pub mod domains_file;
+mod domains_file_channel;
 mod domains_file_preview;
 mod domains_file_workspace;
 pub mod forward;

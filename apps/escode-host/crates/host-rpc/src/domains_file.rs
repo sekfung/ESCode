@@ -16,16 +16,11 @@
 //!   Host 侧路径配置（会话工作区根、临时工作区命名）。
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
-pub(crate) use crate::domains_file_preview::{read_binary_preview, read_media_preview};
-pub(crate) use crate::domains_file_workspace::{
-    create_default_workspace, create_scratch_workspace,
-};
-use crate::session::{ChannelHandler, ChannelResult};
+use crate::session::ChannelResult;
 use crate::wire::Wire;
 
 /// TS `FILE_EXISTENCE_BATCH_LIMIT`。
@@ -40,58 +35,18 @@ const MAX_BINARY_READ_BYTES: u64 = 1024 * 1024;
 /// TS `DEFAULT_TEXT_READ_BYTES` / `MAX_TEXT_READ_BYTES`。
 const DEFAULT_TEXT_READ_BYTES: u64 = 128 * 1024;
 const MAX_TEXT_READ_BYTES: u64 = 256 * 1024;
-/// `file` channel（TS `ServiceChannels.File` = `"file"`）。`home` 与 settings/system 同源
-/// （Main 经 `rpcListen` 给出），供工作区创建类方法构造默认路径。
-pub fn file_channel(home: PathBuf) -> (&'static str, ChannelHandler) {
-    let cache = Arc::new(std::sync::Mutex::new(Cache::default()));
-    let handler: ChannelHandler = Arc::new(move |method: String, arg: Wire| {
-        let cache = Arc::clone(&cache);
-        let home = home.clone();
-        let params = arg
-            .into_args()
-            .into_iter()
-            .next()
-            .and_then(Wire::into_object)
-            .unwrap_or(Value::Null);
-        Box::pin(async move {
-            match method.as_str() {
-                "stat" => blocking(move || stat(&params)).await,
-                "checkFilesExist" => {
-                    let cache = Arc::clone(&cache);
-                    blocking(move || check_files_exist(&cache, &params)).await
-                }
-                "readTextFile" => blocking(move || read_text_file(&params)).await,
-                "readMediaPreview" => blocking(move || read_media_preview(&params)).await,
-                "readBinaryPreview" => blocking(move || read_binary_preview(&params)).await,
-                "resolvePath" => resolve_path(&params).await,
-                "createDefaultWorkspace" => blocking(move || create_default_workspace(&home)).await,
-                "createScratchWorkspace" => {
-                    blocking(move || create_scratch_workspace(&home, &params)).await
-                }
-                "readFileRange" => blocking(move || read_file_range(&params)).await,
-                other => Err(not_implemented(other)),
-            }
-        })
-    });
-    ("file", handler)
-}
-
-fn not_implemented(method: &str) -> (String, String) {
-    (
-        "NotImplemented".to_owned(),
-        format!("Host does not implement `file.{method}` yet"),
-    )
-}
 
 /// 文件系统 IO 放到阻塞线程（Host 的 runtime 工作线程不做同步 IO）。
-async fn blocking(work: impl FnOnce() -> ChannelResult + Send + 'static) -> ChannelResult {
+pub(crate) async fn blocking(
+    work: impl FnOnce() -> ChannelResult + Send + 'static,
+) -> ChannelResult {
     tokio::task::spawn_blocking(work)
         .await
         .unwrap_or_else(|error| Err(("Fatal".to_owned(), format!("file task failed: {error}"))))
 }
 
 /// TS `stat`：跟随符号链接；目录不返回 `size`/`mtimeMs`，文件返回两者（毫秒 f64）。
-fn stat(params: &Value) -> ChannelResult {
+pub(crate) fn stat(params: &Value) -> ChannelResult {
     let path = require_path(params)?;
     let metadata = std::fs::metadata(&path)
         .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "stat", &path)))?;
@@ -107,7 +62,7 @@ fn stat(params: &Value) -> ChannelResult {
 }
 
 /// TS `checkFilesExist`：批上限 15；`exists` 取 `isFile()`（目录算 false）；错误按 false；保持入参顺序。
-fn check_files_exist(cache: &std::sync::Mutex<Cache>, params: &Value) -> ChannelResult {
+pub(crate) fn check_files_exist(cache: &std::sync::Mutex<Cache>, params: &Value) -> ChannelResult {
     let paths: Vec<String> = params["paths"]
         .as_array()
         .map(|items| {
@@ -149,7 +104,7 @@ fn check_files_exist(cache: &std::sync::Mutex<Cache>, params: &Value) -> Channel
 }
 
 /// TS `resolvePath`：`fs.realpath`（符号链接别名归一，供 workspace 身份计算）。
-async fn resolve_path(params: &Value) -> ChannelResult {
+pub(crate) async fn resolve_path(params: &Value) -> ChannelResult {
     let path = require_path(params)?;
     match escode_cli_host::realpath(&PathBuf::from(&path)).await {
         Ok(resolved) => Ok(Wire::Object(Value::String(
@@ -164,7 +119,7 @@ async fn resolve_path(params: &Value) -> ChannelResult {
 
 /// TS `readTextFile`：文本切片（二进制探测命中时 `content` 为空串）。
 /// 读取上限固定 256 KiB（缺省 128 KiB），`truncated` 由「offset + bytesRead < totalBytes」判定。
-fn read_text_file(params: &Value) -> ChannelResult {
+pub(crate) fn read_text_file(params: &Value) -> ChannelResult {
     let path = require_path(params)?;
     let metadata = std::fs::metadata(&path)
         .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "stat", &path)))?;
@@ -206,7 +161,7 @@ fn read_text_file(params: &Value) -> ChannelResult {
     })))
 }
 
-fn read_at(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, (String, String)> {
+pub(crate) fn read_at(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, (String, String)> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = std::fs::File::open(path)
         .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "open", path)))?;
@@ -229,7 +184,7 @@ fn read_at(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, (String, Str
 
 /// TS `isProbablyBinary`：空缓冲 false；出现 NUL 立即 true；
 /// 控制字符（1–8 / 14–31 / 127，常见空白 9/10/12/13 除外）占比 **> 0.3** 判二进制。
-fn is_probably_binary(buffer: &[u8]) -> bool {
+pub(crate) fn is_probably_binary(buffer: &[u8]) -> bool {
     if buffer.is_empty() {
         return false;
     }
@@ -251,7 +206,7 @@ fn is_probably_binary(buffer: &[u8]) -> bool {
 /// TS `readFileRange`：非文件报错；`offset = max(0, trunc(offset))`；`offset ≥ size` → 空；
 /// 长度 clamp 到 `[1, MAX_BINARY_READ_BYTES]`（缺省 256 KiB）；EOF 返回短数组；
 /// 顶层 `Uint8Array`（`Wire::Bytes{vs:false}`，非 JSON+base64）。
-fn read_file_range(params: &Value) -> ChannelResult {
+pub(crate) fn read_file_range(params: &Value) -> ChannelResult {
     let path = require_path(params)?;
     let metadata = std::fs::metadata(&path)
         .map_err(|error| ("NodeIoError".to_owned(), node_error(&error, "stat", &path)))?;
@@ -294,7 +249,7 @@ fn read_file_range(params: &Value) -> ChannelResult {
     })
 }
 
-fn empty_bytes() -> Wire {
+pub(crate) fn empty_bytes() -> Wire {
     Wire::Bytes {
         vs: false,
         data: Vec::new(),
@@ -309,7 +264,7 @@ pub(crate) fn require_path(params: &Value) -> Result<String, (String, String)> {
 }
 
 /// Node `fs.Stats.mtimeMs`：秒 + 纳秒/1e6 的 f64（含亚毫秒位）。
-fn mtime_ms(metadata: &std::fs::Metadata) -> f64 {
+pub(crate) fn mtime_ms(metadata: &std::fs::Metadata) -> f64 {
     metadata
         .modified()
         .ok()
@@ -345,7 +300,7 @@ pub(crate) fn node_error(error: &std::io::Error, op: &str, path: &str) -> String
 
 /// TS `FileExistenceCache`：60s TTL + 100 条上限；命中移到队尾（LRU），写入先清全部过期项。
 #[derive(Default)]
-struct Cache {
+pub(crate) struct Cache {
     entries: Vec<(String, Entry)>,
 }
 

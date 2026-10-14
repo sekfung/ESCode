@@ -1,6 +1,7 @@
 #[cfg(test)]
 use super::*;
-use crate::domains_file_preview::node_extname;
+use crate::domains_file_preview::{node_extname, read_binary_preview, read_media_preview};
+use crate::domains_file_workspace::{create_default_workspace, create_scratch_workspace};
 
 #[test]
 fn cache_expires_and_evicts_oldest() {

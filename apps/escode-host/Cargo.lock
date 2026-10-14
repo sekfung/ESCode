@@ -850,6 +850,7 @@ dependencies = [
  "escode-cli-host",
  "escode-cli-rust",
  "escode-host-control",
+ "escode-host-proto",
  "escode-host-runtime",
  "escode-host-services",
  "escode-host-surface",

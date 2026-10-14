@@ -4,6 +4,8 @@
 
 use std::collections::BTreeSet;
 
+mod inventory;
+
 /// 一个 channel 上的 method 清单。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Method {
@@ -21,100 +23,7 @@ pub enum State {
     Pending,
 }
 
-/// 契约清单（u2a 起点：先登记阶段 2 优先序 3–5 的服务面；迁移一域补一域）。
-/// `control` 通道的方法名即 `ControlMessage` 的 serde tag（漂移由 host-proto 的
-/// `control_inventory_matches_the_protocol_enum` 测试拦截）。
-pub const METHODS: &[Method] = &[
-    // 通路（u2a 自带；Process = 进程入口的控制循环已实现）
-    Method {
-        channel: "control",
-        method: "hostReady",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowAttach",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowAttached",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowRequest",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowFrame",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowDetach",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "windowDetached",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "logBatch",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "failed",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "shutdown",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "control",
-        method: "stopped",
-        state: State::Implemented,
-    },
-    // settings（优先序 3；Rust 侧读/写与 TS Host 同文件同格式，交替写读演练已通过）
-    Method {
-        channel: "settings",
-        method: "settingsRead",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "settings",
-        method: "settingsWrite",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "settings",
-        method: "settingsValue",
-        state: State::Implemented,
-    },
-    // workspace（优先序 4）
-    Method {
-        channel: "workspace",
-        method: "workspace/query",
-        state: State::Pending,
-    },
-    // sessions + tasks（优先序 5）
-    Method {
-        channel: "v4/conversation",
-        method: "v4/conversation/subscribe",
-        state: State::Pending,
-    },
-    Method {
-        channel: "v4/conversation",
-        method: "v4/conversation/resync",
-        state: State::Pending,
-    },
-];
+pub use inventory::METHODS;
 
 /// 某通道上标记为已实现的方法名。
 pub fn implemented_methods(channel: &str) -> Vec<&'static str> {

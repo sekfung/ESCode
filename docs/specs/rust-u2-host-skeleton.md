@@ -135,7 +135,13 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 | `host-surface` | Renderer 传输面（WebSocket）：`Hello{windowId,clientId,workspace,capabilities}` → `Ready{generation,capabilities}` 握手（`deny_unknown_fields`），capability 与 Host 支持面求交，未覆盖 method 回 `-32601 NotImplemented`；**帧面沿用既有 V4 App NDJSON**（Renderer 协议客户端可原样复用）；每连接一个写者、一个实例一个帧泵向全部 attachment 扇出、慢连接按 `try_send` 丢弃可重建流；`OptionsFactory` 由组合根注入（crate 内不读进程 env）；Host 进程经控制消息 `surfaceListen`/`surfaceListening` 开关并随 Shutdown 收口 | 3 例 WS 端到端（握手与路由/缺口显式、多连接共享同一实例并扇出、空能力只收错误）+ Host 进程级 1 例（`surfaceListen` → 真实 WS 连接 → `session/list` 往返 → 干净退出） |
 | `escode-host`（进程入口） | 控制循环（stdio NDJSON `ControlMessage`：attach/detach/请求转发/关闭）、按实例帧泵向多窗口扇出、link 选择器（`ESCODE_HOST_RUNTIME_LINK=child`）、结构化 `Failed`/`Stopped` 回执、`WorkspaceDescriptor→RuntimeOptions`（业务事实来自 Main，不从 Host env 推断） | 端到端两例（真实子进程）：hostReady 握手 → attach 得代次 → `session/list` 经 WindowFrame 往返 → 第二窗口复用同代次 → detach 后原窗口继续服务 → shutdown 退出码 0（`Stopped{residual:[]}`）；未 attach 窗口的请求回结构化错误 |
 
-契约清单已与源码对账：`host-proto` 的 `control`/`settings` 通道登记 `Implemented`，并由 `control_inventory_matches_the_protocol_enum` 漂移测试保证与 `ControlMessage` 的 kind 集合一致（新增消息不登记即失败）。
+契约清单已与源码对账（`host-rpc/tests/contract.rs`，3 例）：各 channel 的**方法表就是分派来源**（`Channel{name, methods: Vec<(&str, MethodHandler)>}`，`session::respond` 只查表；表外方法回显式缺口 `Host does not implement \`{channel}.{method}\` yet`），因此对账是双向机器校验而非人工核对：
+
+1. `source_method_table_matches_implemented_entries`：清单标 `Implemented` 的 (channel, method) 必须在真实方法表里出现（漏登 → 渲染器永远拿不到，报错列出差集），且 `MethodHandler` 分派能命中；
+2. `pending_entries_are_not_implemented`：清单标 `Pending` 的不能在方法表里（否则缺口会静默变成可用）；
+3. `every_rpc_channel_is_registered`：`host-proto` 登记的 channel 集合 ⊇ 组合根实际注册的 channel。
+
+`control`/`settings` 通道另由 `host-proto` 的 `control_inventory_matches_the_protocol_enum` 漂移测试保证与 `ControlMessage::kind()` 集合一致（新增消息不登记即失败）。负向验证：把 `file.readdir` 从 `Pending` 翻成 `Implemented` 后 `source_method_table_matches_implemented_entries` 立即失败并列出 `[("file", "readdir")]`，改回即恢复。
 
 CI（2026-10-14 已接入 `rust-runtime-ci.yml`）：checks 作业加 `pnpm check:escode-host`（边界 + fmt + clippy）与 host 工作区缓存；test 作业（三平台）加 `pnpm test:escode-host`（cargo 单测 + 双 Host settings 交替写读演练）。
 
