@@ -175,6 +175,16 @@ describe("rust host rpc surface", () => {
         } as never),
       ).rejects.toThrow(/Session unavailable/);
 
+      // workspace 预热：等运行时报到后返回协议常量（首屏不因 agent 缺失崩溃）。
+      const initialized = (await services.escodeSessionService.initializeWorkspace({
+        workspacePath,
+        workspaceIdentity: workspacePath,
+      } as never)) as Record<string, unknown>;
+      expect(initialized.available).toBe(true);
+      expect(initialized.protocolName).toBe("ESCode Protocol");
+      expect(initialized.protocolVersion).toBe(1);
+      expect(initialized.transportKind).toBe("stdio");
+
       // workspace 展示面：先读运行时能力再带执行能力位读展示面（TS agent 层同序）。
       const presentation = (await services.escodeSessionService.readWorkspacePresentation({
         workspacePath,

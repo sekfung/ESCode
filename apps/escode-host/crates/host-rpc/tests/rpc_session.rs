@@ -256,3 +256,71 @@ async fn workspace_presentation_reads_capabilities_first() {
 
     surface.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn initialize_workspace_prewarms_and_reports_protocol() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let workspace = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let surface = start(&home).await;
+    let mut socket = connect(surface.addr, "/ws", None).await;
+    let path = workspace.to_string_lossy().into_owned();
+
+    call(
+        &mut socket,
+        51,
+        "escode-session",
+        "initializeWorkspace",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": path,
+            "workspaceIdentity": path,
+        }))]),
+    )
+    .await;
+    let result = read_response(&mut socket, 51)
+        .await
+        .into_object()
+        .expect("object");
+    assert_eq!(result["available"], true, "{result}");
+    assert_eq!(result["workspaceKey"], path);
+    assert_eq!(result["protocolName"], "ESCode Protocol");
+    assert_eq!(result["protocolVersion"], 1);
+    assert_eq!(result["transportKind"], "stdio");
+
+    // 预热后实例已建（/api/server-info 可见）。
+    let (_, info) = http_request(surface.addr, "GET", "/api/server-info", &[], None).await;
+    assert!(
+        info["workspaces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str() == Some(path.as_str())),
+        "预热应建立实例: {info}"
+    );
+
+    // 运行时起不来时仍是成功应答 + available:false（首屏不崩）：
+    // data dir 指向一个文件（不是目录），存储初始化必然失败。
+    let not_a_dir = dir.path().join("not-a-dir");
+    std::fs::write(&not_a_dir, "x").unwrap();
+    call(
+        &mut socket,
+        52,
+        "escode-session",
+        "initializeWorkspace",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": dir.path().join("broken").to_string_lossy(),
+            "dataDir": not_a_dir.to_string_lossy(),
+        }))]),
+    )
+    .await;
+    let result = read_response(&mut socket, 52)
+        .await
+        .into_object()
+        .expect("object");
+    assert_eq!(result["available"], false, "{result}");
+    assert_eq!(result["protocolName"], "ESCode Protocol");
+
+    surface.shutdown().await;
+}

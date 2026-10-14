@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::session::{ChannelHandler, Channels};
 use crate::wire::Wire;
@@ -101,6 +101,33 @@ pub fn session_channel(
                         Extract::Field("messages"),
                     )
                     .await
+                }
+                // workspace 预热：TS `agentService.initialize` 返回 agent 可用性与协议常量，
+                // 首屏不因 agent 缺失崩溃（失败也回 `available:false`）。Rust Host 同构：
+                // 建/复用实例即预热；`transportKind` 固定为 "stdio"（嵌入与 child 都走 stdio 帧面）。
+                "initializeWorkspace" => {
+                    let target = crate::forward::runtime_target(params)?;
+                    let workspace_key = target.identity.clone();
+                    // `embed::spawn` 是异步启动：必须等运行时报到（ready 帧）才算预热完成；
+                    // 实例在报到前退出（路径不存在等）即 available:false。
+                    let available = match instances
+                        .get(&target.identity, || options(&target.descriptor))
+                        .await
+                    {
+                        Ok(instance) => {
+                            instance
+                                .wait_ready(std::time::Duration::from_secs(30))
+                                .await
+                        }
+                        Err(_) => false,
+                    };
+                    Ok(Wire::Object(json!({
+                        "available": available,
+                        "workspaceKey": workspace_key,
+                        "protocolName": "ESCode Protocol",
+                        "protocolVersion": 1,
+                        "transportKind": "stdio",
+                    })))
                 }
                 // workspace 展示面：TS agent 层先读 `runtime/capabilities` 再带
                 // `includeExecutionCapabilities` 读 `workspace/readPresentation`，这里同序转发。

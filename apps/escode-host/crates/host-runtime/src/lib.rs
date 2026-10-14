@@ -85,6 +85,8 @@ struct InstanceState {
     subscribers: std::sync::Mutex<Vec<mpsc::Sender<String>>>,
     /// 请求序号（生成关联 id）。
     requests: std::sync::atomic::AtomicU64,
+    /// 运行时是否已报到（`startup/storageState` phase=ready）；读循环置位。
+    ready: std::sync::atomic::AtomicBool,
     /// 读循环是否已启动。
     pumping: std::sync::atomic::AtomicBool,
 }
@@ -271,6 +273,25 @@ impl Instance {
         rx
     }
 
+    /// 等运行时报到（`startup/storageState` phase=ready）；实例退出即提前返回 false。
+    /// 就绪标志由读循环置位，因此这里先启动读循环（幂等）。
+    pub async fn wait_ready(&self, timeout: Duration) -> bool {
+        self.start_reader().await;
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            if self.state.ready.load(std::sync::atomic::Ordering::SeqCst) {
+                return true;
+            }
+            if !self.is_alive() {
+                return false;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    }
+
     /// 向 runtime 发一条请求并等应答（按 id 关联；`timeout` 到点即失败）。
     pub async fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
         let id = format!(
@@ -319,6 +340,11 @@ impl Instance {
                     continue;
                 }
                 let parsed = serde_json::from_str::<Value>(trimmed).ok();
+                if parsed.as_ref().is_some_and(|value| {
+                    value["method"] == "startup/storageState" && value["params"]["phase"] == "ready"
+                }) {
+                    state.ready.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
                 let routed = parsed
                     .as_ref()
                     .and_then(|value| value["id"].as_str().map(str::to_owned))

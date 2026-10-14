@@ -13,9 +13,9 @@ use crate::wire::Wire;
 /// - `workspace` 引用按 TS `buildWorkspaceRef` 构造（运行时用它做 workspace 校验）；
 /// - 其余字段原样转发，`null` 一律省略（运行时的可选字段解析严格拒绝 null）。
 pub struct RuntimeTarget {
-    identity: String,
-    descriptor: escode_host_control::WorkspaceDescriptor,
-    request: Value,
+    pub identity: String,
+    pub descriptor: escode_host_control::WorkspaceDescriptor,
+    pub request: Value,
 }
 
 pub fn runtime_target(params: Value) -> Result<RuntimeTarget, (String, String)> {
