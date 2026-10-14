@@ -36,9 +36,31 @@ const MAX_TEXT_READ_BYTES: u64 = 256 * 1024;
 pub(crate) async fn blocking(
     work: impl FnOnce() -> ChannelResult + Send + 'static,
 ) -> ChannelResult {
+    spawn_blocking_io(work).await
+}
+
+/// 通用阻塞桥（`blocking` 的泛型版）：把同步 IO 放到阻塞线程池，panic 折叠为结构化错误。
+pub(crate) async fn spawn_blocking_io<T>(work: impl FnOnce() -> T + Send + 'static) -> T
+where
+    T: FromBlockingFailure,
+{
     tokio::task::spawn_blocking(work)
         .await
-        .unwrap_or_else(|error| Err(("Fatal".to_owned(), format!("file task failed: {error}"))))
+        .unwrap_or_else(T::from_blocking_failure)
+}
+
+/// 阻塞任务 panic 后的降级结果（每种返回类型各自决定）。
+pub(crate) trait FromBlockingFailure: Send + 'static {
+    fn from_blocking_failure(error: tokio::task::JoinError) -> Self;
+}
+
+impl<T> FromBlockingFailure for Result<T, (String, String)>
+where
+    T: Send + 'static,
+{
+    fn from_blocking_failure(error: tokio::task::JoinError) -> Self {
+        Err(("Fatal".to_owned(), format!("blocking task failed: {error}")))
+    }
 }
 
 /// TS `stat`：跟随符号链接；目录不返回 `size`/`mtimeMs`，文件返回两者（毫秒 f64）。

@@ -103,8 +103,18 @@ TS 里这两个方法在服务层做了四件事，Rust Host 必须逐条对齐�
   TS `prepareTasksIndexStorage` 建库、`TaskIndexRepo.seedTaskMetaIfMissing` 写最小/完整两条，
   Rust Host 经真实客户端读回与 TS `getTaskMeta` `toEqual` 全等；负向验证：改错期望即失败）。
 
-下一步（S1 剩余）：列表类读（`listTaskList`/`listPinnedTasks`/`listArchivedTasks`/
-`listGroupedTaskViewStructure`）与 `task_groups` 读，同样以 TS 差分为验收。
+**S1 列表分区已落地（2026-10-15）**：`listTasks` / `listPinnedTaskIds` / `listPinnedTasks` /
+`listDeletedTaskIds` / `listArchivedTasks` 接真实索引读，过滤组合与排序逐条对齐 TS 适配器
+（provider=glm；`listArchivedTasks` 不过滤 pinned——TS 同；`listPinnedTaskIds` 返回 id 数组
+而非 meta；`ORDER BY updated_at DESC, created_at DESC, task_id DESC`）。存储层新增
+`list_task_metas(TaskFilters)` / `list_deleted_task_ids`，行投影抽成复用函数。
+验证：Rust 单测（7 种 provider/pinned/archived/deleted 组合的过滤与顺序、缺 dataBaseDir
+时六个读方法全部显式缺口）+ **真实 Repo 差分**（同一份 SQL 组合 `toEqual` 全等；负向验证：
+把 archived 那组改成带 pinned 过滤立即失败）。CLI 侧新增泛型阻塞桥
+`spawn_blocking_io`（原 `blocking` 硬编码 channel 结果类型）。
+
+下一步（S1 剩余）：`listTaskList`（`queryTaskList`：全文搜索 + 分页 + ETag）与
+`listGroupedTaskViewStructure`（`task_groups`/成员/顶层排序读），同样以 TS 差分为验收。
 
 ## 7. 验收与环境
 

@@ -196,12 +196,32 @@ pub const METHODS: &[Method] = &[
     },
     Method {
         channel: "escode-task",
-        method: "createTask",
-        state: State::Pending,
+        method: "listTasks",
+        state: State::Implemented,
     },
     Method {
         channel: "escode-task",
-        method: "listTasks",
+        method: "listPinnedTaskIds",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
+        method: "listPinnedTasks",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
+        method: "listDeletedTaskIds",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
+        method: "listArchivedTasks",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
+        method: "createTask",
         state: State::Pending,
     },
     Method {

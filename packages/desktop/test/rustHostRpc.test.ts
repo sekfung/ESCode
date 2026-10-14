@@ -357,6 +357,61 @@ describe("rust host rpc surface", () => {
         services.escodeTaskService.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" }),
       ).resolves.toBeUndefined();
       expect(await repo.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" })).toBeNull();
+      // 列表分区：与真实 Repo 的 `listTaskMetas` 同一过滤组合逐字段比对（provider=glm、
+      // pinned/archived 组合；悬空列 provider 为空的行被 glm 过滤排除，与 TS 同）。
+      const glm = "glm" as never;
+      const listFixtures = [
+        { taskId: "task_l1", provider: glm, title: "列表一", pinned: false, archived: false },
+        { taskId: "task_l2", provider: glm, title: "列表二", pinned: true, archived: false },
+        { taskId: "task_l3", provider: glm, title: "归档", pinned: false, archived: true },
+        { taskId: "task_l4", provider: glm, title: "置顶归档", pinned: true, archived: true },
+      ];
+      for (const fixture of listFixtures) {
+        await repo.seedTaskMetaIfMissing({
+          taskId: fixture.taskId,
+          traceId: `escode-${fixture.taskId}`,
+          title: fixture.title,
+          workspacePath: "/w",
+          createdAt: 10,
+          updatedAt: 20,
+          mode: "build",
+          provider: glm,
+        } as never);
+        await repo.syncTaskMeta({
+          meta: {
+            taskId: fixture.taskId,
+            traceId: `escode-${fixture.taskId}`,
+            title: fixture.title,
+            workspacePath: "/w",
+            createdAt: 10,
+            updatedAt: 20,
+            mode: "build",
+            provider: glm,
+          },
+          pinned: fixture.pinned,
+          archived: fixture.archived,
+        } as never);
+      }
+      const tsList = (extra: Record<string, unknown>) =>
+        repo.listTaskMetas({ workspacePath: "/w", provider: glm, ...extra } as never);
+      expect(await services.escodeTaskService.listTasks({ workspacePath: "/w" } as never)).toEqual(
+        await tsList({ pinned: false, archived: false }),
+      );
+      expect(
+        await services.escodeTaskService.listPinnedTasks({ workspacePath: "/w" } as never),
+      ).toEqual(await tsList({ pinned: true, archived: false }));
+      expect(
+        await services.escodeTaskService.listArchivedTasks({ workspacePath: "/w" } as never),
+      ).toEqual(await tsList({ archived: true }));
+      expect(await services.escodeTaskService.listPinnedTaskIds()).toEqual(
+        (await tsList({ pinned: true, archived: false })).map((meta) => meta.taskId),
+      );
+      expect(
+        await services.escodeTaskService.listDeletedTaskIds({ workspacePath: "/w" } as never),
+      ).toEqual(
+        await repo.listDeletedTaskIds({ workspacePath: "/w", provider: glm } as never),
+      );
+
       // 未迁移方法：显式缺口（列出已实现的方法）。
       await expect(
         services.escodeTaskService.createTask({ workspacePath: "/w" } as never),

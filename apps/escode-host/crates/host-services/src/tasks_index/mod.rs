@@ -125,43 +125,119 @@ impl TasksIndex {
         task_id: &str,
     ) -> Result<Option<Value>, TasksIndexError> {
         let workspace_key = workspace_key(workspace_path, workspace_identity);
-        let mut statement = self.connection.prepare(TASK_ROW_SELECT)?;
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT {TASK_ROW_COLUMNS} FROM tasks
+             WHERE workspace_key = ?1 AND task_id = ?2 AND deleted = 0"
+        ))?;
         let row = statement
-            .query_row(
-                rusqlite::params![workspace_key, task_id],
-                |row| -> rusqlite::Result<Value> {
-                    Ok(serde_json::json!({
-                        "workspace_key": row.get::<_, String>(0)?,
-                        "workspace_path": row.get::<_, String>(1)?,
-                        "workspace_identity": row.get::<_, Option<String>>(2)?,
-                        "task_id": row.get::<_, String>(3)?,
-                        "title": row.get::<_, String>(4)?,
-                        "task_status": row.get::<_, Option<String>>(5)?,
-                        "provider": row.get::<_, Option<String>>(6)?,
-                        "mode": row.get::<_, String>(7)?,
-                        "model": row.get::<_, Option<String>>(8)?,
-                        "migration_source": row.get::<_, Option<String>>(9)?,
-                        "forked_from_task_id": row.get::<_, Option<String>>(10)?,
-                        "cron_automation_id": row.get::<_, Option<String>>(11)?,
-                        "off_peak_task_id": row.get::<_, Option<String>>(12)?,
-                        "created_at": row.get::<_, i64>(13)?,
-                        "updated_at": row.get::<_, i64>(14)?,
-                        "unread_at": row.get::<_, Option<i64>>(15)?,
-                        "title_overridden": row.get::<_, i64>(16)?,
-                        "meta_json": row.get::<_, String>(17)?,
-                    }))
-                },
-            )
+            .query_row(rusqlite::params![workspace_key, task_id], read_task_row)
             .map(Some)
             .or_else(|error| match error {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
             })?;
-        Ok(row.and_then(|row| {
-            // 已删除行由 SQL 的 `deleted = 0` 过滤；这里只需投影。
-            meta::to_task_meta(&row)
-        }))
+        Ok(row.and_then(|row| meta::to_task_meta(&row)))
     }
+
+    /// TS `TaskIndexRepo.listTaskMetas`：按可选过滤读任务列表。
+    /// 排序与 TS 同：`updated_at DESC, created_at DESC, task_id DESC`（SQLite TEXT 即字节序）。
+    pub fn list_task_metas(
+        &self,
+        filters: &TaskFilters<'_>,
+    ) -> Result<Vec<Value>, TasksIndexError> {
+        let mut sql = format!("SELECT {TASK_ROW_COLUMNS} FROM tasks WHERE 1 = 1");
+        let mut bindings: Vec<rusqlite::types::Value> = Vec::new();
+        if let Some(workspace_path) = filters.workspace_path {
+            let key = workspace_key(workspace_path, filters.workspace_identity);
+            sql.push_str(&format!(" AND workspace_key = ?{}", bindings.len() + 1));
+            bindings.push(rusqlite::types::Value::Text(key));
+        }
+        if !filters.include_deleted {
+            sql.push_str(" AND deleted = 0");
+        }
+        if let Some(provider) = filters.provider {
+            sql.push_str(&format!(" AND provider = ?{}", bindings.len() + 1));
+            bindings.push(rusqlite::types::Value::Text(provider.to_owned()));
+        }
+        for (column, value) in [("pinned", filters.pinned), ("archived", filters.archived)] {
+            if let Some(value) = value {
+                sql.push_str(&format!(" AND {column} = ?{}", bindings.len() + 1));
+                bindings.push(rusqlite::types::Value::Integer(i64::from(value)));
+            }
+        }
+        sql.push_str(" ORDER BY updated_at DESC, created_at DESC, task_id DESC");
+        let mut statement = self.connection.prepare(&sql)?;
+        let rows = statement.query_map(rusqlite::params_from_iter(bindings), read_task_row)?;
+        let mut metas = Vec::new();
+        for row in rows {
+            if let Some(meta) = meta::to_task_meta(&row?) {
+                metas.push(meta);
+            }
+        }
+        Ok(metas)
+    }
+
+    /// TS `TaskIndexRepo.listDeletedTaskIds`：`deleted = 1` 的 id，按 id 升序。
+    pub fn list_deleted_task_ids(
+        &self,
+        workspace_path: &str,
+        workspace_identity: Option<&str>,
+        provider: Option<&str>,
+    ) -> Result<Vec<String>, TasksIndexError> {
+        let mut sql =
+            String::from("SELECT task_id FROM tasks WHERE workspace_key = ?1 AND deleted = 1");
+        if provider.is_some() {
+            sql.push_str(" AND provider = ?2");
+        }
+        sql.push_str(" ORDER BY task_id");
+        let workspace_key = workspace_key(workspace_path, workspace_identity);
+        let mut statement = self.connection.prepare(&sql)?;
+        let map_row = |row: &rusqlite::Row<'_>| row.get::<_, String>(0);
+        let rows = match provider {
+            Some(provider) => statement
+                .query_map(rusqlite::params![workspace_key, provider], map_row)?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+            None => statement
+                .query_map(rusqlite::params![workspace_key], map_row)?
+                .collect::<rusqlite::Result<Vec<_>>>()?,
+        };
+        Ok(rows)
+    }
+}
+
+/// `listTaskMetas` 的可选过滤（`None` = 不过滤，与 TS 的 `?? null` 同义）。
+#[derive(Default)]
+pub struct TaskFilters<'a> {
+    pub workspace_path: Option<&'a str>,
+    pub workspace_identity: Option<&'a str>,
+    pub provider: Option<&'a str>,
+    pub pinned: Option<bool>,
+    pub archived: Option<bool>,
+    pub include_deleted: bool,
+}
+
+/// 读一行任务投影（列顺序见 `TASK_ROW_SELECT`）。
+fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+    Ok(serde_json::json!({
+        "workspace_key": row.get::<_, String>(0)?,
+        "workspace_path": row.get::<_, String>(1)?,
+        "workspace_identity": row.get::<_, Option<String>>(2)?,
+        "task_id": row.get::<_, String>(3)?,
+        "title": row.get::<_, String>(4)?,
+        "task_status": row.get::<_, Option<String>>(5)?,
+        "provider": row.get::<_, Option<String>>(6)?,
+        "mode": row.get::<_, String>(7)?,
+        "model": row.get::<_, Option<String>>(8)?,
+        "migration_source": row.get::<_, Option<String>>(9)?,
+        "forked_from_task_id": row.get::<_, Option<String>>(10)?,
+        "cron_automation_id": row.get::<_, Option<String>>(11)?,
+        "off_peak_task_id": row.get::<_, Option<String>>(12)?,
+        "created_at": row.get::<_, i64>(13)?,
+        "updated_at": row.get::<_, i64>(14)?,
+        "unread_at": row.get::<_, Option<i64>>(15)?,
+        "title_overridden": row.get::<_, i64>(16)?,
+        "meta_json": row.get::<_, String>(17)?,
+    }))
 }
 
 /// 行归属键：`workspaceIdentity?.trim() || workspacePath`（AGENTS.md Workspace Identity）。
@@ -173,11 +249,9 @@ pub fn workspace_key(workspace_path: &str, workspace_identity: Option<&str>) -> 
 }
 
 /// TS `TaskIndexRepo` 的 `getTaskMeta` 投影列（顺序即索引）。
-const TASK_ROW_SELECT: &str = "SELECT
-    workspace_key, workspace_path, workspace_identity, task_id, title, task_status, provider,
-    mode, model, migration_source, forked_from_task_id, cron_automation_id, off_peak_task_id,
-    created_at, updated_at, unread_at, title_overridden, meta_json
-  FROM tasks WHERE workspace_key = ?1 AND task_id = ?2 AND deleted = 0";
+const TASK_ROW_COLUMNS: &str = "workspace_key, workspace_path, workspace_identity, task_id, title,
+    task_status, provider, mode, model, migration_source, forked_from_task_id, cron_automation_id,
+    off_peak_task_id, created_at, updated_at, unread_at, title_overridden, meta_json";
 
 /// 生成资产自校验：hash 与清单一致，防止手改 `schema.rs` 绕过 TS 对账。
 fn verify_assets() -> Result<(), TasksIndexError> {
