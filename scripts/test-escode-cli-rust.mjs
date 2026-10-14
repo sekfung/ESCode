@@ -70,6 +70,12 @@ await run(process.execPath, [
 await run(process.execPath, [
   "--import",
   "tsx",
+  "scripts/generate-escode-cli-rust-command-schema.mjs",
+  "--check",
+]);
+await run(process.execPath, [
+  "--import",
+  "tsx",
   "scripts/generate-escode-cli-rust-bash-policies.mjs",
   "--check",
 ]);

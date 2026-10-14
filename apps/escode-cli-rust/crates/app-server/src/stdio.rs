@@ -95,6 +95,22 @@ fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
             })
             .is_ok();
     }
+    // `v4/command` 的 schema 校验（rust-unified-host.md P1 #10）：语料由 TS zod 生成，
+    // 违规在此记录为 debug 日志（协议入口是唯一能看见原始 params 的 adapter 边界）。
+    // 不改变应答：现有 serde 拒绝面与 TS zod 不完全一致，收紧线上行为需差分场景作证。
+    if value["method"] == "v4/command" {
+        let violations = escode_cli_protocol::command_schema::validate_command(&value["params"]);
+        if !violations.is_empty() {
+            escode_cli_host::file_log::log(
+                escode_cli_host::file_log::Level::Debug,
+                "command.schema.violations",
+                "cli",
+                &escode_cli_protocol::command_schema::describe(&violations),
+                None,
+                json!({"commandId": value["params"]["commandId"]}),
+            );
+        }
+    }
     let request = {
         if value["method"] == "startup/storagePathReady" {
             serde_json::from_value(

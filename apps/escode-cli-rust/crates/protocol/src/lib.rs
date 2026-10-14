@@ -1,3 +1,5 @@
+pub mod command_schema;
+pub mod json_schema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
