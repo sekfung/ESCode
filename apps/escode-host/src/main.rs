@@ -73,8 +73,10 @@ fn link_from_env() -> Link {
 async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> {
     // window → 实例身份（attachment 路由由 Host 拥有）。
     let mut attachments: BTreeMap<String, String> = BTreeMap::new();
-    // Renderer 传输面（WSPort）：随 Host 收口关闭。
+    // Renderer 传输面（hello/NDJSON 版，供早期接入联调）。
     let mut surfaces: Vec<escode_host_surface::Surface> = Vec::new();
+    // Renderer RPC 面（@escode/rpc 协议，Renderer 真实链路）。
+    let mut rpc_surfaces: Vec<escode_host_rpc::RpcSurface> = Vec::new();
     while let Some(message) = control.recv().await {
         match message {
             ControlMessage::WindowAttach {
@@ -166,6 +168,32 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     }
                 }
             }
+            ControlMessage::RpcListen { bind, home } => {
+                let addr: std::net::SocketAddr = bind
+                    .parse()
+                    .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+                let channels = escode_host_rpc::session::channels(std::path::PathBuf::from(home));
+                match escode_host_rpc::serve(addr, channels).await {
+                    Ok(surface) => {
+                        control
+                            .send(ControlMessage::RpcListening {
+                                addr: surface.addr.to_string(),
+                            })
+                            .await?;
+                        rpc_surfaces.push(surface);
+                    }
+                    Err(error) => {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!("rpc listen failed: {error:#}"),
+                                },
+                            })
+                            .await?;
+                    }
+                }
+            }
             ControlMessage::SurfaceListen { bind } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
@@ -233,6 +261,9 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 for surface in surfaces.drain(..) {
                     surface.shutdown().await;
                 }
+                for surface in rpc_surfaces.drain(..) {
+                    surface.shutdown().await;
+                }
                 control.stop_pumps();
                 let _ = control
                     .send(ControlMessage::LogBatch {
@@ -259,11 +290,15 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::Failed { .. }
             | ControlMessage::Stopped { .. }
             | ControlMessage::SettingsValue { .. }
-            | ControlMessage::SurfaceListening { .. } => {}
+            | ControlMessage::SurfaceListening { .. }
+            | ControlMessage::RpcListening { .. } => {}
         }
     }
     // 输入关闭（Main 退出）= 收口全部实例与传输面。
     for surface in surfaces.drain(..) {
+        surface.shutdown().await;
+    }
+    for surface in rpc_surfaces.drain(..) {
         surface.shutdown().await;
     }
     control.stop_pumps();

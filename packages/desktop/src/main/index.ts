@@ -212,6 +212,7 @@ import {
   setBrowserUseGuestWebContentsIdsProvider,
 } from "./resourceManagerWindow.js";
 import { createWebRemoteControlSharedHostAttachments } from "./webRemoteControlSharedHostAttachments.js";
+import { createRustHostManager, defaultRustHostBinary } from "./rustHostManager.js";
 import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import {
@@ -828,9 +829,29 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
 });
 
 const webRemoteControlAuthProvider = createNodeWebRemoteControlRelayAuthProvider();
+// dev 开关（docs/specs/rust-u2-host-skeleton.md §6）：`ESCODE_RUST_HOST=1` 时本地 workspace 的
+// Host attachment 走 Rust Host（App 级一个进程，Main 桥接 MessagePort ↔ RPC WebSocket）。
+// 启动失败不阻塞应用：`attachRustHostLocal` 抛错时调用方回退 Node Host 路径。
+const rustHostManager = createRustHostManager({
+  binary: defaultRustHostBinary(app.getAppPath(), app.isPackaged),
+  home: app.getPath("home"),
+  log: logger,
+});
 const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAttachments({
   windowHostProcessMap,
   attachRemoteWorkspaceSessionHost: remoteSessionManager.attachRemoteWorkspaceSessionHost,
+  ...(rustHostManager.enabled
+    ? {
+        attachRustHostLocal: async () => {
+          const attachment = await rustHostManager.attachLocalPort(() => new MessageChannelMain());
+          return {
+            entryId: "rust-host:local",
+            port: attachment.port as MessagePortMain,
+            dispose: attachment.dispose,
+          };
+        },
+      }
+    : {}),
   logger,
 });
 const deviceMid = ensureDesktopDeviceMidSync();

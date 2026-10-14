@@ -790,6 +790,7 @@ dependencies = [
  "escode-cli-core-api",
  "escode-cli-rust",
  "escode-host-control",
+ "escode-host-rpc",
  "escode-host-runtime",
  "escode-host-services",
  "escode-host-surface",
@@ -838,6 +839,21 @@ dependencies = [
  "anyhow",
  "escode-host-control",
  "serde_json",
+]
+
+[[package]]
+name = "escode-host-rpc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "escode-host-services",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]

@@ -8,6 +8,7 @@ members = [
   "crates/host-runtime",
   "crates/host-services",
   "crates/host-surface",
+  "crates/host-rpc",
 ]
 resolver = "2"
 
@@ -46,6 +47,7 @@ unnecessary_to_owned = "deny"
 
 [workspace.dependencies]
 anyhow = "1"
+base64 = "0.22"
 async-trait = "0.1"
 futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
@@ -67,6 +69,7 @@ escode-host-control = { path = "crates/host-control" }
 escode-host-runtime = { path = "crates/host-runtime" }
 escode-host-services = { path = "crates/host-services" }
 escode-host-surface = { path = "crates/host-surface" }
+escode-host-rpc = { path = "crates/host-rpc" }
 
 [package]
 name = "escode-host"
@@ -88,6 +91,7 @@ escode-host-control.workspace = true
 escode-host-runtime.workspace = true
 escode-host-services.workspace = true
 escode-host-surface.workspace = true
+escode-host-rpc.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-core-api.workspace = true
 

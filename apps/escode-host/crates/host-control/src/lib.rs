@@ -78,6 +78,11 @@ pub enum ControlMessage {
     SurfaceListen { bind: String },
     /// Host→Main：传输面已监听（Main 据此把端口交给 Renderer）。
     SurfaceListening { addr: String },
+    /// Main→Host：请求开启 Renderer RPC 面（`@escode/rpc` 协议跑在 WebSocket 上）。
+    /// `home` 是设置域根目录（Main 决定，Host 不读进程 env 推断业务事实）。
+    RpcListen { bind: String, home: String },
+    /// Host→Main：RPC 面已监听（Main 交给 Renderer 的 `ws://addr/ws` 与 capability 端点）。
+    RpcListening { addr: String },
 }
 
 impl ControlMessage {
@@ -100,6 +105,8 @@ impl ControlMessage {
             Self::SettingsValue { .. } => "settingsValue",
             Self::SurfaceListen { .. } => "surfaceListen",
             Self::SurfaceListening { .. } => "surfaceListening",
+            Self::RpcListen { .. } => "rpcListen",
+            Self::RpcListening { .. } => "rpcListening",
         }
     }
 }

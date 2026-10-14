@@ -38,9 +38,33 @@ function createSharedHostError(
   return error;
 }
 
+/**
+ * Rust Host 没有 Electron utility process：attachment 形状要求 `process`，而消费方
+ * （webRemoteControlManager）只用 `attachmentId` 与 `port`。这里给出最小 shim：
+ * `postMessage` 无队列可投（端口已直接桥接），`kill` 即解绑。
+ */
+function rustHostProcessShim(dispose: () => void): ElectronUtilityProcess {
+  return {
+    postMessage: () => undefined,
+    kill: () => {
+      dispose();
+      return true;
+    },
+  } as unknown as ElectronUtilityProcess;
+}
+
 export function createWebRemoteControlSharedHostAttachments(dependencies: {
   windowHostProcessMap: Map<number, ElectronUtilityProcess>;
   createMessageChannel?: () => { port1: MessagePortMain; port2: MessagePortMain };
+  /**
+   * dev 开关（`ESCODE_RUST_HOST=1`）：本地 workspace 的 Host attachment 改由 Rust Host 提供。
+   * 返回 renderer/relay 侧端口（另一端已桥到 Rust Host 的 RPC WebSocket）。
+   */
+  attachRustHostLocal?: (windowId: number) => Promise<{
+    entryId: string;
+    port: MessagePortMain;
+    dispose(): void;
+  }>;
   attachRemoteWorkspaceSessionHost: (params: {
     windowId: number;
     remoteSessionId: string;
@@ -75,6 +99,7 @@ export function createWebRemoteControlSharedHostAttachments(dependencies: {
 
   function attachLocalHost(windowId: number): WebRemoteControlSharedHostAttachment {
     const hostProcessWindowId = BrowserWindow.fromId(windowId)?.webContents.id ?? windowId;
+    void hostProcessWindowId;
     const process = dependencies.windowHostProcessMap.get(hostProcessWindowId);
     if (!process) {
       throw createSharedHostError(
@@ -109,6 +134,22 @@ export function createWebRemoteControlSharedHostAttachments(dependencies: {
     context: WebRemoteControlSharedHostAttachContext,
   ): Promise<WebRemoteControlSharedHostAttachment> {
     if (context.kind === "local") {
+      const rustHostAttachment = dependencies.attachRustHostLocal
+        ? await dependencies.attachRustHostLocal(windowId)
+        : undefined;
+      if (rustHostAttachment) {
+        const attachmentId = `rust-host-attachment-${++nextAttachmentId}`;
+        attachments.set(attachmentId, {
+          windowId,
+          port: rustHostAttachment.port,
+        });
+        return {
+          entryId: rustHostAttachment.entryId,
+          attachmentId,
+          process: rustHostProcessShim(rustHostAttachment.dispose),
+          port: rustHostAttachment.port,
+        };
+      }
       return attachLocalHost(windowId);
     }
     if (!context.remoteSessionId) {

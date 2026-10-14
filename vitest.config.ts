@@ -11,6 +11,10 @@ const processLifecycleTests = [
 const forkIsolatedTests = [
   ...processLifecycleTests,
   // electron-builder 下载 NSIS 时把进程 stdio 传给子进程，不能使用 threads 的虚拟 stdio。
+  // 真实 spawn Rust Host（apps/escode-host）并用 MessagePort/WebSocket 桥接：
+  // threads worker 的虚拟 stdio 与 MessagePort 语义会破坏握手，必须进程隔离。
+  "packages/desktop/test/rustHostRpc.test.ts",
+  "packages/desktop/test/rustHostBridge.test.ts",
   "packages/desktop/test/windowsInstallerCompile.test.ts",
   "packages/desktop/test/cdnPreloadScript.test.ts",
   "packages/desktop/test/desktopRuntimeEnv.test.ts",

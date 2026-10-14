@@ -1,0 +1,24 @@
+[package]
+name = "escode-host-rpc"
+description = "ESCode Host 的 Renderer RPC 面：@escode/rpc 协议（帧/序列化/channel 分派）跑在 WebSocket 上"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+escode-host-services.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
