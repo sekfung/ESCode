@@ -72,7 +72,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 - [x] `deny.toml`（已完成：advisories 无 ignore、licenses 14 种白名单、bans `multiple-versions=warn` + `wildcards=deny`（`allow-wildcard-paths` 仅放行工作区内部 path 依赖）、sources 只允许 crates.io；`cargo deny check` 四类全过；CI checks job 接入 `EmbarkStudios/cargo-deny-action`，本地 `pnpm check:escode-cli-rust:deny`）
 - [x] nextest 配置（已完成：`apps/escode-cli-rust/.config/nextest.toml`——慢测试 30s 报告/60s 终止、retries=1、fail-fast=false、JUnit；本地实测 396 tests 全过；`scripts/test-escode-cli-rust.mjs` 首选 nextest、缺失时回退 cargo test 并提示；CI test job 经 `taiki-e/install-action@nextest` 三平台预装）
 - [x] App 级 perf harness 骨架（2026-10-14 完成）：`scripts/bench-escode-app.mjs`——三配置注册（A=Node Host+Node CLI / B=Node Host+Rust CLI / C=Rust Host+内嵌 runtime 为阶段 2 占位、显式报错）、交错 N 轮取中位数、双口径内存（Windows WorkingSet64 + PrivateMemorySize64；POSIX 走 RSS，macOS footprint 待接入）、按角色分解（main/renderer/gpu/utility/agent/agent-node）、每轮隔离 data dir（A/B 交替写同一 data dir 会共享会话并触发两套存储格式互相迁移，必须隔离）、不建立调试连接、`--reuse-profile` 显式 opt-in 共享 profile；`--self-test` 用合成进程树验证发现/采样/交错/中位数/杀树全链路（实测 3 轮交错 PASS；夹具教训：合成 Buffer 必须被闭包持有，否则分配后无引用的 buffer 会被 V8 外部内存 GC 回收，读数随 GC 时机倒挂）；**真实 A/B 基线已跑（3 轮交错，2026-10-14）**：报告 `docs/reports/rust-app-perf-baseline-2026-10-14.md`——App 口径（electron 主进程子树）A 1419.6 / B 1293.6 MiB 工作集、私有提交 1102.2 / 974.5 MiB，B 不劣于 A；就绪判定修正为「electron 主进程 + renderer 按进程名在场」（旧判定被 dev 的 concurrently 参数含 "electron" 误触发，实测 electron 在 dev 约 t≈173 s 才出现，前三次候选轮数据作废）；§5 八项指标逐项记录，未覆盖 5 项的接入条件已列（多 workspace / 首段 / 优雅退出 / 进程内 RPC / 4 路流式）；三平台 CI 维持 CLI 级 `bench-escode-cli-node-rust.mjs`（Electron 需图形会话，App 级 CI 接入待阶段 2 后评估虚拟显示方案）
-- [ ] unwrap/expect 基线快照（按 crate 计数，作为渐进清零的进度表）
+- [x] unwrap/expect 基线快照（按 crate 计数，作为渐进清零的进度表）——`docs/reports/rust-unwrap-baseline-2026-10-14.md`
 - [x] 修红完成：全部越界拆分（历史 3 处 + fmt 折行新增 14 处，均为模块外迁）；boundary/fmt/clippy/全工作区测试全绿；附带修复 wiki 的 Windows `\\?\` realpath 历史 bug；`docs/rust-migration.md` 过期表述已更新
 - [x] 差分基础设施垂直切片（2026-10-14 完成）：`scripts/diff-escode-cli-rust-parity.mjs`（+ `-capture`/`-diff`/`-report` 模块）打通「Node 捕获 → golden → 双跑差分 → evidence 报告」全链路——场景 `session-baseline`（capabilities → createSession → subscribe → sendText → 静默期关闭），双侧同一 mock SSE/临时 HOME/workspace/固定输入；对拍面：消息帧（L4，位置严格）/ 存储进度（L2 集合）/ 事件流（L3 集合）/ 模型请求（L4，字符串值字节级）/ workspace 文件（L5）；产出 evidence.json + report.md + 双侧原始与归一帧；差异三分类（已批准登记表 reason+removal / open 已登记未修复 / 欠账基线指纹棘轮拦新差异），负向验证通过（移除一条指纹即判失败）；CI 已接入 bench job 三平台（报告进 job summary、artifact 上传；**观察期**：基线指纹此前只在本机 Windows 验证过稳定，三平台首次全绿后去掉 `continue-on-error` 转阻塞）
 - [x] 我方差异账本第一轮（2026-10-14 完成）：`docs/reports/rust-difference-ledger-2026-10-14.md`——M/T/C/S/A/F 分类，含真偏移（mcpTelemetry 缺发、模型请求字段名 `max_tokens`/`max_completion_tokens`、`tool_choice` 省略、`memoryEnabled` 缺字段、偏好请求时序、seq 编号/状态载体）、已批准差异（capabilities 扩展、存储进度粒度、openTiming 诊断块、标题请求流式形态）与正面结论（workspace 文件副作用两侧一致）；逐条给出定位字段与移除条件
@@ -88,16 +88,19 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 
 ### 阶段 1：runtime 库化（估算 2–4 周）
 
-交付物：
+交付物（2026-10-14 全部完成，子 spec `rust-u1-runtime-lib.md`，验收报告 `docs/reports/rust-u1-runtime-library-2026-10-14.md`）：
 
-- [ ] `embed::spawn(RuntimeOptions { home, env, argv, cwd, workspace_identity, data_dir }) -> Embedded { io, task, cancel, tasks }` 公共入口（对标 `apps/zcode-cli-rust/src/embed.rs` 形态）
-- [ ] 显式环境：crates/ 非测试代码 0 处 `std::env::var*` / `current_dir`（新增边界脚本规则）；env 快照由组合根传入
-- [ ] 多实例：同进程 2+ workspace 并发；owner 锁进程内登记表语义；同进程重启（关闭后再 spawn）正确
-- [ ] `Link` trait + 双传输：`StdioLink`（现有）+ `MemoryLink`（先 duplex + NDJSON 保等价，接口为阶段 4 免序列化预留）
-- [ ] 双传输一致性子测试：同一 scenario 在两条链路跑，断言帧序列/顺序/关闭语义等价
-- [ ] 执行『实现质量对齐工作包』P1 结构对齐（与库化并行；其中 #5 TaskScope 是嵌入多实例与收口的前置，先做）
+- [x] `embed::spawn(RuntimeOptions { home, env, argv, cwd, workspace_identity, data_dir, config }) -> Embedded { io, task, cancel, tasks }` 公共入口（形态对标 `apps/zcode-cli-rust/src/embed.rs`；`config` 为清单外必要补充——见子 spec §2）
+- [x] 显式环境：crates/ 非测试代码 0 处 `std::env::var*` / `current_dir` / `current_exe` / `args`（边界脚本新规则，唯一豁免 `core-api/src/env.rs`）；env 快照由组合根与 RuntimeOptions 传入
+- [x] 多实例：同进程 2+ workspace 并发；owner 锁进程内登记表 + 实例 token（`WorkspaceOwnerGuard`）；同进程重启（关闭后再 spawn）正确
+- [x] `Link` trait + 双传输：`StdioLink`（现有行为逐字节不变）+ `MemoryLink`（内存双工 + NDJSON 保等价，接口为阶段 4 免序列化预留）
+- [x] 双传输一致性子测试：`tests/dual_transport.rs` 三用例——同一字节流两条链路产出同一 Input 序列（含无效 JSON/空白/无换行尾行）、输出帧字节等价、EOF 与关闭语义等价
+- [x] 执行『实现质量对齐工作包』P1 结构对齐：#5 TaskScope 完成（Spawner 唯一入口、panic 上报、`running()` 残余清单、`drain` 宽限、实例 env 传播；core/tools/model/state 全部 spawn 点收拢）、#7 FileStamp/ChangeGate 完成（host `file_stamp.rs` 五类指纹测试 + registry 闸门四测试）、#8 部分完成（`CoreRuntime` 第二所有权删除；waiter 三表合并单注册表 `Waiters::release/clear` + 两测试；typed 方法分派与瞬态 `Submission` 未做）、#12 经核查与 §4.1 对齐契约冲突**不实施**（协议 strict schema 无 `chunkCount/lastChunkAgeMs`，TS 侧每 delta 一条；见下）
+- [ ] #6 net 出口收拢、#9 plugins crate、#10 `v4/command` schema 校验、#11 bash registry 类型化：未做，随阶段 2 继续（各自独立验收）
 
-验收：cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值；同进程两 workspace 并发无串扰；关闭后再 spawn 正常；环境读取检查为 0；双传输差分全绿；记录进程内控制延迟基线。
+验收：cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值；同进程两 workspace 并发无串扰；关闭后再 spawn 正常；环境读取检查为 0；双传输差分全绿；记录进程内控制延迟基线（p50 0.250 ms / p95 0.334 ms，n=50，MemoryLink NDJSON 路径）。全部达成，证据见验收报告。
+
+**#12 遥测 ChunkWindow 的核查结论（2026-10-14）**：我方 pinned 协议对 `stream.chunk` 是 strict schema（`packages/shared/src/escode-protocol-v4/telemetry.ts:113-121`），字段只有 `channel/chunkLength/firstChunk/assistantMessageId/partId/parentToolCallId`；TS oracle（`conversation-telemetry-facts.ts:432`）每 delta 一条事实。发送端做 250ms 合并并携带 `chunkCount/lastChunkAgeMs` 会同时违反协议契约与 §4.1 对齐口径（属"已批准差异"之外的偏移）。故本项改为**条件项**：只有在协议 schema 与 TS 侧同时引入窗口语义（上游 3.15.1+ 或双方协调变更）后才实施；runtime 内部无第二消费方需要该聚合。
 
 ### 阶段 2：Rust Host 骨架与分域迁移（估算 6–10 周）
 
@@ -166,6 +169,8 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 | 4   | `crates/model/src/registry.rs`（7 处 unwrap）、`crates/tools/src/mcp_hub.rs`（锁 unwrap）等 | 按本文件 §4.6 欠账清单逐处清理：模型入参直取改 `ok_or` + context；锁 unwrap 改 poison 容忍或 `unreachable!` + 说明                                                                                                             | unwrap/expect 计数下降并记入基线快照                                                       |
 
 #### P1 结构对齐（并入阶段 1，与库化并行；#5 是嵌入多实例与收口的前置）
+
+> 状态（2026-10-14）：#5 ✅ 完成（`core-api/src/scope.rs`，全 crate spawn 收拢）；#7 ✅ 完成（`host/src/file_stamp.rs` + registry 闸门）；#8 ◐ 部分（`CoreRuntime` 已删、waiter 合并单注册表 `Waiters`；typed 方法分派与瞬态 `Submission` 待做）；#11 ◐ 部分（callback 双向对账 + `safeFlags` kind 类型化 **已完成**，见 `bash_callback_reconciliation` 4 测试；registry typed + policy `deny_unknown_fields` + 全量逐字段语料待做）；#12 ⛔ 挂起（与协议 strict schema / TS oracle 冲突，见阶段 1 注记）；#6、#9、#10 未做，随阶段 2 继续。
 
 | #   | 改哪里                                                                                                               | 怎么改                                                                                                                                                                                               | 参考（对标仓库）                                                           |
 | --- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -302,3 +307,10 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 6. [x] 差分垂直切片 + 差异账本第一轮（2026-10-14）——`scripts/diff-escode-cli-rust-parity.mjs`（含 `-capture`/`-diff`/`-report`）与 `docs/reports/rust-difference-ledger-2026-10-14.md`；稳定复跑 3 次、负向验证通过（去掉一条基线指纹即判失败）、CI bench job 三平台接入（拦新差异）。
 7. [x] M 系列真偏移收敛（2026-10-14）：模型请求字段名与 `tool_choice` 已与 TS/AI SDK 对齐（model_protocol.rs；parity 复跑两侧请求体一致，三处 TS 断言按 oracle 更新）。
 8. [x] C-1/C-2 部分收敛（2026-10-14）：遥测事实与后续 ack 带 `memoryEnabled`、偏好请求提前到创建期发起；createSession ack 与请求位置登记为已批准。剩余 T-3（ARMS 埋点，随阶段 2 P2）与 T-4（投递层）见账本。
+
+## 8. 阶段 1 执行记录（2026-10-14）
+
+- 子 spec：`docs/specs/rust-u1-runtime-lib.md`（含设计、验收、基线与 u2 移交清单）；验收报告：`docs/reports/rust-u1-runtime-library-2026-10-14.md`。
+- 新增/迁移：`core-api/src/env.rs`（EnvSnapshot + InstanceContext，workspace 唯一 `std::env` 读取点）、`core-api/src/scope.rs`（Spawner）、`app-server/src/link.rs`（Link/StdioLink/MemoryLink + EmbeddedIo 按行缓冲）、`src/embed.rs`（RuntimeOptions/Embedded）、`host/src/file_stamp.rs`、`core/src/app/waiters.rs`；`src/runtime.rs` 移入 lib 目标供二进制与嵌入共用装配。
+- 测试：嵌入生命周期 5 例（`tests/embed_memory_link.rs`：服务与 EOF 收口、双实例并发无串扰与存储隔离、双 spawn 所有权冲突 + 关闭后重 spawn、RuntimeOptions 的 env/cwd 驱动存储解析（databaseId 证明）、进程内控制往返延迟基线）、双传输一致 3 例（`tests/dual_transport.rs`）、Spawner 5 例、FileStamp 5 例、registry 闸门 4 例、waiters 2 例。
+- 门禁：边界脚本新增「非测试代码 0 处进程 env 读取」规则（唯一豁免 core-api/src/env.rs）；`cargo fmt --check`、`cargo clippy --workspace --all-targets`（-D warnings）、`cargo test --workspace`（415 通过 / 0 失败）、差分套件、`pnpm typecheck`、`pnpm lint`（0 error）、`pnpm architecture:check --changed` 全绿。

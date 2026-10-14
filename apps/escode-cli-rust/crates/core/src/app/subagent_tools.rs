@@ -109,7 +109,10 @@ pub(super) async fn execute(
             .task
             .task_output(args["block"] != false && args["block"] != "false");
         return Ok(ToolOutput::new(
-            crate::domain::task_output::model_content(&data),
+            crate::domain::task_output::model_content(
+                &data,
+                crate::contract::env::var("TASK_MAX_OUTPUT_LENGTH").ok(),
+            ),
             data,
         ));
     }

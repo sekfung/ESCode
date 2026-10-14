@@ -235,7 +235,7 @@ impl Engine {
         }));
         s.revision += 1;
         s.updated_at = now;
-        self.waiting_permissions.insert(
+        self.waiters.permissions.insert(
             interaction.clone(),
             WaitingPermission {
                 session: id.to_owned(),

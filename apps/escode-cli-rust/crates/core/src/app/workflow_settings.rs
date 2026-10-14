@@ -71,7 +71,7 @@ impl Engine {
             tx: self.events.clone(),
         };
         let tools = self.tools.clone();
-        tokio::spawn(async move {
+        self.spawner.spawn("workflow-settings", async move {
             let applied = match tools.workflow_run(AMEND_SETTINGS_METHOD, params).await {
                 Ok(result) if result["ok"] == true => result,
                 Ok(result) => {

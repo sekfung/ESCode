@@ -321,6 +321,7 @@ async fn start_timed(
         model: Some(model.clone()),
         tools: tools.clone(),
         clock: Arc::new(Clock(AtomicUsize::new(0))),
+        spawner: escode_cli_core_api::scope::Spawner::current(),
     };
     let engine = Engine::new(
         "workspace".into(),

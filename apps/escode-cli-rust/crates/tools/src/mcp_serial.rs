@@ -15,7 +15,7 @@ const TIMEOUT_MS: u64 = 150_000;
 const READ_ONLY_TOOLS: [&str; 3] = ["serial_list", "serial_read", "serial_wait_for"];
 
 pub(super) fn host_serial_available() -> bool {
-    std::env::var(HOST_FLAG).is_ok_and(|v| v.trim() == "1")
+    escode_cli_core_api::env::var(HOST_FLAG).is_ok_and(|v| v.trim() == "1")
 }
 
 pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
@@ -43,7 +43,11 @@ pub(super) fn host_plugin_server(
     cwd: &Path,
 ) -> Option<Server> {
     let root = plugins.iter().find(|p| p.id == plugin)?.root.clone();
-    let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
+    let launcher = |key: &str| {
+        escode_cli_core_api::env::var(key)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+    };
     let (exec, entrypoint) = (
         launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?,
         launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?,

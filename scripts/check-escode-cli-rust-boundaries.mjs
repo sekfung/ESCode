@@ -38,7 +38,23 @@ async function walk(directory) {
       /\bescode_cli_(?:core|app_server|tui)\s*::/.test(code)
     )
       failures.push(`${file}: adapter imports core or frontend`);
+    // 显式环境（docs/specs/rust-u1-runtime-lib.md §3.5）：非测试代码 0 处 std::env 进程事实读取。
+    // 唯一豁免 core-api/src/env.rs（被批准的进程事实采集 shim）；temp_dir 是进程级语义，允许。
+    if (file.includes("/tests/")) continue;
+    const runtimeCode = stripTestCode(source).replace(/\/\/[^\n]*/g, "");
+    if (
+      (crate !== "core-api" || file !== "core-api/src/env.rs") &&
+      /\bstd\s*::\s*env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\b|(?<![:\w])env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\s*\(/.test(
+        runtimeCode,
+      )
+    )
+      failures.push(`${file}: reads process env outside core-api/src/env.rs`);
   }
+}
+/// 剔除 tests/ 目录文件与 `#[cfg(test)]` 段之后的内容（测试代码允许 std::env）。
+function stripTestCode(source) {
+  const cfgTest = source.indexOf("#[cfg(test)]");
+  return cfgTest === -1 ? source : source.slice(0, cfgTest);
 }
 await walk(root);
 if (failures.length) {

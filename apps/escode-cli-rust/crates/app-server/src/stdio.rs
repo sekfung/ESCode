@@ -6,19 +6,36 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 pub use crate::contract::{Input, Output};
+pub use crate::link::{EmbeddedIo, Link, MemoryLink, StdioLink, Streams};
 
-pub fn start(
+/// 协议输入流集合：引擎 `serve` 的输入/输出与收口句柄（传输无关）。
+/// 由 [`Link::start`] 产出；`stdio` 与内存双工链路共用同一套读写代码路径。
+/// reader/writer 以工厂闭包传入：stdin/stdout 的锁不是 Send，必须在线程内创建与使用，
+/// 因此 R/W 自身不要求 Send，只有工厂跨线程移动。
+pub fn start_io<R, W, RF, WF>(
+    make_reader: RF,
+    make_writer: WF,
     cancel: CancellationToken,
     input_closed: CancellationToken,
-) -> (mpsc::Receiver<Input>, Output, std::thread::JoinHandle<()>) {
+) -> Streams
+where
+    R: std::io::BufRead + 'static,
+    W: Write + 'static,
+    RF: FnOnce() -> R + Send + 'static,
+    WF: FnOnce() -> W + Send + 'static,
+{
     let (in_tx, in_rx) = mpsc::channel(64);
     let (out_tx, mut out_rx) = mpsc::channel::<Vec<Value>>(64);
-    super::stdio_input::spawn_reader(in_tx, input_closed.clone(), dispatch);
+    super::stdio_input::spawn_reader(make_reader, in_tx, input_closed.clone(), dispatch);
     let progress = super::stdio_input::WriteProgress::default();
-    super::stdio_input::watch_stalled_output(progress.clone(), input_closed, cancel.clone());
-    let writer = std::thread::spawn(move || {
-        let stdout = std::io::stdout();
-        let mut writer = stdout.lock();
+    let watch_progress = progress.clone();
+    let watch_cancel = cancel.clone();
+    escode_cli_core_api::scope::Spawner::current().spawn(
+        "stdio-stall-watchdog",
+        super::stdio_input::watch_stalled_output(watch_progress, input_closed, watch_cancel),
+    );
+    let writer_thread = std::thread::spawn(move || {
+        let mut writer = make_writer();
         while let Some(batch) = out_rx.blocking_recv() {
             for message in batch {
                 progress.begin();
@@ -42,7 +59,11 @@ pub fn start(
         }
         progress.finish();
     });
-    (in_rx, out_tx, writer)
+    Streams {
+        input: in_rx,
+        output: out_tx,
+        writer: writer_thread,
+    }
 }
 /// 需要按 Host 原键顺序重新解析 params 的方法（落盘时保持请求里的 key 顺序）。
 const RAW_PARAMS_METHODS: &[&str] = &["plugins/configure"];

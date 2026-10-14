@@ -111,10 +111,14 @@ fn locale() -> Option<String> {
 
 #[cfg(not(windows))]
 fn locale() -> Option<String> {
-    // ICU 读取顺序：LC_ALL → LC_MESSAGES → LANG。
+    // ICU 读取顺序：LC_ALL → LC_MESSAGES → LANG。经 core_api::env：嵌入实例下以实例 env 快照为准。
     ["LC_ALL", "LC_MESSAGES", "LANG"]
         .iter()
-        .find_map(|key| std::env::var(key).ok().filter(|v| !v.trim().is_empty()))
+        .find_map(|key| {
+            escode_cli_core_api::env::var(key)
+                .ok()
+                .filter(|v| !v.trim().is_empty())
+        })
         .map(|value| bcp47(&value))
         .or_else(|| Some("en-US".into()))
 }

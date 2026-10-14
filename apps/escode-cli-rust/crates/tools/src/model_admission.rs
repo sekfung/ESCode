@@ -35,9 +35,12 @@ impl WorkspaceTools {
     pub fn with_model_admission(self) -> Self {
         // 全局钩子只持弱引用：不能让进程级静态量把宿主（及其子进程）留到退出之后。
         let host = Arc::downgrade(&self.workflow_host);
+        // 实例 Spawner 带入闭包：actor 准许转发任务登记在实例作用域并继承 env 快照。
+        let spawner = self.spawner.clone();
         crate::contract::set_model_admission(Box::new(
             move |scope: ModelCallScope, provider, model| {
                 let host = host.upgrade();
+                let spawner = spawner.clone();
                 Box::pin(async move {
                     let host = host?;
                     let params = json!({ "actorSession": scope.session_id, "providerId": provider, "modelId": model });
@@ -45,7 +48,7 @@ impl WorkspaceTools {
                     let id = reply["ticket"].as_str()?.to_owned();
                     let (tx, mut rx) = mpsc::unbounded_channel::<(&'static str, Value)>();
                     let ordered: Arc<_> = host.clone();
-                    tokio::spawn(async move {
+                    spawner.spawn("admission-relay", async move {
                         while let Some((method, params)) = rx.recv().await {
                             let _ = ordered.request(method, params).await;
                         }

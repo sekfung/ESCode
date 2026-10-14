@@ -203,6 +203,7 @@ async fn start_with_output(
             })),
             tools: Arc::new(Tools),
             clock: Arc::new(Clock(AtomicUsize::new(1))),
+            spawner: escode_cli_core_api::scope::Spawner::current(),
         },
     )
     .await

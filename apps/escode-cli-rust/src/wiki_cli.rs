@@ -173,9 +173,15 @@ pub async fn run(argv: Vec<String>) -> i32 {
 async fn execute(args: WikiArgs) -> anyhow::Result<()> {
     let cwd = match args.cwd {
         Some(path) => std::path::absolute(path)?,
-        None => std::env::current_dir()?,
+        None => escode_cli_core_api::env::current_dir()?,
     };
-    let wiki = crate::runtime::wiki_service(&cwd);
+    let identity = escode_cli_host::workspace_identity(
+        escode_cli_core_api::env::var("ESCODE_WORKSPACE_IDENTITY")
+            .ok()
+            .as_deref(),
+        &cwd,
+    );
+    let wiki = crate::runtime::wiki_service(&cwd, &identity);
     let json = args.json;
     let by = "cli";
     let result = match args.command {

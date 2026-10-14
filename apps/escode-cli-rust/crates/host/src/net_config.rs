@@ -93,7 +93,8 @@ fn file(scope: NetworkScope) -> &'static NetworkFileConfig {
 
 /// 代理判定输入：显式值 = 环境变量 ?? 该作用域的文件值（TS 合并后的 `network.*`）。
 pub fn proxy_options(scope: NetworkScope) -> ProxyOptions {
-    options_from(file(scope), std::env::vars().collect())
+    // 经 core_api::env::vars：嵌入实例下取实例快照，且按变量名有序确定。
+    options_from(file(scope), escode_cli_core_api::env::vars())
 }
 
 fn options_from(file: &NetworkFileConfig, env: Vec<(String, String)>) -> ProxyOptions {
@@ -112,7 +113,7 @@ fn options_from(file: &NetworkFileConfig, env: Vec<(String, String)>) -> ProxyOp
 
 /// 显式 CA 路径：`ESCODE_AGENT_CA_CERT` ?? 该作用域的 `network.caCertFile`（TS `resolveTlsCaCertFile`）。
 pub(crate) fn explicit_ca_cert_file(scope: NetworkScope) -> Option<String> {
-    std::env::var(crate::tls_ca::EXPLICIT_CA_ENV_KEY)
+    escode_cli_core_api::env::var(crate::tls_ca::EXPLICIT_CA_ENV_KEY)
         .ok()
         .filter(|value| !value.is_empty())
         .or_else(|| file(scope).ca_cert_file.clone())

@@ -90,7 +90,7 @@ impl Engine {
             query_source,
             trace_id: None,
         };
-        tokio::spawn(async move {
+        self.spawner.spawn("auxiliary", async move {
             let result=crate::contract::with_model_call(model_call, model.complete(messages,&tools,&sink,&cancel)).await.map(|out|{
                 if connectivity {return json!({"success":true});}
                 json!({"text":out.message["content"].as_str().unwrap_or(""),"selection":{"providerId":selected.provider_id,"modelId":selected.model_id,"options":{"reasoningLevel":selected.reasoning_level}},"toolCalls":out.calls.iter().map(|c|json!({"id":c["id"],"name":c["function"]["name"],"input":serde_json::from_str::<Value>(c["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or(Value::Null)})).collect::<Vec<_>>(),"finishReason":if out.output_limit{"length"}else if out.calls.is_empty(){"stop"}else{"tool-calls"},"usage":{"inputTokens":out.usage["prompt_tokens"].as_u64().unwrap_or(0),"outputTokens":out.usage["completion_tokens"].as_u64().unwrap_or(0)}})

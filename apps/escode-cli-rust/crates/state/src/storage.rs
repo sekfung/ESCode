@@ -58,6 +58,65 @@ impl std::error::Error for WorkspaceOwned {}
 /// app-server 因 [`WorkspaceOwned`] 退出时的进程退出码（sysexits EX_TEMPFAIL）。Host 协议契约的一部分。
 pub const WORKSPACE_OWNED_EXIT_CODE: i32 = 75;
 
+/// 进程内 owner 登记表（rust-u1-runtime-lib.md §3.6）：嵌入模式下同进程多实例的 pid 相同，
+/// 以 pid 为标识的磁盘锁无法区分持有者；这里以「锁文件路径 → 实例 token」给出进程内唯一语义。
+/// 跨进程互斥仍由磁盘 flock 承担（同进程第二把 flock 也因 OFD 冲突失败，登记表是双保险与诊断面）。
+fn live_owners() -> &'static std::sync::Mutex<std::collections::BTreeMap<PathBuf, String>> {
+    static LIVE: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::BTreeMap<PathBuf, String>>,
+    > = std::sync::OnceLock::new();
+    LIVE.get_or_init(|| std::sync::Mutex::new(std::collections::BTreeMap::new()))
+}
+
+/// 工作区 owner 锁的持有凭据：drop 先注销进程内登记表条目，再随文件句柄释放磁盘锁。
+#[derive(Debug)]
+pub struct WorkspaceOwnerGuard {
+    file: Option<std::fs::File>,
+    lock_path: PathBuf,
+    token: String,
+}
+
+impl WorkspaceOwnerGuard {
+    /// 本实例的进程内唯一 token（嵌入模式下同一 pid 的多个实例各不相同）。
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+}
+
+impl Drop for WorkspaceOwnerGuard {
+    fn drop(&mut self) {
+        let mut owners = live_owners()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // 只清理自己登记的条目：异常路径下条目可能已被同名 token 覆盖校验挡住。
+        if owners.get(&self.lock_path).map(String::as_str) == Some(self.token.as_str()) {
+            owners.remove(&self.lock_path);
+        }
+        drop(owners);
+        // 释放磁盘锁：flock 随文件描述符关闭。
+        self.file.take();
+    }
+}
+
+/// 锁文件诊断内容：pid + 实例 token + workspace 身份（无消费方，截断重写）。
+fn write_lock_diagnostics(file: &std::fs::File, workspace: &str, token: &str) {
+    use std::io::{Seek, Write};
+    let mut writer = std::io::BufWriter::new(file);
+    if writer
+        .write_all(
+            format!(
+                "pid={}\ntoken={token}\nworkspace={workspace}\n",
+                std::process::id()
+            )
+            .as_bytes(),
+        )
+        .and_then(|()| writer.flush())
+        .is_ok()
+    {
+        let _ = file.set_len(writer.stream_position().unwrap_or(0));
+    }
+}
+
 #[derive(Clone)]
 pub struct Store {
     pub(super) tx: mpsc::Sender<Operation>,
@@ -65,9 +124,11 @@ pub struct Store {
 }
 
 impl Store {
-    pub async fn lock_workspace(dir: PathBuf, workspace: String) -> Result<std::fs::File> {
+    pub async fn lock_workspace(dir: PathBuf, workspace: String) -> Result<WorkspaceOwnerGuard> {
         use sha2::{Digest, Sha256};
-        tokio::task::spawn_blocking(move || {
+        let token = escode_cli_host::id();
+        let diag_token = token.clone();
+        let (lock_path, file) = tokio::task::spawn_blocking(move || {
             let key = format!("{:x}", Sha256::digest(workspace.as_bytes()));
             let target = dir.join(format!("workspace-{key}.lock"));
             let file = std::fs::OpenOptions::new()
@@ -83,13 +144,32 @@ impl Store {
             // 被其他进程持有（WouldBlock）是可重试的所有权冲突，用 WorkspaceOwned 标记，入口据此给出
             // 专用退出码，Host 不能把它当成 Rust runtime 本身故障（docs/specs/rust-release-rollback.md）。
             match file.try_lock() {
-                Ok(()) => Ok(file),
+                Ok(()) => {
+                    // 锁文件内容仅供人工排查（pid + token + 身份），无任何消费方。
+                    write_lock_diagnostics(&file, &workspace, &diag_token);
+                    Ok((target, file))
+                }
                 Err(std::fs::TryLockError::WouldBlock) => Err(WorkspaceOwned.into()),
                 Err(std::fs::TryLockError::Error(error)) => Err(anyhow::Error::new(error)
                     .context("Workspace runtime is already owned or cannot be locked")),
             }
         })
-        .await?
+        .await??;
+        let mut owners = live_owners()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if owners.contains_key(&lock_path) {
+            // 同进程已有实例持有（file drop 自动释放刚取得的磁盘锁）。
+            drop(owners);
+            return Err(WorkspaceOwned.into());
+        }
+        owners.insert(lock_path.clone(), token.clone());
+        drop(owners);
+        Ok(WorkspaceOwnerGuard {
+            file: Some(file),
+            lock_path,
+            token,
+        })
     }
     pub async fn open(path: PathBuf) -> Result<Self> {
         let attachment_root = path

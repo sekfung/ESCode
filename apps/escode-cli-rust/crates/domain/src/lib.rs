@@ -4,6 +4,8 @@ pub mod agent_description;
 pub mod agent_profile;
 pub mod attachment_upload;
 pub mod background;
+#[cfg(test)]
+mod bash_callback_reconciliation;
 mod bash_callbacks;
 mod bash_callbacks_git;
 mod bash_callbacks_system;
@@ -18,6 +20,7 @@ mod bash_policy_git;
 pub mod bash_read_sources;
 pub mod bash_rule_policy;
 mod bash_rule_prefix;
+pub mod bash_safe_flag;
 pub mod builtin_prompt_command;
 pub mod context;
 pub mod conversation_input;

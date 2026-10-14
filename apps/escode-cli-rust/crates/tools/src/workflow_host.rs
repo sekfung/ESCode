@@ -100,7 +100,7 @@ impl WorkflowHost {
     /// 不等应答的通知（actor 运行事件）：宿主未起时直接丢弃。
     pub(crate) fn notify(self: &Arc<Self>, method: &'static str, params: Value) {
         let this = self.clone();
-        tokio::spawn(async move {
+        escode_cli_core_api::scope::Spawner::current().spawn("workflow-notify", async move {
             if this.process.lock().await.is_some() {
                 let _ = this.request(method, params).await;
             }
@@ -133,7 +133,7 @@ impl WorkflowHost {
         let stdout = child.stdout.take().context("workflow host stdout")?;
         let (pending, host) = (self.pending.clone(), self.host.clone());
         let process = self.process.clone();
-        tokio::spawn(async move {
+        escode_cli_core_api::scope::Spawner::current().spawn("workflow-host-reader", async move {
             let mut lines = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 let Ok(message) = serde_json::from_str::<Value>(&line) else {
@@ -159,32 +159,35 @@ impl WorkflowHost {
                         reply,
                     };
                     let (id, sink, process) = (id.to_owned(), sink.clone(), process.clone());
-                    tokio::spawn(async move {
-                        let answer = if sink.send(event).await.is_err() {
-                            Err("Rust runtime is shutting down".to_owned())
-                        } else {
-                            receipt
-                                .await
-                                .unwrap_or_else(|_| Err("Actor request dropped".to_owned()))
-                        };
-                        let line = match answer {
-                            Ok(result) => json!({ "replyTo": id, "result": result }),
-                            Err(error) => json!({ "replyTo": id, "error": error }),
-                        };
-                        if let Some(process) = process.lock().await.as_mut() {
-                            let _ = process
-                                .stdin
-                                .write_all(
-                                    format!(
-                                        "{line}
+                    escode_cli_core_api::scope::Spawner::current().spawn(
+                        "workflow-actor-answer",
+                        async move {
+                            let answer = if sink.send(event).await.is_err() {
+                                Err("Rust runtime is shutting down".to_owned())
+                            } else {
+                                receipt
+                                    .await
+                                    .unwrap_or_else(|_| Err("Actor request dropped".to_owned()))
+                            };
+                            let line = match answer {
+                                Ok(result) => json!({ "replyTo": id, "result": result }),
+                                Err(error) => json!({ "replyTo": id, "error": error }),
+                            };
+                            if let Some(process) = process.lock().await.as_mut() {
+                                let _ = process
+                                    .stdin
+                                    .write_all(
+                                        format!(
+                                            "{line}
 "
+                                        )
+                                        .as_bytes(),
                                     )
-                                    .as_bytes(),
-                                )
-                                .await;
-                            let _ = process.stdin.flush().await;
-                        }
-                    });
+                                    .await;
+                                let _ = process.stdin.flush().await;
+                            }
+                        },
+                    );
                     continue;
                 }
                 // 结算与 run 中通知（升级问答 / 停滞）同一条投递路（后台结果轮）。

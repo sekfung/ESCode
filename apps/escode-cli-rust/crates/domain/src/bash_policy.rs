@@ -2,13 +2,14 @@
 //! `bash_policies.json`，回调见 bash_callbacks.rs。入口 `is_readonly` 对应 `isRuntimeReadOnlyBashCommand`
 //! （不含带工作目录上下文的 git 运行时检查，见 docs/specs/rust-permission-modes.md）。
 use crate::bash_parse::{Invocation, analyze};
+pub use crate::bash_safe_flag::SafeFlagKind;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 pub(crate) struct Policy {
     /// None 与空表语义不同：TS 无 safeFlags 字段时直接拒绝，空对象仍允许位置参数。
-    pub safe_flags: Option<HashMap<String, String>>,
+    pub safe_flags: Option<HashMap<String, SafeFlagKind>>,
     pub allow_any_args: bool,
     pub allow_compact_numeric: bool,
     pub command_only: bool,
@@ -28,11 +29,16 @@ pub(crate) struct Tables {
     pub git_dangerous: Vec<String>,
 }
 
+/// 语料 kind 字符串 → 枚举；未知 kind 显式失败（对账测试保证固定语料不可达）。
+fn decode_kind(raw: &str) -> SafeFlagKind {
+    SafeFlagKind::parse(raw).unwrap_or_else(|| panic!("Unsupported Bash safeFlags kind: {raw}"))
+}
+
 fn policy(v: &Value) -> Policy {
     Policy {
         safe_flags: v["safeFlags"].as_object().map(|m| {
             m.iter()
-                .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_owned()))
+                .map(|(k, v)| (k.clone(), decode_kind(v.as_str().unwrap())))
                 .collect()
         }),
         allow_any_args: v["allowAnyArgs"] == true,

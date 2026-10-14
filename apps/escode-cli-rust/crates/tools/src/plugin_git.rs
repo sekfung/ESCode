@@ -238,7 +238,7 @@ fn should_fallback(error: &anyhow::Error) -> bool {
 
 /// TS `execGitCommand`：`ESCODE_GIT_BINARY` 可覆盖 git 路径；子进程环境按 host 规则清洗并恢复出网配置。
 async fn git(args: &[String]) -> Result<()> {
-    let binary = std::env::var("ESCODE_GIT_BINARY")
+    let binary = escode_cli_core_api::env::var("ESCODE_GIT_BINARY")
         .ok()
         .map(|b| b.trim().to_owned())
         .filter(|b| !b.is_empty())

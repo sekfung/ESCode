@@ -40,7 +40,7 @@ impl Engine {
         };
         let wiki = self.wiki.clone();
         let (method, params) = (request.method.clone(), request.params.clone());
-        tokio::spawn(async move {
+        self.spawner.spawn("wiki-request", async move {
             let result = match wiki {
                 Some(port) => port
                     .request(&method, &params)

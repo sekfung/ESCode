@@ -61,7 +61,12 @@ pub(super) fn actor_definitions(actor: &Value, definitions: &mut Vec<Value>) {
 fn env_shell_name() -> String {
     ["SHELL", "ComSpec"]
         .iter()
-        .find_map(|key| std::env::var(key).ok().filter(|v| !v.is_empty()))
+        // 显式 env 端口（rust-u1-runtime-lib.md §3.1）：实例快照优先，缺席回落进程 env。
+        .find_map(|key| {
+            crate::contract::env::var(key)
+                .ok()
+                .filter(|v| !v.is_empty())
+        })
         .map(|path| {
             path.rsplit(['/', '\\'])
                 .next()

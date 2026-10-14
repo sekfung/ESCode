@@ -108,8 +108,8 @@ pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
         return roots.clone();
     }
     let host = match (
-        std::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH"),
-        std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT"),
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH"),
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT"),
     ) {
         (Ok(exec_path), Ok(entrypoint)) if !exec_path.is_empty() && !entrypoint.is_empty() => {
             Some(Host {
@@ -139,8 +139,8 @@ pub(crate) fn seed_once(storage: &Path) -> Vec<PathBuf> {
 /// 不受进程内 `seed_once` 缓存影响。
 pub(crate) fn reseed(storage: &Path) {
     let host = match (
-        std::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH"),
-        std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT"),
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH"),
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT"),
     ) {
         (Ok(exec_path), Ok(entrypoint)) if !exec_path.is_empty() && !entrypoint.is_empty() => {
             Some(Host {
@@ -163,18 +163,18 @@ pub(crate) fn reseed(storage: &Path) {
 /// TS `candidateBaseDirs`：入口所在目录、进程 cwd；另加开发/测试用的显式候选。
 fn base_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
-    if let Ok(dir) = std::env::var("ESCODE_OFFICIAL_PLUGINS_BASE_DIR")
+    if let Ok(dir) = escode_cli_core_api::env::var("ESCODE_OFFICIAL_PLUGINS_BASE_DIR")
         && !dir.is_empty()
     {
         dirs.push(PathBuf::from(dir));
     }
-    if let Some(dir) = std::env::current_exe()
+    if let Some(dir) = escode_cli_core_api::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(Path::to_owned))
     {
         dirs.push(dir);
     }
-    if let Ok(dir) = std::env::current_dir() {
+    if let Ok(dir) = escode_cli_core_api::env::current_dir() {
         dirs.push(dir);
     }
     dirs

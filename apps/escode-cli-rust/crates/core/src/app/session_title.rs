@@ -117,7 +117,7 @@ impl Engine {
             query_source: Some("session_title".into()),
             trace_id: self.sessions.get(id).and_then(|s| s.trace_id.clone()),
         };
-        tokio::spawn(async move {
+        self.spawner.spawn("session-title", async move {
             let title = crate::contract::with_model_call(
                 model_call,
                 tokio::time::timeout(TITLE_TIMEOUT, model.complete(messages, &[], &sink, &cancel)),

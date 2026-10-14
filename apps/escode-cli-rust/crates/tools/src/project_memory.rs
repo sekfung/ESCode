@@ -26,7 +26,7 @@ pub(crate) async fn resolve(
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let identity = std::env::var("ESCODE_WORKSPACE_IDENTITY").ok();
+    let identity = escode_cli_core_api::env::var("ESCODE_WORKSPACE_IDENTITY").ok();
     let root = cli_root
         .join("memories")
         .join("projects")

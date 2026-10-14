@@ -8,8 +8,9 @@ pub struct LegacySource {
     pub required: bool,
 }
 pub fn home() -> Result<PathBuf> {
-    Ok(std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准。
+    Ok(escode_cli_core_api::env::var_os("HOME")
+        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .context("Home directory unavailable")?
         .into())
 }
@@ -70,7 +71,7 @@ async fn storage_config(cwd: &Path) -> Result<(String, String, PathBuf)> {
             root = value.to_owned();
         }
     }
-    if let Ok(value) = std::env::var("ESCODE_STORAGE_DIR") {
+    if let Ok(value) = escode_cli_core_api::env::var("ESCODE_STORAGE_DIR") {
         root = value;
     }
     Ok((database, root, home))
@@ -85,8 +86,8 @@ pub async fn resolve(
     cwd: &Path,
     automatic: bool,
 ) -> Result<Option<LegacySource>> {
-    let env = std::env::var_os("ESCODE_SESSION_DB_PATH")
-        .or_else(|| std::env::var_os("ESCODE_SESSION_DB"))
+    let env = escode_cli_core_api::env::var_os("ESCODE_SESSION_DB_PATH")
+        .or_else(|| escode_cli_core_api::env::var_os("ESCODE_SESSION_DB"))
         .map(PathBuf::from);
     if explicit.is_none() && env.is_none() && !automatic {
         return Ok(None);

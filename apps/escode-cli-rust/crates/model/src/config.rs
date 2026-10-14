@@ -13,9 +13,10 @@ pub struct ModelConfig {
     #[serde(skip)]
     pub max_output_map: Option<String>,
     #[serde(skip)]
-    pub api_key_value: Option<String>,
+    pub api_key_value: Option<escode_cli_core_api::RedactedString>,
     #[serde(skip)]
-    pub headers: std::collections::BTreeMap<String, String>,
+    /// 配置注入的 provider 头（可能含鉴权类密钥）：脱敏类型，取值只在发送边界 expose。
+    pub headers: std::collections::BTreeMap<String, escode_cli_core_api::RedactedString>,
     #[serde(skip)]
     pub account_access: Option<serde_json::Value>,
     #[serde(skip)]
@@ -111,17 +112,18 @@ impl ModelConfig {
         }
         Ok(Some(config))
     }
-    pub fn api_key(&self) -> Result<Option<String>> {
+    pub fn api_key(&self) -> Result<Option<escode_cli_core_api::RedactedString>> {
         if let Some(key) = &self.api_key_value {
             return Ok(Some(key.clone()));
         }
         match &self.api_key_env {
-            Some(name) => Ok(Some(
-                std::env::var(name)
+            Some(name) => Ok(Some(escode_cli_core_api::RedactedString::new(
+                // 配置可指定动态 apiKeyEnv 名；经 ambient 实例快照解析，多实例不串扰。
+                escode_cli_core_api::env::var(name)
                     .ok()
                     .filter(|s| !s.trim().is_empty())
                     .context("Provider API key environment variable is missing")?,
-            )),
+            ))),
             None => Ok(None),
         }
     }

@@ -101,7 +101,7 @@ impl Engine {
         }));
         s.revision += 1;
         s.updated_at = now;
-        self.plan_exits.insert(
+        self.waiters.plan_exits.insert(
             interaction,
             WaitingPlan {
                 session: id.into(),
@@ -123,7 +123,7 @@ impl Engine {
         interaction: &str,
     ) -> Result<Value> {
         let revision = self.sessions.get(id).map_or(0, |s| s.revision);
-        let owned = self.plan_exits.get(interaction).is_some_and(|w| {
+        let owned = self.waiters.plan_exits.get(interaction).is_some_and(|w| {
             w.session == id
                 && self
                     .active
@@ -133,7 +133,7 @@ impl Engine {
         if !owned {
             return Ok(c.ack("noop", revision, Some("proto.alreadyResolved")));
         }
-        let waiting = self.plan_exits.remove(interaction).unwrap();
+        let waiting = self.waiters.plan_exits.remove(interaction).unwrap();
         let decision = plan_mode::decide(&c.payload["answer"]);
         if decision == Decision::Approve {
             // TS persistApprovedPlanFileBeforeExitPlanMode 同样吞掉非取消类写入失败：

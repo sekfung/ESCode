@@ -28,7 +28,7 @@ impl Engine {
         };
         let tools = self.tools.clone();
         let params = request.params.clone();
-        tokio::spawn(async move {
+        self.spawner.spawn("mcp-list", async move {
             let result = tools.mcp_list(&params, &cancel).await;
             if result
                 .as_ref()

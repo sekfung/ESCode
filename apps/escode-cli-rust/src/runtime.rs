@@ -27,8 +27,9 @@ pub struct Workspace {
 pub async fn resolve_workspace(
     cwd: Option<PathBuf>,
     data_dir: Option<PathBuf>,
+    identity: Option<String>,
 ) -> Result<Workspace> {
-    let requested_cwd = cwd.unwrap_or(std::env::current_dir()?);
+    let requested_cwd = cwd.unwrap_or(escode_cli_core_api::env::current_dir()?);
     let cwd = escode_cli_host::realpath(&requested_cwd)
         .await
         .context("Workspace unavailable")?;
@@ -44,12 +45,12 @@ pub async fn resolve_workspace(
         ),
     }
     let requested_data = data_dir.unwrap_or_else(|| {
-        std::env::var_os("ESCODE_CLI_RUST_DATA_DIR")
+        escode_cli_core_api::env::var_os("ESCODE_CLI_RUST_DATA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
                 PathBuf::from(
-                    std::env::var_os("HOME")
-                        .or_else(|| std::env::var_os("USERPROFILE"))
+                    escode_cli_core_api::env::var_os("HOME")
+                        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
                         .unwrap_or_default(),
                 )
                 .join(".escode")
@@ -59,16 +60,13 @@ pub async fn resolve_workspace(
     let data_dir = if requested_data.is_absolute() {
         requested_data
     } else {
-        std::env::current_dir()?.join(requested_data)
+        escode_cli_core_api::env::current_dir()?.join(requested_data)
     };
     tokio::fs::create_dir_all(&data_dir).await?;
     let data_dir = escode_cli_host::realpath(data_dir).await?;
     let db = data_dir.join("rust-sessions.sqlite");
     // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
-    let identity = escode_cli_host::workspace_identity(
-        std::env::var("ESCODE_WORKSPACE_IDENTITY").ok().as_deref(),
-        &requested_cwd,
-    );
+    let identity = escode_cli_host::workspace_identity(identity.as_deref(), &requested_cwd);
     Ok(Workspace {
         requested_cwd,
         cwd,
@@ -152,7 +150,7 @@ pub async fn build_engine(
         .map(HttpModel::new)
         .map(|m| Arc::new(m) as Arc<dyn ModelPort>);
     let workspace_path = std::path::absolute(&ws.requested_cwd).unwrap_or_else(|_| ws.cwd.clone());
-    let wiki = Arc::new(wiki_service(&workspace_path));
+    let wiki = Arc::new(wiki_service(&workspace_path, &ws.identity));
     Ok(Engine::new(
         ws.identity.clone(),
         identity,
@@ -162,15 +160,16 @@ pub async fn build_engine(
             context: Arc::new(
                 WorkspaceContext::new(
                     workspace_path.clone(),
-                    std::env::var_os("HOME")
+                    escode_cli_core_api::env::var_os("HOME")
                         .filter(|s| !s.is_empty())
-                        .or_else(|| std::env::var_os("USERPROFILE"))
+                        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
                         .map(PathBuf::from)
                         .unwrap_or_default(),
                     desktop,
                 )
                 .with_gen_ui(
-                    std::env::var_os("ESCODE_GEN_UI_OUTPUT_ROOT").map(PathBuf::from),
+                    escode_cli_core_api::env::var_os("ESCODE_GEN_UI_OUTPUT_ROOT")
+                        .map(PathBuf::from),
                     ws.identity.clone(),
                 ),
             ),
@@ -184,6 +183,7 @@ pub async fn build_engine(
                     .with_model_admission(),
             ),
             clock: Arc::new(SystemClock),
+            spawner: escode_cli_core_api::scope::Spawner::current(),
         },
     )
     .await?
@@ -193,11 +193,15 @@ pub async fn build_engine(
     .with_registry(registry, ws.requested_cwd.to_string_lossy().into_owned()))
 }
 
-/// 绑定当前 workspace 的 Wiki 服务：远程/显式身份来自 `ESCODE_WORKSPACE_IDENTITY`（与会话身份同源）。
-pub fn wiki_service(workspace_path: &std::path::Path) -> escode_cli_wiki::WikiService {
+/// 绑定当前 workspace 的 Wiki 服务：身份与会话身份同源（`workspaceIdentity?.trim() || workspacePath`，
+/// AGENTS.md Workspace Identity 规则），不再单独读环境变量。
+pub fn wiki_service(
+    workspace_path: &std::path::Path,
+    identity: &str,
+) -> escode_cli_wiki::WikiService {
     escode_cli_wiki::WikiService::new(
         workspace_path.to_owned(),
-        std::env::var("ESCODE_WORKSPACE_IDENTITY").ok(),
+        Some(identity.to_owned()),
         escode_cli_wiki::settings::home(),
     )
 }
@@ -205,6 +209,6 @@ pub fn wiki_service(workspace_path: &std::path::Path) -> escode_cli_wiki::WikiSe
 /// 模型是否已配置（`-p` 在建 Engine 前给出明确错误）。
 pub fn model_configured(config: Option<&PathBuf>) -> bool {
     config.is_some()
-        || (std::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE").is_some()
-            && std::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE").is_some())
+        || (escode_cli_core_api::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE").is_some()
+            && escode_cli_core_api::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE").is_some())
 }

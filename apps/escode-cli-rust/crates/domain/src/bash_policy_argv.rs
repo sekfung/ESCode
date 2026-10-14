@@ -1,5 +1,6 @@
 //! Bash 参数级规则：对应 TS `bash-readonly-policy-argv-flags.ts` 与 `bash-readonly-policy-argv-direct.ts`。
 use crate::bash_policy::{Policy, tables};
+use crate::bash_safe_flag::SafeFlagKind;
 
 const XARGS_TARGETS: [&str; 8] = [
     "echo", "printf", "wc", "grep", "egrep", "fgrep", "head", "tail",
@@ -38,7 +39,7 @@ pub(crate) fn allowed_by_policy(argv: &[String], p: &Policy, command: &str, star
 fn flags_allowed(
     argv: &[String],
     p: &Policy,
-    flags: &std::collections::HashMap<String, String>,
+    flags: &std::collections::HashMap<String, SafeFlagKind>,
     command: &str,
     start: usize,
 ) -> bool {
@@ -78,11 +79,9 @@ fn flags_allowed(
                 // 短 flag 直接附值（如 -n5）。
                 if !w.starts_with("--") && w.len() > 2 {
                     let short = &w[..2];
-                    if let Some(kind) = flags.get(short).filter(|k| *k != "none") {
+                    if let Some(kind) = flags.get(short).filter(|k| **k != SafeFlagKind::None) {
                         let value = &w[2..];
-                        if !option_value_allowed(value, command, short)
-                            || !kind_matches(value, kind)
-                        {
+                        if !option_value_allowed(value, command, short) || !kind.matches(value) {
                             return false;
                         }
                         i += 1;
@@ -91,34 +90,35 @@ fn flags_allowed(
                 }
                 if !flag.starts_with("--")
                     && flag.len() > 2
-                    && flag[1..]
-                        .chars()
-                        .all(|c| flags.get(&format!("-{c}")).is_some_and(|k| k == "none"))
+                    && flag[1..].chars().all(|c| {
+                        flags
+                            .get(&format!("-{c}"))
+                            .is_some_and(|k| *k == SafeFlagKind::None)
+                    })
                 {
                     i += 1;
                     continue;
                 }
                 return false;
             };
-            match kind.as_str() {
-                "none" => {
+            match *kind {
+                SafeFlagKind::None => {
                     if inline.is_some() {
                         return false;
                     }
                     i += 1;
                 }
-                "optionalString" => i += 1,
-                _ => {
+                kind => {
                     let Some(value) = inline.or_else(|| argv.get(i + 1).map(String::as_str)) else {
                         return false;
                     };
-                    if kind == "string"
+                    if kind == SafeFlagKind::String
                         && inline.is_none()
                         && !option_value_allowed(value, command, flag)
                     {
                         return false;
                     }
-                    if !kind_matches(value, kind) {
+                    if !kind.matches(value) {
                         return false;
                     }
                     i += if inline.is_some() { 1 } else { 2 };
@@ -136,18 +136,6 @@ fn option_value_allowed(value: &str, command: &str, flag: &str) -> bool {
         return true;
     }
     command == "git" && flag == "--sort" && value.as_bytes()[1].is_ascii_alphabetic()
-}
-
-fn kind_matches(value: &str, kind: &str) -> bool {
-    match kind {
-        "number" => all_digits(value),
-        "optionalString" | "string" => true,
-        // JS length 按 UTF-16 计；单字符在 BMP 内时与 chars 计数一致。
-        "char" => value.encode_utf16().count() == 1,
-        "{}" => value == "{}",
-        "EOF" => value == "EOF",
-        _ => false,
-    }
 }
 
 const FIND_WRITE: [&str; 10] = [

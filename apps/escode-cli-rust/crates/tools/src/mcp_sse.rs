@@ -44,34 +44,35 @@ impl Transport {
         let cancel = CancellationToken::new();
         let worker_cancel = cancel.clone();
         let guard = cancel.clone().drop_guard();
-        let worker = tokio::spawn(async move {
-            let stream = async {
-                let mut stream = response.bytes_stream();
-                let mut decoder = Decoder::default();
-                let mut endpoint = Some(endpoint);
-                while let Some(bytes) = stream.next().await {
-                    for (kind, data) in decoder.push(&bytes?)? {
-                        if kind == "endpoint" {
-                            if let Some(endpoint) = endpoint.take() {
-                                let parsed = url.join(&data)?;
-                                ensure!(
-                                    parsed.origin() == url.origin(),
-                                    "SSE endpoint changed origin"
-                                );
-                                let _ = endpoint.send(parsed.to_string());
+        let worker =
+            escode_cli_core_api::scope::Spawner::current().spawn("mcp-sse-worker", async move {
+                let stream = async {
+                    let mut stream = response.bytes_stream();
+                    let mut decoder = Decoder::default();
+                    let mut endpoint = Some(endpoint);
+                    while let Some(bytes) = stream.next().await {
+                        for (kind, data) in decoder.push(&bytes?)? {
+                            if kind == "endpoint" {
+                                if let Some(endpoint) = endpoint.take() {
+                                    let parsed = url.join(&data)?;
+                                    ensure!(
+                                        parsed.origin() == url.origin(),
+                                        "SSE endpoint changed origin"
+                                    );
+                                    let _ = endpoint.send(parsed.to_string());
+                                }
+                            } else if kind == "message" || kind.is_empty() {
+                                // tools/list 原文保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
+                                raw.offer(data.as_bytes());
+                                tx.send(serde_json::from_str::<ServerJsonRpcMessage>(&data)?)
+                                    .await?;
                             }
-                        } else if kind == "message" || kind.is_empty() {
-                            // tools/list 原文保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
-                            raw.offer(data.as_bytes());
-                            tx.send(serde_json::from_str::<ServerJsonRpcMessage>(&data)?)
-                                .await?;
                         }
                     }
-                }
-                Ok::<(), anyhow::Error>(())
-            };
-            tokio::select! {biased;_=worker_cancel.cancelled()=>(),_=stream=>()}
-        });
+                    Ok::<(), anyhow::Error>(())
+                };
+                tokio::select! {biased;_=worker_cancel.cancelled()=>(),_=stream=>()}
+            });
         let endpoint = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"), result=ready=>result.context("protocol_negotiation_failed")?};
         Ok(Self {
             client,

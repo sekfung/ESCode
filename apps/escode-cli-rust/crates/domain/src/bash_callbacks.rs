@@ -3,6 +3,7 @@
 use crate::bash_callbacks_git as git;
 use crate::bash_callbacks_system as sys;
 use regex::Regex;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 pub(crate) use sys::{docker_dangerous, printf_safe};
 
@@ -10,57 +11,111 @@ pub(crate) fn re(cell: &'static OnceLock<Regex>, src: &str) -> &'static Regex {
     cell.get_or_init(|| Regex::new(src).expect("static regex"))
 }
 
+/// 回调声明表：名称 → 实现。分派、名字集合对账（`bash_callback_reconciliation` 测试）
+/// 与未知名称拒绝都从这一份表派生（rust-unified-host.md P1 #11：不再 `_ => true` 静默）。
+/// 回调名 → 实现。
+type Callback = (&'static str, fn(&[String]) -> bool);
+/// 名字索引表。
+type CallbackTable = HashMap<&'static str, fn(&[String]) -> bool>;
+
+fn implementations() -> &'static [Callback] {
+    &[
+        ("jqCommandIsDangerous", jq),
+        ("sedCommandIsDangerous", sed),
+        ("dateCommandIsDangerous", date),
+        ("psCommandIsDangerous", ps),
+        ("pyrightCommandIsDangerous", pyright),
+        ("manCommandIsDangerous", man),
+        ("lsofCommandIsDangerous", sys::lsof),
+        ("tputCommandIsDangerous", tput),
+        ("ssCommandIsDangerous", sys::ss),
+        ("testCommandIsDangerous", test_cmd),
+        ("xargsCommandIsDangerous", xargs),
+        ("ghCommandIsDangerous", gh),
+        ("dockerCommandIsDangerous", sys::docker_dangerous),
+        (
+            "gitRevisionFormatCommandIsDangerous",
+            git::git_revision_format,
+        ),
+        ("gitReflogCommandIsDangerous", git_reflog),
+        ("gitLsRemoteCommandIsDangerous", git::git_ls_remote),
+        ("gitRemoteShowCommandIsDangerous", git::git_remote_show),
+        ("gitTagCommandIsDangerous", git_tag),
+        ("gitBranchCommandIsDangerous", git_branch),
+        ("inline:git remote", inline_git_remote),
+    ]
+}
+
+fn lookup(name: &str) -> Option<fn(&[String]) -> bool> {
+    static TABLE: OnceLock<CallbackTable> = OnceLock::new();
+
+    TABLE
+        .get_or_init(|| implementations().iter().copied().collect())
+        .get(name)
+        .copied()
+}
+
+/// 语料导出的全部回调名（对账测试用；见 `bash_callback_reconciliation`）。
+#[cfg(test)]
+pub(crate) fn declared_names() -> Vec<&'static str> {
+    implementations().iter().map(|(name, _)| *name).collect()
+}
+
+/// 未知名称按危险处理（对账测试保证生成器导出的名字都在表内）。
 pub(crate) fn dangerous(name: &str, text: &str, args: &[String]) -> bool {
     let _ = text;
-    match name {
-        "jqCommandIsDangerous" => jq(args),
-        "sedCommandIsDangerous" => sed(args),
-        "dateCommandIsDangerous" => date(args),
-        "psCommandIsDangerous" => args.iter().any(|a| {
-            !a.starts_with('-') && a.bytes().all(|b| b.is_ascii_alphabetic()) && a.contains('e')
-        }),
-        "pyrightCommandIsDangerous" => args.iter().any(|a| a == "--watch" || a == "-w"),
-        "manCommandIsDangerous" => man(args),
-        "lsofCommandIsDangerous" => sys::lsof(args),
-        "tputCommandIsDangerous" => tput(args),
-        "ssCommandIsDangerous" => sys::ss(args),
-        "testCommandIsDangerous" => test_cmd(args),
-        "xargsCommandIsDangerous" => xargs(args),
-        "ghCommandIsDangerous" => gh(args),
-        "dockerCommandIsDangerous" => sys::docker_dangerous(args),
-        "gitRevisionFormatCommandIsDangerous" => git::git_revision_format(args),
-        "gitReflogCommandIsDangerous" => {
-            let first = args.iter().find(|a| !a.is_empty() && !a.starts_with('-'));
-            first.is_some_and(|f| f != "show" && f != "list")
-                || args.iter().any(|a| {
-                    matches!(
-                        a.as_str(),
-                        "expire" | "delete" | "exists" | "drop" | "write"
-                    )
-                })
-        }
-        "gitLsRemoteCommandIsDangerous" => git::git_ls_remote(args),
-        "gitRemoteShowCommandIsDangerous" => git::git_remote_show(args),
-        "gitTagCommandIsDangerous" => git::list_like(
-            args,
-            &[
-                "--contains",
-                "--no-contains",
-                "--merged",
-                "--no-merged",
-                "--points-at",
-                "--sort",
-                "--format",
-                "-n",
-            ],
-        ),
-        "gitBranchCommandIsDangerous" => git::list_like(
-            args,
-            &["--contains", "--no-contains", "--points-at", "--sort"],
-        ),
-        "inline:git remote" => args.iter().any(|a| a != "-v" && a != "--verbose"),
-        _ => true,
+    match lookup(name) {
+        Some(implementation) => implementation(args),
+        None => true,
     }
+}
+
+fn ps(args: &[String]) -> bool {
+    args.iter().any(|a| {
+        !a.starts_with('-') && a.bytes().all(|b| b.is_ascii_alphabetic()) && a.contains('e')
+    })
+}
+
+fn pyright(args: &[String]) -> bool {
+    args.iter().any(|a| a == "--watch" || a == "-w")
+}
+
+fn git_reflog(args: &[String]) -> bool {
+    let first = args.iter().find(|a| !a.is_empty() && !a.starts_with('-'));
+    first.is_some_and(|f| f != "show" && f != "list")
+        || args.iter().any(|a| {
+            matches!(
+                a.as_str(),
+                "expire" | "delete" | "exists" | "drop" | "write"
+            )
+        })
+}
+
+fn git_tag(args: &[String]) -> bool {
+    git::list_like(
+        args,
+        &[
+            "--contains",
+            "--no-contains",
+            "--merged",
+            "--no-merged",
+            "--points-at",
+            "--sort",
+            "--format",
+            "-n",
+        ],
+    )
+}
+
+fn git_branch(args: &[String]) -> bool {
+    git::list_like(
+        args,
+        &["--contains", "--no-contains", "--points-at", "--sort"],
+    )
+}
+
+fn inline_git_remote(args: &[String]) -> bool {
+    args.iter().any(|a| a != "-v" && a != "--verbose")
 }
 
 pub(crate) fn is_sed_in_place(w: &str) -> bool {

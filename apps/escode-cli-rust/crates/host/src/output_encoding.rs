@@ -87,7 +87,8 @@ fn legacy_code_page() -> Option<u32> {
 #[cfg(windows)]
 fn resolve_legacy_code_page() -> Option<u32> {
     use windows_sys::Win32::Globalization::{GetOEMCP, IsValidCodePage};
-    if let Some(value) = std::env::var(OVERRIDE_ENV_KEY)
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准（覆盖变量与 locale 变量同）。
+    if let Some(value) = escode_cli_core_api::env::var(OVERRIDE_ENV_KEY)
         .ok()
         .filter(|value| !value.trim().is_empty())
     {
@@ -101,7 +102,7 @@ fn resolve_legacy_code_page() -> Option<u32> {
     }
     let locale_text = ["LC_ALL", "LC_CTYPE", "LANG"]
         .iter()
-        .filter_map(|key| std::env::var(key).ok())
+        .filter_map(|key| escode_cli_core_api::env::var(key).ok())
         .chain(user_default_locale_name())
         .collect::<Vec<_>>()
         .join(" ");

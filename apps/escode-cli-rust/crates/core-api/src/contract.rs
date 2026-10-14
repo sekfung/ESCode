@@ -387,4 +387,7 @@ pub struct RuntimePorts {
     pub model: Option<Arc<dyn ModelPort>>,
     pub tools: Arc<dyn ToolPort>,
     pub clock: Arc<dyn RuntimeClock>,
+    /// 实例任务作用域（rust-u1-runtime-lib.md §3.1）：Engine 与 WorkspaceTools 共享同一实例，
+    /// 组合根经 `Spawner::current()` 取得（嵌入实例树内即实例 Spawner）。
+    pub spawner: Arc<crate::scope::Spawner>,
 }

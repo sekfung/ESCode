@@ -34,6 +34,8 @@ pub struct WorkspaceTools {
     /// 入口是否保留官方 visualize 插件的技能根（Node includeVisualize）：
     /// 协议入口（桌面/远控客户端有内联视图宿主）为 true，`-p` 无头终端入口为 false。
     pub(super) include_visualize: bool,
+    /// 实例任务作用域 Spawner（rust-u1：tokio::spawn 唯一入口，重放实例 env 快照）。
+    pub(super) spawner: Arc<escode_cli_core_api::scope::Spawner>,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
@@ -51,6 +53,7 @@ impl WorkspaceTools {
             writes: Arc::new(Mutex::new(())),
             shell: ShellTasks::default(),
             include_visualize: false,
+            spawner: escode_cli_core_api::scope::Spawner::current(),
         }
     }
     /// 修复：记忆根此前按 realpath 后的 cwd 哈希，macOS `/var`→`/private/var`、Windows 8.3 短名展开后
@@ -67,6 +70,11 @@ impl WorkspaceTools {
     /// 协议入口保留官方 visualize 插件的技能根（Node includeVisualize；门禁语义见 tool_skills）。
     pub fn with_include_visualize(mut self, include: bool) -> Self {
         self.include_visualize = include;
+        self
+    }
+    /// 组合根注入实例 Spawner（build_engine 接线；缺省取当前作用域）。
+    pub fn with_spawner(mut self, spawner: Arc<escode_cli_core_api::scope::Spawner>) -> Self {
+        self.spawner = spawner;
         self
     }
     pub async fn call(

@@ -147,7 +147,9 @@ impl Store {
         let weak = self.tx.downgrade();
         Box::new(move |fact| {
             if let Some(tx) = weak.upgrade() {
-                tokio::spawn(async move {
+                // 经实例作用域 Spawner 派发（进程级装配路径自动落临时作用域），embed 场景下用量任务
+                // 仍归属实例上下文；弱引用语义不变：store 关闭后 upgrade 失败即丢弃记录。
+                escode_cli_core_api::scope::Spawner::current().spawn("usage-fact", async move {
                     let (reply, _) = oneshot::channel();
                     let request = serde_json::json!({ "op": "record", "fact": fact });
                     let _ = tx.send(Operation::Usage(request, reply)).await;

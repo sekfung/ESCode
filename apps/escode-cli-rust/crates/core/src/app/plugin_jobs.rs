@@ -46,7 +46,7 @@ impl Engine {
         };
         let tools = self.tools.clone();
         let (method, params) = (request.method.clone(), request.params.clone());
-        tokio::spawn(async move {
+        self.spawner.spawn("plugin-job", async move {
             let result = if method == "plugins/resolveSuggestedReference" {
                 suggested_reference(&*tools, &params, &cancel, &sink).await
             } else {

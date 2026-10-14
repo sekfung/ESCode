@@ -23,9 +23,8 @@ impl Engine {
         }
         self.cancel_auth(id);
         self.cancel_children(id).await?;
-        self.waiting_permissions.retain(|_, w| w.session != id);
-        self.plan_exits.retain(|_, w| w.session != id);
-        self.questions.retain(|_, q| q.session != id);
+        // 会话关闭：单注册表一次释放全部挂起确认（P1 #8）。
+        self.waiters.release(id);
         self.tools.cancel_session(id, None).await?;
         // TS close 会释放执行资源；必须收齐真正的终态，不能提前 ACK 后让 Shell 继续写文件。
         // 同时消费其他会话事件，避免有界事件通道阻塞取消后的终态投递。

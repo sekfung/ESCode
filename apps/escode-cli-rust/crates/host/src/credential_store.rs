@@ -14,7 +14,8 @@ pub struct CredentialStore {
 
 /// TS `resolveSharedESCodeCredentialsPath`。
 pub fn default_path() -> PathBuf {
-    let base = std::env::var("ESCODE_DATA_BASE_DIR")
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准。
+    let base = escode_cli_core_api::env::var("ESCODE_DATA_BASE_DIR")
         .ok()
         .filter(|v| !v.is_empty())
         .unwrap_or_else(super::credential_cipher::node_homedir);

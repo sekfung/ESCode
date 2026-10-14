@@ -23,9 +23,10 @@ pub(super) fn listen(broker: Arc<Broker>) -> std::io::Result<()> {
 pub(super) fn listen_socket(socket: &str, serve: Serve) -> std::io::Result<()> {
     let _ = std::fs::remove_file(socket);
     let listener = tokio::net::UnixListener::bind(socket)?;
-    tokio::spawn(async move {
+    escode_cli_core_api::scope::Spawner::current().spawn("broker-accept-unix", async move {
         while let Ok((stream, _)) = listener.accept().await {
-            tokio::spawn(serve(Box::new(stream)));
+            escode_cli_core_api::scope::Spawner::current()
+                .spawn("broker-serve", serve(Box::new(stream)));
         }
     });
     Ok(())
@@ -38,7 +39,7 @@ pub(super) fn listen_socket(socket: &str, serve: Serve) -> std::io::Result<()> {
     let mut server = ServerOptions::new()
         .first_pipe_instance(true)
         .create(&socket)?;
-    tokio::spawn(async move {
+    escode_cli_core_api::scope::Spawner::current().spawn("broker-accept-pipe", async move {
         loop {
             if server.connect().await.is_err() {
                 return;
@@ -48,7 +49,8 @@ pub(super) fn listen_socket(socket: &str, serve: Serve) -> std::io::Result<()> {
                 return;
             };
             let connected = std::mem::replace(&mut server, next);
-            tokio::spawn(serve(Box::new(connected)));
+            escode_cli_core_api::scope::Spawner::current()
+                .spawn("broker-serve", serve(Box::new(connected)));
         }
     });
     Ok(())

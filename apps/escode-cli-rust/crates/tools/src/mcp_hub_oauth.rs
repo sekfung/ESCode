@@ -98,7 +98,7 @@ pub(super) fn start(
         .unwrap()
         .auth
         .insert(key.clone(), task.clone());
-    tokio::spawn(async move {
+    escode_cli_core_api::scope::Spawner::current().spawn("mcp-oauth-connect", async move {
         let on_url = {
             let (tx, state, server) = (tx.clone(), state.clone(), server.clone());
             Arc::new(move |url: String| {

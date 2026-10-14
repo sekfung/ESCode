@@ -21,7 +21,8 @@ pub fn extra_ca_certificates(scope: crate::net_config::NetworkScope) -> Result<V
         if key == EXPLICIT_CA_ENV_KEY {
             crate::net_config::explicit_ca_cert_file(scope).map(Into::into)
         } else {
-            std::env::var_os(key).filter(|value| !value.is_empty())
+            // 经 core_api::env：嵌入实例下以实例 env 快照为准。
+            escode_cli_core_api::env::var_os(key).filter(|value| !value.is_empty())
         }
     })
 }

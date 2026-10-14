@@ -326,7 +326,12 @@ fn restorable_builtins(config: &Value) -> Vec<Value> {
 
 /// TS `isESCodeCuaInternalFeatureEnabled`：DEV_MODE 打开即启用，PRODUCT_HELPER=0/false/off 显式关闭。
 pub(super) fn cua_feature_enabled() -> bool {
-    let env = |key: &str| std::env::var(key).unwrap_or_default().trim().to_lowercase();
+    let env = |key: &str| {
+        escode_cli_core_api::env::var(key)
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase()
+    };
     if matches!(env("ESCODE_CUA_DEV_MODE").as_str(), "1" | "true" | "on") {
         return true;
     }

@@ -63,7 +63,11 @@ impl Engine {
     /// fact.memoryEnabled）与后续命令 ack 都带上该字段。旧 Host/异常回包在传输层归一为 Null
     /// （shared schema memoryEnabled 默认 false，与 memory 行为一致）。
     pub(super) fn request_materialization(&mut self, session: &str) {
-        if self.shell.cached(session, "runtime-materialization").is_some() {
+        if self
+            .shell
+            .cached(session, "runtime-materialization")
+            .is_some()
+        {
             return;
         }
         self.request_runtime_preferences(session, "runtime-materialization", Box::new(|_| {}));

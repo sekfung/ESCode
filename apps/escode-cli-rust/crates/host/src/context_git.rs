@@ -76,7 +76,10 @@ async fn git(cwd: &Path, args: &[&str], cancel: &CancellationToken) -> String {
         .into()
 }
 async fn may_have_git(cwd: &Path, cancel: &CancellationToken) -> bool {
-    if std::env::var_os("GIT_DIR").is_some() || std::env::var_os("GIT_WORK_TREE").is_some() {
+    // 经 core_api::env：嵌入实例下以实例 env 快照判断显式 Git 环境。
+    if escode_cli_core_api::env::var_os("GIT_DIR").is_some()
+        || escode_cli_core_api::env::var_os("GIT_WORK_TREE").is_some()
+    {
         return true;
     }
     let cwd = match crate::realpath(cwd).await {

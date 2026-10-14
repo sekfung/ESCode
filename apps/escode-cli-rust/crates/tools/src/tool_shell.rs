@@ -1,7 +1,7 @@
 use super::tool_process::{BACKGROUNDED, FOREGROUND, ShellContext, run, shell_output};
 #[path = "tool_shell_jobs.rs"]
 mod jobs;
-use super::tool_shell_support::shell_override;
+use super::tool_shell_support::{shell_override, task_output_limit};
 use super::tools::{boolean, keys, string, truncate_utf8, uint};
 use crate::contract::{EventSink, ToolOutput};
 use anyhow::{Context, Result, bail};
@@ -140,7 +140,7 @@ impl ShellTasks {
                 Ok(ToolOutput {
                     media: Vec::new(),
                     failed: false,
-                    content: crate::domain::task_output::model_content(&data),
+                    content: crate::domain::task_output::model_content(&data, task_output_limit()),
                     data,
                     display: Some(display),
                     control: Default::default(),

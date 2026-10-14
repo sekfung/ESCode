@@ -50,40 +50,42 @@ impl HttpModel {
         self.client
             .get_or_try_init(|| async {
                 // 系统证书读取含阻塞 IO；首次请求按需初始化，不能阻塞 stdio actor 的启动与取消。
+                // 受管阻塞线程：登记在册、panic 上报，并把实例 env 快照重建到该线程（代理解析读取 env）。
                 let target = self.url.clone();
-                tokio::task::spawn_blocking(move || {
-                    let mut builder = reqwest::Client::builder()
-                        .redirect(reqwest::redirect::Policy::none())
-                        .pool_idle_timeout(Duration::from_secs(90))
-                        .tcp_nodelay(true);
-                    // 代理解析与 TS `resolveWebFetchProxyForRequest` 一致（显式配置、ESCODE_HTTP_PROXY、
-                    // ESCODE_NO_PROXY 与捕获的宿主代理），不依赖 reqwest 默认读取的 HTTP(S)_PROXY。
-                    // 见 docs/specs/rust-net-proxy.md；显式值 = 环境变量 ?? 用户配置的 `network` 段
-                    // （Node 的 provider registry 在进程级读配置、不含项目层，见 host::net_config）。
-                    let resolution =
-                        escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
-                            &target,
-                            &escode_cli_host::net_config::proxy_options(
-                                escode_cli_host::net_config::NetworkScope::Process,
-                            ),
-                        );
-                    if let Some(proxy) = resolution.proxy_url {
-                        builder = builder.proxy(
-                            reqwest::Proxy::all(proxy)
-                                .map_err(|error| model_failure::network(&error))?,
-                        );
-                    } else if resolution.no_proxy_matched {
-                        builder = builder.no_proxy();
-                    }
-                    // 设置页的自定义 CA（`ESCODE_AGENT_CA_CERT`，其次 Node 的 `NODE_EXTRA_CA_CERTS`）：
-                    // TS 经 @escode/adapters 的 TLS 配置信任它，Rust 侧必须显式加进根证书。
-                    builder = add_extra_ca_certificates(builder)?;
-                    builder
-                        .build()
-                        .map_err(|error| model_failure::network(&error))
-                })
-                .await
-                .map_err(|_| ModelFailure::new("invalid_request", false))?
+                escode_cli_core_api::scope::Spawner::current()
+                    .spawn_blocking("http-client-build", move || {
+                        let mut builder = reqwest::Client::builder()
+                            .redirect(reqwest::redirect::Policy::none())
+                            .pool_idle_timeout(Duration::from_secs(90))
+                            .tcp_nodelay(true);
+                        // 代理解析与 TS `resolveWebFetchProxyForRequest` 一致（显式配置、ESCODE_HTTP_PROXY、
+                        // ESCODE_NO_PROXY 与捕获的宿主代理），不依赖 reqwest 默认读取的 HTTP(S)_PROXY。
+                        // 见 docs/specs/rust-net-proxy.md；显式值 = 环境变量 ?? 用户配置的 `network` 段
+                        // （Node 的 provider registry 在进程级读配置、不含项目层，见 host::net_config）。
+                        let resolution =
+                            escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
+                                &target,
+                                &escode_cli_host::net_config::proxy_options(
+                                    escode_cli_host::net_config::NetworkScope::Process,
+                                ),
+                            );
+                        if let Some(proxy) = resolution.proxy_url {
+                            builder = builder.proxy(
+                                reqwest::Proxy::all(proxy)
+                                    .map_err(|error| model_failure::network(&error))?,
+                            );
+                        } else if resolution.no_proxy_matched {
+                            builder = builder.no_proxy();
+                        }
+                        // 设置页的自定义 CA（`ESCODE_AGENT_CA_CERT`，其次 Node 的 `NODE_EXTRA_CA_CERTS`）：
+                        // TS 经 @escode/adapters 的 TLS 配置信任它，Rust 侧必须显式加进根证书。
+                        builder = add_extra_ca_certificates(builder)?;
+                        builder
+                            .build()
+                            .map_err(|error| model_failure::network(&error))
+                    })
+                    .await
+                    .map_err(|_| ModelFailure::new("invalid_request", false))?
             })
             .await
     }
@@ -122,7 +124,7 @@ impl HttpModel {
                 .headers
                 .iter()
                 .find(|(key, _)| key.eq_ignore_ascii_case("anthropic-beta"))
-                .map(|(_, value)| value.as_str());
+                .map(|(_, value)| value.expose());
             super::web_search::merge_beta(existing)
         });
         for (key, value) in
@@ -134,15 +136,18 @@ impl HttpModel {
             request = request.header("anthropic-beta", beta);
         }
         let key = if self.config.account_access.is_some() {
-            auth["requestAuth"]["apiKey"].as_str().map(str::to_owned)
+            auth["requestAuth"]["apiKey"]
+                .as_str()
+                .map(escode_cli_core_api::RedactedString::new)
         } else {
             self.config
                 .api_key()
                 .map_err(|_| ModelFailure::new("auth_failed", false))?
         };
         if let Some(key) = key {
+            let key = key.expose();
             request = if self.config.api_type == ApiType::Anthropic {
-                request.header("x-api-key", &key).bearer_auth(key)
+                request.header("x-api-key", key).bearer_auth(key)
             } else {
                 request.bearer_auth(key)
             };

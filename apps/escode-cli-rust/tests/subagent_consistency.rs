@@ -154,6 +154,7 @@ async fn child_start_and_result_require_both_owners_to_commit_and_failure_releas
                     model: Some(Arc::new(Model { calls })),
                     tools: Arc::new(Tools),
                     clock: Arc::new(Clock(AtomicUsize::new(1))),
+                    spawner: escode_cli_core_api::scope::Spawner::current(),
                 },
             )
             .await

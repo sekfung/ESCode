@@ -66,7 +66,9 @@ pub(crate) async fn get(
     if first {
         // TS 在 adapter 构造时清理 30 天前的快照；Rust 在首次使用时做一次，失败不影响执行。
         let root = root.to_owned();
-        tokio::spawn(async move { cleanup_stale(&root).await });
+        escode_cli_core_api::scope::Spawner::current().spawn("snapshot-cleanup", async move {
+            cleanup_stale(&root).await
+        });
     }
     let snapshot = cell
         .get_or_init(|| create(root, git_bash, shell, overlay))
@@ -102,8 +104,8 @@ async fn create(
     } else {
         native.clone()
     };
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
+    let home = escode_cli_core_api::env::var("HOME")
+        .or_else(|_| escode_cli_core_api::env::var("USERPROFILE"))
         .unwrap_or_default();
     let config = Path::new(&home).join(kind.config_file());
     let exists = tokio::fs::metadata(&config).await.is_ok();
@@ -114,7 +116,7 @@ async fn create(
             .filter(|p| !p.is_empty()),
         false => None,
     }
-    .or_else(|| std::env::var("PATH").ok())
+    .or_else(|| escode_cli_core_api::env::var("PATH").ok())
     .unwrap_or_default();
     let script = rules::creation_script(
         exists,

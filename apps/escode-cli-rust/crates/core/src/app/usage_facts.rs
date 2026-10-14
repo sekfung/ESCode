@@ -40,7 +40,7 @@ impl Engine {
             _ => return,
         };
         let store = self.store.clone();
-        tokio::spawn(async move {
+        self.spawner.spawn("usage-fact", async move {
             let _ = store.usage(request).await;
         });
     }

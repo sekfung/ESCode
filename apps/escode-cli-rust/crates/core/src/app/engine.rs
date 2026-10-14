@@ -42,10 +42,8 @@ pub struct Engine {
     pub(super) durable_acks: std::collections::BTreeSet<String>,
     pub(super) acks: BTreeMap<String, Value>,
     pub(super) active: BTreeMap<String, Active>,
-    /// 挂起中的权限确认（等待 resolveInteraction）。
-    pub(super) waiting_permissions: BTreeMap<String, super::permission_flow::WaitingPermission>,
-    /// 挂起中的 ExitPlanMode 审批。
-    pub(super) plan_exits: BTreeMap<String, super::plan_mode::WaitingPlan>,
+    /// 挂起确认的单注册表（权限 / ExitPlanMode / AskUserQuestion，P1 #8）。
+    pub(super) waiters: super::waiters::Waiters,
     /// 项目权限规则：允许「总是允许」在项目内跨会话生效。
     pub(super) project_rules: Option<crate::domain::permission::Ruleset>,
     pub(super) project_rules_persistent: bool,
@@ -61,7 +59,6 @@ pub struct Engine {
     pub(super) config_seq: u64,
     pub(super) outbox: Vec<Value>,
     pub(super) auto_resolution_preference: bool,
-    pub(super) questions: BTreeMap<String, super::questions::WaitingQuestion>,
     /// 本进程内已跑过 SessionStart hooks 的会话（TS `sessionStartHookRan`）。
     pub(super) session_started: std::collections::BTreeSet<String>,
     pub(super) question_timing: (u64, u64),
@@ -84,6 +81,8 @@ pub struct Engine {
     pub(super) telemetry: super::telemetry::State,
     /// 本地首 token 时延观测（local_ttft.rs）。
     pub(super) local_ttft: super::local_ttft::Recorder,
+    /// 实例任务作用域：所有派生任务的唯一入口（rust-u1-runtime-lib.md §3.1）。
+    pub(super) spawner: Arc<crate::contract::Spawner>,
 }
 impl Engine {
     pub async fn new(
@@ -97,6 +96,7 @@ impl Engine {
             model,
             tools,
             clock,
+            spawner,
         } = ports;
         // 仅未完成的文件事务需要冷读对应 session；普通启动仍然只读取 metadata 索引。
         for id in tools.pending_rewinds().await? {
@@ -149,8 +149,7 @@ impl Engine {
             durable_acks: Default::default(),
             acks: BTreeMap::new(),
             active: BTreeMap::new(),
-            waiting_permissions: BTreeMap::new(),
-            plan_exits: BTreeMap::new(),
+            waiters: Default::default(),
             project_rules: project_rules_json
                 .as_ref()
                 .map(crate::domain::permission::Ruleset::from_json),
@@ -163,7 +162,7 @@ impl Engine {
             config_seq: 0,
             outbox: vec![],
             auto_resolution_preference: true,
-            questions: BTreeMap::new(),
+
             session_started: Default::default(),
             question_timing: (60_000, 300_000),
             title_generation: true,
@@ -177,6 +176,7 @@ impl Engine {
             actor_turns: BTreeMap::new(),
             telemetry: Default::default(),
             local_ttft: super::local_ttft::Recorder::new(clock.id()),
+            spawner,
         })
     }
     pub async fn serve(
@@ -240,9 +240,7 @@ impl Engine {
             session.auto_drain = false;
             session.queued_now = None;
         }
-        self.waiting_permissions.clear();
-        self.plan_exits.clear();
-        self.questions.clear();
+        self.waiters.clear();
         self.auth.clear();
         for id in self.sessions.keys() {
             self.tools.cancel_session(id, None).await?;

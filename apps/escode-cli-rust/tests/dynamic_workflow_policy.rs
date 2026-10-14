@@ -83,6 +83,7 @@ async fn engine() -> Engine {
             model: Some(Arc::new(Model)),
             tools: Arc::new(Tools),
             clock: Arc::new(Clock),
+            spawner: escode_cli_core_api::scope::Spawner::current(),
         },
     )
     .await

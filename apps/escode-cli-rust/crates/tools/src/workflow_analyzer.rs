@@ -32,7 +32,11 @@ pub(crate) struct WorkflowAnalyzer {
 
 /// Host 提供的 Node 启动器；任一缺失即视为分析器不可用（工作流写工具据此不注册）。
 pub(crate) fn launcher() -> Option<(String, String)> {
-    let var = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
+    let var = |key: &str| {
+        escode_cli_core_api::env::var(key)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+    };
     Some((
         var("ESCODE_PLUGIN_HOST_EXEC_PATH")?,
         var("ESCODE_PLUGIN_HOST_ENTRYPOINT")?,

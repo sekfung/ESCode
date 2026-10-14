@@ -70,7 +70,7 @@ pub(super) async fn run(
     // 原实现在 Windows 固定 cmd.exe、POSIX 固定 /bin/bash，与 TS 自动选择 Git Bash / $SHELL 的语义不一致；
     // 改为复用 shell_select（对应 TS bash-shell-provider），见 docs/specs/rust-shell-selection.md。
     let platform = crate::shell_select::Platform::current();
-    let env: Vec<(String, String)> = std::env::vars().collect();
+    let env: Vec<(String, String)> = escode_cli_core_api::env::vars();
     let selection = crate::shell_select::resolve(platform, &env, shell.over, &|p| {
         std::path::Path::new(p).is_file()
     });

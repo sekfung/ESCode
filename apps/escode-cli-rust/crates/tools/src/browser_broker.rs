@@ -326,7 +326,7 @@ impl Drop for CancelOnDrop<'_> {
         };
         params["requestId"] = uuid::Uuid::new_v4().to_string().into();
         params["command"] = json!({"method": "cancelRequest", "requestId": self.request_id});
-        tokio::spawn(async move {
+        escode_cli_core_api::scope::Spawner::current().spawn("broker-cancel-notify", async move {
             let (reply, _receive) = tokio::sync::oneshot::channel();
             let _ = host
                 .send(Event::HostRequest {

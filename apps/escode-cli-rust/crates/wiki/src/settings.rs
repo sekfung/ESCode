@@ -21,9 +21,10 @@ pub struct Settings {
 }
 
 pub fn home() -> PathBuf {
-    std::env::var_os("HOME")
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准。
+    escode_cli_core_api::env::var_os("HOME")
         .filter(|v| !v.is_empty())
-        .or_else(|| std::env::var_os("USERPROFILE"))
+        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_default()
 }
@@ -90,7 +91,7 @@ pub async fn load(cwd: &Path, home_dir: &Path) -> Settings {
         }
     }
     let config = WikiConfig::from_value(&wiki);
-    let storage = std::env::var("ESCODE_STORAGE_DIR")
+    let storage = escode_cli_core_api::env::var("ESCODE_STORAGE_DIR")
         .ok()
         .or_else(|| user["storage"]["dir"].as_str().map(str::to_owned))
         .map(|p| expand(home_dir, &p))

@@ -41,7 +41,8 @@ pub fn node_platform() -> &'static str {
 /// libuv `uv_os_homedir`：Windows 先看 USERPROFILE，POSIX 先看 HOME，再回落到账户数据库。
 pub fn node_homedir() -> String {
     let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    if let Some(value) = std::env::var_os(variable).filter(|v| !v.is_empty()) {
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准。
+    if let Some(value) = escode_cli_core_api::env::var_os(variable).filter(|v| !v.is_empty()) {
         return value.to_string_lossy().into_owned();
     }
     passwd().map(|(_, home)| home).unwrap_or_default()
@@ -102,7 +103,7 @@ fn passwd() -> Option<(String, String)> {
 
 /// TS `resolveCredentialSecret`。
 pub fn credential_secret() -> String {
-    if let Some(secret) = std::env::var("ESCODE_CREDENTIAL_SECRET")
+    if let Some(secret) = escode_cli_core_api::env::var("ESCODE_CREDENTIAL_SECRET")
         .ok()
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())

@@ -87,7 +87,7 @@ pub(super) fn parse_source_input(input: &str, cwd: &Path) -> Result<Json> {
     {
         let resolved = match trimmed.strip_prefix('~') {
             Some(rest) => {
-                let home = std::env::var("HOME").unwrap_or_default();
+                let home = escode_cli_core_api::env::var("HOME").unwrap_or_default();
                 PathBuf::from(format!("{home}{rest}"))
             }
             None => super::lexical_path::normalize(&cwd.join(trimmed)),

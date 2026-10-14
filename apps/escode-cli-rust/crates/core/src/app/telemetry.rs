@@ -26,7 +26,10 @@ impl Engine {
         // TS 侧该值来自会话物化时解析的偏好回包，而 shared schema 对 memoryEnabled 有 default(false)
         // （旧 Host 缺字段同样归一为 false），所以物化完成后两侧都带该字段、取值等于 memory 行为缺省。
         if let Some(prefs) = self.shell.cached(id, "runtime-materialization") {
-            fact.insert("memoryEnabled".into(), (prefs["memoryEnabled"] == true).into());
+            fact.insert(
+                "memoryEnabled".into(),
+                (prefs["memoryEnabled"] == true).into(),
+            );
         }
         fact.insert("version".into(), 1.into());
         fact.insert("eventId".into(), self.clock.id().into());

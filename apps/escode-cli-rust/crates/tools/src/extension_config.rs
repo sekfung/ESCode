@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 
 pub(super) fn home() -> PathBuf {
-    std::env::var_os("HOME")
+    escode_cli_core_api::env::var_os("HOME")
         .filter(|v| !v.is_empty())
-        .or_else(|| std::env::var_os("USERPROFILE"))
+        .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_default()
 }
@@ -167,7 +167,7 @@ fn merge_plugins(base: &mut Value, next: &Value) {
 }
 
 pub(super) fn storage(config: &Value) -> PathBuf {
-    let base = std::env::var("ESCODE_STORAGE_DIR")
+    let base = escode_cli_core_api::env::var("ESCODE_STORAGE_DIR")
         .ok()
         .or_else(|| config["storage"]["dir"].as_str().map(str::to_owned));
     let base = base

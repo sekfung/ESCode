@@ -3,16 +3,20 @@ mod contract_events;
 mod contract_model;
 mod contract_store;
 mod contract_types;
+pub mod env;
 mod environment_ports;
 mod failures;
 mod memory;
 mod model_call;
 mod panic;
 mod runtime;
+pub mod scope;
+pub mod secret;
 mod tool_output;
 mod web_fetch;
 mod wiki;
 pub use contract::*;
+pub use env::{EnvSnapshot, InstanceContext, install_process_snapshot};
 pub use memory::{MemorySnapshot, ProjectMemory};
 pub use model_call::{
     ModelAdmission, ModelAdmissionTicket, ModelCallScope, ModelUsageSink, acquire_model_admission,
@@ -21,6 +25,8 @@ pub use model_call::{
 };
 pub use panic::{Panicked, catch_panic};
 pub use runtime::*;
+pub use scope::{PanicSink, Spawner};
+pub use secret::RedactedString;
 pub use web_fetch::WebFetchPage;
 pub use wiki::{
     WikiInjected, WikiPort, WikiSurface, WikiToolResult, WikiTurnInput, WikiTurnRetrieval,

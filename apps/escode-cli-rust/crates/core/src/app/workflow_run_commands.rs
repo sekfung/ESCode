@@ -116,7 +116,7 @@ impl Engine {
             tx: self.events.clone(),
         };
         let tools = self.tools.clone();
-        tokio::spawn(async move {
+        self.spawner.spawn("workflow-run", async move {
             let ack = match tools.workflow_run(method, params).await {
                 Ok(result) if resume => resume_ack(&c, revision, &result),
                 Ok(result) => cancel_ack(&c, revision, &result),
@@ -187,7 +187,7 @@ impl Engine {
             tx: self.events.clone(),
         };
         let tools = self.tools.clone();
-        tokio::spawn(async move {
+        self.spawner.spawn("workflow-launch", async move {
             let launched = match tools.workflow_run(START_SAVED_METHOD, params).await {
                 Ok(result) if result["ok"] == true => result,
                 Ok(result) => {

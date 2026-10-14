@@ -142,7 +142,10 @@ pub(super) fn body(
         if body.get("max_completion_tokens").is_none() && body.get("max_tokens").is_none() {
             body["max_completion_tokens"] = config.max_output_tokens.into();
         }
-        if body["tools"].as_array().is_some_and(|tools| !tools.is_empty()) {
+        if body["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+        {
             body["tool_choice"] = "auto".into();
         }
     }

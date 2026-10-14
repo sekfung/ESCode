@@ -20,7 +20,7 @@ const ALLOWED_TOOLS: [&str; 5] = [
 ];
 
 pub(super) fn host_circuit_available() -> bool {
-    std::env::var(HOST_FLAG).is_ok_and(|v| v.trim() == "1")
+    escode_cli_core_api::env::var(HOST_FLAG).is_ok_and(|v| v.trim() == "1")
 }
 
 pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {

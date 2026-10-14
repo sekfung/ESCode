@@ -18,7 +18,10 @@ fn printable(value: Option<&str>) -> Option<String> {
 }
 
 fn env(key: &str) -> Option<String> {
-    std::env::var(key).ok().filter(|v| !v.trim().is_empty())
+    // ambient 实例快照：多实例各自看到自己的头注入（rust-u1-runtime-lib.md §3.2）。
+    escode_cli_core_api::env::var(key)
+        .ok()
+        .filter(|v| !v.trim().is_empty())
 }
 
 /// `ESCODE_BASE_URL` ?? `ESCODE_ENDPOINT_ORIGIN` 的 origin（TS resolveRuntimeESCodeEndpointOrigin）。
@@ -35,7 +38,9 @@ pub(crate) fn static_headers() -> &'static [(String, String)] {
     static HEADERS: OnceLock<Vec<(String, String)>> = OnceLock::new();
     HEADERS.get_or_init(|| {
         let platform = escode_cli_host::client_platform::current();
-        let electron = std::env::args().any(|a| a == "app-server" || a == "agent-server");
+        // 实例 argv（core_api::env::args 返回 IntoIter<String>）：embed 场景下宿主可注入自己的 argv。
+        let electron =
+            escode_cli_core_api::env::args().any(|a| a == "app-server" || a == "agent-server");
         build_static(
             &StaticInputs {
                 base_url: env("ESCODE_BASE_URL").or_else(|| env("ESCODE_ENDPOINT_ORIGIN")),
@@ -175,14 +180,15 @@ pub(crate) fn attribution(scope: &ModelCallScope, url: &str) -> Vec<(String, Str
 /// 一次 HTTP 尝试的非鉴权请求头：客户端头 → Provider 配置头 → 归因头（同名覆盖）。`beta_override` 时配置里的
 /// `anthropic-beta` 由调用方合并后另行设置。
 pub(crate) fn request_headers(
-    configured: &std::collections::BTreeMap<String, String>,
+    configured: &std::collections::BTreeMap<String, escode_cli_core_api::RedactedString>,
     beta_override: bool,
     url: &str,
 ) -> Vec<(String, String)> {
+    // 发送边界：这里是把配置头明文交给 reqwest 的唯一出口（配置结构本身只打印占位符）。
     let configured: Vec<(String, String)> = configured
         .iter()
         .filter(|(key, _)| !beta_override || !key.eq_ignore_ascii_case("anthropic-beta"))
-        .map(|(k, v)| (k.clone(), v.clone()))
+        .map(|(k, v)| (k.clone(), v.expose().to_owned()))
         .collect();
     let attribution = attribution(&crate::contract::current_model_call(), url);
     merge(&[static_headers(), &configured, &attribution])

@@ -3,8 +3,10 @@
 use escode_cli_domain::runtime_env::{self, CuaCredentials};
 
 fn vars() -> Vec<(String, String)> {
-    // 非 UTF-8 的键值不可能命中清洗清单，原样继承即可。
-    std::env::vars_os()
+    // 非 UTF-8 的键值不可能命中清洗清单，原样继承即可。经 core_api::env 取 env：嵌入实例下读实例快照，
+    // 且迭代按变量名有序确定（进程 env 顺序无人依赖）。
+    escode_cli_core_api::env::vars_os()
+        .into_iter()
         .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
         .collect()
 }

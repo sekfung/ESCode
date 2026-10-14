@@ -44,7 +44,9 @@ static WRITER: OnceLock<Option<Writer>> = OnceLock::new();
 
 /// 目录：`ESCODE_LOG_DIR` ?? `~/.escode/cli/log`（Node getDefaultLogDir）。
 fn log_dir() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("ESCODE_LOG_DIR").filter(|v| !v.is_empty()) {
+    // 经 core_api::env：嵌入实例下以实例 env 快照为准（日志目录与运行环境判定同）。
+    if let Some(dir) = escode_cli_core_api::env::var_os("ESCODE_LOG_DIR").filter(|v| !v.is_empty())
+    {
         return Some(dir.into());
     }
     crate::legacy_paths::home()
@@ -56,7 +58,9 @@ fn writer() -> Option<&'static Writer> {
     WRITER
         .get_or_init(|| {
             let dir = log_dir()?;
-            let min = if std::env::var("ESCODE_RUNTIME_ENV").as_deref() == Ok("development") {
+            let min = if escode_cli_core_api::env::var("ESCODE_RUNTIME_ENV").as_deref()
+                == Ok("development")
+            {
                 Level::Debug
             } else {
                 Level::Info

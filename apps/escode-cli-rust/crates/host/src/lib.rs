@@ -9,6 +9,7 @@ pub mod credential_cipher;
 pub mod credential_store;
 pub mod file_lock;
 pub mod file_log;
+pub mod file_stamp;
 pub mod image_budget;
 pub mod legacy_paths;
 pub mod net_config;

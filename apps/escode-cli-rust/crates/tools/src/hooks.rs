@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 async fn configured(cwd: &Path) -> bool {
     // H3：会话 mailbox 内部 hooks 的灰度（TS isMessageEnabled）。
     if matches!(
-        std::env::var("ESCODE_MESSAGE_ENABLED").as_deref(),
+        escode_cli_core_api::env::var("ESCODE_MESSAGE_ENABLED").as_deref(),
         Ok("1" | "true")
     ) {
         return true;

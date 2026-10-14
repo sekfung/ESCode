@@ -21,4 +21,4 @@ mod storage_usage;
 mod storage_usage_app;
 mod storage_write;
 use escode_cli_host::id;
-pub use storage::{Store, WORKSPACE_OWNED_EXIT_CODE, WorkspaceOwned};
+pub use storage::{Store, WORKSPACE_OWNED_EXIT_CODE, WorkspaceOwned, WorkspaceOwnerGuard};

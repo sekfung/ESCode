@@ -101,9 +101,13 @@ type Failure = (anyhow::Error, Option<String>);
 
 /// 装配 Engine（与 app-server 同一套），驱动一轮，按格式渲染 stdout 文本。
 async fn execute(parsed: &Parsed, cancel: CancellationToken) -> Result<(String, i32), Failure> {
-    let ws = crate::runtime::resolve_workspace(parsed.cwd.clone(), parsed.data_dir.clone())
-        .await
-        .map_err(|e| (e, None))?;
+    let ws = crate::runtime::resolve_workspace(
+        parsed.cwd.clone(),
+        parsed.data_dir.clone(),
+        escode_cli_core_api::env::var("ESCODE_WORKSPACE_IDENTITY").ok(),
+    )
+    .await
+    .map_err(|e| (e, None))?;
     if !crate::runtime::model_configured(parsed.config.as_ref()) {
         return Err((anyhow::anyhow!(NO_MODEL), None));
     }

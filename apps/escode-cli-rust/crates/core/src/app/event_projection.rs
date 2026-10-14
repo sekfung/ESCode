@@ -286,9 +286,7 @@ impl Engine {
                         .filter(|r| r["turnId"] == turn)
                         .map(|r| json!({"op":"row.upserted","row":r})),
                 );
-                self.waiting_permissions.retain(|_, w| w.session != id);
-                self.plan_exits.retain(|_, w| w.session != id);
-                self.questions.retain(|_, q| q.session != id);
+                self.waiters.release(&id);
                 self.active.remove(&id);
             }
         }

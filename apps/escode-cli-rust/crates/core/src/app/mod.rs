@@ -14,6 +14,7 @@ mod queries;
 mod session_context_tool;
 mod shell_preferences;
 mod subscriptions;
+mod waiters;
 pub use crate::contract::{Event, RunEvent};
 pub use engine::Engine;
 mod input_validation;

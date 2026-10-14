@@ -213,7 +213,9 @@ pub(super) fn resolve(
                         for (k, v) in headers {
                             c.headers.insert(
                                 k.clone(),
-                                v.as_str().context("Invalid provider header")?.into(),
+                                escode_cli_core_api::RedactedString::new(
+                                    v.as_str().context("Invalid provider header")?,
+                                ),
                             );
                         }
                     }
@@ -222,7 +224,9 @@ pub(super) fn resolve(
                             json!({"type":"zhipu-account","accountType":config["access"]["accountType"],"mode":config["access"]["mode"],"entitled":true}),
                         );
                     } else {
-                        c.api_key_value = config["access"]["apiKey"].as_str().map(str::to_owned);
+                        c.api_key_value = config["access"]["apiKey"]
+                            .as_str()
+                            .map(escode_cli_core_api::RedactedString::new);
                     }
                     prepared.push((
                         (id.clone(), model.clone(), level.clone()),

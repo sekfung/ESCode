@@ -29,17 +29,19 @@ pub(super) async fn prepare(key: String, bytes: Vec<u8>, mime: &str) -> Arc<Opti
         return hit.clone();
     }
     let requested = mime.to_owned();
-    let prepared = tokio::task::spawn_blocking(move || {
-        image_budget::prepare(bytes, &requested)
-            .ok()
-            .map(|p| PreparedImage {
-                media_type: p.media_type.to_owned(),
-                data: p.data,
-            })
-    })
-    .await
-    .ok()
-    .flatten();
+    // 图片解码为同步 CPU/IO 操作，放到受管阻塞线程（登记在册、携带实例 env 快照）。
+    let prepared = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("image-budget", move || {
+            image_budget::prepare(bytes, &requested)
+                .ok()
+                .map(|p| PreparedImage {
+                    media_type: p.media_type.to_owned(),
+                    data: p.data,
+                })
+        })
+        .await
+        .ok()
+        .flatten();
     let prepared = Arc::new(prepared);
     let mut entries = cache().lock().unwrap();
     entries.push_back((key, prepared.clone()));
@@ -50,10 +52,10 @@ pub(super) async fn prepare(key: String, bytes: Vec<u8>, mime: &str) -> Arc<Opti
     prepared
 }
 
-/// TS `derivedMediaAttachmentPath` 的缓存根（`<storageRoot>/cli`）；启动时由 main 设置，未设置时不派生路径。
-static MEDIA_CACHE_ROOT: OnceLock<std::path::PathBuf> = OnceLock::new();
+/// TS `derivedMediaAttachmentPath` 的缓存根（`<storageRoot>/cli`）；启动时由组合根设置，未设置时不派生路径。
+/// 存储移到 core-api 实例上下文（实例覆盖 + 进程回退，多实例不串扰，rust-u1-runtime-lib.md §3.2）。
 pub fn set_media_cache_root(root: std::path::PathBuf) {
-    let _ = MEDIA_CACHE_ROOT.set(root);
+    escode_cli_core_api::env::set_media_cache_root(root);
 }
 
 /// TS `extensionForDerivedMediaContentType`。
@@ -89,7 +91,9 @@ pub(super) async fn derived_media_path(
     bytes: &[u8],
 ) -> std::io::Result<Option<String>> {
     use sha2::{Digest, Sha256};
-    let (Some(root), Some((kind, extension))) = (MEDIA_CACHE_ROOT.get(), derived_extension(mime))
+    // 先绑定再借 `as_deref()`：accessor 返回的是临时 Option<PathBuf>，直接在元组里借用活不过语句。
+    let cache_root = escode_cli_core_api::env::media_cache_root();
+    let (Some(root), Some((kind, extension))) = (cache_root.as_deref(), derived_extension(mime))
     else {
         return Ok(None);
     };

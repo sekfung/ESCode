@@ -193,7 +193,7 @@ impl Engine {
                 .as_str()
                 .map(str::to_owned),
         };
-        tokio::spawn(async move {
+        self.spawner.spawn("run", async move {
             // 修复：run 任务 panic 时 tokio 只结束这个任务，Finished 永远不会发出（会话停在 running、
             // Engine 关闭时一直等它）。把 panic 转成本轮失败，保证终态一定发出
             // （docs/specs/rust-unified-host.md P0#1）。

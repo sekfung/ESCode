@@ -32,13 +32,10 @@ impl OAuth {
         let redirect = format!("http://127.0.0.1:{port}{path}");
         let stop = cancel.child_token();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let server = tokio::spawn(serve_callback(
-            listener,
-            path,
-            state.clone(),
-            sender,
-            stop.clone(),
-        ));
+        let server = escode_cli_core_api::scope::Spawner::current().spawn(
+            "oauth-callback-server",
+            serve_callback(listener, path, state.clone(), sender, stop.clone()),
+        );
         let result = self
             .exchange(
                 trigger, attempt, baseline, &state, &redirect, receiver, on_url, cancel,

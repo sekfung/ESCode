@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 pub(super) async fn discover(cwd: &Path, cancel: &CancellationToken) -> Result<Vec<Profile>> {
     let config = config::load(cwd).await?;
-    let root = std::env::var("ESCODE_STORAGE_DIR")
+    let root = escode_cli_core_api::env::var("ESCODE_STORAGE_DIR")
         .ok()
         .or_else(|| config["storage"]["dir"].as_str().map(str::to_owned))
         .map(|p| config::resolve(&config::home(), &p))
@@ -154,7 +154,7 @@ pub(super) async fn memory(
     if config["features"]["memory"] == false || config["memory"]["use"] == false {
         return Ok(None);
     }
-    let storage = std::env::var("ESCODE_STORAGE_DIR")
+    let storage = escode_cli_core_api::env::var("ESCODE_STORAGE_DIR")
         .ok()
         .or_else(|| config["storage"]["dir"].as_str().map(str::to_owned))
         .map(|p| config::resolve(&config::home(), &p))

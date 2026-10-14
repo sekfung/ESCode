@@ -62,7 +62,7 @@ impl Engine {
         let (tools, session, interaction) =
             (self.tools.clone(), id.to_owned(), interaction.to_owned());
         let call_id = call["id"].as_str().map(str::to_owned);
-        tokio::spawn(async move {
+        self.spawner.spawn("permission-hook", async move {
             let Some(result) = tools
                 .run_hook(&session, hook_input, call_id.as_deref())
                 .await
@@ -82,7 +82,8 @@ impl Engine {
             return Ok(());
         };
         let Some(waiting) = self
-            .waiting_permissions
+            .waiters
+            .permissions
             .get(interaction)
             .filter(|w| w.session == id)
         else {
@@ -95,7 +96,7 @@ impl Engine {
         if !owned {
             return Ok(());
         }
-        let waiting = self.waiting_permissions.remove(interaction).unwrap();
+        let waiting = self.waiters.permissions.remove(interaction).unwrap();
         let Some(s) = self.sessions.get_mut(id) else {
             return Ok(());
         };

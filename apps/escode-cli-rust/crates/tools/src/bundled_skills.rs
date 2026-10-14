@@ -28,24 +28,24 @@ const ROOT_CANDIDATES: [&str; 4] = [
 
 fn base_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
-    if let Ok(dir) = std::env::var("ESCODE_OFFICIAL_PLUGINS_BASE_DIR")
+    if let Ok(dir) = escode_cli_core_api::env::var("ESCODE_OFFICIAL_PLUGINS_BASE_DIR")
         && !dir.is_empty()
     {
         dirs.push(PathBuf::from(dir));
     }
     // Host 给插件宿主的 Node 入口（escode.cjs）所在目录：桌面与远端都把技能包 stage 在它旁边。
-    if let Ok(entry) = std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
+    if let Ok(entry) = escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
         && let Some(dir) = Path::new(&entry).parent()
     {
         dirs.push(dir.to_owned());
     }
-    if let Some(dir) = std::env::current_exe()
+    if let Some(dir) = escode_cli_core_api::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(Path::to_owned))
     {
         dirs.push(dir);
     }
-    if let Ok(dir) = std::env::current_dir() {
+    if let Ok(dir) = escode_cli_core_api::env::current_dir() {
         dirs.push(dir);
     }
     dirs

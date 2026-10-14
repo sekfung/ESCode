@@ -18,7 +18,11 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
         return None;
     }
     let host = root(HOST)?;
-    let launcher = |key: &str| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
+    let launcher = |key: &str| {
+        escode_cli_core_api::env::var(key)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+    };
     let (exec, entrypoint) = (
         launcher("ESCODE_PLUGIN_HOST_EXEC_PATH")?,
         launcher("ESCODE_PLUGIN_HOST_ENTRYPOINT")?,

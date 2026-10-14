@@ -4,6 +4,7 @@
 //! 输出通道写满 → engine 阻塞在发送 → 输入队列不再被消费 → 读取线程阻塞在入队上，
 //! 永远读不到 EOF，进程无法退出。现在读取线程只写入按字节限额的中间队列，阻塞由转发线程承担，
 //! EOF 总能被及时观测；EOF 之后再按「写出是否仍有进展」区分仍在读取的 Host 与已离开的 Host。
+//! u1 起对传输泛型化：stdio 与内存双工链路共用本模块（rust-u1-runtime-lib.md §3.3）。
 use crate::domain::MAX_REQUEST_BYTES;
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -26,11 +27,16 @@ enum Line {
 type Pending = Arc<(Mutex<usize>, Condvar)>;
 
 /// 启动读取线程与转发线程；读到 EOF（或超长行）时立即取消 `input_closed`。
-pub(crate) fn spawn_reader(
+/// reader 由工厂闭包在线程内创建（stdin 锁不是 Send，不能跨线程移动）。
+pub(crate) fn spawn_reader<R, RF>(
+    make_reader: RF,
     in_tx: mpsc::Sender<Input>,
     input_closed: CancellationToken,
     dispatch: fn(&mpsc::Sender<Input>, &[u8]) -> bool,
-) {
+) where
+    R: BufRead + 'static,
+    RF: FnOnce() -> R + Send + 'static,
+{
     let pending: Pending = Arc::new((Mutex::new(0), Condvar::new()));
     let (line_tx, line_rx) = std::sync::mpsc::channel::<Line>();
     let forward_pending = pending.clone();
@@ -64,8 +70,7 @@ pub(crate) fn spawn_reader(
             }
             line_tx.send(line).is_ok()
         };
-        let stdin = std::io::stdin();
-        let mut reader = stdin.lock();
+        let mut reader = make_reader();
         let mut line = Vec::new();
         while let Ok(available) = reader.fill_buf() {
             if available.is_empty() {
@@ -122,32 +127,30 @@ fn now_ms() -> u64 {
 }
 
 /// EOF 之后：写出仍有进展就照常排空（在途响应不丢）；单次写出卡住超过阈值 → 取消运行时，
-/// 与 POSIX 的 SIGTERM 走同一条收尾路径。
-pub(crate) fn watch_stalled_output(
+/// 与 POSIX 的 SIGTERM 走同一条收尾路径。由调用方经 Spawner 启动（rust-u1-runtime-lib.md §3.1）。
+pub(crate) async fn watch_stalled_output(
     progress: WriteProgress,
     input_closed: CancellationToken,
     cancel: CancellationToken,
 ) {
-    tokio::spawn(async move {
+    tokio::select! {
+        _ = cancel.cancelled() => return,
+        _ = input_closed.cancelled() => {}
+    }
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(100));
+    loop {
         tokio::select! {
             _ = cancel.cancelled() => return,
-            _ = input_closed.cancelled() => {}
+            _ = tick.tick() => {}
         }
-        let mut tick = tokio::time::interval(std::time::Duration::from_millis(100));
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => return,
-                _ = tick.tick() => {}
-            }
-            if progress.finished.load(Ordering::SeqCst) {
-                return;
-            }
-            if progress.stalled(now_ms()) {
-                cancel.cancel();
-                return;
-            }
+        if progress.finished.load(Ordering::SeqCst) {
+            return;
         }
-    });
+        if progress.stalled(now_ms()) {
+            cancel.cancel();
+            return;
+        }
+    }
 }
 
 #[cfg(test)]

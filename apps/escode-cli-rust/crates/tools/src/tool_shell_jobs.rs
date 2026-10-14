@@ -43,7 +43,7 @@ type Running = JoinHandle<Result<Value>>;
 impl Launch {
     fn spawn(self: &Arc<Self>, timeout: Option<Duration>, token: CancellationToken) -> Running {
         let launch = self.clone();
-        tokio::spawn(async move {
+        escode_cli_core_api::scope::Spawner::current().spawn("shell-run", async move {
             let context = ShellContext {
                 over: launch.shell.as_ref(),
                 startup_root: &launch.artifacts,
@@ -103,7 +103,8 @@ impl ShellTasks {
             token.cancel();
         }
         let running = launch.spawn(timeout, token);
-        tokio::spawn(finish(running, sink.clone(), task, tx));
+        escode_cli_core_api::scope::Spawner::current()
+            .spawn("shell-background", finish(running, sink.clone(), task, tx));
         Ok(launch.backgrounded())
     }
 
@@ -150,7 +151,8 @@ impl ShellTasks {
             );
         }
         guard.disarm();
-        tokio::spawn(finish(running, sink.clone(), task, tx));
+        escode_cli_core_api::scope::Spawner::current()
+            .spawn("shell-background", finish(running, sink.clone(), task, tx));
         Ok(launch.backgrounded())
     }
 

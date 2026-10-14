@@ -131,6 +131,7 @@ async fn date_change_reminder_is_injected_once_after_the_local_date_rolls_over()
                 ids: AtomicUsize::new(1),
                 date: date.clone(),
             }),
+            spawner: escode_cli_core_api::scope::Spawner::current(),
         },
     )
     .await

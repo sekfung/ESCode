@@ -137,10 +137,11 @@ impl Hub {
         let request_cancel = self.stop.child_token();
         let relay_cancel = request_cancel.clone();
         let caller = cancel.clone();
-        let relay = tokio::spawn(async move {
-            caller.cancelled().await;
-            relay_cancel.cancel();
-        });
+        let relay =
+            escode_cli_core_api::scope::Spawner::current().spawn("mcp-cancel-relay", async move {
+                caller.cancelled().await;
+                relay_cancel.cancel();
+            });
         let result = self
             .prepare_inner(session, overrides, refresh, &request_cancel)
             .await;

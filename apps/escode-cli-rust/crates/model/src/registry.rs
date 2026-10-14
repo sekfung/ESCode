@@ -28,11 +28,16 @@ pub struct Registry {
     account: tokio::sync::Mutex<Option<Value>>,
     snapshot: RwLock<Snapshot>,
     pool: Arc<tokio::sync::OnceCell<reqwest::Client>>,
+    /// 文件真读闸门（P1 #7）：指纹未变就跳过两份配置的读取与 SHA256；
+    /// 与 `account` 同一串行段内更新（refresh 是唯一调用者路径）。
+    gate: tokio::sync::Mutex<escode_cli_host::file_stamp::ChangeGate>,
 }
 impl Registry {
+    /// 读取的是环境实例的 ambient env 快照（`core_api::env`），不是进程 env 直读：
+    /// 多实例（embed/测试）各自看到自己的配置文件注入。
     pub async fn from_env() -> Result<Option<Arc<Self>>> {
-        let builtin = std::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE");
-        let personal = std::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE");
+        let builtin = escode_cli_core_api::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE");
+        let personal = escode_cli_core_api::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE");
         if builtin.is_none() && personal.is_none() {
             return Ok(None);
         }
@@ -50,6 +55,11 @@ impl Registry {
             account: Default::default(),
             snapshot: Default::default(),
             pool: Default::default(),
+            // 兜底全读间隔 60s：Windows 无 inode/ctime，且同粒度原地写可能骗过指纹
+            // （docs/specs/rust-unified-host.md P1 #7）。
+            gate: tokio::sync::Mutex::new(escode_cli_host::file_stamp::ChangeGate::new(
+                std::time::Duration::from_secs(60),
+            )),
         }
     }
     /// 锁中毒继续用：快照是整块替换的自包含值，中毒后仍是最后一次成功写入的完整状态
@@ -91,9 +101,24 @@ impl ModelRegistry for Registry {
     async fn refresh(&self, update: Option<Value>) -> Result<bool> {
         // 配置刷新共用一个串行入口；迟到的文件读取不能覆盖新账号事实。
         let mut account = self.account.lock().await;
+        let account_updated = update.is_some();
         if let Some(next) = update {
             validate_account(&next)?;
             *account = Some(next);
+        }
+        // 文件指纹在读前取：读到一半发生的变化会体现在下一轮指纹里（读取失败不记录，
+        // 下一轮自然真读——行为等同于没有闸门）。
+        let stamps = vec![
+            escode_cli_host::file_stamp::FileStamp::of(&self.builtin).await,
+            escode_cli_host::file_stamp::FileStamp::of(&self.personal).await,
+        ];
+        let now = std::time::Instant::now();
+        {
+            let gate = self.gate.lock().await;
+            // 账号事实变化（update）必须重算签名（签名含账号），绕过闸门。
+            if !account_updated && !gate.should_read(&stamps, now) {
+                return Ok(false);
+            }
         }
         let builtin = tokio::fs::read(&self.builtin)
             .await
@@ -114,6 +139,7 @@ impl ModelRegistry for Registry {
         hash.update(&personal);
         hash.update(serde_json::to_vec(&*account)?);
         let signature = hash.finalize().to_vec();
+        self.gate.lock().await.record(stamps.clone(), now);
         if self.snapshot().signature == signature {
             return Ok(false);
         }
@@ -140,15 +166,17 @@ impl ModelRegistry for Registry {
         }
         let pool = self.pool.clone();
         let account_value = account.clone().unwrap_or_else(|| json!({}));
-        let mut next = tokio::task::spawn_blocking(move || {
-            resolve(
-                &builtin["config"],
-                &personal["config"],
-                &account_value,
-                pool,
-            )
-        })
-        .await??;
+        // 阻塞解析放到受管阻塞线程：登记在册、panic 上报，并把实例 env 快照重建到该线程。
+        let mut next = escode_cli_core_api::scope::Spawner::current()
+            .spawn_blocking("registry-resolve", move || {
+                resolve(
+                    &builtin["config"],
+                    &personal["config"],
+                    &account_value,
+                    pool,
+                )
+            })
+            .await??;
         next.signature = signature;
         *self
             .snapshot
@@ -157,3 +185,7 @@ impl ModelRegistry for Registry {
         Ok(true)
     }
 }
+
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod registry_tests;

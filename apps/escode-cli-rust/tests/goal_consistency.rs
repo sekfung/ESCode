@@ -167,6 +167,7 @@ async fn goal_start_and_verdict_are_durable_barriers_and_failure_stops_the_next_
                     })),
                     tools: Arc::new(Tools),
                     clock: Arc::new(Clock(AtomicUsize::new(1))),
+                    spawner: escode_cli_core_api::scope::Spawner::current(),
                 },
             )
             .await

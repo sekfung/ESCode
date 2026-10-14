@@ -18,8 +18,9 @@ pub struct RetryPolicy {
 }
 impl RetryPolicy {
     pub fn resolve(config: &RetryConfig) -> Self {
+        // ambient 实例快照：重试覆盖参数按实例注入，不直读进程 env。
         let env = |name: &str| {
-            std::env::var(name)
+            escode_cli_core_api::env::var(name)
                 .ok()
                 .filter(|s| !s.trim().is_empty())
                 .and_then(|s| s.trim().parse::<f64>().ok())

@@ -85,7 +85,8 @@ pub(super) fn resolve(
                     || (allow_sensitive && ENV_NAME.is_match(name))
                 {
                     // 普通 env 只在敏感 sink（env / headers / clientSecret）展开，避免 secret 进 args 或 URL。
-                    std::env::var(name).map_err(|_| format!("Missing environment variable: {name}"))
+                    escode_cli_core_api::env::var(name)
+                        .map_err(|_| format!("Missing environment variable: {name}"))
                 } else {
                     Ok(capture[0].to_owned())
                 }

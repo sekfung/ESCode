@@ -2,9 +2,11 @@ use escode_cli_core_api as contract;
 use escode_cli_domain as domain;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+pub mod link;
 pub mod stdio;
 mod stdio_input;
-pub use stdio::{finish, start, storage_prepare};
+pub use link::{EmbeddedIo, Link, MemoryLink, StdioLink, Streams};
+pub use stdio::{finish, start_io, storage_prepare};
 
 /// App Server projection over the shared core runtime. Framing stays in
 /// `stdio`; this type owns no session, queue, model or tool facts.

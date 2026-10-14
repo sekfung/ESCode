@@ -172,7 +172,7 @@ fn canonical(path: &Path) -> Option<String> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::env::current_dir().ok()?.join(path)
+        escode_cli_core_api::env::current_dir().ok()?.join(path)
     };
     let real = std::fs::canonicalize(absolute).ok()?;
     let text = escode_cli_protocol::simplify_verbatim(&real.to_string_lossy())

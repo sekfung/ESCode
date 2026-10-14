@@ -23,13 +23,12 @@ const MAX_ROLLOUT_SESSION_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_DEBUG_SESSION_BYTES: u64 = 256 * 1024 * 1024;
 
 const MAX_ROLLOUT_BASELINE_MESSAGES: usize = 64;
-
 const MAX_DEBUG_BASELINE_MESSAGES: usize = 256;
 
 /// TS `shouldRecordModelIO` + `isDevelopmentModelIOEnv` + `getModelIOBaseDir`：`test` 不写，
 /// `development` 写 debug，其余写 rollout。
 fn target() -> Option<(PathBuf, bool)> {
-    let env = std::env::var("ESCODE_RUNTIME_ENV")
+    let env = escode_cli_core_api::env::var("ESCODE_RUNTIME_ENV")
         .unwrap_or_default()
         .trim()
         .to_lowercase();
@@ -140,13 +139,14 @@ impl Call {
         }
         let session = self.scope.session_id.clone();
         let record = Value::Object(record);
-        // 同步文件 IO 放到阻塞线程；await 保证同一 session 的尝试按序落盘。
-        let _ = tokio::task::spawn_blocking(move || {
+        // 同步文件 IO 放到受管阻塞线程（登记在册、携带实例 env 快照）；await 保证同一 session 的尝试按序落盘。
+        let trace = move || {
             if let Some((dir, dev)) = target() {
                 let _ = write(&dir, dev, full, session.as_deref(), record);
             }
-        })
-        .await;
+        };
+        let spawner = escode_cli_core_api::scope::Spawner::current();
+        let _ = spawner.spawn_blocking("model-io-trace", trace).await;
     }
 }
 

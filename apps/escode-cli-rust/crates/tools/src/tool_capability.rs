@@ -55,7 +55,7 @@ pub(crate) fn guarded_rule(input: &Value, shell_override: Option<&Value>) -> Opt
     use escode_cli_domain::guarded::{Dialect, Outcome, match_dangerous_command};
     let command = input["command"].as_str().filter(|c| !c.is_empty())?;
     let over = shell_override.and_then(crate::shell_select::parse_override);
-    let env: Vec<(String, String)> = std::env::vars().collect();
+    let env: Vec<(String, String)> = escode_cli_core_api::env::vars();
     let selection = crate::shell_select::resolve(
         crate::shell_select::Platform::current(),
         &env,

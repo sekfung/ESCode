@@ -52,15 +52,18 @@ pub fn model_io_full_retention() -> bool {
 
 /// 模型用量事实的落点（TS `usageStore.recordModelUsage`）：每次逻辑请求结束（含重试后的终态）一条。
 /// 由进程入口装配到会话库；未装配（测试、工具进程）时丢弃。
+/// 实例树内装配写实例槽（多实例不串扰，docs/specs/rust-u1-runtime-lib.md §3.2），否则写进程槽。
 pub type ModelUsageSink = Box<dyn Fn(serde_json::Value) + Send + Sync>;
-static USAGE_SINK: std::sync::OnceLock<ModelUsageSink> = std::sync::OnceLock::new();
 
 pub fn set_model_usage_sink(sink: ModelUsageSink) {
-    let _ = USAGE_SINK.set(sink);
+    crate::env::set_model_usage_sink(sink);
 }
 
 pub fn record_model_usage(fact: serde_json::Value) {
-    if let Some(sink) = USAGE_SINK.get() {
+    // 实例槽未装配（含不在实例树内）时回退进程槽。
+    if !crate::env::record_to_instance_sink(fact.clone())
+        && let Some(sink) = crate::env::process_usage_sink()
+    {
         sink(fact);
     }
 }

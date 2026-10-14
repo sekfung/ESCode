@@ -40,7 +40,7 @@ impl Engine {
         s.pending.push(json!({"interactionId":interaction,"kind":"userInput","anchorRowId":row["rowId"],"createdAt":now,"payload":input.payload(call)}));
         s.revision += 1;
         s.updated_at = now;
-        self.questions.insert(
+        self.waiters.questions.insert(
             interaction,
             WaitingQuestion {
                 session: id.into(),
@@ -59,7 +59,7 @@ impl Engine {
             .as_str()
             .context("Interaction id required")?;
         let revision = self.sessions.get(id).map_or(0, |s| s.revision);
-        let owned = self.questions.get(interaction).is_some_and(|q| {
+        let owned = self.waiters.questions.get(interaction).is_some_and(|q| {
             q.session == id
                 && self
                     .active
@@ -83,14 +83,14 @@ impl Engine {
             let deltas = self.settle_question(id, interaction, &answer)?;
             let ack = self.commit_interaction(c, deltas).await?;
             // 答案与 ACK 提交成功后才释放 waiter；事务失败不会产生下一个工具结果或模型请求。
-            let q = self.questions.remove(interaction).unwrap();
+            let q = self.waiters.questions.remove(interaction).unwrap();
             let _ = q.reply.send(answer);
             return Ok(ack);
         }
-        if self.plan_exits.contains_key(interaction) {
+        if self.waiters.plan_exits.contains_key(interaction) {
             return self.resolve_plan_exit(c, id, interaction).await;
         }
-        if let Some(waiting) = self.waiting_permissions.get(interaction)
+        if let Some(waiting) = self.waiters.permissions.get(interaction)
             && waiting.session == id
         {
             // 运行已结束（stop/取消）时不再放行：迟到的应答按已解决处理，工具不会执行。
@@ -156,7 +156,7 @@ impl Engine {
             }
             self.activate_question_head(id);
             let ack = self.commit_interaction(c, vec![]).await?;
-            let waiting = self.waiting_permissions.remove(interaction).unwrap();
+            let waiting = self.waiters.permissions.remove(interaction).unwrap();
             let turn = self.active.get(id).map(|a| a.turn_id.clone());
             let decision = if outcome.allowed { "allow" } else { "deny" };
             let p = super::telemetry::Permission {

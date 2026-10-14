@@ -40,10 +40,10 @@ pub(super) fn launcher_env_available(exec: Option<&str>, entrypoint: Option<&str
 
 pub(super) fn host_rea_available() -> bool {
     launcher_env_available(
-        std::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH")
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_EXEC_PATH")
             .ok()
             .as_deref(),
-        std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
+        escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
             .ok()
             .as_deref(),
     )
@@ -117,7 +117,7 @@ fn engine_env(plugin: &Plugin, options: &Value) -> Vec<(String, String)> {
 fn resolve_runtime_root(plugin_root: &Path) -> Option<PathBuf> {
     let entry_relative = ["rea-agents", "scripts", "rea.mjs"];
     let mut candidates = Vec::new();
-    if let Ok(entrypoint) = std::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
+    if let Ok(entrypoint) = escode_cli_core_api::env::var("ESCODE_PLUGIN_HOST_ENTRYPOINT")
         && let Some(directory) = Path::new(entrypoint.trim()).parent()
     {
         candidates.push(directory.join("rea-runtime").join("node_modules"));

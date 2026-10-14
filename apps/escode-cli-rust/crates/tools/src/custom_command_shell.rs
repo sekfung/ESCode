@@ -137,7 +137,7 @@ async fn run(
     cancel: &CancellationToken,
 ) -> Result<Run> {
     let platform = crate::shell_select::Platform::current();
-    let env: Vec<(String, String)> = std::env::vars().collect();
+    let env: Vec<(String, String)> = escode_cli_core_api::env::vars();
     let selection =
         crate::shell_select::resolve(platform, &env, None, &|p| std::path::Path::new(p).is_file());
     let plan = crate::shell_select::spawn_plan(platform, &env, &selection, shell);
@@ -157,8 +157,14 @@ async fn run(
     let pid = child.id().context("Missing child pid")?;
     #[cfg(windows)]
     let job = super::win_job::Job::attach(pid);
-    let out = tokio::spawn(read_limited(child.stdout.take().unwrap()));
-    let err = tokio::spawn(read_limited(child.stderr.take().unwrap()));
+    let out = escode_cli_core_api::scope::Spawner::current().spawn(
+        "shell-stdout-read",
+        read_limited(child.stdout.take().unwrap()),
+    );
+    let err = escode_cli_core_api::scope::Spawner::current().spawn(
+        "shell-stderr-read",
+        read_limited(child.stderr.take().unwrap()),
+    );
     let (status, code) = tokio::select! {biased;
         _=cancel.cancelled()=>("cancelled",None),
         _=tokio::time::sleep(Duration::from_millis(cc::SHELL_TIMEOUT_MS))=>("timed_out",None),

@@ -24,7 +24,7 @@ async fn session_shell_selection(
     sink: &crate::contract::EventSink,
 ) -> crate::shell_select::Selection {
     let over = shell_override(Some(sink)).await;
-    let env: Vec<(String, String)> = std::env::vars().collect();
+    let env: Vec<(String, String)> = escode_cli_core_api::env::vars();
     crate::shell_select::resolve(
         crate::shell_select::Platform::current(),
         &env,
@@ -44,4 +44,9 @@ pub(super) async fn resume_notice(
 /// 系统提示词里的 Shell 名（与 Bash 执行同一选择）。
 pub(super) async fn display_name(sink: &crate::contract::EventSink) -> String {
     crate::shell_select::display_name(&session_shell_selection(sink).await)
+}
+
+/// TaskOutput 截断预算（TS `TASK_MAX_OUTPUT_LENGTH` 覆盖；实例 env 访问器，rust-u1-runtime-lib.md §3.1）。
+pub fn task_output_limit() -> Option<String> {
+    escode_cli_core_api::env::var("TASK_MAX_OUTPUT_LENGTH").ok()
 }

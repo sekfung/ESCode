@@ -5,7 +5,8 @@ use serde_json::Value;
 const DEFAULT_LENGTH: usize = 32_000;
 const MAX_LENGTH: usize = 160_000;
 
-pub fn model_content(result: &Value) -> String {
+/// `configured` 是宿主注入的 `TASK_MAX_OUTPUT_LENGTH` 覆盖（domain 不读环境，rust-u1-runtime-lib.md §3.1）。
+pub fn model_content(result: &Value, configured: Option<String>) -> String {
     let mut blocks = vec![format!(
         "<retrieval_status>{}</retrieval_status>",
         result["retrieval_status"].as_str().unwrap_or_default()
@@ -23,7 +24,7 @@ pub fn model_content(result: &Value) -> String {
         if !output.trim().is_empty() {
             // 没有真实完整文件时 task_id 不是可读取路径，保留原文。
             let content = match task["outputFile"].as_str().filter(|p| !p.is_empty()) {
-                Some(path) => truncate(&output, path, std::env::var("TASK_MAX_OUTPUT_LENGTH").ok()),
+                Some(path) => truncate(&output, path, configured),
                 None => output,
             };
             blocks.push(format!("<output>\n{}\n</output>", content.trim_end()));
@@ -60,8 +61,9 @@ mod tests {
 
     #[test]
     fn running_task_has_no_output_block() {
-        let text = model_content(&json!({"retrieval_status":"not_ready","task":{
-            "task_id":"exec_1","task_type":"local_bash","status":"running","output":"","exitCode":null}}));
+        let data = json!({"retrieval_status":"not_ready","task":{
+            "task_id":"exec_1","task_type":"local_bash","status":"running","output":"","exitCode":null}});
+        let text = model_content(&data, None);
         assert_eq!(
             text,
             "<retrieval_status>not_ready</retrieval_status>\n\n<task_id>exec_1</task_id>\n\n<task_type>local_bash</task_type>\n\n<status>running</status>"

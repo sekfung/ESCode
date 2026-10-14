@@ -46,7 +46,7 @@ impl Official {
     /// 仅对插件加载器写入 provenance 的 http server 生效；workspace 引用按仓库约定 `identity || path`。
     pub fn from_server(server: &Server, cwd: &Path, host: Option<EventSink>) -> Option<Arc<Self>> {
         let official = server.raw.get("official")?;
-        let env = |key: &str| std::env::var(key).ok();
+        let env = |key: &str| escode_cli_core_api::env::var(key).ok();
         let api_origin = rules::escode_api_origin(
             env("ESCODE_BASE_URL").as_deref(),
             env("ESCODE_ENDPOINT_ORIGIN").as_deref(),
@@ -59,7 +59,7 @@ impl Official {
             _ => return None,
         };
         let path = cwd.display().to_string();
-        let identity = std::env::var("ESCODE_WORKSPACE_IDENTITY")
+        let identity = escode_cli_core_api::env::var("ESCODE_WORKSPACE_IDENTITY")
             .ok()
             .map(|v| v.trim().to_owned())
             .filter(|v| !v.is_empty());
