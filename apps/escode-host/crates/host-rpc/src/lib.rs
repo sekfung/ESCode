@@ -13,6 +13,7 @@ mod domains_file_preview;
 mod domains_file_readdir;
 mod domains_file_workspace;
 pub mod domains_task;
+mod domains_task_query;
 pub mod forward;
 pub mod frame;
 pub mod http;

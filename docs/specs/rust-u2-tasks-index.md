@@ -113,8 +113,27 @@ TS 里这两个方法在服务层做了四件事，Rust Host 必须逐条对齐�
 把 archived 那组改成带 pinned 过滤立即失败）。CLI 侧新增泛型阻塞桥
 `spawn_blocking_io`（原 `blocking` 硬编码 channel 结果类型）。
 
-下一步（S1 剩余）：`listTaskList`（`queryTaskList`：全文搜索 + 分页 + ETag）与
-`listGroupedTaskViewStructure`（`task_groups`/成员/顶层排序读），同样以 TS 差分为验收。
+**S1 查询面已落地（2026-10-15）**：`listTaskList`（`queryTaskList` 同构——多 workspace 聚合、
+kind 四分区、provider=glm、`LOWER(title) LIKE` 或 `LOWER(searchable_text) LIKE` 命中、
+`sortBy` 二序、`normalizeLimit` 语义、`{items,total,hasMore}`、`workspacePurpose` 叠加）
+与 `listGroupedTaskViewStructure`（group 的 bootstrap 可见性过滤 + **全量成员** + 顶层排序
+`node_key` JSON 解析，脏键跳过）。搜索摘要 `buildSearchSnippets` 逐条对齐：窗口半径 20/72、
+上限 4 条、近重叠合并、`\s+`→空格截 140、标题命中回退整段；索引口径为 **UTF-16 码元**
+（JS `slice`/`indexOf` 语义，代理对不再分叉）。
+
+代码组织：`tasks_index/query.rs`（列表查询）、`query_grouped.rs`、`query_snippets.rs`、
+`query_shared.rs`；channel 侧 `domains_task_query.rs` 独立成文件（400 行边界）。
+
+验证：Rust 单测（timeline/pinned/archived 分区、搜索命中附摘要、limit 的 total/hasMore、
+空 scopes 快返回、分组结构含成员与两类顶层排序）+ **真实 Repo 差分**（8 组 `listTaskList`
+查询 + 分组结构 `toEqual` 全等，含星平面字符与多命中摘要；负向验证：把 kind 换掉立即失败）。
+
+**登记差异（新增）**：搜索词大小写折叠用 Rust `to_lowercase`（Unicode 默认映射），TS 用
+`toLocaleLowerCase()`（默认 locale）；只有在土耳其语/立陶宛语等特殊 case mapping 且
+locale 命中时才可见（SQL 侧 `LOWER()` 两端口径一致，为 ASCII-only）。
+
+下一步（S1 剩余）：`getTaskSnapshot*` 系列（运行时快照分页转发）与 ES 侧的
+`task_groups` 写面（属 S3）。
 
 ## 7. 验收与环境
 

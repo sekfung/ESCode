@@ -33,12 +33,14 @@ fn seed(data_base_dir: &std::path::Path, task_id: &str) -> std::path::PathBuf {
         "updatedAt": 200,
         "mode": "build",
     });
+    // provider 列写 glm、searchable_text 写正文：`listTaskList` 的 provider 过滤与摘要窗口要用到。
     connection
         .execute(
             "INSERT INTO tasks (
-               workspace_key, workspace_path, task_id, title, mode, created_at, updated_at, meta_json
-             ) VALUES ('/w', '/w', ?1, '列标题', 'build', 100, 200, ?2)",
-            rusqlite::params![task_id, meta.to_string()],
+               workspace_key, workspace_path, task_id, title, mode, provider, created_at, updated_at,
+               searchable_text, meta_json
+             ) VALUES ('/w', '/w', ?1, '列标题', 'build', 'glm', 100, 200, ?2, ?3)",
+            rusqlite::params![task_id, "评审 Rust Host 的迁移进度", meta.to_string()],
         )
         .unwrap();
     path
@@ -92,6 +94,73 @@ async fn get_task_meta_reads_the_shared_index() {
         read_response(&mut socket, 42).await,
         Wire::Undefined
     ));
+
+    // listTaskList：kind 分区 + 搜索摘要 + 分页（`total` 为命中总数、`hasMore` 随之）。
+    call(
+        &mut socket,
+        45,
+        "escode-task",
+        "listTaskList",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "kind": "timeline",
+            "sortBy": "updated",
+            "workspaceScopes": [{"workspacePath": "/w", "workspacePurpose": "project"}],
+        }))]),
+    )
+    .await;
+    let Wire::Object(list) = read_response(&mut socket, 45).await else {
+        panic!("object")
+    };
+    assert_eq!(list["total"], 1, "{list}");
+    assert_eq!(list["items"][0]["taskId"], "task_1");
+    assert_eq!(list["items"][0]["workspacePurpose"], "project");
+
+    call(
+        &mut socket,
+        46,
+        "escode-task",
+        "listTaskList",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "kind": "timeline",
+            "sortBy": "updated",
+            "workspaceScopes": [{"workspacePath": "/w"}],
+            "search": "评审",
+            "limit": 1,
+        }))]),
+    )
+    .await;
+    let Wire::Object(searched) = read_response(&mut socket, 46).await else {
+        panic!("object")
+    };
+    assert_eq!(searched["hasMore"], false, "{searched}");
+    assert!(
+        searched["items"][0]["searchSnippet"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("评审"),
+        "{searched}"
+    );
+
+    // 分组结构：空索引下三个数组都在（结构形状稳定）。
+    call(
+        &mut socket,
+        47,
+        "escode-task",
+        "listGroupedTaskViewStructure",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspaceScopes": [{"workspacePath": "/w"}],
+        }))]),
+    )
+    .await;
+    let Wire::Object(structure) = read_response(&mut socket, 47).await else {
+        panic!("object")
+    };
+    assert!(structure["groups"].as_array().is_some(), "{structure}");
+    assert!(structure["members"].as_array().is_some(), "{structure}");
+    assert!(
+        structure["topLevelOrders"].as_array().is_some(),
+        "{structure}"
+    );
 
     // 未迁移方法：显式缺口（列出已实现的方法）。
     call(

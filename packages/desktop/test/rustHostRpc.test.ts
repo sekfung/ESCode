@@ -412,6 +412,102 @@ describe("rust host rpc surface", () => {
         await repo.listDeletedTaskIds({ workspacePath: "/w", provider: glm } as never),
       );
 
+      // listTaskList（全文搜索 + 分区 + 分页）与分组结构：与真实 Repo 逐字段比对。
+      // 搜索文本列由 SQL 直接写（TS 读路径同源，写路径属 S2）。
+      const sqlitePath = join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite");
+      const raw = new (await import("node:sqlite")).DatabaseSync(sqlitePath);
+      for (const [taskId, provider, pinned, archived, updatedAt, searchable] of [
+        ["task_q1", "glm", 0, 0, 500, "部署脚本与回滚说明"],
+        ["task_q2", "glm", 0, 0, 400, "评审 Rust Host 的迁移"],
+        ["task_q3", "glm", 1, 0, 300, "置顶：迁移检查清单"],
+        ["task_q4", "glm", 0, 1, 200, "已归档内容"],
+        ["task_q5", "claude", 0, 0, 600, "历史导入不应出现"],
+        // 星平面字符（UTF-16 代理对）与多命中：摘要窗口必须按码元切，与 JS slice 同。
+        [
+          "task_q6",
+          "glm",
+          0,
+          0,
+          700,
+          "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
+        ],
+      ] as const) {
+        raw
+          .prepare(
+            `INSERT INTO tasks (workspace_key, workspace_path, task_id, title, mode, provider,
+               created_at, updated_at, pinned, archived, deleted, searchable_text, meta_json)
+             VALUES ('/w', '/w', ?, ?, 'build', ?, 10, ?, ?, ?, 0, ?, ?)`,
+          )
+          .run(
+            taskId,
+            `标题 ${taskId}`,
+            provider,
+            updatedAt,
+            pinned,
+            archived,
+            searchable,
+            JSON.stringify({
+              taskId,
+              traceId: `escode-${taskId}`,
+              title: `标题 ${taskId}`,
+              workspacePath: "/w",
+              createdAt: 10,
+              updatedAt,
+              mode: "build",
+            }),
+          );
+      }
+      raw
+        .prepare(
+          `INSERT INTO task_groups (group_id, title, color, created_at, updated_at)
+           VALUES ('group_diff', '差分组', 'blue', 10, 20)`,
+        )
+        .run();
+      raw
+        .prepare(
+          `INSERT INTO task_group_members
+             (group_id, workspace_key, workspace_path, workspace_identity, task_id, sort_order,
+              added_at, created_at, updated_at)
+           VALUES ('group_diff', '/w', '/w', NULL, 'task_q1', 7, 30, 30, 30)`,
+        )
+        .run();
+      raw
+        .prepare(
+          `INSERT INTO task_group_view_node_orders (node_type, node_key, sort_order, created_at, updated_at)
+           VALUES ('group', 'group_diff', 1, 1, 1), ('task', '["/w","task_q2"]', 2, 1, 1)`,
+        )
+        .run();
+      raw.close();
+
+      const scopes = [{ workspacePath: "/w", workspacePurpose: "project" }];
+      for (const query of [
+        { kind: "timeline", sortBy: "updated" },
+        { kind: "pinned", sortBy: "updated" },
+        { kind: "archived", sortBy: "updated" },
+        { kind: "timeline", sortBy: "created", limit: 2 },
+        { kind: "timeline", sortBy: "updated", search: "迁移" },
+        { kind: "timeline", sortBy: "updated", search: "评审" },
+        // 多命中 + 代理对文本：窗口半径/去重/上限与 JS 逐字符对齐。
+        { kind: "timeline", sortBy: "updated", search: "迁移" },
+        { kind: "timeline", sortBy: "updated", search: "🙂" },
+      ] as const) {
+        const rustList = await services.escodeTaskService.listTaskList({
+          workspaceScopes: scopes,
+          ...query,
+        } as never);
+        const tsList = await repo.queryTaskList({
+          workspaceScopes: scopes,
+          ...query,
+          provider: "glm",
+        } as never);
+        expect(rustList, JSON.stringify(query)).toEqual(tsList);
+      }
+      expect(
+        await services.escodeTaskService.listGroupedTaskViewStructure({
+          workspaceScopes: scopes,
+        } as never),
+      ).toEqual(await repo.queryGroupedTaskViewStructure({ workspaceScopes: scopes } as never));
+
       // 未迁移方法：显式缺口（列出已实现的方法）。
       await expect(
         services.escodeTaskService.createTask({ workspacePath: "/w" } as never),

@@ -12,6 +12,10 @@
 //! 这一不变式不会因为没有 syncer 而被破坏。
 
 mod meta;
+pub mod query;
+mod query_grouped;
+mod query_shared;
+mod query_snippets;
 pub mod schema;
 
 use std::path::{Path, PathBuf};
@@ -177,6 +181,22 @@ impl TasksIndex {
         Ok(metas)
     }
 
+    /// TS `TaskIndexRepo.queryTaskList`：多 workspace 聚合 + 可选全文搜索 + 分页。
+    pub fn query_task_list(
+        &self,
+        query: &query::TaskListQuery<'_>,
+    ) -> Result<Value, TasksIndexError> {
+        query::query_task_list(&self.connection, query)
+    }
+
+    /// TS `TaskIndexRepo.queryGroupedTaskViewStructure`：group/成员/顶层排序原始结构。
+    pub fn query_grouped_task_view_structure(
+        &self,
+        workspace_scopes: &[(&str, Option<&str>)],
+    ) -> Result<Value, TasksIndexError> {
+        query_grouped::query_grouped_task_view_structure(&self.connection, workspace_scopes)
+    }
+
     /// TS `TaskIndexRepo.listDeletedTaskIds`：`deleted = 1` 的 id，按 id 升序。
     pub fn list_deleted_task_ids(
         &self,
@@ -216,8 +236,8 @@ pub struct TaskFilters<'a> {
     pub include_deleted: bool,
 }
 
-/// 读一行任务投影（列顺序见 `TASK_ROW_SELECT`）。
-fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+/// 读一行任务投影（列顺序见 `TASK_ROW_COLUMNS`）。
+pub(super) fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
     Ok(serde_json::json!({
         "workspace_key": row.get::<_, String>(0)?,
         "workspace_path": row.get::<_, String>(1)?,
@@ -237,6 +257,8 @@ fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
         "unread_at": row.get::<_, Option<i64>>(15)?,
         "title_overridden": row.get::<_, i64>(16)?,
         "meta_json": row.get::<_, String>(17)?,
+        // `searchable_text` 只供 `queryTaskList` 的摘要窗口用（TS 同样在行里取它）。
+        "searchable_text": row.get::<_, String>(18)?,
     }))
 }
 
@@ -249,9 +271,11 @@ pub fn workspace_key(workspace_path: &str, workspace_identity: Option<&str>) -> 
 }
 
 /// TS `TaskIndexRepo` 的 `getTaskMeta` 投影列（顺序即索引）。
-const TASK_ROW_COLUMNS: &str = "workspace_key, workspace_path, workspace_identity, task_id, title,
+pub(super) const TASK_ROW_COLUMNS: &str =
+    "workspace_key, workspace_path, workspace_identity, task_id, title,
     task_status, provider, mode, model, migration_source, forked_from_task_id, cron_automation_id,
-    off_peak_task_id, created_at, updated_at, unread_at, title_overridden, meta_json";
+    off_peak_task_id, created_at, updated_at, unread_at, title_overridden, meta_json,
+    searchable_text";
 
 /// 生成资产自校验：hash 与清单一致，防止手改 `schema.rs` 绕过 TS 对账。
 fn verify_assets() -> Result<(), TasksIndexError> {

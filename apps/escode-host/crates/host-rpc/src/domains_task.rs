@@ -21,12 +21,13 @@ use std::sync::{Arc, Mutex};
 use escode_host_services::tasks_index::{TaskFilters, TasksIndex};
 use serde_json::Value;
 
+use super::domains_task_query;
 use crate::domains_file::spawn_blocking_io;
 use crate::session::{Channel, handler};
 use crate::wire::Wire;
 
 /// TS `ESCODE_AGENT_PROVIDER`：任务列表只接受当前 glm provider 的行。
-const GLM_PROVIDER: &str = "glm";
+pub(crate) const GLM_PROVIDER: &str = "glm";
 
 /// TS `getAppConfigDir()` = `<dataBaseDir>/.escode/v2`，索引文件名 `tasks-index.sqlite`。
 fn tasks_index_path(data_base_dir: &Path) -> PathBuf {
@@ -38,12 +39,12 @@ fn tasks_index_path(data_base_dir: &Path) -> PathBuf {
 
 /// 懒打开的索引句柄（失败不缓存，下次调用重试）。
 #[derive(Default)]
-struct LazyIndex {
+pub(crate) struct LazyIndex {
     index: Option<TasksIndex>,
 }
 
 impl LazyIndex {
-    fn with<T>(
+    pub(crate) fn with<T>(
         &mut self,
         path: &Path,
         read: impl FnOnce(&TasksIndex) -> Result<T, String>,
@@ -60,14 +61,14 @@ impl LazyIndex {
 }
 
 /// 调用上下文：索引路径 + 懒句柄 + 参数。
-struct ReadContext {
-    path: PathBuf,
-    index: Arc<Mutex<LazyIndex>>,
+pub(crate) struct ReadContext {
+    pub(crate) path: PathBuf,
+    pub(crate) index: Arc<Mutex<LazyIndex>>,
 }
 
 impl ReadContext {
     /// 在阻塞线程里取锁并执行一次索引读。
-    async fn run<T, F>(&self, read: F) -> Result<T, (String, String)>
+    pub(crate) async fn run<T, F>(&self, read: F) -> Result<T, (String, String)>
     where
         T: Send + 'static,
         F: FnOnce(&TasksIndex) -> Result<T, String> + Send + 'static,
@@ -107,6 +108,8 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
                 ("listPinnedTasks", missing()),
                 ("listDeletedTaskIds", missing()),
                 ("listArchivedTasks", missing()),
+                ("listTaskList", missing()),
+                ("listGroupedTaskViewStructure", missing()),
             ],
         );
     };
@@ -254,6 +257,15 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         })
     };
 
+    let list_task_list = domains_task_query::list_task_list_handler(ReadContext {
+        path: path.clone(),
+        index: Arc::clone(&index),
+    });
+    let list_grouped_structure = domains_task_query::list_grouped_structure_handler(ReadContext {
+        path: path.clone(),
+        index: Arc::clone(&index),
+    });
+
     let mut methods: Vec<(&'static str, crate::session::MethodHandler)> = vec![
         ("getTaskMeta", get_task_meta),
         ("listTasks", partition(true, Some(false), Some(false))),
@@ -262,6 +274,8 @@ pub fn task_channel(data_base_dir: Option<PathBuf>) -> Channel {
         // TS `listArchivedTasks` 只过滤 archived，不过滤 pinned。
         ("listArchivedTasks", partition(true, None, Some(true))),
         ("listDeletedTaskIds", list_deleted_task_ids),
+        ("listTaskList", list_task_list),
+        ("listGroupedTaskViewStructure", list_grouped_structure),
     ];
     methods.shrink_to_fit();
     Channel::new("escode-task", methods)
@@ -285,7 +299,7 @@ fn workspace_identity_of(params: &Value) -> Option<String> {
 }
 
 /// RPC 实参：`ProxyChannel.toService` 把 JS 实参打包成数组，取第一个并当对象用。
-fn first_object(arg: Wire) -> Value {
+pub(crate) fn first_object(arg: Wire) -> Value {
     arg.into_args()
         .into_iter()
         .next()
@@ -294,7 +308,7 @@ fn first_object(arg: Wire) -> Value {
 }
 
 /// 借出上下文（闭包捕获需要 `'static`，这里只取字段的引用副本）。
-fn context_ref(context: &ReadContext) -> ReadContext {
+pub(crate) fn context_ref(context: &ReadContext) -> ReadContext {
     ReadContext {
         path: context.path.clone(),
         index: Arc::clone(&context.index),

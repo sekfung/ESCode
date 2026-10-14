@@ -221,13 +221,18 @@ pub const METHODS: &[Method] = &[
     },
     Method {
         channel: "escode-task",
+        method: "listGroupedTaskViewStructure",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
         method: "createTask",
         state: State::Pending,
     },
     Method {
         channel: "escode-task",
         method: "listTaskList",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "escode-task",
