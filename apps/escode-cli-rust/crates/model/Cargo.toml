@@ -29,6 +29,7 @@ uuid.workspace = true
 escode-cli-core-api.workspace = true
 escode-cli-domain.workspace = true
 escode-cli-host.workspace = true
+escode-cli-net.workspace = true
 escode-cli-protocol.workspace = true
 
 [dev-dependencies]

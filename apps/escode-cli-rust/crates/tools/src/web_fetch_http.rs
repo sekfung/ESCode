@@ -19,32 +19,13 @@ pub(crate) async fn proxied_client(
     timeout: Duration,
     scope: escode_cli_host::net_config::NetworkScope,
 ) -> Result<reqwest::Client> {
-    // 系统证书读取含阻塞 IO，放到阻塞线程构建客户端。
-    tokio::task::spawn_blocking(move || -> anyhow::Result<reqwest::Client> {
-        let resolution = escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
-            &target,
-            &escode_cli_host::net_config::proxy_options(scope),
-        );
-        let mut builder = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(timeout);
-        builder = match resolution.proxy_url {
-            Some(proxy) => builder.proxy(reqwest::Proxy::all(proxy)?),
-            None => builder.no_proxy(),
-        };
-        // 设置页的自定义 CA（`ESCODE_AGENT_CA_CERT`，其次 `NODE_EXTRA_CA_CERTS`）：与模型请求同一份来源。
-        for bytes in escode_cli_host::tls_ca::extra_ca_certificates(scope)? {
-            let certificates = match reqwest::Certificate::from_pem_bundle(&bytes) {
-                Ok(certificates) => certificates,
-                Err(_) => vec![reqwest::Certificate::from_der(&bytes)?],
-            };
-            for certificate in certificates {
-                builder = builder.add_root_certificate(certificate);
-            }
-        }
-        Ok(builder.build()?)
-    })
-    .await?
+    // 出口策略（代理 + 自定义 CA）统一在 crates/net；证书读取在该 crate 的受管阻塞线程内完成。
+    escode_cli_net::client(
+        escode_cli_net::ClientOptions::new(escode_cli_net::Purpose::WebFetch, target)
+            .scope(scope)
+            .timeout(timeout),
+    )
+    .await
 }
 
 /// reqwest 传输：代理按 TS web-fetch 规则逐 URL 解析，不跟随重定向，60 秒超时，10 MiB 上限。

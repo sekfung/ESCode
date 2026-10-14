@@ -4,3 +4,10 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-print-in-tests = true
+
+# 网络出口单入口（rust-unified-host.md P1 #6）：HTTP 客户端只在 crates/net 构造。
+# 三处调用方（模型 / MCP / WebFetch+插件下载）各自保留超时与重定向参数，代理与 CA 策略集中在 net。
+disallowed-methods = [
+  { path = "reqwest::Client::builder", reason = "网络出口统一经 crates/net（docs/specs/rust-net-proxy.md）" },
+  { path = "reqwest_mcp::Client::builder", reason = "网络出口统一经 crates/net（docs/specs/rust-net-proxy.md）" },
+]

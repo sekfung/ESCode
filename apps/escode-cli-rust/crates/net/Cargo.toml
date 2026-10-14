@@ -1,0 +1,23 @@
+[package]
+name = "escode-cli-net"
+description = "ESCode CLI 的网络出口单入口：Purpose 三 client、代理/CA 规则"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+reqwest.workspace = true
+reqwest_mcp.workspace = true
+rustls.workspace = true
+escode-cli-domain.workspace = true
+escode-cli-host.workspace = true
+escode-cli-core-api.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

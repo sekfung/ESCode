@@ -53,13 +53,14 @@ pub fn install_privileges() -> Result<InstallResult, HelperError> {
     // SAFETY: geteuid 无参数、无副作用。
     let euid = unsafe { libc::geteuid() };
     if euid != 0 {
-        return Err(
-            HelperError::new(ErrorCode::Permission, format!("需要 root 权限（当前 euid = {euid}）。"))
-                .with_remediation(
-                    "通过 `pkexec escode-usb-capture --install-privileges` 或 `sudo` 运行；\
+        return Err(HelperError::new(
+            ErrorCode::Permission,
+            format!("需要 root 权限（当前 euid = {euid}）。"),
+        )
+        .with_remediation(
+            "通过 `pkexec escode-usb-capture --install-privileges` 或 `sudo` 运行；\
                      命令行不接受目标用户参数，用户身份从 PKEXEC_UID / SUDO_UID 推导。",
-                ),
-        );
+        ));
     }
     let uid = target_uid()?;
     let user = user_name(uid)?;
@@ -106,7 +107,9 @@ fn target_uid() -> Result<u32, HelperError> {
             continue;
         }
         let Ok(uid) = raw.parse::<u32>() else {
-            return Err(HelperError::invalid_input(format!("{variable} 不是合法 UID：{raw}")));
+            return Err(HelperError::invalid_input(format!(
+                "{variable} 不是合法 UID：{raw}"
+            )));
         };
         return Ok(uid);
     }
@@ -114,7 +117,9 @@ fn target_uid() -> Result<u32, HelperError> {
         ErrorCode::InvalidInput,
         "找不到 PKEXEC_UID / SUDO_UID，无法确定要授权的用户。",
     )
-    .with_remediation("通过 pkexec 或 sudo 运行本命令（直接以 root 登录时无法推导发起安装的用户）。"))
+    .with_remediation(
+        "通过 pkexec 或 sudo 运行本命令（直接以 root 登录时无法推导发起安装的用户）。",
+    ))
 }
 
 /// UID → 用户名：先查 /etc/passwd（不依赖外部命令），查不到再退回 `id -nu`（NSS/LDAP 用户）。
@@ -135,7 +140,9 @@ fn user_name(uid: u32) -> Result<String, HelperError> {
         let output = Command::new(&id)
             .args(["-nu", &uid.to_string()])
             .output()
-            .map_err(|error| HelperError::io(format!("执行 {} -nu {uid} 失败：{error}", id.display())))?;
+            .map_err(|error| {
+                HelperError::io(format!("执行 {} -nu {uid} 失败：{error}", id.display()))
+            })?;
         if output.status.success() {
             let name = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if safe_user_name(&name) {
@@ -153,19 +160,23 @@ fn safe_user_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 32
         && !name.starts_with('-')
-        && name.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
-        })
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
 }
 
 /// 确保组存在并包含目标用户，返回 gid。uid 0（root）不需要也不加入该组。
 fn ensure_group(user: &str, warnings: &mut Vec<String>) -> Result<u32, HelperError> {
     if let Some(group) = group_entry(GROUP_NAME) {
         if group.gid == 0 {
-            return Err(HelperError::io(format!("组 {GROUP_NAME} 的 gid 为 0，拒绝使用。")));
+            return Err(HelperError::io(format!(
+                "组 {GROUP_NAME} 的 gid 为 0，拒绝使用。"
+            )));
         }
         if is_root_user(user) {
-            warnings.push(format!("目标用户 {user} 是 root，跳过加入 {GROUP_NAME} 组。"));
+            warnings.push(format!(
+                "目标用户 {user} 是 root，跳过加入 {GROUP_NAME} 组。"
+            ));
         } else if !group.members.iter().any(|member| member == user) {
             run_tool_required("usermod", &["-aG", GROUP_NAME, user])?;
         }
@@ -173,10 +184,14 @@ fn ensure_group(user: &str, warnings: &mut Vec<String>) -> Result<u32, HelperErr
     }
     run_tool_required("groupadd", &["--system", GROUP_NAME])?;
     let group = group_entry(GROUP_NAME).ok_or_else(|| {
-        HelperError::io(format!("groupadd 之后仍在 /etc/group 里找不到组 {GROUP_NAME}。"))
+        HelperError::io(format!(
+            "groupadd 之后仍在 /etc/group 里找不到组 {GROUP_NAME}。"
+        ))
     })?;
     if is_root_user(user) {
-        warnings.push(format!("目标用户 {user} 是 root，跳过加入 {GROUP_NAME} 组。"));
+        warnings.push(format!(
+            "目标用户 {user} 是 root，跳过加入 {GROUP_NAME} 组。"
+        ));
     } else {
         run_tool_required("usermod", &["-aG", GROUP_NAME, user])?;
     }
@@ -214,7 +229,9 @@ fn group_entry(name: &str) -> Option<GroupEntry> {
 
 fn reload_udev_rules(warnings: &mut Vec<String>) {
     let Some(udevadm) = find_tool("udevadm") else {
-        warnings.push("找不到 udevadm，跳过 `udevadm control --reload-rules`（规则文件已就位）。".to_string());
+        warnings.push(
+            "找不到 udevadm，跳过 `udevadm control --reload-rules`（规则文件已就位）。".to_string(),
+        );
         return;
     };
     match run_tool(&udevadm, &["control", "--reload-rules"]) {
@@ -228,7 +245,8 @@ fn reload_udev_rules(warnings: &mut Vec<String>) {
 /// modprobe 失败不致命：模块可能已经加载、可能编进了内核，也可能要等重启才生效。
 fn load_module(warnings: &mut Vec<String>) {
     let Some(modprobe) = find_tool("modprobe") else {
-        warnings.push("找不到 modprobe，跳过 `modprobe usbmon`（已写入 modules-load.d）。".to_string());
+        warnings
+            .push("找不到 modprobe，跳过 `modprobe usbmon`（已写入 modules-load.d）。".to_string());
         return;
     };
     if let Err(error) = run_tool(&modprobe, &[MODULE_NAME]) {
@@ -241,7 +259,9 @@ fn load_module(warnings: &mut Vec<String>) {
 fn fix_current_nodes(gid: u32, warnings: &mut Vec<String>) -> Vec<String> {
     let mut fixed = Vec::new();
     let Ok(entries) = fs::read_dir(DEV_DIR) else {
-        warnings.push(format!("无法列出 {DEV_DIR}，没有修正任何 usbmon 设备节点。"));
+        warnings.push(format!(
+            "无法列出 {DEV_DIR}，没有修正任何 usbmon 设备节点。"
+        ));
         return fixed;
     };
     let mut paths: Vec<PathBuf> = Vec::new();
@@ -285,11 +305,21 @@ fn write_if_changed(path: &Path, content: &str) -> Result<(), HelperError> {
 
 /// 按 PATH + 常见 sbin 目录查找可执行文件；pkexec 下 PATH 可能不含 sbin。
 fn find_tool(name: &str) -> Option<PathBuf> {
-    const EXTRA_DIRS: [&str; 6] =
-        ["/usr/sbin", "/sbin", "/usr/bin", "/bin", "/usr/local/sbin", "/usr/local/bin"];
+    const EXTRA_DIRS: [&str; 6] = [
+        "/usr/sbin",
+        "/sbin",
+        "/usr/bin",
+        "/bin",
+        "/usr/local/sbin",
+        "/usr/local/bin",
+    ];
     let mut directories: Vec<PathBuf> = Vec::new();
     if let Ok(path) = std::env::var("PATH") {
-        directories.extend(path.split(':').filter(|dir| !dir.is_empty()).map(PathBuf::from));
+        directories.extend(
+            path.split(':')
+                .filter(|dir| !dir.is_empty())
+                .map(PathBuf::from),
+        );
     }
     directories.extend(EXTRA_DIRS.iter().map(PathBuf::from));
     for directory in directories {
@@ -307,7 +337,11 @@ fn find_tool(name: &str) -> Option<PathBuf> {
 fn run_tool(program: &Path, args: &[&str]) -> Result<(), HelperError> {
     // 不经 shell：参数以 argv 传入，不存在解释器与命令拼接。
     let output = Command::new(program).args(args).output().map_err(|error| {
-        HelperError::io(format!("执行 {} {} 失败：{error}", program.display(), args.join(" ")))
+        HelperError::io(format!(
+            "执行 {} {} 失败：{error}",
+            program.display(),
+            args.join(" ")
+        ))
     })?;
     if output.status.success() {
         return Ok(());
@@ -318,7 +352,11 @@ fn run_tool(program: &Path, args: &[&str]) -> Result<(), HelperError> {
         program.display(),
         args.join(" "),
         output.status.code(),
-        if stderr.is_empty() { "（无 stderr）".to_string() } else { stderr }
+        if stderr.is_empty() {
+            "（无 stderr）".to_string()
+        } else {
+            stderr
+        }
     )))
 }
 

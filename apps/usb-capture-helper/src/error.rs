@@ -52,7 +52,11 @@ pub struct HelperError {
 
 impl HelperError {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
-        Self { code, message: message.into(), remediation: None }
+        Self {
+            code,
+            message: message.into(),
+            remediation: None,
+        }
     }
 
     pub fn invalid_input(message: impl Into<String>) -> Self {
@@ -71,10 +75,16 @@ impl HelperError {
     /// `{ code, message, remediation? }`。插件把它包进 `{ ok: false, error: ... }`。
     pub fn to_json(&self) -> Value {
         let mut map = serde_json::Map::new();
-        map.insert("code".to_string(), Value::String(self.code.as_str().to_string()));
+        map.insert(
+            "code".to_string(),
+            Value::String(self.code.as_str().to_string()),
+        );
         map.insert("message".to_string(), Value::String(self.message.clone()));
         if let Some(remediation) = &self.remediation {
-            map.insert("remediation".to_string(), Value::String(remediation.clone()));
+            map.insert(
+                "remediation".to_string(),
+                Value::String(remediation.clone()),
+            );
         }
         Value::Object(map)
     }
@@ -90,7 +100,12 @@ impl std::error::Error for HelperError {}
 
 /// 包一层 errno：抓包失败最常见的三类原因是权限、节点不存在、被占用，消息里带上原始 errno 便于用户判断。
 pub fn io_context(context: impl AsRef<str>, error: &io::Error) -> String {
-    format!("{}：{}（errno {:?}）", context.as_ref(), error, error.raw_os_error())
+    format!(
+        "{}：{}（errno {:?}）",
+        context.as_ref(),
+        error,
+        error.raw_os_error()
+    )
 }
 
 /// 打开 `/dev/usbmonN` 失败时的错误分类。

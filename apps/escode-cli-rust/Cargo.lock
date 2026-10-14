@@ -624,6 +624,7 @@ dependencies = [
  "escode-cli-core-api",
  "escode-cli-domain",
  "escode-cli-host",
+ "escode-cli-net",
  "escode-cli-protocol",
  "futures-util",
  "httpdate",
@@ -637,6 +638,20 @@ dependencies = [
  "tokio",
  "tokio-util",
  "uuid",
+]
+
+[[package]]
+name = "escode-cli-net"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "escode-cli-core-api",
+ "escode-cli-domain",
+ "escode-cli-host",
+ "reqwest 0.12.28",
+ "reqwest 0.13.5",
+ "rustls",
+ "tokio",
 ]
 
 [[package]]
@@ -661,6 +676,7 @@ dependencies = [
  "escode-cli-domain",
  "escode-cli-host",
  "escode-cli-model",
+ "escode-cli-net",
  "escode-cli-protocol",
  "escode-cli-state",
  "escode-cli-tools",
@@ -711,6 +727,7 @@ dependencies = [
  "escode-cli-core-api",
  "escode-cli-domain",
  "escode-cli-host",
+ "escode-cli-net",
  "escode-cli-protocol",
  "futures-util",
  "globset",

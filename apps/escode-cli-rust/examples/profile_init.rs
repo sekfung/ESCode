@@ -36,7 +36,12 @@ async fn main() -> anyhow::Result<()> {
     let _ = context.instructions(&cancel).await?;
     stage("instructions", start);
     let start = Instant::now();
-    let _ = tokio::task::spawn_blocking(|| reqwest::Client::builder().build()).await??;
+    // 出口单入口（P1 #6）：示例测的就是真实构建路径（代理 + CA 解析 + 受管阻塞线程）。
+    let _ = escode_cli_net::client(escode_cli_net::ClientOptions::new(
+        escode_cli_net::Purpose::Model,
+        "https://example.com/v1",
+    ))
+    .await?;
     stage("http.client", start);
     Ok(())
 }

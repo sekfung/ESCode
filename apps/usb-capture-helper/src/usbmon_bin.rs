@@ -116,15 +116,11 @@ pub struct MonHeader {
 
 impl MonHeader {
     pub fn parse(bytes: &[u8]) -> Option<Self> {
-        eprintln!("DBG parse len={}", bytes.len());
         if bytes.len() < MON_HEADER_LEN {
             return None;
         }
         let mut setup = [0u8; 8];
         setup.copy_from_slice(&bytes[40..48]);
-        eprintln!("DBG a={:?}", bytes[0..8].try_into().map(|v: [u8;8]| v));
-        eprintln!("DBG b={:?}", bytes[24..28].try_into().map(|v: [u8;4]| v));
-        eprintln!("DBG c={:?}", bytes[12..14].try_into().map(|v: [u8;2]| v));
         Some(Self {
             id: u64::from_le_bytes(bytes[0..8].try_into().ok()?),
             tag: bytes[8],
@@ -134,10 +130,10 @@ impl MonHeader {
             busnum: u16::from_le_bytes(bytes[12..14].try_into().ok()?),
             flag_setup: bytes[14],
             flag_data: bytes[15],
-            // 头部自带 wall-clock 时间戳（ktime_get_real_ts64），比容器记录时间戳更贴近事件。
+            // 头部自带 wall-clock 时间戳（ktime_get_real_ts64）；ts_sec 是 s64、ts_usec 是 s32。
             ts_micros: (i64::from_le_bytes(bytes[16..24].try_into().ok()?) as u64)
                 .wrapping_mul(1_000_000)
-                .wrapping_add(i64::from_le_bytes(bytes[24..28].try_into().ok()?) as u64),
+                .wrapping_add(i32::from_le_bytes(bytes[24..28].try_into().ok()?) as u64),
             status: i32::from_le_bytes(bytes[28..32].try_into().ok()?),
             len_urb: u32::from_le_bytes(bytes[32..36].try_into().ok()?),
             len_cap: u32::from_le_bytes(bytes[36..40].try_into().ok()?),
@@ -155,7 +151,11 @@ impl MonHeader {
 
     /// bit7 = 方向（1 = IN）。
     pub fn direction(&self) -> Direction {
-        if self.epnum & 0x80 != 0 { Direction::In } else { Direction::Out }
+        if self.epnum & 0x80 != 0 {
+            Direction::In
+        } else {
+            Direction::Out
+        }
     }
 
     /// 填充包：内核在记录可能跨缓冲末尾时用 `'@'` 占位。
@@ -347,8 +347,7 @@ mod linux {
     const MON_IOCQ_RING_SIZE: libc::c_ulong = ioc(IOC_NONE, 5, 0);
     const MON_IOCX_MFETCH: libc::c_ulong =
         ioc(IOC_READ | IOC_WRITE, 7, size_of::<MonBinMfetch>() as u32);
-    const MON_IOCG_STATS: libc::c_ulong =
-        ioc(IOC_READ, 3, size_of::<MonBinStats>() as u32);
+    const MON_IOCG_STATS: libc::c_ulong = ioc(IOC_READ, 3, size_of::<MonBinStats>() as u32);
 
     pub struct UsbmonDevice {
         fd: RawFd,
@@ -404,7 +403,11 @@ mod linux {
         /// `poll(POLLIN)`：环形缓冲里有事件（或填充包）时返回 true，超时返回 false。
         /// 信号打断（EINTR）也返回 false，由主循环检查停止标志。
         pub fn wait_readable(&self, timeout_ms: i32) -> Result<bool, HelperError> {
-            let mut poll_fd = libc::pollfd { fd: self.fd, events: libc::POLLIN, revents: 0 };
+            let mut poll_fd = libc::pollfd {
+                fd: self.fd,
+                events: libc::POLLIN,
+                revents: 0,
+            };
             // SAFETY: 指向栈上单个 pollfd，nfds = 1。
             let ready = unsafe { libc::poll(&mut poll_fd, 1, timeout_ms) };
             if ready < 0 {
@@ -428,7 +431,10 @@ mod linux {
             // SAFETY: offvec 指向本结构体持有的、长度足够的 Vec；nfetch 是它的容量。
             let result = unsafe { libc::ioctl(self.fd, MON_IOCX_MFETCH, &mut mfetch) };
             if result < 0 {
-                return Err(syscall_error("MON_IOCX_MFETCH 失败", &io::Error::last_os_error()));
+                return Err(syscall_error(
+                    "MON_IOCX_MFETCH 失败",
+                    &io::Error::last_os_error(),
+                ));
             }
             Ok((mfetch.nfetch as usize).min(self.offsets.len()))
         }
@@ -444,7 +450,12 @@ mod linux {
                 return None;
             }
             // SAFETY: mmap 的区域在 Self 存活期间有效且至少 ring_size 字节；start < ring_size 已校验。
-            unsafe { Some(std::slice::from_raw_parts(self.map.add(start), self.ring_size - start)) }
+            unsafe {
+                Some(std::slice::from_raw_parts(
+                    self.map.add(start),
+                    self.ring_size - start,
+                ))
+            }
         }
 
         /// 丢弃计数。内核在这个 ioctl 里读走并清零 `cnt_lost`，所以只能在收尾时调用一次。
@@ -453,7 +464,10 @@ mod linux {
             // SAFETY: 输出缓冲是栈上的 MonBinStats，大小与内核 copy_to_user 的长度一致。
             let result = unsafe { libc::ioctl(self.fd, MON_IOCG_STATS, &mut stats) };
             if result < 0 {
-                return Err(syscall_error("MON_IOCG_STATS 失败", &io::Error::last_os_error()));
+                return Err(syscall_error(
+                    "MON_IOCG_STATS 失败",
+                    &io::Error::last_os_error(),
+                ));
             }
             Ok(stats)
         }
@@ -473,9 +487,34 @@ mod linux {
 #[cfg(target_os = "linux")]
 pub use linux::{MonBinStats, UsbmonDevice};
 
+/// 受限参数校验放在这里而不是只放在 CLI：库接口也要挡住越界值（docs/specs/usb-agent-tools.md §4.1
+/// 「只接受固定子命令与受限参数（bus 范围、duration/bytes 上限）」）。
+#[cfg(target_os = "linux")]
+fn validate_request(request: &CaptureRequest) -> Result<(), HelperError> {
+    if !(MIN_BUS..=MAX_BUS).contains(&request.bus) {
+        return Err(HelperError::invalid_input(format!(
+            "总线号 {0} 越界（允许 {MIN_BUS}–{MAX_BUS}）",
+            request.bus
+        )));
+    }
+    if !(MIN_DURATION_MS..=MAX_DURATION_MS).contains(&request.duration_ms) {
+        return Err(HelperError::invalid_input(format!(
+            "抓包时长 {0}ms 越界（允许 {MIN_DURATION_MS}–{MAX_DURATION_MS}）",
+            request.duration_ms
+        )));
+    }
+    if !(MIN_MAX_BYTES..=MAX_MAX_BYTES).contains(&request.max_bytes) {
+        return Err(HelperError::invalid_input(format!(
+            "体积上限 {0} 越界（允许 {MIN_MAX_BYTES}–{MAX_MAX_BYTES}）",
+            request.max_bytes
+        )));
+    }
+    validate_output_path(&request.output)
+}
+
 #[cfg(target_os = "linux")]
 pub fn run_capture(request: &CaptureRequest) -> Result<CaptureOutcome, HelperError> {
-    validate_output_path(&request.output)?;
+    validate_request(request)?;
     // 先开设备：打不开时（不存在/无权限）不要留下空的 .partial 文件。
     let mut device = UsbmonDevice::open(request.bus)?;
     let interface = format!("usbmon{}", request.bus);
@@ -488,15 +527,15 @@ pub fn run_capture(request: &CaptureRequest) -> Result<CaptureOutcome, HelperErr
     'capture: loop {
         if stop_requested() {
             stopped_by = StopReason::Signal;
-            break;
+            break 'capture;
         }
         if Instant::now() >= deadline {
             stopped_by = StopReason::Duration;
-            break;
+            break 'capture;
         }
         if writer.bytes() >= request.max_bytes {
             stopped_by = StopReason::MaxBytes;
-            break;
+            break 'capture;
         }
         let remaining = deadline.saturating_duration_since(Instant::now());
         let wait_ms = (remaining.as_millis().min(POLL_SLICE_MS as u128)).max(1) as i32;
@@ -545,15 +584,20 @@ pub fn run_capture(request: &CaptureRequest) -> Result<CaptureOutcome, HelperErr
         dropped,
         skipped_isochronous,
         stopped_by,
-        output: if interrupted { partial_path(&request.output) } else { request.output.clone() },
+        output: if interrupted {
+            partial_path(&request.output)
+        } else {
+            request.output.clone()
+        },
         bus: request.bus,
     })
 }
 
 #[cfg(not(target_os = "linux"))]
 pub fn run_capture(_request: &CaptureRequest) -> Result<CaptureOutcome, HelperError> {
-    Err(
-        HelperError::new(ErrorCode::NoInterface, "本抓包器只支持 Linux usbmon（Windows 走独立的抓包服务）。")
-            .with_remediation("在 Linux 上使用内置抓包器，或改用 dumpcap 兼容后端 / 离线解码路径。"),
+    Err(HelperError::new(
+        ErrorCode::NoInterface,
+        "本抓包器只支持 Linux usbmon（Windows 走独立的抓包服务）。",
     )
+    .with_remediation("在 Linux 上使用内置抓包器，或改用 dumpcap 兼容后端 / 离线解码路径。"))
 }

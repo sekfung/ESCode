@@ -130,11 +130,18 @@ fn parse(args: &[String]) -> Result<Command, HelperError> {
             "--help" | "-h" => help = true,
             "--bus" => bus = Some(parse_bus(take_value(args, &mut index, "--bus")?)?),
             "--duration-ms" => {
-                duration_ms =
-                    Some(parse_duration_ms(take_value(args, &mut index, "--duration-ms")?)?);
+                duration_ms = Some(parse_duration_ms(take_value(
+                    args,
+                    &mut index,
+                    "--duration-ms",
+                )?)?);
             }
             "--max-bytes" => {
-                max_bytes = Some(parse_max_bytes(take_value(args, &mut index, "--max-bytes")?)?);
+                max_bytes = Some(parse_max_bytes(take_value(
+                    args,
+                    &mut index,
+                    "--max-bytes",
+                )?)?);
             }
             "--output" => {
                 output = Some(PathBuf::from(take_value(args, &mut index, "--output")?));
@@ -151,7 +158,10 @@ fn parse(args: &[String]) -> Result<Command, HelperError> {
     }
     let capture_requested =
         bus.is_some() || duration_ms.is_some() || max_bytes.is_some() || output.is_some();
-    let selected = [probe, install, capture_requested].iter().filter(|flag| **flag).count();
+    let selected = [probe, install, capture_requested]
+        .iter()
+        .filter(|flag| **flag)
+        .count();
     match selected {
         0 => Err(HelperError::invalid_input(
             "缺少子命令：--probe、抓包参数（--bus/--output）或 --install-privileges。",
@@ -160,7 +170,8 @@ fn parse(args: &[String]) -> Result<Command, HelperError> {
         1 if install => Ok(Command::InstallPrivileges),
         1 => {
             let bus = bus.ok_or_else(|| HelperError::invalid_input("抓包需要 --bus N"))?;
-            let output = output.ok_or_else(|| HelperError::invalid_input("抓包需要 --output PATH"))?;
+            let output =
+                output.ok_or_else(|| HelperError::invalid_input("抓包需要 --output PATH"))?;
             Ok(Command::Capture(CaptureRequest {
                 bus,
                 duration_ms: duration_ms.unwrap_or(DEFAULT_DURATION_MS),
@@ -185,7 +196,9 @@ fn take_value<'a>(
         .get(*index)
         .ok_or_else(|| HelperError::invalid_input(format!("{name} 缺少取值")))?;
     if value.starts_with("--") {
-        return Err(HelperError::invalid_input(format!("{name} 缺少取值（拿到的是 {value}）")));
+        return Err(HelperError::invalid_input(format!(
+            "{name} 缺少取值（拿到的是 {value}）"
+        )));
     }
     Ok(value.as_str())
 }

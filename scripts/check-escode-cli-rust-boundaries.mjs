@@ -33,8 +33,8 @@ async function walk(directory) {
     if (crate === "tui" && /\bescode_cli_(?:state|model|tools|host|wiki)\s*::/.test(code))
       failures.push(`${file}: tui imports an adapter`);
     if (
-      // wiki：LLM Wiki 适配器（apps/escode-cli-rust/docs/llm-wiki），与其他 adapter 同一约束。
-      ["state", "model", "tools", "host", "wiki"].includes(crate) &&
+      // wiki：LLM Wiki 适配器（apps/escode-cli-rust/docs/llm-wiki）；net：网络出口适配器（P1 #6）。
+      ["state", "model", "tools", "host", "wiki", "net"].includes(crate) &&
       /\bescode_cli_(?:core|app_server|tui)\s*::/.test(code)
     )
       failures.push(`${file}: adapter imports core or frontend`);

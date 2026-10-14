@@ -35,13 +35,23 @@ fn parse_json(stdout: &str) -> Value {
 
 fn error_code(stdout: &str) -> String {
     let value = parse_json(stdout);
-    assert_eq!(value["ok"], Value::Bool(false), "失败响应的 ok 必须是 false");
-    value["error"]["code"].as_str().expect("error.code 必须是字符串").to_string()
+    assert_eq!(
+        value["ok"],
+        Value::Bool(false),
+        "失败响应的 ok 必须是 false"
+    );
+    value["error"]["code"]
+        .as_str()
+        .expect("error.code 必须是字符串")
+        .to_string()
 }
 
 fn temp_dir(tag: &str) -> PathBuf {
     let mut path = std::env::temp_dir();
-    path.push(format!("escode-usb-capture-cli-{tag}-{}", std::process::id()));
+    path.push(format!(
+        "escode-usb-capture-cli-{tag}-{}",
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&path);
     fs::create_dir_all(&path).expect("创建测试临时目录");
     path
@@ -54,7 +64,12 @@ fn invalid_bus_is_invalid_input() {
         let output = dir.join("out.pcapng");
         let output_arg = output.to_str().expect("路径");
         let result = run(&["--bus", bus, "--output", output_arg]);
-        assert_eq!(result.code, Some(2), "--bus {bus} 应退出码 2，stderr: {}", result.stderr);
+        assert_eq!(
+            result.code,
+            Some(2),
+            "--bus {bus} 应退出码 2，stderr: {}",
+            result.stderr
+        );
         assert_eq!(error_code(&result.stdout), "invalidInput");
         assert!(!output.exists(), "--bus {bus} 不应创建任何文件");
         assert!(!dir.join("out.pcapng.partial").exists());
@@ -83,7 +98,12 @@ fn invalid_bounds_and_missing_values_are_invalid_input() {
     ];
     for args in cases {
         let result = run(&args);
-        assert_eq!(result.code, Some(2), "参数 {args:?} 应退出码 2，stderr: {}", result.stderr);
+        assert_eq!(
+            result.code,
+            Some(2),
+            "参数 {args:?} 应退出码 2，stderr: {}",
+            result.stderr
+        );
         assert_eq!(error_code(&result.stdout), "invalidInput", "参数 {args:?}");
     }
 }
@@ -94,14 +114,24 @@ fn output_path_validation_rejects_bad_paths() {
 
     // 非 .pcapng 后缀。
     let wrong_suffix = dir.join("capture.pcap");
-    let result = run(&["--bus", "1", "--output", wrong_suffix.to_str().expect("路径")]);
+    let result = run(&[
+        "--bus",
+        "1",
+        "--output",
+        wrong_suffix.to_str().expect("路径"),
+    ]);
     assert_eq!(result.code, Some(2));
     assert_eq!(error_code(&result.stdout), "invalidInput");
     assert!(!wrong_suffix.exists());
 
     // 父目录不存在。
     let missing_parent = dir.join("no-such-dir").join("capture.pcapng");
-    let result = run(&["--bus", "1", "--output", missing_parent.to_str().expect("路径")]);
+    let result = run(&[
+        "--bus",
+        "1",
+        "--output",
+        missing_parent.to_str().expect("路径"),
+    ]);
     assert_eq!(result.code, Some(2));
     assert_eq!(error_code(&result.stdout), "invalidInput");
 
@@ -113,7 +143,11 @@ fn output_path_validation_rejects_bad_paths() {
     let result = run(&["--bus", "1", "--output", link.to_str().expect("路径")]);
     assert_eq!(result.code, Some(2));
     assert_eq!(error_code(&result.stdout), "invalidInput");
-    assert_eq!(fs::read(&target).expect("读目标文件"), b"do-not-touch", "不得跟随符号链接写入");
+    assert_eq!(
+        fs::read(&target).expect("读目标文件"),
+        b"do-not-touch",
+        "不得跟随符号链接写入"
+    );
 
     // 父目录是符号链接：同样拒绝。
     let real_dir = dir.join("real-dir");
@@ -131,14 +165,22 @@ fn output_path_validation_rejects_bad_paths() {
 #[test]
 fn probe_reports_capability_without_failing() {
     let result = run(&["--probe"]);
-    assert_eq!(result.code, Some(0), "probe 不应失败，stderr: {}", result.stderr);
+    assert_eq!(
+        result.code,
+        Some(0),
+        "probe 不应失败，stderr: {}",
+        result.stderr
+    );
     let value = parse_json(&result.stdout);
     assert_eq!(value["ok"], Value::Bool(true));
     assert!(value["platform"].is_string());
     assert!(value["usbmonModuleLoaded"].is_boolean());
     assert!(value["available"].is_boolean());
     let privilege = value["privilege"].as_str().expect("privilege 是字符串");
-    assert!(privilege == "ok" || privilege == "denied", "privilege = {privilege}");
+    assert!(
+        privilege == "ok" || privilege == "denied",
+        "privilege = {privilege}"
+    );
     assert!(value["interfaces"].is_array());
     // 不可用时必须给出中文 remediation（插件原样转述给用户）。
     if value["available"] == Value::Bool(false) {
@@ -168,8 +210,16 @@ fn missing_interface_is_reported_without_partial_file() {
         "--output",
         output.to_str().expect("路径"),
     ]);
-    assert_eq!(result.code, Some(4), "应返回 no-interface（4），stderr: {}", result.stderr);
+    assert_eq!(
+        result.code,
+        Some(4),
+        "应返回 no-interface（4），stderr: {}",
+        result.stderr
+    );
     assert_eq!(error_code(&result.stdout), "no-interface");
     assert!(!output.exists());
-    assert!(!dir.join("bus9.pcapng.partial").exists(), "打开设备失败不得留下 .partial");
+    assert!(
+        !dir.join("bus9.pcapng.partial").exists(),
+        "打开设备失败不得留下 .partial"
+    );
 }

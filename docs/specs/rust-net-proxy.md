@@ -4,6 +4,17 @@
 只认 `HTTP(S)_PROXY`，因此同一台机器上两个 runtime 的出口可能不同。本规格把解析逻辑做成 domain 内的纯函数，
 并按同一份判定接入模型客户端。
 
+## 网络出口单入口（crates/net，2026-10-14）
+
+三类出口（模型请求 / MCP HTTP+OAuth / WebFetch 与插件下载）共用一份出口策略，客户端构造收敛到 `crates/net`：
+
+- `Purpose::{Model, Mcp, WebFetch}` 决定「未命中代理时是否显式禁用系统代理」（模型沿用 reqwest 默认变量；MCP 与 WebFetch 显式 direct，与 TS `createNetworkProxyFetch` / `resolveWebFetchProxyForRequest` 同）；
+- 代理解析与自定义 CA 只在该 crate 解析一次（`net::resolve`），调用方保留各自的超时/重定向/连接参数；
+- 证书读取与 builder 构建一律走受管阻塞线程（`Spawner::spawn_blocking`），不阻塞 stdio actor；
+- reqwest_mcp 的 rustls ring provider 在该 crate 内幂等安装（原先散在 `mcp_hub`，调用方不必先记得装）；
+- 强制手段：workspace clippy `disallowed_methods = "deny"` 禁止 `reqwest::Client::builder` / `reqwest_mcp::Client::builder` 在 `crates/net` 之外出现（该 crate 内 crate 级 allow）。
+
+
 ## 规则（与 TS 逐条一致）
 
 | 顺序 | 来源                                                                                     | 结果                                                 |

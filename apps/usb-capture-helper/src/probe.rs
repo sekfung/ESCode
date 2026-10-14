@@ -51,20 +51,35 @@ pub struct ProbeReport {
 
 impl ProbeReport {
     pub fn to_json(&self) -> Value {
-        let interfaces: Vec<Value> =
-            self.interfaces.iter().map(|item| json!({ "id": item.id, "bus": item.bus })).collect();
+        let interfaces: Vec<Value> = self
+            .interfaces
+            .iter()
+            .map(|item| json!({ "id": item.id, "bus": item.bus }))
+            .collect();
         let mut map = serde_json::Map::new();
         map.insert("ok".to_string(), Value::Bool(true));
-        map.insert("platform".to_string(), Value::String(self.platform.to_string()));
+        map.insert(
+            "platform".to_string(),
+            Value::String(self.platform.to_string()),
+        );
         map.insert("available".to_string(), Value::Bool(self.available));
-        map.insert("usbmonModuleLoaded".to_string(), Value::Bool(self.usbmon_module_loaded));
-        map.insert("privilege".to_string(), Value::String(self.privilege.as_str().to_string()));
+        map.insert(
+            "usbmonModuleLoaded".to_string(),
+            Value::Bool(self.usbmon_module_loaded),
+        );
+        map.insert(
+            "privilege".to_string(),
+            Value::String(self.privilege.as_str().to_string()),
+        );
         map.insert("interfaces".to_string(), Value::Array(interfaces));
         if let Some(reason) = &self.reason {
             map.insert("reason".to_string(), Value::String(reason.clone()));
         }
         if let Some(remediation) = &self.remediation {
-            map.insert("remediation".to_string(), Value::String(remediation.clone()));
+            map.insert(
+                "remediation".to_string(),
+                Value::String(remediation.clone()),
+            );
         }
         Value::Object(map)
     }
@@ -94,7 +109,10 @@ pub fn list_interfaces() -> Vec<InterfaceInfo> {
         if bus == 0 {
             continue;
         }
-        interfaces.push(InterfaceInfo { id: name.to_string(), bus });
+        interfaces.push(InterfaceInfo {
+            id: name.to_string(),
+            bus,
+        });
     }
     interfaces.sort_by_key(|item| item.bus);
     interfaces
@@ -108,7 +126,11 @@ fn readable(interface: &InterfaceInfo) -> Result<(), std::io::Error> {
 pub fn probe() -> ProbeReport {
     let platform = std::env::consts::OS;
     let module_sysfs = Path::new(MODULE_SYSFS).exists();
-    let interfaces = if platform == "linux" { list_interfaces() } else { Vec::new() };
+    let interfaces = if platform == "linux" {
+        list_interfaces()
+    } else {
+        Vec::new()
+    };
     // usbmon 也可能编进内核（此时没有 /sys/module/usbmon 但有设备节点）：以节点为准，避免自相矛盾。
     let module_loaded = module_sysfs || !interfaces.is_empty();
     let (privilege, reason, remediation) =
@@ -134,8 +156,13 @@ fn evaluate(
     if platform != "linux" {
         return (
             Privilege::Denied,
-            Some(format!("本抓包器只支持 Linux usbmon，当前平台是 {platform}。")),
-            Some("在 Linux 上使用内置抓包器；其它平台走 dumpcap 兼容后端或离线 pcapng 解码。".to_string()),
+            Some(format!(
+                "本抓包器只支持 Linux usbmon，当前平台是 {platform}。"
+            )),
+            Some(
+                "在 Linux 上使用内置抓包器；其它平台走 dumpcap 兼容后端或离线 pcapng 解码。"
+                    .to_string(),
+            ),
         );
     }
     if interfaces.is_empty() {
@@ -162,20 +189,21 @@ fn evaluate(
             use std::io::ErrorKind;
             let denied = matches!(error.kind(), ErrorKind::PermissionDenied);
             let reason = if denied {
-                format!("当前用户没有读取 /dev/{} 的权限（{error}）。", interfaces[0].id)
+                format!(
+                    "当前用户没有读取 /dev/{} 的权限（{error}）。",
+                    interfaces[0].id
+                )
             } else {
                 format!("无法以只读方式打开 /dev/{}：{error}", interfaces[0].id)
             };
             (
                 Privilege::Denied,
                 Some(reason),
-                Some(
-                    format!(
-                        "运行 `pkexec escode-usb-capture --install-privileges`（创建 {GROUP_NAME} 组、\
+                Some(format!(
+                    "运行 `pkexec escode-usb-capture --install-privileges`（创建 {GROUP_NAME} 组、\
                          写 udev 规则并修正现有节点属组），或 `sudo usermod -aG {GROUP_NAME} $USER` 后重新登录；\
                          也可以临时用 `sudo escode-usb-capture ...` 抓包。"
-                    ),
-                ),
+                )),
             )
         }
     }

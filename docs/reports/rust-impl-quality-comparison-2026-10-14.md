@@ -105,7 +105,7 @@
 | 可诊断性 | **U** | U model-IO JSONL 轨迹（每次尝试落盘）+ 用量事实准入票据，Z 完全没有——保持 |
 
 改进清单：
-- [ ] 收拢网络出口（新 net crate 或先搬 RuntimeEnv/Purpose client 三件套），删 model crate 6 处 env 直读，密钥改 RedactedString
+- [x] 收拢网络出口（新 net crate 或先搬 RuntimeEnv/Purpose client 三件套），删 model crate 6 处 env 直读，密钥改 RedactedString —— 2026-10-14 完成：`crates/net`（Purpose 三 client + 代理/CA 单一解析 + rustls provider 归位）+ `RedactedString`（core-api::secret，api key 与配置头脱敏）+ clippy `disallowed_methods=deny`；env 直读在阶段 1 已清零
 - [ ] registry 加 FileStamp/ChangeGate + 五类稳定性测试（出现/改写/原子替换/删除/账号旁路）
 - [ ] 补 Coding Plan 网关端点改写 + 显式 Host 摘除
 - [ ] 拆 `provider.rs`（provider_auth/idle/stall/cancelled 收口）；`ModelStatus` 加厚（脱敏头、providerKind、异常类型、timings）

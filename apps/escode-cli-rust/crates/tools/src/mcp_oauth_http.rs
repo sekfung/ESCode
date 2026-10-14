@@ -20,12 +20,13 @@ impl std::fmt::Display for OAuthError {
 impl std::error::Error for OAuthError {}
 
 /// OAuth 令牌/发现端点的客户端：与 MCP 传输同一条网络策略（代理 + 自定义 CA），整请求 60s。
-pub(super) fn client(url: &str) -> Result<reqwest_mcp::Client> {
-    crate::mcp_http::client_with_timeout(url, std::time::Duration::from_secs(60))
+pub(super) async fn client(url: &str) -> Result<reqwest_mcp::Client> {
+    crate::mcp_http::client_with_timeout(url, std::time::Duration::from_secs(60)).await
 }
 
 async fn get(url: &str, accept_json: bool) -> Result<reqwest_mcp::Response> {
-    let mut request = client(url)?
+    let mut request = client(url)
+        .await?
         .get(url)
         .header("MCP-Protocol-Version", rules::DISCOVERY_PROTOCOL_VERSION);
     if accept_json {
@@ -160,7 +161,8 @@ pub(super) async fn register(
     if let Some(scope) = scope {
         body["scope"] = scope.into();
     }
-    let response = client(&url)?
+    let response = client(&url)
+        .await?
         .post(&url)
         .header("Content-Type", "application/json")
         .body(body.to_string())
@@ -283,7 +285,8 @@ pub(super) async fn token_request(
         .unwrap_or_default()
         .to_owned();
     let secret = client_info["client_secret"].as_str().map(str::to_owned);
-    let mut request = client(url.as_str())?
+    let mut request = client(url.as_str())
+        .await?
         .post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .header("Accept", "application/json");

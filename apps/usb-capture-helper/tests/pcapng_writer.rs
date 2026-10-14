@@ -30,7 +30,12 @@ fn u16_at(data: &[u8], offset: usize) -> u16 {
 }
 
 fn u32_at(data: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
+    u32::from_le_bytes([
+        data[offset],
+        data[offset + 1],
+        data[offset + 2],
+        data[offset + 3],
+    ])
 }
 
 fn u64_at(data: &[u8], offset: usize) -> u64 {
@@ -44,8 +49,15 @@ fn parse_blocks(data: &[u8]) -> Vec<Block<'_>> {
     while offset + 12 <= data.len() {
         let block_type = u32_at(data, offset);
         let total_length = u32_at(data, offset + 4);
-        assert_eq!(total_length % 4, 0, "偏移 {offset} 的块长度未按 4 字节对齐：{total_length}");
-        assert!(total_length >= 12, "偏移 {offset} 的块长度非法：{total_length}");
+        assert_eq!(
+            total_length % 4,
+            0,
+            "偏移 {offset} 的块长度未按 4 字节对齐：{total_length}"
+        );
+        assert!(
+            total_length >= 12,
+            "偏移 {offset} 的块长度非法：{total_length}"
+        );
         assert!(
             offset + total_length as usize <= data.len(),
             "偏移 {offset} 的块越过文件末尾"
@@ -147,7 +159,10 @@ fn interface_description_block_encodes_linktype_and_if_name() {
     let body = parsed[0].body;
     assert_eq!(u16_at(body, 10), 9);
     assert_eq!(&body[12..21], b"usbmon100");
-    assert!(body[21..24].iter().all(|byte| *byte == 0), "名字填充必须是 0");
+    assert!(
+        body[21..24].iter().all(|byte| *byte == 0),
+        "名字填充必须是 0"
+    );
 }
 
 #[test]
@@ -169,12 +184,26 @@ fn enhanced_packet_block_layout_and_timestamp_high_word_first() {
     // 契约：timestamp_high 在偏移 12，timestamp_low 在偏移 16（不是 u64 小端）。
     assert_eq!(u32_at(epb.body, 4), (ts_micros >> 32) as u32);
     assert_eq!(u32_at(epb.body, 8), ts_micros as u32);
-    assert_eq!(u32_at(epb.body, 12), data.len() as u32, "cap_len = 64 + 载荷");
+    assert_eq!(
+        u32_at(epb.body, 12),
+        data.len() as u32,
+        "cap_len = 64 + 载荷"
+    );
     assert_eq!(u32_at(epb.body, 16), 72, "orig_len = 64 + len_urb");
-    assert_eq!(&epb.body[20..20 + USB_MON_HEADER_LEN], &header[..], "数据区前 64 字节是内核头原样");
-    assert_eq!(&epb.body[20 + USB_MON_HEADER_LEN..20 + data.len()], &payload[..]);
+    assert_eq!(
+        &epb.body[20..20 + USB_MON_HEADER_LEN],
+        &header[..],
+        "数据区前 64 字节是内核头原样"
+    );
+    assert_eq!(
+        &epb.body[20 + USB_MON_HEADER_LEN..20 + data.len()],
+        &payload[..]
+    );
     assert_eq!(epb.total_length % 4, 0);
-    assert_eq!(epb.total_length, 32 + (data.len() as u32).next_multiple_of(4));
+    assert_eq!(
+        epb.total_length,
+        32 + (data.len() as u32).next_multiple_of(4)
+    );
     // 67 字节数据区要补 1 个 0 才是 4 的倍数。
     assert_eq!(epb.body[20 + data.len()], 0, "载荷后的对齐填充");
 }
@@ -188,7 +217,19 @@ fn writer_writes_two_events_and_renames_partial() {
     assert!(partial.exists(), "写入期间只有 .partial");
     assert!(!output.exists());
 
-    let header_a = mon_header(b'S', 2, 0x80, 4, 7, 1_700_000_010, 1, 0, 8, 8, [0x80, 6, 0, 1, 0, 0, 8, 0]);
+    let header_a = mon_header(
+        b'S',
+        2,
+        0x80,
+        4,
+        7,
+        1_700_000_010,
+        1,
+        0,
+        8,
+        8,
+        [0x80, 6, 0, 1, 0, 0, 8, 0],
+    );
     let payload_a = [0u8; 8];
     writer
         .write_event(&UsbmonRecord {
@@ -198,7 +239,19 @@ fn writer_writes_two_events_and_renames_partial() {
             declared_length: 8,
         })
         .expect("写第一条");
-    let header_b = mon_header(b'C', 3, 0x02, 4, 7, 1_700_000_011, 500_000, -32, 512, 64, [0; 8]);
+    let header_b = mon_header(
+        b'C',
+        3,
+        0x02,
+        4,
+        7,
+        1_700_000_011,
+        500_000,
+        -32,
+        512,
+        64,
+        [0; 8],
+    );
     let payload_b = vec![0x5a; 64];
     writer
         .write_event(&UsbmonRecord {
@@ -235,7 +288,10 @@ fn writer_writes_two_events_and_renames_partial() {
     let first = &blocks[2];
     assert_eq!(first.block_type, BLOCK_ENHANCED_PACKET);
     assert_eq!(u32_at(first.body, 0), 0);
-    assert_eq!(u32_at(first.body, 4), (1_700_000_010_000_001u64 >> 32) as u32);
+    assert_eq!(
+        u32_at(first.body, 4),
+        (1_700_000_010_000_001u64 >> 32) as u32
+    );
     assert_eq!(u32_at(first.body, 8), 1_700_000_010_000_001u64 as u32);
     assert_eq!(u32_at(first.body, 12), 72);
     assert_eq!(u32_at(first.body, 16), 72);

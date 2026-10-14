@@ -117,31 +117,45 @@ pub fn validate_output_path(output: &Path) -> Result<(), HelperError> {
         .and_then(|value| value.to_str())
         .ok_or_else(|| HelperError::invalid_input("输出路径缺少文件名"))?;
     if !name.to_ascii_lowercase().ends_with(".pcapng") {
-        return Err(HelperError::invalid_input(format!("输出路径必须以 .pcapng 结尾：{name}")));
+        return Err(HelperError::invalid_input(format!(
+            "输出路径必须以 .pcapng 结尾：{name}"
+        )));
     }
     let parent = match output.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
     };
-    let parent_meta = fs::symlink_metadata(parent)
-        .map_err(|error| HelperError::invalid_input(format!("输出目录不可用：{}（{error}）", parent.display())))?;
+    let parent_meta = fs::symlink_metadata(parent).map_err(|error| {
+        HelperError::invalid_input(format!("输出目录不可用：{}（{error}）", parent.display()))
+    })?;
     if parent_meta.file_type().is_symlink() {
-        return Err(HelperError::invalid_input(format!("拒绝符号链接形式的输出目录：{}", parent.display())));
+        return Err(HelperError::invalid_input(format!(
+            "拒绝符号链接形式的输出目录：{}",
+            parent.display()
+        )));
     }
     if !parent_meta.is_dir() {
-        return Err(HelperError::invalid_input(format!("输出路径的父级不是目录：{}", parent.display())));
+        return Err(HelperError::invalid_input(format!(
+            "输出路径的父级不是目录：{}",
+            parent.display()
+        )));
     }
     match fs::symlink_metadata(output) {
-        Ok(meta) if meta.file_type().is_symlink() => {
-            Err(HelperError::invalid_input(format!("拒绝符号链接形式的输出文件：{}", output.display())))
-        }
-        Ok(meta) if meta.is_dir() => {
-            Err(HelperError::invalid_input(format!("输出路径是目录：{}", output.display())))
-        }
+        Ok(meta) if meta.file_type().is_symlink() => Err(HelperError::invalid_input(format!(
+            "拒绝符号链接形式的输出文件：{}",
+            output.display()
+        ))),
+        Ok(meta) if meta.is_dir() => Err(HelperError::invalid_input(format!(
+            "输出路径是目录：{}",
+            output.display()
+        ))),
         // 已存在的普通文件允许覆盖：先写 .partial，再改名。
         Ok(_) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(HelperError::invalid_input(format!("无法检查输出路径：{}（{error}）", output.display()))),
+        Err(error) => Err(HelperError::invalid_input(format!(
+            "无法检查输出路径：{}（{error}）",
+            output.display()
+        ))),
     }
 }
 
@@ -158,10 +172,17 @@ impl PcapngWriter {
         validate_output_path(output)?;
         let partial = partial_path(output);
         let file = File::create(&partial).map_err(|error| {
-            HelperError::invalid_input(format!("无法创建输出文件：{}（{error}）", partial.display()))
+            HelperError::invalid_input(format!(
+                "无法创建输出文件：{}（{error}）",
+                partial.display()
+            ))
         })?;
-        let mut writer =
-            Self { file: BufWriter::new(file), partial, final_path: output.to_path_buf(), bytes: 0 };
+        let mut writer = Self {
+            file: BufWriter::new(file),
+            partial,
+            final_path: output.to_path_buf(),
+            bytes: 0,
+        };
         writer.write_block(&section_header_block())?;
         writer.write_block(&interface_description_block(interface_name))?;
         Ok(writer)
@@ -197,7 +218,9 @@ impl PcapngWriter {
 
     /// 收尾：flush + fsync。`rename` 为 true 时把 `.partial` 改成最终文件；被中断时传 false，保留 `.partial`。
     pub fn finish(mut self, rename: bool) -> Result<u64, HelperError> {
-        self.file.flush().map_err(|error| HelperError::io(format!("刷新抓包文件失败：{error}")))?;
+        self.file
+            .flush()
+            .map_err(|error| HelperError::io(format!("刷新抓包文件失败：{error}")))?;
         self.file
             .get_ref()
             .sync_all()

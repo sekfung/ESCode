@@ -15,7 +15,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 #[allow(unused_imports)]
-pub(super) use super::provider_support::{add_extra_ca_certificates, after, deadline};
+pub(super) use super::provider_support::{after, deadline};
 
 type Result<T> = std::result::Result<T, ModelFailure>;
 
@@ -49,43 +49,23 @@ impl HttpModel {
     async fn client(&self) -> Result<&reqwest::Client> {
         self.client
             .get_or_try_init(|| async {
-                // 系统证书读取含阻塞 IO；首次请求按需初始化，不能阻塞 stdio actor 的启动与取消。
-                // 受管阻塞线程：登记在册、panic 上报，并把实例 env 快照重建到该线程（代理解析读取 env）。
-                let target = self.url.clone();
-                escode_cli_core_api::scope::Spawner::current()
-                    .spawn_blocking("http-client-build", move || {
-                        let mut builder = reqwest::Client::builder()
-                            .redirect(reqwest::redirect::Policy::none())
-                            .pool_idle_timeout(Duration::from_secs(90))
-                            .tcp_nodelay(true);
-                        // 代理解析与 TS `resolveWebFetchProxyForRequest` 一致（显式配置、ESCODE_HTTP_PROXY、
-                        // ESCODE_NO_PROXY 与捕获的宿主代理），不依赖 reqwest 默认读取的 HTTP(S)_PROXY。
-                        // 见 docs/specs/rust-net-proxy.md；显式值 = 环境变量 ?? 用户配置的 `network` 段
-                        // （Node 的 provider registry 在进程级读配置、不含项目层，见 host::net_config）。
-                        let resolution =
-                            escode_cli_domain::net_proxy::resolve_webfetch_proxy_for_request(
-                                &target,
-                                &escode_cli_host::net_config::proxy_options(
-                                    escode_cli_host::net_config::NetworkScope::Process,
-                                ),
-                            );
-                        if let Some(proxy) = resolution.proxy_url {
-                            builder = builder.proxy(
-                                reqwest::Proxy::all(proxy)
-                                    .map_err(|error| model_failure::network(&error))?,
-                            );
-                        } else if resolution.no_proxy_matched {
-                            builder = builder.no_proxy();
-                        }
-                        // 设置页的自定义 CA（`ESCODE_AGENT_CA_CERT`，其次 Node 的 `NODE_EXTRA_CA_CERTS`）：
-                        // TS 经 @escode/adapters 的 TLS 配置信任它，Rust 侧必须显式加进根证书。
-                        builder = add_extra_ca_certificates(builder)?;
-                        builder
-                            .build()
-                            .map_err(|error| model_failure::network(&error))
-                    })
-                    .await
-                    .map_err(|_| ModelFailure::new("invalid_request", false))?
+                // 出口策略（代理 + 自定义 CA）统一在 crates/net；证书读取在该 crate 的
+                // 受管阻塞线程内完成，不阻塞 stdio actor 的启动与取消（rust-unified-host.md P1 #6）。
+                escode_cli_net::client(
+                    escode_cli_net::ClientOptions::new(escode_cli_net::Purpose::Model, &self.url)
+                        .pool_idle(Duration::from_secs(90))
+                        .tcp_nodelay(),
+                )
+                .await
+                .map_err(|error| {
+                    // net 的失败可能是 reqwest 错误（代理/CA/构建）或环境解析错误：
+                    // reqwest 来源按网络故障分类，其余按无效请求（与原先的 spawn_blocking
+                    // 分支同一口径：join 失败 → invalid_request）。
+                    match error.downcast_ref::<reqwest::Error>() {
+                        Some(inner) => model_failure::network(inner),
+                        None => ModelFailure::new("invalid_request", false),
+                    }
+                })
             })
             .await
     }

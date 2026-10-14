@@ -215,7 +215,7 @@ impl Hub {
                 Some(match cached {
                     Some(client) => client,
                     None => {
-                        let client = crate::mcp_http::client(&target)?;
+                        let client = crate::mcp_http::client(&target).await?;
                         self.http.write().unwrap().insert(target, client.clone());
                         client
                     }

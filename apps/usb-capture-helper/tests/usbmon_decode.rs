@@ -30,7 +30,10 @@ impl Builder {
         header[15] = b'D';
         header[16..24].copy_from_slice(&1_700_000_000i64.to_le_bytes());
         header[24..28].copy_from_slice(&123_456i32.to_le_bytes());
-        Self { header, payload: Vec::new() }
+        Self {
+            header,
+            payload: Vec::new(),
+        }
     }
 
     fn id(mut self, id: u64) -> Self {
@@ -146,6 +149,7 @@ fn parses_control_complete_with_data_and_nonzero_status() {
     let builder = Builder::new(b'C', 2, 0x80)
         .setup([0x80, 6, 0x00, 0x01, 0x00, 0x00, 18, 0])
         .status(-32)
+        .lengths(payload.len() as u32, payload.len() as u32)
         .payload(&payload);
     let bytes = builder.bytes();
     let event = expect_event(&bytes);
@@ -164,7 +168,10 @@ fn parses_control_complete_with_data_and_nonzero_status() {
 
 #[test]
 fn parses_bulk_out_submit_without_data_and_short_complete() {
-    let submit = Builder::new(b'S', 3, 0x02).lengths(31, 0).flag_data(b'<').bytes();
+    let submit = Builder::new(b'S', 3, 0x02)
+        .lengths(31, 0)
+        .flag_data(b'<')
+        .bytes();
     let event = expect_event(&submit);
     assert_eq!(event.header.transfer_type(), Some(TransferType::Bulk));
     assert_eq!(event.header.direction(), Direction::Out);
@@ -174,7 +181,11 @@ fn parses_bulk_out_submit_without_data_and_short_complete() {
     assert!(event.header.setup_packet().is_none(), "批量传输没有 setup");
 
     // 短传输：声明 512、只抓到 64（读侧按 len_cap 取数据、按 len_urb 报 orig_len）。
-    let complete = Builder::new(b'C', 3, 0x82).status(0).lengths(512, 64).payload(&[0x11; 64]).bytes();
+    let complete = Builder::new(b'C', 3, 0x82)
+        .status(0)
+        .lengths(512, 64)
+        .payload(&[0x11; 64])
+        .bytes();
     let event = expect_event(&complete);
     assert_eq!(event.header.direction(), Direction::In);
     assert_eq!(event.header.len_urb, 512);
@@ -184,13 +195,20 @@ fn parses_bulk_out_submit_without_data_and_short_complete() {
 
 #[test]
 fn parses_interrupt_and_error_records() {
-    let interrupt = Builder::new(b'C', 1, 0x81).lengths(8, 8).payload(&[0x01; 8]).bytes();
+    let interrupt = Builder::new(b'C', 1, 0x81)
+        .lengths(8, 8)
+        .payload(&[0x01; 8])
+        .bytes();
     let event = expect_event(&interrupt);
     assert_eq!(event.header.transfer_type(), Some(TransferType::Interrupt));
     assert_eq!(event.header.direction(), Direction::In);
 
     // 错误事件：内核写 type='E'、flag_data='E'（没有数据）。
-    let error = Builder::new(b'E', 3, 0x02).status(-2).lengths(0, 0).flag_data(b'E').bytes();
+    let error = Builder::new(b'E', 3, 0x02)
+        .status(-2)
+        .lengths(0, 0)
+        .flag_data(b'E')
+        .bytes();
     let event = expect_event(&error);
     assert_eq!(event.header.kind(), Some(EventKind::Error));
     assert_eq!(event.header.status, -2);
@@ -199,24 +217,33 @@ fn parses_interrupt_and_error_records() {
 
 #[test]
 fn skips_filler_and_isochronous_and_unknown_records() {
-    let filler = Builder::new(b'@', 3, 0).lengths(0, 4096 - MON_HEADER_LEN as u32).bytes();
+    let filler = Builder::new(b'@', 3, 0)
+        .lengths(0, 4096 - MON_HEADER_LEN as u32)
+        .bytes();
     assert!(matches!(decode_record(&filler), Record::Filler));
 
     let iso_submit = Builder::new(b'S', 0, 0x81).lengths(1024, 1024).bytes();
     assert!(matches!(decode_record(&iso_submit), Record::Isochronous));
-    let iso_complete = Builder::new(b'C', 0, 0x81).lengths(1024, 1024 + 4 * 16).bytes();
+    let iso_complete = Builder::new(b'C', 0, 0x81)
+        .lengths(1024, 1024 + 4 * 16)
+        .bytes();
     assert!(matches!(decode_record(&iso_complete), Record::Isochronous));
 
     let bad_tag = Builder::new(b'X', 3, 0x02).lengths(0, 0).bytes();
     assert!(matches!(decode_record(&bad_tag), Record::Unknown));
     let bad_xfer = Builder::new(b'C', 7, 0x02).lengths(0, 0).bytes();
     assert!(matches!(decode_record(&bad_xfer), Record::Unknown));
-    assert!(matches!(decode_record(&[0u8; MON_HEADER_LEN - 1]), Record::Unknown));
+    assert!(matches!(
+        decode_record(&[0u8; MON_HEADER_LEN - 1]),
+        Record::Unknown
+    ));
 }
 
 #[test]
 fn marks_payload_truncated_at_ring_boundary() {
-    let builder = Builder::new(b'C', 3, 0x82).lengths(64, 64).payload(&[0x22; 64]);
+    let builder = Builder::new(b'C', 3, 0x82)
+        .lengths(64, 64)
+        .payload(&[0x22; 64]);
     let full = builder.bytes();
     // 模拟记录位于映射末尾：内核保证不跨缓冲，这里只验证防御行为不越界。
     let truncated = &full[..MON_HEADER_LEN + 10];
@@ -229,7 +256,10 @@ fn marks_payload_truncated_at_ring_boundary() {
 #[test]
 fn header_setup_requires_control_and_flag_setup_not_dash() {
     // 批量传输带 setup 字节：读侧同样不认（条件含 xfer_type == control）。
-    let bulk = Builder::new(b'S', 3, 0x02).setup([0x80, 6, 0, 1, 0, 0, 8, 0]).lengths(8, 0).bytes();
+    let bulk = Builder::new(b'S', 3, 0x02)
+        .setup([0x80, 6, 0, 1, 0, 0, 8, 0])
+        .lengths(8, 0)
+        .bytes();
     let header = MonHeader::parse(&bulk).expect("解析头");
     assert_eq!(header.flag_setup, 0);
     assert!(header.setup_packet().is_none());
@@ -256,14 +286,27 @@ fn write_records_counts_skipped_and_written_events() {
     let mut writer = PcapngWriter::create(&output, "usbmon1").expect("创建写入器");
     let header_bytes = 28 + 32;
 
-    let bulk_complete = Builder::new(b'C', 3, 0x82).lengths(64, 64).payload(&[0x33; 64]).bytes();
-    let control_complete = Builder::new(b'C', 2, 0x80).status(-32).lengths(8, 8).payload(&[0x44; 8]).bytes();
+    let bulk_complete = Builder::new(b'C', 3, 0x82)
+        .lengths(64, 64)
+        .payload(&[0x33; 64])
+        .bytes();
+    let control_complete = Builder::new(b'C', 2, 0x80)
+        .status(-32)
+        .lengths(8, 8)
+        .payload(&[0x44; 8])
+        .bytes();
     let filler = Builder::new(b'@', 3, 0).lengths(0, 1024).bytes();
     let iso = Builder::new(b'C', 0, 0x81).lengths(256, 256).bytes();
     let unknown = Builder::new(b'Q', 3, 0x82).lengths(0, 0).bytes();
 
-    let records: Vec<&[u8]> =
-        vec![&bulk_complete, &filler, &iso, &control_complete, &unknown, &iso];
+    let records: Vec<&[u8]> = vec![
+        &bulk_complete,
+        &filler,
+        &iso,
+        &control_complete,
+        &unknown,
+        &iso,
+    ];
     let stats = write_records(&mut writer, &records, 512 * 1024 * 1024).expect("写批次");
     assert_eq!(stats.packets, 2);
     assert_eq!(stats.skipped_isochronous, 2, "等时事件必须被跳过并计数");
@@ -283,8 +326,14 @@ fn write_records_stops_at_max_bytes_after_one_event() {
     let output = dir.join("max.pcapng");
     let mut writer = PcapngWriter::create(&output, "usbmon1").expect("创建写入器");
     let limit = writer.bytes() + 1;
-    let first = Builder::new(b'C', 3, 0x82).lengths(64, 64).payload(&[0x55; 64]).bytes();
-    let second = Builder::new(b'C', 3, 0x82).lengths(64, 64).payload(&[0x66; 64]).bytes();
+    let first = Builder::new(b'C', 3, 0x82)
+        .lengths(64, 64)
+        .payload(&[0x55; 64])
+        .bytes();
+    let second = Builder::new(b'C', 3, 0x82)
+        .lengths(64, 64)
+        .payload(&[0x66; 64])
+        .bytes();
     let stats = write_records(&mut writer, &[&first, &second], limit).expect("写批次");
     assert!(stats.reached_max_bytes);
     assert_eq!(stats.packets, 1, "达到上限后不再写后续事件");
