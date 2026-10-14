@@ -15,10 +15,12 @@ pub mod link;
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
 use escode_cli_rust::embed::RuntimeOptions;
-use tokio::sync::Mutex as AsyncMutex;
+use serde_json::Value;
+use tokio::sync::{Mutex as AsyncMutex, mpsc};
 
 pub use link::{Link, RuntimeLink};
 
@@ -49,9 +51,42 @@ pub struct Instances {
 pub struct Instance {
     pub identity: String,
     pub generation: u64,
-    reader: tokio::sync::Mutex<link::RuntimeReader>,
+    /// 读端由实例内的读循环独占（`reader`）：出站帧按 id 关联到 `call` 的等待方，
+    /// 其余帧扇出给全部订阅者（Host 内的帧泵）。这是 Host 唯一读该实例的地方。
+    reader: tokio::sync::Mutex<Option<link::RuntimeReader>>,
     writer: tokio::sync::Mutex<link::RuntimeWriter>,
     lifecycle: tokio::sync::Mutex<link::Lifecycle>,
+    /// 读循环与请求方共享的状态（读循环持 Arc，不需要自引用）。
+    state: Arc<InstanceState>,
+}
+
+impl InstanceState {
+    fn lock_pending(
+        &self,
+    ) -> std::sync::MutexGuard<'_, BTreeMap<String, tokio::sync::oneshot::Sender<Value>>> {
+        self.pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn lock_subscribers(&self) -> std::sync::MutexGuard<'_, Vec<mpsc::Sender<String>>> {
+        self.subscribers
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+/// 实例出站流的分发状态：在飞请求 + 帧订阅者 + 请求序号。
+#[derive(Default)]
+struct InstanceState {
+    /// 在飞请求：`id` → 应答等待方。
+    pending: std::sync::Mutex<BTreeMap<String, tokio::sync::oneshot::Sender<Value>>>,
+    /// 帧订阅者（每个 attachment 一个）；读循环向它们扇出非应答帧。
+    subscribers: std::sync::Mutex<Vec<mpsc::Sender<String>>>,
+    /// 请求序号（生成关联 id）。
+    requests: std::sync::atomic::AtomicU64,
+    /// 读循环是否已启动。
+    pumping: std::sync::atomic::AtomicBool,
 }
 
 impl Instances {
@@ -123,9 +158,13 @@ impl Instances {
         let instance = Arc::new(Instance {
             identity: identity.to_owned(),
             generation,
-            reader: tokio::sync::Mutex::new(reader),
+            reader: tokio::sync::Mutex::new(Some(reader)),
             writer: tokio::sync::Mutex::new(writer),
             lifecycle: tokio::sync::Mutex::new(lifecycle),
+            state: Arc::new(InstanceState {
+                requests: std::sync::atomic::AtomicU64::new(1),
+                ..Default::default()
+            }),
         });
         if let Some(slot) = self.lock().slots.get_mut(identity) {
             slot.instance = Some(Arc::clone(&instance));
@@ -224,9 +263,76 @@ impl Instance {
         self.writer.lock().await.send_line(line).await
     }
 
-    /// 读一行出站帧（只竞争读锁；帧泵独占读端）。
-    pub async fn line(&self) -> Option<String> {
-        self.reader.lock().await.line().await
+    /// 订阅出站帧（每个 attachment 一个）；读循环负责扇出。
+    pub async fn subscribe(&self) -> mpsc::Receiver<String> {
+        let (tx, rx) = mpsc::channel(256);
+        self.state.lock_subscribers().push(tx);
+        self.start_reader().await;
+        rx
+    }
+
+    /// 向 runtime 发一条请求并等应答（按 id 关联；`timeout` 到点即失败）。
+    pub async fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        let id = format!(
+            "host-{}",
+            self.state
+                .requests
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.state.lock_pending().insert(id.clone(), tx);
+        self.start_reader().await;
+        let line = serde_json::json!({"id": id, "method": method, "params": params}).to_string();
+        if let Err(error) = self.send_line(&line).await {
+            self.state.lock_pending().remove(&id);
+            return Err(error);
+        }
+        match tokio::time::timeout(timeout, rx).await {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(_)) => anyhow::bail!("runtime closed while awaiting `{method}`"),
+            Err(_) => {
+                self.state.lock_pending().remove(&id);
+                anyhow::bail!("runtime did not answer `{method}` within {timeout:?}")
+            }
+        }
+    }
+
+    /// 启动读循环（幂等）：一次读端、按 id 关联应答、其余帧扇出给订阅者。
+    /// 读循环持有分发状态（`Arc<InstanceState>`），不依赖实例自身。
+    async fn start_reader(&self) {
+        if self
+            .state
+            .pumping
+            .swap(true, std::sync::atomic::Ordering::SeqCst)
+        {
+            return;
+        }
+        let mut reader = match self.reader.lock().await.take() {
+            Some(reader) => reader,
+            None => return,
+        };
+        let state = Arc::clone(&self.state);
+        tokio::spawn(async move {
+            while let Some(line) = reader.line().await {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                let parsed = serde_json::from_str::<Value>(trimmed).ok();
+                let routed = parsed
+                    .as_ref()
+                    .and_then(|value| value["id"].as_str().map(str::to_owned))
+                    .and_then(|id| state.lock_pending().remove(&id))
+                    .is_some_and(|waiter| waiter.send(parsed.unwrap_or(Value::Null)).is_ok());
+                if routed {
+                    continue;
+                }
+                let targets = state.lock_subscribers().clone();
+                for target in targets {
+                    let _ = target.try_send(trimmed.to_owned());
+                }
+            }
+        });
     }
 
     /// 请求收口并等待（宽限内）。

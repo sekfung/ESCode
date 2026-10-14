@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { WebSocket, type RawData } from "ws";
@@ -153,6 +153,17 @@ describe("rust host rpc surface", () => {
       await expect(
         services.settingService.updateDataBaseDir(join(root, "data")),
       ).rejects.toThrow(/does not implement `setting\.updateDataBaseDir`/);
+
+      // escode-session 域：Host 转成 runtime 的 session/list（TS Host 同构），
+      // 新 workspace 返回空列表；实例按 workspace 建立。
+      const workspacePath = join(root, "workspace");
+      await mkdir(workspacePath, { recursive: true });
+      const sessions = (await services.escodeSessionService.listSessions({
+        workspacePath,
+        workspaceIdentity: workspacePath,
+      } as never)) as unknown[];
+      expect(Array.isArray(sessions)).toBe(true);
+      expect(sessions).toHaveLength(0);
 
       // 未迁移的 channel：显式 NotImplemented，且消息里带已实现清单。
       const client = new ChannelClient(new SocketProtocol(wrapNodeWebSocket(new WebSocket(`ws://${addr}/ws`))));

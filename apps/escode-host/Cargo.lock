@@ -847,7 +847,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "escode-cli-rust",
+ "escode-host-control",
+ "escode-host-runtime",
  "escode-host-services",
+ "escode-host-surface",
  "futures-util",
  "serde",
  "serde_json",

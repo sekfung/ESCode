@@ -300,7 +300,8 @@ async fn attach(
     let hub = Arc::clone(hub);
     let identity = identity.to_owned();
     tokio::spawn(async move {
-        while let Some(line) = instance.line().await {
+        let mut frames = instance.subscribe().await;
+        while let Some(line) = frames.recv().await {
             let targets: Vec<mpsc::Sender<String>> = {
                 let pumps = hub.pumps.lock().await;
                 pumps

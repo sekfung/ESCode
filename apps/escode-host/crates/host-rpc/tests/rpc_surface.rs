@@ -15,8 +15,26 @@ use tokio_tungstenite::tungstenite::Message;
 type Socket = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 async fn start(home: &std::path::Path) -> RpcSurface {
-    let channels = escode_host_rpc::session::channels(home.to_path_buf());
-    escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels)
+    let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
+    let options: escode_host_surface::OptionsFactory = std::sync::Arc::new({
+        let home = home.to_path_buf();
+        move |workspace: &escode_host_control::WorkspaceDescriptor| {
+            let mut env = std::collections::BTreeMap::new();
+            env.insert("ESCODE_RUNTIME_ENV".to_owned(), "test".to_owned());
+            escode_cli_rust::embed::RuntimeOptions {
+                home: home.clone(),
+                env,
+                argv: vec!["escode-cli-rust".to_owned(), "app-server".to_owned()],
+                cwd: std::path::PathBuf::from(&workspace.path),
+                workspace_identity: workspace.identity.clone(),
+                data_dir: workspace.data_dir.clone().map(std::path::PathBuf::from),
+                config: None,
+            }
+        }
+    });
+    let channels =
+        escode_host_rpc::domains::channels(home.to_path_buf(), instances.clone(), options);
+    escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, Some(instances))
         .await
         .expect("rpc surface starts")
 }
@@ -275,11 +293,97 @@ async fn settings_round_trip_and_unimplemented_channels_report_gaps() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn non_loopback_bind_is_refused() {
-    let channels: Channels = escode_host_rpc::session::channels(std::path::PathBuf::from("/tmp"));
-    let result = escode_host_rpc::serve("0.0.0.0:0".parse().unwrap(), channels).await;
+    let channels: Channels = escode_host_rpc::domains::channels(
+        std::path::PathBuf::from("/tmp"),
+        escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
+        std::sync::Arc::new(|workspace: &escode_host_control::WorkspaceDescriptor| {
+            escode_cli_rust::embed::RuntimeOptions {
+                home: std::path::PathBuf::from("/tmp"),
+                env: std::collections::BTreeMap::new(),
+                argv: vec![],
+                cwd: std::path::PathBuf::from(&workspace.path),
+                workspace_identity: workspace.identity.clone(),
+                data_dir: None,
+                config: None,
+            }
+        }),
+    );
+    let result = escode_host_rpc::serve("0.0.0.0:0".parse().unwrap(), channels, None).await;
     let error = match result {
         Ok(_) => panic!("非回环必须 fail-closed"),
         Err(error) => error,
     };
     assert!(error.to_string().contains("authentication"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn session_list_forwards_to_the_workspace_runtime() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let workspace = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let surface = start(&home).await;
+    let mut socket = connect(surface.addr, "/ws", None).await;
+
+    // escode-session.listSessions：Host 把它转成 runtime 的 session/list（TS Host 同构）。
+    call(
+        &mut socket,
+        21,
+        "escode-session",
+        "listSessions",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": workspace.to_string_lossy(),
+            "workspaceIdentity": workspace.to_string_lossy(),
+        }))]),
+    )
+    .await;
+    let sessions = read_response(&mut socket, 21)
+        .await
+        .into_object()
+        .expect("array");
+    assert_eq!(sessions, serde_json::json!([]), "新 workspace 没有会话");
+
+    // 实例已按 workspace 建好（/api/server-info 报告 workspaces）。
+    let (_, info) = http_request(surface.addr, "GET", "/api/server-info", &[], None).await;
+    let expected_workspace = workspace.to_string_lossy().into_owned();
+    assert!(
+        info["workspaces"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w.as_str() == Some(expected_workspace.as_str())),
+        "server-info 应报告已建实例: {info}"
+    );
+    assert!(
+        info["channels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "escode-session"),
+        "能力清单应含 escode-session: {info}"
+    );
+
+    // 未迁移方法：显式缺口。
+    call(
+        &mut socket,
+        22,
+        "escode-session",
+        "createSession",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({}))]),
+    )
+    .await;
+    let error = read_response(&mut socket, 22)
+        .await
+        .into_object()
+        .expect("error");
+    assert_eq!(error["name"], "NotImplemented");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("escode-session.createSession")
+    );
+
+    surface.shutdown().await;
 }

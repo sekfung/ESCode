@@ -172,8 +172,14 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 let addr: std::net::SocketAddr = bind
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
-                let channels = escode_host_rpc::session::channels(std::path::PathBuf::from(home));
-                match escode_host_rpc::serve(addr, channels).await {
+                let options: escode_host_surface::OptionsFactory =
+                    std::sync::Arc::new(control::runtime_options);
+                let channels = escode_host_rpc::domains::channels(
+                    std::path::PathBuf::from(home),
+                    instances.clone(),
+                    options,
+                );
+                match escode_host_rpc::serve(addr, channels, Some(instances.clone())).await {
                     Ok(surface) => {
                         control
                             .send(ControlMessage::RpcListening {

@@ -5,6 +5,7 @@
 //! 线协议对齐 `packages/rpc`（13 字节帧 + VSBuffer 序列化 + channel 分派）。
 //! 未迁移的 channel 回 `NotImplemented`（Renderer 见显式缺口，不挂起）。
 
+pub mod domains;
 pub mod frame;
 pub mod http;
 pub mod session;
@@ -84,7 +85,12 @@ impl RpcSurface {
 }
 
 /// 在回环地址上监听（`127.0.0.1:0` 取临时端口）。
-pub async fn serve(bind: SocketAddr, channels: Channels) -> Result<RpcSurface> {
+/// `instances` 仅供 `/api/server-info` 报告已建实例（域内路由由 channel 自己持有）。
+pub async fn serve(
+    bind: SocketAddr,
+    channels: Channels,
+    instances: Option<escode_host_runtime::Instances>,
+) -> Result<RpcSurface> {
     http::ensure_loopback(bind)?;
     let listener = TcpListener::bind(bind)
         .await
@@ -92,6 +98,7 @@ pub async fn serve(bind: SocketAddr, channels: Channels) -> Result<RpcSurface> {
     let addr = listener.local_addr()?;
     let channels = Arc::new(channels);
     let capabilities = Arc::new(Capabilities::new(std::time::Duration::from_secs(60)));
+    let instances = instances.map(Arc::new);
     let task = tokio::spawn(async move {
         loop {
             let Ok((stream, _peer)) = listener.accept().await else {
@@ -99,8 +106,11 @@ pub async fn serve(bind: SocketAddr, channels: Channels) -> Result<RpcSurface> {
             };
             let channels = Arc::clone(&channels);
             let capabilities = Arc::clone(&capabilities);
+            let instances = instances.clone();
             tokio::spawn(async move {
-                if let Err(error) = handle_connection(stream, channels, capabilities).await {
+                if let Err(error) =
+                    handle_connection(stream, channels, capabilities, instances).await
+                {
                     eprintln!("escode-host: rpc connection closed: {error:#}");
                 }
             });
@@ -113,6 +123,7 @@ async fn handle_connection(
     mut stream: TcpStream,
     channels: Arc<Channels>,
     capabilities: Arc<Capabilities>,
+    instances: Option<Arc<escode_host_runtime::Instances>>,
 ) -> Result<()> {
     // 先用 peek 判断是不是 WebSocket 升级：是则不消费字节，交给握手；
     // 否则按最小 HTTP 路由处理。
@@ -158,7 +169,10 @@ async fn handle_connection(
                 "version": env!("CARGO_PKG_VERSION"),
                 "protocolVersion": http::PROTOCOL_VERSION,
                 "authRequired": false,
-                "workspaces": [],
+                "workspaces": instances
+                    .as_ref()
+                    .map(|instances| instances.identities())
+                    .unwrap_or_default(),
                 "capabilities": {
                     "desktopContinuous": true,
                     "websocketRpc": true,

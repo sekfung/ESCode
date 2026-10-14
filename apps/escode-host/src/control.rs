@@ -72,7 +72,8 @@ impl ControlLoop {
             // 帧泵：实例出站帧扇出到当前全部 attachment；窗口全断开时仍读取并丢弃
             // （丢弃实时帧与「attachment 只是视图」一致：会话事实在 runtime 侧，
             // 重连由订阅/快照恢复补齐）。
-            while let Some(line) = instance.line().await {
+            let mut frames = instance.subscribe().await;
+            while let Some(line) = frames.recv().await {
                 let targets: Vec<String> = pump_windows.lock().await.iter().cloned().collect();
                 for window_id in targets {
                     let message = ControlMessage::WindowFrame {

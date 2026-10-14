@@ -53,8 +53,9 @@ impl Fixture {
 
 /// 读帧直到 startup/storageState 的 ready 帧（checking 先到）。
 async fn wait_ready(instance: &escode_host_runtime::Instance) {
+    let mut frames = instance.subscribe().await;
     loop {
-        let line = tokio::time::timeout(Duration::from_secs(30), instance.line())
+        let line = tokio::time::timeout(Duration::from_secs(30), frames.recv())
             .await
             .expect("frame within timeout")
             .expect("instance output open");
