@@ -113,7 +113,22 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 - child 模式：`runtime-link = child` 时 Host 以 `app-server --stdio` 拉起 CLI 子进程（阶段 1 之前的形态），用于差分、回退与故障隔离。
 - 回退矩阵与演练沿用 `rust-release-rollback.md`（阶段 3 扩展 installed 四平台）。
 
-## 7. u2a 验收（本阶段第一部分）
+## 7. u2a 实施进度（2026-10-14）
+
+已落地（工作区 `apps/escode-host`，可通过 `pnpm check:escode-host` / `pnpm test:escode-host` 验证）：
+
+| 组件 | 内容 | 测试 |
+| --- | --- | --- |
+| `host-core` | `bounded`（命名队列 + 溢出策略枚举 `Backpressure`/`DropReconstructible`/`BlockProducer`/`DropLowestPriority` + 深度/丢弃指标）、`atomic_write`（临时文件 + fsync + rename 重试 EPERM/EBUSY/32/33 + 父目录 fsync，失败清理临时文件） | 背压等待 vs 丢弃计数、关闭语义；原子写替换/建父目录/失败清理 |
+| `host-proto` | 契约清单（channel/method + `Implemented`/`Pending` 状态）与 `--check` 对账（重复项、未登记的实现、清单外登记三个方向） | 清单自洽、正/负向对账 |
+| `host-gateway` | 连接注册表（`register` 同步取号 → lane 序 = 到达序）、每连接出站 lane、capability 握手（∩ 支持面）、未覆盖 method 回 `NotImplemented` | 到达序、能力求交、路由缺口、注销 |
+| `host-control` | typed `ControlMessage`（WindowAttach/Detach、HostReady、Shutdown、LogBatch）、控制与日志共用单队列（控制必达、日志满即丢）、结构化 `ControlError` code（可判重试） | 单队列顺序、队满下控制等待而日志丢弃、错误码序列化 |
+
+未落地（u2a 余项）：`apps/escode-host/src/main.rs` 进程入口（stdio 控制 + WebSocket 接入 + runtime-link 选择器）、Main 侧 dev 开关 `ESCODE_RUST_HOST` 与 TS 侧接线、CI 作业接入（`check:escode-host` 已就绪，随 u2b 一并进 workflow）、`host-services` 骨架（随第一个服务域 settings 一起建）。
+
+TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与 `escode-cli-host`，本工作区不重复实现（已验证可跨 workspace path 依赖）。
+
+## 8. u2a 验收（本阶段第一部分）
 
 | 验收项 | 证据 |
 | --- | --- |

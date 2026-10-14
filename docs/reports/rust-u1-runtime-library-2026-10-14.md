@@ -60,12 +60,17 @@ embed::spawn ─► 实例根未来（INSTANCE.scope）
 
 ## 5. 差分与回归
 
-- `cargo test --workspace`：415 通过 / 0 失败。
-- 差分套件（`pnpm test:escode-cli-rust`，含 163 个差分用例与 27 个生成器门禁）：本轮迁移批次与最终批次两次全量运行，结果记录在 §6。
+- `cargo test --workspace`（本批全部改动后）：**433 通过 / 0 失败**（含新增的嵌入 5、双传输 3、Spawner 5、FileStamp 5、registry 4、waiters 2、对账 4、secret 2）。
+- 差分套件（`pnpm test:escode-cli-rust`，407 用例 + 27 个生成器 `--check` 门禁）：
+  - 第一轮（迁移批次构建，2026-10-14）：393 通过 / 2 失败 / 12 跳过。
+  - 失败一 `escode-cli-rust-file-log.test.ts` 单独复跑**通过**——该轮失败与并行构建擦写同一个 `target/debug/escode-cli-rust`（我在套件运行期间执行了 `cargo clippy`/`cargo test`）有关；教训：套件运行期间禁止并发 cargo 构建。
+  - 失败二 `escode-cli-rust-legacy-session.test.ts`（"legacy session methods behave the same on Node and Rust"，报 `ESCode agent stdio transport is closed`）：**本机既存问题，非本批引入**。判据（bisect）：把 `apps/escode-cli-rust` 恢复到阶段 0 提交 `1d94fb38` 重建基线二进制后，同一用例以同一错误签名稳定失败（默认 env 与 CI env 各一次）；本批二进制同样失败。该用例的 Rust 侧在 slow 发送→settle 之后、`session/close` 前后进程提前结束，宿主应答因传输关闭抛错，具体原因待单独排查（阶段 2 差分维护项）。
+  - 最终复跑（本批代码，无并发构建，2026-10-14）：**407 例 / 392 通过 / 3 失败 / 12 跳过**。三个失败的分类（逐个隔离复跑）：`escode-cli-rust-file-log.test.ts` 与 `escode-cli-rust-amend-workflow.test.ts` 在隔离运行下**通过**（满载串行下超时/竞争，属套件负载浮变）；`escode-cli-rust-legacy-session.test.ts` 隔离运行同样失败，且阶段 0 基线二进制复现同一签名——**本机既存问题，非本批引入**。
 - 与 TS oracle 的协议面未变更：双传输两端都产出与 stdio 相同的 NDJSON 帧；`session/list`、`createSession`、`v4/commands/query` 等应答形状未改。
 
 ## 6. 遗留与移交（u2 输入）
 
+0. **已知失败**：`escode-cli-rust-legacy-session.test.ts` 在本机对阶段 0 与本批二进制同样失败（见 §5 判据），列为本机环境既存问题；阶段 2 差分维护项，需在本机以外（CI 三平台）确认是否复现。
 1. `crates/host` 更名/文档注明（与新 Host 概念重名）。
 2. net 出口收拢（P1 #6）、plugins crate 拆分（#9）、`v4/command` schema 校验（#10）、bash registry 类型化（#11）、typed 方法分派与瞬态 `Submission`（#8 剩余两项）。
 3. 遥测 ChunkWindow（#12）挂起：协议 strict schema 与 TS oracle 均无窗口语义，实施将破坏 §4.1；条件见父计划阶段 1 注记。
