@@ -34,8 +34,8 @@ pub(super) fn build_search_snippets(searchable_text: &str, search: &str) -> Opti
             break;
         };
         let start = match_index.saturating_sub(TASK_SEARCH_SNIPPET_PREFIX_RADIUS);
-        let end = (match_index + search_units.len() + TASK_SEARCH_SNIPPET_SUFFIX_RADIUS)
-            .min(total_units);
+        let end =
+            (match_index + search_units.len() + TASK_SEARCH_SNIPPET_SUFFIX_RADIUS).min(total_units);
         let mut raw = String::new();
         if start > 0 {
             raw.push_str("...");

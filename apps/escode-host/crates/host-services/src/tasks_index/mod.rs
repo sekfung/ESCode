@@ -17,6 +17,7 @@ mod query_grouped;
 mod query_shared;
 mod query_snippets;
 pub mod schema;
+mod write;
 
 use std::path::{Path, PathBuf};
 
@@ -119,6 +120,23 @@ impl TasksIndex {
             ledger.push(row?);
         }
         Ok(ledger)
+    }
+
+    /// TS `TaskIndexRepo.seedTaskMetaIfMissing`：不存在才写（存在则原样返回行投影）。
+    pub fn seed_task_meta_if_missing(
+        &self,
+        meta_object: &serde_json::Map<String, Value>,
+    ) -> Result<Value, TasksIndexError> {
+        write::seed_task_meta_if_missing(&self.connection, meta_object)
+    }
+
+    /// TS `TaskIndexRepo.syncTaskMeta`：带合并规则的 upsert（快照/agent 补丁写入路径）。
+    pub fn sync_task_meta(
+        &self,
+        meta_object: &serde_json::Map<String, Value>,
+        options: &write::SyncOptions,
+    ) -> Result<Value, TasksIndexError> {
+        write::sync_task_meta(&self.connection, meta_object, options)
     }
 
     /// TS `TaskIndexRepo.getTaskMeta`：缺失或 `deleted = 1` 回 `None`。
@@ -321,5 +339,12 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "write_tests.rs"]
+mod write_tests;

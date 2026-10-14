@@ -214,6 +214,10 @@ fn is_valid_meta(meta: &Value) -> bool {
 }
 
 /// 列回退投影：TS 走这条路径时字段较薄（没有 `meta_json` 独有字段）。
+pub(super) fn fallback_meta(row: &Value) -> Value {
+    column_fallback_meta(&Row::new(row), resolve_workspace_identity(&Row::new(row)))
+}
+
 fn column_fallback_meta(row: &Row<'_>, workspace_identity: Option<String>) -> Value {
     let mut meta = Map::new();
     let task_id = row.required_text("task_id");

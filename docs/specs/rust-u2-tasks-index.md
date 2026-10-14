@@ -135,6 +135,24 @@ locale 命中时才可见（SQL 侧 `LOWER()` 两端口径一致，为 ASCII-onl
 下一步（S1 剩余）：`getTaskSnapshot*` 系列（运行时快照分页转发）与 ES 侧的
 `task_groups` 写面（属 S3）。
 
+## 6.2 S2 写层（存储）已落地（2026-10-15）
+
+`tasks_index` 增加写路径（TS `writeRecord` / `seedTaskMetaIfMissing` / `syncTaskMeta` 同构），
+合并规则逐条对齐（这些规则决定列表顺序与状态显示，不能简化）：
+
+- `updated_at` 取 `max(入库, 已有)`（快照可能落后于 agent patch 写入的时间戳）；
+- 终态（completed/error）不被更旧的 running 快照降级（`shouldPreserveNewerTerminalStatus`）；
+- 用户手动标题（`title_overridden`）不被 agent 标题覆盖；
+- `migrationSource`/`cronAutomationId`/`offPeakTaskId`/`unreadAt` 缺省保留既有值；
+- `pinned`/`archived`/`deleted` 缺省沿用既有行；`searchable_text` 只在显式传入时更新
+  （否则保留已索引正文，避免被后续无正文写入清空）；
+- `unread_at` 只在 unread 专属写路径覆盖（CAS marker），`last_unread_at` 取历史最大值。
+
+验证：Rust 单测 21 例（seed 幂等与不覆盖、合并规则四组断言、unread CAS 的列级断言）。
+**说明**：本片只落存储层，**没有任何 RPC 方法暴露写**（单写者不变式未变）；TS↔Rust 的
+双向写读对账（`双 Host 交替写读`）随 S2b 的 `createTask` 一起做——那时才存在可对账的
+服务级写入口。
+
 ## 7. 验收与环境
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；
