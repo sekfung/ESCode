@@ -23,6 +23,7 @@ import {
 import { shellHeartbeatCommand } from "./escode-cli-rust-shell-probe.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { isKnownNodeExitCrash } from "./escode-cli-rust-exit.js";
+export { event, end } from "./escode-cli-rust-sse.js";
 
 export const binary = resolve(
   `apps/escode-cli-rust/target/debug/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
@@ -247,14 +248,6 @@ export async function fixture(
     },
   };
 }
-export function event(res: ServerResponse, delta: Message) {
-  res.write(`data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`);
-}
-export function end(res: ServerResponse, reason: string) {
-  res.end(
-    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: reason }], usage: { prompt_tokens: 10, completion_tokens: 4 } })}\n\ndata: [DONE]\n\n`,
-  );
-}
 
 export class Harness {
   readonly transport: ESCodeStdioTransport;
@@ -414,7 +407,10 @@ export class Harness {
     this.closed = true;
     if (this.child.exitCode === null) this.child.stdin.end();
     // 退出等待上限：默认 4s；安装包演练在 Rosetta（mac x64）下翻译运行 Electron，退出明显更慢，由 CI 调大。
-    const timer = setTimeout(() => this.child.kill("SIGKILL"), Number(process.env.ESCODE_TEST_EXIT_MS ?? 4000));
+    const timer = setTimeout(
+      () => this.child.kill("SIGKILL"),
+      Number(process.env.ESCODE_TEST_EXIT_MS ?? 4000),
+    );
     const status = await this.exited;
     clearTimeout(timer);
     this.client.dispose();

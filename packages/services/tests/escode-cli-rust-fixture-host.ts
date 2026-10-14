@@ -37,11 +37,18 @@ export function answerHostRequest(
   }
   if (request.method !== "session/requestRuntimePreferences") return;
   harness.runtimePreferenceRequests.push(request.params);
-  void harness.client.respond(request.id, {
-    nativeSearchEnhancementsEnabled: true,
-    ...(harness.memoryEnabled ? { memoryEnabled: true } : {}),
-    ...(harness.integratedTerminalShell
-      ? { integratedTerminalShell: harness.integratedTerminalShell }
-      : {}),
-  });
+  // runtime 退出窗口里到达的偏好请求（如 create 的 materialization 帧随最后一个请求批量冲刷、
+  // 宿主已 close）不再可应答：respond 是 async，transport 关闭后的 rejection 若被 `void` 丢弃
+  // 会成为 unhandled rejection 并带崩测试进程；与上方脚本化路径的容错语义一致，这里显式吞掉。
+  harness.client
+    .respond(request.id, {
+      nativeSearchEnhancementsEnabled: true,
+      ...(harness.memoryEnabled ? { memoryEnabled: true } : {}),
+      ...(harness.integratedTerminalShell
+        ? { integratedTerminalShell: harness.integratedTerminalShell }
+        : {}),
+    })
+    .catch(() => {
+      /* transport 已关闭：runtime 即将退出，无需应答。 */
+    });
 }
