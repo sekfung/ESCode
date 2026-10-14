@@ -1,0 +1,23 @@
+[package]
+name = "escode-host-runtime"
+description = "ESCode Host 运行时实例表与 runtime-link 选择器（embedded / child）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+serde_json.workspace = true
+escode-cli-rust.workspace = true
+escode-cli-app-server.workspace = true
+escode-cli-core-api.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

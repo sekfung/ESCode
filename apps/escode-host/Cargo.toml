@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/host-core", "crates/host-proto", "crates/host-gateway", "crates/host-control"]
+members = ["crates/host-core", "crates/host-proto", "crates/host-gateway", "crates/host-control", "crates/host-runtime"]
 resolver = "2"
 
 [workspace.package]
@@ -45,11 +45,13 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 tempfile = "3"
 # 共享基础代码复用 CLI 侧 crate（阶段 1 库化红利；见 rust-u2-host-skeleton.md §2）。
-escode-cli-core-api = { path = "../../escode-cli-rust/crates/core-api" }
-escode-cli-host = { path = "../../escode-cli-rust/crates/host" }
-escode-cli-app-server = { path = "../../escode-cli-rust/crates/app-server" }
-escode-cli-protocol = { path = "../../escode-cli-rust/crates/protocol" }
+escode-cli-core-api = { path = "../escode-cli-rust/crates/core-api" }
+escode-cli-host = { path = "../escode-cli-rust/crates/host" }
+escode-cli-app-server = { path = "../escode-cli-rust/crates/app-server" }
+escode-cli-protocol = { path = "../escode-cli-rust/crates/protocol" }
 escode-host-core = { path = "crates/host-core" }
 escode-host-proto = { path = "crates/host-proto" }
 escode-host-gateway = { path = "crates/host-gateway" }
 escode-host-control = { path = "crates/host-control" }
+escode-host-runtime = { path = "crates/host-runtime" }
+escode-cli-rust = { path = "../escode-cli-rust" }
