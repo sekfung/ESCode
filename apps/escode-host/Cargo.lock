@@ -769,6 +769,7 @@ dependencies = [
  "escode-cli-rust",
  "escode-host-control",
  "escode-host-runtime",
+ "escode-host-services",
  "serde_json",
  "tempfile",
  "tokio",
@@ -810,6 +811,8 @@ name = "escode-host-proto"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "escode-host-control",
+ "serde_json",
 ]
 
 [[package]]
@@ -824,6 +827,18 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "escode-host-services"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "escode-cli-host",
+ "escode-host-core",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

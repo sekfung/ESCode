@@ -1,0 +1,46 @@
+# 独立的 USB 抓包 helper（docs/specs/usb-agent-tools.md §4.1）。
+#
+# 空 [workspace] 表：本 crate 不属于仓库里任何上层 workspace（apps/escode-host、apps/escode-cli-rust
+# 都不认领它），独立构建、独立 Cargo.lock；字段命名与取值对齐 apps/escode-host/Cargo.toml。
+[workspace]
+
+[package]
+name = "escode-usb-capture"
+description = "ESCode USB 抓包后端：读 usbmon 二进制 API 写 pcapng（Linux，无 setcap）"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+publish = false
+
+# 与 apps/escode-host / apps/escode-cli-rust 同一份 deny 清单（没有 workspace 可继承，故内联）。
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+await_holding_lock = "deny"
+manual_clamp = "deny"
+manual_filter = "deny"
+manual_find = "deny"
+manual_flatten = "deny"
+manual_map = "deny"
+manual_ok_or = "deny"
+manual_range_contains = "deny"
+manual_retain = "deny"
+manual_strip = "deny"
+manual_unwrap_or = "deny"
+needless_borrow = "deny"
+needless_collect = "deny"
+needless_question_mark = "deny"
+redundant_clone = "deny"
+redundant_closure = "deny"
+redundant_closure_for_method_calls = "deny"
+trivially_copy_pass_by_ref = "deny"
+unnecessary_lazy_evaluations = "deny"
+unnecessary_to_owned = "deny"
+
+[dependencies]
+# 只依赖 libc（ioctl / mmap / poll / sigaction）与 serde_json（stdout 的一行 JSON）。
+# 两者都在本地 cargo 缓存里，`--offline` 可解析、可编译。
+libc = "0.2"
+serde_json = "1"

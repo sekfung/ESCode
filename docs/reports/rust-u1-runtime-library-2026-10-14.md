@@ -78,6 +78,11 @@ embed::spawn ─► 实例根未来（INSTANCE.scope）
 - **P1 #10**：`v4/command` schema 校验（TS zod → `command_schema.json`，35 类型；Rust 子集校验器 + `parseCommandEnvelope` 同构；漂移双向门禁；协议入口 debug 诊断，线上应答不变）。测试过程中修正一处真实偏差：TS 的两条 CAS 规则是并列 `||`，此前实现误为嵌套（只带 `baseRevision` 的行定位命令会漏检 `baseLogEpoch`）。
 - **P1 #6 子项**：`core-api::secret::RedactedString`，`ModelConfig.api_key_value` 与 `headers` 改为脱敏类型（`Debug`/`Display` 输出占位符，明文只在发送边界 `expose()`），2 测试。
 
+## 5.2 阶段 2 起步（同日，已提交）
+
+- **u2a 骨架**：`apps/escode-host` 工作区（host-core 有界通道/原子写、host-proto 契约清单与漂移门禁、host-gateway 到达序 lane 与 capability 握手、host-control typed 控制消息、host-runtime runtime-link 选择器与实例表）+ Host 进程入口（attach/detach/转发/扇出/收口，端到端 2 例）。
+- **u2b 第一域 settings**：`host-services::settings` 与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进），控制协议 `settingsRead/Write/Value`；**双 Host 交替写读演练**通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留 + 缩进一致）。这正是父计划 §阶段 2 验收里「双 Host 交替写读演练」的第一份证据。
+
 ## 6. 遗留与移交（u2 输入）
 
 0. **已知失败**：`escode-cli-rust-legacy-session.test.ts` 在本机对阶段 0 与本批二进制同样失败（见 §5 判据），列为本机环境既存问题；阶段 2 差分维护项，需在本机以外（CI 三平台）确认是否复现。

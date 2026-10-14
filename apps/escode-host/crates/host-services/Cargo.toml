@@ -1,0 +1,21 @@
+[package]
+name = "escode-host-services"
+description = "ESCode Host 服务域：settings（唯一写者，与 TS Host 同文件同格式）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+escode-host-core.workspace = true
+escode-cli-host.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

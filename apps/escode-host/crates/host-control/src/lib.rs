@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 /// 一个 workspace 的装配描述（Main 提交；Host 据此建实例，业务事实不从 Host env 推断）。
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceDescriptor {
     /// Host 提交的 workspace 路径（不 realpath，提示词与身份用它）。
@@ -65,6 +65,37 @@ pub enum ControlMessage {
     Failed { error: ControlError },
     /// Host→Main：收口完成（残余任务/进程清单；空 = 干净退出）。
     Stopped { residual: Vec<String> },
+    /// Main→Host：读取全局设置（settings 域；home = 用户主目录）。
+    SettingsRead { home: String },
+    /// Main→Host：应用设置补丁（顶层合并，保留其它键）。
+    SettingsWrite {
+        home: String,
+        patch: serde_json::Value,
+    },
+    /// Host→Main：设置内容（读应答与写回执共用）。
+    SettingsValue { settings: serde_json::Value },
+}
+
+impl ControlMessage {
+    /// 线上的 kind 名（serde tag；契约清单对账用，必须与 `host-proto` 清单一致）。
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::WindowAttach { .. } => "windowAttach",
+            Self::WindowAttached { .. } => "windowAttached",
+            Self::WindowRequest { .. } => "windowRequest",
+            Self::WindowFrame { .. } => "windowFrame",
+            Self::WindowDetach { .. } => "windowDetach",
+            Self::WindowDetached { .. } => "windowDetached",
+            Self::HostReady { .. } => "hostReady",
+            Self::Shutdown { .. } => "shutdown",
+            Self::LogBatch { .. } => "logBatch",
+            Self::Failed { .. } => "failed",
+            Self::Stopped { .. } => "stopped",
+            Self::SettingsRead { .. } => "settingsRead",
+            Self::SettingsWrite { .. } => "settingsWrite",
+            Self::SettingsValue { .. } => "settingsValue",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

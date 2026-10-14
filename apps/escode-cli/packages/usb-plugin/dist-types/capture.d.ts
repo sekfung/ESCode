@@ -39,5 +39,6 @@ export declare function runCapture(input: {
     workspace: string;
     pluginData: string;
     signal: AbortSignal;
+    env: Record<string, string | undefined>;
 }): Promise<CaptureOutcome>;
 //# sourceMappingURL=capture.d.ts.map

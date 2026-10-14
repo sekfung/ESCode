@@ -97,7 +97,6 @@ export function resolveHelperCandidates(input: {
   const pluginRoot = input.env.ESCODE_PLUGIN_ROOT?.trim();
   if (pluginRoot) {
     candidates.push(join(pluginRoot, platformBinDirectory(platform, arch), executable));
-    candidates.push(join(pluginRoot, platformBinDirectory(platform, "*"), executable));
   }
   // `resourcesPath` 是 Electron 注入的属性，@types/node 的 Process 里没有（与 desktop 侧同样用交叉类型读）。
   const resourcesPath =
@@ -111,7 +110,7 @@ export function resolveHelperCandidates(input: {
 export async function resolveHelperPath(
   input: Parameters<typeof resolveHelperCandidates>[0],
 ): Promise<{ path?: string; tried: string[] }> {
-  const tried = resolveHelperCandidates(input).filter((candidate) => !candidate.includes("*"));
+  const tried = resolveHelperCandidates(input);
   for (const candidate of tried) {
     if (await isExecutable(candidate)) return { path: candidate, tried };
   }
@@ -121,9 +120,10 @@ export async function resolveHelperPath(
 /** 调用 helper 的 `--probe`，把它的自报结果当成后端状态。 */
 export async function probeBuiltinHelper(
   helperPath: string,
+  env: Record<string, string | undefined>,
 ): Promise<CaptureBackendStatus> {
   try {
-    const { stdout } = await run(helperPath, ["--probe"], { timeout: PROBE_TIMEOUT_MS });
+    const { stdout } = await run(helperPath, ["--probe"], { timeout: PROBE_TIMEOUT_MS, env });
     const parsed: unknown = JSON.parse(stdout.trim().split("\n").pop() ?? "{}");
     const record = (parsed ?? {}) as Record<string, unknown>;
     if (record.ok !== true) {
@@ -278,7 +278,7 @@ export async function resolveCaptureBackends(
   if (platform === "linux" || platform === "win32") {
     const resolved = await resolveHelperPath({ env: input.env, platform });
     if (resolved.path) {
-      backends.push(await probeBuiltinHelper(resolved.path));
+      backends.push(await probeBuiltinHelper(resolved.path, input.env));
     } else {
       const serviceName = platform === "win32" ? "escode-usb-capture 服务" : "自研抓包器";
       backends.push({

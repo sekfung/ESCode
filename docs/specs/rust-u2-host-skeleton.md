@@ -124,7 +124,10 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 | `host-gateway` | 连接注册表（`register` 同步取号 → lane 序 = 到达序）、每连接出站 lane、capability 握手（∩ 支持面）、未覆盖 method 回 `NotImplemented` | 到达序、能力求交、路由缺口、注销 |
 | `host-control` | typed `ControlMessage`（WindowAttach/Detach、HostReady、Shutdown、LogBatch）、控制与日志共用单队列（控制必达、日志满即丢）、结构化 `ControlError` code（可判重试） | 单队列顺序、队满下控制等待而日志丢弃、错误码序列化 |
 | `host-runtime` | runtime-link 选择器（`Embedded` 默认 / `Child` 子进程）、实例表（每 workspace 一实例、**槽位 single-flight**、**懒重启 generation**、收口宽限与残余清单）；**读写分离**（帧泵独占读端、写请求不被阻塞）；embedded 收口 await 实例任务以保证 owner 锁释放 | 双 workspace 独立实例与代次、退出后下次 get 代次 +1、并发 get 只启动一代、close/shutdown 残余为空、**child 链路与 embedded 同就绪帧**（CLI 二进制在场时运行） |
+| `host-services`（第一域：settings） | settings 域：`<home>/.escode/v2/setting.json` 与 TS Host **同文件同格式**；读取短重试 3×300ms → 坏文件隔离 `.corrupt-*` → 回退默认值（TS `settingService` 同语义）；写入**顶层合并**（保留文件里其它键，含 TS 的 legacy 账户连接字段）、2 空格缩进、`host-core::atomic_write`；控制协议新增 `settingsRead`/`settingsWrite`/`settingsValue` | Rust 5 例（缺失/合并保留未知键/坏文件隔离/合法非对象不隔离/读 TS 形状文件）+ **双 Host 交替写读演练**（`packages/services/tests/escode-settings-host-interop.test.ts`：真实 TS 设置服务 ↔ 真实 `escode-host` 进程，Node 写→Rust 读、Rust 写→Node 读、3 轮交替、未知键保留、缩进一致） |
 | `escode-host`（进程入口） | 控制循环（stdio NDJSON `ControlMessage`：attach/detach/请求转发/关闭）、按实例帧泵向多窗口扇出、link 选择器（`ESCODE_HOST_RUNTIME_LINK=child`）、结构化 `Failed`/`Stopped` 回执、`WorkspaceDescriptor→RuntimeOptions`（业务事实来自 Main，不从 Host env 推断） | 端到端两例（真实子进程）：hostReady 握手 → attach 得代次 → `session/list` 经 WindowFrame 往返 → 第二窗口复用同代次 → detach 后原窗口继续服务 → shutdown 退出码 0（`Stopped{residual:[]}`）；未 attach 窗口的请求回结构化错误 |
+
+契约清单已与源码对账：`host-proto` 的 `control`/`settings` 通道登记 `Implemented`，并由 `control_inventory_matches_the_protocol_enum` 漂移测试保证与 `ControlMessage` 的 kind 集合一致（新增消息不登记即失败）。
 
 未落地（u2a 余项）：Renderer 直连的 **WebSocket surface**（capability 握手 + 分片预算；当前通路是 Main 经控制通道转发，`host-gateway` 已备好连接注册表/到达序 lane 供其叠加）、Main 侧 dev 开关 `ESCODE_RUST_HOST` 与 TS 侧接线、CI 作业接入（`pnpm check:escode-host` / `pnpm test:escode-host` 已就绪，随 u2b 一并进 workflow）、`host-services` 骨架（随第一个服务域 settings 一起建）。
 

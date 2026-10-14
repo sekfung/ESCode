@@ -69,13 +69,24 @@ host asked), the CSW `status` (0 ok, 1 failed, 2 phase error), `dCSWResidue` (by
 `DATA PROTECT`, `UNIT ATTENTION`) plus the ASC/ASCQ pair is what tells the user whether the medium, the cabling or
 the command is at fault.
 
-## When nothing can be captured
+## When capture is not available
 
-`usb_probe` reports `available: false` with a reason and a remediation. Common cases: macOS has no kernel USB
-tracing (a hardware analyzer — Lecroy, Beagle, Total Phase — or another Linux/Windows machine is needed); Linux
-without `dumpcap` or without `CAP_NET_RAW`/`CAP_NET_ADMIN` needs the `setcap` command it prints; Windows needs the
-USBPcap driver and an elevated ESCode. In all of those the **offline path still works**: `usb_decode` reads any
-capture file the user brings, from Wireshark, USBPcap, usbmon or a hardware analyzer.
+Live capture ships **with ESCode itself**: `usb_probe` lists the capture backends it found, the first entry is the
+built-in one (`builtin`), and `dumpcap` (from a Wireshark the user happens to have) is only a fallback. So the usual
+situation is not "install a tool", it is "grant permission once":
+
+- **Linux**: the built-in helper needs read access to `/dev/usbmonN`. If `usb_probe` reports `permission`, the fix is
+  one system authorization — run the `remediation` it prints (an `escode-usb-capture --install-privileges` command via
+  `pkexec`), which the user has to approve in a system dialog. It is permanent, so ask once, not every capture. If the
+  usbmon kernel module is not loaded, the remediation asks for `sudo modprobe usbmon`.
+- **Windows**: the capture service and the USBPcap driver are installed with ESCode. If `usb_probe` says the built-in
+  backend is missing, the installation predates this feature — the user should reinstall with the current installer.
+- **macOS**: there is no live capture and nothing to install. Ask the user for a `.pcapng` captured on a Linux/Windows
+  machine or with a hardware analyzer instead.
+
+Whatever the case, the **offline path always works**: `usb_decode` reads any capture file the user brings, from
+Wireshark, USBPcap, usbmon or a hardware analyzer — and it never needs a privilege or an external tool. When a capture
+is impossible right now, say so plainly and ask for a file; do not invent traffic.
 
 ## Context discipline
 

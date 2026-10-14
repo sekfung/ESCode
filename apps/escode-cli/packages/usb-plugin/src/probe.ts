@@ -219,17 +219,19 @@ export async function probeEnvironment(input: ProbeInput): Promise<ProbeResult> 
   const notes: string[] = [];
   const platform = process.platform;
   const backends = await resolveCaptureBackends({ env: input.env, platform });
-  const preferred = backends.backends.find((backend) => backend.id === backends.preferred);
+  // 顶层字段取自「首选且可用」的后端；一个都不可用时回落到第一个候选，
+  // 这样 reason/remediation 仍然是「为什么首选路径不能抓」而不是一句没有信息的“没有后端”。
+  const usable = backends.backends.find((backend) => backend.available);
+  const headline = usable ?? backends.backends[0];
   const capture: ProbeCapture = {
-    available: preferred !== undefined,
-    backend: preferred?.id ?? "none",
+    available: usable !== undefined,
+    backend: usable?.id ?? "none",
     ...(backends.preferred ? { preferred: backends.preferred } : {}),
-    // 顶层字段取自首选后端；多个候选的完整状态都在 backends 里。
-    interfaces: preferred?.interfaces ?? [],
-    privilege: preferred?.privilege ?? "unknown",
-    ...(preferred?.command ? { command: preferred.command } : {}),
-    ...(preferred?.reason ? { reason: preferred.reason } : {}),
-    ...(preferred?.remediation ? { remediation: preferred.remediation } : {}),
+    interfaces: headline?.interfaces ?? [],
+    privilege: headline?.privilege ?? "unknown",
+    ...(headline?.command ? { command: headline.command } : {}),
+    ...(headline?.reason ? { reason: headline.reason } : {}),
+    ...(headline?.remediation ? { remediation: headline.remediation } : {}),
     backends: backends.backends,
   };
   if (platform === "darwin") {

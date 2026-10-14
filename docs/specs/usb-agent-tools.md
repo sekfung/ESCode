@@ -75,12 +75,15 @@ MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单�
 `{}`。返回本机能力与清单，是唯一的环境探针：
 
 - `platform`：`linux` / `darwin` / `win32`。
-- `capture`：`{ available, backend: "dumpcap" | "usbpcap" | "none", command?, interfaces: [{ id: "usbmon1", bus: 1 }], privilege: "ok" | "denied" | "unknown", reason?, remediation? }`。
-  `remediation` 是人类可读的下一步（例如 Linux 上给 `dumpcap` 授予 `cap_net_raw,cap_net_admin` 的具体命令，Windows 上安装 USBPcap 驱动）。文案由后端给出，插件不尝试提权、不弹权限框。
+- `capture`：顶层字段取自**首选且可用**的后端；一个都不可用时回落到第一个候选，这样 `reason`/`remediation` 仍然说明「首选路径为什么不能抓」。
+  `{ available, backend: "builtin" | "dumpcap" | "none", preferred?, command?, interfaces: [{ id: "usbmon1", bus: 1, label }], privilege: "ok" | "denied" | "unknown", reason?, remediation?, backends: [...] }`。
+  `backends` 是每个候选后端的完整体面（含各自不可用的原因）——用户最常问的是「我装了 Wireshark 为什么还不行」，
+  只给一句话的顶层 `reason` 答不了这个问题。`remediation` 是人类可读的下一步（Linux 首次授权用 `pkexec`；
+  Windows 引导重装；dumpcap 回退路径给 `setcap` 命令），文案由后端给出，插件自己不尝试提权、不弹权限框。
 - `devices`：当前连接的设备，`{ busDev, bus, device, vid, pid, manufacturer?, product?, serial?, interfaces: [{ class, className }] }`。
   数据来源不需要特权：Linux `/sys/bus/usb/devices`、Windows PowerShell 枚举、macOS `system_profiler SPUSBDataType -json`。
-- `captures`：最近抓包文件清单（`path`、`bytes`、`capturedAt`、`protocols`），来自插件数据目录与工作区 `.escode/usb-captures/`。
-- `notes`：平台限制的补充说明（例如 macOS 无实时抓包）。
+- `captures`：最近抓包文件清单（`path`、`bytes`、`modifiedAt`），来自插件数据目录与工作区 `.escode/usb-captures/`。
+- `notes`：平台限制与多后端状态的补充说明（例如 macOS 无实时抓包、两个后端都不可用）。
 
 ### 3.3 `usb_capture`
 
@@ -92,10 +95,12 @@ MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单�
 - `label`（可选，`[a-z0-9-]{1,32}`）：文件名片段，便于事后辨认（例如 `acr1252-select-fail`）。
 - `outputPath`（可选）：相对路径按 workspace 解析，绝对路径原样使用；缺省 `<pluginData>/captures/<utc 时间戳>-<label>.pcapng`。
 
-返回 `{ path, bytes, packets, stoppedBy: "duration" | "maxBytes" | "signal", target: { bus, busDev? }, backend, hint? }`。
+返回 `{ path, bytes, packets, dropped?, stoppedBy: "duration" | "maxBytes" | "signal", target: { bus, busDev? }, backend }`。
+`dropped` 只在 `builtin` 后端有值（usbmon 环形缓冲溢出时的事件丢弃数）：**必须上报**，并提示「结论要按可能缺报文来读」——
+静默丢事件会让 agent 得出错误结论。
 
-错误：`unavailable`（无后端，附 `remediation`）、`permission`（后端存在但权限不足，附 `remediation`）、
-`busy`（Windows USBPcap 同一 control device 已被占用）、`invalidInput`、`io`。
+错误：`unavailable`（无可用后端，附首选后端的 `reason` 与 `remediation`）、`permission`（后端存在但权限不足）、
+`busy`（同一总线已有抓包在进行）、`invalidInput`、`io`。
 
 ### 3.4 `usb_decode`
 
@@ -178,7 +183,8 @@ MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单�
     helper 无状态、只做「读 usbmon → 写 pcapng」，不常驻。
   - Windows：**服务是所有者**，它持有 USBPcap 句柄与抓包作业；插件只发请求并等待结果，取消经管道传播；
     服务崩溃或重启时进行中的抓包以失败结束，已写入的部分文件保留。
-- 并发：Linux 允许（usbmon 支持多读者）；Windows 同一控制设备互斥，第二个抓包返回 `busy`。
+- 并发：按「后端 + 总线」串行化——同一条总线上同时只允许一次抓包（避免两个写入者抢同一份输出与
+  Windows 上驱动直接拒绝），不同总线可以并发。第二个同总线请求返回 `busy` 并提示等待。
 - 取消与异常：工具调用被取消、MCP server 退出、helper/服务异常终止三种情况都必须收尾——
   已写入的 pcapng 保留（解码器容忍截断），正常收尾前文件名带 `.partial`。
 - 不引入 UI 面板：USB 抓包不与 UI 共享状态，产物是文件。**升级触发条件**：如果 phase 3 要加抓包面板
@@ -266,10 +272,40 @@ USB 抓包动辄数万条，**任何视图都必须有上限**：`summary` 恒�
   `packages/desktop/scripts/prepare-agent-node-bundle.mjs`（生产 seed）、
   `scripts/prepare-prebuilds.mjs`（remote prebuild）、`plugin_defaults.json` 与 `official_plugins.json`（由生成脚本产出）。
 
+### 9.1 抓包组件的构建与安装
+
+目标：用户装完 ESCode 就能抓，不需要再装 Wireshark、不需要手工 `setcap`、不需要重新登录。
+
+- **Linux · 构建**：`cargo build --release --manifest-path apps/usb-capture-helper/Cargo.toml`，
+  产物投放进插件包的 `bin/linux-<arch>/escode-usb-capture`（与 `dist/` 一样属于构建产物，随插件 seed 分发）；
+  在 `packages/desktop/scripts/prepare-agent-node-bundle.mjs` 与 `scripts/prepare-prebuilds.mjs` 的插件条目里
+  声明 `requiresRuntime` 与 `requiredRuntimePaths`（**不要**写进 `official-plugin-definitions.ts` 的
+  `requiredSeedPaths`：那份清单在任何平台都会被断言，Windows/macOS 上没有这个二进制）。
+  同时把 `bin` 加入两处 stage 白名单（`includedOfficialPluginTopLevelPaths` 与 Electron 生产资源白名单）。
+- **Linux · 安装脚本**（deb `postinst` / rpm `%post` / pacman `.INSTALL`，四步且幂等）：
+  1. 建 `escode-usb` 组，并把发起安装的用户加入（能取到 `$SUDO_USER` / `$PKEXEC_UID` 时；取不到就只建组）；
+  2. 写 `/etc/udev/rules.d/99-escode-usb.rules`（`SUBSYSTEM=="usbmon", MODE="0640", GROUP="escode-usb"`）；
+  3. 写 `/etc/modules-load.d/escode-usb.conf` 并 `modprobe usbmon`；
+  4. 对**已存在**的 `/dev/usbmon*` 立即 `chgrp`/`chmod`，让当前会话不用重新登录。
+- **Linux · AppImage**：没有安装阶段 → 首次 `usb_capture` 时插件以 `pkexec <helper> --install-privileges` 走同一套逻辑，
+  用户在系统授权框里点一次确认；helper 内部从 `PKEXEC_UID` 推导目标用户（§4.1）。
+- **Windows**：NSIS 安装段（沿用 `scripts/patch-nsis-install-section.mjs` 的机制）追加
+  1. 解开随包携带的 USBPcap 驱动包（**钉版本号**）到临时目录并 `pnputil /add-driver USBPcap.inf /install`；
+  2. 注册 `escode-usb-capture` 服务（LocalSystem、自启动）并启动；
+  3. 卸载时停止并删除服务（驱动是否卸载交给用户选择，避免影响其它使用 USBPcap 的工具）。
+  驱动的 BSD-2 许可证文本进 `THIRD-PARTY-NOTICES.md`；`usb-plugin` 的 `bin/win32-<arch>/` 放服务可执行文件。
+- **macOS**：不分发任何抓包组件，只有离线解码。
+- **CI**：helper 与 `apps/escode-host` 同等对待，新增 `check:usb-capture-helper`（fmt + clippy `-D warnings`）
+  与 `test:usb-capture-helper`（`cargo test --offline`），并入现有 Rust 检查任务。
+
 ## 10. 阶段
 
-- **phase 1（本 spec）**：`usb_probe` / `usb_capture` / `usb_decode`（ccid、msc、hid、raw）+ 技能正文 + 官方插件注册 + 单测。
-- **phase 2**：UAS、传感器/中断流式视图、`engine: "tshark"` 交叉校验开关、抓包面板（届时按 §5 升级为 Host 服务 + broker）。
+- **phase 1（已完成）**：`usb_probe` / `usb_capture` / `usb_decode`（ccid、msc、hid、raw）+ 技能正文 + 官方插件注册 + 单测；
+  抓包走 `dumpcap` 兼容后端。
+- **phase 2（当前）**：`builtin` 后端——Linux 自研 helper（§4.1）、Windows 服务 + USBPcap 驱动（§4.2）、
+  插件侧后端抽象与权限获取路径（§9.1）。**需要真机验证**：一台有 root 的 Linux + 一台 Windows。
+- **phase 3**：UAS、传感器/中断流式视图、`engine: "tshark"` 交叉校验开关、抓包面板
+  （届时按 §5 升级为 Host 服务 + broker，解码器提升到 `@escode/shared/usb`）。
 
 ## 11. 验收
 

@@ -164,6 +164,41 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     }
                 }
             }
+            ControlMessage::SettingsRead { home } => {
+                let settings = escode_host_services::settings::read(std::path::Path::new(&home))
+                    .await
+                    .unwrap_or_else(|error| {
+                        eprintln!("escode-host: settings read failed: {error:#}");
+                        serde_json::json!({})
+                    });
+                control
+                    .send(ControlMessage::SettingsValue { settings })
+                    .await?;
+            }
+            ControlMessage::SettingsWrite { home, patch } => {
+                match escode_host_services::settings::apply_patch(
+                    std::path::Path::new(&home),
+                    &patch,
+                )
+                .await
+                {
+                    Ok(settings) => {
+                        control
+                            .send(ControlMessage::SettingsValue { settings })
+                            .await?;
+                    }
+                    Err(error) => {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!("{error:#}"),
+                                },
+                            })
+                            .await?;
+                    }
+                }
+            }
             ControlMessage::Shutdown { reason } => {
                 control.stop_pumps();
                 let _ = control
@@ -189,7 +224,8 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::WindowFrame { .. }
             | ControlMessage::LogBatch { .. }
             | ControlMessage::Failed { .. }
-            | ControlMessage::Stopped { .. } => {}
+            | ControlMessage::Stopped { .. }
+            | ControlMessage::SettingsValue { .. } => {}
         }
     }
     // 输入关闭（Main 退出）= 收口全部实例。

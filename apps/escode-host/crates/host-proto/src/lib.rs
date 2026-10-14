@@ -22,33 +22,80 @@ pub enum State {
 }
 
 /// 契约清单（u2a 起点：先登记阶段 2 优先序 3–5 的服务面；迁移一域补一域）。
+/// `control` 通道的方法名即 `ControlMessage` 的 serde tag（漂移由 host-proto 的
+/// `control_inventory_matches_the_protocol_enum` 测试拦截）。
 pub const METHODS: &[Method] = &[
-    // 通路（u2a 自带）
+    // 通路（u2a 自带；Process = 进程入口的控制循环已实现）
     Method {
         channel: "control",
-        method: "host/attachWindow",
-        state: State::Pending,
+        method: "hostReady",
+        state: State::Implemented,
     },
     Method {
         channel: "control",
-        method: "host/detachWindow",
-        state: State::Pending,
+        method: "windowAttach",
+        state: State::Implemented,
     },
     Method {
         channel: "control",
-        method: "host/shutdown",
-        state: State::Pending,
+        method: "windowAttached",
+        state: State::Implemented,
     },
-    // settings（优先序 3）
+    Method {
+        channel: "control",
+        method: "windowRequest",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "windowFrame",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "windowDetach",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "windowDetached",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "logBatch",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "failed",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "shutdown",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "stopped",
+        state: State::Implemented,
+    },
+    // settings（优先序 3；Rust 侧读/写与 TS Host 同文件同格式，交替写读演练已通过）
     Method {
         channel: "settings",
-        method: "settings/read",
-        state: State::Pending,
+        method: "settingsRead",
+        state: State::Implemented,
     },
     Method {
         channel: "settings",
-        method: "settings/write",
-        state: State::Pending,
+        method: "settingsWrite",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "settings",
+        method: "settingsValue",
+        state: State::Implemented,
     },
     // workspace（优先序 4）
     Method {
@@ -68,6 +115,15 @@ pub const METHODS: &[Method] = &[
         state: State::Pending,
     },
 ];
+
+/// 某通道上标记为已实现的方法名。
+pub fn implemented_methods(channel: &str) -> Vec<&'static str> {
+    METHODS
+        .iter()
+        .filter(|entry| entry.channel == channel && entry.state == State::Implemented)
+        .map(|entry| entry.method)
+        .collect()
+}
 
 /// 清单里的全部 channel（排序去重）。
 pub fn channels() -> Vec<&'static str> {
@@ -137,7 +193,9 @@ mod tests {
     fn inventory_is_self_consistent() {
         assert!(duplicates().is_empty());
         assert!(channels().contains(&"settings"));
-        assert_eq!(methods_of("control").len(), 3);
+        let control = methods_of("control");
+        assert!(control.len() >= 3);
+        assert!(control.iter().any(|entry| entry.method == "hostReady"));
     }
 
     #[test]
@@ -165,7 +223,11 @@ mod tests {
             );
         }
         // 额外登记（清单里没有的方法）同样失败。
-        let mut extra = BTreeSet::new();
+        let mut extra: BTreeSet<(&'static str, &'static str)> = METHODS
+            .iter()
+            .filter(|entry| entry.state == State::Implemented)
+            .map(|entry| (entry.channel, entry.method))
+            .collect();
         extra.insert(("settings", "settings/anything"));
         let error = check(&extra).expect_err("未知方法必须失败");
         assert!(
@@ -173,5 +235,96 @@ mod tests {
                 .to_string()
                 .contains("missing from the contract inventory")
         );
+    }
+}
+
+#[cfg(test)]
+mod contract_drift {
+    use super::*;
+    use escode_host_control::ControlMessage;
+
+    /// 清单与源码一致（rust-u2-hose-skeleton §4）：`control` 通道的已实现方法名集合
+    /// 必须等于 `ControlMessage` 全部 kind —— 新增/删除控制消息而不更新清单会失败。
+    #[test]
+    fn control_inventory_matches_the_protocol_enum() {
+        let declared: std::collections::BTreeSet<&str> =
+            implemented_methods("control").into_iter().collect();
+        let sample: Vec<ControlMessage> = vec![
+            ControlMessage::WindowAttach {
+                window_id: String::new(),
+                client_id: String::new(),
+                workspace: Default::default(),
+            },
+            ControlMessage::WindowAttached {
+                window_id: String::new(),
+                generation: 0,
+            },
+            ControlMessage::WindowRequest {
+                window_id: String::new(),
+                line: String::new(),
+            },
+            ControlMessage::WindowFrame {
+                window_id: String::new(),
+                line: String::new(),
+            },
+            ControlMessage::WindowDetach {
+                window_id: String::new(),
+            },
+            ControlMessage::WindowDetached {
+                window_id: String::new(),
+            },
+            ControlMessage::HostReady {
+                protocol_version: 0,
+                workspaces: 0,
+            },
+            ControlMessage::Shutdown {
+                reason: String::new(),
+            },
+            ControlMessage::LogBatch {
+                scope: String::new(),
+                level: escode_host_control::LogLevel::Info,
+                lines: Vec::new(),
+            },
+            ControlMessage::Failed {
+                error: escode_host_control::ControlError {
+                    code: escode_host_control::ControlErrorCode::Fatal,
+                    message: String::new(),
+                },
+            },
+            ControlMessage::Stopped {
+                residual: Vec::new(),
+            },
+            ControlMessage::SettingsRead {
+                home: String::new(),
+            },
+            ControlMessage::SettingsWrite {
+                home: String::new(),
+                patch: serde_json::Value::Null,
+            },
+            ControlMessage::SettingsValue {
+                settings: serde_json::Value::Null,
+            },
+        ];
+        // settings 域的消息在清单里单独分通道登记，这里只看 control 通道。
+        let settings_kinds: std::collections::BTreeSet<&str> =
+            ["settingsRead", "settingsWrite", "settingsValue"]
+                .into_iter()
+                .collect();
+        let actual: std::collections::BTreeSet<&str> = sample
+            .iter()
+            .map(ControlMessage::kind)
+            .filter(|kind| !settings_kinds.contains(kind))
+            .collect();
+        assert_eq!(
+            actual, declared,
+            "控制消息 kind 与契约清单不一致（新增消息必须同时登记到 control 通道）"
+        );
+        let settings_declared: std::collections::BTreeSet<&str> =
+            implemented_methods("settings").into_iter().collect();
+        let settings_actual: std::collections::BTreeSet<&str> =
+            ["settingsRead", "settingsWrite", "settingsValue"]
+                .into_iter()
+                .collect();
+        assert_eq!(settings_actual, settings_declared);
     }
 }

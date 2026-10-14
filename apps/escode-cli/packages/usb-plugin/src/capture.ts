@@ -154,6 +154,8 @@ async function runBuiltinCapture(input: {
   outputPath: string;
   signal: AbortSignal;
   notes: string[];
+  /** 显式传插件自己的 env：不传会继承宿主进程环境，行为随启动方式漂移（测试也无法注入）。 */
+  env: Record<string, string | undefined>;
 }): Promise<CaptureOutcome> {
   const args = [
     "--bus",
@@ -166,6 +168,7 @@ async function runBuiltinCapture(input: {
     input.outputPath,
   ];
   const child = spawn(input.helper, args, {
+    env: input.env,
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -265,6 +268,7 @@ export async function runCapture(input: {
   workspace: string;
   pluginData: string;
   signal: AbortSignal;
+  env: Record<string, string | undefined>;
 }): Promise<CaptureOutcome> {
   const { request, probe } = input;
   if (request.durationMs > CAPTURE_MAX_DURATION_MS || request.durationMs < 1) {
@@ -319,6 +323,7 @@ export async function runCapture(input: {
         outputPath,
         signal: input.signal,
         notes,
+        env: input.env,
       });
     } finally {
       activeCaptures.delete(jobKey);
