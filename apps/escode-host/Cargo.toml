@@ -57,6 +57,10 @@ tokio-util = "0.7"
 tokio-tungstenite = "0.30.0"
 tempfile = "3"
 # 共享基础代码复用 CLI 侧 crate（阶段 1 库化红利；见 rust-u2-host-skeleton.md §2）。
+# ICU4X：`file.readdir` 的排序要对齐 Node `String.prototype.localeCompare`
+# （ICU 默认 collation，UCA/CLDR；见 host-rpc/src/collation.rs 的差分证据）。
+icu_collator = "2"
+icu_locale_core = "2"
 escode-cli-core-api = { path = "../escode-cli-rust/crates/core-api" }
 escode-cli-host = { path = "../escode-cli-rust/crates/host" }
 escode-cli-app-server = { path = "../escode-cli-rust/crates/app-server" }

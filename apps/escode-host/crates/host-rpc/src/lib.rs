@@ -5,9 +5,11 @@
 //! 线协议对齐 `packages/rpc`（13 字节帧 + VSBuffer 序列化 + channel 分派）。
 //! 未迁移的 channel 回 `NotImplemented`（Renderer 见显式缺口，不挂起）。
 
+mod collation;
 pub mod domains;
 pub mod domains_file;
 mod domains_file_channel;
+mod domains_file_readdir;
 mod domains_file_preview;
 mod domains_file_workspace;
 pub mod forward;

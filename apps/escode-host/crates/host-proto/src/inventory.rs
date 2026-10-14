@@ -166,7 +166,7 @@ pub const METHODS: &[Method] = &[
     Method {
         channel: "file",
         method: "readdir",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "file",

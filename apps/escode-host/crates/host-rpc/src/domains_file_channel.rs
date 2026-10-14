@@ -10,6 +10,7 @@ use crate::domains_file::{
     Cache, blocking, check_files_exist, read_file_range, read_text_file, resolve_path, stat,
 };
 use crate::domains_file_preview::{read_binary_preview, read_media_preview};
+use crate::domains_file_readdir::readdir;
 use crate::domains_file_workspace::{
     create_default_workspace, create_scratch_workspace, ensure_conversation_workspace,
 };
@@ -85,6 +86,7 @@ pub fn file_channel(home: PathBuf, data_base_dir: Option<PathBuf>) -> Channel {
         "file",
         vec![
             ("stat", plain(stat)),
+            ("readdir", plain(readdir)),
             ("checkFilesExist", with_cache(check_files_exist)),
             ("resolvePath", resolve),
             ("readFileRange", plain(read_file_range)),

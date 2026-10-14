@@ -52,6 +52,38 @@ async fn conversation_workspace_uses_the_main_provided_data_base_dir() {
         .expect("object");
     assert_eq!(second["created"], serde_json::json!(false));
 
+    // readdir：目录组优先 + 组内 localeCompare（ICU），隐藏项默认过滤。
+    let corpus = dir.path().join("corpus");
+    std::fs::create_dir_all(&corpus).unwrap();
+    for name in ["b.txt", "A.txt", "_x", ".hidden", "é.txt"] {
+        std::fs::write(corpus.join(name), "x").unwrap();
+    }
+    std::fs::create_dir(corpus.join("zDir")).unwrap();
+    call(
+        &mut socket,
+        34,
+        "file",
+        "readdir",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "path": corpus.to_string_lossy(),
+        }))]),
+    )
+    .await;
+    let Wire::Array(entries) = read_response(&mut socket, 34).await else {
+        panic!("array")
+    };
+    let names: Vec<String> = entries
+        .iter()
+        .map(|entry| {
+            let Wire::Object(object) = entry else {
+                panic!("entry object")
+            };
+            object["name"].as_str().unwrap().to_owned()
+        })
+        .collect();
+    // 目录组在前；组内 `localeCompare`（下划线 < 字母 < 重音，且区分大小写档次）。
+    assert_eq!(names, vec!["zDir", "_x", "A.txt", "b.txt", "é.txt"], "{names:?}");
+
     // 默认/命名工作区仍按 home（homedir 语义）派生，与 dataBaseDir 无关。
     call(
         &mut socket,

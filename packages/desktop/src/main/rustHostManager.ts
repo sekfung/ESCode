@@ -1,5 +1,10 @@
 import { join } from "node:path";
-import { bridgeRustHostPort, isRustHostEnabled, startRustHost, type RustHostHandle } from "./rustHostBridge.js";
+import {
+  bridgeRustHostPort,
+  isRustHostEnabled,
+  startRustHost,
+  type RustHostHandle,
+} from "./rustHostBridge.js";
 
 // Rust Host 生命周期（dev 开关，docs/specs/rust-u2-host-skeleton.md §6）：
 // - `ESCODE_RUST_HOST=1` 时 Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/手机远控
@@ -38,7 +43,9 @@ export interface RustHostManager {
   /** 懒启动（single-flight）；失败抛错，调用方回退 Node Host。 */
   ensureStarted(): Promise<RustHostHandle>;
   /** 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。 */
-  attachLocalPort(createChannel: () => { port1: unknown; port2: unknown }): Promise<RustHostAttachment>;
+  attachLocalPort(
+    createChannel: () => { port1: unknown; port2: unknown },
+  ): Promise<RustHostAttachment>;
   /** 当前是否已有 Host 进程在跑（诊断/测试）。 */
   isRunning(): boolean;
   /** 收口（应用退出）。 */
@@ -76,8 +83,18 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
     async attachLocalPort(createChannel) {
       const started = await ensureStarted();
       const channel = createChannel() as {
-        port1: { on?: HostPortLikeOn; postMessage(value: unknown): void; start?(): void; close?(): void };
-        port2: { on?: HostPortLikeOn; postMessage(value: unknown): void; start?(): void; close?(): void };
+        port1: {
+          on?: HostPortLikeOn;
+          postMessage(value: unknown): void;
+          start?(): void;
+          close?(): void;
+        };
+        port2: {
+          on?: HostPortLikeOn;
+          postMessage(value: unknown): void;
+          start?(): void;
+          close?(): void;
+        };
       };
       const teardown = bridgeRustHostPort(started, channel.port2 as never);
       return {

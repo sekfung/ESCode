@@ -70,12 +70,16 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
       })}\n`,
     );
     const listening = await withTimeout(
-      control.nextMatching((message) => message.kind === "rpcListening" || message.kind === "failed"),
+      control.nextMatching(
+        (message) => message.kind === "rpcListening" || message.kind === "failed",
+      ),
       timeoutMs,
       "Rust Host did not report rpcListening",
     );
     if (listening.kind === "failed") {
-      throw new Error(`Rust Host failed to listen: ${JSON.stringify(listening.error ?? listening)}`);
+      throw new Error(
+        `Rust Host failed to listen: ${JSON.stringify(listening.error ?? listening)}`,
+      );
     }
     const addr = `127.0.0.1:${String(listening.addr).replace(/^.*:/, "")}`;
     return {
