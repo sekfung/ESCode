@@ -165,6 +165,25 @@ describe("rust host rpc surface", () => {
       expect(Array.isArray(sessions)).toBe(true);
       expect(sessions).toHaveLength(0);
 
+      // 读面转发：readSession 对不存在的会话透传运行时语义（RuntimeError）。
+      await expect(
+        services.escodeSessionService.readSession({
+          workspacePath,
+          workspaceIdentity: workspacePath,
+          sessionId: "sess_missing",
+          deliveryKind: "desktop-continuous",
+        } as never),
+      ).rejects.toThrow(/Session unavailable/);
+
+      // 写面尚未迁移：显式 NotImplemented。
+      await expect(
+        services.escodeSessionService.closeSession({
+          workspacePath,
+          workspaceIdentity: workspacePath,
+          sessionId: "sess_missing",
+        } as never),
+      ).rejects.toThrow(/does not implement `escode-session.closeSession`/);
+
       // 未迁移的 channel：显式 NotImplemented，且消息里带已实现清单。
       const client = new ChannelClient(new SocketProtocol(wrapNodeWebSocket(new WebSocket(`ws://${addr}/ws`))));
       await expect(client.getChannel("workspace").call("query", {})).rejects.toThrow(
