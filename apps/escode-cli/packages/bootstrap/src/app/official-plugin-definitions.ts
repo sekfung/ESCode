@@ -38,6 +38,8 @@ const OFFICIAL_CIRCUIT_PLUGIN_NAME = "circuit";
 export const OFFICIAL_CIRCUIT_PLUGIN_ID = `${OFFICIAL_CIRCUIT_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_REA_PLUGIN_NAME = "rea";
 export const OFFICIAL_REA_PLUGIN_ID = `${OFFICIAL_REA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
+const OFFICIAL_USB_PLUGIN_NAME = "usb";
+export const OFFICIAL_USB_PLUGIN_ID = `${OFFICIAL_USB_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 export const OFFICIAL_CUA_PLUGIN_NAME = "computer-use";
 export const OFFICIAL_CUA_PLUGIN_ID = `${OFFICIAL_CUA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 
@@ -107,6 +109,11 @@ const OFFICIAL_CIRCUIT_REQUIRED_SEED_PATHS = [
   "skills/circuit/SKILL.md",
 ] as const;
 
+const OFFICIAL_USB_REQUIRED_SEED_PATHS = [
+  "dist/mcp/server.js",
+  "skills/usb-capture/SKILL.md",
+] as const;
+
 export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = [
   {
     // 串口工具由宿主按 Host 能力标记（ESCODE_HOST_SERIAL）注入，只有 Desktop Local Host 才有；
@@ -130,6 +137,38 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       "../serial-plugin",
       "../../serial-plugin",
       "../../../serial-plugin",
+    ],
+    version: "0.1.0",
+  },
+  {
+    // USB 抓包与协议分析（docs/specs/usb-agent-tools.md）。MCP server 由**插件 manifest 自声明**
+    // （与 android-emulator/ios-simulator 同构，因此不设 hostMcpServerNames）：它不需要 Host 注入的
+    // 连接材料，离线解码也不会拉起常驻进程，所以远程 workspace / 独立 CLI 上同样成立。
+    //
+    // 设 defaultEnabled 的理由：主能力是离线解码（CCID/APDU、HID、MSC/SCSI 的 pcapng），无系统依赖、
+    // 全部只读，属于内容型能力；唯一的外部依赖（dumpcap / USBPcapCMD）只影响 usb_capture，
+    // 缺后端时工具返回可执行的 remediation 而不是静默失败。
+    defaultEnabled: true,
+    // 免审批边界：usb_probe 与 usb_decode 只读；usb_capture 会拉起特权抓包进程并写文件，必须走审批。
+    // 名单需与 usb-plugin 的 USB_READ_ONLY_TOOLS（packages/usb-plugin/src/tools.ts）保持一致。
+    defaultAllowedTools: ["usb_probe", "usb_decode"],
+    listing: {
+      author: ZAI_AUTHOR,
+      category: "developer-tools",
+      description_i18n: {
+        "zh-CN":
+          "抓取并解码本机 USB 报文：智能卡读卡器（CCID/APDU）、HID 设备、大容量存储（MSC/SCSI）。离线分析不需要特权。",
+      },
+      displayName: "USB Capture",
+      displayName_i18n: { "zh-CN": "USB 抓包分析" },
+    },
+    name: OFFICIAL_USB_PLUGIN_NAME,
+    requiredSeedPaths: OFFICIAL_USB_REQUIRED_SEED_PATHS,
+    rootCandidates: [
+      "packages/usb-plugin",
+      "../usb-plugin",
+      "../../usb-plugin",
+      "../../../usb-plugin",
     ],
     version: "0.1.0",
   },

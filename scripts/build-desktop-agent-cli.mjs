@@ -79,6 +79,12 @@ const requiredDevPluginRuntimeBuilds = [
     packageName: "@escode/circuit-plugin",
     artifactPath: "circuit-plugin/dist/mcp/server.js",
   },
+  {
+    // USB 官方插件：MCP server 由插件 manifest 自声明（不依赖 Host 注入材料），但产物必须存在，
+    // 否则插件启用后 usb_* 工具整组连不上（与 serial/circuit 同因）。
+    packageName: "@escode/usb-plugin",
+    artifactPath: "usb-plugin/dist/mcp/server.js",
+  },
 ];
 const defaultBuildFilters = [
   ...cliWorkspaceBuilds.map(({ packageName }) => packageName),

@@ -117,6 +117,33 @@
       }
     },
     {
+      "name": "usb",
+      "version": "0.1.0",
+      "rootCandidates": [
+        "packages/usb-plugin",
+        "../usb-plugin",
+        "../../usb-plugin",
+        "../../../usb-plugin"
+      ],
+      "requiredSeedPaths": ["dist/mcp/server.js", "skills/usb-capture/SKILL.md"],
+      "runtimeTopLevelPaths": [],
+      "defaultAllowedTools": ["usb_probe", "usb_decode"],
+      "listing": {
+        "author": {
+          "name": "Z.ai",
+          "url": "https://z.ai"
+        },
+        "category": "developer-tools",
+        "description_i18n": {
+          "zh-CN": "抓取并解码本机 USB 报文：智能卡读卡器（CCID/APDU）、HID 设备、大容量存储（MSC/SCSI）。离线分析不需要特权。"
+        },
+        "displayName": "USB Capture",
+        "displayName_i18n": {
+          "zh-CN": "USB 抓包分析"
+        }
+      }
+    },
+    {
       "name": "circuit",
       "version": "0.1.0",
       "rootCandidates": [

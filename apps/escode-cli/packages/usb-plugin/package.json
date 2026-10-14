@@ -9,6 +9,7 @@
     "clean": "node ../../scripts/clean-dist.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --no-ignore",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
     "test": "vitest run test"
   },
   "dependencies": {

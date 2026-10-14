@@ -130,6 +130,15 @@ const remoteOfficialPluginPackages = [
     stagedPath: "packages/android-emulator-plugin",
   },
   {
+    // USB 官方插件：离线解码在本机与远程 Host 上都成立，因此 remote prebuild 也要带 runtime 与技能。
+    packageName: "@escode/usb-plugin",
+    relativePath: "apps/escode-cli/packages/usb-plugin",
+    requiresRuntime: true,
+    requiredRuntimePaths: ["dist/mcp/server.js", "skills/usb-capture/SKILL.md"],
+    runtimeBuildScript: "scripts/build.mjs",
+    stagedPath: "packages/usb-plugin",
+  },
+  {
     packageName: "@escode/documents-plugin",
     relativePath: "apps/escode-cli/packages/documents-plugin",
     requiresRuntime: false,

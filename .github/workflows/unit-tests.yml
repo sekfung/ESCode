@@ -61,6 +61,7 @@ jobs:
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
             --filter "@escode/rea-plugin..." \
+            --filter "@escode/usb-plugin..." \
             build
 
       # 基线取 PR 的目标分支 sha；push 取本次推送前的 sha。拿不到有效 commit（新分支的零 sha、
@@ -110,6 +111,7 @@ jobs:
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
             --filter "@escode/rea-plugin..." \
+            --filter "@escode/usb-plugin..." \
             build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
       - run: pnpm --filter @escode/bootstrap exec vitest run tests

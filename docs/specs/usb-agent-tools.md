@@ -112,7 +112,7 @@ MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单�
 返回固定包含 `truncated`（是否因 `limit`/`payloadBytes` 截断）与 `cursor`（下一页游标，无更多时为 `null`）、
 `file: { truncated: true }`（抓到一半的文件；解码器读到坏块即停并照常返回已解析部分）。
 
-错误：`notFound`、`unsupportedFormat`（非 pcap/pcapng，或未知 linktype——**不猜格式**）、`permission`、`io`、`decode`（解析失败，附文件名与偏移量）。
+错误：`notFound`、`unsupportedFormat`（非 pcap/pcapng，或未知 linktype——**不猜格式**）、`io`（含读取失败）、`decode`（解析失败，附文件名与偏移量）。
 
 ## 4. 平台与依赖矩阵
 
@@ -123,8 +123,9 @@ MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单�
 | macOS       | 不可用   | —                                                                          | 无公开内核抓包接口：只能离线解码，或用硬件分析仪（Lecroy / Beagle / Total Phase）导出 pcapng |
 | 容器 / CI   | 不可用   | —                                                                          | 同上；单测全部走离线解码路径，不需要硬件与特权 |
 
-外部命令行（`dumpcap` / `USBPcapCMD` / `tshark`）**不随包分发**，按 `user_config` 可覆盖路径（与 REA 对 tshark 的处理一致）。
-离线解码**不依赖任何外部命令行**：pcapng 容器与 usbmon / USBPcap 链路层由插件自己解析。
+外部命令行（`dumpcap` / `USBPcapCMD`）**不随包分发**，按 `user_config` 可覆盖路径（与 REA 对 tshark 的处理一致）。
+离线解码**不依赖任何外部命令行**：pcapng 容器与 usbmon / USBPcap 链路层由插件自己解析，
+因此 CI、容器与 macOS 上的单测都走同一条离线路径。
 
 ## 5. 所有者、并发与取消
 
@@ -198,7 +199,7 @@ USB 抓包动辄数万条，**任何视图都必须有上限**：`summary` 恒�
   变量用 `${ESCODE_PLUGIN_ROOT}` / `${ESCODE_PROJECT_DIR}` / `${ESCODE_PLUGIN_DATA}` / `${user_config.*}`，
   与 `android-emulator-plugin` 同构）、`src/`（tools / server / 解码核心 / probe / capture）、
   `skills/usb-capture/SKILL.md`、`scripts/build.mjs` 产出 `dist/mcp/server.js`（stdio）、`test/`。
-- `userConfig`：`dumpcap_path`、`usbpcap_cmd_path`、`tshark_path`，默认空（走 PATH 探测）。
+- `userConfig`：`dumpcap_path`、`usbpcap_cmd_path`，默认空（走 PATH 与常见安装路径探测）。
 - 官方插件定义新增 `usb`（`defaultEnabled: true`、`defaultAllowedTools: ["usb_probe", "usb_decode"]`、
   `requiredSeedPaths: ["dist/mcp/server.js", "skills/usb-capture/SKILL.md"]`、`rootCandidates` 同 serial）。
   **不使用** `hostMcpServerNames`：工具不依赖 Host 注入的连接材料，manifest 声明即可（见 §1 与 android/ios 先例）。
@@ -206,6 +207,15 @@ USB 抓包动辄数万条，**任何视图都必须有上限**：`summary` 恒�
   若后续确认这种暴露不可接受，再改为 Host 能力标记门控（`ESCODE_HOST_USB`）。
 - 两个运行时（TS / Rust）都通过 Host 的插件启动器运行同一份 `dist/mcp/server.js`，因此**行为天然一致**，
   不需要 `mcp_usb.rs` 之类的对等实现；Rust 侧只需随 `scripts/generate-escode-cli-rust-official-plugins.mjs` 拿到新的清单条目。
+- **协议协商**：server 必须接受 2025 版协商，不能传 `serveStdio(..., { legacy: "reject" })`。
+  serial/circuit 能拒绝旧版协商，是因为它们的 MCP 配置由宿主注入并固定了 `protocolVersion`
+  （`built-in-serial.ts` 的注释）；本插件的 server 由 manifest 自声明，没有这个注入点，
+  拒绝旧版会让 `usb_*` 工具整组不可用（表现为「工具不存在」而不是报错）。回归由 `scripts/smoke-mcp.mjs` 覆盖。
+- 需要登记的平行清单（缺一处就会装出「有技能没有工具」或图标缺失的插件）：
+  `official-plugin-definitions.ts`（定义 + seed 路径）、`packages/shared/src/plugin-marketplaces.ts`
+  （`DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS`）、`scripts/build-desktop-agent-cli.mjs`（dev 构建产物校验）、
+  `packages/desktop/scripts/prepare-agent-node-bundle.mjs`（生产 seed）、
+  `scripts/prepare-prebuilds.mjs`（remote prebuild）、`plugin_defaults.json` 与 `official_plugins.json`（由生成脚本产出）。
 
 ## 10. 阶段
 
@@ -216,7 +226,11 @@ USB 抓包动辄数万条，**任何视图都必须有上限**：`summary` 恒�
 
 - 单测（无硬件、无特权、CI 可跑）：CCID 消息头 / APDU / `SW1SW2` / 链式块合并；CBW/CSW/CDB/sense；
   HID 报告描述符 → 字段布局 → 报告解码；pcapng 容器（含截断文件与未知 linktype 必须报错）；
-  usbmon 与 USBPcap 链路层解析；视图分页与体积上限；`usb_probe` 在无后端平台返回 `available: false` + `remediation`。
+  usbmon 与 USBPcap 链路层解析；提交/完成配对（含按 URB id 匹配与 FIFO 兜底）；
+  视图分页与体积上限；工具契约（严格参数校验、只读/审批标注、`notFound` 与 `unsupportedFormat` 的错误码）；
+  `usb_probe` 在无后端平台返回 `available: false` + `remediation`。
+- 插件注册冒烟（需要构建产物）：`pnpm --filter @escode/usb-plugin build && pnpm --filter @escode/usb-plugin smoke:mcp`
+  用 stdio JSON-RPC 走通 initialize / tools/list / tools/call，覆盖「协议协商被拒导致工具整组不可见」这类静默失败。
 - 集成（需要真实抓包）：Linux 用 `usbmon` 抓一份 CCID 读卡器与一份 HID 设备的真实 pcapng、
   Windows 用 USBPcap 抓一份 MSC 的真实 pcapng，作为 fixtures 落到仓库，
   断言设备识别、协议判定与关键报文解码结果。**不接受只用合成样例**：链路层解析必须由真实抓包复核，

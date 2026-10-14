@@ -71,9 +71,3 @@ export function hex(value: number, width = 2): string {
   return `0x${value.toString(16).padStart(width, "0").toUpperCase()}`;
 }
 
-/** 位域解码：`{ 6: "CommandStatus" }` + 值 `0x40` → `["CommandStatus(bit6)"]`。 */
-export function setBitNames(value: number, table: Record<number, string>): string[] {
-  return Object.entries(table)
-    .filter(([bit]) => (value & (1 << Number(bit))) !== 0)
-    .map(([bit, name]) => `${name}(bit${bit})`);
-}

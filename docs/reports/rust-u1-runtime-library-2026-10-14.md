@@ -65,8 +65,18 @@ embed::spawn ─► 实例根未来（INSTANCE.scope）
   - 第一轮（迁移批次构建，2026-10-14）：393 通过 / 2 失败 / 12 跳过。
   - 失败一 `escode-cli-rust-file-log.test.ts` 单独复跑**通过**——该轮失败与并行构建擦写同一个 `target/debug/escode-cli-rust`（我在套件运行期间执行了 `cargo clippy`/`cargo test`）有关；教训：套件运行期间禁止并发 cargo 构建。
   - 失败二 `escode-cli-rust-legacy-session.test.ts`（"legacy session methods behave the same on Node and Rust"，报 `ESCode agent stdio transport is closed`）：**本机既存问题，非本批引入**。判据（bisect）：把 `apps/escode-cli-rust` 恢复到阶段 0 提交 `1d94fb38` 重建基线二进制后，同一用例以同一错误签名稳定失败（默认 env 与 CI env 各一次）；本批二进制同样失败。该用例的 Rust 侧在 slow 发送→settle 之后、`session/close` 前后进程提前结束，宿主应答因传输关闭抛错，具体原因待单独排查（阶段 2 差分维护项）。
-  - 最终复跑（本批代码，无并发构建，2026-10-14）：**407 例 / 392 通过 / 3 失败 / 12 跳过**。三个失败的分类（逐个隔离复跑）：`escode-cli-rust-file-log.test.ts` 与 `escode-cli-rust-amend-workflow.test.ts` 在隔离运行下**通过**（满载串行下超时/竞争，属套件负载浮变）；`escode-cli-rust-legacy-session.test.ts` 隔离运行同样失败，且阶段 0 基线二进制复现同一签名——**本机既存问题，非本批引入**。
+  - 最终复跑（阶段 1 全部改动，无并发构建，2026-10-14）：**407 例 / 392 通过 / 3 失败 / 12 跳过**。三个失败的分类（逐个隔离复跑）：`escode-cli-rust-file-log.test.ts` 与 `escode-cli-rust-amend-workflow.test.ts` 在隔离运行下**通过**（满载串行下超时/竞争，属套件负载浮变）；`escode-cli-rust-legacy-session.test.ts` 隔离运行同样失败，且阶段 0 基线二进制复现同一签名——**本机既存问题，非本批引入**。
+  - schema 校验增量后的复跑（2026-10-14）：**407 例 / 393 通过 / 2 失败 / 12 跳过**；失败为 `legacy-session` 与 `escode-cli-rust-history.test.ts`（"Corrupt persisted history boundaries are rejected before activating or replaying a session"）。后者隔离复跑同样失败，且阶段 0 基线二进制复现同一签名——**同属本机既存问题**。
+  - 两个既存失败的共同签名：Rust 进程在用例期望它继续服务时提前结束（宿主应答报 `ESCode agent stdio transport is closed`）。两者的 Rust 源侧都涉及"服务端拒绝但进程存活"的语义（legacy `session/close` 后、损坏历史边界订阅拒绝后），**线索**：某些拒绝路径可能走到了致命错误（serve 返回 Err → 进程退出），而不是回错误应答后继续服务；需按 `-32602/契约错误` 与 `fatal` 的边界逐条核对（阶段 2 差分维护项，CI 三平台先确认是否复现）。
 - 与 TS oracle 的协议面未变更：双传输两端都产出与 stdio 相同的 NDJSON 帧；`session/list`、`createSession`、`v4/commands/query` 等应答形状未改。
+
+## 5.1 后续增量（同日，已提交）
+
+- **P1 #7 FileStamp/ChangeGate**：`crates/host/src/file_stamp.rs`（len/mtime/inode/ctime + 兜底全读），接入 `Registry::refresh`：指纹未变则跳过两份 ≤8MB 配置的读取与 SHA256；五类指纹测试 + 四个 registry 闸门测试（未变零读、改写可发现、兜底全读、账号旁路）。
+- **P1 #8 部分**：删除 `CoreRuntime`（第二所有权，`Arc<Mutex<Engine>>`）；挂起确认三表合并为单注册表 `Waiters::release/clear`（会话关闭与收口单点释放，不再三处 retain）。
+- **P1 #11 部分**：`bash_callbacks` 改声明表 + `declared_names()`，新增 `bash_callback_reconciliation` 4 测试（语料 ↔ 实现双向对账、`safeFlags` kind 枚举 ↔ 语料双向对账、kind 匹配语义）；未变更的旧行为 `_ => true` 静默兜底已由对账测试替代（构建期拦截）。
+- **P1 #10**：`v4/command` schema 校验（TS zod → `command_schema.json`，35 类型；Rust 子集校验器 + `parseCommandEnvelope` 同构；漂移双向门禁；协议入口 debug 诊断，线上应答不变）。测试过程中修正一处真实偏差：TS 的两条 CAS 规则是并列 `||`，此前实现误为嵌套（只带 `baseRevision` 的行定位命令会漏检 `baseLogEpoch`）。
+- **P1 #6 子项**：`core-api::secret::RedactedString`，`ModelConfig.api_key_value` 与 `headers` 改为脱敏类型（`Debug`/`Display` 输出占位符，明文只在发送边界 `expose()`），2 测试。
 
 ## 6. 遗留与移交（u2 输入）
 

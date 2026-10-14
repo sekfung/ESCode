@@ -630,7 +630,7 @@ describe("ESCode plugins", () => {
             isOfficial: true,
             name: "zcode-plugins-official",
             // 这个数随内置插件增减；加 rea 之前基线就已经是 16（断言长期停在 14）。
-            pluginCount: 17,
+            pluginCount: 18,
             source: {
               source: "url",
               url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
@@ -2389,7 +2389,7 @@ describe("ESCode plugins", () => {
       expect(
         overview.marketplaces.find((marketplace) => marketplace.id === "zcode-plugins-official"),
       ).toMatchObject({
-        pluginCount: 17,
+        pluginCount: 18,
         source: {
           source: "url",
           url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",

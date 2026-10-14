@@ -17,7 +17,7 @@ export interface UsbSetupPacket {
   wLength: number;
 }
 
-/** 链路层解析出的单个 USB 事务事件。提交与完成各算一条，配对在 `reassemble` 里做。 */
+/** 链路层解析出的单个 USB 事务事件。提交与完成各算一条，配对在 `pcap/reassemble` 里做。 */
 export interface UsbTransfer {
   /** 相对抓包起点的微秒数。 */
   ts: number;
@@ -33,6 +33,15 @@ export interface UsbTransfer {
   data: Uint8Array;
   /** 完成事件的状态码，0 表示成功（usbmon 的 status 为负 errno）。 */
   status: number;
+  /** URB 标识，用于提交/完成配对（usbmon 的 id / USBPcap 的 irpId）。64 位指针，按十六进制字符串保存。 */
+  urbId?: string;
+  /**
+   * 该事件声明的数据长度：提交侧是请求长度，完成侧是实际长度。
+   * 短传输判定靠这两个值的差，不靠 `data.length`（抓包可能被 snaplen 截断）。
+   */
+  declaredLength?: number;
+  /** 数据是否只是零填充（usbmon `flag_data='Z'`）：长度可信、内容不可信。 */
+  dataZeroFilled?: boolean;
 }
 
 /** 配对后的逻辑报文：控制传输合并 setup + 数据阶段 + 状态，批量/中断合并提交与完成。 */
@@ -52,8 +61,12 @@ export interface UsbExchange {
   status: number;
   /** 完成与提交的时间差（微秒，可缺省）。 */
   durationUs?: number;
-  /** 提交事件里声明的期望长度，用于识别短传输。 */
+  /** 提交侧声明的期望长度，用于识别短传输。 */
   expectedLength?: number;
+  /** 完成侧的实际长度；与 `expectedLength` 不同即为短传输。 */
+  actualLength?: number;
+  /** 载荷内容不可信（零填充）时置位，解码器应避免据此下结论。 */
+  dataZeroFilled?: boolean;
 }
 
 export type ProtocolName = "hid" | "ccid" | "msc" | "raw";

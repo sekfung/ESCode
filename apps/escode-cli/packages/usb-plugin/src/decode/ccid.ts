@@ -1,8 +1,8 @@
 /**
  * CCID（USB 智能卡读卡器，接口类 0x0B）解码器，见 docs/specs/usb-agent-tools.md §7。
- * 报文 = 10 字节通用头（bMessageType/dwLength/bSlot/bSeq + 3 字节类型相关字段）+ 载荷：
- * XfrBlock 载荷是 ISO 7816-4 短 APDU，RDR_to_PC_DataBlock 载荷是响应数据 + SW1SW2，IccPowerOn
- * 的响应载荷是 ATR；链式块合并为一次逻辑交换，块级原始字段写进 detail。
+ * 报文 = 10 字节通用头（bMessageType/dwLength/bSlot/bSeq + 3 字节类型相关字段）+ 载荷：XfrBlock 是
+ * ISO 7816-4 短 APDU，RDR_to_PC_DataBlock 是响应数据 + SW1SW2，IccPowerOn 响应是 ATR；链式块合并为
+ * 一次逻辑交换，块级原始字段写进 detail。
  */
 import { byteAt, hex, readUint16BE, readUint16LE, readUint32LE, toHex } from "../format.js";
 import { USB_CLASS, type DecodeContext, type DecodedMessage, type UsbExchange } from "../types.js";
@@ -12,19 +12,17 @@ const MAX_BLOCK_DETAILS = 8;
 const TYPE_SECURE = 0x69;
 const TYPE_XFR_BLOCK = 0x6f;
 const TYPE_DATA_BLOCK = 0x80;
-/** ATR 接口字节的存在位（T0/TDi 高半字节）与名字。 */
-const ATR_MARKS = [
-  [0x80, "TA"],
-  [0x40, "TB"],
-  [0x20, "TC"],
-] as const;
+/** ATR 接口字节的存在位（T0/TDi 高半字节）与名字，按下标一一对应。 */
+const ATR_MASKS = [0x80, 0x40, 0x20];
+const ATR_LABELS = ["TA", "TB", "TC"];
 
 /** 紧凑表：`十六进制码 名称` 以 `|` 分隔。只收录有把握的条目，表外一律 unknown(0xNN)。 */
 function parseSpec(spec: string): Record<number, string> {
   const table: Record<number, string> = {};
   for (const item of spec.split("|")) {
-    const [code, value] = item.split(" ");
-    if (code !== undefined && value !== undefined) table[Number.parseInt(code, 16)] = value;
+    // 名称里可能有空格，只能按第一个空格切分。
+    const at = item.indexOf(" ");
+    if (at > 0) table[Number.parseInt(item.slice(0, at), 16)] = item.slice(at + 1);
   }
   return table;
 }
@@ -82,8 +80,8 @@ function parseBlock(exchange: UsbExchange, deviceIsCcid: boolean) {
   const head = `#${exchange.index} ${exchange.direction.toUpperCase()}`;
   const anomalies: string[] = [];
   let detail = `${head}, bMessageType=${hex(type)}（${name}）`;
-  // 0x60-0x7F 是 PC_to_RDR_*，0x80-0x8F 是 RDR_to_PC_*。
-  const role = known === undefined ? "unknown" : type <= 0x7f ? "request" : "response";
+  // 方向看名字前缀：0x60-0x7F 是 PC_to_RDR_*，0x50/0x51 与 0x80-0x8F 都是 RDR_to_PC_*。
+  const role = known === undefined ? "unknown" : known.startsWith("PC_") ? "request" : "response";
   let payload = data;
   let chain = false;
 
@@ -91,8 +89,8 @@ function parseBlock(exchange: UsbExchange, deviceIsCcid: boolean) {
     // NotifySlotChange / HardwareError 本来就不是 10 字节通用头，不按截断报。
     if (known === undefined) anomalies.push(`未收录的消息类型 bMessageType=${hex(type)}`);
     else if (type !== 0x50 && type !== 0x51) {
-      anomalies.push(`消息头不足 ${HEADER_SIZE} 字节（实际 ${data.length} 字节）`);
-    }
+      anomalies.push(`消息头不足 ${HEADER_SIZE} 字节（实际 ${data.length} 字节），字段未解`);
+    } else detail += ", 中断端消息（非 10 字节通用头）";
     detail += `, 原始字节=${toHex(data, 16)}`;
   } else {
     const expected = role === "request" ? "out" : "in";
@@ -143,13 +141,14 @@ function buildMessages(blocks: CcidBlock[], busDev: string): DecodedMessage[] {
     const anomalies = [...new Set([...unitAnomalies, ...merged.flatMap((b) => b.anomalies)])];
     const detail = merged.slice(0, MAX_BLOCK_DETAILS).map((b) => b.detail);
     if (merged.length > MAX_BLOCK_DETAILS) {
-      detail.push(`…另有 ${merged.length - MAX_BLOCK_DETAILS} 个块`);
+      detail.push(`…另有 ${merged.length - MAX_BLOCK_DETAILS} 个块未展开`);
     }
     const reqBytes = concatPayloads(reqs);
     const resBytes = concatPayloads(resps);
     const kind = first.name;
     const short = kind.replace(/^(PC_to_RDR_|RDR_to_PC_)/, "");
     let payload: Uint8Array | undefined = reqBytes.length > 0 ? reqBytes : resBytes;
+    if (payload.length === 0) payload = undefined;
     let summary: string;
     if (reqs.length > 0 && resps.length === 0) anomalies.push(`未捕获到 ${short} 的响应`);
 
@@ -173,10 +172,8 @@ function buildMessages(blocks: CcidBlock[], busDev: string): DecodedMessage[] {
       }
     } else {
       const status = resps.map((b) => byteAt(b.exchange.data, 7)).find((v) => v !== undefined);
-      const tail =
-        reqs.length === 0
-          ? `${resBytes.length} 字节（无对应请求）`
-          : ` bSeq=${hex(byteAt(first.exchange.data, 6) ?? 0)}`;
+      const base = ` ${resBytes.length} 字节（无对应请求）`;
+      const tail = reqs.length === 0 ? base : ` bSeq=${hex(byteAt(first.exchange.data, 6) ?? 0)}`;
       const state =
         status === undefined ? "" : ` → bStatus=${hex(status)}（${statusMeaning(status)}）`;
       summary = `${short}${tail}${state}`;
@@ -207,7 +204,8 @@ function buildMessages(blocks: CcidBlock[], busDev: string): DecodedMessage[] {
       close();
       primary = block;
       reqs = block.role === "request" ? [block] : [];
-      resps = block.role === "response" ? [block] : [];
+      // 未知类型也挂到 resps 上（不会 join 别的块），否则它的 detail/anomaly 会丢失。
+      resps = block.role === "request" ? [] : [block];
       unitAnomalies = [];
       if (block.role !== "request" && !block.chain) close();
       continue;
@@ -320,8 +318,9 @@ function decodeAtr(atr: Uint8Array, detail: string[], anomalies: string[]): stri
   let level = 1;
   let protocol = 0;
   while ((presence & 0xf0) !== 0) {
-    for (const [mask, label] of ATR_MARKS) {
+    for (const [index, mask] of ATR_MASKS.entries()) {
       if ((presence & mask) === 0) continue;
+      const label = ATR_LABELS[index] ?? "T";
       if (pos >= atr.length) return cut(`${label}${level}`);
       detail.push(`${label}${level}=${hex(atr[pos++] ?? 0)}`);
     }
