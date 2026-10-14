@@ -28,6 +28,7 @@ escode-cli-host.workspace = true
 escode-cli-core-api.workspace = true
 
 [dev-dependencies]
+rusqlite.workspace = true
 escode-host-proto.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-host.workspace = true

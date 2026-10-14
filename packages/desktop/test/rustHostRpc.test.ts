@@ -8,6 +8,9 @@ import { WebSocket, type RawData } from "ws";
 import { Emitter, SocketProtocol, VSBuffer, ChannelClient, type ISocket } from "@escode/rpc";
 import { connectViaProtocol } from "@escode/client";
 import { createFileService } from "@escode/services/node";
+import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
+// 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 Repo 作 oracle。
+import { TaskIndexRepo } from "../../services/src/session/taskIndexRepo.js";
 
 // docs/specs/rust-u2-host-skeleton.md §3.4 的「TS 接线」证明：**真实 `@escode/client`**
 // 经 `@escode/rpc` 协议连 Rust Host 的 RPC 面（WebSocket），调用 `settingService` 成功，
@@ -306,7 +309,61 @@ describe("rust host rpc surface", () => {
         const types = rustEntries.map((entry) => `${entry.name}:${entry.type}`).slice(0, 4);
         expect(types.some((row) => row.endsWith(":directory"))).toBe(true);
 
-        // 会话工作区：`<dataBaseDir>/.escode/workspace/default`（TS `getConversationWorkspaceDir()`），
+        // tasks-index（优先序 5）：TS 用真实 Repo 写、Rust Host 用真实客户端读，逐字段比对。
+      // 库路径 `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（TS `getTasksIndexDatabasePath`）。
+      await prepareTasksIndexStorage(join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"), () => {});
+      const repo = new TaskIndexRepo(join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"));
+      await repo.ensureReady();
+      const seeded = [
+        {
+          taskId: "task_min",
+          traceId: "escode-task_min",
+          title: "最小任务",
+          workspacePath: "/w",
+          createdAt: 100,
+          updatedAt: 200,
+          mode: "build" as const,
+        },
+        {
+          taskId: "task_full",
+          traceId: "escode-task_full",
+          title: "完整任务",
+          workspacePath: "/w",
+          workspaceIdentity: "/w",
+          createdAt: 300,
+          updatedAt: 400,
+          mode: "plan" as const,
+          model: "glm-4",
+          provider: "glm" as const,
+          cronAutomationId: "cron_1",
+          offPeakTaskId: "off_peak_1",
+          unreadAt: 450,
+          status: "running" as const,
+        },
+      ];
+      for (const meta of seeded) {
+        await repo.seedTaskMetaIfMissing(meta as never);
+      }
+      for (const meta of seeded) {
+        const rustMeta = await services.escodeTaskService.getTaskMeta({
+          workspacePath: "/w",
+          taskId: meta.taskId,
+        });
+        const tsMeta = await repo.getTaskMeta({ workspacePath: "/w", taskId: meta.taskId });
+        expect(rustMeta).toEqual(tsMeta);
+      }
+      // 缺失任务：TS 回 null，Rust 侧为 undefined（RPC 无值语义）。
+      await expect(
+        services.escodeTaskService.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" }),
+      ).resolves.toBeUndefined();
+      expect(await repo.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" })).toBeNull();
+      // 未迁移方法：显式缺口（列出已实现的方法）。
+      await expect(
+        services.escodeTaskService.createTask({ workspacePath: "/w" } as never),
+      ).rejects.toThrow(/does not implement `escode-task\.createTask` yet/);
+      repo.close();
+
+      // 会话工作区：`<dataBaseDir>/.escode/workspace/default`（TS `getConversationWorkspaceDir()`），
         // 首建 created=true，再调 created=false。
         const conversation = await services.fileService.ensureConversationWorkspace();
         const expectedConversation = join(dataBaseDir, ".escode", "workspace", "default");

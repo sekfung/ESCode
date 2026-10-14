@@ -858,6 +858,7 @@ dependencies = [
  "futures-util",
  "icu_collator",
  "icu_locale_core",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

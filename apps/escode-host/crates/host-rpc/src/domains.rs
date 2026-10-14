@@ -245,10 +245,12 @@ pub fn channels(
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
     let home_for_file = home.clone();
+    let data_base_dir_for_task = data_base_dir.clone();
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir),
+        crate::domains_task::task_channel(data_base_dir_for_task),
         session_channel(instances, options),
     ])
 }

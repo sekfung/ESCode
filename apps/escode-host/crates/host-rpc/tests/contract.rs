@@ -13,7 +13,7 @@ use escode_host_proto::State;
 
 /// RPC 面（`host-rpc` 提供，渲染器经 `/ws` 调用）的通道集合。
 /// `control` 归 Host 进程入口（另有 host-proto 内的对账测试）。
-const RPC_CHANNELS: [&str; 4] = ["setting", "system", "file", "escode-session"];
+const RPC_CHANNELS: [&str; 5] = ["setting", "system", "file", "escode-task", "escode-session"];
 
 fn live_channels() -> escode_host_rpc::Channels {
     let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
@@ -87,11 +87,11 @@ fn every_rpc_channel_is_registered() {
             "RPC 通道 {channel} 未在 host-rpc 注册"
         );
     }
-    // 清单只登记这四条 RPC 通道（新增通道必须同步本测试的 RPC_CHANNELS 与清单）。
+    // 清单只登记这些 RPC 通道（新增通道必须同步本测试的 RPC_CHANNELS 与清单）。
     let manifest_channels: BTreeSet<&str> = escode_host_proto::METHODS
         .iter()
         .map(|entry| entry.channel)
-        .filter(|channel| ["setting", "system", "file", "escode-session"].contains(channel))
+        .filter(|channel| RPC_CHANNELS.contains(channel))
         .collect();
     assert_eq!(
         manifest_channels.len(),

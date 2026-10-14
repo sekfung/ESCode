@@ -92,7 +92,19 @@ TS 里这两个方法在服务层做了四件事，Rust Host 必须逐条对齐�
 - 测试：host-services 16 例（含负向：缺一条迁移/多出未知迁移/checksum 不符/文件缺失不建库）。
 - **登记差异**：`meta_json` 校验只覆盖「必填 + 已声明字段的类型/枚举」（不复制 zod 的深层对象校验），差异只在损坏行上可见（TS 走列回退、Rust 走 meta 投影）；`S2` 落地时以差分语料补齐深层校验。
 
-下一步（S1 剩余）：`escode-task` channel 接线（`getTaskMeta` + 列表类）与 **TS 差分用例**（TS `TaskIndexRepo` 写入 → Rust Host 经 RPC 读回逐字段比对）。
+**S1 通道接线已落地（2026-10-15）**：
+
+- `host-rpc/src/domains_task.rs`：`escode-task` channel 接 `getTaskMeta`（懒打开索引、失败不缓存；
+  `dataBaseDir` 缺省时空缺省缺口；错误按 JS Error 形状下发，结构化 code 落 `name`）。
+  其余方法由 `respond` 回显式缺口并列出已实现集合；清单登记 1 条 `Implemented` + 12 条 `Pending`
+  （`createTask`/`sendPrompt`/… 首批待迁移），契约对账 `RPC_CHANNELS` 同步加 `escode-task`。
+- 验证：`tests/rpc_task.rs` 2 例（真实 WS 端到端：读数、缺失回无值、未迁移方法缺口、
+  索引不存在时 `TasksIndexUnavailable` 结构错误）+ **真实 TS Repo 差分**（`rustHostRpc.test.ts`：
+  TS `prepareTasksIndexStorage` 建库、`TaskIndexRepo.seedTaskMetaIfMissing` 写最小/完整两条，
+  Rust Host 经真实客户端读回与 TS `getTaskMeta` `toEqual` 全等；负向验证：改错期望即失败）。
+
+下一步（S1 剩余）：列表类读（`listTaskList`/`listPinnedTasks`/`listArchivedTasks`/
+`listGroupedTaskViewStructure`）与 `task_groups` 读，同样以 TS 差分为验收。
 
 ## 7. 验收与环境
 

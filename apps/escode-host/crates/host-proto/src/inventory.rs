@@ -190,6 +190,71 @@ pub const METHODS: &[Method] = &[
     },
     // escode-session（优先序 5）
     Method {
+        channel: "escode-task",
+        method: "getTaskMeta",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "escode-task",
+        method: "createTask",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "listTasks",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "listTaskList",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "sendPrompt",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "stopGeneration",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "respondPermission",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "setModel",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "setMode",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "closeTask",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "resumeTask",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "archiveWorkspaceTasks",
+        state: State::Pending,
+    },
+    Method {
+        channel: "escode-task",
+        method: "getTaskSnapshot",
+        state: State::Pending,
+    },
+    Method {
         channel: "escode-session",
         method: "listSessions",
         state: State::Implemented,
