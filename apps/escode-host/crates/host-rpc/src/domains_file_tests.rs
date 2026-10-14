@@ -265,3 +265,54 @@ fn extname_matches_node_semantics() {
     assert_eq!(node_extname("noext"), "");
     assert_eq!(node_extname("C:\\dir\\file.MP4"), ".MP4");
 }
+
+#[test]
+fn workspace_creation_methods_match_ts_paths_and_validation() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+
+    // 默认工作区：<home>/ESCodeProject，幂等（重复调用成功）。
+    let Wire::Object(created) = create_default_workspace(home).expect("create") else {
+        panic!("object")
+    };
+    let expected = home.join("ESCodeProject");
+    assert_eq!(
+        created["path"].as_str(),
+        Some(expected.to_string_lossy().as_ref())
+    );
+    assert!(expected.is_dir());
+    create_default_workspace(home).expect("幂等");
+
+    // 命名工作区：<home>/ESCodeProject/<name>；名字做 trim。
+    let Wire::Object(created) =
+        create_scratch_workspace(home, &json!({"name": "  my-case  "})).expect("create")
+    else {
+        panic!("object")
+    };
+    let named = expected.join("my-case");
+    assert_eq!(
+        created["path"].as_str(),
+        Some(named.to_string_lossy().as_ref())
+    );
+    assert!(named.is_dir());
+
+    // 名称校验：空名与路径分隔符（文案逐字对齐 TS）。
+    let error = create_scratch_workspace(home, &json!({"name": "   "})).expect_err("empty");
+    assert_eq!(error.1, "Workspace name is required.");
+    let error = create_scratch_workspace(home, &json!({"name": "a/b"})).expect_err("slash");
+    assert_eq!(error.1, "Workspace name cannot contain path separators.");
+    let error = create_scratch_workspace(home, &json!({"name": "a\\b"})).expect_err("backslash");
+    assert_eq!(error.1, "Workspace name cannot contain path separators.");
+
+    // 目标被同名文件占位：mkdir recursive 失败（Node EEXIST 文案）。
+    let blocked = dir.path().join("blocked");
+    std::fs::write(&blocked, "x").unwrap();
+    let error = create_scratch_workspace(dir.path(), &json!({"name": "../blocked/child"})).err();
+    // 上面的名字含分隔符会先被校验拦住；换一个不含分隔符但父路径是文件的场景：
+    assert!(error.is_some(), "含分隔符的名字必须被拒");
+    let file_home = dir.path().join("file-home");
+    std::fs::create_dir_all(&file_home).unwrap();
+    std::fs::write(file_home.join("ESCodeProject"), "x").unwrap();
+    let error = create_default_workspace(&file_home).expect_err("EEXIST");
+    assert!(error.1.starts_with("EEXIST:"), "{error:?}");
+}

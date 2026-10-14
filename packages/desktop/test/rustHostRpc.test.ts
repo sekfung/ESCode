@@ -235,6 +235,19 @@ describe("rust host rpc surface", () => {
         Buffer.from([1, 0, 2, 3, 4, 5]),
       );
 
+      // 工作区创建：默认工作区（home/ESCodeProject）与命名工作区（含名称校验）。
+      const defaultWorkspace = (await services.fileService.createDefaultWorkspace()) as {
+        path: string;
+      };
+      expect(defaultWorkspace.path).toBe(join(home, "ESCodeProject"));
+      const scratch = (await services.fileService.createScratchWorkspace({
+        name: "demo-case",
+      })) as { path: string };
+      expect(scratch.path).toBe(join(home, "ESCodeProject", "demo-case"));
+      await expect(
+        services.fileService.createScratchWorkspace({ name: "a/b" }),
+      ).rejects.toThrow(/cannot contain path separators/);
+
       // 未迁移方法：显式缺口。
       await expect(
         services.fileService.readdir({ path: workspacePath }),

@@ -8,6 +8,7 @@
 pub mod domains;
 pub mod domains_file;
 mod domains_file_preview;
+mod domains_file_workspace;
 pub mod forward;
 pub mod frame;
 pub mod http;

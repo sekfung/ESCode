@@ -252,10 +252,11 @@ pub fn channels(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
+    let home_for_file = home.clone();
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
-        crate::domains_file::file_channel(),
+        crate::domains_file::file_channel(home_for_file),
         session_channel(instances, options),
     ])
 }

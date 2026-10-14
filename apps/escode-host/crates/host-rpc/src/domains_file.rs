@@ -22,6 +22,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde_json::{Value, json};
 
 pub(crate) use crate::domains_file_preview::{read_binary_preview, read_media_preview};
+pub(crate) use crate::domains_file_workspace::{
+    create_default_workspace, create_scratch_workspace,
+};
 use crate::session::{ChannelHandler, ChannelResult};
 use crate::wire::Wire;
 
@@ -37,11 +40,13 @@ const MAX_BINARY_READ_BYTES: u64 = 1024 * 1024;
 /// TS `DEFAULT_TEXT_READ_BYTES` / `MAX_TEXT_READ_BYTES`。
 const DEFAULT_TEXT_READ_BYTES: u64 = 128 * 1024;
 const MAX_TEXT_READ_BYTES: u64 = 256 * 1024;
-/// `file` channel（TS `ServiceChannels.File` = `"file"`）。
-pub fn file_channel() -> (&'static str, ChannelHandler) {
+/// `file` channel（TS `ServiceChannels.File` = `"file"`）。`home` 与 settings/system 同源
+/// （Main 经 `rpcListen` 给出），供工作区创建类方法构造默认路径。
+pub fn file_channel(home: PathBuf) -> (&'static str, ChannelHandler) {
     let cache = Arc::new(std::sync::Mutex::new(Cache::default()));
     let handler: ChannelHandler = Arc::new(move |method: String, arg: Wire| {
         let cache = Arc::clone(&cache);
+        let home = home.clone();
         let params = arg
             .into_args()
             .into_iter()
@@ -59,6 +64,10 @@ pub fn file_channel() -> (&'static str, ChannelHandler) {
                 "readMediaPreview" => blocking(move || read_media_preview(&params)).await,
                 "readBinaryPreview" => blocking(move || read_binary_preview(&params)).await,
                 "resolvePath" => resolve_path(&params).await,
+                "createDefaultWorkspace" => blocking(move || create_default_workspace(&home)).await,
+                "createScratchWorkspace" => {
+                    blocking(move || create_scratch_workspace(&home, &params)).await
+                }
                 "readFileRange" => blocking(move || read_file_range(&params)).await,
                 other => Err(not_implemented(other)),
             }
@@ -328,6 +337,7 @@ pub(crate) fn node_error(error: &std::io::Error, op: &str, path: &str) -> String
         (_, Some(pair)) => pair,
         (std::io::ErrorKind::NotFound, _) => ("ENOENT", "no such file or directory"),
         (std::io::ErrorKind::PermissionDenied, _) => ("EACCES", "permission denied"),
+        (std::io::ErrorKind::AlreadyExists, _) => ("EEXIST", "file already exists"),
         _ => return error.to_string(),
     };
     format!("{code}: {description}, {op} '{path}'")
