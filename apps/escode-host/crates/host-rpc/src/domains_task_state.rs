@@ -75,7 +75,9 @@ fn now_ms() -> i64 {
 pub(crate) fn index_error(error: &TasksIndexError) -> RpcError {
     match error {
         // TS 抛普通 Error（文案相同）。
-        TasksIndexError::TaskNotFound { .. } => RpcError::new("Error", error.to_string()),
+        TasksIndexError::TaskNotFound { .. } | TasksIndexError::Rejected(_) => {
+            RpcError::new("Error", error.to_string())
+        }
         other => RpcError::new("TasksIndexUnavailable", other.to_string()),
     }
 }

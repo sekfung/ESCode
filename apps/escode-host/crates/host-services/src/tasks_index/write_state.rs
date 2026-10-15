@@ -109,7 +109,7 @@ fn read_state(
 }
 
 /// 在事务里执行（失败回滚）。
-fn transaction<T>(
+pub(super) fn transaction<T>(
     connection: &Connection,
     body: impl FnOnce() -> Result<T, TasksIndexError>,
 ) -> Result<T, TasksIndexError> {

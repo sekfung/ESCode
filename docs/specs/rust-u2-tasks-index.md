@@ -430,6 +430,32 @@ available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛
 4. 已知差异补登：connectionId 为**每个 workspace** 一个 `host-<uuid>#task-index`（TS 进程内一个）；
    runtime 侧订阅按实例隔离，不影响路由。
 
+## 6.8 分组视图写面（2026-10-15）
+
+**范围**：`escode-task` 的 `createTaskGroup` / `renameTaskGroup` / `updateTaskGroupColor` / `deleteTaskGroup` / `applyGroupedTaskViewOrder`。
+选它的理由（按 `packages/ui/src` 实查）：侧栏分组视图（`useGroupedTaskView.ts`）每次建组/改名/改色/删组/拖拽排序都会调用，此前在 dev 开关下一律 NotImplemented。
+
+**所有者**：tasks-index 仍是唯一写者（`host-services/src/tasks_index/write_groups.rs`，与 `write_state` 共用事务助手）；RPC 面 `host-rpc/src/domains_task_groups.rs`
+只做参数解包、provider 边界（`glm`）与事件广播。
+
+**规则**（逐条对照 `taskIndexRepo.ts:2260-2920`）：
+
+- 新建 group 立即进入顶层排序并插到最顶（`MIN(sort_order) - 1000`，空表为 `1000`）；title `trim` 后为空 → `New Group`，颜色缺省 `gray` 且**创建时不校验**（改色才校验）。
+- `delete`：group 行与其顶层排序行同一事务；不存在 → `Task group 不存在，无法删除`。
+- `apply`：先校验（scope 内 → 可见 → 同一 task 不进多个 group → group 必须存在；glm provider 边界下旧 provider 的引用静默跳过），再**一个事务**提交
+  全局 bootstrap marker + 顶层 task 退出 group + 成员 upsert（`sort_order = (i+1)*1000`）+ 全量顶层排序（只清当前 scope 内的 task 排序）。
+- 事件：rename / recolor / delete / apply 成功后，对入参 `workspaceScopes` 的每个 scope 广播 `workspace_task_list_changed(task_meta_changed)`（无 taskMeta / taskId）；create 不广播；失败不广播。
+
+**登记差异**：
+
+1. `applyGroupedTaskViewOrder` 回包 `nodes` 恒为空，且**不复制回包路径的隐式写回**：TS 回包走旧的 `queryGroupedTaskView`，会把「可见但没有顶层排序」的任务补成用户排序、补 NULL 的组内排序、并可能做 workspace 自动分组初始化
+   （apply 已写 bootstrap marker，故初始化不会发生）。Renderer 明确不采信回包（`useGroupedTaskView.ts`），缺省序由 `createdAt` 派生（`buildGroupedTaskViewFromSessions.ts`）；TS 自己也把该回包标注为待收敛的过渡面。
+2. `createTaskGroup` 的两条写（插 group、插顶层排序）在 Rust 合并成一个事务（TS 是两条独立语句，崩溃会留下没有顶层排序的 group，靠后续补齐自愈）；对调用方不可见。
+
+**验收**：`rust-u2-tasks-index` 单测 `write_groups_tests.rs`（6 例，含校验失败不留部分写入、旧 provider 跳过）+ `packages/desktop/test/rustHostTaskGroups.test.ts`：同一脚本分别驱动真实 TS `TaskIndexRepo`
+与 Rust Host（真实客户端），每步后比较 `listGroupedTaskViewStructure`（group id 归一化、时间戳剔除；TS 一侧只允许多出上述隐式补齐的 task 排序行）与全部错误文案，并断言广播次数。
+负向验证：新组插到最底、删组不删排序、排序步长改错、事件 reason 改错，均失败。
+
 ## 7. 验收与环境
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；

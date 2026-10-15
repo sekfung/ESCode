@@ -25,6 +25,7 @@ mod domains_session_write;
 pub mod domains_task;
 mod domains_task_delete;
 mod domains_task_gap;
+mod domains_task_groups;
 mod domains_task_query;
 mod domains_task_snapshot;
 mod domains_task_state;

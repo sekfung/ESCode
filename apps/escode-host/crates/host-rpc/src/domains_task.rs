@@ -353,6 +353,7 @@ pub(crate) fn task_channel(
         ),
     ];
     methods.extend(super::domains_task_state::state_methods(&state));
+    methods.extend(super::domains_task_groups::group_methods(&state));
     methods.shrink_to_fit();
     Channel::new("escode-task", methods).with_events(vec![(
         "onDynamicWorkspaceEvent",

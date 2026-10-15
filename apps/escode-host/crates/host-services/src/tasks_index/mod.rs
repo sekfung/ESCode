@@ -11,6 +11,7 @@
 //! 写路径（`createSession` 等）在后续切片落地前一律不开放：读写分离保证「索引是运行时的投影」
 //! 这一不变式不会因为没有 syncer 而被破坏。
 
+mod ledger;
 mod meta;
 pub mod query;
 mod query_grouped;
@@ -18,10 +19,14 @@ mod query_shared;
 mod query_snippets;
 pub mod schema;
 mod write;
+pub mod write_groups;
+mod write_groups_api;
+mod write_groups_apply;
 pub mod write_state;
 
 pub use write::SyncOptions;
 
+use ledger::{compare_ledger, hex};
 use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;
@@ -45,6 +50,8 @@ pub enum TasksIndexError {
     AssetTampered { what: &'static str },
     /// 状态写的目标任务不存在或已删除（TS `updateTaskState` 抛出的同一错误）。
     TaskNotFound { task_id: String },
+    /// 业务校验拒绝（文案与 TS 抛出的 `Error` 一致，Renderer 只展示）。
+    Rejected(String),
 }
 
 impl std::fmt::Display for TasksIndexError {
@@ -71,6 +78,7 @@ impl std::fmt::Display for TasksIndexError {
             Self::TaskNotFound { task_id } => {
                 write!(formatter, "task index 中不存在 task: {task_id}")
             }
+            Self::Rejected(message) => formatter.write_str(message),
         }
     }
 }
@@ -354,40 +362,14 @@ fn verify_assets() -> Result<(), TasksIndexError> {
     Ok(())
 }
 
-/// 账本差异三分类（与生成资产逐条比对）。
-fn compare_ledger(ledger: &[(String, String)]) -> (Vec<String>, Vec<String>, Vec<String>) {
-    let mut missing = Vec::new();
-    let mut mismatched = Vec::new();
-    for (id, checksum) in schema::EXPECTED_MIGRATIONS {
-        match ledger.iter().find(|(current, _)| current == id) {
-            Some((_, actual)) if actual == checksum => {}
-            Some(_) => mismatched.push((*id).to_owned()),
-            None => missing.push((*id).to_owned()),
-        }
-    }
-    let unknown = ledger
-        .iter()
-        .filter(|(id, _)| {
-            !schema::EXPECTED_MIGRATIONS
-                .iter()
-                .any(|(known, _)| known == id)
-        })
-        .map(|(id, _)| id.clone())
-        .collect();
-    (missing, unknown, mismatched)
-}
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
 #[cfg(test)]
 mod test_support;
-
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
-
+#[cfg(test)]
+#[path = "write_groups_tests.rs"]
+mod write_groups_tests;
 #[cfg(test)]
 #[path = "write_state_tests.rs"]
 mod write_state_tests;
