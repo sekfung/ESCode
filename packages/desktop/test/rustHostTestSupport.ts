@@ -54,10 +54,10 @@ export interface HostProcess {
   stop(): Promise<void>;
 }
 
-export function startHost(home: string): HostProcess {
+export function startHost(home: string, extraEnv: Record<string, string> = {}): HostProcess {
   const child = spawn(hostBinary, [], {
     stdio: ["pipe", "pipe", "inherit"],
-    env: { ...process.env, HOME: home, USERPROFILE: home },
+    env: { ...process.env, ...extraEnv, HOME: home, USERPROFILE: home },
   });
   let buffer = "";
   const pending: Array<(value: Record<string, unknown>) => void> = [];

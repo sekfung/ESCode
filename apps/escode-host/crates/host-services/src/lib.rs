@@ -8,3 +8,4 @@ pub mod session_params;
 pub mod settings;
 pub mod task_projection;
 pub mod tasks_index;
+pub mod terminal;

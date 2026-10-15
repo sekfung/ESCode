@@ -289,6 +289,7 @@ pub fn channels(
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
     let home_for_file = home.clone();
+    let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     instances.set_responder(crate::runtime_requests::responder(home.clone()));
@@ -338,6 +339,7 @@ pub fn channels(
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_git::git_channel(),
+        crate::domains_terminal::terminal_channel(home_for_terminal),
         task_channel,
         session_channel(instances, options, write),
     ])

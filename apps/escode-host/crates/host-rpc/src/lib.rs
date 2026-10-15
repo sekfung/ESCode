@@ -26,6 +26,7 @@ mod domains_task_query;
 mod domains_task_snapshot;
 mod domains_task_state;
 mod domains_task_support;
+mod domains_terminal;
 pub mod forward;
 pub mod frame;
 mod host_command;
