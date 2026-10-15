@@ -18,6 +18,7 @@ rusqlite.workspace = true
 sha2.workspace = true
 uuid.workspace = true
 portable-pty.workspace = true
+notify.workspace = true
 escode-host-core.workspace = true
 escode-cli-host.workspace = true
 

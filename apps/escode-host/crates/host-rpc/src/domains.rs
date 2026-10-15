@@ -338,6 +338,7 @@ pub fn channels(
         setting_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
+        crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(),
         crate::domains_terminal::terminal_channel(home_for_terminal),
         task_channel,

@@ -201,7 +201,7 @@ let my_method = handler(move |arg: Wire| {
 > 2. **workspace 事件源**：`escode-task.onDynamicWorkspaceEvent` / `workspace_task_list_changed`（TS `escodeTaskIndexSyncer.ts`，
 >    依赖 sessions-index 订阅——V4 面已能订阅）；接上后撤销 `rust-u2-tasks-index.md` §6.5 登记差异 1；
 > 3. **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）→ dev 开关下跑桌面 E2E；
-> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/ ~~terminal~~（T1 已交付，见 `rust-u2-terminal.md`）/ file-watcher / providers（含审计 A16 运行时 env 与 `git.generateCommitMessage`）/ extensions / automation / remote。
+> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/ ~~terminal~~（T1 已交付，见 `rust-u2-terminal.md`）/ ~~file-watcher~~（已交付，见 `rust-u2-file-watcher.md`）/ providers（含审计 A16 运行时 env 与 `git.generateCommitMessage`）/ extensions / automation / remote。
 
 ### 6.1 主件：`getTaskSnapshot`（escode-task，S2b）
 
@@ -238,7 +238,7 @@ TS 真相源（按调用顺序读）：
 ### 6.5 其余排队项
 
 - `file` 域搜索/索引三法（`searchWorkspaceFiles`/`listWorkspaceFilesRange`/`workspaceFileListLength`）：需要 Host 侧文件索引 + `.escodeignore` 缓存 + 列式打包。
-- 优先序 4 剩余：`file-watcher`（`git`、`terminal` 已交付；`generateCommitMessage` 随 providers 域；terminal T2 = Alacritty/macOS 检测器，见 `rust-u2-terminal.md` §6.1）。
+- 优先序 4 剩余：无（`git`、`terminal`、`file-watcher` 已交付；`generateCommitMessage` 随 providers 域；terminal T2 = Alacritty/macOS 检测器，见 `rust-u2-terminal.md` §6.1）。
 - 优先序 6–9：providers/account、extensions、automation、remote + runtime-link 选择器。
 - u2a 余项：**桌面窗口自身 host 的进程无关化**（`packages/desktop/src/main/desktopHostProcess.ts:762`）——需要 `windowHostProcessMap`/broadcastHub/taskRealtimeBus/`registerHostProcess` 接受"非 utility process 的 window host"；这是"dev 开关下跑通全部桌面 E2E"这条验收的最后一环。
 - 阶段 3（切默认与清理，含 golden freeze）、阶段 4（零序列化进程内链路、跨实例共享缓存、启动/退出路径、严格等价测试网）未开始，见父计划。

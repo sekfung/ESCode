@@ -15,6 +15,7 @@ pub mod domains_file;
 mod domains_file_channel;
 mod domains_file_preview;
 mod domains_file_readdir;
+mod domains_file_watcher;
 mod domains_file_workspace;
 mod domains_git;
 mod domains_session_model;
