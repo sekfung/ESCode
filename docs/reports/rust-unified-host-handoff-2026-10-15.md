@@ -237,7 +237,7 @@ TS 真相源（按调用顺序读）：
 
 ### 6.5 其余排队项
 
-- `file` 域搜索/索引三法（`searchWorkspaceFiles`/`listWorkspaceFilesRange`/`workspaceFileListLength`）：需要 Host 侧文件索引 + `.escodeignore` 缓存 + 列式打包。
+- ~~`file` 域搜索/索引~~：已交付（`rust-u2-file-index.md`，`file` 17/17）。
 - 优先序 4 剩余：无（`git`、`terminal`、`file-watcher` 已交付；`generateCommitMessage` 随 providers 域；terminal T2 = Alacritty/macOS 检测器，见 `rust-u2-terminal.md` §6.1）。
 - 优先序 6–9：providers/account、extensions、automation、remote + runtime-link 选择器。
 - u2a 余项：**桌面窗口自身 host 的进程无关化**（`packages/desktop/src/main/desktopHostProcess.ts:762`）——需要 `windowHostProcessMap`/broadcastHub/taskRealtimeBus/`registerHostProcess` 接受"非 utility process 的 window host"；这是"dev 开关下跑通全部桌面 E2E"这条验收的最后一环。

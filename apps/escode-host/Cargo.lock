@@ -907,6 +907,7 @@ dependencies = [
  "anyhow",
  "escode-cli-host",
  "escode-host-core",
+ "ignore",
  "notify",
  "portable-pty",
  "rusqlite",

@@ -13,6 +13,7 @@ mod deferred_drafts;
 pub mod domains;
 pub mod domains_file;
 mod domains_file_channel;
+mod domains_file_index;
 mod domains_file_preview;
 mod domains_file_readdir;
 mod domains_file_watcher;

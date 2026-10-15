@@ -82,25 +82,24 @@ pub fn file_channel(home: PathBuf, data_base_dir: Option<PathBuf>) -> Channel {
             })
         }),
     };
-    Channel::new(
-        "file",
-        vec![
-            ("stat", plain(stat)),
-            ("readdir", plain(readdir)),
-            ("checkFilesExist", with_cache(check_files_exist)),
-            ("resolvePath", resolve),
-            ("readFileRange", plain(read_file_range)),
-            ("readTextFile", plain(read_text_file)),
-            ("readMediaPreview", read_media),
-            ("readBinaryPreview", read_binary),
-            ("createDefaultWorkspace", default_workspace),
-            (
-                "createScratchWorkspace",
-                with_home(create_scratch_workspace),
-            ),
-            ("ensureConversationWorkspace", conversation_workspace),
-        ],
-    )
+    let mut methods = crate::domains_file_index::index_methods();
+    methods.extend([
+        ("stat", plain(stat)),
+        ("readdir", plain(readdir)),
+        ("checkFilesExist", with_cache(check_files_exist)),
+        ("resolvePath", resolve),
+        ("readFileRange", plain(read_file_range)),
+        ("readTextFile", plain(read_text_file)),
+        ("readMediaPreview", read_media),
+        ("readBinaryPreview", read_binary),
+        ("createDefaultWorkspace", default_workspace),
+        (
+            "createScratchWorkspace",
+            with_home(create_scratch_workspace),
+        ),
+        ("ensureConversationWorkspace", conversation_workspace),
+    ]);
+    Channel::new("file", methods)
 }
 
 /// RPC 实参：`ProxyChannel.toService` 把 JS 实参打包成数组，取第一个并当对象用。

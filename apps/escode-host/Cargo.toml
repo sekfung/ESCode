@@ -74,6 +74,8 @@ uuid = { version = "1", features = ["v4", "v7"] }
 portable-pty = "0.9"
 # file-watcher 域（Linux inotify / macOS FSEvents / Windows ReadDirectoryChangesW；TS 侧对应 node:fs watch）。
 notify = "8"
+# file 域的 .escodeignore 规则（gitignore 语法；TS 侧对应 `ignore` npm 包）。
+ignore = "0.4"
 escode-cli-app-server = { path = "../escode-cli-rust/crates/app-server" }
 escode-cli-protocol = { path = "../escode-cli-rust/crates/protocol" }
 escode-cli-rust = { path = "../escode-cli-rust" }

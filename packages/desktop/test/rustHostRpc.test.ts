@@ -427,10 +427,10 @@ describe("rust host rpc surface", () => {
         const conversationAgain = await services.fileService.ensureConversationWorkspace();
         expect(conversationAgain.created).toBe(false);
 
-        // 未迁移方法：显式缺口（搜索/索引三法需 Host 侧文件索引与 .escodeignore 缓存）。
-        await expect(
-          services.fileService.searchWorkspaceFiles({ workspacePath, query: "probe" } as never),
-        ).rejects.toThrow(/does not implement `file\.searchWorkspaceFiles`/);
+        // file 域已 17/17（搜索/索引见 rustHostFileIndex.test.ts）；用仍未迁移的 system 成员验证显式缺口。
+        await expect(services.systemService.probeIntranet({} as never)).rejects.toThrow(
+          /does not implement `system\.probeIntranet`/,
+        );
 
         // system 域：info() 返回 homedir + Node 口径 platform。
         const systemInfo = (await services.systemService.info()) as Record<string, unknown>;
