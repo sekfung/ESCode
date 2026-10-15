@@ -22,6 +22,11 @@ pub(crate) fn row_key(
     )
 }
 
+/// 本地 source 键（身份键 `workspaceIdentity?.trim() || workspacePath` 已归一）。
+pub(crate) fn source_key_of(identity: &str) -> String {
+    format!("local\0{identity}")
+}
+
 /// 本地 source scope（TS `{kind:"local", workspacePath, workspaceIdentity?}`）。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LocalScope {
@@ -49,7 +54,7 @@ impl LocalScope {
 
     /// TS `sourceKey({kind:"local", …})`。
     pub(crate) fn source_key(&self) -> String {
-        format!("local\0{}", self.workspace_key())
+        source_key_of(self.workspace_key())
     }
 
     /// TS 投影的 `taskKey(address)`（本地 source）。

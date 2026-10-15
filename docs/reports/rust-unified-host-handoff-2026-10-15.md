@@ -205,10 +205,16 @@ let my_method = handler(move |arg: Wire| {
 >    远程 source 见该 spec §5-1 登记（属优先序 9）。
 > 1. **`escode-task` 写面**（`createTask`/`sendPrompt`/`stopGeneration`/`respondPermission`/`setModel`/`setMode`/`closeTask`/`resumeTask`/`archiveWorkspaceTasks`）——
 >    TS 适配器里这些走 `sendConversationCommandV4`（V4 面已就位，可复用 `agent_v4` 的 base 调用）。
->    **注意**：Renderer 当前零调用（对话走 V4、侧栏走 reads + `window-controller`），消费方是 bots/off-peak 服务
->    （属未迁移域）——价值在契约完整度与 S2 收尾（`createTask` + draft 注册表），可排在 providers 之后；
-> 2. **providers P2**（`provider-settings.getView`，`rust-u2-providers.md` §3）：模型/供应商设置面板的读面，
->    向下解锁 A16b 与 `git.generateCommitMessage` 的依赖链；
+>    **注意**：上述九法 Renderer 当前零调用（对话走 V4、侧栏走 reads + `window-controller`；`offPeakTaskStore.createTask`
+>    调的是 `IOffPeakTaskService` 而非本 channel），消费方是 bots/off-peak 服务（属未迁移域）——价值在契约完整度与 S2 收尾
+>    （`createTask` + draft 注册表）。**但 `escode-task` 里仍有 Renderer 活调用的未实现成员**（2026-10-15 评审按
+>    `packages/ui/src` 实查）：分组视图写面 `createTaskGroup`/`renameTaskGroup`/`updateTaskGroupColor`/`deleteTaskGroup`/
+>    `applyGroupedTaskViewOrder`（`useGroupedTaskView.ts`）、Claude 会话迁移 `scanImportableClaudeSessions`/`importClaudeSessions`、
+>    `restartWorkspaceProcess`（`useWorkspaceSessionReload.ts`）、`getModelTrajectory`、`submitBotGroupInput`——它们在 dev 开关下
+>    会直接报 NotImplemented，应先于上述九法排期（分组写面最优先：侧栏分组视图每次交互都会触发）；
+> 2. **providers P2**（`provider-settings.getView`，`rust-u2-providers.md` §3）：模型/供应商设置面板的读面。
+>    **它不解锁 A16b**（需要 P5：Built-in 物化，Rust 才能自己得出 Active 文件路径）；`git.generateCommitMessage` 需要 P1 的模型视图
+>    **加上**运行时 `generateText`（A16b 的 env 注入），也不是 P2 能单独解开的；
 > 3. **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）→ dev 开关下跑桌面 E2E；
 >    这是「全部桌面 E2E」这条验收的最后一环，受体量大（需 realtime/broadcast/cron 控制协议）见 §6.5（进程无关化）；
 > 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/

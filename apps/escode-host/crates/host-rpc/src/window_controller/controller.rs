@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use super::overlays;
 use super::projection::Projection;
-use super::rows::{LocalScope, row_key};
+use super::rows::{LocalScope, row_key, source_key_of};
 use crate::domains_task_state::StateContext;
 use crate::domains_task_support::{GLM_PROVIDER, ReadContext};
 use crate::session::RpcError;
@@ -99,7 +99,7 @@ impl WindowController {
     /// 变更信号②：syncer 会话摘要变化 → 只替换 overlay（TS `replaceSourceSessionOverlays`，
     /// 不重读索引、不发 removals）。
     fn signal_by_identity(self: &Arc<Self>, identity: &str) {
-        let key = format!("local\0{identity}");
+        let key = source_key_of(identity);
         let Some((scope, _)) = self.projector.source_snapshot(&key) else {
             return;
         };

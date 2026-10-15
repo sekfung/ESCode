@@ -24,10 +24,7 @@ pub(super) fn mutate_handler(controller: &Arc<WindowController>) -> MethodHandle
             let address = params["address"].clone();
             let mutation = params["mutation"].clone();
             let scope = execute(&controller, &address, &mutation).await?;
-            controller
-                .refresh(&scope, true)
-                .await
-                .map_err(refresh_error)?;
+            controller.refresh(&scope, true).await?;
             let task_id = address["taskId"].as_str().unwrap_or_default();
             let meta = controller
                 .projector()
@@ -49,11 +46,9 @@ pub(super) fn delete_archived_task_handler(controller: &Arc<WindowController>) -
             // TS：条件删除允许目标已被其它客户端删除（行缺失不报错）。
             let scope = controller.projector().validate_mutation(&address, true)?;
             let task = task_of(&address);
-            let deleted = super::super::domains_task_delete::delete_archived_one(
-                &controller.state_context(),
-                &task,
-            )
-            .await?;
+            let deleted =
+                crate::domains_task_delete::delete_archived_one(&controller.state_context(), &task)
+                    .await?;
             // 删除已经持久成功：列表重查失败不能改报删除失败（TS `.catch(onSourceError)`）。
             if let Err(error) = controller.refresh(&scope, true).await {
                 eprintln!(
@@ -90,7 +85,7 @@ pub(super) fn delete_archived_tasks_handler(controller: &Arc<WindowController>) 
             let scope = controller.projector().validate_mutation(&address, true)?;
             let workspace_path = address["workspacePath"].as_str().unwrap_or_default();
             let identity = address["workspaceIdentity"].as_str();
-            let result = super::super::domains_task_delete::delete_archived_batch(
+            let result = crate::domains_task_delete::delete_archived_batch(
                 &controller.state_context(),
                 workspace_path,
                 identity,
@@ -154,7 +149,7 @@ async fn execute(
             .await?;
         }
         "delete-archived" => {
-            super::super::domains_task_delete::delete_archived_one(&state, &task).await?;
+            crate::domains_task_delete::delete_archived_one(&state, &task).await?;
         }
         "delete-archived-batch" => {
             let task_ids: Vec<String> = mutation["taskIds"]
@@ -166,7 +161,7 @@ async fn execute(
                 .collect();
             let workspace_path = address["workspacePath"].as_str().unwrap_or_default();
             let identity = address["workspaceIdentity"].as_str();
-            super::super::domains_task_delete::delete_archived_batch(
+            crate::domains_task_delete::delete_archived_batch(
                 &state,
                 workspace_path,
                 identity,
@@ -227,8 +222,4 @@ pub(super) fn task_of(address: &Value) -> Task {
         workspace_identity: address["workspaceIdentity"].as_str().map(str::to_owned),
         task_id: address["taskId"].as_str().unwrap_or_default().to_owned(),
     }
-}
-
-fn refresh_error(error: RpcError) -> RpcError {
-    RpcError::new(error.name, error.message)
 }

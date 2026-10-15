@@ -22,7 +22,7 @@
 为什么做它：这是当前唯一「已被 Rust Host 服务、但整条 channel 缺失」的活链路。dev 开关（`ESCODE_RUST_HOST=1`）下
 Web 远控的共享 Host attachment 已连 Rust Host（`packages/desktop/src/main/index.ts:849` →
 `webRemoteControlSharedHostAttachments.ts:136-153`），而桌面/手机的时间线、置顶、归档、全局搜索、命令中心全部走本 channel
-（`packages/ui/src/hooks/useGlobalTaskList.ts`，11 处调用点 / 8 个文件）；现在返回 `NotImplemented` → 列表恒空。
+（`packages/ui/src/hooks/useGlobalTaskList.ts`，10 处调用点 / 8 个源文件，另有 3 个测试文件）；现在返回 `NotImplemented` → 列表恒空。
 
 不做（本片登记为缺口）：
 
