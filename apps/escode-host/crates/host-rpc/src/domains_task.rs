@@ -55,6 +55,12 @@ pub fn task_channel(data_base_dir: Option<PathBuf>, runtime: Option<RuntimeAcces
                 ("listTaskList", missing()),
                 ("listGroupedTaskViewStructure", missing()),
                 ("getTaskModelSelection", missing()),
+                ("getTaskSnapshot", missing()),
+                ("getTaskSnapshotWithEtag", missing()),
+                ("getTaskSnapshotBody", missing()),
+                ("getTaskSnapshotRef", missing()),
+                ("getTaskSnapshotToolCallsSlice", missing()),
+                ("getTaskConfigOptions", missing()),
             ],
         );
     };
@@ -231,11 +237,16 @@ pub fn task_channel(data_base_dir: Option<PathBuf>, runtime: Option<RuntimeAcces
         runtime: runtime.clone(),
     });
     let list_grouped_structure = domains_task_query::list_grouped_structure_handler(ReadContext {
-        path,
+        path: path.clone(),
         index: Arc::clone(&index),
         targets: Arc::clone(&targets),
         runtime: runtime.clone(),
     });
+    // 快照读面要各自独立的 ReadContext（handler 是 Fn，句柄必须克隆进去）。
+    let path_for_snapshot = path;
+    let index_for_snapshot = Arc::clone(&index);
+    let targets_for_snapshot = Arc::clone(&targets);
+    let runtime_for_snapshot = runtime.clone();
 
     // `getTaskModelSelection`：只有 `{taskId}` 入参 —— 注册表解析目标后读运行时会话的当前模型。
     let get_task_model_selection = handler(move |arg: Wire| {
@@ -305,6 +316,52 @@ pub fn task_channel(data_base_dir: Option<PathBuf>, runtime: Option<RuntimeAcces
         ("listTaskList", list_task_list),
         ("listGroupedTaskViewStructure", list_grouped_structure),
         ("getTaskModelSelection", get_task_model_selection),
+        // S2b 快照读面：resume + 投影 + 索引回写（见 domains_task_snapshot.rs）。
+        (
+            "getTaskSnapshot",
+            super::domains_task_snapshot::snapshot_handler(
+                ReadContext {
+                    path: path_for_snapshot.clone(),
+                    index: Arc::clone(&index_for_snapshot),
+                    targets: Arc::clone(&targets_for_snapshot),
+                    runtime: runtime_for_snapshot.clone(),
+                },
+                false,
+            ),
+        ),
+        (
+            "getTaskSnapshotWithEtag",
+            super::domains_task_snapshot::snapshot_handler(
+                ReadContext {
+                    path: path_for_snapshot.clone(),
+                    index: Arc::clone(&index_for_snapshot),
+                    targets: Arc::clone(&targets_for_snapshot),
+                    runtime: runtime_for_snapshot.clone(),
+                },
+                true,
+            ),
+        ),
+        (
+            "getTaskSnapshotBody",
+            super::domains_task_snapshot::null_handler(),
+        ),
+        (
+            "getTaskSnapshotRef",
+            super::domains_task_snapshot::null_handler(),
+        ),
+        (
+            "getTaskSnapshotToolCallsSlice",
+            super::domains_task_snapshot::null_handler(),
+        ),
+        (
+            "getTaskConfigOptions",
+            super::domains_task_snapshot::config_options_handler(ReadContext {
+                path: path_for_snapshot,
+                index: Arc::clone(&index_for_snapshot),
+                targets: Arc::clone(&targets_for_snapshot),
+                runtime: runtime_for_snapshot,
+            }),
+        ),
     ];
     methods.shrink_to_fit();
     Channel::new("escode-task", methods)

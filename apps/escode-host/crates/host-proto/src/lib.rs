@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 mod inventory;
+mod inventory_services;
 
 /// 一个 channel 上的 method 清单。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,11 +24,11 @@ pub enum State {
     Pending,
 }
 
-pub use inventory::METHODS;
+pub use inventory::{CONTROL_METHODS, methods};
 
 /// 某通道上标记为已实现的方法名。
 pub fn implemented_methods(channel: &str) -> Vec<&'static str> {
-    METHODS
+    methods()
         .iter()
         .filter(|entry| entry.channel == channel && entry.state == State::Implemented)
         .map(|entry| entry.method)
@@ -36,7 +37,7 @@ pub fn implemented_methods(channel: &str) -> Vec<&'static str> {
 
 /// 清单里的全部 channel（排序去重）。
 pub fn channels() -> Vec<&'static str> {
-    METHODS
+    methods()
         .iter()
         .map(|entry| entry.channel)
         .collect::<BTreeSet<_>>()
@@ -45,9 +46,9 @@ pub fn channels() -> Vec<&'static str> {
 }
 
 /// 某 channel 的 method 清单（保持声明序）。
-pub fn methods_of(channel: &str) -> Vec<&'static Method> {
-    METHODS
-        .iter()
+pub fn methods_of(channel: &str) -> Vec<Method> {
+    methods()
+        .into_iter()
         .filter(|entry| entry.channel == channel)
         .collect()
 }
@@ -56,7 +57,7 @@ pub fn methods_of(channel: &str) -> Vec<&'static Method> {
 pub fn duplicates() -> Vec<(&'static str, &'static str)> {
     let mut seen = BTreeSet::new();
     let mut duplicates = Vec::new();
-    for entry in METHODS {
+    for entry in methods() {
         if !seen.insert((entry.channel, entry.method)) {
             duplicates.push((entry.channel, entry.method));
         }
@@ -72,7 +73,7 @@ pub fn check(implemented: &BTreeSet<(&'static str, &'static str)>) -> anyhow::Re
         duplicates.is_empty(),
         "Host contract inventory has duplicate entries: {duplicates:?}"
     );
-    let missing: Vec<_> = METHODS
+    let missing: Vec<_> = methods()
         .iter()
         .filter(|entry| entry.state == State::Implemented)
         .filter(|entry| !implemented.contains(&(entry.channel, entry.method)))
@@ -82,7 +83,7 @@ pub fn check(implemented: &BTreeSet<(&'static str, &'static str)>) -> anyhow::Re
         missing.is_empty(),
         "Host contract marks methods implemented but no implementation registers them: {missing:?}"
     );
-    let claimed: BTreeSet<_> = METHODS
+    let claimed: BTreeSet<_> = methods()
         .iter()
         .map(|entry| (entry.channel, entry.method))
         .collect();
@@ -109,7 +110,7 @@ mod tests {
 
     #[test]
     fn check_accepts_a_matching_registration_set() {
-        let implemented: BTreeSet<_> = METHODS
+        let implemented: BTreeSet<_> = methods()
             .iter()
             .filter(|entry| entry.state == State::Implemented)
             .map(|entry| (entry.channel, entry.method))
@@ -120,7 +121,7 @@ mod tests {
     #[test]
     fn check_rejects_unregistered_implementations_and_unknown_methods() {
         // 负向验证：清单里一旦有 Implemented 成员而登记集为空，必须失败。
-        if METHODS
+        if methods()
             .iter()
             .any(|entry| entry.state == State::Implemented)
         {
@@ -132,7 +133,7 @@ mod tests {
             );
         }
         // 额外登记（清单里没有的方法）同样失败。
-        let mut extra: BTreeSet<(&'static str, &'static str)> = METHODS
+        let mut extra: BTreeSet<(&'static str, &'static str)> = methods()
             .iter()
             .filter(|entry| entry.state == State::Implemented)
             .map(|entry| (entry.channel, entry.method))

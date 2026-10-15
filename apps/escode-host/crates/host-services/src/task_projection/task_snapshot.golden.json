@@ -1,0 +1,3835 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/generate-escode-host-task-projection-fixtures.mjs",
+  "input": {
+    "snapshot": {
+      "protocol": {
+        "name": "ESCode Protocol",
+        "version": 1
+      },
+      "session": {
+        "sessionId": "task_proj",
+        "traceId": "trace-proj-1",
+        "title": "",
+        "createdAt": 900,
+        "updatedAt": 2800,
+        "mode": "guarded",
+        "model": {
+          "providerId": "glm",
+          "modelId": "glm-4"
+        },
+        "status": "running",
+        "sessionKind": "main",
+        "workspace": {
+          "workspaceKey": "/w",
+          "workspacePath": "/w"
+        }
+      },
+      "settings": {
+        "model": {
+          "current": {
+            "providerId": "glm",
+            "modelId": "glm-4",
+            "options": {
+              "reasoningLevel": "high"
+            }
+          },
+          "available": [
+            {
+              "ref": {
+                "providerId": "glm",
+                "modelId": "glm-4"
+              },
+              "label": "GLM-4",
+              "description": "主力模型",
+              "providerLabel": "智谱",
+              "reasoning": {
+                "levels": [
+                  {
+                    "value": "none",
+                    "label": "None"
+                  },
+                  {
+                    "value": "high",
+                    "label": "High"
+                  }
+                ],
+                "defaultLevel": "high"
+              }
+            },
+            {
+              "ref": {
+                "providerId": "custom",
+                "modelId": "kimi-k2:free"
+              },
+              "label": "Kimi"
+            }
+          ]
+        },
+        "thoughtLevel": {
+          "enabled": true,
+          "current": "high",
+          "defaultLevel": "medium",
+          "available": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "high",
+              "label": "High",
+              "description": "深想"
+            }
+          ]
+        },
+        "mode": {
+          "current": "guarded"
+        },
+        "permission": {
+          "mode": "guarded"
+        }
+      },
+      "projection": {
+        "sessionId": "task_proj",
+        "status": "running",
+        "mode": "guarded",
+        "turnCount": 3,
+        "totalTokenCount": 3400,
+        "contextUsed": 1200,
+        "contextWindow": 8000,
+        "activeToolCalls": [
+          {
+            "toolCallId": "call_bash_1",
+            "toolName": "Bash",
+            "status": "running",
+            "startedAt": 2250
+          }
+        ],
+        "pendingPermissions": [
+          {
+            "requestId": "req_bash",
+            "toolName": "Bash",
+            "reason": "需要执行命令",
+            "options": [
+              {
+                "value": "once",
+                "label": "Once"
+              }
+            ],
+            "origin": "runtime",
+            "input": {
+              "command": "ls"
+            }
+          },
+          {
+            "requestId": "req_ask",
+            "toolName": "AskUserQuestion",
+            "reason": "需要选择",
+            "origin": "runtime",
+            "input": {
+              "questions": [
+                {
+                  "question": "继续吗？",
+                  "header": "确认",
+                  "multiSelect": true,
+                  "options": [
+                    {
+                      "label": "继续",
+                      "description": "继续迁移"
+                    },
+                    {
+                      "label": "暂停"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "requestId": "req_plan",
+            "toolName": "ExitPlanMode",
+            "reason": "计划审批",
+            "origin": "runtime",
+            "input": {
+              "plan": "  1. 落投影\n2. 接索引  "
+            }
+          }
+        ],
+        "backgroundJobs": [
+          {
+            "jobId": "job_bash",
+            "taskKind": "bash",
+            "command": "npm run build",
+            "status": "running",
+            "pid": 4242,
+            "startedAt": 2200
+          },
+          {
+            "toolName": "Task",
+            "description": "跑一遍迁移",
+            "status": "in_progress",
+            "taskId": "job_agent",
+            "cancellable": true
+          }
+        ],
+        "target": {
+          "sessionID": "task_proj",
+          "targetID": "t1",
+          "objective": "把迁移做完",
+          "summaryTitle": "迁移",
+          "status": "active",
+          "tokenBudget": 1000,
+          "tokensUsed": 10,
+          "timeUsedSeconds": 5,
+          "time": {
+            "created": 900,
+            "updated": 1000
+          }
+        }
+      },
+      "runtime": {
+        "eventSeq": 12,
+        "stateRevision": 5,
+        "pendingRequestIds": [
+          "req_bash"
+        ],
+        "activeTurnKind": "regular",
+        "activeTurnId": "turn-1",
+        "contextUsage": {
+          "used": 1300,
+          "size": 8000,
+          "cost": 0.5,
+          "cache": {
+            "readTokens": 100
+          },
+          "breakdown": {
+            "system": 10
+          }
+        },
+        "goalVerifications": {
+          "passed": 1,
+          "failed": 0
+        },
+        "goalVerificationTimeline": [
+          {
+            "type": "goal_verification",
+            "targetId": "t1",
+            "goalIteration": 1,
+            "status": "completed",
+            "startedAt": 1800,
+            "updatedAt": 1850,
+            "anchorAssistantMessageId": "a2",
+            "verification": {
+              "passed": true
+            }
+          }
+        ]
+      },
+      "messages": [
+        {
+          "info": {
+            "messageId": "u1",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 1000
+            },
+            "semantics": {
+              "origin": "real_user",
+              "kind": "user_prompt",
+              "uiVisibility": "visible",
+              "providerVisibility": "hidden",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-u1-1",
+              "messageId": "u1",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "把迁移做完"
+            },
+            {
+              "partId": "p-u1-2",
+              "messageId": "u1",
+              "sessionId": "task_proj",
+              "type": "file",
+              "mime": "image/png",
+              "filename": "shot.png",
+              "url": "data:image/png;base64,QUJD",
+              "metadata": {
+                "sizeBytes": 3
+              }
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "a1",
+            "sessionId": "task_proj",
+            "role": "assistant",
+            "time": {
+              "created": 1100,
+              "completed": 1500
+            },
+            "agent": "main",
+            "parentMessageId": "u1",
+            "path": {
+              "cwd": "/w",
+              "root": "/w"
+            },
+            "cost": 0,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "model": {
+              "providerId": "glm",
+              "modelId": "glm-4"
+            },
+            "finish": "stop",
+            "semantics": {
+              "origin": "agent_runtime",
+              "kind": "assistant_response",
+              "uiVisibility": "visible",
+              "providerVisibility": "visible",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-a1-1",
+              "messageId": "a1",
+              "sessionId": "task_proj",
+              "type": "reasoning",
+              "text": "先看计划。"
+            },
+            {
+              "partId": "p-a1-2",
+              "messageId": "a1",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "先读文件。"
+            },
+            {
+              "partId": "p-a1-3",
+              "messageId": "a1",
+              "sessionId": "task_proj",
+              "type": "tool",
+              "callId": "call_read_1",
+              "tool": "Read",
+              "state": {
+                "status": "completed",
+                "input": {
+                  "path": "/w/a.ts"
+                },
+                "output": "export const a = 1;",
+                "title": "Read a.ts",
+                "metadata": {
+                  "toolCallId": "call_read_1",
+                  "display": "a.ts"
+                },
+                "startedAt": 1150,
+                "completedAt": 1200
+              }
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "u2",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 1600
+            },
+            "synthetic": true,
+            "source": "goal-continuation"
+          },
+          "parts": [
+            {
+              "partId": "p-u2-1",
+              "messageId": "u2",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "<system-reminder source=\"goal-continuation\">Continue working toward the active session goal.</system-reminder>"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "a2",
+            "sessionId": "task_proj",
+            "role": "assistant",
+            "time": {
+              "created": 1700,
+              "completed": 1900
+            },
+            "agent": "main",
+            "parentMessageId": "u1",
+            "path": {
+              "cwd": "/w",
+              "root": "/w"
+            },
+            "cost": 0,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "model": {
+              "providerId": "glm",
+              "modelId": "glm-4"
+            },
+            "finish": "stop",
+            "semantics": {
+              "origin": "agent_runtime",
+              "kind": "assistant_response",
+              "uiVisibility": "visible",
+              "providerVisibility": "visible",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-a2-1",
+              "messageId": "a2",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "第一轮完成。"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "u3",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 2000
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-u3-1",
+              "messageId": "u3",
+              "sessionId": "task_proj",
+              "type": "compaction",
+              "auto": true,
+              "metadata": {}
+            },
+            {
+              "partId": "p-u3-2",
+              "messageId": "u3",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "（压缩摘要）"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "u4",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 2100
+            },
+            "semantics": {
+              "origin": "real_user",
+              "kind": "user_prompt",
+              "uiVisibility": "visible",
+              "providerVisibility": "hidden",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-u4-1",
+              "messageId": "u4",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "第二轮问题"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "a3",
+            "sessionId": "task_proj",
+            "role": "assistant",
+            "time": {
+              "created": 2200
+            },
+            "agent": "main",
+            "parentMessageId": "u1",
+            "path": {
+              "cwd": "/w",
+              "root": "/w"
+            },
+            "cost": 0,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "model": {
+              "providerId": "glm",
+              "modelId": "glm-4"
+            },
+            "semantics": {
+              "origin": "agent_runtime",
+              "kind": "assistant_response",
+              "uiVisibility": "visible",
+              "providerVisibility": "visible",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-a3-1",
+              "messageId": "a3",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "开始执行。"
+            },
+            {
+              "partId": "p-a3-2",
+              "messageId": "a3",
+              "sessionId": "task_proj",
+              "type": "tool",
+              "callId": "call_bash_1",
+              "tool": "Bash",
+              "state": {
+                "status": "error",
+                "input": {
+                  "command": "false"
+                },
+                "error": "exit 1",
+                "startedAt": 2250,
+                "completedAt": 2260
+              }
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "u5",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 2300
+            },
+            "synthetic": true,
+            "source": "subagent_message"
+          },
+          "parts": [
+            {
+              "partId": "p-u5-1",
+              "messageId": "u5",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "子代理汇报：完成一半。"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "a4",
+            "sessionId": "task_proj",
+            "role": "assistant",
+            "time": {
+              "created": 2400,
+              "completed": 2450
+            },
+            "agent": "main",
+            "parentMessageId": "u1",
+            "path": {
+              "cwd": "/w",
+              "root": "/w"
+            },
+            "cost": 0,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "semantics": {
+              "origin": "agent_runtime",
+              "kind": "assistant_response",
+              "uiVisibility": "visible",
+              "providerVisibility": "visible",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-a4-1",
+              "messageId": "a4",
+              "sessionId": "task_proj",
+              "type": "compaction",
+              "auto": false,
+              "reason": "manual",
+              "metadata": {
+                "timelineStatus": "completed",
+                "trigger": "manual",
+                "operationId": "op-1"
+              }
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "a5",
+            "sessionId": "task_proj",
+            "role": "assistant",
+            "time": {
+              "created": 2500,
+              "completed": 2600
+            },
+            "agent": "main",
+            "parentMessageId": "u1",
+            "path": {
+              "cwd": "/w",
+              "root": "/w"
+            },
+            "cost": 0,
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "reasoning": 0,
+              "cache": {
+                "read": 0,
+                "write": 0
+              }
+            },
+            "model": {
+              "providerId": "custom",
+              "modelId": "kimi-k2:free",
+              "options": {
+                "reasoningLevel": "high"
+              }
+            },
+            "finish": "stop",
+            "semantics": {
+              "origin": "agent_runtime",
+              "kind": "assistant_response",
+              "uiVisibility": "visible",
+              "providerVisibility": "visible",
+              "transcriptVisibility": "visible"
+            }
+          },
+          "parts": [
+            {
+              "partId": "p-a5-1",
+              "messageId": "a5",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "尾部回复。"
+            }
+          ]
+        },
+        {
+          "info": {
+            "messageId": "u6",
+            "sessionId": "task_proj",
+            "role": "user",
+            "time": {
+              "created": 2700
+            },
+            "synthetic": true,
+            "source": "task_notification"
+          },
+          "parts": [
+            {
+              "partId": "p-u6-1",
+              "messageId": "u6",
+              "sessionId": "task_proj",
+              "type": "text",
+              "text": "<task-notification><tool-use-id>call_bash_1</tool-use-id><status>killed</status><summary>被停止</summary></task-notification>"
+            }
+          ]
+        }
+      ],
+      "todos": [
+        {
+          "status": "completed",
+          "content": "步骤一"
+        },
+        {
+          "status": "in_progress",
+          "content": "步骤二"
+        }
+      ],
+      "todoGroups": [
+        {
+          "id": "g1",
+          "source": "agent",
+          "goalIteration": 1,
+          "targetId": "t1",
+          "startedAt": 1000,
+          "updatedAt": 1100,
+          "todos": [
+            {
+              "status": "completed",
+              "content": "组内一"
+            }
+          ]
+        }
+      ],
+      "goalStats": {
+        "tokensUsed": 10,
+        "timeUsedSeconds": 5
+      },
+      "slashCommands": [
+        {
+          "name": "compact",
+          "description": "压缩上下文",
+          "source": "builtin"
+        }
+      ]
+    },
+    "workspace": "/w",
+    "taskId": "task_proj"
+  },
+  "expected": {
+    "desktop": {
+      "params": {
+        "taskId": "task_proj",
+        "workspacePath": "/w",
+        "workspaceIdentity": "/w",
+        "clientMode": "desktop-continuous"
+      },
+      "result": {
+        "snapshot": {
+          "meta": {
+            "taskId": "task_proj",
+            "traceId": "trace-proj-1",
+            "title": "把迁移做完",
+            "titleOverridden": false,
+            "workspacePath": "/w",
+            "createdAt": 900,
+            "updatedAt": 2800,
+            "mode": "guarded",
+            "model": "custom/kimi-k2:free$high",
+            "thoughtLevel": "high",
+            "provider": "glm",
+            "status": "running",
+            "target": {
+              "sessionID": "task_proj",
+              "targetID": "t1",
+              "objective": "把迁移做完",
+              "summaryTitle": "迁移",
+              "status": "active",
+              "tokenBudget": 1000,
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5,
+              "time": {
+                "created": 900,
+                "updated": 1000
+              }
+            }
+          },
+          "messages": [
+            {
+              "id": "u1",
+              "role": "user",
+              "content": "把迁移做完",
+              "timestamp": 1000,
+              "attachments": [
+                {
+                  "kind": "image",
+                  "filename": "shot.png",
+                  "mimeType": "image/png",
+                  "sizeBytes": 3,
+                  "dataBase64": "QUJD"
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "a1",
+              "role": "assistant",
+              "content": "先读文件。",
+              "timestamp": 1100,
+              "model": "glm/glm-4",
+              "durationMs": 400,
+              "thought": "先看计划。",
+              "tools": [
+                {
+                  "toolName": "Read",
+                  "title": "Read a.ts",
+                  "kind": "Read",
+                  "status": "completed",
+                  "input": {
+                    "path": "/w/a.ts"
+                  },
+                  "output": "export const a = 1;",
+                  "raw": {
+                    "toolCallId": "call_read_1",
+                    "display": "a.ts"
+                  }
+                }
+              ],
+              "parts": [
+                {
+                  "type": "thought",
+                  "content": "先看计划。"
+                },
+                {
+                  "type": "content",
+                  "content": "先读文件。"
+                },
+                {
+                  "type": "tool-call",
+                  "toolIndex": 0
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "a2",
+              "role": "assistant",
+              "content": "第一轮完成。",
+              "timestamp": 1700,
+              "model": "glm/glm-4",
+              "goalIteration": 1,
+              "durationMs": 200,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "第一轮完成。"
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "escode-goal-verification-t1-1",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 1800,
+              "syntheticTimeline": {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            },
+            {
+              "id": "u4",
+              "role": "user",
+              "content": "第二轮问题",
+              "timestamp": 2100,
+              "turnIndex": 1
+            },
+            {
+              "id": "a3",
+              "role": "assistant",
+              "content": "开始执行。",
+              "timestamp": 2200,
+              "model": "glm/glm-4",
+              "goalIteration": 1,
+              "tools": [
+                {
+                  "toolName": "Bash",
+                  "title": "Bash",
+                  "kind": "Bash",
+                  "status": "failed",
+                  "input": {
+                    "command": "false"
+                  },
+                  "error": "exit 1",
+                  "raw": {
+                    "status": "error",
+                    "input": {
+                      "command": "false"
+                    },
+                    "error": "exit 1",
+                    "startedAt": 2250,
+                    "completedAt": 2260,
+                    "toolCallId": "call_bash_1",
+                    "_meta": {
+                      "escode": {
+                        "taskNotification": {
+                          "status": "killed",
+                          "summary": "被停止"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "开始执行。"
+                },
+                {
+                  "type": "tool-call",
+                  "toolIndex": 0
+                }
+              ],
+              "turnIndex": 1
+            },
+            {
+              "id": "a4",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 2400,
+              "syntheticTimeline": {
+                "version": 1,
+                "kind": "synthetic",
+                "type": "context_compaction",
+                "operationId": "op-1",
+                "status": "completed",
+                "trigger": "manual",
+                "display": "separator",
+                "reason": "manual"
+              },
+              "goalIteration": 1,
+              "durationMs": 50,
+              "turnIndex": 1
+            },
+            {
+              "id": "a5",
+              "role": "assistant",
+              "content": "尾部回复。",
+              "timestamp": 2500,
+              "model": "custom/kimi-k2:free$high",
+              "goalIteration": 1,
+              "durationMs": 100,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "尾部回复。"
+                }
+              ],
+              "turnIndex": 1
+            }
+          ],
+          "fileChanges": [],
+          "configOptions": [
+            {
+              "id": "model",
+              "name": "Model",
+              "category": "model",
+              "type": "select",
+              "currentValue": "glm/glm-4$high",
+              "options": [
+                {
+                  "value": "glm/glm-4",
+                  "name": "GLM-4",
+                  "description": "主力模型",
+                  "modelProviderId": "glm",
+                  "modelProviderName": "智谱",
+                  "modelThoughtLevels": [
+                    "none",
+                    "high"
+                  ],
+                  "modelDefaultThoughtLevel": "high"
+                },
+                {
+                  "value": "custom/kimi-k2:free",
+                  "name": "Kimi",
+                  "modelProviderId": "custom",
+                  "modelProviderName": "custom"
+                }
+              ]
+            },
+            {
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode",
+              "type": "select",
+              "currentValue": "guarded",
+              "options": [
+                {
+                  "value": "build",
+                  "name": "Ask before changes",
+                  "description": "Ask before each file changes."
+                },
+                {
+                  "value": "guarded",
+                  "name": "Autonomous mode",
+                  "description": "Ask when there’s risk"
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan mode",
+                  "description": "Inspect the code and present a plan before editing."
+                },
+                {
+                  "value": "yolo",
+                  "name": "Full access",
+                  "description": "Edit and run commands with fewer confirmations."
+                }
+              ]
+            },
+            {
+              "id": "thought_level",
+              "name": "Thought Level",
+              "category": "thought_level",
+              "type": "select",
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "none",
+                  "name": "None"
+                },
+                {
+                  "value": "high",
+                  "name": "High",
+                  "description": "深想"
+                }
+              ]
+            }
+          ],
+          "slashCommands": [
+            {
+              "name": "compact",
+              "description": "压缩上下文",
+              "source": "builtin"
+            }
+          ],
+          "runtime": {
+            "activeTurnKind": "regular",
+            "apiRetry": null,
+            "contextUsage": {
+              "used": 1300,
+              "size": 8000,
+              "cost": 0.5,
+              "cache": {
+                "readTokens": 100
+              },
+              "breakdown": {
+                "system": 10
+              }
+            },
+            "pendingPermissions": [
+              {
+                "type": "permission_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_bash",
+                "description": "需要执行命令",
+                "kind": "Bash",
+                "title": "Bash",
+                "options": [
+                  {
+                    "value": "once",
+                    "label": "Once"
+                  }
+                ],
+                "origin": "runtime",
+                "raw": {
+                  "requestId": "req_bash",
+                  "toolName": "Bash",
+                  "reason": "需要执行命令",
+                  "options": [
+                    {
+                      "value": "once",
+                      "label": "Once"
+                    }
+                  ],
+                  "origin": "runtime",
+                  "input": {
+                    "command": "ls"
+                  }
+                }
+              }
+            ],
+            "backgroundBashJobs": [
+              {
+                "jobId": "job_bash",
+                "command": "npm run build",
+                "taskKind": "bash",
+                "status": "running",
+                "startedAt": 2200,
+                "pid": 4242,
+                "raw": {
+                  "jobId": "job_bash",
+                  "taskKind": "bash",
+                  "command": "npm run build",
+                  "status": "running",
+                  "pid": 4242,
+                  "startedAt": 2200
+                }
+              },
+              {
+                "jobId": "job_agent",
+                "command": "跑一遍迁移",
+                "taskKind": "agent",
+                "cancellable": true,
+                "title": "跑一遍迁移",
+                "status": "running",
+                "raw": {
+                  "toolName": "Task",
+                  "description": "跑一遍迁移",
+                  "status": "in_progress",
+                  "taskId": "job_agent",
+                  "cancellable": true
+                }
+              }
+            ],
+            "pendingElicitations": [
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_ask",
+                "message": "继续吗？",
+                "header": "确认",
+                "options": [
+                  {
+                    "value": "继续",
+                    "label": "继续",
+                    "description": "继续迁移"
+                  },
+                  {
+                    "value": "暂停",
+                    "label": "暂停"
+                  }
+                ],
+                "multiSelect": true,
+                "questions": [
+                  {
+                    "question": "继续吗？",
+                    "header": "确认",
+                    "options": [
+                      {
+                        "value": "继续",
+                        "label": "继续",
+                        "description": "继续迁移"
+                      },
+                      {
+                        "value": "暂停",
+                        "label": "暂停"
+                      }
+                    ],
+                    "multiSelect": true
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "questions": [
+                    {
+                      "question": "继续吗？",
+                      "header": "确认",
+                      "multiSelect": true,
+                      "options": [
+                        {
+                          "label": "继续",
+                          "description": "继续迁移"
+                        },
+                        {
+                          "label": "暂停"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_plan",
+                "message": "Review this implementation plan.",
+                "header": "Plan",
+                "options": [
+                  {
+                    "description": "Exit plan mode and start implementation.",
+                    "label": "Approve",
+                    "value": "approve"
+                  }
+                ],
+                "questions": [
+                  {
+                    "header": "Plan",
+                    "options": [
+                      {
+                        "description": "Exit plan mode and start implementation.",
+                        "label": "Approve",
+                        "value": "approve"
+                      }
+                    ],
+                    "question": "Review this implementation plan."
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "interaction": "plan_approval",
+                  "toolName": "ExitPlanMode",
+                  "plan": "1. 落投影\n2. 接索引"
+                }
+              }
+            ],
+            "pendingCommands": [],
+            "plan": [
+              {
+                "id": "todo-0",
+                "status": "completed",
+                "title": "步骤一"
+              },
+              {
+                "id": "todo-1",
+                "status": "in_progress",
+                "title": "步骤二"
+              }
+            ],
+            "goalStats": {
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5
+            },
+            "goalVerifications": {
+              "passed": 1,
+              "failed": 0
+            },
+            "goalVerificationTimeline": [
+              {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            ],
+            "todoGroups": [
+              {
+                "id": "g1",
+                "source": "agent",
+                "goalIteration": 1,
+                "targetId": "t1",
+                "startedAt": 1000,
+                "updatedAt": 1100,
+                "todos": [
+                  {
+                    "id": "g1-todo-0",
+                    "status": "completed",
+                    "title": "组内一"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "etagShape": {
+          "length": 64,
+          "hex": true
+        },
+        "conditionalRequestHits": false,
+        "configOptions": [
+          {
+            "id": "model",
+            "name": "Model",
+            "category": "model",
+            "type": "select",
+            "currentValue": "glm/glm-4$high",
+            "options": [
+              {
+                "value": "glm/glm-4",
+                "name": "GLM-4",
+                "description": "主力模型",
+                "modelProviderId": "glm",
+                "modelProviderName": "智谱",
+                "modelThoughtLevels": [
+                  "none",
+                  "high"
+                ],
+                "modelDefaultThoughtLevel": "high"
+              },
+              {
+                "value": "custom/kimi-k2:free",
+                "name": "Kimi",
+                "modelProviderId": "custom",
+                "modelProviderName": "custom"
+              }
+            ]
+          },
+          {
+            "id": "mode",
+            "name": "Mode",
+            "category": "mode",
+            "type": "select",
+            "currentValue": "guarded",
+            "options": [
+              {
+                "value": "build",
+                "name": "Ask before changes",
+                "description": "Ask before each file changes."
+              },
+              {
+                "value": "guarded",
+                "name": "Autonomous mode",
+                "description": "Ask when there’s risk"
+              },
+              {
+                "value": "plan",
+                "name": "Plan mode",
+                "description": "Inspect the code and present a plan before editing."
+              },
+              {
+                "value": "yolo",
+                "name": "Full access",
+                "description": "Edit and run commands with fewer confirmations."
+              }
+            ]
+          },
+          {
+            "id": "thought_level",
+            "name": "Thought Level",
+            "category": "thought_level",
+            "type": "select",
+            "currentValue": "high",
+            "options": [
+              {
+                "value": "none",
+                "name": "None"
+              },
+              {
+                "value": "high",
+                "name": "High",
+                "description": "深想"
+              }
+            ]
+          }
+        ],
+        "calls": [
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "sessionId": "task_proj"
+            }
+          }
+        ]
+      }
+    },
+    "limited": {
+      "params": {
+        "taskId": "task_proj",
+        "workspacePath": "/w",
+        "workspaceIdentity": "/w",
+        "clientMode": "desktop-continuous",
+        "messageLimit": 2
+      },
+      "result": {
+        "snapshot": {
+          "meta": {
+            "taskId": "task_proj",
+            "traceId": "trace-proj-1",
+            "title": "把迁移做完",
+            "titleOverridden": false,
+            "workspacePath": "/w",
+            "createdAt": 900,
+            "updatedAt": 2800,
+            "mode": "guarded",
+            "model": "custom/kimi-k2:free$high",
+            "thoughtLevel": "high",
+            "provider": "glm",
+            "status": "running",
+            "target": {
+              "sessionID": "task_proj",
+              "targetID": "t1",
+              "objective": "把迁移做完",
+              "summaryTitle": "迁移",
+              "status": "active",
+              "tokenBudget": 1000,
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5,
+              "time": {
+                "created": 900,
+                "updated": 1000
+              }
+            }
+          },
+          "messages": [
+            {
+              "id": "a4",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 2400,
+              "syntheticTimeline": {
+                "version": 1,
+                "kind": "synthetic",
+                "type": "context_compaction",
+                "operationId": "op-1",
+                "status": "completed",
+                "trigger": "manual",
+                "display": "separator",
+                "reason": "manual"
+              },
+              "goalIteration": 1,
+              "durationMs": 50,
+              "turnIndex": 1
+            },
+            {
+              "id": "a5",
+              "role": "assistant",
+              "content": "尾部回复。",
+              "timestamp": 2500,
+              "model": "custom/kimi-k2:free$high",
+              "goalIteration": 1,
+              "durationMs": 100,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "尾部回复。"
+                }
+              ],
+              "turnIndex": 1
+            }
+          ],
+          "fileChanges": [],
+          "configOptions": [
+            {
+              "id": "model",
+              "name": "Model",
+              "category": "model",
+              "type": "select",
+              "currentValue": "glm/glm-4$high",
+              "options": [
+                {
+                  "value": "glm/glm-4",
+                  "name": "GLM-4",
+                  "description": "主力模型",
+                  "modelProviderId": "glm",
+                  "modelProviderName": "智谱",
+                  "modelThoughtLevels": [
+                    "none",
+                    "high"
+                  ],
+                  "modelDefaultThoughtLevel": "high"
+                },
+                {
+                  "value": "custom/kimi-k2:free",
+                  "name": "Kimi",
+                  "modelProviderId": "custom",
+                  "modelProviderName": "custom"
+                }
+              ]
+            },
+            {
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode",
+              "type": "select",
+              "currentValue": "guarded",
+              "options": [
+                {
+                  "value": "build",
+                  "name": "Ask before changes",
+                  "description": "Ask before each file changes."
+                },
+                {
+                  "value": "guarded",
+                  "name": "Autonomous mode",
+                  "description": "Ask when there’s risk"
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan mode",
+                  "description": "Inspect the code and present a plan before editing."
+                },
+                {
+                  "value": "yolo",
+                  "name": "Full access",
+                  "description": "Edit and run commands with fewer confirmations."
+                }
+              ]
+            },
+            {
+              "id": "thought_level",
+              "name": "Thought Level",
+              "category": "thought_level",
+              "type": "select",
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "none",
+                  "name": "None"
+                },
+                {
+                  "value": "high",
+                  "name": "High",
+                  "description": "深想"
+                }
+              ]
+            }
+          ],
+          "slashCommands": [
+            {
+              "name": "compact",
+              "description": "压缩上下文",
+              "source": "builtin"
+            }
+          ],
+          "runtime": {
+            "activeTurnKind": "regular",
+            "apiRetry": null,
+            "contextUsage": {
+              "used": 1300,
+              "size": 8000,
+              "cost": 0.5,
+              "cache": {
+                "readTokens": 100
+              },
+              "breakdown": {
+                "system": 10
+              }
+            },
+            "pendingPermissions": [
+              {
+                "type": "permission_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_bash",
+                "description": "需要执行命令",
+                "kind": "Bash",
+                "title": "Bash",
+                "options": [
+                  {
+                    "value": "once",
+                    "label": "Once"
+                  }
+                ],
+                "origin": "runtime",
+                "raw": {
+                  "requestId": "req_bash",
+                  "toolName": "Bash",
+                  "reason": "需要执行命令",
+                  "options": [
+                    {
+                      "value": "once",
+                      "label": "Once"
+                    }
+                  ],
+                  "origin": "runtime",
+                  "input": {
+                    "command": "ls"
+                  }
+                }
+              }
+            ],
+            "backgroundBashJobs": [
+              {
+                "jobId": "job_bash",
+                "command": "npm run build",
+                "taskKind": "bash",
+                "status": "running",
+                "startedAt": 2200,
+                "pid": 4242,
+                "raw": {
+                  "jobId": "job_bash",
+                  "taskKind": "bash",
+                  "command": "npm run build",
+                  "status": "running",
+                  "pid": 4242,
+                  "startedAt": 2200
+                }
+              },
+              {
+                "jobId": "job_agent",
+                "command": "跑一遍迁移",
+                "taskKind": "agent",
+                "cancellable": true,
+                "title": "跑一遍迁移",
+                "status": "running",
+                "raw": {
+                  "toolName": "Task",
+                  "description": "跑一遍迁移",
+                  "status": "in_progress",
+                  "taskId": "job_agent",
+                  "cancellable": true
+                }
+              }
+            ],
+            "pendingElicitations": [
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_ask",
+                "message": "继续吗？",
+                "header": "确认",
+                "options": [
+                  {
+                    "value": "继续",
+                    "label": "继续",
+                    "description": "继续迁移"
+                  },
+                  {
+                    "value": "暂停",
+                    "label": "暂停"
+                  }
+                ],
+                "multiSelect": true,
+                "questions": [
+                  {
+                    "question": "继续吗？",
+                    "header": "确认",
+                    "options": [
+                      {
+                        "value": "继续",
+                        "label": "继续",
+                        "description": "继续迁移"
+                      },
+                      {
+                        "value": "暂停",
+                        "label": "暂停"
+                      }
+                    ],
+                    "multiSelect": true
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "questions": [
+                    {
+                      "question": "继续吗？",
+                      "header": "确认",
+                      "multiSelect": true,
+                      "options": [
+                        {
+                          "label": "继续",
+                          "description": "继续迁移"
+                        },
+                        {
+                          "label": "暂停"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_plan",
+                "message": "Review this implementation plan.",
+                "header": "Plan",
+                "options": [
+                  {
+                    "description": "Exit plan mode and start implementation.",
+                    "label": "Approve",
+                    "value": "approve"
+                  }
+                ],
+                "questions": [
+                  {
+                    "header": "Plan",
+                    "options": [
+                      {
+                        "description": "Exit plan mode and start implementation.",
+                        "label": "Approve",
+                        "value": "approve"
+                      }
+                    ],
+                    "question": "Review this implementation plan."
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "interaction": "plan_approval",
+                  "toolName": "ExitPlanMode",
+                  "plan": "1. 落投影\n2. 接索引"
+                }
+              }
+            ],
+            "pendingCommands": [],
+            "plan": [
+              {
+                "id": "todo-0",
+                "status": "completed",
+                "title": "步骤一"
+              },
+              {
+                "id": "todo-1",
+                "status": "in_progress",
+                "title": "步骤二"
+              }
+            ],
+            "goalStats": {
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5
+            },
+            "goalVerifications": {
+              "passed": 1,
+              "failed": 0
+            },
+            "goalVerificationTimeline": [
+              {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            ],
+            "todoGroups": [
+              {
+                "id": "g1",
+                "source": "agent",
+                "goalIteration": 1,
+                "targetId": "t1",
+                "startedAt": 1000,
+                "updatedAt": 1100,
+                "todos": [
+                  {
+                    "id": "g1-todo-0",
+                    "status": "completed",
+                    "title": "组内一"
+                  }
+                ]
+              }
+            ]
+          },
+          "history": {
+            "truncatedBefore": true,
+            "totalMessages": 8
+          }
+        },
+        "etagShape": {
+          "length": 64,
+          "hex": true
+        },
+        "conditionalRequestHits": false,
+        "configOptions": [
+          {
+            "id": "model",
+            "name": "Model",
+            "category": "model",
+            "type": "select",
+            "currentValue": "glm/glm-4$high",
+            "options": [
+              {
+                "value": "glm/glm-4",
+                "name": "GLM-4",
+                "description": "主力模型",
+                "modelProviderId": "glm",
+                "modelProviderName": "智谱",
+                "modelThoughtLevels": [
+                  "none",
+                  "high"
+                ],
+                "modelDefaultThoughtLevel": "high"
+              },
+              {
+                "value": "custom/kimi-k2:free",
+                "name": "Kimi",
+                "modelProviderId": "custom",
+                "modelProviderName": "custom"
+              }
+            ]
+          },
+          {
+            "id": "mode",
+            "name": "Mode",
+            "category": "mode",
+            "type": "select",
+            "currentValue": "guarded",
+            "options": [
+              {
+                "value": "build",
+                "name": "Ask before changes",
+                "description": "Ask before each file changes."
+              },
+              {
+                "value": "guarded",
+                "name": "Autonomous mode",
+                "description": "Ask when there’s risk"
+              },
+              {
+                "value": "plan",
+                "name": "Plan mode",
+                "description": "Inspect the code and present a plan before editing."
+              },
+              {
+                "value": "yolo",
+                "name": "Full access",
+                "description": "Edit and run commands with fewer confirmations."
+              }
+            ]
+          },
+          {
+            "id": "thought_level",
+            "name": "Thought Level",
+            "category": "thought_level",
+            "type": "select",
+            "currentValue": "high",
+            "options": [
+              {
+                "value": "none",
+                "name": "None"
+              },
+              {
+                "value": "high",
+                "name": "High",
+                "description": "深想"
+              }
+            ]
+          }
+        ],
+        "calls": [
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "sessionId": "task_proj"
+            }
+          }
+        ]
+      }
+    },
+    "replayable": {
+      "params": {
+        "taskId": "task_proj",
+        "workspacePath": "/w",
+        "workspaceIdentity": "/w",
+        "clientMode": "web-remote-replayable",
+        "messageLimit": 4
+      },
+      "seed": {
+        "taskId": "task_proj",
+        "traceId": "trace-proj-1",
+        "title": "索引里的旧标题",
+        "workspacePath": "/w",
+        "workspaceIdentity": "/w",
+        "createdAt": 900,
+        "updatedAt": 950,
+        "mode": "build",
+        "model": "glm/glm-4",
+        "thoughtLevel": "none",
+        "provider": "glm"
+      },
+      "result": {
+        "snapshot": {
+          "meta": {
+            "taskId": "task_proj",
+            "traceId": "trace-proj-1",
+            "title": "把迁移做完",
+            "titleOverridden": false,
+            "workspacePath": "/w",
+            "createdAt": 900,
+            "updatedAt": 2800,
+            "mode": "guarded",
+            "model": "custom/kimi-k2:free$high",
+            "thoughtLevel": "high",
+            "provider": "glm",
+            "status": "running",
+            "target": {
+              "sessionID": "task_proj",
+              "targetID": "t1",
+              "objective": "把迁移做完",
+              "summaryTitle": "迁移",
+              "status": "active",
+              "tokenBudget": 1000,
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5,
+              "time": {
+                "created": 900,
+                "updated": 1000
+              }
+            }
+          },
+          "messages": [
+            {
+              "id": "u4",
+              "role": "user",
+              "content": "第二轮问题",
+              "timestamp": 2100,
+              "turnIndex": 1
+            },
+            {
+              "id": "a3",
+              "role": "assistant",
+              "content": "开始执行。",
+              "timestamp": 2200,
+              "model": "glm/glm-4",
+              "goalIteration": 1,
+              "tools": [
+                {
+                  "toolName": "Bash",
+                  "title": "Bash",
+                  "kind": "Bash",
+                  "status": "failed",
+                  "input": {
+                    "command": "false"
+                  },
+                  "error": "exit 1",
+                  "raw": {
+                    "status": "error",
+                    "input": {
+                      "command": "false"
+                    },
+                    "error": "exit 1",
+                    "startedAt": 2250,
+                    "completedAt": 2260,
+                    "toolCallId": "call_bash_1",
+                    "_meta": {
+                      "escode": {
+                        "taskNotification": {
+                          "status": "killed",
+                          "summary": "被停止"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "开始执行。"
+                },
+                {
+                  "type": "tool-call",
+                  "toolIndex": 0
+                }
+              ],
+              "turnIndex": 1
+            },
+            {
+              "id": "a4",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 2400,
+              "syntheticTimeline": {
+                "version": 1,
+                "kind": "synthetic",
+                "type": "context_compaction",
+                "operationId": "op-1",
+                "status": "completed",
+                "trigger": "manual",
+                "display": "separator",
+                "reason": "manual"
+              },
+              "goalIteration": 1,
+              "durationMs": 50,
+              "turnIndex": 1
+            },
+            {
+              "id": "a5",
+              "role": "assistant",
+              "content": "尾部回复。",
+              "timestamp": 2500,
+              "model": "custom/kimi-k2:free$high",
+              "goalIteration": 1,
+              "durationMs": 100,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "尾部回复。"
+                }
+              ],
+              "turnIndex": 1
+            }
+          ],
+          "fileChanges": [],
+          "configOptions": [
+            {
+              "id": "model",
+              "name": "Model",
+              "category": "model",
+              "type": "select",
+              "currentValue": "glm/glm-4$high",
+              "options": [
+                {
+                  "value": "glm/glm-4",
+                  "name": "GLM-4",
+                  "description": "主力模型",
+                  "modelProviderId": "glm",
+                  "modelProviderName": "智谱",
+                  "modelThoughtLevels": [
+                    "none",
+                    "high"
+                  ],
+                  "modelDefaultThoughtLevel": "high"
+                },
+                {
+                  "value": "custom/kimi-k2:free",
+                  "name": "Kimi",
+                  "modelProviderId": "custom",
+                  "modelProviderName": "custom"
+                }
+              ]
+            },
+            {
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode",
+              "type": "select",
+              "currentValue": "guarded",
+              "options": [
+                {
+                  "value": "build",
+                  "name": "Ask before changes",
+                  "description": "Ask before each file changes."
+                },
+                {
+                  "value": "guarded",
+                  "name": "Autonomous mode",
+                  "description": "Ask when there’s risk"
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan mode",
+                  "description": "Inspect the code and present a plan before editing."
+                },
+                {
+                  "value": "yolo",
+                  "name": "Full access",
+                  "description": "Edit and run commands with fewer confirmations."
+                }
+              ]
+            },
+            {
+              "id": "thought_level",
+              "name": "Thought Level",
+              "category": "thought_level",
+              "type": "select",
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "none",
+                  "name": "None"
+                },
+                {
+                  "value": "high",
+                  "name": "High",
+                  "description": "深想"
+                }
+              ]
+            }
+          ],
+          "slashCommands": [
+            {
+              "name": "compact",
+              "description": "压缩上下文",
+              "source": "builtin"
+            }
+          ],
+          "runtime": {
+            "activeTurnKind": "regular",
+            "apiRetry": null,
+            "contextUsage": {
+              "used": 1300,
+              "size": 8000,
+              "cost": 0.5,
+              "cache": {
+                "readTokens": 100
+              },
+              "breakdown": {
+                "system": 10
+              }
+            },
+            "pendingPermissions": [
+              {
+                "type": "permission_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_bash",
+                "description": "需要执行命令",
+                "kind": "Bash",
+                "title": "Bash",
+                "options": [
+                  {
+                    "value": "once",
+                    "label": "Once"
+                  }
+                ],
+                "origin": "runtime",
+                "raw": {
+                  "requestId": "req_bash",
+                  "toolName": "Bash",
+                  "reason": "需要执行命令",
+                  "options": [
+                    {
+                      "value": "once",
+                      "label": "Once"
+                    }
+                  ],
+                  "origin": "runtime",
+                  "input": {
+                    "command": "ls"
+                  }
+                }
+              }
+            ],
+            "backgroundBashJobs": [
+              {
+                "jobId": "job_bash",
+                "command": "npm run build",
+                "taskKind": "bash",
+                "status": "running",
+                "startedAt": 2200,
+                "pid": 4242,
+                "raw": {
+                  "jobId": "job_bash",
+                  "taskKind": "bash",
+                  "command": "npm run build",
+                  "status": "running",
+                  "pid": 4242,
+                  "startedAt": 2200
+                }
+              },
+              {
+                "jobId": "job_agent",
+                "command": "跑一遍迁移",
+                "taskKind": "agent",
+                "cancellable": true,
+                "title": "跑一遍迁移",
+                "status": "running",
+                "raw": {
+                  "toolName": "Task",
+                  "description": "跑一遍迁移",
+                  "status": "in_progress",
+                  "taskId": "job_agent",
+                  "cancellable": true
+                }
+              }
+            ],
+            "pendingElicitations": [
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_ask",
+                "message": "继续吗？",
+                "header": "确认",
+                "options": [
+                  {
+                    "value": "继续",
+                    "label": "继续",
+                    "description": "继续迁移"
+                  },
+                  {
+                    "value": "暂停",
+                    "label": "暂停"
+                  }
+                ],
+                "multiSelect": true,
+                "questions": [
+                  {
+                    "question": "继续吗？",
+                    "header": "确认",
+                    "options": [
+                      {
+                        "value": "继续",
+                        "label": "继续",
+                        "description": "继续迁移"
+                      },
+                      {
+                        "value": "暂停",
+                        "label": "暂停"
+                      }
+                    ],
+                    "multiSelect": true
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "questions": [
+                    {
+                      "question": "继续吗？",
+                      "header": "确认",
+                      "multiSelect": true,
+                      "options": [
+                        {
+                          "label": "继续",
+                          "description": "继续迁移"
+                        },
+                        {
+                          "label": "暂停"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_plan",
+                "message": "Review this implementation plan.",
+                "header": "Plan",
+                "options": [
+                  {
+                    "description": "Exit plan mode and start implementation.",
+                    "label": "Approve",
+                    "value": "approve"
+                  }
+                ],
+                "questions": [
+                  {
+                    "header": "Plan",
+                    "options": [
+                      {
+                        "description": "Exit plan mode and start implementation.",
+                        "label": "Approve",
+                        "value": "approve"
+                      }
+                    ],
+                    "question": "Review this implementation plan."
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "interaction": "plan_approval",
+                  "toolName": "ExitPlanMode",
+                  "plan": "1. 落投影\n2. 接索引"
+                }
+              }
+            ],
+            "pendingCommands": [],
+            "plan": [
+              {
+                "id": "todo-0",
+                "status": "completed",
+                "title": "步骤一"
+              },
+              {
+                "id": "todo-1",
+                "status": "in_progress",
+                "title": "步骤二"
+              }
+            ],
+            "goalStats": {
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5
+            },
+            "goalVerifications": {
+              "passed": 1,
+              "failed": 0
+            },
+            "goalVerificationTimeline": [
+              {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            ],
+            "todoGroups": [
+              {
+                "id": "g1",
+                "source": "agent",
+                "goalIteration": 1,
+                "targetId": "t1",
+                "startedAt": 1000,
+                "updatedAt": 1100,
+                "todos": [
+                  {
+                    "id": "g1-todo-0",
+                    "status": "completed",
+                    "title": "组内一"
+                  }
+                ]
+              }
+            ]
+          },
+          "history": {
+            "truncatedBefore": true,
+            "totalMessages": 8
+          }
+        },
+        "etagShape": {
+          "length": 64,
+          "hex": true
+        },
+        "conditionalRequestHits": false,
+        "configOptions": [
+          {
+            "id": "model",
+            "name": "Model",
+            "category": "model",
+            "type": "select",
+            "currentValue": "glm/glm-4$high",
+            "options": [
+              {
+                "value": "glm/glm-4",
+                "name": "GLM-4",
+                "description": "主力模型",
+                "modelProviderId": "glm",
+                "modelProviderName": "智谱",
+                "modelThoughtLevels": [
+                  "none",
+                  "high"
+                ],
+                "modelDefaultThoughtLevel": "high"
+              },
+              {
+                "value": "custom/kimi-k2:free",
+                "name": "Kimi",
+                "modelProviderId": "custom",
+                "modelProviderName": "custom"
+              }
+            ]
+          },
+          {
+            "id": "mode",
+            "name": "Mode",
+            "category": "mode",
+            "type": "select",
+            "currentValue": "guarded",
+            "options": [
+              {
+                "value": "build",
+                "name": "Ask before changes",
+                "description": "Ask before each file changes."
+              },
+              {
+                "value": "guarded",
+                "name": "Autonomous mode",
+                "description": "Ask when there’s risk"
+              },
+              {
+                "value": "plan",
+                "name": "Plan mode",
+                "description": "Inspect the code and present a plan before editing."
+              },
+              {
+                "value": "yolo",
+                "name": "Full access",
+                "description": "Edit and run commands with fewer confirmations."
+              }
+            ]
+          },
+          {
+            "id": "thought_level",
+            "name": "Thought Level",
+            "category": "thought_level",
+            "type": "select",
+            "currentValue": "high",
+            "options": [
+              {
+                "value": "none",
+                "name": "None"
+              },
+              {
+                "value": "high",
+                "name": "High",
+                "description": "深想"
+              }
+            ]
+          }
+        ],
+        "calls": [
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj",
+              "model": {
+                "providerId": "glm",
+                "modelId": "glm-4"
+              },
+              "thoughtLevel": "none"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj",
+              "model": {
+                "providerId": "custom",
+                "modelId": "kimi-k2:free",
+                "options": {
+                  "reasoningLevel": "high"
+                }
+              },
+              "thoughtLevel": "high"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj",
+              "model": {
+                "providerId": "custom",
+                "modelId": "kimi-k2:free",
+                "options": {
+                  "reasoningLevel": "high"
+                }
+              },
+              "thoughtLevel": "high"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "sessionId": "task_proj"
+            }
+          }
+        ]
+      }
+    },
+    "errorSnapshot": {
+      "params": {
+        "taskId": "task_proj",
+        "workspacePath": "/w",
+        "workspaceIdentity": "/w",
+        "clientMode": "desktop-continuous"
+      },
+      "input": {
+        "protocol": {
+          "name": "ESCode Protocol",
+          "version": 1
+        },
+        "session": {
+          "sessionId": "task_proj",
+          "traceId": "trace-proj-1",
+          "title": "",
+          "createdAt": 900,
+          "updatedAt": 2800,
+          "mode": "guarded",
+          "model": {
+            "providerId": "glm",
+            "modelId": "glm-4"
+          },
+          "status": "running",
+          "sessionKind": "main",
+          "workspace": {
+            "workspaceKey": "/w",
+            "workspacePath": "/w"
+          }
+        },
+        "settings": {
+          "model": {
+            "current": {
+              "providerId": "glm",
+              "modelId": "glm-4",
+              "options": {
+                "reasoningLevel": "high"
+              }
+            },
+            "available": [
+              {
+                "ref": {
+                  "providerId": "glm",
+                  "modelId": "glm-4"
+                },
+                "label": "GLM-4",
+                "description": "主力模型",
+                "providerLabel": "智谱",
+                "reasoning": {
+                  "levels": [
+                    {
+                      "value": "none",
+                      "label": "None"
+                    },
+                    {
+                      "value": "high",
+                      "label": "High"
+                    }
+                  ],
+                  "defaultLevel": "high"
+                }
+              },
+              {
+                "ref": {
+                  "providerId": "custom",
+                  "modelId": "kimi-k2:free"
+                },
+                "label": "Kimi"
+              }
+            ]
+          },
+          "thoughtLevel": {
+            "enabled": true,
+            "current": "high",
+            "defaultLevel": "medium",
+            "available": [
+              {
+                "value": "none",
+                "label": "None"
+              },
+              {
+                "value": "high",
+                "label": "High",
+                "description": "深想"
+              }
+            ]
+          },
+          "mode": {
+            "current": "guarded"
+          },
+          "permission": {
+            "mode": "guarded"
+          }
+        },
+        "projection": {
+          "sessionId": "task_proj",
+          "status": "running",
+          "mode": "guarded",
+          "turnCount": 3,
+          "totalTokenCount": 3400,
+          "contextUsed": 1200,
+          "contextWindow": 8000,
+          "activeToolCalls": [
+            {
+              "toolCallId": "call_bash_1",
+              "toolName": "Bash",
+              "status": "running",
+              "startedAt": 2250
+            }
+          ],
+          "pendingPermissions": [
+            {
+              "requestId": "req_bash",
+              "toolName": "Bash",
+              "reason": "需要执行命令",
+              "options": [
+                {
+                  "value": "once",
+                  "label": "Once"
+                }
+              ],
+              "origin": "runtime",
+              "input": {
+                "command": "ls"
+              }
+            },
+            {
+              "requestId": "req_ask",
+              "toolName": "AskUserQuestion",
+              "reason": "需要选择",
+              "origin": "runtime",
+              "input": {
+                "questions": [
+                  {
+                    "question": "继续吗？",
+                    "header": "确认",
+                    "multiSelect": true,
+                    "options": [
+                      {
+                        "label": "继续",
+                        "description": "继续迁移"
+                      },
+                      {
+                        "label": "暂停"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "requestId": "req_plan",
+              "toolName": "ExitPlanMode",
+              "reason": "计划审批",
+              "origin": "runtime",
+              "input": {
+                "plan": "  1. 落投影\n2. 接索引  "
+              }
+            }
+          ],
+          "backgroundJobs": [
+            {
+              "jobId": "job_bash",
+              "taskKind": "bash",
+              "command": "npm run build",
+              "status": "running",
+              "pid": 4242,
+              "startedAt": 2200
+            },
+            {
+              "toolName": "Task",
+              "description": "跑一遍迁移",
+              "status": "in_progress",
+              "taskId": "job_agent",
+              "cancellable": true
+            }
+          ],
+          "target": {
+            "sessionID": "task_proj",
+            "targetID": "t1",
+            "objective": "把迁移做完",
+            "summaryTitle": "迁移",
+            "status": "active",
+            "tokenBudget": 1000,
+            "tokensUsed": 10,
+            "timeUsedSeconds": 5,
+            "time": {
+              "created": 900,
+              "updated": 1000
+            }
+          },
+          "lastError": {
+            "type": "runtime",
+            "code": "rate_limited",
+            "message": "被限流",
+            "detail": "429",
+            "attribution": {
+              "source": "provider",
+              "reason": "被限流"
+            }
+          }
+        },
+        "runtime": {
+          "eventSeq": 12,
+          "stateRevision": 5,
+          "pendingRequestIds": [
+            "req_bash"
+          ],
+          "activeTurnKind": "regular",
+          "activeTurnId": "turn-1",
+          "contextUsage": {
+            "used": 1300,
+            "size": 8000,
+            "cost": 0.5,
+            "cache": {
+              "readTokens": 100
+            },
+            "breakdown": {
+              "system": 10
+            }
+          },
+          "goalVerifications": {
+            "passed": 1,
+            "failed": 0
+          },
+          "goalVerificationTimeline": [
+            {
+              "type": "goal_verification",
+              "targetId": "t1",
+              "goalIteration": 1,
+              "status": "completed",
+              "startedAt": 1800,
+              "updatedAt": 1850,
+              "anchorAssistantMessageId": "a2",
+              "verification": {
+                "passed": true
+              }
+            }
+          ]
+        },
+        "messages": [
+          {
+            "info": {
+              "messageId": "u1",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 1000
+              },
+              "semantics": {
+                "origin": "real_user",
+                "kind": "user_prompt",
+                "uiVisibility": "visible",
+                "providerVisibility": "hidden",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-u1-1",
+                "messageId": "u1",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "把迁移做完"
+              },
+              {
+                "partId": "p-u1-2",
+                "messageId": "u1",
+                "sessionId": "task_proj",
+                "type": "file",
+                "mime": "image/png",
+                "filename": "shot.png",
+                "url": "data:image/png;base64,QUJD",
+                "metadata": {
+                  "sizeBytes": 3
+                }
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "a1",
+              "sessionId": "task_proj",
+              "role": "assistant",
+              "time": {
+                "created": 1100,
+                "completed": 1500
+              },
+              "agent": "main",
+              "parentMessageId": "u1",
+              "path": {
+                "cwd": "/w",
+                "root": "/w"
+              },
+              "cost": 0,
+              "tokens": {
+                "input": 0,
+                "output": 0,
+                "reasoning": 0,
+                "cache": {
+                  "read": 0,
+                  "write": 0
+                }
+              },
+              "model": {
+                "providerId": "glm",
+                "modelId": "glm-4"
+              },
+              "finish": "stop",
+              "semantics": {
+                "origin": "agent_runtime",
+                "kind": "assistant_response",
+                "uiVisibility": "visible",
+                "providerVisibility": "visible",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-a1-1",
+                "messageId": "a1",
+                "sessionId": "task_proj",
+                "type": "reasoning",
+                "text": "先看计划。"
+              },
+              {
+                "partId": "p-a1-2",
+                "messageId": "a1",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "先读文件。"
+              },
+              {
+                "partId": "p-a1-3",
+                "messageId": "a1",
+                "sessionId": "task_proj",
+                "type": "tool",
+                "callId": "call_read_1",
+                "tool": "Read",
+                "state": {
+                  "status": "completed",
+                  "input": {
+                    "path": "/w/a.ts"
+                  },
+                  "output": "export const a = 1;",
+                  "title": "Read a.ts",
+                  "metadata": {
+                    "toolCallId": "call_read_1",
+                    "display": "a.ts"
+                  },
+                  "startedAt": 1150,
+                  "completedAt": 1200
+                }
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "u2",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 1600
+              },
+              "synthetic": true,
+              "source": "goal-continuation"
+            },
+            "parts": [
+              {
+                "partId": "p-u2-1",
+                "messageId": "u2",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "<system-reminder source=\"goal-continuation\">Continue working toward the active session goal.</system-reminder>"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "a2",
+              "sessionId": "task_proj",
+              "role": "assistant",
+              "time": {
+                "created": 1700,
+                "completed": 1900
+              },
+              "agent": "main",
+              "parentMessageId": "u1",
+              "path": {
+                "cwd": "/w",
+                "root": "/w"
+              },
+              "cost": 0,
+              "tokens": {
+                "input": 0,
+                "output": 0,
+                "reasoning": 0,
+                "cache": {
+                  "read": 0,
+                  "write": 0
+                }
+              },
+              "model": {
+                "providerId": "glm",
+                "modelId": "glm-4"
+              },
+              "finish": "stop",
+              "semantics": {
+                "origin": "agent_runtime",
+                "kind": "assistant_response",
+                "uiVisibility": "visible",
+                "providerVisibility": "visible",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-a2-1",
+                "messageId": "a2",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "第一轮完成。"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "u3",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 2000
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-u3-1",
+                "messageId": "u3",
+                "sessionId": "task_proj",
+                "type": "compaction",
+                "auto": true,
+                "metadata": {}
+              },
+              {
+                "partId": "p-u3-2",
+                "messageId": "u3",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "（压缩摘要）"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "u4",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 2100
+              },
+              "semantics": {
+                "origin": "real_user",
+                "kind": "user_prompt",
+                "uiVisibility": "visible",
+                "providerVisibility": "hidden",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-u4-1",
+                "messageId": "u4",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "第二轮问题"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "a3",
+              "sessionId": "task_proj",
+              "role": "assistant",
+              "time": {
+                "created": 2200
+              },
+              "agent": "main",
+              "parentMessageId": "u1",
+              "path": {
+                "cwd": "/w",
+                "root": "/w"
+              },
+              "cost": 0,
+              "tokens": {
+                "input": 0,
+                "output": 0,
+                "reasoning": 0,
+                "cache": {
+                  "read": 0,
+                  "write": 0
+                }
+              },
+              "model": {
+                "providerId": "glm",
+                "modelId": "glm-4"
+              },
+              "semantics": {
+                "origin": "agent_runtime",
+                "kind": "assistant_response",
+                "uiVisibility": "visible",
+                "providerVisibility": "visible",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-a3-1",
+                "messageId": "a3",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "开始执行。"
+              },
+              {
+                "partId": "p-a3-2",
+                "messageId": "a3",
+                "sessionId": "task_proj",
+                "type": "tool",
+                "callId": "call_bash_1",
+                "tool": "Bash",
+                "state": {
+                  "status": "error",
+                  "input": {
+                    "command": "false"
+                  },
+                  "error": "exit 1",
+                  "startedAt": 2250,
+                  "completedAt": 2260
+                }
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "u5",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 2300
+              },
+              "synthetic": true,
+              "source": "subagent_message"
+            },
+            "parts": [
+              {
+                "partId": "p-u5-1",
+                "messageId": "u5",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "子代理汇报：完成一半。"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "a4",
+              "sessionId": "task_proj",
+              "role": "assistant",
+              "time": {
+                "created": 2400,
+                "completed": 2450
+              },
+              "agent": "main",
+              "parentMessageId": "u1",
+              "path": {
+                "cwd": "/w",
+                "root": "/w"
+              },
+              "cost": 0,
+              "tokens": {
+                "input": 0,
+                "output": 0,
+                "reasoning": 0,
+                "cache": {
+                  "read": 0,
+                  "write": 0
+                }
+              },
+              "semantics": {
+                "origin": "agent_runtime",
+                "kind": "assistant_response",
+                "uiVisibility": "visible",
+                "providerVisibility": "visible",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-a4-1",
+                "messageId": "a4",
+                "sessionId": "task_proj",
+                "type": "compaction",
+                "auto": false,
+                "reason": "manual",
+                "metadata": {
+                  "timelineStatus": "completed",
+                  "trigger": "manual",
+                  "operationId": "op-1"
+                }
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "a5",
+              "sessionId": "task_proj",
+              "role": "assistant",
+              "time": {
+                "created": 2500,
+                "completed": 2600
+              },
+              "agent": "main",
+              "parentMessageId": "u1",
+              "path": {
+                "cwd": "/w",
+                "root": "/w"
+              },
+              "cost": 0,
+              "tokens": {
+                "input": 0,
+                "output": 0,
+                "reasoning": 0,
+                "cache": {
+                  "read": 0,
+                  "write": 0
+                }
+              },
+              "model": {
+                "providerId": "custom",
+                "modelId": "kimi-k2:free",
+                "options": {
+                  "reasoningLevel": "high"
+                }
+              },
+              "finish": "stop",
+              "semantics": {
+                "origin": "agent_runtime",
+                "kind": "assistant_response",
+                "uiVisibility": "visible",
+                "providerVisibility": "visible",
+                "transcriptVisibility": "visible"
+              }
+            },
+            "parts": [
+              {
+                "partId": "p-a5-1",
+                "messageId": "a5",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "尾部回复。"
+              }
+            ]
+          },
+          {
+            "info": {
+              "messageId": "u6",
+              "sessionId": "task_proj",
+              "role": "user",
+              "time": {
+                "created": 2700
+              },
+              "synthetic": true,
+              "source": "task_notification"
+            },
+            "parts": [
+              {
+                "partId": "p-u6-1",
+                "messageId": "u6",
+                "sessionId": "task_proj",
+                "type": "text",
+                "text": "<task-notification><tool-use-id>call_bash_1</tool-use-id><status>killed</status><summary>被停止</summary></task-notification>"
+              }
+            ]
+          }
+        ],
+        "todos": [
+          {
+            "status": "completed",
+            "content": "步骤一"
+          },
+          {
+            "status": "in_progress",
+            "content": "步骤二"
+          }
+        ],
+        "todoGroups": [
+          {
+            "id": "g1",
+            "source": "agent",
+            "goalIteration": 1,
+            "targetId": "t1",
+            "startedAt": 1000,
+            "updatedAt": 1100,
+            "todos": [
+              {
+                "status": "completed",
+                "content": "组内一"
+              }
+            ]
+          }
+        ],
+        "goalStats": {
+          "tokensUsed": 10,
+          "timeUsedSeconds": 5
+        },
+        "slashCommands": [
+          {
+            "name": "compact",
+            "description": "压缩上下文",
+            "source": "builtin"
+          }
+        ]
+      },
+      "result": {
+        "snapshot": {
+          "meta": {
+            "taskId": "task_proj",
+            "traceId": "trace-proj-1",
+            "title": "把迁移做完",
+            "titleOverridden": false,
+            "workspacePath": "/w",
+            "createdAt": 900,
+            "updatedAt": 2800,
+            "mode": "guarded",
+            "model": "custom/kimi-k2:free$high",
+            "thoughtLevel": "high",
+            "provider": "glm",
+            "status": "error",
+            "lastError": {
+              "code": "rate_limited",
+              "detail": "429",
+              "message": "被限流",
+              "attribution": {
+                "source": "provider",
+                "reason": "被限流"
+              }
+            },
+            "target": {
+              "sessionID": "task_proj",
+              "targetID": "t1",
+              "objective": "把迁移做完",
+              "summaryTitle": "迁移",
+              "status": "active",
+              "tokenBudget": 1000,
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5,
+              "time": {
+                "created": 900,
+                "updated": 1000
+              }
+            }
+          },
+          "messages": [
+            {
+              "id": "u1",
+              "role": "user",
+              "content": "把迁移做完",
+              "timestamp": 1000,
+              "attachments": [
+                {
+                  "kind": "image",
+                  "filename": "shot.png",
+                  "mimeType": "image/png",
+                  "sizeBytes": 3,
+                  "dataBase64": "QUJD"
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "a1",
+              "role": "assistant",
+              "content": "先读文件。",
+              "timestamp": 1100,
+              "model": "glm/glm-4",
+              "durationMs": 400,
+              "thought": "先看计划。",
+              "tools": [
+                {
+                  "toolName": "Read",
+                  "title": "Read a.ts",
+                  "kind": "Read",
+                  "status": "completed",
+                  "input": {
+                    "path": "/w/a.ts"
+                  },
+                  "output": "export const a = 1;",
+                  "raw": {
+                    "toolCallId": "call_read_1",
+                    "display": "a.ts"
+                  }
+                }
+              ],
+              "parts": [
+                {
+                  "type": "thought",
+                  "content": "先看计划。"
+                },
+                {
+                  "type": "content",
+                  "content": "先读文件。"
+                },
+                {
+                  "type": "tool-call",
+                  "toolIndex": 0
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "a2",
+              "role": "assistant",
+              "content": "第一轮完成。",
+              "timestamp": 1700,
+              "model": "glm/glm-4",
+              "goalIteration": 1,
+              "durationMs": 200,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "第一轮完成。"
+                }
+              ],
+              "turnIndex": 0
+            },
+            {
+              "id": "escode-goal-verification-t1-1",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 1800,
+              "syntheticTimeline": {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            },
+            {
+              "id": "u4",
+              "role": "user",
+              "content": "第二轮问题",
+              "timestamp": 2100,
+              "turnIndex": 1
+            },
+            {
+              "id": "a3",
+              "role": "assistant",
+              "content": "开始执行。",
+              "timestamp": 2200,
+              "model": "glm/glm-4",
+              "goalIteration": 1,
+              "tools": [
+                {
+                  "toolName": "Bash",
+                  "title": "Bash",
+                  "kind": "Bash",
+                  "status": "failed",
+                  "input": {
+                    "command": "false"
+                  },
+                  "error": "exit 1",
+                  "raw": {
+                    "status": "error",
+                    "input": {
+                      "command": "false"
+                    },
+                    "error": "exit 1",
+                    "startedAt": 2250,
+                    "completedAt": 2260,
+                    "toolCallId": "call_bash_1",
+                    "_meta": {
+                      "escode": {
+                        "taskNotification": {
+                          "status": "killed",
+                          "summary": "被停止"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "开始执行。"
+                },
+                {
+                  "type": "tool-call",
+                  "toolIndex": 0
+                }
+              ],
+              "turnIndex": 1
+            },
+            {
+              "id": "a4",
+              "role": "assistant",
+              "content": "",
+              "timestamp": 2400,
+              "syntheticTimeline": {
+                "version": 1,
+                "kind": "synthetic",
+                "type": "context_compaction",
+                "operationId": "op-1",
+                "status": "completed",
+                "trigger": "manual",
+                "display": "separator",
+                "reason": "manual"
+              },
+              "goalIteration": 1,
+              "durationMs": 50,
+              "turnIndex": 1
+            },
+            {
+              "id": "a5",
+              "role": "assistant",
+              "content": "尾部回复。",
+              "timestamp": 2500,
+              "model": "custom/kimi-k2:free$high",
+              "goalIteration": 1,
+              "durationMs": 100,
+              "parts": [
+                {
+                  "type": "content",
+                  "content": "尾部回复。"
+                }
+              ],
+              "turnIndex": 1
+            }
+          ],
+          "fileChanges": [],
+          "configOptions": [
+            {
+              "id": "model",
+              "name": "Model",
+              "category": "model",
+              "type": "select",
+              "currentValue": "glm/glm-4$high",
+              "options": [
+                {
+                  "value": "glm/glm-4",
+                  "name": "GLM-4",
+                  "description": "主力模型",
+                  "modelProviderId": "glm",
+                  "modelProviderName": "智谱",
+                  "modelThoughtLevels": [
+                    "none",
+                    "high"
+                  ],
+                  "modelDefaultThoughtLevel": "high"
+                },
+                {
+                  "value": "custom/kimi-k2:free",
+                  "name": "Kimi",
+                  "modelProviderId": "custom",
+                  "modelProviderName": "custom"
+                }
+              ]
+            },
+            {
+              "id": "mode",
+              "name": "Mode",
+              "category": "mode",
+              "type": "select",
+              "currentValue": "guarded",
+              "options": [
+                {
+                  "value": "build",
+                  "name": "Ask before changes",
+                  "description": "Ask before each file changes."
+                },
+                {
+                  "value": "guarded",
+                  "name": "Autonomous mode",
+                  "description": "Ask when there’s risk"
+                },
+                {
+                  "value": "plan",
+                  "name": "Plan mode",
+                  "description": "Inspect the code and present a plan before editing."
+                },
+                {
+                  "value": "yolo",
+                  "name": "Full access",
+                  "description": "Edit and run commands with fewer confirmations."
+                }
+              ]
+            },
+            {
+              "id": "thought_level",
+              "name": "Thought Level",
+              "category": "thought_level",
+              "type": "select",
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "none",
+                  "name": "None"
+                },
+                {
+                  "value": "high",
+                  "name": "High",
+                  "description": "深想"
+                }
+              ]
+            }
+          ],
+          "slashCommands": [
+            {
+              "name": "compact",
+              "description": "压缩上下文",
+              "source": "builtin"
+            }
+          ],
+          "runtime": {
+            "activeTurnKind": "regular",
+            "apiRetry": null,
+            "contextUsage": {
+              "used": 1300,
+              "size": 8000,
+              "cost": 0.5,
+              "cache": {
+                "readTokens": 100
+              },
+              "breakdown": {
+                "system": 10
+              }
+            },
+            "pendingPermissions": [
+              {
+                "type": "permission_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_bash",
+                "description": "需要执行命令",
+                "kind": "Bash",
+                "title": "Bash",
+                "options": [
+                  {
+                    "value": "once",
+                    "label": "Once"
+                  }
+                ],
+                "origin": "runtime",
+                "raw": {
+                  "requestId": "req_bash",
+                  "toolName": "Bash",
+                  "reason": "需要执行命令",
+                  "options": [
+                    {
+                      "value": "once",
+                      "label": "Once"
+                    }
+                  ],
+                  "origin": "runtime",
+                  "input": {
+                    "command": "ls"
+                  }
+                }
+              }
+            ],
+            "backgroundBashJobs": [
+              {
+                "jobId": "job_bash",
+                "command": "npm run build",
+                "taskKind": "bash",
+                "status": "running",
+                "startedAt": 2200,
+                "pid": 4242,
+                "raw": {
+                  "jobId": "job_bash",
+                  "taskKind": "bash",
+                  "command": "npm run build",
+                  "status": "running",
+                  "pid": 4242,
+                  "startedAt": 2200
+                }
+              },
+              {
+                "jobId": "job_agent",
+                "command": "跑一遍迁移",
+                "taskKind": "agent",
+                "cancellable": true,
+                "title": "跑一遍迁移",
+                "status": "running",
+                "raw": {
+                  "toolName": "Task",
+                  "description": "跑一遍迁移",
+                  "status": "in_progress",
+                  "taskId": "job_agent",
+                  "cancellable": true
+                }
+              }
+            ],
+            "pendingElicitations": [
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_ask",
+                "message": "继续吗？",
+                "header": "确认",
+                "options": [
+                  {
+                    "value": "继续",
+                    "label": "继续",
+                    "description": "继续迁移"
+                  },
+                  {
+                    "value": "暂停",
+                    "label": "暂停"
+                  }
+                ],
+                "multiSelect": true,
+                "questions": [
+                  {
+                    "question": "继续吗？",
+                    "header": "确认",
+                    "options": [
+                      {
+                        "value": "继续",
+                        "label": "继续",
+                        "description": "继续迁移"
+                      },
+                      {
+                        "value": "暂停",
+                        "label": "暂停"
+                      }
+                    ],
+                    "multiSelect": true
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "questions": [
+                    {
+                      "question": "继续吗？",
+                      "header": "确认",
+                      "multiSelect": true,
+                      "options": [
+                        {
+                          "label": "继续",
+                          "description": "继续迁移"
+                        },
+                        {
+                          "label": "暂停"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "elicitation_request",
+                "taskId": "task_proj",
+                "traceId": "<traceId>",
+                "requestId": "req_plan",
+                "message": "Review this implementation plan.",
+                "header": "Plan",
+                "options": [
+                  {
+                    "description": "Exit plan mode and start implementation.",
+                    "label": "Approve",
+                    "value": "approve"
+                  }
+                ],
+                "questions": [
+                  {
+                    "header": "Plan",
+                    "options": [
+                      {
+                        "description": "Exit plan mode and start implementation.",
+                        "label": "Approve",
+                        "value": "approve"
+                      }
+                    ],
+                    "question": "Review this implementation plan."
+                  }
+                ],
+                "origin": "runtime",
+                "schema": {
+                  "interaction": "plan_approval",
+                  "toolName": "ExitPlanMode",
+                  "plan": "1. 落投影\n2. 接索引"
+                }
+              }
+            ],
+            "pendingCommands": [],
+            "plan": [
+              {
+                "id": "todo-0",
+                "status": "completed",
+                "title": "步骤一"
+              },
+              {
+                "id": "todo-1",
+                "status": "in_progress",
+                "title": "步骤二"
+              }
+            ],
+            "goalStats": {
+              "tokensUsed": 10,
+              "timeUsedSeconds": 5
+            },
+            "goalVerifications": {
+              "passed": 1,
+              "failed": 0
+            },
+            "goalVerificationTimeline": [
+              {
+                "type": "goal_verification",
+                "targetId": "t1",
+                "goalIteration": 1,
+                "status": "completed",
+                "startedAt": 1800,
+                "updatedAt": 1850,
+                "anchorAssistantMessageId": "a2",
+                "verification": {
+                  "passed": true
+                }
+              }
+            ],
+            "todoGroups": [
+              {
+                "id": "g1",
+                "source": "agent",
+                "goalIteration": 1,
+                "targetId": "t1",
+                "startedAt": 1000,
+                "updatedAt": 1100,
+                "todos": [
+                  {
+                    "id": "g1-todo-0",
+                    "status": "completed",
+                    "title": "组内一"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "etagShape": {
+          "length": 64,
+          "hex": true
+        },
+        "conditionalRequestHits": false,
+        "configOptions": [
+          {
+            "id": "model",
+            "name": "Model",
+            "category": "model",
+            "type": "select",
+            "currentValue": "glm/glm-4$high",
+            "options": [
+              {
+                "value": "glm/glm-4",
+                "name": "GLM-4",
+                "description": "主力模型",
+                "modelProviderId": "glm",
+                "modelProviderName": "智谱",
+                "modelThoughtLevels": [
+                  "none",
+                  "high"
+                ],
+                "modelDefaultThoughtLevel": "high"
+              },
+              {
+                "value": "custom/kimi-k2:free",
+                "name": "Kimi",
+                "modelProviderId": "custom",
+                "modelProviderName": "custom"
+              }
+            ]
+          },
+          {
+            "id": "mode",
+            "name": "Mode",
+            "category": "mode",
+            "type": "select",
+            "currentValue": "guarded",
+            "options": [
+              {
+                "value": "build",
+                "name": "Ask before changes",
+                "description": "Ask before each file changes."
+              },
+              {
+                "value": "guarded",
+                "name": "Autonomous mode",
+                "description": "Ask when there’s risk"
+              },
+              {
+                "value": "plan",
+                "name": "Plan mode",
+                "description": "Inspect the code and present a plan before editing."
+              },
+              {
+                "value": "yolo",
+                "name": "Full access",
+                "description": "Edit and run commands with fewer confirmations."
+              }
+            ]
+          },
+          {
+            "id": "thought_level",
+            "name": "Thought Level",
+            "category": "thought_level",
+            "type": "select",
+            "currentValue": "high",
+            "options": [
+              {
+                "value": "none",
+                "name": "None"
+              },
+              {
+                "value": "high",
+                "name": "High",
+                "description": "深想"
+              }
+            ]
+          }
+        ],
+        "calls": [
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "/w",
+              "sessionId": "task_proj"
+            }
+          },
+          {
+            "method": "session/resume",
+            "params": {
+              "workspacePath": "/w",
+              "sessionId": "task_proj"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

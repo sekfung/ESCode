@@ -1,6 +1,9 @@
 # Rust 统一 Host 迁移：交接手册（2026-10-15）
 
 > 面向**接手的 AI 会话**。读完这一页即可继续开工：目标、已完成边界、怎么验证、下一步从哪一行改起、以及踩过的坑。
+> **2026-10-15 续写**：§6.1（`getTaskSnapshot`）与 §6.2（`getTaskConfigOptions`）已落地，
+> 详见 `docs/specs/rust-u2-tasks-index.md` §6.4；下一片建议从 §6.4.5 的「下一步（S2 收尾）」
+> 即 `createSession`/`createTask` 继续（§6.3 事件面仍是最大件）。
 > 权威文档（本手册不替代它们）：计划 `docs/specs/rust-unified-host.md`、质量报告 `docs/reports/rust-impl-quality-comparison-2026-10-14.md`、参考实现 https://github.com/MBearo/ZCode-rs 。
 > 本手册的定位是"操作指南"：状态快照 + 固定动作 + 陷阱清单。**状态会过期，验证命令不会。**
 
@@ -36,7 +39,7 @@ for ch, d in by.items():
 PY
 ```
 
-**当前战场**：阶段 2 优先序 5（会话与任务域）。S1（tasks-index 只读面）已完成；S2 正在推进（写层、任务目标注册表已落地；主件 `getTaskSnapshot` 未做）。
+**当前战场**：阶段 2 优先序 5（会话与任务域）。S1（tasks-index 只读面）已完成；S2 的**快照读面**已完成（投影层 + `getTaskSnapshot*`/`getTaskConfigOptions` 接线 + TS oracle 差分，见子 spec §6.4），剩余主件是 `createSession`/`createTask` 与事件面。
 
 ---
 

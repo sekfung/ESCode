@@ -34,7 +34,7 @@ fn live_channels() -> escode_host_rpc::Channels {
 
 /// 清单里某个状态的 RPC 面 (channel, method) 集合。
 fn manifest_with(state: State) -> BTreeSet<(String, String)> {
-    escode_host_proto::METHODS
+    escode_host_proto::methods()
         .iter()
         .filter(|entry| RPC_CHANNELS.contains(&entry.channel))
         .filter(|entry| entry.state == state)
@@ -88,7 +88,7 @@ fn every_rpc_channel_is_registered() {
         );
     }
     // 清单只登记这些 RPC 通道（新增通道必须同步本测试的 RPC_CHANNELS 与清单）。
-    let manifest_channels: BTreeSet<&str> = escode_host_proto::METHODS
+    let manifest_channels: BTreeSet<&str> = escode_host_proto::methods()
         .iter()
         .map(|entry| entry.channel)
         .filter(|channel| RPC_CHANNELS.contains(channel))

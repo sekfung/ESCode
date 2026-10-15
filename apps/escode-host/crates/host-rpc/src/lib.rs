@@ -14,6 +14,7 @@ mod domains_file_readdir;
 mod domains_file_workspace;
 pub mod domains_task;
 mod domains_task_query;
+mod domains_task_snapshot;
 mod domains_task_support;
 pub mod forward;
 pub mod frame;

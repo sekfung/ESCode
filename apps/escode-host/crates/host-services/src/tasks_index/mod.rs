@@ -19,6 +19,8 @@ mod query_snippets;
 pub mod schema;
 mod write;
 
+pub use write::SyncOptions;
+
 use std::path::{Path, PathBuf};
 
 use rusqlite::Connection;

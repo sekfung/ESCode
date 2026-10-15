@@ -175,6 +175,100 @@ meta 行登记；端到端 2 例：未注册任务的 typed error、列表读登
 **下一步**：`getTaskSnapshot`（resume + snapshot→meta 投影 + 索引写）与 `getTaskConfigOptions`
 （`settingsToConfigOptions` 投影）——两者的前置件（注册表/写入层/运行时转发）本片已就位。
 
+## 6.4 S2b 快照读面（`getTaskSnapshot*` / `getTaskConfigOptions`，2026-10-15）
+
+### 6.4.1 范围与所有者
+
+- **做**：`escode-task.getTaskSnapshot` / `getTaskSnapshotWithEtag` / `getTaskSnapshotBody` /
+  `getTaskSnapshotRef` / `getTaskSnapshotToolCallsSlice` / `getTaskConfigOptions` 六个方法，
+  以及它们依赖的服务层投影（agent 协议快照 → `ESCodeTaskSnapshot`）。
+- **投影所有者**：Host。运行时只给**agent 协议快照**（`session/resume` 与 `session/read` 同形，
+  键 `messages/projection/protocol/runtime/session/settings/slashCommands/todos`）；任务索引的
+  投影与写入都由 Host 做（TS 同构：`escodeTaskServiceAdapter.ts` 的 `snapshotToESCode`/`snapshotToMeta`）。
+- **draft 语义**：本片不引入 draft 注册表（属 S3 `createSession`）；快照读面只读已存在的会话。
+
+### 6.4.2 接口（逐条对齐 TS 适配器）
+
+| 方法 | 行为 |
+| --- | --- |
+| `getTaskSnapshot(params)` | 注册表登记目标 → `session/resume` → `snapshotToESCode` → `limitTaskSnapshotMessages` → `syncTaskMeta`（索引投影 + 用户手动标题保留）→ 回 `{...snapshot, meta: 索引行}` |
+| `getTaskSnapshotWithEtag(params)` | 同上，另算 `sha256(JSON.stringify(snapshot))`；`ifNoneMatch` 命中回 `{snapshot:null, etag, notModified:true}` |
+| `getTaskSnapshotBody` / `Ref` / `ToolCallsSlice` | TS 适配器本身返回 `null`（不在该 Host 实现），Rust 照抄该语义 |
+| `getTaskConfigOptions(params)` | 注册表解析 → 运行时 `session/read` → `settingsToConfigOptions(settings)` |
+
+`session/resume` 参数整形（与 `buildSessionResumeParams` 同序）：`{sessionId, workspace}` +
+可选 `thoughtLevel` / `mcpServers` / `toolAllowlist` / `toolDenylist`；缺省一律**省略**（运行时严格拒绝 null）。
+`model` 不随 resume 下发（TS 的 `buildSessionResumeParams` 同样不带它）。
+
+### 6.4.3 验收
+
+1. **TS oracle 差分（生成器 + 逐字段全等）**：`scripts/generate-escode-host-task-projection-fixtures.mjs`
+   用**真实 TS 适配器**（`createESCodeTaskServiceAdapter` + 假 `escodeAgentService.resumeSession` 回放
+   固定快照 + 真实 `TaskIndexRepo`）跑出 `getTaskSnapshot` / `getTaskSnapshotWithEtag` /
+   `getTaskConfigOptions` 的期望 JSON，Rust 单测逐字段 `assert_eq`；生成器 `--check` 进 `pnpm check:escode-host`。
+   夹具覆盖：多轮 user/assistant 文本、reasoning、工具调用（completed/error/running）、compact
+   summary、model-only synthetic user、goal 续跑提醒与迭代号、附件（image）、syntheticTimeline
+   （fork/compaction）、todos/todoGroups/goalStats、pendingPermissions（含 user-input-backed →
+   elicitation）、后台任务控制项、`messageLimit` 截窗与 `history.truncatedBefore`、`lastError` 分支。
+   四个变体：`desktop`（无截窗）/ `limited`（`messageLimit=2`）/ `replayable`（索引 hint 回填 +
+   空 elicitation 语义）/ `errorSnapshot`（`lastError` → `status=error` + attribution 对象透传）。
+2. **通道接线（真 embedded 实例 + 真 WebSocket）**：`crates/host-rpc/tests/rpc_task_snapshot.rs`——
+   会话不存在时 `getTaskSnapshot` / `WithEtag` / `getTaskConfigOptions` 都把运行时的
+   `Session unavailable` 原样透出（证明请求真的走 `session/resume`，不是缺口回显或索引短路）；
+   `getTaskSnapshotBody` / `Ref` / `ToolCallsSlice` 本地直回 `null`；缺参回 `InvalidRequest`；
+   缺 `dataBaseDir` 时六个方法全部回显式缺口。
+3. **待补（随 S4）**：「真会话 → 快照 + 索引行 + `ifNoneMatch` 命中」的端到端还需要 Host 侧
+   会话创建入口（`createTask` / `escode-session.createSession`），本片没有该路径，因此该用例与
+   `packages/desktop/test/rustHostRpc.test.ts` 的真实客户端用例一并落到 S4（届时同批验
+   `web-remote-replayable` 与 `desktop-continuous` 两种链路）。
+
+### 6.4.4 登记差异（本片）
+
+1. **grayscale 工具面 flag**：TS `resumeSession` 会在门禁命中时下发 `offPeakToolEnabled` /
+   `dynamicWorkflowEnabled`（服务端灰度，Host 侧解析）；Rust Host 不实现该门禁解析，
+   **只在与门禁为假时等价**（缺省即 fail-closed）。可见条件：用户打开了闲时任务/动态工作流灰度，
+   冷恢复的会话会丢对应工具簇。移除条件：automation 域（优先序 8）迁移时接入门禁解析。
+2. **legacy 分支**（`resumeSnapshotOrLegacy` 读到磁盘旧会话文档 → 只读 legacy 快照）：
+   依赖会话文件读取链与 Claude 导入，本片不实现；运行时回 `Session unavailable` 时 Rust Host
+   按运行时错误上抛，TS 则可能回 legacy 快照。可见条件：只有存在 legacy 会话文档的 workspace。
+3. **live tool projection 合并**（`mergeLiveToolProjectionIntoSnapshotMessages`）：TS 把进程内
+   流式期间的临时工具调用合并进快照；Rust Host 无流式投影状态（事件面未迁移），该合并为空操作。
+   可见条件：流式进行中读快照，工具调用尚未落持久化快照时。
+4. **`getTaskSnapshotWithEtag` 的 etag 值**：`sha256(JSON.stringify(snapshot))` 对**键序敏感**，
+   Rust 的 JSON 序列化键序与 TS 不同，etag 与 TS 逐字节不同（同一 Host 内自洽，客户端只用它做
+   条件请求）。另外快照里的权限/追问事件带 `generateTraceId` 随机值，**同参数两次请求的 etag 也
+   不同**（TS 同此行为，差分资产已钉住 `conditionalRequestHits: false`）。若要逐字节一致需做键序
+   对齐 + 稳定 traceId，本片不做。
+5. **`meta_json` 深校验**与 **`getTaskModelSelection` 缺值**沿用 §6.1/§6.3 的既有登记。
+   本片补充一条实测：`attribution` 在 meta 里是**对象**（`errorAttributionSchema`），
+   写成字符串会让 meta_json 落成非法行、TS 读回退化成列投影（`traceId` 变 `escode-<taskId>`、
+   丢 `thoughtLevel`/`target`）；Rust 的浅层校验不复制这一退化，差异只在**非法 meta 行**上可见。
+6. **`model` hint 不下发运行时**：TS 的 `resumeSnapshot` 把索引里的 `model` 提示交给 agent 层
+   （连接/陈旧模型守卫），`buildSessionResumeParams` 不把它写进 `session/resume`；Rust Host 同样
+   只把 `thoughtLevel` 随 resume 下发（差分资产 `calls` 已钉住该形状）。
+
+### 6.4.5 落地进度（2026-10-15）
+
+**投影层**：新增 `crates/host-services/src/task_projection/`（14 个文件，逐文件 ≤400 行）——
+`policy`/`visible`/`status`（可见性策略与任务状态）、`messages` + `message_parts`/`message_merge`/
+`message_timeline`（`mapMessage` 与相邻 assistant 合并）、`timeline`（fork/verifier divider 补插与重排）、
+`background` + `background_controls`（通知与控制项）、`permissions`（权限 → `permission_request` /
+`elicitation_request`）、`config_options`、`meta`（`snapshotToMeta` + 截窗 `history`）、`service`
+（请求整形 / 投影 + 索引回写 / ETag）。`host-services` 因此新增依赖 `uuid`（traceId 随机 UUID，
+TS `createUuid()` 同口径）。
+
+**通道**：`domains_task_snapshot.rs` 接六个方法；契约清单 `getTaskSnapshot` 由 `Pending` 转
+`Implemented` 并新增另外五个条目（`crates/host-proto/src/inventory_services.rs`，原 `inventory.rs`
+拆成 control + 服务域两文件以守住行数上限；`host_proto::methods()` 是新的全量视图）。
+
+**证据**：host-services 75 例（含 oracle 差分 7 例）全绿；`rpc_task_snapshot.rs` 3 例（真 WebSocket）；
+契约对账 3 例；`pnpm check:escode-host` 全绿（边界 + 两个生成器 `--check` + fmt + clippy -D warnings）；
+`pnpm lint` 0 error、`pnpm typecheck` 通过。负向验证：把 `fromESCodeMode` 改成一律 `build`、
+把截窗改成不切窗口，两次都让 oracle 差分立即失败，改回后恢复全绿。
+
+**下一步（S2 收尾）**：`createTask`/`escode-session.createSession` 的参数整形 + draft 注册表
+（§5），它是 §6.4.3-3 那条端到端与 `ifNoneMatch` 命中的前置。
+
 ## 7. 验收与环境
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；
