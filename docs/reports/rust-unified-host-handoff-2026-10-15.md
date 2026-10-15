@@ -43,7 +43,9 @@ for channel, members in re.findall(r'\("([^"]+)", &\[([^\]]*)\]\)', ts):
 PY
 ```
 
-**当前战场**：阶段 2 优先序 5（会话与任务域）。S1（tasks-index 只读面）已完成；S2 的**快照读面**已完成（投影层 + `getTaskSnapshot*`/`getTaskConfigOptions` 接线 + TS oracle 差分，见子 spec §6.4），剩余主件是 `createSession`/`createTask` 与事件面。
+**当前战场**：阶段 2 优先序 5（会话与任务域）。S1（tasks-index 只读面）、S3a（侧栏状态写 + workspace 事件总线）、
+S3b（syncer）、§6.4 快照读面与 `window-controller`（8/8）已完成；任务域剩余主件是 `createTask`/`createSession`
+参数整形与 draft 注册表，其余见 §6 的新建议顺序。
 
 ---
 
@@ -57,38 +59,38 @@ PY
 
 ## 2. 代码地图（只看这些就够开工）
 
-| 位置 | 作用 |
-| --- | --- |
-| `apps/escode-host/` | Host 独立 Cargo workspace：`crates/host-{core,proto,gateway,control,runtime,services,surface,rpc}` + 根 `escode-host` 二进制 |
-| `apps/escode-host/crates/host-services/src/{settings,tasks_index}` | 域存储层（settings 文件、tasks-index 读写） |
-| `apps/escode-host/crates/host-rpc/src/` | Renderer 真实链路：`session.rs`（帧/分派/Channel 方法表）、`forward.rs`（运行时转发）、`domains*.rs`（各域方法表与实现）、`collation.rs`（ICU 排序）、`task_targets.rs`（任务→workspace 注册表） |
-| `apps/escode-host/crates/host-proto/src/inventory.rs` | **契约清单**（channel/method + Implemented/Pending），与源码双向对账 |
-| `packages/services/src/escode-agent/escodeTaskServiceAdapter.ts` | **TS 语义的真相源**（任务域 6.2k 行；改 Rust 前必读对应函数） |
-| `packages/services/src/session/taskIndexRepo.ts` | tasks-index 的 TS 读写语义（SQL/合并规则/排序） |
-| `packages/desktop/src/main/{rustHostBridge,rustHostManager,index}.ts` | dev 开关 `ESCODE_RUST_HOST=1` 的 Main 侧接线（MessagePort ↔ RPC WebSocket 字节桥） |
-| `apps/escode-cli-rust/` | 运行时（Engine）：`crates/core/src/app/*.rs` 是 legacy 方法实现（`session/*`） |
-| `scripts/check-escode-host-boundaries.mjs` | Host 边界门禁（400 行、分层、**非测试代码 0 处 `std::env`**） |
-| `scripts/generate-escode-host-tasks-schema.mjs` | tasks-index 迁移账本/DDL 生成器（`--check` 已进 CI） |
+| 位置                                                                  | 作用                                                                                                                                                                                             |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/escode-host/`                                                   | Host 独立 Cargo workspace：`crates/host-{core,proto,gateway,control,runtime,services,surface,rpc}` + 根 `escode-host` 二进制                                                                     |
+| `apps/escode-host/crates/host-services/src/{settings,tasks_index}`    | 域存储层（settings 文件、tasks-index 读写）                                                                                                                                                      |
+| `apps/escode-host/crates/host-rpc/src/`                               | Renderer 真实链路：`session.rs`（帧/分派/Channel 方法表）、`forward.rs`（运行时转发）、`domains*.rs`（各域方法表与实现）、`collation.rs`（ICU 排序）、`task_targets.rs`（任务→workspace 注册表） |
+| `apps/escode-host/crates/host-proto/src/inventory.rs`                 | **契约清单**（channel/method + Implemented/Pending），与源码双向对账                                                                                                                             |
+| `packages/services/src/escode-agent/escodeTaskServiceAdapter.ts`      | **TS 语义的真相源**（任务域 6.2k 行；改 Rust 前必读对应函数）                                                                                                                                    |
+| `packages/services/src/session/taskIndexRepo.ts`                      | tasks-index 的 TS 读写语义（SQL/合并规则/排序）                                                                                                                                                  |
+| `packages/desktop/src/main/{rustHostBridge,rustHostManager,index}.ts` | dev 开关 `ESCODE_RUST_HOST=1` 的 Main 侧接线（MessagePort ↔ RPC WebSocket 字节桥）                                                                                                               |
+| `apps/escode-cli-rust/`                                               | 运行时（Engine）：`crates/core/src/app/*.rs` 是 legacy 方法实现（`session/*`）                                                                                                                   |
+| `scripts/check-escode-host-boundaries.mjs`                            | Host 边界门禁（400 行、分层、**非测试代码 0 处 `std::env`**）                                                                                                                                    |
+| `scripts/generate-escode-host-tasks-schema.mjs`                       | tasks-index 迁移账本/DDL 生成器（`--check` 已进 CI）                                                                                                                                             |
 
 ---
 
 ## 3. 已落地（按域，含证据入口）
 
-| 域/主题 | 状态 | 证据 |
-| --- | --- | --- |
-| u2a 骨架：host-core（有界通道/原子写）、host-gateway（到达序/capability）、host-control（typed 控制消息）、host-runtime（实例表 single-flight/懒重启/收口残余）、host-surface（Renderer 传输面） | 完成 | 各 crate 单测 + `crates/host-surface/tests/ws_surface.rs` |
-| Renderer RPC 面（`@escode/rpc` 13 字节帧 + VQL + WebSocket + capability 一次性令牌 + 非回环 fail-closed） | 完成 | `crates/host-rpc/tests/rpc_surface.rs`、`packages/desktop/test/rustHostRpc.test.ts`（真实 `@escode/client`） |
-| dev 开关 `ESCODE_RUST_HOST=1`（App 级 Host + MessagePort 桥 + 失败回退 Node） | 完成 | `packages/desktop/test/rustHostBridge.test.ts`（5 例） |
-| **契约清单双向对账**（方法表即分派；Implemented 必须在表里、Pending 不得在表里、注册 channel ⊆ 清单） | 完成 | `crates/host-rpc/tests/contract.rs`（3 例，含负向验证记录） |
-| `setting` / `settings` / `system` 域 | 完成 | 双 Host 交替写读演练 `scripts/test-escode-host-interop.mjs` |
-| `escode-session` 读/写/预热/展示面 | 完成（不含 create/resume） | `crates/host-rpc/tests/rpc_session.rs`、真实客户端用例 |
-| `file` 域（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法） | 完成 | `crates/host-rpc/src/domains_file_tests.rs`、`tests/rpc_file.rs`、`rustHostRpc.test.ts` |
-| `file.readdir` 的 ICU 排序（`localeCompare` 等价） | 完成 | `collation.rs` + 28 项语料 4 种 locale 差分 |
-| **tasks-index 存储层**（迁移账本对账 + DDL 漂移哨兵 + `getTaskMeta` 投影 + 读写两套语义） | 完成 | `crates/host-services/src/tasks_index/*`（21 例） |
-| `escode-task` 只读面：`getTaskMeta` / 四个列表分区 / `listTaskList`（全文搜索+分页+摘要窗口）/ `listGroupedTaskViewStructure` | 完成 | `tests/rpc_task.rs` + `rustHostRpc.test.ts` 的 Repo 差分（`toEqual` 全等 + 负向验证） |
-| 任务目标注册表 + `getTaskModelSelection` | 完成 | `task_targets.rs`（4 例）+ `rpc_task.rs`（2 例端到端） |
-| 阶段 1（runtime 库化：`core-api::env`/`scope::Spawner`/`app-server::Link`/`embed`） | 完成 | `docs/specs/rust-u1-runtime-lib.md`、`docs/reports/rust-u1-runtime-library-2026-10-14.md` |
-| P1 质量项 #5/#6/#7/#10/#11、#9 子项（net crate、RedactedString、FileStamp/ChangeGate、bash 策略表类型化、registry 类型化、SKILL.md 单点、插件错误类型化） | 完成 | 质量报告清单已勾选 + 各自单测 |
+| 域/主题                                                                                                                                                                                          | 状态                       | 证据                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| u2a 骨架：host-core（有界通道/原子写）、host-gateway（到达序/capability）、host-control（typed 控制消息）、host-runtime（实例表 single-flight/懒重启/收口残余）、host-surface（Renderer 传输面） | 完成                       | 各 crate 单测 + `crates/host-surface/tests/ws_surface.rs`                                                    |
+| Renderer RPC 面（`@escode/rpc` 13 字节帧 + VQL + WebSocket + capability 一次性令牌 + 非回环 fail-closed）                                                                                        | 完成                       | `crates/host-rpc/tests/rpc_surface.rs`、`packages/desktop/test/rustHostRpc.test.ts`（真实 `@escode/client`） |
+| dev 开关 `ESCODE_RUST_HOST=1`（App 级 Host + MessagePort 桥 + 失败回退 Node）                                                                                                                    | 完成                       | `packages/desktop/test/rustHostBridge.test.ts`（5 例）                                                       |
+| **契约清单双向对账**（方法表即分派；Implemented 必须在表里、Pending 不得在表里、注册 channel ⊆ 清单）                                                                                            | 完成                       | `crates/host-rpc/tests/contract.rs`（3 例，含负向验证记录）                                                  |
+| `setting` / `settings` / `system` 域                                                                                                                                                             | 完成                       | 双 Host 交替写读演练 `scripts/test-escode-host-interop.mjs`                                                  |
+| `escode-session` 读/写/预热/展示面                                                                                                                                                               | 完成（不含 create/resume） | `crates/host-rpc/tests/rpc_session.rs`、真实客户端用例                                                       |
+| `file` 域（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法）                                                                                             | 完成                       | `crates/host-rpc/src/domains_file_tests.rs`、`tests/rpc_file.rs`、`rustHostRpc.test.ts`                      |
+| `file.readdir` 的 ICU 排序（`localeCompare` 等价）                                                                                                                                               | 完成                       | `collation.rs` + 28 项语料 4 种 locale 差分                                                                  |
+| **tasks-index 存储层**（迁移账本对账 + DDL 漂移哨兵 + `getTaskMeta` 投影 + 读写两套语义）                                                                                                        | 完成                       | `crates/host-services/src/tasks_index/*`（21 例）                                                            |
+| `escode-task` 只读面：`getTaskMeta` / 四个列表分区 / `listTaskList`（全文搜索+分页+摘要窗口）/ `listGroupedTaskViewStructure`                                                                    | 完成                       | `tests/rpc_task.rs` + `rustHostRpc.test.ts` 的 Repo 差分（`toEqual` 全等 + 负向验证）                        |
+| 任务目标注册表 + `getTaskModelSelection`                                                                                                                                                         | 完成                       | `task_targets.rs`（4 例）+ `rpc_task.rs`（2 例端到端）                                                       |
+| 阶段 1（runtime 库化：`core-api::env`/`scope::Spawner`/`app-server::Link`/`embed`）                                                                                                              | 完成                       | `docs/specs/rust-u1-runtime-lib.md`、`docs/reports/rust-u1-runtime-library-2026-10-14.md`                    |
+| P1 质量项 #5/#6/#7/#10/#11、#9 子项（net crate、RedactedString、FileStamp/ChangeGate、bash 策略表类型化、registry 类型化、SKILL.md 单点、插件错误类型化）                                        | 完成                       | 质量报告清单已勾选 + 各自单测                                                                                |
 
 **未推送**：以上全部在本分支 `dev` 本地（截至本手册 `origin/dev..HEAD` 共 36 个提交，其中本工作流的阶段 0–2 提交为连续的一段）。**没有推送、没有开 PR**——接手前先确认是否要推送。
 
@@ -196,26 +198,42 @@ let my_method = handler(move |arg: Wire| {
 ## 6. 下一步（按建议顺序，含从哪一行改起）
 
 > **2026-10-15 更新**：§6.1–6.3（快照读面、事件面）与 §6.4 的 `escode-session` 写面已落地。新的建议顺序：
+>
+> 0. **`window-controller` 本地子集**（8/8 已交付，`docs/specs/rust-u2-window-controller.md`）：订阅面 + `listTaskList` +
+>    `mutateTask` + 归档删除，复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 +
+>    三处负向验证。**手机远控（dev 开关下已连 Rust Host）的时间线/置顶/归档/全局搜索不再空列表。**
+>    远程 source 见该 spec §5-1 登记（属优先序 9）。
 > 1. **`escode-task` 写面**（`createTask`/`sendPrompt`/`stopGeneration`/`respondPermission`/`setModel`/`setMode`/`closeTask`/`resumeTask`/`archiveWorkspaceTasks`）——
->    TS 适配器里这些走 `sendConversationCommandV4`（V4 面已就位，可复用 `agent_v4` 的 base 调用）；
-> 2. **workspace 事件源**：`escode-task.onDynamicWorkspaceEvent` / `workspace_task_list_changed`（TS `escodeTaskIndexSyncer.ts`，
->    依赖 sessions-index 订阅——V4 面已能订阅）；接上后撤销 `rust-u2-tasks-index.md` §6.5 登记差异 1；
+>    TS 适配器里这些走 `sendConversationCommandV4`（V4 面已就位，可复用 `agent_v4` 的 base 调用）。
+>    **注意**：Renderer 当前零调用（对话走 V4、侧栏走 reads + `window-controller`），消费方是 bots/off-peak 服务
+>    （属未迁移域）——价值在契约完整度与 S2 收尾（`createTask` + draft 注册表），可排在 providers 之后；
+> 2. **providers P2**（`provider-settings.getView`，`rust-u2-providers.md` §3）：模型/供应商设置面板的读面，
+>    向下解锁 A16b 与 `git.generateCommitMessage` 的依赖链；
 > 3. **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）→ dev 开关下跑桌面 E2E；
-> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/ ~~terminal~~（T1 已交付，见 `rust-u2-terminal.md`）/ ~~file-watcher~~（已交付，见 `rust-u2-file-watcher.md`）/ providers（设计见 `rust-u2-providers.md`：P1–P6 切片 + 3 个待决策项；含审计 A16b 与 `git.generateCommitMessage`）/ extensions / automation / remote。
+>    这是「全部桌面 E2E」这条验收的最后一环，受体量大（需 realtime/broadcast/cron 控制协议）见 §6.5（进程无关化）；
+> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/
+>    ~~terminal~~（T1 已交付）/ ~~file-watcher~~（已交付）/ ~~window-controller~~（已交付）/ providers / extensions / automation / remote。
 
 ### 6.1 主件：`getTaskSnapshot`（escode-task，S2b）
 
 为什么先做它：它是任务域写路径的总入口（resume → 快照 → 索引同步），也是手机 replayable 首屏读面；它的三个前置件（**注册表**、**索引写层**、**运行时转发**）都已就位。
 
 TS 真相源（按调用顺序读）：
+
 - `packages/services/src/escode-agent/escodeTaskServiceAdapter.ts`
   `getTaskSnapshot`（约 2876）→ `resumeSnapshotOrLegacy`（1340）→ `resumeSnapshot`（1175）→ `snapshotToESCode`（1629）→ `limitTaskSnapshotMessages`（3664）+ `buildSnapshotHistory`（3614）+ `buildSearchSnippets` 无关；
   `snapshotToMeta`（1408）及辅助：`deriveTitleFromSnapshot`（3599）、`fromESCodeMode`（3722）、`fromESCodeGoal`（4237）、`formatTaskMetaModelSelectionFromSnapshot`。
-- 共享规则：`packages/shared/src/escode-session-visible-content.ts`（`resolveESCodeVisibleSessionTitle` 229、`getESCodeUserVisibleMessages` 82、`isESCodeModelOnlySyntheticUserMessage` 50、`isESCodeCompactSummaryMessage` 67、goal 提醒文本前缀/标记常量 13–15）与 `packages/shared/src/escode-session-task-status.ts`（`deriveESCodeTaskStatusFromSessionSnapshot` 57，含 `statusFromESCodeSession`、`hasBlockingActiveSnapshotRuntime`、`hasCompletedVisibleAssistantTurn`）。
-- 运行时段：`session/resume` 返回与 `session/read` **同形**的快照（`apps/escode-cli-rust/crates/core/src/app/session_resume.rs`）。快照键（实测）：`messages / projection / protocol / runtime / session / settings / slashCommands / todos`；`session.{sessionId, traceId, title, createdAt, updatedAt, mode, model:{providerId,modelId}, status, sessionKind, workspace:{workspaceKey,workspacePath,workspaceIdentity?}}`；`projection.{status, lastError?, target?, activeToolCalls, pendingPermissions, contextUsed, contextWindow, totalTokenCount, turnCount}`。
+- 共享规则：
+  - `packages/shared/src/escode-session-visible-content.ts`：`resolveESCodeVisibleSessionTitle` 229、`getESCodeUserVisibleMessages` 82、`isESCodeModelOnlySyntheticUserMessage` 50、`isESCodeCompactSummaryMessage` 67、goal 提醒文本前缀/标记常量 13–15。
+  - `packages/shared/src/escode-session-task-status.ts`：`deriveESCodeTaskStatusFromSessionSnapshot` 57，含 `statusFromESCodeSession`、`hasBlockingActiveSnapshotRuntime`、`hasCompletedVisibleAssistantTurn`。
+- 运行时段：`session/resume` 返回与 `session/read` **同形**的快照（`apps/escode-cli-rust/crates/core/src/app/session_resume.rs`）。
+  - 快照键（实测）：`messages / projection / protocol / runtime / session / settings / slashCommands / todos`。
+  - `session.{sessionId, traceId, title, createdAt, updatedAt, mode, model:{providerId,modelId}, status, sessionKind, workspace:{workspaceKey,workspacePath,workspaceIdentity?}}`。
+  - `projection.{status, lastError?, target?, activeToolCalls, pendingPermissions, contextUsed, contextWindow, totalTokenCount, turnCount}`。
 - 索引写：`syncTaskIndexSnapshot`（1504，**`subagent_child` 不写索引**）→ `syncTaskIndexMeta`（1499）→ 已实现好的 Rust `TasksIndex::sync_task_meta`（`crates/host-services/src/tasks_index/write.rs`）。
 
 要点（都是可见行为，别简化）：
+
 - `messageLimit` 语义：`normalizeSnapshotMessageLimit`（>0 才生效）+ `buildSnapshotHistory` 的 `{truncatedBefore: total > limit, totalMessages}`，消息取**尾部窗口**。
 - `getTaskSnapshotWithEtag`：`sha256(JSON.stringify(snapshot))`；若 Rust 的键序与 TS 不同，etag 值会与 TS 不同（同一 Host 内自洽，客户端仍工作）。**要么逐字复刻键序，要么登记这条差异**。
 - legacy 分支（`resumeSnapshotOrLegacy` 读到磁盘上的旧会话文档）依赖会话文件读取链，属独立工作包——先做 session 分支，legacy 分支登记为缺口。
@@ -227,6 +245,7 @@ TS 真相源（按调用顺序读）：
 ### 6.3 事件面（`EventListen` / `EventDispose` → `ResponseType.EventFire`）
 
 这是渲染器侧边栏/实时刷新的前提，也是质量报告点名的"投递层零测试"高风险面。
+
 - TS 参考：`packages/rpc/src/channelClient.ts:149`（`requestEvent`）、`channelServer.ts:193`（`onEventListen`，事件以 `ResponseType.EventFire` 帧回推，客户端取 `response.data`）、`packages/rpc/src/protocol.ts`（RequestType/ResponseType 数值）。
 - Rust 现状：`crates/host-rpc/src/session.rs:216` 目前直接回 NotImplemented；`Channel` 的 `listen` 面还不存在（需要按 (连接, channel, event) 维护订阅注册表 + dispose 语义 + 背压策略）。
 - 与它同批的还有 workspace 事件源：任务的 `emitWorkspaceTaskListChanged`（TS 适配器）与 syncer 的 topic 帧摄入（`packages/services/src/escode-agent/escodeTaskIndexSyncer.ts`，1961 行，V4 topic：`sessionsIndexTopic`/`workspaceConfigTopic`）。

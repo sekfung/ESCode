@@ -338,14 +338,18 @@ pub fn channels_with(
     let base = crate::agent_v4::shared_base(instances.clone(), options.clone(), write.read.clone());
     let agent = crate::agent_v4::agent_channel_from_base(Arc::clone(&base));
     // syncer 只在能写索引时启动（缺 dataBaseDir 没有 V4 摄入的可落面）。
-    if let Some(read) = write.read.clone() {
+    // 窗口控制器（window-controller）与它共用同一实例：会话摘要基线是 controller overlay 的唯一源。
+    let syncer = write.read.clone().map(|read| {
         crate::task_index_syncer::TaskIndexSyncer::spawn(
             Arc::clone(&base),
             read,
             Arc::clone(&events),
-        );
-    }
-    Channels::new(vec![
+        )
+    });
+    let controller = write.read.clone().zip(syncer).map(|(read, syncer)| {
+        crate::window_controller::WindowController::new(read, Arc::clone(&events), syncer)
+    });
+    let channels = Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
@@ -355,8 +359,17 @@ pub fn channels_with(
         crate::domains_provider::model_selection_channel(provider_files),
         task_channel,
         session_channel(instances, options, write),
-    ])
-    .with_scoped(agent)
+    ]);
+    // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。
+    let channels = match controller {
+        Some(controller) => {
+            channels.with_scoped(crate::window_controller::controller_channel(controller))
+        }
+        None => channels.with_scoped(std::sync::Arc::new(|_context| {
+            crate::window_controller::gap_channel()
+        })),
+    };
+    channels.with_scoped(agent)
 }
 
 #[cfg(test)]

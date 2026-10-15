@@ -44,6 +44,14 @@ pub const NON_RPC_METHODS: &[Method] = &[
 /// Renderer RPC 面已实现的 `(channel, member)`（方法与事件同表；与 `host-rpc` 方法表双向对账，
 /// 见 host-rpc/tests/contract.rs）。新增实现必须同时改这里与方法表。
 pub const IMPLEMENTED: &[(&str, &str)] = &[
+    ("window-controller", "subscribeControllerV4"),
+    ("window-controller", "resyncControllerV4"),
+    ("window-controller", "unsubscribeControllerV4"),
+    ("window-controller", "onDynamicControllerFrame"),
+    ("window-controller", "listTaskList"),
+    ("window-controller", "mutateTask"),
+    ("window-controller", "deleteArchivedTask"),
+    ("window-controller", "deleteArchivedTasks"),
     ("escode-task", "setTaskPinned"),
     ("escode-task", "archiveTask"),
     ("escode-task", "unarchiveTask"),

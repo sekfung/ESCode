@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::agent_v4::base::Base;
 use crate::domains_task_support::{LazyIndex, ReadContext};
-use crate::task_index_syncer::Ingest;
+use crate::task_index_syncer::{Ingest, Workspace};
 use crate::task_targets::TaskTargets;
 use crate::workspace_events::WorkspaceEvents;
 use serde_json::json;
@@ -25,6 +25,7 @@ fn summary(id: &str, phase: &str, title: &str) -> serde_json::Value {
 #[test]
 fn baseline_meta_and_unread_signal_follow_the_ts_projections() {
     let dir = tempfile::tempdir().unwrap();
+    let (overlay_changes, _) = tokio::sync::broadcast::channel(8);
     let ingest = Arc::new(Ingest::new(
         Arc::new(Base::new(
             escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
@@ -39,9 +40,12 @@ fn baseline_meta_and_unread_signal_follow_the_ts_projections() {
         },
         Arc::new(WorkspaceEvents::default()),
         "c".to_owned(),
-        "/w".to_owned(),
-        Some("ssh:host".to_owned()),
-        "ssh:host".to_owned(),
+        Workspace {
+            path: "/w".to_owned(),
+            identity: Some("ssh:host".to_owned()),
+            key: "ssh:host".to_owned(),
+        },
+        overlay_changes,
     ));
     let mut summary_value = summary("s9", "running", "标题");
     summary_value["parentSessionId"] = json!("p1");

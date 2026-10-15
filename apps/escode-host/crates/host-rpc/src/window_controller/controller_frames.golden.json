@@ -1,0 +1,739 @@
+{
+  "version": 1,
+  "normalized": [
+    "subscriptionId",
+    "logEpoch",
+    "sentAt"
+  ],
+  "script": [
+    {
+      "op": "subscribe",
+      "topic": "controller/tasks-index",
+      "subscriptionKey": "sub-tasks"
+    },
+    {
+      "op": "subscribe",
+      "topic": "controller/workspaces",
+      "subscriptionKey": "sub-workspaces"
+    },
+    {
+      "op": "registerSource",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      }
+    },
+    {
+      "op": "replaceSnapshot",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "memberships": [
+        {
+          "meta": {
+            "taskId": "a",
+            "traceId": "trace-a",
+            "title": "title-a",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 10,
+            "updatedAt": 10,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": false,
+            "active": true
+          }
+        },
+        {
+          "meta": {
+            "taskId": "b",
+            "traceId": "trace-b",
+            "title": "title-b",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 30,
+            "updatedAt": 30,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": true,
+            "archived": false,
+            "active": true
+          }
+        },
+        {
+          "meta": {
+            "taskId": "c",
+            "traceId": "trace-c",
+            "title": "title-c",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 20,
+            "updatedAt": 20,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": true,
+            "active": false
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "taskId": "b",
+          "liveStatus": "waiting",
+          "title": "live title b",
+          "titleSource": "generated",
+          "updatedAt": 99,
+          "activity": {
+            "phase": "running",
+            "lastActivityAt": 99,
+            "hasBackgroundWork": true,
+            "pendingInteractions": {
+              "permissionCount": 1,
+              "userInputCount": 0
+            }
+          },
+          "pendingInteraction": {
+            "interactionId": "i-1",
+            "kind": "permission",
+            "toolName": "Bash"
+          }
+        }
+      ]
+    },
+    {
+      "op": "replaceSnapshot",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "memberships": [
+        {
+          "meta": {
+            "taskId": "a",
+            "traceId": "trace-a",
+            "title": "title-a",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 10,
+            "updatedAt": 10,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": false,
+            "active": true
+          }
+        },
+        {
+          "meta": {
+            "taskId": "b",
+            "traceId": "trace-b",
+            "title": "title-b",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 30,
+            "updatedAt": 30,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": true,
+            "archived": false,
+            "active": true
+          }
+        },
+        {
+          "meta": {
+            "taskId": "c",
+            "traceId": "trace-c",
+            "title": "title-c",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 20,
+            "updatedAt": 20,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": true,
+            "active": false
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "taskId": "b",
+          "liveStatus": "waiting",
+          "title": "live title b",
+          "titleSource": "generated",
+          "updatedAt": 99,
+          "activity": {
+            "phase": "running",
+            "lastActivityAt": 99,
+            "hasBackgroundWork": true,
+            "pendingInteractions": {
+              "permissionCount": 1,
+              "userInputCount": 0
+            }
+          },
+          "pendingInteraction": {
+            "interactionId": "i-1",
+            "kind": "permission",
+            "toolName": "Bash"
+          }
+        }
+      ]
+    },
+    {
+      "op": "replaceSnapshot",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "memberships": [
+        {
+          "meta": {
+            "taskId": "a",
+            "traceId": "trace-a",
+            "title": "title-a",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 10,
+            "updatedAt": 10,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": false,
+            "active": true
+          }
+        },
+        {
+          "meta": {
+            "taskId": "b",
+            "traceId": "trace-b",
+            "title": "title-b",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 40,
+            "updatedAt": 40,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": true,
+            "archived": false,
+            "active": true
+          }
+        }
+      ],
+      "overlays": []
+    },
+    {
+      "op": "replaceOverlays",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "overlays": [
+        {
+          "taskId": "a",
+          "liveStatus": "idle",
+          "titleSource": "custom",
+          "title": "renamed a",
+          "updatedAt": 77,
+          "activity": {
+            "phase": "draft",
+            "lastActivityAt": 77,
+            "hasBackgroundWork": false
+          }
+        }
+      ]
+    },
+    {
+      "op": "replaceOverlays",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "overlays": []
+    },
+    {
+      "op": "resync",
+      "subscriptionKey": "sub-tasks"
+    },
+    {
+      "op": "mutate",
+      "address": {
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w",
+        "taskId": "a"
+      },
+      "mutation": {
+        "kind": "pin",
+        "pinned": true
+      }
+    },
+    {
+      "op": "mutate",
+      "address": {
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w",
+        "taskId": "missing"
+      },
+      "mutation": {
+        "kind": "pin",
+        "pinned": true
+      },
+      "expectError": "没有与任务地址匹配的 source"
+    },
+    {
+      "op": "mutate",
+      "address": {
+        "workspacePath": "/w",
+        "taskId": "a"
+      },
+      "mutation": {
+        "kind": "pin",
+        "pinned": true
+      },
+      "expectError": "没有与任务地址匹配的 source"
+    },
+    {
+      "op": "mutate",
+      "address": {
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w",
+        "taskId": "gone"
+      },
+      "mutation": {
+        "kind": "delete-archived"
+      }
+    },
+    {
+      "op": "unsubscribe",
+      "subscriptionKey": "sub-tasks"
+    },
+    {
+      "op": "replaceSnapshot",
+      "scope": {
+        "kind": "local",
+        "workspacePath": "/w",
+        "workspaceIdentity": "id-w"
+      },
+      "memberships": [
+        {
+          "meta": {
+            "taskId": "a",
+            "traceId": "trace-a",
+            "title": "title-a",
+            "workspacePath": "/w",
+            "workspaceIdentity": "id-w",
+            "createdAt": 50,
+            "updatedAt": 50,
+            "mode": "build"
+          },
+          "membership": {
+            "pinned": false,
+            "archived": false,
+            "active": true
+          }
+        }
+      ],
+      "overlays": []
+    },
+    {
+      "op": "resync",
+      "subscriptionKey": "sub-tasks",
+      "expectError": true
+    }
+  ],
+  "frames": [
+    {
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 0,
+      "toSeq": 0,
+      "sentAt": 0,
+      "topic": "controller/tasks-index",
+      "payload": {
+        "kind": "snapshot",
+        "snapshot": {
+          "protocolVersion": 1,
+          "logEpoch": "<logEpoch>",
+          "tasks": []
+        }
+      }
+    },
+    {
+      "subscriptionId": "<sub-workspaces>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 0,
+      "toSeq": 0,
+      "sentAt": 0,
+      "topic": "controller/workspaces",
+      "payload": {
+        "kind": "snapshot",
+        "snapshot": {
+          "protocolVersion": 1,
+          "logEpoch": "<logEpoch>",
+          "workspaces": []
+        }
+      }
+    },
+    {
+      "topic": "controller/tasks-index",
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 0,
+      "toSeq": 1,
+      "sentAt": 0,
+      "payload": {
+        "kind": "deltas",
+        "deltas": [
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "a"
+              },
+              "meta": {
+                "taskId": "a",
+                "traceId": "trace-a",
+                "title": "title-a",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 10,
+                "updatedAt": 10,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": false,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            }
+          },
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "b"
+              },
+              "meta": {
+                "taskId": "b",
+                "traceId": "trace-b",
+                "title": "live title b",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 30,
+                "updatedAt": 99,
+                "mode": "build",
+                "status": "running",
+                "pendingInteraction": {
+                  "interactionId": "i-1",
+                  "kind": "permission",
+                  "toolName": "Bash"
+                }
+              },
+              "membership": {
+                "pinned": true,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "waiting",
+              "activity": {
+                "phase": "running",
+                "lastActivityAt": 99,
+                "hasBackgroundWork": true,
+                "pendingInteractions": {
+                  "permissionCount": 1,
+                  "userInputCount": 0
+                }
+              }
+            }
+          },
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "c"
+              },
+              "meta": {
+                "taskId": "c",
+                "traceId": "trace-c",
+                "title": "title-c",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 20,
+                "updatedAt": 20,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": false,
+                "archived": true,
+                "active": false
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "topic": "controller/workspaces",
+      "subscriptionId": "<sub-workspaces>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 0,
+      "toSeq": 1,
+      "sentAt": 0,
+      "payload": {
+        "kind": "deltas",
+        "deltas": [
+          {
+            "op": "workspace.upserted",
+            "workspace": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "id-w",
+              "sourceAvailability": "online",
+              "connectionState": "online"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "topic": "controller/tasks-index",
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 1,
+      "toSeq": 2,
+      "sentAt": 0,
+      "payload": {
+        "kind": "deltas",
+        "deltas": [
+          {
+            "op": "task.removed",
+            "address": {
+              "workspacePath": "/w",
+              "workspaceIdentity": "id-w",
+              "taskId": "c"
+            }
+          },
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "b"
+              },
+              "meta": {
+                "taskId": "b",
+                "traceId": "trace-b",
+                "title": "title-b",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 40,
+                "updatedAt": 40,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": true,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "topic": "controller/tasks-index",
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 2,
+      "toSeq": 3,
+      "sentAt": 0,
+      "payload": {
+        "kind": "deltas",
+        "deltas": [
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "a"
+              },
+              "meta": {
+                "taskId": "a",
+                "traceId": "trace-a",
+                "title": "renamed a",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 10,
+                "updatedAt": 77,
+                "mode": "build",
+                "titleOverridden": true
+              },
+              "membership": {
+                "pinned": false,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle",
+              "activity": {
+                "phase": "draft",
+                "lastActivityAt": 77,
+                "hasBackgroundWork": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "topic": "controller/tasks-index",
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 3,
+      "toSeq": 4,
+      "sentAt": 0,
+      "payload": {
+        "kind": "deltas",
+        "deltas": [
+          {
+            "op": "task.upserted",
+            "task": {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "a"
+              },
+              "meta": {
+                "taskId": "a",
+                "traceId": "trace-a",
+                "title": "title-a",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 10,
+                "updatedAt": 10,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": false,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "subscriptionId": "<sub-tasks>",
+      "logEpoch": "<logEpoch>",
+      "fromSeq": 0,
+      "toSeq": 4,
+      "sentAt": 0,
+      "topic": "controller/tasks-index",
+      "payload": {
+        "kind": "snapshot",
+        "snapshot": {
+          "protocolVersion": 1,
+          "logEpoch": "<logEpoch>",
+          "tasks": [
+            {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "b"
+              },
+              "meta": {
+                "taskId": "b",
+                "traceId": "trace-b",
+                "title": "title-b",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 40,
+                "updatedAt": 40,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": true,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            },
+            {
+              "address": {
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "taskId": "a"
+              },
+              "meta": {
+                "taskId": "a",
+                "traceId": "trace-a",
+                "title": "title-a",
+                "workspacePath": "/w",
+                "workspaceIdentity": "id-w",
+                "createdAt": 10,
+                "updatedAt": 10,
+                "mode": "build"
+              },
+              "membership": {
+                "pinned": false,
+                "archived": false,
+                "active": true
+              },
+              "sourceAvailability": "online",
+              "liveStatus": "idle"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "index": 10,
+      "message": "没有与任务地址匹配的 source"
+    },
+    {
+      "index": 11,
+      "message": "没有与任务地址匹配的 source"
+    },
+    {
+      "index": 15,
+      "message": "未找到 Controller subscription，subscriptionId=<gone>"
+    }
+  ]
+}

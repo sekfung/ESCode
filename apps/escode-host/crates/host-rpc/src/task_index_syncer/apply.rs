@@ -107,6 +107,8 @@ fn apply_index_frame(
             core.summaries = sessions_map(next.iter());
             core.seeded = true;
             drop(core);
+            // 首帧基线也是 `window-controller` 的 overlay 源（订阅前已存在的任务才有 overlay）。
+            ingest.notify_overlays();
             complete_recovery_frame(ingest, state, delivery);
             let writer = Arc::clone(ingest);
             ingest.enqueue(async move { super::apply_writes::seed_missing_rows(&writer).await });
@@ -120,6 +122,7 @@ fn apply_index_frame(
             process_summary(ingest, &mut core, previous.get(id), summary);
         }
         drop(core);
+        ingest.notify_overlays();
         complete_recovery_frame(ingest, state, delivery);
         return;
     }
@@ -154,6 +157,8 @@ fn apply_index_frame(
         }
     }
     state.seq = to_seq;
+    // overlay（liveStatus/activity/标题）随基线一并变化，通知 controller 投影刷新。
+    ingest.notify_overlays();
     complete_recovery_frame(ingest, state, delivery);
 }
 

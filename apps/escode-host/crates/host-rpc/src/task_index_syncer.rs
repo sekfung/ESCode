@@ -24,9 +24,15 @@ mod apply_writes;
 mod topic;
 mod topic_subscribe;
 
+/// 摘要变化信号的容量：`window-controller` 的投影刷新是合并式的（脏标记），
+/// 慢消费者只可能丢中间信号、不可能因为 lag 停摆（`RecvError::Lagged` 照样继续读最新基线）。
+const OVERLAY_CHANGE_CAPACITY: usize = 64;
+
 /// 进程内唯一实例（`channels()` 装配时 spawn，随进程存活；无 dispose 面）。
 pub(crate) struct TaskIndexSyncer {
     ingests: Mutex<BTreeMap<String, Arc<Ingest>>>,
+    /// 会话摘要基线变化（`window-controller` 的 overlay 刷新触发；消费方按身份键过滤）。
+    overlay_changes: tokio::sync::broadcast::Sender<String>,
 }
 
 /// 一个 workspace 的摄入状态（TS `WorkspaceIngestState` 的拆分）。
@@ -46,6 +52,8 @@ struct Ingest {
     pub core: Mutex<Core>,
     pub index: Mutex<topic::TopicState>,
     pub config: Mutex<topic::TopicState>,
+    /// 摘要基线变化信号（`window-controller` 投影刷新；见 [`TaskIndexSyncer::overlay_changes`]）。
+    pub overlay_changes: tokio::sync::broadcast::Sender<String>,
     /// 索引写的串行队列：按帧到达序执行（见 [`Ingest::enqueue`]；worker 首次入队时启动）。
     writes: std::sync::OnceLock<tokio::sync::mpsc::UnboundedSender<WriteJob>>,
 }
@@ -58,24 +66,30 @@ struct Core {
     pub seeded: bool,
 }
 
+/// `Ingest` 的 workspace 三元组（`key` = 身份键；从 `LifecycleEvent` 与测试夹具两处构造）。
+pub(super) struct Workspace {
+    pub path: String,
+    pub identity: Option<String>,
+    pub key: String,
+}
+
 impl Ingest {
     fn new(
         base: Arc<Base>,
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
         connection_id: String,
-        workspace_path: String,
-        workspace_identity: Option<String>,
-        key: String,
+        workspace: Workspace,
+        overlay_changes: tokio::sync::broadcast::Sender<String>,
     ) -> Self {
         let index = topic::TopicState::new(
             crate::agent_v4::frames::TopicKind::SessionsIndex,
-            format!("sessions-index/{key}"),
+            format!("sessions-index/{}", workspace.key),
             apply::index_frame_check,
         );
         let config = topic::TopicState::new(
             crate::agent_v4::frames::TopicKind::WorkspaceConfig,
-            format!("workspace-config/{key}"),
+            format!("workspace-config/{}", workspace.key),
             apply::workspace_config_frame_check,
         );
         Self {
@@ -84,9 +98,9 @@ impl Ingest {
             read,
             events,
             connection_id,
-            workspace_path,
-            workspace_identity,
-            key,
+            workspace_path: workspace.path,
+            workspace_identity: workspace.identity,
+            key: workspace.key,
             runtime_generation: Mutex::new(None),
             core: Mutex::new(Core {
                 summaries: BTreeMap::new(),
@@ -94,7 +108,14 @@ impl Ingest {
             }),
             index: Mutex::new(index),
             config: Mutex::new(config),
+            overlay_changes,
         }
+    }
+
+    /// 摘要基线变化 → 通知 `window-controller`（同一 workspace 的投影据此刷新 overlay）。
+    pub(super) fn notify_overlays(&self) {
+        // 无接收者时 `send` 返回 Err（正常：没有 controller 订阅）。
+        let _ = self.overlay_changes.send(self.key.clone());
     }
 
     pub(super) fn state(
@@ -136,25 +157,48 @@ impl Ingest {
 }
 
 impl TaskIndexSyncer {
-    /// 组合根入口：spawn 生命周期监听（实例表可用性驱动订阅）。
-    pub(crate) fn spawn(base: Arc<Base>, read: ReadContext, events: Arc<WorkspaceEvents>) {
+    /// 组合根入口：spawn 生命周期监听（实例表可用性驱动订阅），返回句柄供
+    /// `window-controller` 读取会话摘要（overlay 源）并订阅变化信号。
+    pub(crate) fn spawn(
+        base: Arc<Base>,
+        read: ReadContext,
+        events: Arc<WorkspaceEvents>,
+    ) -> Arc<Self> {
+        let (overlay_changes, _) = tokio::sync::broadcast::channel(OVERLAY_CHANGE_CAPACITY);
         let syncer = Arc::new(Self {
             ingests: Mutex::new(BTreeMap::new()),
+            overlay_changes,
         });
         let mut lifecycle = base.instances.lifecycle();
         // 任务即所有者：syncer 与监听同生命周期（进程内单例；`weak` 会在 spawn 返回后立即失效）。
+        let listener = Arc::clone(&syncer);
         tokio::spawn(async move {
             while let Some(event) = lifecycle.recv().await {
                 match event.state {
                     escode_host_runtime::RuntimeState::Available => {
-                        syncer.runtime_available(&base, &read, &events, &event);
+                        listener.runtime_available(&base, &read, &events, &event);
                     }
                     escode_host_runtime::RuntimeState::Unavailable => {
-                        syncer.runtime_unavailable(&event);
+                        listener.runtime_unavailable(&event);
                     }
                 }
             }
         });
+        syncer
+    }
+
+    /// 会话摘要基线（`window-controller` 的 overlay 源；未登记的 workspace 回空）。
+    pub(crate) fn summaries(&self, identity: &str) -> Vec<Value> {
+        let ingest = lock(&self.ingests).get(identity).cloned();
+        let Some(ingest) = ingest else {
+            return Vec::new();
+        };
+        lock(&ingest.core).summaries.values().cloned().collect()
+    }
+
+    /// 摘要变化信号（广播；消费方按身份键过滤，合并式刷新，丢中间信号无副作用）。
+    pub(crate) fn overlay_changes(&self) -> tokio::sync::broadcast::Receiver<String> {
+        self.overlay_changes.subscribe()
     }
 
     fn runtime_available(
@@ -226,12 +270,15 @@ impl TaskIndexSyncer {
             read.clone(),
             Arc::clone(events),
             format!("host-{}#task-index", uuid::Uuid::new_v4()),
-            event.workspace_path.clone(),
-            event
-                .workspace_identity
-                .clone()
-                .filter(|value| !value.is_empty()),
-            event.identity.clone(),
+            Workspace {
+                path: event.workspace_path.clone(),
+                identity: event
+                    .workspace_identity
+                    .clone()
+                    .filter(|value| !value.is_empty()),
+                key: event.identity.clone(),
+            },
+            self.overlay_changes.clone(),
         ));
         topic::install_listeners(&ingest);
         ingests.insert(event.identity.clone(), Arc::clone(&ingest));

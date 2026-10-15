@@ -38,6 +38,7 @@ pub mod runtime_requests;
 pub mod session;
 mod task_index_syncer;
 mod task_targets;
+mod window_controller;
 pub mod wire;
 mod workspace_events;
 

@@ -43,25 +43,25 @@ flowchart LR
 
 ## 3. 存储契约（与 TS 互操作）
 
-| 项 | 约定 |
-| --- | --- |
-| 路径 | `join(getAppConfigDir(), "tasks-index.sqlite")` = `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（dataBaseDir 由 Main 经 `rpcListen` 提交，见 u2 骨架 §6） |
-| 表 | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`off_peak_tasks`、`tasks_schema_migration` |
-| 打开参数 | `PRAGMA busy_timeout = 25`、`PRAGMA foreign_keys = ON`（与 TS `prepareTasksIndexStorage` 同）；迁移/维护期间的取锁等待上限 1h，且**分阶段上报**（`checking`/`waiting_for_lock`/`migrating`/`maintaining`/`committing`/`ready`，映射到 `startup/tasksState` 事件） |
-| DDL | 复用 TS 的 `TASK_INDEX_SCHEMA` 文本（`schema-v1.ts`）+ 迁移 `0001_adopt_task_schema`/`0002_provider_selection`/`0003_official_glm_selection`；Rust 侧以 `include_str!` 引入同一份 DDL 文本并加 **checksum 哨兵**（对照质量报告 §4：`rust_*`/`dwf_*` DDL 无机器校验的欠账，本域不允许重演） |
-| 迁移对照 | 启动时读 `tasks_schema_migration` 已应用 id 集合；Rust 只允许**前向补齐**，遇到未知（更新版 TS 写的）id 就拒绝写入并回报结构化错误，不猜 |
-| 并发 | 与 TS Host 交替运行时靠 SQLite 锁 + busy_timeout；本域不引入第二套锁（`host/file_lock.rs` 是文件锁，语义不同，不混用） |
+| 项       | 约定                                                                                                                                                                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 路径     | `join(getAppConfigDir(), "tasks-index.sqlite")` = `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（dataBaseDir 由 Main 经 `rpcListen` 提交，见 u2 骨架 §6）                                                                                                                                  |
+| 表       | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`off_peak_tasks`、`tasks_schema_migration`                                                                                               |
+| 打开参数 | `PRAGMA busy_timeout = 25`、`PRAGMA foreign_keys = ON`（与 TS `prepareTasksIndexStorage` 同）；迁移/维护期间的取锁等待上限 1h，且**分阶段上报**（`checking`/`waiting_for_lock`/`migrating`/`maintaining`/`committing`/`ready`，映射到 `startup/tasksState` 事件）                          |
+| DDL      | 复用 TS 的 `TASK_INDEX_SCHEMA` 文本（`schema-v1.ts`）+ 迁移 `0001_adopt_task_schema`/`0002_provider_selection`/`0003_official_glm_selection`；Rust 侧以 `include_str!` 引入同一份 DDL 文本并加 **checksum 哨兵**（对照质量报告 §4：`rust_*`/`dwf_*` DDL 无机器校验的欠账，本域不允许重演） |
+| 迁移对照 | 启动时读 `tasks_schema_migration` 已应用 id 集合；Rust 只允许**前向补齐**，遇到未知（更新版 TS 写的）id 就拒绝写入并回报结构化错误，不猜                                                                                                                                                   |
+| 并发     | 与 TS Host 交替运行时靠 SQLite 锁 + busy_timeout；本域不引入第二套锁（`host/file_lock.rs` 是文件锁，语义不同，不混用）                                                                                                                                                                     |
 
 ## 4. 接口映射
 
-| 方法族 | 实现来源 |
-| --- | --- |
+| 方法族                                                                                                                                                                                                                                                                                                                                | 实现来源                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `createTask` / `closeTask` / `resumeTask` / `listTasks` / `getTaskMeta` / `getTaskSnapshot*` / `setMode` / `setModel` / `setConfigOption` / `sendPrompt` / `stopGeneration` / `compactSession` / `goalSession` / `respondPermission` / `respondElicitation` / 队列类（`enqueueTaskCommand`/`promoteTaskCommand`/`cancelTaskCommand`） | 运行时转发（`session/*`、`v4/command`、`session/messages`）+ 索引 upsert |
-| `listTaskList` / `listPinnedTasks` / `listArchivedTasks` / `listDeletedTaskIds` / `listGroupedTaskViewStructure` / `applyGroupedTaskViewOrder` / 分组四法 | 索引读/写（纯 SQL，不需要运行时） |
-| `archiveStaleTasks` / `archiveWorkspaceTasks` | 索引写（批更新 + 广播） |
-| `getTaskSnapshotBody` / `getTaskSnapshotToolCallsSlice` / `getTaskSnapshotRef` | 运行时读（快照已在运行时侧分页；Host 只转发 + ETag 透传） |
-| `switchAgent` / `syncTaskSessionBinding` | 运行时写 + 索引列更新（`provider`/`model`/`migration_source`） |
-| `getWorkspaceProviderConfigFile` / `getTaskNativeSessionLogFile` | 文件域读（路径由 providers/account 域配置提供，未迁移前回显式缺口） |
+| `listTaskList` / `listPinnedTasks` / `listArchivedTasks` / `listDeletedTaskIds` / `listGroupedTaskViewStructure` / `applyGroupedTaskViewOrder` / 分组四法                                                                                                                                                                             | 索引读/写（纯 SQL，不需要运行时）                                        |
+| `archiveStaleTasks` / `archiveWorkspaceTasks`                                                                                                                                                                                                                                                                                         | 索引写（批更新 + 广播）                                                  |
+| `getTaskSnapshotBody` / `getTaskSnapshotToolCallsSlice` / `getTaskSnapshotRef`                                                                                                                                                                                                                                                        | 运行时读（快照已在运行时侧分页；Host 只转发 + ETag 透传）                |
+| `switchAgent` / `syncTaskSessionBinding`                                                                                                                                                                                                                                                                                              | 运行时写 + 索引列更新（`provider`/`model`/`migration_source`）           |
+| `getWorkspaceProviderConfigFile` / `getTaskNativeSessionLogFile`                                                                                                                                                                                                                                                                      | 文件域读（路径由 providers/account 域配置提供，未迁移前回显式缺口）      |
 
 ## 5. `createSession` / `resumeSession` 的 Host 侧职责
 
@@ -76,12 +76,12 @@ TS 里这两个方法在服务层做了四件事，Rust Host 必须逐条对齐�
 
 ## 6. 切片（每片独立可验收）
 
-| 片 | 内容 | 验收 |
-| --- | --- | --- |
-| S1 索引只读 | tasks-index 打开/对账 + `getTaskMeta` + 列表类读（`listTaskList`、`listPinnedTasks`、`listArchivedTasks`、`listGroupedTaskViewStructure`） | 与 TS 服务在**同一 DB 文件**上逐字段比对（TS 写入 → Rust 读）；DDL checksum 与迁移 id 集合断言；未知迁移 id 拒绝写入 |
-| S2 createSession + syncer | `createTask`/`createSession` 参数整形 → 运行时 → 索引 upsert → 广播；V4 topic 帧摄入（`sessionsIndexTopic`/`workspaceConfigTopic`） | 真机：创建会话后侧边栏出现且 `tasks` 行字段逐列正确；运行时帧驱动的后续状态变更（running/completed/标题）同步到索引；索引与运行时不一致时可修复 |
-| S3 写面补全 | `closeTask`/`resumeTask`/`archive*`/`delete`/`pin`/分组读写/`switchAgent`/`syncTaskSessionBinding`、`escode-session` 的 deferred 两法 + `createSession`/`resumeSession` | 与 TS 行为逐方法比对（同 DB、同输入）；deferred 会话不进索引（负向断言） |
-| S4 快照与命令面 | `getTaskSnapshot*`、`sendPrompt`、队列三法、`stopGeneration`、`compactSession`、`goalSession`、权限/追问应答 | 端到端：从 Renderer 发起一轮对话（含队列、停止、权限应答）走通 Rust Host |
+| 片                        | 内容                                                                                                                                                                    | 验收                                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1 索引只读               | tasks-index 打开/对账 + `getTaskMeta` + 列表类读（`listTaskList`、`listPinnedTasks`、`listArchivedTasks`、`listGroupedTaskViewStructure`）                              | 与 TS 服务在**同一 DB 文件**上逐字段比对（TS 写入 → Rust 读）；DDL checksum 与迁移 id 集合断言；未知迁移 id 拒绝写入                            |
+| S2 createSession + syncer | `createTask`/`createSession` 参数整形 → 运行时 → 索引 upsert → 广播；V4 topic 帧摄入（`sessionsIndexTopic`/`workspaceConfigTopic`）                                     | 真机：创建会话后侧边栏出现且 `tasks` 行字段逐列正确；运行时帧驱动的后续状态变更（running/completed/标题）同步到索引；索引与运行时不一致时可修复 |
+| S3 写面补全               | `closeTask`/`resumeTask`/`archive*`/`delete`/`pin`/分组读写/`switchAgent`/`syncTaskSessionBinding`、`escode-session` 的 deferred 两法 + `createSession`/`resumeSession` | 与 TS 行为逐方法比对（同 DB、同输入）；deferred 会话不进索引（负向断言）                                                                        |
+| S4 快照与命令面           | `getTaskSnapshot*`、`sendPrompt`、队列三法、`stopGeneration`、`compactSession`、`goalSession`、权限/追问应答                                                            | 端到端：从 Renderer 发起一轮对话（含队列、停止、权限应答）走通 Rust Host                                                                        |
 
 ## 6.1 进度
 
@@ -189,12 +189,12 @@ meta 行登记；端到端 2 例：未注册任务的 typed error、列表读登
 
 ### 6.4.2 接口（逐条对齐 TS 适配器）
 
-| 方法 | 行为 |
-| --- | --- |
-| `getTaskSnapshot(params)` | 注册表登记目标 → `session/resume` → `snapshotToESCode` → `limitTaskSnapshotMessages` → `syncTaskMeta`（索引投影 + 用户手动标题保留）→ 回 `{...snapshot, meta: 索引行}` |
-| `getTaskSnapshotWithEtag(params)` | 同上，另算 `sha256(JSON.stringify(snapshot))`；`ifNoneMatch` 命中回 `{snapshot:null, etag, notModified:true}` |
-| `getTaskSnapshotBody` / `Ref` / `ToolCallsSlice` | TS 适配器本身返回 `null`（不在该 Host 实现），Rust 照抄该语义 |
-| `getTaskConfigOptions(params)` | 注册表解析 → 运行时 `session/read` → `settingsToConfigOptions(settings)` |
+| 方法                                             | 行为                                                                                                                                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getTaskSnapshot(params)`                        | 注册表登记目标 → `session/resume` → `snapshotToESCode` → `limitTaskSnapshotMessages` → `syncTaskMeta`（索引投影 + 用户手动标题保留）→ 回 `{...snapshot, meta: 索引行}` |
+| `getTaskSnapshotWithEtag(params)`                | 同上，另算 `sha256(JSON.stringify(snapshot))`；`ifNoneMatch` 命中回 `{snapshot:null, etag, notModified:true}`                                                          |
+| `getTaskSnapshotBody` / `Ref` / `ToolCallsSlice` | TS 适配器本身返回 `null`（不在该 Host 实现），Rust 照抄该语义                                                                                                          |
+| `getTaskConfigOptions(params)`                   | 注册表解析 → 运行时 `session/read` → `settingsToConfigOptions(settings)`                                                                                               |
 
 `session/resume` 参数整形（与 `buildSessionResumeParams` 同序）：`{sessionId, workspace}` +
 可选 `thoughtLevel` / `mcpServers` / `toolAllowlist` / `toolDenylist`；缺省一律**省略**（运行时严格拒绝 null）。
@@ -275,21 +275,22 @@ TS `createUuid()` 同口径）。
 TS 真相源：`packages/services/src/escode-session/escodeSessionService.ts`（`createSession` :221、`resumeSession` :275、
 `setModel`/`closeSession`/草稿三法 :410-470）与 `escode-agent/escodeAgentService.ts` 各方法的 `client.request(...)` 字面量。
 
-| 方法 | Rust 行为（与 TS 同序） |
-| --- | --- |
-| `createSession` | filesystem MCP 注入 → `session_create_params`（白名单）→ `session/create`，信封带 `trace.traceId`（`sessionTraceId ?? uuid v4`）→ `persistence: "deferred"` 只记草稿并返回原始快照；否则 `withApiRetryRuntime` + 索引写 |
-| `resumeSession` | MCP 注入 → `session_resume_params` → `session/resume` → `withApiRetryRuntime` → thoughtLevel 重放（`canReplayThoughtLevelFromResumeSnapshot` + `session/setThoughtLevel`）→ `broadcastSnapshot !== false` 时带 `modelOverride`/`thoughtLevelOverride` 写索引 |
-| `setModel` | 草稿判定 → `session/setModel`（白名单）→ `withApiRetryRuntime` → 非草稿写索引（`modelOverride = formatModelPickerValue(model)`） |
-| `readSession` / `setThoughtLevel` / `setMode` | 白名单转发 + `withApiRetryRuntime` |
-| `closeSession` | 清草稿 → `session/close` → 回 `undefined` |
-| `closeDeferredDraftSession` | `expectedPersistence: "deferred"` 条件关闭；成功清草稿；失败回 `false` |
-| `promoteDeferredDraftSession` | 清草稿标记，回 `undefined` |
+| 方法                                          | Rust 行为（与 TS 同序）                                                                                                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createSession`                               | filesystem MCP 注入 → `session_create_params`（白名单）→ `session/create`，信封带 `trace.traceId`（`sessionTraceId ?? uuid v4`）→ `persistence: "deferred"` 只记草稿并返回原始快照；否则 `withApiRetryRuntime` + 索引写                                      |
+| `resumeSession`                               | MCP 注入 → `session_resume_params` → `session/resume` → `withApiRetryRuntime` → thoughtLevel 重放（`canReplayThoughtLevelFromResumeSnapshot` + `session/setThoughtLevel`）→ `broadcastSnapshot !== false` 时带 `modelOverride`/`thoughtLevelOverride` 写索引 |
+| `setModel`                                    | 草稿判定 → `session/setModel`（白名单）→ `withApiRetryRuntime` → 非草稿写索引（`modelOverride = formatModelPickerValue(model)`）                                                                                                                             |
+| `readSession` / `setThoughtLevel` / `setMode` | 白名单转发 + `withApiRetryRuntime`                                                                                                                                                                                                                           |
+| `closeSession`                                | 清草稿 → `session/close` → 回 `undefined`                                                                                                                                                                                                                    |
+| `closeDeferredDraftSession`                   | `expectedPersistence: "deferred"` 条件关闭；成功清草稿；失败回 `false`                                                                                                                                                                                       |
+| `promoteDeferredDraftSession`                 | 清草稿标记，回 `undefined`                                                                                                                                                                                                                                   |
 
 实现：`host-services/src/session_params.rs`（白名单、`ToolGates`、`with_api_retry_runtime`、thoughtLevel 重放判定）、
 `host-services/src/task_projection/index_sync.rs`（写路径 meta：syncer `buildMetaFromSnapshot` + `searchableText`）、
 `host-rpc/src/domains_session_write.rs`、`host-rpc/src/deferred_drafts.rs`。草稿注册表与任务域共用同一份句柄（单写者）。
 
 评审修正（`docs/reports/rust-unified-host-audit-2026-10-15.md` A11/A12，均为本片上一版未登记的偏移）：
+
 - 灰度 flag（`offPeakToolEnabled`/`dynamicWorkflow*`）改为 Host 判定（`ToolGates`，当前关闭），**不再读 Renderer 入参**；
 - 写路径 meta 不再借用读路径 `snapshotToMeta`：补 overrides、`target: null` 清空、`searchableText`；
 - 索引写失败只记日志（TS `broadcastSnapshot` 吞错），不再让 `createSession` 失败；
@@ -302,13 +303,34 @@ TS 真相源：`packages/services/src/escode-session/escodeSessionService.ts`（
 `packages/desktop/test/rustHostRpc.test.ts`（真实客户端）。
 
 **登记差异**：
-1. **不广播** `workspace_task_list_changed`（事件面中 workspace 事件源未迁移）。可见条件：dev 开关下新建/恢复会话后侧边栏等下一次列表拉取。
+
+1. ~~**不广播** `workspace_task_list_changed`（事件面中 workspace 事件源未迁移）~~ **已撤销（2026-10-15）**：
+   S3a 的 `WorkspaceEvents` 总线（`host-rpc/src/workspace_events.rs`）已在索引写后广播，
+   `escode-task.onDynamicWorkspaceEvent` 与 `window-controller` 投影同源消费
+   （证据：`tests/rpc_task_state.rs`、`tests/rpc_window_controller.rs`）。剩余差异只在
+   `reason: "task_created"`（依赖分组写面 S3，见 §6.7.4-5）。
 2. **不做系统分组置顶**（`moveGroupedTaskToTop`，分组写面 S3）。
 3. **不接产品 CUA MCP resolver / 账号 provider 同步 / Claude 空导入修复**（扩展域、providers/account 域、导入工作包）。
 4. **`withApiRetryRuntime` 只有无状态部分**：进行中重试的跟踪依赖会话事件（`session.updated`/`streamRecovery.updated`），随事件源接入。
 5. **`resumeSession(broadcastSnapshot: false)` + model 时不改索引 model 列**（TS `syncTaskModel` → `updateTaskState`，S3）。
 6. **不做旧 app-server 兼容重试**（`getSessionCreateCompatFields`）：Rust Host 只驱动同版本内置 runtime，strict schema 一致。
 7. **工具面灰度关闭**：见 `rust-u2-agent-v4.md` §6-6。
+
+## 6.6 S3a 侧栏状态写与 workspace 事件总线（2026-10-15，补记）
+
+> 该片在提交 `65c073f6` 落地，此前只在进度叙述里被引用、未单列小节；2026-10-15 交付
+> `window-controller` 时回填，因为它现在是两条消费链路（Renderer 事件面 + controller 投影）的共同上游。
+
+- **写面**：`setTaskPinned`/`archiveTask`/`unarchiveTask`/`setTaskUnread`/`renameTask`/`deleteTask` + 归档删除两法
+  （`host-rpc/src/domains_task_state.rs`、`domains_task_delete.rs`）；事件 `reason` 与 TS 逐字一致
+  （`task_pinned`/`task_unpinned`/`task_meta_changed`/`task_archived`/`task_unarchived`/`task_title_changed`/`task_deleted`）；
+  `setTaskUnread` 的 CAS 分支（`expectedUnreadAt` 未命中 → 不清、不广播）、`deleteArchivedTasks` 的逐项事务 /
+  去重保序 / 批次单事件均照搬。
+- **总线**：`WorkspaceEvents`（进程内唯一、按身份键扇出、监听者无界——低频列表变更通知）；`renameTask` 另尽力
+  同步 V4 `renameSession`（失败只记日志、保留索引标题，TS 同）。
+- 证据：`tests/rpc_task_state.rs`（pin/unread 含 CAS 清除/rename/archive/delete 的返回值、事件 `reason` 与索引读回）。
+  评审修正（R1/R2）：实例登记进槽位前公告 `available` 会让 syncer 扑空（负向 3/3 失败）；
+  逐条 `tokio::spawn` 写索引会乱序落库（负向 2/3 失败）——两处均已修并回归。
 
 ## 6.7 S3b 任务索引 syncer：V4 topic 帧摄入（2026-10-15）
 
@@ -352,13 +374,13 @@ available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛
 
 ### 6.7.2 接口
 
-| 项 | 约定 |
-| --- | --- |
-| 订阅请求体 | `{topic, connectionId, clientMode, visibility}`（缺省省略；`base` 只在 resync 恢复时经 body 下发） |
-| 帧入口 | `FrameHub.listen(workspaceKey, kind)`（监听先于订阅安装，跨代复用；按 subscriptionId 过滤，ACK 前暂存） |
-| 逻辑帧 | `TopicWireFrameAssembler` 同构：complete 直通 / fragment 重组（crc32+base64+UTF-8+JSON+信封一致），预算与 tombstone 逐条对齐 TS |
-| 索引写 | `tasks_index::apply_agent_patch`（TS `TaskIndexRepo.applyAgentPatch`：行缺失/已删回 `None`；`title_overridden` 时拒收 agent 标题；flags 全保留；`lastError` 键在场才覆盖）；回源写复用 `task_projection::sync_snapshot_to_index` |
-| 广播 | `task_status_changed` / `task_title_changed` / `workspace_config_options_update`（reason 与 TS 逐字同；`task_created` 依赖分组写面，本片不产生） |
+| 项         | 约定                                                                                                                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 订阅请求体 | `{topic, connectionId, clientMode, visibility}`（缺省省略；`base` 只在 resync 恢复时经 body 下发）                                                                                                                               |
+| 帧入口     | `FrameHub.listen(workspaceKey, kind)`（监听先于订阅安装，跨代复用；按 subscriptionId 过滤，ACK 前暂存）                                                                                                                          |
+| 逻辑帧     | `TopicWireFrameAssembler` 同构：complete 直通 / fragment 重组（crc32+base64+UTF-8+JSON+信封一致），预算与 tombstone 逐条对齐 TS                                                                                                  |
+| 索引写     | `tasks_index::apply_agent_patch`（TS `TaskIndexRepo.applyAgentPatch`：行缺失/已删回 `None`；`title_overridden` 时拒收 agent 标题；flags 全保留；`lastError` 键在场才覆盖）；回源写复用 `task_projection::sync_snapshot_to_index` |
+| 广播       | `task_status_changed` / `task_title_changed` / `workspace_config_options_update`（reason 与 TS 逐字同；`task_created` 依赖分组写面，本片不产生）                                                                                 |
 
 ### 6.7.3 验收
 
@@ -409,7 +431,6 @@ available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛
    runtime 侧订阅按实例隔离，不影响路由。
 
 ## 7. 验收与环境
-
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；
 - **进程表断言**：Rust Host 下无 Node utility / CLI 残留（沿用 u2a 的进程表检查）；

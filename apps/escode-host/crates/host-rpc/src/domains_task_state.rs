@@ -22,20 +22,20 @@ use crate::wire::Wire;
 use crate::workspace_events::{Target, WorkspaceEvents};
 
 #[derive(Clone)]
-pub(super) struct StateContext {
+pub(crate) struct StateContext {
     pub read: ReadContext,
     pub events: Arc<WorkspaceEvents>,
 }
 
 /// 一次调用的任务定位（`workspacePath` + `workspaceIdentity?` + `taskId`）。
-pub(super) struct Task {
-    pub(super) workspace_path: String,
-    pub(super) workspace_identity: Option<String>,
-    pub(super) task_id: String,
+pub(crate) struct Task {
+    pub(crate) workspace_path: String,
+    pub(crate) workspace_identity: Option<String>,
+    pub(crate) task_id: String,
 }
 
 impl Task {
-    pub(super) fn parse(params: &Value) -> Result<Self, RpcError> {
+    pub(crate) fn parse(params: &Value) -> Result<Self, RpcError> {
         let workspace_path = params["workspacePath"]
             .as_str()
             .unwrap_or_default()
@@ -55,7 +55,7 @@ impl Task {
         })
     }
 
-    pub(super) fn target(&self) -> Target<'_> {
+    pub(crate) fn target(&self) -> Target<'_> {
         Target {
             workspace_path: &self.workspace_path,
             workspace_identity: self.workspace_identity.as_deref(),
@@ -72,7 +72,7 @@ fn now_ms() -> i64 {
         })
 }
 
-pub(super) fn index_error(error: &TasksIndexError) -> RpcError {
+pub(crate) fn index_error(error: &TasksIndexError) -> RpcError {
     match error {
         // TS 抛普通 Error（文案相同）。
         TasksIndexError::TaskNotFound { .. } => RpcError::new("Error", error.to_string()),
@@ -81,7 +81,7 @@ pub(super) fn index_error(error: &TasksIndexError) -> RpcError {
 }
 
 /// 在索引线程里跑一次写，区分「任务不存在」与其他错误。
-pub(super) async fn with_index<T: Send + 'static>(
+pub(crate) async fn with_index<T: Send + 'static>(
     context: &StateContext,
     write: impl FnOnce(&escode_host_services::tasks_index::TasksIndex) -> Result<T, TasksIndexError>
     + Send
@@ -218,49 +218,76 @@ fn set_task_unread(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
         let task = Task::parse(&params)?;
         let unread = params["unread"] == true;
-        if !unread && let Some(expected) = params["expectedUnreadAt"].as_i64() {
-            let (path, identity, id) = (
-                task.workspace_path.clone(),
-                task.workspace_identity.clone(),
-                task.task_id.clone(),
-            );
-            let (meta, cleared) = with_index(&context, move |index| {
-                index.clear_task_unread_if_matches(
-                    &TaskRef {
-                        workspace_path: &path,
-                        workspace_identity: identity.as_deref(),
-                        task_id: &id,
-                    },
-                    expected,
-                )
-            })
-            .await?
-            .map_err(|error| index_error(&error))?;
-            if cleared {
-                context.events.task_list_changed(
-                    &task.target(),
-                    Some(&meta),
-                    "task_meta_changed",
-                    None,
-                );
-            }
-            return Ok(Wire::Object(meta));
-        }
-        let patch = StatePatch {
-            unread_at: if unread {
-                Field::Set(now_ms())
-            } else {
-                Field::Clear
-            },
-            ..StatePatch::default()
-        };
-        let meta = update_indexed(&context, &task, patch).await?;
-        // unread 归属只在 tasks-index、sessions-index 不携带：必须用 task_meta_changed 触发 membership 重拉。
-        context
-            .events
-            .task_list_changed(&task.target(), Some(&meta), "task_meta_changed", None);
+        let meta =
+            apply_unread(&context, &task, unread, params["expectedUnreadAt"].as_i64()).await?;
         Ok(Wire::Object(meta))
     })
+}
+
+/// `escode-task` 状态写的可复用入口：`window-controller.mutateTask` 复用同一写面
+/// （单写者不变式 + 同一条事件 reason），不做第二份实现。
+pub(crate) async fn apply_state_patch(
+    context: &StateContext,
+    task: &Task,
+    patch: StatePatch,
+    reason: &str,
+) -> Result<Value, RpcError> {
+    let meta = update_indexed(context, task, patch).await?;
+    context
+        .events
+        .task_list_changed(&task.target(), Some(&meta), reason, None);
+    Ok(meta)
+}
+
+/// TS `setTaskUnread` 的可复用实现（unread 归属只在 tasks-index，
+/// sessions-index 不携带：必须用 `task_meta_changed` 触发 membership 重拉）。
+pub(crate) async fn apply_unread(
+    context: &StateContext,
+    task: &Task,
+    unread: bool,
+    expected_unread_at: Option<i64>,
+) -> Result<Value, RpcError> {
+    if !unread && let Some(expected) = expected_unread_at {
+        let (path, identity, id) = (
+            task.workspace_path.clone(),
+            task.workspace_identity.clone(),
+            task.task_id.clone(),
+        );
+        let (meta, cleared) = with_index(context, move |index| {
+            index.clear_task_unread_if_matches(
+                &TaskRef {
+                    workspace_path: &path,
+                    workspace_identity: identity.as_deref(),
+                    task_id: &id,
+                },
+                expected,
+            )
+        })
+        .await?
+        .map_err(|error| index_error(&error))?;
+        if cleared {
+            context.events.task_list_changed(
+                &task.target(),
+                Some(&meta),
+                "task_meta_changed",
+                None,
+            );
+        }
+        return Ok(meta);
+    }
+    let patch = StatePatch {
+        unread_at: if unread {
+            Field::Set(now_ms())
+        } else {
+            Field::Clear
+        },
+        ..StatePatch::default()
+    };
+    let meta = update_indexed(context, task, patch).await?;
+    context
+        .events
+        .task_list_changed(&task.target(), Some(&meta), "task_meta_changed", None);
+    Ok(meta)
 }
 
 /// TS `renameTask`：写索引（手动标题 + 更新时间）→ 尽力同步 V4 `renameSession` → `task_title_changed`。

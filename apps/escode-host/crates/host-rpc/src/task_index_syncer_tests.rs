@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use crate::agent_v4::base::Base;
 use crate::agent_v4::frames::TopicKind;
 use crate::domains_task_support::{LazyIndex, ReadContext};
-use crate::task_index_syncer::{Core, Ingest};
+use crate::task_index_syncer::{Core, Ingest, Workspace};
 use crate::task_targets::TaskTargets;
 use crate::workspace_events::WorkspaceEvents;
 
@@ -48,6 +48,7 @@ pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::ses
     let base = Arc::new(Base::new(instances, options, None));
     let events = Arc::new(WorkspaceEvents::default());
     let event_stream = events.listen(&json!("/w"));
+    let (overlay_changes, _) = tokio::sync::broadcast::channel(8);
     (
         dir,
         Arc::new(Ingest::new(
@@ -55,9 +56,12 @@ pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::ses
             read,
             events,
             "test-conn#task-index".to_owned(),
-            "/w".to_owned(),
-            None,
-            "/w".to_owned(),
+            Workspace {
+                path: "/w".to_owned(),
+                identity: None,
+                key: "/w".to_owned(),
+            },
+            overlay_changes,
         )),
         event_stream,
     )

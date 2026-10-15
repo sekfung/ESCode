@@ -26,17 +26,79 @@ async fn delete_one(context: &StateContext, task: &Task) -> Result<Option<Value>
     .map_err(|error| index_error(&error))
 }
 
+/// `escode-task.deleteArchivedTask` / `window-controller.mutateTask`（`delete-archived`）共用核心：
+/// 未归档/已删除 → false（不广播）。
+pub(crate) async fn delete_archived_one(
+    context: &StateContext,
+    task: &Task,
+) -> Result<bool, RpcError> {
+    let Some(meta) = delete_one(context, task).await? else {
+        return Ok(false);
+    };
+    context
+        .events
+        .task_list_changed(&task.target(), Some(&meta), "task_deleted", None);
+    Ok(true)
+}
+
+/// `escode-task.deleteArchivedTasks` / `window-controller.deleteArchivedTasks` 共用核心：
+/// 逐项事务（一项失败不回滚其它）、去重保序、批次只发一次事件。
+pub(crate) async fn delete_archived_batch(
+    context: &StateContext,
+    workspace_path: &str,
+    workspace_identity: Option<&str>,
+    task_ids: &[String],
+) -> Result<Value, RpcError> {
+    let mut seen = std::collections::BTreeSet::new();
+    let task_ids: Vec<String> = task_ids
+        .iter()
+        .filter(|id| seen.insert((*id).clone()))
+        .cloned()
+        .collect();
+    let (mut deleted, mut skipped, mut failed) = (Vec::new(), Vec::new(), Vec::new());
+    for task_id in task_ids {
+        let task = Task {
+            workspace_path: workspace_path.to_owned(),
+            workspace_identity: workspace_identity.map(str::to_owned),
+            task_id: task_id.clone(),
+        };
+        match delete_one(context, &task).await {
+            Ok(Some(_)) => deleted.push(task_id),
+            Ok(None) => skipped.push(task_id),
+            Err(error) => {
+                eprintln!(
+                    "escode-host: [ArchivedTaskDeletion] {task_id} failed: {}",
+                    error.message
+                );
+                failed.push(task_id);
+            }
+        }
+    }
+    if !deleted.is_empty() {
+        context.events.task_list_changed(
+            &Target {
+                workspace_path,
+                workspace_identity,
+                task_id: None,
+            },
+            None,
+            "task_deleted",
+            None,
+        );
+    }
+    Ok(json!({
+        "deletedTaskIds": deleted,
+        "skippedTaskIds": skipped,
+        "failedTaskIds": failed,
+    }))
+}
+
 /// TS `deleteArchivedTask`：未归档/已删除 → false。
 pub(super) fn delete_archived_task(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
         let task = Task::parse(&params)?;
-        let Some(meta) = delete_one(&context, &task).await? else {
-            return Ok(Wire::Object(Value::Bool(false)));
-        };
-        context
-            .events
-            .task_list_changed(&task.target(), Some(&meta), "task_deleted", None);
-        Ok(Wire::Object(Value::Bool(true)))
+        let deleted = delete_archived_one(&context, &task).await?;
+        Ok(Wire::Object(Value::Bool(deleted)))
     })
 }
 
@@ -48,50 +110,20 @@ pub(super) fn delete_archived_tasks(context: &StateContext) -> MethodHandler {
             .unwrap_or_default()
             .to_owned();
         let workspace_identity = params["workspaceIdentity"].as_str().map(str::to_owned);
-        let mut seen = std::collections::BTreeSet::new();
         let task_ids: Vec<String> = params["taskIds"]
             .as_array()
             .map_or(&[][..], Vec::as_slice)
             .iter()
             .filter_map(Value::as_str)
-            .filter(|id| seen.insert((*id).to_owned()))
             .map(str::to_owned)
             .collect();
-        let (mut deleted, mut skipped, mut failed) = (Vec::new(), Vec::new(), Vec::new());
-        for task_id in task_ids {
-            let task = Task {
-                workspace_path: workspace_path.clone(),
-                workspace_identity: workspace_identity.clone(),
-                task_id: task_id.clone(),
-            };
-            match delete_one(&context, &task).await {
-                Ok(Some(_)) => deleted.push(task_id),
-                Ok(None) => skipped.push(task_id),
-                Err(error) => {
-                    eprintln!(
-                        "escode-host: [ArchivedTaskDeletion] {task_id} failed: {}",
-                        error.message
-                    );
-                    failed.push(task_id);
-                }
-            }
-        }
-        if !deleted.is_empty() {
-            context.events.task_list_changed(
-                &Target {
-                    workspace_path: &workspace_path,
-                    workspace_identity: workspace_identity.as_deref(),
-                    task_id: None,
-                },
-                None,
-                "task_deleted",
-                None,
-            );
-        }
-        Ok(Wire::Object(json!({
-            "deletedTaskIds": deleted,
-            "skippedTaskIds": skipped,
-            "failedTaskIds": failed,
-        })))
+        let result = delete_archived_batch(
+            &context,
+            &workspace_path,
+            workspace_identity.as_deref(),
+            &task_ids,
+        )
+        .await?;
+        Ok(Wire::Object(result))
     })
 }

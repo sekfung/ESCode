@@ -13,6 +13,10 @@ pub use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub use tokio::net::TcpStream;
 pub use tokio_tungstenite::tungstenite::Message;
 
+mod controller;
+#[allow(unused_imports)] // 各测试文件只用到其中一个子集
+pub use controller::*;
+
 pub type Socket = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 pub async fn start(home: &std::path::Path) -> RpcSurface {
