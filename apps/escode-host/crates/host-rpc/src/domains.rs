@@ -349,17 +349,18 @@ pub fn channels_with(
     let controller = write.read.clone().zip(syncer).map(|(read, syncer)| {
         crate::window_controller::WindowController::new(read, Arc::clone(&events), syncer)
     });
-    let channels = Channels::new(vec![
+    let mut list = vec![
         setting_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(),
         crate::domains_terminal::terminal_channel(home_for_terminal),
-        crate::domains_provider::model_selection_channel(provider_files),
         task_channel,
         session_channel(instances, options, write),
-    ]);
+    ];
+    list.extend(crate::domains_provider::provider_channels(provider_files));
+    let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。
     let channels = match controller {
         Some(controller) => {

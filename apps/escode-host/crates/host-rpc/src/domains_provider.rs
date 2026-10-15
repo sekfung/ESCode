@@ -1,11 +1,11 @@
-//! providers 域的 RPC 面（docs/specs/rust-u2-providers.md）。P1：`model-selection.getView`。
+//! providers 域的 RPC 面（docs/specs/rust-u2-providers.md）。P1：`model-selection.getView`；P2：`provider-settings.getView/refresh`。
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use escode_host_services::provider::ProviderService;
 
-use crate::session::{Channel, handler};
+use crate::session::{Channel, MethodHandler, handler};
 use crate::wire::Wire;
 
 /// 缺 provider 配置文件路径（Main 未经 `rpcListen.runtimeEnv` 提供）：显式缺口，不按 HOME 猜。
@@ -17,10 +17,14 @@ fn missing_files() -> (String, String) {
     )
 }
 
-pub fn model_selection_channel(files: Option<(PathBuf, PathBuf)>) -> Channel {
-    let service =
-        files.map(|(builtin, personal)| Arc::new(ProviderService::new(builtin, personal)));
-    let get_view = handler(move |arg: Wire| {
+type Service = Option<Arc<ProviderService>>;
+
+fn error(error: anyhow::Error) -> (String, String) {
+    ("Error".to_owned(), format!("{error:#}"))
+}
+
+fn model_selection_get_view(service: Service) -> MethodHandler {
+    handler(move |arg: Wire| {
         let service = service.clone();
         Box::pin(async move {
             let Some(service) = service else {
@@ -36,8 +40,42 @@ pub fn model_selection_channel(files: Option<(PathBuf, PathBuf)>) -> Channel {
                 .model_selection_view(input.as_ref())
                 .await
                 .map(Wire::Object)
-                .map_err(|error| ("Error".to_owned(), format!("{error:#}")))
+                .map_err(error)
         })
-    });
-    Channel::new("model-selection", vec![("getView", get_view)])
+    })
+}
+
+fn settings_view(service: Service) -> MethodHandler {
+    handler(move |_arg: Wire| {
+        let service = service.clone();
+        Box::pin(async move {
+            let Some(service) = service else {
+                return Err(missing_files());
+            };
+            service
+                .provider_settings_view()
+                .await
+                .map(Wire::Object)
+                .map_err(error)
+        })
+    })
+}
+
+/// providers 域的全部 channel（共享同一个 `ProviderService`）。
+pub fn provider_channels(files: Option<(PathBuf, PathBuf)>) -> Vec<Channel> {
+    let service: Service =
+        files.map(|(builtin, personal)| Arc::new(ProviderService::new(builtin, personal)));
+    vec![
+        Channel::new(
+            "model-selection",
+            vec![("getView", model_selection_get_view(service.clone()))],
+        ),
+        Channel::new(
+            "provider-settings",
+            vec![
+                ("getView", settings_view(service.clone())),
+                ("refresh", settings_view(service)),
+            ],
+        ),
+    ]
 }

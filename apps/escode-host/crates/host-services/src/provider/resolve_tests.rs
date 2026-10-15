@@ -130,6 +130,7 @@ fn template_supplies_defaults_but_the_builtin_value_wins() {
     let mut fixture = base();
     fixture.templates = vec![Template {
         template_id: "t".into(),
+        name_map: json!({}),
         config: json!({"api": {"type": "anthropic-messages", "baseUrl": "https://tpl.example.com"}, "builtinModelIds": ["m1", "tm"]}),
     }];
     fixture.builtin.0[0].template_id = Some(json!("t"));

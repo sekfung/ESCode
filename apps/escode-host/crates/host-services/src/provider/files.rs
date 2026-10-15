@@ -198,6 +198,7 @@ pub fn parse_builtin(input: &Value) -> Result<Builtin> {
         normalize_model_ids(&mut config)?;
         templates.push(Template {
             template_id: template_id.to_owned(),
+            name_map: map.get("templateNameMap").cloned().unwrap_or(Value::Null),
             config: Value::Object(config),
         });
     }

@@ -66,6 +66,28 @@ const PROVIDERS = [
   keyed("p-hidden", { visibility: "hidden" }),
   keyed("p-incomplete", { access: { type: "api-key", apiKey: "   " } }),
   {
+    providerId: "p-bad-url",
+    config: {
+      group: "standard-personal",
+      access: { type: "api-key", apiKey: "k" },
+      api: { type: "openai-responses", baseUrl: "not a url" },
+      personalModelIds: ["m"],
+    },
+  },
+  {
+    providerId: "p-no-api",
+    config: {
+      group: "standard-personal",
+      access: { type: "api-key", apiKey: "k" },
+      personalModelIds: ["m"],
+    },
+  },
+  { ...keyed("p-ghost-template"), templateId: "ghost" },
+  {
+    ...keyed("p-no-group"),
+    config: { access: { type: "api-key", apiKey: "k" }, personalModelIds: ["m"] },
+  },
+  {
     providerId: "p-custom",
     config: {
       group: "standard-personal",
@@ -275,10 +297,18 @@ describe("rust host providers P1", () => {
             personalPollingIntervalMs: false,
           });
           try {
+            const settingsExpected = await runtime.providerSettings.getView();
+            const settingsActual = await services.providerSettingsService.getView();
+            const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
+            expect({ label, settings: strip(settingsActual) }).toEqual({
+              label,
+              settings: strip(JSON.parse(JSON.stringify(settingsExpected))),
+            });
+            const refreshed = await services.providerSettingsService.refresh("test");
+            expect(strip(refreshed)).toEqual(strip(settingsActual));
             for (const input of INPUTS) {
               const expected = await runtime.modelSelection.getView(input as never);
               const actual = await rust.getView(input as never);
-              const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
               expect({ label, input, view: strip(actual) }).toEqual({
                 label,
                 input,

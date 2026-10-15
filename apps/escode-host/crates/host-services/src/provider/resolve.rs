@@ -1,80 +1,15 @@
 //! Registry 解析（TS `ProviderConfigResolver.resolve` 的 `registryProviders` 部分）。
 //! 层次：Built-in →（Account 覆盖）→ Template → Personal；模型规则 = Built-in 全部层 + Personal 精确规则。
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
-use super::complete::{model_complete, provider_complete};
+use super::issues::{model_issues, provider_issues};
 use super::overlay::{Kind, overlay, without_group};
 use super::rules::{ResolveInput, Rule, resolve};
-
-/// TS `ProviderConfigRule`：`None` = `undefined`（继承），`Some(Null)` = 显式 null。
-#[derive(Clone, Debug, Default)]
-pub struct ProviderRule {
-    pub provider_id: String,
-    pub template_id: Option<Value>,
-    pub provider_name: Option<Value>,
-    pub enabled: Option<Value>,
-    pub config: Value,
-}
-
-#[derive(Clone, Debug)]
-pub struct Template {
-    pub template_id: String,
-    pub config: Value,
-}
-
-/// 保持插入序的 Provider 规则表（TS `ProviderConfigMap`）。
-#[derive(Clone, Debug, Default)]
-pub struct ProviderMap(pub Vec<ProviderRule>);
-
-impl ProviderMap {
-    pub fn get(&self, id: &str) -> Option<&ProviderRule> {
-        self.0.iter().find(|rule| rule.provider_id == id)
-    }
-
-    pub fn has(&self, id: &str) -> bool {
-        self.get(id).is_some()
-    }
-
-    pub fn keys(&self) -> Vec<String> {
-        self.0.iter().map(|rule| rule.provider_id.clone()).collect()
-    }
-
-    /// TS `overlay`：已有的就地叠加（位置不变），新的追加。
-    fn overlay(&self, next: &ProviderMap) -> ProviderMap {
-        let mut rules = self.0.clone();
-        for rule in &next.0 {
-            match rules
-                .iter_mut()
-                .find(|current| current.provider_id == rule.provider_id)
-            {
-                Some(current) => {
-                    let keep = |base: &Option<Value>, incoming: &Option<Value>| {
-                        incoming.clone().or_else(|| base.clone())
-                    };
-                    current.template_id = keep(&current.template_id, &rule.template_id);
-                    current.provider_name = keep(&current.provider_name, &rule.provider_name);
-                    current.enabled = keep(&current.enabled, &rule.enabled);
-                    current.config = overlay(Kind::Provider, &current.config, &rule.config);
-                }
-                None => rules.push(rule.clone()),
-            }
-        }
-        ProviderMap(rules)
-    }
-
-    fn map_configs(&self, transform: impl Fn(&Value, &ProviderRule) -> Value) -> ProviderMap {
-        ProviderMap(
-            self.0
-                .iter()
-                .map(|rule| ProviderRule {
-                    config: transform(&rule.config, rule),
-                    ..rule.clone()
-                })
-                .collect(),
-        )
-    }
-}
+pub use super::types::{
+    ProviderMap, ProviderRule, RegistryProvider, Resolution, ResolvedModel, ResolvedProvider,
+    Template,
+};
 
 pub struct Input<'a> {
     pub builtin_providers: &'a ProviderMap,
@@ -86,15 +21,6 @@ pub struct Input<'a> {
     /// 账号连接状态（`states[providerId].current`）；P1 没有账号源，恒为空。
     pub account_current: &'a dyn Fn(&str) -> Option<bool>,
     pub personal_provider_order: &'a [String],
-}
-
-#[derive(Debug)]
-pub struct RegistryProvider {
-    pub provider_id: String,
-    pub provider_name: Option<Value>,
-    pub template_id: Option<String>,
-    pub config: Value,
-    pub models: Vec<(String, Value)>,
 }
 
 fn unique_in_order(ids: &[String]) -> Vec<String> {
@@ -145,12 +71,6 @@ fn string_list(config: &Value, key: &str) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
-}
-
-/// 解析结果：Registry 与生效的 Provider 规则表（旧档位回溯等需要读生效的 api / templateId）。
-pub struct Resolution {
-    pub registry: Vec<RegistryProvider>,
-    pub effective: ProviderMap,
 }
 
 /// 解析出进入 Registry 的 Provider（顺序 = Registry 顺序）。
@@ -239,6 +159,7 @@ pub fn resolve_registry(input: &Input<'_>) -> Resolution {
         .collect();
 
     let mut result = Vec::new();
+    let mut resolved_providers = Vec::new();
     for provider_id in order {
         let Some(rule) = effective.get(&provider_id) else {
             continue;
@@ -254,9 +175,18 @@ pub fn resolve_registry(input: &Input<'_>) -> Resolution {
                 .and_then(Value::as_bool)
                 .unwrap_or(true);
         let template_id = rule.template_id.as_ref().and_then(Value::as_str);
-        let provider_ok = provider_complete(config);
-        let template_missing = template_id.is_some() && template_config(rule).is_none();
-        let provider_issues = !provider_ok || template_missing;
+        let provider_path = vec!["providers".to_owned(), provider_id.clone()];
+        let mut provider_issues = provider_issues(config, &provider_path);
+        let template_cfg = template_config(rule);
+        if let Some(id) = template_id
+            && template_cfg.is_none()
+        {
+            provider_issues.push(json!({
+                "code": "missing-template",
+                "path": [&provider_path[0], &provider_path[1], "templateId"],
+                "message": format!("Provider Template 不存在: {id}"),
+            }));
+        }
         let builtin_ids_in_order = unique_in_order(&string_list(config, "builtinModelIds"));
         let personal_ids_in_order: Vec<String> =
             unique_in_order(&string_list(config, "personalModelIds"))
@@ -271,44 +201,71 @@ pub fn resolve_registry(input: &Input<'_>) -> Resolution {
         let entitled = !account_access
             || config.pointer("/access/entitled").and_then(Value::as_bool) == Some(true);
         let current = (input.account_current)(&provider_id) != Some(false);
-        let provider_executable = enabled && entitled && current && !provider_issues;
-        if provider_issues {
-            continue;
-        }
+        let provider_executable = enabled && entitled && current && provider_issues.is_empty();
         let api_type = config.pointer("/api/type").and_then(Value::as_str);
         let base_url = config.pointer("/api/baseUrl").and_then(Value::as_str);
         let mut models = Vec::new();
-        for model_id in ordered {
-            let model_config = resolve(
-                &rules,
-                &ResolveInput {
-                    provider_id: &provider_id,
-                    template_id,
-                    model_id: &model_id,
-                    api_type,
-                    base_url,
-                },
-            );
-            let model_ok = model_complete(&model_config);
+        for model_id in &ordered {
+            let resolve_input = ResolveInput {
+                provider_id: &provider_id,
+                template_id,
+                model_id,
+                api_type,
+                base_url,
+            };
+            let model_config = resolve(&rules, &resolve_input);
+            let builtin_only: Vec<&Rule> = input.builtin_rules.iter().collect();
+            let effective_builtin_config = resolve(&builtin_only, &resolve_input);
+            let mut model_path = provider_path.clone();
+            model_path.extend(["models".to_owned(), model_id.clone()]);
+            let issues = model_issues(&model_config, &model_path);
             let model_enabled = model_config.get("enabled").and_then(Value::as_bool) == Some(true);
-            if provider_executable && model_enabled && model_ok {
-                models.push((model_id, model_config));
-            }
+            let executable = provider_executable && model_enabled && issues.is_empty();
+            let selectable =
+                executable && config.get("visibility").and_then(Value::as_str) != Some("hidden");
+            models.push(ResolvedModel {
+                model_id: model_id.clone(),
+                builtin: builtin_ids_in_order.contains(model_id),
+                config: model_config,
+                effective_builtin_config,
+                issues,
+                enabled: model_enabled,
+                executable,
+                selectable,
+            });
         }
-        if models.is_empty() {
-            continue;
+        let executable_models: Vec<(String, Value)> = models
+            .iter()
+            .filter(|m| m.executable)
+            .map(|m| (m.model_id.clone(), m.config.clone()))
+            .collect();
+        if provider_issues.is_empty() && !executable_models.is_empty() {
+            result.push(RegistryProvider {
+                provider_id: provider_id.clone(),
+                provider_name: rule.provider_name.clone(),
+                template_id: template_id.map(str::to_owned),
+                config: config.clone(),
+                models: executable_models,
+            });
         }
-        result.push(RegistryProvider {
-            provider_id,
+        resolved_providers.push(ResolvedProvider {
+            provider_id: provider_id.clone(),
             provider_name: rule.provider_name.clone(),
             template_id: template_id.map(str::to_owned),
+            enabled,
             config: config.clone(),
+            template_config: template_cfg.cloned(),
+            effective_builtin_config: effective_builtin
+                .get(&provider_id)
+                .map(|r| r.config.clone()),
+            issues: provider_issues,
             models,
         });
     }
     Resolution {
         registry: result,
         effective,
+        resolved: resolved_providers,
     }
 }
 

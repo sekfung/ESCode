@@ -99,6 +99,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("git", "getIdentity"),
     ("git", "refresh"),
     ("model-selection", "getView"),
+    ("provider-settings", "getView"),
+    ("provider-settings", "refresh"),
     ("terminal", "create"),
     ("terminal", "write"),
     ("terminal", "resize"),

@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1 已交付（`model-selection.getView`）· 2026-10-15；P2–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）已交付 · 2026-10-15；P3–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -72,3 +72,18 @@
 7. **账号源**：P1 没有账号源，恒用 fail-closed Overlay（账号类 Provider 全部 `entitled:false`，且 `account-plan` 选择一律 `account-connection-unavailable`）。
 8. **Built-in 来源**：仅读 `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向的一份文件（Bundled 或 TS 已物化的 Active），无 Active/LKG/Remote（P5）。
 9. **`onDidChange`**：未实现（P4），事件订阅回 NotImplemented。
+
+## 7. P2 交付记录
+
+**范围**：`provider-settings.getView()` 与 `refresh(reason)`（Rust 版 refresh = 重读文件后返回最新视图；无写入）。视图含 `providerTemplates`、`providerOrder`、
+`providers[]`（`enabled/executable/templateConfig/effectiveBuiltinConfig/personalConfig/effectiveConfig/issues/models[]`，模型含 `builtin/effectiveBuiltinConfig/
+personalExactConfig/useRecommendedConfig/effectiveConfig/enabled/executable/selectable/issues`）。实现：`issues.rs`（完整性问题清单）、`settings_view.rs`（投影）、
+`types.rs`（从 `resolve.rs` 拆出数据类型）、`resolve.rs`（现在同时产出全部已解析 Provider 与 Registry）。
+
+**issues 的事实边界**（TS 实测）：能通过文件加载（稀疏 schema）的配置，完整性不合格只会是「必填叶子缺失（缺字段或 `null`）」、空白 `apiKey`、
+Personal 暂存的非法/空白 `baseUrl`（`invalid-url`/`required-field-missing`）与 `missing-template`；其余值域错误（枚举、数值、option map 语法……）在 TS
+里于加载阶段整份文件抛错，Rust 对此只做 P1 登记的“单个 Provider/Model 排除”，并给一条通用 `invalid-config`（无 TS 对应文案）。
+
+**验收**：`rustHostProvider.test.ts` 在 P1 的 15 种 Personal 场景上追加 `provider-settings.getView` 与 `refresh` 的逐项 `toEqual`，并新增 4 类带问题的
+Personal Provider（空白 key、非法 baseUrl、缺 api、缺 group、缺失模板）。负向验证：改 invalid-url 文案、关掉 group 缺失检查、翻转 `builtin`、
+固定 `useRecommendedConfig` 均失败。

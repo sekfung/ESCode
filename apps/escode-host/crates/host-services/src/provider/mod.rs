@@ -4,11 +4,14 @@
 
 mod complete;
 mod files;
+mod issues;
 mod legacy;
 mod overlay;
 mod resolve;
 mod rules;
 mod selection;
+mod settings_view;
+mod types;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -35,6 +38,9 @@ struct Loaded {
     builtin_rules: Vec<Rule>,
     personal_rules: Vec<Rule>,
     default_selection: Option<Selection>,
+    resolved: Vec<resolve::ResolvedProvider>,
+    templates: Vec<resolve::Template>,
+    personal_providers: ProviderMap,
 }
 
 #[derive(Default)]
@@ -118,6 +124,7 @@ impl ProviderService {
         let Resolution {
             registry,
             effective,
+            resolved,
         } = resolve_registry(&Input {
             builtin_providers: &builtin.providers,
             templates: &builtin.templates,
@@ -138,6 +145,9 @@ impl ProviderService {
             builtin_rules: builtin.rules,
             personal_rules: personal.rules,
             default_selection: personal.default_selection,
+            resolved,
+            templates: builtin.templates,
+            personal_providers: personal.providers,
         });
         state.loaded = Some(Arc::clone(&loaded));
         Ok(loaded)
@@ -204,5 +214,22 @@ impl ProviderService {
             }
         }
         Ok(Value::Object(view))
+    }
+
+    /// TS `ProviderSettingsService.getView()`（`refresh` 同形：重读文件后返回最新视图）。
+    pub async fn provider_settings_view(&self) -> Result<Value> {
+        let loaded = self.load().await?;
+        Ok(settings_view::build(&settings_view::ViewInput {
+            revision: loaded.revision,
+            templates: &loaded.templates,
+            personal_providers: &loaded.personal_providers,
+            personal_rules: &loaded.personal_rules,
+            registry_provider_ids: loaded
+                .registry
+                .iter()
+                .map(|p| p.provider_id.as_str())
+                .collect(),
+            resolved: &loaded.resolved,
+        }))
     }
 }
