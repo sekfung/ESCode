@@ -78,6 +78,12 @@ fn build(locale: &str) -> CollatorBorrowed<'static> {
     })
 }
 
+/// `localeCompare(x, "en")`：显式 `en` locale，不随环境变化（Project Memory 目录排序用）。
+pub(crate) fn compare_en(left: &str, right: &str) -> std::cmp::Ordering {
+    static EN: OnceLock<CollatorBorrowed<'static>> = OnceLock::new();
+    EN.get_or_init(|| build("en")).compare(left, right)
+}
+
 /// 与 `localeCompare` 同义的比较（供 `sort_by`；稳定排序保留 readdir 的原始顺序作为末位键）。
 pub(crate) fn compare_names(left: &str, right: &str) -> std::cmp::Ordering {
     collator().compare(left, right)

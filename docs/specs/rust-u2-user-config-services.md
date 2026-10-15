@@ -22,3 +22,24 @@ TS 真相源：`packages/services/src/output-style/outputStyleService.ts`。
 2. 控制台错误日志（`console.error`）不复刻，读失败按 TS 返回 null / 跳过该文件。
 
 验收：`rustHostUserConfig.test.ts` 对真实 TS `createOutputStyleService`（`process.env.HOME` 指向临时目录）与 Rust Host 执行同一操作序列，逐步比较返回值与落盘语义。
+
+## 2. memory（6 个成员）
+
+TS 真相源：`packages/services/src/memory/memoryService.ts`、`projectMemoryStableRead.ts`。
+
+- **用户级 memory**：`<home>/.claude/memory/MEMORY.md`。`loadMemory` 任何读取失败都回 `{memory:null}`，成功回 `{memory:{content, enabled:true}}`（非 UTF-8 字节按替换字符解码，同 Node）；
+  `saveMemory` 建目录并写入 `config.content`；`clearMemory` 写空串，失败静默；`getUserMemoryDirectory` 建目录并回路径。
+- **Project Memory（只读）**：根 = `<dataBaseDir>/.escode/cli/memories/projects`，布局 `<workspaceId>/memory/{MEMORY.md,*.md}`。
+  - `listProjectMemories`：根不存在回 `[]`；根/workspace/memory 目录任一层是符号链接则跳过或报错（根本身是链接 → 报 `not a regular directory`）；只收 `MEMORY.md` 与 `*.md` 常规文件；
+    文件 `index` 在前其余按 `localeCompare(_, "en")`；workspace 按 `updatedAt` 降序、同值按 id 的 `en` 排序；`label` 去掉 `-<16位十六进制>` 后缀；`updatedAt` = `mtimeMs`（libuv 公式 `sec*1000+nsec/1e6`）。
+  - `readProjectMemoryFile`：片段必须是单段合法名（非空、非 `.`/`..`、无分隔符）且是 memory 文件名；逐层要求常规目录；目录项名必须与请求**逐字相同**（大小写不敏感文件系统不能别名命中）；
+    打开 `O_NOFOLLOW` 句柄后再复核路径与真实路径包含关系；打开前/打开后/读完后三次比较文件身份（dev/ino/size/mtime/ctime），变化 → `PROJECT_MEMORY_FILE_CHANGED`；
+    超过 5 MiB → `PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED`（恰好 5 MiB 允许）。Node 的 fs 错误带 errno `code`（`ENOENT` 等），Rust 同样附上。
+
+登记差异：
+
+1. Windows 上没有 dev/ino/ctime，身份快照退化为 size+mtime，`O_NOFOLLOW` 不可用（与 TS 的 `constants.O_NOFOLLOW` 缺省 0 一致）。
+2. 缺 dataBaseDir 时 Project Memory 两法回显式缺口（用户级 memory 只依赖 home，照常可用）。
+
+验收：`rustHostUserConfig.test.ts` 的 memory 用例——用户 memory 5 步 + Project Memory 19 步（符号链接 workspace/文件、同名异大小写、目录冒充文件、越权片段、5 MiB 边界、
+缺根），每步与真实 TS 服务比较结果或 `message/code`；负向验证：放宽 5 MiB 判定、放过符号链接 workspace 均失败。

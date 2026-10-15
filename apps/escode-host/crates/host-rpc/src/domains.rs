@@ -299,11 +299,10 @@ pub fn channels_with(
     options: escode_host_surface::OptionsFactory,
     provider_files: Option<(std::path::PathBuf, std::path::PathBuf)>,
 ) -> Channels {
-    let instances_for_plugins = instances.clone();
-    let options_for_plugins = Arc::clone(&options);
-    let data_base_dir_for_plugins = data_base_dir.clone();
-    let data_base_dir_for_credential = data_base_dir.clone();
-    let home_for_output_style = home.clone();
+    let home_for_simple = home.clone();
+    let data_base_dir_for_simple = data_base_dir.clone();
+    let instances_for_simple = instances.clone();
+    let options_for_simple = Arc::clone(&options);
     let home_for_file = home.clone();
     let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
@@ -365,18 +364,11 @@ pub fn channels_with(
         session_channel(instances, options, write),
     ];
     list.extend(crate::domains_provider::provider_channels(provider_files));
-    list.push(crate::domains_output_style::output_style_channel(
-        &home_for_output_style,
-    ));
-    list.push(crate::domains_attachments::prompt_attachment_transfer_channel());
-    list.push(crate::domains_attachments::media_preview_channel());
-    list.push(crate::domains_credential::credential_channel(
-        data_base_dir_for_credential,
-    ));
-    list.push(crate::domains_plugin::plugin_management_channel(
-        instances_for_plugins,
-        options_for_plugins,
-        data_base_dir_for_plugins,
+    list.extend(crate::domains_simple::simple_channels(
+        &home_for_simple,
+        data_base_dir_for_simple.as_deref(),
+        instances_for_simple,
+        options_for_simple,
     ));
     let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。

@@ -29,6 +29,9 @@ escode-host-control.workspace = true
 escode-cli-host.workspace = true
 escode-cli-core-api.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 [dev-dependencies]
 rusqlite.workspace = true
 escode-host-proto.workspace = true

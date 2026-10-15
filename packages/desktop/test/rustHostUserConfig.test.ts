@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createOutputStyleService } from "@escode/services/node";
+import {
+  createMemoryService,
+  createOutputStyleService,
+  setDataBaseDir,
+} from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-user-config-services.md：以 HOME 为根的用户配置目录类服务，对真实 TS 实现做同序操作差分。
@@ -12,7 +26,8 @@ async function outcome<T>(run: () => Promise<T>) {
   try {
     return { ok: true as const, value: JSON.parse(JSON.stringify((await run()) ?? null)) };
   } catch (error) {
-    return { ok: false as const, message: (error as Error).message };
+    const e = error as Error & { code?: string };
+    return { ok: false as const, message: e.message, ...(e.code ? { code: e.code } : {}) };
   }
 }
 
@@ -177,6 +192,115 @@ describe("rust host user config services", () => {
             label,
             files: normalize(await snapshot(tsHome), tsHome),
           });
+        }
+      });
+    },
+    120_000,
+  );
+
+  it.skipIf(!existsSync(hostBinary))(
+    "memory matches the TS service for user memory and the project memory views",
+    async () => {
+      await withHosts(async ({ tsHome, rustHome, rpc }) => {
+        setDataBaseDir(tsHome);
+        try {
+          const ts = createMemoryService();
+          const rust = rpc.memoryService;
+          const projects = (home: string) => join(home, ".escode", "cli", "memories", "projects");
+          const fixture = async (home: string) => {
+            const root = projects(home);
+            const at = (id: string) => join(root, id, "memory");
+            for (const [id, files] of Object.entries({
+              "alpha-0123456789abcdef": ["MEMORY.md", "b.md", "a.md", "notes.txt", "B.md"],
+              beta: ["x.md"],
+              "delta-bbbbbbbbbbbbbbbb": [],
+            })) {
+              await mkdir(at(id), { recursive: true });
+              for (const file of files) await writeFile(join(at(id), file), `content of ${file}`);
+            }
+            await mkdir(join(root, "gamma-aaaaaaaaaaaaaaaa"), { recursive: true });
+            await mkdir(join(at("alpha-0123456789abcdef"), "dir.md"));
+            await symlink(join(at("beta"), "x.md"), join(at("alpha-0123456789abcdef"), "sym.md"));
+            await symlink(join(root, "alpha-0123456789abcdef"), join(root, "linked"));
+            await writeFile(join(at("beta"), "big.md"), Buffer.alloc(5 * 1024 * 1024 + 1, 97));
+            await writeFile(join(at("beta"), "edge.md"), Buffer.alloc(5 * 1024 * 1024, 98));
+            const times: Record<string, number> = {
+              "alpha-0123456789abcdef/memory/MEMORY.md": 1_700_000_000.123,
+              "alpha-0123456789abcdef/memory/b.md": 1_700_000_100.5,
+              "alpha-0123456789abcdef/memory/a.md": 1_700_000_050,
+              "alpha-0123456789abcdef/memory/B.md": 1_700_000_060,
+              "alpha-0123456789abcdef/memory/notes.txt": 1_700_000_999,
+              "beta/memory/x.md": 1_700_000_500,
+              "beta/memory/big.md": 1_700_000_400,
+              "beta/memory/edge.md": 1_700_000_450,
+            };
+            for (const [relative, seconds] of Object.entries(times)) {
+              await utimes(
+                join(root, relative.split("/")[0]!, ...relative.split("/").slice(1)),
+                seconds,
+                seconds,
+              );
+            }
+          };
+          type Step = [string, (service: typeof ts, home: string) => Promise<unknown>];
+          const read =
+            (workspaceId: string, fileName: string): Step[1] =>
+            (s) =>
+              s.readProjectMemoryFile({ workspaceId, fileName });
+          const steps: Step[] = [
+            [
+              "load before any save",
+              (s) => s.loadMemory({ workspacePath: "/w", agentId: "claude" }),
+            ],
+            [
+              "save user memory",
+              (s) =>
+                s.saveMemory({
+                  workspacePath: "/w",
+                  agentId: "claude",
+                  config: { content: "remember this", enabled: true },
+                }),
+            ],
+            ["load after save", (s) => s.loadMemory({ workspacePath: "/w", agentId: "claude" })],
+            ["clear user memory", (s) => s.clearMemory({ workspacePath: "/w", agentId: "claude" })],
+            ["load after clear", (s) => s.loadMemory({ workspacePath: "/w", agentId: "claude" })],
+            ["user memory directory", (s) => s.getUserMemoryDirectory()],
+            ["project list without a root", (s) => s.listProjectMemories()],
+            ["project read without a root", read("alpha-0123456789abcdef", "MEMORY.md")],
+            ["build project fixture", async (_s, home) => fixture(home)],
+            ["project list", (s) => s.listProjectMemories()],
+            ["read index", read("alpha-0123456789abcdef", "MEMORY.md")],
+            ["read item", read("alpha-0123456789abcdef", "a.md")],
+            ["read other-case item", read("alpha-0123456789abcdef", "B.md")],
+            ["read wrong case", read("alpha-0123456789abcdef", "A.md")],
+            ["read traversal", read("..", "MEMORY.md")],
+            ["read nested file name", read("alpha-0123456789abcdef", "a/b.md")],
+            ["read non-markdown", read("alpha-0123456789abcdef", "notes.txt")],
+            ["read symlinked file", read("alpha-0123456789abcdef", "sym.md")],
+            ["read directory named like a file", read("alpha-0123456789abcdef", "dir.md")],
+            ["read missing file", read("alpha-0123456789abcdef", "gone.md")],
+            ["read missing workspace", read("nowhere", "MEMORY.md")],
+            ["read symlinked workspace", read("linked", "MEMORY.md")],
+            ["read over the preview limit", read("beta", "big.md")],
+            ["read exactly at the preview limit", read("beta", "edge.md")],
+          ];
+          for (const [label, step] of steps) {
+            const expected = await outcome(() => step(ts, tsHome));
+            const actual = await outcome(() => step(rust, rustHome));
+            const trimBig = (value: unknown) =>
+              JSON.parse(
+                JSON.stringify(value ?? null).replace(
+                  /"content":"[ab]{1000,}"/g,
+                  '"content":"<big>"',
+                ),
+              );
+            expect({ label, result: trimBig(normalize(actual, rustHome)) }).toEqual({
+              label,
+              result: trimBig(normalize(expected, tsHome)),
+            });
+          }
+        } finally {
+          setDataBaseDir(null);
         }
       });
     },
