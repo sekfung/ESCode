@@ -322,8 +322,17 @@ pub fn channels(
         drafts,
         events: Arc::clone(&events),
     };
-    let agent =
-        crate::agent_v4::agent_channel(instances.clone(), options.clone(), write.read.clone());
+    // V4 面与任务索引 syncer 共用同一 Base（同一帧 hub / 实例表 / 索引 hint）。
+    let base = crate::agent_v4::shared_base(instances.clone(), options.clone(), write.read.clone());
+    let agent = crate::agent_v4::agent_channel_from_base(Arc::clone(&base));
+    // syncer 只在能写索引时启动（缺 dataBaseDir 没有 V4 摄入的可落面）。
+    if let Some(read) = write.read.clone() {
+        crate::task_index_syncer::TaskIndexSyncer::spawn(
+            Arc::clone(&base),
+            read,
+            Arc::clone(&events),
+        );
+    }
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),

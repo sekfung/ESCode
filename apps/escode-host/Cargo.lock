@@ -847,6 +847,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "crc32fast",
  "escode-cli-core-api",
  "escode-cli-host",
  "escode-cli-rust",

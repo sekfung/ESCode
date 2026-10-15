@@ -27,6 +27,7 @@ use escode_host_services::task_projection::{
 };
 
 use super::deferred_drafts::DeferredDrafts;
+use super::domains_session_model::sync_task_model;
 use super::domains_task_support::{
     ReadContext, RuntimeAccess, context_ref, first_object, workspace_identity_of, workspace_path_of,
 };
@@ -139,7 +140,7 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
                 .map(|model| format_model_picker_value(Some(model)));
             if broadcast {
                 let overrides = IndexOverrides {
-                    model: model_override,
+                    model: model_override.clone(),
                     thought_level: thought_override,
                 };
                 // 打开/恢复是快照收敛，不改归属：task_status_changed（缺省 task_meta_changed 会让每次点开任务
@@ -153,8 +154,12 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
                 )
                 .await;
             }
-            // `broadcastSnapshot: false` + modelOverride 时 TS 只改索引的 model 列（`syncTaskModel` →
-            // `updateTaskState`）；索引状态写面（S3）未迁移前跳过（登记差异 §6.5-5）。
+            // `broadcastSnapshot: false` + model 时 TS 只改索引的 model 列（`syncTaskModel` →
+            // `updateTaskState`）：发送前 resume 关闭快照广播避免旧终态覆盖 streaming UI，
+            // 但 sqlite 的 model 仍要从已删除的历史模型更新到本次实际使用的可用模型。
+            if !broadcast {
+                sync_task_model(&context, &injected, &params, model_override.as_deref()).await;
+            }
             Ok(Wire::Object(snapshot))
         })
     })

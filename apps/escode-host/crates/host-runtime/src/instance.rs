@@ -72,6 +72,19 @@ pub(crate) struct InstanceState {
     responder: ResponderSlot,
     lifecycle: Arc<LifecycleHub>,
     event: LifecycleEvent,
+    /// 生命周期公告相位：`available`/`unavailable` 成对且有序（见 [`Announce`]）。
+    announce: std::sync::Mutex<Announce>,
+}
+
+/// 修复（评审 R1）：`available` 原先在 `Instance::start` 里、实例登记进槽位**之前**发布；监听方
+/// （任务索引 syncer）立刻按 existing-only 取实例会扑空、进入 dormant，整个 workspace 不再同步。
+/// 现在由实例表在登记后公告；实例若在公告前已退出，则两条都不发（TS 同：unavailable 只针对已
+/// 公告过的运行时）。两次公告与读端关闭在同一把锁下判定，保证不会出现 unavailable 先于 available。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Announce {
+    Pending,
+    Available,
+    Closed,
 }
 
 impl InstanceState {
@@ -79,6 +92,12 @@ impl InstanceState {
         &self,
     ) -> std::sync::MutexGuard<'_, BTreeMap<String, tokio::sync::oneshot::Sender<Value>>> {
         self.pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn lock_announce(&self) -> std::sync::MutexGuard<'_, Announce> {
+        self.announce
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
@@ -130,9 +149,14 @@ impl InstanceState {
         self.closed.store(true, Ordering::SeqCst);
         self.lock_pending().clear();
         self.lock_subscribers().clear();
-        let mut event = self.event.clone();
-        event.state = RuntimeState::Unavailable;
-        self.lifecycle.publish(&event);
+        let mut phase = self.lock_announce();
+        let announced = *phase == Announce::Available;
+        *phase = Announce::Closed;
+        if announced {
+            let mut event = self.event.clone();
+            event.state = RuntimeState::Unavailable;
+            self.lifecycle.publish(&event);
+        }
     }
 }
 
@@ -168,6 +192,7 @@ impl Instance {
             responder,
             lifecycle: lifecycle_hub,
             event: event.clone(),
+            announce: std::sync::Mutex::new(Announce::Pending),
         });
         let instance = Arc::new(Self {
             identity: event.identity.clone(),
@@ -176,8 +201,16 @@ impl Instance {
             state: Arc::clone(&state),
         });
         tokio::spawn(pump(reader, state));
-        instance.state.lifecycle.publish(&event);
         instance
+    }
+
+    /// 实例登记进槽位后由实例表调用：发布 `available`（读端已关闭则不发）。
+    pub(crate) fn announce_available(&self) {
+        let mut phase = self.state.lock_announce();
+        if *phase == Announce::Pending {
+            *phase = Announce::Available;
+            self.state.lifecycle.publish(&self.state.event);
+        }
     }
 
     /// 实例是否仍在运行。同步判定：生命周期锁在收口/等待期间被持有，

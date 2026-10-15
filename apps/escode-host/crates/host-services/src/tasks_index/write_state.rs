@@ -239,6 +239,67 @@ fn apply_field(meta: &mut Map<String, Value>, key: &str, field: &Field<Value>) {
     }
 }
 
+/// TS `applyAgentPatch` 的入参（`title`/`status` 缺席 = 不改；`lastError`/`target` 三态）。
+#[derive(Clone, Debug, Default)]
+pub struct AgentPatch {
+    pub title: Option<String>,
+    pub status: Option<String>,
+    pub updated_at: Option<i64>,
+    pub last_error: Field<Value>,
+    pub target: Field<Value>,
+}
+
+/// TS `TaskIndexRepo.applyAgentPatch`：行缺失/已删回 `None`（调用方据此回源完整快照），
+/// 不抛错——agent 后台补丁对不存在的行没有用户可见失败面。
+///
+/// 不能简化的规则：`title_overridden` 时拒收 agent 标题（用户手动标题不被后台刷新冲掉，
+/// `write.rs` 合并语义在补丁路径的对应物）；行 flag 全量保留；`searchable_text` 不动。
+pub fn apply_agent_patch(
+    connection: &Connection,
+    task: &TaskRef<'_>,
+    patch: &AgentPatch,
+) -> Result<Option<Value>, TasksIndexError> {
+    let Some(state) = read_state(connection, task)?.filter(|state| !state.deleted) else {
+        return Ok(None);
+    };
+    let mut next = state.meta;
+    // TS `canAcceptAgentTitle && params.patch.title`：JS 真值判断，空串才算缺省（不 trim，
+    // 调用方 processSummary 已传 trim 后的标题）。
+    if let Some(title) = patch
+        .title
+        .as_deref()
+        .filter(|title| !title.is_empty())
+        .filter(|_| !state.title_overridden)
+    {
+        next.insert("title".to_owned(), Value::from(title.to_owned()));
+    }
+    next.insert(
+        "titleOverridden".to_owned(),
+        Value::Bool(state.title_overridden),
+    );
+    if let Some(updated_at) = patch.updated_at {
+        next.insert("updatedAt".to_owned(), Value::from(updated_at));
+    }
+    if let Some(status) = &patch.status {
+        next.insert("status".to_owned(), Value::from(status.clone()));
+    }
+    apply_field(&mut next, "lastError", &patch.last_error);
+    apply_field(&mut next, "target", &patch.target);
+    write_record(
+        connection,
+        WriteRecord {
+            meta: next,
+            pinned: state.pinned,
+            archived: state.archived,
+            deleted: state.deleted,
+            title_overridden: state.title_overridden,
+            write_unread_at: false,
+            searchable_text: None,
+        },
+    )
+    .map(Some)
+}
+
 /// TS `clearTaskUnreadIfMatches`：`(meta, cleared)`。
 pub fn clear_task_unread_if_matches(
     connection: &Connection,

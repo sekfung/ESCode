@@ -157,6 +157,15 @@ impl TasksIndex {
         write_state::update_task_state(&self.connection, task, patch)
     }
 
+    /// TS `applyAgentPatch`：行缺失/已删回 `None`（不抛错）。
+    pub fn apply_agent_patch(
+        &self,
+        task: &write_state::TaskRef<'_>,
+        patch: &write_state::AgentPatch,
+    ) -> Result<Option<Value>, TasksIndexError> {
+        write_state::apply_agent_patch(&self.connection, task, patch)
+    }
+
     /// TS `clearTaskUnreadIfMatches`。
     pub fn clear_task_unread_if_matches(
         &self,
@@ -284,16 +293,7 @@ impl TasksIndex {
     }
 }
 
-/// `listTaskMetas` 的可选过滤（`None` = 不过滤，与 TS 的 `?? null` 同义）。
-#[derive(Default)]
-pub struct TaskFilters<'a> {
-    pub workspace_path: Option<&'a str>,
-    pub workspace_identity: Option<&'a str>,
-    pub provider: Option<&'a str>,
-    pub pinned: Option<bool>,
-    pub archived: Option<bool>,
-    pub include_deleted: bool,
-}
+pub use query::TaskFilters;
 
 /// 读一行任务投影（列顺序见 `TASK_ROW_COLUMNS`）。
 pub(super) fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {

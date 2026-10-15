@@ -170,3 +170,97 @@ fn delete_archived_task_only_removes_archived_rows() {
         "already deleted: skipped"
     );
 }
+
+use super::write_state::AgentPatch;
+
+#[test]
+fn agent_patch_updates_status_and_title_but_keeps_row_identity() {
+    let (_dir, index) = open();
+    // 终态收敛：completed 清 lastError（键在场即清），updatedAt 只在传入时覆盖。
+    let completed = index
+        .apply_agent_patch(
+            &task(),
+            &AgentPatch {
+                status: Some("completed".into()),
+                updated_at: Some(200),
+                last_error: Field::Clear,
+                ..AgentPatch::default()
+            },
+        )
+        .unwrap()
+        .expect("row exists");
+    assert_eq!(completed["status"], "completed");
+    assert_eq!(completed["updatedAt"], 200);
+    assert!(completed.get("lastError").is_none());
+    // agent 标题落到未手动改过的行。
+    let titled = index
+        .apply_agent_patch(
+            &task(),
+            &AgentPatch {
+                title: Some("回合标题".into()),
+                ..AgentPatch::default()
+            },
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(titled["title"], "回合标题");
+    // 手动标题之后：agent 标题被拒收，其余补丁照常。
+    index
+        .update_task_state(
+            &task(),
+            &StatePatch {
+                title: Some("手动标题".into()),
+                title_overridden: Some(true),
+                ..StatePatch::default()
+            },
+        )
+        .unwrap();
+    let guarded = index
+        .apply_agent_patch(
+            &task(),
+            &AgentPatch {
+                title: Some("迟到的 agent 标题".into()),
+                status: Some("error".into()),
+                last_error: Field::Set(json!({"message": "boom"})),
+                ..AgentPatch::default()
+            },
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(guarded["title"], "手动标题");
+    assert_eq!(guarded["titleOverridden"], true);
+    assert_eq!(guarded["status"], "error");
+    assert_eq!(guarded["lastError"]["message"], "boom");
+}
+
+#[test]
+fn agent_patch_returns_none_for_missing_and_deleted_rows() {
+    let (_dir, index) = open();
+    let missing = TaskRef {
+        workspace_path: "/w",
+        workspace_identity: None,
+        task_id: "nope",
+    };
+    assert_eq!(
+        index
+            .apply_agent_patch(&missing, &AgentPatch::default())
+            .unwrap(),
+        None
+    );
+    index
+        .update_task_state(
+            &task(),
+            &StatePatch {
+                deleted: Some(true),
+                ..StatePatch::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        index
+            .apply_agent_patch(&task(), &AgentPatch::default())
+            .unwrap(),
+        None,
+        "deleted rows are invisible to agent patches"
+    );
+}

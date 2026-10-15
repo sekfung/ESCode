@@ -154,6 +154,8 @@ impl Instances {
         if let Some(slot) = self.lock().slots.get_mut(identity) {
             slot.instance = Some(Arc::clone(&instance));
         }
+        // 登记完成才公告 available：监听方此时按 existing-only 一定取得到实例。
+        instance.announce_available();
         Ok(instance)
     }
 

@@ -46,3 +46,13 @@
   `two_workspaces_get_independent_instances` 因此超时，补了有界早期缓冲（首个订阅者先收、溢出即 lagged）。
 - HTTP 请求头读取加 10 s 总时限（半截请求头曾让连接任务每 2 ms 无限轮询）。
 - `js_trim` 在 `task_projection/message_parts.rs` 与 `policy.rs` 各有一份实现（低：重复实现，待合并）。
+
+## 3. S3b 任务索引 syncer 评审（另一会话的未提交工作，2026-10-15）
+
+| # | 严重度 | 发现 | 处置 |
+| --- | --- | --- | --- |
+| R1 | 中 | `host-runtime` 在实例登记进槽位前发布 `available`；syncer 立即按 existing-only 订阅可能扑空并进入 dormant，整个 workspace 不再同步（直到运行时换代）。 | 已修：登记后公告 + 成对有序；回归用例负向 3/3 失败 |
+| R2 | 中 | syncer 帧应用逐条 `tokio::spawn` 索引写，连续改名/终态补丁可乱序落库（索引停在旧标题）。 | 已修：每 workspace 串行写队列；回归用例负向 2/3 失败 |
+| R3 | 低（流程） | 工作区里 `host-proto/src/inventory_ts.rs` 的唯一变化是另一条工作流删除 `circuit` channel 后的重新生成；它属于那条工作流的提交，不能随 S3b 提交（否则 HEAD 上 TS 仍有 circuit 时 `--check` 失败）。 | S3b 提交不含该文件 |
+
+复核通过：spec §6.7 先行、端到端/单测/负向验证属实可复现；`syncTaskModel`、终态未读信号、订阅体与 TS 一致。

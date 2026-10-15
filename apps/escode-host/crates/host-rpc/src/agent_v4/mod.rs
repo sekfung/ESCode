@@ -5,8 +5,9 @@
 //! 未迁移的 `escode-agent` 方法（插件/自动化/MCP UI/wiki 等）不在方法表里，由 `session::respond`
 //! 回显式 `NotImplemented`。
 
-mod base;
-mod frames;
+pub(crate) mod assembler;
+pub(crate) mod base;
+pub(crate) mod frames;
 mod scope;
 mod scope_handshake;
 mod scope_methods;
@@ -27,13 +28,17 @@ use escode_host_runtime::{LifecycleEvent, RuntimeState};
 use frames::TopicKind;
 use scope::Scope;
 
-/// 组合根：Host 级共享句柄 → 连接级 channel 工厂。
-pub(crate) fn agent_channel(
+/// Host 级共享句柄（V4 面与任务索引 syncer 共用同一 hub/实例表）。
+pub(crate) fn shared_base(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
     index: Option<ReadContext>,
-) -> ChannelFactory {
-    let base = Arc::new(base::Base::new(instances, options, index));
+) -> Arc<base::Base> {
+    Arc::new(base::Base::new(instances, options, index))
+}
+
+/// 组合根：共享句柄 → 连接级 channel 工厂。
+pub(crate) fn agent_channel_from_base(base: Arc<base::Base>) -> ChannelFactory {
     Arc::new(move |context: &ConnectionContext| connection_channel(&base, context))
 }
 

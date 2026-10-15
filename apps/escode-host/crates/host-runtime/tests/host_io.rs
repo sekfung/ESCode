@@ -205,3 +205,44 @@ sleep 5"#,
     );
     let _ = instances.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn available_is_announced_only_after_the_instance_is_registered() {
+    // 评审 R1：监听方收到 available 时必须能按 existing-only 取到实例（`live` 非空），
+    // 否则任务索引 syncer 的被动订阅会扑空进入 dormant。多次启动以放大调度交错。
+    let fake = script("read line\nexit 0");
+    let instances = Arc::new(fake.instances());
+    let mut events = instances.lifecycle();
+    let probe = Arc::clone(&instances);
+    let checker = tokio::spawn(async move {
+        let mut checked = 0;
+        while let Some(event) = events.recv().await {
+            if event.state == RuntimeState::Available {
+                assert!(
+                    probe.live(&event.identity).is_some(),
+                    "available published before registration (generation {})",
+                    event.generation
+                );
+                checked += 1;
+                if checked == 40 {
+                    return checked;
+                }
+            }
+        }
+        checked
+    });
+    for round in 0..40 {
+        let identity = format!("ws-{round}");
+        let instance = instances
+            .get(&identity, || fake.options())
+            .await
+            .expect("spawn");
+        drop(instance);
+    }
+    let checked = tokio::time::timeout(Duration::from_secs(30), checker)
+        .await
+        .expect("all announcements observed")
+        .expect("checker");
+    assert_eq!(checked, 40);
+    let _ = instances.shutdown().await;
+}

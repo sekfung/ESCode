@@ -166,3 +166,14 @@ pub(super) fn query_task_list(
 use super::TASK_ROW_COLUMNS;
 use super::query_shared::{fallback_item, leak_key};
 use super::query_snippets::build_search_snippets;
+
+/// `listTaskMetas` 的可选过滤（`None` = 不过滤，与 TS 的 `?? null` 同义）。
+#[derive(Default)]
+pub struct TaskFilters<'a> {
+    pub workspace_path: Option<&'a str>,
+    pub workspace_identity: Option<&'a str>,
+    pub provider: Option<&'a str>,
+    pub pinned: Option<bool>,
+    pub archived: Option<bool>,
+    pub include_deleted: bool,
+}

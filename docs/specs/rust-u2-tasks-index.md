@@ -310,7 +310,106 @@ TS 真相源：`packages/services/src/escode-session/escodeSessionService.ts`（
 6. **不做旧 app-server 兼容重试**（`getSessionCreateCompatFields`）：Rust Host 只驱动同版本内置 runtime，strict schema 一致。
 7. **工具面灰度关闭**：见 `rust-u2-agent-v4.md` §6-6。
 
+## 6.7 S3b 任务索引 syncer：V4 topic 帧摄入（2026-10-15）
+
+### 6.7.1 范围与所有者
+
+**做**：TS `escodeTaskIndexSyncer.ts` 摄入主体的 Rust 等价物——Host 内常驻组件，对每个出现过
+运行时的 workspace，向 sessions-index / workspace-config 两个 topic 建**被动订阅**
+（`runtimePolicy: "existing-only"`，绝不拉起运行时；`visibility: "background"`；
+connectionId = `host-<uuid>#task-index`、clientMode `desktop-continuous`，TS
+`v4ConnectionIdFor("task-index")` 同形），把 V4 topic 帧落成 tasks-index 行与 workspace 事件：
+
+- **首帧 snapshot = 静默基线**：`seedTaskMetaIfMissing` 逐批 64 条补缺失行（summary 投影：
+  status=phase 映射、`titleSource==="custom"` 才置 `titleOverridden`、`forkedFromTaskId`、
+  provider=glm、mode=default）；不广播、不回放历史终态；
+- **基线 diff（后续 snapshot 与 online deltas 共用 `processSummary`）**：draft 跳过；
+  基线里非终态 → 终态（completedSuccess/completedInterrupted/error）迁移 =
+  `applyAgentPatch(status, updatedAt=now)` + 广播 `task_status_changed`（error 或无未验证 goal
+  时附 `unreadSignal: "background_terminal"`），随后回源完整快照收敛
+  （`readSession(existing-only, contentProfile:"index")` → syncTaskMeta + searchableText +
+  `hasUserVisibleContent` 门控广播）；
+  - 新可见任务（基线无此 id 或前值 draft）→ 回源建行 + 广播；
+  - 标题变化（trim 非空且与前值不同）→ `applyAgentPatch(title)` + 广播 `task_title_changed`
+    （行缺失走回源）；
+- **水位与恢复**：每 topic 独立 `logEpoch/seq`；快照原子 apply 后才算 base；delta
+  `fromSeq ≠ seq` 即 gap → 同订阅 resync（带 base）→ recovery 帧收口；ACK 不匹配 / resync
+  失败 / 恢复帧 30s 未齐 → 该 topic 新代 fresh 订阅；订阅建立前的帧按 (topic,sub) 暂存
+  （1024 帧 / 32MB，溢出标记恢复）；订阅退避重试（瞬态 25ms×2^n ≤1s；provider 未就绪 5s）；
+- **workspace-config 帧**：目录非空时经 `workspace_config_options_update` 事件下发
+  （`configOptions` 零映射直通；空目录不下发）。
+
+**不做**（登记见 §6.7.4）：子代理索引修复、终端/就绪内部事件、远端 legacy 归属 allowlist。
+
+**所有者**：syncer 是 V4 摄入状态（订阅代际/水位/基线摘要/恢复态）的唯一所有者；索引写与
+`escode-task` / `escode-session` 写面共用同一 `LazyIndex` 句柄（单写者不变式不变）；广播经
+同一 `WorkspaceEvents` 总线；帧装配器（`TopicWireFrameAssembler` 同构）在
+`agent_v4::assembler`，当前唯一消费者是 syncer（Renderer 侧仍自行装配，Host 不改投递面）。
+
+**触发**：`Instances` 生命周期驱动——`available` → ensure（幂等）+ 两 topic 订阅；`unavailable`
+→ 仅清本地订阅/恢复态（不发 unsubscribe RPC：CLI 内订阅已随进程销毁）；同 workspace 新一代
+available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛。
+
+### 6.7.2 接口
+
+| 项 | 约定 |
+| --- | --- |
+| 订阅请求体 | `{topic, connectionId, clientMode, visibility}`（缺省省略；`base` 只在 resync 恢复时经 body 下发） |
+| 帧入口 | `FrameHub.listen(workspaceKey, kind)`（监听先于订阅安装，跨代复用；按 subscriptionId 过滤，ACK 前暂存） |
+| 逻辑帧 | `TopicWireFrameAssembler` 同构：complete 直通 / fragment 重组（crc32+base64+UTF-8+JSON+信封一致），预算与 tombstone 逐条对齐 TS |
+| 索引写 | `tasks_index::apply_agent_patch`（TS `TaskIndexRepo.applyAgentPatch`：行缺失/已删回 `None`；`title_overridden` 时拒收 agent 标题；flags 全保留；`lastError` 键在场才覆盖）；回源写复用 `task_projection::sync_snapshot_to_index` |
+| 广播 | `task_status_changed` / `task_title_changed` / `workspace_config_options_update`（reason 与 TS 逐字同；`task_created` 依赖分组写面，本片不产生） |
+
+### 6.7.3 验收
+
+1. **装配器单测**：complete 直通、分片重组（乱序齐片）、重复片幂等、checksum/base64/超预算/
+   ordinal 冲突与 tombstone、超时 fault。
+2. **帧应用单测**：快照基线（首帧静默播种、后续快照降级 diff）、水位（重复丢、gap 恢复、
+   recovery 收口、recovery 期间 online 延后）、draft/终态/标题/可见分支（内存索引）。
+3. **端到端（真 embedded 实例 + mock 模型）**：纯 V4 `createSession` 命令（不经
+   `escode-session.createSession`，即 TS 注释里的"最早且不依赖标题时序的新任务边界"）→
+   回合真实跑完 → 索引行出现、标题=首条输入、状态=completed；`onDynamicWorkspaceEvent` 收到
+   `task_status_changed` 且 `unreadSignal=background_terminal`；`renameSession` 命令后索引标题
+   跟随（`task_title_changed`）；已 `titleOverridden` 的行不被 agent 标题覆盖。
+
+### 6.7.4 登记差异（本片）
+
+1. **`repairSubagentTaskIndex` 未迁移**：首帧基线不做子代理行修复。可见条件：索引里残留
+   `forkedFromTaskId` 行且运行时已删父会话（TS 会顺手清；Rust 留到导入/修复工作包）。
+2. **`onSessionTerminalEvent` / `onSessionReadyEvent` 不发**：TS 消费者是手机 host command
+   queue（remote 域未迁移）；Rust 侧无消费者，接入 remote 队列时补。
+3. **`legacyTaskIds` 不下发**：远端 3.3.6 升级归属证明依赖 remote identity 链（remote 域未迁移）；
+   本机 workspace 不受影响。
+4. **逻辑帧 payload 校验为最小形状**（kind/fromSeq/toSeq/payload.kind/数组在场 + 信封一致），
+   不复制 zod 深校验；差异只在损坏帧上可见（同 rust-u2-agent-v4 §6 既有登记口径）。
+5. **`moveGroupedTaskToTop` 不落分组顺序**：回源写不初始化 grouped sort_order（分组写面 S3，
+   沿用 §6.5-2 登记）；因此 TS 的 `initializedGroupedOrder → task_created` 分支不产生，
+   首个广播 reason 仍为 `task_status_changed`。
+6. **计时器语义**：TS `setTimeout(...).unref()` 不让进程存活；Rust tokio 任务随进程退出，无
+   等价差异面。
+7. **重试计数/告警限频常量与 TS 一致**（25ms×2^n≤1s、5s、60s），但生产日志走 `eprintln!`
+   （Host 尚无 service logger；与其他 Host 模块同现状）。
+
+### 6.7.5 评审修正（2026-10-15，评审会话）
+
+1. **R1 生命周期公告早于实例登记**（`host-runtime`）：`available` 原在 `Instance::start` 里、实例写入
+   槽位**之前**发布；syncer 收到后立即按 existing-only 订阅，在多线程调度下可能取不到实例 →
+   RUNTIME_UNAVAILABLE → 该 workspace 进入 dormant，直到下一代运行时都不再同步。修正：实例表登记后
+   才公告；实例在公告前已退出则两条都不发（与 TS「unavailable 只针对已公告运行时」同）。回归用例
+   `host-runtime/tests/host_io.rs::available_is_announced_only_after_the_instance_is_registered`
+   （负向：恢复「先公告后登记」3/3 失败）。
+2. **R2 索引写乱序**（syncer）：帧应用对每条摘要各 `tokio::spawn` 一次写，连续改名 / 标题与终态补丁
+   可能乱序落库，索引停在旧标题。TS 的写在帧序同步发起并经 `TaskIndexRepo.enqueueWrite` 串行。修正：
+   每个 workspace 一个串行写队列（`Ingest::enqueue`）。回归用例
+   `task_index_syncer_order_tests.rs`（50 次连续改名；负向：恢复逐条 spawn 3 次里 2 次失败）。
+3. 复核通过（与 TS 逐项比对，无需改动）：`resolveTerminalUnreadSignal`（`goalStatus` 在 schema 中
+   只 optional、不可 null）、`syncTaskModel`（仅 `broadcastSnapshot === false` 且有 model，吞错 warn）、
+   订阅请求体与 existing-only 语义。
+4. 已知差异补登：connectionId 为**每个 workspace** 一个 `host-<uuid>#task-index`（TS 进程内一个）；
+   runtime 侧订阅按实例隔离，不影响路由。
+
 ## 7. 验收与环境
+
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；
 - **进程表断言**：Rust Host 下无 Node utility / CLI 残留（沿用 u2a 的进程表检查）；
