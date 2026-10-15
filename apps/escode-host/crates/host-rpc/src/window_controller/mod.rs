@@ -157,3 +157,40 @@ pub(crate) fn gap_channel() -> Channel {
         }),
     )])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_remote_workspace_identity;
+
+    /// TS `parseRemoteWorkspaceIdentity` 的判定面：远程 identity 必须命中 kind + authority 段数 +
+    /// 以 `/` 开头的远端路径；解析失败一律回落「按本地处理」（不丢 scope，按非远程走本地 source）。
+    #[test]
+    fn remote_workspace_identity_matches_the_ts_parser() {
+        for identity in [
+            "remote:ssh:host:22:user:/w",
+            "remote:ssh:host:22:user:/",
+            "remote:wsl:Ubuntu:/mnt/c/w",
+            "remote:wsl:Ubuntu:user:/home/user/w",
+            "remote:docker:container:/srv/w",
+            "remote:server:host:/srv/w",
+        ] {
+            assert!(is_remote_workspace_identity(identity), "{identity}");
+        }
+        for identity in [
+            "/local/path",
+            "local:/w",
+            "remote:",
+            "remote:ssh",
+            "remote:unknown:host:/w",
+            // kind 段数不足：ssh 需要 host/port/username 三段。
+            "remote:ssh:host:22:/w",
+            // 远端路径必须以 "/" 开头（相对路径整体解析失败）。
+            "remote:ssh:host:22:user:relative",
+            "remote:docker:container:relative",
+            // 空段（`::`）同样不合法。
+            "remote:docker::/w",
+        ] {
+            assert!(!is_remote_workspace_identity(identity), "{identity}");
+        }
+    }
+}
