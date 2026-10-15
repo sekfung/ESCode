@@ -43,3 +43,16 @@ TS 真相源：`packages/services/src/memory/memoryService.ts`、`projectMemoryS
 
 验收：`rustHostUserConfig.test.ts` 的 memory 用例——用户 memory 5 步 + Project Memory 19 步（符号链接 workspace/文件、同名异大小写、目录冒充文件、越权片段、5 MiB 边界、
 缺根），每步与真实 TS 服务比较结果或 `message/code`；负向验证：放宽 5 MiB 判定、放过符号链接 workspace 均失败。
+
+## 3. broadcast（本地模式，6 个成员）
+
+TS 真相源：`packages/services/src/broadcast/broadcastService.ts`。TS 有两种形态：带 `parentPort`（Electron host：经 Main `BroadcastHub` 跨窗口中转、claim 由 Main 仲裁）与
+无 `parentPort`（web server 模式：进程内）。**本片只交付无 `parentPort` 的本地形态**；跨窗口需要 Main↔Host 控制消息（`BroadcastClaim*`/`Broadcast`），随 u2a 桌面窗口 host 进程无关化一起做。
+
+- `send({channel, payload, sourceWindowId?})`：校验（`channel` 去空白后非空、`sourceWindowId` 为整数）后向本 Host 的**全部** `onMessage` 订阅者扇出（含发送者自己所在连接；接收端用 `sourceWindowId` 自行过滤）。
+- Claim（进程内，key 去空白；空 key → `unavailable`）：`acquireClaim` → `acquired{lease:{key,token}}` / `busy{retryAfterMs = clamp(0..250, 到期时间-now)}` / `committed`；
+  reservation TTL 5 s，过期在下次操作时清理；表上限 1024，超限淘汰最早插入项。`commitClaim` 把同 token 的 reservation 变永久；`releaseClaim` 释放同 token 的 reservation（迟到 token 无影响）；
+  `tryClaim` = acquire + commit，仅首次为 `true`。
+- 登记差异：`send` 校验失败时 TS 抛 zod JSON，Rust 抛一句话；跨窗口（`parentPort`）形态未做。
+- 验收：`rustHostBroadcast.test.ts`（真实 TS 服务 `createBroadcastService(null)` 对 Rust Host：claim 状态机各分支、`tryClaim` 只首次为 true、`send` 的 trim/校验与扇出）；
+  Rust 单测用注入时钟覆盖 TTL 过期与 1024 上限淘汰。

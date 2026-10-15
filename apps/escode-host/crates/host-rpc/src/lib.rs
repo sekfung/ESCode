@@ -12,6 +12,7 @@ mod connection;
 mod deferred_drafts;
 pub mod domains;
 mod domains_attachments;
+mod domains_broadcast;
 mod domains_credential;
 pub mod domains_file;
 mod domains_file_channel;

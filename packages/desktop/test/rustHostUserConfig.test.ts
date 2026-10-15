@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  createBroadcastService,
   createMemoryService,
   createOutputStyleService,
   setDataBaseDir,
@@ -302,6 +303,81 @@ describe("rust host user config services", () => {
         } finally {
           setDataBaseDir(null);
         }
+      });
+    },
+    120_000,
+  );
+});
+
+describe("rust host broadcast (local mode)", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "matches the TS local broadcast service",
+    async () => {
+      await withHosts(async ({ rpc }) => {
+        const ts = createBroadcastService(null);
+        const rust = rpc.broadcastService;
+        const tsMessages: unknown[] = [];
+        const rustMessages: unknown[] = [];
+        const subscriptions = [
+          ts.onMessage((m) => tsMessages.push(m)),
+          rust.onMessage((m) => rustMessages.push(m)),
+        ];
+        await new Promise((r) => setTimeout(r, 300));
+
+        const strip = (value: unknown) =>
+          JSON.parse(JSON.stringify(value).replace(/"token":"[^"]+"/g, '"token":"<token>"'));
+        const sends: unknown[] = [
+          { channel: "state:theme", payload: { mode: "dark" } },
+          { channel: "  state:locale  ", payload: "en", sourceWindowId: 7 },
+          { channel: "no-payload" },
+          { channel: "null-payload", payload: null },
+          { channel: "   ", payload: 1 },
+          { channel: "bad-id", payload: 1, sourceWindowId: 1.5 },
+        ];
+        for (const message of sends) {
+          const expected = await outcome(() => ts.send(message as never));
+          const actual = await outcome(() => rust.send(message as never));
+          expect({ message, ok: actual.ok }).toEqual({ message, ok: expected.ok });
+        }
+        await new Promise((r) => setTimeout(r, 300));
+        expect(strip(rustMessages)).toEqual(strip(tsMessages));
+        expect(tsMessages).toHaveLength(3);
+
+        // claim 状态机：两边同序执行，结果去掉随机 token 后相等，且 token 可用于后续 commit/release。
+        const run = async (service: typeof ts) => {
+          const results: unknown[] = [];
+          const record = async <T>(label: string, op: () => Promise<T>) => {
+            results.push({ label, result: await op() });
+          };
+          let lease: { key: string; token: string } | undefined;
+          await record("empty key", () => service.acquireClaim("   "));
+          await record("acquire", async () => {
+            const r = await service.acquireClaim(" claim-a ");
+            if (r.status === "acquired") lease = r.lease;
+            return r;
+          });
+          await record("busy", () => service.acquireClaim("claim-a"));
+          await record("wrong token release", () =>
+            service.releaseClaim({ key: "claim-a", token: "nope" }),
+          );
+          await record("still busy", () => service.acquireClaim("claim-a"));
+          await record("release", () => service.releaseClaim(lease!));
+          await record("re-acquire", async () => {
+            const r = await service.acquireClaim("claim-a");
+            if (r.status === "acquired") lease = r.lease;
+            return r;
+          });
+          await record("commit", () => service.commitClaim(lease!));
+          await record("committed", () => service.acquireClaim("claim-a"));
+          await record("release after commit", () => service.releaseClaim(lease!));
+          await record("still committed", () => service.acquireClaim("claim-a"));
+          await record("tryClaim first", () => service.tryClaim("claim-b"));
+          await record("tryClaim second", () => service.tryClaim("claim-b"));
+          await record("tryClaim blank", () => service.tryClaim("  "));
+          return results;
+        };
+        expect(strip(await run(rust))).toEqual(strip(await run(ts)));
+        for (const subscription of subscriptions) subscription.dispose();
       });
     },
     120_000,

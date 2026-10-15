@@ -14,6 +14,9 @@ pub(crate) fn simple_channels(
     options: escode_host_surface::OptionsFactory,
 ) -> Vec<Channel> {
     vec![
+        crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
+            escode_host_services::broadcast::Broadcast::default(),
+        )),
         crate::domains_memory::memory_channel(home, data_base_dir),
         crate::domains_output_style::output_style_channel(home),
         crate::domains_attachments::prompt_attachment_transfer_channel(),
