@@ -8,7 +8,7 @@
 
 三类出口（模型请求 / MCP HTTP+OAuth / WebFetch 与插件下载）共用一份出口策略，客户端构造收敛到 `crates/net`：
 
-- `Purpose::{Model, Mcp, WebFetch}` 决定「未命中代理时是否显式禁用系统代理」（模型沿用 reqwest 默认变量；MCP 与 WebFetch 显式 direct，与 TS `createNetworkProxyFetch` / `resolveWebFetchProxyForRequest` 同）；
+- `Purpose::{Model, Mcp, WebFetch}` 只区分调用方的超时/重定向形状；三者未解析出代理时**一律显式直连**（与 TS `createNetworkProxyFetch` 未命中即 `directFetch`、`resolveWebFetchProxyForRequest` 的 direct 同）。2026-10-15 修正：模型请求此前沿用 reqwest 默认读取**进程** env 的 `HTTP_PROXY`/`HTTPS_PROXY`，与 TS（Node `fetch` 不读这些变量）不一致，且嵌入 Host 时读到的是 Host 进程 env 而非 Main 交给实例的快照（实测：本机设代理时连回环模型服务也被送去代理）；回归用例 `crates/net/tests/model_direct.rs`；
 - 代理解析与自定义 CA 只在该 crate 解析一次（`net::resolve`），调用方保留各自的超时/重定向/连接参数；
 - 证书读取与 builder 构建一律走受管阻塞线程（`Spawner::spawn_blocking`），不阻塞 stdio actor；
 - reqwest_mcp 的 rustls ring provider 在该 crate 内幂等安装（原先散在 `mcp_hub`，调用方不必先记得装）；

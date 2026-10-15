@@ -17,10 +17,16 @@ use anyhow::Result;
 
 pub use escode_cli_host::net_config::NetworkScope;
 
-/// 出口用途：决定「未命中代理时是否显式禁用系统代理」等形状差异。
+/// 出口用途（调用方各自的超时/重定向形状；代理策略三者相同）。
+///
+/// 修复：此前 `Model` 在未解析出代理时不调 `no_proxy()`，reqwest 便按**进程** env 的
+/// `HTTP_PROXY`/`HTTPS_PROXY` 自行代理。TS 模型请求（`createNetworkProxyFetch`）未解析出代理即直连
+/// 全局 `fetch`（Node `fetch` 不读这些变量）；且嵌入 Host 时进程 env 属于 Host、不是 Main 交给实例的
+/// env 快照——本机设了 `HTTP_PROXY` 时连回环地址的模型服务也被送去代理。应走代理的来源
+/// （设置页、`ESCODE_HTTP_PROXY`、捕获环境）已由 [`resolve`] 显式解析。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Purpose {
-    /// 模型请求：未命中 `no_proxy` 时不显式禁用（沿用 reqwest 默认读取的代理变量）。
+    /// 模型请求。
     Model,
     /// MCP HTTP/SSE：未命中时显式禁用系统代理（TS `createNetworkProxyFetch` 同）。
     Mcp,
@@ -115,14 +121,12 @@ pub fn resolve(target: &str, scope: NetworkScope) -> Result<Egress> {
 pub fn apply(
     mut builder: reqwest::ClientBuilder,
     egress: &Egress,
-    purpose: Purpose,
+    _purpose: Purpose,
 ) -> Result<reqwest::ClientBuilder> {
     match &egress.proxy {
         Some(proxy) => builder = builder.proxy(reqwest::Proxy::all(proxy)?),
-        None if purpose != Purpose::Model || egress.no_proxy_matched => {
-            builder = builder.no_proxy();
-        }
-        None => {}
+        // 未解析出代理即直连（不让 reqwest 回落到进程 env 的代理变量）。
+        None => builder = builder.no_proxy(),
     }
     for bytes in &egress.extra_ca {
         let certificates = match reqwest::Certificate::from_pem_bundle(bytes) {
@@ -140,14 +144,12 @@ pub fn apply(
 pub fn apply_mcp(
     mut builder: reqwest_mcp::ClientBuilder,
     egress: &Egress,
-    purpose: Purpose,
+    _purpose: Purpose,
 ) -> Result<reqwest_mcp::ClientBuilder> {
     match &egress.proxy {
         Some(proxy) => builder = builder.proxy(reqwest_mcp::Proxy::all(proxy)?),
-        None if purpose != Purpose::Model || egress.no_proxy_matched => {
-            builder = builder.no_proxy();
-        }
-        None => {}
+        // 未解析出代理即直连（不让 reqwest 回落到进程 env 的代理变量）。
+        None => builder = builder.no_proxy(),
     }
     for bytes in &egress.extra_ca {
         let certificates = match reqwest_mcp::Certificate::from_pem_bundle(bytes) {
@@ -239,7 +241,7 @@ mod tests {
 
     #[test]
     fn purpose_controls_the_absent_proxy_default() {
-        // WebFetch：无代理 → 显式禁用系统代理；Model：仅在 no_proxy 命中时禁用。
+        // 三类用途无代理时都显式直连（行为由 tests/model_direct.rs 在设置了进程代理变量的环境里验证）。
         let direct = Egress {
             proxy: None,
             no_proxy_matched: false,
@@ -253,7 +255,7 @@ mod tests {
             .expect("model applies")
             .build()
             .expect("builds");
-        // 两者都能构建（行为差异由 reqwest 内部代理发现决定，这里只保证入口可用且不 panic）。
+        // 这里只保证入口可用且不 panic；直连行为见 tests/model_direct.rs。
         let _ = (webfetch, model);
         let matched = Egress {
             proxy: None,
