@@ -67,7 +67,7 @@ escode-cli-host = { path = "../escode-cli-rust/crates/host" }
 rusqlite = { version = "0.37", features = ["bundled"] }
 sha2 = "0.10"
 # traceId 生成（TS `generateTraceId` = `createUuid()`，UUID v4）。
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "v7"] }
 escode-cli-app-server = { path = "../escode-cli-rust/crates/app-server" }
 escode-cli-protocol = { path = "../escode-cli-rust/crates/protocol" }
 escode-cli-rust = { path = "../escode-cli-rust" }

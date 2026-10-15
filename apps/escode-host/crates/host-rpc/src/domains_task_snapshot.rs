@@ -181,6 +181,25 @@ pub(super) fn null_handler() -> MethodHandler {
     handler(|_arg: Wire| Box::pin(async move { Ok(Wire::Object(Value::Null)) }))
 }
 
+/// TS `updateIndexedTaskState` 的兜底：旧会话可能还没有索引行——按需 resume 并把快照写回索引
+/// （`syncTaskIndexSnapshot(await resumeSnapshot(params))`），之后调用方重试状态写。
+pub(super) async fn seed_from_runtime(
+    context: &ReadContext,
+    workspace_path: &str,
+    workspace_identity: Option<&str>,
+    task_id: &str,
+) -> Result<(), (String, String)> {
+    let mut raw = json!({"taskId": task_id, "workspacePath": workspace_path});
+    if let Some(identity) = workspace_identity {
+        raw["workspaceIdentity"] = Value::from(identity);
+    }
+    let params = SnapshotParams::parse(&raw)?;
+    let snapshot = resume_snapshot(context, &params).await?;
+    write_projected_snapshot(context, &params, snapshot)
+        .await
+        .map(|_| ())
+}
+
 /// `resumeSnapshot`：hint 读取（只有 replayable）→ `session/resume` 转发。
 async fn resume_snapshot(context: &ReadContext, params: &SnapshotParams) -> ChannelResult {
     let Some(runtime) = context.runtime.clone() else {

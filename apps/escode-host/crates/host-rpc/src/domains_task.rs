@@ -33,42 +33,27 @@ use crate::wire::Wire;
 /// `escode-task` channel。`data_base_dir` 由 Main 经 `rpcListen` 提交；缺省时显式缺口。
 /// `runtime` 用于 `getTaskModelSelection` 这类需要读运行时会话状态的方法（TS 同样读运行时）。
 /// 索引句柄、任务目标注册表由组合根传入（Host 是索引投影的唯一写者，跨通道共用一份）。
-pub fn task_channel(
+pub(crate) fn task_channel(
     data_base_dir: Option<PathBuf>,
     runtime: Option<RuntimeAccess>,
     index: Arc<Mutex<LazyIndex>>,
     targets: Arc<TaskTargets>,
+    events: Arc<crate::workspace_events::WorkspaceEvents>,
 ) -> Channel {
     let Some(data_base_dir) = data_base_dir else {
-        let gap = "Host has no dataBaseDir: Main must pass dataBaseDir in rpcListen.";
-        let missing = || {
-            handler(move |_arg: Wire| {
-                let gap = gap.to_owned();
-                Box::pin(async move { Err(("InvalidRequest".to_owned(), gap)) })
-            })
-        };
-        return Channel::new(
-            "escode-task",
-            vec![
-                ("getTaskMeta", missing()),
-                ("listTasks", missing()),
-                ("listPinnedTaskIds", missing()),
-                ("listPinnedTasks", missing()),
-                ("listDeletedTaskIds", missing()),
-                ("listArchivedTasks", missing()),
-                ("listTaskList", missing()),
-                ("listGroupedTaskViewStructure", missing()),
-                ("getTaskModelSelection", missing()),
-                ("getTaskSnapshot", missing()),
-                ("getTaskSnapshotWithEtag", missing()),
-                ("getTaskSnapshotBody", missing()),
-                ("getTaskSnapshotRef", missing()),
-                ("getTaskSnapshotToolCallsSlice", missing()),
-                ("getTaskConfigOptions", missing()),
-            ],
-        );
+        return super::domains_task_gap::gap_channel(&events);
     };
     let path = tasks_index_path(&data_base_dir);
+    // S3a 侧栏状态写 + workspace 事件（docs/specs/rust-u2-tasks-index.md §6.6）。
+    let state = super::domains_task_state::StateContext {
+        read: ReadContext {
+            path: path.clone(),
+            index: Arc::clone(&index),
+            targets: Arc::clone(&targets),
+            runtime: runtime.clone(),
+        },
+        events: Arc::clone(&events),
+    };
 
     let get_task_meta = handler({
         let context = ReadContext {
@@ -367,8 +352,12 @@ pub fn task_channel(
             }),
         ),
     ];
+    methods.extend(super::domains_task_state::state_methods(&state));
     methods.shrink_to_fit();
-    Channel::new("escode-task", methods)
+    Channel::new("escode-task", methods).with_events(vec![(
+        "onDynamicWorkspaceEvent",
+        super::domains_task_state::workspace_event(&events),
+    )])
 }
 
 #[cfg(test)]

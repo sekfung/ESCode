@@ -44,6 +44,15 @@ pub const NON_RPC_METHODS: &[Method] = &[
 /// Renderer RPC 面已实现的 `(channel, member)`（方法与事件同表；与 `host-rpc` 方法表双向对账，
 /// 见 host-rpc/tests/contract.rs）。新增实现必须同时改这里与方法表。
 pub const IMPLEMENTED: &[(&str, &str)] = &[
+    ("escode-task", "setTaskPinned"),
+    ("escode-task", "archiveTask"),
+    ("escode-task", "unarchiveTask"),
+    ("escode-task", "setTaskUnread"),
+    ("escode-task", "renameTask"),
+    ("escode-task", "deleteTask"),
+    ("escode-task", "deleteArchivedTask"),
+    ("escode-task", "deleteArchivedTasks"),
+    ("escode-task", "onDynamicWorkspaceEvent"),
     ("setting", "get"),
     ("setting", "update"),
     ("system", "info"),

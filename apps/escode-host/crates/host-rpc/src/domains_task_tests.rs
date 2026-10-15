@@ -73,6 +73,7 @@ fn channel_for(path: &Path) -> Channel {
         None,
         Arc::new(Mutex::new(LazyIndex::default())),
         Arc::new(TaskTargets::new()),
+        Arc::default(),
     )
 }
 
@@ -167,6 +168,7 @@ async fn missing_data_base_dir_reports_an_explicit_gap_for_every_read() {
         None,
         Arc::new(Mutex::new(LazyIndex::default())),
         Arc::new(TaskTargets::new()),
+        Arc::default(),
     );
     for method in [
         "getTaskMeta",

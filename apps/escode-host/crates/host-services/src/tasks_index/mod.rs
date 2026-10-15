@@ -18,6 +18,7 @@ mod query_shared;
 mod query_snippets;
 pub mod schema;
 mod write;
+pub mod write_state;
 
 pub use write::SyncOptions;
 
@@ -42,6 +43,8 @@ pub enum TasksIndexError {
     Sqlite(rusqlite::Error),
     /// 生成资产自校验失败（手改过 `schema.rs`）。
     AssetTampered { what: &'static str },
+    /// 状态写的目标任务不存在或已删除（TS `updateTaskState` 抛出的同一错误）。
+    TaskNotFound { task_id: String },
 }
 
 impl std::fmt::Display for TasksIndexError {
@@ -63,6 +66,10 @@ impl std::fmt::Display for TasksIndexError {
             Self::Sqlite(error) => write!(formatter, "tasks-index sqlite error: {error}"),
             Self::AssetTampered { what } => {
                 write!(formatter, "generated tasks-index {what} asset is tampered")
+            }
+            // 文案与 TS `updateTaskState` 一致（Renderer 只展示）。
+            Self::TaskNotFound { task_id } => {
+                write!(formatter, "task index 中不存在 task: {task_id}")
             }
         }
     }
@@ -139,6 +146,38 @@ impl TasksIndex {
         options: &write::SyncOptions,
     ) -> Result<Value, TasksIndexError> {
         write::sync_task_meta(&self.connection, meta_object, options)
+    }
+
+    /// TS `updateTaskState`。
+    pub fn update_task_state(
+        &self,
+        task: &write_state::TaskRef<'_>,
+        patch: &write_state::StatePatch,
+    ) -> Result<Value, TasksIndexError> {
+        write_state::update_task_state(&self.connection, task, patch)
+    }
+
+    /// TS `clearTaskUnreadIfMatches`。
+    pub fn clear_task_unread_if_matches(
+        &self,
+        task: &write_state::TaskRef<'_>,
+        expected_unread_at: i64,
+    ) -> Result<(Value, bool), TasksIndexError> {
+        write_state::clear_task_unread_if_matches(&self.connection, task, expected_unread_at)
+    }
+
+    /// 测试读原始列（行投影不含 pinned 等标记）。
+    #[cfg(test)]
+    pub(super) fn connection_for_tests(&self) -> &rusqlite::Connection {
+        &self.connection
+    }
+
+    /// TS `deleteArchivedTask`。
+    pub fn delete_archived_task(
+        &self,
+        task: &write_state::TaskRef<'_>,
+    ) -> Result<Option<Value>, TasksIndexError> {
+        write_state::delete_archived_task(&self.connection, task)
     }
 
     /// TS `TaskIndexRepo.getTaskMeta`：缺失或 `deleted = 1` 回 `None`。
@@ -296,6 +335,8 @@ pub(super) const TASK_ROW_COLUMNS: &str =
     task_status, provider, mode, model, migration_source, forked_from_task_id, cron_automation_id,
     off_peak_task_id, created_at, updated_at, unread_at, title_overridden, meta_json,
     searchable_text";
+/// `TASK_ROW_COLUMNS` 的列数（追加列从这个下标起读）。
+pub(super) const TASK_ROW_COLUMN_COUNT: usize = 19;
 
 /// 生成资产自校验：hash 与清单一致，防止手改 `schema.rs` 绕过 TS 对账。
 fn verify_assets() -> Result<(), TasksIndexError> {
@@ -347,6 +388,9 @@ mod test_support;
 #[path = "tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "write_state_tests.rs"]
+mod write_state_tests;
 #[cfg(test)]
 #[path = "write_tests.rs"]
 mod write_tests;

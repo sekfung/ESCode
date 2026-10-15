@@ -157,7 +157,10 @@ pub fn sync_task_meta(
 }
 
 /// TS `writeRecord` 的 upsert（含 unread CAS 与 `last_unread_at` 单调更新）。
-fn write_record(connection: &Connection, record: WriteRecord) -> Result<Value, TasksIndexError> {
+pub(super) fn write_record(
+    connection: &Connection,
+    record: WriteRecord,
+) -> Result<Value, TasksIndexError> {
     let meta = &record.meta;
     let workspace_path = text(meta, "workspacePath");
     let task_id = text(meta, "taskId");

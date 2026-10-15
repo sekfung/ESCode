@@ -116,6 +116,42 @@ fn truncate_utf16(text: &str, limit: usize) -> String {
     text.to_owned()
 }
 
+/// TS `hasUserVisibleContent`：快照是否已有用户可见内容（真实标题 / 目标 / 用户正文）。
+/// `createSession` 刚返回的空白会话只写索引不广播，避免侧栏先闪一个 "New session" 占位。
+pub fn has_user_visible_content(snapshot: &Value) -> bool {
+    let title = snapshot["session"]["title"]
+        .as_str()
+        .map(js_trim)
+        .unwrap_or_default();
+    if !title.is_empty() && !visible::is_goal_continuation_reminder_text(title) {
+        return true;
+    }
+    if snapshot["projection"]["target"]["objective"]
+        .as_str()
+        .is_some_and(|objective| !js_trim(objective).is_empty())
+    {
+        return true;
+    }
+    snapshot["messages"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice)
+        .iter()
+        .any(|message| {
+            message["info"]["role"] == "user"
+                && !visible::is_model_only_synthetic_user_message(message)
+                && message["parts"]
+                    .as_array()
+                    .map_or(&[][..], Vec::as_slice)
+                    .iter()
+                    .any(|part| {
+                        part["type"] == "text"
+                            && part["text"]
+                                .as_str()
+                                .is_some_and(|text| !js_trim(text).is_empty())
+                    })
+        })
+}
+
 /// TS `syncTaskIndexSnapshot` / `syncSnapshotAndBroadcast` 的索引写：`subagent_child` 不写索引。
 pub fn sync_snapshot_to_index(
     index: &TasksIndex,
@@ -210,6 +246,22 @@ mod tests {
         ]);
         let text = searchable_text_from_snapshot(&snapshot(json!({}), messages));
         assert_eq!(text, "hello\nfinal answer");
+    }
+
+    #[test]
+    fn blank_sessions_are_not_user_visible() {
+        let blank = snapshot(json!({"status": "idle"}), json!([]));
+        let mut untitled = blank.clone();
+        untitled["session"]["title"] = json!("   ");
+        assert!(!has_user_visible_content(&untitled));
+        assert!(has_user_visible_content(&blank), "real title counts");
+        let mut with_text = untitled.clone();
+        with_text["messages"] =
+            json!([{"info": {"role": "user"}, "parts": [{"type": "text", "text": " hi "}]}]);
+        assert!(has_user_visible_content(&with_text));
+        let mut with_goal = untitled;
+        with_goal["projection"]["target"] = json!({"objective": "ship it"});
+        assert!(has_user_visible_content(&with_goal));
     }
 
     #[test]

@@ -39,7 +39,8 @@ mod fixture_tests;
 
 pub use config_options::{format_model_picker_value, settings_to_config_options};
 pub use index_sync::{
-    IndexOverrides, index_meta_from_snapshot, searchable_text_from_snapshot, sync_snapshot_to_index,
+    IndexOverrides, has_user_visible_content, index_meta_from_snapshot,
+    searchable_text_from_snapshot, sync_snapshot_to_index,
 };
 pub use messages::{coalesce_consecutive_assistants, map_message};
 pub use meta::{

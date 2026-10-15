@@ -302,11 +302,14 @@ pub fn channels(
     let index = Arc::new(Mutex::new(LazyIndex::default()));
     let targets = Arc::new(TaskTargets::new());
     let drafts = Arc::new(DeferredDrafts::new());
+    // workspace 事件总线：任务域写面与 session 写面共用（Host 内唯一）。
+    let events = Arc::new(crate::workspace_events::WorkspaceEvents::default());
     let task_channel = crate::domains_task::task_channel(
         data_base_dir.clone(),
         Some(runtime.clone()),
         Arc::clone(&index),
         Arc::clone(&targets),
+        Arc::clone(&events),
     );
     let write = SessionWriteContext {
         runtime: runtime.clone(),
@@ -317,6 +320,7 @@ pub fn channels(
             runtime: Some(runtime),
         }),
         drafts,
+        events: Arc::clone(&events),
     };
     let agent =
         crate::agent_v4::agent_channel(instances.clone(), options.clone(), write.read.clone());

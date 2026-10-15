@@ -23,7 +23,7 @@ use escode_host_services::session_params::{
     with_api_retry_runtime,
 };
 use escode_host_services::task_projection::{
-    IndexOverrides, format_model_picker_value, sync_snapshot_to_index,
+    IndexOverrides, format_model_picker_value, has_user_visible_content, sync_snapshot_to_index,
 };
 
 use super::deferred_drafts::DeferredDrafts;
@@ -44,6 +44,8 @@ pub(super) struct SessionWriteContext {
     pub runtime: RuntimeAccess,
     pub read: Option<ReadContext>,
     pub drafts: Arc<DeferredDrafts>,
+    /// 写索引后广播 `workspace_task_list_changed`（与任务域共用一条总线）。
+    pub events: Arc<crate::workspace_events::WorkspaceEvents>,
 }
 
 type Error = RpcError;
@@ -86,7 +88,15 @@ pub(super) fn create_session_handler(context: SessionWriteContext) -> MethodHand
                 return Ok(Wire::Object(snapshot));
             }
             let snapshot = with_api_retry_runtime(snapshot);
-            write_index(&context, &injected, &snapshot, IndexOverrides::default()).await;
+            // 首发广播沿用 task_meta_changed（TS：一个任务一次的低频事件）。
+            write_index(
+                &context,
+                &injected,
+                &snapshot,
+                IndexOverrides::default(),
+                "task_meta_changed",
+            )
+            .await;
             Ok(Wire::Object(snapshot))
         })
     })
@@ -132,7 +142,16 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
                     model: model_override,
                     thought_level: thought_override,
                 };
-                write_index(&context, &injected, &snapshot, overrides).await;
+                // 打开/恢复是快照收敛，不改归属：task_status_changed（缺省 task_meta_changed 会让每次点开任务
+                // 都触发全局 membership 重拉）。
+                write_index(
+                    &context,
+                    &injected,
+                    &snapshot,
+                    overrides,
+                    "task_status_changed",
+                )
+                .await;
             }
             // `broadcastSnapshot: false` + modelOverride 时 TS 只改索引的 model 列（`syncTaskModel` →
             // `updateTaskState`）；索引状态写面（S3）未迁移前跳过（登记差异 §6.5-5）。
@@ -157,7 +176,15 @@ pub(super) fn set_model_handler(context: SessionWriteContext) -> MethodHandler {
                 model: Some(format_model_picker_value(params.get("model"))),
                 thought_level: None,
             };
-            write_index(&context, &params, &snapshot, overrides).await;
+            // 切模型是纯配置变更：task_model_changed（不得落到 task_meta_changed 触发列表整刷）。
+            write_index(
+                &context,
+                &params,
+                &snapshot,
+                overrides,
+                "task_model_changed",
+            )
+            .await;
             Ok(Wire::Object(snapshot))
         })
     })
@@ -306,6 +333,7 @@ async fn write_index(
     params: &Value,
     snapshot: &Value,
     overrides: IndexOverrides,
+    reason: &str,
 ) {
     let Some(read) = context.read.as_ref() else {
         return;
@@ -325,6 +353,19 @@ async fn write_index(
     match indexed {
         Ok(meta) => {
             remember_from_meta(&targets, &meta);
+            // TS `syncSnapshotAndBroadcast`：还没有用户可见内容的快照只写索引不广播（避免 "New session" 闪烁）。
+            if has_user_visible_content(snapshot) && meta["taskId"].is_string() {
+                context.events.task_list_changed(
+                    &crate::workspace_events::Target {
+                        workspace_path: meta["workspacePath"].as_str().unwrap_or_default(),
+                        workspace_identity: meta["workspaceIdentity"].as_str(),
+                        task_id: meta["taskId"].as_str(),
+                    },
+                    Some(&meta),
+                    reason,
+                    None,
+                );
+            }
             // create 的返回体里可能没有 workspace 列：用请求参数兜底登记任务目标。
             let workspace_path = workspace_path_of(params);
             if !session_id.is_empty() && !workspace_path.is_empty() {
