@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use super::WindowController;
+use super::projection::Projection;
 use crate::session::{EventStream, RpcError};
 use crate::wire::Wire;
 
@@ -26,14 +26,14 @@ struct State {
 }
 
 pub(crate) struct Scope {
-    controller: Arc<WindowController>,
+    projector: Arc<Projection>,
     state: Mutex<State>,
 }
 
 impl Scope {
-    pub(crate) fn new(controller: Arc<WindowController>) -> Arc<Self> {
+    pub(crate) fn new(projector: Arc<Projection>) -> Arc<Self> {
         Arc::new(Self {
-            controller,
+            projector,
             state: Mutex::new(State::default()),
         })
     }
@@ -68,21 +68,35 @@ impl Scope {
 
     /// `subscribeControllerV4`：投影侧登记订阅号并按 TS 顺序先发快照帧、再回 ack。
     pub(crate) fn subscribe(self: &Arc<Self>, topic: &str) -> Result<Value, RpcError> {
-        let ack = self.controller.projector().subscribe(topic, self.sink())?;
+        let ack = self.projector.subscribe(topic, self.sink())?;
         let subscription_id = ack["ack"]["subscriptionId"]
             .as_str()
             .unwrap_or_default()
             .to_owned();
-        self.lock().subscriptions.insert(subscription_id, ());
+        // 登记与收口在同一把锁下判定先后：连接已收口则立刻撤销刚登记的投影订阅，
+        // 否则它既不在 `subscriptions`（`dispose` 看不到）又留在投影里，永远泄漏。
+        let disposed = {
+            let mut state = self.lock();
+            if state.disposed {
+                true
+            } else {
+                state.subscriptions.insert(subscription_id.clone(), ());
+                false
+            }
+        };
+        if disposed {
+            self.projector.unsubscribe(&subscription_id);
+            return Err(RpcError::new("Error", "Controller 连接已关闭"));
+        }
         Ok(ack)
     }
 
     pub(crate) fn resync(&self, subscription_id: &str) -> Result<Value, RpcError> {
-        self.controller.projector().resync(subscription_id)
+        self.projector.resync(subscription_id)
     }
 
     pub(crate) fn unsubscribe(&self, subscription_id: &str) {
-        self.controller.projector().unsubscribe(subscription_id);
+        self.projector.unsubscribe(subscription_id);
         self.lock().subscriptions.remove(subscription_id);
     }
 
@@ -112,6 +126,56 @@ impl Scope {
                 .into_keys()
                 .collect()
         };
-        self.controller.projector().unsubscribe_all(&ids);
+        self.projector.unsubscribe_all(&ids);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn projection() -> Arc<Projection> {
+        let counter = std::sync::atomic::AtomicU64::new(0);
+        Arc::new(Projection::new(Box::new(move || {
+            format!(
+                "id-{}",
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            )
+        })))
+    }
+
+    #[test]
+    fn subscribe_after_dispose_is_rejected_and_leaves_no_projection_subscriber() {
+        let projector = projection();
+        let scope = Scope::new(Arc::clone(&projector));
+        scope
+            .subscribe("controller/tasks-index")
+            .expect("subscribe");
+        assert_eq!(projector.subscriber_count(), 1);
+        scope.dispose();
+        assert_eq!(projector.subscriber_count(), 0, "收口注销已登记的订阅");
+        let error = scope
+            .subscribe("controller/tasks-index")
+            .expect_err("closed");
+        assert_eq!(error.message, "Controller 连接已关闭");
+        assert_eq!(
+            projector.subscriber_count(),
+            0,
+            "收口后的订阅不得泄漏在投影里"
+        );
+    }
+
+    #[test]
+    fn early_frames_are_replayed_to_the_first_listener() {
+        let projector = projection();
+        let scope = Scope::new(projector);
+        scope.subscribe("controller/workspaces").expect("subscribe");
+        let mut stream = scope.listen();
+        let first =
+            futures_util::FutureExt::now_or_never(futures_util::StreamExt::next(&mut stream));
+        assert!(
+            matches!(first, Some(Some(Wire::Object(_)))),
+            "首帧在监听者接入前产生，接入后补发"
+        );
     }
 }

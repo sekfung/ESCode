@@ -17,6 +17,37 @@ use crate::session::RpcError;
 use crate::task_index_syncer::TaskIndexSyncer;
 use crate::workspace_events::WorkspaceEvents;
 
+/// 每 source 的“有变更信号尚未被读库消化”标记。
+///
+/// 协议（保证信号既不丢也不无限循环）：读库**之前**才 `begin_read` 清标记，因此读库期间到达的信号会留下标记、
+/// 触发续跑；读库**失败**时 `restore` 把标记放回去（否则这次信号被吞掉，投影会一直旧到下一次信号）。
+#[derive(Default)]
+pub(super) struct DirtyFlags(Mutex<BTreeMap<String, bool>>);
+
+impl DirtyFlags {
+    fn lock(&self) -> MutexGuard<'_, BTreeMap<String, bool>> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    pub(super) fn mark(&self, key: &str) {
+        self.lock().insert(key.to_owned(), true);
+    }
+
+    pub(super) fn is_dirty(&self, key: &str) -> bool {
+        self.lock().contains_key(key)
+    }
+
+    pub(super) fn begin_read(&self, key: &str) {
+        self.lock().remove(key);
+    }
+
+    pub(super) fn restore(&self, key: &str) {
+        self.mark(key);
+    }
+}
+
 /// Host 级共享句柄（进程内唯一；连接作用域只持订阅表）。
 pub(crate) struct WindowController {
     projector: Arc<Projection>,
@@ -26,7 +57,7 @@ pub(crate) struct WindowController {
     /// 每 source 的刷新串行锁（TS single-flight：并发刷新等待同一次读库）。
     refresh_locks: Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// 刷新期间到达的变更信号（在飞读结束后续跑一轮；不用超时掩蔽同步问题）。
-    dirty: Mutex<BTreeMap<String, bool>>,
+    dirty: DirtyFlags,
     /// 每 source 一次的变更监听（WorkspaceEvents 总线，登记后不再重建）。
     watchers: Mutex<BTreeMap<String, tokio::task::JoinHandle<()>>>,
 }
@@ -45,7 +76,7 @@ impl WindowController {
             events,
             syncer,
             refresh_locks: Mutex::new(BTreeMap::new()),
-            dirty: Mutex::new(BTreeMap::new()),
+            dirty: DirtyFlags::default(),
             watchers: Mutex::new(BTreeMap::new()),
         });
         controller.watch_overlay_changes();
@@ -67,12 +98,6 @@ impl WindowController {
             read: self.read.clone(),
             events: Arc::clone(&self.events),
         }
-    }
-
-    fn lock_dirty(&self) -> MutexGuard<'_, BTreeMap<String, bool>> {
-        self.dirty
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// 变更信号②：syncer 会话摘要变化（按身份键定位已登记的 source）。
@@ -143,7 +168,7 @@ impl WindowController {
 
     /// 置脏 + 后台刷新（信号路径；调用方不等待）。
     fn signal(self: &Arc<Self>, scope: &LocalScope) {
-        self.lock_dirty().insert(scope.source_key(), true);
+        self.dirty.mark(&scope.source_key());
         let weak = Arc::downgrade(self);
         let scope = scope.clone();
         tokio::spawn(async move {
@@ -176,17 +201,23 @@ impl WindowController {
             Arc::clone(locks.entry(key.clone()).or_default())
         };
         let _held = lock.lock().await;
-        let mut dirty = self.lock_dirty().remove(&key).unwrap_or(false);
-        if !force && !dirty && self.projector.refreshed(&key) {
+        if !force && !self.dirty.is_dirty(&key) && self.projector.refreshed(&key) {
             return Ok(());
         }
         loop {
-            let memberships = self.read_memberships(scope).await?;
+            self.dirty.begin_read(&key);
+            let memberships = match self.read_memberships(scope).await {
+                Ok(memberships) => memberships,
+                Err(error) => {
+                    // 读库失败：保留“仍需刷新”，下一次列表查询/信号会重试，而不是静默吞掉这次变更。
+                    self.dirty.restore(&key);
+                    return Err(error);
+                }
+            };
             let overlays = self.overlays(scope);
             self.projector
                 .replace_source_snapshot(scope, memberships, overlays);
-            dirty = self.lock_dirty().remove(&key).unwrap_or(false);
-            if !dirty {
+            if !self.dirty.is_dirty(&key) {
                 return Ok(());
             }
         }
@@ -278,5 +309,25 @@ pub(crate) fn normalize_scope(meta: &mut Value, scope: &LocalScope) {
         None => {
             record.remove("workspaceIdentity");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DirtyFlags;
+
+    #[test]
+    fn signals_during_a_read_survive_and_failed_reads_keep_the_flag() {
+        let flags = DirtyFlags::default();
+        flags.mark("s");
+        assert!(flags.is_dirty("s"));
+        flags.begin_read("s");
+        assert!(!flags.is_dirty("s"), "读库前清标记");
+        flags.mark("s");
+        assert!(flags.is_dirty("s"), "读库期间到达的信号留下标记 → 续跑");
+        flags.begin_read("s");
+        flags.restore("s");
+        assert!(flags.is_dirty("s"), "读库失败 → 放回标记，下次重试");
+        assert!(!flags.is_dirty("other"));
     }
 }

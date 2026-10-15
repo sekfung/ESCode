@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
+use escode_cli_host::file_stamp::{ChangeGate, FileStamp};
 use serde_json::{Map, Value, json};
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -43,11 +44,24 @@ struct Loaded {
     personal_providers: ProviderMap,
 }
 
-#[derive(Default)]
+/// 指纹不变时两次真读之间的最长间隔（兜底：Windows 没有 inode/ctime，同粒度原地写可能骗过指纹）。
+const FULL_READ_EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+
 struct State {
+    gate: ChangeGate,
     loaded: Option<Arc<Loaded>>,
     /// Registry 替换次数（TS `ProviderRegistry.replace` 递增的修订号）。
     revision: u64,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            gate: ChangeGate::new(FULL_READ_EVERY),
+            loaded: None,
+            revision: 0,
+        }
+    }
 }
 
 pub struct ProviderService {
@@ -82,6 +96,20 @@ impl ProviderService {
     /// TS `ensureReady()` + 读取：文件指纹变化才重新解析并推进修订号。
     async fn load(&self) -> Result<Arc<Loaded>> {
         let _guard = self.gate.lock().await;
+        // 文件指纹未变（且未到兜底间隔）就复用上次解析结果，不再读盘/解析（P1 #7 同一机制）。
+        // 指纹在读之前取：读到一半发生的变化会体现在下一轮指纹里。
+        let stamps = vec![
+            FileStamp::of(&self.builtin_path).await,
+            FileStamp::of(&self.personal_path).await,
+        ];
+        {
+            let state = lock(&self.state);
+            if let Some(loaded) = &state.loaded
+                && !state.gate.should_read(&stamps, std::time::Instant::now())
+            {
+                return Ok(Arc::clone(loaded));
+            }
+        }
         let builtin_text = tokio::fs::read_to_string(&self.builtin_path)
             .await
             .map_err(|error| {
@@ -104,9 +132,15 @@ impl ProviderService {
                 .as_ref()
                 .map_or_else(|| "none".to_owned(), canonical)
         );
-        if let Some(loaded) = lock(&self.state).loaded.clone()
+        // 先把 Arc 取出再判断：`if let` 的临时 guard 会活到整个分支结束，分支里再取锁会自锁。
+        let cached = lock(&self.state).loaded.clone();
+        if let Some(loaded) = cached
             && loaded.fingerprint == fingerprint
         {
+            // 内容没变（只是元数据变了，如 touch / 重写同内容）：不推进修订号，但记下新指纹。
+            lock(&self.state)
+                .gate
+                .record(stamps, std::time::Instant::now());
             return Ok(loaded);
         }
         let builtin: Builtin = files::parse_builtin(&builtin_value)?;
@@ -150,6 +184,7 @@ impl ProviderService {
             personal_providers: personal.providers,
         });
         state.loaded = Some(Arc::clone(&loaded));
+        state.gate.record(stamps, std::time::Instant::now());
         Ok(loaded)
     }
 
@@ -233,3 +268,7 @@ impl ProviderService {
         }))
     }
 }
+
+#[cfg(test)]
+#[path = "service_tests.rs"]
+mod service_tests;

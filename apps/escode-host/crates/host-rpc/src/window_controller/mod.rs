@@ -66,7 +66,7 @@ pub(crate) fn controller_channel(controller: Arc<WindowController>) -> ChannelFa
 }
 
 fn connection_channel(controller: &Arc<WindowController>) -> Channel {
-    let scope = scope::Scope::new(Arc::clone(controller));
+    let scope = scope::Scope::new(Arc::clone(controller.projector()));
     let subscribe = {
         let scope = Arc::clone(&scope);
         handler_rpc(move |arg: Wire| {

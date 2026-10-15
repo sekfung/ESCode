@@ -259,6 +259,12 @@ impl Projection {
         self.lock().subscribers.remove(subscription_id);
     }
 
+    /// 当前订阅数（测试与诊断）。
+    #[cfg(test)]
+    pub(crate) fn subscriber_count(&self) -> usize {
+        self.lock().subscribers.len()
+    }
+
     /// 连接收口：注销该连接登记过的全部订阅号。
     pub(crate) fn unsubscribe_all(&self, subscription_ids: &[String]) {
         let mut state = self.lock();
