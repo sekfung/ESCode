@@ -288,6 +288,17 @@ pub fn channels(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
+    channels_with(home, data_base_dir, instances, options, None)
+}
+
+/// 同 [`channels`]，并带 provider 配置文件路径（Built-in, Personal；由 Main 经 `rpcListen.runtimeEnv` 提供）。
+pub fn channels_with(
+    home: std::path::PathBuf,
+    data_base_dir: Option<std::path::PathBuf>,
+    instances: escode_host_runtime::Instances,
+    options: escode_host_surface::OptionsFactory,
+    provider_files: Option<(std::path::PathBuf, std::path::PathBuf)>,
+) -> Channels {
     let home_for_file = home.clone();
     let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
@@ -341,6 +352,7 @@ pub fn channels(
         crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(),
         crate::domains_terminal::terminal_channel(home_for_terminal),
+        crate::domains_provider::model_selection_channel(provider_files),
         task_channel,
         session_channel(instances, options, write),
     ])

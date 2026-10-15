@@ -905,16 +905,19 @@ name = "escode-host-services"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "escode-cli-domain",
  "escode-cli-host",
  "escode-host-core",
  "ignore",
  "notify",
  "portable-pty",
+ "regex",
  "rusqlite",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
  "tokio",
+ "url",
  "uuid",
 ]
 

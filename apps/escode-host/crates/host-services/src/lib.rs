@@ -6,6 +6,7 @@
 pub mod file_index;
 pub mod file_watcher;
 pub mod git;
+pub mod provider;
 pub mod session_params;
 pub mod settings;
 pub mod task_projection;

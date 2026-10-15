@@ -19,6 +19,7 @@ mod domains_file_readdir;
 mod domains_file_watcher;
 mod domains_file_workspace;
 mod domains_git;
+mod domains_provider;
 mod domains_session_model;
 mod domains_session_write;
 pub mod domains_task;

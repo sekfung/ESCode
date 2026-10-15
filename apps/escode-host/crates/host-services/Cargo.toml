@@ -20,6 +20,9 @@ uuid.workspace = true
 portable-pty.workspace = true
 notify.workspace = true
 ignore.workspace = true
+regex.workspace = true
+url.workspace = true
+escode-cli-domain.workspace = true
 escode-host-core.workspace = true
 escode-cli-host.workspace = true
 

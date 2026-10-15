@@ -76,6 +76,10 @@ portable-pty = "0.9"
 notify = "8"
 # file 域的 .escodeignore 规则（gitignore 语法；TS 侧对应 `ignore` npm 包）。
 ignore = "0.4"
+# providers 域：规则正则（JS `RegExp` 的子集）与 WHATWG URL 规范化/校验。
+regex = "1"
+url = "2"
+escode-cli-domain = { path = "../escode-cli-rust/crates/domain" }
 escode-cli-app-server = { path = "../escode-cli-rust/crates/app-server" }
 escode-cli-protocol = { path = "../escode-cli-rust/crates/protocol" }
 escode-cli-rust = { path = "../escode-cli-rust" }

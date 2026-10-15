@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：设计 · 2026-10-15（**尚无实现**；本文是动手前的盘点、切片与待决策项）
+> 状态：P1 已交付（`model-selection.getView`）· 2026-10-15；P2–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -48,3 +48,27 @@
 - zod 错误文案（`issues[].message`）要逐字对齐，只能靠差分语料覆盖；正则方言（JS 与 Rust `regex` 的回溯/前瞻差异）在 `modelMatch/apiTypeMatch/baseUrlMatch` 上是真实风险，Rust CLI 现用 `regex` crate，遇到前瞻/反向引用会整条规则失败（TS 可用）。
 - `compileModelOptionMap` 是一门小 DSL（`@escode/model-option-map`），Rust 侧已有 `domain::option_map`；P1 必须确认两者对“合法/非法”的判定一致。
 - 账号相关（P6）牵涉登录态与网络，无法纯文件差分，需要桩化的 ApiClient。
+
+## 6. P1 交付记录与登记差异
+
+**范围**：`model-selection.getView(input?)`（含 `preferredSelection`、`effectiveSelection`/`selectionIssue`、旧档位回溯）。配置路径由 Main 经
+`rpcListen.runtimeEnv` 的 `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` / `ESCODE_PERSONAL_PROVIDER_CONFIG_FILE` 提供（缺失则整条 channel 回显式缺口，不按 HOME 猜）。
+实现：`host-services/src/provider/`（`files` 文件解码、`overlay` 配置叠加、`rules` 模型规则、`complete` 完整性判定、`resolve` Registry 解析、
+`selection` 选择与视图投影、`legacy` 旧档位回溯、`mod` 服务与指纹缓存）；`host-rpc/src/domains_provider.rs`。
+
+**验收**：`packages/desktop/test/rustHostProvider.test.ts`——真实 `config/provider/escode-builtin.json` + 15 种 Personal 场景（无文件 / 空 / 多 Provider / 顺序 /
+手动规则 / 智能规则禁用模型 / 默认选择的有效、未知 Provider、坏档位、缺档位、隐藏、旧档位 `off` 及其被个人覆盖阻断 / 非法文件降级 / 不支持版本）× 17 种 `getView` 入参
+（含账号类 Provider 的分类），与真实 TS `ProviderRuntime.modelSelection` 逐项 `toEqual`。负向验证：旧档位回溯、最高档位推荐、Provider 顺序、账号分类各改坏一次，均失败
+（手动规则的 `clearManual` 在合法输入下不可观察，由 `rules_tests.rs` 单测守住）。
+
+**登记差异（不修）**：
+
+1. **叶子值域校验粒度**：TS 对 Built-in / Personal 文件整体 zod 严格校验，叶子值非法则整份文件失败；Rust 只在“键集合 / 版本 / 唯一性 / 组”层面拒绝整份文件，叶子非法的单个 Provider/Model 由完整性判定排除出 Registry。
+2. **正则方言**：规则里的 `modelMatch/apiTypeMatch/baseUrlMatch` 用 Rust `regex`（无前瞻/反向引用）；不支持的写法使该规则永不命中并 warn（TS 会按 JS 方言命中）。
+3. **option map 判定**：TS 以 `compileModelOptionMap` 编译判定；Rust 用 `escode_cli_domain::option_map::evaluate` 以代表值试算（解析或试算失败即不合格）。
+4. **URL 校验**：zod `url()` 对应 `url::Url::parse`（WHATWG），边缘写法可能不同。
+5. **Personal 读取不规范化重写**（§4.2 决策）；变更检测基于“解析后再序列化”的内容指纹，而不是 TS 的规范编码 SHA-256。
+6. **修订号**：首次加载为 1，之后每次内容指纹变化 +1；TS 在 Personal 变更时可能因默认选择源与 Registry 各发一次事件而 +2，具体数值不外露语义（只要求单调）。
+7. **账号源**：P1 没有账号源，恒用 fail-closed Overlay（账号类 Provider 全部 `entitled:false`，且 `account-plan` 选择一律 `account-connection-unavailable`）。
+8. **Built-in 来源**：仅读 `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向的一份文件（Bundled 或 TS 已物化的 Active），无 Active/LKG/Remote（P5）。
+9. **`onDidChange`**：未实现（P4），事件订阅回 NotImplemented。
