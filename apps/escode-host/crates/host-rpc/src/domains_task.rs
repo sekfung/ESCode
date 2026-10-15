@@ -44,6 +44,7 @@ pub(crate) fn task_channel(
         return super::domains_task_gap::gap_channel(&events);
     };
     let path = tasks_index_path(&data_base_dir);
+    let runtime_for_restart = runtime.clone();
     // S3a 侧栏状态写 + workspace 事件（docs/specs/rust-u2-tasks-index.md §6.6）。
     let state = super::domains_task_state::StateContext {
         read: ReadContext {
@@ -354,6 +355,10 @@ pub(crate) fn task_channel(
     ];
     methods.extend(super::domains_task_state::state_methods(&state));
     methods.extend(super::domains_task_groups::group_methods(&state));
+    methods.push((
+        "restartWorkspaceProcess",
+        super::domains_task_runtime::restart_workspace_process(runtime_for_restart),
+    ));
     methods.shrink_to_fit();
     Channel::new("escode-task", methods).with_events(vec![(
         "onDynamicWorkspaceEvent",

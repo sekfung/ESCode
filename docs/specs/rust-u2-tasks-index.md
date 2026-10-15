@@ -456,6 +456,13 @@ available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛
 与 Rust Host（真实客户端），每步后比较 `listGroupedTaskViewStructure`（group id 归一化、时间戳剔除；TS 一侧只允许多出上述隐式补齐的 task 排序行）与全部错误文案，并断言广播次数。
 负向验证：新组插到最底、删组不删排序、排序步长改错、事件 reason 改错，均失败。
 
+## 6.9 `restartWorkspaceProcess`（2026-10-15）
+
+`escode-task.restartWorkspaceProcess`（Renderer「重新加载工作区会话」调用，`useWorkspaceSessionReload.ts`）= TS `escodeAgentService.disposeWorkspace`：使该身份的 runtime 实例失效，
+之后的 `prepareWorkspace` 等调用懒重启（新世代）。Rust：`Instances::close(identity)`（槽位与世代保留，重启时世代 +1）。**不是**任务 teardown：任务目标注册表、V4 订阅、workspace 事件监听均不动（TS 同注释）。
+未知身份 / 重复调用幂等；残余任务只记日志。验收：`tests/rpc_task_restart.rs`（关闭 → `live` 为空 → 下次使用世代 +1 → 空 workspace 幂等；去掉 `close` 即失败）。
+登记差异：TS 另清理 `waiting provider-ready` 续跑、V4 订阅路由与 CUA turn 追踪——Rust 无对应进程内状态（V4 订阅随实例生命周期事件重连，见 agent-v4 spec）。
+
 ## 7. 验收与环境
 
 - **双 Host 交替写读演练**（父计划验收项）：TS Host 与 Rust Host 交替对同一 `tasks-index.sqlite` 建/改/归档任务，逐字段比对（复用 `scripts/test-escode-host-interop.mjs` 的形态，新增 tasks-index 用例）；

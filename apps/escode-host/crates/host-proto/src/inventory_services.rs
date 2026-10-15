@@ -66,6 +66,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-task", "updateTaskGroupColor"),
     ("escode-task", "deleteTaskGroup"),
     ("escode-task", "applyGroupedTaskViewOrder"),
+    ("escode-task", "restartWorkspaceProcess"),
     ("setting", "get"),
     ("setting", "update"),
     ("system", "info"),

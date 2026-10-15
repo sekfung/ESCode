@@ -28,6 +28,14 @@ pub async fn start_with_data_base_dir(
     home: &std::path::Path,
     data_base_dir: &std::path::Path,
 ) -> RpcSurface {
+    start_with_instances(home, data_base_dir).await.0
+}
+
+/// 同上，并交出实例表句柄（测试断言实例的世代与存活）。
+pub async fn start_with_instances(
+    home: &std::path::Path,
+    data_base_dir: &std::path::Path,
+) -> (RpcSurface, escode_host_runtime::Instances) {
     let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
     let options: escode_host_surface::OptionsFactory = std::sync::Arc::new({
         let home = home.to_path_buf();
@@ -52,9 +60,14 @@ pub async fn start_with_data_base_dir(
         instances.clone(),
         options,
     );
-    escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, Some(instances))
-        .await
-        .expect("rpc surface starts")
+    let surface = escode_host_rpc::serve(
+        "127.0.0.1:0".parse().unwrap(),
+        channels,
+        Some(instances.clone()),
+    )
+    .await
+    .expect("rpc surface starts");
+    (surface, instances)
 }
 
 /// 极简 HTTP 客户端（GET/POST + 可选头），返回 (status, json body)。
