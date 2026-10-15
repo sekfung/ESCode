@@ -9,7 +9,7 @@ pub fn js_trim(value: &str) -> &str {
     value.trim_matches(is_js_space)
 }
 
-fn is_js_space(character: char) -> bool {
+pub fn is_js_space(character: char) -> bool {
     (character.is_whitespace() && character != '\u{85}') || character == '\u{feff}'
 }
 

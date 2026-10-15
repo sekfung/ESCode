@@ -21,6 +21,7 @@ mod domains_file_readdir;
 mod domains_file_watcher;
 mod domains_file_workspace;
 mod domains_git;
+mod domains_output_style;
 mod domains_plugin;
 mod domains_provider;
 mod domains_provider_write;
