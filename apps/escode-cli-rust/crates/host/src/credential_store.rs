@@ -144,6 +144,25 @@ impl CredentialStore {
         .await?;
         Ok(())
     }
+    /// Host 凭据服务（TS `ICredentialService.save`）：值允许空串（CLI 的 `save` 不允许）。
+    pub async fn save_value(&self, key: &str, value: &str) -> Result<()> {
+        ensure!(!key.trim().is_empty(), "Credential key must not be empty");
+        let sealed = self.cipher.encrypt(value)?;
+        let key = key.trim().to_owned();
+        self.mutate(move |raw, _| {
+            raw.insert(key, Value::String(sealed));
+            Ok(true)
+        })
+        .await?;
+        Ok(())
+    }
+    /// Host 凭据服务（TS `ICredentialService.delete`）：无条件删除，键不存在不写盘。
+    pub async fn delete(&self, key: &str) -> Result<()> {
+        let key = key.trim().to_owned();
+        self.mutate(move |raw, _| Ok(raw.remove(&key).is_some()))
+            .await?;
+        Ok(())
+    }
     pub async fn save(&self, key: &str, value: &str) -> Result<()> {
         self.save_many(&[(key.to_owned(), value.to_owned())]).await
     }

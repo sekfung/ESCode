@@ -11,6 +11,7 @@ mod collation;
 mod connection;
 mod deferred_drafts;
 pub mod domains;
+mod domains_credential;
 pub mod domains_file;
 mod domains_file_channel;
 mod domains_file_index;
