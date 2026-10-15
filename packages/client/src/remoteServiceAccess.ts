@@ -8,7 +8,6 @@ import {
   ISystemService,
   ITerminalService,
   ISerialService,
-  ICircuitService,
   ISettingService,
   IOnboardingRecordService,
   ICredentialService,
@@ -68,9 +67,6 @@ export class RemoteServiceAccess implements IServiceAccessor {
   // 只有 Desktop Local Host 注册 serial channel；Web/远端 server 上该代理存在但不会被调用，
   // UI 由 IPlatformService.supportsSerialPort 决定是否展示入口。
   readonly serialService: ISerialService;
-  // 持有该 workspace 的 Host 注册 circuit channel；独立 server / Web 客户端没有该服务，
-  // 面板入口由平台能力决定（docs/circuit/README.md §3.1、§3.5）。
-  readonly circuitService: ICircuitService;
   readonly settingService: ISettingService;
   readonly onboardingRecordService: IOnboardingRecordService;
   readonly credentialService: ICredentialService;
@@ -140,9 +136,6 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.serialService = ProxyChannel.toService<ISerialService>(
       channelClient.getChannel(ISerialService.channelName),
-    );
-    this.circuitService = ProxyChannel.toService<ICircuitService>(
-      channelClient.getChannel(ICircuitService.channelName),
     );
     this.settingService = ProxyChannel.toService<ISettingService>(
       channelClient.getChannel(ISettingService.channelName),

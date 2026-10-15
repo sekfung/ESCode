@@ -10,8 +10,6 @@ export function createDesktopPlatform(options: {
   return {
     canSelectFilePath: true,
     supportsSerialPort: true,
-    // 电路面板：IR 由该窗口的 Local Host / 远程 workspace Host 持有（docs/circuit/README.md §3.5）。
-    supportsCircuit: true,
     pluginSandbox: createDesktopPluginSandboxPlatform(),
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
     isLocalDevelopmentRuntime: options.isLocalDevelopmentRuntime,

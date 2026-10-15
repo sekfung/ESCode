@@ -241,15 +241,6 @@ const officialPluginPackages = [
     stagedPath: "packages/serial-plugin",
   },
   {
-    // 电路官方插件：同样必须同时 stage MCP runtime 与 circuit skill（seed 的 requiredSeedPaths）。
-    packageName: "@escode/circuit-plugin",
-    relativePath: "apps/escode-cli/packages/circuit-plugin",
-    requiresRuntime: true,
-    requiredRuntimePaths: ["dist/mcp/server.js", "skills/circuit/SKILL.md"],
-    runtimeBuildScript: "scripts/build.mjs",
-    stagedPath: "packages/circuit-plugin",
-  },
-  {
     // USB 官方插件：MCP server 与技能都要 stage；只 stage 技能会装出「有说明书没有工具」的残缺插件。
     packageName: "@escode/usb-plugin",
     relativePath: "apps/escode-cli/packages/usb-plugin",

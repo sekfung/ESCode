@@ -144,39 +144,6 @@
       }
     },
     {
-      "name": "circuit",
-      "version": "0.1.0",
-      "rootCandidates": [
-        "packages/circuit-plugin",
-        "../circuit-plugin",
-        "../../circuit-plugin",
-        "../../../circuit-plugin"
-      ],
-      "requiredSeedPaths": ["dist/mcp/server.js", "skills/circuit/SKILL.md"],
-      "runtimeTopLevelPaths": [],
-      "defaultAllowedTools": [
-        "circuit_parse",
-        "circuit_get",
-        "circuit_query",
-        "circuit_correct",
-        "circuit_compare_firmware"
-      ],
-      "listing": {
-        "author": {
-          "name": "Z.ai",
-          "url": "https://z.ai"
-        },
-        "category": "developer-tools",
-        "displayName": "Circuit Analysis",
-        "displayName_i18n": {
-          "zh-CN": "电路分析"
-        },
-        "description_i18n": {
-          "zh-CN": "读取 KiCad / 立创EDA 原理图与 PCB：解释电路结构、按位号与网络查询连接、应用修正。"
-        }
-      }
-    },
-    {
       "name": "visualize",
       "version": "0.1.0",
       "rootCandidates": [

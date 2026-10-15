@@ -95,8 +95,6 @@ export const ServiceChannels = {
   Terminal: "terminal",
   /** 串口调试器；仅 Desktop Local Host 注册 */
   Serial: "serial",
-  /** 电路识别与分析（IR 由 Host 内的 CircuitService 持有，ADR 0005） */
-  Circuit: "circuit",
   /** Git 服务 */
   Git: "git",
   /** Git checkpoint 服务 */

@@ -70,7 +70,7 @@ export function createUsbMcpServer(base: UsbBaseContext): Server {
 /** 由插件宿主导入并调用。进程结束前必须杀掉在跑的抓包工具，避免留下孤儿进程与 .partial 文件。 */
 export async function main(): Promise<void> {
   process.title = "escode-usb-mcp";
-  // 不传 `{ legacy: "reject" }`：serial/circuit 能拒绝旧版协商，是因为宿主注入的 MCP 配置里
+  // 不传 `{ legacy: "reject" }`：serial 能拒绝旧版协商，是因为宿主注入的 MCP 配置里
   // 固定了 protocolVersion（见 built-in-serial.ts）；本插件的 server 由 manifest 自声明，
   // 没有那个注入点，拒绝旧版会让 usb_* 工具整组不可用（与 android-emulator / ios-simulator 同）。
   const handle = serveStdio(() => createUsbMcpServer(resolveUsbBaseContext(process.env)));

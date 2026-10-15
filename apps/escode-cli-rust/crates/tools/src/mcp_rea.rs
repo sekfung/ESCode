@@ -3,7 +3,7 @@
 //! 经 Host 插件启动器用自带 Node 运行插件的 `dist/mcp/server.js` —— 因此不要求用户装 Node/npm，
 //! 也绕开 Rust 宿主无法执行 `npx` 这类 `.cmd` shim 的限制。
 //!
-//! 与 serial/circuit 的两点不同：没有 broker，所以没有 `ESCODE_HOST_*` 门禁（门禁是「插件启用 + 启动器
+//! 与 serial 的两点不同：没有 broker，所以没有 `ESCODE_HOST_*` 门禁（门禁是「插件启用 + 启动器
 //! env 可用」）；隔离语义是 `session` 而不是 `workspace`（REA 在服务端持有 binary session）。
 use super::{extension_plugins::Plugin, mcp_config::Server};
 use serde_json::Value;

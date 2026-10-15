@@ -177,8 +177,6 @@ import {
 } from "@/v4/composer/configPickerState.js";
 import { WebElementContextAttachmentChip } from "@/v4/composer/WebElementContextAttachmentChip.js";
 import { ConversationSelectionReferenceChip } from "@/v4/composer/ConversationSelectionReferenceChip.js";
-import { CircuitReferenceChip } from "@/circuit/index.js";
-import { useCircuitDraftReferences } from "@/hooks/useCircuitDraftReferences.js";
 import type { AttachmentPutFn } from "@/v4/composer/attachmentUpload.js";
 import { useScopedConversationTelemetrySupervisor } from "@/v4/telemetry/ConversationTelemetryAttachment.js";
 import type { ConversationPromptTelemetrySeed } from "@/v4/telemetry/conversationTelemetrySupervisor.js";
@@ -834,13 +832,6 @@ function ConversationComposerImpl({
     clearReferences: clearConversationSelectionReferences,
   } = useConversationSelectionReferences({ sessionId, workspaceKey });
   const hasConversationSelectionReferences = conversationSelectionReferences.length > 0;
-  // 电路面板插入的引用 chip（docs/circuit/README.md §8）：只属于 renderer 草稿，不自动发送。
-  const {
-    references: circuitDraftReferences,
-    removeReference: removeCircuitDraftReference,
-    removeReferences: removeCircuitDraftReferences,
-    clearReferences: clearCircuitDraftReferences,
-  } = useCircuitDraftReferences(workspaceKey);
 
   // ── 草稿 per-session 持久化（切会话/刷新不丢；mention pill 经 editorStateJson 保真）──
   const draftScopeRef = useRef(draftScopeId);
@@ -982,7 +973,6 @@ function ConversationComposerImpl({
           webElementContexts.length > 0 ||
           pptxElementReferences.length > 0 ||
           conversationSelectionReferences.length > 0 ||
-          circuitDraftReferences.length > 0 ||
           pluginUiContexts.length > 0,
         inputApi: inputApiRef.current,
         request: composerRestoreRequest,
@@ -1014,7 +1004,6 @@ function ConversationComposerImpl({
   }, [
     attachmentsApi.attachments.length,
     attachmentsApi.restoreSessionOwnedAttachments,
-    circuitDraftReferences.length,
     codeCommentContexts.length,
     composerRestoreRequest,
     conversationSelectionReferences.length,
@@ -1200,9 +1189,6 @@ function ConversationComposerImpl({
   const canStop = Boolean(snapshot?.control.canStop);
   const modifiedEnterReversesDelivery = modifiedEnterSubmits && canStop;
   const hasText = text.trim().length > 0;
-  // 同一次接入遗漏的其余三处：可提交草稿判定、草稿内容判定与 allowSubmitWhenEmpty 也必须与
-  // 其它五类上下文一致地包含电路引用，否则「只带电路 chip 的草稿」显示不出来也发不出去
-  // （submit 路径本身已经支持它，见下方 hasPendingCircuitDraftReferences）。
   const hasDraftToSubmit =
     hasText ||
     hasAttachments ||
@@ -1210,7 +1196,6 @@ function ConversationComposerImpl({
     hasWebElementContexts ||
     hasPptxElementReferences ||
     hasConversationSelectionReferences ||
-    circuitDraftReferences.length > 0 ||
     hasPluginUiContexts ||
     Boolean(pendingShareContext);
   const hasComposerDraftContent =
@@ -1220,7 +1205,6 @@ function ConversationComposerImpl({
     hasWebElementContexts ||
     hasPptxElementReferences ||
     hasConversationSelectionReferences ||
-    circuitDraftReferences.length > 0 ||
     hasPluginUiContexts ||
     Boolean(pendingShareContext);
   useEffect(() => {
@@ -1269,8 +1253,6 @@ function ConversationComposerImpl({
       const hasPendingPptxElementReferences = currentPptxElementReferences.length > 0;
       const currentConversationSelections = conversationSelectionReferences;
       const hasPendingConversationSelections = currentConversationSelections.length > 0;
-      const currentCircuitDraftReferences = circuitDraftReferences;
-      const hasPendingCircuitDraftReferences = currentCircuitDraftReferences.length > 0;
       const submittedShareContext = pendingShareContext;
       // 草稿首发 accepted 后同一 composer 会原地从 __draft__ promotion 到
       // session scope；若成功清理时再读可变 ref，会误清新 scope，并把首条输入残留在
@@ -1286,7 +1268,6 @@ function ConversationComposerImpl({
           !hasPendingWebElementContexts &&
           !hasPendingPptxElementReferences &&
           !hasPendingConversationSelections &&
-          !hasPendingCircuitDraftReferences &&
           !hasPendingPluginUiContexts &&
           !submittedShareContext) ||
         pendingRef.current ||
@@ -1426,7 +1407,6 @@ function ConversationComposerImpl({
           conversationSelections: [],
           webElements: currentWebElementContexts,
           pptxElements: currentPptxElementReferences,
-          circuitReferences: currentCircuitDraftReferences,
           pluginUiContexts: currentPluginUiContexts,
         });
         const contextAttachmentCount =
@@ -1435,7 +1415,6 @@ function ConversationComposerImpl({
             conversationSelections: currentConversationSelections,
             webElements: currentWebElementContexts,
             pptxElements: currentPptxElementReferences,
-            circuitReferences: currentCircuitDraftReferences,
             pluginUiContexts: currentPluginUiContexts,
           }) + (submittedShareContext ? 1 : 0);
         if (trimmed) {
@@ -1547,7 +1526,6 @@ function ConversationComposerImpl({
         currentConversationSelections.forEach((reference) =>
           removeConversationSelectionReference(reference.id),
         );
-        removeCircuitDraftReferences(currentCircuitDraftReferences);
         // 发送成功：清本次提交捕获的 scope 草稿；prompt history 已在真实发送前同步写盘，
         // 避免首发 promote 丢失或误清 promotion 后的新 scope。
         finalizeSubmittedDraft();
@@ -1574,7 +1552,6 @@ function ConversationComposerImpl({
     },
     [
       attachmentsApi,
-      circuitDraftReferences,
       conversationSelectionReferences,
       conversationTelemetry,
       draftConfig,
@@ -1588,7 +1565,6 @@ function ConversationComposerImpl({
       provider,
       readPlanIdentitySnapshot,
       removeCodeCommentContext,
-      removeCircuitDraftReferences,
       removeConversationSelectionReference,
       removePptxElementReference,
       removeWebElementContext,
@@ -1826,17 +1802,12 @@ function ConversationComposerImpl({
     [composerAttachments],
   );
   const topContentNode = useMemo(() => {
-    // Bug 根因：G5 接入电路引用时漏了这个前置短路——它枚举了其它五类上下文，唯独没有
-    // circuitDraftReferences。只有电路 chip 时 memo 提前返回 null，等于把输入框上方整行
-    // 附件/chip 一起隐藏（后续 JSX 里的条件虽然包含电路引用，但走不到）。修复：与其余
-    // 上下文类型同源枚举，草稿里只要有电路引用就渲染这一行。
     if (
       composerAttachments.length === 0 &&
       codeCommentContexts.length === 0 &&
       webElementContexts.length === 0 &&
       pptxElementReferences.length === 0 &&
       conversationSelectionReferences.length === 0 &&
-      circuitDraftReferences.length === 0 &&
       pluginUiContexts.length === 0
     ) {
       return null;
@@ -2111,7 +2082,6 @@ function ConversationComposerImpl({
         webElementContexts.length > 0 ||
         pptxElementReferences.length > 0 ||
         conversationSelectionReferences.length > 0 ||
-        circuitDraftReferences.length > 0 ||
         pluginUiContexts.length > 0 ? (
           <div
             className="flex max-w-full flex-wrap items-center gap-2"
@@ -2143,11 +2113,6 @@ function ConversationComposerImpl({
               onRemove={removeConversationSelectionReference}
               onRemoveAll={clearConversationSelectionReferences}
             />
-            <CircuitReferenceChip
-              references={circuitDraftReferences}
-              onRemove={removeCircuitDraftReference}
-              onRemoveAll={clearCircuitDraftReferences}
-            />
           </div>
         ) : null}
       </div>
@@ -2155,9 +2120,7 @@ function ConversationComposerImpl({
   }, [
     attachmentPreviewTitle,
     attachmentsApi,
-    circuitDraftReferences,
     clearCodeCommentContexts,
-    clearCircuitDraftReferences,
     clearConversationSelectionReferences,
     clearWebElementContexts,
     clearPluginUiContexts,
@@ -2169,7 +2132,6 @@ function ConversationComposerImpl({
     intl,
     locale,
     removeCodeCommentContext,
-    removeCircuitDraftReference,
     removeConversationSelectionReference,
     removeWebElementContext,
     removePluginUiContext,
@@ -2482,7 +2444,6 @@ function ConversationComposerImpl({
             hasWebElementContexts ||
             hasPptxElementReferences ||
             hasConversationSelectionReferences ||
-            circuitDraftReferences.length > 0 ||
             hasPluginUiContexts
           }
           enterSubmits={enterSubmits}

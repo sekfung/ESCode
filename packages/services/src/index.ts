@@ -379,29 +379,3 @@ export { createHighspeedMockTransport } from "./highspeed/highspeedMockTransport
 
 export { IGenUiService } from "./gen-ui/contract.js";
 export type { GenUiPrepareParams } from "./gen-ui/contract.js";
-
-/** 电路识别与分析（docs/circuit/README.md；IR 由 Host 内的 CircuitService 持有，ADR 0005）。 */
-export { ICircuitService } from "./circuit/contract.js";
-export type {
-  CircuitChangedEvent,
-  CircuitCorrectParams,
-  CircuitCorrectionListEntry,
-  CircuitFindBySourceParams,
-  CircuitIrParams,
-  CircuitIrView,
-  CircuitLayout,
-  CircuitLayoutPin,
-  CircuitLayoutShape,
-  CircuitLayoutSheet,
-  CircuitLayoutSymbol,
-  CircuitLayoutText,
-  CircuitParseParams,
-  CircuitQueryParams,
-  CircuitQueryResult,
-  CircuitSourceInfo,
-  CircuitWorkspaceRef,
-} from "./circuit/contract.js";
-export type {
-  CircuitCorrectionRecord,
-  CorrectionTarget,
-} from "./circuit/domain/circuitCorrections.js";

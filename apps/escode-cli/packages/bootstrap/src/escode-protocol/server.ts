@@ -145,8 +145,6 @@ import {
 import { createInMemorySessionEventStore } from "@escode/contracts";
 import type { SerialControlPort } from "../app/serial-broker.js";
 import { createProtocolSerialControlPort } from "./serial-control-broker.js";
-import type { CircuitControlPort } from "../app/circuit-broker.js";
-import { createProtocolCircuitControlPort } from "./circuit-control-broker.js";
 
 export type { ESCodeProtocolAgentDependencies, ESCodeProtocolSessionRecord };
 
@@ -245,8 +243,6 @@ export class ESCodeProtocolAgentServer {
   readonly browserControlPort: BrowserControlPort;
   /** Agent 串口工具的 Host 通道；进程级 serial broker 经它发 interaction/serial* 反向请求。 */
   readonly serialControlPort: SerialControlPort;
-  /** Agent 电路工具的 Host 通道；进程级 circuit broker 经它发 interaction/circuit* 反向请求。 */
-  readonly circuitControlPort: CircuitControlPort;
   /**
    * 官方 MCP 身份头端口所需的最小上下文。
    * MCP 连接池的构造早于 server，需要在 server 就绪后回填闭包持有的引用——
@@ -323,7 +319,6 @@ export class ESCodeProtocolAgentServer {
     this.context.v4Gateway = createConversationV4Gateway(this.context);
     this.browserControlPort = createProtocolBrowserControlBroker(this.context);
     this.serialControlPort = createProtocolSerialControlPort(this.context);
-    this.circuitControlPort = createProtocolCircuitControlPort(this.context);
     const sessionResidentTargetCount =
       deps.sessionResidentPoolOptions?.targetCount ?? deps.sessionResidentTargetCount;
     const sessionResidentHighWaterCount =

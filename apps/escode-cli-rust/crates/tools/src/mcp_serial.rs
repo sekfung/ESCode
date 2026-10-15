@@ -25,10 +25,10 @@ pub(super) fn server(plugins: &[Plugin], cwd: &Path) -> Option<Server> {
     host_plugin_server(NAME, PLUGIN, TIMEOUT_MS, "workspace", &[], plugins, cwd)
 }
 
-/// 宿主注入的官方插件 MCP server（serial / circuit / rea 共用）：插件启用时经 Host 插件启动器运行其
+/// 宿主注入的官方插件 MCP server（serial / rea 共用）：插件启用时经 Host 插件启动器运行其
 /// `dist/mcp/server.js`。
 ///
-/// `isolation` 是入参而不是常量：serial/circuit 的状态所有者是 Host 服务（一个串口 / 一份电路 IR），
+/// `isolation` 是入参而不是常量：serial 的状态所有者是 Host 服务（一个串口），
 /// 进程可以跨会话复用；rea 在服务端持有 binary session，必须按会话独占（TS 侧同，见
 /// docs/specs/rea-plugin.md 的「运行时安放」）。
 ///
@@ -93,7 +93,7 @@ fn config(
         "cwd": cwd.to_string_lossy(),
         "env": env,
         "isolation": isolation,
-        // serial / circuit / rea 的 server 只接受现代协商（serveStdio legacy: "reject"），固定协议版本。
+        // serial / rea 的 server 只接受现代协商（serveStdio legacy: "reject"），固定协议版本。
         "protocolVersion": "2026-07-28",
         "timeoutMs": timeout_ms,
     })

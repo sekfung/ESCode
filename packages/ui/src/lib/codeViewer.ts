@@ -27,12 +27,6 @@ export interface FileCodeViewerSource extends CodeViewerWorkspaceScope {
   type: "file";
   title: string;
   path: string;
-  /**
-   * 由 `::circuit` 卡片打开时的定位信息（规格 §8）：面板据此把打开的文件与引用里的 irId 对应。
-   * 普通文件预览没有该字段——PDF / 图片只有带这个标记时才路由到电路面板，
-   * 避免把普通的图片、PDF 预览换成电路面板的识别提示。
-   */
-  circuitPanel?: { irId: string };
 }
 
 export interface CodeReviewAnchor {

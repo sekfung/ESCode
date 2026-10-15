@@ -111,7 +111,7 @@ export function seedProviderReadinessHistoryFixture(
 /**
  * 同一份固定历史注入到**已存在**的 CLI session DB 与 App tasks-index（不启动 CLI 初始化 schema）。
  *
- * 适用场景：用例必须先跑出真实结果（例如电路面板解析出的 irId），再用它构造 assistant 消息；
+ * 适用场景：用例必须先跑出真实结果（例如面板解析出的标识），再用它构造 assistant 消息；
  * 此时 Host 已经在跑，只能在两次冷启动之间落盘。两张库都是 WAL（多进程安全），写完由调用方
  * 整机冷启动，让 Host/CLI 重新读取 tasks-index membership 与 session 正文。
  */

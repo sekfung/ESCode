@@ -55,16 +55,11 @@ pub(super) async fn agent_output(
 /// 合并后取 `permission` 段）。CLI 的 --allowed-tools/--disallowed-tools 在 TS 侧也投影到这段。
 pub(super) async fn permission_config(tools: &WorkspaceTools) -> crate::domain::permission::Config {
     let mut config = super::extension_config::permission_config(&tools.cwd).await;
-    // 官方 serial / circuit / rea 插件的 defaultAllowedTools 免审批（TS resolveOfficialPluginDefaultAllowedTools）。
+    // 官方 serial / rea 插件的 defaultAllowedTools 免审批（TS resolveOfficialPluginDefaultAllowedTools）。
     config
         .allowed
         .extend(super::mcp_serial::default_allowed_tools(
             super::mcp_serial::host_serial_available(),
-        ));
-    config
-        .allowed
-        .extend(super::mcp_circuit::default_allowed_tools(
-            super::mcp_circuit::host_circuit_available(),
         ));
     config.allowed.extend(super::mcp_rea::default_allowed_tools(
         super::mcp_rea::host_rea_available(),

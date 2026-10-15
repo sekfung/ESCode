@@ -7,7 +7,6 @@ import type { NodeReplBrowserBroker } from "../app/node-repl-browser-broker.js";
 import type { ESCodeProcessResourceSampler } from "../process-resource-sampler.js";
 import type { ESCodeProtocolAgentServer } from "./server.js";
 import type { SerialBroker } from "../app/serial-broker.js";
-import type { CircuitBroker } from "../app/circuit-broker.js";
 
 const DEFAULT_CLEANUP_BUDGET_MS = 1_200;
 const CLEANUP_STEP_BUDGET_MS = 400;
@@ -20,7 +19,6 @@ export async function cleanupProtocolRuntime(options: {
   mcpTelemetryTracker?: Pick<McpTelemetryTracker, "stop">;
   nodeReplBrowserBroker?: Pick<NodeReplBrowserBroker, "close">;
   serialBroker?: Pick<SerialBroker, "close">;
-  circuitBroker?: Pick<CircuitBroker, "close">;
   mcpPort?: Pick<McpPort, "close">;
   mcpConnectionPool?: Pick<McpConnectionPool, "close">;
   sessionStore?: SqliteSessionStore;
@@ -59,7 +57,6 @@ export async function cleanupProtocolRuntime(options: {
   await Promise.all([
     step("node_repl_browser_broker", () => options.nodeReplBrowserBroker?.close()),
     step("serial_broker", () => options.serialBroker?.close()),
-    step("circuit_broker", () => options.circuitBroker?.close()),
     // 不能在同一个 finally 内 await：port 挂起时 pool 仍必须得到 close。
     step("mcp", () => options.mcpPort?.close()),
     step("mcp_pool", () => options.mcpConnectionPool?.close()),

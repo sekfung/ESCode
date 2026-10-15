@@ -6,7 +6,6 @@
 pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("bots", &["beginFeishuRegistration", "beginWeixinRegistration", "createBindCode", "deleteBot", "getBotStates", "getConfig", "getGroupMemberNames", "getStatus", "getTopicDetails", "getUserConfigOptions", "handleInboundMessage", "handleProviderCallback", "handleProviderCallbackResponse", "listBots", "listWorkspaceRefs", "pollFeishuRegistration", "pollWeixinRegistration", "readTopicResource", "reconcileGroupResult", "removeBotSecret", "replyToChannel", "resendGroupResult", "resetBotState", "retryPrivateDelivery", "retryTopicPreparation", "saveBot", "saveConfig", "setGroupEnabled", "syncAppRuntimePreferences", "testBot", "validateTopicResource", "watchAutomationRun"]),
     ("broadcast", &["acquireClaim", "commitClaim", "onMessage", "releaseClaim", "send", "tryClaim"]),
-    ("circuit", &["compareFirmware", "correct", "dropCorrection", "exportSnapshot", "findBySource", "get", "getLayout", "listCorrections", "onChanged", "parse", "query"]),
     ("client-config", &["getSnapshot"]),
     ("client-scenes", &["list"]),
     ("cloud-content", &["prepare", "readPublishedMedia", "release"]),

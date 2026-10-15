@@ -202,9 +202,6 @@ export const resolveBuildAliases = ({
   // Agent 串口工具契约（serial broker / 官方 serial 插件）；漏声明同样会被通用前缀改写成
   // `src/index.ts/serial`，Desktop agent/SEA 打包失败。
   "@escode/shared/serial": resolve(rootDirectory, "../../packages/shared/src/serial/index.ts"),
-  // 电路识别契约（circuit broker / 官方 circuit 插件）；漏声明同样会被通用前缀改写成
-  // `src/index.ts/circuit`，Desktop agent/SEA 打包失败。
-  "@escode/shared/circuit": resolve(rootDirectory, "../../packages/shared/src/circuit/index.ts"),
   // 通用 alias 会把子入口拼到 index.ts 后，发行实现必须独立解析。
   "@escode/shared/request-security": resolve(
     rootDirectory,

@@ -34,8 +34,6 @@ export const OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME = "node-repl-host";
 export const OFFICIAL_NODE_REPL_HOST_PLUGIN_ID = `${OFFICIAL_NODE_REPL_HOST_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_SERIAL_PLUGIN_NAME = "serial";
 export const OFFICIAL_SERIAL_PLUGIN_ID = `${OFFICIAL_SERIAL_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
-const OFFICIAL_CIRCUIT_PLUGIN_NAME = "circuit";
-export const OFFICIAL_CIRCUIT_PLUGIN_ID = `${OFFICIAL_CIRCUIT_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_REA_PLUGIN_NAME = "rea";
 export const OFFICIAL_REA_PLUGIN_ID = `${OFFICIAL_REA_PLUGIN_NAME}@${ESCODE_OFFICIAL_PLUGIN_MARKETPLACE}`;
 const OFFICIAL_USB_PLUGIN_NAME = "usb";
@@ -104,11 +102,6 @@ const OFFICIAL_SERIAL_REQUIRED_SEED_PATHS = [
   "skills/serial-port/SKILL.md",
 ] as const;
 
-const OFFICIAL_CIRCUIT_REQUIRED_SEED_PATHS = [
-  "dist/mcp/server.js",
-  "skills/circuit/SKILL.md",
-] as const;
-
 const OFFICIAL_USB_REQUIRED_SEED_PATHS = [
   "dist/mcp/server.js",
   "skills/usb-capture/SKILL.md",
@@ -169,41 +162,6 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       "../usb-plugin",
       "../../usb-plugin",
       "../../../usb-plugin",
-    ],
-    version: "0.1.0",
-  },
-  {
-    // 电路工具由宿主按 Host 能力标记（ESCODE_HOST_CIRCUIT）注入：只有持有 CircuitService 的
-    // Desktop 本地 / 远程 workspace Host 才有；默认启用不会在其它环境注入工具，也不拉起常驻进程。
-    //
-    // defaultAllowedTools 与规格 §5 的「需要批准」列一致：parse、get/query/correct
-    // 与只读的 compare_firmware 免批准，circuit_export 不在名单里 → 导出仍要用户批准（批准在权限层，
-    // 不在服务层）。circuit_correct 会写 IR，但按规格免批准，因此这里不按 readOnlyHint 推断名单。
-    defaultEnabled: true,
-    defaultAllowedTools: [
-      "circuit_parse",
-      "circuit_get",
-      "circuit_query",
-      "circuit_correct",
-      "circuit_compare_firmware",
-    ],
-    hostMcpServerNames: [OFFICIAL_CIRCUIT_PLUGIN_NAME],
-    listing: {
-      author: ZAI_AUTHOR,
-      category: "developer-tools",
-      displayName: "Circuit Analysis",
-      displayName_i18n: { "zh-CN": "电路分析" },
-      description_i18n: {
-        "zh-CN": "读取 KiCad / 立创EDA 原理图与 PCB：解释电路结构、按位号与网络查询连接、应用修正。",
-      },
-    },
-    name: OFFICIAL_CIRCUIT_PLUGIN_NAME,
-    requiredSeedPaths: OFFICIAL_CIRCUIT_REQUIRED_SEED_PATHS,
-    rootCandidates: [
-      "packages/circuit-plugin",
-      "../circuit-plugin",
-      "../../circuit-plugin",
-      "../../../circuit-plugin",
     ],
     version: "0.1.0",
   },
@@ -528,7 +486,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     version: "0.6.4",
   },
   {
-    // 第三方逆向分析工具（morluto/rea，MIT）。与 serial/circuit 同构：server 由宿主注入，
+    // 第三方逆向分析工具（morluto/rea，MIT）。与 serial 同构：server 由宿主注入，
     // 用自带 Node 经 Host 启动器运行插件里的 vendored 运行时 —— 不要求用户装 Node/npm，
     // 也不走 npx（打包桌面默认的 Rust 宿主执行不了 .cmd shim）。
     // 不设 defaultEnabled：170 个工具的 compact 输入 schema 约 253 KB，交给用户按需开启。

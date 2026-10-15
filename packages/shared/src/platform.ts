@@ -658,12 +658,6 @@ export interface IPlatformService {
   /** 是否提供本机串口调试器；仅 Desktop 为 true（串口服务只注册在 Desktop Local Host）。 */
   supportsSerialPort?: boolean;
   /**
-   * 是否提供电路面板（Circuit IR 由持有该 workspace 的 Host 注册，docs/circuit/README.md §3.5）。
-   * 仅 Desktop 窗口为 true；Web / 手机远控没有该服务，`::circuit` 只显示静态降级卡片，
-   * 不加载面板也不订阅事件。服务代理在 Web 上也存在（通道未注册），因此不能只看服务是否存在。
-   */
-  supportsCircuit?: boolean;
-  /**
    * 插件 UI 沙箱平台端口。只有桌面端实现；
    * web / 手机远控为 undefined，plugin-ui 据此回退到普通 MCP 工具卡片。
    */

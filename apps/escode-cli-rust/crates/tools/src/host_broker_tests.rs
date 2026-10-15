@@ -156,10 +156,6 @@ fn host_error_keeps_tool_error_code_from_data() {
         BrokerError::new("notOpen", "Serial port is not open"),
     );
     assert_eq!(host_error(&SERIAL, "boom".into(), &Value::Null).code, "io");
-    assert_eq!(
-        host_error(&CIRCUIT, "boom".into(), &Value::Null).code,
-        "io_error"
-    );
 }
 
 #[tokio::test]
@@ -253,21 +249,13 @@ async fn completed_requests_do_not_send_cancel() {
 }
 
 #[test]
-fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
-    let broker = broker_for(&CIRCUIT, Arc::default());
+fn serial_maps_ops_to_host_methods_and_uses_its_error_codes() {
+    let broker = broker(Arc::default());
     broker.remember(
         "sess_1",
         &json!({"workspace_key": "remote:id", "workspace_path": "/w", "workspace_identity": "remote:id", "remote_session_id": "rs1"}),
     );
-    let (method, params) = broker
-        .params(&request(
-            json!({"op": "parse", "args": {"path": "a.kicad_sch"}}),
-        ))
-        .unwrap();
-    assert_eq!(method, "interaction/circuitParse");
-    assert_eq!(params["workspaceIdentity"], "remote:id");
-    assert_eq!(params["remoteSessionId"], "rs1");
-    for (op, expected) in CIRCUIT.methods {
+    for (op, expected) in SERIAL.methods {
         assert_eq!(
             broker
                 .params(&request(json!({"op": op, "args": {}})))
@@ -276,10 +264,16 @@ fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
             *expected
         );
     }
-    // serial 的 op 不能经 circuit broker 打到 Host。
+    let (method, params) = broker
+        .params(&request(json!({"op": "read", "args": {"timeoutMs": 100}})))
+        .unwrap();
+    assert_eq!(method, "interaction/serialRead");
+    assert_eq!(params["workspaceIdentity"], "remote:id");
+    assert_eq!(params["remoteSessionId"], "rs1");
+    // 未知 op 不能打到 Host（serial 的 op 表里没有 format）。
     assert_eq!(
         broker
-            .params(&request(json!({"op": "list"})))
+            .params(&request(json!({"op": "format"})))
             .unwrap_err()
             .code,
         "invalidInput"
@@ -287,41 +281,41 @@ fn circuit_maps_ops_to_host_methods_and_uses_its_error_codes() {
     let wrong = broker
         .authorize(&request(json!({"token": "b".repeat(64)})))
         .unwrap_err();
-    assert_eq!(wrong.code, "unavailable");
+    assert_eq!(wrong.code, "unauthorized");
     let subagent = broker
         .authorize(&request(json!({"runtimeScope": "subagent"})))
         .unwrap_err();
+    assert_eq!(subagent.code, "unavailable");
     assert_eq!(
         subagent.message,
-        "Circuit tools are not available in subagents"
+        "Serial port tools are not available in subagents"
     );
     assert_eq!(
         broker.env(),
-        json!({"ESCODE_CIRCUIT_BROKER_SOCKET": "", "ESCODE_CIRCUIT_BROKER_TOKEN": TOKEN})
+        json!({"ESCODE_SERIAL_BROKER_SOCKET": "", "ESCODE_SERIAL_BROKER_TOKEN": TOKEN})
     );
 }
 
 #[tokio::test]
-async fn circuit_forwards_request_and_never_sends_cancel() {
-    let (host, seen) =
-        fake_host(|_, _| Some(Ok(json!({"ok": true, "irId": "ir_1", "revision": 1}))));
-    let broker = broker_for(&CIRCUIT, host);
+async fn serial_forwards_request_and_never_sends_cancel() {
+    let (host, seen) = fake_host(|_, _| Some(Ok(json!({"ok": true, "bytes": 4, "seq": 3}))));
+    let broker = broker(host);
     broker.remember(
         "sess_1",
         &json!({"workspace_key": "k", "workspace_path": "p"}),
     );
-    let payload = request(json!({"op": "parse", "args": {"path": "board.kicad_sch"}}));
+    let payload = request(json!({"op": "read", "args": {"timeoutMs": 100}}));
     let response = roundtrip(broker, payload.clone()).await;
     assert_eq!(response["ok"], true);
-    assert_eq!(response["result"]["irId"], "ir_1");
+    assert_eq!(response["result"]["seq"], 3);
     let seen = seen.lock().unwrap();
     assert_eq!(seen.len(), 1);
-    assert_eq!(seen[0].0, "interaction/circuitParse");
+    assert_eq!(seen[0].0, "interaction/serialRead");
 }
 
 #[tokio::test]
-async fn circuit_oversized_request_reports_too_large() {
-    let broker = broker_for(&CIRCUIT, Arc::default());
+async fn serial_oversized_request_is_rejected() {
+    let broker = broker(Arc::default());
     let (mut client, server) = tokio::io::duplex(4 * 1024 * 1024);
     let serving = tokio::spawn(broker.serve(server));
     client
@@ -332,5 +326,5 @@ async fn circuit_oversized_request_reports_too_large() {
     client.read_to_string(&mut response).await.unwrap();
     serving.await.unwrap();
     let response: Value = serde_json::from_str(response.trim()).unwrap();
-    assert_eq!(response["error"]["code"], "too_large");
+    assert_eq!(response["error"]["code"], "invalidInput");
 }

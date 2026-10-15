@@ -1,8 +1,8 @@
-//! 宿主工具 broker：serial（docs/specs/serial-agent-tools.md）与 circuit（docs/circuit/README.md §3.5）共用，
-//! 对齐 TS `serial-broker.ts` / `circuit-broker.ts` 与对应的 `*-control-broker.ts`：
+//! 宿主工具 broker：serial（docs/specs/serial-agent-tools.md）使用，
+//! 对齐 TS `serial-broker.ts` 与对应的 `serial-control-broker.ts`：
 //! 监听私有 socket，校验 token 与 runtime scope，把宿主 MCP server 的请求转成 Host 的 `interaction/*` 反向请求。
 //! 会话归属以 hub 记住的该会话 MCP 调用 `_meta` 为准；参数的严格校验由 Host 完成，这里只校验形状。
-//! 两者只在方法表、错误码与取消方法上不同，由 [`Spec`] 描述。
+//! 各类宿主工具只在方法表、错误码与取消方法上不同，由 [`Spec`] 描述。
 use crate::contract::{Event, EventSink};
 use serde_json::{Value, json};
 use std::{
@@ -15,7 +15,7 @@ const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 
 /// 一种宿主工具 broker 的差异部分。
 pub(super) struct Spec {
-    /// 错误消息里的名字（Serial / Circuit）。
+    /// 错误消息里的名字（Serial）。
     label: &'static str,
     /// Windows 命名管道前缀与 Unix socket 文件前缀（与 TS 同名，便于排查）。
     pipe_prefix: &'static str,
@@ -24,7 +24,7 @@ pub(super) struct Spec {
     token_env: &'static str,
     /// broker op → Host 反向请求方法。
     methods: &'static [(&'static str, &'static str)],
-    /// 需要在调用被放弃时通知 Host 的长等待 op 及其取消方法；电路工具都是短请求，没有。
+    /// 需要在调用被放弃时通知 Host 的长等待 op 及其取消方法；短请求为 None。
     cancel: Option<(&'static str, &'static str)>,
     unauthorized_code: &'static str,
     /// 连接失败、或 Host 失败未带 `error.data.code` 时的错误码。
@@ -54,29 +54,6 @@ pub(super) static SERIAL: Spec = Spec {
     too_large_code: "invalidInput",
     // 子 agent 不得操作硬件：避免多个子 agent 同时往同一串口写入（TS authorize 同）。
     subagent_message: "Serial port tools are not available in subagents",
-};
-
-/// 对齐 `@escode/shared/circuit` 的 `escodeCircuitMethods` 与 TS circuit-broker 的错误码（§5 使用 snake_case）。
-pub(super) static CIRCUIT: Spec = Spec {
-    label: "Circuit",
-    pipe_prefix: "escode-circuit",
-    file_prefix: "zsc",
-    socket_env: "ESCODE_CIRCUIT_BROKER_SOCKET",
-    token_env: "ESCODE_CIRCUIT_BROKER_TOKEN",
-    methods: &[
-        ("parse", "interaction/circuitParse"),
-        ("get", "interaction/circuitGet"),
-        ("query", "interaction/circuitQuery"),
-        ("correct", "interaction/circuitCorrect"),
-        ("compareFirmware", "interaction/circuitCompareFirmware"),
-        ("export", "interaction/circuitExport"),
-    ],
-    cancel: None,
-    unauthorized_code: "unavailable",
-    io_code: "io_error",
-    too_large_code: "too_large",
-    // 子 agent 不操作共享 IR：避免多个子 agent 并发改写同一份电路状态（TS authorize 同）。
-    subagent_message: "Circuit tools are not available in subagents",
 };
 
 /// broker 失败：code 原样作为工具错误码返回给 MCP server（如 busy、notOpen、unavailable）。
@@ -200,7 +177,7 @@ impl HostBroker {
         Ok(())
     }
 
-    /// TS `createProtocol{Serial,Circuit}ControlPort`：按会话补齐 workspace 身份，生成 Host 请求参数。
+    /// TS `createProtocolSerialControlPort`：按会话补齐 workspace 身份，生成 Host 请求参数。
     fn params(&self, request: &Value) -> Result<(&'static str, Value), BrokerError> {
         let label = self.spec.label;
         let op = request["op"].as_str().unwrap_or_default();

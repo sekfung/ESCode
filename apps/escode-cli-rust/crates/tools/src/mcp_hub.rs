@@ -37,8 +37,6 @@ pub(super) struct Hub {
     broker: std::sync::OnceLock<Option<Arc<super::browser_broker::Broker>>>,
     /// 串口 broker（首次出现 serial 配置时启动，docs/specs/serial-agent-tools.md）。
     serial: std::sync::OnceLock<Option<Arc<super::host_broker::HostBroker>>>,
-    /// 电路 broker（首次出现 circuit 配置时启动，docs/circuit/README.md §3.5）。
-    circuit: std::sync::OnceLock<Option<Arc<super::host_broker::HostBroker>>>,
     state: Arc<RwLock<State>>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
@@ -63,7 +61,6 @@ impl Hub {
             host: Default::default(),
             broker: Default::default(),
             serial: Default::default(),
-            circuit: Default::default(),
             state: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
@@ -156,7 +153,7 @@ impl Hub {
         cancel: &CancellationToken,
     ) -> Result<()> {
         let configs = tokio::select! {biased;_=cancel.cancelled()=>anyhow::bail!("Cancelled"),result=mcp_config::configured(&self.cwd,overrides,cancel)=>result?};
-        // 内置 node_repl / serial / circuit / rea 只属于会话运行时；设置页 mcp/list 不列出，
+        // 内置 node_repl / serial / rea 只属于会话运行时；设置页 mcp/list 不列出，
         // 也不为看状态拉起宿主（rea 会连带拉起重型分析进程，TS 同）。
         let configs: Vec<_> = configs
             .into_iter()
@@ -165,13 +162,12 @@ impl Hub {
                     || ![
                         super::mcp_node_repl::NAME,
                         super::mcp_serial::NAME,
-                        super::mcp_circuit::NAME,
                         super::mcp_rea::NAME,
                     ]
                     .contains(&c.name.as_str())
             })
             .map(|mut c| {
-                // serial / circuit 经私有 broker 访问 Host 的串口会话与 CircuitService：socket 与 token 只注入各自的 env。
+                // serial 经私有 broker 访问 Host 的串口会话：socket 与 token 只注入它的 env。
                 self.inject_host_broker(&mut c);
                 // node_repl 经私有 broker 访问浏览器：socket 与 token 只注入它的 env。
                 if c.name == super::mcp_node_repl::NAME

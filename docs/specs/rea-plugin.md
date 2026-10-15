@@ -15,7 +15,7 @@
 
 ## 启动形态
 
-最终形态是**宿主注入**，与 serial/circuit 同构：server 不在 manifest/.mcp.json 里声明，由
+最终形态是**宿主注入**，与 serial 同构：server 不在 manifest/.mcp.json 里声明，由
 `bootstrap/src/app/built-in-rea.ts`（TS）与 `crates/tools/src/mcp_rea.rs`（Rust）在插件启用时注入，
 经 `createBundledMcpRuntimeConfig` / `host_plugin_server` 用自带 Node 拉起
 （`ELECTRON_RUN_AS_NODE=1`，打包态是 ESCode Helper），入口是 `<pluginRoot>/dist/mcp/server.js`。
@@ -62,9 +62,9 @@ bootstrap 的 `plugins.test.ts` 从约 3 s 变为 5 s 超时。因此运行时�
 | --- | --- | --- |
 | 桌面（Electron，含 Node 与 Rust 运行时） | 是 | 主场景；`stageReaRuntime` 把运行时放进 agent bundle |
 | 独立 SEA CLI | 否 | 100 MB / 6,555 文件嵌进单文件二进制不可接受；已在 `build-sea.test.mjs` 加断言防回归（与 superpowers 同） |
-| 远端（SSH/WSL/Docker） | 否（本阶段） | 远端资产合同把路径表达为 `packages/<plugin>/...`，而运行时按设计位于 `packages/` 之外（`glm/<platform>/rea-runtime`）。要带上它得给合同新增一类路径并补部署侧校验；与 serial/circuit 一样先只在桌面可用。后续项：新增路径类后接入 `prepare-prebuilds.mjs`、`REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS` 与 `prepare-bundled-remote-assets` |
+| 远端（SSH/WSL/Docker） | 否（本阶段） | 远端资产合同把路径表达为 `packages/<plugin>/...`，而运行时按设计位于 `packages/` 之外（`glm/<platform>/rea-runtime`）。要带上它得给合同新增一类路径并补部署侧校验；与 serial 一样先只在桌面可用。后续项：新增路径类后接入 `prepare-prebuilds.mjs`、`REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS` 与 `prepare-bundled-remote-assets` |
 
-远端不部署插件目录本身，因此 `rootCandidates` 解析不到 rea → `resolveBuiltInReaMcpServers` 不会注册任何 server（不是"注册了但起不来"）：远端是干净的能力缺席，与 serial/circuit 一致。
+远端不部署插件目录本身，因此 `rootCandidates` 解析不到 rea → `resolveBuiltInReaMcpServers` 不会注册任何 server（不是"注册了但起不来"）：远端是干净的能力缺席，与 serial 一致。
 
 ## 工具面
 
@@ -176,11 +176,11 @@ sequenceDiagram
 插件的顶层目录只用 `.escode-plugin`、`.mcp.json`、`scripts`、`skills`、`README.md`、`package.json`，
 不新增顶层白名单项。
 
-## 与 serial / circuit 的同构对齐
+## 与 serial 的同构对齐
 
 宿主注入的既有约定逐条对齐，不新增机制：
 
-| 约定 | serial / circuit | rea |
+| 约定 | serial | rea |
 | --- | --- | --- |
 | server 由宿主注入，不写进 manifest | `resolveBuiltIn*McpServers` | `resolveBuiltInReaMcpServers`（已实现），展开进 `create-app.ts` 的 `builtInMcpServers` |
 | 用自带 Node 启动 | `createBundledMcpRuntimeConfig`：`process.execPath` + `ELECTRON_RUN_AS_NODE=1` | 同（默认入口 `<root>/dist/mcp/server.js`） |
@@ -189,7 +189,7 @@ sequenceDiagram
 | 只读工具免审批 | definition 的 `defaultAllowedTools`（serial 列了 3 个） | 已实现：113/170 个读语义工具（其余 57 个写、执行、运行时附加、驱动界面、网络与会话启动类保持逐次审批），由 `scripts/generate-rea-auto-approved-tools.mjs` 生成，TS 与 Rust 共用同一份（Rust 随 `official_plugins.json` 下发） |
 | 仅插件启用时注册 | 按 plugin id 查 `enabled` | 同（已实现） |
 | 打包 / 远端 / SEA 三处清单 | 三处平行清单；SEA 各有取舍 | 待补；SEA 排除 rea |
-| 宿主能力门禁 | serial/circuit 有 broker，按 `ESCODE_HOST_SERIAL=1` 等门禁 | rea 无 broker：门禁即「Host 启动器可用 + 插件启用」，`createBundledMcpRuntimeConfig` 无启动器时返回 undefined |
+| 宿主能力门禁 | serial 有 broker，按 `ESCODE_HOST_SERIAL=1` 门禁 | rea 无 broker：门禁即「Host 启动器可用 + 插件启用」，`createBundledMcpRuntimeConfig` 无启动器时返回 undefined |
 
 ## REA 能力矩阵
 
@@ -226,7 +226,7 @@ sequenceDiagram
 
 插件包（manifest 不声明 mcpServers、`dist/mcp/server.js` 入口、`scripts/install-rea-runtime.mjs`、vendored 技能、LICENSE、README）、TS 宿主注入、definition 条目、`package.json` 版本单一事实源。已实测：vendored 安装 102 MB/132 包且只含本平台原生包；安装幂等（复跑 176 ms）；端到端 MCP 会话 170 个工具、模型面 253,143 字节；`@escode/bootstrap` typecheck 通过。
 
-### P1 同构对齐（serial/circuit 平齐）
+### P1 同构对齐（serial 平齐）
 
 1. definition 补 `hostMcpServerNames: ["rea"]`，让设置页把 host 注入的 server 归属到 rea。
 2. `defaultAllowedTools`：边界是「有没有副作用」而不是按数量挑。放行 113 个读语义工具（读语义前缀

@@ -39,8 +39,6 @@ export const DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS: ReadonlySet<string> = new Set(
   // visualize（交互视图）随 UI 插件合入时 CLI 定义已标 defaultEnabled，但这里漏加，
   // Settings 会把它当成默认关闭，与 CLI 实际启用状态不一致。
   "visualize@zcode-plugins-official",
-  // 电路分析（circuit）：工具由持有 CircuitService 的 Host 注入，默认启用不拉起常驻进程（§3.5）。
-  "circuit@zcode-plugins-official",
   // 串口（serial）：官方 definition 标了 defaultEnabled，这里漏加导致一致性测试与 Settings 默认态不一致。
   "serial@zcode-plugins-official",
   // USB 抓包分析（usb）：主能力（离线解码 CCID/HID/MSC 抓包）无系统依赖且只读，故默认启用；
