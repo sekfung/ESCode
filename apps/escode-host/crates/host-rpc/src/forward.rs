@@ -122,6 +122,44 @@ pub async fn runtime_call(
     forward_target(instances, options, method, target, extract).await
 }
 
+/// 已整形的运行时调用：路由取自服务级参数，请求体由调用方按 TS 字面量整形后**逐字**发出。
+pub struct Shaped {
+    pub method: &'static str,
+    pub body: Value,
+    /// 是否在请求体上补 `workspace` 引用（TS `buildWorkspaceRef`；只有 list/create/resume/subscribe 带）。
+    pub with_workspace: bool,
+    /// 信封上的 `trace`（TS `client.request(..., {trace: {traceId}})`）。
+    pub trace: Option<Value>,
+}
+
+/// 按 [`Shaped`] 转发。
+pub async fn runtime_call_shaped(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    routing: Value,
+    shaped: Shaped,
+    extract: Extract,
+) -> ChannelResult {
+    let mut target = runtime_target(routing)?;
+    let workspace = target.request.get("workspace").cloned();
+    let mut body = shaped.body;
+    if shaped.with_workspace
+        && let (Some(workspace), Value::Object(record)) = (workspace, &mut body)
+    {
+        record.insert("workspace".to_owned(), workspace);
+    }
+    target.request = body;
+    forward_with_trace(
+        instances,
+        options,
+        shaped.method,
+        target,
+        shaped.trace,
+        extract,
+    )
+    .await
+}
+
 async fn forward_target(
     instances: &escode_host_runtime::Instances,
     options: &escode_host_surface::OptionsFactory,
@@ -129,12 +167,28 @@ async fn forward_target(
     target: RuntimeTarget,
     extract: Extract,
 ) -> ChannelResult {
+    forward_with_trace(instances, options, method, target, None, extract).await
+}
+
+async fn forward_with_trace(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    method: &str,
+    target: RuntimeTarget,
+    trace: Option<Value>,
+    extract: Extract,
+) -> ChannelResult {
     let instance = instances
         .get(&target.identity, || options(&target.descriptor))
         .await
         .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
     let answer = instance
-        .call(method, target.request, std::time::Duration::from_secs(30))
+        .call_with(
+            method,
+            target.request,
+            trace,
+            std::time::Duration::from_secs(30),
+        )
         .await
         .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
     if let Some(error) = answer.get("error") {

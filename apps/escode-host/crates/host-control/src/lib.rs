@@ -88,8 +88,9 @@ pub enum ControlMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         data_base_dir: Option<String>,
     },
-    /// Host→Main：RPC 面已监听（Main 交给 Renderer 的 `ws://addr/ws` 与 capability 端点）。
-    RpcListening { addr: String },
+    /// Host→Main：RPC 面已监听。`secret` 是本次监听的进程密钥（只走控制通道）：Main 带它向
+    /// `POST /api/rpc-host-capability` 申请一次性 capability，再连 `ws://addr/ws/host`。
+    RpcListening { addr: String, secret: String },
 }
 
 impl ControlMessage {

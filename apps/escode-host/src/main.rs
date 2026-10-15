@@ -189,6 +189,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                         control
                             .send(ControlMessage::RpcListening {
                                 addr: surface.addr.to_string(),
+                                secret: surface.secret.clone(),
                             })
                             .await?;
                         rpc_surfaces.push(surface);

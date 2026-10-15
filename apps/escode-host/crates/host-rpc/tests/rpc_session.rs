@@ -10,7 +10,7 @@ async fn session_list_forwards_to_the_workspace_runtime() {
     let workspace = dir.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let surface = start(&home).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     // escode-session.listSessions：Host 把它转成 runtime 的 session/list（TS Host 同构）。
     call(
@@ -31,7 +31,14 @@ async fn session_list_forwards_to_the_workspace_runtime() {
     assert_eq!(sessions, serde_json::json!([]), "新 workspace 没有会话");
 
     // 实例已按 workspace 建好（/api/server-info 报告 workspaces）。
-    let (_, info) = http_request(surface.addr, "GET", "/api/server-info", &[], None).await;
+    let (_, info) = http_request(
+        surface.addr,
+        "GET",
+        "/api/server-info",
+        &secret_header(&surface),
+        None,
+    )
+    .await;
     let expected_workspace = workspace.to_string_lossy().into_owned();
     assert!(
         info["workspaces"]
@@ -97,121 +104,52 @@ async fn session_list_forwards_to_the_workspace_runtime() {
         "运行时语义透传: {error}"
     );
 
-    // 未迁移方法：显式缺口。
+    // 写入口已迁移：`createSession` 转发到运行时的 `session/create`（不再是 NotImplemented）。
+    // 该 workspace 没有模型配置夹具，运行时按会话语义拒绝——错误来自运行时而不是缺口回显，
+    // 证明参数整形后的请求真的到了 runtime。
     call(
         &mut socket,
         22,
         "escode-session",
         "createSession",
-        &Wire::Array(vec![Wire::Object(serde_json::json!({}))]),
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspacePath": workspace.to_string_lossy(),
+            "workspaceIdentity": workspace.to_string_lossy(),
+        }))]),
     )
     .await;
     let error = read_response(&mut socket, 22)
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "NotImplemented");
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("escode-session.createSession")
-    );
-
-    surface.shutdown().await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn session_writes_forward_legacy_methods() {
-    let dir = tempfile::tempdir().unwrap();
-    let home = dir.path().join("home");
-    std::fs::create_dir_all(&home).unwrap();
-    let workspace = dir.path().join("workspace");
-    std::fs::create_dir_all(&workspace).unwrap();
-    let surface = start(&home).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
-    let path = workspace.to_string_lossy().into_owned();
-
-    // closeSession → session/close：未加载的会话按运行时语义「条件关闭成立」（closed=true）。
-    call(
-        &mut socket,
-        31,
-        "escode-session",
-        "closeSession",
-        &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": path,
-            "workspaceIdentity": path,
-            "sessionId": "sess_missing",
-        }))]),
-    )
-    .await;
-    let closed = read_response(&mut socket, 31)
-        .await
-        .into_object()
-        .expect("object");
-    assert_eq!(closed, serde_json::json!(true), "closed 缺省为 true");
-
-    // 条件关闭（expectedPersistence=deferred）对未加载会话为 false（运行时语义透传）。
-    call(
-        &mut socket,
-        32,
-        "escode-session",
-        "closeSession",
-        &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": path,
-            "workspaceIdentity": path,
-            "sessionId": "sess_missing",
-            "expectedPersistence": "deferred",
-        }))]),
-    )
-    .await;
-    let closed = read_response(&mut socket, 32)
-        .await
-        .into_object()
-        .expect("object");
-    assert_eq!(closed, serde_json::json!(false));
-
-    // setModel → session/setModel：运行时按会话语义拒绝（RuntimeError 透传）。
-    call(
-        &mut socket,
-        33,
-        "escode-session",
-        "setModel",
-        &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": path,
-            "workspaceIdentity": path,
-            "sessionId": "sess_missing",
-            "model": {"providerId": "p", "modelId": "m"},
-        }))]),
-    )
-    .await;
-    let error = read_response(&mut socket, 33)
-        .await
-        .into_object()
-        .expect("error");
     assert_eq!(error["name"], "RuntimeError", "{error}");
-
-    // 未迁移的写方法：显式缺口。
+    assert!(
+        !error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("does not implement"),
+        "写入口必须转发到运行时: {error}"
+    );
+    // 缺 workspacePath：参数校验（不落到运行时）。
     call(
         &mut socket,
-        34,
+        25,
         "escode-session",
         "createSession",
-        &Wire::Array(vec![Wire::Object(serde_json::json!({
-            "workspacePath": path,
-            "workspaceIdentity": path,
-        }))]),
+        &Wire::Array(vec![Wire::Object(serde_json::json!({"mode": "build"}))]),
     )
     .await;
-    let error = read_response(&mut socket, 34)
+    let error = read_response(&mut socket, 25)
         .await
         .into_object()
         .expect("error");
+    assert_eq!(error["name"], "InvalidRequest", "{error}");
     assert!(
         error["message"]
             .as_str()
-            .unwrap()
-            .contains("escode-session.createSession")
+            .unwrap_or_default()
+            .contains("workspacePath is required"),
+        "{error}"
     );
 
     surface.shutdown().await;
@@ -225,7 +163,7 @@ async fn workspace_presentation_reads_capabilities_first() {
     let workspace = dir.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let surface = start(&home).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
     let path = workspace.to_string_lossy().into_owned();
 
     call(
@@ -265,7 +203,7 @@ async fn initialize_workspace_prewarms_and_reports_protocol() {
     let workspace = dir.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let surface = start(&home).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
     let path = workspace.to_string_lossy().into_owned();
 
     call(
@@ -290,7 +228,14 @@ async fn initialize_workspace_prewarms_and_reports_protocol() {
     assert_eq!(result["transportKind"], "stdio");
 
     // 预热后实例已建（/api/server-info 可见）。
-    let (_, info) = http_request(surface.addr, "GET", "/api/server-info", &[], None).await;
+    let (_, info) = http_request(
+        surface.addr,
+        "GET",
+        "/api/server-info",
+        &secret_header(&surface),
+        None,
+    )
+    .await;
     assert!(
         info["workspaces"]
             .as_array()
@@ -331,7 +276,7 @@ async fn system_info_reports_home_and_node_platform() {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let surface = start(&home).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     call(&mut socket, 61, "system", "info", &Wire::Array(Vec::new())).await;
     let info = read_response(&mut socket, 61)

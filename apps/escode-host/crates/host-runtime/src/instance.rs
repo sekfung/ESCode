@@ -30,6 +30,11 @@ use crate::link;
 /// （V4 面据此让该连接的订阅失效、由客户端 resync 恢复）。
 const SUBSCRIBER_CAPACITY: usize = 4096;
 
+/// 首个订阅者出现之前的帧缓冲上限。帧泵在实例登记时就启动（反向请求必须有人应答），
+/// 旧实现读循环随首个订阅才启动、runtime 的早期帧（`startup/storageState` 等）留在管道里不丢；
+/// 这里用有界缓冲保持该保证：首个订阅者先收到缓冲帧，超限则该订阅者一开始就是 lagged。
+const EARLY_FRAMES_CAPACITY: usize = 1024;
+
 /// 实例出站流的一个订阅。
 pub struct FrameSubscription {
     rx: mpsc::Receiver<String>,
@@ -57,6 +62,8 @@ struct Subscriber {
 pub(crate) struct InstanceState {
     pending: std::sync::Mutex<BTreeMap<String, tokio::sync::oneshot::Sender<Value>>>,
     subscribers: std::sync::Mutex<Vec<Subscriber>>,
+    /// 首个订阅者之前的缓冲（`None` = 已交给首个订阅者）；`bool` = 是否溢出。
+    early: std::sync::Mutex<Option<(Vec<String>, bool)>>,
     requests: AtomicU64,
     ready: AtomicBool,
     /// 读端已关闭：此后的 `call` 立即失败。
@@ -86,8 +93,25 @@ impl InstanceState {
         self.writer.lock().await.send_line(line).await
     }
 
-    /// 扇出一帧：满的订阅者摘除并置 lagged，已关闭的直接摘除。
+    fn lock_early(&self) -> std::sync::MutexGuard<'_, Option<(Vec<String>, bool)>> {
+        self.early
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// 扇出一帧：满的订阅者摘除并置 lagged，已关闭的直接摘除；尚无订阅者时进早期缓冲。
     fn fan_out(&self, line: &str) {
+        {
+            let mut early = self.lock_early();
+            if let Some((frames, overflowed)) = early.as_mut() {
+                if frames.len() < EARLY_FRAMES_CAPACITY {
+                    frames.push(line.to_owned());
+                } else {
+                    *overflowed = true;
+                }
+                return;
+            }
+        }
         self.lock_subscribers().retain(|subscriber| {
             match subscriber.tx.try_send(line.to_owned()) {
                 Ok(()) => true,
@@ -136,6 +160,7 @@ impl Instance {
         let state = Arc::new(InstanceState {
             pending: Default::default(),
             subscribers: Default::default(),
+            early: std::sync::Mutex::new(Some((Vec::new(), false))),
             requests: AtomicU64::new(1),
             ready: AtomicBool::new(false),
             closed: AtomicBool::new(false),
@@ -172,16 +197,27 @@ impl Instance {
         self.state.send_line(line).await
     }
 
-    /// 订阅出站帧（每个消费者一个）。
+    /// 订阅出站帧（每个消费者一个）。首个订阅者先收到登记前缓冲的早期帧。
     pub async fn subscribe(&self) -> FrameSubscription {
         let (tx, rx) = mpsc::channel(SUBSCRIBER_CAPACITY);
         let lagged = Arc::new(AtomicBool::new(false));
-        if !self.state.closed.load(Ordering::SeqCst) {
+        // 早期缓冲与登记在同一把锁下完成：帧泵此后的帧一定走订阅者，不会插到缓冲帧之前。
+        let mut early = self.state.lock_early();
+        if let Some((frames, overflowed)) = early.take() {
+            if overflowed {
+                lagged.store(true, Ordering::SeqCst);
+            }
+            for frame in frames {
+                let _ = tx.try_send(frame);
+            }
+        }
+        if !self.state.closed.load(Ordering::SeqCst) && !lagged.load(Ordering::SeqCst) {
             self.state.lock_subscribers().push(Subscriber {
                 tx,
                 lagged: Arc::clone(&lagged),
             });
         }
+        drop(early);
         FrameSubscription { rx, lagged }
     }
 

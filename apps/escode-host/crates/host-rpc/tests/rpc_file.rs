@@ -11,7 +11,7 @@ async fn conversation_workspace_uses_the_main_provided_data_base_dir() {
     // dataBaseDir 故意与 home 不同：Host 必须用 Main 提交的值，而不是 HOME 派生。
     let data_base_dir = dir.path().join("data-base");
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     call(
         &mut socket,

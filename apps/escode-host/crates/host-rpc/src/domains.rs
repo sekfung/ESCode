@@ -1,12 +1,16 @@
 //! 已迁移的服务域：channels 表在这里登记（rust-u2-host-skeleton.md §5 优先序）。
 //! 未登记的 channel 由 `session::respond` 回显式 `NotImplemented`。
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use crate::forward::{Extract, runtime_call, runtime_call_with};
+use crate::deferred_drafts::DeferredDrafts;
+use crate::domains_session_write::SessionWriteContext;
+use crate::domains_task_support::{LazyIndex, ReadContext, RuntimeAccess};
+use crate::forward::{Extract, Shaped, runtime_call, runtime_call_shaped, runtime_call_with};
 use crate::session::{Channel, Channels, handler};
+use crate::task_targets::TaskTargets;
 use crate::wire::Wire;
 
 /// `settingService`（TS `ServiceChannels.Setting` = `"setting"`）：
@@ -60,17 +64,16 @@ pub fn setting_channel(home: std::path::PathBuf) -> Channel {
 }
 
 /// `escode-session`（TS `ServiceChannels.ESCodeSession` = `"escode-session"`）：
-/// TS Host 该域是对 Agent 协议的直接转发（`result` / `result.<field>` 原样返回），
-/// Rust Host 同构——按 params 的 workspace 建/复用实例后转发。
-/// 未迁移的方法回显式缺口：`createSession` / `resumeSession`（需 Host 侧特性门
-/// offPeak/dynamicWorkflow 参数整形）、`closeDeferredDraftSession` / `promoteDeferredDraftSession`
-/// （需 Host 侧 deferred-draft 注册表）、`readSessionEvents`（运行时无 `session/events`）、
-/// 以及 workspace / provider 握手类方法（属各自域）。
-pub fn session_channel(
+/// 转发按 TS `escodeAgentService.ts` 的请求字面量整形（`session_forward_params`，评审 A11），
+/// 带 Host 职责的方法（草稿/索引/thoughtLevel 重放/`withApiRetryRuntime`）见 `domains_session_write.rs`。
+/// 未迁移：`readSessionEvents`（运行时无 `session/events`）与 workspace/provider 握手类方法（属各自域）。
+pub(crate) fn session_channel(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
+    write: SessionWriteContext,
 ) -> Channel {
-    // 每个方法一个表项：参数取用与服务级参数的转发形状在各方法内自洽。
+    use crate::domains_session_write as w;
+
     fn params_of(arg: Wire) -> Value {
         arg.into_args()
             .into_iter()
@@ -79,47 +82,86 @@ pub fn session_channel(
             .unwrap_or(Value::Null)
     }
 
-    let forward = |runtime_method: &'static str, extract: Extract| {
+    // 只做白名单整形与结果抽取的转发。
+    let forward = |method: &'static str, with_workspace: bool, extract: Extract| {
         let instances = instances.clone();
         let options = Arc::clone(&options);
         handler(move |arg: Wire| {
             let instances = instances.clone();
             let options = Arc::clone(&options);
             Box::pin(async move {
-                runtime_call(
-                    &instances,
-                    &options,
-                    runtime_method,
-                    params_of(arg),
-                    extract,
-                )
-                .await
+                let params = params_of(arg);
+                let (runtime_method, body) =
+                    escode_host_services::session_params::session_forward_params(method, &params)
+                        .ok_or_else(|| {
+                        (
+                            "Fatal".to_owned(),
+                            format!("no runtime mapping for {method}"),
+                        )
+                    })?;
+                let shaped = Shaped {
+                    method: runtime_method,
+                    body,
+                    with_workspace,
+                    trace: None,
+                };
+                runtime_call_shaped(&instances, &options, params, shaped, extract).await
             })
         })
+    };
+
+    // 写索引的方法需要 dataBaseDir：缺省时回显式缺口，不静默成功。
+    let indexed = |build: fn(SessionWriteContext) -> crate::session::MethodHandler| {
+        if write.read.is_some() {
+            build(write.clone())
+        } else {
+            handler(|_arg: Wire| {
+                Box::pin(async move {
+                    Err((
+                        "NotImplemented".to_owned(),
+                        "escode-session writes need dataBaseDir: Main must pass dataBaseDir in rpcListen."
+                            .to_owned(),
+                    ))
+                })
+            })
+        }
     };
 
     Channel::new(
         "escode-session",
         vec![
+            ("createSession", indexed(w::create_session_handler)),
+            ("resumeSession", indexed(w::resume_session_handler)),
+            ("setModel", indexed(w::set_model_handler)),
             (
                 "listSessions",
-                forward("session/list", Extract::Field("sessions")),
+                forward("listSessions", true, Extract::Field("sessions")),
             ),
-            ("readSession", forward("session/read", Extract::Result)),
+            (
+                "readSession",
+                w::api_retry_forward_handler(write.clone(), "readSession"),
+            ),
             (
                 "readSessionMessages",
-                forward("session/messages", Extract::Field("messages")),
+                forward("readSessionMessages", false, Extract::Field("messages")),
+            ),
+            ("closeSession", w::close_session_handler(write.clone())),
+            (
+                "closeDeferredDraftSession",
+                w::close_deferred_draft_handler(write.clone()),
             ),
             (
-                "closeSession",
-                forward("session/close", Extract::FieldOr("closed", true)),
+                "promoteDeferredDraftSession",
+                w::promote_deferred_draft_handler(write.clone()),
             ),
-            ("setModel", forward("session/setModel", Extract::Result)),
             (
                 "setThoughtLevel",
-                forward("session/setThoughtLevel", Extract::Result),
+                w::api_retry_forward_handler(write.clone(), "setThoughtLevel"),
             ),
-            ("setMode", forward("session/setMode", Extract::Result)),
+            (
+                "setMode",
+                w::api_retry_forward_handler(write.clone(), "setMode"),
+            ),
             (
                 "initializeWorkspace",
                 handler({
@@ -245,148 +287,44 @@ pub fn channels(
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
     let home_for_file = home.clone();
-    let data_base_dir_for_task = data_base_dir.clone();
-    // 任务域与 session 域共用同一套实例表/装配工厂（同一 workspace 只会有一个实例）。
-    let task_runtime = crate::domains_task_support::RuntimeAccess {
+    let data_base_dir_for_file = data_base_dir.clone();
+    // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
+    instances.set_responder(crate::runtime_requests::responder(home.clone()));
+    // 任务域与 session 域共用同一套实例表/装配工厂（同一 workspace 只会有一个实例），
+    // 并**共用同一份**索引句柄 / 任务目标注册表 / 草稿注册表：Host 是索引投影的唯一写者，
+    // 两条通道各持一份句柄会让「单写者 + 单份进程状态」失效（AGENTS.md 状态所有者）。
+    let runtime = RuntimeAccess {
         instances: instances.clone(),
         options: options.clone(),
+    };
+    let index = Arc::new(Mutex::new(LazyIndex::default()));
+    let targets = Arc::new(TaskTargets::new());
+    let drafts = Arc::new(DeferredDrafts::new());
+    let task_channel = crate::domains_task::task_channel(
+        data_base_dir.clone(),
+        Some(runtime.clone()),
+        Arc::clone(&index),
+        Arc::clone(&targets),
+    );
+    let write = SessionWriteContext {
+        runtime: runtime.clone(),
+        read: data_base_dir.map(|data_base_dir| ReadContext {
+            path: crate::domains_task_support::tasks_index_path(&data_base_dir),
+            index,
+            targets,
+            runtime: Some(runtime),
+        }),
+        drafts,
     };
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
-        crate::domains_file_channel::file_channel(home_for_file, data_base_dir),
-        crate::domains_task::task_channel(data_base_dir_for_task, Some(task_runtime)),
-        session_channel(instances, options),
+        crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
+        task_channel,
+        session_channel(instances, options, write),
     ])
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::session::{
-        REQUEST_PROMISE, REQUEST_PROMISE_CANCEL, RESPONSE_INITIALIZE, RESPONSE_PROMISE_ERROR,
-        RESPONSE_PROMISE_SUCCESS, initialize_frame, parse_request, respond,
-    };
-    use crate::wire::{Reader, Writer};
-    use serde_json::json;
-
-    fn test_channels(home: std::path::PathBuf) -> Channels {
-        let options: escode_host_surface::OptionsFactory =
-            std::sync::Arc::new(|workspace: &escode_host_control::WorkspaceDescriptor| {
-                escode_cli_rust::embed::RuntimeOptions {
-                    home: std::path::PathBuf::from("/tmp"),
-                    env: std::collections::BTreeMap::new(),
-                    argv: Vec::new(),
-                    cwd: std::path::PathBuf::from(&workspace.path),
-                    workspace_identity: workspace.identity.clone(),
-                    data_dir: None,
-                    config: None,
-                }
-            });
-        channels(
-            home.clone(),
-            Some(home),
-            escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
-            options,
-        )
-    }
-
-    fn request_fixture(kind: i64, id: i64, channel: &str, method: &str, arg: &Wire) -> Vec<u8> {
-        let mut writer = Writer::new();
-        writer.value(&Wire::Array(vec![
-            Wire::Int(kind),
-            Wire::Int(id),
-            Wire::Str(channel.to_owned()),
-            Wire::Str(method.to_owned()),
-        ]));
-        writer.value(arg);
-        writer.into_bytes()
-    }
-
-    #[tokio::test]
-    async fn unknown_channel_reports_an_explicit_gap() {
-        let channels = test_channels(std::path::PathBuf::from("/nonexistent"));
-        let body = request_fixture(REQUEST_PROMISE, 9, "workspace", "query", &Wire::Undefined);
-        let response = respond(&channels, &parse_request(&body).unwrap()).await;
-        let mut reader = Reader::new(&response);
-        let header = reader.value().unwrap();
-        let payload = reader.value().unwrap();
-        let Wire::Array(items) = header else {
-            panic!("response header must be an array")
-        };
-        assert_eq!(items[0].as_int(), Some(RESPONSE_PROMISE_ERROR));
-        assert_eq!(items[1].as_int(), Some(9));
-        let Wire::Object(error) = payload else {
-            panic!("error payload must be an object")
-        };
-        assert_eq!(error["name"], "NotImplemented");
-        assert!(error["message"].as_str().unwrap().contains("workspace"));
-        assert!(error["message"].as_str().unwrap().contains("setting"));
-        assert!(
-            error["message"]
-                .as_str()
-                .unwrap()
-                .contains("escode-session"),
-            "已实现清单应包含 escode-session: {error}"
-        );
-    }
-
-    #[tokio::test]
-    async fn settings_get_and_update_round_trip_over_the_wire() {
-        let dir = tempfile::tempdir().unwrap();
-        let channels = test_channels(dir.path().to_path_buf());
-        let body = request_fixture(REQUEST_PROMISE, 3, "setting", "get", &Wire::Undefined);
-        let response = respond(&channels, &parse_request(&body).unwrap()).await;
-        let mut reader = Reader::new(&response);
-        let Wire::Array(header) = reader.value().unwrap() else {
-            panic!("header")
-        };
-        assert_eq!(header[0].as_int(), Some(RESPONSE_PROMISE_SUCCESS));
-        assert_eq!(reader.value().unwrap(), Wire::Object(json!({})));
-
-        // 与 ProxyChannel.toService 同形：实参打包成数组。
-        let patch = Wire::Array(vec![Wire::Object(json!({"locale": "zh-CN"}))]);
-        let body = request_fixture(REQUEST_PROMISE, 4, "setting", "update", &patch);
-        let response = respond(&channels, &parse_request(&body).unwrap()).await;
-        let mut reader = Reader::new(&response);
-        let Wire::Array(header) = reader.value().unwrap() else {
-            panic!("header")
-        };
-        assert_eq!(header[0].as_int(), Some(RESPONSE_PROMISE_SUCCESS));
-        assert_eq!(reader.value().unwrap(), Wire::Undefined);
-        // 落盘可由下一次 get 读到（同文件同格式）。
-        let body = request_fixture(REQUEST_PROMISE, 5, "setting", "get", &Wire::Undefined);
-        let response = respond(&channels, &parse_request(&body).unwrap()).await;
-        let mut reader = Reader::new(&response);
-        let _ = reader.value().unwrap();
-        let Wire::Object(settings) = reader.value().unwrap() else {
-            panic!("settings object")
-        };
-        assert_eq!(settings["locale"], "zh-CN");
-    }
-
-    #[tokio::test]
-    async fn cancel_requests_have_no_response() {
-        let channels = test_channels(std::path::PathBuf::from("/nonexistent"));
-        let body = request_fixture(
-            REQUEST_PROMISE_CANCEL,
-            1,
-            "setting",
-            "get",
-            &Wire::Undefined,
-        );
-        let response = respond(&channels, &parse_request(&body).unwrap()).await;
-        assert!(response.is_empty());
-    }
-
-    #[test]
-    fn initialize_frame_uses_response_type_200() {
-        let frame = initialize_frame();
-        let mut reader = Reader::new(&frame);
-        let Wire::Array(header) = reader.value().unwrap() else {
-            panic!("header")
-        };
-        assert_eq!(header, vec![Wire::Int(RESPONSE_INITIALIZE)]);
-        assert_eq!(reader.value().unwrap(), Wire::Undefined);
-    }
-}
+#[path = "domains_tests.rs"]
+mod tests;

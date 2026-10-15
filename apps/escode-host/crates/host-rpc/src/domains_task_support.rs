@@ -47,6 +47,7 @@ impl LazyIndex {
 }
 
 /// 调用上下文：索引路径 + 懒句柄 + 参数。
+#[derive(Clone)]
 pub struct ReadContext {
     pub path: PathBuf,
     pub index: Arc<Mutex<LazyIndex>>,

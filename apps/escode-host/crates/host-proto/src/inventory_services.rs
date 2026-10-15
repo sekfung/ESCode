@@ -300,22 +300,22 @@ pub const SERVICE_METHODS: &[Method] = &[
     Method {
         channel: "escode-session",
         method: "createSession",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "escode-session",
         method: "resumeSession",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "escode-session",
         method: "promoteDeferredDraftSession",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "escode-session",
         method: "closeDeferredDraftSession",
-        state: State::Pending,
+        state: State::Implemented,
     },
     Method {
         channel: "escode-session",

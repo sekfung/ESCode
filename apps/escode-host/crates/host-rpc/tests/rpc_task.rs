@@ -63,7 +63,7 @@ async fn get_task_meta_reads_the_shared_index() {
     seed(&data_base_dir, &workspace, "task_1");
 
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     call(
         &mut socket,
@@ -258,7 +258,7 @@ async fn get_task_meta_reports_a_structured_error_when_the_index_is_absent() {
     let data_base_dir = dir.path().join("data-base");
     std::fs::create_dir_all(&data_base_dir).unwrap();
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     call(
         &mut socket,

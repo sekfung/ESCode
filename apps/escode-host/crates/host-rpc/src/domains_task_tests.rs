@@ -68,7 +68,12 @@ fn fixture() -> (tempfile::TempDir, PathBuf) {
 fn channel_for(path: &Path) -> Channel {
     // `<dataBaseDir>/.escode/v2/tasks-index.sqlite` → dataBaseDir 是上三级。
     let data_base_dir = path.parent().unwrap().parent().unwrap().parent().unwrap();
-    task_channel(Some(data_base_dir.to_path_buf()), None)
+    task_channel(
+        Some(data_base_dir.to_path_buf()),
+        None,
+        Arc::new(Mutex::new(LazyIndex::default())),
+        Arc::new(TaskTargets::new()),
+    )
 }
 
 async fn call(channel: &Channel, method: &str, params: Value) -> Result<Wire, (String, String)> {
@@ -155,7 +160,12 @@ async fn list_partitions_follow_the_ts_filters_and_order() {
 
 #[tokio::test]
 async fn missing_data_base_dir_reports_an_explicit_gap_for_every_read() {
-    let channel = task_channel(None, None);
+    let channel = task_channel(
+        None,
+        None,
+        Arc::new(Mutex::new(LazyIndex::default())),
+        Arc::new(TaskTargets::new()),
+    );
     for method in [
         "getTaskMeta",
         "listTasks",

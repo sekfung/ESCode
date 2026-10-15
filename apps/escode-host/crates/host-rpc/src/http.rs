@@ -1,10 +1,12 @@
 //! HTTP/WS 入口：对齐 `packages/escode-server-cli/src/server-core/http.ts` 的本机契约。
 //!
 //! - `GET /api/server-info`：`{ serverId, version, protocolVersion, authRequired, workspaces, capabilities }`；
-//! - `POST /api/rpc-host-capability`：签发一次性 capability（TTL），供 `/ws/host` 校验；
-//! - `GET /ws`：`web-remote-replayable` 语义（回环免鉴权）；
-//! - `GET /ws/host`：`desktop-continuous` 语义，需 `x-escode-rpc-host-capability` 头。
+//! - `POST /api/rpc-host-capability`：签发一次性 capability（TTL）；
+//! - `GET /ws`：`web-remote-replayable` 语义；`GET /ws/host`：`desktop-continuous` 语义；
+//!   两者都要 `x-escode-rpc-host-capability` 头（一次性）。
 //!
+//! 访问控制（docs/specs/rust-u2-agent-v4.md §3.2，评审 A9）：带 `Origin` 的请求一律 403（浏览器）；
+//! HTTP 路由要求进程密钥头 [`HOST_SECRET_HEADER`]（密钥只经控制通道交给 Main）。
 //! 只允许回环监听（与 TS 的 fail-closed 一致：非回环必须先进鉴权）。
 //! HTTP 解析是最小子集（请求行 + 头 + 可选 body），响应一律 `Connection: close`。
 
@@ -17,6 +19,9 @@ use tokio::net::TcpStream;
 
 /// capability 头名（TS `ESCODE_RPC_HOST_CAPABILITY_HEADER`）。
 pub const CAPABILITY_HEADER: &str = "x-escode-rpc-host-capability";
+
+/// 进程密钥头：签发 capability 与读 server-info 的凭据（Main 从 `rpcListening.secret` 取得）。
+pub const HOST_SECRET_HEADER: &str = "x-escode-host-secret";
 
 /// 协议版本（与 TS `SERVER_REMOTE_PROTOCOL_VERSION` 对齐的口径位；u2 起由 Main 校验）。
 pub const PROTOCOL_VERSION: u32 = 1;

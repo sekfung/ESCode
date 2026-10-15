@@ -32,9 +32,13 @@ use crate::wire::Wire;
 
 /// `escode-task` channel。`data_base_dir` 由 Main 经 `rpcListen` 提交；缺省时显式缺口。
 /// `runtime` 用于 `getTaskModelSelection` 这类需要读运行时会话状态的方法（TS 同样读运行时）。
-pub fn task_channel(data_base_dir: Option<PathBuf>, runtime: Option<RuntimeAccess>) -> Channel {
-    let index = Arc::new(Mutex::new(LazyIndex::default()));
-    let targets = Arc::new(TaskTargets::new());
+/// 索引句柄、任务目标注册表由组合根传入（Host 是索引投影的唯一写者，跨通道共用一份）。
+pub fn task_channel(
+    data_base_dir: Option<PathBuf>,
+    runtime: Option<RuntimeAccess>,
+    index: Arc<Mutex<LazyIndex>>,
+    targets: Arc<TaskTargets>,
+) -> Channel {
     let Some(data_base_dir) = data_base_dir else {
         let gap = "Host has no dataBaseDir: Main must pass dataBaseDir in rpcListen.";
         let missing = || {

@@ -55,8 +55,8 @@ apps/escode-host/
 | 队列 | 容量 | 溢出策略 |
 | --- | --- | --- |
 | Gateway 入站（Renderer→Host RPC） | 256 条 | 触发背压：连接级 `saturated` 状态，禁止新请求登记，等队列腾空（与 runtime 投递层同语义） |
-| Gateway 出站（Host→Renderer 帧） | 256 条 / 字节水位 8 MiB | 超字节水位丢弃可重建流（快照恢复），控制帧不丢（到达序 lane 保序） |
-| runtime→Host 事件 | 128 条（与 Engine 现有事件通道一致） | 满时阻塞 runtime 侧（承接现有语义，不新增丢弃路径） |
+| RPC 连接出站（Host→Renderer 帧，`host-rpc/src/connection.rs`） | 字节水位高 8 MiB / 低 2 MiB，硬上限 64 MiB | 不丢帧：高水位 → 连接 `saturated`（V4 面转发 `v4/connection/flow`，runtime 暂停投递、恢复时补快照），低水位 → `drained`；超硬上限关闭连接（fail closed）。2026-10-15 前该队列不存在（读循环内同步写） |
+| runtime→Host 帧扇出（每订阅者，`host-runtime/src/instance.rs`） | 4096 行；首个订阅者前缓冲 1024 行 | 不静默丢帧：订阅者满即摘除并置 `lagged`（接收端可观测，由订阅方让该连接的订阅失效、客户端 resync）；早期缓冲溢出时首个订阅者一开始即 lagged。2026-10-15 前实现为 `try_send` 满即静默丢弃，与本表原文「满时阻塞」不符（评审 A2） |
 | Host 日志（file_log 批量） | 1024 条 | 丢弃最低级别并计数（warn 起不丢） |
 
 每个队列的容量与策略在代码常量处注释引用本表；`host-core` 提供 `bounded::channel(name, capacity, policy)` 统一构造与指标（队列深度、丢弃数）。

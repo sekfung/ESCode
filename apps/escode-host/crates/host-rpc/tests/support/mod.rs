@@ -37,7 +37,8 @@ pub async fn start_with_data_base_dir(
                 cwd: std::path::PathBuf::from(&workspace.path),
                 workspace_identity: workspace.identity.clone(),
                 data_dir: workspace.data_dir.clone().map(std::path::PathBuf::from),
-                config: None,
+                // 会话夹具经 RPC 的 `config` 传入 `--config` 同格式的模型配置（组合根同法）。
+                config: workspace.config.clone().map(std::path::PathBuf::from),
             }
         }
     });
@@ -106,6 +107,37 @@ pub async fn connect(addr: std::net::SocketAddr, path: &str, capability: Option<
     socket
 }
 
+/// 合法调用方的连接方式（Main 同法）：带进程密钥申请一次性 capability，再连 `/ws/host`。
+pub async fn open(surface: &RpcSurface) -> Socket {
+    let capability = issue_capability(surface).await;
+    connect(surface.addr, "/ws/host", Some(&capability)).await
+}
+
+/// 带进程密钥申请一次性 capability。
+pub async fn issue_capability(surface: &RpcSurface) -> String {
+    let (status, issued) = http_request(
+        surface.addr,
+        "POST",
+        "/api/rpc-host-capability",
+        &[(escode_host_rpc::http::HOST_SECRET_HEADER, &surface.secret)],
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "capability issue failed: {issued}");
+    issued["capability"]
+        .as_str()
+        .expect("capability string")
+        .to_owned()
+}
+
+/// 进程密钥头（HTTP 路由用）。
+pub fn secret_header(surface: &RpcSurface) -> [(&'static str, &str); 1] {
+    [(
+        escode_host_rpc::http::HOST_SECRET_HEADER,
+        surface.secret.as_str(),
+    )]
+}
+
 /// 读一条 RPC 响应（跳过 Initialize）。
 pub async fn read_response(socket: &mut Socket, expect_id: i64) -> Wire {
     let mut frames = FrameReader::new();
@@ -152,4 +184,26 @@ pub async fn call(socket: &mut Socket, id: i64, channel: &str, method: &str, arg
         .send(Message::Binary(frame.into()))
         .await
         .expect("request sent");
+}
+
+/// 建库夹具：Rust Host **不负责建库**（`TasksIndex::open` 对缺失/账本不符一律结构化拒绝，
+/// 见子 spec §3），dev 开关下由 TS Host 先经 `prepareTasksIndexStorage` 建库。
+pub fn prepare_index(data_base_dir: &std::path::Path) {
+    let path = data_base_dir
+        .join(".escode")
+        .join("v2")
+        .join("tasks-index.sqlite");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    for statement in escode_host_services::tasks_index::schema::MIGRATED_DDL {
+        connection.execute_batch(statement).unwrap();
+    }
+    for (id, checksum) in escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS {
+        connection
+            .execute(
+                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
+                rusqlite::params![id, checksum],
+            )
+            .unwrap();
+    }
 }

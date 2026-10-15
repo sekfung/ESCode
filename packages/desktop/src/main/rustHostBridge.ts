@@ -22,6 +22,11 @@ export interface HostPortLike {
 export interface RustHostHandle {
   /** RPC 端点地址（`ws://127.0.0.1:<port>` 与 `http://127.0.0.1:<port>` 同端口）。 */
   readonly addr: string;
+  /**
+   * 本次监听的进程密钥（只经 Host 控制通道获得）：签发一次性 capability 时作为
+   * `x-escode-host-secret` 头（docs/specs/rust-u2-agent-v4.md §3.2）。
+   */
+  readonly secret: string;
   /** 收口：先关控制通道（Host 收口实例与传输面），再必要时杀进程。 */
   stop(): Promise<void>;
 }
@@ -82,8 +87,13 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
       );
     }
     const addr = `127.0.0.1:${String(listening.addr).replace(/^.*:/, "")}`;
+    if (typeof listening.secret !== "string" || listening.secret.length === 0) {
+      throw new Error("Rust Host did not report an RPC secret");
+    }
+    const secret = listening.secret;
     return {
       addr,
+      secret,
       async stop() {
         child.stdin.end();
         await withTimeout(
@@ -99,42 +109,79 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
   }
 }
 
+/** 向 Rust Host 申请一次性 capability（需进程密钥；Host 拒绝任何带 Origin 的请求）。 */
+export async function issueRustHostCapability(handle: RustHostHandle): Promise<string> {
+  const response = await fetch(`http://${handle.addr}/api/rpc-host-capability`, {
+    method: "POST",
+    headers: { [RUST_HOST_SECRET_HEADER]: handle.secret },
+  });
+  if (!response.ok) {
+    throw new Error(`Rust Host refused to issue a capability (HTTP ${response.status})`);
+  }
+  const body = (await response.json()) as { capability?: unknown };
+  if (typeof body.capability !== "string" || body.capability.length === 0) {
+    throw new Error("Rust Host capability response is malformed");
+  }
+  return body.capability;
+}
+
+/** 进程密钥头（与 Rust `http::HOST_SECRET_HEADER` 同名）。 */
+export const RUST_HOST_SECRET_HEADER = "x-escode-host-secret";
+/** capability 头（TS `ESCODE_RPC_HOST_CAPABILITY_HEADER` 同名）。 */
+export const RUST_HOST_CAPABILITY_HEADER = "x-escode-rpc-host-capability";
+
 /**
- * 把 renderer 的 MessagePort 桥到 Rust Host 的 RPC WebSocket（`/ws`：回环免鉴权，
- * `web-remote-replayable` 语义）。返回解绑函数。两个方向都做字节透传：
- * 端口消息 → WS 二进制帧；WS 二进制帧 → 端口消息。
+ * 把 renderer 的 MessagePort 桥到 Rust Host 的 RPC WebSocket（`/ws/host`：一次性 capability，
+ * `desktop-continuous` 语义——与 Node 窗口 Host 的 MessagePort attachment 同一交付模式）。
+ * 返回解绑函数。两个方向都做字节透传：端口消息 → WS 二进制帧；WS 二进制帧 → 端口消息。
+ *
+ * 修复（评审 A9）：旧实现连 `/ws`（Host 侧免鉴权）且标注为手机 replayable 语义；桌面窗口应是
+ * continuous，且 Host 的网络面不能对本机其他进程/浏览器页面开放。capability 申请期间到达的
+ * 端口消息按序排队，连上后原样补发。
  */
 export function bridgeRustHostPort(handle: RustHostHandle, port: HostPortLike): () => void {
-  const socket = new WebSocket(`ws://${handle.addr}/ws`);
-  socket.binaryType = "nodebuffer";
   const queue: Buffer[] = [];
   let closed = false;
+  let socket: WebSocket | null = null;
 
-  socket.on("open", () => {
-    while (queue.length > 0) {
-      const next = queue.shift();
-      if (next) socket.send(next);
-    }
-  });
-  socket.on("message", (data: RawData) => {
-    if (closed) return;
-    port.postMessage(toBuffer(data));
-  });
   const teardown = () => {
     closed = true;
-    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+    if (
+      socket &&
+      (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+    ) {
       socket.close();
     }
   };
-  socket.on("close", teardown);
-  socket.on("error", teardown);
   port.on("message", (event: { data?: unknown } | unknown) => {
     if (closed) return;
     const payload = toBuffer(extractPortData(event));
-    if (socket.readyState === WebSocket.OPEN) socket.send(payload);
-    else if (socket.readyState === WebSocket.CONNECTING) queue.push(payload);
+    if (socket?.readyState === WebSocket.OPEN) socket.send(payload);
+    else queue.push(payload);
   });
   port.start?.();
+  void issueRustHostCapability(handle)
+    .then((capability) => {
+      if (closed) return;
+      const opened = new WebSocket(`ws://${handle.addr}/ws/host`, {
+        headers: { [RUST_HOST_CAPABILITY_HEADER]: capability },
+      });
+      socket = opened;
+      opened.binaryType = "nodebuffer";
+      opened.on("open", () => {
+        while (queue.length > 0) {
+          const next = queue.shift();
+          if (next) opened.send(next);
+        }
+      });
+      opened.on("message", (data: RawData) => {
+        if (closed) return;
+        port.postMessage(toBuffer(data));
+      });
+      opened.on("close", teardown);
+      opened.on("error", teardown);
+    })
+    .catch(teardown);
   return teardown;
 }
 

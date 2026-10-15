@@ -18,7 +18,7 @@ async fn task_snapshot_methods_hit_the_runtime_and_the_null_trio_stays_local() {
     std::fs::create_dir_all(&workspace_path).unwrap();
     let workspace = workspace_path.to_string_lossy().into_owned();
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     let snapshot_params = |task_id: &str| {
         Wire::Array(vec![Wire::Object(serde_json::json!({
@@ -125,7 +125,7 @@ async fn task_snapshot_reports_a_structured_error_when_the_index_is_absent() {
     std::fs::create_dir_all(&workspace_path).unwrap();
     let workspace = workspace_path.to_string_lossy().into_owned();
     let surface = start_with_data_base_dir(&home, &data_base_dir).await;
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     call(
         &mut socket,
@@ -172,7 +172,7 @@ async fn task_snapshot_methods_report_an_explicit_gap_without_data_base_dir() {
     let surface = escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, Some(instances))
         .await
         .expect("rpc surface starts");
-    let mut socket = connect(surface.addr, "/ws", None).await;
+    let mut socket = open(&surface).await;
 
     for (id, method) in [
         (71, "getTaskSnapshot"),

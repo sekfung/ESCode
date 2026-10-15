@@ -20,6 +20,7 @@
 mod background;
 mod background_controls;
 mod config_options;
+mod index_sync;
 mod message_merge;
 mod message_parts;
 mod message_timeline;
@@ -37,6 +38,9 @@ mod visible;
 mod fixture_tests;
 
 pub use config_options::{format_model_picker_value, settings_to_config_options};
+pub use index_sync::{
+    IndexOverrides, index_meta_from_snapshot, searchable_text_from_snapshot, sync_snapshot_to_index,
+};
 pub use messages::{coalesce_consecutive_assistants, map_message};
 pub use meta::{
     build_snapshot_history, from_escode_goal, from_escode_mode, limit_task_snapshot_messages,

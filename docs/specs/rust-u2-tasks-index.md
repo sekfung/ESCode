@@ -217,10 +217,11 @@ meta 行登记；端到端 2 例：未注册任务的 typed error、列表读登
    `Session unavailable` 原样透出（证明请求真的走 `session/resume`，不是缺口回显或索引短路）；
    `getTaskSnapshotBody` / `Ref` / `ToolCallsSlice` 本地直回 `null`；缺参回 `InvalidRequest`；
    缺 `dataBaseDir` 时六个方法全部回显式缺口。
-3. **待补（随 S4）**：「真会话 → 快照 + 索引行 + `ifNoneMatch` 命中」的端到端还需要 Host 侧
-   会话创建入口（`createTask` / `escode-session.createSession`），本片没有该路径，因此该用例与
-   `packages/desktop/test/rustHostRpc.test.ts` 的真实客户端用例一并落到 S4（届时同批验
-   `web-remote-replayable` 与 `desktop-continuous` 两种链路）。
+3. **端到端（真会话链路，2026-10-15 由 §6.5 补上）**：`rpc_session_create.rs` 用 Host 的
+   `escode-session.createSession` 建真会话（真 embedded 实例 + 真模型配置夹具），再读回
+   `getTaskMeta` / `getTaskSnapshot` / `getTaskSnapshotWithEtag`，并负向断言 deferred 草稿不进索引。
+   仍待补：`packages/desktop/test/rustHostRpc.test.ts` 的真实客户端用例与
+   `ifNoneMatch` **命中**分支（快照含随机 traceId，命中需要稳定 traceId，见 §6.4.4-4）。
 
 ### 6.4.4 登记差异（本片）
 
@@ -268,6 +269,46 @@ TS `createUuid()` 同口径）。
 
 **下一步（S2 收尾）**：`createTask`/`escode-session.createSession` 的参数整形 + draft 注册表
 （§5），它是 §6.4.3-3 那条端到端与 `ifNoneMatch` 命中的前置。
+
+## 6.5 S2 写入口：`escode-session` 写面（2026-10-15）
+
+TS 真相源：`packages/services/src/escode-session/escodeSessionService.ts`（`createSession` :221、`resumeSession` :275、
+`setModel`/`closeSession`/草稿三法 :410-470）与 `escode-agent/escodeAgentService.ts` 各方法的 `client.request(...)` 字面量。
+
+| 方法 | Rust 行为（与 TS 同序） |
+| --- | --- |
+| `createSession` | filesystem MCP 注入 → `session_create_params`（白名单）→ `session/create`，信封带 `trace.traceId`（`sessionTraceId ?? uuid v4`）→ `persistence: "deferred"` 只记草稿并返回原始快照；否则 `withApiRetryRuntime` + 索引写 |
+| `resumeSession` | MCP 注入 → `session_resume_params` → `session/resume` → `withApiRetryRuntime` → thoughtLevel 重放（`canReplayThoughtLevelFromResumeSnapshot` + `session/setThoughtLevel`）→ `broadcastSnapshot !== false` 时带 `modelOverride`/`thoughtLevelOverride` 写索引 |
+| `setModel` | 草稿判定 → `session/setModel`（白名单）→ `withApiRetryRuntime` → 非草稿写索引（`modelOverride = formatModelPickerValue(model)`） |
+| `readSession` / `setThoughtLevel` / `setMode` | 白名单转发 + `withApiRetryRuntime` |
+| `closeSession` | 清草稿 → `session/close` → 回 `undefined` |
+| `closeDeferredDraftSession` | `expectedPersistence: "deferred"` 条件关闭；成功清草稿；失败回 `false` |
+| `promoteDeferredDraftSession` | 清草稿标记，回 `undefined` |
+
+实现：`host-services/src/session_params.rs`（白名单、`ToolGates`、`with_api_retry_runtime`、thoughtLevel 重放判定）、
+`host-services/src/task_projection/index_sync.rs`（写路径 meta：syncer `buildMetaFromSnapshot` + `searchableText`）、
+`host-rpc/src/domains_session_write.rs`、`host-rpc/src/deferred_drafts.rs`。草稿注册表与任务域共用同一份句柄（单写者）。
+
+评审修正（`docs/reports/rust-unified-host-audit-2026-10-15.md` A11/A12，均为本片上一版未登记的偏移）：
+- 灰度 flag（`offPeakToolEnabled`/`dynamicWorkflow*`）改为 Host 判定（`ToolGates`，当前关闭），**不再读 Renderer 入参**；
+- 写路径 meta 不再借用读路径 `snapshotToMeta`：补 overrides、`target: null` 清空、`searchableText`；
+- 索引写失败只记日志（TS `broadcastSnapshot` 吞错），不再让 `createSession` 失败；
+- `resumeSession` 去掉 TS 没有的草稿判定；
+- 转发方法按 TS 字面量整形，不再整包透传 Renderer 入参并附 `workspace`（只有 list/create/resume 带）；
+- `closeSession` 回 `undefined`（原回 `closed` 布尔，TS 端测试曾把该偏移写成期望）。
+
+验证：`host-rpc/tests/rpc_session_create.rs`（真 embedded 实例：建会话 → 索引行 → 快照读面 → deferred 草稿不进索引/列表）、
+`tests/rpc_session_write.rs`（close/条件关闭/提升/setModel/create/resume 的返回语义）、`session_params` 9 例、`index_sync` 4 例、
+`packages/desktop/test/rustHostRpc.test.ts`（真实客户端）。
+
+**登记差异**：
+1. **不广播** `workspace_task_list_changed`（事件面中 workspace 事件源未迁移）。可见条件：dev 开关下新建/恢复会话后侧边栏等下一次列表拉取。
+2. **不做系统分组置顶**（`moveGroupedTaskToTop`，分组写面 S3）。
+3. **不接产品 CUA MCP resolver / 账号 provider 同步 / Claude 空导入修复**（扩展域、providers/account 域、导入工作包）。
+4. **`withApiRetryRuntime` 只有无状态部分**：进行中重试的跟踪依赖会话事件（`session.updated`/`streamRecovery.updated`），随事件源接入。
+5. **`resumeSession(broadcastSnapshot: false)` + model 时不改索引 model 列**（TS `syncTaskModel` → `updateTaskState`，S3）。
+6. **不做旧 app-server 兼容重试**（`getSessionCreateCompatFields`）：Rust Host 只驱动同版本内置 runtime，strict schema 一致。
+7. **工具面灰度关闭**：见 `rust-u2-agent-v4.md` §6-6。
 
 ## 7. 验收与环境
 
