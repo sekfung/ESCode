@@ -170,8 +170,26 @@ pub async fn request(
     params: Value,
     trace: Option<Value>,
 ) -> Result<Value, RpcError> {
+    request_with_timeout(
+        instance,
+        method,
+        params,
+        trace,
+        std::time::Duration::from_secs(30),
+    )
+    .await
+}
+
+/// 同 [`request`]，超时由调用方指定（插件安装/市场刷新等长操作 TS 用 5 分钟）。
+pub async fn request_with_timeout(
+    instance: &escode_host_runtime::Instance,
+    method: &str,
+    params: Value,
+    trace: Option<Value>,
+    timeout: std::time::Duration,
+) -> Result<Value, RpcError> {
     let answer = instance
-        .call_with(method, params, trace, std::time::Duration::from_secs(30))
+        .call_with(method, params, trace, timeout)
         .await
         .map_err(|error| RpcError::new("Fatal", format!("{error:#}")))?;
     if let Some(error) = answer.get("error") {

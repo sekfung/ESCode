@@ -299,6 +299,9 @@ pub fn channels_with(
     options: escode_host_surface::OptionsFactory,
     provider_files: Option<(std::path::PathBuf, std::path::PathBuf)>,
 ) -> Channels {
+    let instances_for_plugins = instances.clone();
+    let options_for_plugins = Arc::clone(&options);
+    let data_base_dir_for_plugins = data_base_dir.clone();
     let home_for_file = home.clone();
     let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
@@ -360,6 +363,11 @@ pub fn channels_with(
         session_channel(instances, options, write),
     ];
     list.extend(crate::domains_provider::provider_channels(provider_files));
+    list.push(crate::domains_plugin::plugin_management_channel(
+        instances_for_plugins,
+        options_for_plugins,
+        data_base_dir_for_plugins,
+    ));
     let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。
     let channels = match controller {
