@@ -158,11 +158,17 @@ impl Client {
 
     /// 等到某个 reason 的事件出现（事件与应答的相对顺序不保证）。
     async fn event(&mut self, reason: &str) -> Value {
+        self.event_where(reason, |_| true).await
+    }
+
+    /// 等到满足条件的事件：同一 reason 可能先后出现多次（如标题先后变更），
+    /// 断言必须指名要等哪一次，不能取“第一条同 reason 事件”（间歇失败的根因）。
+    async fn event_where(&mut self, reason: &str, accept: impl Fn(&Value) -> bool) -> Value {
         loop {
             if let Some(position) = self
                 .events
                 .iter()
-                .position(|event| event["reason"] == reason)
+                .position(|event| event["reason"] == reason && accept(event))
             {
                 return self.events.remove(position);
             }
@@ -373,9 +379,13 @@ async fn v4_sessions_sync_into_the_task_index_without_the_session_write_path() {
     // 运行时改名走 `applyAgentPatch`（TS `applyTitleChange`）：只落 title/updatedAt，
     // 不置 `titleOverridden`（那是产品级 `renameTask` 的语义）。
     assert_eq!(renamed["titleOverridden"], false);
-    let event = client.event("task_title_changed").await;
+    // 同一任务可能先后发出多次 `task_title_changed`（例如首个提示生成的标题），等的是改名那一次。
+    let event = client
+        .event_where("task_title_changed", |event| {
+            event["taskMeta"]["title"] == RENAME_TITLE
+        })
+        .await;
     assert_eq!(event["taskId"], Value::from(task_id.clone()));
-    assert_eq!(event["taskMeta"]["title"], RENAME_TITLE);
 
     surface.shutdown().await;
 }

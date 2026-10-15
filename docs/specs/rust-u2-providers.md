@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法）已交付 · 2026-10-15；P3 余项（`resolveModelConfig`、`provider-provisioning-target.apply`）与 P4–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）已交付 · 2026-10-15；P3 余项（`provider-provisioning-target.apply`）与 P4–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -92,7 +92,8 @@ Personal Provider（空白 key、非法 baseUrl、缺 api、缺 group、缺失�
 
 **范围**：`provider-settings` 的 10 个写方法：`createPersonalProvider`、`savePersonalProviderOverlay`、`deletePersonalProvider`、`reorderPersonalProviders`、
 `reorderPersonalModels`、`addPersonalModel`、`renamePersonalModel`、`deletePersonalModel`、`savePersonalModelDraft`、`setPersonalModelEnabled`。
-未做：`resolveModelConfig`（只读预览，需 `validateComplete` 级 issues，另切）、`provider-provisioning-target.apply`、`testModelConnectivity`（需运行时 generateText）。
+另交付只读的 `resolveModelConfig`（`resolve_config.rs`：按当前规则合成；带 `personalConfig` 时把草稿当智能规则预览，`inheritedConfig` 只含 Built-in 规则，issues 复用 `model_issues`）。
+未做：`provider-provisioning-target.apply`、`testModelConnectivity`（需运行时 generateText）。
 
 **所有者与事件顺序**（唯一写者 = Host 的 `ProviderService`；Personal 文件是唯一事实源）：
 
@@ -117,7 +118,7 @@ RPC 写方法
 **验收**：`rustHostProviderWrite.test.ts`——三组初始文件（带 Personal Provider/规则/默认选择的完整文件、无文件、脏成员+缺省 `providerOrder`）共 60+ 步操作，
 每步对真实 TS `ProviderRuntime.providerSettings` 与 Rust 比较：成败、错误文案、返回视图（去修订号）、落盘文件语义（`toEqual`）。覆盖：启停/新增/重命名/删除/
 调序 Model，创建（含模板、本地化名称、重名后缀、初始配置、非法入参），Overlay 保存（改名/重名/清名/组改写/账号 Provider 限制/元数据），Draft（原位编辑、重命名、
-推荐空配置清规则、转手动、过期修订、内置模型限制），删除 Provider。负向验证：去掉新增模型的 `enabled:true` 叠加、去掉改名唯一性检查、跳过成员规范化——均被抓出。
+推荐空配置清规则、转手动、过期修订、内置模型限制），删除 Provider，以及 8 种 `resolveModelConfig`（继承/手动/无规则/账号/未知 Provider/草稿预览/改名预览/非法草稿）。负向验证：去掉新增模型的 `enabled:true` 叠加、去掉改名唯一性检查、跳过成员规范化、预览草稿的推荐标记——均被抓出（预览里的改名迁移因随后被 `setExact` 覆盖而不可观察，不单独断言）。
 Rust 单测（`write_tests.rs`）：8 路并发创建不丢更新、坏文件不被覆盖、同名重命名不写盘、文件 0600 且无锁/临时残留、写后下一次视图可见、过期成员版本被拒。
 
 **登记差异（不修）**：

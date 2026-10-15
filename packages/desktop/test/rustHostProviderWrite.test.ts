@@ -336,6 +336,58 @@ const OPS: Op[] = [
       } as never);
     },
   ],
+  [
+    "resolve: inherited model",
+    (a) => a.resolveModelConfig({ providerId: "p-openai", modelId: "gpt-5.6" } as never),
+  ],
+  [
+    "resolve: manual model",
+    (a) => a.resolveModelConfig({ providerId: "p-openai", modelId: "my-model" } as never),
+  ],
+  [
+    "resolve: personal model without rules",
+    (a) => a.resolveModelConfig({ providerId: "p-custom", modelId: "c1-renamed" } as never),
+  ],
+  [
+    "resolve: account provider",
+    (a) =>
+      a.resolveModelConfig({ providerId: "account:zai-start-plan", modelId: "GLM-5.2" } as never),
+  ],
+  [
+    "resolve: unknown provider",
+    (a) => a.resolveModelConfig({ providerId: "ghost", modelId: "x" } as never),
+  ],
+  [
+    "resolve: draft preview",
+    (a) =>
+      a.resolveModelConfig({
+        providerId: "p-openai",
+        originalModelId: "my-model",
+        modelId: "my-model",
+        personalConfig: { enabled: false, properties: { contextWindow: 1234 } },
+      } as never),
+  ],
+  [
+    "resolve: draft preview with rename",
+    (a) =>
+      a.resolveModelConfig({
+        providerId: "p-openai",
+        originalModelId: "my-model",
+        modelId: "renamed-preview",
+        personalConfig: {},
+      } as never),
+  ],
+  [
+    "resolve: invalid draft",
+    (a) =>
+      a.resolveModelConfig({
+        providerId: "p-openai",
+        originalModelId: "my-model",
+        modelId: "my-model",
+        personalConfig: { surprise: true },
+      } as never),
+    { anyMessage: true },
+  ],
   ["delete provider", (a) => a.deletePersonalProvider("p-custom")],
   ["delete missing provider", (a) => a.deletePersonalProvider("ghost")],
   ["delete overlay of builtin provider", (a) => a.deletePersonalProvider("account:zai-start-plan")],

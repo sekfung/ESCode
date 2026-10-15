@@ -12,6 +12,7 @@ mod mutations_models;
 mod overlay;
 mod personal;
 mod resolve;
+mod resolve_config;
 mod rules;
 mod selection;
 mod service_write;

@@ -98,6 +98,10 @@ pub(crate) fn write_methods(service: &Service) -> Vec<(&'static str, MethodHandl
             }),
         ),
         (
+            "resolveModelConfig",
+            m(|s, a| Box::pin(async move { s.resolve_model_config(&a.value(0)).await })),
+        ),
+        (
             "deletePersonalProvider",
             m(|s, a| Box::pin(async move { s.delete_personal_provider(&a.text(0)).await })),
         ),

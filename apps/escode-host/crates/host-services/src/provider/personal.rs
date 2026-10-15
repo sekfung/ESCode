@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use super::files::parse_personal;
 use super::overlay::{Kind, overlay};
 use super::resolve::{ProviderMap, ProviderRule};
+use super::rules::{Rule, RuleKind, personal_rules};
 
 /// TS `ModelConfigRule` 的精确规则（Personal 文件只有这两种）。
 #[derive(Clone, Debug)]
@@ -42,20 +43,7 @@ impl Doc {
     /// 严格解码；与 TS `decodeProviderConfigFile` 一样，无效文件整体报错。
     pub fn decode(input: &Value) -> Result<Doc> {
         let parsed = parse_personal(input)?;
-        let exact = parsed
-            .rules
-            .iter()
-            .map(|rule| ExactRule {
-                manual: rule.kind == super::rules::RuleKind::ManualProviderModel,
-                provider_id: text(&rule.value, "providerId"),
-                model_id: text(&rule.value, "modelId"),
-                config: rule
-                    .value
-                    .get("config")
-                    .cloned()
-                    .unwrap_or_else(|| json!({})),
-            })
-            .collect();
+        let exact = exact_from_rules(&parsed.rules);
         let provider_order = input["config"]
             .get("providerOrder")
             .map(|_| parsed.provider_order);
@@ -197,6 +185,40 @@ impl Doc {
     pub fn delete_exact_for_provider(&mut self, provider_id: &str) {
         self.exact.retain(|rule| rule.provider_id != provider_id);
     }
+}
+
+/// 解析后的 Personal 规则 → 可编辑的精确规则表。
+pub fn exact_from_rules(rules: &[Rule]) -> Vec<ExactRule> {
+    rules
+        .iter()
+        .map(|rule| ExactRule {
+            manual: rule.kind == RuleKind::ManualProviderModel,
+            provider_id: text(&rule.value, "providerId"),
+            model_id: text(&rule.value, "modelId"),
+            config: rule
+                .value
+                .get("config")
+                .cloned()
+                .unwrap_or_else(|| json!({})),
+        })
+        .collect()
+}
+
+/// 精确规则表 → 可参与规则合成的 `Rule`（智能规则先于手动规则，与文件分组一致）。
+pub fn rules_from_exact(exact: &[ExactRule]) -> Vec<Rule> {
+    let group = |manual: bool| -> Vec<Value> {
+        exact
+            .iter()
+            .filter(|rule| rule.manual == manual)
+            .map(|rule| {
+                json!({"providerId": rule.provider_id, "modelId": rule.model_id, "config": rule.config})
+            })
+            .collect()
+    };
+    personal_rules(&json!({
+        "providerModelRules": group(false),
+        "manualProviderModelRules": group(true),
+    }))
 }
 
 pub fn revision_of(encoded: &Value) -> String {
