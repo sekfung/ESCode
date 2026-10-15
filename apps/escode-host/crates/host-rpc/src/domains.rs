@@ -364,6 +364,8 @@ pub fn channels_with(
         session_channel(instances, options, write),
     ];
     list.extend(crate::domains_provider::provider_channels(provider_files));
+    list.push(crate::domains_attachments::prompt_attachment_transfer_channel());
+    list.push(crate::domains_attachments::media_preview_channel());
     list.push(crate::domains_credential::credential_channel(
         data_base_dir_for_credential,
     ));
