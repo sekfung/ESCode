@@ -15,6 +15,7 @@ mod resolve;
 mod resolve_config;
 mod rules;
 mod selection;
+mod service_events;
 mod service_write;
 mod settings_view;
 mod sparse;
@@ -84,6 +85,10 @@ pub struct ProviderService {
     /// 写入面的全局串行闸门（见 `service_write`）。
     write_gate: AsyncMutex<()>,
     state: Mutex<State>,
+    /// 修订号变化广播（`onDidChange` 的唯一源头；见 `service_events`）。
+    changes: tokio::sync::watch::Sender<u64>,
+    polling: std::sync::atomic::AtomicBool,
+    poll_interval: std::time::Duration,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -105,6 +110,9 @@ impl ProviderService {
             gate: AsyncMutex::new(()),
             write_gate: AsyncMutex::new(()),
             state: Mutex::default(),
+            changes: tokio::sync::watch::channel(0).0,
+            polling: std::sync::atomic::AtomicBool::new(false),
+            poll_interval: service_events::POLL_INTERVAL,
         }
     }
 
@@ -207,6 +215,9 @@ impl ProviderService {
         });
         state.loaded = Some(Arc::clone(&loaded));
         state.gate.record(stamps, std::time::Instant::now());
+        // 先放锁再广播：订阅者的回调可能立刻回头读视图。
+        drop(state);
+        self.changes.send_replace(loaded.revision);
         Ok(loaded)
     }
 

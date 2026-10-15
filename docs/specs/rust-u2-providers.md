@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）已交付 · 2026-10-15；P3 余项（`provider-provisioning-target.apply`）与 P4–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；P3 余项（`provider-provisioning-target.apply`）与 P5–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -129,3 +129,30 @@ Rust 单测（`write_tests.rs`）：8 路并发创建不丢更新、坏文件不
 4. **`assertCurrent`**：TS 还比较“发布快照对象是否仍是当前快照”；Rust 以 `personal_revision` + 写闸门串行代替（Built-in 在请求中途换版本的窗口不单独拦截）。
 5. **写闸门粒度**：全局串行，不是按 Provider；单 Provider 的可观察顺序一致。
 6. **`legacy` 手动规则**：TS 读取时把旧完整手动规则收窄为可编辑叶子；Rust 读取不收窄，原样保留（写回时也不改写其它规则）。
+
+## 9. P4 交付记录（变更通知）
+
+**范围**：`model-selection.onDidChange` 与 `provider-settings.onDidChange`。事件负载是**事件发生时重新算出的视图**（TS 同：`facade.onDidChange(() => listener(getView()))`）。
+
+**所有者与事件顺序**：
+
+```
+ProviderService::load()   ← 唯一的 Registry 替换点
+   │ 内容指纹变化 → revision += 1 → changes.send_replace(revision)   （watch 通道，合并多次变化）
+   ├─ 本进程写入后的 provider_settings_view()      同一路径
+   └─ 轮询任务（首个订阅者出现时启动，1s，Weak<Service> 随服务消亡）    外部改文件
+订阅者（每个 EventListen 一条流）：watch_changes() = 先 load 一次再登记接收端（初始快照不通知）
+   → changed().await → 重建视图 → EventFire
+```
+
+指纹未变时轮询不读盘（P2 的 `FileStamp/ChangeGate`）；内容未变（touch/同内容重写）不推进修订号，不通知。视图重建失败只丢这一次通知并记 `eprintln`，下次变化再推。
+
+**登记差异（不修）**：
+
+1. **变更源**：TS 的 Personal 用 1s 轮询、Built-in 用文件监听 + Remote 刷新；Rust 的 Built-in 也走同一个 1s 指纹轮询（P5 引入 Active/Remote 后再评估监听）。
+2. **model-selection 修订号**：TS 的 `ModelSelectionService` 自带单调计数（`max(自身, Registry)` 且每次事件 +1）；Rust 直接用 Registry 修订号——对 Renderer 只要求单调，不外露其它语义。
+3. **加载失败时的轮询**：失败只重试，不向订阅者发错误事件（TS 有 `poll-error` 原因的内部事件，但视图层不转发）。
+
+**验收**：`service_events_tests.rs`（初始快照不通知、外部改文件由轮询发现、同内容重写不通知、本进程写入通知）；`rustHostProviderEvents.test.ts`（真实 Host + RPC 客户端：
+外部改文件后 `provider-settings` 与 `model-selection` 都收到事件，视图含新名称且修订号大于初始；本进程 `createPersonalProvider` 的返回视图与随后推送的事件同一修订）。
+负向验证：去掉广播 → 外部事件等待超时失败。
