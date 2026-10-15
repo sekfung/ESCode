@@ -1,4 +1,6 @@
-# 独立的 USB 抓包 helper（docs/specs/usb-agent-tools.md §4.1）。
+# USB 抓包引擎（docs/specs/usb-agent-tools.md §4）。当前的可执行入口只支持 Linux，
+# 且 Linux 实时抓包已按产品决定冻结（详见 README 顶部的状态说明）；pcapng 写入器与
+# 「一行 JSON + 固定失败码」的契约是 Windows 服务要复用的可移植部分。
 #
 # 空 [workspace] 表：本 crate 不属于仓库里任何上层 workspace（apps/escode-host、apps/escode-cli-rust
 # 都不认领它），独立构建、独立 Cargo.lock；字段命名与取值对齐 apps/escode-host/Cargo.toml。
@@ -6,7 +8,7 @@
 
 [package]
 name = "escode-usb-capture"
-description = "ESCode USB 抓包后端：读 usbmon 二进制 API 写 pcapng（Linux，无 setcap）"
+description = "ESCode USB 抓包引擎：pcapng 写入 + 记录模型（可移植）；usbmon 读取入口（Linux，已冻结）"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"

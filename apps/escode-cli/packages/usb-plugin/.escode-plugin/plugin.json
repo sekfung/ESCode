@@ -1,7 +1,7 @@
 {
   "name": "usb",
   "version": "0.1.0",
-  "description": "Capture and decode USB traffic on this machine: smart-card readers (CCID/APDU), HID devices, and mass storage (MSC/SCSI). Offline .pcapng analysis needs no special privileges.",
+  "description": "Analyze USB traffic for the agent: smart-card readers (CCID/APDU), HID devices, and mass storage (MSC/SCSI). Decoding a .pcapng works offline on every platform; live capture is Windows-only and ships with the app.",
   "author": { "name": "Z.ai" },
   "license": "MIT",
   "skills": "skills",
@@ -12,22 +12,8 @@
       "cwd": "${ESCODE_PROJECT_DIR}",
       "env": {
         "USB_PLUGIN_DATA": "${ESCODE_PLUGIN_DATA}",
-        "USB_PLUGIN_WORKSPACE": "${ESCODE_PROJECT_DIR}",
-        "USB_PLUGIN_DUMPCAP_PATH": "${user_config.dumpcap_path}",
-        "USB_PLUGIN_USBPCAP_CMD_PATH": "${user_config.usbpcap_cmd_path}"
+        "USB_PLUGIN_WORKSPACE": "${ESCODE_PROJECT_DIR}"
       }
-    }
-  },
-  "userConfig": {
-    "dumpcap_path": {
-      "type": "string",
-      "default": "",
-      "description": "Optional dumpcap path for live capture on Linux. Empty means detect it from PATH and common install locations."
-    },
-    "usbpcap_cmd_path": {
-      "type": "string",
-      "default": "",
-      "description": "Optional USBPcapCMD.exe path for live capture on Windows. Empty means detect it from PATH and the Wireshark install directory."
     }
   }
 }

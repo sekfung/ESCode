@@ -1,10 +1,11 @@
 /**
  * 实时抓包（docs/specs/usb-agent-tools.md §3.3 / §5）。
  *
- * 唯一所有者是这里的抓包作业表：一次调用一个子进程，结束时一定收尾（正常退出、工具取消、进程被杀）。
- * 抓包期间写 `.partial`，正常收尾后改名——半截文件被当成完整抓包分析，比失败更糟。
+ * 只有一个后端：Windows 上的 `escode-usb-capture` 服务。插件是**作业所有者**——它负责参数校验、
+ * 超时、取消与把结果翻译成工具结果；抓包器只接受固定参数、写一个 pcapng 文件、回报一行 JSON。
+ * Linux 与 macOS 没有实时抓包，只有离线解码（`backends.ts` 的注释里写了为什么不做 dumpcap 回退）。
  */
-import type { ProbeCapture } from "./probe.js";
+import { type ProbeCapture } from "./probe.js";
 export type CaptureErrorCode = "unavailable" | "permission" | "busy" | "invalidInput" | "io" | "invalidConfig";
 export declare class CaptureError extends Error {
     readonly code: CaptureErrorCode;
@@ -26,7 +27,7 @@ export interface CaptureOutcome {
     bytes: number;
     packets: number;
     stoppedBy: "duration" | "maxBytes" | "signal";
-    backend: string;
+    backend: "builtin";
     target: {
         bus?: number;
         busDev?: string;

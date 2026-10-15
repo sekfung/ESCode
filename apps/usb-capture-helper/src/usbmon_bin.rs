@@ -7,7 +7,9 @@
 //!   只读映射，写映射会被内核拒绝。
 //! - `MON_IOCX_MFETCH`（`_IOWR(0x92, 7, struct mon_bin_mfetch)`）批量取事件：`offvec` 是**用户指针**
 //!   数组，返回映射内偏移；返回后内核把实际条数写回 `nfetch`。缓冲为空时该 ioctl 会睡眠，
-//!   所以先 `poll(POLLIN)` 再取（`mon_bin_poll` 在环形缓冲非空时报可读）。
+//!   所以先 `poll(POLLIN)` 再取（`mon_bin_poll` 在环形缓冲非空时报可读）。**它不消费环形缓冲**
+//!   （内核注释：the events are usually freed later with `mon_bin_flush`），取完必须用
+//!   `MON_IOCH_MFLUSH`（`_IO(0x92, 8)`，参数是事件条数）释放，否则下一轮会重复拿到同一批事件。
 //! - 偏移处是 64 字节 `struct mon_bin_hdr`，载荷紧跟其后（+64）。记录不跨缓冲末尾：内核用
 //!   `type == '@'` 的填充包占位（`mon_buff_area_fill`），填充包跳过即可。
 //! - `MON_IOCG_STATS`（`_IOR(0x92, 3, struct mon_bin_stats)`）读丢弃计数；内核读一次就清零 `cnt_lost`，
@@ -248,6 +250,7 @@ impl StopReason {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct CaptureRequest {
     pub bus: u32,
     pub duration_ms: u64,
@@ -255,6 +258,7 @@ pub struct CaptureRequest {
     pub output: PathBuf,
 }
 
+#[derive(Debug)]
 pub struct CaptureOutcome {
     pub packets: u64,
     pub bytes: u64,
@@ -343,11 +347,12 @@ mod linux {
         pub dropped: u32,
     }
 
-    // x86_64 上的实际取值：0x9205 / 0xC0109207 / 0x80089203。
+    // 与内核 mon_bin.c 的 `_IOC` 结果一致；x86_64 上的实际取值：0x9205 / 0xC0109207 / 0x80089203 / 0x9208。
     const MON_IOCQ_RING_SIZE: libc::c_ulong = ioc(IOC_NONE, 5, 0);
     const MON_IOCX_MFETCH: libc::c_ulong =
         ioc(IOC_READ | IOC_WRITE, 7, size_of::<MonBinMfetch>() as u32);
     const MON_IOCG_STATS: libc::c_ulong = ioc(IOC_READ, 3, size_of::<MonBinStats>() as u32);
+    const MON_IOCH_MFLUSH: libc::c_ulong = ioc(IOC_NONE, 8, 0);
 
     pub struct UsbmonDevice {
         fd: RawFd,
@@ -422,6 +427,9 @@ mod linux {
 
         /// 一次 `MON_IOCX_MFETCH`：内核把映射内偏移写进 `offsets`，并把实际条数写回 `nfetch`。
         /// 返回本批条数；`offsets()` 在同一借用期内给出这些偏移。
+        ///
+        /// 注意：这个 ioctl **不消费**环形缓冲（内核注释：the events are usually freed later with
+        /// `mon_bin_flush`），取完必须 `release()` 释放，否则下一轮会拿到同一批事件。
         pub fn fetch(&mut self) -> Result<usize, HelperError> {
             let mut mfetch = MonBinMfetch {
                 offvec: self.offsets.as_mut_ptr(),
@@ -437,6 +445,22 @@ mod linux {
                 ));
             }
             Ok((mfetch.nfetch as usize).min(self.offsets.len()))
+        }
+
+        /// `MON_IOCH_MFLUSH`（`_IO(0x92, 8)`）：释放环形缓冲头部的 `events` 条事件。
+        /// 参数与返回值都是**事件条数**（内核 `mon_bin_flush(rp, nevents)`），按 `b_out` 顺序释放，
+        /// 所以「释放刚取走的那一批」正好把它们从环里清掉。
+        pub fn release(&self, events: u32) -> Result<u32, HelperError> {
+            // SAFETY: MON_IOCH_MFLUSH 接收一个无符号长整型的条数，无指针对参数。
+            let released =
+                unsafe { libc::ioctl(self.fd, MON_IOCH_MFLUSH, events as libc::c_ulong) };
+            if released < 0 {
+                return Err(syscall_error(
+                    "MON_IOCH_MFLUSH 失败",
+                    &io::Error::last_os_error(),
+                ));
+            }
+            Ok(released as u32)
         }
 
         pub fn offsets(&self) -> &[u32] {
@@ -559,6 +583,13 @@ pub fn run_capture(request: &CaptureRequest) -> Result<CaptureOutcome, HelperErr
         packets += stats.packets;
         skipped_isochronous += stats.skipped_isochronous;
         malformed += stats.malformed;
+        // 取走的事件要显式释放（MFETCH 不消费环形缓冲）：跳过的填充包/等时事件同样占用环空间。
+        let released = device.release(count as u32)?;
+        if released != count as u32 {
+            eprintln!(
+                "警告：释放了 {released} 条事件，但本批取走了 {count} 条（环形缓冲状态可能已不同步）"
+            );
+        }
         if stats.reached_max_bytes {
             stopped_by = StopReason::MaxBytes;
             break 'capture;

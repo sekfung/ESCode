@@ -160,9 +160,10 @@ function rawMessages(exchanges: UsbExchange[]): DecodedMessage[] {
       busDev: exchange.busDev,
       direction: exchange.direction,
       kind: `${exchange.type === "control" ? "Control" : exchange.type === "bulk" ? "Bulk" : exchange.type === "interrupt" ? "Interrupt" : "Isochronous"}`,
+      // 异常只放进 `anomalies`，由视图层统一渲染一次 ⚠；写进 summary 会和它重复。
       summary:
         `${exchange.direction === "in" ? "IN " : "OUT "}ep0x${exchange.endpoint.toString(16).padStart(2, "0")} ` +
-        `${length} 字节${name ? ` ${name}` : ""}${anomaly ? ` ⚠ ${anomaly}` : ""}`,
+        `${length} 字节${name ? ` ${name}` : ""}`,
       detail: [
         `传输类型：${exchange.type}，端点 0x${exchange.endpoint.toString(16).padStart(2, "0")}（${exchange.direction}）`,
         ...(exchange.setup
@@ -309,7 +310,7 @@ export function analyzeCapture(data: Uint8Array, options: AnalysisOptions): Anal
         `${prepared.records} 个包${prepared.truncated ? "（文件被截断）" : ""}`,
     );
     if (first && last) {
-      lines.push(`时间范围：${formatDelta(first.ts)} – ${formatDelta(last.ts)}`);
+      lines.push(`时间范围：+0.000s – ${formatDelta(last.ts - first.ts)}（相对首条报文）`);
     }
     lines.push(`设备（${deviceList.length}）：`);
     lines.push(...(deviceList.length > 0 ? deviceList.map(deviceLine) : ["  抓包里没有设备流量"]));
@@ -362,10 +363,13 @@ export function analyzeCapture(data: Uint8Array, options: AnalysisOptions): Anal
     const from = Number.parseInt(options.cursor ?? "1", 10);
     const startPosition = Number.isFinite(from) && from > 1 ? from - 1 : 0;
     const page = filtered.slice(startPosition, startPosition + limit);
+    // 相对首条报文的时间偏移：抓包时间戳有的是开机微秒（usbmon）有的是墙钟（USBPcap），
+    // 绝对值对协议分析没有意义，而 +0.003s 这种相对时序才是「谁在前谁在后」的依据。
+    const origin = filtered[0]?.ts ?? 0;
     const lines = page.map((message, offset) => {
       const index = startPosition + offset + 1;
       const suffix = message.anomalies.length > 0 ? `  ⚠ ${message.anomalies.join("；")}` : "";
-      return `#${index} ${formatDelta(message.ts)} ${message.busDev} ${message.kind} — ${message.summary}${suffix}`;
+      return `#${index} ${formatDelta(message.ts - origin)} ${message.busDev} ${message.kind} — ${message.summary}${suffix}`;
     });
     const nextCursor = startPosition + page.length < filtered.length ? startPosition + page.length + 1 : null;
     const header = `报文 ${startPosition + 1}–${startPosition + page.length} / 共 ${filtered.length} 条`;
@@ -405,7 +409,7 @@ export function analyzeCapture(data: Uint8Array, options: AnalysisOptions): Anal
   const payload = message.payload ?? new Uint8Array(0);
   return {
     text: [
-      `#${index} ${formatDelta(message.ts)} ${message.busDev} ${message.direction.toUpperCase()} ${message.kind}`,
+      `#${index} ${formatDelta(message.ts - (filtered[0]?.ts ?? 0))} ${message.busDev} ${message.direction.toUpperCase()} ${message.kind}`,
       ...message.detail.map((line) => `  ${line}`),
       ...(payload.length > 0
         ? [`  正文（${payload.length} 字节，截取前 ${Math.min(payloadLimit, payload.length)} 字节）：${toHex(payload, payloadLimit)}`]

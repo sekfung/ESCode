@@ -223,3 +223,25 @@ fn missing_interface_is_reported_without_partial_file() {
         "打开设备失败不得留下 .partial"
     );
 }
+
+/// 非 root 下调用特权步骤必须立刻失败：不能有任何副作用，也不能装作成功。
+/// 以 root 运行测试时跳过（避免真的去改 /etc）。
+#[test]
+fn install_privileges_without_root_fails_cleanly() {
+    // SAFETY: geteuid 无参数、无副作用。
+    if unsafe { libc::geteuid() } == 0 {
+        return;
+    }
+    let result = run(&["--install-privileges"]);
+    assert_eq!(
+        result.code,
+        Some(3),
+        "应返回 permission（3），stderr: {}",
+        result.stderr
+    );
+    assert_eq!(error_code(&result.stdout), "permission");
+    assert!(
+        result.stdout.contains("remediation"),
+        "应给出下一步（中文 remediation）"
+    );
+}

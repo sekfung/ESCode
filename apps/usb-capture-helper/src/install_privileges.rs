@@ -10,7 +10,7 @@
 //! 全过程幂等：已完成的步骤重复执行要成功而不是报错。
 
 use std::fs;
-use std::os::unix::fs::{PermissionsExt, chown};
+use std::os::unix::fs::{FileTypeExt, PermissionsExt, chown};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -281,6 +281,20 @@ fn fix_current_nodes(gid: u32, warnings: &mut Vec<String>) -> Vec<String> {
     paths.sort();
     for path in paths {
         let display = path.display().to_string();
+        // chown(2)/chmod(2) 会跟随符号链接：若 /dev/usbmonN 被人换成指向 /etc/shadow 的链接，
+        // 这里就会把那个文件改成 escode-usb 组可读。虽然 /dev 非 root 不可写（正常系统上建不了节点），
+        // 但特权代码不该依赖这一点——先确认是**字符设备**且不是符号链接再动手。
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            warnings.push(format!("读取 {display} 的类型失败，跳过。"));
+            continue;
+        };
+        let file_type = metadata.file_type();
+        if file_type.is_symlink() || !file_type.is_char_device() {
+            warnings.push(format!(
+                "{display} 不是字符设备（可能是符号链接或普通文件），拒绝修改它的属组与权限。"
+            ));
+            continue;
+        }
         if let Err(error) = chown(&path, None, Some(gid)) {
             warnings.push(format!("chgrp {GROUP_NAME} {display} 失败：{error}"));
             continue;

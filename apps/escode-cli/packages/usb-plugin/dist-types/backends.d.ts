@@ -1,10 +1,16 @@
 /**
- * 抓包后端解析（docs/specs/usb-agent-tools.md §4）。
+ * 抓包后端（docs/specs/usb-agent-tools.md §4）。
  *
- * 优先级：`builtin`（随包分发的自研抓包器）→ `dumpcap`（用户自装 Wireshark 时的兼容后端）→ 无。
- * 这一层只负责「谁能抓、为什么不能抓、怎么修」，不负责抓包本身。
+ * 只有**一个**后端：Windows 上随安装包提供的 `escode-usb-capture` 服务（安装时一并装上 USBPcap 驱动）。
+ * Linux 与 macOS 不做实时抓包——它们的路径是**离线解码**：用户把在 Windows 机器或硬件分析仪上抓到的
+ * `.pcapng` 交给 `usb_decode`。
+ *
+ * 这里刻意**不探测任何用户自装的第三方抓包工具**（曾经保留的 dumpcap 回退已按产品决定删除）：
+ * 「装个 Wireshark 就能抓」会变成一条隐性依赖，而我们要的是「装完 ESCode 就能抓，装不了就明确告诉用户
+ * 去别的机器抓文件」。Linux 上如果确实存在自建的抓包器（apps/usb-capture-helper），也会被认出来并使用，
+ * 但那不是产品路径、也不给任何安装承诺。
  */
-export type CaptureBackendId = "builtin" | "dumpcap";
+export type CaptureBackendId = "builtin";
 export interface CaptureInterfaceRef {
     id: string;
     bus?: number;
@@ -26,7 +32,6 @@ export interface CaptureBackendStatus {
     interfaces: CaptureInterfaceRef[];
     reason?: string;
     remediation?: string;
-    /** 仅 `builtin`：helper 自报的探测结果（Windows 服务缺失时为 undefined）。 */
     helper?: BuiltinProbe;
 }
 export interface CaptureBackends {
@@ -39,7 +44,7 @@ export interface BackendProbeInput {
     platform?: NodeJS.Platform;
 }
 /**
- * 解析自研抓包器路径。三级回退，顺序即优先级：
+ * 解析抓包器路径。三级回退，顺序即优先级：
  * 1. env 显式覆盖（开发与测试用）；
  * 2. 插件包内 `bin/<platform>-<arch>/`（官方插件 seed 会带着它，安装包无需额外配置）；
  * 3. Electron 资源目录的 `tools/`（与 cua-helper 同构的投放位置）。
@@ -55,10 +60,10 @@ export declare function resolveHelperPath(input: Parameters<typeof resolveHelper
     path?: string;
     tried: string[];
 }>;
-/** 调用 helper 的 `--probe`，把它的自报结果当成后端状态。 */
+/** 调用抓包器的 `--probe`，把它的自报结果当成后端状态。 */
 export declare function probeBuiltinHelper(helperPath: string, env: Record<string, string | undefined>): Promise<CaptureBackendStatus>;
 export declare function resolveCaptureBackends(input: BackendProbeInput): Promise<CaptureBackends>;
-/** 抓包时选择后端：优先内置，其次 dumpcap；都不可用时用**首选不可用后端**的错误信息报错。 */
+/** 抓包时选择后端；都不可用时把**首选候选**的错误信息交出去（它比调用方更清楚缺什么）。 */
 export declare function selectCaptureBackend(backends: CaptureBackends): {
     backend?: CaptureBackendStatus;
     failure?: CaptureBackendStatus;

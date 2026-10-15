@@ -34,6 +34,27 @@ export interface ProbeDevice {
   addressNote?: string;
 }
 
+/**
+ * Linux / macOS 的路径：**只做离线解码**——拿在 Windows 机器或硬件分析仪上抓到的文件来分析。
+ * 实时抓包只在 Windows 随安装包提供，因此这里不给「装点什么就能抓」的暗示。
+ */
+export function offlineOnlyGuidance(platform: NodeJS.Platform = process.platform): {
+  reason: string;
+  remediation: string;
+} {
+  return {
+    reason:
+      platform === "darwin"
+        ? "macOS 没有公开的内核级 USB 抓包接口。"
+        : platform === "linux"
+          ? "Linux 不在 USB 实时抓包的产品路径上（实时抓包只在 Windows 随安装包提供）。"
+          : "本机没有 USB 实时抓包能力。",
+    remediation:
+      "让用户在 Windows 机器或硬件分析仪上抓包，把 .pcapng 文件交给我用 usb_decode 分析——" +
+      "离线解码在任何平台都可用，不需要任何权限，也不需要额外安装任何工具。",
+  };
+}
+
 /** 顶层字段取自**首选**后端，便于调用方直接展示；完整候选在 `backends` 里。 */
 export interface ProbeCapture {
   available: boolean;
@@ -61,7 +82,7 @@ export interface ProbeInput {
   pluginData: string;
 }
 
-/** 抓包后端探测已移到 backends.ts（builtin 优先、dumpcap 回退）；这里只做环境清单。 */
+/** 抓包后端探测在 backends.ts（唯一的后端是 Windows 内置抓包服务）；这里只做环境清单。 */
 
 
 /** Linux：/sys/bus/usb/devices 不需要特权，接口类目都在这里。 */
@@ -223,6 +244,7 @@ export async function probeEnvironment(input: ProbeInput): Promise<ProbeResult> 
   // 这样 reason/remediation 仍然是「为什么首选路径不能抓」而不是一句没有信息的“没有后端”。
   const usable = backends.backends.find((backend) => backend.available);
   const headline = usable ?? backends.backends[0];
+  const offline = offlineOnlyGuidance(platform);
   const capture: ProbeCapture = {
     available: usable !== undefined,
     backend: usable?.id ?? "none",
@@ -232,32 +254,18 @@ export async function probeEnvironment(input: ProbeInput): Promise<ProbeResult> 
     ...(headline?.command ? { command: headline.command } : {}),
     ...(headline?.reason ? { reason: headline.reason } : {}),
     ...(headline?.remediation ? { remediation: headline.remediation } : {}),
+    // 一个候选后端都没有（Linux / macOS）：给出平台级的离线指引，而不是一句「没有后端」。
+    ...(headline ? {} : { reason: offline.reason, remediation: offline.remediation }),
     backends: backends.backends,
   };
-  if (platform === "darwin") {
-    // macOS 是明确的例外：没有后端，也没有「装点什么就能抓」的路径。
-    capture.backends = [
-      {
-        id: "builtin",
-        available: false,
-        privilege: "unknown",
-        interfaces: [],
-        reason: "macOS 没有公开的内核级 USB 抓包接口。",
-        remediation:
-          "用硬件分析仪（Lecroy / Beagle / Total Phase）或另一台 Linux/Windows 机器抓包，" +
-          "把 pcapng 文件交给我用 usb_decode 分析；离线分析在本机完全可用。",
-      },
-    ];
-  }
 
   if (capture.available && capture.privilege !== "ok") {
     // 后端存在但没权限：available 仍为 true（接口可枚举），由 remediation 说明 usb_capture 为什么会失败——
     // 这比直接说「不可用」更有用，同时提醒模型不要编造抓包结果。
     notes.push("抓包后端存在但权限不足：usb_capture 会返回 permission 与 remediation，不要编造抓包结果。");
   }
-  const unavailable = backends.backends.filter((backend) => !backend.available);
-  if (!capture.available && unavailable.length > 1) {
-    notes.push(`两个抓包后端都不可用：${unavailable.map((backend) => `${backend.id}（${backend.reason ?? "原因未知"}）`).join("；")}`);
+  if (!capture.available && backends.backends.length === 0) {
+    notes.push("本机只能做离线分析：请用户提供在 Windows 机器或硬件分析仪上抓到的 .pcapng。");
   }
 
   const devices =

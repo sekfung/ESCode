@@ -82,19 +82,20 @@ const decodeSchema = z
 
 const DESCRIPTIONS: Record<UsbToolName, string> = {
   usb_probe:
-    "First step for any USB problem on this machine: report the capture backend (dumpcap on Linux, USBPcapCMD on Windows) " +
-    "with its privilege state and an exact remediation command when it is not usable, the attached USB devices with their " +
-    "interface classes (this is what tells you CCID vs HID vs mass storage), and existing capture files. " +
-    "Call it before usb_capture; when it reports available=false do not attempt usb_capture — pass its remediation to the user instead. " +
+    "First step for any USB problem: report whether this machine can capture at all. Live capture is Windows-only and ships " +
+    "with the installer (built-in capture service plus the USBPcap driver), so there is nothing for the user to install; " +
+    "on Linux and macOS this tool reports that only offline analysis is available and why. It also lists the attached USB " +
+    "devices with their interface classes (this is what tells you CCID vs HID vs mass storage) and any existing capture files. " +
+    "Call it before usb_capture: when it reports available=false do not attempt a capture — follow its remediation instead. " +
     "Read-only, no approval.",
   usb_capture:
-    "Record a bounded slice of USB traffic into a .pcapng file for usb_decode. Capture ships with ESCode itself " +
-    "(built-in backend: a small helper on Linux, a capture service on Windows); a user-installed dumpcap is only a fallback. " +
-    "Use it when the failure must be reproduced live and no capture file exists yet. " +
-    "This needs the user's approval: explain what you will capture and ask the user to reproduce the problem (or replug the device) " +
-    "during the capture window. Capture is per bus; narrow to one device with busDev at decode time. " +
-    "If it fails with permission/unavailable, relay usb_probe's remediation (on Linux the first capture needs a one-time " +
-    "system authorization the user must approve) instead of retrying.",
+    "Record a bounded slice of USB traffic into a .pcapng file for usb_decode. Windows only: it drives the built-in capture " +
+    "service that ships with ESCode, so the user installs nothing. Use it when the failure must be reproduced live and no " +
+    "capture file exists yet. On Linux and macOS call it only if usb_probe said a capture backend is available — otherwise it " +
+    "fails with unavailable, and the right move is to ask the user for a .pcapng captured on a Windows machine or with a " +
+    "hardware analyzer. This needs the user's approval: explain what you will capture and ask the user to reproduce the problem " +
+    "(or replug the device) during the capture window. Capture is per bus; narrow to one device with busDev at decode time. " +
+    "On permission/unavailable failures, relay usb_probe's remediation instead of retrying.",
   usb_decode:
     "Decode a .pcapng/.pcap USB capture into protocol-level messages: CCID card-reader messages with APDU and SW1SW2, " +
     "HID reports decoded against the report descriptor, MSC/SCSI commands with CBW/CDB/CSW and sense data. " +
@@ -176,8 +177,8 @@ async function runProbe(context: UsbToolContext): Promise<UsbToolResult> {
       ? [`抓包接口：${result.capture.interfaces.map((entry) => entry.label).join("；")}`]
       : []),
     ...(result.capture.remediation ? [`修复方式：${result.capture.remediation}`] : []),
-    // 每个不可用后端都要说清原因：用户最常问的就是「我装了 Wireshark 为什么还不行」，
-    // 而「首选后端不可用」这句话本身不含信息。
+    // 不可用的后端要连原因一起给出：「抓包不可用」这句话本身不含信息，
+    // 而缺失的抓包服务是可修的（重装），Linux/macOS 则是「本机就是不做实时抓包」。
     ...result.capture.backends
       .filter((backend) => !backend.available)
       .map((backend) => `抓包后端 ${backend.id} 不可用：${backend.reason ?? "原因未知"}`),

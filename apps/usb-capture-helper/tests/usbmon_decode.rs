@@ -339,3 +339,49 @@ fn write_records_stops_at_max_bytes_after_one_event() {
     assert_eq!(stats.packets, 1, "达到上限后不再写后续事件");
     writer.finish(true).expect("收尾");
 }
+
+/// 受限参数校验在库层也要生效（不只是 CLI）：越界值必须在打开设备前就以 invalidInput 失败。
+#[cfg(target_os = "linux")]
+#[test]
+fn run_capture_rejects_out_of_range_requests_before_opening_device() {
+    use escode_usb_capture::error::ErrorCode;
+    use escode_usb_capture::pcapng::partial_path;
+    use escode_usb_capture::usbmon_bin::{CaptureRequest, run_capture};
+
+    let dir = temp_dir("run-capture-validation");
+    let cases: Vec<(u32, u64, u64, PathBuf)> = vec![
+        (0, 1_000, 1_000_000, dir.join("bus0.pcapng")),
+        (256, 1_000, 1_000_000, dir.join("bus256.pcapng")),
+        (1, 0, 1_000_000, dir.join("duration0.pcapng")),
+        (1, 60_001, 1_000_000, dir.join("duration-high.pcapng")),
+        (1, 1_000, 0, dir.join("bytes0.pcapng")),
+        (
+            1,
+            1_000,
+            512 * 1024 * 1024 + 1,
+            dir.join("bytes-high.pcapng"),
+        ),
+        (1, 1_000, 1_000_000, dir.join("wrong-suffix.pcap")),
+        (
+            1,
+            1_000,
+            1_000_000,
+            dir.join("no-such-dir").join("x.pcapng"),
+        ),
+    ];
+    for (bus, duration_ms, max_bytes, output) in cases {
+        let request = CaptureRequest {
+            bus,
+            duration_ms,
+            max_bytes,
+            output: output.clone(),
+        };
+        let error = run_capture(&request).expect_err("越界请求必须失败");
+        assert_eq!(error.code, ErrorCode::InvalidInput, "{output:?} → {error}");
+        assert!(!output.exists(), "{output:?} 不应创建文件");
+        assert!(
+            !partial_path(&output).exists(),
+            "{output:?} 不应留下 .partial"
+        );
+    }
+}

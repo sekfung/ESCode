@@ -22,8 +22,6 @@ pub const LINKTYPE_USB_LINUX_MMAPPED: u16 = 220;
 pub const USB_MON_HEADER_LEN: usize = 64;
 /// 与 dumpcap 抓 usbmon 时用的 snaplen 一致；usbmon 单条记录不可能超过它。
 pub const SNAPLEN: u32 = 262_144;
-/// 每个数据包的 pcapng 固定开销：块头 8 + interface_id/时间戳/cap/orig 20 + 尾部长度 4。
-const EPB_OVERHEAD: u64 = 32;
 
 const BLOCK_SECTION_HEADER: u32 = 0x0A0D_0D0A;
 const BLOCK_INTERFACE_DESCRIPTION: u32 = 1;
@@ -209,11 +207,6 @@ impl PcapngWriter {
         let original_length = USB_MON_HEADER_LEN as u32 + record.declared_length;
         let block = enhanced_packet_block(record.ts_micros, &data, original_length);
         self.write_block(&block)
-    }
-
-    /// 单个事件写入后会占用的最大字节数（按 4 字节对齐后的上限），用于提前判断体积上限。
-    pub fn max_event_bytes(payload_len: usize) -> u64 {
-        EPB_OVERHEAD + (USB_MON_HEADER_LEN + payload_len).next_multiple_of(4) as u64
     }
 
     /// 收尾：flush + fsync。`rename` 为 true 时把 `.partial` 改成最终文件；被中断时传 false，保留 `.partial`。

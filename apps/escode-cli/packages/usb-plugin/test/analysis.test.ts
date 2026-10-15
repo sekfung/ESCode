@@ -124,4 +124,28 @@ describe("解码视图", () => {
         /189\/220|249/u.test(error.message),
     );
   });
+  test("时间按相对首条报文的偏移渲染：墙钟时间戳的抓包也不会显示成 +1700000000s", () => {
+    // USBPcap 与部分 usbmon 抓包的时间戳是墙钟（约 1.7e15 µs）。绝对值对协议分析没有意义，
+    // 视图必须渲染相对偏移，否则「谁在前谁在后」会被一长串数字淹没。
+    const capture = buildUsbmonPcapng([
+      ...bulkExchange({ ts: 1_700_000_000_100_000, endpoint: 0x83, data: ccidDataBlock(1, [0x90, 0x00]) }),
+      ...bulkExchange({ ts: 1_700_000_000_300_000, endpoint: 0x83, data: ccidDataBlock(2, [0x90, 0x00]) }),
+    ]);
+    const timeline = analyzeCapture(capture, { protocol: "ccid", view: "timeline" });
+    assert.match(timeline.text, /#1 \+0\.000s/u);
+    assert.match(timeline.text, /#2 \+0\.200s/u);
+    assert.doesNotMatch(timeline.text, /\+1700000000\./u);
+    // 时间范围那行属于 summary 视图，timeline 只有逐条偏移。
+    const summary = analyzeCapture(capture, { protocol: "ccid", view: "summary" });
+    assert.match(summary.text, /时间范围：\+0\.000s – \+0\.200s/u);
+  });
+
+  test("异常只在报文行里出现一次（不在 summary 与视图层各写一遍）", () => {
+    const capture = buildUsbmonPcapng([
+      { ts: 1_000, endpoint: 0x81, type: 3, complete: true, data: new Uint8Array([1]), status: -32 },
+    ]);
+    const timeline = analyzeCapture(capture, { protocol: "raw", view: "timeline" });
+    const occurrences = timeline.text.split("状态码 -32").length - 1;
+    assert.equal(occurrences, 1, timeline.text);
+  });
 });

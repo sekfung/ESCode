@@ -17,12 +17,14 @@ Three tools form one funnel: **`usb_probe`** (what can this machine do, what is 
 | USB drive / SSD fails to read, write or mount | `usb_probe` | `usb_capture` → `usb_decode(protocol=msc)` |
 | User already has a `.pcapng` / `.pcap` | `usb_decode(view=summary)` directly | follow up with the protocol it reports |
 | Device never enumerates, reconnects in a loop, drops out | `usb_capture` (ask the user to replug during the window) | `usb_decode(view=summary)` |
-| This machine cannot capture at all (macOS, no permission, no driver) | `usb_probe` — it returns the exact `remediation` | hand that remediation to the user; ask for a capture file from another machine |
+| No live capture on this machine (Linux, macOS) | `usb_probe` — it says so in one line | ask the user for a `.pcapng` captured on Windows or with a hardware analyzer |
 | Unknown / vendor-specific protocol | `usb_decode(protocol=auto, view=summary)` | `usb_decode(protocol=raw, view=timeline)` |
 
 Rules that follow from the table:
 
-1. **Probe before capturing.** If `usb_probe` reports the backend as unavailable or the privilege as denied, do **not** call `usb_capture`. Report its remediation text to the user verbatim — it is the exact command they need.
+1. **Probe before capturing.** If `usb_probe` reports the backend as unavailable, do **not** call `usb_capture`.
+   Live capture is **Windows-only** and ships with the installer; on Linux and macOS there is nothing to install and no
+   privilege to grant — the offline path is the whole story there.
 2. **A file beats a capture.** If the user already has a capture, skip `usb_capture` entirely.
 3. **The interface class decides the protocol**, not a guess: read it from `usb_probe`'s device list (`smart-card-ccid` → `ccid`, `hid` → `hid`, `mass-storage` → `msc`) or from the descriptors inside the capture. Only use `protocol=auto` when neither is available.
 4. **Summary first, then page.** `summary` is cheap and tells you devices, protocol spread and where the anomalies are. Only then pull `timeline` pages with `cursor`, and `message` for a single message's bytes.
@@ -30,9 +32,11 @@ Rules that follow from the table:
 
 ## Capturing (needs the user's approval)
 
-`usb_capture` records a bounded slice on one bus. Before calling it, tell the user what you are about to record and
-for how long, and ask them to reproduce the failure — or, when the problem is enumeration, to **unplug and replug the
-device** — during that window. Only the traffic that crosses the bus while the capture runs lands in the file:
+`usb_capture` records a bounded slice on one bus **on Windows** (it drives the capture service that ships with
+ESCode; the USBPcap driver comes with the installer, so the user installs nothing). On Linux and macOS it always fails
+with `unavailable` — do not retry it there, ask for a capture file instead. Before calling it, tell the user what you
+are about to record and for how long, and ask them to reproduce the failure — or, when the problem is enumeration, to
+**unplug and replug the device** — during that window. Only the traffic that crosses the bus while the capture runs lands in the file:
 descriptors (VID:PID, interface class, HID report descriptor) only show up if the device was enumerated during the capture.
 
 Keep `durationMs` as short as the reproduction allows (10 s is a good default, 60 s is the ceiling) and pass a `label`
@@ -71,22 +75,16 @@ the command is at fault.
 
 ## When capture is not available
 
-Live capture ships **with ESCode itself**: `usb_probe` lists the capture backends it found, the first entry is the
-built-in one (`builtin`), and `dumpcap` (from a Wireshark the user happens to have) is only a fallback. So the usual
-situation is not "install a tool", it is "grant permission once":
+**Windows**: the capture service and the USBPcap driver are installed with ESCode, so a working install can always
+capture. If `usb_probe` reports the built-in backend as missing, the installation predates this feature or the service
+was removed — the user should reinstall with the current installer. Pass that on; do not ask them to install anything else.
 
-- **Linux**: the built-in helper needs read access to `/dev/usbmonN`. If `usb_probe` reports `permission`, the fix is
-  one system authorization — run the `remediation` it prints (an `escode-usb-capture --install-privileges` command via
-  `pkexec`), which the user has to approve in a system dialog. It is permanent, so ask once, not every capture. If the
-  usbmon kernel module is not loaded, the remediation asks for `sudo modprobe usbmon`.
-- **Windows**: the capture service and the USBPcap driver are installed with ESCode. If `usb_probe` says the built-in
-  backend is missing, the installation predates this feature — the user should reinstall with the current installer.
-- **macOS**: there is no live capture and nothing to install. Ask the user for a `.pcapng` captured on a Linux/Windows
-  machine or with a hardware analyzer instead.
+**Linux and macOS**: there is no live capture, by design, and nothing to install. Say so in one line and ask for a
+`.pcapng` captured on a Windows machine or with a hardware analyzer (Lecroy, Beagle, Total Phase). Everything after that
+is local: `usb_decode` reads the file and never needs a privilege, a driver or an external tool.
 
-Whatever the case, the **offline path always works**: `usb_decode` reads any capture file the user brings, from
-Wireshark, USBPcap, usbmon or a hardware analyzer — and it never needs a privilege or an external tool. When a capture
-is impossible right now, say so plainly and ask for a file; do not invent traffic.
+Never invent traffic. If no capture and no file are available, the honest answer is that the wire was not observed —
+say which command the user could run on a Windows machine, or which file you need.
 
 ## Context discipline
 

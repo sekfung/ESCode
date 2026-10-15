@@ -4,7 +4,8 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "vitest";
-import { resolveHelperCandidates } from "../src/backends.js";
+import { resolveCaptureBackends, resolveHelperCandidates } from "../src/backends.js";
+import { offlineOnlyGuidance } from "../src/probe.js";
 import { handleUsbToolCall, type UsbToolContext } from "../src/tools.js";
 import {
   buildUsbmonPcapng,
@@ -45,6 +46,11 @@ const run = async () => {
     return;
   }
   const output = value("--output");
+  if (mode === "signal") {
+    await copyFile(process.env.USB_TEST_FIXTURE, output + ".partial");
+    console.log(JSON.stringify({ ok: true, packets: 6, bytes: 0, dropped: 0, skippedIsochronous: 0, stoppedBy: "signal", output: output + ".partial", bus: Number(value("--bus")) }));
+    return;
+  }
   if (mode === "permission") {
     await writeFile(output + ".partial", Buffer.alloc(32));
     console.log(JSON.stringify({ ok: false, error: { code: "permission", message: "打不开 /dev/usbmon0", remediation: "运行 pkexec escode-usb-capture --install-privileges" } }));
@@ -192,6 +198,31 @@ describe("自研抓包器后端（builtin）", () => {
     });
   });
 
+  test("抓包器被信号中断：按自报的 .partial 收尾，并提示可先分析部分数据", async () => {
+    await withStub(async ({ context }) => {
+      const result = await handleUsbToolCall({
+        name: "usb_capture",
+        args: { durationMs: 1_000 },
+        context: { ...context, env: { ...context.env, USB_TEST_MODE: "signal" } },
+      });
+      assert.equal(result.isError, undefined);
+      const text = result.content[0]?.text ?? "";
+      assert.match(text, /部分文件/u);
+      const path = /已抓包：(\S+)/u.exec(text)?.[1] ?? "";
+      assert.ok(path.endsWith(".partial"), path);
+      const meta = JSON.parse(result.content[1]?.text ?? "{}") as Record<string, unknown>;
+      assert.equal(meta.stoppedBy, "signal");
+      // 部分文件必须真的能被解码器读（截断容忍），否则「可先分析部分数据」就是空话。
+      const decode = await handleUsbToolCall({
+        name: "usb_decode",
+        args: { source: path, protocol: "ccid", view: "summary" },
+        context,
+      });
+      assert.equal(decode.isError, undefined);
+      assert.match(decode.content[0]?.text ?? "", /smart-card-ccid/u);
+    });
+  });
+
   test("抓包器失败：错误码映射成工具错误，并保留 .partial 供继续分析", async () => {
     await withStub(async ({ context }) => {
       const result = await handleUsbToolCall({
@@ -207,7 +238,7 @@ describe("自研抓包器后端（builtin）", () => {
     });
   });
 
-  test("找不到抓包器时：候选路径进 reason，抓包返回 unavailable", async () => {
+  test("找不到抓包器时：probe 如实报不可用，抓包返回 unavailable（各平台都成立）", async () => {
     const context: UsbToolContext = {
       env: {
         PATH: "/nonexistent-path-for-usb-plugin-tests",
@@ -217,10 +248,11 @@ describe("自研抓包器后端（builtin）", () => {
       pluginData: join(tmpdir(), "escode-usb-plugin-test-data"),
       signal: new AbortController().signal,
     };
+    // 这里只断言跨平台都成立的部分：CI 会在 macOS / Windows / Linux 上跑，
+    // 平台特有的文案（Windows 引导重装、Linux/macOS 的离线指引）在下面的按平台用例里钉。
     const probe = await handleUsbToolCall({ name: "usb_probe", args: {}, context });
-    const probeText = probe.content[0]?.text ?? "";
-    assert.match(probeText, /没有找到自研抓包器/u);
-    assert.match(probeText, /\/nonexistent\/escode-usb-capture/u);
+    assert.equal(probe.isError, undefined);
+    assert.match(probe.content[0]?.text ?? "", /抓包：不可用/u);
 
     const capture = await handleUsbToolCall({
       name: "usb_capture",
@@ -229,5 +261,52 @@ describe("自研抓包器后端（builtin）", () => {
     });
     assert.equal(capture.isError, true);
     assert.match(capture.content[0]?.text ?? "", /^\[unavailable\]/u);
+  });
+});
+
+describe("按平台的后端体面", () => {
+  const env = { PATH: "/nonexistent-path-for-usb-plugin-tests" };
+
+  test("Windows：内置抓包服务是唯一后端，缺失时引导重装而不是让用户去装第三方工具", async () => {
+    const backends = await resolveCaptureBackends({ env, platform: "win32" });
+    assert.equal(backends.backends.length, 1);
+    assert.equal(backends.backends[0]?.id, "builtin");
+    assert.equal(backends.backends[0]?.available, false);
+    assert.match(backends.backends[0]?.reason ?? "", /escode-usb-capture 服务/u);
+    assert.match(backends.backends[0]?.remediation ?? "", /重装/u);
+    // 明确不要再提「装个 Wireshark/dumpcap」——那条隐性依赖已经删掉。
+    assert.doesNotMatch(backends.backends[0]?.remediation ?? "", /dumpcap|Wireshark/u);
+    assert.equal(backends.preferred, undefined);
+  });
+
+  test("Linux / macOS：不列实时抓包后端，也不给「重装就能抓」的暗示", async () => {
+    for (const platform of ["linux", "darwin"] as const) {
+      const backends = await resolveCaptureBackends({ env, platform });
+      assert.deepEqual(backends.backends, [], platform);
+      assert.equal(backends.preferred, undefined, platform);
+    }
+  });
+
+  test("Linux：只有抓包器确实存在时才登记这个后端（自建场景），不承诺安装", async () => {
+    await withStub(async ({ helper }) => {
+      const backends = await resolveCaptureBackends({
+        env: { ...env, USB_PLUGIN_CAPTURE_HELPER_PATH: helper },
+        platform: "linux",
+      });
+      assert.equal(backends.backends.length, 1);
+      assert.equal(backends.backends[0]?.available, true);
+      assert.equal(backends.preferred, "builtin");
+    });
+  });
+});
+
+describe("离线指引文案", () => {
+  test("Linux 与 macOS 各自说明原因，且都指向「拿别处抓的文件」这条路径", () => {
+    const linux = offlineOnlyGuidance("linux");
+    assert.match(linux.reason, /实时抓包只在 Windows/u);
+    assert.match(linux.remediation, /\.pcapng/u);
+    const mac = offlineOnlyGuidance("darwin");
+    assert.match(mac.reason, /macOS 没有公开的内核级 USB 抓包接口/u);
+    assert.match(mac.remediation, /离线解码/u);
   });
 });

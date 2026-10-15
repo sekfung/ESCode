@@ -1,16 +1,17 @@
 /**
  * 实时抓包（docs/specs/usb-agent-tools.md §3.3 / §5）。
  *
- * 唯一所有者是这里的抓包作业表：一次调用一个子进程，结束时一定收尾（正常退出、工具取消、进程被杀）。
- * 抓包期间写 `.partial`，正常收尾后改名——半截文件被当成完整抓包分析，比失败更糟。
+ * 只有一个后端：Windows 上的 `escode-usb-capture` 服务。插件是**作业所有者**——它负责参数校验、
+ * 超时、取消与把结果翻译成工具结果；抓包器只接受固定参数、写一个 pcapng 文件、回报一行 JSON。
+ * Linux 与 macOS 没有实时抓包，只有离线解码（`backends.ts` 的注释里写了为什么不做 dumpcap 回退）。
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdir, readFile, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { selectCaptureBackend } from "./backends.js";
 import { readCaptureData } from "./pcap/pcapng.js";
-import type { ProbeCapture } from "./probe.js";
+import { offlineOnlyGuidance, type ProbeCapture } from "./probe.js";
 
 export type CaptureErrorCode =
   | "unavailable"
@@ -48,12 +49,12 @@ export interface CaptureOutcome {
   bytes: number;
   packets: number;
   stoppedBy: "duration" | "maxBytes" | "signal";
-  backend: string;
+  backend: "builtin";
   target: { bus?: number; busDev?: string };
   notes: string[];
 }
 
-/** 进行中的抓包：键是「后端:总线」，同一条总线不允许两个写入者（Windows 驱动会直接拒绝）。 */
+/** 进行中的抓包：键是「后端:总线」，同一条总线不允许两个写入者（Windows 驱动会直接拒绝第二个）。 */
 const activeCaptures = new Set<string>();
 
 function timestampName(now: Date): string {
@@ -84,7 +85,7 @@ function resolveOutputPath(input: {
 
 function pickBus(
   request: CaptureRequest,
-  offline: Pick<ProbeCapture, "interfaces" | "reason" | "remediation">,
+  offline: Pick<ProbeCapture, "interfaces">,
 ): { bus: number; notes: string[] } {
   if (request.bus !== undefined) return { bus: request.bus, notes: [] };
   if (request.busDev) {
@@ -106,23 +107,6 @@ function pickBus(
   );
 }
 
-/** 子进程 stderr 到工具错误码：权限与设备名问题要给得出可执行的下一步。 */
-function classifyFailure(stderr: string, command: string): CaptureError {
-  const text = stderr.trim() || "抓包进程失败但没有输出";
-  if (/permission denied|operation not permitted/iu.test(text)) {
-    return new CaptureError(
-      "permission",
-      text,
-      `当前用户没有抓包权限。授予能力后重试：sudo setcap cap_net_raw,cap_net_admin+eip ${command}` +
-        "；或以管理员身份运行（Windows 需要管理员权限）。",
-    );
-  }
-  if (/no such device|open failed|could not open/iu.test(text)) {
-    return new CaptureError("invalidInput", text, "总线号或控制设备名可能不对：重新运行 usb_probe 核对。");
-  }
-  return new CaptureError("io", text);
-}
-
 function killChild(child: ChildProcess | undefined): void {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -140,7 +124,7 @@ async function countRecords(path: string): Promise<{ packets: number; bytes: num
       packets += 1;
     });
   } catch {
-    // 文件被中途终止的抓包工具写坏时，packets 保持 0 并由上层提示「文件可用性待确认」。
+    // 文件被中途终止的抓包器写坏时，packets 保持 0 并由上层提示「文件可用性待确认」。
   }
   return { packets, bytes: data.byteLength };
 }
@@ -191,7 +175,7 @@ async function runBuiltinCapture(input: {
     else input.signal.addEventListener("abort", onAbort, { once: true });
   });
   const timeout = setTimeout(() => {
-    // 自研抓包器自己按 duration-ms 收尾；这里只是兜底，防止它卡住不退出。
+    // 抓包器自己按 duration-ms 收尾；这里只是兜底，防止它卡住不退出。
     killChild(child);
   }, input.request.durationMs + 5000);
 
@@ -219,18 +203,40 @@ async function runBuiltinCapture(input: {
   const notes = [...input.notes];
   if (payload?.ok === true) {
     if (typeof payload.dropped === "number" && payload.dropped > 0) {
-      notes.push(`抓包器报告丢弃 ${payload.dropped} 个事件（usbmon 环形缓冲溢出）：结论要按「可能缺报文」来读。`);
+      notes.push(`抓包器报告丢弃 ${payload.dropped} 个事件（驱动缓冲溢出）：结论要按「可能缺报文」来读。`);
     }
     if (typeof payload.skippedIsochronous === "number" && payload.skippedIsochronous > 0) {
       notes.push(`跳过 ${payload.skippedIsochronous} 个等时传输事件（不在解码范围内）。`);
     }
-    const counted = await countRecords(input.outputPath);
     const stoppedBy =
       payload.stoppedBy === "maxBytes" || payload.stoppedBy === "signal"
         ? payload.stoppedBy
         : "duration";
+    // 抓包器收到信号时会**优雅收尾**并如实返回 ok:true，但产物是 `<output>.partial`（它不假装
+    // 半截文件是完整产物）。外部信号（不是我们的 abort）走的就是这条路，所以这里要按它自报的
+    // 路径收尾，否则会去读一个不存在的最终文件、把「有部分数据可分析」变成一句 ENOENT。
+    const reported = typeof payload.output === "string" ? payload.output : undefined;
+    const finalExists = await stat(input.outputPath)
+      .then(() => true)
+      .catch(() => false);
+    const effectivePath = finalExists ? input.outputPath : (reported ?? input.outputPath);
+    if (!finalExists) {
+      const exists = await stat(effectivePath)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) {
+        throw new CaptureError(
+          "io",
+          `抓包器报告成功但产物不存在：${input.outputPath}（抓包器自报路径 ${reported ?? "无"}）。`,
+        );
+      }
+      notes.push(
+        `抓包被中断，产物是部分文件：${effectivePath}（可先用 usb_decode 分析已抓到的部分）。`,
+      );
+    }
+    const counted = await countRecords(effectivePath);
     return {
-      path: input.outputPath,
+      path: effectivePath,
       bytes: typeof payload.bytes === "number" ? payload.bytes : counted.bytes,
       packets: typeof payload.packets === "number" ? payload.packets : counted.packets,
       stoppedBy,
@@ -240,19 +246,19 @@ async function runBuiltinCapture(input: {
     };
   }
 
-  // 失败：优先用 helper 自报的错误码与 remediation（它比我们更清楚缺哪一步权限）。
+  // 失败：优先用抓包器自报的错误码与 remediation（它比我们更清楚缺哪一步）。
   const error = (payload?.error ?? undefined) as Record<string, unknown> | undefined;
   const code =
-    error?.code === "permission" || error?.code === "no-interface" || error?.code === "busy"
+    error?.code === "permission" || error?.code === "busy"
       ? error.code
-      : error?.code === "invalidInput"
+      : error?.code === "invalidInput" || error?.code === "no-interface"
         ? "invalidInput"
         : "io";
   const partialNote = await stat(`${input.outputPath}.partial`)
     .then(() => `已保留部分文件：${input.outputPath}.partial（可先用 usb_decode 分析已抓到的部分）。`)
     .catch(() => undefined);
   throw new CaptureError(
-    code === "no-interface" ? "invalidInput" : code,
+    code,
     typeof error?.message === "string"
       ? error.message
       : `抓包器失败（退出码 ${exitCode ?? "?"}）：${(stderr.trim() || "无输出").split("\n").slice(-2).join(" | ")}`,
@@ -285,16 +291,19 @@ export async function runCapture(input: {
     const failure = selection.failure;
     throw new CaptureError(
       "unavailable",
-      failure?.reason ?? probe.reason ?? "本机没有可用的 USB 抓包后端。",
-      failure?.remediation ?? probe.remediation,
+      failure?.reason ?? probe.reason ?? offlineOnlyGuidance().reason,
+      failure?.remediation ?? probe.remediation ?? offlineOnlyGuidance().remediation,
     );
   }
   const activeBackend = selection.backend;
-  const { bus, notes } = pickBus(request, {
-    interfaces: activeBackend.interfaces,
-    reason: activeBackend.reason,
-    remediation: activeBackend.remediation,
-  });
+  if (!activeBackend.command) {
+    throw new CaptureError(
+      "unavailable",
+      "抓包后端已登记但缺少可执行文件路径（探测结果不完整）。",
+      offlineOnlyGuidance().remediation,
+    );
+  }
+  const { bus, notes } = pickBus(request, { interfaces: activeBackend.interfaces });
   const outputPath = resolveOutputPath({
     request,
     workspace: input.workspace,
@@ -310,133 +319,19 @@ export async function runCapture(input: {
   }
 
   await mkdir(dirname(outputPath), { recursive: true });
-  // builtin 后端自己负责 .partial 与改名；dumpcap 路径由这里改名。
-  if (activeBackend.id === "builtin" && activeBackend.command) {
-    activeCaptures.add(jobKey);
-    try {
-      if (input.signal.aborted) throw new CaptureError("io", "调用在开始抓包前被取消");
-      return await runBuiltinCapture({
-        helper: activeBackend.command,
-        request,
-        bus,
-        ...(request.busDev ? { busDev: request.busDev } : {}),
-        outputPath,
-        signal: input.signal,
-        notes,
-        env: input.env,
-      });
-    } finally {
-      activeCaptures.delete(jobKey);
-    }
-  }
-
-  const partialPath = `${outputPath}.partial`;
   activeCaptures.add(jobKey);
-  let child: ChildProcess | undefined;
-  /** 由定时器、体积监视或取消回调写入；dumpcap 自己按 -a duration 收尾时保持未设置。 */
-  let stopReason: CaptureOutcome["stoppedBy"] | undefined;
-  const notesOut = [...notes];
   try {
     if (input.signal.aborted) throw new CaptureError("io", "调用在开始抓包前被取消");
-
-    const durationSeconds = Math.max(1, Math.ceil(request.durationMs / 1000));
-    // dumpcap 用 -a 自己收尾，USBPcapCMD 没有时长参数、只能由我们终止；两者参数不同。
-    const isDumpcap = activeBackend.id === "dumpcap" && !(activeBackend.command ?? "").includes("USBPcapCMD");
-    const command = activeBackend.command ?? "";
-    const args = isDumpcap
-      ? [
-          "-i",
-          `usbmon${bus}`,
-          "-a",
-          `duration:${durationSeconds}`,
-          "-a",
-          `filesize:${Math.max(1, Math.ceil(request.maxBytes / 1024))}`,
-          "-q",
-          "-w",
-          partialPath,
-        ]
-      : ["-d", `\\\\.\\USBPcap${bus}`, "-o", partialPath];
-
-    child = spawn(command, args, { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
-    let stderr = "";
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-      // 只保留尾部：抓包工具的告警可能很长，但真正的原因通常在最后几行。
-      if (stderr.length > 8192) stderr = stderr.slice(-8192);
+    return await runBuiltinCapture({
+      helper: activeBackend.command,
+      request,
+      bus,
+      ...(request.busDev ? { busDev: request.busDev } : {}),
+      outputPath,
+      signal: input.signal,
+      notes,
+      env: input.env,
     });
-
-    const timer = setTimeout(() => {
-      // dumpcap 自己按 -a duration 收尾；这个兜底主要给 USBPcapCMD（没有时长参数）。
-      stopReason = "duration";
-      killChild(child);
-    }, request.durationMs + (isDumpcap ? 4000 : 200));
-    const sizeMonitor = isDumpcap
-      ? undefined
-      : setInterval(() => {
-            void stat(partialPath)
-              .then((info) => {
-                if (info.size >= request.maxBytes) {
-                  stopReason = "maxBytes";
-                  killChild(child);
-                }
-              })
-              .catch(() => undefined);
-          }, 500);
-
-    const aborted = new Promise<never>((_, reject) => {
-      const onAbort = (): void => {
-        stopReason = "signal";
-        killChild(child);
-        reject(new CaptureError("io", "抓包被取消（工具调用中止或 MCP 连接断开）"));
-      };
-      if (input.signal.aborted) onAbort();
-      else input.signal.addEventListener("abort", onAbort, { once: true });
-    });
-
-    const exitCode = await Promise.race([
-      new Promise<number | null>((resolveExit) => {
-        child?.once("close", (code) => resolveExit(code));
-        child?.once("error", (error) => {
-          stderr += error.message;
-          resolveExit(-1);
-        });
-      }),
-      aborted,
-    ]).finally(() => {
-      clearTimeout(timer);
-      if (sizeMonitor) clearInterval(sizeMonitor);
-    });
-
-    // dumpcap 正常结束时返回 0；被我们终止（时长到、体积到）会是非 0 退出，
-    // 这属于预期路径：只要文件里已经有可用数据就照常交付，而不是报失败。
-    const partialInfo = await stat(partialPath).catch(() => undefined);
-    const hasData = (partialInfo?.size ?? 0) > 24;
-    if ((exitCode ?? 0) !== 0 && !hasData && stopReason !== "signal") {
-      await unlink(partialPath).catch(() => undefined);
-      throw classifyFailure(stderr, activeBackend.command ?? "dumpcap");
-    }
-    if (stderr.trim()) notesOut.push(`抓包工具输出：${stderr.trim().split("\n").slice(-3).join(" | ")}`);
-    await rename(partialPath, outputPath);
-    const counted = await countRecords(outputPath);
-    if (counted.packets === 0) {
-      notesOut.push(
-        "抓包里没有任何包：确认总线号是否正确，以及抓包期间设备上确实有流量" +
-          "（可以请用户在这段时间里重新插拔设备或复现操作）。",
-      );
-    }
-    return {
-      path: outputPath,
-      bytes: counted.bytes,
-      packets: counted.packets,
-      stoppedBy: stopReason ?? "duration",
-      backend: activeBackend.id,
-      target: { bus, ...(request.busDev ? { busDev: request.busDev } : {}) },
-      notes: notesOut,
-    };
-  } catch (error) {
-    killChild(child);
-    await unlink(partialPath).catch(() => undefined);
-    throw error;
   } finally {
     activeCaptures.delete(jobKey);
   }

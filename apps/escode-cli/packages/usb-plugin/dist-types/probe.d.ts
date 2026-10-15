@@ -23,6 +23,14 @@ export interface ProbeDevice {
     /** 平台无法给出总线地址时的说明（例如 Windows）。 */
     addressNote?: string;
 }
+/**
+ * Linux / macOS 的路径：**只做离线解码**——拿在 Windows 机器或硬件分析仪上抓到的文件来分析。
+ * 实时抓包只在 Windows 随安装包提供，因此这里不给「装点什么就能抓」的暗示。
+ */
+export declare function offlineOnlyGuidance(platform?: NodeJS.Platform): {
+    reason: string;
+    remediation: string;
+};
 /** 顶层字段取自**首选**后端，便于调用方直接展示；完整候选在 `backends` 里。 */
 export interface ProbeCapture {
     available: boolean;
