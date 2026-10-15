@@ -6,11 +6,18 @@ mod complete;
 mod files;
 mod issues;
 mod legacy;
+mod mutations;
+mod mutations_create;
+mod mutations_models;
 mod overlay;
+mod personal;
 mod resolve;
 mod rules;
 mod selection;
+mod service_write;
 mod settings_view;
+mod sparse;
+mod store;
 mod types;
 
 use std::path::PathBuf;
@@ -42,6 +49,10 @@ struct Loaded {
     resolved: Vec<resolve::ResolvedProvider>,
     templates: Vec<resolve::Template>,
     personal_providers: ProviderMap,
+    /// Built-in Provider 规则表（写入面校验 Overlay 身份与基线成员）。
+    builtin_providers: ProviderMap,
+    /// Personal 文件的内容版本（`Doc::revision`；文件缺失/无效 = 空配置的版本）。
+    personal_revision: String,
 }
 
 /// 指纹不变时两次真读之间的最长间隔（兜底：Windows 没有 inode/ctime，同粒度原地写可能骗过指纹）。
@@ -69,6 +80,8 @@ pub struct ProviderService {
     personal_path: PathBuf,
     /// 串行化加载（文件读取 + 解析 + 替换），避免并发请求重复推进修订号。
     gate: AsyncMutex<()>,
+    /// 写入面的全局串行闸门（见 `service_write`）。
+    write_gate: AsyncMutex<()>,
     state: Mutex<State>,
 }
 
@@ -89,6 +102,7 @@ impl ProviderService {
             builtin_path,
             personal_path,
             gate: AsyncMutex::new(()),
+            write_gate: AsyncMutex::new(()),
             state: Mutex::default(),
         }
     }
@@ -153,6 +167,11 @@ impl ProviderService {
                 Personal::default()
             }),
         };
+        let personal_revision = personal_value
+            .as_ref()
+            .and_then(|value| personal::Doc::decode(value).ok())
+            .unwrap_or_else(personal::Doc::empty)
+            .revision();
         let account: ProviderMap = fail_closed_account(&builtin.providers);
         let no_state = |_: &str| None;
         let Resolution {
@@ -182,6 +201,8 @@ impl ProviderService {
             resolved,
             templates: builtin.templates,
             personal_providers: personal.providers,
+            builtin_providers: builtin.providers,
+            personal_revision,
         });
         state.loaded = Some(Arc::clone(&loaded));
         state.gate.record(stamps, std::time::Instant::now());
@@ -272,3 +293,7 @@ impl ProviderService {
 #[cfg(test)]
 #[path = "service_tests.rs"]
 mod service_tests;
+
+#[cfg(test)]
+#[path = "write_tests.rs"]
+mod write_tests;

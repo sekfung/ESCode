@@ -1,0 +1,483 @@
+import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { copyFile, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { createProviderRuntime } from "@escode/services/node";
+import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+
+// docs/specs/rust-u2-providers.md P3（§8）TS oracle 差分：同一份初始 Personal 文件，分别交给真实 TS
+// `ProviderRuntime.providerSettings` 与 Rust Host 的 `provider-settings` channel，依次执行同一组写操作；
+// 每一步比较「成功/失败」「错误文案」「返回视图（去修订号）」「落盘文件的语义（toEqual，不比键序）」。
+
+const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
+
+type Api = {
+  getView(): Promise<{ revision: number; [key: string]: unknown }>;
+  [method: string]: (...args: never[]) => Promise<unknown>;
+};
+
+const manualConfig = {
+  enabled: true,
+  properties: {
+    contextWindow: 64000,
+    supportsJsonSchemaOutput: true,
+    supportsNativeWebSearch: false,
+    supportsMidConversationSystem: false,
+    inputFormat: { supportsImage: true, supportsVideo: false, supportsPdf: false },
+  },
+  optionSpecs: {
+    reasoningLevel: { values: ["fast", "deep"], map: "{'effort': reasoningLevel}" },
+    maxOutputTokens: { max: 8192 },
+  },
+};
+
+const key = { type: "api-key", apiKey: "sk-test" };
+const INITIAL = {
+  schemaVersion: 1,
+  config: {
+    providerOrder: ["p-custom", "p-openai"],
+    providerConfigRules: {
+      providerRules: [
+        {
+          providerId: "p-openai",
+          templateId: "openai",
+          providerName: "My OpenAI",
+          config: {
+            group: "standard-personal",
+            access: key,
+            personalModelIds: ["my-model", "other"],
+            modelOrder: ["my-model", "gpt-5.6"],
+          },
+        },
+        {
+          providerId: "p-custom",
+          providerName: "Custom",
+          config: {
+            group: "standard-personal",
+            access: key,
+            api: { type: "openai-chat-completions", baseUrl: "https://llm.example.com/v1" },
+            personalModelIds: ["c1", "c2"],
+          },
+        },
+        { providerId: "account:zai-start-plan", config: { visibility: "visible" } },
+      ],
+    },
+    modelConfigRules: {
+      providerModelRules: [
+        { providerId: "p-openai", modelId: "gpt-5.6", config: { enabled: false } },
+        { providerId: "p-openai", modelId: "other", config: { enabled: true } },
+      ],
+      manualProviderModelRules: [
+        { providerId: "p-openai", modelId: "my-model", config: manualConfig },
+      ],
+    },
+    defaultModelSelection: { providerId: "p-openai", modelId: "gpt-5.6" },
+  },
+};
+
+type Op = [string, (api: Api) => Promise<unknown>, { anyMessage?: boolean }?];
+
+const OPS: Op[] = [
+  [
+    "disable personal model",
+    (a) => a.setPersonalModelEnabled("p-openai", "my-model", false as never),
+  ],
+  [
+    "enable inherited model",
+    (a) => a.setPersonalModelEnabled("p-openai", "gpt-5.4", true as never),
+  ],
+  ["enable unknown model", (a) => a.setPersonalModelEnabled("p-openai", "nope", true as never)],
+  ["enable on unknown provider", (a) => a.setPersonalModelEnabled("ghost", "x", true as never)],
+  ["add personal model", (a) => a.addPersonalModel("p-custom", "c3", {} as never)],
+  ["add duplicate personal model", (a) => a.addPersonalModel("p-custom", "c3", {} as never)],
+  ["add inherited duplicate", (a) => a.addPersonalModel("p-openai", "gpt-5.6", {} as never)],
+  [
+    "add manual model",
+    (a) => a.addPersonalModel("p-custom", "c4", manualConfig as never, false as never),
+  ],
+  [
+    "add model with incomplete manual config",
+    (a) => a.addPersonalModel("p-custom", "c5", { enabled: true } as never, false as never),
+    { anyMessage: true },
+  ],
+  ["add model with trimmed ids", (a) => a.addPersonalModel("  p-custom ", " c6 ", {} as never)],
+  ["rename personal model", (a) => a.renamePersonalModel("p-custom", "c1", "c1-renamed")],
+  ["rename to the same id", (a) => a.renamePersonalModel("p-custom", "c2", "c2")],
+  ["rename inherited model", (a) => a.renamePersonalModel("p-openai", "gpt-5.6", "zzz")],
+  ["rename onto existing", (a) => a.renamePersonalModel("p-custom", "c2", "c3")],
+  ["rename onto inherited", (a) => a.renamePersonalModel("p-openai", "my-model", "gpt-5.4")],
+  ["rename missing", (a) => a.renamePersonalModel("p-custom", "nope", "other")],
+  ["delete personal model", (a) => a.deletePersonalModel("p-custom", "c3")],
+  ["delete inherited model", (a) => a.deletePersonalModel("p-openai", "gpt-5.6")],
+  ["delete missing model", (a) => a.deletePersonalModel("p-custom", "nope")],
+  [
+    "reorder models",
+    (a) => a.reorderPersonalModels("p-openai", ["other", "gpt-5.4", "my-model", "ghost", "other"]),
+  ],
+  [
+    "reorder models on an inherited-only overlay",
+    (a) => a.reorderPersonalModels("account:zai-start-plan", ["GLM-5.2"]),
+  ],
+  ["reorder models of an unknown provider", (a) => a.reorderPersonalModels("ghost", ["x"])],
+  ["reorder providers", (a) => a.reorderPersonalProviders(["p-openai", "ghost", "p-custom"])],
+  ["create bare provider", (a) => a.createPersonalProvider()],
+  ["create bare provider again", (a) => a.createPersonalProvider()],
+  ["create from template", (a) => a.createPersonalProvider({ templateId: "openai" })],
+  ["create from template again", (a) => a.createPersonalProvider({ templateId: "openai" })],
+  [
+    "create zh-CN template",
+    (a) => a.createPersonalProvider({ templateId: "moonshot-kimi", locale: "zh-CN" }),
+  ],
+  ["create with a duplicate name", (a) => a.createPersonalProvider({ providerName: "custom" })],
+  ["create from an unknown template", (a) => a.createPersonalProvider({ templateId: "ghost" })],
+  [
+    "create with initial group",
+    (a) => a.createPersonalProvider({ initialConfig: { group: "standard-personal" } }),
+  ],
+  [
+    "create with initial config",
+    (a) =>
+      a.createPersonalProvider({
+        templateId: "deepseek",
+        providerName: "DS",
+        initialConfig: { access: { type: "api-key", apiKey: "k" }, visibility: "hidden" },
+      }),
+  ],
+  [
+    "save overlay: api change",
+    (a) =>
+      a.savePersonalProviderOverlay("p-custom", {
+        group: "standard-personal",
+        access: key,
+        api: { type: "openai-responses", baseUrl: "https://new.example.com/v1" },
+      } as never),
+  ],
+  [
+    "save overlay: rename provider",
+    (a) =>
+      a.savePersonalProviderOverlay(
+        "p-custom",
+        { group: "standard-personal" } as never,
+        {
+          providerName: "  Renamed  ",
+        } as never,
+      ),
+  ],
+  [
+    "save overlay: duplicate name",
+    (a) =>
+      a.savePersonalProviderOverlay(
+        "p-custom",
+        { group: "standard-personal" } as never,
+        {
+          providerName: "my openai",
+        } as never,
+      ),
+  ],
+  [
+    "save overlay: clear name",
+    (a) =>
+      a.savePersonalProviderOverlay(
+        "p-custom",
+        { group: "standard-personal" } as never,
+        {
+          providerName: null,
+        } as never,
+      ),
+  ],
+  [
+    "save overlay: personal-only without group",
+    (a) => a.savePersonalProviderOverlay("p-custom", { visibility: "hidden" } as never),
+  ],
+  [
+    "save overlay: wrong group on personal-only",
+    (a) => a.savePersonalProviderOverlay("p-custom", { group: "zai-family" } as never),
+  ],
+  [
+    "save overlay: builtin overlay visibility",
+    (a) =>
+      a.savePersonalProviderOverlay("account:zai-start-plan", { visibility: "hidden" } as never),
+  ],
+  [
+    "save overlay: builtin overlay group rewrite",
+    (a) =>
+      a.savePersonalProviderOverlay("account:zai-start-plan", {
+        group: "bigmodel-family",
+      } as never),
+  ],
+  [
+    "save overlay: builtin overlay group same",
+    (a) =>
+      a.savePersonalProviderOverlay("account:zai-start-plan", { group: "zai-family" } as never),
+  ],
+  [
+    "save overlay: account provider access",
+    (a) => a.savePersonalProviderOverlay("account:zai-start-plan", { access: key } as never),
+  ],
+  [
+    "save overlay: account provider disable",
+    (a) =>
+      a.savePersonalProviderOverlay(
+        "account:zai-start-plan",
+        {} as never,
+        {
+          enabled: false,
+        } as never,
+      ),
+  ],
+  [
+    "save overlay: metadata enabled and template",
+    (a) =>
+      a.savePersonalProviderOverlay(
+        "p-openai",
+        { group: "standard-personal", access: key } as never,
+        {
+          enabled: false,
+          templateId: "openai",
+        } as never,
+      ),
+  ],
+  ["save overlay: uncreated provider", (a) => a.savePersonalProviderOverlay("ghost", {} as never)],
+  [
+    "save overlay: unknown field",
+    (a) => a.savePersonalProviderOverlay("p-custom", { surprise: 1 } as never),
+    { anyMessage: true },
+  ],
+  [
+    "draft: edit config in place",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "other",
+        nextModelId: "other",
+        personalConfig: { enabled: false },
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  [
+    "draft: rename and recommended-empty clears the rule",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "other",
+        nextModelId: "renamed",
+        personalConfig: {},
+        useRecommendedConfig: true,
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  [
+    "draft: switch to manual",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "renamed",
+        nextModelId: "renamed",
+        personalConfig: manualConfig,
+        useRecommendedConfig: false,
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  [
+    "draft: stale registry revision",
+    (a) =>
+      a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "renamed",
+        nextModelId: "renamed",
+        personalConfig: {},
+        basedOnRevision: 0,
+      } as never),
+    { anyMessage: true },
+  ],
+  [
+    "draft: rename inherited model",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "gpt-5.6",
+        nextModelId: "zzz",
+        personalConfig: {},
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  [
+    "draft: edit inherited model config",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "gpt-5.4",
+        nextModelId: "gpt-5.4",
+        personalConfig: { enabled: false },
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  [
+    "draft: unknown original",
+    async (a) => {
+      const view = await a.getView();
+      return a.savePersonalModelDraft({
+        providerId: "p-openai",
+        originalModelId: "nope",
+        nextModelId: "nope",
+        personalConfig: {},
+        basedOnRevision: view.revision,
+      } as never);
+    },
+  ],
+  ["delete provider", (a) => a.deletePersonalProvider("p-custom")],
+  ["delete missing provider", (a) => a.deletePersonalProvider("ghost")],
+  ["delete overlay of builtin provider", (a) => a.deletePersonalProvider("account:zai-start-plan")],
+];
+
+const strip = (value: unknown) => {
+  const copy = JSON.parse(JSON.stringify(value ?? null)) as Record<string, unknown>;
+  const clean = (item: unknown) => {
+    if (item && typeof item === "object" && "revision" in item) {
+      (item as Record<string, unknown>).revision = "<n>";
+    }
+  };
+  clean(copy);
+  clean(copy?.view);
+  return copy;
+};
+
+async function outcome(run: () => Promise<unknown>) {
+  try {
+    return { ok: true as const, value: strip(await run()) };
+  } catch (error) {
+    return { ok: false as const, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+const DIRTY = {
+  schemaVersion: 1,
+  config: {
+    providerConfigRules: {
+      providerRules: [
+        {
+          providerId: "p-dirty",
+          templateId: "openai",
+          config: {
+            group: "standard-personal",
+            access: key,
+            personalModelIds: ["gpt-5.6", "mine", "mine", "other"],
+            modelOrder: ["other", "ghost", "gpt-5.4"],
+          },
+        },
+      ],
+    },
+    modelConfigRules: { providerModelRules: [], manualProviderModelRules: [] },
+  },
+};
+
+const FRESH_OPS: Op[] = [
+  ["fresh: create bare", (a) => a.createPersonalProvider()],
+  ["fresh: create template", (a) => a.createPersonalProvider({ templateId: "OpenAI " })],
+  ["fresh: add model", (a) => a.addPersonalModel("openai", "mine", {} as never)],
+  [
+    "fresh: toggle inherited",
+    (a) => a.setPersonalModelEnabled("openai", "gpt-5.4", false as never),
+  ],
+  ["fresh: reorder providers", (a) => a.reorderPersonalProviders(["openai", "new-provider"])],
+  ["fresh: delete", (a) => a.deletePersonalProvider("new-provider")],
+];
+
+const DIRTY_OPS: Op[] = [
+  [
+    "dirty: save overlay normalizes membership",
+    (a) =>
+      a.savePersonalProviderOverlay("p-dirty", {
+        group: "standard-personal",
+        access: key,
+      } as never),
+  ],
+  ["dirty: add model", (a) => a.addPersonalModel("p-dirty", "extra", {} as never)],
+  ["dirty: delete model", (a) => a.deletePersonalModel("p-dirty", "other")],
+  ["dirty: reorder", (a) => a.reorderPersonalModels("p-dirty", ["extra", "mine"])],
+];
+
+const SCENARIOS: Array<[string, unknown, Op[]]> = [
+  ["populated", INITIAL, OPS],
+  ["no personal file", null, FRESH_OPS],
+  ["dirty membership and absent order", DIRTY, DIRTY_OPS],
+];
+
+describe("rust host providers P3 writes", () => {
+  for (const [name, initial, ops] of SCENARIOS) {
+    it.skipIf(!existsSync(hostBinary) || !existsSync(BUILTIN_SOURCE))(
+      `applies the same write sequence as the TS ProviderConfigService: ${name}`,
+      async () => {
+        const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-provider-w-")));
+        const builtin = join(base, "escode-builtin.json");
+        const tsPersonal = join(base, "ts_provider_config.json");
+        const rustPersonal = join(base, "rust_provider_config.json");
+        await copyFile(BUILTIN_SOURCE, builtin);
+        for (const path of [tsPersonal, rustPersonal]) {
+          if (initial !== null) await writeFile(path, JSON.stringify(initial, null, 2));
+        }
+        const home = join(base, "home");
+        const host = startHost(home);
+        const runtime = createProviderRuntime({
+          escodeBuiltinFilePath: builtin,
+          personalFilePath: tsPersonal,
+          watch: false,
+          personalPollingIntervalMs: false,
+        });
+        try {
+          expect((await nextMeaningful(host)).kind).toBe("hostReady");
+          host.send({
+            kind: "rpcListen",
+            bind: "127.0.0.1:0",
+            home,
+            runtimeEnv: {
+              ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
+              ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: rustPersonal,
+            },
+          });
+          const listening = await nextMeaningful(host);
+          const services = await connectRpc(String(listening.addr), String(listening.secret));
+          const ts = runtime.providerSettings as unknown as Api;
+          const rust = services.providerSettingsService as unknown as Api;
+          await ts.getView();
+          await rust.getView();
+
+          for (const [label, op, options] of ops) {
+            const expected = await outcome(() => op(ts));
+            const actual = await outcome(() => op(rust));
+            if (!expected.ok && !options?.anyMessage) {
+              expect({ label, ...actual }).toEqual({ label, ...expected });
+            } else {
+              expect({ label, ok: actual.ok }).toEqual({ label, ok: expected.ok });
+            }
+            if (expected.ok && actual.ok) {
+              expect({ label, value: actual.value }).toEqual({ label, value: expected.value });
+            }
+            const read = async (path: string) =>
+              existsSync(path) ? JSON.parse(await readFile(path, "utf8")) : null;
+            expect({ label, file: await read(rustPersonal) }).toEqual({
+              label,
+              file: await read(tsPersonal),
+            });
+          }
+        } finally {
+          runtime.dispose();
+          await host.stop();
+          await rm(base, { recursive: true, force: true });
+        }
+      },
+      300_000,
+    );
+  }
+});

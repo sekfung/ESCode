@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::*;
 
-fn builtin() -> Value {
+pub(super) fn builtin() -> Value {
     json!({
         "schemaVersion": 1, "revision": 1,
         "config": {

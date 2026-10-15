@@ -61,6 +61,32 @@ impl ProviderMap {
         ProviderMap(rules)
     }
 
+    /// TS `setRule`：已有的原位替换（Map.set 不改位置），新的追加。
+    pub fn set_rule(&mut self, rule: ProviderRule) {
+        match self
+            .0
+            .iter_mut()
+            .find(|current| current.provider_id == rule.provider_id)
+        {
+            Some(current) => *current = rule,
+            None => self.0.push(rule),
+        }
+    }
+
+    /// TS `set(id, config)`：沿用已有规则的外层身份与名称，只换 `config`。
+    pub fn set_config(&mut self, id: &str, config: Value) {
+        let mut rule = self.get(id).cloned().unwrap_or_else(|| ProviderRule {
+            provider_id: id.to_owned(),
+            ..ProviderRule::default()
+        });
+        rule.config = config;
+        self.set_rule(rule);
+    }
+
+    pub fn delete(&mut self, id: &str) {
+        self.0.retain(|rule| rule.provider_id != id);
+    }
+
     pub fn map_configs(&self, transform: impl Fn(&Value, &ProviderRule) -> Value) -> ProviderMap {
         ProviderMap(
             self.0

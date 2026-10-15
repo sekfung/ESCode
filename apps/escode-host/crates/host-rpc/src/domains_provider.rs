@@ -9,7 +9,7 @@ use crate::session::{Channel, MethodHandler, handler};
 use crate::wire::Wire;
 
 /// 缺 provider 配置文件路径（Main 未经 `rpcListen.runtimeEnv` 提供）：显式缺口，不按 HOME 猜。
-fn missing_files() -> (String, String) {
+pub(crate) fn missing_files() -> (String, String) {
     (
         "InvalidRequest".to_owned(),
         "Host has no provider config files: Main must pass ESCODE_BUILTIN_PROVIDER_CONFIG_FILE and ESCODE_PERSONAL_PROVIDER_CONFIG_FILE in rpcListen.runtimeEnv."
@@ -19,7 +19,7 @@ fn missing_files() -> (String, String) {
 
 type Service = Option<Arc<ProviderService>>;
 
-fn error(error: anyhow::Error) -> (String, String) {
+pub(crate) fn error(error: anyhow::Error) -> (String, String) {
     ("Error".to_owned(), format!("{error:#}"))
 }
 
@@ -70,12 +70,13 @@ pub fn provider_channels(files: Option<(PathBuf, PathBuf)>) -> Vec<Channel> {
             "model-selection",
             vec![("getView", model_selection_get_view(service.clone()))],
         ),
-        Channel::new(
-            "provider-settings",
-            vec![
+        Channel::new("provider-settings", {
+            let mut methods = vec![
                 ("getView", settings_view(service.clone())),
-                ("refresh", settings_view(service)),
-            ],
-        ),
+                ("refresh", settings_view(service.clone())),
+            ];
+            methods.extend(crate::domains_provider_write::write_methods(&service));
+            methods
+        }),
     ]
 }

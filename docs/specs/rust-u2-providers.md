@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）已交付 · 2026-10-15；P3–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法）已交付 · 2026-10-15；P3 余项（`resolveModelConfig`、`provider-provisioning-target.apply`）与 P4–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -87,3 +87,44 @@ Personal 暂存的非法/空白 `baseUrl`（`invalid-url`/`required-field-missin
 **验收**：`rustHostProvider.test.ts` 在 P1 的 15 种 Personal 场景上追加 `provider-settings.getView` 与 `refresh` 的逐项 `toEqual`，并新增 4 类带问题的
 Personal Provider（空白 key、非法 baseUrl、缺 api、缺 group、缺失模板）。负向验证：改 invalid-url 文案、关掉 group 缺失检查、翻转 `builtin`、
 固定 `useRecommendedConfig` 均失败。
+
+## 8. P3 交付记录（Personal 写入面）
+
+**范围**：`provider-settings` 的 10 个写方法：`createPersonalProvider`、`savePersonalProviderOverlay`、`deletePersonalProvider`、`reorderPersonalProviders`、
+`reorderPersonalModels`、`addPersonalModel`、`renamePersonalModel`、`deletePersonalModel`、`savePersonalModelDraft`、`setPersonalModelEnabled`。
+未做：`resolveModelConfig`（只读预览，需 `validateComplete` 级 issues，另切）、`provider-provisioning-target.apply`、`testModelConnectivity`（需运行时 generateText）。
+
+**所有者与事件顺序**（唯一写者 = Host 的 `ProviderService`；Personal 文件是唯一事实源）：
+
+```
+RPC 写方法
+  → write_gate（Host 内全局串行；TS 是按 Provider 串行）
+  → load()                      读最新 Registry 快照（指纹未变则复用）
+  → Membership{inherited, personal_revision}   Host 算出，不接受 Renderer 自报
+  → store::update               file_lock 目录锁（跨进程，与 TS 同协议）
+        读最新文件 → transform(&mut Doc) → Doc::canonical()（encode→严格 decode→encode，越权/坏值落盘前失败）
+        → write_private（0600 临时文件 + rename）
+  → 使文件指纹闸门失效 → provider_settings_view()   重新加载并返回最新视图（revision 推进）
+```
+
+写入路径遇到不存在的文件按空配置（`providerOrder:[]`），遇到无效文件**报错而不覆盖**（读取路径仍按 P1 降级为空）。`Skip`（同名重命名）不加锁不写盘。
+乐观并发：`membership.personal_revision` 必须等于锁内重读文档的 `Doc::revision()`（SHA-256(规范编码)），否则 `Provider Settings membership revision conflict`；
+`savePersonalModelDraft` 另比 Registry `basedOnRevision`（`Provider Settings revision conflict`）与 Personal 版本（`Personal Provider Config revision conflict`）。
+
+**模块**：`sparse.rs`（入参稀疏 schema）、`personal.rs`（`Doc`：编码/解码/精确规则增删改/revision）、`store.rs`（带锁读改写）、`mutations.rs`/`mutations_create.rs`/
+`mutations_models.rs`（逐条对照 `config-service.ts`）、`service_write.rs`（`ProviderService` 写方法）、`host-rpc/src/domains_provider_write.rs`（RPC 面）。
+
+**验收**：`rustHostProviderWrite.test.ts`——三组初始文件（带 Personal Provider/规则/默认选择的完整文件、无文件、脏成员+缺省 `providerOrder`）共 60+ 步操作，
+每步对真实 TS `ProviderRuntime.providerSettings` 与 Rust 比较：成败、错误文案、返回视图（去修订号）、落盘文件语义（`toEqual`）。覆盖：启停/新增/重命名/删除/
+调序 Model，创建（含模板、本地化名称、重名后缀、初始配置、非法入参），Overlay 保存（改名/重名/清名/组改写/账号 Provider 限制/元数据），Draft（原位编辑、重命名、
+推荐空配置清规则、转手动、过期修订、内置模型限制），删除 Provider。负向验证：去掉新增模型的 `enabled:true` 叠加、去掉改名唯一性检查、跳过成员规范化——均被抓出。
+Rust 单测（`write_tests.rs`）：8 路并发创建不丢更新、坏文件不被覆盖、同名重命名不写盘、文件 0600 且无锁/临时残留、写后下一次视图可见、过期成员版本被拒。
+
+**登记差异（不修）**：
+
+1. **错误文案**：入参不满足稀疏 schema 时，TS 抛 zod issue JSON，Rust 抛 `路径: 原因` 一句话；其余业务错误文案逐字一致（差分断言）。
+2. **`optionSpecs.*.map`**：写入校验只要求非空字符串，不做 `compileModelOptionMap` 编译检查。
+3. **键序**：Rust 落盘键按字典序（`serde_json` Map），TS 按其构造序；两者互读后语义相同（TS 读到键序不同的文件会无害地重写一次）。
+4. **`assertCurrent`**：TS 还比较“发布快照对象是否仍是当前快照”；Rust 以 `personal_revision` + 写闸门串行代替（Built-in 在请求中途换版本的窗口不单独拦截）。
+5. **写闸门粒度**：全局串行，不是按 Provider；单 Provider 的可观察顺序一致。
+6. **`legacy` 手动规则**：TS 读取时把旧完整手动规则收窄为可编辑叶子；Rust 读取不收窄，原样保留（写回时也不改写其它规则）。
