@@ -201,7 +201,7 @@ let my_method = handler(move |arg: Wire| {
 > 2. **workspace 事件源**：`escode-task.onDynamicWorkspaceEvent` / `workspace_task_list_changed`（TS `escodeTaskIndexSyncer.ts`，
 >    依赖 sessions-index 订阅——V4 面已能订阅）；接上后撤销 `rust-u2-tasks-index.md` §6.5 登记差异 1；
 > 3. **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）→ dev 开关下跑桌面 E2E；
-> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/ ~~terminal~~（T1 已交付，见 `rust-u2-terminal.md`）/ ~~file-watcher~~（已交付，见 `rust-u2-file-watcher.md`）/ providers（含审计 A16 运行时 env 与 `git.generateCommitMessage`）/ extensions / automation / remote。
+> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：~~git~~（已交付 17/18，见 `rust-u2-git.md`）/ ~~terminal~~（T1 已交付，见 `rust-u2-terminal.md`）/ ~~file-watcher~~（已交付，见 `rust-u2-file-watcher.md`）/ providers（设计见 `rust-u2-providers.md`：P1–P6 切片 + 3 个待决策项；含审计 A16b 与 `git.generateCommitMessage`）/ extensions / automation / remote。
 
 ### 6.1 主件：`getTaskSnapshot`（escode-task，S2b）
 
