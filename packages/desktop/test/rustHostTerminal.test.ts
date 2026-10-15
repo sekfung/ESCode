@@ -126,7 +126,9 @@ describe("rust host terminal domain", () => {
         const rustTerminal = services.terminalService as ITerminalService;
 
         // 全流程差分（默认 settings：继承系统 profile，kitty 配置命中）。
-        const tsTerminal = createTerminalService({ settingService: { get: async () => ({}) } as never });
+        const tsTerminal = createTerminalService({
+          settingService: { get: async () => ({}) } as never,
+        });
         const expected = await drive(tsTerminal, work);
         const actual = await drive(rustTerminal, work);
         expect(actual).toEqual(expected);

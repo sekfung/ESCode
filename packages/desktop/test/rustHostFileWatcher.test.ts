@@ -1,24 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import {
-  appendFile,
-  mkdir,
-  mkdtemp,
-  realpath,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileWatcherService } from "@escode/services/node";
 import type { IFileWatcherService } from "@escode/services/node";
-import {
-  connectRpc,
-  hostBinary,
-  nextMeaningful,
-  startHost,
-} from "./rustHostTestSupport.js";
+import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-file-watcher.md §5.1 TS oracle 差分：同一脚本分别驱动真实 TS `createFileWatcherService()`
 // （node:fs watch）与 Rust Host 的 `file-watcher` channel（真实 `@escode/client`），比较每个场景收到的事件序列。
@@ -53,10 +40,7 @@ async function scenario(
   return events;
 }
 
-async function drive(
-  service: IFileWatcherService,
-  root: string,
-): Promise<Record<string, unknown>> {
+async function drive(service: IFileWatcherService, root: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   out.create = await scenario(service, root, "create", false, (d) =>
     writeFile(join(d, "b.txt"), "x"),
@@ -71,9 +55,7 @@ async function drive(
   out.rename = await scenario(service, root, "rename", false, (d) =>
     rename(join(d, "a.txt"), join(d, "c.txt")),
   );
-  out.remove = await scenario(service, root, "remove", false, (d) =>
-    rm(join(d, "a.txt")),
-  );
+  out.remove = await scenario(service, root, "remove", false, (d) => rm(join(d, "a.txt")));
   out.subWriteFlat = await scenario(service, root, "subflat", false, (d) =>
     appendFile(join(d, "sub", "n.txt"), "x"),
   );
@@ -103,12 +85,8 @@ async function drive(
     (d) => rm(d, { recursive: true }),
     false,
   );
-  out.removeSelfRecursive = await scenario(
-    service,
-    root,
-    "selfrec",
-    true,
-    (d) => rm(d, { recursive: true }),
+  out.removeSelfRecursive = await scenario(service, root, "selfrec", true, (d) =>
+    rm(d, { recursive: true }),
   );
 
   // unwatch 之后不再收到事件；待发事件被取消。
@@ -125,9 +103,7 @@ async function drive(
 
   // 不存在的目录：错误文案；失败也消耗 id。
   const missing = join(root, "missing-dir");
-  out.watchMissing = await service
-    .watch({ path: missing })
-    .catch((e: Error) => e.message);
+  out.watchMissing = await service.watch({ path: missing }).catch((e: Error) => e.message);
   const next = await service.watch({ path: dir });
   out.nextId = Number(next.id) - Number(id);
   // stale id 的订阅不抛错。
@@ -145,9 +121,7 @@ describe("rust host file-watcher domain", () => {
   it.skipIf(!existsSync(hostBinary) || process.platform !== "linux")(
     "matches the TS file watcher service event for event",
     async () => {
-      const base = await realpath(
-        await mkdtemp(join(tmpdir(), "escode-rust-host-fw-")),
-      );
+      const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-fw-")));
       const home = join(base, "home");
       const host = startHost(home);
       try {
@@ -159,10 +133,7 @@ describe("rust host file-watcher domain", () => {
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
-        const services = await connectRpc(
-          String(listening.addr),
-          String(listening.secret),
-        );
+        const services = await connectRpc(String(listening.addr), String(listening.secret));
 
         const expected = JSON.parse(
           JSON.stringify(await drive(createFileWatcherService(), rootTs))
@@ -171,10 +142,7 @@ describe("rust host file-watcher domain", () => {
         );
         const actual = JSON.parse(
           JSON.stringify(
-            await drive(
-              services.fileWatcherService as unknown as IFileWatcherService,
-              rootRust,
-            ),
+            await drive(services.fileWatcherService as unknown as IFileWatcherService, rootRust),
           )
             .split(rootRust)
             .join("<ROOT>"),

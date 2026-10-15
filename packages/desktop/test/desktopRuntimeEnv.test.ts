@@ -984,7 +984,8 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
     // shell 和 .env 两条继承路径都要被删干净，本机环境变量不能自行打开灰度。
     expect(buildHostProcessEnv({}).ESCODE_DYNAMIC_WORKFLOW_MODE).toBeUndefined();
     expect(
-      buildHostProcessEnv({ ESCODE_DYNAMIC_WORKFLOW_MODE: "alwaysOn" }).ESCODE_DYNAMIC_WORKFLOW_MODE,
+      buildHostProcessEnv({ ESCODE_DYNAMIC_WORKFLOW_MODE: "alwaysOn" })
+        .ESCODE_DYNAMIC_WORKFLOW_MODE,
     ).toBeUndefined();
   });
 });

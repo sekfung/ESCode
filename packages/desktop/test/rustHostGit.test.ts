@@ -216,7 +216,10 @@ const STEPS: Array<[string, Step]> = [
     "create invalid",
     (g, f) => g.createBranchAndSwitch({ workspacePath: f.main, branchName: "bad..name" }),
   ],
-  ["create exists", (g, f) => g.createBranchAndSwitch({ workspacePath: f.main, branchName: "main" })],
+  [
+    "create exists",
+    (g, f) => g.createBranchAndSwitch({ workspacePath: f.main, branchName: "main" }),
+  ],
   [
     "create option start",
     (g, f) =>
@@ -255,11 +258,17 @@ const STEPS: Array<[string, Step]> = [
   ["after commit", (g, f) => g.refresh({ workspacePath: f.main, includeBranchComparison: true })],
   // 推送：落后远端被拒；新分支 set-upstream 成功。
   ["push rejected", (g, f) => g.push({ workspacePath: f.main })],
-  ["create topic", (g, f) => g.createBranchAndSwitch({ workspacePath: f.main, branchName: "topic" })],
+  [
+    "create topic",
+    (g, f) => g.createBranchAndSwitch({ workspacePath: f.main, branchName: "topic" }),
+  ],
   ["push upstream", (g, f) => g.push({ workspacePath: f.main })],
   ["push again", (g, f) => g.push({ workspacePath: f.main })],
   // 冲突仓库。
-  ["conflict unstaged", (g, f) => g.getChanges({ workspacePath: f.conflict, sourceId: "unstaged" })],
+  [
+    "conflict unstaged",
+    (g, f) => g.getChanges({ workspacePath: f.conflict, sourceId: "unstaged" }),
+  ],
   ["conflict staged", (g, f) => g.getChanges({ workspacePath: f.conflict, sourceId: "staged" })],
   [
     "conflict switch",
@@ -285,7 +294,7 @@ describe("rust host git domain", () => {
       const globalConfig = join(base, "gitconfig");
       await writeFile(
         globalConfig,
-        "[user]\n\tname = Fixture User\n\temail = fixture@example.invalid\n[protocol \"file\"]\n\tallow = always\n",
+        '[user]\n\tname = Fixture User\n\temail = fixture@example.invalid\n[protocol "file"]\n\tallow = always\n',
       );
       Object.assign(process.env, FIXED_ENV, { GIT_CONFIG_GLOBAL: globalConfig });
       const home = join(base, "home");

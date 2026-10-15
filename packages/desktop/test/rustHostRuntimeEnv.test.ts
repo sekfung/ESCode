@@ -43,7 +43,11 @@ describe.skipIf(process.platform === "win32")("rust host runtimeEnv handoff", ()
         runtimeEnv: { ESCODE_DATA_BASE_DIR: "/data", ESCODE_APP_VERSION: "1.2.3" },
       });
 
-      const without = await startRustHost({ binary, home: dir, env: { FAKE_HOST_CAPTURE: captured } });
+      const without = await startRustHost({
+        binary,
+        home: dir,
+        env: { FAKE_HOST_CAPTURE: captured },
+      });
       await without.stop();
       expect(JSON.parse(await readFile(captured, "utf8"))).not.toHaveProperty("runtimeEnv");
     } finally {
