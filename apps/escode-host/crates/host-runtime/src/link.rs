@@ -103,6 +103,16 @@ impl RuntimeLink {
                     .kill_on_drop(true)
                     .spawn()
                     .with_context(|| format!("Cannot start runtime child {}", binary.display()))?;
+                // 修复：stderr 先前被 piped 却无人读取，子进程日志写满管道缓冲（约 64 KiB）后
+                // 会阻塞在 write 上、整个实例停摆。这里逐行转发到 Host 的 stderr（与 Host 日志同一出口）。
+                if let Some(stderr) = child.stderr.take() {
+                    tokio::spawn(async move {
+                        let mut lines = BufReader::new(stderr).lines();
+                        while let Ok(Some(line)) = lines.next_line().await {
+                            eprintln!("escode-host: runtime-child: {line}");
+                        }
+                    });
+                }
                 let stdin = child.stdin.take().context("Runtime child stdin missing")?;
                 let stdout = child
                     .stdout
@@ -161,6 +171,14 @@ impl RuntimeReader {
 }
 
 impl Lifecycle {
+    /// child 链路的子进程 pid（embedded 为 None：实例与 Host 同进程）。
+    pub fn process_id(&self) -> Option<u32> {
+        match self {
+            Self::Embedded(_) => None,
+            Self::Child(runtime) => runtime.child.id(),
+        }
+    }
+
     /// 请求终止 child 进程（embedded 用取消令牌）。
     pub fn start_kill(&mut self) {
         if let Self::Child(runtime) = self {
