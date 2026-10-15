@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
   bridgeRustHostPort,
+  type RustHostClientMode,
   isRustHostEnabled,
   startRustHost,
   type RustHostHandle,
@@ -42,9 +43,13 @@ export interface RustHostManager {
   readonly enabled: boolean;
   /** 懒启动（single-flight）；失败抛错，调用方回退 Node Host。 */
   ensureStarted(): Promise<RustHostHandle>;
-  /** 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。 */
+  /**
+   * 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。`clientMode` 与 Node 路径同一
+   * attachment 的交付模式一致（Web 远控共享 Host = `web-remote-replayable`）。
+   */
   attachLocalPort(
     createChannel: () => { port1: unknown; port2: unknown },
+    clientMode: RustHostClientMode,
   ): Promise<RustHostAttachment>;
   /** 当前是否已有 Host 进程在跑（诊断/测试）。 */
   isRunning(): boolean;
@@ -80,7 +85,7 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   return {
     enabled,
     ensureStarted,
-    async attachLocalPort(createChannel) {
+    async attachLocalPort(createChannel, clientMode) {
       const started = await ensureStarted();
       const channel = createChannel() as {
         port1: {
@@ -96,7 +101,7 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
           close?(): void;
         };
       };
-      const teardown = bridgeRustHostPort(started, channel.port2 as never);
+      const teardown = bridgeRustHostPort(started, channel.port2 as never, clientMode);
       return {
         port: channel.port1,
         dispose() {

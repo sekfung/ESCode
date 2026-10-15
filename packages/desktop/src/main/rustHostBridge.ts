@@ -130,16 +130,25 @@ export const RUST_HOST_SECRET_HEADER = "x-escode-host-secret";
 /** capability 头（TS `ESCODE_RPC_HOST_CAPABILITY_HEADER` 同名）。 */
 export const RUST_HOST_CAPABILITY_HEADER = "x-escode-rpc-host-capability";
 
+/** attachment 的交付模式（决定连接路径；Rust Host 按路径赋予可信 clientMode）。 */
+export type RustHostClientMode = "desktop-continuous" | "web-remote-replayable";
+
 /**
- * 把 renderer 的 MessagePort 桥到 Rust Host 的 RPC WebSocket（`/ws/host`：一次性 capability，
- * `desktop-continuous` 语义——与 Node 窗口 Host 的 MessagePort attachment 同一交付模式）。
- * 返回解绑函数。两个方向都做字节透传：端口消息 → WS 二进制帧；WS 二进制帧 → 端口消息。
+ * 把一个 attachment 的 MessagePort 桥到 Rust Host 的 RPC WebSocket。返回解绑函数。
+ * 路径决定交付模式：`web-remote-replayable` → `/ws`，`desktop-continuous` → `/ws/host`；
+ * 两者都要一次性 capability（docs/specs/rust-u2-agent-v4.md §3.2）。两个方向都做字节透传。
  *
- * 修复（评审 A9）：旧实现连 `/ws`（Host 侧免鉴权）且标注为手机 replayable 语义；桌面窗口应是
- * continuous，且 Host 的网络面不能对本机其他进程/浏览器页面开放。capability 申请期间到达的
- * 端口消息按序排队，连上后原样补发。
+ * 修复（评审）：A9 访问控制改动曾把桥接写死为 `/ws/host`（desktop-continuous）；而当前唯一
+ * 调用方是 Web 远控的共享 Host attachment，Node 路径对它用的是 `web-remote-replayable`
+ * （`webRemoteControlSharedHostAttachments.ts` 的 `AttachServicePort`）。写死 continuous 会让
+ * 手机拿到桌面投递语义（不可回放、desktop-only rows）。现在由调用方显式声明模式。
+ * capability 申请期间到达的端口消息按序排队，连上后原样补发。
  */
-export function bridgeRustHostPort(handle: RustHostHandle, port: HostPortLike): () => void {
+export function bridgeRustHostPort(
+  handle: RustHostHandle,
+  port: HostPortLike,
+  clientMode: RustHostClientMode,
+): () => void {
   const queue: Buffer[] = [];
   let closed = false;
   let socket: WebSocket | null = null;
@@ -163,7 +172,8 @@ export function bridgeRustHostPort(handle: RustHostHandle, port: HostPortLike): 
   void issueRustHostCapability(handle)
     .then((capability) => {
       if (closed) return;
-      const opened = new WebSocket(`ws://${handle.addr}/ws/host`, {
+      const path = clientMode === "desktop-continuous" ? "/ws/host" : "/ws";
+      const opened = new WebSocket(`ws://${handle.addr}${path}`, {
         headers: { [RUST_HOST_CAPABILITY_HEADER]: capability },
       });
       socket = opened;

@@ -56,3 +56,9 @@
 | R3 | 低（流程） | 工作区里 `host-proto/src/inventory_ts.rs` 的唯一变化是另一条工作流删除 `circuit` channel 后的重新生成；它属于那条工作流的提交，不能随 S3b 提交（否则 HEAD 上 TS 仍有 circuit 时 `--check` 失败）。 | S3b 提交不含该文件 |
 
 复核通过：spec §6.7 先行、端到端/单测/负向验证属实可复现；`syncTaskModel`、终态未读信号、订阅体与 TS 一致。
+
+## 4. 自查：本轮 A9 修复引入的回归（2026-10-15）
+
+| # | 严重度 | 发现 | 处置 |
+| --- | --- | --- | --- |
+| R4 | 中 | A9 访问控制改动把 `bridgeRustHostPort` 写死为 `/ws/host`（desktop-continuous），理由是「桌面窗口应是 continuous」——但当时 `ESCODE_RUST_HOST` 只接管 **Web 远控共享 Host attachment**（`webRemoteControlSharedHostAttachments.ts`），Node 路径对它用的是 `web-remote-replayable`。原注释「`/ws`：web-remote-replayable 语义」是对的，是我误读。回归后手机经 Rust Host 拿到桌面投递语义（不可回放、desktop-only rows）。 | 已修：桥接与 `attachLocalPort` 显式声明 clientMode（replayable → `/ws`，continuous → `/ws/host`，都要 capability）；`rustHostBridge.test.ts` 断言 hello 的 clientMode/deliveryProfile，负向验证（恢复写死 `/ws/host` 即失败） |

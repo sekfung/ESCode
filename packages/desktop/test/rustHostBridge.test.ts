@@ -54,9 +54,13 @@ describe("rust host dev switch", () => {
       // 测试用进程内端口对（vitest 下真实 `worker_threads` MessagePort 的投递不可靠；
       // 桥接逻辑与真实端口同形，Electron 分支只是这一层薄适配）。
       const [rendererPort, mainPort] = createPortPair();
-      const teardown = bridgeRustHostPort(handle, mainPort);
+      const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
 
       const services = connectViaProtocol(new SocketProtocol(wrapPort(rendererPort)));
+      // 交付模式由连接路径决定：continuous 桥 → hello 报 desktop-continuous。
+      expect((await services.escodeAgentService.helloConversationV4()).clientMode).toBe(
+        "desktop-continuous",
+      );
       const initial = (await services.settingService.get()) as Record<string, unknown>;
       expect(initial).toBeTypeOf("object");
 
@@ -70,7 +74,7 @@ describe("rust host dev switch", () => {
 
       // 未迁移 channel：显式缺口（Renderer 不挂起）。
       const [secondRenderer, secondMain] = createPortPair();
-      const secondTeardown = bridgeRustHostPort(handle, secondMain);
+      const secondTeardown = bridgeRustHostPort(handle, secondMain, "web-remote-replayable");
       const client = new ChannelClient(new SocketProtocol(wrapPort(secondRenderer)));
       await expect(client.getChannel("workspace").call("query", {})).rejects.toThrow(
         /does not implement channel `workspace` yet/,
@@ -91,10 +95,14 @@ describe("rust host manager (dev switch)", () => {
       const attachment = await manager.attachLocalPort(() => {
         const [port1, port2] = createPortPair();
         return { port1, port2 };
-      });
+      }, "web-remote-replayable");
       const services = connectViaProtocol(
         new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
       );
+      // Web 远控共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
+      const hello = await services.escodeAgentService.helloConversationV4();
+      expect(hello.clientMode).toBe("web-remote-replayable");
+      expect(hello.deliveryProfile).toBe("replayable");
       await services.settingService.update({ locale: "en-US" } as never);
       const settings = (await services.settingService.get()) as Record<string, unknown>;
       expect(settings.locale).toBe("en-US");

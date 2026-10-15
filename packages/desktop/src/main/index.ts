@@ -846,7 +846,11 @@ const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAt
   ...(rustHostManager.enabled
     ? {
         attachRustHostLocal: async () => {
-          const attachment = await rustHostManager.attachLocalPort(() => new MessageChannelMain());
+          // Web 远控共享 Host attachment：与 Node 路径同为 web-remote-replayable。
+          const attachment = await rustHostManager.attachLocalPort(
+            () => new MessageChannelMain(),
+            "web-remote-replayable",
+          );
           return {
             entryId: "rust-host:local",
             port: attachment.port as MessagePortMain,
