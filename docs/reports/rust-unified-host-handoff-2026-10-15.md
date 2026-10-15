@@ -1,6 +1,11 @@
 # Rust 统一 Host 迁移：交接手册（2026-10-15）
 
 > 面向**接手的 AI 会话**。读完这一页即可继续开工：目标、已完成边界、怎么验证、下一步从哪一行改起、以及踩过的坑。
+> **2026-10-15 评审续写（以本段为准）**：过往实现已按源码逐项评审，结论与修复见
+> `docs/reports/rust-unified-host-audit-2026-10-15.md`（A1–A15）。本轮新增：RPC 连接层（并发/取消/事件面）、
+> Host 访问控制（进程密钥 + 一次性 capability + 拒绝 Origin）、runtime 反向请求应答、`escode-agent` V4 连接作用域
+> （**对话主链路，dev 开关下已能跑一轮真实对话**，见 `docs/specs/rust-u2-agent-v4.md`）、契约清单改由生成器从 TS 源码
+> 解析全集（51 channel / 619 成员）。下文旧段落中与此冲突处以本段与评审报告为准。
 > **2026-10-15 续写**：§6.1（`getTaskSnapshot`）与 §6.2（`getTaskConfigOptions`）已落地，
 > 详见 `docs/specs/rust-u2-tasks-index.md` §6.4；下一片建议从 §6.4.5 的「下一步（S2 收尾）」
 > 即 `createSession`/`createTask` 继续（§6.3 事件面仍是最大件）。
@@ -25,17 +30,16 @@ node scripts/check-workspace-freshness.mjs
 cd apps/escode-host && cargo test --workspace           # 应全绿（本轮为 101 passed / 0 failed）
 cd ../.. && pnpm check:escode-host                      # 边界 + 生成器 --check + fmt + clippy -D warnings
 
-# 4) 看当前"缺口清单"（哪些 channel/method 还没迁移、各是什么状态）
+# 4) 看当前"缺口清单"（按 channel 统计已实现/待迁移；数据源 = 生成的 TS 全集 + 已实现表）
+node scripts/generate-escode-host-service-inventory.mjs --check   # TS 服务面变了先重新生成
 python3 - <<'PY'
 import re, pathlib
-from collections import defaultdict
-src = pathlib.Path("apps/escode-host/crates/host-proto/src/inventory.rs").read_text()
-entries = re.findall(r'channel: "([^"]+)",\s*\n\s*method: "([^"]+)",\s*\n\s*state: State::(\w+)', src)
-by = defaultdict(lambda: {"Implemented": [], "Pending": []})
-for ch, m, st in entries: by[ch][st].append(m)
-for ch, d in by.items():
-    print(f"[{ch}] implemented={len(d['Implemented'])} pending={len(d['Pending'])}")
-    if d["Pending"]: print("   pending:", ", ".join(d["Pending"]))
+ts = pathlib.Path("apps/escode-host/crates/host-proto/src/inventory_ts.rs").read_text()
+done = set(re.findall(r'\("([^"]+)", "([^"]+)"\)', pathlib.Path("apps/escode-host/crates/host-proto/src/inventory_services.rs").read_text()))
+for channel, members in re.findall(r'\("([^"]+)", &\[([^\]]*)\]\)', ts):
+    names = re.findall(r'"([^"]+)"', members)
+    implemented = [m for m in names if (channel, m) in done]
+    print(f"[{channel}] implemented={len(implemented)} pending={len(names) - len(implemented)}")
 PY
 ```
 
@@ -111,8 +115,9 @@ PY
 
 1. **方法表**（`crates/host-rpc/src/domains*.rs` 的 `Channel::new(...)`）：加 `("methodName", handler)`。
    表外方法由 `session::respond` 回显式缺口（错误信息里会自动列出已实现集合）——这正是"缺口显式可见"的实现方式。
-2. **契约清单**（`crates/host-proto/src/inventory.rs`）：把该 `(channel, method)` 从 `Pending` 改成 `Implemented`（或新增条目）。
-   不改 → `tests/contract.rs` 的 `source_method_table_matches_implemented_entries` 失败（负向验证过）。
+2. **契约清单**（`crates/host-proto/src/inventory_services.rs` 的 `IMPLEMENTED`）：加 `(channel, member)`。
+   全集来自生成资产 `inventory_ts.rs`（TS 源码解析），名字拼错会被 `implemented_entries_are_real_typescript_members` 拦下；
+   不加 → `tests/contract.rs` 的 `source_method_table_matches_implemented_entries` 失败。事件（`onX`/`onDynamicX`）同表。
 3. **实现**：纯路径类方法直接写（`domains_file*.rs` 的形态：`require_path` + `node_error` 文案 + `spawn_blocking_io`）；
    需要运行时的走 `forward.rs::runtime_call(instances, options, "session/xxx", params, Extract::Result|Field|FieldOr)`。
 4. **测试**：单测（语义边界）+ 端到端（`tests/rpc_*.rs` 手写帧，看 `tests/support/mod.rs`）+ 能对差分就对差分（真实 TS 实现 `toEqual`）。
@@ -149,13 +154,25 @@ let my_method = handler(move |arg: Wire| {
 - 生成资产（`tasks_index/schema.rs`）带 `#[rustfmt::skip]`：生成器输出必须与 `cargo fmt` 无关，否则 `--check` 会被格式化差异干扰。
 - 生成资产的自校验哈希口径是**两端都能逐字节复现的规范文本**（`\t`/`\n` 连接），不是 `JSON.stringify`——两端 JSON 对转义的默认行为不同（踩过一次）。
 
+### 5.1b 2026-10-15 新增陷阱
+
+- **连 Host 要凭据**：`/ws` 与 `/ws/host` 都要一次性 capability，签发要进程密钥头 `x-escode-host-secret`
+  （`rpcListening.secret`）；带 `Origin` 的请求一律 403。Rust 端到端用 `support::open(&surface)`，TS 用
+  `rustHostTestSupport.ts` 的 `connectRpc(addr, secret)`。路径决定交付模式：`/ws/host` = desktop-continuous。
+- **运行时错误名**是 TS 的 `ESCodeProtocolClientError`（带数字 `code`/`data`），不再是 `RuntimeError`；
+  需要透传 `code` 的处理函数用 `session::handler_rpc`（`handler` 会退化成 `(name, message)`）。
+- **本机设了 `HTTP_PROXY` 时**模型请求曾被送去代理（A15，已修）。mock 模型用例若卡在 `fault.provider.serverError`
+  重试且 mock 计数为 0，先查代理。
+- **帧泵在实例登记时就启动**（反向请求必须有人答）；首个订阅者前的帧进有界早期缓冲，不再靠「读循环随订阅启动」保留。
+- **连接级 channel 工厂不得有副作用**：方法表探测（契约对账、server-info）会实例化工厂；后台任务放 `with_open` 钩子。
+
 ### 5.2 协议与运行时
 
 - Renderer 的真实传输是 **`@escode/rpc` 跑在 WebSocket 上**（13 字节帧头 + VQL 长度 + DataType 标签 + `ProxyChannel.toService` 把 JS 实参打包成**数组**），不是 NDJSON。NDJSON 只用于 Host↔runtime 与 Host↔Main 控制通道。
 - **运行时对可选字段严格拒绝 `null`**：构造转发请求时，缺省字段要**整个省略**，不能写 `null`（`forward.rs::runtime_target` 已按此实现，新方法照抄）。
 - **响应形状**：`session/list` 的答案是 `{"id":..,"result":{"sessions":[…]}}`，读嵌套 `result`；`Extract` 枚举（`Result`/`Field`/`FieldOr`）就是为这个准备的。
 - **RPC 错误帧是 JS Error 形状**：结构化 code 落在 `name`（不是 `code`），另有 `message`/`stack`。断言时别写错字段。
-- 取消/注销（`PromiseCancel`/`EventDispose`）当前等价 no-op；**`EventListen` 仍是显式缺口**（返回 NotImplemented）。这是渲染器侧边栏响应式刷新的前提，也是下一步的大件之一。
+- ~~取消/注销等价 no-op、`EventListen` 显式缺口~~（2026-10-15 已实现：`host-rpc/src/connection.rs`；未知事件不回帧，与 TS 同）。
 - 能力拒绝（401/404）前必须**先把请求头读完**再写响应，否则 TCP RST（踩过）。
 
 ### 5.3 测试夹具
@@ -177,6 +194,14 @@ let my_method = handler(move |arg: Wire| {
 ---
 
 ## 6. 下一步（按建议顺序，含从哪一行改起）
+
+> **2026-10-15 更新**：§6.1–6.3（快照读面、事件面）与 §6.4 的 `escode-session` 写面已落地。新的建议顺序：
+> 1. **`escode-task` 写面**（`createTask`/`sendPrompt`/`stopGeneration`/`respondPermission`/`setModel`/`setMode`/`closeTask`/`resumeTask`/`archiveWorkspaceTasks`）——
+>    TS 适配器里这些走 `sendConversationCommandV4`（V4 面已就位，可复用 `agent_v4` 的 base 调用）；
+> 2. **workspace 事件源**：`escode-task.onDynamicWorkspaceEvent` / `workspace_task_list_changed`（TS `escodeTaskIndexSyncer.ts`，
+>    依赖 sessions-index 订阅——V4 面已能订阅）；接上后撤销 `rust-u2-tasks-index.md` §6.5 登记差异 1；
+> 3. **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）→ dev 开关下跑桌面 E2E；
+> 4. 其余 channel 按缺口清单（§0 第 4 步）逐域推进：git / terminal / file-watcher / providers / extensions / automation / remote。
 
 ### 6.1 主件：`getTaskSnapshot`（escode-task，S2b）
 

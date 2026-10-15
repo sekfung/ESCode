@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { WebSocket, type RawData } from "ws";
-import { Emitter, SocketProtocol, VSBuffer, ChannelClient, type ISocket } from "@escode/rpc";
-import { connectViaProtocol } from "@escode/client";
+import { join } from "node:path";
+import { SocketProtocol, ChannelClient } from "@escode/rpc";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  openHostSocket,
+  startHost,
+  wrapNodeWebSocket,
+} from "./rustHostTestSupport.js";
 import { createFileService } from "@escode/services/node";
 import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
 // 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 Repo 作 oracle。
@@ -18,126 +23,6 @@ import { TaskIndexRepo } from "../../services/src/session/taskIndexRepo.js";
 //
 // 链路：spawn escode-host → 控制消息 rpcListen{bind,home} → 得到 addr + 进程密钥 → 申请 capability → ws://addr/ws/host →
 //       SocketProtocol(WS) → connectViaProtocol → services.settingService。
-
-const hostBinary = resolve(
-  `apps/escode-host/target/debug/escode-host${process.platform === "win32" ? ".exe" : ""}`,
-);
-
-function wrapNodeWebSocket(socket: WebSocket): ISocket {
-  const onData = new Emitter<VSBuffer>();
-  const onClose = new Emitter<void>();
-  const onEnd = new Emitter<void>();
-  socket.on("message", (raw: RawData) => {
-    const data = Array.isArray(raw)
-      ? Buffer.concat(raw)
-      : Buffer.isBuffer(raw)
-        ? raw
-        : Buffer.from(raw);
-    onData.fire(VSBuffer.wrap(new Uint8Array(data)));
-  });
-  socket.on("close", () => {
-    onClose.fire();
-    onEnd.fire();
-  });
-  socket.on("error", () => {
-    onClose.fire();
-    onEnd.fire();
-  });
-  return {
-    onData: onData.event,
-    onClose: onClose.event,
-    onEnd: onEnd.event,
-    write(buffer) {
-      if (socket.readyState === WebSocket.OPEN) socket.send(buffer.buffer);
-    },
-    end() {
-      socket.close();
-    },
-    drain: async () => {},
-    dispose() {
-      socket.close();
-    },
-  };
-}
-
-interface HostProcess {
-  child: ChildProcessWithoutNullStreams;
-  send(message: Record<string, unknown>): void;
-  next(): Promise<Record<string, unknown>>;
-  stop(): Promise<void>;
-}
-
-function startHost(home: string): HostProcess {
-  const child = spawn(hostBinary, [], {
-    stdio: ["pipe", "pipe", "inherit"],
-    env: { ...process.env, HOME: home, USERPROFILE: home },
-  });
-  let buffer = "";
-  const pending: Array<(value: Record<string, unknown>) => void> = [];
-  const queue: Record<string, unknown>[] = [];
-  child.stdout.setEncoding("utf8");
-  child.stdout.on("data", (chunk: string) => {
-    buffer += chunk;
-    let newline: number;
-    while ((newline = buffer.indexOf("\n")) >= 0) {
-      const line = buffer.slice(0, newline);
-      buffer = buffer.slice(newline + 1);
-      if (!line.trim()) continue;
-      const message = JSON.parse(line) as Record<string, unknown>;
-      const resolveNext = pending.shift();
-      if (resolveNext) resolveNext(message);
-      else queue.push(message);
-    }
-  });
-  return {
-    child,
-    send(message) {
-      child.stdin.write(`${JSON.stringify(message)}\n`);
-    },
-    next() {
-      const queued = queue.shift();
-      if (queued) return Promise.resolve(queued);
-      return new Promise((resolveNext) => pending.push(resolveNext));
-    },
-    async stop() {
-      child.stdin.end();
-      await new Promise<void>((done) => child.once("close", () => done()));
-    },
-  };
-}
-
-async function nextMeaningful(host: HostProcess): Promise<Record<string, unknown>> {
-  for (let i = 0; i < 20; i += 1) {
-    const message = await host.next();
-    if (message.kind !== "logBatch") return message;
-  }
-  throw new Error("no meaningful control frame");
-}
-
-/** 带进程密钥申请一次性 capability，再连 `/ws/host`（docs/specs/rust-u2-agent-v4.md §3.2）。 */
-async function openHostSocket(addr: string, secret: string): Promise<WebSocket> {
-  const response = await fetch(`http://${addr}/api/rpc-host-capability`, {
-    method: "POST",
-    headers: { "x-escode-host-secret": secret },
-  });
-  expect(response.status).toBe(200);
-  const { capability } = (await response.json()) as { capability: string };
-  return await new Promise((resolveSocket, reject) => {
-    const socket = new WebSocket(`ws://${addr}/ws/host`, {
-      headers: { "x-escode-rpc-host-capability": capability },
-    });
-    socket.once("error", reject);
-    socket.once("open", () => resolveSocket(socket));
-  });
-}
-
-async function connectRpc(
-  addr: string,
-  secret: string,
-): Promise<ReturnType<typeof connectViaProtocol>> {
-  const socket = await openHostSocket(addr, secret);
-  return connectViaProtocol(new SocketProtocol(wrapNodeWebSocket(socket)));
-}
 
 describe("rust host rpc surface", () => {
   it.skipIf(!existsSync(hostBinary))(

@@ -74,7 +74,7 @@ async fn session_list_forwards_to_the_workspace_runtime() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         error["message"]
             .as_str()
@@ -98,7 +98,7 @@ async fn session_list_forwards_to_the_workspace_runtime() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         error["message"].as_str().unwrap().contains("not active"),
         "运行时语义透传: {error}"
@@ -122,7 +122,7 @@ async fn session_list_forwards_to_the_workspace_runtime() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         !error["message"]
             .as_str()

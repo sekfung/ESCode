@@ -31,7 +31,7 @@ use super::domains_task_support::{
     ReadContext, RuntimeAccess, context_ref, first_object, workspace_identity_of, workspace_path_of,
 };
 use crate::forward::{Extract, Shaped, runtime_call_shaped};
-use crate::session::{ChannelResult, MethodHandler, handler};
+use crate::session::{MethodHandler, RpcError, RpcResult, handler_rpc};
 use crate::task_targets::remember_from_meta;
 use crate::wire::Wire;
 
@@ -46,14 +46,14 @@ pub(super) struct SessionWriteContext {
     pub drafts: Arc<DeferredDrafts>,
 }
 
-type Error = (String, String);
+type Error = RpcError;
 
 fn require_workspace(params: &Value) -> Result<String, Error> {
     let workspace_path = workspace_path_of(params);
     if workspace_path.is_empty() {
-        return Err((
-            "InvalidRequest".to_owned(),
-            "workspacePath is required.".to_owned(),
+        return Err(RpcError::new(
+            "InvalidRequest",
+            "workspacePath is required.",
         ));
     }
     Ok(workspace_path)
@@ -61,7 +61,7 @@ fn require_workspace(params: &Value) -> Result<String, Error> {
 
 /// `escode-session.createSession`。
 pub(super) fn create_session_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -94,7 +94,7 @@ pub(super) fn create_session_handler(context: SessionWriteContext) -> MethodHand
 
 /// `escode-session.resumeSession`。
 pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -143,7 +143,7 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
 
 /// `escode-session.setModel`。
 pub(super) fn set_model_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -168,7 +168,7 @@ pub(super) fn api_retry_forward_handler(
     context: SessionWriteContext,
     method: &'static str,
 ) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -180,7 +180,7 @@ pub(super) fn api_retry_forward_handler(
 
 /// `escode-session.closeSession`。
 pub(super) fn close_session_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -193,7 +193,7 @@ pub(super) fn close_session_handler(context: SessionWriteContext) -> MethodHandl
 
 /// `escode-session.closeDeferredDraftSession`。
 pub(super) fn close_deferred_draft_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -215,7 +215,7 @@ pub(super) fn close_deferred_draft_handler(context: SessionWriteContext) -> Meth
 
 /// `escode-session.promoteDeferredDraftSession`。
 pub(super) fn promote_deferred_draft_handler(context: SessionWriteContext) -> MethodHandler {
-    handler(move |arg: Wire| {
+    handler_rpc(move |arg: Wire| {
         let params = first_object(arg);
         let context = context.clone();
         Box::pin(async move {
@@ -267,8 +267,8 @@ async fn forward(
     params: &Value,
 ) -> Result<Value, Error> {
     let (runtime_method, body) = session_forward_params(method, params).ok_or_else(|| {
-        (
-            "Fatal".to_owned(),
+        RpcError::new(
+            "Fatal",
             format!("no runtime mapping for escode-session.{method}"),
         )
     })?;
@@ -288,12 +288,12 @@ async fn call(
 ) -> Result<Value, Error> {
     let RuntimeAccess { instances, options } = &context.runtime;
     let method = shaped.method;
-    let answer: ChannelResult =
+    let answer: RpcResult =
         runtime_call_shaped(instances, options, routing.clone(), shaped, Extract::Result).await;
     match answer? {
         Wire::Object(value) => Ok(value),
-        _ => Err((
-            "Fatal".to_owned(),
+        _ => Err(RpcError::new(
+            "Fatal",
             format!("runtime `{method}` returned a non-object result"),
         )),
     }

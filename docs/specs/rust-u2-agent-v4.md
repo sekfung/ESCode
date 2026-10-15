@@ -116,7 +116,9 @@ Rust 回 `false`（登记差异 §6-2）。
 | RPC 连接层：并发请求、真取消、EventListen/EventFire/EventDispose、连接级 channel + 关闭钩子、出站水位 | 完成 | `host-rpc/tests/rpc_connection.rs`（3 例，负向：去掉 abort 后取消与注销用例失败） |
 | 访问控制（A9）：Origin 403、两路径 capability、进程密钥、CSPRNG 令牌 | 完成 | `host-rpc/tests/rpc_surface.rs`、`packages/desktop/test/rustHostBridge.test.ts` / `rustHostRpc.test.ts`（真实客户端） |
 | 反向请求本地偏好（`session/requestRuntimePreferences`） | 完成 | `host-rpc/src/runtime_requests.rs` 单测 3 例；真回合端到端随 V4 面 |
-| `escode-agent` V4 连接作用域 | 进行中 | — |
+| `escode-agent` V4 连接作用域（34 方法 + 3 动态事件 + 2 静态事件） | 完成 | `host-rpc/tests/rpc_agent_v4.rs`（真 embedded 实例 + mock 模型：一轮真实对话帧流、握手/clientId/归属/dormant 断言；负向：恢复「反向请求无人应答」后回合停滞 30.2 s 被延迟断言拦下）、`agent_v4::scope_routing` 单测 3 例（ACK 前暂存保序、溢出显式失败、换代迟到 ACK 不反向注销；负向：关掉暂存后 2 例失败）、`packages/desktop/test/rustHostAgentV4.test.ts`（真实 `@escode/client` 收静态/动态 EventFire） |
+| 契约清单全量化（评审 A13） | 完成 | `scripts/generate-escode-host-service-inventory.mjs`（TS 编译器 API 解析 51 个 descriptor / 619 成员，`--check` 进 `pnpm check:escode-host`）；`host-proto` 只登记已实现成员；`contract.rs` 按生成全集对账 |
+| 模型请求代理（评审 A15，CLI `crates/net`） | 完成 | 未解析出代理即直连（与 TS 同），`crates/net/tests/model_direct.rs`（负向：恢复旧行为即失败） |
 
 ## 6. 登记差异
 
@@ -131,3 +133,10 @@ Rust 回 `false`（登记差异 §6-2）。
 5. **冷订阅的 `resumeThoughtLevel` hint**：TS 从 tasks-index 读 `thoughtLevel` 注入；Rust 同样读（索引可用时），索引不可用时省略（TS 同为失败即省略）。
 6. **工具面灰度（Off-Peak / 动态工作流）fail-closed**：TS 由服务端 client-config 判定后注入 `createSession` 信封；对应域未迁移前 Rust 一律不注入（缺省即关闭），**不**信任 Renderer 入参。
 7. **浏览器环境上下文**（`collectBrowserAmbientContext`）与 TTFT 本地观测（`onDynamicLocalTtftFacts`）：浏览器控制域未迁移，`sendText` 不附 `browserAmbientContext`；`ttft` 字段对非桌面本地连接剥除（与 TS 同）。
+8. **帧形状校验**：TS 用 zod wire candidate 校验并丢弃非法帧；Rust 只做路由所需的最小校验（`topic`/`subscriptionId` 为字符串），形状由 Renderer 解码器把关。可见条件：runtime 发出形状非法的帧时，TS 丢弃、Rust 透传给 Renderer 由其拒绝。
+9. **静态事件不做 `bufferEvent`**：TS `ProxyChannel.fromService` 把 `onX` 事件缓冲到首个监听者；Rust 只投递监听之后的事件。可见条件：Renderer 在实例启动之后才监听 `onAgentRuntimeLifecycle` 时收不到更早的 `available`（Renderer 现有用法在连接建立后立即监听）。
+10. **水位只转发给已存在的实例**：TS 可能为 flow 拉起 runtime；Rust 用 existing-only（实例已退出时其订阅随之消失，无需通知）。
+11. **无 trusted-host-relay 角色**：Rust Host 的连接一律 terminal-client（`setConnectionFlowStateV4` 回 `fault.connection.flowControlForbidden`，与 TS terminal-client 同）；relay 场景随 remote 域。
+12. **本地媒体预览授权**（`authorizeLocalMediaPreviewPath`，media-preview 域）未迁移：桌面本地连接拿到 `local_path` 时与 TS 缺授权器同错 `fault.attachment.previewPathAuthorizationUnavailable`。
+13. **clientHello 校验失败的文案**：TS 抛 zod 的 issue JSON；Rust 回 `ZodError` + 简述（Renderer 不解析该文案）。
+14. **生命周期事件的 `workspaceIdentity`**：取实例装配时的身份（Main 的 options factory 总带身份键）；TS 只在入参带 identity 时才有该键。

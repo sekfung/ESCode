@@ -1,11 +1,14 @@
-//! 契约清单的**服务域**条目（settings/setting/system/file/escode-session/escode-task/v4…）。
-//! 与 `inventory.rs` 的 control 条目合成 `host_proto::methods()`；拆文件只为守住单文件行数上限。
+//! 契约清单的**服务域**条目：Renderer RPC 面以 TS 服务面全集为准（`inventory_ts.rs`，由
+//! `scripts/generate-escode-host-service-inventory.mjs` 从源码生成），这里只登记**已实现**的成员——
+//! 其余 TS 成员一律 Pending（评审 A13：旧清单手工登记 9 个 channel，未登记 channel 的缺口不可见，
+//! 且有拼错的条目 `file.workspaceFileListLength`，TS 实名 `listWorkspaceFilesLength`）。
 
-use crate::Method;
-use crate::State;
+use crate::inventory_ts::TS_SERVICE_CHANNELS;
+use crate::{Method, State};
 
-/// 服务域方法清单（`inventory.rs` 的 `CONTROL_METHODS` 之后追加）。
-pub const SERVICE_METHODS: &[Method] = &[
+/// 不属于 Renderer RPC 面的服务条目（不在 TS 服务描述符里）：Main↔Host 控制面的 settings 消息、
+/// u2a 通路的 workspace / v4 占位。
+pub const NON_RPC_METHODS: &[Method] = &[
     Method {
         channel: "settings",
         method: "settingsRead",
@@ -21,324 +24,11 @@ pub const SERVICE_METHODS: &[Method] = &[
         method: "settingsValue",
         state: State::Implemented,
     },
-    // ---- Renderer RPC 面（@escode/rpc；与 `host-rpc` 的方法表双向对账，见 host-rpc/tests/contract.rs）----
-    // setting（优先序 3）
-    Method {
-        channel: "setting",
-        method: "get",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "setting",
-        method: "update",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "setting",
-        method: "updateDataBaseDir",
-        state: State::Pending,
-    },
-    Method {
-        channel: "setting",
-        method: "ensureDefaultProject",
-        state: State::Pending,
-    },
-    // system（优先序 4）
-    Method {
-        channel: "system",
-        method: "info",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "system",
-        method: "listIntegratedTerminalShells",
-        state: State::Pending,
-    },
-    Method {
-        channel: "system",
-        method: "probeIntranet",
-        state: State::Pending,
-    },
-    // file（优先序 4）
-    Method {
-        channel: "file",
-        method: "stat",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "checkFilesExist",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "resolvePath",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "readFileRange",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "readTextFile",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "readMediaPreview",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "readBinaryPreview",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "createDefaultWorkspace",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "createScratchWorkspace",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "readdir",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "ensureConversationWorkspace",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "file",
-        method: "searchWorkspaceFiles",
-        state: State::Pending,
-    },
-    Method {
-        channel: "file",
-        method: "listWorkspaceFilesRange",
-        state: State::Pending,
-    },
-    Method {
-        channel: "file",
-        method: "workspaceFileListLength",
-        state: State::Pending,
-    },
-    // escode-session（优先序 5）
-    Method {
-        channel: "escode-task",
-        method: "getTaskMeta",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listTasks",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listPinnedTaskIds",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listPinnedTasks",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listDeletedTaskIds",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listArchivedTasks",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listGroupedTaskViewStructure",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "createTask",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "listTaskList",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskModelSelection",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "sendPrompt",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "stopGeneration",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "respondPermission",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "setModel",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "setMode",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "closeTask",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "resumeTask",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "archiveWorkspaceTasks",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskSnapshot",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskSnapshotWithEtag",
-        state: State::Implemented,
-    },
-    // TS 适配器本身 `return null`（该 Host 不实现），Rust 侧照抄该语义。
-    Method {
-        channel: "escode-task",
-        method: "getTaskSnapshotBody",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskSnapshotRef",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskSnapshotToolCallsSlice",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-task",
-        method: "getTaskConfigOptions",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "listSessions",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "readSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "readSessionMessages",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "closeSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "setModel",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "setThoughtLevel",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "setMode",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "initializeWorkspace",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "readWorkspacePresentation",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "createSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "resumeSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "promoteDeferredDraftSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "closeDeferredDraftSession",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "escode-session",
-        method: "readSessionEvents",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-session",
-        method: "getWorkspaceRuntimeIdentity",
-        state: State::Pending,
-    },
-    Method {
-        channel: "escode-session",
-        method: "respondProviderRuntimeHeaders",
-        state: State::Pending,
-    },
-    // workspace（优先序 4）
     Method {
         channel: "workspace",
         method: "workspace/query",
         state: State::Pending,
     },
-    // sessions + tasks（优先序 5）
     Method {
         channel: "v4/conversation",
         method: "v4/conversation/subscribe",
@@ -350,3 +40,128 @@ pub const SERVICE_METHODS: &[Method] = &[
         state: State::Pending,
     },
 ];
+
+/// Renderer RPC 面已实现的 `(channel, member)`（方法与事件同表；与 `host-rpc` 方法表双向对账，
+/// 见 host-rpc/tests/contract.rs）。新增实现必须同时改这里与方法表。
+pub const IMPLEMENTED: &[(&str, &str)] = &[
+    ("setting", "get"),
+    ("setting", "update"),
+    ("system", "info"),
+    ("file", "stat"),
+    ("file", "checkFilesExist"),
+    ("file", "resolvePath"),
+    ("file", "readFileRange"),
+    ("file", "readTextFile"),
+    ("file", "readMediaPreview"),
+    ("file", "readBinaryPreview"),
+    ("file", "createDefaultWorkspace"),
+    ("file", "createScratchWorkspace"),
+    ("file", "readdir"),
+    ("file", "ensureConversationWorkspace"),
+    ("escode-task", "getTaskMeta"),
+    ("escode-task", "listTasks"),
+    ("escode-task", "listPinnedTaskIds"),
+    ("escode-task", "listPinnedTasks"),
+    ("escode-task", "listDeletedTaskIds"),
+    ("escode-task", "listArchivedTasks"),
+    ("escode-task", "listGroupedTaskViewStructure"),
+    ("escode-task", "listTaskList"),
+    ("escode-task", "getTaskModelSelection"),
+    ("escode-task", "getTaskSnapshot"),
+    ("escode-task", "getTaskSnapshotWithEtag"),
+    ("escode-task", "getTaskSnapshotBody"),
+    ("escode-task", "getTaskSnapshotRef"),
+    ("escode-task", "getTaskSnapshotToolCallsSlice"),
+    ("escode-task", "getTaskConfigOptions"),
+    ("escode-session", "listSessions"),
+    ("escode-session", "readSession"),
+    ("escode-session", "readSessionMessages"),
+    ("escode-session", "closeSession"),
+    ("escode-session", "setModel"),
+    ("escode-session", "setThoughtLevel"),
+    ("escode-session", "setMode"),
+    ("escode-session", "initializeWorkspace"),
+    ("escode-session", "readWorkspacePresentation"),
+    ("escode-session", "createSession"),
+    ("escode-session", "resumeSession"),
+    ("escode-session", "promoteDeferredDraftSession"),
+    ("escode-session", "closeDeferredDraftSession"),
+    ("escode-agent", "helloConversationV4"),
+    ("escode-agent", "initializeConversationV4"),
+    ("escode-agent", "subscribeConversationV4"),
+    ("escode-agent", "subscribeSessionsIndexV4"),
+    ("escode-agent", "subscribeWorkspaceConfigV4"),
+    ("escode-agent", "unsubscribeConversationV4"),
+    ("escode-agent", "unsubscribeSessionsIndexV4"),
+    ("escode-agent", "unsubscribeWorkspaceConfigV4"),
+    ("escode-agent", "resyncConversationV4"),
+    ("escode-agent", "resyncSessionsIndexV4"),
+    ("escode-agent", "resyncWorkspaceConfigV4"),
+    ("escode-agent", "sendConversationCommandV4"),
+    ("escode-agent", "queryConversationCommandsV4"),
+    ("escode-agent", "backgroundBashOutputV4"),
+    ("escode-agent", "setConnectionFlowStateV4"),
+    ("escode-agent", "attachmentPreviewSourceV4"),
+    ("escode-agent", "conversationRowsRangeV4"),
+    ("escode-agent", "conversationPlansV4"),
+    ("escode-agent", "conversationWorkflowRunEventsV4"),
+    ("escode-agent", "conversationWorkflowRunsV4"),
+    ("escode-agent", "conversationWorkflowRunArtifactsV4"),
+    ("escode-agent", "conversationWorkflowRunArtifactDataV4"),
+    ("escode-agent", "conversationWorkflowRunArtifactReadV4"),
+    ("escode-agent", "conversationWorkflowRunWorkspaceV4"),
+    ("escode-agent", "conversationWorkflowRunNodeResultV4"),
+    ("escode-agent", "conversationFileChangesV4"),
+    ("escode-agent", "conversationFileRewindPreviewV4"),
+    ("escode-agent", "attachmentReadV4"),
+    ("escode-agent", "conversationAttachmentReadV4"),
+    ("escode-agent", "conversationAttachmentStatV4"),
+    ("escode-agent", "attachmentBeginV4"),
+    ("escode-agent", "attachmentChunkV4"),
+    ("escode-agent", "attachmentCommitV4"),
+    ("escode-agent", "attachmentAbortV4"),
+    ("escode-agent", "onDynamicConversationFrame"),
+    ("escode-agent", "onDynamicSessionsIndexFrame"),
+    ("escode-agent", "onDynamicWorkspaceConfigFrame"),
+    ("escode-agent", "onAgentRuntimeLifecycle"),
+    ("escode-agent", "onAgentRuntimeRestarted"),
+];
+
+/// TS 服务面全集的扁平视图 `(channel, member)`。
+pub fn ts_service_members() -> impl Iterator<Item = (&'static str, &'static str)> {
+    TS_SERVICE_CHANNELS
+        .iter()
+        .flat_map(|&(channel, members)| members.iter().map(move |&member| (channel, member)))
+}
+
+/// 服务域全量视图：非 RPC 条目 + TS 服务面（已实现/Pending）。
+pub fn service_methods() -> Vec<Method> {
+    let mut all = NON_RPC_METHODS.to_vec();
+    all.extend(ts_service_members().map(|(channel, method)| Method {
+        channel,
+        method,
+        state: if IMPLEMENTED.contains(&(channel, method)) {
+            State::Implemented
+        } else {
+            State::Pending
+        },
+    }));
+    all
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn implemented_entries_are_real_typescript_members() {
+        let fabricated: Vec<_> = IMPLEMENTED
+            .iter()
+            .filter(|&&entry| !ts_service_members().any(|member| member == entry))
+            .collect();
+        assert!(
+            fabricated.is_empty(),
+            "IMPLEMENTED 里有 TS 服务面不存在的成员（拼错或已删除）: {fabricated:?}"
+        );
+    }
+}

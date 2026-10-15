@@ -5,6 +5,8 @@
 //! 线协议对齐 `packages/rpc`（13 字节帧 + VSBuffer 序列化 + channel 分派）。
 //! 未迁移的 channel 回 `NotImplemented`（Renderer 见显式缺口，不挂起）。
 
+mod agent_v4;
+mod channel;
 mod collation;
 mod connection;
 mod deferred_drafts;

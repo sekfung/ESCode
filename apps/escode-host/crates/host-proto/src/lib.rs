@@ -6,6 +6,10 @@ use std::collections::BTreeSet;
 
 mod inventory;
 mod inventory_services;
+mod inventory_ts;
+
+pub use inventory_services::{IMPLEMENTED, ts_service_members};
+pub use inventory_ts::TS_SERVICE_CHANNELS;
 
 /// 一个 channel 上的 method 清单。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

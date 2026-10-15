@@ -4,7 +4,7 @@
 use crate::Method;
 use crate::State;
 
-use crate::inventory_services::SERVICE_METHODS;
+use crate::inventory_services::service_methods;
 
 /// 通路方法清单（control 通道：进程入口、窗口 attach/request、日志与容量控制）。
 /// 服务域条目在 `inventory_services.rs`，两者由 `methods()` 合成。
@@ -71,8 +71,7 @@ pub const CONTROL_METHODS: &[Method] = &[
 
 /// 契约清单全量视图（control + 服务域）：契约对账与能力清单的唯一来源。
 pub fn methods() -> Vec<Method> {
-    let mut all = Vec::with_capacity(CONTROL_METHODS.len() + SERVICE_METHODS.len());
-    all.extend_from_slice(CONTROL_METHODS);
-    all.extend_from_slice(SERVICE_METHODS);
+    let mut all = CONTROL_METHODS.to_vec();
+    all.extend(service_methods());
     all
 }

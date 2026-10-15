@@ -11,9 +11,14 @@ use std::collections::BTreeSet;
 
 use escode_host_proto::State;
 
-/// RPC 面（`host-rpc` 提供，渲染器经 `/ws` 调用）的通道集合。
+/// RPC 面的通道集合 = TS 服务面全集里的 channel（`host_proto::TS_SERVICE_CHANNELS`，生成资产）。
 /// `control` 归 Host 进程入口（另有 host-proto 内的对账测试）。
-const RPC_CHANNELS: [&str; 5] = ["setting", "system", "file", "escode-task", "escode-session"];
+fn rpc_channels() -> BTreeSet<&'static str> {
+    escode_host_proto::TS_SERVICE_CHANNELS
+        .iter()
+        .map(|(channel, _)| *channel)
+        .collect()
+}
 
 fn live_channels() -> escode_host_rpc::Channels {
     let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
@@ -36,7 +41,7 @@ fn live_channels() -> escode_host_rpc::Channels {
 fn manifest_with(state: State) -> BTreeSet<(String, String)> {
     escode_host_proto::methods()
         .iter()
-        .filter(|entry| RPC_CHANNELS.contains(&entry.channel))
+        .filter(|entry| rpc_channels().contains(entry.channel))
         .filter(|entry| entry.state == state)
         .map(|entry| (entry.channel.to_owned(), entry.method.to_owned()))
         .collect()
@@ -79,23 +84,39 @@ fn pending_entries_are_not_implemented() {
 }
 
 #[test]
-fn every_rpc_channel_is_registered() {
+fn registered_channels_are_exactly_those_with_implemented_members() {
+    // 有已实现成员的 channel 必须注册；一个成员都没有的 channel 不注册（由 `respond` 回显式缺口）。
+    let expected: BTreeSet<&str> = manifest_with(State::Implemented)
+        .into_iter()
+        .map(|(channel, _)| {
+            rpc_channels()
+                .into_iter()
+                .find(|c| *c == channel)
+                .expect("rpc channel")
+        })
+        .collect();
     let channels = live_channels();
-    for channel in RPC_CHANNELS {
-        assert!(
-            channels.channel(channel).is_some(),
-            "RPC 通道 {channel} 未在 host-rpc 注册"
-        );
-    }
-    // 清单只登记这些 RPC 通道（新增通道必须同步本测试的 RPC_CHANNELS 与清单）。
-    let manifest_channels: BTreeSet<&str> = escode_host_proto::methods()
-        .iter()
-        .map(|entry| entry.channel)
-        .filter(|channel| RPC_CHANNELS.contains(channel))
+    let registered: BTreeSet<&str> = channels
+        .names()
+        .into_iter()
+        .filter(|name| rpc_channels().contains(name))
         .collect();
     assert_eq!(
-        manifest_channels.len(),
-        RPC_CHANNELS.len(),
-        "清单 RPC 通道数与预期不一致: {manifest_channels:?}"
+        registered, expected,
+        "注册的 RPC channel 与清单里有已实现成员的 channel 不一致"
+    );
+    // 注册名都必须是 TS 真实 channel（防拼错）。
+    let unknown: Vec<_> = channels
+        .names()
+        .into_iter()
+        .filter(|name| !rpc_channels().contains(name))
+        .collect();
+    assert!(
+        unknown.is_empty(),
+        "注册了 TS 服务面不存在的 channel: {unknown:?}"
+    );
+    assert!(
+        rpc_channels().len() >= 50,
+        "TS 服务面全集应覆盖全部 ServiceChannels"
     );
 }

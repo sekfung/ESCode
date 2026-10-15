@@ -46,7 +46,10 @@ async fn task_snapshot_methods_hit_the_runtime_and_the_null_trio_stays_local() {
         let Wire::Object(error) = read_response(&mut socket, id).await else {
             panic!("error object for {method}")
         };
-        assert_eq!(error["name"], "RuntimeError", "{method}: {error}");
+        assert_eq!(
+            error["name"], "ESCodeProtocolClientError",
+            "{method}: {error}"
+        );
         assert!(
             error["message"]
                 .as_str()
@@ -142,9 +145,9 @@ async fn task_snapshot_reports_a_structured_error_when_the_index_is_absent() {
     let Wire::Object(error) = read_response(&mut socket, 69).await else {
         panic!("error object")
     };
-    // 顺序与 TS 一致：先 resume（会话不存在 → RuntimeError），所以这里先看到运行时错误；
+    // 顺序与 TS 一致：先 resume（会话不存在 → ESCodeProtocolClientError），所以这里先看到运行时错误；
     // 索引缺失只在会话存在才会暴露。缺 dataBaseDir 的 Host 配置另测（见下方 gap 用例）。
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
 }
 
 /// 缺 `dataBaseDir`（Main 未提交）：六个快照方法都回显式缺口，不静默成功。

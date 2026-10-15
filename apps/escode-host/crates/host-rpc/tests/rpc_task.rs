@@ -219,7 +219,7 @@ async fn get_task_meta_reads_the_shared_index() {
     let Wire::Object(error) = read_response(&mut socket, 53).await else {
         panic!("error object")
     };
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         error["message"]
             .as_str()

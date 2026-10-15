@@ -78,7 +78,9 @@ fn channel_for(path: &Path) -> Channel {
 
 async fn call(channel: &Channel, method: &str, params: Value) -> Result<Wire, (String, String)> {
     let handler = channel.handler(method).expect("method registered");
-    handler(Wire::Array(vec![Wire::Object(params)])).await
+    handler(Wire::Array(vec![Wire::Object(params)]))
+        .await
+        .map_err(Into::into)
 }
 
 fn names(wire: Wire) -> Vec<String> {

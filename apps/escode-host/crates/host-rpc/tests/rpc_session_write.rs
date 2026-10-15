@@ -79,7 +79,7 @@ async fn session_writes_forward_legacy_methods() {
     .await;
     assert_eq!(read_response(&mut socket, 37).await, Wire::Undefined);
 
-    // setModel → session/setModel：运行时按会话语义拒绝（RuntimeError 透传）。
+    // setModel → session/setModel：运行时按会话语义拒绝（TS `ESCodeProtocolClientError` 同形透传，含 JSON-RPC code）。
     call(
         &mut socket,
         33,
@@ -97,7 +97,12 @@ async fn session_writes_forward_legacy_methods() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
+    // TS `ChannelServer` 透传 JSON-RPC `code`（`ESCodeProtocolClientError.code`）。
+    assert!(
+        error["code"].is_i64(),
+        "runtime error code must pass through: {error}"
+    );
 
     // createSession：转发到运行时（无模型配置时运行时语义错误透传，不是缺口回显）。
     call(
@@ -115,7 +120,7 @@ async fn session_writes_forward_legacy_methods() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         !error["message"]
             .as_str()
@@ -141,7 +146,7 @@ async fn session_writes_forward_legacy_methods() {
         .await
         .into_object()
         .expect("error");
-    assert_eq!(error["name"], "RuntimeError", "{error}");
+    assert_eq!(error["name"], "ESCodeProtocolClientError", "{error}");
     assert!(
         error["message"]
             .as_str()

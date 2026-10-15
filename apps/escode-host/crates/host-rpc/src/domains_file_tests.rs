@@ -383,6 +383,9 @@ async fn conversation_workspace_without_data_base_dir_is_an_explicit_gap() {
     let error = handler(crate::wire::Wire::Undefined)
         .await
         .expect_err("explicit gap");
-    assert_eq!(error.0, "InvalidRequest");
-    assert!(error.1.contains("Main must pass dataBaseDir"), "{error:?}");
+    assert_eq!(error.name, "InvalidRequest");
+    assert!(
+        error.message.contains("Main must pass dataBaseDir"),
+        "{error:?}"
+    );
 }

@@ -86,7 +86,7 @@ pub(crate) fn session_channel(
     let forward = |method: &'static str, with_workspace: bool, extract: Extract| {
         let instances = instances.clone();
         let options = Arc::clone(&options);
-        handler(move |arg: Wire| {
+        crate::session::handler_rpc(move |arg: Wire| {
             let instances = instances.clone();
             let options = Arc::clone(&options);
             Box::pin(async move {
@@ -94,8 +94,8 @@ pub(crate) fn session_channel(
                 let (runtime_method, body) =
                     escode_host_services::session_params::session_forward_params(method, &params)
                         .ok_or_else(|| {
-                        (
-                            "Fatal".to_owned(),
+                        crate::session::RpcError::new(
+                            "Fatal",
                             format!("no runtime mapping for {method}"),
                         )
                     })?;
@@ -218,7 +218,8 @@ pub(crate) fn session_channel(
                                 params.clone(),
                                 Extract::Result,
                             )
-                            .await?;
+                            .await
+                            .map_err(<(String, String)>::from)?;
                             let Wire::Object(capabilities) = capabilities else {
                                 return Err((
                                     "Fatal".to_owned(),
@@ -236,6 +237,7 @@ pub(crate) fn session_channel(
                                 Extract::Result,
                             )
                             .await
+                            .map_err(Into::into)
                         })
                     }
                 }),
@@ -316,6 +318,8 @@ pub fn channels(
         }),
         drafts,
     };
+    let agent =
+        crate::agent_v4::agent_channel(instances.clone(), options.clone(), write.read.clone());
     Channels::new(vec![
         setting_channel(home.clone()),
         system_channel(home),
@@ -323,6 +327,7 @@ pub fn channels(
         task_channel,
         session_channel(instances, options, write),
     ])
+    .with_scoped(agent)
 }
 
 #[cfg(test)]

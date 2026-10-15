@@ -1,10 +1,21 @@
 //! 服务域共用的运行时转发路径：服务级参数 → workspace 路由 → 实例 → 请求/应答 → 抽取。
 //! 已迁移的 channel 都经这里转发（rust-u2-host-skeleton.md §5）。
+//!
+//! 错误形状与 TS 一致（评审：原实现统一回 `RuntimeError` 且丢掉 JSON-RPC `code`）：
+//! - runtime 的 JSON-RPC error → `{name: "ESCodeProtocolClientError", message, code, data?}`
+//!   （TS `ESCodeProtocolClientError`，`ChannelServer` 透传 `code`/`data`）；
+//! - existing-only 且无运行时 → `{name: "Error", message: "ESCode Agent runtime is not running.",
+//!   code: "ESCODE_AGENT_RUNTIME_UNAVAILABLE"}`（TS `createRuntimeUnavailableError`）。
+
+use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use crate::session::ChannelResult;
+use crate::session::{RpcError, RpcResult};
 use crate::wire::Wire;
+
+/// TS `ESCODE_AGENT_RUNTIME_UNAVAILABLE_CODE`。
+pub const RUNTIME_UNAVAILABLE_CODE: &str = "ESCODE_AGENT_RUNTIME_UNAVAILABLE";
 
 /// 从服务级参数里抽出运行时路由信息，并构造 CLI 形状的请求参数。
 ///
@@ -42,10 +53,14 @@ pub fn runtime_target(params: Value) -> Result<RuntimeTarget, (String, String)> 
             "escode-session calls require workspacePath".to_owned(),
         ));
     }
-    let identity = pick("workspaceIdentity")
-        .and_then(|value| value.as_str().map(str::trim).map(str::to_owned))
+    let raw_identity =
+        pick("workspaceIdentity").and_then(|value| value.as_str().map(str::to_owned));
+    // 身份键：`workspaceIdentity?.trim() || workspacePath`（AGENTS.md Workspace Identity）。
+    let identity = raw_identity
+        .as_deref()
+        .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| path.clone());
+        .map_or_else(|| path.clone(), str::to_owned);
     let remote_session_id =
         pick("remoteSessionId").and_then(|value| value.as_str().map(str::to_owned));
     let descriptor = escode_host_control::WorkspaceDescriptor {
@@ -67,21 +82,39 @@ pub fn runtime_target(params: Value) -> Result<RuntimeTarget, (String, String)> 
     ] {
         request.remove(key);
     }
-    // 可选字段缺省即省略（运行时 workspace 引用解析严格拒绝 null）。
-    let mut workspace = json!({
-        "workspacePath": path,
-        "workspaceIdentity": identity,
-        "workspaceKey": identity,
-    });
-    if let Some(remote_session_id) = remote_session_id {
-        workspace["remoteSessionId"] = Value::String(remote_session_id);
-    }
-    request.insert("workspace".to_owned(), workspace);
+    request.insert(
+        "workspace".to_owned(),
+        workspace_ref_json(
+            &path,
+            raw_identity.as_deref(),
+            remote_session_id.as_deref(),
+            &identity,
+        ),
+    );
     Ok(RuntimeTarget {
         identity,
         descriptor,
         request: Value::Object(request),
     })
+}
+
+/// TS `buildWorkspaceRef`：`{workspacePath, workspaceIdentity, remoteSessionId, workspaceKey}`，
+/// 缺省字段由 JSON 序列化丢弃（`workspaceIdentity` 是**原值**，不回填路径；`workspaceKey` 是身份键）。
+pub fn workspace_ref_json(
+    path: &str,
+    identity: Option<&str>,
+    remote_session_id: Option<&str>,
+    key: &str,
+) -> Value {
+    let mut workspace = json!({"workspacePath": path});
+    if let Some(identity) = identity {
+        workspace["workspaceIdentity"] = Value::from(identity);
+    }
+    if let Some(remote) = remote_session_id {
+        workspace["remoteSessionId"] = Value::from(remote);
+    }
+    workspace["workspaceKey"] = Value::from(key);
+    workspace
 }
 
 /// 应答抽取：`Result` = 整个 `result`；`Field` = `result.<field>`；
@@ -93,6 +126,76 @@ pub enum Extract {
     FieldOr(&'static str, bool),
 }
 
+/// 运行时策略（TS `ESCodeAgentRuntimePolicy`）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimePolicy {
+    StartIfNeeded,
+    ExistingOnly,
+}
+
+impl RuntimePolicy {
+    /// 入参 `runtimePolicy`（缺省 start-if-needed）。
+    pub fn of(params: &Value) -> Self {
+        if params["runtimePolicy"] == "existing-only" {
+            Self::ExistingOnly
+        } else {
+            Self::StartIfNeeded
+        }
+    }
+}
+
+/// 取（或按策略启动）一个 workspace 的实例。
+pub async fn runtime_instance(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    target: &RuntimeTarget,
+    policy: RuntimePolicy,
+) -> Result<Arc<escode_host_runtime::Instance>, RpcError> {
+    match policy {
+        RuntimePolicy::ExistingOnly => instances.live(&target.identity).ok_or_else(|| {
+            RpcError::new("Error", "ESCode Agent runtime is not running.")
+                .with("code", Value::from(RUNTIME_UNAVAILABLE_CODE))
+        }),
+        RuntimePolicy::StartIfNeeded => instances
+            .get(&target.identity, || options(&target.descriptor))
+            .await
+            .map_err(|error| RpcError::new("Fatal", format!("{error:#}"))),
+    }
+}
+
+/// 一次运行时请求（`timeout` 30 s 与旧实现同），把 JSON-RPC error 转成 TS 同形错误，返回 `result`。
+pub async fn request(
+    instance: &escode_host_runtime::Instance,
+    method: &str,
+    params: Value,
+    trace: Option<Value>,
+) -> Result<Value, RpcError> {
+    let answer = instance
+        .call_with(method, params, trace, std::time::Duration::from_secs(30))
+        .await
+        .map_err(|error| RpcError::new("Fatal", format!("{error:#}")))?;
+    if let Some(error) = answer.get("error") {
+        let message = error["message"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| error.to_string());
+        let mut rpc = RpcError::new("ESCodeProtocolClientError", message);
+        if let Some(code) = error.get("code").filter(|code| !code.is_null()) {
+            rpc = rpc.with("code", code.clone());
+        }
+        if let Some(data) = error.get("data").filter(|data| !data.is_null()) {
+            rpc = rpc.with("data", data.clone());
+        }
+        return Err(rpc);
+    }
+    answer.get("result").cloned().ok_or_else(|| {
+        RpcError::new(
+            "Fatal",
+            format!("runtime `{method}` answer lacks `result`: {answer}"),
+        )
+    })
+}
+
 /// 同上，但允许在转发前注入额外字段（如 `includeExecutionCapabilities`，
 /// 由运行时能力协商决定 —— TS agent 层同序：先 `runtime/capabilities` 再 `workspace/readPresentation`）。
 pub async fn runtime_call_with(
@@ -102,12 +205,12 @@ pub async fn runtime_call_with(
     params: Value,
     extra: Option<(&str, Value)>,
     extract: Extract,
-) -> ChannelResult {
+) -> RpcResult {
     let mut target = runtime_target(params)?;
     if let (Some((key, value)), Value::Object(request)) = (extra, &mut target.request) {
         request.insert(key.to_owned(), value);
     }
-    forward_target(instances, options, method, target, extract).await
+    forward_target(instances, options, method, target, None, extract).await
 }
 
 /// 把一次服务调用转发给该 workspace 的 runtime 实例。
@@ -117,9 +220,9 @@ pub async fn runtime_call(
     method: &str,
     params: Value,
     extract: Extract,
-) -> ChannelResult {
+) -> RpcResult {
     let target = runtime_target(params)?;
-    forward_target(instances, options, method, target, extract).await
+    forward_target(instances, options, method, target, None, extract).await
 }
 
 /// 已整形的运行时调用：路由取自服务级参数，请求体由调用方按 TS 字面量整形后**逐字**发出。
@@ -139,7 +242,7 @@ pub async fn runtime_call_shaped(
     routing: Value,
     shaped: Shaped,
     extract: Extract,
-) -> ChannelResult {
+) -> RpcResult {
     let mut target = runtime_target(routing)?;
     let workspace = target.request.get("workspace").cloned();
     let mut body = shaped.body;
@@ -149,7 +252,7 @@ pub async fn runtime_call_shaped(
         record.insert("workspace".to_owned(), workspace);
     }
     target.request = body;
-    forward_with_trace(
+    forward_target(
         instances,
         options,
         shaped.method,
@@ -165,52 +268,17 @@ async fn forward_target(
     options: &escode_host_surface::OptionsFactory,
     method: &str,
     target: RuntimeTarget,
-    extract: Extract,
-) -> ChannelResult {
-    forward_with_trace(instances, options, method, target, None, extract).await
-}
-
-async fn forward_with_trace(
-    instances: &escode_host_runtime::Instances,
-    options: &escode_host_surface::OptionsFactory,
-    method: &str,
-    target: RuntimeTarget,
     trace: Option<Value>,
     extract: Extract,
-) -> ChannelResult {
-    let instance = instances
-        .get(&target.identity, || options(&target.descriptor))
-        .await
-        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
-    let answer = instance
-        .call_with(
-            method,
-            target.request,
-            trace,
-            std::time::Duration::from_secs(30),
-        )
-        .await
-        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
-    if let Some(error) = answer.get("error") {
-        return Err((
-            "RuntimeError".to_owned(),
-            error["message"]
-                .as_str()
-                .map(str::to_owned)
-                .unwrap_or_else(|| error.to_string()),
-        ));
-    }
-    let result = answer.get("result").cloned().ok_or_else(|| {
-        (
-            "Fatal".to_owned(),
-            format!("runtime `{method}` answer lacks `result`: {answer}"),
-        )
-    })?;
+) -> RpcResult {
+    let instance =
+        runtime_instance(instances, options, &target, RuntimePolicy::StartIfNeeded).await?;
+    let result = request(&instance, method, target.request, trace).await?;
     match extract {
         Extract::Result => Ok(Wire::Object(result)),
         Extract::Field(field) => result.get(field).cloned().map(Wire::Object).ok_or_else(|| {
-            (
-                "Fatal".to_owned(),
+            RpcError::new(
+                "Fatal",
                 format!("runtime `{method}` answer lacks `result.{field}`: {result}"),
             )
         }),

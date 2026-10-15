@@ -233,6 +233,7 @@ async fn call_runtime(runtime: &RuntimeAccess, request: Value) -> ChannelResult 
         Extract::Result,
     )
     .await
+    .map_err(Into::into)
 }
 
 /// 投影 + 截窗 + 索引回写（同步 SQLite IO 在 `ReadContext::run` 的专用线程里执行）。

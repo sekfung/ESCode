@@ -119,6 +119,9 @@ pub(crate) async fn run(
     let (flow_tx, flow_rx) = watch::channel(FlowState::Drained);
     let context = ConnectionContext::new(client_mode, flow_rx);
     let channels = Arc::new(channels.connect(&context));
+    for hook in channels.open_hooks() {
+        hook();
+    }
     let (tx, mut rx) = mpsc::unbounded_channel::<Vec<u8>>();
     let outbound = Outbound {
         tx,
