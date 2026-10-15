@@ -172,12 +172,16 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 bind,
                 home,
                 data_base_dir,
+                runtime_env,
             } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+                let runtime_env = runtime_env.unwrap_or_default();
                 let options: escode_host_surface::OptionsFactory =
-                    std::sync::Arc::new(control::runtime_options);
+                    std::sync::Arc::new(move |workspace| {
+                        control::runtime_options_with(workspace, &runtime_env)
+                    });
                 let channels = escode_host_rpc::domains::channels(
                     std::path::PathBuf::from(home),
                     data_base_dir.map(std::path::PathBuf::from),

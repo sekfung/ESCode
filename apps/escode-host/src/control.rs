@@ -130,11 +130,20 @@ async fn write_message(
 /// 进程 env 推断）。`home` 是实例进程的用户主目录（Node `os.homedir()` 语义：读
 /// HOME/USERPROFILE），经 `core_api::env` 统一出口解析——crate 内不出现裸 `std::env`。
 pub fn runtime_options(workspace: &WorkspaceDescriptor) -> RuntimeOptions {
+    runtime_options_with(workspace, &BTreeMap::new())
+}
+
+/// 同上，并叠加 Main 经 `rpcListen.runtimeEnv` 提交的环境（审计 A16）：实例的 ambient env 只有这份快照，
+/// 缺它 provider 配置文件、插件宿主入口等都读不到。`ESCODE_WORKSPACE_IDENTITY` 由 workspace 描述决定，优先于 Main 的同名项。
+pub fn runtime_options_with(
+    workspace: &WorkspaceDescriptor,
+    runtime_env: &BTreeMap<String, String>,
+) -> RuntimeOptions {
     let home = escode_cli_core_api::env::var_os("HOME")
         .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .unwrap_or_default();
-    let mut env = BTreeMap::new();
+    let mut env = runtime_env.clone();
     if let Some(identity) = &workspace.identity {
         env.insert("ESCODE_WORKSPACE_IDENTITY".to_owned(), identity.clone());
     }
@@ -159,3 +168,7 @@ pub fn identity_of(workspace: &WorkspaceDescriptor) -> String {
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| workspace.path.clone())
 }
+
+#[cfg(test)]
+#[path = "control_tests.rs"]
+mod tests;

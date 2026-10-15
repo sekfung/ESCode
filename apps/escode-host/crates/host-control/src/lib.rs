@@ -87,6 +87,10 @@ pub enum ControlMessage {
         home: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         data_base_dir: Option<String>,
+        /// Main 为嵌入运行时合成的环境变量（TS Host 拉起 CLI 时注入的那一组：provider 配置文件路径、
+        /// 数据/日志根、凭据密钥、插件宿主入口……）。Host 不推断这些业务事实，只原样交给每个实例。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        runtime_env: Option<std::collections::BTreeMap<String, String>>,
     },
     /// Host→Main：RPC 面已监听。`secret` 是本次监听的进程密钥（只走控制通道）：Main 带它向
     /// `POST /api/rpc-host-capability` 申请一次性 capability，再连 `ws://addr/ws/host`。
@@ -292,5 +296,20 @@ mod tests {
         assert_eq!(json["code"], "workspace_owned");
         let decoded: ControlError = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, error);
+    }
+
+    #[test]
+    fn rpc_listen_carries_main_composed_runtime_env_in_camel_case() {
+        let line = r#"{"kind":"rpcListen","bind":"127.0.0.1:0","home":"/h","dataBaseDir":"/d","runtimeEnv":{"A":"1"}}"#;
+        let message: ControlMessage = serde_json::from_str(line).unwrap();
+        let ControlMessage::RpcListen { runtime_env, .. } = &message else {
+            panic!("unexpected message {message:?}");
+        };
+        assert_eq!(runtime_env.as_ref().unwrap()["A"], "1");
+        // 缺省（旧版 Main）仍可解析；回写不输出空字段。
+        let legacy: ControlMessage =
+            serde_json::from_str(r#"{"kind":"rpcListen","bind":"b","home":"/h"}"#).unwrap();
+        let json = serde_json::to_value(&legacy).unwrap();
+        assert!(json.get("runtimeEnv").is_none());
     }
 }

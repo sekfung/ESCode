@@ -164,6 +164,7 @@ import {
   listSSHConfigAliases,
   listAvailableDockerContainers,
   listAvailableWSLDistros,
+  buildRustHostRuntimeEnv,
   loadHostProcessEnvFromLocalFiles,
   resolveBundledAgentRuntimePaths,
   resolveRemoteAssetDirs,
@@ -838,6 +839,8 @@ const rustHostManager = createRustHostManager({
   // 会话工作区等路径按 TS `getDataBaseDir()` 派生（设置项 dataBaseDir 由 bootstrap 注入）；
   // 启动后不再变，与 `conversationWorkspaceDir` 的取值时机一致（见上面 resolveStartupWindowBootstrap）。
   dataBaseDir: getDataBaseDir(),
+  // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；provider 配置文件路径随 providers 域迁移补齐。
+  runtimeEnv: () => buildRustHostRuntimeEnv(hostProcessLocalEnv),
   log: logger,
 });
 const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAttachments({

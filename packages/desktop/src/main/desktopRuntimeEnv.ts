@@ -639,3 +639,22 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     ...(resolvedLarkCliBinaryPath ? { ESCODE_LARK_CLI_BINARY: resolvedLarkCliBinaryPath } : {}),
   };
 }
+
+/**
+ * Rust Host 嵌入运行时的环境（rust-u2-host-skeleton.md §6，审计 A16）：与 Node Host 进程同一份基础 env
+ * （数据根、运行环境标识、版本/提交、内置二进制路径、工具透传……），但去掉 OTLP 连接配置——
+ * 它只允许在启动 Agent 时短暂注入，不能进入实例 env 快照（快照会被工具/MCP 子进程继承）。
+ */
+export function buildRustHostRuntimeEnv(
+  hostProcessLocalEnv: Record<string, string>,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(buildHostProcessEnv(hostProcessLocalEnv))) {
+    if (typeof value === "string") env[key] = value;
+  }
+  const telemetryKeys = Object.keys(
+    readESCodeAgentTelemetryEnv({ ...hostProcessLocalEnv, ...readDefinedProcessEnv() }),
+  );
+  for (const key of telemetryKeys) delete env[key];
+  return env;
+}

@@ -556,6 +556,20 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
     expect(env.ESCODE_BUILD_COMMIT_ID).toBe("commit-test");
   });
 
+  it("Rust Host 实例 env 与 host 进程同源，但不带 OTLP 连接配置", async () => {
+    const { buildRustHostRuntimeEnv } = await import("../src/main/desktopRuntimeEnv.js");
+
+    const env = buildRustHostRuntimeEnv({
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=secret",
+    });
+
+    expect(env.ESCODE_APP_VERSION).toBe("0.0.0-test");
+    expect(env.ESCODE_BUILD_COMMIT_ID).toBe("commit-test");
+    expect(Object.keys(env).filter((key) => key.startsWith("OTEL_"))).toEqual([]);
+    expect(Object.values(env).every((value) => typeof value === "string")).toBe(true);
+  });
+
   it("只把 Agent OTLP 配置定向注入 host，并剔除外部身份字段", async () => {
     const { buildHostProcessEnv } = await import("../src/main/desktopRuntimeEnv.js");
 

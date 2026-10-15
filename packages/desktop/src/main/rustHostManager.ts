@@ -25,6 +25,8 @@ export interface RustHostManagerOptions {
   home: string;
   /** 应用数据根（TS `getDataBaseDir()`，Main 决定；供会话工作区等路径派生）。 */
   dataBaseDir?: string;
+  /** 嵌入运行时的环境（Main 合成，见 `buildRustHostRuntimeEnv`）；懒启动时才求值，避免启动期读取。 */
+  runtimeEnv?: () => Record<string, string>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
   /** 日志钩子。 */
@@ -68,6 +70,7 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       binary: options.binary,
       home: options.home,
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
+      ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv() } : {}),
     })
       .then((started) => {
         handle = started;

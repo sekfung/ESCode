@@ -47,7 +47,12 @@ export interface StartRustHostOptions {
    * 会话工作区 `<dataBaseDir>/.escode/workspace/default` 等路径由它派生；缺省时相关方法回显式缺口。
    */
   dataBaseDir?: string;
-  /** 追加/覆盖的环境变量。 */
+  /**
+   * Main 为嵌入运行时合成的环境（审计 A16）：实例的 ambient env 只有这一份（外加 workspace 身份），
+   * Host 不从自己的进程 env 推断业务事实。缺省时运行时只剩 `--config` 指定的模型。
+   */
+  runtimeEnv?: Record<string, string>;
+  /** 追加/覆盖的环境变量（Host 进程自身的 env，不进实例）。 */
   env?: NodeJS.ProcessEnv;
   /** 启动超时（默认 10s）。 */
   timeoutMs?: number;
@@ -72,6 +77,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
         bind: "127.0.0.1:0",
         home: options.home,
         ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
+        ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv } : {}),
       })}\n`,
     );
     const listening = await withTimeout(

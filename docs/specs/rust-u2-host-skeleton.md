@@ -174,3 +174,5 @@ TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与
 | 单进程爆炸半径 | per-instance panic 重建（阶段 0 catch_panic + 阶段 1 Spawner）；child 模式作故障隔离 |
 | 双 Host 状态互操作 | settings/tasks-index 同文件同格式 + 跨进程文件锁 + DDL checksum（父计划 §2 边界与幂等） |
 | 上游漂移 | 每域开工前核对 `rust-v3.15.1-drift.md` |
+
+**`rpcListen.runtimeEnv`（审计 A16a，2026-10-15）**：可选的 `{name: value}` 映射，由 Main 合成（`desktopRuntimeEnv.ts: buildRustHostRuntimeEnv`：Node Host 进程同源的基础 env，去掉 OTLP 连接配置——它只允许在启动 Agent 时短暂注入，不能进入会被工具/MCP 子进程继承的实例快照）。Host 把它原样作为每个实例 `RuntimeOptions.env` 的底，再叠加 `ESCODE_WORKSPACE_IDENTITY`（由 workspace 描述决定，优先于 Main 的同名项）。Host 不从自己的进程 env 推断这些业务事实。缺省（旧版 Main）行为不变。provider 配置文件路径与插件宿主入口尚未下发，见审计 A16b。
