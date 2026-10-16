@@ -3,17 +3,23 @@
 //! docs/specs/rust-u2-tasks-index.md）、task_projection（agent 协议快照 → 任务快照/meta
 //! 投影，见 docs/specs/rust-u2-tasks-index.md §6.4）、session_params（create/resume 参数整形，
 //! 见同 spec §5）。
+pub mod api_client;
 pub mod broadcast;
+pub mod client_config;
+pub mod client_scenes;
+pub mod client_services;
 pub mod credential;
 pub mod data_dir;
 pub mod file_index;
 pub mod file_watcher;
 pub mod git;
+pub mod js_compat;
 pub mod model_trajectory;
 pub mod onboarding;
 pub mod provider;
 pub mod session_params;
 pub mod settings;
+pub mod skills;
 pub mod system_probe;
 pub mod task_projection;
 pub mod tasks_index;

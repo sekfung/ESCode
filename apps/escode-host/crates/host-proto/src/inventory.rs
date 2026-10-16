@@ -49,6 +49,16 @@ pub const CONTROL_METHODS: &[Method] = &[
     },
     Method {
         channel: "control",
+        method: "localMediaPreviewAuthorize",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "localMediaPreviewAuthorized",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
         method: "logBatch",
         state: State::Implemented,
     },

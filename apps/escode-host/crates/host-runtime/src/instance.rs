@@ -24,6 +24,7 @@ use crate::host_io::{
     HostError, HostRequest, LifecycleEvent, LifecycleHub, ResponderSlot, RuntimeState,
 };
 use crate::link;
+use crate::request_timeout::RequestTimeout;
 
 /// 订阅者通道容量。溢出策略：**不静默丢帧**——满即摘除该订阅者并置 `lagged`，
 /// 接收端读到流结束后可据 [`FrameSubscription::lagged`] 区分「实例退出」与「消费过慢」
@@ -304,7 +305,10 @@ impl Instance {
             Ok(Err(_)) => anyhow::bail!("runtime closed while awaiting `{method}`"),
             Err(_) => {
                 self.state.lock_pending().remove(&id);
-                anyhow::bail!("runtime did not answer `{method}` within {timeout:?}")
+                Err(anyhow::Error::new(RequestTimeout {
+                    method: method.to_owned(),
+                    timeout,
+                }))
             }
         }
     }

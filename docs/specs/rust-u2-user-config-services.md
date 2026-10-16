@@ -47,13 +47,18 @@ TS 真相源：`packages/services/src/memory/memoryService.ts`、`projectMemoryS
 ## 3. broadcast（本地模式，6 个成员）
 
 TS 真相源：`packages/services/src/broadcast/broadcastService.ts`。TS 有两种形态：带 `parentPort`（Electron host：经 Main `BroadcastHub` 跨窗口中转、claim 由 Main 仲裁）与
-无 `parentPort`（web server 模式：进程内）。**本片只交付无 `parentPort` 的本地形态**；跨窗口需要 Main↔Host 控制消息（`BroadcastClaim*`/`Broadcast`），随 u2a 桌面窗口 host 进程无关化一起做。
+无 `parentPort`（web server 模式：进程内）。**Rust Host 只有无 `parentPort` 的进程内形态，这就是最终形态**（用户决定，2026-10-17：不经 Main 中转，在进程内完成，按目标设计）。依据见下方「跨窗口」。
 
 - `send({channel, payload, sourceWindowId?})`：校验（`channel` 去空白后非空、`sourceWindowId` 为整数）后向本 Host 的**全部** `onMessage` 订阅者扇出（含发送者自己所在连接；接收端用 `sourceWindowId` 自行过滤）。
 - Claim（进程内，key 去空白；空 key → `unavailable`）：`acquireClaim` → `acquired{lease:{key,token}}` / `busy{retryAfterMs = clamp(0..250, 到期时间-now)}` / `committed`；
   reservation TTL 5 s，过期在下次操作时清理；表上限 1024，超限淘汰最早插入项。`commitClaim` 把同 token 的 reservation 变永久；`releaseClaim` 释放同 token 的 reservation（迟到 token 无影响）；
   `tryClaim` = acquire + commit，仅首次为 `true`。
-- 登记差异：`send` 校验失败时 TS 抛 zod JSON，Rust 抛一句话；跨窗口（`parentPort`）形态未做。
+- 登记差异：`send` 校验失败时 TS 抛 zod JSON，Rust 抛一句话。
+- **跨窗口 = 同一 Host 的多条连接**：目标拓扑是「一个 App 一个 Host，所有窗口经 attachment 接入」（`rust-unified-host.md`），所有 Renderer 连的是同一个 `Arc<Broadcast>`，
+  消息扇出（tokio broadcast，容量 256，发送者自己也收到一次）与 claim 仲裁都在 Host 进程内完成；TS 的 `parentPort` → Main `BroadcastHub` 中转是「每窗口一个 Host 进程」拓扑的产物，在这里不需要，也就不新增 `BroadcastClaim*`/`Broadcast` 控制消息。
+- **不会与 TS 窗口 Host 并存**（用户确认，2026-10-17）：所以不存在需要 Main 中转的拓扑，进程内就是最终形态，不留“并存期再做中转”的后续项。若将来出现并存，必须让两边共用同一个广播域与同一个 claim 仲裁者（不能各仲裁一半），届时另立 spec。
+- **跨窗口验收**：`rustHostBroadcastWindows.test.ts`——同一 Host 的 3 条连接（+1 条晚加入）：消息按序各到恰好一次（含发送者）、claim 同 key 只有一个窗口 `acquired` 其余 `busy`、错误 token 的释放无效、三窗口同时 `tryClaim` 恰好一个赢家、持有者释放后他人可获得、窗口取消订阅后其余不受影响、新窗口不收到历史消息。
+  负向验证：每个连接各自一个 hub → 扇出用例失败；claim 不互斥 → 仲裁用例失败。
 - 验收：`rustHostBroadcast.test.ts`（真实 TS 服务 `createBroadcastService(null)` 对 Rust Host：claim 状态机各分支、`tryClaim` 只首次为 true、`send` 的 trim/校验与扇出）；
   Rust 单测用注入时钟覆盖 TTL 过期与 1024 上限淘汰。
 

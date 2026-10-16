@@ -2,6 +2,7 @@
 //! **一条**有序队列，避免两条写者交错破坏 stdio 协议；消息 typed，错误带结构化 code。
 
 pub mod logging;
+pub mod path_authorizer;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -93,10 +94,25 @@ pub enum ControlMessage {
         /// 数据/日志根、凭据密钥、插件宿主入口……）。Host 不推断这些业务事实，只原样交给每个实例。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         runtime_env: Option<std::collections::BTreeMap<String, String>>,
+        /// Main 声明会应答 `localMediaPreviewAuthorize`（rust-u2-attachments.md §5）；缺省 false =
+        /// 旧 Main，`media-preview.prepare` 只走内联分支。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        local_media_preview: bool,
     },
     /// Host→Main：RPC 面已监听。`secret` 是本次监听的进程密钥（只走控制通道）：Main 带它向
     /// `POST /api/rpc-host-capability` 申请一次性 capability，再连 `ws://addr/ws/host`。
     RpcListening { addr: String, secret: String },
+    /// Host→Main：请求授权一个本地媒体路径（Main 的授权注册表是唯一所有者）。
+    LocalMediaPreviewAuthorize { request_id: String, path: String },
+    /// Main→Host：授权结果（`ok` 时 `path` 为规范路径；否则 `error` 为原文错误）。
+    LocalMediaPreviewAuthorized {
+        request_id: String,
+        ok: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
 }
 
 impl ControlMessage {
@@ -121,6 +137,8 @@ impl ControlMessage {
             Self::SurfaceListening { .. } => "surfaceListening",
             Self::RpcListen { .. } => "rpcListen",
             Self::RpcListening { .. } => "rpcListening",
+            Self::LocalMediaPreviewAuthorize { .. } => "localMediaPreviewAuthorize",
+            Self::LocalMediaPreviewAuthorized { .. } => "localMediaPreviewAuthorized",
         }
     }
 }
@@ -313,5 +331,51 @@ mod tests {
             serde_json::from_str(r#"{"kind":"rpcListen","bind":"b","home":"/h"}"#).unwrap();
         let json = serde_json::to_value(&legacy).unwrap();
         assert!(json.get("runtimeEnv").is_none());
+    }
+
+    #[test]
+    fn local_media_preview_frames_round_trip_and_the_capability_defaults_off() {
+        let listen: ControlMessage =
+            serde_json::from_str(r#"{"kind":"rpcListen","bind":"127.0.0.1:0","home":"/h"}"#)
+                .unwrap();
+        assert!(matches!(
+            listen,
+            ControlMessage::RpcListen {
+                local_media_preview: false,
+                ..
+            }
+        ));
+        let declared: ControlMessage = serde_json::from_str(
+            r#"{"kind":"rpcListen","bind":"127.0.0.1:0","home":"/h","localMediaPreview":true}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            declared,
+            ControlMessage::RpcListen {
+                local_media_preview: true,
+                ..
+            }
+        ));
+        let request = ControlMessage::LocalMediaPreviewAuthorize {
+            request_id: "r1".into(),
+            path: "/a b.mp4".into(),
+        };
+        assert_eq!(
+            serde_json::to_string(&request).unwrap(),
+            r#"{"kind":"localMediaPreviewAuthorize","requestId":"r1","path":"/a b.mp4"}"#
+        );
+        let denied: ControlMessage = serde_json::from_str(
+            r#"{"kind":"localMediaPreviewAuthorized","requestId":"r1","ok":false,"error":"no"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            denied,
+            ControlMessage::LocalMediaPreviewAuthorized {
+                request_id: "r1".into(),
+                ok: false,
+                path: None,
+                error: Some("no".into()),
+            }
+        );
     }
 }

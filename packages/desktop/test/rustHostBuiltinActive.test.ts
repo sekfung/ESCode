@@ -10,7 +10,7 @@ import {
 import { createProviderRuntime } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-providers.md §7（P5a）：同一 Bundled/Active 夹具分别交给真实 TS Built-in Source 与 Rust Host，
+// docs/specs/rust-u2-providers.md §11（P5a）：同一 Bundled/Active 夹具分别交给真实 TS Built-in Source 与 Rust Host，
 // `model-selection.getView` 全等，且两端物化出的 Active 文件语义相同。
 
 const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
@@ -19,11 +19,11 @@ const APP_VERSION = "1.2.3";
 
 type Release = { schemaVersion: 1; revision: number; config: Record<string, any> };
 
-/** 取真实 Built-in 的变体：抬高 revision 并移除第一条 Provider 规则，视图因此可区分。 */
+/** 取真实 Built-in 的变体：设定 revision 并移除第一条模板规则（`providerTemplates` 进入 settings 视图，视图因此可区分）。 */
 function variant(source: Release, revision: number, dropFirstProvider: boolean): Release {
   const copy = JSON.parse(JSON.stringify(source)) as Release;
   copy.revision = revision;
-  if (dropFirstProvider) copy.config.providerConfigRules.providerRules.shift();
+  if (dropFirstProvider) copy.config.providerConfigRules.templateRules.shift();
   return copy;
 }
 
@@ -100,8 +100,8 @@ describe("rust host providers P5a", () => {
           });
           try {
             const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
-            const expected = await runtime.modelSelection.getView(undefined);
-            const actual = await services.modelSelectionService.getView(undefined);
+            const expected = await runtime.providerSettings.getView();
+            const actual = await services.providerSettingsService.getView();
             expect({ label, view: strip(actual) }).toEqual({
               label,
               view: strip(JSON.parse(JSON.stringify(expected))),

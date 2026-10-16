@@ -64,6 +64,12 @@ export interface StartRustHostOptions {
    * Main 把它接到 `hostLogRelay.onStructuredLog`，与 Node Host 的 postMessage 日志同一条出口。
    */
   onLogBatch?: (batch: RustHostLogBatch) => void;
+  /**
+   * 本地媒体路径授权（rust-u2-attachments.md §5）：授权注册表的所有者是 Main。提供后 `rpcListen`
+   * 声明 `localMediaPreview`，Host 的 `media-preview.prepare` 经控制通道请求授权并回 `local-url`；
+   * 缺省 = 旧行为（Host 只走内联分支）。抛错即回 `ok:false`，错误文案原样交给 Host。
+   */
+  authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
 }
 
 /** Host 侧一条日志批次（`ControlMessage::LogBatch`）。 */
@@ -82,7 +88,12 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
     stdio: ["pipe", "pipe", "inherit"],
     env: { ...process.env, ...options.env, HOME: options.home, USERPROFILE: options.home },
   });
-  const control = createControlChannel(child, options.onLogBatch);
+  const control = createControlChannel(child, {
+    onLogBatch: options.onLogBatch,
+    onAuthorizeRequest: options.authorizeLocalMediaPreviewPath
+      ? (request) => answerAuthorize(child, request, options.authorizeLocalMediaPreviewPath!)
+      : undefined,
+  });
   const timeoutMs = options.timeoutMs ?? 10_000;
   try {
     await withTimeout(control.next(), timeoutMs, "Rust Host did not report hostReady");
@@ -93,6 +104,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
         home: options.home,
         ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
         ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv } : {}),
+        ...(options.authorizeLocalMediaPreviewPath ? { localMediaPreview: true } : {}),
       })}\n`,
     );
     const listening = await withTimeout(
@@ -241,7 +253,10 @@ function toBuffer(value: unknown): Buffer {
  */
 function createControlChannel(
   child: ChildProcessWithoutNullStreams,
-  onLogBatch?: (batch: RustHostLogBatch) => void,
+  handlers: {
+    onLogBatch?: (batch: RustHostLogBatch) => void;
+    onAuthorizeRequest?: (request: { requestId: string; path: string }) => void;
+  },
 ) {
   let buffer = "";
   const pending: Array<(message: Record<string, unknown>) => void> = [];
@@ -257,7 +272,15 @@ function createControlChannel(
       const message = JSON.parse(line) as Record<string, unknown>;
       if (message.kind === "logBatch") {
         const batch = toLogBatch(message);
-        if (batch) onLogBatch?.(batch);
+        if (batch) handlers.onLogBatch?.(batch);
+        continue;
+      }
+      // 授权请求同样不进握手队列：它随时可能到达，由 Main 的注册表应答。
+      if (message.kind === "localMediaPreviewAuthorize") {
+        const { requestId, path } = message;
+        if (typeof requestId === "string" && typeof path === "string") {
+          handlers.onAuthorizeRequest?.({ requestId, path });
+        }
         continue;
       }
       const resolveNext = pending.shift();
@@ -281,6 +304,27 @@ function createControlChannel(
       throw new Error("Rust Host control stream did not yield the expected frame");
     },
   };
+}
+
+/** 应答 Host 的本地媒体路径授权请求；任何失败都必须回 `ok:false`，否则 Host 侧请求永远挂起。 */
+function answerAuthorize(
+  child: ChildProcessWithoutNullStreams,
+  request: { requestId: string; path: string },
+  authorize: (path: string) => Promise<string>,
+): void {
+  const reply = (body: { ok: true; path: string } | { ok: false; error: string }) => {
+    if (child.stdin.destroyed || !child.stdin.writable) return;
+    child.stdin.write(
+      `${JSON.stringify({ kind: "localMediaPreviewAuthorized", requestId: request.requestId, ...body })}\n`,
+    );
+  };
+  void Promise.resolve()
+    .then(() => authorize(request.path))
+    .then(
+      (path) => reply({ ok: true, path }),
+      (error: unknown) =>
+        reply({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+    );
 }
 
 /** `logBatch` 帧的字段校验（协议漂移时退回丢弃，不打断控制通道）。 */

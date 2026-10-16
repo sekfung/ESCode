@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- desktop runtime/env 解析需要集中维护 main/host/remote assets 的启动边界，拆分会扩大远程连接回归面。 */
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, version as osVersion } from "node:os";
 import { join, resolve, win32 } from "node:path";
 import type { ConnectOptions } from "@escode/server/remote";
 import { listSSHConfigAliasesFromLocalConfig } from "@escode/services/node";
@@ -664,21 +664,48 @@ export function buildRustHostRuntimeEnv(
 }
 
 /**
- * Rust Host 的 provider 配置位置（rust-u2-providers.md §7，审计 A16b）：Bundled/Personal 文件路径，
- * 以及 Built-in Active/LKG 缓存的定位三元组（环境配置根、应用版本、当前控制面 Endpoint Origin）。
- * Endpoint 在 Host 启动时固定；切换 Endpoint 需要 Main↔Host 控制消息，属后续切片。
+ * Rust Host 的 provider 配置位置（rust-u2-providers.md §11/§12，审计 A16b）：Bundled/Personal 文件路径、
+ * Built-in Active/LKG 缓存的定位（环境配置根、应用版本）与 Endpoint 的输入。
+ * Endpoint = `resolveESCodeEndpointOrigin({env, envBaseOrigin, overrideOrigin})`：Main 只交 `env` 与 env 基址，
+ * 设置项 `escodeEndpointOrigin`（覆盖值）由 Host 读它自己持有的设置文件，所以切换 Endpoint 不需要额外的控制消息。
+ * `ESCODE_BUILTIN_REMOTE_REFRESH=1`：由 Main 显式声明 Host 才下载远端 Release。
  */
 export function buildRustHostProviderEnv(options: {
   readonly builtinFilePath: string;
   readonly appConfigDir: string;
   readonly appVersion: string;
-  readonly endpointOrigin: string;
+  readonly escodeEnv: string;
+  readonly endpointBaseOrigin?: string;
 }): Record<string, string> {
   return {
     ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: options.builtinFilePath,
     ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: join(options.appConfigDir, "provider_config.json"),
     ESCODE_BUILTIN_CACHE_ROOT: options.appConfigDir,
     ESCODE_APP_VERSION: options.appVersion,
-    ESCODE_ENDPOINT_ORIGIN: options.endpointOrigin,
+    ESCODE_ENV: options.escodeEnv,
+    ...(options.endpointBaseOrigin ? { ESCODE_ENDPOINT_ORIGIN: options.endpointBaseOrigin } : {}),
+    ESCODE_BUILTIN_REMOTE_REFRESH: "1",
+  };
+}
+
+/**
+ * Rust Host 的 ApiClient 来源头里 Host 自己拿不到的事实（rust-u2-client-config.md §3）：
+ * Host 没有 `Intl`/`os.version()`，由 Main 经 `runtimeEnv` 下发。值缺省或非可打印 ASCII 时 Host 自行回落到 `unknown`/不带头。
+ */
+export function buildRustHostClientEnv(
+  facts: {
+    readonly language?: string;
+    readonly timezone?: string;
+    readonly osVersion?: string;
+  } = {
+    language: Intl.DateTimeFormat().resolvedOptions().locale,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    osVersion: osVersion(),
+  },
+): Record<string, string> {
+  return {
+    ...(facts.language ? { ESCODE_CLIENT_LANGUAGE: facts.language } : {}),
+    ...(facts.timezone ? { ESCODE_CLIENT_TIMEZONE: facts.timezone } : {}),
+    ...(facts.osVersion ? { ESCODE_OS_VERSION: facts.osVersion } : {}),
   };
 }

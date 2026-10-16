@@ -12,15 +12,20 @@ pub(crate) fn simple_channels(
     data_base_dir: Option<&Path>,
     instances: Instances,
     options: escode_host_surface::OptionsFactory,
+    media_authorizer: Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
+    client_services: Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Vec<Channel> {
     let mut channels = vec![
         crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
             escode_host_services::broadcast::Broadcast::default(),
         )),
         crate::domains_memory::memory_channel(home, data_base_dir),
+        crate::domains_skills::skills_channel(home),
         crate::domains_output_style::output_style_channel(home),
         crate::domains_attachments::prompt_attachment_transfer_channel(),
-        crate::domains_attachments::media_preview_channel(),
+        crate::domains_attachments::media_preview_channel(media_authorizer),
+        crate::domains_client::client_scenes_channel(client_services.clone()),
+        crate::domains_client::client_config_channel(client_services),
         crate::domains_credential::credential_channel(data_base_dir.map(Path::to_path_buf)),
         crate::domains_plugin::plugin_management_channel(
             instances,

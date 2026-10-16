@@ -30,6 +30,8 @@ pub(crate) struct Spec {
     pub timeout: Duration,
     pub carrier: Carrier,
     pub with_workspace: bool,
+    /// 超时后回收管理面实例并重试一次（TS `listPlugins` 的 stale client 恢复；只对幂等的只读请求开启）。
+    pub retry_stale: bool,
     required: &'static [&'static str],
     truthy: &'static [&'static str],
     defined: &'static [&'static str],
@@ -45,6 +47,7 @@ impl Spec {
             timeout,
             carrier: Carrier::Management,
             with_workspace: true,
+            retry_stale: false,
             required: &[],
             truthy: &[],
             defined: &[],
@@ -55,6 +58,11 @@ impl Spec {
     /// 请求体不带 `workspace`（如 `cancelOperation`）。
     const fn bare(mut self) -> Self {
         self.with_workspace = false;
+        self
+    }
+
+    const fn retry_stale(mut self) -> Self {
+        self.retry_stale = true;
         self
     }
 
@@ -85,7 +93,9 @@ const fn long(service: &'static str, runtime: &'static str) -> Spec {
 
 /// 全部请求/应答方法（`onDynamicPluginOperationProgress` 事件与目录回退单独处理）。
 pub(crate) const SPECS: &[Spec] = &[
-    Spec::new("listPlugins", "plugins/list", DEFAULT_TIMEOUT).truthy(&["configScope"]),
+    Spec::new("listPlugins", "plugins/list", DEFAULT_TIMEOUT)
+        .truthy(&["configScope"])
+        .retry_stale(),
     long("getPluginsOverview", "plugins/overview").truthy(&["configScope"]),
     long("addPluginMarketplace", "plugins/marketplace/add")
         .required(&["source"])

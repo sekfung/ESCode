@@ -1,4 +1,4 @@
-//! Built-in Active/LKG 物化（spec §7）。路径向量由 TS `createESCodeBuiltinEndpointKey` 生成。
+//! Built-in Active/LKG 物化（spec §11）。路径向量由 TS `createESCodeBuiltinEndpointKey` 生成。
 
 use serde_json::{Value, json};
 
@@ -18,8 +18,16 @@ fn cache(root: &std::path::Path) -> ActiveCache {
     ActiveCache {
         root: root.to_path_buf(),
         app_version: "1.2.3".into(),
-        endpoint_origin: "https://api.example.com".into(),
+        endpoint: super::endpoint::EndpointSource {
+            escode_env: Some("production".into()),
+            base_origin: Some("https://api.example.com".into()),
+            settings_home: None,
+        },
     }
+}
+
+fn active_of(root: &std::path::Path) -> std::path::PathBuf {
+    active_file_path(root, "1.2.3", "https://api.example.com", &client_platform()).unwrap()
 }
 
 async fn write(path: &std::path::Path, value: &Value) {
@@ -61,27 +69,30 @@ fn endpoint_key_matches_ts_vectors() {
 
 #[test]
 fn active_path_matches_ts_and_rejects_bad_segments() {
-    let cache = ActiveCache {
-        root: "/cfg".into(),
-        app_version: "1.2.3".into(),
-        endpoint_origin: "https://api.example.com".into(),
-    };
+    let root = std::path::Path::new("/cfg");
+    let origin = "https://api.example.com";
     assert_eq!(
-        active_file_path(&cache, "linux-x86_64")
+        active_file_path(root, "1.2.3", origin, "linux-x86_64")
             .unwrap()
             .to_string_lossy(),
         "/cfg/runtime/provider/linux-x86_64/1.2.3/endpoint-137b9e5e4e13211ce3487cb1f3148ad0/escode-builtin.json"
     );
     for bad in ["", ".", "..", "a/b", "a\\b"] {
-        let bad_cache = ActiveCache {
-            app_version: bad.into(),
-            ..cache.clone()
-        };
         assert!(
-            active_file_path(&bad_cache, "linux-x86_64").is_err(),
+            active_file_path(root, bad, origin, "linux-x86_64").is_err(),
+            "{bad:?}"
+        );
+        assert!(
+            active_file_path(root, "1.2.3", origin, bad).is_err(),
             "{bad:?}"
         );
     }
+    assert_eq!(
+        control_file_path(&active_file_path(root, "1.2.3", origin, "linux-x86_64").unwrap())
+            .file_name()
+            .unwrap(),
+        "escode-builtin-refresh.json"
+    );
 }
 
 #[tokio::test]
@@ -91,7 +102,7 @@ async fn materializes_bundled_into_missing_active() {
     write(&bundled, &with_revision(3, None)).await;
     let source = BuiltinSource::new(bundled, Some(cache(dir.path())));
     assert_eq!(source.read().await.unwrap()["revision"], 3);
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     let written: Value =
         serde_json::from_str(&tokio::fs::read_to_string(active).await.unwrap()).unwrap();
     assert_eq!(written, with_revision(3, None));
@@ -102,7 +113,7 @@ async fn newer_active_wins_and_is_left_untouched() {
     let dir = tempfile::tempdir().unwrap();
     let bundled = dir.path().join("bundled.json");
     write(&bundled, &with_revision(1, None)).await;
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     write(&active, &with_revision(5, Some("remote"))).await;
     let before = tokio::fs::read_to_string(&active).await.unwrap();
     let selected = BuiltinSource::new(bundled, Some(cache(dir.path())))
@@ -118,7 +129,7 @@ async fn newer_bundled_replaces_stale_active() {
     let dir = tempfile::tempdir().unwrap();
     let bundled = dir.path().join("bundled.json");
     write(&bundled, &with_revision(9, None)).await;
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     write(&active, &with_revision(2, Some("old"))).await;
     BuiltinSource::new(bundled, Some(cache(dir.path())))
         .read()
@@ -134,7 +145,7 @@ async fn same_revision_conflict_prefers_bundled_and_repairs_active() {
     let dir = tempfile::tempdir().unwrap();
     let bundled = dir.path().join("bundled.json");
     write(&bundled, &with_revision(4, None)).await;
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     write(&active, &with_revision(4, Some("tampered"))).await;
     let selected = BuiltinSource::new(bundled, Some(cache(dir.path())))
         .read()
@@ -151,7 +162,7 @@ async fn corrupt_active_is_recovered_from_bundled() {
     let dir = tempfile::tempdir().unwrap();
     let bundled = dir.path().join("bundled.json");
     write(&bundled, &with_revision(2, None)).await;
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     tokio::fs::create_dir_all(active.parent().unwrap())
         .await
         .unwrap();
@@ -171,7 +182,7 @@ async fn invalid_bundled_falls_back_to_valid_active_and_both_invalid_errors() {
     let dir = tempfile::tempdir().unwrap();
     let bundled = dir.path().join("bundled.json");
     tokio::fs::write(&bundled, "{nope").await.unwrap();
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     write(&active, &with_revision(6, None)).await;
     let source = BuiltinSource::new(bundled.clone(), Some(cache(dir.path())));
     assert_eq!(source.read().await.unwrap()["revision"], 6);
@@ -204,34 +215,54 @@ async fn no_cache_reads_bundled_only() {
     let bundled = dir.path().join("bundled.json");
     write(&bundled, &with_revision(1, None)).await;
     let source = BuiltinSource::new(bundled, None);
-    assert_eq!(source.watched_files().len(), 1);
+    assert_eq!(source.watched_files().await.len(), 1);
     assert_eq!(source.read().await.unwrap()["revision"], 1);
 }
 
 #[test]
-fn provider_files_enable_the_cache_only_with_all_three_variables() {
+fn provider_files_enable_the_cache_with_root_and_version_and_remote_only_when_declared() {
     use super::ProviderFiles;
     fn files(pairs: &[(&str, &str)]) -> Option<ProviderFiles> {
         let map: std::collections::HashMap<String, String> = pairs
             .iter()
             .map(|(k, v)| ((*k).into(), (*v).into()))
             .collect();
-        ProviderFiles::from_env(|name| map.get(name).map(String::as_str))
+        ProviderFiles::from_env(
+            |name| map.get(name).map(String::as_str),
+            Some(std::path::Path::new("/home")),
+        )
     }
     let b = ("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE", "/b.json");
     let p = ("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE", "/p.json");
     let root = ("ESCODE_BUILTIN_CACHE_ROOT", "/cfg");
     let version = ("ESCODE_APP_VERSION", "1.2.3");
-    let origin = ("ESCODE_ENDPOINT_ORIGIN", "https://api.example.com");
+    let base = ("ESCODE_ENDPOINT_ORIGIN", "https://api.example.com");
+    let remote = ("ESCODE_BUILTIN_REMOTE_REFRESH", "1");
     assert!(files(&[]).is_none());
     assert!(files(&[b]).is_none());
     assert!(files(&[b, p]).unwrap().cache.is_none());
-    assert!(files(&[b, p, root, version]).unwrap().cache.is_none());
-    let cache = files(&[b, p, root, version, origin])
-        .unwrap()
-        .cache
-        .unwrap();
+    assert!(files(&[b, p, root]).unwrap().cache.is_none());
+    // env 基址可缺省（Endpoint 可以只来自设置覆盖/默认值）。
+    let cache = files(&[b, p, root, version]).unwrap().cache.unwrap();
     assert_eq!(cache.app_version, "1.2.3");
+    assert_eq!(cache.endpoint.base_origin, None);
+    assert_eq!(
+        cache.endpoint.settings_home.as_deref(),
+        Some(std::path::Path::new("/home"))
+    );
+    let with_base = files(&[b, p, root, version, base]).unwrap().cache.unwrap();
+    assert_eq!(
+        with_base.endpoint.base_origin.as_deref(),
+        Some("https://api.example.com")
+    );
+    // 远端刷新只在 Main 显式声明且缓存启用时开启。
+    assert!(!files(&[b, p, root, version]).unwrap().remote_refresh);
+    assert!(
+        files(&[b, p, root, version, remote])
+            .unwrap()
+            .remote_refresh
+    );
+    assert!(!files(&[b, p, remote]).unwrap().remote_refresh);
 }
 
 #[tokio::test]
@@ -245,7 +276,7 @@ async fn service_picks_up_a_newer_active_release_written_externally() {
     let before = service.model_selection_view(None).await.unwrap()["revision"]
         .as_u64()
         .unwrap();
-    let active = active_file_path(&cache(dir.path()), &client_platform()).unwrap();
+    let active = active_of(dir.path());
     write(&active, &with_revision(2, Some("remote"))).await;
     let after = service.model_selection_view(None).await.unwrap()["revision"]
         .as_u64()

@@ -27,6 +27,8 @@ export interface RustHostManagerOptions {
   dataBaseDir?: string;
   /** 嵌入运行时的环境（Main 合成，见 `buildRustHostRuntimeEnv`）；懒启动时才求值，避免启动期读取。 */
   runtimeEnv?: () => Record<string, string> | Promise<Record<string, string>>;
+  /** 本地媒体路径授权（Main 的注册表）；提供后 Host 的 media-preview 回 `local-url`（见 rustHostBridge）。 */
+  authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
   /** 日志钩子。`error` 用于 Host 的结构化 error 级日志（缺省退回 `warn`）。 */
@@ -75,6 +77,9 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       home: options.home,
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
       ...(options.runtimeEnv ? { runtimeEnv: await options.runtimeEnv() } : {}),
+      ...(options.authorizeLocalMediaPreviewPath
+        ? { authorizeLocalMediaPreviewPath: options.authorizeLocalMediaPreviewPath }
+        : {}),
       // Host 的结构化日志（`logBatch` 控制帧）进同一条 Main 日志出口；scope 作为来源标签。
       onLogBatch: (batch) => {
         for (const line of batch.lines) {

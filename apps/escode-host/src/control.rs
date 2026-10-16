@@ -59,6 +59,11 @@ impl ControlLoop {
     }
 
     /// 出站句柄（`close` 前恒在）。
+    /// 控制队列写句柄的克隆（给持有它的组件用；持有者必须在收口时释放，否则泵不退出）。
+    pub fn writer_handle(&self) -> ControlWriter {
+        self.writer().clone()
+    }
+
     fn writer(&self) -> &ControlWriter {
         self.writer
             .as_ref()

@@ -101,6 +101,47 @@ async fn two_workspaces_get_independent_instances() {
     assert!(instances.identities().len() == 2, "槽位保留世代记账");
 }
 
+/// 超时是可区分的失败类别（stale 实例恢复据此决定回收+重试）；实例已关闭则不是超时。
+#[tokio::test(flavor = "multi_thread")]
+async fn an_unanswered_request_fails_with_a_classifiable_timeout() {
+    let fixture = Fixture::new();
+    let instances = Instances::new(Link::Embedded);
+    let instance = instances
+        .get(&fixture.identity(), || fixture.options())
+        .await
+        .expect("instance starts");
+    wait_ready(&instance).await;
+
+    // 零期限：应答不可能先到，确定性地超时。
+    let error = instance
+        .call_with("plugins/list", serde_json::json!({}), None, Duration::ZERO)
+        .await
+        .expect_err("zero timeout cannot be answered");
+    let timeout = error
+        .downcast_ref::<escode_host_runtime::RequestTimeout>()
+        .expect("timeout is classifiable");
+    assert_eq!(timeout.method, "plugins/list");
+    assert!(error.to_string().contains("did not answer `plugins/list`"));
+
+    // 实例收口后的失败是 “closed”，不能被当成 stale 超时去重试。
+    let _ = instances.shutdown().await;
+    let closed = instance
+        .call_with(
+            "plugins/list",
+            serde_json::json!({}),
+            None,
+            Duration::from_secs(5),
+        )
+        .await
+        .expect_err("closed instance");
+    assert!(
+        closed
+            .downcast_ref::<escode_host_runtime::RequestTimeout>()
+            .is_none(),
+        "closed 不是超时: {closed:#}"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn exit_triggers_lazy_restart_with_next_generation() {
     let fixture = Fixture::new();

@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；`testModelConnectivity` 已交付（§10）；`provider-provisioning-target.apply` 与 P5–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；`testModelConnectivity` 已交付（§10）；P5a/P5b 与 Endpoint 动态解析已交付（§11/§12）；`provider-provisioning-target.apply` 登记为非缺口（§13）；P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -96,7 +96,7 @@ Personal Provider（空白 key、非法 baseUrl、缺 api、缺 group、缺失�
 **范围**：`provider-settings` 的 10 个写方法：`createPersonalProvider`、`savePersonalProviderOverlay`、`deletePersonalProvider`、`reorderPersonalProviders`、
 `reorderPersonalModels`、`addPersonalModel`、`renamePersonalModel`、`deletePersonalModel`、`savePersonalModelDraft`、`setPersonalModelEnabled`。
 另交付只读的 `resolveModelConfig`（`resolve_config.rs`：按当前规则合成；带 `personalConfig` 时把草稿当智能规则预览，`inheritedConfig` 只含 Built-in 规则，issues 复用 `model_issues`）。
-未做：`provider-provisioning-target.apply`、`testModelConnectivity`（需运行时 generateText）。
+`provider-provisioning-target.apply` 不在 Rust Host 范围，见 §13；`testModelConnectivity` 见 §10。
 
 **所有者与事件顺序**（唯一写者 = Host 的 `ProviderService`；Personal 文件是唯一事实源）：
 
@@ -178,7 +178,7 @@ P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `
 
 **状态所有者**：Active 文件 = 缓存（可丢弃），所有者是持有目录锁的进程；Bundled = 可信基线，只读。Registry 只由 `ProviderService::load()` 替换。
 
-**输入（`rpcListen.runtimeEnv`，三项必须同时出现，否则回到 P1 的“只读 Bundled”行为）**：
+**输入（`rpcListen.runtimeEnv`；P5a 版本，已被 §12 修订：只需 `ESCODE_BUILTIN_CACHE_ROOT` + `ESCODE_APP_VERSION` 即启用缓存，`ESCODE_ENDPOINT_ORIGIN` 改为可缺省的 env 基址，另有 `ESCODE_ENV`、`ESCODE_BUILTIN_REMOTE_REFRESH`）**：
 
 | 变量                        | 含义（对应 TS `escodeBuiltinEnvironment`）         |
 | --------------------------- | -------------------------------------------------- |
@@ -203,3 +203,77 @@ P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `
 且 Rust 物化出的 Active 能被 TS 读回并解码为同一 Release；Endpoint 路径向量由 TS `resolveESCodeBuiltinCachePaths` 生成。
 
 **登记差异（不修）**：Rust 写出的 Active 保留源文件的键序（TS 按自身 `toJSON` 序）；二者语义比较，不会互相改写。
+
+**P5a 交付记录（2026-10-16）**：`provider/builtin_source.rs`（路径/选择/锁内物化）、`ProviderFiles::from_env`（三变量齐全才启用 Active）、
+Main 侧 `buildRustHostProviderEnv`（`desktopRuntimeEnv.ts`）经 `rustHostManager` 的异步 `runtimeEnv` 下发（同时补齐 A16b 的 Bundled/Personal 路径下发）。
+验收：`builtin_source_tests.rs` 12 项（含 TS 生成的 Endpoint 哈希向量）；`rustHostBuiltinActive.test.ts` 7 种 Active 场景下 `getView` 与 TS 全等、两端 Active 语义相同；
+`rustHostProvider.test.ts` 在新二进制上仍通过；负向验证：同 revision 冲突改选 Active → 单测失败。
+**验证**：套餐族删除提交后工作区 TS 测试恢复可跑；`rustHostBuiltinActive.test.ts` 与 `rustHostProvider.test.ts` 在真实工作区通过；`pnpm typecheck`、`pnpm lint`（0 error）、`architecture:check --changed` 通过。
+**仍待做**：Endpoint 切换（需 Main↔Host 控制消息）；P5b（Remote 下载 + 刷新租约，依赖 `client-config`）；`ESCODE_TEST_*` 平台覆盖未对齐。
+
+## 12. P5b：Remote 下载 + 刷新租约 + Endpoint 动态解析
+
+**Endpoint 切换的所有者（修订 §11 的输入）**：Endpoint 是 `resolveESCodeEndpointOrigin({env, envBaseOrigin, overrideOrigin})` 的结果，其中 `overrideOrigin` 来自设置项
+`escodeEndpointOrigin`——设置文件由 Rust Host 的 settings 域持有，Host 自己读即可，**不需要新的控制消息**。因此 §11 的 `ESCODE_ENDPOINT_ORIGIN` 改为“env 基址”（可缺省），新增 `ESCODE_ENV`：
+
+| 条件                      | 结果（与 `shared/escodeEndpoint.ts` 逐条同）                                  |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `ESCODE_ENV=production`   | env 基址存在 → 规范化；否则默认 Origin（**忽略设置覆盖**）                    |
+| 其它（含缺省，按 `test`） | 设置 `escodeEndpointOrigin` 非空 → 规范化；否则 env 基址；否则测试默认 Origin |
+
+规范化 = §11 的 `normalize_endpoint_origin`（非法值使本次解析失败：Active 退回 Bundled、不下载，并 warn）。
+每次 `load()` 重新解析；设置文件指纹加入指纹轮询，Endpoint 变化 → Active 路径变化 → 指纹变化 → 重载并推进修订号（TS `endpoint-changed` 同效）。启用缓存的条件变为：`ESCODE_BUILTIN_CACHE_ROOT` 与 `ESCODE_APP_VERSION` 都存在。
+
+**下载（TS `downloadESCodeBuiltinRelease`）**：
+
+1. `GET <origin>/api/v1/client/configs?app_version=&platform=` → `{code:0, data:{configs:{builtin_provider_config_json?: https URL（无 userinfo）}}}`；缺该字段 → `missing`（无 Release，非错误）。
+2. `GET <该 URL>` → Release JSON，按 `parse_builtin` 校验（同 §11 的候选校验，含“禁含 builtin:zapi”）。
+3. 不带凭据；总预算 20 s（含两次请求正文）；正文上限 10,000,000 字节；非 2xx → `HTTP <n>`；超时 → `timeout`；错误文案 `ESCode Built-in <stage>: <reason>`（stage = `client-config|cdn`），**不泄露 URL/query/正文**。
+4. 出口走 `escode_cli_net`（`Purpose::WebFetch`，与 `system_probe` 同一单入口，代理/CA 规则由它统一）。
+
+**刷新租约（TS `ESCodeBuiltinRemoteSynchronizer`，控制文件格式不变以便与 TS Host 共存）**：控制文件 `escode-builtin-refresh.json`（与 Active 同目录），锁内读-判-写，网络期间**不持锁**：
+
+```
+refresh(force):
+  锁(control): 同 Endpoint 且 leaseUntil>now → skipped(lease-held)
+               非 force 且同 Endpoint 且 nextEligibleAt>now → skipped(not-due)
+               否则写 {leaseId, leaseUntil=now+30s, 换 Endpoint 则清 nextEligibleAt/failureCount}
+  fetch（无锁）→ 复核 Endpoint 未变（变了 → finish(success) + skipped(endpoint-changed)）
+  锁(active): apply — revision 小 → stale；相等且内容同 → unchanged，内容不同 → 错误（"相同 revision N 对应不同内容"）；大 → 写 Active → updated
+  锁(control): finish — leaseId 仍是自己才写：成功 delay=1h/failure=0；失败 delay=min(60s·2^(n-1), 1h)/failure+1
+```
+
+**调度**：缓存启用且 `ESCODE_BUILTIN_REMOTE_REFRESH=1`（Main 显式声明；差分测试不带它，避免测试触网）时，服务在首次读取后启动 60 s 周期任务（`Weak<Service>`，随服务消亡），
+成功改写 Active 即由指纹轮询推进修订号。刷新失败只记 `warn`（`ESCode Built-in Config 远端刷新失败`），不影响 Registry。
+
+**验收**：`builtin_download_tests`（注入式 `Fetcher` 桩：缺字段=missing、非 https/带 userinfo 拒绝、HTTP 错误、超限、超时、Release 无效、zapi 拒绝、总预算跨两次请求）；
+`builtin_sync_tests`（租约持有/未到期/强制、换 Endpoint 重置、stale/unchanged/冲突/updated、失败退避序列、finish 对 `leaseId` 的保护、`now` 注入）；
+`endpoint_tests`（上表逐条 + 与 TS 向量对账）；`rustHostBuiltinRemote.test.ts`：本地 HTTP 桩服务器 + 真实 TS `ESCodeBuiltinRemoteSynchronizer` 与 Rust Host 分别对同一 Active/控制文件夹刷新，
+Active 语义相同、控制文件字段相同（时间字段除外）、设置里切换 `escodeEndpointOrigin` 后 Host 的视图随之切到新 Endpoint 的缓存。
+负向验证：去掉租约判定、放宽 revision 比较、忽略 `escodeEndpointOrigin` 覆盖，对应用例失败。
+
+**登记差异（不修）**：① 出口为 Rust 统一出口，代理/CA 取自 Host 的网络配置而非 Main 的 `ApiClient`；② `redirect:error` 由统一客户端的 `redirect::Policy::none()` 达成：3xx 以 `HTTP 3xx` 报错（TS 报 fetch 的重定向错误），两者都失败且都不跟随；
+③ 错误 stage 之外的 schema 细节统一为 `invalid response`（不复刻 zod 的 `invalid schema at <path>`）；④ 刷新结果的日志级别沿用 TS（`updated` 为 info，其余 debug，失败 warn）。
+
+**§12 交付记录（2026-10-16）**：`provider/endpoint.rs`（Endpoint 动态解析，设置覆盖由 Host 读自己的设置文件）、`builtin_download.rs`（注入式 `JsonGet` + `HttpGet` 统一出口）、
+`builtin_sync.rs`（租约/退避/`leaseId` 保护，控制文件格式与 TS 同）、`service_remote.rs`（60 s 调度）、`BuiltinSource` 的 Endpoint 动态路径与 `apply_remote_release`；
+Main 侧 `buildRustHostProviderEnv` 改传 `ESCODE_ENV` + env 基址 + `ESCODE_BUILTIN_REMOTE_REFRESH=1`（不再传已解析的 Origin）。
+验收：Rust 428 项全绿（endpoint 4、download 6、sync 11、source 12 项等）；`rustHostBuiltinRemote.test.ts`：本地 HTTP 桩 + 真实 TS 同步器，请求路径/query 相同、
+控制文件字段相同、设置里切换 `escodeEndpointOrigin` 后 Host 视图与 TS 在同一 Endpoint 缓存上的视图相等；`rustHostBuiltinActive.test.ts` 加强为比较 `provider-settings` 视图
+（真实 Built-in 没有 `providerRules`，此前“删第一条 Provider 规则”的变体是空操作；现改为删第一条模板规则，视图可区分）。
+负向验证：忽略设置覆盖 → Remote 差分失败；同 revision 冲突改选 Active → Active 差分失败。
+**测试基础设施修复**：`rustHostTestSupport.connectRpc` 原先等 `open` 之后才挂 `message` 监听，Host 的 `Initialize` 帧与升级响应同读时会丢，客户端永久不发请求；
+Host 侧有并发工作（如本节的刷新）时必现。现在先建协议并订阅再等 `open`。
+**未覆盖（已知）**：成功下载并写入 Active 的端到端（CDN URL 必须 https，本地桩无法提供）由 Rust 单测（注入桩）覆盖，TS 差分只覆盖 `missing` 路径与控制文件。
+
+## 13. `provider-provisioning-target.apply`：登记为非缺口（2026-10-16，用户决定）
+
+**事实（读 TS 得到）**：该 target 只在两种环境启用（`services/node.ts`：桌面附着的**远程**环境，或带 auth token 的独立 HTTP `server`），由 Window Host 经
+`remoteProviderProvisioningService` 调用。本地窗口的 Rust Host 不会收到它。信封（`shared/provider-provisioning.ts`）的 `accountSettings`
+（`providerFamilyDomain` / `providerFamilyConnectionSelections`）、`oauth-session` 凭据（`oauth:zai:*` / `oauth:bigmodel:*` / `escodejwttoken`）与 `accountProviderSource.refresh`
+都属于 2026-10-15 已删除的账号/OAuth 套餐族。
+
+**决定**：不在 Rust Host 实现。库存清单里该成员保持“未实现”，并在此登记原因而非当作缺口追踪。
+
+**重启条件**：Rust Host 需要跑在远程环境（SSH/WSL/Docker）上时，按“只含 Personal 配置”的瘦身信封重新设计——`syncId` 幂等状态文件、Personal 文件锁内 CAS、失败回滚；
+同时修改 shared 的 zod schema 去掉账号字段，并与 Window Host 的调用方对齐。届时另立 spec。

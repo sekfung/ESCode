@@ -2,8 +2,11 @@
 //!
 //! P1：只读 Registry——从 Built-in（Bundled）与 Personal 两份文件解析出 Registry，提供 `model-selection.getView`。
 
+mod builtin_download;
 mod builtin_source;
+mod builtin_sync;
 mod complete;
+mod endpoint;
 mod files;
 mod issues;
 mod legacy;
@@ -17,6 +20,7 @@ mod resolve_config;
 mod rules;
 mod selection;
 mod service_events;
+mod service_remote;
 mod service_write;
 mod settings_view;
 mod sparse;
@@ -32,8 +36,12 @@ use escode_cli_host::file_stamp::{ChangeGate, FileStamp};
 use serde_json::{Map, Value, json};
 use tokio::sync::Mutex as AsyncMutex;
 
+pub use builtin_download::HttpGet;
 pub use builtin_source::ActiveCache;
 use builtin_source::BuiltinSource;
+pub use builtin_source::normalize_endpoint_origin;
+use builtin_sync::Synchronizer;
+pub use endpoint::{DEFAULT_ORIGIN as DEFAULT_ENDPOINT_ORIGIN, EndpointSource, resolve_origin};
 use files::{Builtin, Personal};
 use legacy::{LegacyContext, resolve_legacy_level};
 use resolve::{
@@ -85,43 +93,61 @@ impl Default for State {
 pub struct ProviderFiles {
     pub builtin: PathBuf,
     pub personal: PathBuf,
-    /// 三个缓存变量齐全才启用 Active/LKG（spec §7）；缺任何一个 = 只读 Bundled。
+    /// `ESCODE_BUILTIN_CACHE_ROOT` 与 `ESCODE_APP_VERSION` 齐全才启用 Active/LKG（spec §11/§12）；否则只读 Bundled。
     pub cache: Option<ActiveCache>,
+    /// `ESCODE_BUILTIN_REMOTE_REFRESH=1`：Main 显式声明才下载远端 Release（测试默认不触网）。
+    pub remote_refresh: bool,
 }
 
 impl ProviderFiles {
-    pub fn from_env<'a>(get: impl Fn(&str) -> Option<&'a str>) -> Option<Self> {
+    /// `settings_home` = `rpcListen.home`：设置文件（`escodeEndpointOrigin` 覆盖）所在根。
+    pub fn from_env<'a>(
+        get: impl Fn(&str) -> Option<&'a str>,
+        settings_home: Option<&std::path::Path>,
+    ) -> Option<Self> {
         let value = |name: &str| get(name).map(str::trim).filter(|v| !v.is_empty());
         let cache = match (
             value("ESCODE_BUILTIN_CACHE_ROOT"),
             value("ESCODE_APP_VERSION"),
-            value("ESCODE_ENDPOINT_ORIGIN"),
         ) {
-            (Some(root), Some(version), Some(origin)) => Some(ActiveCache {
+            (Some(root), Some(version)) => Some(ActiveCache {
                 root: PathBuf::from(root),
                 app_version: version.to_owned(),
-                endpoint_origin: origin.to_owned(),
+                endpoint: endpoint::EndpointSource {
+                    escode_env: value("ESCODE_ENV").map(str::to_owned),
+                    base_origin: value("ESCODE_ENDPOINT_ORIGIN").map(str::to_owned),
+                    settings_home: settings_home.map(std::path::Path::to_path_buf),
+                },
             }),
             _ => None,
         };
         Some(Self {
             builtin: PathBuf::from(get("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE")?),
             personal: PathBuf::from(get("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE")?),
+            remote_refresh: cache.is_some() && value("ESCODE_BUILTIN_REMOTE_REFRESH") == Some("1"),
             cache,
         })
     }
 
     pub fn into_service(self) -> ProviderService {
         let service = ProviderService::new(self.builtin, self.personal);
-        match self.cache {
+        let service = match self.cache {
             Some(cache) => service.with_active_cache(cache),
             None => service,
+        };
+        if self.remote_refresh {
+            service.with_remote_refresh(Arc::new(HttpGet))
+        } else {
+            service
         }
     }
 }
 
 pub struct ProviderService {
-    builtin: BuiltinSource,
+    builtin: Arc<BuiltinSource>,
+    /// Remote 刷新（spec §12）；`None` = 不下载。
+    remote: Option<Arc<Synchronizer>>,
+    remote_started: std::sync::atomic::AtomicBool,
     personal_path: PathBuf,
     /// 串行化加载（文件读取 + 解析 + 替换），避免并发请求重复推进修订号。
     gate: AsyncMutex<()>,
@@ -148,7 +174,9 @@ fn canonical(value: &Value) -> String {
 impl ProviderService {
     pub fn new(builtin_path: PathBuf, personal_path: PathBuf) -> Self {
         Self {
-            builtin: BuiltinSource::new(builtin_path, None),
+            builtin: Arc::new(BuiltinSource::new(builtin_path, None)),
+            remote: None,
+            remote_started: std::sync::atomic::AtomicBool::new(false),
             personal_path,
             gate: AsyncMutex::new(()),
             write_gate: AsyncMutex::new(()),
@@ -159,10 +187,10 @@ impl ProviderService {
         }
     }
 
-    /// 启用 Built-in Active/LKG 缓存（spec §7）；须在首次读取前调用。
+    /// 启用 Built-in Active/LKG 缓存（spec §11）；须在首次读取前调用。
     #[must_use]
     pub fn with_active_cache(mut self, cache: ActiveCache) -> Self {
-        self.builtin = self.builtin.with_cache(cache);
+        self.builtin = Arc::new(self.builtin.with_cache(cache));
         self
     }
 
@@ -172,8 +200,8 @@ impl ProviderService {
         // 文件指纹未变（且未到兜底间隔）就复用上次解析结果，不再读盘/解析（P1 #7 同一机制）。
         // 指纹在读之前取：读到一半发生的变化会体现在下一轮指纹里。
         let mut stamps = Vec::new();
-        for path in self.builtin.watched_files() {
-            stamps.push(FileStamp::of(path).await);
+        for path in self.builtin.watched_files().await {
+            stamps.push(FileStamp::of(&path).await);
         }
         stamps.push(FileStamp::of(&self.personal_path).await);
         {

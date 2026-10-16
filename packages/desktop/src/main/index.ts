@@ -165,6 +165,7 @@ import {
   listSSHConfigAliases,
   listAvailableDockerContainers,
   listAvailableWSLDistros,
+  buildRustHostClientEnv,
   buildRustHostProviderEnv,
   buildRustHostRuntimeEnv,
   loadHostProcessEnvFromLocalFiles,
@@ -841,16 +842,20 @@ const rustHostManager = createRustHostManager({
   // 会话工作区等路径按 TS `getDataBaseDir()` 派生（设置项 dataBaseDir 由 bootstrap 注入）；
   // 启动后不再变，与 `conversationWorkspaceDir` 的取值时机一致（见上面 resolveStartupWindowBootstrap）。
   dataBaseDir: getDataBaseDir(),
-  // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；含 provider 配置位置（A16b，spec §7）。
-  runtimeEnv: async () => ({
+  // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；含 provider 配置位置（A16b，spec §11）。
+  runtimeEnv: () => ({
     ...buildRustHostRuntimeEnv(hostProcessLocalEnv),
+    ...buildRustHostClientEnv(),
     ...buildRustHostProviderEnv({
       builtinFilePath: resolveESCodeBuiltinProviderConfigFilePath(),
       appConfigDir: getAppConfigDir(),
       appVersion: ESCODE_VERSION || app.getVersion(),
-      endpointOrigin: await resolveCurrentESCodeEndpointOrigin(),
+      escodeEnv: ESCODE_ENV,
+      endpointBaseOrigin: resolveESCodeEndpointEnvBaseOrigin(hostProcessLocalEnv),
     }),
   }),
+  // 本地媒体预览：授权注册表属于 Main，Rust Host 经控制通道请求（rust-u2-attachments.md §5）。
+  authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
   log: logger,
 });
 const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAttachments({

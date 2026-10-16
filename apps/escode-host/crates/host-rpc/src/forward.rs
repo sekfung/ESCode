@@ -180,6 +180,21 @@ pub async fn request(
     .await
 }
 
+/// 运行时请求的失败分类：`Timeout`（期限内无应答，实例可能是 stale）与其余失败。
+/// 两者对外都是同一个 [`RpcError`]；分类只给需要“回收 stale 实例后重试”的调用方用。
+pub enum CallError {
+    Timeout(RpcError),
+    Failed(RpcError),
+}
+
+impl CallError {
+    pub fn into_rpc(self) -> RpcError {
+        match self {
+            Self::Timeout(error) | Self::Failed(error) => error,
+        }
+    }
+}
+
 /// 同 [`request`]，超时由调用方指定（插件安装/市场刷新等长操作 TS 用 5 分钟）。
 pub async fn request_with_timeout(
     instance: &escode_host_runtime::Instance,
@@ -188,10 +203,33 @@ pub async fn request_with_timeout(
     trace: Option<Value>,
     timeout: std::time::Duration,
 ) -> Result<Value, RpcError> {
+    request_classified(instance, method, params, trace, timeout)
+        .await
+        .map_err(CallError::into_rpc)
+}
+
+/// 同 [`request_with_timeout`]，但失败带分类（见 [`CallError`]）。
+pub async fn request_classified(
+    instance: &escode_host_runtime::Instance,
+    method: &str,
+    params: Value,
+    trace: Option<Value>,
+    timeout: std::time::Duration,
+) -> Result<Value, CallError> {
     let answer = instance
         .call_with(method, params, trace, timeout)
         .await
-        .map_err(|error| RpcError::new("Fatal", format!("{error:#}")))?;
+        .map_err(|error| {
+            let rpc = RpcError::new("Fatal", format!("{error:#}"));
+            if error
+                .downcast_ref::<escode_host_runtime::RequestTimeout>()
+                .is_some()
+            {
+                CallError::Timeout(rpc)
+            } else {
+                CallError::Failed(rpc)
+            }
+        })?;
     if let Some(error) = answer.get("error") {
         let message = error["message"]
             .as_str()
@@ -204,13 +242,13 @@ pub async fn request_with_timeout(
         if let Some(data) = error.get("data").filter(|data| !data.is_null()) {
             rpc = rpc.with("data", data.clone());
         }
-        return Err(rpc);
+        return Err(CallError::Failed(rpc));
     }
     answer.get("result").cloned().ok_or_else(|| {
-        RpcError::new(
+        CallError::Failed(RpcError::new(
             "Fatal",
             format!("runtime `{method}` answer lacks `result`: {answer}"),
-        )
+        ))
     })
 }
 

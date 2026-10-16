@@ -57,7 +57,12 @@ async fn plugin_requests_reach_the_management_runtime_with_the_callers_workspace
     )
     .await;
     let overview = object(read_response(&mut socket, 2).await);
-    assert!(overview.is_object(), "{overview}");
+    // 真实 runtime 的应答要通过结果 schema 校验（失败会得到错误帧而不是这些字段）。
+    assert!(overview["marketplaces"].is_array(), "{overview}");
+    assert!(
+        overview["capability"]["supported"].is_boolean(),
+        "{overview}"
+    );
 
     // 取消一个不存在的操作：由 runtime 应答（不带 workspace 的请求体）。
     call(
@@ -98,7 +103,11 @@ async fn plugin_requests_reach_the_management_runtime_with_the_callers_workspace
     )
     .await;
     let catalog = object(read_response(&mut socket, 5).await);
-    assert!(catalog.is_object(), "{catalog}");
+    assert!(
+        matches!(catalog["authority"].as_str(), Some("session" | "workspace")),
+        "{catalog}"
+    );
+    assert!(catalog["plugins"].is_array(), "{catalog}");
     assert!(
         instances.live(&ws).is_some(),
         "目录请求为 workspace 启动了实例"
@@ -116,6 +125,8 @@ async fn without_a_data_base_dir_the_channel_reports_an_explicit_gap() {
         None,
         instances,
         options,
+        None,
+        None,
         None,
     );
     let surface = escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, None)

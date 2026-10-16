@@ -1,0 +1,102 @@
+{
+  "fixtureVersion": 1,
+  "skillFileName": "SKILL.md",
+  "maxScanDepth": 8,
+  "defaultEnabledPluginIds": [
+    "browser-use@zcode-plugins-official",
+    "image-search@zcode-plugins-official",
+    "documents@zcode-plugins-official",
+    "pdf@zcode-plugins-official",
+    "presentations@zcode-plugins-official",
+    "spreadsheets@zcode-plugins-official",
+    "node-repl-host@zcode-plugins-official",
+    "skill-creator@zcode-plugins-official",
+    "plugin-creator@zcode-plugins-official",
+    "escode-guide@zcode-plugins-official",
+    "visualize@zcode-plugins-official",
+    "serial@zcode-plugins-official",
+    "usb@zcode-plugins-official"
+  ],
+  "walk": [
+    {
+      "name": "node_modules",
+      "walk": false
+    },
+    {
+      "name": "dist",
+      "walk": false
+    },
+    {
+      "name": "build",
+      "walk": false
+    },
+    {
+      "name": "out",
+      "walk": false
+    },
+    {
+      "name": "target",
+      "walk": false
+    },
+    {
+      "name": "vendor",
+      "walk": false
+    },
+    {
+      "name": "coverage",
+      "walk": false
+    },
+    {
+      "name": ".cache",
+      "walk": false
+    },
+    {
+      "name": ".next",
+      "walk": false
+    },
+    {
+      "name": ".turbo",
+      "walk": false
+    },
+    {
+      "name": ".venv",
+      "walk": false
+    },
+    {
+      "name": "__pycache__",
+      "walk": false
+    },
+    {
+      "name": ".system",
+      "walk": true
+    },
+    {
+      "name": ".git",
+      "walk": false
+    },
+    {
+      "name": ".agents",
+      "walk": false
+    },
+    {
+      "name": "src",
+      "walk": true
+    },
+    {
+      "name": "skills",
+      "walk": true
+    },
+    {
+      "name": "Node_Modules",
+      "walk": true
+    },
+    {
+      "name": "my-skill",
+      "walk": true
+    },
+    {
+      "name": ".hidden",
+      "walk": false
+    }
+  ]
+}

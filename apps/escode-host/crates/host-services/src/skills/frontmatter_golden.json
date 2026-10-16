@@ -1,0 +1,575 @@
+{
+  "fixtureVersion": 1,
+  "cases": [
+    {
+      "text": "plain markdown without frontmatter\n\nsecond paragraph",
+      "expected": {
+        "hasFrontmatter": false,
+        "name": "",
+        "description": "",
+        "body": "plain markdown without frontmatter\n\nsecond paragraph",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: simple\ndescription: A simple skill\n---\nBody text\n",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "simple",
+        "description": "A simple skill",
+        "body": "Body text",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\r\nname: crlf\r\ndescription: Windows line endings\r\n---\r\nBody\r\n",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "crlf",
+        "description": "Windows line endings",
+        "body": "Body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: only-name\n---\n",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "only-name",
+        "description": "",
+        "body": "",
+        "keys": [
+          "name"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: no-close\ndescription: never closed\nBody continues",
+      "expected": {
+        "hasFrontmatter": false,
+        "name": "",
+        "description": "",
+        "body": "---\nname: no-close\ndescription: never closed\nBody continues",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\n---\nempty frontmatter",
+      "expected": {
+        "hasFrontmatter": false,
+        "name": "",
+        "description": "",
+        "body": "---\n---\nempty frontmatter",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: quoted\ndescription: \"a: b inside quotes\"\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "quoted",
+        "description": "a: b inside quotes",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: single\ndescription: 'it''s fine'\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "single",
+        "description": "it's fine",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: 触发\ndescription: 触发场景: 用户提到数据库\n---\n正文",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "触发",
+        "description": "触发场景: 用户提到数据库",
+        "body": "正文",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: unsafe name: here\ndescription: ok\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "unsafe name: here",
+        "description": "ok",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: block\ndescription: |\n  line one\n  line two\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "block",
+        "description": "line one\nline two\n",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: folded\ndescription: >\n  line one\n  line two\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "folded",
+        "description": "line one line two\n",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: block-unsafe\ndescription: >-\n  a: b\n  c\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "block-unsafe",
+        "description": "a: b c",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: leaked\ndescription: d\n# Heading Inside\ntext leaked\n---\nreal body",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "leaked",
+        "description": "d",
+        "body": "# Heading Inside\ntext leaked\n\nreal body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: leaked-late\ndescription: d\n\n## Usage\nsteps\n---\nafter",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "leaked-late",
+        "description": "d",
+        "body": "## Usage\nsteps\n\nafter",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: number\ndescription: 123\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "number",
+        "description": "123",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: 1.50\ndescription: 1e3\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "1.5",
+        "description": "1000",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: true\ndescription: null\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "true",
+        "description": "null",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: ~\ndescription: ~\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "~",
+        "description": "~",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: list\ndescription: [a, b, c]\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "list",
+        "description": "a,b,c",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: obj\ndescription: {a: 1}\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "obj",
+        "description": "{a: 1}",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: dup\nname: again\ndescription: d\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "again",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\n- a\n- b\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "",
+        "description": "",
+        "body": "body",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\njust a scalar\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "",
+        "description": "",
+        "body": "body",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: tabs\n\tdescription: bad indent\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "tabs",
+        "description": "bad indent",
+        "body": "body",
+        "keys": [
+          "name"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: [unclosed\ndescription: d\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "[unclosed",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: extra\ndescription: d\nlicense: MIT\nmetadata:\n  version: 1\n  tags: [x, y]\nallowed-tools: Read\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "extra",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "name",
+          "description",
+          "license",
+          "metadata",
+          "allowed-tools"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\n# comment first\nname: commented\n  # indented comment\ndescription: d # trailing\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "commented",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: \"unterminated\ndescription: d\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "unterminated",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname:   spaced   \ndescription:   padded desc   \n---\n\n\n  body with spaces  \n\n",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "spaced",
+        "description": "padded desc",
+        "body": "body with spaces",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: dashes\ndescription: has --- inside\n---\nbody\n---\nmore",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "dashes",
+        "description": "has --- inside",
+        "body": "body\n---\nmore",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: first\n---\nname: second\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "first",
+        "description": "",
+        "body": "name: second\n---\nbody",
+        "keys": [
+          "name"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\n名称: 中文键\nname: ok\ndescription: d\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "ok",
+        "description": "d",
+        "body": "body",
+        "keys": [
+          "名称",
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: a\ndescription: |\n    deep indent\n  shallow\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "a",
+        "description": "  deep indent\nshallow",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: a\ndescription: |\n\ttabbed\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "a",
+        "description": "tabbed",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\r\rname: cr only\r---\rbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "cr only",
+        "description": "",
+        "body": "body",
+        "keys": [
+          "name"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "﻿---\nname: bom\n---\nbody",
+      "expected": {
+        "hasFrontmatter": false,
+        "name": "",
+        "description": "",
+        "body": "---\nname: bom\n---\nbody",
+        "keys": [],
+        "parseOk": false
+      }
+    },
+    {
+      "text": "---\nname: 'it''s'\ndescription: \"line\\nbreak\"\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "it's",
+        "description": "line\nbreak",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: multi\ndescription: first line\n  continued line\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "multi",
+        "description": "first line continued line",
+        "body": "body",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nName: caps\nDescription: Caps\n---\nbody",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "",
+        "description": "",
+        "body": "body",
+        "keys": [
+          "Name",
+          "Description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: a\ndescription: b\n---",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "a",
+        "description": "b",
+        "body": "",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    },
+    {
+      "text": "---\nname: a\ndescription: b\n---\n# real heading\ntext",
+      "expected": {
+        "hasFrontmatter": true,
+        "name": "a",
+        "description": "b",
+        "body": "# real heading\ntext",
+        "keys": [
+          "name",
+          "description"
+        ],
+        "parseOk": true
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import {
   createLocalPromptAttachmentTransferService,
   createMediaPreviewService,
 } from "@escode/services/node";
+import { buildLocalMediaPreviewUrl } from "@escode/shared";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-attachments.md §4：prompt-attachment-transfer（本地）与 media-preview（内联）对真实 TS 实现逐项比较。
@@ -111,6 +112,98 @@ describe("rust host attachments", () => {
             expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected });
           }
         }
+      } finally {
+        await host.stop();
+        await rm(base, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+
+  it.skipIf(!existsSync(hostBinary))(
+    "returns local-url like the TS service when Main authorizes (docs §5)",
+    async () => {
+      const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-lurl-")));
+      const home = join(base, "home");
+      const files = join(base, "files");
+      await mkdir(files, { recursive: true });
+      const spaced = join(files, "我的 song#1.mp3");
+      await writeFile(spaced, "abcdefgh");
+      const linked = join(files, "link-CLIP.MP4");
+      await writeFile(linked, Buffer.alloc(1024, 7));
+      const big = join(files, "big.mp4");
+      await writeFile(big, "");
+      await truncate(big, 8 * 1024 * 1024 + 1);
+      const denied = join(files, "denied.mp3");
+      await writeFile(denied, "x");
+      const text = join(files, "notes.txt");
+      await writeFile(text, "x");
+
+      // 桩 Main 的授权：规范化（去掉 link- 前缀）或拒绝；TS 与 Rust 共用同一份语义。
+      const authorize = async (path: string) => {
+        if (path.includes("denied")) throw new Error("path not authorized");
+        return path.replace("link-", "");
+      };
+      const tsPreview = createMediaPreviewService({
+        fileService: createFileService(),
+        authorizeLocalMediaPreviewPath: authorize,
+        createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
+      });
+      const host = startHost(home);
+      try {
+        expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        host.send({
+          kind: "rpcListen",
+          bind: "127.0.0.1:0",
+          home,
+          dataBaseDir: base,
+          localMediaPreview: true,
+        });
+        const listening = await nextMeaningful(host);
+        const services = await connectRpc(String(listening.addr), String(listening.secret));
+        const requests: string[] = [];
+        void (async () => {
+          for (;;) {
+            const message = await host.next();
+            if (message.kind !== "localMediaPreviewAuthorize") continue;
+            const path = String(message.path);
+            requests.push(path);
+            try {
+              host.send({
+                kind: "localMediaPreviewAuthorized",
+                requestId: message.requestId,
+                ok: true,
+                path: await authorize(path),
+              });
+            } catch (error) {
+              host.send({
+                kind: "localMediaPreviewAuthorized",
+                requestId: message.requestId,
+                ok: false,
+                error: (error as Error).message,
+              });
+            }
+          }
+        })();
+
+        const cases: Array<[string, "audio" | "video"]> = [
+          [spaced, "audio"],
+          [linked, "video"],
+          [big, "video"],
+          [denied, "audio"],
+          [text, "audio"],
+          [spaced, "video"],
+        ];
+        for (const [path, kind] of cases) {
+          const actual = await outcome(() =>
+            services.mediaPreviewService.prepare({ path, expectedKind: kind }),
+          );
+          const expected = await outcome(() => tsPreview.prepare({ path, expectedKind: kind }));
+          expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected });
+        }
+        // 校验先于授权：格式不符/非文件的路径不应打扰 Main。
+        expect(requests).not.toContain(text);
+        expect(requests.filter((path) => path === spaced)).toHaveLength(1);
       } finally {
         await host.stop();
         await rm(base, { recursive: true, force: true });

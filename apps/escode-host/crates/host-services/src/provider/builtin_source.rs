@@ -1,7 +1,7 @@
 //! Built-in 来源：Bundled（随包，可信基线）+ Active/LKG（按 平台/应用版本/Endpoint 隔离的可丢弃缓存）。
 //!
 //! 对应 TS `escode-builtin-cache-paths.ts` 与 `NodeESCodeBuiltinProviderConfigSource` 的本地部分
-//! （docs/specs/rust-u2-providers.md §7，P5a）。Remote 下载与租约属于 P5b，这里不涉及。
+//! （docs/specs/rust-u2-providers.md §11，P5a）。Remote 下载与租约属于 P5b，这里不涉及。
 
 use std::path::{Path, PathBuf};
 
@@ -11,14 +11,15 @@ use escode_host_control::logging;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use super::endpoint::EndpointSource;
 use super::files;
 
-/// Active 缓存的定位输入（TS `escodeBuiltinEnvironment` 的静态部分）。
+/// Active 缓存的定位输入（TS `escodeBuiltinEnvironment`）：Endpoint 每次读取时动态解析（spec §12）。
 #[derive(Debug, Clone)]
 pub struct ActiveCache {
     pub root: PathBuf,
     pub app_version: String,
-    pub endpoint_origin: String,
+    pub endpoint: EndpointSource,
 }
 
 /// TS `resolveESCodeBuiltinClientPlatform`：`<windows|darwin|linux…>-<aarch64|x86_64|…>`。
@@ -60,60 +61,122 @@ fn segment(value: &str, name: &str) -> Result<String> {
 }
 
 /// TS `resolveESCodeBuiltinCachePaths().activeFilePath`。
-pub fn active_file_path(cache: &ActiveCache, platform: &str) -> Result<PathBuf> {
-    Ok(cache
-        .root
+pub fn active_file_path(
+    root: &Path,
+    app_version: &str,
+    endpoint_origin: &str,
+    platform: &str,
+) -> Result<PathBuf> {
+    Ok(root
         .join("runtime")
         .join("provider")
         .join(segment(platform, "platform")?)
-        .join(segment(&cache.app_version, "appVersion")?)
-        .join(endpoint_key(&cache.endpoint_origin)?)
+        .join(segment(app_version, "appVersion")?)
+        .join(endpoint_key(endpoint_origin)?)
         .join("escode-builtin.json"))
+}
+
+/// 刷新控制文件与 Active 同目录（TS `controlFilePath`）。
+pub fn control_file_path(active: &Path) -> PathBuf {
+    active.with_file_name("escode-builtin-refresh.json")
+}
+
+/// TS `ApplyESCodeBuiltinReleaseResult`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplyResult {
+    Updated,
+    Unchanged,
+    Stale,
 }
 
 pub struct BuiltinSource {
     bundled: PathBuf,
-    active: Option<PathBuf>,
+    cache: Option<ActiveCache>,
+    platform: String,
+}
+
+/// 一次解析的结果：当前 Endpoint 与对应的 Active 路径。
+#[derive(Debug, Clone)]
+pub struct ResolvedActive {
+    pub endpoint_origin: String,
+    pub path: PathBuf,
 }
 
 /// 候选：`None` = 文件不存在；`Err` = 存在但无效。
 type Candidate = Option<Result<Value, String>>;
 
 impl BuiltinSource {
-    /// `cache` 缺省或无法定位（非法路径段/Origin）时只读 Bundled——与 P1 行为一致。
+    /// `cache` 缺省 = 只读 Bundled（与 P1 行为一致）。
     pub fn new(bundled: PathBuf, cache: Option<ActiveCache>) -> Self {
-        let active = cache.and_then(|cache| match active_file_path(&cache, &client_platform()) {
-            Ok(path) if path != bundled => Some(path),
-            Ok(_) => None,
-            Err(error) => {
-                logging::warn(
-                    "provider",
-                    format!("builtin active cache disabled: {error:#}"),
-                );
-                None
-            }
-        });
-        Self { bundled, active }
+        Self {
+            bundled,
+            cache,
+            platform: client_platform(),
+        }
     }
 
     /// 在已有 Bundled 路径上启用 Active 缓存。
-    pub fn with_cache(self, cache: ActiveCache) -> Self {
-        Self::new(self.bundled, Some(cache))
+    pub fn with_cache(&self, cache: ActiveCache) -> Self {
+        Self::new(self.bundled.clone(), Some(cache))
     }
 
-    /// 参与变更检测的文件（指纹轮询用）。
-    pub fn watched_files(&self) -> Vec<&Path> {
-        std::iter::once(self.bundled.as_path())
-            .chain(self.active.as_deref())
-            .collect()
+    pub fn app_version(&self) -> Option<&str> {
+        self.cache.as_ref().map(|cache| cache.app_version.as_str())
+    }
+
+    pub fn platform(&self) -> &str {
+        &self.platform
+    }
+
+    /// 当前 Endpoint 与 Active 路径；未启用缓存、Endpoint 非法或路径段非法 → `Ok(None)`/`Err`。
+    pub async fn resolve_active(&self) -> Result<Option<ResolvedActive>> {
+        let Some(cache) = &self.cache else {
+            return Ok(None);
+        };
+        let endpoint_origin = cache.endpoint.resolve().await?;
+        let path = active_file_path(
+            &cache.root,
+            &cache.app_version,
+            &endpoint_origin,
+            &self.platform,
+        )?;
+        Ok((path != self.bundled).then_some(ResolvedActive {
+            endpoint_origin,
+            path,
+        }))
+    }
+
+    /// 参与变更检测的文件（指纹轮询用）：Bundled、当前 Active、设置文件（Endpoint 覆盖）。
+    pub async fn watched_files(&self) -> Vec<PathBuf> {
+        let mut files = vec![self.bundled.clone()];
+        match self.resolve_active().await {
+            Ok(Some(active)) => files.push(active.path),
+            Ok(None) => {}
+            Err(error) => warn_disabled(&error),
+        }
+        if let Some(settings) = self
+            .cache
+            .as_ref()
+            .and_then(|cache| cache.endpoint.settings_file())
+        {
+            files.push(settings);
+        }
+        files
     }
 
     /// TS `read()`：锁内选择并物化；缓存边界失败时绕过 Active，Bundled 自身无效才报错。
     pub async fn read(&self) -> Result<Value> {
-        let Some(active) = &self.active else {
+        let active = match self.resolve_active().await {
+            Ok(active) => active,
+            Err(error) => {
+                warn_disabled(&error);
+                None
+            }
+        };
+        let Some(active) = active else {
             return select(read_candidate(&self.bundled).await, None);
         };
-        match self.read_materialized(active).await {
+        match self.read_materialized(&active.path).await {
             Ok(value) => Ok(value),
             Err(error) => {
                 logging::warn(
@@ -123,6 +186,38 @@ impl BuiltinSource {
                 select(read_candidate(&self.bundled).await, None)
             }
         }
+    }
+
+    /// TS `applyRemoteRelease`：锁内比较 revision，只前进；同 revision 内容不同是错误。
+    pub async fn apply_remote_release(&self, release: Value) -> Result<ApplyResult> {
+        files::parse_builtin(&release)?;
+        let active = self
+            .resolve_active()
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("ESCode Built-in Active 缓存未启用"))?;
+        if let Some(dir) = active.path.parent() {
+            tokio::fs::create_dir_all(dir).await?;
+        }
+        let guard = file_lock::acquire(&active.path).await?;
+        let outcome = self.apply_locked(&active.path, release).await;
+        guard.release().await;
+        outcome
+    }
+
+    async fn apply_locked(&self, active: &Path, release: Value) -> Result<ApplyResult> {
+        let current = self.select_and_write(active).await?;
+        let (new, old) = (revision(&release), revision(&current));
+        if new < old {
+            return Ok(ApplyResult::Stale);
+        }
+        if new == old {
+            if release == current {
+                return Ok(ApplyResult::Unchanged);
+            }
+            bail!("ESCode Built-in 相同 revision {new} 对应不同内容");
+        }
+        file_lock::write_private(active, &serde_json::to_string_pretty(&release)?).await?;
+        Ok(ApplyResult::Updated)
     }
 
     async fn read_materialized(&self, active: &Path) -> Result<Value> {
@@ -147,6 +242,13 @@ impl BuiltinSource {
     }
 }
 
+fn warn_disabled(error: &anyhow::Error) {
+    logging::warn(
+        "provider",
+        format!("builtin active cache disabled: {error:#}"),
+    );
+}
+
 async fn read_candidate(path: &Path) -> Candidate {
     let text = match tokio::fs::read_to_string(path).await {
         Ok(text) => text,
@@ -163,7 +265,7 @@ async fn read_candidate(path: &Path) -> Candidate {
     })
 }
 
-fn revision(value: &Value) -> u64 {
+pub fn revision(value: &Value) -> u64 {
     value.get("revision").and_then(Value::as_u64).unwrap_or(0)
 }
 

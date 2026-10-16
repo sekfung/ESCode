@@ -26,6 +26,7 @@ escode-host-services.workspace = true
 escode-host-surface.workspace = true
 escode-host-runtime.workspace = true
 escode-host-control.workspace = true
+url.workspace = true
 escode-cli-host.workspace = true
 escode-cli-core-api.workspace = true
 

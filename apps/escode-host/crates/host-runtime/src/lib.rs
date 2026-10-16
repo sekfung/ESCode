@@ -14,6 +14,7 @@
 mod host_io;
 mod instance;
 pub mod link;
+mod request_timeout;
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -25,6 +26,7 @@ use tokio::sync::{Mutex as AsyncMutex, mpsc};
 pub use host_io::{HostError, HostReply, HostRequest, HostResponder, LifecycleEvent, RuntimeState};
 pub use instance::{FrameSubscription, Instance};
 pub use link::{Link, RuntimeLink};
+pub use request_timeout::RequestTimeout;
 
 /// 一个 workspace 的实例槽：世代号 + 当前实例。
 struct Slot {

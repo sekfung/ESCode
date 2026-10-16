@@ -5,14 +5,17 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
 
+use escode_host_control::logging;
 use escode_host_runtime::{Instance, Instances};
 use futures_util::stream;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::channel::{Channel, EventHandler, EventStream};
-use crate::forward::{self, RuntimePolicy, RuntimeTarget};
+use crate::forward::{self, CallError, RuntimePolicy, RuntimeTarget};
 use crate::plugin_params::{CATALOG_METHODS, CATALOG_TIMEOUT, Carrier, SPECS, catalog_body};
+use crate::plugin_result_schema::validate;
+use crate::plugin_result_tables::{normalize, schema_for};
 use crate::session::{MethodHandler, RpcError, handler_rpc};
 use crate::wire::Wire;
 
@@ -140,6 +143,24 @@ impl Context {
         Ok(instance)
     }
 
+    /// 回收管理面实例（收口当前世代）；下一次 `management()` 会懒启动新一代并重新 attach。
+    async fn recycle_management(&self) {
+        let Some(base) = self.data_base_dir.as_ref() else {
+            return;
+        };
+        let identity = base
+            .join(".escode")
+            .join(MANAGEMENT_DIR)
+            .to_string_lossy()
+            .into_owned();
+        if let Err(error) = self.instances.close(&identity).await {
+            logging::warn(
+                "plugin-management",
+                format!("recycling the management instance failed: {error:#}"),
+            );
+        }
+    }
+
     async fn carrier(
         &self,
         carrier: Carrier,
@@ -188,11 +209,79 @@ fn method_handler(context: &Context, index: usize) -> MethodHandler {
                 }
                 _ => context.management().await?,
             };
+            if spec.retry_stale {
+                return with_stale_retry(
+                    spec.runtime,
+                    || {
+                        let (context, body) = (context.clone(), body.clone());
+                        async move {
+                            let instance = context.management().await.map_err(CallError::Failed)?;
+                            forward::request_classified(
+                                &instance,
+                                spec.runtime,
+                                body,
+                                None,
+                                spec.timeout,
+                            )
+                            .await
+                        }
+                    },
+                    || context.recycle_management(),
+                )
+                .await
+                .and_then(|result| check_result(spec.runtime, result))
+                .map(Wire::Object);
+            }
             forward::request_with_timeout(&instance, spec.runtime, body, None, spec.timeout)
                 .await
+                .and_then(|result| check_result(spec.runtime, result))
                 .map(Wire::Object)
         })
     })
+}
+
+/// 已移植 schema 的结果先校验再返回（TS `client.request(…, resultSchema)` 的 `parse`；spec §7）。
+/// 校验失败是协议漂移，不是超时：不回收、不重试，直接作为错误交给调用方。
+fn check_result(method: &str, mut result: Value) -> Result<Value, RpcError> {
+    if let Some(schema) = schema_for(method) {
+        validate(schema, &result).map_err(|reason| {
+            RpcError::new(
+                "Error",
+                format!("ESCode Protocol response parse failed: {method}: {reason}"),
+            )
+        })?;
+        normalize(method, &mut result);
+    }
+    Ok(result)
+}
+
+/// 幂等只读请求的 stale 恢复（TS `listPlugins`）：期限内无应答 → 回收实例 → 重试**一次**。
+/// 第二次仍失败（含再次超时）原样报错，不无限重试；非超时失败（runtime 的错误应答等）不重试。
+pub(crate) async fn with_stale_retry<A, AFut, R, RFut>(
+    method: &str,
+    mut attempt: A,
+    mut recycle: R,
+) -> Result<Value, RpcError>
+where
+    A: FnMut() -> AFut,
+    AFut: std::future::Future<Output = Result<Value, CallError>>,
+    R: FnMut() -> RFut,
+    RFut: std::future::Future<Output = ()>,
+{
+    match attempt().await {
+        Err(CallError::Timeout(error)) => {
+            logging::warn(
+                "plugin-management",
+                format!(
+                    "`{method}` timed out, recycling the unresponsive runtime and retrying once: {}",
+                    error.message
+                ),
+            );
+            recycle().await;
+            attempt().await.map_err(CallError::into_rpc)
+        }
+        other => other.map_err(CallError::into_rpc),
+    }
 }
 
 /// `getPluginReferenceCatalog`：打到持有 session 记录的 workspace 实例；新名先试，仅 `-32601` 回退旧名。
@@ -224,9 +313,13 @@ fn catalog_handler(context: &Context) -> MethodHandler {
                         CATALOG_TIMEOUT,
                     )
                     .await
+                    .and_then(|result| check_result(CATALOG_METHODS.1, result))
                     .map(Wire::Object)
                 }
-                other => other.map(Wire::Object),
+                // 新方法名的结果校验失败是协议漂移，不是“方法不存在”：不回退旧名（TS 同：ZodError 没有 code）。
+                other => other
+                    .and_then(|result| check_result(CATALOG_METHODS.0, result))
+                    .map(Wire::Object),
             }
         })
     })

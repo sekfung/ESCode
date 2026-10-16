@@ -48,6 +48,7 @@ unnecessary_to_owned = "deny"
 [workspace.dependencies]
 anyhow = "1"
 libc = "0.2"
+saphyr = { version = "0.1", default-features = false }
 base64 = "0.22"
 async-trait = "0.1"
 # V4 topic 物理帧 checksum（TS `crc32WireBytes` = CRC-32/ISO-HDLC；CLI 侧同依赖）。

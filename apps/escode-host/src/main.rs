@@ -82,6 +82,10 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
     let mut surfaces: Vec<escode_host_surface::Surface> = Vec::new();
     // Renderer RPC 面（@escode/rpc 协议，Renderer 真实链路）。
     let mut rpc_surfaces: Vec<escode_host_rpc::RpcSurface> = Vec::new();
+    // 本地媒体路径授权 broker（Main 声明 `localMediaPreview` 才有；持有控制队列写句柄，收口时必须 close）。
+    let mut path_authorizer: Option<
+        std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>,
+    > = None;
     while let Some(message) = control.recv().await {
         match message {
             ControlMessage::WindowAttach {
@@ -178,16 +182,32 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 home,
                 data_base_dir,
                 runtime_env,
+                local_media_preview,
             } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
                 let runtime_env = runtime_env.unwrap_or_default();
                 // provider 配置文件路径：Main 合成的运行时环境里的两个约定变量（A16b 的 P1 部分）。
-                let provider_files =
-                    escode_host_services::provider::ProviderFiles::from_env(|name| {
-                        runtime_env.get(name).map(String::as_str)
-                    });
+                let provider_files = escode_host_services::provider::ProviderFiles::from_env(
+                    |name| runtime_env.get(name).map(String::as_str),
+                    Some(std::path::Path::new(&home)),
+                );
+                if local_media_preview && let Some(previous) = path_authorizer.take() {
+                    previous.close();
+                }
+                let authorizer = local_media_preview.then(|| {
+                    escode_host_control::path_authorizer::PathAuthorizer::new(
+                        control.writer_handle(),
+                    )
+                });
+                path_authorizer.clone_from(&authorizer);
+                let client_services = Some(std::sync::Arc::new(
+                    escode_host_services::client_services::ClientServices::production(
+                        |name| runtime_env.get(name).map(String::as_str),
+                        Some(std::path::Path::new(&home)),
+                    ),
+                ));
                 let options: escode_host_surface::OptionsFactory =
                     std::sync::Arc::new(move |workspace| {
                         control::runtime_options_with(workspace, &runtime_env)
@@ -198,6 +218,8 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     instances.clone(),
                     options,
                     provider_files,
+                    authorizer,
+                    client_services,
                 );
                 match escode_host_rpc::serve(addr, channels, Some(instances.clone())).await {
                     Ok(surface) => {
@@ -284,7 +306,27 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     }
                 }
             }
+            ControlMessage::LocalMediaPreviewAuthorized {
+                request_id,
+                ok,
+                path,
+                error,
+            } => {
+                // 未知/重复的 requestId 丢弃（stale 防护）；没有 broker 时也不应收到。
+                let paired = path_authorizer
+                    .as_ref()
+                    .is_some_and(|broker| broker.resolve(&request_id, ok, path, error));
+                if !paired {
+                    escode_host_control::logging::warn(
+                        "media-preview",
+                        format!("dropped unpaired authorization reply {request_id}"),
+                    );
+                }
+            }
             ControlMessage::Shutdown { reason } => {
+                if let Some(broker) = path_authorizer.take() {
+                    broker.close();
+                }
                 for surface in surfaces.drain(..) {
                     surface.shutdown().await;
                 }
@@ -318,10 +360,14 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::Stopped { .. }
             | ControlMessage::SettingsValue { .. }
             | ControlMessage::SurfaceListening { .. }
-            | ControlMessage::RpcListening { .. } => {}
+            | ControlMessage::RpcListening { .. }
+            | ControlMessage::LocalMediaPreviewAuthorize { .. } => {}
         }
     }
     // 输入关闭（Main 退出）= 收口全部实例与传输面。
+    if let Some(broker) = path_authorizer.take() {
+        broker.close();
+    }
     for surface in surfaces.drain(..) {
         surface.shutdown().await;
     }

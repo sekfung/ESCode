@@ -107,7 +107,7 @@ pub fn channels(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
-    channels_with(home, data_base_dir, instances, options, None)
+    channels_with(home, data_base_dir, instances, options, None, None, None)
 }
 
 /// 同 [`channels`]，并带 provider 配置文件路径（Built-in, Personal；由 Main 经 `rpcListen.runtimeEnv` 提供）。
@@ -117,9 +117,16 @@ pub fn channels_with(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
     provider_files: Option<escode_host_services::provider::ProviderFiles>,
+    media_authorizer: Option<Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
+    client_services: Option<Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
-    let provider_service = provider_files.map(|files| Arc::new(files.into_service()));
+    let provider_service = provider_files.map(|files| {
+        let service = Arc::new(files.into_service());
+        // Main 声明了 Remote 刷新才会有 synchronizer；否则这里是空操作（rust-u2-providers.md §12）。
+        service.start_remote_refresh();
+        service
+    });
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();
     let instances_for_simple = instances.clone();
@@ -201,6 +208,8 @@ pub fn channels_with(
         data_base_dir_for_simple.as_deref(),
         instances_for_simple,
         options_for_simple,
+        media_authorizer,
+        client_services,
     ));
     let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。

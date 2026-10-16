@@ -187,6 +187,16 @@ mod contract_drift {
             ControlMessage::WindowDetached {
                 window_id: String::new(),
             },
+            ControlMessage::LocalMediaPreviewAuthorize {
+                request_id: String::new(),
+                path: String::new(),
+            },
+            ControlMessage::LocalMediaPreviewAuthorized {
+                request_id: String::new(),
+                ok: false,
+                path: None,
+                error: None,
+            },
             ControlMessage::HostReady {
                 protocol_version: 0,
                 workspaces: 0,

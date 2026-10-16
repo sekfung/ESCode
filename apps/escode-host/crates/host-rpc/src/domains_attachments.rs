@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use escode_host_control::path_authorizer::PathAuthorizer;
 use futures_util::stream;
 use serde_json::{Value, json};
 
@@ -79,17 +80,25 @@ fn plain_error(message: String) -> RpcError {
     RpcError::new("Error", message)
 }
 
-fn prepare(params: &Value) -> Result<Wire, RpcError> {
+/// TS `buildLocalMediaPreviewUrl`：`escode-media://local/preview?path=` + form-urlencoded（空格 → `+`）。
+fn local_media_url(path: &str) -> String {
+    let query = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("path", path)
+        .finish();
+    format!("escode-media://local/preview?{query}")
+}
+
+async fn prepare(params: Value, authorizer: Option<Arc<PathAuthorizer>>) -> Result<Wire, RpcError> {
     let path = params["path"].as_str().unwrap_or_default();
     let expected = params["expectedKind"].as_str().unwrap_or_default();
-    match media_format(path) {
-        Some((_, kind)) if kind == expected => {}
+    let media_type = match media_format(path) {
+        Some((media_type, kind)) if kind == expected => media_type,
         _ => {
             return Err(plain_error(format!(
                 "Unsupported media preview format: {path}"
             )));
         }
-    }
+    };
     let stat_result =
         stat(&json!({"path": path})).map_err(<RpcError as From<(String, String)>>::from)?;
     let Wire::Object(stat_value) = stat_result else {
@@ -99,15 +108,32 @@ fn prepare(params: &Value) -> Result<Wire, RpcError> {
     let Some(size) = size.filter(|_| stat_value["type"] == "file") else {
         return Err(plain_error(format!("Path is not a media file: {path}")));
     };
+    // 有授权能力：Main 授权后回 local-url（不受内联上限约束，大视频由 Main 的协议处理器流式服务）。
+    if let Some(authorizer) = authorizer {
+        let canonical = authorizer.authorize(path).await.map_err(plain_error)?;
+        return Ok(Wire::Object(json!({
+            "kind": "local-url",
+            "mediaType": media_type,
+            "path": canonical,
+            "size": size,
+            "url": local_media_url(&canonical),
+        })));
+    }
     if size > MAX_MEDIA_PREVIEW_BYTES {
         return Err(plain_error(format!(
             "Media file is too large for inline preview: {path}"
         )));
     }
-    let preview = read_media_preview(&json!({"path": path, "maxBytes": MAX_MEDIA_PREVIEW_BYTES}))
-        .map_err(<RpcError as From<(String, String)>>::from)?;
-    let Wire::Object(preview) = preview else {
-        return Err(plain_error(format!("Path is not a media file: {path}")));
+    let path = path.to_owned();
+    let preview = tokio::task::spawn_blocking(move || {
+        read_media_preview(&json!({"path": path, "maxBytes": MAX_MEDIA_PREVIEW_BYTES}))
+            .map(|preview| (path, preview))
+    })
+    .await
+    .map_err(|error| RpcError::new("Fatal", error.to_string()))?
+    .map_err(<RpcError as From<(String, String)>>::from)?;
+    let (path, Wire::Object(preview)) = preview else {
+        return Err(plain_error("Path is not a media file".to_owned()));
     };
     Ok(Wire::Object(json!({
         "kind": "inline",
@@ -118,18 +144,14 @@ fn prepare(params: &Value) -> Result<Wire, RpcError> {
     })))
 }
 
-pub(crate) fn media_preview_channel() -> Channel {
+pub(crate) fn media_preview_channel(authorizer: Option<Arc<PathAuthorizer>>) -> Channel {
     Channel::new(
         "media-preview",
         vec![(
             "prepare",
-            handler_rpc(|arg: Wire| {
-                Box::pin(async move {
-                    let params = params_of(arg);
-                    tokio::task::spawn_blocking(move || prepare(&params))
-                        .await
-                        .map_err(|error| RpcError::new("Fatal", error.to_string()))?
-                })
+            handler_rpc(move |arg: Wire| {
+                let authorizer = authorizer.clone();
+                Box::pin(async move { prepare(params_of(arg), authorizer).await })
             }),
         )],
     )

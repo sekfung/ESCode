@@ -58,7 +58,7 @@ Renderer ──RPC──▶ plugin-management.<method>(params)
 
 1. **不做结果 schema 校验**：TS 用 zod 校验 runtime 应答；Rust 原样透传 `result`（runtime 与 Renderer 都是同一仓库的 Rust/TS 合同）。
 2. **承载进程**：TS 管理面是 `pluginProcessManager` 的专用进程；Rust 是 `Instances` 里 identity=`<dataBaseDir>/.escode/plugin-workspace` 的实例（同一 cwd，生命周期随 Host）。
-3. **超时重试**：TS 对 `listPlugins` 超时会回收 stale client 并重试一次；Rust 实例没有该回收路径，超时直接报错（实例退出由 `Instances` 懒重启接管）。
+3. ~~超时重试~~ 已补（§6）：仅 `listPlugins` 超时后回收管理面实例并重试一次。
 4. **进度事件源**：来自管理面实例的 `plugins/operationProgress` 通知；payload 原样转发（TS 经 zod 校验丢弃不合法者）。
 
 ## 5. 验收
@@ -69,3 +69,59 @@ Renderer ──RPC──▶ plugin-management.<method>(params)
 - 进度扇出：`PluginHub` 单测（按 `operationId` 分发、非进度通知与坏帧忽略、断开的监听者被清理）。端到端进度只有 `plugins/resolveSuggestedReference`
   未命中本地目录时才会发（要联网刷新官方目录），不进离线测试；订阅先于请求的顺序由 `attach` 在 `management()` 里的位置保证。
 - 去掉 `attach` 前置 / 改坏整形表任一行，对应测试失败。
+
+## 6. stale client 恢复（`listPlugins`，2026-10-16）
+
+TS `listPlugins` 用默认协议超时（30 s，而非 5 分钟）发请求；超时后 process manager 回收无响应的 client，**重试一次**，让设置页能从重新拉起的 app-server 自动恢复。
+
+```
+listPlugins ──▶ 管理面实例 ──(30 s 无应答: RequestTimeout)──▶ 回收实例（Instances.close：收口当前世代）
+                                                                  │
+                                      management() 懒启动新一代 + Hub 重新 attach ──▶ 重试一次 ──▶ 结果/原样报错
+```
+
+- **失败分类**：`host-runtime` 的 `RequestTimeout`（类型化错误，消息不变）与“实例已关闭 / runtime 错误应答”区分；`forward::request_classified` 返回 `CallError::{Timeout, Failed}`，对外仍是同一个 `RpcError`。
+- **只对幂等只读请求开启**：`Spec::retry_stale` 仅 `listPlugins` 为真（单测断言集合恰为 `["listPlugins"]`，安装/卸载/配置等写操作重试会重复副作用）。
+- **次数**：回收一次、重试一次；第二次仍超时原样报错，不再重试；非超时失败（含 runtime 错误应答、实例已关闭）既不回收也不重试。
+- **所有者**：回收由 `plugin-management` 的 `Context` 做（`Instances` 是实例表唯一所有者）；进度 `Hub` 在新一代实例上由 `management()` 里的 `attach` 重新订阅，订阅先于请求的顺序不变。
+
+**验收**：`domains_plugin_tests`（先超时后成功：回收 1 次且先于重试；连续超时：恰 2 次尝试；非超时失败：不重试不回收；`retry_stale` 集合）；
+`host-runtime/tests/instances.rs`（真实嵌入 runtime：零期限必然超时且可 downcast 为 `RequestTimeout`，实例收口后的失败不是超时）。
+负向验证：去掉回收调用 → “先超时后成功”用例失败。
+
+**仍登记的差异**：其余结果的 schema 校验与进度 payload 校验未做（见 §7）。
+
+## 7. 结果 schema 校验（`plugins/list`、`plugins/overview`，2026-10-16）
+
+**更正（§6 旧说法）**：这两个结果的 zod schema 全部是 `.strict()`——未知键**直接拒绝**，不是剥掉；也没有 `default/transform`。
+所以等价移植只是一个**纯接受/拒绝校验器**，成功时应答原样透传（与 TS 返回的 `parse` 结果逐值相同）。
+
+**范围（2026-10-16 已扩到 `SPECS` 全部 16 个管理面方法）**：`escodePlugins{List,Overview,MarketplaceMutation,Install,CancelOperation,Uninstall,RestoreBuiltin,Configure,Validate,Describe,SetEnabled,ResolveSuggestedReference}ResultSchema`（install/update、configure/resetConfig、marketplace add/remove/update 各共用一张表），含它们依赖的子 schema
+（plugin info / component group / hook detail / user config option / diagnostic / marketplace summary / available & installed summary / store listing / scope / option value）。
+`getPluginReferenceCatalog`（新旧两个方法名共用 `escodePluginsReferenceCatalogResultSchema`）也已覆盖，但它是唯一**带 `.default(...)`** 的 schema：条目缺 `subagentNames` 时 TS 的 `parse` 会补 `[]`，所以校验通过后再跑 `normalize` 补默认值（`null` 不是缺省，照样拒绝）。
+新方法名的校验失败是协议漂移而非“方法不存在”：**不回退旧名**（只有 `-32601` 才回退，TS 的 `ZodError` 没有 `code`）。
+其余 schema 的 `parse` 输出等于输入——生成器对每条被接受的语料逐条断言这一点，论断因此是被检验的事实而非假设。
+建议引用结果的 `.superRefine`（`ready/disabled/missing` 必须带 `marketplace`、`pluginName` 与 `sourceTrust:"official"`）用 `Ty::Check` 表达。
+
+**行为**：runtime 应答 `result` 先过校验，失败 → `RpcError("Error", "ESCode Protocol response parse failed: <method>: <path>: <reason>")`（TS 抛 `ZodError`，其 message 是 issue 列表 JSON）。
+校验在 stale 重试**之后**、结果返回之前；校验失败不是超时，不触发回收/重试。
+
+**规则对照（zod 4.6.5）**：`nonEmptyString` = `trim().min(1)`，`trim` 用 **JS 的空白集**（含 U+FEFF、不含 U+0085），不用 Rust 的 `str::trim`；`.int()` = 安全整数（`|n| ≤ 2^53-1` 且无小数部分，JSON 里的 `1.0` 算整数）；
+`.nonnegative()` ≥ 0，`.positive()` > 0；`z.record(z.string(), T)` = 对象且每个值满足 `T`；`z.unknown()` 的 `record` = 任意对象（数组/`null` 都不是）；
+`.strict()` = 出现未声明键即失败；`.optional()` = 键缺省可，**`null` 不可**；`z.literal`/`z.enum`/`z.union` 逐值判定。
+
+**所有者**：`plugin_result_schema.rs`（声明式小 DSL，一处定义）；`Spec::validated(schema)` 把方法挂到 schema 上，`domains_plugin` 是唯一调用点。
+
+**验收（TS 为 oracle）**：`scripts/generate-escode-host-plugin-schema-fixtures.mjs` 用**真实 zod schema**对一组有效样本及其系统化变异（逐路径：删键、换类型、加未知键、空串/纯空白/JS 特有空白、负数/小数/0/超安全整数、`null`）
+求 `safeParse().success`，写入 `plugin_schema_golden.json`（`--check` 并入 `pnpm check:escode-host`，防漂移）；Rust 单测逐条断言 `validate` 的接受/拒绝与 TS 一致。
+负向验证：放宽 `.strict()`、把 JS 空白集换成 `str::trim`、`optional` 接受 `null`，对应用例失败。
+
+**登记差异（不修）**：错误文案（Rust 一句话含路径；TS 为 `ZodError` issue JSON）；差分只比较接受/拒绝，不比较 message。
+
+**§7 交付记录（2026-10-16）**：`plugin_result_schema.rs`（DSL + 校验器）、`plugin_result_tables.rs`（`plugins/list`、`plugins/overview` 的 schema 声明表）、`domains_plugin::check_result`（唯一调用点）；
+`scripts/generate-escode-host-plugin-schema-fixtures.mjs` 导出 5608 条判定（1426 条接受）为“配方”而非完整值（资产 290 KB，Rust 侧重放同一套变异），`--check` 已并入 `pnpm check:escode-host`。
+验收：全部 5608 条判定与真实 zod 一致；真实嵌入 runtime 的 `listPlugins` / `getPluginsOverview` 应答通过校验（`rpc_plugin_management` 集成测试，说明现状没有契约漂移）；
+JSON 里 `3.0` 算整数、`3.5` 不算（语料里 `JSON.stringify` 表达不了 `3.0`，由单测单独守住）。
+负向验证（三项都被语料抓到）：放宽 `.strict()`、用 `str::trim` 代替 JS 空白集（两个方向都出现差异：JS 的 U+FEFF/Rust 的 U+0085）、让 `optional` 接受 `null`。
+**覆盖守卫**：单测 `every_management_method_has_a_result_schema` 断言 `SPECS` 里每个方法都登记了 schema，新增方法忘了登记会直接失败；语料现为 13870 条判定（3493 条接受）加 3 条归一化样本。
+**未覆盖**：进度 payload 仍原样透传。
