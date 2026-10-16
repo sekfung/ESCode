@@ -498,8 +498,6 @@ describe("ConversationTelemetrySupervisor", () => {
       model_provider: "custom-provider-id",
       provider_name: "api.example.com",
       agent: "glm",
-      plan_status: "coding_plan",
-      plan_product_id: "product-1",
       message_source: "chat",
       task_trigger: "",
     });
@@ -544,8 +542,6 @@ describe("ConversationTelemetrySupervisor", () => {
         model_name: "seed-model",
         model_provider: "seed-provider",
         agent: "glm",
-        plan_status: "unknown",
-        plan_product_id: "",
       },
     });
 
@@ -562,8 +558,6 @@ describe("ConversationTelemetrySupervisor", () => {
         model_name: "seed-model",
         model_provider: "seed-provider",
         agent: "glm",
-        plan_status: "unknown",
-        plan_product_id: "",
         input_start_time: "100",
         input_first_char_time: "120",
         input_send_time: "200",
@@ -731,8 +725,6 @@ describe("ConversationTelemetrySupervisor", () => {
         model_provider: "runtime-provider",
         provider_name: "runtime.example.com",
         agent: "glm",
-        plan_status: "unknown",
-        plan_product_id: "",
         input_tokens: "10",
         output_tokens: "5",
         reasoning_tokens: "3",

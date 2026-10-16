@@ -8,7 +8,6 @@ import {
   TID_SETTINGS_BACK_BUTTON,
   TID_SETTINGS_PAGE,
   TID_SETTINGS_SECTION_NAV,
-  TID_SIDEBAR_CODING_PLAN_USAGE_BUTTON,
   TID_TASK_SETTINGS_BUTTON,
   testId,
 } from "@escode/shared";
@@ -55,38 +54,6 @@ describe("e2ecase.md 回归", () => {
 
     await openSettingsPage();
     await expectSettingsSectionActive("mcp");
-    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
-      timeout: 15000,
-      timeoutMsg: "设置页返回按钮没有出现",
-    });
-    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
-  });
-
-  it("工作区头像菜单点击使用统计应打开设置页用量分区", async () => {
-    await waitForDefaultWorkspaceReady(30000);
-
-    await openUsageStatsFromProfileMenu();
-    await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
-    await expectSettingsSectionActive("usage");
-
-    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
-      timeout: 15000,
-      timeoutMsg: "设置页返回按钮没有出现",
-    });
-    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
-  });
-
-  it("设置页头像菜单点击使用统计应停留设置页用量分区", async () => {
-    await waitForDefaultWorkspaceReady(30000);
-    await openSettingsPage();
-    await selectSettingsSection("general");
-    await expectSettingsSectionActive("general");
-
-    await openUsageStatsFromProfileMenu();
-    await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
-    await expect($(sel(TID_SETTINGS_PAGE))).toBeDisplayed();
-    await expectSettingsSectionActive("usage");
-
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
       timeout: 15000,
       timeoutMsg: "设置页返回按钮没有出现",
@@ -231,17 +198,6 @@ async function openSettingsPage() {
     timeoutMsg: "没有找到设置入口按钮",
   });
   await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
-}
-
-async function openUsageStatsFromProfileMenu() {
-  await clickVisibleTestIdByDom(TID_LOGIN_TRIGGER, {
-    timeout: 15000,
-    timeoutMsg: "没有找到可见的头像菜单入口",
-  });
-  await clickVisibleTestIdByDom(TID_SIDEBAR_CODING_PLAN_USAGE_BUTTON, {
-    timeout: 15000,
-    timeoutMsg: "头像菜单没有出现可见的使用统计入口",
-  });
 }
 
 async function selectSettingsSection(section: string) {

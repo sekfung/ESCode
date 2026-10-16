@@ -49,15 +49,11 @@ export function createE2EStartupCredentialSeed(
     const fileName = spec.replaceAll("\\", "/").split("/").at(-1);
     return (
       // 营销投放 spec 按主题拆成 marketing-touch-delivery*.test.ts，领取用例都需要本地 JWT。
+      // 套餐族删除（2026-10-15）：Coding Plan / Start Plan / Rewards 专项用例已移除，
+      // 这里只保留仍存在的营销与认证专项。
       fileName?.startsWith("marketing-touch-delivery") ||
-      fileName === "marketing-touch-entitlement.test.ts" ||
-      // Rewards 专项走本地控制面，需要同时验证 OAuth 与 JWT 注入。
-      fileName === "marketing-touch-rewards.test.ts" ||
       fileName === "jwt-401-auto-logout.test.ts" ||
-      isRequestSecuritySpec(fileName) ||
-      fileName === "coding-plan-upgrade-webview-refresh-provider.test.ts" ||
-      fileName === "start-plan-manual-claim-experience.test.ts" ||
-      fileName === "provider-family-responsive.test.ts"
+      isRequestSecuritySpec(fileName)
     );
   });
   // 合并时遗漏了普通 E2E 的 JWT 隔离：假的 JWT 会访问真实套餐接口并弹出登录失效提示。

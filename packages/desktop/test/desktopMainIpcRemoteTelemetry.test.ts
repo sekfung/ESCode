@@ -183,79 +183,8 @@ describe("remote workspace connect telemetry IPC", () => {
     expect(options.logger.warn).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps Coding Plan PayPal callback openExternal requests in the sender webview", async () => {
-    const { registerRemoteIpcHandlers } = await import("../src/main/desktopMainIpcRemote.js");
-    const options = createOptions();
-    registerRemoteIpcHandlers(options);
-    const listener = h.listeners.get(PlatformChannels.OpenExternal);
-    expect(listener).toBeDefined();
 
-    const sender = {
-      getURL: vi.fn(() => "https://www.sandbox.paypal.com/agreements/approve"),
-      loadURL: vi.fn(() => Promise.resolve()),
-    };
-    const returnTo = encodeURIComponent(
-      "/coding-plan?provider=zai&embedded=app&lang=cn&theme=zai-dark",
-    );
-    const callbackUrl = `http://localhost:3000/coding-plan/payment/callback?channel=paypal&status=return&returnTo=${returnTo}&approval_token_id=setup-1`;
-    listener?.({ sender }, callbackUrl);
 
-    expect(sender.loadURL).toHaveBeenCalledWith(callbackUrl);
-    expect(h.shellOpenExternal).not.toHaveBeenCalled();
-  });
-
-  it("uses Coding Plan bridge sourceUrl when routing openExternal callbacks", async () => {
-    const { registerRemoteIpcHandlers } = await import("../src/main/desktopMainIpcRemote.js");
-    const options = createOptions();
-    registerRemoteIpcHandlers(options);
-    const listener = h.listeners.get(PlatformChannels.OpenExternal);
-    expect(listener).toBeDefined();
-
-    const sender = {
-      getURL: vi.fn(() => "file:///Applications/ESCode/index.html"),
-      loadURL: vi.fn(() => Promise.resolve()),
-    };
-    const returnTo = encodeURIComponent(
-      "/coding-plan?provider=zai&embedded=app&lang=cn&theme=zai-dark",
-    );
-    const callbackUrl = `http://localhost:3000/coding-plan/payment/callback?channel=paypal&status=return&returnTo=${returnTo}&approval_token_id=setup-1`;
-    listener?.(
-      {
-        sender,
-        senderFrame: { url: "https://www.sandbox.paypal.com/agreements/approve" },
-      },
-      {
-        sourceUrl: "file:///stale-host-url.html",
-        url: callbackUrl,
-      },
-    );
-
-    expect(sender.loadURL).toHaveBeenCalledWith(callbackUrl);
-    expect(h.shellOpenExternal).not.toHaveBeenCalled();
-  });
-
-  it("opens cross-origin Coding Plan callback openExternal requests externally", async () => {
-    const { registerRemoteIpcHandlers } = await import("../src/main/desktopMainIpcRemote.js");
-    const options = createOptions();
-    registerRemoteIpcHandlers(options);
-    const listener = h.listeners.get(PlatformChannels.OpenExternal);
-    expect(listener).toBeDefined();
-
-    const sender = {
-      getURL: vi.fn(() => "https://www.sandbox.paypal.com/agreements/approve"),
-      loadURL: vi.fn(() => Promise.resolve()),
-    };
-    // returnTo 与回调页不同源即应外部打开；用中性域名表达“不同源”，不依赖测试环境域名
-    //（开源导出会把测试域名改写成正式域名，回调与 returnTo 就变成同源）。
-    const returnTo = encodeURIComponent(
-      "https://other-origin.example/coding-plan?provider=zai&embedded=app",
-    );
-    const callbackUrl = `https://zcode.z.ai/coding-plan/payment/callback?channel=paypal&status=return&returnTo=${returnTo}`;
-    listener?.({ sender }, callbackUrl);
-
-    expect(sender.loadURL).not.toHaveBeenCalled();
-    expect(h.shellOpenExternal).toHaveBeenCalledWith(callbackUrl);
-  });
 
   it("把 renderer attachment-ready ACK 转发给对应窗口 session manager", async () => {
     const confirmRendererAttachmentReady = vi.fn();

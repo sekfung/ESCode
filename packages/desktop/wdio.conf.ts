@@ -45,6 +45,13 @@ import {
   type E2EBrowserTargetInfo,
 } from "./test/e2e/helpers/e2e-window-target.js";
 import { runE2EBeforeSessionSetup } from "./test/e2e/helpers/e2e-before-session.js";
+import {
+  applyMarketingTouchMockEnv,
+  clearMarketingTouchMockEnv,
+  shouldPrepareMarketingTouchMock,
+  startMarketingTouchMockServer,
+  type MarketingTouchMockServer,
+} from "./test/e2e/helpers/marketing-touch-mock-server.js";
 import { resolveAskUserQuestionClockScaleForWorker } from "./test/e2e/helpers/e2e-worker-environment.js";
 import { createE2ERendererBridgeRootHooks } from "./test/e2e/helpers/e2e-renderer-bridge-root-hook.js";
 import { installHookTrustFixture } from "./test/e2e/helpers/hook-trust-fixture.js";
@@ -64,12 +71,10 @@ import {
   workerSpecsContain,
 } from "./test/e2e/helpers/e2e-worker-isolation.js";
 import { createE2EStartupCredentialSeed } from "./test/e2e/helpers/e2e-startup-credentials.js";
-import { prepareOAuthCompletionRaceFixture } from "./test/e2e/helpers/oauth-completion-race-fixture.js";
-import { prepareAccessToken401Fixture } from "./test/e2e/helpers/access-token-401-fixture.js";
 import { createE2EReplayFixtureVariables } from "./test/e2e/helpers/e2e-runtime-paths.js";
 import { stageE2EAppOutput } from "./test/e2e/helpers/e2e-app-output-stage.js";
 import { ensureSshRemoteReleaseAssets } from "./test/e2e/helpers/e2e-ssh-remote-release-assets.js";
-import { ASK_USER_QUESTION_E2E_CLOCK_SCALE_ENV, BIGMODEL_PROVIDER_ID } from "@escode/shared";
+import { ASK_USER_QUESTION_E2E_CLOCK_SCALE_ENV } from "@escode/shared";
 import {
   seedPersonalProviderConfig,
   seedPersonalDefaultModelSelection,
@@ -241,10 +246,6 @@ const UI_SHELL_MANUAL_REVIEW_SPEC_GLOB = "./test/e2e/ui-shell/manual-review/**/*
 const BROWSER_PERMISSION_MANUAL_REVIEW_SPEC_GLOB =
   "./test/e2e/browser-permission/manual-review/**/*.test.ts";
 const GIT_COMMIT_DIALOG_UI_FLOW_SPEC = "git-commit-dialog-ui-flow.test.ts";
-const OAUTH_CREDENTIAL_RECOVERY_SPEC = "oauth-credential-recovery.test.ts";
-const JWT_EXPIRY_REAUTHENTICATION_SPEC = "jwt-expiry-reauthentication.test.ts";
-const SUBAGENT_CODING_PLAN_LOGIN_CATALOG_STALE_SPEC =
-  "subagent-coding-plan-login-catalog-stale.test.ts";
 const PROVIDER_READINESS_AGENT_STARTUP_SPEC = "provider-readiness-agent-startup.test.ts";
 const CONTEXT_WINDOW_COLD_RESUME_SPEC = "conversation-session-context-window-cold-resume.test.ts";
 const PASSIVE_AGENT_STARTUP_SPEC = "workspace-passive-agent-startup.test.ts";
@@ -548,11 +549,11 @@ process.env.ESCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT = "1";
 
 let upstreamCaptureProxy: E2ENetworkCaptureProxy | null = null;
 let upstreamReplayServer: UpstreamReplayServer | null = null;
+let marketingTouchMockServer: MarketingTouchMockServer | null = null;
+let marketingTouchMockBaseUrl = "";
 let modelContextBudgetConfigMockServer: ModelContextBudgetConfigMockServer | null = null;
 let dynamicWorkflowConfigMockServer: DynamicWorkflowConfigMockServer | null = null;
 let clientScenesMockServer: ClientScenesMockServer | null = null;
-let stopOAuthCompletionRaceFixture: (() => Promise<void>) | null = null;
-let stopAccessToken401Fixture: (() => Promise<void>) | null = null;
 let pluginCdnZipFixtureServer: PluginCdnZipFixtureServer | null = null;
 let upstreamE2EBaseUrl: string = e2eProviderPreset.baseUrl;
 let e2eRunnerExitWatchdog: ReturnType<typeof setTimeout> | null = null;
@@ -1240,6 +1241,26 @@ async function materializeOffPeakMockESCodeBuiltinProviderConfig(port: number): 
 }
 
 
+/**
+ * Marketing Touch E2E：case-local fixture server 即 App 的 endpoint origin（营销服务读
+ * /api/v1/marketing/*）。套餐族删除后升级 mock 移除，营销 fixture 独立启动；
+ * 必须在 worker env 注入、Electron 启动前就绪，Main → Host → Agent 继承同一地址。
+ */
+async function startMarketingTouchE2EMock(specs: string[]) {
+  await stopMarketingTouchE2EMock();
+  if (!shouldPrepareMarketingTouchMock(specs)) return;
+  marketingTouchMockServer = await startMarketingTouchMockServer();
+  marketingTouchMockBaseUrl = marketingTouchMockServer.baseUrl;
+  applyMarketingTouchMockEnv(process.env, marketingTouchMockBaseUrl);
+}
+
+async function stopMarketingTouchE2EMock() {
+  const ownedBaseUrl = marketingTouchMockBaseUrl;
+  marketingTouchMockServer = null;
+  marketingTouchMockBaseUrl = "";
+  if (ownedBaseUrl) clearMarketingTouchMockEnv(process.env, ownedBaseUrl);
+}
+
 async function startModelContextBudgetConfigE2EMock(specs: string[] = []) {
   const scenario = resolveModelContextBudgetConfigMockScenario(specs);
   if (!scenario) {
@@ -1790,6 +1811,7 @@ function forceFinalizeE2ERunnerFromGuard() {
     try {
       await stopUpstreamE2EHttp();
       await stopRequestSecurityFixture();
+      await stopMarketingTouchE2EMock();
       await stopModelContextBudgetConfigE2EMock();
       await stopDynamicWorkflowConfigE2EMock();
       await stopPluginCdnZipFixture();
@@ -2028,18 +2050,15 @@ function seedE2EStartupState(specs: string[] = []) {
     mkdirSync(legacyDefaultProjectPath, { recursive: true });
   }
   const now = Date.now();
-  const oauthCredentialRecoverySpec = isOAuthCredentialRecoverySpec(specs);
-  const jwtExpiryReauthenticationSpec = isJwtExpiryReauthenticationSpec(specs);
-  const subagentLoginCatalogStaleSpec = isSubagentCodingPlanLoginCatalogStaleSpec(specs);
   const builtInSubagentModelOverridesSpec = isBuiltInSubagentModelSelectionOverridesSpec(specs);
   const providerReadinessColdStartFixture = usesProviderReadinessColdStartFixture(specs);
 // 套餐族删除：bigmodel 鉴权播种随 plan E2E 移除，标准 E2E 固定走 zai OAuth fixture。
-  const shouldUseBigmodelAuth = false;  const authProviderId = shouldUseBigmodelAuth ? BIGMODEL_PROVIDER_ID : E2E_AUTH_PROVIDER_ID;
+  const authProviderId = E2E_AUTH_PROVIDER_ID;
   writeFileSync(
     E2E_APP_SETTINGS_FILE,
     JSON.stringify(
       {
-        providerFamilyDomain: shouldUseBigmodelAuth ? "bigmodel" : "zai",
+        providerFamilyDomain: "zai",
         providerFamilyDomainMigrated: true,
         providerFamilyDomainUpdatedAt: now,
         ...(modelProviderRegressionFixture
@@ -2083,9 +2102,8 @@ function seedE2EStartupState(specs: string[] = []) {
               escodeInteractionBehavior: "guide",
             }
           : {}),
-        providerFamilyConnectionSelections: shouldUseBigmodelAuth
-          ? { bigmodel: { kind: "individual-coding-plan" } }
-          : {},
+        // 套餐族删除（2026-10-15）：账号连接播种（bigmodel coding-plan selection）随套餐移除。
+        providerFamilyConnectionSelections: {},
         ...(upstreamCaptureProxy
           ? {
               // 修复原因：agent 子进程只信任设置页显式代理配置，不读取
@@ -2111,25 +2129,13 @@ function seedE2EStartupState(specs: string[] = []) {
           // 该 case 只保留本地 Provider 回放，不注入无关账号身份。
           builtInSubagentModelOverridesSpec
           ? {}
-          : subagentLoginCatalogStaleSpec
-            ? {}
-            : oauthCredentialRecoverySpec
-              ? createCorruptOAuthCredentialSeed(authProviderId)
-              : jwtExpiryReauthenticationSpec
-                ? createExpiredJwtOAuthCredentialSeed(authProviderId)
-                : createE2EStartupCredentialSeed({
+          : createE2EStartupCredentialSeed({
                     specs,
                     legacyAuthToken: E2E_AUTH_TOKEN,
                     restoredOAuthCredentials: {
                       "oauth:active_provider": authProviderId,
                       [`oauth:${E2E_AUTH_PROVIDER_ID}:access_token`]: E2E_AUTH_TOKEN,
                       [`oauth:${E2E_AUTH_PROVIDER_ID}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
-                      ...(shouldUseBigmodelAuth
-                        ? {
-                            "oauth:bigmodel:access_token": "e2e-bigmodel-oauth-token",
-                            "oauth:bigmodel:user_info": JSON.stringify(E2E_USER_PROFILE),
-                          }
-                        : {}),
                       escodejwttoken: E2E_AUTH_TOKEN,
                     },
                   }),
@@ -2140,17 +2146,8 @@ function seedE2EStartupState(specs: string[] = []) {
   );
 }
 
-function isOAuthCredentialRecoverySpec(specs: string[] = []) {
-  return workerSpecsContain(specs, OAUTH_CREDENTIAL_RECOVERY_SPEC);
-}
 
-function isJwtExpiryReauthenticationSpec(specs: string[] = []) {
-  return workerSpecsContain(specs, JWT_EXPIRY_REAUTHENTICATION_SPEC);
-}
 
-function isSubagentCodingPlanLoginCatalogStaleSpec(specs: string[] = []) {
-  return workerSpecsContain(specs, SUBAGENT_CODING_PLAN_LOGIN_CATALOG_STALE_SPEC);
-}
 
 function usesProviderReadinessColdStartFixture(specs: string[] = []) {
   return (
@@ -2198,33 +2195,7 @@ async function runGitReviewEntryCommand(cwd: string, args: string[]) {
   });
 }
 
-function createCorruptOAuthCredentialSeed(authProviderId: string): Record<string, string> {
-  const corruptEncryptedValue = "enc:v1:bad.bad.bad";
-  return {
-    // Bugfix: 这个 spec 需要冷启动复现线上“密文存在但当前机器无法解密”的状态；
-    // 只损坏 active provider 就足以触发 OAuth 会话清理，并验证用户仍能看到登录入口。
-    "oauth:active_provider": corruptEncryptedValue,
-    [`oauth:${authProviderId}:access_token`]: "stale-access-token",
-    [`oauth:${authProviderId}:refresh_token`]: "stale-refresh-token",
-    [`oauth:${authProviderId}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
-    [`oauth:${BIGMODEL_PROVIDER_ID}:access_token`]: "stale-bigmodel-access-token",
-    [`oauth:${BIGMODEL_PROVIDER_ID}:refresh_token`]: "stale-bigmodel-refresh-token",
-    [`oauth:${BIGMODEL_PROVIDER_ID}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
-    escodejwttoken: "stale-escode-jwt-token",
-  };
-}
 
-function createExpiredJwtOAuthCredentialSeed(authProviderId: string): Record<string, string> {
-  return {
-    "oauth:active_provider": authProviderId,
-    [`oauth:${authProviderId}:access_token`]: "expired-session-access-token",
-    [`oauth:${authProviderId}:refresh_token`]: "expired-session-refresh-token",
-    [`oauth:${authProviderId}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
-    // Bug 回归 fixture：exp=1 明确早于任意测试运行时间；客户端只解析 exp，
-    // 不验证这枚本地测试 JWT 的签名。
-    escodejwttoken: "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjF9.e2e",
-  };
-}
 
 function shouldSeedGuideInteractionBehavior(specs: string[] = []) {
   return specs.some(
@@ -2875,9 +2846,9 @@ This child must fail before sending a provider request when the Team scope is un
 }
 
 async function seedUpstreamE2EModelConfig(specs: string[] = []) {
-  if (isOAuthCredentialRecoverySpec(specs) || usesProviderReadinessColdStartFixture(specs)) {
-    // Bugfix: OAuth 凭据恢复及 provider-readiness 冷启动 fixture 必须保持
-    // 无可用本地模型配置，避免默认 上游 回放 provider 绕过登录/执行门禁。
+  if (usesProviderReadinessColdStartFixture(specs)) {
+    // Bugfix: provider-readiness 冷启动 fixture 必须保持无可用本地模型配置，
+    // 避免默认上游回放 provider 绕过执行门禁。
     return;
   }
 
@@ -2914,8 +2885,7 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
   const exposeSubagentReasoningMetadata =
     builtInSubagentModelOverridesSpec ||
     settingsSubagentCreateEditPersistenceSpec ||
-    specs.some((spec) => spec.includes("plugin-subagent-override-cold.test.ts")) ||
-    isSubagentCodingPlanLoginCatalogStaleSpec(specs);
+    specs.some((spec) => spec.includes("plugin-subagent-override-cold.test.ts"));
   const subagentRuntimeCatalogReasoningSpec = isSubagentRuntimeCatalogReasoningSpec(specs);
   const offPeakSubagentModelInheritanceSpec = isOffPeakSubagentModelInheritanceSpec(specs);
   const browserUseIabLifecycleSpec = specs.some(
@@ -3472,6 +3442,7 @@ export const config: WebdriverIO.Config = {
         });
         // 原因：onPrepare 与 Electron launcher 不在同一进程，动态端口只能在
         // worker 的 beforeSession 中注入，才会被 Main -> Host 环境链继承。
+        await startMarketingTouchE2EMock(specs);
         await startModelContextBudgetConfigE2EMock(specs);
         // 动态工作流灰度同样只能在 worker 的 beforeSession 注入动态端口，Main -> Host 的
         // 环境链才会继承到 case-local 的 /client/configs 网关。
@@ -3490,12 +3461,6 @@ export const config: WebdriverIO.Config = {
         // 启动前覆盖 endpoint，确保 Main → Host 首次 import 时拿到 case-local fixture。
         await startClientScenesE2EMockIfNeeded(specs);
         await startRequestSecurityFixture(specs, E2E_HOME_DIR);
-        stopOAuthCompletionRaceFixture = await prepareOAuthCompletionRaceFixture(specs);
-        stopAccessToken401Fixture = await prepareAccessToken401Fixture({
-          specs,
-          credentialsFile: E2E_APP_CREDENTIALS_FILE,
-          settingsFile: E2E_APP_SETTINGS_FILE,
-        });
         // resetHome 之后、Electron 启动之前安装，Main -> Host -> Agent 才会同时继承
         // case-owned PATH；其他 spec 由 helper 保持 no-op。
         await installBashPrefixPermissionPnpmShim({
@@ -3576,13 +3541,10 @@ export const config: WebdriverIO.Config = {
           e2eReporter.compactNodeCoverage();
         } finally {
           await stopRequestSecurityFixture();
+          await stopMarketingTouchE2EMock();
           await stopModelContextBudgetConfigE2EMock();
           await stopDynamicWorkflowConfigE2EMock();
           currentE2EElectronAppPid = null;
-          await stopOAuthCompletionRaceFixture?.();
-          stopOAuthCompletionRaceFixture = null;
-          await stopAccessToken401Fixture?.();
-          stopAccessToken401Fixture = null;
           currentE2EBeforeSessionError = null;
           e2eFailureArtifacts = null;
           currentE2EWorkerSessionSpecs = [];
@@ -3657,10 +3619,6 @@ export const config: WebdriverIO.Config = {
           await stopModelContextBudgetConfigE2EMock();
           await stopDynamicWorkflowConfigE2EMock();
           await stopClientScenesE2EMock();
-          await stopOAuthCompletionRaceFixture?.();
-          stopOAuthCompletionRaceFixture = null;
-          await stopAccessToken401Fixture?.();
-          stopAccessToken401Fixture = null;
           await stopPluginCdnZipFixture();
         } finally {
           await cleanupE2EElectronProcesses("onComplete");

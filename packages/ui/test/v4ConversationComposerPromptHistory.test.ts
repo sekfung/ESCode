@@ -40,8 +40,6 @@ function expectedTelemetrySendOptions() {
         model_name: "",
         model_provider: "glm",
         agent: "glm",
-        plan_status: "unknown",
-        plan_product_id: "",
         message_source: "chat",
         task_trigger: "",
       },

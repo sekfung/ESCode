@@ -297,7 +297,6 @@ export default defineConfig([
     name: "preload",
     entry: {
       "preload/embeddedBrowserJavaScriptDialog": "src/preload/embeddedBrowserJavaScriptDialog.ts",
-      "preload/codingPlanWebview": "src/preload/codingPlanWebview.ts",
       "preload/rewardsWebview": "src/preload/rewardsWebview.ts",
       "preload/browserVideoRecorder": "src/preload/browserVideoRecorder.ts",
       "preload/index": "src/preload/index.ts",

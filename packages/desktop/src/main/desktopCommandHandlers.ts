@@ -41,7 +41,6 @@ export const HELP_TOGGLE_DEV_TOOLS_MENU_ID = "help.toggle-dev-tools";
 export const HELP_TOGGLE_ESCODE_STDIO_TAP_MENU_ID = "help.toggle-escode-stdio-tap";
 const ESCODE_ENDPOINT_PROMPT_WIDTH = 460;
 const ESCODE_ENDPOINT_PROMPT_HEIGHT = 210;
-const CODING_PLAN_WEBVIEW_PARTITION = "persist:escode-coding-plan";
 
 function resolveTargetWindow(senderWindow?: BrowserWindow | null) {
   if (senderWindow && !senderWindow.isDestroyed()) {
@@ -130,21 +129,22 @@ async function clearAllDataAndRelaunch(options: {
   app.exit(0);
 }
 
-export async function clearCodingPlanWebviewStorage(options: {
+export async function clearEmbeddedWebviewStorage(options: {
   logger: {
     info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
   };
 }) {
   try {
-    // Coding Plan webview 使用独立持久 partition，默认窗口 session.clearStorageData()
-    // 不会覆盖它；退出登录/清理数据时必须显式清除，避免旧账号 token 被下一次官网首屏读到。
-    await session.fromPartition(CODING_PLAN_WEBVIEW_PARTITION).clearStorageData();
+    // 内嵌 webview 使用独立持久 partition，默认窗口 session.clearStorageData() 不会覆盖它；
+    // 清理数据时必须显式清除，避免旧凭据被下一次打开的首屏读到。
+    // coding-plan 分区已随套餐族删除（2026-10-15），但存量安装磁盘上仍可能有旧 token，一并清理。
+    await session.fromPartition("persist:escode-coding-plan").clearStorageData();
     await session.fromPartition(REWARDS_PARTITION).clearStorageData();
-    options.logger.info("[coding-plan-webview] cleared persistent partition storage");
+    options.logger.info("[embedded-webview] cleared persistent partition storage");
   } catch (error) {
     options.logger.warn(
-      "[coding-plan-webview] failed to clear persistent partition storage:",
+      "[embedded-webview] failed to clear persistent partition storage:",
       error,
     );
   }
@@ -602,14 +602,11 @@ export async function executeDesktopCommand(options: {
       });
       return;
     case DesktopCommandIds.ClearAllData:
-      await clearCodingPlanWebviewStorage({ logger: options.logger });
+      await clearEmbeddedWebviewStorage({ logger: options.logger });
       await clearAllDataAndRelaunch({
         credentialsDir: options.credentialsDir,
         logger: options.logger,
       });
-      return;
-    case DesktopCommandIds.ClearCodingPlanWebviewStorage:
-      await clearCodingPlanWebviewStorage({ logger: options.logger });
       return;
     case DesktopCommandIds.GetCuaOsSupport:
       return resolveCuaOsSupport();

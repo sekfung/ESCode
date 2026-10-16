@@ -76,7 +76,6 @@ const STATIC_HTTP_PATH_SEGMENTS = new Set([
   "cancel",
   "claim",
   "client",
-  "coding-plan",
   "configs",
   "customer",
   "electron",

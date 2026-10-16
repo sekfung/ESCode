@@ -667,8 +667,6 @@ describe("messageTelemetry", () => {
       model_name: "model-native",
       model_provider: "claude",
       agent: "claude",
-      plan_status: "unknown",
-      plan_product_id: "",
     });
 
     expect(
@@ -683,8 +681,6 @@ describe("messageTelemetry", () => {
       model_name: "model-custom",
       model_provider: "provider-a",
       agent: "claude",
-      plan_status: "unknown",
-      plan_product_id: "",
     });
 
     expect(
@@ -699,12 +695,10 @@ describe("messageTelemetry", () => {
       model_name: "model-ghost",
       model_provider: "gemini",
       agent: "gemini",
-      plan_status: "unknown",
-      plan_product_id: "",
     });
   });
 
-  it("freezes plan identity fields from send button into message completion", () => {
+  it("freezes provider hostname into message completion", () => {
     const sendButtonExtra = queuePromptTelemetry({
       workspacePath: "/tmp/workspace-a",
       taskId: "task-a",
@@ -715,11 +709,6 @@ describe("messageTelemetry", () => {
         modelName: "glm-5.1",
         provider: "glm",
         providerBaseURL: "https://api.z.ai/api/paas/v4",
-        planIdentitySnapshot: {
-          generatedAt: 100,
-          planStatus: "coding_plan",
-          planProductId: "product-coding-pro",
-        },
       }),
     });
     activatePromptTelemetry("task-a", "message-a");
@@ -732,16 +721,10 @@ describe("messageTelemetry", () => {
       fileChanges: [],
     });
 
-    expect(sendButtonExtra).toMatchObject({
-      plan_status: "coding_plan",
-      plan_product_id: "product-coding-pro",
-      provider_name: "api.z.ai",
-    });
-    expect(completion?.eventExtraDetail).toMatchObject({
-      plan_status: "coding_plan",
-      plan_product_id: "product-coding-pro",
-      provider_name: "api.z.ai",
-    });
+    // 套餐族删除（2026-10-15）：plan_status / plan_product_id 随套餐身份移除，
+    // 这里只校验发送时冻结的 provider hostname 会延续到完成事件。
+    expect(sendButtonExtra).toMatchObject({ provider_name: "api.z.ai" });
+    expect(completion?.eventExtraDetail).toMatchObject({ provider_name: "api.z.ai" });
   });
 
   it("prefers provider-qualified UI model value over stale supplier key for send button", () => {
@@ -757,8 +740,6 @@ describe("messageTelemetry", () => {
       model_name: "4209ad4c-6650-4928-b44e-1167f913289a/deepseek-v4-flash",
       model_provider: "4209ad4c-6650-4928-b44e-1167f913289a",
       agent: "glm",
-      plan_status: "unknown",
-      plan_product_id: "",
     });
 
     expect(
@@ -773,8 +754,6 @@ describe("messageTelemetry", () => {
       model_name: encodeCustomModelValue("provider-custom", "deepseek-v4-flash"),
       model_provider: "provider-custom",
       agent: "glm",
-      plan_status: "unknown",
-      plan_product_id: "",
     });
   });
 

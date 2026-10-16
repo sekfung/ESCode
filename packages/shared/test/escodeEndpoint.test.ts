@@ -11,8 +11,6 @@ import {
   TEST_ZAI_OAUTH_CLIENT_ID,
   TEST_ZAI_OAUTH_ORIGIN,
   TEST_ESCODE_ENDPOINT_ORIGIN,
-  buildBigModelCodingPlanPersonalManageUrl,
-  buildBigModelCodingPlanTeamManageUrl,
   buildBigModelApiUrl,
   buildRuntimeESCodeApiUrl,
   buildRuntimeZaiBusinessUrl,
@@ -184,20 +182,6 @@ describe("escodeEndpoint", () => {
     );
   });
 
-  it("derives BigModel Coding Plan manage urls from ESCODE_ENV", () => {
-    expect(buildBigModelCodingPlanPersonalManageUrl({ ESCODE_ENV: "test" })).toBe(
-      "https://bigmodel.cn/coding-plan/personal/overview",
-    );
-    expect(buildBigModelCodingPlanPersonalManageUrl({ ESCODE_ENV: "production" })).toBe(
-      "https://bigmodel.cn/coding-plan/personal/overview",
-    );
-    expect(buildBigModelCodingPlanTeamManageUrl({ ESCODE_ENV: "test" })).toBe(
-      "https://bigmodel.cn/coding-plan/team/plans",
-    );
-    expect(buildBigModelCodingPlanTeamManageUrl({ ESCODE_ENV: "production" })).toBe(
-      "https://bigmodel.cn/coding-plan/team/plans",
-    );
-  });
 
   it("resolves all product endpoints for the test product environment", () => {
     expect(resolveRuntimeProductEndpointConfig({ ESCODE_ENV: "test" })).toMatchObject({

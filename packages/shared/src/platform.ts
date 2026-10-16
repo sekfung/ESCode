@@ -621,7 +621,6 @@ export const DesktopCommandIds = {
   SetESCodeEndpointCustom: "setESCodeEndpointCustom",
   ResetESCodeEndpoint: "resetESCodeEndpoint",
   ClearAllData: "clearAllData",
-  ClearCodingPlanWebviewStorage: "clearCodingPlanWebviewStorage",
   GetCuaOsSupport: "getCuaOsSupport",
 } as const;
 

@@ -36,11 +36,8 @@ export function startResourceManagerNetwork(
   buffer.start(captureId);
   nodeCapture.setCaptureId(captureId);
   // 只订阅 App 拥有的 session；内置浏览器/录屏的独立 session 不进入采集。
-  const sessions = [
-    session.defaultSession,
-    session.fromPartition("persist:escode-coding-plan"),
-    session.fromPartition("persist:escode-rewards"),
-  ];
+  // 套餐族删除（2026-10-15）：coding-plan webview 分区已不存在，不再订阅。
+  const sessions = [session.defaultSession, session.fromPartition("persist:escode-rewards")];
   for (const appSession of sessions) {
     disposers.push(
       subscribeBeforeRequest(

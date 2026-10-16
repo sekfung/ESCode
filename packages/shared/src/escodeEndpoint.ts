@@ -2,7 +2,6 @@ import type { ESCodeEnv } from "./env.js";
 
 export const DEFAULT_ESCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
 export const TEST_ESCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
-export const CODING_PLAN_LOCAL_WEBVIEW_ORIGIN = "http://localhost:3000";
 export const DEFAULT_BIGMODEL_API_ORIGIN = "https://bigmodel.cn";
 export const TEST_BIGMODEL_API_ORIGIN = "https://bigmodel.cn";
 export const DEFAULT_ZAI_OAUTH_ORIGIN = "https://chat.z.ai";
@@ -152,28 +151,6 @@ function isLoopbackHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-export function isTrustedCodingPlanWebviewOrigin(
-  value: string | null | undefined,
-  options?: {
-    e2eStoreBridgeEnabled?: boolean;
-  },
-): boolean {
-  if (!value) return false;
-  try {
-    const origin = normalizeESCodeEndpointOrigin(value);
-    if (
-      origin === DEFAULT_ESCODE_ENDPOINT_ORIGIN ||
-      origin === TEST_ESCODE_ENDPOINT_ORIGIN ||
-      origin === CODING_PLAN_LOCAL_WEBVIEW_ORIGIN
-    ) {
-      return true;
-    }
-    const parsed = new URL(origin);
-    return options?.e2eStoreBridgeEnabled === true && isLoopbackHostname(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
 
 export function resolveESCodeEndpointOrigin(options?: {
   env?: ESCodeEnv;
@@ -269,15 +246,7 @@ export function buildBigModelApiUrl(env: RuntimeBigModelApiEnv = {}, path: strin
   return `${resolveBigModelApiOrigin(env)}${normalizedPath}`;
 }
 
-export function buildBigModelCodingPlanPersonalManageUrl(env: RuntimeBigModelApiEnv = {}): string {
-  // 修复原因：BigModel Coding Plan 管理页要跟随 ESCODE_ENV；
-  // 测试环境如果继续写死 bigmodel.cn，会把测试账号带到生产套餐页。
-  return buildBigModelApiUrl(env, "/coding-plan/personal/overview");
-}
 
-export function buildBigModelCodingPlanTeamManageUrl(env: RuntimeBigModelApiEnv = {}): string {
-  return buildBigModelApiUrl(env, "/coding-plan/team/plans");
-}
 
 export function resolveZaiOAuthOrigin(env: RuntimeZaiEndpointEnv = {}): string {
   const escodeEnv = resolveRuntimeESCodeEnv(env);
