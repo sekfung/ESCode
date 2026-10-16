@@ -1,5 +1,6 @@
 //! V4 作用域：三类 topic 的订阅生命周期（subscribe → ACK 后登记 → unsubscribe/resync）、连接水位转发与关闭。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -272,10 +273,13 @@ impl Scope {
         }
         for (key, target) in self.flow_routes() {
             if let Err(error) = self.forward_flow(&key, &target, state).await {
-                eprintln!(
-                    "escode-host: forwarding connection flow {} failed: {}",
-                    state.as_str(),
-                    error.message
+                logging::warn(
+                    "agent-v4",
+                    format!(
+                        "forwarding connection flow {} failed: {}",
+                        state.as_str(),
+                        error.message
+                    ),
                 );
             }
         }

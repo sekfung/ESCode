@@ -144,6 +144,12 @@ Renderer listTaskList(query)
   runtime 侧无新增方法——`controller/*` 两个 topic 完全是 Host 侧投影。
 - **刷新引擎**：`controller.rs`——每 source 一把异步锁（single-flight）+ 脏标记续跑；信号路径只置脏并由
   后台任务刷新，列表/写路径显式等待刷新完成。
+- **监听任务的取消路径（2026-10-16 评审遗留项）**：每 source 的索引写监听（`WorkspaceEvents`）与 syncer
+  摘要监听都是 `tokio::spawn` 的长任务，此前只靠 `Weak` 判活——owner 先释放时任务仍挂在 `recv()` 上等
+  下一次事件/信号，没有确定的收尾点。现在两者都登记 `AbortHandle`（`controller.rs` 的 `WatcherTask`），
+  `WindowController` 的 `Drop` 统一 abort；单测
+  `window_controller::controller::tests::dropping_the_controller_aborts_its_watcher_tasks` 断言 drop 后
+  两个任务都收尾。
 - **`escode-task` 未加 controller 路由覆盖**：TS 的窗口 Host 用 `createControllerRoutedTaskService` 包一层
   `escode-task` 写面以便复用地址解析；Rust 侧写面本就直连索引并广播同一条 `WorkspaceEvents` 总线，
   controller 作为订阅者刷新即可，不引入第二条写路径（可见行为一致）。

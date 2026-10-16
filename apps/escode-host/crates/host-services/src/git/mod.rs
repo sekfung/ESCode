@@ -13,6 +13,7 @@ mod reads_diff;
 mod writes;
 mod writes_commit;
 
+use escode_host_control::logging;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -175,9 +176,12 @@ impl GitService {
         }
         // 大仓库逐文件未跟踪状态超限：按 repoRoot 记住目录折叠模式（不重复必然失败的详细命令）。
         lock(&self.collapsed).insert(resolution.repo_root.clone());
-        eprintln!(
-            "escode-host: git status detailed output exceeded limit; collapsing untracked directories repoRoot={}",
-            resolution.repo_root
+        logging::warn(
+            "git",
+            format!(
+                "status detailed output exceeded limit; collapsing untracked directories repoRoot={}",
+                resolution.repo_root
+            ),
         );
         self.git(status("normal")).await
     }

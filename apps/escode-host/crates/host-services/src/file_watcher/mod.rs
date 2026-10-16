@@ -5,6 +5,7 @@
 
 mod events;
 
+use escode_host_control::logging;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -192,10 +193,7 @@ async fn run_actor(mut actor: Actor) {
                     deadline = Some(Instant::now() + actor.debounce);
                 }
                 Some(Change::Error(message)) => {
-                    eprintln!(
-                        "escode-host: file watcher error, cleaning up id={} path={} error={message}",
-                        actor.id, actor.path
-                    );
+                    logging::warn("file-watcher", format!("watch error; cleaning up id={} path={}: {message}", actor.id,  actor.path));
                     // TS：发一个仅含 dirPath 的最终事件，再清理。
                     fire(&actor.listeners, &json!({"dirPath": actor.path}));
                     cleanup(&actor.table, &actor.id);

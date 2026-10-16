@@ -54,6 +54,7 @@ mod window_controller;
 pub mod wire;
 mod workspace_events;
 
+use escode_host_control::logging;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -178,7 +179,7 @@ pub async fn serve(
                     secret,
                 };
                 if let Err(error) = handle_connection(stream, channels, access, instances).await {
-                    eprintln!("escode-host: rpc connection closed: {error:#}");
+                    logging::error("rpc", format!("connection closed: {error:#}"));
                 }
             });
         }

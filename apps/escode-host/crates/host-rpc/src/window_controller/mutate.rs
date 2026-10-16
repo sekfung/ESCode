@@ -4,6 +4,7 @@
 //! 写者，事件 reason 与直接调用 `escode-task` 时逐字相同（TS 的 controller 也是转到 source 的
 //! taskService）。写完后 `force` 刷新投影并返回投影行的 meta（TS：`getTasks().find(...)?.meta ?? null`）。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 
 use escode_host_services::tasks_index::write_state::StatePatch;
@@ -51,9 +52,9 @@ pub(super) fn delete_archived_task_handler(controller: &Arc<WindowController>) -
                     .await?;
             // 删除已经持久成功：列表重查失败不能改报删除失败（TS `.catch(onSourceError)`）。
             if let Err(error) = controller.refresh(&scope, true).await {
-                eprintln!(
-                    "escode-host: window-controller refresh after archived delete failed: {}",
-                    error.message
+                logging::warn(
+                    "window-controller",
+                    format!("refresh after archived delete failed: {}", error.message),
                 );
             }
             Ok(Wire::Object(Value::Bool(deleted)))
@@ -93,9 +94,12 @@ pub(super) fn delete_archived_tasks_handler(controller: &Arc<WindowController>) 
             )
             .await?;
             if let Err(error) = controller.refresh(&scope, true).await {
-                eprintln!(
-                    "escode-host: window-controller refresh after archived batch delete failed: {}",
-                    error.message
+                logging::warn(
+                    "window-controller",
+                    format!(
+                        "refresh after archived batch delete failed: {}",
+                        error.message
+                    ),
                 );
             }
             Ok(Wire::Object(result))

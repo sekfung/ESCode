@@ -4,6 +4,7 @@
 //! 关闭快照广播是为了避免旧终态覆盖本地 streaming UI，但 sqlite 的 model 仍必须从已删除的
 //! 历史模型更新到本次实际使用的可用模型（否则下次恢复继续从坏模型起跳）。
 
+use escode_host_control::logging;
 use serde_json::Value;
 
 use super::domains_session_write::SessionWriteContext;
@@ -45,6 +46,9 @@ pub(super) async fn sync_task_model(
         })
         .await;
     if let Err((code, message)) = indexed {
-        eprintln!("escode-host: task model sync failed: {code}: {message}");
+        logging::warn(
+            "session-model",
+            format!("task model sync failed: {code}: {message}"),
+        );
     }
 }

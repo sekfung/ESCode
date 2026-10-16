@@ -4,6 +4,7 @@
 //! Renderer 在「重新加载工作区会话」时调用，使 runtime 失效；其后的 `prepareWorkspace` 等调用会懒重启同一身份的实例。
 //! 注意它**不是**会话/任务的 teardown：任务目标注册表、V4 订阅与 workspace 事件监听保持不变（TS 同注释）。
 
+use escode_host_control::logging;
 use escode_host_runtime::Instances;
 use serde_json::Value;
 
@@ -44,11 +45,15 @@ pub(super) fn restart_workspace_process(runtime: Option<RuntimeAccess>) -> Metho
             // 收口失败（残余进程）只记录：TS `disposeWorkspace` 不向调用方抛进程清理细节。
             match instances.close(&identity).await {
                 Ok(residual) if residual.is_empty() => {}
-                Ok(residual) => eprintln!(
-                    "escode-host: restartWorkspaceProcess left residual tasks identity={identity}: {residual:?}"
+                Ok(residual) => logging::warn(
+                    "task-runtime",
+                    format!(
+                        "restartWorkspaceProcess left residual tasks identity={identity}: {residual:?}"
+                    ),
                 ),
-                Err(error) => eprintln!(
-                    "escode-host: restartWorkspaceProcess close failed identity={identity}: {error:#}"
+                Err(error) => logging::warn(
+                    "task-runtime",
+                    format!("restartWorkspaceProcess close failed identity={identity}: {error:#}"),
                 ),
             }
             Ok(Wire::Undefined)

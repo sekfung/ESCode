@@ -20,6 +20,8 @@ export interface HostPortLike {
 
 /** Rust Host 进程句柄（控制通道 + RPC 端点 + 收口）。 */
 export interface RustHostHandle {
+  /** 子进程（控制通道 stdin 与退出观察；诊断与测试用）。 */
+  readonly child: ChildProcessWithoutNullStreams;
   /** RPC 端点地址（`ws://127.0.0.1:<port>` 与 `http://127.0.0.1:<port>` 同端口）。 */
   readonly addr: string;
   /**
@@ -56,6 +58,19 @@ export interface StartRustHostOptions {
   env?: NodeJS.ProcessEnv;
   /** 启动超时（默认 10s）。 */
   timeoutMs?: number;
+  /**
+   * 结构化日志钩子：Host 的 `logBatch` 控制帧（`host-control/src/logging.rs` 的进程级 sink）。
+   * 缺省时这些帧只被跳过——Host 的 stderr 兜底仍会到达 Main（stdio inherit）。
+   * Main 把它接到 `hostLogRelay.onStructuredLog`，与 Node Host 的 postMessage 日志同一条出口。
+   */
+  onLogBatch?: (batch: RustHostLogBatch) => void;
+}
+
+/** Host 侧一条日志批次（`ControlMessage::LogBatch`）。 */
+export interface RustHostLogBatch {
+  scope: string;
+  level: "debug" | "info" | "warn" | "error";
+  lines: string[];
 }
 
 /**
@@ -67,7 +82,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
     stdio: ["pipe", "pipe", "inherit"],
     env: { ...process.env, ...options.env, HOME: options.home, USERPROFILE: options.home },
   });
-  const control = createControlChannel(child);
+  const control = createControlChannel(child, options.onLogBatch);
   const timeoutMs = options.timeoutMs ?? 10_000;
   try {
     await withTimeout(control.next(), timeoutMs, "Rust Host did not report hostReady");
@@ -98,6 +113,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
     }
     const secret = listening.secret;
     return {
+      child,
       addr,
       secret,
       async stop() {
@@ -218,7 +234,15 @@ function toBuffer(value: unknown): Buffer {
   throw new Error("Rust Host bridge received a non-binary port message");
 }
 
-function createControlChannel(child: ChildProcessWithoutNullStreams) {
+/**
+ * 控制通道读取（Host→Main 的 NDJSON 帧）。`logBatch` 不是握手消息：交给 `onLogBatch`
+ * 消费（缺省丢弃），**不进** `next()` 的队列，否则它们会把握手帧挤到后面
+ * （`nextMatching` 有 50 帧上限）、并在测试里被反复跳过。
+ */
+function createControlChannel(
+  child: ChildProcessWithoutNullStreams,
+  onLogBatch?: (batch: RustHostLogBatch) => void,
+) {
   let buffer = "";
   const pending: Array<(message: Record<string, unknown>) => void> = [];
   const queue: Array<Record<string, unknown>> = [];
@@ -231,6 +255,11 @@ function createControlChannel(child: ChildProcessWithoutNullStreams) {
       buffer = buffer.slice(newline + 1);
       if (!line.trim()) continue;
       const message = JSON.parse(line) as Record<string, unknown>;
+      if (message.kind === "logBatch") {
+        const batch = toLogBatch(message);
+        if (batch) onLogBatch?.(batch);
+        continue;
+      }
       const resolveNext = pending.shift();
       if (resolveNext) resolveNext(message);
       else queue.push(message);
@@ -252,6 +281,19 @@ function createControlChannel(child: ChildProcessWithoutNullStreams) {
       throw new Error("Rust Host control stream did not yield the expected frame");
     },
   };
+}
+
+/** `logBatch` 帧的字段校验（协议漂移时退回丢弃，不打断控制通道）。 */
+function toLogBatch(message: Record<string, unknown>): RustHostLogBatch | undefined {
+  const scope = message.scope;
+  const level = message.level;
+  const lines = message.lines;
+  if (typeof scope !== "string") return undefined;
+  if (level !== "debug" && level !== "info" && level !== "warn" && level !== "error") {
+    return undefined;
+  }
+  if (!Array.isArray(lines) || lines.some((line) => typeof line !== "string")) return undefined;
+  return { scope, level, lines: lines as string[] };
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {

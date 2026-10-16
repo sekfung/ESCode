@@ -176,3 +176,10 @@ TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与
 | 上游漂移 | 每域开工前核对 `rust-v3.15.1-drift.md` |
 
 **`rpcListen.runtimeEnv`（审计 A16a，2026-10-15）**：可选的 `{name: value}` 映射，由 Main 合成（`desktopRuntimeEnv.ts: buildRustHostRuntimeEnv`：Node Host 进程同源的基础 env，去掉 OTLP 连接配置——它只允许在启动 Agent 时短暂注入，不能进入会被工具/MCP 子进程继承的实例快照）。Host 把它原样作为每个实例 `RuntimeOptions.env` 的底，再叠加 `ESCODE_WORKSPACE_IDENTITY`（由 workspace 描述决定，优先于 Main 的同名项）。Host 不从自己的进程 env 推断这些业务事实。缺省（旧版 Main）行为不变。provider 配置文件路径与插件宿主入口尚未下发，见审计 A16b。
+
+**Host 日志出口接齐 §3.2/§3.5（2026-10-16）**：此前 §3.2 的「Host 日志」只有骨架——`main.rs` 的 `ControlLoop` 把控制消息**直接写 stdout**（`ControlWriter` 的单队列此前只被单测用到），host-rpc / host-services 的日志走 `eprintln!`（stderr，绕过控制队列），且 Main 侧 `rustHostBridge` 把 `logBatch` 当无关帧跳过（`nextMatching` 上限 50 帧）。现在三段接齐：
+
+- **Host 侧**：`host-control::logging` 是进程级 sink（`Arc<dyn Fn(LogBatch)>`，与 CLI runtime `file_log` 同形）；服务域（host-rpc / host-services / host-surface / host-runtime）只投递 `(scope, level, lines)`，不持有控制通道句柄。`main.rs` 装配时 `install_sink(control.log_sink())`；收口时 `ControlLoop::close()` **先 `release_sink()` 再关队列**——sink 持有写句柄克隆，不释放则队列永不关闭（进程等泵退出会挂死，已加回归单测 `logging::tests::releasing_the_sink_closes_the_control_queue`）。未装 sink / 队列满时回退 stderr，诊断不丢。
+- **出口**：`ControlLoop` 改为 `ControlWriter` 单队列（容量 1024）+ 一个泵任务串行写 stdout。队满时控制消息等待、日志从结构化出口丢弃并计数（`logging::dropped_batches()`）且镜像 stderr——满足 §3.2「丢弃最低级别并计数」的可见性要求。
+- **Main 侧**：`startRustHost.onLogBatch` 校验并消费 `logBatch`（scope/level/lines），经 `rustHostManager` 落到 Main logger；`logBatch` 不再进握手队列。
+- **代码约定**：Host 各 crate 不再用 `eprintln!` 记业务日志（`logging` 的 stderr 兜底除外）；级别照 AGENTS.md（`warn` 可恢复、`error` 不可恢复），scope 取域名（`window-controller`/`task-index`/`file-watcher`/`git`/…）。

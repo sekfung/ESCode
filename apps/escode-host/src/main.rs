@@ -40,6 +40,9 @@ async fn run() -> Result<i32> {
     let link = link_from_env();
     let instances = Instances::new(link);
     let mut control = ControlLoop::start().context("Host control channel unavailable")?;
+    // 服务域（host-rpc / host-services）经进程级 sink 记日志：与控制消息共用一条有序队列，
+    // 由 Main 消费 `logBatch` 帧（docs/specs/rust-u2-host-skeleton.md §3.2/§3.5）。
+    escode_host_control::logging::install_sink(control.log_sink());
     control
         .send(ControlMessage::HostReady {
             protocol_version: PROTOCOL_VERSION,
@@ -47,6 +50,8 @@ async fn run() -> Result<i32> {
         })
         .await?;
     let code = serve(&mut control, &instances).await?;
+    // 收口出站队列：等泵把已入队的日志与 `stopped` 写完再退出。
+    control.close().await;
     Ok(code)
 }
 

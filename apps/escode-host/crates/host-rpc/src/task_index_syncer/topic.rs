@@ -5,6 +5,7 @@
 //! 才算 base；delta `fromSeq ≠ seq` 即 gap → 同订阅 resync（带 base）→ ACK 不匹配 / 失败 /
 //! 恢复帧超时 → 该 topic 新代 fresh 订阅。订阅前的帧按 (topic, sub) 暂存（1024 帧 / 32MB）。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -125,11 +126,14 @@ fn expire_assemblies(ingest: &Arc<Ingest>, kind: TopicKind) {
     }) else {
         return;
     };
-    eprintln!(
-        "escode-host: task index {} physical assembly expired reason={} topic={}",
-        kind.as_str(),
-        fault.reason,
-        fault.topic
+    logging::warn(
+        "task-index",
+        format!(
+            "{} physical assembly expired reason={} topic={}",
+            kind.as_str(),
+            fault.reason,
+            fault.topic
+        ),
     );
     let mut state = ingest.state(kind);
     mark_assembly_fault(ingest, &mut state, fault.delivery);
@@ -156,12 +160,15 @@ pub(super) fn handle_wire(ingest: &Arc<Ingest>, kind: TopicKind, wire: &Value) {
     if let Some(fault) = fault {
         let topic = state.topic.clone();
         state.assembler.abort(&topic, &subscription_id);
-        eprintln!(
-            "escode-host: task index {} physical assembly failed reason={} frame={} ordinal={} topic={subscription_id}/{topic}",
-            state.kind.as_str(),
-            fault.reason,
-            fault.logical_frame_id,
-            fault.logical_frame_ordinal,
+        logging::warn(
+            "task-index",
+            format!(
+                "{} physical assembly failed reason={} frame={} ordinal={} topic={subscription_id}/{topic}",
+                state.kind.as_str(),
+                fault.reason,
+                fault.logical_frame_id,
+                fault.logical_frame_ordinal
+            ),
         );
         mark_assembly_fault(ingest, &mut state, fault.delivery);
     } else {
@@ -190,10 +197,13 @@ fn stage_pending(state: &mut TopicState, wire: &Value) {
         pending.frames.clear();
         pending.staged_bytes = 0;
         pending.recovery_needed = true;
-        eprintln!(
-            "escode-host: task index {} ACK staging overflow; recovery-needed topic={}",
-            state.kind.as_str(),
-            state.topic
+        logging::warn(
+            "task-index",
+            format!(
+                "{} ACK staging overflow; recovery-needed topic={}",
+                state.kind.as_str(),
+                state.topic
+            ),
         );
         return;
     }

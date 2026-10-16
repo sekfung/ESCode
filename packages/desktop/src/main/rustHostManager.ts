@@ -29,8 +29,12 @@ export interface RustHostManagerOptions {
   runtimeEnv?: () => Record<string, string>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
-  /** 日志钩子。 */
-  log?: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void };
+  /** 日志钩子。`error` 用于 Host 的结构化 error 级日志（缺省退回 `warn`）。 */
+  log?: {
+    info: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error?: (...args: unknown[]) => void;
+  };
 }
 
 export interface RustHostAttachment {
@@ -71,6 +75,16 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       home: options.home,
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
       ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv() } : {}),
+      // Host 的结构化日志（`logBatch` 控制帧）进同一条 Main 日志出口；scope 作为来源标签。
+      onLogBatch: (batch) => {
+        for (const line of batch.lines) {
+          const text = `[rust-host] (${batch.scope}) ${line}`;
+          if (batch.level === "error") (options.log?.error ?? options.log?.warn)?.(text);
+          else if (batch.level === "warn") options.log?.warn(text);
+          else if (batch.level === "info") options.log?.info(text);
+          // `debug`（协议原始数据/逐条更新类高频诊断）生产不落盘，Host 侧目前也不产生，不转发。
+        }
+      },
     })
       .then((started) => {
         handle = started;

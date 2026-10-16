@@ -1,5 +1,6 @@
 //! `file-watcher` channel（TS `ServiceChannels.FileWatcher` = `"file-watcher"`；docs/specs/rust-u2-file-watcher.md）。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 
 use escode_host_services::file_watcher::FileWatcherService;
@@ -68,7 +69,10 @@ pub fn file_watcher_channel_with(service: Arc<FileWatcherService>) -> Channel {
                 None => {
                     // watch() 返回后、订阅前底层可能已因目录删除等被清理：stale id 可恢复，
                     // 不能把错误抛进事件订阅链路（TS：warn + Event.None）。
-                    eprintln!("escode-host: ignoring stale file watcher subscription id={id}");
+                    logging::warn(
+                        "file-watcher",
+                        format!("ignoring stale file watcher subscription id={id}"),
+                    );
                     Box::pin(stream::pending())
                 }
             };

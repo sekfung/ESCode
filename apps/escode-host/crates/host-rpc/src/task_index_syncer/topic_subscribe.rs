@@ -1,6 +1,7 @@
 //! 订阅建立 / resync 恢复 / 退避重试（TS syncer 的 `request*Recovery` / `settle*Recovery` /
 //! `schedule*Retry` / `subscribe*Topic` / `activate*Subscribe`）。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -273,10 +274,13 @@ pub(super) async fn subscribe_topic(
             }
             let provider_not_ready =
                 error.extra.get("code") == Some(&json!("ESCODE_AGENT_PROVIDER_NOT_READY"));
-            eprintln!(
-                "escode-host: task index {} subscribe failed (provider-not-ready={provider_not_ready}): {}",
-                kind.as_str(),
-                error.message
+            logging::warn(
+                "task-index",
+                format!(
+                    "{} subscribe failed (provider-not-ready={provider_not_ready}): {}",
+                    kind.as_str(),
+                    error.message
+                ),
             );
             schedule_retry(ingest, &mut state, provider_not_ready);
         }
@@ -368,10 +372,13 @@ async fn unsubscribe_subscription(ingest: &Arc<Ingest>, kind: TopicKind, subscri
         )
         .await
     {
-        eprintln!(
-            "escode-host: task index {} unsubscribe cleanup failed: {}",
-            kind.as_str(),
-            error.message
+        logging::warn(
+            "task-index",
+            format!(
+                "{} unsubscribe cleanup failed: {}",
+                kind.as_str(),
+                error.message
+            ),
         );
     }
 }

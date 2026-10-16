@@ -8,6 +8,7 @@
 //! 登记差异（docs/specs/rust-u2-tasks-index.md §6.6）：TS 另维护进程内 overlay（`setOverlay`）给
 //! 并发读做乐观覆盖；Rust 在返回前已同步写库，索引即唯一事实，不另设 overlay。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 
 use escode_host_services::tasks_index::TasksIndexError;
@@ -121,9 +122,12 @@ async fn update_indexed(
     match attempt(patch.clone()).await? {
         Ok(meta) => Ok(meta),
         Err(TasksIndexError::TaskNotFound { .. }) => {
-            eprintln!(
-                "escode-host: task index row missing for {}; seeding from the agent",
-                task.task_id
+            logging::warn(
+                "task-state",
+                format!(
+                    "task index row missing for {}; seeding from the agent",
+                    task.task_id
+                ),
             );
             crate::domains_task_snapshot::seed_from_runtime(
                 &context.read,
@@ -308,9 +312,12 @@ fn rename_task(context: &StateContext) -> MethodHandler {
         let meta = update_indexed(&context, &task, patch).await?;
         if let Err(error) = sync_rename(&context, &task, &title).await {
             // 历史/导入类任务可能没有活跃 v4 session：同步失败保留 task-index 标题（TS 同）。
-            eprintln!(
-                "escode-host: syncing renameSession to the v4 session store failed for {}: {}",
-                task.task_id, error.message
+            logging::warn(
+                "task-state",
+                format!(
+                    "syncing renameSession to the v4 session store failed for {}: {}",
+                    task.task_id, error.message
+                ),
             );
         }
         context

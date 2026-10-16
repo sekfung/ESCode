@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -83,6 +83,42 @@ describe("rust host dev switch", () => {
       teardown();
       secondTeardown();
     },
+  );
+});
+
+describe("rust host control logs", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "delivers logBatch control frames to the Main log hook",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "escode-rust-host-logs-"));
+      const batches: { scope: string; level: string; lines: string[] }[] = [];
+      const started = await startRustHost({
+        binary: hostBinary,
+        home: join(root, "home"),
+        onLogBatch: (batch) => batches.push(batch),
+      });
+      try {
+        // `shutdown` 是 Host 现成的结构化日志点（`main.rs`），用它验证整条链路：
+        // Host 进程级 sink → 控制队列 → Main 的 `logBatch` 分派。
+        started.child.stdin.write(`${JSON.stringify({ kind: "shutdown", reason: "test" })}\n`);
+        await vi.waitFor(
+          () => {
+            expect(
+              batches.some(
+                (batch) =>
+                  batch.scope === "host" &&
+                  batch.level === "info" &&
+                  batch.lines.some((line) => line.includes("shutdown: test")),
+              ),
+            ).toBe(true);
+          },
+          { timeout: 10_000 },
+        );
+      } finally {
+        await started.stop();
+      }
+    },
+    30_000,
   );
 });
 

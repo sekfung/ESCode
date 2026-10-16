@@ -1,6 +1,8 @@
 //! Main↔Host 控制通道（rust-u2-host-skeleton.md §3.5）：控制消息与日志批次共用
 //! **一条**有序队列，避免两条写者交错破坏 stdio 协议；消息 typed，错误带结构化 code。
 
+pub mod logging;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 

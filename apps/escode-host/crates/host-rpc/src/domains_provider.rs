@@ -1,5 +1,6 @@
 //! providers 域的 RPC 面（docs/specs/rust-u2-providers.md）。P1：`model-selection.getView`；P2：`provider-settings.getView/refresh`。
 
+use escode_host_control::logging;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -131,7 +132,7 @@ where
                         }
                         // 视图重建失败只丢这一次通知（TS：warn）；下次变化再推。
                         Err(error) => {
-                            eprintln!("escode-host: provider view refresh failed: {error:#}")
+                            logging::warn("provider", format!("view refresh failed: {error:#}"))
                         }
                     }
                 }

@@ -15,6 +15,7 @@ anyhow.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 serde_json.workspace = true
+escode-host-control.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-app-server.workspace = true
 escode-cli-core-api.workspace = true

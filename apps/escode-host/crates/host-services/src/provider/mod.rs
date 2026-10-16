@@ -22,6 +22,7 @@ mod sparse;
 mod store;
 mod types;
 
+use escode_host_control::logging;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -170,8 +171,9 @@ impl ProviderService {
         let personal: Personal = match &personal_value {
             None => Personal::default(),
             Some(value) => files::parse_personal(value).unwrap_or_else(|error| {
-                eprintln!(
-                    "escode-host: personal provider config invalid, using empty overlay: {error:#}"
+                logging::warn(
+                    "provider",
+                    format!("personal provider config invalid, using empty overlay: {error:#}"),
                 );
                 Personal::default()
             }),

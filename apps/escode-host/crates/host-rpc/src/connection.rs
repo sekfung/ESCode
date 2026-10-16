@@ -14,6 +14,7 @@
 //! （边沿经 [`ConnectionContext::flow`] 交给连接级 channel，V4 面转发为 `v4/connection/flow`，
 //! runtime 暂停投递、恢复时补快照）；硬上限 64 MiB → 关闭连接（fail closed）。
 
+use escode_host_control::logging;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -161,7 +162,7 @@ pub(crate) async fn run(
             while let Some(body) = frames.next_frame().context("invalid RPC frame stream")? {
                 match session::parse_request(&body) {
                     Ok(request) => dispatch(&channels, &outbound, &active, request),
-                    Err(error) => eprintln!("escode-host: invalid RPC frame: {error:#}"),
+                    Err(error) => logging::warn("rpc", format!("invalid RPC frame: {error:#}")),
                 }
             }
         }
@@ -205,18 +206,24 @@ fn listen(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>, r
     else {
         // TS：未知 channel 的事件请求挂起等待注册、超时后也不回帧；未知事件在服务端抛错。
         // 两种情况客户端都收不到响应，这里同样只记日志。
-        eprintln!(
-            "escode-host: event `{}.{}` is not implemented",
-            request.channel, request.method
+        logging::warn(
+            "rpc",
+            format!(
+                "event `{}.{}` is not implemented",
+                request.channel, request.method
+            ),
         );
         return;
     };
     let mut stream = match handler(request.arg) {
         Ok(stream) => stream,
         Err(error) => {
-            eprintln!(
-                "escode-host: event `{}.{}` listen failed: {error}",
-                request.channel, request.method
+            logging::warn(
+                "rpc",
+                format!(
+                    "event `{}.{}` listen failed: {error}",
+                    request.channel, request.method
+                ),
             );
             return;
         }

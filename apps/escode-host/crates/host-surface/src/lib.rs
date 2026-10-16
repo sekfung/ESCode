@@ -10,6 +10,7 @@
 //! 2. capability 握手求交：未覆盖的 method 立即回 `NotImplemented`（缺口显式可见）；
 //! 3. 一个 workspace 实例只有一个帧泵，向全部 attachment 扇出（多窗口共享实例）。
 
+use escode_host_control::logging;
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -118,7 +119,7 @@ impl Surface {
                 let hub = Arc::clone(&hub);
                 tokio::spawn(async move {
                     if let Err(error) = hub.serve_connection(stream).await {
-                        eprintln!("escode-host: surface connection {peer} closed: {error:#}");
+                        logging::warn("surface", format!("connection {peer} closed: {error:#}"));
                     }
                 });
             }

@@ -1,5 +1,6 @@
 //! Model 规则引擎（TS `ModelConfigRules`：`composeEffective` / `resolve` / 手动规则清理）。
 
+use escode_host_control::logging;
 use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value, json};
 
@@ -32,7 +33,10 @@ fn compile(rule: &Value, key: &str, ignore_case: bool) -> Option<Option<Regex>> 
             .case_insensitive(ignore_case)
             .build()
             .map_err(|error| {
-                eprintln!("escode-host: provider rule pattern unsupported {pattern:?}: {error}")
+                logging::warn(
+                    "provider",
+                    format!("rule pattern unsupported {pattern:?}: {error}"),
+                )
             })
             .ok(),
     )

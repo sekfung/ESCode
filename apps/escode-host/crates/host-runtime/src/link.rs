@@ -6,6 +6,7 @@
 //!
 //! 链路上的帧面与 `app-server --stdio` 完全一致（NDJSON），所以链路之上代码不区分传输。
 
+use escode_host_control::logging;
 use std::path::PathBuf;
 use std::process::Stdio;
 
@@ -109,7 +110,7 @@ impl RuntimeLink {
                     tokio::spawn(async move {
                         let mut lines = BufReader::new(stderr).lines();
                         while let Ok(Some(line)) = lines.next_line().await {
-                            eprintln!("escode-host: runtime-child: {line}");
+                            logging::warn("runtime-link", format!("runtime-child: {line}"));
                         }
                     });
                 }

@@ -11,6 +11,7 @@
 //! 溢出策略：监听者通道无界——帧泵不能被某条慢连接阻塞（会连带阻塞其他连接的帧与应答）；
 //! 连接级积压由出站字节水位 → `v4/connection/flow saturated` → runtime 暂停投递闭环约束。
 
+use escode_host_control::logging;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -102,8 +103,11 @@ impl FrameHub {
                 }
             }
             if frames.lagged() {
-                eprintln!(
-                    "escode-host: v4 frame pump for {identity} fell behind and was dropped by the runtime fan-out"
+                logging::warn(
+                    "agent-v4",
+                    format!(
+                        "v4 frame pump for {identity} fell behind and was dropped by the runtime fan-out"
+                    ),
                 );
             }
             // 只清自己这一代的泵登记（下一代可能已经接上）。

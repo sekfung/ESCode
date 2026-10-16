@@ -4,6 +4,7 @@
 //! 非搜索分支：只取投影 rows（membership 过滤），不读库。
 //! 排序/分页口径见 docs/specs/rust-u2-window-controller.md §2。
 
+use escode_host_control::logging;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -36,9 +37,12 @@ async fn list_task_list(
     for scope in &scopes {
         if let Err(error) = controller.refresh(scope, false).await {
             // 一个 source 的瞬时读取失败不能清空可信投影（TS `onSourceError` 只记录）。
-            eprintln!(
-                "escode-host: window-controller refresh failed for {}: {}",
-                scope.workspace_path, error.message
+            logging::warn(
+                "window-controller",
+                format!(
+                    "refresh failed for {}: {}",
+                    scope.workspace_path, error.message
+                ),
             );
         }
     }
@@ -110,9 +114,12 @@ async fn search_items(
     for scope in scopes {
         match search_source(controller, query, scope, search).await {
             Ok(mut found) => items.append(&mut found),
-            Err(error) => eprintln!(
-                "escode-host: window-controller search failed for {}: {}",
-                scope.workspace_path, error.message
+            Err(error) => logging::warn(
+                "window-controller",
+                format!(
+                    "search failed for {}: {}",
+                    scope.workspace_path, error.message
+                ),
             ),
         }
     }

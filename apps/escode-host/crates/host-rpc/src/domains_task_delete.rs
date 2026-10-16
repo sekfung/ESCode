@@ -1,6 +1,7 @@
 //! `escode-task` 删除类状态写（TS `deleteArchivedTask` / `deleteArchivedTasks`），从
 //! `domains_task_state.rs` 拆出以守住单文件行数上限。
 
+use escode_host_control::logging;
 use escode_host_services::tasks_index::write_state::TaskRef;
 use serde_json::{Value, json};
 
@@ -66,9 +67,9 @@ pub(crate) async fn delete_archived_batch(
             Ok(Some(_)) => deleted.push(task_id),
             Ok(None) => skipped.push(task_id),
             Err(error) => {
-                eprintln!(
-                    "escode-host: [ArchivedTaskDeletion] {task_id} failed: {}",
-                    error.message
+                logging::warn(
+                    "window-controller",
+                    format!("[ArchivedTaskDeletion] {task_id} failed: {}", error.message),
                 );
                 failed.push(task_id);
             }

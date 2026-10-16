@@ -187,6 +187,16 @@ impl TaskIndexSyncer {
         syncer
     }
 
+    /// 测试用：无摄入、无生命周期监听的空实例（`window-controller` 单测只用到摘要源与变化信号）。
+    #[cfg(test)]
+    pub(crate) fn empty_for_test(_events: Arc<WorkspaceEvents>) -> Self {
+        let (overlay_changes, _) = tokio::sync::broadcast::channel(OVERLAY_CHANGE_CAPACITY);
+        Self {
+            ingests: Mutex::new(BTreeMap::new()),
+            overlay_changes,
+        }
+    }
+
     /// 会话摘要基线（`window-controller` 的 overlay 源；未登记的 workspace 回空）。
     pub(crate) fn summaries(&self, identity: &str) -> Vec<Value> {
         let ingest = lock(&self.ingests).get(identity).cloned();

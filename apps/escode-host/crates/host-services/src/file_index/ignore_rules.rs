@@ -1,6 +1,7 @@
 //! `.escodeignore` 规则（TS `workspaceFileIgnore.ts`）：加载 / 模板 / 分区转换 / 原子写。
 //! 规则语法是 gitignore；匹配委托 `ignore` crate（TS 委托 `ignore` npm 包），禁止手写解析。
 
+use escode_host_control::logging;
 use std::path::Path;
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
@@ -221,7 +222,10 @@ async fn read_optional(path: &Path) -> std::io::Result<Option<String>> {
 pub async fn load_rules(root: &str) -> Rules {
     let root = Path::new(root);
     let degraded = |reason: &str, gitignore: Option<String>| {
-        eprintln!("escode-host: [workspace-file-ignore] {reason}，降级为运行时使用规则");
+        logging::warn(
+            "file-index",
+            format!("[workspace-file-ignore] {reason}，降级为运行时使用规则"),
+        );
         Rules::from_content(&match gitignore {
             Some(content) => content,
             None => build_template(None),

@@ -2,6 +2,7 @@
 //! `resyncTaskIndexRowFromAgent` / `seedMissingRowsFromInitialSnapshot` /
 //! `syncSnapshotAndBroadcast` 的索引部分）。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
@@ -57,8 +58,9 @@ pub(super) async fn apply_terminal_transition(
             resync_row_with_unread(ingest, session_id, move_to_top, unread_signal).await;
         }
         Err((code, message)) => {
-            eprintln!(
-                "escode-host: task index terminal patch failed taskId={session_id}: {code}: {message}"
+            logging::warn(
+                "task-index",
+                format!("terminal patch failed taskId={session_id}: {code}: {message}"),
             );
         }
     }
@@ -86,8 +88,9 @@ pub(super) async fn apply_title_change(ingest: &Arc<Ingest>, session_id: &str, t
             resync_row(ingest, session_id, true).await;
         }
         Err((code, message)) => {
-            eprintln!(
-                "escode-host: task index title patch failed taskId={session_id}: {code}: {message}"
+            logging::warn(
+                "task-index",
+                format!("title patch failed taskId={session_id}: {code}: {message}"),
             );
         }
     }
@@ -118,9 +121,9 @@ async fn resync_row_with_unread(
     {
         Ok(called) => called.result,
         Err(error) => {
-            eprintln!(
-                "escode-host: task index row resync failed taskId={session_id}: {}",
-                error.message
+            logging::warn(
+                "task-index",
+                format!("row resync failed taskId={session_id}: {}", error.message),
             );
             return;
         }
@@ -164,15 +167,21 @@ pub(super) async fn seed_missing_rows(ingest: &Arc<Ingest>) {
                 .await;
             if let Err((code, message)) = seeded {
                 failed_count += 1;
-                eprintln!("escode-host: task index baseline seed failed: {code}: {message}");
+                logging::warn(
+                    "task-index",
+                    format!("baseline seed failed: {code}: {message}"),
+                );
             }
         }
     }
     if failed_count > 0 {
-        eprintln!(
-            "escode-host: task index baseline seeding finished with failures workspace={} failed={failed_count} total={}",
-            ingest.workspace_path,
-            candidates.len()
+        logging::warn(
+            "task-index",
+            format!(
+                "baseline seeding finished with failures workspace={} failed={failed_count} total={}",
+                ingest.workspace_path,
+                candidates.len()
+            ),
         );
     }
 }
@@ -256,7 +265,10 @@ async fn sync_snapshot_to_index(
             }
         }
         Err((code, message)) => {
-            eprintln!("escode-host: task index snapshot sync failed: {code}: {message}");
+            logging::warn(
+                "task-index",
+                format!("snapshot sync failed: {code}: {message}"),
+            );
         }
     }
 }

@@ -13,6 +13,7 @@
 //! `TasksIndexUnavailable` 抛给调用方）。工具面灰度一律 Host 判定（[`ToolGates`]，当前关闭）。
 //! 登记差异见 `docs/specs/rust-u2-tasks-index.md` §6.5。
 
+use escode_host_control::logging;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
@@ -384,7 +385,10 @@ async fn write_index(
             }
         }
         Err((code, message)) => {
-            eprintln!("escode-host: task index sync failed taskId={session_id}: {code}: {message}");
+            logging::warn(
+                "session-write",
+                format!("task index sync failed taskId={session_id}: {code}: {message}"),
+            );
         }
     }
 }
