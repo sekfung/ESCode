@@ -23,6 +23,7 @@ mod domains_file_watcher;
 mod domains_file_workspace;
 mod domains_git;
 mod domains_memory;
+mod domains_onboarding;
 mod domains_output_style;
 mod domains_plugin;
 mod domains_provider;

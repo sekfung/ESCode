@@ -9,6 +9,7 @@ pub mod data_dir;
 pub mod file_index;
 pub mod file_watcher;
 pub mod git;
+pub mod onboarding;
 pub mod provider;
 pub mod session_params;
 pub mod settings;

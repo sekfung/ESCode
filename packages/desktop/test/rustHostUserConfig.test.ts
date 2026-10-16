@@ -16,6 +16,7 @@ import { join } from "node:path";
 import {
   createBroadcastService,
   createMemoryService,
+  createOnboardingRecordService,
   createOutputStyleService,
   setDataBaseDir,
 } from "@escode/services/node";
@@ -460,7 +461,8 @@ describe("rust host system extras", () => {
             const { latencyMs, error, ...rest } = r;
             // 系统级连接错误文案（ECONNREFUSED 等）因运行时而异，只比较其是否存在。
             const keepError =
-              typeof error === "string" && /^(marker|service|HTTP|invalid service response:|timeout)/.test(error);
+              typeof error === "string" &&
+              /^(marker|service|HTTP|invalid service response:|timeout)/.test(error);
             return {
               ...rest,
               latency: latencyMs === null ? null : "<n>",
@@ -481,6 +483,106 @@ describe("rust host system extras", () => {
         expect(new Set(seenTokens.filter(Boolean))).toEqual(new Set(["tok"]));
       });
       for (const server of servers) server.close();
+    },
+    120_000,
+  );
+});
+
+describe("rust host onboarding-record", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "matches the TS onboarding record service for the anonymous user",
+    async () => {
+      await withHosts(async ({ tsHome, rustHome, rpc }) => {
+        setDataBaseDir(tsHome);
+        try {
+          const ts = createOnboardingRecordService({
+            loadUserId: async () => null,
+            hasExistingLocalTask: async () => false,
+          });
+          const rust = rpc.onboardingRecordService;
+          const entry = {
+            occupation: "developer",
+            interfaceMode: "coding",
+            memoryEnabled: true,
+            proactiveSuggestionsEnabled: null,
+            completedAt: "2026-01-01T00:00:00.000Z",
+          };
+          const file = (home: string) => join(home, ".escode", "v2", "onboarding-record.json");
+          type Step = [string, (s: typeof ts) => Promise<unknown>];
+          const steps: Step[] = [
+            ["records before anything", (s) => s.getRecords()],
+            ["latest before anything", (s) => s.getLatestEntry()],
+            ["sync before anything", (s) => s.syncSettingsFromRecord()],
+            ["should onboard fresh", (s) => s.shouldOnboard("dev-1")],
+            ["dismiss", (s) => s.dismissOnboarding("dev-1")],
+            ["records after dismiss", async (s) => redact(await s.getRecords())],
+            ["should onboard after dismiss", (s) => s.shouldOnboard("dev-1")],
+            ["append", (s) => s.appendRecord("dev-2", entry as never)],
+            ["records after append", (s) => s.getRecords()],
+            ["latest", (s) => s.getLatestEntry()],
+            ["sync", (s) => s.syncSettingsFromRecord()],
+            [
+              "append other occupation",
+              (s) =>
+                s.appendRecord("dev-3", {
+                  ...entry,
+                  occupation: "no-such-job",
+                  interfaceMode: null,
+                  memoryEnabled: null,
+                } as never),
+            ],
+            ["sync with unknown occupation", (s) => s.syncSettingsFromRecord()],
+            [
+              "update preferences",
+              (s) =>
+                s.updateRecordPreferences({
+                  memoryEnabled: false,
+                  proactiveSuggestionsEnabled: true,
+                }),
+            ],
+            ["records after update", (s) => s.getRecords()],
+            ["claim is a no-op", (s) => s.claimAnonymousRecord()],
+            ["dismiss with an entry is a no-op", (s) => s.dismissOnboarding("dev-1")],
+            [
+              "invalid append",
+              (s) => s.appendRecord("dev-1", { ...entry, interfaceMode: "bogus" } as never),
+            ],
+            ["clear", (s) => s.clearRecords()],
+            ["records after clear", (s) => s.getRecords()],
+            ["update without a file", (s) => s.updateRecordPreferences({ memoryEnabled: true })],
+          ];
+          // decidedAt 是服务端当前时间，只比较其存在与 ISO 形态。
+          const redact = (value: unknown) =>
+            JSON.parse(
+              JSON.stringify(value ?? null).replace(
+                /"decidedAt":"\d{4}-\d\d-\d\dT[\d:.]+Z"/g,
+                '"decidedAt":"<iso>"',
+              ),
+            );
+          for (const [label, step] of steps) {
+            const expected = await outcome(() => step(ts));
+            const actual = await outcome(() => step(rust));
+            if (!expected.ok) {
+              expect({ label, ok: actual.ok }).toEqual({ label, ok: false });
+            } else {
+              expect({ label, value: redact(actual.ok ? actual.value : actual) }).toEqual({
+                label,
+                value: redact(expected.value),
+              });
+            }
+            const read = async (home: string) =>
+              existsSync(file(home))
+                ? redact(JSON.parse(await readFile(file(home), "utf8")))
+                : null;
+            expect({ label, file: await read(rustHome) }).toEqual({
+              label,
+              file: await read(tsHome),
+            });
+          }
+        } finally {
+          setDataBaseDir(null);
+        }
+      });
     },
     120_000,
   );

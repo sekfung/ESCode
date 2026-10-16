@@ -13,7 +13,7 @@ pub(crate) fn simple_channels(
     instances: Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Vec<Channel> {
-    vec![
+    let mut channels = vec![
         crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
             escode_host_services::broadcast::Broadcast::default(),
         )),
@@ -27,5 +27,7 @@ pub(crate) fn simple_channels(
             options,
             data_base_dir.map(Path::to_path_buf),
         ),
-    ]
+    ];
+    channels.push(crate::domains_onboarding::onboarding_channel(data_base_dir));
+    channels
 }

@@ -83,3 +83,17 @@ TS 真相源：`system/systemService.ts`、`system/integratedTerminalShells.ts`�
   ③`http`/`https` 重定向由 reqwest 默认策略（≤10 次）处理，与 `fetch` 一致。
 - 验收：`rustHostUserConfig.test.ts` 的 system 用例对真实 TS 服务（本地 TCP 与 HTTP 夹具：可达/不可达/超时、marker 符合与不符、`ok:false`、缺 `ok`、5xx、非法 URL、
   规范化与夹取、令牌头）逐项比较；`system_probe_tests.rs` 覆盖 Windows 发现规则。负向验证：把 `requiredSuccessCount` 夹取改坏即失败。
+
+## 6. onboarding-record（9 个成员）
+
+TS 真相源：`onboarding/onboardingRecordService.ts`、`packages/shared/src/onboardingRecord.ts`。套餐族与账号登录删除后，TS 装配的 `loadUserId` 恒为 `null`
+（`node.ts`：`loadUserId: async () => null`），所以身份只剩匿名一档，`claimAnonymousRecord` 按 TS 定义是幂等空操作。
+
+- **事实源**：`<dataBaseDir>/.escode/v2/onboarding-record.json`（v2：`{version, deviceMid, entries[], decisions[]}`；v1 读时补空 `decisions` 升到 v2）。不存在或损坏都按“从未记录”处理（损坏只告警，下次写入重建）。
+- `appendRecord(deviceMid, entry)`：`deviceMid` 以文件内已有值为权威；每个用户至多一条（覆盖）；写入后清掉该用户的 decision；条目按 schema 校验并剥离未知键。
+- `shouldOnboard(deviceMid)`：已有条目或 decision → `false`；否则任务索引里没有未删除任务 → `true`；有 → 记 `existing_local_user/existing_local_task` decision 并返回 `false`。
+- `dismissOnboarding`：已有条目则空操作，否则写/覆盖 `dismissed/user_closed` decision。`getLatestEntry` / `syncSettingsFromRecord`（职业不在 settings 枚举 → `other`，空偏好 → `false`）/ `updateRecordPreferences` / `getRecords` / `clearRecords` 同 TS。
+- 写入串行（进程内队列）+ 原子替换。
+- 登记差异：①落盘键序为字典序（TS 按 schema 序），语义相同；②`hasExistingLocalTask` 在任务索引不可用（未建库/账本不符）时按“没有任务”处理（TS 会建库）；③`zod` 校验失败文案为一句话。
+- 验收：`rustHostUserConfig.test.ts` 的 onboarding 用例对真实 TS 服务 21 步（缺省读取、dismiss、append 覆盖、未知职业回填、偏好更新、非法入参、clear）逐步比较返回值与落盘文件；`onboarding_tests.rs` 覆盖 ISO 时间、
+  已有本地任务决策、v1 升级与损坏文件。负向验证：append 不清 decision 即失败。
