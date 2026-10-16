@@ -388,6 +388,29 @@ const OPS: Op[] = [
       } as never),
     { anyMessage: true },
   ],
+  [
+    "connectivity: unknown provider",
+    (a) =>
+      a.testModelConnectivity({ workspacePath: "/w", providerId: "ghost", modelId: "x" } as never),
+  ],
+  [
+    "connectivity: unknown model",
+    (a) =>
+      a.testModelConnectivity({
+        workspacePath: "/w",
+        providerId: "p-openai",
+        modelId: "nope",
+      } as never),
+  ],
+  [
+    "connectivity: disabled personal model",
+    (a) =>
+      a.testModelConnectivity({
+        workspacePath: "/w",
+        providerId: "p-openai",
+        modelId: "my-model",
+      } as never),
+  ],
   ["delete provider", (a) => a.deletePersonalProvider("p-custom")],
   ["delete missing provider", (a) => a.deletePersonalProvider("ghost")],
   ["delete overlay of builtin provider", (a) => a.deletePersonalProvider("account:zai-start-plan")],
@@ -486,6 +509,7 @@ describe("rust host providers P3 writes", () => {
           personalFilePath: tsPersonal,
           watch: false,
           personalPollingIntervalMs: false,
+          testConnectivity: async () => ({ success: true }),
         });
         try {
           expect((await nextMeaningful(host)).kind).toBe("hostReady");

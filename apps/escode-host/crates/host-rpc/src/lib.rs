@@ -26,6 +26,7 @@ mod domains_memory;
 mod domains_output_style;
 mod domains_plugin;
 mod domains_provider;
+mod domains_provider_connectivity;
 mod domains_provider_write;
 mod domains_session_model;
 mod domains_session_write;

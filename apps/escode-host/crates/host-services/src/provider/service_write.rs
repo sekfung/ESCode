@@ -33,6 +33,11 @@ fn text<'a>(value: &'a Value, key: &str) -> &'a str {
 }
 
 impl ProviderService {
+    /// 等在途写入收口（TS `waitForProviderOperations`）：写闸门释放即表示没有未完成的写。
+    pub async fn wait_for_writes(&self) {
+        drop(self.write_gate.lock().await);
+    }
+
     /// TS `#modelMembership`：配置成员 ≠ 可执行模型，禁用/无权益/不完整的模型仍可编辑。
     fn membership(loaded: &Loaded, provider_id: &str) -> Result<Membership> {
         let provider = loaded

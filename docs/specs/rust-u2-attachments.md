@@ -26,9 +26,9 @@
 
 ## 3. 登记差异（不修）
 
-1. **无 `local-url` 分支**：TS 桌面 Host 由 Main 注入 `authorizeLocalMediaPreviewPath` 与本地媒体 URL 构造，返回 `{kind:"local-url", url}`；
-   Rust Host 没有该 HTTP 服务，永远走内联（≤8 MiB）。大视频预览需等 Host 内置媒体 range 服务（`host-range-url` 形态）后再补。
-2. `refreshPlaybackUrl` / `release` 仅 `host-range-url` 形态用到，随媒体 range 服务一起做。
+1. **无 `local-url` 分支**：TS 桌面 Host 由 Main 注入 `authorizeLocalMediaPreviewPath` 与本地媒体 URL 构造，返回 `{kind:"local-url", url}`（HTTP 服务在 Main）；
+   Rust Host 没有该注入点，永远走内联（≤8 MiB）。`host-range-url` 由桌面 Main 侧的 `remoteMediaPreviewProxy.ts`（远程 SSH 作用域的本地 HTTP 代理）产生，不属于 Host 服务——这不是 Host 缺口，而是 Main 侧职责。
+2. `refreshPlaybackUrl` / `release` 同属 Main 侧代理的方法，Host 不实现。
 
 ## 4. 验收
 

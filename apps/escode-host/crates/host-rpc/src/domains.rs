@@ -363,7 +363,11 @@ pub fn channels_with(
         task_channel,
         session_channel(instances, options, write),
     ];
-    list.extend(crate::domains_provider::provider_channels(provider_files));
+    list.extend(crate::domains_provider::provider_channels(
+        provider_files,
+        instances_for_simple.clone(),
+        Arc::clone(&options_for_simple),
+    ));
     list.extend(crate::domains_simple::simple_channels(
         &home_for_simple,
         data_base_dir_for_simple.as_deref(),

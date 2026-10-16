@@ -65,7 +65,11 @@ fn settings_view(service: Service) -> MethodHandler {
 }
 
 /// providers 域的全部 channel（共享同一个 `ProviderService`）。
-pub fn provider_channels(files: Option<ProviderFiles>) -> Vec<Channel> {
+pub fn provider_channels(
+    files: Option<ProviderFiles>,
+    instances: escode_host_runtime::Instances,
+    options: escode_host_surface::OptionsFactory,
+) -> Vec<Channel> {
     let service: Service = files.map(|files| Arc::new(files.into_service()));
     vec![
         Channel::new(
@@ -84,6 +88,14 @@ pub fn provider_channels(files: Option<ProviderFiles>) -> Vec<Channel> {
                 ("refresh", settings_view(service.clone())),
             ];
             methods.extend(crate::domains_provider_write::write_methods(&service));
+            methods.push((
+                "testModelConnectivity",
+                crate::domains_provider_connectivity::connectivity_method(
+                    service.clone(),
+                    instances,
+                    options,
+                ),
+            ));
             methods
         })
         .with_events(vec![(

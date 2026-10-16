@@ -155,6 +155,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("provider-settings", "getView"),
     ("provider-settings", "onDidChange"),
     ("provider-settings", "refresh"),
+    ("provider-settings", "testModelConnectivity"),
     ("provider-settings", "resolveModelConfig"),
     ("provider-settings", "createPersonalProvider"),
     ("provider-settings", "savePersonalProviderOverlay"),

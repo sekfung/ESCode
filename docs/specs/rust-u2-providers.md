@@ -1,6 +1,6 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；P3 余项（`provider-provisioning-target.apply`）与 P5–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；`testModelConnectivity` 已交付（§10）；`provider-provisioning-target.apply` 与 P5–P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
@@ -38,7 +38,7 @@
 | **P3** | Personal 写入面（15 个方法中的 10 个）：文件锁、CAS 修订、规范编码、`settings:*` 刷新；`provider-provisioning-target.apply`                                                                 | 与 TS 对同一初始文件执行同一操作序列，落盘字节相等                                                                            |
 | **P4** | 变更通知：Personal 轮询、Built-in 文件监听、`onDidChange` 事件，修订推进语义                                                                                                                | 差分：外部改文件 → 两端事件序列一致                                                                                           |
 | **P5** | Built-in 物化：Bundled/Active/LKG 选择、Endpoint 隔离路径、Remote 下载与 `revision` 单调；解开 **A16b**                                                                                     | 差分 + 注入式下载桩                                                                                                           |
-| **P6** | `credential`、`client-config`、`client-scenes`（ApiClient 基础设施）                                                                      | 各自 spec                                                                                                                     |
+| **P6** | `credential`、`client-config`、`client-scenes`（ApiClient 基础设施）                                                                                                                        | 各自 spec                                                                                                                     |
 
 ## 4. 待决策（需要产品/架构拍板，不应由实现者单方面定）
 
@@ -169,11 +169,11 @@ P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `
 
 **输入（`rpcListen.runtimeEnv`，三项必须同时出现，否则回到 P1 的“只读 Bundled”行为）**：
 
-| 变量                           | 含义（对应 TS `escodeBuiltinEnvironment`） |
-| ------------------------------ | ------------------------------------------ |
-| `ESCODE_BUILTIN_CACHE_ROOT`    | `environmentConfigRoot`（`resolveAppConfigDir()`） |
-| `ESCODE_APP_VERSION`           | `appVersion`                               |
-| `ESCODE_ENDPOINT_ORIGIN`       | 当前控制面 Endpoint Origin（规范化后参与路径） |
+| 变量                        | 含义（对应 TS `escodeBuiltinEnvironment`）         |
+| --------------------------- | -------------------------------------------------- |
+| `ESCODE_BUILTIN_CACHE_ROOT` | `environmentConfigRoot`（`resolveAppConfigDir()`） |
+| `ESCODE_APP_VERSION`        | `appVersion`                                       |
+| `ESCODE_ENDPOINT_ORIGIN`    | 当前控制面 Endpoint Origin（规范化后参与路径）     |
 
 `platform` 由 Host 按 TS `resolveESCodeBuiltinClientPlatform` 同规则自算（`windows|darwin|linux` × `aarch64|x86_64`）。
 
@@ -192,3 +192,14 @@ P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `
 且 Rust 物化出的 Active 能被 TS 读回并解码为同一 Release；Endpoint 路径向量由 TS `resolveESCodeBuiltinCachePaths` 生成。
 
 **登记差异（不修）**：Rust 写出的 Active 保留源文件的键序（TS 按自身 `toJSON` 序）；二者语义比较，不会互相改写。
+
+## 10. `testModelConnectivity`
+
+流程（TS `providerFacadeServices.ts` + `providerSettingsConnectivity.ts`）：等在途写入收口（写闸门释放）→ 从最新 Settings 视图按公共资格判定可测性
+（provider 缺失/禁用 → `provider-unavailable`；model 缺失/禁用/有问题 → `model-unavailable`；provider 不可执行 → `provider-unavailable`；model 不可执行 → `model-unavailable`，
+文案与 TS 逐字相同）→ 通过则把 `{providerId, modelId}` 作为 ModelSelection 交给该 workspace 的 runtime（`provider/testModelConnectivity`，120 s 超时），
+成功回 `{success:true}`，失败回 `{success:false, error:{message}}`。
+
+登记差异：TS 调用前会同步账号 Provider 配置（`ensureAccountProviderConfigSynced`），Rust 暂无账号源，跳过。
+验收：`rustHostProviderWrite.test.ts` 追加 3 种资格失败与 TS 逐字比较；`domains_provider_connectivity_tests.rs` 覆盖资格链全部分支。
+**未验证**：成功路径与 runtime 失败路径需要可达的模型端点，离线环境未覆盖。
