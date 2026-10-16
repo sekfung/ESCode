@@ -279,7 +279,7 @@ async function expectNoVisibleChatErrorBanner() {
     if (!composerRegion) {
       return "";
     }
-    const errorActionLabels = ["复制完整错误", "Copy full error", "提交反馈", "Feedback"];
+    const errorActionLabels = ["复制完整错误", "Copy full error"];
     const hasErrorActions = Array.from(
       composerRegion.querySelectorAll<HTMLButtonElement>("button"),
     ).some((button) =>

@@ -113,7 +113,7 @@ const categoryRules = [
     patterns: [
       /^packages\/services\/src\/(?:commands|memory|plugins|skills)\//u,
       /^packages\/desktop\/src\/main\/(?:exportLogs|mcpUserDirectory\/.+)\.ts$/u,
-      /^packages\/services\/src\/(?:feedback|hooks|model-provider|output-style|providers|settings-sync|subagents|workflow)\//u,
+      /^packages\/services\/src\/(?:hooks|model-provider|output-style|providers|settings-sync|subagents|workflow)\//u,
       /^packages\/services\/src\/(?:index|node)\.ts$/u,
       /^packages\/ui\/src\/settings\/(?:commands|mcp|model-provider|Skills)/u,
       /^packages\/ui\/src\/lib\/skillSourceFilter\.ts$/u,

@@ -114,7 +114,7 @@
 | `ui/store/escodeSessionStore.ts` + `tabStore.ts:346` | `workspaces[workspaceKey]` 桶全仓无删除路径；`remoteTimelineTaskStore`/`remotePinnedTaskStore` 有 `clearWorkspace` 但无调用者 |
 | `ui/store/taskQueryCacheStore.ts:472`、`hooks/useWorkspaceTaskLists.ts:320-322` | queryKey 含 `limit::version`，每次 bump/展开更多都新增 key 不删旧 |
 | `ui/v4/windowControllerTaskListRegistry.ts:78, 218-228` | `queryCache` 以含搜索词的 key 缓存整份结果，搜索框每次击键 +1 |
-| `ui/feedback/feedbackSubmissionJob.ts:115, 410` | 失败的 job 永不删，持有截图 base64 ×2 |
+| ~~`ui/feedback/feedbackSubmissionJob.ts:115, 410`~~ | 失败的 job 永不删，持有截图 base64 ×2。（该模块所属的问题上报功能已于 2026-10 整体删除，条目保留作审计记录） |
 | `ui/v4/telemetry/ConversationTelemetryAttachment.tsx:222-240` | `useMemo` 内做 acquire 副作用，被丢弃的渲染无对应 release，refCount 永远 >0，supervisor 无法释放 |
 | `ui/terminal/sidePaneTerminalSessionRegistry.ts:58` | 常驻 xterm 实例无上限，detached 状态 PTY 输出仍写 scrollback（设计如此，但持续吃内存） |
 | `rpc/src/channelServer.ts:224-248, 270-277` | 未注册 channel 的 `pendingRequests`（含参数）超时不删；远端 host 不注册 `cuaPermissionService` 等 channel 时每次调用 +1 |
