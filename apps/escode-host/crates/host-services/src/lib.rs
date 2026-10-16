@@ -12,6 +12,7 @@ pub mod git;
 pub mod provider;
 pub mod session_params;
 pub mod settings;
+pub mod system_probe;
 pub mod task_projection;
 pub mod tasks_index;
 pub mod terminal;

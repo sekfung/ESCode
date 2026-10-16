@@ -66,6 +66,7 @@ icu_collator = "2"
 icu_locale_core = "2"
 escode-cli-core-api = { path = "../escode-cli-rust/crates/core-api" }
 escode-cli-host = { path = "../escode-cli-rust/crates/host" }
+escode-cli-net = { path = "../escode-cli-rust/crates/net" }
 # tasks-index（TS `node:sqlite` 同库互操作）：与 CLI 侧同一 rusqlite 版本与 bundled SQLite。
 rusqlite = { version = "0.37", features = ["bundled"] }
 sha2 = "0.10"

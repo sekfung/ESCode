@@ -26,6 +26,8 @@ escode-cli-domain.workspace = true
 escode-host-control.workspace = true
 escode-host-core.workspace = true
 escode-cli-host.workspace = true
+escode-cli-net.workspace = true
+futures-util.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

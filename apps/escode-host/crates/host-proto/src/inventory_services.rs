@@ -100,6 +100,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("setting", "get"),
     ("setting", "update"),
     ("system", "info"),
+    ("system", "listIntegratedTerminalShells"),
+    ("system", "probeIntranet"),
     ("file", "stat"),
     ("file", "checkFilesExist"),
     ("file", "resolvePath"),

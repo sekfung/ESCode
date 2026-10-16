@@ -68,3 +68,18 @@ TS 真相源：`settingService.ts` 的两个方法与 `paths.ts` 的 `copyDataDi
 - 登记差异：Windows 禁用目录判定用字符串规则复刻 `win32.normalize/resolve`，只有单测覆盖，未在 Windows 实机验证；设置写回走 Host 现有的顶层键合并（不含 TS `update` 的 schema 校验与 recentProjects 截断）；
   迁移不会让运行中的 Host 改指新数据根（TS 同样需要重启生效）。
 - 验收：`rustHostSettingExtra.test.ts` 对真实 TS 设置服务（`HOME` 隔离）逐项比较返回值、目标目录树、`setting.json` 的 `dataBaseDir`；`data_dir_tests.rs` 覆盖 Windows 判定与复制规则。负向验证：复制改成覆盖已有文件即失败。
+
+## 5. system.listIntegratedTerminalShells / probeIntranet
+
+TS 真相源：`system/systemService.ts`、`system/integratedTerminalShells.ts`。
+
+- `listIntegratedTerminalShells()`：非 Windows 恒为 `[]`；Windows 给 CMD（`ComSpec`，缺省 `cmd.exe`）与 Git Bash（先查 `C:\Program Files[ (x86)]\Git\bin\bash.exe`，再按 `PATH`×`PATHEXT` 找
+  `git` 并推断 `..\bin\bash.exe` / `..\..\bin\bash.exe`，`source` 分别为 `system` / `path`）。环境变量走 `core_api::env`（实例快照），Windows 路径规则只有单测覆盖。
+- `probeIntranet(request)`：目标规范化（tcp：host 去空白非空、端口 1–65535 否则 22、`timeoutMs` 夹到 [100,10000] 缺省 800；service：URL 必须是 http/https、`expectedMarker`/`token` 去空白）→
+  每目标最多 `attempts`（1–3，缺省 2）次，目标间并发、按输入序返回；`isIntranet = 目标数>0 且 可达数 ≥ requiredSuccessCount`；`strategy` = `tcp-connect` / `service-http` / `mixed`。
+  service 探测 `GET`（带 `x-zcode-intranet-token`），要求 2xx 与 JSON `{ok:true, marker?}`，`marker` 与期望不符 → `marker mismatch(expected=…, actual=…)`。
+- 登记差异：①连接类错误文案由运行时给出（Node `connect ECONNREFUSED …` vs Rust `Connection refused (os error 111)`）；非 JSON 应答 TS 抛 `JSON.parse` 的 SyntaxError，
+  Rust 回 `invalid service response`；②service 探测走 `escode_cli_net` 的 WebFetch 出口（代理/自定义 CA 规则生效），TS 用 Node 全局 `fetch`（不读代理配置）——内网目标应在 no_proxy 内；
+  ③`http`/`https` 重定向由 reqwest 默认策略（≤10 次）处理，与 `fetch` 一致。
+- 验收：`rustHostUserConfig.test.ts` 的 system 用例对真实 TS 服务（本地 TCP 与 HTTP 夹具：可达/不可达/超时、marker 符合与不符、`ok:false`、缺 `ok`、5xx、非法 URL、
+  规范化与夹取、令牌头）逐项比较；`system_probe_tests.rs` 覆盖 Windows 发现规则。负向验证：把 `requiredSuccessCount` 夹取改坏即失败。

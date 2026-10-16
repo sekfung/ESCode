@@ -32,6 +32,7 @@ mod domains_session_model;
 mod domains_session_write;
 mod domains_setting_extra;
 mod domains_simple;
+mod domains_system;
 pub mod domains_task;
 mod domains_task_delete;
 mod domains_task_gap;

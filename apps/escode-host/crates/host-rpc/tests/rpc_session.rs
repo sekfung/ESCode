@@ -299,14 +299,7 @@ async fn system_info_reports_home_and_node_platform() {
     assert_eq!(info["platform"], expected_platform, "{info}");
 
     // 未迁移方法：显式缺口。
-    call(
-        &mut socket,
-        62,
-        "system",
-        "listIntegratedTerminalShells",
-        &Wire::Array(Vec::new()),
-    )
-    .await;
+    call(&mut socket, 62, "serial", "list", &Wire::Array(Vec::new())).await;
     let error = read_response(&mut socket, 62)
         .await
         .into_object()
@@ -315,7 +308,7 @@ async fn system_info_reports_home_and_node_platform() {
         error["message"]
             .as_str()
             .unwrap()
-            .contains("system.listIntegratedTerminalShells")
+            .contains("channel `serial`")
     );
 
     surface.shutdown().await;

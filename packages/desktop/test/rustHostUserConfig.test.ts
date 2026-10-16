@@ -383,3 +383,105 @@ describe("rust host broadcast (local mode)", () => {
     120_000,
   );
 });
+
+describe("rust host system extras", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "listIntegratedTerminalShells and probeIntranet match the TS system service",
+    async () => {
+      const { createServer } = await import("node:http");
+      const { createServer: createTcpServer } = await import("node:net");
+      const servers: Array<{ close(): void }> = [];
+      const listen = (server: ReturnType<typeof createServer>) =>
+        new Promise<number>((resolve) => {
+          servers.push(server);
+          server.listen(0, "127.0.0.1", () => resolve((server.address() as { port: number }).port));
+        });
+      const tcp = createTcpServer();
+      servers.push(tcp);
+      const tcpPort = await new Promise<number>((resolve) =>
+        tcp.listen(0, "127.0.0.1", () => resolve((tcp.address() as { port: number }).port)),
+      );
+      const seenTokens: Array<string | undefined> = [];
+      const httpPort = await listen(
+        createServer((request, response) => {
+          seenTokens.push(request.headers["x-zcode-intranet-token"] as string | undefined);
+          const route = request.url ?? "/";
+          if (route === "/ok") response.end(JSON.stringify({ ok: true, marker: "zcode" }));
+          else if (route === "/notok") response.end(JSON.stringify({ ok: false }));
+          else if (route === "/nomarker") response.end(JSON.stringify({ ok: true }));
+          else if (route === "/bad") response.end("not json");
+          else if (route === "/noflag") response.end(JSON.stringify({ marker: "x" }));
+          else {
+            response.statusCode = 503;
+            response.end("{}");
+          }
+        }),
+      );
+      const { createSystemService } = await import("@escode/services/node");
+      const ts = createSystemService();
+      await withHosts(async ({ rpc }) => {
+        const rust = rpc.systemService;
+        expect(await rust.listIntegratedTerminalShells()).toEqual(
+          await ts.listIntegratedTerminalShells(),
+        );
+        const base = `http://127.0.0.1:${httpPort}`;
+        const requests = [
+          { targets: [{ host: "127.0.0.1", port: tcpPort }] },
+          { targets: [{ host: "127.0.0.1", port: 1, timeoutMs: 100 }], attempts: 3 },
+          {
+            targets: [
+              { host: " 127.0.0.1 ", port: tcpPort, id: " mine " },
+              { host: "  " },
+              { kind: "service", url: `${base}/ok`, expectedMarker: "zcode", token: " tok " },
+              { kind: "service", url: `${base}/ok`, expectedMarker: "other" },
+              { kind: "service", url: `${base}/nomarker`, expectedMarker: "zcode" },
+              { kind: "service", url: `${base}/notok` },
+              { kind: "service", url: `${base}/bad` },
+              { kind: "service", url: `${base}/noflag` },
+              { kind: "service", url: `${base}/boom` },
+              { kind: "service", url: "ftp://nope" },
+            ],
+            requiredSuccessCount: 3,
+            attempts: 1,
+          },
+          { targets: [] },
+          {
+            targets: [{ host: "127.0.0.1", port: tcpPort }],
+            requiredSuccessCount: 99,
+            attempts: 99,
+          },
+        ];
+        const strip = (
+          value: { results: Array<Record<string, unknown>> } & Record<string, unknown>,
+        ) => ({
+          ...value,
+          checkedAt: "<t>",
+          results: value.results.map((r) => {
+            const { latencyMs, error, ...rest } = r;
+            // 系统级连接错误文案（ECONNREFUSED 等）因运行时而异，只比较其是否存在。
+            const keepError =
+              typeof error === "string" && /^(marker|service|HTTP|invalid service response:|timeout)/.test(error);
+            return {
+              ...rest,
+              latency: latencyMs === null ? null : "<n>",
+              ...(error === undefined ? {} : { error: keepError ? error : "<io-error>" }),
+            };
+          }),
+        });
+        for (const request of requests) {
+          expect({
+            request,
+            result: strip((await rust.probeIntranet(request as never)) as never),
+          }).toEqual({
+            request,
+            result: strip((await ts.probeIntranet(request as never)) as never),
+          });
+        }
+        expect(seenTokens.filter(Boolean).length).toBeGreaterThanOrEqual(2);
+        expect(new Set(seenTokens.filter(Boolean))).toEqual(new Set(["tok"]));
+      });
+      for (const server of servers) server.close();
+    },
+    120_000,
+  );
+});

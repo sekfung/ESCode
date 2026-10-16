@@ -253,21 +253,20 @@ pub(crate) fn session_channel(
 /// `{homedir, platform}`（TS `os.homedir()` + `process.platform`；Main 经 `rpcListen`
 /// 给出的 home 与 Host 进程 HOME 同源）。终端 shell 探测与内网探测未实现。
 pub fn system_channel(home: std::path::PathBuf) -> Channel {
-    Channel::new(
-        "system",
-        vec![(
-            "info",
-            handler(move |_arg: Wire| {
-                let home = home.clone();
-                Box::pin(async move {
-                    Ok(Wire::Object(json!({
-                        "homedir": home.to_string_lossy(),
-                        "platform": node_platform(),
-                    })))
-                })
-            }),
-        )],
-    )
+    let mut methods = vec![(
+        "info",
+        handler(move |_arg: Wire| {
+            let home = home.clone();
+            Box::pin(async move {
+                Ok(Wire::Object(json!({
+                    "homedir": home.to_string_lossy(),
+                    "platform": node_platform(),
+                })))
+            })
+        }),
+    )];
+    methods.extend(crate::domains_system::extra_methods());
+    Channel::new("system", methods)
 }
 
 /// `process.platform` 口径（TS 用 Node 名字：darwin / win32 / linux）。
