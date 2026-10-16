@@ -259,6 +259,11 @@ vi.mock("@/v4/composer/useDraftConfigControl.js", () => ({
     modelSelectionRead: useModelSelectionServiceView(null),
     captureAcceptedModelSelection: () => vi.fn(),
     composerDraft: { text: "", updatedAt: 0 },
+    // Composer 执行就绪事实由 scope owner 冻结；发送路径的 Submission 装配依赖它。
+    executionCapabilities: undefined,
+    executionReady: true,
+    executionError: null,
+    executionSupported: true,
     draftConfig: {},
     draftConfigRef: {
       current: {

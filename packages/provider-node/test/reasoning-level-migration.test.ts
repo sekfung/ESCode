@@ -1,13 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import {
+  ApiKeyAccessConfig,
   ModelConfigRules,
   ModelConfig,
   ModelOptionSpecsConfig,
   ProviderConfigMap,
   ProviderConfigResolver,
   ProviderConfig,
-  ZhipuAccountAccessConfig,
   createRegistryModelConfig,
   createRegistryProviderConfig,
   type ModelSelection,
@@ -16,6 +16,9 @@ import {
 import { NodeESCodeBuiltinProviderConfigSource } from "../src/index.js";
 import { createNodeModelSelectionFacade } from "../src/model-selection-facade.js";
 import { legacyReasoningLevelRenames } from "../src/legacy-reasoning-level-renames.js";
+
+// 套餐族删除后不再有内建 account Provider；用幸存的标准 API 模板承载同一份迁移语义。
+const providerId = "personal-zai";
 
 const source = new NodeESCodeBuiltinProviderConfigSource({
   bundledFilePath: fileURLToPath(
@@ -30,32 +33,31 @@ beforeAll(async () => {
 afterAll(() => source.dispose());
 
 function view(modelId: string, level: string, personalModels = ModelConfigRules.empty()) {
+  const personalProviders = new ProviderConfigMap([
+    {
+      providerId,
+      templateId: "zai-standard-api",
+      config: new ProviderConfig({
+        group: "standard-personal",
+        access: new ApiKeyAccessConfig({ apiKey: "test-only" }),
+      }),
+    },
+  ]);
   const config = {
     revision: "c",
     escodeBuiltinRevision: "b",
     personalRevision: "p",
     escodeBuiltinProviders: builtin.providers,
-    escodeBuiltinProviderTemplates: builtin.templates,
-    personalProviders: ProviderConfigMap.empty(),
+    escodeBuiltinProviderTemplates: builtin.providerTemplates,
+    personalProviders,
     escodeBuiltinModelRules: builtin.models,
     personalModels,
   };
   const account = {
     revision: "a",
     basedOnESCodeBuiltinRevision: "b",
-    providers: new ProviderConfigMap([
-      [
-        "account:bigmodel-individual-coding-plan",
-        new ProviderConfig({ access: new ZhipuAccountAccessConfig({ entitled: true }) }),
-      ],
-    ]),
-    states: {
-      "account:bigmodel-individual-coding-plan": {
-        availability: "available" as const,
-        entitled: true,
-        current: true,
-      },
-    },
+    providers: ProviderConfigMap.empty(),
+    states: {},
   };
   // 真实 Built-in 规则和 Resolver；补入模型成员用于独立覆盖 GLM 的不同代际。
   const resolution = new ProviderConfigResolver().resolve({
@@ -63,7 +65,6 @@ function view(modelId: string, level: string, personalModels = ModelConfigRules.
     accountProviders: account.providers,
     accountStates: account.states,
   });
-  const providerId = "account:bigmodel-individual-coding-plan";
   const providerConfig = resolution.effectiveProviders.get(providerId)!;
   const modelConfig = ModelConfigRules.composeEffective(builtin.models, personalModels).resolve({
     providerId,
@@ -163,7 +164,7 @@ describe("Todo95C 来源限定的只读关闭档位改名", () => {
       new ModelConfigRules([
         {
           type: "provider-model",
-          providerId: "account:bigmodel-individual-coding-plan",
+          providerId,
           modelId: "GLM-5.2",
           config: new ModelConfig({
             optionSpecs: new ModelOptionSpecsConfig({ reasoningLevel: { values } }),

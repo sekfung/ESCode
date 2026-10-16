@@ -19,7 +19,6 @@ import type {
   TurnFileChangeSummary,
   TurnInputIntentMetadata,
 } from "@escode/contracts";
-import { isHighspeedProviderId } from "@escode/shared";
 import type { EventId, SessionEvent, SessionId, TraceId, TurnId } from "@escode/contracts";
 import {
   CompactTimelineStatus,
@@ -34,7 +33,6 @@ import {
 import {
   getConversationModelOnlyTurnTriggerSource,
   getConversationMessageProjectionPolicy,
-  highspeedMessageMetaSchema,
   isConversationRealUserTurnStarter,
 } from "@escode/shared";
 import {
@@ -398,7 +396,6 @@ function stringField(
 }
 
 function inputIntentOfMessage(message: MessageWithParts): TurnInputIntentMetadata | undefined {
-  const persistedHighspeed = highspeedMessageMetaSchema.safeParse(message.info.metadata?.highspeed);
   const fullIntent = conversationInputIntentSchema.safeParse(
     message.info.metadata?.conversationInputIntent,
   );
@@ -426,11 +423,6 @@ function inputIntentOfMessage(message: MessageWithParts): TurnInputIntentMetadat
         ? { fallbackReasonCode: value.delivery.fallbackReasonCode }
         : {}),
       ...(value.attachments.length > 0 ? { attachmentRefs: value.attachments } : {}),
-      ...(value.highspeed
-        ? { highspeed: value.highspeed }
-        : persistedHighspeed.success
-          ? { highspeed: persistedHighspeed.data }
-          : {}),
       ...(value.inputOrigin ? { inputOrigin: value.inputOrigin } : {}),
       ...(value.conversationQuotes ? { conversationQuotes: value.conversationQuotes } : {}),
       ...(value.botGroupSource ? { botGroupSource: value.botGroupSource } : {}),
@@ -462,7 +454,6 @@ function inputIntentOfMessage(message: MessageWithParts): TurnInputIntentMetadat
   }
   return {
     ...(value as unknown as TurnInputIntentMetadata),
-    ...(persistedHighspeed.success ? { highspeed: persistedHighspeed.data } : {}),
   };
 }
 
@@ -1108,32 +1099,23 @@ function hydratedModelKey(modelSelection: ModelSelection): string {
   return `${modelSelection.providerId}\u0000${modelSelection.modelId}\u0000${modelSelection.options?.reasoningLevel ?? ""}`;
 }
 
-function sessionModelSelectionOfHydratedMessage(
-  modelSelection: ModelSelection,
-): ModelSelection | null {
-  // Bug 原因：加速卡是单轮执行 Selection（selectionScope=execution），消息保留它用于记录
-  // 真实执行模型；但冷恢复曾把该字段误当成会话选型，重启后因此生成「加速 → 原模型」的
-  // 虚假切换提示。live 路径的 execution 作用域本就不发 ModelSelected，cold 必须同语义。
-  return isHighspeedProviderId(modelSelection.providerId) ? null : modelSelection;
-}
-
 function turnModelSelectionOfUserMessage(message: MessageWithParts): ModelSelection | null {
   if (message.info.role !== "user") return null;
   const modelSelection = message.info.modelSelection;
-  return modelSelection ? sessionModelSelectionOfHydratedMessage(modelSelection) : null;
+  return modelSelection ?? null;
 }
 
 function assistantModelSelectionOf(message: MessageWithParts): ModelSelection | null {
   if (message.info.role !== "assistant") return null;
   if (message.info.semantics?.kind === "timeline_event") return null;
   if (!message.info.providerId || !message.info.modelId) return null;
-  return sessionModelSelectionOfHydratedMessage({
+  return {
     providerId: String(message.info.providerId),
     modelId: String(message.info.modelId),
     ...(message.info.reasoningLevel
       ? { options: { reasoningLevel: message.info.reasoningLevel } }
       : {}),
-  });
+  };
 }
 
 function modelChangeToModelOf(message: MessageWithParts): HydratedTimelineModel | null {

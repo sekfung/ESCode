@@ -246,14 +246,12 @@ describe("createLocalServices remote authority", () => {
         .get(serviceDescriptors.ISettingService)
         .update({ providerFamilyDomain: "zai" });
       await services.get(serviceDescriptors.ICredentialService).save("ssh:password", "ignored");
-      await services
-        .get(serviceDescriptors.ICredentialService)
-        .save("oauth:active_provider", "zai");
 
+      // 套餐族删除（2026-10-15）：账号凭据（oauth:active_provider 等）不再是 Provisioning Source
+      // 事实，credential 原因随账号 Provider 链一并移除。
       expect(onProviderProvisioningSourceChanged.mock.calls).toEqual([
         ["personal-config"],
         ["account-settings"],
-        ["credential"],
       ]);
     } finally {
       disposeServiceResources(services);
@@ -326,15 +324,8 @@ describe("createLocalServices remote authority", () => {
       );
       await credentialService.save("oauth:zai:access_token", "login-token");
       // OAuth 只用登录态换 PAT；保留旧 Key 作为反例，防止组装退回历史 Secret。
-      await credentialService.save(
-        accountProviderCredentialKey({
-          providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
-          planKind: "individual-coding-plan",
-          accountIdentity: "account-a",
-        }),
-        "legacy-coding-plan-key",
-      );
-
+      // 套餐族删除（2026-10-15）：OAuth 登录与 Coding Plan 材料解析已移除，
+      // resolveCurrent 对账号 Provider 一律 fail-closed（不再换 PAT）。
       await expect(
         accountRequestAuthService!.resolveCurrent({
           providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
@@ -346,19 +337,7 @@ describe("createLocalServices remote authority", () => {
           },
           reason: "model-request",
         }),
-      ).resolves.toEqual({
-        apiKey: "current-project-token",
-        apiKeyId: "key-id",
-        accountScope: expect.stringMatching(/^[a-f0-9]{64}$/),
-      });
-      const tokenRequest = fetchToken.mock.calls.find(([url]) =>
-        String(url).endsWith("/api_keys/key-id/access_tokens"),
-      );
-      expect(tokenRequest).toBeDefined();
-      expect(new Headers(tokenRequest![1]?.headers).get("authorization")).toBe(
-        "Bearer login-token",
-      );
-      expect(fetchToken.mock.calls.some(([url]) => String(url).includes("/copy/"))).toBe(false);
+      ).rejects.toMatchObject({ name: "AccountRequestCredentialUnavailableError" });
     } finally {
       disposeServiceResources(services);
     }

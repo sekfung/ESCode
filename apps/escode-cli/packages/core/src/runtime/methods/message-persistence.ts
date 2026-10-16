@@ -106,7 +106,6 @@ export async function persistUserPrompt(
               ? { inputClientId: options?.intent?.clientId ?? options?.clientId }
               : {}),
             ...(options?.executionKind ? { executionKind: options.executionKind } : {}),
-            ...(options?.intent?.highspeed ? { highspeed: options.intent.highspeed } : {}),
             ...(options?.epilogueStart === undefined
               ? {}
               : { epilogueStart: options.epilogueStart }),

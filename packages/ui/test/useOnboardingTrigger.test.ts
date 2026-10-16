@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import type { OnboardingSettingsSyncPatch } from "@escode/services";
+import { describe, expect, it } from "vitest";
 import { useOnboardingTrigger } from "@/onboarding/useOnboardingTrigger.js";
 import type { IOnboardingRecordService } from "@escode/services";
 
@@ -28,24 +27,18 @@ function createRecordService(
   };
 }
 
+// 账号登录链已下线：hook 不再按 userId 变化回填 settings，只保留记录判定本身。
 function renderTrigger(options: {
   service: IOnboardingRecordService | null;
-  userId?: string | null;
   hasStoredOccupation?: boolean;
 }) {
-  const update = vi.fn(async () => {});
-  const utils = renderHook(
-    ({ userId }: { userId: string | null }) =>
-      useOnboardingTrigger({
-        onboardingRecord: options.service,
-        userId,
-        hasStoredOccupation: options.hasStoredOccupation ?? false,
-        loadDeviceMid: () => "device-a",
-        update,
-      }),
-    { initialProps: { userId: options.userId ?? null } },
+  return renderHook(() =>
+    useOnboardingTrigger({
+      onboardingRecord: options.service,
+      hasStoredOccupation: options.hasStoredOccupation ?? false,
+      loadDeviceMid: () => "device-a",
+    }),
   );
-  return { ...utils, update };
 }
 
 describe("useOnboardingTrigger", () => {
@@ -69,44 +62,6 @@ describe("useOnboardingTrigger", () => {
   it("服务不可用退回 settings 判定（hasStoredOccupation=false 视为需引导）", async () => {
     const { result } = renderTrigger({ service: null, hasStoredOccupation: false });
     await waitFor(() => expect(result.current[0]).toBe(true));
-  });
-
-  it("挂载首跑不回填 settings；userId 运行时变化才按 record 回填", async () => {
-    const patch: OnboardingSettingsSyncPatch = { onboardingOccupation: "finance" };
-    const sync = vi.fn(async () => patch);
-    const service = createRecordService({
-      shouldOnboard: async () => false,
-      syncSettingsFromRecord: sync,
-    });
-    const { result, rerender, update } = renderTrigger({ service, userId: null });
-
-    // 首跑（null→已恢复的 id 不算运行时变化）：判定但不回填
-    rerender({ userId: "u1" });
-    await waitFor(() => expect(result.current[0]).toBe(false));
-    expect(sync).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
-
-    // 换号（u1→u2，非空直切）：按 record 回填
-    rerender({ userId: "u2" });
-    await waitFor(() => expect(sync).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(update).toHaveBeenCalledWith(
-        expect.objectContaining({ onboardingOccupation: "finance" }),
-      ),
-    );
-  });
-
-  it("登出（id→null）也按 null 用户的 record 回填", async () => {
-    const patch: OnboardingSettingsSyncPatch = { onboardingOccupation: "other" };
-    const sync = vi.fn(async () => patch);
-    const service = createRecordService({
-      shouldOnboard: async () => false,
-      syncSettingsFromRecord: sync,
-    });
-    const { result, rerender, update } = renderTrigger({ service, userId: "u1" });
-    await waitFor(() => expect(result.current[0]).toBe(false));
-    rerender({ userId: null });
-    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining(patch)));
   });
 
   it("登录后先认领再判定：认领使判定不触发（同一人不重复引导）", async () => {

@@ -122,7 +122,7 @@ describe("Todo126 发布配置的 Flash PDF 和模板 Turbo 默认", () => {
     }
   });
 
-  it("仅两个套餐 Key 模板的 Turbo 默认关闭，个人仍可开启", async () => {
+  it("两个标准 API 模板的 Turbo 默认关闭，个人仍可开启", async () => {
     const source = new NodeESCodeBuiltinProviderConfigSource({
       bundledFilePath: fileURLToPath(
         new URL("../../../config/provider/escode-builtin.json", import.meta.url),
@@ -131,13 +131,7 @@ describe("Todo126 发布配置的 Flash PDF 和模板 Turbo 默认", () => {
     });
     try {
       const snapshot = await source.read();
-      for (const templateId of [
-        "zai-api",
-        "bigmodel-api",
-        "zai-standard-api",
-        "bigmodel-standard-api",
-        "custom",
-      ]) {
+      for (const templateId of ["zai-standard-api", "bigmodel-standard-api", "custom"]) {
         const config = snapshot.models.resolve({
           providerId: "personal",
           templateId,
@@ -145,7 +139,7 @@ describe("Todo126 发布配置的 Flash PDF 和模板 Turbo 默认", () => {
           apiType: "anthropic-messages",
           baseUrl: "https://example.test",
         });
-        // 普通 API 早已有 Turbo 默认关闭，保持；无模板的第三方仍沿用通用默认开启。
+        // 标准 API 模板的 Turbo 默认关闭；无模板的第三方仍沿用通用默认开启。
         expect(config.enabled, templateId).toBe(templateId === "custom");
         expect(config.overlay(new ModelConfig({ enabled: true })).enabled).toBe(true);
         expect(config.overlay(new ModelConfig({ enabled: false })).enabled).toBe(false);

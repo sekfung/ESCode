@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildRustHostProviderEnv } from "../src/main/desktopRuntimeEnv.js";
 import { startRustHost } from "../src/main/rustHostBridge.js";
 import { createRustHostManager } from "../src/main/rustHostManager.js";
 
@@ -83,5 +84,24 @@ describe.skipIf(process.platform === "win32")("rust host runtimeEnv handoff", ()
       else process.env.FAKE_HOST_CAPTURE = saved;
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("buildRustHostProviderEnv", () => {
+  it("derives the personal file from the config dir and forwards the Active/LKG locator", () => {
+    expect(
+      buildRustHostProviderEnv({
+        builtinFilePath: "/res/escode-builtin.json",
+        appConfigDir: "/data/.escode/v2",
+        appVersion: "1.2.3",
+        endpointOrigin: "https://api.example.com",
+      }),
+    ).toEqual({
+      ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: "/res/escode-builtin.json",
+      ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: join("/data/.escode/v2", "provider_config.json"),
+      ESCODE_BUILTIN_CACHE_ROOT: "/data/.escode/v2",
+      ESCODE_APP_VERSION: "1.2.3",
+      ESCODE_ENDPOINT_ORIGIN: "https://api.example.com",
+    });
   });
 });

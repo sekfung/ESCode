@@ -118,14 +118,15 @@ describe("@escode/provider-node", () => {
     expect(
       snapshot.models.resolve({
         providerId: "personal-zai-api",
-        templateId: "zai-api",
+        templateId: "zai-standard-api",
         modelId: "glm-5.3",
-        apiType: "anthropic-messages",
-        baseUrl: "https://api.z.ai/api/anthropic",
+        apiType: "openai-chat-completions",
+        baseUrl: "https://api.z.ai/api/paas/v4",
       }).properties,
     ).toMatchObject({
-      supportsMidConversationSystem: true,
-      supportsNativeWebSearch: true,
+      // 标准 API 端点不暴露网关专属能力；这些事实只属于已删除的套餐模板。
+      supportsMidConversationSystem: false,
+      supportsNativeWebSearch: false,
     });
     expect(
       snapshot.models.resolve({
@@ -152,15 +153,11 @@ describe("@escode/provider-node", () => {
       supportsMidConversationSystem: true,
       supportsNativeWebSearch: false,
     });
-    expect(snapshot.providers.get("account:zai-start-plan")?.access).toMatchObject({
-      type: "zhipu-account",
-      accountType: "zai",
-      mode: "start-plan",
-    });
-    expect(snapshot.providers.get("account:zai-offpeak-idle-plan")?.access).toMatchObject({
-      type: "zhipu-account",
-      accountType: "zai",
-      mode: "off-peak",
+    // 套餐族删除后 Built-in 只保留 api-key 模板，不再有内建账号 Provider。
+    expect(snapshot.providers.keys()).toEqual([]);
+    expect(snapshot.providerTemplates?.get("zai-standard-api")?.config.access).toMatchObject({
+      type: "api-key",
+      apiKeyManagementUrl: "https://z.ai/manage-apikey/apikey-list",
     });
     expect(snapshot.providerTemplates?.get("deepseek")?.config.access).toMatchObject({
       type: "api-key",

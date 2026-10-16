@@ -30,8 +30,6 @@ before(async () => {
             return 'export const useESCodeStore=(select)=>select({interfaceMode:"coding",setInterfaceMode:()=>{},isRestoringOAuthSession:false});';
           if (id.endsWith("/WorkspaceWebRemoteControlTrigger.tsx"))
             return "export const WorkspaceWebRemoteControlTrigger=()=>null;";
-          if (id.endsWith("/WorkspaceSidebarFooterUsageSummary.tsx"))
-            return 'import React from "react"; export const useWorkspaceSidebarFooterUsageSummaryState=()=>({}); export const WorkspaceSidebarFooterPlanBadge=()=>React.createElement("span",{className:"rounded-full border border-border bg-surface px-1 py-px text-ui-xs text-foreground-subtle"},"Pro"); export const WorkspaceSidebarFooterUsageSummaryContent=()=>null;';
         },
       },
       react(),
@@ -88,7 +86,6 @@ async function open(params = {}, clipboard = "ok", width = 960) {
     exact: true,
   });
   await trigger.waitFor();
-  assert.equal(await trigger.getByText("Pro", { exact: true }).count(), 0);
   await trigger.click();
   return page;
 }
@@ -131,12 +128,8 @@ for (const theme of ["light", "dark"])
             .getBoundingClientRect();
           const id = el.querySelector('[data-testid="profile-menu-id"]').getBoundingClientRect();
           const copy = el.querySelector('[data-testid="copy-user-id"]').getBoundingClientRect();
-          const plan = el
-            .querySelector('[data-testid="profile-menu-plan"]')
-            .getBoundingClientRect();
           return {
             copyGap: copy.x - id.right,
-            planGap: plan.x - name.right,
             nameX: name.x,
             idX: id.x,
             nameBottom: name.bottom,
@@ -148,8 +141,6 @@ for (const theme of ["light", "dark"])
         assert.ok(geometry.idTop >= geometry.nameBottom);
         assert.ok(geometry.first);
         assert.ok(geometry.copyGap >= 0 && geometry.copyGap <= 8);
-        assert.ok(geometry.planGap >= 0 && geometry.planGap <= 8);
-        assert.equal(await header.getByTestId("profile-menu-plan").innerText(), "Pro");
         await page
           .getByRole("menu")
           .screenshot({ path: `${artifacts}/${theme}-${mobile}.png`, animations: "disabled" });

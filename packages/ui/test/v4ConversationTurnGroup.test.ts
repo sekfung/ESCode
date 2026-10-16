@@ -31,12 +31,6 @@ import { PlatformProvider } from "@/hooks/usePlatform.js";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { ConversationTurnGroup } from "@/v4/ConversationTurnGroup.js";
-import {
-  completeHighspeedTurn,
-  markHighspeedTurnMetricsPersisted,
-  recordHighspeedTurn,
-  setHighspeedCardTps,
-} from "@/highspeed/highspeedTurnStore.js";
 import type { ConversationRowRenderContext } from "@/v4/conversationRowContext.js";
 import {
   buildConversationTurnRenderUnits,
@@ -47,11 +41,6 @@ vi.mock("@/hooks/useWorkspaceServices.js", () => ({
   useWorkspaceServices: () => ({}),
 }));
 
-vi.mock("@/hooks/useServices.js", () => ({
-  useOptionalServices: () => ({
-    highspeedCardService: { share: vi.fn() },
-  }),
-}));
 const topicInterrupted = vi.hoisted(() => vi.fn(() => false));
 vi.mock("@/v4/botGroupDeliveryContext.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/v4/botGroupDeliveryContext.js")>()),
@@ -312,7 +301,6 @@ function renderUnit(
     messageStreamShowReasoning?: boolean;
     messageStreamShowTodos?: boolean;
     apiRetry?: ApiRetryState | null;
-    nowMs?: number;
     onFork?: (rowId: number) => void;
     onRetry?: (target: ConversationRowTarget) => void;
     onFeedbackChange?: (target: ConversationRowTarget, feedback: "like" | "dislike" | null) => void;
@@ -340,7 +328,6 @@ function renderUnit(
             null,
             createElement(ConversationTurnGroup, {
               unit,
-              nowMs: options.nowMs,
               apiRetry: options.apiRetry,
               context: {
                 ...rowContext,
@@ -542,49 +529,26 @@ describe("ConversationTurnGroup Hook footer", () => {
 
   it.each(
     [false, true].flatMap((compactForRemoteControl) =>
-      [false, true].flatMap((highspeed) =>
-        [false, true].map((hasAssistantText) => ({
-          compactForRemoteControl,
-          highspeed,
-          hasAssistantText,
-        })),
-      ),
+      [false, true].map((hasAssistantText) => ({
+        compactForRemoteControl,
+        hasAssistantText,
+      })),
     ),
   )(
-    "HK08/HK11 每轮仅一个 Hook 入口：mobile=$compactForRemoteControl highspeed=$highspeed text=$hasAssistantText",
-    ({ compactForRemoteControl, highspeed, hasAssistantText }) => {
+    "HK08/HK11 每轮仅一个 Hook 入口：mobile=$compactForRemoteControl text=$hasAssistantText",
+    ({ compactForRemoteControl, hasAssistantText }) => {
       const [unit] = buildConversationTurnRenderUnits([
         turnHeader({ state: hasAssistantText ? "completedSuccess" : "completedInterrupted" }),
-        userInputRow(2, {
-          ...(highspeed
-            ? {
-                highspeed: {
-                  schemaVersion: 1,
-                  cardId: "hsc-hook-footer",
-                  taskId: "session-hook-footer",
-                  provider: "zai",
-                  model: "glm-5",
-                  issuedAt: 1_000,
-                  expiresAt: 10_000,
-                },
-              }
-            : {}),
-        }),
+        userInputRow(2),
         hookInvocationRow(3),
         ...(hasAssistantText ? [assistantTextRow(4)] : []),
         forkNoticeTimelineRow(5),
       ]);
-      const html = renderUnit(
-        { ...unit!, showHighspeedOutputFooter: highspeed },
-        { compactForRemoteControl },
-      );
+      const html = renderUnit(unit!, { compactForRemoteControl });
 
-      // 冲突合并曾把 Hook-only 分支接成 Highspeed footer 的 else：
-      // 普通有正文时重复显示，Highspeed 无正文时则完全丢失。
       expect(html.match(/data-testid="v4-hook-details-trigger-turn-complete"/g) ?? []).toHaveLength(
         1,
       );
-      expect(html.includes('data-highspeed-output-footer="true"')).toBe(highspeed);
       expect(html.indexOf("v4-hook-details-trigger-turn-complete")).toBeLessThan(
         html.indexOf("从对话中派生"),
       );
@@ -772,377 +736,6 @@ describe("ConversationTurnGroup message stream display settings", () => {
 });
 
 describe("ConversationTurnGroup assistant history status", () => {
-  it("会话内分享只打开本地卡片，不再调用后端分享接口", () => {
-    const source = readFileSync("packages/ui/src/v4/ConversationTurnGroup.tsx", "utf8");
-
-    expect(source).toContain("setHighspeedShareDialogOpen(true)");
-    expect(source).toContain("<HighspeedShareDialog");
-    expect(source).not.toContain("highspeedCardService.share");
-  });
-
-  it("冷恢复后从 userInput metadata 保留 accelerated output 的紫色工时", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-cold-history",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-cold-history",
-        taskId: "session-highspeed-cold-history",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 73,
-        highspeedTps: 136,
-        outputTokens: 120_000,
-        durationMs: 881_000,
-        savedDurationMs: 763_000,
-      },
-    });
-    const work = reasoningRow();
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        workStatus: { state: "completed", durationMs: 881_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [input, work],
-        showHighspeedOutputFooter: true,
-      }),
-    );
-
-    expect(html).toContain("已工作 14 分 41 秒");
-    expect(html).toContain('data-highspeed-duration="true"');
-    expect(html).toContain("text-icon-purple");
-    expect(html).toContain("节省约 12 分 43 秒");
-    expect(html).toContain('data-highspeed-saved-duration="true"');
-    expect(html).toContain('data-highspeed-status-tag="true"');
-    expect(html).not.toContain('data-highspeed-gradient="true"');
-    expect(html).toContain("HighSpeed");
-    expect(html).toContain('data-highspeed-output-footer="true"');
-    expect(html).toContain("以上由 Highspeed 生成");
-    expect(html).toContain('data-highspeed-output-share="true"');
-    expect(html).toContain("查看");
-    const shareButton = html.match(/<button[^>]*data-highspeed-output-share="true"[^>]*>/)?.[0];
-    expect(shareButton).toBeDefined();
-    expect(shareButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
-    expect(shareButton).toContain("h-7");
-    expect(shareButton).toContain("gap-1");
-    expect(shareButton).toContain("rounded-[8px]");
-    expect(shareButton).toContain("px-2");
-    expect(shareButton).toContain("py-1");
-    expect(shareButton).toContain("font-medium");
-    expect(html).toContain('data-highspeed-output-share-icon="true"');
-    expect(html).not.toContain('data-highspeed="true"');
-  });
-
-  it("卡失效降级后仍允许分享当前 Turn 的完整统计", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-fallback-share",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-fallback-share",
-        taskId: "session-fallback-share",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 73,
-        highspeedTps: 136,
-        outputTokens: 120_000,
-        durationMs: 881_000,
-        savedDurationMs: 763_000,
-        fallbackAt: 10_001,
-      },
-    });
-    const work = reasoningRow();
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        workStatus: { state: "completed", durationMs: 881_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [input, work],
-        showHighspeedOutputFooter: true,
-      }),
-    );
-
-    const shareButton = html.match(/<button[^>]*data-highspeed-output-share="true"[^>]*>/)?.[0];
-    expect(shareButton).toBeDefined();
-    expect(shareButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
-  });
-
-  it("缺少 durationMs 仍允许按 token 与 TPS 分享", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-share-without-duration",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-share-without-duration",
-        taskId: "session-share-without-duration",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        outputTokens: 120_000,
-        regularTps: 73,
-        highspeedTps: 136,
-      },
-    });
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        workStatus: { state: "completed", durationMs: 881_000 },
-        assistantWorkRows: [reasoningRow()],
-        assistantHistoryRows: [reasoningRow()],
-        renderRows: [input, reasoningRow()],
-        showHighspeedOutputFooter: true,
-      }),
-    );
-
-    const shareButton = html.match(/<button[^>]*data-highspeed-output-share="true"[^>]*>/)?.[0];
-    expect(shareButton).toBeUndefined();
-  });
-
-  it("总体加速倍率不大于 1.2x 时保留 footer 但隐藏分享入口", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-low-speedup",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-low-speedup",
-        taskId: "session-low-speedup",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 73,
-        highspeedTps: 100,
-        outputTokens: 120_000,
-        durationMs: 881_000,
-        savedDurationMs: 100_000,
-      },
-    });
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        workStatus: { state: "completed", durationMs: 881_000 },
-        assistantWorkRows: [reasoningRow()],
-        assistantHistoryRows: [reasoningRow()],
-        renderRows: [input, reasoningRow()],
-        showHighspeedOutputFooter: true,
-      }),
-    );
-
-    expect(html).toContain('data-highspeed-output-footer="true"');
-    expect(html).not.toContain('data-highspeed-output-share="true"');
-  });
-
-  it("Highspeed 生成期间只显示标签，不提前显示持久化的节省时间", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-running",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-running",
-        taskId: "session-highspeed-running",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 73,
-        outputTokens: 120_000,
-        durationMs: 881_000,
-        savedDurationMs: 763_000,
-      },
-    });
-    const work = reasoningRow();
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        // 多段输出中，前段可已完成但整轮仍在生成；节省时间必须服从整轮终态。
-        workStatus: { state: "completed", durationMs: 5_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [input, work],
-        isRunning: true,
-      }),
-      { nowMs: 9_999 },
-    );
-
-    expect(html).toContain('data-highspeed-status-tag="true"');
-    expect(html).toContain('data-highspeed-gradient="true"');
-    expect(html).toContain("highspeed-animated-gradient-text");
-    expect(html).toContain("HighSpeed");
-    expect(html).not.toContain('data-highspeed-saved-duration="true"');
-    expect(html).not.toContain("节省约");
-  });
-
-  it("Highspeed 卡过期后执行中的 Tool 恢复普通流光样式", () => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-expired-running-tool",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-expired-running-tool",
-        taskId: "session-expired-running-tool",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-      },
-    });
-    const runningTool = toolCallRow(3, "Bash", { command: "pnpm test" }, { status: "running" });
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        assistantWorkRows: [runningTool],
-        assistantHistoryRows: [runningTool],
-        renderRows: [input, runningTool],
-        isRunning: true,
-      }),
-      { nowMs: 10_001 },
-    );
-
-    expect(html).not.toContain('data-highspeed-gradient="true"');
-    expect(html).not.toContain("highspeed-animated-gradient-text");
-  });
-
-  it("普通 output 和仍在运行的 accelerated output 不显示 Highspeed 来源 footer", () => {
-    const work = reasoningRow();
-    const ordinaryHtml = renderUnit(
-      baseUnit({
-        visibleUserInputs: [userInputRow(2, { sourceCommandId: "command-ordinary-footer" })],
-        workStatus: { state: "completed", durationMs: 5_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [work],
-      }),
-    );
-    const runningHtml = renderUnit(
-      baseUnit({
-        visibleUserInputs: [
-          userInputRow(2, {
-            sourceCommandId: "command-highspeed-running-footer",
-            highspeed: {
-              schemaVersion: 1,
-              cardId: "hsc-running-footer",
-              taskId: "session-running-footer",
-              provider: "zai",
-              model: "glm-5",
-              issuedAt: 1_000,
-              expiresAt: 10_000,
-            },
-          }),
-        ],
-        workStatus: { state: "running", durationMs: 5_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [work],
-        isRunning: true,
-        showHighspeedOutputFooter: true,
-      }),
-      { nowMs: 9_999 },
-    );
-
-    expect(ordinaryHtml).not.toContain('data-highspeed-output-footer="true"');
-    expect(ordinaryHtml).not.toContain('data-highspeed-gradient="true"');
-    expect(runningHtml).not.toContain('data-highspeed-output-footer="true"');
-    expect(runningHtml).toContain('data-highspeed-gradient="true"');
-  });
-
-  it.each([
-    { label: "中断", workStatus: { state: "interrupted" as const, durationMs: 100 } },
-    { label: "异常", workStatus: undefined },
-  ])("Highspeed 组尾$label且自身无输出时仍展示可用分享入口", ({ workStatus }) => {
-    const input = userInputRow(2, {
-      sourceCommandId: "command-highspeed-terminal-footer",
-      highspeed: {
-        schemaVersion: 1,
-        cardId: "hsc-terminal-footer",
-        taskId: "session-terminal-footer",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 20,
-        highspeedTps: 50,
-        outputTokens: 0,
-        durationMs: 100,
-      },
-    });
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        ...(workStatus ? { workStatus } : {}),
-        showHighspeedOutputFooter: true,
-        highspeedOutputFooterTarget: {
-          cardId: "hsc-terminal-footer",
-          metrics: {
-            outputTokens: 10,
-            durationMs: 300,
-            regularTps: 20,
-            highspeedTps: 50,
-          },
-        },
-      }),
-    );
-
-    expect(html).toContain('data-highspeed-output-footer="true"');
-    const shareButton = html.match(/<button[^>]*data-highspeed-output-share="true"[^>]*>/)?.[0];
-    expect(shareButton).toBeDefined();
-    expect(shareButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
-  });
-
-  it("只用紫色工时标识 accelerated output，input 保持普通样式", () => {
-    const sourceCommandId = "command-highspeed-output-duration";
-    const input = userInputRow(2, { sourceCommandId });
-    const work = reasoningRow();
-    recordHighspeedTurn({
-      sessionId: "session-highspeed-output-duration",
-      sourceCommandId,
-      card: {
-        cardId: "hsc-output-duration",
-        taskId: "session-highspeed-output-duration",
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-        regularTps: 73,
-      },
-      createdAt: 1_000,
-    });
-    completeHighspeedTurn({
-      sourceCommandId,
-      outputTokens: 120_000,
-      durationMs: 881_000,
-      completedAt: 882_000,
-    });
-    setHighspeedCardTps("hsc-output-duration", 136);
-    markHighspeedTurnMetricsPersisted(sourceCommandId, 763_000, 882_001);
-
-    const html = renderUnit(
-      baseUnit({
-        visibleUserInputs: [input],
-        workStatus: { state: "completed", durationMs: 881_000 },
-        assistantWorkRows: [work],
-        assistantHistoryRows: [work],
-        renderRows: [input, work],
-        showHighspeedOutputFooter: true,
-      }),
-    );
-
-    expect(html).toContain("已工作 14 分 41 秒");
-    expect(html).toContain('data-highspeed-duration="true"');
-    expect(html).toContain("text-icon-purple");
-    expect(html).toContain('data-highspeed-status-tag="true"');
-    expect(html).toContain("HighSpeed");
-    const shareButton = html.match(/<button[^>]*data-highspeed-output-share="true"[^>]*>/)?.[0];
-    expect(shareButton).toBeDefined();
-    expect(shareButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
-    expect(html).not.toContain('data-highspeed="true"');
-  });
-
   it("H17：切模型后的 /goal query 与 continuation 合计只显示一个工作状态", () => {
     const startedAt = 1_700_000_000_000;
     const units = buildConversationTurnRenderUnits(
@@ -1157,7 +750,7 @@ describe("ConversationTurnGroup assistant history status", () => {
           marker: {
             type: "modelChange",
             fromProvider: "zhipu",
-            fromModel: "glm-5.2-highspeed",
+            fromModel: "glm-5.2-turbo",
             toProvider: "deepseek",
             toModel: "deepseek-v4-flash",
             toThought: "max",
@@ -2437,18 +2030,6 @@ describe("ConversationTurnGroup assistant history status", () => {
 });
 
 describe("ConversationTurnGroup ChatLoading lifecycle", () => {
-  it("Highspeed 运行态作用域用语义紫色覆盖所有呼吸渐变", () => {
-    const styles = readFileSync("packages/ui/src/styles.css", "utf8");
-    const modifier =
-      styles.match(
-        /\.highspeed-animated-gradient-text\s+\.animated-gradient-text\s*\{([^}]*)\}/,
-      )?.[1] ?? "";
-
-    expect(modifier).toContain("--animated-gradient-text-strong: var(--color-icon-purple);");
-    expect(modifier).toContain("--animated-gradient-text-soft:");
-    expect(modifier).toContain("var(--color-icon-purple)");
-  });
-
   it("Retry 只降低 shimmer 峰值并保留全局低透明度扫光低谷", () => {
     const styles = readFileSync("packages/ui/src/styles.css", "utf8");
     const modifier = styles.match(/\.animated-gradient-text-subtle\s*\{([^}]*)\}/)?.[1] ?? "";

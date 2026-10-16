@@ -662,3 +662,23 @@ export function buildRustHostRuntimeEnv(
   for (const key of telemetryKeys) delete env[key];
   return env;
 }
+
+/**
+ * Rust Host 的 provider 配置位置（rust-u2-providers.md §7，审计 A16b）：Bundled/Personal 文件路径，
+ * 以及 Built-in Active/LKG 缓存的定位三元组（环境配置根、应用版本、当前控制面 Endpoint Origin）。
+ * Endpoint 在 Host 启动时固定；切换 Endpoint 需要 Main↔Host 控制消息，属后续切片。
+ */
+export function buildRustHostProviderEnv(options: {
+  readonly builtinFilePath: string;
+  readonly appConfigDir: string;
+  readonly appVersion: string;
+  readonly endpointOrigin: string;
+}): Record<string, string> {
+  return {
+    ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: options.builtinFilePath,
+    ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: join(options.appConfigDir, "provider_config.json"),
+    ESCODE_BUILTIN_CACHE_ROOT: options.appConfigDir,
+    ESCODE_APP_VERSION: options.appVersion,
+    ESCODE_ENDPOINT_ORIGIN: options.endpointOrigin,
+  };
+}

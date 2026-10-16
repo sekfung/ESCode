@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { isHighspeedProviderId, resolveExecutionState, type ExecutionState } from "@escode/shared";
+import { resolveExecutionState, type ExecutionState } from "@escode/shared";
 import { buildExecutionStateEntry, readRuntimeExecutionState } from "../execution-state.js";
 import {
   createModelId,
@@ -68,12 +68,7 @@ function stableForkError(message: string, context: Record<string, unknown> = {})
 const MODEL_SELECTION_ENTRY_SUFFIX = ":runtime-model-selection";
 
 function modelSelectionFromMessage(message: MessageWithParts): ModelSelection | undefined {
-  const selection = persistedModelSelectionOfMessage(message);
-  // 加速卡 Selection 是 `selectionScope=execution` 的单轮执行事实（highspeed-card-spec §5），
-  // 只有与同一轮 requestAuth 成对才有效。child 继承它会常驻在无凭据的加速 Provider 上：
-  // 用户看到「分叉后原模型没带过来」，子会话首轮还会以 ModelRequestAuthMissing 失败。
-  // 因此跳过该消息，继续向前找最近一次普通选型，最终回落 runtime 常驻 Selection。
-  return selection && isHighspeedProviderId(selection.providerId) ? undefined : selection;
+  return persistedModelSelectionOfMessage(message);
 }
 
 function persistedModelSelectionOfMessage(message: MessageWithParts): ModelSelection | undefined {
@@ -95,9 +90,7 @@ function resolveForkModelSelection(
   messages: readonly MessageWithParts[],
   explicit?: ModelSelection,
 ): ModelSelection | undefined {
-  // 加速 Provider 不能成为 child 的常驻 Selection（理由见 modelSelectionFromMessage），
-  // 调用方显式传入时同样跳过，回落历史普通选型 / runtime 常驻 Selection。
-  if (explicit && !isHighspeedProviderId(explicit.providerId)) return cloneModelSelection(explicit);
+  if (explicit) return cloneModelSelection(explicit);
   const historical = [...messages].reverse().map(modelSelectionFromMessage).find(Boolean);
   const runtimeSelection = runtime.getSessionModelSelection();
   const identity = historical ?? runtimeSelection;

@@ -6,33 +6,23 @@ import type {
   ManagedCdpBrowserRuntimeOptions,
 } from "@escode/adapters/browser";
 import type {
-  createDefaultProviderEndpointRoutingPort,
   createModelAdapter,
   createESCodeApp,
-  CreateDefaultProviderEndpointRoutingPortOptions,
   CreateModelAdapterOptions,
-  configureCodingPlanApiKey,
-  ConfigureCodingPlanApiKeyOptions,
   inspectESCodeSkill,
+  InspectESCodeSkillOptions,
   inspectWorkspaceHookTrust,
   grantWorkspaceHookTrust,
   revokeWorkspaceHookTrustCli,
   inspectESCodeCustomCommand,
   InspectESCodeCustomCommandOptions,
-  InspectESCodeSkillOptions,
-  loginESCodeCli,
-  loginBigmodelCodingPlan,
-  LoginBigmodelCodingPlanOptions,
-  LoginESCodeCliOptions,
   listESCodeCustomCommands,
   ListESCodeCustomCommandsOptions,
   loadESCodeCustomCommand,
   listESCodeSessions,
   listESCodeSkills,
-  ListESCodeSessionsOptions,
   ListESCodeSkillsOptions,
-  logoutESCodeCli,
-  LogoutESCodeCliOptions,
+  ListESCodeSessionsOptions,
   resolveLatestSession,
   ResolveLatestSessionOptions,
   RunESCodeProtocolAgentOptions,
@@ -57,9 +47,6 @@ export interface RunDependencies extends PluginsCommandOverrides {
   createModelAdapter?: (
     options?: CreateModelAdapterOptions,
   ) => ReturnType<typeof createModelAdapter>;
-  createProviderEndpointRoutingPort?: (
-    options: CreateDefaultProviderEndpointRoutingPortOptions,
-  ) => ReturnType<typeof createDefaultProviderEndpointRoutingPort>;
   createESCodeApp?: (
     options?: ESCodeAppOptions,
   ) => Awaited<ReturnType<typeof createESCodeApp>> | ReturnType<typeof createESCodeApp>;
@@ -79,13 +66,6 @@ export interface RunDependencies extends PluginsCommandOverrides {
   inspectCustomCommand?: (
     options: InspectESCodeCustomCommandOptions,
   ) => ReturnType<typeof inspectESCodeCustomCommand>;
-  loginESCodeCli?: (options?: LoginESCodeCliOptions) => ReturnType<typeof loginESCodeCli>;
-  loginBigmodelCodingPlan?: (
-    options?: LoginBigmodelCodingPlanOptions,
-  ) => ReturnType<typeof loginBigmodelCodingPlan>;
-  configureCodingPlanApiKey?: (
-    options: ConfigureCodingPlanApiKeyOptions,
-  ) => ReturnType<typeof configureCodingPlanApiKey>;
   loadDotenv?: (options?: LoadCliDotenvOptions) => DotenvLoadResult;
   prepareESCodeTelemetryEnv?: typeof prepareESCodeTelemetryEnv;
   projectConfigPath?: string;
@@ -107,7 +87,6 @@ export interface RunDependencies extends PluginsCommandOverrides {
     options: ResolveLatestSessionOptions,
   ) => ReturnType<typeof resolveLatestSession>;
   resolveWorkspaceGitBranch?: typeof resolveWorkspaceGitBranch;
-  logoutESCodeCli?: (options?: LogoutESCodeCliOptions) => ReturnType<typeof logoutESCodeCli>;
   runESCodeProtocolAgent?: (options?: RunESCodeProtocolAgentOptions) => Promise<void>;
   runTui?: typeof import("@escode/tui").runTui;
   skipUserConfig?: boolean;

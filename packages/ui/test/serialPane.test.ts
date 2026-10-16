@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+// 串口用例必须由 vitest 收集：node:test 的 test() 不会注册到 vitest runner，
+// 整个文件会被判为「No test suite found」。断言仍沿用 node:assert/strict，
+// 逐条保留原有语义（deepEqual 即 deepStrictEqual，失败仍会让用例 FAIL）。
+import { it as test } from "vitest";
 import type { SerialChunk, SerialSnapshot } from "@escode/services";
 import {
   buildSerialSendPayload,

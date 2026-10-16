@@ -20,19 +20,15 @@ export const StoreContext = createContext<ESCodeStore | null>(null);
 
 export function StoreProvider({
   broadcastService,
-  initialIsRestoringOAuthSession = false,
   children,
 }: {
   broadcastService: IBroadcastService;
-  initialIsRestoringOAuthSession?: boolean;
   children: ReactNode;
 }) {
   // 只在首次渲染时创建 store，避免 HMR 重复订阅
   const storeRef = useRef<ESCodeStore | null>(null);
   if (!storeRef.current) {
-    storeRef.current = createESCodeStore(broadcastService, {
-      initialIsRestoringOAuthSession,
-    });
+    storeRef.current = createESCodeStore(broadcastService);
   }
 
   return <StoreContext.Provider value={storeRef.current}>{children}</StoreContext.Provider>;

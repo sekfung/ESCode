@@ -16,23 +16,12 @@ describe("desktop e2e beforeSession setup", () => {
           };
         }),
     );
-    const configureCodingPlanTeamMockForSpecs = vi.fn(async () => {
-      events.push("coding-plan-case-mode");
-    });
-
     const setupPromise = runE2EBeforeSessionSetup({
       cid: "0-0",
       specs: ["./test/e2e/example.test.ts"],
       configureAgentServerEnv: () => events.push("configure-env"),
       recordBeforeSession: () => events.push("record-before-session"),
       resetHome,
-      startCodingPlanTeamMockIfNeeded: async () => {
-        events.push("coding-plan-team");
-      },
-      configureCodingPlanTeamMockForSpecs,
-      startCodingPlanUpgradeMockIfNeeded: async () => {
-        events.push("coding-plan-upgrade");
-      },
       startUpstreamHttpIfNeeded: async () => {
         events.push("upstream-http");
       },
@@ -48,19 +37,14 @@ describe("desktop e2e beforeSession setup", () => {
 
     await waitForResetStarted(resetHome);
 
+    // 套餐族删除（2026-10-15）：coding-plan mock 的启动/重置钩子随套餐 E2E 一并移除。
     expect(events).toEqual([
       "record-before-session",
       "configure-env",
-      "coding-plan-team",
-      "coding-plan-case-mode",
       "upstream-http",
-      "coding-plan-upgrade",
       "plugin-cdn",
       "off-peak-mock",
       "reset-started",
-    ]);
-    expect(configureCodingPlanTeamMockForSpecs).toHaveBeenCalledWith([
-      "./test/e2e/example.test.ts",
     ]);
     expect(resetHome).toHaveBeenCalledWith(["./test/e2e/example.test.ts"]);
 

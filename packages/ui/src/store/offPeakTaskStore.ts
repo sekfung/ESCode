@@ -9,7 +9,7 @@ import {
   type ModelSelection,
 } from "@escode/shared";
 import type {
-  ICodingPlanSubscriptionService,
+  IClientConfigService,
   IOffPeakTaskService,
   OffPeakClientConfig,
 } from "@escode/services";
@@ -67,7 +67,7 @@ interface OffPeakTaskState {
   pendingCreateDraft: OffPeakCreateDraft | null;
   initialize(deps: {
     offPeakTaskService: IOffPeakTaskService;
-    codingPlanSubscriptionService: ICodingPlanSubscriptionService;
+    clientConfigService: IClientConfigService;
   }): Promise<void>;
   refresh(service: IOffPeakTaskService): Promise<void>;
   refreshCodingPlanSupport(service: IOffPeakTaskService, freshnessKey?: string): Promise<void>;
@@ -164,7 +164,7 @@ export const useOffPeakTaskStore = create<OffPeakTaskState>((set, get) => ({
   newTaskBannerDismissed: false,
   pendingCreateDraft: null,
 
-  async initialize({ offPeakTaskService, codingPlanSubscriptionService }) {
+  async initialize({ offPeakTaskService, clientConfigService }) {
     // Bug 原因：New Task 与 Automations 在页面切换时可能短暂重叠挂载，两个 initialize
     // 会并发请求同一个 Team Plan availability，后到的全局 429 可能覆盖先到的成功结果。
     // Store 级 single-flight 保证所有入口共用一次完整准入检查。
@@ -172,7 +172,7 @@ export const useOffPeakTaskStore = create<OffPeakTaskState>((set, get) => ({
     set({ loading: true, error: null });
     // 初始化和后续通知共用资格检查；灰度先就绪，资格与额度不能由两条异步链分别写入。
     initializationReady = Promise.all([
-      codingPlanSubscriptionService
+      clientConfigService
         .getOffPeakClientConfig({ forceRefresh: true })
         .catch((error) => {
           logger.warn("[off-peak] gray config load failed", toErrorMessage(error));

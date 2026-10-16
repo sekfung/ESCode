@@ -17,19 +17,9 @@ import {
 } from "@escode/provider-node";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createSharedESCodeCredentialStore,
-  type SharedESCodeCredentialStore,
-} from "@escode/adapters/auth";
-import {
   parseProcessAccountProviderConfigSnapshot,
   startProcessProviderRegistryRuntime,
 } from "../src/app/process-provider-registry-runtime.js";
-import {
-  standaloneAccountAuthSourceCredentialKey,
-  standaloneAccountIdentityCredentialKey,
-  standaloneAccountProviderCredentialKey,
-} from "../src/app/standalone-account-provider-runtime.js";
-
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -70,9 +60,6 @@ describe("process provider registry runtime", () => {
       await wait;
       return new Response(JSON.stringify(builtin));
     });
-    const credentialStore = createSharedESCodeCredentialStore({
-      env: { ESCODE_DATA_BASE_DIR: root },
-    });
     const env = {
       [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: active,
       [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
@@ -80,7 +67,6 @@ describe("process provider registry runtime", () => {
     };
     const runtime = await startProcessProviderRegistryRuntime(env, {
       standalone: {
-        credentialStore,
         request,
         legacyCliUserConfigFilePath: join(root, "absent.json"),
       },
@@ -108,41 +94,6 @@ describe("process provider registry runtime", () => {
       }
     } finally {
       releaseDownload();
-      runtime.dispose();
-    }
-  });
-  it("Standalone 无凭据时 Built-in 文件更新仍重新解析 Account 并整体发布 Registry", async () => {
-    const root = await temporaryDirectory();
-    const builtin = JSON.parse(
-      await readFile(
-        new URL("../../../../../config/provider/escode-builtin.json", import.meta.url),
-        "utf8",
-      ),
-    );
-    const filePath = join(root, "builtin.json");
-    await writeFile(filePath, JSON.stringify(builtin));
-    const credentialStore = createSharedESCodeCredentialStore({
-      env: { ESCODE_DATA_BASE_DIR: root },
-    });
-    const runtime = await startProcessProviderRegistryRuntime(
-      {
-        [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: filePath,
-        [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
-      },
-      { standalone: { credentialStore, legacyCliUserConfigFilePath: join(root, "absent.json") } },
-    );
-    try {
-      builtin.revision += 1;
-      await writeFile(filePath, JSON.stringify(builtin));
-      await vi.waitFor(() => {
-        const next = runtime.runtime.registryService.getSnapshot()!;
-        expect(next.config.escodeBuiltinRevision).toMatch(`escode-builtin:${builtin.revision}:`);
-        expect(next.account.basedOnESCodeBuiltinRevision).toBe(next.config.escodeBuiltinRevision);
-      });
-      expect(
-        runtime.runtime.registryService.getProvider("account:bigmodel-individual-coding-plan"),
-      ).toBeUndefined();
-    } finally {
       runtime.dispose();
     }
   });
@@ -435,201 +386,7 @@ describe("process provider registry runtime", () => {
     started?.dispose();
   });
 
-  it("Standalone 从账号凭据生成 Account Overlay，并在请求前返回当前 API Key", async () => {
-    const root = await temporaryDirectory();
-    const escodeBuiltinFilePath = join(root, "escode-builtin.json");
-    const personalFilePath = join(root, "personal.json");
-    const credentialStore = createSharedESCodeCredentialStore({
-      baseDir: join(root, "home"),
-      env: { ESCODE_CREDENTIAL_SECRET: "process-registry-test" },
-    });
-    const providerId = "configured-standalone-provider";
-    const accountIdentity = "account-1";
-    const accountProviderCredentialKey = standaloneAccountProviderCredentialKey({
-      providerId,
-      accountIdentity,
-    });
-    await writeFile(
-      escodeBuiltinFilePath,
-      JSON.stringify(
-        escodeBuiltinRelease({
-          providers: {
-            [providerId]: {
-              group: "zai-family",
-              access: {
-                type: "zhipu-account",
-                accountType: "zai",
-                mode: "individual-coding-plan",
-              },
-              api: {
-                type: "anthropic-messages",
-                baseUrl: "https://account.example.com",
-              },
-              builtinModelIds: ["model-a"],
-            },
-          },
-          templates: {},
-          models: [
-            {
-              modelMatch: "model-a",
-              config: {
-                enabled: true,
 
-                properties: {
-                  requiresMfjsToolSchema: false,
-                  contextWindow: 200000,
-                  inputFormat: {
-                    supportsText: true,
-                    supportsImage: false,
-                    supportsVideo: false,
-                    supportsAudio: false,
-                    supportsPdf: false,
-                  },
-                  outputFormat: { supportsText: true },
-                  supportsToolCall: true,
-                  supportsJsonSchemaOutput: true,
-                  supportsNativeWebSearch: false,
-                  supportsMidConversationSystem: false,
-                },
-                optionSpecs: {
-                  reasoningLevel: { values: ["disabled"], map: "{}" },
-                  maxOutputTokens: {
-                    max: 32000,
-                    map: '{"max_completion_tokens":maxOutputTokens}',
-                  },
-                },
-              },
-            },
-          ],
-        }),
-      ),
-      "utf8",
-    );
-    await writeFile(personalFilePath, JSON.stringify(personalRelease([])), "utf8");
-    await credentialStore.saveMany({
-      [standaloneAccountIdentityCredentialKey(providerId)]: accountIdentity,
-      [accountProviderCredentialKey]: "runtime-api-key",
-      [standaloneAccountAuthSourceCredentialKey(providerId)]: "manual",
-    });
-
-    const started = await startProcessProviderRegistryRuntime(
-      {
-        [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: escodeBuiltinFilePath,
-        [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
-      },
-      { standalone: { credentialStore } },
-    );
-
-    expect(started?.runtime.registryService.getProvider(providerId)?.config.access).toMatchObject({
-      type: "zhipu-account",
-      accountType: "zai",
-      mode: "individual-coding-plan",
-    });
-    await expect(
-      started?.providerRuntimeHeadersPort.refreshBeforeModelRequest({
-        accountAccess: {
-          type: "zhipu-account",
-          accountType: "zai",
-          entitled: true,
-          mode: "individual-coding-plan",
-        },
-        modelId: "model-a",
-        providerId,
-        reason: "model-request",
-        sessionId: "session-1" as never,
-        traceContext: { traceId: "trace-1" } as never,
-      }),
-    ).resolves.toMatchObject({
-      headersApplied: true,
-      requestAuth: { apiKey: "runtime-api-key" },
-    });
-
-    await credentialStore.save(accountProviderCredentialKey, "rotated-runtime-api-key");
-    await expect(
-      started?.providerRuntimeHeadersPort.refreshBeforeModelRequest({
-        accountAccess: {
-          type: "zhipu-account",
-          accountType: "zai",
-          entitled: true,
-          mode: "individual-coding-plan",
-        },
-        modelId: "model-a",
-        providerId,
-        reason: "model-request",
-        sessionId: "session-1" as never,
-        traceContext: { traceId: "trace-2" } as never,
-      }),
-    ).resolves.toMatchObject({
-      requestAuth: { apiKey: "rotated-runtime-api-key" },
-    });
-
-    await credentialStore.deleteIfValues({
-      [standaloneAccountIdentityCredentialKey(providerId)]: accountIdentity,
-      [accountProviderCredentialKey]: "rotated-runtime-api-key",
-    });
-    await vi.waitFor(() => {
-      expect(started?.runtime.registryService.getProvider(providerId)).toBeUndefined();
-    });
-    started?.dispose();
-  });
-
-  it("Standalone 首次账号凭据读取失败时仍以 fail-closed Account 启动 Personal API Provider", async () => {
-    const root = await temporaryDirectory();
-    const escodeBuiltinFilePath = join(root, "escode-builtin.json");
-    const personalFilePath = join(root, "personal.json");
-    await writeFile(
-      escodeBuiltinFilePath,
-      JSON.stringify(
-        escodeBuiltinRelease({
-          providers: {},
-          templates: {
-            api: {
-              access: { type: "api-key" },
-              api: { type: "anthropic-messages", baseUrl: "https://api.example.com" },
-              builtinModelIds: ["model-a"],
-            },
-          },
-          models: [completeESCodeBuiltinModelRule()],
-        }),
-      ),
-      "utf8",
-    );
-    await writeFile(
-      personalFilePath,
-      JSON.stringify(
-        personalRelease([
-          {
-            providerId: "api",
-            templateId: "api",
-            config: {
-              group: "standard-personal",
-              access: { type: "api-key", apiKey: "secret" },
-            },
-          },
-        ]),
-      ),
-      "utf8",
-    );
-    const accountError = new Error("credential store unavailable");
-    const onAccountInitializationError = vi.fn();
-    const credentialStore = {
-      loadMany: vi.fn(async () => {
-        throw accountError;
-      }),
-    } as unknown as SharedESCodeCredentialStore;
-
-    const started = await startProcessProviderRegistryRuntime(
-      {
-        [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: escodeBuiltinFilePath,
-        [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: personalFilePath,
-      },
-      { standalone: { credentialStore, onAccountInitializationError } },
-    );
-
-    expect(started.runtime.registryService.getProvider("api")).toBeDefined();
-    expect(onAccountInitializationError).toHaveBeenCalledWith(accountError);
-    started.dispose();
-  });
 
   it("只有显式开启 Standalone 导入时才迁移旧 CLI 用户 Provider", async () => {
     const root = await temporaryDirectory();

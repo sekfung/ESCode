@@ -2,8 +2,6 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { DesktopCommandIds } from "@escode/shared";
 import { EmbeddedWebsiteHeader } from "@/components/EmbeddedWebsiteHeader.js";
 
@@ -23,11 +21,13 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it("升级和奖励的网页关闭与窗口关闭分开，三种窗口操作走现有命令", () => {
+// 登录页与升级 webview 已随套餐族/账号登录下线；此处保留内嵌 webview 外壳的
+// 覆盖层窗控契约：网页关闭与窗口关闭是两条独立链路。
+it("内嵌 webview 的网页关闭与窗口关闭分开，三种窗口操作走现有命令", () => {
   const onClose = vi.fn();
   render(
     createElement(EmbeddedWebsiteHeader, {
-      title: "Rewards",
+      title: "Embedded",
       loading: false,
       canGoBack: false,
       canGoForward: false,
@@ -49,24 +49,4 @@ it("升级和奖励的网页关闭与窗口关闭分开，三种窗口操作走�
     expect(executeDesktopCommand).toHaveBeenLastCalledWith(command);
   }
   expect(onClose).toHaveBeenCalledTimes(1);
-});
-
-it("登录、升级、奖励均接入覆盖层窗控", async () => {
-  const read = (file: string) => readFile(resolve(__dirname, "../src", file), "utf8");
-  expect(await read("WelcomeScreen.tsx")).toContain("<DesktopOverlayWindowControls />");
-  for (const file of [
-    "rewards/RewardsWebview.tsx",
-    "settings/CodingPlanEmbeddedWebviewDialog.tsx",
-  ]) {
-    expect(await read(file)).toContain("<EmbeddedWebsiteHeader");
-  }
-});
-
-it("登录页原生拖拽层避开窗控，并先于 no-drag 按钮声明", async () => {
-  const source = await readFile(resolve(__dirname, "../src/WelcomeScreen.tsx"), "utf8");
-  const drag = source.indexOf("[app-region:drag]");
-  expect(drag).toBeGreaterThan(-1);
-  expect(drag).toBeLessThan(source.indexOf("<DesktopOverlayWindowControls />"));
-  expect(source).toContain("platform-windows-desktop:right-[134px]");
-  expect(source).toContain("platform-linux-desktop:right-[134px]");
 });

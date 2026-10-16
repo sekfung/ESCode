@@ -20,7 +20,7 @@ import { logger } from "@/logger.js";
 import { DesktopWindowControls } from "@/DesktopWindowControls.js";
 import type { OnboardingRecordEntry } from "@escode/shared";
 
-/** 追加本地引导记录（userId 由 host 补全）；channel 缺失挂起时 5 秒超时按写失败处理。 */
+/** 追加本地引导记录；channel 缺失挂起时 5 秒超时按写失败处理。 */
 async function appendOnboardingRecord(
   service: NonNullable<ReturnType<typeof useOnboardingRecordService>>,
   deviceMid: string,
@@ -53,8 +53,6 @@ export function OccupationOnboarding({
   const shortcutBindings = useEffectiveShortcutBindings();
   const requested = useESCodeStore((state) => state.newUserOnboardingOpen);
   const setRequested = useESCodeStore((state) => state.setNewUserOnboardingOpen);
-  // 登录态变化（useRootOAuthEffects 登录成功后 setUser）时按 userId 重新判定是否触发引导。
-  const userId = useESCodeStore((state) => state.user?.id) ?? null;
   const { intl } = useESCodeIntl();
   const t = (key: string) => intl.formatMessage({ id: `occupationOnboarding.${key}` });
   const [occupation, setOccupation] = useState<OccupationValue | null>("developer");
@@ -76,10 +74,8 @@ export function OccupationOnboarding({
   const loadDeviceMid = useCallback(() => platform.getDeviceId(), [platform]);
   const [needsOnboarding, markOnboarded] = useOnboardingTrigger({
     onboardingRecord,
-    userId,
     hasStoredOccupation: Boolean(settings?.onboardingOccupation),
     loadDeviceMid,
-    update,
   });
   const onboardingVisible = requested || (needsOnboarding === true && !dismissed);
   const captureEnd = useOnboardingTelemetry({
@@ -178,7 +174,7 @@ export function OccupationOnboarding({
     return () => {
       cancelled = true;
     };
-  }, [onboardingRecord, userId]);
+  }, [onboardingRecord]);
   const markUserEdited = () => {
     userEditedRef.current = true;
   };
@@ -242,7 +238,7 @@ export function OccupationOnboarding({
       logger.info("[occupation-onboarding] 偏好保存完成", { interfaceMode: mode });
       if (onboardingRecord) {
         try {
-          // 追加本地引导记录（userId 由 host 按登录态补全），后续上传服务器。
+          // 追加本地引导记录，后续上传服务器。
           // appendRecord 走 RPC，channel 缺失时会挂起导致保存按钮永远转圈，加超时保护。
           // 跳过是显式答案：该页被跳过时记 null（occupation 在第 1 步跳过时已是 null，
           // mode 在第 2 步跳过时置 null，偏好页整体跳过时两个布尔记 null）。

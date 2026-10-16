@@ -24,7 +24,7 @@ export async function admitPrompt(
   options?: PromptAdmissionOptions,
 ): Promise<PromptAdmissionReceipt> {
   if (options?.requireQueue === true) {
-    // Bug 根因：Highspeed 临时 provider 只能在独立 turn 的提升边界安装。如果仅依据
+    // Bug 根因：带单轮执行材料的临时 provider 只能在独立 turn 的提升边界安装。如果仅依据
     // Bootstrap 的 busy 快照决定是否排队，状态在跨层 await 期间转为空闲会误用普通模型启动。
     return await this.enqueueDeferredInput({
       attachments,

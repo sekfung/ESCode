@@ -51,7 +51,6 @@ export function useRootPlatformEffects({
   webRemoteControlSessionActive = false,
   hasCompletedFullTabRestore = true,
   intl,
-  isRestoringOAuthSession,
 }: {
   initialWorkspaceAbsPath?: string;
   initialWorkspaceIdentity?: string;
@@ -86,7 +85,6 @@ export function useRootPlatformEffects({
   webRemoteControlSessionActive?: boolean;
   hasCompletedFullTabRestore?: boolean;
   intl: ReturnType<typeof import("@/i18n/IntlProvider.js").useESCodeIntl>["intl"];
-  isRestoringOAuthSession: boolean;
 }) {
   const didBootstrapInitialWorkspaceRef = useRef(false);
   const baseServices = useOptionalBaseWorkspaceServices();
@@ -296,10 +294,6 @@ export function useRootPlatformEffects({
     if (!pending || !baseServices || activeShareImportRef.current || importOperationRef.current) {
       return;
     }
-    if (isRestoringOAuthSession) {
-      return;
-    }
-
     // 分享页 Deep Link 不应在 Root 层按登录态分叉；未登录与已登录都
     // 走同一份 continuation/import 流程。公开可导入分享由接口自身决定是否可用。
     pending.status = "importing";
@@ -493,7 +487,6 @@ export function useRootPlatformEffects({
     addTab,
     baseServices,
     intl,
-    isRestoringOAuthSession,
     locale,
     shareImportRevision,
   ]);

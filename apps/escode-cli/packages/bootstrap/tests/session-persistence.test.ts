@@ -49,59 +49,6 @@ import {
 } from "./helpers/registry-backed-test-app.js";
 
 describe("session persistence", () => {
-  it("persists Highspeed metadata in the user message data", async () => {
-    const store = createSqliteSessionStore({ dbPath: ":memory:" });
-    const sessionId = createSessionId("highspeed-message-metadata");
-
-    try {
-      const app = await createESCodeApp({
-        env: {},
-        modelExecutor: {
-          async generateText() {
-            return {
-              finishReason: "stop",
-              text: "accelerated answer",
-              usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
-            };
-          },
-        } as never,
-        runtimeConfig: { workingDirectory: process.cwd() },
-        sessionId,
-        sessionStore: store,
-        skipUserConfig: true,
-      });
-      const highspeed = {
-        schemaVersion: 1 as const,
-        cardId: "hsc-1",
-        taskId: sessionId,
-        provider: "zai",
-        model: "glm-5",
-        issuedAt: 1_000,
-        expiresAt: 10_000,
-      };
-
-      await app.submitPrompt("hello", {
-        intent: {
-          sourceCommandId: "command-highspeed-1",
-          queueItemId: "queue-highspeed-1",
-          clientId: "desktop-test",
-          kind: "sendText",
-          text: "hello",
-          admissionSeq: 1,
-          admittedAt: 1,
-          requestedDelivery: "startNow",
-          admittedDelivery: "startNow",
-          highspeed,
-        } as never,
-      });
-
-      const messages = await store.messages({ sessionID: sessionId });
-      const userMessage = messages.find((message) => message.info.role === "user");
-      expect(userMessage?.info.metadata?.highspeed).toEqual(highspeed);
-    } finally {
-      store.close();
-    }
-  });
 
   it("primes image and cold-rebuilds image and video paths from durable artifacts", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "escode-prompt-image-cache-"));

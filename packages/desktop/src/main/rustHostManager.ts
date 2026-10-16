@@ -26,7 +26,7 @@ export interface RustHostManagerOptions {
   /** 应用数据根（TS `getDataBaseDir()`，Main 决定；供会话工作区等路径派生）。 */
   dataBaseDir?: string;
   /** 嵌入运行时的环境（Main 合成，见 `buildRustHostRuntimeEnv`）；懒启动时才求值，避免启动期读取。 */
-  runtimeEnv?: () => Record<string, string>;
+  runtimeEnv?: () => Record<string, string> | Promise<Record<string, string>>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
   /** 日志钩子。`error` 用于 Host 的结构化 error 级日志（缺省退回 `warn`）。 */
@@ -74,7 +74,7 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       binary: options.binary,
       home: options.home,
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
-      ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv() } : {}),
+      ...(options.runtimeEnv ? { runtimeEnv: await options.runtimeEnv() } : {}),
       // Host 的结构化日志（`logBatch` 控制帧）进同一条 Main 日志出口；scope 作为来源标签。
       onLogBatch: (batch) => {
         for (const line of batch.lines) {

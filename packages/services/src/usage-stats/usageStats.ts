@@ -1,37 +1,13 @@
-import type {
-  AppUsageRequest,
-  AppUsageSnapshot,
-  CodingPlanUsageRequest,
-  CodingPlanUsageSnapshot,
-  CodingPlanRegularTpsRequest,
-  CodingPlanResetOpportunityRequest,
-  CodingPlanResetOpportunityResult,
-  CodingPlanResetScopeRequest,
-  CodingPlanResetStatusSnapshot,
-  CodingPlanResetUseRequest,
-  CodingPlanResetUseResult,
-  UsageEntitlementRequest,
-  UsageEntitlementSnapshot,
-  UsageStatsRequest,
-  UsageStatsSnapshot,
-} from "@escode/shared";
+import type { AppUsageRequest, AppUsageSnapshot } from "@escode/shared";
 import { ServiceChannels } from "@escode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
 
+/**
+ * 用量统计面。Coding Plan monitor / quota reset / entitlement 链路随套餐族删除（2026-10-15），
+ * 只保留读取本地 agent 数据库统计的 App Usage。
+ */
 export interface IUsageStatsService {
   getAppUsageSnapshot(request: AppUsageRequest): Promise<AppUsageSnapshot>;
-  getCodingPlanUsageSnapshot(request: CodingPlanUsageRequest): Promise<CodingPlanUsageSnapshot>;
-  getCodingPlanRegularTps?(request: CodingPlanRegularTpsRequest): Promise<number | undefined>;
-  getCodingPlanResetStatus(
-    request: CodingPlanResetScopeRequest,
-  ): Promise<CodingPlanResetStatusSnapshot>;
-  requestCodingPlanResetOpportunity(
-    request: CodingPlanResetOpportunityRequest,
-  ): Promise<CodingPlanResetOpportunityResult>;
-  useCodingPlanReset(request: CodingPlanResetUseRequest): Promise<CodingPlanResetUseResult>;
-  markCodingPlanResetHistoryRead(request: CodingPlanResetScopeRequest): Promise<void>;
-  getSnapshot(request: UsageStatsRequest): Promise<UsageStatsSnapshot>;
-  getEntitlementSnapshot(request?: UsageEntitlementRequest): Promise<UsageEntitlementSnapshot>;
 }
 
 export const IUsageStatsService = createServiceDescriptor<IUsageStatsService>(

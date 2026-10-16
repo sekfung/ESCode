@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ICodingPlanSubscriptionService, IOffPeakTaskService } from "@escode/services";
+import type { IClientConfigService, IOffPeakTaskService } from "@escode/services";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   type OffPeakTaskCreateResult,
@@ -104,16 +104,16 @@ describe("offPeakTaskStore createTask", () => {
         .mockResolvedValueOnce({ canTakeNumber: false, nextTakeAt: 123_456 })
         .mockRejectedValueOnce(new Error("network down")),
     } as unknown as IOffPeakTaskService;
-    const codingPlanSubscriptionService = {
+    const clientConfigService = {
       getOffPeakClientConfig: vi.fn(async () => ({
         enabled: true,
         modelSelectionView: { revision: 1, providers: [] },
       })),
-    } as unknown as ICodingPlanSubscriptionService;
+    } as unknown as IClientConfigService;
 
     await useOffPeakTaskStore.getState().initialize({
       offPeakTaskService,
-      codingPlanSubscriptionService,
+      clientConfigService,
     });
     expect(useOffPeakTaskStore.getState().takeNumberAvailability).toEqual({
       canTakeNumber: false,
@@ -142,13 +142,13 @@ describe("offPeakTaskStore createTask", () => {
       getCodingPlanSupport: vi.fn(() => supportPromise),
       getTakeNumberAvailability: vi.fn(async () => ({ canTakeNumber: true })),
     } as unknown as IOffPeakTaskService;
-    const codingPlanSubscriptionService = {
+    const clientConfigService = {
       getOffPeakClientConfig: vi.fn(async () => ({
         enabled: true,
         modelSelectionView: { revision: 1, providers: [] },
       })),
-    } as unknown as ICodingPlanSubscriptionService;
-    const dependencies = { offPeakTaskService, codingPlanSubscriptionService };
+    } as unknown as IClientConfigService;
+    const dependencies = { offPeakTaskService, clientConfigService };
 
     const first = useOffPeakTaskStore.getState().initialize(dependencies);
     const second = useOffPeakTaskStore.getState().initialize(dependencies);
@@ -163,7 +163,7 @@ describe("offPeakTaskStore createTask", () => {
 
     expect(offPeakTaskService.getCodingPlanSupport).toHaveBeenCalledOnce();
     expect(offPeakTaskService.getTakeNumberAvailability).toHaveBeenCalledOnce();
-    expect(codingPlanSubscriptionService.getOffPeakClientConfig).toHaveBeenCalledOnce();
+    expect(clientConfigService.getOffPeakClientConfig).toHaveBeenCalledOnce();
     expect(useOffPeakTaskStore.getState().takeNumberAvailabilityStatus).toBe("ready");
   });
 
@@ -208,16 +208,16 @@ describe("offPeakTaskStore createTask", () => {
       })),
       getTakeNumberAvailability: vi.fn(async () => ({ canTakeNumber: true })),
     } as unknown as IOffPeakTaskService;
-    const codingPlanSubscriptionService = {
+    const clientConfigService = {
       getOffPeakClientConfig: vi.fn(async () => ({
         enabled: true,
         modelSelectionView: { revision: 1, providers: [] },
       })),
-    } as unknown as ICodingPlanSubscriptionService;
+    } as unknown as IClientConfigService;
 
     await useOffPeakTaskStore.getState().initialize({
       offPeakTaskService,
-      codingPlanSubscriptionService,
+      clientConfigService,
     });
 
     expect(useOffPeakTaskStore.getState().codingPlanSupport).toEqual({

@@ -37,7 +37,7 @@ import type {
   ProviderSource,
 } from "@escode/provider";
 import { completeNewModelSelection } from "@escode/provider";
-import type { OffPeakClientConfig } from "#src/coding-plan-subscription/codingPlanSubscription.js";
+import type { OffPeakClientConfig } from "#src/client-config/clientConfig.js";
 import {
   subagentRuntimeConfigSchema,
   escodeSubagentsReadRuntimeConfigParamsSchema,

@@ -740,13 +740,6 @@ test("honors configured locale before app creation when login is required", asyn
         assert.equal(startup.loginRequired, true);
         assert.equal(startup.locale, "zh-CN");
 
-        const pickerResult = await options.submitPrompt("/login", {
-          abortSignal: new AbortController().signal,
-        });
-
-        assert.equal(pickerResult.response, "选择 Coding Plan 提供商的配置方式。");
-        assert.equal(pickerResult.selection?.title, "配置 Coding Plan");
-        assert.equal(pickerResult.selection?.prompt, "选择登录或 API key 配置方式。");
         return 0;
       },
       userConfigPath: configPath,
@@ -974,206 +967,10 @@ test("escode commands list prints custom commands", async () => {
   assert.match(ctx.stdout.output(), /\/review \[scope\]/);
 });
 
-test("escode login runs OAuth flow without exposing tokens", async () => {
-  const ctx = createContext(["login", "--no-browser"]);
-  let sawNoBrowser = false;
-  const exitCode = await run(ctx, {
-    ...createPromptDeps(),
-    loginESCodeCli: async (options) => {
-      sawNoBrowser = options?.noBrowser === true;
-      await options?.onAuthorizeUrl?.({
-        authorize_url: "https://chat.z.ai/oauth/authorize?state=state",
-        expires_at: 1735000000,
-        flow_id: "flow-1",
-        poll_interval_sec: 2,
-        poll_token: "poll-token",
-      });
-      return {
-        configPath: "/home/test/.escode/v2/model-selection.json",
-        credentialsPath: "/home/test/.escode/v2/credentials.json",
-        model: "zai/glm-5.1",
-        providerId: "zai",
-        user: {
-          user_id: "u_1",
-          email: "alice@example.com",
-          name: "Alice",
-        },
-      };
-    },
-  });
 
-  assert.equal(exitCode, 0);
-  assert.equal(sawNoBrowser, true);
-  assert.match(ctx.stdout.output(), /Open this URL to sign in/);
-  assert.match(ctx.stdout.output(), /https:\/\/chat\.z\.ai\/oauth\/authorize/);
-  assert.match(ctx.stdout.output(), /Login successful as Alice/);
-  assert.match(
-    ctx.stdout.output(),
-    /Model selection: \/home\/test\/\.escode\/v2\/model-selection\.json/,
-  );
-  assert.doesNotMatch(ctx.stdout.output(), /access-token|jwt-token/);
-});
 
-test("escode logout clears shared OAuth credentials", async () => {
-  const ctx = createContext(["logout"]);
-  let logoutCalled = false;
-  const exitCode = await run(ctx, {
-    ...createPromptDeps(),
-    logoutESCodeCli: async () => {
-      logoutCalled = true;
-      return {
-        credentialsPath: "/home/test/.escode/v2/credentials.json",
-      };
-    },
-  });
 
-  assert.equal(exitCode, 0);
-  assert.equal(logoutCalled, true);
-  assert.match(ctx.stdout.output(), /Logged out from Coding Plan accounts/);
-});
 
-test("parses login and logout slash commands", () => {
-  assert.deepEqual(parseSlashCommand("/login"), {
-    args: "",
-    name: "login",
-    rawName: "login",
-    type: "known",
-  });
-  assert.deepEqual(parseSlashCommand("/login zai-coding-plan"), {
-    args: "zai-coding-plan",
-    name: "login",
-    rawName: "login",
-    type: "known",
-  });
-  assert.deepEqual(parseSlashCommand("/logout"), {
-    args: "",
-    name: "logout",
-    rawName: "logout",
-    type: "known",
-  });
-});
-
-test("command center handles login and logout locally", async () => {
-  let loginCalled = false;
-  let loginAbortSignal: AbortSignal | undefined;
-  let apiKeyCalled = false;
-  let logoutCalled = false;
-  const emittedEvents: Array<{
-    payload?: unknown;
-    sessionId?: unknown;
-    traceId?: unknown;
-    type?: string;
-  }> = [];
-  const commandCenter = createCommandCenter({
-    // 授权链接消息归属当前活动会话（TUI 首帧后已创建 App），但登录流程本身不向模型提交 prompt。
-    getApp: async () =>
-      ({
-        sessionId: "session-login",
-        traceId: "trace-login",
-        submitPrompt: async () => {
-          throw new Error("login must not submit a model prompt");
-        },
-      }) as never,
-    login: async (options) => {
-      loginCalled = true;
-      loginAbortSignal = options?.abortSignal;
-      await options?.onAuthorizeUrl?.({
-        authorize_url: "https://chat.z.ai/oauth/authorize?state=state",
-        expires_at: 1735000000,
-        flow_id: "flow-1",
-        poll_interval_sec: 2,
-      });
-      return {
-        configPath: "/home/test/.escode/v2/model-selection.json",
-        credentialsPath: "/home/test/.escode/v2/credentials.json",
-        model: "zai/glm-5.1",
-        providerId: "zai",
-        user: {
-          user_id: "u_1",
-          email: "alice@example.com",
-          name: "Alice",
-        },
-      };
-    },
-    configureApiKey: async (options) => {
-      apiKeyCalled = options.providerId === "bigmodel" && options.apiKey === "manual-key";
-      return {
-        configPath: "/home/test/.escode/v2/model-selection.json",
-        model: "bigmodel/glm-5.1",
-        providerId: "bigmodel",
-      };
-    },
-    logout: async () => {
-      logoutCalled = true;
-      return {
-        credentialsPath: "/home/test/.escode/v2/credentials.json",
-      };
-    },
-    resumeApp: async () => {
-      throw new Error("resume should not be called");
-    },
-  });
-
-  const pickerResult = await commandCenter("/login", {});
-  const loginAbort = new AbortController();
-  const loginResult = await commandCenter("/login zai-coding-plan", {
-    abortSignal: loginAbort.signal,
-    onEvent: async (event) => {
-      emittedEvents.push(event);
-    },
-  } as never);
-  const apiKeyResult = await commandCenter("/login bigmodel-coding-plan-api-key manual-key", {});
-  const logoutResult = await commandCenter("/logout", {});
-
-  assert.equal(pickerResult.selection?.items.length, 4);
-  assert.equal(pickerResult.selection?.filterable, false);
-  assert.equal(
-    pickerResult.selection?.items[0]?.pending?.primary,
-    "Waiting for Z.AI authorization",
-  );
-  assert.equal(pickerResult.selection?.items[2]?.input?.primary, "Enter Z.AI Coding Plan API Key");
-  assert.equal(pickerResult.selection?.items[2]?.input?.mask, true);
-  assert.equal(loginAbortSignal, loginAbort.signal);
-  assert.equal(loginCalled, true);
-  assert.equal(apiKeyCalled, true);
-  assert.equal(logoutCalled, true);
-  assert.equal(emittedEvents[0]?.type, "assistant_message");
-  assert.equal(emittedEvents[0]?.sessionId, "session-login");
-  assert.equal(emittedEvents[0]?.traceId, "trace-login");
-  assert.match(
-    String((emittedEvents[0]?.payload as { content?: string } | undefined)?.content),
-    /https:\/\/chat\.z\.ai\/oauth\/authorize/,
-  );
-  assert.match(loginResult.response, /Configured Z\.AI Coding Plan as Alice/);
-  assert.match(
-    loginResult.response,
-    /Model selection: \/home\/test\/\.escode\/v2\/model-selection\.json/,
-  );
-  assert.match(apiKeyResult.response, /Configured BigModel Coding Plan/);
-  assert.match(logoutResult.response, /Logged out from Coding Plan accounts/);
-});
-
-test("command center localizes the Coding Plan setup picker", async () => {
-  const commandCenter = createCommandCenter({
-    getApp: async () => {
-      throw new Error("app should not be created");
-    },
-    getLocale: () => "zh-CN",
-    resumeApp: async () => {
-      throw new Error("resume should not be called");
-    },
-  });
-
-  const result = await commandCenter("/login", {});
-
-  assert.equal(result.response, "选择 Coding Plan 提供商的配置方式。");
-  assert.equal(result.selection?.title, "配置 Coding Plan");
-  assert.equal(result.selection?.prompt, "选择登录或 API key 配置方式。");
-  assert.equal(result.selection?.filterable, false);
-  assert.match(result.selection?.items[0]?.secondary ?? "", /打开浏览器登录/);
-  assert.equal(result.selection?.items[2]?.input?.primary, "输入 Z.AI Coding Plan API Key");
-  assert.equal(result.selection?.items[2]?.input?.placeholder, "粘贴 API key");
-});
 
 test("command center keeps local commands usable before login", async () => {
   let appCreated = false;
@@ -2715,11 +2512,14 @@ test("command center records accepted slash commands through the history port", 
   await submitPrompt("/help /model", {
     abortSignal: new AbortController().signal,
   });
-  await submitPrompt("/login zai-coding-plan-api-key secret-token", {
+  await submitPrompt("/new", {
     abortSignal: new AbortController().signal,
   });
 
-  assert.deepEqual(recorded, [{ input: "/help /model", kind: "slash_command" }]);
+  assert.deepEqual(recorded, [
+    { input: "/help /model", kind: "slash_command" },
+    { input: "/new", kind: "slash_command" },
+  ]);
 });
 
 test("command center passes attachments through for normal prompts", async () => {

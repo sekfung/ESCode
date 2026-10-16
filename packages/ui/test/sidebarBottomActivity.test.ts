@@ -37,7 +37,9 @@ function memoryStorage(): GlobalNoticeStorage {
   };
 }
 
-function publishShareNotice(
+// 加速卡分享通知随 highspeed 套餐族删除：GlobalNoticeSurface 不再渲染任何通知类型，
+// 这里保留「遗留 highspeed-share 通知被安全忽略」的回归断言。
+function publishLegacyHighspeedNotice(
   store: ReturnType<typeof createGlobalNoticeStore>,
   now = Date.now(),
 ): void {
@@ -132,22 +134,22 @@ describe("isMarketingBannerRenderable", () => {
 });
 
 describe("SidebarBottomActivity 共享槽位仲裁", () => {
-  it("banner 可见 + highspeed 有通知 → 只渲染领 token banner，让位 highspeed", () => {
+  it("banner 可见时独占槽位，遗留 highspeed 通知不参与渲染", () => {
     const noticeStore = createGlobalNoticeStore({ storage: memoryStorage() });
-    publishShareNotice(noticeStore);
+    publishLegacyHighspeedNotice(noticeStore);
     const { container } = renderActivity(fakeController(renderableBanner), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).not.toBeNull();
-    expect(container.querySelector('[data-global-notice-type="highspeed-share"]')).toBeNull();
+    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
   });
 
-  it("banner 不可见 + highspeed 有通知 → 同一槽位渲染 highspeed 卡", () => {
+  it("banner 不可见时槽位不渲染遗留 highspeed 通知卡", () => {
     const noticeStore = createGlobalNoticeStore({ storage: memoryStorage() });
-    publishShareNotice(noticeStore);
+    publishLegacyHighspeedNotice(noticeStore);
     const { container } = renderActivity(fakeController(null), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type="highspeed-share"]')).not.toBeNull();
+    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
   });
 
   it("两者都不可见 → 槽位不产生多余内容", () => {
@@ -155,12 +157,11 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     const { container } = renderActivity(fakeController(null), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type="highspeed-share"]')).toBeNull();
+    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
   });
 
-  it("banner 关闭后（store 更新为 null）highspeed 在同一槽位复现", () => {
+  it("banner 关闭后（store 更新为 null）槽位清空，不残留过期卡片", () => {
     const noticeStore = createGlobalNoticeStore({ storage: memoryStorage() });
-    publishShareNotice(noticeStore);
     const controller = fakeController(renderableBanner);
     const { container } = renderActivity(controller, noticeStore);
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).not.toBeNull();
@@ -170,6 +171,6 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     });
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type="highspeed-share"]')).not.toBeNull();
+    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
   });
 });

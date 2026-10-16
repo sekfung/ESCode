@@ -1,7 +1,9 @@
 /* eslint-disable max-lines -- 模型供应商 schema、迁移和运行时投影 helper 需要共享同一套类型边界，暂时集中在单文件避免契约分散。 */
+// 套餐族删除（2026-10-15）：原 zai-api / bigmodel-api 是 Coding Plan 模板（网关端点 +
+// zhipu-coding-plan-api-key），随套餐移除；官方 API 的落点改为标准 API 模板。
 export const BUILTIN_PROVIDER_TEMPLATE_IDS = {
-  zai: "zai-api",
-  bigmodel: "bigmodel-api",
+  zai: "zai-standard-api",
+  bigmodel: "bigmodel-standard-api",
 } as const;
 
 export const BUILTIN_MODEL_PROVIDER_IDS = {

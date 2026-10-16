@@ -27,7 +27,6 @@ import {
   escodeBrowserAmbientContextSchema,
   escodeProtocolMcpServerSchema,
 } from "../escode-protocol/index.js";
-import { highspeedMessageMetaSchema } from "../highspeed.js";
 import { sharedContextRefSchema } from "./shared-context-ref.js";
 import { conversationInputSourceSchema } from "./input-intent.js";
 export type { SharedContextRef } from "./shared-context-ref.js";
@@ -114,10 +113,6 @@ export const commandPayloadSchemas = {
       // 本次执行仍使用上面的标准 Selection；这里只携带不持久化语义、动态鉴权和 child 策略。
       // 仅 idle startNow 接受，防止 Secret/Ticket 进入普通 CommandInbox。
       modelExecution: modelExecutionSchema.optional(),
-      // Highspeed 卡快照随输入事实进入 message.data；不包含 runtime 凭据或 header。
-      // 加速本轮的模型与凭据走上面的 modelSelection + modelExecution，见
-      // docs/highspeed/highspeed-access-mode-migration.md。
-      highspeedMeta: highspeedMessageMetaSchema.optional(),
       automationId: z.string().min(1).optional(),
       offPeakTaskId: z.string().min(1).optional(),
       offPeakRunType: z.enum(["init", "resume"]).optional(),
@@ -175,7 +170,6 @@ export const commandPayloadSchemas = {
       // 不从被 rewind 的历史消息复用旧凭据。
       modelSelection: modelSelectionSchema.optional(),
       modelExecution: modelExecutionSchema.optional(),
-      highspeedMeta: highspeedMessageMetaSchema.optional(),
       // 缺省 preserve：仅切 conversation branch；rewind 会先安全恢复该轮文件。
       workspaceMode: z.enum(["preserve", "rewind"]).optional(),
     })
@@ -187,24 +181,12 @@ export const commandPayloadSchemas = {
     target: conversationRowTargetSchema,
     feedback: z.enum(["like", "dislike"]).nullable(),
   }),
-  setHighspeedMetrics: z.object({
-    target: conversationRowTargetSchema,
-    regularTps: z.number().positive(),
-    outputTokens: z.number().int().nonnegative(),
-    durationMs: z.number().nonnegative(),
-    highspeedTps: z.number().positive(),
-    savedDurationMs: z.number().nonnegative(),
-    modelDurationMs: z.number().nonnegative().optional(),
-    toolDurationMs: z.number().nonnegative().optional(),
-    otherDurationMs: z.number().nonnegative().optional(),
-  }),
   sendQueuedNow: z
     .object({
       queueItemId: z.string(),
       // 手动提升允许 Renderer 为原队列项补充同卡执行材料；凭据不入队列持久化面。
       modelSelection: modelSelectionSchema.optional(),
       modelExecution: modelExecutionSchema.optional(),
-      highspeedMeta: highspeedMessageMetaSchema.optional(),
     })
     .superRefine(requireModelSelectionForExecution),
   editQueueItem: z.object({ queueItemId: z.string(), newText: z.string() }),
@@ -333,7 +315,6 @@ export const ROW_TARGETING_COMMANDS: ReadonlySet<CommandType> = new Set([
   "editUserQuery",
   "retryTurn",
   "setAssistantFeedback",
-  "setHighspeedMetrics",
 ]);
 
 // ── 信封 ──

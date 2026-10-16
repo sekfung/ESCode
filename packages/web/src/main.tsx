@@ -1226,17 +1226,6 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
     fileWatcherService: createEmptyHomeOnlyService<RootServices["fileWatcherService"]>({
       watch: async () => ({ dispose: () => {} }),
     }),
-    oauthService: createEmptyHomeOnlyService<RootServices["oauthService"]>({
-      getProviders: async () => [],
-      getActiveProvider: async () => null,
-      restoreCachedSession: async () => null,
-      restoreCachedSessionState: async () => ({ status: "signed-out" }),
-      restoreSession: async () => null,
-      refreshToken: async () => {},
-      logout: async () => {},
-      logoutAll: async () => {},
-      cancelPending: async () => {},
-    }),
     providerSettingsService: createEmptyHomeOnlyService<RootServices["providerSettingsService"]>({
       getView: async () => ({ revision: 0, providers: [] }),
       refresh: async () => ({ revision: 0, providers: [] }),
@@ -1249,11 +1238,18 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
     }),
     usageStatsService:
       createUnsupportedHomeOnlyService<RootServices["usageStatsService"]>("usageStatsService"),
-    codingPlanSubscriptionService: createUnsupportedHomeOnlyService<
-      RootServices["codingPlanSubscriptionService"]
-    >("codingPlanSubscriptionService"),
     clientConfigService: createEmptyHomeOnlyService<RootServices["clientConfigService"]>({
       getSnapshot: async () => ({ pluginStoreOrder: null, zsrcUrl: null }),
+      getOffPeakClientConfig: async () => ({
+        enabled: false,
+        modelSelectionView: { revision: 0, providers: [] },
+      }),
+      getDynamicWorkflowClientConfig: async () => ({
+        mode: "default",
+        enabled: false,
+        source: "default",
+        offeredMode: "default",
+      }),
     }),
     // 手机 Web 未连接 shared-host attachment 时禁止直连 scenes HTTP；返回空配置保持首页可用。
     clientScenesService: createEmptyHomeOnlyService<RootServices["clientScenesService"]>({
@@ -1262,10 +1258,6 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
     // 闲时任务仅桌面本地（D13）；web home-only 环境按不支持处理。
     offPeakTaskService:
       createUnsupportedHomeOnlyService<RootServices["offPeakTaskService"]>("offPeakTaskService"),
-    highspeedCardService:
-      createUnsupportedHomeOnlyService<RootServices["highspeedCardService"]>(
-        "highspeedCardService",
-      ),
     skillsService: createEmptyHomeOnlyService<RootServices["skillsService"]>({
       list: async () => ({
         skills: [],

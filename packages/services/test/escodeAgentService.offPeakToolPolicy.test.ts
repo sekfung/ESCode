@@ -4,7 +4,7 @@ import {
   OFF_PEAK_PROVIDER_IDS,
   buildRemoteWorkspaceIdentity,
 } from "@escode/shared";
-import type { OffPeakClientConfig } from "../src/coding-plan-subscription/codingPlanSubscription.js";
+import type { OffPeakClientConfig } from "../src/client-config/clientConfig.js";
 import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
 
 // D49：Off-Peak 本地支持能力作为 workspace 策略在客户端就绪时同步给 CLI。

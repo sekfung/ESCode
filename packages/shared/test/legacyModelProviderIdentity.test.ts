@@ -6,9 +6,10 @@ describe("旧 Provider 身份仅在升级边界静态转换", () => {
     expectTypeOf(migrateLegacyModelProviderId).parameters.toEqualTypeOf<[providerId: string]>();
   });
   for (const family of ["bigmodel", "zai"] as const) {
-    it(`${family} 离线转换全部旧身份，Coding Plan 固定 Individual`, () => {
+    it(`${family} 离线转换全部旧身份，Coding Plan 固定 Individual（账号身份已随套餐族删除）`, () => {
       const pairs = [
-        [`builtin:${family}`, `${family}-api`],
+        // 套餐族删除后官方 API 的落点是标准 API 模板（原 ${family}-api 是 Coding Plan 模板）。
+        [`builtin:${family}`, `${family}-standard-api`],
         [`builtin:${family}-start-plan`, `account:${family}-start-plan`],
         [`builtin:${family}-coding-plan`, `account:${family}-individual-coding-plan`],
       ];

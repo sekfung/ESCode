@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ICodingPlanSubscriptionService, IOffPeakTaskService } from "@escode/services";
+import type { IClientConfigService, IOffPeakTaskService } from "@escode/services";
 import { useOffPeakTaskStore } from "@/store/offPeakTaskStore.js";
 
 function deferred<T>() {
@@ -107,9 +107,9 @@ describe("闲时同代资格刷新", () => {
     const config = deferred<{ enabled: boolean }>();
     const deps = {
       offPeakTaskService: port,
-      codingPlanSubscriptionService: {
+      clientConfigService: {
         getOffPeakClientConfig: () => config.promise,
-      } as unknown as ICodingPlanSubscriptionService,
+      } as unknown as IClientConfigService,
     };
     const first = useOffPeakTaskStore.getState().initialize(deps);
     const second = useOffPeakTaskStore.getState().initialize(deps);

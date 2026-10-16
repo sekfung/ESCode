@@ -45,7 +45,7 @@ Renderer（TS，不变）── WebSocket / RPC（capability 握手）──→ 
 状态所有者：
 
 - **runtime**：会话事实、输入队列、投递（topic 订阅/快照恢复）、模型请求。
-- **Host**：实例表、代次、订阅归属、调度（cron/offpeak）、设置写入（唯一写者）。
+- **Host**：实例表、代次、订阅归属、调度（cron）、设置写入（唯一写者）。
 - **Main**：窗口、原生操作、进程拉起与转发。
 
 runtime 实例生命周期（事件顺序）：
@@ -171,9 +171,9 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 | 3    | settings                                                         | 单写者收敛，小且高频    |
 | 4    | workspace（git / terminal / watcher / 媒体预览）                 | 交互热路径              |
 | 5    | sessions + tasks + tasks_index                                   | 业务核心，最大块        |
-| 6    | providers + account                                              | 配置与鉴权              |
+| 6    | providers                                                        | 配置与鉴权              |
 | 7    | extensions（skills / plugins / hooks / mcp / commands / memory） | 文件系统视图，可后置    |
-| 8    | automation（cron / offpeak / bots）                              | 调度移入 Host           |
+| 8    | automation（cron / bots）                                        | 调度移入 Host           |
 | 9    | remote + runtime-link 选择器                                     | SSH/WSL/Docker 与回退链 |
 
 runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 模式保留（差分、回退、故障隔离选项）；懒重启 generation 计数；wind-down 预算（工具进程树 TERM→KILL 收口上限）。
@@ -269,7 +269,7 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 
 #### 保留清单（对齐时不得抄丢）
 
-owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、credential_cipher、OAuth 全套、MCP inputSchema 键序捕获（`mcp_raw_capture`）、model-IO JSONL 轨迹、EOF 停滞看门狗、单管道输出保序、embedded-search prelude、Read 重复读去重桩、子代理权限模式（auto/plan/Explore）、cron/offpeak CLI 语义 + corpus。
+owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、credential_cipher、MCP inputSchema 键序捕获（`mcp_raw_capture`）、model-IO JSONL 轨迹、EOF 停滞看门狗、单管道输出保序、embedded-search prelude、Read 重复读去重桩、子代理权限模式（auto/plan/Explore）、cron CLI 语义 + corpus。
 
 ## 4. 严格等价测试网（贯穿）
 

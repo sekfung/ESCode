@@ -475,7 +475,6 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
         noProxy: configResult.config.network.noProxy,
         caCertFile: configResult.config.network.caCertFile,
       });
-    const providerEndpointRoutingPort = options.providerEndpointRoutingPort;
     markMcpAdapterInitialized({
       configuredMcpServers,
       hasInjectedMcpPort: options.mcpPort !== undefined,
@@ -595,7 +594,6 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
 
     const modelExecutionConfig = createRuntimeAiSdkModelExecutionConfig(options.env, {
       appVersion,
-      endpointRoutingPort: providerEndpointRoutingPort,
       network: configResult.config.network,
       sourceTitle: options.sourceTitle,
     });

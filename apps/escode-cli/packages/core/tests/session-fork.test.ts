@@ -12,7 +12,6 @@ import type {
   TraceContext,
 } from "@escode/contracts";
 import { SESSION_ENTRY_MODEL_SELECTION } from "@escode/contracts";
-import { HIGHSPEED_PROVIDER_IDS } from "@escode/shared";
 import {
   activeSessionMessages,
   hydrateMessageHistoryFromSession,
@@ -766,99 +765,6 @@ describe("session fork history", () => {
     }
   });
 
-  it("加速轮分叉不继承加速卡 Selection，child 回落父会话常驻模型", async () => {
-    const user = userMessage("msg_highspeed_user" as MessageId, "加速中提问", 1);
-    const assistant = assistantMessage(
-      "msg_highspeed_assistant" as MessageId,
-      user.info.id,
-      "加速回答",
-      2,
-    );
-    if (user.info.role !== "user" || assistant.info.role !== "assistant") return;
-    // 加速轮的 user/assistant 按 highspeed-card-spec §5 记录本轮真实执行模型（单轮执行事实）。
-    user.info.modelSelection = {
-      modelId: "glm-4.6" as never,
-      providerId: HIGHSPEED_PROVIDER_IDS.zai as never,
-    };
-    assistant.info.providerId = HIGHSPEED_PROVIDER_IDS.zai as never;
-    assistant.info.modelId = "glm-4.6" as never;
-    assistant.info.reasoningLevel = "max";
-    const parentSession = {
-      directory: "/workspace",
-      id: SESSION_ID,
-      path: "/workspace",
-      projectID: "project-highspeed-fork",
-      slug: "parent-highspeed-fork",
-      taskType: "interactive",
-      time: { created: 1, updated: 1 },
-      title: "parent",
-      version: "test",
-    } as SessionInfo;
-    let committedBundle: Parameters<NonNullable<SessionStorePort["commitForkBundle"]>>[0] | null =
-      null;
-    const runtime = {
-      appendEvent: async () => undefined,
-      config: { agentName: "escode-agent", mode: "build" },
-      createEvent: (_type: unknown, payload: Record<string, unknown>) => ({ payload }),
-      // 加速是 `selectionScope=execution`，从不改写常驻 Selection：它就是用户的原模型。
-      getSessionModelSelection: () => ({
-        modelId: "glm-4-air",
-        providerId: "glm",
-        options: { reasoningLevel: "high" },
-      }),
-      rootTraceContext: { traceId: "trace_highspeed_fork" },
-      sessionId: SESSION_ID,
-      sessionStore: {
-        async commitForkBundle(bundle) {
-          committedBundle = bundle;
-          return bundle.child as SessionInfo;
-        },
-        async getSession() {
-          return parentSession;
-        },
-        async messages() {
-          return [user, assistant];
-        },
-      } satisfies Partial<SessionStorePort>,
-      workingDirectory: "/workspace",
-      workspaceRoot: "/workspace",
-    };
-
-    // 不带显式选型（回落历史/常驻）与调用方显式传入加速选型，child 结果必须一致。
-    const explicitCases: (ModelSelection | undefined)[] = [
-      undefined,
-      { modelId: "glm-4.6" as never, providerId: HIGHSPEED_PROVIDER_IDS.zai as never },
-    ];
-    for (const [index, explicit] of explicitCases.entries()) {
-      committedBundle = null;
-      await forkStableConversationAtMessage.call(runtime as never, {
-        forkedSessionId: `sess_highspeed_child_${index}` as SessionId,
-        goalBoundary: { kind: "none" },
-        sourceCommandId: `cmd-highspeed-fork-${index}`,
-        ...(explicit ? { modelSelection: explicit } : {}),
-        target: {
-          productTurnId: "product-highspeed",
-          transcriptTurnId: "turn-highspeed",
-          orderedMessageIds: [String(user.info.id), String(assistant.info.id)],
-          boundaryMessageId: String(assistant.info.id),
-        },
-      });
-
-      // child 常驻在加速 Provider 上会让用户看到「原模型没带过来」，首轮还会 ModelRequestAuthMissing。
-      expect(
-        committedBundle!.entries.find((entry) => entry.type === SESSION_ENTRY_MODEL_SELECTION),
-      ).toMatchObject({
-        sessionID: `sess_highspeed_child_${index}`,
-        data: { modelId: "glm-4-air", providerId: "glm", options: { reasoningLevel: "high" } },
-      });
-      expect(committedBundle!.messages.at(-1)!.info).toMatchObject({
-        role: "assistant",
-        modelId: "glm-4-air",
-        providerId: "glm",
-      });
-      expect(JSON.stringify(committedBundle!.entries)).not.toContain(HIGHSPEED_PROVIDER_IDS.zai);
-    }
-  });
 
   it("fork-of-fork 只从 child-local anchor 构造 canonical target，不泄漏 parent id", () => {
     const user = userMessage("msg_parent_user" as MessageId, "fork twice", 1);

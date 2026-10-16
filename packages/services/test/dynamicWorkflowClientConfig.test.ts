@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ESCODE_DYNAMIC_WORKFLOW_MODE_ENV, type ApiClient } from "@escode/shared";
-import { BigModelCodingPlanSubscriptionProvider } from "../src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.js";
-import { createCodingPlanSubscriptionService } from "../src/coding-plan-subscription/codingPlanSubscriptionService.js";
+import { createClientConfigService } from "../src/client-config/clientConfigService.js";
 
 // 动态工作流灰度快照的 Host 侧读取（docs/dynamic-workflow/launch.md「Gray release」）：
 // 复用 client/configs 通道，本地覆盖短路远端，失败 fail-closed 且不抛给调用方。
@@ -18,9 +17,13 @@ function createConfigsResponse(dynamicWorkflow: unknown): Response {
 }
 
 function createProvider(apiClient: ApiClient) {
-  return new BigModelCodingPlanSubscriptionProvider({
+  return createClientConfigService({
     apiClient,
-    credentialService: { load: vi.fn() },
+    resolveRequestContext: async () => ({
+      endpointOrigin: "https://escode.test",
+      appVersion: "0.0.0-test",
+      platform: "test",
+    }),
   });
 }
 
@@ -155,9 +158,13 @@ describe("getDynamicWorkflowClientConfig", () => {
         .mockResolvedValueOnce(createConfigsResponse({ mode: "disabled" }))
         .mockResolvedValueOnce(createConfigsResponse({ mode: "alwaysOn" })),
     };
-    const service = createCodingPlanSubscriptionService({
+    const service = createClientConfigService({
       apiClient,
-      credentialService: { load: vi.fn() },
+      resolveRequestContext: async () => ({
+        endpointOrigin: "https://escode.test",
+        appVersion: "0.0.0-test",
+        platform: "test",
+      }),
     });
 
     await expect(service.getDynamicWorkflowClientConfig()).resolves.toMatchObject({

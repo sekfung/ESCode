@@ -12,9 +12,6 @@ import { TestProviderConfigFixture } from "./test-provider-config.js";
 describe("AI SDK Provider execution", () => {
   it("adds Authorization alongside x-api-key for Anthropic provider requests", async () => {
     const receivedHeaders: http.IncomingHttpHeaders[] = [];
-    const endpointRoutingPort = {
-      resolve: vi.fn(async (url: string) => ({ routed: false, url })),
-    };
     const server = http.createServer((request, response) => {
       receivedHeaders.push(request.headers);
       request.resume();
@@ -36,7 +33,6 @@ describe("AI SDK Provider execution", () => {
     try {
       const baseURL = await listenServer(server);
       const registry = new TestProviderConfigFixture({
-        endpointRoutingPort,
         env: {},
         providers: {
           anthropic: {
@@ -58,10 +54,6 @@ describe("AI SDK Provider execution", () => {
         "x-api-key": "anthropic-key",
         "anthropic-version": "2023-06-01",
       });
-      expect(endpointRoutingPort.resolve).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.not.objectContaining({ apiKey: expect.any(String) }),
-      );
     } finally {
       await closeServer(server);
     }

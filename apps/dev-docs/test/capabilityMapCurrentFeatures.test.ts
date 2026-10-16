@@ -49,9 +49,6 @@ describe("能力地图当前功能事实", () => {
     expect(edge("mcp-settings-diagnostics", "mcp-runtime")).toMatchObject({
       type: "state",
     });
-    expect(edge("official-server-mcp", "plan-identity")).toMatchObject({
-      type: "state",
-    });
     expect(edge("browser-tab-residency", "embedded-browser-host")).toMatchObject({
       type: "delivery",
     });

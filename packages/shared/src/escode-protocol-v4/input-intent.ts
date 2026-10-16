@@ -5,7 +5,6 @@ import { botGroupInputSourceSchema } from "../bots.js";
 import { z } from "zod";
 import { timestampSchema } from "./core.js";
 import { attachmentRefSchema } from "./attachment-ref.js";
-import { highspeedMessageMetaSchema } from "../highspeed.js";
 import { modelSelectionSchema } from "../model-selection.js";
 import { submissionModeSchema } from "./submission.js";
 import { sharedContextRefSchema } from "./shared-context-ref.js";
@@ -84,7 +83,6 @@ export const conversationInputIntentSchema = z
     steer: conversationInputSteerSchema,
     dispatch: conversationInputDispatchSchema,
     admittedAt: timestampSchema,
-    highspeed: highspeedMessageMetaSchema.optional(),
     provenance: z
       .object({
         sourceCommandId: z.string().min(1),

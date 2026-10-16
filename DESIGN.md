@@ -74,9 +74,7 @@ Default light and dark CSS variables still exist as fallback foundations, but ne
 - **Icon Blue**: `--color-icon-blue`
   Use for browser-style links and blue icon emphasis that follows the Figma `icon/blue` role. Keep file-type icons on their own descriptor colors.
 - **Icon Purple**: `--color-icon-purple`
-  Use for Highspeed duration emphasis and other UI explicitly mapped to the Figma `icon/purple` role. Do not reuse idle-task or terminal colors directly.
-- **Highspeed Composer Material**: `--color-highspeed-composer-border-idle` with `--color-highspeed-glow-*`
-  Use only for an active Highspeed composer shell. Its stable surface and particle layer are defined by the dedicated Highspeed activation stylesheet and must not leak into ordinary inputs.
+  Use for other UI explicitly mapped to the Figma `icon/purple` role. Do not reuse idle-task or terminal colors directly.
 - **Accent Surface**: `--color-accent`
   Use for weak emphasis blocks, selected highlights, and low-intensity branded surfaces.
 - **Background**: `--color-background`

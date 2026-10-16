@@ -150,7 +150,9 @@ describe("createAccountProviderConnectionResolver", () => {
     ).resolves.toBeNull();
   });
 
-  it("真实账号缺 Key 保持权益未知，且不阻断另一个可用套餐", async () => {
+  // 套餐族删除（2026-10-15）：远端权益探测（zai subscription-list 等）随
+  // codingPlanProviderAvailability 移除，account Provider 一律保持 unknown。
+  it("真实账号缺 Key 保持权益未知（远端权益探测已随套餐族删除）", async () => {
     const configured = configuredProviders();
     const resolve = createAccountProviderConfigResolver(
       createAccountProviderConnectionResolver({
@@ -199,8 +201,7 @@ describe("createAccountProviderConnectionResolver", () => {
       });
     }
     expect(parsed.states[BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan]).toMatchObject({
-      availability: "available",
-      entitled: true,
+      availability: "unknown",
     });
   });
   it.each(["connection", "identity"] as const)(

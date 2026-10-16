@@ -297,7 +297,7 @@ pub fn channels_with(
     data_base_dir: Option<std::path::PathBuf>,
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
-    provider_files: Option<(std::path::PathBuf, std::path::PathBuf)>,
+    provider_files: Option<escode_host_services::provider::ProviderFiles>,
 ) -> Channels {
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();

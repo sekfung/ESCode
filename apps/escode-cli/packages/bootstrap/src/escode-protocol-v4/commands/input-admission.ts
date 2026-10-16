@@ -106,7 +106,6 @@ export async function applyHeldQueueDisposition(
   }
   if (disposition === "clearQueueAndSend") {
     await record.app.clearQueueItems();
-    host.clearQueuedTurnExecutions?.(record.app.sessionId);
   }
 }
 
@@ -156,14 +155,4 @@ export function resolveSubmittedExecutionState(
     mode: state.mode === "auto" ? "build" : state.mode,
     planEnabled: state.planEnabled,
   };
-}
-
-/**
- * Highspeed Selection 只有与同一轮 execution 材料成对出现才有效。retry、edit 重发、卡过期与
- * queue promotion 在没有本轮有效执行材料时，统一经这个 resolver 退回会话常驻 Selection；
- * 禁止只删 modelExecution 却保留 account:*-highspeed-card Selection（spec §3 规则 13）。
- * 只读会话当前值，不改写 session 常驻模型。
- */
-export function resolveSessionFallbackModelSelection(record: V4SessionRecordView): ModelSelection {
-  return resolveSubmittedExecutionState(record, {}).modelSelection;
 }

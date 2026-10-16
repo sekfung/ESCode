@@ -29,13 +29,12 @@ const CAS_COMMANDS: [&str; 15] = [
 ];
 
 /// TS `ROW_TARGETING_COMMANDS`。
-const ROW_TARGETING_COMMANDS: [&str; 6] = [
+const ROW_TARGETING_COMMANDS: [&str; 5] = [
     "applyFileRewind",
     "forkAssistant",
     "editUserQuery",
     "retryTurn",
     "setAssistantFeedback",
-    "setHighspeedMetrics",
 ];
 
 /// TS `getHostV4ClientId`：Host 进程内稳定。

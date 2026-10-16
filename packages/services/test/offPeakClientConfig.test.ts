@@ -1,6 +1,6 @@
 import type { ModelSelectionView } from "@escode/provider";
 import { describe, expect, it } from "vitest";
-import { resolveOffPeakClientConfig } from "../src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.js";
+import { resolveOffPeakClientConfig } from "../src/client-config/clientConfigService.js";
 
 const env = {} as NodeJS.ProcessEnv;
 const modelSelectionView = {

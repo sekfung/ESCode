@@ -8,7 +8,6 @@ import {
   ProviderApiConfig,
   ProviderConfigMap,
   ProviderConfigResolver,
-  ZhipuAccountAccessConfig,
 } from "@escode/provider";
 import { describe, expect, it } from "vitest";
 import { NodeESCodeBuiltinProviderConfigSource } from "../src/index.js";
@@ -76,7 +75,7 @@ describe("ESCode Built-in Provider Config 完整性", () => {
       }
     },
   );
-  it("GLM-5.3-Flash 的媒体输入能力及 GLM-5.3 的套餐桥接保持明确", async () => {
+  it("GLM-5.3-Flash 的媒体输入能力与 GLM-5.3 系列的标准 API 模板归属保持明确", async () => {
     const source = new NodeESCodeBuiltinProviderConfigSource({
       bundledFilePath: escodeBuiltinProviderConfigFilePath,
       watch: false,
@@ -84,7 +83,9 @@ describe("ESCode Built-in Provider Config 完整性", () => {
 
     try {
       const snapshot = await source.read();
-      const rawRelease = JSON.parse(await readFile(escodeBuiltinProviderConfigFilePath, "utf8")) as {
+      const rawRelease = JSON.parse(
+        await readFile(escodeBuiltinProviderConfigFilePath, "utf8"),
+      ) as {
         revision: number;
         config: { modelConfigRules: Record<string, unknown> };
       };
@@ -99,95 +100,17 @@ describe("ESCode Built-in Provider Config 完整性", () => {
       expect(snapshot.revision).toMatch(
         new RegExp(`^escode-builtin:${rawRelease.revision}:[a-f0-9]{64}$`, "u"),
       );
-      const apiTemplateIds = [
-        "zai-api",
-        "bigmodel-api",
-        "zai-standard-api",
-        "bigmodel-standard-api",
-      ] as const;
-      const accountProviderIds = [
-        "account:zai-individual-coding-plan",
-        "account:zai-team-coding-plan",
-        "account:zai-start-plan",
-        "account:bigmodel-individual-coding-plan",
-        "account:bigmodel-team-coding-plan",
-        "account:bigmodel-start-plan",
-        "account:zai-offpeak-idle-plan",
-        "account:bigmodel-offpeak-idle-plan",
-      ] as const;
-      for (const templateId of apiTemplateIds) {
+      for (const templateId of ["zai-standard-api", "bigmodel-standard-api"] as const) {
         const modelIds = snapshot.providerTemplates?.get(templateId)?.config.builtinModelIds ?? [];
         expect(modelIds, `${templateId} 必须同时提供 GLM-5.3 系列`).toEqual(
           expect.arrayContaining(["GLM-5.3", "GLM-5.3-Flash"]),
         );
       }
-      for (const providerId of accountProviderIds) {
-        const modelIds = snapshot.providers.get(providerId)?.builtinModelIds ?? [];
-        expect(modelIds, `${providerId} 必须提供 GLM-5.3-Flash`).toContain("GLM-5.3-Flash");
-      }
-
-      for (const providerId of [
-        "account:zai-individual-coding-plan",
-        "account:zai-team-coding-plan",
-        "account:bigmodel-individual-coding-plan",
-        "account:bigmodel-team-coding-plan",
-      ]) {
-        expect(snapshot.providers.get(providerId)?.builtinModelIds).toEqual([
-          "GLM-5.3",
-          "GLM-5.3-Flash",
-        ]);
-        const planModel = snapshot.models.resolve({
-          providerId,
-          modelId: "GLM-5.3",
-          apiType: "anthropic-messages",
-          baseUrl: snapshot.providers.get(providerId)?.api?.baseUrl,
-        });
-        expect(planModel.properties?.inputFormat.toJSON()).toMatchObject({
-          supportsImage: true,
-          supportsVideo: true,
-          supportsAudio: false,
-          supportsPdf: false,
-        });
-      }
-
-      // 加速卡换端点不换模型，能力事实必须与同 Family Coding Plan 站点逐项一致；
-      // 否则同一会话里普通轮与加速轮的 system 折叠、WebSearch 暴露和附件合法性会互相打脸。
-      for (const [highspeedProviderId, planProviderId] of [
-        ["account:zai-highspeed-card", "account:zai-individual-coding-plan"],
-        ["account:bigmodel-highspeed-card", "account:bigmodel-individual-coding-plan"],
-      ] as const) {
-        const resolveAt = (providerId: string, modelId: string) =>
-          snapshot.models.resolve({
-            providerId,
-            modelId,
-            apiType: "anthropic-messages",
-            baseUrl: snapshot.providers.get(providerId)?.api?.baseUrl,
-          });
-        expect(snapshot.providers.get(highspeedProviderId)?.builtinModelIds).toEqual(
-          snapshot.providers.get(planProviderId)?.builtinModelIds,
-        );
-        for (const modelId of snapshot.providers.get(highspeedProviderId)?.builtinModelIds ?? []) {
-          const highspeedModel = resolveAt(highspeedProviderId, modelId);
-          const planModel = resolveAt(planProviderId, modelId);
-          expect(
-            highspeedModel.properties?.inputFormat.toJSON(),
-            `${highspeedProviderId}/${modelId} 输入形态偏离 Coding Plan 站点`,
-          ).toEqual(planModel.properties?.inputFormat.toJSON());
-          expect(
-            highspeedModel.properties?.supportsMidConversationSystem,
-            `${highspeedProviderId}/${modelId} MCS 偏离 Coding Plan 站点`,
-          ).toBe(planModel.properties?.supportsMidConversationSystem);
-          expect(
-            highspeedModel.properties?.supportsNativeWebSearch,
-            `${highspeedProviderId}/${modelId} 原生搜索偏离 Coding Plan 站点`,
-          ).toBe(planModel.properties?.supportsNativeWebSearch);
-        }
-      }
 
       const resolve = (modelId: string) =>
         snapshot.models.resolve({
           providerId: "personal-zai",
-          templateId: "zai-api",
+          templateId: "zai-standard-api",
           modelId,
           apiType: "anthropic-messages",
           // 模型层自身能力与 §6.3.1 已批准的站点覆盖分开验证。
@@ -222,10 +145,10 @@ describe("ESCode Built-in Provider Config 完整性", () => {
       });
       const glm53FlashChat = snapshot.models.resolve({
         providerId: "personal-zai",
-        templateId: "zai-api",
+        templateId: "zai-standard-api",
         modelId: "glm-5.3-flash",
         apiType: "openai-chat-completions",
-        baseUrl: "https://api.z.ai/api/anthropic",
+        baseUrl: "https://api.z.ai/api/paas/v4",
       });
       expect(glm53FlashChat.properties?.inputFormat.supportsPdf).toBe(true);
     } finally {
@@ -523,7 +446,7 @@ describe("ESCode Built-in Provider Config 完整性", () => {
     }
   });
 
-  it("按产品分组声明 Zhipu 系统 Provider 与外部主流 Provider", async () => {
+  it("模板按产品分组声明 Zhipu 与外部主流 Provider", async () => {
     const source = new NodeESCodeBuiltinProviderConfigSource({
       bundledFilePath: escodeBuiltinProviderConfigFilePath,
       watch: false,
@@ -531,22 +454,10 @@ describe("ESCode Built-in Provider Config 完整性", () => {
 
     try {
       const snapshot = await source.read();
-      expect(snapshot.providers.keys()).toEqual([
-        "account:zai-individual-coding-plan",
-        "account:zai-team-coding-plan",
-        "account:zai-start-plan",
-        "account:bigmodel-individual-coding-plan",
-        "account:bigmodel-team-coding-plan",
-        "account:bigmodel-start-plan",
-        "account:zai-offpeak-idle-plan",
-        "account:bigmodel-offpeak-idle-plan",
-        "account:zai-highspeed-card",
-        "account:bigmodel-highspeed-card",
-      ]);
+      // 套餐族删除后 Built-in 只保留模板，不再内建 account Provider。
+      expect(snapshot.providers.keys()).toEqual([]);
       expect(snapshot.providerTemplates?.keys()).toEqual([
-        "zai-api",
         "zai-standard-api",
-        "bigmodel-api",
         "bigmodel-standard-api",
         "moonshot-kimi",
         "minimax",
@@ -641,11 +552,21 @@ describe("ESCode Built-in Provider Config 完整性", () => {
         },
         api: { type: "openai-responses", baseUrl: "https://api.x.ai/v1" },
       });
-      expect(snapshot.providerTemplates?.get("zai-api")?.config.toJSON()).toMatchObject({
-        access: { type: "zhipu-coding-plan-api-key" },
+      expect(snapshot.providerTemplates?.get("zai-standard-api")?.config.toJSON()).toMatchObject({
+        access: {
+          type: "api-key",
+          apiKeyManagementUrl: "https://z.ai/manage-apikey/apikey-list",
+        },
+        api: { type: "openai-chat-completions", baseUrl: "https://api.z.ai/api/paas/v4" },
       });
-      expect(snapshot.providerTemplates?.get("bigmodel-api")?.config.toJSON()).toMatchObject({
-        access: { type: "zhipu-coding-plan-api-key" },
+      expect(
+        snapshot.providerTemplates?.get("bigmodel-standard-api")?.config.toJSON(),
+      ).toMatchObject({
+        access: {
+          type: "api-key",
+          apiKeyManagementUrl: "https://bigmodel.cn/usercenter/proj-mgmt/apikeys",
+        },
+        api: { type: "openai-chat-completions", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
       });
     } finally {
       source.dispose();
@@ -672,7 +593,9 @@ describe("ESCode Built-in Provider Config 完整性", () => {
 
       // 分组后“模型家族连续”只约束 Model Rule 本组；把 Model/API/Site 三组拼起来会
       // 人为制造重复家族，无法再验证原本想检查的书写顺序。
-      const rawRelease = JSON.parse(await readFile(escodeBuiltinProviderConfigFilePath, "utf8")) as {
+      const rawRelease = JSON.parse(
+        await readFile(escodeBuiltinProviderConfigFilePath, "utf8"),
+      ) as {
         config: { modelConfigRules: { modelRules: readonly { modelMatch: string }[] } };
       };
       const modelRules = rawRelease.config.modelConfigRules.modelRules;
@@ -904,7 +827,7 @@ describe("ESCode Built-in Provider Config 完整性", () => {
     }
   });
 
-  it("每个 Built-in Provider 与模型成员都完整，启用成员在补齐访问材料后进入正式 Registry", async () => {
+  it("每个 Template 与模型成员都完整，启用成员在补齐访问材料后进入正式 Registry", async () => {
     const source = new NodeESCodeBuiltinProviderConfigSource({
       bundledFilePath: escodeBuiltinProviderConfigFilePath,
       watch: false,
@@ -912,7 +835,6 @@ describe("ESCode Built-in Provider Config 完整性", () => {
 
     try {
       const snapshot = await source.read();
-      const accountProviders: [string, ProviderConfig][] = [];
       const personalProviders: Array<{
         providerId: string;
         templateId: string;
@@ -936,15 +858,6 @@ describe("ESCode Built-in Provider Config 完整性", () => {
           return model.enabled !== false;
         });
         expectedModelIds.set(providerId, enabledModelIds);
-
-        if (provider.access?.type === "zhipu-account") {
-          accountProviders.push([
-            providerId,
-            new ProviderConfig({
-              access: new ZhipuAccountAccessConfig({ entitled: true }),
-            }),
-          ]);
-        }
       }
 
       for (const [templateId, template] of snapshot.providerTemplates?.entries() ?? []) {
@@ -965,10 +878,8 @@ describe("ESCode Built-in Provider Config 完整性", () => {
           return model.enabled !== false;
         });
         expectedModelIds.set(providerId, enabledModelIds);
-        expect(["api-key", "zhipu-coding-plan-api-key"]).toContain(template.config.access?.type);
-        if (template.config.access?.type !== "zhipu-account") {
-          expect(template.config.access.apiKey, `${templateId} 不得保存 API Key`).toBeUndefined();
-        }
+        expect(template.config.access?.type).toBe("api-key");
+        expect(template.config.access.apiKey, `${templateId} 不得保存 API Key`).toBeUndefined();
         personalProviders.push({
           providerId,
           templateId,
@@ -985,7 +896,7 @@ describe("ESCode Built-in Provider Config 完整性", () => {
       const resolution = new ProviderConfigResolver().resolve({
         escodeBuiltinProviders: snapshot.providers,
         escodeBuiltinProviderTemplates: snapshot.providerTemplates,
-        accountProviders: new ProviderConfigMap(accountProviders),
+        accountProviders: ProviderConfigMap.empty(),
         personalProviders: new ProviderConfigMap(personalProviders),
         escodeBuiltinModelRules: snapshot.models,
         personalModels: ModelConfigRules.empty(),
@@ -993,19 +904,7 @@ describe("ESCode Built-in Provider Config 完整性", () => {
 
       expect(resolution.issues).toEqual([]);
       expect(resolution.registryProviders.map(({ providerId }) => providerId)).toEqual([
-        "account:zai-individual-coding-plan",
-        "account:zai-team-coding-plan",
-        "account:zai-start-plan",
-        "account:bigmodel-individual-coding-plan",
-        "account:bigmodel-team-coding-plan",
-        "account:bigmodel-start-plan",
-        "account:zai-offpeak-idle-plan",
-        "account:bigmodel-offpeak-idle-plan",
-        "account:zai-highspeed-card",
-        "account:bigmodel-highspeed-card",
-        "template:zai-api",
         "template:zai-standard-api",
-        "template:bigmodel-api",
         "template:bigmodel-standard-api",
         "template:moonshot-kimi",
         "template:minimax",
@@ -1039,19 +938,6 @@ describe("ESCode Built-in Provider Config 完整性", () => {
               model.modelId,
             ]),
           ).toEqual([]);
-        }
-      }
-
-      for (const providerId of [
-        "account:zai-offpeak-idle-plan",
-        "account:bigmodel-offpeak-idle-plan",
-      ]) {
-        const offPeak = resolution.resolvedProviders.find(
-          (provider) => provider.providerId === providerId,
-        );
-        expect(offPeak?.models).not.toHaveLength(0);
-        for (const model of offPeak?.models ?? []) {
-          expect(model).toMatchObject({ executable: true, selectable: false });
         }
       }
     } finally {

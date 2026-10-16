@@ -79,7 +79,8 @@ describe("Todo104 最终文件外壳", () => {
     expect(raw.revision).toBeGreaterThanOrEqual(18);
     const parsed = decodeESCodeBuiltinRelease(raw);
     expect(encodeESCodeBuiltinRelease(parsed)).toEqual(raw);
-    expect(parsed.config.providers.keys().length).toBeGreaterThan(0);
+    // 套餐族删除后 Built-in 只保留模板；providers 仍按空集合往返，不能整段丢失。
+    expect(parsed.config.providers.keys()).toEqual([]);
     expect(parsed.config.providerTemplates.keys().length).toBeGreaterThan(0);
     for (const rule of parsed.config.providers.toJSON()) {
       expect(rule.config).not.toHaveProperty("templateId");

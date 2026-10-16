@@ -95,7 +95,12 @@ describe("Todo 72 已发布 config.json 首次升级", () => {
     });
     try {
       const personal = await repository.read();
-      expect(personal.providers.keys()).toEqual(["bigmodel-api", "zai-api", customId]);
+      // 套餐族删除后官方 API 的落点是标准 API 模板（原 bigmodel-api/zai-api 是 Coding Plan 模板）。
+      expect(personal.providers.keys()).toEqual([
+        "bigmodel-standard-api",
+        "zai-standard-api",
+        customId,
+      ]);
       const builtin = await source.read();
       const resolved = new ProviderConfigResolver().resolve({
         escodeBuiltinProviders: builtin.providers,
@@ -106,7 +111,7 @@ describe("Todo 72 已发布 config.json 首次升级", () => {
         accountProviders: ProviderConfigMap.empty(),
       });
       for (const family of ["bigmodel", "zai"] as const) {
-        const id = `${family}-api`;
+        const id = `${family}-standard-api`;
         const provider = resolved.resolvedProviders.find((item) => item.providerId === id)!;
         expect(provider.config.api?.baseUrl).toBe(
           builtin.providerTemplates?.get(id)?.config.api?.baseUrl,

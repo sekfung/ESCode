@@ -6,7 +6,6 @@ import type {
   CommandPayloadMap,
   CommandResult,
 } from "@escode/shared/escode-protocol-v4";
-import { isHighspeedProviderId } from "@escode/shared";
 import { createModelExecutionContext } from "../../../escode-protocol/model-execution.js";
 import { mapAttachmentRefsToTurnAttachments } from "../attachment-refs.js";
 import {
@@ -17,19 +16,16 @@ import {
 } from "../input-admission.js";
 import { inputIntentMetadata } from "../input-intent.js";
 import {
-  resolveTurnAutomationId,
   startPromptTurn,
   turnBackgroundAttributionOf,
-  V4PromptRejectedError,
 } from "../prompt-turn.js";
 import { requireRecord } from "../record-access.js";
-import type { V4CommandCoreHost, V4QueuedTurnExecution, V4SessionRecordView } from "../types.js";
+import type { V4CommandCoreHost, V4SessionRecordView } from "../types.js";
 import { V4CommandNoopError } from "../../v4-gateway.js";
 
 /** 等 idle 轮询参数：25ms 间隔、5s 超时。 */
 const IDLE_POLL_INTERVAL_MS = 25;
 const IDLE_POLL_TIMEOUT_MS = 5_000;
-const HIGHSPEED_QUEUE_FALLBACK_REASON = "highspeed.requiresQueue";
 
 /** 等 idle 超时（active turn 的 finally 5s 内未释放锁）→ 放弃重发并报错。 */
 export class V4SessionIdleTimeoutError extends Error {
@@ -47,109 +43,18 @@ async function sendText(
   host: V4CommandCoreHost,
   envelope: CommandEnvelope,
 ): Promise<CommandResult | undefined> {
-  const rawPayload = envelope.payload as CommandPayloadMap["sendText"];
+  const payload = envelope.payload as CommandPayloadMap["sendText"];
   const record = requireRecord(host, envelope.sessionId);
   // Bug 根因：旧校验只看正文，UI 已允许的 attachment-only query 会在 CLI 被误判为空。
-  if (!hasPromptInput(rawPayload.text, rawPayload.attachments) && !rawPayload.conversationQuotes?.length) {
+  if (!hasPromptInput(payload.text, payload.attachments) && !payload.conversationQuotes?.length) {
     throw new V4InputAdmissionRejectedError("proto.invalidPayload", "input must not be empty");
   }
-  const activeAutomationId = resolveTurnAutomationId({
-    automationId: rawPayload.automationId,
-    inputId: envelope.commandId,
-  });
-  // Bug 根因：Highspeed admission 与 automation 派发来自不同上游；契约漂移时可能把
-  // automationId、highspeedMeta 和加速执行材料同时送到同一轮。定时执行身份必须优先：
-  // 既不能拿加速卡凭据发请求，也不能把普通模型输出持久化成 Highspeed 消息。
-  const dropsHighspeed =
-    activeAutomationId !== undefined &&
-    (rawPayload.highspeedMeta !== undefined ||
-      isHighspeedProviderId(rawPayload.modelSelection?.providerId));
-  const payload: CommandPayloadMap["sendText"] = dropsHighspeed
-    ? {
-        ...rawPayload,
-        highspeedMeta: undefined,
-        modelSelection: undefined,
-        modelExecution: undefined,
-      }
-    : rawPayload;
-  // canonical intent 必须和 admission 看同一份净荷，否则 transcript 会留下没有凭据的加速标记。
-  const intentEnvelope = dropsHighspeed ? ({ ...envelope, payload } as CommandEnvelope) : envelope;
   const attachments = await mapAttachmentRefsToTurnAttachments(record.app, payload.attachments);
   const submittedExecutionState = resolveSubmittedExecutionState(record, payload);
   const submissionIntent = (options: Parameters<typeof inputIntentMetadata>[1]) =>
-    inputIntentMetadata(intentEnvelope, { ...options, ...submittedExecutionState });
+    inputIntentMetadata(envelope, { ...options, ...submittedExecutionState });
   const routingMode = host.getInputRoutingMode?.(envelope.sessionId ?? "") ?? null;
   const forceStartNow = payload.requestedDelivery === "startNow";
-  // 加速本轮由「标准 Selection 指向加速 Provider + 单次执行材料」表达；判定必须用 Family
-  // 谓词，不能和单个 provider id 常量比较，否则 BigModel 账号的卡会被当成普通轮静默丢弃。
-  const highspeedExecution: V4QueuedTurnExecution | undefined = isHighspeedProviderId(
-    payload.modelSelection?.providerId,
-  )
-    ? payload.modelExecution
-    : undefined;
-  const highspeedActiveTurn = highspeedExecution
-    ? record.app.runtime?.getActiveTurnInfo?.()
-    : undefined;
-  const highspeedRequiresQueue =
-    !forceStartNow &&
-    highspeedExecution !== undefined &&
-    (record.activeAbortController !== undefined ||
-      highspeedActiveTurn !== undefined ||
-      routingMode === "enqueue" ||
-      routingMode === "guide");
-
-  const queueHighspeedTurn = async (): Promise<CommandResult | undefined> => {
-    if (!highspeedExecution) {
-      throw new V4InputAdmissionRejectedError(
-        "fault.command.inputRejected",
-        "Highspeed queue requires turn execution material",
-      );
-    }
-    // 加速凭据只驻留 CLI 内存：提升时按 (sessionId, sourceCommandId) 取回，绝不进队列事件。
-    host.retainQueuedTurnExecution?.(record.app.sessionId, envelope.commandId, highspeedExecution);
-    try {
-      const requestedDelivery = routingMode === "guide" ? "guide" : "queue";
-      // 加速轮的 Selection 必须进 canonical intent：提升时只从队列项读模型，不再回看会话。
-      const intent = submissionIntent({
-        text: payload.text,
-        requestedDelivery,
-        admittedDelivery: "queue",
-        ...(routingMode === "guide" ? { fallbackReasonCode: HIGHSPEED_QUEUE_FALLBACK_REASON } : {}),
-        attachmentRefs: payload.attachments,
-      });
-      const queued = await startPromptTurn(host, record, {
-        content: payload.text,
-        ...(payload.browserAmbientContext
-          ? { browserAmbientContext: payload.browserAmbientContext }
-          : {}),
-        inputId: envelope.commandId,
-        intent,
-        requireQueue: true,
-        ...(attachments ? { attachments } : {}),
-        toolDisallowlist: payload.toolDisallowlist,
-      });
-      if (queued.admission.kind !== "queued") {
-        throw new V4InputAdmissionRejectedError(
-          "fault.command.inputRejected",
-          "Highspeed input was not admitted to the queue",
-        );
-      }
-      return {
-        type: "inputAccepted",
-        delivery: "queue",
-        inputId: envelope.commandId,
-      };
-    } catch (error) {
-      host.deleteQueuedTurnExecution?.(record.app.sessionId, envelope.commandId);
-      throw error;
-    }
-  };
-
-  if (highspeedRequiresQueue) {
-    // Bug 根因：临时 Highspeed provider 不能 guide 到当前 turn；交给 Core 的 requireQueue
-    // 原子准入，避免跨层 busy 快照在 await 期间失效后用普通模型直接启动。
-    return await queueHighspeedTurn();
-  }
   const foregroundPromotionLeaseId = forceStartNow ? `send-now:${envelope.commandId}` : undefined;
   let foregroundPromotionLeaseAcquired = false;
   let preempted = false;
@@ -159,7 +64,7 @@ async function sendText(
     foregroundPromotionLeaseAcquired = false;
   };
   if (forceStartNow) {
-    // Bug 根因：Highspeed prepare 让“立即发送”更容易落入 Core busy admission；先持有
+    // Bug 根因：带单轮执行材料的“立即发送”容易落入 Core busy admission；先持有
     // 前台租约并抢占当前轮，才能保证 requestedDelivery=startNow 不被静默改成 queue。
     const leaseResult = record.app.runtime.acquireForegroundPromotionLease({
       leaseId: foregroundPromotionLeaseId!,
@@ -239,17 +144,6 @@ async function sendText(
       // 抢占完成后的 startNow 会先落 deferred queue，待 lease 释放后再被自动 drain。
       ...(forceStartNow ? { requireIdle: true } : {}),
     });
-  } catch (error) {
-    if (
-      highspeedExecution &&
-      error instanceof V4PromptRejectedError &&
-      error.reasonCode === "activePrompt"
-    ) {
-      // Bug 根因：Bootstrap 读取空闲后到 Core admission 之间可能新建 reservation。
-      // 此时 Highspeed 不能降级丢失，也不能把加速凭据插进当前 turn，改由 Core 强制入队。
-      return await queueHighspeedTurn();
-    }
-    throw error;
   } finally {
     releaseForegroundPromotionLease();
   }

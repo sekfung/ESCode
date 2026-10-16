@@ -2,7 +2,6 @@
 // 「读 dotenv → 定位要恢复的会话 → 装 bootstrap 模块 → 起 Provider Registry
 // 常驻运行时 → 读默认模型选择」这段进程级准备拆到本文件；
 // 公开面仍从 tui-prompt-handler.ts 导出。
-import type { ESCodeAppOptions } from "@escode/bootstrap";
 import { loadBootstrapModule } from "./bootstrap-loader.js";
 import { loadCliDotenv } from "./env.js";
 import { createCliProviderRefreshReporter } from "./provider-runtime-env.js";
@@ -16,13 +15,11 @@ type ProviderRegistryRuntime = Awaited<
 // 跨 App 替换（/new、/resume、/fork）复用的进程级句柄：整个 Prompt Handler 生命期只起一份，
 // 只在终态 close 时对称 shutdown。之前是 createTuiSubmitPrompt 里的三个 let 闭包变量。
 interface TuiProcessRuntimeState {
-  providerEndpointRoutingPort: ESCodeAppOptions["providerEndpointRoutingPort"];
   providerRegistryRuntimePromise: Promise<ProviderRegistryRuntime> | undefined;
   shutdownTelemetry: (() => Promise<void>) | undefined;
 }
 
 export const createTuiProcessRuntimeState = (): TuiProcessRuntimeState => ({
-  providerEndpointRoutingPort: undefined,
   providerRegistryRuntimePromise: undefined,
   shutdownTelemetry: undefined,
 });
@@ -85,18 +82,6 @@ export async function prepareTuiAppRuntime(
   const configuredDefaultModelSelection = providerRegistryRuntime?.modelSelectionConfigRepository
     ? await providerRegistryRuntime.modelSelectionConfigRepository.read()
     : providerRegistryRuntime?.configuredDefaultModelSelection;
-  const createProviderEndpointRoutingPort =
-    deps.createProviderEndpointRoutingPort ??
-    bootstrapModule?.createDefaultProviderEndpointRoutingPort;
-  state.providerEndpointRoutingPort ??= createProviderEndpointRoutingPort?.({
-    appVersion: version,
-    env,
-    projectConfigPath: deps.projectConfigPath,
-    skipUserConfig: deps.skipUserConfig,
-    userConfigPath: deps.userConfigPath,
-    workingDirectory,
-  });
-
   return {
     appEnv,
     configuredDefaultModelSelection,

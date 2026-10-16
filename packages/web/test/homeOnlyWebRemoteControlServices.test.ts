@@ -33,7 +33,7 @@ describe("createHomeOnlyWebRemoteControlServices", () => {
     const { createHomeOnlyWebRemoteControlServices } = await import("../src/main.js");
     const services = createHomeOnlyWebRemoteControlServices();
 
-    await expect(services.oauthService.restoreCachedSession()).resolves.toBeNull();
+    // 套餐族删除（2026-10-15）：home-only 服务集不再提供 oauthService（账号登录链移除）。
     await expect(services.modelSelectionService.getView()).resolves.toEqual({
       revision: 0,
       providers: [],

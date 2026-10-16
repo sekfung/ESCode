@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SharedESCodeCredentialStore } from "@escode/adapters/auth";
-import { createSharedESCodeCredentialStore } from "@escode/adapters/auth";
 import { NodePersonalProviderConfigRepository } from "@escode/provider-node";
-import { ProviderConfig } from "@escode/provider";
-import { configureCodingPlanApiKey } from "../src/auth-login.js";
 import { startProcessProviderRegistryRuntime } from "../src/app/process-provider-registry-runtime.js";
 import { importLegacyCliPersonalProviderConfig } from "../src/app/legacy-cli-personal-provider-config-importer.js";
 
@@ -19,51 +15,6 @@ afterEach(async () => {
 });
 
 describe("Todo104 CLI 同文件默认选择", () => {
-  it("登录沿用注入的 Personal 路径，更新默认选择不覆盖 Provider 内容", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "todo104-cli-login-"));
-    directories.push(directory);
-    const personalPath = join(directory, "injected-personal.json");
-    const env = {
-      ESCODE_CREDENTIAL_SECRET: "todo104-fixture-only",
-      ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
-      ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: fileURLToPath(
-        new URL("../../../../../config/provider/escode-builtin.json", import.meta.url),
-      ),
-    };
-    const repository = new NodePersonalProviderConfigRepository({
-      filePath: personalPath,
-      pollingIntervalMs: false,
-    });
-    try {
-      await repository.update((current) => ({
-        ...current,
-        providers: current.providers.setRule({
-          providerId: "custom",
-          providerName: "Keep Me",
-          config: new ProviderConfig({ personalModelIds: ["model-a"] }),
-        }),
-      }));
-      const credentialStore = createSharedESCodeCredentialStore({
-        baseDir: join(directory, "credentials"),
-        env,
-      });
-      const result = await configureCodingPlanApiKey({
-        apiKey: "fixture-key",
-        providerId: "bigmodel",
-        credentialStore,
-        env,
-      });
-      expect(result.configPath).toBe(personalPath);
-      const stored = await repository.read();
-      expect(stored.defaultModelSelection?.providerId).toBe(
-        "account:bigmodel-individual-coding-plan",
-      );
-      expect(stored.providers.getRule("custom")?.providerName).toBe("Keep Me");
-      expect(stored.providers.get("custom")?.personalModelIds).toEqual(["model-a"]);
-    } finally {
-      repository.dispose();
-    }
-  });
   it("旧输入一次性产出 Provider 外层身份、模型配置与默认选择", () => {
     const input = {
       model: "custom/model-a",
@@ -98,10 +49,8 @@ describe("Todo104 CLI 同文件默认选择", () => {
       ),
       ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
     };
-    // 不读取测试机账号凭据，只有迁移和正式文件读写参与本用例。
-    const credentialStore = { loadMany: async () => ({}) } as unknown as SharedESCodeCredentialStore;
     const standalone = await startProcessProviderRegistryRuntime(env, {
-      standalone: { legacyCliUserConfigFilePath: legacyPath, credentialStore },
+      standalone: { legacyCliUserConfigFilePath: legacyPath },
     });
     try {
       expect(standalone.configuredDefaultModelSelection).toEqual({
@@ -128,7 +77,7 @@ describe("Todo104 CLI 同文件默认选择", () => {
       protocol.dispose();
     }
     const restart = await startProcessProviderRegistryRuntime(env, {
-      standalone: { legacyCliUserConfigFilePath: legacyPath, credentialStore },
+      standalone: { legacyCliUserConfigFilePath: legacyPath },
     });
     try {
       expect(restart.configuredDefaultModelSelection).toBeUndefined();

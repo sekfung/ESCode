@@ -49,7 +49,6 @@ export function buildPersistedConversationInputIntent(
     steer,
     dispatch: { state: dispatchState },
     admittedAt: intent.admittedAt,
-    ...(intent.highspeed ? { highspeed: intent.highspeed } : {}),
     ...(intent.provenance ? { provenance: intent.provenance } : {}),
     ...(intent.source ? { source: intent.source } : {}),
   };

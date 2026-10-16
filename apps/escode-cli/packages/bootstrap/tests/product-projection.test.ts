@@ -264,184 +264,8 @@ describe("ProductProjection 黄金测试（L1）", () => {
     expect(conversationSnapshotSchema.parse(snapshot).rows.window).toEqual(snapshot.rows.window);
   });
 
-  it("Highspeed turn 终态持久化 CLI 聚合的模型/工具真实耗时", () => {
-    const log = new EventLog();
-    const turnId = "turn-highspeed-timing";
-    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
-    log.push(
-      SessionEventType.TurnStarted,
-      { turnNumber: 1, input: "measure", inputId: "command-highspeed-timing", messageId: "user-1" },
-      { turnId, timestampMs: 1_700_000_000_000 },
-    );
-    log.push(
-      SessionEventType.ModelNetworkStatus,
-      {
-        type: "model_request_completed",
-        requestId: "request-1",
-        providerId: "account:bigmodel-highspeed-card",
-        modelId: "glm-5.3",
-        transport: "sse",
-        attempt: 1,
-        maxAttempts: 1,
-        durationMs: 400,
-      },
-      { turnId, timestampMs: 1_700_000_000_500 },
-    );
-    log.push(
-      SessionEventType.ModelNetworkStatus,
-      {
-        type: "model_request_completed",
-        requestId: "request-fallback",
-        providerId: "account:bigmodel-individual-coding-plan",
-        modelId: "glm-5.3",
-        transport: "sse",
-        attempt: 1,
-        maxAttempts: 1,
-        durationMs: 10_000,
-      },
-      { turnId, timestampMs: 1_700_000_000_700 },
-    );
-    log.push(
-      SessionEventType.ToolCallScheduled,
-      {
-        toolCallId: "tool-1",
-        toolName: "Bash",
-        input: { command: "echo ok" },
-        schedule: { parallelGroups: [["tool-1"]], executionOrder: ["tool-1"] },
-      },
-      { turnId, timestampMs: 1_700_000_001_000 },
-    );
-    log.push(
-      SessionEventType.ToolCallStarted,
-      { toolCallId: "tool-1", toolName: "Bash", startedAt: new Date(1_700_000_001_000) },
-      { turnId, timestampMs: 1_700_000_001_100 },
-    );
-    log.push(
-      SessionEventType.ToolCallResult,
-      { toolCallId: "tool-1", result: { success: true, content: "ok" }, duration: 900 },
-      { turnId, timestampMs: 1_700_000_002_000 },
-    );
-    log.push(
-      SessionEventType.TurnComplete,
-      { response: "done", tokenCount: 20, toolCallCount: 1, duration: 3_000, resultType: "success" },
-      { turnId, timestampMs: 1_700_000_003_000 },
-    );
 
-    const header = runAll(log.events).projection.getSnapshot().rows.window.find(
-      (row) => row.kind === "turnHeader",
-    );
-    expect(header).toMatchObject({
-      activeMs: 3_000,
-      modelDurationMs: 400,
-      toolDurationMs: 900,
-      otherDurationMs: 1_700,
-    });
-  });
 
-  it("Highspeed 卡失效降级后只记录 fallback 时间，不改变分享资格", () => {
-    const log = new EventLog();
-    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
-    log.push(
-      SessionEventType.TurnStarted,
-      {
-        turnNumber: 1,
-        input: "accelerated prompt",
-        messageId: "user-highspeed-expired",
-        inputId: "command-highspeed-expired",
-        intent: {
-          sourceCommandId: "command-highspeed-expired",
-          queueItemId: "queue-highspeed-expired",
-          clientId: "desktop",
-          kind: "sendText",
-          text: "accelerated prompt",
-          admissionSeq: 1,
-          admittedAt: 1_700_000_000_000,
-          requestedDelivery: "startNow",
-          admittedDelivery: "startNow",
-          highspeed: {
-            schemaVersion: 1,
-            cardId: "hsc-expired",
-            taskId: "session-1",
-            provider: "builtin:bigmodel-coding-plan",
-            model: "GLM-5.3",
-            issuedAt: 1_700_000_000_000,
-            expiresAt: 1_700_000_300_000,
-            regularTps: 80,
-          },
-        },
-      },
-      { turnId: "turn-highspeed-expired" },
-    );
-    log.push(
-      SessionEventType.TurnExecutionModelFallback,
-      {
-        inputId: "command-highspeed-expired",
-        reason: "highspeed_card_expired",
-        fromModelSelection: { providerId: "account:bigmodel-highspeed-card", modelId: "GLM-5.3" },
-        toModelSelection: { providerId: "builtin:bigmodel-coding-plan", modelId: "GLM-5.3" },
-      },
-      { timestampMs: 1_700_000_301_000, turnId: "turn-highspeed-expired" },
-    );
-
-    const { projection } = runAll(log.events);
-    const row = projection.getSnapshot().rows.window.find((row) => row.kind === "userInput");
-    expect(row).toMatchObject({
-      highspeed: { fallbackAt: 1_700_000_301_000, fallbackReason: "highspeed_card_expired" },
-    });
-    expect(row?.highspeed).not.toHaveProperty("shareExcludedReason");
-  });
-
-  it("加速请求其他失败的降级同样写入 fallbackAt，并以 fallbackReason 区分提示文案", () => {
-    // spec §2.2：任何失败都退回；Renderer 按 fallbackReason 选择“卡已到期”或“加速服务不可用”文案。
-    const log = new EventLog();
-    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
-    log.push(
-      SessionEventType.TurnStarted,
-      {
-        turnNumber: 1,
-        input: "accelerated prompt",
-        messageId: "user-highspeed-failed",
-        inputId: "command-highspeed-failed",
-        intent: {
-          sourceCommandId: "command-highspeed-failed",
-          queueItemId: "queue-highspeed-failed",
-          clientId: "desktop",
-          kind: "sendText",
-          text: "accelerated prompt",
-          admissionSeq: 1,
-          admittedAt: 1_700_000_000_000,
-          requestedDelivery: "startNow",
-          admittedDelivery: "startNow",
-          highspeed: {
-            schemaVersion: 1,
-            cardId: "hsc-failed",
-            taskId: "session-1",
-            provider: "builtin:bigmodel-coding-plan",
-            model: "GLM-5.3",
-            issuedAt: 1_700_000_000_000,
-            expiresAt: 1_700_000_300_000,
-          },
-        },
-      },
-      { turnId: "turn-highspeed-failed" },
-    );
-    log.push(
-      SessionEventType.TurnExecutionModelFallback,
-      {
-        inputId: "command-highspeed-failed",
-        reason: "highspeed_request_failed",
-        fromModelSelection: { providerId: "account:bigmodel-highspeed-card", modelId: "GLM-5.3" },
-        toModelSelection: { providerId: "builtin:bigmodel-coding-plan", modelId: "GLM-5.3" },
-      },
-      { timestampMs: 1_700_000_002_000, turnId: "turn-highspeed-failed" },
-    );
-
-    const { projection } = runAll(log.events);
-    const row = projection.getSnapshot().rows.window.find((row) => row.kind === "userInput");
-    expect(row).toMatchObject({
-      highspeed: { fallbackAt: 1_700_000_002_000, fallbackReason: "highspeed_request_failed" },
-    });
-  });
 
   it("Highspeed 流式输出降级时中断废弃内容，并让原模型从新行继续", () => {
     const log = new EventLog();
@@ -536,83 +360,6 @@ describe("ProductProjection 黄金测试（L1）", () => {
     ]);
   });
 
-  it("终态指标更新是增量合并，不清除同一 Turn 已产生的 fallbackAt", () => {
-    // CR-02 回归：Highspeed 请求 3402 → TurnExecutionModelFallback 写入 fallbackAt → 普通模型跑完 →
-    // persistHighspeedTiming 发 HighspeedMetricsUpdated。旧实现整体替换 row.highspeed，payload 又不含
-    // live 才有的 fallbackAt，降级 Toast 依赖的字段被清掉。
-    const highspeedMeta = {
-      schemaVersion: 1,
-      cardId: "hsc-expired",
-      taskId: "session-1",
-      provider: "builtin:bigmodel-coding-plan",
-      model: "GLM-5.3",
-      issuedAt: 1_700_000_000_000,
-      expiresAt: 1_700_000_300_000,
-      regularTps: 80,
-    };
-    const log = new EventLog();
-    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
-    log.push(
-      SessionEventType.TurnStarted,
-      {
-        turnNumber: 1,
-        input: "accelerated prompt",
-        messageId: "user-highspeed-expired",
-        inputId: "command-highspeed-expired",
-        intent: {
-          sourceCommandId: "command-highspeed-expired",
-          queueItemId: "queue-highspeed-expired",
-          clientId: "desktop",
-          kind: "sendText",
-          text: "accelerated prompt",
-          admissionSeq: 1,
-          admittedAt: 1_700_000_000_000,
-          requestedDelivery: "startNow",
-          admittedDelivery: "startNow",
-          highspeed: highspeedMeta,
-        },
-      },
-      { turnId: "turn-highspeed-expired" },
-    );
-    log.push(
-      SessionEventType.TurnExecutionModelFallback,
-      {
-        inputId: "command-highspeed-expired",
-        reason: "highspeed_card_expired",
-        fromModelSelection: { providerId: "account:bigmodel-highspeed-card", modelId: "GLM-5.3" },
-        toModelSelection: { providerId: "builtin:bigmodel-coding-plan", modelId: "GLM-5.3" },
-      },
-      { timestampMs: 1_700_000_301_000, turnId: "turn-highspeed-expired" },
-    );
-    log.push(
-      SessionEventType.HighspeedMetricsUpdated,
-      {
-        entityId: "user-highspeed-expired",
-        highspeed: {
-          ...highspeedMeta,
-          outputTokens: 120,
-          durationMs: 3_000,
-          modelDurationMs: 400,
-          toolDurationMs: 900,
-          otherDurationMs: 1_700,
-        },
-      },
-      { timestampMs: 1_700_000_305_000, turnId: "turn-highspeed-expired" },
-    );
-
-    const { projection } = runAll(log.events);
-    const row = projection.getSnapshot().rows.window.find((row) => row.kind === "userInput");
-    expect(row).toMatchObject({
-      highspeed: {
-        fallbackAt: 1_700_000_301_000,
-        outputTokens: 120,
-        durationMs: 3_000,
-        modelDurationMs: 400,
-        toolDurationMs: 900,
-        otherDurationMs: 1_700,
-      },
-    });
-  });
 
   it("CUA response 的 reasoning、text 与 tool row 共享 assistantResponseId", () => {
     const log = new EventLog();
@@ -3270,15 +3017,6 @@ describe("ProductProjection 黄金测试（L1）", () => {
           admittedAt: 1234,
           requestedDelivery: "guide",
           admittedDelivery: "guide",
-          highspeed: {
-            schemaVersion: 1,
-            cardId: "hsc-queue",
-            taskId: "session-1",
-            provider: "builtin:bigmodel-coding-plan",
-            model: "GLM-5.3",
-            issuedAt: 1_700_000_000_000,
-            expiresAt: 1_700_000_900_000,
-          },
           attachmentRefs: [
             { ref: "artifact://one", fileName: "one.txt", mime: "text/plain", bytes: 3 },
           ],
@@ -3299,7 +3037,6 @@ describe("ProductProjection 黄金测试（L1）", () => {
       order: { admissionSeq: 12, queuePosition: 0 },
       steer: { state: "steering" },
       dispatch: { state: "queued" },
-      highspeed: { cardId: "hsc-queue", expiresAt: 1_700_000_900_000 },
       admittedAt: 1234,
     });
 

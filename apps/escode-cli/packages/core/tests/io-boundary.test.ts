@@ -10,7 +10,6 @@ const allowedNetworkBoundaryFiles = new Set([
   "packages/adapters/src/http/public-egress-policy.ts",
   // 通过调用方注入的 fetch 执行正式 Adapter 网络边界。
   "packages/adapters/src/model/model-option-map-fetch.ts",
-  "packages/adapters/src/model/provider-endpoint-routing-fetch.ts",
   // 只读 node:http 的 IncomingMessage 类型，把已到手的响应交给 http/index.ts 与 proxy-fetch.ts，不发请求。
   "packages/adapters/src/network/incoming-response.ts",
   "packages/adapters/src/network/proxy-fetch.ts",

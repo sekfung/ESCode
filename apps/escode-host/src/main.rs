@@ -184,16 +184,10 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
                 let runtime_env = runtime_env.unwrap_or_default();
                 // provider 配置文件路径：Main 合成的运行时环境里的两个约定变量（A16b 的 P1 部分）。
-                let provider_files = match (
-                    runtime_env.get("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE"),
-                    runtime_env.get("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE"),
-                ) {
-                    (Some(builtin), Some(personal)) => Some((
-                        std::path::PathBuf::from(builtin),
-                        std::path::PathBuf::from(personal),
-                    )),
-                    _ => None,
-                };
+                let provider_files =
+                    escode_host_services::provider::ProviderFiles::from_env(|name| {
+                        runtime_env.get(name).map(String::as_str)
+                    });
                 let options: escode_host_surface::OptionsFactory =
                     std::sync::Arc::new(move |workspace| {
                         control::runtime_options_with(workspace, &runtime_env)

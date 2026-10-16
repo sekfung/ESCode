@@ -56,7 +56,6 @@
           "editUserQuery",
           "retryTurn",
           "setAssistantFeedback",
-          "setHighspeedMetrics",
           "sendQueuedNow",
           "editQueueItem",
           "reorderQueueItem",
@@ -858,96 +857,6 @@
           },
           "required": [
             "selectionScope"
-          ],
-          "additionalProperties": false
-        },
-        "highspeedMeta": {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "number",
-              "const": 1
-            },
-            "cardId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider": {
-              "type": "string",
-              "minLength": 1
-            },
-            "model": {
-              "type": "string",
-              "minLength": 1
-            },
-            "issuedAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "expiresAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "regularTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "outputTokens": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "durationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "highspeedTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "savedDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "modelDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "toolDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "otherDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "fallbackAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "fallbackReason": {
-              "type": "string",
-              "enum": [
-                "highspeed_card_expired",
-                "highspeed_request_failed"
-              ]
-            }
-          },
-          "required": [
-            "schemaVersion",
-            "cardId",
-            "taskId",
-            "provider",
-            "model",
-            "issuedAt",
-            "expiresAt"
           ],
           "additionalProperties": false
         },
@@ -1919,96 +1828,6 @@
           ],
           "additionalProperties": false
         },
-        "highspeedMeta": {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "number",
-              "const": 1
-            },
-            "cardId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider": {
-              "type": "string",
-              "minLength": 1
-            },
-            "model": {
-              "type": "string",
-              "minLength": 1
-            },
-            "issuedAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "expiresAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "regularTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "outputTokens": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "durationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "highspeedTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "savedDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "modelDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "toolDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "otherDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "fallbackAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "fallbackReason": {
-              "type": "string",
-              "enum": [
-                "highspeed_card_expired",
-                "highspeed_request_failed"
-              ]
-            }
-          },
-          "required": [
-            "schemaVersion",
-            "cardId",
-            "taskId",
-            "provider",
-            "model",
-            "issuedAt",
-            "expiresAt"
-          ],
-          "additionalProperties": false
-        },
         "workspaceMode": {
           "type": "string",
           "enum": [
@@ -2091,72 +1910,6 @@
       "required": [
         "target",
         "feedback"
-      ]
-    },
-    "setHighspeedMetrics": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "target": {
-          "type": "object",
-          "properties": {
-            "rowId": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "entityId": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "required": [
-            "rowId",
-            "entityId"
-          ],
-          "additionalProperties": false
-        },
-        "regularTps": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "outputTokens": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "durationMs": {
-          "type": "number",
-          "minimum": 0
-        },
-        "highspeedTps": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "savedDurationMs": {
-          "type": "number",
-          "minimum": 0
-        },
-        "modelDurationMs": {
-          "type": "number",
-          "minimum": 0
-        },
-        "toolDurationMs": {
-          "type": "number",
-          "minimum": 0
-        },
-        "otherDurationMs": {
-          "type": "number",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "target",
-        "regularTps",
-        "outputTokens",
-        "durationMs",
-        "highspeedTps",
-        "savedDurationMs"
       ]
     },
     "sendQueuedNow": {
@@ -2321,96 +2074,6 @@
           },
           "required": [
             "selectionScope"
-          ],
-          "additionalProperties": false
-        },
-        "highspeedMeta": {
-          "type": "object",
-          "properties": {
-            "schemaVersion": {
-              "type": "number",
-              "const": 1
-            },
-            "cardId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "taskId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider": {
-              "type": "string",
-              "minLength": 1
-            },
-            "model": {
-              "type": "string",
-              "minLength": 1
-            },
-            "issuedAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "expiresAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "regularTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "outputTokens": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "durationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "highspeedTps": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            },
-            "savedDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "modelDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "toolDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "otherDurationMs": {
-              "type": "number",
-              "minimum": 0
-            },
-            "fallbackAt": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            },
-            "fallbackReason": {
-              "type": "string",
-              "enum": [
-                "highspeed_card_expired",
-                "highspeed_request_failed"
-              ]
-            }
-          },
-          "required": [
-            "schemaVersion",
-            "cardId",
-            "taskId",
-            "provider",
-            "model",
-            "issuedAt",
-            "expiresAt"
           ],
           "additionalProperties": false
         }
@@ -2999,7 +2662,6 @@
     "editUserQuery",
     "retryTurn",
     "setAssistantFeedback",
-    "setHighspeedMetrics",
     "sendQueuedNow",
     "editQueueItem",
     "reorderQueueItem",
@@ -3046,7 +2708,6 @@
     "editUserQuery",
     "forkAssistant",
     "retryTurn",
-    "setAssistantFeedback",
-    "setHighspeedMetrics"
+    "setAssistantFeedback"
   ]
 }

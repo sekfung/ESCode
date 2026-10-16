@@ -3,7 +3,6 @@ import type {
   AiSdkNetworkConfig,
   EnvRecord,
 } from "@escode/adapters/model";
-import type { ProviderEndpointRoutingPort } from "@escode/contracts";
 import {
   resolveRuntimeESCodeEnv,
   resolveRuntimeESCodeEndpointOrigin,
@@ -18,7 +17,6 @@ export type ModelProviderSourceTitle = "cli" | "electron";
 
 interface RuntimeExecutionConfigOptions {
   appVersion?: string;
-  endpointRoutingPort?: ProviderEndpointRoutingPort;
   network?: AiSdkNetworkConfig;
   sourceTitle?: ModelProviderSourceTitle;
 }
@@ -32,7 +30,6 @@ export function createRuntimeAiSdkModelExecutionConfig(
     defaultHeaders: buildCliESCodeSourceHeaders(env, options),
     env,
     ...(network ? { network } : {}),
-    ...(options.endpointRoutingPort ? { endpointRoutingPort: options.endpointRoutingPort } : {}),
   };
 }
 

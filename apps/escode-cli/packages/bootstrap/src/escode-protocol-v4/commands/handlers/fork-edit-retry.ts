@@ -9,7 +9,6 @@ import type {
   CommandPayloadMap,
   CommandResult,
 } from "@escode/shared/escode-protocol-v4";
-import { isHighspeedProviderId } from "@escode/shared";
 import {
   RewindStrategy,
   traceContextToLogContext,
@@ -143,7 +142,7 @@ async function editUserQuery(
     record.app.runtime?.getActiveTurnInfo?.() !== undefined ||
     record.app.runtime?.getActiveForegroundExecutionId?.() !== undefined;
   if (record.activeAbortController || runtimeHasActiveTurn) {
-    // Bug 根因：Highspeed/notification turn 由 Core runtime 持有时没有 Bootstrap
+    // Bug 根因：后台/通知 turn 由 Core runtime 持有时没有 Bootstrap
     // activeAbortController；只检查后者会让 rewind 与旧模型请求并发，随后新 prompt 被
     // turn_not_steerable 拒绝。必须把 runtime-owned active turn 也纳入 preempt barrier。
     await preemptActiveTurnAndWait(host, record, {
@@ -211,40 +210,15 @@ async function editUserQuery(
   if (!conversationRewindCommitted) {
     await submitConversationRewind(host, record, editTarget.transcriptMessageId);
   }
-  // 编辑重发按新的主动发送处理：只认本次重新 prepare 的卡（本会话 taskId、未过期），
-  // 且 Selection 必须真的指向加速 Provider，避免拿旧凭据或跨会话卡加速。
-  const highspeedEdit =
-    editTarget.intent.kind === "sendText" &&
-    payload.highspeedMeta !== undefined &&
-    payload.highspeedMeta.taskId === record.app.sessionId &&
-    payload.highspeedMeta.expiresAt > Date.now() &&
-    payload.modelSelection !== undefined &&
-    payload.modelExecution !== undefined &&
-    isHighspeedProviderId(payload.modelSelection.providerId)
-      ? {
-          card: payload.highspeedMeta,
-          modelSelection: payload.modelSelection,
-          execution: payload.modelExecution,
-        }
-      : undefined;
   try {
-    await startCanonicalIntent(
-      host,
-      record,
-      envelope,
-      editTarget,
-      payload.newText,
-      attachmentRefs,
-      attachments,
-      highspeedEdit,
-    );
+    await startCanonicalIntent(host, record, envelope, editTarget, payload.newText, attachmentRefs, attachments);
   } catch (error) {
     if (
       editTarget.intent.kind === "sendText" &&
       error instanceof V4PromptRejectedError &&
       error.reasonCode === "activePrompt"
     ) {
-      // Bug 根因：rewind 已经提交后，Core 仍可能在收口旧 turn，带加速执行材料的 admission
+      // Bug 根因：rewind 已经提交后，Core 仍可能在收口旧 turn，此时的 admission
       // 不能 steer，只会返回 turn_not_steerable。此时必须把新文本原子入队，
       // 否则旧消息已被截断而新消息会随异常一起丢失。
       host.logger?.warn?.("v4 editUserQuery admission recovered by queue", {
@@ -260,7 +234,6 @@ async function editUserQuery(
         payload.newText,
         attachmentRefs,
         attachments,
-        highspeedEdit,
         { requireQueue: true },
       );
     } else {

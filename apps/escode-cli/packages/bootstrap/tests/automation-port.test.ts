@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AutomationCreateLimitError, isAutomationCreateLimitError } from "@escode/contracts";
-import { AUTOMATION_CREATE_LIMIT_ERROR_CODE, isHighspeedProviderId, escodeProtocolMethods } from "@escode/shared";
+import { AUTOMATION_CREATE_LIMIT_ERROR_CODE, escodeProtocolMethods } from "@escode/shared";
 import {
   AUTOMATION_CREATE_BOUND_SESSION_CHECK_ERROR,
   AUTOMATION_CREATE_FROM_AUTOMATION_RUN_ERROR,
@@ -804,11 +804,6 @@ describe("createProtocolAutomationPort", () => {
       }),
       expect.anything(),
     );
-    // 定时任务禁止落库加速卡 Provider，否则后续触发会拿不到卡凭据而失败。
-    const createdPayload = requestClient.mock.calls.find(
-      (call) => call[0] === escodeProtocolMethods.automationCreate,
-    )?.[1] as { modelSelection?: { providerId?: string } } | undefined;
-    expect(isHighspeedProviderId(createdPayload?.modelSelection?.providerId)).toBe(false);
   });
 
   it("CronCreate 成功后冻结当前会话标题，避免迟到 generated title 覆盖 automation 语义", async () => {

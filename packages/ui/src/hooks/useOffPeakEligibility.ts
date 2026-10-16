@@ -8,7 +8,7 @@ export function useOffPeakEligibility(
   settings: AppSettings | null | undefined,
   registryRevision: number | undefined,
 ): void {
-  const { offPeakTaskService, codingPlanSubscriptionService } = useServices();
+  const { offPeakTaskService, clientConfigService } = useServices();
   const initialize = useOffPeakTaskStore((state) => state.initialize);
   const refresh = useOffPeakTaskStore((state) => state.refreshCodingPlanSupport);
   const family = settings?.providerFamilyDomain;
@@ -18,8 +18,8 @@ export function useOffPeakEligibility(
     : undefined;
 
   useEffect(() => {
-    void initialize({ offPeakTaskService, codingPlanSubscriptionService });
-  }, [initialize, offPeakTaskService, codingPlanSubscriptionService]);
+    void initialize({ offPeakTaskService, clientConfigService });
+  }, [initialize, offPeakTaskService, clientConfigService]);
 
   useEffect(() => {
     if (freshnessKey === undefined) return;

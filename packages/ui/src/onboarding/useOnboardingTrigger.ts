@@ -1,28 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import type { AppSettings } from "@escode/shared";
+import { useEffect, useState } from "react";
 import type { useOnboardingRecordService } from "@/hooks/useOnboardingRecordService.js";
 import { logger } from "@/logger.js";
 
 /**
  * 引导触发判定：当前用户在本地记录里没有条目时
- * needsOnboarding=true。settings 回填（换号恢复偏好）只在 userId 运行时变化后发生；
- * 手动修改由各入口回写 record（updateRecordPreferences），record 始终等于该用户最新偏好。
+ * needsOnboarding=true。手动修改由各入口回写 record（updateRecordPreferences），
+ * record 始终等于该用户最新偏好。
  *
  * 返回 [needsOnboarding, markOnboarded]：null 表示异步判定中；markOnboarded 在引导
  * 保存成功后把判定置 false（记录已落盘，本次会话不再触发）。
  */
 export function useOnboardingTrigger(options: {
   onboardingRecord: ReturnType<typeof useOnboardingRecordService>;
-  userId: string | null;
   hasStoredOccupation: boolean;
   loadDeviceMid: () => string;
-  update: (patch: Partial<AppSettings>) => Promise<void>;
 }): [boolean | null, () => void] {
-  const { onboardingRecord, userId, hasStoredOccupation, loadDeviceMid, update } = options;
+  const { onboardingRecord, hasStoredOccupation, loadDeviceMid } = options;
   // null 表示异步判定中（触发判定改为按本地记录，docs/onboarding-record-spec.md）。
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
-  // 记录上一次判定时的 userId，回填只在身份实际变化后发生（见下方回填条件）。
-  const lastSyncedUserIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     const fallback = () => !hasStoredOccupation;
@@ -51,26 +46,6 @@ export function useOnboardingTrigger(options: {
       .then(
         (result) => {
           if (!cancelled) setNeedsOnboarding(result);
-          // 换账号恢复该用户偏好：settings 不分用户，A 答完后 B 触发引导会把 settings 顶成
-          // B 的答案；再切回 A 时按 record 最近作答回填。同步失败只留日志。
-          // 仅"上次是非空的另一身份"时回填（A→B 直切、B→登出）。null→id 不回填：启动 OAuth
-          // 恢复与运行中登录共用该序列且无法区分，宁可少回填——手动修改已由各入口回写
-          // record（record=最新偏好），缺失回填只影响"apikey 态后登录旧账号"这类边缘场景。
-          const previousUserId = lastSyncedUserIdRef.current;
-          lastSyncedUserIdRef.current = userId;
-          if (!cancelled && !result && previousUserId != null && previousUserId !== userId) {
-            void onboardingRecord
-              .syncSettingsFromRecord()
-              .then((patch) => {
-                if (cancelled || !patch) return;
-                return update(patch);
-              })
-              .catch((cause: unknown) => {
-                logger.warn("[occupation-onboarding] 按记录同步偏好失败", {
-                  error: String(cause),
-                });
-              });
-          }
         },
         (cause) => {
           logger.warn("[occupation-onboarding] shouldOnboard 检查失败", { error: String(cause) });
@@ -84,6 +59,6 @@ export function useOnboardingTrigger(options: {
     };
     // 不依赖 hasStoredOccupation（对应 settings?.onboardingOccupation）：保存成功会改写该字段，
     // 若记录写入失败会在当场重开引导；记录缺失导致的再次触发按约定留给下次启动。
-  }, [onboardingRecord, userId, loadDeviceMid]);
+  }, [onboardingRecord, loadDeviceMid]);
   return [needsOnboarding, () => setNeedsOnboarding(false)];
 }

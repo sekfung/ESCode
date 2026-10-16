@@ -17,7 +17,6 @@ vi.mock("@/ChatErrorBanner.js", async () => {
     ChatErrorBanner: (props: {
       error: { message: string };
       onOpenModelSettings?: () => void;
-      onOpenUpgrade?: () => void;
     }) => {
       captured.chatErrorBannerProps = props;
       return React.createElement(
@@ -155,7 +154,6 @@ function renderComposerWithError(
   message: string,
   actions: {
     onOpenModelSettings?: () => void;
-    onOpenModelUpgrade?: () => void;
     contextHeader?: ReactNode;
   } = {},
 ): string {
@@ -199,35 +197,6 @@ function renderComposerWithSnapshot(
         sessionId: "session-1",
         workspacePath: "/workspace",
         provider: undefined,
-        onSendText: vi.fn(async () => {}),
-        onStop: vi.fn(),
-        onSelectModel: vi.fn(),
-        onSelectThought: vi.fn(),
-        onSwitchMode: vi.fn(),
-        ...overrides,
-      }),
-    ),
-  );
-}
-
-function renderHighspeedComposer(overrides: Record<string, unknown> = {}): string {
-  return renderToStaticMarkup(
-    createElement(
-      ESCodeIntlProvider,
-      { initialLocale: "zh-CN" },
-      createElement(AnyConversationComposer, {
-        snapshot: makeSnapshot(),
-        sessionId: "session-1",
-        workspacePath: "/workspace",
-        provider: undefined,
-        highspeedCard: {
-          cardId: "hsc-composer",
-          taskId: "session-1",
-          provider: "zai",
-          model: "glm-5.2",
-          issuedAt: 1_000,
-          expiresAt: 60_000,
-        },
         onSendText: vi.fn(async () => {}),
         onStop: vi.fn(),
         onSelectModel: vi.fn(),
@@ -329,15 +298,14 @@ describe("ConversationComposer error banner", () => {
 
   it("forwards model recovery actions to the shared error banner", () => {
     const onOpenModelSettings = vi.fn();
-    const onOpenModelUpgrade = vi.fn();
 
     renderComposerWithError("No model", {
       onOpenModelSettings,
-      onOpenModelUpgrade,
     });
 
     expect(captured.chatErrorBannerProps?.onOpenModelSettings).toBe(onOpenModelSettings);
-    expect(captured.chatErrorBannerProps?.onOpenUpgrade).toBe(onOpenModelUpgrade);
+    // 升级入口随套餐族整体移除；ChatErrorBanner 不再携带 onOpenUpgrade。
+    expect(captured.chatErrorBannerProps).not.toHaveProperty("onOpenUpgrade");
   });
 
   it("does not render local queue behavior toggles in the composer", () => {
@@ -415,51 +383,3 @@ describe("ConversationComposer error banner", () => {
   });
 });
 
-describe("ConversationComposer Highspeed style", () => {
-  it("renders the migrated visual without the legacy Fast badge or redundant active prop", () => {
-    vi.spyOn(Date, "now").mockReturnValue(1_000);
-
-    const html = renderHighspeedComposer();
-
-    expect(html).toContain('data-highspeed-composer="true"');
-    expect(html).toContain("highspeed-composer-surface");
-    expect(html).toContain("highspeed-composer-background");
-    expect(html).not.toContain("Fast");
-    expect(captured.chatPromptEditorProps?.shellClassName).toContain("!border-0");
-    expect(captured.modelControlsProps).toMatchObject({
-      highspeedExpiresAt: 60_000,
-      modelLocked: true,
-    });
-    expect(captured.modelControlsProps).not.toHaveProperty("highspeedActive");
-  });
-
-  it("没有激活请求的卡（切回 Task、快照恢复）直接呈现稳定态，不重播激活动效", () => {
-    vi.spyOn(Date, "now").mockReturnValue(1_000);
-
-    const html = renderHighspeedComposer();
-
-    expect(html).toContain('data-highspeed-entrance="restore"');
-    expect(html).toContain('data-phase="stable"');
-    expect(html).not.toContain("highspeed-diffusion-canvas");
-    expect(html).toContain("highspeed-placeholder-presented");
-    expect(captured.modelControlsProps).toMatchObject({
-      highspeedPresented: true,
-      highspeedEntranceAnimated: false,
-      highspeedSweepActive: false,
-    });
-  });
-
-  it("draw 新命中的激活请求从扩散起点播放，模型与倒计时等待交接后再展示", () => {
-    vi.spyOn(Date, "now").mockReturnValue(1_000);
-
-    const html = renderHighspeedComposer({ highspeedActivationCardId: "hsc-composer" });
-
-    expect(html).toContain('data-highspeed-entrance="activation"');
-    expect(html).toContain('data-phase="diffusing"');
-    expect(html).not.toContain("highspeed-placeholder-presented");
-    expect(captured.modelControlsProps).toMatchObject({
-      highspeedPresented: false,
-      highspeedEntranceAnimated: true,
-    });
-  });
-});

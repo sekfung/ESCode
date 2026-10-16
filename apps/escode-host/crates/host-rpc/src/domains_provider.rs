@@ -1,10 +1,9 @@
 //! providers 域的 RPC 面（docs/specs/rust-u2-providers.md）。P1：`model-selection.getView`；P2：`provider-settings.getView/refresh`。
 
 use escode_host_control::logging;
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use escode_host_services::provider::ProviderService;
+use escode_host_services::provider::{ProviderFiles, ProviderService};
 
 use futures_util::stream;
 use serde_json::Value;
@@ -66,9 +65,8 @@ fn settings_view(service: Service) -> MethodHandler {
 }
 
 /// providers 域的全部 channel（共享同一个 `ProviderService`）。
-pub fn provider_channels(files: Option<(PathBuf, PathBuf)>) -> Vec<Channel> {
-    let service: Service =
-        files.map(|(builtin, personal)| Arc::new(ProviderService::new(builtin, personal)));
+pub fn provider_channels(files: Option<ProviderFiles>) -> Vec<Channel> {
+    let service: Service = files.map(|files| Arc::new(files.into_service()));
     vec![
         Channel::new(
             "model-selection",

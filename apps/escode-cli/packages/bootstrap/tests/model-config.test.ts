@@ -32,16 +32,10 @@ describe("createModelAdapter", () => {
 });
 
 describe("createRuntimeAiSdkModelExecutionConfig", () => {
-  it("只装配来源 Header、网络、路由、环境和签名基础设施", () => {
-    const endpointRoutingPort = {
-      async resolve(url: string) {
-        return { routed: false, url };
-      },
-    };
+  it("只装配来源 Header、网络与环境基础设施", () => {
     const config = createRuntimeAiSdkModelExecutionConfig(
       { ESCODE_APP_VERSION: "3.9.0", ESCODE_ENV: "test" },
       {
-        endpointRoutingPort,
         network: {
           caCertFile: "/tmp/test-ca.pem",
           httpProxy: "http://proxy.example.com",
@@ -56,7 +50,7 @@ describe("createRuntimeAiSdkModelExecutionConfig", () => {
         "X-ZCode-App-Version": "3.9.0",
         "X-Title": "ESCode@electron",
       },
-      endpointRoutingPort,
+      env: { ESCODE_APP_VERSION: "3.9.0", ESCODE_ENV: "test" },
       network: {
         caCertFile: "/tmp/test-ca.pem",
         httpProxy: "http://proxy.example.com",
@@ -65,6 +59,7 @@ describe("createRuntimeAiSdkModelExecutionConfig", () => {
     });
     expect(config).not.toHaveProperty("providers");
     expect(config).not.toHaveProperty("defaultProviderId");
+    expect(config).not.toHaveProperty("endpointRoutingPort");
   });
 
   it("过滤空网络配置", () => {

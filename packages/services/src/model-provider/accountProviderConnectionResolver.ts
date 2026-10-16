@@ -15,15 +15,28 @@ import {
   type ESCodeAccountAccess,
   type ESCodeProviderAccountAccess,
 } from "@escode/shared";
-import type {
-  CodingPlanAvailabilityProvider,
-  CodingPlanAvailabilityResult,
-  CodingPlanUnavailableReason,
-} from "#src/model-provider/codingPlanProviderAvailability.js";
-import {
-  validateBigModelAccountProviderAvailability,
-  validateZaiAccountProviderAvailability,
-} from "#src/model-provider/codingPlanProviderAvailability.js";
+
+// 套餐族删除（2026-10-15）：原 codingPlanProviderAvailability 的远端权益校验随套餐下线。
+// Registry 已无 account: Provider，这里保留类型形状与「恒 unknown」实现，维持
+// AccountProviderService 装配不变；远端校验语义随删除登记，不再恢复。
+export type CodingPlanUnavailableReason =
+  | "coding_plan_not_authenticated"
+  | "coding_plan_not_connected"
+  | "coding_plan_auth_failed"
+  | "coding_plan_not_entitled";
+
+export type CodingPlanAvailabilityResult =
+  | { kind: "available"; models?: readonly string[] }
+  | { kind: "pending"; effectiveAt: number; models: readonly string[] }
+  | { kind: "unavailable"; reason: CodingPlanUnavailableReason }
+  | { kind: "unknown" };
+
+export interface CodingPlanAvailabilityProvider {
+  readonly providerId: string;
+  readonly family: ProviderFamilyDomain;
+  readonly planKind: "start-plan" | "individual-coding-plan" | "team-coding-plan";
+  readonly apiKey?: string | null;
+}
 
 export interface AccountProviderConnectionSettings {
   readonly providerFamilyDomain: ProviderFamilyDomain | null;
@@ -301,9 +314,10 @@ export function createCodingPlanFamilyAvailabilityResolver(
       credentialService: options.credentialService,
       providerFamilyConnectionSelections: selections,
     };
-    return family === "zai"
-      ? validateZaiAccountProviderAvailability(providers, context)
-      : validateBigModelAccountProviderAvailability(providers, context);
+    void providers;
+    void context;
+    return Promise.resolve({});
+
   };
 }
 

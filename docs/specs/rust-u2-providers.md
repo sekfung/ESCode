@@ -4,16 +4,19 @@
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
-## 1. 涉及的 channel（47 个成员，均未实现）
+## 1. 涉及的 channel（23 个成员，均未实现）
 
-| channel                                                                   | 成员数                        | 依赖的核心能力                                                                                   |
-| ------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `model-selection`                                                         | 2（`getView`、`onDidChange`） | Registry（已解析的 Provider/Model）+ 默认选择 + 修订号                                           |
-| `provider-settings`                                                       | 15                            | 同上 + 设置视图投影（issues、分层配置）+ 个人配置写入（Personal 仓库、锁、CAS 修订）+ 连通性测试 |
-| `credential`                                                              | 3                             | 凭据加密存储（`ESCODE_CREDENTIAL_SECRET`）                                                       |
-| `client-config` / `client-scenes`                                         | 1 / 1                         | ApiClient（端点 origin + 认证头）+ 缓存                                                          |
-| `provider-provisioning-target`                                            | 1                             | 个人配置写入                                                                                     |
-| `oauth` / `coding-plan-subscription` / `highspeed-card` / `off-peak-task` | 13 / 33 / 3 / 11              | 账号连接、套餐、权益（账号域）                                                                   |
+| channel                           | 成员数                        | 依赖的核心能力                                                                                   |
+| --------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `model-selection`                 | 2（`getView`、`onDidChange`） | Registry（已解析的 Provider/Model）+ 默认选择 + 修订号                                           |
+| `provider-settings`               | 15                            | 同上 + 设置视图投影（issues、分层配置）+ 个人配置写入（Personal 仓库、锁、CAS 修订）+ 连通性测试 |
+| `credential`                      | 3                             | 凭据加密存储（`ESCODE_CREDENTIAL_SECRET`）                                                       |
+| `client-config` / `client-scenes` | 1 / 1                         | ApiClient（端点 origin + 认证头）+ 缓存                                                          |
+| `provider-provisioning-target`    | 1                             | 个人配置写入                                                                                     |
+
+> **已删除（2026-10-15，用户决定）**：整个套餐族——`oauth` / `coding-plan-subscription` / `highspeed-card` / `off-peak-task`（13 / 33 / 3 / 11 成员）、
+> `config/provider/escode-builtin.json` 里的 10 个 `account:` 套餐 Provider 与账号鉴权全部移除，不再纳入迁移范围（依据见 `escode-rebrand.md`
+> 「不保留的 Z.ai 专属契约」）。本 spec 的 P6 只余 `credential` / `client-config` / `client-scenes`。
 
 ## 2. 关键事实（读 TS 得到，非推测）
 
@@ -35,7 +38,7 @@
 | **P3** | Personal 写入面（15 个方法中的 10 个）：文件锁、CAS 修订、规范编码、`settings:*` 刷新；`provider-provisioning-target.apply`                                                                 | 与 TS 对同一初始文件执行同一操作序列，落盘字节相等                                                                            |
 | **P4** | 变更通知：Personal 轮询、Built-in 文件监听、`onDidChange` 事件，修订推进语义                                                                                                                | 差分：外部改文件 → 两端事件序列一致                                                                                           |
 | **P5** | Built-in 物化：Bundled/Active/LKG 选择、Endpoint 隔离路径、Remote 下载与 `revision` 单调；解开 **A16b**                                                                                     | 差分 + 注入式下载桩                                                                                                           |
-| **P6** | `credential`、`client-config`、`client-scenes`（ApiClient 基础设施）、账号/oauth/套餐/加速卡/闲时（按账号域另立 spec）                                                                      | 各自 spec                                                                                                                     |
+| **P6** | `credential`、`client-config`、`client-scenes`（ApiClient 基础设施）                                                                      | 各自 spec                                                                                                                     |
 
 ## 4. 待决策（需要产品/架构拍板，不应由实现者单方面定）
 
@@ -47,7 +50,6 @@
 
 - zod 错误文案（`issues[].message`）要逐字对齐，只能靠差分语料覆盖；正则方言（JS 与 Rust `regex` 的回溯/前瞻差异）在 `modelMatch/apiTypeMatch/baseUrlMatch` 上是真实风险，Rust CLI 现用 `regex` crate，遇到前瞻/反向引用会整条规则失败（TS 可用）。
 - `compileModelOptionMap` 是一门小 DSL（`@escode/model-option-map`），Rust 侧已有 `domain::option_map`；P1 必须确认两者对“合法/非法”的判定一致。
-- 账号相关（P6）牵涉登录态与网络，无法纯文件差分，需要桩化的 ApiClient。
 
 ## 6. P1 交付记录与登记差异
 
@@ -70,6 +72,7 @@
 5. **Personal 读取不规范化重写**（§4.2 决策）；变更检测基于“解析后再序列化”的内容指纹，而不是 TS 的规范编码 SHA-256。
 6. **修订号**：首次加载为 1，之后每次内容指纹变化 +1；TS 在 Personal 变更时可能因默认选择源与 Registry 各发一次事件而 +2，具体数值不外露语义（只要求单调）。
 7. **账号源**：P1 没有账号源，恒用 fail-closed Overlay（账号类 Provider 全部 `entitled:false`，且 `account-plan` 选择一律 `account-connection-unavailable`）。
+   - 2026-10-15 补记：套餐族删除后 Built-in 已无 `account:` Provider，本条描述的分类/账号叠加路径在 Rust 侧成为死代码；待用户并行进行的 `builtin_source`（P5 物化）改动落定后一并清理（`selection.rs::classify`、`overlay` 的账号层）。
 8. **Built-in 来源**：仅读 `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向的一份文件（Bundled 或 TS 已物化的 Active），无 Active/LKG/Remote（P5）。
 9. **`onDidChange`**：未实现（P4），事件订阅回 NotImplemented。
 
@@ -156,3 +159,36 @@ ProviderService::load()   ← 唯一的 Registry 替换点
 **验收**：`service_events_tests.rs`（初始快照不通知、外部改文件由轮询发现、同内容重写不通知、本进程写入通知）；`rustHostProviderEvents.test.ts`（真实 Host + RPC 客户端：
 外部改文件后 `provider-settings` 与 `model-selection` 都收到事件，视图含新名称且修订号大于初始；本进程 `createPersonalProvider` 的返回视图与随后推送的事件同一修订）。
 负向验证：去掉广播 → 外部事件等待超时失败。
+
+## 7. P5a：Built-in Active/LKG 物化（本地，无下载）
+
+**决策（沿用 §4.1 推荐）**：Rust Host 接管物化；与 TS Host 共存期间沿用同一把 `<file>.lock` 目录锁协议（`escode_cli_host::file_lock`）。
+P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `client-config` / HTTP 客户端，属 P6 基础设施）。
+
+**状态所有者**：Active 文件 = 缓存（可丢弃），所有者是持有目录锁的进程；Bundled = 可信基线，只读。Registry 只由 `ProviderService::load()` 替换。
+
+**输入（`rpcListen.runtimeEnv`，三项必须同时出现，否则回到 P1 的“只读 Bundled”行为）**：
+
+| 变量                           | 含义（对应 TS `escodeBuiltinEnvironment`） |
+| ------------------------------ | ------------------------------------------ |
+| `ESCODE_BUILTIN_CACHE_ROOT`    | `environmentConfigRoot`（`resolveAppConfigDir()`） |
+| `ESCODE_APP_VERSION`           | `appVersion`                               |
+| `ESCODE_ENDPOINT_ORIGIN`       | 当前控制面 Endpoint Origin（规范化后参与路径） |
+
+`platform` 由 Host 按 TS `resolveESCodeBuiltinClientPlatform` 同规则自算（`windows|darwin|linux` × `aarch64|x86_64`）。
+
+**路径**：`<root>/runtime/provider/<platform>/<appVersion>/endpoint-<sha256(origin)[0..32]>/escode-builtin.json`；Origin 规范化 = 仅 `http(s)`，取 `URL.origin`；
+`platform`/`appVersion` 不得为空、`.`、`..` 或含路径分隔符（否则整组配置视为无效，退回 Bundled，并 warn）。
+
+**读取语义（锁内，与 TS `#readAndMaterializeLocked` 同）**：
+
+1. 读 Bundled 与 Active，各自按 `parse_builtin` 校验；不存在 = 无候选，其它错误 = 带错误的无效候选。
+2. 选择：二者有效且 `revision` 相同但内容不同 → Bundled（Active 失效）；否则取 `revision` 较大者；都无效 → 报错“Bundled 与 Active … 均不可用”。
+3. 选中的内容与 Active 语义不同（规范 JSON 比较，不比字节）→ 私有原子写入 Active。
+4. 目录锁/建目录/写入任一失败 → 绕过 Active，只用 Bundled（Active 是缓存，不能阻断基线）。
+
+**验收**：`builtin_source_tests.rs`（路径与 TS 逐字相等的向量、选择矩阵、物化写入、损坏 Active 恢复、同 revision 冲突、锁失败降级）；
+`rustHostBuiltinActive.test.ts`：同一 Bundled/Active 夹具喂 TS `NodeESCodeBuiltinProviderConfigSource` 与 Rust Host，`model-selection.getView` 逐项相等，
+且 Rust 物化出的 Active 能被 TS 读回并解码为同一 Release；Endpoint 路径向量由 TS `resolveESCodeBuiltinCachePaths` 生成。
+
+**登记差异（不修）**：Rust 写出的 Active 保留源文件的键序（TS 按自身 `toJSON` 序）；二者语义比较，不会互相改写。

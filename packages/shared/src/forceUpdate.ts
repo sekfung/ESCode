@@ -1,7 +1,10 @@
-import type { ForceUpdateConfig } from "./coding-plan-subscription.js";
-
 export interface ForceUpdateRequirement {
   currentVersion: string;
+  minimalVersion: string;
+}
+
+/** 原随 coding-plan-subscription 服务下发；套餐族删除后类型就地保留（消费方不变）。 */
+export interface ForceUpdateConfig {
   minimalVersion: string;
 }
 

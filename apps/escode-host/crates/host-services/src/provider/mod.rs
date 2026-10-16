@@ -2,6 +2,7 @@
 //!
 //! P1：只读 Registry——从 Built-in（Bundled）与 Personal 两份文件解析出 Registry，提供 `model-selection.getView`。
 
+mod builtin_source;
 mod complete;
 mod files;
 mod issues;
@@ -31,6 +32,8 @@ use escode_cli_host::file_stamp::{ChangeGate, FileStamp};
 use serde_json::{Map, Value, json};
 use tokio::sync::Mutex as AsyncMutex;
 
+pub use builtin_source::ActiveCache;
+use builtin_source::BuiltinSource;
 use files::{Builtin, Personal};
 use legacy::{LegacyContext, resolve_legacy_level};
 use resolve::{
@@ -78,8 +81,47 @@ impl Default for State {
     }
 }
 
+/// Main 经 `rpcListen.runtimeEnv` 提供的 provider 配置位置。
+pub struct ProviderFiles {
+    pub builtin: PathBuf,
+    pub personal: PathBuf,
+    /// 三个缓存变量齐全才启用 Active/LKG（spec §7）；缺任何一个 = 只读 Bundled。
+    pub cache: Option<ActiveCache>,
+}
+
+impl ProviderFiles {
+    pub fn from_env<'a>(get: impl Fn(&str) -> Option<&'a str>) -> Option<Self> {
+        let value = |name: &str| get(name).map(str::trim).filter(|v| !v.is_empty());
+        let cache = match (
+            value("ESCODE_BUILTIN_CACHE_ROOT"),
+            value("ESCODE_APP_VERSION"),
+            value("ESCODE_ENDPOINT_ORIGIN"),
+        ) {
+            (Some(root), Some(version), Some(origin)) => Some(ActiveCache {
+                root: PathBuf::from(root),
+                app_version: version.to_owned(),
+                endpoint_origin: origin.to_owned(),
+            }),
+            _ => None,
+        };
+        Some(Self {
+            builtin: PathBuf::from(get("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE")?),
+            personal: PathBuf::from(get("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE")?),
+            cache,
+        })
+    }
+
+    pub fn into_service(self) -> ProviderService {
+        let service = ProviderService::new(self.builtin, self.personal);
+        match self.cache {
+            Some(cache) => service.with_active_cache(cache),
+            None => service,
+        }
+    }
+}
+
 pub struct ProviderService {
-    builtin_path: PathBuf,
+    builtin: BuiltinSource,
     personal_path: PathBuf,
     /// 串行化加载（文件读取 + 解析 + 替换），避免并发请求重复推进修订号。
     gate: AsyncMutex<()>,
@@ -106,7 +148,7 @@ fn canonical(value: &Value) -> String {
 impl ProviderService {
     pub fn new(builtin_path: PathBuf, personal_path: PathBuf) -> Self {
         Self {
-            builtin_path,
+            builtin: BuiltinSource::new(builtin_path, None),
             personal_path,
             gate: AsyncMutex::new(()),
             write_gate: AsyncMutex::new(()),
@@ -117,15 +159,23 @@ impl ProviderService {
         }
     }
 
+    /// 启用 Built-in Active/LKG 缓存（spec §7）；须在首次读取前调用。
+    #[must_use]
+    pub fn with_active_cache(mut self, cache: ActiveCache) -> Self {
+        self.builtin = self.builtin.with_cache(cache);
+        self
+    }
+
     /// TS `ensureReady()` + 读取：文件指纹变化才重新解析并推进修订号。
     async fn load(&self) -> Result<Arc<Loaded>> {
         let _guard = self.gate.lock().await;
         // 文件指纹未变（且未到兜底间隔）就复用上次解析结果，不再读盘/解析（P1 #7 同一机制）。
         // 指纹在读之前取：读到一半发生的变化会体现在下一轮指纹里。
-        let stamps = vec![
-            FileStamp::of(&self.builtin_path).await,
-            FileStamp::of(&self.personal_path).await,
-        ];
+        let mut stamps = Vec::new();
+        for path in self.builtin.watched_files() {
+            stamps.push(FileStamp::of(path).await);
+        }
+        stamps.push(FileStamp::of(&self.personal_path).await);
         {
             let state = lock(&self.state);
             if let Some(loaded) = &state.loaded
@@ -134,15 +184,7 @@ impl ProviderService {
                 return Ok(Arc::clone(loaded));
             }
         }
-        let builtin_text = tokio::fs::read_to_string(&self.builtin_path)
-            .await
-            .map_err(|error| {
-                anyhow::anyhow!(
-                    "Bundled 与 Active ESCode Built-in Release 均不可用: {}: {error}",
-                    self.builtin_path.display()
-                )
-            })?;
-        let builtin_value: Value = serde_json::from_str(&builtin_text)?;
+        let builtin_value: Value = self.builtin.read().await?;
         // Personal：不存在 → 空配置；无效 → 原样保留文件、内存空配置降级（TS `recoverInvalidFile`）。
         let personal_value = match tokio::fs::read_to_string(&self.personal_path).await {
             Ok(text) => serde_json::from_str::<Value>(&text).ok(),
@@ -304,6 +346,9 @@ impl ProviderService {
     }
 }
 
+#[cfg(test)]
+#[path = "builtin_source_tests.rs"]
+mod builtin_source_tests;
 #[cfg(test)]
 #[path = "service_tests.rs"]
 mod service_tests;

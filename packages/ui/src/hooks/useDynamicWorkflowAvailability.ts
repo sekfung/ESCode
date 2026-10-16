@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { ICodingPlanSubscriptionService, IESCodeAgentService } from "@escode/services";
+import type { IClientConfigService, IESCodeAgentService } from "@escode/services";
 import type { DynamicWorkflowMode } from "@escode/shared";
 import { logger } from "@/logger.js";
 import {
@@ -25,7 +25,7 @@ export function useDynamicWorkflowAvailability(): DynamicWorkflowAvailabilitySna
  * 取数与失败重试的规则见 dynamicWorkflowAvailabilityStore。
  */
 export function useDynamicWorkflowAvailabilityLoader(
-  service: ICodingPlanSubscriptionService,
+  service: IClientConfigService,
 ): void {
   const ensureLoaded = useDynamicWorkflowAvailabilityStore((state) => state.ensureLoaded);
   useEffect(() => {
@@ -45,9 +45,9 @@ export function useDynamicWorkflowUserModeSync(params: {
   settingsLoaded: boolean;
   userMode: DynamicWorkflowMode | undefined;
   escodeAgentService: Pick<IESCodeAgentService, "syncDynamicWorkflowUserMode">;
-  codingPlanSubscriptionService: ICodingPlanSubscriptionService;
+  clientConfigService: IClientConfigService;
 }): void {
-  const { settingsLoaded, userMode, escodeAgentService, codingPlanSubscriptionService } = params;
+  const { settingsLoaded, userMode, escodeAgentService, clientConfigService } = params;
   const reload = useDynamicWorkflowAvailabilityStore((state) => state.reload);
   const observedRef = useRef<{ userMode: DynamicWorkflowMode | undefined } | null>(null);
   const chainRef = useRef<Promise<void>>(Promise.resolve());
@@ -64,7 +64,7 @@ export function useDynamicWorkflowUserModeSync(params: {
           error: error instanceof Error ? error.message : String(error),
         });
       }
-      await reload(codingPlanSubscriptionService);
+      await reload(clientConfigService);
     });
-  }, [codingPlanSubscriptionService, reload, settingsLoaded, userMode, escodeAgentService]);
+  }, [clientConfigService, reload, settingsLoaded, userMode, escodeAgentService]);
 }
