@@ -18,6 +18,11 @@ use icu_locale_core::Locale;
 /// 默认 locale 的候选环境变量，按 Node（ICU `uloc_getDefault`）优先级。
 const LOCALE_ENV_ORDER: [&str; 3] = ["LC_ALL", "LC_MESSAGES", "LANG"];
 
+/// 运行时 locale（TS `Intl.DateTimeFormat().resolvedOptions().locale` 的环境近似）。
+pub(crate) fn runtime_locale() -> String {
+    default_locale(|name| escode_cli_core_api::env::var(name).ok())
+}
+
 /// 解析默认 locale：`LC_ALL` > `LC_MESSAGES` > `LANG` > `en-US`。
 /// `lookup` 是环境读取口（生产走 `core_api::env`；测试注入固定表，不依赖真实进程 env）。
 pub(crate) fn default_locale(lookup: impl Fn(&str) -> Option<String>) -> String {

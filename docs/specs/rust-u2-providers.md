@@ -160,7 +160,18 @@ ProviderService::load()   ← 唯一的 Registry 替换点
 外部改文件后 `provider-settings` 与 `model-selection` 都收到事件，视图含新名称且修订号大于初始；本进程 `createPersonalProvider` 的返回视图与随后推送的事件同一修订）。
 负向验证：去掉广播 → 外部事件等待超时失败。
 
-## 7. P5a：Built-in Active/LKG 物化（本地，无下载）
+## 10. `testModelConnectivity`
+
+流程（TS `providerFacadeServices.ts` + `providerSettingsConnectivity.ts`）：等在途写入收口（写闸门释放）→ 从最新 Settings 视图按公共资格判定可测性
+（provider 缺失/禁用 → `provider-unavailable`；model 缺失/禁用/有问题 → `model-unavailable`；provider 不可执行 → `provider-unavailable`；model 不可执行 → `model-unavailable`，
+文案与 TS 逐字相同）→ 通过则把 `{providerId, modelId}` 作为 ModelSelection 交给该 workspace 的 runtime（`provider/testModelConnectivity`，120 s 超时），
+成功回 `{success:true}`，失败回 `{success:false, error:{message}}`。
+
+登记差异：TS 调用前会同步账号 Provider 配置（`ensureAccountProviderConfigSynced`），Rust 暂无账号源，跳过。
+验收：`rustHostProviderWrite.test.ts` 追加 3 种资格失败与 TS 逐字比较；`domains_provider_connectivity_tests.rs` 覆盖资格链全部分支。
+成功与失败路径已由 `rustHostCommitMessage.test.ts` 的本地假模型端点验证（runtime 经 `runtimeEnv` 读同一对 provider 文件）。
+
+## 11. P5a：Built-in Active/LKG 物化（本地，无下载）
 
 **决策（沿用 §4.1 推荐）**：Rust Host 接管物化；与 TS Host 共存期间沿用同一把 `<file>.lock` 目录锁协议（`escode_cli_host::file_lock`）。
 P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `client-config` / HTTP 客户端，属 P6 基础设施）。
@@ -192,14 +203,3 @@ P5a 只做本地部分；Remote 下载与控制文件租约拆为 P5b（需要 `
 且 Rust 物化出的 Active 能被 TS 读回并解码为同一 Release；Endpoint 路径向量由 TS `resolveESCodeBuiltinCachePaths` 生成。
 
 **登记差异（不修）**：Rust 写出的 Active 保留源文件的键序（TS 按自身 `toJSON` 序）；二者语义比较，不会互相改写。
-
-## 10. `testModelConnectivity`
-
-流程（TS `providerFacadeServices.ts` + `providerSettingsConnectivity.ts`）：等在途写入收口（写闸门释放）→ 从最新 Settings 视图按公共资格判定可测性
-（provider 缺失/禁用 → `provider-unavailable`；model 缺失/禁用/有问题 → `model-unavailable`；provider 不可执行 → `provider-unavailable`；model 不可执行 → `model-unavailable`，
-文案与 TS 逐字相同）→ 通过则把 `{providerId, modelId}` 作为 ModelSelection 交给该 workspace 的 runtime（`provider/testModelConnectivity`，120 s 超时），
-成功回 `{success:true}`，失败回 `{success:false, error:{message}}`。
-
-登记差异：TS 调用前会同步账号 Provider 配置（`ensureAccountProviderConfigSynced`），Rust 暂无账号源，跳过。
-验收：`rustHostProviderWrite.test.ts` 追加 3 种资格失败与 TS 逐字比较；`domains_provider_connectivity_tests.rs` 覆盖资格链全部分支。
-**未验证**：成功路径与 runtime 失败路径需要可达的模型端点，离线环境未覆盖。

@@ -3,12 +3,12 @@
 
 use std::sync::{Arc, Mutex};
 
-use serde_json::{Value, json};
+use serde_json::json;
 
 use crate::deferred_drafts::DeferredDrafts;
+use crate::domains_session::session_channel;
 use crate::domains_session_write::SessionWriteContext;
 use crate::domains_task_support::{LazyIndex, ReadContext, RuntimeAccess};
-use crate::forward::{Extract, Shaped, runtime_call, runtime_call_shaped, runtime_call_with};
 use crate::session::{Channel, Channels, handler};
 use crate::task_targets::TaskTargets;
 use crate::wire::Wire;
@@ -66,189 +66,6 @@ pub fn setting_channel(
     Channel::new("setting", methods)
 }
 
-/// `escode-session`（TS `ServiceChannels.ESCodeSession` = `"escode-session"`）：
-/// 转发按 TS `escodeAgentService.ts` 的请求字面量整形（`session_forward_params`，评审 A11），
-/// 带 Host 职责的方法（草稿/索引/thoughtLevel 重放/`withApiRetryRuntime`）见 `domains_session_write.rs`。
-/// 未迁移：`readSessionEvents`（运行时无 `session/events`）与 workspace/provider 握手类方法（属各自域）。
-pub(crate) fn session_channel(
-    instances: escode_host_runtime::Instances,
-    options: escode_host_surface::OptionsFactory,
-    write: SessionWriteContext,
-) -> Channel {
-    use crate::domains_session_write as w;
-
-    fn params_of(arg: Wire) -> Value {
-        arg.into_args()
-            .into_iter()
-            .next()
-            .and_then(Wire::into_object)
-            .unwrap_or(Value::Null)
-    }
-
-    // 只做白名单整形与结果抽取的转发。
-    let forward = |method: &'static str, with_workspace: bool, extract: Extract| {
-        let instances = instances.clone();
-        let options = Arc::clone(&options);
-        crate::session::handler_rpc(move |arg: Wire| {
-            let instances = instances.clone();
-            let options = Arc::clone(&options);
-            Box::pin(async move {
-                let params = params_of(arg);
-                let (runtime_method, body) =
-                    escode_host_services::session_params::session_forward_params(method, &params)
-                        .ok_or_else(|| {
-                        crate::session::RpcError::new(
-                            "Fatal",
-                            format!("no runtime mapping for {method}"),
-                        )
-                    })?;
-                let shaped = Shaped {
-                    method: runtime_method,
-                    body,
-                    with_workspace,
-                    trace: None,
-                };
-                runtime_call_shaped(&instances, &options, params, shaped, extract).await
-            })
-        })
-    };
-
-    // 写索引的方法需要 dataBaseDir：缺省时回显式缺口，不静默成功。
-    let indexed = |build: fn(SessionWriteContext) -> crate::session::MethodHandler| {
-        if write.read.is_some() {
-            build(write.clone())
-        } else {
-            handler(|_arg: Wire| {
-                Box::pin(async move {
-                    Err((
-                        "NotImplemented".to_owned(),
-                        "escode-session writes need dataBaseDir: Main must pass dataBaseDir in rpcListen."
-                            .to_owned(),
-                    ))
-                })
-            })
-        }
-    };
-
-    Channel::new(
-        "escode-session",
-        vec![
-            ("createSession", indexed(w::create_session_handler)),
-            ("resumeSession", indexed(w::resume_session_handler)),
-            ("setModel", indexed(w::set_model_handler)),
-            (
-                "listSessions",
-                forward("listSessions", true, Extract::Field("sessions")),
-            ),
-            (
-                "readSession",
-                w::api_retry_forward_handler(write.clone(), "readSession"),
-            ),
-            (
-                "readSessionMessages",
-                forward("readSessionMessages", false, Extract::Field("messages")),
-            ),
-            ("closeSession", w::close_session_handler(write.clone())),
-            (
-                "closeDeferredDraftSession",
-                w::close_deferred_draft_handler(write.clone()),
-            ),
-            (
-                "promoteDeferredDraftSession",
-                w::promote_deferred_draft_handler(write.clone()),
-            ),
-            (
-                "setThoughtLevel",
-                w::api_retry_forward_handler(write.clone(), "setThoughtLevel"),
-            ),
-            (
-                "setMode",
-                w::api_retry_forward_handler(write.clone(), "setMode"),
-            ),
-            (
-                "initializeWorkspace",
-                handler({
-                    let instances = instances.clone();
-                    let options = Arc::clone(&options);
-                    move |arg: Wire| {
-                        let instances = instances.clone();
-                        let options = Arc::clone(&options);
-                        Box::pin(async move {
-                            // workspace 预热：TS `agentService.initialize` 返回 agent 可用性与协议常量，
-                            // 首屏不因 agent 缺失崩溃（失败也回 `available:false`）。Rust Host 同构：
-                            // 建/复用实例后等运行时报到；`transportKind` 固定为 "stdio"。
-                            let target = crate::forward::runtime_target(params_of(arg))?;
-                            let workspace_key = target.identity.clone();
-                            let available = match instances
-                                .get(&target.identity, || options(&target.descriptor))
-                                .await
-                            {
-                                Ok(instance) => {
-                                    instance
-                                        .wait_ready(std::time::Duration::from_secs(30))
-                                        .await
-                                }
-                                Err(_) => false,
-                            };
-                            Ok(Wire::Object(json!({
-                                "available": available,
-                                "workspaceKey": workspace_key,
-                                "protocolName": "ESCode Protocol",
-                                "protocolVersion": 1,
-                                "transportKind": "stdio",
-                            })))
-                        })
-                    }
-                }),
-            ),
-            (
-                "readWorkspacePresentation",
-                handler({
-                    let instances = instances.clone();
-                    let options = Arc::clone(&options);
-                    move |arg: Wire| {
-                        let instances = instances.clone();
-                        let options = Arc::clone(&options);
-                        Box::pin(async move {
-                            // workspace 展示面：TS agent 层先读 `runtime/capabilities` 再带
-                            // `includeExecutionCapabilities` 读 `workspace/readPresentation`，这里同序转发。
-                            // 已登记差异：TS 读取前会同步账号 provider 配置（providers/account 域未迁移）。
-                            let params = params_of(arg);
-                            let capabilities = runtime_call(
-                                &instances,
-                                &options,
-                                "runtime/capabilities",
-                                params.clone(),
-                                Extract::Result,
-                            )
-                            .await
-                            .map_err(<(String, String)>::from)?;
-                            let Wire::Object(capabilities) = capabilities else {
-                                return Err((
-                                    "Fatal".to_owned(),
-                                    "runtime/capabilities answer is not an object".to_owned(),
-                                ));
-                            };
-                            let extra = (capabilities["workspaceExecutionCapabilities"] == true)
-                                .then_some(("includeExecutionCapabilities", Value::Bool(true)));
-                            runtime_call_with(
-                                &instances,
-                                &options,
-                                "workspace/readPresentation",
-                                params,
-                                extra,
-                                Extract::Result,
-                            )
-                            .await
-                            .map_err(Into::into)
-                        })
-                    }
-                }),
-            ),
-        ],
-    )
-}
-
 /// `system`（TS `ServiceChannels.System` = `"system"`）：`info()` 返回
 /// `{homedir, platform}`（TS `os.homedir()` + `process.platform`；Main 经 `rpcListen`
 /// 给出的 home 与 Host 进程 HOME 同源）。终端 shell 探测与内网探测未实现。
@@ -302,6 +119,7 @@ pub fn channels_with(
     provider_files: Option<escode_host_services::provider::ProviderFiles>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
+    let provider_service = provider_files.map(|files| Arc::new(files.into_service()));
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();
     let instances_for_simple = instances.clone();
@@ -361,13 +179,17 @@ pub fn channels_with(
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_file_watcher::file_watcher_channel(),
-        crate::domains_git::git_channel(),
+        crate::domains_git::git_channel(
+            provider_service.clone(),
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
         crate::domains_terminal::terminal_channel(home_for_terminal),
         task_channel,
         session_channel(instances, options, write),
     ];
     list.extend(crate::domains_provider::provider_channels(
-        provider_files,
+        provider_service,
         instances_for_simple.clone(),
         Arc::clone(&options_for_simple),
     ));

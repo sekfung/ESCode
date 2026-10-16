@@ -319,10 +319,11 @@ describe("rust host git domain", () => {
           expect({ label, result: actual }).toEqual({ label, result: expected });
         }
 
-        // 缺口：generateCommitMessage 显式 NotImplemented（spec §6.1）。
+        // generateCommitMessage 的模型编排见 rustHostCommitMessage.test.ts；这里的 Host 没有配 provider 文件，
+        // 有变更的仓库会在“读取当前模型”这一步失败（git 侧输入已先于它通过）。
         await expect(
           rustGit.generateCommitMessage({ workspacePath: fixtureB.main } as never),
-        ).rejects.toThrow(/does not implement `git\.generateCommitMessage`/);
+        ).rejects.toThrow(/未读取到当前模型/);
       } finally {
         await host.stop();
         process.env = saved;

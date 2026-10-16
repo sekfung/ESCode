@@ -4,6 +4,9 @@
 //! status 一旦超出输出上限，此后一律目录折叠），它改变结果，必须照搬。
 
 mod command;
+mod commit_message;
+pub use commit_message::CommitMessageInputs;
+pub mod commit_message_prompt;
 mod files;
 mod parse;
 mod parse_refs;

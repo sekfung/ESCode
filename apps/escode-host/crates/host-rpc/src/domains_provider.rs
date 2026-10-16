@@ -3,7 +3,7 @@
 use escode_host_control::logging;
 use std::sync::Arc;
 
-use escode_host_services::provider::{ProviderFiles, ProviderService};
+use escode_host_services::provider::ProviderService;
 
 use futures_util::stream;
 use serde_json::Value;
@@ -66,11 +66,10 @@ fn settings_view(service: Service) -> MethodHandler {
 
 /// providers 域的全部 channel（共享同一个 `ProviderService`）。
 pub fn provider_channels(
-    files: Option<ProviderFiles>,
+    service: Option<Arc<ProviderService>>,
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Vec<Channel> {
-    let service: Service = files.map(|files| Arc::new(files.into_service()));
     vec![
         Channel::new(
             "model-selection",
