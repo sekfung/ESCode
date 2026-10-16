@@ -60,3 +60,47 @@ pub(super) fn restart_workspace_process(runtime: Option<RuntimeAccess>) -> Metho
         })
     })
 }
+
+/// 不依赖任何状态的 `escode-task` 方法（TS 适配器里就是常量应答）：
+/// `getWorkspaceProviderConfigFile` / `getTaskSessionFilePath` / `checkCodexConnectivity`。
+pub(super) fn constant_methods() -> Vec<(&'static str, MethodHandler)> {
+    vec![
+        (
+            "getWorkspaceProviderConfigFile",
+            handler(|arg: Wire| {
+                let params = first_object(arg);
+                Box::pin(async move {
+                    Ok(Wire::Object(serde_json::json!({
+                        "provider": crate::domains_task_support::GLM_PROVIDER,
+                        "path": params["workspacePath"],
+                        "exists": false,
+                    })))
+                })
+            }),
+        ),
+        (
+            "getTaskSessionFilePath",
+            handler(|arg: Wire| {
+                let params = first_object(arg);
+                Box::pin(async move {
+                    let workspace = params["workspacePath"].as_str().unwrap_or_default();
+                    let task = params["taskId"].as_str().unwrap_or_default();
+                    Ok(Wire::Object(serde_json::json!({
+                        "path": format!("{workspace}/{task}.escode-session"),
+                        "exists": false,
+                    })))
+                })
+            }),
+        ),
+        (
+            "checkCodexConnectivity",
+            handler(|_arg: Wire| {
+                Box::pin(async move {
+                    Ok(Wire::Object(
+                        serde_json::json!({"target": "escode-agent", "reachable": true}),
+                    ))
+                })
+            }),
+        ),
+    ]
+}

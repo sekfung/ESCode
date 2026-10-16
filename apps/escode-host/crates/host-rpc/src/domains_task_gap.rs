@@ -47,6 +47,10 @@ pub(super) fn gap_channel(events: &Arc<WorkspaceEvents>) -> Channel {
             ("deleteTaskGroup", missing()),
             ("applyGroupedTaskViewOrder", missing()),
             ("restartWorkspaceProcess", missing()),
+            ("releaseWorkspacePreparation", missing()),
+            ("getWorkspaceProviderConfigFile", missing()),
+            ("getTaskSessionFilePath", missing()),
+            ("checkCodexConnectivity", missing()),
         ],
     )
     // 事件只登记监听，不依赖索引：缺 dataBaseDir 时照常可监听（写面都是缺口，不会有事件）。

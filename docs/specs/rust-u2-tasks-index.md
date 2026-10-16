@@ -491,3 +491,10 @@ TS 真相源：`escode-agent/modelTrajectory.ts`、`modelTrajectoryFileTail.ts`�
 - 登记差异：`Date.parse` 只支持 ISO 8601 子集（其它格式 → 0，JS 能解析的 `Mar 3 2020` 之类不识别）；TS 的 debug 日志不复刻。
 - 验收：`rustHostUserConfig.test.ts` 的 trajectory 用例（debug+rollout 两目录、乱序/同时刻、delta 展开、各类部件与错误、非 model_io/他人 session/坏行、sanitize、limit 变体、>32 MiB 尾部截断、负下标怪癖）对真实 TS `readModelTrajectory` 逐字比较；
   负向验证：把负下标分支改成 0 即失败。
+
+## 8. `escode-task` 的常量/回收类方法
+
+TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` → `{provider:"glm", path: workspacePath, exists:false}`；`getTaskSessionFilePath` →
+`{path: "<workspacePath>/<taskId>.escode-session", exists:false}`；`checkCodexConnectivity` → `{target:"escode-agent", reachable:true}`；
+`releaseWorkspacePreparation` 与 `restartWorkspaceProcess` 同走 `disposeWorkspace`（Rust：`Instances::close`，其后的使用懒重启新世代）。
+验收：`rpc_task_restart.rs` 的集成用例（回收后 `live` 为空、三个常量应答逐字）。**未做**：`getTaskNativeSessionLogFile`（需要本地时区的日期文件名，Rust 侧无时区库，且只服务诊断入口）。
