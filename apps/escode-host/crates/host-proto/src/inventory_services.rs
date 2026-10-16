@@ -67,6 +67,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-task", "deleteTaskGroup"),
     ("escode-task", "applyGroupedTaskViewOrder"),
     ("escode-task", "restartWorkspaceProcess"),
+    ("escode-task", "getModelTrajectory"),
     ("credential", "delete"),
     ("credential", "load"),
     ("credential", "save"),

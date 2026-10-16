@@ -104,6 +104,7 @@ export {
 export { createCredentialService } from "./credential/credentialService.js";
 export { createBroadcastService } from "./broadcast/broadcastService.js";
 export { createOnboardingRecordService } from "./onboarding/onboardingRecordService.js";
+export { readModelTrajectory } from "./escode-agent/modelTrajectory.js";
 export { createESCodeAgentService } from "./escode-agent/escodeAgentService.js";
 export { createESCodeTaskServiceAdapter } from "./escode-agent/escodeTaskServiceAdapter.js";
 export { createESCodeSessionService } from "./escode-session/escodeSessionService.js";

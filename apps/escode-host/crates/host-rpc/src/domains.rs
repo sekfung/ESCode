@@ -148,6 +148,9 @@ pub fn channels_with(
         Arc::clone(&targets),
         Arc::clone(&events),
     );
+    let task_channel = task_channel.with_methods(
+        crate::domains_task_trajectory::trajectory_methods(&home, data_base_dir.as_deref()),
+    );
     let write = SessionWriteContext {
         runtime: runtime.clone(),
         read: data_base_dir.map(|data_base_dir| ReadContext {

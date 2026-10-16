@@ -476,3 +476,18 @@ available → 重订阅，新 snapshot 对已 seeded 基线走 diff 路径收敛
 2. **DDL 漂移**：TS 侧新增迁移时 Rust 必须补齐。缓解：checksum 哨兵 + 迁移 id 集合断言（CI 失败而非静默）。
 3. **并发写**：两侧同时写同一 DB 靠 SQLite 锁；`busy_timeout` 很小（25ms），需要写重试与结构化错误（不静默丢写）。
 4. **TS 服务层未来改动**：本 spec 以当前检出的 TS 源码为基线（文件行号见各片实现注释）；TS 侧再改动需同步更新本文件与差分语料。
+
+## 7. `escode-task.getModelTrajectory`
+
+TS 真相源：`escode-agent/modelTrajectory.ts`、`modelTrajectoryFileTail.ts`（`escodeTaskServiceAdapter.getModelTrajectory` 直接返回其结果）。
+
+- **事实源**：运行时落盘的 `model-io-<sanitizedTaskId>.jsonl`，在 `<homedir>/.escode/cli` 与 `<dataBaseDir>/.escode/cli`（去重）下的 `debug`、`rollout` 目录里找。`taskId` 即 `sessionId`；文件名片段只留 `[A-Za-z0-9_-]`（连续其它字符压成 `-`，去首尾 `-`，截 80 字符，空则 `no-session`）。
+- **读取**：每个文件只读尾部 32 MiB（起点 >0 时丢弃截断的首行并标 `truncated`）；只收 `type==="model_io"` 且 `sessionId===taskId` 的行，坏 JSON 行忽略。
+- **排序**：`startedAt` 的 `Date.parse`（非法 → 0），平手按 `requestId` 的 `localeCompare`（稳定）。
+- **展开**：`messagesKind==="delta"` 的记录用上一条（已展开）的同名集合前 `offset` 条 + 本条 delta 还原；`sdkMessages`、`body.messages` 同理；`tail` 基线不展开。
+- **映射**：`callSource`（main_turn → main；subagent；compact 或 `role==="compact"`；其它 `querySource` → sidecar；role 为 subagent → subagent；缺省 main；没有 querySource 时首条 system 消息以固定前缀开头推断 `session_title`）；消息内容按角色映射为
+  `text / reasoning / tool-call / tool-result / image / unknown` 部件（`tool` 角色的字符串内容是工具输出，`isError` 时包成 `{type:"error-text",value}`，否则尝试按 JSON 解析）。
+- **截断**：`limit` 非有限或 ≤0 取 200（小数取整）；`truncated = 输入被截断 || 条数>limit`，保留最后 `limit` 条。**TS 的 `slice(length-limit)` 在输入被截断且条数不足 limit 时下标为负，按“从末尾数”会丢掉前 `2·len-limit` 条**——逐字复刻（差分用例覆盖）。
+- 登记差异：`Date.parse` 只支持 ISO 8601 子集（其它格式 → 0，JS 能解析的 `Mar 3 2020` 之类不识别）；TS 的 debug 日志不复刻。
+- 验收：`rustHostUserConfig.test.ts` 的 trajectory 用例（debug+rollout 两目录、乱序/同时刻、delta 展开、各类部件与错误、非 model_io/他人 session/坏行、sanitize、limit 变体、>32 MiB 尾部截断、负下标怪癖）对真实 TS `readModelTrajectory` 逐字比较；
+  负向验证：把负下标分支改成 0 即失败。

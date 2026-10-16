@@ -18,6 +18,7 @@ import {
   createMemoryService,
   createOnboardingRecordService,
   createOutputStyleService,
+  readModelTrajectory,
   setDataBaseDir,
 } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
@@ -585,5 +586,192 @@ describe("rust host onboarding-record", () => {
       });
     },
     120_000,
+  );
+});
+
+describe("rust host model trajectory", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "getModelTrajectory matches the TS reader over model-io files",
+    async () => {
+      await withHosts(async ({ tsHome, rustHome, rpc }) => {
+        setDataBaseDir(tsHome);
+        try {
+          const rust = rpc.escodeTaskService;
+          const line = (record: Record<string, unknown>) => JSON.stringify(record);
+          const base = (n: number, extra: Record<string, unknown> = {}) => ({
+            type: "model_io",
+            sessionId: "task-1",
+            requestId: `req-${n}`,
+            startedAt: `2026-01-01T00:00:0${n}.000Z`,
+            model: { modelId: "m", providerId: "p", role: "main", source: "builtin" },
+            ...extra,
+          });
+          const records = [
+            base(3, {
+              request: {
+                messagesKind: "delta",
+                messageOffset: 1,
+                messages: [
+                  { role: "user", content: "second" },
+                  { role: "tool", content: '{"ok":true}', toolCallId: "c1", name: "bash" },
+                  { role: "tool", content: "plain text", tool_use_id: "c2", is_error: true },
+                  { role: "tool", content: "[1,2]" },
+                  {
+                    role: "assistant",
+                    content: [
+                      { type: "text", text: "t" },
+                      { type: "reasoning", text: "r" },
+                      {
+                        type: "tool-call",
+                        toolCallId: "c1",
+                        toolName: "bash",
+                        args: { cmd: "ls" },
+                      },
+                      { type: "tool-result", result: 7 },
+                      { type: "image", mediaType: "image/png" },
+                      { type: "weird", extra: 1 },
+                      "raw-string",
+                    ],
+                  },
+                ],
+                toolNames: ["bash", 5, "read"],
+              },
+              response: {
+                finishReason: "tool-calls",
+                text: "done",
+                reasoningText: "thinking",
+                toolCalls: [
+                  { id: "c1", name: "bash", input: { cmd: "ls" } },
+                  { toolCallId: "c9", toolName: "x", args: 1 },
+                  "bad",
+                ],
+                usage: {
+                  inputTokens: 1,
+                  outputTokens: 2,
+                  totalTokens: 3,
+                  cacheReadTokens: 0,
+                  reasoningTokens: "x",
+                },
+                responseId: "resp",
+                modelId: "m2",
+              },
+              completedAt: "2026-01-01T00:00:09.000Z",
+              durationMs: 12.5,
+              turnId: "turn",
+              traceId: "trace",
+              attempt: 2,
+              querySource: "compact",
+            }),
+            base(1, {
+              request: {
+                messages: [
+                  {
+                    role: "system",
+                    content: "Generate a concise title for this coding session. Foo",
+                  },
+                  { role: "user", content: "first" },
+                ],
+              },
+              error: { name: "TypeError", message: "boom", stack: "at x" },
+            }),
+            base(2, {
+              startedAt: "2026-01-01T00:00:01.000Z",
+              request: { messages: [{ role: "user", content: "same start" }] },
+              model: { role: "subagent" },
+            }),
+            { ...base(4), sessionId: "other" },
+            { type: "not_model_io", sessionId: "task-1" },
+            base(5, { startedAt: "garbage", error: { message: "" } }),
+          ];
+          const body = `${records.map(line).join("\n")}\nnot json\n\n`;
+          for (const home of [tsHome, rustHome]) {
+            await mkdir(join(home, ".escode", "cli", "debug"), { recursive: true });
+            await mkdir(join(home, ".escode", "cli", "rollout"), { recursive: true });
+            await writeFile(join(home, ".escode", "cli", "debug", "model-io-task-1.jsonl"), body);
+            await writeFile(
+              join(home, ".escode", "cli", "rollout", "model-io-task-1.jsonl"),
+              line(base(6, { request: { messages: [{ role: "user", content: "rollout" }] } })),
+            );
+            await writeFile(
+              join(home, ".escode", "cli", "debug", "model-io-weird-id.jsonl"),
+              line({ ...base(1), sessionId: "weird id!" }),
+            );
+          }
+          const norm = (value: unknown, home: string) =>
+            JSON.parse(
+              JSON.stringify(value ?? null)
+                .split(home)
+                .join("<home>"),
+            );
+          const cases: Array<[string, { taskId: string; limit?: number }]> = [
+            ["all", { taskId: "task-1" }],
+            ["limited", { taskId: "task-1", limit: 2 }],
+            ["fractional limit", { taskId: "task-1", limit: 2.9 }],
+            ["invalid limit", { taskId: "task-1", limit: -4 }],
+            ["sanitized id", { taskId: "weird id!" }],
+            ["unknown task", { taskId: "ghost" }],
+          ];
+          for (const [label, params] of cases) {
+            const expected = await outcome(() => readModelTrajectory(params.taskId, params.limit));
+            const actual = await outcome(() => rust.getModelTrajectory(params as never));
+            expect({ label, result: norm(actual, rustHome) }).toEqual({
+              label,
+              result: norm(expected, tsHome),
+            });
+          }
+
+          // 超过 32 MiB：只读尾部，丢弃截断的首行，并标记 truncated。
+          const filler =
+            line(
+              base(7, { request: { messages: [{ role: "user", content: "x".repeat(2000) }] } }),
+            ) + "\n";
+          const big =
+            filler.repeat(Math.ceil((33 * 1024 * 1024) / filler.length)) + line(base(8)) + "\n";
+          for (const home of [tsHome, rustHome]) {
+            await writeFile(
+              join(home, ".escode", "cli", "debug", "model-io-big.jsonl"),
+              big.replaceAll('"sessionId":"task-1"', '"sessionId":"big"'),
+            );
+          }
+          // JS `slice(length - limit)` 的负下标怪癖：输入被截断但条数不足上限时会丢掉前 2*len-limit 条。
+          const pad =
+            line({
+              ...base(7),
+              sessionId: "pad",
+              request: { messages: [{ role: "user", content: "y".repeat(2000) }] },
+            }) + "\n";
+          const quirk =
+            pad.repeat(Math.ceil((33 * 1024 * 1024) / pad.length)) +
+            Array.from({ length: 150 }, (_, i) =>
+              line({
+                ...base(1),
+                sessionId: "quirk",
+                requestId: `q-${String(i).padStart(3, "0")}`,
+                startedAt: `2026-02-01T00:00:00.${String(i).padStart(3, "0")}Z`,
+              }),
+            ).join("\n") +
+            "\n";
+          for (const home of [tsHome, rustHome]) {
+            await writeFile(join(home, ".escode", "cli", "debug", "model-io-quirk.jsonl"), quirk);
+          }
+          const expectedQuirk = (await outcome(() => readModelTrajectory("quirk"))) as {
+            value: { records: unknown[] };
+          };
+          const actualQuirk = (await outcome(() =>
+            rust.getModelTrajectory({ taskId: "quirk" } as never),
+          )) as { value: { records: unknown[] } };
+          expect(expectedQuirk.value.records).toHaveLength(50);
+          expect(norm(actualQuirk, rustHome)).toEqual(norm(expectedQuirk, tsHome));
+          const expectedBig = await outcome(() => readModelTrajectory("big", 5));
+          const actualBig = await outcome(() =>
+            rust.getModelTrajectory({ taskId: "big", limit: 5 } as never),
+          );
+          expect(norm(actualBig, rustHome)).toEqual(norm(expectedBig, tsHome));
+        } finally {
+          setDataBaseDir(null);
+        }
+      });
+    },
+    180_000,
   );
 });

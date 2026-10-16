@@ -127,6 +127,12 @@ impl Channel {
         }
     }
 
+    /// 追加方法（同一 channel 的方法分散在多个域文件时用；后追加的同名项不会覆盖先登记的）。
+    pub fn with_methods(mut self, extra: Vec<(&'static str, MethodHandler)>) -> Self {
+        self.methods.extend(extra);
+        self
+    }
+
     /// 登记事件表（`onX` 静态事件与 `onDynamicX` 动态事件同表）。
     pub fn with_events(mut self, events: Vec<(&'static str, EventHandler)>) -> Self {
         self.events = events;

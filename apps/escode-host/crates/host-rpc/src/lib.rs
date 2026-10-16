@@ -45,6 +45,7 @@ mod domains_task_runtime;
 mod domains_task_snapshot;
 mod domains_task_state;
 mod domains_task_support;
+mod domains_task_trajectory;
 mod domains_terminal;
 pub mod forward;
 pub mod frame;
