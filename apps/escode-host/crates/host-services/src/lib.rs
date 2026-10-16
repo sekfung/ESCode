@@ -5,6 +5,7 @@
 //! 见同 spec §5）。
 pub mod broadcast;
 pub mod credential;
+pub mod data_dir;
 pub mod file_index;
 pub mod file_watcher;
 pub mod git;

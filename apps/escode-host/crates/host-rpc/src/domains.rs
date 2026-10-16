@@ -17,50 +17,53 @@ use crate::wire::Wire;
 /// `get` 读设置文件、`update` 顶层合并补丁后原子写（与 Node Host 同文件同格式）；
 /// 其余方法（`updateDataBaseDir` / `ensureDefaultProject`）未实现——方法表即分派，
 /// 缺口由 `respond` 回显式 `NotImplemented` 并列出已实现方法。
-pub fn setting_channel(home: std::path::PathBuf) -> Channel {
+pub fn setting_channel(
+    home: std::path::PathBuf,
+    data_base_dir: Option<std::path::PathBuf>,
+) -> Channel {
+    let extra = crate::domains_setting_extra::extra_methods(&home, data_base_dir.as_deref());
     let read_home = home.clone();
     let write_home = home;
-    Channel::new(
-        "setting",
-        vec![
-            (
-                "get",
-                handler(move |_arg: Wire| {
-                    let home = read_home.clone();
-                    Box::pin(async move {
-                        escode_host_services::settings::read(&home)
-                            .await
-                            .map(Wire::Object)
-                            .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))
-                    })
-                }),
-            ),
-            (
-                "update",
-                handler(move |arg: Wire| {
-                    let home = write_home.clone();
-                    Box::pin(async move {
-                        // `ProxyChannel.toService` 把实参打包成数组：`update(patch)` → `[patch]`。
-                        let patch = arg
-                            .into_args()
-                            .into_iter()
-                            .next()
-                            .and_then(Wire::into_object)
-                            .ok_or_else(|| {
-                                (
-                                    "InvalidRequest".to_owned(),
-                                    "setting.update requires a patch object".to_owned(),
-                                )
-                            })?;
-                        escode_host_services::settings::apply_patch(&home, &patch)
-                            .await
-                            .map(|_| Wire::Undefined)
-                            .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))
-                    })
-                }),
-            ),
-        ],
-    )
+    let mut methods = vec![
+        (
+            "get",
+            handler(move |_arg: Wire| {
+                let home = read_home.clone();
+                Box::pin(async move {
+                    escode_host_services::settings::read(&home)
+                        .await
+                        .map(Wire::Object)
+                        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))
+                })
+            }),
+        ),
+        (
+            "update",
+            handler(move |arg: Wire| {
+                let home = write_home.clone();
+                Box::pin(async move {
+                    // `ProxyChannel.toService` 把实参打包成数组：`update(patch)` → `[patch]`。
+                    let patch = arg
+                        .into_args()
+                        .into_iter()
+                        .next()
+                        .and_then(Wire::into_object)
+                        .ok_or_else(|| {
+                            (
+                                "InvalidRequest".to_owned(),
+                                "setting.update requires a patch object".to_owned(),
+                            )
+                        })?;
+                    escode_host_services::settings::apply_patch(&home, &patch)
+                        .await
+                        .map(|_| Wire::Undefined)
+                        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))
+                })
+            }),
+        ),
+    ];
+    methods.extend(extra);
+    Channel::new("setting", methods)
 }
 
 /// `escode-session`（TS `ServiceChannels.ESCodeSession` = `"escode-session"`）：
@@ -299,6 +302,7 @@ pub fn channels_with(
     options: escode_host_surface::OptionsFactory,
     provider_files: Option<escode_host_services::provider::ProviderFiles>,
 ) -> Channels {
+    let data_base_dir_for_setting = data_base_dir.clone();
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();
     let instances_for_simple = instances.clone();
@@ -354,7 +358,7 @@ pub fn channels_with(
         crate::window_controller::WindowController::new(read, Arc::clone(&events), syncer)
     });
     let mut list = vec![
-        setting_channel(home.clone()),
+        setting_channel(home.clone(), data_base_dir_for_setting),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_file_watcher::file_watcher_channel(),

@@ -30,6 +30,7 @@ mod domains_provider_connectivity;
 mod domains_provider_write;
 mod domains_session_model;
 mod domains_session_write;
+mod domains_setting_extra;
 mod domains_simple;
 pub mod domains_task;
 mod domains_task_delete;

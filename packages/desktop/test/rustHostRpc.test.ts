@@ -59,8 +59,8 @@ describe("rust host rpc surface", () => {
         expect(onDisk.locale).toBe("zh-CN");
 
         // 未迁移的 method：显式 NotImplemented（不挂起）。
-        await expect(services.settingService.updateDataBaseDir(join(root, "data"))).rejects.toThrow(
-          /does not implement `setting\.updateDataBaseDir`/,
+        await expect(services.serialService.list()).rejects.toThrow(
+          /does not implement channel `serial`/,
         );
 
         // escode-session 域：Host 转成 runtime 的 session/list（TS Host 同构），

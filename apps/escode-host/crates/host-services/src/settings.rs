@@ -82,6 +82,27 @@ pub async fn apply_patch(home: &Path, patch: &Value) -> Result<Value> {
     Ok(merged)
 }
 
+/// 设置单个顶层键（`None` = 移除，对应 TS `update({key: undefined})` 经 JSON 序列化丢键）。
+pub async fn set_key(home: &Path, key: &str, value: Option<Value>) -> Result<Value> {
+    let mut merged = match read(home).await? {
+        Value::Object(object) => object,
+        _ => Map::new(),
+    };
+    match value {
+        Some(value) => merged.insert(key.to_owned(), value),
+        None => merged.remove(key),
+    };
+    let merged = Value::Object(merged);
+    let path = settings_path(home);
+    let serialized = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&merged).context("Settings serialization failed")?
+    );
+    escode_host_core::atomic_write::write(&path, serialized.as_bytes())
+        .with_context(|| format!("Settings write failed: {}", path.display()))?;
+    Ok(merged)
+}
+
 /// 隔离坏文件（TS `quarantineCorruptSettingsFile`：`setting.json.corrupt-<ISO 时间戳>`）。
 async fn quarantine(path: &Path) {
     let timestamp = chrono_timestamp();

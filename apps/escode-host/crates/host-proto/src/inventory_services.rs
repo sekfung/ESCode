@@ -95,6 +95,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("broadcast", "releaseClaim"),
     ("broadcast", "send"),
     ("broadcast", "tryClaim"),
+    ("setting", "ensureDefaultProject"),
+    ("setting", "updateDataBaseDir"),
     ("setting", "get"),
     ("setting", "update"),
     ("system", "info"),

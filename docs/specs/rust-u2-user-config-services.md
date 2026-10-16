@@ -56,3 +56,15 @@ TS 真相源：`packages/services/src/broadcast/broadcastService.ts`。TS 有两
 - 登记差异：`send` 校验失败时 TS 抛 zod JSON，Rust 抛一句话；跨窗口（`parentPort`）形态未做。
 - 验收：`rustHostBroadcast.test.ts`（真实 TS 服务 `createBroadcastService(null)` 对 Rust Host：claim 状态机各分支、`tryClaim` 只首次为 true、`send` 的 trim/校验与扇出）；
   Rust 单测用注入时钟覆盖 TTL 过期与 1024 上限淘汰。
+
+## 4. setting.ensureDefaultProject / updateDataBaseDir
+
+TS 真相源：`settingService.ts` 的两个方法与 `paths.ts` 的 `copyDataDirectory` / `validateDataBaseDirTarget`。
+
+- `ensureDefaultProject(userHomeDir)` → `{path: <home>/ESCodeProject, created}`（目录已存在则 `created:false`；递归创建）。
+- `updateDataBaseDir(newDir?)`：目标 = `newDir.trim()` 或家目录；Windows 上目标落在应用安装目录（`ESCODE_WINDOWS_APP_INSTALL_DIR`、`%ProgramFiles%/ESCode` 等及其子目录，大小写不敏感、先规范化 `..`）
+  → 抛 `DATA_BASE_DIR_FORBIDDEN_WINDOWS_INSTALL_DIR: <dir>`（带 `code`）；目标 ≠ 当前数据根则把 `<当前>/.escode/v2` 复制到 `<目标>/.escode/v2`——不覆盖已有文件、跳过 `setting.json*`（bootstrap 状态只放默认家目录）与符号链接、
+  源不存在上抛 ENOENT；最后把 `dataBaseDir` 写入设置（`undefined` → 移除该键）。
+- 登记差异：Windows 禁用目录判定用字符串规则复刻 `win32.normalize/resolve`，只有单测覆盖，未在 Windows 实机验证；设置写回走 Host 现有的顶层键合并（不含 TS `update` 的 schema 校验与 recentProjects 截断）；
+  迁移不会让运行中的 Host 改指新数据根（TS 同样需要重启生效）。
+- 验收：`rustHostSettingExtra.test.ts` 对真实 TS 设置服务（`HOME` 隔离）逐项比较返回值、目标目录树、`setting.json` 的 `dataBaseDir`；`data_dir_tests.rs` 覆盖 Windows 判定与复制规则。负向验证：复制改成覆盖已有文件即失败。
