@@ -30,8 +30,6 @@ const capturedWindowsCaptionMenu = vi.hoisted(() => {
       label: string;
       onSelect: (() => void | Promise<void>) | undefined;
     }>,
-    openSubmit: vi.fn(),
-    openFeatureRequest: vi.fn(),
     openExternal: vi.fn(),
     exportLogs: vi.fn(async () => ({ success: true })),
     captureWindowScreenshot: vi.fn(async () => screenshot),
@@ -80,19 +78,6 @@ vi.mock("@/components/ui/dropdown-menu.js", () => ({
 vi.mock("@/components/ui/toast.js", () => ({
   dismissToast: vi.fn(),
   toast: vi.fn(() => 1),
-}));
-
-vi.mock("@/feedback/feedbackStore.js", () => ({
-  useFeedbackStore: (
-    selector: (state: {
-      openSubmit: (draft?: unknown) => void;
-      openFeatureRequest: () => void;
-    }) => unknown,
-  ) =>
-    selector({
-      openSubmit: capturedWindowsCaptionMenu.openSubmit,
-      openFeatureRequest: capturedWindowsCaptionMenu.openFeatureRequest,
-    }),
 }));
 
 vi.mock("@/hooks/usePlatform.js", () => ({
@@ -178,25 +163,15 @@ describe("WindowsCaptionMenuButton", () => {
   });
 
   it("includes help actions migrated from the shared question-mark menu", async () => {
-    capturedWindowsCaptionMenu.openSubmit.mockClear();
-    capturedWindowsCaptionMenu.openFeatureRequest.mockClear();
     capturedWindowsCaptionMenu.openExternal.mockClear();
     capturedWindowsCaptionMenu.exportLogs.mockClear();
     capturedWindowsCaptionMenu.captureWindowScreenshot.mockClear();
 
     const html = await renderButton("header");
 
-    expect(html).toContain("titleBar.menu.help.feedback");
-    expect(html).toContain("workspaceHeader.help.productRequest");
     expect(html).toContain("workspaceHeader.help.docs");
     expect(html).toContain("titleBar.menu.help.exportLogs");
 
-    await capturedWindowsCaptionMenu.menuItems
-      .find((item) => item.label === "titleBar.menu.help.feedback")
-      ?.onSelect?.();
-    capturedWindowsCaptionMenu.menuItems
-      .find((item) => item.label === "workspaceHeader.help.productRequest")
-      ?.onSelect?.();
     capturedWindowsCaptionMenu.menuItems
       .find((item) => item.label === "workspaceHeader.help.docs")
       ?.onSelect?.();
@@ -205,14 +180,6 @@ describe("WindowsCaptionMenuButton", () => {
       ?.onSelect?.();
 
     expect(capturedWindowsCaptionMenu.captureWindowScreenshot).not.toHaveBeenCalled();
-    expect(capturedWindowsCaptionMenu.openSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "bug",
-        includeLogs: true,
-        screenshots: [],
-      }),
-    );
-    expect(capturedWindowsCaptionMenu.openFeatureRequest).toHaveBeenCalledTimes(1);
     expect(capturedWindowsCaptionMenu.openExternal).toHaveBeenCalledWith("https://zcode.z.ai/docs");
     expect(capturedWindowsCaptionMenu.exportLogs).toHaveBeenCalledTimes(1);
   });

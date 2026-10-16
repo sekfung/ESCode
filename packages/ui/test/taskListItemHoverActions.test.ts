@@ -127,12 +127,6 @@ vi.mock("@/hooks/usePlatform.js", () => ({
   useOptionalPlatform: () => null,
 }));
 
-vi.mock("@/feedback/feedbackStore.js", () => ({
-  useFeedbackStore: (
-    selector: (state: { openSubmit: () => void }) => unknown,
-  ) => selector({ openSubmit: vi.fn() }),
-}));
-
 vi.mock("@/store/modelTrajectoryStore.js", () => ({
   useModelTrajectoryStore: {
     getState: () => ({

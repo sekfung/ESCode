@@ -119,7 +119,7 @@ function stubProcessPlatform(platform: NodeJS.Platform): void {
   });
 }
 
-describe("desktopCommandHandlers resolveFeedbackUrl", () => {
+describe("desktopCommandHandlers 帮助入口与桌面命令", () => {
   beforeEach(() => {
     vi.resetModules();
     appMock.getAppPath.mockClear();
@@ -133,66 +133,6 @@ describe("desktopCommandHandlers resolveFeedbackUrl", () => {
 
   afterEach(() => {
     stubProcessPlatform(originalPlatform);
-  });
-
-  it("优先使用远端 JSON 里的 feedback_url", async () => {
-    const logger = {
-      warn: vi.fn(),
-    };
-    // Bugfix: 这个用例需要 resetModules 后重新导入 desktopCommandHandlers。
-    // 在全量测试并发执行时，Electron 相关模块初始化偶尔会比单跑慢很多，默认 5s 超时不够稳定，
-    // 但实际断言链路本身很短。这里单独放宽超时，避免 verify:pre-push 被偶发慢启动误杀。
-    const { resolveFeedbackUrl } = await import("../src/main/desktopCommandHandlers.js");
-
-    const feedbackUrl = await resolveFeedbackUrl({
-      logger,
-      fetchRemoteConfig: async () => ({
-        feedback_url: "https://remote.example.com/feedback",
-      }),
-      readLocalConfig: () => ({
-        feedback_url: "https://local.example.com/feedback",
-      }),
-    });
-
-    expect(feedbackUrl).toBe("https://remote.example.com/feedback");
-  }, 15_000);
-
-  it("远端不可用时回退到本地 JSON", async () => {
-    const logger = {
-      warn: vi.fn(),
-    };
-    const { resolveFeedbackUrl } = await import("../src/main/desktopCommandHandlers.js");
-
-    const feedbackUrl = await resolveFeedbackUrl({
-      logger,
-      fetchRemoteConfig: async () => {
-        throw new Error("network down");
-      },
-      readLocalConfig: () => ({
-        feedback_url: "https://local.example.com/feedback",
-      }),
-    });
-
-    expect(feedbackUrl).toBe("https://local.example.com/feedback");
-    expect(logger.warn).toHaveBeenCalledWith(
-      "[feedback] failed to fetch remote config:",
-      expect.any(Error),
-    );
-  });
-
-  it("两个 JSON 都没有有效地址时返回 undefined", async () => {
-    const logger = {
-      warn: vi.fn(),
-    };
-    const { resolveFeedbackUrl } = await import("../src/main/desktopCommandHandlers.js");
-
-    const feedbackUrl = await resolveFeedbackUrl({
-      logger,
-      fetchRemoteConfig: async () => ({}),
-      readLocalConfig: () => ({}),
-    });
-
-    expect(feedbackUrl).toBeUndefined();
   });
 
   it("中文界面只打开中文社群入口，缺失时不跨语言回退", async () => {

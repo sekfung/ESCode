@@ -137,11 +137,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
   }),
 }));
 
-vi.mock("@/feedback/feedbackStore.js", () => ({
-  useFeedbackStore: (selector: (state: { openSubmit: () => void }) => unknown) =>
-    selector({ openSubmit: vi.fn() }),
-}));
-
 vi.mock("@/store/taskQueryCacheStore.js", () => ({
   applyTaskQueryCacheMutation: vi.fn(),
 }));

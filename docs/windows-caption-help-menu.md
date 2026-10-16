@@ -9,13 +9,13 @@ Windows/Linux 桌面端曾在右上角自绘标题栏放一个箭头合并菜单
 ## 产品语义
 
 - 桌面端三个平台与 Web 端右上角都只显示问号帮助菜单，问号按钮的挂载位置由 `WorkspaceHeaderActionSection` / `SettingsPage` 控制。
-- 第一组：产品文档、用户社群、问题上报、给产品提需求。
+- 第一组：产品文档、用户社群、提交漏洞。
 - 一条分隔线后为桌面专属组：导出日志、资源管理器、检查更新、关于 ESCode。检查更新仅 production 显示，Preview 隐藏；关于为最后一项。沿用原有命令；下载完成时显示「重启更新」/「Restart to update」和独立版本 pill。
-- 导出日志复用系统菜单的主进程导出实现，UI 通过共享帮助动作显示导出中及失败提示；问题上报仍保持 `includeLogs=true`。Web 无桌面组和分隔线。
+- 导出日志复用系统菜单的主进程导出实现，UI 通过共享帮助动作显示导出中及失败提示。Web 无桌面组和分隔线。
 
 ## 实现约束
 
-- 问题反馈、产品文档、导出日志复用 `createHelpMenuActionHandlers`，不新增 desktop command。
+- 产品文档、导出日志复用 `createHelpMenuActionHandlers`，不新增 desktop command。
 - 平台判定不在 `WorkspaceHelpMenuButton` 内嗅探 `window` 或 UA，而由挂载处注入 `isDesktop`（`WorkspaceHeaderActionSection` 与 `SettingsPage` 已持有该值），保证 Web 端不被误伤。Web 的 `IPlatformService` 桩虽然也实现了 `executeDesktopCommand`（no-op），所以不能拿它当桌面判定。
 - test id：触发按钮 `TID_WORKSPACE_HELP_MENU_TRIGGER`，资源管理器项 `TID_WORKSPACE_HELP_MENU_RESOURCE_MANAGER`。
 

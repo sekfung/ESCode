@@ -47,7 +47,6 @@ export function createDesktopPlatform(options: {
     saveMcpToUserDirectory: (payload) => window.escode.saveMcpToUserDirectory(payload),
     migrateLegacyCommonMcp: (payload) => window.escode.migrateLegacyCommonMcp(payload),
     openExternal: (url) => window.escode.openExternal(url),
-    openFeedback: () => window.escode.executeDesktopCommand(DesktopCommandIds.OpenFeedback),
     openCommunity: () => window.escode.executeDesktopCommand(DesktopCommandIds.OpenCommunity),
     canOpenCommunity: (locale) => window.escode.canOpenCommunity(locale),
     openInFileManager: (path) => window.escode.openInFileManager(path),
@@ -135,8 +134,6 @@ export function createDesktopPlatform(options: {
       return window.escode.onOpenWorkspace?.(handler) ?? (() => {});
     },
     onOpenWorkspacePath: (handler) => window.escode.onOpenWorkspacePath?.(handler) ?? (() => {}),
-    onOpenFeedbackDialog: (handler) => window.escode.onOpenFeedbackDialog?.(handler) ?? (() => {}),
-    onOpenTicketsPanel: (handler) => window.escode.onOpenTicketsPanel?.(handler) ?? (() => {}),
     onWindowFullscreenChanged: (handler) => window.escode.onWindowFullscreenChanged(handler),
     getDesktopWindowChromeState: window.escode.getDesktopWindowChromeState
       ? () => window.escode.getDesktopWindowChromeState!()

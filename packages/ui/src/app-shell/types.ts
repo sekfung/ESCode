@@ -12,7 +12,7 @@ import type {
   UpdateStatePayload,
   UserInfo,
 } from "@escode/shared";
-import type { IFeedbackService, IServiceAccessor } from "@escode/services";
+import type { IServiceAccessor } from "@escode/services";
 import type { SavedWorkflowsOpenTarget } from "@/settings/saved-workflows/SavedWorkflowsSection.js";
 import type { SavedWorkflowHubTarget } from "@/v4/savedWorkflowHubContext.js";
 import type { WebRemoteControlWorkspaceSwitcherApi } from "@/root/types.js";
@@ -78,7 +78,6 @@ export type CreateTaskRequest = ESCodeProvider | CreateTaskOptions;
 
 export interface AppProps {
   services: IServiceAccessor;
-  baseFeedbackService: IFeedbackService;
   onConnectRemote: (options: RemoteTarget, requestId?: string) => Promise<string>;
   onSelectRemoteProject: (
     sessionId: string,
@@ -127,7 +126,7 @@ export interface GitChangeSummary {
 
 export type WorkspaceMainView = "chat" | "automations" | "plugin-store" | "knowledge";
 
-export interface WorkspaceShellLayoutProps extends Omit<AppProps, "baseFeedbackService"> {
+export interface WorkspaceShellLayoutProps extends AppProps {
   workspaceReadOnlyReason?: string;
   workspaceMainView: WorkspaceMainView;
   pluginStoreOpenVersion: number;

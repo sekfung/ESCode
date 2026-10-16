@@ -584,7 +584,6 @@ export function RemoteConnectionDialog({
 
                 {currentStep === "connecting" ? (
                   <RemoteConnectionConnectingStep
-                    kind={kind}
                     logs={connectionLogs}
                     errorMessage={error}
                     loading={loading}

@@ -3,14 +3,13 @@
 > Todo103：本文保留 staging 的既定行为与历史验收记录；历史通过数不计为本次通过。
 > 本次整合证据另记在 todo103-staging-integration-ledger.md，未改变 Provider/Selection 边界。
 
-帮助菜单里的“用户社群”入口与平台“问题反馈”统一从当前 endpoint 的
+帮助菜单里的“用户社群”入口从当前 endpoint 的
 `client/configs.data.configs.feedbackUrl` 读取；内置 `config/default.json` 用作默认值。
 
 ## 配置格式
 
 ```json
 {
-  "feedback_url": "https://example.com/feedback",
   "community_urls": {
     "zh-CN": "https://example.com/zh-community",
     "en-US": "https://example.com/en-community"
@@ -56,8 +55,8 @@
 
 新版帮助配置统一读取当前 endpoint 的 `GET /api/v1/client/configs`，携带现有
 `app_version` 和 `platform` 参数，严格验证 `code=0` 后读取
-`data.configs.feedbackUrl`。包含 `community_urls`、`feedback_url` 和
-`feedback_use_external_form`。旧 CDN 文件保留给旧版客户端，内置
+`data.configs.feedbackUrl`（服务端字段名为历史沿用）。当前只包含 `community_urls`。
+旧 CDN 文件保留给旧版客户端，内置
 `config/default.json` 保留，Desktop 继续随包发布，Web 继续打包导入。
 
 ```text
@@ -69,20 +68,18 @@
           |
    code=0 → feedbackUrl → 按字段解析
           |
-   远端有效值 → 内置同语言默认值 → 隐藏社群 / 不打开无地址表单
+   远端有效值 → 内置同语言默认值 → 隐藏社群
 ```
 
 公共读取器不写磁盘 HTTP cache、localStorage 或数据库。帮助配置是公开请求，不附带
 用户鉴权；缓存按完整请求 URL 隔离，失败不缓存。请求期间切换 endpoint 不得把旧结果
-写入新 endpoint 的缓存。字段缺失、无效类型、空链接均回退；布尔 false 是有效覆盖值。
-桌面原生帮助菜单及命令面板继续按开关选择内置弹窗或外部表单；问号菜单、Windows
-自绘菜单直接打开内置表单的行为不变。Web 的平台反馈动作仍打开外部地址。
+写入新 endpoint 的缓存。字段缺失、无效类型、空链接均回退。
 
 Web 使用与现有 OAuth / relay 相同的部署 endpoint 配置，不新增远控 RPC、Host 或
 Agent，不改变 desktop continuous / web remote replayable 会话链路。
 
-验证：单测覆盖 envelope、字段与语言回退、false 覆盖、HTTP/JSON/超时失败、并发合并、
-TTL 和 endpoint 隔离；交互验证覆盖社群外链及平台反馈动作。需执行 typecheck、lint，
+验证：单测覆盖 envelope、字段与语言回退、HTTP/JSON/超时失败、并发合并、
+TTL 和 endpoint 隔离；交互验证覆盖社群外链。需执行 typecheck、lint，
 保留运行时请求证据。跨系统与手机实机未执行的项目需在交付时注明。
 
 运行时验证：服务端不接受 `platform=web`（HTTP 400 / code 3001）；Web 省略可选
@@ -92,8 +89,7 @@ platform，实测正式 endpoint 返回 HTTP 200 / code 0。桌面沿用 platfor
 
 - 公共解析/缓存、Web 解析及桌面配置单测共 36 项通过。
 - `pnpm typecheck` 与 `pnpm lint` 通过（lint 仅有仓库既有 warning）。
-- macOS Electron HC-01 已通过：运行时 mock 新接口、社群外链、no-store 请求选项、
-  false 不打开外部表单、切换 endpoint 后 true 打开指定反馈表单。
+- macOS Electron HC-01 已通过：运行时 mock 新接口、社群外链、no-store 请求选项。
 - Windows/Linux 与手机浏览器实机未执行；Web 当前通过请求解析单测与真实接口验证。
   跨域自定义 Web endpoint 仍需服务端允许 CORS，否则按约定使用内置默认值。
 - 首次 E2E 与 typecheck 并行导致 out/host 产物存在覆盖风险；单独重新构建后 Host 正常。
@@ -102,6 +98,6 @@ platform，实测正式 endpoint 返回 HTTP 200 / code 0。桌面沿用 platfor
 ### 旧 CDN 链路清理
 
 新版不再导出旧 CDN 地址常量及版本 URL 构造函数；删除对应过时单测。
-保留 `remoteAppConfig.ts` 中仍使用的字段解析函数及其测试。
+保留 `remoteAppConfig.ts` 中仍使用的社群字段解析函数及其测试。
 内置 `config/default.json` 内容与 Desktop/Web 打包方式均不变；线上旧 CDN 文件仍供旧版使用。
-本次只清理无调用代码和说明，不改变交互；正式 HC-01～HC-05（8 个 case）继续覆盖新链路。
+本次只清理无调用代码和说明，不改变交互；正式帮助配置用例继续覆盖新链路。

@@ -150,16 +150,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
   }),
 }));
 
-vi.mock("@/feedback/feedbackStore.js", () => ({
-  useFeedbackStore: (
-    selector: (state: { openFeatureRequest: () => void; openSubmit: () => void }) => unknown,
-  ) =>
-    selector({
-      openFeatureRequest: vi.fn(),
-      openSubmit: vi.fn(),
-    }),
-}));
-
 vi.mock("@/hooks/usePlatform.js", () => ({
   usePlatform: () => ({
     openCommunity: vi.fn(async () => {}),

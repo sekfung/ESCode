@@ -15,7 +15,7 @@ rebase 到最新 staging 后全量单测 **9 失败 / 12444 通过**，无崩溃
 | --- | --- | --- |
 | Windows 进程树回收残余 | 3 | `escodeAgentProcessManager`；lifecycle fixtures 工作已把该项从 8 修到 3 |
 | staging 存量漂移（任何平台都挂） | 3 | settings MCP/skill/subagent scope badge 的 `formatCanonicalPluginName` 断言；`a9263f3d03` 从列表组件移除该调用但未同步测试，需业务定性 |
-| 跨平台漂移 | 2 | `feedbackHttpClient`、`stdioDesktopPresentationSurface`（见下） |
+| 跨平台漂移 | 1 | `stdioDesktopPresentationSurface`（见下） |
 | flaky（负载超时） | 1 | `appUsagePanel`，单独运行通过 |
 
 rebase 附带处理：staging 的 CUA 单包合并（broker 51 文件并入 `@escode/escode-cua`）
@@ -87,11 +87,10 @@ cwd 占用目录，Windows 无法删除任何进程的 cwd 目录**（已用最�
 仍会遇到**；需要设计 Windows 分支（如 rename 失败退化为 copy+truncate，或写入侧
 retry）。修完恢复原 mock 顺序作为回归。
 
-### 3 个跨平台真实失败（非 Windows 问题，需业务定性）
+### 跨平台真实失败（非 Windows 问题，需业务定性）
 
 - `stdioDesktopPresentationSurface`：期望装配传 `presentationSurface: "desktop"`，
   `packages/server/src` 无该字段（services 层有）；
-- `feedbackHttpClient`：ESCODE_ENV=test 期望 base `zcode.z.ai`，实际 `zcode.z.ai`；
 - `useCodingPlanQuotaResetUi`：mock 收到 `builtin:personal-granted`，期望 `builtin:team`。
 
 ### 间歇性 0xC0000005

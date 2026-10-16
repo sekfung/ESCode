@@ -225,8 +225,8 @@ nodes:
         symbol: "WebRemoteControlTaskIndex"
   - id: "capability.help-client-config"
     kind: "capability"
-    label: "Community and feedback client configuration"
-    aliases: ["用户社群", "帮助配置", "feedbackUrl"]
+    label: "Community client configuration"
+    aliases: ["用户社群", "帮助配置"]
     docs: ["docs/ui/settings-community-link-config.md", "docs/testing/help-client-config-e2e.md"]
     codeSeeds:
       - file: "packages/shared/src/helpAppConfig.ts"

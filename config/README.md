@@ -5,12 +5,10 @@ Web 在构建时导入；远端请求失败或缺少有效字段时使用内置�
 
 ## 帮助配置来源
 
-新版社群和反馈入口请求当前 endpoint 的 `GET /api/v1/client/configs`，
-读取 `data.configs.feedbackUrl`：
+新版社群入口请求当前 endpoint 的 `GET /api/v1/client/configs`，
+读取 `data.configs.feedbackUrl`（服务端字段名为历史沿用）：
 
 - `community_urls["zh-CN" | "en-US"]`：只按当前语言回退到内置入口，不跨语言回退。
-- `feedback_url`：远端有效地址优先，否则使用内置地址。
-- `feedback_use_external_form`：远端布尔值优先，`false` 也是有效覆盖。
 
 请求携带 `app_version`；Desktop 另带 `platform-arch`，Web 省略平台参数。
 成功响应仅做 1 小时内存缓存，请求使用 `cache: no-store`，失败不缓存。

@@ -27,7 +27,6 @@ export function GroupedTaskContextMenuContent({
   onOpenTaskPathInFileManager,
   onCopyText,
   onOpenProviderConfig,
-  onOpenTaskFeedback,
   disabledReason,
 }: {
   task: ESCodeTaskMeta;
@@ -48,7 +47,6 @@ export function GroupedTaskContextMenuContent({
   onOpenTaskPathInFileManager: () => void;
   onCopyText: (label: string, text: string | null) => void;
   onOpenProviderConfig: () => void;
-  onOpenTaskFeedback: () => void;
   disabledReason?: string;
 }) {
   return (
@@ -195,10 +193,6 @@ export function GroupedTaskContextMenuContent({
         <span className="truncate">
           {intl.formatMessage({ id: "appHeader.goToProviderConfig" })}
         </span>
-      </ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem onSelect={onOpenTaskFeedback}>
-        {intl.formatMessage({ id: "taskList.feedback" })}
       </ContextMenuItem>
     </ContextMenuContent>
   );

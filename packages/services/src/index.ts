@@ -308,8 +308,6 @@ export { ICommandsService } from "./commands/commands.js";
 
 export { ISettingsSyncService } from "./settings-sync/settingsSync.js";
 
-export { IFeedbackService } from "./feedback/feedback.js";
-export type { FeedbackUploadProgress } from "./feedback/feedback.js";
 export { IPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransfer.js";
 export type {
   PromptAttachmentStageParams,
@@ -317,23 +315,6 @@ export type {
   PromptAttachmentTransferPhase,
   PromptAttachmentTransferProgress,
 } from "./prompt-attachment-transfer/promptAttachmentTransfer.js";
-export type {
-  CreateFeedbackTicketInput,
-  FeedbackAttachment,
-  FeedbackAttachmentKind,
-  FeedbackComment,
-  FeedbackDeviceInfo,
-  FeedbackListQuery,
-  FeedbackListResult,
-  FeedbackReporter,
-  FeedbackTicketDetail,
-  FeedbackTicketFramework,
-  FeedbackTicketModule,
-  FeedbackTicketSeverity,
-  FeedbackTicketStatus,
-  FeedbackTicketSummary,
-  FeedbackTicketType,
-} from "@escode/shared";
 
 // 插件 UI 桥：描述符、参数类型与工厂；App-Provided Tools 另有独立描述符。
 export {

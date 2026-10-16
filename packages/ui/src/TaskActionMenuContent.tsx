@@ -33,7 +33,6 @@ export function TaskActionMenuContent({
   onMarkTaskAsUnread,
   onOpenInSplitPane,
   openInSplitPaneDisabled = false,
-  onOpenTaskFeedback,
   onOpenTaskPathInFileManager,
   onCopyWorkspacePath,
   onCopyTaskPath,
@@ -73,7 +72,6 @@ export function TaskActionMenuContent({
   onOpenInSplitPane?: () => void;
   /** 当前 session 或 pane 数达上限且目标无已有归属时禁用（保留布局与层级）。 */
   openInSplitPaneDisabled?: boolean;
-  onOpenTaskFeedback?: () => void;
   onOpenTaskPathInFileManager: () => void;
   onCopyWorkspacePath: () => void;
   onCopyTaskPath: () => void;
@@ -226,16 +224,6 @@ export function TaskActionMenuContent({
             onSelect={onViewModelTrajectory}
           >
             {intl.formatMessage({ id: "taskList.viewModelTrajectory" })}
-          </Item>
-        </>
-      ) : null}
-      {onOpenTaskFeedback ? (
-        <>
-          <Separator />
-          <Item disabled={taskTargetActionsDisabled} onSelect={onOpenTaskFeedback}>
-            {/* Bugfix: 任务菜单之前只有复制日志/路径，用户遇到任务问题时还要手动回到反馈中心。
-                “反馈问题”不是任务管理动作，单独放在菜单底部更符合兜底求助入口的层级。 */}
-            {intl.formatMessage({ id: "taskList.feedback" })}
           </Item>
         </>
       ) : null}

@@ -530,7 +530,6 @@ describe("WorkspaceSidebarFooter web remote control tooltip", () => {
       "utf8",
     );
 
-    expect(source).not.toContain('id: "titleBar.menu.help.feedback"');
     expect(source).not.toContain('id: "sidebar.menu.community"');
     expect(source).not.toContain('id: "titleBar.menu.help.exportLogs"');
     expect(source).not.toContain("<DropdownMenuItem onSelect={onSettingsButtonClick}>");

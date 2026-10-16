@@ -86,9 +86,6 @@ export {
   getAppConfigDir,
   getExportLogStageDir,
   getExportLogDir,
-  getFeedbackRootDir,
-  getFeedbackAttachmentDir,
-  getFeedbackLogArchiveDir,
   getGitCheckpointIndexRootDir,
   copyDataDirectory,
   validateDataBaseDirTarget,
@@ -245,9 +242,6 @@ export { createHooksService } from "./hooks/hooksService.js";
 export { createMemoryService } from "./memory/memoryService.js";
 export { createOutputStyleService } from "./output-style/outputStyleService.js";
 export { createSettingsSyncService } from "./settings-sync/settingsSyncService.js";
-export { createFeedbackDiagnosticArchive } from "./feedback/feedbackLogArchive.js";
-export { createFeedbackService } from "./feedback/feedbackService.js";
-export type { CreateFeedbackServiceOptions } from "./feedback/feedbackService.js";
 export { createLocalPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransferService.js";
 export {
   createLocalConversationShareArtifactSource,
@@ -357,7 +351,6 @@ import { IHooksService } from "./hooks/hooks.js";
 import { IMemoryService } from "./memory/memory.js";
 import { IOutputStyleService } from "./output-style/outputStyle.js";
 import { ISettingsSyncService } from "./settings-sync/settingsSync.js";
-import { IFeedbackService } from "./feedback/feedback.js";
 import { IPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransfer.js";
 import { createFileService } from "./file/fileService.js";
 import { createMediaPreviewService } from "./media-preview/mediaPreview.js";
@@ -458,10 +451,6 @@ import { createHooksService } from "./hooks/hooksService.js";
 import { createMemoryService } from "./memory/memoryService.js";
 import { createOutputStyleService } from "./output-style/outputStyleService.js";
 import { createSettingsSyncService } from "./settings-sync/settingsSyncService.js";
-import {
-  createFeedbackService,
-  type CreateFeedbackServiceOptions,
-} from "./feedback/feedbackService.js";
 import { createLocalPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransferService.js";
 import { createNodeApiClient } from "./providers/api/nodeApiClient.js";
 import {
@@ -1135,9 +1124,6 @@ export function createLocalServices(options: {
   forwardDynamicWorkflowUserMode?: (mode: DynamicWorkflowMode | undefined) => void;
   /** Desktop Host 请求 Main 登记已校验的插件 UI HTML，换取沙箱句柄。 */
   registerPluginSandbox?: (input: PluginSandboxRegisterInput) => Promise<PluginSandboxHandle>;
-  feedback?: Partial<
-    Omit<CreateFeedbackServiceOptions, "apiClient" | "credentialService" | "oauthService">
-  >;
   processLifecycleReporter?: RuntimeProcessLifecycleReporter;
   taskRuntimeReporter?: RuntimeTaskReporter;
   /** workspace 文件搜索默认使用内置过滤器；后续规则来源只需在 Host 装配时注入最终实现。 */
@@ -2651,15 +2637,6 @@ export function createLocalServices(options: {
     .register(IMemoryService, createMemoryService())
     .register(IOutputStyleService, createOutputStyleService())
     .register(ISettingsSyncService, createSettingsSyncService({ settingService }))
-    .register(
-      IFeedbackService,
-      createFeedbackService({
-        ...options?.feedback,
-        apiClient,
-        credentialService,
-        oauthService,
-      }),
-    )
     .register(IPromptAttachmentTransferService, createLocalPromptAttachmentTransferService());
   if (serialService) services.register(ISerialService, serialService);
 

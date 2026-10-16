@@ -169,18 +169,6 @@ export function getExportLogDir(): string {
   return join(getESCodeDataRootDir(), "export-log");
 }
 
-export function getFeedbackRootDir(): string {
-  return join(getESCodeDataRootDir(), "feedback");
-}
-
-export function getFeedbackAttachmentDir(): string {
-  return join(getFeedbackRootDir(), "attachments");
-}
-
-export function getFeedbackLogArchiveDir(): string {
-  return join(getFeedbackRootDir(), "logs");
-}
-
 export function getGitCheckpointIndexRootDir(): string {
   return join(getESCodeDataRootDir(), "git-checkpoint-index");
 }

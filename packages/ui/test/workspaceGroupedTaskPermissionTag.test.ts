@@ -12,7 +12,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
         const messages: Record<string, string> = {
           "common.close": "关闭",
           "git.action.showTree": "显示文件树",
-          "taskList.feedbackOpened": "已打开反馈",
           "taskList.justNow": "刚刚",
           "taskList.permissionTag": "等待确认",
           "taskList.userInputTag": "等待确认",
@@ -35,11 +34,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
 
 vi.mock("@/hooks/usePlatform.js", () => ({
   useOptionalPlatform: () => undefined,
-}));
-
-vi.mock("@/feedback/feedbackStore.js", () => ({
-  useFeedbackStore: (selector: (state: { openSubmit: () => void }) => unknown) =>
-    selector({ openSubmit: vi.fn() }),
 }));
 
 vi.mock("@/useTaskListItemContextActions.js", () => ({

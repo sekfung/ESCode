@@ -7,7 +7,7 @@
 
 Todo103 复验修正：`setApplicationLocale` 是 Main 原生菜单状态，不等同于 Renderer
 语言设置。当前正式用例先在隔离配置写入英文并重载，再运行英文 UI 断言；结束恢复
-原设置。否则中文系统下会把已有 Help/反馈入口误判为缺失。无需修改产品语言机制。
+原设置。否则中文系统下会把已有 Help 入口误判为缺失。无需修改产品语言机制。
 
 | 项目 | 决定 |
 | --- | --- |
@@ -21,14 +21,12 @@ Todo103 复验修正：`setApplicationLocale` 是 Main 原生菜单状态，不�
 | 场景 / 入口 | 共享实现 / owner | 默认与校验 | 提交落点 | 模式差异 / 隔离 |
 | --- | --- | --- | --- | --- |
 | 问号菜单社群 | WorkspaceHelpMenuButton → platform → desktopHelpConfig | 当前语言远端→内置 | shell.openExternal | Desktop / Web 平台分别打开；不改会话 |
-| 原生菜单 / 命令面板反馈 | desktopCommandHandlers → helpAppConfig | false→内置弹窗；true→远端或内置地址 | OpenFeedbackDialog / shell | Web 平台始终打开地址 |
 | Windows caption / 命令候选社群可见性 | canOpenCommunity | 同语言无远端及默认值则 false | 只读 | 不把显示状态当成已打开链接 |
-| 问号菜单问题上报 | helpMenuActions / feedbackStore | 不读取反馈开关 | 内置 Dialog | 与平台反馈模式保持独立 |
 | 浏览器配置读取 | resolveWebHelpConfig / readHelpConfig | envelope、同语言默认值 | fetch + 内存 Map | Web 省略 platform；无远控 Host 新增 |
 
 ## Shared And Divergent Behavior / State Owners
 
-HTTP 和内存缓存规则共用 helpAppConfig；反馈 UI 入口并不共用开关。
+HTTP 和内存缓存规则共用 helpAppConfig。
 远端 API 是配置权威，内置 JSON 是默认值，Map 只保存 1 小时成功响应；不存在持久化写入。
 
 ```text
@@ -36,13 +34,13 @@ HTTP 和内存缓存规则共用 helpAppConfig；反馈 UI 入口并不共用开
                                       |
                      内存成功缓存 ←---+---→ 逐字段 / 同语言回退
                                       |
-                       外链调用 / 内置弹窗 / 不可用
+                       外链调用 / 不可用
 ```
 
 ## Feature Relationships / Must-Preserve Invariants
 
 - must-inspect：reader → Desktop/Web，均不能请求旧 CDN，不能缓存失败，不能跨 endpoint 污染。
-- should-inspect：菜单语言、实际外链、内置弹窗出现；不能用“外链调用数暂时为零”冒充弹窗成功。
+- should-inspect：菜单语言、实际外链出现；不能用“外链调用数暂时为零”冒充成功。
 - invariant-only：task、remote attachment、continuous/replayable 不在该请求链路内。
 - evidence-only：原 HC-01 使用 net.fetch mock，只证明请求选项，不证明真实 HTTP 传输或磁盘缓存行为。
 
@@ -68,7 +66,6 @@ TTL 精确到期、请求未完成时切换 endpoint 保留在可控时钟单测
 | --- | --- | --- | --- | --- |
 | HC-01 | 本地 HTTP fixture 完整中英文配置 | 真实问号菜单点击社群；调用中英文可用性并再次点击 | 正确语言外链、实际请求路径/参数/次数，重复读取命中内存 | UI + network |
 | HC-02 | 远端只含中文、fixture 提供英文内置默认值 | 英文平台社群动作 | 使用英文默认值；绝不进入中文远端 | runtime + filesystem |
-| HC-03 | 远端 false、本地 true；另一个 endpoint 远端 true | 平台反馈动作 | false 出现真实内置 Dialog，外链未调用；true 打开远端地址 | UI + runtime |
 | HC-04 | 503 / 业务错误 / 无效 JSON | 平台可用性与社群；恢复同 endpoint 的成功响应 | 默认可用、失败不缓存、恢复后新地址；无值时平台不可用 | HTTP + runtime |
 | HC-05 | Chromium 窄屏加载实际 Web resolver bundle，HTTP fixture 可变 | zh/en、并发、重载浏览器页面 | 同语言结果、无 platform、请求合并；重载重新请求而不走 HTTP cache | browser + HTTP |
 

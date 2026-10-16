@@ -292,7 +292,6 @@ test("命令面板只在平台支持串口时提供添加串口标签命令", as
         openSkillsSettings: noop,
         openMcpSettings: noop,
         switchTheme: noop,
-        openFeedback: noop,
         openCommunity: noop,
         openProductDocs: noop,
         toggleSidebar: noop,

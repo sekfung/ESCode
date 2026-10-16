@@ -271,7 +271,6 @@ async function renderRoot(options?: {
         listDockerContainers: vi.fn(async () => []),
         listSSHConfigAliases: vi.fn(async () => []),
         openExternal: vi.fn(),
-        openFeedback: vi.fn(async () => {}),
         openCommunity: vi.fn(async () => {}),
         canOpenCommunity: vi.fn(async () => false),
         openInFileManager: vi.fn(async () => ({ success: true })),
