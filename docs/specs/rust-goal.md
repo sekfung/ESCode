@@ -1,6 +1,6 @@
 # Rust Goal owner 与执行契约
 
-沿用当前 `goal-compact.ts`、`target-continuation-loop.ts` 及 V4 goal schema；权限仅 yolo。`sendGoalCommand` 校验非空、最多 4000 Unicode 字符，busy 时保留命令类型排队，不进入 guide；真正 admission 才替换目标。`pauseGoal` 不改变队列策略；`stop` 暂停目标并保持既有 queue hold；`resumeGoal` 在空闲时继续已有目标，无目标 noop。
+沿用当前 `goal-compact.ts`、`target-continuation-loop.ts` 及 V4 goal schema；权限仅 yolo。`sendGoalCommand` 校验非空、最多 4000 Unicode 字符，busy 时保留命令类型排队，不进入 guide；真正 admission 才替换目标。`pauseGoal` 不改变队列策略；`stop` 暂停目标并保持既有 queue hold；`resumeGoal` 在空闲时继续已有目标，无目标 noop。`clearGoal`（V4 新增，CAS 必带 `baseRevision`，2026-10-17）对应 TS legacy `session/goal` 的 `clear`（`clearTarget`）：无目标 noop；运行中拒绝 `activeTurn`（与 TS `ensureNoActiveTurn` 同）；否则删除目标与其迭代/验证事实，快照 `goal` 变为 `null`，不开新轮、不改队列。Host `escode-task.goalSession(clear)` 经此命令实现，`show` 的 `response` 由 Host 按 TS `formatGoalSummary` 从快照 `goal` 生成（V4 无 token 用量，省略 Usage 行）。
 
 Session actor 独占持久化 Goal：目标身份、状态、迭代、验证记录、token/time usage。工作副本通过有提交回执的事件请求验证和续跑。目标/验证开始提交后才调用模型，结果/续轮提交后才执行下一请求。取消、目标更换及迟到结果按 runId + targetId 隔离。重启将执行中的 Goal 暂停，不自动发起请求。
 

@@ -232,3 +232,110 @@ fn goal_clock_budget_and_restart_preserve_confirmed_work_only() {
     assert_eq!(goal.time_used_ms, 1500);
     assert_eq!(goal.active_run_started_at_ms, None);
 }
+
+struct ClearStore {
+    goals: mpsc::UnboundedSender<bool>,
+}
+#[async_trait]
+impl SessionStore for ClearStore {
+    async fn load_index(&self, _: &str) -> Result<BTreeMap<String, Value>> {
+        Ok(BTreeMap::new())
+    }
+    async fn lookup_ack(&self, _: &str, _: &str) -> Result<Option<Value>> {
+        Ok(None)
+    }
+    async fn load(&self, _: &str) -> Result<(Vec<Session>, BTreeMap<String, Value>)> {
+        Ok((vec![], BTreeMap::new()))
+    }
+    async fn load_session(&self, _: &str, _: &str) -> Result<Option<Session>> {
+        let mut session = Session::new(
+            "session".into(),
+            "workspace".into(),
+            "p".into(),
+            "m".into(),
+            "none".into(),
+            "old".into(),
+            1,
+        );
+        let mut goal = Goal::new("goal".into(), "deliver".into(), 1000);
+        goal.pause(1000);
+        session.goal = Some(goal);
+        // draft 会话不落库；目标删除要观察持久提交，用已持久化的空闲会话。
+        session.phase = "idle".into();
+        Ok(Some(session))
+    }
+    async fn commit(
+        &self,
+        _: &str,
+        session: Option<&mut Session>,
+        _: Option<(String, Value)>,
+    ) -> Result<()> {
+        if let Some(session) = session {
+            self.goals.send(session.goal.is_some())?;
+        }
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn clear_goal_removes_the_target_and_repeats_as_noop() {
+    let (goals, mut committed) = mpsc::unbounded_channel();
+    let (calls, _requests) = mpsc::unbounded_channel();
+    let engine = Engine::new(
+        "workspace".into(),
+        Some(ModelIdentity {
+            provider_id: "p".into(),
+            model_id: "m".into(),
+            reasoning_level: "none".into(),
+        }),
+        RuntimePorts {
+            context: Arc::new(escode_cli_host::context_source::WorkspaceContext::new(
+                std::env::temp_dir(),
+                std::env::temp_dir().join("fixture-empty-home"),
+                false,
+            )),
+            store: Arc::new(ClearStore { goals }),
+            model: Some(Arc::new(Model {
+                calls,
+                verifications: AtomicUsize::new(0),
+            })),
+            tools: Arc::new(Tools),
+            clock: Arc::new(Clock(AtomicUsize::new(1))),
+            spawner: escode_cli_core_api::scope::Spawner::current(),
+        },
+    )
+    .await
+    .unwrap();
+    let (tx, rx) = mpsc::channel(8);
+    let (out, raw_output) = mpsc::channel(32);
+    let mut output = answer_runtime_preferences(raw_output, tx.clone());
+    let running = tokio::spawn(engine.serve(rx, out, CancellationToken::new()));
+    let mut ack = async |id: &str, revision: u64| {
+        tx.send(Input::Request(serde_json::from_value(json!({"id":id,"method":"v4/command","params":{"commandId":id,"clientId":"test","sessionId":"session","type":"clearGoal","baseRevision":revision,"issuedAt":1,"payload":{}}})).unwrap())).await.unwrap();
+        loop {
+            let batch = tokio::time::timeout(std::time::Duration::from_secs(3), output.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            if let Some(reply) = batch.into_iter().find(|m| m["id"] == id) {
+                break reply["result"].clone();
+            }
+        }
+    };
+    let first = ack("clear-1", 0).await;
+    assert_eq!(first["status"], "accepted", "{first}");
+    // 目标删除随 ACK 一次提交；快照 goal 随之为 null。
+    let mut saw_cleared = false;
+    while let Ok(has_goal) = committed.try_recv() {
+        saw_cleared |= !has_goal;
+    }
+    assert!(saw_cleared);
+    let second = ack("clear-2", first["revisionAtDecision"].as_u64().unwrap()).await;
+    assert_eq!(second["status"], "noop", "{second}");
+    tx.send(Input::Eof).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(3), running)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+}

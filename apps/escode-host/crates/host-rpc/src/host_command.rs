@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use crate::session::RpcError;
 
 /// TS `COMMANDS_REQUIRING_BASE_REVISION`。
-const CAS_COMMANDS: [&str; 15] = [
+const CAS_COMMANDS: [&str; 16] = [
     "applyFileRewind",
     "forkAssistant",
     "editUserQuery",
@@ -26,6 +26,7 @@ const CAS_COMMANDS: [&str; 15] = [
     "setFollowupMode",
     "pauseGoal",
     "resumeGoal",
+    "clearGoal",
 ];
 
 /// TS `ROW_TARGETING_COMMANDS`。

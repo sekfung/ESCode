@@ -822,22 +822,27 @@ sequenceDiagram
 
 ### 14.2 `goalSession`
 
-- 运行时只提供 V4 `sendGoalCommand` / `pauseGoal` / `resumeGoal`，没有 legacy `session/goal` 的
-  `show`/`clear` 结构化 action 面。本片按 action 映射：
-  - `set` / `replace`：V4 `sendGoalCommand`（`{text: objective}`，自动成为新一轮 goal）；
-  - `pause`：CAS `pauseGoal`；`resume`：CAS `resumeGoal`；
-  - `show`：只读 `session/resume` 快照，`response` 为空（运行时无结构化 goal 文本）；
-  - `clear`：运行时无对应命令，返回 `Error` + `code=ESCODE_GOAL_ACTION_UNSUPPORTED`。
+- 按 action 映射到 V4 goal 命令（`clearGoal` 于 2026-10-17 新增，见 `rust-goal.md`）：
+  - `set` / `replace`：V4 `sendGoalCommand`（`{text: objective}`，自动成为新一轮 goal）；空目标
+    不发命令，回 TS `Usage: /goal <objective>` / `Usage: /goal replace <objective>`；
+  - `pause` / `resume` / `clear`：CAS `pauseGoal` / `resumeGoal` / `clearGoal`；
+  - `show`：只读 `session/resume` 快照。
+- `response` 按 TS `formatGoalSummary` / `formatGoalChanged` 从 legacy 快照 `session.target`
+  （objective/status/tokensUsed/tokenBudget/timeUsedSeconds）生成：`set`/`replace` →
+  `Goal active…`，`resume` → `Goal resumed…`，`pause` 成功为空串；运行时 ACK `noop`
+  对应 `No goal to pause.` / `No goal to resume.` / `No goal to clear.`；`clear` 成功
+  `Goal cleared.`；无目标 `show` → `No goal is set. Use /goal <objective> to set one.`。
+  运行中 `clear`/`resume` 由运行时以 `activeTurn` 拒绝，Host 透传为错误（TS `ensureNoActiveTurn`）。
 - `set`/`replace`/`resume` 前登记 active inputId；终态由 sessions-index 清除。成功后
-  `session/resume` 收敛索引（不发列表事件），返回 `{response:"", snapshot, startedTurn?}`，
-  `startedTurn` 仅在快照 `session.status == "running"` 时为 `true`。
-- **登记差异**：legacy `response` 文案与 `show` 的结构化目标文本无法由 V4 读路径复原；
-  `clear` 暂不可用。以上差异在后续 V4 goal 读/删命令面补齐时消除。
+  `session/resume` 收敛索引（不发列表事件），返回 `{response, snapshot, startedTurn}`，
+  `startedTurn` 仅在 `set`/`replace`/`resume` 且快照 `session.status == "running"` 时为 `true`。
+- 差异：TS plan 模式下 set 会追加 plan 续跑提示；Rust runtime 拒绝 plan 与 goal 同时存在，不会进入该分支。
+  UI 的 `/goal clear` 仍走 slash 命令的 unsupported 提示（UI 直接发 V4 命令，不经 `goalSession`）。
 
 ### 14.3 验收
 
-- 端到端：`initialize` 返回协议常量；`goalSession(set)` 创建目标并进入 goal continuation；
-  `pause`/`resume`/`show` 返回快照；`clear` 返回稳定 unsupported code。
+- 端到端：`initialize` 返回协议常量；无目标 `show`/`clear` 返回 TS 文案；`set` 创建目标并进入
+  goal continuation（`Goal active…`）；`pause` 打断续跑后 `clear` 删除目标（快照 `session.target` 消失）。
 - 负向验证：去掉 active 登记 → goal 队列 owner 用例失败。
 
 ## 15. Claude 历史导入（S10，2026-10-17）
@@ -867,11 +872,12 @@ sequenceDiagram
      snapshot `<dataBaseDir>/.escode/v2/sessions/<workspaceHash>/<taskId>.json`；
   6. 广播 `task_meta_changed`；失败清理已复制文件并进 `failed`。
 - 返回 `{imported:[{provider,sessionId,taskId,workspacePath}], skipped:[...], failed:[...]}`。
-- **登记差异**：Rust runtime 的 `importedHistory` 只接受 `source="sharedContext"`
-  （markdown/provenance），不承接 Claude 消息数组。遇到 `Unsupported imported history source` /
-  `Null shared import field` 时退回 TS `persistImportedClaudeTask` 的 legacy 分支：
-  写 `<dataBaseDir>/.escode/v2/sessions/<hash>/<taskId>.json` + 索引行（`migrationSource`、
-  取消 archived/deleted）。该任务可打开为只读历史，续聊需 runtime 后续支持消息数组导入。
+- 运行时承接 `importedHistory.source="claudeCode"`（2026-10-18，见 `rust-legacy-session-methods.md`）：
+  `session/create` 一次提交建出可续聊的 runtime 会话（行 + canonical 消息）。原先 runtime 只接受
+  `sharedContext`、Host 退回 legacy 快照 + 索引的兜底分支已删除：那条路径只让任务出现在列表里，
+  Rust Host 没有 legacy 快照读路径，打开/续聊都会失败。runtime 拒绝导入时进 `failed`，不再静默降级。
+- 同 `taskId` 重复导入：runtime 返回现有快照（不重写历史，与 TS 的“替换旧导入消息”不同，见该 spec 差异），
+  Host 仍刷新索引行并取消 archived/deleted。
 - TS 的 legacy 导入修复（未知命令 warning / 可见 assistant turn 选择）用于后续 repair 流程；
   本片只移植导入必需的用户/assistant 正文与工具结果过滤。
 
@@ -879,7 +885,8 @@ sequenceDiagram
 
 - 单元：head 解析（sidechain/worktree/首条可见用户文本/时间戳）、消息聚合、任务 id 哈希。
 - 端到端：构造 `HOME/.claude/projects/...jsonl` → scan → import → 索引行 provider=glm、
-  migrationSource=claudeCode、快照可读；重复导入取消 hidden 状态。
+  migrationSource=claudeCode；`resumeTask` 成功且 `getTaskSnapshot` 含导入的问答正文；重复导入取消 hidden 状态。
+- 负向验证：去掉 runtime 的 claudeCode 路由 → 导入进 `failed`（`Null shared import field`），e2e 失败。
 
 ## 16. 任务事件面（S11，2026-10-17）
 
@@ -895,10 +902,11 @@ sequenceDiagram
   `onDynamicTaskReady` 只投递 `{taskId, reason}`。两者都复用同一个 syncer 终态观察。
 - `onDynamicStreamEvent` 与 `onDynamicTaskEvent` 共用 `TaskEventHub`；`onDynamicTaskEvent`
   额外登记任务目标（TS 同）。
-- `onError` 是 Host 级错误事件流：当前只登记监听，Host 尚无统一错误总线（登记差异）。
-- **登记差异**：V4 conversation 帧 → `ESCodeStreamEvent` 的完整映射（agent_message_chunk/
-  tool_call_update/plan/permission…）未在本片实现；如上事件只覆盖 Host 侧生命周期与快照通知。
-  Bot 正文流仍依赖后续 V4 投影片。`onError` 当前只登记监听，不投递。
+- **未完成（Host 侧，独立立项）**：方法已注册但行为未与 TS 对等，不属于可接受差异——
+  - V4 conversation 帧 → `ESCodeStreamEvent` 的完整映射（agent_message_chunk/tool_call_update/
+    plan/permission_request…）未实现；如上事件只覆盖 Host 侧生命周期与快照通知，Bot 正文流依赖此项；
+  - `onError` 只登记监听，没有错误源，不投递。
+  `76/76` 指契约清单覆盖率（方法有 handler、不回 `NotImplemented`），不代表这两项功能对等。
 
 ## 17. Bot group（S12，2026-10-17）
 
@@ -910,6 +918,8 @@ sequenceDiagram
   → 帧泵 + `TopicWireFrameAssembler` → 首帧 snapshot；用后 `unsubscribe`。快照读取超时 15s。
 - `readBotTopicSummaries`：`session/messages(limit:200)`，只保留 `role=user` 且
   `source="bot_topic_context"`，映射 `{checkpoint, text}`（`metadata.displayText` 优先），取最后 20。
+  TS 已停止生成该来源，新会话为空数组（与 TS 一致）；从 TS 导入的旧会话由 runtime 保留来源记录并在
+  `session/messages` 原位投影（`rust-app-p0.md`），同时不再把旧话题背景注入模型历史。
 - `readBotTopicExecution`：快照 `control.stopState === "idle"` → undefined；否则取
   `control.activeWorks` 中带 `foregroundExecutionId` 的项，缺失报
   `Topic execution identity is unavailable`。
@@ -925,6 +935,8 @@ sequenceDiagram
   发 V4 `sendText`（`requestedDelivery=startNow|queue`、`botGroupSource`、
   `botDeliveryTarget`、`conversationQuotes`，clientId=`bot:<botId>:<chatId>:<senderId>`）。
   线程输入在附件上传后再次校验 admission 版本；ACK 丢失时用同 commandId 查询幂等结果。
+  runtime 排队项保留 `botGroupSource`/`conversationQuotes`（公开）与 `botDeliveryTarget`（私有），提升/引导时恢复
+  （`rust-busy-input.md`），`cancelBotGroupInput` 的授权校验因此能读到排队项来源。
 - **登记差异**：附件 `localPath` 读取遵守 Host 文件访问边界；远端路径由 Main 授权/上传事务承载。
   错误文案与 TS 保持同义（workspace mismatch / not queued / not authorized）。
 

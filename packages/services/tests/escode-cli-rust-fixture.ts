@@ -23,7 +23,10 @@ import {
 import { shellHeartbeatCommand } from "./escode-cli-rust-shell-probe.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { isKnownNodeExitCrash } from "./escode-cli-rust-exit.js";
-export { event, end } from "./escode-cli-rust-sse.js";
+// 修复：此前只 re-export，本文件默认 SSE 应答里的 event/end 未定义（ReferenceError），
+// 未自带 respond 的用例在模型请求时异步失败。
+import { event, end } from "./escode-cli-rust-sse.js";
+export { event, end };
 
 export const binary = resolve(
   `apps/escode-cli-rust/target/debug/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,

@@ -115,6 +115,26 @@ impl Engine {
         }
         Ok(ack)
     }
+    /// `clearGoal`：TS `clearTarget`（legacy `session/goal clear`）。无目标 noop，运行中拒绝；
+    /// 目标删除与 ACK 同一次提交，不开新轮、不改队列（docs/specs/rust-goal.md）。
+    pub(super) async fn clear_goal(&mut self, c: &Command) -> Result<Value> {
+        let id = c.session_id.as_deref().context("Session required")?;
+        let s = self.sessions.get_mut(id).context("Session unavailable")?;
+        if s.goal.is_none() {
+            return Ok(c.ack("noop", s.revision, None));
+        }
+        if s.running() {
+            return Ok(c.ack("rejected", s.revision, Some("activeTurn")));
+        }
+        s.goal = None;
+        s.revision += 1;
+        s.updated_at = self.clock.now();
+        let ack = c.ack("accepted", s.revision, None);
+        self.publish(id, vec![])?;
+        self.persist(id, Some((c.key(), ack.clone()))).await?;
+        self.acks.insert(c.key(), ack.clone());
+        Ok(ack)
+    }
     pub(super) async fn resume_background_goal(&mut self, id: &str) -> Result<()> {
         let s = &self.sessions[id];
         if s.running()

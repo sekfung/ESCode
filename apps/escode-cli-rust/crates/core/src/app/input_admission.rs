@@ -238,6 +238,10 @@ impl Engine {
         {
             row["conversationQuotes"] = quotes.clone().into();
         }
+        // TS buildUserInputRow：群来源随行投影（发送者展示与 Host 授权读取）。
+        if let Some(source) = c.payload.get("botGroupSource").filter(|v| v.is_object()) {
+            row["botGroupSource"] = source.clone();
+        }
         s.rows.push(row);
         // goalSet 在 TS 是 stateOnly，不产时间线行（隐形行会污染轮次分组）。
         let run_turn = if goal {

@@ -243,6 +243,8 @@ export const commandPayloadSchemas = {
   setFollowupMode: z.object({ mode: z.enum(["queue", "guide"]) }),
   pauseGoal: z.object({}),
   resumeGoal: z.object({}),
+  // clearGoal：删除当前目标（legacy session/goal clear 的 V4 面）；无目标 noop，运行中拒绝 activeTurn。
+  clearGoal: z.object({}),
   cancelBackgroundWork: z.object({ workId: z.string() }),
   // cancel & resume：恢复一个已取消 / 被进程死亡
   // 打断的 dwf run。workId ≡ runId（与 cancelBackgroundWork 同一个身份等式）；`name` 可选，
@@ -307,6 +309,7 @@ export const COMMANDS_REQUIRING_BASE_REVISION: ReadonlySet<CommandType> = new Se
   "setFollowupMode",
   "pauseGoal",
   "resumeGoal",
+  "clearGoal",
 ]);
 
 export const ROW_TARGETING_COMMANDS: ReadonlySet<CommandType> = new Set([

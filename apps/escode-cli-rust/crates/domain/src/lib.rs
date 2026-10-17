@@ -24,6 +24,7 @@ pub mod bash_rule_policy;
 mod bash_rule_prefix;
 pub mod bash_safe_flag;
 pub mod builtin_prompt_command;
+pub mod claude_import;
 pub mod context;
 pub mod conversation_input;
 pub mod cron;

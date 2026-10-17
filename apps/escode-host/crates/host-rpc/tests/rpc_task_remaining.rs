@@ -111,7 +111,10 @@ async fn remaining_task_members_reach_the_runtime_and_host_state() {
         )
         .await,
     );
-    assert_eq!(show["response"], "");
+    assert_eq!(
+        show["response"],
+        "No goal is set. Use /goal <objective> to set one."
+    );
     assert_eq!(show["snapshot"]["session"]["sessionId"], task_id);
     let clear = object(
         call_task(
@@ -122,7 +125,7 @@ async fn remaining_task_members_reach_the_runtime_and_host_state() {
         )
         .await,
     );
-    assert_eq!(clear["code"], "ESCODE_GOAL_ACTION_UNSUPPORTED");
+    assert_eq!(clear["response"], "No goal to clear.");
     let set = object(
         call_task(
             &mut fixture,
@@ -136,8 +139,44 @@ async fn remaining_task_members_reach_the_runtime_and_host_state() {
         )
         .await,
     );
-    assert_eq!(set["response"], "");
+    assert!(
+        set["response"]
+            .as_str()
+            .unwrap()
+            .starts_with("Goal active\nObjective: finish the migration"),
+        "{set}"
+    );
     assert_eq!(set["snapshot"]["session"]["sessionId"], task_id);
+    // pause 可打断运行中的续跑；之后 clear 经 V4 clearGoal 删除目标。
+    let paused = object(
+        call_task(
+            &mut fixture,
+            499,
+            "goalSession",
+            serde_json::json!({"action": "pause"}),
+        )
+        .await,
+    );
+    assert_eq!(paused["response"], "", "{paused}");
+    let mut cleared = serde_json::Value::Null;
+    for attempt in 0..50 {
+        cleared = object(
+            call_task(
+                &mut fixture,
+                500 + attempt,
+                "goalSession",
+                serde_json::json!({"action": "clear"}),
+            )
+            .await,
+        );
+        // 被暂停的续跑收尾前 clear 会以 activeTurn 拒绝；收尾后才能删除。
+        if cleared.get("response").is_some() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(cleared["response"], "Goal cleared.", "{cleared}");
+    assert!(cleared["snapshot"]["session"]["target"].is_null());
 
     // Claude 扫描：dataBaseDir 下的假 HOME 也会被扫描。
     let candidate_path = fixture
@@ -224,6 +263,42 @@ async fn remaining_task_members_reach_the_runtime_and_host_state() {
     .await;
     let meta = object(read_response(&mut fixture.socket, 16).await);
     assert_eq!(meta["migrationSource"], "claudeCode", "{meta}");
+    // 导入建出的是 runtime 会话（不再是只进列表的 legacy 快照）：可 resume，快照带导入正文。
+    call(
+        &mut fixture.socket,
+        600,
+        "escode-task",
+        "resumeTask",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "taskId": imported_task,
+            "workspacePath": workspace,
+            "workspaceIdentity": workspace,
+            "model": {"providerId": "fixture", "modelId": "fixture-model",
+                "options": {"reasoningLevel": "none"}},
+            "thoughtLevel": "none",
+        }))]),
+    )
+    .await;
+    let resumed = object(read_response(&mut fixture.socket, 600).await);
+    assert_eq!(resumed["taskId"], imported_task.as_str(), "{resumed}");
+    call(
+        &mut fixture.socket,
+        601,
+        "escode-task",
+        "getTaskSnapshot",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "taskId": imported_task,
+            "workspacePath": workspace,
+            "workspaceIdentity": workspace,
+        }))]),
+    )
+    .await;
+    let snapshot = object(read_response(&mut fixture.socket, 601).await);
+    let text = snapshot.to_string();
+    assert!(
+        text.contains("imported question") && text.contains("imported answer"),
+        "{snapshot}"
+    );
 
     // Bot group：快照/队列/build 状态。
     let summaries = call_task(

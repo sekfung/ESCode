@@ -853,6 +853,76 @@ async fn stop_during_start_now_reservation_holds_input_and_rejects_competing_pro
 }
 
 #[tokio::test]
+async fn queued_bot_input_keeps_source_quotes_and_delivery_target_through_promotion() {
+    let (mut runtime, id, tool) = busy_fixture().await;
+    let bot = json!({"botId":"bot-1","chatId":"chat-1","senderId":"user-1","messageId":"om_1"});
+    let quotes = json!([{"id":"q1","text":"quoted line","role":"user"}]);
+    let target = json!({"botId":"bot-1","chatId":"chat-1"});
+    let request = serde_json::from_value(json!({"id":2,"method":"v4/command","params":{
+        "commandId":"busy", "clientId":"test", "sessionId":id, "type":"sendText", "issuedAt":1000,
+        "payload":{"text":"new input","requestedDelivery":"queue","botGroupSource":bot,
+            "conversationQuotes":quotes,"botDeliveryTarget":target}
+    }}))
+    .unwrap();
+    runtime.input.send(Input::Request(request)).await.unwrap();
+    let admission = receive(&mut runtime.commits).await;
+    let item = &admission.queue[0];
+    assert_eq!(item["botGroupSource"], bot);
+    assert_eq!(item["conversationQuotes"], quotes);
+    // 回推地址不在 V4 queueItemSchema 里：只作私有字段保存，快照投影不暴露。
+    assert_eq!(item["_botDeliveryTarget"], target);
+    let projected = admission.session.as_ref().unwrap().patch();
+    assert_eq!(projected["queue"]["items"][0]["botGroupSource"], bot);
+    assert!(
+        projected["queue"]["items"][0]
+            .get("_botDeliveryTarget")
+            .is_none()
+    );
+    admission.permit.send(true).unwrap();
+    tool.done.send(()).unwrap();
+    let promoted = loop {
+        let commit = receive(&mut runtime.commits).await;
+        let session = commit.session.clone();
+        commit.permit.send(true).unwrap();
+        if let Some(session) = session
+            && let Some(boundary) = session
+                .history
+                .inputs
+                .iter()
+                .find(|i| i.payload["text"] == "new input")
+        {
+            break (session.clone(), boundary.payload.clone());
+        }
+    };
+    let (session, payload) = promoted;
+    assert_eq!(payload["botDeliveryTarget"], target);
+    let row = session
+        .rows
+        .iter()
+        .find(|r| r["kind"] == "userInput" && r["text"] == "new input")
+        .unwrap();
+    assert_eq!(row["botGroupSource"], bot);
+    assert_eq!(row["conversationQuotes"], quotes);
+    let request = loop {
+        let request = receive(&mut runtime.requests).await;
+        if request
+            .last()
+            .is_some_and(|m| m["role"] == "user" && m.to_string().contains("new input"))
+        {
+            break request;
+        }
+    };
+    assert!(
+        request
+            .last()
+            .unwrap()
+            .to_string()
+            .contains("<conversation_quote>")
+    );
+    finish_success(runtime).await;
+}
+
+#[tokio::test]
 async fn eof_cannot_promote_an_accepted_start_now_reservation() {
     let (mut runtime, id, tool) = busy_fixture_with("SlowCancel").await;
     send_busy(&runtime, &id, "startNow").await;

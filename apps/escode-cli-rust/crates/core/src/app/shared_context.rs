@@ -45,42 +45,10 @@ impl Engine {
             );
             return self.read_session(&json!({"sessionId":id}));
         }
-        let config = if input.model.is_some() {
-            self.select(
-                &json!({"modelSelection":input.model,"thought":input.thought_level}),
-                None,
-            )?
-        } else {
-            self.config.clone().unwrap_or(ModelIdentity {
-                provider_id: String::new(),
-                model_id: String::new(),
-                reasoning_level: String::new(),
-            })
-        };
-        let mut session = Session::new(
-            id.clone(),
-            self.workspace.clone(),
-            config.provider_id,
-            config.model_id,
-            config.reasoning_level,
-            self.clock.id(),
-            history.created_at.unwrap_or_else(|| self.clock.now()),
-        );
-        session.workspace_path = Some(self.workspace_path.clone());
-        session.workspace_directory = Some(self.workspace_path.clone());
-        session.parent_id = input.parent_session_id;
-        session.trace_id = Some(self.clock.id());
+        let created_at = history.created_at.unwrap_or_else(|| self.clock.now());
+        let mut session = self.imported_session(&id, &input, created_at)?;
+        let history = &mut input.imported_history;
         session.title = history.title.clone();
-        session.title_source = "custom".into();
-        session.phase = "completedSuccess".into();
-        if let Some(mode) = input.mode {
-            session.plan_enabled = mode == "plan";
-            session.mode = if mode == "plan" || mode == "auto" {
-                "build".into()
-            } else {
-                mode
-            };
-        }
         let content = self
             .store
             .put_attachment(&[history.markdown.as_bytes().to_vec()], "text/markdown")
@@ -108,6 +76,51 @@ impl Engine {
         self.sessions.insert(id.clone(), session);
         self.publish(&id, vec![])?;
         self.read_session(&json!({"sessionId":id}))
+    }
+
+    /// 导入会话的公共骨架（sharedContext / claudeCode 共用）：模型选择、workspace、mode、custom 标题来源。
+    pub(super) fn imported_session<H>(
+        &self,
+        id: &str,
+        input: &Import<H>,
+        created_at: u64,
+    ) -> Result<Session> {
+        let config = if input.model.is_some() {
+            self.select(
+                &json!({"modelSelection":input.model,"thought":input.thought_level}),
+                None,
+            )?
+        } else {
+            self.config.clone().unwrap_or(ModelIdentity {
+                provider_id: String::new(),
+                model_id: String::new(),
+                reasoning_level: String::new(),
+            })
+        };
+        let mut session = Session::new(
+            id.into(),
+            self.workspace.clone(),
+            config.provider_id,
+            config.model_id,
+            config.reasoning_level,
+            self.clock.id(),
+            created_at,
+        );
+        session.workspace_path = Some(self.workspace_path.clone());
+        session.workspace_directory = Some(self.workspace_path.clone());
+        session.parent_id = input.parent_session_id.clone();
+        session.trace_id = Some(self.clock.id());
+        session.title_source = "custom".into();
+        session.phase = "completedSuccess".into();
+        if let Some(mode) = input.mode.clone() {
+            session.plan_enabled = mode == "plan";
+            session.mode = if mode == "plan" || mode == "auto" {
+                "build".into()
+            } else {
+                mode
+            };
+        }
+        Ok(session)
     }
 
     pub(super) async fn shared_input(

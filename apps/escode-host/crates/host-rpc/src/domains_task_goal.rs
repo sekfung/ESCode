@@ -1,8 +1,9 @@
 //! `escode-task.goalSession`（S9）：legacy action 面 → Rust runtime 的 V4 goal 命令。
 //!
 //! 映射（docs/specs/rust-u2-tasks-index.md §14.2）：
-//! `set`/`replace` → `sendGoalCommand`；`pause`/`resume` → CAS `pauseGoal`/`resumeGoal`；
-//! `show` 只读快照；`clear` 无运行时命令，回稳定 unsupported code。
+//! `set`/`replace` → `sendGoalCommand`；`pause`/`resume`/`clear` → CAS
+//! `pauseGoal`/`resumeGoal`/`clearGoal`；`show` 只读快照，`response` 按 TS `formatGoalSummary`
+//! 从 legacy 快照 `session.target` 生成。
 
 use serde_json::{Value, json};
 
@@ -46,9 +47,19 @@ async fn goal_payload(
     action: &str,
     input_id: Option<&str>,
 ) -> Result<Value, RpcError> {
-    match action {
+    // 各 action 的 response 文案对齐 TS goalSession；目标文本在命令之后从快照 `session.target` 读取。
+    let response: fn(&Value) -> String = match action {
         "set" | "replace" => {
-            let objective = params["objective"].as_str().unwrap_or_default();
+            let objective = params["objective"].as_str().unwrap_or_default().trim();
+            if objective.is_empty() {
+                let snapshot = resume_and_index(context, target).await?;
+                let usage = if action == "replace" {
+                    "Usage: /goal replace <objective>"
+                } else {
+                    "Usage: /goal <objective>"
+                };
+                return Ok(json!({"response": usage, "snapshot": snapshot, "startedTurn": false}));
+            }
             let mut command = HostCommand::new(
                 "sendGoalCommand",
                 Some(&target.task_id),
@@ -60,23 +71,36 @@ async fn goal_payload(
             if let Some(input_id) = input_id {
                 context.task_events.run_started(target, input_id);
             }
+            |goal| goal_changed("Goal active", goal)
         }
         "pause" => {
-            cas(context, target, "pauseGoal", json!({})).await?;
-        }
-        "resume" => {
-            cas(context, target, "resumeGoal", json!({})).await?;
-            if let Some(input_id) = input_id {
-                context.task_events.run_started(target, input_id);
+            let ack = cas(context, target, "pauseGoal", json!({})).await?;
+            // TS：暂停成功不回文案（避免空 assistant 气泡），无可暂停目标才提示。
+            if ack["status"] == "accepted" {
+                |_| String::new()
+            } else {
+                |_| "No goal to pause.".into()
             }
         }
-        "show" => {}
+        "resume" => {
+            let ack = cas(context, target, "resumeGoal", json!({})).await?;
+            if ack["status"] != "accepted" {
+                |_| "No goal to resume.".into()
+            } else {
+                if let Some(input_id) = input_id {
+                    context.task_events.run_started(target, input_id);
+                }
+                |goal| goal_changed("Goal resumed", goal)
+            }
+        }
+        "show" => |goal| goal_summary(goal),
         "clear" => {
-            return Err(RpcError::new(
-                "Error",
-                "Goal clear is not supported by the Rust runtime yet.",
-            )
-            .with("code", Value::from("ESCODE_GOAL_ACTION_UNSUPPORTED")));
+            let ack = cas(context, target, "clearGoal", json!({})).await?;
+            if ack["status"] == "accepted" {
+                |_| "Goal cleared.".into()
+            } else {
+                |_| "No goal to clear.".into()
+            }
         }
         _ => {
             return Err(RpcError::new(
@@ -84,11 +108,66 @@ async fn goal_payload(
                 format!("Unknown goal action: {action}"),
             ));
         }
-    }
+    };
     let snapshot = resume_and_index(context, target).await?;
-    let mut result = json!({"response": "", "snapshot": snapshot});
-    if snapshot["session"]["status"] == "running" {
-        result["startedTurn"] = Value::Bool(true);
+    let started = matches!(action, "set" | "replace" | "resume")
+        && snapshot["session"]["status"] == "running";
+    Ok(json!({
+        "response": response(&snapshot["session"]["target"]),
+        "snapshot": snapshot,
+        "startedTurn": started,
+    }))
+}
+
+/// TS `formatGoalSummary`（`target` 即 legacy 快照的 `session.target`）。
+fn goal_summary(target: &Value) -> String {
+    if target["objective"].as_str().is_none() {
+        return "No goal is set. Use /goal <objective> to set one.".into();
     }
-    Ok(result)
+    goal_changed(
+        &format!("Goal {}", target["status"].as_str().unwrap_or_default()),
+        target,
+    )
+}
+
+/// TS `formatGoalChanged`。
+fn goal_changed(title: &str, target: &Value) -> String {
+    let objective = target["objective"].as_str().unwrap_or_default();
+    let mut lines = vec![title.to_owned(), format!("Objective: {objective}")];
+    let used = target.get("tokensUsed").filter(|v| !v.is_null());
+    let budget = target.get("tokenBudget");
+    if used.is_some() || budget.is_some() {
+        let budget = budget
+            .and_then(Value::as_u64)
+            .map_or_else(|| "none".to_owned(), |b| b.to_string());
+        let used = used.and_then(Value::as_u64).unwrap_or(0);
+        lines.push(format!("Usage: {used} tokens / {budget}"));
+    }
+    if let Some(seconds) = target["timeUsedSeconds"].as_u64() {
+        lines.push(format!("Time: {seconds} seconds"));
+    }
+    lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::goal_summary;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn summary_matches_ts_format_goal_summary() {
+        assert_eq!(
+            goal_summary(&Value::Null),
+            "No goal is set. Use /goal <objective> to set one."
+        );
+        assert_eq!(
+            goal_summary(&json!({"objective":"ship","status":"paused","timeUsedSeconds":12})),
+            "Goal paused\nObjective: ship\nTime: 12 seconds"
+        );
+        assert_eq!(
+            goal_summary(&json!({"objective":"ship","status":"active","tokensUsed":7,
+                "tokenBudget":null,"timeUsedSeconds":0})),
+            "Goal active\nObjective: ship\nUsage: 7 tokens / none\nTime: 0 seconds"
+        );
+    }
 }

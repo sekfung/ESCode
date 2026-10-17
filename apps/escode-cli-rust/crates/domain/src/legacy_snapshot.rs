@@ -7,7 +7,16 @@ pub fn messages(s: &Session, cwd: &str) -> Vec<Value> {
     let mut result: Vec<Value> = vec![];
     let mut positions = BTreeMap::new();
     let mut parent = None;
-    for row in &s.rows {
+    let mut topics = s.legacy_topic_records.iter().peekable();
+    for (row_index, row) in s.rows.iter().enumerate() {
+        // 旧 bot_topic_context 记录按导入时的行位置还原（docs/specs/rust-app-p0.md）。
+        while let Some(record) = topics.next_if(|r| {
+            r["rowAnchor"]
+                .as_u64()
+                .is_some_and(|a| a as usize <= row_index)
+        }) {
+            result.push(topic_message(s, record));
+        }
         let kind = row["kind"].as_str().unwrap_or("");
         if !matches!(
             kind,
@@ -89,5 +98,24 @@ pub fn messages(s: &Session, cwd: &str) -> Vec<Value> {
             }
         }
     }
+    result.extend(topics.map(|record| topic_message(s, record)));
     result
+}
+
+/// 旧话题背景的 legacy 消息形状（TS 存储原样：synthetic model-only user + source/metadata）。
+fn topic_message(s: &Session, record: &Value) -> Value {
+    let id = record["messageId"].as_str().unwrap_or_default();
+    let mut metadata = json!({});
+    for key in ["checkpoint", "displayText"] {
+        if let Some(value) = record.get(key) {
+            metadata[key] = value.clone();
+        }
+    }
+    json!({
+        "info": {"messageId":id,"sessionId":s.id,"role":"user","time":{"created":record["createdAt"]},
+            "agent":"main","synthetic":true,"visibility":"model-only","source":"bot_topic_context",
+            "metadata":metadata},
+        "parts": [{"partId":format!("{id}-text"),"messageId":id,"sessionId":s.id,"type":"text",
+            "text":record["text"]}],
+    })
 }

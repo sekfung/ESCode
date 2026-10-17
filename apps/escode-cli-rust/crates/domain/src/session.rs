@@ -40,6 +40,10 @@ pub struct Session {
     pub shared_context: Option<super::shared_context::SharedContext>,
     #[serde(default)]
     pub legacy_shared_context: bool,
+    /// TS 旧 `bot_topic_context` 记录（docs/specs/rust-app-p0.md）：不进模型历史、不成行，
+    /// 只供 legacy 消息投影在 `rowAnchor` 处还原，Host `readBotTopicSummaries` 读取。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub legacy_topic_records: Vec<Value>,
     #[serde(default)]
     pub workspace_path: Option<String>,
     #[serde(default)]
@@ -258,7 +262,7 @@ impl Session {
             "meta":{"title":self.title,"titleSource":self.projected_title_source()},
             "config":{"provider":self.provider,"model":self.model,"thought":self.reasoning_level,"thoughtLevels":if self.thought_levels.is_empty(){vec![self.reasoning_level.clone()]}else{self.thought_levels.clone()},
                 "modelSelection":{"providerId":self.provider,"modelId":self.model,"options":{"reasoningLevel":self.reasoning_level}},"followupMode":self.followup_mode,"mode":self.mode,"planEnabled":self.plan_enabled},
-            "usage":self.usage,"queue":{"items":self.queue.iter().filter(|q|q["delivery"]["admitted"]!="startNow").collect::<Vec<_>>(),"autoDrain":self.auto_drain},
+            "usage":self.usage,"queue":{"items":self.queue.iter().filter(|q|q["delivery"]["admitted"]!="startNow").map(public_queue_item).collect::<Vec<_>>(),"autoDrain":self.auto_drain},
             "pendingInteractions":self.pending,"pendingCommands":[],"backgroundWorks":self.background.values().filter(|t|t.status=="running").map(super::background::BackgroundTask::projection).collect::<Vec<_>>(),"goal":self.goal.as_ref().map(super::goal::Goal::projection),"plan":super::todo::plan(&self.todos,self.todos_updated_at)});
         if self.provider.is_empty() || self.model.is_empty() {
             patch["config"]
@@ -364,5 +368,18 @@ impl Session {
             self.close_unfinished_tools();
         }
         self.recover_subagent_rows();
+    }
+}
+
+/// 队列项的 V4 投影：`_` 前缀是 runtime 私有字段（如 `_botDeliveryTarget`），不进 strict schema。
+fn public_queue_item(item: &Value) -> Value {
+    match item.as_object() {
+        Some(map) if map.keys().any(|k| k.starts_with('_')) => Value::Object(
+            map.iter()
+                .filter(|(k, _)| !k.starts_with('_'))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        ),
+        _ => item.clone(),
     }
 }

@@ -612,6 +612,7 @@ describe("escode-protocol-v4 command", () => {
         "editUserQuery",
         "applyFileRewind",
         "forkAssistant",
+        "clearGoal",
         "pauseGoal",
         "reorderQueueItem",
         "resumeGoal",

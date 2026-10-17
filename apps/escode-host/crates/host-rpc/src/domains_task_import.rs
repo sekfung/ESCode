@@ -295,16 +295,6 @@ async fn import_one(
     .await
     {
         Ok(snapshot) => snapshot,
-        Err(error) if is_unsupported_import(&error.message) => {
-            return crate::domains_task_import_fallback::persist_legacy(
-                context,
-                data,
-                &source,
-                target_identity,
-            )
-            .await
-            .map_err(|reason| ImportFailure::Failed { reason });
-        }
         Err(error) => {
             cleanup(&copy.created_output_paths);
             return Err(ImportFailure::Failed {
@@ -383,11 +373,6 @@ async fn import_one(
         return Err(ImportFailure::Failed { reason });
     }
     Ok(meta)
-}
-
-fn is_unsupported_import(message: &str) -> bool {
-    message.contains("Unsupported imported history source")
-        || message.contains("Null shared import field")
 }
 
 fn cleanup(paths: &[PathBuf]) {

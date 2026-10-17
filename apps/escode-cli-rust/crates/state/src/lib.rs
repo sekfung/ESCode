@@ -9,6 +9,7 @@ mod legacy_sessions;
 mod legacy_shared_context;
 mod legacy_storage;
 mod legacy_todos;
+mod legacy_topic_context;
 pub mod storage;
 mod storage_history;
 mod storage_index;

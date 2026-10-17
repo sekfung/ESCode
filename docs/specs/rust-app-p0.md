@@ -36,6 +36,8 @@ sequenceDiagram
 
 TS 原库只读，Rust 使用独立 SQLite。导入使用一致性快照，保留源数据与附件/产物，不原地升级 TS 表。按源身份和会话 ID 幂等导入；已存在的 Rust 会话不被旧源覆盖。保留会话 ID、workspace identity、时间、标题、模型选择、消息/工具关联及附件引用。无法识别的持久化语义必须报出，不静默截断历史。未结束工具转为 unknown outcome，绝不重新执行。非 yolo 会话保留模式，显式切换后才可执行。计划开启的旧任务保留 planEnabled，必须通过显式关闭计划后才允许 yolo 执行；本包不启动计划执行。列表成员沿用 TS taskType，interactive/fork/workflow_parent 可见；归档与辅助子任务不混入列表，仍可按 ID 查询。未知 part/未支持的上下文语义阻止导入，并通过 startup/storageState failed 明确反馈，不以缺失上下文继续执行。迁移读取既有 storage 路径优先级及 artifact 引用；本地/data/artifact 附件字节保存独立快照，通过现有 attachment read/stat/previewSource 读取，须按会话、行和附件序号重新授权；显式不存在的导入源视为错误。回退 TS 使用保留原库；Rust 后续新增历史不冒充已回写 TS。
 
+旧 `bot_topic_context` 记录（`role=user`、`source="bot_topic_context"`，TS 已停止生成，见 `docs/bots-topic-input-materials.md`）按 TS `session-history-hydrator` 处理：**不进入 canonical 模型历史、不成行**。导入器把它保存为 Session 元数据 `legacyTopicRecords`（`messageId`、`createdAt`、`rowAnchor`=导入时行数、`checkpoint`=`metadata.checkpoint`、`displayText`=`metadata.displayText`、`text`=文本 part 拼接），只供读路径：`session/messages` 与 `session/read` 的 legacy 消息投影在 `rowAnchor` 位置插入 `{role:user, synthetic:true, visibility:"model-only", source:"bot_topic_context", metadata:{checkpoint, displayText?}}` 消息，使 Host `readBotTopicSummaries` 与 TS 同样读出旧摘要。新 Rust 会话不产生此类记录。part 级 synthetic 元数据中的同名来源本期不识别（登记差异）。
+
 ## 验收
 
 真实 Renderer 补充：Host task-index 仍通过 `session/read` 回源。Rust 必须从同一个 Session owner 只读投影 legacy snapshot 的会话元数据、当前选型/能力、运行状态和可见消息/工具；不能返回空消息代替索引正文，也不能触发 resume、模型请求或改写订阅 deliveryKind。`messageLimit` 按消息尾部裁剪，超出物理帧预算明确拒绝。session kind 与归档时间从导入事实保存。回归须经过现有 Host `readSession(existing-only)` 和真实 Renderer，确认新任务进入侧栏、停止后可续聊、重启后恢复。
@@ -44,5 +46,5 @@ TS 原库只读，Rust 使用独立 SQLite。导入使用一致性快照，保�
 2. 同 modelId 不同 provider 不串选；所有 reasoning 档位按既有 option map 产生请求；空值/删除/规则覆盖语义与 TS 差分一致。
 3. 修改配置、账号 revision 到达次序、运行中切模型、排队输入及重启；正确模型用于正确步骤。
 4. 鉴权成功/失败/错误帧/等待时取消/迟到回复、双订阅和凭据不落盘。
-5. TS 真实 schema 生成的历史含工具、附件、压缩和中断执行；导入、重启、重复导入、隔离与回退源不变；数据库失败不继续执行。
+5. TS 真实 schema 生成的历史含工具、附件、压缩和中断执行；导入、重启、重复导入、隔离与回退源不变；数据库失败不继续执行。含 `bot_topic_context` 的旧会话：模型历史不含其正文，`session/messages` 在原位置投影出带 `source`/`metadata` 的 model-only 消息。
 6. Rust test/fmt/Clippy、真实子进程 App client/schema 测试、typecheck/lint/架构检查。区分 fixture、真实 Renderer 和真实供应商验收，不互相冒充。

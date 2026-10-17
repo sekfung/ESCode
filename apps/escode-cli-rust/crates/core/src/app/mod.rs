@@ -74,6 +74,7 @@ mod todos;
 mod web_fetch_tool;
 mod web_search_tool;
 
+mod claude_import;
 mod cua_events;
 mod goal_commands;
 mod goal_events;

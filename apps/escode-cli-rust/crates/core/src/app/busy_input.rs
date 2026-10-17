@@ -182,19 +182,44 @@ impl Engine {
         row["sourceCommandId"] = item["sourceCommandId"].clone();
         row["rootSourceCommandId"] = item["sourceCommandId"].clone();
         row["clientId"] = item["clientId"].clone();
+        let mut payload =
+            json!({"text":item["text"],"modelSelection":item["modelSelection"],"_userSteer":true});
+        super::commands::restore_queued_source(&item, &mut payload);
+        for key in ["botGroupSource", "conversationQuotes"] {
+            if let Some(value) = item.get(key) {
+                row[key] = value.clone();
+            }
+        }
         s.rows.push(row.clone());
         let text = item["text"].as_str().context("Guide text missing")?;
+        // 引导消费与 queue 提升同一材料规则（TS steering.ts withConversationQuotes）。
+        let material = crate::domain::conversation_input::with_conversation_material(
+            text,
+            &payload["conversationQuotes"],
+            &payload["botGroupSource"],
+        );
         // `_escode_input`：真实用户输入及其是否满足记忆提取的散文门槛（docs/specs/rust-project-memory.md）。
         // mailbox 消息（H3，TS steerTurn）按原文进历史，不套用户中途消息的包装。
         let content = if item["clientId"] == "session-mailbox" {
             text.to_owned()
         } else {
-            crate::domain::prompt::user_steer(text)
+            crate::domain::prompt::user_steer(&material)
         };
         let message = json!({"role":"user","content":content,"_escode_input":crate::domain::memory::is_prose(text)});
         s.append_message(message.clone());
         messages.push(message);
-        s.history.inputs.push(crate::domain::history::InputBoundary {entity:row["entityId"].as_str().unwrap().into(),turn:turn.into(),row:boundary.0,user_row:boundary.0,message:retained_messages,state:boundary.2,kind:"sendText".into(),payload:json!({"text":item["text"],"modelSelection":item["modelSelection"],"_userSteer":true})});
+        s.history
+            .inputs
+            .push(crate::domain::history::InputBoundary {
+                entity: row["entityId"].as_str().unwrap().into(),
+                turn: turn.into(),
+                row: boundary.0,
+                user_row: boundary.0,
+                message: retained_messages,
+                state: boundary.2,
+                kind: "sendText".into(),
+                payload,
+            });
         self.publish(id, vec![json!({"op":"row.appended","row":row})])?;
         self.persist(id, None).await?;
         self.notify_selection(id)?;

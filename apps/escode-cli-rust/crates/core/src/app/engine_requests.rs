@@ -245,6 +245,9 @@ impl Engine {
             }
             // 修复：普通建会话（定时/闲时任务首跑、task facade）原先也进共享上下文导入而被拒；
             // 只有带 importedHistory 的才是导入（docs/specs/rust-legacy-session-methods.md）。
+            "session/create" if request.params["importedHistory"]["source"] == "claudeCode" => {
+                self.import_claude_history(&request.params).await
+            }
             "session/create" if request.params.get("importedHistory").is_some() => {
                 self.import_shared_context(&request.params).await
             }

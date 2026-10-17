@@ -119,6 +119,7 @@ impl Engine {
         if let Some(refs) = item.get("sharedContextRefs") {
             c.payload["context_refs"] = refs.clone();
         }
+        super::commands::restore_queued_source(&item, &mut c.payload);
         if self
             .select(&c.payload, Some(self.session_selection(id)?))
             .is_err()

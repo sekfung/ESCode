@@ -72,6 +72,7 @@
           "setFollowupMode",
           "pauseGoal",
           "resumeGoal",
+          "clearGoal",
           "cancelBackgroundWork",
           "resumeWorkflowRun",
           "startSavedWorkflow",
@@ -2528,6 +2529,11 @@
       "type": "object",
       "properties": {}
     },
+    "clearGoal": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {}
+    },
     "cancelBackgroundWork": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -2678,6 +2684,7 @@
     "setFollowupMode",
     "pauseGoal",
     "resumeGoal",
+    "clearGoal",
     "cancelBackgroundWork",
     "resumeWorkflowRun",
     "startSavedWorkflow",
@@ -2688,6 +2695,7 @@
   ],
   "requiringBaseRevision": [
     "applyFileRewind",
+    "clearGoal",
     "deleteQueueItem",
     "editQueueItem",
     "editUserQuery",

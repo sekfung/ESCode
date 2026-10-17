@@ -162,6 +162,9 @@ pub(super) fn project(
                 positions.insert(mid, (shared_start, session.messages.len()));
                 continue;
             }
+            if super::legacy_topic_context::project(&mut session, &mid, &message, &parts) {
+                continue;
+            }
             for (_, part) in &parts {
                 check(cancel)?;
                 if part["type"] == "file"

@@ -509,6 +509,44 @@ describe("v4 原生 pauseGoal", () => {
   });
 });
 
+describe("v4 原生 clearGoal", () => {
+  it("删除目标并收口为 goal_cleared，不开续跑", async () => {
+    const app = makeApp({
+      readTarget: vi
+        .fn()
+        .mockResolvedValue({ targetID: "g1", objective: "旧目标", status: "paused" }),
+      clearTarget: vi.fn().mockResolvedValue(true),
+    });
+    const host = makeHost(makeRecord({ app }));
+
+    await new V4CommandExecutor(host).execute(envelope("clearGoal", {}));
+
+    expect(app.clearTarget).toHaveBeenCalledTimes(1);
+    expect(app.continueActiveTarget).not.toHaveBeenCalled();
+    expect(host.legacyMutations).toEqual(["goal_cleared"]);
+  });
+
+  it("没有目标时幂等 noop", async () => {
+    const app = makeApp({ clearTarget: vi.fn().mockResolvedValue(false) });
+    const host = makeHost(makeRecord({ app }));
+
+    await expect(
+      new V4CommandExecutor(host).execute(envelope("clearGoal", {})),
+    ).resolves.toBeUndefined();
+    expect(host.legacyMutations).toEqual([]);
+  });
+
+  it("运行中拒绝 activeTurn（同 legacy goalSession）", async () => {
+    const app = makeApp({ clearTarget: vi.fn().mockResolvedValue(true) });
+    const record = makeRecord({ app, activeAbortController: new AbortController() });
+
+    await expect(
+      new V4CommandExecutor(makeHost(record)).execute(envelope("clearGoal", {})),
+    ).rejects.toMatchObject({ reasonCode: "activeTurn" });
+    expect(app.clearTarget).not.toHaveBeenCalled();
+  });
+});
+
 describe("supports 分流（goal/compact 组）", () => {
   it("compact/sendGoalCommand/pauseGoal/resumeGoal 已原生", () => {
     const executor = new V4CommandExecutor(makeHost(makeRecord()));
@@ -516,5 +554,6 @@ describe("supports 分流（goal/compact 组）", () => {
     expect(executor.supports("sendGoalCommand")).toBe(true);
     expect(executor.supports("pauseGoal")).toBe(true);
     expect(executor.supports("resumeGoal")).toBe(true);
+    expect(executor.supports("clearGoal")).toBe(true);
   });
 });

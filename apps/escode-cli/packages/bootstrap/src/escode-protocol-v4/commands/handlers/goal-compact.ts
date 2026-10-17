@@ -1,4 +1,4 @@
-// goal/compact 命令组：compact / sendGoalCommand / pauseGoal / resumeGoal。
+// goal/compact 命令组：compact / sendGoalCommand / pauseGoal / resumeGoal / clearGoal。
 // 语义自旧 server-operations compactSession/goalSession/continueGoalAfterChange 搬运，
 // 决策逻辑（compact 去重 / active turn barrier / goal 续跑）直驱 core，不经旧协议 op。
 //
@@ -6,6 +6,7 @@
 // - compactSession（server-operations.ts:1805）→ compact
 // - goalSession action:"set"（:1919，含重复 set 收敛 replace）→ sendGoalCommand
 // - goalSession action:"resume"（:1980）→ resumeGoal
+// - goalSession action:"clear" → clearGoal
 // - continueGoalAfterChange / runGoalContinuationInBackground（:2204-2269）→ 组内私有共用函数
 import type {
   CommandEnvelope,
@@ -427,6 +428,26 @@ async function resumeGoal(
 }
 
 /**
+ * clearGoal：删除目标（旧 goalSession clear 搬运）。运行中拒绝，与旧路径 ensureNoActiveTurn 同；
+ * 无目标幂等成功。目标面板经 TargetChanged 事件收口。
+ */
+async function clearGoal(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult | undefined> {
+  const record = requireRecord(host, envelope.sessionId);
+  if (record.activeAbortController) {
+    throw new V4GoalCompactRejectedError(
+      "activeTurn",
+      "Cannot manage goals while a prompt is running",
+    );
+  }
+  const cleared = await record.app.clearTarget();
+  if (cleared) await host.afterLegacyStateMutation?.(record, "goal_cleared");
+  return undefined;
+}
+
+/**
  * goal 变更后的续跑（旧 continueGoalAfterChange 搬运，set/resume 两处共用）：
  * plan 模式或已有 active turn 时不续跑（只落库目标，用户后续显式推进）；
  * 否则模型就绪检查 → 上锁 → 后台 continueActiveTarget。
@@ -497,4 +518,4 @@ async function runGoalContinuationInBackground(
   await host.afterLegacyStateMutation?.(record, mutationReason);
 }
 
-export const goalCompactHandlers = { compact, pauseGoal, resumeGoal, sendGoalCommand };
+export const goalCompactHandlers = { clearGoal, compact, pauseGoal, resumeGoal, sendGoalCommand };

@@ -16,10 +16,11 @@ const SIDE_CHAT_SOURCE: &str = "selection_side_chat";
 /// TS `SELECTION_SIDE_CHAT_BOUNDARY`（三句以空格连接）。
 const SIDE_CHAT_BOUNDARY: &str = "The preceding conversation was inherited from the parent task for reference only. Do not continue the parent's active work automatically; answer only new questions sent in this side chat. Modify the workspace only when the user explicitly asks you to do so in this side chat.";
 /// TS `SELECTION_SIDE_CHAT_RESTRICTED_COMMANDS`：副屏内不允许的命令。
-pub(super) const SIDE_CHAT_RESTRICTED: [&str; 7] = [
+pub(super) const SIDE_CHAT_RESTRICTED: [&str; 8] = [
     "sendGoalCommand",
     "pauseGoal",
     "resumeGoal",
+    "clearGoal",
     "editUserQuery",
     "retryTurn",
     "forkAssistant",

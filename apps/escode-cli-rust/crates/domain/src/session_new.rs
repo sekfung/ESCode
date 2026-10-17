@@ -26,6 +26,7 @@ impl Session {
             skills: None,
             shared_context: None,
             legacy_shared_context: false,
+            legacy_topic_records: vec![],
             workspace_path: None,
             workspace_directory: None,
             trace_id: None,
