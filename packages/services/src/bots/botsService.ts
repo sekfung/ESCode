@@ -748,6 +748,9 @@ export function createBotsService(
   const repo = deps.repo ?? new BotsRepo();
   const bindCodes = new Map<string, BindCodeRecord>();
   const automationDeliveryWarningAtByKey = new Map<string, number>();
+  // Bot 自己发起取消的排队群输入（docs/specs/bots-v4-stream.md）：取消流程自己回帖，V4 队列差分
+  // 推导出的丢弃提示要跳过。调用前登记（帧可能早于 ACK），失败撤销；有界保留。
+  const selfCancelledGroupInputs = new Set<string>();
   const streamSubscriptions = new Map<
     string,
     IDisposable & { automation(runId?: string): void; imInput(): void }
@@ -5467,6 +5470,7 @@ export function createBotsService(
         }
         if (event.type === "turn_steer_status" && event.status !== "drained") {
           for (const id of event.pendingInputIds ?? []) {
+            if (selfCancelledGroupInputs.delete(id)) continue;
             const input = latest.group.inputs?.[id];
             if (!input || input.taskId !== context.activeTaskId) continue;
             await updateGroupInputReaction(
@@ -7118,16 +7122,26 @@ export function createBotsService(
     }
     const taskService = await resolveESCodeTaskServiceForContext(auth.context);
     if (!taskService.cancelBotGroupInput) throw new Error("Runtime cannot cancel queued input");
-    const ack = await taskService.cancelBotGroupInput({
-      taskId: input.taskId,
-      commandId: `cancel-${sourceCommandId}-${message.actor.providerMessageId}`,
-      sourceCommandId,
-      actorId: message.actor.providerUserId,
-      ownerId: group.ownerId,
-      botId: auth.bot.id,
-      chatId: group.chatId,
-    });
+    selfCancelledGroupInputs.add(sourceCommandId);
+    if (selfCancelledGroupInputs.size > 256)
+      selfCancelledGroupInputs.delete(selfCancelledGroupInputs.values().next().value!);
+    let ack: Awaited<ReturnType<NonNullable<typeof taskService.cancelBotGroupInput>>>;
+    try {
+      ack = await taskService.cancelBotGroupInput({
+        taskId: input.taskId,
+        commandId: `cancel-${sourceCommandId}-${message.actor.providerMessageId}`,
+        sourceCommandId,
+        actorId: message.actor.providerUserId,
+        ownerId: group.ownerId,
+        botId: auth.bot.id,
+        chatId: group.chatId,
+      });
+    } catch (error) {
+      selfCancelledGroupInputs.delete(sourceCommandId);
+      throw error;
+    }
     const accepted = ack.status === "accepted" || ack.status === "duplicate";
+    if (!accepted) selfCancelledGroupInputs.delete(sourceCommandId);
     if (accepted)
       await updateGroupInputReaction(auth.bot, auth.context, input.source.messageId, "cancelled");
     return [

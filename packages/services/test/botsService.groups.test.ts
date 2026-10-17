@@ -2237,6 +2237,95 @@ describe("Feishu group sessions", () => {
     expect(updated.pendingPermissionOptions ?? []).toHaveLength(0);
   });
 
+  describe("queued input disposition from V4 frames", () => {
+    // docs/specs/bots-v4-stream.md §4：排队项消失且未执行 → 丢弃提示；Bot 自己取消的不重复提示。
+    async function queuedWithFrames() {
+      const ctx = setup();
+      let emit!: (frame: unknown) => void;
+      (ctx.taskService as Record<string, unknown>).onDynamicConversationFrames = vi.fn(
+        () => (listener: (frame: unknown) => void) => {
+          emit = listener;
+          return { dispose: vi.fn() };
+        },
+      );
+      ctx.taskService.cancelBotGroupInput = vi.fn(async (params) => ({
+        commandId: params.commandId,
+        status: "accepted",
+        revisionAtDecision: 2,
+      }));
+      await ctx.send("/enable");
+      const queued = await ctx.send("work", "oc_a", "member");
+      const state = await ctx.repo.readState();
+      const context = Object.values(state.bots).find((value) => value.group)!;
+      const inputId = Object.keys(context.group!.inputs!)[0]!;
+      const item = {
+        sourceCommandId: inputId,
+        queueItemId: `queue_${inputId}`,
+        dispatch: { state: "queued" },
+        steer: { state: "notRequested" },
+      };
+      const frame = (payload: unknown, fromSeq: number) => ({
+        topic: `conversation/${context.activeTaskId}`,
+        subscriptionId: "s",
+        fromSeq,
+        toSeq: fromSeq + 1,
+        sentAt: 1,
+        payload,
+      });
+      emit(
+        frame(
+          {
+            kind: "snapshot",
+            snapshot: {
+              control: {},
+              rows: { window: [] },
+              pendingInteractions: [],
+              queue: { items: [item], autoDrain: true },
+            },
+          },
+          0,
+        ),
+      );
+      const removeFromQueue = () =>
+        emit(
+          frame(
+            {
+              kind: "deltas",
+              deltas: [{ op: "state.updated", patch: { queue: { items: [], autoDrain: true } } }],
+            },
+            1,
+          ),
+        );
+      const deliveries = async () =>
+        Object.values(
+          Object.values((await ctx.repo.readState()).bots).find((value) => value.group)!.group!
+            .deliveries ?? {},
+        );
+      return { ...ctx, queued, removeFromQueue, deliveries };
+    }
+
+    it("notifies the group when a queued input is deleted outside the bot", async () => {
+      const { removeFromQueue, deliveries } = await queuedWithFrames();
+      reactionMock.mockClear();
+      removeFromQueue();
+      await vi.waitFor(async () => expect((await deliveries()).length).toBe(1));
+      expect((reactionMock.mock.calls.at(-1) as unknown[] | undefined)?.[2]).toBe("cancelled");
+    });
+
+    it("does not repeat the notice for an input the bot cancelled itself", async () => {
+      const { send, queued, removeFromQueue, deliveries, taskService } = await queuedWithFrames();
+      const cancel = queued[0]?.selection?.options[0]?.id;
+      await send(cancel!, "oc_a", "member");
+      expect(taskService.cancelBotGroupInput).toHaveBeenCalledOnce();
+      const before = (await deliveries()).length;
+      const reactions = reactionMock.mock.calls.length;
+      removeFromQueue();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect((await deliveries()).length).toBe(before);
+      expect(reactionMock.mock.calls.length).toBe(reactions);
+    });
+  });
+
   it("allows only the queued input author or owner to cancel through CLI", async () => {
     const { send, taskService } = setup();
     taskService.cancelBotGroupInput = vi.fn(async (params) => ({

@@ -45,6 +45,9 @@ export function createBotConversationStream(taskId: string): BotConversationStre
   const turnInputs = new Map<string, string>();
   const turnOrigins = new Map<string, "desktop" | "mobile">();
   const interactions = new Map<string, InteractionKind>();
+  // 排队项最后一次已知状态（按 sourceCommandId）与已成为本会话输入的 sourceCommandId。
+  const queued = new Map<string, { dispatch?: string; steer?: string }>();
+  const executed = new Set<string>();
   let baselined = false;
   let terminals: ESCodeStreamEvent[] = [];
   let lastError: string | undefined;
@@ -115,7 +118,10 @@ export function createBotConversationStream(taskId: string): BotConversationStre
     const out: ESCodeStreamEvent[] = [];
     if (row.kind === "turnHeader") {
       next.state = row.state;
-      if (row.sourceCommandId) turnInputs.set(row.turnId, row.sourceCommandId);
+      if (row.sourceCommandId) {
+        turnInputs.set(row.turnId, row.sourceCommandId);
+        executed.add(row.sourceCommandId);
+      }
       if (emit && row.executionKind !== "controlOnly") {
         const was = previous?.state;
         if (row.state === "running" && was !== "running") {
@@ -135,6 +141,7 @@ export function createBotConversationStream(taskId: string): BotConversationStre
       }
     } else if (row.kind === "userInput") {
       if (row.inputOrigin) turnOrigins.set(row.turnId, row.inputOrigin);
+      if (row.sourceCommandId) executed.add(row.sourceCommandId);
     } else if (row.kind === "toolCall") {
       next.status = row.status;
       if (emit && (!previous || previous.status !== row.status))
@@ -156,6 +163,44 @@ export function createBotConversationStream(taskId: string): BotConversationStre
     if (state === "failed")
       return [{ type: "task_error", ...identity(turnId), error: lastError ?? "Task failed" }];
     return [];
+  };
+
+  // 排队项消失：已成为输入（同帧或更早出现轮头/userInput 行）或已进入提升/引导的是被执行；
+  // 其余是被删除（增量）或随 runtime 重启丢失（重订阅快照）。
+  const onQueue = (
+    items: readonly {
+      sourceCommandId: string;
+      dispatch?: { state?: string };
+      steer?: { state?: string };
+    }[],
+    emit: boolean,
+    reason: "queue_deleted" | "session_resumed",
+  ): ESCodeStreamEvent[] => {
+    const present = new Set(items.map((item) => item.sourceCommandId));
+    const out: ESCodeStreamEvent[] = [];
+    for (const [id, last] of queued) {
+      if (present.has(id)) continue;
+      queued.delete(id);
+      const started =
+        executed.has(id) ||
+        ["reserved", "promoting", "drained"].includes(last.dispatch ?? "") ||
+        ["steering", "guided"].includes(last.steer ?? "");
+      if (emit && !started)
+        out.push({
+          type: "turn_steer_status",
+          taskId,
+          traceId: taskId as TraceId,
+          status: "discarded",
+          pendingInputIds: [id],
+          reason,
+        });
+    }
+    for (const item of items)
+      queued.set(item.sourceCommandId, {
+        dispatch: item.dispatch?.state,
+        steer: item.steer?.state,
+      });
+    return out;
   };
 
   const onInteractions = (list: readonly PendingInteraction[], emit: boolean) => {
@@ -265,6 +310,7 @@ export function createBotConversationStream(taskId: string): BotConversationStre
       lastError = snapshot.control.lastError?.message;
       for (const row of snapshot.rows.window) out.push(...onRow(row, emit));
       out.push(...onInteractions(snapshot.pendingInteractions, emit));
+      out.push(...onQueue(snapshot.queue?.items ?? [], emit, "session_resumed"));
       baselined = true;
       return out;
     }
@@ -280,7 +326,9 @@ export function createBotConversationStream(taskId: string): BotConversationStre
       )
         turnOrigins.set(delta.row.turnId, delta.row.inputOrigin);
     }
+    let queueItems: Parameters<typeof onQueue>[0] | undefined;
     for (const delta of frame.payload.deltas) {
+      if (delta.op === "state.updated" && delta.patch.queue) queueItems = delta.patch.queue.items;
       if (delta.op === "row.appended" || delta.op === "row.upserted") {
         out.push(...onRow(delta.row, true));
       } else if (delta.op === "row.delta") {
@@ -294,6 +342,8 @@ export function createBotConversationStream(taskId: string): BotConversationStre
         out.push(...onInteractions(delta.patch.pendingInteractions, true));
       }
     }
+    // 队列在本帧所有行之后判定：提升的轮头与队列补丁常在同一帧，顺序不保证。
+    if (queueItems) out.push(...onQueue(queueItems, true, "queue_deleted"));
     return out;
   }
 }

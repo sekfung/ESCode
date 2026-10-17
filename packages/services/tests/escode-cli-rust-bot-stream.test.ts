@@ -9,7 +9,8 @@ import type { CommandEnvelope } from "@escode/shared/escode-protocol-v4";
 import { createComposerSubmissionConfig } from "../../ui/src/v4/composer/composerSubmissionConfig.js";
 
 // docs/specs/bots-v4-stream.md §6：真实 Rust runtime 的 V4 帧经持续订阅 + Bot 投影，
-// 得到 Bot 回复所需的正文分段与完成事件（旧 legacy session/subscribe 在 Rust 上不存在）。
+// 得到 Bot 回复所需的正文分段与完成事件（旧 legacy session/subscribe 在 Rust 上不存在）；
+// 排队后被提升执行的输入不报丢弃。
 test("Bot stream projection receives text and completion from the real Rust runtime", async () => {
   const f = await fixture();
   const keys = [
@@ -158,6 +159,52 @@ test("Bot stream projection receives text and completion from the real Rust runt
       .join("");
     assert.equal(text, "你好 Rust");
     assert.equal(events.at(-1)?.type, "task_complete");
+
+    // 排队后被提升执行的输入不是“丢弃”：真实 runtime 下不得产出 turn_steer_status。
+    events.length = 0;
+    const second = createBotConversationStream(sessionId);
+    let completions = 0;
+    let bothDone!: () => void;
+    const both = new Promise<void>((resolve) => (bothDone = resolve));
+    let resubscribed!: () => void;
+    const resubscribedReady = new Promise<void>((resolve) => (resubscribed = resolve));
+    const feed = observeConversationFrames(service, { ...workspace, sessionId })((frame) => {
+      if (frame.payload.kind === "snapshot") resubscribed();
+      for (const event of second.accept(frame)) {
+        events.push(event);
+        if (event.type === "task_complete" && ++completions === 2) bothDone();
+      }
+    });
+    try {
+      await resubscribedReady;
+      await service.sendConversationCommandV4({
+        ...workspace,
+        envelope: envelope("sendText", sessionId, { text: "slow", ...submission }, "bot-slow"),
+      });
+      await service.sendConversationCommandV4({
+        ...workspace,
+        envelope: envelope(
+          "sendText",
+          sessionId,
+          { text: "queued", requestedDelivery: "queue", ...submission },
+          "bot-queued",
+        ),
+      });
+      await Promise.race([
+        both,
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(JSON.stringify(events))), 15000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+      feed.dispose();
+    }
+    assert.deepEqual(
+      events.filter((event) => event.type === "task_run_started").map((event) => event.inputId),
+      ["bot-slow", "bot-queued"],
+    );
+    assert.equal(events.filter((event) => event.type === "turn_steer_status").length, 0);
   } finally {
     await service.disposeAllAndWait();
     for (const key of keys) {

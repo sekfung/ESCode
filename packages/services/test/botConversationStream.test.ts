@@ -35,6 +35,7 @@ const snapshot = (
   window: unknown[],
   pendingInteractions: unknown[] = [],
   lastError?: string,
+  queue: unknown[] = [],
 ): ConversationTopicFrame =>
   ({
     topic: "conversation/task",
@@ -48,6 +49,7 @@ const snapshot = (
         control: lastError ? { lastError: { message: lastError } } : {},
         rows: { window },
         pendingInteractions,
+        queue: { items: queue, autoDrain: true },
       },
     },
   }) as never;
@@ -214,5 +216,65 @@ describe("bot conversation stream projection", () => {
       "task_complete",
     ]);
     expect(events[0]).toMatchObject({ content: " there" });
+  });
+
+  describe("queued input disposition", () => {
+    const item = (id: string, dispatch = "queued") => ({
+      sourceCommandId: id,
+      queueItemId: `queue_${id}`,
+      dispatch: { state: dispatch },
+      steer: { state: "notRequested" },
+    });
+    const queue = (...items: unknown[]) => ({
+      op: "state.updated",
+      patch: { queue: { items, autoDrain: true } },
+    });
+
+    it("does not report the first snapshot queue", () => {
+      const stream = createBotConversationStream("task");
+      expect(stream.accept(snapshot([], [], undefined, [item("a")]))).toEqual([]);
+    });
+
+    it("treats an item promoted in the same frame as executed", () => {
+      const stream = createBotConversationStream("task");
+      stream.accept(snapshot([], [], undefined, [item("a")]));
+      const events = stream.accept(
+        deltas(append(header(1, "running", { sourceCommandId: "a" })), queue()),
+      );
+      expect(types(events)).toEqual(["task_run_started"]);
+    });
+
+    it("treats a reserved item that leaves the queue as executed", () => {
+      const stream = createBotConversationStream("task");
+      stream.accept(snapshot([], [], undefined, [item("a")]));
+      stream.accept(deltas(queue(item("a", "reserved"))));
+      expect(stream.accept(deltas(queue()))).toEqual([]);
+    });
+
+    it("reports a deleted queued input", () => {
+      const stream = createBotConversationStream("task");
+      stream.accept(snapshot([], [], undefined, [item("a"), item("b")]));
+      expect(stream.accept(deltas(queue(item("b"))))).toMatchObject([
+        {
+          type: "turn_steer_status",
+          status: "discarded",
+          reason: "queue_deleted",
+          pendingInputIds: ["a"],
+        },
+      ]);
+    });
+
+    it("reports inputs lost across a resubscribe snapshot as session_resumed", () => {
+      const stream = createBotConversationStream("task");
+      stream.accept(snapshot([], [], undefined, [item("a")]));
+      expect(stream.accept(snapshot([], [], undefined, []))).toMatchObject([
+        {
+          type: "turn_steer_status",
+          status: "discarded",
+          reason: "session_resumed",
+          pendingInputIds: ["a"],
+        },
+      ]);
+    });
   });
 });

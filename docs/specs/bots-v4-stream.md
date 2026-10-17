@@ -84,8 +84,15 @@ automation 的 runId 即该值）；`taskId` 为订阅任务。
 - 只投影主会话行（`parentToolUseId = null`）；子代理内容在子会话里，Bot 不订阅。
 - `interactionId ≡ requestId`，Bot 的 `/approve`、`/deny`、表单回执沿用现有 `respondPermission`/`respondElicitation`
   （V4 `resolveInteraction`）。
-- 本期不映射：`turn_steer_status`（排队输入被删除/拒绝的提示，由 `cancelBotGroupInput` 结果和队列快照处理）、
-  `plan`、`usage`、`config_option_update` 等 Bot 不消费的事件。
+- 排队输入丢弃（2026-10-18 补）：投影按 `sourceCommandId` 跟踪 `queue.items`（快照与 `state.updated.queue`）。
+  排队项从队列消失时：若已见同 `sourceCommandId` 的 `turnHeader`/`userInput` 行，或最后状态为
+  `dispatch.state ∈ {reserved, promoting, drained}` / `steer.state ∈ {steering, guided}`，视为已执行，不输出；
+  否则输出 `turn_steer_status{status:"discarded", pendingInputIds:[id]}`，`reason` 在增量帧里为
+  `queue_deleted`（桌面/手机删除），在重订阅快照里为 `session_resumed`（runtime 重启，队列是进程内状态）。
+  首帧快照只记基线。说明：旧 legacy 路径从未产出非 drained 的 `turn_steer_status`，该提示此前从未生效。
+- 去重：Bot 自己发起的取消（`cancelBotGroupInput`）在调用**之前**登记该 `sourceCommandId`（帧可能早于 ACK
+  到达），失败撤销；流处理跳过已登记的输入，Bot 只回取消流程自己的“已取消该排队输入”。
+- 本期不映射：`plan`、`usage`、`config_option_update` 等 Bot 不消费的事件。
 
 ## 5. 迁移范围
 
@@ -100,6 +107,8 @@ automation 的 runId 即该值）；`taskId` 为订阅任务。
 
 - 单元：投影的正文后缀、思考、工具首见/状态迁移、权限/表单出现与消失、终态三类、snapshot 基线不补发、
   gap 重 snapshot 后不重复不丢失、controlOnly 轮不发 run_started、traceId/inputId 取 sourceCommandId。
+  排队项：提升执行（同帧出现轮头）不提示；增量删除 → `queue_deleted`；重订阅快照消失 → `session_resumed`；
+  首帧基线不提示。botsService：桌面删除排队群输入 → 回帖“已删除或被拒绝”；Bot 自己取消不重复回帖。
 - Rust Host 端到端：真实 runtime + fixture 模型，`onDynamicConversationFrames` 收到 snapshot 与后续 deltas，
   退订后不再投递。
 - TS 端到端（Rust runtime）：Bot 私聊发送 → 收到正文分段与完成；工具调用产生工具回复；权限请求出现审批选项。
