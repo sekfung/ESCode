@@ -19,7 +19,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use escode_host_services::tasks_index::TaskFilters;
-use serde_json::Value;
 
 use super::domains_task_query;
 use crate::domains_task_support::{
@@ -251,62 +250,13 @@ pub(crate) fn task_channel(
     let targets_for_snapshot = Arc::clone(&targets);
     let runtime_for_snapshot = runtime.clone();
 
-    // `getTaskModelSelection`：只有 `{taskId}` 入参 —— 注册表解析目标后读运行时会话的当前模型。
-    let get_task_model_selection = handler(move |arg: Wire| {
-        let params = first_object(arg);
-        let targets = Arc::clone(&targets);
-        let runtime = runtime.clone();
-        Box::pin(async move {
-            let task_id = params["taskId"].as_str().unwrap_or_default().to_owned();
-            if task_id.is_empty() {
-                return Err((
-                    "InvalidRequest".to_owned(),
-                    "taskId is required.".to_owned(),
-                ));
-            }
-            let target = targets.get(&task_id)?;
-            let Some(runtime) = runtime.as_ref() else {
-                return Err((
-                    "NotImplemented".to_owned(),
-                    "escode-task runtime access is not configured for this Host".to_owned(),
-                ));
-            };
-            let mut request = serde_json::json!({
-                "workspacePath": target.workspace_path,
-                "sessionId": task_id,
-            });
-            if let Some(identity) = target.workspace_identity.as_ref() {
-                request["workspaceIdentity"] = Value::String(identity.clone());
-            }
-            // TS `getTaskModelSelection`：直接读运行时 `session/read` 的 `settings.model.current`。
-            let answer = crate::forward::runtime_call(
-                &runtime.instances,
-                &runtime.options,
-                "session/read",
-                request,
-                crate::forward::Extract::Result,
-            )
-            .await?;
-            // `Extract::Result` 已把 `result` 解包成对象；服务面只回 `settings.model.current`。
-            let Wire::Object(answer) = answer else {
-                return Err((
-                    "Fatal".to_owned(),
-                    "session/read returned a non-object result".to_owned(),
-                ));
-            };
-            let current = answer
-                .get("settings")
-                .and_then(|settings| settings.get("model"))
-                .and_then(|model| model.get("current"))
-                .cloned()
-                .unwrap_or(Value::Null);
-            Ok(if current.is_null() {
-                Wire::Undefined
-            } else {
-                Wire::Object(current)
-            })
-        })
-    });
+    let get_task_model_selection =
+        domains_task_query::get_task_model_selection_handler(ReadContext {
+            path: path.clone(),
+            index: Arc::clone(&index),
+            targets: Arc::clone(&targets),
+            runtime: runtime.clone(),
+        });
 
     let mut methods: Vec<(&'static str, crate::session::MethodHandler)> = vec![
         ("getTaskMeta", get_task_meta),

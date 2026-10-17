@@ -16,10 +16,10 @@
 
 ## 2. 所有者与接口
 
-| 状态 | 唯一所有者 | 其他层 |
-| --- | --- | --- |
-| 正文/工具/交互/轮次事实 | CLI runtime Session（V4 snapshot + deltas） | Host 只转发帧，不缓存业务状态 |
-| 帧序列连续性（seq/gap） | 订阅方的 `TopicWireFrameAssembler` | gap → fault → 重新订阅取新 snapshot |
+| 状态                                                | 唯一所有者                                            | 其他层                                 |
+| --------------------------------------------------- | ----------------------------------------------------- | -------------------------------------- |
+| 正文/工具/交互/轮次事实                             | CLI runtime Session（V4 snapshot + deltas）           | Host 只转发帧，不缓存业务状态          |
+| 帧序列连续性（seq/gap）                             | 订阅方的 `TopicWireFrameAssembler`                    | gap → fault → 重新订阅取新 snapshot    |
 | Bot 回复进度（已发送长度、已见工具/交互、当前 run） | `botConversationStream` 投影实例（每个 Bot 订阅一个） | `handleStreamEventImpl` 只消费投影输出 |
 
 新增 escode-task 事件方法（TS adapter 与 Rust Host 各实现一份，远端经 RPC 代理）：
@@ -66,20 +66,20 @@ Desktop UI 的 `desktop-continuous` 与手机 `web-remote-replayable` 不受影�
 所有输出的 `traceId` 与 `inputId` 取当前轮 `turnHeader.sourceCommandId`（`sendText` 的 `commandId = traceId`，
 automation 的 runId 即该值）；`taskId` 为订阅任务。
 
-| V4 来源 | 输出 |
-| --- | --- |
-| `turnHeader` 首次以 `state=running` 出现（appended/upserted），`executionKind != controlOnly` | `task_run_started` |
-| 同一 `turnHeader` 迁移到 `completedSuccess` | `task_complete{stopReason:"end_turn"}` |
-| 迁移到 `completedInterrupted` | `task_complete{stopReason:"cancelled"}` |
-| 迁移到 `failed` | `task_error{error: control.lastError.message ?? "Task failed"}` |
-| `assistantText` 行文本增长（按 rowId 记已发送长度；新文本以旧文本为前缀时发后缀，否则按新行处理） | `agent_message_chunk{content:后缀, messageId:assistantResponseId}` |
-| `reasoning` 行文本增长 | `agent_thought_chunk` |
-| `toolCall` 行首次出现 | `tool_call{toolId:toolCallId, toolName, kind:toolName, title:toolName, input}` |
-| `toolCall` 行 `status` 变化 | `tool_call_update{status}`：`inputStreaming/pendingApproval→pending`、`running→in_progress`、`success→completed`、`error→failed`（带 `error.message`）、`cancelled→stopped` |
-| `pendingInteractions` 新出现 `permission` | `permission_request{requestId:interactionId, options(optionId,name=label,kind=allow_once/allow_always/reject_once/…), title/description:summary, kind:toolName, display, freeText, origin, raw:payload}` |
-| 新出现 `userInput` | `elicitation_request{requestId:interactionId, …}`（字段沿用 TS `userInputRequestToElicitationStreamEvent`） |
-| 已投递的交互从 `pendingInteractions` 消失 | `permission_response` / `elicitation_response{requestId}` |
-| `snapshot`（首帧或 gap 重订阅） | 不输出；记录所有行的当前长度/状态与当前交互集合为基线。若当前有 running 轮，基线后续增长照常输出 |
+| V4 来源                                                                                           | 输出                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `turnHeader` 首次以 `state=running` 出现（appended/upserted），`executionKind != controlOnly`     | `task_run_started`                                                                                                                                                                                       |
+| 同一 `turnHeader` 迁移到 `completedSuccess`                                                       | `task_complete{stopReason:"end_turn"}`                                                                                                                                                                   |
+| 迁移到 `completedInterrupted`                                                                     | `task_complete{stopReason:"cancelled"}`                                                                                                                                                                  |
+| 迁移到 `failed`                                                                                   | `task_error{error: control.lastError.message ?? "Task failed"}`                                                                                                                                          |
+| `assistantText` 行文本增长（按 rowId 记已发送长度；新文本以旧文本为前缀时发后缀，否则按新行处理） | `agent_message_chunk{content:后缀, messageId:assistantResponseId}`                                                                                                                                       |
+| `reasoning` 行文本增长                                                                            | `agent_thought_chunk`                                                                                                                                                                                    |
+| `toolCall` 行首次出现                                                                             | `tool_call{toolId:toolCallId, toolName, kind:toolName, title:toolName, input}`                                                                                                                           |
+| `toolCall` 行 `status` 变化                                                                       | `tool_call_update{status}`：`inputStreaming/pendingApproval→pending`、`running→in_progress`、`success→completed`、`error→failed`（带 `error.message`）、`cancelled→stopped`                              |
+| `pendingInteractions` 新出现 `permission`                                                         | `permission_request{requestId:interactionId, options(optionId,name=label,kind=allow_once/allow_always/reject_once/…), title/description:summary, kind:toolName, display, freeText, origin, raw:payload}` |
+| 新出现 `userInput`                                                                                | `elicitation_request{requestId:interactionId, …}`（字段沿用 TS `userInputRequestToElicitationStreamEvent`）                                                                                              |
+| 已投递的交互从 `pendingInteractions` 消失                                                         | `permission_response` / `elicitation_response{requestId}`                                                                                                                                                |
+| `snapshot`（首帧或 gap 重订阅）                                                                   | 不输出；记录所有行的当前长度/状态与当前交互集合为基线。若当前有 running 轮，基线后续增长照常输出                                                                                                         |
 
 - 只投影主会话行（`parentToolUseId = null`）；子代理内容在子会话里，Bot 不订阅。
 - `interactionId ≡ requestId`，Bot 的 `/approve`、`/deny`、表单回执沿用现有 `respondPermission`/`respondElicitation`
