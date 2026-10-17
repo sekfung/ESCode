@@ -1,7 +1,7 @@
 # Rust 阶段 2：sync 三域（rust-unified-host.md 子 spec）
 
-> 状态：实现中 · 2026-10-17。三个域共 19 个成员：
-> `skill-sync` 5（已交付）、`mcp-sync` 8（已交付）、`settings-sync` 4/6（detect/importSelected 待做）。按域分三次提交。
+> 状态：已收口 · 2026-10-17。三个域共 19 个成员全部交付：
+> `skill-sync` 5/5、`mcp-sync` 8/8、`settings-sync` 6/6。按域分三次提交。
 > 共同点：都是 **Host 级服务**（TS 在 local 与 remote 两侧都注册），用户根是 `rpcListen.home`
 > （homedir 语义，经 `channels_with(home, …)` 注入），不依赖工作区或 agent 实例。
 > 远端同步的方向：本地 Host 导出 → 文件/网络传输 → 远端 Host 导入；归档与配置文件是两端共享的事实。
@@ -217,7 +217,7 @@ TS 真相源：`mcp-sync/mcpSyncService.ts` 937、`mcpSync.ts` 47；共享类型
 - **门禁**：workspace 全部测试目标通过（host-services 454、host-rpc 119+ 及全部 e2e）；
   clippy `-D warnings` 0；`pnpm check:escode-host` 通过；库存 **286 已实现 / 252 待办**。
 
-## 3. settings-sync（4/6 已交付，2 个待做）
+## 3. settings-sync（6/6）
 
 TS 真相源：`settings-sync/settingsSyncService.ts` 2377、`settingsSync.ts` 41、`types.ts` 33；
 共享类型 `packages/shared/src/settings-sync.ts`。
@@ -230,11 +230,11 @@ TS 真相源：`settings-sync/settingsSyncService.ts` 2377、`settingsSync.ts` 4
 | `copyClaudeAgentsFileToEscodeAgentsFile({…})`    | 已交付 | 复制（`overwrite === true` 才覆盖）；返回 copied/skipped 与原因       |
 | `getFirstRunPromptState()`                       | 已交付 | 设置文件顶层键 `settingsSyncFirstRunPromptHandled === true`          |
 | `markFirstRunPromptHandled()`                    | 已交付 | 顶层合并写 `settingsSyncFirstRunPromptHandled: true`                 |
-| `detect({categories,intent})`                    | **待做** | 多 agent 设置发现（skills/commands/plugins/mcpServers）              |
-| `importSelected({selections})`                   | **待做** | 按选择导入（copy/symlink，含 CLI 配置合并）                          |
+| `detect({categories,intent})`                    | 已交付 | 多 agent 设置发现（skills/commands/plugins/mcpServers）              |
+| `importSelected({selections})`                   | 已交付 | 按选择导入（copy/symlink，含 CLI 配置合并）                          |
 
-- 已交付的 4 个方法都不使用 `workspacePath`/`workspaceIdentity`（TS 同样 `void` 掉）。
-- 未迁移的两个方法由 channel 的 `NotImplemented` 显式缺口回显（消息列出已实现方法）。
+- 前 4 个方法不使用 `workspacePath`/`workspaceIdentity`（TS 同样 `void` 掉）；
+  `detect`/`importSelected` 用 `workspacePath` 解析工作区源根与目标根。
 
 ### 3.2 AGENTS.md 迁移
 
@@ -250,33 +250,80 @@ TS 真相源：`settings-sync/settingsSyncService.ts` 2377、`settingsSync.ts` 4
 - 读：设置服务 `read(home)` 后取 `settingsSyncFirstRunPromptHandled`，严格等于 `true` 才算 handled。
 - 写：设置服务顶层合并补丁（保留其它键、原子写、2 空格 JSON + 换行），不清除导入结果。
 
-### 3.4 待做部分（下一片）
+### 3.4 `detect` / `importSelected` 设计
 
-`detect` / `importSelected` 是同一套多 agent 引擎，按 4 个类别扫描 16 个外部 agent：
+TS 的入口只有两种组合：`detect` 仅在 `intent === "manualImport"` 且 `categories` 包含四类之一时
+扫描**该类**（顺序 skills → commands → plugins → mcpServers），否则返回 `{agents: []}`；
+`importSelected` 按 `selections` 顺序逐项导入并汇总计数。
 
 - **路径表**：skills/commands/plugins 各 16 个 agent 的 project/global 根（`.claude`、`.codex`、
-  `.opencode`、`.openclaw`、`.augment`、`.continue`、`.goose`、`.qwen`、`.qoder`、`.qoder-cn`、
-  `.codeium/windsurf`、`.trae`、`.trae-cn`、`.kiro`、`.roo`、`.codebuddy`）；MCP 另有 12 个来源
-  （含 `agents`）与 4 种格式（`mcpServersJson`、`mcpJson`、`codexToml`、OpenCode 归一）。
-- **发现**：目录扫描（复用 `skills` 遍历策略/命令 Markdown/插件 manifest 三形态）、frontmatter
-  元数据、目标侧同名/同目录判重、`sourceRoots` 汇总与 `selectedByDefault`。
-- **导入**：`copy`/`symlink` 两种模式、命令文件软链、插件目录复制 + 插件配置写入、
-  MCP server 合并进 `.escode` 配置（含 `stripExternalMcpTimeoutFields`/OpenCode 归一）。
-- **验收**：每类各一组夹具（源根/目标根、同名跳过、symlink 模式、MCP 格式），
-  端到端 `detect → importSelected → detect` 闭环。
-
+  `.opencode`/`.config/opencode`、`.openclaw`/`skills|commands|plugins`、`.augment`、`.continue`、
+  `.goose`/`.config/goose`、`.qwen`、`.qoder`、`.qoder-cn`、`.windsurf`/`.codeium/windsurf`、`.trae`、
+  `.trae-cn`（仅 skills）、`.kiro`、`.roo`、`.codebuddy`）；MCP 12 个来源（含 `agents`）与 3 种阅读格式
+  `mcpServersJson` / `mcpJson` / `codexToml`（TOML 用 `toml` crate）。
+- **发现顺序**：所有 user 根在前、workspace 根在后；同一源路径只取第一次出现（`trae`/`traeCn`
+  的项目根相同 → 归 `trae`）。`sourceRootScope`：workspace 根 → `project`，user 根 → `global`。
+- **目标根**：user → `<home>/.escode/{skills,commands,plugins,cli/config.json}`；
+  workspace → `<workspace>/.escode/{skills,commands,plugins,config.json}`。缺 workspacePath 时
+  workspace 目标为 `null`（导入按 `skipped` 处理）。
+- **候选**：
+  - skills：有界遍历（复用 `skills` 策略），`sourcePath` 是技能目录，目标 = 目标根/目录 basename；
+    名称/版本按 TS 的局部 YAML 解析（含 loose `name:`/`version:` 回退），无可读文件时回退目录名。
+  - commands：递归扫描非点目录的 `.md`（无深度上限），名称 = `/相对路径去掉 .md`；
+    `description`/`argument-hint` 复用 Rust 的命令 frontmatter 解析器。
+  - plugins：根下一层目录/软链，按 `.escode-plugin` → `.zcode-plugin` → `.claude-plugin` →
+    `.codex-plugin` 找 `plugin.json`；`id = name@inline`；无合法 name 的目录跳过。
+  - mcpServers：文件存在性用 `lstat`；Claude 的项目源有 `.claude/settings.json` 与 `.mcp.json` 两个；
+    OpenCode `mcp` 表的 `command` 数组折叠为 `command`+`args`、`local/remote` → `stdio/http`；
+    Codex 读 `mcp_servers`/`mcpServers`；导入前删除 `timeout`/`startup_timeout_sec`；
+    `sourcePath = <文件>#<name>`。
+- **判重**：
+  - skills：目标目录 `readdir` 成功即 `targetExists`；目标根内已有同名 skill → `sameNameExists`。
+  - commands：目标文件 `lstat` 存在即 `targetExists`；目标根内同名相对路径 → `sameNameExists`。
+  - plugins：目标目录存在 → `targetExists`；目标的 `plugins.dirs` 里已配置同 id（小写）→ `sameNameExists`。
+  - mcpServers：目标 `.escode` 配置 `mcp.servers` 已有同名 → `sameNameExists`（无 targetExists）。
+  - 判重缓存在一次汇总/一次导入内共享（同一目标根/配置只读一次）。
+- **发现结果**：只返回 `discovered`（候选数 > 0）的 agent，按路径表顺序；每项含一个 category：
+  `discoveredCount`/`importableCount`/`skippedCount`/`sourcePaths`（去重排序）/`sourceRoots`
+  （按 scope→path 排序，含逐项 importable/skipReason）；skills 的 `selectedByDefault = importable > 0`，
+  其余 false。
+- **导入**：
+  - `importMode` 默认 `symlink`：skills/plugins 建目录软链（Windows 用目录软链，登记与 TS junction 的差异）；
+    commands 在 Unix 建文件软链、Windows 先硬链失败回退复制；`copy` 用 `cp -R` 等价语义
+    （目标存在即失败）。
+  - skills/commands 的目标路径在选中 `targetScope` 下重新解析；plugins/mcp 的 `targetScope`
+    缺省取候选的 `sourceRootScope`。
+  - plugins 成功后把**解析后的目标路径**追加到目标配置 `plugins.dirs`（已存在则不写）。
+  - mcpServers 合并到目标配置 `mcp.servers`，保留其它字段；写盘走原子写（TS 是直接写，登记差异）。
+  - 每个候选独立 try/catch → `failed`；任务状态：有 failed → `failed`，否则 imported>0 → `success`，
+    否则 `skipped`；顶层计数为各任务之和。
 ### 3.5 登记差异
 
 1. `copyClaudeAgentsFileToEscodeAgentsFile` 不写 TS 的 info 日志（Host 无日志设施）。
 2. 首启状态的读取沿用 Rust 设置服务的坏文件隔离/回退（与 TS settingService 同语义）。
+3. Windows 的目录软链用 `symlink_dir`（可能需要开发者模式），TS 用免提权的 junction。
+4. 导入写配置文件走原子写（临时文件 + rename）且权限 0600；TS 是直接写。
+5. JSON 键序按 serde_json 的字母序（TS 保留插入序）；文件语义一致。
+6. 命令元数据的解析复用 `commands` 域的 frontmatter 解析器（与 TS `CommandFileParser` 同口径）；
+   skill 名称/版本用本地 YAML + loose 回退，与 TS 的 `yaml` 解析在极端语法上可能有差异
+   （未加引号的 `: `、重复键等）。
 
-### 3.6 settings-sync 交付记录（4/6，2026-10-17）
+### 3.6 settings-sync 交付记录（2026-10-17）
 
-- **实现**：`host-services/src/settings_sync/{agents_file,first_run}.rs`；设置读写复用
-  `settings::read` / `settings::apply_patch`（唯一写者与文件格式不变）。
-- **通道**：`domains_settings_sync.rs`（`settings-sync`）；`inventory_services.rs` 补 4 条；
-  其余 2 个成员由方法表缺口回显。
-- **测试**：新增 4 例（AGENTS.md 三态 + 悬空软链、首启状态保留其它键/严格 true）
-  + 端到端 1 例（迁移 + 覆盖判定 + 首启状态 + `detect` 缺口）。
+- **实现**：`host-services/src/settings_sync/`
+  - `agents.rs` + `sources.rs`：18 个 agent 枚举、四类来源路径表（16/16/15/12 项）与 user/workspace 根展开；
+  - `metadata.rs`：skill 名称/版本（YAML + loose 回退）、命令元数据（复用 commands 解析器）、插件 manifest；
+  - `mcp_source.rs`：`mcpServersJson` / OpenCode `mcpJson` / Codex TOML 读取与归一、timeout 剥离；
+  - `candidates.rs`：四类候选与源路径去重；
+  - `discovery/{mod,skip,summary}.rs`：`detect`、判重缓存、`sourceRoots` 汇总；
+  - `import/{mod,skills_commands,plugins_mcp}.rs`：`importSelected`、copy/symlink 两种模式、
+    命令文件软链/硬链回退、插件配置 `plugins.dirs`、MCP 配置 `mcp.servers` 合并；
+  - `agents_file.rs` + `first_run.rs`：AGENTS.md 迁移与首启状态。
+- **通道**：`domains_settings_sync.rs` 六个方法全部登记；`inventory_services.rs` 补 2 条
+  （`detect` / `importSelected`）。
+- **测试**：24 例（元数据 4、MCP 读取 4、候选 3、发现 4、导入 5、AGENTS 3、首启 1）
+  + 端到端 1 例（迁移/首启 + `detect → importSelected → detect` 闭环）。
+- **负向验证**（两项，均已恢复）：①忽略 `targetScope` → 项目作用域导入用例失败；
+  ②不剥离外部 `timeout` → 配置合并用例失败。
 - **门禁**：workspace 全部测试目标通过；clippy `-D warnings` 0；`pnpm check:escode-host` 通过；
-  库存 **290 已实现 / 248 待办**（settings-sync 4/6）。
+  库存 **292 已实现 / 246 待办**（sync 三域 19/19）。

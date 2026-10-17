@@ -34,6 +34,7 @@ escode-cli-net.workspace = true
 futures-util.workspace = true
 saphyr.workspace = true
 flate2.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

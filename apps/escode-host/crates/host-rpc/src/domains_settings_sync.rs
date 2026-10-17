@@ -1,12 +1,12 @@
 //! `settings-sync` channel（TS `ServiceChannels.SettingsSync` = `"settings-sync"`；docs/specs/rust-u2-sync.md §3）。
 //!
-//! 已接 4/6：Claude `CLAUDE.md` 迁移（状态/复制）与首启提示状态。
-//! `detect` / `importSelected` 由 channel 的 `NotImplemented` 缺口回显（多 agent 发现/导入引擎待下一片）。
+//! 六个成员全部接通：Claude `CLAUDE.md` 迁移、首启提示状态、多 agent 设置发现与导入。
 
 use std::path::Path;
 use std::sync::Arc;
 
 use escode_host_services::settings_sync::SettingsSyncService;
+use escode_host_services::skills::Compare;
 use serde_json::Value;
 
 use crate::channel::Channel;
@@ -19,7 +19,8 @@ fn failed(message: String) -> RpcError {
 }
 
 pub(crate) fn settings_sync_channel(home: &Path) -> Channel {
-    let service = Arc::new(SettingsSyncService::new(home.to_path_buf()));
+    let compare: Compare = Arc::new(crate::collation::compare_names);
+    let service = Arc::new(SettingsSyncService::new(home.to_path_buf(), compare));
     let migration_status = {
         let service = Arc::clone(&service);
         handler_rpc(move |_arg: Wire| {
@@ -74,6 +75,32 @@ pub(crate) fn settings_sync_channel(home: &Path) -> Channel {
             })
         })
     };
+    let detect = {
+        let service = Arc::clone(&service);
+        handler_rpc(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                service
+                    .detect(&params)
+                    .await
+                    .map(Wire::Object)
+                    .map_err(failed)
+            })
+        })
+    };
+    let import_selected = {
+        let service = Arc::clone(&service);
+        handler_rpc(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                service
+                    .import_selected(&params)
+                    .await
+                    .map(Wire::Object)
+                    .map_err(failed)
+            })
+        })
+    };
     Channel::new(
         "settings-sync",
         vec![
@@ -81,6 +108,8 @@ pub(crate) fn settings_sync_channel(home: &Path) -> Channel {
             ("copyClaudeAgentsFileToEscodeAgentsFile", copy_agents_file),
             ("getFirstRunPromptState", first_run_state),
             ("markFirstRunPromptHandled", mark_first_run_handled),
+            ("detect", detect),
+            ("importSelected", import_selected),
         ],
     )
 }

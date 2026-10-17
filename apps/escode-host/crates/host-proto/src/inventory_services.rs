@@ -326,6 +326,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("settings-sync", "copyClaudeAgentsFileToEscodeAgentsFile"),
     ("settings-sync", "getFirstRunPromptState"),
     ("settings-sync", "markFirstRunPromptHandled"),
+    ("settings-sync", "detect"),
+    ("settings-sync", "importSelected"),
     ("subagents", "list"),
     ("subagents", "createAgent"),
     ("subagents", "updateAgent"),

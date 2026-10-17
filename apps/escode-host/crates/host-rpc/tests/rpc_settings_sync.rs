@@ -1,6 +1,6 @@
 //! `settings-sync` 端到端（真 WebSocket，`rust-u2-sync.md` §3）。
 //!
-//! 已接 4/6：AGENTS.md 迁移（状态/复制/覆盖）与首启提示状态；`detect` 回显显式 NotImplemented。
+//! 六个成员：AGENTS.md 迁移、首启提示状态、`detect` 与 `importSelected` 闭环。
 mod support;
 use support::*;
 
@@ -71,6 +71,10 @@ async fn agents_file_migration_and_first_run_state() {
     let home = tempfile::tempdir().unwrap();
     let source = home.path().join(".claude/CLAUDE.md");
     write(&source, "# Claude instructions\n");
+    write(
+        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        "---\nname: alpha\n---\nbody\n",
+    );
     let target = home.path().join(".escode/AGENTS.md");
     let surface = start(home.path()).await;
     let mut conn = Conn::new(&surface).await;
@@ -142,8 +146,8 @@ async fn agents_file_migration_and_first_run_state() {
         .expect("首启状态");
     assert_eq!(state["handled"], serde_json::json!(true));
 
-    // 未迁移的两个成员回显显式缺口（消息列出已实现方法）。
-    let gap = conn
+    // detect：只扫描指定的类别，返回 claudeCode 的 skills 候选。
+    let detected = conn
         .call(
             7,
             "detect",
@@ -151,11 +155,53 @@ async fn agents_file_migration_and_first_run_state() {
         )
         .await
         .into_object()
-        .expect("缺口对象");
-    assert_eq!(gap["name"], serde_json::json!("NotImplemented"));
-    let message = gap["message"].as_str().unwrap();
-    assert!(message.contains("settings-sync.detect"), "{message}");
-    assert!(message.contains("getFirstRunPromptState"), "{message}");
+        .expect("发现结果");
+    assert_eq!(
+        detected["agents"][0]["agent"],
+        serde_json::json!("claudeCode")
+    );
+    let category = &detected["agents"][0]["categories"][0];
+    assert_eq!(category["discoveredCount"], serde_json::json!(1));
+    assert_eq!(category["importableCount"], serde_json::json!(1));
+    assert_eq!(category["selectedByDefault"], serde_json::json!(true));
+
+    let imported = conn
+        .call(
+            8,
+            "importSelected",
+            serde_json::json!({
+                "selections": [{
+                    "agent": "claudeCode", "category": "skills", "importMode": "copy",
+                    "skillPaths": [home.path().join(".claude/skills/alpha").to_string_lossy()],
+                }],
+            }),
+        )
+        .await
+        .into_object()
+        .expect("导入结果");
+    assert_eq!(imported["successCount"], serde_json::json!(1));
+    assert!(home.path().join(".escode/skills/alpha/SKILL.md").is_file());
+
+    let detected = conn
+        .call(
+            9,
+            "detect",
+            serde_json::json!({"categories": ["skills"], "intent": "manualImport"}),
+        )
+        .await
+        .into_object()
+        .expect("二次发现");
+    let category = &detected["agents"][0]["categories"][0];
+    assert_eq!(category["importableCount"], serde_json::json!(0));
+    assert_eq!(category["skippedCount"], serde_json::json!(1));
+
+    // 没有 manualImport intent 时不扫描。
+    let empty = conn
+        .call(10, "detect", serde_json::json!({"categories": ["skills"]}))
+        .await
+        .into_object()
+        .expect("空发现结果");
+    assert_eq!(empty, serde_json::json!({"agents": []}));
 
     surface.shutdown().await;
 }
