@@ -76,7 +76,9 @@ pub fn spawn(options: RuntimeOptions) -> Embedded {
         // 捕获后转为错误值，残余照常中止（docs/specs/rust-u2-host-resilience.md §2.7）。
         let served = escode_cli_core_api::catch_panic(env::run_in_instance(
             context,
-            run_embedded(options, streams, serving_cancel, input_closed),
+            // 先装箱：实例根 future 很大（debug 构建尤甚），多套一层 catch_panic 会在 worker 栈上
+            // 多留一份临时副本，2 MiB 的 tokio worker 栈随即溢出（host-rpc rpc_agent_v4 实测）。
+            Box::pin(run_embedded(options, streams, serving_cancel, input_closed)),
         ))
         .await
         .unwrap_or_else(|panicked| {
