@@ -1,6 +1,7 @@
 # Rust 阶段 2：`subagents` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**4/8 已交付**（目录解析 + 状态写入面）。
+> 状态：切片交付中 · 2026-10-17。**4/8 已交付**（目录解析 + 状态写入面），另有 `list` 的前置件——
+> markdown 解析器（§6）已落地。
 > TS 真相源：`packages/services/src/subagents/`（`subagentsService.ts` 892、`subagentMarkdown.ts` 435、
 > `subagentConfigScope.ts` 343、`subagentRuntimeConfig.ts` 230、`subagentStorage.ts` 65）、
 > `packages/shared/src/subagents-types.ts`。
@@ -84,3 +85,60 @@
 - 负向验证两项（均已恢复）：①`setEnabled` 去掉排序 → 逆序插入得到 `["b","a"]`，用例失败；
   ②读入不归一 → 非法内置条目被保留，用例失败。
   （第一版排序用例写成「b→a→b」三次写入，第三次恰好把顺序修正，负向验证发现它测不到排序，已改为「b→a」。）
+
+## 6. markdown 解析器（`list` 的前置件，2026-10-17）
+
+TS 侧是**手写的 YAML 子集**（无第三方库）：`subagent-profile-frontmatter.ts` 243 行做切分与宽松解析，
+`subagent-profile-parser.ts` 226 行做字段归一，`subagent-markdown-selection.ts` 的解析侧再做 `model` 解释。
+Rust 对应 `subagents/{frontmatter,profile}.rs`。
+
+### 6.1 frontmatter（`frontmatter.rs`）
+
+- **切分**：去 BOM；首行 trim 后必须是 `---`；取紧随其后的第二个 `---`（`\r?\n` 都接受）；
+  缺任一端整段都算 body。
+- **宽松解析**：空行与 `#` 注释跳过；`- ` 开列表项；`key:` 空值先记空数组并开启列表（后续缩进续行视为
+  **块状 mapping**，不当列表项）；`key: value` 支持内联 `[...]`/`{...}`、行内注释（`#` **前须有空白**才生效）、
+  成对引号才去引号。
+- **数值**：`^\d+$` 与数字字面量按 **i64**（JS 序列化回 `42` 而不是 `42.0`）；带小数点/指数才用 f64。
+- **`mcpServers` 的四态**：未配置（外层 `None`）／裸值（`Some(None)`）／块状 mapping 或未加引号的
+  inline mapping 项（`Some(None)`）／合法名字列表（`Some(Some(names))`）。只有最后一种能扩大 child MCP scope。
+- **`tools` 裸值**：`tools:` 后没有列表项时整键丢弃（TS `delete values.tools`）。
+
+### 6.2 profile（`profile.rs`）
+
+- 缺 frontmatter / 缺 `name` / 缺 `description` → **失败**，文案逐字（含 `<path>` 或 `<inline>`）；
+- `mcpServers` 非法 → 失败（`agent_invalid_mcp_servers`）；
+- `memory` 非法 → **带 profile 的警告**（`agent_invalid_memory_scope`）；
+- **项目级来源不透传 `permissionMode`**（仓库输入不能把 child runtime 提升到 bypass）；
+- `description` 里的字面 `\n` 还原成换行；`systemPrompt` = body.trim()；
+- `color` / `permissionMode` / `memory` 走白名单；`maxTurns` 只认正整数；
+- `tools` / `disallowedTools` 逐个去掉 `(...)` 后缀后去空；`tools` 写成数组但归一为空时显式回 `[]`；
+- `skills` 按逗号/空白切；`background` / `injectAgentsMd` 接受布尔与 `"true"`/`"false"`。
+
+### 6.3 `model` 解释（解析侧）
+
+- `inherit` / `main` / `sonnet` / `opus` / `haiku` → **不产生覆盖**；
+- `custom:<provider>[:<model>]`（含 `builtin:a:b:c` 三段式与百分号转义）→ 直接解码；
+- 否则按 `provider/model[$reasoning]` 解析，`$` 在首位或末位时**不当作档位**（留在 modelId 里）；
+- `thoughtLevel` 非空时写入 `options.reasoningLevel`；
+- 解析不出合法 `providerId`/`modelId` → 不产生覆盖（TS 的 zod 抛错被 `try/catch` 吞掉）。
+
+**未做**（属写面）：`serializeSubagentMarkdown`、`migrateSubagentMarkdownProvider`（legacy provider id 迁移）。
+
+### 6.4 验收
+
+- 单测 9 例：切分（BOM/CRLF/缺分隔符）、标量与列表与行内注释（含引号内的 `#`）、
+  `mcpServers` 四态、`tools` 裸值丢弃、完整 frontmatter 的全字段映射、缺字段的三条文案、
+  项目级丢弃 `permissionMode` 与 `memory` 警告、`model` 的五种形态、`tools` 归一为空的 `[]`。
+- 实现期修正：第一版把整数解析成 f64（`42.0`），导致 `maxTurns` 的 `as_u64()` 也失配——改走 i64 后两处同时修复。
+
+### 6.5 `list` 剩余部分（下一步）
+
+`list` 还要移植（约 450–550 行 TS，都不是上游缺口）：
+
+1. `createBuiltInAgents`：两个内置 agent（`general-purpose` / `Explore`）的固定摘要、身份色、工具集与覆盖回填；
+2. 文件发现：用户根与工作区根（`<root>/.escode/agents`）、只收 `.*md`、`depth:0` 语义；
+3. 插件 agent 发现：三种清单格式、`enabledPlugins` / `installed_plugins.json` / 官方缓存、`agents` 目录声明；
+4. `applyRuntimePrecedence` 与 `attachEnabledState`（禁用态来自本片已交付的 `agents-state.json`）；
+5. `migrateUserSubagentMarkdown`（97 行，legacy markdown 迁移，`list` 在用户根上调用它）；
+6. `resolveCapabilities`（`userScopeAvailable`）。

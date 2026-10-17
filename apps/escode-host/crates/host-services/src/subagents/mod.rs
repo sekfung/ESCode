@@ -7,7 +7,11 @@
 //!
 //! **所有写操作串行**（TS `enqueue` 的写队列）：读-改-写必须是一个整体，否则并发 setEnabled 会丢更新。
 
+pub mod frontmatter;
+pub mod frontmatter_value;
 pub mod model_selection;
+pub mod model_value;
+pub mod profile;
 pub mod state;
 pub mod storage;
 
