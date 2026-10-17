@@ -132,13 +132,36 @@ Rust 对应 `subagents/{frontmatter,profile}.rs`。
   项目级丢弃 `permissionMode` 与 `memory` 警告、`model` 的五种形态、`tools` 归一为空的 `[]`。
 - 实现期修正：第一版把整数解析成 f64（`42.0`），导致 `maxTurns` 的 `as_u64()` 也失配——改走 i64 后两处同时修复。
 
-### 6.5 `list` 剩余部分（下一步）
+### 6.5 `list` 剩余部分（下一步，已逐项读码）
 
-`list` 还要移植（约 450–550 行 TS，都不是上游缺口）：
+> **2026-10-17 复核**：逐项读码后，剩余工作量比初估更大，且有两处必须先定的口径。
 
-1. `createBuiltInAgents`：两个内置 agent（`general-purpose` / `Explore`）的固定摘要、身份色、工具集与覆盖回填；
-2. 文件发现：用户根与工作区根（`<root>/.escode/agents`）、只收 `.*md`、`depth:0` 语义；
-3. 插件 agent 发现：三种清单格式、`enabledPlugins` / `installed_plugins.json` / 官方缓存、`agents` 目录声明；
-4. `applyRuntimePrecedence` 与 `attachEnabledState`（禁用态来自本片已交付的 `agents-state.json`）；
-5. `migrateUserSubagentMarkdown`（97 行，legacy markdown 迁移，`list` 在用户根上调用它）；
-6. `resolveCapabilities`（`userScopeAvailable`）。
+1. **Settings 侧用的是真正的 `yaml` 包**（`subagentMarkdown.ts` 的
+   `parseRuntimeCompatibleFrontmatter`）：`{...yamlValues, ...looseValues, mcpServers: yaml 数组优先}`。
+   而 runtime 侧（`subagent-profile-parser.ts`）只用宽松解析。两条路径本来就不同。
+   **待定**：Rust 的 `list` 是「只用宽松解析」（与 Rust runtime 自洽，登记差异）还是「用 saphyr 复刻 YAML 合并」
+   （需一个 `saphyr → serde_json` 转换器，约 60 行，且要复刻 `yaml` 包对重复键报错等行为）。
+2. **`createBuiltInAgents`**：两个内置 agent 的摘要是**常量**（`general-purpose` 蓝色 / `Explore` 青色，
+   各自的 description / tools / injectAgentsMd / `readOnly: true` / `scope: builtin`），只需把
+   `builtInModelSelectionOverrides` 回填到 `modelSelection` 与 `modelSelectionOverride`。
+3. **文件发现**：用户根与工作区根、**只扫第一层**（插件才递归）、只收 `.*md`/`*.markdown`（大小写不敏感）、
+   结果按 `localeCompare` 排序；读失败产出 `agent_read_failed` 诊断。
+4. **插件发现**（最大的一块，约 230 行）：
+   - 另一个缓存扫描器 `officialPluginCache.ts`（69 行）——返回**按插件名分组**的 `{name, versionRoots}`，
+     版本目录按「数字感知、忽略大小写、降序」排序并过滤瞬态目录名；与 `commands` 用的那个**不是同一个**；
+   - `installed_plugins.json` → 记录过滤（`enabledPlugins[id] === true`，且
+     **卸载抑制优先于遗留安装记录**）；
+   - 内置插件没有安装记录，故用缓存兜底（`enabledPlugins[id] ?? DEFAULT_ENABLED`），但缓存**不能复活**
+     `suppressedBuiltins` 里的插件；
+   - agent 根：`agents` + 清单 `agents` 字段（字符串或数组，去 `./` 前缀、必须仍在插件根内）；
+   - 命名：`name = <pluginName>:<bareName>`，`id = plugin:<pluginId>:<bareName小写>`；
+     裸名唯一且不与内置/已发现名字冲突时额外产出一条运行时**别名**，否则报 `agent_ambiguous_name`；
+   - `applyPluginAgentOverrides`：插件文件只给默认值，用户覆盖替换**整份**选择（不混入原档位）。
+5. **优先级与状态**：`applyRuntimePrecedence` 按 `name` 后者覆盖前者（Map 语义）；
+   `attachEnabledState` 只对 `scope === "user"` 应用禁用集；`resolveCapabilities` 在桌面运行时恒为
+   `{userScopeAvailable: true}`（Host 不读 env，直接按桌面口径）。
+6. **legacy markdown 迁移**：**不做**（用户决定，2026-10-17）。解析侧已能识别 legacy 的 `builtin:a:b:c`
+   与 `$` 档位，跳过迁移只会让文件里的 `model:` 行保持旧写法。**登记差异**：`list` 不再改写用户文件，
+   属读路径无副作用（TS 每次 `list` 都会在文件锁下重写 legacy 文件）。
+
+### 6.6 `list` 剩余部分（旧清单，保留供对照）
