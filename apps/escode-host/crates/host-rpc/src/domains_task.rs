@@ -252,7 +252,7 @@ pub(crate) fn task_channel(
 
     let get_task_model_selection =
         domains_task_query::get_task_model_selection_handler(ReadContext {
-            path: path.clone(),
+            path: path_for_snapshot.clone(),
             index: Arc::clone(&index),
             targets: Arc::clone(&targets),
             runtime: runtime.clone(),
