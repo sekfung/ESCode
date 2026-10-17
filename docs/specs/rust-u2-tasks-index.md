@@ -722,3 +722,89 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
 - 负向验证：①去掉 plan 的 `planEnabled` 适配 → setMode 用例失败；
   ②去掉桩的稳定 code → 桩用例失败。
 - 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **313 已实现 / 225 待办**。
+
+## 13. escode-task 命令队列（S8，2026-10-17）
+
+本片交付 4 个成员：`enqueueTaskCommand` / `promoteTaskCommand` / `cancelTaskCommand`，
+以及 TS 适配器本身就是 `unsupported` 的 `syncTaskSessionBinding`（20 → 16）。
+
+### 13.1 所有者和数据结构
+
+- 队列是 **Host 进程内**状态（TS `runtimeCommands` 同构），不落库、不跨 Host 重启；
+  键 = `workspaceKey + "\0" + taskId`，`workspaceKey = workspaceIdentity?.trim() || workspacePath`
+  （`tasks_index::workspace_key`）。
+- 每条命令 `status: "accepted" | "running" | "failed"`，字段与 TS
+  `ESCodeTaskRuntimeCommand` 逐字段一致：`commandId`、`taskId`、`traceId`、`queryId?`、
+  `workspacePath`、`workspaceIdentity?`、`workspaceKey`、`createdAt`、`updatedAt`、
+  `clientId?`、`clientLabel?`、`type:"send_prompt"`、`content`、`attachments?`、`automationId?`。
+- 活跃轮次表 `active[任务键] = traceId`：由 `sendPrompt` / `compactSession`（带 `inputId`）写入，
+  由 V4 sessions-index 的 **phase 终态迁移**（`completedSuccess`/`completedInterrupted`/`error`）
+  清除；`ownerRunId` 校验与 drain 闸门都只读这张表。
+- 同一任务键的 drain 用一把异步互斥锁串行；同一时刻至多一个 `running` 命令。
+
+```mermaid
+sequenceDiagram
+  participant M as 手机 replayable
+  participant H as Rust Host（escode-task）
+  participant S as task_index_syncer
+  participant R as 运行时（V4）
+  M->>H: sendPrompt(traceId=A)
+  H->>R: v4 sendText(commandId=A)
+  H->>H: active[key]=A
+  M->>H: enqueueTaskCommand(ownerRunId=A)
+  H->>H: 校验 owner=A；入队 accepted；drain 因 active 退出
+  R-->>S: sessions-index phase → completedSuccess
+  S->>H: session_terminal(key, taskId)
+  H->>H: 收口 running(A)；active 清除；schedule drain
+  H->>R: v4 sendText(commandId=queued.traceId)
+```
+
+### 13.2 `enqueueTaskCommand`
+
+- `ownerRunId` 非空时校验：无 active → `NO_ACTIVE_TASK_OWNER`（`No active task owner.`）；
+  与 active 不等 → `STALE_TASK_OWNER_COMMAND`（`Stale task owner command.`）。
+- 组装命令（`createdAt = updatedAt = Date.now()`），push 到队尾，随后调度 drain
+  （`reason = enqueue`）。返回 `{accepted:true, command}`。
+- 保留 `automationId`：drain 时按自动化轮施加同一套工具隔离（`CronCreate/CronUpdate/CronDelete`）。
+
+### 13.3 `promoteTaskCommand`
+
+- 先做 owner 校验；命令不存在 → `Error` + `code=OWNER_COMMAND_FAILED`，
+  文案 `Task command not found.`。
+- `running` 原样返回 `{accepted:true, command}`；其余置 `accepted`、刷新 `updatedAt` 并移到队首，
+  再调度 drain（`reason = promote`）。
+
+### 13.4 `cancelTaskCommand`
+
+- 先做 owner 校验；不存在 → 日志 info，返回
+  `{canceled:true, commandId, reason:"not_found"}`（幂等）。
+- `running` → 日志 info，返回
+  `{canceled:false, commandId, reason:"already_running", status:"running"}`。
+- 其余从队列删除，日志 info，返回 `{canceled:true, commandId, status}`。
+- **登记差异**：TS 还会 `emitTaskEvent(task_snapshot_updated)`；Rust Host 的任务事件发射器
+  随事件面（`onDynamicTaskEvent` 等 5 个）一起迁移，本片不新增部分实现。
+
+### 13.5 drain 与快照
+
+- drain 顺序：active 存在 → 退出；存在 `running` → 退出；取第一条 `accepted` 的
+  `send_prompt` → 置 `running` → 走与 `sendPrompt` 相同的发送路径
+  （无附件 V4 `sendText`，`commandId=traceId`；有附件回退 legacy `session/send`）。
+  失败时置 `failed`（保留在队列中）并清 active；成功时 active 保持到终态。
+- `getTaskSnapshot` / `getTaskSnapshotWithEtag` / `setAssistantMessageFeedback` 的
+  `runtime.pendingCommands` 返回该任务的实时队列（此前固定空数组）。
+- **登记差异**：不维护 TS 的 turn.started 校正（无任务流事件）；终态只依赖 sessions-index。
+  桌面 continuous 的 renderer 本地队列不经过本队列（与本片无关，保持原语义）。
+
+### 13.6 `syncTaskSessionBinding`（legacy 桩）
+
+与 §12.6 同形：`name="Error"`、`code=ESCODE_AGENT_UNSUPPORTED_LEGACY_TASK_METHOD`、
+`message="ESCode task service adapter does not support IESCodeTaskService.syncTaskSessionBinding yet."`。
+
+### 13.7 验收
+
+- 单元：命令字段/键、owner 三态、promote 移首、cancel 三态、终态收口与 pending 投影。
+- 端到端（真 embedded 实例 + 悬挂模型端点）：`createTask`(titleGeneration off) →
+  `sendPrompt`(A) 保持 active → `enqueue`(owner=A) → `promote`/`cancel` 语义 →
+  快照 `pendingCommands` 顺序与清空 → `syncTaskSessionBinding` 错误形状。
+- 负向验证：①去掉 owner 校验 → 单元用例失败；②去掉终态收口 → drain 用例失败。
+- 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **317 已实现 / 221 待办**。

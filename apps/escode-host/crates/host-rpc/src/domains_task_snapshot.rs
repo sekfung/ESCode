@@ -128,16 +128,24 @@ impl SnapshotParams {
 }
 
 /// `getTaskSnapshot`（`with_etag = false`）与 `getTaskSnapshotWithEtag`（`true`）的共用实现。
-pub(super) fn snapshot_handler(context: ReadContext, with_etag: bool) -> MethodHandler {
+/// `commands` 提供 `runtime.pendingCommands`（TS `mapSnapshot` 的同一投影）。
+pub(super) fn snapshot_handler(
+    context: ReadContext,
+    commands: std::sync::Arc<crate::task_commands::TaskCommandQueue>,
+    with_etag: bool,
+) -> MethodHandler {
     handler(move |arg: Wire| {
         let params = SnapshotParams::parse(&first_object(arg));
         let context = context_ref(&context);
+        let commands = std::sync::Arc::clone(&commands);
         Box::pin(async move {
             let params = params?;
             // TS `resumeSnapshot` 第一件事就是 `rememberTaskTarget`（缺省保留既有 cron 归属）。
             context.targets.remember(params.target());
             let snapshot = resume_snapshot(&context, &params).await?;
-            let projected = write_projected_snapshot(&context, &params, snapshot).await?;
+            let mut projected = write_projected_snapshot(&context, &params, snapshot).await?;
+            let pending = commands.pending(&params.target());
+            projected["runtime"]["pendingCommands"] = Value::Array(pending);
             if let Some(meta) = projected.get("meta") {
                 // 索引 meta 是权威归属：可设置/清空 cronAutomationId（TS `rememberIndexedTaskMeta`）。
                 remember_from_meta(&context.targets, meta);

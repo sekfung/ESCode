@@ -33,6 +33,8 @@ pub(crate) struct TaskIndexSyncer {
     ingests: Mutex<BTreeMap<String, Arc<Ingest>>>,
     /// 会话摘要基线变化（`window-controller` 的 overlay 刷新触发；消费方按身份键过滤）。
     overlay_changes: tokio::sync::broadcast::Sender<String>,
+    /// 手机 replayable 命令队列：phase 终态时收口当前 input 并放行下一条。
+    commands: Arc<crate::task_commands::TaskCommandQueue>,
 }
 
 /// 一个 workspace 的摄入状态（TS `WorkspaceIngestState` 的拆分）。
@@ -41,6 +43,8 @@ struct Ingest {
     /// 索引句柄（缺 `dataBaseDir` 时为 None：syncer 只在能写索引时启动，见 `channels()`）。
     pub read: ReadContext,
     pub events: Arc<WorkspaceEvents>,
+    /// Host 进程内命令队列（终端迁移 → 收口 running 命令 → 放行下一条）。
+    pub commands: Arc<crate::task_commands::TaskCommandQueue>,
     /// TS `v4ConnectionIdFor("task-index")`：`host-<uuid>#task-index`，进程内稳定。
     pub connection_id: String,
     pub workspace_path: String,
@@ -78,6 +82,7 @@ impl Ingest {
         base: Arc<Base>,
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
+        commands: Arc<crate::task_commands::TaskCommandQueue>,
         connection_id: String,
         workspace: Workspace,
         overlay_changes: tokio::sync::broadcast::Sender<String>,
@@ -97,6 +102,7 @@ impl Ingest {
             base,
             read,
             events,
+            commands,
             connection_id,
             workspace_path: workspace.path,
             workspace_identity: workspace.identity,
@@ -163,11 +169,13 @@ impl TaskIndexSyncer {
         base: Arc<Base>,
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
+        commands: Arc<crate::task_commands::TaskCommandQueue>,
     ) -> Arc<Self> {
         let (overlay_changes, _) = tokio::sync::broadcast::channel(OVERLAY_CHANGE_CAPACITY);
         let syncer = Arc::new(Self {
             ingests: Mutex::new(BTreeMap::new()),
             overlay_changes,
+            commands,
         });
         let mut lifecycle = base.instances.lifecycle();
         // 任务即所有者：syncer 与监听同生命周期（进程内单例；`weak` 会在 spawn 返回后立即失效）。
@@ -194,6 +202,7 @@ impl TaskIndexSyncer {
         Self {
             ingests: Mutex::new(BTreeMap::new()),
             overlay_changes,
+            commands: Arc::new(crate::task_commands::TaskCommandQueue::new()),
         }
     }
 
@@ -279,6 +288,7 @@ impl TaskIndexSyncer {
             Arc::clone(base),
             read.clone(),
             Arc::clone(events),
+            Arc::clone(&self.commands),
             format!("host-{}#task-index", uuid::Uuid::new_v4()),
             Workspace {
                 path: event.workspace_path.clone(),
@@ -316,6 +326,9 @@ mod order_tests;
 #[cfg(test)]
 #[path = "task_index_syncer_projection_tests.rs"]
 mod projection_tests;
+#[cfg(test)]
+#[path = "task_index_syncer_queue_tests.rs"]
+mod queue_tests;
 #[cfg(test)]
 #[path = "task_index_syncer_tests.rs"]
 mod tests;

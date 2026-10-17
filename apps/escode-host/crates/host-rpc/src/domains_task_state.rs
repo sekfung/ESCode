@@ -26,6 +26,8 @@ use crate::workspace_events::{Target, WorkspaceEvents};
 pub(crate) struct StateContext {
     pub read: ReadContext,
     pub events: Arc<WorkspaceEvents>,
+    /// Host 进程内的 replayable 命令队列（发送/停止/控制与 syncer 终态共用一份）。
+    pub commands: Arc<crate::task_commands::TaskCommandQueue>,
 }
 
 /// 一次调用的任务定位（`workspacePath` + `workspaceIdentity?` + `taskId`）。

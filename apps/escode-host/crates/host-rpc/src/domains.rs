@@ -154,12 +154,15 @@ pub fn channels_with(
     let drafts = Arc::new(DeferredDrafts::new());
     // workspace 事件总线：任务域写面与 session 写面共用（Host 内唯一）。
     let events = Arc::new(crate::workspace_events::WorkspaceEvents::default());
+    // 手机 replayable 的命令队列：escode-task 与 syncer 终态回调共用（Host 内唯一）。
+    let commands = Arc::new(crate::task_commands::TaskCommandQueue::new());
     let task_channel = crate::domains_task::task_channel(
         data_base_dir.clone(),
         Some(runtime.clone()),
         Arc::clone(&index),
         Arc::clone(&targets),
         Arc::clone(&events),
+        Arc::clone(&commands),
     );
     let task_channel = task_channel.with_methods(
         crate::domains_task_trajectory::trajectory_methods(&home, data_base_dir.as_deref()),
@@ -185,10 +188,16 @@ pub fn channels_with(
             Arc::clone(&base),
             read,
             Arc::clone(&events),
+            Arc::clone(&commands),
         )
     });
     let controller = write.read.clone().zip(syncer).map(|(read, syncer)| {
-        crate::window_controller::WindowController::new(read, Arc::clone(&events), syncer)
+        crate::window_controller::WindowController::new(
+            read,
+            Arc::clone(&events),
+            syncer,
+            Arc::clone(&commands),
+        )
     });
     let mut list = vec![
         setting_channel(home.clone(), data_base_dir_for_setting),

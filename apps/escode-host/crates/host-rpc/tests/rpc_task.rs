@@ -233,7 +233,7 @@ async fn get_task_meta_reads_the_shared_index() {
         &mut socket,
         43,
         "escode-task",
-        "enqueueTaskCommand",
+        "importClaudeSessions",
         &Wire::Array(vec![Wire::Object(serde_json::json!({}))]),
     )
     .await;
@@ -243,7 +243,7 @@ async fn get_task_meta_reads_the_shared_index() {
     };
     let message = error["message"].as_str().unwrap_or_default().to_owned();
     assert!(
-        message.contains("does not implement `escode-task.enqueueTaskCommand` yet"),
+        message.contains("does not implement `escode-task.importClaudeSessions` yet"),
         "{message}"
     );
     assert!(message.contains("getTaskMeta"), "{message}");

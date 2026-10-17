@@ -17,6 +17,19 @@ use crate::workspace_events::WorkspaceEvents;
 use crate::task_index_syncer::topic as sync_topic;
 
 pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::session::EventStream) {
+    let (dir, ingest, events, _) =
+        ingest_with_commands(Arc::new(crate::task_commands::TaskCommandQueue::new()));
+    (dir, ingest, events)
+}
+
+pub(super) fn ingest_with_commands(
+    commands: Arc<crate::task_commands::TaskCommandQueue>,
+) -> (
+    tempfile::TempDir,
+    Arc<Ingest>,
+    crate::session::EventStream,
+    Arc<crate::task_commands::TaskCommandQueue>,
+) {
     let dir = tempfile::tempdir().unwrap();
     let data_base = dir.path().join("data-base");
     std::fs::create_dir_all(data_base.join(".escode").join("v2")).unwrap();
@@ -55,6 +68,7 @@ pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::ses
             base,
             read,
             events,
+            Arc::clone(&commands),
             "test-conn#task-index".to_owned(),
             Workspace {
                 path: "/w".to_owned(),
@@ -64,6 +78,7 @@ pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::ses
             overlay_changes,
         )),
         event_stream,
+        commands,
     )
 }
 

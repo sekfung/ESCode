@@ -1,7 +1,7 @@
 //! `escode-task` 任务控制与 legacy 桩（S7）：`setMode` / `setModel` / `setConfigOption` /
 //! `setAutomationSessionConfig` / `setAssistantMessageFeedback`，以及 TS 适配器本身就是
-//! `unsupported` 的四个方法（`branchTaskFromPrompt` / `deliverSessionMessage` /
-//! `sendSessionMessageDeliveryResult` / `switchAgent`）。
+//! `unsupported` 的方法（`branchTaskFromPrompt` / `deliverSessionMessage` /
+//! `sendSessionMessageDeliveryResult` / `switchAgent`；`syncTaskSessionBinding` 在 S8 补齐）。
 
 use std::sync::Arc;
 
@@ -49,6 +49,10 @@ pub(super) fn control_methods(context: &StateContext) -> Vec<(&'static str, Meth
             unsupported("sendSessionMessageDeliveryResult"),
         ),
         ("switchAgent", unsupported("switchAgent")),
+        (
+            "syncTaskSessionBinding",
+            unsupported("syncTaskSessionBinding"),
+        ),
     ]
 }
 
@@ -255,7 +259,11 @@ fn set_automation_session_config(context: &StateContext) -> MethodHandler {
 fn set_assistant_message_feedback(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
         let read = context_ref(&context.read);
-        let snapshot_handler = crate::domains_task_snapshot::snapshot_handler(read, false);
+        let snapshot_handler = crate::domains_task_snapshot::snapshot_handler(
+            read,
+            Arc::clone(&context.commands),
+            false,
+        );
         let arg = Wire::Array(vec![Wire::Object(params.clone())]);
         let answered = snapshot_handler(arg).await?;
         let Wire::Object(mut snapshot) = answered else {

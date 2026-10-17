@@ -3,43 +3,9 @@
 //! 其余 TS 成员一律 Pending（评审 A13：旧清单手工登记 9 个 channel，未登记 channel 的缺口不可见，
 //! 且有拼错的条目 `file.workspaceFileListLength`，TS 实名 `listWorkspaceFilesLength`）。
 
+use crate::inventory_non_rpc::NON_RPC_METHODS;
 use crate::inventory_ts::TS_SERVICE_CHANNELS;
 use crate::{Method, State};
-
-/// 不属于 Renderer RPC 面的服务条目（不在 TS 服务描述符里）：Main↔Host 控制面的 settings 消息、
-/// u2a 通路的 workspace / v4 占位。
-pub const NON_RPC_METHODS: &[Method] = &[
-    Method {
-        channel: "settings",
-        method: "settingsRead",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "settings",
-        method: "settingsWrite",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "settings",
-        method: "settingsValue",
-        state: State::Implemented,
-    },
-    Method {
-        channel: "workspace",
-        method: "workspace/query",
-        state: State::Pending,
-    },
-    Method {
-        channel: "v4/conversation",
-        method: "v4/conversation/subscribe",
-        state: State::Pending,
-    },
-    Method {
-        channel: "v4/conversation",
-        method: "v4/conversation/resync",
-        state: State::Pending,
-    },
-];
 
 /// Renderer RPC 面已实现的 `(channel, member)`（方法与事件同表；与 `host-rpc` 方法表双向对账，
 /// 见 host-rpc/tests/contract.rs）。新增实现必须同时改这里与方法表。
@@ -61,6 +27,10 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-task", "deleteArchivedTask"),
     ("escode-task", "deleteArchivedTasks"),
     ("escode-task", "onDynamicWorkspaceEvent"),
+    ("escode-task", "enqueueTaskCommand"),
+    ("escode-task", "promoteTaskCommand"),
+    ("escode-task", "cancelTaskCommand"),
+    ("escode-task", "syncTaskSessionBinding"),
     ("escode-task", "createTaskGroup"),
     ("escode-task", "renameTaskGroup"),
     ("escode-task", "updateTaskGroupColor"),

@@ -32,7 +32,8 @@ fn controller_fixture(index_path: std::path::PathBuf) -> Arc<WindowController> {
     };
     let events = Arc::new(WorkspaceEvents::default());
     let syncer = Arc::new(TaskIndexSyncer::empty_for_test(Arc::clone(&events)));
-    WindowController::new(read, events, syncer)
+    let commands = Arc::new(crate::task_commands::TaskCommandQueue::new());
+    WindowController::new(read, events, syncer, commands)
 }
 
 /// 取消路径（评审遗留）：owner 释放后两个监听任务必须真的停表，而不是继续挂在

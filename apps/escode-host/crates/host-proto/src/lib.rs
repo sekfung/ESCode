@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 mod inventory;
+mod inventory_non_rpc;
 mod inventory_services;
 mod inventory_ts;
 

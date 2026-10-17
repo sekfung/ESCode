@@ -55,6 +55,7 @@ pub(crate) struct WindowController {
     read: ReadContext,
     events: Arc<WorkspaceEvents>,
     syncer: Arc<TaskIndexSyncer>,
+    commands: Arc<crate::task_commands::TaskCommandQueue>,
     /// 每 source 的刷新串行锁（TS single-flight：并发刷新等待同一次读库）。
     refresh_locks: Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// 刷新期间到达的变更信号（在飞读结束后续跑一轮；不用超时掩蔽同步问题）。
@@ -86,6 +87,7 @@ impl WindowController {
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
         syncer: Arc<TaskIndexSyncer>,
+        commands: Arc<crate::task_commands::TaskCommandQueue>,
     ) -> Arc<Self> {
         let controller = Arc::new(Self {
             projector: Arc::new(Projection::new(Box::new(|| {
@@ -94,6 +96,7 @@ impl WindowController {
             read,
             events,
             syncer,
+            commands,
             refresh_locks: Mutex::new(BTreeMap::new()),
             dirty: DirtyFlags::default(),
             watchers: Mutex::new(BTreeMap::new()),
@@ -138,6 +141,7 @@ impl WindowController {
         StateContext {
             read: self.read.clone(),
             events: Arc::clone(&self.events),
+            commands: Arc::clone(&self.commands),
         }
     }
 

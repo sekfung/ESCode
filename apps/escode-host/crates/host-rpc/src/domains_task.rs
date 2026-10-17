@@ -39,6 +39,7 @@ pub(crate) fn task_channel(
     index: Arc<Mutex<LazyIndex>>,
     targets: Arc<TaskTargets>,
     events: Arc<crate::workspace_events::WorkspaceEvents>,
+    commands: Arc<crate::task_commands::TaskCommandQueue>,
 ) -> Channel {
     let Some(data_base_dir) = data_base_dir else {
         return super::domains_task_gap::gap_channel(&events);
@@ -54,7 +55,10 @@ pub(crate) fn task_channel(
             runtime: runtime.clone(),
         },
         events: Arc::clone(&events),
+        commands: Arc::clone(&commands),
     };
+    // syncer 的终态回调要用同一份队列调度 drain（单写者：队列状态只有这一份）。
+    commands.attach(state.clone());
 
     let get_task_meta = handler({
         let context = ReadContext {
@@ -316,6 +320,7 @@ pub(crate) fn task_channel(
                     targets: Arc::clone(&targets_for_snapshot),
                     runtime: runtime_for_snapshot.clone(),
                 },
+                Arc::clone(&commands),
                 false,
             ),
         ),
@@ -328,6 +333,7 @@ pub(crate) fn task_channel(
                     targets: Arc::clone(&targets_for_snapshot),
                     runtime: runtime_for_snapshot.clone(),
                 },
+                Arc::clone(&commands),
                 true,
             ),
         ),
@@ -362,6 +368,7 @@ pub(crate) fn task_channel(
     ));
     methods.extend(super::domains_task_input::input_methods(&state));
     methods.extend(super::domains_task_control::control_methods(&state));
+    methods.extend(super::domains_task_commands::command_methods(&state));
     methods.extend(super::domains_task_groups::group_methods(&state));
     methods.extend(super::domains_task_runtime::usage_and_log_methods(
         runtime_for_restart.clone(),

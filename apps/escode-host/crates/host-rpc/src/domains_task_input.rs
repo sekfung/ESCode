@@ -1,5 +1,5 @@
-//! `escode-task` 输入/停止/交互（S6）：`sendPrompt`、`stopGeneration`、`compactSession`、
-//! `respondPermission`、`respondElicitation`。
+//! `escode-task` 输入/停止/交互（S6）：`sendPrompt`（发送载荷在 `domains_task_send.rs`）、
+//! `stopGeneration`、`compactSession`、`respondPermission`、`respondElicitation`。
 //!
 //! 主路径统一走 V4 `v4/command`（`sendText` / `stop` / `compact` / `resolveInteraction`）；
 //! 带附件的输入回退 legacy `session/send`（与 TS 一致：附件命令面尚未进 V4）。
@@ -20,7 +20,7 @@ const OFF_PEAK_DENYLIST: [&str; 1] = ["OffPeakCreate"];
 
 pub(super) fn input_methods(context: &StateContext) -> Vec<(&'static str, MethodHandler)> {
     vec![
-        ("sendPrompt", send_prompt(context)),
+        ("sendPrompt", super::domains_task_send::send_prompt(context)),
         ("stopGeneration", stop_generation(context)),
         ("compactSession", compact_session(context)),
         ("respondPermission", respond_permission(context)),
@@ -61,7 +61,7 @@ pub(super) fn runtime(context: &StateContext) -> Result<RuntimeAccess, RpcError>
 }
 
 /// TS `turnAttributionOf`：automation 优先于 off-peak。
-fn turn_attribution(params: &Value) -> Value {
+pub(super) fn turn_attribution(params: &Value) -> Value {
     if let Some(automation) = params["automationId"].as_str() {
         return json!({"automationId": automation});
     }
@@ -76,7 +76,7 @@ fn turn_attribution(params: &Value) -> Value {
 }
 
 /// TS `resolvePromptToolDenylist`：基础 denylist + 本轮 automation/off-peak 的纵深隐藏。
-fn prompt_tool_denylist(params: &Value) -> Vec<String> {
+pub(super) fn prompt_tool_denylist(params: &Value) -> Vec<String> {
     let mut tools: Vec<String> = params["toolDenylist"]
         .as_array()
         .map(|items| {
@@ -103,7 +103,7 @@ fn prompt_tool_denylist(params: &Value) -> Vec<String> {
     tools
 }
 
-fn routing(target: &TaskTarget) -> Value {
+pub(super) fn routing(target: &TaskTarget) -> Value {
     let mut routing = json!({"workspacePath": target.workspace_path});
     if let Some(identity) = &target.workspace_identity {
         routing["workspaceIdentity"] = Value::from(identity.clone());
@@ -129,7 +129,7 @@ pub(super) async fn send_v4(
     forward::request(&instance, "v4/command", envelope, None).await
 }
 
-async fn send_command(
+pub(super) async fn send_command(
     context: &StateContext,
     target: &TaskTarget,
     envelope: Value,
@@ -138,112 +138,6 @@ async fn send_command(
     let ack = send_v4(context, target, envelope).await?;
     host_command::assert_ack_ok(kind, &ack, &format!("session={}", target.task_id))?;
     Ok(ack)
-}
-
-fn send_prompt(context: &StateContext) -> MethodHandler {
-    method(context, |context, params| async move {
-        let target = task_target(&context, &params)?;
-        let trace_id = params["traceId"]
-            .as_str()
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| RpcError::new("InvalidRequest", "traceId is required."))?
-            .to_owned();
-        let content = params["content"].as_str().unwrap_or_default().to_owned();
-        let denylist = prompt_tool_denylist(&params);
-        let attachments = params["attachments"]
-            .as_array()
-            .filter(|items| !items.is_empty());
-        if let Some(attachments) = attachments {
-            // 遗留附件路径：V4 sendText 的附件命令面尚未建模（TS 同）。
-            let runtime = runtime(&context)?;
-            let mut body = json!({
-                "sessionId": target.task_id,
-                "inputId": trace_id,
-                "content": content,
-                "attachments": attachments,
-            });
-            for key in ["queryId", "messageId", "modelSelection", "modelExecution"] {
-                if let Some(value) = params.get(key).filter(|value| !value.is_null()) {
-                    body[key] = value.clone();
-                }
-            }
-            if !denylist.is_empty() {
-                body["toolDenylist"] = json!(denylist);
-            }
-            if let Some(delivery) = params
-                .get("botDeliveryTarget")
-                .filter(|value| !value.is_null())
-            {
-                body["botDeliveryTarget"] = delivery.clone();
-            }
-            for (key, value) in turn_attribution(&params)
-                .as_object()
-                .cloned()
-                .unwrap_or_default()
-            {
-                body[key] = value;
-            }
-            let routing = routing(&target);
-            let answer = forward::runtime_call_shaped(
-                &runtime.instances,
-                &runtime.options,
-                routing,
-                Shaped {
-                    method: "session/send",
-                    body,
-                    with_workspace: false,
-                    trace: None,
-                },
-                Extract::Result,
-            )
-            .await?;
-            let _ = answer;
-            return Ok(Wire::Undefined);
-        }
-        let mut payload = json!({
-            "text": content,
-            "heldQueueDisposition": "keepQueueAndSend",
-        });
-        if let Some(model) = params
-            .get("modelSelection")
-            .filter(|value| !value.is_null())
-        {
-            payload["modelSelection"] = model.clone();
-        }
-        if let Some(execution) = params
-            .get("modelExecution")
-            .filter(|value| !value.is_null())
-        {
-            payload["modelExecution"] = execution.clone();
-        }
-        if let Some(delivery) = params
-            .get("botDeliveryTarget")
-            .filter(|value| !value.is_null())
-        {
-            payload["botDeliveryTarget"] = delivery.clone();
-        }
-        if !denylist.is_empty() {
-            payload["toolDisallowlist"] = json!(denylist);
-        }
-        for (key, value) in turn_attribution(&params)
-            .as_object()
-            .cloned()
-            .unwrap_or_default()
-        {
-            payload[key] = value;
-        }
-        let mut command = HostCommand::new("sendText", Some(&target.task_id), payload);
-        command.command_id = Some(trace_id);
-        if let Some(client) = params["clientId"]
-            .as_str()
-            .filter(|value| !value.is_empty())
-        {
-            command.client_id = Some(client.to_owned());
-        }
-        let envelope = host_command::envelope(command)?;
-        send_command(&context, &target, envelope, "sendText").await?;
-        Ok(Wire::Undefined)
-    })
 }
 
 fn stop_generation(context: &StateContext) -> MethodHandler {
@@ -266,28 +160,48 @@ fn stop_generation(context: &StateContext) -> MethodHandler {
 fn compact_session(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
         let target = task_target(&context, &params)?;
-        let instructions = params["instructions"].as_str().unwrap_or_default();
-        let envelope = host_command::envelope(HostCommand::new(
-            "compact",
-            Some(&target.task_id),
-            json!({"text": instructions}),
-        ))?;
-        let ack = send_command(&context, &target, envelope, "compact").await?;
-        let snapshot = read_session(&context, &target).await?;
-        let input_id = ack["result"]["inputId"]
+        // TS compactSession 在 inputId 存在时登记活跃轮次；accepted 分支保持到 phase 终态。
+        let active_input_id = params["inputId"]
             .as_str()
-            .map(str::to_owned)
-            .or_else(|| params["inputId"].as_str().map(str::to_owned));
-        let mut compact = json!({"state": "accepted"});
-        if let Some(input_id) = input_id {
-            compact["inputId"] = Value::from(input_id);
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        if let Some(input_id) = active_input_id.as_ref() {
+            context.commands.set_active(&target, input_id);
         }
-        Ok(Wire::Object(json!({
-            "response": "",
-            "snapshot": snapshot,
-            "compact": compact,
-        })))
+        let result = compact_payload(&context, &target, &params).await;
+        if result.is_err() {
+            context.commands.clear_active(&target);
+        }
+        result
     })
+}
+
+async fn compact_payload(
+    context: &StateContext,
+    target: &TaskTarget,
+    params: &Value,
+) -> Result<Wire, RpcError> {
+    let instructions = params["instructions"].as_str().unwrap_or_default();
+    let envelope = host_command::envelope(HostCommand::new(
+        "compact",
+        Some(&target.task_id),
+        json!({"text": instructions}),
+    ))?;
+    let ack = send_command(context, target, envelope, "compact").await?;
+    let snapshot = read_session(context, target).await?;
+    let input_id = ack["result"]["inputId"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| params["inputId"].as_str().map(str::to_owned));
+    let mut compact = json!({"state": "accepted"});
+    if let Some(input_id) = input_id {
+        compact["inputId"] = Value::from(input_id);
+    }
+    Ok(Wire::Object(json!({
+        "response": "",
+        "snapshot": snapshot,
+        "compact": compact,
+    })))
 }
 
 fn respond_permission(context: &StateContext) -> MethodHandler {
