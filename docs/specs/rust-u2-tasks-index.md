@@ -498,3 +498,58 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
 `{path: "<workspacePath>/<taskId>.escode-session", exists:false}`；`checkCodexConnectivity` → `{target:"escode-agent", reachable:true}`；
 `releaseWorkspacePreparation` 与 `restartWorkspaceProcess` 同走 `disposeWorkspace`（Rust：`Instances::close`，其后的使用懒重启新世代）。
 验收：`rpc_task_restart.rs` 的集成用例（回收后 `live` 为空、三个常量应答逐字）。**未做**：`getTaskNativeSessionLogFile`（需要本地时区的日期文件名，Rust 侧无时区库，且只服务诊断入口）。
+
+## 9. escode-task 归档/日志/用量（S4，2026-10-17）
+
+本片交付 4 个成员：`archiveStaleTasks`、`archiveWorkspaceTasks`、`getTaskNativeSessionLogFile`、
+`getTaskTokenUsage`（escode-task 剩余 41 的 S4 切片）。
+
+### 9.1 `archiveStaleTasks`
+
+- 过滤（与 TS `TaskIndexRepo.archiveStaleTasks` 逐条同）：
+  `workspace_key = 键`、`deleted = 0`、`archived = 0`、`pinned = 0`、`unread_at IS NULL`、
+  `updated_at < cutoff`、`task_status = 'completed'`；`olderThanDays` 先 `max(1, floor())`，
+  `cutoff = now - days*24h`。
+- `provider` 可选：给定则追加 `provider = ?`；缺省清理**全部**历史 provider（适配器注释同）。
+- 选中行按 `updated_at DESC, created_at DESC, task_id DESC`，在**同一事务**里置 `archived = 1`，
+  返回选中行的 task meta；随后每个任务广播一次 `workspace_task_list_changed`（reason
+  `task_meta_changed`，带 `taskId`）。
+
+### 9.2 `archiveWorkspaceTasks`
+
+- 作用域固定 provider = `glm`（TS `ESCODE_AGENT_PROVIDER`）；列出未归档、未删除的行，
+  同事务逐个置归档；**事件只广播一次**（reason `task_meta_changed`，不带 `taskId`），
+  即使没有可归档任务也广播（TS 同）。
+- 返回该 workspace 下 provider=glm、已归档的全部任务（含此前已归档的），排序同列表分区。
+- Rust 直接更新 `archived` 列（与 `archiveTask` 的单条写路径同一语义；meta 不变）。
+
+### 9.3 `getTaskTokenUsage`
+
+- 转发 workspace 实例的 `v4/conversation/usage`，请求 `{sessionId: taskId}`；
+  实例策略 `start-if-needed`（TS `getReadOnlyClient` 默认）。
+- 错误按运行时协议错误透传（`ESCodeProtocolClientError`）；无运行时访问时显式 `InvalidRequest`。
+
+### 9.4 `getTaskNativeSessionLogFile`
+
+- 返回 Rust runtime 当前写入的 JSONL 日志：目录 `ESCODE_LOG_DIR ?? ~/.escode/cli/log`，
+  文件名 `escode-rust-YYYY-MM-DD.jsonl`（runtime `file_log` 的写者路径；新增
+  `escode_cli_host::file_log::current_log_path()`）。
+- 应答 `{provider: "glm", path, exists}`；`exists` 为当前文件是否已创建。
+
+### 9.5 登记差异
+
+1. **日志文件名前缀**：Rust runtime 写 `escode-rust-<date>.jsonl`，TS adapter 返回 Node runtime 的
+   `escode-<date>.jsonl`。指针指向**当前实际运行时的文件**，避免导出到不存在的日志。
+2. 归档返回的是事务后重读的 meta（Rust 索引即事实），TS 另维护进程内 overlay；对返回值不可见。
+3. 事件顺序：批量归档的每条事件在写库成功后发出（TS 先写 overlay 再写库、再发事件）；
+   订阅方只依赖 reason 与最终 state。
+
+### 9.6 验收
+
+- 单测：stale 过滤（完成/置顶/未读/已归档/非完成/其他 provider 全部排除）、provider 过滤、
+  `olderThanDays <= 0` 按 1 天；workspace 批量归档只动 glm、幂等、返回归档列表。
+- 端到端：预建 tasks-index 夹具 → `archiveStaleTasks`（全部 provider）→
+  `archiveWorkspaceTasks`（返回 stale+recent+running）→ workspace 事件 reason/无 taskId →
+  `getTaskNativeSessionLogFile` 的 `glm` 与 `escode-rust-*.jsonl`。
+- 负向验证：①去掉 `task_status = 'completed'` → stale 用例失败；②workspace 归档去掉
+  `provider = 'glm'` → 跨 provider 用例失败。

@@ -354,7 +354,11 @@ pub(crate) fn task_channel(
         ),
     ];
     methods.extend(super::domains_task_state::state_methods(&state));
+    methods.extend(super::domains_task_archive::archive_methods(&state));
     methods.extend(super::domains_task_groups::group_methods(&state));
+    methods.extend(super::domains_task_runtime::usage_and_log_methods(
+        runtime_for_restart.clone(),
+    ));
     // 关闭 workspace UI 的 `releaseWorkspacePreparation` 在 TS 里与 restart 同走 `disposeWorkspace`。
     methods.push((
         "restartWorkspaceProcess",

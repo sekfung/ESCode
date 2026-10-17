@@ -11,6 +11,7 @@
 //! 写路径（`createSession` 等）在后续切片落地前一律不开放：读写分离保证「索引是运行时的投影」
 //! 这一不变式不会因为没有 syncer 而被破坏。
 
+mod archive;
 mod ledger;
 mod meta;
 pub mod query;
@@ -301,6 +302,7 @@ impl TasksIndex {
     }
 }
 
+pub use archive::StaleArchiveParams;
 pub use query::TaskFilters;
 
 /// 读一行任务投影（列顺序见 `TASK_ROW_COLUMNS`）。

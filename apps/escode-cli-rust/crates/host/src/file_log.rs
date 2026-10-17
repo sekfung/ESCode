@@ -54,6 +54,12 @@ fn log_dir() -> Option<PathBuf> {
         .map(|home| home.join(".escode").join("cli").join("log"))
 }
 
+/// 当前进程正在写入的 JSONL 日志文件（桌面导出日志 / `getTaskNativeSessionLogFile`）。
+/// 目录与文件名和 [`writer`] 同一套规则；未初始化写者时也返回同一目标路径。
+pub fn current_log_path() -> Option<PathBuf> {
+    Some(log_dir()?.join(file_name(Local::now().date_naive())))
+}
+
 fn writer() -> Option<&'static Writer> {
     WRITER
         .get_or_init(|| {

@@ -9,7 +9,8 @@ use escode_host_runtime::Instances;
 use serde_json::Value;
 
 use crate::domains_task_support::{RuntimeAccess, first_object};
-use crate::session::{MethodHandler, handler};
+use crate::forward::{self, RuntimePolicy};
+use crate::session::{MethodHandler, RpcError, handler, handler_rpc};
 use crate::wire::Wire;
 
 /// 身份键：`workspaceIdentity?.trim() || workspacePath`。
@@ -102,5 +103,62 @@ pub(super) fn constant_methods() -> Vec<(&'static str, MethodHandler)> {
                 })
             }),
         ),
+    ]
+}
+
+/// `getTaskTokenUsage`（转发 `v4/conversation/usage`）与 `getTaskNativeSessionLogFile`。
+pub(super) fn usage_and_log_methods(
+    runtime: Option<RuntimeAccess>,
+) -> Vec<(&'static str, MethodHandler)> {
+    let usage = {
+        let runtime = runtime;
+        handler_rpc(move |arg: Wire| {
+            let (runtime, params) = (runtime.clone(), first_object(arg));
+            Box::pin(async move {
+                let task_id = params["taskId"].as_str().unwrap_or_default().to_owned();
+                if task_id.is_empty() {
+                    return Err(RpcError::new("InvalidRequest", "taskId is required."));
+                }
+                let Some(runtime) = runtime else {
+                    return Err(RpcError::new(
+                        "InvalidRequest",
+                        "Host has no runtime access.",
+                    ));
+                };
+                let target = forward::runtime_target(params)
+                    .map_err(|(name, message)| RpcError::new(name, message))?;
+                let instance = forward::runtime_instance(
+                    &runtime.instances,
+                    &runtime.options,
+                    &target,
+                    RuntimePolicy::StartIfNeeded,
+                )
+                .await?;
+                // TS `session/usage` 已落到 v4 的 conversation 命名空间。
+                let result = forward::request(
+                    &instance,
+                    "v4/conversation/usage",
+                    serde_json::json!({"sessionId": task_id}),
+                    None,
+                )
+                .await?;
+                Ok(Wire::Object(result))
+            })
+        })
+    };
+    let log = handler(|_arg: Wire| {
+        Box::pin(async move {
+            let path = escode_cli_host::file_log::current_log_path();
+            let exists = path.as_ref().is_some_and(|path| path.exists());
+            Ok(Wire::Object(serde_json::json!({
+                "provider": crate::domains_task_support::GLM_PROVIDER,
+                "path": path.map(|path| path.to_string_lossy().into_owned()).unwrap_or_default(),
+                "exists": exists,
+            })))
+        })
+    });
+    vec![
+        ("getTaskTokenUsage", usage),
+        ("getTaskNativeSessionLogFile", log),
     ]
 }
