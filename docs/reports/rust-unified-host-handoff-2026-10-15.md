@@ -265,6 +265,14 @@ TS 真相源（按调用顺序读）：
 - ~~`file` 域搜索/索引~~：已交付（`rust-u2-file-index.md`，`file` 17/17）。
 - 优先序 4 剩余：无（`git`、`terminal`、`file-watcher` 已交付；`generateCommitMessage` 随 providers 域；terminal T2 = Alacritty/macOS 检测器，见 `rust-u2-terminal.md` §6.1）。
 - 优先序 6–9：providers/account、extensions、automation、remote + runtime-link 选择器。
+- **范围边界已核实（2026-10-17）**：`serial` / `plugin-ui-bridge` / `gen-ui` / `plugin-ui-app-tools` /
+  `plugin-ui-sampling` / `cua-*` 共 43 个成员逐项读码定判——36 可迁（其中 `serial` 需重建 Rust 串口层、
+  两个 `prepareSandbox` 需拆协议）、5 个 `cua-*` 不可迁、2 个 `cua-permission` 落点 Main。
+  可迁待办由盘点的 310 修正为 **288**。依据与逐项证据见 `docs/specs/rust-u2-host-scope-boundary.md`。
+- **快赢批已开工**：`usage-stats`(1)、`plugins`(7)、`git-checkpoint`(4)、`gen-ui`(5) 已交付——
+  库存 228 → **246** 已实现 / 292 待办（另加 `commands.getPrimaryUserCommandsDirectory`，见
+  `rust-u2-commands.md`——该域剩余 5 个是约 1000 行的独立切片）（`usage-stats` 见 `rust-u2-misc-channels.md`、`plugins` 见
+  `rust-u2-plugin-management.md` §8、`git-checkpoint` 见 `rust-u2-git.md` §8、`gen-ui` 见 `rust-u2-gen-ui.md`）。
 - u2a 余项：**桌面窗口自身 host 的进程无关化**（`packages/desktop/src/main/desktopHostProcess.ts:762`）——需要 `windowHostProcessMap`/broadcastHub/taskRealtimeBus/`registerHostProcess` 接受"非 utility process 的 window host"；这是"dev 开关下跑通全部桌面 E2E"这条验收的最后一环。
 - 阶段 3（切默认与清理，含 golden freeze）、阶段 4（零序列化进程内链路、跨实例共享缓存、启动/退出路径、严格等价测试网）未开始，见父计划。
 

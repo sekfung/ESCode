@@ -176,6 +176,10 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 | 8    | automation（cron / bots）                                        | 调度移入 Host           |
 | 9    | remote + runtime-link 选择器                                     | SSH/WSL/Docker 与回退链 |
 
+> **范围边界（2026-10-17）**：上表的域并未覆盖全部 46 个 channel；哪些 channel 属于 Host、哪些因依赖
+> Electron/Renderer/闭源 producer 而不可迁，见 `rust-u2-host-scope-boundary.md`（含 `serial` / `plugin-ui-*` /
+> `gen-ui` / `cua-*` 的逐项判定与依据）。排期前先看该文件，别按目录名推测。
+
 runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 模式保留（差分、回退、故障隔离选项）；懒重启 generation 计数；wind-down 预算（工具进程树 TERM→KILL 收口上限）。
 
 验收：
