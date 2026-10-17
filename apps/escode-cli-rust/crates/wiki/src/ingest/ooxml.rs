@@ -1,17 +1,24 @@
 //! OOXML（DOCX/XLSX/PPTX）容器：ZIP 识别与带上限的读取（spec §13.2 解压炸弹防护）。
 //! 先按中央目录声明检查条目数、单条与总解压大小、压缩比，读取时再按实际字节限流；宏只告警，从不执行。
 use super::{Ctx, Failure};
+use std::borrow::Cow;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
 pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
     let archive = ZipArchive::new(Cursor::new(bytes)).ok()?;
-    let names: Vec<&str> = archive.file_names().collect();
-    if names.contains(&"word/document.xml") {
+    // zip 9 的条目名改为可失败解码；解不出的名字不可能是下面的目标路径，直接跳过。
+    let names: Vec<String> = archive
+        .file_names()
+        .filter_map(Result::ok)
+        .map(Cow::into_owned)
+        .collect();
+    let has = |target: &str| names.iter().any(|name| name == target);
+    if has("word/document.xml") {
         Some("docx")
-    } else if names.contains(&"xl/workbook.xml") {
+    } else if has("xl/workbook.xml") {
         Some("xlsx")
-    } else if names.contains(&"ppt/presentation.xml") {
+    } else if has("ppt/presentation.xml") {
         Some("pptx")
     } else {
         None
@@ -42,22 +49,27 @@ impl Package {
             let file = archive
                 .by_index_raw(i)
                 .map_err(|e| Failure::parse(e.to_string()))?;
+            // 名字只用于告警与诊断文案：解码失败时退回原始字节的 lossy 文本，不因此拒绝整个包。
+            let display = file
+                .name()
+                .map(Cow::into_owned)
+                .unwrap_or_else(|_| String::from_utf8_lossy(file.name_raw()).into_owned());
             let size = file.size();
             let compressed = file.compressed_size().max(1);
             total = total.saturating_add(size);
             if size / compressed > limits.max_compression_ratio && size > 1024 * 1024 {
                 return Err(Failure::limit(format!(
                     "entry {} has suspicious compression ratio {}",
-                    file.name(),
+                    display,
                     size / compressed
                 )));
             }
-            let name = file.name().to_ascii_lowercase();
+            let name = display.to_ascii_lowercase();
             if name.ends_with("vbaproject.bin") {
                 warnings.push("document contains macros (vbaProject.bin); they are ignored and never executed".into());
             }
             if name.contains("embeddings/") || name.contains("activex") {
-                warnings.push(format!("embedded object {} is not parsed", file.name()));
+                warnings.push(format!("embedded object {display} is not parsed"));
             }
         }
         if total > limits.max_uncompressed_bytes {
@@ -75,7 +87,12 @@ impl Package {
     }
 
     pub fn names(&self) -> Vec<String> {
-        self.archive.file_names().map(str::to_owned).collect()
+        // 解不出的名字无法经 by_name 读取，跳过。
+        self.archive
+            .file_names()
+            .filter_map(Result::ok)
+            .map(Cow::into_owned)
+            .collect()
     }
 
     /// 读取一个条目为 UTF-8 文本；条目不存在返回 None。实际读取字节计入总预算。
