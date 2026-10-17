@@ -1,7 +1,7 @@
 # Rust 阶段 2：`serial` 域（rust-unified-host.md 子 spec）
 
 > 状态：切片交付中 · 2026-10-17。**2/4 片已交付**：S1 枚举/轮询/`onPorts`；S2 会话（含自动重连）。
-> S3 的前置件——收发缓冲（§10）——已落地并测试，原生读路径与会话接线待做。
+> **S3 数据面已交付**（`write` / `clear` / `onData`，含 AsyncFd 读路径与 RX 合并）。只剩 S4（信号与循环）。
 > TS 真相源：`packages/services/src/serial/`（`serialService.ts` 359、`serialSession.ts` 386、
 > `serialChunkBuffer.ts` 172、`serialLoop.ts` 80、`serialSignals.ts` 35、`serialRuntime.ts` 68 等，共 1763 行）。
 
@@ -174,3 +174,25 @@ Rust Host 是 App 级单进程，实现口径为**连接级 channel**（`Channel
 4. **服务与 RPC**：`write` 回 `{seq}`、`clear`、`onData` 事件（按 path 区分）。
 5. **验收**：单测（空写返回当前 seq、64KB 上限、EAGAIN 重试、debounce 的尾部窗口语义、agent/user 的
    `sessionId` 差）+ 端到端（PTY 对：写 master → 从 slave 读到；写 slave → 面板收到 `onData`）。
+
+## 11. S3 数据面交付记录（2026-10-17）
+
+- **读路径**（用户决定：AsyncFd + epoll）：`SerialPort::spawn_reader` 用 `dup` 出来的 fd 建
+  `AsyncFd`（`unsafe { AsyncFd::register }`，tokio 1.53 已弃用 `new`），`readable()` 就绪后非阻塞读；
+  EAGAIN 时 `clear_ready()` 继续。关闭时**先 abort 读任务再 close(fd)**（否则 epoll 会在已关闭的 fd 上触发）。
+- **写路径**：非阻塞 fd 上 `write` 遇 EAGAIN 以 1ms 间隔重试，上限 5s；成功后返回本次 TX 的 seq。
+  **先记 TX 再真正写出**（TS 同序）：保证 TX 的 seq 先于设备回显。
+- **RX 合并**（`data.rs`）：字节进 pending，**尾部静默窗口**（10ms，`COALESCE_WINDOW`）后才成段；
+  pending 超过 4096 字节立即成段。缓冲上限 1 MiB（`BUFFER_LIMIT_BYTES`），写上限 64 KiB。
+- **事件**：`onData` 载荷 `{...chunk, path}`；TX 与 RX 都发（TS 同）。
+- **RPC 字节形态**：对象里的 `Uint8Array` 由 `@escode/rpc` 编码成
+  `{__escode_rpc_nested_uint8array_v1: true, base64}`；`domains_serial.rs` 的 `param_bytes` 解码它，
+  同时接受纯数字数组（测试/JSON 直发）。
+
+**登记差异**：`write` 的 EAGAIN 重试用固定 1ms 间隔（TS 由驱动做异步写+`drain`），
+可见差异只在「写缓冲长期打满」的极端情况下（延迟略有不同，不改变顺序语义）。
+
+**验收**：单测 6 例新增（`data_tests` 5：TX seq 与 stats、尾部窗口合并、超限立即成段、
+TX 前先 flush RX、clear 不回退 seq；`service_tests` 2：写→TX 事件→设备字节→RX 事件→快照统计、
+空写回当前 seq、64KB 拒绝、clear 不动状态、未打开路径 `notOpen`）。
+负向验证两项（去掉 64KB 上限 / RX 立即成段），均已恢复。

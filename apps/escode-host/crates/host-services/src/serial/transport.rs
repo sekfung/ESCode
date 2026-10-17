@@ -147,9 +147,38 @@ impl SerialOpenError {
     }
 }
 
-/// 已打开的端口句柄。S2 只需要关闭；读取/写入/信号随 S3/S4 扩展。
+/// 读写失败的形状（`SerialError` 的 `notOpen`/`io`/`invalidInput` 子集）。
+#[derive(Clone, Debug, PartialEq)]
+pub struct SerialIoError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl SerialIoError {
+    pub fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+}
+
+/// 读循环句柄：关闭端口前先 abort，避免在已关闭的 fd 上继续 epoll。
+pub struct ReaderHandle {
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl ReaderHandle {
+    pub fn abort(&self) {
+        self.task.abort();
+    }
+}
+
+/// 已打开的端口句柄。
+#[async_trait::async_trait]
 pub trait SerialPort: Send + Sync {
     fn close(&self);
+    /// 写入全部字节（非阻塞 fd 上 EAGAIN 时短重试，上限 5s）。
+    async fn write(&self, bytes: Vec<u8>) -> Result<(), SerialIoError>;
+    /// 启动读循环：读到字节即回调。句柄由端口自身持有，`close` 时先 abort 再关 fd。
+    fn spawn_reader(&self, sink: std::sync::Arc<dyn Fn(Vec<u8>) + Send + Sync>);
 }
 
 /// 打开端口的传输抽象：生产实现是 termios，测试注入假实现。
@@ -163,174 +192,8 @@ pub trait SerialTransport: Send + Sync {
 }
 
 #[cfg(target_os = "linux")]
-mod linux {
-    use std::ffi::CString;
-    use std::os::unix::io::RawFd;
-
-    use super::{Parity, SerialConfig, SerialOpenError, SerialPort, SerialTransport, StopBits};
-
-    pub struct NativeTransport;
-
-    struct NativePort {
-        fd: RawFd,
-    }
-
-    // fd 的读写由内核串行化；`close` 用原子交换保证只关一次。
-    unsafe impl Send for NativePort {}
-    unsafe impl Sync for NativePort {}
-
-    impl SerialPort for NativePort {
-        fn close(&self) {
-            let fd = self.fd;
-            if fd >= 0 {
-                unsafe {
-                    libc::close(fd);
-                }
-            }
-        }
-    }
-
-    /// 标准波特率 → `speed_t`。非标准速率在这里被拒绝（登记的差异）。
-    fn speed_of(baud: u32) -> Option<libc::speed_t> {
-        Some(match baud {
-            50 => libc::B50,
-            75 => libc::B75,
-            110 => libc::B110,
-            134 => libc::B134,
-            150 => libc::B150,
-            200 => libc::B200,
-            300 => libc::B300,
-            600 => libc::B600,
-            1200 => libc::B1200,
-            1800 => libc::B1800,
-            2400 => libc::B2400,
-            4800 => libc::B4800,
-            9600 => libc::B9600,
-            19200 => libc::B19200,
-            38400 => libc::B38400,
-            57600 => libc::B57600,
-            115200 => libc::B115200,
-            230400 => libc::B230400,
-            460800 => libc::B460800,
-            500000 => libc::B500000,
-            576000 => libc::B576000,
-            921600 => libc::B921600,
-            1000000 => libc::B1000000,
-            1152000 => libc::B1152000,
-            1500000 => libc::B1500000,
-            2000000 => libc::B2000000,
-            2500000 => libc::B2500000,
-            3000000 => libc::B3000000,
-            3500000 => libc::B3500000,
-            4000000 => libc::B4000000,
-            _ => return None,
-        })
-    }
-
-    fn configure(fd: RawFd, config: &SerialConfig) -> Result<(), SerialOpenError> {
-        let Some(speed) = speed_of(config.baud_rate) else {
-            return Err(SerialOpenError::new(
-                "invalidConfig",
-                format!(
-                    "Unsupported baud rate on this Host: {} (standard rates only)",
-                    config.baud_rate
-                ),
-            ));
-        };
-        unsafe {
-            let mut termios: libc::termios = std::mem::zeroed();
-            if libc::tcgetattr(fd, &mut termios) != 0 {
-                return Err(SerialOpenError::from_message(io_message("tcgetattr")));
-            }
-            // 原始模式：不做回显、不做行缓冲（TS 的 serialport 默认 raw）。
-            libc::cfmakeraw(&mut termios);
-            libc::cfsetspeed(&mut termios, speed);
-            termios.c_cflag |= libc::CLOCAL | libc::CREAD;
-            termios.c_cflag &= !libc::CSIZE;
-            termios.c_cflag |= match config.data_bits {
-                5 => libc::CS5,
-                6 => libc::CS6,
-                7 => libc::CS7,
-                _ => libc::CS8,
-            };
-            termios.c_cflag &= !(libc::PARENB | libc::PARODD);
-            match config.parity {
-                Parity::None => {}
-                Parity::Even => termios.c_cflag |= libc::PARENB,
-                Parity::Odd => termios.c_cflag |= libc::PARENB | libc::PARODD,
-                // mark/space 需要 CMSPAR（Linux 扩展）。
-                Parity::Mark => termios.c_cflag |= libc::PARENB | libc::CMSPAR | libc::PARODD,
-                Parity::Space => termios.c_cflag |= libc::PARENB | libc::CMSPAR,
-            }
-            termios.c_cflag &= !libc::CSTOPB;
-            // POSIX 只在 5 位数据时能表达 1.5 停止位。
-            match config.stop_bits {
-                StopBits::One => {}
-                StopBits::OneHalf if config.data_bits == 5 => termios.c_cflag |= libc::CSTOPB,
-                StopBits::OneHalf => {
-                    return Err(SerialOpenError::new(
-                        "invalidConfig",
-                        "1.5 stop bits requires 5 data bits".to_owned(),
-                    ));
-                }
-                StopBits::Two => termios.c_cflag |= libc::CSTOPB,
-            }
-            if config.rtscts {
-                termios.c_cflag |= libc::CRTSCTS;
-            } else {
-                termios.c_cflag &= !libc::CRTSCTS;
-            }
-            // 非阻塞读：Reader 用 poll/read 的语义，避免 read 永久阻塞（S3 起使用）。
-            termios.c_cc[libc::VMIN] = 0;
-            termios.c_cc[libc::VTIME] = 0;
-            if libc::tcsetattr(fd, libc::TCSANOW, &termios) != 0 {
-                return Err(SerialOpenError::from_message(io_message("tcsetattr")));
-            }
-        }
-        Ok(())
-    }
-
-    fn io_message(operation: &str) -> String {
-        let error = std::io::Error::last_os_error();
-        format!("{operation} failed: {error}")
-    }
-
-    #[async_trait::async_trait]
-    impl SerialTransport for NativeTransport {
-        async fn open(
-            &self,
-            path: &str,
-            config: &SerialConfig,
-        ) -> Result<Box<dyn SerialPort>, SerialOpenError> {
-            let path = path.to_owned();
-            let config = config.clone();
-            tokio::task::spawn_blocking(move || {
-                let open_error =
-                    |error: std::io::Error| SerialOpenError::from_message(error.to_string());
-                let c_path = CString::new(path.clone()).map_err(|_| {
-                    SerialOpenError::new("invalidConfig", "Invalid port path".to_owned())
-                })?;
-                let fd = unsafe {
-                    libc::open(
-                        c_path.as_ptr(),
-                        libc::O_RDWR | libc::O_NOCTTY | libc::O_NONBLOCK,
-                    )
-                };
-                if fd < 0 {
-                    return Err(open_error(std::io::Error::last_os_error()));
-                }
-                let port = NativePort { fd };
-                if let Err(error) = configure(fd, &config) {
-                    port.close();
-                    return Err(error);
-                }
-                Ok(Box::new(port) as Box<dyn SerialPort>)
-            })
-            .await
-            .map_err(|error| SerialOpenError::new("io", format!("{error}")))?
-        }
-    }
-}
+#[path = "transport_native.rs"]
+mod linux;
 
 #[cfg(target_os = "linux")]
 pub use linux::NativeTransport;

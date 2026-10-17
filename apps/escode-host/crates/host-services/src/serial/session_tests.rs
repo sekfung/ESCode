@@ -15,7 +15,9 @@ fn make_session() -> (
     let session = SerialSession::new(
         "/dev/ttyS0".to_owned(),
         transport.clone(),
+        Arc::new(std::sync::atomic::AtomicU64::new(0)),
         Arc::new(move |status| sink.lock().unwrap().push(status)),
+        Arc::new(|_chunk| {}),
     );
     (transport, session, events)
 }

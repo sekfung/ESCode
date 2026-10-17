@@ -11,7 +11,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde_json::{Map, Value, json};
 use tokio::sync::Mutex as AsyncMutex;
 
-use super::transport::{SerialConfig, SerialOpenError, SerialPort, SerialTransport};
+use super::buffer::Chunk;
+use super::data::{DataSink, WRITE_LIMIT_BYTES};
+use super::transport::{SerialConfig, SerialIoError, SerialOpenError, SerialPort, SerialTransport};
 
 /// TS `DEFAULT_SERIAL_SIGNALS`（S4 才会真正驱动 DTR/RTS，这里只用于状态投影）。
 const DEFAULT_SIGNALS: (bool, bool) = (true, true);
@@ -28,17 +30,20 @@ pub struct SerialSession {
     path: String,
     transport: Arc<dyn SerialTransport>,
     status: Mutex<Status>,
-    port: Mutex<Option<Box<dyn SerialPort>>>,
+    port: Mutex<Option<Arc<dyn SerialPort>>>,
     queue: AsyncMutex<()>,
     last_changed_at: AtomicU64,
     on_status: Arc<dyn Fn(Value) + Send + Sync>,
+    data: Arc<DataSink>,
 }
 
 impl SerialSession {
     pub fn new(
         path: String,
         transport: Arc<dyn SerialTransport>,
+        seq: Arc<AtomicU64>,
         on_status: Arc<dyn Fn(Value) + Send + Sync>,
+        on_chunk: Arc<dyn Fn(Chunk) + Send + Sync>,
     ) -> Self {
         Self {
             path,
@@ -52,6 +57,7 @@ impl SerialSession {
             queue: AsyncMutex::new(()),
             last_changed_at: AtomicU64::new(now_ms()),
             on_status,
+            data: DataSink::new(seq, on_chunk),
         }
     }
 
@@ -115,6 +121,7 @@ impl SerialSession {
     pub async fn handle_disconnect(&self) {
         let _guard = self.queue.lock().await;
         let config = self.lock(&self.status).config.clone();
+        self.data.shutdown();
         if let Some(port) = self.lock(&self.port).take() {
             port.close();
         }
@@ -134,7 +141,9 @@ impl SerialSession {
         self.set_status("opening", Some(config.clone()), None);
         match self.transport.open(&self.path, &config).await {
             Ok(port) => {
-                *self.lock(&self.port) = Some(port);
+                let data = Arc::clone(&self.data);
+                port.spawn_reader(Arc::new(move |bytes: Vec<u8>| data.receive(bytes)));
+                *self.lock(&self.port) = Some(Arc::from(port));
                 self.set_status("open", Some(config), None);
                 Ok(())
             }
@@ -154,10 +163,63 @@ impl SerialSession {
         }
     }
 
+    /// TS `write`：64KB 上限、空写回当前 seq；先记 TX 再真正写出（seq 先于设备回显）。
+    pub async fn write(
+        &self,
+        bytes: Vec<u8>,
+        source: &str,
+        session_id: Option<String>,
+    ) -> Result<u64, SerialIoError> {
+        if self.state() != "open" {
+            return Err(SerialIoError::new(
+                "notOpen",
+                "Serial port is not open".to_owned(),
+            ));
+        }
+        if bytes.len() > WRITE_LIMIT_BYTES {
+            return Err(SerialIoError::new(
+                "invalidInput",
+                format!("Write exceeds {WRITE_LIMIT_BYTES} bytes: {}", bytes.len()),
+            ));
+        }
+        if bytes.is_empty() {
+            return Ok(self.data.last_seq());
+        }
+        let seq = self.data.push_tx(source, bytes.clone(), session_id);
+        // 锁内只取句柄，随后释放锁再 await（否则 future 不 Send）。
+        let port = self.lock(&self.port).clone();
+        let Some(port) = port else {
+            return Err(SerialIoError::new(
+                "notOpen",
+                "Serial port is not open".to_owned(),
+            ));
+        };
+        port.write(bytes).await?;
+        Ok(seq)
+    }
+
+    /// TS `clear`：只清缓冲与计数，不影响端口状态。
+    pub fn clear(&self) {
+        self.data.clear();
+    }
+
+    /// TS `snapshot`：状态 + 缓冲。
+    pub fn snapshot(&self) -> Value {
+        let mut snapshot = self.data.snapshot();
+        snapshot["status"] = self.current_status();
+        snapshot
+    }
+
+    pub fn last_seq(&self) -> u64 {
+        self.data.last_seq()
+    }
+
     fn close_now(&self) {
         let port = self.lock(&self.port).take();
         let config = self.lock(&self.status).config.clone();
         if port.is_some() {
+            // 关闭前停读循环并收口未成段的 RX（TS `buffer.flushRx()`）。
+            self.data.shutdown();
             self.set_status("closing", config.clone(), None);
             if let Some(port) = port {
                 port.close();

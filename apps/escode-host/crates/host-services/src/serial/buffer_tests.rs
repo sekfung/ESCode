@@ -15,7 +15,13 @@ fn rx_and_tx_chunks_get_monotonic_seq_and_stats() {
     let mut allocate = seq_allocator();
     buffer.push_rx(b"abc".to_vec(), 1000, &mut allocate);
     buffer.push_tx("user", b"xy".to_vec(), 1001, None, &mut allocate);
-    buffer.push_tx("agent", b"z".to_vec(), 1002, Some("sess-1".to_owned()), &mut allocate);
+    buffer.push_tx(
+        "agent",
+        b"z".to_vec(),
+        1002,
+        Some("sess-1".to_owned()),
+        &mut allocate,
+    );
 
     let snapshot = buffer.snapshot();
     let chunks = snapshot["chunks"].as_array().unwrap();
@@ -62,7 +68,10 @@ fn clear_resets_chunks_and_stats_but_keeps_seq_monotonic() {
     buffer.clear();
     let snapshot = buffer.snapshot();
     assert_eq!(snapshot["chunks"], serde_json::json!([]));
-    assert_eq!(snapshot["stats"], serde_json::json!({"rxBytes": 0, "txBytes": 0}));
+    assert_eq!(
+        snapshot["stats"],
+        serde_json::json!({"rxBytes": 0, "txBytes": 0})
+    );
     assert_eq!(snapshot["seq"], serde_json::json!(2), "seq 不回退");
 
     // clear 之后继续写入：seq 继续增长（不回退到 1）。

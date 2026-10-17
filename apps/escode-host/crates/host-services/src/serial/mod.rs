@@ -8,6 +8,7 @@
 //! 因此本服务由连接级 channel 持有，而不是 Host 级单例。
 
 pub mod buffer;
+pub mod data;
 pub mod enumerate;
 pub mod session;
 pub mod transport;
@@ -39,10 +40,11 @@ struct Inner {
     last_ports_key: Mutex<Option<String>>,
     ports_listeners: Mutex<Vec<mpsc::UnboundedSender<Value>>>,
     status_listeners: Mutex<Vec<mpsc::UnboundedSender<Value>>>,
+    data_listeners: Mutex<Vec<mpsc::UnboundedSender<Value>>>,
     poll_task: Mutex<Option<JoinHandle<()>>>,
     sessions: Mutex<BTreeMap<String, Arc<SerialSession>>>,
-    /// 连接内的统一 seq（跨会话、跨关闭重开单调递增；S3 的数据面会真正分配它）。
-    seq: AtomicU64,
+    /// 连接内的统一 seq（跨会话、跨关闭重开单调递增；由数据面分配）。
+    seq: Arc<AtomicU64>,
 }
 
 /// 连接内唯一的串口服务。
@@ -66,9 +68,10 @@ impl SerialService {
                 last_ports_key: Mutex::new(None),
                 ports_listeners: Mutex::new(Vec::new()),
                 status_listeners: Mutex::new(Vec::new()),
+                data_listeners: Mutex::new(Vec::new()),
                 poll_task: Mutex::new(None),
                 sessions: Mutex::new(BTreeMap::new()),
-                seq: AtomicU64::new(0),
+                seq: Arc::new(AtomicU64::new(0)),
             }),
         }
     }
@@ -88,6 +91,12 @@ impl SerialService {
     pub fn subscribe_status(&self) -> mpsc::UnboundedReceiver<Value> {
         let (tx, rx) = mpsc::unbounded_channel();
         self.lock(&self.inner.status_listeners).push(tx);
+        rx
+    }
+
+    pub fn subscribe_data(&self) -> mpsc::UnboundedReceiver<Value> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.lock(&self.inner.data_listeners).push(tx);
         rx
     }
 
@@ -137,17 +146,40 @@ impl SerialService {
         }
     }
 
+    /// TS `write`：会话不存在或未打开 → `notOpen`；返回本次写入的 seq。
+    pub async fn write(
+        &self,
+        path: &str,
+        bytes: Vec<u8>,
+        source: &str,
+        session_id: Option<String>,
+    ) -> Result<u64, SerialOpenError> {
+        let session = self.lock(&self.inner.sessions).get(path).cloned();
+        let Some(session) = session else {
+            return Err(SerialOpenError::new(
+                "notOpen",
+                "Serial port is not open".to_owned(),
+            ));
+        };
+        session
+            .write(bytes, source, session_id)
+            .await
+            .map_err(|error| SerialOpenError::new(error.code, error.message))
+    }
+
+    /// TS `clear`：未知路径是空操作。
+    pub fn clear(&self, path: &str) {
+        let session = self.lock(&self.inner.sessions).get(path).cloned();
+        if let Some(session) = session {
+            session.clear();
+        }
+    }
+
     /// TS `getSnapshot`：未知路径回 `closed` 空快照。
     pub fn get_snapshot(&self, path: &str) -> Value {
         let session = self.lock(&self.inner.sessions).get(path).cloned();
         match session {
-            Some(session) => serde_json::json!({
-                "status": session.current_status(),
-                // S3 接数据面后由缓冲填充；当前没有数据来源。
-                "chunks": [],
-                "seq": 0,
-                "stats": {"rxBytes": 0, "txBytes": 0},
-            }),
+            Some(session) => session.snapshot(),
             None => serde_json::json!({
                 "status": {"state": "closed", "path": path},
                 "chunks": [],
@@ -174,6 +206,7 @@ impl SerialService {
         self.stop_polling();
         self.lock(&self.inner.ports_listeners).clear();
         self.lock(&self.inner.status_listeners).clear();
+        self.lock(&self.inner.data_listeners).clear();
     }
 
     /// 取或建会话；新会话的状态变化会广播到 `onStatus`。
@@ -197,10 +230,22 @@ impl SerialService {
                 .unwrap_or_else(PoisonError::into_inner)
                 .retain(|tx| tx.send(payload.clone()).is_ok());
         });
+        let inner_for_chunk = Arc::clone(&self.inner);
+        let path_for_chunk = path.to_owned();
+        let on_chunk: Arc<dyn Fn(buffer::Chunk) + Send + Sync> = Arc::new(move |chunk| {
+            let payload = chunk.to_json(&path_for_chunk);
+            inner_for_chunk
+                .data_listeners
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .retain(|tx| tx.send(payload.clone()).is_ok());
+        });
         let session = Arc::new(SerialSession::new(
             path.to_owned(),
             Arc::clone(&self.transport),
+            Arc::clone(&self.inner.seq),
             on_status,
+            on_chunk,
         ));
         self.lock(&self.inner.sessions)
             .insert(path.to_owned(), Arc::clone(&session));
@@ -330,3 +375,7 @@ impl SerialService {
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mod_tests_service.rs"]
+mod service_tests;
