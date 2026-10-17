@@ -3,7 +3,10 @@
 //! 本片交付 1/6：`getPrimaryUserCommandsDirectory`，并建立其余 5 个成员都要用的**命令来源描述表**
 //! （TS `CommandAgentSourceDescriptor`）。当前只有一个合法来源 `escodeAgent`。
 
+pub mod config;
 pub mod descriptors;
+pub mod parser;
+pub mod write;
 
 use std::path::Path;
 

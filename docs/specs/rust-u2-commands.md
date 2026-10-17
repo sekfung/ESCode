@@ -1,6 +1,6 @@
 # Rust 阶段 2：`commands` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**1/6 已交付**（`getPrimaryUserCommandsDirectory`），其余 5 个是同一域的大切片。
+> 状态：切片交付中 · 2026-10-17。**5/6 已交付**（目录解析 + 写面四法），只剩 `list`。
 > TS 真相源：`packages/services/src/commands/commandsService.ts`（1007 行）、`commandFileParser.ts`（165 行）、
 > `packages/services/src/plugins/installedPluginRoots.ts`（67 行）、`packages/shared/src/escode-agent-policy.ts`。
 
@@ -17,12 +17,12 @@
 | `deleteCommandFile`               | 删命令文件                                                 | 待做   |
 | `setCommandEnabled`               | 写用户 `config.json` 的 `enable` 覆盖表                    | 待做   |
 
-**待做部分的已知依赖**（立项时已核实，都是 Host 本地能力、无上游缺口）：
+**`list` 的已知依赖**（立项时已核实，都是 Host 本地能力、无上游缺口）：
 命令来源描述表（本节）、markdown frontmatter 解析/生成（`commandFileParser.ts`，165 行，自足）、
 已安装插件根枚举（`installedPluginRoots.ts`，67 行，读 `<pluginStorageRoot>/installed_plugins.json`）、
 四种插件清单目录（`.escode-plugin` / `.zcode-plugin`（旧）/ `.claude-plugin` / `.codex-plugin`）、
 官方插件缓存根扫描、`config.json` 的路径包含校验。
-**不是**它们依赖运行时或 Electron——是整个域约 1200 行 TS，宜作为独立切片整体交付。
+**不是**它们依赖运行时或 Electron——是 `list` 本身约 500 行 TS（多来源发现与优先级合并），宜单独交付。
 
 ## 2. 命令来源描述表（本片建立）
 
@@ -73,3 +73,40 @@ Rust 回一句话说明未知来源；只比接受/拒绝。
 - **下一步**：`list` 是剩余 5 个里最大的一块（多来源发现 + 插件清单四格式扫描 + 启用态覆盖表合并），
   建议连 `writeCommandFile`/`updateCommandFile` 一起做——它们共用 frontmatter 的解析与生成
   （`commandFileParser.ts` 的 165 行是完整可移植单元）。
+
+## 6. 写面四法交付记录（2026-10-17）
+
+### 6.1 语义（逐条对照 `commandsService.ts:573-745`）
+
+| 方法                | 关键行为                                                                                                                                                                                                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `writeCommandFile`  | 目标根按 `storageLevel`（缺省 user；`project` 需要 `workspacePath`，缺失报 `Missing workspace path for project command`）→ `mkdir -p` → 同名已存在报 `Command file already exists: <文件名>` → 写文件（无既有内容，故不保留 frontmatter）→ **新建即启用**（把该路径的 `enable` 覆盖删掉）→ 回包 |
+| `updateCommandFile` | 先读覆盖表与 `oldFilePath` 的既有内容（读失败当没有）→ 改名时先删旧文件、再检查新名是否已被占用 → 生成内容（保留未替换的 frontmatter 键）→ **改名且旧路径有覆盖时把覆盖迁到新路径** → 回包的 `enabled` 是**重新读一次**覆盖表（TS 同）                                                          |
+| `deleteCommandFile` | `rm`，ENOENT 当作成功 → 覆盖表收敛（启用即删键）                                                                                                                                                                                                                                                |
+| `setCommandEnabled` | 只改覆盖表：禁用写 `{enable: false}`，启用删键；`command` 空了连键一起删                                                                                                                                                                                                                        |
+
+命令标识：`id = <agentSource>:<location.source>:<scope>:<name>`；
+`location` = `{source: 描述表 directorySource, scope: user|project, directoryPath: 命令根, projectPath?}`；
+`name` = `/` + 相对命令根、去扩展名（大小写不敏感）、按 `namespaceSeparator` 拼接的路径。
+
+`<home>/.escode/cli/config.json` 的落盘格式 = `JSON.stringify(config, null, 2) + "\n"`；
+读失败 / 坏 JSON / 非对象一律当空对象（不抛）。
+
+### 6.2 登记差异
+
+1. **JSON 键序**：`serde_json` 未启用 `preserve_order`，`config.json` 与回包对象按键名字典序输出，TS 保持插入序。
+   两者互读语义相同（`command` 是路径 → 条目的映射，顺序无意义）。
+2. `parseCommandFile` 在 TS 里包了 `try/catch` 并在失败时回 `null`；markdown 分支没有任何会抛的路径，
+   因此 Rust 侧的 `Option` 恒为 `Some`——`Failed to parse written command file` 分支同样不可达（保留以便对齐）。
+3. `getCrossPlatformBasename` 对 `"a/"` 这类尾随分隔符返回空串；Rust 的 `rfind` 处理同形。
+4. 前端 `UserCommand` 的字段里 `description`/`argumentHint` 缺省时**整个键省略**（与 TS 的对象展开一致）。
+
+### 6.3 验收
+
+- 单测 14 例：解析器 5（frontmatter 拆分、无 frontmatter、多行续行、生成的两条分支、保留未替换键）、
+  config 3（覆盖表增删与空桶清理、非布尔条目忽略、落盘格式与坏输入）、写面 6（新建即启用、
+  project 缺 workspacePath、改名迁覆盖、改名撞名、删除幂等、启停往返）。
+- 端到端 1 例（真 WebSocket）：目录解析 → 新建 → 重名报错 → 禁用 → 改名（覆盖跟随、旧键不悬空）
+  → 删除（覆盖表收敛）→ `list` 仍回显式缺口且列出已实现集合。
+- 负向验证两项（均已恢复）：①不迁改名的启用覆盖 → 单测「禁用状态跟随改名」失败；
+  ②去掉「已存在」检查 → 端到端重名断言失败。

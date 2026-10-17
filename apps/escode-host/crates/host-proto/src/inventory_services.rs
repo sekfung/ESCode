@@ -290,6 +290,10 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("gen-ui", "listState"),
     ("gen-ui", "onStateChanged"),
     ("commands", "getPrimaryUserCommandsDirectory"),
+    ("commands", "writeCommandFile"),
+    ("commands", "updateCommandFile"),
+    ("commands", "deleteCommandFile"),
+    ("commands", "setCommandEnabled"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。
