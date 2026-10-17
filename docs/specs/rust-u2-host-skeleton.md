@@ -52,14 +52,19 @@ apps/escode-host/
 
 ### 3.2 有界通道（每队列写明溢出策略）
 
-| 队列                                                            | 容量                                       | 溢出策略                                                                                                                                                                                                                        |
-| --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gateway 入站（Renderer→Host RPC）                               | 256 条                                     | 触发背压：连接级 `saturated` 状态，禁止新请求登记，等队列腾空（与 runtime 投递层同语义）                                                                                                                                        |
-| RPC 连接出站（Host→Renderer 帧，`host-rpc/src/connection.rs`）  | 字节水位高 8 MiB / 低 2 MiB，硬上限 64 MiB | 不丢帧：高水位 → 连接 `saturated`（V4 面转发 `v4/connection/flow`，runtime 暂停投递、恢复时补快照），低水位 → `drained`；超硬上限关闭连接（fail closed）。2026-10-15 前该队列不存在（读循环内同步写）                           |
-| runtime→Host 帧扇出（每订阅者，`host-runtime/src/instance.rs`） | 4096 行；首个订阅者前缓冲 1024 行          | 不静默丢帧：订阅者满即摘除并置 `lagged`（接收端可观测，由订阅方让该连接的订阅失效、客户端 resync）；早期缓冲溢出时首个订阅者一开始即 lagged。2026-10-15 前实现为 `try_send` 满即静默丢弃，与本表原文「满时阻塞」不符（评审 A2） |
-| Host 日志（file_log 批量）                                      | 1024 条                                    | 丢弃最低级别并计数（warn 起不丢）                                                                                                                                                                                               |
+| 队列                                  | 常量与构造点                                                                                                                                                                   | 容量                                       | 溢出策略                                                                                                                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RPC 连接出站（Host→Renderer 帧）      | `host-rpc/src/connection.rs` `HIGH_WATER`/`LOW_WATER`/`HARD_LIMIT`；`connection::run` 构造（无界通道 + 字节计数）                                                              | 字节水位高 8 MiB / 低 2 MiB，硬上限 64 MiB | 不丢帧：高水位 → 连接 `saturated`（V4 面转发 `v4/connection/flow`，runtime 暂停投递、恢复时补快照），低水位 → `drained`；超硬上限关闭连接（fail closed）。2026-10-15 前该队列不存在（读循环内同步写）                           |
+| runtime→Host 帧扇出（每订阅者）       | `host-runtime/src/instance.rs` `SUBSCRIBER_CAPACITY`/`EARLY_FRAMES_CAPACITY`；`Instance::subscribe` 构造                                                                       | 4096 行；首个订阅者前缓冲 1024 行          | 不静默丢帧：订阅者满即摘除并置 `lagged`（接收端可观测，由订阅方让该连接的订阅失效、客户端 resync）；早期缓冲溢出时首个订阅者一开始即 lagged。2026-10-15 前实现为 `try_send` 满即静默丢弃，与本表原文「满时阻塞」不符（评审 A2） |
+| host-surface 连接出站（V4 NDJSON 面） | `host-surface/src/lib.rs` `OUTBOUND_CAPACITY`；`Gateway::register` 经 `host-core::bounded::channel("gateway-outbound", …, DropReconstructible)` 构造；实例帧泵 `try_send` 投递 | 256 帧                                     | 满即丢该连接的这一帧（可重建流，由快照恢复补齐），不阻塞帧泵                                                                                                                                                                    |
+| Host 控制队列（控制消息 + 日志批次）  | `src/control.rs` `CONTROL_QUEUE_CAPACITY`；`ControlWriter::channel` 构造                                                                                                       | 1024 条                                    | 控制消息必达（队满时等待）；**日志批次队满时任何级别都可能丢**，按写者计数（`ControlWriter::dropped_logs()`）与进程计数（`logging::dropped_batches()`），并镜像到 stderr（Main 以 `stdio: inherit` 接收）                       |
 
-每个队列的容量与策略在代码常量处注释引用本表；`host-core` 提供 `bounded::channel(name, capacity, policy)` 统一构造与指标（队列深度、丢弃数）。
+2026-10-18 M2 订正（`rust-u2-host-resilience.md` §6）：
+
+- 删除原表「Gateway 入站（Renderer→Host RPC）256 条，触发背压」一行：真实 RPC 路径（`host-rpc`）不设入站队列，读循环登记后立即交给独立任务，入站压力由 WebSocket/TCP 接收窗口承担；`host-gateway` 也没有入站队列，它只为 `host-surface` 建出站 lane。
+- Host 日志原写「丢弃最低级别并计数（warn 起不丢）」，与实现不符（`ControlWriter::log` 队满时任何级别都丢）。取「队满时任何级别都可能丢，并计数」，理由：日志 sink 在同步上下文（含持锁路径）里被调用，必须非阻塞；warn 起不丢只能阻塞调用方或另开无界旁路，前者拖住业务路径、后者破坏有界性；丢弃只发生在 1024 条积压时，stderr 镜像仍保留内容。
+
+每个队列的容量与策略在代码常量处注释引用本表；`host-core` 提供 `bounded::channel(name, capacity, policy)` 统一构造与指标（队列深度、丢弃数），目前只有 host-surface 出站经它构造，其余三个队列的计数在各自类型上（字节计数、`lagged`、`dropped_logs`）。
 
 ### 3.3 原子写与进程回收
 
@@ -181,6 +186,6 @@ TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与
 **Host 日志出口接齐 §3.2/§3.5（2026-10-16）**：此前 §3.2 的「Host 日志」只有骨架——`main.rs` 的 `ControlLoop` 把控制消息**直接写 stdout**（`ControlWriter` 的单队列此前只被单测用到），host-rpc / host-services 的日志走 `eprintln!`（stderr，绕过控制队列），且 Main 侧 `rustHostBridge` 把 `logBatch` 当无关帧跳过（`nextMatching` 上限 50 帧）。现在三段接齐：
 
 - **Host 侧**：`host-control::logging` 是进程级 sink（`Arc<dyn Fn(LogBatch)>`，与 CLI runtime `file_log` 同形）；服务域（host-rpc / host-services / host-surface / host-runtime）只投递 `(scope, level, lines)`，不持有控制通道句柄。`main.rs` 装配时 `install_sink(control.log_sink())`；收口时 `ControlLoop::close()` **先 `release_sink()` 再关队列**——sink 持有写句柄克隆，不释放则队列永不关闭（进程等泵退出会挂死，已加回归单测 `logging::tests::releasing_the_sink_closes_the_control_queue`）。未装 sink / 队列满时回退 stderr，诊断不丢。
-- **出口**：`ControlLoop` 改为 `ControlWriter` 单队列（容量 1024）+ 一个泵任务串行写 stdout。队满时控制消息等待、日志从结构化出口丢弃并计数（`logging::dropped_batches()`）且镜像 stderr——满足 §3.2「丢弃最低级别并计数」的可见性要求。
+- **出口**：`ControlLoop` 改为 `ControlWriter` 单队列（容量 1024）+ 一个泵任务串行写 stdout。队满时控制消息等待、日志从结构化出口丢弃并计数（`logging::dropped_batches()`）且镜像 stderr——满足 §3.2「队满时任何级别都可能丢，并计数」的可见性要求（M2 起另有按写者计数 `ControlWriter::dropped_logs()`）。
 - **Main 侧**：`startRustHost.onLogBatch` 校验并消费 `logBatch`（scope/level/lines），经 `rustHostManager` 落到 Main logger；`logBatch` 不再进握手队列。
 - **代码约定**：Host 各 crate 不再用 `eprintln!` 记业务日志（`logging` 的 stderr 兜底除外）；级别照 AGENTS.md（`warn` 可恢复、`error` 不可恢复），scope 取域名（`window-controller`/`task-index`/`file-watcher`/`git`/…）。

@@ -12,7 +12,7 @@ use escode_host_runtime::Instance;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex as AsyncMutex;
 
-/// 控制队列容量（`rust-u2-host-skeleton.md` §3.2：控制必达、日志满即丢并计数）。
+/// 控制队列容量（`rust-u2-host-skeleton.md` §3.2：控制必达；日志队满时任何级别都可能丢，按写者与进程计数）。
 const CONTROL_QUEUE_CAPACITY: usize = 1024;
 
 /// 控制通道：单写者 + 单读者（顺序即到达序）。

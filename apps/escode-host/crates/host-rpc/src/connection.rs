@@ -29,6 +29,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::session::{self, Channels, ClientMode, ConnectionContext, FlowState, Request};
 
+// 字节水位与硬上限：`rust-u2-host-skeleton.md` §3.2「RPC 连接出站」行（不丢帧，超硬上限关闭连接）。
 const HIGH_WATER: usize = 8 * 1024 * 1024;
 const LOW_WATER: usize = 2 * 1024 * 1024;
 const HARD_LIMIT: usize = 64 * 1024 * 1024;

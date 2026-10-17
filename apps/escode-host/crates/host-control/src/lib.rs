@@ -178,10 +178,13 @@ pub struct ControlWriter {
     tx: mpsc::Sender<ControlMessage>,
     sequence: Arc<AtomicU64>,
     written: Arc<AtomicU64>,
+    /// 队满/已关闭而被丢弃的日志批次数（任何级别）。
+    dropped: Arc<AtomicU64>,
 }
 
 impl ControlWriter {
-    /// `capacity` 见子 spec §3.2：日志满时丢弃最低级别并计数，控制消息不丢。
+    /// `capacity` 见子 spec §3.2（`rust-u2-host-resilience.md` §6）：控制消息必达；日志批次队满时
+    /// **任何级别**都可能丢，丢弃按写者计数（[`Self::dropped_logs`]）。
     pub fn channel(capacity: usize) -> (Self, mpsc::Receiver<ControlMessage>) {
         let (tx, rx) = mpsc::channel(capacity);
         (
@@ -189,6 +192,7 @@ impl ControlWriter {
                 tx,
                 sequence: Arc::new(AtomicU64::new(0)),
                 written: Arc::new(AtomicU64::new(0)),
+                dropped: Arc::new(AtomicU64::new(0)),
             },
             rx,
         )
@@ -204,7 +208,8 @@ impl ControlWriter {
         Ok(())
     }
 
-    /// 日志批次：队列满时丢弃（日志可丢，控制不可丢），丢弃计数可观测。
+    /// 日志批次：队列满时丢弃（日志可丢，控制不可丢；不区分级别——sink 在同步上下文里被调用，
+    /// 不能阻塞，也不另开无界旁路），丢弃计数可观测。
     pub fn log(&self, scope: &str, level: LogLevel, lines: Vec<String>) -> bool {
         let message = ControlMessage::LogBatch {
             scope: scope.to_owned(),
@@ -216,9 +221,16 @@ impl ControlWriter {
                 self.written.fetch_add(1, Ordering::Relaxed);
                 true
             }
-            Err(mpsc::error::TrySendError::Full(_)) => false,
-            Err(mpsc::error::TrySendError::Closed(_)) => false,
+            Err(mpsc::error::TrySendError::Full(_) | mpsc::error::TrySendError::Closed(_)) => {
+                self.dropped.fetch_add(1, Ordering::Relaxed);
+                false
+            }
         }
+    }
+
+    /// 本写者丢弃的日志批次数（健康检查与测试用）。
+    pub fn dropped_logs(&self) -> u64 {
+        self.dropped.load(Ordering::Relaxed)
     }
 
     /// 已写出消息数（健康检查与测试用）。
@@ -304,6 +316,42 @@ mod tests {
             rx.recv().await,
             Some(ControlMessage::Shutdown { .. })
         ));
+    }
+
+    /// 队满时 warn / error 也被丢弃并计数（spec §3.2 取「任何级别都可能丢，并计数」）；
+    /// 控制消息不受影响，腾出空间后日志恢复投递。
+    #[tokio::test]
+    async fn full_queue_drops_logs_of_every_level_and_counts_them() {
+        let (writer, mut rx) = ControlWriter::channel(1);
+        assert!(writer.log("a", LogLevel::Info, vec!["fills".into()]));
+        assert_eq!(writer.dropped_logs(), 0);
+        for level in [
+            LogLevel::Debug,
+            LogLevel::Info,
+            LogLevel::Warn,
+            LogLevel::Error,
+        ] {
+            assert!(
+                !writer.log("a", level, vec!["dropped".into()]),
+                "{level:?} 在队满时也被丢弃"
+            );
+        }
+        assert_eq!(writer.dropped_logs(), 4);
+        assert_eq!(writer.written(), 1);
+        // 克隆共享同一计数（sink 持有的是克隆）。
+        let clone = writer.clone();
+        assert!(!clone.log("a", LogLevel::Error, vec!["dropped".into()]));
+        assert_eq!(writer.dropped_logs(), 5);
+
+        let _ = rx.recv().await;
+        assert!(writer.log("a", LogLevel::Warn, vec!["after".into()]));
+        assert_eq!(writer.dropped_logs(), 5);
+        drop(rx);
+        assert!(
+            !writer.log("a", LogLevel::Error, vec!["closed".into()]),
+            "接收端关闭后同样计入丢弃"
+        );
+        assert_eq!(writer.dropped_logs(), 6);
     }
 
     #[tokio::test]
