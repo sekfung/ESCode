@@ -295,6 +295,10 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("commands", "updateCommandFile"),
     ("commands", "deleteCommandFile"),
     ("commands", "setCommandEnabled"),
+    ("subagents", "getPrimaryUserAgentsDirectory"),
+    ("subagents", "setEnabled"),
+    ("subagents", "setBuiltInModelOverride"),
+    ("subagents", "setPluginAgentModelOverride"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。

@@ -41,6 +41,7 @@ mod domains_session_write;
 mod domains_setting_extra;
 mod domains_simple;
 mod domains_skills;
+mod domains_subagents;
 mod domains_system;
 pub mod domains_task;
 mod domains_task_delete;
