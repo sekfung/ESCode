@@ -202,7 +202,7 @@ async fn index_snapshot(
     Ok((session_id, meta))
 }
 
-async fn read_snapshot(
+pub(super) async fn read_snapshot(
     runtime: &crate::domains_task_support::RuntimeAccess,
     routing: &Value,
     draft_id: &str,
@@ -223,7 +223,7 @@ async fn read_snapshot(
     .await
 }
 
-async fn call_session(
+pub(super) async fn call_session(
     runtime: &crate::domains_task_support::RuntimeAccess,
     routing: &Value,
     method: &str,
@@ -281,7 +281,7 @@ fn model_selection(params: &Value) -> Option<Value> {
 }
 
 /// TS `parseModelPickerValue` 的主路径：`provider/model[$reasoning]`。
-fn parse_model_picker(value: &str) -> Option<Value> {
+pub(super) fn parse_model_picker(value: &str) -> Option<Value> {
     let (provider, rest) = value.split_once('/')?;
     if provider.is_empty() || rest.is_empty() {
         return None;
@@ -308,7 +308,7 @@ fn is_session_missing(error: &RpcError) -> bool {
     message.contains("session not found") || message.contains("session is not active")
 }
 
-fn to_session_mode(mode: Option<&str>) -> Option<&'static str> {
+pub(super) fn to_session_mode(mode: Option<&str>) -> Option<&'static str> {
     Some(match mode {
         Some("plan") => "plan",
         Some("edit") => "edit",

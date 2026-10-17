@@ -663,3 +663,62 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
   `closeTask`。
 - 负向验证：①去掉 denylist 合并 → 单元用例失败；②compact 不读快照 → 端到端失败。
 - 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **304 已实现 / 234 待办**。
+
+## 12. escode-task 任务控制与 legacy 桩（S7，2026-10-17）
+
+本片交付 9 个成员：5 个真实控制面 + 4 个 TS 本身就是 `unsupported` 的桩（29 → 20）。
+
+### 12.1 `setMode`
+
+- `mode` 按 `toESCodeMode` 归一（缺失/未知 → build）。
+- `plan`：V4 CAS `switchCollaborationMode`，payload **`{mode:"build", planEnabled:true}`**——
+  Rust runtime 的 V4 命令不接受 `mode:"plan"`（Node runtime 接受），Host 做同样的语义适配。
+  其它模式：`{mode, planEnabled:false}`。
+- `auto`：legacy `session/setMode`（TS 同路径）；Rust runtime 的 legacy 模式枚举不含 auto，
+  调用会透传 `Unsupported core execution mode`（登记差异；UI 的模式列表当前不含 auto）。
+- 成功后 `session/resume` 收敛索引（不发列表事件；事件由 V4 config delta 驱动）。
+
+### 12.2 `setModel`
+
+- legacy `session/setModel`（`{sessionId, model: modelSelection}`）→ `session/resume` →
+  索引收敛；返回 `settingsToConfigOptions(snapshot.settings)`。
+- 模型切换的执行事实由运行时 Registry 决定，Host 只传 ModelSelection（TS 注释同）。
+
+### 12.3 `setConfigOption`
+
+- `model` → `parseModelPickerValue(value)` 后走 setModel 路径；
+- `thought_level` → 先 `session/read` 取 `settings.model.current`（缺失时报
+  `请先选择模型，再设置思考档位`），再 CAS `switchModelConfig`
+  `{provider, model, thought}`；
+- `mode` → 与 `setMode` 同路径；
+- 未知 configId 不做命令，只 resume + 返回 options。
+- 返回最新的配置项数组。
+
+### 12.4 `setAutomationSessionConfig`
+
+- CAS `switchModelConfig` `{provider, model: modelSelection.modelId, thought}`；
+  `thoughtLevel` 非空时再发一次同模型命令收敛档位（同默认值时运行时返回 noop）。
+- 返回最新配置项数组。
+
+### 12.5 `setAssistantMessageFeedback`
+
+- 与 TS 一致：取 `getTaskSnapshot` 投影，按 `turnIndex` 数第 N 条 assistant 消息，
+  就地写入/删除 `feedback` 后返回快照；**不持久化**（TS 同）。
+- 消息不存在时原样返回。
+
+### 12.6 legacy 桩（4）
+
+`branchTaskFromPrompt` / `deliverSessionMessage` / `sendSessionMessageDeliveryResult` / `switchAgent`
+照抄 TS 适配器的 `unsupported`：`name = "Error"`，
+`code = ESCODE_AGENT_UNSUPPORTED_LEGACY_TASK_METHOD`，
+`message = "ESCode task service adapter does not support IESCodeTaskService.<name> yet."`。
+
+### 12.7 验收
+
+- 端到端（真 embedded 实例）：`createSession`(titleGeneration off) → 停掉可能的标题生成 →
+  `setMode`(plan) → `getTaskConfigOptions` → `setModel` → `setConfigOption`(thought/mode) →
+  `setAutomationSessionConfig` → `setAssistantMessageFeedback`（返回快照）→ 4 个桩的错误形状 →
+  `closeTask`。
+- 负向验证：①去掉 plan 的 `planEnabled` 适配 → setMode 用例失败；
+  ②去掉桩的稳定 code → 桩用例失败。
+- 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **313 已实现 / 225 待办**。

@@ -28,7 +28,7 @@ pub(super) fn input_methods(context: &StateContext) -> Vec<(&'static str, Method
     ]
 }
 
-fn task_target(context: &StateContext, params: &Value) -> Result<TaskTarget, RpcError> {
+pub(super) fn task_target(context: &StateContext, params: &Value) -> Result<TaskTarget, RpcError> {
     let task_id = params["taskId"].as_str().unwrap_or_default().to_owned();
     if task_id.is_empty() {
         return Err(RpcError::new("InvalidRequest", "taskId is required."));
@@ -52,7 +52,7 @@ fn task_target(context: &StateContext, params: &Value) -> Result<TaskTarget, Rpc
         .map_err(|(code, message)| RpcError::new(code, message))
 }
 
-fn runtime(context: &StateContext) -> Result<RuntimeAccess, RpcError> {
+pub(super) fn runtime(context: &StateContext) -> Result<RuntimeAccess, RpcError> {
     context
         .read
         .runtime
@@ -111,11 +111,10 @@ fn routing(target: &TaskTarget) -> Value {
     routing
 }
 
-async fn send_command(
+pub(super) async fn send_v4(
     context: &StateContext,
     target: &TaskTarget,
     envelope: Value,
-    kind: &str,
 ) -> Result<Value, RpcError> {
     let runtime = runtime(context)?;
     let target = forward::runtime_target(routing(target))
@@ -127,8 +126,17 @@ async fn send_command(
         forward::RuntimePolicy::StartIfNeeded,
     )
     .await?;
-    let ack = forward::request(&instance, "v4/command", envelope, None).await?;
-    host_command::assert_ack_ok(kind, &ack, &format!("session={}", target.identity))?;
+    forward::request(&instance, "v4/command", envelope, None).await
+}
+
+async fn send_command(
+    context: &StateContext,
+    target: &TaskTarget,
+    envelope: Value,
+    kind: &str,
+) -> Result<Value, RpcError> {
+    let ack = send_v4(context, target, envelope).await?;
+    host_command::assert_ack_ok(kind, &ack, &format!("session={}", target.task_id))?;
     Ok(ack)
 }
 

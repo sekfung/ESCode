@@ -50,6 +50,7 @@ mod domains_subagents;
 mod domains_system;
 pub mod domains_task;
 mod domains_task_archive;
+mod domains_task_control;
 mod domains_task_create;
 mod domains_task_delete;
 mod domains_task_gap;
