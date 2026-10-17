@@ -1,6 +1,6 @@
 # Rust 阶段 2：`serial` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**1/4 片已交付**：端口枚举 + 轮询 + `onPorts`（`list` / `setWatching` / `onPorts`）。
+> 状态：切片交付中 · 2026-10-17。**2/4 片已交付**：S1 枚举/轮询/`onPorts`；S2 会话（含自动重连）。
 > TS 真相源：`packages/services/src/serial/`（`serialService.ts` 359、`serialSession.ts` 386、
 > `serialChunkBuffer.ts` 172、`serialLoop.ts` 80、`serialSignals.ts` 35、`serialRuntime.ts` 68 等，共 1763 行）。
 
@@ -87,3 +87,62 @@ Rust Host 是 App 级单进程，实现口径为**连接级 channel**（`Channel
   `bots.listBots`，并新增一条 `serial.list` 回数组的断言。
 - **已知抖动**：`host-runtime/tests/instances.rs` 的 `an_unanswered_request_fails_with_a_classifiable_timeout`
   （零超时用例）在全量并行跑时偶发失败一次，单独与重跑全量均通过；与本片改动无关，未改它。
+
+## 9. S2 会话交付记录（2026-10-17）
+
+### 9.1 状态机
+
+`closed → opening → open → closing → closed`，以及 `open → disconnected →（设备回来）→ opening → open`。
+`disconnected`（等设备回来）与 `error`（打开失败、需用户重试）是两种不同的非活动态。
+`isActive = state !== "closed"`，因此**4 会话上限与 `listSessions` 都把 `error` 计为活动**。
+
+状态事件 `onStatus` 载荷 `{path, state, signals, config?, error?}`；`signals` 恒在（S4 才真正驱动，
+当前恒为默认 `{dtr:true, rts:true}`）。**构造会话时不发状态**（TS 同）——首个事件是 `opening`。
+
+### 9.2 传输层（`transport.rs`）
+
+- 生产实现：Linux `termios` —— `open(O_RDWR|O_NOCTTY|O_NONBLOCK)` → `tcgetattr` → `cfmakeraw` →
+  `cfsetspeed` → 数据位/校验/停止位/RTS-CTS 配置 → `tcsetattr`；关闭即 `close(fd)`。
+- 配置校验（`SerialConfig::from_json`）：`baudRate > 0`、`dataBits ∈ 5..8`、`parity` 五项、
+  `stopBits ∈ {1,1.5,2}`；多个问题按 `baudRate, dataBits, parity, stopBits` 顺序拼接
+  `Invalid serial config: …`。
+- 打开错误映射（`from_message`）：`access denied|resource busy|cannot lock port|port is locked|ebusy` → `busy`；
+  `permission denied|eacces` → `denied`；`file not found|no such file|does not exist|enoent` → `notFound`；
+  `invalid argument|einval` → `invalidConfig`；其余 `io`。
+- RPC 错误形状：`name = "SerialError"` + 稳定 `code`。
+
+### 9.3 自动重连（用户决定：算在 S2 里）
+
+- **断开检测改用轮询**：S1 的轮询已经在枚举端口；`open` 中的会话其路径从枚举里消失即判断开。
+  TS 由驱动的 close 事件**即时**发现；Rust 最多晚一个轮询间隔（1500ms）。**登记差异**。
+- `autoReconnect=true` → 进 `disconnected`（`shouldPoll` 会因此保持轮询）；设备回来时轮询触发 `reconnect()`。
+- `autoReconnect=false` → 直接 `closed`，设备回来也不会自己重开。
+- 用户主动 `open` 会重置信号（S4 的语义）；`reconnect` 不重置。
+
+### 9.4 其他实现要点
+
+- `open` 已在打开同一配置时直接返回；状态为 `disconnected` 时先收口再开（TS `openNow` 同）。
+- `close` 幂等；未知路径的 `close` 是空操作。
+- 保留 `MAX_RETAINED_SESSIONS = 8`：超出时按 `lastChangedAt` 淘汰最早的已关闭会话（`getSnapshot` 之后回 closed 空快照）。
+- `getSnapshot`：已知会话回真实状态；未知路径回 `closed` 空快照 + 连接内 seq。
+  **本片 `chunks` 恒为空、`stats` 恒为零**——数据面是 S3。
+
+### 9.5 登记差异
+
+1. **非标准波特率被拒绝**（TS 用 `termios2`/`BOTHER` 支持任意整数）：标准集覆盖 9600…4000000。
+2. **非 Linux 返回 `nativeUnavailable`**（TS 走 `bindings-cpp` 平台后端）。
+3. **断开检测来源**：轮询（最多晚一个间隔）vs 驱动 close 事件。
+4. `1.5` 停止位要求 5 位数据（POSIX 限制）；TS 的驱动同样受此约束，但错误文案不同。
+5. `chunks`/`stats` 在本片为空（S3 接入）。
+
+### 9.6 验收
+
+- 单测 16 例新增：`transport_tests` 2（配置往返与校验错误拼接、错误码映射）、`session_tests` 3
+  （open/close 状态与事件序列、打开失败落 error、断开→重连与 autoReconnect=false 的行为差）、
+  `mod_tests` 5（快照与 listSessions、第 5 个活动会话被拒、轮询检测断开并自动重连、
+  无 autoReconnect 直接 closed、状态事件广播）。
+- 端到端 1 例（无硬件）：非法配置 → `SerialError` + `invalidConfig`；合法配置但设备不存在 →
+  `notFound`；`onStatus` 落 `opening → error`；未知路径快照 closed；`error` 会话计入 `listSessions`；
+  关闭后清空。
+- **负向验证**（两项，均已恢复）：①去掉 4 会话上限 → 第 5 个被接受，用例失败；
+  ②断开时忽略 `autoReconnect` → 单测与轮询重连用例双双失败。
