@@ -5,13 +5,14 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 
 ## 工作流
 
-### `.github/workflows/rust-runtime-ci.yml`（push 到 main / `feat/**`、PR、手动）
+### `.github/workflows/rust-runtime-ci.yml`（push 到 main / dev / `feat/**`、PR、手动）
 
-| job               | runner                                        | 内容                                                                                                |
-| ----------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| checks            | ubuntu-latest                                 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`typecheck`、`lint`、`architecture:check`        |
-| test (matrix × 3) | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件 |
+| job               | runner                                        | 内容                                                                                                                   |
+| ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| checks            | ubuntu-latest                                 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`pnpm check:escode-host`、`typecheck`、`lint`、`architecture:check` |
+| test (matrix × 3) | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`、`pnpm test:escode-host`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件 |
 
+- checks 只在 ubuntu 跑（2026-10-18 M1 决定维持）：边界/生成器/typecheck/lint/fmt 与宿主 OS 无关；test 作业已在三平台编译并执行两个 workspace 的全部 target，覆盖平台 `cfg` 分支。把 checks 扩成三平台会把 45 分钟作业乘以三，增量收益主要是 clippy 在 Windows/macOS cfg 下的 lint，留待唯一 Host 切换前评估。
 - Windows runner 默认 MSVC 工具链，覆盖此前本机只能用 GNU 目标得出源码级结论的缺口；macOS runner 为 arm64。
 - `ESCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
 - `ELECTRON_SKIP_BINARY_DOWNLOAD=1`：测试不需要 Electron 运行时。

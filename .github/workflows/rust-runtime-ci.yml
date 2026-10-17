@@ -4,7 +4,7 @@ name: rust-runtime-ci
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, dev, "feat/**"]
   pull_request:
   workflow_dispatch:
 
