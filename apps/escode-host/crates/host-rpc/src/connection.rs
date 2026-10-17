@@ -1,7 +1,7 @@
 //! 一条 RPC 连接的事件循环（docs/specs/rust-u2-agent-v4.md §3.1）。
 //!
 //! ```text
-//! 读循环 ──Promise──► 独立任务 ──响应──► 出站队列 ──► 写任务 ──► WebSocket
+//! 读循环 ──Promise（同步登记：调用处理函数）──► 独立任务 ──响应──► 出站队列 ──► 写任务 ──► WebSocket
 //!        ──EventListen──► 事件转发任务 ──EventFire──┘
 //!        ──PromiseCancel / EventDispose──► 中止对应任务
 //! 关闭：中止全部任务 → 水位置 closed → 依次执行连接级 channel 的关闭钩子
@@ -9,6 +9,8 @@
 //!
 //! 修复（评审 A3）：旧实现在读循环里 `respond(..).await`，一个慢请求阻塞同连接全部请求、
 //! `PromiseCancel` 永远无效。TS `ChannelServer` 每条请求独立 Promise，这里同构。
+//! 保序（docs/specs/rust-u2-host-resilience.md §5.1）：每连接的登记序 = 到达序——处理函数在读循环内
+//! 按到达顺序被调用（同步前缀此刻执行），异步部分并发执行，响应按完成顺序发出、按 id 关联。
 //!
 //! 出站队列溢出策略：不丢帧。字节水位高 8 MiB → `saturated`、低 2 MiB → `drained`
 //! （边沿经 [`ConnectionContext::flow`] 交给连接级 channel，V4 面转发为 `v4/connection/flow`，
@@ -185,16 +187,15 @@ fn dispatch(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>,
         session::REQUEST_PROMISE_CANCEL | session::REQUEST_EVENT_DISPOSE => {
             active.abort(request.id)
         }
-        // Promise 与未知类型（`respond` 回 InvalidRequest 错误帧）都在独立任务里应答。
+        // Promise 与未知类型（回 InvalidRequest 错误帧）：在读循环内同步登记（处理函数此刻被调用，
+        // 登记序 = 到达序），执行与应答在独立任务里（docs/specs/rust-u2-host-resilience.md §5.1）。
         _ => {
-            let channels = Arc::clone(channels);
+            let responding = session::start(channels, &request);
             let outbound = outbound.clone();
-            let id = request.id;
             let task = tokio::spawn(async move {
-                let response = session::respond(&channels, &request).await;
-                outbound.push(response);
+                outbound.push(responding.await);
             });
-            active.insert(id, task);
+            active.insert(request.id, task);
         }
     }
 }

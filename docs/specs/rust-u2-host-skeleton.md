@@ -79,6 +79,7 @@ Renderer ──WS──► accept ──► 登记（同步，决定 lane 位置
 
 - **登记必须在请求到达时同步完成**：连接（或请求）进入 lane 的顺序由 accept/read 的到达序决定，不能依赖任务调度顺序——否则并发请求的应答顺序漂移。
 - 每连接一个写者：出站帧按 lane 顺序写出，控制帧优先但不插队数据帧的内部顺序。
+- **适用范围（2026-10-18 M2 订正）**：Gateway 的同步取号（`register`，lane 序 = 连接到达序）只用于 `host-surface`（V4 NDJSON 传输面）。Renderer 的真实 RPC 路径（`host-rpc`，`@escode/rpc` over WebSocket）不经过 Gateway lane：它保证的是**每连接**的登记序 = 到达序（读循环按到达顺序同步调用处理函数，TS `ChannelServer` 同构），执行并发、响应按完成顺序发出并按 id 关联，跨连接不保证全局顺序。细则与测试见 `rust-u2-host-resilience.md` §5（`host-rpc/tests/rpc_order.rs`）。M2 之前 `host-rpc` 在独立任务里才调用处理函数，同一连接的登记序不确定，已修复。
 - capability 握手：连接建立即协商（客户端 capabilities ∩ Host 支持的 method 集），未实现成员立即回 `NotImplemented`（Renderer 不挂起，缺口显式可见）。
 
 ### 3.5 Main↔Host control
@@ -155,16 +156,16 @@ TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与
 
 ## 8. u2a 验收（本阶段第一部分）
 
-| 验收项                                 | 证据                                                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 三 workspace/结构就位，Host 骨架可编译 | `cargo check -p escode-host-*` 全绿；`pnpm check:escode-host` 含边界检查                                  |
-| TaskScope 收口                         | 每域 `running()` 为空；残余任务告警有测试                                                                 |
-| 有界通道溢出策略                       | 每队列策略单测（背压/丢弃可重建流/丢弃计数）                                                              |
-| Gateway 到达序                         | 并发请求登记顺序 = accept 顺序（确定性测试）；未实现方法回 `NotImplemented`                               |
-| capability 握手                        | 客户端能力与 Host method 集求交；不支持能力不登记                                                         |
-| control 有序                           | 日志与控制同队列顺序测试；shutdown 语义（grace → 残余清单）                                               |
-| 契约清单 `--check`                     | 清单与实现漂移即失败（负向验证：故意删一个 method 判失败）                                                |
-| 双链路                                 | u2a 内先以 `runtime-link=embedded`（阶段 1 `embed::spawn`）+ 最小 settings 读取跑通；child 链路同场景等价 |
+| 验收项                                 | 证据                                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 三 workspace/结构就位，Host 骨架可编译 | `cargo check -p escode-host-*` 全绿；`pnpm check:escode-host` 含边界检查                                                                                     |
+| TaskScope 收口                         | 每域 `running()` 为空；残余任务告警有测试                                                                                                                    |
+| 有界通道溢出策略                       | 每队列策略单测（背压/丢弃可重建流/丢弃计数）                                                                                                                 |
+| Gateway 到达序                         | host-surface：并发连接登记顺序 = accept 顺序（确定性测试）；host-rpc：每连接登记序 = 到达序、多连接各自保序（`rpc_order.rs`）；未实现方法回 `NotImplemented` |
+| capability 握手                        | 客户端能力与 Host method 集求交；不支持能力不登记                                                                                                            |
+| control 有序                           | 日志与控制同队列顺序测试；shutdown 语义（grace → 残余清单）                                                                                                  |
+| 契约清单 `--check`                     | 清单与实现漂移即失败（负向验证：故意删一个 method 判失败）                                                                                                   |
+| 双链路                                 | u2a 内先以 `runtime-link=embedded`（阶段 1 `embed::spawn`）+ 最小 settings 读取跑通；child 链路同场景等价                                                    |
 
 ## 8. 风险
 

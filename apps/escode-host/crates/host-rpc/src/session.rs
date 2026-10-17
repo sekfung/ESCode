@@ -185,17 +185,32 @@ pub type ChannelResult = Result<Wire, (String, String)>;
 pub type RpcResult = Result<Wire, RpcError>;
 pub use crate::channel::*;
 
-/// 处理一条 `Promise` 请求，返回要回给客户端的响应 body（其余类型返回空）。
-pub async fn respond(channels: &Channels, request: &Request) -> Vec<u8> {
+/// 一条请求的响应 future（`'static`：可直接交给独立任务）。
+pub type Responding = std::pin::Pin<Box<dyn std::future::Future<Output = Vec<u8>> + Send>>;
+
+/// **同步**登记一条请求：在调用线程查 channel/method 并调用处理函数（处理函数的同步前缀此刻执行），
+/// 返回产出响应 body 的 future（其余类型产出空 body）。
+///
+/// 修复：连接读循环过去在独立任务里才调用处理函数，tokio 多线程调度下同一连接先后两条请求的
+/// 处理函数调用顺序不确定；TS `ChannelServer` 收到 Promise 请求即同步 `channel.call`（登记序 =
+/// 到达序）。读循环按到达序调用本函数，再把 future 交给独立任务（docs/specs/rust-u2-host-resilience.md §5.1）。
+pub fn start(channels: &Channels, request: &Request) -> Responding {
+    let id = request.id;
+    let ready = |body: Vec<u8>| -> Responding { Box::pin(std::future::ready(body)) };
     match request.kind {
         REQUEST_PROMISE => match channels.channel(&request.channel) {
             Some(channel) => match channel.handler(&request.method) {
-                Some(handler) => match handler(request.arg.clone()).await {
-                    Ok(data) => success_frame(request.id, &data),
-                    Err(error) => rpc_error_frame(request.id, &error),
-                },
-                None => error_frame(
-                    request.id,
+                Some(handler) => {
+                    let pending = handler(request.arg.clone());
+                    Box::pin(async move {
+                        match pending.await {
+                            Ok(data) => success_frame(id, &data),
+                            Err(error) => rpc_error_frame(id, &error),
+                        }
+                    })
+                }
+                None => ready(error_frame(
+                    id,
                     "NotImplemented",
                     &format!(
                         "Host does not implement `{}.{}` yet (implemented: {})",
@@ -203,24 +218,29 @@ pub async fn respond(channels: &Channels, request: &Request) -> Vec<u8> {
                         request.method,
                         channel.methods().join(", ")
                     ),
-                ),
+                )),
             },
-            None => error_frame(
-                request.id,
+            None => ready(error_frame(
+                id,
                 "NotImplemented",
                 &format!(
                     "Host does not implement channel `{}` yet (implemented: {})",
                     request.channel,
                     channels.names().join(", ")
                 ),
-            ),
+            )),
         },
-        // 事件与取消由连接循环处理（`connection.rs`）；单独调用 `respond` 时不产生响应。
-        REQUEST_EVENT_LISTEN | REQUEST_PROMISE_CANCEL | REQUEST_EVENT_DISPOSE => Vec::new(),
-        other => error_frame(
-            request.id,
+        // 事件与取消由连接循环处理（`connection.rs`）；单独调用时不产生响应。
+        REQUEST_EVENT_LISTEN | REQUEST_PROMISE_CANCEL | REQUEST_EVENT_DISPOSE => ready(Vec::new()),
+        other => ready(error_frame(
+            id,
             "InvalidRequest",
             &format!("Unsupported RPC request type {other}"),
-        ),
+        )),
     }
+}
+
+/// 处理一条 `Promise` 请求，返回要回给客户端的响应 body（其余类型返回空）。
+pub async fn respond(channels: &Channels, request: &Request) -> Vec<u8> {
+    start(channels, request).await
 }
