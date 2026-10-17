@@ -77,7 +77,7 @@ impl Spawner {
 - **env 传播**：spawn 重新建立 `INSTANCE.scope`，子任务与 `spawn_blocking`（`sync_scope`）都看到实例快照；embed 模式下深 crate 的 `spawn_blocking`（如 model 的 HTTP client 构建）因此拿到正确 env。
 - **关闭宽限**：`drain(grace)` 由 embed 收口路径调用；条目在 future 结束（含 panic、abort）时由 guard 注销。
 
-迁移点（u1 收口）：core 16 处、tools 20 处、model `spawn_blocking` 4 处、state usage recorder、app-server 停滞看门狗。`Spawner::current()` 供无构造管道的深 crate（model/wiki/state）使用；Engine/WorkspaceTools 经 `RuntimePorts.spawner` / `with_spawner` 显式持有同一实例（测试隔离也依赖显式注入）。
+迁移点（u1 收口，2026-10-18 M1 复核）：core 16 处、tools 20 处（含本轮补齐的 14 处裸 `spawn_blocking`）、model `spawn_blocking` 4 处、state owner 锁与 usage recorder、wiki 解析、app-server 停滞看门狗。收口后非测试代码只剩两处直接调用：`core-api/src/scope.rs`（Spawner 实现本身）与 `state/src/storage.rs` 的 `Store::open` SQLite actor（§3.1 例外）。`Spawner::current()` 供无构造管道的深 crate（model/wiki/state）使用；Engine/WorkspaceTools 经 `RuntimePorts.spawner` / `with_spawner` 显式持有同一实例（测试隔离也依赖显式注入）。
 
 ### 3.2 实例级全局状态归属
 
@@ -148,7 +148,9 @@ spawn() ──► 构造 EnvSnapshot + Spawner ──► INSTANCE.scope(根未�
 
 ### 3.5 边界脚本规则
 
-`scripts/check-escode-cli-rust-boundaries.mjs` 新增：crates/ 全部 `.rs` 文件，剔除 `tests/` 目录与 `#[cfg(test)]` 段后，禁止 `std::env::{var, var_os, vars, vars_os, set_var, remove_var, current_dir, current_exe, args}` 与 `env::current_dir` 等裸调用。唯一豁免：`core-api/src/env.rs`（被批准的进程事实采集 shim，内含注释说明）。src/（binary 组合根）不在本规则范围。
+`scripts/check-escode-cli-rust-boundaries.mjs` 新增：crates/ 全部 `.rs` 文件，剔除 `tests/` 目录、`*_tests.rs` 测试模块与 `#[cfg(test)]` 段后，禁止 `std::env::{var, var_os, vars, vars_os, set_var, remove_var, current_dir, current_exe, args}` 与 `env::current_dir` 等裸调用。唯一豁免：`core-api/src/env.rs`（被批准的进程事实采集 shim，内含注释说明）。src/（binary 组合根）不在本规则范围。
+
+同一脚本新增 spawn 纪律规则：上述非测试代码禁止裸 `tokio::spawn` / `tokio::task::spawn_blocking`，唯一 spawn 入口是 `Spawner`。例外按**文件 + 理由**显式登记，不按行号：`core-api/src/scope.rs`（Spawner 实现本身）与 `state/src/storage.rs`（`Store::open` 的 SQLite actor，§3.1 例外）。Link 传输线程、file_log 单例线程使用 `std::thread`，不落入该规则。
 
 ### 3.6 owner 锁进程内登记表（crates/state）
 

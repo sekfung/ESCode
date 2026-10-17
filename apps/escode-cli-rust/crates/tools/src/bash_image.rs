@@ -43,8 +43,11 @@ pub(crate) async fn apply_image(data: &mut Value, output_file: Option<&Path>) {
     }
     let declared = media.clone();
     let original = bytes.clone();
-    let resized =
-        tokio::task::spawn_blocking(move || prepare_within(bytes, &declared, &RESIZE)).await;
+    let resized = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("bash-image-prepare", move || {
+            prepare_within(bytes, &declared, &RESIZE)
+        })
+        .await;
     let url = match resized {
         Ok(Ok(prepared)) => format!(
             "data:{};base64,{}",

@@ -3,6 +3,16 @@ import { resolve, relative } from "node:path";
 
 const root = resolve(import.meta.dirname, "../apps/escode-cli-rust/crates");
 const failures = [];
+// spawn 纪律（docs/specs/rust-u1-runtime-lib.md §3.1/§3.5）：非测试代码只能经 Spawner。
+// 例外按文件 + 理由登记；不按行号，避免迁移后行号漂移让守护失效。
+const spawnExceptions = new Map([
+    ["core-api/src/scope.rs", "Spawner implementation itself"],
+    [
+        "state/src/storage.rs",
+        "Store::open SQLite actor (§3.1 exception, ends with the last Store clone)",
+    ],
+]);
+const bareSpawn = /\btokio\s*::\s*(?:spawn|task\s*::\s*spawn_blocking)\s*\(/;
 async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = resolve(directory, entry.name);
@@ -43,8 +53,13 @@ async function walk(directory) {
       failures.push(`${file}: adapter imports core or frontend`);
     // 显式环境（docs/specs/rust-u1-runtime-lib.md §3.5）：非测试代码 0 处 std::env 进程事实读取。
     // 唯一豁免 core-api/src/env.rs（被批准的进程事实采集 shim）；temp_dir 是进程级语义，允许。
-    if (file.includes("/tests/")) continue;
+    // 测试目录与 `*_tests.rs` 测试模块不是产品代码（后者自身没有 #[cfg(test)] 头）。
+    if (file.includes("/tests/") || file.endsWith("_tests.rs")) continue;
     const runtimeCode = stripTestCode(source).replace(/\/\/[^\n]*/g, "");
+    if (bareSpawn.test(runtimeCode) && !spawnExceptions.has(file))
+        failures.push(
+            `${file}: spawns outside Spawner (use Spawner::current(); exceptions are registered by file)`,
+        );
     if (
       (crate !== "core-api" || file !== "core-api/src/env.rs") &&
       /\bstd\s*::\s*env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\b|(?<![:\w])env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\s*\(/.test(

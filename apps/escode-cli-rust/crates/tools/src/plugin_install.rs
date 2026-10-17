@@ -151,16 +151,17 @@ async fn install_locked(
     let worker_storage = storage.clone();
     let (worker_market, worker_name) = (marketplace.clone(), name.clone());
     let worker_cancel = cancel.clone();
-    let outcome = tokio::task::spawn_blocking(move || {
-        install_closure(
-            &worker_storage,
-            &worker_market,
-            &worker_name,
-            &worker_cancel,
-        )
-    })
-    .await
-    .map_err(|_| anyhow!("Plugin install worker panicked"))?;
+    let outcome = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("plugin-install", move || {
+            install_closure(
+                &worker_storage,
+                &worker_market,
+                &worker_name,
+                &worker_cancel,
+            )
+        })
+        .await
+        .map_err(|_| anyhow!("Plugin install worker panicked"))?;
     let (closure, records) = match outcome {
         Ok(done) => done,
         Err(error) => {
@@ -237,7 +238,10 @@ async fn restore_bundled(
     })
     .await?;
     let seed_root = storage.to_owned();
-    tokio::task::spawn_blocking(move || super::official_plugins::reseed(&seed_root))
+    escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("official-plugin-reseed", move || {
+            super::official_plugins::reseed(&seed_root)
+        })
         .await
         .map_err(|_| anyhow!("Official plugin reseed panicked"))?;
     let fresh = config::load(cwd).await?;

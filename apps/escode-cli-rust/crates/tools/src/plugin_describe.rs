@@ -64,20 +64,21 @@ pub(super) async fn describe(params: &Value) -> Result<Value> {
             vec![diag("plugin_not_found", message, None, true)],
         ));
     };
-    tokio::task::spawn_blocking(move || {
-        let mut diagnostics = vec![];
-        match install::materialize(&storage, &marketplace, &entry, None) {
-            Ok(root) => {
-                let read =
-                    read_components(&root.path, Some(&entry), &marketplace, &mut diagnostics);
-                root.cleanup();
-                result(read, diagnostics)
+    escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("plugin-describe", move || {
+            let mut diagnostics = vec![];
+            match install::materialize(&storage, &marketplace, &entry, None) {
+                Ok(root) => {
+                    let read =
+                        read_components(&root.path, Some(&entry), &marketplace, &mut diagnostics);
+                    root.cleanup();
+                    result(read, diagnostics)
+                }
+                Err(error) => result((vec![], None), vec![error_diagnostic(&error, Some(&id))]),
             }
-            Err(error) => result((vec![], None), vec![error_diagnostic(&error, Some(&id))]),
-        }
-    })
-    .await
-    .map_err(|_| anyhow!("Plugin describe worker panicked"))
+        })
+        .await
+        .map_err(|_| anyhow!("Plugin describe worker panicked"))
 }
 
 type Components = (Vec<Value>, Option<Value>);

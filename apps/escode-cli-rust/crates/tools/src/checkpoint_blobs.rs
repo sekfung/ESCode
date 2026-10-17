@@ -68,7 +68,11 @@ pub(super) async fn sync_parent(path: &Path) -> Result<()> {
     {
         use anyhow::Context;
         let parent = path.parent().context("Missing parent")?.to_owned();
-        tokio::task::spawn_blocking(move || std::fs::File::open(parent)?.sync_all()).await??;
+        escode_cli_core_api::scope::Spawner::current()
+            .spawn_blocking("checkpoint-sync-parent", move || {
+                std::fs::File::open(parent)?.sync_all()
+            })
+            .await??;
     }
     Ok(())
 }

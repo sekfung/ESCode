@@ -128,33 +128,34 @@ impl Store {
         use sha2::{Digest, Sha256};
         let token = escode_cli_host::id();
         let diag_token = token.clone();
-        let (lock_path, file) = tokio::task::spawn_blocking(move || {
-            let key = format!("{:x}", Sha256::digest(workspace.as_bytes()));
-            let target = dir.join(format!("workspace-{key}.lock"));
-            let file = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .open(&target)
-                .with_context(|| {
-                    format!("Workspace lock file unavailable: {}", target.display())
-                })?;
-            // SQLite 的写锁不能阻止第二个 actor 先读取旧状态并执行恢复，必须先锁 owner。
-            // 被其他进程持有（WouldBlock）是可重试的所有权冲突，用 WorkspaceOwned 标记，入口据此给出
-            // 专用退出码，Host 不能把它当成 Rust runtime 本身故障（docs/specs/rust-release-rollback.md）。
-            match file.try_lock() {
-                Ok(()) => {
-                    // 锁文件内容仅供人工排查（pid + token + 身份），无任何消费方。
-                    write_lock_diagnostics(&file, &workspace, &diag_token);
-                    Ok((target, file))
+        let (lock_path, file) = escode_cli_core_api::scope::Spawner::current()
+            .spawn_blocking("workspace-lock", move || {
+                let key = format!("{:x}", Sha256::digest(workspace.as_bytes()));
+                let target = dir.join(format!("workspace-{key}.lock"));
+                let file = std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(&target)
+                    .with_context(|| {
+                        format!("Workspace lock file unavailable: {}", target.display())
+                    })?;
+                // SQLite 的写锁不能阻止第二个 actor 先读取旧状态并执行恢复，必须先锁 owner。
+                // 被其他进程持有（WouldBlock）是可重试的所有权冲突，用 WorkspaceOwned 标记，入口据此给出
+                // 专用退出码，Host 不能把它当成 Rust runtime 本身故障（docs/specs/rust-release-rollback.md）。
+                match file.try_lock() {
+                    Ok(()) => {
+                        // 锁文件内容仅供人工排查（pid + token + 身份），无任何消费方。
+                        write_lock_diagnostics(&file, &workspace, &diag_token);
+                        Ok((target, file))
+                    }
+                    Err(std::fs::TryLockError::WouldBlock) => Err(WorkspaceOwned.into()),
+                    Err(std::fs::TryLockError::Error(error)) => Err(anyhow::Error::new(error)
+                        .context("Workspace runtime is already owned or cannot be locked")),
                 }
-                Err(std::fs::TryLockError::WouldBlock) => Err(WorkspaceOwned.into()),
-                Err(std::fs::TryLockError::Error(error)) => Err(anyhow::Error::new(error)
-                    .context("Workspace runtime is already owned or cannot be locked")),
-            }
-        })
-        .await??;
+            })
+            .await??;
         let mut owners = live_owners()
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);

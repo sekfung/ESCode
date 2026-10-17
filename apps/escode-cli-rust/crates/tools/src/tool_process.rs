@@ -26,35 +26,38 @@ fn capture(
     mut file: std::fs::File,
     cancel: CancellationToken,
 ) -> tokio::task::JoinHandle<Result<()>> {
-    tokio::task::spawn_blocking(move || {
-        use std::io::{Read, Write};
-        let mut copy = || -> Result<()> {
-            let mut bytes = 0u64;
-            let mut buf = [0u8; 8192];
-            loop {
-                let n = reader.read(&mut buf)?;
-                if n == 0 {
-                    break;
+    escode_cli_core_api::scope::Spawner::current().spawn_blocking(
+        "bash-output-capture",
+        move || {
+            use std::io::{Read, Write};
+            let mut copy = || -> Result<()> {
+                let mut bytes = 0u64;
+                let mut buf = [0u8; 8192];
+                loop {
+                    let n = reader.read(&mut buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    let write = n.min(MAX_STREAM.saturating_sub(bytes) as usize);
+                    if write > 0 {
+                        file.write_all(&buf[..write])?;
+                    }
+                    bytes += n as u64;
+                    if bytes > MAX_STREAM {
+                        cancel.cancel();
+                        break;
+                    }
                 }
-                let write = n.min(MAX_STREAM.saturating_sub(bytes) as usize);
-                if write > 0 {
-                    file.write_all(&buf[..write])?;
-                }
-                bytes += n as u64;
-                if bytes > MAX_STREAM {
-                    cancel.cancel();
-                    break;
-                }
+                Ok(())
+            };
+            let result = copy();
+            // 输出落盘失败必须停止进程树，不能让已丢失输出的后台任务继续运行。
+            if result.is_err() {
+                cancel.cancel();
             }
-            Ok(())
-        };
-        let result = copy();
-        // 输出落盘失败必须停止进程树，不能让已丢失输出的后台任务继续运行。
-        if result.is_err() {
-            cancel.cancel();
-        }
-        result
-    })
+            result
+        },
+    )
 }
 pub(super) async fn run(
     cwd: &Path,

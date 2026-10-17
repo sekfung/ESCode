@@ -59,10 +59,12 @@ pub(super) async fn discover(
     // 修复：Rust 此前只读缓存，从未 seed 随包官方插件；仅运行 Rust 的环境因此没有任何官方插件与技能。
     // 与 TS resolveOfficialPluginRoots 一样在发现前 seed（进程内每个 storage 一次），失败插件回落旧版本缓存。
     let seed_root = storage.clone();
-    let fallback =
-        tokio::task::spawn_blocking(move || super::official_plugins::seed_once(&seed_root))
-            .await
-            .unwrap_or_default();
+    let fallback = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("official-plugin-seed", move || {
+            super::official_plugins::seed_once(&seed_root)
+        })
+        .await
+        .unwrap_or_default();
     for root in fallback {
         candidates.push((root, official.into(), "official", false, true));
     }

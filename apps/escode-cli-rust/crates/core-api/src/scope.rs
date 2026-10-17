@@ -305,6 +305,40 @@ mod tests {
         let _ = gate_tx.send(());
     }
 
+    /// 深 crate 的 `Spawner::current()`（tools/state/wiki 的收口入口）必须落入实例账目：
+    /// 外层 spawn 的任务内再 spawn，`running()` 能看到两层，结束后账目清零。
+    #[tokio::test(flavor = "multi_thread")]
+    async fn current_inside_spawned_task_uses_the_instance_ledger() {
+        let spawner = Spawner::new();
+        spawner.bind_context(context(
+            fixture_env("ESCODE_TEST_LEDGER", "same-instance"),
+            &spawner,
+        ));
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let outer = spawner.spawn("outer", async move {
+            Spawner::current()
+                .spawn_blocking("inner", move || {
+                    let _ = started_tx.send(());
+                    let _ = release_rx.recv();
+                })
+                .await
+                .expect("inner task joins");
+        });
+        started_rx.await.expect("inner task started");
+        assert_eq!(
+            spawner.running(),
+            vec!["outer".to_owned(), "inner".to_owned()],
+            "deep-crate Spawner::current() must register in the same instance ledger"
+        );
+        release_tx.send(()).expect("release inner task");
+        outer.await.expect("outer task joins");
+        assert!(
+            spawner.running().is_empty(),
+            "ledger is empty after both tasks finish"
+        );
+    }
+
     #[tokio::test]
     async fn instance_env_is_replayed_into_spawned_tasks() {
         let spawner = Spawner::new();

@@ -41,11 +41,12 @@ pub(super) async fn validate(params: &Value) -> Result<Value> {
                 Some(&id),
                 true,
             )],
-            Ok(()) => {
-                tokio::task::spawn_blocking(move || validate_plugin(&storage, &marketplace, &name))
-                    .await
-                    .map_err(|_| anyhow!("Plugin validate worker panicked"))?
-            }
+            Ok(()) => escode_cli_core_api::scope::Spawner::current()
+                .spawn_blocking("plugin-validate", move || {
+                    validate_plugin(&storage, &marketplace, &name)
+                })
+                .await
+                .map_err(|_| anyhow!("Plugin validate worker panicked"))?,
         }
     } else {
         vec![]
@@ -152,11 +153,12 @@ pub(super) async fn install_dry_run(
                 Ok(()) => {
                     let (storage, marketplace, name) =
                         (storage.to_owned(), marketplace.to_owned(), name.to_owned());
-                    tokio::task::spawn_blocking(move || {
-                        validate_plugin(&storage, &marketplace, &name)
-                    })
-                    .await
-                    .map_err(|_| anyhow!("Plugin validate worker panicked"))?
+                    escode_cli_core_api::scope::Spawner::current()
+                        .spawn_blocking("plugin-validate", move || {
+                            validate_plugin(&storage, &marketplace, &name)
+                        })
+                        .await
+                        .map_err(|_| anyhow!("Plugin validate worker panicked"))?
                 }
             }
         }
@@ -229,24 +231,25 @@ async fn validate_source(
     let raw = loaded.raw.clone();
     let name = loaded.name.clone();
     let source_root = loaded.source_root.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        validate_loaded(
-            &storage,
-            &raw,
-            &name,
-            source_root.as_deref(),
-            plugin.as_deref(),
-        )
-    })
-    .await
-    .unwrap_or_else(|_| {
-        vec![diag(
-            "plugin_marketplace_invalid",
-            "Plugin validate worker panicked",
-            None,
-            true,
-        )]
-    });
+    let result = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("plugin-validate", move || {
+            validate_loaded(
+                &storage,
+                &raw,
+                &name,
+                source_root.as_deref(),
+                plugin.as_deref(),
+            )
+        })
+        .await
+        .unwrap_or_else(|_| {
+            vec![diag(
+                "plugin_marketplace_invalid",
+                "Plugin validate worker panicked",
+                None,
+                true,
+            )]
+        });
     if let Some(temp) = &loaded.temp {
         let _ = std::fs::remove_dir_all(temp);
     }

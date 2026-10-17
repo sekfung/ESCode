@@ -21,7 +21,10 @@ pub async fn search(
     let cwd = cwd.to_owned();
     let name = name.to_owned();
     let args = args.clone();
-    let job = tokio::task::spawn_blocking(move || search_sync(&cwd, &name, &args, &token));
+    let job = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("tool-search", move || {
+            search_sync(&cwd, &name, &args, &token)
+        });
     tokio::select! {
         _=cancel.cancelled()=>bail!("Search cancelled"),
         result=tokio::time::timeout(Duration::from_secs(30),job)=>result.context("Search timed out")??,

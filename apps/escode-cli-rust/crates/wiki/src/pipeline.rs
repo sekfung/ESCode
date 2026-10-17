@@ -153,13 +153,14 @@ pub async fn parse(
     };
     let limits = config.limits.clone();
     let max_ms = limits.max_parse_ms;
-    let task = tokio::task::spawn_blocking(move || {
-        let ctx = Ctx {
-            limits: &limits,
-            deadline: Instant::now() + Duration::from_millis(max_ms),
-        };
-        ingest::parse(parse_as, &bytes, &ctx)
-    });
+    let task =
+        escode_cli_core_api::scope::Spawner::current().spawn_blocking("wiki-parse", move || {
+            let ctx = Ctx {
+                limits: &limits,
+                deadline: Instant::now() + Duration::from_millis(max_ms),
+            };
+            ingest::parse(parse_as, &bytes, &ctx)
+        });
     // 截止时间在解析器内分步检查；这里再加一道墙钟上限，防止单个步骤卡住阻塞导入批次。
     let parsed = match tokio::time::timeout(Duration::from_millis(max_ms + 5_000), task).await {
         Ok(Ok(result)) => result?,

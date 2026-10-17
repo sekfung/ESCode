@@ -36,7 +36,9 @@ pub(crate) async fn read(
     }
     let bytes = tokio::fs::read(path).await?;
     super::tools::check_cancel(cancel)?;
-    let prepared = tokio::task::spawn_blocking(move || prepare(bytes, mime)).await??;
+    let prepared = escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("read-image-compress", move || prepare(bytes, mime))
+        .await??;
     super::tools::check_cancel(cancel)?;
     let media_type = prepared.media_type;
     let url = format!(

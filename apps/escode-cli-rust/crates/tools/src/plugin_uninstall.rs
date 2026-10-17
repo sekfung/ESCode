@@ -266,7 +266,10 @@ pub(super) async fn restore_builtin(params: &Value) -> Result<Value> {
     })
     .await?;
     let seed_root = storage.clone();
-    tokio::task::spawn_blocking(move || super::official_plugins::reseed(&seed_root))
+    escode_cli_core_api::scope::Spawner::current()
+        .spawn_blocking("official-plugin-reseed", move || {
+            super::official_plugins::reseed(&seed_root)
+        })
         .await
         .context("Official plugin reseed panicked")?;
     Ok(json!({ "pluginId": plugin_id, "diagnostics": [] }))
