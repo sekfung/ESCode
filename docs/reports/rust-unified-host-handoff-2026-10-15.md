@@ -272,8 +272,8 @@ TS 真相源（按调用顺序读）：
 - **快赢批已开工**：`usage-stats`(1)、`plugins`(7)、`git-checkpoint`(4)、`gen-ui`(5) 已交付——
   库存 228 → **251** 已实现 / 287 待办（`commands` 已 6/6 收口：目录解析 + `list` + 写面四法，
   见 `rust-u2-commands.md` §6/§7）；`subagents` 已 8/8 收口（list + 目录解析 + 状态写入面 + 写三法，见
-  `rust-u2-subagents.md`）——库存 228 → **286** 已实现 / 252 待办；`serial` 已 14/14 收口（枚举/轮询、会话/自动重连、
-  数据面、信号与循环，见 `rust-u2-serial.md` §8–§13）；`skill-sync` 5/5 与 `mcp-sync` 8/8 已交付（见 `rust-u2-sync.md` §1/§2）（`usage-stats` 见 `rust-u2-misc-channels.md`、`plugins` 见
+  `rust-u2-subagents.md`）——库存 228 → **290** 已实现 / 248 待办；`serial` 已 14/14 收口（枚举/轮询、会话/自动重连、
+  数据面、信号与循环，见 `rust-u2-serial.md` §8–§13）；`skill-sync` 5/5、`mcp-sync` 8/8、`settings-sync` 4/6 已交付（见 `rust-u2-sync.md` §1–§3）（`usage-stats` 见 `rust-u2-misc-channels.md`、`plugins` 见
   `rust-u2-plugin-management.md` §8、`git-checkpoint` 见 `rust-u2-git.md` §8、`gen-ui` 见 `rust-u2-gen-ui.md`）。
 - u2a 余项：**桌面窗口自身 host 的进程无关化**（`packages/desktop/src/main/desktopHostProcess.ts:762`）——需要 `windowHostProcessMap`/broadcastHub/taskRealtimeBus/`registerHostProcess` 接受"非 utility process 的 window host"；这是"dev 开关下跑通全部桌面 E2E"这条验收的最后一环。
 - 阶段 3（切默认与清理，含 golden freeze）、阶段 4（零序列化进程内链路、跨实例共享缓存、启动/退出路径、严格等价测试网）未开始，见父计划。

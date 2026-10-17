@@ -1,7 +1,7 @@
 # Rust 阶段 2：sync 三域（rust-unified-host.md 子 spec）
 
 > 状态：实现中 · 2026-10-17。三个域共 19 个成员：
-> `skill-sync` 5（已交付）、`mcp-sync` 8（已交付）、`settings-sync` 6（待做）。按域分三次提交。
+> `skill-sync` 5（已交付）、`mcp-sync` 8（已交付）、`settings-sync` 4/6（detect/importSelected 待做）。按域分三次提交。
 > 共同点：都是 **Host 级服务**（TS 在 local 与 remote 两侧都注册），用户根是 `rpcListen.home`
 > （homedir 语义，经 `channels_with(home, …)` 注入），不依赖工作区或 agent 实例。
 > 远端同步的方向：本地 Host 导出 → 文件/网络传输 → 远端 Host 导入；归档与配置文件是两端共享的事实。
@@ -216,3 +216,67 @@ TS 真相源：`mcp-sync/mcpSyncService.ts` 937、`mcpSync.ts` 47；共享类型
 - **负向验证**（两项，均已恢复）：见 §2.8。
 - **门禁**：workspace 全部测试目标通过（host-services 454、host-rpc 119+ 及全部 e2e）；
   clippy `-D warnings` 0；`pnpm check:escode-host` 通过；库存 **286 已实现 / 252 待办**。
+
+## 3. settings-sync（4/6 已交付，2 个待做）
+
+TS 真相源：`settings-sync/settingsSyncService.ts` 2377、`settingsSync.ts` 41、`types.ts` 33；
+共享类型 `packages/shared/src/settings-sync.ts`。
+
+### 3.1 接口与分片
+
+| 方法                                             | 状态   | 行为                                                                 |
+| ------------------------------------------------ | ------ | -------------------------------------------------------------------- |
+| `getClaudeAgentsFileMigrationStatus({…})`        | 已交付 | `~/.claude/CLAUDE.md` → `~/.escode/AGENTS.md` 的存在性/可用性        |
+| `copyClaudeAgentsFileToEscodeAgentsFile({…})`    | 已交付 | 复制（`overwrite === true` 才覆盖）；返回 copied/skipped 与原因       |
+| `getFirstRunPromptState()`                       | 已交付 | 设置文件顶层键 `settingsSyncFirstRunPromptHandled === true`          |
+| `markFirstRunPromptHandled()`                    | 已交付 | 顶层合并写 `settingsSyncFirstRunPromptHandled: true`                 |
+| `detect({categories,intent})`                    | **待做** | 多 agent 设置发现（skills/commands/plugins/mcpServers）              |
+| `importSelected({selections})`                   | **待做** | 按选择导入（copy/symlink，含 CLI 配置合并）                          |
+
+- 已交付的 4 个方法都不使用 `workspacePath`/`workspaceIdentity`（TS 同样 `void` 掉）。
+- 未迁移的两个方法由 channel 的 `NotImplemented` 显式缺口回显（消息列出已实现方法）。
+
+### 3.2 AGENTS.md 迁移
+
+- 存在性用 `lstat`：软链本身算存在（含悬空软链）；目录也算存在。
+- 源缺失 → `{status:"skipped", skippedReason:"missingSource"}`；状态里 `supported:false` +
+  `unavailableReason:"missingSource"`。
+- 目标存在且 `overwrite !== true` → `skipped` + `targetExists`；只有严格布尔 `true` 才覆盖
+  （字符串/数字真值不覆盖）。
+- 复制前 `mkdir -p` 目标父目录；`copy` 跟随源软链、覆盖目标；`overwritten` = 复制前目标是否存在。
+
+### 3.3 首启提示状态
+
+- 读：设置服务 `read(home)` 后取 `settingsSyncFirstRunPromptHandled`，严格等于 `true` 才算 handled。
+- 写：设置服务顶层合并补丁（保留其它键、原子写、2 空格 JSON + 换行），不清除导入结果。
+
+### 3.4 待做部分（下一片）
+
+`detect` / `importSelected` 是同一套多 agent 引擎，按 4 个类别扫描 16 个外部 agent：
+
+- **路径表**：skills/commands/plugins 各 16 个 agent 的 project/global 根（`.claude`、`.codex`、
+  `.opencode`、`.openclaw`、`.augment`、`.continue`、`.goose`、`.qwen`、`.qoder`、`.qoder-cn`、
+  `.codeium/windsurf`、`.trae`、`.trae-cn`、`.kiro`、`.roo`、`.codebuddy`）；MCP 另有 12 个来源
+  （含 `agents`）与 4 种格式（`mcpServersJson`、`mcpJson`、`codexToml`、OpenCode 归一）。
+- **发现**：目录扫描（复用 `skills` 遍历策略/命令 Markdown/插件 manifest 三形态）、frontmatter
+  元数据、目标侧同名/同目录判重、`sourceRoots` 汇总与 `selectedByDefault`。
+- **导入**：`copy`/`symlink` 两种模式、命令文件软链、插件目录复制 + 插件配置写入、
+  MCP server 合并进 `.escode` 配置（含 `stripExternalMcpTimeoutFields`/OpenCode 归一）。
+- **验收**：每类各一组夹具（源根/目标根、同名跳过、symlink 模式、MCP 格式），
+  端到端 `detect → importSelected → detect` 闭环。
+
+### 3.5 登记差异
+
+1. `copyClaudeAgentsFileToEscodeAgentsFile` 不写 TS 的 info 日志（Host 无日志设施）。
+2. 首启状态的读取沿用 Rust 设置服务的坏文件隔离/回退（与 TS settingService 同语义）。
+
+### 3.6 settings-sync 交付记录（4/6，2026-10-17）
+
+- **实现**：`host-services/src/settings_sync/{agents_file,first_run}.rs`；设置读写复用
+  `settings::read` / `settings::apply_patch`（唯一写者与文件格式不变）。
+- **通道**：`domains_settings_sync.rs`（`settings-sync`）；`inventory_services.rs` 补 4 条；
+  其余 2 个成员由方法表缺口回显。
+- **测试**：新增 4 例（AGENTS.md 三态 + 悬空软链、首启状态保留其它键/严格 true）
+  + 端到端 1 例（迁移 + 覆盖判定 + 首启状态 + `detect` 缺口）。
+- **门禁**：workspace 全部测试目标通过；clippy `-D warnings` 0；`pnpm check:escode-host` 通过；
+  库存 **290 已实现 / 248 待办**（settings-sync 4/6）。

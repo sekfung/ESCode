@@ -41,6 +41,7 @@ mod domains_session;
 mod domains_session_model;
 mod domains_session_write;
 mod domains_setting_extra;
+mod domains_settings_sync;
 mod domains_simple;
 mod domains_skill_sync;
 mod domains_skills;

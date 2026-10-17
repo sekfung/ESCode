@@ -25,6 +25,7 @@ pub mod remote_sync;
 pub mod serial;
 pub mod session_params;
 pub mod settings;
+pub mod settings_sync;
 pub mod skill_sync;
 pub mod skills;
 pub mod subagents;
