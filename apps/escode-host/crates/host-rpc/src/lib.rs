@@ -54,6 +54,7 @@ mod domains_task_create;
 mod domains_task_delete;
 mod domains_task_gap;
 mod domains_task_groups;
+mod domains_task_input;
 mod domains_task_lifecycle;
 mod domains_task_query;
 mod domains_task_runtime;

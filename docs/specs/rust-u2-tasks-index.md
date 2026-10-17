@@ -607,3 +607,59 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
 - 负向验证：①`closeTask` 不删索引 → 关闭用例失败；②`createTask` 不写索引 → 创建用例失败。
 - 门禁：workspace 全部测试目标、clippy `-D warnings`、边界/清单/架构检查通过；库存
   **299 已实现 / 239 待办**。
+
+## 11. escode-task 输入/停止/交互（S6，2026-10-17）
+
+本片交付 5 个成员：`sendPrompt`、`stopGeneration`、`compactSession`、`respondPermission`、
+`respondElicitation`；`goalSession` 依赖运行时未提供的 legacy goal actions，留待后续（34 → 29）。
+
+### 11.1 `sendPrompt`
+
+- 目标：`workspacePath` 显式给出时直接使用；否则从任务目标注册表取（未加载 →
+  `ESCODE_SESSION_TARGET_NOT_FOUND`）。
+- **无附件（主路径）**：V4 `sendText` 命令，`commandId = traceId`（幂等键与 CLI inputId 对齐），
+  payload：`text`、`heldQueueDisposition: keepQueueAndSend`、可选 `modelSelection`/`modelExecution`/
+  `botDeliveryTarget`、`toolDisallowlist`、`turnAttribution`。ACK 用 `assertV4CommandAckOk`。
+- **带附件**：legacy `session/send`（V4 sendText 的附件命令面未建模，TS 同），body 带 `sessionId`/
+  `inputId`/`content`/`attachments`/可选 `queryId`/`messageId`/`modelSelection`/`modelExecution`/
+  `toolDenylist`/`botDeliveryTarget`/归属字段。
+- **工具面隔离**（TS `resolvePromptToolDenylist`）：基础 `toolDenylist` + 本轮 `automationId` 时追加
+  `CronCreate/CronUpdate/CronDelete`；`offPeakTaskId` 时追加 `OffPeakCreate`；两者同时存在时**都加**。
+  `cronAutomationId`（持久归属）不参与本轮隔离。
+- **归属**（TS `turnAttributionOf`）：`automationId` 优先；否则 `offPeakTaskId` + 可选 `offPeakRunType`。
+
+### 11.2 `stopGeneration`
+
+- V4 `stop` 命令，payload 只在有值时带 `expectedForegroundExecutionId`；`runId` 仅日志。
+- 未知执行身份导致的停止由 CLI 幂等/拒绝，Host 只透传 ACK。
+
+### 11.3 `compactSession`
+
+- V4 `compact` 命令（`{text: instructions}`），ACK accepted/queued 后 `session/read` 取当前快照；
+  返回 `{response: "", snapshot, compact: {state: "accepted", inputId?}}`。
+- **登记差异**：legacy `session/compact` 的 `operationId` 不存在；`response` 为空；
+  `expectedRevision` 不参与（V4 compact 非 CAS 命令）。压缩终态由事件/快照收敛。
+
+### 11.4 `respondPermission` / `respondElicitation`
+
+- 均走 V4 `resolveInteraction`：permission 的 `answer = {optionId}`；
+  elicitation 的 `answer = {action, content?}`。ACK 成功（含 noop）返回 `true`。
+- **登记差异**：`clientMode = web-remote-replayable` 时 TS 在 adapter 本地补投 observer 清理事件；
+  Rust Host 暂无任务事件发射器，由 V4 事件流/下一次快照收敛。
+
+### 11.5 `goalSession`（待做）
+
+- 运行时只提供 V4 `sendGoalCommand` / `pauseGoal` / `resumeGoal`（CAS），没有 legacy
+  `session/goal` 的 `show`/`clear`/`set`/`replace` 结构化动作面；直接拼接会改变语义。
+- 前置条件：运行时补齐 goal actions（或在 V4 增加对应命令），之后再按 TS 的 `action` 分支实现
+  `{response, snapshot, startedTurn?}`。
+
+### 11.6 验收
+
+- 单元：`toolDenylist` 合并（automation/offpeak/两者并存、cron 轮不 deny OffPeakCreate）与
+  `turnAttribution` 优先级。
+- 端到端（真 embedded 实例）：`createTask` → `sendPrompt`（V4 ACK）→ `stopGeneration` →
+  `respondPermission`/`respondElicitation`（noop → true）→ `compactSession`（accepted + snapshot）→
+  `closeTask`。
+- 负向验证：①去掉 denylist 合并 → 单元用例失败；②compact 不读快照 → 端到端失败。
+- 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **304 已实现 / 234 待办**。
