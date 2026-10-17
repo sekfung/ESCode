@@ -167,8 +167,8 @@ R 线总判决：**ACCEPT**。验收报告 §2 的四条硬性条件（R5、R9�
 ## 10. 仍未解决
 
 1. ~~5 个失败~~、~~`cargo deny`~~：已在 §11 收口。
-2. Host workspace 没有 `deny.toml`：`cargo deny` 对其 advisories 通过、licenses 按默认策略全拒；CI 也只对 CLI manifest 跑 deny。不属于 M1 条件，留待 Host 唯一化前补齐清单。
-3. `checks` 作业仍只在 ubuntu（理由见 §7）；H0 的“CI 三平台”仍是 PARTIAL。
+2. ~~Host 无 `deny.toml`~~：已补，见 §11.4。
+3. `checks` 已改为三平台矩阵（§11.4），但本分支无远端、未推送，H0“CI 三平台”在取得 CI 运行记录前为 **UNVERIFIED**。
 4. H2/H3/H5 本轮明确不做：唯一 Host 切换、Pending 业务域、TS 删除、replayable E2E、无窗口调度。
 5. 验收报告中的其它非阻塞项（H1.3/H1.4/H1.8 的口径、四 locale readdir 证据、busy_timeout、H4 差异登记等）未在本轮处理。
 6. 本机 Node 24.14.0 与 CI 期望 24.18.0 不一致；完整串行套件本机耗时约 31.4 分钟，CI 的 test 作业超时为 120 分钟。
@@ -215,3 +215,26 @@ EXIT 0
 | `pnpm typecheck` / `lint` / `fmt:check` / `architecture:check --changed` | `42c80e06`                   | 0      | lint 0 error / 160 warning（既有）                                          |
 
 覆盖范围说明：验证期间另一工作流在本分支提交了 `4f0de02c`、`818c040f`、`8c8b67d6`、`57ea5b0d`（H2 韧性：实例崩溃隔离、启动失败分类、Host 自动重启）。其中 `818c040f` 改动了 `escode-cli-rust`（`core/src/app/engine_requests.rs`、`src/embed.rs`、Cargo feature），**不在上表的套件覆盖范围内**；按要求本轮未在最终 HEAD 上重跑完整套件，这些提交的验证以其自身提交记录为准。
+
+### 11.4 收尾与最终状态
+
+- Host 工作区补 `apps/escode-host/deny.toml`（与 CLI 同一策略）与 `pnpm check:escode-host:deny`；CI 新增对 Host 的 `cargo-deny-action`。
+- `checks` 作业改为 ubuntu/windows/macos 矩阵，推翻 §7 的“维持 ubuntu”决定（理由与代价见 `docs/specs/rust-ci.md`）；deny 仅在 Linux 跑。
+- 分支说明：验证期间另一工作流把共享工作区切到 `m2/host-resilience`，§11.2 起的 M1 提交一度落在该分支、与 H2 提交交错。已在独立 worktree 中 cherry-pick 回 `m1/gates-and-r-line`。本分支只含 M1 改动，其 Rust/TS 代码与 §11.3 第 2 轮完整套件被测代码相同（之后只有报告、CI、spec 改动）；§11.3 关于 H2 提交不在覆盖范围的说明只适用于 m2 分支。
+
+`m1/gates-and-r-line` 末端（干净 worktree）复核：
+
+| 命令                                                                        | 退出码 | 结果      |
+| --------------------------------------------------------------------------- | ------ | --------- |
+| `check-escode-cli-rust-boundaries.mjs` / `check-escode-host-boundaries.mjs` | 0 / 0  | OK / OK   |
+| `cargo fmt --check`（两个 workspace）                                       | 0      | —         |
+| `cargo clippy --locked --all-targets -D warnings`（两个 workspace）         | 0      | —         |
+| `cargo deny check`（CLI / Host）                                            | 0 / 0  | 四项全 ok |
+
+最终状态：
+
+| 项                      | 结论       | 说明                                                                                                                |
+| ----------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| T1–T5、R 线四条硬性条件 | PASS       | R 线 **ACCEPT**                                                                                                     |
+| T6 / H0“CI 三平台”      | UNVERIFIED | 工作流已改为三平台；需推送后取得 rust-runtime-ci 运行记录（按决定本轮暂不推送）                                     |
+| m2 分支 Host 边界       | 不属于 M1  | `818c040f`（H2.7）使 `host-runtime/src/instance.rs` 490 行、`tests/crash_isolation.rs` 423 行超限，由 H2 工作流拆分 |
