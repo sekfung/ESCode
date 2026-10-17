@@ -90,6 +90,9 @@ automation 的 runId 即该值）；`taskId` 为订阅任务。
   否则输出 `turn_steer_status{status:"discarded", pendingInputIds:[id]}`，`reason` 在增量帧里为
   `queue_deleted`（桌面/手机删除），在重订阅快照里为 `session_resumed`（runtime 重启，队列是进程内状态）。
   首帧快照只记基线。说明：旧 legacy 路径从未产出非 drained 的 `turn_steer_status`，该提示此前从未生效。
+  同帧前提已在两个 runtime 上实测（`escode-cli-rust-queue-promotion-frame.test.ts`，2026-10-18）：排队输入被提升时，
+  Node（TS runtime）与 Rust 都在同一 deltas 帧里同时移除队列项并追加其轮头/userInput 行，投影不误报丢弃。
+  guide 消费路径依赖排队项的 `steer.state`（steering/guided）判定，未单独实测。
 - 去重：Bot 自己发起的取消（`cancelBotGroupInput`）在调用**之前**登记该 `sourceCommandId`（帧可能早于 ACK
   到达），失败撤销；流处理跳过已登记的输入，Bot 只回取消流程自己的“已取消该排队输入”。
 - 本期不映射：`plan`、`usage`、`config_option_update` 等 Bot 不消费的事件。
