@@ -32,9 +32,15 @@ env:
 
 jobs:
   checks:
-    name: checks (lint, typecheck, fmt, clippy, boundaries)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    name: checks (${{ matrix.os }})
+    # H0「门禁在 CI 三平台都跑」：clippy 需要在各平台 cfg 下各 lint 一遍，边界/typecheck/lint/architecture
+    # 也在 Windows 路径语义下各跑一遍（docs/specs/rust-ci.md）。
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -57,10 +63,16 @@ jobs:
       - run: pnpm check:escode-cli-rust
       # 阶段 2 Host 工作区（apps/escode-host）：边界（分层/400 行/0 处进程 env）+ fmt + clippy。
       - run: pnpm check:escode-host
-      # 依赖与许可证策略（apps/escode-cli-rust/deny.toml）：advisories / licenses 白名单 / bans / sources。
+      # 依赖与许可证策略（两个 workspace 各自的 deny.toml）：advisories / licenses 白名单 / bans / sources。
+      # cargo-deny-action 是 Docker action，只能在 Linux runner 上跑；依赖图按全部目标平台解析，结果与宿主 OS 无关。
       - uses: EmbarkStudios/cargo-deny-action@v2
+        if: runner.os == 'Linux'
         with:
           manifest-path: apps/escode-cli-rust/Cargo.toml
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        if: runner.os == 'Linux'
+        with:
+          manifest-path: apps/escode-host/Cargo.toml
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm architecture:check

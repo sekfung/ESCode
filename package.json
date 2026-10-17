@@ -83,6 +83,7 @@
     "check:usb-capture-helper": "cargo fmt --manifest-path apps/usb-capture-helper/Cargo.toml --all --check && cargo clippy --locked --manifest-path apps/usb-capture-helper/Cargo.toml --all-targets -- -D warnings",
     "test:usb-capture-helper": "cargo test --locked --manifest-path apps/usb-capture-helper/Cargo.toml",
     "check:escode-cli-rust:deny": "cargo deny --manifest-path apps/escode-cli-rust/Cargo.toml check",
+    "check:escode-host:deny": "cargo deny --manifest-path apps/escode-host/Cargo.toml check",
     "test:escode-cli-rust": "node scripts/test-escode-cli-rust.mjs",
     "dev:desktop:escode-cli-rust": "node scripts/dev-desktop-escode-cli-rust.mjs",
     "test:architecture": "node --test scripts/test/architecture-governance.test.mjs"
