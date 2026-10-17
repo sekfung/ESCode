@@ -113,7 +113,7 @@ libc = "0.2"
 # LLM Wiki 文档导入（apps/escode-cli-rust/docs/llm-wiki）：OOXML / XML 解析与文本型 PDF 抽取，均 MIT。
 quick-xml = "0.42"
 lopdf = { version = "0.45", default-features = false }
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2"] }
 tempfile = "3"
 escode-cli-protocol = { path = "crates/protocol" }
 escode-cli-domain = { path = "crates/domain" }
