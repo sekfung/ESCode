@@ -64,6 +64,28 @@ describe("createWebRemoteControlSharedHostAttachments", () => {
     expect(ports.port1.close).toHaveBeenCalledTimes(1);
   });
 
+  it("surfaces a Rust Host start error instead of falling back to the desktop host", async () => {
+    const child = new MockUtilityProcess();
+    browserWindowMock.fromId.mockReturnValueOnce({ id: 7, webContents: { id: 99 } });
+    const manager = createWebRemoteControlSharedHostAttachments({
+      windowHostProcessMap: new Map([[99, child as never]]),
+      createMessageChannel: createPortPair as never,
+      attachRustHostLocal: async () => {
+        throw Object.assign(new Error("Rust Host binary cannot be started (ENOENT)"), {
+          name: "RustHostStartError",
+          code: "RUST_HOST_BINARY_MISSING",
+        });
+      },
+      attachRemoteWorkspaceSessionHost: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+
+    await expect(
+      manager.attachWorkspaceHost(7, { kind: "local", workspacePath: "/repo/demo" }),
+    ).rejects.toMatchObject({ code: "RUST_HOST_BINARY_MISSING" });
+    expect(child.postMessage).not.toHaveBeenCalled();
+  });
+
   it("throws desktop-disconnected when the desktop host is missing", async () => {
     const manager = createWebRemoteControlSharedHostAttachments({
       windowHostProcessMap: new Map(),

@@ -204,6 +204,14 @@ function mapWorkspaceBridgeFailureReason(error: unknown): WebRemoteControlFailur
     case "REMOTE_WORKSPACE_IDENTITY_MISSING":
     case "REMOTE_WORKSPACE_IDENTITY_MISMATCH":
       return "unsupported-action";
+    // Rust Host 启动失败与重启放弃（docs/specs/rust-u2-host-resilience.md §4）：手机端沿用
+    // 已本地化的“桌面端已断开”，分类码与原文留在 error 字段与 Main 日志。
+    case "RUST_HOST_BINARY_MISSING":
+    case "RUST_HOST_EXITED_EARLY":
+    case "RUST_HOST_HANDSHAKE_TIMEOUT":
+    case "RUST_HOST_LISTEN_FAILED":
+    case "RUST_HOST_CRASH_LOOP":
+      return "desktop-disconnected";
     default:
       return "unexpected-error";
   }

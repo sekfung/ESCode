@@ -18,10 +18,55 @@ export interface HostPortLike {
   close?(): void;
 }
 
+/**
+ * Rust Host 启动失败的分类（docs/specs/rust-u2-host-resilience.md §4）。`RUST_HOST_CRASH_LOOP`
+ * 由 `rustHostManager` 在受限重启用完次数后给出（§3.2）。
+ */
+export type RustHostStartErrorCode =
+  | "RUST_HOST_BINARY_MISSING"
+  | "RUST_HOST_EXITED_EARLY"
+  | "RUST_HOST_HANDSHAKE_TIMEOUT"
+  | "RUST_HOST_LISTEN_FAILED"
+  | "RUST_HOST_CRASH_LOOP";
+
+/** 握手阶段：超时与提前退出时指明卡在哪一步。 */
+export type RustHostStartStage = "hostReady" | "rpcListening";
+
+/** 带分类的 Rust Host 启动错误（调用方按 `code` 决定呈现，不解析文案）。 */
+export class RustHostStartError extends Error {
+  override readonly name = "RustHostStartError";
+  constructor(
+    readonly code: RustHostStartErrorCode,
+    message: string,
+    readonly details: {
+      stage?: RustHostStartStage;
+      timeoutMs?: number;
+      exitCode?: number | null;
+      signal?: NodeJS.Signals | null;
+      errno?: string;
+    } = {},
+  ) {
+    super(message);
+  }
+}
+
+/** Host 进程的退出信息（`onExit`）。 */
+export interface RustHostExit {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+}
+
 /** Rust Host 进程句柄（控制通道 + RPC 端点 + 收口）。 */
 export interface RustHostHandle {
   /** 子进程（控制通道 stdin 与退出观察；诊断与测试用）。 */
   readonly child: ChildProcessWithoutNullStreams;
+  /** 子进程 pid（重启前后不同；诊断与测试用）。 */
+  readonly pid: number | undefined;
+  /**
+   * 进程退出时回调一次（已退出则立即回调）。是否“意外”由调用方判定：
+   * `rustHostManager` 以自己是否调用过 `stop()` 为唯一判据（spec §3.1）。
+   */
+  onExit(listener: (exit: RustHostExit) => void): void;
   /** RPC 端点地址（`ws://127.0.0.1:<port>` 与 `http://127.0.0.1:<port>` 同端口）。 */
   readonly addr: string;
   /**
@@ -56,7 +101,11 @@ export interface StartRustHostOptions {
   runtimeEnv?: Record<string, string>;
   /** 追加/覆盖的环境变量（Host 进程自身的 env，不进实例）。 */
   env?: NodeJS.ProcessEnv;
-  /** 启动超时（默认 10s）。 */
+  /** 可执行文件参数（缺省无参数；测试用它以 Node 脚本模拟各类启动失败）。 */
+  args?: string[];
+  /** RPC 监听地址（缺省 `127.0.0.1:0`；测试用占用端口验证监听失败）。 */
+  bind?: string;
+  /** 整个启动握手（`hostReady` → `rpcListening`）的截止时间（默认 10s，spec §4）。 */
   timeoutMs?: number;
   /**
    * 结构化日志钩子：Host 的 `logBatch` 控制帧（`host-control/src/logging.rs` 的进程级 sink）。
@@ -81,12 +130,51 @@ export interface RustHostLogBatch {
 
 /**
  * 启动 Rust Host 并完成控制握手：`hostReady` → `rpcListen` → `rpcListening`。
- * 失败（二进制缺失、握手超时、监听失败）一律抛错，调用方据此回退 Node Host。
+ * 失败一律抛 {@link RustHostStartError}（spec §4 四类），整个握手共用一个截止时间 `timeoutMs`；
+ * 二进制缺失与提前退出不等截止时间，事件到达即失败。失败后子进程被 SIGKILL。
  */
 export async function startRustHost(options: StartRustHostOptions): Promise<RustHostHandle> {
-  const child = spawn(options.binary, [], {
+  const child = spawn(options.binary, options.args ?? [], {
     stdio: ["pipe", "pipe", "inherit"],
     env: { ...process.env, ...options.env, HOME: options.home, USERPROFILE: options.home },
+  });
+  // 修复：过去没有监听子进程 `error`：二进制缺失时 Node 把未处理的 `error` 事件当异常抛出
+  // （Main 进程崩溃），而握手只能等满超时。现在 `error` 与 `exit` 都转成分类失败，事件到达即结束等待。
+  let exit: RustHostExit | undefined;
+  const exitListeners: Array<(exit: RustHostExit) => void> = [];
+  let failStartup: ((error: RustHostStartError) => void) | undefined;
+  const startupFailed = new Promise<never>((_resolve, reject) => {
+    failStartup = reject;
+  });
+  // 握手结束后的失败只经 `onExit` 报告；这里挂 no-op，避免成功启动后 Promise 未处理。
+  startupFailed.catch(() => undefined);
+  let stage: RustHostStartStage = "hostReady";
+  child.on("error", (error: NodeJS.ErrnoException) => {
+    const errno = error.code ?? "";
+    failStartup?.(
+      ["ENOENT", "EACCES", "ENOTDIR", "EPERM"].includes(errno)
+        ? new RustHostStartError(
+            "RUST_HOST_BINARY_MISSING",
+            `Rust Host binary cannot be started (${errno}): ${options.binary}`,
+            { errno },
+          )
+        : new RustHostStartError(
+            "RUST_HOST_EXITED_EARLY",
+            `Rust Host failed to start: ${error.message}`,
+            { stage, errno },
+          ),
+    );
+  });
+  child.once("exit", (code, signal) => {
+    exit = { code, signal };
+    failStartup?.(
+      new RustHostStartError(
+        "RUST_HOST_EXITED_EARLY",
+        `Rust Host exited before ${stage} (code ${String(code)}, signal ${String(signal)})`,
+        { stage, exitCode: code, signal },
+      ),
+    );
+    for (const listener of exitListeners.splice(0)) listener(exit);
   });
   const control = createControlChannel(child, {
     onLogBatch: options.onLogBatch,
@@ -95,40 +183,68 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
       : undefined,
   });
   const timeoutMs = options.timeoutMs ?? 10_000;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    deadline = setTimeout(
+      () =>
+        reject(
+          new RustHostStartError(
+            "RUST_HOST_HANDSHAKE_TIMEOUT",
+            `Rust Host did not report ${stage} within ${timeoutMs}ms`,
+            { stage, timeoutMs },
+          ),
+        ),
+      timeoutMs,
+    );
+  });
+  const step = <T>(promise: Promise<T>) => Promise.race([promise, startupFailed, timedOut]);
   try {
-    await withTimeout(control.next(), timeoutMs, "Rust Host did not report hostReady");
+    await step(control.next());
+    stage = "rpcListening";
     child.stdin.write(
       `${JSON.stringify({
         kind: "rpcListen",
-        bind: "127.0.0.1:0",
+        bind: options.bind ?? "127.0.0.1:0",
         home: options.home,
         ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
         ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv } : {}),
         ...(options.authorizeLocalMediaPreviewPath ? { localMediaPreview: true } : {}),
       })}\n`,
     );
-    const listening = await withTimeout(
+    const listening = await step(
       control.nextMatching(
         (message) => message.kind === "rpcListening" || message.kind === "failed",
       ),
-      timeoutMs,
-      "Rust Host did not report rpcListening",
     );
     if (listening.kind === "failed") {
-      throw new Error(
+      throw new RustHostStartError(
+        "RUST_HOST_LISTEN_FAILED",
         `Rust Host failed to listen: ${JSON.stringify(listening.error ?? listening)}`,
+        { stage },
       );
     }
     const addr = `127.0.0.1:${String(listening.addr).replace(/^.*:/, "")}`;
     if (typeof listening.secret !== "string" || listening.secret.length === 0) {
-      throw new Error("Rust Host did not report an RPC secret");
+      throw new RustHostStartError(
+        "RUST_HOST_LISTEN_FAILED",
+        "Rust Host did not report an RPC secret",
+        { stage },
+      );
     }
     const secret = listening.secret;
+    // 握手完成：此后的退出只经 onExit 报告给所有者（rustHostManager），不再是启动失败。
+    failStartup = undefined;
     return {
       child,
+      pid: child.pid,
       addr,
       secret,
+      onExit(listener) {
+        if (exit) listener(exit);
+        else exitListeners.push(listener);
+      },
       async stop() {
+        if (exit) return;
         child.stdin.end();
         await withTimeout(
           new Promise<void>((done) => child.once("close", () => done())),
@@ -138,8 +254,11 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
       },
     };
   } catch (error) {
+    failStartup = undefined;
     child.kill("SIGKILL");
     throw error;
+  } finally {
+    if (deadline) clearTimeout(deadline);
   }
 }
 

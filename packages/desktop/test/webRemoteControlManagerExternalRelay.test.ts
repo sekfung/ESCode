@@ -1104,6 +1104,12 @@ describe("createWebRemoteControlManager external relay", () => {
     ["DESKTOP_HOST_MISSING", "desktop-disconnected"],
     ["REMOTE_SESSION_MISSING", "workspace-closed"],
     ["REMOTE_WORKSPACE_IDENTITY_MISSING", "unsupported-action"],
+    // Rust Host 启动失败与重启放弃（docs/specs/rust-u2-host-resilience.md §4）。
+    ["RUST_HOST_BINARY_MISSING", "desktop-disconnected"],
+    ["RUST_HOST_EXITED_EARLY", "desktop-disconnected"],
+    ["RUST_HOST_HANDSHAKE_TIMEOUT", "desktop-disconnected"],
+    ["RUST_HOST_LISTEN_FAILED", "desktop-disconnected"],
+    ["RUST_HOST_CRASH_LOOP", "desktop-disconnected"],
   ] as const)("maps workspace bridge attach error %s to %s", async (code, reason) => {
     const attachWorkspaceHost = vi.fn<AttachWorkspaceHost>(async () => {
       throw Object.assign(new Error(`attach failed: ${code}`), { code });

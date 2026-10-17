@@ -835,7 +835,9 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
 const webRemoteControlAuthProvider = createNodeWebRemoteControlRelayAuthProvider();
 // dev 开关（docs/specs/rust-u2-host-skeleton.md §6）：`ESCODE_RUST_HOST=1` 时本地 workspace 的
 // Host attachment 走 Rust Host（App 级一个进程，Main 桥接 MessagePort ↔ RPC WebSocket）。
-// 启动失败不阻塞应用：`attachRustHostLocal` 抛错时调用方回退 Node Host 路径。
+// 启动失败不阻塞应用：`attachRustHostLocal` 抛带分类的 `RustHostStartError`，由远控 bridge 以
+// `desktop-disconnected` 呈现给手机端（docs/specs/rust-u2-host-resilience.md §4）；开关关闭时的
+// Node Host 路径属 M5 删除清单。
 const rustHostManager = createRustHostManager({
   binary: defaultRustHostBinary(app.getAppPath(), app.isPackaged),
   home: app.getPath("home"),

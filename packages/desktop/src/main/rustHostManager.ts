@@ -3,6 +3,7 @@ import {
   bridgeRustHostPort,
   type RustHostClientMode,
   isRustHostEnabled,
+  RustHostStartError,
   startRustHost,
   type RustHostHandle,
 } from "./rustHostBridge.js";
@@ -21,6 +22,8 @@ import {
 export interface RustHostManagerOptions {
   /** Host 可执行文件路径。 */
   binary: string;
+  /** Host 可执行文件参数（测试用；缺省无参数）。 */
+  args?: string[];
   /** 设置域根目录（Main 决定）。 */
   home: string;
   /** 应用数据根（TS `getDataBaseDir()`，Main 决定；供会话工作区等路径派生）。 */
@@ -31,7 +34,9 @@ export interface RustHostManagerOptions {
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
-  /** 日志钩子。`error` 用于 Host 的结构化 error 级日志（缺省退回 `warn`）。 */
+  /** 启动握手截止时间（默认 10s，docs/specs/rust-u2-host-resilience.md §4）。 */
+  startTimeoutMs?: number;
+  /** 日志钩子。`error` 用于启动失败与 Host 的结构化 error 级日志（缺省退回 `warn`）。 */
   log?: {
     info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
@@ -49,7 +54,7 @@ export interface RustHostAttachment {
 export interface RustHostManager {
   /** 开关是否打开（关闭时调用方走 Node Host）。 */
   readonly enabled: boolean;
-  /** 懒启动（single-flight）；失败抛错，调用方回退 Node Host。 */
+  /** 懒启动（single-flight）；失败抛带分类的 `RustHostStartError`（spec §4）。 */
   ensureStarted(): Promise<RustHostHandle>;
   /**
    * 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。`clientMode` 与 Node 路径同一
@@ -74,7 +79,9 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
     if (handle) return handle;
     starting ??= startRustHost({
       binary: options.binary,
+      ...(options.args ? { args: options.args } : {}),
       home: options.home,
+      ...(options.startTimeoutMs ? { timeoutMs: options.startTimeoutMs } : {}),
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
       ...(options.runtimeEnv ? { runtimeEnv: await options.runtimeEnv() } : {}),
       ...(options.authorizeLocalMediaPreviewPath
@@ -98,8 +105,16 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       })
       .catch((error: unknown) => {
         starting = undefined;
-        options.log?.warn(`[rust-host] start failed, falling back to Node Host: ${String(error)}`);
-        throw error;
+        // 修复：过去记 warn 并声称“回退 Node Host”，而调用方并不回退、错误直接上抛。
+        // 启动失败是不可恢复错误（AGENTS.md 日志级别），按分类记 error 后原样抛出。
+        const classified =
+          error instanceof RustHostStartError
+            ? error
+            : new RustHostStartError("RUST_HOST_EXITED_EARLY", String(error));
+        (options.log?.error ?? options.log?.warn)?.(
+          `[rust-host] start failed (${classified.code}): ${classified.message}`,
+        );
+        throw classified;
       });
     return starting;
   }
