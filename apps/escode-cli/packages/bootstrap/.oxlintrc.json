@@ -1,0 +1,11 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  // 根 .oxlintrc.json 的 ignorePatterns 明确排除整个 apps/escode-cli；但从包内运行
+  // `oxlint src` 时传入的是相对路径，不再命中该 ignore，会误用根仓的 max-lines 400。
+  // bootstrap 的多个既有文件（product-projection.ts、v4-gateway.ts 等）远大于该阈值，
+  // 这里显式继承根规则并关闭 max-lines，保持根仓对 apps/escode-cli 的豁免边界。
+  "extends": ["../../../../.oxlintrc.json"],
+  "rules": {
+    "max-lines": "off"
+  }
+}
