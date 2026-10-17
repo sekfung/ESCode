@@ -152,7 +152,6 @@ impl Session {
     }
     pub fn finish_rows(&mut self, outcome: &str, now: u64) {
         let history_rounds = history_rounds(&self.rows);
-        let tool_timing = tool_timing(&self.rows);
         for row in &mut self.rows {
             if row["kind"] == "timelineMarker"
                 && row["marker"]["type"] == "goalVerify"
@@ -205,14 +204,8 @@ impl Session {
                 if row["executionKind"] != "controlOnly" || rounds > 0 {
                     row["historyRoundCount"] = rounds.into();
                 }
-                // v3.15.1 TS highspeedTimingForTurn：本轮有工具调用时写模型 / 工具 / 其余耗时拆分。模型耗时
-                // 只累计加速卡 Provider 的请求，Rust 尚不承载加速卡，按 0 计。
-                if let Some(tool_ms) = tool_timing.get(row["turnId"].as_str().unwrap_or("")) {
-                    let active = row["activeMs"].as_u64().unwrap_or(*tool_ms);
-                    row["modelDurationMs"] = 0.into();
-                    row["toolDurationMs"] = (*tool_ms).into();
-                    row["otherDurationMs"] = active.saturating_sub(*tool_ms).into();
-                }
+                // 2026-10-15 加速卡/套餐族删除后 Node 不再写 model/tool/otherDurationMs；
+                // Rust 同步移除旧拆分，避免与 Node 的行字段集分叉（docs/specs/rust-v3.15.1-drift.md「已对齐」）。
             }
             // 子代理由独立 child 生命周期收口；父回复结束不能把仍在运行的后台 child 标成取消。
             if row["kind"] != "subagent"
@@ -233,38 +226,6 @@ pub fn row_base(mut row: Value) -> Value {
         row["executionKind"] = "agent".into();
     }
     row
-}
-
-/// TS `highspeedTimingForTurn` 的工具段：每轮已结束工具调用区间的并集时长（未结束的不计，但只要
-/// 本轮出现过工具调用就写拆分字段）。
-fn tool_timing(rows: &[Value]) -> std::collections::BTreeMap<String, u64> {
-    let mut intervals: std::collections::BTreeMap<String, Vec<(u64, u64)>> = Default::default();
-    for row in rows.iter().filter(|row| row["kind"] == "toolCall") {
-        let turn = row["turnId"].as_str().unwrap_or("").to_owned();
-        let entry = intervals.entry(turn).or_default();
-        if let (Some(start), Some(end)) = (row["startedAt"].as_u64(), row["endedAt"].as_u64()) {
-            entry.push((start, end.max(start)));
-        }
-    }
-    intervals
-        .into_iter()
-        .map(|(turn, mut spans)| {
-            spans.sort();
-            let (mut total, mut union_end) = (0u64, None::<u64>);
-            for (start, end) in spans {
-                match union_end {
-                    Some(edge) if start <= edge => {
-                        if end > edge {
-                            total += end - edge;
-                        }
-                    }
-                    _ => total += end - start,
-                }
-                union_end = Some(union_end.map_or(end, |edge| edge.max(end)));
-            }
-            (turn, total)
-        })
-        .collect()
 }
 
 /// TS `historyRoundCount`：本轮写入历史的模型轮次（每个模型响应 1 次）与成功的 compact 摘要（各 1 次）。
