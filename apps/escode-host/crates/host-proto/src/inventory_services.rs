@@ -295,6 +295,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("commands", "updateCommandFile"),
     ("commands", "deleteCommandFile"),
     ("commands", "setCommandEnabled"),
+    ("subagents", "list"),
     ("subagents", "getPrimaryUserAgentsDirectory"),
     ("subagents", "setEnabled"),
     ("subagents", "setBuiltInModelOverride"),

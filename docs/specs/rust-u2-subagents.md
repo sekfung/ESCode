@@ -1,7 +1,7 @@
 # Rust 阶段 2：`subagents` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**4/8 已交付**（目录解析 + 状态写入面），另有 `list` 的前置件——
-> markdown 解析器（§6）已落地。
+> 状态：切片交付中 · 2026-10-17。**5/8 已交付**（`list` + 目录解析 + 状态写入面）。
+> 只剩 `createAgent` / `updateAgent` / `deleteAgent`（需 markdown 序列化与改名时禁用态迁移）。
 > TS 真相源：`packages/services/src/subagents/`（`subagentsService.ts` 892、`subagentMarkdown.ts` 435、
 > `subagentConfigScope.ts` 343、`subagentRuntimeConfig.ts` 230、`subagentStorage.ts` 65）、
 > `packages/shared/src/subagents-types.ts`。
@@ -132,9 +132,10 @@ Rust 对应 `subagents/{frontmatter,profile}.rs`。
   项目级丢弃 `permissionMode` 与 `memory` 警告、`model` 的五种形态、`tools` 归一为空的 `[]`。
 - 实现期修正：第一版把整数解析成 f64（`42.0`），导致 `maxTurns` 的 `as_u64()` 也失配——改走 i64 后两处同时修复。
 
-### 6.5 `list` 剩余部分（下一步，已逐项读码）
+### 6.5 `list` 的落地记录（2026-10-17）
 
-> **2026-10-17 复核**：逐项读码后，剩余工作量比初估更大，且有两处必须先定的口径。
+> 口径已定（用户 2026-10-17）：**用 saphyr 复刻 YAML 合并**（不用「只用宽松」）。实现见
+> `yaml_json.rs` / `summary.rs` / `discovery_file.rs` / `discovery_plugin*.rs` / `list.rs`。
 
 1. **Settings 侧用的是真正的 `yaml` 包**（`subagentMarkdown.ts` 的
    `parseRuntimeCompatibleFrontmatter`）：`{...yamlValues, ...looseValues, mcpServers: yaml 数组优先}`。
@@ -165,3 +166,40 @@ Rust 对应 `subagents/{frontmatter,profile}.rs`。
    属读路径无副作用（TS 每次 `list` 都会在文件锁下重写 legacy 文件）。
 
 ### 6.6 `list` 剩余部分（旧清单，保留供对照）
+
+### 6.7 `list` 交付记录（2026-10-17）
+
+**解析口径**：`yaml_json.rs` 用 `saphyr` 复刻 `parseRuntimeCompatibleFrontmatter`
+（`{...yaml, ...loose}`，`mcpServers` 在 YAML 给出数组时以 YAML 为准）；`summary.rs` 是 Settings 侧的
+摘要投影，**与 runtime 侧刻意不同**（`tools` 不剥 `(...)`、项目级不丢 `permissionMode`、
+`mcpServers` 只要是数组就带上、无 `memory`）。
+
+**发现层**：`discovery_file.rs`（内置常量 + 用户/工作区根**只扫第一层** + 禁用态只作用于 user scope +
+按 name 的优先级合并）、`discovery_plugin_records.rs`（分组的缓存扫描 + 安装记录 + 卸载抑制）、
+`discovery_plugin.rs`（清单三种格式 + agent 根 + 插件命名与裸名别名/歧义诊断）、`list.rs`（编排）。
+
+**新增共享件**：`host-services/src/official_plugins.rs` 收敛官方插件默认启用表——`commands` 与
+`subagents` 原先各写一份 13 条常量，容易漂移，现共用一份（`commands` 已改用它）。
+
+**登记差异**：
+
+1. **YAML 重复键**：TS 的 `yaml` 包对重复顶层键抛错 → 该文件整体按空 frontmatter 处理；saphyr 的映射是
+   「后者覆盖」。只在**含重复键的坏文件**上可见。
+2. **版本目录排序**：`localeCompare(..., {numeric, sensitivity:"base"})` 用自然序近似实现（数字段按数值、
+   文本段忽略大小写）。只在「同一插件有多个缓存版本且名字含混合数字/字母」时可能给出不同首项。
+3. **exotic YAML**：saphyr 的 `Representation`（保留原始写法）按字符串处理、别名等未解析变体按 `null`；
+   TS 会得到真实值。只在非 UTF-8 表示/锚点别名的文件上可见。
+4. **legacy markdown 迁移**：不做（用户决定）——`list` 是读路径，不改写用户文件；解析侧已能识别
+   legacy 的 `builtin:a:b:c` 与 `$` 档位。
+5. `userAgents` 的过滤口径与 TS 一致：按 **`source === "user"`** 过滤，因此**也包含 workspace 级**
+   （它们同属用户创建）。
+
+**验收**：`yaml_json`（YAML 合并与宽松覆盖）、`summary`（块标量被宽松覆盖的真实行为、`tools` 不剥参数、
+`mcpServers` 取 YAML 数组、三条缺字段文案、built-in/workspace 的 source/scope/readOnly 口径）、
+`list`（内置常量与覆盖回填、只扫第一层、优先级合并、禁用态只作用于 user、插件命名/别名/歧义）。
+端到端 1 例：`list` 返回内置两个 + 用户 agent，禁用后 `enabled:false`。
+
+**负向验证**（两项，均已恢复）：①文件发现改成递归 → 「子目录不该被发现」失败；
+②禁用态应用到所有 scope → 「内置不受禁用集影响」失败。
+第二项第一版用例只禁用了 user id、内置 id 不在集合里，负向验证发现它测不到 scope 判断，
+已改为**把内置 id 也塞进禁用集**。

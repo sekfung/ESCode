@@ -24,23 +24,6 @@ const MANIFEST_PATHS: [&str; 4] = [
     ".codex-plugin/plugin.json",
 ];
 
-/// TS `DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS`（与 CLI 的 official-plugin-definitions 机械对照）。
-const DEFAULT_ENABLED: [&str; 13] = [
-    "browser-use@zcode-plugins-official",
-    "image-search@zcode-plugins-official",
-    "documents@zcode-plugins-official",
-    "pdf@zcode-plugins-official",
-    "presentations@zcode-plugins-official",
-    "spreadsheets@zcode-plugins-official",
-    "node-repl-host@zcode-plugins-official",
-    "skill-creator@zcode-plugins-official",
-    "plugin-creator@zcode-plugins-official",
-    "escode-guide@zcode-plugins-official",
-    "visualize@zcode-plugins-official",
-    "serial@zcode-plugins-official",
-    "usb@zcode-plugins-official",
-];
-
 /// TS `PluginConfigSummary`。
 pub struct PluginConfig {
     pub dirs: Vec<String>,
@@ -351,7 +334,7 @@ pub async fn resolve_root_descriptors(home: &Path, config: &Value) -> Vec<RootDe
             continue;
         }
         let default_enabled =
-            candidate.default_enabled || DEFAULT_ENABLED.contains(&plugin_id.as_str());
+            candidate.default_enabled || crate::official_plugins::is_default_enabled(&plugin_id);
         let enabled = config
             .enabled_plugins
             .get(&plugin_id)

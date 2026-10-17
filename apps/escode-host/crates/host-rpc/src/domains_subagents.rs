@@ -1,8 +1,8 @@
 //! `subagents` channel（TS `ServiceChannels.Subagents` = `"subagents"`；docs/specs/rust-u2-subagents.md）。
 //!
-//! 本片接 4/8：`getPrimaryUserAgentsDirectory` + `setEnabled` + 两个模型覆盖。
-//! 其余 4 个（`list` / `createAgent` / `updateAgent` / `deleteAgent`）依赖 markdown 解析与生成、
-//! 多来源发现与热重载作用域，由 `respond` 回显式缺口并列出已实现集合。
+//! 已接 5/8：`list` + `getPrimaryUserAgentsDirectory` + `setEnabled` + 两个模型覆盖。
+//! 其余 3 个（`createAgent` / `updateAgent` / `deleteAgent`）依赖 markdown 序列化与改名时的
+//! 禁用态迁移，由 `respond` 回显式缺口并列出已实现集合。
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -82,9 +82,35 @@ pub(crate) fn subagents_channel(home: PathBuf) -> Channel {
         })
     });
 
+    let list_method = {
+        let service = Arc::clone(&service);
+        handler(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                let workspace_path = params["workspacePath"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                let mode = params["mode"].as_str().map(str::to_owned);
+                let answer = escode_host_services::subagents::list::list(
+                    service.home(),
+                    escode_host_services::subagents::list::ListParams {
+                        workspace_path: &workspace_path,
+                        mode: mode.as_deref(),
+                    },
+                    &crate::collation::compare_names,
+                )
+                .await
+                .map_err(failed)?;
+                Ok::<Wire, (String, String)>(Wire::Object(answer))
+            })
+        })
+    };
+
     Channel::new(
         "subagents",
         vec![
+            ("list", list_method),
             ("getPrimaryUserAgentsDirectory", primary),
             ("setEnabled", set_enabled),
             ("setBuiltInModelOverride", set_built_in),

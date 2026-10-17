@@ -1,6 +1,6 @@
 //! `subagents` 端到端（真 WebSocket，`rust-u2-subagents.md` §4）。
 //!
-//! 覆盖已交付的 4/8：目录解析 + 状态写入面；未迁移的 4 个必须回**显式缺口**并列出已实现集合。
+//! 覆盖已交付的 5/8：`list` + 目录解析 + 状态写入面；未迁移的 3 个必须回**显式缺口**并列出已实现集合。
 mod support;
 use support::*;
 
@@ -122,12 +122,78 @@ async fn directory_and_state_writes_then_list_reports_an_explicit_gap() {
         "{error}"
     );
 
-    // ── 未迁移的 4 个：显式缺口 + 已实现集合 ────────────────────────
+    // ── `list`：内置两个 agent + 用户目录里的自定义 agent ─────────────
+    let agents_root = home.join(".escode").join("agents");
+    std::fs::create_dir_all(&agents_root).unwrap();
+    std::fs::write(
+        agents_root.join("reviewer.md"),
+        "---\nname: reviewer\ndescription: 代码审查\n---\n你是审查员。",
+    )
+    .unwrap();
+    let workspace = dir.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let answer = call_json(
+        &mut socket,
+        20,
+        "list",
+        serde_json::json!({"workspacePath": workspace.to_string_lossy()}),
+    )
+    .await;
+    let Wire::Object(answer) = answer else {
+        panic!("list 应答应为对象")
+    };
+    assert_eq!(
+        answer["capability"]["userScopeAvailable"],
+        serde_json::json!(true),
+        "{answer}"
+    );
+    let names: Vec<&str> = answer["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|agent| agent["name"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"general-purpose"), "{names:?}");
+    assert!(names.contains(&"Explore"), "{names:?}");
+    assert!(names.contains(&"reviewer"), "{names:?}");
+    // 禁用的 user agent 在列表里显示为 enabled=false。
+    let disabled_id = answer["userAgents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|agent| agent["name"] == serde_json::json!("reviewer"))
+        .map(|agent| agent["id"].as_str().unwrap().to_owned())
+        .expect("reviewer 在 userAgents 里");
+    call_json(
+        &mut socket,
+        21,
+        "setEnabled",
+        serde_json::json!({"agentId": disabled_id, "enabled": false}),
+    )
+    .await;
+    let answer = call_json(
+        &mut socket,
+        22,
+        "list",
+        serde_json::json!({"workspacePath": workspace.to_string_lossy()}),
+    )
+    .await;
+    let Wire::Object(answer) = answer else {
+        panic!("list 应答应为对象")
+    };
+    let reviewer = answer["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|agent| agent["name"] == serde_json::json!("reviewer"))
+        .expect("reviewer 仍在列表里");
+    assert_eq!(reviewer["enabled"], serde_json::json!(false));
+
+    // ── 未迁移的 3 个：显式缺口 + 已实现集合 ────────────────────────
     for (id, method) in [
-        (9, "list"),
-        (10, "createAgent"),
-        (11, "updateAgent"),
-        (12, "deleteAgent"),
+        (30, "createAgent"),
+        (31, "updateAgent"),
+        (32, "deleteAgent"),
     ] {
         let error = call_json(&mut socket, id, method, serde_json::json!({}))
             .await

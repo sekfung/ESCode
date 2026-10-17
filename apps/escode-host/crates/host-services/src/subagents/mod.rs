@@ -7,13 +7,19 @@
 //!
 //! **所有写操作串行**（TS `enqueue` 的写队列）：读-改-写必须是一个整体，否则并发 setEnabled 会丢更新。
 
+pub mod discovery_file;
+pub mod discovery_plugin;
+pub mod discovery_plugin_records;
 pub mod frontmatter;
 pub mod frontmatter_value;
+pub mod list;
 pub mod model_selection;
 pub mod model_value;
 pub mod profile;
 pub mod state;
 pub mod storage;
+pub mod summary;
+pub mod yaml_json;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,6 +40,11 @@ impl SubagentsService {
             home,
             queue: Arc::new(Mutex::new(())),
         }
+    }
+
+    /// 设置域根（`list` 的发现层需要它定位用户根与状态文件）。
+    pub fn home(&self) -> &std::path::Path {
+        &self.home
     }
 
     /// TS `getPrimaryUserAgentsDirectory`：解析用户 agent 根并**确保它落盘**，回原样路径。

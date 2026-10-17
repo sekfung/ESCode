@@ -312,7 +312,7 @@ fn normalize_tool_names(values: Option<Vec<String>>) -> Option<Vec<String>> {
 
 /// TS `parseSubagentMarkdownSelection`：`model` 是 `provider/model[$reasoning]` 或 `custom:...`；
 /// `inherit`/`main`/`sonnet`/`opus`/`haiku` 视为继承（不产生覆盖）。
-fn parse_selection(frontmatter: &Map<String, Value>) -> Option<Value> {
+pub(super) fn parse_selection(frontmatter: &Map<String, Value>) -> Option<Value> {
     let model = frontmatter.get("model")?.as_str()?;
     let value = model.trim();
     if value.is_empty() || INHERIT_NAMES.contains(&value) {

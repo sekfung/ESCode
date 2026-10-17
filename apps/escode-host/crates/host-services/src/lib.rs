@@ -17,6 +17,7 @@ pub mod gen_ui;
 pub mod git;
 pub mod js_compat;
 pub mod model_trajectory;
+pub mod official_plugins;
 pub mod onboarding;
 pub mod provider;
 pub mod session_params;
