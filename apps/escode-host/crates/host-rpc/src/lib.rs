@@ -35,6 +35,7 @@ mod domains_plugins_legacy;
 mod domains_provider;
 mod domains_provider_connectivity;
 mod domains_provider_write;
+mod domains_serial;
 mod domains_session;
 mod domains_session_model;
 mod domains_session_write;

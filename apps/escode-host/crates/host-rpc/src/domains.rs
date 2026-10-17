@@ -229,6 +229,8 @@ pub fn channels_with(
             crate::window_controller::gap_channel()
         })),
     };
+    // ：每连接一个实例（每连接≈每窗口，见 rust-u2-serial.md §2）。
+    let channels = channels.with_scoped(std::sync::Arc::new(crate::domains_serial::serial_channel));
     channels.with_scoped(agent)
 }
 

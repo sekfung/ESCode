@@ -20,6 +20,7 @@ pub mod model_trajectory;
 pub mod official_plugins;
 pub mod onboarding;
 pub mod provider;
+pub mod serial;
 pub mod session_params;
 pub mod settings;
 pub mod skills;

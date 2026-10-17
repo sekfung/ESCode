@@ -298,8 +298,15 @@ async fn system_info_reports_home_and_node_platform() {
     };
     assert_eq!(info["platform"], expected_platform, "{info}");
 
-    // 未迁移方法：显式缺口。
-    call(&mut socket, 62, "serial", "list", &Wire::Array(Vec::new())).await;
+    // 未迁移方法：显式缺口（`bots` 整个域尚未迁移）。
+    call(
+        &mut socket,
+        62,
+        "bots",
+        "listBots",
+        &Wire::Array(Vec::new()),
+    )
+    .await;
     let error = read_response(&mut socket, 62)
         .await
         .into_object()
@@ -308,7 +315,15 @@ async fn system_info_reports_home_and_node_platform() {
         error["message"]
             .as_str()
             .unwrap()
-            .contains("channel `serial`")
+            .contains("channel `bots`")
+    );
+
+    // `serial.list` 已实现：返回端口数组（本机无串口时为空数组）。
+    call(&mut socket, 63, "serial", "list", &Wire::Array(Vec::new())).await;
+    let ports = read_response(&mut socket, 63).await;
+    assert!(
+        matches!(ports, Wire::Array(_)),
+        "serial.list 应回端口数组: {ports:?}"
     );
 
     surface.shutdown().await;
