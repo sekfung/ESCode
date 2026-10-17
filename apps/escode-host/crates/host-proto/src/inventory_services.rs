@@ -284,6 +284,11 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("git-checkpoint", "diffCheckpoints"),
     ("git-checkpoint", "restoreBetweenCheckpoints"),
     ("git-checkpoint", "deleteCheckpoint"),
+    ("gen-ui", "readDocument"),
+    ("gen-ui", "getState"),
+    ("gen-ui", "setState"),
+    ("gen-ui", "listState"),
+    ("gen-ui", "onStateChanged"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。

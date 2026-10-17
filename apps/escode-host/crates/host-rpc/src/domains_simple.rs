@@ -37,6 +37,10 @@ pub(crate) fn simple_channels(
         crate::domains_plugins_legacy::plugins_channel(),
     ];
     channels.push(crate::domains_onboarding::onboarding_channel(data_base_dir));
+    // `gen-ui`：模型写可视化文件、Host 受限读取；widget 状态与通知同源。
+    channels.push(crate::domains_gen_ui::gen_ui_channel(
+        data_base_dir.map(std::path::Path::to_path_buf),
+    ));
     // `usage-stats` 只读实例表（不按 workspace 路由、不启动运行时），与其余域无共享状态。
     channels.push(crate::domains_usage_stats::usage_stats_channel(
         usage_stats_instances,

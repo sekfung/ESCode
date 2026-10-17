@@ -12,6 +12,7 @@ pub mod credential;
 pub mod data_dir;
 pub mod file_index;
 pub mod file_watcher;
+pub mod gen_ui;
 pub mod git;
 pub mod js_compat;
 pub mod model_trajectory;

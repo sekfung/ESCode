@@ -916,6 +916,7 @@ dependencies = [
  "escode-host-core",
  "futures-util",
  "ignore",
+ "libc",
  "notify",
  "portable-pty",
  "regex",
