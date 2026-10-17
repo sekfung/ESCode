@@ -66,13 +66,26 @@ async function observe(kind: Runtime) {
   }
 }
 
+type ConversationDelta = Extract<
+  ConversationTopicFrame["payload"],
+  { kind: "deltas" }
+>["deltas"][number];
+type StateUpdatedDelta = Extract<ConversationDelta, { op: "state.updated" }>;
+
 function analyse(kind: Runtime, frames: ConversationTopicFrame[], queuedId: string) {
   const inQueue = (frame: ConversationTopicFrame): boolean | undefined => {
+    // findLast 不像 filter 会自动收窄；用显式谓词把 state.updated 的 patch 带出来。
+    const queueUpdate =
+      frame.payload.kind === "deltas"
+        ? frame.payload.deltas.findLast(
+            (d): d is StateUpdatedDelta =>
+              d.op === "state.updated" && Boolean(d.patch.queue),
+          )
+        : undefined;
     const items =
       frame.payload.kind === "snapshot"
         ? frame.payload.snapshot.queue.items
-        : frame.payload.deltas.findLast((d) => d.op === "state.updated" && d.patch.queue)?.patch
-            .queue?.items;
+        : queueUpdate?.patch.queue?.items;
     return items?.some((item) => item.sourceCommandId === queuedId);
   };
   const hasTurn = (frame: ConversationTopicFrame) =>

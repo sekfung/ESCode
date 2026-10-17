@@ -82,7 +82,10 @@ test("Legacy bot_topic_context stays out of model history but is projected by se
       { sessionId: "topic" },
       escodeSessionMessagesResultSchema,
     );
-    const topic = messages.filter((m) => m.info.source === "bot_topic_context");
+    // `source` 只在 user 消息联合成员上；先按 role 收窄，不能直接访问联合外的字段。
+    const topic = messages.filter(
+      (m) => m.info.role === "user" && m.info.source === "bot_topic_context",
+    );
     assert.equal(topic.length, 1);
     assert.equal(topic[0]!.info.role, "user");
     assert.equal(topic[0]!.info.visibility, "model-only");

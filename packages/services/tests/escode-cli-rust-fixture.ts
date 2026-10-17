@@ -45,7 +45,7 @@ export async function waitForFile(path: string): Promise<string> {
     await delay(10);
   }
 }
-type Message = Record<string, any>;
+export type Message = Record<string, any>;
 
 export async function fixture(
   options: {
