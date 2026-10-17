@@ -144,10 +144,13 @@ Rust 侧用 presence 一致表达即可。
   `await import(...)` → `autoDetect()`）+ `@serialport/stream` 的 `SerialPortStream`。Rust Host 不能加载 N-API addon，
   需用 Rust 串口库重建：枚举（含 manufacturer/serialNumber/vendorId/productId）、open 配置、DTR/RTS 与信号脉冲时序、
   环形缓冲与 10ms 合并、热插拔轮询与自动重连、`nativeUnavailable` 错误语义、`ESCODE_SERIAL_MOCK_PORTS` 等价测试接缝。
-- **必须先定的设计问题**：TS 是**窗口级**作用域——`SERIAL_MAX_ACTIVE_SESSIONS = 4` 每窗口
-  （`packages/services/src/serial/serial.ts:108`），且 `seq` 在窗口内统一分配、跨会话跨重开单调递增
-  （`docs/specs/serial-port-debugger-phase3.md:10,14,22`）；Rust Host 是 **App 级单进程**。
-  迁移前须在 spec 里定「每窗口一个串口域」还是「App 级共享串口域」，否则 `seq` 与并发上限语义会漂移。
+- **作用域已定（2026-10-17，用户决定）**：**每连接（≈每窗口）一个串口域**。TS 是窗口级
+  （`SERIAL_MAX_ACTIVE_SESSIONS = 4` 每窗口，`packages/services/src/serial/serial.ts:108`；`seq` 在窗口内统一分配、
+  跨会话跨重开单调递增，`docs/specs/serial-port-debugger-phase3.md:10,14,22`），而 Rust Host 是 App 级单进程。
+  实现口径：用**连接级 channel**（`Channels::with_scoped`，与 `window-controller` 同法）承载串口域，
+  一个 Renderer 连接 ≈ 一个窗口，4 个会话上限与 `seq` 的单调性都落在连接作用域内。
+  **登记条件**：手机远控等共享同一连接的多端会归入同一条连接域（TS 窗口级语义下它们本就是多个窗口）；
+  迁移时在 serial 子 spec 里登记这条可见差异。
 - **收益明确**：UI 入口只在桌面端（`packages/desktop/src/renderer/src/desktopPlatform.ts` 是唯一
   `supportsSerialPort: true`），web/手机不可达；但不迁则切 Rust Host 后桌面串口面板直接拿 `NotImplemented`。
 
