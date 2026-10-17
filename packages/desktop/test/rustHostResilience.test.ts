@@ -4,12 +4,26 @@ import { mkdtemp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RustHostStartError, startRustHost } from "../src/main/rustHostBridge.js";
-import { createRustHostManager } from "../src/main/rustHostManager.js";
+import { Emitter, SocketProtocol, VSBuffer } from "@escode/rpc";
+import { connectViaProtocol } from "@escode/client";
+import {
+  RustHostStartError,
+  startRustHost,
+  type HostPortLike,
+  type RustHostHandle,
+} from "../src/main/rustHostBridge.js";
+import {
+  createRustHostManager,
+  type RustHostClock,
+  type RustHostManager,
+  type RustHostManagerState,
+} from "../src/main/rustHostManager.js";
 import { hostBinary } from "./rustHostTestSupport.js";
 
-// Rust Host 启动失败（docs/specs/rust-u2-host-resilience.md §4）：四类各自带分类码、记 error、
-// 在截止时间内失败（不挂起）。
+// Rust Host 韧性（docs/specs/rust-u2-host-resilience.md §3/§4）：
+// - 四类启动失败各自带分类码、记 error、在截止时间内失败（不挂起）；
+// - Host 被杀后受限自动重启、attachment onLost 后重建可用；连续崩溃超过上限停止并显式报错。
+// 时序全部靠事件（onStateChange / onLost / 子进程 exit）推进；退避用注入时钟，不真实等待。
 
 /** 用 Node 跑一段脚本冒充 Host 可执行文件（跨平台，不依赖 shell）。 */
 function scriptHost(source: string) {
@@ -155,7 +169,260 @@ describe("rust host startup failures are classified and bounded", () => {
       expect(error.code, code).toBe(code);
       expect(log.error).toHaveBeenCalledWith(expect.stringContaining(`start failed (${code})`));
       expect(log.warn).not.toHaveBeenCalled();
+      // 启动失败不占重启名额，也不进入 failed：下一次 ensureStarted 仍会重新尝试。
+      expect(manager.state()).toEqual({ state: "idle" });
       expect(manager.isRunning()).toBe(false);
     }
   });
 });
+
+/** 受控时钟：记录每次退避的时长并立即触发（宏任务），`now` 由测试推进。 */
+function manualClock(): RustHostClock & { delays: number[]; advance(ms: number): void } {
+  let now = 1_000_000;
+  const delays: number[] = [];
+  return {
+    delays,
+    now: () => now,
+    advance(ms) {
+      now += ms;
+    },
+    setTimeout(callback, ms) {
+      delays.push(ms);
+      return setImmediate(callback);
+    },
+    clearTimeout(timer) {
+      clearImmediate(timer as ReturnType<typeof setImmediate>);
+    },
+  };
+}
+
+/** 下一个满足条件的状态（事件驱动）。 */
+function nextState(
+  manager: RustHostManager,
+  predicate: (state: RustHostManagerState) => boolean,
+): Promise<RustHostManagerState> {
+  return new Promise((done) => {
+    const dispose = manager.onStateChange((state) => {
+      if (predicate(state)) {
+        dispose();
+        done(state);
+      }
+    });
+  });
+}
+
+/** 杀掉当前 Host 进程并等它真的退出（SIGKILL；Windows 上 Node 以 TerminateProcess 实现）。 */
+async function killHost(handle: RustHostHandle) {
+  const exited = new Promise<void>((done) => handle.onExit(() => done()));
+  handle.child.kill("SIGKILL");
+  await exited;
+}
+
+async function attachAndRead(manager: RustHostManager) {
+  const attachment = await manager.attachLocalPort(() => {
+    const [port1, port2] = createPortPair();
+    return { port1, port2 };
+  }, "web-remote-replayable");
+  const services = connectViaProtocol(
+    new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
+  );
+  const settings = (await services.settingService.get()) as Record<string, unknown>;
+  expect(settings).toBeTypeOf("object");
+  return attachment;
+}
+
+describe.skipIf(!existsSync(hostBinary))("rust host process crash", () => {
+  let manager: RustHostManager | undefined;
+  afterEach(async () => {
+    await manager?.stop();
+    manager = undefined;
+  });
+
+  it("restarts within the budget and attachments are rebuilt", { timeout: 60_000 }, async () => {
+    const clock = manualClock();
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    manager = createRustHostManager({
+      binary: hostBinary,
+      home: await tempHome("escode-rust-host-restart-"),
+      enabled: true,
+      clock,
+      log,
+    });
+    const states: RustHostManagerState[] = [];
+    manager.onStateChange((state) => states.push(state));
+
+    const attachment = await attachAndRead(manager);
+    const first = await manager.ensureStarted();
+    const lost = new Promise<unknown>((done) => attachment.onLost(done));
+    const restarted = nextState(manager, (state) => state.state === "running");
+
+    await killHost(first);
+    // 已打开的 attachment 立即丢失（端口已关闭），由消费方按 replayable 恢复重建。
+    expect(await lost).toEqual({
+      reason: "host-exited",
+      exit: { code: null, signal: "SIGKILL" },
+    });
+    const running = await restarted;
+    expect(running.state).toBe("running");
+    const second = await manager.ensureStarted();
+    expect(second.pid).not.toBe(first.pid);
+    expect(clock.delays).toEqual([500]);
+    expect(states.map((state) => state.state)).toEqual([
+      "starting",
+      "running",
+      "restarting",
+      "running",
+    ]);
+    expect(states[2]).toMatchObject({ attempt: 1, delayMs: 500 });
+    expect(log.error).toHaveBeenCalledWith(
+      expect.stringContaining("exited unexpectedly (code null, signal SIGKILL); restart 1/3"),
+    );
+
+    // 重建：新 attachment 接到新 Host，真实客户端可用。
+    const rebuilt = await attachAndRead(manager);
+    rebuilt.dispose();
+  });
+
+  it(
+    "stops restarting after the budget and reports an explicit error",
+    { timeout: 120_000 },
+    async () => {
+      const clock = manualClock();
+      const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      manager = createRustHostManager({
+        binary: hostBinary,
+        home: await tempHome("escode-rust-host-crash-loop-"),
+        enabled: true,
+        clock,
+        log,
+      });
+      let handle = await manager.ensureStarted();
+      // 60 s 窗口内连杀 3 次：每次都在上限内自动恢复。
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const restarted = nextState(manager, (state) => state.state === "running");
+        await killHost(handle);
+        await restarted;
+        handle = await manager.ensureStarted();
+        clock.advance(1_000);
+      }
+      expect(clock.delays).toEqual([500, 2_000, 5_000]);
+
+      // 第 4 次：放弃，显式报错，不再拉起、不回退。
+      const failed = nextState(manager, (state) => state.state === "failed");
+      await killHost(handle);
+      const state = await failed;
+      expect(state).toMatchObject({ state: "failed", error: { code: "RUST_HOST_CRASH_LOOP" } });
+      expect(clock.delays).toEqual([500, 2_000, 5_000]);
+      expect(manager.isRunning()).toBe(false);
+      await expect(manager.ensureStarted()).rejects.toMatchObject({
+        name: "RustHostStartError",
+        code: "RUST_HOST_CRASH_LOOP",
+      });
+      await expect(
+        manager.attachLocalPort(() => {
+          const [port1, port2] = createPortPair();
+          return { port1, port2 };
+        }, "web-remote-replayable"),
+      ).rejects.toMatchObject({ code: "RUST_HOST_CRASH_LOOP" });
+      expect(log.error).toHaveBeenCalledWith(expect.stringContaining("automatic restart stopped"));
+
+      // 显式恢复入口：清空计数后重新拉起。
+      manager.resetRestartBudget();
+      expect(manager.state()).toEqual({ state: "idle" });
+      await attachAndRead(manager);
+    },
+  );
+
+  it("restarts that fall outside the window do not count", { timeout: 120_000 }, async () => {
+    const clock = manualClock();
+    manager = createRustHostManager({
+      binary: hostBinary,
+      home: await tempHome("escode-rust-host-window-"),
+      enabled: true,
+      clock,
+    });
+    let handle = await manager.ensureStarted();
+    for (let round = 0; round < 4; round += 1) {
+      const restarted = nextState(manager, (state) => state.state === "running");
+      await killHost(handle);
+      await restarted;
+      handle = await manager.ensureStarted();
+      // 每次之间隔 61 s：窗口内永远只有 1 次，退避始终是第 1 档。
+      clock.advance(61_000);
+    }
+    expect(clock.delays).toEqual([500, 500, 500, 500]);
+    expect(manager.state().state).toBe("running");
+  });
+
+  it("stop() is not an unexpected exit", { timeout: 30_000 }, async () => {
+    const clock = manualClock();
+    manager = createRustHostManager({
+      binary: hostBinary,
+      home: await tempHome("escode-rust-host-stop-"),
+      enabled: true,
+      clock,
+    });
+    await manager.ensureStarted();
+    await manager.stop();
+    expect(clock.delays).toEqual([]);
+    expect(manager.state()).toEqual({ state: "idle" });
+  });
+});
+
+/** 进程内端口对：`postMessage` 立即投递给另一端（Electron MessageChannelMain 语义）。 */
+function createPortPair(): [HostPortLike, HostPortLike] {
+  const listenersA: Array<(event: { data: unknown }) => void> = [];
+  const listenersB: Array<(event: { data: unknown }) => void> = [];
+  const portA: HostPortLike = {
+    on: (_event, listener) => listenersA.push(listener as (event: { data: unknown }) => void),
+    postMessage: (value) => {
+      for (const listener of listenersB) listener({ data: value });
+    },
+    start: () => undefined,
+    close: () => undefined,
+  };
+  const portB: HostPortLike = {
+    on: (_event, listener) => listenersB.push(listener as (event: { data: unknown }) => void),
+    postMessage: (value) => {
+      for (const listener of listenersA) listener({ data: value });
+    },
+    start: () => undefined,
+    close: () => undefined,
+  };
+  return [portA, portB];
+}
+
+function wrapPort(port: HostPortLike) {
+  const onData = new Emitter<VSBuffer>();
+  const onClose = new Emitter<void>();
+  const onEnd = new Emitter<void>();
+  port.on("message", (event: { data?: unknown } | unknown) => {
+    const data =
+      event && typeof event === "object" && "data" in event
+        ? (event as { data?: unknown }).data
+        : event;
+    const bytes =
+      data instanceof ArrayBuffer
+        ? new Uint8Array(data)
+        : ArrayBuffer.isView(data)
+          ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+          : new Uint8Array(0);
+    onData.fire(VSBuffer.wrap(bytes));
+  });
+  port.start?.();
+  return {
+    onData: onData.event,
+    onClose: onClose.event,
+    onEnd: onEnd.event,
+    write(buffer: VSBuffer) {
+      port.postMessage(buffer.buffer);
+    },
+    end() {
+      port.close?.();
+    },
+    drain: async () => undefined,
+    dispose() {
+      port.close?.();
+    },
+  } as never;
+}

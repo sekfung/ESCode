@@ -64,7 +64,14 @@ export function createWebRemoteControlSharedHostAttachments(dependencies: {
     entryId: string;
     port: MessagePortMain;
     dispose(): void;
+    /** Rust Host 意外退出时回调一次（端口已关闭；docs/specs/rust-u2-host-resilience.md §3.4）。 */
+    onLost?(listener: () => void): void;
   }>;
+  /**
+   * 某个 attachment 因 Host 意外退出而丢失（已从登记表移除）：由远控管理器降级对应 bridge，
+   * 手机端按 web-remote-replayable 恢复重建。
+   */
+  onHostAttachmentLost?: (attachmentId: string) => void;
   attachRemoteWorkspaceSessionHost: (params: {
     windowId: number;
     remoteSessionId: string;
@@ -142,6 +149,14 @@ export function createWebRemoteControlSharedHostAttachments(dependencies: {
         attachments.set(attachmentId, {
           windowId,
           port: rustHostAttachment.port,
+        });
+        rustHostAttachment.onLost?.(() => {
+          if (!attachments.delete(attachmentId)) return;
+          dependencies.logger.warn("[web-remote-control] rust host attachment lost", {
+            attachmentId,
+            windowId,
+          });
+          dependencies.onHostAttachmentLost?.(attachmentId);
         });
         return {
           entryId: rustHostAttachment.entryId,

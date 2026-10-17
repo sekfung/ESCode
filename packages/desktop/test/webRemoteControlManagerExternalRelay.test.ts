@@ -1142,6 +1142,56 @@ describe("createWebRemoteControlManager external relay", () => {
     });
   });
 
+  it("degrades the bridge whose host attachment was lost (Rust Host crash)", async () => {
+    // docs/specs/rust-u2-host-resilience.md §3.4：不原地重连，按 raw fault 路径降级，手机端
+    // 以新的 bridgeGeneration 重新打开（web-remote-replayable 恢复）。
+    const attachWorkspaceHost = vi.fn<AttachWorkspaceHost>(async () => ({
+      entryId: "rust-host:local",
+      attachmentId: "rust-host-attachment-1",
+      process: {} as never,
+      port: createFakePort() as never,
+    }));
+    const { deliverPayload, manager, sentPayloads } = createManagerHarness({
+      attachWorkspaceHost,
+    });
+    await manager.start(1, { workspacePath: "/workspace/demo" });
+    manager.syncAvailableWorkspaces(1, [
+      { workspacePath: "/workspace/demo", label: "demo", kind: "local" },
+    ]);
+    deliverPayload({
+      escode_type: "workspace-bridge-open",
+      requestId: "req-lost",
+      bridgeSessionId: "bridge-lost",
+      bridgeGeneration: 3,
+      workspaceKey: "/workspace/demo",
+    });
+    await vi.waitFor(() =>
+      expect(sentPayloads).toContainEqual(
+        expect.objectContaining({
+          escode_type: "workspace-bridge-ready",
+          bridgeSessionId: "bridge-lost",
+        }),
+      ),
+    );
+
+    manager.handleHostAttachmentLost("some-other-attachment");
+    expect(sentPayloads).not.toContainEqual(
+      expect.objectContaining({ escode_type: "bridge-degraded" }),
+    );
+    manager.handleHostAttachmentLost("rust-host-attachment-1");
+    expect(sentPayloads).toContainEqual({
+      escode_type: "bridge-degraded",
+      bridgeSessionId: "bridge-lost",
+      bridgeGeneration: 3,
+      reason: "rpc-transport-fault",
+    });
+    // 幂等：同一 bridge 只降级一次。
+    manager.handleHostAttachmentLost("rust-host-attachment-1");
+    expect(
+      sentPayloads.filter((payload) => payload.escode_type === "bridge-degraded"),
+    ).toHaveLength(1);
+  });
+
   it("production feature gate rejects start before returning QR material", async () => {
     const { manager } = createManagerHarness({ featureEnabled: false });
 

@@ -1510,6 +1510,20 @@ export function createWebRemoteControlManager(dependencies: WebRemoteControlMana
       await stopWindowRuntime(windowId, reason);
     },
 
+    /**
+     * Host attachment 因 Host 进程意外退出而丢失（docs/specs/rust-u2-host-resilience.md §3.4）：
+     * 不在原端口上原地重连，按既有 raw fault 路径降级当前 bridge，手机端以新的 bridgeGeneration
+     * 重新打开（web-remote-replayable 恢复），Main 届时向重启后的 Host 申请新 attachment。
+     */
+    handleHostAttachmentLost(attachmentId: string): void {
+      for (const runtime of runtimes.values()) {
+        const bridge = runtime.currentBridge;
+        if (bridge?.attachmentId === attachmentId) {
+          degradeBridgeAfterRawFault(runtime, bridge, "host-exited");
+        }
+      }
+    },
+
     async restorePreviouslyEnabled(
       windowId: number,
       candidates: WebRemoteControlContext[],

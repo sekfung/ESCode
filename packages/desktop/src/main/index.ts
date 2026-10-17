@@ -875,8 +875,13 @@ const webRemoteControlSharedHostAttachments = createWebRemoteControlSharedHostAt
             entryId: "rust-host:local",
             port: attachment.port as MessagePortMain,
             dispose: attachment.dispose,
+            onLost: (listener: () => void) => attachment.onLost(() => listener()),
           };
         },
+        // Host 意外退出：远控管理器降级对应 bridge，手机端按 replayable 恢复重建
+        // （docs/specs/rust-u2-host-resilience.md §3.4）。管理器在下方创建，这里经 ref 延迟取用。
+        onHostAttachmentLost: (attachmentId: string) =>
+          webRemoteControlManagerRef.current?.handleHostAttachmentLost(attachmentId),
       }
     : {}),
   logger,

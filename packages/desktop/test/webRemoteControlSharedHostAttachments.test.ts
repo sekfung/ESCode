@@ -64,6 +64,42 @@ describe("createWebRemoteControlSharedHostAttachments", () => {
     expect(ports.port1.close).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards a lost Rust Host attachment and drops it from the registry", async () => {
+    const ports = createPortPair();
+    let lose: (() => void) | undefined;
+    const onHostAttachmentLost = vi.fn();
+    const dispose = vi.fn();
+    const manager = createWebRemoteControlSharedHostAttachments({
+      windowHostProcessMap: new Map(),
+      createMessageChannel: () => ports as never,
+      attachRustHostLocal: async () => ({
+        entryId: "rust-host:local",
+        port: ports.port1 as never,
+        dispose,
+        onLost: (listener) => {
+          lose = listener;
+        },
+      }),
+      onHostAttachmentLost,
+      attachRemoteWorkspaceSessionHost: vi.fn(),
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+
+    const attachment = await manager.attachWorkspaceHost(7, {
+      kind: "local",
+      workspacePath: "/repo/demo",
+    });
+    expect(attachment.attachmentId).toMatch(/^rust-host-attachment-/);
+
+    lose?.();
+    expect(onHostAttachmentLost).toHaveBeenCalledWith(attachment.attachmentId);
+    // 已从登记表移除：之后的 release 不再重复关端口。
+    manager.releaseAttachment(attachment.attachmentId);
+    expect(ports.port1.close).not.toHaveBeenCalled();
+    lose?.();
+    expect(onHostAttachmentLost).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces a Rust Host start error instead of falling back to the desktop host", async () => {
     const child = new MockUtilityProcess();
     browserWindowMock.fromId.mockReturnValueOnce({ id: 7, webContents: { id: 99 } });
