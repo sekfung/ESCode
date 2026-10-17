@@ -9,14 +9,13 @@
 **做**（Renderer/手机远控经 `escode-session`、`escode-task` 两个 channel 可见的全部行为）：
 
 - `escode-session` 写面补全：`createSession`、`resumeSession`、`closeDeferredDraftSession`、`promoteDeferredDraftSession`；
-- `escode-task` 全量方法（上表 50 个，按切片分批）；
+- `escode-task` 全量方法（S1–S12 已 76/76 收口）；
 - Host 侧 **tasks-index** 存储（与 TS 同文件、同 DDL、同迁移），以及驱动它写入的 **syncer**。
 
 **暂不做**（登记原因，各自独立立项）：
 
 - `automations` / `off_peak_tasks` 两张表的**调度**（属优先序 8 automation 域；本域只保证同库同 schema 不互斥）；
 - 任务标题的模型生成（`rust-session-title.md` 已在 CLI 侧实现，Host 复用运行时结果，不再实现一遍）；
-- Claude 历史导入（`scanImportableClaudeSessions` / `importClaudeSessions`）：依赖 `~/.claude` 扫描与导入事务，属独立工作包；
 - `provider runtime headers`（`respondProviderRuntimeHeaders`）：属 providers/account 域（优先序 6）。
 
 ## 2. 所有者与数据流
@@ -807,4 +806,131 @@ sequenceDiagram
   `sendPrompt`(A) 保持 active → `enqueue`(owner=A) → `promote`/`cancel` 语义 →
   快照 `pendingCommands` 顺序与清空 → `syncTaskSessionBinding` 错误形状。
 - 负向验证：①去掉 owner 校验 → 单元用例失败；②去掉终态收口 → drain 用例失败。
-- 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **317 已实现 / 221 待办**。
+- 门禁：workspace 全绿、clippy、边界/清单/架构、typecheck/lint；库存 **333 已实现 / 205 待办**
+  （escode-task 50/50 收口）。
+
+## 14. escode-task `initialize` 与 `goalSession`（S9，2026-10-17）
+
+本片交付 2 个成员（16 → 14）。
+
+### 14.1 `initialize`
+
+- TS `escodeAgentService.initialize` 的 Host 侧同构：建/复用 workspace 实例并等待运行时报到
+  （`Instance::wait_ready`，30s），返回 `{available, version}`；`version = "ESCode Protocol/1"`
+  （TS 由 `protocolName/protocolVersion` 拼接）。起不来时仍返回 `available:false`，不抛错。
+- `workspaceKey` 用 `workspaceIdentity?.trim() || workspacePath`（`runtime_target`）。
+
+### 14.2 `goalSession`
+
+- 运行时只提供 V4 `sendGoalCommand` / `pauseGoal` / `resumeGoal`，没有 legacy `session/goal` 的
+  `show`/`clear` 结构化 action 面。本片按 action 映射：
+  - `set` / `replace`：V4 `sendGoalCommand`（`{text: objective}`，自动成为新一轮 goal）；
+  - `pause`：CAS `pauseGoal`；`resume`：CAS `resumeGoal`；
+  - `show`：只读 `session/resume` 快照，`response` 为空（运行时无结构化 goal 文本）；
+  - `clear`：运行时无对应命令，返回 `Error` + `code=ESCODE_GOAL_ACTION_UNSUPPORTED`。
+- `set`/`replace`/`resume` 前登记 active inputId；终态由 sessions-index 清除。成功后
+  `session/resume` 收敛索引（不发列表事件），返回 `{response:"", snapshot, startedTurn?}`，
+  `startedTurn` 仅在快照 `session.status == "running"` 时为 `true`。
+- **登记差异**：legacy `response` 文案与 `show` 的结构化目标文本无法由 V4 读路径复原；
+  `clear` 暂不可用。以上差异在后续 V4 goal 读/删命令面补齐时消除。
+
+### 14.3 验收
+
+- 端到端：`initialize` 返回协议常量；`goalSession(set)` 创建目标并进入 goal continuation；
+  `pause`/`resume`/`show` 返回快照；`clear` 返回稳定 unsupported code。
+- 负向验证：去掉 active 登记 → goal 队列 owner 用例失败。
+
+## 15. Claude 历史导入（S10，2026-10-17）
+
+本片交付 2 个成员（14 → 12）：`scanImportableClaudeSessions` / `importClaudeSessions`。
+
+### 15.1 扫描
+
+- 扫描根：`homedir`、`HOME`、`dataBaseDir` 下的 `.claude/projects`（去重），递归收集 `*.jsonl`，
+  跳过 `subagents`/`worktree`/`worktrees` 目录。
+- 每个文件读前 16 行：sidechain 标记跳过；提取 cwd/可见首条用户文本/创建时间；worktree 路径跳过；
+  可选 `workspacePath` 规范化比较过滤；`modifiedSince` 按 mtime；结果按 `updatedAt` 倒序，
+  `limit > 0` 截断。返回 `{provider:"claude", sessionId, workspacePath, sourcePath, updatedAt,
+  createdAt?, previewTitle?}`。
+- 路径比较在 Windows 用小写；Host 侧用 `std::fs`/`std::path`。
+
+### 15.2 导入
+
+- 按 sessionIds 去重、逐条：
+  1. 重新查找 candidate（同一扫描边界），workspace 不存在 → `skipped(workspace_path_missing)`；
+  2. 复制 jsonl 到 `<dataBaseDir>/.escode/v2/agent-config/claude/<workspaceHash>/projects/...`
+     （原子 rename；记录新建文件用于失败清理）；
+  3. 解析可见 user/assistant 消息（连续 assistant 片段聚合，过滤 tool_result/IDE 标签/synthetic 占位）；
+  4. `session/create` 携带 `importedHistory`（`source:"claudeCode"`、标题/时间/消息）、
+     `sessionId = claude-import-<sha256(workspacePath:sessionId)[0..24]>`、`persistence:"immediate"`；
+  5. 快照写入 tasks-index（`migrationSource:"claudeCode"`，取消 archived/deleted），并写 legacy
+     snapshot `<dataBaseDir>/.escode/v2/sessions/<workspaceHash>/<taskId>.json`；
+  6. 广播 `task_meta_changed`；失败清理已复制文件并进 `failed`。
+- 返回 `{imported:[{provider,sessionId,taskId,workspacePath}], skipped:[...], failed:[...]}`。
+- **登记差异**：Rust runtime 的 `importedHistory` 只接受 `source="sharedContext"`
+  （markdown/provenance），不承接 Claude 消息数组。遇到 `Unsupported imported history source` /
+  `Null shared import field` 时退回 TS `persistImportedClaudeTask` 的 legacy 分支：
+  写 `<dataBaseDir>/.escode/v2/sessions/<hash>/<taskId>.json` + 索引行（`migrationSource`、
+  取消 archived/deleted）。该任务可打开为只读历史，续聊需 runtime 后续支持消息数组导入。
+- TS 的 legacy 导入修复（未知命令 warning / 可见 assistant turn 选择）用于后续 repair 流程；
+  本片只移植导入必需的用户/assistant 正文与工具结果过滤。
+
+### 15.3 验收
+
+- 单元：head 解析（sidechain/worktree/首条可见用户文本/时间戳）、消息聚合、任务 id 哈希。
+- 端到端：构造 `HOME/.claude/projects/...jsonl` → scan → import → 索引行 provider=glm、
+  migrationSource=claudeCode、快照可读；重复导入取消 hidden 状态。
+
+## 16. 任务事件面（S11，2026-10-17）
+
+本片交付 5 个成员（12 → 7）：`onDynamicStreamEvent`、`onDynamicTaskEvent`、
+`onDynamicTaskReady`、`onDynamicTaskTerminalOutcome`、`onError`。
+
+- Host 内新增 `TaskEventHub`（按 taskId 订阅）：事件来源是 syncer 的 phase 终态迁移与
+  `escode-task` 写面（取消队列命令、终态收口）。终态时按顺序投递：
+  1. `task_complete` / `task_error`（含 `inputId`、`stopReason`/`error`）；
+  2. `task_snapshot_updated`（`reason:"task_status_changed"`）；
+  3. ready outcome `{taskId, reason:"prompt_completed"|"prompt_failed"}`。
+- `onDynamicTaskTerminalOutcome` 只投递 `{taskId, inputId?, outcome:"succeeded"|"failed"}`；
+  `onDynamicTaskReady` 只投递 `{taskId, reason}`。两者都复用同一个 syncer 终态观察。
+- `onDynamicStreamEvent` 与 `onDynamicTaskEvent` 共用 `TaskEventHub`；`onDynamicTaskEvent`
+  额外登记任务目标（TS 同）。
+- `onError` 是 Host 级错误事件流：当前只登记监听，Host 尚无统一错误总线（登记差异）。
+- **登记差异**：V4 conversation 帧 → `ESCodeStreamEvent` 的完整映射（agent_message_chunk/
+  tool_call_update/plan/permission…）未在本片实现；如上事件只覆盖 Host 侧生命周期与快照通知。
+  Bot 正文流仍依赖后续 V4 投影片。`onError` 当前只登记监听，不投递。
+
+## 17. Bot group（S12，2026-10-17）
+
+本片交付 7 个成员（7 → 0）：`readBotTopicSummaries`、`invalidateBotTopicInputs`、
+`readBotTopicExecution`、`stopBotTopicExecution`、`getBotGroupTaskBlockReason`、
+`cancelBotGroupInput`、`submitBotGroupInput`。
+
+- Host 侧新增 **V4 conversation 观察器**：`subscribeConversationV4(visibility:"background")`
+  → 帧泵 + `TopicWireFrameAssembler` → 首帧 snapshot；用后 `unsubscribe`。快照读取超时 15s。
+- `readBotTopicSummaries`：`session/messages(limit:200)`，只保留 `role=user` 且
+  `source="bot_topic_context"`，映射 `{checkpoint, text}`（`metadata.displayText` 优先），取最后 20。
+- `readBotTopicExecution`：快照 `control.stopState === "idle"` → undefined；否则取
+  `control.activeWorks` 中带 `foregroundExecutionId` 的项，缺失报
+  `Topic execution identity is unavailable`。
+- `stopBotTopicExecution`：先登记终态观察，再发 V4 `stop`（带
+  `expectedForegroundExecutionId`），等待该 execution 从 `activeWorks` 消失。
+- `getBotGroupTaskBlockReason`：pendingInteractions → `"interaction"`；phase
+  running/prewarming → `"running"`；queue 非空 → `"queued"`；否则 null。
+- `cancelBotGroupInput`：按 `sourceCommandId` 找队列项，校验 `botGroupSource`
+  （botId/chatId/actorId=ownerId 或 senderId），发 CAS `deleteQueueItem`
+  （`queueItemId`，`baseRevision=snapshot.revision`）。
+- `submitBotGroupInput`：Host 内 topic admission（版本 + tail，`invalidate` 先失效再等待），
+  先读快照预热，再按 TS 分块上传附件（begin/chunk/commit/abort，384KiB/块），
+  发 V4 `sendText`（`requestedDelivery=startNow|queue`、`botGroupSource`、
+  `botDeliveryTarget`、`conversationQuotes`，clientId=`bot:<botId>:<chatId>:<senderId>`）。
+  线程输入在附件上传后再次校验 admission 版本；ACK 丢失时用同 commandId 查询幂等结果。
+- **登记差异**：附件 `localPath` 读取遵守 Host 文件访问边界；远端路径由 Main 授权/上传事务承载。
+  错误文案与 TS 保持同义（workspace mismatch / not queued / not authorized）。
+
+### 17.1 验收
+
+- 单元：snapshot 观察器帧装配、admission 失效、block reason/queue 选择、botGroupSource 授权。
+- 端到端：真实例 + fixture 模型：读 summaries（bot_topic_context 过滤）、block reason、
+  提交无附件 group 输入（进入 queue/startNow）、取消未运行输入、停止执行。
+- 负向验证：去掉 admission 版本校验 → 取消后提交用例失败；去掉授权校验 → 越权取消用例失败。

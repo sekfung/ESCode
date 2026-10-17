@@ -228,12 +228,13 @@ async fn get_task_meta_reads_the_shared_index() {
         "运行时会话读的语义错误应透传: {error}"
     );
 
-    // 未迁移方法：显式缺口（列出已实现的方法）。
+    // 未迁移方法：显式缺口（列出已实现的方法）。escode-task 已 50/50 收口，
+    // 这里用仍在迁移中的 escode-agent 方法验证同一缺口语义。
     call(
         &mut socket,
         43,
-        "escode-task",
-        "importClaudeSessions",
+        "escode-agent",
+        "listPlugins",
         &Wire::Array(vec![Wire::Object(serde_json::json!({}))]),
     )
     .await;
@@ -243,10 +244,10 @@ async fn get_task_meta_reads_the_shared_index() {
     };
     let message = error["message"].as_str().unwrap_or_default().to_owned();
     assert!(
-        message.contains("does not implement `escode-task.importClaudeSessions` yet"),
+        message.contains("does not implement `escode-agent.listPlugins` yet"),
         "{message}"
     );
-    assert!(message.contains("getTaskMeta"), "{message}");
+    assert!(message.contains("helloConversationV4"), "{message}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

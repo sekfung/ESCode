@@ -35,6 +35,8 @@ pub(crate) struct TaskIndexSyncer {
     overlay_changes: tokio::sync::broadcast::Sender<String>,
     /// 手机 replayable 命令队列：phase 终态时收口当前 input 并放行下一条。
     commands: Arc<crate::task_commands::TaskCommandQueue>,
+    /// 任务事件总线：终态时投递 complete/error、快照通知与 ready。
+    task_events: Arc<crate::task_events::TaskEventHub>,
 }
 
 /// 一个 workspace 的摄入状态（TS `WorkspaceIngestState` 的拆分）。
@@ -45,6 +47,8 @@ struct Ingest {
     pub events: Arc<WorkspaceEvents>,
     /// Host 进程内命令队列（终端迁移 → 收口 running 命令 → 放行下一条）。
     pub commands: Arc<crate::task_commands::TaskCommandQueue>,
+    /// 任务事件总线（终态 complete/error 与 ready）。
+    pub task_events: Arc<crate::task_events::TaskEventHub>,
     /// TS `v4ConnectionIdFor("task-index")`：`host-<uuid>#task-index`，进程内稳定。
     pub connection_id: String,
     pub workspace_path: String,
@@ -78,11 +82,13 @@ pub(super) struct Workspace {
 }
 
 impl Ingest {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         base: Arc<Base>,
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
         commands: Arc<crate::task_commands::TaskCommandQueue>,
+        task_events: Arc<crate::task_events::TaskEventHub>,
         connection_id: String,
         workspace: Workspace,
         overlay_changes: tokio::sync::broadcast::Sender<String>,
@@ -103,6 +109,7 @@ impl Ingest {
             read,
             events,
             commands,
+            task_events,
             connection_id,
             workspace_path: workspace.path,
             workspace_identity: workspace.identity,
@@ -170,12 +177,14 @@ impl TaskIndexSyncer {
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
         commands: Arc<crate::task_commands::TaskCommandQueue>,
+        task_events: Arc<crate::task_events::TaskEventHub>,
     ) -> Arc<Self> {
         let (overlay_changes, _) = tokio::sync::broadcast::channel(OVERLAY_CHANGE_CAPACITY);
         let syncer = Arc::new(Self {
             ingests: Mutex::new(BTreeMap::new()),
             overlay_changes,
             commands,
+            task_events,
         });
         let mut lifecycle = base.instances.lifecycle();
         // 任务即所有者：syncer 与监听同生命周期（进程内单例；`weak` 会在 spawn 返回后立即失效）。
@@ -203,6 +212,7 @@ impl TaskIndexSyncer {
             ingests: Mutex::new(BTreeMap::new()),
             overlay_changes,
             commands: Arc::new(crate::task_commands::TaskCommandQueue::new()),
+            task_events: Arc::new(crate::task_events::TaskEventHub::default()),
         }
     }
 
@@ -289,6 +299,7 @@ impl TaskIndexSyncer {
             read.clone(),
             Arc::clone(events),
             Arc::clone(&self.commands),
+            Arc::clone(&self.task_events),
             format!("host-{}#task-index", uuid::Uuid::new_v4()),
             Workspace {
                 path: event.workspace_path.clone(),

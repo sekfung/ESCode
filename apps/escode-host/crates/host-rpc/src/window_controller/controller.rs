@@ -56,6 +56,8 @@ pub(crate) struct WindowController {
     events: Arc<WorkspaceEvents>,
     syncer: Arc<TaskIndexSyncer>,
     commands: Arc<crate::task_commands::TaskCommandQueue>,
+    task_events: Arc<crate::task_events::TaskEventHub>,
+    home: std::path::PathBuf,
     /// 每 source 的刷新串行锁（TS single-flight：并发刷新等待同一次读库）。
     refresh_locks: Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// 刷新期间到达的变更信号（在飞读结束后续跑一轮；不用超时掩蔽同步问题）。
@@ -65,14 +67,12 @@ pub(crate) struct WindowController {
     /// syncer 摘要变化监听（与 `watchers` 同类的存续期长子任务）。
     overlay_watcher: Mutex<Option<WatcherTask>>,
 }
-
 /// 一个存续期与 controller 同长的监听任务：持有 `JoinHandle` 即持有任务本体，`abort` 供 Drop 取消
 /// （`JoinHandle` 不可 Clone，取消句柄单独留一份）。
 struct WatcherTask {
     _join: tokio::task::JoinHandle<()>,
     abort: tokio::task::AbortHandle,
 }
-
 impl WatcherTask {
     fn new(join: tokio::task::JoinHandle<()>) -> Self {
         Self {
@@ -81,13 +81,14 @@ impl WatcherTask {
         }
     }
 }
-
 impl WindowController {
     pub(crate) fn new(
         read: ReadContext,
         events: Arc<WorkspaceEvents>,
         syncer: Arc<TaskIndexSyncer>,
         commands: Arc<crate::task_commands::TaskCommandQueue>,
+        task_events: Arc<crate::task_events::TaskEventHub>,
+        home: std::path::PathBuf,
     ) -> Arc<Self> {
         let controller = Arc::new(Self {
             projector: Arc::new(Projection::new(Box::new(|| {
@@ -97,6 +98,8 @@ impl WindowController {
             events,
             syncer,
             commands,
+            task_events,
+            home,
             refresh_locks: Mutex::new(BTreeMap::new()),
             dirty: DirtyFlags::default(),
             watchers: Mutex::new(BTreeMap::new()),
@@ -105,16 +108,13 @@ impl WindowController {
         controller.watch_overlay_changes();
         controller
     }
-
     pub(crate) fn projector(&self) -> &Arc<Projection> {
         &self.projector
     }
-
     /// 索引读句柄（搜索分支直查 DB；与 `escode-task` 共用同一份懒打开的索引）。
     pub(super) fn read(&self) -> &ReadContext {
         &self.read
     }
-
     /// 测试探针：当前登记的监听任务取消句柄（drop 后轮询 `is_finished` 断言任务真的停表）。
     #[cfg(test)]
     pub(crate) fn watcher_abort_handles(&self) -> Vec<tokio::task::AbortHandle> {
@@ -135,13 +135,16 @@ impl WindowController {
         }
         handles
     }
-
     /// 写面上下文（`escode-task` 的同一份索引 + 事件总线，单写者不变式）。
     pub(super) fn state_context(&self) -> StateContext {
         StateContext {
             read: self.read.clone(),
             events: Arc::clone(&self.events),
             commands: Arc::clone(&self.commands),
+            task_events: Arc::clone(&self.task_events),
+            observer: None,
+            bot_group: Arc::new(crate::task_bot::BotGroupState::default()),
+            home: self.home.clone(),
         }
     }
 

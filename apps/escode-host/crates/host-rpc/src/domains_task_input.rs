@@ -168,11 +168,18 @@ fn compact_session(context: &StateContext) -> MethodHandler {
         if let Some(input_id) = active_input_id.as_ref() {
             context.commands.set_active(&target, input_id);
         }
-        let result = compact_payload(&context, &target, &params).await;
-        if result.is_err() {
-            context.commands.clear_active(&target);
+        match compact_payload(&context, &target, &params).await {
+            Ok(result) => {
+                if let Some(input_id) = active_input_id.as_ref() {
+                    context.task_events.run_started(&target, input_id);
+                }
+                Ok(result)
+            }
+            Err(error) => {
+                context.commands.clear_active(&target);
+                Err(error)
+            }
         }
-        result
     })
 }
 

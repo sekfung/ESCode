@@ -7,7 +7,10 @@ use crate::wire::Wire;
 use crate::workspace_events::WorkspaceEvents;
 
 /// 方法名与有 `dataBaseDir` 时一致（契约对账），调用一律回结构化缺口。
-pub(super) fn gap_channel(events: &Arc<WorkspaceEvents>) -> Channel {
+pub(super) fn gap_channel(
+    events: &Arc<WorkspaceEvents>,
+    task_events: &Arc<crate::task_events::TaskEventHub>,
+) -> Channel {
     let gap = "Host has no dataBaseDir: Main must pass dataBaseDir in rpcListen.";
     let missing = || {
         handler(move |_arg: Wire| {
@@ -49,6 +52,17 @@ pub(super) fn gap_channel(events: &Arc<WorkspaceEvents>) -> Channel {
             ("resumeTask", missing()),
             ("createTask", missing()),
             ("switchAgent", missing()),
+            ("initialize", missing()),
+            ("goalSession", missing()),
+            ("scanImportableClaudeSessions", missing()),
+            ("importClaudeSessions", missing()),
+            ("readBotTopicSummaries", missing()),
+            ("invalidateBotTopicInputs", missing()),
+            ("readBotTopicExecution", missing()),
+            ("stopBotTopicExecution", missing()),
+            ("getBotGroupTaskBlockReason", missing()),
+            ("cancelBotGroupInput", missing()),
+            ("submitBotGroupInput", missing()),
             ("syncTaskSessionBinding", missing()),
             ("enqueueTaskCommand", missing()),
             ("promoteTaskCommand", missing()),
@@ -79,8 +93,12 @@ pub(super) fn gap_channel(events: &Arc<WorkspaceEvents>) -> Channel {
         ],
     )
     // 事件只登记监听，不依赖索引：缺 dataBaseDir 时照常可监听（写面都是缺口，不会有事件）。
-    .with_events(vec![(
-        "onDynamicWorkspaceEvent",
-        super::domains_task_state::workspace_event(events),
-    )])
+    .with_events({
+        let mut handlers = vec![(
+            "onDynamicWorkspaceEvent",
+            super::domains_task_state::workspace_event(events),
+        )];
+        handlers.extend(task_events.handlers());
+        handlers
+    })
 }

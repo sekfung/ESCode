@@ -162,3 +162,40 @@ pub(super) fn usage_and_log_methods(
         ("getTaskNativeSessionLogFile", log),
     ]
 }
+
+/// TS `escodeTaskServiceAdapter.initialize` → `escodeAgentService.initialize`：建/复用实例并等待
+/// 运行时报到，返回 `{available, version}`（失败不抛错，首屏走可恢复路径）。
+pub(super) fn initialize_method(runtime: Option<RuntimeAccess>) -> MethodHandler {
+    handler(move |arg: Wire| {
+        let params = first_object(arg);
+        let runtime = runtime.clone();
+        Box::pin(async move {
+            let version = "ESCode Protocol/1";
+            let available = match runtime {
+                Some(runtime) => match forward::runtime_target(params) {
+                    Ok(target) => match forward::runtime_instance(
+                        &runtime.instances,
+                        &runtime.options,
+                        &target,
+                        RuntimePolicy::StartIfNeeded,
+                    )
+                    .await
+                    {
+                        Ok(instance) => {
+                            instance
+                                .wait_ready(std::time::Duration::from_secs(30))
+                                .await
+                        }
+                        Err(_) => false,
+                    },
+                    Err(_) => false,
+                },
+                None => false,
+            };
+            Ok(Wire::Object(serde_json::json!({
+                "available": available,
+                "version": version,
+            })))
+        })
+    })
+}

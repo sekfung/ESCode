@@ -40,6 +40,7 @@ fn baseline_meta_and_unread_signal_follow_the_ts_projections() {
         },
         Arc::new(WorkspaceEvents::default()),
         Arc::new(crate::task_commands::TaskCommandQueue::new()),
+        Arc::new(crate::task_events::TaskEventHub::default()),
         "c".to_owned(),
         Workspace {
             path: "/w".to_owned(),

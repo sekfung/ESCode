@@ -198,10 +198,24 @@ fn process_summary(
     if became_terminal {
         // 手机 replayable 的 host command 以 phase 终态为“下一条可发送”的边界：
         // 先收口当前 input（按 active traceId 移除 running 命令），再放行队列。
-        ingest.commands.session_terminal(
+        let input_id = ingest.commands.session_terminal(
             &ingest.workspace_path,
             ingest.workspace_identity.as_deref(),
             &session_id,
+        );
+        // 终态事件先于索引写发出（TS `emitTerminalAndReady` 与索引收敛同源）。
+        let error = (summary["phase"] == "error").then(|| {
+            summary["lastError"]["message"]
+                .as_str()
+                .unwrap_or("Task failed")
+                .to_owned()
+        });
+        ingest.task_events.terminal(
+            &ingest.workspace_path,
+            ingest.workspace_identity.as_deref(),
+            &session_id,
+            input_id.as_deref(),
+            error.as_deref(),
         );
         let writer = Arc::clone(ingest);
         let summary = summary.clone();

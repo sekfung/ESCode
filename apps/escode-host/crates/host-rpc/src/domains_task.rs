@@ -33,6 +33,7 @@ use crate::wire::Wire;
 /// `escode-task` channel。`data_base_dir` 由 Main 经 `rpcListen` 提交；缺省时显式缺口。
 /// `runtime` 用于 `getTaskModelSelection` 这类需要读运行时会话状态的方法（TS 同样读运行时）。
 /// 索引句柄、任务目标注册表由组合根传入（Host 是索引投影的唯一写者，跨通道共用一份）。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn task_channel(
     data_base_dir: Option<PathBuf>,
     runtime: Option<RuntimeAccess>,
@@ -40,9 +41,11 @@ pub(crate) fn task_channel(
     targets: Arc<TaskTargets>,
     events: Arc<crate::workspace_events::WorkspaceEvents>,
     commands: Arc<crate::task_commands::TaskCommandQueue>,
+    task_events: Arc<crate::task_events::TaskEventHub>,
+    home: std::path::PathBuf,
 ) -> Channel {
     let Some(data_base_dir) = data_base_dir else {
-        return super::domains_task_gap::gap_channel(&events);
+        return super::domains_task_gap::gap_channel(&events, &task_events);
     };
     let path = tasks_index_path(&data_base_dir);
     let runtime_for_restart = runtime.clone();
@@ -56,6 +59,12 @@ pub(crate) fn task_channel(
         },
         events: Arc::clone(&events),
         commands: Arc::clone(&commands),
+        task_events: Arc::clone(&task_events),
+        observer: runtime.as_ref().map(|runtime| {
+            crate::agent_v4::observer_base(runtime.instances.clone(), Arc::clone(&runtime.options))
+        }),
+        bot_group: Arc::new(crate::task_bot::BotGroupState::default()),
+        home,
     };
     // syncer 的终态回调要用同一份队列调度 drain（单写者：队列状态只有这一份）。
     commands.attach(state.clone());
@@ -370,24 +379,17 @@ pub(crate) fn task_channel(
     methods.extend(super::domains_task_control::control_methods(&state));
     methods.extend(super::domains_task_commands::command_methods(&state));
     methods.extend(super::domains_task_groups::group_methods(&state));
-    methods.extend(super::domains_task_runtime::usage_and_log_methods(
-        runtime_for_restart.clone(),
+    methods.extend(super::domains_task_extra::extra_methods(
+        &state,
+        runtime_for_restart,
     ));
-    // 关闭 workspace UI 的 `releaseWorkspacePreparation` 在 TS 里与 restart 同走 `disposeWorkspace`。
-    methods.push((
-        "restartWorkspaceProcess",
-        super::domains_task_runtime::restart_workspace_process(runtime_for_restart.clone()),
-    ));
-    methods.push((
-        "releaseWorkspacePreparation",
-        super::domains_task_runtime::restart_workspace_process(runtime_for_restart),
-    ));
-    methods.extend(super::domains_task_runtime::constant_methods());
     methods.shrink_to_fit();
-    Channel::new("escode-task", methods).with_events(vec![(
+    let mut event_handlers = vec![(
         "onDynamicWorkspaceEvent",
         super::domains_task_state::workspace_event(&events),
-    )])
+    )];
+    event_handlers.extend(task_events.handlers());
+    Channel::new("escode-task", methods).with_events(event_handlers)
 }
 
 #[cfg(test)]

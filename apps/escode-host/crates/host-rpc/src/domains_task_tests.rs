@@ -75,6 +75,8 @@ fn channel_for(path: &Path) -> Channel {
         Arc::new(TaskTargets::new()),
         Arc::default(),
         Arc::new(crate::task_commands::TaskCommandQueue::new()),
+        Arc::new(crate::task_events::TaskEventHub::default()),
+        PathBuf::from("/tmp"),
     )
 }
 
@@ -171,6 +173,8 @@ async fn missing_data_base_dir_reports_an_explicit_gap_for_every_read() {
         Arc::new(TaskTargets::new()),
         Arc::default(),
         Arc::new(crate::task_commands::TaskCommandQueue::new()),
+        Arc::new(crate::task_events::TaskEventHub::default()),
+        PathBuf::from("/tmp"),
     );
     for method in [
         "getTaskMeta",

@@ -156,6 +156,8 @@ pub fn channels_with(
     let events = Arc::new(crate::workspace_events::WorkspaceEvents::default());
     // 手机 replayable 的命令队列：escode-task 与 syncer 终态回调共用（Host 内唯一）。
     let commands = Arc::new(crate::task_commands::TaskCommandQueue::new());
+    // 任务事件总线：发送开始 / syncer 终态 / ready（Host 内唯一）。
+    let task_events = Arc::new(crate::task_events::TaskEventHub::default());
     let task_channel = crate::domains_task::task_channel(
         data_base_dir.clone(),
         Some(runtime.clone()),
@@ -163,6 +165,8 @@ pub fn channels_with(
         Arc::clone(&targets),
         Arc::clone(&events),
         Arc::clone(&commands),
+        Arc::clone(&task_events),
+        home.clone(),
     );
     let task_channel = task_channel.with_methods(
         crate::domains_task_trajectory::trajectory_methods(&home, data_base_dir.as_deref()),
@@ -189,6 +193,7 @@ pub fn channels_with(
             read,
             Arc::clone(&events),
             Arc::clone(&commands),
+            Arc::clone(&task_events),
         )
     });
     let controller = write.read.clone().zip(syncer).map(|(read, syncer)| {
@@ -197,6 +202,8 @@ pub fn channels_with(
             Arc::clone(&events),
             syncer,
             Arc::clone(&commands),
+            Arc::clone(&task_events),
+            home.clone(),
         )
     });
     let mut list = vec![

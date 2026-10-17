@@ -75,7 +75,7 @@ fn unsupported(name: &'static str) -> MethodHandler {
 }
 
 /// 任务控制的 CAS 发送（TS `sendHostCasCommandV4`，默认 4 次）。
-async fn cas(
+pub(super) async fn cas(
     context: &StateContext,
     target: &TaskTarget,
     kind: &str,
@@ -94,7 +94,10 @@ async fn cas(
 }
 
 /// `session/resume` → 索引（不发列表事件；控制面的事件由 V4 config delta 驱动）。
-async fn resume_and_index(context: &StateContext, target: &TaskTarget) -> Result<Value, RpcError> {
+pub(super) async fn resume_and_index(
+    context: &StateContext,
+    target: &TaskTarget,
+) -> Result<Value, RpcError> {
     let write = SessionWriteContext {
         runtime: runtime(context)?,
         read: Some(context.read.clone()),

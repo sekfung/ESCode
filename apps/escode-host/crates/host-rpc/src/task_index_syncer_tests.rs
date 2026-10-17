@@ -17,19 +17,21 @@ use crate::workspace_events::WorkspaceEvents;
 use crate::task_index_syncer::topic as sync_topic;
 
 pub(super) fn ingest_with_index() -> (tempfile::TempDir, Arc<Ingest>, crate::session::EventStream) {
-    let (dir, ingest, events, _) =
-        ingest_with_commands(Arc::new(crate::task_commands::TaskCommandQueue::new()));
+    let (dir, ingest, events, _, _) =
+        ingest_with_state(Arc::new(crate::task_commands::TaskCommandQueue::new()));
     (dir, ingest, events)
 }
 
-pub(super) fn ingest_with_commands(
+pub(super) fn ingest_with_state(
     commands: Arc<crate::task_commands::TaskCommandQueue>,
 ) -> (
     tempfile::TempDir,
     Arc<Ingest>,
     crate::session::EventStream,
     Arc<crate::task_commands::TaskCommandQueue>,
+    Arc<crate::task_events::TaskEventHub>,
 ) {
+    let task_events = Arc::new(crate::task_events::TaskEventHub::default());
     let dir = tempfile::tempdir().unwrap();
     let data_base = dir.path().join("data-base");
     std::fs::create_dir_all(data_base.join(".escode").join("v2")).unwrap();
@@ -69,6 +71,7 @@ pub(super) fn ingest_with_commands(
             read,
             events,
             Arc::clone(&commands),
+            Arc::clone(&task_events),
             "test-conn#task-index".to_owned(),
             Workspace {
                 path: "/w".to_owned(),
@@ -79,9 +82,9 @@ pub(super) fn ingest_with_commands(
         )),
         event_stream,
         commands,
+        task_events,
     )
 }
-
 pub(super) fn summary(id: &str, phase: &str, title: &str) -> Value {
     json!({
         "sessionId": id,
@@ -265,7 +268,6 @@ pub(super) async fn next_event(events: &mut crate::session::EventStream, reason:
         }
     }
 }
-
 #[tokio::test]
 async fn watermark_rules_guard_the_baseline() {
     let (_dir, ingest, _events) = ingest_with_index();

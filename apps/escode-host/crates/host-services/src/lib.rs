@@ -5,6 +5,7 @@
 //! 见同 spec §5）。
 pub mod api_client;
 pub mod broadcast;
+pub mod claude_import;
 pub mod client_config;
 pub mod client_scenes;
 pub mod client_services;

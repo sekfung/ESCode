@@ -42,6 +42,14 @@ fn cancel(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
         let target = task_target(&context, &params)?;
         let value = context.commands.cancel(&target, &params)?;
+        // TS `emitRuntimeCommandSnapshotUpdated`：只有真正删除时刷新快照。
+        if value["canceled"] == true && value.get("reason").is_none() {
+            let trace_id = params["traceId"]
+                .as_str()
+                .unwrap_or(&target.task_id)
+                .to_owned();
+            context.task_events.snapshot_updated(&target, &trace_id);
+        }
         Ok(Wire::Object(value))
     })
 }

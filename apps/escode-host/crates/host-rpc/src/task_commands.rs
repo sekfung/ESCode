@@ -213,29 +213,30 @@ impl TaskCommandQueue {
         workspace_path: &str,
         identity: Option<&str>,
         task_id: &str,
-    ) {
+    ) -> Option<String> {
         let target = target_for(workspace_path, identity, task_id);
         let key = task_key(&target);
-        let has_commands = {
+        let (input_id, has_commands) = {
             let mut state = self.lock();
             let input_id = state.active.remove(&key);
-            if let Some(input_id) = input_id
+            if let Some(active) = input_id.as_ref()
                 && let Some(commands) = state.commands.get_mut(&key)
             {
                 commands.retain(|item| {
                     !(item["type"] == "send_prompt"
                         && item["status"] == "running"
-                        && item["traceId"].as_str() == Some(input_id.as_str()))
+                        && item["traceId"].as_str() == Some(active.as_str()))
                 });
                 if commands.is_empty() {
                     state.commands.remove(&key);
                 }
             }
-            state.commands.contains_key(&key)
+            (input_id, state.commands.contains_key(&key))
         };
         if has_commands {
             self.schedule(target, "session-ready");
         }
+        input_id
     }
 
     /// 取走本轮可发的命令并置 running（同一把锁内完成，避免两次 drain 抢同一条）。

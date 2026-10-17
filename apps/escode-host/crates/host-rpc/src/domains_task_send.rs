@@ -34,11 +34,16 @@ pub(super) async fn send_prompt_params(
         .ok_or_else(|| RpcError::new("InvalidRequest", "traceId is required."))?
         .to_owned();
     context.commands.set_active(target, &trace_id);
-    let result = send_prompt_payload(context, target, params, &trace_id).await;
-    if result.is_err() {
-        context.commands.clear_active(target);
+    match send_prompt_payload(context, target, params, &trace_id).await {
+        Ok(()) => {
+            context.task_events.run_started(target, &trace_id);
+            Ok(())
+        }
+        Err(error) => {
+            context.commands.clear_active(target);
+            Err(error)
+        }
     }
-    result
 }
 
 /// 队列 drain 与 `sendPrompt` 共用同一发送路径（TS `drainRuntimeCommands` 的载荷子集）。
