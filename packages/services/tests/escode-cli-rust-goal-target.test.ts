@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
@@ -21,17 +21,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-goal-target-${kind}-`));
   const respond = (_req: any, res: any) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
-    const verify = (_req.messages?.at(-1)?.content ?? "").includes("Verify whether the active session goal");
+    const verify = (_req.messages?.at(-1)?.content ?? "").includes(
+      "Verify whether the active session goal",
+    );
     event(res, {
       content: verify ? '{"passed":true,"reason":"done","nextAction":""}' : "goal work",
     });
     end(res, "stop");
   };
-  const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
-    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
-  };
+  // 本用例只比较 Goal 投影，不需要官方插件。显式传插件宿主环境会让 Rust 在首次
+  // subscribe 时同步 seed 随包插件；冷缓存下的拷贝/哈希会超过 5s 请求预算。
   const f =
     kind === "node"
       ? await fixture({
@@ -41,9 +40,8 @@ async function observe(kind: Runtime) {
           registry: true,
           respond,
           mode: "yolo",
-          env,
         })
-      : await fixture({ root, registry: true, respond, mode: "yolo", env });
+      : await fixture({ root, registry: true, respond, mode: "yolo" });
   const scrub = (value: string) =>
     value
       .replaceAll(JSON.stringify(root).slice(1, -1), "<root>")
