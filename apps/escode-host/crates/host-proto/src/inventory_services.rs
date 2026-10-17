@@ -289,6 +289,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("gen-ui", "setState"),
     ("gen-ui", "listState"),
     ("gen-ui", "onStateChanged"),
+    ("commands", "getPrimaryUserCommandsDirectory"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。

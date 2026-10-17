@@ -21,6 +21,7 @@ pub(crate) fn simple_channels(
             escode_host_services::broadcast::Broadcast::default(),
         )),
         crate::domains_memory::memory_channel(home, data_base_dir),
+        crate::domains_commands::commands_channel(home.to_path_buf()),
         crate::domains_skills::skills_channel(home),
         crate::domains_output_style::output_style_channel(home),
         crate::domains_attachments::prompt_attachment_transfer_channel(),

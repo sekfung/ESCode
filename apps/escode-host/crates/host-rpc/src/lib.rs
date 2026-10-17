@@ -14,6 +14,7 @@ pub mod domains;
 mod domains_attachments;
 mod domains_broadcast;
 mod domains_client;
+mod domains_commands;
 mod domains_credential;
 pub mod domains_file;
 mod domains_file_channel;

@@ -8,6 +8,7 @@ pub mod broadcast;
 pub mod client_config;
 pub mod client_scenes;
 pub mod client_services;
+pub mod commands;
 pub mod credential;
 pub mod data_dir;
 pub mod file_index;
