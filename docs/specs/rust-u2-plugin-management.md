@@ -125,3 +125,24 @@ JSON 里 `3.0` 算整数、`3.5` 不算（语料里 `JSON.stringify` 表达不�
 负向验证（三项都被语料抓到）：放宽 `.strict()`、用 `str::trim` 代替 JS 空白集（两个方向都出现差异：JS 的 U+FEFF/Rust 的 U+0085）、让 `optional` 接受 `null`。
 **覆盖守卫**：单测 `every_management_method_has_a_result_schema` 断言 `SPECS` 里每个方法都登记了 schema，新增方法忘了登记会直接失败；语料现为 13870 条判定（3493 条接受）加 3 条归一化样本。
 **未覆盖**：进度 payload 仍原样透传。
+
+## 8. 旧 `plugins` 通道（7 个成员）：整套退役（2026-10-17，已交付）
+
+`plugins` 是 `plugin-management` 的**前身**，TS 侧已退役：`packages/services/src/plugins/pluginsService.ts`
+（86 行）无条件返回固定应答或抛错，**不读参数、不接运行时、不触文件**（形参前缀 `_params`，连校验都没有）。
+装配点 `packages/services/src/node.ts:2370` 的 `createPluginsService({ isDesktopRuntime: true })` 是无条件的。
+
+| 成员                                                                                                                    | 行为                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `getOverview`                                                                                                           | 固定回 `{marketplaces: [], availablePlugins: [], installedPlugins: [], capability: {supported: false}}`（TS `createRetiredOverview`） |
+| `addMarketplace` / `removeMarketplace` / `updateMarketplace` / `installPlugin` / `uninstallPlugin` / `setPluginEnabled` | 抛 `Error("Legacy plugin management has been retired in ESCode Agent mode")`（TS `throwRetiredPluginManagement`）                     |
+
+**实现**：`host-rpc/src/domains_plugins_legacy.rs`（纯常量表，无状态、无依赖、不解析参数）。
+参数一律忽略——TS 忽略参数，故「缺 `workspacePath`」也必须照常回常量 / 抛退役错，**不能**回 `InvalidRequest`；
+这与「新通道缺参回 InvalidRequest」的惯例相反，是本通道的登记语义。
+
+**登记差异**：无。错误名 `Error`、文案与 `createRetiredOverview` 的四个字段逐字对齐；
+TS 的 `isDesktopRuntime` 选项对本通道行为无影响（`_options` 未使用），Rust 侧不引入对应开关。
+
+**验收**：单测逐条断言 7 个成员的应答 / 错误文案与常量字段；契约清单登记该 channel 的 7 个成员。
+负向验证：改退役错文案一个字、把 `capability.supported` 改成 `true`，对应用例失败。

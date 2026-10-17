@@ -273,6 +273,13 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-agent", "onAgentRuntimeLifecycle"),
     ("escode-agent", "onAgentRuntimeRestarted"),
     ("usage-stats", "getAppUsageSnapshot"),
+    ("plugins", "getOverview"),
+    ("plugins", "addMarketplace"),
+    ("plugins", "removeMarketplace"),
+    ("plugins", "updateMarketplace"),
+    ("plugins", "installPlugin"),
+    ("plugins", "uninstallPlugin"),
+    ("plugins", "setPluginEnabled"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。

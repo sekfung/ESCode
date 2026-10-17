@@ -33,6 +33,8 @@ pub(crate) fn simple_channels(
             options,
             data_base_dir.map(Path::to_path_buf),
         ),
+        // 旧 `plugins` 通道：整套退役，纯常量应答（无依赖）。
+        crate::domains_plugins_legacy::plugins_channel(),
     ];
     channels.push(crate::domains_onboarding::onboarding_channel(data_base_dir));
     // `usage-stats` 只读实例表（不按 workspace 路由、不启动运行时），与其余域无共享状态。
