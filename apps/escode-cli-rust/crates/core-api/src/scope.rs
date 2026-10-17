@@ -27,7 +27,9 @@ pub struct Spawner {
 
 struct TaskEntry {
     name: &'static str,
-    abort: tokio::task::AbortHandle,
+    /// 先登记条目再 spawn：极快任务可能在挂上 abort handle 前就结束，此时条目已被
+    /// `TaskGuard` 注销，`attach_abort` 不能再把它插回去。
+    abort: Option<tokio::task::AbortHandle>,
 }
 
 impl Spawner {
@@ -81,6 +83,8 @@ impl Spawner {
         F::Output: Send + 'static,
     {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
+        // 先登记再 spawn：任务完成时 TaskGuard 的注销一定落在已存在的条目上。
+        self.reserve(id, name);
         let guard = TaskGuard {
             tasks: self.tasks.clone(),
             id,
@@ -106,7 +110,7 @@ impl Spawner {
                 None => body.await,
             }
         });
-        self.register(id, name, handle.abort_handle());
+        self.attach_abort(id, handle.abort_handle());
         handle
     }
 
@@ -120,6 +124,7 @@ impl Spawner {
         T: Send + 'static,
     {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
+        self.reserve(id, name);
         let guard = TaskGuard {
             tasks: self.tasks.clone(),
             id,
@@ -142,7 +147,7 @@ impl Spawner {
             Some(context) => INSTANCE.sync_scope(context, body),
             None => body(),
         });
-        self.register(id, name, handle.abort_handle());
+        self.attach_abort(id, handle.abort_handle());
         handle
     }
 
@@ -152,15 +157,22 @@ impl Spawner {
         let entries: Vec<_> = self
             .tasks()
             .values()
-            .map(|entry| entry.abort.clone())
+            .filter_map(|entry| entry.abort.clone())
             .collect();
         for abort in entries {
             abort.abort();
         }
     }
 
-    fn register(&self, id: u64, name: &'static str, abort: tokio::task::AbortHandle) {
-        self.tasks().insert(id, TaskEntry { name, abort });
+    fn reserve(&self, id: u64, name: &'static str) {
+        self.tasks().insert(id, TaskEntry { name, abort: None });
+    }
+
+    /// 挂上 abort handle；条目若已被极快任务的 guard 注销，就不要再插回去。
+    fn attach_abort(&self, id: u64, abort: tokio::task::AbortHandle) {
+        if let Some(entry) = self.tasks().get_mut(&id) {
+            entry.abort = Some(abort);
+        }
     }
 
     /// 在飞任务名清单（关闭时列出残余）。
@@ -303,6 +315,24 @@ mod tests {
         let residual = spawner.drain(Duration::from_millis(30)).await;
         assert_eq!(residual, vec!["stuck".to_owned()]);
         let _ = gate_tx.send(());
+    }
+
+    /// 极快任务可能在 register 前完成；收口后账目不能留下 stale 条目。
+    #[tokio::test(flavor = "multi_thread")]
+    async fn fast_blocking_tasks_leave_no_stale_ledger_entries() {
+        let spawner = Spawner::new();
+        let mut handles = Vec::new();
+        for _ in 0..256 {
+            handles.push(spawner.spawn_blocking("fast-blocking", || ()));
+        }
+        for handle in handles {
+            handle.await.expect("fast task joins");
+        }
+        assert!(
+            spawner.running().is_empty(),
+            "ledger must be empty after fast tasks: {:?}",
+            spawner.running()
+        );
     }
 
     /// 深 crate 的 `Spawner::current()`（tools/state/wiki 的收口入口）必须落入实例账目：
