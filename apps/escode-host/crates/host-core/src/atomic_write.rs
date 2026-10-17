@@ -14,6 +14,15 @@ const RENAME_RETRY_DELAY: Duration = Duration::from_millis(20);
 
 /// 把 `bytes` 原子地写入 `path`（同目录临时文件 + rename）。
 pub fn write(path: &Path, bytes: &[u8]) -> Result<()> {
+    write_with_mode(path, bytes, None)
+}
+
+/// 同 [`write`]，临时文件以 `mode` 创建（MCP 配置含 env/header/token 等 secret）。
+pub fn write_secret(path: &Path, bytes: &[u8]) -> Result<()> {
+    write_with_mode(path, bytes, Some(0o600))
+}
+
+fn write_with_mode(path: &Path, bytes: &[u8], mode: Option<u32>) -> Result<()> {
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -23,7 +32,17 @@ pub fn write(path: &Path, bytes: &[u8]) -> Result<()> {
         .with_context(|| format!("Atomic write directory unavailable: {}", parent.display()))?;
     let temp = temp_path(path);
     let result = (|| -> Result<()> {
-        let mut file = std::fs::File::create(&temp)
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        if let Some(mode) = mode {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(mode);
+        }
+        #[cfg(not(unix))]
+        let _ = mode;
+        let mut file = options
+            .open(&temp)
             .with_context(|| format!("Atomic write temp unavailable: {}", temp.display()))?;
         file.write_all(bytes)
             .with_context(|| format!("Atomic write failed: {}", temp.display()))?;

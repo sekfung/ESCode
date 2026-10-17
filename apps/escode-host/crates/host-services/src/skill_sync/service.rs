@@ -3,7 +3,6 @@
 //! 所有文件操作在 `spawn_blocking` 里跑；服务不持有可变状态，唯一事实是用户级 skills 目录。
 
 use std::collections::BTreeMap;
-use std::io::Write;
 use std::path::PathBuf;
 
 use serde_json::{Value, json};
@@ -221,32 +220,7 @@ impl SkillSyncService {
     /// TS `checkRemoteSyncDirectoryWriteAccess`。
     fn write_access(&self) -> Value {
         let root = candidates::user_escode_root(&self.home);
-        let marker = root.join(format!(
-            ".escode-sync-preflight-{}-{}",
-            std::process::id(),
-            uuid::Uuid::new_v4()
-        ));
-        let result = (|| -> std::io::Result<()> {
-            std::fs::create_dir_all(&root)?;
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&marker)?;
-            file.write_all(b"ok")?;
-            std::fs::remove_file(&marker)?;
-            Ok(())
-        })();
-        match result {
-            Ok(()) => json!({"ok": true, "path": root.to_string_lossy()}),
-            Err(error) => {
-                let _ = std::fs::remove_file(&marker);
-                json!({
-                    "ok": false,
-                    "path": root.to_string_lossy(),
-                    "error": error.to_string(),
-                })
-            }
-        }
+        crate::remote_sync::check_directory_write_access(&root)
     }
 }
 
