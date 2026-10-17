@@ -1,4 +1,4 @@
-# Rust 插件市场写面（install / uninstall / update / marketplace*）
+# Rust 插件市场写面（install / uninstall / update / marketplace\*）
 
 2026-10-02。插件读面（list / setEnabled / overview / referenceCatalog / configure / resetConfig）已对齐
 （[rust-plugins.md](rust-plugins.md)）。App 插件商店的**安装、卸载、更新、恢复内置、市场增删刷新**仍全部只在

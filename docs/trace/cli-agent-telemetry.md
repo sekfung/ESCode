@@ -503,12 +503,12 @@ Tests
 
 ## 10. 版本轴
 
-| 含义                     | 字段                             | 当前来源                               |
-| ------------------------ | -------------------------------- | -------------------------------------- |
-| CLI Telemetry 生产者版本 | `service.version`                | `apps/escode-cli/package.json` 构建注入 |
-| Desktop/产品版本         | `escode.product.version`          | 产品构建元数据；文档和代码不硬编码版本 |
-| 数据契约版本             | `escode.telemetry.schema_version` | Contracts 常量，当前为 5               |
-| 精确构建身份             | `escode.build.commit_id`          | 可信 CI/Git 构建元数据                 |
+| 含义                     | 字段                              | 当前来源                                |
+| ------------------------ | --------------------------------- | --------------------------------------- |
+| CLI Telemetry 生产者版本 | `service.version`                 | `apps/escode-cli/package.json` 构建注入 |
+| Desktop/产品版本         | `escode.product.version`          | 产品构建元数据；文档和代码不硬编码版本  |
+| 数据契约版本             | `escode.telemetry.schema_version` | Contracts 常量，当前为 5                |
+| 精确构建身份             | `escode.build.commit_id`          | 可信 CI/Git 构建元数据                  |
 
 报表比较发布效果时应同时保留 Schema Version、CLI Version、Product Version 和 Build Commit，
 不能把它们当作同一个版本字段。

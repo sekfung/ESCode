@@ -46,7 +46,7 @@ Adapter 请求执行复用同一个模块，不能各自解析或解释表达式
 
 ### 2.1 ESCode 统一 Option 与原始 API 字段
 
-| ESCode Option      | Anthropic Messages                               | OpenAI Chat Completions                                | OpenAI Responses    |
+| ESCode Option     | Anthropic Messages                               | OpenAI Chat Completions                                | OpenAI Responses    |
 | ----------------- | ------------------------------------------------ | ------------------------------------------------------ | ------------------- |
 | `reasoningLevel`  | `thinking.type`、必要时 `thinking.budget_tokens` | `reasoning_effort` 或目标兼容 Schema 的同义字段        | `reasoning.effort`  |
 | `maxOutputTokens` | `max_tokens`                                     | `max_completion_tokens`；部分兼容协议使用 `max_tokens` | `max_output_tokens` |

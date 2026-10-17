@@ -85,7 +85,9 @@ export interface IPluginManagementService {
   ): Promise<ESCodePluginsConfigureResult>;
   validatePlugin(params: ESCodeAgentValidatePluginParams): Promise<ESCodePluginsValidateResult>;
   describePlugin(params: ESCodeAgentDescribePluginParams): Promise<ESCodePluginsDescribeResult>;
-  setPluginEnabled(params: ESCodeAgentSetPluginEnabledParams): Promise<ESCodePluginsSetEnabledResult>;
+  setPluginEnabled(
+    params: ESCodeAgentSetPluginEnabledParams,
+  ): Promise<ESCodePluginsSetEnabledResult>;
 }
 
 export const IPluginManagementService = createServiceDescriptor<IPluginManagementService>(

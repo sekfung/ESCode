@@ -7,8 +7,8 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 
 ### `.github/workflows/rust-runtime-ci.yml`（push 到 main / `feat/**`、PR、手动）
 
-| job               | runner                                        | 内容                                                                                               |
-| ----------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| job               | runner                                        | 内容                                                                                                |
+| ----------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | checks            | ubuntu-latest                                 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`typecheck`、`lint`、`architecture:check`        |
 | test (matrix × 3) | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件 |
 

@@ -55,9 +55,6 @@ const embeddedBrowserJavaScriptDialogPreloadPath = join(
   "../preload/embeddedBrowserJavaScriptDialog.cjs",
 );
 
-
-
-
 function isLinuxDesktopWindow() {
   return process.platform === "linux";
 }
@@ -206,9 +203,6 @@ function isAllowedEmbeddedBrowserNewWindowUrl(url: string): boolean {
     return false;
   }
 }
-
-
-
 
 function hasExternalBrowserModifier(input: Input): boolean {
   const modifiers = new Set(input.modifiers ?? []);
@@ -469,8 +463,7 @@ export function createBrowserWindow(options: {
   attachWindowsWindowRepaint(win);
   // will-attach 与 did-attach 按顺序配对；队列元素记录 guest 种类，did-attach 据此分派策略。
   const pendingWebviewGuestKinds: Array<
-    | { kind: "browser"; isRewards: boolean }
-    | { kind: "pluginSandbox"; sandboxId: string }
+    { kind: "browser"; isRewards: boolean } | { kind: "pluginSandbox"; sandboxId: string }
   > = [];
 
   win.webContents.once("did-finish-load", () => {

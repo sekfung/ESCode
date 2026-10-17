@@ -151,7 +151,6 @@ function isLoopbackHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-
 export function resolveESCodeEndpointOrigin(options?: {
   env?: ESCodeEnv;
   envBaseOrigin?: string | null;
@@ -245,8 +244,6 @@ export function buildBigModelApiUrl(env: RuntimeBigModelApiEnv = {}, path: strin
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${resolveBigModelApiOrigin(env)}${normalizedPath}`;
 }
-
-
 
 export function resolveZaiOAuthOrigin(env: RuntimeZaiEndpointEnv = {}): string {
   const escodeEnv = resolveRuntimeESCodeEnv(env);
@@ -355,7 +352,10 @@ export function buildESCodeEndpointUrls(
   };
 }
 
-export function rewriteESCodeEndpointUrl(input: string | URL, endpointOrigin: string): string | URL {
+export function rewriteESCodeEndpointUrl(
+  input: string | URL,
+  endpointOrigin: string,
+): string | URL {
   const originalUrl = typeof input === "string" ? input : input.toString();
   let parsed: URL;
   try {

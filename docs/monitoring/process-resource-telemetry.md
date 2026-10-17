@@ -180,8 +180,8 @@ remote 模式桌面端不新增进程，远端 escode-server 及其 CLI / MCP / 
 | `chromium_other` | network 等 utility、辅助窗口 renderer、DevTools，及其余未归类 Chromium 进程 | 同上                                                                                                  | 无                                                          | 聚合                    |
 | `host`           | 窗口 Host                                                                   | 同上                                                                                                  | 自采，60 秒，parentPort 送 main                             | 聚合：总量 + 最大单进程 |
 | `scheduler`      | cron scheduler                                                              | 同上                                                                                                  | 自采，60 秒，parentPort 送 main                             | 单进程                  |
-| `cli_chat`       | 每 workspace 一个 escode-cli                                                 | CLI 自采 60 秒，经 Host 转 main                                                                       | 同一次采样                                                  | 聚合：总量 + 最大单进程 |
-| `cli_aux`        | plugin、mcp-status 两个 lane 的 escode-cli                                   | 同上                                                                                                  | 同一次采样                                                  | 聚合                    |
+| `cli_chat`       | 每 workspace 一个 escode-cli                                                | CLI 自采 60 秒，经 Host 转 main                                                                       | 同一次采样                                                  | 聚合：总量 + 最大单进程 |
+| `cli_aux`        | plugin、mcp-status 两个 lane 的 escode-cli                                  | 同上                                                                                                  | 同一次采样                                                  | 聚合                    |
 | `mcp`            | 每个 MCP 服务的进程树                                                       | CLI 每 5 分钟采一次；macOS `ps` 读取进程表后筛选根与后代，Linux 读 `/proc`，Windows `tasklist` 仅内存 | 无                                                          | 每 mcp_id 一条          |
 
 角色归属规则：main 用 `collectChromiumProcessRolePids` 同源的 pid 集合归类。主窗口 webContents 的
@@ -285,9 +285,9 @@ chromium_other 18 个。
 | 状态 | `background_ratio`、`app_uptime_minutes`         | `background_ratio` 与角色事件同源；uptime 取 main 进程运行时长     |
 | 整机 | `system_cpu_percent_p95`                         | `os.cpus()` 差分                                                   |
 | 整机 | `system_free_memory_kb_min`                      | 窗口内 `os.freemem()` 最小值                                       |
-| 应用 | `app_cpu_percent_p95`                            | 全部本机 ESCode 进程合计                                            |
+| 应用 | `app_cpu_percent_p95`                            | 全部本机 ESCode 进程合计                                           |
 | 应用 | `app_rss_kb_total_mean`、`app_rss_kb_total_peak` | Chromium 体系每 10 秒精确合计，加 CLI 与 MCP 最近一次已知样本      |
-| 应用 | `process_count_total_peak`                       | 全部本机 ESCode 进程数峰值                                          |
+| 应用 | `process_count_total_peak`                       | 全部本机 ESCode 进程数峰值                                         |
 | 质量 | `sample_count`                                   | 首个 tick 无 CPU 基线不产生样本，5 分钟窗口预期 29                 |
 | 质量 | `telemetry_self_ms`                              | 窗口内 main 侧采样与聚合代码累计墙钟毫秒数，`performance.now()` 计 |
 
@@ -380,7 +380,7 @@ E2E 跑的是打包构建（`app.isPackaged === true`），因此 1 分钟窗口
 | A2 闲置 CPU 回归 | `background_ratio ≥ 0.9` 的窗口中 `cpu_percent_p95` 的 p95 | process_role × app_version | 大于基线 1.5 倍，或绝对值大于 5% | 后台仍在烧 CPU，通常是定时器或轮询泄漏 |
 | A3 前台 CPU 回归 | `background_ratio ≤ 0.1` 的窗口中 `cpu_percent_p95` 的 p95 | process_role × app_version | 大于基线 1.3 倍                  | 交互时更卡                             |
 | A4 进程数回归    | `process_count_peak` 均值                                  | process_role × app_version | 大于基线 1.5 倍                  | 进程回收失效                           |
-| A5 应用总量回归  | `perf_system_window.app_rss_kb_total_mean` 的 p95          | app_version                | 大于基线 1.2 倍                  | 用户直观感受到的 ESCode 占内存          |
+| A5 应用总量回归  | `perf_system_window.app_rss_kb_total_mean` 的 p95          | app_version                | 大于基线 1.2 倍                  | 用户直观感受到的 ESCode 占内存         |
 
 **B 类：绝对水位**（滚动 1 小时，P2）。统计"近 1 小时内出现过超阈值窗口的设备占全部活跃设备的比例"，
 触发条件统一为"占比大于基线 2 倍且大于 3%"。
@@ -420,12 +420,12 @@ E2E 跑的是打包构建（`app.isPackaged === true`），因此 1 分钟窗口
 
 **D 类：CPU 行为**（滚动 1 小时，P2）
 
-| 规则              | 指标与统计                                                     | 分组          | 触发条件 | 含义                 |
-| ----------------- | -------------------------------------------------------------- | ------------- | -------- | -------------------- |
-| D1 后台空转       | `background_ratio ≥ 0.9` 且 `cpu_percent_p95 > 10%` 的设备占比 | process_role  | 大于 5%  | 用户没在用，进程在忙 |
-| D2 前台持续高 CPU | `background_ratio ≤ 0.1` 且 `cpu_percent_p95 > 50%` 的设备占比 | renderer_main | 大于 5%  | UI 卡顿风险          |
-| D3 GPU 进程高 CPU | `cpu_percent_p95 > 30%` 的设备占比                             | gpu           | 大于 3%  | 渲染层问题           |
-| D4 MCP 闲置耗 CPU | 同 D1                                                          | mcp × mcp_id  | 大于 5%  | 某插件后台轮询       |
+| 规则              | 指标与统计                                                     | 分组          | 触发条件 | 含义                  |
+| ----------------- | -------------------------------------------------------------- | ------------- | -------- | --------------------- |
+| D1 后台空转       | `background_ratio ≥ 0.9` 且 `cpu_percent_p95 > 10%` 的设备占比 | process_role  | 大于 5%  | 用户没在用，进程在忙  |
+| D2 前台持续高 CPU | `background_ratio ≤ 0.1` 且 `cpu_percent_p95 > 50%` 的设备占比 | renderer_main | 大于 5%  | UI 卡顿风险           |
+| D3 GPU 进程高 CPU | `cpu_percent_p95 > 30%` 的设备占比                             | gpu           | 大于 3%  | 渲染层问题            |
+| D4 MCP 闲置耗 CPU | 同 D1                                                          | mcp × mcp_id  | 大于 5%  | 某插件后台轮询        |
 | D5 整机 CPU 饱和  | `system_cpu_percent_p95 > 90%` 且 app 占比超一半的设备占比     | app_version   | 大于 3%  | ESCode 是整机卡顿主因 |
 
 cli_chat 不设 CPU 告警，Agent 工作时 CPU 高是正常的。
@@ -514,9 +514,9 @@ HAVING COUNT(DISTINCT device_mid) >= 100
 豁免清单（写在门禁脚本的 `TELEMETRY_GUARD_EXEMPTIONS`，条目指向的文件必须存在，否则门禁按 `K2`
 失败，防止清单腐烂）。条目明确区分是否实际进入扫描；当前两项均为生效豁免，未登记的关键字仍会失败：
 
-| 文件                                                                 | 状态 | 豁免关键字                      | 原因                                                                                                                                                                                                                                                                                                                        |
-| -------------------------------------------------------------------- | ---- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/services/src/process/processResourceSampler.ts`            | 生效 | `powershell`、`Get-CimInstance` | 资源管理器 Host 侧进程表采样器：只在资源管理器窗口打开并主动请求时读一次整机进程表，属于**按需 UI 采样而非常驻遥测**；Windows 上需要同时拿到 RSS 与 CPU 时间，只能走 CIM。运行在 Host utility 进程，不在 main，也不参与 `perf_process_window` 上报。该文件因 processResource 命名进入扫描集，仅按此明确理由豁免两个关键字。 |
+| 文件                                                                  | 状态 | 豁免关键字                      | 原因                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------- | ---- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/services/src/process/processResourceSampler.ts`             | 生效 | `powershell`、`Get-CimInstance` | 资源管理器 Host 侧进程表采样器：只在资源管理器窗口打开并主动请求时读一次整机进程表，属于**按需 UI 采样而非常驻遥测**；Windows 上需要同时拿到 RSS 与 CPU 时间，只能走 CIM。运行在 Host utility 进程，不在 main，也不参与 `perf_process_window` 上报。该文件因 processResource 命名进入扫描集，仅按此明确理由豁免两个关键字。 |
 | `apps/escode-cli/packages/contracts/src/telemetry/agent-execution.ts` | 生效 | `powershell`                    | 纯类型文件：`powershell` 只是 `CommandShellKind` 枚举里「用户命令用的是哪种 shell」的上报标签，不启动任何进程。                                                                                                                                                                                                             |
 
 各采集点成本核算见下表，作为红线的依据。
@@ -725,7 +725,7 @@ HAVING COUNT(DISTINCT device_mid) >= 100
 | PRT-024 | Windows，PERF-RES-01 场景                                                                                            | 跨过一个采样周期                 | 原断言保留；runtime log 不含 powershell                                                                                                 | e2e（Windows） | [ ] macOS 按条件跳过，待 Windows；[windows][prt-windows]   |
 | PRT-025 | 旧格式 CLI 样本（无新字段）                                                                                          | services 解析                    | 通过校验并分发                                                                                                                          | unit           | [x] 通过；[compat][prt-compat]                             |
 | PRT-026 | 三个事件的属性 key                                                                                                   | 白名单校验                       | 无隐私 key；spec / 事件字典属性表与代码白名单逐项一致                                                                                   | unit           | [x] 通过；[contract][prt-contract]                         |
-| PRT-027 | 远端 workspace 的 service collection（Agent service 为远端 escode-server 的 RPC 代理）                                | Host 建立远端连接                | 注册了资源遥测订阅，CLI 样本与 MCP 事件都以 `runtimeSurface=remote` 送 main                                                             | unit           | [x] 通过；[remote][prt-remote]                             |
+| PRT-027 | 远端 workspace 的 service collection（Agent service 为远端 escode-server 的 RPC 代理）                               | Host 建立远端连接                | 注册了资源遥测订阅，CLI 样本与 MCP 事件都以 `runtimeSurface=remote` 送 main                                                             | unit           | [x] 通过；[remote][prt-remote]                             |
 | PRT-028 | 同一份远端 collection 上再建立 `web-remote-replayable` attachment                                                    | attach 手机远控                  | attachment 侧订阅资源样本得到空事件，底层订阅数不变，转发给 main 的仍只有 Host 那一条                                                   | unit           | [x] 通过；[remote][prt-remote]                             |
 | PRT-029 | 已订阅的远端连接                                                                                                     | 释放 connection handle           | 两条订阅随之释放（重复 dispose 幂等），后续样本不再转发；缺 Agent service 或单条订阅抛错时不订阅、不抛错                                | unit           | [x] 通过；[remote][prt-remote]                             |
 | PRT-030 | 真实远端 workspace（SSH / WSL / Docker / Server）+ 开发态 1 分钟窗口                                                 | 连接后停留 90 秒                 | E2E 通道读到 `runtime_surface=remote` 的 `cli_chat` 事件，`platform` / `arch` 为远端机器的值；手机远控接入时不出现重复事件              | 手工           | [ ] 真实远端手工待补；仅订阅 UT 通过；[remote][prt-remote] |

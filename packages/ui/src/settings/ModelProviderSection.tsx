@@ -81,8 +81,8 @@ export function ModelProviderSection({
     }),
   });
   // 外部入口（设置页 pending target）优先；旧会话遗留的 sessionStorage 意图兜底。
-  const [pendingTarget] = useState<SettingsModelProviderTarget | undefined>(() =>
-    pendingModelProviderTarget ?? consumePendingSettingsModelProviderTarget(),
+  const [pendingTarget] = useState<SettingsModelProviderTarget | undefined>(
+    () => pendingModelProviderTarget ?? consumePendingSettingsModelProviderTarget(),
   );
   const [invalidProviderTarget, setInvalidProviderTarget] = useState(false);
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);

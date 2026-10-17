@@ -21,7 +21,8 @@ async function command(command: string) {
 }
 async function available(locale: "zh-CN" | "en-US") {
   return browser.execute(
-    async (value) => (window as unknown as { escode: DesktopBridge }).escode.canOpenCommunity(value),
+    async (value) =>
+      (window as unknown as { escode: DesktopBridge }).escode.canOpenCommunity(value),
     locale,
   );
 }

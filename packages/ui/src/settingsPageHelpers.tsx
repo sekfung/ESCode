@@ -44,7 +44,10 @@ export { type SettingsSectionId };
 export { createSettingsPageConfig, resolveSettingsSectionForPlatform };
 
 const TASK_AUTO_ARCHIVE_DAY_OPTIONS = [3, 7, 14, 30] as const;
-const ESCODE_INTERACTION_BEHAVIOR_OPTIONS: readonly ESCodeInteractionBehavior[] = ["queue", "guide"];
+const ESCODE_INTERACTION_BEHAVIOR_OPTIONS: readonly ESCodeInteractionBehavior[] = [
+  "queue",
+  "guide",
+];
 
 export function GeneralSectionContent({
   localePreference,

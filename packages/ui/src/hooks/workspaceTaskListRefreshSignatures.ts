@@ -26,7 +26,10 @@ export function buildWorkspaceRemoteSessionSignature(
     .join("|");
 }
 
-export function areTaskListItemsEquivalent(left: ESCodeTaskMeta[], right: ESCodeTaskMeta[]): boolean {
+export function areTaskListItemsEquivalent(
+  left: ESCodeTaskMeta[],
+  right: ESCodeTaskMeta[],
+): boolean {
   if (left.length !== right.length) {
     return false;
   }

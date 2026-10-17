@@ -9,7 +9,10 @@ import {
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { escodeSessionSubagentsResultSchema, escodeSessionStateSnapshotSchema } from "@escode/shared";
+import {
+  escodeSessionSubagentsResultSchema,
+  escodeSessionStateSnapshotSchema,
+} from "@escode/shared";
 
 function call(response: any, calls: { id: string; name: string; args: unknown }[]) {
   event(response, {

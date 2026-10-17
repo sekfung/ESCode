@@ -1,4 +1,7 @@
-import type { ESCodePersistedMessage, ESCodePersistedMessagePart } from "./escode-task-types-core.js";
+import type {
+  ESCodePersistedMessage,
+  ESCodePersistedMessagePart,
+} from "./escode-task-types-core.js";
 
 // ESCode runtime 把同一个 user turn 里**每一轮 LLM 调用**落成独立的 assistant 消息（各带 time.created/completed）。
 // 老 task projection 模型每个 turn 只有一条 assistant，UI 也按这个模型设计（一条 assistant → 一个"已工作 X 秒"块）。

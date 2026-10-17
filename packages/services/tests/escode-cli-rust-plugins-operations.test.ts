@@ -62,13 +62,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -113,18 +107,10 @@ async function observe(kind: Runtime) {
           .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>"),
       );
     const request = (method: string, params: object) =>
-      h.client.request(
-        method as any,
-        { workspace, ...params },
-        z.any(),
-      ) as Promise<any>;
+      h.client.request(method as any, { workspace, ...params }, z.any()) as Promise<any>;
     // cancelOperation 的协议参数只有 operationId（不带 workspace）。
     const cancel = (operationId: string) =>
-      h.client.request(
-        "plugins/cancelOperation" as any,
-        { operationId },
-        z.any(),
-      ) as Promise<any>;
+      h.client.request("plugins/cancelOperation" as any, { operationId }, z.any()) as Promise<any>;
     const observation: Record<string, unknown> = {};
     for (const name of ["tool", "other"]) {
       await request("plugins/install", {
@@ -137,25 +123,14 @@ async function observe(kind: Runtime) {
       join(market, "plugins", "tool", ".escode-plugin", "plugin.json"),
       JSON.stringify({ name: "tool", version: "1.1.0" }),
     );
-    observation.updateById = scrub(
-      await request("plugins/update", { pluginId: "tool@acme" }),
-    );
-    observation.updateByMarket = scrub(
-      await request("plugins/update", { marketplace: "acme" }),
-    );
+    observation.updateById = scrub(await request("plugins/update", { pluginId: "tool@acme" }));
+    observation.updateByMarket = scrub(await request("plugins/update", { marketplace: "acme" }));
     observation.updateAll = scrub(await request("plugins/update", {}));
-    observation.updateNone = scrub(
-      await request("plugins/update", { pluginId: "ghost@acme" }),
-    );
-    observation.installedFile = (
-      await readFile(join(storage, "installed_plugins.json"), "utf8")
-    )
+    observation.updateNone = scrub(await request("plugins/update", { pluginId: "ghost@acme" }));
+    observation.installedFile = (await readFile(join(storage, "installed_plugins.json"), "utf8"))
       .replaceAll(rootText, "<root>")
       .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>")
-      .replace(
-        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-        "<uuid>",
-      );
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>");
     observation.cancelUnknown = await cancel("nope");
     // 进行中的安装（只在 Rust 上断言）：Node 的 app-server 在插件安装进行中不应答其它请求（plugins/list、
     // plugins/cancelOperation 都会超时），无法做同步差分；Rust 以后台作业执行，期间其它请求照常应答，

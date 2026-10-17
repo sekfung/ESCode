@@ -7,7 +7,7 @@
 | Change                | `Project + By project` 中的“项目 / 任务”二级分区支持拖拽换位，并持久化用户顺序                                            |
 | User-visible surfaces | Desktop 与共享 Web workspace sidebar；共享 task-purpose 标签同步显示为“任务 / Tasks”                                      |
 | Existing docs         | `docs/ui/sidebar-task-view-switcher.md`、`docs/superpowers/specs/2026-07-10-non-project-conversation-workspace-design.md` |
-| State owner           | Renderer-local `escode-sidebar-purpose-section-preferences`                                                                |
+| State owner           | Renderer-local `escode-sidebar-purpose-section-preferences`                                                               |
 | Out of scope          | 手机 `/remote` 拖拽布局、跨窗口实时同步、Host/Agent/protocol 状态、其它“对话”文案                                         |
 
 内部 `workspacePurpose=conversation` 语义保持不变；把共享的 task-purpose 分区/工作区标签及桌面侧栏空态、创建入口文案从
@@ -56,16 +56,16 @@ conversations -> conversationsExpanded
 
 ## Candidate And Pruning Decisions
 
-| Candidate | Setup / action             | Expected result                                        | Status                                      |
-| --------- | -------------------------- | ------------------------------------------------------ | ------------------------------------------- |
-| SPO01     | 默认偏好查看侧栏           | 项目在任务上方，两个分区默认展开                       | accepted                                    |
-| SPO02     | 从任务分区手柄拖到项目上方 | 整个任务分区换位，展开态和内容不变，顺序写入本地偏好   | accepted                                    |
-| SPO03     | 刷新或重启 renderer        | 恢复任务在项目上方                                     | accepted                                    |
-| SPO04     | 收起或空分区后拖拽         | 仍可换位；不清理缓存、workspace/task 顺序或展开态      | accepted                                    |
-| SPO05     | 键盘聚焦手柄并排序         | 与 pointer 排序得到相同结果，手柄具有可读 `aria-label` | accepted                                    |
-| SPO06     | 在另一个已打开窗口观察顺序 | 不要求实时变化；该窗口下次挂载读取持久化值             | pruned，renderer-local 偏好不新增 broadcast |
+| Candidate | Setup / action             | Expected result                                                       | Status                                      |
+| --------- | -------------------------- | --------------------------------------------------------------------- | ------------------------------------------- |
+| SPO01     | 默认偏好查看侧栏           | 项目在任务上方，两个分区默认展开                                      | accepted                                    |
+| SPO02     | 从任务分区手柄拖到项目上方 | 整个任务分区换位，展开态和内容不变，顺序写入本地偏好                  | accepted                                    |
+| SPO03     | 刷新或重启 renderer        | 恢复任务在项目上方                                                    | accepted                                    |
+| SPO04     | 收起或空分区后拖拽         | 仍可换位；不清理缓存、workspace/task 顺序或展开态                     | accepted                                    |
+| SPO05     | 键盘聚焦手柄并排序         | 与 pointer 排序得到相同结果，手柄具有可读 `aria-label`                | accepted                                    |
+| SPO06     | 在另一个已打开窗口观察顺序 | 不要求实时变化；该窗口下次挂载读取持久化值                            | pruned，renderer-local 偏好不新增 broadcast |
 | SPO07     | 手机 `/remote` 查看或拖拽  | task-purpose 标签显示“任务”，但不提供拖拽入口，不改变 replayable 恢复 | copy accepted；drag pruned，独立移动端布局  |
-| SPO08     | 修改全产品其它“对话”文案   | 保持原文案                                             | ignored，本次只调整 sidebar purpose section |
+| SPO08     | 修改全产品其它“对话”文案   | 保持原文案                                                            | ignored，本次只调整 sidebar purpose section |
 
 ## Accepted Case And Evidence
 

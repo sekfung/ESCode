@@ -68,11 +68,9 @@ function parseOpenExternalRequest(payload: unknown): OpenExternalRequest | null 
   };
 }
 
-
 function isPaypalHostname(hostname: string): boolean {
   return hostname === "paypal.com" || hostname.endsWith(".paypal.com");
 }
-
 
 export function registerRemoteIpcHandlers(options: {
   logger: {

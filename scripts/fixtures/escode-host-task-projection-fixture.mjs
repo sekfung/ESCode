@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 单一固定的 Host 任务快照夹具：拆文件会把输入与期望边界拆散；oxfmt 100 列换行后计数 409。 */
 // ESCode Host 任务快照投影对拍用的 agent 协议快照夹具（固定输入，供生成器与 Rust 测试使用）。
 // 覆盖：多轮 user/assistant、reasoning、三种工具状态、compact summary、model-only synthetic user、
 // goal 续跑提醒与迭代号、附件（image）、syntheticTimeline（fork/compaction）、todos/todoGroups/
@@ -66,7 +67,13 @@ function fixtureMessages() {
       "assistant",
       1100,
       [
-        { partId: "p-a1-1", messageId: "a1", sessionId: TASK_ID, type: "reasoning", text: "先看计划。" },
+        {
+          partId: "p-a1-1",
+          messageId: "a1",
+          sessionId: TASK_ID,
+          type: "reasoning",
+          text: "先看计划。",
+        },
         { partId: "p-a1-2", messageId: "a1", sessionId: TASK_ID, type: "text", text: "先读文件。" },
         {
           partId: "p-a1-3",
@@ -86,41 +93,74 @@ function fixtureMessages() {
           },
         },
       ],
-      assistantInfo(1100, 1500, { model: { providerId: "glm", modelId: "glm-4" }, finish: "stop", ...VISIBLE_ASSISTANT }),
+      assistantInfo(1100, 1500, {
+        model: { providerId: "glm", modelId: "glm-4" },
+        finish: "stop",
+        ...VISIBLE_ASSISTANT,
+      }),
     ),
     // goal 续跑提醒：模型上下文，不是用户可见输入（但推进迭代号）。
-    agentMessage("u2", "user", 1600, [
-      {
-        partId: "p-u2-1",
-        messageId: "u2",
-        sessionId: TASK_ID,
-        type: "text",
-        text: '<system-reminder source="goal-continuation">Continue working toward the active session goal.</system-reminder>',
-      },
-    ], { synthetic: true, source: "goal-continuation" }),
+    agentMessage(
+      "u2",
+      "user",
+      1600,
+      [
+        {
+          partId: "p-u2-1",
+          messageId: "u2",
+          sessionId: TASK_ID,
+          type: "text",
+          text: '<system-reminder source="goal-continuation">Continue working toward the active session goal.</system-reminder>',
+        },
+      ],
+      { synthetic: true, source: "goal-continuation" },
+    ),
     agentMessage(
       "a2",
       "assistant",
       1700,
-      [{ partId: "p-a2-1", messageId: "a2", sessionId: TASK_ID, type: "text", text: "第一轮完成。" }],
-      assistantInfo(1700, 1900, { model: { providerId: "glm", modelId: "glm-4" }, finish: "stop", ...VISIBLE_ASSISTANT }),
+      [
+        {
+          partId: "p-a2-1",
+          messageId: "a2",
+          sessionId: TASK_ID,
+          type: "text",
+          text: "第一轮完成。",
+        },
+      ],
+      assistantInfo(1700, 1900, {
+        model: { providerId: "glm", modelId: "glm-4" },
+        finish: "stop",
+        ...VISIBLE_ASSISTANT,
+      }),
     ),
     // compact summary：模型上下文，可见投影必须过滤。
     agentMessage("u3", "user", 2000, [
-      { partId: "p-u3-1", messageId: "u3", sessionId: TASK_ID, type: "compaction", auto: true, metadata: {} },
+      {
+        partId: "p-u3-1",
+        messageId: "u3",
+        sessionId: TASK_ID,
+        type: "compaction",
+        auto: true,
+        metadata: {},
+      },
       { partId: "p-u3-2", messageId: "u3", sessionId: TASK_ID, type: "text", text: "（压缩摘要）" },
     ]),
-    agentMessage("u4", "user", 2100, [
-      { partId: "p-u4-1", messageId: "u4", sessionId: TASK_ID, type: "text", text: "第二轮问题" },
-    ], {
-      semantics: {
-        origin: "real_user",
-        kind: "user_prompt",
-        uiVisibility: "visible",
-        providerVisibility: "hidden",
-        transcriptVisibility: "visible",
+    agentMessage(
+      "u4",
+      "user",
+      2100,
+      [{ partId: "p-u4-1", messageId: "u4", sessionId: TASK_ID, type: "text", text: "第二轮问题" }],
+      {
+        semantics: {
+          origin: "real_user",
+          kind: "user_prompt",
+          uiVisibility: "visible",
+          providerVisibility: "hidden",
+          transcriptVisibility: "visible",
+        },
       },
-    }),
+    ),
     agentMessage(
       "a3",
       "assistant",
@@ -143,12 +183,27 @@ function fixtureMessages() {
           },
         },
       ],
-      assistantInfo(2200, undefined, { model: { providerId: "glm", modelId: "glm-4" }, ...VISIBLE_ASSISTANT }),
+      assistantInfo(2200, undefined, {
+        model: { providerId: "glm", modelId: "glm-4" },
+        ...VISIBLE_ASSISTANT,
+      }),
     ),
     // 子代理消息：可见投影过滤（source=subagent_message）。
-    agentMessage("u5", "user", 2300, [
-      { partId: "p-u5-1", messageId: "u5", sessionId: TASK_ID, type: "text", text: "子代理汇报：完成一半。" },
-    ], { synthetic: true, source: "subagent_message" }),
+    agentMessage(
+      "u5",
+      "user",
+      2300,
+      [
+        {
+          partId: "p-u5-1",
+          messageId: "u5",
+          sessionId: TASK_ID,
+          type: "text",
+          text: "子代理汇报：完成一半。",
+        },
+      ],
+      { synthetic: true, source: "subagent_message" },
+    ),
     // 携带 timelineStatus 的 compaction：assistant 承载的 divider，参与投影但不参与合并。
     agentMessage(
       "a4",
@@ -172,18 +227,32 @@ function fixtureMessages() {
       "assistant",
       2500,
       [{ partId: "p-a5-1", messageId: "a5", sessionId: TASK_ID, type: "text", text: "尾部回复。" }],
-      assistantInfo(2500, 2600, { model: { providerId: "custom", modelId: "kimi-k2:free", options: { reasoningLevel: "high" } }, finish: "stop", ...VISIBLE_ASSISTANT }),
+      assistantInfo(2500, 2600, {
+        model: {
+          providerId: "custom",
+          modelId: "kimi-k2:free",
+          options: { reasoningLevel: "high" },
+        },
+        finish: "stop",
+        ...VISIBLE_ASSISTANT,
+      }),
     ),
     // 后台任务通知：synthetic 且带任务通知前缀 → 模型上下文；同时给工具 raw 挂通知。
-    agentMessage("u6", "user", 2700, [
-      {
-        partId: "p-u6-1",
-        messageId: "u6",
-        sessionId: TASK_ID,
-        type: "text",
-        text: "<task-notification><tool-use-id>call_bash_1</tool-use-id><status>killed</status><summary>被停止</summary></task-notification>",
-      },
-    ], { synthetic: true, source: "task_notification" }),
+    agentMessage(
+      "u6",
+      "user",
+      2700,
+      [
+        {
+          partId: "p-u6-1",
+          messageId: "u6",
+          sessionId: TASK_ID,
+          type: "text",
+          text: "<task-notification><tool-use-id>call_bash_1</tool-use-id><status>killed</status><summary>被停止</summary></task-notification>",
+        },
+      ],
+      { synthetic: true, source: "task_notification" },
+    ),
   ];
 }
 
@@ -211,7 +280,13 @@ export function fixtureSnapshot() {
             label: "GLM-4",
             description: "主力模型",
             providerLabel: "智谱",
-            reasoning: { levels: [{ value: "none", label: "None" }, { value: "high", label: "High" }], defaultLevel: "high" },
+            reasoning: {
+              levels: [
+                { value: "none", label: "None" },
+                { value: "high", label: "High" },
+              ],
+              defaultLevel: "high",
+            },
           },
           { ref: { providerId: "custom", modelId: "kimi-k2:free" }, label: "Kimi" },
         ],
@@ -220,7 +295,10 @@ export function fixtureSnapshot() {
         enabled: true,
         current: "high",
         defaultLevel: "medium",
-        available: [{ value: "none", label: "None" }, { value: "high", label: "High", description: "深想" }],
+        available: [
+          { value: "none", label: "None" },
+          { value: "high", label: "High", description: "深想" },
+        ],
       },
       mode: { current: "guarded" },
       permission: { mode: "guarded" },
@@ -270,8 +348,21 @@ export function fixtureSnapshot() {
         },
       ],
       backgroundJobs: [
-        { jobId: "job_bash", taskKind: "bash", command: "npm run build", status: "running", pid: 4242, startedAt: 2200 },
-        { toolName: "Task", description: "跑一遍迁移", status: "in_progress", taskId: "job_agent", cancellable: true },
+        {
+          jobId: "job_bash",
+          taskKind: "bash",
+          command: "npm run build",
+          status: "running",
+          pid: 4242,
+          startedAt: 2200,
+        },
+        {
+          toolName: "Task",
+          description: "跑一遍迁移",
+          status: "in_progress",
+          taskId: "job_agent",
+          cancellable: true,
+        },
       ],
       target: {
         sessionID: TASK_ID,
@@ -291,7 +382,13 @@ export function fixtureSnapshot() {
       pendingRequestIds: ["req_bash"],
       activeTurnKind: "regular",
       activeTurnId: "turn-1",
-      contextUsage: { used: 1300, size: 8000, cost: 0.5, cache: { readTokens: 100 }, breakdown: { system: 10 } },
+      contextUsage: {
+        used: 1300,
+        size: 8000,
+        cost: 0.5,
+        cache: { readTokens: 100 },
+        breakdown: { system: 10 },
+      },
       goalVerifications: { passed: 1, failed: 0 },
       goalVerificationTimeline: [
         {
@@ -326,4 +423,3 @@ export function fixtureSnapshot() {
     slashCommands: [{ name: "compact", description: "压缩上下文", source: "builtin" }],
   };
 }
-

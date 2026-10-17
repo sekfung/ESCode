@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { compileModelOptionMaps } from "@escode/model-option-map";
-import { ModelConfig, ModelConfigRules, parseESCodeBuiltinModelConfigRules } from "@escode/provider";
+import {
+  ModelConfig,
+  ModelConfigRules,
+  parseESCodeBuiltinModelConfigRules,
+} from "@escode/provider";
 
 const url = "https://opencode.ai/zen/go/v1";
 const members = {
@@ -61,7 +65,10 @@ let templates: {
 }[];
 beforeAll(async () => {
   const release = JSON.parse(
-    await readFile(new URL("../../../config/provider/escode-builtin.json", import.meta.url), "utf8"),
+    await readFile(
+      new URL("../../../config/provider/escode-builtin.json", import.meta.url),
+      "utf8",
+    ),
   );
   rules = parseESCodeBuiltinModelConfigRules(release.config.modelConfigRules);
   templates = release.config.providerConfigRules.templateRules;

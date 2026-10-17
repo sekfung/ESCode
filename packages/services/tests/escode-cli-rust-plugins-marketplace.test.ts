@@ -3,14 +3,7 @@ import test from "node:test";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
@@ -29,15 +22,7 @@ async function write(path: string, content: string) {
 const git = (cwd: string, ...args: string[]) =>
   execFileSync(
     "git",
-    [
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@e",
-      "-c",
-      "commit.gpgsign=false",
-      ...args,
-    ],
+    ["-c", "user.name=t", "-c", "user.email=t@e", "-c", "commit.gpgsign=false", ...args],
     { cwd, encoding: "utf8" },
   ).trim();
 
@@ -108,10 +93,7 @@ async function observe(kind: Runtime) {
     JSON.stringify({ name: "zcode-plugins-official", plugins: [] }),
   );
   const invalid = join(root, "markets", "invalid");
-  await write(
-    join(invalid, "marketplace.json"),
-    JSON.stringify({ name: "Bad Name", plugins: [] }),
-  );
+  await write(join(invalid, "marketplace.json"), JSON.stringify({ name: "Bad Name", plugins: [] }));
   const repo = join(root, "markets", "gitmk");
   await write(
     join(repo, ".claude-plugin", "marketplace.json"),
@@ -120,10 +102,7 @@ async function observe(kind: Runtime) {
       plugins: [{ name: "gamma", source: "./gamma" }],
     }),
   );
-  await write(
-    join(repo, "gamma", ".escode-plugin", "plugin.json"),
-    pluginManifest("gamma"),
-  );
+  await write(join(repo, "gamma", ".escode-plugin", "plugin.json"), pluginManifest("gamma"));
   git(repo, "init", "-q", "-b", "main");
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "c1");
@@ -164,13 +143,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -179,9 +152,7 @@ async function observe(kind: Runtime) {
   try {
     await configureRegistry(f);
     const userConfigPath = join(root, ".escode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await write(
       userConfigPath,
       JSON.stringify({
@@ -203,27 +174,15 @@ async function observe(kind: Runtime) {
         .replaceAll(root, "<root>")
         .replaceAll(String(port), "<port>")
         .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>")
-        .replace(
-          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-          "<uuid>",
-        )
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>")
         .replace(/escode-plugin-src-[A-Za-z0-9-]+/g, "escode-plugin-src-<tmp>");
-    const scrub = (value: unknown) =>
-      JSON.parse(scrubText(JSON.stringify(value)));
+    const scrub = (value: unknown) => JSON.parse(scrubText(JSON.stringify(value)));
     const call = async (method: string, params: object) => {
       try {
-        return scrub(
-          await h.client.request(
-            method as any,
-            { workspace, ...params },
-            z.any(),
-          ),
-        );
+        return scrub(await h.client.request(method as any, { workspace, ...params }, z.any()));
       } catch (error) {
         return {
-          error: scrubText(
-            error instanceof Error ? error.message : String(error),
-          ),
+          error: scrubText(error instanceof Error ? error.message : String(error)),
         };
       }
     };
@@ -276,23 +235,15 @@ async function observe(kind: Runtime) {
     observation.removeFile = await call("plugins/marketplace/remove", {
       marketplace: "filemk",
     });
-    observation.known = scrubText(
-      await readFile(join(storage, "known_marketplaces.json"), "utf8"),
-    );
+    observation.known = scrubText(await readFile(join(storage, "known_marketplaces.json"), "utf8"));
     observation.marketplaces = Object.fromEntries(
-      Object.entries(
-        await tree(join(storage, "marketplaces"), scrubText),
-      ).filter(([path]) => !path.startsWith("zcode-plugins-official/")),
-    );
-    const overview = (await h.client.request(
-      "plugins/overview",
-      { workspace },
-      z.any(),
-    )) as any;
-    observation.overviewMarkets = scrub(
-      overview.marketplaces.filter(
-        (m: any) => m.id !== "zcode-plugins-official",
+      Object.entries(await tree(join(storage, "marketplaces"), scrubText)).filter(
+        ([path]) => !path.startsWith("zcode-plugins-official/"),
       ),
+    );
+    const overview = (await h.client.request("plugins/overview", { workspace }, z.any())) as any;
+    observation.overviewMarkets = scrub(
+      overview.marketplaces.filter((m: any) => m.id !== "zcode-plugins-official"),
     );
     observation.schemaErrors = h.schemaErrors;
     await h.close();
@@ -314,14 +265,8 @@ test("Node and Rust manage plugin marketplaces the same way", async () => {
   // 自检。
   assert.equal((node.addDir as any).marketplace.id, "dirmk");
   assert.equal((node.addDir as any).marketplace.pluginCount, 1);
-  assert.match(
-    String((node.addReserved as any).error),
-    /reserved for the official marketplace/,
-  );
+  assert.match(String((node.addReserved as any).error), /reserved for the official marketplace/);
   assert.equal((node.updateDeclaredGit as any).marketplaces[0].id, "gitmk");
   assert.equal((node.updateUrlFailing as any).diagnostics.length, 1);
-  assert.equal(
-    (node.installFromUrl as any).installedPlugins[0].id,
-    "delta@urlmk",
-  );
+  assert.equal((node.installFromUrl as any).installedPlugins[0].id, "delta@urlmk");
 });

@@ -46,23 +46,23 @@ M3 需要同时完成两件事：
 
 ### 3.1 Provider 配置
 
-| 名称                           | 建议代码名              | 含义                                                       |
-| ------------------------------ | ----------------------- | ---------------------------------------------------------- |
+| 名称                            | 建议代码名               | 含义                                                        |
+| ------------------------------- | ------------------------ | ----------------------------------------------------------- |
 | ESCode Built-in Provider Config | `escodeBuiltinProviders` | ESCode 随产品提供的 Provider 静态默认值和账号 Provider 声明 |
-| Account Provider Config        | `accountProviders`      | 对 Built-in 中账号相关 Provider 的账号态补充或约束         |
-| Personal Provider Config       | `personalProviders`     | 用户自定义 Provider，以及对已有 Provider 的最终覆盖        |
-| Effective Provider Config      | `effectiveProviders`    | 三层 Provider 配置叠加后的最终 Provider 集合               |
+| Account Provider Config         | `accountProviders`       | 对 Built-in 中账号相关 Provider 的账号态补充或约束          |
+| Personal Provider Config        | `personalProviders`      | 用户自定义 Provider，以及对已有 Provider 的最终覆盖         |
+| Effective Provider Config       | `effectiveProviders`     | 三层 Provider 配置叠加后的最终 Provider 集合                |
 
 当前实现中的 `officialProviders` 对应目标语义里的 `escodeBuiltinProviders`。是否在 M3 内完成机械改名由实现阶段决定，但新增设计和测试统一使用本文词汇。
 
 ### 3.2 Model 配置
 
-| 名称                              | 建议代码名               | 含义                                                      |
-| --------------------------------- | ------------------------ | --------------------------------------------------------- |
-| ESCode Built-in Model Config Rules | `escodeBuiltinModelRules` | ESCode 随产品提供的模型静态事实和默认行为规则              |
-| Personal Model Config Rules       | `personalModelRules`     | 用户对模型事实和行为的追加覆盖规则                        |
-| Effective Model Config Rules      | `effectiveModelRules`    | 两组规则按顺序拼接后的最终规则序列                        |
-| Effective Model Config            | `effectiveModelConfig`   | 针对一个最终 Provider / Model / API type 解析出的模型配置 |
+| 名称                               | 建议代码名                | 含义                                                      |
+| ---------------------------------- | ------------------------- | --------------------------------------------------------- |
+| ESCode Built-in Model Config Rules | `escodeBuiltinModelRules` | ESCode 随产品提供的模型静态事实和默认行为规则             |
+| Personal Model Config Rules        | `personalModelRules`      | 用户对模型事实和行为的追加覆盖规则                        |
+| Effective Model Config Rules       | `effectiveModelRules`     | 两组规则按顺序拼接后的最终规则序列                        |
+| Effective Model Config             | `effectiveModelConfig`    | 针对一个最终 Provider / Model / API type 解析出的模型配置 |
 
 Provider Config 的 `models[]` 回答“这个 Provider 有哪些模型以及展示顺序”；Model Config Rules 回答“这些模型如何调用、具有什么能力和限制”。Model Config Rules 不负责把模型加入或移出 Provider。
 
@@ -215,9 +215,9 @@ Start Plan 从余额桶的 `capabilities` 中提取 `model:<id>`，做大小写�
 
 | 远端配置                      | 当前作用                                             | M3 目标                                                     |
 | ----------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
-| `builtinProviders`            | Provider ID、名称、模型成员、Endpoint、API Schema    | 迁入 ESCode Built-in Provider Config 后删除远端入口          |
+| `builtinProviders`            | Provider ID、名称、模型成员、Endpoint、API Schema    | 迁入 ESCode Built-in Provider Config 后删除远端入口         |
 | `providers`                   | 旧协议下的 Provider + Model 混合配置                 | 迁入现有体系后删除兼容入口                                  |
-| `builtinModels`               | context、max output、modalities、reasoning、priority | 迁入 ESCode Built-in Model Config Rules                      |
+| `builtinModels`               | context、max output、modalities、reasoning、priority | 迁入 ESCode Built-in Model Config Rules                     |
 | `magic_name`                  | 按模型名匹配 reasoning 策略                          | 删除远端 matcher；有效行为写成通用 Model Config Rules       |
 | `offPeak.allowed_models`      | 闲时任务模型白名单                                   | 不再作为模型事实权威；静态成员进入 Built-in Provider Config |
 | `modelContextBudget.strategy` | Agent 上下文预算灰度                                 | 与模型配置无关，本轮不动                                    |
@@ -328,8 +328,8 @@ Remote Environment -> 使用远端环境自己的 Config / Registry
 | 区域                          | M3 结果                                                                        |
 | ----------------------------- | ------------------------------------------------------------------------------ |
 | Provider overlay              | 固定为 `built-in -> account -> personal`                                       |
-| Account Provider Service 输入 | 只读取 ESCode Built-in Provider Config，不读取 Personal                         |
-| Model rules                   | ESCode Built-in 与 Personal 两组数组拼接，Personal 在后                         |
+| Account Provider Service 输入 | 只读取 ESCode Built-in Provider Config，不读取 Personal                        |
+| Model rules                   | ESCode Built-in 与 Personal 两组数组拼接，Personal 在后                        |
 | Model rules 的解析对象        | 使用 Effective Provider 的最终 `providerId / modelId / api.type`               |
 | `/client/configs`             | 删除 Provider / Model 静态事实、旧协议 fallback 与 `magic_name` 解析           |
 | reasoning                     | 具体模型策略进入 Built-in Rules；Adapter 只保留协议级序列化                    |
@@ -418,7 +418,7 @@ M3 按以下顺序执行：
 | 验证范围                                                    | 结果                                                                                                                               |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm typecheck`                                            | 通过                                                                                                                               |
-| `pnpm --dir apps/escode-cli -r --if-present typecheck`       | 通过；具有 typecheck script 的 CLI workspace package 全部通过                                                                      |
+| `pnpm --dir apps/escode-cli -r --if-present typecheck`      | 通过；具有 typecheck script 的 CLI workspace package 全部通过                                                                      |
 | `pnpm lint`                                                 | 通过；0 error，39 条 staging 既有 warning                                                                                          |
 | Provider / Account / Registry / OffPeak / Settings 聚焦单测 | 9 个文件、117 个测试通过                                                                                                           |
 | CLI Video / reasoning / Registry 聚焦单测                   | 13 个文件、185 个测试通过                                                                                                          |

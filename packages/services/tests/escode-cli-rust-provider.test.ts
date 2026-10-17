@@ -292,7 +292,9 @@ test("Rust idle timeout and explicit total timeout recover before output", async
         patches(h).some(
           (p: any) =>
             p.control?.apiRetry?.reasonCode ===
-            ("streamIdleTimeoutMs" in config ? "fault.network.sseStalled" : "fault.network.timeout"),
+            ("streamIdleTimeoutMs" in config
+              ? "fault.network.sseStalled"
+              : "fault.network.timeout"),
         ),
       );
     } finally {

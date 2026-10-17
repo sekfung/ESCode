@@ -87,7 +87,10 @@ effectiveProviders = effectiveBuiltinProviders.overlay(personalProviders);
 Model Config Rules 固定按以下顺序组合：
 
 ```ts
-effectiveModelRules = ModelConfigRules.composeEffective(escodeBuiltinModelRules, personalModelRules);
+effectiveModelRules = ModelConfigRules.composeEffective(
+  escodeBuiltinModelRules,
+  personalModelRules,
+);
 ```
 
 其内部顺序是 `ESCode Built-in + Personal provider-model`。Personal JSON 只保存精确 Rule，物理排列

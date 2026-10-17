@@ -6,8 +6,8 @@
 显式环境变量优先；未设置时读取仓库现有 .env 环境文件，再默认 test。
 `NODE_ENV` 只影响读取哪组 .env 文件，不直接决定产品环境。非法非空 ESCODE_ENV 报错。
 
-| 产品环境   | 仓库源文件                              |
-| ---------- | --------------------------------------- |
+| 产品环境   | 仓库源文件                               |
+| ---------- | ---------------------------------------- |
 | production | config/provider/escode-builtin.json      |
 | test       | config/provider/escode-builtin.test.json |
 
@@ -20,10 +20,10 @@
 
 对照 `staging_backup@790884b1ce`，仅转换 `zhipu-account` Provider 的以下模型地址：
 
-| 生产 Base URL                                  | 测试 Base URL                                          |
-| ---------------------------------------------- | ------------------------------------------------------ |
+| 生产 Base URL                                  | 测试 Base URL                                  |
+| ---------------------------------------------- | ---------------------------------------------- |
 | https://api.z.ai/api/anthropic                 | https://api.z.ai/api/anthropic                 |
-| https://open.bigmodel.cn/api/anthropic         | https://open.bigmodel.cn/api/anthropic                  |
+| https://open.bigmodel.cn/api/anthropic         | https://open.bigmodel.cn/api/anthropic         |
 | https://zcode.z.ai/api/v1/zcode-plan/anthropic | https://zcode.z.ai/api/v1/zcode-plan/anthropic |
 | https://zcode.z.ai/api/v1/off-peak/anthropic   | https://zcode.z.ai/api/v1/off-peak/anthropic   |
 

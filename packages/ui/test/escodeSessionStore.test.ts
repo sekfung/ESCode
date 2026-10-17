@@ -574,19 +574,19 @@ describe("useESCodeSessionStore provider preference", () => {
     vi.stubGlobal("window", { localStorage: storage });
 
     const workspacePath = "/tmp/workspace-focus";
-    expect(useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion).toBe(
-      0,
-    );
+    expect(
+      useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion,
+    ).toBe(0);
 
     useESCodeSessionStore.getState().startDraft(workspacePath);
-    expect(useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion).toBe(
-      1,
-    );
+    expect(
+      useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion,
+    ).toBe(1);
 
     useESCodeSessionStore.getState().startDraft(workspacePath, "opencode");
-    expect(useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion).toBe(
-      2,
-    );
+    expect(
+      useESCodeSessionStore.getState().getWorkspaceState(workspacePath).draftFocusVersion,
+    ).toBe(2);
   });
 
   it("startDraft 从 active task 新建且透传同 provider 时会继承输入框完整配置", () => {

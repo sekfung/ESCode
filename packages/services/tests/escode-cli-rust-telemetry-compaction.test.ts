@@ -38,17 +38,22 @@ async function observe(kind: "node" | "rust") {
     await h.command(h.envelope("sendText", sessionId, { text: "/compact" }));
     const deadline = Date.now() + 20_000;
     while (
-      !h.messages.some((m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "compaction.terminal") &&
+      !h.messages.some(
+        (m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "compaction.terminal",
+      ) &&
       Date.now() < deadline
     ) {
       await new Promise((done) => setTimeout(done, 100));
     }
     await h.close();
     const facts = h.messages
-      .filter((m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "compaction.terminal")
+      .filter(
+        (m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "compaction.terminal",
+      )
       .map((m: any) => m.params);
     return {
-      invalid: facts.filter((fact: any) => !conversationTelemetryFactSchema.safeParse(fact).success).length,
+      invalid: facts.filter((fact: any) => !conversationTelemetryFactSchema.safeParse(fact).success)
+        .length,
       facts: facts.map((fact: any) => ({
         status: fact.status,
         trigger: fact.trigger,

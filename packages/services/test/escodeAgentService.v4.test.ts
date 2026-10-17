@@ -483,7 +483,10 @@ describe("escodeAgentService v4 conversation channel", () => {
     "session debug remains read-only and workspace-scoped on %s",
     async (clientMode) => {
       const { service, workspacePath, commandResolver, logPath } = setupService();
-      const scope = createESCodeAgentConnectionScope(service, { connectionId: "debug", clientMode });
+      const scope = createESCodeAgentConnectionScope(service, {
+        connectionId: "debug",
+        clientMode,
+      });
       const target = {
         workspacePath,
         workspaceIdentity: "ssh://debug/workspace",

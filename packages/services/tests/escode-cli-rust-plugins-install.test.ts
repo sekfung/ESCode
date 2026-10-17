@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
@@ -61,13 +54,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -140,9 +127,7 @@ async function observe(kind: Runtime) {
       }),
     );
     const userConfigPath = join(root, ".escode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await write(
       userConfigPath,
       JSON.stringify({
@@ -157,12 +142,8 @@ async function observe(kind: Runtime) {
       text
         .replaceAll(rootText, "<root>")
         .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>")
-        .replace(
-          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-          "<uuid>",
-        );
-    const scrub = (value: unknown) =>
-      JSON.parse(scrubText(JSON.stringify(value)));
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>");
+    const scrub = (value: unknown) => JSON.parse(scrubText(JSON.stringify(value)));
     const install = async (pluginName: string) => {
       try {
         return scrub(
@@ -179,9 +160,7 @@ async function observe(kind: Runtime) {
       }
     };
     const state = async () => ({
-      installed: scrubText(
-        await readFile(join(storage, "installed_plugins.json"), "utf8"),
-      ),
+      installed: scrubText(await readFile(join(storage, "installed_plugins.json"), "utf8")),
       user: scrubText(await readFile(userConfigPath, "utf8")),
       cache: await tree(join(storage, "cache", "acme")),
     });
@@ -194,22 +173,13 @@ async function observe(kind: Runtime) {
     ).plugins.find((p: any) => p.id === "tool@acme").installedAt;
     observation.reinstallTool = await install("tool");
     observation.installedAtKept =
-      JSON.parse(
-        await readFile(join(storage, "installed_plugins.json"), "utf8"),
-      ).plugins.find((p: any) => p.id === "tool@acme").installedAt ===
-      firstInstalledAt;
+      JSON.parse(await readFile(join(storage, "installed_plugins.json"), "utf8")).plugins.find(
+        (p: any) => p.id === "tool@acme",
+      ).installedAt === firstInstalledAt;
     observation.installSynth = await install("synth");
     observation.synthManifest = scrubText(
       await readFile(
-        join(
-          storage,
-          "cache",
-          "acme",
-          "synth",
-          "3.0.0",
-          ".claude-plugin",
-          "plugin.json",
-        ),
+        join(storage, "cache", "acme", "synth", "3.0.0", ".claude-plugin", "plugin.json"),
         "utf8",
       ),
     );
@@ -244,10 +214,7 @@ test("Node and Rust install plugins from local sources the same way", async () =
   }
   assert.deepEqual(node.schemaErrors, []);
   // 自检。
-  assert.deepEqual((node.installTool as any).dependencyClosure, [
-    "helper@acme",
-    "tool@acme",
-  ]);
+  assert.deepEqual((node.installTool as any).dependencyClosure, ["helper@acme", "tool@acme"]);
   assert.equal(node.installedAtKept, true);
   const byId = Object.fromEntries((node.listed as any[]).map((p) => [p.id, p]));
   assert.equal(byId["tool@acme"].enabled, true);

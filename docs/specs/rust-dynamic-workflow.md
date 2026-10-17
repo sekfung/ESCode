@@ -139,6 +139,7 @@
 同为 Node 子进程沙箱（桌面复用 Electron 内置 Node，`ELECTRON_RUN_AS_NODE=1`；远程/无界面随二进制附带 Node），
 NDJSON 桥接。诊断、lowered 输出与 taint/causality 结论直接来自同一份 TS 代码，验收以 TS 直调结果逐字比对桥接结果。
 第 3 期据此开工，SaveWorkflow 随之接入。
+
 - 2026-10-02 第 3 期分析桥已落地：Node CLI 隐藏子命令 `__escode-workflow-analyzer`（`cli/src/workflow-analyzer-command.ts`，
   在导入 `run` 之前分派，只加载分析器）NDJSON 一问一答，结果是 `analyzeWorkflowScript` 的 JSON 形（`core` 经
   `encodeAnalysisCore`）。Rust 客户端 `tools/src/workflow_analyzer.rs`：经 Host 的 Node 启动器
@@ -221,7 +222,7 @@ epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模�
 因此代理切面是**远程 AgentRuntime**：宿主的 `createActorRuntime` 返回它，driver 原样不动。
 
 - **宿主 → Rust**：`actor.create {session(父), actorSession, persona:{name?, identityPrompt}, model:{run?, pinned?},
-  disallowed[], remoteTools:[{name, description, parameters}]}`（identityPrompt 由 TS `buildWorkflowActorIdentityPrompt` 生成，
+disallowed[], remoteTools:[{name, description, parameters}]}`（identityPrompt 由 TS `buildWorkflowActorIdentityPrompt` 生成，
   remoteTools 是该会话的 `submit_result` / `escalate` 定义）、`actor.turn {actorSession, input, epilogueStart}` →
   `{response, usage, error?}`、`actor.cancel`、`actor.close`。
 - **Rust → 宿主**：`actor.event {actorSession, event}`（TS SessionEvent 形状的 `ModelNetworkStatus` 与工具调用事件）、
@@ -239,10 +240,11 @@ epilogueStart})` → `TurnResult`（取 `response`、用量；reject 时按模�
 `workflow subagent <ref>`）。为与 Node 的 `script-workflow-child-runtime` 逐字一致，actor 会话还：
 环境段 Shell 取 `basename(SHELL ?? ComSpec)`（child 不套会话 shell 选择）；技能清单只保留用户 / 项目技能（child 的技能端口
 不含插件与内置技能包）；工具面另减 workflow_child 的结构性缺席（`WORKFLOW_CHILD_DISALLOWED_TOOLS`、subagents 关闭的
-Agent / SendMessage、无定时任务端口的 Cron*）。验收：`escode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
+Agent / SendMessage、无定时任务端口的 Cron\*）。验收：`escode-cli-rust-workflow-actor.test.ts`（actor 系统提示词、消息、
 工具面、submit_result schema、CreateWorkflow 结果与完成通知两侧一致）。`resumeFromStore`（转录种子）留在 M3。
 
 **M3 进度（2026-10-02）**：
+
 - 已落地（各带差分）：AmendWorkflow（修订本会话 run 套用 TS workflowOwner 免确认；确认选项为会话级免确认 + Refine）；
   升级问答（run 服务 `onRunEvent` → 宿主用 core `buildWorkflowRunProgressNotification` 生成 escalation / stall 通知 →
   `runNotice`）；TaskStop 停止 run（宿主实现 TS 后台控制端口的 `local_dynamic_workflow` 分支）；ResumeWorkflowRun 与 actor

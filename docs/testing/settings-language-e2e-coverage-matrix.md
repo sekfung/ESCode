@@ -11,7 +11,7 @@ Settings language coverage verifies that the General settings language selector 
 | Platform locale source    | Electron `app.getPreferredSystemLanguages()` preferred list, Electron `app.getLocale()` fallback |
 | User preference           | `system`, `zh-CN`, `en-US`                                                                       |
 | Persisted resolved locale | `zh-CN`, `en-US`                                                                                 |
-| UI surface                | Settings General section, application chrome driven by `ESCodeIntlProvider`                       |
+| UI surface                | Settings General section, application chrome driven by `ESCodeIntlProvider`                      |
 
 ## Accepted Cases
 

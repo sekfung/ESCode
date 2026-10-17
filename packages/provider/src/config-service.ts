@@ -120,7 +120,8 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
       escodeBuiltinRevision: escodeBuiltin.revision,
       personalRevision: personal.revision,
       escodeBuiltinProviders: escodeBuiltin.providers,
-      escodeBuiltinProviderTemplates: escodeBuiltin.providerTemplates ?? ProviderTemplateMap.empty(),
+      escodeBuiltinProviderTemplates:
+        escodeBuiltin.providerTemplates ?? ProviderTemplateMap.empty(),
       personalProviders: personal.providers,
       escodeBuiltinModelRules: escodeBuiltin.models,
       personalModels: personal.models,
@@ -289,7 +290,11 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
     return this.#updatePersonal((current) => ({
       providers: current.providers,
       models: current.models,
-      providerOrder: normalizeProviderOrder(escodeBuiltin.providers, current.providers, providerIds),
+      providerOrder: normalizeProviderOrder(
+        escodeBuiltin.providers,
+        current.providers,
+        providerIds,
+      ),
     }));
   }
 

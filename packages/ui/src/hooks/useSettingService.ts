@@ -2,7 +2,10 @@
  * useSettingService —— 设置服务 hooks
  */
 import { useState, useEffect, useCallback } from "react";
-import { APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL, type AppSettings } from "@escode/shared";
+import {
+  APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
+  type AppSettings,
+} from "@escode/shared";
 import type { ISettingService } from "@escode/services";
 import { useServices } from "./useServices.js";
 import { usePlatform } from "./usePlatform.js";

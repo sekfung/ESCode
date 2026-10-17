@@ -143,10 +143,10 @@ ESCode CLI
   session event journal / usage SQLite
 ```
 
-| 运行层                    | 拥有的状态或副作用                                                                                         | 明确不拥有                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 渲染层（Renderer）        | 输入草稿、选择态、筛选范围、图表 range、UI projection cache                                                | Agent 运行态、会话正文、CLI queue、usage 事实           |
-| 宿主层（Host）            | 窗口级服务、Credential、远程连接、进程监督、附件路由、平台 IO、远端权益请求、Telemetry/ARMS 发送           | conversation 正文、Agent turn、手机 replayable 业务状态 |
+| 运行层                     | 拥有的状态或副作用                                                                                         | 明确不拥有                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 渲染层（Renderer）         | 输入草稿、选择态、筛选范围、图表 range、UI projection cache                                                | Agent 运行态、会话正文、CLI queue、usage 事实           |
+| 宿主层（Host）             | 窗口级服务、Credential、远程连接、进程监督、附件路由、平台 IO、远端权益请求、Telemetry/ARMS 发送           | conversation 正文、Agent turn、手机 replayable 业务状态 |
 | 智能体运行层（ESCode CLI） | Agent/Turn、CommandInbox、ProductProjection、session event、模型/工具执行、会话恢复、usage SQLite 权威事实 | Renderer 草稿、窗口布局、Electron 平台状态              |
 
 - Desktop Renderer、未来 Web App 和 Mobile Renderer 复用产品语义，但通过不同 attachment 接入 Host。
@@ -178,24 +178,24 @@ Engineering Infrastructure
 
 ## 能力群
 
-| 顶层区域  | 能力群                                                              | 维护边界                                                                                                |
-| --------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Renderer  | 对话与任务体验（Conversation & Task Experience）                    | Composer、Projection Store、Timeline、会话动作、任务导航、附件体验                                      |
-| Renderer  | 模型与账户体验（Model & Account Experience）                        | Provider Settings、Model Selector、套餐状态/购买、套餐用量界面                                          |
-| Renderer  | 扩展体验（Extension Experience）                                    | Plugin/Skill/MCP 等扩展设置、市场与导入入口                                                             |
-| Renderer  | 浏览器与开发工作台体验（Browser & Workbench Experience）            | Browser、File、Terminal、Git/Diff 产品界面                                                              |
-| Renderer  | 办公套件与计算机操作孵化（Office Suite & Computer Use Incubation）  | PDF/Office 预览与编辑路线图、Computer Use 任务体验、人工接管与安全确认                                  |
-| Renderer  | 自动化体验（Automation Experience）                                 | 定时自动化、闲时任务与 Bot 配置/历史界面                                                                |
-| Renderer  | UI 平台（UI Platform）                                              | 设计系统、主题、国际化、响应式、Settings/Onboarding                                                     |
-| Renderer  | 数据洞察与反馈体验（Insights & Feedback Experience）                | App Usage 图表、Feedback 入口、Resource Manager（资源管理器）展示                                                     |
-| Host      | 账户与权益（Account & Entitlements）                                | OAuth/Credential、Plan Identity、Start/Coding/Team Plan、支付、远端 quota/monitor                       |
-| Host      | 扩展管理与同步（Extension Management & Sync）                       | Plugin 安装升级、资源贡献、跨本地/远程同步                                                              |
-| Host      | 浏览器与计算机操作平台（Browser & Computer Use Platform）           | BrowserView/WebContentsView、CDP backend、Computer Use Helper 生命周期、可信 broker、系统观察与输入执行 |
-| Host      | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、手机远控、continuous/replayable                                  |
-| Host      | 工作台服务（Workbench Services）                                    | File/Terminal/Git 服务                                                                                  |
-| Host      | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、off-peak、Bots、第三方渠道                                                |
-| Host      | 客户端平台（Client Platform）                                       | Electron 生命周期、客户端更新、Feedback ticket 与诊断包                                                 |
-| Host      | 数据与可观测性（Data & Observability）                              | App Usage bridge、产品埋点、Conversation telemetry、ARMS、性能可靠性、日志与进程监控                    |
+| 顶层区域   | 能力群                                                              | 维护边界                                                                                                |
+| ---------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Renderer   | 对话与任务体验（Conversation & Task Experience）                    | Composer、Projection Store、Timeline、会话动作、任务导航、附件体验                                      |
+| Renderer   | 模型与账户体验（Model & Account Experience）                        | Provider Settings、Model Selector、套餐状态/购买、套餐用量界面                                          |
+| Renderer   | 扩展体验（Extension Experience）                                    | Plugin/Skill/MCP 等扩展设置、市场与导入入口                                                             |
+| Renderer   | 浏览器与开发工作台体验（Browser & Workbench Experience）            | Browser、File、Terminal、Git/Diff 产品界面                                                              |
+| Renderer   | 办公套件与计算机操作孵化（Office Suite & Computer Use Incubation）  | PDF/Office 预览与编辑路线图、Computer Use 任务体验、人工接管与安全确认                                  |
+| Renderer   | 自动化体验（Automation Experience）                                 | 定时自动化、闲时任务与 Bot 配置/历史界面                                                                |
+| Renderer   | UI 平台（UI Platform）                                              | 设计系统、主题、国际化、响应式、Settings/Onboarding                                                     |
+| Renderer   | 数据洞察与反馈体验（Insights & Feedback Experience）                | App Usage 图表、Feedback 入口、Resource Manager（资源管理器）展示                                       |
+| Host       | 账户与权益（Account & Entitlements）                                | OAuth/Credential、Plan Identity、Start/Coding/Team Plan、支付、远端 quota/monitor                       |
+| Host       | 扩展管理与同步（Extension Management & Sync）                       | Plugin 安装升级、资源贡献、跨本地/远程同步                                                              |
+| Host       | 浏览器与计算机操作平台（Browser & Computer Use Platform）           | BrowserView/WebContentsView、CDP backend、Computer Use Helper 生命周期、可信 broker、系统观察与输入执行 |
+| Host       | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、手机远控、continuous/replayable                                  |
+| Host       | 工作台服务（Workbench Services）                                    | File/Terminal/Git 服务                                                                                  |
+| Host       | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、off-peak、Bots、第三方渠道                                                |
+| Host       | 客户端平台（Client Platform）                                       | Electron 生命周期、客户端更新、Feedback ticket 与诊断包                                                 |
+| Host       | 数据与可观测性（Data & Observability）                              | App Usage bridge、产品埋点、Conversation telemetry、ARMS、性能可靠性、日志与进程监控                    |
 | ESCode CLI | 智能体核心（Agent Core）                                            | runtime 装配、turn 状态机、上下文、memory、compact、stream recovery、goal/target、故障收口              |
 | ESCode CLI | 对话运行时（Conversation Runtime）                                  | session lifecycle、input admission、CLI queue、event journal、ProductProjection、fork/rewind            |
 | ESCode CLI | 模型能力（Model Capabilities）                                      | provider runtime、目录能力、token 预算、多模态、推理与工具能力                                          |
@@ -204,9 +204,9 @@ Engineering Infrastructure
 | ESCode CLI | 扩展运行时（Extension Runtime）                                     | MCP、Skill、Hooks、Commands、Memory resources                                                           |
 | ESCode CLI | 浏览器运行时（Browser Runtime）                                     | Browser Use Plugin、Node REPL/Playwright、Headless backend                                              |
 | ESCode CLI | 用量可观测存储（Usage Observability）                               | model/turn/tool usage 事实、SQLite 30 天保留与 App Usage SQL 聚合                                       |
-| 基础设施  | 构建与发布工程（Build & Release Engineering）                       | GitLab pipeline、跨平台构建、打包签名、公证、制品、CDN、灰度/稳定发布                                   |
-| 基础设施  | 测试自动化平台（Test Automation Platform）                          | Desktop/CLI E2E harness、capture/replay、跨平台执行、故障注入、用例准入与晋级                           |
-| 基础设施  | 质量数据与工程治理（Quality Intelligence & Engineering Governance） | E2E 报告、覆盖率、质量趋势、静态门禁、工程性能与失败制品                                                |
+| 基础设施   | 构建与发布工程（Build & Release Engineering）                       | GitLab pipeline、跨平台构建、打包签名、公证、制品、CDN、灰度/稳定发布                                   |
+| 基础设施   | 测试自动化平台（Test Automation Platform）                          | Desktop/CLI E2E harness、capture/replay、跨平台执行、故障注入、用例准入与晋级                           |
+| 基础设施   | 质量数据与工程治理（Quality Intelligence & Engineering Governance） | E2E 报告、覆盖率、质量趋势、静态门禁、工程性能与失败制品                                                |
 
 ## 套餐、App Usage 与可观测性边界
 

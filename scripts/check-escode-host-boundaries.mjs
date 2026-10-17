@@ -29,9 +29,7 @@ async function walk(directory) {
       /\bescode_host_(?:gateway|control)\s*::/.test(code)
     )
       failures.push(`${file}: base crate imports gateway or control`);
-    if (
-      /\bescode_cli_(?:core|tools|model|state|wiki)\s*::/.test(code)
-    )
+    if (/\bescode_cli_(?:core|tools|model|state|wiki)\s*::/.test(code))
       failures.push(`${file}: host imports CLI internals (use core-api/app-server/embed)`);
     if (
       /\bstd\s*::\s*env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\b|(?<![:\w])env\s*::\s*(?:var|var_os|vars|vars_os|set_var|remove_var|current_dir|current_exe|args)\s*\(/.test(

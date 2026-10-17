@@ -41,20 +41,31 @@ describe("Core-local TaskActivityTracker", () => {
         }
         return emitter.event;
       },
-    } as Pick<IESCodeAgentService, "onAgentRuntimeLifecycle" | "onDynamicConversationTelemetryFact">;
+    } as Pick<
+      IESCodeAgentService,
+      "onAgentRuntimeLifecycle" | "onDynamicConversationTelemetryFact"
+    >;
     const tracker = createTaskActivityTracker(agentService);
     const targetA = { workspacePath: "/same/path", workspaceIdentity: "ssh://host-a/repo" };
     const targetB = { workspacePath: "/same/path", workspaceIdentity: "ssh://host-b/repo" };
     lifecycle.fire({
       ...targetA,
       workspaceKey: targetA.workspaceIdentity,
-      runtimeIdentity: { generation: 1, identity: "runtime-a", workspaceKey: targetA.workspaceIdentity },
+      runtimeIdentity: {
+        generation: 1,
+        identity: "runtime-a",
+        workspaceKey: targetA.workspaceIdentity,
+      },
       state: "available",
     });
     lifecycle.fire({
       ...targetB,
       workspaceKey: targetB.workspaceIdentity,
-      runtimeIdentity: { generation: 1, identity: "runtime-b", workspaceKey: targetB.workspaceIdentity },
+      runtimeIdentity: {
+        generation: 1,
+        identity: "runtime-b",
+        workspaceKey: targetB.workspaceIdentity,
+      },
       state: "available",
     });
 
@@ -69,7 +80,11 @@ describe("Core-local TaskActivityTracker", () => {
     lifecycle.fire({
       ...targetB,
       workspaceKey: targetB.workspaceIdentity,
-      runtimeIdentity: { generation: 1, identity: "runtime-b", workspaceKey: targetB.workspaceIdentity },
+      runtimeIdentity: {
+        generation: 1,
+        identity: "runtime-b",
+        workspaceKey: targetB.workspaceIdentity,
+      },
       state: "unavailable",
     });
     expect(tracker.readRunningTaskCount()).toBe(0);
@@ -82,7 +97,10 @@ describe("Core-local TaskActivityTracker", () => {
     const agentService = {
       onAgentRuntimeLifecycle: lifecycle.event,
       onDynamicConversationTelemetryFact: () => telemetry.event,
-    } as Pick<IESCodeAgentService, "onAgentRuntimeLifecycle" | "onDynamicConversationTelemetryFact">;
+    } as Pick<
+      IESCodeAgentService,
+      "onAgentRuntimeLifecycle" | "onDynamicConversationTelemetryFact"
+    >;
     const tracker = createTaskActivityTracker(agentService);
     const counts: number[] = [];
     const subscription = tracker.onDidChangeRunningTaskCount((count) => counts.push(count));

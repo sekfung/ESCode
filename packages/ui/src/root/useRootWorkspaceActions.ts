@@ -266,8 +266,6 @@ export function useRootWorkspaceActions({
     [addTab, intl, tabStoreApi, workbenchGroupClientMode],
   );
 
-
-
   const handleSelectProject = useCallback(
     async (path: string) => {
       logger.info("[Root] handleSelectProject called with path:", path);

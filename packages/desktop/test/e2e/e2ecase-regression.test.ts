@@ -82,23 +82,14 @@ describe("e2ecase.md 回归", () => {
     await assertWorkingStatusPositionStable(workingStatus.top);
 
     await typeChatPrompt(draftPrompt);
-    await waitForComposerText(
-      draftPrompt,
-      "运行中输入的草稿没有进入输入框",
-    );
+    await waitForComposerText(draftPrompt, "运行中输入的草稿没有进入输入框");
     await browser.pause(800);
-    await waitForComposerText(
-      draftPrompt,
-      "运行中输入框草稿被意外清空",
-    );
+    await waitForComposerText(draftPrompt, "运行中输入框草稿被意外清空");
 
     await waitForQueueSendButtonReady();
     await clickChatSend();
     await waitForComposerText("", "队列消息发送后输入框没有清空");
-    await waitForBodyTextContaining(
-      draftPrompt,
-      "第二条消息没有进入待发送队列或消息列表",
-    );
+    await waitForBodyTextContaining(draftPrompt, "第二条消息没有进入待发送队列或消息列表");
     await assertBodyTextNotContaining(PROMPT_RUNNING_ERROR);
     await assertBodyTextNotContaining(MODEL_REQUEST_FAILED_ERROR);
 
@@ -141,15 +132,11 @@ describe("e2ecase.md 回归", () => {
 
     const samples = await monitorReasoningCollapseDuringClick();
     const firstExisting = samples.find((sample) => sample.exists && sample.height !== null);
-    const closedSamples = samples.filter(
-      (sample) => sample.exists && sample.state === "closed",
-    );
+    const closedSamples = samples.filter((sample) => sample.exists && sample.state === "closed");
     const firstClosed = closedSamples.find((sample) => sample.height !== null);
 
     if (!firstExisting || !firstClosed) {
-      throw new Error(
-        `思考块收起时没有捕获到 closed 动画帧\n${JSON.stringify(samples, null, 2)}`,
-      );
+      throw new Error(`思考块收起时没有捕获到 closed 动画帧\n${JSON.stringify(samples, null, 2)}`);
     }
 
     expect(firstExisting.text.trim().length).toBeGreaterThan(0);
@@ -235,9 +222,9 @@ async function clickVisibleTestIdByDom(
           return !element.closest('[aria-hidden="true"], [hidden]');
         }
 
-        const element = Array.from(
-          document.querySelectorAll<HTMLElement>("[data-testid]"),
-        ).find((item) => item.dataset.testid === testIdValue && isVisible(item));
+        const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
+          (item) => item.dataset.testid === testIdValue && isVisible(item),
+        );
         if (!element) {
           return { clicked: false, reason: "missing-visible" };
         }
@@ -300,9 +287,7 @@ async function typeChatPrompt(prompt: string) {
   await AppPage.chatInput.click();
   const result = (await browser.executeAsync(
     (inputTestId, text, done) => {
-      const input = document.querySelector<HTMLElement>(
-        `[data-testid="${inputTestId}"]`,
-      );
+      const input = document.querySelector<HTMLElement>(`[data-testid="${inputTestId}"]`);
       if (!input) {
         done({ actual: "", inserted: false, ok: false, reason: "input-missing" });
         return;
@@ -328,9 +313,7 @@ async function typeChatPrompt(prompt: string) {
         }
       }
       requestAnimationFrame(() => {
-        const actual = (input.innerText || input.textContent || "")
-          .replace(/\u00a0/g, " ")
-          .trim();
+        const actual = (input.innerText || input.textContent || "").replace(/\u00a0/g, " ").trim();
         done({
           actual,
           inserted,
@@ -343,9 +326,7 @@ async function typeChatPrompt(prompt: string) {
   )) as { actual: string; inserted: boolean; ok: boolean; reason?: string };
 
   if (!result.ok) {
-    throw new Error(
-      `聊天输入框没有写入完整 prompt: ${JSON.stringify(result)}`,
-    );
+    throw new Error(`聊天输入框没有写入完整 prompt: ${JSON.stringify(result)}`);
   }
 }
 
@@ -385,12 +366,8 @@ async function waitForComposerText(expected: string, timeoutMsg: string) {
 
 async function getComposerText() {
   return browser.execute((inputTestId) => {
-    const input = document.querySelector<HTMLElement>(
-      `[data-testid="${inputTestId}"]`,
-    );
-    return (input?.innerText || input?.textContent || "")
-      .replace(/\u00a0/g, " ")
-      .trim();
+    const input = document.querySelector<HTMLElement>(`[data-testid="${inputTestId}"]`);
+    return (input?.innerText || input?.textContent || "").replace(/\u00a0/g, " ").trim();
   }, TID_CHAT_INPUT);
 }
 
@@ -398,9 +375,7 @@ async function waitForUserMessageContaining(text: string) {
   await browser.waitUntil(
     async () => {
       const messages = await browser.execute((messagesTestId) => {
-        const root = document.querySelector<HTMLElement>(
-          `[data-testid="${messagesTestId}"]`,
-        );
+        const root = document.querySelector<HTMLElement>(`[data-testid="${messagesTestId}"]`);
         return Array.from(root?.querySelectorAll<HTMLElement>(".is-user") ?? [])
           .map((element) => element.innerText)
           .join("\n");
@@ -452,12 +427,8 @@ async function waitForWorkingZeroStatus() {
 async function getWorkingStatusSnapshot() {
   return browser.execute(() => {
     const workingZeroPattern = /工作中\s*0\s*秒|Working for\s*0\s*(s|sec|second)/i;
-    const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>(".history-message"),
-    );
-    const target = candidates.find((element) =>
-      workingZeroPattern.test(element.innerText),
-    );
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(".history-message"));
+    const target = candidates.find((element) => workingZeroPattern.test(element.innerText));
     if (!target) {
       return null;
     }
@@ -473,9 +444,9 @@ async function assertWorkingStatusPositionStable(initialTop: number) {
   await browser.pause(350);
   const snapshot = await browser.execute(() => {
     const workingPattern = /工作中\s*\d+\s*秒|Working for\s*\d+\s*(s|sec|second)/i;
-    const target = Array.from(
-      document.querySelectorAll<HTMLElement>(".history-message"),
-    ).find((element) => workingPattern.test(element.innerText));
+    const target = Array.from(document.querySelectorAll<HTMLElement>(".history-message")).find(
+      (element) => workingPattern.test(element.innerText),
+    );
     if (!target) {
       return null;
     }
@@ -511,12 +482,9 @@ async function waitForReasoningContentOpen() {
   await browser.waitUntil(
     async () =>
       browser.execute((contentTestId) => {
-        const content = document.querySelector<HTMLElement>(
-          `[data-testid="${contentTestId}"]`,
-        );
+        const content = document.querySelector<HTMLElement>(`[data-testid="${contentTestId}"]`);
         return (
-          content?.getAttribute("data-state") === "open" &&
-          content.innerText.trim().length > 0
+          content?.getAttribute("data-state") === "open" && content.innerText.trim().length > 0
         );
       }, TID_CHAT_REASONING_CONTENT),
     {
@@ -537,9 +505,7 @@ type CollapseSample = {
 async function monitorReasoningCollapseDuringClick(): Promise<CollapseSample[]> {
   return browser.executeAsync(
     (triggerTestId, contentTestId, done) => {
-      const trigger = document.querySelector<HTMLElement>(
-        `[data-testid="${triggerTestId}"]`,
-      );
+      const trigger = document.querySelector<HTMLElement>(`[data-testid="${triggerTestId}"]`);
       if (!trigger) {
         done([]);
         return;
@@ -548,9 +514,7 @@ async function monitorReasoningCollapseDuringClick(): Promise<CollapseSample[]> 
       const samples: CollapseSample[] = [];
       const startedAt = performance.now();
       const sample = () => {
-        const content = document.querySelector<HTMLElement>(
-          `[data-testid="${contentTestId}"]`,
-        );
+        const content = document.querySelector<HTMLElement>(`[data-testid="${contentTestId}"]`);
         const rect = content?.getBoundingClientRect();
         samples.push({
           elapsedMs: Math.round(performance.now() - startedAt),
@@ -590,13 +554,10 @@ async function waitForReasoningContentUnmounted() {
 }
 
 async function waitForWorkspaceTitleContaining(text: string) {
-  await browser.waitUntil(
-    async () => (await AppPage.workspaceTitle.getText()).includes(text),
-    {
-      timeout: 30000,
-      timeoutMsg: `任务标题没有包含预期文本: ${text}`,
-    },
-  );
+  await browser.waitUntil(async () => (await AppPage.workspaceTitle.getText()).includes(text), {
+    timeout: 30000,
+    timeoutMsg: `任务标题没有包含预期文本: ${text}`,
+  });
 }
 
 async function assertWorkspaceTitleNotContaining(text: string) {
@@ -613,9 +574,7 @@ async function assertVisibleUserMessagesContaining(text: string) {
 
 async function getVisibleUserMessagesText() {
   return browser.execute((messagesTestId) => {
-    const root = document.querySelector<HTMLElement>(
-      `[data-testid="${messagesTestId}"]`,
-    );
+    const root = document.querySelector<HTMLElement>(`[data-testid="${messagesTestId}"]`);
     return Array.from(root?.querySelectorAll<HTMLElement>(".is-user") ?? [])
       .map((element) => element.innerText)
       .join("\n");

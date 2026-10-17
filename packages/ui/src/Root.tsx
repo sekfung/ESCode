@@ -317,10 +317,7 @@ function RootInner({
 
   const { intl, locale } = useESCodeIntl();
   const theme = useESCodeStore((state) => state.theme);
-  const {
-    settings: appSettings,
-    refresh: refreshAppSettings,
-  } = useSettings();
+  const { settings: appSettings, refresh: refreshAppSettings } = useSettings();
   // docs/dynamic-workflow/launch.md「The user's choice」：设置里的动态工作流选择变化后，通知本窗口
   // 的 Host 重发 CLI 策略（并转发给远程 Host），再重读灰度快照。
   useDynamicWorkflowUserModeSync({

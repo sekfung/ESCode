@@ -5,7 +5,7 @@
 ## 来源
 
 - `escodeAgent`: 用户命令目录为 `~/.escode/commands`，项目命令目录为 `<workspace>/.escode/commands`。
-迁移期服务层仍保留 `claudeCli`、`opencodeCli`、`geminiCli` 描述符，用于显式读取旧目录和测试旧文件格式，但 UI 不再暴露这些来源。未传 `agentSource` 时，所有读写都默认走 `escodeAgent`。
+  迁移期服务层仍保留 `claudeCli`、`opencodeCli`、`geminiCli` 描述符，用于显式读取旧目录和测试旧文件格式，但 UI 不再暴露这些来源。未传 `agentSource` 时，所有读写都默认走 `escodeAgent`。
 
 ## 文件格式
 

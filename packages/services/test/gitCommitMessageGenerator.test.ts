@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { GitDiffResult, GitFileChange, ESCodeWorkspaceGenerateTextParams } from "@escode/shared";
+import type {
+  GitDiffResult,
+  GitFileChange,
+  ESCodeWorkspaceGenerateTextParams,
+} from "@escode/shared";
 
 type ESCodeSelection = ESCodeWorkspaceGenerateTextParams["selection"];
 import {

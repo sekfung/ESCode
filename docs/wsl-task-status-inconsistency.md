@@ -114,11 +114,11 @@ CLI(WSL)              renderer sessionsIndexStore           任务列表      �
 | 2   | error 态保留旧投影且无出口；dormant 分支才正确清空                                     | `packages/ui/src/v4/sessionsIndexStore.ts:522-527,459-468`（对照 :585-590）                          |
 | 3   | 消费方不查 status，error 排除在 hydrating 外                                           | `packages/ui/src/v4/useWorkspaceSessionsIndexItems.ts:85-91,177-191`                                 |
 | 4   | store 是 workspace 级长命对象，切 tab/关面板不重建，error 卡死无用户可救               | `packages/ui/src/v4/sessionsIndexRegistry.ts:88-142`                                                 |
-| 5   | CLI 无订阅者门禁 + existing publisher 不重放种子                                       | `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/v4-gateway.ts:816,932-960`                  |
+| 5   | CLI 无订阅者门禁 + existing publisher 不重放种子                                       | `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/v4-gateway.ts:816,932-960`                |
 | 6   | `flushIndex` 对空订阅自 no-op、deltaLog 有界（去门禁安全）                             | `v4-gateway.ts:845-850`、`sessions-index-publisher.ts:93-99`                                         |
 | 7   | sessions-index 是 conversation 投影的下游窄投影（两 surface 同源）                     | `v4-gateway.ts:817-822`                                                                              |
-| 8   | 冷启动种子无条件 completedSuccess（不会发布 running）                                  | `apps/escode-cli/packages/bootstrap/src/escode-protocol/v4-bridge.ts:1239-1250`                        |
-| 9   | hydration 把未收口 turn 合成 cancelled 收口（聊天区自愈）                              | `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/transcript-hydration.ts:786-788`            |
+| 8   | 冷启动种子无条件 completedSuccess（不会发布 running）                                  | `apps/escode-cli/packages/bootstrap/src/escode-protocol/v4-bridge.ts:1239-1250`                      |
+| 9   | hydration 把未收口 turn 合成 cancelled 收口（聊天区自愈）                              | `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/transcript-hydration.ts:786-788`          |
 | 10  | 远程 lifecycle/restart 靠两跳 RPC 隐式透传，无显式 relay；RepoWiki 有失效前科          | `packages/desktop/src/host/remoteWorkspaceServiceCollection.ts:173,300-307`                          |
 | 11  | conversation 侧换代走 ReplaceableConversationTransport.replace()，每次打开会话全新建立 | `packages/ui/src/v4/workspaceConnectionRegistry.ts:167-189`                                          |
 | 12  | 生产构建 renderer 全部日志 no-op（本次定位最大盲区）                                   | `packages/ui/src/logger.ts:38-41`                                                                    |

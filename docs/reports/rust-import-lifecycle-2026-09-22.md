@@ -25,8 +25,8 @@
 
 | 门禁                                | 结果                                 |
 | ----------------------------------- | ------------------------------------ |
-| `pnpm test:escode-cli-rust`          | 36 Rust / 101 App，通过，0 跳过      |
-| `pnpm check:escode-cli-rust`         | 边界、fmt、Clippy `-D warnings` 通过 |
+| `pnpm test:escode-cli-rust`         | 36 Rust / 101 App，通过，0 跳过      |
+| `pnpm check:escode-cli-rust`        | 边界、fmt、Clippy `-D warnings` 通过 |
 | `pnpm typecheck`                    | 通过                                 |
 | `pnpm lint`                         | 0 错误，原有 70 条警告               |
 | `pnpm fmt:check`                    | 通过                                 |

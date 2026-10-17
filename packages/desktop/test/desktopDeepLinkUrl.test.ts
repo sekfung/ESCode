@@ -80,10 +80,17 @@ describe("desktop deep link url helpers", () => {
       ]),
     ).toBe("escode://oauth/callback?code=1&state=s");
     expect(
-      extractDeepLinkUrlFromArgs(["/opt/ESCode/escode", "escode://oauth/callback?code=1", "&state=s"]),
+      extractDeepLinkUrlFromArgs([
+        "/opt/ESCode/escode",
+        "escode://oauth/callback?code=1",
+        "&state=s",
+      ]),
     ).toBe("escode://oauth/callback?code=1&state=s");
     expect(
-      extractDeepLinkUrlFromArgs(["/opt/ESCode/escode", "escode://oauth/callback?code=1&amp;state=s"]),
+      extractDeepLinkUrlFromArgs([
+        "/opt/ESCode/escode",
+        "escode://oauth/callback?code=1&amp;state=s",
+      ]),
     ).toBe("escode://oauth/callback?code=1&state=s");
     expect(
       extractDeepLinkUrlFromArgs([
@@ -123,7 +130,9 @@ describe("desktop deep link url helpers", () => {
         "--open-workspace=C:\\Users\\demo\\Project%20A",
       ]),
     ).toBe("C:\\Users\\demo\\Project%20A");
-    expect(extractOpenWorkspacePathFromArgs(["ESCode.exe", "--open-workspace", 'C:"'])).toBe("C:\\");
+    expect(extractOpenWorkspacePathFromArgs(["ESCode.exe", "--open-workspace", 'C:"'])).toBe(
+      "C:\\",
+    );
     expect(extractOpenWorkspacePathFromArgs(["ESCode.exe", "--open-workspace", 'C:\\repo"'])).toBe(
       "C:\\repo\\",
     );

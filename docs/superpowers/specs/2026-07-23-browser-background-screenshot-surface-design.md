@@ -533,7 +533,7 @@ Windows close-to-tray 后临时建立透明窗口 presentation opportunity；不
 | BAS-008 | 手机 replayable 恢复             | 读取已持久化截图               | 不传播 activity lease 或新增手机 runtime                    | pruned；desktop-local 不变量 |
 | BAS-009 | hidden owner；capture 立即完成   | preparing continuous pump 续泵 | 每轮让出 macrotask；IPC/timer 可运行且 capture 数量保持有界 | accepted；本次根因回归       |
 | BAS-010 | macOS owner 已 hidden            | 此后 attach guest 并请求截图   | 透明 bootstrap 首帧；截图成功且窗口保持 hidden/unfocused    | accepted；本次根因回归       |
-| BAS-011 | 透明 bootstrap 进行中            | 用户主动 focus ESCode           | 立即恢复 opacity；Ready/release 不得再次 hide 用户窗口      | accepted；窗口状态竞争       |
+| BAS-011 | 透明 bootstrap 进行中            | 用户主动 focus ESCode          | 立即恢复 opacity；Ready/release 不得再次 hide 用户窗口      | accepted；窗口状态竞争       |
 | BAS-012 | Windows owner 已隐藏到托盘       | 此后 attach guest 并请求截图   | 透明 bootstrap；taskbar 不重现；截图后仍隐藏到托盘          | accepted；Windows 对等路径   |
 | BAS-013 | Linux 或 visible/minimized owner | 请求截图                       | 不启动透明 bootstrap；沿用现有 activity/close 生命周期      | accepted；平台边界           |
 

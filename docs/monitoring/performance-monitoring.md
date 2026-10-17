@@ -25,15 +25,15 @@
 
 所有 P0 自定义事件（`sendCustom`）携带：
 
-| 字段                       | 说明                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------- |
-| `platform`                 | `macos` / `windows` / `linux`                                                       |
+| 字段                       | 说明                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `platform`                 | `macos` / `windows` / `linux`                                                        |
 | `app_version`              | `ESCODE_VERSION`                                                                     |
 | `arms_env`                 | `prod` / `local`（`mapESCodeEnvToArmsRumEnv(runtimeEnv)`；本地开发态固定为 `local`） |
-| `device_mid`               | 桌面端设备标识（`userData` 路径哈希）                                               |
-| `telemetry_schema_version` | 稳定性事件口径版本；本次修复后的事件固定为 `2`                                      |
-| `scene_lifecycle`          | 见下表                                                                              |
-| `scene_window`             | 见下表                                                                              |
+| `device_mid`               | 桌面端设备标识（`userData` 路径哈希）                                                |
+| `telemetry_schema_version` | 稳定性事件口径版本；本次修复后的事件固定为 `2`                                       |
+| `scene_lifecycle`          | 见下表                                                                               |
+| `scene_window`             | 见下表                                                                               |
 
 **场景 — lifecycle**
 
@@ -95,7 +95,7 @@ app_start_count`。
 | 主业务窗口 `render-process-gone`             | `main_window_renderer`      | `oom` / `process_crashed` / `abnormal_exit` / … | `electron_callback`   |
 | Resource Manager / 更新 / About 等辅助窗口   | `auxiliary_window_renderer` | 同上                                            | `electron_callback`   |
 | 内置浏览器 `<webview>` `render-process-gone` | `embedded_webview`          | 同上                                            | `electron_callback`   |
-| ESCode Host `child-process-gone`              | `host`                      | `process_crashed` / `abnormal_exit` / …         | `electron_callback`   |
+| ESCode Host `child-process-gone`             | `host`                      | `process_crashed` / `abnormal_exit` / …         | `electron_callback`   |
 | ARMS crash dump，且明确标记为主进程          | `app_native_process`        | `native_crash`                                  | `crash_reporter_dump` |
 | ARMS crash dump，仅能确认来自产品二进制      | `native_dump_unattributed`  | `native_crash`                                  | `crash_reporter_dump` |
 | `reason=killed` / `clean-exit`               | —                           | 不计 crash，走 `perf_process_exit`              | —                     |

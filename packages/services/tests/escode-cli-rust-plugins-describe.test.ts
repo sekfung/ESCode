@@ -14,10 +14,7 @@ const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
 async function write(path: string, content: unknown) {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(
-    path,
-    typeof content === "string" ? content : JSON.stringify(content),
-  );
+  await writeFile(path, typeof content === "string" ? content : JSON.stringify(content));
 }
 
 async function observe(kind: Runtime) {
@@ -33,13 +30,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -198,8 +189,7 @@ test("Node and Rust describe plugins the same way", async () => {
   }
   assert.deepEqual(node.schemaErrors, []);
   // 自检：样例确实枚举出了各类组件。
-  const kinds = (key: string) =>
-    (node[key] as any).components.map((g: any) => g.kind);
+  const kinds = (key: string) => (node[key] as any).components.map((g: any) => g.kind);
   assert.deepEqual(kinds("full"), ["agent", "command", "skill", "hook", "mcp"]);
   assert.equal((node.full as any).metadata.author, "Ada");
   assert.ok((node.full as any).diagnostics.length > 0);

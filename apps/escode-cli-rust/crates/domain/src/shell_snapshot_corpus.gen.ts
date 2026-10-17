@@ -12,7 +12,11 @@ const scripts: unknown[] = [];
 for (const shell of ["/bin/bash", "/usr/bin/zsh", "/bin/sh"]) {
   for (const exists of [true, false]) {
     const home = mkdtempSync(join(tmpdir(), "snap-home-"));
-    const config = shell.includes("zsh") ? ".zshrc" : shell.includes("bash") ? ".bashrc" : ".profile";
+    const config = shell.includes("zsh")
+      ? ".zshrc"
+      : shell.includes("bash")
+        ? ".bashrc"
+        : ".profile";
     if (exists) writeFileSync(join(home, config), "alias ll='ls -l'\n");
     let script = "";
     const manager = new ShellInitSnapshotManager({
@@ -28,23 +32,44 @@ for (const shell of ["/bin/bash", "/usr/bin/zsh", "/bin/sh"]) {
       shellPath: shell,
     });
     const snapshotPath = /^SNAPSHOT_FILE='(.*)'$/m.exec(script)![1]!.replaceAll("'\\''", "'");
-    scripts.push({ shell, exists, configPath: join(home, config), pathValue: "/usr/bin:/bin:/it's here", snapshotPath, script });
+    scripts.push({
+      shell,
+      exists,
+      configPath: join(home, config),
+      pathValue: "/usr/bin:/bin:/it's here",
+      snapshotPath,
+      script,
+    });
   }
 }
 const capture = (dialect: "posix" | "cmd", command: string) =>
   createCwdCapturePlan(
-    { command: { mode: "shell", command, shellProfile: "posix-bash" }, captureCwdAfterSuccess: true } as never,
+    {
+      command: { mode: "shell", command, shellProfile: "posix-bash" },
+      captureCwdAfterSuccess: true,
+    } as never,
     { dialect, platform: dialect === "cmd" ? "win32" : "linux" },
   );
 const captures = (["posix", "cmd"] as const).map((dialect) => {
   const plan = capture(dialect, "echo 'hi'\nfalse");
   return { dialect, cwdFile: plan.cwdFilePath, command: plan.command.command };
 });
-const gitBash = ["/c/Users/a b/x", "/cygdrive/d/work", "/c", "//server/share/x", "/tmp/x", "/c/"].map((value) => ({
+const gitBash = [
+  "/c/Users/a b/x",
+  "/cygdrive/d/work",
+  "/c",
+  "//server/share/x",
+  "/tmp/x",
+  "/c/",
+].map((value) => ({
   value,
   windows: gitBashPathToWindowsPath(value),
 }));
-const suffix = [["", "/w"], ["err\n\n", "/w"], ["a\r\nb\r\n", "C:\\w"]].map(([stderr, root]) => ({
+const suffix = [
+  ["", "/w"],
+  ["err\n\n", "/w"],
+  ["a\r\nb\r\n", "C:\\w"],
+].map(([stderr, root]) => ({
   stderr,
   root,
   result: appendBashCwdStderrSuffix(stderr!, `Shell cwd was reset to ${root}`),

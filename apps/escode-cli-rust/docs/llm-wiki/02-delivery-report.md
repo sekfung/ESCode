@@ -12,20 +12,20 @@
 
 ## 1. 已完成能力与用户可见行为
 
-| 能力 | 状态 | 用户可见行为 |
-| --- | --- | --- |
-| Global / Project 两层知识库 | ✅ | 全局知识跨项目复用；项目知识按项目身份隔离 |
-| 多格式导入 + Document IR | ✅（OCR ⛔） | `wiki ingest` / `WikiManage ingest`：逐文件报告 imported、updated、unchanged、degraded、skipped、failed 及原因 |
-| 来源追溯 | ✅ | 每条知识记录文档、位置与摘录；`wiki read` 和图谱详情可见 |
-| 增量与幂等 | ✅ | 重复导入不产生重复；修改只更新受影响的段；已批准知识的变更生成修订候选 |
-| 自动检索注入 | ✅ | 主会话每轮按任务类型检索，相关条目作为隐藏上下文插在输入之前，会话内去重 |
-| Code Review 接入 | ✅ | review 任务附加评审协议与变更文件，finding 引用 `[wiki:<id>]` 及来源 |
-| Agent 工具 | ✅ | WikiSearch、WikiRead、WikiPropose、WikiManage（每次都询问用户，yolo 模式也不例外） |
-| 治理 | ✅ | 候选、批准、拒绝、弃用（含 superseded_by）、提升到全局；冲突、失效来源、lint、审计 |
-| CLI 运维 | ✅ | `escode-cli-rust wiki status\|ingest\|sync\|search\|read\|propose\|approve\|reject\|deprecate\|promote\|lint\|validate\|conflicts\|rebuild-index\|audit\|graph` |
-| Desktop 知识图谱 | ✅（E2E ⚠️） | 侧边栏主视图入口（搜索下方）：力导向图、筛选、详情、带确认框的审核操作；设置页不再提供该分区；中英文；明暗主题 |
-| Desktop 导入与作用域调整 | ✅（E2E ⚠️） | 「导入文档」对话框：选文件或文件夹、输入路径（远程工作区）、选项目或全局、可选直接批准、逐文件结果；详情中「提升到全局」 |
-| 非 Rust runtime | ✅ | 页面显示「当前 runtime 不支持」，不发出图谱请求 |
+| 能力                        | 状态         | 用户可见行为                                                                                                                                                    |
+| --------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Global / Project 两层知识库 | ✅           | 全局知识跨项目复用；项目知识按项目身份隔离                                                                                                                      |
+| 多格式导入 + Document IR    | ✅（OCR ⛔） | `wiki ingest` / `WikiManage ingest`：逐文件报告 imported、updated、unchanged、degraded、skipped、failed 及原因                                                  |
+| 来源追溯                    | ✅           | 每条知识记录文档、位置与摘录；`wiki read` 和图谱详情可见                                                                                                        |
+| 增量与幂等                  | ✅           | 重复导入不产生重复；修改只更新受影响的段；已批准知识的变更生成修订候选                                                                                          |
+| 自动检索注入                | ✅           | 主会话每轮按任务类型检索，相关条目作为隐藏上下文插在输入之前，会话内去重                                                                                        |
+| Code Review 接入            | ✅           | review 任务附加评审协议与变更文件，finding 引用 `[wiki:<id>]` 及来源                                                                                            |
+| Agent 工具                  | ✅           | WikiSearch、WikiRead、WikiPropose、WikiManage（每次都询问用户，yolo 模式也不例外）                                                                              |
+| 治理                        | ✅           | 候选、批准、拒绝、弃用（含 superseded_by）、提升到全局；冲突、失效来源、lint、审计                                                                              |
+| CLI 运维                    | ✅           | `escode-cli-rust wiki status\|ingest\|sync\|search\|read\|propose\|approve\|reject\|deprecate\|promote\|lint\|validate\|conflicts\|rebuild-index\|audit\|graph` |
+| Desktop 知识图谱            | ✅（E2E ⚠️） | 侧边栏主视图入口（搜索下方）：力导向图、筛选、详情、带确认框的审核操作；设置页不再提供该分区；中英文；明暗主题                                                  |
+| Desktop 导入与作用域调整    | ✅（E2E ⚠️） | 「导入文档」对话框：选文件或文件夹、输入路径（远程工作区）、选项目或全局、可选直接批准、逐文件结果；详情中「提升到全局」                                        |
+| 非 Rust runtime             | ✅           | 页面显示「当前 runtime 不支持」，不发出图谱请求                                                                                                                 |
 
 ## 2. 新增模块、修改文件与架构变化
 
@@ -92,21 +92,21 @@ Desktop：Engine::request v4/wiki/* → wiki_requests（Auxiliary 异步）→ W
 
 ## 5. 格式支持矩阵、依赖与降级
 
-| 格式 | 状态 | 定位 | 限制与降级 |
-| --- | --- | --- | --- |
-| Markdown | ✅ | 标题路径、行号；frontmatter、列表、引用、代码块、表格、链接、图片引用 | 已是 Wiki 条目格式的文件按条目导入，不重复抽取 |
-| TXT | ✅ | 段落与行号 | UTF-8 / UTF-16（BOM）；其他编码报告失败 |
-| CSV / TSV | ✅ | 记录号、字段名 | 引号、分隔符识别；重复或缺失表头时报告并补列名；受 `maxRecords` 限制 |
-| JSON | ✅ | JSON 路径 | 语法错误报告行和列；受 `maxNestingDepth` 和 `maxNodes` 限制 |
-| YAML | ✅ | 字段路径 | 语法错误报告位置；注释作为附注保留 |
-| XML | ✅ | 元素路径与属性 | 从不加载外部 DTD 或实体（防 XXE）；含内部实体声明的 DOCTYPE 直接拒绝（防实体膨胀） |
-| RST | ✅ | 标题、列表、代码块、链接 | 无法解析的指令记为警告 |
-| DOCX | ✅ | 标题层级、段落、列表、表格、链接、脚注、核心属性 | 嵌入对象、图片报告为警告；宏不执行（`vbaProject.bin` 只报告存在） |
-| XLSX | ✅ | 工作表、单元格坐标、表头、公式与缓存值、合并单元格、隐藏表 | 受 `maxSheetCells` 限制；外部链接不跟随 |
-| PPTX | ✅ | 幻灯片序号、标题、文本框、表格、备注 | 图片与图表报告为警告 |
-| 文本型 PDF | ✅ | 页码、文本块 | 复杂版式给出警告；受 `maxPdfPages` 限制 |
-| 扫描型 PDF | ⛔ OCR | 识别为无文本层并明确报告「需要 OCR」 | 未内置 OCR 引擎；`ocr.enabled` 目前只会产生配置提示 |
-| DOC / XLS | 🟡 | 经外部转换器转为 DOCX / XLSX 后按对应格式解析 | 需要在用户层开启 `converters.office`（默认 `soffice`）；未开启时明确报告「需要转换器」 |
+| 格式       | 状态   | 定位                                                                  | 限制与降级                                                                             |
+| ---------- | ------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Markdown   | ✅     | 标题路径、行号；frontmatter、列表、引用、代码块、表格、链接、图片引用 | 已是 Wiki 条目格式的文件按条目导入，不重复抽取                                         |
+| TXT        | ✅     | 段落与行号                                                            | UTF-8 / UTF-16（BOM）；其他编码报告失败                                                |
+| CSV / TSV  | ✅     | 记录号、字段名                                                        | 引号、分隔符识别；重复或缺失表头时报告并补列名；受 `maxRecords` 限制                   |
+| JSON       | ✅     | JSON 路径                                                             | 语法错误报告行和列；受 `maxNestingDepth` 和 `maxNodes` 限制                            |
+| YAML       | ✅     | 字段路径                                                              | 语法错误报告位置；注释作为附注保留                                                     |
+| XML        | ✅     | 元素路径与属性                                                        | 从不加载外部 DTD 或实体（防 XXE）；含内部实体声明的 DOCTYPE 直接拒绝（防实体膨胀）     |
+| RST        | ✅     | 标题、列表、代码块、链接                                              | 无法解析的指令记为警告                                                                 |
+| DOCX       | ✅     | 标题层级、段落、列表、表格、链接、脚注、核心属性                      | 嵌入对象、图片报告为警告；宏不执行（`vbaProject.bin` 只报告存在）                      |
+| XLSX       | ✅     | 工作表、单元格坐标、表头、公式与缓存值、合并单元格、隐藏表            | 受 `maxSheetCells` 限制；外部链接不跟随                                                |
+| PPTX       | ✅     | 幻灯片序号、标题、文本框、表格、备注                                  | 图片与图表报告为警告                                                                   |
+| 文本型 PDF | ✅     | 页码、文本块                                                          | 复杂版式给出警告；受 `maxPdfPages` 限制                                                |
+| 扫描型 PDF | ⛔ OCR | 识别为无文本层并明确报告「需要 OCR」                                  | 未内置 OCR 引擎；`ocr.enabled` 目前只会产生配置提示                                    |
+| DOC / XLS  | 🟡     | 经外部转换器转为 DOCX / XLSX 后按对应格式解析                         | 需要在用户层开启 `converters.office`（默认 `soffice`）；未开启时明确报告「需要转换器」 |
 
 所有 Office 容器都受 zip 安全限制：条目数、解压总量、压缩比，以及拒绝路径穿越。
 
@@ -135,24 +135,24 @@ YAML 复用已有的 `saphyr`。没有新增 npm 依赖：图谱复用已有的 
 
 以下结果均在本容器中实际运行（Node v22.22.0，仓库要求 24；rustc / rustfmt / clippy 1.97，仓库验证工具链为 1.95）。
 
-| 项目 | 命令 | 结果 |
-| --- | --- | --- |
-| Rust 全工作区测试 | `cargo test --workspace --no-fail-fast` | ✅ 最终代码：53 个测试二进制、384 个测试全部通过。rebase 到 `02f54e97` 后，`escode-cli-tools` + `escode-cli-wiki` 117 个、`wiki_runtime` 6 个复跑通过 |
-| Wiki domain 测试 | `cargo test -p escode-cli-domain wiki::` | ✅ 21 个通过（含前缀过滤与暴力比较的等价性测试） |
-| Wiki adapter 测试 | `cargo test -p escode-cli-wiki` | ✅ 34 个通过（scope_identity 4、storage_layout 4、ingest_incremental 5、formats_text 7、formats_office 6、retrieval_governance 3、security 4、单元 1） |
-| Runtime 集成 | `tests/wiki_runtime.rs` | ✅ 6 个通过 |
-| TS 单测（新增） | `vitest run packages/ui/test/knowledgeGraph.test.ts packages/services/test/escodeAgentService.wiki.test.ts` | ✅ 15 + 4 通过 |
-| TS 回归（受影响） | `pnpm run test:unit:affected`（模拟 pre-push，673 个文件） | 🟡 659 个文件通过。13 个文件失败，其中 `settingsPageConfig.test.ts` 因新增分区而失败，已更新期望，12/12 通过。其余 12 个文件、63 个失败在基线 `origin/dev` worktree 上逐条复现，失败清单完全相同，属环境问题：Electron 未安装、Node 版本不符 |
-| 类型检查 | `pnpm typecheck`（全量） | ✅ 0 错误 |
-| Lint | `pnpm lint` | ✅ 0 错误；82 个警告均为基线已有，新增文件 0 警告 |
-| 格式 | `oxfmt --check`（新增和改动的 TS 文件） | ✅ |
-| 架构检查 | `pnpm architecture:check --changed` | ✅ 0 违规 |
-| Rust 边界 | `check-escode-cli-rust-boundaries.mjs` | ✅ 只有基线已有的 `state/src/storage.rs` 超长 |
-| Clippy | `cargo clippy -p escode-cli-{wiki,core,core-api,rust} --all-targets -D warnings` 与 `-p escode-cli-domain --lib -D warnings` | ✅ 通过。domain 的测试目标被基线 `agent_description.rs:282` 的 `cloned_ref_to_slice_refs`（1.97 新增 lint）阻断，该文件未改动，因此 domain 测试文件未经 clippy 检查 |
-| rustfmt | 新增文件已格式化 | 🟡 本机 rustfmt 1.97 对约 80 个基线文件也报差异，因此未运行全量 `cargo fmt --check`，也未用 1.95 复核 |
-| Desktop E2E | `packages/desktop/test/e2e/settings/settings-knowledge-graph.test.ts` | ⚠️ 已编写并通过类型检查。本容器的 Electron 安装失败，未执行 |
-| UI 实际渲染 | Vite + Chromium 截图（桌面亮色、暗色中文、390px 手机） | ✅ 22 个节点和 21 条边全部渲染，无页面错误，手机宽度无横向溢出；据此修复了标签重叠和英文复数措辞 |
-| Release 构建 | `cargo build --release --bin escode-cli-rust` | 见 §8 |
+| 项目              | 命令                                                                                                                         | 结果                                                                                                                                                                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust 全工作区测试 | `cargo test --workspace --no-fail-fast`                                                                                      | ✅ 最终代码：53 个测试二进制、384 个测试全部通过。rebase 到 `02f54e97` 后，`escode-cli-tools` + `escode-cli-wiki` 117 个、`wiki_runtime` 6 个复跑通过                                                                                        |
+| Wiki domain 测试  | `cargo test -p escode-cli-domain wiki::`                                                                                     | ✅ 21 个通过（含前缀过滤与暴力比较的等价性测试）                                                                                                                                                                                             |
+| Wiki adapter 测试 | `cargo test -p escode-cli-wiki`                                                                                              | ✅ 34 个通过（scope_identity 4、storage_layout 4、ingest_incremental 5、formats_text 7、formats_office 6、retrieval_governance 3、security 4、单元 1）                                                                                       |
+| Runtime 集成      | `tests/wiki_runtime.rs`                                                                                                      | ✅ 6 个通过                                                                                                                                                                                                                                  |
+| TS 单测（新增）   | `vitest run packages/ui/test/knowledgeGraph.test.ts packages/services/test/escodeAgentService.wiki.test.ts`                  | ✅ 15 + 4 通过                                                                                                                                                                                                                               |
+| TS 回归（受影响） | `pnpm run test:unit:affected`（模拟 pre-push，673 个文件）                                                                   | 🟡 659 个文件通过。13 个文件失败，其中 `settingsPageConfig.test.ts` 因新增分区而失败，已更新期望，12/12 通过。其余 12 个文件、63 个失败在基线 `origin/dev` worktree 上逐条复现，失败清单完全相同，属环境问题：Electron 未安装、Node 版本不符 |
+| 类型检查          | `pnpm typecheck`（全量）                                                                                                     | ✅ 0 错误                                                                                                                                                                                                                                    |
+| Lint              | `pnpm lint`                                                                                                                  | ✅ 0 错误；82 个警告均为基线已有，新增文件 0 警告                                                                                                                                                                                            |
+| 格式              | `oxfmt --check`（新增和改动的 TS 文件）                                                                                      | ✅                                                                                                                                                                                                                                           |
+| 架构检查          | `pnpm architecture:check --changed`                                                                                          | ✅ 0 违规                                                                                                                                                                                                                                    |
+| Rust 边界         | `check-escode-cli-rust-boundaries.mjs`                                                                                       | ✅ 只有基线已有的 `state/src/storage.rs` 超长                                                                                                                                                                                                |
+| Clippy            | `cargo clippy -p escode-cli-{wiki,core,core-api,rust} --all-targets -D warnings` 与 `-p escode-cli-domain --lib -D warnings` | ✅ 通过。domain 的测试目标被基线 `agent_description.rs:282` 的 `cloned_ref_to_slice_refs`（1.97 新增 lint）阻断，该文件未改动，因此 domain 测试文件未经 clippy 检查                                                                          |
+| rustfmt           | 新增文件已格式化                                                                                                             | 🟡 本机 rustfmt 1.97 对约 80 个基线文件也报差异，因此未运行全量 `cargo fmt --check`，也未用 1.95 复核                                                                                                                                        |
+| Desktop E2E       | `packages/desktop/test/e2e/settings/settings-knowledge-graph.test.ts`                                                        | ⚠️ 已编写并通过类型检查。本容器的 Electron 安装失败，未执行                                                                                                                                                                                  |
+| UI 实际渲染       | Vite + Chromium 截图（桌面亮色、暗色中文、390px 手机）                                                                       | ✅ 22 个节点和 21 条边全部渲染，无页面错误，手机宽度无横向溢出；据此修复了标签重叠和英文复数措辞                                                                                                                                             |
+| Release 构建      | `cargo build --release --bin escode-cli-rust`                                                                                | 见 §8                                                                                                                                                                                                                                        |
 
 ## 8. 性能、安全、资源限制与错误恢复
 
@@ -162,14 +162,14 @@ YAML 复用已有的 `saphyr`。没有新增 npm 依赖：图谱复用已有的 
 
 语料为 505 个 Markdown 文档：词表 3000 个，按 Zipf 分布，每文档 3 节，共 1516 个条目；另含 5 个完全复制的文档。生成脚本见下方说明。
 
-| 操作 | 耗时 |
-| --- | --- |
-| 首次导入 505 个文档（含批准） | 15.0 s（约 30 ms / 文档，单次） |
-| 重复导入（无变化） | 1.12 s |
-| 修改 1 个文件后导入 | 1.35 s（单次） |
-| `wiki search` | 0.17 s |
-| `wiki status` / `conflicts` / `graph`（limit 2000） | 0.42 / 0.39 / 0.41 s |
-| `rebuild-index` | 0.41 s |
+| 操作                                                | 耗时                            |
+| --------------------------------------------------- | ------------------------------- |
+| 首次导入 505 个文档（含批准）                       | 15.0 s（约 30 ms / 文档，单次） |
+| 重复导入（无变化）                                  | 1.12 s                          |
+| 修改 1 个文件后导入                                 | 1.35 s（单次）                  |
+| `wiki search`                                       | 0.17 s                          |
+| `wiki status` / `conflicts` / `graph`（limit 2000） | 0.42 / 0.39 / 0.41 s            |
+| `rebuild-index`                                     | 0.41 s                          |
 
 存储占用 21 MB，含 IR 缓存。debug 构建约慢 6 倍（首次导入 95 s）。
 

@@ -181,7 +181,9 @@ for (const protocol of ["openai-responses", "anthropic-messages"] as const) {
           await h.completed(id);
           assert.equal(f.requests.length, 2);
           assert.equal(f.requestBodies[0], f.requestBodies[1]);
-          const partial = (await h.rows(id)).rows.find((r: any) => JSON.stringify(r).includes("visible partial"));
+          const partial = (await h.rows(id)).rows.find((r: any) =>
+            JSON.stringify(r).includes("visible partial"),
+          );
           assert.equal((partial as any)?.state, "interrupted");
         } else {
           await h.completed(id);

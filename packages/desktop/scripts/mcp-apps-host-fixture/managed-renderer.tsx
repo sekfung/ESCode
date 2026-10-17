@@ -58,7 +58,9 @@ const agent = {
 };
 const services = {
   escodeAgentService: agent,
-  escodeTaskService: { onDynamicWorkspaceEvent: () => (handler: any) => subscribe("task", handler) },
+  escodeTaskService: {
+    onDynamicWorkspaceEvent: () => (handler: any) => subscribe("task", handler),
+  },
   pluginUiBridgeService: proxy(harness.bridge),
   pluginUiSamplingService: proxy(harness.bridge),
   pluginUiAppToolsService: proxy(harness.appTools),

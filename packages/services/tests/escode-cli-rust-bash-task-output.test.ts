@@ -11,10 +11,14 @@ const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 const command = "sleep 2; printf 'line one\\nline two\\n'";
 
 const call = (id: string, name: string, args: unknown) => ({
-  tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }],
+  tool_calls: [
+    { index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+  ],
 });
 const toolResult = (req: any, id: string) =>
-  String(req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "");
+  String(
+    req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "",
+  );
 
 async function observe(kind: "node" | "rust") {
   const requests: any[] = [];
@@ -24,7 +28,10 @@ async function observe(kind: "node" | "rust") {
     res.writeHead(200, { "content-type": "text/event-stream" });
     const n = requests.length;
     if (n === 1) {
-      event(res, call("bg-1", "Bash", { command, description: "print lines", run_in_background: true }));
+      event(
+        res,
+        call("bg-1", "Bash", { command, description: "print lines", run_in_background: true }),
+      );
       end(res, "tool_calls");
     } else if (n === 2) {
       taskId = /ID: (\S+?)\./.exec(toolResult(req, "bg-1"))?.[1] ?? "missing";

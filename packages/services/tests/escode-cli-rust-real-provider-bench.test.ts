@@ -33,7 +33,9 @@ function percentile(values: number[], p: number) {
 }
 
 async function providerConfig(root: string) {
-  const config = JSON.parse(await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"));
+  const config = JSON.parse(
+    await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
+  );
   const p = config.provider?.[providerId!];
   assert(p?.options?.baseURL, "provider needs baseURL");
   const modelId = process.env.ESCODE_BENCH_MODEL ?? Object.keys(p.models ?? {})[0];
@@ -42,7 +44,9 @@ async function providerConfig(root: string) {
     p.kind === "anthropic"
       ? { type: "anthropic-messages", baseUrl: p.options.baseURL }
       : { type: "openai-chat-completions", baseUrl: p.options.baseURL };
-  const builtin = JSON.parse(await readFile(resolve("config/provider/escode-builtin.json"), "utf8"));
+  const builtin = JSON.parse(
+    await readFile(resolve("config/provider/escode-builtin.json"), "utf8"),
+  );
   builtin.config.providerConfigRules.providerRules = [];
   await writeFile(join(root, "builtin.json"), JSON.stringify(builtin));
   await writeFile(
@@ -75,7 +79,9 @@ async function providerConfig(root: string) {
 
 /** 供应商主机加入两侧的 NO_PROXY：开发机代理会把局域网请求转走（实测返回 503）。 */
 async function providerHost() {
-  const config = JSON.parse(await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"));
+  const config = JSON.parse(
+    await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
+  );
   return new URL(config.provider[providerId!].options.baseURL).hostname;
 }
 

@@ -1,7 +1,4 @@
-import {
-  isWebRemoteControlThemeSeed,
-  type WebRemoteControlThemeSeed,
-} from "@escode/shared";
+import { isWebRemoteControlThemeSeed, type WebRemoteControlThemeSeed } from "@escode/shared";
 
 export const WEB_REMOTE_CONTROL_DEFAULT_THEME: WebRemoteControlThemeSeed = "zai-dark";
 

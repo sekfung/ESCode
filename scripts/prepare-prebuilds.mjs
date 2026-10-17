@@ -70,7 +70,14 @@ const remotePlatforms = resolveRemotePlatforms(process.env);
 export function resolveRemotePlatforms(env = process.env) {
   const raw = env.ESCODE_REMOTE_ASSET_PLATFORMS?.trim();
   if (!raw) return [...SUPPORTED_REMOTE_PLATFORMS];
-  const platforms = [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
+  const platforms = [
+    ...new Set(
+      raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  ];
   const unsupported = platforms.filter((entry) => !SUPPORTED_REMOTE_PLATFORMS.includes(entry));
   if (platforms.length === 0 || unsupported.length > 0) {
     throw new Error(

@@ -128,9 +128,13 @@ describe("Legacy Personal Provider Config Importer", () => {
     const before = structuredClone(legacyProviders);
     const imported = importLegacyPersonalProviderConfig({ legacyProviders });
     expect(imported.providers.getRule("custom-id")?.providerName).toBe("My API");
-    expect(imported.providers.getRule("bigmodel-standard-api")?.templateId).toBe("bigmodel-standard-api");
+    expect(imported.providers.getRule("bigmodel-standard-api")?.templateId).toBe(
+      "bigmodel-standard-api",
+    );
     expect(imported.providers.get("custom-id")?.toJSON()).not.toHaveProperty("label");
-    expect(imported.providers.get("bigmodel-standard-api")?.toJSON()).not.toHaveProperty("templateId");
+    expect(imported.providers.get("bigmodel-standard-api")?.toJSON()).not.toHaveProperty(
+      "templateId",
+    );
     expect(imported.models.toPersonalJSON().manualProviderModelRules).toEqual([]);
     expect(imported.models.toPersonalJSON().providerModelRules[0]).toMatchObject({
       providerId: "custom-id",
@@ -156,13 +160,17 @@ describe("Legacy Personal Provider Config Importer", () => {
         ],
       });
       expect(document.providers.keys()).toEqual(["bigmodel-standard-api", "zai-standard-api"]);
-      expect(document.providers.getRule("bigmodel-standard-api")?.templateId).toBe("bigmodel-standard-api");
+      expect(document.providers.getRule("bigmodel-standard-api")?.templateId).toBe(
+        "bigmodel-standard-api",
+      );
       expect(document.providers.getRule("bigmodel-standard-api")?.enabled).toBeUndefined();
       expect(document.providers.get("bigmodel-standard-api")?.toJSON()).toEqual({
         group: "standard-personal",
         access: { type: "api-key", apiKey: "test-key" },
       });
-      expect(document.providers.get("zai-standard-api")?.access).toMatchObject({ apiKey: "zai-key" });
+      expect(document.providers.get("zai-standard-api")?.access).toMatchObject({
+        apiKey: "zai-key",
+      });
       expect(document.models.getExact("bigmodel-standard-api", "model-a")).toBeUndefined();
     },
   );
@@ -176,7 +184,9 @@ describe("Legacy Personal Provider Config Importer", () => {
       ],
     });
     expect(document.providers.keys()).toEqual(["bigmodel-standard-api"]);
-    expect(document.providers.get("bigmodel-standard-api")?.access).toMatchObject({ apiKey: "kept-key" });
+    expect(document.providers.get("bigmodel-standard-api")?.access).toMatchObject({
+      apiKey: "kept-key",
+    });
   });
 
   it("不凭名称或 URL 丢弃 UUID 自定义供应商", () => {

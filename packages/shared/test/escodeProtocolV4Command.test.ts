@@ -631,7 +631,6 @@ describe("escode-protocol-v4 command", () => {
     expect(COMMANDS_REQUIRING_BASE_REVISION.has("resolveInteraction")).toBe(false);
   });
 
-
   // M5 additive：switchCollaborationMode——值域 = core CollaborationMode 可切换子集。
   it("parses switchCollaborationMode and rejects out-of-catalog mode", () => {
     const ok = parseCommandEnvelope({

@@ -293,8 +293,11 @@ export function createESCodeAgentConnectionScope(
     subscriptionId: string,
     connectionId: string,
   ) => `${kind}\0${workspaceKey(target)}\0${topic}\0${subscriptionId}\0${connectionId}`;
-  const ownershipKey = (kind: SubscriptionKind, target: ESCodeAgentWorkspaceTarget, topic: string) =>
-    `${kind}\0${workspaceKey(target)}\0${topic}`;
+  const ownershipKey = (
+    kind: SubscriptionKind,
+    target: ESCodeAgentWorkspaceTarget,
+    topic: string,
+  ) => `${kind}\0${workspaceKey(target)}\0${topic}`;
   const routedEventKey = (kind: SubscriptionKind, target: ESCodeAgentWorkspaceTarget) =>
     `${kind}\0${workspaceKey(target)}`;
   const flowRouteKey = (target: ESCodeAgentWorkspaceTarget, connectionId: string) =>

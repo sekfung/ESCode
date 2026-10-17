@@ -209,7 +209,14 @@ function buildLegacyCommonMcpStorageCandidates(request?: MigrateLegacyCommonMcpR
     join(appData, "ESCode", "Local Storage", "leveldb"),
     join(appData, "ESCode", "Partitions", "escode-embedded-browser", "Local Storage", "leveldb"),
     join(appData, "ESCode Dev", "Local Storage", "leveldb"),
-    join(appData, "ESCode Dev", "Partitions", "escode-embedded-browser", "Local Storage", "leveldb"),
+    join(
+      appData,
+      "ESCode Dev",
+      "Partitions",
+      "escode-embedded-browser",
+      "Local Storage",
+      "leveldb",
+    ),
   );
 
   return Array.from(new Set(candidates));

@@ -27,7 +27,7 @@ TS 基线：
 | OAuth 流程     | `adapters/src/mcp/oauth-*.ts`                                 |
 | 本地回调       | `adapters/src/auth/localhost-callback.ts`                     |
 | 凭据存储与加密 | `adapters/src/auth/{shared-credentials,credential-cipher}.ts` |
-| 文件锁         | `@escode/shared/node` `withFileLock` / `atomicFileLock`        |
+| 文件锁         | `@escode/shared/node` `withFileLock` / `atomicFileLock`       |
 | 协议           | `mcpServerConfig.oauth`、`mcp/list` 的 `authorization` 状态   |
 
 ## 目标

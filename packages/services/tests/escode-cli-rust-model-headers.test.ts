@@ -23,7 +23,13 @@ const STATIC = [
   "x-os-category",
   "x-os-version",
 ];
-const ATTRIBUTION = ["x-request-id", "x-zcode-session-type", "x-zcode-trace-id", "x-session-id", "x-query-id"];
+const ATTRIBUTION = [
+  "x-request-id",
+  "x-zcode-session-type",
+  "x-zcode-trace-id",
+  "x-session-id",
+  "x-query-id",
+];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 async function observe(kind: "node" | "rust") {

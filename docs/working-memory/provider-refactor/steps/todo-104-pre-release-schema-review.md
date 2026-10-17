@@ -862,16 +862,16 @@ Provider / Model / 排序修改 --+
 
 各文件裁决：
 
-| 当前实现或资源                                  | 已确认的目标                                       | 理由                                                                                                           |
-| ----------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| provider_config.json                            | 保留                                               | 个人 Provider / Model 配置集中保存，不占用旧综合 config.json                                                   |
-| model-selection.json                            | 合并进 config.defaultModelSelection                | 逻辑成员独立不要求再开物理文件，见 6.9                                                                         |
-| active.json                                     | runtime/provider/隔离目录/escode-builtin.json       | 名字直接说明配置内容；作为下载后当前采用的内置配置，缺失时可用随包配置重建                                     |
-| refresh-control.json                            | 与下载文件同目录的 escode-builtin-refresh.json      | 记录多进程刷新占用、刷新时间和失败重试信息；不是用户配置                                                       |
-| provider-provisioning-state.json                | runtime/provider/provisioning.json                 | 保存已成功执行的分发请求 ID 和结果，避免重发请求重复覆盖目标配置；不是完整配置副本，丢失后去重历史不能直接重建 |
-| bot-config.v3.json                              | 保留当前新文件方案                                 | 从 staging 的 bot-config.json 导入，旧文件保持；不持续双写，不改回原文件覆盖                                   |
-| bot-state.v3.json                               | 保留当前新文件方案                                 | 从 staging 的 bot-state.v2.json 等既有输入导入，旧文件保持；不改回原文件覆盖                                   |
-| 随包 escode-builtin.json                         | 保留随包资源                                       | 为首次启动和离线提供内置基线；与远端下载内容使用同一种发布 schema                                              |
+| 当前实现或资源                                   | 已确认的目标                                        | 理由                                                                                                           |
+| ------------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| provider_config.json                             | 保留                                                | 个人 Provider / Model 配置集中保存，不占用旧综合 config.json                                                   |
+| model-selection.json                             | 合并进 config.defaultModelSelection                 | 逻辑成员独立不要求再开物理文件，见 6.9                                                                         |
+| active.json                                      | runtime/provider/隔离目录/escode-builtin.json       | 名字直接说明配置内容；作为下载后当前采用的内置配置，缺失时可用随包配置重建                                     |
+| refresh-control.json                             | 与下载文件同目录的 escode-builtin-refresh.json      | 记录多进程刷新占用、刷新时间和失败重试信息；不是用户配置                                                       |
+| provider-provisioning-state.json                 | runtime/provider/provisioning.json                  | 保存已成功执行的分发请求 ID 和结果，避免重发请求重复覆盖目标配置；不是完整配置副本，丢失后去重历史不能直接重建 |
+| bot-config.v3.json                               | 保留当前新文件方案                                  | 从 staging 的 bot-config.json 导入，旧文件保持；不持续双写，不改回原文件覆盖                                   |
+| bot-state.v3.json                                | 保留当前新文件方案                                  | 从 staging 的 bot-state.v2.json 等既有输入导入，旧文件保持；不改回原文件覆盖                                   |
+| 随包 escode-builtin.json                         | 保留随包资源                                        | 为首次启动和离线提供内置基线；与远端下载内容使用同一种发布 schema                                              |
 | 内嵌资源释放出的 escode-builtin-<内容 hash>.json | 固定为 runtime/provider/bundled/escode-builtin.json | 单文件 CLI / Server 等形态复用文件读取链路；是资源副本，不是新的用户配置 schema                                |
 
 资源副本的覆盖语义：用户随后明确要求覆盖，不保留按 hash 命名的历史副本。因此固定使用 runtime/provider/bundled/escode-builtin.json，新程序启动时比较包内配置，内容不同则写临时文件后原子替换；内容相同可以复用。该裁决取代此前按 hash 保留历史副本的方案，下载配置与随包资源仍分开。讨论以正常退出旧程序及子进程后升级为前提，不再要求并行的新旧程序各自保留旧基线；若旧进程仍在运行，之后重读固定路径会看到新内容。替换由程序启动完成，不要求安装器额外处理。
@@ -889,7 +889,7 @@ Bot 误记纠正：此前本文将“沿用原文件迁移”写成用户裁决�
 | 版本边界                   | 目标版本         | 管理范围                                                          |
 | -------------------------- | ---------------- | ----------------------------------------------------------------- |
 | PersonalProviderConfigFile | schemaVersion: 1 | 个人文件的整份 config，包括 defaultModelSelection                 |
-| ESCodeBuiltinRelease        | schemaVersion: 1 | 随包、释放副本、下载内容共用的内置发布格式；当前实现的 3 收口为 1 |
+| ESCodeBuiltinRelease       | schemaVersion: 1 | 随包、释放副本、下载内容共用的内置发布格式；当前实现的 3 收口为 1 |
 | 内置刷新记录               | schemaVersion: 1 | 刷新占用、时间、失败计数等记录                                    |
 | Provider 分发状态文件      | schemaVersion: 1 | 已完成请求及结果的保存格式                                        |
 | Provider 分发信封          | schemaVersion: 1 | 发往目标环境的整包配置、设置、凭据等内容                          |
@@ -1116,11 +1116,11 @@ staging 已发布数据 --升级----> 同一最终格式
 
 | 已有裁决                       | 必须一起核对的入口                                                                                                                                                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 字段改名、规则分组及去掉 type  | provider/config/schema.ts 的解析、provider-config.ts / model-config.ts 的构造及 toJSON、toPersonalJSON、toESCodeBuiltinJSON；不能只改展示类型，写回仍出现旧字段                                                      |
+| 字段改名、规则分组及去掉 type  | provider/config/schema.ts 的解析、provider-config.ts / model-config.ts 的构造及 toJSON、toPersonalJSON、toESCodeBuiltinJSON；不能只改展示类型，写回仍出现旧字段                                                     |
 | 个人 config 包装和默认选择合并 | provider-node 的 provider-config-file-codec.ts、personal-provider-config-repository.ts、model-selection-config-repository.ts，以及宿主装配和默认选择订阅；不得保留第二个持续写入的 model-selection.json             |
 | staging 个人配置导入           | App 的 legacyPersonalProviderConfigImporter.ts 与独立 CLI 的 legacy-cli-personal-provider-config-importer.ts 都输出最终格式；保留现有用户意图提取和旧身份转换，不把旧 Effective Config 的系统默认能力冻结成用户覆盖 |
 | Bot 保留 v3 新文件             | bots/repo.ts 与 storageMigration.ts 沿用当前新文件导入链路；验证旧配置 / 草稿选择进入 v3 文件，旧文件不被覆盖，不实施此前误记的原路径迁移                                                                           |
-| 内置发布和运行时来源标识       | config/provider/escode-builtin.json、release codec、下载 Source、固定资源释放路径及 CLI / Server 内嵌资源链路一起核对，随包与下载使用同一最终发布 schema                                                             |
+| 内置发布和运行时来源标识       | config/provider/escode-builtin.json、release codec、下载 Source、固定资源释放路径及 CLI / Server 内嵌资源链路一起核对，随包与下载使用同一最终发布 schema                                                            |
 | 分发适配                       | shared/provider-provisioning.ts 与 Source / Target / 状态结果编解码一起变更；发送、接收和失败回滚读取同一份 personalConfig                                                                                          |
 
 已有迁移入口证据：[App 个人配置导入](../../../../packages/services/src/model-provider/legacyPersonalProviderConfigImporter.ts)、[独立 CLI 个人配置导入](../../../../apps/escode-cli/packages/bootstrap/src/app/legacy-cli-personal-provider-config-importer.ts)、[Bot 存储迁移](../../../../packages/services/src/bots/storageMigration.ts)。其他代码入口见相应裁决章节，不再复制一套实现设计。
@@ -1268,10 +1268,10 @@ modelSelection 层：复用第 2 节通用结构，不另建一套 Provider / Mo
 | 2    | Off-Peak 保存      | 当前 UPDATE 不再将旧 model / thought_level 置 NULL；沿用既有保存链路，见 6.18.1。                                                                                            |
 | 3    | Wiki / Draft 保存  | 存储层保存时保留旧模型、档位及 maxOutputTokens 原值，复用已有锁与原子写；不恢复旧预算功能，不重构保存机制，见 6.18.2。                                                       |
 | 4    | 默认选择文件合并   | model-selection.json 合并到 provider_config.json 的 config.defaultModelSelection；调整读写、持锁更新、冲突检查和通知。清除选择不删除整个文件，不授权顺带删除旧文件，见 6.9。 |
-| 5    | 下载配置路径       | active.json 改为 runtime/provider/<平台>/<应用版本>/<服务端地址标识>/escode-builtin.json，保留三个隔离维度。                                                                  |
-| 6    | 刷新记录路径       | refresh-control.json 改为上述同目录的 escode-builtin-refresh.json；内部字段、占用和重试机制保持。                                                                             |
+| 5    | 下载配置路径       | active.json 改为 runtime/provider/<平台>/<应用版本>/<服务端地址标识>/escode-builtin.json，保留三个隔离维度。                                                                 |
+| 6    | 刷新记录路径       | refresh-control.json 改为上述同目录的 escode-builtin-refresh.json；内部字段、占用和重试机制保持。                                                                            |
 | 7    | 分发记录路径       | provider-provisioning-state.json 改为 runtime/provider/provisioning.json；保留 records / syncId 及去重语义。                                                                 |
-| 8    | 内嵌资源副本       | 固定 runtime/provider/bundled/escode-builtin.json，启动时内容不同则原子覆盖，不再按 hash 产生多份资源副本。以上路径见 6.10。                                                  |
+| 8    | 内嵌资源副本       | 固定 runtime/provider/bundled/escode-builtin.json，启动时内容不同则原子覆盖，不再按 hash 产生多份资源副本。以上路径见 6.10。                                                 |
 | 9    | 格式版本收口       | 最终五处 schemaVersion 统一为 1；默认选择独立版本外壳随合并取消，Bot 仍保留 version: 3，见 6.11。                                                                            |
 | 10   | 来源切换刷新修复   | 运行时内置标识纳入 Endpoint 来源，并贯穿现有消费者；修复不同地址同 revision、不同内容时不刷新，不新增持久化 revision 字段，见 6.12。                                         |
 | 11   | 分发信封与回滚适配 | 删除无调用的 sourceRevision；默认选择随 personalConfig 传递，移除外层 configuredDefault；整份个人文件统一应用、校验和失败回滚，保留并发修改保护，见 6.13。                   |
@@ -1320,7 +1320,7 @@ modelSelection 层：复用第 2 节通用结构，不另建一套 Provider / Mo
 | ModelConfig、Properties、输入输出格式、OptionSpecs | config/schema.ts 有运行时定义，model-config.ts 另手写 Input / Object 等字段                                                             | 共享 schema，推导数据类型；不把 class 删除视作前提                                                          |
 | ModelConfigRule 三种成员                           | schema 工厂定义规则结构，model-config.ts 又手写规则接口                                                                                 | 从各具体规则 schema 推导；工厂参数当前使用 ZodTypeAny，实施时需保留 config 的具体类型，不能让推导退化为 any |
 | Registry 完整配置                                  | resolver.ts 另手写 RegistryModelConfig / RegistryModelConfigObject 等完整成员；目前完整性依靠 validateComplete，而非已有独立完整 schema | 与完整 / 稀疏 / 固定配置共享字段定义，不错误声称这里已存在完整 schema 只是没 infer                          |
-| 协议 ESCodeProviderAccountAccess                    | shared/escode-protocol/index.ts 已从 schema infer；Resolver 中仍有手写的同形 Registry 账号访问结构                                       | 保留已推导协议类型；共享数据形状时遵守包依赖方向                                                            |
+| 协议 ESCodeProviderAccountAccess                   | shared/escode-protocol/index.ts 已从 schema infer；Resolver 中仍有手写的同形 Registry 账号访问结构                                      | 保留已推导协议类型；共享数据形状时遵守包依赖方向                                                            |
 | 账号连接选择及设置                                 | shared/provider-family-connection-selection.ts 已定义两个 schema，但又手写联合类型及设置映射类型                                        | 改为从 schema 推导；不改变 kind、团队 ID 或持久化形状，用户已跳过结构调整                                   |
 
 证据：[ModelSelection](../../../../packages/shared/src/model-selection.ts)、[Registry Selection 重用](../../../../packages/provider/src/registry.ts)、[配置 schema](../../../../packages/provider/src/config/schema.ts)、[Provider 类型](../../../../packages/provider/src/config/provider-config.ts)、[Model / Rule 类型](../../../../packages/provider/src/config/model-config.ts)、[Registry 完整类型](../../../../packages/provider/src/resolver.ts)、[协议类型](../../../../packages/shared/src/escode-protocol/index.ts)。

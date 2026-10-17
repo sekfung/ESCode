@@ -21,7 +21,13 @@ function run(command, args, env = {}) {
   });
 }
 
-await run("cargo", ["build", "--manifest-path", "apps/escode-host/Cargo.toml", "--bin", "escode-host"]);
+await run("cargo", [
+  "build",
+  "--manifest-path",
+  "apps/escode-host/Cargo.toml",
+  "--bin",
+  "escode-host",
+]);
 await run(
   process.execPath,
   ["--import", "tsx", "--test", "--test-timeout=300000", "--test-force-exit", ...tests],

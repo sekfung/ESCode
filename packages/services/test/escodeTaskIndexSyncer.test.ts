@@ -1014,7 +1014,10 @@ describe("createESCodeTaskIndexSyncer", () => {
       { ...snapshotWith("child", "/repo").session, sessionKind: "subagent_child" },
       { ...snapshotWith("fork", "/repo").session, sessionKind: "fork", parentSessionId: "parent" },
     ]);
-    const syncer = createESCodeTaskIndexSyncer({ agentService: env.agent, taskIndexRepo: env.repo });
+    const syncer = createESCodeTaskIndexSyncer({
+      agentService: env.agent,
+      taskIndexRepo: env.repo,
+    });
     const changed = vi.fn();
     const listener = syncer.onDynamicWorkspaceEvent("/repo")(changed);
     syncer.ensureWorkspaceSubscription({ workspacePath: "/repo" });
@@ -1081,7 +1084,10 @@ describe("createESCodeTaskIndexSyncer", () => {
 
   it("SAT28: child 完整快照不重新写入主列表", async () => {
     const env = setupEnv();
-    const syncer = createESCodeTaskIndexSyncer({ agentService: env.agent, taskIndexRepo: env.repo });
+    const syncer = createESCodeTaskIndexSyncer({
+      agentService: env.agent,
+      taskIndexRepo: env.repo,
+    });
     const snapshot = snapshotWith("child", "/repo", { userMessageText: "child prompt" });
     snapshot.session.sessionKind = "subagent_child";
     await syncer.syncSnapshotAndBroadcast(snapshot, { broadcastReason: "task_status_changed" });

@@ -334,8 +334,6 @@ describe("desktopWindowChrome", () => {
     expect(params.nodeintegrationinsubframes).toBe("true");
   });
 
-
-
   it("repaints the Windows desktop window after manual resize finishes", async () => {
     vi.useFakeTimers();
     stubProcessPlatform("win32");
@@ -536,8 +534,6 @@ describe("desktopWindowChrome", () => {
     );
     expect(electronMocks.shellOpenExternal).not.toHaveBeenCalled();
   });
-
-
 
   it("opens command-click webview popup requests in the system browser", async () => {
     const { createBrowserWindow } = await import("../src/main/desktopWindowChrome.js");

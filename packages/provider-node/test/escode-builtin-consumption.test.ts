@@ -24,7 +24,10 @@ it("更新只改变后续 Registry 消费，Personal 覆盖/历史选择与已�
   const active = join(root, "active.json");
   const personal = join(root, "personal.json");
   const release = JSON.parse(
-    await readFile(new URL("../../../config/provider/escode-builtin.json", import.meta.url), "utf8"),
+    await readFile(
+      new URL("../../../config/provider/escode-builtin.json", import.meta.url),
+      "utf8",
+    ),
   );
   release.config.modelConfigRules.modelRules.push({
     modelMatch: "test-model-.*",

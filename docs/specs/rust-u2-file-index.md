@@ -33,14 +33,14 @@
 
 ## 4. 方法
 
-| 方法 | 行为 |
-| --- | --- |
+| 方法                                                                            | 行为                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `searchWorkspaceFiles({rootPath, workspaceIdentity?, query, limit?, refresh?})` | `limit` 缺省 1000，`trunc` 后夹到 `[0,1000]`；`limit` 非有限数或 `query` 非字符串 → `Invalid workspace file search query or limit`；`limit=0` → `[]`；其余取索引（`refresh` 透传）→ top-K 打分 → 条目 `{name,path,relativePath,type}` |
-| `listWorkspaceFilesLength({rootPath})` | 索引（不传 identity、不 refresh）`packed` 的 UTF-16 长度，`Int` |
-| `listWorkspaceFilesRange({rootPath, offset, length})` | `packed` 的 UTF-16 区间 `[offset, offset+length)`（`offset`/`length` 先 `trunc`、夹到 ≥0；越界返回 `""`），裸字符串 |
-| `readWorkspaceFileSearchIgnore({rootPath})` | 文件存在 → `{content, source:"file"}`；否则模板预览 `{content, source:"template"}` |
-| `applyWorkspaceFileSearchIgnoreTransform({rootPath, transform})` | `sync-gitignore` / `reset-defaults`，按两个分区标记重写；任一标记缺失则整体按模板重建 |
-| `writeWorkspaceFileSearchIgnore({rootPath, content})` | 原子写（同目录临时文件 + fsync + rename） |
+| `listWorkspaceFilesLength({rootPath})`                                          | 索引（不传 identity、不 refresh）`packed` 的 UTF-16 长度，`Int`                                                                                                                                                                       |
+| `listWorkspaceFilesRange({rootPath, offset, length})`                           | `packed` 的 UTF-16 区间 `[offset, offset+length)`（`offset`/`length` 先 `trunc`、夹到 ≥0；越界返回 `""`），裸字符串                                                                                                                   |
+| `readWorkspaceFileSearchIgnore({rootPath})`                                     | 文件存在 → `{content, source:"file"}`；否则模板预览 `{content, source:"template"}`                                                                                                                                                    |
+| `applyWorkspaceFileSearchIgnoreTransform({rootPath, transform})`                | `sync-gitignore` / `reset-defaults`，按两个分区标记重写；任一标记缺失则整体按模板重建                                                                                                                                                 |
+| `writeWorkspaceFileSearchIgnore({rootPath, content})`                           | 原子写（同目录临时文件 + fsync + rename）                                                                                                                                                                                             |
 
 打分（`getWorkspaceFileSearchCandidateScore`）逐字照搬：query/文本均 `trim().toLowerCase()`；`startsWith` → `len(text)-len(q)`；子串 → `100+index`；
 否则子序列 → `200 + Σ间隔 + (len(text)-len(q))`；`name`、`relativePath+25`、`min(relativePath,path)+300` 取最小；字符串索引/长度全部按 UTF-16 码元。
@@ -72,10 +72,10 @@ top-K：按 `(score, 原索引)` 升序取前 `limit`；空 query → 目录排�
 
 ## 7. 交付记录
 
-| 项 | 证据 |
-| --- | --- |
-| 服务实现 | `host-services/src/file_index/`（`mod` 缓存与服务、`scan` 遍历与默认过滤、`ignore_rules` 规则与模板、`search` UTF-16 打分、`codec` 打包） |
-| RPC 面 | `host-rpc/src/domains_file_index.rs` 并入 `file` channel；`host-proto` `IMPLEMENTED` 登记 6 个方法（`file` 17/17） |
-| Rust 单测 | 打分档位与 UTF-16、top-K 稳定性、打包往返（含 TAB/LF/反斜杠/Windows 根）、默认过滤/extname、缓存（TTL 内命中、refresh、规则变更失效）、长度与区间、规则预览/同步 |
-| TS 差分 | `packages/desktop/test/rustHostFileIndex.test.ts`：32 套规则 × 夹具树（索引内容与分块打包拼接）、30 个 query × 8 种 limit、非法参数、区间边界、规则读/转换/写（含标记缺失与无尾换行）。**两边必须用同一个根目录**——打分含绝对路径，先跑 TS、清空后再跑 Rust |
-| 负向验证 | ① 子序列间隔加倍 ② 规则改成大小写敏感 ③ 打包不转义反斜杠 ④ 目录排序反转 ⑤ 同分按索引倒序，差分均失败 |
+| 项        | 证据                                                                                                                                                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 服务实现  | `host-services/src/file_index/`（`mod` 缓存与服务、`scan` 遍历与默认过滤、`ignore_rules` 规则与模板、`search` UTF-16 打分、`codec` 打包）                                                                                                                   |
+| RPC 面    | `host-rpc/src/domains_file_index.rs` 并入 `file` channel；`host-proto` `IMPLEMENTED` 登记 6 个方法（`file` 17/17）                                                                                                                                          |
+| Rust 单测 | 打分档位与 UTF-16、top-K 稳定性、打包往返（含 TAB/LF/反斜杠/Windows 根）、默认过滤/extname、缓存（TTL 内命中、refresh、规则变更失效）、长度与区间、规则预览/同步                                                                                            |
+| TS 差分   | `packages/desktop/test/rustHostFileIndex.test.ts`：32 套规则 × 夹具树（索引内容与分块打包拼接）、30 个 query × 8 种 limit、非法参数、区间边界、规则读/转换/写（含标记缺失与无尾换行）。**两边必须用同一个根目录**——打分含绝对路径，先跑 TS、清空后再跑 Rust |
+| 负向验证  | ① 子序列间隔加倍 ② 规则改成大小写敏感 ③ 打包不转义反斜杠 ④ 目录排序反转 ⑤ 同分按索引倒序，差分均失败                                                                                                                                                        |

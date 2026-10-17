@@ -201,7 +201,7 @@ stdin/stdout/stderr、exit/kill/chdir，以免破坏 MCP stdio 或关闭 child�
 | NRM-05 | add dir           | 绝对路径首次 true、重复 false、相对路径拒绝                                                                                               |
 | NRM-06 | output            | write/console/result、BigInt/circular error、image blocks、`_meta` 投影正确                                                               |
 | NRM-07 | timeout/cancel    | kernel reset，旧 async continuation 和旧 browser bridge 不可复用                                                                          |
-| NRM-08 | browser bootstrap | 使用宿主 `ESCODE_PLUGIN_ROOT` 构造跨平台 file URL 并 import `scripts/browser-client.mjs` 后 `agent.browsers` 可用；不从 Skill 目录猜路径   |
+| NRM-08 | browser bootstrap | 使用宿主 `ESCODE_PLUGIN_ROOT` 构造跨平台 file URL 并 import `scripts/browser-client.mjs` 后 `agent.browsers` 可用；不从 Skill 目录猜路径  |
 | NRM-09 | browser command   | pipe 校验 token/schema/context，调用同 session BrowserControlPort                                                                         |
 | NRM-10 | forged pipe       | 错 token、非法 op/command、错误 session 均 fail closed                                                                                    |
 | NRM-11 | plugin disabled   | browser skill/client bridge 不注入，宿主 `node_repl` 仍可执行通用 JS                                                                      |

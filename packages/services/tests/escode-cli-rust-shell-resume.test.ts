@@ -128,9 +128,6 @@ test(
     assert.doesNotMatch(String(node.shell.firstTool), /Microsoft Windows/);
     assert.match(String(node.shell.secondTool), /Microsoft Windows/);
     // 钉住原因：App stdio 链路没有 shell 快照 entry，冷恢复只能按当前设置解析。
-    assert.deepEqual(node.entryTypes, [
-      "runtime/execution_state",
-      "runtime/model_selection",
-    ]);
+    assert.deepEqual(node.entryTypes, ["runtime/execution_state", "runtime/model_selection"]);
   },
 );

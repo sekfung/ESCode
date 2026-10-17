@@ -10,7 +10,11 @@ import {
   TID_V4_FEEDBACK_LIKE,
   testId,
 } from "@escode/shared";
-import type { AssistantTextRow, ReasoningRow, UserInputRow } from "@escode/shared/escode-protocol-v4";
+import type {
+  AssistantTextRow,
+  ReasoningRow,
+  UserInputRow,
+} from "@escode/shared/escode-protocol-v4";
 import type { CodeCommentComposerAttachment } from "@/lib/codeCommentContext.js";
 import { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
 import type { ConversationSelectionReference } from "@/lib/conversationSelectionReference.js";

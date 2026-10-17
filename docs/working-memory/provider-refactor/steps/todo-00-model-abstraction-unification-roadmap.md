@@ -153,7 +153,7 @@ Telemetry 当前设计另有问题，但本轮明确不重构：
 | [`07`](./todo-07-account-connection-selection-and-access-context-cutover.md) | 已完成 | Account Connection 收口         | 结构化连接选择、Account Access、Request Auth、Off-Peak 与 MCP 使用同一事实链        | Todo 03 完整类型边界     |
 | [`08`](./todo-08-legacy-model-catalog-retirement.md)                         | 已完成 | Legacy Model Catalog 退役       | 删除 Catalog/override、Reasoning State，并以 Config 驱动 MFJS Tool Schema 投影      | Todo 02、03 已完成       |
 | [`09`](./todo-09-off-peak-model-selection-legacy-projection-retirement.md)   | 已完成 | Off-Peak 旧模型投影退役         | 隐藏 Provider 以 scoped Selection View 统一候选、Reasoning 与双重校验               | Todo 03、08              |
-| [`10`](./todo-10-escode-builtin-provider-config-naming-cutover.md)            | 已完成 | ESCode Built-in Config 命名切换  | Provider Config 的 `official` 领域、代码和物理命名原子退出，不保留兼容              | 可独立执行               |
+| [`10`](./todo-10-escode-builtin-provider-config-naming-cutover.md)           | 已完成 | ESCode Built-in Config 命名切换 | Provider Config 的 `official` 领域、代码和物理命名原子退出，不保留兼容              | 可独立执行               |
 | [`11`](./todo-11-provider-runtime-composition-boundary-cleanup.md)           | 草案   | Provider Runtime 组合边界清理   | 审查 Node Config 资源、Host/Agent 组合根和唯一生命周期 owner                        | 待人工逐项裁决           |
 | [`12`](./todo-12-model-selection-validation-boundary-cutover.md)             | 已完成 | Model Selection 校验边界收口    | Facade 只提供用户候选，Registry/ModelFactory 承担权威执行校验                       | 可独立执行               |
 | [`13`](./todo-13-target-host-model-selection-authority.md)                   | 已完成 | 目标 Host 模型选择权威收口      | local/remote 读取目标 Host，删除临时 App/字符串选择并按 workspaceKey 隔离状态       | 建议在 Todo 12 之后      |
@@ -209,7 +209,7 @@ Host 用户选择事实、Workspace 默认与产品持久化；Todo 14 只完成
 
 | 等级           | 关系                                      | 为什么必须检查                                           | 证据                                                       |
 | -------------- | ----------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
-| must-inspect   | Core Runtime -> ModelFactory/Model        | 删除旧 Adapter 和 Connection 入口                        | `apps/escode-cli/packages/core/src/runtime`                 |
+| must-inspect   | Core Runtime -> ModelFactory/Model        | 删除旧 Adapter 和 Connection 入口                        | `apps/escode-cli/packages/core/src/runtime`                |
 | completed      | Bootstrap -> Provider Registry -> Adapter | 已删除第二份可变 AI SDK Registry，Model 创建时一次装配   | `provider-registry-model-runtime.ts`                       |
 | must-inspect   | Adapter runner -> AI SDK                  | 保留所有 Provider IO 行为，同时缩小装配接口              | `adapters/src/model/runner.ts`、`model-execution.ts`       |
 | must-inspect   | Contracts -> ModelRef/Result/Event        | `ModelRef` 混合身份、选择和 variant                      | `contracts/src/model/index.ts`、`events/session.events.ts` |

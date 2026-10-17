@@ -317,7 +317,6 @@ export function createCodingPlanFamilyAvailabilityResolver(
     void providers;
     void context;
     return Promise.resolve({});
-
   };
 }
 

@@ -235,11 +235,7 @@ describe("知识库 · 图谱 E2E", () => {
       timeoutMsg: "没有找到设置入口按钮",
     });
     await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
-    expect(
-      await $(
-        sel(testId(TID_SETTINGS_SECTION_NAV, "knowledge")),
-      ).isExisting(),
-    ).toBe(false);
+    expect(await $(sel(testId(TID_SETTINGS_SECTION_NAV, "knowledge"))).isExisting()).toBe(false);
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
       timeout: 15000,
       timeoutMsg: "设置页没有返回按钮",

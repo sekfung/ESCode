@@ -81,14 +81,14 @@ impl Spawner {
 
 ### 3.2 实例级全局状态归属
 
-| 状态 | owner（u1 起） | 说明 |
-| --- | --- | --- |
-| env/cwd/argv/exe | `InstanceContext.env` | 实例树内一律走访问器 |
-| spawn 账目与 panic | `Spawner` | 每实例一个 |
-| usage sink | 实例覆盖 + 进程回退 | `set_model_usage_sink` 在实例树内调用时写实例槽 |
-| media cache root | 实例覆盖 + 进程回退 | 同上 |
-| network 文件层（`net_config::install`） | 进程级（u1 维持） | 多实例同进程且 workspace 网络配置不同时会互相覆盖；u2 随 Host 装配迁入实例上下文，登记为已知债务 |
-| file_log、Windows 代码页、locale 头、host/browser broker | 进程级 | 派生自进程环境/进程单例，与实例身份无关，登记为已批准差异 |
+| 状态                                                     | owner（u1 起）        | 说明                                                                                             |
+| -------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
+| env/cwd/argv/exe                                         | `InstanceContext.env` | 实例树内一律走访问器                                                                             |
+| spawn 账目与 panic                                       | `Spawner`             | 每实例一个                                                                                       |
+| usage sink                                               | 实例覆盖 + 进程回退   | `set_model_usage_sink` 在实例树内调用时写实例槽                                                  |
+| media cache root                                         | 实例覆盖 + 进程回退   | 同上                                                                                             |
+| network 文件层（`net_config::install`）                  | 进程级（u1 维持）     | 多实例同进程且 workspace 网络配置不同时会互相覆盖；u2 随 Host 装配迁入实例上下文，登记为已知债务 |
+| file_log、Windows 代码页、locale 头、host/browser broker | 进程级                | 派生自进程环境/进程单例，与实例身份无关，登记为已批准差异                                        |
 
 ### 3.3 Link 双传输（app-server）
 
@@ -164,15 +164,15 @@ WorkspaceOwnerGuard::drop：先注销登记表条目，再释放/关闭文件锁
 
 ## 4. 验收（对应父计划阶段 1 验收行）
 
-| 验收项 | 证据 |
-| --- | --- |
-| cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值 | 测试：进程 cwd/env 与实例不同，实例内 workspace 解析、identity、上下文端口读到 RuntimeOptions 值 |
-| 同进程两 workspace 并发无串扰 | 测试：两实例不同 data_dir 并发 createSession/sendText（fake model），会话事实互不可见；usage sink 互不串扰 |
-| 关闭后再 spawn 正确 | 测试：spawn → EOF 收口 → 同 options 再 spawn（锁已释放）成功；同 options 双 spawn 第二个返回 `WorkspaceOwned` |
-| 环境读取检查为 0 | 边界脚本规则通过（`pnpm check:escode-cli-rust`） |
-| 双传输差分全绿 | 新增一致性测试：同场景经 MemoryLink 与 StdioLink（`std::io::pipe`）产出相同帧序列/顺序/关闭语义；既有差分套件不回退 |
-| 进程内控制延迟基线 | `examples/embed_control_latency.rs` 实测 capabilities 往返 p50/p95，数字回写本文件 §6 |
-| 实例级收口断言 | 测试：serve 返回后 `tasks.running()` 为空 |
+| 验收项                                              | 证据                                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值 | 测试：进程 cwd/env 与实例不同，实例内 workspace 解析、identity、上下文端口读到 RuntimeOptions 值                    |
+| 同进程两 workspace 并发无串扰                       | 测试：两实例不同 data_dir 并发 createSession/sendText（fake model），会话事实互不可见；usage sink 互不串扰          |
+| 关闭后再 spawn 正确                                 | 测试：spawn → EOF 收口 → 同 options 再 spawn（锁已释放）成功；同 options 双 spawn 第二个返回 `WorkspaceOwned`       |
+| 环境读取检查为 0                                    | 边界脚本规则通过（`pnpm check:escode-cli-rust`）                                                                    |
+| 双传输差分全绿                                      | 新增一致性测试：同场景经 MemoryLink 与 StdioLink（`std::io::pipe`）产出相同帧序列/顺序/关闭语义；既有差分套件不回退 |
+| 进程内控制延迟基线                                  | `examples/embed_control_latency.rs` 实测 capabilities 往返 p50/p95，数字回写本文件 §6                               |
+| 实例级收口断言                                      | 测试：serve 返回后 `tasks.running()` 为空                                                                           |
 
 ## 5. 测试落点
 
@@ -187,10 +187,10 @@ WorkspaceOwnerGuard::drop：先注销登记表条目，再释放/关闭文件锁
 进程内控制 RPC 往返（`tests/embed_memory_link.rs::in_process_control_round_trip_latency_baseline`，
 2026-10-14，Linux x86_64，debug 构建，MemoryLink NDJSON 路径）：
 
-| 指标 | 实测 | 对标（ZCode-rs 进程内 duplex+NDJSON） | 阶段 4 目标 |
-| --- | ---: | ---: | ---: |
-| p50 | 0.250 ms | 0.2–0.3 ms | ≤0.1 ms（免序列化直传） |
-| p95 | 0.334 ms | — | — |
+| 指标 |     实测 | 对标（ZCode-rs 进程内 duplex+NDJSON） |             阶段 4 目标 |
+| ---- | -------: | ------------------------------------: | ----------------------: |
+| p50  | 0.250 ms |                            0.2–0.3 ms | ≤0.1 ms（免序列化直传） |
+| p95  | 0.334 ms |                                     — |                       — |
 
 与对标仓库同量级，符合阶段 1 只做链路抽象的定位；阶段 4 换类型化直传后按上表收紧。
 

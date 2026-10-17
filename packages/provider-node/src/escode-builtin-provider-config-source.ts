@@ -61,7 +61,9 @@ export class NodeESCodeBuiltinProviderConfigSource implements ProviderSource<Pro
     return snapshotFromRelease(release, this.#sourceKey);
   }
 
-  async applyRemoteRelease(release: ESCodeBuiltinRelease): Promise<ApplyESCodeBuiltinReleaseResult> {
+  async applyRemoteRelease(
+    release: ESCodeBuiltinRelease,
+  ): Promise<ApplyESCodeBuiltinReleaseResult> {
     this.#assertNotDisposed();
     await this.#ensureWatcher();
     const result = await withFileLock(this.#activeFilePath, async () => {

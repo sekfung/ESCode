@@ -34,7 +34,10 @@ export function createTopicResourceBridge(
   const pending = new Map<string, { taskId: string; controller: AbortController }>();
   let disposed = false;
   return {
-    async read(value: unknown, trace?: ESCodeProtocolTrace): Promise<ESCodeTopicResourceReadResult> {
+    async read(
+      value: unknown,
+      trace?: ESCodeProtocolTrace,
+    ): Promise<ESCodeTopicResourceReadResult> {
       const request = escodeTopicResourceReadParamsSchema.parse(value);
       if (disposed) throw new Error("Topic resource connection is closed");
       if (pending.has(request.requestId))

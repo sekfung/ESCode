@@ -77,16 +77,16 @@ ESCode runtime 内部继续使用 camelCase `HookInput` 作为主契约；插件
 stdin 必须额外带上 Claude Marketplace 常用 snake_case alias，保证只读旧字段的脚本可
 以运行，同时不破坏 ESCode 自身字段：
 
-| ESCode 字段       | Claude 兼容 alias | 适用事件                                                                  | 说明                                      |
-| ---------------- | ----------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
-| `hookEventName`  | `hook_event_name` | 全部事件                                                                  | 已有兼容字段，继续保留。                  |
-| `sessionId`      | `session_id`      | 全部事件                                                                  | 已有兼容字段，继续保留。                  |
-| `toolName`       | `tool_name`       | `PreToolUse` / `PermissionRequest` / `PostToolUse` / `PostToolUseFailure` | 无损 alias。                              |
-| `toolInput`      | `tool_input`      | `PreToolUse` / `PermissionRequest` / `PostToolUse` / `PostToolUseFailure` | 无损 alias，保持原始输入结构。            |
+| ESCode 字段      | Claude 兼容 alias | 适用事件                                                                  | 说明                                       |
+| ---------------- | ----------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `hookEventName`  | `hook_event_name` | 全部事件                                                                  | 已有兼容字段，继续保留。                   |
+| `sessionId`      | `session_id`      | 全部事件                                                                  | 已有兼容字段，继续保留。                   |
+| `toolName`       | `tool_name`       | `PreToolUse` / `PermissionRequest` / `PostToolUse` / `PostToolUseFailure` | 无损 alias。                               |
+| `toolInput`      | `tool_input`      | `PreToolUse` / `PermissionRequest` / `PostToolUse` / `PostToolUseFailure` | 无损 alias，保持原始输入结构。             |
 | `toolCallId`     | `tool_use_id`     | `PreToolUse` / `PermissionRequest` / `PostToolUse` / `PostToolUseFailure` | 无损 alias，使用当前 ESCode tool call id。 |
-| `toolResponse`   | `tool_response`   | `PostToolUse`                                                             | 成功工具的完整结构化输出。                |
-| `isInterrupt`    | `is_interrupt`    | `PostToolUseFailure`                                                      | 标记错误是否由中断产生。                  |
-| `transcriptPath` | `transcript_path` | 全部事件                                                                  | 当前 session 的临时 transcript 文件路径。 |
+| `toolResponse`   | `tool_response`   | `PostToolUse`                                                             | 成功工具的完整结构化输出。                 |
+| `isInterrupt`    | `is_interrupt`    | `PostToolUseFailure`                                                      | 标记错误是否由中断产生。                   |
+| `transcriptPath` | `transcript_path` | 全部事件                                                                  | 当前 session 的临时 transcript 文件路径。  |
 
 `PostToolUse` 同时保留 ESCode 的 `toolResultPreview`，但 Claude 兼容脚本必须读取完整
 `tool_response`；preview 不能替代完整结构化结果。`PostToolUseFailure.error` 对外固定为字符串。

@@ -54,10 +54,10 @@ sequenceDiagram
       开始时固定一次，Rust 的 `(session, "user-execution")` 缓存同效）；
     - **跨进程续跑**：两侧都按当前设置重新解析（Node 没有快照可恢复，Rust 缓存已随进程消失），
       把设置从 Git Bash 改成 CMD 后，续跑的下一条 Bash 两侧都改用 cmd。
-    结论：Rust 复请求的行为与 Node 一致，不要为此加会话级快照。
-    验收：`packages/services/tests/escode-cli-rust-shell-switch.test.ts`（同一进程内改设置，会话内
-    仍用旧 shell）与 `packages/services/tests/escode-cli-rust-shell-resume.test.ts`（跨进程续跑改用
-    新 shell，并断言 Node 侧没有 `bash_shell_selection` entry）；两例都逐字比较两侧工具结果。
+      结论：Rust 复请求的行为与 Node 一致，不要为此加会话级快照。
+      验收：`packages/services/tests/escode-cli-rust-shell-switch.test.ts`（同一进程内改设置，会话内
+      仍用旧 shell）与 `packages/services/tests/escode-cli-rust-shell-resume.test.ts`（跨进程续跑改用
+      新 shell，并断言 Node 侧没有 `bash_shell_selection` entry）；两例都逐字比较两侧工具结果。
 
 ### 子代理继承父会话的 shell 选择（2026-09-30）
 

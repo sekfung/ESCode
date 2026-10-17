@@ -2,25 +2,25 @@
 
 ## Feature Summary
 
-| Field                         | Value                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Developer intent / capability | M1 通用与编程模式的展示差异与面板保留                                                                   |
-| Change layer                  | presentation、option-source、draft-default、validation、persistence                                     |
-| Operating mode                | implementation-handoff；按已确认的产品语义补齐收尾验证                                                  |
+| Field                         | Value                                                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Developer intent / capability | M1 通用与编程模式的展示差异与面板保留                                                                    |
+| Change layer                  | presentation、option-source、draft-default、validation、persistence                                      |
+| Operating mode                | implementation-handoff；按已确认的产品语义补齐收尾验证                                                   |
 | Primary seeds                 | `createESCodeStore`、`useIsGeneralMode`、`useAppPanels`、`ToolCallBlockComponent`、`ConversationRowView` |
-| Out of scope                  | 模型提示词、产物管理、统一文件预览、设置按钮位移、修改 continuous/replayable 协议                       |
+| Out of scope                  | 模型提示词、产物管理、统一文件预览、设置按钮位移、修改 continuous/replayable 协议                        |
 
 ## UI Surface Matrix
 
-| 用户场景 / UI 入口      | 共享实现                                                 | 展示/权威 owner、默认与落点           | 校验 / 提交动作                     | 模式边界 / 隔离不变量                      |
-| ----------------------- | -------------------------------------------------------- | ------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| 用户场景 / UI 入口      | 共享实现                                                 | 展示/权威 owner、默认与落点            | 校验 / 提交动作                     | 模式边界 / 隔离不变量                      |
+| ----------------------- | -------------------------------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------------------ |
 | 设置外观 / 头像菜单切换 | `settingsCodePreview` / `WorkspaceSidebarFooter`         | ESCodeStore；默认 coding；localStorage | setInterfaceMode / 现有广播         | Desktop/Web 共用；不改任务模式、模型或权限 |
-| 查看命令与文件修改      | `ToolCallBlocks` 四个 renderer                           | 原始 tool 节点，只派生展示            | canToggle/forceOpen、标题与详情过滤 | 不删除原始结果；文件点击仍沿用既有预览     |
-| 思考 / 正式回答         | `ConversationRowView` / `MessageResponse`                | 原始 row；代码预览偏好                | 思考原文展示、forceCodeWrap         | 流式/完成均应用；不写回原文                |
-| 状态 Git 区 / 轮次汇总  | `conversationStatusPanelModel` / `ConversationTurnGroup` | 原始 Git 与任务投影                   | 隐藏 Git model / 汇总               | 不停止 Git 查询或改写仓库                  |
-| 新建审查/终端           | `AnimatedSidePanePanel` / quickPick / Terminal           | useAppPanels；现有标签与终端状态      | 过滤选项、阻止新建                  | 已打开项保留；既有关闭仍工作               |
-| 外部打开                | `WorkspaceEditorButtonGroup` / openWithEditors           | 已安装程序 / 既有选中偏好             | 过滤为文件管理器                    | 不覆盖已保存编辑器偏好                     |
-| Dev 设置隔离            | SettingService                                           | 显式 home 覆盖 / 原环境回退           | 既有 get/update                     | 未配置覆盖时兼容原路径                     |
+| 查看命令与文件修改      | `ToolCallBlocks` 四个 renderer                           | 原始 tool 节点，只派生展示             | canToggle/forceOpen、标题与详情过滤 | 不删除原始结果；文件点击仍沿用既有预览     |
+| 思考 / 正式回答         | `ConversationRowView` / `MessageResponse`                | 原始 row；代码预览偏好                 | 思考原文展示、forceCodeWrap         | 流式/完成均应用；不写回原文                |
+| 状态 Git 区 / 轮次汇总  | `conversationStatusPanelModel` / `ConversationTurnGroup` | 原始 Git 与任务投影                    | 隐藏 Git model / 汇总               | 不停止 Git 查询或改写仓库                  |
+| 新建审查/终端           | `AnimatedSidePanePanel` / quickPick / Terminal           | useAppPanels；现有标签与终端状态       | 过滤选项、阻止新建                  | 已打开项保留；既有关闭仍工作               |
+| 外部打开                | `WorkspaceEditorButtonGroup` / openWithEditors           | 已安装程序 / 既有选中偏好              | 过滤为文件管理器                    | 不覆盖已保存编辑器偏好                     |
+| Dev 设置隔离            | SettingService                                           | 显式 home 覆盖 / 原环境回退            | 既有 get/update                     | 未配置覆盖时兼容原路径                     |
 
 ## Shared And Divergent Behavior
 

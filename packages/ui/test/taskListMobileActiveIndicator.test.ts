@@ -15,8 +15,9 @@ vi.mock("@/store/escodeSessionStore.js", async () => {
   );
   return {
     ...actual,
-    useESCodeSessionStore: (selector: (state: { workspaces: Record<string, unknown> }) => unknown) =>
-      selector({ workspaces: Object.fromEntries(workspaceStateByPath) }),
+    useESCodeSessionStore: (
+      selector: (state: { workspaces: Record<string, unknown> }) => unknown,
+    ) => selector({ workspaces: Object.fromEntries(workspaceStateByPath) }),
   };
 });
 

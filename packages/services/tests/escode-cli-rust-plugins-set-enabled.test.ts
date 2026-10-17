@@ -52,8 +52,7 @@ async function pluginsUnder(root: string) {
   return dirs;
 }
 
-const pick = (plugin: any) =>
-  Object.fromEntries(FIELDS.map((field) => [field, plugin[field]]));
+const pick = (plugin: any) => Object.fromEntries(FIELDS.map((field) => [field, plugin[field]]));
 
 async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-set-${kind}-`));
@@ -68,13 +67,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -86,9 +79,7 @@ async function observe(kind: Runtime) {
     const userConfigPath = join(root, ".escode", "cli", "config.json");
     const workspaceConfigPath = join(f.cwd, ".escode", "config.json");
     // 紧凑写法 + 补丁目标之外的 key（含 `1.0` 这类数字）：用来验证保序与 JSON.stringify 排版。
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await writeFile(
       userConfigPath,
       JSON.stringify({
@@ -116,8 +107,7 @@ async function observe(kind: Runtime) {
         };
       }
     };
-    const scrub = (text: string) =>
-      text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
+    const scrub = (text: string) => text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
     const enableBeta = await call({ pluginId: "beta@inline", enabled: true });
     const userFile = scrub(await readFile(userConfigPath, "utf8"));
     const disableAlphaByName = await call({
@@ -131,11 +121,7 @@ async function observe(kind: Runtime) {
       pluginId: "ghost@some-market",
       enabled: false,
     });
-    const listed = (await h.client.request(
-      "plugins/list",
-      { workspace },
-      z.any(),
-    )) as any;
+    const listed = (await h.client.request("plugins/list", { workspace }, z.any())) as any;
     const observation = {
       enableBeta,
       userFile,
@@ -168,21 +154,12 @@ test("Node and Rust toggle plugins with the same result and on-disk config", asy
   assert.equal((node.enableBeta as any).plugin.skillCount, 0);
   assert.equal((node.enableBeta as any).plugin.enabledSource, "user");
   assert.equal((node.disableAlphaByName as any).plugin.id, "alpha@inline");
-  assert.equal(
-    (node.disableAlphaByName as any).plugin.enabledSource,
-    "workspace",
-  );
+  assert.equal((node.disableAlphaByName as any).plugin.enabledSource, "workspace");
   assert.match(node.userFile, /"zeta": \{\n {4}"keep": \[\n {6}1,/);
-  assert.match(
-    node.userFile,
-    /"ghost@some-market": true,\n {6}"beta@inline": true\n/,
-  );
+  assert.match(node.userFile, /"ghost@some-market": true,\n {6}"beta@inline": true\n/);
   assert.match(node.notFound.error ?? "", /Plugin not found: nope@inline/);
   // 只声明未安装的配置行不在已发现集合里，开关它与 TS 一样报未找到。
-  assert.match(
-    node.missingRow.error ?? "",
-    /Plugin not found: ghost@some-market/,
-  );
+  assert.match(node.missingRow.error ?? "", /Plugin not found: ghost@some-market/);
   assert.equal(node.listedEnabled["beta@inline"], true);
   assert.equal(node.listedEnabled["alpha@inline"], false);
 });

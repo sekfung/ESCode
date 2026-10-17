@@ -21,7 +21,9 @@ type SetFn = (
   partial:
     | ESCodeSessionStoreState
     | Partial<ESCodeSessionStoreState>
-    | ((state: ESCodeSessionStoreState) => ESCodeSessionStoreState | Partial<ESCodeSessionStoreState>),
+    | ((
+        state: ESCodeSessionStoreState,
+      ) => ESCodeSessionStoreState | Partial<ESCodeSessionStoreState>),
 ) => void;
 type GetFn = () => ESCodeSessionStoreState;
 

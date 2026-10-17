@@ -182,7 +182,6 @@ describe("escodeEndpoint", () => {
     );
   });
 
-
   it("resolves all product endpoints for the test product environment", () => {
     expect(resolveRuntimeProductEndpointConfig({ ESCODE_ENV: "test" })).toMatchObject({
       escodeEnv: "test",

@@ -42,10 +42,9 @@ const builtins = [
 ];
 const reserved = [
   ...new Set(
-    BUILTIN_ESCODE_SLASH_COMMAND_HELP_ENTRIES.flatMap((e) => [e.name, ...(e.aliases ?? [])]).concat([
-      "compress",
-      "plan",
-    ]),
+    BUILTIN_ESCODE_SLASH_COMMAND_HELP_ENTRIES.flatMap((e) => [e.name, ...(e.aliases ?? [])]).concat(
+      ["compress", "plan"],
+    ),
   ),
 ].filter((name) => isReservedESCodeSlashCommandName(name));
 await emit("domain/src/slash_commands.json", { builtins, reserved });

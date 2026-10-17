@@ -183,9 +183,6 @@ describe("remote workspace connect telemetry IPC", () => {
     expect(options.logger.warn).toHaveBeenCalledTimes(2);
   });
 
-
-
-
   it("把 renderer attachment-ready ACK 转发给对应窗口 session manager", async () => {
     const confirmRendererAttachmentReady = vi.fn();
     await registerHarness({ confirmRendererAttachmentReady });

@@ -69,7 +69,9 @@ async function runVariant(root, variant, snapshot, params, seed) {
     {},
     {
       get: (_target, key) =>
-        key === "getWorkspaceEmitter" ? () => ({ fire() {}, event: () => ({ dispose() {} }) }) : disposable,
+        key === "getWorkspaceEmitter"
+          ? () => ({ fire() {}, event: () => ({ dispose() {} }) })
+          : disposable,
     },
   );
   const service = createESCodeTaskServiceAdapter({
@@ -169,7 +171,9 @@ async function main() {
     if (process.argv.includes("--check")) {
       const current = await readFile(OUT, "utf8");
       if (current !== text) {
-        console.error(`[task-projection] 期望资产已过期：${OUT}\n运行 node --import tsx ${process.argv[1]} 重新生成`);
+        console.error(
+          `[task-projection] 期望资产已过期：${OUT}\n运行 node --import tsx ${process.argv[1]} 重新生成`,
+        );
         process.exit(1);
       }
       console.log(`[task-projection] 期望资产一致：${OUT}`);

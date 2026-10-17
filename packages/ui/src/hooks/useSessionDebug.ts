@@ -35,7 +35,8 @@ export function useSessionDebug({
           workspaceIdentity,
           sessionId: taskId,
         });
-        if (!disposed) setResult({ key: scopeKey, service: escodeAgentService, data, error: false });
+        if (!disposed)
+          setResult({ key: scopeKey, service: escodeAgentService, data, error: false });
       } catch {
         if (!disposed)
           setResult((previous) => ({

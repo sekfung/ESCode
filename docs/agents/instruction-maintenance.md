@@ -21,7 +21,7 @@
 | 根 AGENTS.md                      | 任务边界、spec、关键工程约束、验证与完成条件、阅读入口 | 所有仓库任务                                |
 | packages/ui/AGENTS.md             | UI 服务访问、状态、平台适配、日志                      | UI 组件、页面、样式或 hooks 变更            |
 | packages/services/AGENTS.md       | 服务日志和服务层注意事项                               | 服务实现变更                                |
-| apps/escode-cli/AGENTS.md          | CLI 特有契约、工具链和验证                             | CLI 代码变更                                |
+| apps/escode-cli/AGENTS.md         | CLI 特有契约、工具链和验证                             | CLI 代码变更                                |
 | docs/agents/runtime-boundaries.md | 进程、工作区身份、桌面/手机状态边界                    | process、workspace 状态、远控或实时链路变更 |
 | .claude/CLAUDE.md 与 CLI 对应入口 | 导入共享 AGENTS.md                                     | Claude 加载项目指令                         |
 | 现有领域文档、skills              | 领域事实、专用工具与工作流                             | 根文件或任务命中对应触发条件                |
@@ -57,4 +57,3 @@
 - 已核对本地 Markdown 链接、Claude 导入目标、根/CLI 脚本定义，以及被引用文件是否纳入 Git；检查改动文件格式与 diff 空白。
 - architecture-governance 通过 skill-creator 通用校验。E2E skill 原有 `disable-model-invocation` 字段不被该校验器支持，修改前后得到相同报错；保留原调用策略，并额外核对 YAML、字段差异与工作流语义。此项是既有兼容限制，不报告为通用校验通过。
 - 本次仅改指令、文档和 skill 展示元数据，按纯文档规则验收，未运行应用 typecheck、lint、UT 或 E2E。真实开发效果仍待后续同类任务观察。
-

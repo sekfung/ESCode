@@ -29,15 +29,9 @@ async function seed(root: string) {
     version: "1.0.0",
   });
   await mkdir(join(installPath, "skills", "s"), { recursive: true });
-  await writeFile(
-    join(installPath, "skills", "s", "SKILL.md"),
-    "---\nname: s\n---\nbody\n",
-  );
+  await writeFile(join(installPath, "skills", "s", "SKILL.md"), "---\nname: s\n---\nbody\n");
   await mkdir(join(installPath, "agents"), { recursive: true });
-  await writeFile(
-    join(installPath, "agents", "a.md"),
-    "---\nname: a\n---\nbody\n",
-  );
+  await writeFile(join(installPath, "agents", "a.md"), "---\nname: a\n---\nbody\n");
   await writeJson(join(storage, "installed_plugins.json"), {
     version: 1,
     plugins: [
@@ -145,13 +139,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -161,9 +149,7 @@ async function observe(kind: Runtime) {
     await configureRegistry(f);
     await seed(root);
     const userConfigPath = join(root, ".escode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await writeJson(userConfigPath, {
       ...before,
       plugins: {
@@ -182,24 +168,12 @@ async function observe(kind: Runtime) {
     });
     const h = f.start();
     const workspace = { workspacePath: f.cwd, workspaceKey: f.cwd };
-    const result = (await h.client.request(
-      "plugins/overview",
-      { workspace },
-      z.any(),
-    )) as any;
+    const result = (await h.client.request("plugins/overview", { workspace }, z.any())) as any;
     const scrub = (value: unknown) =>
-      JSON.parse(
-        JSON.stringify(value).replaceAll(
-          JSON.stringify(root).slice(1, -1),
-          "<root>",
-        ),
-      );
+      JSON.parse(JSON.stringify(value).replaceAll(JSON.stringify(root).slice(1, -1), "<root>"));
     for (const item of result.installedPlugins ?? []) delete item.hookDetails;
     const known = JSON.parse(
-      await readFile(
-        join(root, ".escode", "cli", "plugins", "known_marketplaces.json"),
-        "utf8",
-      ),
+      await readFile(join(root, ".escode", "cli", "plugins", "known_marketplaces.json"), "utf8"),
     );
     for (const record of known.marketplaces) delete record.addedAt;
     const observation = {
@@ -222,23 +196,16 @@ test("Node and Rust return the same plugins overview", async () => {
   assert.deepEqual(rust.result.marketplaces, node.result.marketplaces);
   assert.deepEqual(rust.result.availablePlugins, node.result.availablePlugins);
   assert.deepEqual(rust.result.installedPlugins, node.result.installedPlugins);
-  assert.deepEqual(
-    rust.result.restorableBuiltins,
-    node.result.restorableBuiltins,
-  );
+  assert.deepEqual(rust.result.restorableBuiltins, node.result.restorableBuiltins);
   assert.deepEqual(rust.result.diagnostics, node.result.diagnostics);
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);
   // 自检：fixture 覆盖了预期的分支。
-  const byId = (items: any[]) =>
-    Object.fromEntries(items.map((item) => [item.id, item]));
+  const byId = (items: any[]) => Object.fromEntries(items.map((item) => [item.id, item]));
   const markets = byId(node.result.marketplaces);
   assert.equal(markets.acme.pluginCount, 3);
   assert.deepEqual(markets.acme.featured, ["tool"]);
-  assert.equal(
-    markets.broken.refreshFailure.code,
-    "marketplace_refresh_failed",
-  );
+  assert.equal(markets.broken.refreshFailure.code, "marketplace_refresh_failed");
   assert.equal(markets.declared.pluginCount, 0);
   assert.equal(markets["zcode-plugins-official"].isOfficial, true);
   const installed = byId(node.result.installedPlugins);

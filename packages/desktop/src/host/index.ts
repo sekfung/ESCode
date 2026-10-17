@@ -2548,7 +2548,9 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
   if (msg.type === HostMessageTypes.SessionMessageDeliveryResult) {
     const escodeTaskService = activeServices?.getOptional(IESCodeTaskService);
     if (!escodeTaskService) {
-      logger.warn("session message delivery result received before ESCode task service initialized");
+      logger.warn(
+        "session message delivery result received before ESCode task service initialized",
+      );
       return;
     }
     void escodeTaskService.sendSessionMessageDeliveryResult(msg.result).catch((error) => {

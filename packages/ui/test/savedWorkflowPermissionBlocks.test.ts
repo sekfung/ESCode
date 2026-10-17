@@ -48,7 +48,9 @@ const STANDARD_OPTIONS = [
   { optionId: "deny", kind: "deny", name: "Deny", response: { decision: "deny" } },
 ];
 
-function buildRunRequest(overrides: Partial<ESCodePermissionRequest> = {}): ESCodePermissionRequest {
+function buildRunRequest(
+  overrides: Partial<ESCodePermissionRequest> = {},
+): ESCodePermissionRequest {
   return {
     type: "permission_request",
     taskId: "task-1",

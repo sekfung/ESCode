@@ -18,7 +18,9 @@ const script = [
 ].join("\n");
 
 const call = (id: string, name: string, args: unknown) => ({
-  tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }],
+  tool_calls: [
+    { index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+  ],
 });
 
 async function observe(kind: "node" | "rust") {
@@ -56,7 +58,11 @@ async function observe(kind: "node" | "rust") {
     const h: Harness = f.start();
     const workspace = { workspacePath: h.workspace, workspaceKey: h.workspace };
     const parse = { parse: (value: unknown) => value } as any;
-    await h.client.request("workspace/updateDynamicWorkflowPolicy", { workspace, enabled: true }, parse);
+    await h.client.request(
+      "workspace/updateDynamicWorkflowPolicy",
+      { workspace, enabled: true },
+      parse,
+    );
     const sessionId = await h.create();
     await h.subscribe(`conversation/${sessionId}`);
     let seen = 0;
@@ -87,7 +93,11 @@ async function observe(kind: "node" | "rust") {
     clearInterval(pump);
     const q = async (method: string, params: Record<string, unknown>) => {
       try {
-        return (await h.client.request(`v4/conversation/${method}` as any, { sessionId, ...params }, parse)) as any;
+        return (await h.client.request(
+          `v4/conversation/${method}` as any,
+          { sessionId, ...params },
+          parse,
+        )) as any;
       } catch (error) {
         return { error: error instanceof Error ? error.message : String(error) };
       }
@@ -106,7 +116,9 @@ async function observe(kind: "node" | "rust") {
     });
     const workspaceNodes = await q("workflowRunWorkspace", { runId });
     const node = workspaceNodes.nodes?.[0];
-    const nodeResult = node ? await q("workflowRunNodeResult", { runId, siteId: node.siteId, ordinal: node.ordinal }) : null;
+    const nodeResult = node
+      ? await q("workflowRunNodeResult", { runId, siteId: node.siteId, ordinal: node.ordinal })
+      : null;
     await h.close();
     const rootText = JSON.stringify(root).slice(1, -1);
     const scrub = (value: unknown) =>

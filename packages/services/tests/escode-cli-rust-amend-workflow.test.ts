@@ -11,7 +11,9 @@ import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const script = ['const paths = await files.glob("*.txt");', "return { count: paths.length };"].join("\n");
+const script = ['const paths = await files.glob("*.txt");', "return { count: paths.length };"].join(
+  "\n",
+);
 const revised = [
   'const paths = await files.glob("*.txt");',
   'log("revised");',
@@ -24,7 +26,9 @@ const call = (id: string, name: string, args: unknown) => ({
   ],
 });
 const toolResult = (req: any, id: string) =>
-  String(req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "");
+  String(
+    req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "",
+  );
 
 async function observe(kind: "node" | "rust") {
   const root = await mkdtemp(join(tmpdir(), `escode-amend-workflow-${kind}-`));

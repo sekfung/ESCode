@@ -34,9 +34,7 @@ export function hasRunningESCodeTimeline(messages: readonly TaskChatMessage[]): 
   return messages.some((message) => isRunningESCodeTimeline(message.syntheticTimeline));
 }
 
-export function hasRunningContextCompactionTimeline(
-  messages: readonly TaskChatMessage[],
-): boolean {
+export function hasRunningContextCompactionTimeline(messages: readonly TaskChatMessage[]): boolean {
   return messages.some((message) => {
     const timeline = message.syntheticTimeline;
     return (
@@ -46,12 +44,8 @@ export function hasRunningContextCompactionTimeline(
   });
 }
 
-export function hasRunningGoalVerificationTimeline(
-  messages: readonly TaskChatMessage[],
-): boolean {
-  return messages.some((message) =>
-    isRunningGoalVerificationTimeline(message.syntheticTimeline),
-  );
+export function hasRunningGoalVerificationTimeline(messages: readonly TaskChatMessage[]): boolean {
+  return messages.some((message) => isRunningGoalVerificationTimeline(message.syntheticTimeline));
 }
 
 export function hasRunningGoalContinuationMessage(messages: readonly TaskChatMessage[]): boolean {
@@ -71,7 +65,6 @@ export function hasRunningGoalContinuationMessage(messages: readonly TaskChatMes
 
 export function hasRunningGoalRuntimeSignal(messages: readonly TaskChatMessage[]): boolean {
   return (
-    hasRunningGoalVerificationTimeline(messages) ||
-    hasRunningGoalContinuationMessage(messages)
+    hasRunningGoalVerificationTimeline(messages) || hasRunningGoalContinuationMessage(messages)
   );
 }

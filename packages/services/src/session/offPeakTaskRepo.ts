@@ -109,7 +109,9 @@ function rowToTask(row: OffPeakTaskRow): ESCodeOffPeakTask {
   };
 }
 
-function readOffPeakModelSelection(row: OffPeakTaskRow): ESCodeOffPeakTask["modelSelection"] | null {
+function readOffPeakModelSelection(
+  row: OffPeakTaskRow,
+): ESCodeOffPeakTask["modelSelection"] | null {
   if (row.model_selection) {
     try {
       const parsed = modelSelectionSchema.safeParse(JSON.parse(row.model_selection));

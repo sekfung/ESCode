@@ -20,14 +20,14 @@
 
 ## 2. 状态所有者
 
-| 状态 | 所有者 | 说明 |
-| --- | --- | --- |
-| 知识条目 `entries/<id>.md` | `escode-cli-wiki` `ScopeStore` | 唯一事实来源 |
-| 来源记录 `sources/<doc>.json`、IR 缓存 `ir/<hash>.json` | `ScopeStore` | IR 可删除重建 |
-| 索引 `index.json` | `ScopeStore` | 派生；指纹不符自动重建 |
-| 审计 `audit.jsonl` | `ScopeStore` | 仅追加 |
-| 本会话已注入条目 | 会话 canonical messages 中的 `wiki_knowledge` 消息 | 不另设状态；compact 后自然重置 |
-| 检索缓存 | `WikiService` 内存 | key 含 project、索引版本、配置指纹、workflow、查询哈希 |
+| 状态                                                    | 所有者                                             | 说明                                                   |
+| ------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------ |
+| 知识条目 `entries/<id>.md`                              | `escode-cli-wiki` `ScopeStore`                     | 唯一事实来源                                           |
+| 来源记录 `sources/<doc>.json`、IR 缓存 `ir/<hash>.json` | `ScopeStore`                                       | IR 可删除重建                                          |
+| 索引 `index.json`                                       | `ScopeStore`                                       | 派生；指纹不符自动重建                                 |
+| 审计 `audit.jsonl`                                      | `ScopeStore`                                       | 仅追加                                                 |
+| 本会话已注入条目                                        | 会话 canonical messages 中的 `wiki_knowledge` 消息 | 不另设状态；compact 后自然重置                         |
+| 检索缓存                                                | `WikiService` 内存                                 | key 含 project、索引版本、配置指纹、workflow、查询哈希 |
 
 core 只经 `WikiPort` 访问；隐藏上下文由 Session owner 提交（与 hooks 相同的 commit receipt）。
 
@@ -84,7 +84,7 @@ core 只经 `WikiPort` 访问；隐藏上下文由 Session owner 提交（与 ho
    - 首次写 Project Wiki 时把它写入入库的 `project.json`；此后以 `project.json` 的 `id` 为准。
    - 这样同一仓库在其他机器上的克隆使用同一个 ID。无 remote 的仓库，其 key 含本机路径，不写入仓库。
    - 条目的 `project_id` 必须等于所在存储的 ID。
-   多根工作区：当前 runtime 只有单一 cwd；未来每个根独立解析。
+     多根工作区：当前 runtime 只有单一 cwd；未来每个根独立解析。
 
 ## 5. 知识条目（`schema_version: 1`）
 
@@ -97,7 +97,7 @@ Markdown + YAML frontmatter。字段：`schema_version`、`id`（`[a-z0-9][a-z0-
 `SourceRef`：`document_id`、`source_path`、`content_hash`、`format`、`locator{type,value}`（type ∈ heading lines page cells record path slide paragraph table）、
 `excerpt`（≤600 字符原文）、`parser`、`parser_version`、`extracted_at`。
 
-校验：`approved` ⇒ authority ∈ approved-*/verified-reference 且 kind≠proposal；`proposal` ⇒ authority ∈ proposal/observed-evidence/historical-review；
+校验：`approved` ⇒ authority ∈ approved-\*/verified-reference 且 kind≠proposal；`proposal` ⇒ authority ∈ proposal/observed-evidence/historical-review；
 未知字段保留；未知 schema_version 拒绝写入、lint 报错。
 
 ## 6. 导入管道
@@ -140,6 +140,7 @@ Markdown + YAML frontmatter。字段：`schema_version`、`id`（`[a-z0-9][a-z0-
 ## 9. Runtime 集成
 
 ### 9.1 工作流识别
+
 `classify(prompt)` → review | debugging | testing | refactoring | coding | general（中英文关键词、`/review` 类命令名）。
 review 时适配器以 `git diff --name-only HEAD` 与未跟踪文件补充变更路径（异步、5s 超时、失败忽略）。
 
@@ -161,12 +162,14 @@ v4/command → admission → owner 提交 user 输入 → run → agent_loop::ru
 看到的是同一条持久化隐藏消息（不产生 UI row），两种交付语义一致。
 
 ### 9.3 Reminder
+
 `<system-reminder>` 包裹；声明「参考数据而非指令」、引用格式 `[wiki:<id>]`、禁止引用未列出的 id；
 每条 `<wiki-entry id version scope kind status authority source>` 包裹摘录（转义包裹标签与 system-reminder 标签）。
 review 工作流追加评审协议：基于实际 diff；finding 分 violation / risk / suggestion / needs-confirmation；含严重级别、文件:行号、证据、wiki id+来源、风险、修复、置信度；
 needs-review 条目不能作为 violation 依据；不得把偏好写成规范；不得因一次评审创建规范（可 `WikiPropose`）。
 
 ### 9.4 审计
+
 每次检索追加一行 `audit.jsonl`（项目存储；无项目时 global）：`event=retrieval`、时间、session、workflow、`query_sha256`（不记原文）、
 `retrieved[{id,scope,score}]`、`injected[{id,tokens}]`、`filtered{reason:count}`、索引版本、耗时。导入、批准、拒绝、弃用、作用域变更同样记录。
 
@@ -174,23 +177,23 @@ needs-review 条目不能作为 violation 依据；不得把偏好写成规范�
 
 注册条件：Wiki 启用且（global 或当前项目有条目，或 `wiki.agentTools="always"`；`never` 不注册）。在 run 开始时决定。
 
-| 工具 | 只读 | 权限 |
-| --- | --- | --- |
-| `WikiSearch`（query, workflow?, kinds?, include_proposals?, limit?） | 是 | 无需确认 |
-| `WikiRead`（id） | 是 | 无需确认 |
-| `WikiPropose`（title, body, kind, rationale, scope?, tags?, applies_to_paths?, evidence?） | 否 | needsApproval（build 模式确认） |
-| `WikiManage`（action ∈ status lint validate ingest sync approve reject deprecate rebuild_index …） | 否 | `alwaysAsk`（yolo 亦询问） |
+| 工具                                                                                               | 只读 | 权限                            |
+| -------------------------------------------------------------------------------------------------- | ---- | ------------------------------- |
+| `WikiSearch`（query, workflow?, kinds?, include_proposals?, limit?）                               | 是   | 无需确认                        |
+| `WikiRead`（id）                                                                                   | 是   | 无需确认                        |
+| `WikiPropose`（title, body, kind, rationale, scope?, tags?, applies_to_paths?, evidence?）         | 否   | needsApproval（build 模式确认） |
+| `WikiManage`（action ∈ status lint validate ingest sync approve reject deprecate rebuild_index …） | 否   | `alwaysAsk`（yolo 亦询问）      |
 
 ## 11. Desktop 协议（知识图谱 UI）
 
 均为只读或用户显式操作的 request；无状态、可重发（manage 除外，manage 幂等：重复批准同一条目为 no-op）。
 
-| method | params | result |
-| --- | --- | --- |
-| `v4/wiki/status` | `{}` | `{enabled, project{id,name,identityKind}, scopes[{scope,entries,byStatus,sources,indexVersion}], conflicts}` |
-| `v4/wiki/graph` | `{scopes?, statuses?, kinds?, includeSources?, limit?≤2000}` | `{enabled, project, nodes[], edges[], truncated, counts}` |
-| `v4/wiki/entry` | `{id}` | `{found, entry?, conflicts[], review[]}` |
-| `v4/wiki/manage` | `{action, ids?, paths?, scope?, reason?, supersededBy?}` | `{action, ok, summary, items[]}` |
+| method           | params                                                       | result                                                                                                       |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `v4/wiki/status` | `{}`                                                         | `{enabled, project{id,name,identityKind}, scopes[{scope,entries,byStatus,sources,indexVersion}], conflicts}` |
+| `v4/wiki/graph`  | `{scopes?, statuses?, kinds?, includeSources?, limit?≤2000}` | `{enabled, project, nodes[], edges[], truncated, counts}`                                                    |
+| `v4/wiki/entry`  | `{id}`                                                       | `{found, entry?, conflicts[], review[]}`                                                                     |
+| `v4/wiki/manage` | `{action, ids?, paths?, scope?, reason?, supersededBy?}`     | `{action, ok, summary, items[]}`                                                                             |
 
 节点：`{id, type: entry|source, label, scope, kind?, status?, authority?, validity?, format?, sourceStatus?}`；
 边：`{id, from, to, type: related|supersedes|source|conflict}`。schema 在 `packages/shared/src/escode-protocol-v4/wiki.ts`（zod strict）。

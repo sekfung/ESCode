@@ -29,9 +29,7 @@ describe("ESCodeAgentService workspace Hook Trust", () => {
         disposeAll() {}
       },
     }));
-    const { createESCodeAgentService } = await import(
-      "../src/escode-agent/escodeAgentService.js"
-    );
+    const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
     const service = createESCodeAgentService();
 
     await expect(

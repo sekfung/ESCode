@@ -876,7 +876,6 @@ html[data-document-hidden] *::after {
     --animated-gradient-text-strong: var(--color-foreground-subtle);
   }
 
-
   .cua-group-gradient-text {
     display: inline-block;
     background: linear-gradient(
@@ -1201,8 +1200,8 @@ html[data-document-hidden] *::after {
 }
 
 .escode-task-interaction-countdown-fill {
-  animation: escode-task-interaction-countdown var(--escode-interaction-remaining-ms, 240000ms) linear
-    forwards;
+  animation: escode-task-interaction-countdown var(--escode-interaction-remaining-ms, 240000ms)
+    linear forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

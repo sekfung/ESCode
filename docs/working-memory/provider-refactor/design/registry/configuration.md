@@ -12,13 +12,13 @@ ESCode Built-in 与 Personal 提供 Model Config Rules，Account Built-in 不提
 
 ## 配置来源
 
-| 来源                              | 所有者           | 持久化 | 主要内容                                                   |
-| --------------------------------- | ---------------- | ------ | ---------------------------------------------------------- |
-| ESCode Built-in Provider Config    | ESCode 产品发布   | 是     | Account Provider 定义与 Provider Template                  |
-| Account Built-in Provider Config  | 当前账号连接状态 | 否     | Built-in account Provider 的 Account Access 与动态模型成员 |
-| Personal Provider Config          | 用户             | 是     | 自定义 Provider、API Key、对已有 Provider 的最终覆盖       |
-| ESCode Built-in Model Config Rules | ESCode 产品发布   | 是     | 模型静态事实、缺省 Options、per-option raw-body map        |
-| Personal Model Config Rules       | 用户             | 是     | 对具体 Provider/Model 的稀疏覆盖                           |
+| 来源                               | 所有者           | 持久化 | 主要内容                                                   |
+| ---------------------------------- | ---------------- | ------ | ---------------------------------------------------------- |
+| ESCode Built-in Provider Config    | ESCode 产品发布  | 是     | Account Provider 定义与 Provider Template                  |
+| Account Built-in Provider Config   | 当前账号连接状态 | 否     | Built-in account Provider 的 Account Access 与动态模型成员 |
+| Personal Provider Config           | 用户             | 是     | 自定义 Provider、API Key、对已有 Provider 的最终覆盖       |
+| ESCode Built-in Model Config Rules | ESCode 产品发布  | 是     | 模型静态事实、缺省 Options、per-option raw-body map        |
+| Personal Model Config Rules        | 用户             | 是     | 对具体 Provider/Model 的稀疏覆盖                           |
 
 Catalog、Preset、Provider Family、远端 `builtinProviders/builtinModels` 和业务 hardcode 不能成为额外
 Registry Source。仍有效的系统事实迁入 ESCode Built-in Config/Rules；用户显式配置迁入 Personal；账号
@@ -357,7 +357,10 @@ Visibility 是 presentation/option-source 配置，不是安全门禁。Registry
 Effective Rules 在领域边界确定性组合：Built-in 保留发布顺序，Personal `provider-model` 保留内部顺序并统一后置：
 
 ```ts
-effectiveModelRules = ModelConfigRules.composeEffective(escodeBuiltinModelRules, personalModelRules);
+effectiveModelRules = ModelConfigRules.composeEffective(
+  escodeBuiltinModelRules,
+  personalModelRules,
+);
 ```
 
 Built-in 与 Personal 使用共同的 Rule 结构：

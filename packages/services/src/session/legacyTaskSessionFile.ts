@@ -1,5 +1,9 @@
 import type { ESCodeSessionFile, ESCodeTaskMeta } from "@escode/shared";
-import { escodeSessionFileSchema, escodeTaskMetaSchema, escodeTaskModeSchema } from "@escode/shared";
+import {
+  escodeSessionFileSchema,
+  escodeTaskMetaSchema,
+  escodeTaskModeSchema,
+} from "@escode/shared";
 
 export type LegacyTaskSessionFile = Omit<ESCodeSessionFile, "meta"> & {
   meta: Omit<ESCodeTaskMeta, "mode"> & { mode?: ESCodeTaskMeta["mode"] };

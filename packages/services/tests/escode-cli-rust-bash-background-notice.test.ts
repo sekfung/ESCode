@@ -25,7 +25,11 @@ async function observe(kind: "node" | "rust") {
             type: "function",
             function: {
               name: "Bash",
-              arguments: JSON.stringify({ command, description: "say hello", run_in_background: true }),
+              arguments: JSON.stringify({
+                command,
+                description: "say hello",
+                run_in_background: true,
+              }),
             },
           },
         ],

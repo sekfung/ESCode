@@ -214,7 +214,7 @@ interface ProviderConfig {
 | `logo`             | 展示资源 key，未知 key 回退通用图标                              |
 | `access`           | 调用所需访问材料的静态取得方式                                   |
 | `api`              | 最终 API Schema、Base URL 和静态 Header                          |
-| `builtinModelIds`  | ESCode 或 Account 层拥有的模型成员                                |
+| `builtinModelIds`  | ESCode 或 Account 层拥有的模型成员                               |
 | `personalModelIds` | Personal 层拥有的模型成员                                        |
 | `modelOrder`       | 用户对最终成员集合表达的总顺序意图                               |
 | `visibility`       | Provider 是否进入普通设置/选择投影；不影响内部精确 Registry 查找 |

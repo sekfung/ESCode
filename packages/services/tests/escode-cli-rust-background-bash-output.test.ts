@@ -22,7 +22,14 @@ async function observe(kind: "node" | "rust") {
             index: 0,
             id: "bg-1",
             type: "function",
-            function: { name: "Bash", arguments: JSON.stringify({ command, description: "two lines", run_in_background: true }) },
+            function: {
+              name: "Bash",
+              arguments: JSON.stringify({
+                command,
+                description: "two lines",
+                run_in_background: true,
+              }),
+            },
           },
         ],
       });
@@ -49,11 +56,17 @@ async function observe(kind: "node" | "rust") {
     await h.subscribe(`conversation/${sessionId}`);
     await h.command(h.envelope("sendText", sessionId, { text: "run", mode: "yolo" }));
     await h.completed(sessionId);
-    const launch = String(requests[1]?.messages?.find((m: any) => m.tool_call_id === "bg-1")?.content ?? "");
+    const launch = String(
+      requests[1]?.messages?.find((m: any) => m.tool_call_id === "bg-1")?.content ?? "",
+    );
     const workId = /ID: (\S+?)\./.exec(launch)?.[1] ?? "missing";
     const parse = { parse: (value: unknown) => value } as any;
     const read = async (id: string) => {
-      const value = (await h.client.request("v4/conversation/backgroundBashOutput", { sessionId, workId: id }, parse)) as any;
+      const value = (await h.client.request(
+        "v4/conversation/backgroundBashOutput",
+        { sessionId, workId: id },
+        parse,
+      )) as any;
       return {
         ...value,
         workId: value.workId === workId ? "<work>" : value.workId,

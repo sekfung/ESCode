@@ -15,12 +15,12 @@
 
 ## 基线接入点与改造要求
 
-| 边界          | 当前源码                                                                                                                  | 迁移要求                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 边界          | 当前源码                                                                                                                    | 迁移要求                                                            |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | 进程启动      | `packages/services/src/escode-agent/escodeAgentProcessManager.ts`                                                           | 保留 Host 的进程 owner/generation；明确 native 启动描述             |
-| 桌面存储准备  | `packages/desktop/src/host/storagePreparationProcesses.ts`                                                                | 当前只支持 Node Worker；增加原生子进程适配，不能把二进制传给 Worker |
-| RPC           | `packages/shared/src/escode-protocol/index.ts`                                                                             | NDJSON，无 `jsonrpc` 字段；保留 string/number request id、错误形状  |
-| 会话流        | `packages/shared/src/escode-protocol-v4/`                                                                                  | wireVersion=3、snapshot protocolVersion=1；ACK 先于 initial frame   |
+| 桌面存储准备  | `packages/desktop/src/host/storagePreparationProcesses.ts`                                                                  | 当前只支持 Node Worker；增加原生子进程适配，不能把二进制传给 Worker |
+| RPC           | `packages/shared/src/escode-protocol/index.ts`                                                                              | NDJSON，无 `jsonrpc` 字段；保留 string/number request id、错误形状  |
+| 会话流        | `packages/shared/src/escode-protocol-v4/`                                                                                   | wireVersion=3、snapshot protocolVersion=1；ACK 先于 initial frame   |
 | stdio client  | `packages/services/src/escode-agent/escodeProtocolClient.ts`                                                                | 用现有客户端和运行时 schema 实测，不能只用 Rust 自测                |
 | Node 专属能力 | `apps/escode-cli/packages/bootstrap/src/app/built-in-node-repl.ts`、`apps/escode-cli/packages/cli/src/dwf-child-command.ts` | 后续通过独立执行适配器迁移，不揉进核心                              |
 

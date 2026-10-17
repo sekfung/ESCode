@@ -11,8 +11,7 @@ import { readModelTrajectory } from "../src/escode-agent/modelTrajectory.js";
 // 用 App 自己的 readModelTrajectory 读两侧文件，比对映射后的记录（剔除 id / 时间 / 耗时等非确定字段）。
 type Runtime = "node" | "rust";
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const text = (m: any) =>
-  typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 
 async function observe(kind: Runtime, fullRetention = false) {
   const root = await mkdtemp(join(tmpdir(), `escode-model-io-${kind}-`));
@@ -73,13 +72,7 @@ async function observe(kind: Runtime, fullRetention = false) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           titleRequests: "respond",
@@ -113,14 +106,10 @@ async function observe(kind: Runtime, fullRetention = false) {
     sessionId = await h.create();
     await h.subscribe(`conversation/${sessionId}`);
     let after = h.messages.length;
-    await h.command(
-      h.envelope("sendText", sessionId, { text: "list todos", mode: "yolo" }),
-    );
+    await h.command(h.envelope("sendText", sessionId, { text: "list todos", mode: "yolo" }));
     await h.completed(sessionId, after);
     after = h.messages.length;
-    await h.command(
-      h.envelope("sendText", sessionId, { text: "hi again", mode: "yolo" }),
-    );
+    await h.command(h.envelope("sendText", sessionId, { text: "hi again", mode: "yolo" }));
     await h.completed(sessionId, after);
     await h.close();
   } finally {
@@ -147,11 +136,8 @@ async function observe(kind: Runtime, fullRetention = false) {
   // 落盘形态：bounded 模式有 delta/full 标记，全量保留模式不压缩、不带标记。
   const kinds: unknown[] = [];
   for (const name of files) {
-    for (const line of (await readFile(join(rollout, name), "utf8")).split(
-      "\n",
-    )) {
-      if (line.trim())
-        kinds.push(JSON.parse(line).request?.messagesKind ?? null);
+    for (const line of (await readFile(join(rollout, name), "utf8")).split("\n")) {
+      if (line.trim()) kinds.push(JSON.parse(line).request?.messagesKind ?? null);
     }
   }
   await rm(root, { recursive: true, force: true });
@@ -164,9 +150,7 @@ async function observe(kind: Runtime, fullRetention = false) {
   return {
     preference: scrub(preference ?? null),
     kinds,
-    files: files.map((name) =>
-      name.replace(/model-io-.*\.jsonl/, "model-io-<session>.jsonl"),
-    ),
+    files: files.map((name) => name.replace(/model-io-.*\.jsonl/, "model-io-<session>.jsonl")),
     records: trajectory.records.map((record) =>
       scrub({
         attempt: record.attempt,
@@ -191,8 +175,7 @@ test("Rust writes model-io that the App trajectory pane reads like Node's", asyn
   const rust = await observe("rust");
   // 落盘的压缩形态允许不同：Node 的消息带随最新消息移动的 cache 标记，前缀指纹对不上，主回合总写 full；
   // Rust 投影后无这些标记，可以合法地写 delta。App 展开后的内容才是契约（下方逐条比对）。
-  for (const kind of rust.kinds)
-    assert.ok(["full", "delta", "tail"].includes(kind as string));
+  for (const kind of rust.kinds) assert.ok(["full", "delta", "tail"].includes(kind as string));
   assert.equal(rust.kinds.length, node.kinds.length);
   node.kinds = rust.kinds = [];
   // 先逐条比对，失败时更容易定位是哪一次调用。
@@ -214,7 +197,5 @@ test("full model-IO retention is applied the same way as Node", async () => {
   const rust = await observe("rust", true);
   assert.deepEqual(rust, node);
   assert.equal((node.preference as any).fullRetentionEnabled, true);
-  assert.ok(
-    node.kinds.length > 0 && node.kinds.every((kind: unknown) => kind === null),
-  );
+  assert.ok(node.kinds.length > 0 && node.kinds.every((kind: unknown) => kind === null));
 });

@@ -20,8 +20,8 @@
 
 | 检查                                | 结果                                           |
 | ----------------------------------- | ---------------------------------------------- |
-| `pnpm test:escode-cli-rust`          | 34 Rust / 97 App 集成测试通过，0 失败、0 跳过  |
-| `pnpm check:escode-cli-rust`         | 边界、fmt、全 target Clippy `-D warnings` 通过 |
+| `pnpm test:escode-cli-rust`         | 34 Rust / 97 App 集成测试通过，0 失败、0 跳过  |
+| `pnpm check:escode-cli-rust`        | 边界、fmt、全 target Clippy `-D warnings` 通过 |
 | `pnpm typecheck`                    | 通过                                           |
 | `pnpm lint`                         | 0 errors / 70 条既有 warnings                  |
 | `pnpm fmt:check`                    | 通过                                           |

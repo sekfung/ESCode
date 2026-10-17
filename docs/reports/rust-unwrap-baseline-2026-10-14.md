@@ -10,21 +10,21 @@ Node 脚本扫描 `crates/*/src` 与根 `src` 的 `.rs` 文件：排除 `*_tests
 
 ## 基线（2026-10-14，P0#4 清理后）
 
-| crate | unwrap | expect |
-| --- | ---: | ---: |
-| `core` | 157 | 0 |
-| `domain` | 83 | 27 |
-| `tools` | 55 | 18 |
-| `model` | 9 | 0 |
-| `app-server` | 3 | 0 |
-| `state` | 3 | 0 |
-| `host` | 2 | 2 |
-| `protocol` | 1 | 0 |
-| `core-api` | 0 | 0 |
-| `tui` | 0 | 0 |
-| `wiki` | 0 | 0 |
-| root `src` | 0 | 0 |
-| **合计** | **313** | **47** |
+| crate        |  unwrap | expect |
+| ------------ | ------: | -----: |
+| `core`       |     157 |      0 |
+| `domain`     |      83 |     27 |
+| `tools`      |      55 |     18 |
+| `model`      |       9 |      0 |
+| `app-server` |       3 |      0 |
+| `state`      |       3 |      0 |
+| `host`       |       2 |      2 |
+| `protocol`   |       1 |      0 |
+| `core-api`   |       0 |      0 |
+| `tui`        |       0 |      0 |
+| `wiki`       |       0 |      0 |
+| root `src`   |       0 |      0 |
+| **合计**     | **313** | **47** |
 
 ## 本轮清理（P0#4）
 

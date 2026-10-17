@@ -104,7 +104,8 @@ async function observe(kind: Runtime) {
 
     const ack = (sessionId: string, payload: Message) =>
       h.command(h.envelope("startSavedWorkflow", sessionId, payload));
-    const projectRows = async (sessionId: string) => ((await h.rows(sessionId)).rows as any[]) ?? [];
+    const projectRows = async (sessionId: string) =>
+      ((await h.rows(sessionId)).rows as any[]) ?? [];
 
     // (1) 成功启动：ACK + 启动轮两行 + session/read + 下一次模型请求里的启动句。
     const id = await h.create();
@@ -119,8 +120,7 @@ async function observe(kind: Runtime) {
       requests.some((request) =>
         (request.messages ?? []).some(
           (message: Message) =>
-            message.role === "user" &&
-            text(message.content).includes("Started the saved workflow"),
+            message.role === "user" && text(message.content).includes("Started the saved workflow"),
         ),
       ),
     );
@@ -200,8 +200,7 @@ async function observe(kind: Runtime) {
       .flatMap((request) => request.messages ?? [])
       .filter(
         (message: Message) =>
-          message.role === "user" &&
-          text(message.content).includes("Started the saved workflow"),
+          message.role === "user" && text(message.content).includes("Started the saved workflow"),
       )
       .map((message: Message) => scrub(text(message.content)))[0];
     return {
@@ -217,7 +216,9 @@ async function observe(kind: Runtime) {
         titleSource: read.session?.titleSource ?? null,
         // 修复（CI 偶发）：启动轮在 ACK 后异步执行，读到 running 还是已收口的 idle 取决于调度快慢，
         // 两侧都可能出现；只比较它是否落在这两个合法状态内。
-        status: ["running", "idle"].includes(read.session?.status) ? "running|idle" : (read.session?.status ?? null),
+        status: ["running", "idle"].includes(read.session?.status)
+          ? "running|idle"
+          : (read.session?.status ?? null),
         sessionKind: read.session?.sessionKind ?? null,
       },
       launchSentence,

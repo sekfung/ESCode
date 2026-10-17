@@ -30,8 +30,7 @@ vi.mock("@/store/escodeSessionStore.js", () => ({
     workspaceState.taskListCache?.find((task) => task.taskId === taskId) ??
     null,
   selectWorkspaceESCodeState: () => activeWorkspaceState.current,
-  useESCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({}),
+  useESCodeSessionStore: (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 }));
 
 vi.mock("@/store/taskQueryCacheStore.js", () => ({

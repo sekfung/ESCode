@@ -9,9 +9,9 @@ Agent 在编码和 Code Review 时自动检索相关条目并注入上下文。�
 
 ## 1. 两层作用域
 
-| 作用域 | 存储位置 | 谁能看到 | 版本管理 |
-| --- | --- | --- | --- |
-| Global Wiki | `<storage>/wiki/` | 所有项目 | 否（用户本机） |
+| 作用域       | 存储位置                 | 谁能看到     | 版本管理       |
+| ------------ | ------------------------ | ------------ | -------------- |
+| Global Wiki  | `<storage>/wiki/`        | 所有项目     | 否（用户本机） |
 | Project Wiki | `<项目根>/.escode/wiki/` | 只有这个项目 | 是，随仓库提交 |
 
 - **Global 根目录**：`<storage>` 依次取 `ESCODE_STORAGE_DIR`、用户层 `storage.dir`，都没有时用 `~/.escode`，所以默认路径是 `~/.escode/wiki/`。用户层 `wiki.root` 可直接指定其他位置。
@@ -32,6 +32,7 @@ Project Wiki 的目录内容：
 - 批准、弃用等操作会修改 `entries/` 下的文件，应像普通代码一样提交并经过评审。仓库里已提交的 `approved` 条目即视为团队批准的规范。
 
 项目身份（用于生成首个项目 ID 和展示，写入 `project.json` 后以文件为准）按以下优先级确定：
+
 1. Git 远端 URL（规范化后，同一仓库的不同克隆、工作树共享知识）。
 2. 无远端时用 Git 本地根目录。
 3. 远程 workspace 使用 `workspaceIdentity`。
@@ -114,16 +115,16 @@ escode-cli-rust wiki read api-error-envelope
 
 ## 5. 维护与诊断
 
-| 命令 | 作用 |
-| --- | --- |
-| `wiki status` | 项目身份、存储位置、各作用域条目与来源统计、索引版本、配置问题 |
-| `wiki lint` | schema、重复 id、断链、长期未审核的候选等问题 |
-| `wiki validate` | 检查来源文件是否被修改、移动或删除（只报告） |
-| `wiki sync` | 处理来源变化（重新解析或标记失效） |
-| `wiki conflicts` | 规范矛盾、Global 与 Project 规则冲突、重复、待处理修订、失效来源、代码路径或版本不匹配 |
-| `wiki rebuild-index` | 从条目文件重建关键词索引（索引损坏时也会自动重建） |
-| `wiki audit --limit 50` | 最近的审计记录（检索只记录查询哈希，不记录原文） |
-| `wiki graph` | 图谱节点与边，与 Desktop 图谱页使用同一数据 |
+| 命令                    | 作用                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `wiki status`           | 项目身份、存储位置、各作用域条目与来源统计、索引版本、配置问题                         |
+| `wiki lint`             | schema、重复 id、断链、长期未审核的候选等问题                                          |
+| `wiki validate`         | 检查来源文件是否被修改、移动或删除（只报告）                                           |
+| `wiki sync`             | 处理来源变化（重新解析或标记失效）                                                     |
+| `wiki conflicts`        | 规范矛盾、Global 与 Project 规则冲突、重复、待处理修订、失效来源、代码路径或版本不匹配 |
+| `wiki rebuild-index`    | 从条目文件重建关键词索引（索引损坏时也会自动重建）                                     |
+| `wiki audit --limit 50` | 最近的审计记录（检索只记录查询哈希，不记录原文）                                       |
+| `wiki graph`            | 图谱节点与边，与 Desktop 图谱页使用同一数据                                            |
 
 所有命令都支持 `--cwd <workspace>` 和 `--json`。
 
@@ -151,8 +152,8 @@ escode-cli-rust wiki read api-error-envelope
     "autoInject": true,
     "retrieval": { "maxResults": 5, "maxInjectedTokens": 1500, "minScore": 0.3 },
     "formats": { "pdf": true, "pptx": false },
-    "converters": { "office": { "enabled": true, "command": "soffice" } }
-  }
+    "converters": { "office": { "enabled": true, "command": "soffice" } },
+  },
 }
 ```
 

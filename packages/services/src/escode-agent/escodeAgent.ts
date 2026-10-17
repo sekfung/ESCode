@@ -683,7 +683,9 @@ export interface IESCodeAgentService {
   grantWorkspaceHookTrust(
     params: ESCodeAgentGrantWorkspaceHookTrustParams,
   ): Promise<ESCodeWorkspaceHookTrustGrantResult>;
-  listMcpServerStatuses(params: ESCodeAgentListMcpServerStatusesParams): Promise<ESCodeMcpListResult>;
+  listMcpServerStatuses(
+    params: ESCodeAgentListMcpServerStatusesParams,
+  ): Promise<ESCodeMcpListResult>;
   listPlugins(params: ESCodeAgentPluginViewParams): Promise<ESCodePluginsListResult>;
   /**
    * Plugin 对话引用 catalog：session-scoped 只读投影。
@@ -756,7 +758,9 @@ export interface IESCodeAgentService {
   ): Promise<ESCodePluginsListUiSurfacesResult>;
   // 已保存工作流的 GUI 中枢：workspace 级、无会话，每次调用现扫 `<cwd>/.escode/workflows/`。
   // 全局档传 `scope: "global"`：带 workspace 就用它当载体，不带则由 services 层自选本机载体运行时。
-  listSavedWorkflows(params: ESCodeAgentListSavedWorkflowsParams): Promise<ESCodeWorkflowsListResult>;
+  listSavedWorkflows(
+    params: ESCodeAgentListSavedWorkflowsParams,
+  ): Promise<ESCodeWorkflowsListResult>;
   getSavedWorkflow(params: ESCodeAgentGetSavedWorkflowParams): Promise<ESCodeWorkflowsGetResult>;
   updateSavedWorkflowMeta(
     params: ESCodeAgentUpdateSavedWorkflowMetaParams,
@@ -818,7 +822,9 @@ export interface IESCodeAgentService {
   ): Promise<ESCodePluginsConfigureResult>;
   validatePlugin(params: ESCodeAgentValidatePluginParams): Promise<ESCodePluginsValidateResult>;
   describePlugin(params: ESCodeAgentDescribePluginParams): Promise<ESCodePluginsDescribeResult>;
-  setPluginEnabled(params: ESCodeAgentSetPluginEnabledParams): Promise<ESCodePluginsSetEnabledResult>;
+  setPluginEnabled(
+    params: ESCodeAgentSetPluginEnabledParams,
+  ): Promise<ESCodePluginsSetEnabledResult>;
   // ---- 定时任务(automation)管理 ----
   listAutomations(params: ESCodeAgentWorkspaceTarget): Promise<ESCodeAutomation[]>;
   listAllAutomations(): Promise<ESCodeAutomation[]>;
@@ -827,7 +833,9 @@ export interface IESCodeAgentService {
   deleteAutomation(params: ESCodeAgentAutomationIdParams): Promise<void>;
   setAutomationEnabled(params: ESCodeAgentSetAutomationEnabledParams): Promise<void>;
   restartAutomation(params: ESCodeAgentAutomationIdParams): Promise<void>;
-  runAutomationNow(params: ESCodeAgentAutomationIdParams): Promise<ESCodeAgentRunAutomationNowResult>;
+  runAutomationNow(
+    params: ESCodeAgentAutomationIdParams,
+  ): Promise<ESCodeAgentRunAutomationNowResult>;
   listAutomationRuns(params: ESCodeAgentAutomationIdParams): Promise<ESCodeAutomationRun[]>;
   deleteAutomationRun(params: ESCodeAgentDeleteAutomationRunParams): Promise<void>;
   generateWorkspaceText(
@@ -960,7 +968,9 @@ export interface IESCodeAgentService {
   queryConversationCommandsV4(params: ESCodeAgentCommandsQueryParams): Promise<CommandsQueryResult>;
   attachmentBeginV4(params: ESCodeAgentAttachmentBeginParams): Promise<V4AttachmentBeginResult>;
   attachmentChunkV4(params: ESCodeAgentAttachmentChunkParams): Promise<V4AttachmentChunkResult>;
-  attachmentCommitV4(params: ESCodeAgentAttachmentTerminalParams): Promise<V4AttachmentCommitResult>;
+  attachmentCommitV4(
+    params: ESCodeAgentAttachmentTerminalParams,
+  ): Promise<V4AttachmentCommitResult>;
   attachmentAbortV4(params: ESCodeAgentAttachmentTerminalParams): Promise<void>;
   /** Desktop local 已发送视频 source query；远端与 Web 返回 chunked。 */
   attachmentPreviewSourceV4(

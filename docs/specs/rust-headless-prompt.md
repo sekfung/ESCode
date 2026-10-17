@@ -10,27 +10,27 @@
 - `-h/--help` 写帮助到 stdout，退出 0；`-v/--version` 写版本，退出 0；二者先于 `-p` 检查。
 - 没有 `-p`：Rust 不提供 TUI，stderr 提示改用 `-p`，退出 2。
 
-| 选项                                               | 规则（与 Node 相同，除注明外）                                                                              |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `-p, --prompt <text>`                              | 去空白后为空：`--prompt requires non-empty text.`，退出 1                                                   |
-| `--output-format <text\|json\|stream-json>`        | 其他值：`--output-format must be one of text, json, stream-json (received: X).`；显式值优先于 `--json`     |
-| `--json`                                           | 旧别名，等同 `--output-format json`                                                                         |
+| 选项                                               | 规则（与 Node 相同，除注明外）                                                                                                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `-p, --prompt <text>`                              | 去空白后为空：`--prompt requires non-empty text.`，退出 1                                                                                                                                  |
+| `--output-format <text\|json\|stream-json>`        | 其他值：`--output-format must be one of text, json, stream-json (received: X).`；显式值优先于 `--json`                                                                                     |
+| `--json`                                           | 旧别名，等同 `--output-format json`                                                                                                                                                        |
 | `--mode <build\|edit\|plan\|yolo>`                 | 不区分大小写；其他值：`Unsupported --mode value: X. Supported modes: build, edit, plan, yolo.`；缺省 `yolo`（Node `DEFAULT_HEADLESS_PROMPT_MODE`），且总是覆盖会话已存的模式（续接时同样） |
-| `--cwd <path>`                                     | 工作区；缺省进程 cwd                                                                                        |
-| `--attach <path>`（可重复）                        | 按扩展名推断类型（图片 / 视频 / PDF / 其他文件），相对路径按工作区解析                                    |
-| `--resume <id>` / `-c, --continue`                 | 二者同时给：`--resume and --continue cannot be used together.`；`-c` 续接本工作区最近更新的根会话           |
-| `--disallowed-tools, --disallowedTools <tools...>` | 贪婪读取后续非选项参数，逗号或空白分隔（括号内不拆），`web_search` 归一为 `WebSearch`；只作用于本轮         |
-| `--surface <terminal\|desktop>`                    | 系统提示的展示面，缺省 `terminal`                                                                           |
-| `--locale <en-US\|zh-CN>`                          | 只校验（Rust 提示词不区分语言）                                                                             |
-| `--verbose`                                        | 出错时追加 `Cause:` 行                                                                                      |
-| `--data-dir`、`--config`                           | Rust 独有：数据目录与单模型配置（同 app-server）                                                           |
+| `--cwd <path>`                                     | 工作区；缺省进程 cwd                                                                                                                                                                       |
+| `--attach <path>`（可重复）                        | 按扩展名推断类型（图片 / 视频 / PDF / 其他文件），相对路径按工作区解析                                                                                                                     |
+| `--resume <id>` / `-c, --continue`                 | 二者同时给：`--resume and --continue cannot be used together.`；`-c` 续接本工作区最近更新的根会话                                                                                          |
+| `--disallowed-tools, --disallowedTools <tools...>` | 贪婪读取后续非选项参数，逗号或空白分隔（括号内不拆），`web_search` 归一为 `WebSearch`；只作用于本轮                                                                                        |
+| `--surface <terminal\|desktop>`                    | 系统提示的展示面，缺省 `terminal`                                                                                                                                                          |
+| `--locale <en-US\|zh-CN>`                          | 只校验（Rust 提示词不区分语言）                                                                                                                                                            |
+| `--verbose`                                        | 出错时追加 `Cause:` 行                                                                                                                                                                     |
+| `--data-dir`、`--config`                           | Rust 独有：数据目录与单模型配置（同 app-server）                                                                                                                                           |
 
 - 未知选项：与 Node 同文 `Unknown option '--x'. …`，退出 1。
 - Node 有、Rust 本期不支持的选项（`--target`、`--target-replace`、`--browser-use`、`--browser-executable`、`--memory-bench`、
   `--enable-workflow`、`--force-mcs`）：明确报错 `--x is not supported by the Rust runtime.`，退出 1，不静默忽略。
 - `--output-format stream-json`：Node 逐行输出旧协议会话事件（`mapSessionEvent`），Rust 没有该事件流，V4 行增量是另一套
   schema；同一个参数在两个 runtime 输出不同结构会误导调用方，本期明确报错 `--output-format stream-json is not supported by
-  the Rust runtime yet.`，退出 1。
+the Rust runtime yet.`，退出 1。
 
 ## 执行
 
@@ -60,7 +60,7 @@ sequenceDiagram
 - 标题：不生成会话标题（Node `-p` 的 `titleGenerationEnabled: false`，`Engine::without_title_generation`），标题停在首条输入。
 - 模型：`--config`，或 Registry 环境变量（`ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` + `ESCODE_PERSONAL_PROVIDER_CONFIG_FILE`）；
   都没有时报错 `No model configured: pass --config <model.json> or set ESCODE_BUILTIN_PROVIDER_CONFIG_FILE and
-  ESCODE_PERSONAL_PROVIDER_CONFIG_FILE.`，退出 1。
+ESCODE_PERSONAL_PROVIDER_CONFIG_FILE.`，退出 1。
 
 ## 输出
 
@@ -69,7 +69,7 @@ sequenceDiagram
 - json：2 空格缩进 + 换行（Node `formatJson`），键序：
   `sessionId, traceId, turnId, response, usage?, eventCount, projection{status, turnCount, totalTokenCount, contextUsed, contextWindow}`。
   - `usage`：本轮用量（本轮 `usage.delta` 遥测累加）：`source: "provider", modelRequestCount, inputTokens, outputTokens,
-    totalTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, webFetchRequests, webSearchRequests`。
+totalTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, webFetchRequests, webSearchRequests`。
   - `projection.status`：`idle`；`turnCount`：本进程内完成的轮数（Node 投影同样只数本次运行）；`totalTokenCount`：本轮总
     token；`contextUsed` / `contextWindow`：会话的上下文用量。
 - 错误：stderr `Error: {message}`，有 trace 时追加 ` (traceId: {id})`；`--verbose` 追加 `Cause:` 行；退出 1。轮次失败

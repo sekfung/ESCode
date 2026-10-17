@@ -112,9 +112,7 @@ async function observe(kind: Runtime) {
     observation.declaredWrongId = await dry("x", "wrong");
     observation.unknownMarket = await dry("x", "nowhere");
     observation.nothingWritten = {
-      installed: await readFile(join(storage, "installed_plugins.json"), "utf8").catch(
-        () => null,
-      ),
+      installed: await readFile(join(storage, "installed_plugins.json"), "utf8").catch(() => null),
       markets: (await readdir(join(storage, "marketplaces"))).sort(),
       cache: await readdir(join(storage, "cache")).catch(() => []),
     };

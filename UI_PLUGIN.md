@@ -153,8 +153,8 @@ flowchart LR
 
 生成页面使用宿主注入的 Gen UI 接口：
 
-| 接口                                                            | 用途                                                                                  |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 接口                                                             | 用途                                                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `window.escode.widgetState`                                      | 读取已保存的页面状态，初始值可能为 `null`                                             |
 | `window.escode.setWidgetState({ modelContent, privateContent })` | 替换整个 JSON 状态快照，合计不超过 16 KiB；只有 `modelContent` 会进入下一轮模型上下文 |
 | `window.escode.sendFollowUpMessage({ prompt, title })`           | 发送后续问题，`title` 可选；没有有效用户操作时需要确认，失效或只读会话不能发送        |
@@ -189,8 +189,8 @@ flowchart LR
 
 ### 两个仓库分别负责什么
 
-| 仓库地址                                                          | 分支             | 修改范围                                       | 运行位置                                                |
-| ----------------------------------------------------------------- | ---------------- | ---------------------------------------------- | ------------------------------------------------------- |
+| 仓库地址                                                            | 分支             | 修改范围                                       | 运行位置                                                |
+| ------------------------------------------------------------------- | ---------------- | ---------------------------------------------- | ------------------------------------------------------- |
 | [zai-org/ESCode](https://github.com/zai-org/ESCode)                 | `feat/ui-plugin` | 宿主协议、侧栏和内联展示、沙箱、审批与生命周期 | `pnpm dev:desktop`                                      |
 | [zai-org/escode-plugins](https://github.com/zai-org/escode-plugins) | `feat/ui-plugin` | 插件清单、MCP 服务、页面、业务数据与资源打包   | `ui-plugins/<name>` 为源码；`plugins/<name>` 为安装产物 |
 
@@ -251,8 +251,8 @@ node apps/escode-cli/packages/cli/dist/escode.cjs plugins install excalidraw@esc
 | 通信与业务单测              | 插件仓库   | `pnpm test`                                                  | 连接顺序、版本冲突、取消等自动化回归                                  |
 | 独立安装产物                | 插件仓库   | `pnpm test:artifacts`                                        | 从仓库外启动构建产物、读取页面/资源，检查运行依赖                     |
 | 官方 App/AppBridge 页面通信 | 插件仓库   | `pnpm test:pages`                                            | Blender、Excalidraw、OpenPencil 的真实 SDK 握手、初始结果、主题和取消 |
-| Excalidraw 冒烟             | 插件仓库   | `pnpm --filter @escode/plugin-excalidraw smoke`               | 实际 stdio 服务与资源接口                                             |
-| Excalidraw 浏览器交互       | 插件仓库   | `pnpm --filter @escode/plugin-excalidraw test:e2e`            | 真实画布交互、保存、撤销/重做和冷启动；测试宿主桥不等于 Electron 沙箱 |
+| Excalidraw 冒烟             | 插件仓库   | `pnpm --filter @escode/plugin-excalidraw smoke`              | 实际 stdio 服务与资源接口                                             |
+| Excalidraw 浏览器交互       | 插件仓库   | `pnpm --filter @escode/plugin-excalidraw test:e2e`           | 真实画布交互、保存、撤销/重做和冷启动；测试宿主桥不等于 Electron 沙箱 |
 | Showcase 桌面联调           | 主仓库     | 下方 `--showcase-only` 命令                                  | 当前源码的 Agent、沙箱、真实页面与会话通信                            |
 
 测试页面前先 `pnpm build`；浏览器测试需要 Chrome，或通过 `CHROME_PATH` 指定 Chromium。Excalidraw 浏览器截图默认在系统临时目录的 `excalidraw-e2e`，可用 `EXCALIDRAW_E2E_ARTIFACTS` 指定输出路径。
@@ -273,7 +273,7 @@ ESCODE_SHOWCASE_SERVER="$PLUGINS_REPO/plugins/showcase/dist/server.mjs" \
 | 已登记来源，侧栏仍没有面板  | `plugins list --json` 的安装/启用状态；当前是否是桌面本地工作区；清单的 `ui.surfaces` 是否引用正确 `mcpServers` 键和 `ui://` URI |
 | 修改代码后还是旧页面        | 是否执行根 `pnpm build`、刷新同一来源并重装目标插件；是否仍运行旧实例或旧会话                                                    |
 | 面板打开但资源失败          | 安装目录是否有 `dist`、离线字体/脚本/WASM；用 `test:artifacts` 排除工作区依赖；检查 CSP 与资源读取上限                           |
-| 握手两次或初始画布为空      | 是否创建了两个 App，或官方 App 与 `window.escode` 混用；是否在连接前安装事件处理器并保留初始结果                                  |
+| 握手两次或初始画布为空      | 是否创建了两个 App，或官方 App 与 `window.escode` 混用；是否在连接前安装事件处理器并保留初始结果                                 |
 | 点击“引用”没有立刻发消息    | `updateModelContext` 是给下一轮添加上下文，发消息用 `sendMessage`；检查输入区的插件上下文                                        |
 | sampling 不可用或参数被拒绝 | 检查宿主是否声明 `sampling`，当前任务是否可操作，以及参数是否属于本文支持子集                                                    |
 | 改名后出现两份安装          | 插件 ID 已改变，旧名称和新名称是独立安装；按需处理旧安装，先保留数据，不直接删除插件数据目录                                     |
@@ -338,9 +338,9 @@ stdio MCP 服务的 stdout 只输出协议消息，调试日志写 stderr。定�
 
 ### 官方 MCP Apps API
 
-| API / 事件                                                      | 用途                                 | ESCode 行为与注意事项                                                                          |
+| API / 事件                                                      | 用途                                 | ESCode 行为与注意事项                                                                         |
 | --------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `new App(info, capabilities, options)`、`connect()`             | 创建页面连接并完成握手               | 每个活页面只建一个 App；不要同时访问会触发另一连接的 `window.escode`                           |
+| `new App(info, capabilities, options)`、`connect()`             | 创建页面连接并完成握手               | 每个活页面只建一个 App；不要同时访问会触发另一连接的 `window.escode`                          |
 | `getHostVersion()`、`getHostCapabilities()`、`getHostContext()` | 读取宿主、能力、主题、语言和展示模式 | 在连接完成后使用；不要只按宿主版本号猜能力                                                    |
 | `ontoolinput`、`ontoolresult`、`ontoolcancelled`                | 接收完整输入、结果和取消             | 大 UI 延迟加载时，保留初始结果再交给 UI，避免丢通知                                           |
 | `onhostcontextchanged`                                          | 响应主题、语言、尺寸或模式变化       | 更新显示；不要因此重复执行业务操作                                                            |
@@ -358,7 +358,7 @@ stdio MCP 服务的 stdout 只输出协议消息，调试日志写 stderr。定�
 | `downloadFile({ contents })`                                    | 调用原生保存对话框                   | 需要 `downloadFile` 能力；支持嵌入资源或当前服务的资源链接；取消/写入失败返回 `isError: true` |
 | `sendLog({ level, data })`                                      | 发送可观察的页面诊断                 | 不向 stdio 服务的 stdout 写调试日志；不要记录密钥或用户内容                                   |
 | `onteardown`                                                    | 释放页面监听器等资源                 | 宿主做有时限的 teardown，不应把唯一保存操作留到此时                                           |
-| `requestTeardown()`                                             | 请求宿主释放页面                     | 当前 ESCode 只记录请求；实际生命周期跟随卡片/面板，不能把它当关闭按钮                          |
+| `requestTeardown()`                                             | 请求宿主释放页面                     | 当前 ESCode 只记录请求；实际生命周期跟随卡片/面板，不能把它当关闭按钮                         |
 
 Sampling 使用接纳请求时的任务模型，不读取主聊天历史；只有 App 明确传入的历史进入请求。当前不接受 `temperature`、`tools`、原生 audio 等未实现参数，`includeContext` 只支持 `none`。回答和取消不应被自动追加为主对话回合。
 
@@ -366,14 +366,14 @@ Sampling 使用接纳请求时的任务模型，不读取主聊天历史；只�
 
 下面的 `app.request()` 是官方 App 的低层接口。请求结果应使用 `@modelcontextprotocol/core` 的对应 schema 校验。
 
-| 接口 / 字段  | 调用或声明方式                                                                            | 适用范围                                                                                                              |
-| ------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 接口 / 字段  | 调用或声明方式                                                                            | 适用范围                                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 会话视图状态 | `ui/set-widget-state`，参数 `{ widgetState }`，结果 `EmptyResultSchema`                   | 先检查 `experimental["escode/widgetState"]`；初值来自 hostContext 同名键；仅宿主内存，会话内重建可恢复，应用重启不保证 |
-| 资源模板列表 | `resources/templates/list`，结果 `ListResourceTemplatesResultSchema`                      | 当前服务的 MCP 模板目录；不要假定 App 存在 `listServerResourceTemplates()` 便捷方法                                   |
+| 资源模板列表 | `resources/templates/list`，结果 `ListResourceTemplatesResultSchema`                      | 当前服务的 MCP 模板目录；不要假定 App 存在 `listServerResourceTemplates()` 便捷方法                                    |
 | 资源订阅     | `resources/subscribe` / `resources/unsubscribe`，参数 `{ uri }`，结果 `EmptyResultSchema` | 先检查 `experimental["escode/resourceSubscribe"]`；服务端也须支持订阅                                                  |
-| 资源变更通知 | `notifications/resources/updated` / `notifications/resources/list_changed`                | 先用 `setNotificationHandler()` 注册处理器；收到 URI 后自行重新读取资源                                               |
-| 当前侧栏面板 | `app.getHostCapabilities()?.experimental?.["escode/surface"]` 返回 `{ id }`                | 清单 `ui.surfaces[].id` 与工具 `_meta.ui.surface` 保持一致                                                            |
-| CSP 放宽     | 资源 `_meta["escode/csp"]` 中 `unsafeEval`、`wasmUnsafeEval`                               | 检查 `experimental["escode/csp"]` 返回的支持标记；不等于获得文件或网络权限                                             |
+| 资源变更通知 | `notifications/resources/updated` / `notifications/resources/list_changed`                | 先用 `setNotificationHandler()` 注册处理器；收到 URI 后自行重新读取资源                                                |
+| 当前侧栏面板 | `app.getHostCapabilities()?.experimental?.["escode/surface"]` 返回 `{ id }`               | 清单 `ui.surfaces[].id` 与工具 `_meta.ui.surface` 保持一致                                                             |
+| CSP 放宽     | 资源 `_meta["escode/csp"]` 中 `unsafeEval`、`wasmUnsafeEval`                              | 检查 `experimental["escode/csp"]` 返回的支持标记；不等于获得文件或网络权限                                             |
 
 ### 现有 `window.escode` 页面
 

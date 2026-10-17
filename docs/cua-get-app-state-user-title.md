@@ -2,14 +2,14 @@
 
 ## Feature Summary
 
-| Field            | Value                                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------- |
-| Developer intent | 让模型为「读取应用界面」提供具体、用户可读的操作标题，避免所有观察动作都显示同一条泛化文案          |
-| Capability       | Computer Use observation tool projection                                                            |
-| Change layer     | validation + presentation                                                                           |
-| Operating mode   | planning                                                                                            |
+| Field            | Value                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| Developer intent | 让模型为「读取应用界面」提供具体、用户可读的操作标题，避免所有观察动作都显示同一条泛化文案           |
+| Capability       | Computer Use observation tool projection                                                             |
+| Change layer     | validation + presentation                                                                            |
+| Operating mode   | planning                                                                                             |
 | Primary seeds    | `apps/escode-cli/packages/core/src/mcp/index.ts`、`packages/ui/src/ToolCallBlocks/renderers/cua.tsx` |
-| Out of scope     | 修改 Computer Use Helper 权限边界、改变 `get_app_state` 的观察结果、要求其他 CUA 工具提供标题                |
+| Out of scope     | 修改 Computer Use Helper 权限边界、改变 `get_app_state` 的观察结果、要求其他 CUA 工具提供标题        |
 
 ## Product Contract
 
@@ -53,11 +53,11 @@ Model tool contract -----> model emits { title, app_ref, ... }
 
 ## Shared And Divergent Behavior
 
-| Concern      | Shared                                  | Deliberately different                                                          | Why it matters                               |
-| ------------ | --------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------- |
+| Concern      | Shared                                  | Deliberately different                                                          | Why it matters                                |
+| ------------ | --------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
 | 模型标题     | 与 `node_repl` 一样由模型给出短标题     | CUA title 由 Core 叠加到外部 MCP descriptor；`node_repl` 在自身 contract 中定义 | 外部 CUA server 不应被迫识别 ESCode UI 元数据 |
-| UI fallback  | 新旧会话都走同一个 CUA renderer         | 新调用优先模型标题；旧调用保留本地化固定文案                                    | 历史任务必须继续可渲染                       |
-| runtime 参数 | 原有 `app_ref`、`detail` 等参数原样传递 | 仅 `title` 在 dispatch 前移除                                                   | 不能改变观察语义或上游兼容性                 |
+| UI fallback  | 新旧会话都走同一个 CUA renderer         | 新调用优先模型标题；旧调用保留本地化固定文案                                    | 历史任务必须继续可渲染                        |
+| runtime 参数 | 原有 `app_ref`、`detail` 等参数原样传递 | 仅 `title` 在 dispatch 前移除                                                   | 不能改变观察语义或上游兼容性                  |
 
 ## Feature Relationships
 
@@ -71,12 +71,12 @@ Model tool contract -----> model emits { title, app_ref, ... }
 
 ## Must-Preserve Invariants
 
-| Invariant                                    | Surfaces/modes                           | Proof needed                           |
-| -------------------------------------------- | ---------------------------------------- | -------------------------------------- |
-| 只有官方 CUA `get_app_state` 被要求 title    | local/current/legacy server names        | bridge 单测覆盖 CUA 与普通 MCP 边界    |
-| `title` 不发送给上游 CUA                     | Agent runtime                            | `McpPort.callTool` 参数断言            |
-| 旧会话没有 title 仍可读                      | Desktop/Web/Mobile history               | renderer fallback 单测                 |
-| 模型 title 在工具卡优先于固定 app 文案       | Desktop/Web/Mobile conversation          | renderer summary 单测                  |
+| Invariant                                             | Surfaces/modes                           | Proof needed                           |
+| ----------------------------------------------------- | ---------------------------------------- | -------------------------------------- |
+| 只有官方 CUA `get_app_state` 被要求 title             | local/current/legacy server names        | bridge 单测覆盖 CUA 与普通 MCP 边界    |
+| `title` 不发送给上游 CUA                              | Agent runtime                            | `McpPort.callTool` 参数断言            |
+| 旧会话没有 title 仍可读                               | Desktop/Web/Mobile history               | renderer fallback 单测                 |
+| 模型 title 在工具卡优先于固定 app 文案                | Desktop/Web/Mobile conversation          | renderer summary 单测                  |
 | Computer Use Helper 权限和 remote attachment 语义不变 | macOS desktop-local / mobile shared host | 无 broker、protocol、delivery 文件改动 |
 
 ## Codegraph Evidence
@@ -100,13 +100,13 @@ Model tool contract -----> model emits { title, app_ref, ... }
 
 ## Boundary Decisions And Pruning
 
-| Boundary       | Decision                                  | Includes                                                            | Excludes / prunes                       | Source                    |
-| -------------- | ----------------------------------------- | ------------------------------------------------------------------- | --------------------------------------- | ------------------------- |
+| Boundary       | Decision                                  | Includes                                                             | Excludes / prunes                       | Source                    |
+| -------------- | ----------------------------------------- | -------------------------------------------------------------------- | --------------------------------------- | ------------------------- |
 | 工具范围       | 只改 `get_app_state`                      | 当前 official、`computer-use` 与 legacy `escode-cua` server identity | screenshot、click、type 等其他工具      | 用户请求                  |
-| 标题 authority | 模型 input.title 是新调用的显示 authority | 1–120 字符、用户语言                                                | UI 根据 app 名二次改写模型标题          | 用户请求 + node_repl 先例 |
-| 上游兼容       | title 在 Core dispatch 前剥离             | provider contract、history projection                               | 修改或升级外部 CUA package schema       | 当前依赖边界              |
-| 历史兼容       | 缺 title 使用既有 i18n fallback           | 旧 session、旧 provider                                             | 对历史输入做迁移                        | 兼容性不变量              |
-| 多端矩阵       | 用投影不变量剪枝                          | Desktop 与 mobile 各取代表性 renderer 单测语义                      | 展开 theme/locale × clientMode 笛卡尔积 | 无布局或 delivery 变更    |
+| 标题 authority | 模型 input.title 是新调用的显示 authority | 1–120 字符、用户语言                                                 | UI 根据 app 名二次改写模型标题          | 用户请求 + node_repl 先例 |
+| 上游兼容       | title 在 Core dispatch 前剥离             | provider contract、history projection                                | 修改或升级外部 CUA package schema       | 当前依赖边界              |
+| 历史兼容       | 缺 title 使用既有 i18n fallback           | 旧 session、旧 provider                                              | 对历史输入做迁移                        | 兼容性不变量              |
+| 多端矩阵       | 用投影不变量剪枝                          | Desktop 与 mobile 各取代表性 renderer 单测语义                       | 展开 theme/locale × clientMode 笛卡尔积 | 无布局或 delivery 变更    |
 
 ## Accepted Cases
 

@@ -1,4 +1,8 @@
-import { createLocalServices, createTopicResourcePeers, getAppConfigDir } from "@escode/services/node";
+import {
+  createLocalServices,
+  createTopicResourcePeers,
+  getAppConfigDir,
+} from "@escode/services/node";
 import {
   materializeBundledESCodeBuiltinProviderConfig,
   readBundledESCodeBuiltinProviderConfig,
@@ -11,7 +15,8 @@ async function main(): Promise<void> {
     content: readBundledESCodeBuiltinProviderConfig(),
   });
   const port = Number(process.env["PORT"]) || 3030;
-  const host = process.env["ESCODE_SERVER_HOST"]?.trim() || process.env["HOST"]?.trim() || undefined;
+  const host =
+    process.env["ESCODE_SERVER_HOST"]?.trim() || process.env["HOST"]?.trim() || undefined;
   const staticRoot = process.env["ESCODE_WEB_STATIC_ROOT"]?.trim() || undefined;
   const authToken = process.env["ESCODE_SERVER_AUTH_TOKEN"]?.trim() || undefined;
   const topicResourcePeers = createTopicResourcePeers();

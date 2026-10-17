@@ -20,7 +20,8 @@ const pick = (suffix) => {
 };
 const run = (command, args, options = {}) => {
   const result = spawnSync(command, args, { stdio: "inherit", ...options });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed: ${result.status ?? result.signal}`);
+  if (result.status !== 0)
+    throw new Error(`${command} ${args.join(" ")} failed: ${result.status ?? result.signal}`);
 };
 const capture = (command, args) => {
   const result = spawnSync(command, args, { encoding: "utf8" });
@@ -35,7 +36,9 @@ if (process.platform === "win32") {
   const target = join(temp, "escode-install");
   // NSIS 约定：/D= 必须是最后一个参数且不加引号（runner 临时目录不含空格）。
   run(installer, ["/S", `/D=${target}`]);
-  const exe = readdirSync(target).find((name) => name.endsWith(".exe") && !/^uninstall/i.test(name));
+  const exe = readdirSync(target).find(
+    (name) => name.endsWith(".exe") && !/^uninstall/i.test(name),
+  );
   if (!exe) throw new Error(`No application executable in ${target}`);
   app = join(target, exe);
   glm = join(target, "resources", "glm");
@@ -145,5 +148,8 @@ await new Promise((done, fail) => {
 });
 
 if (process.env.GITHUB_ENV) {
-  appendFileSync(process.env.GITHUB_ENV, `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n`);
+  appendFileSync(
+    process.env.GITHUB_ENV,
+    `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n`,
+  );
 }

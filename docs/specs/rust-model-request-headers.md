@@ -12,31 +12,31 @@ App 差分实测（同一 Registry 夹具）Node 的请求头：`http-referer`�
 
 ### 静态客户端头（TS `bootstrap/src/model-config.ts` buildCliESCodeSourceHeaders，进程内不变）
 
-| 头                    | 值                                                                                                       |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `http-referer`        | `ESCODE_BASE_URL` ?? `ESCODE_ENDPOINT_ORIGIN` 的 origin，缺省 `https://zcode.z.ai`                         |
+| 头                    | 值                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `http-referer`        | `ESCODE_BASE_URL` ?? `ESCODE_ENDPOINT_ORIGIN` 的 origin，缺省 `https://zcode.z.ai`                        |
 | `user-agent`          | `ESCode/{appVersion}`                                                                                     |
 | `x-zcode-app-version` | `ESCODE_APP_VERSION`（Host 给两个 runtime 都注入）；缺省时 Node 用 CLI 自身版本，Rust 用 runtime 自身版本 |
-| `x-title`             | `ESCode@electron`（argv 含 `app-server` / `agent-server`），否则 `ESCode@cli`                            |
+| `x-title`             | `ESCode@electron`（argv 含 `app-server` / `agent-server`），否则 `ESCode@cli`                             |
 | `x-release-channel`   | `ESCODE_ENV` 为 `test` → `test`，否则 `production`                                                        |
-| `x-client-language`   | 进程默认 locale（BCP 47，如 `zh-CN`），不可打印时 `unknown`                                              |
-| `x-client-timezone`   | 本机 IANA 时区（如 `Asia/Shanghai`），不可打印时 `unknown`                                               |
-| `x-zcode-agent`       | `glm`                                                                                                    |
-| `x-platform`          | `{process.platform}-{os.arch}`（`win32-x64`、`darwin-arm64`、`linux-x64`）                               |
-| `x-os-category`       | `windows` / `macos` / `linux`                                                                            |
-| `x-os-version`        | `os.release()`：Windows `10.0.{build}`，Unix 为内核版本                                                  |
+| `x-client-language`   | 进程默认 locale（BCP 47，如 `zh-CN`），不可打印时 `unknown`                                               |
+| `x-client-timezone`   | 本机 IANA 时区（如 `Asia/Shanghai`），不可打印时 `unknown`                                                |
+| `x-zcode-agent`       | `glm`                                                                                                     |
+| `x-platform`          | `{process.platform}-{os.arch}`（`win32-x64`、`darwin-arm64`、`linux-x64`）                                |
+| `x-os-category`       | `windows` / `macos` / `linux`                                                                             |
+| `x-os-version`        | `os.release()`：Windows `10.0.{build}`，Unix 为内核版本                                                   |
 
 值须为可打印 ASCII（`normalizePrintableHeaderValue`），否则省略（locale / 时区回落 `unknown`）。
 
 ### 每次请求的归因头（TS `adapters/src/model/runner-attribution.ts`，覆盖同名静态头）
 
-| 头                     | 值                                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------------- |
-| `x-request-id`         | 每次 HTTP 尝试新生成的 UUID（重试不复用）                                          |
+| 头                     | 值                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `x-request-id`         | 每次 HTTP 尝试新生成的 UUID（重试不复用）                                         |
 | `x-zcode-session-type` | 主代理轮 `main`，子代理 `subagent`，其余（压缩、标题、记忆提取、工作流等）`other` |
-| `x-zcode-trace-id`     | 会话 trace id                                                                      |
-| `x-session-id`         | 会话 id 去掉内部前缀 `sess_`、`subagent_agent_`                                    |
-| `x-query-id`           | 本轮 query id（去掉 `query_` 前缀），缺失时省略                                    |
+| `x-zcode-trace-id`     | 会话 trace id                                                                     |
+| `x-session-id`         | 会话 id 去掉内部前缀 `sess_`、`subagent_agent_`                                   |
+| `x-query-id`           | 本轮 query id（去掉 `query_` 前缀），缺失时省略                                   |
 | `x-opencode-session`   | 仅 base URL 为 `*.opencode.ai/zen/go/v1` 时，值同 `x-session-id`                  |
 
 ### 合并顺序

@@ -55,7 +55,9 @@ async function observe(kind: "node" | "rust") {
         hooks: {
           enabled: true,
           events: {
-            UserPromptSubmit: [{ hooks: [{ type: "process", command: process.execPath, args: [script] }] }],
+            UserPromptSubmit: [
+              { hooks: [{ type: "process", command: process.execPath, args: [script] }] },
+            ],
           },
         },
       }),
@@ -71,9 +73,12 @@ async function observe(kind: "node" | "rust") {
       let review: any;
       for (const m of h.messages) {
         for (const delta of m.params?.frame?.payload?.deltas ?? []) {
-          if (delta.patch && "workspaceHookAdmission" in delta.patch) admission = delta.patch.workspaceHookAdmission;
+          if (delta.patch && "workspaceHookAdmission" in delta.patch)
+            admission = delta.patch.workspaceHookAdmission;
           if (delta.patch?.pendingInteractions) {
-            review = delta.patch.pendingInteractions.find((p: any) => p.kind === "workspaceHookReview") ?? null;
+            review =
+              delta.patch.pendingInteractions.find((p: any) => p.kind === "workspaceHookReview") ??
+              null;
           }
         }
       }
@@ -105,7 +110,10 @@ async function observe(kind: "node" | "rust") {
             reviewFlowId: review.reviewFlowId,
             generation: review.generation,
             interactionId: review.interactionId,
-            decision: { action: "trust_selected", reviewItemIds: review.items.map((i: any) => i.reviewItemId) },
+            decision: {
+              action: "trust_selected",
+              reviewItemIds: review.items.map((i: any) => i.reviewItemId),
+            },
           } as any),
         )
       : undefined;
@@ -118,23 +126,38 @@ async function observe(kind: "node" | "rust") {
     await h.close();
     const rows = new Map<number, any>();
     for (const m of h.messages) {
-      for (const delta of m.params?.frame?.payload?.deltas ?? []) if (delta.row) rows.set(delta.row.rowId, delta.row);
+      for (const delta of m.params?.frame?.payload?.deltas ?? [])
+        if (delta.row) rows.set(delta.row.rowId, delta.row);
     }
     return {
-      pending: pending && { pendingCount: pending.pendingCount, digest: typeof pending.bundleDigest },
+      pending: pending && {
+        pendingCount: pending.pendingCount,
+        digest: typeof pending.bundleDigest,
+      },
       requestAck: [requestAck.status, (requestAck as any).reasonCode],
       review: review && {
         keys: Object.keys(review).sort(),
         summary: review.summary,
         warningCode: review.warningCode,
-        items: review.items.map((i: any) => ({ event: i.event, type: i.type, trustState: i.trustState, configuredEnabled: i.configuredEnabled })),
+        items: review.items.map((i: any) => ({
+          event: i.event,
+          type: i.type,
+          trustState: i.trustState,
+          configuredEnabled: i.configuredEnabled,
+        })),
       },
       respondAck: respondAck && [respondAck.status, (respondAck as any).reasonCode],
       settled,
-      contexts: requests.map((r) => r.messages.filter((m: any) => String(m.content).includes("project context")).length),
+      contexts: requests.map(
+        (r) => r.messages.filter((m: any) => String(m.content).includes("project context")).length,
+      ),
       hookRows: [...rows.values()]
         .filter((row) => row.kind === "hookInvocation")
-        .map((row) => ({ hookEventName: row.hookEventName, state: row.state, sources: row.executions.map((e: any) => e.sourceKind) })),
+        .map((row) => ({
+          hookEventName: row.hookEventName,
+          state: row.state,
+          sources: row.executions.map((e: any) => e.sourceKind),
+        })),
       schemaErrors: h.schemaErrors,
     };
   } finally {
@@ -157,7 +180,10 @@ test("Node and Rust gate and review workspace hooks the same way", async () => {
 // Settings 无会话授权（`workspace/hooks/trustGrant`）：digest 与当前工作区快照不符时两侧同样拒绝。
 test("Node and Rust answer a stale workspace hook trust grant the same way", async () => {
   const grant = async (kind: "node" | "rust") => {
-    const env = { ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath, ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle };
+    const env = {
+      ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    };
     const respond = (_req: any, res: any) => res.end();
     const f =
       kind === "node"
@@ -174,7 +200,9 @@ test("Node and Rust answer a stale workspace hook trust grant the same way", asy
       await mkdir(join(f.cwd, ".escode"), { recursive: true });
       await writeFile(
         join(f.cwd, ".escode", "config.json"),
-        JSON.stringify({ hooks: { events: { Stop: [{ hooks: [{ type: "command", command: "echo hi" }] }] } } }),
+        JSON.stringify({
+          hooks: { events: { Stop: [{ hooks: [{ type: "command", command: "echo hi" }] }] } },
+        }),
       );
       const h: Harness = f.start();
       const result = await h.client.request(

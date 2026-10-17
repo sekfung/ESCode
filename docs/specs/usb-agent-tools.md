@@ -12,13 +12,13 @@ USB 抓包是**一次性的、产物为文件**的操作，且没有需要 Host 
 
 用户口语中的几个词在实现里对应不同层次，工具的描述与技能正文必须按这张表用词，避免 Agent 选错工具：
 
-| 说法                    | 实际所在层                | 本插件的处理                                                        |
-| ----------------------- | ------------------------- | ------------------------------------------------------------------- |
-| CCID                    | USB 总线（读卡器接口类）  | `usb_decode(protocol=ccid)`：10 字节消息头 + APDU 载荷              |
-| PC/SC                   | 操作系统 API（winscard / pcsc-lite） | **不在总线上**。等价信息是 CCID 消息里的 APDU 时序，由 `ccid` 解码还原成读卡会话视图；OS API 调用抓取不在范围内 |
-| SCSI（含"SC II"等写错） | 存储命令集                | USB 上经 MSC/BOT 承载：`usb_decode(protocol=msc)` 解 CBW/CDB/CSW + sense |
-| HID                     | USB 总线（人机接口类）    | `usb_decode(protocol=hid)`：报告描述符 + 报告字段解码               |
-| U 盘 / 移动硬盘 / USB-SATA | 设备形态               | 走 `msc`；UAS（USB Attached SCSI）为 phase 2                        |
+| 说法                       | 实际所在层                           | 本插件的处理                                                                                                    |
+| -------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| CCID                       | USB 总线（读卡器接口类）             | `usb_decode(protocol=ccid)`：10 字节消息头 + APDU 载荷                                                          |
+| PC/SC                      | 操作系统 API（winscard / pcsc-lite） | **不在总线上**。等价信息是 CCID 消息里的 APDU 时序，由 `ccid` 解码还原成读卡会话视图；OS API 调用抓取不在范围内 |
+| SCSI（含"SC II"等写错）    | 存储命令集                           | USB 上经 MSC/BOT 承载：`usb_decode(protocol=msc)` 解 CBW/CDB/CSW + sense                                        |
+| HID                        | USB 总线（人机接口类）               | `usb_decode(protocol=hid)`：报告描述符 + 报告字段解码                                                           |
+| U 盘 / 移动硬盘 / USB-SATA | 设备形态                             | 走 `msc`；UAS（USB Attached SCSI）为 phase 2                                                                    |
 
 > 若"SCII"另有所指（不是 SCSI/SCSI-2），实现时按此表之外的协议处理，需要先补本节。
 
@@ -42,25 +42,25 @@ USB 抓包是**一次性的、产物为文件**的操作，且没有需要 Host 
 MCP server 名 `usb`，工具全名 `mcp__usb__<tool>`。三个工具构成单向漏斗：**探 → 抓 → 解**，
 每个工具的存在理由不重叠，Agent 只需按「我现在缺什么信息」选择。
 
-| 工具         | 审批     | 只读 | 回答的问题                                             |
-| ------------ | -------- | ---- | ------------------------------------------------------ |
-| `usb_probe`  | 默认放行 | 是   | 本机能不能抓、用什么后端、有哪些 USB 设备、有哪些现成抓包文件 |
-| `usb_capture`| 需审批   | 否   | 现场抓一段（有权限时）并落盘                            |
-| `usb_decode` | 默认放行 | 是   | 这份抓包里发生了什么：设备、协议、逐条报文、错误        |
+| 工具          | 审批     | 只读 | 回答的问题                                                    |
+| ------------- | -------- | ---- | ------------------------------------------------------------- |
+| `usb_probe`   | 默认放行 | 是   | 本机能不能抓、用什么后端、有哪些 USB 设备、有哪些现成抓包文件 |
+| `usb_capture` | 需审批   | 否   | 现场抓一段（有权限时）并落盘                                  |
+| `usb_decode`  | 默认放行 | 是   | 这份抓包里发生了什么：设备、协议、逐条报文、错误              |
 
 ### 3.1 何时用哪个工具
 
 这张表同时是技能正文（`skills/usb-capture/SKILL.md`）的核心内容，也是三个工具 description 的取材来源。
 
-| 用户症状 / 场景                                        | 第一步                                        | 第二步                                              | 结论看什么                                                        |
-| ------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
-| 读卡器 / 身份证阅读器 / 银行卡读卡器 不识别、APDU 失败 | `usb_probe`（确认 CCID 设备与抓包能力）       | `usb_capture` → `usb_decode(protocol=ccid)`         | `bError`、`bStatus`、ATR、APDU 命令名、`SW1SW2`（`6A82` 文件未找到、`6D00` 指令不支持、`6300` 校验失败、`6982` 安全状态不满足） |
-| 键盘 / 鼠标 / 摇杆 / 自定义 HID 行为异常、按键错位     | `usb_probe` 或直接用已有抓包文件               | `usb_decode(protocol=hid)`                          | 报告描述符得出的字段布局与 usage、`ReportID`、按键码、报告长度是否与描述符一致 |
-| U 盘 / 移动硬盘 读写失败、挂载失败、传输卡住           | `usb_probe`                                   | `usb_capture` → `usb_decode(protocol=msc)`          | CDB 操作码名、LB​A/长度、CSW `status`、`residue`、REQUEST SENSE 的 sense key / ASC / ASCQ |
-| 用户已经有一份 `.pcapng`（Wireshark / USBPcap / 硬件分析仪导出） | 直接 `usb_decode(view=summary)`        | 按 summary 里的协议分布转 `timeline`                | 同上；先看 summary 确定该用哪个协议视图                            |
-| 设备根本枚举不出来 / 反复重连 / 掉线                   | `usb_capture`（先让用户在抓包期间重新插拔）    | `usb_decode(view=summary)`                          | 描述符是否出现、设备地址是否变化、控制传输 STALL、错误状态         |
-| 本机不能抓包（macOS / 无权限 / 无驱动）                | `usb_probe`（返回 `remediation`）             | 让用户在别的机器或硬件分析仪抓好后把文件交给 Agent | —                                                                 |
-| 未知 / 厂商自定义类协议                                | `usb_decode(protocol=auto, view=summary)`     | `usb_decode(protocol=raw, view=timeline)`           | 端点、传输类型、长度、16 进制摘要                                  |
+| 用户症状 / 场景                                                  | 第一步                                      | 第二步                                             | 结论看什么                                                                                                                      |
+| ---------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 读卡器 / 身份证阅读器 / 银行卡读卡器 不识别、APDU 失败           | `usb_probe`（确认 CCID 设备与抓包能力）     | `usb_capture` → `usb_decode(protocol=ccid)`        | `bError`、`bStatus`、ATR、APDU 命令名、`SW1SW2`（`6A82` 文件未找到、`6D00` 指令不支持、`6300` 校验失败、`6982` 安全状态不满足） |
+| 键盘 / 鼠标 / 摇杆 / 自定义 HID 行为异常、按键错位               | `usb_probe` 或直接用已有抓包文件            | `usb_decode(protocol=hid)`                         | 报告描述符得出的字段布局与 usage、`ReportID`、按键码、报告长度是否与描述符一致                                                  |
+| U 盘 / 移动硬盘 读写失败、挂载失败、传输卡住                     | `usb_probe`                                 | `usb_capture` → `usb_decode(protocol=msc)`         | CDB 操作码名、LB​A/长度、CSW `status`、`residue`、REQUEST SENSE 的 sense key / ASC / ASCQ                                       |
+| 用户已经有一份 `.pcapng`（Wireshark / USBPcap / 硬件分析仪导出） | 直接 `usb_decode(view=summary)`             | 按 summary 里的协议分布转 `timeline`               | 同上；先看 summary 确定该用哪个协议视图                                                                                         |
+| 设备根本枚举不出来 / 反复重连 / 掉线                             | `usb_capture`（先让用户在抓包期间重新插拔） | `usb_decode(view=summary)`                         | 描述符是否出现、设备地址是否变化、控制传输 STALL、错误状态                                                                      |
+| 本机不能抓包（macOS / 无权限 / 无驱动）                          | `usb_probe`（返回 `remediation`）           | 让用户在别的机器或硬件分析仪抓好后把文件交给 Agent | —                                                                                                                               |
+| 未知 / 厂商自定义类协议                                          | `usb_decode(protocol=auto, view=summary)`   | `usb_decode(protocol=raw, view=timeline)`          | 端点、传输类型、长度、16 进制摘要                                                                                               |
 
 选型规则（写进技能正文，避免 Agent 靠猜）：
 
@@ -129,12 +129,12 @@ Linux 与 macOS **只做离线解码**：用户把别处抓到的 `.pcapng` 交�
 用户自装的第三方抓包工具**（dumpcap / USBPcapCMD 回退已删除）：那条路会把「装个 Wireshark 就能抓」变成产品的
 隐性依赖，而我们要的是「能抓就开箱即用，不能抓就明确告诉用户去别的机器抓文件」。
 
-| 平台        | 实时抓包 | 随包内容                                                             | 权限 |
-| ----------- | -------- | -------------------------------------------------------------------- | ---- |
-| Windows     | 可用     | `escode-usb-capture` 服务 + USBPcap 驱动（BSD-2-Clause，钉版本，随包安装） | 服务以 LocalSystem 运行，app 侧无需提权 |
-| Linux       | **不可用** | 无                                                                  | 只需要给用户一条明确的路：拿别处抓的文件离线分析 |
-| macOS       | **不可用** | 无                                                                  | 同上（苹果不提供公开的内核级抓包接口） |
-| 容器 / CI   | 不可用   | 无                                                                   | CI 只跑离线路径的测试；离线解码不需要特权与外部命令 |
+| 平台      | 实时抓包   | 随包内容                                                                   | 权限                                                |
+| --------- | ---------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
+| Windows   | 可用       | `escode-usb-capture` 服务 + USBPcap 驱动（BSD-2-Clause，钉版本，随包安装） | 服务以 LocalSystem 运行，app 侧无需提权             |
+| Linux     | **不可用** | 无                                                                         | 只需要给用户一条明确的路：拿别处抓的文件离线分析    |
+| macOS     | **不可用** | 无                                                                         | 同上（苹果不提供公开的内核级抓包接口）              |
+| 容器 / CI | 不可用     | 无                                                                         | CI 只跑离线路径的测试；离线解码不需要特权与外部命令 |
 
 后端的唯一标识是 `builtin`；不在产品路径上的平台 `usb_probe` 直接返回「只有离线解码」并给出平台相关原因
 （Linux：不在产品路径上；macOS：没有公开的内核级抓包接口），两者都指向同一条下一步：
@@ -267,10 +267,10 @@ USB 抓包动辄数万条，**任何视图都必须有上限**：`summary` 恒�
   1. 解开随包携带的 USBPcap 驱动包（**钉版本号**）到临时目录并 `pnputil /add-driver USBPcap.inf /install`；
   2. 注册 `escode-usb-capture` 服务（LocalSystem、自启动）并启动；
   3. 卸载时停止并删除服务（驱动是否卸载交给用户选择，避免影响其它使用 USBPcap 的工具）。
-  驱动的 BSD-2 许可证文本进 `THIRD-PARTY-NOTICES.md`；`usb-plugin` 的 `bin/win32-<arch>/` 放服务可执行文件
-  （插件包内的固定投放约定，插件按 `<pluginRoot>/bin/<platform>-<arch>/` 解析）。
-  实现落在 `apps/usb-capture-helper`：该 crate 的 pcapng 写入器、记录模型与 JSON 契约与平台无关，
-  Windows 服务作为它的第二个 bin target 复用，只新增 USBPcap 设备读取与命名管道服务端。
+     驱动的 BSD-2 许可证文本进 `THIRD-PARTY-NOTICES.md`；`usb-plugin` 的 `bin/win32-<arch>/` 放服务可执行文件
+     （插件包内的固定投放约定，插件按 `<pluginRoot>/bin/<platform>-<arch>/` 解析）。
+     实现落在 `apps/usb-capture-helper`：该 crate 的 pcapng 写入器、记录模型与 JSON 契约与平台无关，
+     Windows 服务作为它的第二个 bin target 复用，只新增 USBPcap 设备读取与命名管道服务端。
 - **Linux / macOS**：**不分发任何抓包组件**。这两条平台的路径是离线解码（拿别处抓的文件），
   不需要安装脚本、不需要 udev 规则、不需要任何特权。
 - **CI**：`check:usb-capture-helper`（fmt + clippy `-D warnings`）与 `test:usb-capture-helper`

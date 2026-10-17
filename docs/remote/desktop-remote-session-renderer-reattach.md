@@ -11,7 +11,7 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change                | 桌面端 renderer reload / React ErrorBoundary 刷新后，main 需要把仍然存活、承载该 workspace scope 的 Remote Host 重新挂到新的 renderer service store。                                                               |
 | User-visible surfaces | 已打开的 SSH / WSL / Docker remote workspace tab、远程任务列表、首次发送和文件树等 workspace RPC。                                                                                                                  |
-| Existing docs         | `docs/remote-workspace-session-unified-settings.md`、`docs/architecture/escode-code-architecture-overview.md`、`docs/architecture/message-flow.md`、`docs/web-remote-control/web-remote-control-architecture.md`。   |
+| Existing docs         | `docs/remote-workspace-session-unified-settings.md`、`docs/architecture/escode-code-architecture-overview.md`、`docs/architecture/message-flow.md`、`docs/web-remote-control/web-remote-control-architecture.md`。  |
 | Existing code owners  | `packages/desktop/src/main/desktopRemoteSessions.ts`、`packages/desktop/src/main/desktopWindowLifecycle.ts`、`packages/desktop/src/renderer/src/main.tsx`、`packages/ui/src/store/remoteWorkspaceSessionStore.ts`。 |
 | Out of scope          | 不做 SSH 自动重连；不改变手机 `/remote` 的 `web-remote-replayable` 恢复语义；不把 disconnected history tab 启动时自动连回远端。                                                                                     |
 
@@ -35,20 +35,20 @@
 
 | Domain                            | Include? | Why it can change behavior                                                         | Primary sources                                              |
 | --------------------------------- | -------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Architecture/process boundary     | yes      | renderer、desktop main、remote host 三层重新建立 RPC transport。                   | `docs/architecture/escode-code-architecture-overview.md`      |
+| Architecture/process boundary     | yes      | renderer、desktop main、remote host 三层重新建立 RPC transport。                   | `docs/architecture/escode-code-architecture-overview.md`     |
 | Workspace identity/remote runtime | yes      | 重挂必须保留 `remoteSessionId`、`target`、`workspaceIdentity/workspacePath` 隔离。 | `docs/remote-workspace-session-unified-settings.md`          |
 | Mobile remote/replayable realtime | limited  | 需要确认不影响手机 replayable 远控 attachment。                                    | `docs/web-remote-control/web-remote-control-architecture.md` |
 | Conversation/session behavior     | no       | 不修改 session 内容、queue、snapshot 或 replay 规则。                              | `docs/testing/conversation-session-e2e-coverage-matrix.md`   |
 
 ## Concept Map
 
-| Concept                            | Why it matters                                                                 | Source                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `RemoteServicePort`                | renderer 注册 remote services 的唯一运行态入口。                               | `packages/desktop/src/renderer/src/main.tsx`         |
+| Concept                       | Why it matters                                                                 | Source                                               |
+| ----------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `RemoteServicePort`           | renderer 注册 remote services 的唯一运行态入口。                               | `packages/desktop/src/renderer/src/main.tsx`         |
 | `remoteWorkspaceSessionsById` | main 侧 logical session、Host 引用和 attachment 的权威索引。                   | `packages/desktop/src/main/desktopRemoteSessions.ts` |
-| `sshHostsByPoolKey`                 | 同窗口 SSH Host 存活和 readiness 的权威索引。                                  | `packages/desktop/src/main/desktopRemoteSessions.ts` |
-| `AttachServicePort`                | remote host 已有 `activeServices` 时可补挂新的 RPC port。                      | `packages/desktop/src/host/index.ts`                 |
-| disconnected remote tab            | settings 恢复的 remote tab 不含 live `remoteSessionId`，必须等待用户手动重连。 | `docs/remote-workspace-session-unified-settings.md`  |
+| `sshHostsByPoolKey`           | 同窗口 SSH Host 存活和 readiness 的权威索引。                                  | `packages/desktop/src/main/desktopRemoteSessions.ts` |
+| `AttachServicePort`           | remote host 已有 `activeServices` 时可补挂新的 RPC port。                      | `packages/desktop/src/host/index.ts`                 |
+| disconnected remote tab       | settings 恢复的 remote tab 不含 live `remoteSessionId`，必须等待用户手动重连。 | `docs/remote-workspace-session-unified-settings.md`  |
 
 ## State Owners
 
@@ -80,11 +80,11 @@
 
 ## Accepted Cases
 
-| Case ID   | Setup                                                                | Action                                                            | Assertions                                                                                                              | Evidence layers                 | E2E status |
-| --------- | -------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------- |
+| Case ID   | Setup                                                                | Action                                                            | Assertions                                                                                                                                | Evidence layers                 | E2E status |
+| --------- | -------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ---------- |
 | DRS-RR-01 | 已 connected 的 remote workspace session 属于 `webContents.id=99`。  | 同一窗口 renderer 重新 ready，main 调用 remote session reattach。 | 旧 attachment 被精确 detach，child 收到带新 `attachmentId` 的 `AttachServicePort`；renderer 收到同一 `sessionId` 的 `RemoteServicePort`。 | unit: main manager message/port | covered    |
-| DRS-RR-02 | pending remote workspace session 尚未收到 `Connected`。              | renderer 重新 ready。                                             | 不投递端口。                                                                                                            | unit: main manager no-op        | planned    |
-| DRS-RR-05 | renderer 收到 remote `RemoteServicePort` 时 base services 尚未注册。 | 随后收到本地 `ServicePort`。                                      | remote port 不丢弃；base services ready 后 flush pending remote ports。                                                 | unit: renderer source guard     | planned    |
+| DRS-RR-02 | pending remote workspace session 尚未收到 `Connected`。              | renderer 重新 ready。                                             | 不投递端口。                                                                                                                              | unit: main manager no-op        | planned    |
+| DRS-RR-05 | renderer 收到 remote `RemoteServicePort` 时 base services 尚未注册。 | 随后收到本地 `ServicePort`。                                      | remote port 不丢弃；base services ready 后 flush pending remote ports。                                                                   | unit: renderer source guard     | planned    |
 
 ## Pruning Decisions
 

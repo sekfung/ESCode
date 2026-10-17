@@ -41,18 +41,18 @@ live tool execution
 ## 设计取舍
 
 | 能力                            | 语义                                                                                         | ESCode 规划                                     |
-| ------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| process-scoped tool catalog LRU | 32 entries、30 分钟 TTL；只在 startup pending 时读                                           | Phase 1/2 采用                                 |
-| transport identity              | stdio command/args/env/cwd/environment/client capability；HTTP 因 auth identity 不稳定而跳过 | 采用，并补 workspace identity 边界             |
-| payload sanitization            | publish 前移除 connection instructions 和 tool annotations                                   | 采用；cache 不参与权限                         |
-| concurrent publish              | entry-local generation，较旧 fetch 不能覆盖较新 snapshot                                     | 采用                                           |
-| cold miss                       | tool listing 等 live client；不会为了快而静默隐藏 MCP                                        | 采用 aggregate complete-hit                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| process-scoped tool catalog LRU | 32 entries、30 分钟 TTL；只在 startup pending 时读                                           | Phase 1/2 采用                                  |
+| transport identity              | stdio command/args/env/cwd/environment/client capability；HTTP 因 auth identity 不稳定而跳过 | 采用，并补 workspace identity 边界              |
+| payload sanitization            | publish 前移除 connection instructions 和 tool annotations                                   | 采用；cache 不参与权限                          |
+| concurrent publish              | entry-local generation，较旧 fetch 不能覆盖较新 snapshot                                     | 采用                                            |
+| cold miss                       | tool listing 等 live client；不会为了快而静默隐藏 MCP                                        | 采用 aggregate complete-hit                     |
 | live execution                  | 调用前等待当前 client，并从 live inventory 重新查 tool/visibility/annotations 后再审批       | 采用，并适配 ESCode 的 schema validation 顺序   |
-| lifecycle                       | per-server startup future、startup cancellation、manager shutdown 和 stdio cleanup           | 保留现有 session ownership 并补回归            |
-| status / auth / elicitation     | per-server startup update、auth state、ready wait、elicitation routing                       | 不由 catalog 接管                              |
-| connector 专用 cache            | 失败后长期使用 cache、后台 reconnect、hard refresh，语义不同于普通 MCP                       | 不泛化到普通 MCP                               |
+| lifecycle                       | per-server startup future、startup cancellation、manager shutdown 和 stdio cleanup           | 保留现有 session ownership 并补回归             |
+| status / auth / elicitation     | per-server startup update、auth state、ready wait、elicitation routing                       | 不由 catalog 接管                               |
+| connector 专用 cache            | 失败后长期使用 cache、后台 reconnect、hard refresh，语义不同于普通 MCP                       | 不泛化到普通 MCP                                |
 | required server                 | 把部分 server 标为 required，未就绪时阻塞                                                    | ESCode 当前无对应产品语义，本功能不顺带引入     |
-| resources / templates           | 继续从 live client 查询，不走普通 tool catalog cache                                         | 不纳入本功能                                   |
+| resources / templates           | 继续从 live client 查询，不走普通 tool catalog cache                                         | 不纳入本功能                                    |
 | `tools/list_changed`            | 普通 catalog cache 当前没有完整动态 invalidation                                             | ESCode Phase 3 可在识别 notification 后标 dirty |
 
 核心取舍是只做“startup advertisement 快路径”，不引入 connector 专用的长期 stale
@@ -275,10 +275,7 @@ interface McpToolCatalogContext {
 
   beginFetch(): McpToolCatalogFetchTicket;
 
-  publishIfNewest(
-    ticket: McpToolCatalogFetchTicket,
-    tools: McpToolDescriptor[],
-  ): void;
+  publishIfNewest(ticket: McpToolCatalogFetchTicket, tools: McpToolDescriptor[]): void;
 
   invalidate(): void;
 }
@@ -297,12 +294,7 @@ interface McpToolCatalogPort {
 ```ts
 type McpCatalogToolDescriptor = Pick<
   McpToolDescriptor,
-  | "serverName"
-  | "toolName"
-  | "name"
-  | "description"
-  | "inputSchema"
-  | "outputSchema"
+  "serverName" | "toolName" | "name" | "description" | "inputSchema" | "outputSchema"
 >;
 ```
 
@@ -735,30 +727,30 @@ catalog。
 
 ## 预计代码影响
 
-| Rank           | 区域                                                                              | 预计改动                                             |
-| -------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| invariant-only | `apps/escode-cli/packages/contracts/src/interfaces/mcp.port.ts`                    | 现有 live port 接口保持不变                          |
-| must-inspect   | `apps/escode-cli/packages/contracts/src/interfaces/`                               | 新增 catalog port、scope、sanitized descriptor 类型  |
-| must-inspect   | `apps/escode-cli/packages/adapters/src/mcp-tool-catalog/`                          | 内存 LRU、identity、TTL、generation、sanitization    |
+| Rank           | 区域                                                                                | 预计改动                                             |
+| -------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| invariant-only | `apps/escode-cli/packages/contracts/src/interfaces/mcp.port.ts`                     | 现有 live port 接口保持不变                          |
+| must-inspect   | `apps/escode-cli/packages/contracts/src/interfaces/`                                | 新增 catalog port、scope、sanitized descriptor 类型  |
+| must-inspect   | `apps/escode-cli/packages/adapters/src/mcp-tool-catalog/`                           | 内存 LRU、identity、TTL、generation、sanitization    |
 | must-inspect   | `apps/escode-cli/packages/bootstrap/src/escode-protocol-entrypoint.ts`              | process-scoped cache owner                           |
 | must-inspect   | `apps/escode-cli/packages/bootstrap/src/escode-protocol/server-types.ts`            | catalog port 进入 protocol process context           |
 | must-inspect   | `apps/escode-cli/packages/bootstrap/src/escode-protocol/server-operations.ts`       | 本地 scope 与远程分类；Phase 3 可选贯穿 session id   |
 | must-inspect   | `apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts` | 把同一个 port 传给每个 workspace session app         |
-| must-inspect   | `apps/escode-cli/packages/bootstrap/src/app/create-app.ts`                         | catalog port dependency injection 到 session runtime |
-| must-inspect   | `apps/escode-cli/packages/bootstrap/src/app/session-facade.ts`                     | 保持实际 MCP close ownership 与 cleanup              |
-| must-inspect   | `apps/escode-cli/packages/core/src/runtime/agent-runtime.ts`                       | shutdown 同步关闭 coordinator、abort startup         |
-| must-inspect   | `apps/escode-cli/packages/core/src/runtime/methods/mcp.ts`                         | cached/live startup 状态与 reconcile                 |
-| must-inspect   | `apps/escode-cli/packages/core/src/runtime/methods/turn-loop.ts`                   | sampling 前 warm/cold 选择                           |
-| must-inspect   | `apps/escode-cli/packages/core/src/mcp/index.ts`                                   | advertisement entry 与 live entry 构造               |
-| must-inspect   | `apps/escode-cli/packages/core/src/tool/executor/call-runner.ts`                   | permission 前 live preflight、waiter abort           |
-| should-inspect | `apps/escode-cli/packages/core/src/tool/registry.ts`                               | reconcile / provider-invisible tombstone             |
-| should-inspect | `apps/escode-cli/packages/core/src/runtime/methods/subagent.ts`                    | parent startup 与 borrowed snapshot                  |
-| should-inspect | `apps/escode-cli/packages/core/src/subagent/borrowed-mcp-port.ts`                  | 保持 live-only、scope-filtered                       |
+| must-inspect   | `apps/escode-cli/packages/bootstrap/src/app/create-app.ts`                          | catalog port dependency injection 到 session runtime |
+| must-inspect   | `apps/escode-cli/packages/bootstrap/src/app/session-facade.ts`                      | 保持实际 MCP close ownership 与 cleanup              |
+| must-inspect   | `apps/escode-cli/packages/core/src/runtime/agent-runtime.ts`                        | shutdown 同步关闭 coordinator、abort startup         |
+| must-inspect   | `apps/escode-cli/packages/core/src/runtime/methods/mcp.ts`                          | cached/live startup 状态与 reconcile                 |
+| must-inspect   | `apps/escode-cli/packages/core/src/runtime/methods/turn-loop.ts`                    | sampling 前 warm/cold 选择                           |
+| must-inspect   | `apps/escode-cli/packages/core/src/mcp/index.ts`                                    | advertisement entry 与 live entry 构造               |
+| must-inspect   | `apps/escode-cli/packages/core/src/tool/executor/call-runner.ts`                    | permission 前 live preflight、waiter abort           |
+| should-inspect | `apps/escode-cli/packages/core/src/tool/registry.ts`                                | reconcile / provider-invisible tombstone             |
+| should-inspect | `apps/escode-cli/packages/core/src/runtime/methods/subagent.ts`                     | parent startup 与 borrowed snapshot                  |
+| should-inspect | `apps/escode-cli/packages/core/src/subagent/borrowed-mcp-port.ts`                   | 保持 live-only、scope-filtered                       |
 | conditional    | `apps/escode-cli/packages/bootstrap/src/escode-protocol/mcp.ts`                     | control-plane 成功结果 seed cache                    |
 | conditional    | `apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace.ts`               | Phase 3 贯穿真实 remoteSessionId                     |
-| conditional    | `packages/shared/src/escode-protocol/index.ts`                                     | 若跨进程接口需扩展，增加严格 schema                  |
-| invariant-only | `packages/ui/src/settings/McpSettingsSection.tsx`                                 | status UI 不读取 catalog                             |
-| invariant-only | web remote / relay / desktop main                                                 | 不新增 cache authority 或 runtime 状态               |
+| conditional    | `packages/shared/src/escode-protocol/index.ts`                                      | 若跨进程接口需扩展，增加严格 schema                  |
+| invariant-only | `packages/ui/src/settings/McpSettingsSection.tsx`                                   | status UI 不读取 catalog                             |
+| invariant-only | web remote / relay / desktop main                                                   | 不新增 cache authority 或 runtime 状态               |
 
 ## 测试规划
 

@@ -130,7 +130,9 @@ export class NodeProviderConfigRuntime {
     return startPromise;
   }
 
-  refreshESCodeBuiltin(options?: { readonly force?: boolean }): Promise<ESCodeBuiltinRefreshResult> {
+  refreshESCodeBuiltin(options?: {
+    readonly force?: boolean;
+  }): Promise<ESCodeBuiltinRefreshResult> {
     if (this.#disposed) return Promise.resolve("disposed");
     if (this.#escodeBuiltinSource instanceof EndpointScopedESCodeBuiltinSource) {
       return this.#escodeBuiltinSource.refresh(options);

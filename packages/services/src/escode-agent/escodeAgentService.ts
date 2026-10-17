@@ -4797,7 +4797,9 @@ export function createESCodeAgentService(
       );
     },
 
-    async resolveSuggestedPluginReference(params: ESCodeAgentResolveSuggestedPluginReferenceParams) {
+    async resolveSuggestedPluginReference(
+      params: ESCodeAgentResolveSuggestedPluginReferenceParams,
+    ) {
       const client = await getPluginManagementClient();
       return client.request(
         escodeProtocolMethods.pluginsResolveSuggestedReference,
@@ -5494,7 +5496,9 @@ export function createESCodeAgentService(
           module: "services.escode_agent",
           requestId: params.requestId,
         });
-        throw new Error(`ESCode session runtime preferences request not found: ${params.requestId}`);
+        throw new Error(
+          `ESCode session runtime preferences request not found: ${params.requestId}`,
+        );
       }
       const responseContext = {
         event: "escode_agent.runtime_preferences.host_response_received",

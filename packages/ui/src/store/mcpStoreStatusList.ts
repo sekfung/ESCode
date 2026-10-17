@@ -1,4 +1,8 @@
-import type { McpServerStatus, ESCodeMcpServer, ESCodeMcpServerStatusSnapshot } from "@escode/shared";
+import type {
+  McpServerStatus,
+  ESCodeMcpServer,
+  ESCodeMcpServerStatusSnapshot,
+} from "@escode/shared";
 
 type MappedMcpServerStatus = {
   authorization?: ESCodeMcpServerStatusSnapshot["authorization"];

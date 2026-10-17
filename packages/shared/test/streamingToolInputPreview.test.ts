@@ -98,9 +98,9 @@ describe("streaming tool input preview", () => {
     "%s previews the first delta eagerly and subsequent deltas once per second",
     (toolName) => {
       const first = appendESCodeStreamingToolInputDelta(undefined, '{"content":"a');
-      expect(shouldMaterializeESCodeStreamingToolInputPreview(first, { now: 1_000, toolName })).toBe(
-        true,
-      );
+      expect(
+        shouldMaterializeESCodeStreamingToolInputPreview(first, { now: 1_000, toolName }),
+      ).toBe(true);
       markESCodeStreamingToolInputPreviewMaterialized(first, 1_000);
 
       const second = appendESCodeStreamingToolInputDelta(first, "b".repeat(9 * 1024));

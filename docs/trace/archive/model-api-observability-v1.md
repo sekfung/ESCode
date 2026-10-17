@@ -909,7 +909,7 @@ Exporter 禁止无限重试、无限落盘、阻塞进程退出或把异常抛�
 | Standalone device state warm read P50/P95                     |                                     `0.014ms` / `0.017ms` | 历史同步基线；现为异步启动 I/O，不在模型热路径             |
 | 首批 OTel 加载 + 两 Span Export + shutdown                    |                                  `93.0ms`，RSS `+18.0MiB` | 发生在后台 Flush/退出，不进入模型 TTFT                     |
 | 1 Call + 1 Attempt OTLP protobuf                              |                            未压缩 `3,456B`，gzip `1,159B` | 单 Call 批次约 `1.13KiB` 网络载荷                          |
-| `dist/escode.cjs`                                              |   `19,037,591B -> 20,146,129B`，`+1,108,538B`（`+5.82%`） | 官方最小 OTel SDK 是主要增量                               |
+| `dist/escode.cjs`                                             |   `19,037,591B -> 20,146,129B`，`+1,108,538B`（`+5.82%`） | 官方最小 OTel SDK 是主要增量                               |
 | darwin-arm64 SEA                                              | `181,513,504B -> 182,629,792B`，`+1,116,288B`（`+0.62%`） | SEA 总体增幅可控                                           |
 | `--help` 冷启动 P50（30 次）                                  |                            `290.2ms -> 295.0ms`，`+4.8ms` | 调度噪声较大，平均值未退化；继续在 CI 追踪                 |
 
@@ -921,17 +921,17 @@ Exporter 禁止无限重试、无限落盘、阻塞进程退出或把异常抛�
 
 ### 14.1 实际改动
 
-| 层                 | 主要改动                                                                     | 侵入性                              |
-| ------------------ | ---------------------------------------------------------------------------- | ----------------------------------- |
+| 层                  | 主要改动                                                                     | 侵入性                              |
+| ------------------- | ---------------------------------------------------------------------------- | ----------------------------------- |
 | `@escode/contracts` | Operation Registry、Typed Observation、Call/Attempt/Error Records、Sink 接口 | 已完成；纯类型/Schema，无 ARMS 依赖 |
-| Model Adapter      | Attempt 生命周期、最终 Provider/Endpoint/Thought/Usage、错误补全             | 中；集中在 runner/status/options    |
-| Core Runtime       | 主 Step/Compaction/Verifier/Title 等调用点补 `operation` 和 Operation 结果   | 低到中；约十个语义入口              |
-| Tool Handlers      | WebSearch/WebFetch/ReadSessionContext 补严格 Operation                       | 低                                  |
-| Bootstrap          | 创建 TelemetryRuntime/Recorder/Composite Sink；注入 Adapter/Runtime          | 中                                  |
-| CLI Entry          | Standalone 配置、Flush/Shutdown                                              | 低到中                              |
-| Services Host      | App spawn 配置和身份注入                                                     | 低；P0 不需要逐事件协议转发         |
-| Desktop/UI         | 双写期保持现状；增加迁移 Feature Flag/对账                                   | 低                                  |
-| SQLite             | P0 不迁表；接入保持当前写入                                                  | 低                                  |
+| Model Adapter       | Attempt 生命周期、最终 Provider/Endpoint/Thought/Usage、错误补全             | 中；集中在 runner/status/options    |
+| Core Runtime        | 主 Step/Compaction/Verifier/Title 等调用点补 `operation` 和 Operation 结果   | 低到中；约十个语义入口              |
+| Tool Handlers       | WebSearch/WebFetch/ReadSessionContext 补严格 Operation                       | 低                                  |
+| Bootstrap           | 创建 TelemetryRuntime/Recorder/Composite Sink；注入 Adapter/Runtime          | 中                                  |
+| CLI Entry           | Standalone 配置、Flush/Shutdown                                              | 低到中                              |
+| Services Host       | App spawn 配置和身份注入                                                     | 低；P0 不需要逐事件协议转发         |
+| Desktop/UI          | 双写期保持现状；增加迁移 Feature Flag/对账                                   | 低                                  |
+| SQLite              | P0 不迁表；接入保持当前写入                                                  | 低                                  |
 
 ### 14.2 避免侵入的关键设计
 

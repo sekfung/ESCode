@@ -13,7 +13,9 @@ async function makeTempDir(): Promise<string> {
 }
 
 afterEach(async () => {
-  await Promise.all(temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })));
+  await Promise.all(
+    temporaryDirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })),
+  );
 });
 
 describe("resolveBundledAgentWiring", () => {
@@ -53,17 +55,27 @@ describe("resolveBundledAgentWiring", () => {
 
     expect(createReleaseAgentWiring(oldRuntime, join(oldRuntime, "node"), {})).toEqual({
       ESCODE_AGENT_SERVER_COMMAND: join(oldRuntime, "node"),
-      ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify([join(oldRuntime, "escode.cjs"), "app-server", "--stdio"]),
+      ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
+        join(oldRuntime, "escode.cjs"),
+        "app-server",
+        "--stdio",
+      ]),
     });
     expect(createReleaseAgentWiring(newRuntime, join(newRuntime, "node"), {})).toEqual({
       ESCODE_AGENT_SERVER_COMMAND: join(newRuntime, "node"),
-      ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify([join(newRuntime, "escode.cjs"), "app-server", "--stdio"]),
+      ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify([
+        join(newRuntime, "escode.cjs"),
+        "app-server",
+        "--stdio",
+      ]),
     });
   });
 
   it("does not replace an explicit agent command while computing release wiring", () => {
-    expect(createReleaseAgentWiring("/release/runtime", "/release/runtime/node", {
-      ESCODE_AGENT_SERVER_COMMAND: "/custom/agent",
-    })).toBeNull();
+    expect(
+      createReleaseAgentWiring("/release/runtime", "/release/runtime/node", {
+        ESCODE_AGENT_SERVER_COMMAND: "/custom/agent",
+      }),
+    ).toBeNull();
   });
 });

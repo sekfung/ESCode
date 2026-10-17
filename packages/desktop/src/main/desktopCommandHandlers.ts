@@ -143,10 +143,7 @@ export async function clearEmbeddedWebviewStorage(options: {
     await session.fromPartition(REWARDS_PARTITION).clearStorageData();
     options.logger.info("[embedded-webview] cleared persistent partition storage");
   } catch (error) {
-    options.logger.warn(
-      "[embedded-webview] failed to clear persistent partition storage:",
-      error,
-    );
+    options.logger.warn("[embedded-webview] failed to clear persistent partition storage:", error);
   }
 }
 

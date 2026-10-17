@@ -968,13 +968,13 @@ pnpm lint
 
 ## 15. 版本与发布
 
-| 字段                             | 来源                    | 示例              | 变化时机     |
-| -------------------------------- | ----------------------- | ----------------- | ------------ |
-| `service.version`                | 实际 CLI bundle         | `0.16.1`          | CLI 发布     |
-| `escode.product.version`          | 外层产品 build metadata | `3.6.1`           | 产品发布     |
-| `escode.build.commit_id`          | build metadata          | commit SHA        | 每次构建     |
-| `escode.telemetry.schema_version` | contract                | `5`               | 数据契约变化 |
-| `service.name`                   | Telemetry 固定常量      | `escode-cli-agent` | 不随部署变化 |
+| 字段                              | 来源                    | 示例               | 变化时机     |
+| --------------------------------- | ----------------------- | ------------------ | ------------ |
+| `service.version`                 | 实际 CLI bundle         | `0.16.1`           | CLI 发布     |
+| `escode.product.version`          | 外层产品 build metadata | `3.6.1`            | 产品发布     |
+| `escode.build.commit_id`          | build metadata          | commit SHA         | 每次构建     |
+| `escode.telemetry.schema_version` | contract                | `5`                | 数据契约变化 |
+| `service.name`                    | Telemetry 固定常量      | `escode-cli-agent` | 不随部署变化 |
 
 打包门禁：
 

@@ -13,7 +13,8 @@ const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 type Runtime = "node" | "rust";
 const RUN_TIMEOUT_MS = 60_000;
 
-const text = (content: unknown) => (typeof content === "string" ? content : JSON.stringify(content));
+const text = (content: unknown) =>
+  typeof content === "string" ? content : JSON.stringify(content);
 
 /** 无状态的模型回复：要工具时先调 Read / Write，工具结果之后给最终回答，否则回显输入。 */
 function respond(request: any, response: any) {
@@ -25,12 +26,23 @@ function respond(request: any, response: any) {
     return;
   }
   const input = text(last.content);
-  const tool = input.includes("read it") ? "Read" : input.includes("write it") ? "Write" : undefined;
+  const tool = input.includes("read it")
+    ? "Read"
+    : input.includes("write it")
+      ? "Write"
+      : undefined;
   if (tool) {
     event(response, { content: "let me look. " });
     const args = tool === "Read" ? { file_path: "a.txt" } : { file_path: "b.txt", content: "x" };
     event(response, {
-      tool_calls: [{ index: 0, id: "c1", type: "function", function: { name: tool, arguments: JSON.stringify(args) } }],
+      tool_calls: [
+        {
+          index: 0,
+          id: "c1",
+          type: "function",
+          function: { name: tool, arguments: JSON.stringify(args) },
+        },
+      ],
     });
     end(response, "tool_calls");
     return;
@@ -73,7 +85,11 @@ async function setup() {
       const timer = setTimeout(() => child.kill(), RUN_TIMEOUT_MS);
       child.on("close", (code) => {
         clearTimeout(timer);
-        done({ code, stdout, stderr: stderr.replace(/^\(node:\d+\).*\n(.*trace-deprecation.*\n)?/gm, "") });
+        done({
+          code,
+          stdout,
+          stderr: stderr.replace(/^\(node:\d+\).*\n(.*trace-deprecation.*\n)?/gm, ""),
+        });
       });
     });
   return { f, root, run };
@@ -113,11 +129,17 @@ test("headless -p prints the same results and errors on Node and Rust", async ()
       const results = { node: await run("node", args), rust: await run("rust", args) };
       assert.equal(results.node.code, 0, `${args.join(" ")}: ${results.node.stderr}`);
       assert.equal(results.rust.code, 0, `${args.join(" ")}: ${results.rust.stderr}`);
-      assert.deepEqual(comparable(results.rust.stdout), comparable(results.node.stdout), args.join(" "));
-      for (const kind of ["node", "rust"] as const) sessions[kind].push(JSON.parse(results[kind].stdout).sessionId);
+      assert.deepEqual(
+        comparable(results.rust.stdout),
+        comparable(results.node.stdout),
+        args.join(" "),
+      );
+      for (const kind of ["node", "rust"] as const)
+        sessions[kind].push(JSON.parse(results[kind].stdout).sessionId);
     }
     // -c 续接上一个会话（两侧同样）。
-    for (const kind of ["node", "rust"] as const) assert.equal(sessions[kind][4], sessions[kind][3], kind);
+    for (const kind of ["node", "rust"] as const)
+      assert.equal(sessions[kind][4], sessions[kind][3], kind);
     // 参数错误：退出码与 stderr 首行一致。
     for (const args of [
       ["-p", ""],

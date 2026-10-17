@@ -2,8 +2,8 @@
 
 原 `document-skills` 按格式拆为四个独立内容插件，并内置独立 `image-search` 搜图插件，随客户端默认启用：
 
-| 插件          | Skill | 源码目录                                       |
-| ------------- | ----- | ---------------------------------------------- |
+| 插件          | Skill | 源码目录                                        |
+| ------------- | ----- | ----------------------------------------------- |
 | documents     | docx  | `apps/escode-cli/packages/documents-plugin`     |
 | pdf           | pdf   | `apps/escode-cli/packages/pdf-plugin`           |
 | presentations | pptx  | `apps/escode-cli/packages/presentations-plugin` |

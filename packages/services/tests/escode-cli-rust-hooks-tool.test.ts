@@ -28,7 +28,12 @@ process.stdin.on("end", () => {
 
 const call = (id: string, command: string) => ({
   tool_calls: [
-    { index: 0, id, type: "function", function: { name: "Bash", arguments: JSON.stringify({ command }) } },
+    {
+      index: 0,
+      id,
+      type: "function",
+      function: { name: "Bash", arguments: JSON.stringify({ command }) },
+    },
   ],
 });
 
@@ -47,7 +52,10 @@ async function observe(kind: "node" | "rust") {
       end(res, "stop");
     }
   };
-  const env = { ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath, ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle };
+  const env = {
+    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+  };
   const f =
     kind === "node"
       ? await fixture({

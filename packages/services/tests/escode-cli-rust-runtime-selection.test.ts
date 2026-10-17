@@ -71,7 +71,10 @@ const installed = { ...bundled, findDevCommand: () => null };
 const installedMissing = { ...missing, findDevCommand: () => null };
 const dev = {
   ...bundled,
-  findDevCommand: () => ({ command: "/dev/node", args: ["/dev/escode.cjs", "app-server", "--stdio"] }),
+  findDevCommand: () => ({
+    command: "/dev/node",
+    args: ["/dev/escode.cjs", "app-server", "--stdio"],
+  }),
 };
 
 test("the default runtime is the bundled Rust binary in an installed app", () => {
@@ -93,14 +96,17 @@ test("an installed app without the Rust binary reports an error instead of switc
 const REMOTE_PACKAGED = { ESCODE_REMOTE_PACKAGED_RUNTIME: "1" } as const;
 
 test("a remote server deployed by an installed app defaults to the Rust runtime", () => {
-  const command = withEnv(REMOTE_PACKAGED, () => resolveDefaultESCodeAgentCommand(context, bundled));
+  const command = withEnv(REMOTE_PACKAGED, () =>
+    resolveDefaultESCodeAgentCommand(context, bundled),
+  );
   assert.equal(command?.command, "/res/glm/escode-cli-rust");
   assert.equal(command?.runtime, "escode-cli-rust");
 });
 
 test("a remote server deployed by an installed app reports a missing Rust binary", () => {
   assert.throws(
-    () => withEnv(REMOTE_PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installedMissing)),
+    () =>
+      withEnv(REMOTE_PACKAGED, () => resolveDefaultESCodeAgentCommand(context, installedMissing)),
     /Rust runtime \(escode-cli-rust\) is not installed/,
   );
 });
@@ -111,9 +117,11 @@ test("development, an explicit node choice and non-desktop hosts keep the Node r
     assert.equal(command?.runtime, undefined);
   };
   notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, dev)));
-  notRust(withEnv({ ...PACKAGED, ESCODE_AGENT_SERVER_RUNTIME: "node" }, () =>
-    resolveDefaultESCodeAgentCommand(context, installed),
-  ));
+  notRust(
+    withEnv({ ...PACKAGED, ESCODE_AGENT_SERVER_RUNTIME: "node" }, () =>
+      resolveDefaultESCodeAgentCommand(context, installed),
+    ),
+  );
   // 远程服务端（entry-stdio）没有桌面打包标记，也不带随包 Rust 二进制：维持 Node 链。
   notRust(withEnv({}, () => resolveDefaultESCodeAgentCommand(context, installedMissing)));
 });
@@ -131,7 +139,9 @@ test("a packaged app ignores monorepo dev entries found above its cwd", () => {
     () => resolveDefaultESCodeAgentCommand(context, bundled),
   );
   assert(
-    !packagedNode?.args?.some((arg) => arg.includes("apps/escode-cli") || arg.includes("apps\\escode-cli")),
+    !packagedNode?.args?.some(
+      (arg) => arg.includes("apps/escode-cli") || arg.includes("apps\\escode-cli"),
+    ),
     "packaged Node fallback must not resolve the monorepo CLI entry",
   );
   const development = withEnv({}, () => resolveDefaultESCodeAgentCommand(context, bundled));
@@ -194,7 +204,9 @@ test("the Host still owns --cwd for Rust", () => {
 });
 
 test("the descriptor names the Rust binary per platform", () => {
-  assert.deepEqual(ESCODE_AGENT_RUNTIME.resolveRustBinarySegments("win32"), ["escode-cli-rust.exe"]);
+  assert.deepEqual(ESCODE_AGENT_RUNTIME.resolveRustBinarySegments("win32"), [
+    "escode-cli-rust.exe",
+  ]);
   assert.deepEqual(ESCODE_AGENT_RUNTIME.resolveRustBinarySegments("darwin"), ["escode-cli-rust"]);
 });
 

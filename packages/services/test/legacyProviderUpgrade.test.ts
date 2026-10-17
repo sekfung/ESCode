@@ -25,7 +25,11 @@ afterEach(async () => {
 
 describe("Todo 72 已发布 config.json 首次升级", () => {
   it.each([
-    { label: "外层禁用优先", fields: { enabled: false, escode: { enabled: true } }, enabled: false },
+    {
+      label: "外层禁用优先",
+      fields: { enabled: false, escode: { enabled: true } },
+      enabled: false,
+    },
     { label: "外层启用优先", fields: { enabled: true, escode: { enabled: false } }, enabled: true },
     { label: "扩展禁用", fields: { escode: { enabled: false } }, enabled: false },
     { label: "缺省启用", fields: {}, enabled: undefined },

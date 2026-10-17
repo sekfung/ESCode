@@ -130,7 +130,9 @@ export async function readLockfileProductionGraph(root) {
   // 允许未命中的只有 workspace 链接（生产闭包本来就会过滤它们）；其余一律硬失败。
   const tolerated = stats.unresolved.filter((entry) => {
     const value = entry.slice(entry.indexOf("@", entry.startsWith("@") ? 1 : 0) + 1);
-    return value.startsWith("link:") || value.startsWith("workspace:") || entry.startsWith("@escode/");
+    return (
+      value.startsWith("link:") || value.startsWith("workspace:") || entry.startsWith("@escode/")
+    );
   });
   if (tolerated.length !== stats.unresolved.length) {
     const unexpected = stats.unresolved.filter((entry) => !tolerated.includes(entry));

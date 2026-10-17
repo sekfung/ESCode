@@ -1772,9 +1772,7 @@ export function activateDeveloperToolsSidePane(
 }
 
 /** 新开一个未绑定的串口标签；多串口时每个标签对应一个串口。 */
-export function openSerialSidePane(
-  current: WorkspaceSidePaneState | null,
-): WorkspaceSidePaneState {
+export function openSerialSidePane(current: WorkspaceSidePaneState | null): WorkspaceSidePaneState {
   return activateSidePaneTab(current, createSerialSidePaneTab());
 }
 

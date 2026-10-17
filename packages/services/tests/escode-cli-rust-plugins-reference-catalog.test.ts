@@ -24,18 +24,9 @@ async function seed(root: string) {
     join(inline("alpha"), ".escode-plugin", "plugin.json"),
     JSON.stringify({ name: "alpha" }),
   );
-  await write(
-    join(inline("alpha"), "skills", "one", "SKILL.md"),
-    "---\nname: one\n---\nb\n",
-  );
-  await write(
-    join(inline("alpha"), "skills", "two", "SKILL.md"),
-    "---\nname: two\n---\nb\n",
-  );
-  await write(
-    join(inline("alpha"), "agents", "rev.md"),
-    "---\nname: rev\n---\nb\n",
-  );
+  await write(join(inline("alpha"), "skills", "one", "SKILL.md"), "---\nname: one\n---\nb\n");
+  await write(join(inline("alpha"), "skills", "two", "SKILL.md"), "---\nname: two\n---\nb\n");
+  await write(join(inline("alpha"), "agents", "rev.md"), "---\nname: rev\n---\nb\n");
   await write(
     join(inline("alpha"), ".mcp.json"),
     JSON.stringify({
@@ -51,10 +42,7 @@ async function seed(root: string) {
     JSON.stringify({ name: "dup" }),
   );
   const installPath = join(storage, "cache", "acme", "dup", "1.0.0");
-  await write(
-    join(installPath, ".escode-plugin", "plugin.json"),
-    JSON.stringify({ name: "dup" }),
-  );
+  await write(join(installPath, ".escode-plugin", "plugin.json"), JSON.stringify({ name: "dup" }));
   await write(
     join(storage, "installed_plugins.json"),
     JSON.stringify({
@@ -118,13 +106,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -134,9 +116,7 @@ async function observe(kind: Runtime) {
     await configureRegistry(f);
     const dirs = await seed(root);
     const userConfigPath = join(root, ".escode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await write(
       userConfigPath,
       JSON.stringify({
@@ -150,16 +130,11 @@ async function observe(kind: Runtime) {
     const h = f.start();
     const workspace = { workspacePath: f.cwd, workspaceKey: f.cwd };
     const catalog = async (
-      method:
-        "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory",
+      method: "plugins/referenceCatalog" | "plugins/referenceCatalogWithCategory",
       extra: Record<string, unknown> = {},
     ) => {
       try {
-        const result = (await h.client.request(
-          method,
-          { workspace, ...extra },
-          z.any(),
-        )) as any;
+        const result = (await h.client.request(method, { workspace, ...extra }, z.any())) as any;
         return {
           authority: result.authority,
           // 官方插件行两侧一致（plugins/list 已覆盖），这里只看 fixture 插件，避免随包内容影响断言。
@@ -216,13 +191,9 @@ test("Node and Rust build the same plugin reference catalog", async () => {
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);
   // 自检：fixture 覆盖了预期分支。
-  const byId = (r: any) =>
-    Object.fromEntries(r.plugins.map((p: any) => [p.pluginId, p]));
+  const byId = (r: any) => Object.fromEntries(r.plugins.map((p: any) => [p.pluginId, p]));
   const ws = byId(node.workspaceCatalog);
-  assert.deepEqual(ws["alpha@inline"].skillQualifiedNames, [
-    "alpha:one",
-    "alpha:two",
-  ]);
+  assert.deepEqual(ws["alpha@inline"].skillQualifiedNames, ["alpha:one", "alpha:two"]);
   assert.deepEqual(ws["alpha@inline"].subagentNames, ["alpha:rev"]);
   assert.deepEqual(ws["alpha@inline"].mcpServerNames, ["plugin:alpha:m1"]);
   assert.deepEqual(ws["dup@inline"].conflictingPluginIds, ["dup@acme"]);

@@ -75,7 +75,12 @@ async function observe(kind: "node" | "rust") {
     // 第二条订阅协商了 `workflowRunDeltas`：收 `workflowRun.*` 键级增量，state patch 不再带整键。
     const deltasSub = (await h.client.request(
       "v4/conversation/subscribe",
-      { topic: `conversation/${id}`, connectionId: "fixture-deltas", clientMode: "desktop-continuous", workflowRunDeltas: true },
+      {
+        topic: `conversation/${id}`,
+        connectionId: "fixture-deltas",
+        clientMode: "desktop-continuous",
+        workflowRunDeltas: true,
+      },
       { parse: (value: unknown) => value } as any,
     )) as any;
     const permissions: any[] = [];
@@ -143,11 +148,15 @@ async function observe(kind: "node" | "rust") {
         if (String(delta.op).startsWith("workflowRun.")) opKinds.push(delta.op);
         if (delta.patch?.workflowRuns !== undefined) patchCarriedRuns = true;
       }
-      if (frame.payload?.kind === "deltas" && applied) applied = applyConversationDeltas(applied, frame.payload.deltas);
+      if (frame.payload?.kind === "deltas" && applied)
+        applied = applyConversationDeltas(applied, frame.payload.deltas);
     }
     const scrubState = (value: unknown) =>
       JSON.parse(
-        scrub(JSON.stringify(value ?? null)).replace(/"(\w*(?:At|Ms|revision|Sequence))":\d+/g, '"$1":0'),
+        scrub(JSON.stringify(value ?? null)).replace(
+          /"(\w*(?:At|Ms|revision|Sequence))":\d+/g,
+          '"$1":0',
+        ),
       );
     const notificationRequest = requests[steps.length + 1];
     const notification = notificationRequest?.messages
@@ -155,7 +164,9 @@ async function observe(kind: "node" | "rust") {
       .at(-1)?.content;
     return {
       createResult: scrub(String(createResult)),
-      notification: scrub(typeof notification === "string" ? notification : JSON.stringify(notification)),
+      notification: scrub(
+        typeof notification === "string" ? notification : JSON.stringify(notification),
+      ),
       permissions,
       requestCount: requests.length,
       workflowRuns: scrubState(workflowRuns),
@@ -172,7 +183,8 @@ async function observe(kind: "node" | "rust") {
 test("Node and Rust run a CreateWorkflow script in the background the same way", async () => {
   const node = await observe("node");
   const rust = await observe("rust");
-  if (process.env.DEBUG_PERM) console.log(JSON.stringify({ node: node.permissions, rust: rust.permissions }));
+  if (process.env.DEBUG_PERM)
+    console.log(JSON.stringify({ node: node.permissions, rust: rust.permissions }));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：Node 侧确实后台启动、确认一次、结算后用完成通知续跑。
   assert.match(node.createResult, /background/i);

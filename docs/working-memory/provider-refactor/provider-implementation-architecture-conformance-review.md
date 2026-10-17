@@ -349,18 +349,18 @@ Config；缺失项继承 Built-in Rule，不能补迁移默认或形成通用 Ru
 
 ## State Owners And Commit Sinks
 
-| State/fact                       | Draft/display owner          | Authoritative owner          | Commit command/service    | Persistence/cache                    |
-| -------------------------------- | ---------------------------- | ---------------------------- | ------------------------- | ------------------------------------ |
+| State/fact                       | Draft/display owner          | Authoritative owner          | Commit command/service    | Persistence/cache                     |
+| -------------------------------- | ---------------------------- | ---------------------------- | ------------------------- | ------------------------------------- |
 | Built-in Provider/Model Config   | Settings View 只读投影       | Built-in Config Source       | 产品发布                  | `config/provider/escode-builtin.json` |
-| Account Built-in Provider Config | Settings/Selection View 投影 | Account Provider Service     | Account refresh           | process-local last-known-good        |
-| Personal Provider/Model Config   | Renderer Draft               | Personal Config Repository   | Provider Settings Service | 当前 Environment Personal Config     |
-| Effective Provider Config        | Facade View                  | Resolver/Registry Snapshot   | Source refresh/rebuild    | 不独立持久化                         |
-| Account request credential       | UI 不拥有                    | Account Request Auth Service | 每次 request attempt      | Credential Store/动态接口            |
-| 用户可见模型候选                 | 各 Surface 展示              | Model Selection Facade       | Registry refresh          | 不独立持久化                         |
-| Built-in 模型成员                | Settings View 只读投影       | Effective Built-in Config    | Built-in/Account refresh  | `builtinModelIds`                    |
-| Personal 模型成员                | Renderer Personal Draft      | Personal Config Repository   | Provider Settings Service | `modelIds`                           |
-| Model ID 冲突                    | Renderer 只读诊断            | Resolver/Registry Snapshot   | Source refresh/rebuild    | 不独立持久化                         |
-| Model enabled                    | Renderer Personal Draft      | Effective Model Config       | Personal Rule update      | Personal Model Config Rules          |
+| Account Built-in Provider Config | Settings/Selection View 投影 | Account Provider Service     | Account refresh           | process-local last-known-good         |
+| Personal Provider/Model Config   | Renderer Draft               | Personal Config Repository   | Provider Settings Service | 当前 Environment Personal Config      |
+| Effective Provider Config        | Facade View                  | Resolver/Registry Snapshot   | Source refresh/rebuild    | 不独立持久化                          |
+| Account request credential       | UI 不拥有                    | Account Request Auth Service | 每次 request attempt      | Credential Store/动态接口             |
+| 用户可见模型候选                 | 各 Surface 展示              | Model Selection Facade       | Registry refresh          | 不独立持久化                          |
+| Built-in 模型成员                | Settings View 只读投影       | Effective Built-in Config    | Built-in/Account refresh  | `builtinModelIds`                     |
+| Personal 模型成员                | Renderer Personal Draft      | Personal Config Repository   | Provider Settings Service | `modelIds`                            |
+| Model ID 冲突                    | Renderer 只读诊断            | Resolver/Registry Snapshot   | Source refresh/rebuild    | 不独立持久化                          |
+| Model enabled                    | Renderer Personal Draft      | Effective Model Config       | Personal Rule update      | Personal Model Config Rules           |
 
 ## Feature Relationships
 

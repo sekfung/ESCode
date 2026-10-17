@@ -9,8 +9,7 @@ const restoredOAuthCredentials = {
 };
 
 describe("desktop e2e startup credentials", () => {
-  it.each([
-  ])("%s 保留本地 Start 余额/请求鉴权所需 JWT", (spec) => {
+  it.each([])("%s 保留本地 Start 余额/请求鉴权所需 JWT", (spec) => {
     expect(
       createE2EStartupCredentialSeed({
         specs: [spec],
@@ -94,5 +93,4 @@ describe("desktop e2e startup credentials", () => {
       ...restoredOAuthCredentials,
     });
   });
-
 });

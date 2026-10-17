@@ -74,9 +74,9 @@ describe("mcp-apps-protocol contract", () => {
     expect(normalizeMcpAppCspRelaxations(exampleResourceMetaWithRelaxations)).toEqual({
       unsafeEval: true,
     });
-    expect(normalizeMcpAppCspRelaxations({ "escode/csp": { unsafeEval: false, other: true } })).toBe(
-      null,
-    );
+    expect(
+      normalizeMcpAppCspRelaxations({ "escode/csp": { unsafeEval: false, other: true } }),
+    ).toBe(null);
   });
 
   it("示例描述与句柄满足契约形状", () => {

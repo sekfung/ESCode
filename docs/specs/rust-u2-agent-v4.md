@@ -9,11 +9,11 @@
 
 ## 1. 范围
 
-| 层 | 交付 | TS 真相源 |
-| --- | --- | --- |
-| RPC 会话（host-rpc） | 并发请求处理、`PromiseCancel` 真取消、`EventListen`/`EventDispose`/`EventFire`、连接上下文（connectionId/clientMode）、连接级出站队列 + 字节水位 | `packages/rpc/src/channelServer.ts`（`onPromise`/`onEventListen`/`disposeActiveRequest`）、`proxy-channel.ts`（`onX` 静态事件与 `onDynamicX(arg)` 动态事件约定） |
-| runtime 实例（host-runtime） | 反向请求应答（runtime→Host request）、实例退出时在飞请求立即失败、订阅者溢出 fail-closed、退出/重启生命周期事件 | `escodeAgentService.ts` 的 `client.onRequest`（兜底 `-32601 Unsupported ESCode Protocol request: <method>`）、`onAgentRuntimeLifecycle` |
-| `escode-agent` V4 面（host-rpc） | hello/initialize 握手；conversation / sessions-index / workspace-config 三类 topic 的 subscribe/unsubscribe/resync 与帧路由（ACK 前暂存）；`sendConversationCommandV4`、`queryConversationCommandsV4` 与只读 query 族、附件事务；连接关闭清理 | `escodeAgentConnectionScope.ts`（全文）、`escodeAgentService.ts:5850-6440`（base 层 V4 转发） |
+| 层                               | 交付                                                                                                                                                                                                                                          | TS 真相源                                                                                                                                                        |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RPC 会话（host-rpc）             | 并发请求处理、`PromiseCancel` 真取消、`EventListen`/`EventDispose`/`EventFire`、连接上下文（connectionId/clientMode）、连接级出站队列 + 字节水位                                                                                              | `packages/rpc/src/channelServer.ts`（`onPromise`/`onEventListen`/`disposeActiveRequest`）、`proxy-channel.ts`（`onX` 静态事件与 `onDynamicX(arg)` 动态事件约定） |
+| runtime 实例（host-runtime）     | 反向请求应答（runtime→Host request）、实例退出时在飞请求立即失败、订阅者溢出 fail-closed、退出/重启生命周期事件                                                                                                                               | `escodeAgentService.ts` 的 `client.onRequest`（兜底 `-32601 Unsupported ESCode Protocol request: <method>`）、`onAgentRuntimeLifecycle`                          |
+| `escode-agent` V4 面（host-rpc） | hello/initialize 握手；conversation / sessions-index / workspace-config 三类 topic 的 subscribe/unsubscribe/resync 与帧路由（ACK 前暂存）；`sendConversationCommandV4`、`queryConversationCommandsV4` 与只读 query 族、附件事务；连接关闭清理 | `escodeAgentConnectionScope.ts`（全文）、`escodeAgentService.ts:5850-6440`（base 层 V4 转发）                                                                    |
 
 不在本片：legacy `escode-agent` 方法（插件/自动化/MCP UI/wiki 等 112 个方法中非 V4 的部分，随各自域）；
 mobile `web-remote-replayable` attachment 的**接入**（本片在连接上下文里支持 clientMode，但 Main 仍把手机接到 Node Host，见 §6）。
@@ -78,10 +78,10 @@ Renderer 不能自选。
 
 ### 3.3 runtime 反向请求
 
-| 方法 | Host 应答 |
-| --- | --- |
+| 方法                                | Host 应答                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `session/requestRuntimePreferences` | 本地权威（TS `resolveSessionRuntimePreferences`，`node.ts:2217`）：读 settings → `{askUserQuestionAutoResolutionEnabled: !== false, nativeSearchEnhancementsEnabled: !== false, memoryEnabled: === true, modelContextBudgetStrategy: "preflight-v1", integratedTerminalShell?（仅 scope=user-execution 且有值）, subagentRuntimeConfigEnabled}` |
-| 其余 | `-32601 Unsupported ESCode Protocol request: <method>`（TS 兜底同文） |
+| 其余                                | `-32601 Unsupported ESCode Protocol request: <method>`（TS 兜底同文）                                                                                                                                                                                                                                                                           |
 
 `subagentRuntimeConfigEnabled`：TS 在本地 workspace 为 `true`（Host 能回 `subagents/readRuntimeConfig`）；subagents 域未迁移前
 Rust 回 `false`（登记差异 §6-2）。
@@ -110,15 +110,15 @@ Rust 回 `false`（登记差异 §6-2）。
 
 ## 5. 实施进度
 
-| 切片 | 状态 | 证据 |
-| --- | --- | --- |
-| runtime 实例层：反向请求应答、退出即失败、订阅溢出可观测、生命周期事件、早期帧缓冲、child stderr | 完成 | `host-runtime/tests/host_io.rs`（5 例，含负向验证） |
-| RPC 连接层：并发请求、真取消、EventListen/EventFire/EventDispose、连接级 channel + 关闭钩子、出站水位 | 完成 | `host-rpc/tests/rpc_connection.rs`（3 例，负向：去掉 abort 后取消与注销用例失败） |
-| 访问控制（A9）：Origin 403、两路径 capability、进程密钥、CSPRNG 令牌 | 完成 | `host-rpc/tests/rpc_surface.rs`、`packages/desktop/test/rustHostBridge.test.ts` / `rustHostRpc.test.ts`（真实客户端） |
-| 反向请求本地偏好（`session/requestRuntimePreferences`） | 完成 | `host-rpc/src/runtime_requests.rs` 单测 3 例；真回合端到端随 V4 面 |
-| `escode-agent` V4 连接作用域（34 方法 + 3 动态事件 + 2 静态事件） | 完成 | `host-rpc/tests/rpc_agent_v4.rs`（真 embedded 实例 + mock 模型：一轮真实对话帧流、握手/clientId/归属/dormant 断言；负向：恢复「反向请求无人应答」后回合停滞 30.2 s 被延迟断言拦下）、`agent_v4::scope_routing` 单测 3 例（ACK 前暂存保序、溢出显式失败、换代迟到 ACK 不反向注销；负向：关掉暂存后 2 例失败）、`packages/desktop/test/rustHostAgentV4.test.ts`（真实 `@escode/client` 收静态/动态 EventFire） |
-| 契约清单全量化（评审 A13） | 完成 | `scripts/generate-escode-host-service-inventory.mjs`（TS 编译器 API 解析 51 个 descriptor / 619 成员，`--check` 进 `pnpm check:escode-host`）；`host-proto` 只登记已实现成员；`contract.rs` 按生成全集对账 |
-| 模型请求代理（评审 A15，CLI `crates/net`） | 完成 | 未解析出代理即直连（与 TS 同），`crates/net/tests/model_direct.rs`（负向：恢复旧行为即失败） |
+| 切片                                                                                                  | 状态 | 证据                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| runtime 实例层：反向请求应答、退出即失败、订阅溢出可观测、生命周期事件、早期帧缓冲、child stderr      | 完成 | `host-runtime/tests/host_io.rs`（5 例，含负向验证）                                                                                                                                                                                                                                                                                                                                                          |
+| RPC 连接层：并发请求、真取消、EventListen/EventFire/EventDispose、连接级 channel + 关闭钩子、出站水位 | 完成 | `host-rpc/tests/rpc_connection.rs`（3 例，负向：去掉 abort 后取消与注销用例失败）                                                                                                                                                                                                                                                                                                                            |
+| 访问控制（A9）：Origin 403、两路径 capability、进程密钥、CSPRNG 令牌                                  | 完成 | `host-rpc/tests/rpc_surface.rs`、`packages/desktop/test/rustHostBridge.test.ts` / `rustHostRpc.test.ts`（真实客户端）                                                                                                                                                                                                                                                                                        |
+| 反向请求本地偏好（`session/requestRuntimePreferences`）                                               | 完成 | `host-rpc/src/runtime_requests.rs` 单测 3 例；真回合端到端随 V4 面                                                                                                                                                                                                                                                                                                                                           |
+| `escode-agent` V4 连接作用域（34 方法 + 3 动态事件 + 2 静态事件）                                     | 完成 | `host-rpc/tests/rpc_agent_v4.rs`（真 embedded 实例 + mock 模型：一轮真实对话帧流、握手/clientId/归属/dormant 断言；负向：恢复「反向请求无人应答」后回合停滞 30.2 s 被延迟断言拦下）、`agent_v4::scope_routing` 单测 3 例（ACK 前暂存保序、溢出显式失败、换代迟到 ACK 不反向注销；负向：关掉暂存后 2 例失败）、`packages/desktop/test/rustHostAgentV4.test.ts`（真实 `@escode/client` 收静态/动态 EventFire） |
+| 契约清单全量化（评审 A13）                                                                            | 完成 | `scripts/generate-escode-host-service-inventory.mjs`（TS 编译器 API 解析 51 个 descriptor / 619 成员，`--check` 进 `pnpm check:escode-host`）；`host-proto` 只登记已实现成员；`contract.rs` 按生成全集对账                                                                                                                                                                                                   |
+| 模型请求代理（评审 A15，CLI `crates/net`）                                                            | 完成 | 未解析出代理即直连（与 TS 同），`crates/net/tests/model_direct.rs`（负向：恢复旧行为即失败）                                                                                                                                                                                                                                                                                                                 |
 
 ## 6. 登记差异
 

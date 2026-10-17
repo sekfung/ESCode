@@ -6,7 +6,10 @@ import {
   type SessionControl,
   type ConversationTopicWireCandidate,
 } from "@escode/shared/escode-protocol-v4";
-import type { IESCodeAgentService, ESCodeAgentSessionTarget } from "#src/escode-agent/escodeAgent.js";
+import type {
+  IESCodeAgentService,
+  ESCodeAgentSessionTarget,
+} from "#src/escode-agent/escodeAgent.js";
 
 /** Bot 控制操作临时读取 CLI 权威快照，不建立第二份输入队列。 */
 export function readBotGroupRuntimeSnapshot(

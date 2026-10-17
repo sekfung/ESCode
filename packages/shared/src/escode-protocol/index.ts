@@ -1043,7 +1043,9 @@ export type ESCodeMcpUiClaimAppToolCallParams = z.infer<
   typeof escodeMcpUiClaimAppToolCallParamsSchema
 >;
 export const escodeMcpUiAppToolAcceptedResultSchema = z.object({ accepted: z.boolean() }).strict();
-export type ESCodeMcpUiAppToolAcceptedResult = z.infer<typeof escodeMcpUiAppToolAcceptedResultSchema>;
+export type ESCodeMcpUiAppToolAcceptedResult = z.infer<
+  typeof escodeMcpUiAppToolAcceptedResultSchema
+>;
 export const escodeMcpUiResolveAppToolCallParamsSchema = z
   .object({
     ...escodeMcpUiAppToolInstanceShape,
@@ -1805,7 +1807,10 @@ export const escodeSessionEventSchema = z.discriminatedUnion("type", [
   escodeSessionEventEnvelopeFor("session.created", escodeSessionCreatedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("session.resumed", escodeSessionResumedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("session.updated", jsonObjectSchema),
-  escodeSessionEventEnvelopeFor("session.titleUpdated", escodeSessionTitleUpdatedEventPayloadSchema),
+  escodeSessionEventEnvelopeFor(
+    "session.titleUpdated",
+    escodeSessionTitleUpdatedEventPayloadSchema,
+  ),
   escodeSessionEventEnvelopeFor("session.closed", escodeSessionClosedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("turn.started", escodeTurnStartedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("turn.steerQueued", escodeTurnSteerQueuedEventPayloadSchema),
@@ -1820,7 +1825,10 @@ export const escodeSessionEventSchema = z.discriminatedUnion("type", [
   escodeSessionEventEnvelopeFor("part.removed", escodeMessagePartRemovedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("model.streaming", escodeModelStreamingEventPayloadSchema),
   escodeSessionEventEnvelopeFor("tool.updated", escodeToolUpdatedEventPayloadSchema),
-  escodeSessionEventEnvelopeFor("permission.requested", escodePermissionRequestedEventPayloadSchema),
+  escodeSessionEventEnvelopeFor(
+    "permission.requested",
+    escodePermissionRequestedEventPayloadSchema,
+  ),
   escodeSessionEventEnvelopeFor("permission.resolved", escodePermissionResolvedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("userInput.requested", escodeUserInputRequestedEventPayloadSchema),
   escodeSessionEventEnvelopeFor("userInput.resolved", escodeUserInputResolvedEventPayloadSchema),
@@ -2076,7 +2084,9 @@ export const DEFAULT_ESCODE_MODEL_CONTEXT_BUDGET_STRATEGY = "preflight-v1" as co
 
 // 3.12.2：legacy 仅为旧协议接收兼容；Runtime 一律归一为上面的共享默认策略。
 export const escodeModelContextBudgetStrategySchema = z.enum(["legacy", "preflight-v1"]);
-export type ESCodeModelContextBudgetStrategy = z.infer<typeof escodeModelContextBudgetStrategySchema>;
+export type ESCodeModelContextBudgetStrategy = z.infer<
+  typeof escodeModelContextBudgetStrategySchema
+>;
 
 export const escodeSessionRuntimePreferencesResultSchema = z
   .object({
@@ -3088,7 +3098,9 @@ export const escodeSkillReferenceCatalogEntrySchema = z
     pluginName: nonEmptyString.optional(),
   })
   .strict();
-export type ESCodeSkillReferenceCatalogEntry = z.infer<typeof escodeSkillReferenceCatalogEntrySchema>;
+export type ESCodeSkillReferenceCatalogEntry = z.infer<
+  typeof escodeSkillReferenceCatalogEntrySchema
+>;
 
 export const escodeSkillsReferenceCatalogParamsSchema = z
   .object({
@@ -3169,7 +3181,9 @@ export const escodeSavedWorkflowFailureReasonSchema = z.enum([
   "parse_error",
   "read_error",
 ]);
-export type ESCodeSavedWorkflowFailureReason = z.infer<typeof escodeSavedWorkflowFailureReasonSchema>;
+export type ESCodeSavedWorkflowFailureReason = z.infer<
+  typeof escodeSavedWorkflowFailureReasonSchema
+>;
 const escodeSavedWorkflowFailureSchema = z
   .object({
     ok: z.literal(false),
@@ -3854,7 +3868,9 @@ export const escodeAutomationScheduleRuleSchema = z
     monthlyMode: z.enum(["date", "weekday"]).optional(),
   })
   .strict();
-export type ESCodeAutomationScheduleRuleProtocol = z.infer<typeof escodeAutomationScheduleRuleSchema>;
+export type ESCodeAutomationScheduleRuleProtocol = z.infer<
+  typeof escodeAutomationScheduleRuleSchema
+>;
 
 /** 会话侧长间隔周期 carrier 的 unit 枚举（与 scheduleRule.unit 同集）。 */
 export const escodeAutomationIntervalUnitSchema = z.enum([
@@ -3925,12 +3941,16 @@ export const escodeAutomationCreateParamsSchema = z
     message: "intervalUnit is a recurring carrier and cannot combine with maxRuns",
     path: ["maxRuns"],
   });
-export type ESCodeAutomationCreateProtocolParams = z.infer<typeof escodeAutomationCreateParamsSchema>;
+export type ESCodeAutomationCreateProtocolParams = z.infer<
+  typeof escodeAutomationCreateParamsSchema
+>;
 
 export const escodeAutomationCreateResultSchema = z
   .object({ automation: escodeAutomationProtocolSchema })
   .strict();
-export type ESCodeAutomationCreateProtocolResult = z.infer<typeof escodeAutomationCreateResultSchema>;
+export type ESCodeAutomationCreateProtocolResult = z.infer<
+  typeof escodeAutomationCreateResultSchema
+>;
 
 export const escodeAutomationUpdateParamsSchema = z
   .object({
@@ -3983,11 +4003,15 @@ export const escodeAutomationUpdateParamsSchema = z
       path: ["maxRuns"],
     },
   );
-export type ESCodeAutomationUpdateProtocolParams = z.infer<typeof escodeAutomationUpdateParamsSchema>;
+export type ESCodeAutomationUpdateProtocolParams = z.infer<
+  typeof escodeAutomationUpdateParamsSchema
+>;
 export const escodeAutomationUpdateResultSchema = z
   .object({ automation: escodeAutomationProtocolSchema })
   .strict();
-export type ESCodeAutomationUpdateProtocolResult = z.infer<typeof escodeAutomationUpdateResultSchema>;
+export type ESCodeAutomationUpdateProtocolResult = z.infer<
+  typeof escodeAutomationUpdateResultSchema
+>;
 
 export const escodeAutomationListParamsSchema = z.object({}).strict();
 export type ESCodeAutomationListProtocolParams = z.infer<typeof escodeAutomationListParamsSchema>;
@@ -4012,9 +4036,13 @@ export type ESCodeAutomationCheckTaskBindingProtocolResult = z.infer<
 export const escodeAutomationDeleteParamsSchema = z
   .object({ automationId: nonEmptyString })
   .strict();
-export type ESCodeAutomationDeleteProtocolParams = z.infer<typeof escodeAutomationDeleteParamsSchema>;
+export type ESCodeAutomationDeleteProtocolParams = z.infer<
+  typeof escodeAutomationDeleteParamsSchema
+>;
 export const escodeAutomationDeleteResultSchema = z.object({ deleted: z.boolean() }).strict();
-export type ESCodeAutomationDeleteProtocolResult = z.infer<typeof escodeAutomationDeleteResultSchema>;
+export type ESCodeAutomationDeleteProtocolResult = z.infer<
+  typeof escodeAutomationDeleteResultSchema
+>;
 
 // ---- Off-Peak（闲时任务）会话内创建协议----
 // 与 automation 兄弟并列（独立域，禁止互相复用标记/表）。workspace 由 host 端从
@@ -4229,7 +4257,8 @@ export const escodeProtocolMethods = {
   interactionSerialCancel: escodeSerialCancelMethod,
 } as const;
 
-export type ESCodeProtocolMethod = (typeof escodeProtocolMethods)[keyof typeof escodeProtocolMethods];
+export type ESCodeProtocolMethod =
+  (typeof escodeProtocolMethods)[keyof typeof escodeProtocolMethods];
 
 export const escodeProtocolEmptyResultSchema = z.object({}).strict();
 

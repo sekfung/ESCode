@@ -90,7 +90,9 @@ describe("escode-file-citation parser", () => {
   });
 
   it("错配智能引号时 fail closed", () => {
-    expect(extractESCodeFileCitations("::escode-file-citation{path=“docs/report.pdf'}")).toEqual([]);
+    expect(extractESCodeFileCitations("::escode-file-citation{path=“docs/report.pdf'}")).toEqual(
+      [],
+    );
   });
 
   it("streaming 隐藏最后一行未闭合 citation，但不吞掉异常输出后的正文", () => {
@@ -161,9 +163,12 @@ describe("escode-file-citation parser", () => {
   });
 
   it("智能引号未闭合时仍隐藏流式 citation 尾部", () => {
-    const result = projectESCodeFileCitations("正文\n::escode-file-citation{path=“docs/report.pdf”", {
-      streaming: true,
-    });
+    const result = projectESCodeFileCitations(
+      "正文\n::escode-file-citation{path=“docs/report.pdf”",
+      {
+        streaming: true,
+      },
+    );
     expect(result.visibleText).toBe("正文\n");
   });
 

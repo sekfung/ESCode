@@ -33,7 +33,9 @@ describe("agent provider preference", () => {
     });
     vi.stubGlobal("window", { localStorage: storage });
 
-    const workspaceState = useESCodeSessionStore.getState().getWorkspaceState("/tmp/workspace-gemini");
+    const workspaceState = useESCodeSessionStore
+      .getState()
+      .getWorkspaceState("/tmp/workspace-gemini");
 
     expect(workspaceState.selectedProvider).toBe("glm");
   });
@@ -58,8 +60,8 @@ describe("agent provider preference", () => {
     useESCodeSessionStore.getState().startDraft("/tmp/workspace-draft", "gemini");
 
     expect(storage.getItem(LAST_SELECTED_AGENT_PROVIDER_STORAGE_KEY)).toBe("glm");
-    expect(useESCodeSessionStore.getState().getWorkspaceState("/tmp/workspace-draft").selectedProvider).toBe(
-      "glm",
-    );
+    expect(
+      useESCodeSessionStore.getState().getWorkspaceState("/tmp/workspace-draft").selectedProvider,
+    ).toBe("glm");
   });
 });

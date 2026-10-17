@@ -86,8 +86,8 @@ Effective Model Config Rules
 
 ### 2.2 代码和物理名称
 
-| 当前名称                                   | 目标名称                                        |
-| ------------------------------------------ | ----------------------------------------------- |
+| 当前名称                                   | 目标名称                                         |
+| ------------------------------------------ | ------------------------------------------------ |
 | `officialProviders`                        | `escodeBuiltinProviders`                         |
 | `officialModels`                           | `escodeBuiltinModelRules`                        |
 | `officialSource`                           | `escodeBuiltinSource`                            |
@@ -100,8 +100,8 @@ Effective Model Config Rules
 | `official-provider-config-source.ts`       | `escode-builtin-provider-config-source.ts`       |
 | `official-provider-config-materializer.ts` | `escode-builtin-provider-config-materializer.ts` |
 | `config/provider/official.json`            | `config/provider/escode-builtin.json`            |
-| `ESCODE_OFFICIAL_PROVIDER_CONFIG_FILE`      | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE`            |
-| SEA `escode-provider/official.json`         | SEA `escode-provider/escode-builtin.json`         |
+| `ESCODE_OFFICIAL_PROVIDER_CONFIG_FILE`     | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE`            |
+| SEA `escode-provider/official.json`        | SEA `escode-provider/escode-builtin.json`        |
 | 生成文件 `official-<hash>.json`            | 生成文件 `escode-builtin-<hash>.json`            |
 
 实现时若发现同一事实链上的其他 `official*` 符号，按同一规则直接重命名。`escodeBuiltin` 用于明确表达
@@ -137,7 +137,7 @@ ESCode 产品下发的 Built-in 层；不能简化成会与 Account Built-in 混
 | `packages/services`             |          7 | Service composition、Desktop/Host 注入        |
 | `packages/shared`               |          2 | Host init 严格协议字段                        |
 | `packages/desktop`              |          9 | Main/Host 消息、开发和打包路径                |
-| `apps/escode-cli`                |          6 | 环境变量、SEA asset、runtime 解包和构建脚本   |
+| `apps/escode-cli`               |          6 | 环境变量、SEA asset、runtime 解包和构建脚本   |
 | `config/provider/official.json` |          1 | 当前物理发布文件                              |
 
 定向扫描命令：
@@ -186,15 +186,15 @@ config/provider/escode-builtin.json
 Personal Repository、Account Source、Registry Overlay 和 Active Model 不改变。
 ```
 
-| 状态/事实                     | 权威 owner                           | 本 Todo 结果                        |
-| ----------------------------- | ------------------------------------ | ----------------------------------- |
-| ESCode Built-in 发布内容       | `config/provider/escode-builtin.json` | 内容不变，只改物理名称              |
-| Node Source snapshot/revision | `ESCodeBuiltinProviderConfigSource`   | watch/reload 行为不变               |
-| Desktop Host 启动参数         | Shared strict schema                 | 原子改为新字段，不双读              |
-| CLI 显式路径                  | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` | 只认新变量                          |
-| SEA 内置资产                  | `escode-provider/escode-builtin.json`  | 只打包/读取新 key                   |
-| Provider Config Snapshot      | Provider Domain                      | 字段改名，解析结果不变              |
-| Settings Built-in 标记        | Settings Facade View                 | 改为 `isESCodeBuiltin`，显示行为不变 |
+| 状态/事实                     | 权威 owner                            | 本 Todo 结果                         |
+| ----------------------------- | ------------------------------------- | ------------------------------------ |
+| ESCode Built-in 发布内容      | `config/provider/escode-builtin.json` | 内容不变，只改物理名称               |
+| Node Source snapshot/revision | `ESCodeBuiltinProviderConfigSource`   | watch/reload 行为不变                |
+| Desktop Host 启动参数         | Shared strict schema                  | 原子改为新字段，不双读               |
+| CLI 显式路径                  | `ESCODE_BUILTIN_PROVIDER_CONFIG_FILE` | 只认新变量                           |
+| SEA 内置资产                  | `escode-provider/escode-builtin.json` | 只打包/读取新 key                    |
+| Provider Config Snapshot      | Provider Domain                       | 字段改名，解析结果不变               |
+| Settings Built-in 标记        | Settings Facade View                  | 改为 `isESCodeBuiltin`，显示行为不变 |
 
 ### 4.3 UI Surface Matrix
 
@@ -251,16 +251,16 @@ Personal Repository、Account Source、Registry Overlay 和 Active Model 不改�
 
 ## 6. 稳定验收用例
 
-| Case ID | Setup                               | Action                             | Assertions                                                 |
-| ------- | ----------------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| ZBN-01  | 新发布文件存在                      | Node Source 启动并监听更新         | 正确解析、revision/watch 行为不变                          |
+| Case ID | Setup                               | Action                             | Assertions                                                  |
+| ------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------- |
+| ZBN-01  | 新发布文件存在                      | Node Source 启动并监听更新         | 正确解析、revision/watch 行为不变                           |
 | ZBN-02  | 同一 Built-in 内容                  | materialize 两次                   | 使用稳定 `escode-builtin-<hash>.json`，内容与原子写语义不变 |
-| ZBN-03  | Desktop dev/package                 | 创建 Local Host                    | 只通过新 Host init 字段找到配置并构建 Registry             |
-| ZBN-04  | CLI 显式新环境变量                  | 启动 Runtime                       | 读取新路径并生成相同 Provider/Model View                   |
-| ZBN-05  | SEA binary                          | 无显式文件路径启动                 | 只从新 asset key 解包并装配 Built-in Config                |
-| ZBN-06  | 只设置旧环境变量或只提供旧路径      | 启动 Runtime                       | 不读取旧入口，按缺失配置的正式错误失败                     |
+| ZBN-03  | Desktop dev/package                 | 创建 Local Host                    | 只通过新 Host init 字段找到配置并构建 Registry              |
+| ZBN-04  | CLI 显式新环境变量                  | 启动 Runtime                       | 读取新路径并生成相同 Provider/Model View                    |
+| ZBN-05  | SEA binary                          | 无显式文件路径启动                 | 只从新 asset key 解包并装配 Built-in Config                 |
+| ZBN-06  | 只设置旧环境变量或只提供旧路径      | 启动 Runtime                       | 不读取旧入口，按缺失配置的正式错误失败                      |
 | ZBN-07  | Provider Settings View              | 读取 Built-in 和 Personal Provider | `isESCodeBuiltin` 正确，UI 行为与保存结果不变               |
-| ZBN-08  | 同一 Built-in/Account/Personal 输入 | 切换前后解析快照                   | Overlay 顺序、Effective Config 和 Registry 候选等价        |
+| ZBN-08  | 同一 Built-in/Account/Personal 输入 | 切换前后解析快照                   | Overlay 顺序、Effective Config 和 Registry 候选等价         |
 
 ## 7. 完成门禁
 

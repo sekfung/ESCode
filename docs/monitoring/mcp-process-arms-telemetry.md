@@ -169,7 +169,7 @@ task snapshot / queue / replay / owner command ------------ X
 | ------------------------------------- | ------------------------------------------------ | ----- | ------------------------- |
 | `createMcpAdapterConnectionPool`      | protocol entrypoint -> session lease             | 2     | process tracker owner     |
 | `NodeMcpAdapter.openServerConnection` | pool adapter -> stdio transport                  | 2     | start/crash/PID authority |
-| `createESCodeProcessResourceSampler`   | protocol notification -> service -> Host -> main | 2     | forwarding pattern        |
+| `createESCodeProcessResourceSampler`  | protocol notification -> service -> Host -> main | 2     | forwarding pattern        |
 
 ### Graph Drift / Delta
 
@@ -183,12 +183,12 @@ task snapshot / queue / replay / owner command ------------ X
 
 ### Clarification Log
 
-| Round | User answer                         | Boundary fixed                               |
-| ----- | ----------------------------------- | -------------------------------------------- |
-| 2     | 需要定位具体 MCP                    | 公开 ID + 匿名设备稳定 ID + 随机 instance ID |
-| 3     | 加孤儿判定，稳妥按超过 60 秒        | `unowned_ms > 60_000` 且 OS 仍存活           |
+| Round | User answer                          | Boundary fixed                               |
+| ----- | ------------------------------------ | -------------------------------------------- |
+| 2     | 需要定位具体 MCP                     | 公开 ID + 匿名设备稳定 ID + 随机 instance ID |
+| 3     | 加孤儿判定，稳妥按超过 60 秒         | `unowned_ms > 60_000` 且 OS 仍存活           |
 | 4     | ESCode 官方市场的 MCP 都归为内置来源 | Builtin/CDN Plugin 均为 `mcp_source=builtin` |
-| 5     | 内置来源 MCP 不匿名                 | 官方 Plugin 使用公开 canonical `mcp_id`      |
+| 5     | 内置来源 MCP 不匿名                  | 官方 Plugin 使用公开 canonical `mcp_id`      |
 
 ### Boundary Decisions
 
@@ -200,16 +200,16 @@ task snapshot / queue / replay / owner command ------------ X
 
 ### Accepted Cases
 
-| Case ID      | Setup                                                    | Action                   | Assertions                                                                      | Evidence layers         | E2E status          |
-| ------------ | -------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- | ----------------------- | ------------------- |
-| MCP-ARMS-001 | connected stdio final transport                          | startup completes        | one start with safe/readable or anonymous ID; probe absent                      | adapter + tracker       | focused integration |
-| MCP-ARMS-002 | connected stdio instance                                 | unexpected exit          | one crash with same instance ID/code/signal/uptime                              | adapter + tracker       | focused integration |
-| MCP-ARMS-003 | connected stdio instance                                 | deliberate close         | no crash                                                                        | adapter                 | unit                |
-| MCP-ARMS-004 | session has stdio + HTTP + failed server                 | first snapshot           | configured/connected/process/failed counts once                                 | pool                    | unit                |
-| MCP-ARMS-005 | shared stdio connection, two sessions                    | acquire/release leases   | each session process_count=1; owner count 2 -> 1                                | pool + tracker          | unit                |
-| MCP-ARMS-006 | tracked process has no owners                            | sample at 60s / 60s+1ms  | false at 60s, true after 60s                                                    | tracker                 | unit                |
-| MCP-ARMS-007 | valid/invalid notification and Host message              | forward                  | strict validation, local/remote only, mobile excluded                           | shared/service/Host     | unit                |
-| MCP-ARMS-008 | main receives each event kind                            | report                   | exact three lifecycle ARMS names; legacy memory ignored                         | Desktop reporter        | unit                |
+| Case ID      | Setup                                                     | Action                   | Assertions                                                                      | Evidence layers         | E2E status          |
+| ------------ | --------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------- | ----------------------- | ------------------- |
+| MCP-ARMS-001 | connected stdio final transport                           | startup completes        | one start with safe/readable or anonymous ID; probe absent                      | adapter + tracker       | focused integration |
+| MCP-ARMS-002 | connected stdio instance                                  | unexpected exit          | one crash with same instance ID/code/signal/uptime                              | adapter + tracker       | focused integration |
+| MCP-ARMS-003 | connected stdio instance                                  | deliberate close         | no crash                                                                        | adapter                 | unit                |
+| MCP-ARMS-004 | session has stdio + HTTP + failed server                  | first snapshot           | configured/connected/process/failed counts once                                 | pool                    | unit                |
+| MCP-ARMS-005 | shared stdio connection, two sessions                     | acquire/release leases   | each session process_count=1; owner count 2 -> 1                                | pool + tracker          | unit                |
+| MCP-ARMS-006 | tracked process has no owners                             | sample at 60s / 60s+1ms  | false at 60s, true after 60s                                                    | tracker                 | unit                |
+| MCP-ARMS-007 | valid/invalid notification and Host message               | forward                  | strict validation, local/remote only, mobile excluded                           | shared/service/Host     | unit                |
+| MCP-ARMS-008 | main receives each event kind                             | report                   | exact three lifecycle ARMS names; legacy memory ignored                         | Desktop reporter        | unit                |
 | MCP-ARMS-009 | ESCode 官方市场与 Personal Source Plugin 各声明 stdio MCP | discover + process start | 官方 Plugin source=builtin 且 ID 可读；Personal Source source=plugin 且 ID 匿名 | loader + pool + tracker | unit                |
 
 GUI/conversation 产品状态不变，不新增 conversation case catalog/E2E matrix 组合。

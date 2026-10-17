@@ -38,11 +38,11 @@ Hero ZIP 及 HTML 源资源现由独立制作工作区维护，App 仓库的旧�
 | dialog.buttons            | 最多 4 个，ID 唯一；label 最多 200 字符；variant 为 primary/secondary/link |
 | button.actionId / actions | 引用必须存在；actions 最多 16 项；仅注册的宿主 handler 可执行              |
 
-| Hero 类型          | 字段                                                                                         |
-| ------------------ | -------------------------------------------------------------------------------------------- |
-| image              | src、darkSrc?、alt、fit?                                                                     |
-| video              | src、darkSrc?、poster、autoplay?、loop?、muted:true、fit?                                    |
-| lottie             | src、darkSrc?、autoplay?、loop?、speed?（0.1–4）、fallback?                                  |
+| Hero 类型          | 字段                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| image              | src、darkSrc?、alt、fit?                                                                      |
+| video              | src、darkSrc?、poster、autoplay?、loop?、muted:true、fit?                                     |
+| lottie             | src、darkSrc?、autoplay?、loop?、speed?（0.1–4）、fallback?                                   |
 | interactive_bundle | runtime:escode-hero-sandbox-v1、bundle、viewport:{aspectRatio:"4:3"}、data、events、fallback? |
 
 bundle 必须包含 `format:"zip"`、`url`、`entry`、`sha256`（64 位小写十六进制）；`sizeBytes` 可选，提供时必须为正整数且匹配实际大小。服务端 Marketing Touch 无大小字段，下载及展开的实际字节上限仍强制执行。HTTP mock 使用实算元数据，不能以占位哈希通过校验。

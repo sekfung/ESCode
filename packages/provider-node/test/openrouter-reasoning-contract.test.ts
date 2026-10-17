@@ -5,7 +5,9 @@ import { compileModelOptionMaps } from "@escode/model-option-map";
 import { ModelConfig, ModelOptionSpecsConfig } from "@escode/provider";
 import { NodeESCodeBuiltinProviderConfigSource } from "../src/index.js";
 
-const path = fileURLToPath(new URL("../../../config/provider/escode-builtin.json", import.meta.url));
+const path = fileURLToPath(
+  new URL("../../../config/provider/escode-builtin.json", import.meta.url),
+);
 const source = new NodeESCodeBuiltinProviderConfigSource({ bundledFilePath: path, watch: false });
 let snapshot: Awaited<ReturnType<typeof source.read>>;
 let modelIds: string[];

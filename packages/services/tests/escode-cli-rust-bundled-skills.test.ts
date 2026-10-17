@@ -45,11 +45,9 @@ async function observe(kind: "node" | "rust") {
     const h = f.start();
     const workspace = { workspacePath: h.workspace, workspaceKey: h.workspace };
     const policy = (enabled: boolean) =>
-      h.client.request(
-        "workspace/updateDynamicWorkflowPolicy",
-        { workspace, enabled },
-        { parse: (value: unknown) => value } as any,
-      );
+      h.client.request("workspace/updateDynamicWorkflowPolicy", { workspace, enabled }, {
+        parse: (value: unknown) => value,
+      } as any);
     const turn = async () => {
       const before = requests.length;
       const id = await h.create();

@@ -189,7 +189,9 @@ async function readVendoredRuntimePackages(root) {
   const allowed = new Set();
   let registries;
   try {
-    registries = JSON.parse(await readFile(join(root, "third-party", "runtime", "sources.json"), "utf8"));
+    registries = JSON.parse(
+      await readFile(join(root, "third-party", "runtime", "sources.json"), "utf8"),
+    );
   } catch {
     return allowed;
   }

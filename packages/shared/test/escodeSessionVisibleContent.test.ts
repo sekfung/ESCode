@@ -138,7 +138,9 @@ describe("ESCode session visible content", () => {
     );
 
     expect(isESCodeModelOnlySyntheticUserMessage(notification)).toBe(true);
-    expect(getESCodeUserVisibleMessages([realUserMessage, notification])).toEqual([realUserMessage]);
+    expect(getESCodeUserVisibleMessages([realUserMessage, notification])).toEqual([
+      realUserMessage,
+    ]);
   });
 
   it("filters legacy synthetic task notification text without metadata", () => {
@@ -337,7 +339,9 @@ describe("ESCode session visible content", () => {
     );
 
     expect(isESCodeModelOnlySyntheticUserMessage(continuation)).toBe(true);
-    expect(getESCodeUserVisibleMessages([realUserMessage, continuation])).toEqual([realUserMessage]);
+    expect(getESCodeUserVisibleMessages([realUserMessage, continuation])).toEqual([
+      realUserMessage,
+    ]);
   });
 
   it("filters model-only goal state change reminders from user-visible messages", () => {

@@ -121,11 +121,11 @@ sequenceDiagram
 
 ### 制品
 
-| 远程平台 | Rust target | 说明 |
-| --- | --- | --- |
-| `linux-x64` | `x86_64-unknown-linux-musl` | 静态链接，不依赖远端 glibc 版本（用户选择方案 a） |
-| `linux-arm64` | `aarch64-unknown-linux-musl` | 同上 |
-| `darwin-x64` / `darwin-arm64` | `x86_64-apple-darwin` / `aarch64-apple-darwin` | macOS 远端 |
+| 远程平台                      | Rust target                                    | 说明                                              |
+| ----------------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| `linux-x64`                   | `x86_64-unknown-linux-musl`                    | 静态链接，不依赖远端 glibc 版本（用户选择方案 a） |
+| `linux-arm64`                 | `aarch64-unknown-linux-musl`                   | 同上                                              |
+| `darwin-x64` / `darwin-arm64` | `x86_64-apple-darwin` / `aarch64-apple-darwin` | macOS 远端                                        |
 
 - 位置：远程 release 的 glm 组件内 `glm/<platform>/escode-cli-rust`，与 `zcode.cjs` 同一组件（同一 manifest SHA）。
 - 来源（`scripts/prepare-prebuilds.mjs` → `scripts/remote-rust-agent.mjs`，唯一 owner）：

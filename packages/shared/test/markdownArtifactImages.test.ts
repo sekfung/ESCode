@@ -35,7 +35,9 @@ describe("Markdown artifact image references", () => {
     expect(rewritten).not.toContain("escode-artifact://");
     const source = rewritten.match(/!\[shot\]\(([^)]+)\)/u)?.[1];
     expect(source).toBeTruthy();
-    expect(decodeMarkdownArtifactImageSource(source ?? "")).toBe("escode-artifact://session/shot-1");
+    expect(decodeMarkdownArtifactImageSource(source ?? "")).toBe(
+      "escode-artifact://session/shot-1",
+    );
   });
 
   it("leaves normal images, links, and fenced examples unchanged", () => {

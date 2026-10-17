@@ -9,7 +9,7 @@
 | 层级     | 文档                                                                     | 内容                                                       |
 | -------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- |
 | 核心规范 | [CLI Agent Telemetry 设计与开发规范](./cli-agent-telemetry.md)           | 数据模型、链路拓扑、设计原则、接入方式、隐私约束和查询     |
-| 专题参考 | [OpenTelemetry 概念与 ESCode 取舍](./reference/otel-concepts.md)          | Resource、Context、SpanContext、Parent、Link、Event 等     |
+| 专题参考 | [OpenTelemetry 概念与 ESCode 取舍](./reference/otel-concepts.md)         | Resource、Context、SpanContext、Parent、Link、Event 等     |
 | 专题参考 | [Span、Attribute、Event 与 Metric 字典](./reference/schema-reference.md) | 完整字段、枚举、缺失语义、兼容投影、事件和指标             |
 | 专题参考 | [Runtime、隐私、性能与 ARMS 参考](./reference/runtime-and-operations.md) | Runtime 生命周期、传播、脱敏、容量、测试、查询和 Dashboard |
 

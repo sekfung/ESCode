@@ -14,8 +14,8 @@
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 状态      | 已实施；当前交互为 persistent-only + soft-gate，静态与自动化检查完成，最终真实 Desktop 人工验收由产品方执行                                                                                                         |
 | 日期      | 2026-08-07                                                                                                                                                                                                          |
-| 适用范围  | ESCode CLI Runtime、ESCode Protocol v4、Desktop/Web UI、Remote Workspace、Headless CLI                                                                                                                                |
-| 主要对象  | workspace/project 级 `escode.json` 与 `.escode/config.json` Hooks                                                                                                                                                     |
+| 适用范围  | ESCode CLI Runtime、ESCode Protocol v4、Desktop/Web UI、Remote Workspace、Headless CLI                                                                                                                              |
+| 主要对象  | workspace/project 级 `escode.json` 与 `.escode/config.json` Hooks                                                                                                                                                   |
 | 安全基线  | 默认拒绝、显式授权、声明变化按条失效、策略拒绝优先                                                                                                                                                                  |
 | 关联文档  | `docs/security/deep-link-project-trust-boundary.md`；`docs/web-remote-control/web-remote-control-architecture.md`；`docs/web-remote-control/task-realtime-sync.md`；`docs/web-remote-control-task-command-queue.md` |
 | 交互方案  | `设置 → 钩子 → 工作区` 内完成审核；不使用任务页独立 Trust Dialog                                                                                                                                                    |
@@ -614,7 +614,7 @@ workspace 级“不要再提示”能力，应作为可见、可撤销的用户�
 | ----------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Trust 粒度        | 永久信任整个 workspace                      | 后续新增或替换 Hook 会自动获得执行权，授权范围随项目内容增长                                                         | 有签名策略、受控仓库身份或发布者策略                    |
 | Trust 粒度        | 仅按 digest、跨 workspace 信任              | 相同声明可在不同 workspace/remote 中复用，缺少项目身份边界                                                           | 存在全局发布者签名和可信 publisher identity             |
-| Trust 粒度        | 只按完整 bundle 做 all-or-nothing Trust     | 任一无关 Hook 变化都会使全部 Trust 失效；无法支持逐条审查与 revoke                                                 | 产品重新明确要求极简 bundle-only 模型                   |
+| Trust 粒度        | 只按完整 bundle 做 all-or-nothing Trust     | 任一无关 Hook 变化都会使全部 Trust 失效；无法支持逐条审查与 revoke                                                   | 产品重新明确要求极简 bundle-only 模型                   |
 | Trust 粒度        | 按整个 Hook event 放行                      | 同一 event 下可能有多个不同命令，授权对象过宽                                                                        | 有受控 event policy 且禁止任意命令                      |
 | 交互位置          | 任务聊天页独立 Trust Dialog                 | 与 Hook 配置、来源、toggle、revoke 分离；产生第二套管理入口，且不符合现有设置设计                                    | 任务页必须支持无法进入设置的特殊 Host                   |
 | 交互位置          | 单独的 Runtime Inspector / 决策流程页       | 信息密度和视觉改动过大，不符合现有设置产品风格                                                                       | 仅作为内部调试工具，不作为用户界面                      |
@@ -630,7 +630,7 @@ workspace 级“不要再提示”能力，应作为可见、可撤销的用户�
 | Headless          | 未信任时自动临时放行                        | automation 会成为绕过交互安全边界的通道                                                                              | 仅在 managed policy 控制的封闭环境                      |
 | Headless          | 环境变量永久信任                            | 容易由父进程或 CI 模板静默扩权，审计弱                                                                               | 受保护的短期签名 token                                  |
 | Remote            | 仅按 remote path                            | 不同主机或 container 的相同路径会冲突                                                                                | 永远不建议；至少需要 host/workspace identity            |
-| 持久化            | 写入 `.escode/config.json`                   | 仓库可以提交自我信任                                                                                                 | 永远不建议                                              |
+| 持久化            | 写入 `.escode/config.json`                  | 仓库可以提交自我信任                                                                                                 | 永远不建议                                              |
 | 持久化            | 复用普通 settings store 并云同步            | 授权可能扩散到未审核机器，安全记录与偏好混合                                                                         | 有设备绑定、加密和跨设备授权设计                        |
 | Digest            | 只 hash command 字符串                      | 忽略 event、matcher、timeout、source、顺序等执行语义                                                                 | 无                                                      |
 | Digest            | hash 整个配置文件原始字节                   | 无关格式或非 Hook 设置变化会重复询问，多文件合并语义不清                                                             | 产品希望任何项目字节变化都重审                          |
@@ -1525,7 +1525,7 @@ Trust”以及按钮/开关展示，不得形成第二套安全语义：
 | Config    | Runtime enabled / Source enabled / Hook enabled / Read-only source      |
 | Trust     | Pending persistent Trust / Trusted persistent / Policy denied / Changed |
 | Effective | 仅用于锁定开关，不渲染“将运行/不会运行”徽章                             |
-| Source    | `escode.json`、`.escode/config.json`、user、plugin、internal              |
+| Source    | `escode.json`、`.escode/config.json`、user、plugin、internal            |
 
 若当前没有 task/session，Hooks service 可通过只读 Agent control plane 使用同一 discovery resolver
 获取静态 snapshot；点击 Trust 时必须再由 Agent 重验 identity、bundle 与 declaration digest，
@@ -2115,7 +2115,7 @@ HookRunBlocked
 | CFG13 | 仅 configured gates 变化                                | declaration digest 不变，bundle digest 变化                                          |
 | CFG14 | Settings `hooks.enabled` 缺省                           | 与 Runtime `enabled !== false` 的权威 resolver 一致                                  |
 | CFG15 | root 与 cwd 多配置文件                                  | source 顺序、provenance 与 digest 稳定                                               |
-| CFG16 | 祖先 `escode.json` / 上游 `.escode/config.json`           | 进入 snapshot；Settings row `editable=false`                                         |
+| CFG16 | 祖先 `escode.json` / 上游 `.escode/config.json`         | 进入 snapshot；Settings row `editable=false`                                         |
 | CFG17 | `.claude/.agents` compatibility Hook                    | disabled/read-only，不进入 Trust snapshot/pending count                              |
 | CFG18 | 非 Git workspace                                        | 只扫描 cwd，不纳入父目录                                                             |
 | CFG19 | JSON 空白/key 排列变化                                  | digest 不变                                                                          |

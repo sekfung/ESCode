@@ -263,10 +263,7 @@ describe("WorkspaceHelpMenuButton", () => {
   it("桌面端与 Web 端都保留原有帮助项", async () => {
     for (const isDesktop of [true, false]) {
       const html = await render(isDesktop);
-      for (const id of [
-        "workspaceHeader.help.community",
-        "workspaceHeader.help.docs",
-      ]) {
+      for (const id of ["workspaceHeader.help.community", "workspaceHeader.help.docs"]) {
         expect(html).toContain(id);
       }
     }

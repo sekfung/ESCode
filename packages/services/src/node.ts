@@ -451,7 +451,10 @@ import {
   buildAgentRuntimeEnv,
 } from "./runtime-tools/agentProxyEnv.js";
 import { ensureAppCaCert } from "./runtime-tools/appCaCert.js";
-import { buildHelperOpenArgs, isCuaLocalDevelopmentRuntime } from "@escode/escode-cua/broker/server";
+import {
+  buildHelperOpenArgs,
+  isCuaLocalDevelopmentRuntime,
+} from "@escode/escode-cua/broker/server";
 import { createServiceLogger, type ServiceLogger } from "#src/logger/serviceLogger.js";
 import { IOffPeakTaskService } from "./session/offPeakTask.js";
 import { OffPeakTaskService } from "./session/offPeakTaskService.js";
@@ -1841,8 +1844,7 @@ export function createLocalServices(options: {
     options?.serviceAuthorityMode === "desktop-attached-remote"
       ? {}
       : {
-          resolveOffPeakClientConfig: () =>
-            clientConfigServiceForAgent!.getOffPeakClientConfig(),
+          resolveOffPeakClientConfig: () => clientConfigServiceForAgent!.getOffPeakClientConfig(),
           resolveOffPeakTaskService: () => offPeakTaskServiceForAgent,
         };
   // 串口会话属于窗口级 Desktop Local Host；同一实例既注册给 renderer RPC，也供 Agent 串口工具使用。
@@ -2252,10 +2254,7 @@ export function createLocalServices(options: {
       }),
     )
     .register(IFileWatcherService, createFileWatcherService())
-    .register(
-      IUsageStatsService,
-      createUsageStatsService({ escodeAgentService }),
-    )
+    .register(IUsageStatsService, createUsageStatsService({ escodeAgentService }))
     .register(
       IClientConfigService,
       (clientConfigServiceForAgent = createClientConfigService({
@@ -2354,7 +2353,7 @@ export function createLocalServices(options: {
         return offPeakTaskService;
       })(),
     )
-.register(ISkillsService, skillsService)
+    .register(ISkillsService, skillsService)
     .register(ISkillSyncService, createSkillSyncService())
     .register(IMcpSyncService, mcpSyncService)
     .register(

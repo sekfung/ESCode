@@ -309,7 +309,9 @@ export function canRestartAutomation(
   return automation.lifecycleStatus === "failed";
 }
 
-export function canToggleAutomation(automation: Pick<ESCodeAutomation, "lifecycleStatus">): boolean {
+export function canToggleAutomation(
+  automation: Pick<ESCodeAutomation, "lifecycleStatus">,
+): boolean {
   return automation.lifecycleStatus !== "completed" && automation.lifecycleStatus !== "failed";
 }
 

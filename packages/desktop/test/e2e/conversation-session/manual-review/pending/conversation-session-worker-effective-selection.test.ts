@@ -1,6 +1,10 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { BUILTIN_MODEL_PROVIDER_IDS, encodeCustomModelValue, generateTraceId } from "@escode/shared";
+import {
+  BUILTIN_MODEL_PROVIDER_IDS,
+  encodeCustomModelValue,
+  generateTraceId,
+} from "@escode/shared";
 import { createWorkerSelectionIntegration } from "../../../helpers/worker-selection-integration.js";
 import {
   createBotsServiceHarness,

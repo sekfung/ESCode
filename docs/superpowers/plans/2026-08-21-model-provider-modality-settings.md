@@ -18,7 +18,7 @@
 | must-inspect   | `ProviderModelMetadataDialog` / draft helpers    | 直接新增交互、默认和提交字段                         | `packages/ui/src/settings/model-provider-section/*` |
 | must-inspect   | shared model provider type/schema                | modalities 已存在，但缺少显式来源语义                | `packages/shared/src/model-provider-types.ts`       |
 | must-inspect   | provider storage                                 | 所有模型都会写 modalities，当前无法由数组判断来源    | `modelProviderServiceStorage.ts`                    |
-| must-inspect   | provider -> ESCode protocol projection            | custom legacy unknown 与 explicit false 的分界在这里 | `packages/shared/src/escode-protocol/index.ts`       |
+| must-inspect   | provider -> ESCode protocol projection           | custom legacy unknown 与 explicit false 的分界在这里 | `packages/shared/src/escode-protocol/index.ts`      |
 | must-inspect   | active session registry refresh                  | 保存后要无需切模型即生效                             | bootstrap provider registry tests                   |
 | conditional    | desktop-attached remote sync                     | 远端 runtime 依赖本地 provider snapshot              | `remoteWorkspaceProviderSync.ts` 与架构文档         |
 | should-inspect | chat/automation/Subagent/Repo Wiki model options | 共用 registry，但 commit sink 必须保持隔离           | feature graph model surfaces                        |

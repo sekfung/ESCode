@@ -42,13 +42,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -68,19 +62,11 @@ async function observe(kind: Runtime) {
         },
       }),
     );
-    await write(
-      join(alpha, "skills", "one", "SKILL.md"),
-      "---\nname: one\n---\nb\n",
-    );
-    await write(
-      join(beta, ".escode-plugin", "plugin.json"),
-      JSON.stringify({ name: "beta" }),
-    );
+    await write(join(alpha, "skills", "one", "SKILL.md"), "---\nname: one\n---\nb\n");
+    await write(join(beta, ".escode-plugin", "plugin.json"), JSON.stringify({ name: "beta" }));
     const userConfigPath = join(root, ".escode", "cli", "config.json");
     const workspaceConfigPath = join(f.cwd, ".escode", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await write(
       userConfigPath,
       JSON.stringify({
@@ -104,13 +90,10 @@ async function observe(kind: Runtime) {
     );
     const h = f.start();
     const workspace = { workspacePath: f.cwd, workspaceKey: f.cwd };
-    const scrub = (text: string) =>
-      text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
+    const scrub = (text: string) => text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
     const files = async () => ({
       user: scrub(await readFile(userConfigPath, "utf8")),
-      workspace: scrub(
-        await readFile(workspaceConfigPath, "utf8").catch(() => "<none>"),
-      ),
+      workspace: scrub(await readFile(workspaceConfigPath, "utf8").catch(() => "<none>")),
     });
     const list = async (extra: Record<string, unknown> = {}) => {
       const result = (await h.client.request(
@@ -120,20 +103,11 @@ async function observe(kind: Runtime) {
       )) as any;
       return (result.plugins as any[])
         .filter((plugin) => plugin.source === "inline")
-        .map((plugin) =>
-          Object.fromEntries(FIELDS.map((field) => [field, plugin[field]])),
-        );
+        .map((plugin) => Object.fromEntries(FIELDS.map((field) => [field, plugin[field]])));
     };
-    const call = async (
-      method: "plugins/configure" | "plugins/resetConfig",
-      params: object,
-    ) => {
+    const call = async (method: "plugins/configure" | "plugins/resetConfig", params: object) => {
       try {
-        return await h.client.request(
-          method,
-          { workspace, ...params },
-          z.any(),
-        );
+        return await h.client.request(method, { workspace, ...params }, z.any());
       } catch (error) {
         return {
           error: error instanceof Error ? error.message : String(error),
@@ -214,8 +188,5 @@ test("Node and Rust merge, report and write plugin options the same way", async 
   assert.equal(alpha.rootSource, "user");
   assert.equal(beta.rootSource, "workspace");
   assert.equal(beta.enabledSource, "workspace");
-  assert.match(
-    String((node.configureUnknown as any).error),
-    /Plugin not found: nope/,
-  );
+  assert.match(String((node.configureUnknown as any).error), /Plugin not found: nope/);
 });

@@ -13,13 +13,13 @@ TS 真相源：`skill-sync/skillSyncService.ts` 509、`skillSyncArchive.ts` 346�
 
 ### 1.1 接口
 
-| 方法                                      | 行为                                                                         |
-| ----------------------------------------- | ---------------------------------------------------------------------------- |
-| `listLocalUserSkillCandidates()`          | 扫 `.escode/skills` + `.agents/skills`，返回候选与 `maxArchiveBytes`（20 MiB） |
-| `listRemoteUserSkillStatuses({…})`        | 按目录名判断远端是否已存在；支持按 skill `name` 回退匹配已有目录             |
-| `exportSkillsArchive({skillIds})`         | 按候选 id 选目录，生成 gzip+tar 归档；字节数上限 20 MiB                      |
-| `checkRemoteUserSkillWriteAccess()`       | 在 `.escode/skills` 写入并删除探测文件，返回 `{ok,path,error?}`              |
-| `importSkillsArchive({archive,overwrite})` | 解压到临时目录，按目录名与 skill 名双重判重后复制；返回逐项结果              |
+| 方法                                       | 行为                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| `listLocalUserSkillCandidates()`           | 扫 `.escode/skills` + `.agents/skills`，返回候选与 `maxArchiveBytes`（20 MiB） |
+| `listRemoteUserSkillStatuses({…})`         | 按目录名判断远端是否已存在；支持按 skill `name` 回退匹配已有目录               |
+| `exportSkillsArchive({skillIds})`          | 按候选 id 选目录，生成 gzip+tar 归档；字节数上限 20 MiB                        |
+| `checkRemoteUserSkillWriteAccess()`        | 在 `.escode/skills` 写入并删除探测文件，返回 `{ok,path,error?}`                |
+| `importSkillsArchive({archive,overwrite})` | 解压到临时目录，按目录名与 skill 名双重判重后复制；返回逐项结果                |
 
 错误形状：普通错误 `name = "Error"`；超限错误 `name = "SkillSyncSizeLimitError"`、
 `code = "SKILL_SYNC_SIZE_LIMIT_EXCEEDED"`、`data = {actualBytes,maxBytes,phase}`（UI 按 phase 本地化）。
@@ -116,7 +116,7 @@ TS 真相源：`skill-sync/skillSyncService.ts` 509、`skillSyncArchive.ts` 346�
 - **共享件**：`host-rpc/src/wire_bytes.rs` 集中 `@escode/rpc` 的嵌套 Uint8Array 编解码，
   `serial.write` 的 `param_bytes` 改为复用同一实现；`skills` 域把遍历与扫描策略提为 crate 可见。
 - **测试**：新增 17 例（路径 2、tar 头 3、归档 5、候选 3、服务 5——含导入/跳过/三阶段超限/写权限）
-  + 端到端 1 例（A 导出 → B 导入 → 二次 skipped；未知 id 与不安全路径的错误形状）。
+  - 端到端 1 例（A 导出 → B 导入 → 二次 skipped；未知 id 与不安全路径的错误形状）。
 - **负向验证**（两项，均已恢复）：①去掉 `.agents` 的 skill 名过滤 → 去重用例失败；
   ②去掉解压路径归一与根内限制 → 穿越归档用例失败（并确认文件真的落到了目标根之外）。
 - **门禁**：workspace 全部测试目标通过（host-services 434、host-rpc 119 及全部 e2e）；
@@ -129,23 +129,23 @@ TS 真相源：`mcp-sync/mcpSyncService.ts` 937、`mcpSync.ts` 47；共享类型
 
 ### 2.1 接口
 
-| 方法                                       | 行为                                                                 |
-| ------------------------------------------ | -------------------------------------------------------------------- |
+| 方法                                         | 行为                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------- |
 | `loadMcpFromUserDirectory({workspacePath?})` | 依次读工作区（`.escode`→`.agents`）与用户级目录，返回 `NativeMcpServerRecord[]` |
-| `listWorkspaceMcpServerStatuses(params)`   | 转发 workspace 实例的 `mcp/list`（运行态连接检查）                    |
-| `saveMcpToUserDirectory(payload)`          | `upsert` / `delete` / `set-enabled` 写 `.escode` 配置                 |
-| `listLocalUserMcpCandidates()`             | 有效用户记录（`.escode` 非空优先，否则 `.agents`）→ 候选 + `localHomeDir` |
-| `listRemoteUserMcpStatuses({names})`       | 按名字（trim+lower）判断远端是否存在，返回路径                        |
-| `exportMcpServers({serverIds})`            | 按候选 id 导出 `{id,name,config,enabled,source,path}`                 |
-| `checkRemoteUserMcpWriteAccess()`          | 在 `<home>/.escode/cli` 做写权限探测                                  |
-| `importMcpServers(params)`                 | 写用户级 `mcp.servers`，按目标文件/用户级同名双重判重，改写 filesystem 参数 |
+| `listWorkspaceMcpServerStatuses(params)`     | 转发 workspace 实例的 `mcp/list`（运行态连接检查）                              |
+| `saveMcpToUserDirectory(payload)`            | `upsert` / `delete` / `set-enabled` 写 `.escode` 配置                           |
+| `listLocalUserMcpCandidates()`               | 有效用户记录（`.escode` 非空优先，否则 `.agents`）→ 候选 + `localHomeDir`       |
+| `listRemoteUserMcpStatuses({names})`         | 按名字（trim+lower）判断远端是否存在，返回路径                                  |
+| `exportMcpServers({serverIds})`              | 按候选 id 导出 `{id,name,config,enabled,source,path}`                           |
+| `checkRemoteUserMcpWriteAccess()`            | 在 `<home>/.escode/cli` 做写权限探测                                            |
+| `importMcpServers(params)`                   | 写用户级 `mcp.servers`，按目标文件/用户级同名双重判重，改写 filesystem 参数     |
 
 ### 2.2 目录与键
 
-| 来源      | 用户级                    | 工作区级                    | server 键      |
-| --------- | ------------------------- | --------------------------- | -------------- |
-| `escode`  | `<home>/.escode/cli/config.json` | `<workspace>/.escode/config.json` | `mcp.servers`  |
-| `agents`  | `<home>/.agents/mcp.json` | `<workspace>/.agents/mcp.json` | `mcpServers` |
+| 来源     | 用户级                           | 工作区级                          | server 键     |
+| -------- | -------------------------------- | --------------------------------- | ------------- |
+| `escode` | `<home>/.escode/cli/config.json` | `<workspace>/.escode/config.json` | `mcp.servers` |
+| `agents` | `<home>/.agents/mcp.json`        | `<workspace>/.agents/mcp.json`    | `mcpServers`  |
 
 - 读面「有效记录」：`.escode` 文件里有任何 server 就用它，否则整体回退 `.agents`（不是逐条合并）。
 - `enabled` 只认显式 `false`（`config.enabled !== false`）；写面启用态不落冗余字段，
@@ -224,14 +224,14 @@ TS 真相源：`settings-sync/settingsSyncService.ts` 2377、`settingsSync.ts` 4
 
 ### 3.1 接口与分片
 
-| 方法                                             | 状态   | 行为                                                                 |
-| ------------------------------------------------ | ------ | -------------------------------------------------------------------- |
-| `getClaudeAgentsFileMigrationStatus({…})`        | 已交付 | `~/.claude/CLAUDE.md` → `~/.escode/AGENTS.md` 的存在性/可用性        |
-| `copyClaudeAgentsFileToEscodeAgentsFile({…})`    | 已交付 | 复制（`overwrite === true` 才覆盖）；返回 copied/skipped 与原因       |
-| `getFirstRunPromptState()`                       | 已交付 | 设置文件顶层键 `settingsSyncFirstRunPromptHandled === true`          |
-| `markFirstRunPromptHandled()`                    | 已交付 | 顶层合并写 `settingsSyncFirstRunPromptHandled: true`                 |
-| `detect({categories,intent})`                    | 已交付 | 多 agent 设置发现（skills/commands/plugins/mcpServers）              |
-| `importSelected({selections})`                   | 已交付 | 按选择导入（copy/symlink，含 CLI 配置合并）                          |
+| 方法                                          | 状态   | 行为                                                            |
+| --------------------------------------------- | ------ | --------------------------------------------------------------- |
+| `getClaudeAgentsFileMigrationStatus({…})`     | 已交付 | `~/.claude/CLAUDE.md` → `~/.escode/AGENTS.md` 的存在性/可用性   |
+| `copyClaudeAgentsFileToEscodeAgentsFile({…})` | 已交付 | 复制（`overwrite === true` 才覆盖）；返回 copied/skipped 与原因 |
+| `getFirstRunPromptState()`                    | 已交付 | 设置文件顶层键 `settingsSyncFirstRunPromptHandled === true`     |
+| `markFirstRunPromptHandled()`                 | 已交付 | 顶层合并写 `settingsSyncFirstRunPromptHandled: true`            |
+| `detect({categories,intent})`                 | 已交付 | 多 agent 设置发现（skills/commands/plugins/mcpServers）         |
+| `importSelected({selections})`                | 已交付 | 按选择导入（copy/symlink，含 CLI 配置合并）                     |
 
 - 前 4 个方法不使用 `workspacePath`/`workspaceIdentity`（TS 同样 `void` 掉）；
   `detect`/`importSelected` 用 `workspacePath` 解析工作区源根与目标根。
@@ -297,6 +297,7 @@ TS 的入口只有两种组合：`detect` 仅在 `intent === "manualImport"` 且
   - mcpServers 合并到目标配置 `mcp.servers`，保留其它字段；写盘走原子写（TS 是直接写，登记差异）。
   - 每个候选独立 try/catch → `failed`；任务状态：有 failed → `failed`，否则 imported>0 → `success`，
     否则 `skipped`；顶层计数为各任务之和。
+
 ### 3.5 登记差异
 
 1. `copyClaudeAgentsFileToEscodeAgentsFile` 不写 TS 的 info 日志（Host 无日志设施）。
@@ -322,7 +323,7 @@ TS 的入口只有两种组合：`detect` 仅在 `intent === "manualImport"` 且
 - **通道**：`domains_settings_sync.rs` 六个方法全部登记；`inventory_services.rs` 补 2 条
   （`detect` / `importSelected`）。
 - **测试**：24 例（元数据 4、MCP 读取 4、候选 3、发现 4、导入 5、AGENTS 3、首启 1）
-  + 端到端 1 例（迁移/首启 + `detect → importSelected → detect` 闭环）。
+  - 端到端 1 例（迁移/首启 + `detect → importSelected → detect` 闭环）。
 - **负向验证**（两项，均已恢复）：①忽略 `targetScope` → 项目作用域导入用例失败；
   ②不剥离外部 `timeout` → 配置合并用例失败。
 - **门禁**：workspace 全部测试目标通过；clippy `-D warnings` 0；`pnpm check:escode-host` 通过；

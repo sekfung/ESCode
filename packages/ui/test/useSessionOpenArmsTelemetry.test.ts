@@ -2,7 +2,10 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ConversationOpenTiming, ConversationSnapshot } from "@escode/shared/escode-protocol-v4";
+import type {
+  ConversationOpenTiming,
+  ConversationSnapshot,
+} from "@escode/shared/escode-protocol-v4";
 import type { SessionOpenRendererTiming } from "@/v4/conversationProjectionStore.js";
 import {
   clearSessionOpenArmsReporterForTest,

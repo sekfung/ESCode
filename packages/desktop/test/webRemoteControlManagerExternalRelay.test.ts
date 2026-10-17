@@ -1058,7 +1058,8 @@ describe("createWebRemoteControlManager external relay", () => {
     expect(
       sentPayloads.filter(
         (payload) =>
-          payload.escode_type === "workspace-bridge-ready" && payload.bridgeSessionId === "bridge-1",
+          payload.escode_type === "workspace-bridge-ready" &&
+          payload.bridgeSessionId === "bridge-1",
       ),
     ).toEqual([]);
   });

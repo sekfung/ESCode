@@ -69,7 +69,9 @@ const lines = [
   "/// 生成文本长度固定，`#[rustfmt::skip]` 保证生成结果与 rustfmt 无关（否则 `--check` 会被格式化差异干扰）。",
   "#[rustfmt::skip]",
   "pub const EXPECTED_MIGRATIONS: &[(&str, &str)] = &[",
-  ...migrations.map(([id, checksum]) => `    (${JSON.stringify(id)}, ${JSON.stringify(checksum)}),`),
+  ...migrations.map(
+    ([id, checksum]) => `    (${JSON.stringify(id)}, ${JSON.stringify(checksum)}),`,
+  ),
   "];",
   "",
   "/// `EXPECTED_MIGRATIONS` 的 sha256（`\\t`/`\\n` 连接的规范文本，加载期自校验）。",

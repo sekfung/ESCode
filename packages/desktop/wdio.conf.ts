@@ -21,8 +21,7 @@ import {
   withE2ESourceEvidence,
 } from "./test/e2e/reporting/e2e-source-evidence.js";
 import { config as loadDotenv } from "dotenv";
-import {
-} from "./test/e2e/fixtures/provider-family-responsive.js";
+import {} from "./test/e2e/fixtures/provider-family-responsive.js";
 import {
   startUpstreamReplayServer,
   type UpstreamReplayServer,
@@ -101,8 +100,7 @@ import {
   startModelContextBudgetConfigMockServer,
   type ModelContextBudgetConfigMockServer,
 } from "./test/e2e/helpers/model-context-budget-config-mock-server.js";
-import {
-} from "./test/e2e/helpers/model-provider-catalog-mock-server.js";
+import {} from "./test/e2e/helpers/model-provider-catalog-mock-server.js";
 import {
   applyClientScenesMockEnv,
   clearClientScenesMockEnv,
@@ -754,11 +752,7 @@ function readE2EProviderPresetName(): E2EProviderPresetName {
     // 修复原因：rebase 后默认曾落到 GLM highspeed，会请求 open.bigmodel.cn 且人工验收链路不一致。
     return "env";
   }
-  if (
-    configured === "env" ||
-    configured === "bigmodel53" ||
-    configured === "stagingmodel"
-  ) {
+  if (configured === "env" || configured === "bigmodel53" || configured === "stagingmodel") {
     return configured;
   }
   throw new Error(
@@ -1085,7 +1079,6 @@ async function readRequestJson<T>(request: IncomingMessage): Promise<T> {
   return (raw ? JSON.parse(raw) : {}) as T;
 }
 
-
 async function startUpstreamCaptureProxy() {
   assertUpstreamCaptureConfig();
   const apiKey = readE2EProviderApiKey();
@@ -1152,7 +1145,6 @@ async function stopUpstreamE2EHttp() {
   }
 }
 
-
 // 闲时任务 E2E：off-peak spec 命中时开进程内 mock 网关（ESCODE_OFFPEAK_MOCK=1），
 // host 继承 worker env 后自动起网关、灰度强制开启；管理类 GUI spec 保持票据短暂 queued，
 // 避免创建落库唤醒 scheduler 后在 UI 来得及操作前就派发模型请求。
@@ -1195,7 +1187,8 @@ async function startOffPeakE2EMock(specs: string[] = []): Promise<void> {
     await materializeOffPeakMockESCodeBuiltinProviderConfig(
       Number(process.env.ESCODE_OFFPEAK_MOCK_PORT),
     );
-    process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE = E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE;
+    process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE =
+      E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE;
   } else {
     delete process.env.ESCODE_OFFPEAK_MOCK;
     delete process.env.ESCODE_OFFPEAK_MOCK_AVAILABILITY_BLOCK_MS;
@@ -1239,7 +1232,6 @@ async function materializeOffPeakMockESCodeBuiltinProviderConfig(port: number): 
     "utf8",
   );
 }
-
 
 /**
  * Marketing Touch E2E：case-local fixture server 即 App 的 endpoint origin（营销服务读
@@ -2052,7 +2044,7 @@ function seedE2EStartupState(specs: string[] = []) {
   const now = Date.now();
   const builtInSubagentModelOverridesSpec = isBuiltInSubagentModelSelectionOverridesSpec(specs);
   const providerReadinessColdStartFixture = usesProviderReadinessColdStartFixture(specs);
-// 套餐族删除：bigmodel 鉴权播种随 plan E2E 移除，标准 E2E 固定走 zai OAuth fixture。
+  // 套餐族删除：bigmodel 鉴权播种随 plan E2E 移除，标准 E2E 固定走 zai OAuth fixture。
   const authProviderId = E2E_AUTH_PROVIDER_ID;
   writeFileSync(
     E2E_APP_SETTINGS_FILE,
@@ -2130,24 +2122,21 @@ function seedE2EStartupState(specs: string[] = []) {
           builtInSubagentModelOverridesSpec
           ? {}
           : createE2EStartupCredentialSeed({
-                    specs,
-                    legacyAuthToken: E2E_AUTH_TOKEN,
-                    restoredOAuthCredentials: {
-                      "oauth:active_provider": authProviderId,
-                      [`oauth:${E2E_AUTH_PROVIDER_ID}:access_token`]: E2E_AUTH_TOKEN,
-                      [`oauth:${E2E_AUTH_PROVIDER_ID}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
-                      escodejwttoken: E2E_AUTH_TOKEN,
-                    },
-                  }),
+              specs,
+              legacyAuthToken: E2E_AUTH_TOKEN,
+              restoredOAuthCredentials: {
+                "oauth:active_provider": authProviderId,
+                [`oauth:${E2E_AUTH_PROVIDER_ID}:access_token`]: E2E_AUTH_TOKEN,
+                [`oauth:${E2E_AUTH_PROVIDER_ID}:user_info`]: JSON.stringify(E2E_USER_PROFILE),
+                escodejwttoken: E2E_AUTH_TOKEN,
+              },
+            }),
       null,
       2,
     ),
     "utf-8",
   );
 }
-
-
-
 
 function usesProviderReadinessColdStartFixture(specs: string[] = []) {
   return (
@@ -2194,8 +2183,6 @@ async function runGitReviewEntryCommand(cwd: string, args: string[]) {
     windowsHide: true,
   });
 }
-
-
 
 function shouldSeedGuideInteractionBehavior(specs: string[] = []) {
   return specs.some(
@@ -2591,7 +2578,6 @@ function isOffPeakSubagentModelInheritanceSpec(specs: string[] = []) {
 function isOffPeakInvalidTicketSpec(specs: string[] = []) {
   return specs.some((spec) => spec.includes(OFFPEAK_INVALID_TICKET_SPEC));
 }
-
 
 function isToolErrorSurfaceSpec(specs: string[] = []) {
   return specs.some((spec) => spec.includes(TOOL_ERROR_SURFACE_SPEC));
@@ -3199,7 +3185,8 @@ export const config: WebdriverIO.Config = {
     ESCODE_AGENT_SERVER_COMMAND: "",
     ESCODE_DATA_BASE_DIR: E2E_HOME_DIR,
     ESCODE_BUILTIN_PROVIDER_CONFIG_FILE:
-      INITIAL_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE ?? E2E_DEFAULT_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE,
+      INITIAL_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE ??
+      E2E_DEFAULT_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE,
     ESCODE_DESKTOP_APPLICATION_NAME: "ESCode E2E",
     ESCODE_DESKTOP_HOME_DIR: E2E_HOME_DIR,
     ESCODE_DESKTOP_USE_ELECTRON_DEFAULT_USER_DATA: "1",

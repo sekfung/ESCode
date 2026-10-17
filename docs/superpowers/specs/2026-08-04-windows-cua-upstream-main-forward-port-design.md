@@ -300,14 +300,14 @@ pnpm lint
 
 ### 9.2 关系分级
 
-| 等级           | 关系                                          | 原因                                   |
-| -------------- | --------------------------------------------- | -------------------------------------- |
-| must-inspect   | escode-cua package -> escode staging/resolver  | producer/consumer 同一运行时契约       |
-| must-inspect   | Host lifecycle -> official plugin credentials | Helper ready 后才可投影 authority      |
-| should-inspect | electron-builder/runtime preparation          | clean checkout 必须可重现              |
+| 等级           | 关系                                          | 原因                                |
+| -------------- | --------------------------------------------- | ----------------------------------- |
+| must-inspect   | escode-cua package -> escode staging/resolver | producer/consumer 同一运行时契约    |
+| must-inspect   | Host lifecycle -> official plugin credentials | Helper ready 后才可投影 authority   |
+| should-inspect | electron-builder/runtime preparation          | clean checkout 必须可重现           |
 | invariant-only | macOS Helper/TCC/PiP                          | Windows 迁移不得改变上游 macOS 语义 |
-| invariant-only | web remote shared-host                        | 不新增独立 runtime                     |
-| evidence-only  | Windows live smoke                            | 证明实机行为，不定义产品边界           |
+| invariant-only | web remote shared-host                        | 不新增独立 runtime                  |
+| evidence-only  | Windows live smoke                            | 证明实机行为，不定义产品边界        |
 
 ### 9.3 Graph drift
 
@@ -319,7 +319,7 @@ runtime/Host code seeds；是否“发布可用”仍由本 spec 的 clean-packa
 
 | ID      | Setup                                      | Action                 | Assertions                                  | 状态               |
 | ------- | ------------------------------------------ | ---------------------- | ------------------------------------------- | ------------------ |
-| WCFR-01 | clean escode-cua latest main                | build/package          | contract、entry、native source 均在 pack 中 | accepted           |
+| WCFR-01 | clean escode-cua latest main               | build/package          | contract、entry、native source 均在 pack 中 | accepted           |
 | WCFR-02 | clean escode checkout + fixed producer SHA | prepare runtime        | 不依赖 ignored 文件，生成 digest manifest   | accepted           |
 | WCFR-03 | packaged Windows local desktop             | enable official plugin | Helper ready，30 tools 可调用，退出无孤儿   | accepted           |
 | WCFR-04 | occluded non-minimized test window         | capture                | WGC 返回与 HWND 绑定的非空图片              | accepted           |

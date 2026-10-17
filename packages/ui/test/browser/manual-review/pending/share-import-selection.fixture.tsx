@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { IServiceAccessor, IModelSelectionService, ModelSelectionView } from "@escode/services";
+import type {
+  IServiceAccessor,
+  IModelSelectionService,
+  ModelSelectionView,
+} from "@escode/services";
 import type { IPlatformService } from "@escode/shared";
 import { resolveEffectiveModelSelection, type ProviderRegistryView } from "@escode/provider";
 import { ServiceProvider } from "@/hooks/useServices.js";

@@ -11,7 +11,9 @@ process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
 const call = (id: string, name: string, args: unknown) => ({
-  tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }],
+  tool_calls: [
+    { index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+  ],
 });
 
 async function observe(kind: "node" | "rust") {
@@ -26,7 +28,8 @@ async function observe(kind: "node" | "rust") {
     main.push(req);
     const n = main.length;
     if (n === 1) event(res, call("w-1", "Write", { file_path: "note.txt", content: "hi" }));
-    else if (n === 2) event(res, call("a-1", "Agent", { description: "helper", prompt: "child task please" }));
+    else if (n === 2)
+      event(res, call("a-1", "Agent", { description: "helper", prompt: "child task please" }));
     else event(res, { content: "done" });
     end(res, n <= 2 ? "tool_calls" : "stop");
   };
@@ -81,7 +84,9 @@ async function observe(kind: "node" | "rust") {
       .filter((r: any) => !r.success)
       .map((r: any) => r.error.issues);
     const lifecycle = facts
-      .filter((fact: any) => fact.kind === "permission.lifecycle" || fact.kind === "subagent.lifecycle")
+      .filter(
+        (fact: any) => fact.kind === "permission.lifecycle" || fact.kind === "subagent.lifecycle",
+      )
       .map((fact: any) => ({
         kind: fact.kind,
         phase: fact.phase,

@@ -53,19 +53,19 @@
 
 ## 3. 当前事实的主要代码证据
 
-| 设计事实                                   | 主要实现证据                                                                      | 主要测试证据                                                     |
-| ------------------------------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Provider Schema 与 Access 联合类型         | `packages/provider/src/config/provider-config.ts`、`config/schema.ts`             | `packages/provider/test/provider-config-kinds.test.ts`           |
-| Model Schema、嵌套格式和 Rule 顺序         | `packages/provider/src/config/model-config.ts`                                    | `model-config-rules.test.ts`、`todo21-source-contracts.test.ts`  |
-| Built-in -> Account -> Personal            | `packages/provider/src/resolver.ts`                                               | `resolver.test.ts`、`todo21-resolution.test.ts`                  |
-| Settings 候选与 Registry 可执行集同源      | `resolver.ts`、`facades.ts`                                                       | `facades.test.ts`、`registry.test.ts`                            |
-| Account 只投影 entitlement 与 Start models | `account-provider-resolution.ts`、Services `accountProviderConnectionResolver.ts` | `account-provider-resolution.test.ts`、Services 对应测试         |
-| Built-in / Account revision 原子配对       | `registry-service.ts`、`account-provider-service.ts`                              | `registry-service.test.ts`、`account-provider-service.test.ts`   |
+| 设计事实                                   | 主要实现证据                                                                      | 主要测试证据                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Provider Schema 与 Access 联合类型         | `packages/provider/src/config/provider-config.ts`、`config/schema.ts`             | `packages/provider/test/provider-config-kinds.test.ts`            |
+| Model Schema、嵌套格式和 Rule 顺序         | `packages/provider/src/config/model-config.ts`                                    | `model-config-rules.test.ts`、`todo21-source-contracts.test.ts`   |
+| Built-in -> Account -> Personal            | `packages/provider/src/resolver.ts`                                               | `resolver.test.ts`、`todo21-resolution.test.ts`                   |
+| Settings 候选与 Registry 可执行集同源      | `resolver.ts`、`facades.ts`                                                       | `facades.test.ts`、`registry.test.ts`                             |
+| Account 只投影 entitlement 与 Start models | `account-provider-resolution.ts`、Services `accountProviderConnectionResolver.ts` | `account-provider-resolution.test.ts`、Services 对应测试          |
+| Built-in / Account revision 原子配对       | `registry-service.ts`、`account-provider-service.ts`                              | `registry-service.test.ts`、`account-provider-service.test.ts`    |
 | Personal 持久化、远端 Built-in 与 LKG      | `packages/provider-node/src/*`                                                    | `provider-node-runtime.test.ts`、`escode-builtin-release.test.ts` |
-| ModelFactory 固定完整执行事实              | `apps/escode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.ts`    | Bootstrap、Core、Adapter Provider 定向测试                       |
-| Active Model 使用同结构 properties         | CLI Contracts Model 与 Adapter/Core 消费链                                        | Model input/output、媒体、Compact/Subagent 定向测试              |
-| 设置页经 Facade 读写                       | `packages/provider/src/facades.ts`、UI `useProviderSettingsView.ts`               | Provider settings / coding plan UI tests                         |
-| Built-in 正式内容                          | `config/provider/escode-builtin.json`                                              | `packages/provider-node/test/escode-builtin-integrity.test.ts`    |
+| ModelFactory 固定完整执行事实              | `apps/escode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.ts`   | Bootstrap、Core、Adapter Provider 定向测试                        |
+| Active Model 使用同结构 properties         | CLI Contracts Model 与 Adapter/Core 消费链                                        | Model input/output、媒体、Compact/Subagent 定向测试               |
+| 设置页经 Facade 读写                       | `packages/provider/src/facades.ts`、UI `useProviderSettingsView.ts`               | Provider settings / coding plan UI tests                          |
+| Built-in 正式内容                          | `config/provider/escode-builtin.json`                                             | `packages/provider-node/test/escode-builtin-integrity.test.ts`    |
 
 ## 4. 矛盾表述与裁定
 

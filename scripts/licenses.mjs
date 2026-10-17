@@ -14,10 +14,7 @@
 import { generateThirdPartyNotices } from "./generate-third-party-notices.mjs";
 import { readVerifiedNotices } from "./third-party-notices.mjs";
 import { readFile } from "node:fs/promises";
-import {
-  readWorkspaceProductionGraph,
-  missingProductionPackages,
-} from "./third-party-npm.mjs";
+import { readWorkspaceProductionGraph, missingProductionPackages } from "./third-party-npm.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

@@ -24,7 +24,12 @@ async function observe(kind: "node" | "rust") {
     if (requests.length === 1) {
       event(res, {
         tool_calls: [
-          { index: 0, id: "g-1", type: "function", function: { name: "Glob", arguments: JSON.stringify({ pattern: "*.md" }) } },
+          {
+            index: 0,
+            id: "g-1",
+            type: "function",
+            function: { name: "Glob", arguments: JSON.stringify({ pattern: "*.md" }) },
+          },
         ],
       });
       finish(res, "tool_calls", {
@@ -61,7 +66,8 @@ async function observe(kind: "node" | "rust") {
     await new Promise((done) => setTimeout(done, 500));
     const after = (await h.client.request("v4/conversation/usage", { sessionId }, parse)) as any;
     // 应用级统计（v4/usage/stats）：耗时类字段两侧不同，抹成 0 / null 只比结构与计数。
-    const timing = /^(generatedAt|avgTimeToFirstTokenMs|avgTurnDurationMs|longestSessionMs|avgDurationMs)$/;
+    const timing =
+      /^(generatedAt|avgTimeToFirstTokenMs|avgTurnDurationMs|longestSessionMs|avgDurationMs)$/;
     const stats = JSON.parse(
       JSON.stringify(
         await h.client.request("v4/usage/stats", { range: "7d", timeZone: "UTC" }, parse),

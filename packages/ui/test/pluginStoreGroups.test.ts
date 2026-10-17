@@ -32,7 +32,8 @@ describe.each(["zh-CN", "en-US"])("plugin groups in %s", (locale) => {
     "shows all %s cards by default and retains manual toggling",
     async (segment) => {
       state.locale = locale;
-      const marketplace = segment === "public" ? ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID : "my-market";
+      const marketplace =
+        segment === "public" ? ESCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID : "my-market";
       const items: StorePluginItem[] = Array.from({ length: 8 }, (_, index) => ({
         id: `item-${index}@${marketplace}`,
         name: `item-${index}`,

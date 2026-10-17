@@ -24,21 +24,13 @@ const workflowFile = (description: string, whenToUse?: string) =>
   ].join("\n");
 
 async function observe(kind: "node" | "rust") {
-  const root = await mkdtemp(
-    join(tmpdir(), `escode-saved-workflow-hub-${kind}-`),
-  );
+  const root = await mkdtemp(join(tmpdir(), `escode-saved-workflow-hub-${kind}-`));
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
         })
@@ -50,10 +42,7 @@ async function observe(kind: "node" | "rust") {
     const projectDir = join(h.workspace, ".escode", "workflows");
     const globalDir = join(root, ".escode", "workflows");
     await mkdir(projectDir, { recursive: true });
-    await writeFile(
-      join(projectDir, "review.dwf.ts"),
-      workflowFile("Review the diff"),
-    );
+    await writeFile(join(projectDir, "review.dwf.ts"), workflowFile("Review the diff"));
 
     const normalize = (value: any) => {
       const text = JSON.stringify(value)
@@ -91,10 +80,7 @@ async function observe(kind: "node" | "rust") {
     });
     observed.getAfterUpdate = await ask("workflows/get", at("review"));
     // updateMeta 落盘的正文（读-改-写后的整文件字节）。
-    observed.reviewBytes = await readFile(
-      join(projectDir, "review.dwf.ts"),
-      "utf8",
-    );
+    observed.reviewBytes = await readFile(join(projectDir, "review.dwf.ts"), "utf8");
     // 元数据不合 schema：两侧都必须拒绝（错误文案是各自 schema 库的措辞，只比"都失败"）。
     observed.updateMetaInvalid = await outcome("workflows/updateMeta", {
       ...at("review"),
@@ -102,10 +88,7 @@ async function observe(kind: "node" | "rust") {
     });
     // 全局档：写入后只出现在 global 组，项目组不受影响。
     await mkdir(globalDir, { recursive: true });
-    await writeFile(
-      join(globalDir, "global-only.dwf.ts"),
-      workflowFile("Global only"),
-    );
+    await writeFile(join(globalDir, "global-only.dwf.ts"), workflowFile("Global only"));
     observed.listProjectWithGlobal = await ask("workflows/list", { workspace });
     observed.listGlobalWithGlobal = await ask("workflows/list", {
       workspace,
@@ -115,10 +98,7 @@ async function observe(kind: "node" | "rust") {
     observed.getMoved = await ask("workflows/get", at("global-only"));
     observed.moveAgain = await ask("workflows/move", at("global-only"));
     // 目标已存在（项目档已有同名）时拒绝搬运，并指认目标路径。
-    await writeFile(
-      join(globalDir, "review.dwf.ts"),
-      workflowFile("Global review"),
-    );
+    await writeFile(join(globalDir, "review.dwf.ts"), workflowFile("Global review"));
     observed.moveTargetExists = await ask("workflows/move", at("review"));
     observed.moveBadName = await ask("workflows/move", at("bad/name"));
     observed.deleteReview = await ask("workflows/delete", at("review"));
@@ -126,8 +106,7 @@ async function observe(kind: "node" | "rust") {
     observed.deleteBadName = await ask("workflows/delete", at("bad/name"));
     await h.close();
     // 落盘效果：项目档目录与全局档目录的文件名（删除/覆盖/move 的最终状态）。
-    const names = async (dir: string) =>
-      (await readdir(dir).catch(() => [] as string[])).sort();
+    const names = async (dir: string) => (await readdir(dir).catch(() => [] as string[])).sort();
     return {
       observed,
       projectFiles: await names(projectDir),
@@ -151,10 +130,7 @@ test("workflows/* hub matches Node", async () => {
   assert.equal((node.observed.getBadName as any).reason, "invalid_name");
   assert.equal((node.observed.updateMeta as any).ok, true);
   assert.equal((node.observed.updateMetaInvalid as any).ok, false);
-  assert.equal(
-    (node.observed.listProjectWithGlobal as any).workflows.length,
-    1,
-  );
+  assert.equal((node.observed.listProjectWithGlobal as any).workflows.length, 1);
   assert.equal((node.observed.listGlobalWithGlobal as any).workflows.length, 1);
   assert.equal((node.observed.move as any).ok, true);
   assert.equal((node.observed.moveAgain as any).reason, "not_found");

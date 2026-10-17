@@ -16,8 +16,9 @@ const pluginRoot = join(repoRoot, "apps", "escode-cli", "packages", "rea-plugin"
 const nodeModules = join(pluginRoot, "node_modules");
 const outputPath = join(repoRoot, "third-party", "runtime", "rea-dependencies.json");
 
-const pinnedVersion = JSON.parse(readFileSync(join(pluginRoot, "package.json"), "utf8"))
-  ?.escodePlugin?.reaAgentsVersion?.trim();
+const pinnedVersion = JSON.parse(
+  readFileSync(join(pluginRoot, "package.json"), "utf8"),
+)?.escodePlugin?.reaAgentsVersion?.trim();
 if (!pinnedVersion) throw new Error("插件 package.json 缺少 escodePlugin.reaAgentsVersion");
 if (!existsSync(nodeModules)) {
   throw new Error(`运行时未安装：${nodeModules}（先跑 pnpm --filter @escode/rea-plugin build）`);
@@ -88,7 +89,9 @@ for (const directory of collectPackageDirs(nodeModules)) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   if (typeof manifest.name !== "string" || typeof manifest.version !== "string") continue;
   // 包里是否自带许可原文：只记事实，不代替原文（清单里不复制正文，避免膨胀与误标版权人）。
-  const licenseFile = readdirSync(directory).find((name) => /^(LICEN[CS]E|COPYING|NOTICE)/i.test(name));
+  const licenseFile = readdirSync(directory).find((name) =>
+    /^(LICEN[CS]E|COPYING|NOTICE)/i.test(name),
+  );
   packages.push({
     name: manifest.name,
     version: manifest.version,

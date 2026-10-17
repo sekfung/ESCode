@@ -46,9 +46,7 @@ async function observe(kind: Runtime) {
     if (isChild && last.role === "user")
       // `ver` 是 cmd 内建命令（Git Bash 下报 command not found），用来区分实际 shell。
       // 不能用 `echo %OS%`：子进程环境被清洗后该变量为空，两种 shell 都会原样输出。
-      return call(response, [
-        { id: "bash-1", name: "Bash", args: { command: "ver" } },
-      ]);
+      return call(response, [{ id: "bash-1", name: "Bash", args: { command: "ver" } }]);
     return text(response, isChild ? "child done" : "parent done");
   };
   const f =

@@ -283,8 +283,6 @@ describe("RemoteConnectionFields Docker refresh", () => {
       refreshDockerContainers: vi.fn(),
     });
 
-    expect(html).toContain(
-      "如果运行中的容器列表不完整，可以手动输入容器名或 ID 连接。",
-    );
+    expect(html).toContain("如果运行中的容器列表不完整，可以手动输入容器名或 ID 连接。");
   });
 });

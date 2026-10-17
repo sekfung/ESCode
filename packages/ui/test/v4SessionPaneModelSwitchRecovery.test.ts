@@ -2308,9 +2308,9 @@ describe("SessionPane model switch recovery", () => {
       provider: "glm",
       bumpRuntimeEpoch: true,
     });
-    expect(mocks.escodeTaskService.restartWorkspaceProcess.mock.invocationCallOrder[0]).toBeLessThan(
-      draftConfigMock.handleDraftSelectModel.mock.invocationCallOrder[0] ?? 0,
-    );
+    expect(
+      mocks.escodeTaskService.restartWorkspaceProcess.mock.invocationCallOrder[0],
+    ).toBeLessThan(draftConfigMock.handleDraftSelectModel.mock.invocationCallOrder[0] ?? 0);
 
     await act(async () => {
       root.unmount();
@@ -2801,9 +2801,7 @@ describe("副屏首条推荐的桌面与手机提交边界", () => {
     );
     const onOpenSelectionSideChat = vi.fn();
     // registry 是模块级单例；清掉前序用例遗留的全部 pending 线索，避免恢复重放混入计数。
-    (
-      pendingCommandRegistry as unknown as { entries: Map<string, unknown> }
-    ).entries.clear();
+    (pendingCommandRegistry as unknown as { entries: Map<string, unknown> }).entries.clear();
     const root = await renderPane({ compactForRemoteControl: false, onOpenSelectionSideChat });
     try {
       const before = structuredClone(draftConfigMock.draftConfigRef.current);

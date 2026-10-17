@@ -26,7 +26,12 @@ async function observe(kind: "node" | "rust") {
       event(res, { content: "Let me look." });
       event(res, {
         tool_calls: [
-          { index: 0, id: "r-1", type: "function", function: { name: "TodoRead", arguments: "{}" } },
+          {
+            index: 0,
+            id: "r-1",
+            type: "function",
+            function: { name: "TodoRead", arguments: "{}" },
+          },
         ],
       });
       finish(res, "tool_calls");
@@ -62,7 +67,10 @@ async function observe(kind: "node" | "rust") {
       .filter((r: any) => !r.success)
       .map((r: any) => r.error.issues);
     const shape = facts
-      .filter((fact: any) => !(fact.kind === "model.request.status" && fact.querySource === "session_title"))
+      .filter(
+        (fact: any) =>
+          !(fact.kind === "model.request.status" && fact.querySource === "session_title"),
+      )
       .map((fact: any) => ({
         kind: fact.kind,
         // 会话创建期采用的 App Memory 开关（shared factBaseFields）；两侧都必须带同一取值。
@@ -72,9 +80,15 @@ async function observe(kind: "node" | "rust") {
         ...(fact.channel ? { channel: fact.channel, firstChunk: fact.firstChunk } : {}),
         ...(fact.toolName ? { toolName: fact.toolName } : {}),
         ...(fact.kind === "usage.delta"
-          ? { inputTokens: fact.inputTokens, outputTokens: fact.outputTokens, totalTokens: fact.totalTokens }
+          ? {
+              inputTokens: fact.inputTokens,
+              outputTokens: fact.outputTokens,
+              totalTokens: fact.totalTokens,
+            }
           : {}),
-        ...(fact.kind === "turn.terminal" ? { toolCallCount: fact.toolCallCount, resultType: fact.resultType } : {}),
+        ...(fact.kind === "turn.terminal"
+          ? { toolCallCount: fact.toolCallCount, resultType: fact.resultType }
+          : {}),
         hasSource: typeof fact.sourceCommandId === "string",
       }));
     return { shape, invalid, schemaErrors: h.schemaErrors };

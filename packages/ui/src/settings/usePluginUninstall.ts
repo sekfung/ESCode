@@ -1,8 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type {
-  ESCodeInstalledPluginSummary,
-  ESCodePluginInfo,
-} from "@escode/shared";
+import type { ESCodeInstalledPluginSummary, ESCodePluginInfo } from "@escode/shared";
 import type { IPluginManagementService } from "@escode/services";
 import { usePluginManagementStore } from "@/store/pluginManagementStore.js";
 

@@ -17,8 +17,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pluginRoot = join(repoRoot, "apps", "escode-cli", "packages", "rea-plugin");
-const pinnedVersion = JSON.parse(readFileSync(join(pluginRoot, "package.json"), "utf8"))
-  ?.escodePlugin?.reaAgentsVersion?.trim();
+const pinnedVersion = JSON.parse(
+  readFileSync(join(pluginRoot, "package.json"), "utf8"),
+)?.escodePlugin?.reaAgentsVersion?.trim();
 if (!pinnedVersion) throw new Error("插件 package.json 缺少 escodePlugin.reaAgentsVersion");
 
 const entry = join(pluginRoot, "dist", "mcp", "server.js");
@@ -157,7 +158,10 @@ async function listTools() {
       `${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })}\n`,
     );
     const listed = await call("tools/list", {});
-    return { serverVersion: initialized.result?.serverInfo?.version, tools: listed.result?.tools ?? [] };
+    return {
+      serverVersion: initialized.result?.serverInfo?.version,
+      tools: listed.result?.tools ?? [],
+    };
   } finally {
     child.stdin.end();
     child.kill();
@@ -169,7 +173,10 @@ async function main() {
   if (serverVersion !== pinnedVersion) {
     throw new Error(`REA 版本不符：已安装 ${serverVersion}，pin 是 ${pinnedVersion}`);
   }
-  const approved = tools.filter(isAutoApproved).map((tool) => tool.name).sort();
+  const approved = tools
+    .filter(isAutoApproved)
+    .map((tool) => tool.name)
+    .sort();
 
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(

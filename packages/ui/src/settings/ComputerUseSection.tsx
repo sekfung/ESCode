@@ -331,7 +331,8 @@ export function ComputerUseSection({
       const operationContextKey = pluginToggleContextKey;
       // 切换 escode-cua 插件 = 同步其 MCP server + skill 一起启用/禁用。
       const completed = await runAfterSuccessfulPluginEnabledChange({
-        submit: () => setPluginEnabled(ESCODE_CUA_OFFICIAL_PLUGIN_ID, next, pluginManagementService),
+        submit: () =>
+          setPluginEnabled(ESCODE_CUA_OFFICIAL_PLUGIN_ID, next, pluginManagementService),
         isCurrent: () =>
           mountedRef.current &&
           pluginToggleGenerationRef.current === operationGeneration &&

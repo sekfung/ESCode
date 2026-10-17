@@ -62,7 +62,10 @@ describe("materializeBundledESCodeBuiltinProviderConfig", () => {
     await writeFile(filePath, "corrupted", "utf8");
 
     await expect(
-      materializeBundledESCodeBuiltinProviderConfig({ environmentConfigRoot: runtimeRoot, content }),
+      materializeBundledESCodeBuiltinProviderConfig({
+        environmentConfigRoot: runtimeRoot,
+        content,
+      }),
     ).resolves.toBe(filePath);
     await expect(readFile(filePath, "utf8")).resolves.toBe(`${content}\n`);
   });

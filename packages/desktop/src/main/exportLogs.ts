@@ -1128,7 +1128,6 @@ export async function writeLogArchiveDirectory(
   await writeFile(join(outputPath, "about.txt"), artifacts.aboutContent, "utf-8");
 }
 
-
 export async function exportLogs(
   dependencies: ExportLogsDependencies = {},
 ): Promise<{ success: boolean; path?: string; error?: string }> {

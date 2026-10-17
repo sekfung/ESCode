@@ -73,7 +73,10 @@ it("契约示例可准备宿主沙箱：只收片段、受限 CSP、内联初始
       input!.html.indexOf("__ESCODE_GEN_UI_RUNTIME__"),
     );
     await expect(
-      fixture.service.prepareSandbox({ ...exampleGenUiPrepare, html: "<html><body>document</body></html>" }),
+      fixture.service.prepareSandbox({
+        ...exampleGenUiPrepare,
+        html: "<html><body>document</body></html>",
+      }),
     ).rejects.toThrow(/fragment/u);
   } finally {
     await fixture.dispose();
@@ -83,7 +86,11 @@ it("契约示例可准备宿主沙箱：只收片段、受限 CSP、内联初始
 it("状态按 workspace identity + session 作用域读写，并投影持久状态的变化", async () => {
   const fixture = await createFixture();
   try {
-    const scope = { workspacePath: "/workspace", workspaceIdentity: "remote:fixture", sessionId: "s1" };
+    const scope = {
+      workspacePath: "/workspace",
+      workspaceIdentity: "remote:fixture",
+      sessionId: "s1",
+    };
     const target: GenUiStateTarget = { ...scope, path: "/workspace/chart.html" };
     const changes: GenUiStateChange[] = [];
     const subscription = fixture.service.onStateChanged((change) => changes.push(change));
@@ -91,13 +98,18 @@ it("状态按 workspace identity + session 作用域读写，并投影持久状�
       target,
       state: { modelContent: { value: 1 }, privateContent: null },
     });
-    expect(await fixture.service.getState(target)).toEqual({ modelContent: { value: 1 }, privateContent: null });
+    expect(await fixture.service.getState(target)).toEqual({
+      modelContent: { value: 1 },
+      privateContent: null,
+    });
     expect(await fixture.service.listState(scope)).toEqual([
       { path: target.path, state: { modelContent: { value: 1 }, privateContent: null } },
     ]);
     // 同一路径在不同会话下互不可见。
     expect(await fixture.service.listState({ ...scope, sessionId: "s2" })).toEqual([]);
-    await vi.waitFor(() => expect(changes.at(-1)).toMatchObject({ target, state: { modelContent: { value: 1 } } }));
+    await vi.waitFor(() =>
+      expect(changes.at(-1)).toMatchObject({ target, state: { modelContent: { value: 1 } } }),
+    );
     subscription.dispose();
   } finally {
     await fixture.dispose();
@@ -119,7 +131,10 @@ it("readDocument 只读输出根内的片段，越界与整文档都拒绝", asy
       html: '<div id="chart">ok</div>',
     });
     await expect(
-      fixture.service.readDocument({ ...target, path: join(fixture.outputRoot, "..", "escape.html") }),
+      fixture.service.readDocument({
+        ...target,
+        path: join(fixture.outputRoot, "..", "escape.html"),
+      }),
     ).rejects.toThrow(/outside the host output directory/u);
     const documentPath = join(fixture.outputRoot, "full.html");
     await writeFile(documentPath, "<html><body>document</body></html>");

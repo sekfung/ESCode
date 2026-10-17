@@ -90,7 +90,8 @@ async function observe(kind: Runtime, source: "user" | "project", permissionMode
     await h.subscribe(`conversation/${childId}`);
     const childRows = (await h.rows(childId)).rows as any[];
     const writes = childRows.filter((r) => r.kind === "toolCall" && r.toolName === "Write");
-    if (process.env.ESCODE_SUBAGENT_MODE_DUMP) console.error("ROW_DUMP", kind, JSON.stringify(writes));
+    if (process.env.ESCODE_SUBAGENT_MODE_DUMP)
+      console.error("ROW_DUMP", kind, JSON.stringify(writes));
     const childRequests = f.requests.filter((r: any) =>
       r.messages.some((m: any) => m.role === "user" && m.content === "child work"),
     );

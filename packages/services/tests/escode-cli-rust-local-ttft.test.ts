@@ -39,7 +39,10 @@ async function observe(kind: "node" | "rust") {
       parse,
     )) as any;
     const observationId = randomUUID();
-    const envelope = { ...h.envelope("sendText", sessionId, { text: "hello", mode: "yolo" }), ttft: { version: 1, observationId } };
+    const envelope = {
+      ...h.envelope("sendText", sessionId, { text: "hello", mode: "yolo" }),
+      ttft: { version: 1, observationId },
+    };
     const ack = await h.command(envelope as any);
     await h.completed(sessionId);
     await new Promise((done) => setTimeout(done, 300));
@@ -49,10 +52,11 @@ async function observe(kind: "node" | "rust") {
       .map((m: any) => m.params);
     const last = checkpoints.at(-1) ?? {};
     // 首输出只经在线增量帧的 `ttft` 送达（检查点里没有 outputAt）。
-    const framed = h.messages
-      .map((m: any) => m.params?.frame?.ttft)
-      .filter((t: any) => t && t.observationId === observationId)
-      .at(-1) ?? {};
+    const framed =
+      h.messages
+        .map((m: any) => m.params?.frame?.ttft)
+        .filter((t: any) => t && t.observationId === observationId)
+        .at(-1) ?? {};
     // TS 内部的准备阶段计时（context / hooks / persistence / …）与 logicalCallId / queryId 是 Node 实现细节，不比对。
     const internal = new Set(["logicalCallId", "queryId"]);
     return {
@@ -60,10 +64,17 @@ async function observe(kind: "node" | "rust") {
       clockResults: clock.results?.map((r: any) => r.result),
       ackExcluded: (ack as any).ttftExcluded ?? null,
       invalid: checkpoints.filter((c: any) => !localTtftFactsSchema.safeParse(c).success).length,
-      lastKeys: Object.keys(last).filter((k) => !internal.has(k)).sort(),
-      framedKeys: Object.keys(framed).filter((k) => !internal.has(k)).sort(),
+      lastKeys: Object.keys(last)
+        .filter((k) => !internal.has(k))
+        .sort(),
+      framedKeys: Object.keys(framed)
+        .filter((k) => !internal.has(k))
+        .sort(),
       framedOutput: framed.outputKind,
-      framedOrdered: framed.receivedAt <= framed.admittedAt && framed.admittedAt <= framed.requestAt && framed.requestAt <= framed.outputAt,
+      framedOrdered:
+        framed.receivedAt <= framed.admittedAt &&
+        framed.admittedAt <= framed.requestAt &&
+        framed.requestAt <= framed.outputAt,
       lastValues: {
         observationId: last.observationId === observationId,
         sendMode: last.sendMode,

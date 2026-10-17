@@ -536,7 +536,9 @@ function nodeToTopLevelRef(
   };
 }
 
-function viewToOrderInput(params: { view: ESCodeGroupedTaskView }): ESCodeGroupedTaskViewOrderInput {
+function viewToOrderInput(params: {
+  view: ESCodeGroupedTaskView;
+}): ESCodeGroupedTaskViewOrderInput {
   return {
     workspaceScopes: collectViewWorkspaceScopes(params.view),
     topLevelNodes: params.view.nodes.map(nodeToTopLevelRef),

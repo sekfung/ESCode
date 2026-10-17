@@ -1245,7 +1245,10 @@ describe("ESCode Protocol", () => {
         // 旧 CLI 没有消息归属字段时仍须兼容；新 CLI 的字段不能导致整条调度事件丢失。
         expect(escodeSessionEventSchema.parse(event).payload).toEqual(event.payload);
         const payload = { ...event.payload, assistantMessageId: "msg_assistant" };
-        expect(escodeSessionEventSchema.parse({ ...event, payload })).toEqual({ ...event, payload });
+        expect(escodeSessionEventSchema.parse({ ...event, payload })).toEqual({
+          ...event,
+          payload,
+        });
 
         for (const assistantMessageId of ["", null, 42]) {
           expect(

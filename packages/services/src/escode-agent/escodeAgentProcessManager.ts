@@ -994,7 +994,9 @@ export class ESCodeAgentProcessManager {
     return cleanupPromise;
   }
 
-  private async cleanupManagedProcessForShutdown(managed: ManagedESCodeAgentProcess): Promise<void> {
+  private async cleanupManagedProcessForShutdown(
+    managed: ManagedESCodeAgentProcess,
+  ): Promise<void> {
     await this.cleanupManagedProcessWithRetry(
       managed,
       "manager-dispose",
@@ -1732,7 +1734,7 @@ export class ESCodeAgentProcessManager {
       const command = await this.commandResolver({
         ...params,
         ...(this.presentationSurface ? { presentationSurface: this.presentationSurface } : {}),
-          workspaceKey,
+        workspaceKey,
       });
       return command
         ? { available: true, workspaceKey }

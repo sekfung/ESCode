@@ -394,7 +394,11 @@ export async function refreshLoadedSubagentsStoreForWorkspace(params: {
   }
 
   const contextStore = useSubagentsContextStore.getState();
-  const contextKey = getSubagentsContextKey(workspacePath, ESCODE_AGENT_PROVIDER, workspaceIdentity);
+  const contextKey = getSubagentsContextKey(
+    workspacePath,
+    ESCODE_AGENT_PROVIDER,
+    workspaceIdentity,
+  );
   if (contextStore.contexts[contextKey]) {
     // 分屏输入框按 workspaceKey 持有子智能体目录；设置页变更后只刷新对应桶，
     // 避免同路径的本地/远端 workspace 相互污染。

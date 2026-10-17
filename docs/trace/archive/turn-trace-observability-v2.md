@@ -187,7 +187,7 @@ Detached Operation（标题、Goal 校验、Workspace Generate）
 | ---------------- | ------------------------------------- | ------------------------------------------ |
 | Repo Wiki        | `packages/services` 直接请求 Provider | P1 迁入 CLI ModelPort 或同一 Port          |
 | 模型连通性测试   | Host 发出真实小请求                   | 独立 `admin.model_probe`，不进入 Agent SLO |
-| `stream-animate` | 独立实验包                            | 不属于 ESCode Agent 生产 Trace              |
+| `stream-animate` | 独立实验包                            | 不属于 ESCode Agent 生产 Trace             |
 
 P0 的完成口径是“CLI Agent 全部 LLM 流量”，不是“整个产品全部 LLM 流量”。
 

@@ -172,12 +172,10 @@ export const useOffPeakTaskStore = create<OffPeakTaskState>((set, get) => ({
     set({ loading: true, error: null });
     // 初始化和后续通知共用资格检查；灰度先就绪，资格与额度不能由两条异步链分别写入。
     initializationReady = Promise.all([
-      clientConfigService
-        .getOffPeakClientConfig({ forceRefresh: true })
-        .catch((error) => {
-          logger.warn("[off-peak] gray config load failed", toErrorMessage(error));
-          return null;
-        }),
+      clientConfigService.getOffPeakClientConfig({ forceRefresh: true }).catch((error) => {
+        logger.warn("[off-peak] gray config load failed", toErrorMessage(error));
+        return null;
+      }),
       offPeakTaskService.list().catch((error) => {
         logger.warn("[off-peak] list failed", toErrorMessage(error));
         return [] as ESCodeOffPeakTask[];

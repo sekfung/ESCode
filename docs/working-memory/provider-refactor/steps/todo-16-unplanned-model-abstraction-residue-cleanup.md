@@ -300,15 +300,15 @@ Todo 16
 | Capability       | Model/Provider Config、Registry/ModelFactory、模型候选 Protocol projection                        |
 | Change layer     | `presentation`、`option-source`；文档部分属于架构契约修正                                         |
 | Operating mode   | planning                                                                                          |
-| Primary seeds    | `design/model/model.md`、`escode-protocol/index.ts`、`escode-protocol/model-mapper.ts`              |
+| Primary seeds    | `design/model/model.md`、`escode-protocol/index.ts`、`escode-protocol/model-mapper.ts`            |
 | Out of scope     | 模型候选状态、Selection 默认值、提交、执行、配置持久化、remote/continuous/replayable 和 Telemetry |
 
 ### 3.2 UI Surface Matrix
 
-| 用户场景       | UI 入口       | 共享实现                 | 展示 owner                | 默认/校验/提交                      | 模式边界                | 必须隔离                         |
-| -------------- | ------------- | ------------------------ | ------------------------- | ----------------------------------- | ----------------------- | -------------------------------- |
+| 用户场景       | UI 入口       | 共享实现                  | 展示 owner                | 默认/校验/提交                      | 模式边界                | 必须隔离                         |
+| -------------- | ------------- | ------------------------- | ------------------------- | ----------------------------------- | ----------------------- | -------------------------------- |
 | 查看模型候选组 | 模型选择控件  | `escodeSessionProjection` | Target Host Protocol View | 本项只收口字段和 label 来源；无提交 | Desktop/Web/Mobile 同构 | Draft、Recent、Session Selection |
-| 编辑 Provider  | Provider 设置 | Provider Settings Facade | Effective Provider Config | 无字段、保存或测试连接行为变化      | Local/Remote 不变       | Personal Config 与账号状态       |
+| 编辑 Provider  | Provider 设置 | Provider Settings Facade  | Effective Provider Config | 无字段、保存或测试连接行为变化      | Local/Remote 不变       | Personal Config 与账号状态       |
 
 ### 3.3 Shared And Divergent Behavior
 
@@ -407,7 +407,7 @@ Todo 16
 | RZ-02   | 测试构造不可执行 Runtime                | 显式使用 Unavailable ModelFactory，不存在 sentinel Model      |
 | RZ-03   | 模型无 Reasoning Option Spec            | Protocol/UI 中 `reasoning` 缺失，不出现 `enabled=false`       |
 | RZ-04   | 模型有 Reasoning Option Spec            | 只传 levels/defaultLevel，不出现固定 `enabled=true`           |
-| RZ-05   | Shared Protocol export scan             | 旧 ESCode Provider DTO 和仅属其字段为零                        |
+| RZ-05   | Shared Protocol export scan             | 旧 ESCode Provider DTO 和仅属其字段为零                       |
 | RZ-06   | 读取已发布旧 CLI 配置                   | importer 私有解析并生成当前 Personal Config                   |
 | RZ-07   | 正常请求、Compact、Memory、Title、Child | context/output facts 只来自本次 Active Model                  |
 | RZ-08   | Model Config 默认 max output 更新       | 只影响后来创建的 Model，不反写旧 Selection/Runtime snapshot   |

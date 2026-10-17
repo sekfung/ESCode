@@ -416,7 +416,7 @@ interface SessionWorkspaceBinding {
 
 | 领域          | 当前实现                                                                              | 目标                                                               |
 | ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| SSH 生命周期  | Desktop 启动并持有远端 stdio `escode-server`                                           | 用户级持久 Launcher + 一个 Server                                  |
+| SSH 生命周期  | Desktop 启动并持有远端 stdio `escode-server`                                          | 用户级持久 Launcher + 一个 Server                                  |
 | Server 入口   | `entry-stdio.ts` 与 `entry-http.ts` 分离                                              | 共用 Server Core，入口只是 transport adapter                       |
 | Desktop 本机  | 每窗口 Local Host                                                                     | 本机统一 Server，窗口只是客户端                                    |
 | SSH Host      | 窗口级共享 Remote Host                                                                | Controller 连接到目标用户级 Server                                 |

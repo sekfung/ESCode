@@ -25,7 +25,9 @@ async function run(command, args, env = {}) {
     );
   });
 }
-await run(process.execPath, ["apps/escode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs"]);
+await run(process.execPath, [
+  "apps/escode-cli/packages/dynamic-workflow/scripts/generate-libs.mjs",
+]);
 // 差分与导入用例直接 import TS bootstrap 源码，其依赖包走 dist 入口；干净检出时必须先构建，
 // 否则只报 ERR_MODULE_NOT_FOUND。经 npm_execpath 调 pnpm，避免 Windows 上 pnpm.cmd 需要 shell。
 if (!process.env.npm_execpath) throw new Error("Run via `pnpm test:escode-cli-rust`");

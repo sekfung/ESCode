@@ -35,12 +35,16 @@ async function observe(kind: "node" | "rust") {
   const respond = (req: any, res: any) => {
     requests.push(req);
     res.writeHead(200, { "content-type": "text/event-stream" });
-    event(res, { content: ["first answer", "second answer"][requests.length - 1] ?? "third answer" });
+    event(res, {
+      content: ["first answer", "second answer"][requests.length - 1] ?? "third answer",
+    });
     end(res, "stop");
   };
   const env = {
     ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
-    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath, ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle };
+    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+  };
   const f =
     kind === "node"
       ? await fixture({
@@ -61,7 +65,12 @@ async function observe(kind: "node" | "rust") {
     await mkdir(join(f.root, ".escode", "cli"), { recursive: true });
     await writeFile(
       join(f.root, ".escode", "cli", "config.json"),
-      JSON.stringify({ hooks: { enabled: true, events: { SessionStart: hook, UserPromptSubmit: hook, Stop: hook } } }),
+      JSON.stringify({
+        hooks: {
+          enabled: true,
+          events: { SessionStart: hook, UserPromptSubmit: hook, Stop: hook },
+        },
+      }),
     );
     const h: Harness = f.start();
     const sessionId = await h.create();
@@ -82,7 +91,8 @@ async function observe(kind: "node" | "rust") {
     for (const m of h.messages) {
       for (const delta of m.params?.frame?.payload?.deltas ?? []) {
         if (delta.row) rows.set(delta.row.rowId, delta.row);
-        if (delta.patch?.control && "lastError" in delta.patch.control) lastError = delta.patch.control.lastError;
+        if (delta.patch?.control && "lastError" in delta.patch.control)
+          lastError = delta.patch.control.lastError;
       }
     }
     const stdin = (await readFile(log, "utf8").catch(() => ""))
@@ -103,7 +113,11 @@ async function observe(kind: "node" | "rust") {
       });
     const rootText = JSON.stringify(f.root).slice(1, -1);
     const scrub = (value: unknown) =>
-      JSON.parse(JSON.stringify(value).replaceAll(rootText, "<root>").replace(/Today's date is [^.]*\./g, "Today's date is <date>."));
+      JSON.parse(
+        JSON.stringify(value)
+          .replaceAll(rootText, "<root>")
+          .replace(/Today's date is [^.]*\./g, "Today's date is <date>."),
+      );
     return {
       requests: requests.length,
       messages: scrub(requests.map((r) => r.messages.filter((m: any) => m.role !== "system"))),
@@ -112,11 +126,25 @@ async function observe(kind: "node" | "rust") {
         .sort((a, b) => a.rowId - b.rowId)
         .map((row) =>
           row.kind === "hookInvocation"
-            ? { kind: row.kind, hookEventName: row.hookEventName, state: row.state, lane: row.lane,
-                executions: row.executions.map((e: any) => [e.state, e.outcome, e.blockReason, e.didExecute]) }
+            ? {
+                kind: row.kind,
+                hookEventName: row.hookEventName,
+                state: row.state,
+                lane: row.lane,
+                executions: row.executions.map((e: any) => [
+                  e.state,
+                  e.outcome,
+                  e.blockReason,
+                  e.didExecute,
+                ]),
+              }
             : { kind: row.kind, text: row.text ?? row.content?.text, status: row.status },
         ),
-      lastError: lastError && { code: lastError.code, message: lastError.message, detail: lastError.detail },
+      lastError: lastError && {
+        code: lastError.code,
+        message: lastError.message,
+        detail: lastError.detail,
+      },
       schemaErrors: h.schemaErrors,
     };
   } finally {

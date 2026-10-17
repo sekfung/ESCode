@@ -30,12 +30,12 @@
 
 ## 4. 接口
 
-| 方法 | 行为 |
-| --- | --- |
+| 方法                        | 行为                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------- |
 | `watch({path, recursive?})` | 返回 `{id}`；`recursive` 缺省 `false`；失败抛 `无法监视目录 '<path>': <底层错误>` |
-| `unwatch({id})` | 清理；未知 id 静默成功 |
-| `disposeAll()` | 清理全部；回 `undefined` |
-| `onDynamicChange(id)` | 事件流；未知 id → 空流 + warn |
+| `unwatch({id})`             | 清理；未知 id 静默成功                                                            |
+| `disposeAll()`              | 清理全部；回 `undefined`                                                          |
+| `onDynamicChange(id)`       | 事件流；未知 id → 空流 + warn                                                     |
 
 底层错误文案：不存在 `ENOENT: no such file or directory, watch '<path>'`，无权限 `EACCES: permission denied, watch '<path>'`（对齐 Node 文案），其余取 notify 错误文本。
 
@@ -58,10 +58,10 @@
 
 ## 7. 交付记录
 
-| 项 | 证据 |
-| --- | --- |
-| 服务实现 | `host-services/src/file_watcher/`（`mod` 服务 + 防抖 actor、`events` 事件映射）；依赖 `notify 8` |
-| RPC 面 | `host-rpc/src/domains_file_watcher.rs`；`host-proto` `IMPLEMENTED` 登记 4 个成员 |
-| Rust 单测 | 事件映射 3 例（Access 过滤、子路径/无路径、根自身）、服务 3 例（防抖合并与 changedPath 取舍、unwatch 取消待发事件、ENOENT 文案与 id 消耗） |
-| TS 差分 | `packages/desktop/test/rustHostFileWatcher.test.ts`：创建 / 双文件 / 修改 / 重命名 / 删除 / 非递归子目录写 / 递归子目录写 / 递归 mkdir / 目录自身被删（有内容、空目录 × 非递归、递归）/ unwatch 后无事件 / 重复 unwatch / 不存在目录错误文案与 id 消耗 / stale id 订阅 / disposeAll，事件序列全等 |
-| 负向验证 | ① 根自身映射改坏 → 失败；② 递归根自身不再按未知路径 → 失败；③ 多路径也带 changedPath → 失败 |
+| 项        | 证据                                                                                                                                                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 服务实现  | `host-services/src/file_watcher/`（`mod` 服务 + 防抖 actor、`events` 事件映射）；依赖 `notify 8`                                                                                                                                                                                                  |
+| RPC 面    | `host-rpc/src/domains_file_watcher.rs`；`host-proto` `IMPLEMENTED` 登记 4 个成员                                                                                                                                                                                                                  |
+| Rust 单测 | 事件映射 3 例（Access 过滤、子路径/无路径、根自身）、服务 3 例（防抖合并与 changedPath 取舍、unwatch 取消待发事件、ENOENT 文案与 id 消耗）                                                                                                                                                        |
+| TS 差分   | `packages/desktop/test/rustHostFileWatcher.test.ts`：创建 / 双文件 / 修改 / 重命名 / 删除 / 非递归子目录写 / 递归子目录写 / 递归 mkdir / 目录自身被删（有内容、空目录 × 非递归、递归）/ unwatch 后无事件 / 重复 unwatch / 不存在目录错误文案与 id 消耗 / stale id 订阅 / disposeAll，事件序列全等 |
+| 负向验证  | ① 根自身映射改坏 → 失败；② 递归根自身不再按未知路径 → 失败；③ 多路径也带 changedPath → 失败                                                                                                                                                                                                       |

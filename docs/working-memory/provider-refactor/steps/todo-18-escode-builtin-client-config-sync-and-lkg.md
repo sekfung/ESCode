@@ -141,7 +141,7 @@ Built-in Release 的业务完整性发布门禁不属于客户端同步首版；
 | ------------------------ | ---------------------------------------------------------- | ------------ | -------------------- |
 | Bundled Config           | 当前安装包携带的兼容基线                                   | App 发布版本 | 否                   |
 | Environment Active Cache | 当前 Environment 已接受并正在使用的 Built-in；同时承担 LKG | 跨进程重启   | 是，原子替换         |
-| Remote Config            | `/client/configs.data.configs.escodeBuiltin` 当前响应       | 单次远端刷新 | 不直接作为持久化文件 |
+| Remote Config            | `/client/configs.data.configs.escodeBuiltin` 当前响应      | 单次远端刷新 | 不直接作为持久化文件 |
 
 运行时不得改写仓库中的 `config/provider/escode-builtin.json` 或安装包只读资产。远端成功结果只原子替换所属
 Environment 的可写 `active.json`。该文件既是 Host/Worker 共同读取的活动 Source，也是重启时的 LKG；不再维护
@@ -322,7 +322,7 @@ start remote refresh in background
 | 情况                           | 处理                                     |
 | ------------------------------ | ---------------------------------------- |
 | HTTP/超时/JSON/Envelope 失败   | 保持当前 Snapshot 与 LKG，记录可诊断错误 |
-| `configs.escodeBuiltin` 缺失    | 视为服务端尚未下发，保持当前 Snapshot    |
+| `configs.escodeBuiltin` 缺失   | 视为服务端尚未下发，保持当前 Snapshot    |
 | Schema 不支持                  | 拒绝响应，保持当前 Snapshot 与 LKG       |
 | Provider/Rule 严格解析失败     | 拒绝整份响应，不做局部应用               |
 | revision 小于当前有效 revision | 视为陈旧响应，忽略                       |

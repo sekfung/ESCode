@@ -110,7 +110,8 @@ const validation = [
 // （类型与结构问题先由 JSON Schema 校验拦下，见 rust-tool-input-validation.md）。
 const validationCases = validation.map(([tool, input]) => {
   const result = schemas[tool].safeParse(input);
-  const refineOnly = !result.success && result.error.issues.every((issue) => issue.code === "custom");
+  const refineOnly =
+    !result.success && result.error.issues.every((issue) => issue.code === "custom");
   return {
     tool,
     input,

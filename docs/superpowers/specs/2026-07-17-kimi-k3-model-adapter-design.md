@@ -124,7 +124,7 @@ provider wire: $defs={escode_ref_0: ...}, $ref="#/$defs/escode_ref_0"
 | --------------------------- | ----------------------- | ---------------------------------------- | ----------------------- | ---------------------- | ----------------------- | ----------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------- |
 | 对话模型选择                | V4 composer             | provider registry / model option builder | session 或 draft config | App provider config    | registry 中存在且未禁用 | `switchModelConfig` 或 draft config | Agent runtime / workspace default                        | desktop continuous 与 web remote shared host 共用 registry | 自动化、Subagent、Repo Wiki 草稿 |
 | 自动化、Subagent、Repo Wiki | 各自模型选择器          | 同一 provider registry                   | 各入口本地草稿          | 各入口既有继承规则     | registry 中存在且未禁用 | 各自 service                        | automation record / agent Markdown / generation settings | 不新增平台分支                                             | 当前对话模型                     |
-| 供应商设置                  | Model Provider settings | model provider service                   | provider 编辑草稿       | China LLM catalog      | catalog schema          | provider save                       | `~/.escode/v2/config.json`                                | 远程 workspace 仍由既有 registry sync                      | session/task 业务状态            |
+| 供应商设置                  | Model Provider settings | model provider service                   | provider 编辑草稿       | China LLM catalog      | catalog schema          | provider save                       | `~/.escode/v2/config.json`                               | 远程 workspace 仍由既有 registry sync                      | session/task 业务状态            |
 
 ### Shared And Divergent Behavior
 
@@ -166,7 +166,7 @@ provider wire: $defs={escode_ref_0: ...}, $ref="#/$defs/escode_ref_0"
 | Seed                                           | Query                           | Direct callers / key path                         | Depth | Interpretation                       |
 | ---------------------------------------------- | ------------------------------- | ------------------------------------------------- | ----- | ------------------------------------ |
 | `KIMI_K3_MODEL_ID` / `isKimiK3ModelId`         | explore / affected tests        | default policy、tool transform、workspace overlay | 2     | 必须统一扩展三个模型名               |
-| `loadLocalChinaLlmESCodeCatalog`                | explore / callers               | model provider service、store metadata migration  | 2     | catalog 同时驱动候选与 metadata 补齐 |
+| `loadLocalChinaLlmESCodeCatalog`               | explore / callers               | model provider service、store metadata migration  | 2     | catalog 同时驱动候选与 metadata 补齐 |
 | `buildModelSelectGroups` / `useModelProviders` | graph declaration + live source | 对话、自动化、Subagent、Repo Wiki                 | 2     | 共享候选来源，无需修改 UI            |
 
 ### Graph Drift Candidates

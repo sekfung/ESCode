@@ -286,7 +286,9 @@ function buildApplicationMenuTemplate(options: {
                 type: "checkbox" as const,
                 checked: stdioTapState.enabled,
                 click: () =>
-                  void options.executeDesktopCommand(DesktopCommandIds.ToggleESCodeStdioTapDevProxy),
+                  void options.executeDesktopCommand(
+                    DesktopCommandIds.ToggleESCodeStdioTapDevProxy,
+                  ),
               },
               { type: "separator" as const },
             ]

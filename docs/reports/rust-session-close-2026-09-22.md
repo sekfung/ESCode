@@ -20,8 +20,8 @@
 
 | 检查                                | 结果                                                  |
 | ----------------------------------- | ----------------------------------------------------- |
-| `pnpm test:escode-cli-rust`          | 32 Rust / 91 App 集成测试通过                         |
-| `pnpm check:escode-cli-rust`         | native 边界、fmt、Clippy 全 target `-D warnings` 通过 |
+| `pnpm test:escode-cli-rust`         | 32 Rust / 91 App 集成测试通过                         |
+| `pnpm check:escode-cli-rust`        | native 边界、fmt、Clippy 全 target `-D warnings` 通过 |
 | `pnpm typecheck`                    | 通过                                                  |
 | `pnpm lint`                         | 0 errors，70 条既有 warnings                          |
 | `pnpm fmt:check`                    | 通过                                                  |

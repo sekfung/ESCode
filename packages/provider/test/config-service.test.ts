@@ -643,7 +643,10 @@ describe("ProviderConfigService", () => {
     );
     const service = new ProviderConfigService({
       escodeBuiltinSource: new MutableSource(
-        layerSnapshot("escodeBuiltin-1", new ProviderConfigMap([["builtin", escodeBuiltinProvider]])),
+        layerSnapshot(
+          "escodeBuiltin-1",
+          new ProviderConfigMap([["builtin", escodeBuiltinProvider]]),
+        ),
       ),
       personalRepository: personal,
     });

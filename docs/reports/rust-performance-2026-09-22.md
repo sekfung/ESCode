@@ -11,7 +11,7 @@
 | 空闲缓存   | 同时限制 8 个会话和 16 MiB 估计驻留内存，LRU 淘汰；单个超大空闲会话也会释放                             | 运行、订阅、队列、上传、子任务和后台状态继续 pin；16 MiB 不是进程 RSS 硬限制        |
 | 历史分页   | 从尾部逐行计数字节，去除全历史引用数组和反复编码缩小整页                                                | 200 行、900 KiB、beforeRowId、顺序、hasMore 与原路径一致                            |
 | 环境初始化 | 物理 cwd 的祖先没有 `.git` 时跳过 Git 子进程                                                            | 显式 Git 环境、worktree `.git` 文件、符号链接和不确定权限继续走 Git；取消仍回收进程 |
-| App 入口   | `pnpm dev:desktop:escode-cli-rust` 默认构建/启动 release，`--debug` 显式选择调试构建，关闭 incremental   | 普通 App 入口继续选择 TS；本次没有自动重启用户 App                                  |
+| App 入口   | `pnpm dev:desktop:escode-cli-rust` 默认构建/启动 release，`--debug` 显式选择调试构建，关闭 incremental  | 普通 App 入口继续选择 TS；本次没有自动重启用户 App                                  |
 
 分阶段 profiler 的单次结果：非仓库环境 snapshot 从 123.105 ms 降到 3.082 ms；HTTP client 系统证书初始化从 157.539 ms 到 152.123 ms，保留系统信任与 TLS 行为。Skill、MCP definitions、profile 发现合计约数毫秒。首段回退的大头是非仓库也启动系统 Git，不是扩展发现本身。
 

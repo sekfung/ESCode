@@ -117,30 +117,30 @@ Provider-visible payload：
 
 ### New files
 
-| File                                                                                                                                | Responsibility                                                                  |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `docs/subagent-respond-to-coordinator.md`                                                                                           | 产品语义、状态边界、非目标和验收标准的 source-of-truth spec                     |
-| `apps/escode-cli/packages/contracts/src/tools/respond-to-coordinator.ts`                                                             | tool input/runtime output schema 和常量                                         |
-| `apps/escode-cli/packages/contracts/src/interfaces/coordinator-response.port.ts`                                                     | child tool 到父 runtime 的窄端口                                                |
-| `apps/escode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts`                                                          | provider-visible tool metadata、handler 和 model result formatting              |
-| `apps/escode-cli/packages/core/src/subagent/coordinator-response.ts`                                                                 | 绑定 authoritative child identity，并把结构化回复提交给 parent enqueue callback |
-| `apps/escode-cli/packages/core/src/runtime/methods/subagent-messages.ts`                                                             | parent command enqueue、XML formatting、persistence                             |
-| `apps/escode-cli/packages/core/src/runtime/methods/runtime-command-active-loop.ts`                                                   | active loop 对允许 command 类型的统一 intake                                    |
-| `apps/escode-cli/packages/contracts/tests/respond-to-coordinator.test.ts`                                                            | schema 边界测试                                                                 |
-| `apps/escode-cli/packages/core/tests/runtime-tool-allowlist.test.ts`                                                                 | Explore/custom child 最终 built-in allowlist 投影测试                           |
-| `packages/desktop/test/e2e/conversation-session/conversation-session-subagent-respond-to-coordinator.test.ts`                       | 独立 formal BG25 replay spec，使用正常 context window                         |
-| `packages/desktop/test/e2e/fixtures/upstream/conversation-session/conversation-session-subagent-respond-to-coordinator.json`        | BG25 case-local provider replay fixture                                         |
-| `packages/desktop/test/e2e/fixtures/cases/conversation-session/conversation-session-subagent-respond-to-coordinator.json`           | BG25 replay manifest                                                            |
+| File                                                                                                                         | Responsibility                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `docs/subagent-respond-to-coordinator.md`                                                                                    | 产品语义、状态边界、非目标和验收标准的 source-of-truth spec                     |
+| `apps/escode-cli/packages/contracts/src/tools/respond-to-coordinator.ts`                                                     | tool input/runtime output schema 和常量                                         |
+| `apps/escode-cli/packages/contracts/src/interfaces/coordinator-response.port.ts`                                             | child tool 到父 runtime 的窄端口                                                |
+| `apps/escode-cli/packages/core/src/tool/handlers/respond-to-coordinator.ts`                                                  | provider-visible tool metadata、handler 和 model result formatting              |
+| `apps/escode-cli/packages/core/src/subagent/coordinator-response.ts`                                                         | 绑定 authoritative child identity，并把结构化回复提交给 parent enqueue callback |
+| `apps/escode-cli/packages/core/src/runtime/methods/subagent-messages.ts`                                                     | parent command enqueue、XML formatting、persistence                             |
+| `apps/escode-cli/packages/core/src/runtime/methods/runtime-command-active-loop.ts`                                           | active loop 对允许 command 类型的统一 intake                                    |
+| `apps/escode-cli/packages/contracts/tests/respond-to-coordinator.test.ts`                                                    | schema 边界测试                                                                 |
+| `apps/escode-cli/packages/core/tests/runtime-tool-allowlist.test.ts`                                                         | Explore/custom child 最终 built-in allowlist 投影测试                           |
+| `packages/desktop/test/e2e/conversation-session/conversation-session-subagent-respond-to-coordinator.test.ts`                | 独立 formal BG25 replay spec，使用正常 context window                           |
+| `packages/desktop/test/e2e/fixtures/upstream/conversation-session/conversation-session-subagent-respond-to-coordinator.json` | BG25 case-local provider replay fixture                                         |
+| `packages/desktop/test/e2e/fixtures/cases/conversation-session/conversation-session-subagent-respond-to-coordinator.json`    | BG25 replay manifest                                                            |
 
 ### Modified files
 
-| File                                                                           | Change                                                                            |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `docs/superpowers/plans/2026-07-10-subagent-respond-to-coordinator.md`         | 本可执行计划，随 Phase 0 纳入版本控制                                             |
-| `docs/conversation-session-case-catalog.md`                                    | 新增 BG25 accepted case                                                           |
-| `docs/testing/conversation-session-background-e2e-coverage-matrix.md`          | 增加 response channel 维度和 planned/covered 状态                                 |
-| `docs/testing/conversation-session-e2e-coverage-matrix.md`                     | 登记 BG25                                                                         |
-| 历史差异审计文档（已删除）                                        | 标记为 ESCode narrow extension，不误报为完整 Agent Teams 能力                      |
+| File                                                                            | Change                                                                            |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `docs/superpowers/plans/2026-07-10-subagent-respond-to-coordinator.md`          | 本可执行计划，随 Phase 0 纳入版本控制                                             |
+| `docs/conversation-session-case-catalog.md`                                     | 新增 BG25 accepted case                                                           |
+| `docs/testing/conversation-session-background-e2e-coverage-matrix.md`           | 增加 response channel 维度和 planned/covered 状态                                 |
+| `docs/testing/conversation-session-e2e-coverage-matrix.md`                      | 登记 BG25                                                                         |
+| 历史差异审计文档（已删除）                                                      | 标记为 ESCode narrow extension，不误报为完整 Agent Teams 能力                     |
 | `apps/escode-cli/packages/contracts/src/tools/index.ts`                         | 导出 tool contract                                                                |
 | `apps/escode-cli/packages/contracts/src/index.ts`                               | 导出 coordinator port                                                             |
 | `apps/escode-cli/packages/contracts/src/interfaces/session-store.port.ts`       | 增加 `subagent_message` synthetic source                                          |
@@ -174,9 +174,9 @@ Provider-visible payload：
 | `packages/shared/test/escodeProtocol.test.ts`                                   | protocol source 解析测试                                                          |
 | `packages/shared/src/escode-session-visible-content.ts`                         | 增加 `subagent_message` source-only visibility fallback                           |
 | `packages/shared/test/escodeSessionVisibleContent.test.ts`                      | model-only 消息不可见测试                                                         |
-| `docs/design/v2/tool/00-tool-change-chain.md`                                  | 记录 `allowedInPlanMode` 的窄语义和禁止伪装 read-only 约束                        |
-| `scripts/test-desktop-e2e-container.sh`                                        | Docker admission 后把正式 BG25 spec 纳入 verified preset                          |
-| `docs/testing/conversation-session-docker-automation-plan.md`                  | Docker admission 工具同步准入记录                                                 |
+| `docs/design/v2/tool/00-tool-change-chain.md`                                   | 记录 `allowedInPlanMode` 的窄语义和禁止伪装 read-only 约束                        |
+| `scripts/test-desktop-e2e-container.sh`                                         | Docker admission 后把正式 BG25 spec 纳入 verified preset                          |
+| `docs/testing/conversation-session-docker-automation-plan.md`                   | Docker admission 工具同步准入记录                                                 |
 
 ## Phase Checklist
 

@@ -67,23 +67,23 @@ Writer 方法是字段入口，Runtime 内的显式 Key 是输出映射。
 
 ### 2.1 Trace Resource
 
-| 字段                             | 类型    | 含义与来源                                                           |
-| -------------------------------- | ------- | -------------------------------------------------------------------- |
-| `service.name`                   | string  | 默认 `escode-cli-agent`，可由受控 OTEL 配置覆盖                       |
-| `service.version`                | string? | CLI bundle 实际内置版本，来自 `apps/escode-cli/package.json` 构建注入 |
-| `service.instance.id`            | string  | 每个 CLI 进程随机实例 ID                                             |
-| `deployment.environment.name`    | string? | 产品环境                                                             |
-| `process.runtime.name`           | string  | `nodejs`                                                             |
-| `process.runtime.version`        | string  | Node 版本                                                            |
-| `os.type`                        | string  | Node `process.platform`                                              |
-| `host.arch`                      | string  | 归一化 CPU 架构                                                      |
-| `escode.telemetry.schema_owner`   | string  | 固定 `cli`                                                           |
-| `escode.telemetry.schema_version` | integer | 当前为 `5`                                                           |
-| `escode.product.version`          | string? | Desktop/产品构建版本                                                 |
-| `escode.build.commit_id`          | string? | 可信构建 Commit                                                      |
-| `escode.runtime.surface`          | enum    | `standalone_cli` / `desktop_local_host` / `remote_workspace_host`    |
-| `escode.runtime.distribution`     | enum    | `source` / `development_bundle` / `packaged` / `unknown`             |
-| `escode.device.installation_id`   | string? | 持久化随机安装假名，不是硬件 ID                                      |
+| 字段                              | 类型    | 含义与来源                                                            |
+| --------------------------------- | ------- | --------------------------------------------------------------------- |
+| `service.name`                    | string  | 默认 `escode-cli-agent`，可由受控 OTEL 配置覆盖                       |
+| `service.version`                 | string? | CLI bundle 实际内置版本，来自 `apps/escode-cli/package.json` 构建注入 |
+| `service.instance.id`             | string  | 每个 CLI 进程随机实例 ID                                              |
+| `deployment.environment.name`     | string? | 产品环境                                                              |
+| `process.runtime.name`            | string  | `nodejs`                                                              |
+| `process.runtime.version`         | string  | Node 版本                                                             |
+| `os.type`                         | string  | Node `process.platform`                                               |
+| `host.arch`                       | string  | 归一化 CPU 架构                                                       |
+| `escode.telemetry.schema_owner`   | string  | 固定 `cli`                                                            |
+| `escode.telemetry.schema_version` | integer | 当前为 `5`                                                            |
+| `escode.product.version`          | string? | Desktop/产品构建版本                                                  |
+| `escode.build.commit_id`          | string? | 可信构建 Commit                                                       |
+| `escode.runtime.surface`          | enum    | `standalone_cli` / `desktop_local_host` / `remote_workspace_host`     |
+| `escode.runtime.distribution`     | enum    | `source` / `development_bundle` / `packaged` / `unknown`              |
+| `escode.device.installation_id`   | string? | 持久化随机安装假名，不是硬件 ID                                       |
 
 ### 2.2 Metric Resource
 
@@ -102,8 +102,8 @@ DELTA Temporality，适配大量短生命周期 CLI 生产者。
 以下字段来自不可变 `AgentTelemetryExecutionContext`，只投影到确实需要独立检索的关键 Span。
 它们不是 Span 继承，也不替代 Parent/Link。
 
-| 字段                                | 类型    | 含义                                                               | 主要出现位置                        |
-| ----------------------------------- | ------- | ------------------------------------------------------------------ | ----------------------------------- |
+| 字段                                 | 类型    | 含义                                                               | 主要出现位置                        |
+| ------------------------------------ | ------- | ------------------------------------------------------------------ | ----------------------------------- |
 | `escode.execution.session_id`        | string? | 当前 Session                                                       | Turn、Detached、Call、Attempt       |
 | `escode.execution.parent_session_id` | string? | Child 的父 Session                                                 | 同上                                |
 | `escode.execution.turn_id`           | string? | 当前 Turn                                                          | 有 Turn Context 的所有关键 Span     |
@@ -169,8 +169,8 @@ Span 首次认领；父 Span仍记录自己的 `outcome/failure_stage/error_cate
 
 Parent：主 Turn 为 Root；前台 Child Agent 可为 Tool Child；后台 Child Agent 为新 Root + Link。
 
-| 专属字段                        | 类型    | 含义                                                         |
-| ------------------------------- | ------- | ------------------------------------------------------------ |
+| 专属字段                         | 类型    | 含义                                                         |
+| -------------------------------- | ------- | ------------------------------------------------------------ |
 | `escode.agent_turn.turn_number`  | integer | Session 内 Turn 序号                                         |
 | `escode.agent_turn.input_source` | enum?   | `user` 或受控 Synthetic Message Source                       |
 | `escode.agent_turn.result_type`  | enum?   | `assistant_message` / `tool_request` / `no_output` / `other` |
@@ -186,8 +186,8 @@ Start 时投影完整 Session/Turn/Query、Actor、Agent、Identity 和 Launch S
 
 Parent：`agent_turn`。
 
-| 专属字段                           | 类型    | 含义                         |
-| ---------------------------------- | ------- | ---------------------------- |
+| 专属字段                            | 类型    | 含义                         |
+| ----------------------------------- | ------- | ---------------------------- |
 | `escode.agent_step.step_id`         | string  | Step 对应消息/执行 ID        |
 | `escode.agent_step.step_index`      | integer | Turn 内从 0 开始的 Step 序号 |
 | `escode.agent_step.terminal_reason` | enum?   | 正常结束原因                 |
@@ -204,8 +204,8 @@ failure_stage = prepare | model | tool | commit | unhandled
 
 Parent：通常为 `agent_step`；工具内部模型调用和命令均为它的 Child。
 
-| 专属字段                                        | 类型     | 含义                                                        |
-| ----------------------------------------------- | -------- | ----------------------------------------------------------- |
+| 专属字段                                         | 类型     | 含义                                                        |
+| ------------------------------------------------ | -------- | ----------------------------------------------------------- |
 | `escode.tool_execution.tool_name`                | string   | Tool Registry 中的受控名称                                  |
 | `escode.tool_execution.permission_decision`      | enum?    | `granted` / `denied` / `not_required`                       |
 | `escode.tool_execution.permission_denial_reason` | enum?    | `user_denied` / `policy_denied` / `unavailable` / `unknown` |
@@ -229,8 +229,8 @@ Events：
 
 Parent：`tool_execution`。只有实际启动 OS 进程才创建，不适用于 Read/Write 等普通 Tool。
 
-| 专属字段                                  | 类型     | 含义                                                   |
-| ----------------------------------------- | -------- | ------------------------------------------------------ |
+| 专属字段                                   | 类型     | 含义                                                   |
+| ------------------------------------------ | -------- | ------------------------------------------------------ |
 | `escode.command_execution.safe_name`       | string   | Allowlist 命令族，例如 `git.status`，不是原始命令      |
 | `escode.command_execution.category`        | enum     | 命令类别                                               |
 | `escode.command_execution.command_count`   | integer  | Pipeline 中命令数量                                    |
@@ -260,20 +260,20 @@ Events：
 Parent：当前 Turn；通常与触发它的 Step 同属 Turn，但不是 Step 的“错误恢复字段”。内部模型请求
 作为 Child Call/Attempt。
 
-| 专属字段                                                  | 类型     | 含义                            |
-| --------------------------------------------------------- | -------- | ------------------------------- |
-| `escode.context_compaction.trigger`                        | enum     | Contracts 中的 `CompactTrigger` |
-| `escode.context_compaction.phase`                          | enum     | Contracts 中的 `CompactPhase`   |
-| `escode.context_compaction.model_mode`                     | enum     | `streaming` / `non_streaming`   |
-| `escode.context_compaction.outer_attempt`                  | integer? | 外层恢复尝试序号                |
-| `escode.context_compaction.max_attempts`                   | integer? | 外层最大尝试数                  |
-| `escode.context_compaction.triggering_step_index`          | integer? | 触发压缩的 Step 序号            |
-| `escode.context_compaction.recovered_from_logical_call_id` | string?  | 恢复来源 Call ID                |
+| 专属字段                                                   | 类型     | 含义                                                           |
+| ---------------------------------------------------------- | -------- | -------------------------------------------------------------- |
+| `escode.context_compaction.trigger`                        | enum     | Contracts 中的 `CompactTrigger`                                |
+| `escode.context_compaction.phase`                          | enum     | Contracts 中的 `CompactPhase`                                  |
+| `escode.context_compaction.model_mode`                     | enum     | `streaming` / `non_streaming`                                  |
+| `escode.context_compaction.outer_attempt`                  | integer? | 外层恢复尝试序号                                               |
+| `escode.context_compaction.max_attempts`                   | integer? | 外层最大尝试数                                                 |
+| `escode.context_compaction.triggering_step_index`          | integer? | 触发压缩的 Step 序号                                           |
+| `escode.context_compaction.recovered_from_logical_call_id` | string?  | 恢复来源 Call ID                                               |
 | `escode.context_compaction.input_tokens`                   | number?  | Auto / Reactive 触发压缩时的当前 provider-visible 上下文 Token |
-| `escode.context_compaction.output_tokens`                  | number?  | 压缩输出 Token                  |
-| `escode.context_compaction.policy_context_window_tokens`   | number?  | Auto / Reactive 本次执行模型使用的策略上下文窗口 |
-| `escode.context_compaction.threshold_tokens`               | number?  | Auto Compact 本次决策使用的触发阈值；其他触发类型可省略 |
-| `escode.context_compaction.token_source`                   | enum?    | `estimate` / `provider_usage`；说明 `input_tokens` 的来源 |
+| `escode.context_compaction.output_tokens`                  | number?  | 压缩输出 Token                                                 |
+| `escode.context_compaction.policy_context_window_tokens`   | number?  | Auto / Reactive 本次执行模型使用的策略上下文窗口               |
+| `escode.context_compaction.threshold_tokens`               | number?  | Auto Compact 本次决策使用的触发阈值；其他触发类型可省略        |
+| `escode.context_compaction.token_source`                   | enum?    | `estimate` / `provider_usage`；说明 `input_tokens` 的来源      |
 
 ```text
 outcome = completed | discarded | failed | cancelled | abandoned
@@ -292,8 +292,8 @@ provider-visible 消息：优先使用最近一次 Provider Usage 并叠加快�
 
 用于 Turn 外仍需独立结果和耗时的操作。前台可为 Child；Queued/Background 使用 Root + Link。
 
-| 专属字段                                  | 类型     | 含义                                                          |
-| ----------------------------------------- | -------- | ------------------------------------------------------------- |
+| 专属字段                                   | 类型     | 含义                                                          |
+| ------------------------------------------ | -------- | ------------------------------------------------------------- |
 | `escode.detached_operation.operation`      | enum     | 第 10.1 节操作类型                                            |
 | `escode.detached_operation.execution_kind` | enum     | `foreground` / `queued` / `background`                        |
 | `escode.detached_operation.trigger`        | enum     | `user` / `turn` / `tool` / `scheduler` / `recovery` / `other` |
@@ -337,8 +337,8 @@ Agent Runtime：`main/subagent/workflow_child`。
 Parent：`agent_step`、`context_compaction`、`tool_execution` 或 `detached_operation`。一个逻辑
 Call 包含一个或多个物理 Attempt。
 
-| 专属字段                                             | 类型     | 含义                                                             |
-| ---------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| 专属字段                                              | 类型     | 含义                                                             |
+| ----------------------------------------------------- | -------- | ---------------------------------------------------------------- |
 | `escode.model_call.operation`                         | enum     | 模型调用的业务用途                                               |
 | `escode.model_call.streaming`                         | boolean  | 逻辑调用是否请求流式模式                                         |
 | `escode.model_call.model_role`                        | string?  | 主模型、快速模型等受控角色                                       |
@@ -369,9 +369,9 @@ Parent：`model_call`。SpanKind：`CLIENT`。一个 Attempt 对应一次真实 
 
 ### 12.1 请求与关联
 
-| 字段                                      | 类型    | 含义                                                                           |
-| ----------------------------------------- | ------- | ------------------------------------------------------------------------------ |
-| `escode.model_attempt.request_id`          | string  | ESCode 物理请求 ID                                                              |
+| 字段                                       | 类型    | 含义                                                                           |
+| ------------------------------------------ | ------- | ------------------------------------------------------------------------------ |
+| `escode.model_attempt.request_id`          | string  | ESCode 物理请求 ID                                                             |
 | `escode.model_attempt.attempt_number`      | integer | 从 1 开始的 Attempt 序号                                                       |
 | `escode.model_attempt.max_attempts`        | integer | 当前策略最大尝试数                                                             |
 | `escode.model_attempt.attempt_cause`       | enum    | `initial` / `retry` / `fallback`                                               |
@@ -382,8 +382,8 @@ Parent：`model_call`。SpanKind：`CLIENT`。一个 Attempt 对应一次真实 
 
 ### 12.2 Provider、Endpoint 与 Model
 
-| 字段                                      | 类型    | 含义                                    |
-| ----------------------------------------- | ------- | --------------------------------------- |
+| 字段                                       | 类型    | 含义                                    |
+| ------------------------------------------ | ------- | --------------------------------------- |
 | `escode.model_attempt.provider_id`         | string  | 用户配置/路由实例 ID                    |
 | `escode.model_attempt.provider_kind`       | enum    | 协议/厂商类型，如 `anthropic`、`openai` |
 | `escode.model_attempt.provider_origin`     | string? | 清洗后的 `scheme://host[:port]`         |
@@ -418,8 +418,8 @@ Requested 表示进入 Provider Adapter 的意图；Effective 表示 Adapter/Pro
 
 ### 12.4 Usage、流式和响应
 
-| 字段                                                  | 类型    | 含义                                                                               |
-| ----------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| 字段                                                   | 类型    | 含义                                                                               |
+| ------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------- |
 | `escode.model_attempt.input_tokens`                    | number? | Provider Usage 输入 Token                                                          |
 | `escode.model_attempt.output_tokens`                   | number? | Provider Usage 输出 Token                                                          |
 | `escode.model_attempt.reasoning_tokens`                | number? | Provider Usage Reasoning Token                                                     |
@@ -437,8 +437,8 @@ Usage 时保持缺失。
 
 ### 12.5 HTTP 与 Error
 
-| 字段                                         | 类型     | 含义                                                           |
-| -------------------------------------------- | -------- | -------------------------------------------------------------- |
+| 字段                                          | 类型     | 含义                                                           |
+| --------------------------------------------- | -------- | -------------------------------------------------------------- |
 | `escode.model_attempt.http_status_code`       | integer? | Provider HTTP 状态，例如 429/500；当前由失败 Status Event 提供 |
 | `escode.model_attempt.provider_error_code`    | string?  | Provider Response 中的原始错误码                               |
 | `escode.model_attempt.provider_error_message` | string?  | Provider Response 原始错误信息，经脱敏和截断                   |
@@ -506,8 +506,8 @@ Canonical 字段始终先写，兼容字段由独立 Adapter 从同一已清洗�
 
 所有 Duration/TTF Histogram 的 Unit 为秒；Trace 中对应 `_ms` Attribute 为毫秒。
 
-| Instrument                                         | 类型      | 含义                           | 允许 Label                                                                            |
-| -------------------------------------------------- | --------- | ------------------------------ | ------------------------------------------------------------------------------------- |
+| Instrument                                          | 类型      | 含义                           | 允许 Label                                                                            |
+| --------------------------------------------------- | --------- | ------------------------------ | ------------------------------------------------------------------------------------- |
 | `escode.agent.turn.duration`                        | Histogram | Turn 终态耗时/流量             | outcome、error_category、actor_kind、input_source、launch_surface                     |
 | `escode.agent.step.duration`                        | Histogram | Step 终态耗时/流量             | outcome、error_category、actor_kind、terminal_reason                                  |
 | `escode.tool.execution.duration`                    | Histogram | Tool 终态耗时/流量             | outcome、error_category、tool_name                                                    |
@@ -547,15 +547,15 @@ Model ID 是允许的受控例外，保留原始值并由每个 View 的 250 Ser
 
 当前显式 View 使用以下秒级边界：
 
-| Instrument Pattern                                                                                      | Boundaries                                                                              |
-| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `escode.agent.turn.duration`                                                                             | `0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600`                                               |
-| `escode.model.*.duration`                                                                                | `0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120`                                              |
+| Instrument Pattern                                                                                         | Boundaries                                                                              |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `escode.agent.turn.duration`                                                                               | `0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600`                                               |
+| `escode.model.*.duration`                                                                                  | `0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120`                                              |
 | `escode.agent.step.duration` / `escode.context.compaction.duration` / `escode.detached.operation.duration` | `0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600` |
-| `escode.tool.execution.duration`                                                                         | `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120, 300`                                |
-| `escode.command.execution.duration`                                                                      | `0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120, 300, 600`                                         |
-| `escode.*.time_to_first_*`                                                                               | `0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120`                                              |
-| `escode.model.call.attempts`                                                                             | `1, 2, 3, 4, 5, 8, 13`                                                                  |
+| `escode.tool.execution.duration`                                                                           | `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120, 300`                                |
+| `escode.command.execution.duration`                                                                        | `0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120, 300, 600`                                         |
+| `escode.*.time_to_first_*`                                                                                 | `0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120`                                              |
+| `escode.model.call.attempts`                                                                               | `1, 2, 3, 4, 5, 8, 13`                                                                  |
 
 所有显式 View 的 Series 基数上限为 250。未匹配这些 View 的 Histogram 使用当前 OTel SDK 默认
 Aggregation；若为它们新增 SLO，必须先显式定义 Bucket 并同步更新本表。

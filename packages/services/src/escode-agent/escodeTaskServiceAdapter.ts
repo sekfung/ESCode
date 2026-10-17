@@ -265,7 +265,10 @@ export function createESCodeTaskServiceAdapter(
 ): IESCodeTaskService {
   // Bot 原来绕过连接 facade，导致真实附件 admission 缺少可信身份；复用既有 scope，
   // 同一 Bot 接入的附件、命令及对账共用连接，不改变桌面与手机各自的传输模式。
-  const botConnectionScopes = new Map<string, ReturnType<typeof createESCodeAgentConnectionScope>>();
+  const botConnectionScopes = new Map<
+    string,
+    ReturnType<typeof createESCodeAgentConnectionScope>
+  >();
   function botAgent(workspace: ESCodeAgentWorkspaceTarget) {
     const key = JSON.stringify([resolveWorkspaceKey(workspace), workspace.remoteSessionId ?? ""]);
     let scope = botConnectionScopes.get(key);
@@ -4227,7 +4230,8 @@ function textFromParts(parts: readonly ESCodeMessagePart[]): string {
 function reasoningFromParts(parts: readonly ESCodeMessagePart[]): string | undefined {
   const text = parts
     .filter(
-      (part): part is Extract<ESCodeMessagePart, { type: "reasoning" }> => part.type === "reasoning",
+      (part): part is Extract<ESCodeMessagePart, { type: "reasoning" }> =>
+        part.type === "reasoning",
     )
     .map((part) => part.text)
     .join("");
@@ -5858,7 +5862,9 @@ function apiRetryFromSessionInfoPayload(
     return runtimeRetry;
   }
 
-  const metaRetry = normalizeESCodeApiRetryStatus(asRecord(asRecord(payload._meta).escode).apiRetry);
+  const metaRetry = normalizeESCodeApiRetryStatus(
+    asRecord(asRecord(payload._meta).escode).apiRetry,
+  );
   if (metaRetry !== undefined) {
     return metaRetry;
   }

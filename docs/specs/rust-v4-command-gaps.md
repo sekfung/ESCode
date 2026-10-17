@@ -42,7 +42,7 @@ sequenceDiagram
 - 宿主处理中会反向请求会话 owner，Engine 不能在 actor 里同步等应答，故走 `mcp/list` 同款辅助请求。
 - 恢复拒绝：`failed / fault.command.workflowRunResumeRejected.<reason>`，`message` 为宿主诊断或
   `workflow run resume rejected: <reason>`；取消拒绝（未找到 / 已终态）：`failed /
-  fault.command.backgroundWorkCancelRejected.<not_found|not_running>`，`message` 为
+fault.command.backgroundWorkCancelRejected.<not_found|not_running>`，`message` 为
   `background work <id> was not cancelled: <reason>`——均与 Node 原文一致。
 - 验收：`escode-cli-rust-workflow-run-commands.test.ts`（actor 挂住时 UI 取消 → 停止通知 → UI 恢复 → actor 重跑结算 →
   完成通知；未知 run 的恢复 / 取消、已完结 run 的取消，两侧 ACK 与通知逐字一致）。
@@ -136,33 +136,32 @@ sequenceDiagram
 **已补**：有 Goal 的会话现在也投影 `session.target`（TS `mapSessionGoal` + `escodeSessionGoalSchema` strict）。
 给 `Goal` 补了 `createdAt` / `updatedAt`（旧数据缺省 0，投影时退回会话时间），并把内部状态归一到协议词表：
 
-| 内部状态                            | 协议状态        |
-| ----------------------------------- | --------------- |
-| `active` / `verifying` / `notSatisfied` | `active`     |
-| `verified`                          | `complete`      |
-| `paused`（预算耗尽 `exhausted()`）  | `budget_limited` |
-| `paused` / `failed`                 | `paused`        |
+| 内部状态                                | 协议状态         |
+| --------------------------------------- | ---------------- |
+| `active` / `verifying` / `notSatisfied` | `active`         |
+| `verified`                              | `complete`       |
+| `paused`（预算耗尽 `exhausted()`）      | `budget_limited` |
+| `paused` / `failed`                     | `paused`         |
 
 验收：`escode-cli-rust-goal-target.test.ts`（设 Goal 后 `session/read` 的 `session.target` 逐字段一致；
 两侧同时自检 `createdAt` / `updatedAt` 是 number、`status` 在协议词表内）。
 
 ## startSavedWorkflow（2026-10-03）
 
-
 设置页「已保存工作流」的「运行」原先在 Rust 上直接失败（未知命令 → `rejected / guard.capabilityUnsupported`），
 现在按 Node `app.startSavedWorkflow` 的语义实现。解析 / 实参校验 / 编译 / 落工作副本 / 提交 run 仍由工作流宿主
 用 TS 的同一段共享实现（`launchSavedWorkflowRun`）完成；Rust 只做会话侧事实。
 
-| 事实                                                                    | 所有者           |
-| ----------------------------------------------------------------------- | ---------------- |
-| 已保存工作流的解析 / 实参校验 / 编译 / 工作副本 / `port.submit`          | 工作流宿主（TS） |
-| run 的后台追踪（注册表、终态 waiter、结算通知）                          | 工作流宿主（TS） |
+| 事实                                                                       | 所有者           |
+| -------------------------------------------------------------------------- | ---------------- |
+| 已保存工作流的解析 / 实参校验 / 编译 / 工作副本 / `port.submit`            | 工作流宿主（TS） |
+| run 的后台追踪（注册表、终态 waiter、结算通知）                            | 工作流宿主（TS） |
 | 启动轮的标题 / 行（userInput、turnHeader）/ runtime history / ACK / 持久化 | Rust Engine      |
 
 宿主新增两个方法（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`）：
 
 - `run.startSaved {session, cwd, name, scope?, args?}` → `{ok:true, runId, toolCallId, launchInputId,
-  launchText, meta, titleInput}` 或 `{ok:false, reason, message?}`。**零会话副作用**：解析 / 校验 / 编译
+launchText, meta, titleInput}` 或 `{ok:false, reason, message?}`。**零会话副作用**：解析 / 校验 / 编译
   失败时没有 run、没有消息、没有行；成功即已 `port.submit`，并把合成 CreateWorkflow 描述子按 toolCallId 暂存。
 - `run.track {session, toolCallId}` → `{ok:true}`：为 `run.startSaved` 提交的 run 重臂后台追踪（与
   `run.resume` 的重臂同一条 `BackgroundTaskTracker` 路径）。
@@ -193,7 +192,7 @@ sequenceDiagram
   `state:"completedSuccess"`、`sourceCommandId = launchInputId`；两行带同一份 `workflowLaunch` 元数据；
   文本进 runtime history（role=user），模型下一回合以真实 user prompt 读它。
 - 拒绝（宿主 reason）：`failed / fault.command.savedWorkflowStartRejected.<invalid_name|not_found|invalid_args|
-  compile_failed|session_busy|start_failed>`，`message` 用宿主诊断，缺席时 `saved workflow start rejected: <reason>`。
+compile_failed|session_busy|start_failed>`，`message` 用宿主诊断，缺席时 `saved workflow start rejected: <reason>`。
   `session_busy` 由 Rust 在调宿主前判定（TS `hasActiveOrQueuedTurnWork()`），不产生任何副作用。
 - 提交之后的失败（落行 / 重臂）只记 warn 不回滚：run 已在飞，可在侧板取消；ACK 仍按成功回。
 - 验收：`escode-cli-rust-start-saved-workflow.test.ts`（成功启动的 ACK、启动轮两行、`session/read` 标题与状态、
@@ -208,12 +207,12 @@ guard.capabilityUnsupported`），现在按 Node `app.amendWorkflowRunSettings` 
 `applyWorkflowRunSettings`（`dynamic-workflow-run-settings-apply.ts`），Node runtime 与宿主各注入一份
 依赖：前者拿 `AgentRuntimeInternal` 的会话事实与执行器，后者拿宿主的 cwd、run 端口与 Rust 递来的模型目录。
 
-| 事实                                                                                                          | 所有者           |
-| ------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 事实                                                                                                            | 所有者           |
+| --------------------------------------------------------------------------------------------------------------- | ---------------- |
 | 归属校验 / 可配置校验 / 两项三态归一 / 未改判定 / 脚本读取 / 编译 / 调并发 / `port.amend` / 工作副本 / 提交 run | 工作流宿主（TS） |
-| 模型目录（provider 注册表 → `ModelCatalogEntry[]`，补 `current`）                                              | Rust Engine      |
+| 模型目录（provider 注册表 → `ModelCatalogEntry[]`，补 `current`）                                               | Rust Engine      |
 | 设置轮的会话写入（userInput、controlOnly turnHeader、runtime history）                                          | Rust Engine      |
-| run 的后台追踪重臂（登记表、终态 waiter、结算通知）                                                            | 工作流宿主（TS） |
+| run 的后台追踪重臂（登记表、终态 waiter、结算通知）                                                             | 工作流宿主（TS） |
 
 宿主新增一个方法（`apps/escode-cli/packages/cli/src/workflow-host-runs.ts`）：
 
@@ -240,7 +239,7 @@ sequenceDiagram
 ```
 
 - 拒绝（宿主 reason）：`failed / fault.command.workflowRunSettingsRejected.<not_found|not_configurable|
-  unchanged|script_missing|model_unavailable|compile_failed|missing_boundaries|start_failed>`，`message` 用
+unchanged|script_missing|model_unavailable|compile_failed|missing_boundaries|start_failed>`，`message` 用
   宿主诊断（编译 / 模型解析 / 启动失败原因），缺席时 `workflow run settings rejected: <reason>`。
 - 模型目录：Rust 把 `registry.model_catalog()` 随请求递过去，并给会话当前 `providerId/modelId` 那一条补
   `current: true`（其余 `false`）。TS 端口的 `current` 是必需字段，它决定 `model_unavailable` 诊断里

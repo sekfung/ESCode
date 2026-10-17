@@ -26,7 +26,12 @@ process.stdin.on("end", () => {
 
 const call = (id: string, command: string) => ({
   tool_calls: [
-    { index: 0, id, type: "function", function: { name: "Bash", arguments: JSON.stringify({ command }) } },
+    {
+      index: 0,
+      id,
+      type: "function",
+      function: { name: "Bash", arguments: JSON.stringify({ command }) },
+    },
   ],
 });
 
@@ -45,7 +50,10 @@ async function observe(kind: "node" | "rust") {
       end(res, "stop");
     }
   };
-  const env = { ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath, ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle };
+  const env = {
+    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+  };
   const f =
     kind === "node"
       ? await fixture({
@@ -109,7 +117,9 @@ async function observe(kind: "node" | "rust") {
     const toolResult = (index: number, id: string) =>
       requests[index]?.messages?.find((m: any) => m.tool_call_id === id)?.content;
     const asked = h.messages.some((m: any) =>
-      (m.params?.frame?.payload?.deltas ?? []).some((d: any) => d.patch?.pendingInteractions?.length > 0),
+      (m.params?.frame?.payload?.deltas ?? []).some(
+        (d: any) => d.patch?.pendingInteractions?.length > 0,
+      ),
     );
     return {
       asked,

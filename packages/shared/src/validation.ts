@@ -1560,7 +1560,12 @@ export const escodePersistedMessageSchema = z.object({
     .optional(),
 });
 
-export const escodeTaskGoalStatusSchema = z.enum(["active", "paused", "budget_limited", "complete"]);
+export const escodeTaskGoalStatusSchema = z.enum([
+  "active",
+  "paused",
+  "budget_limited",
+  "complete",
+]);
 
 export const escodeTaskTargetChangedActionSchema = z.enum([
   "set",

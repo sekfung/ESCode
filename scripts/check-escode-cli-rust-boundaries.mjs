@@ -28,7 +28,10 @@ async function walk(directory) {
       /\bescode_cli_(?:core|core_api|state|model|tools|host)\s*::/.test(code)
     )
       failures.push(`${file}: protocol imports core or adapters`);
-    if (crate === "core" && /\bescode_cli_(?:state|model|tools|host|wiki|app_server|tui)\s*::/.test(code))
+    if (
+      crate === "core" &&
+      /\bescode_cli_(?:state|model|tools|host|wiki|app_server|tui)\s*::/.test(code)
+    )
       failures.push(`${file}: core imports an adapter or frontend`);
     if (crate === "tui" && /\bescode_cli_(?:state|model|tools|host|wiki)\s*::/.test(code))
       failures.push(`${file}: tui imports an adapter`);

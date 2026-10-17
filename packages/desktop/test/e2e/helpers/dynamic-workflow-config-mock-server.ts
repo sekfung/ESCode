@@ -69,7 +69,11 @@ export function clearDynamicWorkflowConfigMockEnv(
   environment: Record<string, string | undefined>,
   baseUrl: string,
 ): void {
-  for (const key of ["ESCODE_BASE_URL", "ESCODE_TEST_BASE_URL", "ESCODE_ENDPOINT_ORIGIN"] as const) {
+  for (const key of [
+    "ESCODE_BASE_URL",
+    "ESCODE_TEST_BASE_URL",
+    "ESCODE_ENDPOINT_ORIGIN",
+  ] as const) {
     if (environment[key] === baseUrl) {
       delete environment[key];
     }

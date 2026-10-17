@@ -1,23 +1,23 @@
 # 会话 Token 生成速度（Composer 读数）
 
-| 字段       | 值                                                                                                   |
-| ---------- | ---------------------------------------------------------------------------------------------------- |
-| 状态       | Draft（规格先行，实现与验证随本规格同步落地）                                                        |
-| 日期       | 2026-10-13                                                                                           |
-| 适用范围   | ESCode Desktop Renderer、手机/Web 远控 Renderer、`packages/ui`、`packages/shared`、CLI core 与 bootstrap 投影、CLI 上下文预算 |
-| 主要对象   | 实时接收速率（v4 帧流上的在线 delta）；轮末解码速度（`turnHeader.decodeMs` / `decodeTokens`）；Composer 工具条读数 |
-| 关联 ADR   | [0007 生成速度拆分为两个量、两个所有者](../adr/0007-generation-speed-split-ownership.md)（取代 [0006](../adr/0006-generation-speed-observed-in-renderer.md)） |
-| 关联文档   | `DESIGN.md`；`docs/specs/rust-request-context.md`（估算器来源）；E2E：`docs/test-cases/e2e/conversation-generation-speed.feature` |
-| 非目标     | 历史图表、跨会话总览、按请求逐 step 的明细视图、设置开关                                               |
+| 字段     | 值                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 状态     | Draft（规格先行，实现与验证随本规格同步落地）                                                                                                                 |
+| 日期     | 2026-10-13                                                                                                                                                    |
+| 适用范围 | ESCode Desktop Renderer、手机/Web 远控 Renderer、`packages/ui`、`packages/shared`、CLI core 与 bootstrap 投影、CLI 上下文预算                                 |
+| 主要对象 | 实时接收速率（v4 帧流上的在线 delta）；轮末解码速度（`turnHeader.decodeMs` / `decodeTokens`）；Composer 工具条读数                                            |
+| 关联 ADR | [0007 生成速度拆分为两个量、两个所有者](../adr/0007-generation-speed-split-ownership.md)（取代 [0006](../adr/0006-generation-speed-observed-in-renderer.md)） |
+| 关联文档 | `DESIGN.md`；`docs/specs/rust-request-context.md`（估算器来源）；E2E：`docs/test-cases/e2e/conversation-generation-speed.feature`                             |
+| 非目标   | 历史图表、跨会话总览、按请求逐 step 的明细视图、设置开关                                                                                                      |
 
 ## 1. 摘要
 
 在会话输入框工具条、上下文容量指示的左侧，常驻显示当前对话的生成速度。用户看到的读数分别是**两个不同的量**，各有独立的所有者与口径：
 
-| 量           | 含义                         | 所有者                                       | 何时显示                     |
-| ------------ | ---------------------------- | -------------------------------------------- | ---------------------------- |
-| 实时接收速率 | 本机此刻收到多少 token / 秒  | Renderer 本地观测（`localGenerationSpeed.ts`） | 生成中                       |
-| 轮末解码速度 | 本轮模型解码多少 token / 秒  | CLI 投影（`turnHeader.decodeMs/decodeTokens`） | 本轮结束后保留，直到下一轮发送 |
+| 量           | 含义                        | 所有者                                         | 何时显示                       |
+| ------------ | --------------------------- | ---------------------------------------------- | ------------------------------ |
+| 实时接收速率 | 本机此刻收到多少 token / 秒 | Renderer 本地观测（`localGenerationSpeed.ts`） | 生成中                         |
+| 轮末解码速度 | 本轮模型解码多少 token / 秒 | CLI 投影（`turnHeader.decodeMs/decodeTokens`） | 本轮结束后保留，直到下一轮发送 |
 
 - 生成中显示 3 秒滑动窗口的实时值（`42 tok/s`），窗口排空时显示占位符 `—`；
 - 一轮结束后在同一位置保留本轮解码速度并弱化显示，直到下一次发送被新读数替换；
@@ -33,15 +33,15 @@ output usage 与 runtime 对 provider 流的观测，两者都在 CLI 侧；它�
 
 ### 2.1 显示矩阵
 
-| 会话状态                                             | 显示                                  |
-| ---------------------------------------------------- | ------------------------------------- |
-| 尚未有会话（草稿态）                                 | 不渲染读数                            |
-| 已发送、本轮首个 delta 未到（含 TTFT 阶段）          | `—`                                   |
-| 生成中（窗口内有 delta）                             | 实时值，整数，如 `42 tok/s`           |
-| 生成中但窗口已排空（工具执行 / 等待授权 / 等待回答 / 模型停顿） | `—`                          |
-| 本轮结束（完成 / 中断 / 失败）                       | 本轮解码速度，弱化显示                |
-| 本轮无可计量的解码区间（如 `controlOnly` 轮）        | `—`（不留读数）                       |
-| 下一轮开始（新的 running turnHeader）                | 清空保留值，回到 `—`，重新累积        |
+| 会话状态                                                        | 显示                           |
+| --------------------------------------------------------------- | ------------------------------ |
+| 尚未有会话（草稿态）                                            | 不渲染读数                     |
+| 已发送、本轮首个 delta 未到（含 TTFT 阶段）                     | `—`                            |
+| 生成中（窗口内有 delta）                                        | 实时值，整数，如 `42 tok/s`    |
+| 生成中但窗口已排空（工具执行 / 等待授权 / 等待回答 / 模型停顿） | `—`                            |
+| 本轮结束（完成 / 中断 / 失败）                                  | 本轮解码速度，弱化显示         |
+| 本轮无可计量的解码区间（如 `controlOnly` 轮）                   | `—`（不留读数）                |
+| 下一轮开始（新的 running turnHeader）                           | 清空保留值，回到 `—`，重新累积 |
 
 - 实时窗口不足 3 秒时按实际已生成时长归一，避免起步低估。
 - 数值小于 1 时保留一位小数（`0.8 tok/s`），否则取整。
@@ -72,13 +72,13 @@ output usage 与 runtime 对 provider 流的观测，两者都在 CLI 侧；它�
 
 ### 3.1 所有者
 
-| 对象                                                            | 唯一所有者                                                  |
-| --------------------------------------------------------------- | ----------------------------------------------------------- |
-| 实时窗口、会话状态（工具执行 / 等待交互）                       | `packages/ui/src/v4/telemetry/localGenerationSpeed.ts`（模块级单例 tracker） |
-| 保留值（按 `sessionId`）                                        | 同一模块内的内存注册表（不落盘、有界，不随投影 store 释放丢失） |
-| 轮末解码区间与 output token 累计                                | CLI 投影：runtime 采集 → `ModelComplete` → `product-projection` → `turnHeader` |
-| 会话事实（phase、usage、turnHeader rows）                       | 既有 `ConversationProjectionStore` / 服务端投影（本特性只读） |
-| 实时值的文本估算口径                                            | `packages/shared` 的 `estimateTokens`（CLI 上下文预算复用同一函数） |
+| 对象                                      | 唯一所有者                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------ |
+| 实时窗口、会话状态（工具执行 / 等待交互） | `packages/ui/src/v4/telemetry/localGenerationSpeed.ts`（模块级单例 tracker）   |
+| 保留值（按 `sessionId`）                  | 同一模块内的内存注册表（不落盘、有界，不随投影 store 释放丢失）                |
+| 轮末解码区间与 output token 累计          | CLI 投影：runtime 采集 → `ModelComplete` → `product-projection` → `turnHeader` |
+| 会话事实（phase、usage、turnHeader rows） | 既有 `ConversationProjectionStore` / 服务端投影（本特性只读）                  |
+| 实时值的文本估算口径                      | `packages/shared` 的 `estimateTokens`（CLI 上下文预算复用同一函数）            |
 
 读数组件不写入任何会话状态；tracker 不写协议、不写 store，只消费帧流并对外发布只读视图；CLI 投影不感知 UI。
 
@@ -204,7 +204,7 @@ tokensᵢ = provider 上报的 usage.outputTokens
   `pendingInteractions` 区间回 `—`（后台化工具不阻塞）、recovery/snapshot 帧不计入。
 - 轮末值：`decodeTokens` / `decodeMs` 结算；缺字段回未知；`decodeMs ≤ 0` 回未知；新轮清空保留值；
   中断 / 失败同样结算。观测器与读数呈现分两个文件：`packages/ui/test/localGenerationSpeed.test.ts`（口径与语义）
-  与 `packages/ui/test/v4ComposerGenerationSpeed.test.ts`（格式、占位符、无障碍标签、data-* 锚点）。
+  与 `packages/ui/test/v4ComposerGenerationSpeed.test.ts`（格式、占位符、无障碍标签、data-\* 锚点）。
 - CLI 采集：单次调用的 `span` 由首个与末个非空生成 delta 界定（空 delta 与非生成事件不计入）；
   无 delta / `span ≤ 0` / `tokens < 2` / 缺 usage 的调用被整段剔除。
 - CLI 投影：主链路多次 `ModelComplete` 累计 `decodeMs` / `decodeTokens` 到 `turnHeader`；

@@ -100,7 +100,9 @@ describe("workspace hook Settings/Runtime discovery alignment", () => {
       workspacePath: workspace,
       hooks: loaded.hooks,
     });
-    const savedCurrent = JSON.parse(readFileSync(join(workspace, ".escode", "config.json"), "utf8"));
+    const savedCurrent = JSON.parse(
+      readFileSync(join(workspace, ".escode", "config.json"), "utf8"),
+    );
     expect(savedCurrent.hooks.events.SessionStart).toHaveLength(1);
     expect(savedCurrent.hooks.events.Stop).toBeUndefined();
     expect(readFileSync(join(repo, "escode.json"), "utf8")).toContain("echo escode-json");

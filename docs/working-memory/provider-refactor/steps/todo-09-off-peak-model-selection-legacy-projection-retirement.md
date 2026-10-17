@@ -302,7 +302,7 @@ ESCODE_OFFPEAK_MOCK
 | must-inspect   | Off-Peak create/update -> Registry validation         | 避免无效选择先取 Ticket 或入库              |
 | must-inspect   | Scheduler/Host -> dispatch validation -> ModelFactory | 排队后失效必须 permanent fail-closed        |
 | should-inspect | `ModelConfigSelect` / Model Thought helper            | 共享展示实现，但草稿和提交仍属于 Off-Peak   |
-| conditional    | Mock Gateway / E2E ESCode Built-in Config              | 只影响本地开发和 E2E，不进入生产模型事实    |
+| conditional    | Mock Gateway / E2E ESCode Built-in Config             | 只影响本地开发和 E2E，不进入生产模型事实    |
 | invariant-only | Account Access / Ticket / Request Auth                | 继续负责准入与动态访问材料，不决定模型成员  |
 | invariant-only | desktop continuous / mobile replayable                | 不改变执行和恢复语义，不新增移动端 Off-Peak |
 | invariant-only | Session Selection / App Recent / Queue                | idle selection 只作用于 automatic turn      |
@@ -334,29 +334,29 @@ capability.off-peak-model-execution
 
 ### 7.1 已接受用例
 
-| Case ID | Setup                                     | Action                   | Assertions                                                            | 证据层                       |
-| ------- | ----------------------------------------- | ------------------------ | --------------------------------------------------------------------- | ---------------------------- |
-| OPM-01  | hidden Off-Peak Provider 有两个可创建模型 | 打开创建页               | 普通选择 View 不含该 Provider；Off-Peak scoped View 精确包含两个模型  | Provider + Service + UI unit |
-| OPM-02  | 模型有 Reasoning Option Spec              | 切换模型和档位           | UI 只读 values/default；提交为标准 Selection 语义                     | Provider + UI unit           |
-| OPM-03  | 模型无 Reasoning Option Spec              | 从推理模型切换到该模型   | Reasoning 控件隐藏，旧档位不随提交泄漏                                | UI unit                      |
-| OPM-04  | 提交时模型或档位已失效                    | 创建任务                 | 本地稳定错误；不调用 takeTicket；不写 Repo                            | Service unit                 |
-| OPM-05  | queued/paused 保存选择已失效              | 编辑并保存               | 展示不可用且阻止原样保存；不静默换成首项                              | UI + Service unit            |
-| OPM-06  | History 模型已退出 Registry               | 查看历史                 | 仍展示已保存字符串，不把它加入候选或重写记录                          | UI unit                      |
-| OPM-07  | 排队后模型/档位退出 Registry              | Scheduler 派发           | 网络前拒绝；任务 permanent failed；不进入 transient 重试              | Host/Scheduler unit          |
-| OPM-08  | Task 未显式模型且 scoped View 非空        | Host 解析默认            | 只取当前 View 有序第一项，不从 Connection/Catalog/假 Model 推断       | Host unit                    |
-| OPM-09  | `ESCODE_OFFPEAK_MOCK=1`                    | 运行 Off-Peak E2E        | 产品服务由 Mock 驱动；模型候选只来自测试 ESCode Built-in Config        | Services + Desktop E2E       |
+| Case ID | Setup                                     | Action                   | Assertions                                                             | 证据层                       |
+| ------- | ----------------------------------------- | ------------------------ | ---------------------------------------------------------------------- | ---------------------------- |
+| OPM-01  | hidden Off-Peak Provider 有两个可创建模型 | 打开创建页               | 普通选择 View 不含该 Provider；Off-Peak scoped View 精确包含两个模型   | Provider + Service + UI unit |
+| OPM-02  | 模型有 Reasoning Option Spec              | 切换模型和档位           | UI 只读 values/default；提交为标准 Selection 语义                      | Provider + UI unit           |
+| OPM-03  | 模型无 Reasoning Option Spec              | 从推理模型切换到该模型   | Reasoning 控件隐藏，旧档位不随提交泄漏                                 | UI unit                      |
+| OPM-04  | 提交时模型或档位已失效                    | 创建任务                 | 本地稳定错误；不调用 takeTicket；不写 Repo                             | Service unit                 |
+| OPM-05  | queued/paused 保存选择已失效              | 编辑并保存               | 展示不可用且阻止原样保存；不静默换成首项                               | UI + Service unit            |
+| OPM-06  | History 模型已退出 Registry               | 查看历史                 | 仍展示已保存字符串，不把它加入候选或重写记录                           | UI unit                      |
+| OPM-07  | 排队后模型/档位退出 Registry              | Scheduler 派发           | 网络前拒绝；任务 permanent failed；不进入 transient 重试               | Host/Scheduler unit          |
+| OPM-08  | Task 未显式模型且 scoped View 非空        | Host 解析默认            | 只取当前 View 有序第一项，不从 Connection/Catalog/假 Model 推断        | Host unit                    |
+| OPM-09  | `ESCODE_OFFPEAK_MOCK=1`                   | 运行 Off-Peak E2E        | 产品服务由 Mock 驱动；模型候选只来自测试 ESCode Built-in Config        | Services + Desktop E2E       |
 | OPM-10  | 测试试图用未知模型                        | 构造测试 Registry / 提交 | 无 `ESCODE_OFFPEAK_MOCK_ALLOWED_MODELS` 入口；缺完整 Config 时明确失败 | Config + Service unit        |
 
 ### 7.2 明确剪枝
 
-| 组合                                                 | 处理   | 原因                                                  |
-| ---------------------------------------------------- | ------ | ----------------------------------------------------- |
-| 手机 `/remote` 创建或编辑 Off-Peak                   | pruned | 当前产品明确不支持，不因 DTO 清理新增入口             |
-| 远程 Workspace Off-Peak                              | pruned | 当前 Off-Peak 只面向 Desktop 本地 Workspace           |
-| Registry 更新后自动重写已保存任务                    | pruned | 任务记录保存历史选择；只在编辑/派发边界校验           |
-| Account allowedModelIds 过滤 idle models             | pruned | Account 负责准入和鉴权，不拥有闲时产品模型成员        |
+| 组合                                                 | 处理   | 原因                                                   |
+| ---------------------------------------------------- | ------ | ------------------------------------------------------ |
+| 手机 `/remote` 创建或编辑 Off-Peak                   | pruned | 当前产品明确不支持，不因 DTO 清理新增入口              |
+| 远程 Workspace Off-Peak                              | pruned | 当前 Off-Peak 只面向 Desktop 本地 Workspace            |
+| Registry 更新后自动重写已保存任务                    | pruned | 任务记录保存历史选择；只在编辑/派发边界校验            |
+| Account allowedModelIds 过滤 idle models             | pruned | Account 负责准入和鉴权，不拥有闲时产品模型成员         |
 | Mock 注入任意模型                                    | pruned | 模型事实必须来自测试 ESCode Built-in Config / Registry |
-| 修改 Session Selection、App Recent 或普通 busy queue | pruned | execution-scoped idle turn 的既有不变量               |
+| 修改 Session Selection、App Recent 或普通 busy queue | pruned | execution-scoped idle turn 的既有不变量                |
 
 本 Todo 以 Provider/Services/UI/Host/Scheduler 单测为主。现有 Off-Peak Desktop E2E 只需验证 Mock + 测试
 ESCode Built-in Config 的代表性主链，不新增大规模 Conversation E2E，也不改 conversation case catalog。

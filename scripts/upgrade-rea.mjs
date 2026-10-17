@@ -12,7 +12,15 @@
 //   node scripts/upgrade-rea.mjs            # 升到 npm 上的最新版
 //   node scripts/upgrade-rea.mjs 6.5.0      # 升到指定版本
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,9 +61,13 @@ const requested = process.argv[2]?.trim() || "latest";
 const npmViewArgs = ["view", `rea-agents@${requested}`, "version"];
 const resolved = (
   process.platform === "win32"
-    ? execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `npm ${npmViewArgs.join(" ")}`], {
-        encoding: "utf8",
-      })
+    ? execFileSync(
+        process.env.ComSpec ?? "cmd.exe",
+        ["/d", "/s", "/c", `npm ${npmViewArgs.join(" ")}`],
+        {
+          encoding: "utf8",
+        },
+      )
     : execFileSync("npm", npmViewArgs, { encoding: "utf8" })
 ).trim();
 const current = readPin();
@@ -94,7 +106,11 @@ if (resolved === current) {
 
 // 4. 生成物：免审批清单（TS）与 Rust 侧清单。
 run(process.execPath, [join(repoRoot, "scripts", "generate-rea-auto-approved-tools.mjs")]);
-run(process.execPath, ["--import", "tsx", join(repoRoot, "scripts", "generate-escode-cli-rust-official-plugins.mjs")]);
+run(process.execPath, [
+  "--import",
+  "tsx",
+  join(repoRoot, "scripts", "generate-escode-cli-rust-official-plugins.mjs"),
+]);
 
 process.stdout.write(
   [

@@ -4,10 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 // 单一来源是 TS（packages/shared/src/escode-protocol-v4/command.ts），Rust 侧
 // `crates/protocol/src/command_schema.rs` 用同一份 JSON 校验命令信封与 payload，
 // 漂移由 `--check` 与 Rust 侧漂移测试双向拦截。
-const source = new URL(
-  "../packages/shared/src/escode-protocol-v4/command.ts",
-  import.meta.url,
-);
+const source = new URL("../packages/shared/src/escode-protocol-v4/command.ts", import.meta.url);
 const { z } = await import("zod");
 const {
   commandEnvelopeSchema,

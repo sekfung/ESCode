@@ -182,10 +182,13 @@ async function ensureQueueInteractionBehavior() {
   await clickInteractionBehaviorSelect();
   await clickInteractionBehaviorQueueOption();
 
-  await browser.waitUntil(async () => (await readSettings()).escodeInteractionBehavior === "queue", {
-    timeout: 15000,
-    timeoutMsg: "turn steer: 交互行为没有保存为 queue",
-  });
+  await browser.waitUntil(
+    async () => (await readSettings()).escodeInteractionBehavior === "queue",
+    {
+      timeout: 15000,
+      timeoutMsg: "turn steer: 交互行为没有保存为 queue",
+    },
+  );
   await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, {
     timeout: 15000,
     timeoutMsg: "turn steer: 设置页返回按钮没有出现",

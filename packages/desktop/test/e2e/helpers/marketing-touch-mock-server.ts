@@ -45,9 +45,7 @@ export interface MarketingTouchMockServer {
 export function shouldPrepareMarketingTouchMock(specs: readonly string[]): boolean {
   return specs.some((spec) => {
     const normalized = spec.replaceAll("\\", "/");
-    return (
-      normalized === "./test/e2e/**/*.test.ts" || normalized.includes("marketing-touch-")
-    );
+    return normalized === "./test/e2e/**/*.test.ts" || normalized.includes("marketing-touch-");
   });
 }
 

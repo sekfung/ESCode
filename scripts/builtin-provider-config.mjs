@@ -41,7 +41,8 @@ export async function resolveBuiltinProviderBuildEnvironment({
 /** @param {{root?: string, env?: Record<string, string | undefined>}} options */
 export async function loadBuiltinProviderConfig({ root = repositoryRoot, env = process.env } = {}) {
   const environment = await resolveBuiltinProviderBuildEnvironment({ root, env });
-  const filename = environment === "production" ? "escode-builtin.json" : "escode-builtin.test.json";
+  const filename =
+    environment === "production" ? "escode-builtin.json" : "escode-builtin.test.json";
   const sourcePath = resolve(root, "config/provider", filename);
   try {
     const content = await readFile(sourcePath, "utf8");

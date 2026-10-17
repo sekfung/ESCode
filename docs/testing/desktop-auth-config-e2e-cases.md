@@ -4,10 +4,10 @@
 
 本节是整合验收范围，不覆盖或改写下文历史运行记录。
 
-| Case | 来源与操作 | 验收与限制 |
-| --- | --- | --- |
-| AUTH-05 | d17cb6a800；正式 oauth-login-failure-cancel.test.ts，通过 preload 回调投递无效 state | 真实 Host 拒绝回调后 UI 仅展示失败块；取消后回到渠道列表，登录入口不关闭。保留上游正式用例身份，不是本轮擅自晋级 |
-| AUTH-06 | a172e9c398 / 71a195b6be / f26d4e75fb；pending access-token-401-auto-logout.test.ts | case-local HTTP 暂停真实 Host userinfo，再返回 401；清理当前 OAuth、保留 Bot 凭据、只展示一次过期提示；确认发出既有 RelaunchApp。IPC 截断实际重启，不冒充真实重启已验证 |
+| Case    | 来源与操作                                                                           | 验收与限制                                                                                                                                                              |
+| ------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AUTH-05 | d17cb6a800；正式 oauth-login-failure-cancel.test.ts，通过 preload 回调投递无效 state | 真实 Host 拒绝回调后 UI 仅展示失败块；取消后回到渠道列表，登录入口不关闭。保留上游正式用例身份，不是本轮擅自晋级                                                        |
+| AUTH-06 | a172e9c398 / 71a195b6be / f26d4e75fb；pending access-token-401-auto-logout.test.ts   | case-local HTTP 暂停真实 Host userinfo，再返回 401；清理当前 OAuth、保留 Bot 凭据、只展示一次过期提示；确认发出既有 RelaunchApp。IPC 截断实际重启，不冒充真实重启已验证 |
 
 两条用例都不产生模型请求，manifest 明确 providerRequestPolicy=none。AUTH-06 的
 业务 token/JWT 是值不同的合成凭据，其它控制面 HTTP 200，避免原 JWT 失效路径掩盖
@@ -470,7 +470,7 @@ Todo103 本轮运行证据记录在 staging-integration ledger。
 ## PAT-KEY-UPGRADE：有效登录态与坏旧 Key 共存
 
 候选用例：`packages/desktop/test/e2e/manual-review/pending/account-key-usage-scene.test.ts`。
-复用该文件 Z.AI 恢复用例：在隔离 HOME 的 credentials.json 中保存有效合成 OAuth 与账号资料，同时将同账号 account-provider:*:api-key 写为损坏密文；重启 Electron，要求直接恢复工作区，Host 创建 usageScene=1 的专用 Key 并签发 Token，不调用 Copy，原坏旧记录保持不变。BigModel 用例覆盖无旧 Key 的创建/换证路径。
+复用该文件 Z.AI 恢复用例：在隔离 HOME 的 credentials.json 中保存有效合成 OAuth 与账号资料，同时将同账号 account-provider:\*:api-key 写为损坏密文；重启 Electron，要求直接恢复工作区，Host 创建 usageScene=1 的专用 Key 并签发 Token，不调用 Copy，原坏旧记录保持不变。BigModel 用例覆盖无旧 Key 的创建/换证路径。
 此用例不触发模型推理；HTTP 为既有本地 Coding Plan mock，不代表真实后端联调。手机/远程链路由 Provisioning 与鉴权服务测试覆盖，本轮不宣称设备级远程 E2E。保持 pending，不自动转正。
 
 本轮自动复测：2026-09-23，2 cases passed；artifact：`packages/desktop/.e2e-artifacts/desktop-e2e-20260923070315610-p85476-12717808333f5136/summary.md`。未进行人工确认或转正；手机、真实后端及混版本远端不在本 case 范围。

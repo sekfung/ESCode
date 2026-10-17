@@ -3359,12 +3359,7 @@ export function SessionPane({
           });
           return null;
         }
-        return dispatchCommand(
-          "sendQueuedNow",
-          { queueItemId },
-          sessionId,
-          latest.revision,
-        );
+        return dispatchCommand("sendQueuedNow", { queueItemId }, sessionId, latest.revision);
       })().then((ack) => {
         if (!ack) return;
         if (ack.status !== "accepted" && ack.status !== "noop") {

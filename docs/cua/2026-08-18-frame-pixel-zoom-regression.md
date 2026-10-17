@@ -12,11 +12,11 @@
 轨迹 `model-io-sess_364a4761`（2026-08-19 19:19–19:53，Helper 3.8.1 / producer 0.5.7）连丢三次
 点击，返回体 `resolved_app_ref` 如实记录了投递目标：
 
-| 请求# | 实际收到点击的窗口 | layer | bounds |
-| --- | --- | --- | --- |
-| 18 | `com.electron.lark.iron`（飞书屏幕共享提示层 LarkSSPromptWindow） | 非零 | `[0,0,1512,982]` |
-| 25 | `com.volcengine.corplink.networkextension-wrapper`（飞连网络扩展） | 25 | `[0,0,1512,982]` |
-| 31 | `now.typeless.desktop`（Typeless "Status"） | 1001 | `[381,482,750,500]` |
+| 请求# | 实际收到点击的窗口                                                 | layer | bounds              |
+| ----- | ------------------------------------------------------------------ | ----- | ------------------- |
+| 18    | `com.electron.lark.iron`（飞书屏幕共享提示层 LarkSSPromptWindow）  | 非零  | `[0,0,1512,982]`    |
+| 25    | `com.volcengine.corplink.networkextension-wrapper`（飞连网络扩展） | 25    | `[0,0,1512,982]`    |
+| 31    | `now.typeless.desktop`（Typeless "Status"）                        | 1001  | `[381,482,750,500]` |
 
 三次 `isError=false`。22 个工具调用耗在定位和挪走这些看不见的窗口上。装了飞连的机器上主屏**任意
 一点**都归属到它的包装窗，坐标点击不是偶发出错而是整屏不可用。
@@ -192,22 +192,22 @@ capture/zoom -> final raster + frame_id -> model {frame_id, x, y}
 | 最终 producer `v0.5.6/c863cff9`       | 2814 passed、23 skipped  | 合并最新 `main` 的 AX authoritative-state 屏障后，230 个文件通过、1 个文件跳过；build/typecheck/lint、evaluator 472/472、Python 32/32 通过                                                        |
 | 最终 producer `v0.5.6/07a6dca8`       | 2814 passed、23 skipped  | frame hint 固定在图片与 AX tree 之间，trace 在截断前只记录已交付 frame provenance；230 个文件通过、1 个跳过，evaluator 474/474、Python 32/32，Kimi K3 direct/app-server 通过                      |
 | producer 轨迹/坐标重点集              | 77/77 通过               | 12 个文件；旧棋盘轨迹新增 3 个 fail-closed 用例                                                                                                                                                   |
-| ESCode consumer 完整性                 | 124/124 通过             | 6 个文件；最终依赖固定为 `07a6dca8`/`0.5.6`，提交前完整门禁与 MR pipeline 仍需复验                                                                                                                |
+| ESCode consumer 完整性                | 124/124 通过             | 6 个文件；最终依赖固定为 `07a6dca8`/`0.5.6`，提交前完整门禁与 MR pipeline 仍需复验                                                                                                                |
 | wrapper 版本/skill/contract 门禁      | 13/13 通过               | 缺少 Windows Helper 或 final-raster frame-contract 均直接拒绝                                                                                                                                     |
 | wrapper host authority                | 1/1 通过                 | 产品包 host 权限路径保持一致                                                                                                                                                                      |
 | CUA eval 判定器                       | 474/474 通过             | Node evaluator 全集；另有 Python 32/32，覆盖 C07、region、K3 model-I/O 与 frame-id 恢复                                                                                                           |
 | CUA eval definition                   | 31/31 通过               | definition-only quality 100                                                                                                                                                                       |
-| ESCode 全量单测                        | 11476 passed、12 skipped | 1309 个文件通过、1 个文件跳过；本地对 consumer 最终树执行完整 `test:unit`，提交后再由 affected/pre-push 门禁按 commit range 复验                                                                  |
-| ESCode Node 24.14.0                    | 通过                     | `typecheck`；`lint` 0 error、38 条既有 warning                                                                                                                                                    |
+| ESCode 全量单测                       | 11476 passed、12 skipped | 1309 个文件通过、1 个文件跳过；本地对 consumer 最终树执行完整 `test:unit`，提交后再由 affected/pre-push 门禁按 commit range 复验                                                                  |
+| ESCode Node 24.14.0                   | 通过                     | `typecheck`；`lint` 0 error、38 条既有 warning                                                                                                                                                    |
 | producer Node 24.14.0                 | 通过                     | `typecheck`；`lint` 0 error、14 条既有 warning                                                                                                                                                    |
 | 插件产品包校验                        | 通过                     | bundled skill provenance、producer SHA、版本与 contract 一致                                                                                                                                      |
-| 独立 `escode-cua` MCP                  | 通过                     | Node `24.14.0` 以 stdio 启动 `v0.5.6`；canvas marker-grid 的 window 5/5、full、strict-interior Zoom、drag 均由 authenticated DOM oracle 证明命中，全部报告 `window_event`；stale frame 零派发     |
+| 独立 `escode-cua` MCP                 | 通过                     | Node `24.14.0` 以 stdio 启动 `v0.5.6`；canvas marker-grid 的 window 5/5、full、strict-interior Zoom、drag 均由 authenticated DOM oracle 证明命中，全部报告 `window_event`；stale frame 零派发     |
 | Chrome                                | 已安装                   | `151.0.7922.138`；C07 fixture 可启动并置前台                                                                                                                                                      |
 | Godot                                 | 已安装                   | `4.7.1.stable.official.a13da4feb`；应用可启动                                                                                                                                                     |
-| CUA Helper dev 包装                   | 构建通过                 | 使用 Node `24.14.0` SEA base 与同 ABI `ax_native.node`，provenance `arm64/node_abi=137` 通过并安装到 `~/.escode/computer-use/dev`                                                                  |
+| CUA Helper dev 包装                   | 构建通过                 | 使用 Node `24.14.0` SEA base 与同 ABI `ax_native.node`，provenance `arm64/node_abi=137` 通过并安装到 `~/.escode/computer-use/dev`                                                                 |
 | macOS C07 runtime                     | 通过                     | 最新 Dev Helper 的 Accessibility/Screen Recording 均为 granted；final-SHA direct C07 与 Calculator M02 AX 均为 100 分                                                                             |
-| Kimi K3 app-server                    | 通过                     | final-SHA gate 的 direct 与 `escode_agent_core` 两条 lane 均通过；product/release score 100，模型请求确实携带并识别截图                                                                            |
-| Kimi K3 可见 ESCode Desktop            | 通过                     | session `sess_be30c6a3-2ce7-4574-aaac-2fe821e311ed`；窗口 raster `1280×900`、`frame-0c9a96ea`、模型像素 `(641,496)`，DOM oracle 为 `Marker placed at 450, 280`，canvas 无 AX 子元素               |
+| Kimi K3 app-server                    | 通过                     | final-SHA gate 的 direct 与 `escode_agent_core` 两条 lane 均通过；product/release score 100，模型请求确实携带并识别截图                                                                           |
+| Kimi K3 可见 ESCode Desktop           | 通过                     | session `sess_be30c6a3-2ce7-4574-aaac-2fe821e311ed`；窗口 raster `1280×900`、`frame-0c9a96ea`、模型像素 `(641,496)`，DOM oracle 为 `Marker placed at 450, 280`，canvas 无 AX 子元素               |
 | Desktop 插件缓存 sharp                | 通过                     | 首次运行稳定复现缺少 sharp；`sync:cache` 复用产品 staging 后，sharp `0.34.5`/libvips `8.17.3` native load smoke 与全新 MCP/K3 C07 均通过                                                          |
 
 最终 Kimi K3 真机记录绑定 producer `07a6dca8`：direct C07 为 100 分；ESCode

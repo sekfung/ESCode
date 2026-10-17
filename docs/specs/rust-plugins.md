@@ -1,4 +1,4 @@
-# Rust 插件面（plugins/*）
+# Rust 插件面（plugins/\*）
 
 2026-09-30。方法级 diff（见 rust-parity-remaining.md）发现：App 的插件管理 UI 直接调用
 `plugins/list`、`plugins/setEnabled`、`plugins/overview`、`plugins/referenceCatalog(WithCategory)`，

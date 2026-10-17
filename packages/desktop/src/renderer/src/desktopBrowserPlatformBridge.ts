@@ -29,11 +29,13 @@ type DesktopBrowserPlatformBridge = Pick<
 export const desktopBrowserPlatformBridge = {
   getPathForFile: (file) => window.escode.getPathForFile?.(file) ?? null,
   saveFile: (payload) =>
-    window.escode.saveFile?.(payload) ?? Promise.resolve({ success: false, error: "not_supported" }),
+    window.escode.saveFile?.(payload) ??
+    Promise.resolve({ success: false, error: "not_supported" }),
   // 条件定义而非兜底返回失败：UI 靠方法是否存在做能力检测，旧 preload 下必须保持 undefined
   printPageToPdf: window.escode.printPageToPdf ? () => window.escode.printPageToPdf!() : undefined,
   onBrowserViewReady: (handler) => window.escode.onBrowserViewReady?.(handler) ?? (() => {}),
-  onBrowserViewOperation: (handler) => window.escode.onBrowserViewOperation?.(handler) ?? (() => {}),
+  onBrowserViewOperation: (handler) =>
+    window.escode.onBrowserViewOperation?.(handler) ?? (() => {}),
   onBrowserViewViewportChanged: (handler) =>
     window.escode.onBrowserViewViewportChanged?.(handler) ?? (() => {}),
   onBrowserViewVisibility: (handler) =>

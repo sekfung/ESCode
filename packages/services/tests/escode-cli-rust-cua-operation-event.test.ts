@@ -17,7 +17,14 @@ async function observe(kind: "node" | "rust") {
     res.writeHead(200, { "content-type": "text/event-stream" });
     if (requests === 1) {
       event(res, {
-        tool_calls: [{ index: 0, id: "bash-1", type: "function", function: { name: "Bash", arguments: JSON.stringify({ command: "echo ok" }) } }],
+        tool_calls: [
+          {
+            index: 0,
+            id: "bash-1",
+            type: "function",
+            function: { name: "Bash", arguments: JSON.stringify({ command: "echo ok" }) },
+          },
+        ],
       });
       end(res, "tool_calls");
     } else {
@@ -50,8 +57,16 @@ async function observe(kind: "node" | "rust") {
       .map((m: any) => m.params)
       .filter((p: any) => p.sessionId === sessionId);
     return {
-      invalid: events.filter((e: any) => !escodeComputerUseOperationEventSchema.safeParse(e).success).length,
-      events: events.map((e: any) => [e.kind, typeof e.turnId, e.toolCallId, e.toolName, e.computerUse]),
+      invalid: events.filter(
+        (e: any) => !escodeComputerUseOperationEventSchema.safeParse(e).success,
+      ).length,
+      events: events.map((e: any) => [
+        e.kind,
+        typeof e.turnId,
+        e.toolCallId,
+        e.toolName,
+        e.computerUse,
+      ]),
     };
   } finally {
     await f.close();

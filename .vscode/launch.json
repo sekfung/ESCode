@@ -9,16 +9,12 @@
       "preLaunchTask": "escode: start electron (debug)",
       "restart": true,
       "timeout": 30000,
-      "outFiles": [
-        "${workspaceFolder}/packages/desktop/out/**/*.js"
-      ],
+      "outFiles": ["${workspaceFolder}/packages/desktop/out/**/*.js"],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/packages/desktop/out/**/*.js",
         "!**/node_modules/**"
       ],
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "skipFiles": ["<node_internals>/**"],
       "autoAttachChildProcesses": true,
       "console": "integratedTerminal"
     },
@@ -30,16 +26,12 @@
       "preLaunchTask": "escode: start electron (debug with host inspect)",
       "restart": true,
       "timeout": 30000,
-      "outFiles": [
-        "${workspaceFolder}/packages/desktop/out/**/*.js"
-      ],
+      "outFiles": ["${workspaceFolder}/packages/desktop/out/**/*.js"],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/packages/desktop/out/**/*.js",
         "!**/node_modules/**"
       ],
-      "skipFiles": [
-        "<node_internals>/**"
-      ]
+      "skipFiles": ["<node_internals>/**"]
     },
     {
       "name": "ESCode Desktop: Renderer",
@@ -56,12 +48,8 @@
       "port": 9230,
       "restart": true,
       "timeout": 30000,
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "outFiles": [
-        "${workspaceFolder}/packages/desktop/out/**/*.js"
-      ],
+      "skipFiles": ["<node_internals>/**"],
+      "outFiles": ["${workspaceFolder}/packages/desktop/out/**/*.js"],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/packages/desktop/out/**/*.js",
         "!**/node_modules/**"
@@ -71,10 +59,7 @@
   "compounds": [
     {
       "name": "ESCode Desktop: F5",
-      "configurations": [
-        "ESCode Desktop: Main",
-        "ESCode Desktop: Renderer"
-      ],
+      "configurations": ["ESCode Desktop: Main", "ESCode Desktop: Renderer"],
       "stopAll": true
     },
     {

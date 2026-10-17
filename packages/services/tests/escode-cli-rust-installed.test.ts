@@ -21,13 +21,21 @@ const glm = process.env.ESCODE_INSTALLED_GLM;
 const exe = process.platform === "win32" ? ".exe" : "";
 
 async function digest(path: string): Promise<string> {
-  return createHash("sha256").update(await readFile(path)).digest("hex");
+  return createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex");
 }
 
 const nodeOptions = (root: string) => ({
   root,
   command: app!,
-  args: ({ cwd }: { cwd: string }) => [join(glm!, "zcode.cjs"), "app-server", "--stdio", "--cwd", cwd],
+  args: ({ cwd }: { cwd: string }) => [
+    join(glm!, "zcode.cjs"),
+    "app-server",
+    "--stdio",
+    "--cwd",
+    cwd,
+  ],
   registry: true,
   mode: "yolo" as const,
   // 与桌面 Host 一致：用应用自带的 Electron 作为 Node 运行 agent bundle。
@@ -46,7 +54,10 @@ test(
   { skip: !app || !glm ? "ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM not set" : false },
   async () => {
     const rust = join(glm!, `escode-cli-rust${exe}`);
-    assert.ok(existsSync(join(glm!, "zcode.cjs")), "installed package lacks resources/glm/zcode.cjs");
+    assert.ok(
+      existsSync(join(glm!, "zcode.cjs")),
+      "installed package lacks resources/glm/zcode.cjs",
+    );
     assert.ok(existsSync(rust), "installed package lacks the bundled Rust runtime");
     const root = await mkdtemp(join(tmpdir(), "escode-installed-"));
 
@@ -67,13 +78,25 @@ test(
     const before = await digest(tsDb);
 
     // 2) 切到包内 Rust runtime：导入 TS 数据、读到原会话、跑一轮新会话。
-    const second = await fixture({ root, binary: rust, legacy: true, registry: true, mode: "yolo" });
+    const second = await fixture({
+      root,
+      binary: rust,
+      legacy: true,
+      registry: true,
+      mode: "yolo",
+    });
     try {
       await configureRegistry(second);
       const h = second.start();
       const rows = (await h.rows(sessionId)).rows;
-      assert.ok(rows.some((r: any) => r.kind === "userInput" && r.text === "write"), "Rust lost the Node session input");
-      assert.ok(rows.some((r: any) => r.kind === "toolCall" && r.toolName === "Write"), "Rust lost the Node tool call");
+      assert.ok(
+        rows.some((r: any) => r.kind === "userInput" && r.text === "write"),
+        "Rust lost the Node session input",
+      );
+      assert.ok(
+        rows.some((r: any) => r.kind === "toolCall" && r.toolName === "Write"),
+        "Rust lost the Node tool call",
+      );
       const rustSession = await h.create();
       await turn(h, rustSession, "hello");
       await h.close();
@@ -89,7 +112,10 @@ test(
       await configureRegistry(third);
       const h = third.start();
       const rows = (await h.rows(sessionId)).rows;
-      assert.ok(rows.some((r: any) => r.kind === "userInput" && r.text === "write"), "rollback lost the session");
+      assert.ok(
+        rows.some((r: any) => r.kind === "userInput" && r.text === "write"),
+        "rollback lost the session",
+      );
       await turn(h, sessionId, "after rollback");
       await h.close();
       assert.deepEqual(h.schemaErrors, []);

@@ -1,6 +1,9 @@
 import { resolveWorkspaceKey, ESCODE_AGENT_PROVIDER } from "@escode/shared";
 import type { TaskIndexRepo } from "#src/session/taskIndexRepo.js";
-import type { IESCodeAgentService, ESCodeAgentWorkspaceTarget } from "#src/escode-agent/escodeAgent.js";
+import type {
+  IESCodeAgentService,
+  ESCodeAgentWorkspaceTarget,
+} from "#src/escode-agent/escodeAgent.js";
 
 const IDENTITY_QUERY_BATCH_SIZE = 64;
 

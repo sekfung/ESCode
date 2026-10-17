@@ -36,13 +36,13 @@ PRD 的完整方案含免费体验引导层与免费额度体系。**本期只�
 
 ### 本期明确不做
 
-| PRD 章节                   | 不做项                                   | 原因                                                                                       |
-| -------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
-| §4.2 / §6.2                | 免费体验引导弹层                         | 产品决策：本期不引入弹层，按钮直接跳设置页                                                 |
-| §7 / §7.1 / §7.2           | 免费额度、试用模型、体验任务、促升级弹窗 | 依赖 z.ai billing 服务端，口径未终审                                                       |
+| PRD 章节                   | 不做项                                   | 原因                                                                                         |
+| -------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| §4.2 / §6.2                | 免费体验引导弹层                         | 产品决策：本期不引入弹层，按钮直接跳设置页                                                   |
+| §7 / §7.1 / §7.2           | 免费额度、试用模型、体验任务、促升级弹窗 | 依赖 z.ai billing 服务端，口径未终审                                                         |
 | §4.2 步骤 2 / §4.3 第 4 项 | `capability-changed` 协议事件            | 需扩展 `@escode/protocol` + `apps/escode-cli`，本期用插件 toggling 完成 + Helper health 近似 |
-| §4.5                       | 多任务浮窗                               | 与额度/并发规则耦合                                                                        |
-| §4.6                       | 埋点漏斗                                 | 漏斗主体是引导层转化率，引导层不做则漏斗无意义                                             |
+| §4.5                       | 多任务浮窗                               | 与额度/并发规则耦合                                                                          |
+| §4.6                       | 埋点漏斗                                 | 漏斗主体是引导层转化率，引导层不做则漏斗无意义                                               |
 
 **就绪判定的降级口径**：PRD §4.3 要求 5 项全过。本期实际判定 3 项——插件 enabled 写入成功、
 Helper 权限通过（mac，`isCuaPermissionTccGranted`：TCC 双项 granted）、Helper 状态可用。
@@ -109,13 +109,13 @@ mac 权限行与授权按钮、错误详情、以及「在输入框显示电脑�
 
 ### 各内部态的判定来源（实现契约）
 
-| 内部态                | 判定条件                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 内部态                | 判定条件                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `starting`            | `togglingPluginId === ESCODE_CUA_OFFICIAL_PLUGIN_ID`（优先级最高，压过下面所有态）                                                                                                                                                                                                                                                                           |
 | `error`               | ①`pluginManagementStore.error` 非空且本次操作目标是 escode-cua（归属由 store 的 `lastFailedPluginId` 记录：带 pluginId 的操作失败写该 id，marketplace/validate/load 等无插件目标的失败写 null——CR-01，防止共享 error 把无关失败误映射为按钮错误态）；或 ②mac 下插件已启用但 Helper 状态 `!isCuaPermissionStatusAvailable(status)`（Helper 启动失败／不健康） |
 | ~~`plugin-disabled`~~ | ~~`cuaPlugin?.enabled !== true`~~ ——2026-09-11 删除：未启用不再是 UI 态，而是被插件门挡在渲染之外                                                                                                                                                                                                                                                            |
-| `permission-required` | mac + 插件已启用 + Helper 状态可用 + `!isCuaPermissionTccGranted(status)`                                                                                                                                                                                                                                                                                   |
-| `ready`               | 插件已启用，且（Windows）或（mac 且 `isCuaPermissionTccGranted(status)`）                                                                                                                                                                                                                                                                                   |
+| `permission-required` | mac + 插件已启用 + Helper 状态可用 + `!isCuaPermissionTccGranted(status)`                                                                                                                                                                                                                                                                                    |
+| `ready`               | 插件已启用，且（Windows）或（mac 且 `isCuaPermissionTccGranted(status)`）                                                                                                                                                                                                                                                                                    |
 
 优先级自上而下短路。权限状态尚未首次返回（`status === null`，冷启动窗口）时按 `starting`
 处理而非 `error`——避免刚打开窗口就闪一下红点。
@@ -223,6 +223,7 @@ busy），只有纯函数才能把这个矩阵完整测出来，而不必为每�
 - think 的档位逻辑保持：进度按配置顺序计算，关闭项／无效值为零；文字收起时 Tooltip 显示当前档位（禁用原因优先），单档只读、多档选择的语义不变。仅 composer 改为以上三种展示形态，其他调用方保留原有响应式逻辑。
 - 空间恢复时从完整布局重新裁决，逆序恢复：先恢复模型名称，再恢复 think 小绿条，再恢复供应商，再恢复 think 文字，再恢复 Plan 文字，再恢复 mode 文字，最后恢复 Computer Use 文字。Computer 晚出现、模型／语言变更和窗口缩放均重新测量；开启或关闭系统减少动画时，供应商与模型保持同一文字行，不允许因 DOM 层级变化分行或上下裁切。
 - 验收：逐步缩窄／放宽工具栏，检查七档顺序，每档独立收起／恢复，尤其验证 think 小绿条与供应商、think 正方形与模型正方形不被合并为同一档、缺少 Plan／Computer／think 时跳过、多档／单档 think、长供应商和长模型、中英文、桌面／手机、深浅主题、普通／减少动画。检查小绿条真实可见、档位高度正确，所有控件保留原操作能力。
+
   ```text
   尺寸或内容变化 → 工具栏唯一布局 owner → 测量完整按钮
     → Computer Use 正方形
@@ -254,17 +255,17 @@ busy），只有纯函数才能把这个矩阵完整测出来，而不必为每�
 
 ## 文案（PRD §6.1 / §6.4 原文）
 
-| message id                                       | 中文                                                                 | English                                                                                                  |
-| ------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `chat.toolbar.computerUse.label`                 | 电脑操作                                                             | Computer Use                                                                                             |
-| ~~`…tooltip.disabled`~~                          | ~~体验电脑操作 · 让 ESCode 直接操作你的电脑~~（2026-09-11 删除）      | ~~Try Computer Use — let ESCode operate your computer~~                                                   |
-| `…tooltip.starting`                              | 正在启用电脑操作插件…                                                | Enabling Computer Use plugin…                                                                            |
-| `…tooltip.ready`                                 | 电脑操作已就绪 · 直接描述你想让 ESCode 做的事                         | Computer Use ready — just describe what you want ESCode to do                                             |
-| `…tooltip.permissionRequired`                    | 缺少 macOS 权限，点击完成授权                                        | Missing macOS permissions — click to grant                                                               |
-| `…tooltip.error`                                 | 电脑操作启用失败 · 重启 ESCode 应用后重试，或让 ESCode 排查日志        | Computer Use enablement failed. Please restart ESCode app and retry, or ask ESCode to investigate the logs |
-| `…tooltip.sessionBusy`                           | 会话进行中，暂不能切换电脑操作；任务结束后可再试                     | A conversation is running. Computer Use can't be toggled right now — try again after it finishes.        |
-| `settings.computerUse.composerEntry.label`       | 在输入框显示电脑操作按钮                                             | Show Computer Use button in the composer                                                                 |
-| `settings.computerUse.composerEntry.description` | 关闭后输入框不再显示电脑操作按钮，也不会自动恢复；可随时在此重新开启 | When off, the composer button is hidden and stays hidden until you turn this back on.                    |
+| message id                                       | 中文                                                                 | English                                                                                                    |
+| ------------------------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `chat.toolbar.computerUse.label`                 | 电脑操作                                                             | Computer Use                                                                                               |
+| ~~`…tooltip.disabled`~~                          | ~~体验电脑操作 · 让 ESCode 直接操作你的电脑~~（2026-09-11 删除）     | ~~Try Computer Use — let ESCode operate your computer~~                                                    |
+| `…tooltip.starting`                              | 正在启用电脑操作插件…                                                | Enabling Computer Use plugin…                                                                              |
+| `…tooltip.ready`                                 | 电脑操作已就绪 · 直接描述你想让 ESCode 做的事                        | Computer Use ready — just describe what you want ESCode to do                                              |
+| `…tooltip.permissionRequired`                    | 缺少 macOS 权限，点击完成授权                                        | Missing macOS permissions — click to grant                                                                 |
+| `…tooltip.error`                                 | 电脑操作启用失败 · 重启 ESCode 应用后重试，或让 ESCode 排查日志      | Computer Use enablement failed. Please restart ESCode app and retry, or ask ESCode to investigate the logs |
+| `…tooltip.sessionBusy`                           | 会话进行中，暂不能切换电脑操作；任务结束后可再试                     | A conversation is running. Computer Use can't be toggled right now — try again after it finishes.          |
+| `settings.computerUse.composerEntry.label`       | 在输入框显示电脑操作按钮                                             | Show Computer Use button in the composer                                                                   |
+| `settings.computerUse.composerEntry.description` | 关闭后输入框不再显示电脑操作按钮，也不会自动恢复；可随时在此重新开启 | When off, the composer button is hidden and stays hidden until you turn this back on.                      |
 
 PRD §6.1 对「启用中」打了删除线，但 §3 编号 2 的状态清单仍保留该态。本设计保留这条文案：
 删除线理解为「不作为独立的引导落点」，而非「不给用户任何提示」——toggling 是真实中间态，

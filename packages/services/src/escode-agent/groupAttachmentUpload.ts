@@ -2,7 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { ESCodePromptAttachment } from "@escode/shared";
 import { PROTOCOL_V4_LIMITS, type AttachmentRef } from "@escode/shared/escode-protocol-v4";
-import type { IESCodeAgentService, ESCodeAgentSessionTarget } from "#src/escode-agent/escodeAgent.js";
+import type {
+  IESCodeAgentService,
+  ESCodeAgentSessionTarget,
+} from "#src/escode-agent/escodeAgent.js";
 
 const CHUNK_BYTES = 384 * 1024;
 type UploadAgent = Pick<

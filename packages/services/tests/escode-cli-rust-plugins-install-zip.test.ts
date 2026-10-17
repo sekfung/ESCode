@@ -2,14 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import yazl from "yazl";
@@ -37,8 +30,7 @@ function makeZip(files: Record<string, string>): Promise<Buffer> {
   });
 }
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
-const manifest = (name: string, version = "1.0.0") =>
-  JSON.stringify({ name, version });
+const manifest = (name: string, version = "1.0.0") => JSON.stringify({ name, version });
 
 async function write(path: string, content: string) {
   await mkdir(dirname(path), { recursive: true });
@@ -57,10 +49,7 @@ async function tree(dir: string): Promise<Record<string, string>> {
     for (const entry of entries) {
       const path = join(current, entry.name);
       if (entry.isDirectory()) await walk(path);
-      else
-        out[relative(dir, path).replaceAll("\\", "/")] = sha(
-          await readFile(path),
-        ).slice(0, 16);
+      else out[relative(dir, path).replaceAll("\\", "/")] = sha(await readFile(path)).slice(0, 16);
     }
   };
   await walk(dir);
@@ -128,13 +117,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -191,12 +174,8 @@ async function observe(kind: Runtime) {
         .replaceAll(rootText, "<root>")
         .replaceAll(String(port), "<port>")
         .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>")
-        .replace(
-          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-          "<uuid>",
-        );
-    const scrub = (value: unknown) =>
-      JSON.parse(scrubText(JSON.stringify(value)));
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>");
+    const scrub = (value: unknown) => JSON.parse(scrubText(JSON.stringify(value)));
     const observation: Record<string, unknown> = {};
     for (const name of [
       "zipped",
@@ -219,9 +198,7 @@ async function observe(kind: Runtime) {
         // 下载 / 解压错误文案里含各自 HTTP 栈的措辞时只比对 code；其余逐字。
         diagnostics: result.diagnostics.map((d: any) => ({
           code: d.code,
-          message: /Failed to download/.test(d.message)
-            ? "<download error>"
-            : d.message,
+          message: /Failed to download/.test(d.message) ? "<download error>" : d.message,
         })),
       });
     }
@@ -255,8 +232,6 @@ test("Node and Rust install plugins from zip sources the same way", async () => 
     assert.equal((node[name] as any).diagnostics.length, 1, name);
   }
   assert.ok(
-    (node.requests as any[]).some(
-      (r) => r.path === "/redirected.zip" && r.market === "acme",
-    ),
+    (node.requests as any[]).some((r) => r.path === "/redirected.zip" && r.market === "acme"),
   );
 });

@@ -63,12 +63,12 @@ UI 调用 reportXxx(...)
 
 所有事件 `group = "ui_perf"`，`value` 为主指标（耗时 ms），细分进 `properties`。
 
-| name                       | value                    | 触发 / 数据来源                                                           | properties                                                     |
-| -------------------------- | ------------------------ | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| name                       | value                    | 触发 / 数据来源                                                            | properties                                                     |
+| -------------------------- | ------------------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `perf_ui_first_screen`     | 首屏耗时 ms              | `main.tsx` 模块加载记起点 → 现有 `"escode-react-startup-ready"` 事件为终点 | `phase`（可选）                                                |
-| `perf_ui_first_token`      | `time_to_first_token` ms | 复用 `finalizePromptTelemetry()` 已算好的值，镜像双发                     | `model`, `talk_id`, `message_id`                               |
-| `perf_ui_message_complete` | `duration_ms` ms         | 复用现有 `message_completion` 计算结果，镜像双发                          | `result`(success/fail/user_interrupt), `talk_id`, `message_id` |
-| `perf_ui_stream_stall`     | 真实停顿时长 ms          | 流式期间相邻 chunk 间隔 > `STREAM_STALL_REPORT_THRESHOLD_MS`(3000)        | `stall_ms`, `waiting_tool`, `talk_id`                          |
+| `perf_ui_first_token`      | `time_to_first_token` ms | 复用 `finalizePromptTelemetry()` 已算好的值，镜像双发                      | `model`, `talk_id`, `message_id`                               |
+| `perf_ui_message_complete` | `duration_ms` ms         | 复用现有 `message_completion` 计算结果，镜像双发                           | `result`(success/fail/user_interrupt), `talk_id`, `message_id` |
+| `perf_ui_stream_stall`     | 真实停顿时长 ms          | 流式期间相邻 chunk 间隔 > `STREAM_STALL_REPORT_THRESHOLD_MS`(3000)         | `stall_ms`, `waiting_tool`, `talk_id`                          |
 
 ### 1. perf_ui_first_screen（首屏可交互耗时）
 
@@ -104,8 +104,8 @@ UI 调用 reportXxx(...)
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/ui/src/lib/uiPerfArmsTelemetry.ts`               | **新建**：单例 reporter + `setUiPerfArmsReporter` + 4 个 report 函数 + 常量                                                                  |
 | `packages/ui/src/Root.tsx`                                 | 注入 / 清理 reporter（挨着 L150 既有 reporter 注入）                                                                                         |
-| `packages/desktop/src/renderer/src/main.tsx`               | 模块层记首屏起点；监听 `escode-react-startup-ready` 算首屏并上报                                                                              |
-| `packages/ui/src/hooks/useESCodeChat.ts`                    | `reportPromptCompletionTelemetry` 内镜像首 token / 完成到 ARMS(复用 `completionTelemetry.eventExtraDetail`,保持 messageTelemetry 为纯计算器) |
+| `packages/desktop/src/renderer/src/main.tsx`               | 模块层记首屏起点；监听 `escode-react-startup-ready` 算首屏并上报                                                                             |
+| `packages/ui/src/hooks/useESCodeChat.ts`                   | `reportPromptCompletionTelemetry` 内镜像首 token / 完成到 ARMS(复用 `completionTelemetry.eventExtraDetail`,保持 messageTelemetry 为纯计算器) |
 | `packages/ui/src/hooks/taskStreamEventHandlers.ts`         | 维护 `lastChunkAt`，超阈值上报停顿                                                                                                           |
 | `packages/ui/src/hooks/taskStreamEventTerminalHandlers.ts` | 消息结束清理 `lastChunkAt` 状态                                                                                                              |
 | `docs/monitoring/performance-monitoring.md`                | 新增 "P0 端侧 UI 性能 / group=ui_perf" 一节                                                                                                  |

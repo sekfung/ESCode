@@ -9,7 +9,9 @@ import {
   savedWorkflowRunDurationMs,
 } from "@/settings/saved-workflows/savedWorkflowRunHistory.js";
 
-function run(overrides: Partial<ESCodeSavedWorkflowRun> & { runId: string }): ESCodeSavedWorkflowRun {
+function run(
+  overrides: Partial<ESCodeSavedWorkflowRun> & { runId: string },
+): ESCodeSavedWorkflowRun {
   return {
     status: "completed",
     createdAt: 1_000,

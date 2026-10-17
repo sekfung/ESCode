@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 async function loadSettingsNavigation(env: "test" | "production") {
   vi.resetModules();
   vi.doMock("@escode/shared", async () => {
-    const actual =
-      await vi.importActual<typeof import("@escode/shared")>("@escode/shared");
+    const actual = await vi.importActual<typeof import("@escode/shared")>("@escode/shared");
     return {
       ...actual,
       ESCODE_ENV: env,
@@ -24,30 +23,20 @@ describe("settingsNavigation", () => {
     const navigation = await loadSettingsNavigation("test");
 
     expect(navigation.isSettingsSectionEnabled("usage")).toBe(true);
-    expect(navigation.resolveSettingsSection("usage", "modelProvider")).toBe(
-      "usage",
-    );
+    expect(navigation.resolveSettingsSection("usage", "modelProvider")).toBe("usage");
     expect(navigation.isSettingsSectionEnabled("hooks")).toBe(true);
-    expect(navigation.resolveSettingsSection("hooks", "modelProvider")).toBe(
-      "hooks",
-    );
+    expect(navigation.resolveSettingsSection("hooks", "modelProvider")).toBe("hooks");
     expect(navigation.isSettingsSectionEnabled("memory")).toBe(true);
-    expect(navigation.resolveSettingsSection("memory", "general")).toBe(
-      "memory",
-    );
+    expect(navigation.resolveSettingsSection("memory", "general")).toBe("memory");
   });
 
   it("在 production 环境也保留 usage 分区", async () => {
     const navigation = await loadSettingsNavigation("production");
 
     expect(navigation.isSettingsSectionEnabled("usage")).toBe(true);
-    expect(navigation.resolveSettingsSection("usage", "modelProvider")).toBe(
-      "usage",
-    );
+    expect(navigation.resolveSettingsSection("usage", "modelProvider")).toBe("usage");
     expect(navigation.isSettingsSectionEnabled("hooks")).toBe(true);
-    expect(navigation.resolveSettingsSection("hooks", "modelProvider")).toBe(
-      "hooks",
-    );
+    expect(navigation.resolveSettingsSection("hooks", "modelProvider")).toBe("hooks");
   });
 
   it("通知已打开的设置页切换到新的分区意图", async () => {
@@ -200,17 +189,13 @@ describe("settingsNavigation", () => {
     });
     const navigation = await loadSettingsNavigation("test");
 
-    expect(navigation.consumePendingSettingsSection("modelProvider")).toBe(
-      "modelProvider",
-    );
+    expect(navigation.consumePendingSettingsSection("modelProvider")).toBe("modelProvider");
     expect(storage.has("escode-settings-section-intent")).toBe(false);
   });
 
   it("保留 MCP 设置分区为独立入口", async () => {
     const sessionStorage = new Map<string, string>();
-    const localStorage = new Map<string, string>([
-      ["escode-settings-last-section", "mcp"],
-    ]);
+    const localStorage = new Map<string, string>([["escode-settings-last-section", "mcp"]]);
     vi.stubGlobal("window", {
       sessionStorage: {
         getItem: (key: string) => sessionStorage.get(key) ?? null,
@@ -234,9 +219,7 @@ describe("settingsNavigation", () => {
   });
 
   it("把旧 Skills 一次性跳转意图迁移到独立 skill 入口", async () => {
-    const sessionStorage = new Map<string, string>([
-      ["escode-settings-section-intent", "skills"],
-    ]);
+    const sessionStorage = new Map<string, string>([["escode-settings-section-intent", "skills"]]);
     vi.stubGlobal("window", {
       sessionStorage: {
         getItem: (key: string) => sessionStorage.get(key) ?? null,
@@ -255,9 +238,7 @@ describe("settingsNavigation", () => {
   });
 
   it("清理不再保留的 customize 分区", async () => {
-    const localStorage = new Map<string, string>([
-      ["escode-settings-last-section", "customize"],
-    ]);
+    const localStorage = new Map<string, string>([["escode-settings-last-section", "customize"]]);
     vi.stubGlobal("window", {
       localStorage: {
         getItem: (key: string) => localStorage.get(key) ?? null,
@@ -272,16 +253,12 @@ describe("settingsNavigation", () => {
     });
     const navigation = await loadSettingsNavigation("test");
 
-    expect(navigation.readLastSettingsSectionPreference("general")).toBe(
-      "general",
-    );
+    expect(navigation.readLastSettingsSectionPreference("general")).toBe("general");
     expect(localStorage.has("escode-settings-last-section")).toBe(false);
   });
 
   it("把旧代码预览分区迁移到外观", async () => {
-    const localStorage = new Map<string, string>([
-      ["escode-settings-last-section", "codePreview"],
-    ]);
+    const localStorage = new Map<string, string>([["escode-settings-last-section", "codePreview"]]);
     vi.stubGlobal("window", {
       localStorage: {
         getItem: (key: string) => localStorage.get(key) ?? null,
@@ -299,9 +276,7 @@ describe("settingsNavigation", () => {
     const sessionStorage = new Map<string, string>([
       ["escode-settings-section-intent", "modelProvider"],
     ]);
-    const localStorage = new Map<string, string>([
-      ["escode-settings-last-section", "mcp"],
-    ]);
+    const localStorage = new Map<string, string>([["escode-settings-last-section", "mcp"]]);
     vi.stubGlobal("window", {
       sessionStorage: {
         getItem: (key: string) => sessionStorage.get(key) ?? null,
@@ -320,9 +295,7 @@ describe("settingsNavigation", () => {
     });
     const navigation = await loadSettingsNavigation("test");
 
-    expect(navigation.consumeInitialSettingsSection("general")).toBe(
-      "modelProvider",
-    );
+    expect(navigation.consumeInitialSettingsSection("general")).toBe("modelProvider");
     expect(sessionStorage.has("escode-settings-section-intent")).toBe(false);
   });
 
@@ -346,9 +319,7 @@ describe("settingsNavigation", () => {
     });
     const navigation = await loadSettingsNavigation("test");
 
-    expect(navigation.readLastSettingsSectionPreference("general")).toBe(
-      "general",
-    );
+    expect(navigation.readLastSettingsSectionPreference("general")).toBe("general");
     expect(localStorage.has("escode-settings-last-section")).toBe(false);
 
     navigation.writeLastSettingsSectionPreference("plugin");
@@ -357,9 +328,7 @@ describe("settingsNavigation", () => {
   });
 
   it("保留 hooks 分区的历史偏好", async () => {
-    const localStorage = new Map<string, string>([
-      ["escode-settings-last-section", "hooks"],
-    ]);
+    const localStorage = new Map<string, string>([["escode-settings-last-section", "hooks"]]);
     vi.stubGlobal("window", {
       localStorage: {
         getItem: (key: string) => localStorage.get(key) ?? null,
@@ -376,9 +345,7 @@ describe("settingsNavigation", () => {
     });
     const navigation = await loadSettingsNavigation("test");
 
-    expect(navigation.readLastSettingsSectionPreference("general")).toBe(
-      "hooks",
-    );
+    expect(navigation.readLastSettingsSectionPreference("general")).toBe("hooks");
 
     navigation.writeLastSettingsSectionPreference("hooks");
 

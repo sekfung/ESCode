@@ -282,7 +282,8 @@ describe("session/read contentProfile", () => {
         .contentProfile,
     ).toBe("index");
     expect(
-      escodeSessionReadParamsSchema.parse({ sessionId: "s", contentProfile: "full" }).contentProfile,
+      escodeSessionReadParamsSchema.parse({ sessionId: "s", contentProfile: "full" })
+        .contentProfile,
     ).toBe("full");
     expect(() =>
       escodeSessionReadParamsSchema.parse({ sessionId: "s", contentProfile: "tiny" }),

@@ -185,7 +185,10 @@ async function observe(kind: "node" | "rust") {
     const retune = projectAck(await rawAck({ workId: newRunId, maxConcurrency: 1 }));
 
     // 设置轮在 ACK 之后落定（主会话空闲时两侧都立即落）。等两轮（supersede + retune）各两行到齐。
-    assert.ok(await until(async () => (await settingsRows()).length >= SETTINGS_ROWS, 30_000), `${kind}: settings turns never landed`);
+    assert.ok(
+      await until(async () => (await settingsRows()).length >= SETTINGS_ROWS, 30_000),
+      `${kind}: settings turns never landed`,
+    );
     const rows = (await settingsRows()).map(projectRow);
 
     clearInterval(pump);

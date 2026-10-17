@@ -25,7 +25,10 @@ let release: Release;
 let rules: ReturnType<typeof parseESCodeBuiltinModelConfigRules>;
 beforeAll(async () => {
   release = JSON.parse(
-    await readFile(new URL("../../../config/provider/escode-builtin.json", import.meta.url), "utf8"),
+    await readFile(
+      new URL("../../../config/provider/escode-builtin.json", import.meta.url),
+      "utf8",
+    ),
   );
   rules = parseESCodeBuiltinModelConfigRules(release.config.modelConfigRules);
 });

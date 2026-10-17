@@ -277,8 +277,6 @@ describe("remote workspace host service wiring", () => {
     },
   );
 
-
-
   it("bridges app-global runtime preferences without a workspace-scoped subscription", async () => {
     const home = createTempHome();
     vi.spyOn(globalThis, "fetch").mockImplementation(createPresetFetchMock("preflight-v1"));

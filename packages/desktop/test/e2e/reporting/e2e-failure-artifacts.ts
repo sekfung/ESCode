@@ -81,7 +81,9 @@ export class E2EFailureArtifactCollector {
     this.artifactDir = resolve(options.artifactDir);
     this.browser = options.browser;
     this.enabled = options.enabled ?? process.env.ESCODE_E2E_FAILURE_ARTIFACTS === "1";
-    this.workerId = sanitizeFilePart(options.workerId ?? process.env.ESCODE_E2E_WORKER_ID ?? "main");
+    this.workerId = sanitizeFilePart(
+      options.workerId ?? process.env.ESCODE_E2E_WORKER_ID ?? "main",
+    );
   }
 
   async start(test: E2EFailureArtifactTest): Promise<void> {

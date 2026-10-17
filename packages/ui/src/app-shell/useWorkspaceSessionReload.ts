@@ -130,7 +130,12 @@ export function useWorkspaceSessionReload({
         }
 
         escodeSessionStore.setWorkspaceInitAttempts(workspaceAbsPath, 0, workspaceIdentity);
-        escodeSessionStore.setWorkspaceInitState(workspaceAbsPath, "ready", null, workspaceIdentity);
+        escodeSessionStore.setWorkspaceInitState(
+          workspaceAbsPath,
+          "ready",
+          null,
+          workspaceIdentity,
+        );
 
         logger.info(
           `[App] workspace session 重建完成 workspace=${workspaceAbsPath} provider=${provider} resumeTaskId=${resumeTaskId ?? "<none>"}`,

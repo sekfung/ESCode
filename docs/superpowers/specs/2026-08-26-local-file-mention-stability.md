@@ -38,7 +38,7 @@ error -> 停止自动请求 -> 关闭再打开/切换 workspace 或 service 才�
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 能力/层级         | Composer 文件引用；option-source、缓存 owner 迁移                                                                                      |
 | UI Surface Matrix | 桌面/手机 Composer `@` -> MentionPlugin -> useFileMentionProvider -> file service；输入/展示归 UI，索引归 Host，选中后的 Markdown 不变 |
-| 共享与差异        | `.escodeignore` 和匹配算法共享；文件树/命令中心保留全量 packed+Worker 数据路径                                                          |
+| 共享与差异        | `.escodeignore` 和匹配算法共享；文件树/命令中心保留全量 packed+Worker 数据路径                                                         |
 | must-inspect      | file service 接口、索引 owner、provider 最新结果/错误态、跨 workspace 隔离                                                             |
 | invariant-only    | RPC 协议、其余 mention 分组、文件树/命令中心、桌面 continuous/手机 replayable                                                          |
 | 状态与提交        | Host 内存索引；UI 有界结果；选中后的 canonical mention 及发送行为不变，无新增持久化                                                    |
@@ -55,7 +55,7 @@ error -> 停止自动请求 -> 关闭再打开/切换 workspace 或 service 才�
 | MFH03 | 无命中后外部新建文件，再查询/补扫                     | refresh 绕过缓存；服务和 hook 单测                                    |
 | MFH04 | 延迟响应期间改变关键词、identity、service，或关闭面板 | 旧结果不得覆盖；hook 单测                                             |
 | MFH05 | 查询报错后输入更多文字                                | 无重试循环；关闭重开恢复；hook 单测                                   |
-| MFH06 | 改 .escodeignore、两个 service/identity 使用相同路径   | 新规则生效，隔离成立；服务单测                                        |
+| MFH06 | 改 .escodeignore、两个 service/identity 使用相同路径  | 新规则生效，隔离成立；服务单测                                        |
 | MFH07 | 文件树与命令中心原接口                                | 分块返回及 shared 匹配兼容；既有单测                                  |
 
 已确认边界：保留空 query、数量、排序、失败终态、miss-refresh；不新增持久索引、文件监听系统或搜索 UI。主题与语言不改变语义；使用同一界面和 canonical mention，重点验证查询契约与桌面/手机交互。E2E 新用例保留 manual-review/pending，推广/CI 准入按既有流程，不在本次自动转正。

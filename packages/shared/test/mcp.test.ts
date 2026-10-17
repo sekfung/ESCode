@@ -14,7 +14,12 @@ describe("escode-cua MCP matcher (single source of truth for services + CLI boot
   });
 
   it("matches uvx/pip package spec forms", () => {
-    for (const arg of ["escode-cua", "escode-cua[macos]", "escode-cua@v0.1.3", "escode-cua[macos]@v0.1.3"]) {
+    for (const arg of [
+      "escode-cua",
+      "escode-cua[macos]",
+      "escode-cua@v0.1.3",
+      "escode-cua[macos]@v0.1.3",
+    ]) {
       expect(isESCodeCuaMcpPackageArg(arg)).toBe(true);
     }
   });
@@ -34,13 +39,23 @@ describe("escode-cua MCP matcher (single source of truth for services + CLI boot
 
   it("recognizes a package spec placed in COMMAND position (command/arg matchers stay consistent)", () => {
     // 之前 command matcher 只认精确叶子 escode-cua，会漏判把包规格直接当 command 的配置 → 漏注入 broker。
-    for (const command of ["escode-cua@1.2.3", "escode-cua[macos]", "escode-cua.git", "/opt/tools/escode-cua@1.2.3"]) {
+    for (const command of [
+      "escode-cua@1.2.3",
+      "escode-cua[macos]",
+      "escode-cua.git",
+      "/opt/tools/escode-cua@1.2.3",
+    ]) {
       expect(isESCodeCuaMcpCommand(command), command).toBe(true);
     }
   });
 
   it("recognizes pip == pins and the escode_cua underscore distribution name (PyPI treats _ == -)", () => {
-    for (const arg of ["escode-cua==1.2.3", "escode_cua", "escode_cua==1.2.3", "escode_cua@v0.1.3"]) {
+    for (const arg of [
+      "escode-cua==1.2.3",
+      "escode_cua",
+      "escode_cua==1.2.3",
+      "escode_cua@v0.1.3",
+    ]) {
       expect(isESCodeCuaMcpPackageArg(arg), arg).toBe(true);
     }
     expect(isESCodeCuaMcpCommand("escode_cua")).toBe(true);
@@ -55,7 +70,12 @@ describe("escode-cua MCP matcher (single source of truth for services + CLI boot
 
   it("recognizes `python -m escode_cua.server` submodule form (M1 fail-open fix)", () => {
     // `python -m escode_cua.server` → arg 是 `escode_cua.server`；旧 matcher 漏判 → 不注入 broker → fail-open。
-    for (const arg of ["escode_cua.server", "escode-cua.server", "escode_cua.main", "escode-cua.__main__"]) {
+    for (const arg of [
+      "escode_cua.server",
+      "escode-cua.server",
+      "escode_cua.main",
+      "escode-cua.__main__",
+    ]) {
       expect(isESCodeCuaMcpPackageArg(arg), arg).toBe(true);
     }
   });

@@ -39,7 +39,11 @@ function request() {
     createdAt: 1,
     deadlineAt: 600_001,
     sourceFiles: [
-      { path: "/workspace/.escode/config.json", displayPath: ".escode/config.json", editable: true },
+      {
+        path: "/workspace/.escode/config.json",
+        displayPath: ".escode/config.json",
+        editable: true,
+      },
     ],
     summary: { eventCount: 1, hookCount: 1, pendingCount: 1 },
     items: [

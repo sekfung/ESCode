@@ -107,13 +107,13 @@ cargo build --locked --release --manifest-path apps/escode-cli-rust/Cargo.toml
 
 ## 目录说明
 
-| 目录                                                         | 作用                         |
-| ------------------------------------------------------------ | ---------------------------- |
+| 目录                                                          | 作用                         |
+| ------------------------------------------------------------- | ---------------------------- |
 | `apps/escode-cli-rust/src`                                    | Rust CLI 组合根和启动参数    |
 | `apps/escode-cli-rust/crates/protocol`                        | App stdio/V4 协议            |
 | `apps/escode-cli-rust/crates/core`、`core-api`、`domain`      | Session 核心及稳定接口       |
 | `apps/escode-cli-rust/crates/model`、`tools`、`state`、`host` | 模型、工具、存储和宿主适配器 |
 | `apps/escode-cli-rust/crates/app-server`、`tui`               | App Server 与终端前端        |
-| `docs/specs/`                                                | 架构、迁移和验收规格         |
+| `docs/specs/`                                                 | 架构、迁移和验收规格         |
 
 完整能力、配置项、数据导入和已知限制见 [`apps/escode-cli-rust/README.md`](apps/escode-cli-rust/README.md)。架构边界见 [`docs/specs/rust-cli-architecture.md`](docs/specs/rust-cli-architecture.md)。 Node.js 与 Rust 的资源对比和功能 TODO 见 [`docs/reports/rust-node-resource-parity-2026-09-23.md`](docs/reports/rust-node-resource-parity-2026-09-23.md)。

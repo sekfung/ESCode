@@ -7,7 +7,10 @@ import { isSharpRequiredByComputerUse } from "../scripts/sharp-package-assets.mj
 
 const roots: string[] = [];
 
-function createWorkspace(cuaManifest: Record<string, unknown> | null, location: "root" | "desktop") {
+function createWorkspace(
+  cuaManifest: Record<string, unknown> | null,
+  location: "root" | "desktop",
+) {
   const root = mkdtempSync(join(tmpdir(), "escode-sharp-cua-"));
   roots.push(root);
   const desktopRoot = join(root, "packages", "desktop");
@@ -35,7 +38,10 @@ describe("isSharpRequiredByComputerUse", () => {
   });
 
   it("不声明 sharp 的占位包不需要 sharp，优先读取离桌面包最近的安装", () => {
-    const desktopRoot = createWorkspace({ name: "@escode/escode-cua", version: "0.6.3" }, "desktop");
+    const desktopRoot = createWorkspace(
+      { name: "@escode/escode-cua", version: "0.6.3" },
+      "desktop",
+    );
     expect(isSharpRequiredByComputerUse({ desktopPackageRoot: desktopRoot })).toBe(false);
   });
 

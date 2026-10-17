@@ -6,11 +6,7 @@ import {
 } from "@escode/shared";
 const INSTALLABLE_AGENT_CLI_PROVIDERS: ESCodeProvider[] = [];
 
-export type BuiltinAgentCliStatus =
-  | "enabled"
-  | "enabling"
-  | "disabling"
-  | "disabled";
+export type BuiltinAgentCliStatus = "enabled" | "enabling" | "disabling" | "disabled";
 
 function normalizeEnabledBuiltinAgentCliProviders(
   providers?: ReadonlyArray<ESCodeProvider>,
@@ -21,9 +17,7 @@ function normalizeEnabledBuiltinAgentCliProviders(
 export function getEnabledBuiltinAgentCliProviders(
   settings: Pick<AppSettings, "enabledBuiltinAgentCliProviders"> | null | undefined,
 ): ESCodeProvider[] {
-  return normalizeEnabledBuiltinAgentCliProviders(
-    settings?.enabledBuiltinAgentCliProviders,
-  );
+  return normalizeEnabledBuiltinAgentCliProviders(settings?.enabledBuiltinAgentCliProviders);
 }
 
 export function requiresBuiltinAgentCliInstall(provider: ESCodeProvider): boolean {

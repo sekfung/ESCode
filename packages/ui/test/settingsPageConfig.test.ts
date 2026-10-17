@@ -38,15 +38,7 @@ describe("settingsPageConfig", () => {
       },
       {
         id: "agentCapabilities",
-        sections: [
-          "memory",
-          "subagents",
-          "plugin",
-          "mcp",
-          "skill",
-          "commands",
-          "hooks",
-        ],
+        sections: ["memory", "subagents", "plugin", "mcp", "skill", "commands", "hooks"],
       },
       {
         id: "dataAndStats",

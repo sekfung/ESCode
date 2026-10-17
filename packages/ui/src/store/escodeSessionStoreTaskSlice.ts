@@ -33,7 +33,9 @@ type SetFn = (
   partial:
     | ESCodeSessionStoreState
     | Partial<ESCodeSessionStoreState>
-    | ((state: ESCodeSessionStoreState) => ESCodeSessionStoreState | Partial<ESCodeSessionStoreState>),
+    | ((
+        state: ESCodeSessionStoreState,
+      ) => ESCodeSessionStoreState | Partial<ESCodeSessionStoreState>),
 ) => void;
 
 function sortTasksByUpdatedAt(tasks: readonly ESCodeTaskMeta[]): ESCodeTaskMeta[] {

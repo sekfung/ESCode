@@ -5,6 +5,7 @@ ESCode USB 抓包功能的**抓包引擎**：读 usbmon 二进制 API（`/dev/us
 
 > **状态（2026-10-14）**：产品决定**实时抓包只在 Windows 提供且随安装包分发**，Linux/macOS 只做离线解码
 > （见 `docs/specs/usb-agent-tools.md` §4）。因此：
+>
 > - **Linux 部分（`usbmon_bin.rs`、`probe.rs`、`install_privileges.rs`、CLI 入口）已冻结**：不在产品路径、
 >   不随任何安装包分发、插件也不会对 Linux 用户承诺它（只有抓包器确实存在时才被认出来使用）。
 > - **可移植部分是留给 Windows 服务的底座**：`pcapng.rs`（写入器 + 记录模型 + 路径校验）与那套
@@ -37,12 +38,12 @@ cargo fmt --manifest-path apps/usb-capture-helper/Cargo.toml --check
 stdout **恒为一行 JSON**；失败时打印 `{ ok: false, error: { code, message, remediation? } }` 并以非 0 退出码结束；
 人类可读的说明（警告、内核丢弃计数读取失败等）走 stderr。
 
-| 子命令 | 说明 |
-| ------ | ---- |
-| `--probe` | 只探测：`{ ok, platform, available, usbmonModuleLoaded, privilege, interfaces: [{ id, bus }], reason?, remediation? }` |
-| `--bus N --duration-ms M --max-bytes B --output PATH` | 抓包：`{ ok, packets, bytes, dropped, skippedIsochronous, stoppedBy, output, bus }` |
-| `--install-privileges` | 特权步骤（仅 pkexec/root）：`{ ok, group, udevRule, module, nodes }` |
-| `-h`, `--help` | 打印用法（唯一不是 JSON 的输出，且只在这个显式参数下出现） |
+| 子命令                                                | 说明                                                                                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--probe`                                             | 只探测：`{ ok, platform, available, usbmonModuleLoaded, privilege, interfaces: [{ id, bus }], reason?, remediation? }` |
+| `--bus N --duration-ms M --max-bytes B --output PATH` | 抓包：`{ ok, packets, bytes, dropped, skippedIsochronous, stoppedBy, output, bus }`                                    |
+| `--install-privileges`                                | 特权步骤（仅 pkexec/root）：`{ ok, group, udevRule, module, nodes }`                                                   |
+| `-h`, `--help`                                        | 打印用法（唯一不是 JSON 的输出，且只在这个显式参数下出现）                                                             |
 
 - `--bus` 1–255（`0` 是 usbmon 的「所有总线」聚合设备，不作为抓包目标）；对应 `/dev/usbmonN`。
 - `--duration-ms` 1–60000（默认 10000），`--max-bytes` 1–536870912（默认 64 MiB），与 spec §3.3 的工具级默认值一致。
@@ -119,7 +120,7 @@ $ escode-usb-capture --bus 1 --duration-ms 5000 --max-bytes 67108864 --output /t
 **没有在真机上跑过**：
 
 1. `src/usbmon_bin.rs` 的 `open` / `ioctl(MON_IOCQ_RING_SIZE / MON_IOCX_MFETCH / MON_IOCH_MFLUSH /
-   MON_IOCG_STATS)` / `mmap` / `poll` 循环（含环形缓冲偏移、填充包、批处理与释放配对）；
+MON_IOCG_STATS)` / `mmap` / `poll` 循环（含环形缓冲偏移、填充包、批处理与释放配对）；
 2. `SIGINT`/`SIGTERM` 收尾路径（保留 `.partial`、`stoppedBy = "signal"`）；
 3. `--install-privileges` 的真实提权效果（组、udev 规则、节点属组）；
 4. 内核丢弃计数在不同负载下的取值是否与内核 `cnt_lost` 一致。

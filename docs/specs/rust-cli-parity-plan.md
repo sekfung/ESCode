@@ -108,9 +108,9 @@ sequenceDiagram
 
 ## 对齐基准与架构
 
-| 对齐对象      | 当前权威源码                                                                                                                              | 需要保持的契约                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| App 请求/事件 | `packages/shared/src/escode-protocol/index.ts`、`packages/shared/src/escode-protocol-v4/command.ts`、`transport.ts`                         | 严格 schema、ACK、错误码、ID、epoch/revision、连续序号、分页和大帧                 |
+| 对齐对象      | 当前权威源码                                                                                                                               | 需要保持的契约                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| App 请求/事件 | `packages/shared/src/escode-protocol/index.ts`、`packages/shared/src/escode-protocol-v4/command.ts`、`transport.ts`                        | 严格 schema、ACK、错误码、ID、epoch/revision、连续序号、分页和大帧                 |
 | Agent 状态机  | `apps/escode-cli/packages/core/src/runtime/methods/turn-loop.ts`、`turn-model-step.ts`、`turn-tools.ts`、`runtime-command-queue.ts`        | admission、工具/模型顺序、stop、follow-up、迟到事件隔离                            |
 | 模型请求      | `apps/escode-cli/packages/adapters/src/model/runner-stream.ts`、`runner-retry.ts`、`stream-retry-boundary.ts`、`runner-runtime-headers.ts` | 消息规范化、重试边界、推理历史、鉴权刷新、取消                                     |
 | 工具          | `apps/escode-cli/packages/contracts/src/tools/`、`packages/core/src/tool/handlers/index.ts`                                                | 实际注册面、schema、返回值、权限、超时、取消、可并发性、结果预算                   |

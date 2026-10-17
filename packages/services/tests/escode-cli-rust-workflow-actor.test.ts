@@ -123,8 +123,12 @@ async function observe(kind: "node" | "rust") {
     const first = actor[0];
     const notification = main[3]?.messages?.filter((m: any) => m.role === "user").at(-1)?.content;
     return scrub({
-      actorSystem: (first?.messages ?? []).filter((m: any) => m.role === "system").map((m: any) => m.content),
-      actorUser: (first?.messages ?? []).filter((m: any) => m.role === "user").map((m: any) => m.content),
+      actorSystem: (first?.messages ?? [])
+        .filter((m: any) => m.role === "system")
+        .map((m: any) => m.content),
+      actorUser: (first?.messages ?? [])
+        .filter((m: any) => m.role === "user")
+        .map((m: any) => m.content),
       actorTools: (first?.tools ?? []).map((t: any) => t.function.name).sort(),
       submitTool: (first?.tools ?? []).find((t: any) => t.function.name === "submit_result"),
       actorRequests: actor.length,
@@ -132,7 +136,9 @@ async function observe(kind: "node" | "rust") {
       notification,
       // `workflow.lifecycle` 遥测（actor-spawned / run-settled），挂在发起 run 的输入上。
       workflowFacts: h.messages
-        .filter((m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "workflow.lifecycle")
+        .filter(
+          (m: any) => m.method === "v4/telemetry/event" && m.params?.kind === "workflow.lifecycle",
+        )
         .map((m: any) => ({
           phase: m.params.phase,
           status: m.params.status,
@@ -153,7 +159,10 @@ test("Node and Rust run a workflow actor ask the same way", async () => {
   const rust = await observe("rust");
   assert.deepEqual(node.schemaErrors, []);
   assert.ok(node.actorRequests >= 1, "the actor ran at least one model request");
-  assert.deepEqual(node.workflowFacts.map((f: any) => f.phase), ["actor-spawned", "run-settled"]);
+  assert.deepEqual(
+    node.workflowFacts.map((f: any) => f.phase),
+    ["actor-spawned", "run-settled"],
+  );
   assert.match(String(node.notification), /&quot;total&quot;: 3/);
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);

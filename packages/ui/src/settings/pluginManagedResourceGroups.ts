@@ -203,7 +203,10 @@ export function groupCommandsByPlugin(
   return { local, plugin };
 }
 
-export function filterLocalMcpServers(servers: ESCodeMcpServer[], query: string): ESCodeMcpServer[] {
+export function filterLocalMcpServers(
+  servers: ESCodeMcpServer[],
+  query: string,
+): ESCodeMcpServer[] {
   return servers.filter((server) => {
     if (server.source !== "escodeagentmcp") {
       return false;

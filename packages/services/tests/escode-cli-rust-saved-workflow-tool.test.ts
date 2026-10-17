@@ -84,7 +84,9 @@ async function observe(kind: "node" | "rust") {
     const rows = (await h.rows(id)) as { rows: any[] };
     await h.close();
     const normalize = (value: string) =>
-      value.replaceAll(h.workspace, "<workspace>").replaceAll(h.workspace.replaceAll("\\", "/"), "<workspace>");
+      value
+        .replaceAll(h.workspace, "<workspace>")
+        .replaceAll(h.workspace.replaceAll("\\", "/"), "<workspace>");
     // JSON 文本里的路径反斜杠是转义的，先取 JSON.stringify 后的形态再替换。
     const jsonWorkspace = JSON.stringify(h.workspace).slice(1, -1);
     const toolMessage = requests

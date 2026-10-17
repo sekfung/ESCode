@@ -110,7 +110,9 @@ describe("runtimeEnv", () => {
     };
 
     expect(sanitizeESCodeRuntimeEnv(sourceEnv)).toEqual({ PATH: "/usr/bin:/bin" });
-    expect(readESCodeToolEnvPassthroughEnv(buildESCodeToolEnvPassthroughEnv(sourceEnv))).toEqual({});
+    expect(readESCodeToolEnvPassthroughEnv(buildESCodeToolEnvPassthroughEnv(sourceEnv))).toEqual(
+      {},
+    );
   });
 
   it("captures broker credentials as one atomic pair and clears stale state on partial rotation", () => {

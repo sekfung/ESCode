@@ -17,7 +17,11 @@ import {
   normalizeRemotePlatform,
   resolveRemotePlatform,
 } from "@escode/server/remote/detectEnv.js";
-import { isWSLAvailable, listWSLDistros, type WSLDistro } from "@escode/server/remote/wsl-detect.js";
+import {
+  isWSLAvailable,
+  listWSLDistros,
+  type WSLDistro,
+} from "@escode/server/remote/wsl-detect.js";
 import {
   buildWslHostGatewayCommand,
   buildWslProxyPortProbeCommand,

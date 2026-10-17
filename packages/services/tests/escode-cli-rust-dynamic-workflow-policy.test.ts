@@ -39,13 +39,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -68,9 +62,7 @@ async function observe(kind: "node" | "rust") {
     const disabled = await ask(false);
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
-    await h.command(
-      h.envelope("sendText", id, { text: "hello", mode: "yolo" }),
-    );
+    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
     await h.completed(id);
     await h.close();
     const names = (requests[0]?.tools ?? [])
@@ -96,10 +88,7 @@ test("dynamic workflow policy and tool surface match Node", async () => {
     assert.equal(observed.enabled.workspace.workspaceKey, observed.workspace);
   }
   for (const name of WORKFLOW_TOOLS) {
-    assert.ok(
-      !node.names.includes(name),
-      `${name} 应在关闭态下架：${JSON.stringify(node.names)}`,
-    );
+    assert.ok(!node.names.includes(name), `${name} 应在关闭态下架：${JSON.stringify(node.names)}`);
     assert.ok(
       !rust.names.includes(name),
       `${name} 不应在 Rust 侧出现：${JSON.stringify(rust.names)}`,

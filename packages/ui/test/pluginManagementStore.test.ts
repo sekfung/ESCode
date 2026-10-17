@@ -856,7 +856,9 @@ describe("pluginManagementStore", () => {
   });
 
   it("reuses an in-flight load for the same workspace", async () => {
-    let resolveList: ((value: { plugins: ESCodePluginInfo[]; diagnostics: [] }) => void) | undefined;
+    let resolveList:
+      | ((value: { plugins: ESCodePluginInfo[]; diagnostics: [] }) => void)
+      | undefined;
     const listPlugins = vi.fn(
       () =>
         new Promise<{ plugins: ESCodePluginInfo[]; diagnostics: [] }>((resolve) => {

@@ -27,7 +27,9 @@ const call = (id: string, name: string, args: unknown) => ({
   ],
 });
 const toolResult = (req: any, id: string) =>
-  String(req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "");
+  String(
+    req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "",
+  );
 const lastUser = (req: any) => {
   const content = req?.messages?.filter((m: any) => m.role === "user").at(-1)?.content;
   return typeof content === "string" ? content : String(JSON.stringify(content));
@@ -137,7 +139,8 @@ async function observe(kind: "node" | "rust") {
     await h.command(h.envelope("sendText", id, { text: "count the items", mode: "yolo" }));
     await h.completed(id);
     const started = Date.now() + 60_000;
-    while (actor.length === 0 && Date.now() < started) await new Promise((done) => setTimeout(done, 50));
+    while (actor.length === 0 && Date.now() < started)
+      await new Promise((done) => setTimeout(done, 50));
     const after = h.messages.length;
     await h.command(h.envelope("sendText", id, { text: "stop the run", mode: "yolo" }));
     const deadline = Date.now() + 90_000;
@@ -169,7 +172,9 @@ async function observe(kind: "node" | "rust") {
       .filter((m: any) => m.role !== "system")
       .map((m: any) => ({
         role: m.role,
-        content: scrub(typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? null)),
+        content: scrub(
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? null),
+        ),
         ...(m.tool_calls ? { tools: m.tool_calls.map((c: any) => c.function.name) } : {}),
       }));
     return {

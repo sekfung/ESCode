@@ -87,7 +87,9 @@ async function run(tree, body) {
 
 const invalidKind = (reason) => {
   if (reason === "file name is not a usable workflow name") return "not_a_workflow_name";
-  if (/^(missing_frontmatter|unterminated_frontmatter|invalid_yaml|invalid_metadata): /.test(reason))
+  if (
+    /^(missing_frontmatter|unterminated_frontmatter|invalid_yaml|invalid_metadata): /.test(reason)
+  )
     return "parse_error";
   return "read_error";
 };
@@ -244,7 +246,10 @@ const argsInputs = [
   { declaration: { j: { type: "json", required: true } }, provided: { j: null } },
   { declaration: { j: { type: "json" } }, provided: {} },
   { declaration: { j: { type: "json", default: { a: [1, 2] } } }, provided: { extra: { b: 1 } } },
-  { declaration: { z: { type: "string", default: "1" }, a: { type: "string", default: "2" } }, provided: {} },
+  {
+    declaration: { z: { type: "string", default: "1" }, a: { type: "string", default: "2" } },
+    provided: {},
+  },
   {
     declaration: { a: { type: "string", required: true }, b: { type: "number" } },
     provided: { b: "x", c: 1 },

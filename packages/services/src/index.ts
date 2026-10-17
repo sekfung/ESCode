@@ -248,7 +248,6 @@ export type { SessionRealtimePort } from "./session/sessionRealtimePort.js";
 // FileWatcher service — IFileWatcherService is both a type (interface) and value (descriptor)
 export { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 
-
 // UsageStats service — IUsageStatsService is both a type (interface) and value (descriptor)
 export { IUsageStatsService } from "./usage-stats/usageStats.js";
 
@@ -341,11 +340,7 @@ export {
   type PluginUiSurfaceEntry,
   type PluginUiWorkspaceTarget,
 } from "./plugin-ui-bridge/contract.js";
-export {
-  IClientConfigService,
-  type OffPeakClientConfig,
-} from "./client-config/clientConfig.js";
-
+export { IClientConfigService, type OffPeakClientConfig } from "./client-config/clientConfig.js";
 
 export { IGenUiService } from "./gen-ui/contract.js";
 export type { GenUiPrepareParams } from "./gen-ui/contract.js";

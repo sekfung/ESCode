@@ -1442,7 +1442,10 @@ export class ConversationShareService implements IConversationShareService {
         typeof existingMarker.sessionId === "string" &&
         existingMarker.sessionId.startsWith("share-import-")
       ) {
-        const sessions = await this.escodeSessionService.listSessions({ workspacePath, limit: 100 });
+        const sessions = await this.escodeSessionService.listSessions({
+          workspacePath,
+          limit: 100,
+        });
         const existingSession = sessions.find(
           (item) => item.sessionId === existingMarker.sessionId,
         );

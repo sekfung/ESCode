@@ -23,7 +23,9 @@ function readTrimmedString(value: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function getModeConfigOption(options: readonly ESCodeConfigOption[]): ESCodeConfigOption | undefined {
+function getModeConfigOption(
+  options: readonly ESCodeConfigOption[],
+): ESCodeConfigOption | undefined {
   return options.find((option) => option.category === "mode" && option.type === "select");
 }
 

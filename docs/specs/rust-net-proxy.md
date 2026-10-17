@@ -14,18 +14,17 @@
 - reqwest_mcp 的 rustls ring provider 在该 crate 内幂等安装（原先散在 `mcp_hub`，调用方不必先记得装）；
 - 强制手段：workspace clippy `disallowed_methods = "deny"` 禁止 `reqwest::Client::builder` / `reqwest_mcp::Client::builder` 在 `crates/net` 之外出现（该 crate 内 crate 级 allow）。
 
-
 ## 规则（与 TS 逐条一致）
 
-| 顺序 | 来源                                                                                     | 结果                                                 |
-| ---- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1    | 非 http/https 目标                                                                       | 不使用代理（`noProxyMatched=false`）                 |
-| 2    | 显式 `noProxy` 或 `ESCODE_NO_PROXY` 命中                                                  | 绕过代理（`noProxyMatched=true`）                    |
-| 3    | 显式 `httpProxy`                                                                         | 代理来源 `network.httpProxy`                         |
-| 4    | `ESCODE_HTTP_PROXY`                                                                       | 代理来源 `env:ESCODE_HTTP_PROXY`                      |
-| 5    | 工具运行请求（web-fetch 变体）：捕获环境里的 `no_proxy`/`NO_PROXY` 命中                  | 绕过代理                                             |
+| 顺序 | 来源                                                                                     | 结果                                                  |
+| ---- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1    | 非 http/https 目标                                                                       | 不使用代理（`noProxyMatched=false`）                  |
+| 2    | 显式 `noProxy` 或 `ESCODE_NO_PROXY` 命中                                                 | 绕过代理（`noProxyMatched=true`）                     |
+| 3    | 显式 `httpProxy`                                                                         | 代理来源 `network.httpProxy`                          |
+| 4    | `ESCODE_HTTP_PROXY`                                                                      | 代理来源 `env:ESCODE_HTTP_PROXY`                      |
+| 5    | 工具运行请求（web-fetch 变体）：捕获环境里的 `no_proxy`/`NO_PROXY` 命中                  | 绕过代理                                              |
 | 6    | 捕获环境的 `https_proxy`→`HTTPS_PROXY`→`http_proxy`→`HTTP_PROXY`→`all_proxy`→`ALL_PROXY` | 代理来源 `env:ESCODE_TOOL_ENV_PASSTHROUGH_JSON.<key>` |
-| 7    | 其余                                                                                     | 不使用代理                                           |
+| 7    | 其余                                                                                     | 不使用代理                                            |
 
 - 代理值缺 scheme 时按 `http://` 补齐；解析失败视为无值。`noProxy` 支持 `*`、`example.com`、`.example.com`、`*.example.com`、
   `host:port`（端口不符则不匹配）、`[ipv6]`（忽略端口）、带 scheme 的完整 URL；匹配为后缀式（`host` 及其子域）。

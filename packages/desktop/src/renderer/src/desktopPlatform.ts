@@ -1,5 +1,9 @@
 import { recordArmsCustomEventForE2E } from "@escode/ui";
-import { DesktopCommandIds, buildLocalMediaPreviewUrl, type IPlatformService } from "@escode/shared";
+import {
+  DesktopCommandIds,
+  buildLocalMediaPreviewUrl,
+  type IPlatformService,
+} from "@escode/shared";
 
 import { desktopBrowserPlatformBridge } from "./desktopBrowserPlatformBridge.js";
 import { createDesktopPluginSandboxPlatform } from "./plugin-sandbox/desktopPluginSandboxPlatform.js";
@@ -141,7 +145,8 @@ export function createDesktopPlatform(options: {
     onDesktopWindowChromeStateChanged: window.escode.onDesktopWindowChromeStateChanged
       ? (handler) => window.escode.onDesktopWindowChromeStateChanged!(handler)
       : undefined,
-    getWindowControlsOverlayMetrics: () => window.escode.getWindowControlsOverlayMetrics?.() ?? null,
+    getWindowControlsOverlayMetrics: () =>
+      window.escode.getWindowControlsOverlayMetrics?.() ?? null,
     onWindowControlsOverlayChanged: (handler) =>
       window.escode.onWindowControlsOverlayChanged?.(handler) ?? (() => {}),
     getDesktopZoomLevel: () =>
@@ -154,7 +159,8 @@ export function createDesktopPlatform(options: {
       window.escode.captureWindowScreenshot?.() ?? Promise.resolve(null),
     onUpdateReady: (callback) => window.escode.onUpdateReady(callback),
     onUpdateCheckResult: (callback) => window.escode.onUpdateCheckResult(callback),
-    onUpdateStateChanged: (callback) => window.escode.onUpdateStateChanged?.(callback) ?? (() => {}),
+    onUpdateStateChanged: (callback) =>
+      window.escode.onUpdateStateChanged?.(callback) ?? (() => {}),
     getUpdateState: () =>
       window.escode.getUpdateState?.() ?? Promise.resolve({ kind: "idle", enabled: true }),
     downloadUpdate: () => window.escode.downloadUpdate?.() ?? Promise.resolve(),

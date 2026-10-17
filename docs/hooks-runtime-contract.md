@@ -56,13 +56,13 @@ HooksService / conversation projection
 
 ## 配置来源与合并
 
-| 来源                           | Runtime 执行 | 设置页编辑 | 生效规则                                               |
-| ------------------------------ | ------------ | ---------- | ------------------------------------------------------ |
+| 来源                            | Runtime 执行 | 设置页编辑 | 生效规则                                               |
+| ------------------------------- | ------------ | ---------- | ------------------------------------------------------ |
 | `~/.escode/cli/config.json`     | 是           | 是         | user hooks 先执行                                      |
 | workspace `.escode/config.json` | 条件执行     | 是         | rollout 开启且 exact Trust/policy admission 通过后执行 |
-| 已启用插件 hooks               | 是           | 否         | 按现有 plugin 来源规则执行                             |
-| `.agents/settings.json`        | 否           | 否         | 只读展示，可显式导入 `.escode`                          |
-| `.claude/settings.json`        | 否           | 否         | 只读展示，可显式导入 `.escode`                          |
+| 已启用插件 hooks                | 是           | 否         | 按现有 plugin 来源规则执行                             |
+| `.agents/settings.json`         | 否           | 否         | 只读展示，可显式导入 `.escode`                         |
+| `.claude/settings.json`         | 否           | 否         | 只读展示，可显式导入 `.escode`                         |
 
 配置合并约束：
 
@@ -244,7 +244,7 @@ Hooks 设置页必须在 desktop 和 Web UI 使用同一组件，并满足：
 | HK-06 | `PostToolUseFailure` | 字符串 error、interrupt、recovery context                                         | core + desktop E2E       |
 | HK-07 | `Stop`               | last assistant、transcript、block 续跑上限                                        | core + desktop E2E       |
 | HK-08 | Config/source        | user+project+plugin 顺序、逐 Hook disabled 真跳过                                 | adapter/bootstrap/core   |
-| HK-09 | Settings             | `.escode` 可写、legacy 可导入、plugin 只读可见                                     | service/UI + desktop E2E |
+| HK-09 | Settings             | `.escode` 可写、legacy 可导入、plugin 只读可见                                    | service/UI + desktop E2E |
 | HK-10 | Executors/async      | process argv、command shell/fire-and-forget、父级取消、后台 lifecycle、错误隔离   | core + desktop E2E       |
 
 完整窗口级 suite 使用 `HK-LC-01`、`HK-EF-01`、`HK-ST-01`、`HK-UP-01`，定义在

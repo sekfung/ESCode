@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  access,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
@@ -31,9 +24,7 @@ const exists = (path: string) =>
   );
 
 async function observe(kind: Runtime) {
-  const root = await mkdtemp(
-    join(tmpdir(), `escode-plugins-uninstall-${kind}-`),
-  );
+  const root = await mkdtemp(join(tmpdir(), `escode-plugins-uninstall-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
     ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
@@ -45,13 +36,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -95,9 +80,7 @@ async function observe(kind: Runtime) {
       }),
     );
     const userConfigPath = join(root, ".escode", "cli", "config.json");
-    const before = JSON.parse(
-      await readFile(userConfigPath, "utf8").catch(() => "{}"),
-    );
+    const before = JSON.parse(await readFile(userConfigPath, "utf8").catch(() => "{}"));
     await write(
       userConfigPath,
       JSON.stringify({
@@ -119,14 +102,9 @@ async function observe(kind: Runtime) {
             match.includes("2026-01-0") ? match : '"installedAt":"<now>"',
           ),
       );
-    const call = async (
-      method: "plugins/uninstall" | "plugins/restoreBuiltin",
-      params: object,
-    ) => {
+    const call = async (method: "plugins/uninstall" | "plugins/restoreBuiltin", params: object) => {
       try {
-        return scrub(
-          await h.client.request(method, { workspace, ...params }, z.any()),
-        );
+        return scrub(await h.client.request(method, { workspace, ...params }, z.any()));
       } catch (error) {
         return {
           error: error instanceof Error ? error.message : String(error),
@@ -134,21 +112,16 @@ async function observe(kind: Runtime) {
       }
     };
     // 文件原文里的路径是一次 JSON 转义；再经 scrub 的 JSON.stringify 会变成两次，先按原文替换。
-    const raw = (text: string) =>
-      text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
+    const raw = (text: string) => text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
     const files = async () => ({
-      installed: scrub(
-        raw(await readFile(join(storage, "installed_plugins.json"), "utf8")),
-      ),
+      installed: scrub(raw(await readFile(join(storage, "installed_plugins.json"), "utf8"))),
       user: scrub(raw(await readFile(userConfigPath, "utf8"))),
       toolCache: await exists(installPath),
       toolData: await exists(join(storage, "data", "tool@acme")),
       builtinData: await exists(join(storage, "data", BUILTIN)),
     });
     const listed = async () =>
-      (
-        (await h.client.request("plugins/list", { workspace }, z.any())) as any
-      ).plugins
+      ((await h.client.request("plugins/list", { workspace }, z.any())) as any).plugins
         .map((plugin: any) => plugin.id)
         .sort();
     const observation: Record<string, unknown> = {};
@@ -168,8 +141,7 @@ async function observe(kind: Runtime) {
     observation.uninstallUnknown = await call("plugins/uninstall", {
       pluginId: "ghost@acme",
     });
-    observation.uninstallMissingSelector =
-      "error" in (await call("plugins/uninstall", {}));
+    observation.uninstallMissingSelector = "error" in (await call("plugins/uninstall", {}));
     observation.restore = await call("plugins/restoreBuiltin", {
       pluginId: BUILTIN,
     });

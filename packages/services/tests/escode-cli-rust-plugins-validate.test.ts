@@ -14,10 +14,7 @@ const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
 async function write(path: string, content: unknown) {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(
-    path,
-    typeof content === "string" ? content : JSON.stringify(content),
-  );
+  await writeFile(path, typeof content === "string" ? content : JSON.stringify(content));
 }
 
 async function observe(kind: Runtime) {
@@ -33,13 +30,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -160,11 +151,7 @@ async function observe(kind: Runtime) {
         return JSON.parse(
           scrubText(
             JSON.stringify(
-              await h.client.request(
-                "plugins/validate" as any,
-                { workspace, ...params },
-                z.any(),
-              ),
+              await h.client.request("plugins/validate" as any, { workspace, ...params }, z.any()),
             ),
           ),
         );
@@ -217,8 +204,7 @@ test("Node and Rust validate plugins the same way", async () => {
   assert.deepEqual((node.good as any).diagnostics, []);
   assert.equal((node.risky as any).ok, false);
   assert.equal((node.nothing as any).ok, true);
-  const codes = (key: string) =>
-    (node[key] as any).diagnostics.map((d: any) => d.code);
+  const codes = (key: string) => (node[key] as any).diagnostics.map((d: any) => d.code);
   assert.ok(codes("sourceExternal").includes("plugin_validation_deferred"));
   assert.ok(codes("needy").includes("plugin_dependency_missing"));
   assert.ok(codes("risky").includes("plugin_variable_missing"));

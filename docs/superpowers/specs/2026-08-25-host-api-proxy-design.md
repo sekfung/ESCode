@@ -240,7 +240,7 @@ OAuth code、token 或 header value。
 
 | Candidate ID | State                                 | Event                           | Target/surface                | Expected guard/effect                               | Status   | Notes                  |
 | ------------ | ------------------------------------- | ------------------------------- | ----------------------------- | --------------------------------------------------- | -------- | ---------------------- |
-| HAP-001      | no explicit policy                    | API request                     | ESCode endpoint                | direct, existing behavior                           | accepted | baseline               |
+| HAP-001      | no explicit policy                    | API request                     | ESCode endpoint               | direct, existing behavior                           | accepted | baseline               |
 | HAP-002      | explicit proxy                        | OAuth callback                  | final token URL               | exactly one proxied request                         | accepted | core ticket            |
 | HAP-003      | proxy + matching No Proxy             | API request                     | exact/suffix/host:port target | direct, CA still applies                            | accepted | bypass semantics       |
 | HAP-004      | unreachable proxy                     | API request                     | external endpoint             | structured failure, zero direct fallback            | accepted | security invariant     |

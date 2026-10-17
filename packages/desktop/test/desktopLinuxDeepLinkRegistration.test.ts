@@ -588,7 +588,8 @@ describe("desktop Linux deep link registration helpers", () => {
       expect(existsSync(desktopFilePath)).toBe(false);
       expect(
         infos.some(
-          ([message]) => message === "[deep-link] 已清理遗留的用户级 escode.desktop，恢复系统级条目",
+          ([message]) =>
+            message === "[deep-link] 已清理遗留的用户级 escode.desktop，恢复系统级条目",
         ),
       ).toBe(true);
     } finally {
@@ -645,7 +646,9 @@ describe("desktop Linux deep link registration helpers", () => {
 
         expect(existsSync(desktopFilePath)).toBe(true);
         expect(
-          warnings.some(([message]) => message === "[deep-link] 清理遗留用户级 escode.desktop 失败"),
+          warnings.some(
+            ([message]) => message === "[deep-link] 清理遗留用户级 escode.desktop 失败",
+          ),
         ).toBe(true);
         expect(commandCalls).toEqual([
           {

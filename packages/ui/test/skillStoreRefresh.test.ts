@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ISkillsService } from "@escode/services";
-import {
-  ESCODE_AGENT_PROVIDER,
-  type SkillSummary,
-  type SkillsListResult,
-} from "@escode/shared";
+import { ESCODE_AGENT_PROVIDER, type SkillSummary, type SkillsListResult } from "@escode/shared";
 import { refreshSharedSkillStoreForWorkspace } from "@/lib/skillStoreRefresh.js";
 import { useSkillStore } from "@/store/skillStore.js";
 

@@ -12,8 +12,8 @@
 | 字段     | 结论                                                                                    |
 | -------- | --------------------------------------------------------------------------------------- |
 | 改动层级 | presentation、runtime config                                                            |
-| 用户入口 | ESCode Desktop 本地 workspace、Desktop-attached SSH/WSL/Docker workspace                 |
-| 评估入口 | `escode --surface desktop --prompt <text>`                                               |
+| 用户入口 | ESCode Desktop 本地 workspace、Desktop-attached SSH/WSL/Docker workspace                |
+| 评估入口 | `escode --surface desktop --prompt <text>`                                              |
 | 权威状态 | Services 根据可信宿主事实推导、并在 Agent 启动时冻结的 `presentationSurface`            |
 | 默认值   | `terminal`                                                                              |
 | 不涉及   | UI directive 解析、协议 schema、telemetry、provider `sourceTitle`、V4 delivery/recovery |
@@ -177,17 +177,17 @@ Main ready
 
 ## 验收用例
 
-| Case    | Setup                                                  | Action                             | Assertions                                               |
-| ------- | ------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------- |
-| DCTX-01 | 默认/terminal ContextBuilder                           | 构建 context                       | 不包含 `desktop_context`                                 |
-| DCTX-02 | `escode_desktop` ContextBuilder                         | 构建 context                       | section 恰好一次，元数据准确，位于 `dynamic_behavior` 前 |
-| DCTX-03 | `escode_desktop` + custom system prompt                 | 构建 context                       | 不包含 `desktop_context`                                 |
-| DCTX-04 | subagent runtime                                       | 构建 context                       | 不包含 `desktop_context`                                 |
-| DCTX-05 | `--surface desktop --prompt`                           | 创建 App                           | runtime config 为 `escode_desktop`，`sourceTitle` 不变    |
-| DCTX-06 | `app-server --stdio --surface desktop`                 | 启动 protocol runner               | 每个 session App 注入 `escode_desktop`                    |
-| DCTX-07 | local Desktop runtime fact / attached remote authority | 创建 Services 并解析 Agent command | 参数包含 `--surface desktop`                             |
-| DCTX-08 | 普通 HTTP server/manual stdio，无 Desktop 宿主事实     | 创建 Services 并解析 Agent command | 不自动添加 Desktop surface                               |
-| DCTX-09 | 非法值/不支持命令                                      | CLI 参数校验                       | 返回清晰错误，不启动 App                                 |
+| Case    | Setup                                                  | Action                              | Assertions                                               |
+| ------- | ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------- |
+| DCTX-01 | 默认/terminal ContextBuilder                           | 构建 context                        | 不包含 `desktop_context`                                 |
+| DCTX-02 | `escode_desktop` ContextBuilder                        | 构建 context                        | section 恰好一次，元数据准确，位于 `dynamic_behavior` 前 |
+| DCTX-03 | `escode_desktop` + custom system prompt                | 构建 context                        | 不包含 `desktop_context`                                 |
+| DCTX-04 | subagent runtime                                       | 构建 context                        | 不包含 `desktop_context`                                 |
+| DCTX-05 | `--surface desktop --prompt`                           | 创建 App                            | runtime config 为 `escode_desktop`，`sourceTitle` 不变   |
+| DCTX-06 | `app-server --stdio --surface desktop`                 | 启动 protocol runner                | 每个 session App 注入 `escode_desktop`                   |
+| DCTX-07 | local Desktop runtime fact / attached remote authority | 创建 Services 并解析 Agent command  | 参数包含 `--surface desktop`                             |
+| DCTX-08 | 普通 HTTP server/manual stdio，无 Desktop 宿主事实     | 创建 Services 并解析 Agent command  | 不自动添加 Desktop surface                               |
+| DCTX-09 | 非法值/不支持命令                                      | CLI 参数校验                        | 返回清晰错误，不启动 App                                 |
 | DCTX-10 | `entry-stdio` 收到 `desktop-attached-remote`           | 经真实 Services 装配解析 Agent 命令 | authority、resolver surface、命令参数均保持 Desktop      |
 
 ## 影响简报

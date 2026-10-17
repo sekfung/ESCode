@@ -18,13 +18,13 @@
 
 普通命令审批按以下顺序展示；默认仍选第 1 项：
 
-| 序号 | 选项                      | 说明与效果                                                               |
-| ---- | ------------------------- | ------------------------------------------------------------------------ |
-| 1    | 允许                      | 仅允许这一次，保留既有 allow_once 语义                                   |
-| 2    | 始终允许此命令            | 项目范围内，后续相同命令不再询问；保留既有 allow_project 规则生成与匹配  |
+| 序号 | 选项                      | 说明与效果                                                                         |
+| ---- | ------------------------- | ---------------------------------------------------------------------------------- |
+| 1    | 允许                      | 仅允许这一次，保留既有 allow_once 语义                                             |
+| 2    | 始终允许此命令            | 项目范围内，后续相同命令不再询问；保留既有 allow_project 规则生成与匹配            |
 | 3    | 完全访问                  | 授予 Agent 完全访问权限，不再确认。执行本 Todo 定义的当前任务、Composer 和队列同步 |
-| 4    | 拒绝                      | 拒绝本次操作，保留既有 Deny 行为                                         |
-| 5    | 告诉模型接下来应该怎么做… | 保留拒绝附带反馈的独立输入行及提交方式                                   |
+| 4    | 拒绝                      | 拒绝本次操作，保留既有 Deny 行为                                                   |
+| 5    | 告诉模型接下来应该怎么做… | 保留拒绝附带反馈的独立输入行及提交方式                                             |
 
 - 数字快捷键、上下键、Tab、Enter、焦点和确认按钮随实际选项排列更新。`5` 聚焦反馈而不提交，输入法行为和手机输入兼容保持。
 - 反馈行仍以请求声明支持反馈为前提；不能为没有该能力的入口伪造反馈响应。
@@ -35,13 +35,13 @@
 
 ## 3. 当前代码事实与问题
 
-| 事实                                                      | 实施含义                                                     | 入口                                                                                                                                                                                                      |
-| --------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Composer 菜单只修改当前 scope 草稿                        | 直接复用菜单回调不能解除当前审批                             | [SessionPane](../../../../packages/ui/src/v4/SessionPane.tsx)、[useDraftConfigControl](../../../../packages/ui/src/v4/composer/useDraftConfigControl.ts)                                                  |
+| 事实                                                      | 实施含义                                                     | 入口                                                                                                                                                                                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Composer 菜单只修改当前 scope 草稿                        | 直接复用菜单回调不能解除当前审批                             | [SessionPane](../../../../packages/ui/src/v4/SessionPane.tsx)、[useDraftConfigControl](../../../../packages/ui/src/v4/composer/useDraftConfigControl.ts)                                                     |
 | 即时切换命令仍被 Bot、自动化、CLI/TUI 和兼容路径使用      | 不能视为死代码删除，也不能把审批批量同步推广到所有调用方     | [task adapter](../../../../packages/services/src/escode-agent/escodeTaskServiceAdapter.ts)、[session facade](../../../../apps/escode-cli/packages/bootstrap/src/app/session-facade.ts)                       |
-| `app.setMode()` 更新 Runtime 后还写项目 `permission/mode` | 本次任务级授权不能直接继承项目偏好副作用                     | [session facade](../../../../apps/escode-cli/packages/bootstrap/src/app/session-facade.ts)、[runtime config](../../../../apps/escode-cli/packages/bootstrap/src/app/runtime-config.ts)                      |
-| 仅传 `mode=yolo` 会归一为 `planEnabled=false`             | 审批专用更新必须显式保留 Plan，不能盲改共享兼容解码规则      | [execution-state](../../../../packages/shared/src/execution-state.ts)                                                                                                                                     |
-| 每个工具调用开始时读取 Runtime mode，已有审批等待 broker  | 运行中可切，但不自动解除 pending，不重做已经读取旧模式的调用 | [call-runner](../../../../apps/escode-cli/packages/core/src/tool/executor/call-runner.ts)、[permission-flow](../../../../apps/escode-cli/packages/core/src/tool/executor/permission-flow.ts)                |
+| `app.setMode()` 更新 Runtime 后还写项目 `permission/mode` | 本次任务级授权不能直接继承项目偏好副作用                     | [session facade](../../../../apps/escode-cli/packages/bootstrap/src/app/session-facade.ts)、[runtime config](../../../../apps/escode-cli/packages/bootstrap/src/app/runtime-config.ts)                       |
+| 仅传 `mode=yolo` 会归一为 `planEnabled=false`             | 审批专用更新必须显式保留 Plan，不能盲改共享兼容解码规则      | [execution-state](../../../../packages/shared/src/execution-state.ts)                                                                                                                                        |
+| 每个工具调用开始时读取 Runtime mode，已有审批等待 broker  | 运行中可切，但不自动解除 pending，不重做已经读取旧模式的调用 | [call-runner](../../../../apps/escode-cli/packages/core/src/tool/executor/call-runner.ts)、[permission-flow](../../../../apps/escode-cli/packages/core/src/tool/executor/permission-flow.ts)                 |
 | 队列项携带独立 mode/Plan，消费时重新应用                  | 只改 Runtime 或 UI，下一条出队可能切回旧权限                 | [product projection](../../../../apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/product-projection.ts)、[turn-model](../../../../apps/escode-cli/packages/core/src/runtime/methods/turn-model.ts) |
 
 `permission/mode` 是创建 Agent 时的项目模式 fallback；`permission/ruleset` 是“始终允许此命令”的规则集合；Session execution state 和 Composer Recent 又是不同事实源。本 Todo 不把它们合并，不写项目默认或新增权限规则。
@@ -171,20 +171,20 @@ resolveInteraction(fullAccess) → session FIFO → registry claim（Hook 退赛
 
 本轮所有临时日志位于 `/tmp/escode-todo158/`；测试文件与实际断言为可重放证据。
 
-| 验证                                                           | 结果                                                                                       |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 验证                                                            | 结果                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 根 `pnpm typecheck`、CLI `pnpm --dir apps/escode-cli typecheck` | 通过；CLI 28 个任务成功                                                                    |
-| 根 `pnpm lint`、`pnpm architecture:check --changed`            | 通过；lint 有原有警告，架构 0 违规                                                         |
-| SQLite 事务 / 固定目标 / 回滚 / 取消 / task 隔离               | 3 项通过，`adapters/tests/permission-full-access.test.ts`                                  |
-| Core 权限 / Hook claim / Plan                                  | 24 项通过，`permission-full-access`、`permission-responder-race`、`independent-plan-state` |
-| Contracts event reducer                                        | 27 项通过                                                                                  |
-| Bootstrap broker / registry / projection / 原审批链            | 120 项通过                                                                                 |
-| Bootstrap 队列 reserve/promote/撤回                            | 34 项通过，`v4-native-queue.test.ts`                                                       |
-| V4 continuous / replayable 提交后恢复                          | 新增 2 项通过；同文件另有 1 项旧 revision 基线失败                                         |
-| UI 审批/快捷键/兼容能力/Composer                               | 67 项通过；1 项 SHARE32 基线失败已单独复现，定向结果不包含它                               |
-| UI 队列撤回/Plan transition                                    | 22 项通过；新增回归先失败后通过，恢复队列项 mode/Plan/模型与 reasoning                     |
-| Desktop E2E 类型与 fixture 检查                                | 通过；fixture 的队列文本只用于入队/撤回，不执行模型请求，因此 matcher 警告保留             |
-| CLI lint                                                       | 未通过；基线同样存在 max-lines 错误（含 telemetry/debug/bootstrap 等），未顺带重构         |
+| 根 `pnpm lint`、`pnpm architecture:check --changed`             | 通过；lint 有原有警告，架构 0 违规                                                         |
+| SQLite 事务 / 固定目标 / 回滚 / 取消 / task 隔离                | 3 项通过，`adapters/tests/permission-full-access.test.ts`                                  |
+| Core 权限 / Hook claim / Plan                                   | 24 项通过，`permission-full-access`、`permission-responder-race`、`independent-plan-state` |
+| Contracts event reducer                                         | 27 项通过                                                                                  |
+| Bootstrap broker / registry / projection / 原审批链             | 120 项通过                                                                                 |
+| Bootstrap 队列 reserve/promote/撤回                             | 34 项通过，`v4-native-queue.test.ts`                                                       |
+| V4 continuous / replayable 提交后恢复                           | 新增 2 项通过；同文件另有 1 项旧 revision 基线失败                                         |
+| UI 审批/快捷键/兼容能力/Composer                                | 67 项通过；1 项 SHARE32 基线失败已单独复现，定向结果不包含它                               |
+| UI 队列撤回/Plan transition                                     | 22 项通过；新增回归先失败后通过，恢复队列项 mode/Plan/模型与 reasoning                     |
+| Desktop E2E 类型与 fixture 检查                                 | 通过；fixture 的队列文本只用于入队/撤回，不执行模型请求，因此 matcher 警告保留             |
+| CLI lint                                                        | 未通过；基线同样存在 max-lines 错误（含 telemetry/debug/bootstrap 等），未顺带重构         |
 
 基线隔离：在同 HEAD 的 `/tmp/escode-todo158/baseline` 应用任务开始时保存的原有 patch 后实跑，复现 SHARE32、gateway 的旧 revision 断言、background notification 时序断言与 CLI lint 失败。本功能用例均另列；不能宣称整个仓库测试全绿。
 

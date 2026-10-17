@@ -38,7 +38,10 @@ async function observe(kind: Runtime) {
     const h = f.start();
     const modes = async (sessionId: string) => {
       const read: any = await h.client.request("session/read", { sessionId }, any);
-      return { session: read.session?.mode ?? null, permission: read.settings?.permission?.mode ?? null };
+      return {
+        session: read.session?.mode ?? null,
+        permission: read.settings?.permission?.mode ?? null,
+      };
     };
     const parent = await h.create();
     await h.subscribe(`conversation/${parent}`);

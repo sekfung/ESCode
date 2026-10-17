@@ -440,7 +440,7 @@ Bearer token 不得出现在：
 | HWND/PID/revision stale          | 返回重新观察诊断，不执行输入                         |
 | UIPI 拒绝高权限应用              | 明确 permission denied，不自动提权                   |
 | Helper 崩溃                      | generation 失效，按现有 active-turn/recycle 边界恢复 |
-| ESCode 关闭                       | 停止 admission、释放输入、关闭 pipe、退出 child      |
+| ESCode 关闭                      | 停止 admission、释放输入、关闭 pipe、退出 child      |
 
 ## 13. 仓库职责
 

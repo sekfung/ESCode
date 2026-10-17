@@ -163,7 +163,7 @@ test("Node and Rust Hosts alternate writes to the same settings file", async (t)
 
     // 5. 文件格式：2 空格缩进 JSON（TS atomicWriteText 同形）。
     const text = await readFile(settingsFile, "utf8");
-    assert.ok(text.startsWith("{\n  \""), "缩进与 TS 一致");
+    assert.ok(text.startsWith('{\n  "'), "缩进与 TS 一致");
   } finally {
     await host.stop();
   }

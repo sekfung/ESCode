@@ -37,7 +37,9 @@ export class CuaAgentAdmissionGate {
   waitForSpawnAdmission(context: CuaAgentSpawnAdmissionContext): Promise<void> {
     const signal = context.signal;
     if (signal?.aborted) {
-      return Promise.reject(signal.reason ?? new Error("ESCode agent process start was cancelled."));
+      return Promise.reject(
+        signal.reason ?? new Error("ESCode agent process start was cancelled."),
+      );
     }
     if (this.activeEpoch === undefined) {
       return Promise.resolve();

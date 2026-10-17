@@ -34,8 +34,8 @@
   单次调用，60 秒超时且随会话关闭取消。
 - 结果：返回工具调用、空标题或清洗后为空的候选都视为跳过，不改标题、不重试。
 - 清洗（`cleanGeneratedTitle`）：去掉 ` thinking…</think>` → 依次尝试整段 JSON、```json 围栏内 JSON 的
-  `title` 字段、首个非空行；再去掉开头 `#`、首尾引号/空白、结尾标点，空白折叠为单个空格；
-  不含 `[A-Za-z0-9]` 或 CJK（`㐀-鿿`）时视为无效；超过 100 个 UTF-16 unit 时前 97 去尾空白 + `...`。
+`title`字段、首个非空行；再去掉开头`#`、首尾引号/空白、结尾标点，空白折叠为单个空格；
+不含 `[A-Za-z0-9]` 或 CJK（`㐀-鿿`）时视为无效；超过 100 个 UTF-16 unit 时前 97 去尾空白 + `...`。
 - 写回：仅当会话仍存在、无 parent、`titleSource ∈ {default, first_input, generated}`（`custom` 优先）且
   首条输入未被编辑/回退（`history.inputs` 仍含该输入实体）时写入；成功后 `titleSource = generated`。
   并发写只由会话 owner 执行，迟到候选不会覆盖 `custom`。

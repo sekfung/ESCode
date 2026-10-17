@@ -9,7 +9,10 @@ function isPlaceholderTaskTitle(title: string): boolean {
   return normalizedTitle.length === 0 || normalizedTitle === "new session";
 }
 
-function resolveMergedTaskTitle(preferredTask: ESCodeTaskMeta, fallbackTask: ESCodeTaskMeta): string {
+function resolveMergedTaskTitle(
+  preferredTask: ESCodeTaskMeta,
+  fallbackTask: ESCodeTaskMeta,
+): string {
   if (fallbackTask.titleOverridden && !preferredTask.titleOverridden) {
     return fallbackTask.title;
   }

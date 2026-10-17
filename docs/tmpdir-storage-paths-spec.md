@@ -13,15 +13,15 @@
 
 ## 路径规范
 
-| 场景                      | 新路径                          | 生命周期                         |
-| ------------------------- | ------------------------------- | -------------------------------- |
+| 场景                       | 新路径                           | 生命周期                         |
+| -------------------------- | -------------------------------- | -------------------------------- |
 | escode-cli Bash 持久化输出 | `~/.escode/cli/exec`             | 按 session/task 输出保留         |
 | escode-cli 剪贴板图片      | `~/.escode/clipboard`            | 单次读取后删除                   |
-| 日志导出 staging          | `~/.escode/export-log-stage`     | 打包完成后删除，异常退出允许残留 |
-| 日志导出结果              | `~/.escode/export-log`           | 用户可见导出结果，默认保留       |
-| feedback 附件和日志包     | `~/.escode/feedback`             | 上传完成后删除                   |
-| Git checkpoint 临时 index | `~/.escode/git-checkpoint-index` | checkpoint 构建完成后删除        |
-| Desktop 编辑器图标转换    | `~/.escode/editor-icon`          | 单次转换后删除                   |
+| 日志导出 staging           | `~/.escode/export-log-stage`     | 打包完成后删除，异常退出允许残留 |
+| 日志导出结果               | `~/.escode/export-log`           | 用户可见导出结果，默认保留       |
+| feedback 附件和日志包      | `~/.escode/feedback`             | 上传完成后删除                   |
+| Git checkpoint 临时 index  | `~/.escode/git-checkpoint-index` | checkpoint 构建完成后删除        |
+| Desktop 编辑器图标转换     | `~/.escode/editor-icon`          | 单次转换后删除                   |
 
 ## 约束
 

@@ -8,7 +8,9 @@ import { OffPeakTaskList } from "@/settings/OffPeakTaskList.js";
 
 afterEach(cleanup);
 
-function task(overrides: Partial<ESCodeOffPeakTask> & { offPeakTaskId: string }): ESCodeOffPeakTask {
+function task(
+  overrides: Partial<ESCodeOffPeakTask> & { offPeakTaskId: string },
+): ESCodeOffPeakTask {
   return {
     title: overrides.offPeakTaskId,
     prompt: "prompt",

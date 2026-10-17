@@ -113,13 +113,13 @@ Overlay 是一套自然、可复用的配置合成语义与机制，负责同一
 五个输入来源各有严格 Schema，但进入领域后共享 Provider Config、Model Config 和 Overlay 语言；不建立五套 Runtime
 DTO。
 
-| Source                            | 可写事实                                                                                      |
-| --------------------------------- | --------------------------------------------------------------------------------------------- |
+| Source                             | 可写事实                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
 | ESCode Built-in Provider Config    | Provider group、身份、展示、API/Access 模板、`builtinModelIds`、Provider 默认状态与声明顺序   |
-| Account Built-in Provider Config  | 账号 Provider 的 Access/连接约束、Provider enabled、服务端确实返回时的 `builtinModelIds`      |
-| Personal Provider Config          | `standard-personal` 新 Provider，或已有 Provider 的 API/Access/状态 Overlay；`modelIds/order` |
+| Account Built-in Provider Config   | 账号 Provider 的 Access/连接约束、Provider enabled、服务端确实返回时的 `builtinModelIds`      |
+| Personal Provider Config           | `standard-personal` 新 Provider，或已有 Provider 的 API/Access/状态 Overlay；`modelIds/order` |
 | ESCode Built-in Model Config Rules | 完整 Model 默认、模型/API/Provider/Endpoint 特化、官方默认启停                                |
-| Personal Model Config Rules       | 用户的单模型专属覆盖，以及用户手写的通用 Match Rule                                           |
+| Personal Model Config Rules        | 用户的单模型专属覆盖，以及用户手写的通用 Match Rule                                           |
 
 强约束：
 
@@ -133,13 +133,13 @@ DTO。
 
 五个 Source 的目标边界进一步固定为：
 
-| Source                     | 必须/允许                                                                                                                                                           | 明确禁止                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Source                      | 必须/允许                                                                                                                                                           | 明确禁止                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | ESCode Built-in Provider    | 每个根声明必须提供 `standard-builtin`、`zai-family` 或 `bigmodel-family` group；允许 label/logo、enabled、visibility、API、Access 模板、`builtinModelIds`           | `standard-personal`、`modelIds`、`modelOrder`、`providerOrder`                 |
-| Account Built-in Provider  | 只能覆盖已有 ESCode Built-in Family Provider；允许 enabled、结构化 Account Access、接口确实返回时的 `builtinModelIds`                                                | group、展示字段、visibility、API、Personal 成员/顺序、Model Config             |
-| Personal Provider          | 顶层允许 `providerOrder`；已有 Provider Overlay 允许 label、enabled、visibility、API、Access、`modelIds/modelOrder`；Personal-only 根必须 `group=standard-personal` | `builtinModelIds`；已有 Provider 的 group 改写                                 |
+| Account Built-in Provider   | 只能覆盖已有 ESCode Built-in Family Provider；允许 enabled、结构化 Account Access、接口确实返回时的 `builtinModelIds`                                               | group、展示字段、visibility、API、Personal 成员/顺序、Model Config             |
+| Personal Provider           | 顶层允许 `providerOrder`；已有 Provider Overlay 允许 label、enabled、visibility、API、Access、`modelIds/modelOrder`；Personal-only 根必须 `group=standard-personal` | `builtinModelIds`；已有 Provider 的 group 改写                                 |
 | ESCode Built-in Model Rules | `provider-model` 与 `match`；允许完整 Model Config、官方 enabled 默认和经证据确认的 Built-in-only 窄兼容事实                                                        | Provider 成员、顺序、Access、动态凭据                                          |
-| Personal Model Rules       | `provider-model` 与 `match`；允许用户可覆盖的 Model Config 稀疏字段                                                                                                 | Provider 成员/顺序、Access、未允许 Personal 覆盖的产品协议或待定 Compatibility |
+| Personal Model Rules        | `provider-model` 与 `match`；允许用户可覆盖的 Model Config 稀疏字段                                                                                                 | Provider 成员/顺序、Access、未允许 Personal 覆盖的产品协议或待定 Compatibility |
 
 结构解析与语义校验分两步：单文件 Parser 严格拒绝未知字段；需要知道“该 ID 是否来自 Built-in”的约束由 Source
 装配校验完成。当前分支未发布，无 `type` 的开发中间 Rule 直接拒绝，不增加 dual-read 或 schema migration；真正已发布

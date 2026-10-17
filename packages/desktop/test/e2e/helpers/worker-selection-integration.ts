@@ -89,7 +89,11 @@ export async function createWorkerSelectionIntegration() {
   const agent = createESCodeAgentService({
     commandResolver: () => ({
       command: process.execPath,
-      args: [resolve("../../apps/escode-cli/packages/cli/dist/escode.cjs"), "app-server", "--stdio"],
+      args: [
+        resolve("../../apps/escode-cli/packages/cli/dist/escode.cjs"),
+        "app-server",
+        "--stdio",
+      ],
       env: {
         HOME: home,
         USERPROFILE: home,

@@ -15,7 +15,9 @@ export function readCurrentAgentModel(options: readonly ESCodeConfigOption[]): s
   return readCurrentSelectValue(options, "model");
 }
 
-export function readCurrentAgentThoughtLevel(options: readonly ESCodeConfigOption[]): string | null {
+export function readCurrentAgentThoughtLevel(
+  options: readonly ESCodeConfigOption[],
+): string | null {
   return readCurrentSelectValue(options, "thought_level");
 }
 

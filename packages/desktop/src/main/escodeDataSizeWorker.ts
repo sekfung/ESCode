@@ -1,6 +1,9 @@
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 
-import { scanESCodeDataDirectory, type ESCodeDataSizeScanRequest } from "./escodeDataSizeScanner.js";
+import {
+  scanESCodeDataDirectory,
+  type ESCodeDataSizeScanRequest,
+} from "./escodeDataSizeScanner.js";
 
 type WorkerResponse =
   | { ok: true; result: Awaited<ReturnType<typeof scanESCodeDataDirectory>> }

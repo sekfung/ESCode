@@ -406,20 +406,20 @@ already-created Active Model
 
 ## 7. Impact Brief
 
-| Field            | Value                                                                                                           |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| Developer intent | 收口 Provider Review 已裁决缺口，不改变主架构                                                                   |
-| Capability       | Provider Registry、Account Overlay、Built-in Remote/LKG、CLI Bootstrap                                          |
-| Change layer     | option-source / validation / persistence / commit-effect                                                        |
-| Operating mode   | planning                                                                                                        |
+| Field            | Value                                                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Developer intent | 收口 Provider Review 已裁决缺口，不改变主架构                                                                    |
+| Capability       | Provider Registry、Account Overlay、Built-in Remote/LKG、CLI Bootstrap                                           |
+| Change layer     | option-source / validation / persistence / commit-effect                                                         |
+| Operating mode   | planning                                                                                                         |
 | Primary seeds    | `AccountProviderService`、`ProviderRegistryService`、`resolveESCodeBuiltinCachePaths`、`requiresProviderRuntime` |
-| Out of scope     | staging merge、真实环境统一验证、Release 业务完整性门禁                                                         |
+| Out of scope     | staging merge、真实环境统一验证、Release 业务完整性门禁                                                          |
 
 ### State Owners And Commit Sinks
 
 | State/fact                    | Authoritative owner        | Persistence/cache             | Publish sink     |
 | ----------------------------- | -------------------------- | ----------------------------- | ---------------- |
-| Built-in revision/content     | ESCode Built-in Source      | Endpoint-scoped `active.json` | Config Service   |
+| Built-in revision/content     | ESCode Built-in Source     | Endpoint-scoped `active.json` | Config Service   |
 | Account enabled/models/access | AccountProviderService     | 进程内 LKG Snapshot           | Account Source   |
 | Personal Config               | Personal Repository        | `config.json`                 | Config Service   |
 | Effective Provider/Model      | ProviderRegistryService    | 进程内 immutable Snapshot     | Registry/Facades |

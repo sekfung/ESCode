@@ -1,7 +1,4 @@
-import type {
-  ESCodeAutomationRunOutcome,
-  ESCodeAutomationTrigger,
-} from "@escode/shared";
+import type { ESCodeAutomationRunOutcome, ESCodeAutomationTrigger } from "@escode/shared";
 
 export interface CronRunLifecycleRepo {
   ensureRunClaimed(params: {
@@ -11,11 +8,7 @@ export interface CronRunLifecycleRepo {
     scheduledAt: number | null;
     trigger: ESCodeAutomationTrigger;
   }): Promise<void>;
-  markRunOutcome(
-    runId: string,
-    outcome: ESCodeAutomationRunOutcome,
-    error?: string,
-  ): Promise<void>;
+  markRunOutcome(runId: string, outcome: ESCodeAutomationRunOutcome, error?: string): Promise<void>;
   markRunDispatch(params: {
     runId: string;
     dispatchStatus: "failed_to_dispatch";

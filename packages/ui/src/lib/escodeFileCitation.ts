@@ -63,7 +63,9 @@ const ESCODE_FILE_CITATION_SYNTAX = {
   allowTripleColon: true,
 } as const;
 
-export function extractESCodeFileCitationDirectives(content: string): ESCodeFileCitationDirective[] {
+export function extractESCodeFileCitationDirectives(
+  content: string,
+): ESCodeFileCitationDirective[] {
   return extractAssistantDirectives(
     content,
     ESCODE_FILE_CITATION_DIRECTIVE_NAME,

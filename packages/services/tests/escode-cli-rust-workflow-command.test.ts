@@ -53,12 +53,18 @@ async function observe(kind: "node" | "rust") {
     const parse = { parse: (value: unknown) => value } as any;
     // App `/` 目录：内置 `workflow` 受进程级动态工作流开关约束（TS escode-protocol/slash-commands.ts）。
     const catalog = async () =>
-      ((await h.client.request("workspace/readPresentation", { workspace }, parse)) as any).slashCommands
+      (
+        (await h.client.request("workspace/readPresentation", { workspace }, parse)) as any
+      ).slashCommands
         .filter((c: any) => c.source === "builtin")
         .map((c: any) => c.name);
     const catalogBefore = await catalog();
     const disabled = await run(await h.create());
-    await h.client.request("workspace/updateDynamicWorkflowPolicy", { workspace, enabled: true }, parse);
+    await h.client.request(
+      "workspace/updateDynamicWorkflowPolicy",
+      { workspace, enabled: true },
+      parse,
+    );
     const catalogAfter = await catalog();
     const enabled = await run(await h.create());
     await h.close();

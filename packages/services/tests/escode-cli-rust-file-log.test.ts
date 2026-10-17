@@ -28,9 +28,7 @@ async function logs(kind: "node" | "rust") {
   }
   const dir = join(root, ".escode", "cli", "log");
   const files = (await readdir(dir)).filter((name) => name.endsWith(".jsonl")).sort();
-  const entries = (
-    await Promise.all(files.map((name) => readFile(join(dir, name), "utf8")))
-  )
+  const entries = (await Promise.all(files.map((name) => readFile(join(dir, name), "utf8"))))
     .flatMap((text) => text.split("\n").filter(Boolean))
     .map((line) => JSON.parse(line));
   await rm(root, { recursive: true, force: true });

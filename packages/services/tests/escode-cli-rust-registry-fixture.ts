@@ -13,7 +13,9 @@ export async function configureRegistry(
     accountMode?: string;
   } = {},
 ) {
-  const builtin = JSON.parse(await readFile(resolve("config/provider/escode-builtin.json"), "utf8"));
+  const builtin = JSON.parse(
+    await readFile(resolve("config/provider/escode-builtin.json"), "utf8"),
+  );
   builtin.config.providerConfigRules.providerRules = account
     ? [
         {

@@ -197,7 +197,10 @@ export function createSubagentRuntimeConfigCache(reader: ConfigReader) {
       if (workspace) {
         const workspaceKey = key(workspace);
         workspaces.get(workspaceKey)?.dispose();
-        const project = documentScope(join(workspace.workspacePath, ".escode", "agents"), "project");
+        const project = documentScope(
+          join(workspace.workspacePath, ".escode", "agents"),
+          "project",
+        );
         workspaces.set(workspaceKey, project);
         initializing.push(project);
       }

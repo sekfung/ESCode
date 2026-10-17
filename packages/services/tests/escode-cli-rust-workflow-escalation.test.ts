@@ -25,7 +25,9 @@ const call = (id: string, name: string, args: unknown) => ({
   ],
 });
 const toolResult = (req: any, id: string) =>
-  String(req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "");
+  String(
+    req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "",
+  );
 const lastUser = (req: any) => {
   const content = req?.messages?.filter((m: any) => m.role === "user").at(-1)?.content;
   return typeof content === "string" ? content : JSON.stringify(content);
@@ -57,7 +59,10 @@ async function observe(kind: "node" | "rust") {
     else if (n === 2) event(res, call("cw-1", "CreateWorkflow", { script, name: "find-sources" }));
     else if (n === 4) {
       const qid = /dwfq-[A-Za-z0-9_-]+/.exec(lastUser(req))?.[0] ?? "missing";
-      event(res, call("rq-1", "ResolveWorkflowQuestion", { question_id: qid, answer: "Report src." }));
+      event(
+        res,
+        call("rq-1", "ResolveWorkflowQuestion", { question_id: qid, answer: "Report src." }),
+      );
     } else event(res, { content: n === 3 || n === 5 ? "waiting" : "done" });
     end(res, n === 1 || n === 2 || n === 4 ? "tool_calls" : "stop");
   };

@@ -17,12 +17,12 @@
 fork 出的 child 是 App 里能被用户直接看到和再次打开的一等会话，身份必须与 TS `buildForkedSessionInput`
 （`runtime/methods/session-fork.ts`）逐字一致，不能沿用父会话的字段：
 
-| 字段          | 取值                                        | 依据                                                     |
-| ------------- | ------------------------------------------- | -------------------------------------------------------- |
-| `id`          | `sess_<uuid>`                               | TS `createSessionId()`；`#sess_*` 引用与 ReadSessionContext 只认该格式 |
-| `taskType`    | `fork`                                      | TS `taskType: kind`；Rust `session_list` 的 `LIST_TYPES` 已含 `fork` |
-| `title`       | `Fork of {parent.title}`                    | fork 只在 UI 列表里表达与父会话的关系，不做自动标题      |
-| `titleSource` | `generated`                                 | 与 TS 相同，不参与 `session_title` 的自动生成（child 有 parentID） |
+| 字段          | 取值                     | 依据                                                                   |
+| ------------- | ------------------------ | ---------------------------------------------------------------------- |
+| `id`          | `sess_<uuid>`            | TS `createSessionId()`；`#sess_*` 引用与 ReadSessionContext 只认该格式 |
+| `taskType`    | `fork`                   | TS `taskType: kind`；Rust `session_list` 的 `LIST_TYPES` 已含 `fork`   |
+| `title`       | `Fork of {parent.title}` | fork 只在 UI 列表里表达与父会话的关系，不做自动标题                    |
+| `titleSource` | `generated`              | 与 TS 相同，不参与 `session_title` 的自动生成（child 有 parentID）     |
 
 child 继承父会话的工作区、模式、附件、Skill 目录与提示快照，但只带走被选轮及之前的 canonical 消息；
 队列、运行中工具、后台任务与待交互项都不复制，父会话与工作区文件都不改动。

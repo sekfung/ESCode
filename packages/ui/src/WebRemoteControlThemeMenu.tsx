@@ -11,11 +11,7 @@ import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useESCodeStore } from "@/store/StoreProvider.js";
 import type { Theme } from "@/useTheme.js";
 
-const MOBILE_THEME_OPTIONS: Theme[] = [
-  "system",
-  "zai-dark",
-  "zai-light",
-];
+const MOBILE_THEME_OPTIONS: Theme[] = ["system", "zai-dark", "zai-light"];
 
 export function WebRemoteControlThemeMenu() {
   const { intl } = useESCodeIntl();

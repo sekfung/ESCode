@@ -7,7 +7,10 @@ import {
   escodeApiRetryFromModelNetworkStatusPayload,
   escodeApiRetryFromStreamRecoveryPayload,
 } from "@escode/shared";
-import type { ESCodeSessionServiceEvent, ESCodeTaskTarget } from "#src/escode-session/escodeSession.js";
+import type {
+  ESCodeSessionServiceEvent,
+  ESCodeTaskTarget,
+} from "#src/escode-session/escodeSession.js";
 
 export function createESCodeSessionApiRetryRuntimeTracker(): {
   trackApiRetryFromSessionEvent: (
@@ -114,7 +117,9 @@ function apiRetryFromSessionPayload(
   if (runtimeRetry !== undefined) {
     return runtimeRetry;
   }
-  const metaRetry = normalizeESCodeApiRetryStatus(asRecord(asRecord(payload._meta).escode).apiRetry);
+  const metaRetry = normalizeESCodeApiRetryStatus(
+    asRecord(asRecord(payload._meta).escode).apiRetry,
+  );
   if (metaRetry !== undefined) {
     return metaRetry;
   }

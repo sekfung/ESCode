@@ -70,13 +70,13 @@ Account Built-in Provider Config                        |
 
 系统只有五个配置输入来源：
 
-| 来源                              | 含义                                                          |
-| --------------------------------- | ------------------------------------------------------------- |
+| 来源                               | 含义                                                           |
+| ---------------------------------- | -------------------------------------------------------------- |
 | ESCode Built-in Provider Config    | ESCode 发布的 Account Provider，以及可复用的 Provider Template |
-| Account Built-in Provider Config  | 当前账号对 Built-in 账号 Provider 的进一步约束                |
-| Personal Provider Config          | 用户创建的 Provider，以及用户对已有 Provider 的最终覆盖       |
+| Account Built-in Provider Config   | 当前账号对 Built-in 账号 Provider 的进一步约束                 |
+| Personal Provider Config           | 用户创建的 Provider，以及用户对已有 Provider 的最终覆盖        |
 | ESCode Built-in Model Config Rules | ESCode 发布的模型静态事实和 API 映射                           |
-| Personal Model Config Rules       | 用户对模型事实的稀疏后置覆盖                                  |
+| Personal Model Config Rules        | 用户对模型事实的稀疏后置覆盖                                   |
 
 每个来源都有自己的严格输入 Schema。五个 Schema 负责约束“这个来源可以写什么”，但进入领域解析后仍使用共同的
 Provider Config、Model Config 与 Overlay 语言；不建立五套 Runtime 类型。

@@ -784,7 +784,9 @@ function sessionTodoGroupsToRuntime(
   }));
 }
 
-export function escodeSessionSnapshotToTaskMeta(snapshot: ESCodeSessionStateSnapshot): ESCodeTaskMeta {
+export function escodeSessionSnapshotToTaskMeta(
+  snapshot: ESCodeSessionStateSnapshot,
+): ESCodeTaskMeta {
   return {
     taskId: snapshot.session.sessionId,
     traceId: generateTraceId(snapshot.session.sessionId),
@@ -3119,7 +3121,9 @@ function apiRetryFromSessionInfoPayload(
     return runtimeRetry;
   }
 
-  const metaRetry = normalizeESCodeApiRetryStatus(asRecord(asRecord(payload._meta).escode).apiRetry);
+  const metaRetry = normalizeESCodeApiRetryStatus(
+    asRecord(asRecord(payload._meta).escode).apiRetry,
+  );
   if (metaRetry !== undefined) {
     return metaRetry;
   }
@@ -3307,7 +3311,8 @@ function textFromParts(parts: readonly ESCodeMessagePart[]): string {
 function reasoningFromParts(parts: readonly ESCodeMessagePart[]): string | undefined {
   const text = parts
     .filter(
-      (part): part is Extract<ESCodeMessagePart, { type: "reasoning" }> => part.type === "reasoning",
+      (part): part is Extract<ESCodeMessagePart, { type: "reasoning" }> =>
+        part.type === "reasoning",
     )
     .map((part) => part.text)
     .join("");
@@ -3475,7 +3480,9 @@ function goalVerificationTimelineStatusValue(
     : undefined;
 }
 
-function goalVerificationFromRecord(record: Record<string, unknown>): ESCodeGoalVerification | null {
+function goalVerificationFromRecord(
+  record: Record<string, unknown>,
+): ESCodeGoalVerification | null {
   const reason = stringValue(record.reason)?.trim();
   if (!reason) {
     return null;

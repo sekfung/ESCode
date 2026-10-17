@@ -524,7 +524,8 @@ describe("createESCodeAgentService provider registry", () => {
           disposeAll() {}
         },
       }));
-      const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
+      const { createESCodeAgentService } =
+        await import("../src/escode-agent/escodeAgentService.js");
       const service = createESCodeAgentService({ modelSelectionReadinessSource: { getView } });
       const workspace = {
         workspacePath: "/workspace/concurrent-first-input",

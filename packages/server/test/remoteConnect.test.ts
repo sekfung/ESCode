@@ -306,7 +306,9 @@ describe("connectRemote", () => {
     });
     connection.dispose();
 
-    expect(backend.commands[0]).toContain('ESCODE_SERVICE_AUTHORITY_MODE="desktop-attached-remote"');
+    expect(backend.commands[0]).toContain(
+      'ESCODE_SERVICE_AUTHORITY_MODE="desktop-attached-remote"',
+    );
   });
 
   it("启动远端 server 时 shell quote 注入 app version", async () => {

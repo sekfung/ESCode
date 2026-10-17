@@ -20,7 +20,14 @@ async function observe(kind: "node" | "rust") {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, `${name}.json`),
-      JSON.stringify({ version: 1, messageId: name, fromSessionId: "sess_peer", toSessionId: sessionId, content, createdAt: "2026-01-01T00:00:00.000Z" }),
+      JSON.stringify({
+        version: 1,
+        messageId: name,
+        fromSessionId: "sess_peer",
+        toSessionId: sessionId,
+        content,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      }),
     );
   };
   const respond = async (req: any, res: any) => {
@@ -29,7 +36,14 @@ async function observe(kind: "node" | "rust") {
     res.writeHead(200, { "content-type": "text/event-stream" });
     if (requests.length === 1) {
       event(res, {
-        tool_calls: [{ index: 0, id: "bash-1", type: "function", function: { name: "Bash", arguments: JSON.stringify({ command: "echo ok" }) } }],
+        tool_calls: [
+          {
+            index: 0,
+            id: "bash-1",
+            type: "function",
+            function: { name: "Bash", arguments: JSON.stringify({ command: "echo ok" }) },
+          },
+        ],
       });
       end(res, "tool_calls");
     } else {
@@ -54,7 +68,12 @@ async function observe(kind: "node" | "rust") {
           mode: "yolo",
           env: { ...env, ESCODE_MAILBOX_ROOT: mailbox },
         })
-      : await fixture({ registry: true, respond, mode: "yolo", env: { ...env, ESCODE_MAILBOX_ROOT: mailbox } });
+      : await fixture({
+          registry: true,
+          respond,
+          mode: "yolo",
+          env: { ...env, ESCODE_MAILBOX_ROOT: mailbox },
+        });
   try {
     await configureRegistry(f, false);
     const h: Harness = f.start();
@@ -74,8 +93,18 @@ async function observe(kind: "node" | "rust") {
       );
     return {
       requests: requests.length,
-      rows: [...new Map(h.messages.flatMap((m: any) => (m.params?.frame?.payload?.deltas ?? []).filter((d: any) => d.row).map((d: any) => [d.row.rowId, d.row] as const))).values()].map((r: any) => [r.kind, r.text, r.origin, r.guided]),
-      messages: scrub(requests.map((r) => r.messages.filter((m: any) => m.role !== "system").slice(-4))),
+      rows: [
+        ...new Map(
+          h.messages.flatMap((m: any) =>
+            (m.params?.frame?.payload?.deltas ?? [])
+              .filter((d: any) => d.row)
+              .map((d: any) => [d.row.rowId, d.row] as const),
+          ),
+        ).values(),
+      ].map((r: any) => [r.kind, r.text, r.origin, r.guided]),
+      messages: scrub(
+        requests.map((r) => r.messages.filter((m: any) => m.role !== "system").slice(-4)),
+      ),
       hookRows: h.messages.some((m: any) =>
         (m.params?.frame?.payload?.deltas ?? []).some((d: any) => d.row?.kind === "hookInvocation"),
       ),

@@ -181,7 +181,11 @@ const nodes = [
   // 未打标签的 report 行：不计入 itemCount；也没有版本号（整行丢弃）。
   node({ site_id: "report-3", ordinal: 4, kind: "report", artifact_id: null, result_json: null }),
   // 别的 run 的产物行不该混进来。
-  node({ run_id: "run-errored", site_id: "artifact-9", result_json: '{"id":"x","kind":"file","version":1,"publishedAt":0}' }),
+  node({
+    run_id: "run-errored",
+    site_id: "artifact-9",
+    result_json: '{"id":"x","kind":"file","version":1,"publishedAt":0}',
+  }),
 ];
 
 const root = await mkdtemp(join(tmpdir(), "escode-dwf-journal-"));
@@ -201,14 +205,13 @@ try {
   const tables = ["dwf_run", "dwf_node"];
   // 四张表与全部索引整份带走（rowid 即建表顺序，外键引用先于被引用表）。
   const ddl = db
-    .prepare("select sql from sqlite_master where sql is not null and name like 'dwf_%' order by rowid")
+    .prepare(
+      "select sql from sqlite_master where sql is not null and name like 'dwf_%' order by rowid",
+    )
     .all()
     .map((row) => row.sql);
   const rows = Object.fromEntries(
-    tables.map((table) => [
-      table,
-      db.prepare(`select * from ${table} order by rowid`).all(),
-    ]),
+    tables.map((table) => [table, db.prepare(`select * from ${table} order by rowid`).all()]),
   );
 
   const context = { deps: { sessionStore: store } };

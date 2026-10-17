@@ -174,7 +174,7 @@ contracts/spec:   packages/shared protocol.ts / channels.ts / validation.ts / es
 | `desktop/src/main/resourceManagerStorage.ts`                                                            | 存储 tab 的 ipc 面：持有 StorageService、进度推送、关窗取消、定位路径校验                                  |
 | `desktop/src/main/storageScanWorker.ts` / `storageScanWorkerClient.ts` / `storageScanWorkerProtocol.ts` | 扫描 Worker 入口与 ScanRunnerPort 实现                                                                     |
 | `ui/src/resource-manager/storage/*`                                                                     | 存储 tab UI（磁盘卡片、类别列表、明细、清理确认）与 `useStorageUsage`                                      |
-| `desktop/src/renderer/resource-manager.html` / `src/resource-manager.tsx`                               | 独立 renderer 入口，挂载 `@escode/ui` 的 `ResourceManagerApp`                                               |
+| `desktop/src/renderer/resource-manager.html` / `src/resource-manager.tsx`                               | 独立 renderer 入口，挂载 `@escode/ui` 的 `ResourceManagerApp`                                              |
 | `ui/src/resource-manager/ResourceManagerApp.tsx`                                                        | 窗口 UI（指标卡 + 分组列表），组件放在 `packages/ui` 内以纳入 Tailwind 扫描                                |
 | `ui/src/resource-manager/resourceUsageView.ts`                                                          | 分组聚合与格式化纯函数                                                                                     |
 | `services/src/process/processResourceSampler.ts`                                                        | 跨平台进程表读取、CPU 差分、进程树归属                                                                     |

@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef } from "react";
 import { createSessionTraceId } from "@escode/shared";
-import type { ConversationOpenTiming, ConversationSnapshot } from "@escode/shared/escode-protocol-v4";
+import type {
+  ConversationOpenTiming,
+  ConversationSnapshot,
+} from "@escode/shared/escode-protocol-v4";
 import {
   reportSessionOpenResult,
   reportSessionOpenStart,

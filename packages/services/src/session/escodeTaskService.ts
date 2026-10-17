@@ -509,7 +509,9 @@ export interface IESCodeTaskService {
   }): Promise<ESCodeGroupedTaskViewStructure>;
 
   /** 一次性提交 grouped 视图最终排序和 membership，服务层用 sqlite transaction 落库 */
-  applyGroupedTaskViewOrder(params: ESCodeGroupedTaskViewOrderInput): Promise<ESCodeGroupedTaskView>;
+  applyGroupedTaskViewOrder(
+    params: ESCodeGroupedTaskViewOrderInput,
+  ): Promise<ESCodeGroupedTaskView>;
 
   /** 列出 workspace 下所有已归档 task */
   listArchivedTasks(params: {

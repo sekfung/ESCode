@@ -233,12 +233,7 @@ describe("AppUsageLifetimeSummaryStrip", () => {
   });
 
   it("uses small typography for chart content while keeping chart titles unchanged", async () => {
-    const [
-      chartUiSource,
-      dailyChartSource,
-      modelChartSource,
-      heatmapSource,
-    ] = await Promise.all(
+    const [chartUiSource, dailyChartSource, modelChartSource, heatmapSource] = await Promise.all(
       [
         "packages/ui/src/components/ui/chart.tsx",
         "packages/ui/src/settings/usage-stats/AppUsageDailyModelTrendChart.tsx",

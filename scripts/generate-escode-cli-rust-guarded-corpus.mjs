@@ -54,15 +54,13 @@ for (const relative of sources) {
 }
 for (const command of extra) strings.add(command);
 
-const cases = [...strings]
-  .sort()
-  .flatMap((command) =>
-    ["posix", "git-bash", "cmd"].map((dialect) => ({
-      command,
-      dialect,
-      result: matchDangerousCommand(command, dialect),
-    })),
-  );
+const cases = [...strings].sort().flatMap((command) =>
+  ["posix", "git-bash", "cmd"].map((dialect) => ({
+    command,
+    dialect,
+    result: matchDangerousCommand(command, dialect),
+  })),
+);
 const content = `${JSON.stringify({ cases }, null, 1)}\n`;
 const target = new URL(
   "../apps/escode-cli-rust/crates/domain/tests/fixtures/guarded_corpus.json",

@@ -230,7 +230,10 @@ describe("telegram bot provider", () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          JSON.stringify({ ok: true, result: { first_name: "ESCode Bot", username: "escode_bot" } }),
+          JSON.stringify({
+            ok: true,
+            result: { first_name: "ESCode Bot", username: "escode_bot" },
+          }),
         ),
     );
     vi.stubGlobal("fetch", fetchMock);

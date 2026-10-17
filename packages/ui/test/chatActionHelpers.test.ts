@@ -22,7 +22,9 @@ describe("chatActionHelpers", () => {
   });
 
   it("keeps provider-native ESCode Agent modes", () => {
-    expect(readCurrentESCodeMode([createModeOption("bypassPermissions")])).toBe("bypassPermissions");
+    expect(readCurrentESCodeMode([createModeOption("bypassPermissions")])).toBe(
+      "bypassPermissions",
+    );
   });
 
   it("does not normalize retired provider-native agent mode ids", () => {

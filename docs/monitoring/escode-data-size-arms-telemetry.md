@@ -55,9 +55,9 @@ Worker scans getESCodeDataRootDir()
 
 | 字段                  | 口径                                                 |
 | --------------------- | ---------------------------------------------------- |
-| `value`               | 本次已统计的 `escode_data_bytes`                      |
-| `metric_kind`         | 固定 `escode_data_bytes`                              |
-| `escode_data_bytes`    | 普通文件 `stat.size` 之和                            |
+| `value`               | 本次已统计的 `escode_data_bytes`                     |
+| `metric_kind`         | 固定 `escode_data_bytes`                             |
+| `escode_data_bytes`   | 普通文件 `stat.size` 之和                            |
 | `scan_status`         | `complete` / `partial`                               |
 | `partial_reason`      | `time_limit` / `file_limit` / `io_error`；完整时不传 |
 | `scan_duration_ms`    | Worker 扫描墙钟耗时                                  |
@@ -118,19 +118,19 @@ process 同步遍历；上限只作为 Worker 的资源保护，不能伪装成�
 
 ## Feature Impact Brief
 
-| Field            | Value                                                                    |
-| ---------------- | ------------------------------------------------------------------------ |
+| Field            | Value                                                                     |
+| ---------------- | ------------------------------------------------------------------------- |
 | Developer intent | 低干扰、低频上报本地 ESCode 数据目录占用                                  |
 | Capability       | `capability.escode-data-size-telemetry` / `capability.data-observability` |
-| Change layer     | `commit-effect` + `persistence`                                          |
-| Operating mode   | planning                                                                 |
+| Change layer     | `commit-effect` + `persistence`                                           |
+| Operating mode   | planning                                                                  |
 | Primary seeds    | `getESCodeDataRootDir`、目录扫描 Worker、空闲调度器、ARMS reporter        |
 | Out of scope     | UI、远端机器 `~/.escode`、磁盘剩余空间、目录清理、conversation delivery   |
 
 ### UI Surface Matrix
 
-| User scenario            | UI entry | Shared implementation           | Display/draft owner | Default/inherit source  | Validation/gating         | Commit action     | Authority/persistence                   | Mode boundary           | Must remain isolated from                         |
-| ------------------------ | -------- | ------------------------------- | ------------------- | ----------------------- | ------------------------- | ----------------- | --------------------------------------- | ----------------------- | ------------------------------------------------- |
+| User scenario            | UI entry | Shared implementation           | Display/draft owner | Default/inherit source   | Validation/gating         | Commit action     | Authority/persistence                   | Mode boundary           | Must remain isolated from                         |
+| ------------------------ | -------- | ------------------------------- | ------------------- | ------------------------ | ------------------------- | ----------------- | --------------------------------------- | ----------------------- | ------------------------------------------------- |
 | Desktop 本地数据占用遥测 | none     | Desktop main scheduler + Worker | none                | `getESCodeDataRootDir()` | due/idle/task/scan limits | ARMS `sendCustom` | Worker snapshot + local scheduler state | desktop app-global only | renderer、remote host、mobile replay、task stream |
 
 ### Shared And Divergent Behavior
@@ -146,18 +146,18 @@ process 同步遍历；上限只作为 Worker 的资源保护，不能伪装成�
 
 | Rank           | From                    | Semantic edge               | To                         | Condition                   | Why inspect it               | Evidence          |
 | -------------- | ----------------------- | --------------------------- | -------------------------- | --------------------------- | ---------------------------- | ----------------- |
-| must-inspect   | scheduler               | resolves-root-through       | `getESCodeDataRootDir`      | after dataBaseDir bootstrap | 自定义数据目录必须生效       | code/spec         |
+| must-inspect   | scheduler               | resolves-root-through       | `getESCodeDataRootDir`     | after dataBaseDir bootstrap | 自定义数据目录必须生效       | code/spec         |
 | must-inspect   | Worker                  | returns-bounded-snapshot-to | Desktop main               | due and eligible            | main 不遍历目录              | code/test         |
 | must-inspect   | Desktop main            | reports-through             | ARMS RUM                   | complete/partial result     | 单一凭据与设备维度 owner     | code/test         |
 | should-inspect | Host runtime task count | gates                       | scheduler                  | Agent running               | 不与用户任务争抢磁盘         | code/test         |
 | invariant-only | data-size event         | must-remain-isolated-from   | conversation/task realtime | all modes                   | 不进入 continuous/replayable | architecture/spec |
-| invariant-only | local data root         | must-not-inspect            | remote `~/.escode`          | SSH/WSL/Docker/server       | 不触碰远端用户文件           | spec              |
+| invariant-only | local data root         | must-not-inspect            | remote `~/.escode`         | SSH/WSL/Docker/server       | 不触碰远端用户文件           | spec              |
 
 ### State Owners And Commit Sinks
 
 | State/fact       | Draft/display owner | Authoritative owner        | Commit command/service | Persistence/cache             | Evidence  |
 | ---------------- | ------------------- | -------------------------- | ---------------------- | ----------------------------- | --------- |
-| data root        | none                | services path config       | `getESCodeDataRootDir`  | setting/dataBaseDir           | code      |
+| data root        | none                | services path config       | `getESCodeDataRootDir` | setting/dataBaseDir           | code      |
 | due time         | none                | Desktop scheduler          | timer decision         | dedicated userData state file | spec/test |
 | idle eligibility | none                | Electron main observations | scheduler decision     | none                          | code/test |
 | scan result      | none                | one-shot Worker            | worker message         | none                          | code/test |
@@ -170,7 +170,7 @@ process 同步遍历；上限只作为 Worker 的资源保护，不能伪装成�
 | no synchronous directory traversal in main | desktop all platforms    | scanner runs in Worker   | unit/build       |
 | no user path/name in payload               | default/custom data root | exact payload test       | unit             |
 | at most one successful report per 24h      | restart/long-running app | persisted scheduler test | unit             |
-| running ESCode task always blocks scan      | normal/fallback window   | state-machine test       | unit             |
+| running ESCode task always blocks scan     | normal/fallback window   | state-machine test       | unit             |
 | partial is distinguishable from complete   | limit/error cases        | scanner + payload test   | unit             |
 | remote/mobile delivery unchanged           | local/remote/mobile      | no protocol/schema edits | static invariant |
 
@@ -182,7 +182,7 @@ process 同步遍历；上限只作为 Worker 的资源保护，不能伪装成�
 | ----------------------------------- | ------------ | --------------------------------------------------- | ----- | ------------------------------ |
 | `configureDesktopResourceTelemetry` | callers      | Desktop main ARMS-ready bootstrap                   | 1     | 现有 resource reporter owner   |
 | `hostRunningTaskCountMap`           | callers      | Host task reporter → main map → app lifecycle count | 2     | 可复用运行任务事实，不新增队列 |
-| `getESCodeDataRootDir`               | callers      | services path source + local data writers           | 1     | 被测目录权威路径               |
+| `getESCodeDataRootDir`              | callers      | services path source + local data writers           | 1     | 被测目录权威路径               |
 | `perf_resource_disk_space`          | text callers | resource flush + monitoring docs/tests              | 2     | 旧错误口径下线范围             |
 
 ### Graph Drift Candidates And Delta
@@ -202,7 +202,7 @@ process 同步遍历；上限只作为 Worker 的资源保护，不能伪装成�
 
 | Boundary  | Decision                                | Includes                     | Excludes / prunes                 | Source              |
 | --------- | --------------------------------------- | ---------------------------- | --------------------------------- | ------------------- |
-| data root | `getESCodeDataRootDir()`                 | default/custom local root    | Electron userData、remote root    | user + code         |
+| data root | `getESCodeDataRootDir()`                | default/custom local root    | Electron userData、remote root    | user + code         |
 | schedule  | 24h + device jitter                     | startup and long-running app | fixed wall-clock batch            | user                |
 | idle      | 5min OS idle + app background + no task | 6h fallback                  | system-wide external probes       | user + architecture |
 | scan      | Worker, 30s/200k cap                    | regular file logical bytes   | symlink targets/allocation blocks | user                |

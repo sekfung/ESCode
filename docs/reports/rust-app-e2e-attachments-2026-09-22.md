@@ -20,15 +20,15 @@
 
 ## 自动化复验
 
-| 检查                                                                  | 本次结果                                              |
-| --------------------------------------------------------------------- | ----------------------------------------------------- |
+| 检查                                                                   | 本次结果                                              |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- |
 | `cargo build --locked --manifest-path apps/escode-cli-rust/Cargo.toml` | 通过，真实 App 使用该产物                             |
 | `pnpm test:escode-cli-rust`                                            | 28 Rust / 84 App 集成测试通过，无失败或跳过           |
 | `pnpm check:escode-cli-rust`                                           | native 边界、fmt、Clippy 全 target `-D warnings` 通过 |
-| `pnpm typecheck`                                                      | 通过                                                  |
-| `pnpm lint`                                                           | 0 errors，70 条既有 warnings                          |
-| `pnpm architecture:check --changed`                                   | violations / baseline / new 均为 0                    |
-| Renderer 未捕获异常                                                   | 自动化连接记录为空；业务警告另列如下                  |
+| `pnpm typecheck`                                                       | 通过                                                  |
+| `pnpm lint`                                                            | 0 errors，70 条既有 warnings                          |
+| `pnpm architecture:check --changed`                                    | violations / baseline / new 均为 0                    |
+| Renderer 未捕获异常                                                    | 自动化连接记录为空；业务警告另列如下                  |
 
 证据目录：`.escode-runtime/rust-e2e/20260922/`。`latest-evidence.json` 保存二进制指纹、测试任务、文件与持久化断言；`screenshots/08` 至 `14` 对应附件草稿、工具完成、停止、排队、新任务和冷恢复；`checks/` 保存本次命令输出。开发日志含本机环境和账号上下文，仅留本地，不作为公开日志包。
 

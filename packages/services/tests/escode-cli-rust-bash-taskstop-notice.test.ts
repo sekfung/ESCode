@@ -17,12 +17,20 @@ async function observe(kind: "node" | "rust") {
     requests.push(req);
     res.writeHead(200, { "content-type": "text/event-stream" });
     const last = req.messages.at(-1);
-    if (last.role === "tool" && last.tool_call_id === "bg") taskId = backgroundNotice(last.content).taskId;
+    if (last.role === "tool" && last.tool_call_id === "bg")
+      taskId = backgroundNotice(last.content).taskId;
     if (last.role === "user" && (last.content === "start" || last.content === "stop")) {
       const stop = last.content === "stop";
       const args = stop ? { task_id: taskId } : { command: "sleep 30", run_in_background: true };
       event(res, {
-        tool_calls: [{ index: 0, id: stop ? "stop" : "bg", type: "function", function: { name: stop ? "TaskStop" : "Bash", arguments: JSON.stringify(args) } }],
+        tool_calls: [
+          {
+            index: 0,
+            id: stop ? "stop" : "bg",
+            type: "function",
+            function: { name: stop ? "TaskStop" : "Bash", arguments: JSON.stringify(args) },
+          },
+        ],
       });
       end(res, "tool_calls");
       return;
@@ -57,7 +65,9 @@ async function observe(kind: "node" | "rust") {
     return {
       requestsAfterStop: requests.length - before,
       lastRoles: requests.slice(before).map((r) => r.messages.at(-1).role),
-      notified: requests.slice(before).some((r) => JSON.stringify(r.messages.at(-1)).includes("task-notification")),
+      notified: requests
+        .slice(before)
+        .some((r) => JSON.stringify(r.messages.at(-1)).includes("task-notification")),
     };
   } finally {
     await f.close();

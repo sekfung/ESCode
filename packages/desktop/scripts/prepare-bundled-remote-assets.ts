@@ -101,7 +101,10 @@ async function readSourceManifest(): Promise<RemoteAssetManifest> {
 
 async function stageComponent(component: RemoteAssetManifestComponent): Promise<void> {
   const artifactPath = normalizeRemoteAssetRelativePath(component.artifactPath, "artifactPath");
-  const mount = normalizeRemoteAssetRelativePath(component.mount, `component ${component.id} mount`);
+  const mount = normalizeRemoteAssetRelativePath(
+    component.mount,
+    `component ${component.id} mount`,
+  );
   // artifactPath 相对 mock-cdn 根目录（与 CDN 上跨版本的 components 根布局一致）。
   const archivePath = join(sourceMockCdnDir, ...artifactPath.split("/"));
   let buffer: Buffer;

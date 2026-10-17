@@ -29,7 +29,10 @@ function buildTaskProviderByTaskId(
 
 export function hasBusyTaskInWorkspaceProvider(
   selectedProvider: ESCodeProvider,
-  taskRuntimeByTaskId: Record<string, { status: ESCodeTaskRuntimeStatus; provider?: ESCodeProvider }>,
+  taskRuntimeByTaskId: Record<
+    string,
+    { status: ESCodeTaskRuntimeStatus; provider?: ESCodeProvider }
+  >,
   optimisticTaskMetaByTaskId: Record<string, { provider?: ESCodeProvider }>,
   taskListCache?: Array<{ taskId: string; provider?: ESCodeProvider }> | null,
   activeTaskId?: string | null,

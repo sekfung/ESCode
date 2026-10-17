@@ -1520,7 +1520,7 @@ function ConversationComposerImpl({
       onSendText,
       pendingShareContext,
       provider,
-          removeCodeCommentContext,
+      removeCodeCommentContext,
       removeConversationSelectionReference,
       removePptxElementReference,
       removeWebElementContext,

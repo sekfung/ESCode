@@ -29,7 +29,13 @@ export async function installBashPrefixPermissionPnpmShim(params: {
     return undefined;
   }
 
-  const shimDirectory = join(params.homeDir, "ESCodeProject", ".escode-e2e", CASE_RUNTIME_DIR, "bin");
+  const shimDirectory = join(
+    params.homeDir,
+    "ESCodeProject",
+    ".escode-e2e",
+    CASE_RUNTIME_DIR,
+    "bin",
+  );
   const shimPath = join(shimDirectory, "pnpm");
   await mkdir(shimDirectory, { recursive: true });
   await writeFile(shimPath, PNPM_SHIM, { encoding: "utf8", mode: 0o755 });

@@ -171,7 +171,7 @@ ModelSelection 和任务持久化，不用于猜测 Mode。
 
 | Source          | 可以写入的 Access 事实                                                                       |
 | --------------- | -------------------------------------------------------------------------------------------- |
-| ESCode Built-in  | 完整 `type`；智谱 Provider 的完整 `family + mode`；普通 API Provider 的 Key 管理入口         |
+| ESCode Built-in | 完整 `type`；智谱 Provider 的完整 `family + mode`；普通 API Provider 的 Key 管理入口         |
 | Account Overlay | 不允许写入或替换 `access`                                                                    |
 | Personal        | 只允许普通/Personal `api-key` Provider 的 API Key Access；固定 `account:*` 不允许写 `access` |
 
@@ -276,7 +276,7 @@ zhipu-account/team-coding-plan
 
 | 状态或事实                            | 权威 Owner                       | 进入 Provider Config？ |
 | ------------------------------------- | -------------------------------- | ---------------------- |
-| Built-in `type/family/mode`           | ESCode Built-in Provider Config   | 是                     |
+| Built-in `type/family/mode`           | ESCode Built-in Provider Config  | 是                     |
 | 当前账号、登录状态与当前 Family       | 当前 Environment Account Service | 否                     |
 | 当前套餐连接                          | Account Connection Selection     | 否                     |
 | Team product/org/project              | Account Connection Selection     | 否                     |

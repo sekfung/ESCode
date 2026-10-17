@@ -60,33 +60,33 @@ Host NDJSON → app-server stdio → Engine::request (core/app/engine_requests.r
 
 ## 4. 可复用能力与差距
 
-| 能力 | 位置 | 用法 |
-| --- | --- | --- |
-| owner 提交隐藏上下文 | `turn_hooks.rs` `hook_context` | Wiki 注入 |
-| core 原生工具分派 | `tool_dispatch.rs` | Wiki 工具 |
-| 权限能力 + alwaysAsk | `permission_flow.rs`、`domain::permission` | 治理工具确认 |
-| 配置分层 | `tools/src/extension_config.rs` | 设计：Wiki 适配器读取同一份 `wiki` 段（不新增配置文件） |
-| 文件日志 | `escode_cli_host::file_log` | 生命周期与诊断 |
-| 原子目录/文件写 | `tools/src/file_atomic.rs`、`atomic_dir.rs` | 参考实现；Wiki crate 自带同等实现以免依赖 tools |
-| ZIP | `zip` crate | DOCX/XLSX/PPTX |
-| YAML | saphyr / yaml_emit | frontmatter、YAML 导入 |
+| 能力                 | 位置                                        | 用法                                                    |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------- |
+| owner 提交隐藏上下文 | `turn_hooks.rs` `hook_context`              | Wiki 注入                                               |
+| core 原生工具分派    | `tool_dispatch.rs`                          | Wiki 工具                                               |
+| 权限能力 + alwaysAsk | `permission_flow.rs`、`domain::permission`  | 治理工具确认                                            |
+| 配置分层             | `tools/src/extension_config.rs`             | 设计：Wiki 适配器读取同一份 `wiki` 段（不新增配置文件） |
+| 文件日志             | `escode_cli_host::file_log`                 | 生命周期与诊断                                          |
+| 原子目录/文件写      | `tools/src/file_atomic.rs`、`atomic_dir.rs` | 参考实现；Wiki crate 自带同等实现以免依赖 tools         |
+| ZIP                  | `zip` crate                                 | DOCX/XLSX/PPTX                                          |
+| YAML                 | saphyr / yaml_emit                          | frontmatter、YAML 导入                                  |
 
 差距（需新增）：XML 解析（OOXML）→ `quick-xml`；文本型 PDF → `lopdf`；Markdown/CSV/RST 按行自研（定位精确、无依赖）。
 仓库没有关键词索引/检索、知识条目 schema、导入管道、知识图谱。
 
 ## 5. 方案：新增与修改
 
-| 位置 | 内容 |
-| --- | --- |
-| `crates/domain/src/wiki/*`（纯） | 条目 schema 与校验、frontmatter、ID、分词、倒排索引、排序与预算、工作流识别、抽取（IR→候选）、冲突、lint、reminder、图谱投影、工具定义与能力 |
+| 位置                                                | 内容                                                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `crates/domain/src/wiki/*`（纯）                    | 条目 schema 与校验、frontmatter、ID、分词、倒排索引、排序与预算、工作流识别、抽取（IR→候选）、冲突、lint、reminder、图谱投影、工具定义与能力                                         |
 | `crates/wiki`（新 adapter crate `escode-cli-wiki`） | 存储（原子写、目录锁）、项目身份（.git/worktree/remote）、解析器（Markdown/TXT/CSV/TSV/JSON/YAML/XML/DOCX/XLSX/PPTX/PDF/RST/DOC/XLS 转换器）、导入/同步、治理、审计、`WikiPort` 实现 |
-| `crates/core-api` | `WikiPort` trait 与数据类型；`RuntimePorts.wiki` |
-| `crates/core` | `wiki_context.rs`（每轮检索注入）、`wiki_tool.rs`（4 个工具）、`v4/wiki/*` RPC、权限能力接入 |
-| `src/runtime.rs`、`src/main.rs` | 组合 Wiki 端口；`escode-cli-rust wiki …` 运维子命令 |
-| `scripts/check-escode-cli-rust-boundaries.mjs` | 把 `wiki` 列为 adapter crate |
-| `packages/shared` | `v4/wiki/*` method 与 zod schema（严格运行时校验） |
-| `packages/services` | `escodeAgentService.wiki*` 请求 |
-| `packages/ui` | 知识图谱页面（桌面 + 手机 Web） |
+| `crates/core-api`                                   | `WikiPort` trait 与数据类型；`RuntimePorts.wiki`                                                                                                                                     |
+| `crates/core`                                       | `wiki_context.rs`（每轮检索注入）、`wiki_tool.rs`（4 个工具）、`v4/wiki/*` RPC、权限能力接入                                                                                         |
+| `src/runtime.rs`、`src/main.rs`                     | 组合 Wiki 端口；`escode-cli-rust wiki …` 运维子命令                                                                                                                                  |
+| `scripts/check-escode-cli-rust-boundaries.mjs`      | 把 `wiki` 列为 adapter crate                                                                                                                                                         |
+| `packages/shared`                                   | `v4/wiki/*` method 与 zod schema（严格运行时校验）                                                                                                                                   |
+| `packages/services`                                 | `escodeAgentService.wiki*` 请求                                                                                                                                                      |
+| `packages/ui`                                       | 知识图谱页面（桌面 + 手机 Web）                                                                                                                                                      |
 
 ## 6. 测试入口
 

@@ -8,10 +8,7 @@ import {
   syncTaskMembershipEventToTaskCaches,
   syncTaskMetaToTaskCaches,
 } from "@/lib/taskListMetaSync.js";
-import {
-  buildTaskListCacheDescriptor,
-  buildTaskWorkspaceKey,
-} from "@/lib/taskQueryCache.js";
+import { buildTaskListCacheDescriptor, buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import {
   getTaskMeta,
   getTaskRuntimeState,

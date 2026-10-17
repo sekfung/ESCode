@@ -11,10 +11,10 @@
 
 ESCode hooks **不是单一模块**，分两层，行为可能不一致：
 
-| 层级               | 路径                                                                                                     | 职责                                      | 实际执行？                     |
-| ------------------ | -------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------ |
-| **UI / 设置层**    | `packages/services/src/hooks/hooksService.ts`<br>`packages/ui/src/store/hooksStore.ts`                   | 读取、展示、编辑并写入 runtime hooks 配置 | 通过 `.escode/config.json` 生效 |
-| **CLI Runtime 层** | `apps/escode-cli/packages/core/src/hooks/`<br>`apps/escode-cli/packages/core/src/runtime/methods/hooks.ts` | agent loop 中触发、执行、聚合决策         | **是**                         |
+| 层级               | 路径                                                                                                       | 职责                                      | 实际执行？                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------- |
+| **UI / 设置层**    | `packages/services/src/hooks/hooksService.ts`<br>`packages/ui/src/store/hooksStore.ts`                     | 读取、展示、编辑并写入 runtime hooks 配置 | 通过 `.escode/config.json` 生效 |
+| **CLI Runtime 层** | `apps/escode-cli/packages/core/src/hooks/`<br>`apps/escode-cli/packages/core/src/runtime/methods/hooks.ts` | agent loop 中触发、执行、聚合决策         | **是**                          |
 
 **重要结论**：UI 层能读到 `.claude/settings.json` / `.agents/settings.json` 里的 legacy hooks，但 **runtime 不会自动执行** 这些配置；只有写入 `.escode/config.json` 或通过**已启用插件**注入的 hooks 才会在会话中运行。
 
@@ -235,19 +235,19 @@ Lifecycle additional context 以 `hook_context` attachment 注入 message histor
 
 | 模块                   | 路径                                                                                          |
 | ---------------------- | --------------------------------------------------------------------------------------------- |
-| 事件 / 输入输出 schema | `apps/escode-cli/packages/contracts/src/hooks/index.ts`                                        |
-| Hook runner            | `apps/escode-cli/packages/core/src/hooks/runner.ts`                                            |
-| 配置 → 回调适配        | `apps/escode-cli/packages/core/src/hooks/configured-runner.ts`                                 |
-| 输出解析与聚合         | `apps/escode-cli/packages/core/src/hooks/output.ts`                                            |
-| Lifecycle 触发         | `apps/escode-cli/packages/core/src/runtime/methods/hooks.ts`                                   |
-| Tool 链路触发          | `apps/escode-cli/packages/core/src/tool/executor/hook-flow.ts`                                 |
-| Runtime 配置合并       | `apps/escode-cli/packages/bootstrap/src/app/runtime-config.ts`                                 |
-| 插件 hook 发现         | `apps/escode-cli/packages/adapters/src/plugins/index.ts`                                       |
+| 事件 / 输入输出 schema | `apps/escode-cli/packages/contracts/src/hooks/index.ts`                                       |
+| Hook runner            | `apps/escode-cli/packages/core/src/hooks/runner.ts`                                           |
+| 配置 → 回调适配        | `apps/escode-cli/packages/core/src/hooks/configured-runner.ts`                                |
+| 输出解析与聚合         | `apps/escode-cli/packages/core/src/hooks/output.ts`                                           |
+| Lifecycle 触发         | `apps/escode-cli/packages/core/src/runtime/methods/hooks.ts`                                  |
+| Tool 链路触发          | `apps/escode-cli/packages/core/src/tool/executor/hook-flow.ts`                                |
+| Runtime 配置合并       | `apps/escode-cli/packages/bootstrap/src/app/runtime-config.ts`                                |
+| 插件 hook 发现         | `apps/escode-cli/packages/adapters/src/plugins/index.ts`                                      |
 | UI 配置读写            | `packages/services/src/hooks/hooksService.ts`                                                 |
 | Shared 类型（UI）      | `packages/shared/src/hooks.ts`                                                                |
 | 插件兼容规范           | `docs/plugin-hooks-compat.md`                                                                 |
-| v2 设计 / 验收         | `apps/escode-cli/docs/design/v2/hooks.md`                                                      |
-| 7 事件合同测试         | `apps/escode-cli/packages/core/tests/hooks-seven-events.test.ts`                               |
+| v2 设计 / 验收         | `apps/escode-cli/docs/design/v2/hooks.md`                                                     |
+| 7 事件合同测试         | `apps/escode-cli/packages/core/tests/hooks-seven-events.test.ts`                              |
 | 整体桌面 E2E           | `packages/desktop/test/e2e/conversation-session/conversation-session-hooks-lifecycle.test.ts` |
 
 ---

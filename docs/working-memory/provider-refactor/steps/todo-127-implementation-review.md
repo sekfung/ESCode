@@ -33,17 +33,17 @@ Managed Worker：只消费文件和 Host Account，不拥有下载循环
 
 ## 验证对应
 
-| 条目           | 证据                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 条目           | 证据                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | BR117-01/02/03 | `escode-builtin-download.test.ts`：新 URL、缺字段、HTTP/JSON/schema/正则/CEL、10 MB 两侧、两阶段合计20秒、取消；Services 测试使用真实 NodeApiClient 装配，无鉴权扩散    |
 | BR117-03       | `escode-builtin-http.test.ts`：真实 HTTP 先返回头但正文不结束，约20秒取消 socket，下一次请求成功；CDN 测试传输映射到本机，不代表真实 CDN TLS 实测                       |
-| BR117-04/05    | Release 16项 + lifecycle 2项：lease/force/版本/Endpoint/退出、分钟调度、1小时 TTL、1/2/4/8/16/32/60分钟退避；保留旧 owner 不覆盖控制文件机制                           |
-| BR117-06       | Bootstrap 12项：新增长生命周期两阶段下载→Active→Registry；凭据不变/无账号仍跟进，Managed 不下载；既有真实凭据变更、失效、首次读取失败继续通过                          |
-| BR117-06/07    | AccountService 9项，过期 Built-in 查询不发布；`providerBuiltinRecovery.test.ts` 使用真实 Config/Account/Registry，失败保留旧版本，TTL 内下一分钟只恢复 Account         |
+| BR117-04/05    | Release 16项 + lifecycle 2项：lease/force/版本/Endpoint/退出、分钟调度、1小时 TTL、1/2/4/8/16/32/60分钟退避；保留旧 owner 不覆盖控制文件机制                            |
+| BR117-06       | Bootstrap 12项：新增长生命周期两阶段下载→Active→Registry；凭据不变/无账号仍跟进，Managed 不下载；既有真实凭据变更、失效、首次读取失败继续通过                           |
+| BR117-06/07    | AccountService 9项，过期 Built-in 查询不发布；`providerBuiltinRecovery.test.ts` 使用真实 Config/Account/Registry，失败保留旧版本，TTL 内下一分钟只恢复 Account          |
 | BR117-08       | `escode-builtin-consumption.test.ts`：新 Registry 模型更新、原已取得配置不变、Personal 逐字节不变、个人覆盖及选择保留；真正已创建 Core Model 的整批执行验证仍需最终合批 |
-| BR117-09       | `escode-builtin-process.test.ts` 两个真实子进程观察原子文件替换，所有输出 Built-in 与 Account 同版；Linux 与 Pro macOS 均通过，Windows 未测 |
-| BR117-10       | Pro 完整 Electron BR117-N02 通过：设置刷新→正式 HTTPS 下载→Registry→新 Model wire；手机 shared-host／SSH 联合验收仍未测，没有修改 continuous/replayable 协议 |
-| BR117-11       | Todo113 第二轮后的最终 revision22 文件14项通过，SHA256 见整批最终复审；此前 revision21 副本是历史证据，不代表线上已发布 |
+| BR117-09       | `escode-builtin-process.test.ts` 两个真实子进程观察原子文件替换，所有输出 Built-in 与 Account 同版；Linux 与 Pro macOS 均通过，Windows 未测                             |
+| BR117-10       | Pro 完整 Electron BR117-N02 通过：设置刷新→正式 HTTPS 下载→Registry→新 Model wire；手机 shared-host／SSH 联合验收仍未测，没有修改 continuous/replayable 协议            |
+| BR117-11       | Todo113 第二轮后的最终 revision22 文件14项通过，SHA256 见整批最终复审；此前 revision21 副本是历史证据，不代表线上已发布                                                 |
 
 根 typecheck、CLI Bootstrap/CLI typecheck、根 lint（0错误、42既有警告）、architecture（0新增/0总违规）通过。合批初次 479通过/2失败：一项是 Todo128 新局部参数误用了已退出名称 `providerRevision`，已改为真实语义 `registryRevision`（不改行为）；另一项是测试在后台 lease 落盘未收尾时删除临时目录，改为等待刷新完成。两个对应文件后续55项通过。没有放宽边界测试或添加休眠兜底。
 

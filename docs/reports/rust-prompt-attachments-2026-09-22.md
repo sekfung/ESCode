@@ -16,8 +16,8 @@
 
 | 命令                                | 结果                                    |
 | ----------------------------------- | --------------------------------------- |
-| `pnpm test:escode-cli-rust`          | 28 个 Rust 测试、84 个 App 集成测试通过 |
-| `pnpm check:escode-cli-rust`         | Rust 边界/fmt/Clippy 全 target 通过     |
+| `pnpm test:escode-cli-rust`         | 28 个 Rust 测试、84 个 App 集成测试通过 |
+| `pnpm check:escode-cli-rust`        | Rust 边界/fmt/Clippy 全 target 通过     |
 | `pnpm typecheck`                    | 通过                                    |
 | `pnpm lint`                         | 0 errors / 70 条既有 warnings           |
 | `pnpm fmt:check`                    | 通过                                    |

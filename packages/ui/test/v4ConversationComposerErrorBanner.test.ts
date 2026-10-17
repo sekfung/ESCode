@@ -14,10 +14,7 @@ const captured = vi.hoisted(() => ({
 vi.mock("@/ChatErrorBanner.js", async () => {
   const React = await import("react");
   return {
-    ChatErrorBanner: (props: {
-      error: { message: string };
-      onOpenModelSettings?: () => void;
-    }) => {
+    ChatErrorBanner: (props: { error: { message: string }; onOpenModelSettings?: () => void }) => {
       captured.chatErrorBannerProps = props;
       return React.createElement(
         "section",
@@ -382,4 +379,3 @@ describe("ConversationComposer error banner", () => {
     );
   });
 });
-

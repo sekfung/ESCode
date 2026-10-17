@@ -112,10 +112,10 @@ describe("bots HTTP callback", () => {
     servers.push(server);
     const address = server.address() as AddressInfo;
 
-    const response = await fetch(
-      `http://127.0.0.1:${address.port}/api/bots/webhook`,
-      { method: "POST", body: "{}" },
-    );
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/bots/webhook`, {
+      method: "POST",
+      body: "{}",
+    });
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({ ok: false });

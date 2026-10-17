@@ -27,14 +27,15 @@
 
 ## 3. 启动参数解析（TS `resolveTerminalShell/Cwd/Env`）
 
-| 项 | 规则 |
-| --- | --- |
-| shell（Unix） | 依次 `SHELL`、`/bin/zsh`、`/bin/bash`、`/bin/sh`，首个可执行者；都没有 → `No usable shell found for terminal startup` |
+| 项               | 规则                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| shell（Unix）    | 依次 `SHELL`、`/bin/zsh`、`/bin/bash`、`/bin/sh`，首个可执行者；都没有 → `No usable shell found for terminal startup`      |
 | shell（Windows） | `pwsh.exe`、`powershell.exe`、`ComSpec`、`cmd.exe`（PATH 查找）；无 → `No usable Windows shell found for terminal startup` |
-| cwd | 依次 传入值、`HOME`、`/`，首个存在的目录；无 → `No usable working directory found for terminal startup` |
-| env | Host 进程 env（经 `core_api::env` 唯一出口），再按下列规则改写 |
+| cwd              | 依次 传入值、`HOME`、`/`，首个存在的目录；无 → `No usable working directory found for terminal startup`                    |
+| env              | Host 进程 env（经 `core_api::env` 唯一出口），再按下列规则改写                                                             |
 
 env 改写：
+
 1. macOS：`PATH = merge(PATH, /opt/homebrew/bin, /opt/homebrew/sbin, /usr/local/bin, /usr/local/sbin, /usr/bin, /bin, /usr/sbin, /sbin)`
    （按 `:` 拆分、trim、去空、去重，保序）。
 2. `TERM=xterm-256color`；`COLORTERM` 取 trim 后的原值，空则 `truecolor`；`CI=1` 且**原** env 的 `TERM=dumb` 时删除 `CI`。
@@ -52,7 +53,7 @@ env 改写：
 - 否则：`source="fallback"`，`fontFamily` = 固定 12 项回退栈，无 `fontSize/theme`。
 - `dedupe(primary)`：按 `,` 拆分、trim、去空，再把回退栈中尚未出现的项依次追加，用 `", "` 连接。
 - 检测器顺序（先命中者胜，检测结果须含 fontFamily/fontSize/theme 之一）：`windows-terminal`（仅 win32）→ `vscode` → `kitty`
-  （darwin/linux/*bsd）。JSONC 解析：先原样 `JSON.parse`，失败则去注释 + 去尾逗号再解析，结果须是对象。
+  （darwin/linux/\*bsd）。JSONC 解析：先原样 `JSON.parse`，失败则去注释 + 去尾逗号再解析，结果须是对象。
 
 `windowsPty`：仅 Windows，`{backend:"conpty", buildNumber?}`，buildNumber 为 OS release 第三段整数。
 
@@ -78,12 +79,12 @@ env 改写：
 
 ## 7. 交付记录
 
-| 项 | 证据 |
-| --- | --- |
-| 服务实现 | `host-services/src/terminal/`（`mod`/`launch`/`profile`/`jsonc`/`pump`/`stream`）；依赖 `portable-pty 0.9` |
-| RPC 面 | `host-rpc/src/domains_terminal.rs`；`host-proto` `IMPLEMENTED` 登记 6 个成员（含 2 个动态事件） |
-| Rust 单测 | env/locale/PATH、shell/cwd 回退、kitty 正则（期望值取自 Node 实测）、JSONC、profile 优先级、增量 UTF-8、Windows build 解析（13 例 + 解码 2 例） |
-| TS 差分 | `packages/desktop/test/rustHostTerminal.test.ts`：同一脚本化 SHELL 驱动 node-pty 与 Rust；`create` 形状、转录（含回显、中文 emoji、`COLORTERM`/`TERM`/`LANG`/`PWD`）、resize（`stty size`）、退出码、退出后 write/resize/dispose、dispose 后无 exit、失效 cwd 回退；自定义字体与 TS 全等；不继承系统 profile 回退 |
-| 负向验证 | ① resize 改成空操作 → 差分失败；② `COLORTERM` 不 trim → 差分失败；③ 解码改回逐块 lossy → 单测失败 |
+| 项        | 证据                                                                                                                                                                                                                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 服务实现  | `host-services/src/terminal/`（`mod`/`launch`/`profile`/`jsonc`/`pump`/`stream`）；依赖 `portable-pty 0.9`                                                                                                                                                                                                        |
+| RPC 面    | `host-rpc/src/domains_terminal.rs`；`host-proto` `IMPLEMENTED` 登记 6 个成员（含 2 个动态事件）                                                                                                                                                                                                                   |
+| Rust 单测 | env/locale/PATH、shell/cwd 回退、kitty 正则（期望值取自 Node 实测）、JSONC、profile 优先级、增量 UTF-8、Windows build 解析（13 例 + 解码 2 例）                                                                                                                                                                   |
+| TS 差分   | `packages/desktop/test/rustHostTerminal.test.ts`：同一脚本化 SHELL 驱动 node-pty 与 Rust；`create` 形状、转录（含回显、中文 emoji、`COLORTERM`/`TERM`/`LANG`/`PWD`）、resize（`stty size`）、退出码、退出后 write/resize/dispose、dispose 后无 exit、失效 cwd 回退；自定义字体与 TS 全等；不继承系统 profile 回退 |
+| 负向验证  | ① resize 改成空操作 → 差分失败；② `COLORTERM` 不 trim → 差分失败；③ 解码改回逐块 lossy → 单测失败                                                                                                                                                                                                                 |
 
 实测事实（node-pty）：`kill -9`/`kill -TERM` 的退出事件为 `{exitCode:0, signal:9|15}`，`exit 7` 为 `{exitCode:7}`；Rust 对齐为 0（§6.5）。

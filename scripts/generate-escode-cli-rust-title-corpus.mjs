@@ -77,8 +77,8 @@ const cleaned = [
   "not json at all",
   "first line wins\nsecond line",
   "\n\n  leading blank lines  \nrest",
-  "```json\n{\"title\":\"Fenced JSON\"}\n```",
-  "```\n{\"title\":\"Fence without tag\"}\n```",
+  '```json\n{"title":"Fenced JSON"}\n```',
+  '```\n{"title":"Fence without tag"}\n```',
   "```json\nnot json inside fence\n```",
   '{"title":"with trailing punct!!!"}',
   '{"title":"## Heading style"}',
@@ -91,12 +91,12 @@ const cleaned = [
   '{"title":"😀😀😀"}',
   '{"title":"' + "word ".repeat(30).trim() + '"}',
   // 尖括号以 \u003c/\u003e 转义书写：直接写字面量会被工具链改写（见 docs/specs/rust-session-title.md 备注）。
-  "thinking prefix\n\u003cthink\u003einternal reasoning\u003c/think\u003e{\"title\":\"After think\"}",
+  'thinking prefix\n\u003cthink\u003einternal reasoning\u003c/think\u003e{"title":"After think"}',
   "\u003cthink\u003e\u53ea\u6709\u601d\u8003\u003c/think\u003e",
   "\u003cTHINK\u003eUpper case tag\u003c/THINK\u003e\u003cthink\u003esecond block\u003c/think\u003eActual",
   '{"other":1}',
   "{ broken json",
-  "```JSON\n{\"title\":\"Upper fence tag\"}\n```",
+  '```JSON\n{"title":"Upper fence tag"}\n```',
   '{"title":"trailing whitespace   "}',
   '{"title":"###"}',
   '{"title":"..."}',
@@ -141,7 +141,10 @@ const write = async (path, value) => {
   } else await writeFile(path, value);
 };
 await write(
-  new URL("../apps/escode-cli-rust/crates/domain/tests/fixtures/title_corpus.json", import.meta.url),
+  new URL(
+    "../apps/escode-cli-rust/crates/domain/tests/fixtures/title_corpus.json",
+    import.meta.url,
+  ),
   content,
 );
 // system prompt 作为生成资产直接进二进制（include_str!），避免两边各写一份。

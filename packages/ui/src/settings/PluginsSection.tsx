@@ -23,7 +23,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.j
 import { Switch } from "@/components/ui/switch.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { TID_PLUGIN_STORE_BROWSE } from "@escode/shared";
-import type { ESCodePluginInfo, ESCodePluginScope, ESCodePluginUserConfigOption } from "@escode/shared";
+import type {
+  ESCodePluginInfo,
+  ESCodePluginScope,
+  ESCodePluginUserConfigOption,
+} from "@escode/shared";
 import type { CreateTaskRequest } from "@/app-shell/types.js";
 import {
   useBaseWorkspaceServices,

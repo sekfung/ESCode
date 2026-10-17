@@ -142,9 +142,9 @@ SSH / WSL / Docker 只是 bootstrap + tunnel adapter
 | 角色                       | 数量与位置                                           | 职责                                                                                                  | 明确不负责                                                          |
 | -------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | UI Client                  | Desktop Renderer、Browser Web、Mobile Web            | 展示统一 Node / Workspace / Task 视图，提交用户意图                                                   | 不持有业务权威，不直接 SSH，不直接启动 Agent                        |
-| ESCode Hub                  | 每个 Desktop 实例一个；每个 Lite Web origin 一个     | Node registry、连接管理、Task Summary 聚合、离线目录缓存、账户 Profile 同步、UI attachment            | 不执行文件命令，不拼 conversation，不拥有 queue / stream / snapshot |
-| ESCode Node                 | 每台目标机器、WSL distro 或容器一个稳定实例          | Workspace Registry、file/git/terminal、Task Index、Resource Store、Agent manager、extension inventory | 不聚合其他 Node，不递归充当远端 Hub                                 |
-| ESCode Agent                | 每个活跃 workspaceKey 最多一个主聊天 runtime         | Session、V4 CommandInbox、projection、stream、permission、tool、model runtime                         | 不管理跨 Node 连接或 UI 布局                                        |
+| ESCode Hub                 | 每个 Desktop 实例一个；每个 Lite Web origin 一个     | Node registry、连接管理、Task Summary 聚合、离线目录缓存、账户 Profile 同步、UI attachment            | 不执行文件命令，不拼 conversation，不拥有 queue / stream / snapshot |
+| ESCode Node                | 每台目标机器、WSL distro 或容器一个稳定实例          | Workspace Registry、file/git/terminal、Task Index、Resource Store、Agent manager、extension inventory | 不聚合其他 Node，不递归充当远端 Hub                                 |
+| ESCode Agent               | 每个活跃 workspaceKey 最多一个主聊天 runtime         | Session、V4 CommandInbox、projection、stream、permission、tool、model runtime                         | 不管理跨 Node 连接或 UI 布局                                        |
 | Bootstrap / Tunnel Adapter | 每条 SSH / WSL / Docker 连接一个短生命周期 connector | 安装、升级、发现 Node，建立到 Node endpoint 的字节隧道                                                | 不创建第二套 ServiceCollection，不保存业务状态                      |
 | Relay                      | 外部可选基础设施                                     | 手机与 Hub 的鉴权、配对、心跳、opaque frame 透传                                                      | 不解析 Node / task / session，不做 replayable snapshot              |
 | Account Control Plane      | 账户服务、自托管服务或离线实现                       | Model Profile、Credential policy、Federated View revision                                             | 不承载实时 conversation                                             |
@@ -341,7 +341,7 @@ Transport adapter
 | Hub -> SSH Node                   | SSH tunnel 中的 socket frames                        | 与 direct Node 完全相同   | 由 logical attachment 决定 |
 | Hub -> WSL Node                   | stdio connector -> distro local socket               | 与 direct Node 完全相同   | 由 logical attachment 决定 |
 | Hub -> Docker Node                | `docker exec -i` connector -> container local socket | 与 direct Node 完全相同   | 由 logical attachment 决定 |
-| Node -> Agent                     | child-process stdio NDJSON                           | ESCode Protocol V4         | Node 内部连接              |
+| Node -> Agent                     | child-process stdio NDJSON                           | ESCode Protocol V4        | Node 内部连接              |
 
 `browser-replayable` 和 `mobile-remote-replayable` 可以复用同一种 replayable 算法，但必须保留不同
 client role，避免把手机 pairing、Hub attachment 和 Browser same-origin 权限混成一个模式。
@@ -589,10 +589,10 @@ Conversation lifetime        = Agent session store，不等于任何进程连接
 | Scope      | 权威数据                                                                              | 同步语义                                                            |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | account    | Provider / Model metadata、展示顺序、默认模型、全局最近显式模型元组、可选跨端分组视图 | revision 化，同一账户各 Hub / Node 收敛                             |
-| credential | API Key、runtime header                                 | 与 metadata 分离；按策略使用 E2E 同步、Node 本地 vault 或短期 lease |
+| credential | API Key、runtime header                                                               | 与 metadata 分离；按策略使用 E2E 同步、Node 本地 vault 或短期 lease |
 | hub/device | Node connection profile、连接状态、UI 布局、持久化离线目录缓存                        | 设备本地；不能成为 Task / Session 权威                              |
 | node       | Plugin 实际安装、user Skill / Subagent、工具链、Node capability、runtime cache        | 每台机器独立，可显式复制，不自动求并或覆盖                          |
-| workspace  | Repo 内 `.escode/*` / `.agents/*`、workspace extension、项目设置                       | 位于目标 Node 的 workspace；由 Git / 文件系统自然传播               |
+| workspace  | Repo 内 `.escode/*` / `.agents/*`、workspace extension、项目设置                      | 位于目标 Node 的 workspace；由 Git / 文件系统自然传播               |
 | session    | 当前 provider / model / thought / mode、消息、queue、owner、stream、permission        | 只在执行该 Session 的 Node runtime                                  |
 
 ## 模型配置

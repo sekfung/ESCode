@@ -856,7 +856,7 @@ sequenceDiagram
 - 每个文件读前 16 行：sidechain 标记跳过；提取 cwd/可见首条用户文本/创建时间；worktree 路径跳过；
   可选 `workspacePath` 规范化比较过滤；`modifiedSince` 按 mtime；结果按 `updatedAt` 倒序，
   `limit > 0` 截断。返回 `{provider:"claude", sessionId, workspacePath, sourcePath, updatedAt,
-  createdAt?, previewTitle?}`。
+createdAt?, previewTitle?}`。
 - 路径比较在 Windows 用小写；Host 侧用 `std::fs`/`std::path`。
 
 ### 15.2 导入
@@ -906,7 +906,7 @@ sequenceDiagram
   - V4 conversation 帧 → `ESCodeStreamEvent` 的完整映射（agent_message_chunk/tool_call_update/
     plan/permission_request…）未实现；如上事件只覆盖 Host 侧生命周期与快照通知，Bot 正文流依赖此项；
   - `onError` 只登记监听，没有错误源，不投递。
-  `76/76` 指契约清单覆盖率（方法有 handler、不回 `NotImplemented`），不代表这两项功能对等。
+    `76/76` 指契约清单覆盖率（方法有 handler、不回 `NotImplemented`），不代表这两项功能对等。
 
 ## 17. Bot group（S12，2026-10-17）
 

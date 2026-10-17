@@ -422,7 +422,8 @@ describe("browser backend descriptor schema", () => {
 describe("interaction/browserList protocol", () => {
   it("注册严格 method contract", () => {
     expect(escodeProtocolMethods.interactionBrowserList).toBe("interaction/browserList");
-    const entry = escodeProtocolSessionMethodContracts[escodeProtocolMethods.interactionBrowserList];
+    const entry =
+      escodeProtocolSessionMethodContracts[escodeProtocolMethods.interactionBrowserList];
     expect(entry?.params).toBe(escodeBrowserListParamsSchema);
     expect(entry?.result).toBe(escodeBrowserListResultSchema);
   });

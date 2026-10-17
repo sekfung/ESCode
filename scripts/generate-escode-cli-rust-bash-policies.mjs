@@ -76,9 +76,7 @@ const sortedCommands = Object.fromEntries(
     .sort()
     .map((name) => [name, BASH_COMMAND_REGISTRY[name]]),
 );
-const registryHash = createHash("sha256")
-  .update(JSON.stringify(sortedCommands))
-  .digest("hex");
+const registryHash = createHash("sha256").update(JSON.stringify(sortedCommands)).digest("hex");
 const registry = `${JSON.stringify({ version: REGISTRY_VERSION, hash: registryHash, commands: sortedCommands })}
 `;
 const registryTarget = new URL(

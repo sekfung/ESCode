@@ -18,23 +18,23 @@
 统一按 `manifest-<platform-arch>.json` 从 CDN 逐组件下载到本地 `remote-assets-cache`，
 再由 Desktop 上传（`local-download-upload`）或交给远端自行下载（`remote-download`）：
 
-| CDN 根 | 用途 |
-| --- | --- |
+| CDN 根                                            | 用途 |
+| ------------------------------------------------- | ---- |
 | `https://cdn.codegeex.cn/zcode/electron/releases` | 国内 |
-| `https://cdn-zcode.z.ai/zcode/electron/releases` | 海外 |
+| `https://cdn-zcode.z.ai/zcode/electron/releases`  | 海外 |
 
 代价是无外网环境无法建立远程连接，即使远端机器本身可达。安装包携带一份本地 release 即可消除这次下载。
 
 ## 3. 核心决策
 
-| 决策项 | 结论 |
-| --- | --- |
-| 资源来源 | 复用已有的「本地 release 目录」源（`mockCdnDir`），不新增第二套本地物化路径 |
-| 唯一所有者 | 资产源的选择仍由 `resolveRemoteAssetDirs()` 独占决定（desktop main），Host 与 deploy 只消费结果 |
-| 平台映射 | 按构建目标的 **arch** 取同架构的 Linux release（§4） |
-| 产物形态 | 直接进入标准安装包，不额外提供精简包 |
-| 平台无关资源 | `server/` 一份即可；`glm/`、`node-pty/`、`node/`、`tools/` 按平台取一份 |
-| 缺失行为 | 内置资源不完整或平台未内置时，按组件回退 CDN/cache，行为与改造前一致 |
+| 决策项       | 结论                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| 资源来源     | 复用已有的「本地 release 目录」源（`mockCdnDir`），不新增第二套本地物化路径                     |
+| 唯一所有者   | 资产源的选择仍由 `resolveRemoteAssetDirs()` 独占决定（desktop main），Host 与 deploy 只消费结果 |
+| 平台映射     | 按构建目标的 **arch** 取同架构的 Linux release（§4）                                            |
+| 产物形态     | 直接进入标准安装包，不额外提供精简包                                                            |
+| 平台无关资源 | `server/` 一份即可；`glm/`、`node-pty/`、`node/`、`tools/` 按平台取一份                         |
+| 缺失行为     | 内置资源不完整或平台未内置时，按组件回退 CDN/cache，行为与改造前一致                            |
 
 选「同架构 Linux」而不是「同 OS 同架构」的原因：远程后端只支持 POSIX shell（Windows 原生远程主机被
 `assertSupportedRemoteEnvironment` 拒绝），而 Windows 桌面的远程目标（WSL、SSH、Docker）实际都是 Linux；
@@ -42,10 +42,10 @@ macOS 桌面的主流远程目标同样是 Linux 服务器。
 
 ## 4. 平台映射
 
-| 构建目标（`ESCODE_TARGET_OS`/`ESCODE_TARGET_ARCH`） | 内置远程平台 |
-| --- | --- |
-| `win32-x64` / `linux-x64` / `darwin-x64` | `linux-x64` |
-| `win32-arm64` / `linux-arm64` / `darwin-arm64` | `linux-arm64` |
+| 构建目标（`ESCODE_TARGET_OS`/`ESCODE_TARGET_ARCH`） | 内置远程平台  |
+| --------------------------------------------------- | ------------- |
+| `win32-x64` / `linux-x64` / `darwin-x64`            | `linux-x64`   |
+| `win32-arm64` / `linux-arm64` / `darwin-arm64`      | `linux-arm64` |
 
 其余远程平台（`darwin-x64`、`darwin-arm64`、以及另一架构的 Linux）继续走 CDN。
 
@@ -138,11 +138,11 @@ electron-builder
 
 实测单平台（`linux-x64`）解压后约 **163 MiB**，其中 Node 运行时二进制约 121 MiB 占主导：
 
-| 组件 | 体积 |
-| --- | --- |
-| node-runtime | 116 MB |
-| glm（Agent bundle） | 26 MB |
-| server-bundle | 12 MB |
+| 组件                             | 体积                      |
+| -------------------------------- | ------------------------- |
+| node-runtime                     | 116 MB                    |
+| glm（Agent bundle）              | 26 MB                     |
+| server-bundle                    | 12 MB                     |
 | ripgrep / ugrep / bfs / node-pty | 5.6 / 4.1 / 1.0 / 0.08 MB |
 
 `win-unpacked` 基线 652 MiB、安装包 142.8 MiB（审计上限 500 MiB）；内置单平台后安装包预计增长几十 MiB，

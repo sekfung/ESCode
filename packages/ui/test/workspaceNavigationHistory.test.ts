@@ -55,33 +55,18 @@ describe("workspace navigation history", () => {
   });
 
   it("将 Automations tab intent 纳入相邻去重和前进恢复", () => {
-    const scheduled = pushAutomationsNavEntry(
-      createTaskNavigationHistory(),
-      "/workspace",
-    );
-    const idle = pushAutomationsNavEntry(
-      scheduled,
-      "/workspace",
-      undefined,
-      undefined,
-      "idle",
-    );
+    const scheduled = pushAutomationsNavEntry(createTaskNavigationHistory(), "/workspace");
+    const idle = pushAutomationsNavEntry(scheduled, "/workspace", undefined, undefined, "idle");
 
     expect(idle.entries).toEqual([
       { kind: "automations", workspacePath: "/workspace" },
       { kind: "automations", workspacePath: "/workspace", automationTab: "idle" },
     ]);
-    expect(
-      pushAutomationsNavEntry(idle, "/workspace", undefined, undefined, "idle"),
-    ).toBe(idle);
+    expect(pushAutomationsNavEntry(idle, "/workspace", undefined, undefined, "idle")).toBe(idle);
   });
 
   it("回放同一 Automations 目标不会重复入栈，删除 task 也不会误删 Automations", () => {
-    const taskHistory = pushNavEntry(
-      createTaskNavigationHistory(),
-      "/workspace",
-      "task-a",
-    );
+    const taskHistory = pushNavEntry(createTaskNavigationHistory(), "/workspace", "task-a");
     const automationsHistory = pushAutomationsNavEntry(
       taskHistory,
       "/workspace",
@@ -90,12 +75,7 @@ describe("workspace navigation history", () => {
     );
 
     expect(
-      pushAutomationsNavEntry(
-        automationsHistory,
-        "/workspace",
-        undefined,
-        "automation-a",
-      ),
+      pushAutomationsNavEntry(automationsHistory, "/workspace", undefined, "automation-a"),
     ).toBe(automationsHistory);
 
     expect(removeTaskFromHistory(automationsHistory, "task-a")).toEqual({
@@ -138,11 +118,7 @@ describe("workspace navigation history", () => {
 
     // 连续打开同一知识库目标不会重复入栈，后退再前进能恢复该页。
     expect(
-      pushKnowledgeNavEntry(
-        knowledgeHistory,
-        "/workspace",
-        "remote:ssh:dev:22:user:/workspace",
-      ),
+      pushKnowledgeNavEntry(knowledgeHistory, "/workspace", "remote:ssh:dev:22:user:/workspace"),
     ).toBe(knowledgeHistory);
     const back = goBack(knowledgeHistory);
     expect(back?.entry).toMatchObject({ kind: "task", taskId: "task-a" });

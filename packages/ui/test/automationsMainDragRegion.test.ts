@@ -8,12 +8,8 @@ function readSource(path: string) {
 
 describe("workspace main view drag region", () => {
   it("keeps a desktop-only drag strip when automations/plugins/knowledge hide WorkspaceHeader", () => {
-    const layoutSource = readSource(
-      "packages/ui/src/app-shell/WorkspaceShellLayout.tsx",
-    );
-    const frameSource = readSource(
-      "packages/ui/src/settings/AutomationsMainBreadcrumbFrame.tsx",
-    );
+    const layoutSource = readSource("packages/ui/src/app-shell/WorkspaceShellLayout.tsx");
+    const frameSource = readSource("packages/ui/src/settings/AutomationsMainBreadcrumbFrame.tsx");
 
     // 断言语义不绑定排版：条件可被格式化换行。
     expect(layoutSource).toMatch(
@@ -26,29 +22,20 @@ describe("workspace main view drag region", () => {
     expect(frameSource).toContain('data-testid="automations-main-drag-region"');
     expect(frameSource).toContain("h-12 shrink-0 [app-region:drag]");
     expect(frameSource).toContain("isDesktop ? (");
-    expect(layoutSource).toContain(
-      "min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]",
-    );
+    expect(layoutSource).toContain("min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]");
 
     // 三个整页主视图（automations / plugin-store / knowledge）× 两个主区渲染分支，
     // 再加知识库共用的 renderKnowledgeMainView：4 + 1。
-    expect(
-      layoutSource.match(/<AutomationsMainBreadcrumbFrame/gu)?.length,
-    ).toBe(5);
-    expect(
-      frameSource.match(/data-testid="automations-main-drag-region"/gu)?.length,
-    ).toBe(1);
+    expect(layoutSource.match(/<AutomationsMainBreadcrumbFrame/gu)?.length).toBe(5);
+    expect(frameSource.match(/data-testid="automations-main-drag-region"/gu)?.length).toBe(1);
   });
 
   it("reserves scrollbar space in automations, plugins and knowledge shell layouts", () => {
-    const layoutSource = readSource(
-      "packages/ui/src/app-shell/WorkspaceShellLayout.tsx",
-    );
+    const layoutSource = readSource("packages/ui/src/app-shell/WorkspaceShellLayout.tsx");
 
     const stableScrollerCount =
-      layoutSource.match(
-        /min-h-0 flex-1 overflow-y-auto \[scrollbar-gutter:stable\]/gu,
-      )?.length ?? 0;
+      layoutSource.match(/min-h-0 flex-1 overflow-y-auto \[scrollbar-gutter:stable\]/gu)?.length ??
+      0;
 
     expect(stableScrollerCount).toBe(5);
   });

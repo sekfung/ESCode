@@ -64,7 +64,7 @@ async function observe(kind: "node" | "rust") {
       : await fixture({ root, registry: true, respond, mode: "yolo", env });
   try {
     await configureRegistry(f, false);
-    await writeFile(join(f.cwd, "snippet.ts"), 'const y: string = 2;\nreturn y;\n');
+    await writeFile(join(f.cwd, "snippet.ts"), "const y: string = 2;\nreturn y;\n");
     const h: Harness = f.start();
     const workspace = { workspacePath: h.workspace, workspaceKey: h.workspace };
     await h.client.request("workspace/updateDynamicWorkflowPolicy", { workspace, enabled: true }, {

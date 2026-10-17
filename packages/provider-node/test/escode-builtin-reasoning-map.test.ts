@@ -27,7 +27,10 @@ let rules: Record<string, Rule[]>;
 beforeAll(async () => {
   snapshot = await source.read();
   rules = JSON.parse(
-    await readFile(new URL("../../../config/provider/escode-builtin.json", import.meta.url), "utf8"),
+    await readFile(
+      new URL("../../../config/provider/escode-builtin.json", import.meta.url),
+      "utf8",
+    ),
   ).config.modelConfigRules;
 });
 afterAll(() => source.dispose());

@@ -80,7 +80,7 @@ interface ProviderConfig {
 
 | 配置来源                         | 通常维护的字段    | 语义                                       |
 | -------------------------------- | ----------------- | ------------------------------------------ |
-| ESCode Built-in Provider Config   | `builtinModelIds` | ESCode 声明的 Built-in 模型及顺序           |
+| ESCode Built-in Provider Config  | `builtinModelIds` | ESCode 声明的 Built-in 模型及顺序          |
 | Account Built-in Provider Config | `builtinModelIds` | 账号接口提供时覆盖 Built-in 模型集合       |
 | Personal Provider Config         | `modelIds`        | 用户添加、删除、重命名和排序 Personal 模型 |
 

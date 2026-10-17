@@ -63,7 +63,9 @@ export function OnboardingDialog(props: {
     isDesktop: props.isDesktop,
   });
   const onboardingDialogRequested = useESCodeStore((state) => state.onboardingDialogRequested);
-  const clearOnboardingDialogRequest = useESCodeStore((state) => state.clearOnboardingDialogRequest);
+  const clearOnboardingDialogRequest = useESCodeStore(
+    (state) => state.clearOnboardingDialogRequest,
+  );
   const [view, setView] = useState<OnboardingView>("welcome");
   const [wizardStep, setWizardStep] = useState<OnboardingWizardStep>("session");
   const [selectedWorkspacePaths, setSelectedWorkspacePaths] = useState<string[]>([]);

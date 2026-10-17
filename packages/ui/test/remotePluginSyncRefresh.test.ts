@@ -111,9 +111,7 @@ describe("refreshWorkspacePluginCapabilitiesAfterRemoteSync", () => {
       workspaceIdentity,
     });
     expect(
-      useESCodeSessionStore
-        .getState()
-        .getWorkspaceState(workspacePath, workspaceIdentity)
+      useESCodeSessionStore.getState().getWorkspaceState(workspacePath, workspaceIdentity)
         .slashCommands,
     ).toEqual([
       {

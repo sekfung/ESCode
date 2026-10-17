@@ -58,11 +58,11 @@ bootstrap 的 `plugins.test.ts` 从约 3 s 变为 5 s 超时。因此运行时�
 
 ### 分发范围
 
-| 目标 | 是否随包 | 理由 |
-| --- | --- | --- |
-| 桌面（Electron，含 Node 与 Rust 运行时） | 是 | 主场景；`stageReaRuntime` 把运行时放进 agent bundle |
-| 独立 SEA CLI | 否 | 100 MB / 6,555 文件嵌进单文件二进制不可接受；已在 `build-sea.test.mjs` 加断言防回归（与 superpowers 同） |
-| 远端（SSH/WSL/Docker） | 否（本阶段） | 远端资产合同把路径表达为 `packages/<plugin>/...`，而运行时按设计位于 `packages/` 之外（`glm/<platform>/rea-runtime`）。要带上它得给合同新增一类路径并补部署侧校验；与 serial 一样先只在桌面可用。后续项：新增路径类后接入 `prepare-prebuilds.mjs`、`REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS` 与 `prepare-bundled-remote-assets` |
+| 目标                                     | 是否随包     | 理由                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面（Electron，含 Node 与 Rust 运行时） | 是           | 主场景；`stageReaRuntime` 把运行时放进 agent bundle                                                                                                                                                                                                                                                                                          |
+| 独立 SEA CLI                             | 否           | 100 MB / 6,555 文件嵌进单文件二进制不可接受；已在 `build-sea.test.mjs` 加断言防回归（与 superpowers 同）                                                                                                                                                                                                                                     |
+| 远端（SSH/WSL/Docker）                   | 否（本阶段） | 远端资产合同把路径表达为 `packages/<plugin>/...`，而运行时按设计位于 `packages/` 之外（`glm/<platform>/rea-runtime`）。要带上它得给合同新增一类路径并补部署侧校验；与 serial 一样先只在桌面可用。后续项：新增路径类后接入 `prepare-prebuilds.mjs`、`REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS` 与 `prepare-bundled-remote-assets` |
 
 远端不部署插件目录本身，因此 `rootCandidates` 解析不到 rea → `resolveBuiltInReaMcpServers` 不会注册任何 server（不是"注册了但起不来"）：远端是干净的能力缺席，与 serial 一致。
 
@@ -160,16 +160,16 @@ sequenceDiagram
 
 ## 交付清单
 
-| 位置                                               | 动作                                     |
-| -------------------------------------------------- | ---------------------------------------- |
-| `docs/specs/rea-plugin.md`                         | 本文件                                   |
-| `apps/escode-cli/packages/rea-plugin/`             | 新增插件包                               |
-| `bootstrap/src/app/official-plugin-definitions.ts` | 新增 definition（含 listing）            |
-| `bootstrap/tests/plugins.test.ts`                  | `pluginCount` 14 → 15；新增 REA 断言     |
-| `scripts/generate-escode-cli-rust-official-plugins.mjs` 生成物 | 重跑 `official_plugins.json`   |
-| `scripts/generate-escode-cli-rust-tool-schemas.mjs` 生成物     | 重跑 `plugin_defaults.json`    |
-| `packages/services/src/plugins/officialPluginCache.ts`         | 同步手工副本（无机械检查）     |
-| `third-party/copied-components.json` + `notices`   | 署名登记与重新生成                       |
+| 位置                                                           | 动作                                 |
+| -------------------------------------------------------------- | ------------------------------------ |
+| `docs/specs/rea-plugin.md`                                     | 本文件                               |
+| `apps/escode-cli/packages/rea-plugin/`                         | 新增插件包                           |
+| `bootstrap/src/app/official-plugin-definitions.ts`             | 新增 definition（含 listing）        |
+| `bootstrap/tests/plugins.test.ts`                              | `pluginCount` 14 → 15；新增 REA 断言 |
+| `scripts/generate-escode-cli-rust-official-plugins.mjs` 生成物 | 重跑 `official_plugins.json`         |
+| `scripts/generate-escode-cli-rust-tool-schemas.mjs` 生成物     | 重跑 `plugin_defaults.json`          |
+| `packages/services/src/plugins/officialPluginCache.ts`         | 同步手工副本（无机械检查）           |
+| `third-party/copied-components.json` + `notices`               | 署名登记与重新生成                   |
 
 打包清单（`packages/desktop/scripts/prepare-agent-node-bundle.mjs`、`scripts/prepare-prebuilds.mjs`、
 `packages/server/src/remote/escodeAgentOfficialPluginAssets.ts`、SEA 资产）按现有内置插件同样处理；
@@ -180,45 +180,45 @@ sequenceDiagram
 
 宿主注入的既有约定逐条对齐，不新增机制：
 
-| 约定 | serial | rea |
-| --- | --- | --- |
-| server 由宿主注入，不写进 manifest | `resolveBuiltIn*McpServers` | `resolveBuiltInReaMcpServers`（已实现），展开进 `create-app.ts` 的 `builtInMcpServers` |
-| 用自带 Node 启动 | `createBundledMcpRuntimeConfig`：`process.execPath` + `ELECTRON_RUN_AS_NODE=1` | 同（默认入口 `<root>/dist/mcp/server.js`） |
-| Rust 侧镜像 | `mcp_serial.rs` 的 `host_plugin_server` + `mcp_config.rs` 注册 | 待补 `mcp_rea.rs`，复用同一 helper，入口同约定 |
-| 设置页归属插件 | definition 的 `hostMcpServerNames` | 待补 `hostMcpServerNames: ["rea"]` |
-| 只读工具免审批 | definition 的 `defaultAllowedTools`（serial 列了 3 个） | 已实现：113/170 个读语义工具（其余 57 个写、执行、运行时附加、驱动界面、网络与会话启动类保持逐次审批），由 `scripts/generate-rea-auto-approved-tools.mjs` 生成，TS 与 Rust 共用同一份（Rust 随 `official_plugins.json` 下发） |
-| 仅插件启用时注册 | 按 plugin id 查 `enabled` | 同（已实现） |
-| 打包 / 远端 / SEA 三处清单 | 三处平行清单；SEA 各有取舍 | 待补；SEA 排除 rea |
-| 宿主能力门禁 | serial 有 broker，按 `ESCODE_HOST_SERIAL=1` 门禁 | rea 无 broker：门禁即「Host 启动器可用 + 插件启用」，`createBundledMcpRuntimeConfig` 无启动器时返回 undefined |
+| 约定                               | serial                                                                         | rea                                                                                                                                                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| server 由宿主注入，不写进 manifest | `resolveBuiltIn*McpServers`                                                    | `resolveBuiltInReaMcpServers`（已实现），展开进 `create-app.ts` 的 `builtInMcpServers`                                                                                                                                        |
+| 用自带 Node 启动                   | `createBundledMcpRuntimeConfig`：`process.execPath` + `ELECTRON_RUN_AS_NODE=1` | 同（默认入口 `<root>/dist/mcp/server.js`）                                                                                                                                                                                    |
+| Rust 侧镜像                        | `mcp_serial.rs` 的 `host_plugin_server` + `mcp_config.rs` 注册                 | 待补 `mcp_rea.rs`，复用同一 helper，入口同约定                                                                                                                                                                                |
+| 设置页归属插件                     | definition 的 `hostMcpServerNames`                                             | 待补 `hostMcpServerNames: ["rea"]`                                                                                                                                                                                            |
+| 只读工具免审批                     | definition 的 `defaultAllowedTools`（serial 列了 3 个）                        | 已实现：113/170 个读语义工具（其余 57 个写、执行、运行时附加、驱动界面、网络与会话启动类保持逐次审批），由 `scripts/generate-rea-auto-approved-tools.mjs` 生成，TS 与 Rust 共用同一份（Rust 随 `official_plugins.json` 下发） |
+| 仅插件启用时注册                   | 按 plugin id 查 `enabled`                                                      | 同（已实现）                                                                                                                                                                                                                  |
+| 打包 / 远端 / SEA 三处清单         | 三处平行清单；SEA 各有取舍                                                     | 待补；SEA 排除 rea                                                                                                                                                                                                            |
+| 宿主能力门禁                       | serial 有 broker，按 `ESCODE_HOST_SERIAL=1` 门禁                               | rea 无 broker：门禁即「Host 启动器可用 + 插件启用」，`createBundledMcpRuntimeConfig` 无启动器时返回 undefined                                                                                                                 |
 
 ## REA 能力矩阵
 
 「归属」只有三类：**随包可用**（装完插件即可用）、**可选增强**（检测到外部工具就用，由用户提供）、**平台受限**（上游限制，如实报错）。
 
-| 能力 | 外部依赖 | 平台 | 归属 |
-| --- | --- | --- | --- |
-| 原生二进制反编译（伪代码/汇编/符号/引用） | Hopper、Ghidra 或 IDA | 各平台，引擎各自限定 | 可选增强 |
-| ELF 离线布局 | pwntools | Linux x64 | 可选增强 |
-| Go 二进制 | 无 | 各平台 | 随包可用 |
-| WASM 制品 | WABT 1.0.42 | 各平台 | 可选增强 |
-| EVM 字节码 | evmole（随包）+ Linux x64 | Linux x64 | 随包可用 |
-| SQLite | Node ≥24.15 或 26+ | 各平台 | 随包可用：Electron 41.0.3 → 41.10.7 把自带 Node 从 24.14.0 升到 24.18.0，实测 `ELECTRON_RUN_AS_NODE=1 <helper> -e "import('node:sqlite')"` 可建库查询 |
-| 记录的 Linux 崩溃 | pwntools；可选 GDB/pwndbg | Linux x64 | 可选增强 |
-| JavaScript / Electron | Node 与 npm | 各平台 | 随包可用：自带 Node 满足 REA engines；实测 REA 运行期不调用 npm，无需随包带 npm |
-| 网站 | Chrome 系浏览器 | 各平台 | 可选增强：REA 按 `REA_BROWSER_EXECUTABLE` 定位，未指定时用系统已装浏览器；无需复用 browser-use 的浏览器 |
-| 已保存抓包（HAR/SAZ） | 无（本机 mitmproxy 抓包需 Linux mitmdump） | 各平台 / Linux | 随包可用（HAR/SAZ） |
-| .NET 程序集 | 无（ILSpy 可选） | 各平台 | 随包可用 |
-| Android APK | headless JADX + 完整 JDK | Linux/macOS/Win x64 | 可选增强（体积原因不随包） |
-| Android 设备 | adb | 各平台 | 可选增强（考虑与 android-emulator 插件的 adb 复用） |
-| JEB 项目 | 用户启动的 JEB 客户端 | 各平台 | 可选增强（`REA_JEB_MCP_URL`） |
-| Android 资源 | Apktool | 各平台 | 可选增强 |
-| Flutter 应用 | 无 | 各平台 | 随包可用 |
-| 固件 | Binwalk / Unblob | Linux | 可选增强 |
-| 报文与报文摘要 | TShark 4.x + prlimit / tshark + capinfos | Linux | 可选增强 |
-| 记录的逻辑信号 | sigrok-cli 0.7.2 + prlimit | Linux | 可选增强 |
-| 包与资源（zip/apk/ipa/msix/dmg/plist） | 无 | 各平台 | 随包可用 |
-| 进程行为观察 | 本机 PTY | Linux/macOS（Windows 不可用） | 随包可用（平台受限） |
-| 证据/会话/分析视图（Evidence、binary session、import/export） | 无 | 各平台 | 随包可用 |
+| 能力                                                          | 外部依赖                                   | 平台                          | 归属                                                                                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 原生二进制反编译（伪代码/汇编/符号/引用）                     | Hopper、Ghidra 或 IDA                      | 各平台，引擎各自限定          | 可选增强                                                                                                                                              |
+| ELF 离线布局                                                  | pwntools                                   | Linux x64                     | 可选增强                                                                                                                                              |
+| Go 二进制                                                     | 无                                         | 各平台                        | 随包可用                                                                                                                                              |
+| WASM 制品                                                     | WABT 1.0.42                                | 各平台                        | 可选增强                                                                                                                                              |
+| EVM 字节码                                                    | evmole（随包）+ Linux x64                  | Linux x64                     | 随包可用                                                                                                                                              |
+| SQLite                                                        | Node ≥24.15 或 26+                         | 各平台                        | 随包可用：Electron 41.0.3 → 41.10.7 把自带 Node 从 24.14.0 升到 24.18.0，实测 `ELECTRON_RUN_AS_NODE=1 <helper> -e "import('node:sqlite')"` 可建库查询 |
+| 记录的 Linux 崩溃                                             | pwntools；可选 GDB/pwndbg                  | Linux x64                     | 可选增强                                                                                                                                              |
+| JavaScript / Electron                                         | Node 与 npm                                | 各平台                        | 随包可用：自带 Node 满足 REA engines；实测 REA 运行期不调用 npm，无需随包带 npm                                                                       |
+| 网站                                                          | Chrome 系浏览器                            | 各平台                        | 可选增强：REA 按 `REA_BROWSER_EXECUTABLE` 定位，未指定时用系统已装浏览器；无需复用 browser-use 的浏览器                                               |
+| 已保存抓包（HAR/SAZ）                                         | 无（本机 mitmproxy 抓包需 Linux mitmdump） | 各平台 / Linux                | 随包可用（HAR/SAZ）                                                                                                                                   |
+| .NET 程序集                                                   | 无（ILSpy 可选）                           | 各平台                        | 随包可用                                                                                                                                              |
+| Android APK                                                   | headless JADX + 完整 JDK                   | Linux/macOS/Win x64           | 可选增强（体积原因不随包）                                                                                                                            |
+| Android 设备                                                  | adb                                        | 各平台                        | 可选增强（考虑与 android-emulator 插件的 adb 复用）                                                                                                   |
+| JEB 项目                                                      | 用户启动的 JEB 客户端                      | 各平台                        | 可选增强（`REA_JEB_MCP_URL`）                                                                                                                         |
+| Android 资源                                                  | Apktool                                    | 各平台                        | 可选增强                                                                                                                                              |
+| Flutter 应用                                                  | 无                                         | 各平台                        | 随包可用                                                                                                                                              |
+| 固件                                                          | Binwalk / Unblob                           | Linux                         | 可选增强                                                                                                                                              |
+| 报文与报文摘要                                                | TShark 4.x + prlimit / tshark + capinfos   | Linux                         | 可选增强                                                                                                                                              |
+| 记录的逻辑信号                                                | sigrok-cli 0.7.2 + prlimit                 | Linux                         | 可选增强                                                                                                                                              |
+| 包与资源（zip/apk/ipa/msix/dmg/plist）                        | 无                                         | 各平台                        | 随包可用                                                                                                                                              |
+| 进程行为观察                                                  | 本机 PTY                                   | Linux/macOS（Windows 不可用） | 随包可用（平台受限）                                                                                                                                  |
+| 证据/会话/分析视图（Evidence、binary session、import/export） | 无                                         | 各平台                        | 随包可用                                                                                                                                              |
 
 ## 实施计划
 
@@ -231,11 +231,11 @@ sequenceDiagram
 1. definition 补 `hostMcpServerNames: ["rea"]`，让设置页把 host 注入的 server 归属到 rea。
 2. `defaultAllowedTools`：边界是「有没有副作用」而不是按数量挑。放行 113 个读语义工具（读语义前缀
    `list_/inspect_/get_/read_/search_/procedure_/current_/address_/decode_/compare_/project_/verify_/resolve_/build_`
-   + 例外表 + 点名清单 + REA 自标的 `readOnlyHint`），保持审批 57 个（破坏性 7、写类、设备操作、
-   运行时附加与驱动、网络与浏览器、会话/引擎启动、会移动 Hopper GUI 光标的导航）。清单由
-   `scripts/generate-rea-auto-approved-tools.mjs` 从已安装版本生成（带版本号），definition 引用生成物，
-   Rust 侧随 `official_plugins.json` 下发同一份；`bootstrap/tests/rea-plugin.test.ts` 断言版本与 pin 一致、
-   且清单里没有任何命中「必须审批前缀」的名字。
+   - 例外表 + 点名清单 + REA 自标的 `readOnlyHint`），保持审批 57 个（破坏性 7、写类、设备操作、
+     运行时附加与驱动、网络与浏览器、会话/引擎启动、会移动 Hopper GUI 光标的导航）。清单由
+     `scripts/generate-rea-auto-approved-tools.mjs` 从已安装版本生成（带版本号），definition 引用生成物，
+     Rust 侧随 `official_plugins.json` 下发同一份；`bootstrap/tests/rea-plugin.test.ts` 断言版本与 pin 一致、
+     且清单里没有任何命中「必须审批前缀」的名字。
 3. Rust 镜像：`mcp_rea.rs`（复用 `mcp_serial.rs` 的 `host_plugin_server`）、`mcp_config.rs` 注册、`tools.rs` 的 default allowed 合并、按 `mcp_serial.rs` 的 tests 写同名单测；重跑 `official_plugins.json` 与 `plugin_defaults.json` 生成物。
 4. 三处打包清单：desktop `officialPluginPackages`（`requiresRuntime` + `requiredRuntimePaths` + `stagedPath`）、`prepare-prebuilds.mjs` 的远端清单、`packages/server` 的远端资产清单；dev 侧 `requiredDevPluginRuntimeBuilds`。
 5. SEA 排除 rea（把 87 MB 嵌进独立 CLI 二进制不可接受），并加断言防回归。
@@ -337,10 +337,11 @@ native 反编译（Hopper/Ghidra/IDA）不在本次验收范围。
 （具名常量 + 注释写明契约与单帧内存代价）。
 
 实测复现（400 模块 / 1.9 MB 源码的合成应用，401 个文件解析、412,021 AST 节点、913 findings）：
+
 - 分析本身（`detail: summary`）响应 **530 KB**，`isError: false`；
 - 取全量证据包（`get_evidence_bundle { detail: "complete" }`）时，REA **自己**返回
-  `resource_constraint`：*"the complete MCP response exceeds the stdio response budget. The analysis result
-  was not truncated. Use a larger MCP response budget with a matching client receive buffer…"*，
+  `resource_constraint`：_"the complete MCP response exceeds the stdio response budget. The analysis result
+  was not truncated. Use a larger MCP response budget with a matching client receive buffer…"_，
   `retryable: false`。
 
 结论（缺口的确切形状）：REA 永不发出超过自身预算的帧，而是优雅降级 —— 所以旧上限的问题不是"REA 会发大帧"，
@@ -352,6 +353,7 @@ native 反编译（Hopper/Ghidra/IDA）不在本次验收范围。
 `detail` 只能是 `summary`；`complete` 是**全量 canonical bundle**（不带 filters）专用的。
 
 **5. 本机未能验证的部分（如实记录，已按项交接）**
+
 - **未跑真实桌面应用**（需要显示环境），也没跑 **Rust 宿主端到端起 MCP 的完整链路**；Rust 侧验证到
   编译、单测（90 passed）与 codec 上限的代码比对，REA 与 Node 的交互是在 Electron-as-node 下单独验证的。
 - **受影响单测与 bootstrap 套件 → 交给 CI**（`.github/workflows/unit-tests.yml`）：新增 `affected` job

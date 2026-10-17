@@ -281,9 +281,7 @@ export interface WorkspaceShellLayoutProps extends AppProps {
   handleOpenWorkflowRunDirectory: (
     request: import("@/lib/workspaceSidePane.js").OpenScopedWorkflowRunDirectorySideTabRequest,
   ) => void;
-  handleOpenWorkflowActorSession: (
-    request: OpenScopedWorkflowActorSessionSideTabRequest,
-  ) => void;
+  handleOpenWorkflowActorSession: (request: OpenScopedWorkflowActorSessionSideTabRequest) => void;
   handleOpenWorkflowWorkspace: (request: OpenScopedWorkflowWorkspaceSideTabRequest) => void;
   handleOpenWorkflowArtifact: (request: OpenScopedWorkflowArtifactSideTabRequest) => void;
   handleCloseCodeViewer: () => void;

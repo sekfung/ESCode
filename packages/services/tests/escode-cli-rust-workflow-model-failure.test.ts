@@ -18,7 +18,9 @@ const script = [
 ].join("\n");
 
 const call = (id: string, name: string, args: unknown) => ({
-  tool_calls: [{ index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } }],
+  tool_calls: [
+    { index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+  ],
 });
 
 async function observe(kind: "node" | "rust") {
@@ -83,7 +85,12 @@ async function observe(kind: "node" | "rust") {
             if (p.kind !== "permission" || answered.has(p.interactionId)) continue;
             answered.add(p.interactionId);
             const once = p.payload.options.find((o: any) => /allow.?once/i.test(o.kind));
-            void h.command(h.envelope("resolveInteraction", id, { interactionId: p.interactionId, answer: { optionId: once.optionId } }));
+            void h.command(
+              h.envelope("resolveInteraction", id, {
+                interactionId: p.interactionId,
+                answer: { optionId: once.optionId },
+              }),
+            );
           }
         }
       }

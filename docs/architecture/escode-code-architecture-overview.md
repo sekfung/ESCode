@@ -71,7 +71,7 @@ workspaceKey = workspaceIdentity?.trim() || workspacePath
 | `packages/client`   | service proxy 与客户端 transport 装配                    |
 | `packages/ui`       | 平台无关 React UI、hooks、V4 projection store            |
 | `packages/desktop`  | Electron main/preload/renderer/host 壳                   |
-| `apps/escode-cli`    | Agent core、command、projection 与 app-server            |
+| `apps/escode-cli`   | Agent core、command、projection 与 app-server            |
 
 ```text
 UI -> hooks/types -> service/protocol contracts

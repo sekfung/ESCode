@@ -1,6 +1,4 @@
-import {
-  type ESCodeProvider,
-} from "@escode/shared";
+import { type ESCodeProvider } from "@escode/shared";
 
 const BOT_NATIVE_MODEL_PROVIDER_PREFIX = "native:";
 

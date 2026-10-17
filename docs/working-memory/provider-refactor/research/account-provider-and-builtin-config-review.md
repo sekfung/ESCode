@@ -386,7 +386,7 @@ replayable、workspace identity、队列或任务恢复。
 | ACCOUNT-PLAN-002 | Z.ai/BigModel Team Provider       | 成员顺序为 5.3、5.3 Flash、5.2、5-Turbo | accepted |
 | ACCOUNT-PLAN-003 | Start/Individual/Team 任一成员    | Effective input 支持 Image/Video        | accepted |
 | ACCOUNT-PLAN-004 | 普通 Account API + GLM-5.3        | 原生事实保持文本；不报错不视为视觉支持  | accepted |
-| ACCOUNT-PLAN-005 | 普通 Account API + GLM-5.3-Flash  | 原生 Image/Video；ESCode 图片端到端可用  | accepted |
+| ACCOUNT-PLAN-005 | 普通 Account API + GLM-5.3-Flash  | 原生 Image/Video；ESCode 图片端到端可用 | accepted |
 | ACCOUNT-PLAN-006 | Team Plan + GLM-5.2/5.3 Flash     | 有语义截图均能被准确理解                | accepted |
 | ACCOUNT-PLAN-007 | 普通 Account API 携带图片         | 服务可容忍，但模型不消费视觉内容        | accepted |
 

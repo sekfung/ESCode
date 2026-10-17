@@ -2,14 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
@@ -28,15 +21,7 @@ async function write(path: string, content: string) {
 const git = (cwd: string, ...args: string[]) =>
   execFileSync(
     "git",
-    [
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@e",
-      "-c",
-      "commit.gpgsign=false",
-      ...args,
-    ],
+    ["-c", "user.name=t", "-c", "user.email=t@e", "-c", "commit.gpgsign=false", ...args],
     {
       cwd,
       encoding: "utf8",
@@ -112,13 +97,7 @@ async function observe(kind: Runtime, gitBinary?: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -161,21 +140,10 @@ async function observe(kind: Runtime, gitBinary?: string) {
         // clone 临时目录名的随机后缀（Node mkdtemp vs Rust uuid）不确定。
         .replace(/escode-plugin-src-[A-Za-z0-9-]+/g, "escode-plugin-src-<tmp>")
         .replace(/20\d\d-\d\d-\d\dT[\d:.]+Z/g, "<time>")
-        .replace(
-          /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
-          "<uuid>",
-        );
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>");
     const names = gitBinary
       ? ["gitplain"]
-      : [
-          "gitplain",
-          "gitref",
-          "gitsha",
-          "subdir",
-          "missingsub",
-          "badrepo",
-          "nourl",
-        ];
+      : ["gitplain", "gitref", "gitsha", "subdir", "missingsub", "badrepo", "nourl"];
     const observation: Record<string, unknown> = {};
     for (const name of names) {
       const result = (await h.client.request(
@@ -191,9 +159,7 @@ async function observe(kind: Runtime, gitBinary?: string) {
             // git 子进程报错的原文来自各自的进程封装（execFile vs Rust），只比对 code；其余逐字。
             diagnostics: result.diagnostics.map((d: any) => ({
               code: d.code,
-              message: d.message.startsWith("Command failed")
-                ? "<git failure>"
-                : d.message,
+              message: d.message.startsWith("Command failed") ? "<git failure>" : d.message,
             })),
           }),
         ),
@@ -236,8 +202,5 @@ test("Node and Rust report an unavailable system Git the same way", async () => 
   const node = await observe("node", missing);
   const rust = await observe("rust", missing);
   assert.deepEqual(rust, node);
-  assert.equal(
-    (node.gitplain as any).diagnostics[0].code,
-    "plugin_git_unavailable",
-  );
+  assert.equal((node.gitplain as any).diagnostics[0].code, "plugin_git_unavailable");
 });

@@ -11,7 +11,9 @@ import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const script = ['const paths = await files.glob("*.txt");', "return { count: paths.length };"].join("\n");
+const script = ['const paths = await files.glob("*.txt");', "return { count: paths.length };"].join(
+  "\n",
+);
 
 const call = (id: string, name: string, args: unknown) => ({
   tool_calls: [
@@ -19,7 +21,9 @@ const call = (id: string, name: string, args: unknown) => ({
   ],
 });
 const toolResult = (req: any, id: string) =>
-  String(req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "");
+  String(
+    req?.messages?.find((m: any) => m.role === "tool" && m.tool_call_id === id)?.content ?? "",
+  );
 
 async function observe(kind: "node" | "rust") {
   const root = await mkdtemp(join(tmpdir(), `escode-workflow-task-output-${kind}-`));
@@ -34,7 +38,10 @@ async function observe(kind: "node" | "rust") {
       const runId = /dwfrun-[A-Za-z0-9_-]+/.exec(toolResult(req, "cw-1"))?.[0] ?? "missing";
       event(res, call("to-1", "TaskOutput", { task_id: runId, block: true, timeout: 30000 }));
     } else if (n === 4) {
-      event(res, call("to-2", "TaskOutput", { task_id: "dwfrun-unknown", block: false, timeout: 0 }));
+      event(
+        res,
+        call("to-2", "TaskOutput", { task_id: "dwfrun-unknown", block: false, timeout: 0 }),
+      );
     } else event(res, { content: "done" });
     end(res, n <= 4 ? "tool_calls" : "stop");
   };

@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
   "ignorePatterns": [
     "packages/desktop/src/renderer/src/plugin-sandbox/genUiTweakRuntime.js",
     "apps/escode-cli/packages/visualize-plugin/skills/visualize/assets/**",
@@ -10,6 +11,16 @@
     "third-party/runtime/*.txt",
     "docs/knip/docs/LICENSE",
     "docs/knip/docs/licenses/**",
-    "docs/electron/docs/**"
+    "docs/electron/docs/**",
+    // 以下 golden/corpus 由生成脚本按固定 JSON 字节写出，对应 --check 门禁逐字比较；
+    // 交给 oxfmt 改写换行会让生成物与脚本输出不一致，因此只由生成器维护。
+    "apps/escode-cli-rust/crates/domain/src/*.json",
+    "apps/escode-cli-rust/crates/domain/tests/fixtures/*.json",
+    "apps/escode-cli-rust/crates/protocol/src/command_schema.json",
+    "apps/escode-cli-rust/crates/state/tests/fixtures/*.json",
+    "apps/escode-cli-rust/crates/tools/src/*.json",
+    "apps/escode-cli-rust/crates/tools/tests/fixtures/*.json",
+    "apps/escode-host/crates/**/*_golden.json",
+    "apps/escode-host/crates/**/*.golden.json"
   ]
 }

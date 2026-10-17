@@ -30,37 +30,80 @@ test("settings-page CA is trusted by Node and Rust", async () => {
     extensions = join(temp, "leaf.ext");
   const openssl = (...args: string[]) => promisify(execFile)("openssl", args);
   await openssl(
-    "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", caKey, "-out", caCert, "-days", "1",
-    "-subj", "/CN=ESCode Test CA",
-    "-addext", "basicConstraints=critical,CA:TRUE",
-    "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+    "req",
+    "-x509",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    caKey,
+    "-out",
+    caCert,
+    "-days",
+    "1",
+    "-subj",
+    "/CN=ESCode Test CA",
+    "-addext",
+    "basicConstraints=critical,CA:TRUE",
+    "-addext",
+    "keyUsage=critical,keyCertSign,cRLSign",
   );
   await openssl(
-    "req", "-new", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", leafKey, "-out", leafCsr, "-subj", "/CN=127.0.0.1",
+    "req",
+    "-new",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    leafKey,
+    "-out",
+    leafCsr,
+    "-subj",
+    "/CN=127.0.0.1",
   );
   await writeFile(
     extensions,
-    ["basicConstraints=critical,CA:FALSE", "keyUsage=critical,digitalSignature,keyEncipherment", "extendedKeyUsage=serverAuth", "subjectAltName=IP:127.0.0.1,DNS:localhost", ""].join("\n"),
+    [
+      "basicConstraints=critical,CA:FALSE",
+      "keyUsage=critical,digitalSignature,keyEncipherment",
+      "extendedKeyUsage=serverAuth",
+      "subjectAltName=IP:127.0.0.1,DNS:localhost",
+      "",
+    ].join("\n"),
   );
   await openssl(
-    "x509", "-req", "-in", leafCsr, "-CA", caCert, "-CAkey", caKey,
-    "-CAcreateserial", "-out", leafCert, "-days", "1", "-extfile", extensions,
+    "x509",
+    "-req",
+    "-in",
+    leafCsr,
+    "-CA",
+    caCert,
+    "-CAkey",
+    caKey,
+    "-CAcreateserial",
+    "-out",
+    leafCert,
+    "-days",
+    "1",
+    "-extfile",
+    extensions,
   );
-  const server = createServer({ key: await readFile(leafKey), cert: await readFile(leafCert) }, (req, res) => {
-    req.setEncoding("utf8");
-    let body = "";
-    req.on("data", (chunk: string) => (body += chunk));
-    req.on("end", () => {
-      requests++;
-      const request = JSON.parse(body);
-      if (titleRequest(request)) return titleReply(res, request, "");
-      res.writeHead(200, { "content-type": "text/event-stream" });
-      event(res, { content: "trusted" });
-      end(res, "stop");
-    });
-  });
+  const server = createServer(
+    { key: await readFile(leafKey), cert: await readFile(leafCert) },
+    (req, res) => {
+      req.setEncoding("utf8");
+      let body = "";
+      req.on("data", (chunk: string) => (body += chunk));
+      req.on("end", () => {
+        requests++;
+        const request = JSON.parse(body);
+        if (titleRequest(request)) return titleReply(res, request, "");
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        event(res, { content: "trusted" });
+        end(res, "stop");
+      });
+    },
+  );
   let tlsErrors = 0;
   let requests = 0;
   server.on("tlsClientError", () => {
@@ -108,7 +151,8 @@ test("settings-page CA is trusted by Node and Rust", async () => {
             .then(() => "error" as const),
         ]).catch((error: unknown) => `threw:${error instanceof Error ? error.message : error}`);
         const messages = JSON.stringify(h.messages);
-        const detail = settled === "error" ? (messages.match(/"message":"([^"]{0,120})/) ?? [])[1] : "";
+        const detail =
+          settled === "error" ? (messages.match(/"message":"([^"]{0,120})/) ?? [])[1] : "";
         observed.push(
           `${kind}:${
             settled === "completed"

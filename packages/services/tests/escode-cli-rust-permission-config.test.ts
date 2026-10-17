@@ -28,11 +28,7 @@ function writeCall(res: any, id: string) {
   end(res, "tool_calls");
 }
 
-async function observe(
-  kind: Runtime,
-  permission: Record<string, unknown>,
-  mode: "build" | "yolo",
-) {
+async function observe(kind: Runtime, permission: Record<string, unknown>, mode: "build" | "yolo") {
   let step = 0;
   const respond = (_req: any, res: any) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
@@ -53,10 +49,7 @@ async function observe(
       : await fixture({ registry: true, respond });
   // 两端都读 `~/.escode/cli/config.json`（fixture 的 HOME=root），进程启动前写入即可。
   await mkdir(join(f.root, ".escode", "cli"), { recursive: true });
-  await writeFile(
-    join(f.root, ".escode", "cli", "config.json"),
-    JSON.stringify({ permission }),
-  );
+  await writeFile(join(f.root, ".escode", "cli", "config.json"), JSON.stringify({ permission }));
   try {
     await configureRegistry(f);
     const h = f.start();

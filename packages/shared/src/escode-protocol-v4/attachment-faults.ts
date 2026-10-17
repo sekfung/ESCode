@@ -66,7 +66,9 @@ export class ESCodeAttachmentFaultError extends Error {
  * - 跨 JSON-RPC 回传的 `error.data.code`；
  * - 旧版本 CLI 只有消息文本时的兼容兜底（见下方注释）。
  */
-export function readESCodeAttachmentFaultCode(error: unknown): ESCodeAttachmentFaultCode | undefined {
+export function readESCodeAttachmentFaultCode(
+  error: unknown,
+): ESCodeAttachmentFaultCode | undefined {
   if (!error || typeof error !== "object") return undefined;
   const candidate = error as { code?: unknown; data?: unknown };
   if (isESCodeAttachmentFaultCode(candidate.code)) return candidate.code;

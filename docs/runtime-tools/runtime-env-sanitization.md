@@ -4,15 +4,15 @@ ESCode runtime processes must not let ambient shell variables silently change ap
 
 ## Environment Roles
 
-| Variable                          | Role                                                                     | Inheritance                                                            |
-| --------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `ESCODE_ENV`                       | Product environment for API/OAuth endpoints (`test` / `production`)      | Explicitly injected by app/build/runtime config                        |
+| Variable                           | Role                                                                      | Inheritance                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ESCODE_ENV`                       | Product environment for API/OAuth endpoints (`test` / `production`)       | Explicitly injected by app/build/runtime config                        |
 | `ESCODE_RUNTIME_ENV`               | Runtime shape for ESCode behavior (`development` / `production` / `test`) | Explicitly injected by app/CLI runtime setup                           |
 | `ESCODE_HTTP_PROXY`                | Explicit ESCode proxy override                                            | Preserved and used by app/provider/network adapters                    |
 | `ESCODE_NO_PROXY`                  | Explicit ESCode proxy bypass rules                                        | Preserved and used by app/provider/network adapters                    |
 | `ESCODE_AGENT_CA_CERT`             | Explicit ESCode CA file for agent/model egress                            | Preserved and used by app/provider/network adapters                    |
-| `ESCODE_TOOL_ENV_PASSTHROUGH_JSON` | Internal envelope for captured user proxy/CA env                         | Preserved across app/agent/CLI, expanded only when spawning user tools |
-| `NODE_ENV`                        | Node ecosystem/build convention                                          | Not used for ESCode runtime decisions and not inherited by default      |
+| `ESCODE_TOOL_ENV_PASSTHROUGH_JSON` | Internal envelope for captured user proxy/CA env                          | Preserved across app/agent/CLI, expanded only when spawning user tools |
+| `NODE_ENV`                         | Node ecosystem/build convention                                           | Not used for ESCode runtime decisions and not inherited by default     |
 
 ## Sanitized Ambient Variables
 

@@ -31,13 +31,10 @@ import {
 } from "@/lib/interfaceMode.js";
 import { logger } from "@/logger.js";
 
-
 // v4 重构：类型与默认值下沉到 @/lib/codePreviewSettings.ts，
 // 让纯展示组件不依赖 store；这里保留 re-export 兼容既有 import 路径。
 export type { CodePreviewSettings } from "@/lib/codePreviewSettings.js";
 export { DEFAULT_CODE_PREVIEW_SETTINGS } from "@/lib/codePreviewSettings.js";
-
-
 
 const CODE_PREVIEW_SETTINGS_KEY = "escode-code-preview-settings";
 const PERFORMANCE_MODE_STORAGE_KEY = "escode-performance-mode";
@@ -103,7 +100,6 @@ export interface ESCodeState {
   /** 是否启用任务通知声音（依附于任务通知总开关） */
   notificationSoundEnabled: boolean;
   setNotificationSoundEnabled: (enabled: boolean) => void;
-
 
   /** 手动请求打开 onboarding 弹窗 */
   newUserOnboardingOpen: boolean;
@@ -211,7 +207,6 @@ export function createESCodeStore(broadcastService: IBroadcastService) {
       set({ notificationSoundEnabled: enabled });
     },
 
-
     newUserOnboardingOpen: false,
     setNewUserOnboardingOpen: (open) => set({ newUserOnboardingOpen: open }),
     onboardingDialogRequested: false,
@@ -276,7 +271,6 @@ export function createESCodeStore(broadcastService: IBroadcastService) {
 
   // 监听来自其他窗口的广播
   broadcastService.onMessage((msg: BroadcastMessage) => {
-
     if (!msg.channel.startsWith(STATE_CHANNEL_PREFIX)) return;
 
     const field = msg.channel.slice(STATE_CHANNEL_PREFIX.length) as BroadcastField;

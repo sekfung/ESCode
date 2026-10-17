@@ -18,14 +18,14 @@ TS 新导入从一致性备份读取 todo 表。旧版本已导入却缺少 todo
 
 新增 7 项真实 Rust 子进程 / App client/schema 测试，覆盖 TS handler 差分、顺序屏障、双订阅、严格输入、空列表、会话隔离、提醒跨重启、中文大结果预算、压缩/关闭/恢复，以及 TS 首次导入与已提交备份补齐。新增 1 项 Rust 受控存储测试覆盖状态提交、canonical 提交失败和两者之间的崩溃恢复；已有 stale run fixture 加入 Todo 事件，验证其不能修改当前状态。另新增 1 项提醒阈值单测。
 
-| 检查                                            | 结果                                   |
-| ----------------------------------------------- | -------------------------------------- |
+| 检查                                             | 结果                                   |
+| ------------------------------------------------ | -------------------------------------- |
 | `CARGO_INCREMENTAL=0 pnpm test:escode-cli-rust`  | 49 Rust / 134 App，通过；0 跳过        |
 | `CARGO_INCREMENTAL=0 pnpm check:escode-cli-rust` | 原生边界、fmt、Clippy -D warnings 通过 |
-| `pnpm typecheck`                                | 通过                                   |
-| `pnpm lint`                                     | 0 错误，既有 70 条警告                 |
-| `pnpm fmt:check`                                | 通过                                   |
-| `pnpm architecture:check --changed`             | 0 违反，0 新增                         |
+| `pnpm typecheck`                                 | 通过                                   |
+| `pnpm lint`                                      | 0 错误，既有 70 条警告                 |
+| `pnpm fmt:check`                                 | 通过                                   |
+| `pnpm architecture:check --changed`              | 0 违反，0 新增                         |
 
 日志位于 `.escode-runtime/rust-e2e/20260922/checks/todos/`。最终 App 集成测试耗时 23231.8ms，仅作本次运行记录，不作为 release 性能对比。
 

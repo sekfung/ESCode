@@ -140,7 +140,7 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     const { container } = renderActivity(fakeController(renderableBanner), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).not.toBeNull();
-    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
+    expect(container.querySelector("[data-global-notice-type]")).toBeNull();
   });
 
   it("banner 不可见时槽位不渲染遗留 highspeed 通知卡", () => {
@@ -149,7 +149,7 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     const { container } = renderActivity(fakeController(null), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
+    expect(container.querySelector("[data-global-notice-type]")).toBeNull();
   });
 
   it("两者都不可见 → 槽位不产生多余内容", () => {
@@ -157,7 +157,7 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     const { container } = renderActivity(fakeController(null), noticeStore);
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
+    expect(container.querySelector("[data-global-notice-type]")).toBeNull();
   });
 
   it("banner 关闭后（store 更新为 null）槽位清空，不残留过期卡片", () => {
@@ -171,6 +171,6 @@ describe("SidebarBottomActivity 共享槽位仲裁", () => {
     });
 
     expect(container.querySelector('[data-testid="marketing-banner-stub"]')).toBeNull();
-    expect(container.querySelector('[data-global-notice-type]')).toBeNull();
+    expect(container.querySelector("[data-global-notice-type]")).toBeNull();
   });
 });

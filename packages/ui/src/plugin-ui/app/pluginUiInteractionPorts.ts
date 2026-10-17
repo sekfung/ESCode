@@ -6,7 +6,10 @@ import type {
   PluginSandboxHandle,
   PluginSandboxPlatformPort,
 } from "@escode/shared/mcp-apps";
-import { MCP_APPS_SET_WIDGET_STATE_METHOD, concatMcpAppsTextContent } from "@escode/shared/mcp-apps";
+import {
+  MCP_APPS_SET_WIDGET_STATE_METHOD,
+  concatMcpAppsTextContent,
+} from "@escode/shared/mcp-apps";
 import { z } from "zod";
 import type { PluginUiHostBridge } from "./pluginUiHostBridge.js";
 

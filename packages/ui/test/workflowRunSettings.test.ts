@@ -2,7 +2,10 @@
 // 命令见 docs/dynamic-workflow/launch.md「Changing a run's settings from the GUI」）：哪些 run 能配、
 // 表单起点、Apply 发什么、被拒说哪句话、转写行与来龙去脉的措辞、借图规则与侧栏 tab 的原地替换。
 import { describe, expect, it } from "vitest";
-import type { WorkflowRunState, WorkflowSettingsAmendMeta } from "@escode/shared/escode-protocol-v4";
+import type {
+  WorkflowRunState,
+  WorkflowSettingsAmendMeta,
+} from "@escode/shared/escode-protocol-v4";
 import {
   clampWorkflowRunSettingsBound,
   describeWorkflowRunSettingsRejection,

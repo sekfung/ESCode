@@ -8,7 +8,9 @@
     "verbatimModuleSyntax": false,
     "paths": {
       "@escode/contracts": ["../../../apps/escode-cli/packages/contracts/src/index.ts"],
-      "@escode/dynamic-workflow": ["../../../apps/escode-cli/packages/dynamic-workflow/src/index.ts"],
+      "@escode/dynamic-workflow": [
+        "../../../apps/escode-cli/packages/dynamic-workflow/src/index.ts"
+      ],
       "@escode/model-option-map": ["../../model-option-map/src/index.ts"]
     }
   },

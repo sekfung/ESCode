@@ -170,7 +170,7 @@ provider id 分流，也不会把该 key 透传给闲时模型上游。
 | ZAI + `coding-plan:builtin:zai-coding-plan`                                                                 | 选中 ZAI Coding Plan provider 的原始业务 API Key                                  | 支持                                      |
 | BigModel + `coding-plan:builtin:bigmodel-coding-plan`                                                       | 选中 BigModel 个人 Coding Plan provider 的原始 API Key                            | 支持                                      |
 | BigModel + 完整 `team-plan:builtin:bigmodel-coding-plan:<product>:<organization>:<project>`                 | 复用 Team Plan runtime-key resolver，按选中组织/项目取得 `${apiKey}.${secretKey}` | **客户端已支持；test 后端 verifier 阻塞** |
-| ZAI / BigModel Start Plan                                                                                   | Start Plan 只有 escode JWT，不是 Coding Plan API Key                               | **拒绝**                                  |
+| ZAI / BigModel Start Plan                                                                                   | Start Plan 只有 escode JWT，不是 Coding Plan API Key                              | **拒绝**                                  |
 | API Key 模式、family/连接未选中、登录 provider 与所选 family 不一致、连接缺失/disabled/stale、畸形 Team key | 无与当前选择一致的 Coding Plan runtime credential                                 | **拒绝**                                  |
 
 `providerFamilyDomain`、family mode 与 `modelProviderFamilySelectedKeys` 是执行选择真源。禁止扫描所有
@@ -523,15 +523,15 @@ setCustomSessionTitle）；卡片活状态订阅；本地额度计数；绑定/�
 
 ## 6. 复用点速查（feat/cron 基建）
 
-| 复用                                          | 位置                                                           |
-| --------------------------------------------- | -------------------------------------------------------------- |
-| scheduler utility process + 事务认领模式      | `packages/desktop/src/scheduler/`                              |
-| tasks-index.sqlite + Repo 模式                | `packages/services/src/session/automationRepo.ts` 仿写         |
-| dispatch→main→host→createTask/sendPrompt 管道 | `desktopCronScheduler.ts` / host 域                            |
+| 复用                                          | 位置                                                            |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| scheduler utility process + 事务认领模式      | `packages/desktop/src/scheduler/`                               |
+| tasks-index.sqlite + Repo 模式                | `packages/services/src/session/automationRepo.ts` 仿写          |
+| dispatch→main→host→createTask/sendPrompt 管道 | `desktopCronScheduler.ts` / host 域                             |
 | 权限模式                                      | `ESCodeTaskMode` 现有 `bypassPermissions` / `default`，无新模式 |
-| 敏感操作确认                                  | 现有 permission_request / elicitation 链路                     |
-| 通知                                          | `desktopNotifications.ts`                                      |
-| 内置不可见 provider                           | Start plan 机制（provider 注入路径核对后复用）                 |
+| 敏感操作确认                                  | 现有 permission_request / elicitation 链路                      |
+| 通知                                          | `desktopNotifications.ts`                                       |
+| 内置不可见 provider                           | Start plan 机制（provider 注入路径核对后复用）                  |
 
 ## 7. 明确不做（v1 砍掉清单——需与产品对齐）
 

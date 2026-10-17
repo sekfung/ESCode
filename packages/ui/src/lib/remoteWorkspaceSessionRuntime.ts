@@ -1,6 +1,9 @@
 import type { ESCodeTaskRuntimeStatus } from "@escode/shared";
 import { getWorkspaceDisplayedTaskState } from "@/store/escodeSessionStore.js";
-import type { ESCodeSessionStoreState, WorkspaceESCodeUIState } from "@/store/escodeSessionStore.js";
+import type {
+  ESCodeSessionStoreState,
+  WorkspaceESCodeUIState,
+} from "@/store/escodeSessionStore.js";
 
 interface RemoteWorkspaceRuntimeTab {
   workspacePath: string;

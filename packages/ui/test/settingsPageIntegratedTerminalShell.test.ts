@@ -144,7 +144,6 @@ vi.mock("@/hooks/useModelProviders.js", () => ({
   useModelProviders: () => ({ loading: false, modelProviders: [] }),
 }));
 
-
 vi.mock("@/store/StoreProvider.js", () => ({
   useESCodeStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
@@ -183,9 +182,6 @@ vi.mock("@/lib/settingsNavigation.js", () => ({
   shouldFallbackSettingsUsageTabToApp: () => false,
   writeLastSettingsSectionPreference: vi.fn(),
 }));
-
-
-
 
 vi.mock("@/settings/ModelProviderSection.js", () => ({
   ModelProviderSection: () => null,

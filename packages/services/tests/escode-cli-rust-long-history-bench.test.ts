@@ -98,10 +98,14 @@ async function seed(path: string, modelId: string) {
 }
 
 async function providerFiles(root: string) {
-  const config = JSON.parse(await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"));
+  const config = JSON.parse(
+    await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
+  );
   const p = config.provider[providerId!];
   const modelId = process.env.ESCODE_BENCH_MODEL ?? Object.keys(p.models ?? {})[0];
-  const builtin = JSON.parse(await readFile(resolve("config/provider/escode-builtin.json"), "utf8"));
+  const builtin = JSON.parse(
+    await readFile(resolve("config/provider/escode-builtin.json"), "utf8"),
+  );
   builtin.config.providerConfigRules.providerRules = [];
   await writeFile(join(root, "builtin.json"), JSON.stringify(builtin));
   await writeFile(

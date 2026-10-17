@@ -120,7 +120,6 @@ function runSettingsActionAsync<T>(options: {
   });
 }
 
-
 function SettingsSidebarButton({
   icon: Icon,
   label,
@@ -281,9 +280,7 @@ export function SettingsPage({
   const notificationSoundEnabled = useESCodeStore((state) => state.notificationSoundEnabled);
   const setNotificationSoundEnabled = useESCodeStore((state) => state.setNotificationSoundEnabled);
 
-  const [initialModelProviderTarget] = useState(() =>
-    consumePendingSettingsModelProviderTarget(),
-  );
+  const [initialModelProviderTarget] = useState(() => consumePendingSettingsModelProviderTarget());
   const [pendingModelProviderTarget, setPendingModelProviderTarget] = useState<
     SettingsModelProviderTarget | undefined
   >(() => initialModelProviderTarget);
@@ -1408,7 +1405,9 @@ export function SettingsPage({
                             onToolGroupingChangesEnabledChange={
                               handleToolGroupingChangesEnabledChange
                             }
-                            onESCodeInteractionBehaviorChange={handleESCodeInteractionBehaviorChange}
+                            onESCodeInteractionBehaviorChange={
+                              handleESCodeInteractionBehaviorChange
+                            }
                             onAskUserQuestionAutoResolutionEnabledChange={
                               handleAskUserQuestionAutoResolutionEnabledChange
                             }
@@ -1538,7 +1537,8 @@ export function SettingsPage({
                             isDesktop={isDesktop}
                           />
                         ) : activeSection === "usage" ? (
-<UsageStatsSection />                        ) : activeSection === "subagents" ? (
+                          <UsageStatsSection />
+                        ) : activeSection === "subagents" ? (
                           <SubagentsSection
                             onManageModels={handleOpenModelProviderSettings}
                             workspacePath={activeWorkspacePath}

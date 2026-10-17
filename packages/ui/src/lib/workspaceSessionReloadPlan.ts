@@ -13,7 +13,9 @@ interface WorkspaceSessionReloadDraftErrorContext {
   provider: ESCodeProvider;
 }
 
-export function buildWorkspaceSessionReloadPlan(activeTaskId: string | null): WorkspaceSessionReloadPlan {
+export function buildWorkspaceSessionReloadPlan(
+  activeTaskId: string | null,
+): WorkspaceSessionReloadPlan {
   const resumeTaskId = activeTaskId?.trim();
 
   if (!resumeTaskId) {

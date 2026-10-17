@@ -4,9 +4,9 @@
 
 | 问题             | TS 行为                                                                                       | Rust 原行为                                                                                                                           | 处理                                                                                                                                 |
 | ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| realpath 形态    | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `escode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                           |
+| realpath 形态    | `fs.realpath` 返回 `C:\...`                                                                   | `canonicalize` 返回 `\\?\C:\...`，进入 prompt、工具输出和路径比较                                                                     | 统一走 `escode_cli_host::realpath`（剥离 verbatim 前缀，UNC 转 `\\srv\share`），禁止直接调用 `canonicalize`                          |
 | 模型可见路径     | 工具 `file_path` 只做词法归一（`resolveWorkspacePath`：折叠 `.`/`..`，不解析软链接/8.3 短名） | 工具结果 `filePath` 与媒体 Read 文案走 realpath，Windows（`RUNNER~1`→`runneradmin`）与 macOS（`/var`→`/private/var`）下与 Node 不一致 | 词法解析收敛到 `crates/tools/src/lexical_path.rs`（Node `path.resolve` 语义），模型可见路径一律用它；realpath 仅保留给状态键与检查点 |
-| 路径拼接         | `path.join` 使用平台分隔符                                                                    | `join(".escode/AGENTS.md")` 生成 `\.escode/AGENTS.md` 混合分隔符                                                                        | 所有多段字面量改为逐段 `join`                                                                                                        |
+| 路径拼接         | `path.join` 使用平台分隔符                                                                    | `join(".escode/AGENTS.md")` 生成 `\.escode/AGENTS.md` 混合分隔符                                                                      | 所有多段字面量改为逐段 `join`                                                                                                        |
 | OS Version       | `os.release()` = `10.0.26100`                                                                 | `Version.ToString()` = `10.0.26100.0`                                                                                                 | 输出 `major.minor.build`                                                                                                             |
 | 生成资产换行     | —                                                                                             | `core.autocrlf` 检出 CRLF，漂移检查误报                                                                                               | `.gitattributes` 固定 LF                                                                                                             |
 | 记忆模板分隔符   | 运行时追加 `path.sep`                                                                         | 资产固化生成机分隔符                                                                                                                  | `{sep}` 占位，运行时填充                                                                                                             |
@@ -94,7 +94,6 @@ App 差分套件（`packages/services/tests/escode-cli-rust-*.test.ts`）的准�
   `cd apps/escode-cli && ../../node_modules/.bin/turbo run typecheck`。
 - `pnpm fmt:check` 在全仓库有大量既有失败（`.agents/skills/*`、`docs/electron` 镜像等），只对自己改过的文件跑
   `npx oxfmt <files>`。
-
 
 ## 性能：prompt 快照不再启动 PowerShell
 

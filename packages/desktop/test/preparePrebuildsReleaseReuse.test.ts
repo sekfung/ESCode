@@ -546,9 +546,9 @@ describe("ESCODE_REMOTE_ASSET_PLATFORMS", () => {
       "darwin-arm64",
       "darwin-x64",
     ]);
-    expect(resolveRemotePlatforms({ ESCODE_REMOTE_ASSET_PLATFORMS: " linux-x64 ,linux-x64" })).toEqual([
-      "linux-x64",
-    ]);
+    expect(
+      resolveRemotePlatforms({ ESCODE_REMOTE_ASSET_PLATFORMS: " linux-x64 ,linux-x64" }),
+    ).toEqual(["linux-x64"]);
   });
 
   it("不支持的平台直接失败，而不是静默产出不完整的 release", async () => {

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ESCodeElicitationRequest, ESCodePermissionOption, ESCodeProvider } from "@escode/shared";
+import type {
+  ESCodeElicitationRequest,
+  ESCodePermissionOption,
+  ESCodeProvider,
+} from "@escode/shared";
 import type { ConversationSnapshot } from "@escode/shared/escode-protocol-v4";
 import { ElicitationDialog } from "@/ElicitationDialog.js";
 import { PermissionDialog } from "@/PermissionDialog.js";

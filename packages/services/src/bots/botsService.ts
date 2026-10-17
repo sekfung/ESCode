@@ -8723,7 +8723,10 @@ export function createBotsService(
             if (!alias) continue;
             // 默认会话可能已切换工作区；迁移检查必须使用旧任务自己的完整工作区身份。
             const workspace = group.taskWorkspaces?.[alias.taskId] ?? candidate;
-            const service = await resolveESCodeTaskServiceForContext({ ...candidate, ...workspace });
+            const service = await resolveESCodeTaskServiceForContext({
+              ...candidate,
+              ...workspace,
+            });
             if (
               !service.getBotGroupTaskBlockReason ||
               (await service.getBotGroupTaskBlockReason({

@@ -184,7 +184,9 @@ export function createClientConfigService(dependencies: {
     async getOffPeakClientConfig(options = {}) {
       const { forceRefresh } = clientConfigReadOptionsSchema.parse(options);
       const env = process.env;
-      const modelSelectionView = (await dependencies.resolveOffPeakModelSelectionView?.()) ?? EMPTY_OFF_PEAK_MODEL_SELECTION_VIEW;
+      const modelSelectionView =
+        (await dependencies.resolveOffPeakModelSelectionView?.()) ??
+        EMPTY_OFF_PEAK_MODEL_SELECTION_VIEW;
       if (env["ESCODE_OFFPEAK_MOCK"] === "1") {
         // mock 已经明确替代远端曝光配置，不能再先等待 /client/configs：
         // 离线 Desktop E2E 会一直停在 Loading，根本无法进入闲时执行链。

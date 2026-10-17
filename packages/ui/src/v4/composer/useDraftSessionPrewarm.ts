@@ -12,7 +12,11 @@
 // 结构：生命周期收敛在纯控制器 startDraftSessionPrewarm（可单测，无 React 依赖），
 // useDraftSessionPrewarm 只做 effect 接线与 owner-scoped binding 暴露。
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import type { CommandAck, CommandType, SessionConfigState } from "@escode/shared/escode-protocol-v4";
+import type {
+  CommandAck,
+  CommandType,
+  SessionConfigState,
+} from "@escode/shared/escode-protocol-v4";
 import { logger } from "@/logger.js";
 
 type DispatchCommand = (
@@ -45,13 +49,7 @@ export function startDraftSessionPrewarm(params: {
   /** 预热会话初始 config（全局「上次选择」，同步解析）；让投影首帧即全局、不闪。 */
   resolveInitialConfig?: () => Partial<SessionConfigState> | undefined;
 }): DraftPrewarmController {
-  const {
-    workspaceKey,
-    dispatchCommand,
-    onReady,
-    onSettled,
-    resolveInitialConfig,
-  } = params;
+  const { workspaceKey, dispatchCommand, onReady, onSettled, resolveInitialConfig } = params;
   let disposed = false;
   let promotionState: "draft" | "pending" | "promoted" | "discarded" = "draft";
   let createdSessionId: string | null = null;
