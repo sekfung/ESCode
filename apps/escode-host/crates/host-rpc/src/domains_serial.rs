@@ -28,38 +28,11 @@ fn serial_error(error: escode_host_services::serial::transport::SerialOpenError)
     RpcError::new("SerialError", error.message).with("code", Value::from(error.code))
 }
 
-/// `bytes` 参数：RPC 对**对象里的** `Uint8Array` 会加标记 `{__escode_rpc_nested_uint8array_v1, base64}`；
-/// 纯数字数组（测试或 JSON 直发）也接受。
+/// `bytes` 参数：对象里的 `Uint8Array` 由 `@escode/rpc` 加协议标记（`wire_bytes`）。
 fn param_bytes(params: &Value) -> Result<Vec<u8>, RpcError> {
-    use base64::Engine as _;
-    let raw = &params["bytes"];
-    if raw
-        .get("__escode_rpc_nested_uint8array_v1")
-        .and_then(Value::as_bool)
-        == Some(true)
-        && let Some(text) = raw.get("base64").and_then(Value::as_str)
-    {
-        return base64::engine::general_purpose::STANDARD
-            .decode(text)
-            .map_err(|error| {
-                RpcError::new("SerialError", format!("Invalid bytes: {error}"))
-                    .with("code", Value::from("invalidInput"))
-            });
-    }
-    if let Some(items) = raw.as_array() {
-        return Ok(items
-            .iter()
-            .filter_map(Value::as_u64)
-            .map(|byte| byte as u8)
-            .collect());
-    }
-    if raw.is_null() {
-        return Ok(Vec::new());
-    }
-    Err(
-        RpcError::new("SerialError", "bytes must be a Uint8Array".to_owned())
-            .with("code", Value::from("invalidInput")),
-    )
+    crate::wire_bytes::decode(&params["bytes"]).map_err(|message| {
+        RpcError::new("SerialError", message).with("code", Value::from("invalidInput"))
+    })
 }
 
 pub(crate) fn serial_channel(_context: &ConnectionContext) -> Channel {

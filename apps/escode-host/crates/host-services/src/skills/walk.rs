@@ -15,6 +15,11 @@ pub(super) fn sorted_entries(dir: &Path) -> std::io::Result<Vec<std::fs::DirEntr
 }
 
 /// TS `walkSkillMarkdownPaths`。
+pub(crate) fn walk_markdown_paths(root: &Path) -> BTreeSet<PathBuf> {
+    let mut diagnostics = Vec::new();
+    walk(root, &mut diagnostics)
+}
+
 pub(super) fn walk(root: &Path, diagnostics: &mut Vec<Value>) -> BTreeSet<PathBuf> {
     let mut found = BTreeSet::new();
     let mut stack: Vec<(PathBuf, usize)> = vec![(root.to_path_buf(), 0)];

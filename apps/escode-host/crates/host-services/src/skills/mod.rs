@@ -3,10 +3,11 @@
 mod discover;
 pub mod frontmatter;
 mod plugin_roots;
-mod policy;
+pub(crate) mod policy;
 mod service;
 mod service_support;
-mod walk;
+pub(crate) mod walk;
 
 pub use discover::Compare;
 pub use service::{SkillsError, SkillsService};
+pub(crate) use walk::walk_markdown_paths;

@@ -915,6 +915,7 @@ dependencies = [
  "escode-cli-net",
  "escode-host-control",
  "escode-host-core",
+ "flate2",
  "futures-util",
  "ignore",
  "libc",

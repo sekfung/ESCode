@@ -23,6 +23,7 @@ pub mod provider;
 pub mod serial;
 pub mod session_params;
 pub mod settings;
+pub mod skill_sync;
 pub mod skills;
 pub mod subagents;
 pub mod system_probe;

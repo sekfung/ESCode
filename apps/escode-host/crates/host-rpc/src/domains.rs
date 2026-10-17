@@ -135,6 +135,7 @@ pub fn channels_with(
     // `git` 与 `git-checkpoint` 共用 Host 内唯一的 GitService（二进制探测与折叠态只有一份）。
     let git_service = crate::domains_git::git_service();
     let home_for_file = home.clone();
+    let home_for_skill_sync = home.clone();
     let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
@@ -191,6 +192,7 @@ pub fn channels_with(
         setting_channel(home.clone(), data_base_dir_for_setting),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
+        crate::domains_skill_sync::skill_sync_channel(&home_for_skill_sync),
         crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(
             git_service.clone(),

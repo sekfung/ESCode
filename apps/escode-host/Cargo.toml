@@ -49,6 +49,8 @@ unnecessary_to_owned = "deny"
 anyhow = "1"
 libc = "0.2"
 saphyr = { version = "0.1", default-features = false }
+# skill-sync 归档：TS 用 node:zlib gzip + 手写 ustar tar；Rust 只借 gzip 编解码，tar 自己按字节写。
+flate2 = "1"
 base64 = "0.22"
 async-trait = "0.1"
 # V4 topic 物理帧 checksum（TS `crc32WireBytes` = CRC-32/ISO-HDLC；CLI 侧同依赖）。

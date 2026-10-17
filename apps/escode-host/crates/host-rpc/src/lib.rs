@@ -41,6 +41,7 @@ mod domains_session_model;
 mod domains_session_write;
 mod domains_setting_extra;
 mod domains_simple;
+mod domains_skill_sync;
 mod domains_skills;
 mod domains_subagents;
 mod domains_system;
@@ -70,6 +71,7 @@ mod task_index_syncer;
 mod task_targets;
 mod window_controller;
 pub mod wire;
+mod wire_bytes;
 mod workspace_events;
 
 use escode_host_control::logging;
