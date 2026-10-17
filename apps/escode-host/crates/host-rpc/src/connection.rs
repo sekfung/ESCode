@@ -199,6 +199,45 @@ fn dispatch(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>,
     }
 }
 
+fn listen(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>, request: Request) {
+    let Some(handler) = channels
+        .channel(&request.channel)
+        .and_then(|channel| channel.event(&request.method))
+    else {
+        // TS：未知 channel 的事件请求挂起等待注册、超时后也不回帧；未知事件在服务端抛错。
+        // 两种情况客户端都收不到响应，这里同样只记日志。
+        logging::warn(
+            "rpc",
+            format!(
+                "event `{}.{}` is not implemented",
+                request.channel, request.method
+            ),
+        );
+        return;
+    };
+    let mut stream = match handler(request.arg) {
+        Ok(stream) => stream,
+        Err(error) => {
+            logging::warn(
+                "rpc",
+                format!(
+                    "event `{}.{}` listen failed: {error}",
+                    request.channel, request.method
+                ),
+            );
+            return;
+        }
+    };
+    let outbound = outbound.clone();
+    let id = request.id;
+    let task = tokio::spawn(async move {
+        while let Some(value) = stream.next().await {
+            outbound.push(session::event_frame(id, &value));
+        }
+    });
+    active.insert(id, task);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,43 +290,4 @@ mod tests {
             .await
             .expect("hard-limit overflow must wake the connection loop");
     }
-}
-
-fn listen(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>, request: Request) {
-    let Some(handler) = channels
-        .channel(&request.channel)
-        .and_then(|channel| channel.event(&request.method))
-    else {
-        // TS：未知 channel 的事件请求挂起等待注册、超时后也不回帧；未知事件在服务端抛错。
-        // 两种情况客户端都收不到响应，这里同样只记日志。
-        logging::warn(
-            "rpc",
-            format!(
-                "event `{}.{}` is not implemented",
-                request.channel, request.method
-            ),
-        );
-        return;
-    };
-    let mut stream = match handler(request.arg) {
-        Ok(stream) => stream,
-        Err(error) => {
-            logging::warn(
-                "rpc",
-                format!(
-                    "event `{}.{}` listen failed: {error}",
-                    request.channel, request.method
-                ),
-            );
-            return;
-        }
-    };
-    let outbound = outbound.clone();
-    let id = request.id;
-    let task = tokio::spawn(async move {
-        while let Some(value) = stream.next().await {
-            outbound.push(session::event_frame(id, &value));
-        }
-    });
-    active.insert(id, task);
 }

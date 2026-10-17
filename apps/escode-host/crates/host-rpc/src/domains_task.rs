@@ -255,7 +255,7 @@ pub(crate) fn task_channel(
             path: path_for_snapshot.clone(),
             index: Arc::clone(&index),
             targets: Arc::clone(&targets),
-            runtime: runtime.clone(),
+            runtime,
         });
 
     let mut methods: Vec<(&'static str, crate::session::MethodHandler)> = vec![
