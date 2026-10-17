@@ -14,7 +14,10 @@ async function observe(kind: "node" | "rust") {
   const respond = (req: any, res: any) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
     if (req.messages.at(-1).role !== "tool") {
-      const name = req.tools.find((t: any) => t.function.name.startsWith("mcp__"))?.function.name;
+      // 修复：过去取第一个 `mcp__` 工具；随包官方插件（usb 等）带 MCP 工具且排在会话 server 之前，
+      // 模型桩会调到官方工具而非 fixture 的 local.echo，calls 文件不存在。按 fixture server 名精确选取。
+      const name = req.tools.find((t: any) => t.function.name.startsWith("mcp__local_echo__"))
+        ?.function.name;
       event(res, {
         tool_calls: [
           { index: 0, id: "c1", type: "function", function: { name, arguments: '{"text":"x"}' } },

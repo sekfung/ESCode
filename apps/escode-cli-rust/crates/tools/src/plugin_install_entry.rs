@@ -5,7 +5,7 @@ use super::plugin_install::*;
 use super::atomic_dir;
 use super::plugin_marketplace::{self as market, sanitize};
 use crate::domain::json_order::Json;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
@@ -177,7 +177,14 @@ pub(super) fn closure_in(
                 ordered_entry(storage, market, name)
             }
         }
-        .ok_or_else(|| anyhow!("Dependency not found: {id} required by {required_by}"))?;
+        // 修复：87f7aa44 把分类改为只做 downcast，但漏改了这个产生点；普通 anyhow! 会落到兜底
+        // plugin_marketplace_invalid，与 TS 的 plugin_dependency_missing 分叉（plugins-install 差分用例）。
+        .ok_or_else(|| {
+            crate::plugin_failure::plugin_failure!(
+                crate::plugin_failure::Kind::DependencyMissing,
+                "Dependency not found: {id} required by {required_by}"
+            )
+        })?;
         visiting.push(id.to_owned());
         for dependency in dependencies(&entry, market) {
             walk(
@@ -264,4 +271,27 @@ pub(super) fn installed_version(root: &Path, entry: &Json) -> String {
             .unwrap_or("0.0.0")
             .to_owned()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_dependency_is_classified_as_dependency_missing() {
+        let manifest = Json::parse(
+            r#"{"plugins":[{"name":"needy","source":"./needy","dependencies":["nope"]}]}"#,
+        )
+        .expect("manifest");
+        let error = closure_in(Path::new("/nonexistent"), "acme", "needy", Some(&manifest))
+            .expect_err("missing dependency");
+        assert_eq!(
+            error.to_string(),
+            "Dependency not found: nope@acme required by needy@acme"
+        );
+        assert_eq!(
+            crate::plugin_failure::classify(&error),
+            "plugin_dependency_missing"
+        );
+    }
 }

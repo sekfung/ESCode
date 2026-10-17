@@ -1,10 +1,7 @@
 use super::{extension_config as config, extension_plugins as plugins};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
@@ -157,7 +154,10 @@ pub(super) async fn configured(
     if config["features"]["mcp"] == false {
         return Ok(vec![]);
     }
-    let mut merged = BTreeMap::new();
+    // 修复：此前用 BTreeMap 合并，server 按名字排序（node_repl 排到 plugin:* 之前），
+    // 模型请求里的 MCP 工具顺序因此与 Node 分叉（model-io / mcp-request-context 差分）。
+    // TS 是对象 spread：按首次插入排序，后来的同名配置覆盖值但不改位置。
+    let mut merged = super::mcp_config_order::Ordered::default();
     let loaded = plugins::enabled(cwd, &config, cancel).await?;
     // 内置 node_repl 最后合并（TS builtInMcpServers 最后 spread），同名用户/插件/会话配置不能劫持它。
     let node_repl = super::mcp_node_repl::server(&loaded, cwd);
@@ -183,9 +183,12 @@ pub(super) async fn configured(
             let file = config::json_file(&base.join(".agents").join("mcp.json")).await?;
             if let Some(servers) = file["mcpServers"].as_object() {
                 for (name, server) in servers {
-                    merged
-                        .entry(name.clone())
-                        .or_insert_with(|| Server::configured(name, server.clone(), &base));
+                    if !merged.contains(name) {
+                        merged.insert(
+                            name.clone(),
+                            Server::configured(name, server.clone(), &base),
+                        );
+                    }
                 }
             }
         }
@@ -205,8 +208,9 @@ pub(super) async fn configured(
     // 退役的 CUA 形态 MCP 不连接、不列出（TS isRetiredCuaMcpServer）；CUA 只经 node_repl 承载。
     merged.retain(|name, server| !crate::domain::mcp_cua::is_retired(name, &server.raw));
     ensure!(merged.len() <= 64, "Too many configured MCP servers");
-    Ok(merged.into_values().collect())
+    Ok(merged.into_values())
 }
+
 /// 单个插件声明的 MCP server（TS `loadPluginMcpServerDefinitions` + `resolvePluginMcpServers`）：
 /// `.mcp.json` 与 manifest `mcpServers`（字符串按插件根解析路径）合并，名字按
 /// `plugin:<manifest name>:<key>` 命名空间化。`plugins/list` 的 `mcpServerNames` 与运行时注入共用这条读法。

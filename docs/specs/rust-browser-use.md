@@ -165,6 +165,9 @@ sequenceDiagram
    `ESCODE_PLUGIN_ID=computer-use@zcode-plugins-official`。浏览器 broker env 仍照旧注入。
 4. 配置合并：内置 node_repl 最后合并，用户、`.agents`、插件或会话 overrides 的同名配置不能替换它
    （TS `builtInMcpServers` 最后 spread）。
+   合并结果按 JS 对象键序输出（首次插入定位置，后来的同名配置原位覆盖；`mcp_config_order::Ordered`），
+   模型请求里的 MCP 工具顺序即该顺序：插件 server → 会话/用户配置 → 内置 node_repl/serial/rea。不得用按名字排序的 map。
+   已知差异：`config.json` 的 `mcp.servers` 经 `serde_json::Value` 读入（无 `preserve_order`），同一配置组内按名字序，TS 为文件键序。
 5. 退役 CUA MCP（TS `isRetiredCuaMcpServer`）：除 node*repl 外，名为 `computer-use`、
    env `ESCODE_PLUGIN_ID` 为官方 CUA 插件 id、command 或任一 arg 匹配 `escode-cua` 包规格
    （`escode-cua`、`[`/`@`/`==`/`.` 续接，`*`视同`-`，并比对路径叶子）的 stdio server，

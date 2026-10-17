@@ -7,7 +7,8 @@
 //! 2. 根不是目录 → 空；
 //! 3. 根自身的 `SKILL.md` 若是**真实文件**（非符号链接）→ 收录；
 //! 4. 一级子目录（`should_walk` 过滤）下的 `SKILL.md` 同理收录；
-//! 5. **目录项顺序即 readdir 顺序**（TS 不排序；Rust `read_dir` 与 Node `readdir` 同源 syscall 顺序）。
+//! 5. **目录项顺序即 Node `readdirSync` 顺序**（TS 不另排序；但 libuv 在 Unix 上按名字字节序排序，
+//!    Rust `read_dir` 是文件系统原始顺序，所以经 `plugin_describe_scan::entries` 对齐）。
 //!
 //! 不跟随符号链接是文件级逃逸防线（SKILL.md -> 外部任意文件），三处调用方共用本实现。
 
@@ -45,21 +46,16 @@ pub(super) fn scan_skill_files_under_sync(root: &Path) -> Vec<PathBuf> {
     if is_real_file(&own) {
         files.push(own);
     }
-    let Ok(entries) = std::fs::read_dir(root) else {
-        return files;
-    };
-    for entry in entries.flatten() {
-        let Ok(kind) = entry.file_type() else {
-            continue;
-        };
+    // 修复：此前直接按 `read_dir` 原始顺序（ext4 为哈希序）遍历，而 Node `readdirSync` 在 Unix 上经 libuv
+    // scandir 按名字字节序排序，plugins/list 的技能顺序因此与 Node 分叉。改用与 plugin_describe 同一份目录项读取。
+    for (name, kind) in super::plugin_describe_scan::entries(root) {
         if !kind.is_dir() {
             continue;
         }
-        let name = entry.file_name().to_string_lossy().into_owned();
         if !should_walk(&name) {
             continue;
         }
-        let candidate = entry.path().join(SKILL_FILE_NAME);
+        let candidate = root.join(&name).join(SKILL_FILE_NAME);
         if is_real_file(&candidate) {
             files.push(candidate);
         }
@@ -115,6 +111,43 @@ mod tests {
         assert!(names.contains(&format!("alpha/{SKILL_FILE_NAME}")));
         assert!(names.contains(&format!("beta/{SKILL_FILE_NAME}")));
         assert_eq!(names.len(), 3, "隐藏目录与 node_modules 被跳过: {names:?}");
+    }
+
+    #[test]
+    fn subdirectories_follow_node_readdir_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("skills");
+        // 故意按非字典序创建：Unix 上 Node readdirSync 按字节序返回，与创建顺序和 ext4 哈希序无关。
+        let created = [
+            "web-gui-tester",
+            "diagnosing-skills",
+            "control-browser",
+            "Zeta",
+        ];
+        for name in created {
+            std::fs::create_dir_all(root.join(name)).unwrap();
+            std::fs::write(root.join(name).join(SKILL_FILE_NAME), "# s\n").unwrap();
+        }
+        let names: Vec<String> = scan_skill_files_under_sync(&root)
+            .iter()
+            .map(|file| {
+                let parent = file.parent().unwrap().file_name().unwrap();
+                parent.to_string_lossy().into_owned()
+            })
+            .collect();
+        if cfg!(windows) {
+            assert_eq!(names.len(), created.len());
+        } else {
+            assert_eq!(
+                names,
+                [
+                    "Zeta",
+                    "control-browser",
+                    "diagnosing-skills",
+                    "web-gui-tester"
+                ]
+            );
+        }
     }
 
     #[test]

@@ -104,6 +104,8 @@ inline `plugins.dirs`、官方插件 seed（`official_plugins.rs`）、bundled-m
 - `components` 与启用态无关（TS `createPluginMetadata` 始终对插件根做权威枚举）：分组顺序
   agent → command → skill → mcp，名字/描述取 manifest 声明或 frontmatter（`name`/`description`，
   按 TS `parseScalar` 去引号），命令/技能分别按「名字」与「文件路径 + 名字」去重。
+  同一根下的技能顺序 = Node `readdirSync` 顺序：Unix 上 libuv scandir 按名字字节序排序，Rust 经
+  `plugin_describe_scan::entries` 同样排序（`read_dir` 原始顺序在 ext4 上是哈希序，不能直接用）；Windows 两边都取 NTFS 顺序。
 - `configScope: "user"` 只读用户层配置（`extension_config::load_user`）。
 - MCP 名复用运行时同一套解析：`mcp_config::plugin_definitions`（`.mcp.json` + manifest）与
   `plugin_servers`（命名空间 `plugin:<name>:<key>`、鉴权/失效判定）。

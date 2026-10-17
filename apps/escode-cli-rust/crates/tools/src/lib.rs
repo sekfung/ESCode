@@ -33,6 +33,7 @@ mod hooks;
 mod host_broker;
 mod lexical_path;
 mod mcp_config;
+mod mcp_config_order;
 mod mcp_connection;
 mod mcp_http;
 mod mcp_http_capture;
