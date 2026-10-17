@@ -46,6 +46,7 @@ import {
   isWindows,
   killTree,
   MiB,
+  parseCpuTime,
   primaryBytes,
   processTable,
   isElectronMain,
@@ -252,6 +253,17 @@ let selected;
 let selectedKeys;
 let selfTestDir = null;
 if (values["self-test"]) {
+  // Linux `ps` 的累计 CPU 格式（含跨天）；回归 2026-10-18 的 `Invalid CPU time: 2-12:46:17`。
+  for (const [text, expected] of [
+    ["01:02", 62],
+    ["1:02:03", 3_723],
+    ["2-12:46:17", 218_777],
+  ]) {
+    const parsed = parseCpuTime(text);
+    if (parsed !== expected) {
+      throw new Error(`parseCpuTime(${text}) = ${parsed}, expected ${expected}`);
+    }
+  }
   // 合成进程树：父 node 起子 node，子进程分配固定内存；验证发现/采样/交错/中位数全链路。
   const dir = await mkdtemp(join(tmpdir(), "escode-bench-selftest-"));
   selfTestDir = dir;

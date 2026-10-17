@@ -85,8 +85,21 @@ impl Host {
             reason: "test".to_owned(),
         })
         .await;
-        // 关闭 stdin，Host 排空后退出。
-        drop(self.stdin);
+        // 关闭 stdin 写端（保留句柄避免部分移动），Host 读到 EOF 后收口。
+        let _ = self.stdin.shutdown().await;
+        // 进程级收口断言：Host 明确回报残余清单，空清单才算干净退出。
+        let stopped = self
+            .recv_until("Stopped", |message| {
+                matches!(message, ControlMessage::Stopped { .. })
+            })
+            .await;
+        let ControlMessage::Stopped { residual } = stopped else {
+            unreachable!()
+        };
+        assert!(
+            residual.is_empty(),
+            "shutdown must leave no residual tasks/processes: {residual:?}"
+        );
         let status = tokio::time::timeout(Duration::from_secs(60), self.child.wait())
             .await
             .expect("host exits")

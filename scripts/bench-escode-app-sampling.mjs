@@ -21,10 +21,26 @@ export function capture(command, args) {
   return result.stdout ?? "";
 }
 
-function parseCpuTime(text) {
-  const fields = text.trim().split(":").map(Number);
-  if (fields.some((field) => !Number.isFinite(field))) throw new Error(`Invalid CPU time: ${text}`);
-  return fields.reduce((seconds, field) => seconds * 60 + field, 0);
+/** `ps -o time=` 的 `[[DD-]hh:]mm:ss`（Linux 忙碌进程会跨天，如 `2-12:46:17`）。 */
+export function parseCpuTime(text) {
+  const value = text.trim();
+  const parts = value.split("-");
+  if (parts.length > 2) throw new Error(`Invalid CPU time: ${text}`);
+  let days = 0;
+  let clock = parts[0];
+  if (parts.length === 2) {
+    days = Number(parts[0]);
+    clock = parts[1];
+    if (!Number.isInteger(days) || days < 0) throw new Error(`Invalid CPU time: ${text}`);
+  }
+  const fields = clock.split(":").map(Number);
+  if (
+    fields.length < 2 ||
+    fields.length > 3 ||
+    fields.some((field) => !Number.isFinite(field) || field < 0)
+  )
+    throw new Error(`Invalid CPU time: ${text}`);
+  return days * 86_400 + fields.reduce((seconds, field) => seconds * 60 + field, 0);
 }
 
 /** 全进程表：{ pid, ppid, name, commandLine, memory: { workingSet?, private?, rss? }, cpuSeconds }。 */

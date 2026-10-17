@@ -199,6 +199,60 @@ fn dispatch(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>,
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn outbound() -> (
+        Outbound,
+        mpsc::UnboundedReceiver<Vec<u8>>,
+        watch::Receiver<FlowState>,
+    ) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (flow, flow_rx) = watch::channel(FlowState::Drained);
+        (
+            Outbound {
+                tx,
+                queued: Arc::default(),
+                flow: Arc::new(flow),
+                overflow: Arc::default(),
+            },
+            rx,
+            flow_rx,
+        )
+    }
+
+    /// 出站队列越过 8 MiB → saturated；写回后低于 2 MiB → drained（边沿只发一次）。
+    #[tokio::test]
+    async fn outbound_watermarks_emit_saturated_and_drained_edges() {
+        let (outbound, mut rx, mut flow) = outbound();
+        outbound.push(vec![0; HIGH_WATER + 1]);
+        assert!(
+            rx.recv().await.is_some(),
+            "overflowing frames are never dropped"
+        );
+        flow.changed().await.expect("saturated edge");
+        assert_eq!(*flow.borrow_and_update(), FlowState::Saturated);
+
+        let queued = outbound.queued.load(Ordering::SeqCst);
+        assert!(queued > HIGH_WATER, "queued bytes: {queued}");
+        outbound.sent(queued);
+        flow.changed().await.expect("drained edge");
+        assert_eq!(*flow.borrow_and_update(), FlowState::Drained);
+    }
+
+    /// 超过 64 MiB 硬上限：通知连接循环关闭连接（fail closed），不是丢弃帧。
+    #[tokio::test]
+    async fn outbound_hard_limit_signals_connection_close() {
+        let (outbound, _rx, _flow) = outbound();
+        outbound.push(vec![0; HARD_LIMIT + 1]);
+        tokio::time::timeout(Duration::from_secs(1), outbound.overflow.notified())
+            .await
+            .expect("hard-limit overflow must wake the connection loop");
+    }
+}
+
 fn listen(channels: &Arc<Channels>, outbound: &Outbound, active: &Arc<Active>, request: Request) {
     let Some(handler) = channels
         .channel(&request.channel)
