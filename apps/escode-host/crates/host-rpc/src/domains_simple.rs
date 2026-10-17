@@ -15,6 +15,7 @@ pub(crate) fn simple_channels(
     media_authorizer: Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
     client_services: Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Vec<Channel> {
+    let usage_stats_instances = instances.clone();
     let mut channels = vec![
         crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
             escode_host_services::broadcast::Broadcast::default(),
@@ -34,5 +35,9 @@ pub(crate) fn simple_channels(
         ),
     ];
     channels.push(crate::domains_onboarding::onboarding_channel(data_base_dir));
+    // `usage-stats` 只读实例表（不按 workspace 路由、不启动运行时），与其余域无共享状态。
+    channels.push(crate::domains_usage_stats::usage_stats_channel(
+        usage_stats_instances,
+    ));
     channels
 }

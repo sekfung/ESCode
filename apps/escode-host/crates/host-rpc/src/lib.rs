@@ -49,6 +49,7 @@ mod domains_task_state;
 mod domains_task_support;
 mod domains_task_trajectory;
 mod domains_terminal;
+mod domains_usage_stats;
 pub mod forward;
 pub mod frame;
 mod host_command;

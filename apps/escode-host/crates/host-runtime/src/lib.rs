@@ -173,6 +173,21 @@ impl Instances {
         }
     }
 
+    /// 任意一个活实例（不启动）。`None` = 一个活的都没有。
+    ///
+    /// 供**不按 workspace 路由**的服务用（`usage-stats`：usage 表在全局 session 库，任何 client 回同一份
+    /// 数据，TS 同取 `activeClientsByWorkspaceKey` 的第一个）。选中序 = 身份键字典序（`slots` 是 `BTreeMap`；
+    /// TS 是连接序），该差异已登记在 `docs/specs/rust-u2-misc-channels.md` §1.3。
+    pub fn live_any(&self) -> Option<Arc<Instance>> {
+        let table = self.lock();
+        table
+            .slots
+            .values()
+            .filter_map(|slot| slot.instance.as_ref())
+            .find(|instance| instance.is_alive())
+            .map(Arc::clone)
+    }
+
     /// 当前 generations 快照（诊断/测试）。
     pub fn generations(&self) -> BTreeMap<String, u64> {
         self.lock()

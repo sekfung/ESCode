@@ -214,6 +214,61 @@ async fn close_reports_residuals_then_shutdown_is_clean() {
     );
 }
 
+/// `live_any()`（不按 workspace 路由的服务的取用口，`rust-u2-misc-channels.md` §1.2）：
+/// 空表回 None、活实例按**身份键字典序**取第一个、关闭后回 None（不留已退出实例）。
+/// 字典序是登记过的语义（TS 是连接序），故在此钉住，改动即失败。
+#[tokio::test(flavor = "multi_thread")]
+async fn live_any_picks_the_lexicographically_first_identity() {
+    let instances = Instances::new(Link::Embedded);
+    assert!(instances.live_any().is_none(), "空表没有活实例");
+
+    // 两次都起在同一个临时根下，只有目录名不同 —— 身份键的字典序即 `aaa` < `zzz`。
+    let root = tempfile::tempdir().unwrap();
+    let options_for = |name: &str| {
+        let workspace = root.path().join(name);
+        let home = root.path().join(format!("{name}-home"));
+        let data_dir = root.path().join(format!("{name}-data"));
+        for dir in [&workspace, &home, &data_dir] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let mut env = BTreeMap::new();
+        env.insert("ESCODE_RUNTIME_ENV".to_owned(), "test".to_owned());
+        let options = RuntimeOptions {
+            home,
+            env,
+            argv: vec!["escode-cli-rust".to_owned(), "app-server".to_owned()],
+            cwd: workspace.clone(),
+            workspace_identity: Some(workspace.to_string_lossy().into_owned()),
+            data_dir: Some(data_dir),
+            config: None,
+        };
+        (workspace.to_string_lossy().into_owned(), options)
+    };
+
+    // 先起 `zzz`：若实现按插入序（先起的优先）而不是字典序，下面的断言会取到它。
+    let (zzz, zzz_options) = options_for("zzz");
+    let (aaa, aaa_options) = options_for("aaa");
+    let late = instances.get(&zzz, || zzz_options).await.unwrap();
+    let early = instances.get(&aaa, || aaa_options).await.unwrap();
+    wait_ready(&late).await;
+    wait_ready(&early).await;
+
+    let picked = instances.live_any().expect("有两个活实例");
+    assert!(
+        std::sync::Arc::ptr_eq(&picked, &early),
+        "按身份键字典序取 `aaa`，不是先起的 `zzz`"
+    );
+
+    instances.close(&aaa).await.unwrap();
+    let picked = instances.live_any().expect("`zzz` 仍活着");
+    assert!(
+        std::sync::Arc::ptr_eq(&picked, &late),
+        "已关闭的实例不再被选中"
+    );
+    instances.shutdown().await;
+    assert!(instances.live_any().is_none(), "全部关闭后回到 None");
+}
+
 /// child 链路与 embedded 同帧面（Host 的差分/回退选项）：CLI 二进制在场时才跑。
 #[tokio::test(flavor = "multi_thread")]
 async fn child_link_serves_the_same_ready_frame() {

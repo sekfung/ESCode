@@ -272,6 +272,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-agent", "onDynamicWorkspaceConfigFrame"),
     ("escode-agent", "onAgentRuntimeLifecycle"),
     ("escode-agent", "onAgentRuntimeRestarted"),
+    ("usage-stats", "getAppUsageSnapshot"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。
