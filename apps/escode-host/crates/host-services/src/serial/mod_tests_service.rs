@@ -111,7 +111,7 @@ async fn poll_detects_disconnect_and_reconnects_when_the_device_returns() {
         assert!(std::time::Instant::now() < deadline, "设备回来应自动重连");
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    service.shutdown();
+    service.shutdown().await;
 }
 
 /// autoReconnect=false 时设备消失直接回 closed，且不会自己重开。
@@ -137,7 +137,7 @@ async fn disconnect_without_auto_reconnect_closes_the_session() {
         service.get_snapshot("/dev/ttyS0")["status"]["state"],
         serde_json::json!("closed")
     );
-    service.shutdown();
+    service.shutdown().await;
 }
 
 /// 状态事件按 `opening → open` 落到 `onStatus`。
@@ -159,7 +159,7 @@ async fn status_events_are_broadcast() {
         second["signals"],
         serde_json::json!({"dtr": true, "rts": true})
     );
-    service.shutdown();
+    service.shutdown().await;
 }
 
 // ── S3：数据面 ────────────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ async fn write_records_tx_and_device_bytes_arrive_through_on_data() {
     let snapshot = service.get_snapshot("/dev/ttyS0");
     assert_eq!(snapshot["chunks"], serde_json::json!([]));
     assert_eq!(snapshot["status"]["state"], serde_json::json!("open"));
-    service.shutdown();
+    service.shutdown().await;
 }
 
 /// 未打开的路径写入 → notOpen；未知路径 clear 是空操作。
@@ -248,5 +248,57 @@ async fn write_to_an_unopened_port_reports_not_open() {
         .unwrap_err();
     assert_eq!(error.code, "notOpen");
     service.clear("/dev/nope");
-    service.shutdown();
+    service.shutdown().await;
+}
+
+// ── S4：信号与循环 ────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn set_signals_delegates_and_reports_the_applied_state() {
+    let fake = FakeEnumerator::new(vec![port("/dev/ttyS0")]);
+    let (service, transport) = data_service(&fake);
+    service
+        .open("/dev/ttyS0", &open_config(false))
+        .await
+        .unwrap();
+
+    let applied = service
+        .set_signals("/dev/ttyS0", Some(false), Some(true), None)
+        .await
+        .unwrap();
+    assert_eq!(
+        applied,
+        Signals {
+            dtr: false,
+            rts: true
+        }
+    );
+    assert_eq!(
+        transport.signals.lock().unwrap().as_slice(),
+        &[applied],
+        "传输层收到同一次信号设置"
+    );
+    // 状态事件里的 signals 已更新。
+    assert_eq!(
+        service.get_snapshot("/dev/ttyS0")["status"]["signals"],
+        serde_json::json!({"dtr": false, "rts": true})
+    );
+    service.shutdown().await;
+}
+
+#[tokio::test]
+async fn signals_and_loops_require_an_existing_session() {
+    let fake = FakeEnumerator::new(vec![]);
+    let (service, _transport) = data_service(&fake);
+    let error = service
+        .set_signals("/dev/nope", Some(false), None, None)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "notOpen");
+    let error = service
+        .start_loop("/dev/nope", b"x".to_vec(), 10, None)
+        .unwrap_err();
+    assert_eq!(error.code, "notOpen");
+    service.stop_loop("/dev/nope");
+    service.shutdown().await;
 }

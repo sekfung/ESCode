@@ -1,8 +1,9 @@
 //! `serial` 端到端（真 WebSocket，`rust-u2-serial.md` §7）。
 //!
-//! 覆盖 S1 + S2：`list` 回数组、`setWatching(true)` 立即触发 `onPorts`；
+//! 覆盖 S1–S4：`list` 回数组、`setWatching(true)` 立即触发 `onPorts`；
 //! 会话侧用**无硬件**可验证的路径：非法配置 / 不存在的设备报 `SerialError` 带 `code`、
-//! 未知路径回 closed 快照、`listSessions` 为空、失败时 `onStatus` 落 `opening → error`。
+//! 未知路径回 closed 快照、`listSessions` 为空、失败时 `onStatus` 落 `opening → error`；
+//! S4 的信号/循环对未知路径分别回 `notOpen` 与空操作。
 mod support;
 use support::*;
 
@@ -236,6 +237,44 @@ async fn list_and_watching_broadcast_the_current_port_set() {
     );
     conn.call(16, "close", serde_json::json!({"path": "/dev/never"}))
         .await;
+
+    // ── S4：信号与循环的无硬件路径 ────────────────────────────────
+    let error = conn
+        .call(
+            20,
+            "setSignals",
+            serde_json::json!({"path": "/dev/esc-no-such-port", "dtr": false, "rts": true}),
+        )
+        .await
+        .into_object()
+        .expect("错误载荷");
+    assert_eq!(error["name"], serde_json::json!("SerialError"));
+    assert_eq!(error["code"], serde_json::json!("notOpen"), "{error}");
+
+    let error = conn
+        .call(
+            21,
+            "startLoop",
+            serde_json::json!({
+                "path": "/dev/esc-no-such-port", "bytes": [1, 2, 3],
+                "intervalMs": 10, "count": 2
+            }),
+        )
+        .await
+        .into_object()
+        .expect("错误载荷");
+    assert_eq!(error["name"], serde_json::json!("SerialError"));
+    assert_eq!(error["code"], serde_json::json!("notOpen"), "{error}");
+
+    // `stopLoop` 对未知路径是空操作（不报错）。
+    let stop = conn
+        .call(
+            22,
+            "stopLoop",
+            serde_json::json!({"path": "/dev/esc-no-such-port"}),
+        )
+        .await;
+    assert!(matches!(stop, Wire::Undefined), "{stop:?}");
 
     surface.shutdown().await;
 }

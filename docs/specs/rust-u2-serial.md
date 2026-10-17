@@ -1,7 +1,8 @@
 # Rust 阶段 2：`serial` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**2/4 片已交付**：S1 枚举/轮询/`onPorts`；S2 会话（含自动重连）。
-> **S3 数据面已交付**（`write` / `clear` / `onData`，含 AsyncFd 读路径与 RX 合并）。只剩 S4（信号与循环）。
+> 状态：已收口 · 2026-10-17。**4/4 片已交付**：S1 枚举/轮询/`onPorts`；S2 会话（含自动重连）；
+> S3 数据面（`write` / `clear` / `onData`，含 AsyncFd 读路径与 RX 合并）；S4 信号（DTR/RTS + 复位脉冲）
+> 与定时循环（`startLoop` / `stopLoop`）。`serial` 14/14。
 > TS 真相源：`packages/services/src/serial/`（`serialService.ts` 359、`serialSession.ts` 386、
 > `serialChunkBuffer.ts` 172、`serialLoop.ts` 80、`serialSignals.ts` 35、`serialRuntime.ts` 68 等，共 1763 行）。
 
@@ -10,9 +11,9 @@
 | 片                | 成员                                                       | 状态   |
 | ----------------- | ---------------------------------------------------------- | ------ |
 | **S1 枚举与轮询** | `list`、`setWatching`、`onPorts`                           | 已交付 |
-| S2 会话           | `open`、`close`、`getSnapshot`、`listSessions`、`onStatus` | 待做   |
-| S3 数据面         | `write`、`clear`、`onData`                                 | 待做   |
-| S4 信号与循环     | `setSignals`、`startLoop`、`stopLoop`                      | 待做   |
+| **S2 会话**       | `open`、`close`、`getSnapshot`、`listSessions`、`onStatus` | 已交付 |
+| **S3 数据面**     | `write`、`clear`、`onData`                                 | 已交付 |
+| **S4 信号与循环** | `setSignals`、`startLoop`、`stopLoop`                      | 已交付 |
 
 ## 2. 作用域（已登记的用户决定，2026-10-17）
 
@@ -196,3 +197,99 @@ Rust Host 是 App 级单进程，实现口径为**连接级 channel**（`Channel
 TX 前先 flush RX、clear 不回退 seq；`service_tests` 2：写→TX 事件→设备字节→RX 事件→快照统计、
 空写回当前 seq、64KB 拒绝、clear 不动状态、未打开路径 `notOpen`）。
 负向验证两项（去掉 64KB 上限 / RX 立即成段），均已恢复。
+
+## 12. S4 信号与循环（设计，2026-10-17）
+
+TS 真相源：`serialSignals.ts`（35 行，脉冲时序）、`serialLoop.ts`（80 行，循环发送）、
+`serialSession.ts` 的 `setSignals`/`startLoop`/`stopLoop`/`setStatus` 调停。
+
+### 12.1 `setSignals`
+
+- 服务层：未知路径 → `SerialError notOpen`（"Serial port is not open"）；已知会话但当前非 `open`
+  同样 `notOpen`。
+- 与 `open`/`close`/`reconnect` **同一会话队列串行**：脉冲进行中的 `setSignals` 排在脉冲结束之后，
+  不会交错改线；同一时刻只有一个脉冲。
+- **RTS 与流控**：参数里显式带 `rts` 且会话配置 `rtscts === true` → `invalidInput`
+  （"RTS is controlled by RTS/CTS flow control"）。**脉冲不做这个检查**（TS 只检查显式 `rts` 字段）。
+- 非脉冲：`dtr ?? previous.dtr`、`rts ?? previous.rts`。
+- 脉冲（`serialPulseSteps`，最后一步之后**恢复脉冲前状态**）：
+  - **ESP32**：`{dtr:false,rts:true}` 保持 100ms → `{dtr:true,rts:false}` 保持 50ms →
+    `{dtr:false,rts:false}`（hold 0）；
+  - **Arduino**：`{dtr:true,rts:previous.rts}` 保持 100ms → `{dtr:false,rts:previous.rts}`（hold 0）。
+- 生效后广播一次 `onStatus`（`signals` 已更新），返回 `{dtr, rts}`。
+- **打开语义**：用户 `open` 把信号重置为默认 `{dtr:true,rts:true}`；`reconnect` 保留断开前状态，
+  打开后尝试恢复（恢复失败不改变 `open` 状态——TS 记 warn）。
+
+### 12.2 DTR/RTS 原生实现
+
+- Linux：`TIOCMGET` 读当前 modem bits，置/清 `TIOCM_DTR` / `TIOCM_RTS`，再 `TIOCMSET` 写回
+  （保留其它位）。在 `spawn_blocking` 里执行；失败 → `io`。
+- fd 改成原子 `-1` 收口：`close` 只关一次，重复关闭是空操作；`write`/`set_signals` 在已关闭的 fd 上
+  返回 `notOpen`，不会误写复用的 fd。`NativePort` 的 `Drop` 兜底调用 `close`。
+- 测试注入假传输，记录每次 `set_signals` 的 `(dtr,rts)` 序列。
+
+### 12.3 `startLoop` / `stopLoop`
+
+- `startLoop`：未知路径或非 `open`/无端口句柄 → `notOpen`；参数校验
+  `intervalMs` 为整数且 ≥ 10、`bytes` 非空且 ≤ 64 KiB、`count` 缺省或为整数 ≥ 1，
+  否则 `invalidInput`（"Invalid loop parameters"）。
+- **立即发送第一次**，之后按 `intervalMs` 定时；上一笔写入未完成时跳过当次 tick，不排队积压。
+- 每次发送等同一次 `source="user"` 写入（TX 进缓冲、分配 seq）。
+- 每个会话同时只有一个任务：再次 `startLoop` **静默替换**旧任务（旧任务不再产生事件）。
+- 进度事件：启动时立即一条；之后距上次进度 ≥ 250ms 才再发一条。
+- 达到 `count`、写入失败、`stopLoop`、或状态离开 `open`（关闭/断开/出错）时任务结束；
+  结束后的状态事件**不带 `loop`**。
+- `stopLoop`：没有进行中的循环时无事件（幂等）；有循环时停止并广播不带 `loop` 的状态。
+- Agent 串口工具没有循环发送入口（TS 同），本片不新增 Agent 侧 RPC。
+
+### 12.4 状态载荷
+
+`onStatus` 直接广播完整状态对象 `{state, path, signals, config?, error?, loop?}`；
+`loop = {intervalMs, count?, sent}` 只在循环进行中存在（S2 起 `signals` 恒在但恒为默认，S4 起为真实值）。
+此前 `mod.rs` 重组事件载荷时把缺失的 `config`/`error` 写成 `null`，与 TS 的「缺键」不同；本片改为直接广播。
+
+### 12.5 连接关闭收口
+
+`SerialService::shutdown` 从同步改为异步：置 disposed、停轮询、**关闭所有会话**（TS
+`disposeAllAndWait`）并停掉循环任务，再清空监听。否则循环任务持有 `Arc<SerialSession>`，
+连接关闭后仍会继续写；端口 fd 也只在进程退出时才释放。
+
+### 12.6 验收
+
+- 单测：脉冲步骤序列与保持时间（ESP32/Arduino、恢复原状态）；`setSignals` 的 rtscts 拒绝、
+  非 open 拒绝、返回值与状态事件；`startLoop` 参数校验、立即首发送、按 count 结束、
+  重启用新任务替换旧任务、`stopLoop` 幂等、关闭/断开自动停；状态载荷含 `signals`/`loop`。
+- 端到端：未知路径的三个方法分别回 `notOpen`/`notOpen`/无操作，错误形状带 `code`。
+- 负向验证：①去掉 250ms 进度节流 → 高频进度用例失败；②去掉「状态离开 open 自动停」→
+  关闭后仍收到 loop 写入，用例失败。
+
+## 13. S4 交付记录（2026-10-17）
+
+- **实现**：
+  - `serial/signals.rs`：`Signals` / `DEFAULT_SIGNALS` / `Pulse` / `pulse_steps`（ESP32 100ms+50ms、
+    Arduino 100ms，最后一步后由会话恢复脉冲前状态）；`Pulse::from_name` 复刻 TS 的
+    `if (pulse === "esp32") … else …`（空串是 falsy → 无脉冲）。
+  - `serial/loop_runner.rs`：`LoopState`（generation/间隔/次数/已发/stop/notify）+ `spawn`。
+    首个 tick 立即发送；写入未完成时不叠加（固定间隔 + `MissedTickBehavior::Skip`）；
+    `stop` 用 `Notify` 的 permit 语义，长间隔也能立即退出；进度事件 250ms 节流；
+    达到次数/写入失败调用 `on_finished`。任务只依赖注入的写函数与回调，可脱离会话单测。
+  - `serial/session_status.rs`：状态投影抽离，`{state, path, signals, config?, error?, loop?}`，
+    缺失的 `config`/`error`/`loop` 不再被写成 `null`。
+  - `serial/session.rs` + `session_open.rs`：`setSignals` 与 open/close 同队列（脉冲进行中的调用排队）；
+    `rtscts` 只拒绝显式 `rts`（脉冲照常执行）；`startLoop` 静态校验、静默替换旧任务；
+    `stopLoop` 无循环时无事件；`set_status` 离开 `open` 时立即停循环；`Drop` 兜底关闭端口。
+  - `serial/service_signals.rs`：服务层入口（未知路径 `notOpen`；`stopLoop` 空操作）。
+  - `serial/transport_native.rs`：`TIOCMGET` → 改 `TIOCM_DTR`/`TIOCM_RTS` → `TIOCMSET`；
+    fd 改为 `AtomicI32`（`-1` 收口，重复 `close` 是空操作，`Drop` 兜底），关闭后的写/信号返回 `notOpen`。
+  - **连接关闭收口**：`SerialService::shutdown` 改为异步并关闭所有会话（TS `disposeAllAndWait`）——
+    否则循环任务持有 `Arc<SerialSession>`，连接关闭后仍会继续写、端口 fd 也不释放。
+- **通道**：`domains_serial.rs` 新增 `setSignals`/`startLoop`/`stopLoop`；`startLoop` 复用 `param_bytes`；
+  `count` 缺省/非法区分（JSON `null` 与 `<1` 都判非法）；`inventory_services.rs` 补 3 条。
+- **测试**：新增 20 例（`signals_tests` 3、`loop_runner_tests` 5、会话 S4 10、服务 2）+ 端到端 S4 段
+  （未知路径：`setSignals`/`startLoop` 回 `SerialError + notOpen`，`stopLoop` 回 undefined）。
+- **负向验证**（两项，均已恢复）：①去掉 250ms 进度节流 → 「100ms 内 0 条进度」失败（实测 10 条）；
+  ②去掉「离开 open 自动停循环」→「关闭后立即不带 loop」失败。
+  **第二项第一版测不出来**：关闭后下一 tick 的写入会因 `notOpen` 自行结束，短间隔下观察不到差别；
+  已补「5s 间隔 + 关闭后立即断言」的用例专门钉住这条语义。
+- **门禁**：workspace 全部测试目标通过（host-services 417、host-rpc 119 及全部 e2e）；
+  clippy `-D warnings` 0；`pnpm check:escode-host`（边界 + 清单生成）通过；库存 **273 已实现 / 265 待办**。

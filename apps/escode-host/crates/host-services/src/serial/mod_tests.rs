@@ -54,7 +54,7 @@ async fn watching_broadcasts_once_and_dedupes_identical_port_sets() {
         next,
         serde_json::json!([{"path": "/dev/a"}, {"path": "/dev/b"}])
     );
-    service.shutdown();
+    service.shutdown().await;
 }
 
 #[tokio::test]
@@ -99,7 +99,7 @@ async fn enumeration_failure_is_silent_and_does_not_poison_dedupe() {
         .expect("恢复后应广播")
         .expect("流未关闭");
     assert_eq!(recovered, serde_json::json!([{"path": "/dev/b"}]));
-    service.shutdown();
+    service.shutdown().await;
 }
 
 /// 「立即轮询」必须与轮询间隔无关：用**长间隔 + 短超时**把两者区分开。
@@ -115,5 +115,5 @@ async fn first_poll_happens_immediately_not_after_the_interval() {
         .await
         .expect("开启 watching 必须立即轮询，而不是等一个间隔")
         .expect("流未关闭");
-    service.shutdown();
+    service.shutdown().await;
 }

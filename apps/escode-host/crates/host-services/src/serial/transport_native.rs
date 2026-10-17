@@ -1,20 +1,41 @@
-//! Linux 原生串口传输（termios + AsyncFd）。由 `transport.rs` 以 `mod linux` 引入。
+//! Linux 原生串口传输（termios + AsyncFd + modem 控制线）。由 `transport.rs` 以 `mod linux` 引入。
 
 use std::ffi::CString;
 use std::os::unix::io::RawFd;
+use std::sync::atomic::{AtomicI32, Ordering};
 
-use super::{Parity, SerialConfig, SerialOpenError, SerialPort, SerialTransport, StopBits};
+use super::super::signals::Signals;
+use super::{
+    Parity, SerialConfig, SerialIoError, SerialOpenError, SerialPort, SerialTransport, StopBits,
+};
 
 pub struct NativeTransport;
 
 struct NativePort {
-    fd: RawFd,
+    /// `-1` 表示已关闭：`close` 用原子交换保证只关一次（重复关闭是空操作）。
+    fd: AtomicI32,
     reader: std::sync::Mutex<Option<super::ReaderHandle>>,
 }
 
 // fd 的读写由内核串行化；`close` 用原子交换保证只关一次。
 unsafe impl Send for NativePort {}
 unsafe impl Sync for NativePort {}
+
+impl NativePort {
+    fn open_fd(&self) -> Result<RawFd, SerialIoError> {
+        let fd = self.fd.load(Ordering::SeqCst);
+        if fd < 0 {
+            return Err(not_open());
+        }
+        Ok(fd)
+    }
+}
+
+impl Drop for NativePort {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
 
 #[async_trait::async_trait]
 impl SerialPort for NativePort {
@@ -25,7 +46,7 @@ impl SerialPort for NativePort {
         {
             handle.abort();
         }
-        let fd = self.fd;
+        let fd = self.fd.swap(-1, Ordering::SeqCst);
         if fd >= 0 {
             unsafe {
                 libc::close(fd);
@@ -33,8 +54,8 @@ impl SerialPort for NativePort {
         }
     }
 
-    async fn write(&self, bytes: Vec<u8>) -> Result<(), super::SerialIoError> {
-        let fd = self.fd;
+    async fn write(&self, bytes: Vec<u8>) -> Result<(), SerialIoError> {
+        let fd = self.open_fd()?;
         tokio::task::spawn_blocking(move || {
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
             let mut written = 0_usize;
@@ -65,10 +86,34 @@ impl SerialPort for NativePort {
         .map_err(|error| super::SerialIoError::new("io", format!("{error}")))?
     }
 
+    async fn set_signals(&self, signals: Signals) -> Result<(), SerialIoError> {
+        let fd = self.open_fd()?;
+        tokio::task::spawn_blocking(move || {
+            let mut bits: libc::c_int = 0;
+            if unsafe { libc::ioctl(fd, libc::TIOCMGET, &mut bits) } < 0 {
+                return Err(io_error("TIOCMGET"));
+            }
+            let set = |bits: libc::c_int, flag: libc::c_int, on: bool| {
+                if on { bits | flag } else { bits & !flag }
+            };
+            bits = set(bits, libc::TIOCM_DTR, signals.dtr);
+            bits = set(bits, libc::TIOCM_RTS, signals.rts);
+            if unsafe { libc::ioctl(fd, libc::TIOCMSET, &bits) } < 0 {
+                return Err(io_error("TIOCMSET"));
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|error| super::SerialIoError::new("io", format!("{error}")))?
+    }
+
     fn spawn_reader(&self, sink: std::sync::Arc<dyn Fn(Vec<u8>) + Send + Sync>) {
         use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+        let Ok(fd) = self.open_fd() else {
+            return;
+        };
         // dup 一份给读循环：关闭原 fd 时读循环能通过 abort 先退出。
-        let duplicated = unsafe { libc::dup(self.fd) };
+        let duplicated = unsafe { libc::dup(fd) };
         if duplicated < 0 {
             return;
         }
@@ -219,6 +264,14 @@ fn io_message(operation: &str) -> String {
     format!("{operation} failed: {error}")
 }
 
+fn io_error(operation: &str) -> SerialIoError {
+    SerialIoError::new("io", io_message(operation))
+}
+
+fn not_open() -> SerialIoError {
+    SerialIoError::new("notOpen", "Serial port is not open".to_owned())
+}
+
 #[async_trait::async_trait]
 impl SerialTransport for NativeTransport {
     async fn open(
@@ -244,7 +297,7 @@ impl SerialTransport for NativeTransport {
                 return Err(open_error(std::io::Error::last_os_error()));
             }
             let port = NativePort {
-                fd,
+                fd: AtomicI32::new(fd),
                 reader: std::sync::Mutex::new(None),
             };
             if let Err(error) = configure(fd, &config) {

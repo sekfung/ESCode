@@ -1,8 +1,7 @@
 //! `serial` 域（docs/specs/rust-u2-serial.md）。
 //!
-//! **S1 已交付**：端口枚举 + 轮询 + `onPorts`（`list` / `setWatching` / `onPorts`）。
-//! **S2 已交付**：会话（`open` / `close` / `getSnapshot` / `listSessions` / `onStatus`），含自动重连。
-//! S3–S4（数据面、信号与循环）待做。
+//! **S1–S3 已交付**：枚举/轮询/`onPorts`；会话（含自动重连）；数据面（`write` / `clear` / `onData`）。
+//! **S4**：信号（`setSignals` + 复位脉冲）与定时循环（`startLoop` / `stopLoop`）。
 //!
 //! 作用域：**每连接（≈每窗口）**（用户决定 2026-10-17）。串口会话与 `seq` 都属于连接，
 //! 因此本服务由连接级 channel 持有，而不是 Host 级单例。
@@ -10,7 +9,10 @@
 pub mod buffer;
 pub mod data;
 pub mod enumerate;
+pub mod loop_runner;
 pub mod session;
+pub mod session_status;
+pub mod signals;
 pub mod transport;
 
 use std::collections::BTreeMap;
@@ -24,6 +26,7 @@ use tokio::task::JoinHandle;
 
 use enumerate::PortEnumerator;
 use session::SerialSession;
+use signals::{Pulse, Signals};
 use transport::{SerialConfig, SerialOpenError, SerialTransport};
 
 /// TS `DEFAULT_POLL_INTERVAL_MS`。
@@ -200,13 +203,27 @@ impl SerialService {
             .collect()
     }
 
-    /// 停止轮询并清空监听（连接关闭时由 channel 的 close 钩子调用）。
-    pub fn shutdown(&self) {
+    /// 停止轮询、关闭所有会话（停循环、关端口）并清空监听（连接关闭时由 channel 的 close 钩子调用）。
+    /// 对应 TS `disposeAllAndWait`：不关闭会话的话，循环任务会一直持有会话继续写。
+    pub async fn shutdown(&self) {
         *self.lock(&self.inner.disposed) = true;
         self.stop_polling();
+        let sessions: Vec<Arc<SerialSession>> =
+            self.lock(&self.inner.sessions).values().cloned().collect();
+        for session in sessions {
+            session.close().await;
+        }
         self.lock(&self.inner.ports_listeners).clear();
         self.lock(&self.inner.status_listeners).clear();
         self.lock(&self.inner.data_listeners).clear();
+    }
+
+    /// 取会话；未知路径 → `notOpen`。
+    fn session(&self, path: &str) -> Result<Arc<SerialSession>, SerialOpenError> {
+        self.lock(&self.inner.sessions)
+            .get(path)
+            .cloned()
+            .ok_or_else(|| SerialOpenError::new("notOpen", "Serial port is not open".to_owned()))
     }
 
     /// 取或建会话；新会话的状态变化会广播到 `onStatus`。
@@ -215,20 +232,13 @@ impl SerialService {
             return session;
         }
         let inner = Arc::clone(&self.inner);
+        // TS `{...status, path}`：状态本身已含 path，直接广播完整对象。
         let on_status: Arc<dyn Fn(Value) + Send + Sync> = Arc::new(move |status: Value| {
-            let path = status["path"].as_str().unwrap_or_default().to_owned();
-            let payload = serde_json::json!({
-                "path": path,
-                "state": status["state"],
-                "signals": status["signals"],
-                "config": status["config"],
-                "error": status["error"],
-            });
             inner
                 .status_listeners
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
-                .retain(|tx| tx.send(payload.clone()).is_ok());
+                .retain(|tx| tx.send(status.clone()).is_ok());
         });
         let inner_for_chunk = Arc::clone(&self.inner);
         let path_for_chunk = path.to_owned();
@@ -371,6 +381,9 @@ impl SerialService {
         mutex.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
+
+#[path = "service_signals.rs"]
+mod service_signals;
 
 #[cfg(test)]
 #[path = "mod_tests.rs"]

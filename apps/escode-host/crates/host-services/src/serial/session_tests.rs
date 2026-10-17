@@ -1,4 +1,4 @@
-//! 会话状态机与重连（`rust-u2-serial.md` §9）。
+//! 会话状态机、重连与信号/循环（`rust-u2-serial.md` §9、§12）。
 use super::*;
 use crate::serial::transport::testing::FakeTransport;
 use std::sync::Arc;
@@ -6,29 +6,33 @@ use std::sync::Mutex;
 
 fn make_session() -> (
     Arc<FakeTransport>,
-    SerialSession,
+    Arc<SerialSession>,
     Arc<Mutex<Vec<serde_json::Value>>>,
 ) {
     let transport = Arc::new(FakeTransport::default());
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&events);
-    let session = SerialSession::new(
+    let session = Arc::new(SerialSession::new(
         "/dev/ttyS0".to_owned(),
         transport.clone(),
         Arc::new(std::sync::atomic::AtomicU64::new(0)),
         Arc::new(move |status| sink.lock().unwrap().push(status)),
         Arc::new(|_chunk| {}),
-    );
+    ));
     (transport, session, events)
 }
 
 fn config(auto_reconnect: bool) -> SerialConfig {
+    config_with(false, auto_reconnect)
+}
+
+fn config_with(rtscts: bool, auto_reconnect: bool) -> SerialConfig {
     SerialConfig {
         baud_rate: 115200,
         data_bits: 8,
         parity: super::super::transport::Parity::None,
         stop_bits: super::super::transport::StopBits::One,
-        rtscts: false,
+        rtscts,
         auto_reconnect,
     }
 }
@@ -106,3 +110,6 @@ async fn disconnect_then_reconnect_keeps_auto_reconnect_semantics() {
     assert_eq!(other.state(), "closed");
     assert_eq!(other_transport.opened.lock().unwrap().len(), 1);
 }
+
+#[path = "session_s4_tests.rs"]
+mod s4;

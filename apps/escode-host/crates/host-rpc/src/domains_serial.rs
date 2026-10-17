@@ -3,14 +3,14 @@
 //! **每连接一个实例**（`Channels::with_scoped`）：串口会话与 `seq` 都属于连接作用域
 //! （用户决定 2026-10-17「每连接≈每窗口」）。
 //!
-//! 已接 S1 + S2 + S3：枚举/轮询、会话（含自动重连）与数据面（`write` / `clear` / `onData`）。
-//! S4（信号与循环）由 `respond` 回显式缺口。
+//! S1–S4 全部接通：枚举/轮询、会话（含自动重连）、数据面、信号（DTR/RTS + 复位脉冲）与定时循环。
 
 use std::pin::Pin;
 use std::sync::Arc;
 
 use escode_host_services::serial::SerialService;
 use escode_host_services::serial::enumerate::SysfsEnumerator;
+use escode_host_services::serial::signals::Pulse;
 use escode_host_services::serial::transport::NativeTransport;
 use futures_util::stream;
 use serde_json::Value;
@@ -114,7 +114,7 @@ pub(crate) fn serial_channel(_context: &ConnectionContext) -> Channel {
         Arc::new(
             move || -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
                 let service = Arc::clone(&service);
-                Box::pin(async move { service.shutdown() })
+                Box::pin(async move { service.shutdown().await })
             },
         )
     };
@@ -227,6 +227,54 @@ pub(crate) fn serial_channel(_context: &ConnectionContext) -> Channel {
         })
     };
 
+    let set_signals = {
+        let service = Arc::clone(&service);
+        handler_rpc(move |arg: crate::wire::Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                let path = params["path"].as_str().unwrap_or_default().to_owned();
+                let dtr = params.get("dtr").and_then(Value::as_bool);
+                let rts = params.get("rts").and_then(Value::as_bool);
+                let pulse = params
+                    .get("pulse")
+                    .and_then(Value::as_str)
+                    .and_then(Pulse::from_name);
+                let signals = service
+                    .set_signals(&path, dtr, rts, pulse)
+                    .await
+                    .map_err(serial_error)?;
+                Ok(crate::wire::Wire::Object(signals.to_json()))
+            })
+        })
+    };
+    let start_loop = {
+        let service = Arc::clone(&service);
+        handler_rpc(move |arg: crate::wire::Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                let bytes = param_bytes(&params)?;
+                let path = params["path"].as_str().unwrap_or_default().to_owned();
+                let interval_ms = params["intervalMs"].as_u64().unwrap_or(0);
+                // TS：`count !== undefined` 时必须是整数 ≥ 1；JSON null 不是 undefined，按非法处理。
+                let count = params.get("count").map(|value| value.as_u64().unwrap_or(0));
+                service
+                    .start_loop(&path, bytes, interval_ms, count)
+                    .map_err(serial_error)?;
+                Ok(crate::wire::Wire::Undefined)
+            })
+        })
+    };
+    let stop_loop = {
+        let service = Arc::clone(&service);
+        handler(move |arg: crate::wire::Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                service.stop_loop(params["path"].as_str().unwrap_or_default());
+                Ok(crate::wire::Wire::Undefined)
+            })
+        })
+    };
+
     Channel::new(
         "serial",
         vec![
@@ -238,6 +286,9 @@ pub(crate) fn serial_channel(_context: &ConnectionContext) -> Channel {
             ("listSessions", list_sessions),
             ("write", write),
             ("clear", clear),
+            ("setSignals", set_signals),
+            ("startLoop", start_loop),
+            ("stopLoop", stop_loop),
         ],
     )
     .with_events(vec![

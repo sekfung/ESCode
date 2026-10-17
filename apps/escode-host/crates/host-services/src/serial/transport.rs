@@ -8,6 +8,8 @@
 
 use serde_json::{Value, json};
 
+use super::signals::Signals;
+
 /// `SerialConfig`（TS 同名接口）。
 #[derive(Clone, Debug, PartialEq)]
 pub struct SerialConfig {
@@ -177,6 +179,8 @@ pub trait SerialPort: Send + Sync {
     fn close(&self);
     /// 写入全部字节（非阻塞 fd 上 EAGAIN 时短重试，上限 5s）。
     async fn write(&self, bytes: Vec<u8>) -> Result<(), SerialIoError>;
+    /// 设置 DTR/RTS 输出（S4）。
+    async fn set_signals(&self, signals: Signals) -> Result<(), SerialIoError>;
     /// 启动读循环：读到字节即回调。句柄由端口自身持有，`close` 时先 abort 再关 fd。
     fn spawn_reader(&self, sink: std::sync::Arc<dyn Fn(Vec<u8>) + Send + Sync>);
 }

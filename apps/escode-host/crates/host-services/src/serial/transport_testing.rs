@@ -1,4 +1,5 @@
-//! 测试用假传输：可编排打开失败、记录写入、并向读循环喂字节。
+//! 测试用假传输：可编排打开失败、记录写入与信号变化，并向读循环喂字节。
+use super::super::signals::Signals;
 use super::{SerialConfig, SerialIoError, SerialOpenError, SerialPort, SerialTransport};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -10,6 +11,8 @@ pub struct FakeTransport {
     pub opened: Mutex<Vec<String>>,
     pub closed: Arc<AtomicUsize>,
     pub writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    /// 每次 `set_signals` 的目标状态（按调用顺序）。
+    pub signals: Arc<Mutex<Vec<Signals>>>,
     pub fail: Mutex<Option<SerialOpenError>>,
     /// 最近一次 `spawn_reader` 注册的上送回调（测试用它模拟设备发数据）。
     pub sink: Arc<Mutex<Option<Sink>>>,
@@ -28,6 +31,7 @@ impl FakeTransport {
 struct FakePort {
     closed: Arc<AtomicUsize>,
     writes: Arc<Mutex<Vec<Vec<u8>>>>,
+    signals: Arc<Mutex<Vec<Signals>>>,
     sink: Arc<Mutex<Option<Sink>>>,
 }
 
@@ -39,6 +43,11 @@ impl SerialPort for FakePort {
 
     async fn write(&self, bytes: Vec<u8>) -> Result<(), SerialIoError> {
         self.writes.lock().unwrap().push(bytes);
+        Ok(())
+    }
+
+    async fn set_signals(&self, signals: Signals) -> Result<(), SerialIoError> {
+        self.signals.lock().unwrap().push(signals);
         Ok(())
     }
 
@@ -61,6 +70,7 @@ impl SerialTransport for FakeTransport {
         Ok(Box::new(FakePort {
             closed: Arc::clone(&self.closed),
             writes: Arc::clone(&self.writes),
+            signals: Arc::clone(&self.signals),
             sink: Arc::clone(&self.sink),
         }))
     }
