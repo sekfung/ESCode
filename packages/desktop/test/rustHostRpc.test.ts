@@ -60,7 +60,10 @@ describe("rust host rpc surface", () => {
 
         // 未迁移的 channel：显式 NotImplemented（不挂起）。serial 已 14/14 迁移，hooks 仍是 Pending。
         await expect(
-          services.hooksService.loadHooks({ workspacePath: home, workspaceIdentity: home } as never),
+          services.hooksService.loadHooks({
+            workspacePath: home,
+            workspaceIdentity: home,
+          } as never),
         ).rejects.toThrow(/does not implement channel `hooks`/);
 
         // escode-session 域：Host 转成 runtime 的 session/list（TS Host 同构），
@@ -429,7 +432,10 @@ describe("rust host rpc surface", () => {
 
         // file 域已 17/17（搜索/索引见 rustHostFileIndex.test.ts）；用仍未注册的 hooks channel 验证显式缺口。
         await expect(
-          services.hooksService.loadHooks({ workspacePath: home, workspaceIdentity: home } as never),
+          services.hooksService.loadHooks({
+            workspacePath: home,
+            workspaceIdentity: home,
+          } as never),
         ).rejects.toThrow(/does not implement channel `hooks`/);
 
         // system 域：info() 返回 homedir + Node 口径 platform。

@@ -78,8 +78,7 @@ function analyse(kind: Runtime, frames: ConversationTopicFrame[], queuedId: stri
     const queueUpdate =
       frame.payload.kind === "deltas"
         ? frame.payload.deltas.findLast(
-            (d): d is StateUpdatedDelta =>
-              d.op === "state.updated" && Boolean(d.patch.queue),
+            (d): d is StateUpdatedDelta => d.op === "state.updated" && Boolean(d.patch.queue),
           )
         : undefined;
     const items =
