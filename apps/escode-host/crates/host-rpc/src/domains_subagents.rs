@@ -1,8 +1,6 @@
 //! `subagents` channel（TS `ServiceChannels.Subagents` = `"subagents"`；docs/specs/rust-u2-subagents.md）。
 //!
-//! 已接 5/8：`list` + `getPrimaryUserAgentsDirectory` + `setEnabled` + 两个模型覆盖。
-//! 其余 3 个（`createAgent` / `updateAgent` / `deleteAgent`）依赖 markdown 序列化与改名时的
-//! 禁用态迁移，由 `respond` 回显式缺口并列出已实现集合。
+//! **8/8 全部接通**：`list`、目录解析、状态写入面、写三法（create/update/delete）。
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -107,10 +105,44 @@ pub(crate) fn subagents_channel(home: PathBuf) -> Channel {
         })
     };
 
+    let create_agent = {
+        let service = Arc::clone(&service);
+        handler(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                let answer = service.create_agent(&params).await.map_err(failed)?;
+                Ok::<Wire, (String, String)>(Wire::Object(answer))
+            })
+        })
+    };
+    let update_agent = {
+        let service = Arc::clone(&service);
+        handler(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                let answer = service.update_agent(&params).await.map_err(failed)?;
+                Ok::<Wire, (String, String)>(Wire::Object(answer))
+            })
+        })
+    };
+    let delete_agent = {
+        let service = Arc::clone(&service);
+        handler(move |arg: Wire| {
+            let (service, params) = (Arc::clone(&service), first_object(arg));
+            Box::pin(async move {
+                service.delete_agent(&params).await.map_err(failed)?;
+                Ok(Wire::Undefined)
+            })
+        })
+    };
+
     Channel::new(
         "subagents",
         vec![
             ("list", list_method),
+            ("createAgent", create_agent),
+            ("updateAgent", update_agent),
+            ("deleteAgent", delete_agent),
             ("getPrimaryUserAgentsDirectory", primary),
             ("setEnabled", set_enabled),
             ("setBuiltInModelOverride", set_built_in),

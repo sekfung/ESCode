@@ -1,6 +1,6 @@
 //! `subagents` 端到端（真 WebSocket，`rust-u2-subagents.md` §4）。
 //!
-//! 覆盖已交付的 5/8：`list` + 目录解析 + 状态写入面；未迁移的 3 个必须回**显式缺口**并列出已实现集合。
+//! 覆盖 8/8：`list` + 目录解析 + 状态写入面 + 写三法（create/update/delete）。
 mod support;
 use support::*;
 
@@ -189,26 +189,120 @@ async fn directory_and_state_writes_then_list_reports_an_explicit_gap() {
         .expect("reviewer 仍在列表里");
     assert_eq!(reviewer["enabled"], serde_json::json!(false));
 
-    // ── 未迁移的 3 个：显式缺口 + 已实现集合 ────────────────────────
-    for (id, method) in [
-        (30, "createAgent"),
-        (31, "updateAgent"),
-        (32, "deleteAgent"),
-    ] {
-        let error = call_json(&mut socket, id, method, serde_json::json!({}))
-            .await
-            .into_object()
-            .expect("缺口载荷");
-        let message = error["message"].as_str().unwrap_or_default();
-        assert!(
-            message.contains(&format!("does not implement `subagents.{method}`")),
-            "{method} 应是显式缺口: {error}"
-        );
-        assert!(
-            message.contains("setBuiltInModelOverride"),
-            "{method} 的缺口应列出已实现集合: {error}"
-        );
-    }
+    // ── 写三法：创建 → 改名（禁用态跟随）→ 删除 ────────────────────
+    let answer = call_json(
+        &mut socket,
+        40,
+        "createAgent",
+        serde_json::json!({
+            "config": {"name": "auditor", "description": "审计", "systemPrompt": "你是审计员。"}
+        }),
+    )
+    .await;
+    let Wire::Object(answer) = answer else {
+        panic!("createAgent 应答应为对象")
+    };
+    let created_id = answer["agent"]["id"].as_str().unwrap().to_owned();
+    let created_path = answer["agent"]["path"].as_str().unwrap().to_owned();
+    assert_eq!(created_id, "user:user:auditor");
+    assert!(std::path::Path::new(&created_path).exists());
+
+    // 同名再建 → 明确报错。
+    let error = call_json(
+        &mut socket,
+        41,
+        "createAgent",
+        serde_json::json!({
+            "config": {"name": "auditor", "description": "d", "systemPrompt": "p"}
+        }),
+    )
+    .await
+    .into_object()
+    .expect("错误载荷");
+    assert_eq!(
+        error["message"],
+        serde_json::json!("Agent file \"auditor.md\" already exists"),
+        "{error}"
+    );
+
+    // 禁用后改名：新 id 继承禁用态，旧文件删除。
+    call_json(
+        &mut socket,
+        42,
+        "setEnabled",
+        serde_json::json!({"agentId": created_id, "enabled": false}),
+    )
+    .await;
+    let answer = call_json(
+        &mut socket,
+        43,
+        "updateAgent",
+        serde_json::json!({
+            "agentId": created_id,
+            "oldFilePath": created_path,
+            "config": {"name": "auditor-two", "description": "审计", "systemPrompt": "你是审计员。"}
+        }),
+    )
+    .await;
+    let Wire::Object(answer) = answer else {
+        panic!("updateAgent 应答应为对象")
+    };
+    let renamed_id = answer["agent"]["id"].as_str().unwrap().to_owned();
+    let renamed_path = answer["agent"]["path"].as_str().unwrap().to_owned();
+    assert_eq!(renamed_id, "user:user:auditor-two");
+    assert!(
+        !std::path::Path::new(&created_path).exists(),
+        "旧文件应删除"
+    );
+    let list_after_rename = call_json(
+        &mut socket,
+        44,
+        "list",
+        serde_json::json!({"workspacePath": workspace.to_string_lossy()}),
+    )
+    .await;
+    let Wire::Object(list_after_rename) = list_after_rename else {
+        panic!("list 应答应为对象")
+    };
+    let renamed = list_after_rename["agents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|agent| agent["name"] == serde_json::json!("auditor-two"))
+        .expect("改名后应出现在列表里");
+    assert_eq!(
+        renamed["enabled"],
+        serde_json::json!(false),
+        "禁用态跟随改名"
+    );
+
+    // 删除后不再出现。
+    call_json(
+        &mut socket,
+        45,
+        "deleteAgent",
+        serde_json::json!({"filePath": renamed_path, "agentId": renamed_id}),
+    )
+    .await;
+    assert!(!std::path::Path::new(&renamed_path).exists());
+    let list_after_delete = call_json(
+        &mut socket,
+        46,
+        "list",
+        serde_json::json!({"workspacePath": workspace.to_string_lossy()}),
+    )
+    .await;
+    let Wire::Object(list_after_delete) = list_after_delete else {
+        panic!("list 应答应为对象")
+    };
+    assert!(
+        !list_after_delete["agents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|agent| agent["name"] == serde_json::json!("auditor-two")),
+        "删除后不应再出现"
+    );
 
     surface.shutdown().await;
 }

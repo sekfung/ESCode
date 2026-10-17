@@ -16,9 +16,11 @@ pub mod list;
 pub mod model_selection;
 pub mod model_value;
 pub mod profile;
+pub mod serialize;
 pub mod state;
 pub mod storage;
 pub mod summary;
+pub mod write;
 pub mod yaml_json;
 
 use std::path::PathBuf;
@@ -40,6 +42,11 @@ impl SubagentsService {
             home,
             queue: Arc::new(Mutex::new(())),
         }
+    }
+
+    /// 写队列（写三法与状态写入面共用同一把锁，保证读-改-写串行）。
+    pub(super) fn queue(&self) -> &Arc<Mutex<()>> {
+        &self.queue
     }
 
     /// 设置域根（`list` 的发现层需要它定位用户根与状态文件）。

@@ -1,7 +1,6 @@
 # Rust 阶段 2：`subagents` 域（rust-unified-host.md 子 spec）
 
-> 状态：切片交付中 · 2026-10-17。**5/8 已交付**（`list` + 目录解析 + 状态写入面）。
-> 只剩 `createAgent` / `updateAgent` / `deleteAgent`（需 markdown 序列化与改名时禁用态迁移）。
+> 状态：**8/8 已交付** · 2026-10-17（`list` + 目录解析 + 状态写入面 + 写三法）。
 > TS 真相源：`packages/services/src/subagents/`（`subagentsService.ts` 892、`subagentMarkdown.ts` 435、
 > `subagentConfigScope.ts` 343、`subagentRuntimeConfig.ts` 230、`subagentStorage.ts` 65）、
 > `packages/shared/src/subagents-types.ts`。
@@ -203,3 +202,38 @@ Rust 对应 `subagents/{frontmatter,profile}.rs`。
 ②禁用态应用到所有 scope → 「内置不受禁用集影响」失败。
 第二项第一版用例只禁用了 user id、内置 id 不在集合里，负向验证发现它测不到 scope 判断，
 已改为**把内置 id 也塞进禁用集**。
+
+### 6.8 写三法交付记录（2026-10-17）
+
+**序列化**（`serialize.rs`）：行序与 TS 逐行一致；`name`/`description` 总是引号 + 转义（`\\`、`\"`、`\n`、`\r`）；
+其余标量按 `isSafePlainYamlScalar` 决定是否加引号（`*`、含 `: `、`#`、看起来像数字/布尔/空值的都要引）；
+`model` 只在 provider 含 `/`、model 含 `$`、或 provider 自带 `custom:` 前缀时走 `custom:<enc>:<enc>`
+（JS `encodeURIComponent` 语义：保留 `A-Za-z0-9-_.!~*'()`）。
+
+**写三法**（`write.rs`）：
+
+| 方法          | 关键行为                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createAgent` | 校验（name 3–50 且只含字母数字连字符、description/正文非空）→ 内置名保留 → 目标目录（workspace 需 `workspacePath`）→ 同名已存在报 `Agent file "<文件名>" already exists` → 序列化 → **回解析校验** → 以 `create_new`（`wx`）原子创建 |
+| `updateAgent` | 同上校验 → 改名时先查新名是否被占用（撞名不动旧文件）→ 序列化 + 回解析 → 覆盖写 → **迁移 `disabledAgentIds` 到新 id** → 删旧文件                                                                                                     |
+| `deleteAgent` | 删文件（ENOENT 当成功）→ 从 `disabledAgentIds` 移除该 id 并升序写回                                                                                                                                                                  |
+
+三条语义要点：**写前回解析**（serializer 回归不会把坏 profile 落盘）、**create 原子创建**、
+**改名迁禁用态**（id 含 name，不迁会让刚禁用的 agent 重新启用）。
+
+**登记差异**：
+
+1. **`mcpServers` 对象数组的键序**：serde_json 无 `preserve_order`，输出按字键排序；TS 的
+   `yaml.stringify` 保持插入序。只在 `mcpServers` 含对象时逐字不同（语义等价，读回一致）。
+2. **块状 emitter 是 `yaml.stringify` 的子集**：不复制锚点、流式写法与它自己的引号风格；
+   引号判定用 YAML plain-scalar 规则（比手写行的 `formatYamlScalar` 更宽松，`--foo`/`a:b` 可裸写）。
+3. `maxTurns` 的数值写成 JSON 数字（与 TS 的模板插值一致）。
+
+**验收**：`serialize_tests` 5 例（最小/全字段行序、不安全标量引号、model 三种编码、对象数组块状输出）、
+`write_tests` 6 例（创建落盘且 list 立刻可见、重复/内置名/四种非法配置/缺 workspacePath 的文案、
+workspace scope 的 projectPath 与 id、改名迁禁用态、撞名不动旧文件、删除清禁用键且幂等）。
+端到端 1 例：create → 重名报错 → 禁用 → 改名（禁用态跟随、旧文件删除、list 可见）→ 删除。
+
+**负向验证**（两项，均已恢复）：①`updateAgent` 不迁禁用态 → 「禁用态跟到新 id」失败；
+②`createAgent` 允许覆盖 → 重名用例失败（第一版只改了写入方式、没去掉前置的存在性检查，负向验证发现
+它测不到覆盖，已补去掉检查）。
