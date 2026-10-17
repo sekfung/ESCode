@@ -389,6 +389,10 @@ pub(crate) fn task_channel(
         super::domains_task_state::workspace_event(&events),
     )];
     event_handlers.extend(task_events.handlers());
+    event_handlers.push((
+        "onDynamicConversationFrames",
+        super::domains_task_bot::conversation_frames(&state),
+    ));
     Channel::new("escode-task", methods).with_events(event_handlers)
 }
 

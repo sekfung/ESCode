@@ -29,6 +29,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-task", "onDynamicWorkspaceEvent"),
     ("escode-task", "onDynamicStreamEvent"),
     ("escode-task", "onDynamicTaskEvent"),
+    ("escode-task", "onDynamicConversationFrames"),
     ("escode-task", "onDynamicTaskReady"),
     ("escode-task", "onDynamicTaskTerminalOutcome"),
     ("escode-task", "onError"),

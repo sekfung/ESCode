@@ -5,6 +5,7 @@ import {
   createGroupAdminAttention,
 } from "#src/bots/groupAdminAttention.js";
 import { createTopicPreparationState } from "#src/bots/topicPreparationState.js";
+import { subscribeBotConversationStream } from "#src/bots/botConversationStream.js";
 import { createTopicContinuation } from "#src/bots/topicContinuation.js";
 import { TopicHistoryPermissionError } from "#src/bots/topicHistory.js";
 import {
@@ -5960,6 +5961,12 @@ export function createBotsService(
     const dynamicTaskEvent = (
       escodeTaskService as Partial<Pick<IESCodeTaskService, "onDynamicTaskEvent">>
     ).onDynamicTaskEvent;
+    // 修复：旧来源是 legacy session/subscribe，Rust runtime 不提供，Bot 收不到正文/工具/权限。
+    // 改为直接消费 V4 conversation 帧，经 Bot 本地投影交给原处理流程（docs/specs/bots-v4-stream.md）。
+    // 不提供该方法的旧远端 Host 仍走旧订阅。
+    const conversationFrames = (
+      escodeTaskService as Partial<Pick<IESCodeTaskService, "onDynamicConversationFrames">>
+    ).onDynamicConversationFrames;
     // Bugfix: 远控/共享 host 场景会通过 workspace+task mirror 分发流事件。
     // 这里优先订阅 workspace 级事件，避免只监听本地 taskId relay 时漏掉 channel 回复。
     const streamDisposable = taskStreamHub.add(
@@ -5969,17 +5976,27 @@ export function createBotsService(
       ]),
       streamSubscriptionKey,
       (receive) =>
-        dynamicTaskEvent
-          ? dynamicTaskEvent({
-              workspacePath: context.workspacePath,
-              workspaceIdentity: context.workspaceIdentity,
-              taskId: context.activeTaskId!,
-              // Bugfix: Bot channel 使用 direct stream 语义。
-              // 手机远控 replayable 的 mirror replay / snapshot gap recovery 会改变 bot 回复边界，
-              // 这里使用 bot 专属 continuous 订阅，避免远控恢复逻辑影响飞书/微信等 channel。
-              deliveryKind: "bot-channel-continuous",
-            })(receive)
-          : escodeTaskService.onDynamicStreamEvent(context.activeTaskId!)(receive),
+        conversationFrames
+          ? subscribeBotConversationStream(
+              conversationFrames.bind(escodeTaskService),
+              {
+                workspacePath: context.workspacePath,
+                workspaceIdentity: context.workspaceIdentity,
+                taskId: context.activeTaskId!,
+              },
+              receive,
+            )
+          : dynamicTaskEvent
+            ? dynamicTaskEvent({
+                workspacePath: context.workspacePath,
+                workspaceIdentity: context.workspaceIdentity,
+                taskId: context.activeTaskId!,
+                // Bugfix: Bot channel 使用 direct stream 语义。
+                // 手机远控 replayable 的 mirror replay / snapshot gap recovery 会改变 bot 回复边界，
+                // 这里使用 bot 专属 continuous 订阅，避免远控恢复逻辑影响飞书/微信等 channel。
+                deliveryKind: "bot-channel-continuous",
+              })(receive)
+            : escodeTaskService.onDynamicStreamEvent(context.activeTaskId!)(receive),
       enqueueStreamEvent,
     );
     streamSubscriptions.set(streamSubscriptionKey, {

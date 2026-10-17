@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- ESCode task wrapper service 接口集中承载 app/runtime API，拆散会让替换阶段更难追踪。 */
 import type { Event } from "@escode/rpc";
 import { ServiceChannels } from "@escode/shared";
-import type { CommandPayloadMap } from "@escode/shared/escode-protocol-v4";
+import type { CommandPayloadMap, ConversationTopicFrame } from "@escode/shared/escode-protocol-v4";
 import { createServiceDescriptor } from "#src/descriptors.js";
 import type {
   ESCodeImportSessionsResult,
@@ -830,6 +830,18 @@ export interface IESCodeTaskService {
     clientId?: string;
     deliveryKind?: "continuous" | "bot-channel-continuous" | "replayable" | "mixed";
   }): Event<ESCodeStreamEvent>;
+
+  /**
+   * 订阅指定 task 的 V4 conversation 帧（docs/specs/bots-v4-stream.md）：独立的 desktop-continuous、
+   * background 订阅，首帧 snapshot、之后 deltas；gap 时实现方重订阅并以新 snapshot 续上。
+   * Bots 回复流的唯一数据源，不替代 Renderer 自己的 V4 订阅。
+   */
+  onDynamicConversationFrames(params: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    remoteSessionId?: string;
+    taskId: string;
+  }): Event<ConversationTopicFrame>;
 
   /**
    * 订阅 workspace 级别的异步通知（如预热阶段 Agent 推送的 slash commands、configOptions）。

@@ -902,11 +902,11 @@ createdAt?, previewTitle?}`。
   `onDynamicTaskReady` 只投递 `{taskId, reason}`。两者都复用同一个 syncer 终态观察。
 - `onDynamicStreamEvent` 与 `onDynamicTaskEvent` 共用 `TaskEventHub`；`onDynamicTaskEvent`
   额外登记任务目标（TS 同）。
-- **未完成（Host 侧，独立立项）**：方法已注册但行为未与 TS 对等，不属于可接受差异——
-  - V4 conversation 帧 → `ESCodeStreamEvent` 的完整映射（agent_message_chunk/tool_call_update/
-    plan/permission_request…）未实现；如上事件只覆盖 Host 侧生命周期与快照通知，Bot 正文流依赖此项；
-  - `onError` 只登记监听，没有错误源，不投递。
-    `76/76` 指契约清单覆盖率（方法有 handler、不回 `NotImplemented`），不代表这两项功能对等。
+- `onError`：与 TS 对等——TS adapter 的 `errorEmitter` 从不 `fire`，全仓无消费方；Host 同样只登记监听。
+  （早先把它列为缺口是误判。）
+- V4 帧 → 流事件：不在 Host 做通用映射（与既有架构决策一致）。Bots 改为直接消费 V4 帧：新增
+  `onDynamicConversationFrames`（Host 内持续 background 订阅，gap 重订阅），Bot 本地投影见
+  `bots-v4-stream.md`。`onDynamicStreamEvent`/`onDynamicTaskEvent` 继续只承载生命周期与快照通知。
 
 ## 17. Bot group（S12，2026-10-17）
 

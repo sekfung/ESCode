@@ -4,6 +4,7 @@ import {
   waitBotGroupExecutionEnd,
 } from "#src/escode-agent/groupRuntimeSnapshot.js";
 import { uploadBotGroupAttachments } from "./groupAttachmentUpload.js";
+import { observeConversationFrames } from "./conversationFrameFeed.js";
 /* oxlint-disable eslint(max-lines) -- 迁移期需要在一个门面里集中维护旧 task projection 到 ESCode session 的协议适配。 */
 import { createHash, randomUUID } from "node:crypto";
 import { createESCodeAgentConnectionScope } from "#src/escode-agent/escodeAgentConnectionScope.js";
@@ -151,7 +152,11 @@ import type {
   ESCodeTaskIndexTerminalEvent,
 } from "./escodeTaskIndexSyncer.js";
 import { readModelTrajectory } from "./modelTrajectory.js";
-import { errorAttributionSchema, type CommandPayloadMap } from "@escode/shared/escode-protocol-v4";
+import {
+  errorAttributionSchema,
+  type CommandPayloadMap,
+  type ConversationTopicFrame,
+} from "@escode/shared/escode-protocol-v4";
 import {
   assertV4CommandAckOk,
   createHostCommandEnvelope,
@@ -3539,6 +3544,15 @@ export function createESCodeTaskServiceAdapter(
           },
         };
       };
+    },
+
+    onDynamicConversationFrames(params): Event<ConversationTopicFrame> {
+      return observeConversationFrames(options.escodeAgentService, {
+        workspacePath: params.workspacePath,
+        workspaceIdentity: params.workspaceIdentity,
+        remoteSessionId: params.remoteSessionId ?? taskTargets.get(params.taskId)?.remoteSessionId,
+        sessionId: params.taskId,
+      });
     },
 
     onDynamicWorkspaceEvent(workspace): Event<ESCodeWorkspaceEvent> {

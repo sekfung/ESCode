@@ -70,6 +70,6 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
     工具）的 `request_access` 结果发出，而 TS 与 Rust 都把除 `node_repl` 外的 CUA 形 MCP 服务器退役（`isRetiredCuaMcpServer`），
     `node_repl` 的 CUA 走 `node_repl_images` 展示（Rust 已对齐）。Rust 不实现，若 TS 恢复 computer-use MCP 再补。
   - 已核对为**无活跃 UI 调用点**（Rust 不实现，作为 legacy 面保留在 TS 侧）：
-    `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
+    `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代；Bots 原先仍经它取回复流，2026-10-18 已改为 V4 帧，见 [bots-v4-stream.md](bots-v4-stream.md)）、
     `workspace/hooks/trustGrant` 已随 hooks H2 实现（见 [rust-hooks.md](rust-hooks.md)）。`plugins/referenceCatalog*` 同样没有活跃 UI
     调用点，但 TS 仍提供，Rust 已一并实现（见上）。

@@ -33,6 +33,26 @@ pub(super) fn bot_methods(context: &StateContext) -> Vec<(&'static str, MethodHa
     ]
 }
 
+/// `onDynamicConversationFrames`：Bots 回复流的 V4 帧源（docs/specs/bots-v4-stream.md）。
+pub(super) fn conversation_frames(context: &StateContext) -> crate::session::EventHandler {
+    let context = context.clone();
+    Arc::new(move |arg: Wire| {
+        let params = arg
+            .into_args()
+            .into_iter()
+            .next()
+            .and_then(Wire::into_object)
+            .unwrap_or(Value::Null);
+        let target = resolve_target(&context, &params, "Group task workspace mismatch")
+            .map_err(|error| error.message)?;
+        let base = observer(&context).map_err(|error| error.message)?;
+        Ok(crate::agent_v4::observe::conversation_frames(
+            base,
+            v4_target(&target, &params),
+        ))
+    })
+}
+
 pub(super) fn observer(context: &StateContext) -> Result<Arc<Base>, RpcError> {
     context
         .observer

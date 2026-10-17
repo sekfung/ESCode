@@ -1802,6 +1802,99 @@ describe("botsService messageFlow", () => {
     service.disposeAll();
   });
 
+  it("delivers an automation result from V4 conversation frames without the legacy stream", async () => {
+    // docs/specs/bots-v4-stream.md：Rust runtime 没有 legacy session/subscribe，回复只能来自 V4 帧。
+    // 微信长轮询 getupdates 必须挂起：立即返回的 mock 会让轮询变成微任务紧循环，饿死定时器。
+    const fetchMock = vi.fn(async (url: unknown) =>
+      String(url).includes("getupdates")
+        ? new Promise<Response>(() => {})
+        : new Response(JSON.stringify({ ret: 0 }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const frameListeners: Array<(frame: unknown) => void> = [];
+    const legacyTaskService = {
+      ...f.createLegacyTaskService(),
+      onDynamicTaskEvent: vi.fn(() => () => ({ dispose() {} })),
+      onDynamicConversationFrames: vi.fn(() => (listener: (frame: unknown) => void) => {
+        frameListeners.push(listener);
+        return { dispose() {} };
+      }),
+    };
+    const service = f.createBotsService({
+      credentialService: f.createCredentialService({ "weixin-token": "token" }),
+      legacyTaskService,
+      repo: f.createMemoryRepo(f.weixinConfig) as never,
+    });
+    await service.watchAutomationRun({
+      runId: "automation-run-1",
+      target: {
+        provider: "weixin",
+        botId: "weixin-1",
+        providerUserId: "wx_chat_1",
+        chatType: "private",
+      },
+      taskId: "task-automation-1",
+      workspacePath: "/tmp/workspace",
+    });
+    expect(legacyTaskService.onDynamicTaskEvent).not.toHaveBeenCalled();
+    const frame = (payload: unknown, fromSeq = 0) => ({
+      topic: "conversation/task-automation-1",
+      subscriptionId: "s",
+      fromSeq,
+      toSeq: fromSeq + 1,
+      sentAt: 1,
+      payload,
+    });
+    const header = (state: string) => ({
+      rowId: 1,
+      turnId: "turn-1",
+      kind: "turnHeader",
+      origin: "userInput",
+      sourceCommandId: "automation-run-1",
+      state,
+      startedAt: 1,
+    });
+    const emit = (value: unknown) => frameListeners.forEach((listener) => listener(value));
+    emit(
+      frame({
+        kind: "snapshot",
+        snapshot: { control: {}, rows: { window: [] }, pendingInteractions: [] },
+      }),
+    );
+    emit(
+      frame(
+        {
+          kind: "deltas",
+          deltas: [
+            { op: "row.appended", row: header("running") },
+            {
+              op: "row.appended",
+              row: {
+                rowId: 2,
+                turnId: "turn-1",
+                kind: "assistantText",
+                text: "日报已生成。",
+                state: "streaming",
+              },
+            },
+            { op: "row.upserted", row: header("completedSuccess") },
+          ],
+        },
+        1,
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            String(url).includes("/ilink/bot/sendmessage") &&
+            String((init as RequestInit | undefined)?.body).includes("日报已生成"),
+        ),
+      ).toBe(true),
+    );
+    service.disposeAll();
+  });
+
   it.each([
     {
       name: "missing bot",
