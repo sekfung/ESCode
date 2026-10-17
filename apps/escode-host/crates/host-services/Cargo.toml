@@ -28,6 +28,7 @@ async-trait.workspace = true
 escode-cli-domain.workspace = true
 escode-host-control.workspace = true
 escode-host-core.workspace = true
+escode-cli-core-api.workspace = true
 escode-cli-host.workspace = true
 escode-cli-net.workspace = true
 futures-util.workspace = true

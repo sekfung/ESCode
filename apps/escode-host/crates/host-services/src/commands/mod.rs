@@ -5,7 +5,9 @@
 
 pub mod config;
 pub mod descriptors;
+pub mod list;
 pub mod parser;
+pub mod plugins;
 pub mod write;
 
 use std::path::Path;

@@ -909,6 +909,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "escode-cli-core-api",
  "escode-cli-domain",
  "escode-cli-host",
  "escode-cli-net",

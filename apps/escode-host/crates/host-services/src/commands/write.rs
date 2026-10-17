@@ -246,7 +246,7 @@ fn command_file_name(config: &Config, descriptor: &SourceDescriptor) -> Result<S
 }
 
 /// TS `getCommandName`：相对 root 的路径、去扩展名、按分隔符拼命名空间。
-fn command_name(root: &Path, file_path: &Path, descriptor: &SourceDescriptor) -> String {
+pub(super) fn command_name(root: &Path, file_path: &Path, descriptor: &SourceDescriptor) -> String {
     let relative = file_path
         .strip_prefix(root)
         .map(|path| path.to_string_lossy().into_owned())
@@ -268,7 +268,7 @@ fn command_name(root: &Path, file_path: &Path, descriptor: &SourceDescriptor) ->
 }
 
 /// TS `buildCommandLocation`（`source` 取描述表的 `directorySource`，`scope` 是 user/project 二值）。
-fn location(
+pub(super) fn location(
     descriptor: &SourceDescriptor,
     root: &Path,
     scope: &str,

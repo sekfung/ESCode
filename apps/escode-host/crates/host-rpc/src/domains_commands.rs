@@ -1,7 +1,7 @@
 //! `commands` channel（TS `ServiceChannels.Commands` = `"commands"`；docs/specs/rust-u2-commands.md）。
 //!
-//! 已接 5/6：`getPrimaryUserCommandsDirectory` + 写面四法（write/update/delete/setEnabled）。
-//! 未接 `list`（多来源发现 + 插件清单扫描），由 `respond` 回显式缺口并列出已实现集合。
+//! 6/6 全部接通：目录解析、`list`（多来源发现 + 插件清单扫描）、写面四法。
+//! `list` 的排序比较器由本层注入 ICU 实现（TS `localeCompare`）。
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -77,7 +77,31 @@ pub(crate) fn commands_channel(home: PathBuf) -> Channel {
             })
         })
     };
-    let mut methods = vec![("getPrimaryUserCommandsDirectory", primary)];
+    // `list`：多来源发现。排序按 `name` 的 `localeCompare`，比较器由 RPC 层注入。
+    let list_method = {
+        let home = Arc::clone(&home);
+        handler(move |arg: Wire| {
+            let (home, params) = (Arc::clone(&home), first_object(arg));
+            Box::pin(async move {
+                let answer = escode_host_services::commands::list::list(
+                    &home,
+                    escode_host_services::commands::list::ListParams {
+                        agent_source: params["agentSource"].as_str(),
+                        workspace_path: params["workspacePath"].as_str(),
+                    },
+                    &crate::collation::compare_names,
+                )
+                .await
+                .map_err(failed)?;
+                Ok(Wire::Object(answer))
+            })
+        })
+    };
+
+    let mut methods = vec![
+        ("getPrimaryUserCommandsDirectory", primary),
+        ("list", list_method),
+    ];
     methods.extend(vec![
         ("writeCommandFile", write_command_file),
         ("updateCommandFile", update_command_file),

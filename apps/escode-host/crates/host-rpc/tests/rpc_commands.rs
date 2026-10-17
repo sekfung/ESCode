@@ -1,7 +1,6 @@
 //! `commands` 端到端（真 WebSocket，`rust-u2-commands.md` §4）。
 //!
-//! 覆盖已交付的 5 个成员：目录解析、写/改（改名迁覆盖）/启停/删的命令生命周期，
-//! 以及 `list` 仍为**显式缺口**且列出已实现集合（渲染器据此诊断，不挂起）。
+//! 覆盖 6 个成员：目录解析、`list`（发现 + 启停态）、写/改（改名迁覆盖）/启停/删的命令生命周期。
 mod support;
 use support::*;
 
@@ -25,7 +24,7 @@ fn path_of(answer: &Wire, key: &str) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn command_lifecycle_then_list_still_reports_an_explicit_gap() {
+async fn command_lifecycle_is_visible_through_list() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("home");
     let data_base_dir = dir.path().join("data");
@@ -83,6 +82,24 @@ async fn command_lifecycle_then_list_still_reports_an_explicit_gap() {
     let content = std::fs::read_to_string(&file_path).unwrap();
     assert_eq!(content, "---\ndescription: 周报\n---\n\n写周报");
 
+    // `list` 立刻能看到这条（含启停态与来源）。
+    let listed = call_json(&mut socket, 31, "list", serde_json::json!({})).await;
+    let Wire::Object(listed) = &listed else {
+        panic!("list 应答应为对象")
+    };
+    let users = listed["userCommands"]
+        .as_array()
+        .expect("userCommands 数组");
+    assert_eq!(users.len(), 1, "{listed}");
+    assert_eq!(users[0]["name"], serde_json::json!("/weekly"));
+    assert_eq!(users[0]["enabled"], serde_json::json!(true));
+    assert_eq!(users[0]["source"], serde_json::json!("user"));
+    assert_eq!(users[0]["scope"], serde_json::json!("global"));
+    assert_eq!(
+        listed["capability"]["userScopeAvailable"],
+        serde_json::json!(true)
+    );
+
     // 同名再建 → 明确报错。
     let error = call_json(
         &mut socket,
@@ -109,6 +126,15 @@ async fn command_lifecycle_then_list_still_reports_an_explicit_gap() {
     .await;
     let config = std::fs::read_to_string(home.join(".escode/cli/config.json")).unwrap();
     assert!(config.contains("\"enable\": false"), "禁用要落盘: {config}");
+    let listed = call_json(&mut socket, 51, "list", serde_json::json!({})).await;
+    let Wire::Object(listed) = &listed else {
+        panic!("list 应答应为对象")
+    };
+    assert_eq!(
+        listed["userCommands"][0]["enabled"],
+        serde_json::json!(false),
+        "list 要反映禁用态"
+    );
 
     let answer = call_json(
         &mut socket,
@@ -148,19 +174,18 @@ async fn command_lifecycle_then_list_still_reports_an_explicit_gap() {
         "删除也要收敛覆盖表: {config}"
     );
 
-    // ── `list` 仍是显式缺口，且列出已实现集合 ────────────────────────
-    let error = call_json(&mut socket, 8, "list", serde_json::json!({}))
-        .await
-        .into_object()
-        .expect("缺口载荷");
-    let message = error["message"].as_str().unwrap_or_default();
+    // ── 删除后 `list` 为空 ──────────────────────────────────────────
+    let listed = call_json(&mut socket, 8, "list", serde_json::json!({})).await;
+    let Wire::Object(listed) = &listed else {
+        panic!("list 应答应为对象")
+    };
     assert!(
-        message.contains("does not implement `commands.list`"),
-        "{error}"
+        listed["userCommands"].as_array().unwrap().is_empty(),
+        "删掉后不应再有用户命令: {listed}"
     );
     assert!(
-        message.contains("writeCommandFile") && message.contains("setCommandEnabled"),
-        "缺口要列出已实现集合: {error}"
+        listed["pluginCommands"].as_array().unwrap().is_empty(),
+        "没有插件配置时插件命令为空: {listed}"
     );
 
     surface.shutdown().await;

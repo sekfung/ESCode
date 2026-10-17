@@ -290,6 +290,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("gen-ui", "listState"),
     ("gen-ui", "onStateChanged"),
     ("commands", "getPrimaryUserCommandsDirectory"),
+    ("commands", "list"),
     ("commands", "writeCommandFile"),
     ("commands", "updateCommandFile"),
     ("commands", "deleteCommandFile"),

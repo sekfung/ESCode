@@ -14,13 +14,9 @@ pub struct SourceDescriptor {
     /// TS `directorySource`（settings 目录来源；`.escode` 与 `.agents` 两个来源共用描述表）。
     pub directory_source: &'static str,
     pub user_directory_segments: &'static [&'static str],
-    #[allow(dead_code)] // 工作区目录段与以下三项随 `list`/写面接入（spec §1）
     pub workspace_directory_segments: &'static [&'static str],
-    #[allow(dead_code)]
     pub file_extension: &'static str,
-    #[allow(dead_code)]
     pub namespace_separator: &'static str,
-    #[allow(dead_code)]
     pub supports_argument_hint: bool,
 }
 
@@ -34,8 +30,27 @@ pub const ESCODE_AGENT: SourceDescriptor = SourceDescriptor {
     supports_argument_hint: true,
 };
 
+/// `agents` **目录来源**（`COMMAND_DIRECTORY_SOURCE_DESCRIPTORS` 的第二项）：
+/// 不是独立的 agentSource，只是同一份描述表换目录段（`.agents/commands`）。
+/// 优先级低于 `.escode`：同 scope 下 `.escode` 读到有效命令后它不再参与。
+pub const AGENTS_DIRECTORY: SourceDescriptor = SourceDescriptor {
+    agent_source: "escodeAgent",
+    directory_source: "agents",
+    user_directory_segments: &[".agents", "commands"],
+    workspace_directory_segments: &[".agents", "commands"],
+    file_extension: ".md",
+    namespace_separator: "/",
+    supports_argument_hint: true,
+};
+
 /// TS `DEFAULT_COMMAND_AGENT_SOURCE`。
 pub const DEFAULT_AGENT_SOURCE: &str = "escodeAgent";
+
+/// TS `COMMAND_DIRECTORY_SOURCE_DESCRIPTORS`：`.escode` 在前、`.agents` 在后（顺序即优先级）。
+pub fn directory_sources() -> &'static [SourceDescriptor] {
+    static SOURCES: [SourceDescriptor; 2] = [ESCODE_AGENT, AGENTS_DIRECTORY];
+    &SOURCES
+}
 
 impl SourceDescriptor {
     /// `join(home, ...userDirectorySegments)`。

@@ -270,8 +270,8 @@ TS 真相源（按调用顺序读）：
   两个 `prepareSandbox` 需拆协议）、5 个 `cua-*` 不可迁、2 个 `cua-permission` 落点 Main。
   可迁待办由盘点的 310 修正为 **288**。依据与逐项证据见 `docs/specs/rust-u2-host-scope-boundary.md`。
 - **快赢批已开工**：`usage-stats`(1)、`plugins`(7)、`git-checkpoint`(4)、`gen-ui`(5) 已交付——
-  库存 228 → **250** 已实现 / 288 待办（`commands` 已交付 5/6：目录解析 + 写面四法，见
-  `rust-u2-commands.md` §6；只剩 `list`——多来源发现 + 插件清单扫描，约 500 行）（`usage-stats` 见 `rust-u2-misc-channels.md`、`plugins` 见
+  库存 228 → **251** 已实现 / 287 待办（`commands` 已 6/6 收口：目录解析 + `list` + 写面四法，
+  见 `rust-u2-commands.md` §6/§7）（`usage-stats` 见 `rust-u2-misc-channels.md`、`plugins` 见
   `rust-u2-plugin-management.md` §8、`git-checkpoint` 见 `rust-u2-git.md` §8、`gen-ui` 见 `rust-u2-gen-ui.md`）。
 - u2a 余项：**桌面窗口自身 host 的进程无关化**（`packages/desktop/src/main/desktopHostProcess.ts:762`）——需要 `windowHostProcessMap`/broadcastHub/taskRealtimeBus/`registerHostProcess` 接受"非 utility process 的 window host"；这是"dev 开关下跑通全部桌面 E2E"这条验收的最后一环。
 - 阶段 3（切默认与清理，含 golden freeze）、阶段 4（零序列化进程内链路、跨实例共享缓存、启动/退出路径、严格等价测试网）未开始，见父计划。
