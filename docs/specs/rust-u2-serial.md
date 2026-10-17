@@ -1,6 +1,7 @@
 # Rust 阶段 2：`serial` 域（rust-unified-host.md 子 spec）
 
 > 状态：切片交付中 · 2026-10-17。**2/4 片已交付**：S1 枚举/轮询/`onPorts`；S2 会话（含自动重连）。
+> S3 的前置件——收发缓冲（§10）——已落地并测试，原生读路径与会话接线待做。
 > TS 真相源：`packages/services/src/serial/`（`serialService.ts` 359、`serialSession.ts` 386、
 > `serialChunkBuffer.ts` 172、`serialLoop.ts` 80、`serialSignals.ts` 35、`serialRuntime.ts` 68 等，共 1763 行）。
 
@@ -146,3 +147,30 @@ Rust Host 是 App 级单进程，实现口径为**连接级 channel**（`Channel
   关闭后清空。
 - **负向验证**（两项，均已恢复）：①去掉 4 会话上限 → 第 5 个被接受，用例失败；
   ②断开时忽略 `autoReconnect` → 单测与轮询重连用例双双失败。
+
+## 10. 收发缓冲（S3 前置件，2026-10-17）
+
+`buffer.rs` 是**纯数据结构**，可确定性测试：
+
+- **seq 由连接分配**（调用方传 `allocate_seq`）：跨会话、跨关闭重开单调递增；同一缓冲内的 seq 可以不连续。
+  `clear()` 不回退 seq。
+- **按字节上限淘汰**：从最旧开始，且**至少保留最新一条**（否则单条超过上限时 seq 会原地踏步）。
+  `evicted_through` 记录已淘汰的最大 seq——游标早于它说明中间有数据缺失。
+- **统计**：`rxBytes`/`txBytes` 累计；`clear()` 一并归零。
+- **`sessionId` 只在 `source === "agent"` 时保留**（`user` 写入不带）。
+- `onData` 载荷 = `{...chunk, path}`（`Chunk::to_json`）。
+
+**RX 合并的定时不在本模块**：TS 在缓冲内部用 `setTimeout` 做 debounce；Rust 侧把 debounce 放在会话层
+（尾部静默窗口），缓冲只收已成段的数据——这样缓冲可以脱离 tokio 计时器单测。
+
+### 10.1 S3 剩余部分（下一步）
+
+1. **传输层读路径**（用户已定：`AsyncFd` + epoll）：`SerialPort::spawn_reader` 用 `AsyncFd` 等
+   `POLLIN` 后非阻塞读，读到字节经回调上送；关闭时先 abort reader 再 `close(fd)`。
+2. **传输层写路径**：非阻塞 fd 的 `write` 在 EAGAIN 时短重试（上限 5s），成功后 flush RX 再入缓冲
+   （保证回显出现在设备响应之前）。
+3. **会话接线**：持 `ChunkBuffer` + 尾部静默窗口的 debounce（`window` 默认 50ms、`maxBytes` 上限合并）；
+   `write` 校验 64KB 上限与空写；`clear`；`snapshot` 返回真实 chunks/stats。
+4. **服务与 RPC**：`write` 回 `{seq}`、`clear`、`onData` 事件（按 path 区分）。
+5. **验收**：单测（空写返回当前 seq、64KB 上限、EAGAIN 重试、debounce 的尾部窗口语义、agent/user 的
+   `sessionId` 差）+ 端到端（PTY 对：写 master → 从 slave 读到；写 slave → 面板收到 `onData`）。

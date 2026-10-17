@@ -7,6 +7,7 @@
 //! 作用域：**每连接（≈每窗口）**（用户决定 2026-10-17）。串口会话与 `seq` 都属于连接，
 //! 因此本服务由连接级 channel 持有，而不是 Host 级单例。
 
+pub mod buffer;
 pub mod enumerate;
 pub mod session;
 pub mod transport;
