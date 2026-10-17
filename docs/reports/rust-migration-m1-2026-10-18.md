@@ -99,9 +99,9 @@ EXIT:1
 3. `escode-cli-rust-plugins-install.test.ts`：依赖缺失返回 `plugin_marketplace_invalid`，Node 为 `plugin_dependency_missing`；分类函数 `error_diagnostic` 本轮未改。
 4. `escode-cli-rust-plugins-list.test.ts`：同一插件 skill 集合相同、顺序不同（Rust seed 复制后的 readdir 顺序 vs Node 读原目录）。
 
-判定：既存/环境敏感失败，需单独开单（插件发现顺序与依赖诊断分类），不混入 M1 的 R 线收口结论。
+判定（初稿）：既存/环境敏感失败。**复核修订**：该判定不成立，5 个失败均为可稳定复现的代码/测试缺陷，已在 §11 修复。
 
-`cargo deny`：本机 `cargo deny --version` exit 101（未安装），**UNVERIFIED**。CI 覆盖作业：`.github/workflows/rust-runtime-ci.yml` 的 `checks` job 使用 `EmbarkStudios/cargo-deny-action@v2`（manifest `apps/escode-cli-rust/Cargo.toml`）。本轮未取得该作业的 CI 运行记录。
+`cargo deny`（初稿）：本机未安装，UNVERIFIED。**复核修订**：已在本机运行并发现 advisories 失败，修复后通过，见 §11。CI 覆盖作业：`.github/workflows/rust-runtime-ci.yml` 的 `checks` job 使用 `EmbarkStudios/cargo-deny-action@v2`（manifest `apps/escode-cli-rust/Cargo.toml`）。本轮未取得该作业的 CI 运行记录。
 
 ## 5. T4：R3 / R6 测试缺口
 
@@ -141,39 +141,77 @@ EXIT:1
 
 ## 8. 完成判定
 
-| 命令                                            | 退出码 | 关键结果                                                                    |
-| ----------------------------------------------- | ------ | --------------------------------------------------------------------------- |
-| `pnpm check:escode-cli-rust`                    | 0      | 边界 OK；fmt；clippy `-D warnings` 通过                                     |
-| `pnpm check:escode-host`                        | 0      | 边界 OK；生成器 `--check`；46 channels / 539 members；clippy 通过           |
-| `pnpm test:escode-cli-rust`（CI 口径）          | 1      | Rust 61 二进制 461 passed；TS 411 项 394 pass / 5 fail（5 个既存失败见 §4） |
-| `pnpm test:escode-host`                         | 0      | 54 个测试二进制，723 passed / 0 failed；interop 1 passed                    |
-| `pnpm typecheck && pnpm lint && pnpm fmt:check` | 0      | typecheck 通过；lint 0 error / 160 warning；fmt 全绿                        |
-| `pnpm architecture:check --changed`             | 0      | violations 0 / new 0                                                        |
-| T2 负向验证                                     | 1      | 边界脚本按预期失败；worktree 已删除                                         |
-| `node scripts/bench-escode-app.mjs --self-test` | 0      | PASS（含 `parseCpuTime` 三种格式）                                          |
+| 命令                                            | 退出码 | 关键结果                                                                        |
+| ----------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
+| `pnpm check:escode-cli-rust`                    | 0      | 边界 OK；fmt；clippy `-D warnings` 通过                                         |
+| `pnpm check:escode-host`                        | 0      | 边界 OK；生成器 `--check`；46 channels / 539 members；clippy 通过               |
+| `pnpm test:escode-cli-rust`（CI 口径）          | 0      | 复核后：Rust 61 二进制 464 passed；TS 411 项 399 pass / 0 fail / 12 skip（§11） |
+| `pnpm test:escode-host`                         | 0      | 54 个测试二进制，723 passed / 0 failed；interop 1 passed                        |
+| `pnpm typecheck && pnpm lint && pnpm fmt:check` | 0      | typecheck 通过；lint 0 error / 160 warning；fmt 全绿                            |
+| `pnpm architecture:check --changed`             | 0      | violations 0 / new 0                                                            |
+| T2 负向验证                                     | 1      | 边界脚本按预期失败；worktree 已删除                                             |
+| `node scripts/bench-escode-app.mjs --self-test` | 0      | PASS（含 `parseCpuTime` 三种格式）                                              |
 
 ## 9. R 线逐项新结论
 
-| ID                 | 结论    | 依据                                                                                                                                              |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R3                 | PASS    | 两个 workspace 并发真实 Write 工具，文件各落自身目录，收口 `running()` 为空                                                                       |
-| R5                 | PASS    | tools 14 处、state owner 锁、wiki 解析全部经 Spawner；边界脚本负向验证 exit 1                                                                     |
-| R6                 | PASS    | `MAX_REQUEST_BYTES` 超限在两条链路一致，真实 Engine 错误帧逐字节相等                                                                              |
-| R9                 | PARTIAL | 套件入口已恢复：tsc 通过、cargo 461 例全过、TS 411 项能跑完；但 5 个既存失败使完整入口 exit 1。`cargo deny` 本机 UNVERIFIED，CI `checks` 作业覆盖 |
-| R1/R2/R4/R7/R8/R10 | PASS    | 本轮未改动对应实现；`check:escode-cli-rust` 与 embed/dual transport 套件回归通过                                                                  |
+| ID                 | 结论 | 依据                                                                                                                                |
+| ------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| R3                 | PASS | 两个 workspace 并发真实 Write 工具，文件各落自身目录，收口 `running()` 为空                                                         |
+| R5                 | PASS | tools 14 处、state owner 锁、wiki 解析全部经 Spawner；边界脚本负向验证 exit 1                                                       |
+| R6                 | PASS | `MAX_REQUEST_BYTES` 超限在两条链路一致，真实 Engine 错误帧逐字节相等                                                                |
+| R9                 | PASS | 完整入口 exit 0（Rust 464 / TS 399 pass、0 fail）；`cargo deny check` 本机 exit 0（advisories/bans/licenses/sources 全 ok）。见 §11 |
+| R1/R2/R4/R7/R8/R10 | PASS | 本轮未改动对应实现；`check:escode-cli-rust` 与 embed/dual transport 套件回归通过                                                    |
 
-R 线总判决：**ACCEPT WITH CONDITIONS**。R3/R5/R6 的硬性条件已满足；R9 的“完整入口 exit 0”未达成，剩余条件收敛为：
-
-1. 修复 §4 列出的 5 个既存失败（插件发现顺序、MCP 工具选择、依赖诊断分类、model-io 工具顺序），使 `pnpm test:escode-cli-rust` exit 0；
-2. 取得 `cargo deny` 的 CI 运行记录（本机未安装）。
-
-这两项均不在 M1 的 T1–T6 改动范围内，未混入本轮结论。
+R 线总判决：**ACCEPT**。验收报告 §2 的四条硬性条件（R5、R9、R3、R6）全部满足；R9 的两项剩余条件（5 个失败、`cargo deny`）已在 §11 收口。
 
 ## 10. 仍未解决
 
-1. `pnpm test:escode-cli-rust` 的 5 个既存失败（见 §4）：mcp-request-context、model-io ×2、plugins-install、plugins-list。均已定位到未改动路径，需单独修复。
-2. `cargo deny` 本机未执行（UNVERIFIED），CI 覆盖但本轮未取得运行记录。
+1. ~~5 个失败~~、~~`cargo deny`~~：已在 §11 收口。
+2. Host workspace 没有 `deny.toml`：`cargo deny` 对其 advisories 通过、licenses 按默认策略全拒；CI 也只对 CLI manifest 跑 deny。不属于 M1 条件，留待 Host 唯一化前补齐清单。
 3. `checks` 作业仍只在 ubuntu（理由见 §7）；H0 的“CI 三平台”仍是 PARTIAL。
 4. H2/H3/H5 本轮明确不做：唯一 Host 切换、Pending 业务域、TS 删除、replayable E2E、无窗口调度。
 5. 验收报告中的其它非阻塞项（H1.3/H1.4/H1.8 的口径、四 locale readdir 证据、busy_timeout、H4 差异登记等）未在本轮处理。
 6. 本机 Node 24.14.0 与 CI 期望 24.18.0 不一致；完整串行套件本机耗时约 31.4 分钟，CI 的 test 作业超时为 120 分钟。
+
+## 11. 复核与收口（同日后续）
+
+### 11.1 5 个失败的真实原因（提交 `42c80e06`）
+
+§4 把它们记为“既存/环境敏感”，复核结论不成立：
+
+| 用例                | 原因                                                                                                                                                     | 修复                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| plugins-install     | 回归：`87f7aa44` 错误类型化后分类只做 downcast，漏改 `Dependency not found` 产生点（仍是普通 `anyhow!`），落到兜底 `plugin_marketplace_invalid`          | 改抛 `Kind::DependencyMissing`，补 `plugin_install_entry` 单测 |
+| plugins-list        | Node `readdirSync` 在 Unix 上经 libuv scandir 按名字字节序排序；Rust `read_dir` 为原始顺序（ext4 哈希序）。两侧 seed 副本 `ls -U` 顺序相同，排除环境因素 | 技能扫描复用 `plugin_describe_scan::entries`，补顺序单测       |
+| model-io ×2         | MCP server 用 `BTreeMap` 合并，按名字排序使 `node_repl` 排到 `plugin:*` 前；TS 是对象 spread 插入序                                                      | 新增 `mcp_config_order::Ordered`（JS 键序语义），补单测        |
+| mcp-request-context | 测试脆弱，失败在 **Node** 侧：模型桩取第一个 `mcp__` 工具，随包 usb 插件工具排在会话 server 前                                                           | 按 fixture server 名精确选取 `mcp__local_echo__`               |
+
+spec 同步：`rust-plugins.md`（技能顺序）、`rust-browser-use.md`（MCP 合并键序；登记 `config.json` 的 `mcp.servers` 组内按名字序的已知差异）。
+
+### 11.2 `cargo deny`（提交 `6e130688`）
+
+本机使用 cargo-deny 0.20.2 官方 musl 预编译包（sha256 与发布页一致）。首次运行 advisories **FAILED**：
+
+- `rustls 0.23.45`：RUSTSEC-2026-0346/0347/0348/0349 → 升级 0.23.46。
+- `zip 8.6.0`：RUSTSEC-2026-0367/0368/0369 → 升级 9.0.5。代码未调用 `extract()`（插件解压为自有实现，按 `name_raw` 校验路径并拒绝符号链接），不可达，但策略检查必须清零。
+
+zip 9 的条目名改为可失败解码，适配 `wiki/src/ingest/ooxml.rs`（嗅探与 `names()` 跳过解不出的名字；`open()` 的告警文案回退 lossy 文本）。Host 经 path 依赖共用 zip，同步更新 `apps/escode-host/Cargo.lock`。
+
+```text
+$ cargo deny --manifest-path apps/escode-cli-rust/Cargo.toml check
+advisories ok, bans ok, licenses ok, sources ok
+EXIT 0
+```
+
+### 11.3 验证记录
+
+| 命令                                                                     | 代码状态                     | 退出码 | 结果                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------- | ------ | --------------------------------------------------------------------------- |
+| `pnpm test:escode-cli-rust`（CI 口径，第 1 轮）                          | `42c80e06`                   | 0      | Rust 61 二进制 464 passed / 0 failed；TS 411 项 399 pass / 0 fail / 12 skip |
+| `pnpm test:escode-cli-rust`（CI 口径，第 2 轮）                          | `42c80e06` + rustls/zip 升级 | 0      | 同上（TS 耗时约 31 分钟）                                                   |
+| `pnpm test:escode-host`                                                  | `42c80e06` + 升级            | 0      | 54 二进制 723 passed / 0 failed                                             |
+| `pnpm check:escode-cli-rust` / `check:escode-host`                       | `42c80e06` + 升级            | 0      | 边界、fmt、clippy `-D warnings` 通过                                        |
+| `cargo deny check`（CLI manifest）                                       | `42c80e06` + 升级            | 0      | 四项全 ok                                                                   |
+| `pnpm typecheck` / `lint` / `fmt:check` / `architecture:check --changed` | `42c80e06`                   | 0      | lint 0 error / 160 warning（既有）                                          |
+
+覆盖范围说明：验证期间另一工作流在本分支提交了 `4f0de02c`、`818c040f`、`8c8b67d6`、`57ea5b0d`（H2 韧性：实例崩溃隔离、启动失败分类、Host 自动重启）。其中 `818c040f` 改动了 `escode-cli-rust`（`core/src/app/engine_requests.rs`、`src/embed.rs`、Cargo feature），**不在上表的套件覆盖范围内**；按要求本轮未在最终 HEAD 上重跑完整套件，这些提交的验证以其自身提交记录为准。
