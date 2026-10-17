@@ -553,3 +553,57 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
   `getTaskNativeSessionLogFile` 的 `glm` 与 `escode-rust-*.jsonl`。
 - 负向验证：①去掉 `task_status = 'completed'` → stale 用例失败；②workspace 归档去掉
   `provider = 'glm'` → 跨 provider 用例失败。
+
+## 10. escode-task 生命周期（S5，2026-10-17）
+
+本片交付 3 个成员：`createTask`、`resumeTask`、`closeTask`（escode-task 剩余 37 → 34）。
+
+### 10.1 `createTask`（UI 主路径）
+
+- 入参：`workspacePath`/`workspaceIdentity`、`mode`、`modelSelection`（或 deprecated `model` picker +
+  `thoughtLevel`）、`draftSessionId`、`mcpServers`、`automationId`、`offPeakTaskId`、
+  `deferPersistenceUntilFirstPrompt`。
+- `mcpServers` 先按 TS `appendWorkspaceToFilesystemMcpServers` 注入 workspace 根。
+- **draft 复用**：有 `draftSessionId` 且没有 `mcpServers` 时先 `session/read`；成功则按
+  `settings.model.current` / `settings.thoughtLevel.current` 与请求比较，不同才 `session/setModel` /
+  `session/setThoughtLevel`；会话已失效（`Session not found|is not active`）降级为新建，其它错误上抛。
+- **新建**：`session/create`（`sessionTraceId` 由 Host 生成 UUID）：
+  `mode` 按 `toESCodeMode`（plan 由 runtime 转成 `planEnabled`，meta 的 mode 仍是 build，与 TS 同）、
+  `model` 用 `modelSelection`、`thoughtLevel`、`mcpServers`；
+  自动化/`deferPersistenceUntilFirstPrompt` 时 `persistence: "deferred"`；自动化时
+  `titleGenerationEnabled: false`。
+- **索引**：`sync_snapshot_to_index` 写行；自动化/闲时再 `syncTaskMeta` 补
+  `cronAutomationId`/`offPeakTaskId`；登记任务目标；广播 `task_created`（即使快照还没有可见内容）。
+- 返回 meta + `initialSlashCommands`（快照 `slashCommands`，缺省 `[]`）。
+- **登记差异**：
+  1. `v4Create`（Bot/host 路径）显式拒绝：`code = ESCODE_TASK_V4_CREATE_UNSUPPORTED`（bot 域尚未迁移）；
+  2. 新建任务的 grouped-view 置顶（TS `initializeGroupedTaskAtTop`）未实现——任务按普通新行出现；
+  3. 未显式通知 syncer / 广播 `workspace_config_options_update`：新建会话的 V4
+     sessions-index 帧到达后自然收敛；UI 的配置事件由 escode-agent 订阅面提供；
+  4. 旧 picker `provider/model[$level]` 只支持主路径（自定义模型 payload 未解析）。
+- `forkedFromTaskId`/`permissionScope` 在非 v4Create 路径与 TS 一样不参与 create 请求。
+
+### 10.2 `resumeTask`
+
+- 索引 hint：`thoughtLevel` 缺失时读 task meta 回填（读失败不阻断）；`model` 由调用方显式给出
+  （与 TS 一致，仅参与索引覆盖，不随 `session/resume` 下发）。
+- `mcpServers` 注入 workspace 根后走与 `escode-session.resumeSession` **同一个**
+  `resume_snapshot`（thoughtLevel 重放 → `withApiRetryRuntime`）。
+- 写索引 reason `task_status_changed`；自动化/闲时补归属字段并返回索引 meta。
+
+### 10.3 `closeTask`
+
+- 从任务目标注册表取 workspace（未加载 → `ESCODE_SESSION_TARGET_NOT_FOUND`）；
+  `session/close` → `updateIndexedTaskState(deleted: true)` → workspace 级
+  `task_meta_changed` 事件（带 taskId，meta 为空）。
+- 索引行缺失时沿用单条状态写的「从运行时播种后重试」路径。
+
+### 10.4 验收
+
+- 端到端（真 embedded 实例）：
+  - `createTask`（plan + modelSelection）→ 返回 `sess_*`、`initialSlashCommands`、索引可读；
+  - `resumeTask`（thoughtLevel）→ 返回同一 taskId 的 meta；
+  - `closeTask` → `getTaskMeta` 为空、`listSessions` 不再包含该会话。
+- 负向验证：①`closeTask` 不删索引 → 关闭用例失败；②`createTask` 不写索引 → 创建用例失败。
+- 门禁：workspace 全部测试目标、clippy `-D warnings`、边界/清单/架构检查通过；库存
+  **299 已实现 / 239 待办**。

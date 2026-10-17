@@ -104,6 +104,47 @@ pub(super) fn create_session_handler(context: SessionWriteContext) -> MethodHand
     })
 }
 
+/// `session/resume` 的运行时调用 + thoughtLevel 重放（TS `resumeSession` 前半段）。
+/// 任务域的 `resumeTask` 复用同一实现，保证两条入口的恢复语义一致。
+pub(super) async fn resume_snapshot(
+    context: &SessionWriteContext,
+    params: &Value,
+    injected: &Value,
+) -> Result<(Value, IndexOverrides), Error> {
+    let shaped = Shaped {
+        method: "session/resume",
+        body: session_resume_params(injected, &ToolGates::default()),
+        with_workspace: true,
+        trace: None,
+    };
+    let mut snapshot = with_api_retry_runtime(call(context, params, shaped).await?);
+    let thought_override = replayable_thought_level(params, &snapshot);
+    if let Some(level) = &thought_override
+        && current_thought_level(&snapshot) != Some(level.as_str())
+    {
+        // 打开历史任务时快照可能带着同 workspace 草稿态的思考强度：对同一会话显式重放
+        // task-local thoughtLevel，再用修正后的快照写索引（TS `resumeSession` 同序）。
+        let shaped = Shaped {
+            method: "session/setThoughtLevel",
+            body: json!({"sessionId": params["sessionId"], "thoughtLevel": level}),
+            with_workspace: false,
+            trace: None,
+        };
+        snapshot = with_api_retry_runtime(call(context, params, shaped).await?);
+    }
+    let model_override = params
+        .get("model")
+        .filter(|model| model.is_object())
+        .map(|model| format_model_picker_value(Some(model)));
+    Ok((
+        snapshot,
+        IndexOverrides {
+            model: model_override,
+            thought_level: thought_override,
+        },
+    ))
+}
+
 /// `escode-session.resumeSession`。
 pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHandler {
     handler_rpc(move |arg: Wire| {
@@ -114,43 +155,15 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
             // TS `const { broadcastSnapshot = true, ...resumeParams } = params`。
             let broadcast = params["broadcastSnapshot"] != false;
             let injected = inject_filesystem_workspace(&params, &workspace_path);
-            let shaped = Shaped {
-                method: "session/resume",
-                body: session_resume_params(&injected, &ToolGates::default()),
-                with_workspace: true,
-                trace: None,
-            };
-            let mut snapshot = with_api_retry_runtime(call(&context, &params, shaped).await?);
-            let thought_override = replayable_thought_level(&params, &snapshot);
-            if let Some(level) = &thought_override
-                && current_thought_level(&snapshot) != Some(level.as_str())
-            {
-                // 打开历史任务时快照可能带着同 workspace 草稿态的思考强度：对同一会话显式重放
-                // task-local thoughtLevel，再用修正后的快照写索引（TS `resumeSession` 同序）。
-                let shaped = Shaped {
-                    method: "session/setThoughtLevel",
-                    body: json!({"sessionId": params["sessionId"], "thoughtLevel": level}),
-                    with_workspace: false,
-                    trace: None,
-                };
-                snapshot = with_api_retry_runtime(call(&context, &params, shaped).await?);
-            }
-            let model_override = params
-                .get("model")
-                .filter(|model| model.is_object())
-                .map(|model| format_model_picker_value(Some(model)));
+            let (snapshot, overrides) = resume_snapshot(&context, &params, &injected).await?;
             if broadcast {
-                let overrides = IndexOverrides {
-                    model: model_override.clone(),
-                    thought_level: thought_override,
-                };
                 // 打开/恢复是快照收敛，不改归属：task_status_changed（缺省 task_meta_changed 会让每次点开任务
                 // 都触发全局 membership 重拉）。
                 write_index(
                     &context,
                     &injected,
                     &snapshot,
-                    overrides,
+                    overrides.clone(),
                     "task_status_changed",
                 )
                 .await;
@@ -159,7 +172,7 @@ pub(super) fn resume_session_handler(context: SessionWriteContext) -> MethodHand
             // `updateTaskState`）：发送前 resume 关闭快照广播避免旧终态覆盖 streaming UI，
             // 但 sqlite 的 model 仍要从已删除的历史模型更新到本次实际使用的可用模型。
             if !broadcast {
-                sync_task_model(&context, &injected, &params, model_override.as_deref()).await;
+                sync_task_model(&context, &injected, &params, overrides.model.as_deref()).await;
             }
             Ok(Wire::Object(snapshot))
         })
@@ -224,42 +237,6 @@ pub(super) fn close_session_handler(context: SessionWriteContext) -> MethodHandl
     })
 }
 
-/// `escode-session.closeDeferredDraftSession`。
-pub(super) fn close_deferred_draft_handler(context: SessionWriteContext) -> MethodHandler {
-    handler_rpc(move |arg: Wire| {
-        let params = first_object(arg);
-        let context = context.clone();
-        Box::pin(async move {
-            let mut conditional = params.clone();
-            conditional["expectedPersistence"] = Value::from("deferred");
-            // 失败（含旧 Agent 拒绝 expectedPersistence）回 false：保留旧 session 并让 UI 新建草稿，
-            // 不能退回无条件 close（可能关掉刚被其他客户端提升的 active task）。
-            let closed = match forward(&context, "closeSession", &conditional).await {
-                Ok(result) => result["closed"].as_bool().unwrap_or(true),
-                Err(_) => false,
-            };
-            if closed {
-                forget_draft(&context, &params);
-            }
-            Ok(Wire::Object(Value::Bool(closed)))
-        })
-    })
-}
-
-/// `escode-session.promoteDeferredDraftSession`。
-pub(super) fn promote_deferred_draft_handler(context: SessionWriteContext) -> MethodHandler {
-    handler_rpc(move |arg: Wire| {
-        let params = first_object(arg);
-        let context = context.clone();
-        Box::pin(async move {
-            // 清除草稿标记：此后该会话的状态变更不再被挡在索引之外（TS 另通知 syncer 建订阅，
-            // 事件面落地前由下一次写入口/快照读写回索引）。
-            forget_draft(&context, &params);
-            Ok(Wire::Undefined)
-        })
-    })
-}
-
 fn draft_key(params: &Value) -> (String, Option<String>, String) {
     (
         workspace_path_of(params),
@@ -273,7 +250,7 @@ fn is_draft(context: &SessionWriteContext, params: &Value) -> bool {
     context.drafts.has(&path, identity.as_deref(), &session)
 }
 
-fn forget_draft(context: &SessionWriteContext, params: &Value) {
+pub(super) fn forget_draft(context: &SessionWriteContext, params: &Value) {
     let (path, identity, session) = draft_key(params);
     context.drafts.forget(&path, identity.as_deref(), &session);
 }
@@ -294,7 +271,7 @@ fn inject_filesystem_workspace(params: &Value, workspace_path: &str) -> Value {
 }
 
 /// 白名单转发（`session_forward_params`）。
-async fn forward(
+pub(super) async fn forward(
     context: &SessionWriteContext,
     method: &str,
     params: &Value,
@@ -334,7 +311,7 @@ async fn call(
 
 /// 把快照写进 tasks-index 并登记任务目标（TS `syncSnapshotAndBroadcast` 的索引部分 +
 /// `rememberIndexedTaskMeta`）。失败只记日志（TS 吞错 warn），不影响调用结果。
-async fn write_index(
+pub(super) async fn write_index(
     context: &SessionWriteContext,
     params: &Value,
     snapshot: &Value,

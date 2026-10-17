@@ -355,6 +355,11 @@ pub(crate) fn task_channel(
     ];
     methods.extend(super::domains_task_state::state_methods(&state));
     methods.extend(super::domains_task_archive::archive_methods(&state));
+    methods.extend(super::domains_task_lifecycle::lifecycle_methods(&state));
+    methods.push((
+        "createTask",
+        super::domains_task_create::create_task(&state),
+    ));
     methods.extend(super::domains_task_groups::group_methods(&state));
     methods.extend(super::domains_task_runtime::usage_and_log_methods(
         runtime_for_restart.clone(),

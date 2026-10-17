@@ -97,7 +97,7 @@ pub(crate) async fn with_index<T: Send + 'static>(
 }
 
 /// TS `updateIndexedTaskState`：缺行时按需从 runtime 播种当前任务再重试一次。
-async fn update_indexed(
+pub(crate) async fn update_indexed(
     context: &StateContext,
     task: &Task,
     patch: StatePatch,

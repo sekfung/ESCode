@@ -94,11 +94,11 @@ pub(crate) fn session_channel(
             ("closeSession", w::close_session_handler(write.clone())),
             (
                 "closeDeferredDraftSession",
-                w::close_deferred_draft_handler(write.clone()),
+                super::domains_session_drafts::close_deferred_draft_handler(write.clone()),
             ),
             (
                 "promoteDeferredDraftSession",
-                w::promote_deferred_draft_handler(write.clone()),
+                super::domains_session_drafts::promote_deferred_draft_handler(write.clone()),
             ),
             (
                 "setThoughtLevel",
