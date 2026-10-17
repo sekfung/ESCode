@@ -12,6 +12,11 @@ members = [
 ]
 resolver = "2"
 
+# 24 个集成测试各自静态链接完整依赖图，完整 debuginfo 下单个约 600MB；
+# target 曾在三天内累积到 300G。测试目标及依赖只保留行表（backtrace 仍有文件行号）。
+[profile.test]
+debug = 1
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
