@@ -22,3 +22,5 @@ escode-cli-core-api.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# 崩溃隔离用例的 engine panic 注入点（docs/specs/rust-u2-host-resilience.md §8）：只在测试构建启用。
+escode-cli-rust = { workspace = true, features = ["fault-injection"] }

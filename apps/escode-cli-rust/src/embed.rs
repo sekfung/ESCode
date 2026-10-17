@@ -71,11 +71,20 @@ pub fn spawn(options: RuntimeOptions) -> Embedded {
     let task = tokio::spawn(async move {
         // 实例根未来整体跑在实例上下文里：装配与 serve 的每个环境/端口读取
         // 都以 RuntimeOptions 快照解析（与进程 env/cwd 无关）。
-        let served = env::run_in_instance(
+        // 修复：根任务 panic（engine 循环 catch_panic 之外的装配/收尾路径）原先直接展开整个任务，
+        // 跳过下面的 abort_all，残余任务持有 Output 克隆让 Host 读端迟迟不关、在飞请求挂到超时。
+        // 捕获后转为错误值，残余照常中止（docs/specs/rust-u2-host-resilience.md §2.7）。
+        let served = escode_cli_core_api::catch_panic(env::run_in_instance(
             context,
             run_embedded(options, streams, serving_cancel, input_closed),
-        )
-        .await;
+        ))
+        .await
+        .unwrap_or_else(|panicked| {
+            Err(anyhow::anyhow!(
+                "embedded runtime panicked: {}",
+                panicked.message
+            ))
+        });
         // 与 ZCode-rs scope 语义一致：实例任务结束后中止仍在飞的残余任务。
         tasks.abort_all();
         served

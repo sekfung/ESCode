@@ -67,8 +67,15 @@ async fn an_in_flight_call_fails_as_soon_as_the_runtime_exits() {
         .call("session/list", json!({}), Duration::from_secs(20))
         .await
         .expect_err("runtime exited without answering");
+    // Node 形状（docs/specs/rust-u2-host-resilience.md §2.4）：逐字相等，且是类型化的 RuntimeClosed。
+    assert_eq!(
+        error.to_string(),
+        escode_host_runtime::RUNTIME_CLOSED_MESSAGE
+    );
     assert!(
-        error.to_string().contains("runtime closed"),
+        error
+            .downcast_ref::<escode_host_runtime::RuntimeClosed>()
+            .is_some(),
         "unexpected error: {error:#}"
     );
     assert!(
@@ -81,7 +88,10 @@ async fn an_in_flight_call_fails_as_soon_as_the_runtime_exits() {
         .call("session/list", json!({}), Duration::from_secs(20))
         .await
         .expect_err("closed instance");
-    assert!(after.to_string().contains("runtime closed"));
+    assert_eq!(
+        after.to_string(),
+        escode_host_runtime::RUNTIME_CLOSED_MESSAGE
+    );
     assert!(!instance.is_alive());
 }
 

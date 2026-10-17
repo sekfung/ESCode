@@ -220,6 +220,14 @@ pub async fn request_classified(
         .call_with(method, params, trace, timeout)
         .await
         .map_err(|error| {
+            // 实例读端关闭（崩溃/退出）：TS 协议客户端以 `new Error("ESCode agent transport closed: …")`
+            // 拒绝在飞请求，Renderer 看到的 name 是 `Error`（docs/specs/rust-u2-host-resilience.md §2.4）。
+            if error
+                .downcast_ref::<escode_host_runtime::RuntimeClosed>()
+                .is_some()
+            {
+                return CallError::Failed(RpcError::new("Error", error.to_string()));
+            }
             let rpc = RpcError::new("Fatal", format!("{error:#}"));
             if error
                 .downcast_ref::<escode_host_runtime::RequestTimeout>()

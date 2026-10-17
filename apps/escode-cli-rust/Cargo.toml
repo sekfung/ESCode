@@ -140,6 +140,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# 仅测试：转发到 escode-cli-core（docs/specs/rust-u2-host-resilience.md §8）。
+fault-injection = ["escode-cli-core/fault-injection"]
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true

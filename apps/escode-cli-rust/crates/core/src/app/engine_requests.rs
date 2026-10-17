@@ -10,6 +10,13 @@ use serde_json::json;
 impl Engine {
     pub(super) async fn request(&mut self, request: Request, output: &Output) -> Result<()> {
         self.outbox.clear();
+        // 故障注入（仅 `fault-injection` feature，测试构建）：Host 崩溃隔离用例需要一个确定的 engine
+        // panic 点；engine 循环的 catch_panic 把它转成 serve 错误，实例按正常收尾路径退出
+        // （docs/specs/rust-u2-host-resilience.md §2.1）。
+        #[cfg(feature = "fault-injection")]
+        if request.method == "test/panic" {
+            panic!("fault-injection: test/panic");
+        }
         if request.method == "mcp/list" {
             if let Err(error) = self.start_mcp_query(&request) {
                 output

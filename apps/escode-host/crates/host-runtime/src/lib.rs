@@ -11,6 +11,7 @@
 //! Host 持有实例表、代次与调度（AGENTS.md 状态所有者）；runtime 实例只归属一个
 //! workspace 身份（`workspaceIdentity ?? workspacePath`，AGENTS.md Workspace Identity）。
 
+mod closed;
 mod host_io;
 mod instance;
 pub mod link;
@@ -23,8 +24,9 @@ use anyhow::Result;
 use escode_cli_rust::embed::RuntimeOptions;
 use tokio::sync::{Mutex as AsyncMutex, mpsc};
 
+pub use closed::{RUNTIME_CLOSED_MESSAGE, RuntimeClosed};
 pub use host_io::{HostError, HostReply, HostRequest, HostResponder, LifecycleEvent, RuntimeState};
-pub use instance::{FrameSubscription, Instance};
+pub use instance::{ExitReport, FrameSubscription, Instance};
 pub use link::{Link, RuntimeLink};
 pub use request_timeout::RequestTimeout;
 
@@ -152,6 +154,7 @@ impl Instances {
             event,
             self.responder.clone(),
             Arc::clone(&self.lifecycle),
+            self.grace,
         );
         if let Some(slot) = self.lock().slots.get_mut(identity) {
             slot.instance = Some(Arc::clone(&instance));

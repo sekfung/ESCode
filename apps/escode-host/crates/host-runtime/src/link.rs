@@ -51,6 +51,16 @@ pub struct EmbeddedRuntime {
     task: tokio::task::JoinHandle<Result<()>>,
     cancel: CancellationToken,
     tasks: std::sync::Arc<escode_cli_core_api::scope::Spawner>,
+    /// 实例任务的结束原因（已 join 过）。`JoinHandle` 完成后不能再 poll，
+    /// 崩溃回收与随后的 `shutdown` 都会调 [`Lifecycle::wait`]，第二次直接用这里的结果。
+    joined: Option<String>,
+}
+
+/// 一次收口/回收的结果：退出原因 + 宽限后的残余清单。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Exit {
+    pub cause: String,
+    pub residual: Vec<String>,
 }
 
 /// child 链路的句柄束（子进程）。
@@ -72,6 +82,7 @@ impl RuntimeLink {
                         task: embedded.task,
                         cancel: embedded.cancel,
                         tasks: embedded.tasks,
+                        joined: None,
                     })),
                 })
             }
@@ -203,23 +214,53 @@ impl Lifecycle {
         }
     }
 
-    /// 收口后的残余任务清单（embedded 作用域；child 由操作系统回收进程树）。
-    pub async fn wait(&mut self, grace: std::time::Duration) -> Result<Vec<String>> {
+    /// 收口/回收：等实例结束（宽限内），返回退出原因与残余清单（embedded 作用域；child 由操作系统
+    /// 回收进程树）。幂等：崩溃回收之后再被 `shutdown` 调用时返回同一原因，不重复 poll 已完成的任务。
+    pub async fn wait(&mut self, grace: std::time::Duration) -> Result<Exit> {
         match self {
             Self::Embedded(runtime) => {
                 // 必须等实例任务真正结束：owner 锁（WorkspaceOwnerGuard）随实例任务
                 // drop 释放，提前返回会让下一次 spawn 撞上「已被占用」。
-                let _ = tokio::time::timeout(grace, &mut runtime.task).await;
-                Ok(runtime.tasks.drain(grace).await)
+                if runtime.joined.is_none() {
+                    match tokio::time::timeout(grace, &mut runtime.task).await {
+                        Ok(joined) => {
+                            runtime.joined = Some(match joined {
+                                Ok(Ok(())) => "exited".to_owned(),
+                                Ok(Err(error)) => format!("{error:#}"),
+                                Err(error) if error.is_panic() => {
+                                    format!("panicked: {error}")
+                                }
+                                Err(error) => format!("aborted: {error}"),
+                            });
+                        }
+                        Err(_) => {
+                            return Ok(Exit {
+                                cause: format!("did not stop within {grace:?}"),
+                                residual: runtime.tasks.drain(grace).await,
+                            });
+                        }
+                    }
+                }
+                Ok(Exit {
+                    cause: runtime.joined.clone().unwrap_or_default(),
+                    residual: runtime.tasks.drain(grace).await,
+                })
             }
             Self::Child(runtime) => {
+                // tokio 的 `Child::wait` 在进程回收后返回缓存的状态，可重复调用。
                 let status = tokio::time::timeout(grace, runtime.child.wait())
                     .await
                     .ok()
                     .transpose()?;
                 Ok(match status {
-                    Some(_) => Vec::new(),
-                    None => vec!["runtime-child".to_owned()],
+                    Some(status) => Exit {
+                        cause: status.to_string(),
+                        residual: Vec::new(),
+                    },
+                    None => Exit {
+                        cause: format!("did not stop within {grace:?}"),
+                        residual: vec!["runtime-child".to_owned()],
+                    },
                 })
             }
         }

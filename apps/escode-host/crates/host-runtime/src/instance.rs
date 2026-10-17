@@ -9,7 +9,9 @@
 //! | 其余（通知/事件帧） | 扇出给全部 [`FrameSubscription`] |
 //!
 //! 读端关闭（实例退出/崩溃/收口）时：在飞请求**立即**失败（此前要等到各自的超时）、
-//! 订阅者收到流结束、发布一次 `unavailable` 生命周期事件。
+//! 订阅者收到流结束、发布一次 `unavailable` 生命周期事件。不是 Host 请求的收口时（崩溃），
+//! 帧泵随即回收实例（等实例结束、取残余清单、记 error 日志），见
+//! docs/specs/rust-u2-host-resilience.md §2.2。
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -17,9 +19,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use anyhow::Result;
+use escode_host_control::logging;
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
+use crate::closed::RuntimeClosed;
 use crate::host_io::{
     HostError, HostRequest, LifecycleEvent, LifecycleHub, ResponderSlot, RuntimeState,
 };
@@ -52,6 +56,23 @@ impl FrameSubscription {
     pub fn lagged(&self) -> bool {
         self.lagged.load(Ordering::SeqCst)
     }
+
+    /// 发送端是否已全部释放（实例读端关闭或本订阅被摘除）。已缓冲的帧仍可 `recv`。
+    pub fn is_closed(&self) -> bool {
+        self.rx.is_closed()
+    }
+}
+
+/// 一代实例结束的记录（docs/specs/rust-u2-host-resilience.md §2.2 / §2.7）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExitReport {
+    pub generation: u64,
+    /// true = Host 请求的收口（close/shutdown）；false = 崩溃（读端意外关闭）。
+    pub requested: bool,
+    /// 退出原因（embedded：实例任务结果；child：进程退出状态）。
+    pub cause: String,
+    /// 宽限后的残余任务/进程清单；验收口径为空。
+    pub residual: Vec<String>,
 }
 
 struct Subscriber {
@@ -70,6 +91,14 @@ pub(crate) struct InstanceState {
     /// 读端已关闭：此后的 `call` 立即失败。
     closed: AtomicBool,
     writer: tokio::sync::Mutex<link::RuntimeWriter>,
+    /// 链路生命周期（存活判定与收口）。帧泵的崩溃回收与 `shutdown` 共用这把锁。
+    link_lifecycle: tokio::sync::Mutex<link::Lifecycle>,
+    /// Host 已请求收口：此后读端关闭不算崩溃，帧泵不回收。
+    stopping: AtomicBool,
+    /// 收口/回收宽限（工具进程树 TERM→KILL 上限）。
+    grace: Duration,
+    /// 本代的结束记录（首次写入后不再改）。
+    exit: watch::Sender<Option<ExitReport>>,
     responder: ResponderSlot,
     lifecycle: Arc<LifecycleHub>,
     event: LifecycleEvent,
@@ -111,6 +140,41 @@ impl InstanceState {
 
     async fn send_line(&self, line: &str) -> Result<()> {
         self.writer.lock().await.send_line(line).await
+    }
+
+    /// 记录本代的结束（只记第一次：崩溃回收与随后的 shutdown 可能先后到达）。
+    fn record_exit(&self, report: ExitReport) {
+        self.exit.send_if_modified(|slot| {
+            if slot.is_some() {
+                return false;
+            }
+            *slot = Some(report);
+            true
+        });
+    }
+
+    /// 崩溃回收：读端意外关闭后立即等实例结束、取残余清单并记 error 日志，不等下一次 `get`
+    /// （owner 锁随实例任务结束释放，下一代可以马上拿到；残余任务不拖到下一次请求才中止）。
+    async fn reap(&self) {
+        let mut lifecycle = self.link_lifecycle.lock().await;
+        let (cause, residual) = match lifecycle.wait(self.grace).await {
+            Ok(exit) => (exit.cause, exit.residual),
+            Err(error) => (format!("{error:#}"), vec![self.event.identity.clone()]),
+        };
+        drop(lifecycle);
+        logging::error(
+            "runtime-link",
+            format!(
+                "runtime instance {} generation {} exited unexpectedly: {cause}; residual: {residual:?}",
+                self.event.identity, self.event.generation
+            ),
+        );
+        self.record_exit(ExitReport {
+            generation: self.event.generation,
+            requested: false,
+            cause,
+            residual,
+        });
     }
 
     fn lock_early(&self) -> std::sync::MutexGuard<'_, Option<(Vec<String>, bool)>> {
@@ -165,7 +229,6 @@ impl InstanceState {
 pub struct Instance {
     pub identity: String,
     pub generation: u64,
-    lifecycle: tokio::sync::Mutex<link::Lifecycle>,
     state: Arc<InstanceState>,
 }
 
@@ -176,6 +239,7 @@ impl Instance {
         event: LifecycleEvent,
         responder: ResponderSlot,
         lifecycle_hub: Arc<LifecycleHub>,
+        grace: Duration,
     ) -> Arc<Self> {
         let link::RuntimeLink {
             reader,
@@ -190,6 +254,10 @@ impl Instance {
             ready: AtomicBool::new(false),
             closed: AtomicBool::new(false),
             writer: tokio::sync::Mutex::new(writer),
+            link_lifecycle: tokio::sync::Mutex::new(lifecycle),
+            stopping: AtomicBool::new(false),
+            grace,
+            exit: watch::channel(None).0,
             responder,
             lifecycle: lifecycle_hub,
             event: event.clone(),
@@ -198,7 +266,6 @@ impl Instance {
         let instance = Arc::new(Self {
             identity: event.identity.clone(),
             generation: event.generation,
-            lifecycle: tokio::sync::Mutex::new(lifecycle),
             state: Arc::clone(&state),
         });
         tokio::spawn(pump(reader, state));
@@ -220,9 +287,26 @@ impl Instance {
         if self.state.closed.load(Ordering::SeqCst) {
             return false;
         }
-        match self.lifecycle.try_lock() {
+        match self.state.link_lifecycle.try_lock() {
             Ok(lifecycle) => lifecycle.is_alive(),
             Err(_) => true,
+        }
+    }
+
+    /// child 链路的子进程 pid（embedded 为 None）。
+    pub fn process_id(&self) -> Option<u32> {
+        self.state.event.process_id
+    }
+
+    /// 等本代结束并取结束记录（崩溃回收完成或收口完成后返回）。
+    pub async fn exited(&self) -> ExitReport {
+        let mut exit = self.state.exit.subscribe();
+        loop {
+            if let Some(report) = exit.borrow_and_update().clone() {
+                return report;
+            }
+            // 发送端随实例状态存活；`self` 持有它，changed() 不会因关闭返回错误。
+            let _ = exit.changed().await;
         }
     }
 
@@ -290,7 +374,9 @@ impl Instance {
         self.state.lock_pending().insert(id.clone(), tx);
         if self.state.closed.load(Ordering::SeqCst) {
             self.state.lock_pending().remove(&id);
-            anyhow::bail!("runtime closed while awaiting `{method}`");
+            return Err(anyhow::Error::new(RuntimeClosed {
+                method: method.to_owned(),
+            }));
         }
         let mut envelope = json!({"id": id, "method": method, "params": params});
         if let Some(trace) = trace {
@@ -302,7 +388,9 @@ impl Instance {
         }
         match tokio::time::timeout(timeout, rx).await {
             Ok(Ok(value)) => Ok(value),
-            Ok(Err(_)) => anyhow::bail!("runtime closed while awaiting `{method}`"),
+            Ok(Err(_)) => Err(anyhow::Error::new(RuntimeClosed {
+                method: method.to_owned(),
+            })),
             Err(_) => {
                 self.state.lock_pending().remove(&id);
                 Err(anyhow::Error::new(RequestTimeout {
@@ -313,14 +401,27 @@ impl Instance {
         }
     }
 
-    /// 请求收口并等待（宽限内）。
+    /// 请求收口并等待（宽限内）。先置 `stopping`：之后的读端关闭不算崩溃。
+    /// 已被崩溃回收的实例再收口一次是幂等的（返回同一残余清单）。
     pub async fn shutdown(&self, grace: Duration) -> Vec<String> {
-        let mut lifecycle = self.lifecycle.lock().await;
+        self.state.stopping.store(true, Ordering::SeqCst);
+        let mut lifecycle = self.state.link_lifecycle.lock().await;
         lifecycle.cancel();
-        match lifecycle.wait(grace).await {
-            Ok(residual) => residual,
-            Err(error) => vec![format!("{}: {error}", self.identity)],
-        }
+        let (cause, residual) = match lifecycle.wait(grace).await {
+            Ok(exit) => (exit.cause, exit.residual),
+            Err(error) => (
+                format!("{error:#}"),
+                vec![format!("{}: {error}", self.identity)],
+            ),
+        };
+        drop(lifecycle);
+        self.state.record_exit(ExitReport {
+            generation: self.generation,
+            requested: true,
+            cause,
+            residual: residual.clone(),
+        });
+        residual
     }
 }
 
@@ -354,6 +455,9 @@ async fn pump(mut reader: link::RuntimeReader, state: Arc<InstanceState>) {
         state.fan_out(trimmed);
     }
     state.close();
+    if !state.stopping.load(Ordering::SeqCst) {
+        state.reap().await;
+    }
 }
 
 /// 应答一条反向请求（独立任务：慢应答不阻塞帧泵）。
