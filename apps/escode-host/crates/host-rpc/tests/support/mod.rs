@@ -17,6 +17,10 @@ mod controller;
 #[allow(unused_imports)] // 各测试文件只用到其中一个子集
 pub use controller::*;
 
+mod git_repo;
+#[allow(unused_imports)] // 各测试文件只用到其中一个子集
+pub use git_repo::*;
+
 pub type Socket = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 pub async fn start(home: &std::path::Path) -> RpcSurface {

@@ -7,6 +7,12 @@ mod command;
 mod commit_message;
 pub use commit_message::CommitMessageInputs;
 pub mod commit_message_prompt;
+// `git-checkpoint`（rust-u2-git.md §8）：store / git 管道 / 冲突检测 / 服务层。
+pub mod checkpoint;
+pub mod checkpoint_conflicts;
+pub mod checkpoint_parse;
+pub mod checkpoint_service;
+pub mod checkpoint_store;
 mod files;
 mod parse;
 mod parse_refs;
@@ -95,7 +101,7 @@ impl GitService {
     }
 
     /// TS `commandProvider.run`：二进制不可用时抛错（`Git binary is not available`）。
-    async fn git(&self, run: GitRun<'_>) -> anyhow::Result<GitOutput> {
+    pub(crate) async fn git(&self, run: GitRun<'_>) -> anyhow::Result<GitOutput> {
         let binary = self
             .binary()
             .await

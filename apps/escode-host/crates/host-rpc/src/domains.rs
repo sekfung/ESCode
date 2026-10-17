@@ -129,8 +129,11 @@ pub fn channels_with(
     });
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();
+    let data_base_dir_for_checkpoint = data_base_dir.clone();
     let instances_for_simple = instances.clone();
     let options_for_simple = Arc::clone(&options);
+    // `git` 与 `git-checkpoint` 共用 Host 内唯一的 GitService（二进制探测与折叠态只有一份）。
+    let git_service = crate::domains_git::git_service();
     let home_for_file = home.clone();
     let home_for_terminal = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
@@ -190,9 +193,14 @@ pub fn channels_with(
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(
+            git_service.clone(),
             provider_service.clone(),
             instances_for_simple.clone(),
             Arc::clone(&options_for_simple),
+        ),
+        crate::domains_git_checkpoint::git_checkpoint_channel(
+            git_service,
+            data_base_dir_for_checkpoint,
         ),
         crate::domains_terminal::terminal_channel(home_for_terminal),
         task_channel,

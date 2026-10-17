@@ -23,6 +23,7 @@ mod domains_file_readdir;
 mod domains_file_watcher;
 mod domains_file_workspace;
 mod domains_git;
+mod domains_git_checkpoint;
 mod domains_git_commit_message;
 mod domains_memory;
 mod domains_onboarding;

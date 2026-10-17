@@ -280,6 +280,10 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("plugins", "installPlugin"),
     ("plugins", "uninstallPlugin"),
     ("plugins", "setPluginEnabled"),
+    ("git-checkpoint", "createCheckpoint"),
+    ("git-checkpoint", "diffCheckpoints"),
+    ("git-checkpoint", "restoreBetweenCheckpoints"),
+    ("git-checkpoint", "deleteCheckpoint"),
 ];
 
 /// TS 服务面全集的扁平视图 `(channel, member)`。

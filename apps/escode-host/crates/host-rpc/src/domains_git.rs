@@ -20,16 +20,11 @@ type GitFuture = Pin<Box<dyn Future<Output = anyhow::Result<Option<Value>>> + Se
 /// 组合根构造 `git` channel：进程 env 经 `core_api::env` 唯一出口取得。
 /// `generateCommitMessage` 需要 Host 的当前模型（Provider 视图）与运行时实例。
 pub fn git_channel(
+    service: Arc<GitService>,
     provider: Option<Arc<escode_host_services::provider::ProviderService>>,
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channel {
-    let locale_compare: LocaleCompare = Arc::new(crate::collation::compare_names);
-    let service = Arc::new(GitService::new(
-        &escode_cli_core_api::env::vars(),
-        escode_cli_core_api::env::temp_dir(),
-        locale_compare,
-    ));
     let generate = crate::domains_git_commit_message::generate_commit_message_method(
         Arc::clone(&service),
         provider,
@@ -37,6 +32,17 @@ pub fn git_channel(
         options,
     );
     git_channel_with(service, vec![("generateCommitMessage", generate)])
+}
+
+/// 组合根构造 Host 内**唯一**的 `GitService`：`git` 与 `git-checkpoint` 两个通道共用同一实例
+/// （二进制探测结果与 `collapsed` 折叠状态因此只有一份，符合单所有者）。
+pub fn git_service() -> Arc<GitService> {
+    let locale_compare: LocaleCompare = Arc::new(crate::collation::compare_names);
+    Arc::new(GitService::new(
+        &escode_cli_core_api::env::vars(),
+        escode_cli_core_api::env::temp_dir(),
+        locale_compare,
+    ))
 }
 
 pub fn git_channel_with(
