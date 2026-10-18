@@ -122,14 +122,10 @@ impl RuntimeLink {
                 #[cfg(windows)]
                 for name in WINDOWS_BASE_ENV {
                     // 快照里显式给出的值优先（Windows 环境变量名大小写不敏感）。
-                    if options
-                        .env
-                        .keys()
-                        .any(|key| key.eq_ignore_ascii_case(*name))
-                    {
+                    if options.env.keys().any(|key| key.eq_ignore_ascii_case(name)) {
                         continue;
                     }
-                    if let Some(value) = escode_cli_core_api::env::var_os(*name) {
+                    if let Some(value) = escode_cli_core_api::env::var_os(name) {
                         command.env(*name, value);
                     }
                 }
