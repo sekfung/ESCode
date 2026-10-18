@@ -97,12 +97,15 @@ jobs:
       - run: pnpm architecture:check
 
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.os }}, ${{ matrix.shard }}/3)
     needs: checks
     strategy:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
+        # App 集成套件串行约 37 分钟（Windows）：按文件轮转分 3 片并行。第 1 片另跑与分片无关的检查、
+        # cargo 测试与 test:escode-host（scripts/test-escode-cli-rust.mjs 的 ESCODE_TEST_SHARD）。
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
@@ -136,8 +139,11 @@ jobs:
       # 生成资产漂移检查、cargo test/nextest、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:escode-cli-rust
         shell: bash
+        env:
+          ESCODE_TEST_SHARD: ${{ matrix.shard }}/3
       # 阶段 2 Host：cargo 单测（实例表/控制通路/入口端到端/settings 域）+ 双 Host settings 交替写读演练。
-      - run: pnpm test:escode-host
+      - if: matrix.shard == 1
+        run: pnpm test:escode-host
         shell: bash
 
   # 三平台原生 release 延迟与内存（发布门槛「性能」：三平台 release 延迟，docs/specs/rust-runtime-performance.md）。

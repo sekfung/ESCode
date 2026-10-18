@@ -18,6 +18,12 @@ if (process.platform === "win32") {
 // 慢机（debug 的 Windows 尤其）建议再设 ESCODE_TEST_REQUEST_MS=60000 与 ESCODE_TEST_EXIT_MS=15000：
 // 默认 5s 请求预算与 4s 关闭预算不够用（与 rust-runtime-ci.yml 的 env 一致，workflow 系列用例实测需要 ~20s+）。
 const serial = process.env.ESCODE_TEST_SERIAL === "1";
+// CI 分片（ESCODE_TEST_SHARD="i/n"）：App 集成套件串行约 37 分钟（Windows），按文件名排序后轮转分片并行。
+// 第 1 片额外承担与分片无关的检查（生成资产、类型检查、cargo 测试）；未设置时等同单片全量。
+const [shardIndex, shardCount] = (process.env.ESCODE_TEST_SHARD ?? "1/1").split("/").map(Number);
+if (!(shardCount >= 1 && shardIndex >= 1 && shardIndex <= shardCount))
+  throw new Error(`Invalid ESCODE_TEST_SHARD: ${process.env.ESCODE_TEST_SHARD}`);
+const primary = shardIndex === 1;
 async function run(command, args, env = {}) {
   await new Promise((done, fail) => {
     const child = spawn(command, args, {
@@ -49,118 +55,121 @@ await run(process.execPath, [
   "@escode/bootstrap^...",
   "build",
 ]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-prompt.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-tool-schemas.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-permission-matrix.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-rewind-branch-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-bash-readonly-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-command-schema.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-bash-policies.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-bash-rule-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-git-safety-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-proxy-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-init-prompt-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-embedded-search-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-webfetch-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-session-context-corpus.mjs",
-  "--check",
-]);
-await run(process.execPath, [
-  "--import",
-  "tsx",
-  "scripts/generate-escode-cli-rust-official-plugins.mjs",
-  "--check",
-]);
-// 修复：这里过去把多个生成脚本串在一次 node 调用里，node 只执行第一个（其余成为 argv），
-// custom-commands 与 memory 的漂移检查实际从未运行。逐个运行。
-for (const script of [
-  "scripts/generate-escode-cli-rust-cron-corpus.mjs",
-  "scripts/generate-escode-cli-rust-offpeak-corpus.mjs",
-  "scripts/generate-escode-cli-rust-custom-commands.mjs",
-  "scripts/generate-escode-cli-rust-memory-corpus.mjs",
-  "scripts/generate-escode-cli-rust-title-corpus.mjs",
-  "scripts/generate-escode-cli-rust-websearch-corpus.mjs",
-  "scripts/generate-escode-cli-rust-mcp-oauth-corpus.mjs",
-  "scripts/generate-escode-cli-rust-mcp-official-auth-corpus.mjs",
-  "scripts/generate-escode-cli-rust-saved-workflow-corpus.mjs",
-  "scripts/generate-escode-cli-rust-saved-workflow-store-corpus.mjs",
-  "scripts/generate-escode-cli-rust-saved-workflow-tool-corpus.mjs",
-  "scripts/generate-escode-cli-rust-dwf-journal-corpus.mjs",
-  "scripts/generate-escode-cli-rust-model-catalog-corpus.mjs",
-  "scripts/generate-escode-cli-rust-workflow-analysis-corpus.mjs",
-  // v3.15.1 对齐（docs/specs/rust-v3.15.1-drift.md）：guarded 危险命令匹配与输入的模型边界材料。
-  "scripts/generate-escode-cli-rust-guarded-corpus.mjs",
-  "scripts/generate-escode-cli-rust-conversation-input-corpus.mjs",
-])
-  await run(process.execPath, ["--import", "tsx", script, "--check"]);
+// 生成资产漂移检查只在第 1 片跑（与分片无关，跑一次即可）。
+if (primary) {
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-prompt.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-tool-schemas.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-permission-matrix.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-rewind-branch-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-bash-readonly-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-command-schema.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-bash-policies.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-bash-rule-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-git-safety-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-proxy-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-init-prompt-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-embedded-search-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-webfetch-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-session-context-corpus.mjs",
+    "--check",
+  ]);
+  await run(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/generate-escode-cli-rust-official-plugins.mjs",
+    "--check",
+  ]);
+  // 修复：这里过去把多个生成脚本串在一次 node 调用里，node 只执行第一个（其余成为 argv），
+  // custom-commands 与 memory 的漂移检查实际从未运行。逐个运行。
+  for (const script of [
+    "scripts/generate-escode-cli-rust-cron-corpus.mjs",
+    "scripts/generate-escode-cli-rust-offpeak-corpus.mjs",
+    "scripts/generate-escode-cli-rust-custom-commands.mjs",
+    "scripts/generate-escode-cli-rust-memory-corpus.mjs",
+    "scripts/generate-escode-cli-rust-title-corpus.mjs",
+    "scripts/generate-escode-cli-rust-websearch-corpus.mjs",
+    "scripts/generate-escode-cli-rust-mcp-oauth-corpus.mjs",
+    "scripts/generate-escode-cli-rust-mcp-official-auth-corpus.mjs",
+    "scripts/generate-escode-cli-rust-saved-workflow-corpus.mjs",
+    "scripts/generate-escode-cli-rust-saved-workflow-store-corpus.mjs",
+    "scripts/generate-escode-cli-rust-saved-workflow-tool-corpus.mjs",
+    "scripts/generate-escode-cli-rust-dwf-journal-corpus.mjs",
+    "scripts/generate-escode-cli-rust-model-catalog-corpus.mjs",
+    "scripts/generate-escode-cli-rust-workflow-analysis-corpus.mjs",
+    // v3.15.1 对齐（docs/specs/rust-v3.15.1-drift.md）：guarded 危险命令匹配与输入的模型边界材料。
+    "scripts/generate-escode-cli-rust-guarded-corpus.mjs",
+    "scripts/generate-escode-cli-rust-conversation-input-corpus.mjs",
+  ])
+    await run(process.execPath, ["--import", "tsx", script, "--check"]);
+}
 // 测试导入的工作区包（@escode/rpc 等）类型入口指向 dist/*.d.ts；干净检出（CI）没有 dist 时，tsc 会退回按源码
 // 以测试的严格配置编译这些包而报错。先按 pnpm typecheck 的同一组项目构建声明。
 await run(process.execPath, [
@@ -172,36 +181,42 @@ await run(process.execPath, [
   "packages/shared",
   "packages/services",
 ]);
-await run(process.execPath, [
-  "node_modules/typescript/bin/tsc",
-  "-p",
-  "packages/services/tests/tsconfig.escode-cli-rust.json",
-]);
+// 测试 tsconfig 类型检查只在第 1 片跑。
+if (primary) {
+  await run(process.execPath, [
+    "node_modules/typescript/bin/tsc",
+    "-p",
+    "packages/services/tests/tsconfig.escode-cli-rust.json",
+  ]);
+}
 // 首选 cargo-nextest（重试/慢测试超时/JUnit 见 apps/escode-cli-rust/.config/nextest.toml）；
 // 本机未安装时回退 cargo test 并给出安装提示（CI 经 taiki-e/install-action 预装）。
-const hasNextest = spawnSync("cargo", ["nextest", "--version"], { stdio: "ignore" }).status === 0;
-if (hasNextest) {
-  await run("cargo", [
-    "nextest",
-    "run",
-    "--locked",
-    "--workspace",
-    "--manifest-path",
-    "apps/escode-cli-rust/Cargo.toml",
-    ...(serial ? ["--test-threads=1"] : []),
-  ]);
-} else {
-  console.warn(
-    "[test-escode-cli-rust] cargo-nextest 未安装，回退 cargo test（安装：cargo install cargo-nextest --locked）",
-  );
-  await run("cargo", [
-    "test",
-    "--locked",
-    "--workspace",
-    "--manifest-path",
-    "apps/escode-cli-rust/Cargo.toml",
-    ...(serial ? ["--", "--test-threads=1"] : []),
-  ]);
+// cargo 测试只在第 1 片跑；其余分片只构建下面的二进制供 App 集成套件使用。
+if (primary) {
+  const hasNextest = spawnSync("cargo", ["nextest", "--version"], { stdio: "ignore" }).status === 0;
+  if (hasNextest) {
+    await run("cargo", [
+      "nextest",
+      "run",
+      "--locked",
+      "--workspace",
+      "--manifest-path",
+      "apps/escode-cli-rust/Cargo.toml",
+      ...(serial ? ["--test-threads=1"] : []),
+    ]);
+  } else {
+    console.warn(
+      "[test-escode-cli-rust] cargo-nextest 未安装，回退 cargo test（安装：cargo install cargo-nextest --locked）",
+    );
+    await run("cargo", [
+      "test",
+      "--locked",
+      "--workspace",
+      "--manifest-path",
+      "apps/escode-cli-rust/Cargo.toml",
+      ...(serial ? ["--", "--test-threads=1"] : []),
+    ]);
+  }
 }
 await run("cargo", [
   "build",
@@ -217,24 +232,29 @@ if (!existsSync(resolve(root, "apps/escode-cli/packages/cli/dist/escode.cjs"))) 
 }
 // 工作流分析桥（docs/specs/rust-dynamic-workflow.md 第 3 期）：经 Node CLI 产物的隐藏子命令逐字比对 TS 语料；
 // 上面的 workspace 测试缺少启动器时跳过这一条，这里补上启动器单独再跑。
-await run(
-  "cargo",
-  [
-    "test",
-    "--locked",
-    "--manifest-path",
-    "apps/escode-cli-rust/Cargo.toml",
-    "-p",
-    "escode-cli-tools",
-    "workflow_analyzer::tests::bridge_matches_ts_analyzer",
-  ],
-  {
-    ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: resolve(root, "apps/escode-cli/packages/cli/dist/escode.cjs"),
-  },
-);
+// 工作流分析桥只在第 1 片跑。
+if (primary) {
+  await run(
+    "cargo",
+    [
+      "test",
+      "--locked",
+      "--manifest-path",
+      "apps/escode-cli-rust/Cargo.toml",
+      "-p",
+      "escode-cli-tools",
+      "workflow_analyzer::tests::bridge_matches_ts_analyzer",
+    ],
+    {
+      ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: resolve(root, "apps/escode-cli/packages/cli/dist/escode.cjs"),
+    },
+  );
+}
 const tests = (await readdir(resolve(root, "packages/services/tests")))
   .filter((name) => /^escode-cli-rust-.*\.test\.ts$/.test(name))
+  .sort()
+  .filter((_, index) => index % shardCount === shardIndex - 1)
   .map((name) => `packages/services/tests/${name}`);
 if (!tests.length) throw new Error("Rust App integration tests are missing");
 await run(process.execPath, [
