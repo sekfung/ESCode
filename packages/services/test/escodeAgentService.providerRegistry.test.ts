@@ -815,6 +815,9 @@ describe("createESCodeAgentService provider registry", () => {
     const calls: string[] = [];
     const request = vi.fn(async (method: string) => {
       calls.push(method);
+      // 修复：同步账号配置前会先协商 runtime 能力（independentPlanSupport.readRuntimeCapabilities）；
+      // 未声明 accountProviderConfig 时维持原同步路径。mock 必须应答这个方法。
+      if (method === escodeProtocolMethods.runtimeCapabilities) return {};
       if (method === escodeProtocolMethods.providerUpdateAccountConfig) {
         return {
           receivedRevision: "account-1",
@@ -884,11 +887,12 @@ describe("createESCodeAgentService provider registry", () => {
     });
 
     expect(calls).toEqual([
+      escodeProtocolMethods.runtimeCapabilities,
       escodeProtocolMethods.providerUpdateAccountConfig,
       escodeProtocolMethods.sessionCreate,
     ]);
     expect(request).toHaveBeenNthCalledWith(
-      1,
+      2,
       escodeProtocolMethods.providerUpdateAccountConfig,
       {
         revision: "account-1",
@@ -928,6 +932,8 @@ describe("createESCodeAgentService provider registry", () => {
       ]),
     });
     const request = vi.fn(async (method: string, params?: unknown) => {
+      // 同上：账号配置同步前的 runtime 能力协商。
+      if (method === escodeProtocolMethods.runtimeCapabilities) return {};
       if (method === escodeProtocolMethods.providerUpdateAccountConfig) {
         const revision = (params as { revision: string }).revision;
         return { receivedRevision: revision, providerCount: 1, status: "received" as const };

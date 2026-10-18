@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "vitest";
 import { MockBinding } from "@serialport/binding-mock";
 import { escodeSerialMethodParamsSchemas, type SerialToolOp } from "@escode/shared/serial";
 import { SerialError } from "../src/serial/serial.js";

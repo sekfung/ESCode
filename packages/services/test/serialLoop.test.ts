@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vitest";
 import { MockBinding } from "@serialport/binding-mock";
 import { SerialError } from "../src/serial/serial.js";
 import { createSerialService, type SerialService } from "../src/serial/serialService.js";

@@ -78,15 +78,19 @@ describe("desktop E2E container presets", () => {
       "utf-8",
     ).replaceAll("\r\n", "\n");
 
-    expect(dockerPlan).toContain(
-      "| Spec | 迁移状态 |\n| --- | --- |\n<!-- conversation-session-verified-table-end -->",
+    // 文档经 oxfmt 格式化：表格与结束标记之间隔一个空行，分隔行按列宽对齐。
+    expect(dockerPlan).toMatch(
+      /\| Spec \| 迁移状态 \|\n\| -+ \| -+ \|\n\n<!-- conversation-session-verified-table-end -->/,
     );
 
     const spec = "./test/e2e/conversation-session/example.test.ts";
     const updated = insertVerifiedDockerSpecRow(dockerPlan, spec);
     expect(updated.inserted).toBe(true);
-    expect(updated.text).toContain(
-      `| \`${spec}\` | verified |\n<!-- conversation-session-verified-table-end -->`,
+    // 新行必须紧接表格最后一行（落在表格内），并保留表格与标记之间的空行。
+    expect(updated.text).toMatch(
+      new RegExp(
+        `\\| -+ \\| -+ \\|\\n\\| \`${spec.replaceAll(".", "\\.")}\` \\| verified \\|\\n\\n<!-- conversation-session-verified-table-end -->`,
+      ),
     );
   });
 });

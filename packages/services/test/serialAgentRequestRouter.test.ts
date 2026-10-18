@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { escodeSerialCancelMethod, escodeSerialMethods } from "@escode/shared/serial";
 import { SerialError } from "../src/serial/serial.js";
 import type { SerialAgentBridge } from "../src/serial/serialAgentBridge.js";

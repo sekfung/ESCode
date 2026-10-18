@@ -123,32 +123,36 @@ describe("rust host control logs", () => {
 });
 
 describe("rust host manager (dev switch)", () => {
-  it("gates on the flag and serves attachments through a window port", async () => {
-    const root = await mkdtemp(join(tmpdir(), "escode-rust-host-manager-"));
-    const home = join(root, "home");
-    const manager = createRustHostManager({ binary: hostBinary, home, enabled: true });
-    try {
-      const attachment = await manager.attachLocalPort(() => {
-        const [port1, port2] = createPortPair();
-        return { port1, port2 };
-      }, "web-remote-replayable");
-      const services = connectViaProtocol(
-        new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
-      );
-      // Web 远控共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
-      const hello = await services.escodeAgentService.helloConversationV4();
-      expect(hello.clientMode).toBe("web-remote-replayable");
-      expect(hello.deliveryProfile).toBe("replayable");
-      await services.settingService.update({ locale: "en-US" } as never);
-      const settings = (await services.settingService.get()) as Record<string, unknown>;
-      expect(settings.locale).toBe("en-US");
-      expect(manager.isRunning()).toBe(true);
-      attachment.dispose();
-    } finally {
-      await manager.stop();
-    }
-    expect(manager.isRunning()).toBe(false);
-  });
+  // 修复：与上面的端到端用例一致，需要已构建的 Host 二进制；单测作业不构建 Rust，缺失时跳过而不是超时失败。
+  it.skipIf(!existsSync(hostBinary))(
+    "gates on the flag and serves attachments through a window port",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "escode-rust-host-manager-"));
+      const home = join(root, "home");
+      const manager = createRustHostManager({ binary: hostBinary, home, enabled: true });
+      try {
+        const attachment = await manager.attachLocalPort(() => {
+          const [port1, port2] = createPortPair();
+          return { port1, port2 };
+        }, "web-remote-replayable");
+        const services = connectViaProtocol(
+          new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
+        );
+        // Web 远控共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
+        const hello = await services.escodeAgentService.helloConversationV4();
+        expect(hello.clientMode).toBe("web-remote-replayable");
+        expect(hello.deliveryProfile).toBe("replayable");
+        await services.settingService.update({ locale: "en-US" } as never);
+        const settings = (await services.settingService.get()) as Record<string, unknown>;
+        expect(settings.locale).toBe("en-US");
+        expect(manager.isRunning()).toBe(true);
+        attachment.dispose();
+      } finally {
+        await manager.stop();
+      }
+      expect(manager.isRunning()).toBe(false);
+    },
+  );
 
   it("stays disabled unless the flag is on", () => {
     const manager = createRustHostManager({ binary: hostBinary, home: "/tmp/x", enabled: false });

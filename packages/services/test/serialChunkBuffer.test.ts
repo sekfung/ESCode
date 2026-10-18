@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { SerialChunkBuffer } from "../src/serial/serialChunkBuffer.js";
 
 function createBuffers() {
