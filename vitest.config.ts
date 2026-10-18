@@ -14,6 +14,7 @@ const forkIsolatedTests = [
   // 真实 spawn Rust Host（apps/escode-host）并用 MessagePort/WebSocket 桥接：
   // threads worker 的虚拟 stdio 与 MessagePort 语义会破坏握手，必须进程隔离。
   "packages/desktop/test/rustHostRpc.test.ts",
+  "packages/desktop/test/rustHostRuntimeCrash.test.ts",
   "packages/desktop/test/rustHostBridge.test.ts",
   "packages/desktop/test/windowsInstallerCompile.test.ts",
   "packages/desktop/test/cdnPreloadScript.test.ts",
@@ -52,7 +53,9 @@ const forkIsolatedTests = [
 export default defineConfig({
   // 测试固定注入事件上报端点，使遥测上报链路在单测中可验证；真实构建由 scripts/build-time-config.mjs 决定。
   define: {
-    __ESCODE_TELEMETRY_REPORT_ENDPOINT__: JSON.stringify("https://zcode.z.ai/api/v1/event/report"),
+    __ESCODE_TELEMETRY_REPORT_ENDPOINT__: JSON.stringify(
+      "https://zcode.z.ai/api/v1/event/report",
+    ),
   },
   resolve: {
     alias: {
