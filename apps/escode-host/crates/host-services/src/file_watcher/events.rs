@@ -65,7 +65,13 @@ pub fn map_event(root: &str, recursive: bool, event: &Event) -> Vec<Change> {
                 if recursive {
                     Change::Unknown
                 } else {
-                    Change::Path(format!("{root_trimmed}/{}", base_name(root_trimmed)))
+                    // 修复：TS `resolve(dir, basename)` 用平台分隔符；写死 `/` 在 Windows 上与 TS 不一致
+                    // （Windows 路径扫描发现）。
+                    Change::Path(format!(
+                        "{root_trimmed}{}{}",
+                        std::path::MAIN_SEPARATOR,
+                        base_name(root_trimmed)
+                    ))
                 }
             } else {
                 Change::Path(path.into_owned())

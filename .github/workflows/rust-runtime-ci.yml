@@ -51,6 +51,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -67,6 +72,8 @@ jobs:
           workspaces: |
             apps/escode-cli-rust
             apps/escode-host
+          # 失败的作业也保存依赖编译缓存：默认只在成功时保存，修红期间每轮都从零编译。
+          cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:escode-cli-rust
       # 阶段 2 Host 工作区（apps/escode-host）：边界（分层/400 行/0 处进程 env）+ fmt + clippy。
@@ -100,6 +107,11 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -113,7 +125,11 @@ jobs:
           toolchain: 1.95.0
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/escode-cli-rust
+          # test 作业同时跑 test:escode-host，两个 workspace 都要缓存（过去只缓存 CLI，Host 每轮冷编译）。
+          workspaces: |
+            apps/escode-cli-rust
+            apps/escode-host
+          cache-on-failure: true
       # 测试运行器：重试、慢测试超时与 JUnit 配置见 apps/escode-cli-rust/.config/nextest.toml。
       - uses: taiki-e/install-action@nextest
       - run: pnpm install --frozen-lockfile
@@ -137,6 +153,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -149,6 +170,7 @@ jobs:
         with:
           workspaces: apps/escode-cli-rust
           key: release
+          cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-desktop-agent-cli.mjs
       - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
