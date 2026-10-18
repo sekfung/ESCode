@@ -23,6 +23,9 @@
   `.codex-plugin` 三种）、`installed_plugins.json`、官方缓存、`package.json` 里的 agent 目录声明；
 - `subagentConfigScope.ts`（343 行）：chokidar 式的配置作用域——锚点回溯（根目录被删时监听最近的现存祖先）、
   父目录监听、写稳定等待（1s 稳定 + 500ms 轮询）、事件去抖 300ms、按路径增量重载、代际（revision）防旧结果覆盖；
+  锚点身份按 `dev` + `ino` + `birthtimeMs` 判定：ext4 会立即复用刚释放的 inode，目录被删后立刻重建时
+  只比 inode 会误判为同一目录、旧监听失效；birthtime 对同一目录实例稳定，文件系统不支持时为 0，退化为 inode 比较。
+  Rust 移植须保持同一身份口径；
 - `subagentRuntimeConfig.ts`（230 行）：三个作用域（用户 / 状态 / 项目）的共享缓存与首次加载 5s 超时回退。
 
 ## 2. 路径与状态（本片建立）
