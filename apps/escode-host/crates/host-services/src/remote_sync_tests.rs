@@ -4,7 +4,7 @@ use super::*;
 #[test]
 fn probe_creates_and_removes_the_marker() {
     let dir = tempfile::tempdir().unwrap();
-    let target = dir.path().join("nested/skills");
+    let target = dir.path().join("nested").join("skills");
     let result = check_directory_write_access(&target);
     assert_eq!(result["ok"], json!(true));
     assert_eq!(result["path"], json!(target.to_string_lossy()));

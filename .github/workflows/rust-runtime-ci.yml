@@ -7,6 +7,14 @@ on:
     branches: [main, dev, "feat/**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      # 定位单平台问题时只跑该平台（如 '["windows-latest"]'）；push / PR 触发时为空，回落三平台全量。
+      # 验收仍以三平台全量运行为准（docs/specs/rust-ci.md）。
+      platforms:
+        description: 'JSON 数组：要跑的 runner，如 ["windows-latest"]'
+        required: false
+        default: '["ubuntu-latest","windows-latest","macos-latest"]'
+        type: string
 
 concurrency:
   group: rust-runtime-ci-${{ github.ref }}
@@ -38,11 +46,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -59,6 +72,8 @@ jobs:
           workspaces: |
             apps/escode-cli-rust
             apps/escode-host
+          # 失败的作业也保存依赖编译缓存：默认只在成功时保存，修红期间每轮都从零编译。
+          cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:escode-cli-rust
       # 阶段 2 Host 工作区（apps/escode-host）：边界（分层/400 行/0 处进程 env）+ fmt + clippy。
@@ -73,21 +88,33 @@ jobs:
         if: runner.os == 'Linux'
         with:
           manifest-path: apps/escode-host/Cargo.toml
+      # 全仓 tsc -b 在 macOS arm64 runner（7 GB 内存，V8 默认堆上限约 2 GB）上堆 OOM（exit 134）；
+      # checks 扩到三平台后首次暴露。只放宽这一步，与 build-desktop-agent-cli.mjs 的做法一致。
       - run: pnpm typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=5120
       - run: pnpm lint
       - run: pnpm architecture:check
 
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.os }}, ${{ matrix.shard }}/3)
     needs: checks
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
+        # App 集成套件串行约 37 分钟（Windows）：按文件轮转分 3 片并行。第 1 片另跑与分片无关的检查、
+        # cargo 测试与 test:escode-host（scripts/test-escode-cli-rust.mjs 的 ESCODE_TEST_SHARD）。
+        shard: [1, 2, 3]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -101,15 +128,22 @@ jobs:
           toolchain: 1.95.0
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/escode-cli-rust
+          # test 作业同时跑 test:escode-host，两个 workspace 都要缓存（过去只缓存 CLI，Host 每轮冷编译）。
+          workspaces: |
+            apps/escode-cli-rust
+            apps/escode-host
+          cache-on-failure: true
       # 测试运行器：重试、慢测试超时与 JUnit 配置见 apps/escode-cli-rust/.config/nextest.toml。
       - uses: taiki-e/install-action@nextest
       - run: pnpm install --frozen-lockfile
       # 生成资产漂移检查、cargo test/nextest、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:escode-cli-rust
         shell: bash
+        env:
+          ESCODE_TEST_SHARD: ${{ matrix.shard }}/3
       # 阶段 2 Host：cargo 单测（实例表/控制通路/入口端到端/settings 域）+ 双 Host settings 交替写读演练。
-      - run: pnpm test:escode-host
+      - if: matrix.shard == 1
+        run: pnpm test:escode-host
         shell: bash
 
   # 三平台原生 release 延迟与内存（发布门槛「性能」：三平台 release 延迟，docs/specs/rust-runtime-performance.md）。
@@ -120,11 +154,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      # Windows：把工作区与临时目录排除出 Defender 实时扫描。测试大量 spawn 进程、读写小文件，实时扫描
+      # 显著拖慢编译与集成套件，并会短暂占用刚关闭的文件（EBUSY）。仅影响 CI runner。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.2
@@ -137,6 +176,7 @@ jobs:
         with:
           workspaces: apps/escode-cli-rust
           key: release
+          cache-on-failure: true
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-desktop-agent-cli.mjs
       - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust

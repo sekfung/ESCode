@@ -62,7 +62,7 @@ fn dedupe_appends_missing_fallbacks_in_order() {
 #[tokio::test]
 async fn profile_precedence_custom_then_system_then_fallback() {
     let home = tempfile::tempdir().expect("home");
-    let kitty = home.path().join(".config/kitty");
+    let kitty = home.path().join(".config").join("kitty");
     tokio::fs::create_dir_all(&kitty).await.expect("mkdir");
     tokio::fs::write(kitty.join("kitty.conf"), "font_family  \"Kitty Mono\"\n")
         .await
@@ -93,7 +93,7 @@ async fn profile_precedence_custom_then_system_then_fallback() {
 #[tokio::test]
 async fn vscode_beats_kitty_and_windows_terminal_prefers_default_profile() {
     let home = tempfile::tempdir().expect("home");
-    let vscode = home.path().join(".config/Code/User");
+    let vscode = home.path().join(".config").join("Code").join("User");
     tokio::fs::create_dir_all(&vscode).await.expect("mkdir");
     tokio::fs::write(
         vscode.join("settings.json"),
@@ -101,7 +101,7 @@ async fn vscode_beats_kitty_and_windows_terminal_prefers_default_profile() {
     )
     .await
     .expect("write");
-    let kitty = home.path().join(".config/kitty");
+    let kitty = home.path().join(".config").join("kitty");
     tokio::fs::create_dir_all(&kitty).await.expect("mkdir");
     tokio::fs::write(kitty.join("kitty.conf"), "font_family K\n")
         .await
@@ -113,7 +113,7 @@ async fn vscode_beats_kitty_and_windows_terminal_prefers_default_profile() {
     assert_eq!(detected.font_family.as_deref(), Some("Code Mono"));
 
     let local = tempfile::tempdir().expect("local");
-    let wt = local.path().join("Microsoft/Windows Terminal");
+    let wt = local.path().join("Microsoft").join("Windows Terminal");
     tokio::fs::create_dir_all(&wt).await.expect("mkdir");
     let settings = r#"{"defaultProfile":"{b}","profiles":{"defaults":{"font":{"face":"Defaults"}},
         "list":[{"guid":"{a}","font":{"face":"A"}},{"guid":"{b}","font":{"face":"B"}}]}}"#;

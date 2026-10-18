@@ -4,7 +4,7 @@ import { cpus, tmpdir } from "node:os";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { randomUUID, createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
@@ -56,7 +56,10 @@ async function processStats(pid) {
 }
 
 async function runSample(kind, repetition) {
-  const root = await mkdtemp(join(tmpdir(), `escode-${kind}-bench-`));
+  // 修复：Windows runner 的 tmpdir() 是 8.3 短路径（RUNNER~1）；Node CLI 对 workspace 的 fs.watch
+  // 回报长路径，libuv 前缀断言 `!_wcsnicmp(filename, dir, dirlen)`（src\win\fs-event.c）失败，进程崩溃
+  // （exit 3221226505）。promises.realpath 走原生实现，展开为长路径后再交给两侧 runtime。
+  const root = await realpath(await mkdtemp(join(tmpdir(), `escode-${kind}-bench-`)));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const storage = join(root, "storage");

@@ -6,11 +6,11 @@ fn user_and_workspace_paths_follow_the_descriptors() {
     let home = std::path::Path::new("/home/me");
     assert_eq!(
         config_path(ESCODE, Scope::User, home, None).unwrap(),
-        home.join(".escode/cli/config.json")
+        home.join(".escode").join("cli").join("config.json")
     );
     assert_eq!(
         config_path(AGENTS, Scope::User, home, None).unwrap(),
-        home.join(".agents/mcp.json")
+        home.join(".agents").join("mcp.json")
     );
     assert_eq!(
         config_path(ESCODE, Scope::Workspace, home, Some("/work")).unwrap(),
@@ -32,9 +32,14 @@ fn locations_carry_the_project_path_only_when_provided() {
     assert!(user.get("projectPath").is_none());
     let workspace = location(AGENTS, Scope::Workspace, home, Some("/work")).unwrap();
     assert_eq!(workspace["scope"], serde_json::json!("project"));
+    // 修复：期望值按平台路径规则构造（windows-latest host 测试暴露 POSIX 写死的期望值）。
     assert_eq!(
         workspace["directoryPath"],
-        serde_json::json!("/work/.agents")
+        serde_json::json!(
+            std::path::Path::new("/work")
+                .join(".agents")
+                .to_string_lossy()
+        )
     );
 }
 

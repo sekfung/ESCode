@@ -16,11 +16,11 @@ fn load_prefers_escode_and_lists_workspace_before_user() {
     let home = dir.path();
     let workspace = dir.path().join("work");
     write(
-        &workspace.join(".escode/config.json"),
+        &workspace.join(".escode").join("config.json"),
         r#"{"mcp":{"servers":{"ws":{"command":"ws-command"}}}}"#,
     );
     write(
-        &home.join(".agents/mcp.json"),
+        &home.join(".agents").join("mcp.json"),
         r#"{"mcpServers":{"user-agents":{"command":"u"}}}"#,
     );
 
@@ -40,7 +40,12 @@ fn load_prefers_escode_and_lists_workspace_before_user() {
     assert_eq!(servers[0]["file"]["format"], serde_json::json!("json"));
     assert_eq!(
         servers[0]["file"]["filePath"],
-        serde_json::json!(workspace.join(".escode/config.json").to_string_lossy())
+        serde_json::json!(
+            workspace
+                .join(".escode")
+                .join("config.json")
+                .to_string_lossy()
+        )
     );
     assert_eq!(
         servers[0]["location"]["scope"],
@@ -57,7 +62,7 @@ fn load_prefers_escode_and_lists_workspace_before_user() {
 
     // 用户级 `.escode` 有 server 时不再回退 `.agents`。
     write(
-        &home.join(".escode/cli/config.json"),
+        &home.join(".escode").join("cli").join("config.json"),
         r#"{"mcp":{"servers":{"user-escode":{"command":"e"}}}}"#,
     );
     let loaded = load(home, &serde_json::json!({})).unwrap();
@@ -74,7 +79,7 @@ fn load_prefers_escode_and_lists_workspace_before_user() {
 fn save_upserts_and_deletes_while_preserving_other_config() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
-    let file = home.join(".escode/cli/config.json");
+    let file = home.join(".escode").join("cli").join("config.json");
     write(&file, r#"{"mcp":{"other":1},"keep":true}"#);
 
     save(
@@ -117,8 +122,12 @@ fn save_upserts_and_deletes_while_preserving_other_config() {
 fn set_enabled_rewrites_the_server_and_cleans_the_legacy_override() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
-    let file = home.join(".escode/cli/config.json");
-    let directory = home.join(".escode/cli").to_string_lossy().into_owned();
+    let file = home.join(".escode").join("cli").join("config.json");
+    let directory = home
+        .join(".escode")
+        .join("cli")
+        .to_string_lossy()
+        .into_owned();
     write(
         &file,
         &serde_json::json!({

@@ -27,14 +27,22 @@ function createSharedDefines() {
   return SERVER_HTTP_DEFINES;
 }
 
-export const SERVER_HTTP_EXTERNAL_DEPENDENCIES = [
-  "ssh2",
-  "node-pty",
-  // 串口服务只在 Desktop Local Host 注册，server 不会加载；外置避免把 native 包内联进 ESM bundle。
+/**
+ * server 运行时永远不会加载的外置依赖：串口服务只在 Desktop Local Host 注册，services 里对它们
+ * 全是动态 import（见 services/src/serial/serialRuntime.ts）。外置只为不把 native 包内联进 ESM bundle，
+ * 因此不要求 server 自身声明依赖（不随 server 部署安装 native 串口包）。
+ */
+export const SERVER_HTTP_UNLOADED_EXTERNAL_DEPENDENCIES = [
   "@serialport/bindings-cpp",
   "@serialport/stream",
   // E2E 虚拟串口（仅 ESCODE_SERIAL_MOCK_PORTS 时加载），开发依赖，不内联进产物。
   "@serialport/binding-mock",
+];
+
+export const SERVER_HTTP_EXTERNAL_DEPENDENCIES = [
+  "ssh2",
+  "node-pty",
+  ...SERVER_HTTP_UNLOADED_EXTERNAL_DEPENDENCIES,
   "undici",
   "axios",
   "form-data",

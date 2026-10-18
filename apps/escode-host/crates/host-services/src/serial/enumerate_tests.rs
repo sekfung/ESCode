@@ -12,17 +12,17 @@ fn usb_metadata_falls_back_to_the_device_parent() {
     let dir = tempfile::tempdir().unwrap();
     let sys = dir.path().join("sys");
     // ttyUSB0: device 是 USB 接口，元数据在上一级（USB 设备节点）。
-    std::fs::create_dir_all(sys.join("ttyUSB0/device")).unwrap();
-    write(&sys.join("ttyUSB0/idVendor"), "10c4\n");
-    write(&sys.join("ttyUSB0/idProduct"), "ea60\n");
-    write(&sys.join("ttyUSB0/manufacturer"), "Silicon Labs\n");
-    write(&sys.join("ttyUSB0/serial"), "SN-1\n");
+    std::fs::create_dir_all(sys.join("ttyUSB0").join("device")).unwrap();
+    write(&sys.join("ttyUSB0").join("idVendor"), "10c4\n");
+    write(&sys.join("ttyUSB0").join("idProduct"), "ea60\n");
+    write(&sys.join("ttyUSB0").join("manufacturer"), "Silicon Labs\n");
+    write(&sys.join("ttyUSB0").join("serial"), "SN-1\n");
     // ttyS0: 有 device、无元数据。
-    std::fs::create_dir_all(sys.join("ttyS0/device")).unwrap();
+    std::fs::create_dir_all(sys.join("ttyS0").join("device")).unwrap();
     // pts: 没有 device 子目录 → 虚拟 tty，跳过。
     std::fs::create_dir_all(sys.join("pts")).unwrap();
     // ttyACM0: 有 device，但 /dev 下没有节点 → 跳过。
-    std::fs::create_dir_all(sys.join("ttyACM0/device")).unwrap();
+    std::fs::create_dir_all(sys.join("ttyACM0").join("device")).unwrap();
 
     let dev = dir.path().join("dev");
     std::fs::create_dir_all(&dev).unwrap();

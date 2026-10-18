@@ -16,8 +16,8 @@ fn archive_round_trips_directories_and_files() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("skill");
     write_file(&source.join("SKILL.md"), "# skill\n");
-    write_file(&source.join("assets/b.txt"), "b");
-    write_file(&source.join("assets/a.txt"), "a");
+    write_file(&source.join("assets").join("b.txt"), "b");
+    write_file(&source.join("assets").join("a.txt"), "a");
 
     let archive = create_archive(
         &[ArchiveEntry {
@@ -32,11 +32,18 @@ fn archive_round_trips_directories_and_files() {
     let target = dir.path().join("out");
     extract_archive(&archive, &target, Some(1024 * 1024)).unwrap();
     assert_eq!(
-        std::fs::read_to_string(target.join("group/skill/SKILL.md")).unwrap(),
+        std::fs::read_to_string(target.join("group").join("skill").join("SKILL.md")).unwrap(),
         "# skill\n"
     );
     assert_eq!(
-        std::fs::read_to_string(target.join("group/skill/assets/a.txt")).unwrap(),
+        std::fs::read_to_string(
+            target
+                .join("group")
+                .join("skill")
+                .join("assets")
+                .join("a.txt")
+        )
+        .unwrap(),
         "a"
     );
 
@@ -55,13 +62,14 @@ fn archive_round_trips_directories_and_files() {
     assert!(a < b);
 }
 
+// 修复：只有 Unix 上会创建软链（Windows 需要开发者模式），否则没有可拒绝的输入，限 Unix。
+#[cfg(unix)]
 #[test]
 fn symlink_sources_are_rejected_like_the_typescript_archive() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("skill");
     std::fs::create_dir_all(&source).unwrap();
     write_file(&source.join("SKILL.md"), "x");
-    #[cfg(unix)]
     std::os::unix::fs::symlink("/etc/hosts", source.join("link")).unwrap();
     let error = create_archive(
         &[ArchiveEntry {

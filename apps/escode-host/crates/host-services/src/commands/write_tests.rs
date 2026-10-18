@@ -20,7 +20,11 @@ async fn write_creates_the_file_and_enables_it() {
         .await
         .unwrap();
     let command = &answer["command"];
-    let file_path = dir.path().join(".escode/commands/report.md");
+    let file_path = dir
+        .path()
+        .join(".escode")
+        .join("commands")
+        .join("report.md");
     assert_eq!(command["filePath"], json!(file_path.to_string_lossy()));
     assert_eq!(command["name"], json!("/report"));
     assert_eq!(command["prompt"], json!("写周报"));
@@ -69,7 +73,11 @@ async fn rename_migrates_the_enable_override() {
         .write_command_file(&create("/old-name", "正文"))
         .await
         .unwrap();
-    let old_path = dir.path().join(".escode/commands/old-name.md");
+    let old_path = dir
+        .path()
+        .join(".escode")
+        .join("commands")
+        .join("old-name.md");
     let old_text = old_path.to_string_lossy().into_owned();
     service
         .set_command_enabled(&json!({"filePath": old_text, "enabled": false}))
@@ -87,7 +95,11 @@ async fn rename_migrates_the_enable_override() {
     let command = &answer["command"];
     assert_eq!(command["name"], json!("/new-name"));
     assert_eq!(command["enabled"], json!(false), "禁用状态跟随改名");
-    let new_path = dir.path().join(".escode/commands/new-name.md");
+    let new_path = dir
+        .path()
+        .join(".escode")
+        .join("commands")
+        .join("new-name.md");
     assert!(!old_path.exists(), "旧文件应被删除");
     assert!(new_path.exists());
     let overrides = enabled_overrides(&read_config(dir.path()).await);
@@ -114,7 +126,11 @@ async fn rename_onto_an_existing_file_is_rejected() {
         .write_command_file(&create("/source", "y"))
         .await
         .unwrap();
-    let old_path = dir.path().join(".escode/commands/source.md");
+    let old_path = dir
+        .path()
+        .join(".escode")
+        .join("commands")
+        .join("source.md");
     let error = service
         .update_command_file(&json!({
             "config": {"name": "/taken", "prompt": "y"},
@@ -132,7 +148,7 @@ async fn delete_removes_the_file_and_is_idempotent() {
         .write_command_file(&create("/gone", "x"))
         .await
         .unwrap();
-    let path = dir.path().join(".escode/commands/gone.md");
+    let path = dir.path().join(".escode").join("commands").join("gone.md");
     let text = path.to_string_lossy().into_owned();
     service
         .set_command_enabled(&json!({"filePath": text, "enabled": false}))
@@ -157,7 +173,11 @@ async fn delete_removes_the_file_and_is_idempotent() {
 #[tokio::test]
 async fn set_enabled_toggles_only_the_override() {
     let (dir, service) = service();
-    let path = dir.path().join(".escode/commands/toggle.md");
+    let path = dir
+        .path()
+        .join(".escode")
+        .join("commands")
+        .join("toggle.md");
     let text = path.to_string_lossy().into_owned();
     service
         .set_command_enabled(&json!({"filePath": text, "enabled": false}))

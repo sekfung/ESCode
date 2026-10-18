@@ -48,9 +48,10 @@ jobs:
 
       # 这些套件 import 的是工作区包的 dist 入口，全新 checkout 缺构建产物会以 ERR_MODULE_NOT_FOUND /
       # "Failed to resolve entry for package" 失败（本机因早已构建过而看不出）。只构建单测真正用到的
-      # 库与 agent 包闭包：测试从不 import web / web-share / e2e-report 这类前端应用包，而它们的发行构建
+      # 库与 agent 包闭包：测试从不 import web / web-share 这类前端应用包（e2e-report 只用其 node 入口，见下），而它们的发行构建
       # 在全新 checkout 里有既有的子路径解析问题（@escode/shared/mcp-apps），单测并不需要。
       # @escode/rea-plugin 单独列出：它的 seed 断言会检查 dist/mcp/server.js 存在。
+      # @escode/serial-plugin 同理：serialAgentChain 整链路用例直接拉起它的 dist/mcp/server.js。
       - name: 构建单测依赖的工作区包
         run: |
           pnpm -r \
@@ -62,7 +63,11 @@ jobs:
             --filter "@escode/escode-cua..." \
             --filter "@escode/rea-plugin..." \
             --filter "@escode/usb-plugin..." \
+            --filter "@escode/serial-plugin..." \
             build
+          # desktop 的 e2eReporting* 单测 import @escode/e2e-report 的 node 入口（dist-node）；只跑 tsc 的
+          # build:node，不跑有子路径解析问题的 viewer（vite）构建。
+          pnpm --filter @escode/e2e-report build:node
 
       # 基线取 PR 的目标分支 sha；push 取本次推送前的 sha。拿不到有效 commit（新分支的零 sha、
       # 强推、深历史缺失等）时回落全量单测 —— 宁可多跑，也不让门禁静默失效。

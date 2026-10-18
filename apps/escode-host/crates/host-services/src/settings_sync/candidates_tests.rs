@@ -14,29 +14,43 @@ fn fixture() -> (tempfile::TempDir, tempfile::TempDir) {
     let home = tempfile::tempdir().unwrap();
     let workspace = tempfile::tempdir().unwrap();
     write(
-        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\n---\n",
     );
     write(
-        &home.path().join(".claude/commands/run.md"),
+        &home.path().join(".claude").join("commands").join("run.md"),
         "---\ndescription: d\n---\n",
     );
     write(
         &home
             .path()
-            .join(".claude/plugins/plug/.escode-plugin/plugin.json"),
+            .join(".claude")
+            .join("plugins")
+            .join("plug")
+            .join(".escode-plugin")
+            .join("plugin.json"),
         r#"{"name":"plug","version":"1"}"#,
     );
     write(
-        &home.path().join(".claude/settings.json"),
+        &home.path().join(".claude").join("settings.json"),
         r#"{"mcpServers":{"docs":{"command":"uvx","timeout":5}}}"#,
     );
     write(
-        &workspace.path().join(".trae/skills/beta/SKILL.md"),
+        &workspace
+            .path()
+            .join(".trae")
+            .join("skills")
+            .join("beta")
+            .join("SKILL.md"),
         "---\nname: beta\n---\n",
     );
     write(
-        &workspace.path().join(".trae/settings.json"),
+        &workspace.path().join(".trae").join("settings.json"),
         r#"{"mcpServers":{"ws":{"command":"x"}}}"#,
     );
     (home, workspace)
@@ -51,7 +65,10 @@ fn collects_skills_with_scope_and_target_paths() {
     assert_eq!(alpha.agent, Agent::ClaudeCode);
     assert_eq!(alpha.source_root_scope, SourceScope::User);
     assert_eq!(alpha.name, "alpha");
-    assert_eq!(alpha.target_path, home.path().join(".escode/skills/alpha"));
+    assert_eq!(
+        alpha.target_path,
+        home.path().join(".escode").join("skills").join("alpha")
+    );
     let beta = &candidates[1];
     assert_eq!(
         beta.agent,
@@ -61,7 +78,7 @@ fn collects_skills_with_scope_and_target_paths() {
     assert_eq!(beta.source_root_scope, SourceScope::Workspace);
     assert_eq!(
         beta.target_path,
-        workspace.path().join(".escode/skills/beta")
+        workspace.path().join(".escode").join("skills").join("beta")
     );
 }
 
@@ -74,7 +91,7 @@ fn collects_commands_plugins_and_mcp() {
     assert_eq!(commands[0].source_relative_path, "run.md");
     assert_eq!(
         commands[0].target_path,
-        home.path().join(".escode/commands/run.md")
+        home.path().join(".escode").join("commands").join("run.md")
     );
 
     let plugins = collect_plugin_candidates(home.path(), Some(workspace.path()), &compare());
@@ -83,7 +100,7 @@ fn collects_commands_plugins_and_mcp() {
     assert_eq!(plugins[0].version.as_deref(), Some("1"));
     assert_eq!(
         plugins[0].target_path,
-        home.path().join(".escode/plugins/plug")
+        home.path().join(".escode").join("plugins").join("plug")
     );
 
     let mcp = collect_mcp_candidates(home.path(), Some(workspace.path()));

@@ -27,11 +27,22 @@ async fn candidate_id(service: &SkillSyncService) -> String {
 async fn export_then_import_syncs_and_the_second_import_skips() {
     let source_home = tempfile::tempdir().unwrap();
     write(
-        &source_home.path().join(".escode/skills/alpha/SKILL.md"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         &frontmatter("alpha"),
     );
     write(
-        &source_home.path().join(".escode/skills/alpha/assets/a.bin"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("assets")
+            .join("a.bin"),
         "x",
     );
     let target_home = tempfile::tempdir().unwrap();
@@ -57,8 +68,16 @@ async fn export_then_import_syncs_and_the_second_import_skips() {
         serde_json::json!("synced")
     );
     assert_eq!(
-        std::fs::read_to_string(target_home.path().join(".escode/skills/alpha/assets/a.bin"))
-            .unwrap(),
+        std::fs::read_to_string(
+            target_home
+                .path()
+                .join(".escode")
+                .join("skills")
+                .join("alpha")
+                .join("assets")
+                .join("a.bin")
+        )
+        .unwrap(),
         "x"
     );
 
@@ -72,7 +91,9 @@ async fn export_then_import_syncs_and_the_second_import_skips() {
         serde_json::json!(
             target_home
                 .path()
-                .join(".escode/skills/alpha")
+                .join(".escode")
+                .join("skills")
+                .join("alpha")
                 .to_string_lossy()
                 .to_string()
         )
@@ -85,7 +106,12 @@ async fn export_then_import_syncs_and_the_second_import_skips() {
 async fn import_skips_an_existing_skill_name_in_the_agents_root() {
     let source_home = tempfile::tempdir().unwrap();
     write(
-        &source_home.path().join(".escode/skills/alpha/SKILL.md"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         &frontmatter("alpha"),
     );
     let source = service(source_home.path());
@@ -96,7 +122,11 @@ async fn import_skips_an_existing_skill_name_in_the_agents_root() {
         .unwrap();
 
     let target_home = tempfile::tempdir().unwrap();
-    let existing = target_home.path().join(".agents/skills/other");
+    let existing = target_home
+        .path()
+        .join(".agents")
+        .join("skills")
+        .join("other");
     write(&existing.join("SKILL.md"), &frontmatter("alpha"));
     let target = service(target_home.path());
     let imported = target
@@ -112,7 +142,12 @@ async fn import_skips_an_existing_skill_name_in_the_agents_root() {
         serde_json::json!(existing.to_string_lossy().to_string())
     );
     assert!(
-        !target_home.path().join(".escode/skills/alpha").exists(),
+        !target_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .exists(),
         "跳过时不能落下副本"
     );
 }
@@ -120,7 +155,15 @@ async fn import_skips_an_existing_skill_name_in_the_agents_root() {
 #[tokio::test]
 async fn overwrite_is_rejected_and_size_limits_keep_their_phase() {
     let home = tempfile::tempdir().unwrap();
-    write(&home.path().join(".escode/skills/alpha/SKILL.md"), "x");
+    write(
+        &home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
+        "x",
+    );
     let service = service(home.path());
     let error = service
         .import_skills_archive(vec![1, 2, 3], true)
@@ -171,11 +214,21 @@ async fn overwrite_is_rejected_and_size_limits_keep_their_phase() {
 async fn remote_statuses_check_the_directory_then_fall_back_to_the_skill_name() {
     let home = tempfile::tempdir().unwrap();
     write(
-        &home.path().join(".escode/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         &frontmatter("alpha"),
     );
     write(
-        &home.path().join(".agents/skills/beta/SKILL.md"),
+        &home
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("beta")
+            .join("SKILL.md"),
         &frontmatter("beta-skill"),
     );
     let service = service(home.path());
@@ -200,7 +253,9 @@ async fn remote_statuses_check_the_directory_then_fall_back_to_the_skill_name() 
         statuses["statuses"][0]["path"],
         serde_json::json!(
             home.path()
-                .join(".agents/skills/beta")
+                .join(".agents")
+                .join("skills")
+                .join("beta")
                 .to_string_lossy()
                 .to_string()
         )
@@ -223,8 +278,8 @@ async fn write_access_probe_reports_failures_without_throwing() {
         sync.check_remote_user_skill_write_access().await.unwrap()["ok"],
         serde_json::json!(true)
     );
-    assert!(home.path().join(".escode/skills").exists());
-    let leftovers: Vec<_> = std::fs::read_dir(home.path().join(".escode/skills"))
+    assert!(home.path().join(".escode").join("skills").exists());
+    let leftovers: Vec<_> = std::fs::read_dir(home.path().join(".escode").join("skills"))
         .unwrap()
         .filter_map(Result::ok)
         .filter(|entry| {

@@ -97,11 +97,15 @@ async fn project_wiki_lives_in_the_workspace_and_only_knowledge_is_versioned() {
             .join(format!("{}.md", entry.meta.id))
             .exists()
     );
+    // 修复：项目根经 git 解析为真实路径；macOS 临时目录 /var 是 /private/var 的软链，
+    // 原样比较会误报（macos-latest test 作业暴露）。两侧都取 canonical 路径再比。
     assert_eq!(
         wiki.store_for(&wiki.settings().await, Scope::Project)
             .await
-            .root,
-        dir
+            .root
+            .canonicalize()
+            .unwrap(),
+        dir.canonicalize().unwrap()
     );
 
     let ignore = std::fs::read_to_string(dir.join(".gitignore")).unwrap();

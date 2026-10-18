@@ -318,7 +318,6 @@ async fn office_documents_end_to_end_and_legacy_converter() {
     // 可选转换器：用户层配置一个假的 soffice（把预置的 docx 拷贝为输出），验证调用链与降级说明。
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
         let fixture = env.work.path().join("converted.docx");
         std::fs::write(
             &fixture,
@@ -329,8 +328,16 @@ async fn office_documents_end_to_end_and_legacy_converter() {
         )
         .unwrap();
         let script = env.work.path().join("fake-soffice");
-        std::fs::write(&script, format!("#!/bin/sh\n# args: --headless --norestore --convert-to docx --outdir DIR FILE\ncp '{}' \"$6/source.docx\"\n", fixture.display())).unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // 修复：由独立子进程写入并 chmod，避免并发用例 fork 继承本进程的写句柄导致执行时 ETXTBSY。
+        let status = std::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg("printf '%s' \"$1\" > \"$2\" && chmod 755 \"$2\"")
+            .arg("sh")
+            .arg(format!("#!/bin/sh\n# args: --headless --norestore --convert-to docx --outdir DIR FILE\ncp '{}' \"$6/source.docx\"\n", fixture.display()))
+            .arg(&script)
+            .status()
+            .unwrap();
+        assert!(status.success(), "write script: {status}");
         env.user_config(serde_json::json!({"wiki": {"converters": {"office": {"enabled": true, "command": script.to_string_lossy()}}}}));
         let again = wiki
             .ingest(&[repo.join("specs/legacy.doc")], Scope::Project, false)

@@ -101,10 +101,11 @@ mod tests {
         let names: Vec<String> = files
             .iter()
             .map(|file| {
+                // 修复：Windows 上分隔符是 `\`，统一成 `/` 再比（windows-latest test 作业暴露）。
                 file.strip_prefix(&root)
                     .unwrap()
                     .to_string_lossy()
-                    .into_owned()
+                    .replace('\\', "/")
             })
             .collect();
         assert_eq!(names[0], SKILL_FILE_NAME, "根自身先收录（TS 同序）");

@@ -239,8 +239,10 @@ describe("WebRemoteControlTaskIndex layout", () => {
     );
 
     expect(source).toContain("shouldRetryWebRemoteControlTaskIndexLoad");
-    expect(source).toContain(
-      "}, [activeTaskId, activeWorkspaceIdentity, activeWorkspacePath, switcher]);",
+    // 修复：oxfmt 100 列格式化后依赖数组独占一行（`},\n    [...],\n  );`），按字面串匹配会误报；
+    // 这里只断言 loadTasks 的依赖集合，不依赖换行与缩进。
+    expect(source).toMatch(
+      /\},\s*\[activeTaskId, activeWorkspaceIdentity, activeWorkspacePath, switcher\],?\s*\);/,
     );
   });
 

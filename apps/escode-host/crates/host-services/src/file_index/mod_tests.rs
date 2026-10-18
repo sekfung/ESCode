@@ -58,7 +58,15 @@ async fn indexes_filters_and_searches() {
         .await
         .expect("search");
     assert_eq!(hit[0]["relativePath"], "src/main.rs");
-    assert_eq!(hit[0]["path"], format!("{root}/src/main.rs"));
+    // 修复：绝对路径按平台分隔符拼接（Windows 上 `{root}/src/main.rs` 与回包的 `\` 分隔不一致）。
+    assert_eq!(
+        hit[0]["path"],
+        std::path::Path::new(&root)
+            .join("src")
+            .join("main.rs")
+            .to_string_lossy()
+            .as_ref()
+    );
 }
 
 #[tokio::test]

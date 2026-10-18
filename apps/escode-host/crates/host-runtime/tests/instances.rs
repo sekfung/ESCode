@@ -101,9 +101,13 @@ async fn two_workspaces_get_independent_instances() {
     assert!(instances.identities().len() == 2, "槽位保留世代记账");
 }
 
-/// 超时是可区分的失败类别（stale 实例恢复据此决定回收+重试）；实例已关闭则不是超时。
+/// 实例已关闭的失败是 “closed”，不是超时（stale 实例恢复据此决定回收+重试）。
+///
+/// 修复：超时可分类的断言移到 host_io.rs（从不应答的子进程脚本，确定性超时）。这里原先用
+/// 零期限 + 内嵌 runtime：多线程下应答可能在 send_line 期间就已入 channel，而 tokio `timeout`
+/// 先轮询内部 future，零期限也会拿到应答（ubuntu 全量运行间歇失败）。
 #[tokio::test(flavor = "multi_thread")]
-async fn an_unanswered_request_fails_with_a_classifiable_timeout() {
+async fn a_closed_instance_fails_as_closed_not_as_timeout() {
     let fixture = Fixture::new();
     let instances = Instances::new(Link::Embedded);
     let instance = instances
@@ -111,17 +115,6 @@ async fn an_unanswered_request_fails_with_a_classifiable_timeout() {
         .await
         .expect("instance starts");
     wait_ready(&instance).await;
-
-    // 零期限：应答不可能先到，确定性地超时。
-    let error = instance
-        .call_with("plugins/list", serde_json::json!({}), None, Duration::ZERO)
-        .await
-        .expect_err("zero timeout cannot be answered");
-    let timeout = error
-        .downcast_ref::<escode_host_runtime::RequestTimeout>()
-        .expect("timeout is classifiable");
-    assert_eq!(timeout.method, "plugins/list");
-    assert!(error.to_string().contains("did not answer `plugins/list`"));
 
     // 实例收口后的失败是 “closed”，不能被当成 stale 超时去重试。
     let _ = instances.shutdown().await;
@@ -290,6 +283,12 @@ async fn child_link_serves_the_same_ready_frame() {
 
 fn cli_binary() -> Option<PathBuf> {
     let candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../escode-cli-rust/target/debug/escode-cli-rust");
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("escode-cli-rust")
+        .join("target")
+        .join("debug")
+        .join("escode-cli-rust");
     candidate.is_file().then_some(candidate)
 }

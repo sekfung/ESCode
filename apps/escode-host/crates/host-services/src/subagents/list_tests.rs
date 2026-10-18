@@ -100,13 +100,16 @@ async fn user_and_workspace_agents_are_discovered_at_the_first_level_only() {
         &agent_markdown("beta", "user beta"),
     );
     write(
-        &user_root.join("nested/gamma.md"),
+        &user_root.join("nested").join("gamma.md"),
         &agent_markdown("gamma", "不该被发现"),
     );
     // 缺 description 的文件报诊断、不进结果。
     write(&user_root.join("broken.md"), "---\nname: broken\n---\nbody");
     write(
-        &workspace.join(".escode/agents/project-one.md"),
+        &workspace
+            .join(".escode")
+            .join("agents")
+            .join("project-one.md"),
         &agent_markdown("project-one", "项目级"),
     );
 
@@ -160,7 +163,7 @@ async fn runtime_precedence_keeps_one_entry_per_name() {
         &agent_markdown("dup", "user 版本"),
     );
     write(
-        &workspace.join(".escode/agents/dup.md"),
+        &workspace.join(".escode").join("agents").join("dup.md"),
         &agent_markdown("dup", "project 版本"),
     );
     let answer = run(&home, &workspace.to_string_lossy(), None).await;
@@ -222,11 +225,11 @@ async fn plugin_agents_are_discovered_with_prefixed_names_and_bare_aliases() {
     let (_dir, home) = temp_home();
     let plugin = home.join("plugin-root");
     write(
-        &plugin.join(".escode-plugin/plugin.json"),
+        &plugin.join(".escode-plugin").join("plugin.json"),
         r#"{"name":"demo","agents":["defs"]}"#,
     );
     write(
-        &plugin.join("defs/review-deep.md"),
+        &plugin.join("defs").join("review-deep.md"),
         &agent_markdown("reviewer", "插件 reviewer"),
     );
     let installed = serde_json::json!({
@@ -237,11 +240,15 @@ async fn plugin_agents_are_discovered_with_prefixed_names_and_bare_aliases() {
         }]
     });
     write(
-        &home.join(".escode/cli/plugins/installed_plugins.json"),
+        &home
+            .join(".escode")
+            .join("cli")
+            .join("plugins")
+            .join("installed_plugins.json"),
         &installed.to_string(),
     );
     write(
-        &home.join(".escode/cli/config.json"),
+        &home.join(".escode").join("cli").join("config.json"),
         r#"{"plugins":{"enabledPlugins":{"demo@inline":true}}}"#,
     );
 
@@ -266,7 +273,7 @@ async fn plugin_agents_are_discovered_with_prefixed_names_and_bare_aliases() {
 
     // 插件被关掉：不再贡献。
     write(
-        &home.join(".escode/cli/config.json"),
+        &home.join(".escode").join("cli").join("config.json"),
         r#"{"plugins":{"enabledPlugins":{"demo@inline":false}}}"#,
     );
     let answer = run(&home, "/w", None).await;
@@ -279,15 +286,19 @@ async fn plugin_bare_name_conflicting_with_builtin_reports_a_diagnostic() {
     let (_dir, home) = temp_home();
     let plugin = home.join("plugin-root");
     write(
-        &plugin.join(".escode-plugin/plugin.json"),
+        &plugin.join(".escode-plugin").join("plugin.json"),
         r#"{"name":"demo","commands":[]}"#,
     );
     write(
-        &plugin.join("agents/agent.md"),
+        &plugin.join("agents").join("agent.md"),
         &agent_markdown("Explore", "插件版 Explore"),
     );
     write(
-        &home.join(".escode/cli/plugins/installed_plugins.json"),
+        &home
+            .join(".escode")
+            .join("cli")
+            .join("plugins")
+            .join("installed_plugins.json"),
         &serde_json::json!({"plugins": [{
             "id": "demo@inline",
             "installPath": plugin.to_string_lossy(),
@@ -296,7 +307,7 @@ async fn plugin_bare_name_conflicting_with_builtin_reports_a_diagnostic() {
         .to_string(),
     );
     write(
-        &home.join(".escode/cli/config.json"),
+        &home.join(".escode").join("cli").join("config.json"),
         r#"{"plugins":{"enabledPlugins":{"demo@inline":true}}}"#,
     );
     let answer = run(&home, "/w", None).await;

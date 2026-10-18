@@ -5,7 +5,6 @@
 #![cfg(unix)]
 
 use std::collections::BTreeMap;
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -24,8 +23,18 @@ struct Script {
 fn script(body: &str) -> Script {
     let root = tempfile::tempdir().expect("temp dir");
     let binary = root.path().join("fake-runtime");
-    std::fs::write(&binary, format!("#!/bin/sh\n{body}\n")).expect("write script");
-    std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    // 修复：本进程以写方式打开脚本时，并发用例的 fork 会继承该写句柄（exec 前才关闭），随后执行
+    // 脚本得 ETXTBSY “Text file busy”（ubuntu test 作业间歇失败）。改由独立子进程写入并 chmod，
+    // 本进程从不持有写句柄，子进程退出后文件不再有写者。
+    let status = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg("printf '%s' \"$1\" > \"$2\" && chmod 755 \"$2\"")
+        .arg("sh")
+        .arg(format!("#!/bin/sh\n{body}\n"))
+        .arg(&binary)
+        .status()
+        .expect("write script");
+    assert!(status.success(), "write script: {status}");
     let workspace = root.path().join("ws");
     std::fs::create_dir_all(&workspace).expect("workspace");
     Script {
@@ -54,6 +63,26 @@ impl Script {
             config: None,
         }
     }
+}
+
+/// 超时是可区分的失败类别（stale 实例恢复据此决定回收+重试）。runtime 读请求但从不应答，
+/// 超时是确定的（不依赖“零期限一定先于应答”的调度假设）。
+#[tokio::test]
+async fn an_unanswered_request_fails_with_a_classifiable_timeout() {
+    let fake = script("while read line; do :; done");
+    let instances = fake.instances();
+    let instance = instances.get("ws", || fake.options()).await.expect("spawn");
+    let error = instance
+        .call_with("plugins/list", json!({}), None, Duration::from_millis(300))
+        .await
+        .expect_err("runtime never answers");
+    let timeout = error
+        .downcast_ref::<escode_host_runtime::RequestTimeout>()
+        .expect("timeout is classifiable");
+    assert_eq!(timeout.method, "plugins/list");
+    assert!(error.to_string().contains("did not answer `plugins/list`"));
+    assert!(instance.is_alive(), "超时不等于实例退出");
+    let _ = instances.shutdown().await;
 }
 
 #[tokio::test]

@@ -76,11 +76,24 @@ impl RepoFixture {
             std::fs::create_dir_all(path).unwrap();
         }
         git(&repo, &["init", "-q"]);
+        // 修复：GitHub Windows runner 系统级 core.autocrlf=true，git restore 写回 CRLF，按原始字节的
+        // `hash-object --no-filters` 复核必然不等（TS 同一实现，行为一致）；夹具固定换行策略，不依赖 runner 全局配置。
+        git(&repo, &["config", "core.autocrlf", "false"]);
         write(&repo.join("a.txt"), "one\n");
         git(&repo, &["add", "-A"]);
         git(&repo, &["commit", "-qm", "init"]);
         // `rev-parse --show-toplevel` 回真实路径：夹具先归一化，否则 repoRoot 与入参比对会假失败。
         let workspace = std::fs::canonicalize(&repo).unwrap();
+        // 修复：Windows 上 canonicalize 回 `\\?\C:\...`（verbatim 前缀），Node 的 realpath 与 git 都不用
+        // 这种形式；去掉非 UNC 的 verbatim 前缀，得到与 TS 一致的 `C:\...`（windows-latest host 测试）。
+        #[cfg(windows)]
+        let workspace = match workspace
+            .to_str()
+            .and_then(|text| text.strip_prefix(r"\\?\"))
+        {
+            Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
+            _ => workspace,
+        };
         let workspace_path = workspace.to_string_lossy().into_owned();
         let surface = super::start_with_data_base_dir(&home, &data_base_dir).await;
         Some(Self {

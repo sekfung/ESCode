@@ -124,7 +124,8 @@ async fn command_lifecycle_is_visible_through_list() {
         serde_json::json!({"filePath": file_path, "enabled": false}),
     )
     .await;
-    let config = std::fs::read_to_string(home.join(".escode/cli/config.json")).unwrap();
+    let config =
+        std::fs::read_to_string(home.join(".escode").join("cli").join("config.json")).unwrap();
     assert!(config.contains("\"enable\": false"), "禁用要落盘: {config}");
     let listed = call_json(&mut socket, 51, "list", serde_json::json!({})).await;
     let Wire::Object(listed) = &listed else {
@@ -153,7 +154,8 @@ async fn command_lifecycle_is_visible_through_list() {
         "禁用状态跟随改名（否则刚禁用就被重新启用）"
     );
     assert!(!std::path::Path::new(&file_path).exists(), "旧文件应被删除");
-    let config = std::fs::read_to_string(home.join(".escode/cli/config.json")).unwrap();
+    let config =
+        std::fs::read_to_string(home.join(".escode").join("cli").join("config.json")).unwrap();
     assert!(
         !config.contains("weekly.md"),
         "旧路径的覆盖不能留悬空键: {config}"
@@ -168,7 +170,8 @@ async fn command_lifecycle_is_visible_through_list() {
     )
     .await;
     assert!(!std::path::Path::new(&renamed.file_path).exists());
-    let config = std::fs::read_to_string(home.join(".escode/cli/config.json")).unwrap();
+    let config =
+        std::fs::read_to_string(home.join(".escode").join("cli").join("config.json")).unwrap();
     assert!(
         !config.contains("weekly-report"),
         "删除也要收敛覆盖表: {config}"

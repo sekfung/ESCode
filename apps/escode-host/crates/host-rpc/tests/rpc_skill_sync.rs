@@ -72,11 +72,22 @@ fn write(path: &std::path::Path, content: &str) {
 async fn export_from_one_home_imports_into_another() {
     let source_home = tempfile::tempdir().unwrap();
     write(
-        &source_home.path().join(".escode/skills/alpha/SKILL.md"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\ndescription: d\n---\nbody\n",
     );
     write(
-        &source_home.path().join(".escode/skills/alpha/assets/a.bin"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("assets")
+            .join("a.bin"),
         "payload",
     );
     let source_surface = start(source_home.path()).await;
@@ -155,8 +166,16 @@ async fn export_from_one_home_imports_into_another() {
         serde_json::json!("synced")
     );
     assert_eq!(
-        std::fs::read_to_string(target_home.path().join(".escode/skills/alpha/assets/a.bin"))
-            .unwrap(),
+        std::fs::read_to_string(
+            target_home
+                .path()
+                .join(".escode")
+                .join("skills")
+                .join("alpha")
+                .join("assets")
+                .join("a.bin")
+        )
+        .unwrap(),
         "payload"
     );
     let again = target

@@ -85,6 +85,9 @@ impl CredentialStore {
             Ok(mut file) => {
                 use tokio::io::AsyncWriteExt;
                 file.write_all(bytes).await?;
+                // 修复：tokio File 的 write_all 只把数据交给后台阻塞线程，句柄丢弃后写入可能尚未完成；
+                // 损坏备份返回前必须完整落盘。
+                file.flush().await?;
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(e) => return Err(e.into()),

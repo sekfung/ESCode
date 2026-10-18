@@ -138,7 +138,11 @@ fn meta(
 async fn archives_stale_and_workspace_tasks_and_reports_the_native_log() {
     let home = tempfile::tempdir().unwrap();
     let data = tempfile::tempdir().unwrap();
-    let db_path = data.path().join(".escode/v2/tasks-index.sqlite");
+    let db_path = data
+        .path()
+        .join(".escode")
+        .join("v2")
+        .join("tasks-index.sqlite");
     std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
     {
         let connection = rusqlite::Connection::open(&db_path).unwrap();

@@ -75,7 +75,14 @@ fn active_path_matches_ts_and_rejects_bad_segments() {
         active_file_path(root, "1.2.3", origin, "linux-x86_64")
             .unwrap()
             .to_string_lossy(),
-        "/cfg/runtime/provider/linux-x86_64/1.2.3/endpoint-137b9e5e4e13211ce3487cb1f3148ad0/escode-builtin.json"
+        // 修复：期望值按平台路径规则逐段构造（Windows 上分隔符为 `\`）。
+        root.join("runtime")
+            .join("provider")
+            .join("linux-x86_64")
+            .join("1.2.3")
+            .join("endpoint-137b9e5e4e13211ce3487cb1f3148ad0")
+            .join("escode-builtin.json")
+            .to_string_lossy()
     );
     for bad in ["", ".", "..", "a/b", "a\\b"] {
         assert!(

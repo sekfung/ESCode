@@ -9,7 +9,7 @@ async fn state_defaults_to_false_and_mark_preserves_other_settings() {
         serde_json::json!({"handled": false})
     );
 
-    let settings = home.path().join(".escode/v2/setting.json");
+    let settings = home.path().join(".escode").join("v2").join("setting.json");
     std::fs::create_dir_all(settings.parent().unwrap()).unwrap();
     std::fs::write(
         &settings,

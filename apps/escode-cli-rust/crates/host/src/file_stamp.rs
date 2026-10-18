@@ -130,13 +130,17 @@ mod tests {
         assert_ne!(after, FileStamp::of(&path).await, "删除必须改变指纹");
     }
 
+    // 修复：只在 Unix 断言。Windows 没有 inode/ctime，按模块文档由 `full_read_every` 兜底
+    // （gate_skips_until_change_or_backstop 覆盖）；同一时间刻度内的同长度替换 len 与 mtime 都相同，
+    // 指纹本就不变（windows-latest test 作业暴露）。
+    #[cfg(unix)]
     #[tokio::test]
     async fn atomic_replace_of_equal_length_changes_the_stamp() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.json");
         write(&path, b"{\"a\":1111}");
         let before = FileStamp::of(&path).await;
-        // 同长度替换：Unix 上 inode 变，ctime 变；Windows 上靠 mtime 与兜底全读。
+        // 同长度替换：inode 变，ctime 变。
         atomic_replace(&path, b"{\"a\":2222}");
         let after = FileStamp::of(&path).await;
         assert_ne!(before, after, "同长度原子替换必须改变指纹");

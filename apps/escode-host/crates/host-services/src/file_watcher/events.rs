@@ -20,6 +20,31 @@ fn base_name(path: &str) -> &str {
         .unwrap_or_default()
 }
 
+/// 把底层回报的「解析软链后的真实路径」换回调用方给的 root 前缀（TS `fs.watch` 只给相对文件名，
+/// `changedPath = resolve(dirPath, fileName)`，前缀恒为调用方路径）。
+///
+/// 修复：macOS FSEvents 把 `/var/...` 报成 `/private/var/...`，原样转发时 `changedPath` 与 `dirPath`
+/// 前缀不一致，根目录自身事件也认不出来（macos-latest test 作业暴露）。`canonical` 为 root 的
+/// 真实路径；与 root 相同或取不到时不改写。
+pub fn rebase_event(mut event: Event, root: &str, canonical: Option<&str>) -> Event {
+    let Some(canonical) = canonical.map(|value| value.trim_end_matches(['/', '\\'])) else {
+        return event;
+    };
+    let root = root.trim_end_matches(['/', '\\']);
+    if canonical == root || canonical.is_empty() {
+        return event;
+    }
+    for path in &mut event.paths {
+        let text = path.to_string_lossy().into_owned();
+        if let Some(rest) = text.strip_prefix(canonical)
+            && (rest.is_empty() || rest.starts_with(['/', '\\']))
+        {
+            *path = std::path::PathBuf::from(format!("{root}{rest}"));
+        }
+    }
+    event
+}
+
 /// Node/inotify 实测：被监视目录自身变化时，非递归报 `fileName=<目录 basename>`
 /// （`resolve(dir, basename)`，一个不存在的同名子路径），递归报空 `fileName`（未知路径）。
 pub fn map_event(root: &str, recursive: bool, event: &Event) -> Vec<Change> {
@@ -40,7 +65,13 @@ pub fn map_event(root: &str, recursive: bool, event: &Event) -> Vec<Change> {
                 if recursive {
                     Change::Unknown
                 } else {
-                    Change::Path(format!("{root_trimmed}/{}", base_name(root_trimmed)))
+                    // 修复：TS `resolve(dir, basename)` 用平台分隔符；写死 `/` 在 Windows 上与 TS 不一致
+                    // （Windows 路径扫描发现）。
+                    Change::Path(format!(
+                        "{root_trimmed}{}{}",
+                        std::path::MAIN_SEPARATOR,
+                        base_name(root_trimmed)
+                    ))
                 }
             } else {
                 Change::Path(path.into_owned())
@@ -54,6 +85,25 @@ mod tests {
     use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind};
 
     use super::*;
+
+    #[test]
+    fn rebase_maps_canonical_paths_back_to_the_caller_root() {
+        let created = event(
+            EventKind::Create(CreateKind::File),
+            &["/private/var/t/a.txt", "/private/var/t", "/elsewhere/b"],
+        );
+        let rebased = rebase_event(created, "/var/t", Some("/private/var/t"));
+        let paths: Vec<String> = rebased
+            .paths
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(paths, ["/var/t/a.txt", "/var/t", "/elsewhere/b"]);
+        // 前缀须在路径边界上：/private/var/tx 不属于 /private/var/t。
+        let sibling = event(EventKind::Create(CreateKind::File), &["/private/var/tx/a"]);
+        let kept = rebase_event(sibling, "/var/t", Some("/private/var/t"));
+        assert_eq!(kept.paths[0].to_string_lossy(), "/private/var/tx/a");
+    }
 
     fn event(kind: EventKind, paths: &[&str]) -> Event {
         let mut event = Event::new(kind);
@@ -91,7 +141,11 @@ mod tests {
         );
         assert_eq!(
             map_event("/w/dir", false, &removed),
-            vec![Change::Path("/w/dir/dir".into())]
+            // 根自身事件用平台分隔符（TS resolve 同），Windows 上为 `/w/dir\\dir`。
+            vec![Change::Path(format!(
+                "/w/dir{}dir",
+                std::path::MAIN_SEPARATOR
+            ))]
         );
         assert_eq!(map_event("/w/dir", true, &removed), vec![Change::Unknown]);
     }

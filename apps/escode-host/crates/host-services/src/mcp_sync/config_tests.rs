@@ -97,7 +97,7 @@ fn enabled_flags_and_legacy_migration_follow_the_conflict_rule() {
 #[test]
 fn write_json_is_atomic_private_and_newline_terminated() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("cli/config.json");
+    let path = dir.path().join("cli").join("config.json");
     let object = serde_json::json!({"mcp": {"servers": {"a": {}}}})
         .as_object()
         .unwrap()

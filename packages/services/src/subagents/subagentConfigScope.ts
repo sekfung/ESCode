@@ -198,7 +198,11 @@ export function createSubagentConfigScope<T>(options: {
           anchor === nextAnchor &&
           !force &&
           anchorStats?.dev === stats.dev &&
-          anchorStats.ino === stats.ino
+          anchorStats.ino === stats.ino &&
+          // 修复：ext4 等文件系统会立即复用刚释放的 inode，`rm -r` 后马上 `mkdir` 的新目录 dev/ino
+          // 与旧目录相同（本机实测 20/20），只比 inode 会把替换误判为同一目录，旧监听停在已删除的
+          // inode 上不再收到事件。birthtime 对同一目录实例稳定、增删子项不变；不支持时为 0，退化为原比较。
+          anchorStats.birthtimeMs === stats.birthtimeMs
         )
           continue;
         const previous = watcher;

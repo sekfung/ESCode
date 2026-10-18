@@ -2444,7 +2444,10 @@ describe("deployServer legacy agent node-script bundle deployment", () => {
     execFileSync(
       "sh",
       [
-        "-lc",
+        // 修复：用 -lc 会以登录 shell 读取宿主机 /etc/profile 与 profile.d；宿主机脚本若含 bash 语法
+        // （如 `function v() {`），dash 直接语法错误，用例结果随机器而变。污染环境由下面注入的同名
+        // 函数模拟，不需要登录 shell。
+        "-c",
         [
           "set -eu",
           // Bugfix: 这里故意定义同名 shell function 模拟远端污染环境。

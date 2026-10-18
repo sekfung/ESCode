@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 use tokio::sync::{mpsc, watch};
 use tokio::time::Instant;
 
-use events::{Change, map_event};
+use events::{Change, map_event, rebase_event};
 
 /// TS `DEBOUNCE_MS`。
 const DEBOUNCE: Duration = Duration::from_millis(150);
@@ -85,9 +85,15 @@ impl FileWatcherService {
 
         let (change_tx, change_rx) = mpsc::unbounded_channel::<Change>();
         let root = path.to_owned();
+        // 真实路径用于把底层事件路径换回调用方前缀（见 `rebase_event`）；取不到时不改写。
+        let canonical = tokio::fs::canonicalize(path)
+            .await
+            .ok()
+            .map(|value| value.to_string_lossy().into_owned());
         let mut native = notify::recommended_watcher(
             move |result: notify::Result<notify::Event>| match result {
                 Ok(event) => {
+                    let event = rebase_event(event, &root, canonical.as_deref());
                     for change in map_event(&root, recursive, &event) {
                         let _ = change_tx.send(change);
                     }

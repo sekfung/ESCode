@@ -29,15 +29,15 @@ pub struct Conflict {
     pub reason: &'static str,
 }
 
-/// TS `toAbsolutePath(repoRoot, path)`：按 `/` 拆段后拼接（git 路径恒为正斜杠）。
+/// TS `toAbsolutePath(repoRoot, path)`（Node `path.resolve` 语义）。
+///
+/// 修复：过去 PathBuf 逐段 push 到 `repo_root`，Windows 上 git 回的 `C:/...` 与 `\` 混用，冲突路径与
+/// TS 不一致（windows-latest host 测试）。与 checkpoint.rs 同用 paths::to_absolute_path。
 fn to_absolute_path(repo_root: &str, repo_relative_path: &str) -> PathBuf {
-    let mut path = PathBuf::from(repo_root);
-    for segment in normalize_git_path(repo_relative_path).split('/') {
-        if !segment.is_empty() {
-            path.push(segment);
-        }
-    }
-    path
+    PathBuf::from(super::paths::to_absolute_path(
+        repo_root,
+        repo_relative_path,
+    ))
 }
 
 /// TS `normalizeAffectedRepoPath(repoRoot, path)`：绝对路径折算成 repo 相对，其余原样。

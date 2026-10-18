@@ -18,16 +18,31 @@ fn request(categories: &[&str]) -> Value {
 fn skills_report_target_and_name_conflicts() {
     let home = tempfile::tempdir().unwrap();
     write(
-        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\nversion: \"1.0\"\n---\n",
     );
     write(
-        &home.path().join(".claude/skills/beta/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("beta")
+            .join("SKILL.md"),
         "---\nname: beta\n---\n",
     );
-    std::fs::create_dir_all(home.path().join(".escode/skills/alpha")).unwrap();
+    std::fs::create_dir_all(home.path().join(".escode").join("skills").join("alpha")).unwrap();
     write(
-        &home.path().join(".escode/skills/renamed/SKILL.md"),
+        &home
+            .path()
+            .join(".escode")
+            .join("skills")
+            .join("renamed")
+            .join("SKILL.md"),
         "---\nname: beta\n---\n",
     );
 
@@ -54,7 +69,12 @@ fn skills_report_target_and_name_conflicts() {
 fn skills_are_selected_by_default_when_importable() {
     let home = tempfile::tempdir().unwrap();
     write(
-        &home.path().join(".claude/skills/gamma/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("gamma")
+            .join("SKILL.md"),
         "---\nname: gamma\n---\n",
     );
     let result = detect(home.path(), None, &request(&["skills"]), &compare());
@@ -66,15 +86,22 @@ fn skills_are_selected_by_default_when_importable() {
 #[test]
 fn other_categories_report_their_agents() {
     let home = tempfile::tempdir().unwrap();
-    write(&home.path().join(".claude/commands/run.md"), "body");
+    write(
+        &home.path().join(".claude").join("commands").join("run.md"),
+        "body",
+    );
     write(
         &home
             .path()
-            .join(".claude/plugins/plug/.claude-plugin/plugin.json"),
+            .join(".claude")
+            .join("plugins")
+            .join("plug")
+            .join(".claude-plugin")
+            .join("plugin.json"),
         r#"{"name":"plug"}"#,
     );
     write(
-        &home.path().join(".claude/settings.json"),
+        &home.path().join(".claude").join("settings.json"),
         r#"{"mcpServers":{"docs":{"command":"uvx"}}}"#,
     );
 
@@ -124,10 +151,18 @@ fn detect_requires_manual_import_and_a_supported_category() {
     assert_eq!(result, json!({"agents": []}));
     // 多个类别时按 skills → commands → plugins → mcp 的优先级只扫描第一个。
     write(
-        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\n---\n",
     );
-    write(&home.path().join(".claude/commands/run.md"), "body");
+    write(
+        &home.path().join(".claude").join("commands").join("run.md"),
+        "body",
+    );
     let result = detect(
         home.path(),
         None,

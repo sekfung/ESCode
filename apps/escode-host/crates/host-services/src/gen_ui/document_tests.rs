@@ -30,7 +30,7 @@ impl Fixture {
 #[test]
 fn reads_a_fragment_from_the_output_root() {
     let fixture = Fixture::new();
-    let file = fixture.root.join("scope/report.html");
+    let file = fixture.root.join("scope").join("report.html");
     write(&file, "<div id=\"chart\">hi</div>");
     let document = read_document(&fixture.target(&file), &fixture.root_str()).unwrap();
     assert_eq!(document.html, "<div id=\"chart\">hi</div>");
@@ -64,7 +64,7 @@ fn rejects_symlinks_at_every_level_including_the_last_segment() {
     write(&real, "<p>secret</p>");
 
     // 末段是符号链接。
-    let last = fixture.root.join("scope/link.html");
+    let last = fixture.root.join("scope").join("link.html");
     std::os::unix::fs::symlink(&real, &last).unwrap();
     let error = read_document(&fixture.target(&last), &fixture.root_str()).unwrap_err();
     assert_eq!(error, "Gen UI does not read symbolic links");
@@ -87,24 +87,24 @@ fn rejects_symlinks_at_every_level_including_the_last_segment() {
 fn rejects_directories_oversized_files_and_full_documents() {
     let fixture = Fixture::new();
     // 目录（名字合法但类型不对）。
-    let dir = fixture.root.join("scope/dir.html");
+    let dir = fixture.root.join("scope").join("dir.html");
     std::fs::create_dir_all(&dir).unwrap();
     let error = read_document(&fixture.target(&dir), &fixture.root_str()).unwrap_err();
     assert_eq!(error, "Gen UI requires a regular file under 5 MB");
 
     // 恰好 5 MB 允许；多 1 字节拒绝。
-    let exact = fixture.root.join("scope/exact.html");
+    let exact = fixture.root.join("scope").join("exact.html");
     write(&exact, &"x".repeat(HTML_MAX_BYTES));
     assert!(read_document(&fixture.target(&exact), &fixture.root_str()).is_ok());
     // 超限文件在**读取前**的 size 检查就被拦下（TS 同序：`before.size > MAX` 先于读取循环）——
     // 「file exceeds 5 MB」只属于"打开后文件又长大"的竞态路径，静态文件拿不到那条文案。
-    let over = fixture.root.join("scope/over.html");
+    let over = fixture.root.join("scope").join("over.html");
     write(&over, &"x".repeat(HTML_MAX_BYTES + 1));
     let error = read_document(&fixture.target(&over), &fixture.root_str()).unwrap_err();
     assert_eq!(error, "Gen UI requires a regular file under 5 MB");
 
     // 完整文档（含 doctype / html / head / body 之一）不算片段；`<htmlx` 不算命中。
-    let full = fixture.root.join("scope/full.html");
+    let full = fixture.root.join("scope").join("full.html");
     write(&full, "<!DOCTYPE html><html><body>hi</body></html>");
     let error = read_document(&fixture.target(&full), &fixture.root_str()).unwrap_err();
     assert_eq!(error, "Gen UI requires an HTML fragment");
@@ -133,13 +133,13 @@ fn rejects_directories_oversized_files_and_full_documents() {
 #[test]
 fn rejects_invalid_utf8_and_missing_files() {
     let fixture = Fixture::new();
-    let file = fixture.root.join("scope/report.html");
+    let file = fixture.root.join("scope").join("report.html");
     std::fs::write(&file, [0xff, 0xfe, 0x00]).unwrap();
     let error = read_document(&fixture.target(&file), &fixture.root_str()).unwrap_err();
     assert!(error.contains("valid UTF-8"), "{error}");
 
     // 文件不存在：逐级 lstat 就失败（不回"片段"之类的语义错误）。
-    let missing = fixture.root.join("scope/missing.html");
+    let missing = fixture.root.join("scope").join("missing.html");
     assert!(read_document(&fixture.target(&missing), &fixture.root_str()).is_err());
 }
 

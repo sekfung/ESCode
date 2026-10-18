@@ -17,7 +17,7 @@ async fn missing_or_corrupt_state_reads_as_empty() {
 #[tokio::test]
 async fn saved_state_has_no_trailing_newline() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("v2/agents-state.json");
+    let path = dir.path().join("v2").join("agents-state.json");
     write_state(&path, &empty_state()).await.unwrap();
     let raw = tokio::fs::read_to_string(&path).await.unwrap();
     assert!(!raw.ends_with('\n'), "没有结尾换行: {raw:?}");

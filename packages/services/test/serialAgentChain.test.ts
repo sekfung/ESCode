@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { after, before, test } from "node:test";
+import { afterAll, beforeAll, test } from "vitest";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { SERIAL_BROKER_SOCKET_ENV, SERIAL_BROKER_TOKEN_ENV } from "@escode/shared/serial";
@@ -39,7 +39,7 @@ let service: SerialService;
 let broker: SerialBroker;
 let client: Client;
 
-before(async () => {
+beforeAll(async () => {
   assert.ok(
     existsSync(SERVER_SCRIPT),
     `missing ${SERVER_SCRIPT}; build @escode/serial-plugin first`,
@@ -87,7 +87,7 @@ before(async () => {
   await client.connect(transport);
 });
 
-after(async () => {
+afterAll(async () => {
   await client?.close().catch(() => undefined);
   await broker?.close();
   await service?.disposeAllAndWait();

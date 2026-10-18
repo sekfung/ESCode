@@ -36,14 +36,14 @@ async fn command_names(home: &Path, workspace: Option<&str>) -> Vec<String> {
 #[tokio::test]
 async fn user_commands_are_discovered_recursively_with_hidden_entries_skipped() {
     let (_dir, home) = temp_home();
-    let root = home.join(".escode/commands");
+    let root = home.join(".escode").join("commands");
     write(&root.join("plain.md"), "正文");
     write(
-        &root.join("group/nested.md"),
+        &root.join("group").join("nested.md"),
         "---\ndescription: 说明\n---\n正文",
     );
     write(&root.join(".hidden.md"), "不该出现");
-    write(&root.join("group/.hidden.md"), "也不该出现");
+    write(&root.join("group").join(".hidden.md"), "也不该出现");
 
     assert_eq!(
         command_names(&home, None).await,
@@ -84,12 +84,18 @@ async fn user_commands_are_discovered_recursively_with_hidden_entries_skipped() 
 #[tokio::test]
 async fn escode_directory_shadows_agents_and_agents_is_the_fallback() {
     let (_dir, home) = temp_home();
-    write(&home.join(".escode/commands/from-escode.md"), "a");
-    write(&home.join(".agents/commands/from-agents.md"), "b");
+    write(
+        &home.join(".escode").join("commands").join("from-escode.md"),
+        "a",
+    );
+    write(
+        &home.join(".agents").join("commands").join("from-agents.md"),
+        "b",
+    );
     assert_eq!(command_names(&home, None).await, vec!["/from-escode"]);
 
     // `.escode` 没有命令时 `.agents` 顶上。
-    std::fs::remove_file(home.join(".escode/commands/from-escode.md")).unwrap();
+    std::fs::remove_file(home.join(".escode").join("commands").join("from-escode.md")).unwrap();
     assert_eq!(command_names(&home, None).await, vec!["/from-agents"]);
 }
 
@@ -98,8 +104,14 @@ async fn escode_directory_shadows_agents_and_agents_is_the_fallback() {
 async fn workspace_commands_precede_user_commands_in_dedup() {
     let (_dir, home) = temp_home();
     let workspace = home.join("workspace");
-    write(&home.join(".escode/commands/dup.md"), "user 版本");
-    write(&workspace.join(".escode/commands/dup.md"), "project 版本");
+    write(
+        &home.join(".escode").join("commands").join("dup.md"),
+        "user 版本",
+    );
+    write(
+        &workspace.join(".escode").join("commands").join("dup.md"),
+        "project 版本",
+    );
     let answer = list(
         &home,
         ListParams {
@@ -128,14 +140,14 @@ async fn workspace_commands_precede_user_commands_in_dedup() {
 #[tokio::test]
 async fn disabled_commands_report_enabled_false() {
     let (_dir, home) = temp_home();
-    let file = home.join(".escode/commands/off.md");
+    let file = home.join(".escode").join("commands").join("off.md");
     write(&file, "x");
     let config = serde_json::json!({
         "command": {file.to_string_lossy().to_string(): {"enable": false}}
     });
-    std::fs::create_dir_all(home.join(".escode/cli")).unwrap();
+    std::fs::create_dir_all(home.join(".escode").join("cli")).unwrap();
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
@@ -161,18 +173,18 @@ async fn plugin_commands_come_from_configured_roots_and_respect_enablement() {
     let (_dir, home) = temp_home();
     let plugin = home.join("my-plugin");
     write(
-        &plugin.join(".escode-plugin/plugin.json"),
+        &plugin.join(".escode-plugin").join("plugin.json"),
         r#"{"name":"demo","commands":["cmds"]}"#,
     );
-    write(&plugin.join("cmds/beta.md"), "beta");
-    write(&plugin.join("cmds/alpha.md"), "alpha");
+    write(&plugin.join("cmds").join("beta.md"), "beta");
+    write(&plugin.join("cmds").join("alpha.md"), "alpha");
     // 不在 commands 列表里的目录不参与。
-    write(&plugin.join("other/gamma.md"), "gamma");
+    write(&plugin.join("other").join("gamma.md"), "gamma");
 
     let config = serde_json::json!({"plugins": {"dirs": [plugin.to_string_lossy()]}});
-    std::fs::create_dir_all(home.join(".escode/cli")).unwrap();
+    std::fs::create_dir_all(home.join(".escode").join("cli")).unwrap();
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
@@ -219,7 +231,7 @@ async fn plugin_commands_come_from_configured_roots_and_respect_enablement() {
         "plugins": {"dirs": [plugin.to_string_lossy()], "enabledPlugins": {"demo@inline": false}}
     });
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
@@ -239,7 +251,7 @@ async fn plugin_commands_come_from_configured_roots_and_respect_enablement() {
     let config =
         serde_json::json!({"plugins": {"dirs": [plugin.to_string_lossy()], "enabled": false}});
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
@@ -260,22 +272,28 @@ async fn plugin_commands_come_from_configured_roots_and_respect_enablement() {
 #[tokio::test]
 async fn suppressed_builtins_are_skipped_even_when_the_cache_still_has_them() {
     let (_dir, home) = temp_home();
-    let version_root =
-        home.join(".escode/cli/plugins/cache/zcode-plugins-official/visualize/1.0.0");
+    let version_root = home
+        .join(".escode")
+        .join("cli")
+        .join("plugins")
+        .join("cache")
+        .join("zcode-plugins-official")
+        .join("visualize")
+        .join("1.0.0");
     write(
-        &version_root.join(".escode-plugin/plugin.json"),
+        &version_root.join(".escode-plugin").join("plugin.json"),
         r#"{"name":"visualize","commands":["commands"]}"#,
     );
-    write(&version_root.join("commands/graph.md"), "graph");
+    write(&version_root.join("commands").join("graph.md"), "graph");
     let config = serde_json::json!({
         "plugins": {
             "enabledPlugins": {"visualize@zcode-plugins-official": true},
             "suppressedBuiltins": ["visualize@zcode-plugins-official"]
         }
     });
-    std::fs::create_dir_all(home.join(".escode/cli")).unwrap();
+    std::fs::create_dir_all(home.join(".escode").join("cli")).unwrap();
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
@@ -299,7 +317,7 @@ async fn suppressed_builtins_are_skipped_even_when_the_cache_still_has_them() {
         "plugins": {"enabledPlugins": {"visualize@zcode-plugins-official": true}}
     });
     std::fs::write(
-        home.join(".escode/cli/config.json"),
+        home.join(".escode").join("cli").join("config.json"),
         serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();

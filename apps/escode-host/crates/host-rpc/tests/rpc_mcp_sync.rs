@@ -75,7 +75,11 @@ fn read(path: &std::path::Path) -> serde_json::Value {
 async fn export_import_and_config_writes_round_trip() {
     let source_home = tempfile::tempdir().unwrap();
     write(
-        &source_home.path().join(".escode/cli/config.json"),
+        &source_home
+            .path()
+            .join(".escode")
+            .join("cli")
+            .join("config.json"),
         &serde_json::json!({
             "mcp": {"servers": {
                 "filesystem": {
@@ -125,7 +129,13 @@ async fn export_import_and_config_writes_round_trip() {
             }),
         )
         .await;
-    let config = read(&source_home.path().join(".escode/cli/config.json"));
+    let config = read(
+        &source_home
+            .path()
+            .join(".escode")
+            .join("cli")
+            .join("config.json"),
+    );
     assert_eq!(config["keep"], serde_json::json!(true));
     assert_eq!(
         config["mcp"]["servers"]["added"]["url"],
@@ -162,7 +172,13 @@ async fn export_import_and_config_writes_round_trip() {
         imported["results"][0]["status"],
         serde_json::json!("synced")
     );
-    let config = read(&target_home.path().join(".escode/cli/config.json"));
+    let config = read(
+        &target_home
+            .path()
+            .join(".escode")
+            .join("cli")
+            .join("config.json"),
+    );
     assert_eq!(
         config["mcp"]["servers"]["filesystem"]["args"][2],
         serde_json::json!(target_workspace.to_string_lossy())
