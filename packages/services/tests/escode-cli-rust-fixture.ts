@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { answerHostRequest } from "./escode-cli-rust-fixture-host.js";
 import { withDefaultMode } from "./escode-cli-rust-fixture-mode.js";
 import { createServer, type ServerResponse } from "node:http";
-import { mkdtemp, mkdir, readFile, realpath, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { once } from "node:events";
@@ -76,12 +76,7 @@ export async function fixture(
     mode?: "yolo" | "build" | "edit";
   } = {},
 ) {
-  // 修复：Windows runner 的 tmpdir() 是 8.3 短路径（RUNNER~1）；runtime 拉起的 Node 子进程对工作区
-  // fs.watch 时回报长路径，libuv 前缀断言 `!_wcsnicmp(filename, dir, dirlen)`（src\win\fs-event.c）
-  // 失败、进程崩溃（windows-latest test 作业 152 例）。只在 Windows 展开长路径：macOS 上 realpath 会把
-  // /var 变成 /private/var，与用例自持的 root 字符串比较时反而引入差异。
-  const given = options.root ?? (await mkdtemp(join(tmpdir(), "escode-cli-rust-test-")));
-  const root = process.platform === "win32" ? await realpath(given) : given;
+  const root = options.root ?? (await mkdtemp(join(tmpdir(), "escode-cli-rust-test-")));
   const cwd = join(root, "workspace");
   const dataDir = join(root, "data");
   const config = join(root, "model.json");

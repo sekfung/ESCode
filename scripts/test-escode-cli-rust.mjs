@@ -1,9 +1,19 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
+// 修复：Windows runner 的临时目录是 8.3 短路径（C:\Users\RUNNER~1\...）。用例与 runtime 混用短名和
+// 长名时，路径归一化对不上（差分误报）；Node 子进程对短名目录 fs.watch 还会触发 libuv 断言
+// `!_wcsnicmp(filename, dir, dirlen)` 崩溃。入口统一把 TEMP/TMP 换成长路径，所有子进程
+// （Node 的 os.tmpdir() 与 Rust 的 tempfile）都继承同一份长路径临时目录。
+if (process.platform === "win32") {
+  const longTemp = realpathSync.native(tmpdir());
+  process.env.TEMP = longTemp;
+  process.env.TMP = longTemp;
+}
 // CI 与慢机器：每个用例都会起 runtime + 本地模型服务，并发跑会被接收超时误伤；ESCODE_TEST_SERIAL=1 时串行。
 // 慢机（debug 的 Windows 尤其）建议再设 ESCODE_TEST_REQUEST_MS=60000 与 ESCODE_TEST_EXIT_MS=15000：
 // 默认 5s 请求预算与 4s 关闭预算不够用（与 rust-runtime-ci.yml 的 env 一致，workflow 系列用例实测需要 ~20s+）。

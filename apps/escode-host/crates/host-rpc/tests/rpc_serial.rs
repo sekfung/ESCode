@@ -180,7 +180,14 @@ async fn list_and_watching_broadcast_the_current_port_set() {
     assert_eq!(error["name"], serde_json::json!("SerialError"));
     assert_eq!(error["code"], serde_json::json!("invalidConfig"), "{error}");
 
-    // 合法配置但设备不存在：错误码来自消息映射（notFound）。
+    // 合法配置但设备不存在：Linux 上错误码来自消息映射（notFound）。
+    // 修复：非 Linux 没有原生传输（spec §9 登记差异），open 返回 nativeUnavailable；
+    // 广播路径相同（macos-latest test 作业暴露）。
+    let expected_code = if cfg!(target_os = "linux") {
+        "notFound"
+    } else {
+        "nativeUnavailable"
+    };
     let error = conn
         .call(
             11,
@@ -191,7 +198,7 @@ async fn list_and_watching_broadcast_the_current_port_set() {
         .into_object()
         .expect("错误载荷");
     assert_eq!(error["name"], serde_json::json!("SerialError"));
-    assert_eq!(error["code"], serde_json::json!("notFound"), "{error}");
+    assert_eq!(error["code"], serde_json::json!(expected_code), "{error}");
 
     // 失败也会广播 opening → error。
     let Wire::Object(first) = conn.next_event().await else {

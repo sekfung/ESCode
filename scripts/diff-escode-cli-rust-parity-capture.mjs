@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
@@ -163,7 +163,10 @@ async function startMockProvider(modelRequests) {
 /** 跑一侧：capabilities → createSession → subscribe → sendText → 等 completedSuccess → 关闭。 */
 export async function runSide(options) {
   const { side, repoRoot, nodeBundle, rustBinary, keep } = options;
-  const capRoot = await mkdtemp(join(tmpdir(), `escode-parity-${side}-`));
+  // 修复：Windows runner 的 tmpdir() 是 8.3 短路径；Node 子进程对其 fs.watch 触发 libuv 断言
+  // `!_wcsnicmp(filename, dir, dirlen)` 崩溃，本脚本随即空等到作业超时（bench windows 被取消）。
+  // promises.realpath 走原生实现，展开为长路径（与 bench-escode-cli-node-rust.mjs 同一修复）。
+  const capRoot = await realpath(await mkdtemp(join(tmpdir(), `escode-parity-${side}-`)));
   const home = join(capRoot, "home");
   const workspace = join(capRoot, "workspace");
   const storage = join(capRoot, "storage");
