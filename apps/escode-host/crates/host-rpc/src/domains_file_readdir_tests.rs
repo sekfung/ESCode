@@ -50,11 +50,16 @@ fn readdir_filters_hidden_and_resolves_types() {
         panic!("array")
     };
     let rows: Vec<(String, String, bool)> = entries.iter().map(row).collect();
-    let names: Vec<String> = rows.iter().map(|(name, _, _)| name.clone()).collect();
-    assert!(!names.contains(&".hidden".to_owned()), "默认过滤隐藏项");
+    assert!(
+        !rows.iter().any(|(name, _, _)| name == ".hidden"),
+        "默认过滤隐藏项"
+    );
 
     #[cfg(unix)]
     {
+        // 修复：names 只在 Unix 顺序断言里用；放在块外时 Windows 上只剩一次 contains，
+        // clippy needless_collect 在 -D warnings 下报错（windows-latest checks 暴露）。
+        let names: Vec<String> = rows.iter().map(|(name, _, _)| name.clone()).collect();
         // 目录组在前（含指向目录的软链与目录本身），组内按 localeCompare。
         assert_eq!(names[0], "link-to-dir", "{names:?}");
         assert_eq!(names[1], "sub", "{names:?}");
