@@ -188,3 +188,50 @@ $ git status --short | wc -l
 - `apps/escode-cli-rust/Cargo.toml` 在 T2 提交时同时含他人的 zip 改动：用 `git hash-object -w` + `git update-index --cacheinfo` 只暂存 `[features]` 段，zip 行留在工作区，随后由并发工作流在 `6e130688` 提交。
 - `pnpm typecheck` 的项目列表不含 `packages/desktop/tsconfig.main.json`（Main 代码）。对它单独跑 `tsc -p … --noEmit`：M2 改动前后均为 91 个错误，全部是既存（`autoUpdater.ts`、`browserGuestManager.ts`、`index.ts` 的 `MessageChannelMain` 全局名等），M2 文件无新增错误。
 - 被测二进制：`escode-cli-rust` 于 05:37:01 由 `fa109b70` 构建；`escode-host` 由 `cargo test`/`check` 在同一 HEAD 构建；`test:escode-cli-rust` 开跑时 HEAD 为 `fa109b707dc264b82a9bf17488b643d1e1291ef7`（与被测 CLI 二进制同一提交）。
+
+## 11. 复核补正（2026-10-19，实现侧）
+
+### 11.1 Windows crash_isolation 的真实根因与修复
+
+dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-latest, 1/3)` 在 `crash_isolation` 的 child 用例失败：`A model request: Elapsed(())`（60 s 守卫超时，掩盖了真实错误）。
+
+根因：`Link::Child` 用 `Command::env_clear` 隔离实例环境；Windows 上这会清掉 `SystemRoot`，而 Win32 的 socket / 系统证书库在缺少它时不可用（rust-lang/rust#114737）。child runtime 已报到 ready（存储与 stdio 正常），随后第一次模型请求无法建立 HTTP 连接，模型桩收不到请求。
+
+修复：
+
+- `link.rs` 在 Windows 上补回平台底座变量 `SystemRoot`、`SystemDrive`、`windir`、`ComSpec`、`PATHEXT`、`TEMP`、`TMP`、`PATH`；`RuntimeOptions.env` 的显式同名值优先。业务事实仍只来自 Main 的 `runtimeEnv`。
+- `crash_isolation.rs` 的模型等待改为同时观察在飞请求结果与实例退出，后续同类失败会直接打印真实 `RuntimeClosed` / `ExitReport`，不再退化成 60 s 超时。
+
+证据：
+
+- 修复前：dev `380331a9` 的 `test (windows-latest, 1/3)` 失败（`A model request: Elapsed(())`）。
+- 修复后定向运行（`host-crash-windows-check`，run `39163244358`）：`crash_isolation` 2 passed，child kill 用例实际执行（非 skip）。
+- 修复后官方 `rust-runtime-ci`（run `39164847925`）：Windows `test (windows-latest, 1/3)`（含 `pnpm test:escode-host`）passed，日志中 `embedded_panic... ok` / `killed_child... ok`；Ubuntu 三个 shard 与 macOS 三个 shard 全部 passed。Windows shard 2 另有一例与本改动无关的 `Node and Rust manage scheduled tasks the same way` 超时，已重跑。
+
+### 11.2 RPC 层真实客户端错误形状
+
+新增 `packages/desktop/test/rustHostRuntimeCrash.test.ts`：真实 `@escode/client` → host-rpc → child runtime。SIGSTOP 使转发请求停在在飞表，SIGKILL 后断言：
+
+- `error instanceof Error`；
+- `error.name === "Error"`（不是 `Fatal`）；
+- `error.message === "ESCode agent transport closed: stdout_closed"`；
+- `String(error)` 逐字一致；
+- 同一崩溃发布 `unavailable` 生命周期事件。
+
+该用例与既有 `rustHostRpc.test.ts` 在 `unit-tests` 的 affected job 中实际执行并 passed（run `39164040559`，`rustHostRuntimeCrash.test.ts` 454 ms）。`unit-tests.yml` 现在构建 `escode-host` 与 `escode-cli-rust` 二进制，依赖真实 Host 的 desktop 用例不再被 `skipIf` 静默跳过。
+
+### 11.3 T3 独立构建
+
+在独立 worktree（`8c8b67d6`）离线安装依赖后：
+
+- `pnpm typecheck` exit 0；
+- `rustHostResilience.test.ts` 7 passed / 1 skipped；
+- `webRemoteControlSharedHostAttachments.test.ts` 5 passed；
+- `webRemoteControlManagerExternalRelay.test.ts` 仅因该 worktree 未下载 Electron 二进制而在 import 阶段失败，与 T3 代码无关。
+
+### 11.4 仍未完成 / 不在本轮范围
+
+- **H2.1 / H2.2 整体**：Node Host 分支与 `ESCODE_RUST_HOST` 开关仍在，整体结论仍为 FAIL，等 M5 删除。
+- **H2.7**：只覆盖 Host 内的实例隔离；窗口自身 host 仍是 Electron utility process（H2.3），手机重连到重启后 Host 的全链路仍无 E2E。
+- **H1.3 / H1.4**：本轮未改语义；最终结论由独立复核人填写。
+- `unit-tests` 的 Electron 依赖套件（`webRemoteControlTransport`、`desktopNetworkTelemetry` 等 10 个 suite）与 bootstrap suite 的失败在 dev 上已存在：前者是 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 与直接 `import electron` 冲突，后者是既存的 v4 语料/边界失败；两者均不由本轮改动引入。
