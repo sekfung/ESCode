@@ -252,7 +252,10 @@ impl SkillsService {
             .map_err(|e| SkillsError(e.to_string()))?;
         file.write_all(line.as_bytes())
             .await
-            .map_err(|e| SkillsError(e.to_string()))
+            .map_err(|e| SkillsError(e.to_string()))?;
+        // 修复：tokio File 的 write_all 只把数据交给后台阻塞线程，句柄丢弃后写入可能尚未完成；
+        // 返回前必须 flush，否则审计行可能在调用方读取时尚未落盘。
+        file.flush().await.map_err(|e| SkillsError(e.to_string()))
     }
 
     pub async fn copy_to_common(&self, workspace: &str, skill_id: &str) -> Result<Value> {

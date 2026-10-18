@@ -207,6 +207,7 @@ impl GenUiStateStore {
         let inner = Arc::clone(&self.inner);
         let root = self.root.clone();
         let watch_dir = dir.clone();
+        let event_dir = dir.clone();
         let mut watcher =
             notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
                 let Ok(event) = result else { return };
@@ -217,6 +218,11 @@ impl GenUiStateStore {
                     if !is_record_file_name(name) {
                         continue;
                     }
+                    // 修复：平台回报的事件路径可能是解析软链后的真实路径（macOS FSEvents 把
+                    // /var/... 报成 /private/var/...），与 `targets` 里按 root 拼出的键不一致，
+                    // publish 查不到 target 会静默丢弃通知（macos-latest test 作业暴露）。
+                    // 本 watcher 只非递归监听 event_dir，记录文件必为 event_dir/<name>，按此重建键。
+                    let path = event_dir.join(name);
                     let store = GenUiStateStore {
                         root: root.clone(),
                         inner: Arc::clone(&inner),

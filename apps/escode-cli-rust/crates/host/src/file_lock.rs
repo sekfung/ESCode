@@ -225,6 +225,9 @@ pub async fn acquire_with(file: &Path, timing: Timing) -> Result<FileLockGuard> 
                         .open(&owner)
                         .await?;
                     file.write_all(payload.as_bytes()).await?;
+                    // 修复：tokio File 的 write_all 只把数据交给后台阻塞线程，句柄丢弃后写入可能尚未完成；
+                    // 其他进程读 owner 文件判断锁归属，读到空内容可能把有效锁当作失效。
+                    file.flush().await?;
                     let mut owners = vec![];
                     let mut dir = tokio::fs::read_dir(&lock).await?;
                     while let Some(entry) = dir.next_entry().await? {

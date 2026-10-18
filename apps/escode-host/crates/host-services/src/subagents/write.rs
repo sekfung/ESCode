@@ -154,6 +154,9 @@ impl SubagentsService {
             .write_all(content.as_bytes())
             .await
             .map_err(|error| format!("{error}"))?;
+        // 修复：tokio File 的 write_all 只把数据交给后台阻塞线程，句柄丢弃后写入可能尚未完成；
+        // 不 flush 就返回，紧接着的 list/读取会读到空文件（CI test 作业间歇失败暴露）。
+        handle.flush().await.map_err(|error| format!("{error}"))?;
         Ok(json!({ "agent": agent }))
     }
 
