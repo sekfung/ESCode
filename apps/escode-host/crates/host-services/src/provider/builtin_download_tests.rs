@@ -142,7 +142,11 @@ async fn an_invalid_or_retired_release_is_rejected() {
     }
 }
 
-#[tokio::test]
+// 虚拟时间：Windows 的墙钟定时器按系统刻度唤醒，50 ms 的 timeout 与第二次 30 ms sleep
+// （合计 60 ms）可能在同一刻度就绪；`tokio::time::Timeout` 先轮询内部 future，请求完成即返回，
+// 超时被跳过，于是本应失败的用例间歇性通过。暂停时钟后运行时只推进到下一个定时器截止点
+// （first sleep 30 ms → timeout 50 ms），结果确定。
+#[tokio::test(start_paused = true)]
 async fn the_budget_covers_both_requests_together() {
     let mut stub = Stub::new(&[
         (

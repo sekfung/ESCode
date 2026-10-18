@@ -38,3 +38,5 @@ toml.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# `#[tokio::test(start_paused = true)]` 的虚拟时间需要 test-util；只影响测试构建。
+tokio = { workspace = true, features = ["test-util"] }
