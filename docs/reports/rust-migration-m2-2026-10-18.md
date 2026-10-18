@@ -206,7 +206,7 @@ dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-l
 
 - 修复前：dev `380331a9` 的 `test (windows-latest, 1/3)` 失败（`A model request: Elapsed(())`）。
 - 修复后定向运行（`host-crash-windows-check`，run `39163244358`）：`crash_isolation` 2 passed，child kill 用例实际执行（非 skip）。
-- 修复后官方 `rust-runtime-ci`（run `39164847925`）：Windows `test (windows-latest, 1/3)`（含 `pnpm test:escode-host`）passed，日志中 `embedded_panic... ok` / `killed_child... ok`；Ubuntu 三个 shard 与 macOS 三个 shard 全部 passed。Windows shard 2 另有一例与本改动无关的 `Node and Rust manage scheduled tasks the same way` 超时，已重跑。
+- 修复后官方 `rust-runtime-ci`（run `39164847925`，三平台全量）：整条 run **success**。Windows `test (windows-latest, 1/3)`（含 `pnpm test:escode-host`）passed，日志中 `embedded_panic... ok` / `killed_child... ok`；Ubuntu 与 macOS 三个 shard、Windows 其余 shard 全部 passed。Windows shard 2 首次有一例与本改动无关的 `Node and Rust manage scheduled tasks the same way` 超时，重跑后 passed（flaky）。
 
 ### 11.2 RPC 层真实客户端错误形状
 
@@ -234,4 +234,5 @@ dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-l
 - **H2.1 / H2.2 整体**：Node Host 分支与 `ESCODE_RUST_HOST` 开关仍在，整体结论仍为 FAIL，等 M5 删除。
 - **H2.7**：只覆盖 Host 内的实例隔离；窗口自身 host 仍是 Electron utility process（H2.3），手机重连到重启后 Host 的全链路仍无 E2E。
 - **H1.3 / H1.4**：本轮未改语义；最终结论由独立复核人填写。
+- **Windows 启动失败分类**：`RustHostStartError` 的 `ENOENT` 以外 errno 分支仍未在 Windows 执行；`rustHostResilience.test.ts` 只在 `unit-tests`（ubuntu）运行。本轮只验证了 Windows 上的 child 运行时链路与 `taskkill /F` 分支。
 - `unit-tests` 的 Electron 依赖套件（`webRemoteControlTransport`、`desktopNetworkTelemetry` 等 10 个 suite）与 bootstrap suite 的失败在 dev 上已存在：前者是 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 与直接 `import electron` 冲突，后者是既存的 v4 语料/边界失败；两者均不由本轮改动引入。
