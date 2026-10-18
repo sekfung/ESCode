@@ -209,7 +209,7 @@ async fn list_and_watching_broadcast_the_current_port_set() {
         panic!("状态事件应为对象")
     };
     assert_eq!(second["state"], serde_json::json!("error"));
-    assert_eq!(second["error"]["code"], serde_json::json!("notFound"));
+    assert_eq!(second["error"]["code"], serde_json::json!(expected_code));
 
     // 未知路径快照：closed 空快照；没有活动会话。
     let snapshot = conn

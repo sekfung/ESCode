@@ -245,7 +245,11 @@ export async function fixture(
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
       // 调用方自带 root 时由调用方拥有生命周期：数据要在多个 runtime 之间传递（见 migration-live 用例）。
-      if (!options.root) await rm(root, { recursive: true, force: true });
+      // 修复：子进程已确定退出（上面 await exits），但 Windows 上扫描程序可能短暂占用刚关闭的
+      // SQLite 文件，unlink 偶发 EBUSY（windows-latest test 作业）。rm 的 maxRetries 只对
+      // EBUSY/EPERM/ENOTEMPTY 等重试，清理临时目录用，不替代进程退出的同步。
+      if (!options.root)
+        await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       const failure = exits.find((result) => result.status === "rejected");
       if (failure?.status === "rejected") throw failure.reason;
     },
