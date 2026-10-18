@@ -7,6 +7,14 @@ on:
     branches: [main, dev, "feat/**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      # 定位单平台问题时只跑该平台（如 '["windows-latest"]'）；push / PR 触发时为空，回落三平台全量。
+      # 验收仍以三平台全量运行为准（docs/specs/rust-ci.md）。
+      platforms:
+        description: 'JSON 数组：要跑的 runner，如 ["windows-latest"]'
+        required: false
+        default: '["ubuntu-latest","windows-latest","macos-latest"]'
+        type: string
 
 concurrency:
   group: rust-runtime-ci-${{ github.ref }}
@@ -38,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -87,7 +95,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
@@ -124,7 +132,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:

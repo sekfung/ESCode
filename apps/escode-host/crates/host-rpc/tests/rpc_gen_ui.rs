@@ -218,12 +218,17 @@ async fn state_round_trip_events_and_restricted_document_read() {
     conn.expect_no_event(Duration::from_millis(300)).await;
 
     // ── 模型侧直接改文件 → watcher 通知 ────────────────────────────
-    let records_dir = std::fs::read_dir(data_base_dir.join(".escode/v2/gen-ui-state"))
-        .unwrap()
-        .flatten()
-        .next()
-        .expect("scope 目录已创建")
-        .path();
+    let records_dir = std::fs::read_dir(
+        data_base_dir
+            .join(".escode")
+            .join("v2")
+            .join("gen-ui-state"),
+    )
+    .unwrap()
+    .flatten()
+    .next()
+    .expect("scope 目录已创建")
+    .path();
     let record = serde_json::json!({
         "target": target(path),
         "state": {"modelContent": {"chart": "pie"}, "privateContent": null},

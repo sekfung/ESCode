@@ -56,6 +56,9 @@ fn terminal_env_fills_utf8_locale_only_when_missing_or_c() {
     );
 }
 
+// 修复：darwin 分支用平台 PATH 分隔符（TS path.delimiter 同），只在 macOS 运行；Windows 上模拟 darwin
+// 会得到 `;` 分隔，无意义，限非 Windows。
+#[cfg(not(windows))]
 #[test]
 fn darwin_path_keeps_user_order_then_appends_fallbacks_without_duplicates() {
     let result = terminal_env(&env(&[("PATH", "/usr/bin: /custom/bin :/usr/bin")]), true);
@@ -70,6 +73,8 @@ fn darwin_path_keeps_user_order_then_appends_fallbacks_without_duplicates() {
     );
 }
 
+// 修复：回退候选是 /bin/zsh、/bin/sh 等 Unix shell，Windows 上无此语义，限 Unix。
+#[cfg(unix)]
 #[tokio::test]
 async fn shell_prefers_executable_shell_var_then_falls_back() {
     let dir = tempfile::tempdir().expect("tempdir");

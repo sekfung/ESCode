@@ -20,7 +20,7 @@ fn service(home: &std::path::Path) -> McpSyncService {
 
 fn seed_source(home: &std::path::Path) {
     write(
-        &home.join(".escode/cli/config.json"),
+        &home.join(".escode").join("cli").join("config.json"),
         &serde_json::json!({
             "mcp": {"servers": {
                 "filesystem": {
@@ -125,7 +125,13 @@ async fn import_rewrites_filesystem_paths_and_skips_duplicates() {
         serde_json::json!("synced")
     );
 
-    let config = read(&target_home.path().join(".escode/cli/config.json"));
+    let config = read(
+        &target_home
+            .path()
+            .join(".escode")
+            .join("cli")
+            .join("config.json"),
+    );
     assert_eq!(
         config["mcp"]["servers"]["filesystem"]["args"][2],
         serde_json::json!(target_home.path().join("project").to_string_lossy())
@@ -177,7 +183,7 @@ async fn import_skips_a_name_that_exists_in_the_agents_root() {
         .unwrap();
 
     let target_home = tempfile::tempdir().unwrap();
-    let agents = target_home.path().join(".agents/mcp.json");
+    let agents = target_home.path().join(".agents").join("mcp.json");
     write(
         &agents,
         &serde_json::json!({
@@ -198,7 +204,14 @@ async fn import_skips_a_name_that_exists_in_the_agents_root() {
         imported["results"][0]["path"],
         serde_json::json!(agents.to_string_lossy())
     );
-    assert!(!target_home.path().join(".escode/cli/config.json").exists());
+    assert!(
+        !target_home
+            .path()
+            .join(".escode")
+            .join("cli")
+            .join("config.json")
+            .exists()
+    );
 
     // `.agents` 有内容时候选也来自它。
     let listed = target.list_local_user_mcp_candidates().await.unwrap();

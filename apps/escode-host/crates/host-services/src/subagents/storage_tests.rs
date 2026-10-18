@@ -6,10 +6,13 @@ async fn storage_root_defaults_to_dot_escode_under_home() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
     assert_eq!(storage_root(home).await, home.join(".escode"));
-    assert_eq!(user_agents_root(home).await, home.join(".escode/agents"));
+    assert_eq!(
+        user_agents_root(home).await,
+        home.join(".escode").join("agents")
+    );
     assert_eq!(
         state_file(home).await,
-        home.join(".escode/v2/agents-state.json")
+        home.join(".escode").join("v2").join("agents-state.json")
     );
     assert_eq!(
         workspace_agents_root("/work"),
@@ -22,7 +25,7 @@ async fn storage_root_defaults_to_dot_escode_under_home() {
 async fn storage_dir_from_cli_config_overrides_the_root() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path();
-    let config_path = home.join(".escode/cli/config.json");
+    let config_path = home.join(".escode").join("cli").join("config.json");
     std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
     let write_config = |dir_value: &str| {
         std::fs::write(
@@ -36,11 +39,16 @@ async fn storage_dir_from_cli_config_overrides_the_root() {
     assert_eq!(storage_root(home).await, home.join("custom-root"));
     assert_eq!(
         user_agents_root(home).await,
-        home.join("custom-root/agents")
+        home.join("custom-root").join("agents")
     );
 
     write_config("/tmp/absolute-root");
-    assert_eq!(storage_root(home).await, Path::new("/tmp/absolute-root"));
+    // 修复：有根无盘符的路径按 Node path.resolve 补当前盘符（Windows 上为 `D:\tmp\...`）；
+    // std::path::absolute 同一规则，Unix 上原样。
+    assert_eq!(
+        storage_root(home).await,
+        std::path::absolute("/tmp/absolute-root").unwrap()
+    );
 
     // 空白与坏 JSON 都回退缺省。
     write_config("   ");

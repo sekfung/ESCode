@@ -23,17 +23,31 @@ fn run(home: &std::path::Path, workspace: Option<&std::path::Path>, selections: 
 fn skill_fixture() -> tempfile::TempDir {
     let home = tempfile::tempdir().unwrap();
     write(
-        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\n---\nbody\n",
     );
-    write(&home.path().join(".claude/skills/alpha/assets/a.bin"), "x");
+    write(
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("assets")
+            .join("a.bin"),
+        "x",
+    );
     home
 }
 
 #[test]
 fn imports_skills_by_copy_then_skips_the_second_run() {
     let home = skill_fixture();
-    let source = home.path().join(".claude/skills/alpha");
+    let source = home.path().join(".claude").join("skills").join("alpha");
     let selection = json!({
         "agent": "claudeCode", "category": "skills", "importMode": "copy",
         "skillPaths": [source.to_string_lossy()],
@@ -46,12 +60,23 @@ fn imports_skills_by_copy_then_skips_the_second_run() {
         json!("imported")
     );
     assert_eq!(
-        std::fs::read_to_string(home.path().join(".escode/skills/alpha/SKILL.md")).unwrap(),
+        std::fs::read_to_string(
+            home.path()
+                .join(".escode")
+                .join("skills")
+                .join("alpha")
+                .join("SKILL.md")
+        )
+        .unwrap(),
         "---\nname: alpha\n---\nbody\n"
     );
     assert!(
         home.path()
-            .join(".escode/skills/alpha/assets/a.bin")
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("assets")
+            .join("a.bin")
             .is_file()
     );
 
@@ -75,7 +100,7 @@ fn imports_skills_by_copy_then_skips_the_second_run() {
 #[test]
 fn symlink_mode_links_directories() {
     let home = skill_fixture();
-    let source = home.path().join(".claude/skills/alpha");
+    let source = home.path().join(".claude").join("skills").join("alpha");
     let result = run(
         home.path(),
         None,
@@ -85,7 +110,7 @@ fn symlink_mode_links_directories() {
         }]),
     );
     assert_eq!(result["successCount"], json!(1));
-    let target = home.path().join(".escode/skills/alpha");
+    let target = home.path().join(".escode").join("skills").join("alpha");
     let metadata = std::fs::symlink_metadata(&target).unwrap();
     assert!(metadata.file_type().is_symlink());
     assert_eq!(std::fs::read_link(&target).unwrap(), source);
@@ -95,7 +120,7 @@ fn symlink_mode_links_directories() {
 fn imports_to_the_project_scope_when_requested() {
     let home = skill_fixture();
     let workspace = tempfile::tempdir().unwrap();
-    let source = home.path().join(".claude/skills/alpha");
+    let source = home.path().join(".claude").join("skills").join("alpha");
     let result = run(
         home.path(),
         Some(workspace.path()),
@@ -108,36 +133,56 @@ fn imports_to_the_project_scope_when_requested() {
     assert!(
         workspace
             .path()
-            .join(".escode/skills/alpha/SKILL.md")
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md")
             .is_file()
     );
-    assert!(!home.path().join(".escode/skills").exists());
+    assert!(!home.path().join(".escode").join("skills").exists());
 }
 
 #[test]
 fn imports_commands_plugins_and_mcp_and_updates_their_configs() {
     let home = tempfile::tempdir().unwrap();
-    write(&home.path().join(".claude/commands/sub/run.md"), "command");
     write(
         &home
             .path()
-            .join(".claude/plugins/plug/.escode-plugin/plugin.json"),
+            .join(".claude")
+            .join("commands")
+            .join("sub")
+            .join("run.md"),
+        "command",
+    );
+    write(
+        &home
+            .path()
+            .join(".claude")
+            .join("plugins")
+            .join("plug")
+            .join(".escode-plugin")
+            .join("plugin.json"),
         r#"{"name":"plug","version":"1"}"#,
     );
     write(
-        &home.path().join(".claude/settings.json"),
+        &home.path().join(".claude").join("settings.json"),
         r#"{"mcpServers":{"docs":{"command":"uvx","timeout":5}}}"#,
     );
     write(
-        &home.path().join(".escode/cli/config.json"),
+        &home.path().join(".escode").join("cli").join("config.json"),
         r#"{"mcp":{"other":1},"keep":true}"#,
     );
 
-    let command = home.path().join(".claude/commands/sub/run.md");
-    let plugin = home.path().join(".claude/plugins/plug");
+    let command = home
+        .path()
+        .join(".claude")
+        .join("commands")
+        .join("sub")
+        .join("run.md");
+    let plugin = home.path().join(".claude").join("plugins").join("plug");
     let mcp = format!(
         "{}#docs",
-        home.path().join(".claude/settings.json").display()
+        home.path().join(".claude").join("settings.json").display()
     );
     let result = run(
         home.path(),
@@ -152,9 +197,17 @@ fn imports_commands_plugins_and_mcp_and_updates_their_configs() {
         ]),
     );
     assert_eq!(result["successCount"], json!(3), "{result}");
-    assert!(home.path().join(".escode/commands/sub/run.md").is_file());
+    assert!(
+        home.path()
+            .join(".escode")
+            .join("commands")
+            .join("sub")
+            .join("run.md")
+            .is_file()
+    );
     let config: Value = serde_json::from_str(
-        &std::fs::read_to_string(home.path().join(".escode/cli/config.json")).unwrap(),
+        &std::fs::read_to_string(home.path().join(".escode").join("cli").join("config.json"))
+            .unwrap(),
     )
     .unwrap();
     assert_eq!(config["keep"], json!(true));
@@ -166,7 +219,12 @@ fn imports_commands_plugins_and_mcp_and_updates_their_configs() {
     );
     assert_eq!(
         config["plugins"]["dirs"],
-        json!([home.path().join(".escode/plugins/plug").to_string_lossy()])
+        json!([home
+            .path()
+            .join(".escode")
+            .join("plugins")
+            .join("plug")
+            .to_string_lossy()])
     );
 
     // 再跑一次：命令 targetExists、插件 sameNameExists（配置 id）、MCP sameNameExists。
@@ -179,7 +237,7 @@ fn imports_commands_plugins_and_mcp_and_updates_their_configs() {
             {"agent": "claudeCode", "category": "plugins", "importMode": "copy",
              "pluginPaths": [plugin.to_string_lossy()]},
             {"agent": "claudeCode", "category": "mcpServers",
-             "mcpServerPaths": [format!("{}#docs", home.path().join(".claude/settings.json").display())]},
+             "mcpServerPaths": [format!("{}#docs", home.path().join(".claude").join("settings.json").display())]},
         ]),
     );
     assert_eq!(again["skippedCount"], json!(3), "{again}");

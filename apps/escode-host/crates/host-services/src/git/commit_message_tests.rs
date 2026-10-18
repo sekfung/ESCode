@@ -14,6 +14,8 @@ fn relative_paths_follow_posix_semantics() {
     assert!(!inside("../src/a.rs") && inside("src/a.rs") && !inside(""));
 }
 
+// 修复：入参是 POSIX 绝对路径；Windows 上 `/repo` 无盘符不算绝对路径，语义不同，限 Unix。
+#[cfg(unix)]
 #[test]
 fn scope_covers_absolute_and_workspace_prefixed_paths() {
     let scope = build_scope(

@@ -51,14 +51,12 @@ pub(crate) fn ref_name(workspace_path: &str, checkpoint_id: &str) -> String {
     )
 }
 
+/// 修复：过去以 PathBuf 逐段 push 到 `repo_root` 上。`repo_root` 来自 `git rev-parse --show-toplevel`，
+/// Windows 上是 `C:/Users/...`，push 后得到 `C:/Users/...\\a.txt` 这种混合分隔符路径；TS 用
+/// `path.resolve` 统一为 `C:\\Users\\...\\a.txt`（windows-latest host 测试暴露）。改用与 reads.rs 同一份
+/// Node `resolve` 语义。
 fn to_absolute(repo_root: &str, repo_relative_path: &str) -> String {
-    let mut path = PathBuf::from(repo_root);
-    for segment in normalize_git_path(repo_relative_path).split('/') {
-        if !segment.is_empty() {
-            path.push(segment);
-        }
-    }
-    path.to_string_lossy().into_owned()
+    super::paths::to_absolute_path(repo_root, repo_relative_path)
 }
 
 /// 带临时 index 与 checkpoint 身份变量的 `git` 调用（`createCheckpoint` 的每一步都用它）。

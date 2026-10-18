@@ -9,7 +9,7 @@ fn write(path: &std::path::Path, content: &str) {
 #[test]
 fn skill_metadata_reads_yaml_with_loose_fallbacks() {
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("alpha/SKILL.md");
+    let skill = dir.path().join("alpha").join("SKILL.md");
     write(&skill, "---\nname: Alpha\nversion: 1.2.3\n---\nbody\n");
     let metadata = read_skill_metadata(&skill);
     assert_eq!(metadata.name, "Alpha");
@@ -21,7 +21,7 @@ fn skill_metadata_reads_yaml_with_loose_fallbacks() {
     assert_eq!(metadata.name, "42", "非字符串 name 回退 loose/目录名");
     assert_eq!(metadata.version.as_deref(), Some("7"));
 
-    let plain = dir.path().join("beta/SKILL.md");
+    let plain = dir.path().join("beta").join("SKILL.md");
     write(&plain, "no frontmatter");
     let metadata = read_skill_metadata(&plain);
     assert_eq!(metadata.name, "beta");
@@ -31,7 +31,7 @@ fn skill_metadata_reads_yaml_with_loose_fallbacks() {
 #[test]
 fn broken_yaml_falls_back_to_loose_name_and_quotes() {
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("gamma/SKILL.md");
+    let skill = dir.path().join("gamma").join("SKILL.md");
     write(
         &skill,
         "---\nbroken: [\nname: 'Loose Name'\nversion: \"9\"\n---\nbody\n",
@@ -45,7 +45,7 @@ fn broken_yaml_falls_back_to_loose_name_and_quotes() {
 fn command_metadata_uses_the_relative_path_as_name() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("commands");
-    let file = root.join("sub/run.md");
+    let file = root.join("sub").join("run.md");
     write(
         &file,
         "---\ndescription: Run it\nargument-hint: <target>\n---\nbody\n",
@@ -66,11 +66,11 @@ fn plugin_metadata_prefers_the_escode_manifest() {
     let dir = tempfile::tempdir().unwrap();
     let plugin = dir.path().join("plug");
     write(
-        &plugin.join(".claude-plugin/plugin.json"),
+        &plugin.join(".claude-plugin").join("plugin.json"),
         r#"{"name":"claude-name"}"#,
     );
     write(
-        &plugin.join(".escode-plugin/plugin.json"),
+        &plugin.join(".escode-plugin").join("plugin.json"),
         r#"{"name":"escode-name","version":" 2.0 "}"#,
     );
     let metadata = read_plugin_metadata(&plugin).unwrap();
@@ -79,9 +79,12 @@ fn plugin_metadata_prefers_the_escode_manifest() {
     assert_eq!(metadata.id, "escode-name@inline");
 
     let bad = dir.path().join("bad");
-    write(&bad.join(".escode-plugin/plugin.json"), r#"{"name":"  "}"#);
+    write(
+        &bad.join(".escode-plugin").join("plugin.json"),
+        r#"{"name":"  "}"#,
+    );
     assert!(read_plugin_metadata(&bad).is_none());
     let broken = dir.path().join("broken");
-    write(&broken.join(".escode-plugin/plugin.json"), "{oops");
+    write(&broken.join(".escode-plugin").join("plugin.json"), "{oops");
     assert!(read_plugin_metadata(&broken).is_none());
 }

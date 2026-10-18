@@ -8,7 +8,7 @@ fn service() -> (tempfile::TempDir, SubagentsService) {
 }
 
 fn state_path(home: &std::path::Path) -> PathBuf {
-    home.join(".escode/v2/agents-state.json")
+    home.join(".escode").join("v2").join("agents-state.json")
 }
 
 async fn read_back(home: &std::path::Path) -> Value {
@@ -19,7 +19,10 @@ async fn read_back(home: &std::path::Path) -> Value {
 async fn primary_directory_is_created_and_returned_verbatim() {
     let (dir, service) = service();
     let path = service.primary_user_agents_directory().await.unwrap();
-    assert_eq!(path, dir.path().join(".escode/agents").to_string_lossy());
+    assert_eq!(
+        path,
+        dir.path().join(".escode").join("agents").to_string_lossy()
+    );
     assert!(std::path::Path::new(&path).is_dir());
     // 幂等。
     assert_eq!(service.primary_user_agents_directory().await.unwrap(), path);

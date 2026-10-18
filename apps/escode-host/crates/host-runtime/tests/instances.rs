@@ -283,6 +283,12 @@ async fn child_link_serves_the_same_ready_frame() {
 
 fn cli_binary() -> Option<PathBuf> {
     let candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../escode-cli-rust/target/debug/escode-cli-rust");
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("escode-cli-rust")
+        .join("target")
+        .join("debug")
+        .join("escode-cli-rust");
     candidate.is_file().then_some(candidate)
 }

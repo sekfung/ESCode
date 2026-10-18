@@ -25,7 +25,11 @@ async fn create_writes_a_parseable_file_and_returns_the_summary() {
         .await
         .unwrap();
     let agent = &answer["agent"];
-    let path = dir.path().join(".escode/agents/reviewer.md");
+    let path = dir
+        .path()
+        .join(".escode")
+        .join("agents")
+        .join("reviewer.md");
     assert_eq!(agent["path"], json!(path.to_string_lossy()));
     assert_eq!(agent["id"], json!("user:user:reviewer"));
     assert_eq!(agent["scope"], json!("user"));
@@ -122,7 +126,10 @@ async fn workspace_scope_writes_under_the_workspace_and_carries_project_path() {
         }))
         .await
         .unwrap();
-    let path = workspace.join(".escode/agents/local-one.md");
+    let path = workspace
+        .join(".escode")
+        .join("agents")
+        .join("local-one.md");
     assert!(path.exists());
     assert_eq!(answer["agent"]["scope"], json!("workspace"));
     assert_eq!(
@@ -154,10 +161,20 @@ async fn rename_migrates_the_disabled_state() {
     let new_id = answer["agent"]["id"].as_str().unwrap().to_owned();
     assert_eq!(new_id, "user:user:new-name");
     assert!(
-        !dir.path().join(".escode/agents/old-name.md").exists(),
+        !dir.path()
+            .join(".escode")
+            .join("agents")
+            .join("old-name.md")
+            .exists(),
         "旧文件应删除"
     );
-    assert!(dir.path().join(".escode/agents/new-name.md").exists());
+    assert!(
+        dir.path()
+            .join(".escode")
+            .join("agents")
+            .join("new-name.md")
+            .exists()
+    );
     let state =
         super::super::state::read_state(&super::super::storage::state_file(dir.path()).await)
             .await
@@ -190,7 +207,13 @@ async fn update_rejects_renaming_onto_an_existing_file() {
         .unwrap_err();
     assert_eq!(error, "Agent file \"taken.md\" already exists");
     // 撞名时不能动旧文件。
-    assert!(dir.path().join(".escode/agents/source.md").exists());
+    assert!(
+        dir.path()
+            .join(".escode")
+            .join("agents")
+            .join("source.md")
+            .exists()
+    );
 }
 
 #[tokio::test]

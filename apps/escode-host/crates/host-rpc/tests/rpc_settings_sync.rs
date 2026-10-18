@@ -69,13 +69,18 @@ fn write(path: &std::path::Path, content: &str) {
 #[tokio::test(flavor = "multi_thread")]
 async fn agents_file_migration_and_first_run_state() {
     let home = tempfile::tempdir().unwrap();
-    let source = home.path().join(".claude/CLAUDE.md");
+    let source = home.path().join(".claude").join("CLAUDE.md");
     write(&source, "# Claude instructions\n");
     write(
-        &home.path().join(".claude/skills/alpha/SKILL.md"),
+        &home
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md"),
         "---\nname: alpha\n---\nbody\n",
     );
-    let target = home.path().join(".escode/AGENTS.md");
+    let target = home.path().join(".escode").join("AGENTS.md");
     let surface = start(home.path()).await;
     let mut conn = Conn::new(&surface).await;
 
@@ -172,7 +177,7 @@ async fn agents_file_migration_and_first_run_state() {
             serde_json::json!({
                 "selections": [{
                     "agent": "claudeCode", "category": "skills", "importMode": "copy",
-                    "skillPaths": [home.path().join(".claude/skills/alpha").to_string_lossy()],
+                    "skillPaths": [home.path().join(".claude").join("skills").join("alpha").to_string_lossy()],
                 }],
             }),
         )
@@ -180,7 +185,14 @@ async fn agents_file_migration_and_first_run_state() {
         .into_object()
         .expect("导入结果");
     assert_eq!(imported["successCount"], serde_json::json!(1));
-    assert!(home.path().join(".escode/skills/alpha/SKILL.md").is_file());
+    assert!(
+        home.path()
+            .join(".escode")
+            .join("skills")
+            .join("alpha")
+            .join("SKILL.md")
+            .is_file()
+    );
 
     let detected = conn
         .call(

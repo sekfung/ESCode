@@ -17,25 +17,28 @@ fn frontmatter(name: &str, description: &str) -> String {
 #[test]
 fn collects_escode_first_and_filters_covered_agents_candidates() {
     let home = tempfile::tempdir().unwrap();
-    let escode = home.path().join(".escode/skills");
-    let agents = home.path().join(".agents/skills");
+    let escode = home.path().join(".escode").join("skills");
+    let agents = home.path().join(".agents").join("skills");
     write(
-        &escode.join("alpha/SKILL.md"),
+        &escode.join("alpha").join("SKILL.md"),
         &frontmatter("Alpha", " first "),
     );
     write(
-        &escode.join("group/beta/SKILL.md"),
+        &escode.join("group").join("beta").join("SKILL.md"),
         &frontmatter("beta", ""),
     );
     // 目录名被 .escode 覆盖（即使 skill 名不同也过滤）。
-    write(&agents.join("alpha/SKILL.md"), &frontmatter("Other", ""));
+    write(
+        &agents.join("alpha").join("SKILL.md"),
+        &frontmatter("Other", ""),
+    );
     // skill 名与 .escode 重名（trim + lowercase）。
     write(
-        &agents.join("renamed/SKILL.md"),
+        &agents.join("renamed").join("SKILL.md"),
         &frontmatter(" alpha ", ""),
     );
     write(
-        &agents.join("gamma/SKILL.md"),
+        &agents.join("gamma").join("SKILL.md"),
         &frontmatter("gamma", "third"),
     );
 
@@ -81,17 +84,20 @@ fn collects_escode_first_and_filters_covered_agents_candidates() {
 #[test]
 fn falls_back_to_the_directory_name_and_respects_the_scan_policy() {
     let home = tempfile::tempdir().unwrap();
-    let escode = home.path().join(".escode/skills");
-    write(&escode.join("plain/SKILL.md"), "no frontmatter\n");
+    let escode = home.path().join(".escode").join("skills");
+    write(&escode.join("plain").join("SKILL.md"), "no frontmatter\n");
     write(
-        &escode.join("broken/SKILL.md"),
+        &escode.join("broken").join("SKILL.md"),
         "---\nname: [unclosed\n---\nbody\n",
     );
     write(
-        &escode.join("node_modules/pkg/SKILL.md"),
+        &escode.join("node_modules").join("pkg").join("SKILL.md"),
         &frontmatter("pkg", ""),
     );
-    write(&escode.join(".hidden/SKILL.md"), &frontmatter("hidden", ""));
+    write(
+        &escode.join(".hidden").join("SKILL.md"),
+        &frontmatter("hidden", ""),
+    );
     write(&escode.join("SKILL.md"), &frontmatter("root", ""));
 
     let candidates = collect(home.path(), &compare()).unwrap();
@@ -110,9 +116,12 @@ fn falls_back_to_the_directory_name_and_respects_the_scan_policy() {
 #[test]
 fn dedupes_symlinked_candidates_by_realpath() {
     let home = tempfile::tempdir().unwrap();
-    let escode = home.path().join(".escode/skills");
-    let agents = home.path().join(".agents/skills");
-    write(&escode.join("alpha/SKILL.md"), &frontmatter("alpha", ""));
+    let escode = home.path().join(".escode").join("skills");
+    let agents = home.path().join(".agents").join("skills");
+    write(
+        &escode.join("alpha").join("SKILL.md"),
+        &frontmatter("alpha", ""),
+    );
     std::fs::create_dir_all(&agents).unwrap();
     std::os::unix::fs::symlink(escode.join("alpha"), agents.join("linked")).unwrap();
 
@@ -124,7 +133,7 @@ fn dedupes_symlinked_candidates_by_realpath() {
     write(&home.path().join("payload.bin"), &"x".repeat(64));
     std::os::unix::fs::symlink(
         home.path().join("payload.bin"),
-        escode.join("alpha/payload-link"),
+        escode.join("alpha").join("payload-link"),
     )
     .unwrap();
     let candidates = collect(home.path(), &compare()).unwrap();
