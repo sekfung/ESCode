@@ -238,3 +238,11 @@ EXIT 0
 | T1–T5、R 线四条硬性条件 | PASS       | R 线 **ACCEPT**                                                                                                     |
 | T6 / H0“CI 三平台”      | UNVERIFIED | 工作流已改为三平台；需推送后取得 rust-runtime-ci 运行记录（按决定本轮暂不推送）                                     |
 | m2 分支 Host 边界       | 不属于 M1  | `818c040f`（H2.7）使 `host-runtime/src/instance.rs` 490 行、`tests/crash_isolation.rs` 423 行超限，由 H2 工作流拆分 |
+
+### 11.5 推送门禁（pre-push）暴露的既存单测问题
+
+为取得 H0“CI 三平台”的运行记录需推送本分支；pre-push（lint → architecture → 受影响单测）在本分支相对 main 的 182 个提交范围内选中全量单测，拦下推送。处理如下（均在 M1 基线 `33cf6b34` 上已同样失败，A/B 失败集合逐条一致，非 M1 引入）：
+
+1. **22 个失败文件**（提交 `63acf75a`、`48976eca`）：serial ×11 用 `node:test` 编写被 vitest 收集；e2eReporting ×3 与 serialAgentChain 缺 CI 构建产物（`unit-tests.yml` 补 `@escode/serial-plugin` 与 `@escode/e2e-report` 的 `build:node`）；`tsupConfig`、`desktopE2EContainerScript`、`webRemoteControlTaskIndexLayout` 为 `4cb7b20d` 全仓格式化后的断言漂移或打包规则过严；`remoteDeploy` 读宿主机 profile；`providerRegistry` mock 缺 `runtime/capabilities`；`rustHostBridge` 缺二进制未跳过。另修复一处产品缺陷：subagent 配置目录被删后立即重建时，ext4 复用 inode 使监听失效（身份加入 `birthtimeMs`，spec `rust-u2-subagents.md` 同步）。
+2. **worker OOM**：上述修复后全部用例通过，但 vitest 仍报 1 个 unhandled error（threads 池为堆 OOM、forks 池为 worker 意外退出），pre-push exit 1。定位到 `packages/ui/test/useDraftConfigControl.test.ts`：mock 了转导出模块而非 `workspacePrepareRpc.js`（mock 不生效），且 `useESCodeSessionService` mock 每次渲染返回新对象，作为 SWR key 的 service 身份每次变化 → 无限重取与重渲染，worker 堆约 79 秒涨到 4 GB。修正两处 mock 后整文件 4 秒跑完。
+3. **7 个待产品裁决的用例**：OOM 修复后同文件暴露 7 个断言失败（SHARE31 的 `mode` 组、slashCommands 保留、Registry revision、Session 只初始化一次、新 Root 继承权限、新任务转移 Draft、PA158 授权消费）。在 `13c5a1a2`（内容等同 v3.15.1 导入）上套用同样 mock 修复后失败完全相同，说明自导入起即与实现不符、一直被 OOM 掩盖，不是后续提交的回归。断言的是 composer 草稿产品语义，以测试还是实现为准需产品裁决；按决定登记跳过（`it.skip` / `skip(KNOWN_DRAFT_SEMANTICS_GAP)`，原因随报告输出），不改断言、不改实现，另行跟进。
