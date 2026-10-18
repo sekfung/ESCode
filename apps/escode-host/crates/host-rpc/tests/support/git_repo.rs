@@ -76,6 +76,9 @@ impl RepoFixture {
             std::fs::create_dir_all(path).unwrap();
         }
         git(&repo, &["init", "-q"]);
+        // 修复：GitHub Windows runner 系统级 core.autocrlf=true，git restore 写回 CRLF，按原始字节的
+        // `hash-object --no-filters` 复核必然不等（TS 同一实现，行为一致）；夹具固定换行策略，不依赖 runner 全局配置。
+        git(&repo, &["config", "core.autocrlf", "false"]);
         write(&repo.join("a.txt"), "one\n");
         git(&repo, &["add", "-A"]);
         git(&repo, &["commit", "-qm", "init"]);

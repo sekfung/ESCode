@@ -141,7 +141,11 @@ mod tests {
         );
         assert_eq!(
             map_event("/w/dir", false, &removed),
-            vec![Change::Path("/w/dir/dir".into())]
+            // 根自身事件用平台分隔符（TS resolve 同），Windows 上为 `/w/dir\\dir`。
+            vec![Change::Path(format!(
+                "/w/dir{}dir",
+                std::path::MAIN_SEPARATOR
+            ))]
         );
         assert_eq!(map_event("/w/dir", true, &removed), vec![Change::Unknown]);
     }
