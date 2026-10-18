@@ -73,7 +73,11 @@ jobs:
         if: runner.os == 'Linux'
         with:
           manifest-path: apps/escode-host/Cargo.toml
+      # 全仓 tsc -b 在 macOS arm64 runner（7 GB 内存，V8 默认堆上限约 2 GB）上堆 OOM（exit 134）；
+      # checks 扩到三平台后首次暴露。只放宽这一步，与 build-desktop-agent-cli.mjs 的做法一致。
       - run: pnpm typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=5120
       - run: pnpm lint
       - run: pnpm architecture:check
 

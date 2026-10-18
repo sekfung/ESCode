@@ -91,17 +91,20 @@ async fn shell_prefers_executable_shell_var_then_falls_back() {
         .await
         .expect("fallback");
     assert!(["/bin/zsh", "/bin/bash", "/bin/sh"].contains(&fallback.as_str()));
-    let plain = dir.path().join("plain");
-    tokio::fs::write(&plain, "x").await.expect("write");
-    let plain = plain.to_string_lossy().into_owned();
+    // 修复：执行位只在 Unix 有意义；整段放进 cfg(unix)，否则 Windows 上 `plain` 未使用，-D warnings 报错。
     #[cfg(unix)]
-    assert_ne!(
-        terminal_shell(&env(&[("SHELL", &plain)]), false)
-            .await
-            .expect("shell"),
-        plain,
-        "无执行位的文件不能当 shell"
-    );
+    {
+        let plain = dir.path().join("plain");
+        tokio::fs::write(&plain, "x").await.expect("write");
+        let plain = plain.to_string_lossy().into_owned();
+        assert_ne!(
+            terminal_shell(&env(&[("SHELL", &plain)]), false)
+                .await
+                .expect("shell"),
+            plain,
+            "无执行位的文件不能当 shell"
+        );
+    }
 }
 
 #[tokio::test]

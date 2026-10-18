@@ -109,19 +109,20 @@ pub fn assert_fragment(html: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 打开前后的文件身份：Unix 比 `dev`/`ino`，Windows 比卷序列号 + 文件索引（Node 的 `stats.dev`/`ino` 同源）。
+/// 打开前后的文件身份：Unix 比 `dev`/`ino`。
+///
+/// 修复：Windows 曾用 `volume_serial_number`/`file_index`，它们是不稳定特性（`windows_by_handle`），
+/// 稳定工具链无法编译（checks 扩到 windows-latest 后首次暴露）；且两者只在句柄元数据上有值，
+/// `symlink_metadata` 取到的 `before` 恒为 None，读取会永远报 “changed while opening”。
+/// Windows 改由 [`open_without_following`] 的 `FILE_FLAG_OPEN_REPARSE_POINT` 防“检查后换成链接”：
+/// 被换成链接时句柄指向链接本身，`is_file()` 拒绝。
 fn identity(meta: &std::fs::Metadata) -> Option<(u64, u64)> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
         Some((meta.dev(), meta.ino()))
     }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        Some((meta.volume_serial_number()?, meta.file_index()?))
-    }
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(not(unix))]
     {
         let _ = meta;
         None
@@ -135,6 +136,13 @@ fn open_without_following(path: &Path) -> std::io::Result<std::fs::File> {
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_FLAG_OPEN_REPARSE_POINT：不跟随重解析点（符号链接 / junction），与 O_NOFOLLOW 同义。
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
     }
     options.open(path)
 }
