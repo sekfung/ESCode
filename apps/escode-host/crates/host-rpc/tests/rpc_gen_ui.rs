@@ -254,9 +254,14 @@ async fn state_round_trip_events_and_restricted_document_read() {
     );
 
     // ── 受限文档读取：模型写的片段可读，输出根外拒绝 ────────────────
-    let output_root = data_base_dir.join(".escode/v2/visualizations");
+    // 修复：逐段 join，得到原生分隔符路径。readDocument 按 TS normalizePath 回规范化路径；
+    // 用 `a/b` 整段 join 在 Windows 上会混用 `\\` 与 `/`，与回包比较误报（windows-latest test 作业）。
+    let output_root = data_base_dir
+        .join(".escode")
+        .join("v2")
+        .join("visualizations");
     std::fs::create_dir_all(output_root.join("group")).unwrap();
-    let document_path = output_root.join("group/chart-fragment.html");
+    let document_path = output_root.join("group").join("chart-fragment.html");
     std::fs::write(&document_path, "<div id=\"chart\">fragment</div>").unwrap();
     let document = conn
         .call_ok(7, "readDocument", target(&document_path.to_string_lossy()))
