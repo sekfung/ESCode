@@ -27,6 +27,13 @@ fn node_join_matches_node_path_join() {
         ("/a/b", "", "/a/b"),
     ];
     for (base, name, expected) in cases {
+        // 修复：期望值取自 POSIX 的 path.join；Windows 上 Node 走 path.win32.join，分隔符为 `\\`
+        // （windows-latest test 作业暴露：`\\a\\b\\x` 才是 Node 在 Windows 上的结果）。
+        let expected = if cfg!(windows) {
+            expected.replace('/', "\\")
+        } else {
+            expected.to_owned()
+        };
         assert_eq!(node_join(base, name), expected, "{base} + {name}");
     }
 }
