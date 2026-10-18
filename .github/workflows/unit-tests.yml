@@ -22,9 +22,8 @@ permissions:
   contents: read
 
 env:
-  # 不设置 ELECTRON_SKIP_BINARY_DOWNLOAD：desktop 单测里有直接 import electron 的套件
-  # （webRemoteControlTransport、desktopNetworkTelemetry 等），跳过二进制下载会让它们
-  # 在 import 阶段报 “Electron failed to install correctly”（dev 380331a9 实测 10 个 suite）。
+  # 与 rust-runtime-ci 一致：单元测试不启动 Electron，省掉每次约 120 MB 的二进制下载。
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
   # 部分用例会起本地服务与子进程；runner 争用时容易撞接收超时（rust-runtime-ci 的同名放宽）。
   ESCODE_TEST_REQUEST_MS: "60000"
 
