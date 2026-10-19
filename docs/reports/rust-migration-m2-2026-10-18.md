@@ -237,7 +237,7 @@ dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-l
 - **H2.7**：只覆盖 Host 内的实例隔离；窗口自身 host 仍是 Electron utility process（H2.3），手机重连到重启后 Host 的全链路仍无 E2E。
 - **H1.3 / H1.4**：本轮未改语义；最终结论由独立复核人填写。
 - **Windows 启动失败分类**：`RustHostStartError` 的 `ENOENT` 以外 errno 分支仍未在 Windows 执行；`rustHostResilience.test.ts` 只在 `unit-tests`（ubuntu）运行。本轮只验证了 Windows 上的 child 运行时链路与 `taskkill /F` 分支。
-- `unit-tests` 的 Electron 依赖套件（`webRemoteControlTransport`、`desktopNetworkTelemetry` 等 10 个 suite）与 bootstrap suite 的失败在 dev 上已存在：前者是 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 与直接 `import electron` 冲突，后者是既存的 v4 语料/边界失败；两者均不由本轮改动引入。
+- ~~`unit-tests` 的 Electron 依赖套件（`webRemoteControlTransport`、`desktopNetworkTelemetry` 等 10 个 suite）与 bootstrap suite 的失败~~：2026-10-19 已修复，见 §13。
 
 ## 12. 未完成项复核（2026-10-19）
 
@@ -261,3 +261,26 @@ dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-l
 Windows 复核：`rust-runtime-ci` windows-only run `39191734774` 的 `checks`、三个 `test` shard 与 `bench` 全部 success。日志确认 `session::tests` 的同步/异步 panic、`settings::tests::missing_file_reads_the_typescript_defaults`、`open_uses_the_long_lived_repo_busy_timeout`、`wait_ready_after_close_returns_false_immediately`、`child_link_serves_the_same_ready_frame`（`.exe` 路径）与 `killed_child...` 均在 Windows 执行并通过。
 
 证据边界：H1.3 / H1.4 的最终结论仍由独立复核人填写；本表只记录实现侧事实，不替验收报告改判。
+
+## 13. unit-tests 双 job 收口（2026-10-19）
+
+`unit-tests` run `39203387275` 的三个 job 全部 success（affected / bootstrap / rust-host-windows）。
+
+**affected**
+
+- Electron 二进制：pnpm 的 side-effects cache 在历史 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 安装后不会重跑 postinstall；改为直接执行 `node node_modules/electron/install.js` 并 `require('electron')` 验证。
+- `browserDataManager` 的无 Chrome 用例显式传空 `chromeExecutablePath`，避免 CI runner 的 `CHROME_PATH`/`CHROME_EXECUTABLE` 干扰。
+- 全量单测在 threads worker 收尾会触发原生崩溃（`Napi::Error` / core dumped）；affected job 改用 forks 池（`maxWorkers=2`）。
+
+**bootstrap**
+
+- 构建闭包补齐 `@escode/*-plugin...`：browser-use 的 `scripts/browser-client.mjs` 是 required seed，缺它时整个插件被判残缺，`control-browser`/`web-gui-tester` 与 `node_repl` MCP 都会消失。
+- 集成套件使用 `--testTimeout=30000`；B18 的“关闭后零请求”先等一个 wire grace 再取基线，避免把 abort 前已写出的请求尾巴误判成新工作。
+- 语料对齐下线套餐：provider 模板/模型/Account 期望、legacy importer 的规则数组、v4 冷恢复的 `options.reasoningLevel`、插件计数与默认 usb MCP、startup 帧与 Agent 类型清单。
+- 两个真实代码修复：
+  1. `process-provider-registry-runtime.ts`：Built-in 刷新后没有账号服务同步 revision，Registry 会永久停在旧快照；源变化时用 fail-closed 空账号对齐 revision。
+  2. `workflow-facade.ts` / `script-workflow-child-runtime.ts`：workflow child 从父 runtime 读取已解析的 `bashShellSelection`，避免 prompt 与实际 Bash 分叉。
+- v4 无桥：把 model execution context / session residency finalization 迁到 v4 原生层，旧协议反向 re-export；startNow 输入已 admission 但未投影时，retry/edit/file rewind 回 `stale/proto.staleRevision`。
+- `read-pdf` 测试改用当前 ModelConfig/ProviderRegistry；marketplace 的真实 clone 探测使用 sanitize 后的子进程环境，不可达时显式 skip。
+
+本地证据：bootstrap 全量 209 files / 2904 tests passed（12 skipped），`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check`、bootstrap typecheck/lint 均通过。
