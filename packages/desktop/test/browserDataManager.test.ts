@@ -782,6 +782,8 @@ describe("browserDataManager", () => {
     const result = await importChromeLocalStorage({
       profilePath,
       platform: "aix",
+      // 显式空串：CI runner 可能设置 CHROME_PATH/CHROME_EXECUTABLE，不能让本用例依赖宿主环境。
+      chromeExecutablePath: "",
       logger,
       targetSession: {} as Electron.Session,
     });

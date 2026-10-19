@@ -46,6 +46,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # 不能依赖 pnpm 的 side-effects cache：历史上本 job 在 ELECTRON_SKIP_BINARY_DOWNLOAD=1
+      # 下安装过 electron，后续 install/rebuild 不会重跑 postinstall，导致 10 个直接 import
+      # electron 的 desktop suite 在 import 阶段失败。直接执行官方 install.js 并验证二进制在场。
+      - name: 安装 Electron 二进制
+        run: |
+          unset ELECTRON_SKIP_BINARY_DOWNLOAD
+          node node_modules/electron/install.js
+          node -e "require('electron')"
+
       # 真实 @escode/client 连接 Rust Host 的用例（rustHostRpc / rustHostRuntimeCrash）依赖两个
       # 二进制；此前本 job 不构建它们，`it.skipIf(!existsSync(...))` 会把这些用例静默跳过
       # （M2 报告 §9 的 UNVERIFIED）。构建口径与 rust-runtime-ci 的 test 作业一致。
@@ -135,7 +144,9 @@ jobs:
             --filter "@escode/usb-plugin..." \
             build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
-      - run: pnpm --filter @escode/bootstrap exec vitest run tests
+      # bootstrap 是集成套件（真 sqlite/协议/子进程），默认 5s 会让慢用例在并发 runner 上误超时；
+      # 30s 与其它集成套件的预算一致。
+      - run: pnpm --filter @escode/bootstrap exec vitest run tests --testTimeout=30000
 
   # Windows 专属：RustHostStartError 的 errno 分类（ENOENT 以外的 EACCES 等）只在 Windows 的
   # spawn 失败分支出现，ubuntu 的 affected job 覆盖不到。四类启动失败用 Node 脚本冒充 Host，
