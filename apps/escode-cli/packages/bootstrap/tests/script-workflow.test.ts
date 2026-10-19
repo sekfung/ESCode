@@ -303,6 +303,15 @@ describe("script workflow runtime", () => {
             };
           },
         } as never,
+        // 显式注入解析结果，避免测试依赖宿主是否安装 zsh 或 PATH 扫描顺序。
+        resolveInitialBashShellSelection: async () => ({
+          dialect: "posix",
+          display: { name: "zsh" },
+          id: "auto:zsh",
+          label: "zsh",
+          path: zshPath,
+          source: "auto-detected",
+        }),
         runtimeConfig: {
           workingDirectory: tempRoot,
         },

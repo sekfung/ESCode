@@ -79,7 +79,7 @@ function resolve(resume: boolean, modelSelection?: ModelSelection, registry = cr
 }
 
 describe("Runtime 创建与未绑定恢复的边界", () => {
-  it("新建空白会话没有 configured default 时保持未绑定，等待显式提交选择", () => {
+  it("新建空白会话没有 configured default 时按 Registry 顺序初始化最高档", () => {
     const config = resolveAppRuntimeConfig({
       cliStorageRoot: "/test/cli",
       configResult: createConfig({ env: {}, skipUserConfig: true, workingDirectory: "/test" }),
@@ -87,7 +87,7 @@ describe("Runtime 创建与未绑定恢复的边界", () => {
       subagentOutputRootDir: "/test/agents",
       workingDirectory: "/test",
     });
-    expect(config.runtimeConfig.modelSelection).toBeUndefined();
+    expect(config.runtimeConfig.modelSelection).toEqual(complete);
   });
   it.each([
     undefined,

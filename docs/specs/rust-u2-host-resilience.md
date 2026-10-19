@@ -42,6 +42,8 @@
 | embedded | runtime 内 panic：engine 循环的 `catch_panic` 把 panic 转为 `serve` 的错误，实例按正常收尾路径退出；实例根任务 panic 同样计入 | 实例任务结束，`Output` 全部 drop，内存链路的出站端关闭 |
 | child    | CLI 子进程被杀（SIGKILL / Windows `TerminateProcess`）或自行退出                                                              | 子进程 stdout EOF                                      |
 
+child 链路用 `env_clear` 隔离实例环境；Windows 上另行补回 `SystemRoot`、`SystemDrive`、`windir`、`ComSpec`、`PATHEXT`、`TEMP`、`TMP`、`PATH` 这组系统底座（`RuntimeOptions.env` 的同名值优先）。`env_clear` 在 Windows 会清掉 `SystemRoot`，缺少它时 Win32 socket 与系统证书库不可用（rust-lang/rust#114737），表现为 runtime ready 之后第一次模型请求失败或挂起；这些变量是平台事实，不是业务状态，不应由 Main 重复下发。
+
 ### 2.2 检测者：实例帧泵
 
 唯一检测者是实例的帧泵（`host-runtime/src/instance.rs::pump`，读端的唯一消费者）。两条链路都归结为“读端返回 `None`”，因此检测逻辑不区分链路。实例表（`Instances`）不轮询存活，它在下一次 `get` 时看到 `is_alive() == false` 才换代（懒重启）。
@@ -52,6 +54,8 @@
 2. 若该代已公告 `available`，发布一次 `unavailable` 生命周期事件。
 3. 若不是 Host 请求的收口，则**立即回收**崩溃实例：`Lifecycle::wait(grace)`（embedded 等实例任务结束并 `drain`，child 等进程被回收），得到退出原因与残余清单，记 `error` 级日志（scope `runtime-link`，含 identity、generation、原因、残余），写入实例的 `ExitReport`（`Instance::exited()` 可等待）。
 4. 若是 Host 请求的收口，第 3 步由 `shutdown` 自己完成，帧泵不重复回收。
+
+就绪判定不轮询：帧泵收到 `startup/storageState ready` 时通过 `watch` 状态通知 `Instance::wait_ready`；读端关闭时同一通道置 `Closed`，等待中的 `initializeWorkspace` 立即拿到 `false`（`instance_ready.rs`）。
 
 回收不等下一次 `get`：owner 锁（`WorkspaceOwnerGuard`）随实例任务结束释放，崩溃后立即回收能让下一代马上拿到锁，残余任务也不会拖到下一次请求才被中止。`Lifecycle::wait` 必须幂等（embedded 的 `JoinHandle` 只 await 一次，之后返回已记录的结果），因为下一次 `get` 的兜底收口与 `close` 仍可能对已回收的实例再调一次。
 
@@ -69,6 +73,7 @@ TS Host 的 agent 子进程崩溃时，协议客户端在 transport 关闭时拒
 - 崩溃实例的在飞请求、以及读端关闭后才发出的请求，一律以 `RuntimeClosed` 失败，文案逐字为 `ESCode agent transport closed: stdout_closed`。
 - `host-rpc` 把它转成 Renderer 可见的 `RpcError`，`name` 为 `Error`（TS `new Error(...)` 的 name），`message` 同上；与超时（`RequestTimeout`）区分，调用方不据此回收 stale 实例。
 - 不等请求自己的超时：读端关闭即失败。
+- 客户端形状由 `packages/desktop/test/rustHostRuntimeCrash.test.ts` 用真实 `@escode/client` 端到端断言（SIGSTOP 子进程使转发请求停在在飞表，SIGKILL 后断言 `name`/`message`/`String(error)` 逐字一致）；host-runtime 层另由 `crash_isolation.rs` 断言类型化 `RuntimeClosed`。
 
 ### 2.5 订阅方收到什么
 
@@ -177,6 +182,7 @@ startRustHost ─throw RustHostStartError{code}─► rustHostManager.ensureStar
 3. **执行并发**：处理函数的异步部分并发执行（与 TS 每个请求一个独立 Promise 相同）；响应顺序 = 完成顺序，不是到达序；响应按请求 id 关联。
 4. **写序**：每连接一个写任务，出站帧按入队顺序写出；同一事件订阅的 `EventFire` 按产生顺序。
 5. **跨连接**：不保证全局顺序（TS 中各窗口是独立的 MessagePort，同样没有跨连接顺序）。需要跨连接一致的写入由服务域自己的唯一写者保证（如 settings 的单写者）。
+6. **处理函数 panic**：同步前缀与异步体都在 `session::start` 内用 `catch_unwind` 捕获，回 `name="Fatal"` 的错误帧；不再让独立任务展开后请求悬空（`session_tests.rs` 两例）。
 
 修复依据：M2 之前的实现在独立任务里才调用处理函数，tokio 多线程调度下同一连接先后两条请求的处理函数调用顺序不确定，与 TS 不一致。
 
@@ -238,13 +244,14 @@ sequenceDiagram
 
 ## 8. 验收
 
-| 场景                                                                                                   | 测试                                                                                                     |
-| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| embedded：A 注入 panic，B 的在飞与后续请求正常；A 在飞请求显式错误；A 订阅结束；懒重启 gen+1；残余为空 | `apps/escode-host/crates/host-runtime/tests/crash_isolation.rs`（`fault-injection` feature，仅测试构建） |
-| child：SIGKILL / TerminateProcess A 的 CLI 子进程，断言同上；CLI 二进制不在场时显式 skip               | 同上                                                                                                     |
-| 四类启动失败各自分类、`error` 日志、在截止时间内失败                                                   | `packages/desktop/test/rustHostResilience.test.ts`                                                       |
-| Host 被杀后在上限内自动恢复，attachment `onLost` 后重建并可用；连续崩溃超过上限停止并显式报错          | 同上                                                                                                     |
-| 同一连接 N 个请求的登记序 = 到达序、响应关联正确；多连接各自保序                                       | `apps/escode-host/crates/host-rpc/tests/rpc_order.rs`                                                    |
-| 日志队满时 warn/error 也被丢弃并计数                                                                   | `host-control/src/lib.rs` 单测                                                                           |
+| 场景                                                                                                                                                     | 测试                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| embedded：A 注入 panic，B 的在飞与后续请求正常；A 在飞请求显式错误；A 订阅结束；懒重启 gen+1；残余为空                                                   | `apps/escode-host/crates/host-runtime/tests/crash_isolation.rs`（`fault-injection` feature，仅测试构建） |
+| child：SIGKILL / TerminateProcess A 的 CLI 子进程，断言同上；CLI 二进制缺失时测试失败并提示先构建（不再 skip 记 ok）                                     | 同上                                                                                                     |
+| 真实 `@escode/client` 经 host-rpc 收到的在飞请求错误为 `name=Error`、文案逐字 `ESCode agent transport closed: stdout_closed`；同一崩溃发布 `unavailable` | `packages/desktop/test/rustHostRuntimeCrash.test.ts`（POSIX：SIGSTOP 停住 runtime 后 SIGKILL）           |
+| 四类启动失败各自分类、`error` 日志、在截止时间内失败                                                                                                     | `packages/desktop/test/rustHostResilience.test.ts`                                                       |
+| Host 被杀后在上限内自动恢复，attachment `onLost` 后重建并可用；连续崩溃超过上限停止并显式报错                                                            | 同上                                                                                                     |
+| 同一连接 N 个请求的登记序 = 到达序、响应关联正确；多连接各自保序                                                                                         | `apps/escode-host/crates/host-rpc/tests/rpc_order.rs`                                                    |
+| 日志队满时 warn/error 也被丢弃并计数                                                                                                                     | `host-control/src/lib.rs` 单测                                                                           |
 
 故障注入（`test/panic` 方法）只在 `escode-cli-core` 的 `fault-injection` feature 下编译，仅由 `escode-host-runtime` 的 dev-dependency 打开：只有构建测试目标的调用（`cargo test` / `clippy --all-targets`）启用它，`cargo build`（含 `--release` 与安装包构建）不启用。

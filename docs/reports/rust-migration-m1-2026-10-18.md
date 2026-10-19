@@ -101,7 +101,7 @@ EXIT:1
 
 判定（初稿）：既存/环境敏感失败。**复核修订**：该判定不成立，5 个失败均为可稳定复现的代码/测试缺陷，已在 §11 修复。
 
-`cargo deny`（初稿）：本机未安装，UNVERIFIED。**复核修订**：已在本机运行并发现 advisories 失败，修复后通过，见 §11。CI 覆盖作业：`.github/workflows/rust-runtime-ci.yml` 的 `checks` job 使用 `EmbarkStudios/cargo-deny-action@v2`（manifest `apps/escode-cli-rust/Cargo.toml`）。本轮未取得该作业的 CI 运行记录。
+`cargo deny`（初稿）：本机未安装，UNVERIFIED。**复核修订**：已在本机运行并发现 advisories 失败，修复后通过，见 §11。CI 覆盖作业：`.github/workflows/rust-runtime-ci.yml` 的 `checks` job 使用 `EmbarkStudios/cargo-deny-action@v2`（manifest `apps/escode-cli-rust/Cargo.toml`）。2026-10-19 补记：已取得该作业的 CI 运行记录（run `39164847925`，三平台 `checks` 全绿；cargo-deny 只在 Linux 跑），见 §12。
 
 ## 5. T4：R3 / R6 测试缺口
 
@@ -168,7 +168,7 @@ R 线总判决：**ACCEPT**。验收报告 §2 的四条硬性条件（R5、R9�
 
 1. ~~5 个失败~~、~~`cargo deny`~~：已在 §11 收口。
 2. ~~Host 无 `deny.toml`~~：已补，见 §11.4。
-3. `checks` 已改为三平台矩阵（§11.4），但本分支无远端、未推送，H0“CI 三平台”在取得 CI 运行记录前为 **UNVERIFIED**。
+3. ~~`checks` 三平台矩阵未取得 CI 运行记录~~：已关闭（2026-10-19）。run `39164847925` 的 `checks`（ubuntu/windows/macos）与三平台 `test` 全部 success；详见 §12。
 4. H2/H3/H5 本轮明确不做：唯一 Host 切换、Pending 业务域、TS 删除、replayable E2E、无窗口调度。
 5. 验收报告中的其它非阻塞项（H1.3/H1.4/H1.8 的口径、四 locale readdir 证据、busy_timeout、H4 差异登记等）未在本轮处理。
 6. 本机 Node 24.14.0 与 CI 期望 24.18.0 不一致；完整串行套件本机耗时约 31.4 分钟，CI 的 test 作业超时为 120 分钟。
@@ -233,11 +233,11 @@ EXIT 0
 
 最终状态：
 
-| 项                      | 结论       | 说明                                                                                                                |
-| ----------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
-| T1–T5、R 线四条硬性条件 | PASS       | R 线 **ACCEPT**                                                                                                     |
-| T6 / H0“CI 三平台”      | UNVERIFIED | 工作流已改为三平台；需推送后取得 rust-runtime-ci 运行记录（按决定本轮暂不推送）                                     |
-| m2 分支 Host 边界       | 不属于 M1  | `818c040f`（H2.7）使 `host-runtime/src/instance.rs` 490 行、`tests/crash_isolation.rs` 423 行超限，由 H2 工作流拆分 |
+| 项                      | 结论      | 说明                                                                                                                |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| T1–T5、R 线四条硬性条件 | PASS      | R 线 **ACCEPT**                                                                                                     |
+| T6 / H0“CI 三平台”      | PASS      | run `39164847925`：三平台 `checks` 与 `test` 全部 success（Windows shard 2 一次无关 cron 超时，重跑通过），见 §12   |
+| m2 分支 Host 边界       | 不属于 M1 | `818c040f`（H2.7）使 `host-runtime/src/instance.rs` 490 行、`tests/crash_isolation.rs` 423 行超限，由 H2 工作流拆分 |
 
 ### 11.5 推送门禁（pre-push）暴露的既存单测问题
 
@@ -246,3 +246,17 @@ EXIT 0
 1. **22 个失败文件**（提交 `63acf75a`、`48976eca`）：serial ×11 用 `node:test` 编写被 vitest 收集；e2eReporting ×3 与 serialAgentChain 缺 CI 构建产物（`unit-tests.yml` 补 `@escode/serial-plugin` 与 `@escode/e2e-report` 的 `build:node`）；`tsupConfig`、`desktopE2EContainerScript`、`webRemoteControlTaskIndexLayout` 为 `4cb7b20d` 全仓格式化后的断言漂移或打包规则过严；`remoteDeploy` 读宿主机 profile；`providerRegistry` mock 缺 `runtime/capabilities`；`rustHostBridge` 缺二进制未跳过。另修复一处产品缺陷：subagent 配置目录被删后立即重建时，ext4 复用 inode 使监听失效（身份加入 `birthtimeMs`，spec `rust-u2-subagents.md` 同步）。
 2. **worker OOM**：上述修复后全部用例通过，但 vitest 仍报 1 个 unhandled error（threads 池为堆 OOM、forks 池为 worker 意外退出），pre-push exit 1。定位到 `packages/ui/test/useDraftConfigControl.test.ts`：mock 了转导出模块而非 `workspacePrepareRpc.js`（mock 不生效），且 `useESCodeSessionService` mock 每次渲染返回新对象，作为 SWR key 的 service 身份每次变化 → 无限重取与重渲染，worker 堆约 79 秒涨到 4 GB。修正两处 mock 后整文件 4 秒跑完。
 3. **7 个待产品裁决的用例**：OOM 修复后同文件暴露 7 个断言失败（SHARE31 的 `mode` 组、slashCommands 保留、Registry revision、Session 只初始化一次、新 Root 继承权限、新任务转移 Draft、PA158 授权消费）。在 `13c5a1a2`（内容等同 v3.15.1 导入）上套用同样 mock 修复后失败完全相同，说明自导入起即与实现不符、一直被 OOM 掩盖，不是后续提交的回归。断言的是 composer 草稿产品语义，以测试还是实现为准需产品裁决；按决定登记跳过（`it.skip` / `skip(KNOWN_DRAFT_SEMANTICS_GAP)`，原因随报告输出），不改断言、不改实现，另行跟进。
+
+## 12. CI 三平台补记（2026-10-19）
+
+M1 收尾时 H0“CI 三平台”因分支未推送而标为 UNVERIFIED。2026-10-19 已在包含 M1/M2 合并结果与本轮 Windows crash 修复的 `fix/host-runtime-crash-ci` 上取得 `rust-runtime-ci` 全量运行记录（[run 39164847925](https://github.com/sekfung/ESCode/actions/runs/39164847925)）：
+
+| 作业                                 | 结果                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `checks`（ubuntu / windows / macos） | 全部 success                                                                                                                    |
+| `test`（三平台 × 3 shard）           | 全部 success；Windows shard 2 首次 `Node and Rust manage scheduled tasks the same way` 超时，重跑通过（与本轮改动无关的 flake） |
+| `bench`（三平台）                    | 全部 success                                                                                                                    |
+
+因此 H0 的“CI 三平台”子条件关闭。仍未变的是 §7 记录的单独事项：parity 作业仍是 `continue-on-error: true`（非阻塞），不属于“三平台门禁”这一条；若要把整个 H0 判 PASS，需另行裁决 parity 是否必须阻塞。
+
+证据边界：该 run 验证的是 M1/M2 合并后、再叠加本轮 Windows crash 修复的树，不是 M1 分支末端 `m1/gates-and-r-line` 的逐提交记录；M1 自身的 Rust/TS 套件与边界检查仍以 §8 / §11.3 的记录为准。

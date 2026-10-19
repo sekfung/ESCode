@@ -142,6 +142,11 @@ export function createScriptWorkflowAgentRuntime(input: {
       // 「Permissions inside a run」）。
       mode: "yolo",
       modelSelection,
+      // 修复原因：同上（workflow-facade）。父 runtime 解析出的 shell 只写回 runtime.config，
+      // 这里继承的 runtimeConfig 快照没有它，child prompt 会读到 runner 的 SHELL。
+      bashShellSelection:
+        input.deps.runtime.getSessionShellSelection() ??
+        input.deps.runtimeConfig.bashShellSelection,
       parentSessionId: input.deps.sessionId,
       subagents: { enabled: false },
       taskType: "workflow_child",
@@ -183,9 +188,7 @@ export function createScriptWorkflowAgentRuntime(input: {
       ...(input.workflowSubmitPort && input.workflowSubmitSchema
         ? { workflowSubmitSchema: input.workflowSubmitSchema }
         : {}),
-      ...(input.workflowEscalatePort
-        ? { workflowEscalatePort: input.workflowEscalatePort }
-        : {}),
+      ...(input.workflowEscalatePort ? { workflowEscalatePort: input.workflowEscalatePort } : {}),
       ...(input.modelRequestAdmission
         ? { modelRequestAdmission: input.modelRequestAdmission }
         : {}),

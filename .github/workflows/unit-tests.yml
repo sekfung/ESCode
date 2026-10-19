@@ -32,6 +32,10 @@ jobs:
     name: unit tests (affected)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # 全量单测在 threads 池的 worker 收尾时会触发原生崩溃（Napi::Error / core dumped，
+      # 见 unit-tests 历史日志）；改用进程隔离，测试范围不变，并发降到 2。
+      ESCODE_TEST_POOL: forks
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,12 +50,38 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # 不能依赖 pnpm 的 side-effects cache：历史上本 job 在 ELECTRON_SKIP_BINARY_DOWNLOAD=1
+      # 下安装过 electron，后续 install/rebuild 不会重跑 postinstall，导致 10 个直接 import
+      # electron 的 desktop suite 在 import 阶段失败。直接执行官方 install.js 并验证二进制在场。
+      - name: 安装 Electron 二进制
+        run: |
+          unset ELECTRON_SKIP_BINARY_DOWNLOAD
+          node node_modules/electron/install.js
+          node -e "require('electron')"
+
+      # 真实 @escode/client 连接 Rust Host 的用例（rustHostRpc / rustHostRuntimeCrash）依赖两个
+      # 二进制；此前本 job 不构建它们，`it.skipIf(!existsSync(...))` 会把这些用例静默跳过
+      # （M2 报告 §9 的 UNVERIFIED）。构建口径与 rust-runtime-ci 的 test 作业一致。
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/escode-cli-rust
+            apps/escode-host
+      - name: 构建 Rust Host 与 CLI
+        run: |
+          cargo build --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+          cargo build --locked --manifest-path apps/escode-host/Cargo.toml --bin escode-host
+
       # 这些套件 import 的是工作区包的 dist 入口，全新 checkout 缺构建产物会以 ERR_MODULE_NOT_FOUND /
       # "Failed to resolve entry for package" 失败（本机因早已构建过而看不出）。只构建单测真正用到的
       # 库与 agent 包闭包：测试从不 import web / web-share 这类前端应用包（e2e-report 只用其 node 入口，见下），而它们的发行构建
       # 在全新 checkout 里有既有的子路径解析问题（@escode/shared/mcp-apps），单测并不需要。
-      # @escode/rea-plugin 单独列出：它的 seed 断言会检查 dist/mcp/server.js 存在。
-      # @escode/serial-plugin 同理：serialAgentChain 整链路用例直接拉起它的 dist/mcp/server.js。
+      # 官方插件包全部构建：browser-use 的 scripts/browser-client.mjs 是 required seed，
+      # 缺它时整个插件被判为残缺，control-browser/web-gui-tester 等技能不会出现；
+      # 其它插件同样提供 MCP server / dist 资产（rea、serial 等）。
       - name: 构建单测依赖的工作区包
         run: |
           pnpm -r \
@@ -61,9 +91,7 @@ jobs:
             --filter "@escode/server..." \
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
-            --filter "@escode/rea-plugin..." \
-            --filter "@escode/usb-plugin..." \
-            --filter "@escode/serial-plugin..." \
+            --filter "@escode/*-plugin..." \
             build
           # desktop 的 e2eReporting* 单测 import @escode/e2e-report 的 node 入口（dist-node）；只跑 tsc 的
           # build:node，不跑有子路径解析问题的 viewer（vite）构建。
@@ -115,8 +143,28 @@ jobs:
             --filter "@escode/server..." \
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
-            --filter "@escode/rea-plugin..." \
-            --filter "@escode/usb-plugin..." \
+            --filter "@escode/*-plugin..." \
             build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
-      - run: pnpm --filter @escode/bootstrap exec vitest run tests
+      # bootstrap 是集成套件（真 sqlite/协议/子进程），默认 5s 会让慢用例在并发 runner 上误超时；
+      # 30s 与其它集成套件的预算一致。
+      - run: pnpm --filter @escode/bootstrap exec vitest run tests --testTimeout=30000
+
+  # Windows 专属：RustHostStartError 的 errno 分类（ENOENT 以外的 EACCES 等）只在 Windows 的
+  # spawn 失败分支出现，ubuntu 的 affected job 覆盖不到。四类启动失败用 Node 脚本冒充 Host，
+  # 不需要 Rust 二进制，也不需要构建 workspace dist（测试 import 的是 src/*.ts）。
+  rust-host-windows:
+    name: rust host startup errors (windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run packages/desktop/test/rustHostResilience.test.ts

@@ -287,6 +287,10 @@ describe("fault matrix · B18 close — 宿主关闭停下自己拥有的 run，
         );
 
         // 2) 关闭之后零事件、零请求：退避定时器全被撤，没有落后的进度事件。
+        // 假服务器与客户端共用事件循环：abort 之前已写到回环网卡上的请求，可能要等结算那串
+        // 同步工作做完才被服务器盖章（见 assertCommonInvariants 第 5 条的 cancelled echo 规则）。
+        // 先等一个 wire grace 再取基线，避免把关闭前的尾巴误判成关闭后的新工作。
+        await pause(POST_SETTLE_GRACE_MS);
         const eventsAtClose = first.runEvents.length;
         const requestsAtClose = server.requests.length;
         await pause(POST_SETTLE_GRACE_MS);

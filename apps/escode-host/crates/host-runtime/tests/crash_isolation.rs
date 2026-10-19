@@ -62,6 +62,31 @@ fn spawn_call(
     tokio::spawn(async move { instance.call(method, params, GUARD).await })
 }
 
+/// 等模型桩收到请求；在飞请求或实例先失败/退出时立刻带着真实原因失败。
+///
+/// 修复：此前这里只等 `seen`，Windows child 链路在请求已失败或实例已退出时仍表现为
+/// 60 s 超时（`A model request: Elapsed(())`），把真正的启动/请求错误吞掉。
+async fn await_model_request(
+    seen: &mut mpsc::UnboundedReceiver<()>,
+    pending: &mut tokio::task::JoinHandle<anyhow::Result<Value>>,
+    instance: &Arc<Instance>,
+    what: &str,
+) {
+    tokio::select! {
+        seen = tokio::time::timeout(GUARD, seen.recv()) => {
+            seen
+                .unwrap_or_else(|_| panic!("{what} model request within {GUARD:?}"))
+                .unwrap_or_else(|| panic!("{what} model stub closed"));
+        }
+        outcome = &mut *pending => {
+            panic!("{what} request finished before reaching the model: {outcome:?}");
+        }
+        report = instance.exited() => {
+            panic!("{what} instance exited before reaching the model: {report:?}");
+        }
+    }
+}
+
 fn assert_runtime_closed(outcome: anyhow::Result<Value>, what: &str) {
     let error = outcome.expect_err(what);
     assert_eq!(
@@ -110,24 +135,18 @@ async fn crash_isolation(link: Link, crash: Crash) {
     }
 
     // 两个进行中请求：模型桩收到请求即确定它们停在 runtime 内。
-    let pending_a = spawn_call(
+    let mut pending_a = spawn_call(
         &instance_a,
         "workspace/generateText",
         a.generate_params("a"),
     );
-    let pending_b = spawn_call(
+    let mut pending_b = spawn_call(
         &instance_b,
         "workspace/generateText",
         b.generate_params("b"),
     );
-    tokio::time::timeout(GUARD, model_a.seen.recv())
-        .await
-        .expect("A model request")
-        .expect("A stub open");
-    tokio::time::timeout(GUARD, model_b.seen.recv())
-        .await
-        .expect("B model request")
-        .expect("B stub open");
+    await_model_request(&mut model_a.seen, &mut pending_a, &instance_a, "A").await;
+    await_model_request(&mut model_b.seen, &mut pending_b, &instance_b, "B").await;
 
     match crash {
         Crash::Panic => {
@@ -235,15 +254,16 @@ async fn embedded_panic_in_one_workspace_leaves_the_other_untouched() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn killed_child_in_one_workspace_leaves_the_other_untouched() {
-    let Some(binary) = cli_binary() else {
-        // 显式 skip（M2 报告统计 skip 次数）：CI 的 test 作业先构建 CLI workspace，这里在场。
-        eprintln!("skip: escode-cli-rust 二进制不在场（先构建 CLI workspace）");
-        return;
-    };
-    crash_isolation(Link::Child { binary }, Crash::Kill).await;
+    crash_isolation(
+        Link::Child {
+            binary: cli_binary(),
+        },
+        Crash::Kill,
+    )
+    .await;
 }
 
-fn cli_binary() -> Option<PathBuf> {
+fn cli_binary() -> PathBuf {
     let name = if cfg!(windows) {
         "escode-cli-rust.exe"
     } else {
@@ -252,7 +272,14 @@ fn cli_binary() -> Option<PathBuf> {
     let candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../escode-cli-rust/target/debug")
         .join(name);
-    candidate.is_file().then_some(candidate)
+    // 修复（H1.8）：缺失时显式失败，不再打印 skip 后被测试框架记为 ok（“绿但未测”）。
+    assert!(
+        candidate.is_file(),
+        "escode-cli-rust 二进制不在场：{}；先运行 \
+         `cargo build --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust`",
+        candidate.display()
+    );
+    candidate
 }
 
 /// 强杀子进程：Unix SIGKILL；Windows `taskkill /F`（TerminateProcess）。

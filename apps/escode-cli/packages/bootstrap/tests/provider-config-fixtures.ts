@@ -9,7 +9,6 @@ import {
 } from "@escode/provider";
 
 interface CommonProviderFixtureInput {
-  readonly label?: string | null;
   readonly apiFormat?: ProviderApiType | null;
   readonly baseURL?: string | null;
   readonly headers?: Readonly<Record<string, string>> | null;
@@ -23,7 +22,6 @@ export function createApiKeyProviderConfig(
   } = {},
 ): ProviderConfig {
   return new ProviderConfig({
-    label: input.label,
     access: new ApiKeyAccessConfig({ apiKey: input.apiKey }),
     api: createProviderApi(input),
     builtinModelIds: input.models,
@@ -40,7 +38,6 @@ export function createAccountProviderConfig(
   } = {},
 ): ProviderConfig {
   return new ProviderConfig({
-    label: input.label,
     access: new ZhipuAccountAccessConfig({
       family: input.family ?? "zai",
       mode: input.mode ?? "individual-coding-plan",

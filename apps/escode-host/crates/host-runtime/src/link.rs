@@ -23,6 +23,23 @@ pub enum Link {
     Child { binary: PathBuf },
 }
 
+/// Windows 子进程启动所必需的系统变量（平台底座，不是业务事实）。
+///
+/// `Command::env_clear` 在 Windows 上会一并清掉 `SystemRoot`；Win32 的 socket、
+/// 系统证书库等会在缺少它时失败（rust-lang/rust#114737，Go 的 `exec.Cmd` 也总是
+/// 补 `SYSTEMROOT`）。`RuntimeOptions.env` 显式给出的同名值优先。
+#[cfg(windows)]
+const WINDOWS_BASE_ENV: &[&str] = &[
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "PATH",
+];
+
 /// 一条已打开的 runtime 链路。读端由帧泵独占，写端可并发（读不阻塞写）。
 pub struct RuntimeLink {
     pub reader: RuntimeReader,
@@ -102,6 +119,16 @@ impl RuntimeLink {
                     .envs(options.env.iter().map(|(k, v)| (k.clone(), v.clone())))
                     .env("HOME", &options.home)
                     .env("USERPROFILE", &options.home);
+                #[cfg(windows)]
+                for name in WINDOWS_BASE_ENV {
+                    // 快照里显式给出的值优先（Windows 环境变量名大小写不敏感）。
+                    if options.env.keys().any(|key| key.eq_ignore_ascii_case(name)) {
+                        continue;
+                    }
+                    if let Some(value) = escode_cli_core_api::env::var_os(name) {
+                        command.env(*name, value);
+                    }
+                }
                 if let Some(data_dir) = &options.data_dir {
                     command.arg("--data-dir").arg(data_dir);
                 }

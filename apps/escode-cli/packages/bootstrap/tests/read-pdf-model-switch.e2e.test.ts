@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createNodeFileSystemAdapter } from "@escode/adapters/fs";
-import { AiSdkModelAdapter, AiSdkModelRegistry } from "@escode/adapters/model";
+import { AiSdkModelAdapter } from "@escode/adapters/model";
 import {
   createInMemorySessionEventStore,
   createNodeToolArtifactStore,
@@ -23,6 +23,16 @@ import {
   type RuntimeModelConfig,
 } from "@escode/contracts";
 import { AgentRuntime } from "@escode/core";
+import {
+  createRegistryModelConfig,
+  createRegistryProviderConfig,
+  ModelConfig,
+  ModelOptionSpecsConfig,
+  ModelPropertiesConfig,
+  parseProviderConfig,
+  ProviderRegistry,
+  type RegistryModelConfig,
+} from "@escode/provider";
 
 import { createSessionFacade } from "../src/app/session-facade.js";
 
@@ -46,13 +56,16 @@ describe("Read PDF model capability switching E2E", () => {
     const sessionId = createSessionId("read-pdf-model-switch-e2e");
     const sessionStore = createSqliteSessionStore({ dbPath: join(root, "session.sqlite") });
     const capture = await startChatCaptureServer(pdfPath);
+    const modelResources = createModelSwitchResources(capture.baseURL);
     const runtime = new AgentRuntime(
       sessionId,
       {
         mode: "yolo",
-        modelInputMediaCapabilities: { supportsImages: true, supportsPdf: true },
-        modelProviderOptions: { apiFormat: "openai-chat-completions" },
-        modelRef: PDF_CAPABLE_MODEL,
+        modelSelection: {
+          providerId: String(PDF_CAPABLE_MODEL.providerId),
+          modelId: String(PDF_CAPABLE_MODEL.modelId),
+          options: { reasoningLevel: "disabled" },
+        },
         modelStreaming: "off",
         workingDirectory: root,
       },
@@ -64,7 +77,7 @@ describe("Read PDF model capability switching E2E", () => {
         }),
         eventStore: createInMemorySessionEventStore(),
         fileSystemPort: createNodeFileSystemAdapter(),
-        modelAdapter: createModelSwitchChatAdapter(capture.baseURL),
+        modelFactory: modelResources.modelFactory,
         pdfDocumentPort,
         sessionStore,
       },
@@ -75,6 +88,7 @@ describe("Read PDF model capability switching E2E", () => {
       runtime,
       sessionId,
       sessionStore,
+      providerRegistry: modelResources.providerRegistry,
     });
 
     try {
@@ -119,6 +133,7 @@ function createModelSwitcher(input: {
   runtime: AgentRuntime;
   sessionId: ReturnType<typeof createSessionId>;
   sessionStore: ReturnType<typeof createSqliteSessionStore>;
+  providerRegistry: ProviderRegistry;
 }) {
   const modelConfig: RuntimeModelConfig = {
     main: createModelTarget(PDF_CAPABLE_MODEL, input.baseURL),
@@ -151,6 +166,7 @@ function createModelSwitcher(input: {
     prepareResume: async () => {},
     prepareUserExecutionBoundary: async () => {},
     projectID: createProjectId("read-pdf-model-switch-e2e"),
+    providerRegistry: input.providerRegistry,
     resolveUiLocale: () => "en-US",
     runtime: input.runtime,
     sessionId: input.sessionId,
@@ -176,31 +192,74 @@ function formatModel(model: ModelRef): string {
   return `${model.providerId}/${model.modelId}`;
 }
 
-function createModelSwitchChatAdapter(baseURL: string): AiSdkModelAdapter {
+function createModelSwitchResources(baseURL: string) {
   const providerId = String(PROVIDER_ID);
-  return new AiSdkModelAdapter({
-    registry: new AiSdkModelRegistry({
-      env: {},
-      inputMediaCapabilities: {
-        [`${providerId}/${PDF_CAPABLE_MODEL.modelId}`]: {
-          supportsImages: true,
-          supportsPdf: true,
-        },
-        [`${providerId}/${PDF_INCAPABLE_MODEL.modelId}`]: {
-          supportsImages: true,
-          supportsPdf: false,
-        },
-      },
-      providers: {
-        [providerId]: {
-          apiKey: "pdf-model-switch-e2e-key",
-          baseURL: `${baseURL}/v1`,
-          kind: "openai-compatible",
-          providerOptions: { apiFormat: "openai-chat-completions" },
-        },
-      },
+  const provider = createRegistryProviderConfig(
+    parseProviderConfig({
+      group: "standard-personal",
+      access: { type: "api-key", apiKey: "pdf-model-switch-e2e-key" },
+      api: { type: "openai-chat-completions", baseUrl: `${baseURL}/v1` },
     }),
-    retry: { maxAttempts: 1 },
+  );
+  if (!provider.ok) throw new Error("invalid read-pdf-model-switch provider fixture");
+  const models = new Map<string, RegistryModelConfig>();
+  for (const model of [PDF_CAPABLE_MODEL, PDF_INCAPABLE_MODEL]) {
+    const config = createRegistryModelConfig(
+      createPdfModelConfig(model.modelId === PDF_CAPABLE_MODEL.modelId),
+    );
+    if (!config.ok) throw new Error("invalid read-pdf-model-switch model fixture");
+    models.set(String(model.modelId), config.config);
+  }
+  const providerRegistry = new ProviderRegistry([
+    {
+      providerId: PROVIDER_ID,
+      providerName: providerId,
+      config: provider.config,
+      models: [...models].map(([modelId, config]) => ({
+        modelId: createModelId(modelId),
+        config,
+      })),
+    },
+  ]);
+  const adapter = new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } });
+  const modelFactory = (target: { selection: { modelId: string } }) => {
+    const modelConfig = models.get(target.selection.modelId);
+    if (!modelConfig)
+      throw new Error(`unknown read-pdf-model-switch model: ${target.selection.modelId}`);
+    return adapter.createModel({
+      providerId,
+      modelId: target.selection.modelId,
+      providerConfig: provider.config,
+      modelConfig,
+      options: { reasoningLevel: "disabled", maxOutputTokens: 4096 },
+    });
+  };
+  return { modelFactory, providerRegistry };
+}
+
+function createPdfModelConfig(supportsPdf: boolean): ModelConfig {
+  return new ModelConfig({
+    enabled: true,
+    properties: new ModelPropertiesConfig({
+      contextWindow: 200_000,
+      requiresMfjsToolSchema: false,
+      inputFormat: {
+        supportsText: true,
+        supportsImage: true,
+        supportsVideo: false,
+        supportsAudio: false,
+        supportsPdf,
+      },
+      outputFormat: { supportsText: true },
+      supportsToolCall: true,
+      supportsJsonSchemaOutput: false,
+      supportsNativeWebSearch: false,
+      supportsMidConversationSystem: false,
+    }),
+    optionSpecs: new ModelOptionSpecsConfig({
+      reasoningLevel: { values: ["disabled"], map: "{}" },
+      maxOutputTokens: { max: 4096, map: "{}" },
+    }),
   });
 }
 

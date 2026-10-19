@@ -14,6 +14,7 @@ const forkIsolatedTests = [
   // 真实 spawn Rust Host（apps/escode-host）并用 MessagePort/WebSocket 桥接：
   // threads worker 的虚拟 stdio 与 MessagePort 语义会破坏握手，必须进程隔离。
   "packages/desktop/test/rustHostRpc.test.ts",
+  "packages/desktop/test/rustHostRuntimeCrash.test.ts",
   "packages/desktop/test/rustHostBridge.test.ts",
   "packages/desktop/test/windowsInstallerCompile.test.ts",
   "packages/desktop/test/cdnPreloadScript.test.ts",

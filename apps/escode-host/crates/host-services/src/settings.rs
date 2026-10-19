@@ -26,13 +26,76 @@ pub fn settings_path(home: &Path) -> PathBuf {
     home.join(".escode").join("v2").join("setting.json")
 }
 
-/// 读取设置（对象形式）。坏文件按 TS 语义隔离后回退空对象；缺失返回空对象。
+/// TS `appSettingsSchema.parse({})` 的默认对象（zod 默认值；可选字段不出现在结果里）。
+///
+/// 修复：Rust 过去缺文件/坏文件返回 `{}`，TS 返回完整默认对象；切唯一 Host 后同一份设置会
+/// 出现两种视图（例如 `locale`/`localePreference`/`terminalInheritSystemProfile` 缺失）。
+/// `rustHostRpc.test.ts` 用真实客户端把本函数的结果与 TS schema 的 `parse({})` 做全等断言。
+pub fn default_settings() -> Value {
+    json!({
+        "recentProjects": [],
+        "locale": "zh-CN",
+        "localePreference": "system",
+        "terminalInheritSystemProfile": true,
+        "embeddedBrowserAllowInsecureCertificates": false,
+        "embeddedBrowserViewportPreference": {
+            "mode": "normal",
+            "viewport": {"width": 393, "height": 852},
+            "zoom": "fit",
+        },
+        "computerUseComposerEntryHidden": true,
+        "taskAutoArchiveEnabled": false,
+        "taskAutoArchiveOlderThanDays": 7,
+        "closeToTrayOnWindows": true,
+        "closeToTrayOnWindowsMigrationInitialized": true,
+        "closeToTrayLinuxMigrationInitialized": false,
+        "keepAwakeWhileRunning": false,
+        "desktopChromiumHardwareAccelerationEnabled": true,
+        "messageStreamShowReasoning": true,
+        "messageStreamShowReasoningMigrationInitialized": true,
+        "messageStreamShowTodos": false,
+        "toolGroupingExploreEnabled": true,
+        "toolGroupingTerminalEnabled": true,
+        "toolGroupingChangesEnabled": false,
+        "escodeInteractionBehavior": "queue",
+        "askUserQuestionAutoResolutionEnabled": true,
+        "modelIoFullRetentionEnabled": false,
+        "enabledBuiltinAgentCliProviders": ["glm"],
+        "providerFamilyConnectionSelections": {},
+        "providerFamilyDomainMigrated": false,
+        "nativeSearchEnhancementsEnabled": true,
+        "memoryEnabled": false,
+        "lastWorkspaceSession": [],
+        "lastActiveTabIndex": 0,
+        "receivePreviewUpdates": false,
+        "autoDownloadAndInstallUpdates": false,
+        "skippedElectronUpdateVersions": {},
+    })
+}
+
+/// 文件值覆盖默认值（TS `appSettingsSchema` 对缺省字段补默认；文件里的显式值优先）。
+fn with_defaults(settings: Value) -> Value {
+    let Value::Object(mut merged) = default_settings() else {
+        unreachable!("default settings is an object")
+    };
+    if let Value::Object(object) = settings {
+        for (key, value) in object {
+            merged.insert(key, value);
+        }
+    }
+    Value::Object(merged)
+}
+
+/// 读取设置（对象形式）。坏文件按 TS 语义隔离后回退默认值；缺失返回默认值；
+/// 合法对象按 TS schema 的缺省字段语义补齐默认值。
 pub async fn read(home: &Path) -> Result<Value> {
     let path = settings_path(home);
     let mut raw = match tokio::fs::read_to_string(&path).await {
         Ok(raw) => raw,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(json!({})),
-        Err(_) => return Ok(json!({})),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(default_settings());
+        }
+        Err(_) => return Ok(default_settings()),
     };
     let mut parsed = serde_json::from_str::<Value>(&raw);
     let mut attempt = 0;
@@ -46,14 +109,14 @@ pub async fn read(home: &Path) -> Result<Value> {
         parsed = serde_json::from_str::<Value>(&raw);
     }
     match parsed {
-        Ok(Value::Object(object)) => Ok(Value::Object(object)),
+        Ok(Value::Object(object)) => Ok(with_defaults(Value::Object(object))),
         Ok(_) => {
             // 合法 JSON 但不是对象：按 TS 的 schema 校验失败处理（不隔离，回退默认值）。
-            Ok(json!({}))
+            Ok(default_settings())
         }
         Err(_) => {
             quarantine(&path).await;
-            Ok(json!({}))
+            Ok(default_settings())
         }
     }
 }
@@ -127,9 +190,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn missing_file_reads_as_empty_object() {
+    async fn missing_file_reads_the_typescript_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(read(dir.path()).await.unwrap(), json!({}));
+        let settings = read(dir.path()).await.unwrap();
+        assert_eq!(settings, default_settings());
+        assert_eq!(settings["locale"], "zh-CN");
+        assert_eq!(settings["localePreference"], "system");
+        assert_eq!(settings["terminalInheritSystemProfile"], true);
+        assert_eq!(settings["recentProjects"], json!([]));
     }
 
     #[tokio::test]
@@ -167,7 +235,7 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, "{ this is not json").unwrap();
         let settings = read(dir.path()).await.unwrap();
-        assert_eq!(settings, json!({}));
+        assert_eq!(settings, default_settings());
         assert!(!path.exists(), "坏文件被移走");
         let quarantined: Vec<_> = std::fs::read_dir(path.parent().unwrap())
             .unwrap()
@@ -184,7 +252,7 @@ mod tests {
         let path = settings_path(dir.path());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, "[1,2,3]").unwrap();
-        assert_eq!(read(dir.path()).await.unwrap(), json!({}));
+        assert_eq!(read(dir.path()).await.unwrap(), default_settings());
         assert!(path.exists(), "合法 JSON 不隔离（TS 同为 schema 失败回退）");
     }
 
@@ -205,5 +273,8 @@ mod tests {
         let settings = read(dir.path()).await.unwrap();
         assert_eq!(settings["appearance"]["theme"], "system");
         assert_eq!(settings["closeToTrayOnWindowsMigrationInitialized"], true);
+        assert_eq!(settings["language"], "en-US", "文件里的值优先");
+        assert_eq!(settings["locale"], "zh-CN", "缺省字段补 TS 默认值");
+        assert_eq!(settings["terminalInheritSystemProfile"], true);
     }
 }

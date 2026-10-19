@@ -13,6 +13,10 @@
 //! 错误（Renderer 见显式缺口，不挂起）；未知事件不回响应（TS `ChannelServer` 同：事件没有错误帧）。
 //! channel 名来自 TS `ServiceChannels`（`packages/shared/src/channels.ts`）；方法名在请求头第 4 项。
 
+use std::any::Any;
+use std::panic::AssertUnwindSafe;
+
+use futures_util::FutureExt;
 use serde_json::json;
 
 use crate::wire::{Reader, Wire, Writer};
@@ -188,6 +192,14 @@ pub use crate::channel::*;
 /// 一条请求的响应 future（`'static`：可直接交给独立任务）。
 pub type Responding = std::pin::Pin<Box<dyn std::future::Future<Output = Vec<u8>> + Send>>;
 
+fn panic_message(payload: &(dyn Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "unknown panic payload".to_owned())
+}
+
 /// **同步**登记一条请求：在调用线程查 channel/method 并调用处理函数（处理函数的同步前缀此刻执行），
 /// 返回产出响应 body 的 future（其余类型产出空 body）。
 ///
@@ -201,11 +213,39 @@ pub fn start(channels: &Channels, request: &Request) -> Responding {
         REQUEST_PROMISE => match channels.channel(&request.channel) {
             Some(channel) => match channel.handler(&request.method) {
                 Some(handler) => {
-                    let pending = handler(request.arg.clone());
+                    // 修复：处理函数的同步前缀或异步体 panic 时，原实现会让独立任务直接展开，
+                    // 请求既无成功帧也无错误帧，客户端只能等到自己的超时。两段都转成 `Fatal`
+                    // 错误帧，保证每条 Promise 请求都有应答（docs/specs/rust-u2-host-resilience.md §5.1）。
+                    let label = format!("`{}.{}`", request.channel, request.method);
+                    let pending = match std::panic::catch_unwind(AssertUnwindSafe(|| {
+                        handler(request.arg.clone())
+                    })) {
+                        Ok(pending) => pending,
+                        Err(payload) => {
+                            return ready(error_frame(
+                                id,
+                                "Fatal",
+                                &format!(
+                                    "Host handler {label} panicked: {}",
+                                    panic_message(payload.as_ref())
+                                ),
+                            ));
+                        }
+                    };
                     Box::pin(async move {
-                        match pending.await {
-                            Ok(data) => success_frame(id, &data),
-                            Err(error) => rpc_error_frame(id, &error),
+                        match AssertUnwindSafe(pending).catch_unwind().await {
+                            Ok(Ok(data)) => success_frame(id, &data),
+                            Ok(Err(error)) => rpc_error_frame(id, &error),
+                            Err(payload) => rpc_error_frame(
+                                id,
+                                &RpcError::new(
+                                    "Fatal",
+                                    format!(
+                                        "Host handler {label} panicked: {}",
+                                        panic_message(payload.as_ref())
+                                    ),
+                                ),
+                            ),
                         }
                     })
                 }
@@ -244,3 +284,7 @@ pub fn start(channels: &Channels, request: &Request) -> Responding {
 pub async fn respond(channels: &Channels, request: &Request) -> Vec<u8> {
     start(channels, request).await
 }
+
+#[cfg(test)]
+#[path = "session_tests.rs"]
+mod tests;

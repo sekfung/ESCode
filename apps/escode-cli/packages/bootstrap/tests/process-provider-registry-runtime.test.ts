@@ -1,7 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   ProviderConfig,
   ProviderConfigMap,
@@ -87,7 +86,9 @@ describe("process provider registry runtime", () => {
       expect(JSON.parse(await readFile(bundled, "utf8")).revision).toBe(builtin.revision - 1);
       const worker = await startProcessProviderRegistryRuntime(env);
       try {
-        expect(worker.snapshot.config.escodeBuiltinRevision).toBe(next.config.escodeBuiltinRevision);
+        expect(worker.snapshot.config.escodeBuiltinRevision).toBe(
+          next.config.escodeBuiltinRevision,
+        );
         expect(request).toHaveBeenCalledTimes(2);
       } finally {
         worker.dispose();
@@ -97,19 +98,54 @@ describe("process provider registry runtime", () => {
       runtime.dispose();
     }
   });
-  it("真实 Built-in 下完整状态跨协议往返；仅切 current 即更新 Worker 的有效选择", async () => {
+  it("受控 Built-in 下完整 Account 状态跨协议往返；仅切 current 即更新 Worker 的有效选择", async () => {
     const root = await temporaryDirectory();
-    const runtime = await startProcessProviderRegistryRuntime({
-      [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: fileURLToPath(
-        new URL("../../../../../config/provider/escode-builtin.json", import.meta.url),
+    const escodeBuiltinFilePath = join(root, "escode-builtin.json");
+    // 产品下线内置 Account Provider 后，真实 Built-in 不再发布账号成员；
+    // 账号切换语义仍由 Registry/Worker 保留，这里用受控 Release 固定账号事实。
+    await writeFile(
+      escodeBuiltinFilePath,
+      JSON.stringify(
+        escodeBuiltinRelease({
+          providers: {
+            "account:zai-individual-coding-plan": {
+              group: "zai-family",
+              access: {
+                type: "zhipu-account",
+                accountType: "zai",
+                mode: "individual-coding-plan",
+                entitled: true,
+              },
+              api: { type: "anthropic-messages", baseUrl: "https://account.example.com" },
+              builtinModelIds: ["GLM-5.2"],
+            },
+            "account:zai-team-coding-plan": {
+              group: "zai-family",
+              access: {
+                type: "zhipu-account",
+                accountType: "zai",
+                mode: "team-coding-plan",
+                entitled: true,
+              },
+              api: { type: "anthropic-messages", baseUrl: "https://account.example.com" },
+              builtinModelIds: ["GLM-5.2"],
+            },
+          },
+          templates: {},
+          models: [completeESCodeBuiltinModelRule()],
+        }),
       ),
+      "utf8",
+    );
+    const runtime = await startProcessProviderRegistryRuntime({
+      [ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: escodeBuiltinFilePath,
       [ESCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]: join(root, "personal.json"),
     });
-    const personal = "account:bigmodel-individual-coding-plan";
-    const team = "account:bigmodel-team-coding-plan";
+    const personal = "account:zai-individual-coding-plan";
+    const team = "account:zai-team-coding-plan";
     const original = Object.freeze({
       providerId: personal,
-      modelId: "GLM-5.3",
+      modelId: "GLM-5.2",
       options: Object.freeze({ reasoningLevel: "high" }),
     });
     const facade = createNodeModelSelectionFacade(runtime.runtime.registryService);
@@ -386,8 +422,6 @@ describe("process provider registry runtime", () => {
     started?.dispose();
   });
 
-
-
   it("只有显式开启 Standalone 导入时才迁移旧 CLI 用户 Provider", async () => {
     const root = await temporaryDirectory();
     const escodeBuiltinFilePath = join(root, "escode-builtin.json");
@@ -537,7 +571,7 @@ function completeESCodeBuiltinModelRule() {
         supportsMidConversationSystem: false,
       },
       optionSpecs: {
-        reasoningLevel: { values: ["disabled"], map: "{}" },
+        reasoningLevel: { values: ["disabled", "high"], map: "{}" },
         maxOutputTokens: {
           max: 32_000,
           map: '{"max_completion_tokens":maxOutputTokens}',

@@ -75,7 +75,8 @@ describe("project MCP config", () => {
       expect(statuses.project?.error).toBeUndefined();
 
       await app.submitPrompt("hello");
-      expect(connectedServerSets).toEqual([["project", "node_repl"]]);
+      // usb 是当前默认启用的官方插件，其 manifest 自声明 MCP server，启动时会一并自动连接。
+      expect(connectedServerSets).toEqual([["plugin:usb:usb", "project", "node_repl"]]);
 
       await app.close();
     } finally {
@@ -130,7 +131,7 @@ describe("project MCP config", () => {
 
       await app.submitPrompt("hello");
       expect(connectedServerSets).toEqual([
-        ["plugin:ios-dev:ios-simulator", "node_repl"],
+        ["plugin:ios-dev:ios-simulator", "plugin:usb:usb", "node_repl"],
       ]);
       expect(connectedConfigs[0]?.["plugin:ios-dev:ios-simulator"]).toMatchObject({
         args: [join(pluginRoot, "server.js")],
@@ -255,7 +256,7 @@ describe("project MCP config", () => {
 
       await app.submitPrompt("hello");
       expect(connectedServerSets).toEqual([
-        ["project-only", "shared", "node_repl"],
+        ["plugin:usb:usb", "project-only", "shared", "node_repl"],
       ]);
       expect(connectedConfigs[0]?.["project-only"]).toMatchObject({
         command: "project-only-server",
@@ -332,7 +333,7 @@ describe("project MCP config", () => {
       });
 
       await app.submitPrompt("hello");
-      expect(connectedServerSets).toEqual([["other", "node_repl"]]);
+      expect(connectedServerSets).toEqual([["plugin:usb:usb", "other", "node_repl"]]);
       expect(connectedConfigs[0]?.["escode-cua"]).toBeUndefined();
       expect(connectedConfigs[0]?.other).toMatchObject({
         type: "stdio",
@@ -417,7 +418,7 @@ describe("project MCP config", () => {
       expect(statuses.other?.status).toBe("disconnected");
 
       await app.submitPrompt("hello");
-      expect(connectedServerSets).toEqual([["other", "node_repl"]]);
+      expect(connectedServerSets).toEqual([["plugin:usb:usb", "other", "node_repl"]]);
       expect(connectedConfigs[0]?.["escode-cua"]).toBeUndefined();
       expect(connectedConfigs[0]?.other).toMatchObject({
         type: "stdio",
@@ -586,7 +587,8 @@ describe("project MCP config", () => {
       else process.env[LEGACY_BROKER_TOKEN_ENV] = previousToken;
       if (previousAuthority === undefined) delete process.env[ESCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY];
       else process.env[ESCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY] = previousAuthority;
-      if (previousRefreshMarker === undefined) delete process.env["ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER"];
+      if (previousRefreshMarker === undefined)
+        delete process.env["ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER"];
       else process.env["ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER"] = previousRefreshMarker;
       if (previousUnavailable === undefined) delete process.env[ESCODE_CUA_BROKER_UNAVAILABLE_ENV];
       else process.env[ESCODE_CUA_BROKER_UNAVAILABLE_ENV] = previousUnavailable;

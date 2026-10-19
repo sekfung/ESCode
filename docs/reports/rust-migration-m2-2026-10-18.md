@@ -176,15 +176,111 @@ $ git status --short | wc -l
 
 ## 9. 未完成项与原因
 
-1. **Windows / macOS**：child 链路的 `taskkill /F` 分支、`RustHostStartError` 在 Windows 上的 `errno`（`ENOENT` 以外的取值）均未在本机执行（UNVERIFIED：只有 Linux 环境）。CI 的 `rust-runtime-ci.yml` test 作业三平台跑 `pnpm test:escode-host`（`:112`，含 `crash_isolation.rs`）；desktop 的 vitest 由 `unit-tests.yml` 运行，该作业是否构建 `escode-host` 本轮未核实——未构建时依赖真实 Host 的用例会被 `skipIf` 跳过（UNVERIFIED）。
+1. **Windows / macOS（2026-10-19 更新）**：child 链路的 `taskkill /F` 分支已在官方 `rust-runtime-ci` run `39164847925` 的 Windows `test (windows-latest, 1/3)` 中执行并通过（`killed_child... ok`）；macOS 同一 run 的 host 分片也 passed。`unit-tests.yml` 现在构建 `escode-host` 与 `escode-cli-rust`，依赖真实 Host 的 desktop 用例不再被 `skipIf` 跳过。`RustHostStartError` 的 Windows `errno` 分支已由新增的 `rust-host-windows` job（run `39191731711`，job `117865822961`）覆盖：6 passed / 5 skipped（跳过的是需要真实 Host 二进制的重启/停止用例），四类启动失败含 `binary missing` 均实际执行。
 2. **桌面窗口 Renderer 的“正在重启 / 已放弃”页面**：依赖窗口自身 host 接线（H2.3，本轮不做）。本轮 Renderer 可见面只有手机端（`bridge-degraded` / `workspace-bridge-error{desktop-disconnected}`），未新增文案，因此 `DESIGN.md` / i18n 无改动。
 3. **手机端 replayable 恢复的端到端**：`handleHostAttachmentLost` → `bridge-degraded` 有单测，手机端重新 `workspace-bridge-open` 后接到重启后 Host 的全链路没有 E2E（H5.1 的 replayable E2E 仍缺）。UNVERIFIED。
 4. **host-rpc 处理函数 panic**：独立任务里的处理函数 panic 时该请求没有响应（客户端等到自己的超时）。属 Host 级故障隔离的相邻缺口，未在 M2 范围内修改，记为后续项。
 5. **Main 退出时未调用 `rustHostManager.stop()`**：`index.ts` 没有在应用退出路径收口 Rust Host（Host 随 stdin EOF 自行退出）。不影响 M2 判定，记为后续项。
 6. `Instance::wait_ready` 仍以 20 ms 轮询等待 ready（既有实现，未改）。
 
+> 2026-10-19 补记：第 4–6 项已修复（handler panic 回 `Fatal`、Main 显式 `rustHostManager.stop()`、`wait_ready` 改 watch 通知），见 §12；Windows `errno` 由 `rust-host-windows` job 覆盖。
+
 ## 10. 其它说明
 
 - `apps/escode-cli-rust/Cargo.toml` 在 T2 提交时同时含他人的 zip 改动：用 `git hash-object -w` + `git update-index --cacheinfo` 只暂存 `[features]` 段，zip 行留在工作区，随后由并发工作流在 `6e130688` 提交。
 - `pnpm typecheck` 的项目列表不含 `packages/desktop/tsconfig.main.json`（Main 代码）。对它单独跑 `tsc -p … --noEmit`：M2 改动前后均为 91 个错误，全部是既存（`autoUpdater.ts`、`browserGuestManager.ts`、`index.ts` 的 `MessageChannelMain` 全局名等），M2 文件无新增错误。
 - 被测二进制：`escode-cli-rust` 于 05:37:01 由 `fa109b70` 构建；`escode-host` 由 `cargo test`/`check` 在同一 HEAD 构建；`test:escode-cli-rust` 开跑时 HEAD 为 `fa109b707dc264b82a9bf17488b643d1e1291ef7`（与被测 CLI 二进制同一提交）。
+
+## 11. 复核补正（2026-10-19，实现侧）
+
+### 11.1 Windows crash_isolation 的真实根因与修复
+
+dev `380331a9` 的 `rust-runtime-ci` 首次三平台运行中，`test (windows-latest, 1/3)` 在 `crash_isolation` 的 child 用例失败：`A model request: Elapsed(())`（60 s 守卫超时，掩盖了真实错误）。
+
+根因：`Link::Child` 用 `Command::env_clear` 隔离实例环境；Windows 上这会清掉 `SystemRoot`，而 Win32 的 socket / 系统证书库在缺少它时不可用（rust-lang/rust#114737）。child runtime 已报到 ready（存储与 stdio 正常），随后第一次模型请求无法建立 HTTP 连接，模型桩收不到请求。
+
+修复：
+
+- `link.rs` 在 Windows 上补回平台底座变量 `SystemRoot`、`SystemDrive`、`windir`、`ComSpec`、`PATHEXT`、`TEMP`、`TMP`、`PATH`；`RuntimeOptions.env` 的显式同名值优先。业务事实仍只来自 Main 的 `runtimeEnv`。
+- `crash_isolation.rs` 的模型等待改为同时观察在飞请求结果与实例退出，后续同类失败会直接打印真实 `RuntimeClosed` / `ExitReport`，不再退化成 60 s 超时。
+
+证据：
+
+- 修复前：dev `380331a9` 的 `test (windows-latest, 1/3)` 失败（`A model request: Elapsed(())`）。
+- 修复后定向运行（`host-crash-windows-check`，run `39163244358`）：`crash_isolation` 2 passed，child kill 用例实际执行（非 skip）。
+- 修复后官方 `rust-runtime-ci`（run `39164847925`，三平台全量）：整条 run **success**。Windows `test (windows-latest, 1/3)`（含 `pnpm test:escode-host`）passed，日志中 `embedded_panic... ok` / `killed_child... ok`；Ubuntu 与 macOS 三个 shard、Windows 其余 shard 全部 passed。Windows shard 2 首次有一例与本改动无关的 `Node and Rust manage scheduled tasks the same way` 超时，重跑后 passed（flaky）。
+
+### 11.2 RPC 层真实客户端错误形状
+
+新增 `packages/desktop/test/rustHostRuntimeCrash.test.ts`：真实 `@escode/client` → host-rpc → child runtime。SIGSTOP 使转发请求停在在飞表，SIGKILL 后断言：
+
+- `error instanceof Error`；
+- `error.name === "Error"`（不是 `Fatal`）；
+- `error.message === "ESCode agent transport closed: stdout_closed"`；
+- `String(error)` 逐字一致；
+- 同一崩溃发布 `unavailable` 生命周期事件。
+
+该用例与既有 `rustHostRpc.test.ts` 在 `unit-tests` 的 affected job 中实际执行并 passed（run `39164040559`，`rustHostRuntimeCrash.test.ts` 454 ms）。`unit-tests.yml` 现在构建 `escode-host` 与 `escode-cli-rust` 二进制，依赖真实 Host 的 desktop 用例不再被 `skipIf` 静默跳过。
+
+### 11.3 T3 独立构建
+
+在独立 worktree（`8c8b67d6`）离线安装依赖后：
+
+- `pnpm typecheck` exit 0；
+- `rustHostResilience.test.ts` 7 passed / 1 skipped；
+- `webRemoteControlSharedHostAttachments.test.ts` 5 passed；
+- `webRemoteControlManagerExternalRelay.test.ts` 仅因该 worktree 未下载 Electron 二进制而在 import 阶段失败，与 T3 代码无关。
+
+### 11.4 仍未完成 / 不在本轮范围
+
+- **H2.1 / H2.2 整体**：Node Host 分支与 `ESCODE_RUST_HOST` 开关仍在，整体结论仍为 FAIL，等 M5 删除。
+- **H2.7**：只覆盖 Host 内的实例隔离；窗口自身 host 仍是 Electron utility process（H2.3），手机重连到重启后 Host 的全链路仍无 E2E。
+- **H1.3 / H1.4**：本轮未改语义；最终结论由独立复核人填写。
+- **Windows 启动失败分类**：`RustHostStartError` 的 `ENOENT` 以外 errno 分支仍未在 Windows 执行；`rustHostResilience.test.ts` 只在 `unit-tests`（ubuntu）运行。本轮只验证了 Windows 上的 child 运行时链路与 `taskkill /F` 分支。
+- ~~`unit-tests` 的 Electron 依赖套件（`webRemoteControlTransport`、`desktopNetworkTelemetry` 等 10 个 suite）与 bootstrap suite 的失败~~：2026-10-19 已修复，见 §13。
+
+## 12. 未完成项复核（2026-10-19）
+
+下表按当前代码逐条复核 §9 与验收报告列出的 M2 剩余项；计数与路径为本日现场结果。
+
+| 项               | 现状                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 归属        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| H2.1 / H2.2 整体 | `ESCODE_RUST_HOST` 开关与 Node Host 回退仍在（`rustHostBridge.ts:81`、`webRemoteControlSharedHostAttachments.ts:168`、`index.ts:836`）；H2.2 只完成启动失败分类与显式报错前半。                                                                                                                                                                                                                                                                                          | M5 删除     |
+| H2.3 窗口 host   | `desktopHostProcess.ts:36` 仍 import `utilityProcess`，`:756-770` 注册 `broadcastHub` / `taskRealtimeBus` / `registerHostProcess`；Rust Host 只服务 Web 远控的本地 workspace attachment。                                                                                                                                                                                                                                                                                | H2.3 / M5   |
+| H2.6 Pending     | 46 channels / 539 members：334 Implemented、205 Pending；13 个 channel 全 Pending：`bots` 32、`plugin-ui-bridge` 12、`off-peak-task` 11、`conversation-share` 9、`plugin-sync` 7、`plugin-ui-app-tools` 4、`cloud-content` 3、`cua-pip-session` 3、`hooks` 3、`cua-permission` 2、`marketing-touch` 2、`plugin-ui-sampling` 2、`provider-provisioning-target` 1。`hooks` / `bots` / `off-peak` / `plugin-sync` 有明确 Renderer 调用点，切默认后会直接 `NotImplemented`。 | H2.6 / M5   |
+| H2.7 作用域      | Host 内实例崩溃隔离已完成（`crash_isolation.rs` + Windows run `39164847925`）；窗口自身 Host（H2.3）与手机重连到重启后 Host 的 E2E 仍缺。                                                                                                                                                                                                                                                                                                                                | H2.3 / H5.1 |
+| H3.4 / H3.5      | `apps/escode-host` 内没有 `workspace-hook-trust-v1`、`paste-attachments`、`cli/workflows`、`session-bindings` 的读取点；没有 `import_history` / `legacy_import`；默认 embedded Host 直接 `Store::open`，不做 TS 会话库导入。                                                                                                                                                                                                                                             | H3 / M5     |
+| H5.1 / H5.3      | `packages/desktop/test/e2e` 内没有 `web-remote-replayable` 用例；`host-control` 无 `CronRun` / `OffPeakRun`；`desktopWindowLifecycle.ts:270` 在窗口关闭时销毁 host，窗口全关后调度不可用。                                                                                                                                                                                                                                                                               | H5 / M5     |
+| H2.4 / H2.5      | 无图形会话、未构建安装包，进程树与安装包验收仍 UNVERIFIED（环境受限）。                                                                                                                                                                                                                                                                                                                                                                                                  | 验收环境    |
+| Windows 启动失败 | `taskkill /F` 已验证；新增 `rust-host-windows` job（`unit-tests.yml`）在 Windows 跑 `rustHostResilience.test.ts` 的四类启动失败，覆盖 `ENOENT` 以外的 errno；job `117865822961` passed（6 run / 5 skipped，四类启动失败均执行）。                                                                                                                                                                                                                                        | 已修        |
+| H1.8 / 测试缺口  | 已修：CLI 二进制缺失时 `instances.rs` / `crash_isolation.rs` 直接失败并提示构建（不再 skip 记 ok）；`instances.rs` 的 Windows 路径补 `.exe`；`test:escode-host` 先构建 CLI。                                                                                                                                                                                                                                                                                             | 已修        |
+| settings 默认值  | 已修：缺文件/坏文件/合法非对象回退 TS `appSettingsSchema.parse({})` 默认对象；合法文件按缺省字段补齐（文件显式值优先）；`rustHostRpc.test.ts` 用 TS schema 做全等 oracle。                                                                                                                                                                                                                                                                                               | 已修        |
+| tasks-index      | 已修：`busy_timeout` 25ms → 5000ms（与 TS 长连接 `TaskIndexRepo` 同），补 `PRAGMA` 单测；spec `rust-u2-tasks-index.md` 同步。                                                                                                                                                                                                                                                                                                                                            | 已修        |
+| M2 §9 技术债     | 已修：handler 同步/异步 panic 由 `session::start` 捕获并回 `Fatal` 错误帧（`session_tests.rs` 3 例）；`prepareAppQuit` 显式 `rustHostManager.stop()`；`wait_ready` 改为 watch 通知（`instance_ready.rs`，关闭立即唤醒）。                                                                                                                                                                                                                                                | 已修        |
+
+Windows 复核：`rust-runtime-ci` windows-only run `39191734774` 的 `checks`、三个 `test` shard 与 `bench` 全部 success。日志确认 `session::tests` 的同步/异步 panic、`settings::tests::missing_file_reads_the_typescript_defaults`、`open_uses_the_long_lived_repo_busy_timeout`、`wait_ready_after_close_returns_false_immediately`、`child_link_serves_the_same_ready_frame`（`.exe` 路径）与 `killed_child...` 均在 Windows 执行并通过。
+
+证据边界：H1.3 / H1.4 的最终结论仍由独立复核人填写；本表只记录实现侧事实，不替验收报告改判。
+
+## 13. unit-tests 双 job 收口（2026-10-19）
+
+`unit-tests` run `39203387275` 的三个 job 全部 success（affected / bootstrap / rust-host-windows）。
+
+**affected**
+
+- Electron 二进制：pnpm 的 side-effects cache 在历史 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 安装后不会重跑 postinstall；改为直接执行 `node node_modules/electron/install.js` 并 `require('electron')` 验证。
+- `browserDataManager` 的无 Chrome 用例显式传空 `chromeExecutablePath`，避免 CI runner 的 `CHROME_PATH`/`CHROME_EXECUTABLE` 干扰。
+- 全量单测在 threads worker 收尾会触发原生崩溃（`Napi::Error` / core dumped）；affected job 改用 forks 池（`maxWorkers=2`）。
+
+**bootstrap**
+
+- 构建闭包补齐 `@escode/*-plugin...`：browser-use 的 `scripts/browser-client.mjs` 是 required seed，缺它时整个插件被判残缺，`control-browser`/`web-gui-tester` 与 `node_repl` MCP 都会消失。
+- 集成套件使用 `--testTimeout=30000`；B18 的“关闭后零请求”先等一个 wire grace 再取基线，避免把 abort 前已写出的请求尾巴误判成新工作。
+- 语料对齐下线套餐：provider 模板/模型/Account 期望、legacy importer 的规则数组、v4 冷恢复的 `options.reasoningLevel`、插件计数与默认 usb MCP、startup 帧与 Agent 类型清单。
+- 两个真实代码修复：
+  1. `process-provider-registry-runtime.ts`：Built-in 刷新后没有账号服务同步 revision，Registry 会永久停在旧快照；源变化时用 fail-closed 空账号对齐 revision。
+  2. `workflow-facade.ts` / `script-workflow-child-runtime.ts`：workflow child 从父 runtime 读取已解析的 `bashShellSelection`，避免 prompt 与实际 Bash 分叉。
+- v4 无桥：把 model execution context / session residency finalization 迁到 v4 原生层，旧协议反向 re-export；startNow 输入已 admission 但未投影时，retry/edit/file rewind 回 `stale/proto.staleRevision`。
+- `read-pdf` 测试改用当前 ModelConfig/ProviderRegistry；marketplace 的真实 clone 探测使用 sanitize 后的子进程环境，不可达时显式 skip。
+
+本地证据：bootstrap 全量 209 files / 2904 tests passed（12 skipped），`pnpm typecheck`、`pnpm lint`、`pnpm fmt:check`、bootstrap typecheck/lint 均通过。

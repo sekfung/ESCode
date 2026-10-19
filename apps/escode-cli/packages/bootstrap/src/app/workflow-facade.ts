@@ -288,6 +288,12 @@ function createWorkflowChildRuntime(
       // workflow child 不在 Guarded 合同内；只隔离父任务模式，不继承审批。
       mode: "yolo",
       modelSelection: deps.runtime.getSessionModelSelection(),
+      // 修复原因：父 runtime 在 prepareUserExecutionBoundary 中解析出的 bashShellSelection
+      // 只写入 runtime.config，而 deps.runtimeConfig 仍是创建 App 时的快照。workflow child
+      // 若从快照继承，prompt 的 Shell 会回落到 runner 注入的 SHELL，与 Bash 实际执行分叉。
+      // 与 subagent child 一致，直接读父 runtime 当前选择。
+      bashShellSelection:
+        deps.runtime.getSessionShellSelection() ?? deps.runtimeConfig.bashShellSelection,
       parentSessionId: deps.sessionId,
       taskType: "workflow_child",
       workingDirectory: deps.workingDirectory,
