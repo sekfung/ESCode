@@ -49,7 +49,6 @@ import {
 } from "./helpers/registry-backed-test-app.js";
 
 describe("session persistence", () => {
-
   it("primes image and cold-rebuilds image and video paths from durable artifacts", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "escode-prompt-image-cache-"));
     const artifactRootDir = join(tempRoot, "artifacts");
@@ -1236,6 +1235,15 @@ describe("session persistence", () => {
           },
         } as never,
         projectConfigPath: configPath,
+        // 显式注入解析结果，避免测试依赖宿主是否安装 zsh 或 PATH 扫描顺序。
+        resolveInitialBashShellSelection: async () => ({
+          dialect: "posix",
+          display: { name: "zsh" },
+          id: "auto:zsh",
+          label: "zsh",
+          path: zshPath,
+          source: "auto-detected",
+        }),
         runtimeConfig: {
           workingDirectory: tempRoot,
         },
@@ -1421,7 +1429,14 @@ describe("session persistence", () => {
           output,
         }),
       ).rejects.toThrow(/SQLite migration checksum mismatch for 0001_base_session_store/);
-      expect(output.output()).toBe("");
+      // 迁移失败必须先通过 startup/storageState 上报失败，再退出；协议 server 不得启动。
+      const frames = parseProtocolFrames(output.output());
+      expect(frames.length).toBeGreaterThan(0);
+      expect(frames.every((frame) => frame.method === "startup/storageState")).toBe(true);
+      expect(frames.at(-1)?.params).toMatchObject({
+        phase: "failed",
+        errorCode: "checksum_mismatch",
+      });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -1456,7 +1471,10 @@ describe("session persistence", () => {
 
       expect(startupCompletedIndex).toBeGreaterThanOrEqual(0);
       expect(retentionScheduledIndex).toBeGreaterThan(startupCompletedIndex);
-      expect(output.output()).toBe("");
+      // stdout 只允许启动控制帧；日志与保留清理诊断必须写文件。
+      expect(new Set(parseProtocolFrames(output.output()).map((frame) => frame.method))).toEqual(
+        new Set(["startup/storageState"]),
+      );
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -1491,7 +1509,10 @@ describe("session persistence", () => {
         });
       }
 
-      expect(output.output()).toBe("");
+      // AI SDK 警告只能进日志，不能混进 stdout（stdout 仅允许启动控制帧）。
+      expect(new Set(parseProtocolFrames(output.output()).map((frame) => frame.method))).toEqual(
+        new Set(["startup/storageState"]),
+      );
       const logEntries = await readLogEntries(logDir);
       expect(logEntries.some((entry) => entry.event === "model.sdk.warning")).toBe(true);
     } finally {
@@ -2346,11 +2367,14 @@ describe("session persistence", () => {
       const storedMessages = await store.messages({ sessionID: sessionId });
 
       expect(result.response).toBe("second answer");
-      expect(storedMessages).toHaveLength(4);
+      // 5 条 = 两轮对话共 4 条（user/assistant 各 2）+ Agent 类型清单（默认启用插件携带
+      // subagent 时以 user 消息形式持久化）。
+      expect(storedMessages).toHaveLength(5);
       expect(capturedMessages.map((message) => message.role)).toEqual([
         "system",
         "system",
         "system",
+        "user",
         "user",
         "user",
         "user",
@@ -2364,6 +2388,7 @@ describe("session persistence", () => {
         expect.stringContaining("# Environment"),
         expect.stringContaining("The following skills are available"),
         expect.stringContaining("<system-reminder>"),
+        expect.stringContaining("Available agent types for the Agent tool"),
         "first prompt",
         "first answer",
         "second prompt",
@@ -2438,8 +2463,10 @@ describe("session persistence", () => {
       });
       const result = await secondApp.submitPrompt("second prompt");
 
-      expect(resume.messageCount).toBe(2);
-      expect(resume.appliedMessageCount).toBe(2);
+      // 3 条 = first prompt / Agent 类型清单 / first answer；清单随默认启用插件的 subagent
+      // 一起持久化，冷恢复必须完整应用。
+      expect(resume.messageCount).toBe(3);
+      expect(resume.appliedMessageCount).toBe(3);
       expect(result.response).toBe("second answer");
       // 冷恢复会先补齐持久标题事件，再发布 SessionResumed。
       expect(liveEventTypes).toEqual([
@@ -2452,6 +2479,7 @@ describe("session persistence", () => {
         expect.stringContaining("# Communicating with the user"),
         expect.stringContaining("The following skills are available"),
         expect.stringContaining("<system-reminder>"),
+        expect.stringContaining("Available agent types for the Agent tool"),
         "first prompt",
         "first answer",
         "second prompt",
@@ -2787,19 +2815,27 @@ async function createProtocolProviderEnv(root: string): Promise<Record<string, s
   const escodeBuiltinFilePath = join(root, "escode-builtin.json");
   const personalFilePath = join(root, "provider-personal.json");
   const emptyBuiltinRelease = JSON.stringify({
-    // 此处测试启动/存储顺序，不测试旧版 Release 迁移；使用当前正式结构。
-    schemaVersion: 3,
+    // 此处测试启动/存储顺序，不测试旧版 Release 迁移；使用当前正式结构
+    // （schemaVersion 1 + providerConfigRules/modelConfigRules 包装）。
+    schemaVersion: 1,
     revision: 1,
     config: {
-      providers: {},
-      providerTemplates: {},
-      modelConfigRules: { matchRules: [], templateModelRules: [], providerModelRules: [] },
+      providerConfigRules: { providerRules: [], templateRules: [] },
+      modelConfigRules: {
+        modelRules: [],
+        modelApiRules: [],
+        providerSiteRules: [],
+        templateModelRules: [],
+        builtinProviderModelRules: [],
+      },
     },
   });
   const emptyPersonalConfig = JSON.stringify({
     schemaVersion: 1,
-    providers: {},
-    modelConfigRules: [],
+    config: {
+      providerConfigRules: { providerRules: [] },
+      modelConfigRules: { providerModelRules: [], manualProviderModelRules: [] },
+    },
   });
   await Promise.all([
     writeFile(escodeBuiltinFilePath, emptyBuiltinRelease),
@@ -2844,6 +2880,19 @@ function createNeverEndingReadable(): NodeJS.ReadableStream {
     off: () => createNeverEndingReadable(),
     once: () => createNeverEndingReadable(),
   } as unknown as NodeJS.ReadableStream;
+}
+
+interface ProtocolFrame {
+  method?: string;
+  params?: Record<string, unknown>;
+}
+
+function parseProtocolFrames(output: string): ProtocolFrame[] {
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as ProtocolFrame);
 }
 
 function createClosableReadable(): NodeJS.ReadableStream {

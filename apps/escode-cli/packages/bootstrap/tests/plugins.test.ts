@@ -629,8 +629,9 @@ describe("ESCode plugins", () => {
             id: "zcode-plugins-official",
             isOfficial: true,
             name: "zcode-plugins-official",
-            // 这个数随内置插件增减；加 rea 之前基线就已经是 16（断言长期停在 14）。
-            pluginCount: 18,
+            // 这个数随内置插件增减：内置目录当前 18 条（circuit 下线后），其中 node-repl-host
+            // 是内部宿主、不进入商店投影，因此可见计数是 17。
+            pluginCount: 17,
             source: {
               source: "url",
               url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
@@ -2389,7 +2390,7 @@ describe("ESCode plugins", () => {
       expect(
         overview.marketplaces.find((marketplace) => marketplace.id === "zcode-plugins-official"),
       ).toMatchObject({
-        pluginCount: 18,
+        pluginCount: 17,
         source: {
           source: "url",
           url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
