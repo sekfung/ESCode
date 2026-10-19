@@ -255,7 +255,7 @@ pub fn channels_with(
         session_channel(instances, options, write, Some(provider_headers)),
     ];
     list.extend(crate::domains_provider::provider_channels(
-        provider_service,
+        provider_service.clone(),
         instances_for_simple.clone(),
         Arc::clone(&options_for_simple),
     ));
@@ -266,6 +266,7 @@ pub fn channels_with(
         options_for_simple,
         media_authorizer,
         client_services,
+        provider_service,
     ));
     let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。

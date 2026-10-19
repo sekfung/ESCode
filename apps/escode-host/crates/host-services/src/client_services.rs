@@ -37,6 +37,10 @@ impl ClientServices {
             app_version,
             ClientIdentity::platform_arch(),
         )
+        .with_off_peak_env(
+            value("ESCODE_OFFPEAK_MOCK") == Some("1"),
+            value("ESCODE_OFFPEAK_MOCK_NO_PLAN") == Some("1"),
+        )
         .with_dynamic_workflow(
             // TS 读进程 env `ESCODE_DYNAMIC_WORKFLOW_MODE`（Main 按构建档位改写/删除后下发）。
             get("ESCODE_DYNAMIC_WORKFLOW_MODE").map(str::to_owned),

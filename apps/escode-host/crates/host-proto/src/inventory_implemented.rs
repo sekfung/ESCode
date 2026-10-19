@@ -63,6 +63,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("media-preview", "release"),
     ("client-scenes", "list"),
     ("client-config", "getSnapshot"),
+    ("client-config", "getOffPeakClientConfig"),
     ("client-config", "getDynamicWorkflowClientConfig"),
     ("output-style", "listStyles"),
     ("output-style", "addStyle"),

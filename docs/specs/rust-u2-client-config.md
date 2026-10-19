@@ -93,4 +93,7 @@ Renderer ─client-scenes.list / client-config.get*→ Rust Host
 - **服务层单测** 17 项：缓存与 TTL 边界、`forceRefresh`、并发合并（含 `forceRefresh` 加入在途请求）、失败共享且不入缓存、超时文案、Endpoint 切换用独立条目、选项校验、env 覆盖零请求、用户选择每次从设置读。负向验证：缓存键忽略 Endpoint、不合并在途请求、缓存失败，均被杀死。
 - **端到端**：`rustHostClientConfig.test.ts`、`rustHostDynamicWorkflow.test.ts`——本地 HTTP 桩 + 真实 `createClientConfigService`，快照/请求路径与 query/来源头/错误类别逐项相等；覆盖远端 11 种取值、用户选择 × 提供值 10 种组合、503/非法信封/坏 JSON、env 覆盖短路（两边零请求）。负向验证：Host 无视用户选择 → 两个用例失败。
 
-**补充登记差异**（接 §6）：6. **原始信封缓存不按 endpoint 分条目**（TS 原样如此，Rust 照做）：切换 Endpoint 后动态工作流读取仍用旧缓存直到 TTL/`forceRefresh`；快照缓存按 URL 分条目，不受影响。7. **`ZodError` 文案**：选项非法时两边都是 `ZodError`，措辞不同，只比类别。8. **“request context changed” 分支**：仅在“Endpoint 恰好是默认 Origin 且在两次解析之间被切走”时触发，难以确定性复现，只由代码对照 TS 保证，无单测。9. **`getOffPeakClientConfig`** 不迁（§1）；`client-config` 通道因此是 2/3，库存清单里该成员保持“未实现”。
+**补充登记差异**（接 §6）：6. **原始信封缓存不按 endpoint 分条目**（TS 原样如此，Rust 照做）：切换 Endpoint 后动态工作流读取仍用旧缓存直到 TTL/`forceRefresh`；快照缓存按 URL 分条目，不受影响。7. **`ZodError` 文案**：选项非法时两边都是 `ZodError`，措辞不同，只比类别。8. **“request context changed” 分支**：仅在“Endpoint 恰好是默认 Origin 且在两次解析之间被切走”时触发，难以确定性复现，只由代码对照 TS 保证，无单测。9. **`getOffPeakClientConfig`（2026-10-19 补齐）**：复用原始信封缓存与 `ProviderService::off_peak_model_selection_view`
+（固定隐藏 Provider：`account:zai-offpeak-idle-plan`、`account:bigmodel-offpeak-idle-plan`）。`ESCODE_OFFPEAK_MOCK` /
+`ESCODE_OFFPEAK_MOCK_NO_PLAN` 由 Main 经 `runtimeEnv` 下发。已登记差异：Host 不做账号 provider 同步（providers/account 域未迁），
+model view 只反映当前 Built-in/Personal 配置文件；远端 `enable_offpeak_task` 仍以 client/configs 为准。

@@ -47,7 +47,7 @@ impl ClientConfigService {
     }
 
     /// TS `getRawConfigsEnvelope`：同端点同 TTL，在途请求合并（`forceRefresh` 也加入在途请求）。
-    async fn raw_envelope(&self, force_refresh: bool) -> Result<Value, ConfigError> {
+    pub(super) async fn raw_envelope(&self, force_refresh: bool) -> Result<Value, ConfigError> {
         let pending = {
             let mut raw = lock(&self.inner.raw);
             if !force_refresh

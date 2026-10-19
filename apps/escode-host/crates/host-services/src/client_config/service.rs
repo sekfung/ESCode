@@ -89,6 +89,8 @@ pub(super) struct Inner {
     pub(super) clock: Arc<dyn Fn() -> u64 + Send + Sync>,
     request_timeout: Duration,
     entries: Mutex<HashMap<String, Entry>>,
+    pub(super) off_peak_mock: bool,
+    pub(super) off_peak_mock_no_plan: bool,
 }
 
 #[derive(Clone)]
@@ -134,6 +136,8 @@ impl ClientConfigService {
                 clock: Arc::new(now_ms),
                 request_timeout: REQUEST_TIMEOUT,
                 entries: Mutex::default(),
+                off_peak_mock: false,
+                off_peak_mock_no_plan: false,
             }),
         }
     }
@@ -155,6 +159,8 @@ impl ClientConfigService {
                 clock,
                 request_timeout,
                 entries: Mutex::default(),
+                off_peak_mock: inner.off_peak_mock,
+                off_peak_mock_no_plan: inner.off_peak_mock_no_plan,
             }),
         }
     }
@@ -180,6 +186,28 @@ impl ClientConfigService {
                 clock: Arc::clone(&inner.clock),
                 request_timeout: inner.request_timeout,
                 entries: Mutex::default(),
+                off_peak_mock: inner.off_peak_mock,
+                off_peak_mock_no_plan: inner.off_peak_mock_no_plan,
+            }),
+        }
+    }
+
+    /// Off-Peak mock 开关（Main 经 runtimeEnv 下发；缺省 false）。
+    #[must_use]
+    pub fn with_off_peak_env(self, mock: bool, mock_no_plan: bool) -> Self {
+        let inner = &self.inner;
+        Self {
+            inner: Arc::new(Inner {
+                dynamic: inner.dynamic.clone(),
+                raw: Mutex::default(),
+                api: Arc::clone(&inner.api),
+                app_version: inner.app_version.clone(),
+                platform: inner.platform.clone(),
+                clock: Arc::clone(&inner.clock),
+                request_timeout: inner.request_timeout,
+                entries: Mutex::default(),
+                off_peak_mock: mock,
+                off_peak_mock_no_plan: mock_no_plan,
             }),
         }
     }

@@ -158,8 +158,8 @@ $ git status --short | wc -l
 | --------------- | ----------------------------------------- |
 | channels        | 46                                        |
 | members         | 539                                       |
-| Implemented     | 377                                       |
-| Pending         | 162                                       |
+| Implemented     | 378                                       |
+| Pending         | 161                                       |
 | `hooks`         | 0 Pending                                 |
 | `plugin-sync`   | 0 Pending                                 |
 | `off-peak-task` | 3 Pending（create/额度/支持快照）         |
