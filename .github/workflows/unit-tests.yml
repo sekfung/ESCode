@@ -75,8 +75,9 @@ jobs:
       # "Failed to resolve entry for package" 失败（本机因早已构建过而看不出）。只构建单测真正用到的
       # 库与 agent 包闭包：测试从不 import web / web-share 这类前端应用包（e2e-report 只用其 node 入口，见下），而它们的发行构建
       # 在全新 checkout 里有既有的子路径解析问题（@escode/shared/mcp-apps），单测并不需要。
-      # @escode/rea-plugin 单独列出：它的 seed 断言会检查 dist/mcp/server.js 存在。
-      # @escode/serial-plugin 同理：serialAgentChain 整链路用例直接拉起它的 dist/mcp/server.js。
+      # 官方插件包全部构建：browser-use 的 scripts/browser-client.mjs 是 required seed，
+      # 缺它时整个插件被判为残缺，control-browser/web-gui-tester 等技能不会出现；
+      # 其它插件同样提供 MCP server / dist 资产（rea、serial 等）。
       - name: 构建单测依赖的工作区包
         run: |
           pnpm -r \
@@ -86,9 +87,7 @@ jobs:
             --filter "@escode/server..." \
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
-            --filter "@escode/rea-plugin..." \
-            --filter "@escode/usb-plugin..." \
-            --filter "@escode/serial-plugin..." \
+            --filter "@escode/*-plugin..." \
             build
           # desktop 的 e2eReporting* 单测 import @escode/e2e-report 的 node 入口（dist-node）；只跑 tsc 的
           # build:node，不跑有子路径解析问题的 viewer（vite）构建。
@@ -140,8 +139,7 @@ jobs:
             --filter "@escode/server..." \
             --filter "@escode/node-repl-host..." \
             --filter "@escode/escode-cua..." \
-            --filter "@escode/rea-plugin..." \
-            --filter "@escode/usb-plugin..." \
+            --filter "@escode/*-plugin..." \
             build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
       # bootstrap 是集成套件（真 sqlite/协议/子进程），默认 5s 会让慢用例在并发 runner 上误超时；
