@@ -298,7 +298,7 @@ async fn system_info_reports_home_and_node_platform() {
     };
     assert_eq!(info["platform"], expected_platform, "{info}");
 
-    // 未迁移方法：显式缺口（`bots` 整个域尚未迁移）。
+    // `bots` 配置/状态子集已迁移：listBots 返回数组。
     call(
         &mut socket,
         62,
@@ -307,16 +307,11 @@ async fn system_info_reports_home_and_node_platform() {
         &Wire::Array(Vec::new()),
     )
     .await;
-    let error = read_response(&mut socket, 62)
+    let bots = read_response(&mut socket, 62)
         .await
         .into_object()
-        .expect("error");
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .contains("channel `bots`")
-    );
+        .expect("bots list");
+    assert!(bots.as_array().is_some(), "{bots}");
 
     // `serial.list` 已实现：返回端口数组（本机无串口时为空数组）。
     call(&mut socket, 63, "serial", "list", &Wire::Array(Vec::new())).await;
