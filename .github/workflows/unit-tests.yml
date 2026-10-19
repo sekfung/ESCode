@@ -32,6 +32,10 @@ jobs:
     name: unit tests (affected)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # 全量单测在 threads 池的 worker 收尾时会触发原生崩溃（Napi::Error / core dumped，
+      # 见 unit-tests 历史日志）；改用进程隔离，测试范围不变，并发降到 2。
+      ESCODE_TEST_POOL: forks
     steps:
       - uses: actions/checkout@v4
         with:
