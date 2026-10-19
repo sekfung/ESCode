@@ -3,12 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import {
-  connectRpc,
-  hostBinary,
-  nextMeaningful,
-  startHost,
-} from "./rustHostTestSupport.js";
+import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-host-resilience.md §2.4：runtime 崩溃时，host-rpc 必须把
 // `RuntimeClosed` 原样映射成 Renderer 可见的 `{name: "Error", message: "ESCode agent transport closed: stdout_closed"}`
@@ -33,10 +28,7 @@ interface LifecycleEvent {
   };
 }
 
-async function waitFor(
-  predicate: () => boolean,
-  timeoutMs = 30_000,
-): Promise<void> {
+async function waitFor(predicate: () => boolean, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
     if (Date.now() > deadline) throw new Error("condition not reached in time");
@@ -45,11 +37,7 @@ async function waitFor(
 }
 
 describe("rust host rpc runtime crash", () => {
-  it.skipIf(
-    !existsSync(hostBinary) ||
-      !existsSync(cliBinary) ||
-      process.platform === "win32",
-  )(
+  it.skipIf(!existsSync(hostBinary) || !existsSync(cliBinary) || process.platform === "win32")(
     "rejects the in-flight real client request with the Node transport-closed error",
     async () => {
       const root = await mkdtemp(join(tmpdir(), "escode-rust-host-crash-"));
@@ -70,34 +58,26 @@ describe("rust host rpc runtime crash", () => {
         });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
-        const services = await connectRpc(
-          String(listening.addr),
-          String(listening.secret),
-        );
+        const services = await connectRpc(String(listening.addr), String(listening.secret));
         const target = { workspacePath, workspaceIdentity: workspacePath };
 
         // 先订阅生命周期，再启动实例：否则 available（含 processId）会错过。
         const events: LifecycleEvent[] = [];
-        const listener = services.escodeAgentService.onAgentRuntimeLifecycle?.(
-          (event) => events.push(event as unknown as LifecycleEvent),
+        const listener = services.escodeAgentService.onAgentRuntimeLifecycle?.((event) =>
+          events.push(event as unknown as LifecycleEvent),
         );
-        const initialized =
-          (await services.escodeSessionService.initializeWorkspace(
-            target as never,
-          )) as { available: boolean };
+        const initialized = (await services.escodeSessionService.initializeWorkspace(
+          target as never,
+        )) as { available: boolean };
         expect(initialized.available).toBe(true);
-        await waitFor(() =>
-          events.some((event) => event.state === "available"),
-        );
+        await waitFor(() => events.some((event) => event.state === "available"));
         const available = events.find((event) => event.state === "available")!;
         const pid = available.runtimeIdentity.processId;
         expect(pid).toBeTypeOf("number");
 
         // 停住 runtime 后再发请求：Host 会登记为在飞请求并写入子进程 stdin，但永远等不到应答。
         process.kill(pid!, "SIGSTOP");
-        const pending = services.escodeSessionService.listSessions(
-          target as never,
-        );
+        const pending = services.escodeSessionService.listSessions(target as never);
         // 给 Host 的读循环登记请求并写入 stdin 的时间；子进程已停，不存在“先答完”的竞态。
         await new Promise((resolveTick) => setTimeout(resolveTick, 300));
 
@@ -106,20 +86,12 @@ describe("rust host rpc runtime crash", () => {
         const error = await pending.catch((reason: unknown) => reason);
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).name).toBe("Error");
-        expect((error as Error).message).toBe(
-          "ESCode agent transport closed: stdout_closed",
-        );
-        expect(String(error)).toBe(
-          "Error: ESCode agent transport closed: stdout_closed",
-        );
+        expect((error as Error).message).toBe("ESCode agent transport closed: stdout_closed");
+        expect(String(error)).toBe("Error: ESCode agent transport closed: stdout_closed");
 
         // 同一崩溃也发布 unavailable（Renderer 据此让该代的订阅失效）。
-        await waitFor(() =>
-          events.some((event) => event.state === "unavailable"),
-        );
-        const unavailable = events.find(
-          (event) => event.state === "unavailable",
-        )!;
+        await waitFor(() => events.some((event) => event.state === "unavailable"));
+        const unavailable = events.find((event) => event.state === "unavailable")!;
         expect(unavailable.workspaceKey).toBe(workspacePath);
         expect(unavailable.runtimeIdentity.generation).toBe(1);
 

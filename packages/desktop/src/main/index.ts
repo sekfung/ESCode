@@ -1253,6 +1253,15 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
         logger.warn(`[app-quit] cron scheduler dispose failed (${reason}):`, error);
       }
     })(),
+    // Rust Host 是 App 级进程，必须和窗口 Host 一样显式进入退出屏障；否则只能等
+    // stdin EOF 自行退出，退出路径上看不到它的收口结果（rust-u2-host-resilience.md §3.2）。
+    (async () => {
+      try {
+        await rustHostManager.stop();
+      } catch (error) {
+        logger.warn(`[app-quit] rust host stop failed (${reason}):`, error);
+      }
+    })(),
     // remote session、attachment 和 transport 都由窗口 Host 持有；这里先清理
     // Main 的请求关联，再由下方每窗口唯一 Host 的 shutdown barrier 释放真实连接与 Agent。
     remoteSessionManager.disposeAllAndWaitForAppShutdown(reason),

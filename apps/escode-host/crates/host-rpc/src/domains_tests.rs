@@ -80,7 +80,10 @@ async fn settings_get_and_update_round_trip_over_the_wire() {
         panic!("header")
     };
     assert_eq!(header[0].as_int(), Some(RESPONSE_PROMISE_SUCCESS));
-    assert_eq!(reader.value().unwrap(), Wire::Object(json!({})));
+    let Wire::Object(settings) = reader.value().unwrap() else {
+        panic!("settings object")
+    };
+    assert_eq!(settings, escode_host_services::settings::default_settings());
 
     // 与 ProxyChannel.toService 同形：实参打包成数组。
     let patch = Wire::Array(vec![Wire::Object(json!({"locale": "zh-CN"}))]);

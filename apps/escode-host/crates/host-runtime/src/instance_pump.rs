@@ -60,7 +60,7 @@ pub(super) async fn pump(mut reader: link::RuntimeReader, state: Arc<InstanceSta
             continue;
         };
         if parsed["method"] == "startup/storageState" && parsed["params"]["phase"] == "ready" {
-            state.ready.store(true, Ordering::SeqCst);
+            state.mark_ready();
         }
         let reply_id = parsed["id"].as_str().map(str::to_owned);
         if let Some(waiter) = reply_id

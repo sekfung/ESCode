@@ -55,6 +55,8 @@ child 链路用 `env_clear` 隔离实例环境；Windows 上另行补回 `System
 3. 若不是 Host 请求的收口，则**立即回收**崩溃实例：`Lifecycle::wait(grace)`（embedded 等实例任务结束并 `drain`，child 等进程被回收），得到退出原因与残余清单，记 `error` 级日志（scope `runtime-link`，含 identity、generation、原因、残余），写入实例的 `ExitReport`（`Instance::exited()` 可等待）。
 4. 若是 Host 请求的收口，第 3 步由 `shutdown` 自己完成，帧泵不重复回收。
 
+就绪判定不轮询：帧泵收到 `startup/storageState ready` 时通过 `watch` 状态通知 `Instance::wait_ready`；读端关闭时同一通道置 `Closed`，等待中的 `initializeWorkspace` 立即拿到 `false`（`instance_ready.rs`）。
+
 回收不等下一次 `get`：owner 锁（`WorkspaceOwnerGuard`）随实例任务结束释放，崩溃后立即回收能让下一代马上拿到锁，残余任务也不会拖到下一次请求才被中止。`Lifecycle::wait` 必须幂等（embedded 的 `JoinHandle` 只 await 一次，之后返回已记录的结果），因为下一次 `get` 的兜底收口与 `close` 仍可能对已回收的实例再调一次。
 
 ### 2.3 其它 workspace 不受影响
@@ -180,6 +182,7 @@ startRustHost ─throw RustHostStartError{code}─► rustHostManager.ensureStar
 3. **执行并发**：处理函数的异步部分并发执行（与 TS 每个请求一个独立 Promise 相同）；响应顺序 = 完成顺序，不是到达序；响应按请求 id 关联。
 4. **写序**：每连接一个写任务，出站帧按入队顺序写出；同一事件订阅的 `EventFire` 按产生顺序。
 5. **跨连接**：不保证全局顺序（TS 中各窗口是独立的 MessagePort，同样没有跨连接顺序）。需要跨连接一致的写入由服务域自己的唯一写者保证（如 settings 的单写者）。
+6. **处理函数 panic**：同步前缀与异步体都在 `session::start` 内用 `catch_unwind` 捕获，回 `name="Fatal"` 的错误帧；不再让独立任务展开后请求悬空（`session_tests.rs` 两例）。
 
 修复依据：M2 之前的实现在独立任务里才调用处理函数，tokio 多线程调度下同一连接先后两条请求的处理函数调用顺序不确定，与 TS 不一致。
 
@@ -244,7 +247,7 @@ sequenceDiagram
 | 场景                                                                                                                                                     | 测试                                                                                                     |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | embedded：A 注入 panic，B 的在飞与后续请求正常；A 在飞请求显式错误；A 订阅结束；懒重启 gen+1；残余为空                                                   | `apps/escode-host/crates/host-runtime/tests/crash_isolation.rs`（`fault-injection` feature，仅测试构建） |
-| child：SIGKILL / TerminateProcess A 的 CLI 子进程，断言同上；CLI 二进制不在场时显式 skip                                                                 | 同上                                                                                                     |
+| child：SIGKILL / TerminateProcess A 的 CLI 子进程，断言同上；CLI 二进制缺失时测试失败并提示先构建（不再 skip 记 ok）                                     | 同上                                                                                                     |
 | 真实 `@escode/client` 经 host-rpc 收到的在飞请求错误为 `name=Error`、文案逐字 `ESCode agent transport closed: stdout_closed`；同一崩溃发布 `unavailable` | `packages/desktop/test/rustHostRuntimeCrash.test.ts`（POSIX：SIGSTOP 停住 runtime 后 SIGKILL）           |
 | 四类启动失败各自分类、`error` 日志、在截止时间内失败                                                                                                     | `packages/desktop/test/rustHostResilience.test.ts`                                                       |
 | Host 被杀后在上限内自动恢复，attachment `onLost` 后重建并可用；连续崩溃超过上限停止并显式报错                                                            | 同上                                                                                                     |

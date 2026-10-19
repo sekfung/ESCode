@@ -136,6 +136,31 @@ async fn a_closed_instance_fails_as_closed_not_as_timeout() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn wait_ready_after_close_returns_false_immediately() {
+    let fixture = Fixture::new();
+    let instances = Instances::new(Link::Embedded);
+    let instance = instances
+        .get(&fixture.identity(), || fixture.options())
+        .await
+        .expect("instance starts");
+    assert!(
+        instance.wait_ready(Duration::from_secs(30)).await,
+        "embedded runtime reports ready"
+    );
+    let residual = instances.close(&fixture.identity()).await.expect("close");
+    assert!(residual.is_empty(), "{residual:?}");
+    // 关闭状态经 watch 通知：不得退化成等满 5 s 超时。
+    let started = std::time::Instant::now();
+    assert!(!instance.wait_ready(Duration::from_secs(5)).await);
+    assert!(
+        started.elapsed() < Duration::from_secs(1),
+        "closed state is observed without waiting for the timeout: {:?}",
+        started.elapsed()
+    );
+    let _ = instances.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn exit_triggers_lazy_restart_with_next_generation() {
     let fixture = Fixture::new();
     let instances = Instances::new(Link::Embedded);
@@ -262,13 +287,10 @@ async fn live_any_picks_the_lexicographically_first_identity() {
     assert!(instances.live_any().is_none(), "全部关闭后回到 None");
 }
 
-/// child 链路与 embedded 同帧面（Host 的差分/回退选项）：CLI 二进制在场时才跑。
+/// child 链路与 embedded 同帧面（Host 的差分/回退选项）：CLI 二进制必须已构建。
 #[tokio::test(flavor = "multi_thread")]
 async fn child_link_serves_the_same_ready_frame() {
-    let Some(binary) = cli_binary() else {
-        eprintln!("skip: escode-cli-rust 二进制不在场（先构建 CLI workspace）");
-        return;
-    };
+    let binary = cli_binary();
     let fixture = Fixture::new();
     let instances = Instances::new(Link::Child { binary });
     let instance = instances
@@ -281,7 +303,12 @@ async fn child_link_serves_the_same_ready_frame() {
     assert!(residual.is_empty(), "child 收口无残余: {residual:?}");
 }
 
-fn cli_binary() -> Option<PathBuf> {
+fn cli_binary() -> PathBuf {
+    let name = if cfg!(windows) {
+        "escode-cli-rust.exe"
+    } else {
+        "escode-cli-rust"
+    };
     let candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
@@ -289,6 +316,13 @@ fn cli_binary() -> Option<PathBuf> {
         .join("escode-cli-rust")
         .join("target")
         .join("debug")
-        .join("escode-cli-rust");
-    candidate.is_file().then_some(candidate)
+        .join(name);
+    // 修复（H1.8）：缺失时显式失败，不再打印 skip 后被测试框架记为 ok（“绿但未测”）。
+    assert!(
+        candidate.is_file(),
+        "escode-cli-rust 二进制不在场：{}；先运行 \
+         `cargo build --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust`",
+        candidate.display()
+    );
+    candidate
 }

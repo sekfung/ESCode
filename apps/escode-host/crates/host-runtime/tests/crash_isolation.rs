@@ -254,15 +254,16 @@ async fn embedded_panic_in_one_workspace_leaves_the_other_untouched() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn killed_child_in_one_workspace_leaves_the_other_untouched() {
-    let Some(binary) = cli_binary() else {
-        // 显式 skip（M2 报告统计 skip 次数）：CI 的 test 作业先构建 CLI workspace，这里在场。
-        eprintln!("skip: escode-cli-rust 二进制不在场（先构建 CLI workspace）");
-        return;
-    };
-    crash_isolation(Link::Child { binary }, Crash::Kill).await;
+    crash_isolation(
+        Link::Child {
+            binary: cli_binary(),
+        },
+        Crash::Kill,
+    )
+    .await;
 }
 
-fn cli_binary() -> Option<PathBuf> {
+fn cli_binary() -> PathBuf {
     let name = if cfg!(windows) {
         "escode-cli-rust.exe"
     } else {
@@ -271,7 +272,14 @@ fn cli_binary() -> Option<PathBuf> {
     let candidate = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../escode-cli-rust/target/debug")
         .join(name);
-    candidate.is_file().then_some(candidate)
+    // 修复（H1.8）：缺失时显式失败，不再打印 skip 后被测试框架记为 ok（“绿但未测”）。
+    assert!(
+        candidate.is_file(),
+        "escode-cli-rust 二进制不在场：{}；先运行 \
+         `cargo build --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust`",
+        candidate.display()
+    );
+    candidate
 }
 
 /// 强杀子进程：Unix SIGKILL；Windows `taskkill /F`（TerminateProcess）。

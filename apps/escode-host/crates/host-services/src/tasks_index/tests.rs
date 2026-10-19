@@ -22,6 +22,17 @@ fn open_accepts_a_ledger_that_matches_the_generated_asset() {
 }
 
 #[test]
+fn open_uses_the_long_lived_repo_busy_timeout() {
+    let dir = fixture(&expected_ledger());
+    let index = TasksIndex::open(&dir.path().join("tasks-index.sqlite")).expect("open");
+    let timeout: i64 = index
+        .connection
+        .query_row("PRAGMA busy_timeout", [], |row| row.get(0))
+        .expect("busy_timeout");
+    assert_eq!(timeout, 5000, "与 TS 长连接 TaskIndexRepo 同口径");
+}
+
+#[test]
 fn open_refuses_a_missing_database_without_creating_it() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("tasks-index.sqlite");

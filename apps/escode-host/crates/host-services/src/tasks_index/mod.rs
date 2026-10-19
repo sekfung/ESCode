@@ -2,7 +2,7 @@
 //!
 //! 与 TS Host（`node:sqlite`）**同库互操作**：同一文件、同一迁移账本、同一物理 schema。
 //! 本模块负责：
-//! 1. 打开既有库（`busy_timeout = 25`、`foreign_keys = ON`，与 TS `prepareTasksIndexStorage` 同）；
+//! 1. 打开既有库（`busy_timeout = 5000`、`foreign_keys = ON`，与 TS 长连接 `TaskIndexRepo` 同）；
 //! 2. **迁移账本对账**：库内 `tasks_schema_migration` 必须与生成资产
 //!    （`schema.rs`，由真实 TS 迁移产物提取）逐条一致——缺失/多出/checksum 不符都拒绝服务，
 //!    不猜、不半迁移（对应 docs/specs/rust-u2-tasks-index.md §3）；
@@ -111,8 +111,10 @@ impl TasksIndex {
             path,
             rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_URI,
         )?;
-        // 与 TS `prepareTasksIndexStorage` 同参数：小 busy_timeout、外键开。
-        connection.pragma_update(None, "busy_timeout", 25)?;
+        // Host 的 TasksIndex 是长连接，与 TS `TaskIndexRepo`（5000ms）同口径；启动准备阶段的
+        // 25ms 只适合一次性的 `prepareTasksIndexStorage`，放在 Host 上会让读写与 runtime 写入
+        // 并发时过早 SQLITE_BUSY（M2 复核 H3.3）。
+        connection.pragma_update(None, "busy_timeout", 5000)?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         let index = Self { connection };
         let ledger = index.migration_ledger()?;

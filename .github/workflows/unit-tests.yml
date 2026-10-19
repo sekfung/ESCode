@@ -136,3 +136,22 @@ jobs:
             build
       # 显式 `vitest run`：包内 test 脚本是 `vitest tests`（无 run），CI 上必须带 run 才是单次执行。
       - run: pnpm --filter @escode/bootstrap exec vitest run tests
+
+  # Windows 专属：RustHostStartError 的 errno 分类（ENOENT 以外的 EACCES 等）只在 Windows 的
+  # spawn 失败分支出现，ubuntu 的 affected job 覆盖不到。四类启动失败用 Node 脚本冒充 Host，
+  # 不需要 Rust 二进制，也不需要构建 workspace dist（测试 import 的是 src/*.ts）。
+  rust-host-windows:
+    name: rust host startup errors (windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run packages/desktop/test/rustHostResilience.test.ts

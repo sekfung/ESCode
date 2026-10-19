@@ -12,6 +12,7 @@ import {
   startHost,
   wrapNodeWebSocket,
 } from "./rustHostTestSupport.js";
+import { appSettingsSchema } from "@escode/shared";
 import { createFileService } from "@escode/services/node";
 import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
 // 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 Repo 作 oracle。
@@ -47,7 +48,8 @@ describe("rust host rpc surface", () => {
         // 真实客户端：connectViaProtocol（与 desktop 连接远端 Host 同一条路径）。
         const services = await connectRpc(addr, secret);
         const settings = (await services.settingService.get()) as Record<string, unknown>;
-        expect(settings).toBeTypeOf("object");
+        // 缺文件时必须与 TS `appSettingsSchema.parse({})` 的默认对象全等（切唯一 Host 后同一视图）。
+        expect(settings).toEqual(appSettingsSchema.parse({}));
 
         // 写入 → 落盘（Rust settings 域）→ 再读回。
         await services.settingService.update({ locale: "zh-CN" } as never);

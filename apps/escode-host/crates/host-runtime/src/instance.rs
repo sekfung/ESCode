@@ -85,7 +85,8 @@ pub(crate) struct InstanceState {
     /// 首个订阅者之前的缓冲（`None` = 已交给首个订阅者）；`bool` = 是否溢出。
     early: std::sync::Mutex<Option<(Vec<String>, bool)>>,
     requests: AtomicU64,
-    ready: AtomicBool,
+    /// ready/closed 的状态通知（等待方不再 20 ms 轮询；见 `instance_ready.rs`）。
+    ready: watch::Sender<ready::ReadyState>,
     /// 读端已关闭：此后的 `call` 立即失败。
     closed: AtomicBool,
     writer: tokio::sync::Mutex<link::RuntimeWriter>,
@@ -175,6 +176,7 @@ impl InstanceState {
     /// 两种交错下等待方都会立即失败）；订阅者随发送端 drop 收到流结束。
     fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
+        self.mark_closed();
         self.lock_pending().clear();
         self.lock_subscribers().clear();
         let mut phase = self.lock_announce();
@@ -191,6 +193,10 @@ impl InstanceState {
 // 帧泵与崩溃回收（子模块可直接访问本模块的私有状态）。
 #[path = "instance_pump.rs"]
 mod pump;
+
+// ready/closed 通知（等待方不再轮询）。子模块与父模块共享 InstanceState 私有字段。
+#[path = "instance_ready.rs"]
+mod ready;
 
 /// 一个已启动的运行时实例。
 pub struct Instance {
@@ -218,7 +224,7 @@ impl Instance {
             subscribers: Default::default(),
             early: std::sync::Mutex::new(Some((Vec::new(), false))),
             requests: AtomicU64::new(1),
-            ready: AtomicBool::new(false),
+            ready: watch::channel(ready::ReadyState::Pending).0,
             closed: AtomicBool::new(false),
             writer: tokio::sync::Mutex::new(writer),
             link_lifecycle: tokio::sync::Mutex::new(lifecycle),
@@ -304,20 +310,6 @@ impl Instance {
         }
         drop(early);
         FrameSubscription { rx, lagged }
-    }
-
-    /// 等运行时报到（`startup/storageState` phase=ready）；实例退出即提前返回 false。
-    pub async fn wait_ready(&self, timeout: Duration) -> bool {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            if self.state.ready.load(Ordering::SeqCst) {
-                return true;
-            }
-            if !self.is_alive() || tokio::time::Instant::now() >= deadline {
-                return false;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
     }
 
     /// 向 runtime 发一条请求并等应答（按 id 关联；`timeout` 到点即失败）。
