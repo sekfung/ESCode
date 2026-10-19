@@ -5,8 +5,6 @@ import type { IPluginUiSamplingService } from "./plugin-ui-bridge/samplingContra
 import type { IPluginUiAppToolsService } from "./plugin-ui-bridge/appToolsContract.js";
 import type { IFileService } from "./file/file.js";
 import type { IMediaPreviewService } from "./media-preview/mediaPreview.js";
-import type { ICloudContentService } from "#src/cloud-content/cloudContent.js";
-import type { IMarketingTouchService } from "#src/marketing-touch/marketingTouch.js";
 import type { IGitService } from "./git/git.js";
 import type { IGitCheckpointService } from "./git/gitCheckpoint.js";
 import type { ISystemService } from "./system/system.js";
@@ -49,8 +47,6 @@ import type { IConversationShareService } from "./conversation-share/conversatio
 export interface IServiceAccessor {
   readonly fileService: IFileService;
   readonly mediaPreviewService?: IMediaPreviewService;
-  readonly cloudContentService?: ICloudContentService;
-  readonly marketingTouchService?: IMarketingTouchService;
   readonly gitService: IGitService;
   readonly gitCheckpointService: IGitCheckpointService;
   readonly systemService: ISystemService;

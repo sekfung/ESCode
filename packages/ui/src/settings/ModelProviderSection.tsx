@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useStore } from "zustand";
-import { marketingNavigation, finishMarketingNavigation } from "@/lib/marketingNavigation.js";
 import type { ProviderSettingsFormProvider } from "@/lib/providerSettingsFormTypes.js";
 import { type ModelConnectivityResult } from "@escode/shared";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
@@ -151,7 +149,7 @@ export function ModelProviderSection({
     [applyModelProviderTarget],
   );
 
-  const { navigationGroups, navigationItems, selectedNavItem } = useModelProviderNavigation({
+  const { navigationGroups, selectedNavItem } = useModelProviderNavigation({
     modelProviders,
     displayOrder,
     selectedNodeKey,
@@ -211,35 +209,6 @@ export function ModelProviderSection({
     },
     [createPersonalProvider, locale],
   );
-
-  const marketingRequest = useStore(marketingNavigation, (state) => state.request);
-  useEffect(() => {
-    if (marketingRequest?.target.page !== "settings" || !marketingRequest.target.provider_id)
-      return;
-    if (loading || modelProvidersRefreshing) return;
-    const providerId = marketingRequest.target.provider_id;
-    const item = navigationItems.find(
-      (item) =>
-        // 当前表单契约使用 providerId；旧 id 会让所有自定义提供商被误判为不存在。
-        item.type === "custom" && item.provider.providerId === providerId,
-    );
-    if (!item) {
-      finishMarketingNavigation(marketingRequest.id, new Error("marketing_provider_unavailable"));
-      return;
-    }
-    if (selectedNodeKey !== item.key) {
-      setSelectedNodeKey(item.key);
-    } else {
-      finishMarketingNavigation(marketingRequest.id);
-    }
-  }, [
-    marketingRequest,
-    loading,
-    modelProvidersRefreshing,
-    navigationItems,
-    selectedNodeKey,
-    selectedNavItem,
-  ]);
 
   const handleReorderProviderIds = useCallback(
     async (orderedGroupProviderIds: string[]) => {

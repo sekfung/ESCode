@@ -172,14 +172,6 @@ const enUS: Record<string, string> = {
     "The selected connection is unavailable. Please choose another connection.",
   "settings.modelProvider.navigationUnavailable":
     "The requested provider is unavailable. Please choose another provider.",
-  "marketingTouch.idle": "Ready",
-  "marketingTouch.verifying": "Verifying…",
-  "marketingTouch.submitting": "Processing…",
-  "marketingTouch.preparing": "Succeeded. Preparing the result…",
-  "marketingTouch.failed": "The action failed. Please try again later.",
-  "marketingTouch.uncertain":
-    "The result could not be confirmed. Check your benefits later. This action will not be retried this session to avoid duplicate submissions.",
-  "marketingTouch.succeeded": "Action succeeded",
   "workspace.context.lastActivity": "Last active {time}",
   "bots.privateDelivery.retry": "Resend reply",
   "bots.privateDelivery.retryHint":

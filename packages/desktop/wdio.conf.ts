@@ -44,13 +44,6 @@ import {
   type E2EBrowserTargetInfo,
 } from "./test/e2e/helpers/e2e-window-target.js";
 import { runE2EBeforeSessionSetup } from "./test/e2e/helpers/e2e-before-session.js";
-import {
-  applyMarketingTouchMockEnv,
-  clearMarketingTouchMockEnv,
-  shouldPrepareMarketingTouchMock,
-  startMarketingTouchMockServer,
-  type MarketingTouchMockServer,
-} from "./test/e2e/helpers/marketing-touch-mock-server.js";
 import { resolveAskUserQuestionClockScaleForWorker } from "./test/e2e/helpers/e2e-worker-environment.js";
 import { createE2ERendererBridgeRootHooks } from "./test/e2e/helpers/e2e-renderer-bridge-root-hook.js";
 import { installHookTrustFixture } from "./test/e2e/helpers/hook-trust-fixture.js";
@@ -547,8 +540,6 @@ process.env.ESCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT = "1";
 
 let upstreamCaptureProxy: E2ENetworkCaptureProxy | null = null;
 let upstreamReplayServer: UpstreamReplayServer | null = null;
-let marketingTouchMockServer: MarketingTouchMockServer | null = null;
-let marketingTouchMockBaseUrl = "";
 let modelContextBudgetConfigMockServer: ModelContextBudgetConfigMockServer | null = null;
 let dynamicWorkflowConfigMockServer: DynamicWorkflowConfigMockServer | null = null;
 let clientScenesMockServer: ClientScenesMockServer | null = null;
@@ -1233,26 +1224,6 @@ async function materializeOffPeakMockESCodeBuiltinProviderConfig(port: number): 
   );
 }
 
-/**
- * Marketing Touch E2E：case-local fixture server 即 App 的 endpoint origin（营销服务读
- * /api/v1/marketing/*）。套餐族删除后升级 mock 移除，营销 fixture 独立启动；
- * 必须在 worker env 注入、Electron 启动前就绪，Main → Host → Agent 继承同一地址。
- */
-async function startMarketingTouchE2EMock(specs: string[]) {
-  await stopMarketingTouchE2EMock();
-  if (!shouldPrepareMarketingTouchMock(specs)) return;
-  marketingTouchMockServer = await startMarketingTouchMockServer();
-  marketingTouchMockBaseUrl = marketingTouchMockServer.baseUrl;
-  applyMarketingTouchMockEnv(process.env, marketingTouchMockBaseUrl);
-}
-
-async function stopMarketingTouchE2EMock() {
-  const ownedBaseUrl = marketingTouchMockBaseUrl;
-  marketingTouchMockServer = null;
-  marketingTouchMockBaseUrl = "";
-  if (ownedBaseUrl) clearMarketingTouchMockEnv(process.env, ownedBaseUrl);
-}
-
 async function startModelContextBudgetConfigE2EMock(specs: string[] = []) {
   const scenario = resolveModelContextBudgetConfigMockScenario(specs);
   if (!scenario) {
@@ -1803,7 +1774,6 @@ function forceFinalizeE2ERunnerFromGuard() {
     try {
       await stopUpstreamE2EHttp();
       await stopRequestSecurityFixture();
-      await stopMarketingTouchE2EMock();
       await stopModelContextBudgetConfigE2EMock();
       await stopDynamicWorkflowConfigE2EMock();
       await stopPluginCdnZipFixture();
@@ -3429,7 +3399,6 @@ export const config: WebdriverIO.Config = {
         });
         // 原因：onPrepare 与 Electron launcher 不在同一进程，动态端口只能在
         // worker 的 beforeSession 中注入，才会被 Main -> Host 环境链继承。
-        await startMarketingTouchE2EMock(specs);
         await startModelContextBudgetConfigE2EMock(specs);
         // 动态工作流灰度同样只能在 worker 的 beforeSession 注入动态端口，Main -> Host 的
         // 环境链才会继承到 case-local 的 /client/configs 网关。
@@ -3528,7 +3497,6 @@ export const config: WebdriverIO.Config = {
           e2eReporter.compactNodeCoverage();
         } finally {
           await stopRequestSecurityFixture();
-          await stopMarketingTouchE2EMock();
           await stopModelContextBudgetConfigE2EMock();
           await stopDynamicWorkflowConfigE2EMock();
           currentE2EElectronAppPid = null;

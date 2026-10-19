@@ -16,7 +16,7 @@
 用户**显式**发起的登录入口不受开关影响，仍然可用：
 
 - 手动登录入口：`WelcomeScreen`（`manual-login`），从设置页或 workspace shell 的登录操作打开
-- 模型供应商连接 / Rewards / MarketingTouch / Coding Plan 升级引导：`WelcomeScreen`（`provider-request`），打开后自动启动指定 provider 的 OAuth
+- 模型供应商连接 / Rewards / Coding Plan 升级引导：`WelcomeScreen`（`provider-request`），打开后自动启动指定 provider 的 OAuth
 - 登录内容容器：使用 `bg-background`、`border-popover-border`、`shadow-md`
 
 官方登录相关实现（`WelcomeScreen`、`LoginPanel`、OAuth 服务、凭据存储、手动登录入口、`onOAuthCallback` 链路、退出登录）全部保留，等待接入 Logto 第三方 IDP。接入后本策略应由 Logto 会话事实驱动，而不是恢复写死的官方登录强制；把开关改回 `true` 即可恢复上表的历史行为。

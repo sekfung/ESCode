@@ -126,7 +126,7 @@ $ git status --short | wc -l
 | ---------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | `rust-migration-acceptance-2026-10-18.md` H2.6 | `hooks` 3/3 Pending             | 本报告与顶部「后续」链接记录 3/3 Implemented；验收报告正文不改判，由复核人更新 |
 | `rust-u2-host-scope-boundary.md:171-175`       | hooks 未逐行复核                | 本轮逐项读码并交付，见 `rust-u2-hooks.md`                                      |
-| `rust-unified-host-handoff-2026-10-15.md:8`    | 51 channel / 619 成员           | 当前 46/539；M2 报告已记录，本轮重新确认                                       |
+| `rust-unified-host-handoff-2026-10-15.md:8`    | 51 channel / 619 成员           | 当前 44/534（营销服务删除后重生成）；M2 报告已记录，本轮重新确认               |
 | `rust-unified-host-handoff-2026-10-15.md:213`  | `escode-task.createTask` 未实现 | 已过时；M2 报告已记录                                                          |
 
 ## 7. 提交
@@ -156,15 +156,19 @@ $ git status --short | wc -l
 
 | 指标            | 本轮后（hooks + plugin-sync + 零散成员）  |
 | --------------- | ----------------------------------------- |
-| channels        | 46                                        |
-| members         | 539                                       |
+| channels        | 44                                        |
+| members         | 534                                       |
 | Implemented     | 378                                       |
-| Pending         | 161                                       |
+| Pending         | 156                                       |
 | `hooks`         | 0 Pending                                 |
 | `plugin-sync`   | 0 Pending                                 |
 | `off-peak-task` | 3 Pending（create/额度/支持快照）         |
 | automation      | 4 Pending（create/update/restart/runNow） |
 | `bots`          | 20 Pending（平台/入站/群投递/V4 流）      |
+
+> 2026-10-20 营销服务删除后重新生成 inventory：`cloud-content`（3）与 `marketing-touch`（2）退出
+> TS 服务面，channels 46 → 44、members 539 → 534。两者原本均 Pending，因此 Implemented 保持 378，
+> Pending 161 → 156。营销服务不作为 M3 迁移缺口。
 
 ## 10. M3 全量状态（2026-10-19 续作）
 
@@ -187,22 +191,22 @@ $ git status --short | wc -l
 
 ### 10.2 未完成（M3 阻塞）
 
-| 域                                  | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
-| ----------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `off-peak-task`                     | `createTask`、`getCodingPlanSupport`、`getTakeNumberAvailability`                 | 需要 Off-Peak server client、账号凭证与 Registry                                                                                                          |
-| automation                          | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
-| `bots`                              | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
-| `conversation-share`                | 9/9                                                                               | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
-| `marketing-touch` / `cloud-content` | 2 + 3                                                                             | 有 Renderer 调用；需营销网络客户端与资产注册表                                                                                                            |
-| 零散剩余                            | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
+| 域                   | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off-peak-task`      | `createTask`、`getCodingPlanSupport`、`getTakeNumberAvailability`                 | 需要 Off-Peak server client、账号凭证与 Registry                                                                                                          |
+| automation           | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
+| `bots`               | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
+| `conversation-share` | 9/9                                                                               | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
+| 零散剩余             | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
 
 ### 10.3 结论
 
 **M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、off-peak 8、automation 6、bots 12、client-config 1、media-preview 2、零散与 provider headers 5，共 +44 成员（334 → 378 Implemented）；
-剩余 161 Pending 中，off-peak/automation/bots/conversation-share/marketing-touch 是明确的 Renderer 可达缺口。
+剩余 156 Pending 中，off-peak/automation/bots/conversation-share 是明确的 Renderer 可达缺口。
+营销服务（含 `cloud-content`）已按产品决定删除，不再计入剩余缺口。
 
 建议下一轮顺序：
 
 1. `off-peak-task` + automation（含 `client-config.getOffPeakClientConfig` 与 Host 调度所有者、H5.3 无窗口调度）。
 2. `bots` 拆两轮：配置/状态/绑定与注册，然后 V4 流/群任务/附件/平台 provider。
-3. `conversation-share` 与 `marketing-touch`/`cloud-content`（阻塞上线，需产品确认是否保留入口）。
+3. `conversation-share`（阻塞上线）。

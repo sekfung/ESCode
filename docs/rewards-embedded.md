@@ -2,14 +2,13 @@
 
 ## 范围与归属
 
-Windows/Linux 的奖励页及其登录入口必须保留顶部窗口按钮，关闭网页与关闭窗口是独立操作。
-`marketing-touch-rewards.test.ts` 打开奖励及登录后断言窗控可见且不被遮挡；macOS 沿用原生红绿灯。
+Windows/Linux 的奖励页及其登录入口必须保留顶部窗口按钮，关闭网页与关闭窗口是独立操作；macOS 沿用原生红绿灯。
 
 奖励中心（Rewards）菜单入口使用 Lucide `Gift` 礼物盒图标，保持 `size-4`、继承文字颜色；账户头像的 `User` 图标不变。
 
 奖励中心入口仅在现有 user 登录状态非空时显示；未登录或退出登录后整行不渲染。桌面和 Web 共用同一条件，不新增登录状态副本。
 
-营销 navigate 的 page=rewards 共用 RewardsProvider。网页仅接受 /{cn|en}/rewards；旧 page=referrals 与旧 /{cn|en}/referrals 均拒绝。Provider 唯一持有登录后续接的尝试 ID，取消/失败/替换即丢弃，成功且用户就绪后仅打开一次，独立于营销实例的账号切换重建。详见 marketing-touch-actions.md。
+网页仅接受 /{cn|en}/rewards；旧 page=referrals 与旧 /{cn|en}/referrals 均拒绝。Provider 唯一持有登录后续接的尝试 ID，取消/失败/替换即丢弃，成功且用户就绪后仅打开一次，独立于账号切换重建。营销服务已删除，不再提供营销投放的 navigate 入口。
 
 菜单入口保留「邀请好友 [奖励] / Refer a friend [Rewards]」，内嵌页面标题为「奖励中心 / Rewards」。入口文案与标题使用独立的 rewards i18n key。菜单宽度适配中英文内容，保留明暗主题与移动端支持。页面内真正的邀请好友、邀请链接、邀请记录仍使用 referral/invite 语义。
 
@@ -82,12 +81,12 @@ sequenceDiagram
 - Website 的 /invite、/invite/accept、/invite/unavailable 与 /referrals/unavailable 是实际邀请业务，不属于被移除的奖励主页，保持原语义；仅旧 /{cn|en}/referrals 根页面返回 404。
 - 升级、领取、营销上报、任务/session、手机 replayable 与桌面 continuous 均不改变。用户数据/奖励仍归服务端，页面展示状态归 Website，登录续接归窗口 Provider。
 
-| 验收项 | 设置/动作                              | 断言/证据                                                                                                        |
-| ------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| REW-13 | 三环境、cn/en、明暗构造并校验 URL      | 仅 rewards 精确路径；旧路径、相似路径、旧配置拒绝/不读取，单测                                                   |
-| REW-14 | 安装 bridge 后分别派发新旧事件         | 旧事件不更新状态，新事件生效；分区只使用新名称，单测/桌面 E2E                                                    |
-| REW-15 | 登录菜单及营销按钮打开                 | Gift + 邀请好友 [奖励] / Refer a friend [Rewards]；rewards 路由、鉴权、语言主题与单次上报正常，真实 Electron E2E |
-| REW-16 | Website 普通/embedded 新旧主页与邀请页 | 新页 200、旧主页 404；邀请路由不变，中英明暗与 390/900/1440px，无横向溢出，浏览器测试                            |
+| 验收项 | 设置/动作                              | 断言/证据                                                                                              |
+| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| REW-13 | 三环境、cn/en、明暗构造并校验 URL      | 仅 rewards 精确路径；旧路径、相似路径、旧配置拒绝/不读取，单测                                         |
+| REW-14 | 安装 bridge 后分别派发新旧事件         | 旧事件不更新状态，新事件生效；分区只使用新名称，单测/桌面 E2E                                          |
+| REW-15 | 登录菜单打开                           | Gift + 邀请好友 [奖励] / Refer a friend [Rewards]；rewards 路由、鉴权、语言主题正常，真实 Electron E2E |
+| REW-16 | Website 普通/embedded 新旧主页与邀请页 | 新页 200、旧主页 404；邀请路由不变，中英明暗与 390/900/1440px，无横向溢出，浏览器测试                  |
 
 以上用例已按用户决定 accepted；迁移/旧版本兼容组合 pruned，不增加迁移测试。沿用 REF-01…12 的原登录/桥接隔离用例 ID；初始新增 E2E 保持 pending，2026-09-16 转正决定见下文，不使用 Docker。图谱保留稳定 capability ID，增加 Rewards 别名及营销入口关系；codegraph 不可用，采用二层静态调用核对，不声称完整索引扫描。
 
@@ -122,10 +121,9 @@ codegraph 不可用，以上是源码静态核对而非完整调用图扫描；�
 | REF-08 | 普通网页/手机                              | 无 bridge 不崩溃；不转交 App token                                             |
 | REF-09 | 回归 Coding Plan                           | 原购买桥与完成刷新不变                                                         |
 | REF-10 | 明暗主题下滚动邀请页                       | WebView 左右边界与窗口一致；页面可滚动，顶部导航位置不变                       |
-| REF-11 | Banner / 独立弹窗下发 navigate rewards     | 打开既有邀请页，每次 confirm 只上报一次，不触发领取                            |
 | REF-12 | 未登录导航后成功、取消、失败、替换登录尝试 | 同 ID 且 user 就绪才续接；取消/失败/替换后不因其他登录补跳；Web 外链只打开一次 |
 
-2026-09-16 用户确认转正：3 条 Rewards E2E 移至 `packages/desktop/test/e2e/ui-shell/marketing-touch-rewards.test.ts`，纳入默认 spec 扫描，不使用 Docker。标准 promotion dry run 不支持 ui-shell，沿用营销领域手动迁移。正式运行由 runner 在构建前启动隔离网页 fixture 并配置随机 loopback origin，不依赖手动启动 localhost:3000；fixture 只实现网页侧 bridge 消费协议和长页滚动，不替代真实 Website 业务或视觉验收。保留之前真实 Website 联调证据，真实服务端验签、部署和发奖不在本用例范围。
+2026-09-16 用户确认转正的 3 条 Rewards E2E 原随营销领域 spec 维护；营销服务删除后该用例已移除。文档保留当时的验收记录，不代表当前仓库仍有对应用例。真实 Website 联调证据保留；真实服务端验签、部署和发奖不在本用例范围。
 
 转正验证：本机 macOS Electron `desktop-e2e-20260916-033102-475`，正式路径、无 MANUAL_REVIEW 开关、无网页地址手动覆盖，3/3 通过，runner exit 0。Fixture HTTP 单测 16/16、根 typecheck、desktop typecheck:e2e、lint（47 warnings / 0 errors）、architecture check 通过。未进行 Docker 准入或运行远端 CI，不将单测覆盖的账号竞态、安全边界及环境选择声称为新增 E2E。
 

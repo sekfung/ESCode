@@ -131,8 +131,6 @@ export const ServiceChannels = {
   ClientConfig: "client-config",
   /** ESCode 客户端场景配置服务 */
   ClientScenes: "client-scenes",
-  CloudContent: "cloud-content",
-  MarketingTouch: "marketing-touch",
   /** Skills 管理服务 */
   Skills: "skills",
   /** SSH 远程 skills 同步服务 */

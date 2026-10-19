@@ -9,21 +9,6 @@
 @plugin "@tailwindcss/typography";
 @plugin "../lucide-colors.mjs";
 
-/* Hero 可为任意图片/视频/iframe，不能用 App 主题推断关闭图标对比度。 */
-.cloud-content-dialog {
-  --media-close-surface: rgb(0 0 0 / 50%);
-  --media-close-surface-hover: rgb(0 0 0 / 65%);
-  --media-close-foreground: #fff;
-}
-.cloud-content-dialog [data-slot="dialog-close"] {
-  background-color: var(--media-close-surface);
-  color: var(--media-close-foreground);
-  border: 0;
-}
-.cloud-content-dialog [data-slot="dialog-close"]:hover {
-  background-color: var(--media-close-surface-hover);
-}
-
 /* Bugfix: KaTeX 会同时输出 MathML 辅助层和 HTML 视觉层；缺少 katex CSS 时两层都会显示，
  * 行内公式和块级公式就会看起来“渲染一遍又普通文本一遍”。 */
 
@@ -56,8 +41,6 @@
  * 这里显式补一条 @source，让 Tailwind 始终扫描 UI 包源码，避免下拉框、菜单这类组件渲染成半残状态。
  */
 @source "./**/*.{ts,tsx}";
-/* 云端模板常用样式的构建保障，不是运行时 class 白名单。 */
-@source inline("text-center text-ui-base/relaxed text-foreground-subtle font-semibold font-normal text-foreground whitespace-nowrap underline decoration-foreground-subtle decoration-dashed underline-offset-4");
 
 /* 磨砂玻璃效果：html/body 需要透明背景，让 Electron vibrancy 透出来 */
 html,

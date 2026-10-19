@@ -48,12 +48,9 @@ export function createE2EStartupCredentialSeed(
   const requiresESCodeJwt = options.specs?.some((spec) => {
     const fileName = spec.replaceAll("\\", "/").split("/").at(-1);
     return (
-      // 营销投放 spec 按主题拆成 marketing-touch-delivery*.test.ts，领取用例都需要本地 JWT。
-      // 套餐族删除（2026-10-15）：Coding Plan / Start Plan / Rewards 专项用例已移除，
-      // 这里只保留仍存在的营销与认证专项。
-      fileName?.startsWith("marketing-touch-delivery") ||
-      fileName === "jwt-401-auto-logout.test.ts" ||
-      isRequestSecuritySpec(fileName)
+      // 套餐族删除（2026-10-15）：Coding Plan / Start Plan / Rewards 专项用例已移除；
+      // 营销服务删除后这里只保留仍存在的认证专项。
+      fileName === "jwt-401-auto-logout.test.ts" || isRequestSecuritySpec(fileName)
     );
   });
   // 合并时遗漏了普通 E2E 的 JWT 隔离：假的 JWT 会访问真实套餐接口并弹出登录失效提示。

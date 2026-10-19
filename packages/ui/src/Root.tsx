@@ -84,7 +84,6 @@ import {
   markCodeCommentRemoved,
 } from "@/lib/codeCommentContext.js";
 import { useCodeCommentPreviewStore } from "@/store/codeCommentPreviewStore.js";
-import { MarketingTouchProvider } from "@/components/marketing-touch/MarketingTouchProvider.js";
 import { setUiPerfArmsReporter } from "@/lib/uiPerfArmsTelemetry.js";
 import { setSessionOpenArmsReporter } from "@/lib/sessionOpenArmsTelemetry.js";
 import { setSendFunnelArmsReporter } from "@/lib/sendFunnelArmsTelemetry.js";
@@ -239,9 +238,7 @@ export function Root(props: RootProps) {
                       enabled={props.assistantCodeCommentCardsEnabled}
                     >
                       <RequestSecurityHost />
-                      <MarketingTouchProvider desktop={props.isDesktop === true}>
-                        <RootInner {...props} />
-                      </MarketingTouchProvider>
+                      <RootInner {...props} />
                     </AssistantCodeCommentFeatureProvider>
                   </WebRemoteControlFeatureProvider>
                 </DiffsWorkerPoolProvider>
