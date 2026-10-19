@@ -154,10 +154,53 @@ $ git status --short | wc -l
 
 ## 9. 全仓状态
 
-| 指标         | 本轮后     |
-| ------------ | ---------- |
-| channels     | 46         |
-| members      | 539        |
-| Implemented  | 337        |
-| Pending      | 202        |
-| 本域 Pending | `hooks`: 0 |
+| 指标            | 本轮后（hooks + plugin-sync + 零散成员） |
+| --------------- | ---------------------------------------- |
+| channels        | 46                                       |
+| members         | 539                                      |
+| Implemented     | 347                                      |
+| Pending         | 192                                      |
+| `hooks`         | 0 Pending                                |
+| `plugin-sync`   | 0 Pending                                |
+| `off-peak-task` | 11 Pending                               |
+| `bots`          | 32 Pending                               |
+
+## 10. M3 全量状态（2026-10-19 续作）
+
+本轮在原 hooks 基础上继续推进，但**整个 M3 仍未达到可验收状态**。已完成与未完成如下。
+
+### 10.1 已完成
+
+| 域/成员                                      | 状态        | 证据                                                                                                                                       |
+| -------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `hooks` 3/3                                  | Implemented | 本报告 §2–§5；真实客户端 + TS 差分 + 真实 authority                                                                                        |
+| `plugin-sync` 7/7                            | Implemented | `rust-u2-plugin-sync.md`；`rpc_plugin_sync.rs` 2 例；`rustHostPluginSyncParity.test.ts`（候选/状态全等、tar 逐字节、导入结果/config 全等） |
+| `escode-agent.listSessionSubagents`          | Implemented | `rpc_misc.rs`：真实会话返回 `ended.total=0`                                                                                                |
+| `escode-session.getWorkspaceRuntimeIdentity` | Implemented | `rpc_misc.rs`：existing-only generation=1；dormant workspace 明确报错                                                                      |
+| 边界项逐成员定性                             | 完成        | `rust-u2-host-scope-boundary.md` §7                                                                                                        |
+
+负向验证：在 detached worktree 删除 `plugin-sync.exportPluginsArchive` 的 Implemented 登记，
+`contract.rs` 两例 exit 101 并点名该成员；恢复后 3/3 通过，worktree 已删除。
+
+### 10.2 未完成（M3 阻塞）
+
+| 域                                     | 剩余成员                                                                                                                                                                                                 | 为什么不能现在算完成                                                                                                                                                                                                                         |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off-peak-task`                        | 11/11                                                                                                                                                                                                    | 需要 port `OffPeakTaskRepo`（tasks-index SQLite schema/状态机）+ `OffPeakTaskService`（取号、轮询、终态核销、3102 续跑）与 Host 调度所有者；当前完全未实现                                                                                   |
+| automation（`escode-agent` 子集）      | `createAutomation`/`listAutomations`/`listAllAutomations`/`updateAutomation`/`deleteAutomation`/`setAutomationEnabled`/`restartAutomation`/`runAutomationNow`/`listAutomationRuns`/`deleteAutomationRun` | 需要 port `AutomationRepo`（1469 行）+ cron 计算/调度与 run dispatcher；当前完全未实现                                                                                                                                                       |
+| `client-config.getOffPeakClientConfig` | 1                                                                                                                                                                                                        | 依赖 off-peak 服务与 selected provider 快照；未实现                                                                                                                                                                                          |
+| `bots`                                 | 32/32                                                                                                                                                                                                    | 配置/状态、飞书/Telegram/Webhook/微信 provider、V4 流、附件、群任务/投递记录均未迁移；当前完全未实现                                                                                                                                         |
+| `conversation-share`                   | 9/9                                                                                                                                                                                                      | 有 Renderer 调用（SessionPane/分享落地页），属**阻塞上线**；依赖 share server 客户端与 publish/import 进度事件                                                                                                                               |
+| `marketing-touch` / `cloud-content`    | 2 + 3                                                                                                                                                                                                    | 有 Renderer 调用（MarketingTouchProvider），属**阻塞上线**；依赖营销网络客户端                                                                                                                                                               |
+| 零散剩余                               | `escode-agent.readSessionDebug`、`escode-session.respondProviderRuntimeHeaders`、`media-preview.refreshPlaybackUrl`/`release`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply`             | `readSessionDebug` 运行时无 `session/debug`；`respondProviderRuntimeHeaders` 需要 runtime 反向请求/取消事件路由；media-preview 两项与 `gen-ui.prepareSandbox` 属 Main 的 `registerSandbox`/host-range lease；provider apply 零 Renderer 调用 |
+
+### 10.3 结论
+
+**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、零散 2，共 +12 成员（337 → 347 Implemented）；
+剩余 192 Pending 中，off-peak/automation/bots/conversation-share/marketing-touch 是明确的 Renderer 可达缺口。
+
+建议下一轮顺序：
+
+1. `off-peak-task` + automation（含 `client-config.getOffPeakClientConfig` 与 Host 调度所有者、H5.3 无窗口调度）。
+2. `bots` 拆两轮：配置/状态/绑定与注册，然后 V4 流/群任务/附件/平台 provider。
+3. `conversation-share` 与 `marketing-touch`/`cloud-content`（阻塞上线，需产品确认是否保留入口）。
