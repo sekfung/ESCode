@@ -122,6 +122,7 @@ pub fn channels_with(
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
     let data_base_dir_for_off_peak = data_base_dir.clone();
+    let data_base_dir_for_bots = data_base_dir.clone();
     let provider_service = provider_files.map(|files| {
         let service = Arc::new(files.into_service());
         // Main 声明了 Remote 刷新才会有 synchronizer；否则这里是空操作（rust-u2-providers.md §12）。
@@ -142,6 +143,7 @@ pub fn channels_with(
     let home_for_terminal = home.clone();
     let home_for_hooks = home.clone();
     let home_for_plugin_sync = home.clone();
+    let home_for_bots = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     instances.set_responder(crate::runtime_requests::responder(home.clone()));
@@ -239,6 +241,7 @@ pub fn channels_with(
         ),
         crate::domains_plugin_sync::plugin_sync_channel(&home_for_plugin_sync),
         crate::domains_off_peak::off_peak_channel(data_base_dir_for_off_peak),
+        crate::domains_bots::bots_channel(data_base_dir_for_bots, home_for_bots),
         task_channel,
         session_channel(instances, options, write),
     ];
