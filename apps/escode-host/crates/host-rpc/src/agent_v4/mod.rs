@@ -4,7 +4,6 @@
 //!
 //! 未迁移的 `escode-agent` 方法（插件/自动化/MCP UI/wiki 等）不在方法表里，由 `session::respond`
 //! 回显式 `NotImplemented`。
-
 pub(crate) mod assembler;
 pub(crate) mod base;
 pub(crate) mod frames;
@@ -12,6 +11,7 @@ pub(crate) mod observe;
 mod scope;
 mod scope_handshake;
 mod scope_methods;
+mod scope_misc;
 mod scope_routing;
 mod scope_subscriptions;
 
@@ -207,6 +207,17 @@ fn connection_channel(base: &Arc<base::Base>, context: &ConnectionContext) -> Ch
         (
             "conversationFileRewindPreviewV4",
             query("conversationFileRewindPreviewV4"),
+        ),
+        (
+            "listSessionSubagents",
+            bind(
+                &scope,
+                |s, p| async move { s.list_session_subagents(&p).await },
+            ),
+        ),
+        (
+            "getWorkspaceRuntimeIdentity",
+            bind(&scope, |s, p| async move { s.runtime_identity(&p) }),
         ),
         ("attachmentReadV4", query("attachmentReadV4")),
         (

@@ -22,6 +22,8 @@ pub mod mcp_sync;
 pub mod model_trajectory;
 pub mod official_plugins;
 pub mod onboarding;
+pub(crate) mod ordered_json;
+pub mod plugin_sync;
 pub mod provider;
 pub mod remote_sync;
 pub mod serial;

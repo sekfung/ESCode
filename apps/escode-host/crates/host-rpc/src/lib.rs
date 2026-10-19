@@ -33,6 +33,7 @@ mod domains_memory;
 mod domains_onboarding;
 mod domains_output_style;
 mod domains_plugin;
+mod domains_plugin_sync;
 mod domains_plugins_legacy;
 mod domains_provider;
 mod domains_provider_connectivity;

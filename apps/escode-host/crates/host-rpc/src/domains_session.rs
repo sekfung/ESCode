@@ -109,6 +109,29 @@ pub(crate) fn session_channel(
                 w::api_retry_forward_handler(write.clone(), "setMode"),
             ),
             (
+                "getWorkspaceRuntimeIdentity",
+                handler({
+                    let instances = instances.clone();
+                    move |arg: Wire| {
+                        let instances = instances.clone();
+                        Box::pin(async move {
+                            let target = crate::forward::runtime_target(params_of(arg))?;
+                            let Some(instance) = instances.live(&target.identity) else {
+                                return Err((
+                                    "Error".to_owned(),
+                                    "ESCode agent runtime identity is unavailable.".to_owned(),
+                                ));
+                            };
+                            Ok(Wire::Object(json!({
+                                "generation": instance.generation,
+                                "identity": instance.identity,
+                                "workspaceKey": instance.identity,
+                            })))
+                        })
+                    }
+                }),
+            ),
+            (
                 "initializeWorkspace",
                 handler({
                     let instances = instances.clone();

@@ -6,7 +6,6 @@
 mod config;
 mod digest;
 mod legacy;
-mod ordered_json;
 mod paths;
 mod schema;
 mod service;

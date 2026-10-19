@@ -6,8 +6,8 @@ use std::path::Path;
 use serde_json::{Map, Value, json};
 
 use super::config::{HookEvent, HookType};
-use super::ordered_json::{self, OrderedJson};
 use super::{digest, paths};
+use crate::ordered_json::{self, OrderedJson};
 
 /// legacy `.agents/settings.json` / `.claude/settings.json`（只读，`enabled:false`、`editable:false`）。
 pub(super) async fn legacy_hooks(

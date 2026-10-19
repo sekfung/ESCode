@@ -140,6 +140,7 @@ pub fn channels_with(
     let home_for_settings_sync = home.clone();
     let home_for_terminal = home.clone();
     let home_for_hooks = home.clone();
+    let home_for_plugin_sync = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     instances.set_responder(crate::runtime_requests::responder(home.clone()));
@@ -235,6 +236,7 @@ pub fn channels_with(
             instances_for_simple.clone(),
             Arc::clone(&options_for_simple),
         ),
+        crate::domains_plugin_sync::plugin_sync_channel(&home_for_plugin_sync),
         task_channel,
         session_channel(instances, options, write),
     ];

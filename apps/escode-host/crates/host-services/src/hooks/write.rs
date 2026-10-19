@@ -11,8 +11,8 @@ use indexmap::IndexMap;
 use serde_json::Value;
 
 use super::digest;
-use super::ordered_json::{self, OrderedJson};
 use super::paths;
+use crate::ordered_json::{self, OrderedJson};
 
 pub async fn save(home: &Path, params: &Value) -> Result<(), String> {
     let workspace_text = params
