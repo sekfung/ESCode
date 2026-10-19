@@ -147,13 +147,32 @@ async fn prepare(params: Value, authorizer: Option<Arc<PathAuthorizer>>) -> Resu
 pub(crate) fn media_preview_channel(authorizer: Option<Arc<PathAuthorizer>>) -> Channel {
     Channel::new(
         "media-preview",
-        vec![(
-            "prepare",
-            handler_rpc(move |arg: Wire| {
-                let authorizer = authorizer.clone();
-                Box::pin(async move { prepare(params_of(arg), authorizer).await })
-            }),
-        )],
+        vec![
+            (
+                "prepare",
+                handler_rpc(move |arg: Wire| {
+                    let authorizer = authorizer.clone();
+                    Box::pin(async move { prepare(params_of(arg), authorizer).await })
+                }),
+            ),
+            (
+                "refreshPlaybackUrl",
+                handler_rpc(|arg: Wire| {
+                    Box::pin(async move {
+                        let params = params_of(arg);
+                        let preview_id = params["previewId"].as_str().unwrap_or_default();
+                        // Host 的 prepare 只产生 inline/local-url，不签发 host-range 租约；
+                        // 任何 previewId 都按已过期处理（与 Main 代理的过期分支同文案）。
+                        let _ = preview_id;
+                        Err(plain_error("Remote media preview lease expired".to_owned()))
+                    })
+                }),
+            ),
+            (
+                "release",
+                handler_rpc(|_arg: Wire| Box::pin(async move { Ok(Wire::Undefined) })),
+            ),
+        ],
     )
 }
 

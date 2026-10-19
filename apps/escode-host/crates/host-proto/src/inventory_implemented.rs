@@ -59,6 +59,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("prompt-attachment-transfer", "cleanup"),
     ("prompt-attachment-transfer", "onDynamicProgress"),
     ("media-preview", "prepare"),
+    ("media-preview", "refreshPlaybackUrl"),
+    ("media-preview", "release"),
     ("client-scenes", "list"),
     ("client-config", "getSnapshot"),
     ("client-config", "getDynamicWorkflowClientConfig"),
