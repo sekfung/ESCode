@@ -156,11 +156,6 @@ impl Client {
         }
     }
 
-    /// 等到某个 reason 的事件出现（事件与应答的相对顺序不保证）。
-    async fn event(&mut self, reason: &str) -> Value {
-        self.event_where(reason, |_| true).await
-    }
-
     /// 等到满足条件的事件：同一 reason 可能先后出现多次（如标题先后变更），
     /// 断言必须指名要等哪一次，不能取“第一条同 reason 事件”（间歇失败的根因）。
     async fn event_where(&mut self, reason: &str, accept: impl Fn(&Value) -> bool) -> Value {
@@ -325,7 +320,13 @@ async fn v4_sessions_sync_into_the_task_index_without_the_session_write_path() {
         )
         .await;
     assert_eq!(completed["provider"], "glm");
-    let event = client.event("task_status_changed").await;
+    // 同一任务可能先后发出多次 `task_status_changed`（running/terminal）；取第一条会间歇
+    // 命中没有 unreadSignal 的中间事件。按终态信号等那一条（event_where 的既定纪律）。
+    let event = client
+        .event_where("task_status_changed", |event| {
+            event["unreadSignal"] == "background_terminal"
+        })
+        .await;
     assert_eq!(event["taskId"], Value::from(task_id.clone()));
     assert_eq!(event["unreadSignal"], "background_terminal");
     assert_eq!(event["taskMeta"]["status"], "completed");

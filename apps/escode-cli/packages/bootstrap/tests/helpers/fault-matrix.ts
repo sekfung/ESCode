@@ -92,6 +92,8 @@ interface FaultCellOptions {
   timeoutMs?: number;
   /** 每子代理空转轮数 K（信息性：只影响 `logicalRequests`），缺省 {@link FAULT_CELL_TURNS}。 */
   turns?: number;
+  /** 流式空闲超时（毫秒）；healthy 基线在 CI 负载下可放大，避免误触发一次重试。 */
+  streamIdleTimeoutMs?: number;
 }
 
 export interface FaultCellObservation {
@@ -180,6 +182,9 @@ function wireCell(options: Omit<FaultCellOptions, "shape">): CellWiring {
       apiFormat: options.apiFormat,
       baseURL: options.server.baseURL,
       statusSink,
+      ...(options.streamIdleTimeoutMs === undefined
+        ? {}
+        : { streamIdleTimeoutMs: options.streamIdleTimeoutMs }),
     }),
     fileSystemPort: fakeFileSystemPort({}),
     scale,

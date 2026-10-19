@@ -57,25 +57,6 @@ pub(super) fn actor_definitions(actor: &Value, definitions: &mut Vec<Value>) {
     }
 }
 
-/// TS NodeContextSourceAdapter.detectEnvInfo 未给有效 shell 时的回退名。
-fn env_shell_name() -> String {
-    ["SHELL", "ComSpec"]
-        .iter()
-        // 显式 env 端口（rust-u1-runtime-lib.md §3.1）：实例快照优先，缺席回落进程 env。
-        .find_map(|key| {
-            crate::contract::env::var(key)
-                .ok()
-                .filter(|v| !v.is_empty())
-        })
-        .map(|path| {
-            path.rsplit(['/', '\\'])
-                .next()
-                .unwrap_or_default()
-                .to_owned()
-        })
-        .unwrap_or_else(|| "unknown".into())
-}
-
 impl Engine {
     /// 宿主对 actor 会话的请求。`actor.turn` 的应答留到这一轮结束；其余立即应答。
     pub(super) async fn actor_request(
@@ -196,10 +177,9 @@ impl Engine {
             catalog
         });
         session.prompt_snapshot = parent_session.prompt_snapshot.clone();
-        // TS actor runtime 不套用会话 shell 选择，环境段的 Shell 是 `basename(SHELL ?? ComSpec)`。
-        if let Some(snapshot) = session.prompt_snapshot.as_mut() {
-            snapshot.shell = env_shell_name();
-        }
+        // 修复：workflow actor 继承父会话已解析的 shell（prompt 快照随父克隆），与 TS
+        // workflow child 的 bashShellSelection 继承一致；不再用进程 SHELL/ComSpec 覆盖，
+        // 否则 Windows 上 Rust prompt 是 cmd.exe、Node 是 Git Bash（parity 失败）。
         session.mode = parent_session.mode.clone();
         session.plan_enabled = false;
         session.trace_id = Some(self.clock.id());

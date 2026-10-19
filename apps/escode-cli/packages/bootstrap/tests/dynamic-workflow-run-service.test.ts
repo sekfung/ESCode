@@ -11,7 +11,10 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createInMemorySessionEventStore, createSqliteSessionStore } from "@escode/adapters/storage";
+import {
+  createInMemorySessionEventStore,
+  createSqliteSessionStore,
+} from "@escode/adapters/storage";
 import type {
   DwfArtifactItem,
   DwfRunIntrospectionQueries,
@@ -151,7 +154,9 @@ type ActorPlan =
   // 拒绝接续它的在飞 ask，见 workflow-driver-quiescence.ts）。本种类才是正常形状。
   | { kind: "hang-until-cancelled" }
   // 模型请求以 adapter 错误 reject（模型侧错误收容用例）。
-  | { kind: "throw"; error: unknown };
+  | { kind: "throw"; error: unknown }
+  // 等兄弟 ask 都起飞后再以 adapter 错误 reject：并发收容用例需要确定的两条在飞节点。
+  | { kind: "throw-after"; error: unknown; after: Promise<void> };
 
 /** 一次 generateText 请求的观察面：模型这一轮看见的消息与被提供的工具。 */
 interface ModelRequestLog {
@@ -190,6 +195,10 @@ function scriptedModelAdapter(
         });
       }
       if (planned.kind === "throw") throw planned.error;
+      if (planned.kind === "throw-after") {
+        await planned.after;
+        throw planned.error;
+      }
       const usage = { inputTokens: 12, outputTokens: 8, totalTokens: 20 };
       if (planned.kind === "submit") {
         return {
@@ -214,7 +223,11 @@ function scriptedModelAdapter(
           providerMetadata: undefined,
           text: "",
           toolCalls: [
-            { id: `write-call-${index}`, name: "Write", input: { file_path: planned.path, content: planned.content } },
+            {
+              id: `write-call-${index}`,
+              name: "Write",
+              input: { file_path: planned.path, content: planned.content },
+            },
           ],
           usage,
         };
@@ -1304,7 +1317,9 @@ describe("dynamic workflow run service — retuneConcurrency", () => {
   // launch 把本 run 的上界登记给治理器（抬它用过的 key 的增长上限），retune 经控制面覆盖，
   // launch 结算时清掉——三处与调度器、座位闸门同一刻换值。
   it("launch 登记上界、retune 覆盖、结算清掉：治理器上的增长上限跟着 run 走", async () => {
-    const governor = createWorkflowConcurrencyGovernor({ defaultConcurrency: DEFAULT_OF_TEN_CORES });
+    const governor = createWorkflowConcurrencyGovernor({
+      defaultConcurrency: DEFAULT_OF_TEN_CORES,
+    });
     const calls: string[] = [];
     const concurrency: WorkflowConcurrencyPort = {
       tryAdmit: (runId, key) => governor.tryAdmit(runId, key),
@@ -7177,8 +7192,14 @@ describe("dynamic workflow run service — amend-resume 的崩溃后重建", () 
       // beta 从重建出来的导入表结算：门从未关过，只有 alpha 真的跑了。
       expect((await resumed.service.getTask(runB))?.output).toBe("alpha-2|beta-1");
       expect(turnCount(resumed)).toBe(1);
-      expect(resumed.actorRuntimeInputs.map((input) => refToString(input.actor))).toEqual(["actor#1@1"]);
-      expect(settledEvents(resumed, runB)).toContainEqual({ siteId: "ask#2", ordinal: 1, cached: true });
+      expect(resumed.actorRuntimeInputs.map((input) => refToString(input.actor))).toEqual([
+        "actor#1@1",
+      ]);
+      expect(settledEvents(resumed, runB)).toContainEqual({
+        siteId: "ask#2",
+        ordinal: 1,
+        cached: true,
+      });
       expect(journal.getNode(runB, "ask#2", 1)?.result).toEqual({ text: "beta-1" });
 
       expect(resumed.actorRuntimeInputs[0]!.pinnedModel).toBe("sentinel/from-journal");
@@ -7226,7 +7247,10 @@ describe("dynamic workflow run service — amend-resume 的崩溃后重建", () 
 
       const crashed = makeHarness({
         actorScripts: {
-          "actor#1@1": [{ kind: "write", path: join(TEST_CWD, "notes.md"), content: "alpha was here" }, { kind: "hang" }],
+          "actor#1@1": [
+            { kind: "write", path: join(TEST_CWD, "notes.md"), content: "alpha was here" },
+            { kind: "hang" },
+          ],
         },
         journal,
         sessionStore: store as never,
@@ -7283,7 +7307,11 @@ describe("dynamic workflow run service — amend-resume 的崩溃后重建", () 
         "actor#1@1",
         "actor#2@1",
       ]);
-      expect(settledEvents(resumed, runB)).toContainEqual({ siteId: "ask#2", ordinal: 1, cached: false });
+      expect(settledEvents(resumed, runB)).toContainEqual({
+        siteId: "ask#2",
+        ordinal: 1,
+        cached: false,
+      });
       expect(journal.getNode(runB, "ask#2", 1)?.result).toEqual({ text: "beta-2" });
       // resume 不重发关门事件：判定是恢复出来的，不是新发生的。
       expect(
@@ -8085,11 +8113,18 @@ describe("dynamic workflow run service — 模型侧错误的收容（apps/escod
     });
 
   it("一个子代理撞上确定性模型错误 → run stopped(provider)，兄弟在飞 ask 被 abort，可恢复", async () => {
+    // 并发收容断言需要两个 ask 都已在飞。actor#1 的错误先等这个闸门，避免调度快时
+    // actor#2 还没起飞、只收到一条 cancelled（间歇失败的根因）。
+    let releaseThrow!: () => void;
+    const bothInFlight = new Promise<void>((resolve) => {
+      releaseThrow = resolve;
+    });
     const harness = makeHarness({
       actorScripts: {
         "actor#1@1": [
           {
-            kind: "throw",
+            kind: "throw-after",
+            after: bothInFlight,
             error: adapterError(
               {
                 reason: "auth_failed",
@@ -8111,6 +8146,15 @@ describe("dynamic workflow run service — 模型侧错误的收容（apps/escod
       scriptText: PARALLEL_SCRIPT,
       trace: traceFor("provider-stop"),
     });
+    const deadline = Date.now() + 5_000;
+    while (
+      (harness.actorModelRequests["actor#1@1"]?.requests.length ?? 0) === 0 ||
+      (harness.actorModelRequests["actor#2@1"]?.requests.length ?? 0) === 0
+    ) {
+      if (Date.now() > deadline) throw new Error("both actor asks did not start in time");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    releaseThrow();
     await settle(harness, runId);
 
     const record = harness.journal.getRun(runId);
@@ -8161,7 +8205,7 @@ describe("dynamic workflow run service — 模型侧错误的收容（apps/escod
     });
   });
 
-  it("cancel(runId, \"model\")（TaskStop）→ stopped(model)；缺省 initiator 是 user", async () => {
+  it('cancel(runId, "model")（TaskStop）→ stopped(model)；缺省 initiator 是 user', async () => {
     const harness = makeHarness({ hangActors: true });
     const byModel = await submitRun(harness, {
       cwd: TEST_CWD,
@@ -8170,12 +8214,19 @@ describe("dynamic workflow run service — 模型侧错误的收容（apps/escod
     });
     expect(await harness.service.cancel(byModel, "model")).toBe(true);
     await settle(harness, byModel);
-    expect(harness.journal.getRun(byModel)).toMatchObject({ status: "stopped", stopReason: "model" });
+    expect(harness.journal.getRun(byModel)).toMatchObject({
+      status: "stopped",
+      stopReason: "model",
+    });
     expect((await harness.service.getTask(byModel))?.stopReason).toBe("model");
     const settled = harness.runEvents.find(
       (event) => event.runId === byModel && event.eventType === "run-settled",
     );
-    expect(settled?.payload).toMatchObject({ status: "stopped", stopReason: "model", resumable: true });
+    expect(settled?.payload).toMatchObject({
+      status: "stopped",
+      stopReason: "model",
+      resumable: true,
+    });
 
     const byUser = await submitRun(harness, {
       cwd: TEST_CWD,

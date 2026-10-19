@@ -54,20 +54,26 @@ const EVERY_K = 3;
 async function runCell(
   server: FakeProviderServer,
   cell: CellCoordinate,
-  extra: { turns?: number } = {},
+  extra: { turns?: number; streamIdleTimeoutMs?: number } = {},
 ): Promise<FaultCellObservation> {
   const observation = await runFaultCell({
     server,
     shape: cell.shape,
     apiFormat: cell.apiFormat ?? "anthropic-messages",
     ...(extra.turns === undefined ? {} : { turns: extra.turns }),
+    ...(extra.streamIdleTimeoutMs === undefined
+      ? {}
+      : { streamIdleTimeoutMs: extra.streamIdleTimeoutMs }),
   });
   await pause(POST_SETTLE_GRACE_MS);
   return observation;
 }
 
 /** 流水里吃了某种判决的请求数。 */
-function verdictCount(server: FakeProviderServer, predicate: (verdict: Verdict) => boolean): number {
+function verdictCount(
+  server: FakeProviderServer,
+  predicate: (verdict: Verdict) => boolean,
+): number {
   return server.requests.filter((entry: RequestLedgerEntry) => predicate(entry.verdict)).length;
 }
 
@@ -105,7 +111,9 @@ describe("fault matrix · B1 healthy — 装配基线", () => {
     async (_name, cell) => {
       const server = await startFakeProviderServer({ program: healthy() });
       try {
-        const obs = await runCell(server, cell);
+        // healthy 基线的断言是“恰好 logicalRequests 次、零失败”。CI 并发下 300ms 流空闲窗
+        // 可能误触发一次 stream_idle_timeout 重试；放大到 5s（不影响 hang 行的专用用例）。
+        const obs = await runCell(server, cell, { streamIdleTimeoutMs: 5_000 });
         assertCommonInvariants(obs, { status: "completed", server });
         expect(server.requests.length).toBe(obs.logicalRequests);
         expect(statusCount(obs.statusEvents, "model_request_completed")).toBe(obs.logicalRequests);
@@ -144,9 +152,7 @@ describe("fault matrix · B2 gate(2) — 3008 在 workflow 内是重试，不是
 
         const rejected = statusVerdictCount(server, "3008");
         const parallelism = obs.shape.parallelism;
-        const failed = obs.statusEvents.filter(
-          (event) => event.type === "model_request_failed",
-        );
+        const failed = obs.statusEvents.filter((event) => event.type === "model_request_failed");
         const scheduled = obs.statusEvents.filter(
           (event) => event.type === "model_retry_scheduled",
         );
@@ -313,36 +319,39 @@ const EVERY_KTH_ROWS: EveryKthRow[] = [
 for (const row of EVERY_KTH_ROWS) {
   const rowCells = cells(row.quick, row.fullOnly);
   // 快档里没有格的行整个跳过（it.each 不接受空表）。
-  describe.skipIf(rowCells.length === 0)(`fault matrix · ${row.id} everyKth(${EVERY_K}, ${row.verdict.kind}) — ${row.title}`, () => {
-    it.each(rowCells.map((cell) => [cellName(cell), cell] as const))(
-      "%s：completed，失败数 = 吃到判决的请求数",
-      async (_name, cell) => {
-        const server = await startFakeProviderServer({
-          program: row.program?.(cell) ?? everyKth(EVERY_K, row.verdict),
-        });
-        try {
-          const obs = await runCell(server, cell);
-          assertCommonInvariants(obs, { status: "completed", server });
-          const faulted = verdictCount(server, (verdict) => verdict.kind === row.verdict.kind);
-          expect(faulted).toBeGreaterThan(0);
-          expect(statusCount(obs.statusEvents, "model_request_failed")).toBe(faulted);
-          expect(statusCount(obs.statusEvents, "model_retry_scheduled")).toBe(faulted);
-          expect(statusCount(obs.statusEvents, "model_request_completed")).toBe(
-            obs.logicalRequests,
-          );
-          expect(server.requests.length).toBe(obs.logicalRequests + faulted);
-          if (row.verdict.kind === "hang") {
-            // 挂起的请求都是客户端（流空闲超时）主动断的。
-            const hung = server.requests.filter((entry) => entry.verdict.kind === "hang");
-            expect(hung.every((entry) => entry.closedByClient)).toBe(true);
+  describe.skipIf(rowCells.length === 0)(
+    `fault matrix · ${row.id} everyKth(${EVERY_K}, ${row.verdict.kind}) — ${row.title}`,
+    () => {
+      it.each(rowCells.map((cell) => [cellName(cell), cell] as const))(
+        "%s：completed，失败数 = 吃到判决的请求数",
+        async (_name, cell) => {
+          const server = await startFakeProviderServer({
+            program: row.program?.(cell) ?? everyKth(EVERY_K, row.verdict),
+          });
+          try {
+            const obs = await runCell(server, cell);
+            assertCommonInvariants(obs, { status: "completed", server });
+            const faulted = verdictCount(server, (verdict) => verdict.kind === row.verdict.kind);
+            expect(faulted).toBeGreaterThan(0);
+            expect(statusCount(obs.statusEvents, "model_request_failed")).toBe(faulted);
+            expect(statusCount(obs.statusEvents, "model_retry_scheduled")).toBe(faulted);
+            expect(statusCount(obs.statusEvents, "model_request_completed")).toBe(
+              obs.logicalRequests,
+            );
+            expect(server.requests.length).toBe(obs.logicalRequests + faulted);
+            if (row.verdict.kind === "hang") {
+              // 挂起的请求都是客户端（流空闲超时）主动断的。
+              const hung = server.requests.filter((entry) => entry.verdict.kind === "hang");
+              expect(hung.every((entry) => entry.closedByClient)).toBe(true);
+            }
+          } finally {
+            await server.close();
           }
-        } finally {
-          await server.close();
-        }
-      },
-      CELL_TIMEOUT_MS,
-    );
-  });
+        },
+        CELL_TIMEOUT_MS,
+      );
+    },
+  );
 }
 
 // ————————————————————————————————————————————————————————————————

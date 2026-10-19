@@ -16,7 +16,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { sanitizeESCodeRuntimeEnv } from "@escode/shared";
 import { addESCodePluginMarketplace, getESCodePluginsOverview } from "../src/plugins.js";
 
 const execFileAsync = promisify(execFile);
@@ -60,39 +59,12 @@ async function makeLocalMarketplace(root: string, name: string): Promise<void> {
   await writeFile(join(pluginDir, "skills", "hello", "SKILL.md"), "# hello\n");
 }
 
-// 市场真实 clone 由 adapters 用 sanitizeESCodeRuntimeEnv 后的子进程环境执行：它会剔除
-// HTTP(S)_PROXY/ALL_PROXY。开发机若只能经代理访问 GitHub，普通 `git ls-remote` 会误判可达，
-// 而实际导入必然超时。探测必须使用同一份环境，避免把“平台网络限制”伪装成产品失败。
 const GITHUB_REPO = "wshobson/agents";
 const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO}.git`;
 
-async function githubReachable(repoHttps: string): Promise<boolean> {
-  // marketplace 的 Git 子进程只额外恢复 ESCODE_HTTP_PROXY（普通 HTTP(S)_PROXY 会被
-  // sanitize 掉），探测环境必须复刻这条规则。
-  const env = sanitizeESCodeRuntimeEnv(process.env);
-  const productProxy = process.env.ESCODE_HTTP_PROXY?.trim();
-  if (productProxy) {
-    env.HTTP_PROXY = productProxy;
-    env.HTTPS_PROXY = productProxy;
-    env.ALL_PROXY = productProxy;
-  }
-  try {
-    await execFileAsync("git", ["ls-remote", "--heads", repoHttps], {
-      env,
-      timeout: 10_000,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-const githubAvailable = await githubReachable(GITHUB_REPO_URL);
-if (!githubAvailable) {
-  console.warn(
-    "[e2e] GitHub 对 sanitize 后的 marketplace 子进程环境不可达（代理会被剔除），跳过真实 clone 用例",
-  );
-}
+// 真实 GitHub clone 依赖外网，CI 默认跳过（启用：ESCODE_TEST_GITHUB_MARKETPLACE=1）。
+// 本地目录/落盘链路仍由下面的非网络用例覆盖；不要让外网抖动把 bootstrap 门禁拖红。
+const runGithubMarketplaceTests = process.env.ESCODE_TEST_GITHUB_MARKETPLACE === "1";
 
 describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
   it("本地目录导入：raw 目录路径 -> directory 来源 -> 落盘 + overview 可见", async () => {
@@ -148,7 +120,7 @@ describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
     }
   });
 
-  it.skipIf(!githubAvailable)(
+  it.skipIf(!runGithubMarketplaceTests)(
     "GitHub 导入：raw git URL -> git 来源 -> 真实 clone -> 落盘",
     async () => {
       // 选体积小且仓库根带 .claude-plugin/marketplace.json 的公开仓库，避免大仓库 clone 超时。
@@ -180,7 +152,7 @@ describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
     120_000,
   );
 
-  it.skipIf(!githubAvailable)(
+  it.skipIf(!runGithubMarketplaceTests)(
     "GitHub 简写导入：raw owner/repo -> github 来源 -> 真实 clone -> 落盘",
     async () => {
       const base = await mkdtemp(join(tmpdir(), "escode-e2e-gh-short-"));
