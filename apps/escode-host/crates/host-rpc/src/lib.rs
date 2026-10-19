@@ -27,6 +27,7 @@ mod domains_gen_ui;
 mod domains_git;
 mod domains_git_checkpoint;
 mod domains_git_commit_message;
+mod domains_hooks;
 mod domains_mcp_sync;
 mod domains_memory;
 mod domains_onboarding;

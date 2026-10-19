@@ -16,6 +16,7 @@ pub mod file_index;
 pub mod file_watcher;
 pub mod gen_ui;
 pub mod git;
+pub mod hooks;
 pub mod js_compat;
 pub mod mcp_sync;
 pub mod model_trajectory;

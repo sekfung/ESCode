@@ -139,6 +139,7 @@ pub fn channels_with(
     let home_for_mcp_sync = home.clone();
     let home_for_settings_sync = home.clone();
     let home_for_terminal = home.clone();
+    let home_for_hooks = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     instances.set_responder(crate::runtime_requests::responder(home.clone()));
@@ -229,6 +230,11 @@ pub fn channels_with(
             data_base_dir_for_checkpoint,
         ),
         crate::domains_terminal::terminal_channel(home_for_terminal),
+        crate::domains_hooks::hooks_channel(
+            home_for_hooks,
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
         task_channel,
         session_channel(instances, options, write),
     ];

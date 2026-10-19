@@ -919,6 +919,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "ignore",
+ "indexmap",
  "libc",
  "notify",
  "portable-pty",

@@ -60,13 +60,12 @@ describe("rust host rpc surface", () => {
         ) as Record<string, unknown>;
         expect(onDisk.locale).toBe("zh-CN");
 
-        // 未迁移的 channel：显式 NotImplemented（不挂起）。serial 已 14/14 迁移，hooks 仍是 Pending。
-        await expect(
-          services.hooksService.loadHooks({
-            workspacePath: home,
-            workspaceIdentity: home,
-          } as never),
-        ).rejects.toThrow(/does not implement channel `hooks`/);
+        // hooks 域（M3）：空 workspace 没有声明，真实客户端拿到与 TS 同形结果。
+        const emptyHooks = (await services.hooksService.loadHooks({
+          workspacePath: home,
+          workspaceIdentity: home,
+        } as never)) as { hooks: unknown[]; hooksEnabled: boolean };
+        expect(emptyHooks).toEqual({ hooks: [], hooksEnabled: false });
 
         // escode-session 域：Host 转成 runtime 的 session/list（TS Host 同构），
         // 新 workspace 返回空列表；实例按 workspace 建立。
@@ -432,13 +431,39 @@ describe("rust host rpc surface", () => {
         const conversationAgain = await services.fileService.ensureConversationWorkspace();
         expect(conversationAgain.created).toBe(false);
 
-        // file 域已 17/17（搜索/索引见 rustHostFileIndex.test.ts）；用仍未注册的 hooks channel 验证显式缺口。
-        await expect(
-          services.hooksService.loadHooks({
-            workspacePath: home,
-            workspaceIdentity: home,
-          } as never),
-        ).rejects.toThrow(/does not implement channel `hooks`/);
+        // hooks 域写读：真实客户端 saveHooks → 落盘 → loadHooks（差分见 rustHostHooksParity.test.ts）。
+        await mkdir(join(home, ".escode", "cli"), { recursive: true });
+        await writeFile(
+          join(home, ".escode", "cli", "config.json"),
+          JSON.stringify({ features: { mcp: true } }),
+        );
+        await services.hooksService.saveHooks({
+          workspacePath,
+          workspaceIdentity: workspacePath,
+          hooks: [
+            {
+              id: "rpc-hook",
+              event: "Stop",
+              type: "process",
+              command: "node",
+              args: ["stop.mjs"],
+              enabled: true,
+              location: { source: "escode", scope: "project" },
+            },
+          ],
+        } as never);
+        const loadedHooks = (await services.hooksService.loadHooks({
+          workspacePath,
+          workspaceIdentity: workspacePath,
+        } as never)) as {
+          hooks: Array<Record<string, unknown>>;
+          hooksEnabled: boolean;
+        };
+        expect(loadedHooks.hooksEnabled).toBe(true);
+        expect(loadedHooks.hooks[0]?.command).toBe("node");
+        expect(
+          JSON.parse(await readFile(join(home, ".escode", "cli", "config.json"), "utf8")),
+        ).toEqual({ features: { mcp: true }, hooks: { events: {} } });
 
         // system 域：info() 返回 homedir + Node 口径 platform。
         const systemInfo = (await services.systemService.info()) as Record<string, unknown>;

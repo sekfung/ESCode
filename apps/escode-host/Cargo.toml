@@ -65,6 +65,8 @@ crc32fast = "1"
 futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# hooks 配置写回需要保留 JSON 键序（TS 用 JSON.parse/展开保序；持久化 L5 逐字节对拍）。
+indexmap = { version = "2", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 tokio-tungstenite = "0.30.0"
