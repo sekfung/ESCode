@@ -181,24 +181,25 @@ $ git status --short | wc -l
 | `bots` 12/32                                                        | Implemented | `rust-u2-bots.md`；`rpc_bots.rs`                                                   |
 | `escode-agent.listSessionSubagents` / `getWorkspaceRuntimeIdentity` | Implemented | `rpc_misc.rs`                                                                      |
 | provider runtime headers（请求事件 + 两通道 respond）               | Implemented | `provider_headers.rs` 2 单测 + `rpc_misc.rs` 未知请求错误                          |
+| `client-config.getOffPeakClientConfig`                              | Implemented | 2 个纯函数单测；原始信封缓存 + 隐藏 Off-Peak Provider 视图                         |
+| `media-preview.refreshPlaybackUrl` / `release`                      | Implemented | Host 不签发 host-range 租约：refresh 按过期、release no-op                         |
 | 边界项逐成员定性                                                    | 完成        | `rust-u2-host-scope-boundary.md` §7                                                |
 
 ### 10.2 未完成（M3 阻塞）
 
-| 域                                     | 剩余成员                                                                                                                        | 为什么不能算完成                                                                                                                                          |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `off-peak-task`                        | `createTask`、`getCodingPlanSupport`、`getTakeNumberAvailability`                                                               | 需要 Off-Peak server client、账号凭证与 Registry                                                                                                          |
-| automation                             | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`                                                    | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
-| `client-config.getOffPeakClientConfig` | 1                                                                                                                               | 依赖远端 client/configs 与 Off-Peak model selection view                                                                                                  |
-| `bots`                                 | 20/32                                                                                                                           | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
-| `conversation-share`                   | 9/9                                                                                                                             | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
-| `marketing-touch` / `cloud-content`    | 2 + 3                                                                                                                           | 有 Renderer 调用；需营销网络客户端与资产注册表                                                                                                            |
-| 零散剩余                               | `readSessionDebug`、`media-preview.refreshPlaybackUrl`/`release`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；media-preview/`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                         |
+| 域                                  | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off-peak-task`                     | `createTask`、`getCodingPlanSupport`、`getTakeNumberAvailability`                 | 需要 Off-Peak server client、账号凭证与 Registry                                                                                                          |
+| automation                          | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
+| `bots`                              | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
+| `conversation-share`                | 9/9                                                                               | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
+| `marketing-touch` / `cloud-content` | 2 + 3                                                                             | 有 Renderer 调用；需营销网络客户端与资产注册表                                                                                                            |
+| 零散剩余                            | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
 
 ### 10.3 结论
 
-**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、off-peak 8、automation 6、bots 12、零散与 provider headers 5，共 +41 成员（334 → 375 Implemented）；
-剩余 164 Pending 中，off-peak/automation/bots/conversation-share/marketing-touch 是明确的 Renderer 可达缺口。
+**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、off-peak 8、automation 6、bots 12、client-config 1、media-preview 2、零散与 provider headers 5，共 +44 成员（334 → 378 Implemented）；
+剩余 161 Pending 中，off-peak/automation/bots/conversation-share/marketing-touch 是明确的 Renderer 可达缺口。
 
 建议下一轮顺序：
 
