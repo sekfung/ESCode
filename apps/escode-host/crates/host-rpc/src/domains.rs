@@ -121,6 +121,7 @@ pub fn channels_with(
     client_services: Option<Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
+    let data_base_dir_for_off_peak = data_base_dir.clone();
     let provider_service = provider_files.map(|files| {
         let service = Arc::new(files.into_service());
         // Main 声明了 Remote 刷新才会有 synchronizer；否则这里是空操作（rust-u2-providers.md §12）。
@@ -237,6 +238,7 @@ pub fn channels_with(
             Arc::clone(&options_for_simple),
         ),
         crate::domains_plugin_sync::plugin_sync_channel(&home_for_plugin_sync),
+        crate::domains_off_peak::off_peak_channel(data_base_dir_for_off_peak),
         task_channel,
         session_channel(instances, options, write),
     ];
