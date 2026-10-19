@@ -52,6 +52,7 @@
 | `cargo test -p escode-host-services hooks`                                                                         | 0      | 14 例通过                                                                              |
 | `cargo test -p escode-host-rpc --test rpc_hooks`                                                                   | 0      | 2 例通过                                                                               |
 | `pnpm exec vitest run packages/desktop/test/rustHostHooksParity.test.ts packages/desktop/test/rustHostRpc.test.ts` | 0      | 2 files / 2 tests passed                                                               |
+| `pnpm exec vitest run packages/desktop/test/rustHostHooksGrantAuthority.test.ts`                                   | 0      | 真实 `escode.cjs` authority：grant 成功 + 过期 bundle 拒绝；1 passed                   |
 
 ### 3.2 对拍级别
 
@@ -66,7 +67,10 @@
 - **存量读入**：TS 先 `saveHooks` 写出 `.escode/config.json`（含未知 `features` 键）与 trust store，
   Rust `loadHooks` 读入并与 TS 结果全等；trust store 命中时 `trustState = trusted_persistent`。
 - **真实客户端**：`rustHostRpc.test.ts` 覆盖 `loadHooks`（空 workspace）与 `saveHooks → 落盘 → loadHooks`；
-  parity 测试覆盖三个成员的成功/拒绝路径与相对路径错误。
+  parity 测试覆盖三个成员的成功/拒绝路径与相对路径错误；
+  `rustHostHooksGrantAuthority.test.ts` 经真实 `escode.cjs __escode-workflow-host` 验证
+  `grantWorkspaceHookTrust` 的 Agent authority（写 trust store、过期 bundle 拒绝）。该用例在
+  `escode.cjs` 未构建时显式 skip（CI 的 `test:escode-cli-rust` 会先构建它）。
 - **链路语义**：hooks 没有推送/订阅/流；`rpc_hooks.rs` 同时经 `/ws/host`（desktop-continuous）与
   `/ws`（web-remote-replayable）调用 `loadHooks`，断言同一结果。
 
@@ -130,15 +134,17 @@ $ git status --short | wc -l
 | 提交       | 内容                                                                  |
 | ---------- | --------------------------------------------------------------------- |
 | `a89f0203` | hooks 服务域 + Host 通道 + 契约清单 + spec + 单测/差分/真实客户端测试 |
-| 后续提交   | `rpc_hooks.rs` 双链路语义；本报告与验收报告后续链接                   |
+| `288c239b` | `rpc_hooks.rs` 双链路语义；本报告与验收报告后续链接                   |
+| 后续提交   | 真实 `escode.cjs` authority 用例；CLI 套件结果记录                    |
 
 ## 8. 未完成项与说明
 
-1. **`grantWorkspaceHookTrust` 的真实 Agent authority E2E**：本轮真实客户端用例使用最小 workflow host 桩
-   验证 Host→runtime→host 的转发、workspace 引用与结果透传；Agent authority 的策略/重新发现/写库语义由既有
-   TS 测试覆盖（`workspace-hook-trust-protocol.test.ts`、`workspace-hook-trust-cli.test.ts`）。
-   在 Rust 侧直接驱动真实 `escode.cjs` 的 grant 未执行（UNVERIFIED）；原因是该路径需要 Main 合成的完整
-   runtime env（插件宿主根、provider 配置等），本轮未构造。移除条件：测试夹具提供完整 runtime env 后补一例。
+1. **`grantWorkspaceHookTrust` 的真实 Agent authority E2E**：已完成。
+   `rustHostHooksGrantAuthority.test.ts` 直接驱动真实 `escode.cjs __escode-workflow-host`，验证：
+   - 精确 declaration 授权成功并写入 `<home>/.escode/security/workspace-hook-trust-v1.json`；
+   - 过期 `bundleDigest` 返回 `{accepted:false, reasonCode:"workspace_hooks_bundle_changed"}`。
+     该用例依赖 `escode.cjs`（缺失时显式 skip）；`rustHostHooksParity.test.ts` 另用最小 workflow host 桩
+     保证转发契约在无 Node CLI 的 CI 分片也执行。
 2. **`pnpm test:escode-cli-rust`**：已完整运行，411 项 399 pass / 0 fail / 12 skipped；本轮未改 CLI Rust 代码。
 3. **Windows/macOS**：本轮未在 Windows/macOS 实机运行；代码使用 `Path`/`PathBuf` 与平台分隔符，
    trust 时间戳/JSON 解析与平台无关。CI 三平台门禁由 `rust-runtime-ci` 覆盖。
