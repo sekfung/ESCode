@@ -4,6 +4,7 @@
 //! 投影，见 docs/specs/rust-u2-tasks-index.md §6.4）、session_params（create/resume 参数整形，
 //! 见同 spec §5）。
 pub mod api_client;
+pub mod automation;
 pub mod broadcast;
 pub mod claude_import;
 pub mod client_config;
