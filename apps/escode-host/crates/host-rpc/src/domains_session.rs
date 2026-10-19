@@ -17,6 +17,7 @@ pub(crate) fn session_channel(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
     write: SessionWriteContext,
+    provider_headers: Option<std::sync::Arc<crate::provider_headers::ProviderHeaders>>,
 ) -> Channel {
     use crate::domains_session_write as w;
 
@@ -130,6 +131,30 @@ pub(crate) fn session_channel(
                         })
                     }
                 }),
+            ),
+            (
+                "respondProviderRuntimeHeaders",
+                match provider_headers {
+                    Some(headers) => crate::session::handler(move |arg: Wire| {
+                        let headers = std::sync::Arc::clone(&headers);
+                        Box::pin(async move {
+                            let params = params_of(arg);
+                            let request_id = params["requestId"].as_str().unwrap_or_default();
+                            headers
+                                .respond(request_id, &params["response"])
+                                .map(|_| Wire::Undefined)
+                                .map_err(|message| ("Error".to_owned(), message))
+                        })
+                    }),
+                    None => handler(|_arg: Wire| {
+                        Box::pin(async move {
+                            Err((
+                                "NotImplemented".to_owned(),
+                                "provider runtime headers need an App-level Host".to_owned(),
+                            ))
+                        })
+                    }),
+                },
             ),
             (
                 "initializeWorkspace",

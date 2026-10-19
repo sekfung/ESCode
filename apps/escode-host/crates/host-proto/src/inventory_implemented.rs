@@ -220,6 +220,12 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-task", "respondPermission"),
     ("escode-task", "respondElicitation"),
     ("escode-session", "getWorkspaceRuntimeIdentity"),
+    ("escode-agent", "respondProviderRuntimeHeaders"),
+    (
+        "escode-agent",
+        "onDynamicWorkspaceProviderRuntimeHeadersRequest",
+    ),
+    ("escode-session", "respondProviderRuntimeHeaders"),
     ("escode-session", "listSessions"),
     ("escode-session", "readSession"),
     ("escode-session", "readSessionMessages"),

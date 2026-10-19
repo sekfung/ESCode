@@ -16,14 +16,21 @@ use serde_json::{Map, Value, json};
 const MODEL_CONTEXT_BUDGET_STRATEGY: &str = "preflight-v1";
 
 /// 组合根装配的应答器：`home` 是设置域根（与 `setting` channel 同一份 settings.json）。
-pub fn responder(home: PathBuf) -> HostResponder {
+pub fn responder(
+    home: PathBuf,
+    provider_headers: Arc<crate::provider_headers::ProviderHeaders>,
+) -> HostResponder {
     let home = Arc::new(home);
     Arc::new(move |request: HostRequest| {
         let home = Arc::clone(&home);
+        let provider_headers = Arc::clone(&provider_headers);
         Box::pin(async move {
             match request.method.as_str() {
                 "session/requestRuntimePreferences" => {
                     runtime_preferences(&home, &request.identity, &request.params).await
+                }
+                "interaction/requestProviderRuntimeHeaders" => {
+                    Ok(provider_headers.request(request.params).await)
                 }
                 other => Err(HostError::unsupported(other)),
             }

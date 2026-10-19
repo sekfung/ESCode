@@ -120,4 +120,26 @@ async fn subagents_and_runtime_identity_round_trip() {
             .contains("runtime identity is unavailable"),
         "{error}"
     );
+    // provider runtime headers：没有 pending 请求时明确报错，不挂起。
+    call(
+        &mut socket,
+        5,
+        "escode-agent",
+        "respondProviderRuntimeHeaders",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "requestId": "missing",
+            "response": {"headersApplied": false},
+        }))]),
+    )
+    .await;
+    let Wire::Object(error) = read_response(&mut socket, 5).await else {
+        panic!("error object");
+    };
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not found"),
+        "{error}"
+    );
 }

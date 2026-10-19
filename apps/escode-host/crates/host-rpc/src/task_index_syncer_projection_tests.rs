@@ -31,6 +31,7 @@ fn baseline_meta_and_unread_signal_follow_the_ts_projections() {
             escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
             Arc::new(|_| unreachable!()),
             None,
+            None,
         )),
         ReadContext {
             path: dir.path().join("tasks-index.sqlite"),

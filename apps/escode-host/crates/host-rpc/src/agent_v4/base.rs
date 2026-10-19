@@ -35,6 +35,8 @@ pub(crate) struct Base {
     pub index: Option<ReadContext>,
     /// `runtime/capabilities` 的 `independentPlanState`，按 (身份键, 代次) 缓存（TS 按 client 缓存）。
     plan_support: Mutex<BTreeMap<(String, u64), bool>>,
+    /// provider runtime headers 反向请求注册表（与 runtime responder 共用）。
+    pub provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
 }
 
 /// 一次 runtime 调用的结果。
@@ -47,6 +49,7 @@ impl Base {
         instances: escode_host_runtime::Instances,
         options: escode_host_surface::OptionsFactory,
         index: Option<ReadContext>,
+        provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
     ) -> Self {
         Self {
             instances,
@@ -54,6 +57,7 @@ impl Base {
             hub: Arc::default(),
             index,
             plan_support: Mutex::default(),
+            provider_headers,
         }
     }
 

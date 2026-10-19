@@ -2,11 +2,12 @@
 
 use std::sync::Arc;
 
+use futures_util::stream;
 use serde_json::Value;
 
 use crate::domains_task_support::first_object;
 use crate::session::{
-    Channel, ConnectionContext, EventHandler, MethodHandler, RpcError, handler_rpc,
+    Channel, ConnectionContext, EventHandler, MethodHandler, RpcError, handler, handler_rpc,
 };
 use crate::wire::Wire;
 
@@ -15,6 +16,46 @@ use super::base;
 use super::frames::TopicKind;
 use super::scope::Scope;
 use super::{lifecycle_event, lifecycle_payload, restarted_payload, spawn_background};
+
+fn workspace_key(params: &Value) -> Option<String> {
+    let path = params["workspacePath"].as_str()?;
+    let identity = params["workspaceIdentity"]
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    Some(identity.unwrap_or(path).to_owned())
+}
+
+fn provider_headers_event(base: &Arc<base::Base>) -> EventHandler {
+    let headers = base.provider_headers.clone();
+    Arc::new(move |arg: Wire| {
+        let Some(headers) = headers.clone() else {
+            return Err("provider runtime headers need an App-level Host".to_owned());
+        };
+        let target = workspace_key(&first_object(arg));
+        let receiver = headers.subscribe();
+        let stream = stream::unfold(receiver, move |mut receiver| {
+            let target = target.clone();
+            async move {
+                loop {
+                    match receiver.recv().await {
+                        Ok(event) => {
+                            let matches = target.as_deref().is_none_or(|target| {
+                                event["workspace"]["workspaceKey"].as_str() == Some(target)
+                                    || event["workspace"]["workspacePath"].as_str() == Some(target)
+                            });
+                            if matches {
+                                return Some((Wire::Object(event), receiver));
+                            }
+                        }
+                        Err(_) => return None,
+                    }
+                }
+            }
+        });
+        Ok(Box::pin(stream))
+    })
+}
 
 pub(super) fn connection_channel(base: &Arc<base::Base>, context: &ConnectionContext) -> Channel {
     let scope = Scope::new(
@@ -185,6 +226,30 @@ pub(super) fn connection_channel(base: &Arc<base::Base>, context: &ConnectionCon
             bind(&scope, |s, p| async move { s.runtime_identity(&p) }),
         ),
         (
+            "respondProviderRuntimeHeaders",
+            match base.provider_headers.clone() {
+                Some(headers) => handler(move |arg: Wire| {
+                    let headers = Arc::clone(&headers);
+                    Box::pin(async move {
+                        let params = first_object(arg);
+                        let request_id = params["requestId"].as_str().unwrap_or_default();
+                        headers
+                            .respond(request_id, &params["response"])
+                            .map(|_| Wire::Undefined)
+                            .map_err(|message| ("Error".to_owned(), message))
+                    })
+                }),
+                None => handler(|_arg: Wire| {
+                    Box::pin(async move {
+                        Err((
+                            "NotImplemented".to_owned(),
+                            "provider runtime headers need an App-level Host".to_owned(),
+                        ))
+                    })
+                }),
+            },
+        ),
+        (
             "listSessionSubagents",
             bind(
                 &scope,
@@ -236,6 +301,10 @@ pub(super) fn connection_channel(base: &Arc<base::Base>, context: &ConnectionCon
         (
             "onAgentRuntimeRestarted",
             lifecycle_event(base, restarted_payload),
+        ),
+        (
+            "onDynamicWorkspaceProviderRuntimeHeadersRequest",
+            provider_headers_event(base),
         ),
     ];
     let closing = Arc::clone(&scope);

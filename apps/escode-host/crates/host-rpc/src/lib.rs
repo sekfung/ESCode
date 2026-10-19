@@ -85,6 +85,7 @@ mod plugin_params;
 mod plugin_result_schema;
 mod plugin_result_tables;
 mod project_memory;
+mod provider_headers;
 pub mod runtime_requests;
 pub mod session;
 mod task_bot;

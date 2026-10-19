@@ -146,7 +146,11 @@ pub fn channels_with(
     let home_for_bots = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
-    instances.set_responder(crate::runtime_requests::responder(home.clone()));
+    let provider_headers = crate::provider_headers::ProviderHeaders::new();
+    instances.set_responder(crate::runtime_requests::responder(
+        home.clone(),
+        Arc::clone(&provider_headers),
+    ));
     // 任务域与 session 域共用同一套实例表/装配工厂（同一 workspace 只会有一个实例），
     // 并**共用同一份**索引句柄 / 任务目标注册表 / 草稿注册表：Host 是索引投影的唯一写者，
     // 两条通道各持一份句柄会让「单写者 + 单份进程状态」失效（AGENTS.md 状态所有者）。
@@ -188,7 +192,12 @@ pub fn channels_with(
         events: Arc::clone(&events),
     };
     // V4 面与任务索引 syncer 共用同一 Base（同一帧 hub / 实例表 / 索引 hint）。
-    let base = crate::agent_v4::shared_base(instances.clone(), options.clone(), write.read.clone());
+    let base = crate::agent_v4::shared_base(
+        instances.clone(),
+        options.clone(),
+        write.read.clone(),
+        Some(Arc::clone(&provider_headers)),
+    );
     let agent = crate::agent_v4::agent_channel_from_base(Arc::clone(&base));
     // syncer 只在能写索引时启动（缺 dataBaseDir 没有 V4 摄入的可落面）。
     // 窗口控制器（window-controller）与它共用同一实例：会话摘要基线是 controller overlay 的唯一源。
@@ -243,7 +252,7 @@ pub fn channels_with(
         crate::domains_off_peak::off_peak_channel(data_base_dir_for_off_peak),
         crate::domains_bots::bots_channel(data_base_dir_for_bots, home_for_bots),
         task_channel,
-        session_channel(instances, options, write),
+        session_channel(instances, options, write, Some(provider_headers)),
     ];
     list.extend(crate::domains_provider::provider_channels(
         provider_service,

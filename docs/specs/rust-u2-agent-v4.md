@@ -140,3 +140,7 @@ Rust 回 `false`（登记差异 §6-2）。
 12. **本地媒体预览授权**（`authorizeLocalMediaPreviewPath`，media-preview 域）未迁移：桌面本地连接拿到 `local_path` 时与 TS 缺授权器同错 `fault.attachment.previewPathAuthorizationUnavailable`。
 13. **clientHello 校验失败的文案**：TS 抛 zod 的 issue JSON；Rust 回 `ZodError` + 简述（Renderer 不解析该文案）。
 14. **生命周期事件的 `workspaceIdentity`**：取实例装配时的身份（Main 的 options factory 总带身份键）；TS 只在入参带 identity 时才有该键。
+15. **Provider runtime headers 的账号合成**：Rust Host 已接反向请求/应答（`onDynamicWorkspaceProviderRuntimeHeadersRequest` + `respondProviderRuntimeHeaders`），
+    但把 Renderer 的 `runtimeProviderHeaders` 直接作为 `requestAuth.headers`，不做 TS 的账号 IO；
+    `onDynamicWorkspaceProviderRuntimeHeadersCancelled` 仍 Pending（取消通知未从实例帧路由到注册表），超时 120s 后按 `headersApplied:false` 收口。
+    移除条件：接账号请求材料与取消事件路由。
