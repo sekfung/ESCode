@@ -42,7 +42,7 @@
 | `pnpm check:escode-host`                                                                                           | 0      | 边界、8 个生成器 `--check`、inventory 46/539、fmt、clippy `-D warnings`                |
 | `pnpm test:escode-host`                                                                                            | 0      | 全部 cargo 测试 + interop 1 passed；新增 `rpc_hooks.rs` 2 例                           |
 | `pnpm check:escode-cli-rust`                                                                                       | 0      | 边界、fmt、clippy                                                                      |
-| `pnpm test:escode-cli-rust`                                                                                        | 见 §8  | 本轮域不涉及 CLI 代码；结果以收尾运行记录为准                                          |
+| `pnpm test:escode-cli-rust`                                                                                        | 0      | 411 项：399 pass / 0 fail / 12 skipped（约 32.5 分钟）；本轮域不涉及 CLI 代码          |
 | `pnpm typecheck`                                                                                                   | 0      | 含 `packages/desktop/tsconfig.e2e.json`                                                |
 | `pnpm lint`                                                                                                        | 0      | 0 error / 161 warning（较 M2 的 160 多 1 条，均为既存/他人改动；本轮文件无新增 error） |
 | `pnpm fmt:check`                                                                                                   | 0      | 8697 文件格式正确                                                                      |
@@ -139,7 +139,7 @@ $ git status --short | wc -l
    TS 测试覆盖（`workspace-hook-trust-protocol.test.ts`、`workspace-hook-trust-cli.test.ts`）。
    在 Rust 侧直接驱动真实 `escode.cjs` 的 grant 未执行（UNVERIFIED）；原因是该路径需要 Main 合成的完整
    runtime env（插件宿主根、provider 配置等），本轮未构造。移除条件：测试夹具提供完整 runtime env 后补一例。
-2. **`pnpm test:escode-cli-rust`**：本轮未改 CLI Rust 代码；收尾运行见执行记录。若未完成会在提交说明中标注。
+2. **`pnpm test:escode-cli-rust`**：已完整运行，411 项 399 pass / 0 fail / 12 skipped；本轮未改 CLI Rust 代码。
 3. **Windows/macOS**：本轮未在 Windows/macOS 实机运行；代码使用 `Path`/`PathBuf` 与平台分隔符，
    trust 时间戳/JSON 解析与平台无关。CI 三平台门禁由 `rust-runtime-ci` 覆盖。
 4. **Renderer 设置页交互 E2E**：本域没有新增 UI 文案或交互；未运行 Electron E2E（无图形会话）。
