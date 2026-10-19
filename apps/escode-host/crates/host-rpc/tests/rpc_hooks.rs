@@ -218,6 +218,22 @@ rl.on("line", (line) => {{
     .into_object()
     .expect("error payload");
     assert_eq!(missing["name"], json!("InvalidRequest"), "{missing}");
+
+    // 链路语义：hooks 没有推送/流；`/ws`（web-remote-replayable）与
+    // `/ws/host`（desktop-continuous）的请求/应答必须一致。
+    let capability = issue_capability(&surface).await;
+    let mut replayable = connect(surface.addr, "/ws", Some(&capability)).await;
+    let replayed = call_json(
+        &mut replayable,
+        1,
+        "loadHooks",
+        json!({"workspacePath": workspace}),
+    )
+    .await
+    .into_object()
+    .expect("replayable loadHooks answer");
+    assert_eq!(replayed["hooksEnabled"], json!(true));
+    assert_eq!(replayed["hooks"][0]["type"], json!("process"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

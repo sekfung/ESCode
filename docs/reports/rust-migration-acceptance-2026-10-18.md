@@ -1,6 +1,6 @@
 # Rust 迁移独立验收报告（2026-10-18）
 
-> 后续：见 [M1 报告](./rust-migration-m1-2026-10-18.md)（2026-10-18，门禁变绿 + R 线收口；复核后 R 线 **ACCEPT**，见该报告 §11）；[M2 报告](./rust-migration-m2-2026-10-18.md)（2026-10-18，Host 韧性与故障隔离：H2.7、H2.2 前半、H1.3、H1.4）。
+> 后续：见 [M1 报告](./rust-migration-m1-2026-10-18.md)（2026-10-18，门禁变绿 + R 线收口；复核后 R 线 **ACCEPT**，见该报告 §11）；[M2 报告](./rust-migration-m2-2026-10-18.md)（2026-10-18，Host 韧性与故障隔离：H2.7、H2.2 前半、H1.3、H1.4）；[M3 报告](./rust-migration-m3-2026-10-19.md)（2026-10-19，hooks 域 3/3 收口：H2.6 的 `loadHooks`/`saveHooks`/`grantWorkspaceHookTrust`）。
 
 ## 1. 基线与范围
 
