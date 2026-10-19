@@ -20,6 +20,16 @@ export type GuardDecision =
   | { verdict: "reject"; reasonCode: string; message?: string }
   | { verdict: "noop"; reasonCode: string; result?: CommandAck["result"] };
 
+/**
+ * 未投影的 startNow 输入会改变 latest target / 会话分支。只有这些破坏性 row 命令必须
+ * 等投影推进后才能执行；fork/feedback 只改独立目标，不受 pending input 影响。
+ */
+const STALE_WHILE_START_NOW_PENDING: ReadonlySet<CommandEnvelope["type"]> = new Set([
+  "applyFileRewind",
+  "editUserQuery",
+  "retryTurn",
+]);
+
 type PersistentLookup = (key: CommandKey) => Promise<CommandAck | null> | CommandAck | null;
 
 export interface CommandInboxHost {
@@ -254,6 +264,17 @@ export class CommandInbox {
     );
   }
 
+  /** 已 admission、但尚未被 SessionInputPromoted/queue 投影确认的 startNow 输入。 */
+  private hasPendingStartNowInput(sessionId: string | null): boolean {
+    if (sessionId === null) return false;
+    const live = this.liveInputs.get(this.bucketKey(sessionId));
+    if (!live) return false;
+    for (const entry of live.values()) {
+      if (entry.intent.delivery.admitted === "startNow") return true;
+    }
+    return false;
+  }
+
   /**
    * Resident 去激活后，inbox 也必须回到 CLI 冷启动状态。in-flight/live facts 不能清，
    * 调用方必须把它们作为回收保护条件；settled 仍可从 durable transcript/timeline 回源。
@@ -350,6 +371,25 @@ export class CommandInbox {
         };
       }
       if (envelope.baseRevision !== revision) {
+        return {
+          kind: "ack",
+          remember: false,
+          ack: {
+            commandId: envelope.commandId,
+            status: "stale",
+            reasonCode: "proto.staleRevision",
+            revisionAtDecision: revision,
+          },
+        };
+      }
+      // startNow 输入已进入 Core admission，但 canonical user row 尚未投影（ACK 不再等待
+      // TurnStarted）。此时 baseRevision 还停在旧投影，仅靠 revision CAS 会让 retry/
+      // file rewind 在“runtime 已 active、projection 仍 idle”的窗口执行。把未投影的
+      // startNow input 视为旧 revision 事实，让 row-targeting 命令先 stale 再 resync。
+      if (
+        STALE_WHILE_START_NOW_PENDING.has(envelope.type) &&
+        this.hasPendingStartNowInput(envelope.sessionId)
+      ) {
         return {
           kind: "ack",
           remember: false,

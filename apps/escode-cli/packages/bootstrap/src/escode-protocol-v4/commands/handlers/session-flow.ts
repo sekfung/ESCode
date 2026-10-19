@@ -6,7 +6,7 @@ import type {
   CommandPayloadMap,
   CommandResult,
 } from "@escode/shared/escode-protocol-v4";
-import { createModelExecutionContext } from "../../../escode-protocol/model-execution.js";
+import { createModelExecutionContext } from "../../model-execution-context.js";
 import { mapAttachmentRefsToTurnAttachments } from "../attachment-refs.js";
 import {
   applyHeldQueueDisposition,
@@ -15,10 +15,7 @@ import {
   V4InputAdmissionRejectedError,
 } from "../input-admission.js";
 import { inputIntentMetadata } from "../input-intent.js";
-import {
-  startPromptTurn,
-  turnBackgroundAttributionOf,
-} from "../prompt-turn.js";
+import { startPromptTurn, turnBackgroundAttributionOf } from "../prompt-turn.js";
 import { requireRecord } from "../record-access.js";
 import type { V4CommandCoreHost, V4SessionRecordView } from "../types.js";
 import { V4CommandNoopError } from "../../v4-gateway.js";

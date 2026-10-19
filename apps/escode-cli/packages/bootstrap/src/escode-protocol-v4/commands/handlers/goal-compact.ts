@@ -14,7 +14,7 @@ import type {
   CommandResult,
 } from "@escode/shared/escode-protocol-v4";
 import type { SteerTurnOptions, SubmitPromptOptions } from "../../../app/types.js";
-import { runWithSessionResidencyFinalization } from "../../../escode-protocol/session-residency.js";
+import { runWithSessionResidencyFinalization } from "../../session-residency-finalization.js";
 import { inputIntentMetadata } from "../input-intent.js";
 import { requireRecord } from "../record-access.js";
 import type { V4CommandCoreHost, V4SessionRecordView } from "../types.js";

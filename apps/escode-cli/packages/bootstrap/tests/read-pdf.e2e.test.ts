@@ -7,8 +7,16 @@ import { describe, expect, it } from "vitest";
 import { createNodeExecutionAdapter } from "@escode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@escode/adapters/fs";
 import { createJimpImageProcessorAdapter } from "@escode/adapters/image";
-import { AiSdkModelAdapter, AiSdkModelRegistry } from "@escode/adapters/model";
+import { AiSdkModelAdapter } from "@escode/adapters/model";
 import { createPopplerPdfDocumentAdapter } from "@escode/adapters/pdf";
+import {
+  createRegistryModelConfig,
+  createRegistryProviderConfig,
+  ModelConfig,
+  ModelOptionSpecsConfig,
+  ModelPropertiesConfig,
+  parseProviderConfig,
+} from "@escode/provider";
 import {
   createInMemorySessionEventStore,
   createNodeToolArtifactStore,
@@ -60,9 +68,11 @@ describe("Read PDF provider and cold-resume E2E", () => {
         sessionId,
         {
           mode: "yolo",
-          modelInputMediaCapabilities: { supportsImages: true, supportsPdf: true },
-          modelProviderOptions: { apiFormat: "openai-chat-completions" },
-          modelRef: CHAT_MODEL,
+          modelSelection: {
+            providerId: String(CHAT_MODEL.providerId),
+            modelId: String(CHAT_MODEL.modelId),
+            options: { reasoningLevel: "disabled" },
+          },
           modelStreaming: "off",
           workingDirectory: root,
         },
@@ -71,7 +81,7 @@ describe("Read PDF provider and cold-resume E2E", () => {
           eventStore: createInMemorySessionEventStore(),
           fileSystemPort: createNodeFileSystemAdapter(),
           imageProcessorPort: passthroughImageProcessor,
-          modelAdapter: createChatModelAdapter(capture.baseURL),
+          modelFactory: createChatModelFactory(capture.baseURL),
           pdfDocumentPort: deterministicPdfDocument,
           sessionStore,
         },
@@ -140,7 +150,16 @@ describe.skipIf(!popplerAvailable)("Read PDF Poppler E2E", () => {
       const model = {
         providerId: createModelProviderId("test"),
         modelId: createModelId("pdf-e2e"),
-        properties: { supportsImages: true, supportsPdf: true },
+        properties: {
+          inputFormat: {
+            supportsText: true,
+            supportsImage: true,
+            supportsVideo: false,
+            supportsAudio: false,
+            supportsPdf: true,
+          },
+          outputFormat: { supportsText: true },
+        },
       } as never;
 
       const readTool = runtime.getTools(model).find((tool) => tool.name === "Read")!;
@@ -184,26 +203,51 @@ async function commandSucceeds(command: string, args: string[]): Promise<boolean
   });
 }
 
-function createChatModelAdapter(baseURL: string): AiSdkModelAdapter {
+function createChatModelFactory(baseURL: string) {
   const providerId = String(CHAT_MODEL.providerId);
   const modelId = String(CHAT_MODEL.modelId);
-  return new AiSdkModelAdapter({
-    registry: new AiSdkModelRegistry({
-      env: {},
-      inputMediaCapabilities: {
-        [`${providerId}/${modelId}`]: { supportsImages: true, supportsPdf: true },
-      },
-      providers: {
-        [providerId]: {
-          apiKey: "pdf-e2e-key",
-          baseURL: `${baseURL}/v1`,
-          kind: "openai-compatible",
-          providerOptions: { apiFormat: "openai-chat-completions" },
-        },
-      },
+  const provider = createRegistryProviderConfig(
+    parseProviderConfig({
+      group: "standard-personal",
+      access: { type: "api-key", apiKey: "pdf-e2e-key" },
+      api: { type: "openai-chat-completions", baseUrl: `${baseURL}/v1` },
     }),
-    retry: { maxAttempts: 1 },
-  });
+  );
+  const model = createRegistryModelConfig(
+    new ModelConfig({
+      enabled: true,
+      properties: new ModelPropertiesConfig({
+        contextWindow: 200_000,
+        requiresMfjsToolSchema: false,
+        inputFormat: {
+          supportsText: true,
+          supportsImage: true,
+          supportsVideo: false,
+          supportsAudio: false,
+          supportsPdf: true,
+        },
+        outputFormat: { supportsText: true },
+        supportsToolCall: true,
+        supportsJsonSchemaOutput: false,
+        supportsNativeWebSearch: false,
+        supportsMidConversationSystem: false,
+      }),
+      optionSpecs: new ModelOptionSpecsConfig({
+        reasoningLevel: { values: ["disabled"], map: "{}" },
+        maxOutputTokens: { max: 4096, map: "{}" },
+      }),
+    }),
+  );
+  if (!provider.ok || !model.ok) throw new Error("invalid read-pdf model fixture");
+  const adapter = new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } });
+  return () =>
+    adapter.createModel({
+      providerId,
+      modelId,
+      providerConfig: provider.config,
+      modelConfig: model.config,
+      options: { reasoningLevel: "disabled", maxOutputTokens: 4096 },
+    });
 }
 
 const deterministicPdfDocument: PdfDocumentPort = {

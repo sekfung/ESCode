@@ -7,7 +7,7 @@ import { type TurnBackgroundAttribution, type TurnInputIntentMetadata } from "@e
 import type { TurnAttachment } from "@escode/core";
 import type { ESCodeAutomationBotDeliveryTarget } from "@escode/shared";
 import type { SendInputOptions, SendInputResult } from "../../app/types.js";
-import { runWithSessionResidencyFinalization } from "../../escode-protocol/session-residency.js";
+import { runWithSessionResidencyFinalization } from "../session-residency-finalization.js";
 import type { V4CommandCoreHost, V4SessionRecordView } from "./types.js";
 
 export interface StartPromptTurnParamsBase {

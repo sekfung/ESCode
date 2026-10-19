@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { sanitizeESCodeRuntimeEnv } from "@escode/shared";
 import { addESCodePluginMarketplace, getESCodePluginsOverview } from "../src/plugins.js";
 
 const execFileAsync = promisify(execFile);
@@ -59,13 +60,38 @@ async function makeLocalMarketplace(root: string, name: string): Promise<void> {
   await writeFile(join(pluginDir, "skills", "hello", "SKILL.md"), "# hello\n");
 }
 
+// 市场真实 clone 由 adapters 用 sanitizeESCodeRuntimeEnv 后的子进程环境执行：它会剔除
+// HTTP(S)_PROXY/ALL_PROXY。开发机若只能经代理访问 GitHub，普通 `git ls-remote` 会误判可达，
+// 而实际导入必然超时。探测必须使用同一份环境，避免把“平台网络限制”伪装成产品失败。
+const GITHUB_REPO = "wshobson/agents";
+const GITHUB_REPO_URL = `https://github.com/${GITHUB_REPO}.git`;
+
 async function githubReachable(repoHttps: string): Promise<boolean> {
+  // marketplace 的 Git 子进程只额外恢复 ESCODE_HTTP_PROXY（普通 HTTP(S)_PROXY 会被
+  // sanitize 掉），探测环境必须复刻这条规则。
+  const env = sanitizeESCodeRuntimeEnv(process.env);
+  const productProxy = process.env.ESCODE_HTTP_PROXY?.trim();
+  if (productProxy) {
+    env.HTTP_PROXY = productProxy;
+    env.HTTPS_PROXY = productProxy;
+    env.ALL_PROXY = productProxy;
+  }
   try {
-    await execFileAsync("git", ["ls-remote", "--heads", repoHttps], { timeout: 30_000 });
+    await execFileAsync("git", ["ls-remote", "--heads", repoHttps], {
+      env,
+      timeout: 10_000,
+    });
     return true;
   } catch {
     return false;
   }
+}
+
+const githubAvailable = await githubReachable(GITHUB_REPO_URL);
+if (!githubAvailable) {
+  console.warn(
+    "[e2e] GitHub 对 sanitize 后的 marketplace 子进程环境不可达（代理会被剔除），跳过真实 clone 用例",
+  );
 }
 
 describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
@@ -91,7 +117,12 @@ describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
       expect(rec?.source.path).toBe(market);
 
       // manifest 复制进 storage，供后续 install 引用。
-      const manifestCopy = join(storageRoot, "marketplaces", "e2e-local-dir-market", "marketplace.json");
+      const manifestCopy = join(
+        storageRoot,
+        "marketplaces",
+        "e2e-local-dir-market",
+        "marketplace.json",
+      );
       expect(existsSync(manifestCopy)).toBe(true);
 
       // 复核：overview 列出新市场（popover 关闭后 UI refresh 能看到它）。
@@ -107,7 +138,9 @@ describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
     const storageRoot = join(base, "storage");
     try {
       // popover 里随手敲的一个不存在的本地路径。
-      await expect(addViaFacade("./definitely-not-a-real-marketplace-xyz", storageRoot, base)).rejects.toThrow();
+      await expect(
+        addViaFacade("./definitely-not-a-real-marketplace-xyz", storageRoot, base),
+      ).rejects.toThrow();
       // 失败时不应写 known_marketplaces.json。
       expect(existsSync(join(storageRoot, "known_marketplaces.json"))).toBe(false);
     } finally {
@@ -115,58 +148,60 @@ describe("marketplace 自定义导入 E2E (真实 agent facade)", () => {
     }
   });
 
-  it("GitHub 导入：raw git URL -> git 来源 -> 真实 clone -> 落盘", async () => {
-    // 选体积小且仓库根带 .claude-plugin/marketplace.json 的公开仓库，避免大仓库 clone 超时。
-    const repoUrl = "https://github.com/wshobson/agents.git";
-    if (!(await githubReachable(repoUrl))) {
-      console.warn("[e2e] GitHub 不可达，跳过 git URL clone 用例");
-      return;
-    }
-    const base = await mkdtemp(join(tmpdir(), "escode-e2e-github-"));
-    const storageRoot = join(base, "storage");
-    try {
-      // https .git -> parseMarketplaceSourceInput 归类 source:"git" -> 真实 clone --depth 1。
-      const summary = await addViaFacade(repoUrl, storageRoot, base);
-      // manifest.name 即市场 id（该仓库 manifest 名为 claude-code-workflows）。
-      expect(summary.id).toBe("claude-code-workflows");
-      expect(summary.pluginCount).toBeGreaterThan(0);
+  it.skipIf(!githubAvailable)(
+    "GitHub 导入：raw git URL -> git 来源 -> 真实 clone -> 落盘",
+    async () => {
+      // 选体积小且仓库根带 .claude-plugin/marketplace.json 的公开仓库，避免大仓库 clone 超时。
+      const base = await mkdtemp(join(tmpdir(), "escode-e2e-github-"));
+      const storageRoot = join(base, "storage");
+      try {
+        // https .git -> parseMarketplaceSourceInput 归类 source:"git" -> 真实 clone --depth 1。
+        const summary = await addViaFacade(GITHUB_REPO_URL, storageRoot, base);
+        // manifest.name 即市场 id（该仓库 manifest 名为 claude-code-workflows）。
+        expect(summary.id).toBe("claude-code-workflows");
+        expect(summary.pluginCount).toBeGreaterThan(0);
 
-      const known = JSON.parse(await readFile(join(storageRoot, "known_marketplaces.json"), "utf8")) as {
-        marketplaces: Array<{ id: string; source: { source: string; url?: string } }>;
-      };
-      const rec = known.marketplaces.find((m) => m.id === summary.id);
-      expect(rec?.source.source).toBe("git");
-      expect(rec?.source.url).toBe(repoUrl);
+        const known = JSON.parse(
+          await readFile(join(storageRoot, "known_marketplaces.json"), "utf8"),
+        ) as {
+          marketplaces: Array<{ id: string; source: { source: string; url?: string } }>;
+        };
+        const rec = known.marketplaces.find((m) => m.id === summary.id);
+        expect(rec?.source.source).toBe("git");
+        expect(rec?.source.url).toBe(GITHUB_REPO_URL);
 
-      // clone 出的 manifest 复制进 storage。
-      const manifestCopy = join(storageRoot, "marketplaces", summary.id, "marketplace.json");
-      expect(existsSync(manifestCopy)).toBe(true);
-    } finally {
-      await rm(base, { force: true, recursive: true });
-    }
-  }, 120_000);
+        // clone 出的 manifest 复制进 storage。
+        const manifestCopy = join(storageRoot, "marketplaces", summary.id, "marketplace.json");
+        expect(existsSync(manifestCopy)).toBe(true);
+      } finally {
+        await rm(base, { force: true, recursive: true });
+      }
+    },
+    120_000,
+  );
 
-  it("GitHub 简写导入：raw owner/repo -> github 来源 -> 真实 clone -> 落盘", async () => {
-    const repo = "wshobson/agents";
-    if (!(await githubReachable(`https://github.com/${repo}.git`))) {
-      console.warn("[e2e] GitHub 不可达，跳过 owner/repo 简写用例");
-      return;
-    }
-    const base = await mkdtemp(join(tmpdir(), "escode-e2e-gh-short-"));
-    const storageRoot = join(base, "storage");
-    try {
-      // owner/repo 简写 -> parseMarketplaceSourceInput 归类 source:"github"。
-      const summary = await addViaFacade(repo, storageRoot, base);
-      expect(summary.id).toBe("claude-code-workflows");
+  it.skipIf(!githubAvailable)(
+    "GitHub 简写导入：raw owner/repo -> github 来源 -> 真实 clone -> 落盘",
+    async () => {
+      const base = await mkdtemp(join(tmpdir(), "escode-e2e-gh-short-"));
+      const storageRoot = join(base, "storage");
+      try {
+        // owner/repo 简写 -> parseMarketplaceSourceInput 归类 source:"github"。
+        const summary = await addViaFacade(GITHUB_REPO, storageRoot, base);
+        expect(summary.id).toBe("claude-code-workflows");
 
-      const known = JSON.parse(await readFile(join(storageRoot, "known_marketplaces.json"), "utf8")) as {
-        marketplaces: Array<{ id: string; source: { source: string; repo?: string } }>;
-      };
-      const rec = known.marketplaces.find((m) => m.id === summary.id);
-      expect(rec?.source.source).toBe("github");
-      expect(rec?.source.repo).toBe(repo);
-    } finally {
-      await rm(base, { force: true, recursive: true });
-    }
-  }, 120_000);
+        const known = JSON.parse(
+          await readFile(join(storageRoot, "known_marketplaces.json"), "utf8"),
+        ) as {
+          marketplaces: Array<{ id: string; source: { source: string; repo?: string } }>;
+        };
+        const rec = known.marketplaces.find((m) => m.id === summary.id);
+        expect(rec?.source.source).toBe("github");
+        expect(rec?.source.repo).toBe(GITHUB_REPO);
+      } finally {
+        await rm(base, { force: true, recursive: true });
+      }
+    },
+    120_000,
+  );
 });
