@@ -2124,7 +2124,11 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
         version: "test",
       });
       const read = (id: string, params: unknown) =>
-        requestResult(server, { id, method: escodeProtocolMethods.sessionList, params }) as Promise<{
+        requestResult(server, {
+          id,
+          method: escodeProtocolMethods.sessionList,
+          params,
+        }) as Promise<{
           sessions: Array<{ sessionId: string; sessionKind: string }>;
         }>;
       const normal = await read("normal", { workspace });
@@ -2500,7 +2504,12 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
         sessionID: SESSION_ID,
         type: SESSION_ENTRY_MODEL_SELECTION,
         time: { created: 5, updated: 5 },
-        data: { modelId: "glm-4.6", providerId: "glm", thoughtLevel: "deep" },
+        data: {
+          modelId: "glm-4.6",
+          providerId: "glm",
+          // 当前持久化契约把档位放在 options.reasoningLevel；旧 thoughtLevel 不再读取。
+          options: { reasoningLevel: "deep" },
+        },
       });
     } finally {
       seedStore.close();
@@ -2622,6 +2631,14 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
         targetMessageId: targetMessageId as MessageId,
         time: { start: 2, end: 2 },
       });
+      // 模型身份只从 durable selection entry 恢复；旧消息档位不再反推。
+      await seedStore.saveSessionEntry({
+        id: `${legacyForkSessionId}:runtime-model-selection`,
+        sessionID: legacyForkSessionId,
+        type: SESSION_ENTRY_MODEL_SELECTION,
+        time: { created: 5, updated: 5 },
+        data: { providerId: "glm", modelId: "glm-4-air" },
+      });
     } finally {
       seedStore.close();
     }
@@ -2713,6 +2730,19 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
   it("重启后冷订阅：旧 transcript 无档位时留空，不读取 task-index 提示", async () => {
     const dbPath = join(tempRoot, "sessions.db");
     await seedPersistedSession(dbPath);
+    const seedStore = createSqliteSessionStore({ dbPath });
+    try {
+      // 旧消息本身不携带可恢复的档位；模型身份来自 session entry，档位必须保持为空。
+      await seedStore.saveSessionEntry({
+        id: `${SESSION_ID}:runtime-model-selection`,
+        sessionID: SESSION_ID,
+        type: SESSION_ENTRY_MODEL_SELECTION,
+        time: { created: 5, updated: 5 },
+        data: { providerId: "glm", modelId: "glm-4-air" },
+      });
+    } finally {
+      seedStore.close();
+    }
 
     const { server, close } = bootRealRestartedServer(dbPath);
     try {

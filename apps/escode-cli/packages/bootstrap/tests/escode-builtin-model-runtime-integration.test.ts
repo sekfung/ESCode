@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   ApiKeyAccessConfig,
   ModelConfigRules,
+  ProviderApiConfig,
   ProviderConfig,
   ProviderConfigMap,
   ProviderConfigResolver,
@@ -36,17 +37,17 @@ afterAll(() => source.dispose());
 describe("真实 ESCode Built-in Config 到 Active Model", () => {
   it("API Key Personal Overlay 经 Registry 原样装配到 Adapter", () => {
     const providerId = "zai-api";
-    const modelId = "glm-5.3";
+    const modelId = "GLM-5.3";
     const registry = resolveOneBuiltinProvider(providerId, {
       personalProviders: new ProviderConfigMap([
-        [
+        {
           providerId,
-          new ProviderConfig({
-            templateId: "zai-api",
+          templateId: "zai-standard-api",
+          config: new ProviderConfig({
             group: "standard-personal",
             access: new ApiKeyAccessConfig({ apiKey: "test-zai-api-key" }),
           }),
-        ],
+        },
       ]),
     });
     const capture = captureRuntime(registry);
@@ -66,28 +67,28 @@ describe("真实 ESCode Built-in Config 到 Active Model", () => {
       providerConfig: {
         access: { type: "api-key", apiKey: "test-zai-api-key" },
         api: {
-          type: escodeBuiltin.providerTemplates.get("zai-api")?.config.api?.type,
-          baseUrl: escodeBuiltin.providerTemplates.get("zai-api")?.config.api?.baseUrl,
+          type: escodeBuiltin.providerTemplates.get("zai-standard-api")?.config.api?.type,
+          baseUrl: escodeBuiltin.providerTemplates.get("zai-standard-api")?.config.api?.baseUrl,
         },
       },
     });
   });
 
-  it("Account 约束 Built-in 成员后仍由 Personal Overlay 最后覆盖", () => {
-    const providerId = "account:zai-start-plan";
-    const modelId = "GLM-5.2";
+  it("Personal Overlay 在模板配置之后应用，并保留模板成员与模型规则", () => {
+    const providerId = "zai-api";
+    const modelId = "GLM-5.3";
     const registry = resolveOneBuiltinProvider(providerId, {
-      accountProviders: new ProviderConfigMap([
-        [
-          providerId,
-          new ProviderConfig({
-            builtinModelIds: [modelId],
-            access: new ZhipuAccountAccessConfig({ entitled: true }),
-          }),
-        ],
-      ]),
       personalProviders: new ProviderConfigMap([
-        [providerId, new ProviderConfig({ label: "Personal final label" })],
+        {
+          providerId,
+          providerName: "Personal final label",
+          templateId: "zai-standard-api",
+          config: new ProviderConfig({
+            group: "standard-personal",
+            access: new ApiKeyAccessConfig({ apiKey: "personal-key" }),
+            api: new ProviderApiConfig({ baseUrl: "https://personal.example.com/v1" }),
+          }),
+        },
       ]),
     });
     const capture = captureRuntime(registry);
@@ -96,31 +97,38 @@ describe("真实 ESCode Built-in Config 到 Active Model", () => {
       selection: selectionWithHighestReasoning(registry, providerId, modelId),
     });
 
-    expect(registry.getProvider(providerId)?.models.map(({ modelId: id }) => id)).toEqual([
+    expect(registry.getProvider(providerId)?.providerName).toBe("Personal final label");
+    expect(registry.getProvider(providerId)?.models.map(({ modelId: id }) => id)).toContain(
       modelId,
-    ]);
+    );
     expect(capture.created[0]?.providerConfig).toMatchObject({
-      label: "Personal final label",
-      access: {
-        type: "zhipu-account",
-        accountType: "zai",
-        mode: "start-plan",
-      },
+      access: { type: "api-key", apiKey: "personal-key" },
+      api: { baseUrl: "https://personal.example.com/v1" },
     });
+    expect(
+      registry.getModel(providerId, modelId)?.config.optionSpecs.reasoningLevel.values,
+    ).toEqual(["low", "high", "max"]);
     expect(capture.created[0]?.modelConfig).toBe(registry.getModel(providerId, modelId)?.config);
   });
 
   it("隐藏 Request Auth Provider 仍由普通 Registry 精确创建 Model", () => {
-    const providerId = "account:zai-offpeak-idle-plan";
-    const modelId = "GLM-5.2";
+    const providerId = "zai-api";
+    const modelId = "GLM-5.3";
     const registry = resolveOneBuiltinProvider(providerId, {
-      accountProviders: new ProviderConfigMap([
-        [
+      personalProviders: new ProviderConfigMap([
+        {
           providerId,
-          new ProviderConfig({
-            access: new ZhipuAccountAccessConfig({ entitled: true }),
+          templateId: "zai-standard-api",
+          config: new ProviderConfig({
+            group: "standard-personal",
+            access: new ZhipuAccountAccessConfig({
+              accountType: "zai",
+              mode: "off-peak",
+              entitled: true,
+            }),
+            visibility: "hidden",
           }),
-        ],
+        },
       ]),
     });
     const capture = captureRuntime(registry);

@@ -1,5 +1,6 @@
 import {
   MutableAccountProviderConfigSource,
+  createFailClosedAccountProviderConfigSnapshot,
   parseAccountProviderConfigMap,
   type AccountProviderConfigSnapshot,
   type AccountProviderStates,
@@ -81,6 +82,22 @@ export async function startProcessProviderRegistryRuntime(
         }
       : {}),
   });
+  // 下线 Standalone 账号服务后，Built-in 刷新不再有账号解析方同步 revision。
+  // Registry 见 account.basedOnESCodeBuiltinRevision 落后会继续服务旧快照，
+  // 导致远端下载成功后 Registry 永远停在旧 revision。这里在 Built-in 源变化后
+  // 用 fail-closed 的空账号覆盖对齐 revision，等待 Host 重新下发账号事实。
+  const disposeAccountRevisionReconciliation = runtime.configService.onDidChange((reason) => {
+    if (!reason.startsWith("escodeBuiltin:")) return;
+    void (async () => {
+      const config = await runtime.configService.read();
+      const account = await accountSource.read();
+      if (account.basedOnESCodeBuiltinRevision === config.escodeBuiltinRevision) return;
+      accountSource.replace(
+        createFailClosedAccountProviderConfigSnapshot(config),
+        "escode-builtin-changed",
+      );
+    })().catch((error: unknown) => options.standalone?.onBuiltinRefreshError?.(error));
+  });
   try {
     await runtime.start();
     const snapshot = runtime.registryService.getSnapshot()!;
@@ -99,6 +116,7 @@ export async function startProcessProviderRegistryRuntime(
           return changed;
         },
         dispose() {
+          disposeAccountRevisionReconciliation();
           modelSelectionConfigRepository.dispose();
           runtime.dispose();
         },
@@ -108,10 +126,12 @@ export async function startProcessProviderRegistryRuntime(
         configuredDefaultModelSelection,
       });
     } catch (error) {
+      disposeAccountRevisionReconciliation();
       modelSelectionConfigRepository.dispose();
       throw error;
     }
   } catch (error) {
+    disposeAccountRevisionReconciliation();
     runtime.dispose();
     throw error;
   }
