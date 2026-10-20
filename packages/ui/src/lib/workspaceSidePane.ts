@@ -1341,7 +1341,7 @@ export function findBrowserSidePaneTabByUrl(
 /**
  * URL 键复用：同一 workspace/session 的同一个 URL 只激活已有 tab。
  *
- * 两个用户：share handover 的分享链接，与 html 产物的直开。两者是同一句话——「带我去这个
+ * 两个用户：普通浏览器链接，与 html 产物的直开。两者是同一句话——「带我去这个
  * 地址」，而不是「再开一个浏览器」。复用时**不**改 tab 的任何字段（`initialUrl` 就是键），
  * 要让 webview 重新取字节由调用方另发一次导航请求。
  */

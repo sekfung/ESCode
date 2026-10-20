@@ -57,15 +57,6 @@ describe("escode-protocol-v4 command", () => {
     expect(payload.toolDisallowlist).toEqual(["CronCreate"]);
   });
 
-  it("accepts the authoritative shared-context discard command", () => {
-    expect(commandPayloadSchemas.discardSharedContext.parse({ contextId: "context-1" })).toEqual({
-      contextId: "context-1",
-    });
-    expect(commandPayloadSchemas.discardSharedContext.safeParse({ contextId: "" }).success).toBe(
-      false,
-    );
-  });
-
   it("parses a one-message start-now, queue or guide delivery override", () => {
     expect(
       commandPayloadSchemas.sendText.parse({

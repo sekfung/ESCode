@@ -1203,7 +1203,7 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
         }
         const result = await fileSystemPort.stat({ path: ref, trace: traceContext });
         if (result.kind !== "file") {
-          // 目录/符号链接/已消失都意味着「这个附件不再是可分享的文件」，用稳定码上抛，
+          // 目录/符号链接/已消失都意味着「这个附件不再可读取」，用稳定码上抛，
           // 让 share 预检按确定分类处理，而不是靠错误文本猜。
           throw new ESCodeAttachmentFaultError(ESCODE_ATTACHMENT_FAULT_CODES.statNotFile);
         }

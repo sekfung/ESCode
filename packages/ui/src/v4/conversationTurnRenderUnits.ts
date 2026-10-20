@@ -88,10 +88,10 @@ function isTurnEndingTimelineMarkerRow(row: AssistantWorkRow): row is TimelineMa
 }
 
 /**
- * artifact 行是分享投影追加到轮尾的产出物（insertDiscoveredArtifacts 插在该
+ * artifact 行是投影追加到轮尾的产出物（insertDiscoveredArtifacts 插在该
  * productTurn 最后一行之后），但它同样属于 AssistantWorkRow，会成为 flow 的最后一行。
  * 于是折叠锚点的兜底条件「最后一行是 assistantText」失效——公开投影禁止 actions，
- * 分享页只有这条兜底——最终答复被卷进「已工作」并整轮默认展开。
+ * 只读时间线只有这条兜底——最终答复被卷进「已工作」并整轮默认展开。
  *
  * 它是追加的产出物、不属于对话流，按轮尾处理即可；与 browserTurnEndRows 摘轮尾截图同理。
  * 注意不能改成「取 flow 里最后一条 assistantText」：那会把 CUA 响应中途的正文

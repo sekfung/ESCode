@@ -279,7 +279,7 @@ export function useWorkflowRunSaveSlots(host: WorkflowRunSaveSlotsHost): Workflo
 }
 
 /**
- * 只在有服务上下文时挂载控制器（spec「Gates」：没有会话上下文的卡——静态渲染、回放、分享只读
+ * 只在有服务上下文时挂载控制器（spec「Gates」：没有会话上下文的卡——静态渲染、回放、只读
  * 时间线——就是它原来那张卡，一个控件都没有）。控制器要查 agent，而这些宿主根本没有 agent 可查；
  * 用一层边界而不是在 hook 里判空，是因为 hook 不能按条件调用。
  */

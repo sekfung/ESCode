@@ -37,7 +37,7 @@
 
 用户确认不需要 Z.ai 账号登录与 Coding Plan 套餐，以下按 ESCode 改名、不做兼容：
 
-- 深链 scheme 只有 `escode://`（OAuth 回调 `escode://oauth/callback`、支付回跳、分享导入、打开工作区）；Z.ai / BigModel 登记的是 `zcode://` 回调与 `appId=zcode`，因此官方登录、套餐购买回跳将不可用。
+- 深链 scheme 只有 `escode://`（OAuth 回调 `escode://oauth/callback`、支付回跳、打开工作区）；Z.ai / BigModel 登记的是 `zcode://` 回调与 `appId=zcode`，因此官方登录、套餐购买回跳将不可用。
 - 与 Z.ai 托管页面共享的桥接与帧字段（Coding Plan 购买页的 `window.escodeBridge`、手机远控页的 `escode_type`、协议名 `ESCode Protocol` 等）、MCP `_meta["escode/…"]` 扩展键与遥测事件名同样改名；依赖它们的 Z.ai 托管页面与按旧键声明的第三方插件扩展不再生效。
 
 服务端点主机名（`zcode.z.ai` 等）不是品牌标识而是真实地址，仍保留，模型网关、联网搜索等非登录功能照常调用。

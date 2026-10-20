@@ -1,6 +1,6 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ESCodeConfigOption } from "@escode/shared";
 import type { SessionConfigState } from "@escode/shared/escode-protocol-v4";
 import type { IModelSelectionService, ModelSelectionView } from "@escode/services";
@@ -9,7 +9,6 @@ import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import { useDraftConfigControl as useActualDraftConfigControl } from "@/v4/composer/useDraftConfigControl.js";
 import { persistV4ComposerDraft, readV4ComposerDraft } from "@/v4/composer/composerDraftStore.js";
 import { captureComposerRecentSubmission } from "@/lib/composerRecent.js";
-import { seedImportedSessionDraft } from "@/v4/composer/newTaskDraft.js";
 
 const { prepareWorkspaceMock } = vi.hoisted(() => ({
   prepareWorkspaceMock: vi.fn(),
@@ -55,12 +54,6 @@ vi.mock("@/logger.js", () => ({
     warn: vi.fn(),
   },
 }));
-
-// 已知失败（登记跳过）：下列用例在 v3.15.1 导入时（13c5a1a2）就与 useDraftConfigControl 实现不符，
-// 此前被本文件的无限重取 OOM 掩盖、从未真正执行（修复见文件顶部 mock 注释）。断言的是 composer 草稿
-// 产品语义（模式/权限/Plan 继承与迟到 Snapshot 覆盖），以测试还是以实现为准需产品裁决，单独跟进；
-// 见 docs/reports/rust-migration-m1-2026-10-18.md §11.5。裁决前不改断言、不改实现。
-const KNOWN_DRAFT_SEMANTICS_GAP = "composer 草稿语义与实现不符，待产品裁决（M1 报告 §11.5）";
 
 const WORKSPACE_PRESENTATION: ESCodeConfigOption[] = [
   {
@@ -212,161 +205,6 @@ function installMinimalDom() {
 }
 
 describe("useDraftConfigControl slash command hydration", () => {
-  it.each(["root", "empty-root", "recent", "default", "unavailable"])(
-    "SHARE30 首次导入与普通新任务一致：%s，保留 Root 正文且不更新 Recent",
-    async (source) => {
-      const root = createRoot(installMinimalDom());
-      const workspacePath = "/import";
-      const selection = {
-        providerId: "provider",
-        modelId: "model",
-        options: { reasoningLevel: "high" },
-      };
-      const view = {
-        ...modelSelectionView(1, source === "unavailable" ? [] : ["model"], "model"),
-        preferredSelection: selection,
-      };
-      if (source !== "default" && source !== "unavailable")
-        captureComposerRecentSubmission(workspacePath, {
-          modelSelection: selection,
-          mode: "yolo",
-        })();
-      if (source === "root" || source === "empty-root")
-        persistV4ComposerDraft(workspacePath, undefined, "__draft__", {
-          text: "KEEP ROOT",
-          editorStateJson: "ROOT EDITOR",
-          mode: "plan",
-          ...(source === "root" ? { modelSelection: selection } : {}),
-        });
-      const originalRoot = readV4ComposerDraft(workspacePath, undefined, "__draft__");
-      const recentBefore = window.localStorage.getItem(
-        `escode-model-selection-recent-v1:${workspacePath}`,
-      );
-      seedImportedSessionDraft({ workspacePath, sessionId: "imported", reused: false });
-      let control: ReturnType<typeof useDraftConfigControl>;
-      function Probe({ sessionId }: { sessionId: string | null }) {
-        control = useDraftConfigControl({
-          workspacePath,
-          sessionId,
-          sessionConfig: { mode: "build" },
-          agentStartupAllowed: false,
-          modelSelectionView: view,
-        });
-        return null;
-      }
-      await act(async () => root.render(createElement(Probe, { sessionId: "imported" })));
-      const imported = control!.draftConfig;
-      expect(control!.composerDraft.text).toBe("");
-      expect(control!.composerDraft.editorStateJson).toBeUndefined();
-      expect(readV4ComposerDraft(workspacePath, undefined, "__draft__")).toEqual(originalRoot);
-      await act(async () => root.render(createElement(Probe, { sessionId: null })));
-      expect(control!.draftConfig).toEqual(imported);
-      expect(window.localStorage.getItem(`escode-model-selection-recent-v1:${workspacePath}`)).toBe(
-        recentBefore,
-      );
-      act(() => root.unmount());
-    },
-  );
-
-  it.for(["none", "mode", "model"])(
-    "SHARE31 View 延迟不被空 snapshot 抢先锁定；用户先编辑=%s",
-    async (edited, { skip }) => {
-      if (edited === "mode") skip(KNOWN_DRAFT_SEMANTICS_GAP);
-      const root = createRoot(installMinimalDom());
-      const workspacePath = "/delayed-import";
-      seedImportedSessionDraft({ workspacePath, sessionId: "imported", reused: false });
-      let control: ReturnType<typeof useDraftConfigControl>;
-      const readyView = {
-        ...modelSelectionView(1, ["model"], "model"),
-        preferredSelection: {
-          providerId: "provider",
-          modelId: "model",
-          options: { reasoningLevel: "high" },
-        },
-      };
-      function Probe({ ready }: { ready: boolean }) {
-        control = useDraftConfigControl({
-          workspacePath,
-          sessionId: "imported",
-          sessionConfig: { mode: "build" },
-          agentStartupAllowed: false,
-          modelSelectionView: ready ? readyView : null,
-        });
-        return null;
-      }
-      await act(async () => root.render(createElement(Probe, { ready: false })));
-      expect(control!.composerDraft.mode).toBeUndefined();
-      act(() => control!.updateComposerContent({ text: "content stays" }));
-      if (edited === "mode") act(() => control!.handleDraftSwitchMode("plan"));
-      if (edited === "model") {
-        act(() => control!.handleDraftSelectModel("provider", "model"));
-        act(() => control!.handleDraftSelectThought("low"));
-      }
-      await act(async () => root.render(createElement(Probe, { ready: true })));
-      expect(control!.composerDraft.text).toBe("content stays");
-      expect(control!.draftConfig.mode).toBe("build");
-      expect(control!.draftConfig.planEnabled).toBe(edited === "mode");
-      if (edited === "mode") expect(control!.composerDraft.modelSelection).toBeUndefined();
-      else expect(control!.draftConfig.modelSelection?.modelId).toBe("model");
-      if (edited === "model")
-        expect(control!.draftConfig.modelSelection?.options?.reasoningLevel).toBe("low");
-      expect(control!.composerDraft.initializeFromNewTask).toBeUndefined();
-      act(() => root.unmount());
-    },
-  );
-
-  it("SHARE32 使用导入实际 identity，重复导入／目标已有草稿不覆盖", () => {
-    installMinimalDom();
-    const workspacePath = "/same";
-    persistV4ComposerDraft(workspacePath, "ssh://one/same", "__draft__", {
-      text: "remote",
-      mode: "yolo",
-    });
-    persistV4ComposerDraft(workspacePath, undefined, "__draft__", { text: "local", mode: "plan" });
-    seedImportedSessionDraft({ workspacePath, sessionId: "new", reused: false });
-    expect(readV4ComposerDraft(workspacePath, undefined, "new")).toMatchObject({
-      text: "",
-      mode: "build",
-      planEnabled: true,
-    });
-    expect(readV4ComposerDraft(workspacePath, "ssh://one/same", "new")).toBeNull();
-    seedImportedSessionDraft({
-      workspacePath,
-      workspaceIdentity: "ssh://two/same",
-      sessionId: "new",
-      reused: false,
-    });
-    expect(readV4ComposerDraft(workspacePath, "ssh://two/same", "new")?.mode).toBeUndefined();
-    persistV4ComposerDraft(workspacePath, undefined, "new", {
-      text: "already edited",
-      mode: "edit",
-    });
-    seedImportedSessionDraft({ workspacePath, sessionId: "new", reused: false });
-    expect(readV4ComposerDraft(workspacePath, undefined, "new")).toMatchObject({
-      text: "already edited",
-      mode: "edit",
-    });
-    seedImportedSessionDraft({ workspacePath, sessionId: "history", reused: true });
-    expect(readV4ComposerDraft(workspacePath, undefined, "history")).toBeNull();
-  });
-
-  beforeEach(() => {
-    selectionServices.clear();
-    prepareWorkspaceMock.mockReset();
-    toastMock.mockReset();
-    useESCodeSessionStore.setState((state) => ({
-      ...state,
-      workspaces: {},
-    }));
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete (globalThis as { document?: unknown }).document;
-    delete (globalThis as { window?: unknown }).window;
-    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown }).IS_REACT_ACT_ENVIRONMENT;
-  });
-
   it("task → draft 继承模型目录但 slashCommands 为空时重新拉取并写入 identity 桶", async () => {
     const workspacePath = "/workspace";
     const workspaceIdentity = "ssh://demo/workspace";

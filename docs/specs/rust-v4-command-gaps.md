@@ -76,7 +76,7 @@ sequenceDiagram
 - child：`sess_` 前缀 id、`taskType = selection_side_chat`、标题 `Selection side chat`（generated，不生成标题）、
   `listed = false`（不进任务列表）、继承父模式 / plan / followup、附件、Skill 目录与提示快照；模型取 firstInput
   的 `modelSelection`，缺省继承父会话。
-- 副屏内 `sendGoalCommand / pauseGoal / resumeGoal / editUserQuery / retryTurn / forkAssistant / discardSharedContext`
+- 副屏内 `sendGoalCommand / pauseGoal / resumeGoal / editUserQuery / retryTurn / forkAssistant`
   → `failed / guard.selectionSideChatRestrictedCommand`。
 - 验收：`escode-cli-rust-selection-side-session.test.ts`（ACK、子会话行、模型请求会话部分、sessionKind/标题、列表不可见、
   受限命令、无首条输入的副屏，两侧逐字一致）。

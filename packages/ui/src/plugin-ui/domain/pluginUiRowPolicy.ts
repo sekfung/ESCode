@@ -13,7 +13,7 @@ export type PluginUiRowPinResolver = (toolCallId: string) => PluginUiRowPinConte
 /**
  * 带插件 UI 的工具行是否留在"已工作 N 秒"折叠区外：
  * 失败 / 取消的行照常折叠；被较新成功结果替代的行进折叠区（普通工具记录）；其余按 手动状态 → 强制常驻 → 最近三回合自动展开。
- * 没有 resolver 的调用方（只读分享时间线）沿用"全部常驻"。
+ * 没有 resolver 的调用方（只读时间线）沿用"全部常驻"。
  */
 export function isPluginUiPinnedToolRow(
   row: ConversationRow,

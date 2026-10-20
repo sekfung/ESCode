@@ -318,7 +318,7 @@ export interface ConversationTimelineProps {
   sessionPhase?: SessionPhase;
   /** 宿主可调用的一次性“滚动到底部”动作；不持有 conversation 或跨 renderer 状态。 */
   scrollToBottomActionRef?: { current: (() => void) | null };
-  /** 宿主可调用的一次性 query 定位动作；不改变分享面板 view。 */
+  /** 宿主可调用的一次性 query 定位动作；不改变当前时间线视图。 */
   scrollToQueryActionRef?: {
     current: ((target: { unitIndex: number; rowId: number }) => void) | null;
   };

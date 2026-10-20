@@ -102,7 +102,6 @@ import {
   assertExpectedRevision,
   createProtocolLogger,
   createProtocolRootTraceContext,
-  protocolTraceFromTraceContext,
   parseParams,
   requireSession,
   type ESCodeProtocolAgentServerContext,

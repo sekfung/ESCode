@@ -94,7 +94,7 @@ function ToastContainer() {
         dismissedBeforeMountToastIds.delete(item.id);
         return;
       }
-      // 挂载前的进度更新和既有去重必须同时生效，不能合入分享提示后又堆叠同一操作。
+      // 挂载前的进度更新和既有去重必须同时生效，不能合入进度提示后又堆叠同一操作。
       setItems((prev) =>
         upsertToastItem(prev, pendingUpdate ? { ...item, ...pendingUpdate } : item),
       );

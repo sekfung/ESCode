@@ -297,7 +297,7 @@ export interface ToolCallBlockRenderContext {
    */
   workflowRun?: WorkflowRunCardSummary;
   /**
-   * 该工具调用的草稿位置；缺席（宿主没有行窗口，如只读分享）时卡片不编号、灯保持警示色。
+   * 该工具调用的草稿位置；缺席（宿主没有行窗口，如只读会话）时卡片不编号、灯保持警示色。
    * 与 `workflowRun` 一样不向子工具卡透传：位置按 toolCallId 联接，给别的行就是别人的稿号。
    */
   workflowDraft?: WorkflowDraftPosition;

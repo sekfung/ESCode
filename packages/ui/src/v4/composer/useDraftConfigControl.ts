@@ -146,7 +146,7 @@ export function useDraftConfigControl(params: {
   );
   const modelSelectionView =
     modelSelectionRead.state.status === "ready" ? modelSelectionRead.state.view : null;
-  const initializeAsNewTask = sessionId === null || draft.initializeFromNewTask === true;
+  const initializeAsNewTask = sessionId === null;
   if (!draft.mode && (initializeAsNewTask ? modelSelectionView !== null : sessionConfig != null)) {
     const mode = submissionModeSchema.safeParse(sessionConfig?.mode);
     // Recent 是初始化原意图，不先按旧 Provider 是否仍在候选中删掉；下一次输入读取
@@ -191,7 +191,7 @@ export function useDraftConfigControl(params: {
   const lastPersistedDraftRef = useRef<V4ComposerDraft | null>(null);
   useEffect(() => {
     if (
-      (draft.mode || draft.initializeFromNewTask) &&
+      draft.mode &&
       draft !== lastPersistedDraftRef.current &&
       stateRef.current.draft === draft &&
       stateRef.current.scopeKey === scopeKey
@@ -234,10 +234,6 @@ export function useDraftConfigControl(params: {
         ...current,
         mode: mode.success ? mode.data : current.mode,
         modelSelection: next.modelSelection,
-        // 用户已经显式改选，不能再由导入时等待的默认初始化覆盖。
-        ...(current.initializeFromNewTask
-          ? { mode: mode.success ? mode.data : "build", initializeFromNewTask: undefined }
-          : {}),
       }));
     },
     [updateComposerDraft],
@@ -383,7 +379,6 @@ export function useDraftConfigControl(params: {
           ...current,
           mode: current.mode === "plan" ? "build" : (current.mode ?? "build"),
           planEnabled: mode === "plan",
-          initializeFromNewTask: undefined,
         }));
         return;
       }
@@ -393,7 +388,6 @@ export function useDraftConfigControl(params: {
         updateComposerDraft((current) => ({
           ...current,
           mode: parsed.data,
-          initializeFromNewTask: undefined,
         }));
     },
     [updateComposerDraft, presentation.ready, presentation.executionCapabilities],

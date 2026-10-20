@@ -31,6 +31,7 @@ export const escodeSyntheticUserMessageSourceSchema = z.enum([
   // 中枢直接启动工作流的启动轮 source；与 contracts 的
   // SYNTHETIC_USER_MESSAGE_SOURCES 保持同一词表，否则 v3 mapper 收窄该 source 会 tsc 失败。
   "workflow_launch",
+  // 仅用于读取会话分享删除前写入的旧消息；新消息不再产生该来源。
   "shared_context",
 ]);
 export const escodeWorkspaceRefSchema = z
@@ -201,6 +202,7 @@ export const escodeMessageSemanticsSchema = z
       "fork_notice",
       "timeline_event",
       "compact_summary",
+      // 仅用于读取会话分享删除前写入的旧消息；新投影不再产生该 kind。
       "shared_context",
       "assistant_response",
     ]),

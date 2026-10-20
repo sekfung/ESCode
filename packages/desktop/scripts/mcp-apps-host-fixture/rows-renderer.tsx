@@ -153,7 +153,6 @@ export function RowsFixture({ config, ready }: { config: any; ready: () => void 
                   totalCount={rows.length}
                   sessionKey={config.scope.sessionId}
                   rowContext={rowContext}
-                  hideTurnNavigator
                 />
               )}
             </div>
