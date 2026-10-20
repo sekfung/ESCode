@@ -25,44 +25,6 @@ const modelID = createModelId("gpt-test");
 const providerID = createModelProviderId("openai");
 
 describe("session history hydrator", () => {
-  it("does not hydrate pending shared context until it is attached", async () => {
-    const sessionID = createSessionId("hydrate-shared-context");
-    const messageID = createMessageId("shared-context");
-    const makeMessage = (status: "pending" | "attached"): MessageWithParts => ({
-      info: {
-        id: messageID,
-        sessionID,
-        role: "user",
-        time: { created: 1 },
-        agent: "escode-agent",
-        model: { providerID, modelID },
-        source: "shared_context",
-        synthetic: true,
-        visibility: "model-only",
-        metadata: { contextId: "context-1", sharedContextStatus: status },
-      },
-      parts: [
-        {
-          id: createPartId(`shared-context-${status}`),
-          messageID,
-          sessionID,
-          type: "text",
-          text: "shared markdown",
-        },
-      ],
-    });
-    const pendingHistory = new MessageHistoryImpl();
-    pendingHistory.init("system prompt");
-    await hydrateMessageHistoryFromSession({ history: pendingHistory, messages: [makeMessage("pending")] });
-    expect(pendingHistory.toRuntimeEntries()).toHaveLength(1);
-    expect(JSON.stringify(pendingHistory.toRuntimeEntries())).not.toContain("shared markdown");
-
-    const attachedHistory = new MessageHistoryImpl();
-    attachedHistory.init("system prompt");
-    await hydrateMessageHistoryFromSession({ history: attachedHistory, messages: [makeMessage("attached")] });
-    expect(attachedHistory.toRuntimeEntries()).toHaveLength(2);
-    expect(JSON.stringify(attachedHistory.toRuntimeEntries())).toContain("shared markdown");
-  });
   it("does not reinject legacy bot_topic_context records on resume", async () => {
     const history = new MessageHistoryImpl();
     const sessionID = createSessionId("legacy-topic");

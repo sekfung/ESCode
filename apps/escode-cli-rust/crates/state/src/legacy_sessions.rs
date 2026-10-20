@@ -156,12 +156,6 @@ pub(super) fn project(
                 &mid,
             )?;
             super::legacy_projection::validate_parts(&parts)?;
-            let shared_start = session.messages.len();
-            if super::legacy_shared_context::project(&mut session, &message, &parts, &entries, dir)?
-            {
-                positions.insert(mid, (shared_start, session.messages.len()));
-                continue;
-            }
             if super::legacy_topic_context::project(&mut session, &mid, &message, &parts) {
                 continue;
             }
@@ -381,7 +375,6 @@ pub(super) fn project(
             positions.insert(mid, (start, session.messages.len()));
         }
         super::legacy_projection::ledger(snapshot, &id, &mut session)?;
-        super::legacy_shared_context::validate(&session, &entries)?;
         if interrupted {
             session.phase = "completedInterrupted".into();
             session.auto_drain = false;

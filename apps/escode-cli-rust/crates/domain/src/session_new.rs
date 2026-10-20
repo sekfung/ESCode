@@ -24,8 +24,6 @@ impl Session {
             plan_followups: vec![],
             goal: None,
             skills: None,
-            shared_context: None,
-            legacy_shared_context: false,
             legacy_topic_records: vec![],
             workspace_path: None,
             workspace_directory: None,

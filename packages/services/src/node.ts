@@ -233,10 +233,6 @@ export { createMemoryService } from "./memory/memoryService.js";
 export { createOutputStyleService } from "./output-style/outputStyleService.js";
 export { createSettingsSyncService } from "./settings-sync/settingsSyncService.js";
 export { createLocalPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransferService.js";
-export {
-  createLocalConversationShareArtifactSource,
-  createRemoteConversationShareArtifactSource,
-} from "./conversation-share/conversationShareArtifactSource.js";
 export { createNodeApiClient, NodeApiClient } from "./providers/api/nodeApiClient.js";
 export {
   createHostApiNetworkTransport,
@@ -294,17 +290,6 @@ import { IESCodeTaskService } from "./session/escodeTaskService.js";
 import { IESCodeAgentService } from "./escode-agent/escodeAgent.js";
 import type { CuaOperationStateReporter } from "./escode-agent/cuaOperationTurnTracker.js";
 import { IESCodeSessionService } from "./escode-session/escodeSession.js";
-import {
-  createUnsupportedConversationShareService,
-  IConversationShareService,
-  type IConversationShareService as IConversationShareServiceType,
-} from "./conversation-share/conversationShare.js";
-import {
-  ConversationShareService,
-  conversationShareConnectionScopeFactory,
-} from "./conversation-share/conversationShareService.js";
-import { createLocalConversationShareArtifactSource } from "./conversation-share/conversationShareArtifactSource.js";
-import { ConversationShareHttpClient } from "./conversation-share/conversationShareHttpClient.js";
 import { IBotsService } from "./bots/bots.js";
 import { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 import { IUsageStatsService } from "./usage-stats/usageStats.js";
@@ -495,16 +480,7 @@ import {
   ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
   ESCODE_VERSION,
   ESCODE_ENV,
-  buildRuntimeESCodeApiUrl,
 } from "@escode/shared";
-
-// 这些 conversation-share 实现依赖 Node 文件系统；仅通过 @escode/services/node 暴露，
-// 防止 browser-safe 根入口把 node:* 依赖带进 renderer。
-export {
-  ConversationShareService,
-  ConversationShareHttpClient,
-  conversationShareConnectionScopeFactory,
-};
 
 import { createPluginUiAccountBindings } from "./plugin-ui-bridge/instanceAccounts.js";
 interface ServiceWithDisposeAll {
@@ -2080,24 +2056,6 @@ export function createLocalServices(options: {
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
   });
-  const conversationShareClient = new ConversationShareHttpClient({
-    // 分享运行时始终走真实 API；测试/Mock 场景应在 service 单测或 Web fixture 中显式注入，
-    // 不能让开发环境默认生成仅存在于进程内存的 mock-share 链接。
-    apiClient,
-    baseUrl: buildRuntimeESCodeApiUrl(process.env, "/api/v1"),
-    // 登录态随 OAuth 删除：分享发布的登录 token 恒为空（未登录时 API 侧拒绝）。
-    tokenProvider: async (): Promise<string | null> => null,
-  });
-  const conversationShareService: IConversationShareServiceType = isDesktopAttachedRemote
-    ? createUnsupportedConversationShareService({
-        message: "Conversation publishing is not available for remote workspaces",
-      })
-    : new ConversationShareService({
-        escodeAgentService,
-        escodeSessionService,
-        client: conversationShareClient,
-        artifactSource: createLocalConversationShareArtifactSource(),
-      });
   // 注册链上的懒工厂会各自创建 tasks-index sqlite repo；先收集到本数组，
   // services 集合建好后在 return 前统一登记进 sharedSqliteRepos 侧表
   const sqliteReposToClose: Array<{ close(): void }> = [];
@@ -2115,7 +2073,6 @@ export function createLocalServices(options: {
     .register(IESCodeSessionService, escodeSessionService)
     .register(ICuaPermissionService, cuaPermissionService)
     .register(ICuaPipSessionService, cuaPipSessionService)
-    .register(IConversationShareService, conversationShareService)
     .register(
       IBotsService,
       createBotsService({

@@ -3280,46 +3280,6 @@ WFS03（accepted）：Snippet 运行→完成/失败；运行摘要计时且代�
 不扩展 `onDemand`（本版本行为与 `alwaysOn` 相同，由 `isDynamicWorkflowModeEnabled` 单测覆盖）、
 本地 `ESCODE_DYNAMIC_WORKFLOW_MODE` 覆盖档位、手机远控与 SSH/WSL/Docker 远端 Host。
 
-## SHARE. 会话分享与继续工作
-
-Todo139 补充 accepted 用例：SHARE30 在 Root／Recent／公共默认三种接收方状态分别首次导入，工具栏及首条 Submission 的 modelSelection/mode 与普通新任务一致，context_refs 保留且 Root 正文不迁移；SHARE31 无模型／View 延迟时内容可打开，空 snapshot 不阻断初始化，用户先编辑后迟到结果不覆盖；SHARE32 同路径不同 identity、远程回退本地及 reused=true，使用结果的实际目标并保留已有会话，导入不更新 Recent。三项均要求 UI 加草稿／提交 payload 证据；不展开与 queue/goal 的无关叉乘，不开放手机导入入口。
-
-| ID      | 前置状态                                                              | 事件                                        | 期望结果                                                                                         | Review   |
-| ------- | --------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------- |
-| SHARE01 | Desktop local，至少一轮 completed                                     | 发布全部/部分轮次                           | 公开 ID 稳定，prepare→upload→confirm 返回真实链接                                                | accepted |
-| SHARE02 | 当前最后一轮 running，之前有 completed                                | 打开分享                                    | running 可见但不可选，completed 可发布                                                           | accepted |
-| SHARE03 | SSH/WSL/Docker，产物位于远端                                          | 发布                                        | 本地 JWT/API + 远端 Rows/File；range staging 后上传                                              | accepted |
-| SHARE04 | 手机 web-remote-replayable attachment                                 | 调用发布 RPC                                | service 层拒绝，不产生 preparation                                                               | accepted |
-| SHARE05 | 正式 attachment 与 fileChanges 同路径                                 | 发布                                        | 正式事实优先，仅上传一次                                                                         | accepted |
-| SHARE06 | 文件越界、变化、空 chunk 或哈希不符                                   | 发布                                        | prepare 前 fail closed                                                                           | accepted |
-| SHARE07 | confirm 返回 3215                                                     | 轮询                                        | 同 preparation/DTO 串行重试，最多 2 分钟                                                         | accepted |
-| SHARE08 | public_importable 分享                                                | deep link 导入                              | 当前本地 workspace 创建新 task/session，安装全部产物并写 pending shared_context                  | accepted |
-| SHARE09 | public_readonly 分享                                                  | deep link 导入                              | 403/import_not_allowed，不创建目录                                                               | accepted |
-| SHARE10 | 导入下载/rename/SQLite 任一步失败                                     | import                                      | 只清理本次 marker/staging/importRoot，不删除用户 workspace                                       | accepted |
-| SHARE11 | 导入成功后远端 share 过期                                             | 继续对话                                    | 本地会话和文件独立可用                                                                           | accepted |
-| SHARE12 | `/cn/share/:code`，public_readonly                                    | 匿名访问落地页                              | 预览公开 Rows/产物，不触发 OAuth，不显示导入 CTA                                                 | planned  |
-| SHARE13 | `/cn/share/:code`，public_importable                                  | 匿名访问落地页                              | 预览成功，显示仅携带 share code 的 Desktop Deep Link                                             | planned  |
-| SHARE14 | `/cn/share/:code`，private                                            | 未登录访问                                  | 显示登录入口，不泄漏分享是否存在                                                                 | planned  |
-| SHARE15 | `/cn/share/:code`，private                                            | owner OAuth 成功                            | 回到原 share 路径，带 JWT 预览并显示继续 CTA                                                     | planned  |
-| SHARE16 | `/cn/share/callback`                                                  | 非法 state/nonce                            | 拒绝回跳和 token 写入，不能开放重定向                                                            | planned  |
-| SHARE17 | `/cn/share` 与 remote 独立静态部署                                    | 分别发布/回滚                               | `/cn/share/*` 与 `/remote/v4/*` 互不覆盖                                                         | planned  |
-| SHARE21 | 导入完成后的 pending context                                          | 点击 Composer Chip                          | 右侧只打开一个 `/cn/share/:code` Browser Tab，中心显示 handover 空态                             | planned  |
-| SHARE22 | 首条 Share 输入遇到 busy                                              | queue/guide                                 | context 进入 reserved，消费时与 user message 原子 attach，删除队列后回到 pending                 | planned  |
-| SHARE23 | 同一 share 在不同 workspace                                           | 重复 Deep Link                              | 同 workspace 复用 session，不同 workspace 创建独立 session，不覆盖已有 workspace 文件            | planned  |
-| SHARE24 | Desktop 导入进度或终态变化                                            | 导入阶段事件                                | 同一导入操作只更新一个 Toast；成功/失败原位替换进度提示，不堆叠旧消息                            | accepted |
-| SHARE18 | Desktop local/SSH attachment 已完成 V4 handshake                      | 发布                                        | Share 与 conversation RPC 复用同一 trusted Agent scope；raw Agent 零调用                         | accepted |
-| SHARE19 | 同一份 Desktop V4 rows fixture                                        | Share 正文渲染                              | user bubble、assistant Markdown、Reasoning、ToolLayout 和 turn/work 顺序与 Desktop 一致          | accepted |
-| SHARE20 | 长 Markdown / table fixture                                           | Share 页面阅读                              | 页面纵向可滚动、table 横向独立滚动，Markdown 不因缺少 TooltipProvider 降级为纯文本               | accepted |
-| SHARE25 | 一轮含 PDF 预览卡片、三个已存在 MP4 卡片和正文 `~/...` 路径           | 打开选择阶段                                | 只检查并分享 PDF；三个视频显示可跳过 warning；`~/...` 不生成候选；最终只上传 PDF                 | planned  |
-| SHARE26 | 一轮含不存在且没有可见预览卡片的 Markdown 路径                        | 打开选择阶段                                | 文件不进入候选、不告警、不上传；没有独立 artifact row 也不会进入分享                             | planned  |
-| SHARE27 | Desktop local，Session A 分享成功态 dock 未关闭，Session B 无分享状态 | 切换 A→B，进入 B 分享并点击下一步，再切回 A | B 只显示自己的选择/确认阶段，Next 不跳到 A 的成功 dock；A 仍保留自己的成功 dock；关闭 A 不清理 B | accepted |
-
-| SHARE28 | 分享确认 Dock 已打开 | 窄面板缩放后恢复宽度 | 权限文案完整、按钮不溢出、正文独立滚动、标题/权限/确认状态保留 | accepted |
-| SHARE29 | 当前 session 分享已打开 | 再次点击顶部分享按钮 | 退出选择/确认/结果态并清理当前草稿；不影响其它 session；发布中禁用取消 | accepted |
-
-不与 queue、goal、compact、provider、主题和 locale 做全笛卡尔积；这些维度用分享不进入 realtime
-和 shared_context 唯一注入不变量剪枝。Server Remote、Web 发布和手机发布首期不开放。
-
 ## Start Plan bucket 提醒（2026-09-10）
 
 | Case  | Setup / Action                                                                         | Expected                                                          | Decision |
@@ -3499,8 +3459,6 @@ Memory MEM08 埋点补充（2026-09-17）：现有 Desktop Memory 用例同时�
 | CMP02 | 隔离 Personal Config 的 bigmodel-api 不含 providerName                               | 从菜单选中 GLM-5.3     | 选中投影正确，菜单显示 bigmodel-api，按钮生成 bigmodel-api/ 前缀和完整 title；前缀仅由压缩阶段控制                                    | accepted |
 
 本组不发送模型请求；手机远控、原生 Windows、深浅主题和 reduced-motion 的组合不由这两条桌面 E2E 冒充覆盖。
-
-分享失败回归 SHARE33（accepted，manual-review/pending）：405 接口异常、响应体读取超时和运行中内容问题分别显示正确原因；错误详情可见 HTTP、双方请求 ID、operationId；重试保留轮次。覆盖 390/1200 宽度、深浅主题、中英文。浏览器组件集成路径为 `packages/ui/test/browser/manual-review/pending/share-failure.test.mjs`；真实 Desktop/SSH 发布链路仍由现有 SHARE18 pending E2E 验证，不将组件测试计为正式 Desktop 通过。
 
 ## CMDPREVIEW. 权限命令完整预览
 

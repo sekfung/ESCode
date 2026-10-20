@@ -24,15 +24,15 @@ rust-parity-remaining.md 中「无活跃 UI 调用点」同口径）。`imported
 
 对齐 TS `persistImportedSessionHistory` 的 claudeCode 分支（Host `escode-task.importClaudeSessions` 是唯一调用方）：
 
-- 参数：公共字段沿用 sharedContext 导入的严格校验（workspace 一致、tool profile 不允许、null 字段拒绝）；
+- 参数：公共字段沿用 Claude Code 导入的严格校验（workspace 一致、tool profile 不允许、null 字段拒绝）；
   `importedHistory = {source, title?, createdAt?, updatedAt?, messages:[{role:user|assistant, content, timestamp?}] (≥1)}`，严格未知键拒绝。
 - 会话：`title.trim() || "Imported session"`、`titleSource=custom`、不触发标题生成；`createdAt = createdAt ?? messages[0].timestamp ?? now`，
-  `updatedAt = max(createdAt, updatedAt ?? messages[-1].timestamp ?? createdAt)`；phase `completedSuccess`，模型选择同 sharedContext 导入（未给 model 时取静态配置或空）。
+  `updatedAt = max(createdAt, updatedAt ?? messages[-1].timestamp ?? createdAt)`；phase `completedSuccess`，模型选择同其它导入（未给 model 时取静态配置或空）。
 - 消息：按数组顺序；时间戳 `timestamp ?? createdAt+index`，收敛为严格递增（TS 同）。每条 user 开新轮：
   `turnHeader(origin=userInput, completedSuccess)` + `userInput(origin=realUser)` 行，canonical `{role:user, content}`；
   assistant 产 `assistantText(state=complete)` 行（首条即 assistant 时先补一个轮头），canonical `{role:assistant, content}`。
   与 legacy 导入器同形，续聊直接使用这些 canonical 消息作为模型上下文。
-- 持久化：一次 `commit_receipt` 落盘后才投影与返回快照（同 sharedContext 导入）。
+- 持久化：一次 `commit_receipt` 落盘后才投影与返回快照（同其它导入）。
 - 幂等：同 `sessionId` 已存在时直接返回现有快照，不重写历史。**差异**：TS 重导入会删除旧导入消息再按源文件重写（保留后续续聊消息）；
   Rust 不做历史替换（canonical history 只追加，替换需 history cut 事务），源文件后续增长的内容需新建导入。
 

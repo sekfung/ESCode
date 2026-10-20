@@ -71,7 +71,6 @@ export function createDesktopPlatform(options: {
     registerOAuthState: (payload) => window.escode.registerOAuthState(payload),
     onOAuthCallback: (callback) => window.escode.onOAuthCallback(callback),
     onPaymentCallback: (callback) => window.escode.onPaymentCallback(callback),
-    onShareImport: (callback) => window.escode.onShareImport?.(callback) ?? (() => {}),
     notifyRendererReady: () => window.escode.notifyRendererReady(),
     reportTelemetryEvent: (payload) => window.escode.reportTelemetryEvent(payload),
     reportArmsCustomEvent: (payload) => {

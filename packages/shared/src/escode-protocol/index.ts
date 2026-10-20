@@ -1092,34 +1092,6 @@ export const escodeSessionImportHistorySchema = z.discriminatedUnion("source", [
       messages: z.array(escodeSessionImportMessageSchema).min(1),
     })
     .strict(),
-  z
-    .object({
-      source: z.literal("sharedContext"),
-      title: z.string().trim().min(1),
-      createdAt: timestampMsSchema.optional(),
-      markdown: z.string().min(1),
-      provenance: z
-        .object({
-          shareId: z.string().trim().min(1),
-          contextId: z.string().trim().min(1).optional(),
-          shareUrl: z.string().url().optional(),
-          status: z.enum(["pending", "reserved", "attached", "discarded"]).optional(),
-          projectionSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-          artifactSetSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-          formatterVersion: z.literal(1),
-          markdownSha256: z.string().regex(/^[0-9a-f]{64}$/u),
-          installedArtifacts: z.array(
-            z
-              .object({
-                artifactId: z.string().trim().min(1),
-                workspaceRelativePath: z.string().trim().min(1),
-              })
-              .strict(),
-          ),
-        })
-        .strict(),
-    })
-    .strict(),
 ]);
 export type ESCodeSessionImportHistory = z.infer<typeof escodeSessionImportHistorySchema>;
 

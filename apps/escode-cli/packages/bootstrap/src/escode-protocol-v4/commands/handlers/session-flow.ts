@@ -116,7 +116,6 @@ async function sendText(
         ? { fallbackReasonCode: "guide.attachmentsUnsupported" }
         : {}),
       attachmentRefs: payload.attachments,
-      sharedContextRefs: payload.context_refs,
       ...(payload.source ? { source: payload.source } : {}),
     });
     started = await startPromptTurn(host, record, {
@@ -129,7 +128,6 @@ async function sendText(
       // 只按 Core 的实际抢占回执标记纯文本；空闲及附件输入保留原路径。
       ...(preempted && !attachments?.length ? { inputPresentation: "user_steer" as const } : {}),
       intent,
-      ...(payload.context_refs ? { sharedContextRefs: payload.context_refs } : {}),
       ...turnBackgroundAttributionOf(payload),
       ...(payload.botDeliveryTarget ? { botDeliveryTarget: payload.botDeliveryTarget } : {}),
       toolDisallowlist: payload.toolDisallowlist,

@@ -32,7 +32,6 @@ impl Engine {
         &mut self,
         id: &str,
         c: &Command,
-        shared: Option<String>,
         command: Option<String>,
     ) -> Result<(String, String)> {
         // `/init` 与 TS 一样展开成普通用户提示词（builtin-prompt-command.ts），不改变其余 admission 语义。
@@ -136,13 +135,6 @@ impl Engine {
         } else if let Some(goal) = s.goal.as_mut().filter(|g| g.active()) {
             goal.start(now);
         }
-        super::shared_context::attach(
-            s,
-            &c.payload,
-            shared,
-            Some(&format!("queue_{}", c.command_id)),
-            &input,
-        )?;
         let retained_messages = s.messages.len();
         s.run_id = Some(self.clock.id());
         s.phase = "running".into();
@@ -279,7 +271,6 @@ impl Engine {
         let prose = crate::domain::memory::is_prose(model_text.as_deref().unwrap_or(text));
         s.append_message(json!({"role":"user","content":content,"_escode_input":prose}));
         let mut payload = c.payload.clone();
-        payload.as_object_mut().unwrap().remove("context_refs");
         // TS prompt-turn：本轮 automation 身份（显式或 automation- 前缀 commandId）与禁用工具面随输入固化。
         let automation = crate::domain::cron::turn_automation_id(
             c.payload["automationId"].as_str(),

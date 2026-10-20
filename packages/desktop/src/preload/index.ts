@@ -117,8 +117,6 @@ let latestReadyUpdateVersion: string | null = null;
 let latestUpdateState: UpdateStatePayload | null = null;
 let latestPostUpdateReleaseNotes: PostUpdateReleaseNotesPayload | null = null;
 const pendingOpenWorkspacePaths: string[] = [];
-const shareImportCallbacks = new Set<(payload: { shareCode: string }) => void>();
-const pendingShareImports: { shareCode: string }[] = [];
 const MACOS_WINDOW_CONTROLS_BASE_LEFT_PADDING_PX = 96;
 const WINDOWS_WINDOW_CONTROLS_BASE_RIGHT_PADDING_PX = 136;
 const WINDOWS_TITLE_BAR_HEIGHT_PX = 48;
@@ -205,14 +203,6 @@ ipcRenderer.on(PlatformChannels.OpenWorkspacePath, (_event: unknown, path: strin
   for (const callback of openWorkspacePathCallbacks) {
     callback(path);
   }
-});
-
-ipcRenderer.on(PlatformChannels.ShareImport, (_event: unknown, payload: { shareCode: string }) => {
-  if (shareImportCallbacks.size === 0) {
-    pendingShareImports.push(payload);
-    return;
-  }
-  for (const callback of shareImportCallbacks) callback(payload);
 });
 
 function updateRendererProcessTitle(): void {
@@ -699,14 +689,6 @@ contextBridge.exposeInMainWorld("escode", {
     const handler = (_event: unknown, url: string) => callback(url);
     ipcRenderer.on(PlatformChannels.PaymentCallback, handler);
     return () => ipcRenderer.removeListener(PlatformChannels.PaymentCallback, handler);
-  },
-  onShareImport: (callback: (payload: { shareCode: string }) => void): (() => void) => {
-    shareImportCallbacks.add(callback);
-    while (pendingShareImports.length > 0) {
-      const payload = pendingShareImports.shift();
-      if (payload) callback(payload);
-    }
-    return () => shareImportCallbacks.delete(callback);
   },
   /** 通知 main process renderer 已就绪 */
   notifyRendererReady: () => ipcRenderer.send(PlatformChannels.RendererReady),

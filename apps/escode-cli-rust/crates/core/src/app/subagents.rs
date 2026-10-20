@@ -147,7 +147,7 @@ impl Engine {
         session.agent_profile = Some(profile.clone());
         self.sessions.insert(child.clone(), session);
         let c = child_command(&child, &self.clock.id(), args["prompt"].as_str().unwrap());
-        let (turn, _) = self.admit_input(&child, &c, None, None)?;
+        let (turn, _) = self.admit_input(&child, &c, None)?;
         self.persist(&child, None).await?;
         let task = Task {
             id: agent.clone(),
@@ -256,7 +256,7 @@ impl Engine {
                 );
                 self.tools.inherit_session(parent, &task.child_id).await?;
                 let c = child_command(&task.child_id, &id, &content);
-                let (turn, _) = self.admit_input(&task.child_id, &c, None, None)?;
+                let (turn, _) = self.admit_input(&task.child_id, &c, None)?;
                 let child = self.sessions.get_mut(&task.child_id).unwrap();
                 if let Some(row) = child.rows.last_mut() {
                     row["origin"] = "mailbox".into();

@@ -388,10 +388,6 @@ export interface TurnInputIntentMetadata {
     messageCount?: number;
   }>;
   highspeed?: HighspeedMessageMetadata;
-  sharedContextRefs?: Array<{
-    kind: "shared_context_import";
-    context_id: string;
-  }>;
   /** edit/retry 重建的新 command 对原始 canonical input cause 的稳定追溯。 */
   provenance?: {
     sourceCommandId: string;

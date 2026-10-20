@@ -14,8 +14,6 @@ import {
   IESCodeTaskService,
   IESCodeAgentService,
   IESCodeSessionService,
-  IConversationShareService,
-  createUnsupportedConversationShareService,
   IBotsService,
   IFileWatcherService,
   IModelSelectionService,
@@ -39,8 +37,6 @@ import {
   type IServiceAccessor,
 } from "@escode/services";
 import {
-  ConversationShareHttpClient,
-  ConversationShareService,
   createSettingService,
   createCredentialService,
   createBroadcastService,
@@ -56,10 +52,8 @@ import {
   createSubagentsService,
   createMemoryService,
   createOutputStyleService,
-  createRemoteConversationShareArtifactSource,
 } from "@escode/services/node";
 import {
-  buildRuntimeESCodeApiUrl,
   DEFAULT_ESCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
   type ProviderFamilyDomain,
   type ESCodeSessionRuntimePreferencesResult,
@@ -71,22 +65,6 @@ import {
 } from "./remoteProviderProvisioningService.js";
 
 const runtimePreferencesLogger = createServiceLogger("remote-runtime-preferences");
-const ESCODE_JWT_TOKEN_KEY = "escodejwttoken";
-const conversationShareLog = createServiceLogger("conversation-share");
-
-function createUnsupportedRemoteConversationShareService(): IConversationShareService {
-  return createUnsupportedConversationShareService({
-    message: "Conversation sharing is not available for this client or remote target",
-    onRejected: (action) => {
-      conversationShareLog.warn(undefined, "conversation share action rejected", {
-        action,
-        kind: "feature_disabled",
-        reason: "server_remote_unsupported",
-      });
-    },
-  });
-}
-
 export function createRemoteWorkspaceServiceCollection(params: {
   clientConfigService: IClientConfigService;
   connectionServices: IServiceAccessor;
@@ -118,20 +96,6 @@ export function createRemoteWorkspaceServiceCollection(params: {
   const localBroadcastService = createBroadcastService(params.parentPort);
   // 账号身份与 Account Request Auth 随 OAuth（套餐族）删除：
   // usage-stats/账号 Provider 的远端解析已下线，本集合不再需要 account auth owner。
-  const conversationShareClient = new ConversationShareHttpClient({
-    // 远端 workspace 的分享也必须使用真实 API；本地 Mock 仅用于单测，不生成无法跨进程访问的链接。
-    apiClient: localApiClient,
-    baseUrl: buildRuntimeESCodeApiUrl(process.env, "/api/v1"),
-    tokenProvider: async () =>
-      (await localCredentialService.load(ESCODE_JWT_TOKEN_KEY))?.trim() || null,
-  });
-  const conversationShareService = new ConversationShareService({
-    escodeAgentService: params.connectionServices.escodeAgentService,
-    client: conversationShareClient,
-    artifactSource: createRemoteConversationShareArtifactSource(
-      params.connectionServices.fileService,
-    ),
-  });
   const reportingRemoteESCodeTaskService = params.createReportingRemoteESCodeTaskService(
     params.connectionServices.escodeTaskService,
   );
@@ -264,7 +228,6 @@ export function createRemoteWorkspaceServiceCollection(params: {
     .register(IESCodeTaskService, remoteESCodeTaskService)
     .register(IESCodeAgentService, params.connectionServices.escodeAgentService)
     .register(IESCodeSessionService, remoteESCodeSessionService)
-    .register(IConversationShareService, conversationShareService)
     .register(
       IBotsService,
       createBotsService({
@@ -342,7 +305,6 @@ export function createServerRemoteWorkspaceServiceCollection(params: {
     .register(IESCodeTaskService, params.connectionServices.escodeTaskService)
     .register(IESCodeAgentService, params.connectionServices.escodeAgentService)
     .register(IESCodeSessionService, params.connectionServices.escodeSessionService)
-    .register(IConversationShareService, createUnsupportedRemoteConversationShareService())
     .register(IBotsService, params.connectionServices.botsService)
     .register(IFileWatcherService, params.connectionServices.fileWatcherService)
     .register(IModelSelectionService, params.connectionServices.modelSelectionService)

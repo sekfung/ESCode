@@ -13,8 +13,7 @@ import type {
   TurnInputIntentMetadata,
 } from "@escode/contracts";
 import { encodeJson } from "../json.js";
-import { messages as readMessages, saveMessage, savePart } from "./messages.js";
-import * as sessionEntryRepository from "./session-entries.js";
+import { saveMessage, savePart } from "./messages.js";
 
 interface SessionInputRow {
   id: string;
@@ -203,72 +202,6 @@ export async function promoteSessionInput(
     await saveMessage(db, input.message);
     for (const part of input.parts) {
       await savePart(db, part);
-    }
-    const refs =
-      input.message.metadata && typeof input.message.metadata === "object"
-        ? (input.message.metadata as Record<string, unknown>).inputIntent &&
-          typeof (input.message.metadata as Record<string, unknown>).inputIntent === "object"
-          ? (
-              (input.message.metadata as Record<string, unknown>).inputIntent as Record<
-                string,
-                unknown
-              >
-            ).sharedContextRefs
-          : undefined
-        : undefined;
-    if (Array.isArray(refs)) {
-      for (const ref of refs) {
-        if (
-          !ref ||
-          typeof ref !== "object" ||
-          (ref as Record<string, unknown>).kind !== "shared_context_import"
-        )
-          continue;
-        const contextId = (ref as Record<string, unknown>).context_id;
-        if (typeof contextId !== "string") continue;
-        const entry = sessionEntryRepository
-          .sessionEntries(db, { sessionID: input.sessionID, type: "v4/shared_context_import" })
-          .find((candidate) => {
-            const data = candidate.data;
-            return Boolean(
-              data &&
-              typeof data === "object" &&
-              !Array.isArray(data) &&
-              (data as Record<string, unknown>).contextId === contextId,
-            );
-          });
-        if (!entry) throw new Error("shared context import is missing");
-        const data = entry.data as Record<string, unknown>;
-        if (!["pending", "reserved"].includes(String(data.status))) {
-          throw new Error("shared context import is no longer attachable");
-        }
-        sessionEntryRepository.saveSessionEntry(db, {
-          ...entry,
-          time: { ...entry.time, updated: now },
-          data: { ...data, status: "attached", attachedMessageId: String(input.message.id) },
-        });
-        const contextMessage = (
-          await readMessages(db, {
-            sessionID: input.sessionID,
-          })
-        ).find((candidate) => {
-          const metadata = candidate.info.metadata;
-          return Boolean(
-            metadata &&
-            typeof metadata === "object" &&
-            (metadata as Record<string, unknown>).contextId === contextId,
-          );
-        });
-        if (contextMessage) {
-          await saveMessage(db, {
-            ...contextMessage.info,
-            metadata: {
-              ...(contextMessage.info.metadata ?? {}),
-              sharedContextStatus: "attached",
-            },
-          });
-        }
-      }
     }
     db.prepare(
       `

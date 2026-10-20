@@ -6,7 +6,6 @@ mod legacy_attachments;
 mod legacy_attempt;
 mod legacy_projection;
 mod legacy_sessions;
-mod legacy_shared_context;
 mod legacy_storage;
 mod legacy_todos;
 mod legacy_topic_context;

@@ -64,7 +64,6 @@ export interface ESCodeEndpointUrls {
   apiBaseUrl: string;
   remoteUrl: string;
   webRemoteCallbackUrl: string;
-  webShareCallbackUrl: string;
   relayWsUrl: string;
   escodePlanOpenAiBaseUrl: string;
   escodePlanAnthropicBaseUrl: string;
@@ -343,7 +342,6 @@ export function buildESCodeEndpointUrls(
     apiBaseUrl: `${normalizedOrigin}/api/v1`,
     remoteUrl: `${normalizedOrigin}/remote/${remoteVersion}`,
     webRemoteCallbackUrl: `${normalizedOrigin}/web-remote/callback`,
-    webShareCallbackUrl: `${normalizedOrigin}/cn/share/callback`,
     relayWsUrl: `${wsOrigin}/ws`,
     escodePlanOpenAiBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan`,
     escodePlanAnthropicBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan/anthropic`,

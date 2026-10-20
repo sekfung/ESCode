@@ -67,5 +67,4 @@ spanᵢ = 末个非空生成 delta − 首个非空生成 delta
   本特性不做持久化统计（与 0006 一致）。若将来需要跨重启保留，参照 Highspeed 的
   `highspeed-metrics-persistence` 把终态写进 transcript。
 - 旧 CLI + 新 Desktop：无新字段，轮末显示 `—`，不回退到本机估算——同一标签下静默切换含义比缺少读数更糟。
-- 协议字段是 optional 累加，不改既有 `outputTokens` 语义；`conversationSharePublicProjection` 的
-  allow-list 重建需同步，否则分享链路会静默丢掉新字段。
+- 协议字段是 optional 累加，不改既有 `outputTokens` 语义。

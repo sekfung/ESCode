@@ -195,7 +195,7 @@ SSH、WSL、Docker 和 Server workspace 使用 `remote:*` workspace identity。�
 Host 本地能力（服务装配 + workspace 类型，不联网）-> Off-Peak policy/创建参数 -> App OffPeakPort -> 工具注册
 OffPeakCreate 实际调用 -> Host 灰度/套餐/模型校验 -> createTask/取号
 idle turn attribution -> turn denylist + activeOffPeakTaskId -> 拒绝递归 Create
-当前 modelExecution + sharedContextRefs -> Core admission -> 完成时清理 turn attribution
+当前 modelExecution -> Core admission -> 完成时清理 turn attribution
 ```
 
 3.12.2 移除注册阶段灰度读取，保留本地支持边界、调用准入与绑定请求；CLI 冷恢复/创建通过当前异步 App 工厂装配，不恢复旧

@@ -78,8 +78,7 @@
           "startSavedWorkflow",
           "amendWorkflowRunSettings",
           "renameSession",
-          "deleteSession",
-          "discardSharedContext"
+          "deleteSession"
         ]
       },
       "payload": {},
@@ -600,28 +599,6 @@
             "tabCount"
           ],
           "additionalProperties": false
-        },
-        "context_refs": {
-          "maxItems": 1,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "const": "shared_context_import"
-              },
-              "context_id": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "kind",
-              "context_id"
-            ],
-            "additionalProperties": false
-          }
         },
         "source": {
           "oneOf": [
@@ -2560,20 +2537,6 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
       "properties": {}
-    },
-    "discardSharedContext": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "contextId": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "contextId"
-      ],
-      "additionalProperties": false
     }
   },
   "types": [
@@ -2610,8 +2573,7 @@
     "startSavedWorkflow",
     "amendWorkflowRunSettings",
     "renameSession",
-    "deleteSession",
-    "discardSharedContext"
+    "deleteSession"
   ],
   "requiringBaseRevision": [
     "applyFileRewind",

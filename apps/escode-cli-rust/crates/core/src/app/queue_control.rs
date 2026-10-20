@@ -79,7 +79,6 @@ impl Engine {
         Ok(None)
     }
     pub(super) fn discard_queue_ack(&mut self, id: &str, item: &Value) -> Result<()> {
-        super::shared_context::release(self.sessions.get_mut(id).unwrap(), item);
         let key = serde_json::to_string(&(Some(id), item["sourceCommandId"].as_str().unwrap()))?;
         if let Some(ack) = self.acks.get_mut(&key) {
             ack["status"] = "failed".into();
@@ -116,9 +115,6 @@ impl Engine {
             payload: json!({"text":item["text"],"attachments":item["attachments"],"modelSelection":item["modelSelection"],"mode":item["mode"],"planEnabled":item["planEnabled"],"_userSteer":item["delivery"]["admitted"]=="startNow"}),
             issued_at: 0.0,
         };
-        if let Some(refs) = item.get("sharedContextRefs") {
-            c.payload["context_refs"] = refs.clone();
-        }
         super::commands::restore_queued_source(&item, &mut c.payload);
         if self
             .select(&c.payload, Some(self.session_selection(id)?))
@@ -137,9 +133,6 @@ impl Engine {
             self.persist(id, None).await?;
             return Ok(());
         }
-        let shared = self
-            .shared_input(id, &c.payload, item["queueItemId"].as_str())
-            .await?;
         let command = if item["kind"] == "compact" {
             None
         } else {
@@ -171,7 +164,7 @@ impl Engine {
                 vec![json!({"op":"row.appended","row":self.sessions[id].rows.last().unwrap()})],
             )
         } else {
-            let (turn, _) = self.admit_input(id, &c, shared, command)?;
+            let (turn, _) = self.admit_input(id, &c, command)?;
             (turn, self.new_input_rows(id))
         };
         self.publish(id, deltas)?;

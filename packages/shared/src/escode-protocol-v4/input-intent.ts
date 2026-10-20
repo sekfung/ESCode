@@ -7,7 +7,6 @@ import { timestampSchema } from "./core.js";
 import { attachmentRefSchema } from "./attachment-ref.js";
 import { modelSelectionSchema } from "../model-selection.js";
 import { submissionModeSchema } from "./submission.js";
-import { sharedContextRefSchema } from "./shared-context-ref.js";
 
 /**
  * 用户输入的结构化来源：插件 UI 经 `ui/message`
@@ -77,7 +76,6 @@ export const conversationInputIntentSchema = z
     modelSelection: modelSelectionSchema.optional(),
     mode: submissionModeSchema.optional(),
     planEnabled: z.boolean().optional(),
-    sharedContextRefs: z.array(sharedContextRefSchema).max(1).optional(),
     delivery: conversationInputDeliverySchema,
     order: conversationInputOrderSchema,
     steer: conversationInputSteerSchema,

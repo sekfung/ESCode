@@ -84,7 +84,6 @@ describe("escodeEndpoint", () => {
       apiBaseUrl: "http://localhost:3030/api/v1",
       remoteUrl: "http://localhost:3030/remote/v3",
       webRemoteCallbackUrl: "http://localhost:3030/web-remote/callback",
-      webShareCallbackUrl: "http://localhost:3030/cn/share/callback",
       relayWsUrl: "ws://localhost:3030/ws",
       escodePlanOpenAiBaseUrl: "http://localhost:3030/api/v1/zcode-plan",
       escodePlanAnthropicBaseUrl: "http://localhost:3030/api/v1/zcode-plan/anthropic",

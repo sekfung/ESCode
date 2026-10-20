@@ -65,7 +65,6 @@ export const SYNTHETIC_USER_MESSAGE_SOURCES = [
   // 它虽是 synthetic（GUI 用元数据画启动卡而非显示文本），语义上却是用户真实动作：
   // origin=real_user、kind=user_prompt，与其余「运行时注入的提醒」类来源不同档。
   "workflow_launch",
-  "shared_context",
 ] as const;
 export type SyntheticUserMessageSource = (typeof SYNTHETIC_USER_MESSAGE_SOURCES)[number];
 
@@ -87,7 +86,6 @@ export type MessageSemanticsKind =
   | "fork_notice"
   | "timeline_event"
   | "compact_summary"
-  | "shared_context"
   | "assistant_response";
 
 export interface MessageSemantics {
@@ -783,24 +781,6 @@ export interface MessageWithParts {
   parts: MessagePart[];
 }
 
-/** 分享导入的单事务载荷：新 session、唯一 model-only 上下文和 provenance 全有或全无。 */
-export interface SharedContextImportCommitBundle {
-  session: CreateSessionInput;
-  contextMessage: MessageWithParts;
-  provenance: SessionEntryInfo;
-}
-
-export type SharedContextImportStatus = "pending" | "reserved" | "attached" | "discarded";
-
-export interface SharedContextImportTransition {
-  sessionID: SessionId;
-  contextId: string;
-  expectedStatus: SharedContextImportStatus | readonly SharedContextImportStatus[];
-  status: SharedContextImportStatus;
-  /** queue/input identity or accepted user message identity for audit/recovery. */
-  sourceId?: string;
-}
-
 export const SESSION_ENTRY_TARGET_COMPLETION_VERIFICATION =
   "target_completion_verification" as const;
 export const SESSION_ENTRY_BASH_SHELL_SELECTION = "runtime/bash_shell_selection" as const;
@@ -1101,8 +1081,6 @@ export interface SessionStorePort {
   ): Promise<SessionInfo>;
   /** V4 stable/compact-edit fork 的唯一事务入口。legacy workspace fork 不调用。 */
   commitForkBundle?(bundle: ForkCommitBundle): Promise<SessionInfo>;
-  commitSharedContextImportBundle?(bundle: SharedContextImportCommitBundle): Promise<SessionInfo>;
-  transitionSharedContextImport?(input: SharedContextImportTransition): Promise<boolean>;
   updateSession(input: UpdateSessionInput): Promise<SessionInfo>;
   getSession(sessionID: SessionId): Promise<SessionInfo | null>;
   listSessions(input?: ListSessionsInput): Promise<SessionInfo[]>;

@@ -23,7 +23,6 @@ const intent: TurnInputIntentMetadata = {
   admittedDelivery: "queue",
   queuePosition: 0,
   attachmentRefs: [{ ref: "artifact://note", fileName: "note.txt", mime: "text/plain", bytes: 3 }],
-  sharedContextRefs: [{ kind: "shared_context_import", context_id: "shared-context" }],
   provenance: {
     sourceCommandId: "original-command",
     queueItemId: "original-queue",

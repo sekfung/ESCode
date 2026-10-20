@@ -84,7 +84,6 @@ mod local_ttft_frame;
 mod mcp;
 mod permission_hooks;
 mod session_list;
-mod shared_context;
 mod shell_notice;
 mod skills;
 mod stream_recovery;

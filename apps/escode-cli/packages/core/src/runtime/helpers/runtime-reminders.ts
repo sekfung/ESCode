@@ -95,11 +95,7 @@ export function buildDateChangeReminderBody(_previousDate: string, currentDate: 
 export function runtimeMetadataForSyntheticUserMessageSource(
   source: SyntheticUserMessageSource,
 ): RuntimeMessageMetadata {
-  if (
-    source === "background_task" ||
-    source === "subagent_message" ||
-    source === "shared_context"
-  ) {
+  if (source === "background_task" || source === "subagent_message") {
     return legacySyntheticRuntimeMetadata();
   }
   if (source === "subagent") {

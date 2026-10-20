@@ -81,7 +81,6 @@ describe("Windows Deep Link 启动参数边界", () => {
     "escode://oauth/callback?code=code%20value&state=state",
     "escode://payment/callback?provider=zai&status=return",
     "escode://workspace/open?path=C%3A%5CProject%20A%26B",
-    "escode://share/import?code=abc_DEF-123",
   ])("分隔符保留冷启动和单实例投递中的正常 URL：%s", (url) => {
     const argv = [process.execPath, "--", url];
     expect(extractDeepLinkUrlFromArgs(argv)).toBe(url);

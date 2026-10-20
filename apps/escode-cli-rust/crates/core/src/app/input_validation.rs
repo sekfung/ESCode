@@ -25,15 +25,12 @@ impl Engine {
         {
             bail!("Invalid requested delivery");
         }
-        // Composer 允许仅共享上下文发送；引用先严格解析，所属会话和状态仍由 admission 校验。
-        let shared = crate::domain::shared_context::reference(p)?;
         p["text"]
             .as_str()
             .filter(|s| {
                 s.len() <= MAX_TOOL_BYTES
                     && (!s.trim().is_empty()
-                        || p["attachments"].as_array().is_some_and(|a| !a.is_empty())
-                        || shared.is_some())
+                        || p["attachments"].as_array().is_some_and(|a| !a.is_empty()))
             })
             .context("Invalid input text")?;
         if let Some(refs) = p.get("attachments") {

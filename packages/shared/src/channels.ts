@@ -116,8 +116,6 @@ export const ServiceChannels = {
   ESCodeAgent: "escode-agent",
   /** ESCode session 应用服务 */
   ESCodeSession: "escode-session",
-  /** 会话分享发布、预览与 continuation API 编排 */
-  ConversationShare: "conversation-share",
   /** 文件系统监视服务 */
   FileWatcher: "file-watcher",
   /** 新 Provider Config 的设置读写 Facade */
@@ -352,8 +350,6 @@ export const PlatformChannels = {
   OAuthCallback: "escode:oauth-callback",
   /** Main → Renderer：转发支付 deep link URL */
   PaymentCallback: "escode:payment-callback",
-  /** Main → Renderer：外部分享页请求导入 share code。 */
-  ShareImport: "escode:share-import",
   /** Renderer → Main：OAuth 回调已处理完成，可继续后置启动流程 */
   OAuthCallbackHandled: "escode:oauth-callback-handled",
   /** Renderer → Main：renderer 已就绪，可接收缓存的 deep link */
@@ -991,10 +987,6 @@ export interface PlatformChannelMap {
   };
   [PlatformChannels.PaymentCallback]: {
     request: string;
-    response: void;
-  };
-  [PlatformChannels.ShareImport]: {
-    request: { shareCode: string };
     response: void;
   };
   [PlatformChannels.OAuthCallbackHandled]: {

@@ -12,10 +12,6 @@ impl Engine {
         let mut first = c.payload.get("firstInput").cloned();
         if let Some(input) = &first {
             self.validate_input(input)?;
-            anyhow::ensure!(
-                crate::domain::shared_context::reference(input)?.is_none(),
-                "New draft has no imported shared context"
-            );
             self.select(input, Some(config.clone()))?;
         }
         // 修复：会话 id 原为裸 UUID，TS createSessionId 为 `sess_<uuid>`；#sess_* 引用与 ReadSessionContext
@@ -31,7 +27,7 @@ impl Engine {
         );
         session.workspace_path = Some(self.workspace_path.clone());
         session.workspace_directory = Some(self.workspace_path.clone());
-        // 修复：原先只有 shared context 会话带 traceId；TS 会话创建即分配 traceID（session/list 可见）。
+        // 修复：TS 会话创建即分配 traceID（session/list 可见）。
         session.trace_id = Some(self.clock.id());
         if let Some(mode) = c.payload["config"]["followupMode"].as_str() {
             session.followup_mode = mode.into();
@@ -70,7 +66,7 @@ impl Engine {
             input_command.payload = input;
             input_command.session_id = Some(id.clone());
             let command = self.command_prompt(&id, &input_command).await?;
-            let (t, input_id) = self.admit_input(&id, &input_command, None, command)?;
+            let (t, input_id) = self.admit_input(&id, &input_command, command)?;
             turn = Some(t);
             ack["result"]["input"] = json!({"delivery":"startNow","inputId":input_id});
         }

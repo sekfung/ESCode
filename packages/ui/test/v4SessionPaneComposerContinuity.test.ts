@@ -57,7 +57,6 @@ const scrollFocus = vi.hoisted(() => ({
         heldQueueDisposition?: "clearQueueAndSend" | "keepQueueAndSend";
         expectedHeldQueueItemIds?: readonly string[];
         requestedDelivery?: "startNow" | "queue" | "guide";
-        sharedContextRefs?: Array<{ kind: "shared_context_import"; context_id: string }>;
         submission?: {
           mode: "build";
           modelSelection: {
@@ -299,7 +298,6 @@ vi.mock("@/v4/ConversationComposer.js", () => ({
         heldQueueDisposition?: "clearQueueAndSend" | "keepQueueAndSend";
         expectedHeldQueueItemIds?: readonly string[];
         requestedDelivery?: "startNow" | "queue" | "guide";
-        sharedContextRefs?: Array<{ kind: "shared_context_import"; context_id: string }>;
       },
     ) => Promise<"sent" | "blocked" | "confirmationRequired">;
   }) => {
@@ -662,9 +660,7 @@ describe("SessionPane composer continuity", () => {
       result: { type: "createSession", sessionId: "two-phase" },
     }));
     await act(async () => {
-      await scrollFocus.composerProps?.onSendText("context", {
-        sharedContextRefs: [{ kind: "shared_context_import", context_id: "context-1" }],
-      });
+      await scrollFocus.composerProps?.onSendText("context");
     });
     const calls = conversationMock.sendCommand.mock.calls;
     expect(calls).toHaveLength(2);

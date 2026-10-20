@@ -57,28 +57,6 @@ describe("escode-protocol-v4 command", () => {
     expect(payload.toolDisallowlist).toEqual(["CronCreate"]);
   });
 
-  it("preserves strict shared-context references on sendText", () => {
-    const payload = commandPayloadSchemas.sendText.parse({
-      text: "请继续这个分享里的工作",
-      context_refs: [{ kind: "shared_context_import", context_id: "context-1" }],
-    });
-    expect(payload.context_refs).toEqual([
-      { kind: "shared_context_import", context_id: "context-1" },
-    ]);
-    expect(
-      commandPayloadSchemas.sendText.safeParse({
-        text: "invalid",
-        context_refs: [{ kind: "shared_context_import", context_id: "" }],
-      }).success,
-    ).toBe(false);
-    expect(
-      commandPayloadSchemas.sendText.safeParse({
-        text: "invalid",
-        context_refs: [{ kind: "other", context_id: "context-1" }],
-      }).success,
-    ).toBe(false);
-  });
-
   it("accepts the authoritative shared-context discard command", () => {
     expect(commandPayloadSchemas.discardSharedContext.parse({ contextId: "context-1" })).toEqual({
       contextId: "context-1",

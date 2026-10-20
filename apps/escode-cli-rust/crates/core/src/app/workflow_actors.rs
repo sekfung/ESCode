@@ -201,7 +201,7 @@ impl Engine {
         }
         let text = params["input"].as_str().unwrap_or_default();
         let command = super::subagents::child_command(actor, &self.clock.id(), text);
-        let (turn, _) = self.admit_input(actor, &command, None, None)?;
+        let (turn, _) = self.admit_input(actor, &command, None)?;
         self.actor_turns.insert(
             actor.to_owned(),
             ActorTurn {

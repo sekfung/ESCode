@@ -185,9 +185,6 @@ tokensᵢ = provider 上报的 usage.outputTokens
 
 - 轮末解码速度由 CLI 投影累计，不依赖任何客户端帧：手机断线、桌面 resync、分页与压缩都不改变它。
 - Desktop `desktop-continuous` 与手机 `web-remote-replayable` 在同一轮上得到**相同**的轮末读数。
-- **不进公开分享投影**：`conversationSharePublicProjection` 的 allow-list 按既有取舍只保留
-  `activeMs` 与 workSegments，不含任何 token 计量字段（`outputTokens` 同样不在内）。新增字段沿用该取舍，
-  分享链路不显示解码速度。往公开格式加字段是跨版本决定，需要时另立规格显式处理。
 - 保留值仍只在 Renderer 内存中：冷恢复/重启后，最后的 turnHeader 由 transcript 重新合成，不含
   `decodeMs` / `decodeTokens`，读数回到 `—` 直到下一轮结束。本特性不做持久化统计。
 

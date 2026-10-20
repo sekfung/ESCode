@@ -878,7 +878,7 @@ createdAt?, previewTitle?}`。
 - 返回 `{imported:[{provider,sessionId,taskId,workspacePath}], skipped:[...], failed:[...]}`。
 - 运行时承接 `importedHistory.source="claudeCode"`（2026-10-18，见 `rust-legacy-session-methods.md`）：
   `session/create` 一次提交建出可续聊的 runtime 会话（行 + canonical 消息）。原先 runtime 只接受
-  `sharedContext`、Host 退回 legacy 快照 + 索引的兜底分支已删除：那条路径只让任务出现在列表里，
+  分享上下文导入、Host 退回 legacy 快照 + 索引的兜底分支已删除：那条路径只让任务出现在列表里，
   Rust Host 没有 legacy 快照读路径，打开/续聊都会失败。runtime 拒绝导入时进 `failed`，不再静默降级。
 - 同 `taskId` 重复导入：runtime 返回现有快照（不重写历史，与 TS 的“替换旧导入消息”不同，见该 spec 差异），
   Host 仍刷新索引行并取消 archived/deleted。

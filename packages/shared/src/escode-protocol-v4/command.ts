@@ -27,9 +27,7 @@ import {
   escodeBrowserAmbientContextSchema,
   escodeProtocolMcpServerSchema,
 } from "../escode-protocol/index.js";
-import { sharedContextRefSchema } from "./shared-context-ref.js";
 import { conversationInputSourceSchema } from "./input-intent.js";
-export type { SharedContextRef } from "./shared-context-ref.js";
 export * from "./workflow-command-rejections.js";
 
 // sendText / editUserQuery / sendQueuedNow 共用的执行材料不变量：modelExecution 只能依附
@@ -92,9 +90,6 @@ export const commandPayloadSchemas = {
       // startNow 由 CLI 原子抢占当前 turn，不经过 queue admission。
       requestedDelivery: z.enum(["startNow", "queue", "guide"]).optional(),
       browserAmbientContext: escodeBrowserAmbientContextSchema.optional(),
-      // Share handover 只允许当前 session 的一个已导入上下文；完整正文由 runtime 从
-      // 持久化 provenance 解析，不能随 command 从 renderer 传入。
-      context_refs: z.array(sharedContextRefSchema).max(1).optional(),
       // 插件 UI 代发（ui/message）时的来源标记；随 intent 持久化并投影到 userInput row。
       source: conversationInputSourceSchema.optional(),
       heldQueueDisposition: z.enum(["clearQueueAndSend", "keepQueueAndSend"]).optional(),
@@ -249,7 +244,6 @@ export const commandPayloadSchemas = {
   amendWorkflowRunSettings: amendWorkflowRunSettingsPayloadSchema,
   renameSession: z.object({ title: z.string() }),
   deleteSession: z.object({}),
-  discardSharedContext: z.object({ contextId: z.string().trim().min(1) }).strict(),
 } as const;
 
 export type CommandType = keyof typeof commandPayloadSchemas;

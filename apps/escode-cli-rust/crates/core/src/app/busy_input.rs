@@ -12,19 +12,6 @@ impl Engine {
             return Ok(c.ack("rejected", s.revision, Some("guard.capabilityUnsupported")));
         }
         self.validate_input(&c.payload)?;
-        if let Some(reference) = crate::domain::shared_context::reference(&c.payload)? {
-            s.shared_context
-                .as_ref()
-                .context("fault.command.sharedContextNotAttachable")?
-                .check(&reference, None)?;
-            c.payload["context_refs"] =
-                json!([{"kind":"shared_context_import","context_id":reference}]);
-        }
-        let shared = if s.running() {
-            None
-        } else {
-            self.shared_input(&id, &c.payload, None).await?
-        };
         // 排队输入在出队执行时才展开（与 TS runPromptTurn 时机一致）。
         let command = if s.running() {
             None
@@ -76,7 +63,6 @@ impl Engine {
                 c.payload["requestedDelivery"] = s.followup_mode.clone().into();
             }
             let mut item = queue_item(&c, s, self.clock.now());
-            super::shared_context::reserve(s, &c.payload, item["queueItemId"].as_str().unwrap())?;
             if start_now {
                 item["delivery"]["admitted"] = "startNow".into();
                 item["dispatch"] = json!({"state":"reserved","reservationId":c.command_id});
@@ -98,7 +84,7 @@ impl Engine {
             self.publish(&id, vec![])?;
             None
         } else {
-            let (turn, input_id) = self.admit_input(&id, &c, shared, command)?;
+            let (turn, input_id) = self.admit_input(&id, &c, command)?;
             ack["result"] =
                 json!({"type":"inputAccepted","delivery":"startNow","inputId":input_id});
             self.publish(&id, self.new_input_rows(&id))?;
@@ -133,13 +119,6 @@ impl Engine {
             return Ok(());
         };
         let item = session.queue[pos].clone();
-        let mut input = json!({});
-        if let Some(refs) = item.get("sharedContextRefs") {
-            input["context_refs"] = refs.clone();
-        }
-        let shared = self
-            .shared_input(id, &input, item["queueItemId"].as_str())
-            .await?;
         let selection = match self.select(&item, Some(self.session_selection(id)?)) {
             Ok(selection) => selection,
             Err(_) => {
@@ -166,15 +145,6 @@ impl Engine {
         );
         let mut row = s.row("userInput", turn, &self.clock.id(), s.updated_at);
         let mut messages = vec![];
-        if let Some(message) = super::shared_context::attach(
-            s,
-            &input,
-            shared,
-            item["queueItemId"].as_str(),
-            row["entityId"].as_str().unwrap(),
-        )? {
-            messages.push(message);
-        }
         let retained_messages = s.messages.len();
         row["text"] = item["text"].clone();
         row["origin"] = "realUser".into();

@@ -46,9 +46,6 @@ impl Engine {
         self.shutdown_session_title(id);
         self.forget_runtime_preferences(id);
         let s = self.sessions.get_mut(id).unwrap();
-        if let Some(context) = &mut s.shared_context {
-            context.release(None);
-        }
         for item in std::mem::take(&mut s.queue) {
             let key = serde_json::to_string(&(Some(id), item["sourceCommandId"].as_str()))?;
             if let Some(ack) = self.acks.get_mut(&key) {
@@ -61,7 +58,7 @@ impl Engine {
         }
         s.revision += 1;
         let ack = c.ack("accepted", s.revision, None);
-        if s.rows.is_empty() && s.messages.is_empty() && s.shared_context.is_none() {
+        if s.rows.is_empty() && s.messages.is_empty() {
             self.store
                 .discard_draft(&self.workspace, id, (c.key(), ack.clone()))
                 .await

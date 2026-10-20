@@ -76,7 +76,7 @@ impl Engine {
             notice["text"].as_str().unwrap_or_default(),
         );
         let command = super::subagents::child_command(id, &self.clock.id(), &text);
-        let (turn, _) = self.admit_input(id, &command, None, None)?;
+        let (turn, _) = self.admit_input(id, &command, None)?;
         let s = self.sessions.get_mut(id).unwrap();
         s.workflow_notices.remove(0);
         for row in s.rows.iter_mut().filter(|r| r["turnId"] == turn) {

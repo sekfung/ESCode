@@ -33,16 +33,6 @@ export function buildSyntheticUserNoticeSemantics(
   source: SyntheticUserMessageSource,
   visibility: MessageVisibility,
 ): MessageSemantics {
-  if (source === "shared_context") {
-    return {
-      origin: "import",
-      kind: "shared_context",
-      source,
-      uiVisibility: "hidden",
-      providerVisibility: "visible",
-      transcriptVisibility: "visible",
-    };
-  }
   const providerVisible = visibility === "model-only";
   return {
     origin: "agent_runtime",
@@ -89,7 +79,5 @@ function syntheticUserNoticeKind(source: SyntheticUserMessageSource): MessageSem
     // 由 message-persistence 的专用落盘直接给出）。这里只为穷举完备而登记同一个 kind。
     case "workflow_launch":
       return "user_prompt";
-    case "shared_context":
-      return "shared_context";
   }
 }

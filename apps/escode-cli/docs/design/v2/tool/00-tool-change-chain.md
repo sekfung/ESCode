@@ -1037,7 +1037,7 @@ execution backstop 的双层 tool 边界。实现细节和稳定错误见
 
 Host 当前 View/灰度经 policy 或创建参数控制 OffPeakPort 注入，工具默认选择由 Host 生成
 完整 ModelSelection。CLI 保留闲时 turn 的防递归标记/denylist，完成、拒绝、排队、抛错均恢复
-先前 activeOffPeakTaskId；继续传递 sharedContextRefs 与现行 modelExecution，不恢复旧
+先前 activeOffPeakTaskId；继续传递现行 modelExecution，不恢复旧
 turnRuntimeModel/overlay/模型还原接口。完整链路见仓库根 `docs/off-peak-task/tech-design.md` §4.7。
 
 ## Todo104：模型媒体能力字段统一

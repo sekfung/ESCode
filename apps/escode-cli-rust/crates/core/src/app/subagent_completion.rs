@@ -126,7 +126,7 @@ impl Engine {
                 .join("\n"),
         );
         let c = super::subagents::child_command(id, &self.clock.id(), &text);
-        let (turn, _) = self.admit_input(id, &c, None, None)?;
+        let (turn, _) = self.admit_input(id, &c, None)?;
         let s = self.sessions.get_mut(id).unwrap();
         for task in &pending {
             s.children.get_mut(&task.id).unwrap().notified = true;

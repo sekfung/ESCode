@@ -94,8 +94,6 @@ pub mod browser_ambient;
 pub mod session_title;
 #[cfg(test)]
 mod session_title_tests;
-pub mod shared_context;
-pub mod shared_import;
 pub mod shell_snapshot;
 pub mod skills;
 pub mod subagent;

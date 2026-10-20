@@ -22,7 +22,6 @@ describe("persisted conversation input intent", () => {
           options: { reasoningLevel: "high" },
         },
         mode,
-        sharedContextRefs: [{ kind: "shared_context_import", context_id: "context-1" }],
       };
 
       expect(
@@ -32,7 +31,6 @@ describe("persisted conversation input intent", () => {
         text: "X",
         modelSelection: intent.modelSelection,
         mode,
-        sharedContextRefs: intent.sharedContextRefs,
       });
     },
   );

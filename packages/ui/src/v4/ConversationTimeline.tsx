@@ -47,7 +47,6 @@ import {
 import { ConversationPendingGuideList } from "@/v4/ConversationPendingGuideList.js";
 import type { AssistantFeedbackHandler } from "@/v4/ConversationRowView.js";
 import { ConversationTurnNavigator } from "@/v4/ConversationTurnNavigator.js";
-import { syncConversationShareSelectionPanelLayout } from "@/v4/conversationShareSelectionPanelLayout.js";
 import type { ConversationRowRenderContext } from "@/v4/conversationRowContext.js";
 import { splitConversationTimelineLiveTail } from "@/v4/conversationTimelineLiveTail.js";
 import {
@@ -302,24 +301,8 @@ export interface ConversationTimelineProps {
   turnNavigatorDirectoryRevision?: number;
   /** 与旧 ChatView 对齐：composer dock 属于同一个滚动视口，sticky 到滚动容器底部。 */
   bottomDock?: ReactNode;
-  /** 分享选择面板所在的共享父容器；用于把 dock 的真实位置写入同一坐标系。 */
-  selectionPanelLayoutContainerRef?: { current: HTMLElement | null };
-  /**
-   * 锁定背景滚动。
-   *
-   * 分享选择面板只用 scrim 隔离了正文指针事件，滚动容器仍是 overflow-y-auto，
-   * 原生滚动条拖拽和键盘 PageUp/Down 仍能改变 scrollTop，勾选目标会在面板下方漂走。
-   */
-  backgroundScrollLocked?: boolean;
   /** rows 为空时的可选内容；正式空 session 传空，草稿态传问候语。 */
   emptyState?: ReactNode;
-  /**
-   * 滚动容器内、消息层之上的常驻内容（分享导入的只读块 + 分割线）。
-   *
-   * 必须在容器内而不是做成固定横幅，才能与实时对话一起滚动；rows 为空时也要渲染，
-   * 所以它落在 emptyState 分支之外。
-   */
-  headerSlot?: ReactNode;
   /** 草稿态让 emptyState 与同一个 bottomDock 作为整体居中，不重挂 composer。 */
   centerEmptyStateWithDock?: boolean;
   /** 窄屏/粗指针视口保留紧凑居中布局，不复用桌面草稿安全间距。 */
@@ -345,14 +328,6 @@ export interface ConversationTimelineProps {
     onAddToCurrentTask: (reference: ConversationSelectionReference) => void;
     onAskInSideChat: (reference: ConversationSelectionReference) => void;
   };
-  /** 分享选择阶段的本轮勾选状态；仅桌面分享时间线传入。 */
-  shareSelection?: {
-    eligibleRowIds: ReadonlySet<number>;
-    selectedRowIds: ReadonlySet<number>;
-    onToggle: (rowId: number) => void;
-  };
-  /** 分享选择流程存在时，左侧 rail 由分享面板或 reopen 按钮独占。 */
-  hideTurnNavigator?: boolean;
 }
 
 /**
@@ -382,10 +357,7 @@ function ConversationTimelineImpl({
   onLoadAllOlder,
   turnNavigatorDirectoryRevision = 0,
   bottomDock,
-  selectionPanelLayoutContainerRef,
-  backgroundScrollLocked = false,
   emptyState,
-  headerSlot,
   centerEmptyStateWithDock = false,
   compactEmptyStateWithDock = false,
   summaryPanelLayout = "none",
@@ -399,35 +371,9 @@ function ConversationTimelineImpl({
   scrollToBottomActionRef,
   scrollToQueryActionRef,
   selectionActions,
-  shareSelection,
-  hideTurnNavigator = false,
 }: ConversationTimelineProps) {
   const { intl } = useESCodeIntl();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const headerSlotRef = useRef<HTMLDivElement>(null);
-  // headerSlot 高度参与虚拟窗口换算（scrollMargin），必须随内容与宽度变化实时跟进，
-  // 否则只读块加载完成或窗口变宽换行后，虚拟行会整体错位。
-  //
-  // 依赖必须是「有没有 slot」而不是 headerSlot 本身：后者是 ReactNode，宿主传的是内联 JSX，
-  // 每次渲染都是新对象，会让 ResizeObserver 在流式输出期间每帧重建。
-  const hasHeaderSlot = Boolean(headerSlot);
-  const [headerSlotHeight, setHeaderSlotHeight] = useState(0);
-  useEffect(() => {
-    const element = headerSlotRef.current;
-    if (!element) {
-      setHeaderSlotHeight(0);
-      return;
-    }
-    const sync = () => {
-      const next = element.getBoundingClientRect().height;
-      setHeaderSlotHeight((current) => (Math.abs(current - next) < 0.5 ? current : next));
-    };
-    sync();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(sync);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [hasHeaderSlot]);
   const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
   // 插件卡片展示模型——同资源替代 + 最近三回合自动展开 + 手动固定；推导结果发布给卡片自己读。
   const pluginUiDerivation = useMemo(() => deriveLogicalUiInstances(rows), [rows]);
@@ -554,11 +500,6 @@ function ConversationTimelineImpl({
   }>({ attemptCount: 0, key: null, retryTimer: null, status: "idle" });
   const [turnNavigatorHydrationRetryRevision, setTurnNavigatorHydrationRetryRevision] = useState(0);
   const timelineRootRef = useRef<HTMLDivElement>(null);
-  const composerDockRef = useRef<HTMLDivElement>(null);
-  const shareSelectionPanelLayoutRef = useRef<{
-    centerYPx: number;
-    maxHeightPx: number;
-  } | null>(null);
   // 右侧状态面板完整 inline 展开时，中间消息列和输入 dock 必须使用同一偏移；
   // 否则面板会覆盖正文，而不是并排布局。
   const summaryPanelInlineOffsetClassName =
@@ -567,47 +508,6 @@ function ConversationTimelineImpl({
     centeredEmptyLayout,
     statusPanelLayout: summaryPanelLayout,
   });
-
-  const syncShareSelectionPanelLayout = useCallback(() => {
-    if (!backgroundScrollLocked) return;
-    const container = selectionPanelLayoutContainerRef?.current;
-    const dock = composerDockRef.current;
-    if (!container || !dock) return;
-
-    // 选择面板是 SessionPane 的兄弟节点，不能把 CSS 变量写在 Timeline
-    // 自身，否则面板拿不到 dock 的真实边界；统一写入共享父容器供两者使用。
-    const layout = syncConversationShareSelectionPanelLayout(container, dock);
-    const previous = shareSelectionPanelLayoutRef.current;
-    if (previous?.centerYPx === layout.centerYPx && previous.maxHeightPx === layout.maxHeightPx) {
-      return;
-    }
-    shareSelectionPanelLayoutRef.current = layout;
-  }, [backgroundScrollLocked, selectionPanelLayoutContainerRef]);
-
-  useLayoutEffect(() => {
-    if (!backgroundScrollLocked) return;
-    const container = selectionPanelLayoutContainerRef?.current;
-    const dock = composerDockRef.current;
-    if (!container || !dock) return;
-
-    syncShareSelectionPanelLayout();
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(syncShareSelectionPanelLayout);
-      resizeObserver.observe(container);
-      resizeObserver.observe(timelineRootRef.current ?? container);
-      if (scrollRef.current) resizeObserver.observe(scrollRef.current);
-      resizeObserver.observe(dock);
-    }
-
-    // ResizeObserver 在部分 Electron flex 布局中可能晚于窗口尺寸变化回调，
-    // 因此窗口 resize 也始终触发一次几何同步，保证面板随窗口放大/缩小。
-    window.addEventListener("resize", syncShareSelectionPanelLayout);
-    return () => {
-      window.removeEventListener("resize", syncShareSelectionPanelLayout);
-      resizeObserver?.disconnect();
-    };
-  }, [backgroundScrollLocked, selectionPanelLayoutContainerRef, syncShareSelectionPanelLayout]);
 
   useEffect(() => {
     if (!hasRunningUnit) {
@@ -769,10 +669,6 @@ function ConversationTimelineImpl({
     overscan: ROW_OVERSCAN,
     getItemKey,
     measureElement,
-    // headerSlot（分享导入的只读块）与虚拟列表同处一个滚动容器，
-    // 且高度可观。不告知这段偏移，虚拟窗口会按 scrollTop 直接索引 item，
-    // 渲染窗口整体偏移一个 header 高度，用户滚到的区域会是空白。
-    scrollMargin: headerSlotHeight,
   });
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item) => {
     return shouldAdjustVirtualizerForItemSizeChange({
@@ -1781,7 +1677,6 @@ function ConversationTimelineImpl({
     isContentWidthChanging,
     markLayoutScrollGuard,
     commitFollowing,
-    headerSlotHeight,
     pendingGuideKey,
     rowCount,
     rows,
@@ -1841,26 +1736,19 @@ function ConversationTimelineImpl({
         capture={captureScrollMemoryBeforeScopeMutation}
         commit={commitCapturedScrollMemory}
       />
-      {/* Bugfix：分享选择流程无论面板展开还是收起，左 rail 都由分享面板或 reopen 按钮独占，
-          必须隐藏对话轮导航，避免两个绝对定位控件互相覆盖。退出分享选择后自动恢复。 */}
-      {hideTurnNavigator ? null : (
-        <ConversationTurnNavigator
-          renderUnits={renderUnits}
-          isHydratingDirectory={loadingOlder}
-          scrollOffsetPx={virtualizer.scrollOffset ?? turnNavigatorViewport.scrollOffsetPx}
-          viewportHeightPx={
-            virtualizer.scrollRect?.height ?? turnNavigatorViewport.viewportHeightPx
-          }
-          virtualItems={turnNavigatorVirtualItems}
-          activeQueryRowId={turnNavigatorViewport.activeQueryRowId}
-          onJumpToQuery={scrollToQuery}
-        />
-      )}
+      <ConversationTurnNavigator
+        renderUnits={renderUnits}
+        isHydratingDirectory={loadingOlder}
+        scrollOffsetPx={virtualizer.scrollOffset ?? turnNavigatorViewport.scrollOffsetPx}
+        viewportHeightPx={virtualizer.scrollRect?.height ?? turnNavigatorViewport.viewportHeightPx}
+        virtualItems={turnNavigatorVirtualItems}
+        activeQueryRowId={turnNavigatorViewport.activeQueryRowId}
+        onJumpToQuery={scrollToQuery}
+      />
       <div
         ref={scrollRef}
         data-testid={TID_V4_TIMELINE}
         data-v4-timeline-scroll="true"
-        data-v4-timeline-scroll-locked={backgroundScrollLocked ? "true" : "false"}
         data-markdown-table-layout-root="true"
         data-row-count={rows.length}
         data-window-row-count={rows.length}
@@ -1884,9 +1772,6 @@ function ConversationTimelineImpl({
           // 只声明 overflow-y-auto 会让浏览器把横轴计算为 auto，宽内容会把
           // 整条 Conversation 撑出横向滚动；表格和代码块应由各自内部容器滚动。
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [--markdown-table-layout-left-inset:16px] [--markdown-table-layout-right-inset:16px] max-md:[--markdown-table-layout-left-inset:8px] max-md:[--markdown-table-layout-right-inset:8px]",
-          // 分享选择面板展开时改为 overflow-hidden：scrollTop 与 scrollbar-gutter 都保持不变，
-          // 但原生滚动条、滚轮和键盘翻页都不再能移动背景，勾选目标不会漂走。
-          backgroundScrollLocked && "!overflow-y-hidden",
           compactForRemoteControl && "min-w-0",
           // 修复原因：Conversation turn map 覆盖 timeline 左侧 48px；表格增强滚动如果仍按
           // 普通 16px 边距借位，会有 32px 落到 turn map 下方，必须把完整占用计入左边界。
@@ -1912,7 +1797,7 @@ function ConversationTimelineImpl({
           // V4 已自管 prepend、吸底和记忆锚点；和其它虚拟列表一致，应从内容子树禁用锚点候选。
           style={{ overflowAnchor: "none" }}
         >
-          {renderUnits.length === 0 && !headerSlot ? (
+          {renderUnits.length === 0 ? (
             <div
               className={cn(
                 centeredEmptyLayout
@@ -1930,24 +1815,6 @@ function ConversationTimelineImpl({
               data-sandbox-page-container="true"
               className="relative w-full flex-1 [mask-repeat:no-repeat] [-webkit-mask-repeat:no-repeat]"
             >
-              {/*
-               * headerSlot 必须落在被 mask 的消息层内、并套用与实时消息列相同的宽度类：
-               * 放在消息层之外会既比正文宽、又从 sticky composer 下方透出来。
-               */}
-              {headerSlot ? (
-                <div
-                  ref={headerSlotRef}
-                  data-v4-timeline-header-slot="true"
-                  data-v4-timeline-content-column="true"
-                  className={cn(
-                    "relative mx-auto w-full shrink-0",
-                    contentWidthClassName,
-                    summaryPanelInlineOffsetClassName,
-                  )}
-                >
-                  {headerSlot}
-                </div>
-              ) : null}
               <div
                 ref={virtualHistoryRef}
                 data-v4-timeline-virtual-history="true"
@@ -1975,7 +1842,7 @@ function ConversationTimelineImpl({
                       // virtual history 的子项通过 absolute 定位，父级 padding 不会缩小
                       // 它们的 containing block；正文响应式内边距必须落在 turn wrapper 自身。
                       className="absolute left-0 top-0 w-full"
-                      style={{ transform: `translateY(${virtualRow.start - headerSlotHeight}px)` }}
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
                     >
                       <ConversationTurnGroup
                         unit={unit}
@@ -1985,7 +1852,6 @@ function ConversationTimelineImpl({
                         onRetry={onRetry}
                         onFeedbackChange={onFeedbackChange}
                         onEdit={onEdit}
-                        shareSelection={shareSelection}
                       />
                     </div>
                   );
@@ -2015,7 +1881,6 @@ function ConversationTimelineImpl({
                     onRetry={onRetry}
                     onFeedbackChange={onFeedbackChange}
                     onEdit={onEdit}
-                    shareSelection={shareSelection}
                   />
                 </div>
               ) : null}
@@ -2044,7 +1909,6 @@ function ConversationTimelineImpl({
           )}
           {bottomDock ? (
             <div
-              ref={composerDockRef}
               data-v4-composer-dock="true"
               className={cn(
                 // sticky dock 是 z-20 的全宽透明层，过去会盖住 z-10 rail

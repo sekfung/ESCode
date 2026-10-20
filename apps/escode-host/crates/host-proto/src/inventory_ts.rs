@@ -9,7 +9,6 @@ pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("client-config", &["getDynamicWorkflowClientConfig", "getSnapshot"]),
     ("client-scenes", &["list"]),
     ("commands", &["deleteCommandFile", "getPrimaryUserCommandsDirectory", "list", "setCommandEnabled", "updateCommandFile", "writeCommandFile"]),
-    ("conversation-share", &["getCapabilities", "getContinuation", "getImportedConversation", "getPreview", "importShare", "onDynamicImportProgress", "onDynamicPublishProgress", "preflight", "publish"]),
     ("credential", &["delete", "load", "save"]),
     ("cua-permission", &["getStatus", "restartHelper"]),
     ("cua-pip-session", &["dispose", "publishFocus", "publishLifecycle"]),

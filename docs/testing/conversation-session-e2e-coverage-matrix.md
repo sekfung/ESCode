@@ -836,19 +836,6 @@ artifact 后人工观察”的软通过口径。
 | APC12      | partial  | APC + focused tests          | formal replay：case-local MP4/WAV 进入同一存在性和逆序卡片投影；点击 WAV 后 Preview Pane 挂载原生 `audio[controls]`，媒体不触发 `fileChanges`；Desktop SSH/WSL/Docker Range Proxy 与手机大媒体预览暂不纳入本 case |
 | APC13      | planned  | focused + SSH/WSL/Docker E2E | Desktop remote attachment 打开大于 8 MiB MP4，Host loopback Range Proxy 返回 `206` 并支持 seek；断言无 OSS 请求、无媒体字节进入 conversation/replay；手机 `/remote` 不复用 loopback URL                           |
 
-### Conversation Share Candidate 覆盖
-
-| Catalog ID | 覆盖状态 | 自动化                      | 备注                                                                                               |
-| ---------- | -------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
-| SHARE25    | planned  | services + UI + Desktop E2E | PDF 预览卡片做选择阶段 stat 并上传；三个存在但不支持的 MP4 只产生 warning；正文 `~/...` 不产生候选 |
-| SHARE26    | planned  | services + UI               | 不存在且没有最终可见预览卡片的 Markdown 不进入候选、不告警、不上传                                 |
-
-### Conversation Share Dock Isolation 覆盖
-
-| Catalog ID | 覆盖状态 | 自动化                                    | 备注                                                                                                              |
-| ---------- | -------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| SHARE27    | partial  | UI store test + pending Desktop local E2E | focused store 已验证 A/B 状态和关闭隔离；pending E2E 已补充但本机无法下载 Chromedriver，尚未形成 Desktop 运行证据 |
-
 已确认首批在一个 formal spec 中覆盖 `APC01` 至 `APC09`。spec 使用本地随机端口 HTTP server、真实 workspace Write、case-local 最小有效 Office/PDF 文件；不 mock renderer service，也不新增 E2E-only Host 分支。controlled-stream 只用于 APC02/APC03，普通文件和数量边界使用 fast-text，双 Write 后按真实 runtime 时序提供专用 auto-compact summary，cold resume 完整重启 Electron/Host/CLI。Desktop local 是首批唯一代表，remote/mobile HTML 降级另案；localhost 与 HTML 同轮时按当前实现全局抑制 HTML。2026-08-04 修复 promotion 路径后，本地默认 formal replay 全套 `7 passing (43.3s)`，artifact：`packages/desktop/.e2e-artifacts/desktop-e2e-20260804-102448-436/summary.md`；该 artifact 为人工 review 和正式 promotion 后的本地验证证据，不提交仓库，也不代表 Docker admission 已完成。
 
 同日的单 spec Docker 尝试在构建镜像、解析 `docker/dockerfile:1.7` 时因 Docker Hub token 请求 `EOF` 退出，未进入 WDIO 或 `replay-isolated` case 执行。该失败不是产品 case 结论，也不是绿色 admission 证据；在取得可追溯的 Docker 通过 artifact 前，APC formal spec 不进入 `conversation-session-verified` preset。
@@ -2505,36 +2492,6 @@ WFA01：pending，`manual-review/pending/workflow-face-motion.test.mjs`。独立
 不覆盖：`onDemand` 档位、本地 `ESCODE_DYNAMIC_WORKFLOW_MODE` 覆盖、已存在 run 的渲染与 Resume 收回、
 手机远控与远端 Host；这些由 DWG-01～DWG-07 的单测承担。
 
-## SHARE. 会话分享与继续工作覆盖
-
-Todo139：SHARE30/31/32 的共享初始化 Hook／草稿单测与 `packages/ui/test/browser/manual-review/pending/share-import-selection.test.mjs` 10 组已通过，验证初始化、延迟、隔离、可见控件和冻结的 modelSelection/mode。首条完整 RPC 的 context_refs 联合链路尚未实跑；正式 Desktop／手机链路不记为通过，未晋级 formal。
-
-| ID      | 覆盖状态      | 自动化/证据                                                                     | 备注                                                                                      |
-| ------- | ------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| SHARE01 | covered-unit  | shared contract + public projection + service tests                             | publish 主链与严格 DTO                                                                    |
-| SHARE02 | covered-unit  | UI selection/store tests                                                        | running 禁选、terminal 默认全选                                                           |
-| SHARE03 | covered-unit  | remote artifact source + remote service composition tests                       | SSH E2E 待环境执行                                                                        |
-| SHARE04 | covered-unit  | Host clientMode scope + Web gate tests                                          | mobile RPC fail closed                                                                    |
-| SHARE05 | covered-unit  | artifact discovery/service tests                                                | 正式 attachment 优先和去重                                                                |
-| SHARE06 | covered-unit  | artifact source tests                                                           | containment、mtime/size、空 chunk                                                         |
-| SHARE07 | covered-unit  | HTTP/service fake timer tests                                                   | Retry-After、fallback、timeout                                                            |
-| SHARE08 | covered-unit  | formatter + import service + SQLite transaction tests                           | publish→continuation→当前 workspace session + pending context                             |
-| SHARE09 | covered-unit  | Mock permission matrix                                                          | readonly import 拒绝                                                                      |
-| SHARE10 | partial       | import fault tests；Desktop E2E pending                                         | marker 崩溃恢复仍需真实进程证据；失败不得删除 workspace                                   |
-| SHARE11 | planned-e2e   | Desktop local publish→import；SSH artifact publish                              | 不用 unit 冒充跨进程证据；包含失败详情面板与可取消问题轮次                                |
-| SHARE12 | covered-unit  | Web route/client tests                                                          | `/cn/share/:code` 与 `/remote` 路由隔离                                                   |
-| SHARE13 | covered-unit  | Web landing page + responsive header tests                                      | public_readonly 匿名只读；public_importable Deep Link；窄视口 CTA 优先隐藏、标题 ellipsis |
-| SHARE14 | covered-unit  | Web auth/OAuth state tests                                                      | private 登录、share callback、同源 app_return_to                                          |
-| SHARE15 | planned-e2e   | `dev:web-share:test` + test API                                                 | 真实 test preview、OAuth 和 owner private preview                                         |
-| SHARE16 | covered-build | `build:web-share` + share Docker/nginx smoke                                    | `/cn/share/*` 独立构建，不覆盖 `/remote/v4/*`                                             |
-| SHARE18 | partial       | connection-scoped service + Host attachment unit；Desktop local/SSH pending E2E | trusted scope 复用；raw Agent 零调用；错误详情 E2E 已补 pending case                      |
-| SHARE19 | covered-unit  | `ConversationShareReadonlyTimeline` + Desktop V4 fixture parity tests           | user/assistant/reasoning/tool 分组和关键视觉 marker 共用                                  |
-| SHARE20 | covered-unit  | Share timeline Markdown/scroll regression tests                                 | 独立纵向 viewport、TooltipProvider、heading/table renderer 和安全 citation                |
-| SHARE21 | planned-e2e   | Desktop handover Browser/Composer integration                                   | 自动打开单一 `/cn/share/:code` tab，Chip 与 handover 空态一致                             |
-| SHARE22 | planned-e2e   | queue/guide context lifecycle + provider request fixture                        | reserved→attached 原子收口，取消队列恢复 pending，context 只注入一次                      |
-| SHARE23 | covered-unit  | import target/dedupe/cleanup service tests                                      | workspaceKey 去重，remote fallback，失败不删除用户 workspace                              |
-| SHARE24 | partial       | Toast update unit；Root import orchestration 需 Desktop handover E2E 补证       | 同一导入操作只保留一个 Toast；成功/失败替换进度，不堆叠旧消息                             |
-
 ## Start Plan bucket 提醒
 
 | Case  | Status           | Evidence                                                     | Boundary                                                                        |
@@ -2615,18 +2572,6 @@ SendMessage 工具的 summary schema 是必填且至少一字符；无 summary �
 本次 source/origin 改动新增的 coverage 缺口；修复这些基线前，仓库全局 audit 不能宣称
 全绿。当前证据仅覆盖 macOS Electron desktop-continuous，不扩展为手机真机、Windows
 或 Linux 验证。
-
-### SHARE28：确认 Dock 窄宽度布局
-
-候选：`packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-share-publish-import.test.ts`。在既有确认阶段约束 Dock 为 320px，检查横向几何、权限文字完整和操作区可见；恢复宽度后检查标题、权限、勾选不变。属于展示层回归，不新增发布 RPC，也不宣称 formal/Docker 准入。
-
-2026-09-11：单测侧 share Dock/Selection 用例全绿（含容器查询类名、未确认时聚焦引导、勾选取消动画与 reduced-motion 降级）。E2E 侧修复 replay fixture 既有缺陷：第二轮 `share-local-ready-second` 无可用 fixture（`maxMatches:1` 被第一轮耗尽后 replay server 返回 500 Missing Fixture），补齐 -second 与 session-b 两条 fixture 后消息链路已验证打通。但本 spec 仍被既有基建缺口阻塞无法本地跑绿：分享入口渲染条件含账号登录态（`user`），zai provider 恢复 user 必须有 `escodejwttoken`，而默认 seed 不带 JWT（假 JWT 会打真实 `billing/balance` 触发 401 登录失效遮挡交互），且 share 发布 API（`/api/v1` preflight/publish/artifact）无本地 mock。需先建设账号控制面 + share server 本地 mock（参照 coding-plan mock 模式）后，本 spec 才能作为 SHARE28 的 E2E 证据；UI 断言代码已就绪。
-
-### SHARE29：顶部分享再次点击取消
-
-- 组件测试：`packages/ui/test/conversationShareMenu.test.ts` 覆盖全选、部分选择、确认、失败、成功、跨 session 隔离及发布中保护。
-- pending E2E：`packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-share-publish-import.test.ts` 增补打开、再次点击退出、重新打开断言；未提升为 formal。
-- 2026-09-11 验证：组件/状态测试 33 项通过，typecheck、typecheck:e2e、lint、architecture 和 fixture check 通过。Desktop run `desktop-e2e-20260911082546500-p52712-c04e70dc4c7d45ff` 已启动 Electron，但三条用例均因找不到顶部分享入口失败，尚未执行新增取消断言；不得视为 Desktop 回归通过。
 
 ### ZCT-2098314627607224320：Composer Recent 权限继承
 
@@ -2770,7 +2715,7 @@ CLI 全量 lint 被既有 max-lines 错误阻塞；`escode-protocol.test.ts` 的
 | PA158-11 | partial  | permission-full-access SQLite/Core                                                                                              | 项目偏好隔离整链路    |
 | PA158-12 | partial  | permission-full-access-projection/registry                                                                                      | 旧版本组合整链路      |
 
-PA158 2026-09-17：Linux Electron `desktop-e2e-20260917101937381-p869276-572a8de9c7ed2705` 1/1 通过；原轮 Write 实际执行、混合 Plan 队列及两次撤回配置断言通过。浏览器共享审批组件 `packages/ui/test/browser/manual-review/pending/permission-full-access.test.mjs` 390/1200 × 深浅主题、中英文、反馈导航 4/4 通过。SQLite/Core/broker/投影/草稿与队列回归通过；基线 SHARE32、gateway 旧 revision、background notification 及 CLI lint 失败在隔离工作区复现。未跑完整手机配对/relay、跨设备 ACK 丢失、Windows/macOS；新增 E2E 保持 pending。
+PA158 2026-09-17：Linux Electron `desktop-e2e-20260917101937381-p869276-572a8de9c7ed2705` 1/1 通过；原轮 Write 实际执行、混合 Plan 队列及两次撤回配置断言通过。浏览器共享审批组件 `packages/ui/test/browser/manual-review/pending/permission-full-access.test.mjs` 390/1200 × 深浅主题、中英文、反馈导航 4/4 通过。SQLite/Core/broker/投影/草稿与队列回归通过；基线 gateway 旧 revision、background notification 及 CLI lint 失败在隔离工作区复现。未跑完整手机配对/relay、跨设备 ACK 丢失、Windows/macOS；新增 E2E 保持 pending。
 
 PA158 合并最新 staging 后 Linux Electron 复跑 1/1 通过，run `desktop-e2e-20260917120736651-p895163-873605a2d4994754`；共享组件四种宽度/主题组合复跑通过。手机 shared-host 整链路与人工准入仍未完成。
 
@@ -2782,10 +2727,6 @@ PA158 合并最新 staging 后 Linux Electron 复跑 1/1 通过，run `desktop-e
 | CMP02 | covered | `packages/desktop/test/e2e/conversation-session/conversation-session-composer-provider-identity.test.ts` | 已修复并转正；正式独立 common + case fixture 回放 `desktop-e2e-20260919-053551-406` 1/1 通过；默认回放 `desktop-e2e-20260919-053632-804` 与 CMP01 合跑 2/2 通过。菜单和选择投影、bigmodel-api/ 前缀、完整 title 均通过；等待 rolling 退场标签收敛后断言 |
 
 运行产物位于上述 run ID 对应的 `packages/desktop/.e2e-artifacts/` 目录，包含各档截图、`compression.json` 和 `nameless-provider.json`。CMP01、CMP02 均已转正，尚未加入 Docker/CI 容器准入。此次 provider ID 兜底只应用于当前模型选择器，历史及子代理文案保持原规则。相关单测 75/75 通过。macOS 本地 Electron 实测，未验证原生 Windows、手机远控、主题/动画偏好的全组合。
-
-分享失败回归 SHARE33（accepted，manual-review/pending）：405 接口异常、响应体读取超时和运行中内容问题分别显示正确原因；错误详情可见 HTTP、双方请求 ID、operationId；重试保留轮次。覆盖 390/1200 宽度、深浅主题、中英文。浏览器组件集成路径为 `packages/ui/test/browser/manual-review/pending/share-failure.test.mjs`；真实 Desktop/SSH 发布链路仍由现有 SHARE18 pending E2E 验证，不将组件测试计为正式 Desktop 通过。
-
-2026-09-17 SHARE33 验证：分享相关 26 个测试文件共 377 项通过；浏览器组件集成 16 组（接口/网络 × 390/1200 × 深浅主题 × 中英文）通过，使用 initialLocale 并逐语言断言。typecheck、lint（0 errors）和 architecture:check --changed 通过。真实 Desktop pending E2E run `desktop-e2e-20260917131941621-p99304-bac41e6f00d4e22f` 在工作区准备阶段停留于 occupation onboarding，未进入分享步骤，不能计为通过；SSH 路径未实跑，保持 partial，不自动提交或转正。线上 405 仍需网关及后端请求日志确认，客户端回归不代表线上路由已修复。
 
 ## CMDPREVIEW. 权限命令完整预览（2026-09-28）
 

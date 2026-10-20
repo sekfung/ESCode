@@ -36,10 +36,6 @@ pub struct Session {
     pub goal: Option<super::goal::Goal>,
     #[serde(default)]
     pub skills: Option<super::skills::SkillCatalog>,
-    #[serde(default)]
-    pub shared_context: Option<super::shared_context::SharedContext>,
-    #[serde(default)]
-    pub legacy_shared_context: bool,
     /// TS 旧 `bot_topic_context` 记录（docs/specs/rust-app-p0.md）：不进模型历史、不成行，
     /// 只供 legacy 消息投影在 `rowAnchor` 处还原，Host `readBotTopicSummaries` 读取。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -280,11 +276,6 @@ impl Session {
                 patch["config"]["thoughtLevels"] = json!([]);
             }
         }
-        if let Some(context) = &self.shared_context {
-            patch["sharedContextImport"] = context.projection(&self.title);
-        } else if self.legacy_shared_context {
-            patch["sharedContextImport"] = json!({"title":self.title});
-        }
         super::subagent::projection(self, &mut patch);
         if let Some(runs) = &self.workflow_runs {
             patch["workflowRuns"] = runs.clone();
@@ -342,9 +333,6 @@ impl Session {
         if let Some(goal) = &mut self.goal {
             // 重启只结算最后确认的活跃时间，不把进程离线期间算作模型工作。
             goal.pause(goal.last_seen.unwrap_or(now));
-        }
-        if let Some(context) = &mut self.shared_context {
-            context.release(None);
         }
         self.epoch = epoch;
         self.seq = 0;

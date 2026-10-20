@@ -41,7 +41,7 @@ impl Engine {
             return self.workspace_hook_command(&c, &id).await;
         }
         let s = self.sessions.get(&id).context("Session unavailable")?;
-        // TS executor：副屏会话不允许 Goal / 历史改写 / 分支 / 共享上下文丢弃（执行期抛错 → failed）。
+        // TS executor：副屏会话不允许 Goal / 历史改写 / 分支（执行期抛错 → failed）。
         if s.task_type == super::selection_side_session::SIDE_CHAT_TASK_TYPE
             && super::selection_side_session::SIDE_CHAT_RESTRICTED.contains(&c.kind.as_str())
         {
@@ -125,30 +125,6 @@ impl Engine {
         let mut ack = c.ack("accepted", s.revision, None);
         let mut deltas = vec![];
         match c.kind.as_str() {
-            "discardSharedContext" => {
-                anyhow::ensure!(
-                    c.payload.as_object().is_some_and(|p| p.len() == 1),
-                    "Invalid discard payload"
-                );
-                let context_id = c.payload["contextId"]
-                    .as_str()
-                    .filter(|id| !id.trim().is_empty())
-                    .context("Context ID required")?
-                    .trim();
-                let context = self.sessions.get_mut(&id).unwrap().shared_context.as_mut();
-                let Some(context) = context.filter(|ctx| {
-                    ctx.provenance.context_id.as_deref() == Some(context_id)
-                        && ctx.provenance.status == crate::domain::shared_context::Status::Pending
-                }) else {
-                    return Ok(c.ack(
-                        "rejected",
-                        self.sessions[&id].revision,
-                        Some("fault.command.inputRejected"),
-                    ));
-                };
-                context.provenance.status = crate::domain::shared_context::Status::Discarded;
-                self.sessions.get_mut(&id).unwrap().revision += 1;
-            }
             "switchModelConfig" => {
                 let selected = self.select(&c.payload, Some(self.session_selection(&id)?))?;
                 if selected == self.session_selection(&id)? {
@@ -288,7 +264,6 @@ impl Engine {
                     s.queue[pos]["text"] = text.into();
                 } else if c.kind == "deleteQueueItem" {
                     let removed = s.queue.remove(pos);
-                    super::shared_context::release(s, &removed);
                     let removed_key = serde_json::to_string(&(
                         Some(&id),
                         removed["sourceCommandId"].as_str().unwrap(),
@@ -338,9 +313,6 @@ pub(super) fn queue_item(c: &Command, s: &Session, now: u64) -> Value {
         "modelSelection":c.payload.get("modelSelection").cloned().unwrap_or_else(||json!({"providerId":s.provider,"modelId":s.model,"options":{"reasoningLevel":s.reasoning_level}})),"mode":s.mode,"planEnabled":false,
         "delivery":{"requested":c.payload["requestedDelivery"].as_str().unwrap_or("auto"),"admitted":"queue"},"order":{"admissionSeq":s.revision+1,"queuePosition":s.queue.len()},
         "steer":{"state":"notRequested"},"dispatch":{"state":"queued"},"admittedAt":now});
-    if let Some(refs) = c.payload.get("context_refs") {
-        item["sharedContextRefs"] = refs.clone();
-    }
     // 修复：排队项此前只存正文与选型，提升/引导时丢掉群来源、引用与回推地址——模型收不到引用材料，
     // Host 取消授权读不到 botGroupSource，回复回推不到原话题（TS input-intent.ts 随队列保留）。
     for key in ["botGroupSource", "conversationQuotes"] {

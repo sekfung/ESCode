@@ -156,10 +156,10 @@ $ git status --short | wc -l
 
 | 指标          | 本轮后（hooks + plugin-sync + 零散成员）  |
 | ------------- | ----------------------------------------- |
-| channels      | 43                                        |
-| members       | 522                                       |
+| channels      | 42                                        |
+| members       | 513                                       |
 | Implemented   | 369                                       |
-| Pending       | 153                                       |
+| Pending       | 144                                       |
 | `hooks`       | 0 Pending                                 |
 | `plugin-sync` | 0 Pending                                 |
 | automation    | 4 Pending（create/update/restart/runNow） |
@@ -172,6 +172,11 @@ $ git status --short | wc -l
 > 同日产品决定删除 off-peak（闲时任务）：`off-peak-task` 通道 11 个成员（8 Implemented / 3 Pending）
 > 与 `client-config.getOffPeakClientConfig` 退出服务面，channels 44 → 43、members 534 → 522、
 > Implemented 378 → 369、Pending 156 → 153。off-peak 不再作为 M3 迁移缺口。
+>
+> 2026-10-20 产品决定删除 conversation-share（会话分享）：`conversation-share` 通道 9 个成员
+> （0 Implemented / 9 Pending）退出服务面；同时移除 Desktop Deep Link、独立分享落地页、
+> `shared_context` 导入协议与 TS/Rust CLI 持久化。channels 43 → 42、members 522 → 513、
+> Implemented 369 不变、Pending 153 → 144。conversation-share 不再作为 M3 迁移缺口。
 
 ## 10. M3 全量状态（2026-10-19 续作）
 
@@ -192,23 +197,21 @@ $ git status --short | wc -l
 
 ### 10.2 未完成（M3 阻塞）
 
-| 域                   | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
-| -------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| automation           | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
-| `bots`               | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
-| `conversation-share` | 9/9                                                                               | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
-| 零散剩余             | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
+| 域         | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| automation | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
+| `bots`     | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
+| 零散剩余   | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
 
 ### 10.3 结论
 
 **M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、automation 6、bots 12、media-preview 2、
 零散与 provider headers 5；原报告的 +44 成员（334 → 378）包含已删除的 `off-peak` 8 个成员与
 `client-config.getOffPeakClientConfig` 1 个成员，删除后当前为 369 Implemented。
-剩余 153 Pending 中，automation/bots/conversation-share 是明确的 Renderer 可达缺口。
-营销服务（含 `cloud-content`）与 off-peak 均已按产品决定删除，不再计入剩余缺口。
+剩余 144 Pending 中，automation/bots 是明确的 Renderer 可达缺口。
+营销服务（含 `cloud-content`）、off-peak 与 conversation-share 均已按产品决定删除，不再计入剩余缺口。
 
 建议下一轮顺序：
 
 1. automation（含 Host 调度所有者、H5.3 无窗口调度）。
 2. `bots` 拆两轮：配置/状态/绑定与注册，然后 V4 流/群任务/附件/平台 provider。
-3. `conversation-share`（阻塞上线）。

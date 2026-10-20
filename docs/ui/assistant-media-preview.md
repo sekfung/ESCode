@@ -30,7 +30,6 @@ terminal assistant text (complete/interrupted latest row)
   -> reverse-order, deduplicated candidates (15 max)
   -> workspace-scoped existence check
   -> visible cards (10 max)
-       -> conversation-share candidate (same visible set)
   -> PreviewPane media source
        -> local Desktop: authorized escode-media:// URL
        -> Desktop SSH/WSL/Docker: Host loopback HTTP Range URL

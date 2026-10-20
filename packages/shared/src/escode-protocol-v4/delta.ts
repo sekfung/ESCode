@@ -10,7 +10,6 @@ import { mcpAppInstanceSchema } from "../mcp-apps/instance.js";
 import { z } from "zod";
 import { streamablePathSchema } from "./core.js";
 import { conversationRowSchema } from "./rows.js";
-import { sharedContextImportStateSchema } from "./shared-context-import.js";
 import {
   backgroundWorkSummarySchema,
   commandStateSummarySchema,
@@ -40,7 +39,6 @@ import {
 export const statePatchSchema = z.object({
   revision: z.number().optional(),
   control: sessionControlSchema.optional(),
-  sharedContextImport: sharedContextImportStateSchema.optional(),
   availability: sessionActionAvailabilitySchema.optional(),
   inputRouting: inputRoutingSchema.optional(),
   meta: sessionMetaStateSchema.optional(),

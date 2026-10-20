@@ -90,21 +90,6 @@ export async function hydrateMessageHistoryFromSession(input: {
     partCount += parts.length;
 
     if (message.info.role === "user") {
-      const sharedContextStatus =
-        message.info.source === "shared_context" &&
-        message.info.metadata &&
-        typeof message.info.metadata === "object"
-          ? (message.info.metadata as Record<string, unknown>).sharedContextStatus
-          : undefined;
-      if (
-        message.info.source === "shared_context" &&
-        sharedContextStatus !== undefined &&
-        sharedContextStatus !== "attached"
-      ) {
-        // Share handover 的 pending/reserved context 只是本地候选，不能在用户首次
-        // 发送前偷偷进入 provider history；attach 后由 runtime 显式注入一次。
-        continue;
-      }
       // session 持久化的是 raw synthetic notice，hydrate 阶段若提前包成
       // user <system-reminder>，后续 mid-conversation system projection 会失去 attachment source。
       const syntheticAttachment = syntheticSystemReminderAttachmentFromParts(parts);

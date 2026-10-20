@@ -77,7 +77,7 @@ jobs:
 
       # 这些套件 import 的是工作区包的 dist 入口，全新 checkout 缺构建产物会以 ERR_MODULE_NOT_FOUND /
       # "Failed to resolve entry for package" 失败（本机因早已构建过而看不出）。只构建单测真正用到的
-      # 库与 agent 包闭包：测试从不 import web / web-share 这类前端应用包（e2e-report 只用其 node 入口，见下），而它们的发行构建
+      # 库与 agent 包闭包：测试从不 import web 这类前端应用包（e2e-report 只用其 node 入口，见下），而它们的发行构建
       # 在全新 checkout 里有既有的子路径解析问题（@escode/shared/mcp-apps），单测并不需要。
       # 官方插件包全部构建：browser-use 的 scripts/browser-client.mjs 是 required seed，
       # 缺它时整个插件被判为残缺，control-browser/web-gui-tester 等技能不会出现；

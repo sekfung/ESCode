@@ -47,7 +47,7 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
   V4 命令实现并与 Node 差分一致（[rust-legacy-session-methods.md](rust-legacy-session-methods.md)）。`session/compact`、
   `session/goal` 无 App 调用点，不实现。
 - **仍缺**：`session/create` 的 `importedHistory.source = "claudeCode"`（Claude Code 历史导入与
-  `importedClaudeHistoryRepair` 修复），Rust 只接受 `sharedContext`，需另立工作包。
+  `importedClaudeHistoryRepair` 修复），Rust 当前尚未实现该分支，需另立工作包。
 - **仍缺**（按当前行为判断的重要性排序）：
   - 插件读面与开关：`plugins/list`（含 components 与发现层诊断）、`plugins/setEnabled`、`plugins/overview`、
     `plugins/referenceCatalog(WithCategory)` **已实现**，各有 App 差分（见 [rust-plugins.md](rust-plugins.md)）。

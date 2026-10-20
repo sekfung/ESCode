@@ -224,7 +224,6 @@ export interface SubmitPromptOptionsBase {
   inputId?: string;
   queryId?: QueryId;
   intent?: TurnInputIntentMetadata;
-  sharedContextRefs?: TurnInputIntentMetadata["sharedContextRefs"];
   onEvent?: (event: SessionEvent) => void | Promise<void>;
   /** 内部 admission 观察点：只表示 runtime sink 看见 TurnStarted，不代表 projection 已 apply。 */
   onTurnStartedObserved?: (event: SessionEvent) => void;
