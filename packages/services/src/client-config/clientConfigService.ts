@@ -10,8 +10,7 @@ import {
   type DynamicWorkflowClientConfig,
 } from "@escode/shared";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
-import type { ModelSelectionView } from "@escode/provider";
-import type { IClientConfigService, OffPeakClientConfig } from "./clientConfig.js";
+import type { IClientConfigService } from "./clientConfig.js";
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -28,57 +27,23 @@ interface CacheEntry {
   pending?: Promise<ClientConfigSnapshot>;
 }
 
-/** client/configs 原始信封：只取闲时/动态工作流需要的键，其余键原样忽略。 */
+/** client/configs 原始信封：只取动态工作流需要的键，其余键原样忽略。 */
 interface ClientConfigsEnvelope {
   data?: {
     configs?: {
-      offPeak?: { enable_offpeak_task?: boolean };
       dynamicWorkflow?: unknown;
     };
   };
 }
 
-interface OffPeakModelSelectionViewResolver {
-  (): Promise<ModelSelectionView>;
-}
-
-const EMPTY_OFF_PEAK_MODEL_SELECTION_VIEW: ModelSelectionView = Object.freeze({
-  revision: 0,
-  providers: Object.freeze([]),
-}) as ModelSelectionView;
-
-/** 原 coding-plan-subscription provider 的同名实现（套餐族删除后迁入 client-config 通道）。 */
-export function resolveOffPeakClientConfig(
-  payload: ClientConfigsEnvelope,
-  env: NodeJS.ProcessEnv,
-  modelSelectionView: ModelSelectionView = EMPTY_OFF_PEAK_MODEL_SELECTION_VIEW,
-): OffPeakClientConfig {
-  const hasModels = modelSelectionView.providers.some((provider) => provider.models.length > 0);
-  if (env["ESCODE_OFFPEAK_MOCK"] === "1") {
-    return {
-      enabled: hasModels,
-      modelSelectionView,
-      // ESCODE_OFFPEAK_MOCK_NO_PLAN=1 演示「非 coding plan 锁定」态；缺省视为已订阅。
-      codingPlanActive: env["ESCODE_OFFPEAK_MOCK_NO_PLAN"] !== "1",
-    };
-  }
-  const raw = payload.data?.configs?.offPeak;
-  return {
-    enabled: raw?.enable_offpeak_task === true && hasModels,
-    modelSelectionView,
-  };
-}
-
 /**
  * 窗口级公开配置读取。业务模块只消费自己的字段，不拥有第二份请求缓存。
- * 闲时/动态工作流灰度原先由 coding-plan-subscription 通道承载；套餐族删除后收拢到这里，
+ * 动态工作流灰度原先由 coding-plan-subscription 通道承载；套餐族删除后收拢到这里，
  * 共用同一个 client/configs 端点与缓存。
  */
 export function createClientConfigService(dependencies: {
   apiClient: ApiClient;
   resolveRequestContext: () => RequestContext | Promise<RequestContext>;
-  /** 闲时入口的模型目录视图（Registry 投影）；缺省视为空目录（enabled 恒 false）。 */
-  resolveOffPeakModelSelectionView?: OffPeakModelSelectionViewResolver;
   /**
    * 用户在设置里选的动态工作流模式（launch.md「The user's choice」）。只有拥有设置权威的装配
    * （desktop 本地 Host、web/standalone server）注入；缺省时快照只含服务端的「提供」。
@@ -179,21 +144,6 @@ export function createClientConfigService(dependencies: {
           });
       }
       return structuredClone(await entry.pending);
-    },
-
-    async getOffPeakClientConfig(options = {}) {
-      const { forceRefresh } = clientConfigReadOptionsSchema.parse(options);
-      const env = process.env;
-      const modelSelectionView =
-        (await dependencies.resolveOffPeakModelSelectionView?.()) ??
-        EMPTY_OFF_PEAK_MODEL_SELECTION_VIEW;
-      if (env["ESCODE_OFFPEAK_MOCK"] === "1") {
-        // mock 已经明确替代远端曝光配置，不能再先等待 /client/configs：
-        // 离线 Desktop E2E 会一直停在 Loading，根本无法进入闲时执行链。
-        return resolveOffPeakClientConfig({}, env, modelSelectionView);
-      }
-      const payload = await getRawConfigsEnvelope(forceRefresh === true);
-      return resolveOffPeakClientConfig(payload, env, modelSelectionView);
     },
 
     async getDynamicWorkflowClientConfig(options = {}) {

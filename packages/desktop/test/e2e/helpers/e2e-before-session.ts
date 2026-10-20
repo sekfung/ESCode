@@ -6,7 +6,6 @@ export interface E2EBeforeSessionSetupOptions {
   resetHome: (specs: string[]) => Promise<void>;
   startUpstreamHttpIfNeeded: (specs: string[]) => Promise<void>;
   startPluginCdnZipFixtureIfNeeded: (specs: string[]) => Promise<void>;
-  startOffPeakMockIfNeeded: (specs: string[]) => Promise<void>;
 }
 
 export async function runE2EBeforeSessionSetup(options: E2EBeforeSessionSetupOptions) {
@@ -16,7 +15,6 @@ export async function runE2EBeforeSessionSetup(options: E2EBeforeSessionSetupOpt
   options.configureAgentServerEnv();
   await options.startUpstreamHttpIfNeeded(options.specs);
   await options.startPluginCdnZipFixtureIfNeeded(options.specs);
-  await options.startOffPeakMockIfNeeded(options.specs);
   // 修复原因：HOME 删除、重建和 fixture seed 是 Electron session 启动的前置事务；
   // 这里必须等待 reset 完成，否则 Windows 文件锁重试期间会用旧 HOME 启动新 Electron。
   await options.resetHome(options.specs);

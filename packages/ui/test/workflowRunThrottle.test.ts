@@ -38,9 +38,6 @@ describe("原因标签（事件日志用）", () => {
     expect(throttleReasonLabel("provider_overloaded", format)).toBe(
       "chat.toolCall.workflow.run.throttle.reason.overloaded",
     );
-    expect(throttleReasonLabel("offpeak_queued", format)).toBe(
-      "chat.toolCall.workflow.run.throttle.reason.offpeak",
-    );
     for (const reason of [
       "server_error",
       "network_error",

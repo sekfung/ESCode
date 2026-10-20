@@ -1,14 +1,4 @@
-/* OMCP-005/006/009/021/023/024/026/027 —— 官方 MCP 凭证解析与身份头构造（spec §6.1 / §6.2.1 / §6.3.3）。
- *
- * OMCP-025（Off-Peak 零回归，验证 §6.1.1 的隔离）不是本文件的用例，而是一条回归动作：
- *   npx vitest run packages/services/test/offPeakRuntimeModel.test.ts \
- *     packages/services/test/offPeakServerClient.test.ts \
- *     packages/services/test/offPeakTaskService.test.ts \
- *     packages/services/test/offPeakE2eIntegration.test.ts \
- *     packages/services/test/offPeakClientConfig.test.ts \
- *     packages/services/test/offPeakTaskRepo.test.ts
- * 本次实现后为 6 files / 77 tests 全绿，且未修改 offPeakRuntimeModel.ts 的任何导出。
- */
+/* OMCP-005/006/009/021/023/024/026/027 —— 官方 MCP 凭证解析与身份头构造（spec §6.1 / §6.2.1 / §6.3.3）。 */
 import { describe, expect, it, vi } from "vitest";
 import { BUILTIN_MODEL_PROVIDER_IDS, type ESCodeAccountAccess } from "@escode/shared";
 import type { ModelSelectionView } from "@escode/provider";
@@ -256,7 +246,7 @@ describe("official mcp credential resolver", () => {
     });
   });
 
-  it("OMCP-021: keeps zai-team consistent with Off-Peak by omitting Target-Type entirely", async () => {
+  it("OMCP-021: keeps zai-team consistent by omitting Target-Type entirely", async () => {
     const outcome = await resolveOfficialMcpCredentials(
       createDeps({
         activeProvider: "zai",
@@ -504,21 +494,13 @@ describe("official mcp credential resolver", () => {
   });
 
   it("OMCP-024: has no mock credential branch at all", async () => {
-    // Off-Peak 的 ESCODE_OFFPEAK_MOCK 占位凭证分支不得在官方 MCP 路径复现。
-    const previous = process.env["ESCODE_OFFPEAK_MOCK"];
-    process.env["ESCODE_OFFPEAK_MOCK"] = "1";
-    try {
-      const outcome = await resolveOfficialMcpCredentials(createDeps({ jwt: "" }));
-      expect(outcome).toEqual({ ok: false, reason: "official_auth_unavailable" });
-      const ok = await resolveOfficialMcpCredentials(createDeps());
-      expect(ok).toMatchObject({ ok: true });
-      if (!ok.ok) return;
-      expect(ok.snapshot.jwt).toBe(JWT);
-      expect(ok.snapshot.codingPlanAuthorization).toBe(MAAS_JWT);
-    } finally {
-      if (previous === undefined) delete process.env["ESCODE_OFFPEAK_MOCK"];
-      else process.env["ESCODE_OFFPEAK_MOCK"] = previous;
-    }
+    const outcome = await resolveOfficialMcpCredentials(createDeps({ jwt: "" }));
+    expect(outcome).toEqual({ ok: false, reason: "official_auth_unavailable" });
+    const ok = await resolveOfficialMcpCredentials(createDeps());
+    expect(ok).toMatchObject({ ok: true });
+    if (!ok.ok) return;
+    expect(ok.snapshot.jwt).toBe(JWT);
+    expect(ok.snapshot.codingPlanAuthorization).toBe(MAAS_JWT);
   });
 
   it("OMCP-026: dedupes concurrent resolves into a single underlying resolution", async () => {

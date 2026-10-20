@@ -4,7 +4,7 @@ import { commandPayloadSchemas } from "../src/escode-protocol-v4/command.js";
 
 describe("附件与文本发送的模型合同", () => {
   const modelSelection = {
-    providerId: "account:offpeak",
+    providerId: "account:zai-highspeed",
     modelId: "model",
     options: { reasoningLevel: "high" },
   };

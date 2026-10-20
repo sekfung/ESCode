@@ -112,7 +112,7 @@ pub struct RetryState {
 /// reasonCode，UI 按 `fault.*` 展示的重试文案无法命中。
 pub fn retry_reason_code(reason: &str) -> &'static str {
     match reason {
-        "rate_limited" | "offpeak_queued" => "fault.provider.rateLimited",
+        "rate_limited" => "fault.provider.rateLimited",
         "provider_overloaded" | "server_error" => "fault.provider.serverError",
         "timeout" => "fault.network.timeout",
         "stream_idle_timeout" => "fault.network.sseStalled",
@@ -128,7 +128,6 @@ mod retry_reason_tests {
     fn maps_like_ts_product_projection() {
         for (reason, code) in [
             ("rate_limited", "fault.provider.rateLimited"),
-            ("offpeak_queued", "fault.provider.rateLimited"),
             ("provider_overloaded", "fault.provider.serverError"),
             ("server_error", "fault.provider.serverError"),
             ("timeout", "fault.network.timeout"),

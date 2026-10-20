@@ -216,7 +216,7 @@ describe("ProviderConfigResolver", () => {
     expect(result.registryProviders.map((p) => p.providerId)).toEqual(["start", "api"]);
   });
 
-  it("未选中账号保留 Settings 配置但不进入 Registry，API 与隐藏闲时不使用 current", () => {
+  it("未选中账号保留 Settings 配置但不进入 Registry，API 与隐藏加速卡不使用 current", () => {
     const base = {
       group: "bigmodel-family" as const,
       builtinModelIds: ["m"],
@@ -239,7 +239,7 @@ describe("ProviderConfigResolver", () => {
           new ProviderConfig({
             ...base,
             visibility: "hidden",
-            access: new ZhipuAccountAccessConfig({ accountType: "bigmodel", mode: "off-peak" }),
+            access: new ZhipuAccountAccessConfig({ accountType: "bigmodel", mode: "highspeed" }),
           }),
         ],
         [

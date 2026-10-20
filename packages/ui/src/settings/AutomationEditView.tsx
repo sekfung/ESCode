@@ -1877,8 +1877,8 @@ export function AutomationEditView({
       return;
     }
 
-    // 定时任务曾单独维护“保存 / 放弃修改”弹窗，与闲时任务的确认弹窗
-    // 尺寸和动作持续漂移；统一复用远程 Automation presentation，仅保留“取消 / 丢弃”语义。
+    // 定时任务曾单独维护“保存 / 放弃修改”弹窗，尺寸和动作持续漂移；
+    // 统一复用远程 Automation presentation，仅保留“取消 / 丢弃”语义。
     const confirmed = await confirmDialog({
       title: intl.formatMessage({ id: "automations.unsaved.title" }),
       description: intl.formatMessage({
@@ -1909,7 +1909,7 @@ export function AutomationEditView({
 
   const handleTabChange = useCallback(
     (nextTab: AutomationSettingsHistoryTab) => {
-      // 新建定时任务曾直接禁用 History trigger，和闲时任务可查看空历史的交互不一致。
+      // 新建定时任务也可查看空历史，不再禁用 History trigger。
       logger.debug("[AutomationEditView] 切换设置页签", {
         automationId: editing?.automationId ?? null,
         nextTab,
@@ -2735,7 +2735,7 @@ export function AutomationEditView({
                 {runsEntry.error}
               </div>
             ) : runs.length === 0 ? (
-              // 定时任务曾仅渲染透明的 py-10 文本块，缺少与闲时任务一致的空态背景、边框和高度。
+              // 定时任务空历史使用统一空态，避免只有透明文本块而缺少背景、边框和高度。
               <AutomationHistoryEmptyState>
                 {intl.formatMessage({ id: "automations.runs.empty" })}
               </AutomationHistoryEmptyState>

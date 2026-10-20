@@ -3,6 +3,10 @@
 > 父计划：`rust-unified-host.md` 阶段 2「服务移植优先序 5：sessions + tasks + tasks_index」。
 > 上游：`rust-u2-host-skeleton.md`（u2a 骨架/RPC 面/dev 开关、`file` 与 `system` 域已落地）。
 > 定位：本文件先定**边界与所有者**，再按切片实施；每片自带验收，可独立回退。
+>
+> 2026-10-20：off-peak / 闲时任务功能已整体删除。本文中 `off_peak_tasks`、`offPeakTaskId`、
+> `offPeakToolEnabled`、`offPeakRunType` 等描述均为历史实现记录；当前 schema 已由迁移
+> `0004_drop_off_peak` 清理，服务面不再包含 off-peak 通道。
 
 ## 1. 范围
 

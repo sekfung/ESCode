@@ -10,7 +10,7 @@ function createService(overrides: Record<string, unknown> = {}) {
     resolveCurrentAccountAccess: vi.fn(async (access: ESCodeProviderAccountAccess) => ({
       type: "zhipu-account" as const,
       family: access.accountType,
-      planKind: access.mode === "off-peak" ? ("individual-coding-plan" as const) : access.mode,
+      planKind: access.mode,
     })),
     loadOAuthTokenSet: vi.fn(async () => ({ accessToken: "oauth", escodeJwtToken: "jwt" })),
     loadIndividualPlanMaterial: vi.fn(async () => null),
@@ -128,7 +128,7 @@ describe("AccountProviderRequestAuthService", () => {
       service.resolveCurrent({
         providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
         accountAccess: individualAccess(),
-        reason: "off-peak",
+        reason: "model-request",
       }),
     ).rejects.toBeInstanceOf(AccountRequestCredentialUnavailableError);
   });

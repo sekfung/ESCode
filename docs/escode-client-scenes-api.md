@@ -40,7 +40,7 @@ Renderer 的多个 React 消费方通过共享 `useClientScenesResource()` 读�
 `ClientSceneConfig[]`。该资源使用 SWR 的 renderer-memory cache，以当前注入的
 `IClientScenesService` 实例作为 authority 隔离边界：相同 Service 实例的并发挂载只发出一次
 `list()`，Service/Host attachment 替换后使用新的 cache key，不复用旧 authority 的结果。
-缓存不写入 localStorage、automation、off-peak 或 session 持久化。
+缓存不写入 localStorage、automation 或 session 持久化。
 
 模板配置属于低频更新数据。成功结果在 10 分钟 dedupe 窗口内直接复用；不轮询，窗口重新聚焦或
 网络恢复时允许 SWR 在窗口外重新校验。冷启动没有缓存时消费方进入 loading；已有缓存时立即展示
@@ -58,20 +58,14 @@ Service authority + SWR cache authority 合并为一次强制重验；普通 foc
 旧的 `ai-writing` 不再作为该入口的 fallback。
 映射细节和失败边界见 `docs/ui/conversation-draft-suggested-prompts.md`。
 
-`AutomationsSection` 与 `OffPeakNewTaskEntry` 还消费两个明确 scene：
+`AutomationsSection` 还消费一个明确 scene：
 
 - `scheduled-task`：prompt item 的 `labels` 是标题、`contents` 是 description/instructions；
   `defaults.cronExpr` 反向引用 `options.cronExpr.items`，cron 只取被引用 item 的 `contents`，
   UI 先校验 Service 合法性和 Automation 编辑器无损往返能力，再用本地调度描述器展示，忽略 cron item `labels`。
-- `off-peak-task`：prompt item 的 `labels` 是标题；仅 New task 首页卡片 description 按 locale
-  优先取 `descs`，对应语言缺失或空白时回退 `contents`；Automations 卡片 description 与创建草稿的
-  instructions 始终取 `contents`；
-  Automations 只展示远程目录并在空目录时显示「无可用模板」；New task 首页在远程映射后追加本地
-  Customize，若远程目录已经包含 Customize 则不重复追加。
-  Customize 的稳定标题和描述只通过 `offPeak.newTask.template.customize.title` /
-  `.description` 在渲染时走 intl，目录映射不再保存另一份 cn/en 文案。
+  Automations 只展示远程目录并在空目录时显示「无可用模板」。
 
-`draft-suggestion`、`scheduled-task` 与 `off-peak-task` 的 prompt item 均把 `img` 解释为 Lucide
+`draft-suggestion` 与 `scheduled-task` 的 prompt item 均把 `img` 解释为 Lucide
 canonical 名称（kebab-case，例如 `file-text`），不得再把它作为图片 URL 请求。首页与 Automations 面板
 按名称动态加载 SVG，图标使用 `currentColor` 继承所在图标槽的语义字色；`img` 缺失、空白、名称不属于
 当前 Lucide 版本或模块加载失败时，必须回退到各入口已有的本地 Lucide 语义图标。`imgs` 不参与这些
@@ -87,7 +81,7 @@ ClientSceneItem.img
 两种 scene 中 `labels.cn` / `labels.en` 均为空的 prompt item 必须拒绝，不得进入卡片或创建表单。
 
 两者都只提供候选模板。点击只把当前 locale 的普通字符串复制到表单草稿；scene/item/default
-元数据不进入 automation 或 off-peak 持久化。请求失败不得阻断手动创建。
+元数据不进入 automation 持久化。请求失败不得阻断手动创建。
 
 ```text
 React consumer mount / workspace attachment change

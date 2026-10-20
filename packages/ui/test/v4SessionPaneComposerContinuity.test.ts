@@ -174,12 +174,7 @@ vi.mock("@/v4/BotGroupDeliveryAction.js", () => ({
   ConnectedBotGroupDeliveryAction: () => null,
 }));
 
-// Bugfix：本文件只验证 SessionPane 的 composer 连续性，隔离闲时入口对真实 TabStore 的依赖。
-vi.mock("@/v4/OffPeakNewTaskEntry.js", () => ({
-  OffPeakNewTaskEntry: () => null,
-}));
-
-// 同理隔离推荐提示词占位：本文件用的是只实现 createElement 的极简 DOM，
+// 本文件只验证 SessionPane 的 composer 连续性，隔离推荐提示词占位：本文件用的是只实现 createElement 的极简 DOM，
 // 渲染 lucide 图标会走 createElementNS 而直接崩掉，与 composer 连续性无关。
 vi.mock("@/v4/ConversationDraftSuggestedPromptsContainer.js", () => ({
   ConversationDraftSuggestedPromptsContainer: () => null,

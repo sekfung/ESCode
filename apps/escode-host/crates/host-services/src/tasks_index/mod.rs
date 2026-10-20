@@ -322,14 +322,13 @@ pub(super) fn read_task_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> 
         "migration_source": row.get::<_, Option<String>>(9)?,
         "forked_from_task_id": row.get::<_, Option<String>>(10)?,
         "cron_automation_id": row.get::<_, Option<String>>(11)?,
-        "off_peak_task_id": row.get::<_, Option<String>>(12)?,
-        "created_at": row.get::<_, i64>(13)?,
-        "updated_at": row.get::<_, i64>(14)?,
-        "unread_at": row.get::<_, Option<i64>>(15)?,
-        "title_overridden": row.get::<_, i64>(16)?,
-        "meta_json": row.get::<_, String>(17)?,
+        "created_at": row.get::<_, i64>(12)?,
+        "updated_at": row.get::<_, i64>(13)?,
+        "unread_at": row.get::<_, Option<i64>>(14)?,
+        "title_overridden": row.get::<_, i64>(15)?,
+        "meta_json": row.get::<_, String>(16)?,
         // `searchable_text` 只供 `queryTaskList` 的摘要窗口用（TS 同样在行里取它）。
-        "searchable_text": row.get::<_, String>(18)?,
+        "searchable_text": row.get::<_, String>(17)?,
     }))
 }
 
@@ -345,10 +344,10 @@ pub fn workspace_key(workspace_path: &str, workspace_identity: Option<&str>) -> 
 pub(super) const TASK_ROW_COLUMNS: &str =
     "workspace_key, workspace_path, workspace_identity, task_id, title,
     task_status, provider, mode, model, migration_source, forked_from_task_id, cron_automation_id,
-    off_peak_task_id, created_at, updated_at, unread_at, title_overridden, meta_json,
+    created_at, updated_at, unread_at, title_overridden, meta_json,
     searchable_text";
 /// `TASK_ROW_COLUMNS` 的列数（追加列从这个下标起读）。
-pub(super) const TASK_ROW_COLUMN_COUNT: usize = 19;
+pub(super) const TASK_ROW_COLUMN_COUNT: usize = 18;
 
 /// 生成资产自校验：hash 与清单一致，防止手改 `schema.rs` 绕过 TS 对账。
 fn verify_assets() -> Result<(), TasksIndexError> {

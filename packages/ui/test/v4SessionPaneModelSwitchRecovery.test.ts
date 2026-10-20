@@ -216,12 +216,7 @@ const projectionState = vi.hoisted(() => ({
   } | null,
 }));
 
-// Bugfix：本文件只验证 SessionPane 的模型恢复，隔离闲时入口对真实 TabStore 的依赖。
-vi.mock("@/v4/OffPeakNewTaskEntry.js", () => ({
-  OffPeakNewTaskEntry: () => null,
-}));
-
-// 同理隔离推荐提示词容器：它通过 useWorkspaceServicesResolution 依赖 TabStoreProvider，
+// 本文件只验证 SessionPane 的模型恢复，隔离推荐提示词容器：它通过 useWorkspaceServicesResolution 依赖 TabStoreProvider，
 // 而本文件只验证草稿 provider/model 恢复链路，不提供 Tab store。
 vi.mock("@/v4/ConversationDraftSuggestedPromptsContainer.js", () => ({
   ConversationDraftSuggestedPromptsContainer: () => null,

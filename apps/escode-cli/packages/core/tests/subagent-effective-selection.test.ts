@@ -90,18 +90,11 @@ describe("显式 Subagent 选择使用注入的公共解析", () => {
     ).toThrow();
   });
 
-  it("继承和已明确的内部 override 不重解析", () => {
+  it("继承不重解析", () => {
     const resolveSelection = vi.fn(() => ({ effectiveSelection: null }));
     expect(
       resolveSubagentSelection({ parentSelection: original, resolveSelection }).selection,
     ).toEqual(original);
-    expect(
-      resolveSubagentSelection({
-        profileSelection: original,
-        overrideSelection: effective,
-        resolveSelection,
-      }).selection,
-    ).toEqual(effective);
     expect(resolveSelection).not.toHaveBeenCalled();
   });
 

@@ -121,7 +121,7 @@ describe("AutomationsSection 顶级标签接线", () => {
     expect(automationsSectionSource).toMatch(
       /if \(openAutomationTab === "workflow"\) \{\s*setPageTab\("workflow"\);\s*onOpenAutomationConsumed\?\.\(\);\s*return;/,
     );
-    // 定时任务 / 闲时任务的胶囊行留在「自动化」内部：工作流页整页交给 SavedWorkflowsSection。
+    // 工作流页整页交给 SavedWorkflowsSection，自动化页保持独立。
     expect(automationsSectionSource).toMatch(
       /if \(pageTab === "workflow"\) \{\s*return \(\s*<SavedWorkflowsSection/,
     );

@@ -266,7 +266,7 @@ describe("registerBuiltInTools：动态工作流灰度门", () => {
   );
 });
 
-// 灰度门从 runtimeConfig 走到注册表的这一跳（runtime-tools.ts）：与 off-peak 不同，
+// 灰度门从 runtimeConfig 走到注册表的这一跳（runtime-tools.ts）：
 // 判据不是端口在场，而是 Host 或独立 CLI 入口写下的显式 false。
 describe("AgentRuntime：dynamicWorkflowEnabled 到工具注册表", () => {
   it.each([

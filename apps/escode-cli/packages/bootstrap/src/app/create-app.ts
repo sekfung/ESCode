@@ -903,7 +903,6 @@ export async function createESCodeApp(options: ESCodeAppOptions): Promise<ESCode
       dynamicWorkflowSnippetPort,
       modelCatalogPort,
       automationPort: options.automationPort,
-      offPeakPort: options.offPeakPort,
       topicResourcePort: options.topicResourcePort,
       appVersion,
       traceContext,

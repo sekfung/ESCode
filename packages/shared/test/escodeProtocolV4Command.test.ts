@@ -150,41 +150,11 @@ describe("escode-protocol-v4 command", () => {
     ).toBe(false);
   });
 
-  it("Off-Peak attribution is turn-scoped and mutually exclusive with automation", () => {
-    expect(
-      commandPayloadSchemas.sendText.parse({
-        text: "resume",
-        offPeakTaskId: "offpeak-1",
-        offPeakRunType: "resume",
-        toolDisallowlist: ["CronCreate"],
-        futureAdditiveField: "ignored-by-current-cli",
-      }),
-    ).toEqual({
-      text: "resume",
-      offPeakTaskId: "offpeak-1",
-      offPeakRunType: "resume",
-      toolDisallowlist: ["CronCreate"],
-    });
-    expect(() =>
-      commandPayloadSchemas.sendText.parse({
-        text: "invalid",
-        offPeakRunType: "init",
-      }),
-    ).toThrow();
-    expect(() =>
-      commandPayloadSchemas.sendText.parse({
-        text: "invalid",
-        automationId: "automation-1",
-        offPeakTaskId: "offpeak-1",
-      }),
-    ).toThrow();
-  });
-
   it("keeps execution-scoped model context narrow and drops the legacy runtime snapshot", () => {
     const payload = commandPayloadSchemas.sendText.parse({
       text: "run with an execution-scoped model",
       modelSelection: {
-        providerId: "account:zai-offpeak-idle-plan",
+        providerId: "account:zai-highspeed",
         modelId: "GLM-5.2",
       },
       modelExecution: {
@@ -192,7 +162,7 @@ describe("escode-protocol-v4 command", () => {
         selectionScope: "execution",
         requestAuth: {
           apiKey: "request-key",
-          headers: { "X-Off-Peak-Ticket-ID": "ticket-1" },
+          headers: { "x-test-ticket": "ticket-1" },
         },
         subagents: {
           foregroundModel: "submission",
@@ -207,7 +177,7 @@ describe("escode-protocol-v4 command", () => {
     expect(payload).toEqual({
       text: "run with an execution-scoped model",
       modelSelection: {
-        providerId: "account:zai-offpeak-idle-plan",
+        providerId: "account:zai-highspeed",
         modelId: "GLM-5.2",
       },
       modelExecution: {
@@ -215,7 +185,7 @@ describe("escode-protocol-v4 command", () => {
         selectionScope: "execution",
         requestAuth: {
           apiKey: "request-key",
-          headers: { "X-Off-Peak-Ticket-ID": "ticket-1" },
+          headers: { "x-test-ticket": "ticket-1" },
         },
         subagents: {
           foregroundModel: "submission",
@@ -229,14 +199,14 @@ describe("escode-protocol-v4 command", () => {
     expect(
       commandPayloadSchemas.sendText.parse({
         text: "do not extract this turn",
-        modelSelection: { providerId: "offpeak", modelId: "model" },
+        modelSelection: { providerId: "zai-api", modelId: "model" },
         modelExecution: { memoryExtraction: "skip", selectionScope: "execution" },
       }),
     ).toMatchObject({ modelExecution: { memoryExtraction: "skip" } });
     expect(
       commandPayloadSchemas.sendText.safeParse({
         text: "invalid Memory policy",
-        modelSelection: { providerId: "offpeak", modelId: "model" },
+        modelSelection: { providerId: "zai-api", modelId: "model" },
         modelExecution: { memoryExtraction: "disabled", selectionScope: "execution" },
       }).success,
     ).toBe(false);
@@ -247,7 +217,7 @@ describe("escode-protocol-v4 command", () => {
       commandPayloadSchemas.sendText.safeParse({
         text: "invalid execution context",
         modelSelection: {
-          providerId: "account:zai-offpeak-idle-plan",
+          providerId: "account:zai-highspeed",
           modelId: "GLM-5.2",
         },
         modelExecution: {

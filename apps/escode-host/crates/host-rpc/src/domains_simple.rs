@@ -14,7 +14,6 @@ pub(crate) fn simple_channels(
     options: escode_host_surface::OptionsFactory,
     media_authorizer: Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
     client_services: Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
-    provider: Option<std::sync::Arc<escode_host_services::provider::ProviderService>>,
 ) -> Vec<Channel> {
     let usage_stats_instances = instances.clone();
     let mut channels = vec![
@@ -29,7 +28,7 @@ pub(crate) fn simple_channels(
         crate::domains_attachments::prompt_attachment_transfer_channel(),
         crate::domains_attachments::media_preview_channel(media_authorizer),
         crate::domains_client::client_scenes_channel(client_services.clone()),
-        crate::domains_client::client_config_channel(client_services, provider),
+        crate::domains_client::client_config_channel(client_services),
         crate::domains_credential::credential_channel(data_base_dir.map(Path::to_path_buf)),
         crate::domains_plugin::plugin_management_channel(
             instances,

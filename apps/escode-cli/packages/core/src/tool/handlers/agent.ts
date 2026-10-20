@@ -209,7 +209,6 @@ const agentHandler: ToolHandler = async (input, context) => {
     {
       signal: context.abortSignal,
       ...(context.model ? { model: context.model } : {}),
-      ...(context.subagentModelOverride ? { modelOverride: context.subagentModelOverride } : {}),
     },
   );
 };

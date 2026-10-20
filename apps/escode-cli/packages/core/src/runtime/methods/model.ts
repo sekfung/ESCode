@@ -42,7 +42,7 @@ export async function runModelTextRequest(
     providerId: model.providerId,
     modelId: model.modelId,
   };
-  // 闲时 turn 只覆盖了父 runtime 的默认模型，foreground child 重新建
+  // 执行作用域 turn 只覆盖了父 runtime 的默认模型，foreground child 重新建
   // request 时仍读取 session 配置，导致 provider options/capability 与本轮模型分叉。
   // turn 快照存在时必须整体采用快照，不能用 `??` 回退到用户模型的字段。
   const mediaPathMessages = await projectMessagesWithMediaAttachmentPaths(

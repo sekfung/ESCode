@@ -45,10 +45,6 @@ import { ResolveWorkflowQuestionInputJsonSchema } from "../../../apps/escode-cli
 import { FillWorkflowHoleInputJsonSchema } from "../../../apps/escode-cli/packages/contracts/src/tools/fill-workflow-hole.js";
 import { replyToChannelToolEntry } from "../../../apps/escode-cli/packages/core/src/tool/handlers/reply-to-channel.js";
 import {
-  OffPeakCreateInputJsonSchema,
-  OffPeakListInputJsonSchema,
-} from "../../../apps/escode-cli/packages/contracts/src/tools/off-peak.js";
-import {
   EnterPlanModeInputJsonSchema,
   ExitPlanModeInputJsonSchema,
 } from "../../../apps/escode-cli/packages/contracts/src/tools/plan-mode.js";
@@ -234,9 +230,6 @@ test("Rust tool definitions use current TS schemas and real TS file/search handl
       CronList: CronListInputJsonSchema,
       CronUpdate: CronUpdateInputJsonSchema,
       CronDelete: CronDeleteInputJsonSchema,
-      // 闲时任务工具（docs/specs/rust-offpeak.md）。
-      OffPeakCreate: OffPeakCreateInputJsonSchema,
-      OffPeakList: OffPeakListInputJsonSchema,
       ListSavedWorkflows: ListSavedWorkflowsInputJsonSchema,
       ListModels: ListModelsInputJsonSchema,
       ListWorkflowRuns: ListWorkflowRunsInputJsonSchema,

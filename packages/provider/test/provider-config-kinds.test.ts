@@ -123,14 +123,14 @@ describe("ProviderConfig access / api boundaries", () => {
     ).toThrow();
   });
 
-  it("把隐藏性与智谱闲时模式解析为正式 Provider 配置", () => {
+  it("把隐藏性与智谱加速卡模式解析为正式 Provider 配置", () => {
     const config = parseProviderConfig({
       group: "zai-family",
       visibility: "hidden",
-      access: { type: "zhipu-account", accountType: "zai", mode: "off-peak", entitled: true },
+      access: { type: "zhipu-account", accountType: "zai", mode: "highspeed", entitled: true },
       api: {
         type: "anthropic-messages",
-        baseUrl: "https://zcode.z.ai/api/v1/off-peak/anthropic",
+        baseUrl: "https://zcode.z.ai/api/v1/highspeed/anthropic",
       },
       builtinModelIds: ["GLM-5.2"],
     });
@@ -141,10 +141,10 @@ describe("ProviderConfig access / api boundaries", () => {
     expect(JSON.parse(JSON.stringify(config))).toEqual({
       group: "zai-family",
       visibility: "hidden",
-      access: { type: "zhipu-account", accountType: "zai", mode: "off-peak", entitled: true },
+      access: { type: "zhipu-account", accountType: "zai", mode: "highspeed", entitled: true },
       api: {
         type: "anthropic-messages",
-        baseUrl: "https://zcode.z.ai/api/v1/off-peak/anthropic",
+        baseUrl: "https://zcode.z.ai/api/v1/highspeed/anthropic",
       },
       builtinModelIds: ["GLM-5.2"],
     });
@@ -154,15 +154,15 @@ describe("ProviderConfig access / api boundaries", () => {
     const hidden = new ProviderConfig({
       group: "zai-family",
       visibility: "hidden",
-      access: new ZhipuAccountAccessConfig({ accountType: "zai", mode: "off-peak" }),
+      access: new ZhipuAccountAccessConfig({ accountType: "zai", mode: "highspeed" }),
       api: new ProviderApiConfig({ type: "anthropic-messages" }),
       builtinModelIds: ["GLM-5.2"],
     });
 
-    expect(hidden.validateComplete(["providers", "account:zai-offpeak-idle-plan"])).toContainEqual({
+    expect(hidden.validateComplete(["providers", "account:zai-highspeed"])).toContainEqual({
       code: "required-field-missing",
-      path: ["providers", "account:zai-offpeak-idle-plan", "api", "baseUrl"],
-      message: "缺少必填配置 providers.account:zai-offpeak-idle-plan.api.baseUrl",
+      path: ["providers", "account:zai-highspeed", "api", "baseUrl"],
+      message: "缺少必填配置 providers.account:zai-highspeed.api.baseUrl",
     });
     expect(() =>
       parseProviderConfig({

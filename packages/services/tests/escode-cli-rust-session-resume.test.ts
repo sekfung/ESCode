@@ -79,7 +79,6 @@ async function observe(kind: Runtime) {
         sessionId: sid,
         thoughtLevel: "low",
         dynamicWorkflowEnabled: true,
-        offPeakToolEnabled: false,
       },
       escodeSessionStateSnapshotSchema,
     );

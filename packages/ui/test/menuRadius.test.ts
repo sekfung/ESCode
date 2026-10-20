@@ -50,12 +50,7 @@ describe("menu radius hierarchy", () => {
 });
 
 describe("business menus inherit shared radius", () => {
-  for (const file of [
-    "WindowsCaptionMenuButton",
-    "settings/OffPeakEditActionsMenu",
-    "settings/AutomationEditView",
-    "settings/OffPeakHistoryTab",
-  ]) {
+  for (const file of ["WindowsCaptionMenuButton", "settings/AutomationEditView"]) {
     it(file, async () => {
       const source = await readFile(new URL(`../src/${file}.tsx`, import.meta.url), "utf8");
       const tags = source.match(/<DropdownMenu(?:Content|Item)\b[\s\S]*?(?=\n\s*>|>\n)/g) ?? [];

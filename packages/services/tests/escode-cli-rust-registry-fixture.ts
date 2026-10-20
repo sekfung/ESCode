@@ -9,7 +9,7 @@ export async function configureRegistry(
   options: {
     apiType?: string;
     properties?: Record<string, unknown>;
-    /** 账号 provider 的访问模式（off-peak 模型只用单次执行凭据，docs/specs/rust-offpeak.md 第三期）。 */
+    /** 账号 provider 的访问模式（执行作用域模型只用单次执行凭据）。 */
     accountMode?: string;
   } = {},
 ) {

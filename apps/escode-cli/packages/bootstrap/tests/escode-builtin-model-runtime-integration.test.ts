@@ -123,7 +123,7 @@ describe("真实 ESCode Built-in Config 到 Active Model", () => {
             group: "standard-personal",
             access: new ZhipuAccountAccessConfig({
               accountType: "zai",
-              mode: "off-peak",
+              mode: "highspeed",
               entitled: true,
             }),
             visibility: "hidden",
@@ -143,7 +143,7 @@ describe("真实 ESCode Built-in Config 到 Active Model", () => {
       providerId,
       config: {
         visibility: "hidden",
-        access: { type: "zhipu-account", accountType: "zai", mode: "off-peak" },
+        access: { type: "zhipu-account", accountType: "zai", mode: "highspeed" },
       },
     });
     expect(capture.created[0]?.requestDependencies?.requestAuth?.source).toBe(requestAuthSource);

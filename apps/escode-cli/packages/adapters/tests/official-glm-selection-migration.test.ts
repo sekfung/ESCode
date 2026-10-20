@@ -11,7 +11,7 @@ it("只规范化当前官方选择，旧字段、未知/自定义身份、坏 JS
       ["official", "account:zai-start-plan", "glm-5.3-flash"],
       ["custom", "my-provider", "glm-5.3-flash"],
       ["unknown", "account:zai-start-plan", "glm-future"],
-      ["ticket", "account:zai-off-peak", "glm-5.3-flash"],
+      ["card", "account:zai-highspeed-card", "glm-5.3-flash"],
     ])
       insert.run(
         id,

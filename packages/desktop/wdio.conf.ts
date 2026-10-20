@@ -11,7 +11,7 @@ import {
 /* eslint-disable max-lines -- WDIO 配置需要集中维护 Electron、Xvfb、代理和容器 demo 参数，拆开会让测试入口更难追踪。 */
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -95,13 +95,6 @@ import {
 } from "./test/e2e/helpers/model-context-budget-config-mock-server.js";
 import {} from "./test/e2e/helpers/model-provider-catalog-mock-server.js";
 import {
-  applyClientScenesMockEnv,
-  clearClientScenesMockEnv,
-  shouldUseClientScenesMock,
-  startClientScenesMockServer,
-  type ClientScenesMockServer,
-} from "./test/e2e/helpers/client-scenes-mock-server.js";
-import {
   resolvePluginCdnZipMarketplaceLastUpdated,
   seedPluginCdnZipMarketplaceFixture,
   shouldUsePluginCdnZipMarketplaceFixture,
@@ -168,18 +161,13 @@ const E2E_APP_CREDENTIALS_FILE = resolve(E2E_APP_CONFIG_DIR, "credentials.json")
 const E2E_APP_PROVIDER_CONFIG_FILE = resolve(E2E_APP_CONFIG_DIR, "provider_config.json");
 // staged Electron app 只有 main/host/renderer 产物，不携带仓库级 config/provider。
 // 若让 Host 依据 app.getAppPath() 推导 bundled config，重启后会把不存在的路径当作
-// bundled release，模型配置初始化直接失败。E2E 明确注入同一份只读基线；off-peak
-// spec 会在 startOffPeakE2EMock 中覆盖为带 mock endpoint 的 case-local 文件。
+// bundled release，模型配置初始化直接失败。E2E 明确注入同一份只读基线。
 const E2E_DEFAULT_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE = resolve(
   REPO_ROOT,
   "config/provider/escode-builtin.json",
 );
 const INITIAL_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE =
   process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE?.trim();
-const E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE = resolve(
-  REPO_ROOT,
-  ".cache/desktop-e2e-provider-config/official-offpeak-mock.json",
-);
 const E2E_AGENTS_STATE_FILE = resolve(E2E_APP_CONFIG_DIR, "agents-state.json");
 const E2E_CLI_CONFIG_DIR = resolve(E2E_STORAGE_ROOT, "cli");
 const E2E_CLI_CONFIG_FILE = resolve(E2E_CLI_CONFIG_DIR, "config.json");
@@ -293,9 +281,6 @@ const SUBAGENT_RUNTIME_CATALOG_PROVIDER_ID = "e2e-claude-runtime-catalog";
 const SUBAGENT_RUNTIME_CATALOG_PROVIDER_NAME = "Claude Runtime Catalog E2E";
 const SUBAGENT_RUNTIME_CATALOG_MODEL = "claude-opus-4-8";
 const SUBAGENT_RUNTIME_CATALOG_AGENT_NAME = "e2e-claude-catalog-reviewer";
-const OFFPEAK_SUBAGENT_MODEL_INHERITANCE_SPEC =
-  "conversation-session-offpeak-subagent-model-inheritance.test.ts";
-const OFFPEAK_INVALID_TICKET_SPEC = "conversation-session-off-peak-invalid-ticket.test.ts";
 const SUBAGENT_TEAM_SCOPE_SPEC = "conversation-session-subagent-team-scope.test.ts";
 const TOOL_ERROR_SURFACE_SPEC = "conversation-session-tool-error-surface.test.ts";
 const MODEL_OUTPUT_TOKEN_BUDGET_SPEC = "conversation-session-model-output-token-budget.test.ts";
@@ -542,7 +527,6 @@ let upstreamCaptureProxy: E2ENetworkCaptureProxy | null = null;
 let upstreamReplayServer: UpstreamReplayServer | null = null;
 let modelContextBudgetConfigMockServer: ModelContextBudgetConfigMockServer | null = null;
 let dynamicWorkflowConfigMockServer: DynamicWorkflowConfigMockServer | null = null;
-let clientScenesMockServer: ClientScenesMockServer | null = null;
 let pluginCdnZipFixtureServer: PluginCdnZipFixtureServer | null = null;
 let upstreamE2EBaseUrl: string = e2eProviderPreset.baseUrl;
 let e2eRunnerExitWatchdog: ReturnType<typeof setTimeout> | null = null;
@@ -1136,94 +1120,6 @@ async function stopUpstreamE2EHttp() {
   }
 }
 
-// 闲时任务 E2E：off-peak spec 命中时开进程内 mock 网关（ESCODE_OFFPEAK_MOCK=1），
-// host 继承 worker env 后自动起网关、灰度强制开启；管理类 GUI spec 保持票据短暂 queued，
-// 避免创建落库唤醒 scheduler 后在 UI 来得及操作前就派发模型请求。
-async function startOffPeakE2EMock(specs: string[] = []): Promise<void> {
-  const isOffPeakSpec = specs.some((spec) => spec.includes("off-peak") || spec.includes("offpeak"));
-  if (isOffPeakSpec) {
-    process.env.ESCODE_OFFPEAK_MOCK = "1";
-    process.env.ESCODE_OFFPEAK_MOCK_PORT = "45197";
-    const isSubagentInheritanceSpec = isOffPeakSubagentModelInheritanceSpec(specs);
-    const isInvalidTicketSpec = isOffPeakInvalidTicketSpec(specs);
-    // 管理类 case 延后 ready；OP10 必须真跑 scheduler→turn→child，因此取号即 ready。
-    process.env.ESCODE_OFFPEAK_MOCK_READY_DELAY_MS =
-      isSubagentInheritanceSpec || isInvalidTicketSpec ? "0" : "60000";
-    process.env.ESCODE_OFFPEAK_MOCK_READY_TTL_MS = "600000";
-    process.env.ESCODE_OFFPEAK_MOCK_ACTIVE_MS = "600000";
-    process.env.ESCODE_OFFPEAK_MOCK_NEXT_POLL_S = "1";
-    if (isSubagentInheritanceSpec) {
-      process.env.ESCODE_OFFPEAK_MOCK_SCENARIO = "foreground-subagents";
-    } else if (isInvalidTicketSpec) {
-      process.env.ESCODE_OFFPEAK_MOCK_SCENARIO = "invalid-ticket";
-    } else if (
-      specs.some((spec) =>
-        spec.includes("conversation-session-offpeak-create-existing-session.test.ts"),
-      )
-    ) {
-      // 绑定会话复用已有固定文本响应，保留 queued 编辑窗口；capture 模式会继续
-      // 转发上游，不适合作为此例的离线应答。fixture 只匹配一个 child marker，不创建子任务。
-      process.env.ESCODE_OFFPEAK_MOCK_SCENARIO = "foreground-subagents";
-    } else {
-      delete process.env.ESCODE_OFFPEAK_MOCK_SCENARIO;
-    }
-    // D39 回归 spec：专用 availability 返回 false + next_take_at，验证 renderer
-    // 使用服务端快照提前置灰；其余 off-peak spec 保持 availability=true。
-    const isLimitPreGateSpec = specs.some((spec) => spec.includes("off-peak-limit-pre-gate"));
-    if (isLimitPreGateSpec) {
-      process.env.ESCODE_OFFPEAK_MOCK_AVAILABILITY_BLOCK_MS = "3600000";
-    } else {
-      delete process.env.ESCODE_OFFPEAK_MOCK_AVAILABILITY_BLOCK_MS;
-    }
-    await materializeOffPeakMockESCodeBuiltinProviderConfig(
-      Number(process.env.ESCODE_OFFPEAK_MOCK_PORT),
-    );
-    process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE =
-      E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE;
-  } else {
-    delete process.env.ESCODE_OFFPEAK_MOCK;
-    delete process.env.ESCODE_OFFPEAK_MOCK_AVAILABILITY_BLOCK_MS;
-    delete process.env.ESCODE_OFFPEAK_MOCK_PORT;
-    delete process.env.ESCODE_OFFPEAK_MOCK_SCENARIO;
-    if (INITIAL_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE) {
-      process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE = INITIAL_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE;
-    } else {
-      delete process.env.ESCODE_BUILTIN_PROVIDER_CONFIG_FILE;
-    }
-  }
-}
-
-async function materializeOffPeakMockESCodeBuiltinProviderConfig(port: number): Promise<void> {
-  const sourcePath = resolve(REPO_ROOT, "config/provider/escode-builtin.json");
-  const document = JSON.parse(await readFile(sourcePath, "utf8")) as {
-    config?: {
-      providers?: Record<string, { api?: { baseUrl?: string }; builtinModelIds?: string[] }>;
-    };
-  };
-  const offPeakProviderIds = [
-    "account:zai-offpeak-idle-plan",
-    "account:bigmodel-offpeak-idle-plan",
-  ];
-  for (const providerId of offPeakProviderIds) {
-    const offPeakProvider = document.config?.providers?.[providerId];
-    if (!offPeakProvider?.api) {
-      throw new Error(`ESCode Built-in Config 缺少 ${providerId}.api`);
-    }
-    offPeakProvider.api.baseUrl = `http://127.0.0.1:${port}/api/v1/off-peak/anthropic`;
-    // 原闲时 fixture 的单模型白名单应迁到当前 Built-in 输入，不能继续依赖已退役的
-    // client-config models 字段；仅修改本次 E2E 隔离文件，生产名单不变。
-    offPeakProvider.builtinModelIds = ["GLM-5.2"];
-  }
-  await mkdir(resolve(E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE, ".."), {
-    recursive: true,
-  });
-  await writeFile(
-    E2E_OFFPEAK_ESCODE_BUILTIN_PROVIDER_CONFIG_FILE,
-    `${JSON.stringify(document, null, 2)}\n`,
-    "utf8",
-  );
-}
-
 async function startModelContextBudgetConfigE2EMock(specs: string[] = []) {
   const scenario = resolveModelContextBudgetConfigMockScenario(specs);
   if (!scenario) {
@@ -1271,25 +1167,6 @@ async function stopDynamicWorkflowConfigE2EMock() {
   await dynamicWorkflowConfigMockServer.stop();
   dynamicWorkflowConfigMockServer = null;
   clearDynamicWorkflowConfigMockEnv(process.env, baseUrl);
-}
-
-async function startClientScenesE2EMockIfNeeded(specs: string[] = []) {
-  if (!shouldUseClientScenesMock(specs)) {
-    await stopClientScenesE2EMock();
-    return;
-  }
-  clientScenesMockServer ??= await startClientScenesMockServer();
-  applyClientScenesMockEnv(process.env, clientScenesMockServer.baseUrl);
-}
-
-async function stopClientScenesE2EMock() {
-  if (!clientScenesMockServer) {
-    return;
-  }
-  const baseUrl = clientScenesMockServer.baseUrl;
-  await clientScenesMockServer.stop();
-  clientScenesMockServer = null;
-  clearClientScenesMockEnv(process.env, baseUrl);
 }
 
 async function startPluginCdnZipFixtureIfNeeded(specs: string[] = []) {
@@ -2541,14 +2418,6 @@ function isSubagentRuntimeCatalogReasoningSpec(specs: string[] = []) {
   return specs.some((spec) => spec.includes(SUBAGENT_RUNTIME_CATALOG_REASONING_SPEC));
 }
 
-function isOffPeakSubagentModelInheritanceSpec(specs: string[] = []) {
-  return specs.some((spec) => spec.includes(OFFPEAK_SUBAGENT_MODEL_INHERITANCE_SPEC));
-}
-
-function isOffPeakInvalidTicketSpec(specs: string[] = []) {
-  return specs.some((spec) => spec.includes(OFFPEAK_INVALID_TICKET_SPEC));
-}
-
 function isToolErrorSurfaceSpec(specs: string[] = []) {
   return specs.some((spec) => spec.includes(TOOL_ERROR_SURFACE_SPEC));
 }
@@ -2556,12 +2425,7 @@ function isToolErrorSurfaceSpec(specs: string[] = []) {
 function seedE2EBuiltInSubagentModelOverrides(specs: string[] = []) {
   const builtInModelSelectionOverridesSpec = isBuiltInSubagentModelSelectionOverridesSpec(specs);
   const runtimeCatalogSpec = isSubagentRuntimeCatalogReasoningSpec(specs);
-  const offPeakSubagentModelInheritanceSpec = isOffPeakSubagentModelInheritanceSpec(specs);
-  if (
-    !builtInModelSelectionOverridesSpec &&
-    !runtimeCatalogSpec &&
-    !offPeakSubagentModelInheritanceSpec
-  ) {
+  if (!builtInModelSelectionOverridesSpec && !runtimeCatalogSpec) {
     return;
   }
 
@@ -2581,13 +2445,12 @@ function seedE2EBuiltInSubagentModelOverrides(specs: string[] = []) {
         providerId: E2E_PROVIDER_ALTERNATE_PROVIDER_ID,
         modelId: E2E_PROVIDER_SECONDARY_MODEL,
       };
-  const initialGeneralPurposeSelection =
-    runtimeCatalogSpec || offPeakSubagentModelInheritanceSpec
-      ? overrideSelection
-      : {
-          providerId: e2eProviderPreset.providerId,
-          modelId: e2eProviderPreset.model,
-        };
+  const initialGeneralPurposeSelection = runtimeCatalogSpec
+    ? overrideSelection
+    : {
+        providerId: e2eProviderPreset.providerId,
+        modelId: e2eProviderPreset.model,
+      };
   mkdirSync(E2E_APP_CONFIG_DIR, { recursive: true });
   writeFileSync(
     E2E_AGENTS_STATE_FILE,
@@ -2698,47 +2561,6 @@ You are the E2E provider registry reviewer. Reply only with the requested marker
     });
   }
 
-  if (isOffPeakSubagentModelInheritanceSpec(specs)) {
-    profileEntries.push(
-      {
-        name: "Code Search",
-        content: `---
-name: Code Search
-description: E2E custom foreground subagent with an explicit alternate provider model.
-model: custom:${E2E_PROVIDER_ALTERNATE_PROVIDER_ID}:${E2E_PROVIDER_SECONDARY_MODEL}
-tools: Read
-maxTurns: 1
----
-You are the E2E Code Search reviewer. Reply only with the requested marker.
-`,
-      },
-      {
-        name: "E2E OffPeak Inherit Reviewer",
-        content: `---
-name: E2E OffPeak Inherit Reviewer
-description: E2E custom foreground subagent that normally inherits the session model.
-tools: Read
-maxTurns: 1
----
-You are the E2E inherited-model reviewer. Reply only with the requested marker.
-`,
-      },
-      {
-        name: "E2E OffPeak Background Reviewer",
-        content: `---
-name: E2E OffPeak Background Reviewer
-description: E2E custom profile configured to run in the background.
-model: custom:${E2E_PROVIDER_ALTERNATE_PROVIDER_ID}:${E2E_PROVIDER_SECONDARY_MODEL}
-tools: Read
-background: true
-maxTurns: 1
----
-This E2E profile must be rejected before any provider request during an idle-plan turn.
-`,
-      },
-    );
-  }
-
   if (isToolErrorSurfaceSpec(specs)) {
     profileEntries.push(
       {
@@ -2843,7 +2665,6 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
     settingsSubagentCreateEditPersistenceSpec ||
     specs.some((spec) => spec.includes("plugin-subagent-override-cold.test.ts"));
   const subagentRuntimeCatalogReasoningSpec = isSubagentRuntimeCatalogReasoningSpec(specs);
-  const offPeakSubagentModelInheritanceSpec = isOffPeakSubagentModelInheritanceSpec(specs);
   const browserUseIabLifecycleSpec = specs.some(
     (spec) =>
       spec.includes("conversation-session-browser-use-iab-full-chain.test.ts") ||
@@ -2898,13 +2719,9 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         // 与 model + reasoning effort 的目标语义无关。
         !builtInSubagentModelOverridesSpec &&
         !subagentRuntimeCatalogReasoningSpec &&
-        !offPeakSubagentModelInheritanceSpec &&
         // Z02 要验证 cold follow-up 仍投影原始 tool block；240/80 小窗口会先触发
         // auto compact 并合法替换历史，导致测试观察到另一条产品路径。
         !spec.includes("conversation-session-tool-input-validation-provider-content.test.ts") &&
-        // OP-CHAT-02 验证冷恢复旧会话仍有 OffPeakCreate 工具面并走完创建→卡片→编辑；
-        // 240/80 小窗口会在 tool_result 后插入 auto compact，与闲时任务语义无关。
-        !spec.includes("conversation-session-offpeak-create-existing-session.test.ts") &&
         // I70-I72 直接断言未经 compact 改写的 reasoning 历史投影与 signature retry；
         // 240-token 小窗口会在第二轮前合法替换历史，污染本 case 的 provider-visible 证据。
         !spec.includes("conversation-session-anthropic-reasoning-history-replay.test.ts") &&
@@ -3100,11 +2917,6 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
   await seedPersonalDefaultModelSelection(E2E_APP_PROVIDER_CONFIG_FILE, {
     providerId: e2eProviderPreset.providerId,
     modelId: e2eProviderPreset.model,
-    // OP10 新建 Session 使用默认选择而非未提交的 Composer 草稿；默认档位缺失
-    // 会令配置不完整，随后正确推荐账号模型，测不到普通轮的 上游 隔离断言。
-    ...(offPeakSubagentModelInheritanceSpec && readE2EThoughtLevel()
-      ? { options: { reasoningLevel: readE2EThoughtLevel() } }
-      : {}),
   });
 }
 
@@ -3411,11 +3223,7 @@ export const config: WebdriverIO.Config = {
           resetHome: resetE2EHome,
           startUpstreamHttpIfNeeded: startUpstreamE2EHttp,
           startPluginCdnZipFixtureIfNeeded,
-          startOffPeakMockIfNeeded: startOffPeakE2EMock,
         });
-        // Client Scenes 是布局 case 的远端目录依赖；必须在 resetHome 完成、Electron
-        // 启动前覆盖 endpoint，确保 Main → Host 首次 import 时拿到 case-local fixture。
-        await startClientScenesE2EMockIfNeeded(specs);
         await startRequestSecurityFixture(specs, E2E_HOME_DIR);
         // resetHome 之后、Electron 启动之前安装，Main -> Host -> Agent 才会同时继承
         // case-owned PATH；其他 spec 由 helper 保持 no-op。
@@ -3573,7 +3381,6 @@ export const config: WebdriverIO.Config = {
           await stopRequestSecurityFixture();
           await stopModelContextBudgetConfigE2EMock();
           await stopDynamicWorkflowConfigE2EMock();
-          await stopClientScenesE2EMock();
           await stopPluginCdnZipFixture();
         } finally {
           await cleanupE2EElectronProcesses("onComplete");

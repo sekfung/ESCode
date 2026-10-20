@@ -19,12 +19,10 @@ describe("Settings breadcrumb coverage", () => {
     expect(source).toContain("onSectionSelect");
   });
 
-  it("projects automation edit navigation from the views that own dirty-state back handling", () => {
-    for (const section of ["AutomationEditView", "OffPeakEditView"]) {
-      const source = readSettingsSection(section);
-      expect(source).toContain("SettingsBreadcrumbReporter");
-      expect(source).toContain("onSectionSelect");
-    }
+  it("projects automation edit navigation from the view that owns dirty-state back handling", () => {
+    const source = readSettingsSection("AutomationEditView");
+    expect(source).toContain("SettingsBreadcrumbReporter");
+    expect(source).toContain("onSectionSelect");
   });
 
   it("uses the localized plugin display name for plugin detail breadcrumbs", () => {

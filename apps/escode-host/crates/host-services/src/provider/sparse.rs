@@ -131,7 +131,6 @@ fn access(value: &Value, path: &str) -> Check {
                         "start-plan",
                         "individual-coding-plan",
                         "team-coding-plan",
-                        "off-peak",
                         "highspeed",
                     ],
                 )?;

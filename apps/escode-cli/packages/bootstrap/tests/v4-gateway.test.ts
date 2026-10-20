@@ -722,7 +722,7 @@ describe("订阅与帧调度", () => {
     );
   });
 
-  it("Off-Peak TurnStarted 只透传稳定 task attribution，不透传正文", () => {
+  it("Automation TurnStarted 只透传稳定 task attribution，不透传正文", () => {
     const host = makeHost();
     const gateway = makeGateway(host);
     const log = new EventLog();
@@ -733,12 +733,11 @@ describe("订阅与帧调度", () => {
         SessionEventType.TurnStarted,
         {
           turnNumber: 1,
-          input: "闲时任务 prompt 不能进入 fact",
-          inputId: "message-offpeak-run-1",
-          offPeakTaskId: "offpeak-stable-1",
-          offPeakRunType: "init",
+          input: "定时任务 prompt 不能进入 fact",
+          inputId: "message-automation-run-1",
+          automationId: "automation-stable-1",
         },
-        { turnId: "turn-offpeak" },
+        { turnId: "turn-automation" },
       ),
     );
 
@@ -746,13 +745,12 @@ describe("订阅与帧调度", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "turn.started",
-          sourceCommandId: "message-offpeak-run-1",
-          offPeakTaskId: "offpeak-stable-1",
-          offPeakRunType: "init",
+          sourceCommandId: "message-automation-run-1",
+          automationId: "automation-stable-1",
         }),
       ]),
     );
-    expect(JSON.stringify(host.telemetryFacts)).not.toContain("闲时任务 prompt 不能进入 fact");
+    expect(JSON.stringify(host.telemetryFacts)).not.toContain("定时任务 prompt 不能进入 fact");
   });
 
   it("manual run 无调度字段；非 runId 输入与 CronCreate 解析失败只降级不误标", () => {

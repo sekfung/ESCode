@@ -1,6 +1,6 @@
 //! `escode-task.createTask`（TS `escodeTaskServiceAdapter.ts:1911-2055`）。
 //!
-//! 本片覆盖 UI 主路径：新建 session、复用 draft（必要时同步模型/思考强度）、自动化/闲时标记
+//! 本片覆盖 UI 主路径：新建 session、复用 draft（必要时同步模型/思考强度）、自动化标记
 //! （`persistence: deferred` + 索引归属字段）、`task_created` 事件与 `initialSlashCommands`。
 //! 登记差异：`v4Create`（Bot/host 路径，尚未迁移）显式拒绝；新建任务的 grouped-view 置顶
 //! 与 syncer 显式通知未实现（V4 sessions-index 帧到达后自然收敛）。
@@ -51,7 +51,6 @@ pub(super) fn create_task(context: &StateContext) -> MethodHandler {
             .filter(|level| !level.is_empty())
             .map(str::to_owned);
         let automation = params["automationId"].as_str().map(str::to_owned);
-        let offpeak = params["offPeakTaskId"].as_str().map(str::to_owned);
         let defer = params["deferPersistenceUntilFirstPrompt"].as_bool() == Some(true)
             || automation.is_some();
         let mcp_servers =
@@ -137,16 +136,11 @@ pub(super) fn create_task(context: &StateContext) -> MethodHandler {
         };
 
         let (session_id, meta) = index_snapshot(&context, &snapshot).await?;
-        let meta = match (automation.clone(), offpeak.clone()) {
-            (None, None) => meta,
-            (automation, offpeak) => {
+        let meta = match automation.clone() {
+            None => meta,
+            Some(automation) => {
                 let mut merged = meta.as_object().cloned().unwrap_or_default();
-                if let Some(automation) = automation {
-                    merged.insert("cronAutomationId".to_owned(), Value::from(automation));
-                }
-                if let Some(offpeak) = offpeak {
-                    merged.insert("offPeakTaskId".to_owned(), Value::from(offpeak));
-                }
+                merged.insert("cronAutomationId".to_owned(), Value::from(automation));
                 let object = merged.clone();
                 context_ref(&context.read)
                     .run(move |index| {

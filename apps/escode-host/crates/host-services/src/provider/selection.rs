@@ -67,7 +67,6 @@ pub fn validate_options(model_config: &Value, selection: &Selection) -> Validati
 pub enum ProviderKind {
     Ordinary,
     AccountPlan,
-    AccountOffPeak,
 }
 
 /// TS `createNodeModelSelectionFacade` 的分类器。
@@ -81,16 +80,10 @@ pub fn classify(provider_id: &str) -> ProviderKind {
         "account:bigmodel-team-coding-plan",
         "account:bigmodel-start-plan",
     ];
-    const OFF_PEAK: [&str; 2] = [
-        "account:zai-offpeak-idle-plan",
-        "account:bigmodel-offpeak-idle-plan",
-    ];
     if START_PLAN.contains(&provider_id) {
         ProviderKind::Ordinary
     } else if BUILTIN.contains(&provider_id) {
         ProviderKind::AccountPlan
-    } else if OFF_PEAK.contains(&provider_id) {
-        ProviderKind::AccountOffPeak
     } else {
         ProviderKind::Ordinary
     }
@@ -139,9 +132,7 @@ pub fn resolve_effective(
     let Some(provider) = registry.iter().find(|p| p.provider_id == provider_id) else {
         return Effective::none("provider-not-found");
     };
-    if provider.config.get("visibility").and_then(Value::as_str) == Some("hidden")
-        && kind != ProviderKind::AccountOffPeak
-    {
+    if provider.config.get("visibility").and_then(Value::as_str) == Some("hidden") {
         return Effective::none("provider-not-found");
     }
     let Some((_, model_config)) = provider

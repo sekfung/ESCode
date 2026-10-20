@@ -35,8 +35,7 @@
       "providerIds": [
         "zai-api",
         "account:zai-individual-coding-plan",
-        "account:zai-team-coding-plan",
-        "account:zai-offpeak-idle-plan"
+        "account:zai-team-coding-plan"
       ],
       "sourceUrl": "repository:packages/desktop/build/icons/128x128.png",
       "sourceOwner": "Z.AI",
@@ -48,8 +47,7 @@
       "providerIds": [
         "bigmodel-api",
         "account:bigmodel-individual-coding-plan",
-        "account:bigmodel-team-coding-plan",
-        "account:bigmodel-offpeak-idle-plan"
+        "account:bigmodel-team-coding-plan"
       ],
       "sourceUrl": "repository-existing:logo-bigmodel.svg",
       "sourceOwner": "BigModel",

@@ -151,7 +151,6 @@ if (primary) {
   // custom-commands 与 memory 的漂移检查实际从未运行。逐个运行。
   for (const script of [
     "scripts/generate-escode-cli-rust-cron-corpus.mjs",
-    "scripts/generate-escode-cli-rust-offpeak-corpus.mjs",
     "scripts/generate-escode-cli-rust-custom-commands.mjs",
     "scripts/generate-escode-cli-rust-memory-corpus.mjs",
     "scripts/generate-escode-cli-rust-title-corpus.mjs",

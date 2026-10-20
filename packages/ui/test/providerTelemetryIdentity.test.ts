@@ -9,10 +9,9 @@ import {
   reportAutomationActionClick,
   reportAutomationCreateResult,
 } from "@/lib/automationTelemetry.js";
-import { freezeOffPeakCreateTelemetrySnapshot } from "@/lib/offPeakTelemetry.js";
 import { buildCompactionTelemetryExtraDetail } from "@/lib/messageTelemetry.js";
 
-// 790884b1ce：Team 使用 canonical Coding Plan 身份；两家闲时共用同一 ID。
+// 790884b1ce：Team 使用 canonical Coding Plan 身份。
 const identities = [
   ["zai-api", "builtin:zai"],
   ["bigmodel-api", "builtin:bigmodel"],
@@ -20,7 +19,6 @@ const identities = [
     [`account:${family}-individual-coding-plan`, `builtin:${family}-coding-plan`],
     [`account:${family}-team-coding-plan`, `builtin:${family}-coding-plan`],
     [`account:${family}-start-plan`, `builtin:${family}-start-plan`],
-    [`account:${family}-offpeak-idle-plan`, "offpeak-idle-plan"],
   ]),
   ["personal-uuid", "personal-uuid"],
   ["builtin:zai-coding-plan", "builtin:zai-coding-plan"],
@@ -81,14 +79,6 @@ describe("Provider 埋点旧口径", () => {
       provider_name: "",
     });
     expect(selection).toEqual({ providerId, modelId });
-  });
-  it.each(["zai", "bigmodel"])("%s 闲时冻结旧桶，纯模型值不变", (family) => {
-    expect(
-      freezeOffPeakCreateTelemetrySnapshot({
-        providerId: `account:${family}-offpeak-idle-plan`,
-        model: "GLM-5.3-Flash",
-      }),
-    ).toMatchObject({ modelProvider: "offpeak-idle-plan", modelName: "GLM-5.3-Flash" });
   });
   it("压缩保留原模型形式，不增 hostname", () => {
     const detail = buildCompactionTelemetryExtraDetail({

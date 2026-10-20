@@ -60,7 +60,6 @@ impl Engine {
         self.validate_workspace(p)?;
         match method {
             "session/read" => self.read_session(p),
-            "workspace/updateOffPeakToolPolicy" => self.update_off_peak_policy(p),
             "workspace/updateDynamicWorkflowPolicy" => self.update_dynamic_workflow_policy(p),
             // v3.15.1 插件 UI 面板（MCP Apps）：打开面板要整套 `mcp/ui*` 沙箱桥接，Rust runtime 尚未实现，
             // 因此如实回报「无可用面板」，不列出打不开的入口（docs/specs/rust-v3.15.1-drift.md）。

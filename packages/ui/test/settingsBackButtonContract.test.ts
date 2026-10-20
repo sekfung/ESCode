@@ -31,18 +31,13 @@ describe("settings secondary navigation", () => {
     }
   });
 
-  it("自动化与闲时任务返回入口保持独立", async () => {
+  it("自动化返回入口保持独立", async () => {
     const automation = await readFile(
       new URL("../src/settings/AutomationEditView.tsx", import.meta.url),
       "utf8",
     );
-    const offPeak = await readFile(
-      new URL("../src/settings/OffPeakEditView.tsx", import.meta.url),
-      "utf8",
-    );
-    // 原生购买面板与套餐状态卡已随套餐族下线，返回入口契约只保留闲时任务与自动化编辑页。
+    // 原生购买面板与套餐状态卡已随套餐族下线，返回入口契约只保留自动化编辑页。
     expect(automation).not.toContain("SettingsBackButton");
-    expect(offPeak).not.toContain("SettingsBackButton");
   });
 
   it("所有二级设置页返回文案不附带业务对象", () => {

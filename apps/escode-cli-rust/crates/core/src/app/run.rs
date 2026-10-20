@@ -20,7 +20,7 @@ impl Engine {
                     .map(|i| i.payload.clone())
             })
             .unwrap_or_default();
-        // 执行作用域：本轮模型取输入的 modelSelection，不读写会话选择（docs/specs/rust-offpeak.md 第三期）。
+        // 执行作用域：本轮模型取输入的 modelSelection，不读写会话选择。
         let identity = if payload.get(super::model_execution::MARKER).is_some() {
             self.select(&payload, Some(self.session_selection(id)?))?
         } else {
@@ -41,7 +41,7 @@ impl Engine {
         let session = self.sessions.get_mut(id).context("Session unavailable")?;
         let estimated = session.active_context_tokens();
         let run_id = session.run_id.clone().context("Run reservation required")?;
-        self.begin_execution(id, &run_id, &turn_id_for_facts, &payload, &identity);
+        self.begin_execution(id, &run_id, &turn_id_for_facts, &payload);
         let session = self.sessions.get_mut(id).context("Session unavailable")?;
         let cancel = CancellationToken::new();
         self.active.insert(
@@ -133,11 +133,6 @@ impl Engine {
             source_command_id,
             ..Default::default()
         };
-        // 闲时派发事实（docs/specs/rust-offpeak.md 第二期）：admission 固化的闲时身份；禁用列表含 OffPeakCreate 视为受限轮。
-        history.turn.off_peak_task_id = input["offPeakTaskId"].as_str().map(str::to_owned);
-        history.turn.off_peak_restricted = history.turn.off_peak_task_id.is_some()
-            || history.turn.disallowed.iter().any(|t| t == "OffPeakCreate");
-        history.turn.off_peak_tools = self.off_peak_enabled(id);
         // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）；
         // onDemand 会话在激活前不带工作流工具（v3.15.1）。
         history.turn.dynamic_workflow = self.dynamic_workflow_visible(id);

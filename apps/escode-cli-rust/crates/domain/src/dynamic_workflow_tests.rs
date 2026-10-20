@@ -1,5 +1,5 @@
 //! 灰度门的读法（docs/specs/rust-dynamic-workflow.md 第 1 期）：fail-closed、创建参数优先、
-//! 翻转不回收已固化的会话。与 OffPeak 同一条规则（TS `appRuntimePreferences` + runtimeConfig）。
+//! 翻转不回收已固化的会话（TS `appRuntimePreferences` + runtimeConfig）。
 use super::*;
 
 const SESSION: &str = "sess_1";

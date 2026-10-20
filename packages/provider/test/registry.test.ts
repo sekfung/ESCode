@@ -149,20 +149,12 @@ describe("当前有效选择只读解析", () => {
     ).toEqual({ effectiveSelection: null, selectionIssue: "account-connection-unavailable" });
   });
 
-  it("闲时只能解析原 hidden 身份，不切到当前普通账号；普通 hidden 仍不可选", () => {
+  it("hidden Provider 仍不可选", () => {
     const hidden = {
-      ...provider("idle", "same"),
+      ...provider("hidden", "same"),
       config: createApiKeyProviderConfig({ visibility: "hidden" }),
     };
-    const selection = { ...original, providerId: "idle" };
-    expect(
-      resolve([hidden, provider("new-account", "same")], selection).effectiveSelection,
-    ).toEqual(selection);
-    expect(resolve([provider("new-account", "same")], selection).effectiveSelection).toBeNull();
-    expect(
-      resolve([{ ...hidden, providerId: "personal" }], { ...original, providerId: "personal" })
-        .effectiveSelection,
-    ).toBeNull();
+    expect(resolve([hidden], { ...original, providerId: "hidden" }).effectiveSelection).toBeNull();
   });
 });
 

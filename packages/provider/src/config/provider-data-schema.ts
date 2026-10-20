@@ -15,7 +15,6 @@ export const zhipuAccountModeDataSchema = z.enum([
   "start-plan",
   "individual-coding-plan",
   "team-coding-plan",
-  "off-peak",
   // 加速卡访问类别；与 escodeProviderAccountAccessSchema.mode 同值，改动需同步两处。
   "highspeed",
 ]);

@@ -1,6 +1,6 @@
 //! legacy `session/*` 请求（docs/specs/rust-legacy-session-methods.md）。
 //!
-//! 默认 runtime 切到 Rust 后，App 的 task facade、Bots、定时/闲时任务和 desktop session service 仍发
+//! 默认 runtime 切到 Rust 后，App 的 task facade、Bots、定时任务和 desktop session service 仍发
 //! `session/create`（普通）、`session/send`、`session/setModel` 等旧请求，Rust 原先一律 `Unsupported method`。
 //! 这里不新增写路径：把旧参数翻译成 V4 `Command`，走与 `v4/command` 相同的 `Engine::command`，
 //! 再按 Node legacy 结果形状返回（快照与 `session/read` 同形）。
@@ -14,12 +14,10 @@ const LEGACY_CLIENT_ID: &str = "legacy-session";
 const PERSISTENCE_DEFERRED: &str = "deferred";
 const PERSISTENCE_IMMEDIATE: &str = "immediate";
 /// legacy `session/send` 与 V4 sendText 的对应字段（旧名 → V4 名）。
-const SEND_FIELDS: [(&str, &str); 8] = [
+const SEND_FIELDS: [(&str, &str); 6] = [
     ("modelSelection", "modelSelection"),
     ("modelExecution", "modelExecution"),
     ("automationId", "automationId"),
-    ("offPeakTaskId", "offPeakTaskId"),
-    ("offPeakRunType", "offPeakRunType"),
     ("botDeliveryTarget", "botDeliveryTarget"),
     ("browserAmbientContext", "browserAmbientContext"),
     ("toolDenylist", "toolDisallowlist"),
@@ -123,7 +121,7 @@ impl Engine {
             }
         }
         let mut payload = json!({ "workspaceId": self.workspace, "config": config });
-        for key in ["mcpServers", "offPeakToolEnabled", "dynamicWorkflowEnabled"] {
+        for key in ["mcpServers", "dynamicWorkflowEnabled"] {
             if let Some(value) = present(p, key) {
                 payload[key] = value.clone();
             }

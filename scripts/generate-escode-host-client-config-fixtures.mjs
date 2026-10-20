@@ -35,7 +35,7 @@ const ENVELOPES = [
   { code: 0, data: { configs: "x" } },
   { code: 0, data: { configs: {} } },
   { code: 0, data: { configs: {}, extra: 1 }, extra: 2 },
-  { code: 0, msg: "ok", data: { configs: { offPeak: { enable_offpeak_task: true }, other: 1 } } },
+  { code: 0, msg: "ok", data: { configs: { other: 1 } } },
 ];
 
 const ZSRC = [

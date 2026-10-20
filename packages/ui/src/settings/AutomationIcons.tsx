@@ -7,7 +7,6 @@ import {
   Ellipsis,
   ExternalLink,
   Info,
-  Moon,
   Pencil,
   Play,
   Plus,
@@ -54,10 +53,6 @@ export function AutomationAddScheduleIcon(props: AutomationSvgIconProps) {
 
 export function AutomationInfoIcon(props: AutomationSvgIconProps) {
   return <Info {...AUTOMATION_ICON_PROPS} {...props} />;
-}
-
-export function AutomationIdleTimeIcon(props: AutomationSvgIconProps) {
-  return <Moon {...AUTOMATION_ICON_PROPS} {...props} />;
 }
 
 export function AutomationPausedIcon(props: AutomationSvgIconProps) {

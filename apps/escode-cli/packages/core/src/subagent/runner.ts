@@ -133,7 +133,6 @@ export interface ExploreSubagentPortOptions {
 export function createExploreSubagentPort(options: ExploreSubagentPortOptions): SubagentPort {
   const registry = options.runtimeTaskRegistry ?? new InMemoryRuntimeTaskRegistry();
   const abortControllers = new Map<string, AbortController>();
-  const borrowedForegroundAgentIds = new Set<string>();
   const initialProfiles = normalizeAgentProfiles(options.profiles ?? [], {
     builtInModelSelectionOverrides: options.builtInModelSelectionOverrides,
   });
@@ -150,21 +149,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
       const backgroundRequested =
         rawRequest.runInBackground === true || profile.background === true;
       if (backgroundRequested) {
-        if (launchOptions?.modelOverride?.background === "deny") {
-          // 单次执行的模型与动态鉴权不能脱离父 loop 生命周期进入后台。
-          throw createCoreError(
-            CoreErrorType.ToolExecutionFailed,
-            "Idle-time tasks do not support background agents. Run this agent in the foreground.",
-            {
-              context: {
-                code: AgentErrorCode.BACKGROUND_UNAVAILABLE,
-                agentType: rawRequest.agentType,
-                parentToolCallId: rawRequest.parentToolCallId,
-              },
-              recoverable: true,
-            },
-          );
-        }
         return port.start(executionRequest, {
           signal: launchOptions?.signal,
           ...(launchOptions?.model ? { model: launchOptions.model } : {}),
@@ -204,10 +188,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
         lifecycle.agentId,
         runOptions?.signal,
       );
-      const hasForegroundModelOverride = runOptions?.modelOverride !== undefined;
-      if (hasForegroundModelOverride) {
-        borrowedForegroundAgentIds.add(lifecycle.agentId);
-      }
       const activityWatchdog = createSubagentActivityWatchdog({
         abort: taskAbort.abort,
         lifecycle,
@@ -228,7 +208,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
         {
           signal: taskAbort.signal,
           ...(runOptions?.model ? { model: runOptions.model } : {}),
-          ...(runOptions?.modelOverride ? { modelOverride: runOptions.modelOverride } : {}),
         },
         {
           reportActivity: activityWatchdog.reportActivity,
@@ -270,7 +249,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
         activityWatchdog.stop();
         taskAbort.abort(error);
         taskAbort.dispose();
-        borrowedForegroundAgentIds.delete(lifecycle.agentId);
         registry.remove(lifecycle.agentId);
         throw error;
       }
@@ -294,7 +272,7 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
       let autoBackgroundTimer: AutoBackgroundTimer | undefined;
       try {
         autoBackgroundTimer =
-          !hasForegroundModelOverride && autoBackgroundMs !== undefined
+          autoBackgroundMs !== undefined
             ? createAutoBackgroundTimer(
                 registry,
                 lifecycle.agentId,
@@ -302,13 +280,11 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
                 taskAbort.signal,
               )
             : undefined;
-        const backgroundRequestPromise = !hasForegroundModelOverride
-          ? registry
-              .waitForBackgroundRequest(lifecycle.agentId, { signal: taskAbort.signal })
-              .then((task) => ({
-                kind: task ? ("backgrounded" as const) : ("ignored" as const),
-              }))
-          : undefined;
+        const backgroundRequestPromise = registry
+          .waitForBackgroundRequest(lifecycle.agentId, { signal: taskAbort.signal })
+          .then((task) => ({
+            kind: task ? ("backgrounded" as const) : ("ignored" as const),
+          }));
         const winner = await Promise.race([
           guardedCompletionPromise.then((completed) => ({
             completed,
@@ -337,7 +313,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
         autoBackgroundTimer?.cancel();
         activityWatchdog.stop();
         taskAbort.dispose();
-        borrowedForegroundAgentIds.delete(lifecycle.agentId);
 
         await writeCompletedAgentArtifacts(lifecycle, request, completed.output);
         registry.update(lifecycle.agentId, (task) => ({
@@ -385,7 +360,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
       } catch (error) {
         activityWatchdog.stop();
         taskAbort.dispose();
-        borrowedForegroundAgentIds.delete(lifecycle.agentId);
         const totalDurationMs = Date.now() - lifecycle.startedAt;
         const errorMessage = error instanceof Error ? error.message : String(error);
         await writeFailedAgentArtifacts(lifecycle, request, errorMessage);
@@ -533,9 +507,6 @@ export function createExploreSubagentPort(options: ExploreSubagentPortOptions): 
     },
 
     async backgroundTask(taskId: string): Promise<SubagentTaskSnapshot | undefined> {
-      if (borrowedForegroundAgentIds.has(taskId)) {
-        return registry.get(taskId);
-      }
       registry.requestBackground(taskId);
       return registry.get(taskId);
     },

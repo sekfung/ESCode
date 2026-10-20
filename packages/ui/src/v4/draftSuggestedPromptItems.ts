@@ -6,12 +6,8 @@ export interface DraftSuggestedPromptLocalizedText {
 }
 
 export const DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS = "NAVIGATE:AUTOMATIONS" as const;
-export const DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS_OFFPEAK =
-  "NAVIGATE:AUTOMATIONS:OFFPEAK" as const;
 
-export type DraftSuggestedPromptAction =
-  | typeof DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS
-  | typeof DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS_OFFPEAK;
+export type DraftSuggestedPromptAction = typeof DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS;
 
 export interface DraftSuggestedPromptItem {
   id: string;
@@ -41,11 +37,6 @@ export function parseDraftSuggestedPromptActions(
       case DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS:
         if (!actions.includes(DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS)) {
           actions.push(DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS);
-        }
-        break;
-      case DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS_OFFPEAK:
-        if (!actions.includes(DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS_OFFPEAK)) {
-          actions.push(DRAFT_SUGGESTED_PROMPT_NAVIGATE_AUTOMATIONS_OFFPEAK);
         }
         break;
       default:

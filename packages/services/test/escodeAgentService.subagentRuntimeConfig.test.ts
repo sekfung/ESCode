@@ -4,7 +4,7 @@ import {
   escodeProtocolMethods,
   type SubagentRuntimeConfig,
 } from "@escode/shared";
-import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
+import { accountSelectionView } from "./fixtures/accountSelectionView.js";
 
 afterEach(() => {
   vi.doUnmock("../src/escode-agent/escodeAgentProcessManager.js");
@@ -67,7 +67,7 @@ describe("subagent runtime config reverse RPC", () => {
     const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
     const service = createESCodeAgentService({
       readSubagentRuntimeConfig: read,
-      modelSelectionReadinessSource: { getView: async () => offPeakSelectionView() },
+      modelSelectionReadinessSource: { getView: async () => accountSelectionView() },
     });
     const workspace = { workspacePath: "/workspace/a", workspaceIdentity: "test:a" };
     try {

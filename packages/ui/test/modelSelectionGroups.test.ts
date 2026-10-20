@@ -10,7 +10,6 @@ describe("model selection groups", () => {
     [{ type: "zhipu-coding-plan-api-key" }, false],
     [{ type: "zhipu-account", accountType: "zai", mode: "start-plan" }, false],
     [{ type: "zhipu-account", accountType: "bigmodel", mode: "start-plan" }, false],
-    [{ type: "zhipu-account", accountType: "bigmodel", mode: "off-peak" }, true],
     [{ type: "api-key" }, true],
   ])("仅套餐 GLM-5.3 隐藏视觉标，不影响 Flash/真实能力：%j", (access, expected) => {
     const view: ModelSelectionView = {

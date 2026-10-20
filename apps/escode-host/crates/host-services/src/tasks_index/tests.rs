@@ -5,7 +5,7 @@ use super::*;
 fn generated_assets_are_self_consistent() {
     verify_assets().expect("生成资产自校验");
     assert_eq!(schema::SCHEMA_VERSION, 1);
-    assert_eq!(schema::EXPECTED_MIGRATIONS.len(), 3, "三个迁移");
+    assert_eq!(schema::EXPECTED_MIGRATIONS.len(), 4, "四个迁移");
     assert!(
         schema::MIGRATED_DDL
             .iter()
@@ -18,7 +18,7 @@ fn generated_assets_are_self_consistent() {
 fn open_accepts_a_ledger_that_matches_the_generated_asset() {
     let dir = fixture(&expected_ledger());
     let index = TasksIndex::open(&dir.path().join("tasks-index.sqlite")).expect("open");
-    assert_eq!(index.migration_ledger().unwrap().len(), 3);
+    assert_eq!(index.migration_ledger().unwrap().len(), 4);
 }
 
 #[test]
@@ -52,7 +52,13 @@ fn open_refuses_a_ledger_with_missing_unknown_or_mismatched_entries() {
         TasksIndex::open(&dir.path().join("tasks-index.sqlite")).expect_err("missing entry");
     match error {
         TasksIndexError::MigrationMismatch { missing, .. } => {
-            assert_eq!(missing, vec!["0003_official_glm_selection".to_owned()]);
+            assert_eq!(
+                missing,
+                vec![
+                    "0003_official_glm_selection".to_owned(),
+                    "0004_drop_off_peak".to_owned()
+                ]
+            );
         }
         other => panic!("{other:?}"),
     }

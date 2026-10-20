@@ -28,9 +28,6 @@ describe("desktop e2e beforeSession setup", () => {
       startPluginCdnZipFixtureIfNeeded: async () => {
         events.push("plugin-cdn");
       },
-      startOffPeakMockIfNeeded: async () => {
-        events.push("off-peak-mock");
-      },
     }).then(() => {
       events.push("setup-resolved");
     });
@@ -43,7 +40,6 @@ describe("desktop e2e beforeSession setup", () => {
       "configure-env",
       "upstream-http",
       "plugin-cdn",
-      "off-peak-mock",
       "reset-started",
     ]);
     expect(resetHome).toHaveBeenCalledWith(["./test/e2e/example.test.ts"]);

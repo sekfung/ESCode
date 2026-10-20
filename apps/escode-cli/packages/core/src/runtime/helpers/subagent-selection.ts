@@ -11,24 +11,21 @@ const SUBAGENT_SELECTION_MESSAGES = {
   "reasoning-level-not-supported": "Reasoning level unsupported / 不支持所选思考档位",
 } satisfies Record<NonNullable<EffectiveModelSelectionResult["selectionIssue"]>, string>;
 
-/** 显式 profile 是待解析意图；继承与内部 override 已有执行归属，不重新对应账号。 */
+/** 显式 profile 是待解析意图；继承已有执行归属，不重新对应账号。 */
 export function resolveSubagentSelection(input: {
   profileSelection?: ModelSelection | null;
   parentSelection?: ModelSelection | null;
-  overrideSelection?: ModelSelection;
   resolveSelection?: (selection: ModelSelection) => EffectiveModelSelectionResult;
 }): { hasConcreteModel: boolean; selection: ModelSelection } {
   const explicit = input.profileSelection;
-  const result: EffectiveModelSelectionResult = input.overrideSelection
-    ? { effectiveSelection: input.overrideSelection }
-    : explicit
-      ? input.resolveSelection
-        ? input.resolveSelection(cloneModelSelection(explicit))
-        : { effectiveSelection: explicit }
-      : { effectiveSelection: input.parentSelection ?? null };
+  const result: EffectiveModelSelectionResult = explicit
+    ? input.resolveSelection
+      ? input.resolveSelection(cloneModelSelection(explicit))
+      : { effectiveSelection: explicit }
+    : { effectiveSelection: input.parentSelection ?? null };
   if (!result.effectiveSelection || result.selectionIssue) {
     const reason = result.selectionIssue ?? "selection-missing";
-    const requested = input.overrideSelection ?? explicit ?? input.parentSelection;
+    const requested = explicit ?? input.parentSelection;
     const identity = requested ? `; selection=${requested.providerId}/${requested.modelId}` : "";
     // 解析失败不能落回父模型，否则会悄悄改变用户显式指定的子任务模型。
     // 公共错误投影不读取结构化字段（只有 selectionIssue 时消费方看不到）；后台也只保留 message。

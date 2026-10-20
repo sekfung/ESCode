@@ -58,14 +58,14 @@ sequenceDiagram
 
 ### 各方法映射
 
-| legacy                                   | V4 / Engine                                                                                                                                                                         | 结果                                         |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `session/create`（无 `importedHistory`） | `createSession {workspaceId, config{provider,model,thought,mode}, mcpServers, offPeakToolEnabled, dynamicWorkflowEnabled}`；`mode=plan` 再发 `switchCollaborationMode{planEnabled}` | 新会话快照                                   |
-| `session/setModel`                       | `switchModelConfig {modelSelection}`                                                                                                                                                | 快照                                         |
-| `session/setThoughtLevel`                | `switchModelConfig {provider,model 取当前, thought}`                                                                                                                                | 快照                                         |
-| `session/setMode`                        | `yolo/build/edit` → `switchCollaborationMode{mode, planEnabled:false}`；`plan` → `{planEnabled:true}`                                                                               | 快照                                         |
-| `session/close`                          | `deleteSession`（关闭 runtime、保留历史，见 rust-session-close.md）                                                                                                                 | `{closed:true}`；持久性不符 `{closed:false}` |
-| `session/send`                           | `sendText {text, modelSelection, modelExecution, automationId, offPeak*, botDeliveryTarget, browserAmbientContext, toolDisallowlist, attachments, requestedDelivery:startNow}`      | `{sessionId, accepted:true, stateRevision}`  |
+| legacy                                   | V4 / Engine                                                                                                                                                          | 结果                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `session/create`（无 `importedHistory`） | `createSession {workspaceId, config{provider,model,thought,mode}, mcpServers, dynamicWorkflowEnabled}`；`mode=plan` 再发 `switchCollaborationMode{planEnabled}`      | 新会话快照                                   |
+| `session/setModel`                       | `switchModelConfig {modelSelection}`                                                                                                                                 | 快照                                         |
+| `session/setThoughtLevel`                | `switchModelConfig {provider,model 取当前, thought}`                                                                                                                 | 快照                                         |
+| `session/setMode`                        | `yolo/build/edit` → `switchCollaborationMode{mode, planEnabled:false}`；`plan` → `{planEnabled:true}`                                                                | 快照                                         |
+| `session/close`                          | `deleteSession`（关闭 runtime、保留历史，见 rust-session-close.md）                                                                                                  | `{closed:true}`；持久性不符 `{closed:false}` |
+| `session/send`                           | `sendText {text, modelSelection, modelExecution, automationId, botDeliveryTarget, browserAmbientContext, toolDisallowlist, attachments, requestedDelivery:startNow}` | `{sessionId, accepted:true, stateRevision}`  |
 
 规则：
 

@@ -133,7 +133,7 @@ describe("ProviderConfigService", () => {
         "start-plan",
         "individual-coding-plan",
         "team-coding-plan",
-        "off-peak",
+        "highspeed",
       ] as const) {
         const personal = new MemoryPersonalRepository(
           layerSnapshot(

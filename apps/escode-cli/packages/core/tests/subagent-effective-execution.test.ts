@@ -19,12 +19,12 @@ describe("Subagent 有效选择到实际执行", () => {
   };
   const effective = { ...original, providerId: "account:bigmodel-team-coding-plan" };
 
-  it.each(["explicit", "inherit", "inherit-plan", "override", "unavailable"] as const)(
+  it.each(["explicit", "inherit", "inherit-plan", "unavailable"] as const)(
     "%s：通过 Agent tool 创建真实 child 并检查请求使用的模型",
     async (kind) => {
       const childSelections: ModelSelection[] = [];
       const resolveEffectiveModelSelection = vi.fn(() => ({
-        effectiveSelection: kind === "unavailable" || kind === "override" ? null : effective,
+        effectiveSelection: kind === "unavailable" ? null : effective,
       }));
       let mainCalls = 0;
       const executeTurnSpy = vi.spyOn(AgentRuntime.prototype, "executeTurn");
@@ -87,24 +87,7 @@ describe("Subagent 有效选择到实际执行", () => {
           }),
         },
       );
-      await runtime.executeTurn(
-        "Run the researcher.",
-        undefined,
-        kind === "override"
-          ? {
-              intent: {
-                sourceCommandId: "execution-override",
-                kind: "sendText",
-                requestedDelivery: "start-now",
-                modelSelection: effective,
-              },
-              modelExecution: {
-                selectionScope: "execution",
-                subagents: { foregroundModel: "submission", background: "deny" },
-              },
-            }
-          : undefined,
-      );
+      await runtime.executeTurn("Run the researcher.");
       expect(childSelections).toEqual(
         kind === "unavailable" ? [] : [kind.startsWith("inherit") ? parent : effective],
       );

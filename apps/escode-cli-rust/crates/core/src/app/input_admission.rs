@@ -91,7 +91,7 @@ impl Engine {
         {
             content = crate::domain::prompt::user_steer(text).into();
         }
-        // 执行作用域的选择只属于本轮，不写入会话模型（TS selectionScope "execution"，rust-offpeak.md 第三期）。
+        // 执行作用域的选择只属于本轮，不写入会话模型（TS selectionScope "execution"）。
         let execution = c
             .payload
             .get("modelExecution")
@@ -293,26 +293,14 @@ impl Engine {
                     .collect()
             })
             .unwrap_or_default();
-        // 闲时派发身份（显式或 offpeak- 前缀 commandId，docs/specs/rust-offpeak.md 第二期）随输入固化。
-        let off_peak = crate::domain::off_peak::turn_task_id(
-            c.payload["offPeakTaskId"].as_str(),
-            &c.command_id,
-        );
-        let disallowed = crate::domain::cron::turn_disallowlist(
-            &requested,
-            automation.as_deref(),
-            off_peak.as_deref(),
-        );
+        let disallowed = crate::domain::cron::turn_disallowlist(&requested, automation.as_deref());
         if let Some(id) = &automation {
             payload["automationId"] = id.clone().into();
         }
-        if let Some(id) = &off_peak {
-            payload["offPeakTaskId"] = id.clone().into();
-        }
         // 凭据只在内存：payload（会持久化）去掉 modelExecution，只留无秘密的标记。
-        if let Some(execution) = &execution {
+        if execution.is_some() {
             payload.as_object_mut().unwrap().remove("modelExecution");
-            payload[super::model_execution::MARKER] = serde_json::json!({"skipMemory": execution.skip_memory, "subagents": execution.subagents});
+            payload[super::model_execution::MARKER] = true.into();
         }
         if !disallowed.is_empty() {
             payload["toolDisallowlist"] = disallowed.into();

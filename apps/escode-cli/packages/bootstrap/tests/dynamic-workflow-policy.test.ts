@@ -14,7 +14,6 @@ function makeContext() {
     appRuntimePreferences: {
       askUserQuestionAutoResolutionEnabled: true,
       modelIoFullRetentionEnabled: false,
-      offPeakToolEnabled: false,
       dynamicWorkflowEnabled: false,
     },
   } as unknown as ESCodeProtocolAgentServerContext;
@@ -104,7 +103,7 @@ describe("session 创建：runtimeConfig.dynamicWorkflowEnabled", () => {
     { params: {}, expected: false },
     { params: { dynamicWorkflowEnabled: true }, expected: true },
     { params: { preference: true }, expected: true },
-    // per-session 显式 true 与 workspace 结论是或的关系（与 off-peak 同款）。
+    // per-session 显式 true 与 workspace 结论是或的关系。
     { params: { dynamicWorkflowEnabled: true, preference: false }, expected: true },
     { params: { dynamicWorkflowEnabled: false, preference: true }, expected: true },
   ])("%j", async ({ params, expected }) => {

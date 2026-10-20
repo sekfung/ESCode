@@ -55,7 +55,7 @@ impl Engine {
                 );
             }
         }
-        // Cron 定时任务与闲时任务派发的本轮事实（docs/specs/rust-cron.md、rust-offpeak.md）。
+        // Cron 定时任务派发的本轮事实（docs/specs/rust-cron.md）。
         if p.get("toolDisallowlist").is_some_and(|v| {
             v.as_array()
                 .is_none_or(|a| a.iter().any(|t| t.as_str().is_none_or(str::is_empty)))
@@ -70,24 +70,7 @@ impl Engine {
         if p.get("botDeliveryTarget").is_some_and(|v| !v.is_object()) {
             bail!("Invalid botDeliveryTarget");
         }
-        if p.get("offPeakTaskId")
-            .is_some_and(|v| v.as_str().is_none_or(|s| s.trim().is_empty()))
-        {
-            bail!("Invalid offPeakTaskId");
-        }
-        if p.get("offPeakRunType")
-            .is_some_and(|v| !matches!(v.as_str(), Some("init" | "resume")))
-        {
-            bail!("Invalid offPeakRunType");
-        }
-        // 协议 superRefine：两类派发身份互斥；runType 需要闲时身份。
-        if p.get("automationId").is_some() && p.get("offPeakTaskId").is_some() {
-            bail!("automationId and offPeakTaskId are mutually exclusive");
-        }
-        if p.get("offPeakRunType").is_some() && p.get("offPeakTaskId").is_none() {
-            bail!("offPeakRunType requires offPeakTaskId");
-        }
-        // 单次执行约束（docs/specs/rust-offpeak.md 第三期）：strict 形态，且需要同时给出 modelSelection。
+        // 单次执行约束：strict 形态，且需要同时给出 modelSelection（highspeed 等执行作用域）。
         if let Some(execution) = p.get("modelExecution") {
             crate::domain::model_execution::parse(execution).map_err(anyhow::Error::msg)?;
             if p.get("modelSelection").is_none_or(Value::is_null) {

@@ -14,7 +14,6 @@ import {
 } from "../../../helpers/desktop-app.js";
 import {
   getUpstreamRequestEvidence,
-  getUpstreamRequestToolNames,
   waitForUpstreamRequest,
 } from "../../../helpers/conversation-session-network.js";
 import { reloadElectronSessionSafely } from "../../../helpers/e2e-electron-reload.js";
@@ -37,7 +36,7 @@ interface Timing {
   userVisibleAt?: number;
 }
 
-// SCB01/02：配置网关在 beforeSession 就保持 pending，不启用 ESCODE_OFFPEAK_MOCK。
+// SCB01/02：配置网关在 beforeSession 就保持 pending。
 // 必须在网关一个配置响应都没返回的条件下证明真实 Enter -> 接纳投影 -> HTTP dispatch。
 describe("配置等待与普通聊天隔离", () => {
   after(async () => {
@@ -47,7 +46,6 @@ describe("配置等待与普通聊天隔离", () => {
 
   it("SCB01/02: 冷 draft、续发与重启冷恢复都能在配置 pending 时发送", async function () {
     this.timeout(240_000);
-    expect(process.env.ESCODE_OFFPEAK_MOCK).not.toBe("1");
     await prepareV4ConversationE2E();
     const evidence: unknown[] = [];
     let sessionId = "";
@@ -70,7 +68,6 @@ describe("配置等待与普通聊天隔离", () => {
           15_000,
         );
         const query = { lastUserMessageIncludes: [marker] };
-        const tools = await getUpstreamRequestToolNames(query);
         await waitForV4AssistantMessageContaining(
           ["scb-cold-ok", "scb-warm-ok", "scb-resume-ok"][index]!,
         );
@@ -105,8 +102,6 @@ describe("配置等待与普通聊天隔离", () => {
           CONFIG_REQUEST_TIMEOUT_MS,
         );
         expect(request.status).toBe("complete");
-        expect(tools).toContain("OffPeakCreate");
-        expect(tools).toContain("OffPeakList");
       }
     } finally {
       const root = join(getE2EAppDataPaths().homeDir, "ESCodeProject", ".escode-e2e", CASE_NAME);

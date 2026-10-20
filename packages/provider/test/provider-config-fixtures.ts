@@ -29,7 +29,7 @@ interface ApiKeyProviderFixtureInput extends CommonProviderFixtureInput {
 
 interface AccountProviderFixtureInput extends CommonProviderFixtureInput {
   readonly accountType?: "zai" | "bigmodel";
-  readonly mode?: "start-plan" | "individual-coding-plan" | "team-coding-plan" | "off-peak";
+  readonly mode?: "start-plan" | "individual-coding-plan" | "team-coding-plan" | "highspeed";
   readonly entitled?: boolean | null;
 }
 

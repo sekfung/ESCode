@@ -64,7 +64,6 @@ fn create_params_keep_the_typescript_whitelist() {
     assert_eq!(request["parentSessionId"], json!("sess_parent"));
     assert_eq!(request["persistence"], json!("deferred"));
     // 灰度 flag 关闭/缺省时整键不写。
-    assert!(request.get("offPeakToolEnabled").is_none());
     assert!(request.get("dynamicWorkflowEnabled").is_none());
     assert!(request.get("dynamicWorkflowMode").is_none());
     assert!(request.get("titleGenerationEnabled").is_some());
@@ -94,7 +93,6 @@ fn grayscale_flags_come_from_host_gates_never_from_renderer_params() {
     // Renderer 入参里的灰度字段一律忽略（TS 用 Host 判定值覆盖入参）。
     let forged = json!({
         "sessionId": "sess_1",
-        "offPeakToolEnabled": true,
         "dynamicWorkflowEnabled": true,
         "dynamicWorkflowMode": "alwaysOn",
     });
@@ -102,32 +100,20 @@ fn grayscale_flags_come_from_host_gates_never_from_renderer_params() {
         session_create_params(&forged, &closed()),
         session_resume_params(&forged, &closed()),
     ] {
-        assert!(request.get("offPeakToolEnabled").is_none());
         assert!(request.get("dynamicWorkflowEnabled").is_none());
         assert!(request.get("dynamicWorkflowMode").is_none());
     }
     // Host 判定开启时：只在命中时下发 true，mode 与布尔同行。
     let open = ToolGates {
-        off_peak: true,
         dynamic_workflow_mode: Some("alwaysOn".to_owned()),
     };
     for request in [
         session_create_params(&json!({"sessionId": "sess_1"}), &open),
         session_resume_params(&json!({"sessionId": "sess_1"}), &open),
     ] {
-        assert_eq!(request["offPeakToolEnabled"], json!(true));
         assert_eq!(request["dynamicWorkflowEnabled"], json!(true));
         assert_eq!(request["dynamicWorkflowMode"], json!("alwaysOn"));
     }
-    let off_peak_only = session_create_params(
-        &json!({"sessionId": "sess_1"}),
-        &ToolGates {
-            off_peak: true,
-            dynamic_workflow_mode: None,
-        },
-    );
-    assert!(off_peak_only.get("dynamicWorkflowEnabled").is_none());
-    assert!(off_peak_only.get("dynamicWorkflowMode").is_none());
 }
 
 #[test]

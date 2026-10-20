@@ -244,7 +244,6 @@ export type {
 export type { ESCodeTaskCreateResult } from "./escode-task-types.js";
 export * from "./escode-task-types.js";
 export * from "./automation-types.js";
-export * from "./off-peak-types.js";
 export * from "./background-task-control-merge.js";
 export * from "./background-task-controls.js";
 export * from "./background-task-notifications.js";

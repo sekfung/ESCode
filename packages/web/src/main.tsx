@@ -1240,10 +1240,6 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
       createUnsupportedHomeOnlyService<RootServices["usageStatsService"]>("usageStatsService"),
     clientConfigService: createEmptyHomeOnlyService<RootServices["clientConfigService"]>({
       getSnapshot: async () => ({ pluginStoreOrder: null, zsrcUrl: null }),
-      getOffPeakClientConfig: async () => ({
-        enabled: false,
-        modelSelectionView: { revision: 0, providers: [] },
-      }),
       getDynamicWorkflowClientConfig: async () => ({
         mode: "default",
         enabled: false,
@@ -1255,9 +1251,6 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
     clientScenesService: createEmptyHomeOnlyService<RootServices["clientScenesService"]>({
       list: async () => ({ code: 0, msg: "", data: [] }),
     }),
-    // 闲时任务仅桌面本地（D13）；web home-only 环境按不支持处理。
-    offPeakTaskService:
-      createUnsupportedHomeOnlyService<RootServices["offPeakTaskService"]>("offPeakTaskService"),
     skillsService: createEmptyHomeOnlyService<RootServices["skillsService"]>({
       list: async () => ({
         skills: [],

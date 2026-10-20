@@ -62,7 +62,7 @@ describe("Session 原选择与输入协议", () => {
       workspace: { workspacePath: "/fixture", workspaceKey: "/fixture" },
     });
     const selection = {
-      providerId: "account:offpeak",
+      providerId: "account:highspeed-card",
       modelId: "fixture-model",
       options: { reasoningLevel: "high" },
     };
@@ -76,7 +76,6 @@ describe("Session 原选择与输入协议", () => {
       modelSelection: selection,
       modelExecution: {
         selectionScope: "execution",
-        memoryExtraction: "skip",
         requestAuth: { headers: { "x-ticket": "fixture" } },
       },
     });
@@ -91,7 +90,7 @@ describe("Session 原选择与输入协议", () => {
     expect(options).toMatchObject({
       inputId: "attachment-input",
       intent: { modelSelection: selection },
-      modelExecution: { selectionScope: "execution", memoryExtraction: "skip" },
+      modelExecution: { selectionScope: "execution" },
     });
     expect(JSON.stringify(options?.intent)).not.toContain("x-ticket");
     expect(

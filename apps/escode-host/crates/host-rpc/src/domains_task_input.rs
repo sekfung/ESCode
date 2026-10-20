@@ -16,7 +16,6 @@ use crate::task_targets::TaskTarget;
 use crate::wire::Wire;
 
 const AUTOMATION_DENYLIST: [&str; 3] = ["CronCreate", "CronUpdate", "CronDelete"];
-const OFF_PEAK_DENYLIST: [&str; 1] = ["OffPeakCreate"];
 
 pub(super) fn input_methods(context: &StateContext) -> Vec<(&'static str, MethodHandler)> {
     vec![
@@ -60,22 +59,15 @@ pub(super) fn runtime(context: &StateContext) -> Result<RuntimeAccess, RpcError>
         .ok_or_else(|| RpcError::new("InvalidRequest", "Host has no runtime access."))
 }
 
-/// TS `turnAttributionOf`：automation 优先于 off-peak。
+/// TS `turnAttributionOf`：本轮的 automation 归属。
 pub(super) fn turn_attribution(params: &Value) -> Value {
     if let Some(automation) = params["automationId"].as_str() {
         return json!({"automationId": automation});
     }
-    if let Some(offpeak) = params["offPeakTaskId"].as_str() {
-        let mut value = json!({"offPeakTaskId": offpeak});
-        if let Some(kind) = params["offPeakRunType"].as_str() {
-            value["offPeakRunType"] = Value::from(kind);
-        }
-        return value;
-    }
     json!({})
 }
 
-/// TS `resolvePromptToolDenylist`：基础 denylist + 本轮 automation/off-peak 的纵深隐藏。
+/// TS `resolvePromptToolDenylist`：基础 denylist + 本轮 automation 的纵深隐藏。
 pub(super) fn prompt_tool_denylist(params: &Value) -> Vec<String> {
     let mut tools: Vec<String> = params["toolDenylist"]
         .as_array()
@@ -87,13 +79,9 @@ pub(super) fn prompt_tool_denylist(params: &Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default();
-    // TS 两个分支独立执行：automation 轮与闲时轮同时打标时两组工具都要隐藏。
     let mut extra: Vec<&str> = Vec::new();
     if params["automationId"].as_str().is_some() {
         extra.extend(AUTOMATION_DENYLIST);
-    }
-    if params["offPeakTaskId"].as_str().is_some() {
-        extra.extend(OFF_PEAK_DENYLIST);
     }
     for tool in extra {
         if !tools.iter().any(|existing| existing == tool) {
@@ -274,7 +262,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prompt_denylist_merges_automation_and_offpeak_rules() {
+    fn prompt_denylist_merges_automation_rules() {
         assert_eq!(prompt_tool_denylist(&json!({})), Vec::<String>::new());
         let automation = prompt_tool_denylist(&json!({
             "automationId": "cron_1",
@@ -284,28 +272,13 @@ mod tests {
             automation,
             vec!["Read", "CronCreate", "CronUpdate", "CronDelete"]
         );
-        let offpeak = prompt_tool_denylist(&json!({"offPeakTaskId": "off_1"}));
-        assert_eq!(offpeak, vec!["OffPeakCreate"]);
-        let both = prompt_tool_denylist(&json!({
-            "automationId": "cron_1", "offPeakTaskId": "off_1",
-        }));
-        assert_eq!(
-            both,
-            vec!["CronCreate", "CronUpdate", "CronDelete", "OffPeakCreate"]
-        );
-        // cron 轮不 deny OffPeakCreate（与 TS 一致）。
-        assert!(!automation.iter().any(|tool| tool == "OffPeakCreate"));
     }
 
     #[test]
-    fn turn_attribution_prefers_automation() {
+    fn turn_attribution_reports_automation_only() {
         assert_eq!(
-            turn_attribution(&json!({"automationId": "a", "offPeakTaskId": "b"})),
+            turn_attribution(&json!({"automationId": "a"})),
             json!({"automationId": "a"})
-        );
-        assert_eq!(
-            turn_attribution(&json!({"offPeakTaskId": "b", "offPeakRunType": "queued"})),
-            json!({"offPeakTaskId": "b", "offPeakRunType": "queued"})
         );
         assert_eq!(turn_attribution(&json!({})), json!({}));
     }

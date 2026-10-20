@@ -100,13 +100,9 @@ describe("WorkspaceSidebar task view switcher", () => {
     expect(source).toContain("不能当成“所有 group 已删除”");
   });
 
-  it("Idle-time 收敛后由 grouped 树承载，侧栏不再独立渲染系统分组（D48-A）", () => {
+  it("keeps plugin store navigation wired to the sidebar entry", () => {
     const source = readWorkspaceSidebarSource();
 
-    expect(source).not.toContain("OffPeakSidebarGroup");
-    expect(source).not.toContain("data-workspace-grouped-system-stack");
-    // 闲时组头「+」路由到 Automations：Section 通过该 prop 拿到入口。
-    expect(source).toContain("onOpenAutomations={handleOpenAutomationsMain}");
     expect(source).toContain("onClick={handleOpenPluginStoreMain}");
     expect(source).not.toContain("handleOpenPluginsSettings");
   });

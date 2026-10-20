@@ -128,14 +128,14 @@ export class TestAiSdkModelAdapter extends ProductionAiSdkModelAdapter {
     if (!fixture) throw new Error("Test Provider Config fixture is required");
     const resolved = fixture.resolveConfig(
       { providerId: options.providerId, modelId: options.modelId },
-      options.accountMode ?? (options.requestDependencies?.requestAuth ? "off-peak" : undefined),
+      options.accountMode ?? (options.requestDependencies?.requestAuth ? "highspeed" : undefined),
     );
     const requestDependencies =
       options.requestDependencies ??
-      (options.accountMode === "off-peak"
+      (options.accountMode === "highspeed"
         ? {
             requestAuth: {
-              source: { resolve: async () => ({ apiKey: "test-off-peak-key" }) },
+              source: { resolve: async () => ({ apiKey: "test-highspeed-card-key" }) },
             },
           }
         : undefined);

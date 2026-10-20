@@ -155,11 +155,11 @@ describe("ApiProviderModelRuntime", () => {
     });
   });
 
-  it("Off-Peak Provider 绑定调用方提供的请求鉴权 Source", () => {
+  it("加速卡 Provider 绑定调用方提供的请求鉴权 Source", () => {
     const requestProvider = provider(
       "request-provider",
       new ProviderConfig({
-        access: new ZhipuAccountAccessConfig({ accountType: "zai", mode: "off-peak" }),
+        access: new ZhipuAccountAccessConfig({ accountType: "zai", mode: "highspeed" }),
         api: new ProviderApiConfig({
           type: "anthropic-messages",
           baseUrl: "https://request.example.com",
@@ -178,7 +178,7 @@ describe("ApiProviderModelRuntime", () => {
     expect(created[0]?.requestDependencies?.requestAuth?.source).toBe(source);
   });
 
-  it("非 Off-Peak 的账号模式不转发执行作用域 Source", () => {
+  it("非加速卡的账号模式不转发执行作用域 Source", () => {
     // 门禁边界：Coding Plan 等静态鉴权模式不消费执行作用域 requestAuth，避免把 source
     // 无条件透传给所有账号 Provider（防止门禁被误放宽成永远转发）。
     const codingPlanProvider = provider(

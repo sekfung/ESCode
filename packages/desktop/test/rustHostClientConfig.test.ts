@@ -33,7 +33,6 @@ const MESSY = {
         other: { categoryOrder: ["z"] },
       },
       zsrc: { url: "  https://zsrc.example.com/path  ", extra: true },
-      offPeak: { enable_offpeak_task: true },
     },
   },
 };

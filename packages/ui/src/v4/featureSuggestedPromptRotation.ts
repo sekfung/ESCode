@@ -121,11 +121,19 @@ function selectForPane(
       }
     }
   }
-  for (const avoidPrevious of [true, false]) {
-    for (const item of candidates) {
-      if (selected.length >= Math.min(3, pool.length)) break;
-      if (avoidPrevious && previousIds.has(item.id)) continue;
-      if (!selected.some((chosen) => chosen.id === item.id)) selected.push(item);
+  for (const avoidGlobal of [true, false]) {
+    for (const avoidPrevious of [true, false]) {
+      for (const item of candidates) {
+        if (selected.length >= Math.min(3, pool.length)) break;
+        if (avoidPrevious && previousIds.has(item.id)) continue;
+        if (avoidGlobal && globalIds.has(item.id)) continue;
+        // 候选池变小后仍要保持同屏图标不重复：前一循环因全局图标避让放弃的候选，只能在这里按本屏去重补位。
+        if (localIcons.has(iconKey(item))) continue;
+        if (!selected.some((chosen) => chosen.id === item.id)) {
+          selected.push(item);
+          localIcons.add(iconKey(item));
+        }
+      }
     }
   }
   for (const item of selected) {

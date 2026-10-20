@@ -20,10 +20,7 @@ impl Engine {
         self.ensure_session(&id).await?;
         if !was_active {
             // 冷恢复重建 runtime 时必须沿用 create 的工具面约束，否则恢复出来的会话会丢
-            // OffPeak / 工作流工具簇（TS resume 与 create 同语义）。
-            if let Some(enabled) = p["offPeakToolEnabled"].as_bool() {
-                self.fix_off_peak(&id, enabled);
-            }
+            // 工作流工具簇（TS resume 与 create 同语义）。
             if let Some(enabled) = p["dynamicWorkflowEnabled"].as_bool() {
                 self.fix_dynamic_workflow(&id, enabled, p.get("dynamicWorkflowMode"));
             }

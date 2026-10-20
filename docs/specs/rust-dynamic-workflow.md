@@ -33,7 +33,7 @@
 
 ## 分期（每期独立验收，按顺序推进）
 
-1. 开关与工具面：`workspace/updateDynamicWorkflowPolicy` 与 `dynamicWorkflowEnabled`（同 OffPeak 的读法，fail-closed）；
+1. 开关与工具面：`workspace/updateDynamicWorkflowPolicy` 与 `dynamicWorkflowEnabled`（workspace 级灰度，fail-closed）；
    未实现的工作流工具在实现前不注册（保持现状），开关只决定之后各期工具的可见性。
 2. 已保存工作流：存储格式与解析/序列化（TS 只有一份，Rust 逐字对齐），`workflows/*` 管理方法，
    ListSavedWorkflows / SaveWorkflow。验收：TS 存储 oracle 语料 + App 差分。

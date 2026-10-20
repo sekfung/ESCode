@@ -2,8 +2,8 @@
 // 动态工作流灰度关掉之后的自动化页（docs/dynamic-workflow/launch.md「Gray release」DWG-07）：
 // 只剩一个平铺的「自动化」标题，没有「工作流」标签，也不挂中枢。
 //
-// AutomationsSection 本体在本仓从不整棵渲染（依赖面太大），沿用 automationsSectionOffPeakTelemetry
-// 与 automationsPageTabs 的做法：接线用源码契约钉，标题本身真渲染。
+// AutomationsSection 本体在本仓从不整棵渲染（依赖面太大），沿用 automationsPageTabs 的做法：
+// 接线用源码契约钉，标题本身真渲染。
 import { createElement, useState } from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

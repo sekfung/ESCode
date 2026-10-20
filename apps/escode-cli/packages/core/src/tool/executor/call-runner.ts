@@ -404,7 +404,6 @@ async function executeToolCallImpl(
         toolCallId: canonicalToolCall.id,
         telemetry,
         automationTurn: options?.automationTurn,
-        offPeakTurn: options?.offPeakTurn,
         traceContext,
         traceId,
         spanId: traceContext.spanId,
@@ -424,7 +423,6 @@ async function executeToolCallImpl(
           model,
           createToolModelStatusSink({ emitEvent, sessionId: deps.sessionId, turnId, traceId }),
         ),
-        subagentModelOverride: options?.subagentModelOverride,
         embeddedSearch: {
           ...(deps.embeddedSearchBackend ? { backend: deps.embeddedSearchBackend } : {}),
           enabled: embeddedSearchDecision?.useEmbeddedSearchBranch ?? false,
@@ -437,7 +435,6 @@ async function executeToolCallImpl(
         workflowEscalatePort: deps.workflowEscalatePort,
         artifactStore: deps.artifactStore,
         automationPort: deps.automationPort,
-        offPeakPort: deps.offPeakPort,
         topicResourcePort: deps.topicResourcePort,
         sessionStore: deps.sessionStore,
         sessionModePort: deps.sessionModePort,

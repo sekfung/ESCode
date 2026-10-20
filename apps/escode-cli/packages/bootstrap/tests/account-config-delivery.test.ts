@@ -107,8 +107,8 @@ describe("托管 Worker 账号交付", () => {
 
   it.each([
     { providerId: "account:bigmodel-individual-coding-plan", entitled: false },
-    { providerId: "account:bigmodel-offpeak-idle-plan", entitled: true },
-  ])("初始 fail-closed 和闲时不被强加 current：$providerId", ({ providerId, entitled }) => {
+    { providerId: "account:bigmodel-highspeed-card", entitled: true },
+  ])("初始 fail-closed 和加速卡不被强加 current：$providerId", ({ providerId, entitled }) => {
     expect(() =>
       parseProcessAccountProviderConfigSnapshot({
         revision: "allowed",

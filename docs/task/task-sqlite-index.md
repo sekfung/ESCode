@@ -8,11 +8,13 @@ The index is not a replacement for ESCode Protocol session snapshots.
 
 ## 库级迁移（Todo109）
 
-`tasks-index.sqlite` 还容纳 Automation 与 Off-Peak 表。三个 Repo 在开放读写前
+`tasks-index.sqlite` 还容纳 Automation 表。两个 Repo 在开放读写前
 复用 `runTasksDatabaseMigrations`；库级 `tasks_schema_migration` 通过
 `BEGIN IMMEDIATE` 串行检查并应用迁移，失败回滚且不记成功。
-`0001_adopt_task_schema` 接管八张已有表、历史补列和索引；
-`0002_provider_selection` 收口已裁决的 Automation 转换。之后只追加新迁移，
+`0001_adopt_task_schema` 接管已有表、历史补列和索引；
+`0002_provider_selection` 收口已裁决的 Automation 转换；
+`0004_drop_off_peak` 在产品删除闲时任务后清理历史 `off_peak_tasks` 表与
+`tasks.off_peak_task_id` 投影列。之后只追加新迁移，
 不得修改已发布 SQL、冻结转换实现或其语义版本。checksum 覆盖声明式 SQL/列清单及
 转换语义版本，不使用会被打包器改写的函数文本。
 
@@ -24,8 +26,7 @@ The index is not a replacement for ESCode Protocol session snapshots.
 旧列及时间戳不被 Provider 转换覆盖；正常 Reader/派发只使用新列。
 Automation 的 JSON `null` 表示明确使用默认配置，SQL NULL 表示配置缺失，需要重选。
 回滚产生的新旧格式记录不通过重复执行既有迁移追赶，内容仍须可列出、打开。
-Off-Peak 缺失 Provider 的旧选择不查询当前账号补猜，不改变 Ticket 或读取时补迁；
-缺配置只影响后续执行资格。TaskIndex 既有关联清理与投影维护不属于 Provider 转换。
+TaskIndex 既有关联清理与投影维护不属于 Provider 转换。
 
 ## Responsibilities
 

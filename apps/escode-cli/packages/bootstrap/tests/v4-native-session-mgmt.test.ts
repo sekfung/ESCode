@@ -201,16 +201,16 @@ describe("v4 原生 createSession", () => {
     },
   );
 
-  it("创建 draft record 时透传 Off-Peak 工具面 flag（D49：v4 是桌面新会话的实际创建路径）", async () => {
+  it("创建 draft record 时透传动态工作流灰度 flag（v4 是桌面新会话的实际创建路径）", async () => {
     const record = makeRecord({ app: makeApp(), persistence: "deferred" });
     const { host, createSessionRecord } = makeCreateHost(record);
 
     await new V4CommandExecutor(host).execute(
-      envelope("createSession", { workspaceId: "/w", offPeakToolEnabled: true }, "draft-offpeak"),
+      envelope("createSession", { workspaceId: "/w", dynamicWorkflowEnabled: true }, "draft-workflow"),
     );
 
     expect(createSessionRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceId: "/w", offPeakToolEnabled: true }),
+      expect.objectContaining({ workspaceId: "/w", dynamicWorkflowEnabled: true }),
     );
   });
 

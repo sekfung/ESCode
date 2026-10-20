@@ -44,8 +44,7 @@ Rust 实现（`core/src/app/session_resume.rs`）：
 
 1. 校验 workspace → `ensure_session`：已在内存则 touch，否则从 Store 物化（校验边界、recover、
    水合文件改动并提交）、发布 index——与 TS materialize 的等价物。
-2. **仅冷恢复时**应用请求参数（TS 命中 existing 会直接返回，不重放参数）：`offPeakToolEnabled` /
-   `dynamicWorkflowEnabled` 按 create 的同一套 `fix_*` 固化；`mcpServers` 交 `configure_mcp`；
+2. **仅冷恢复时**应用请求参数（TS 命中 existing 会直接返回，不重放参数）：`dynamicWorkflowEnabled` 按 create 的同一套 `fix_*` 固化；`mcpServers` 交 `configure_mcp`；
    `thoughtLevel` 只作为旧会话的迁移 hint——仅在会话没有持久化推理档位时写入，已有档位以持久化为准
    （TS `model: undefined`、由单向迁移/entry 恢复的同一条规则）。
 3. 返回 `read_session` 的 snapshot（与 `session/read` 同一 schema 与投影）。

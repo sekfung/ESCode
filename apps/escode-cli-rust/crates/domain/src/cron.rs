@@ -74,25 +74,19 @@ pub fn turn_automation_id(explicit: Option<&str>, command_id: &str) -> Option<St
     (id.len() > "automation-".len()).then(|| id.to_owned())
 }
 
-/// TS `buildTurnToolDisallowlist`：自动化轮加 Cron 写工具，闲时派发轮加 OffPeak 受限工具（rust-offpeak.md 第二期）。
-pub fn turn_disallowlist(
-    requested: &[String],
-    automation_id: Option<&str>,
-    off_peak_task_id: Option<&str>,
-) -> Vec<String> {
+/// TS `buildTurnToolDisallowlist`：自动化轮加 Cron 写工具。
+pub fn turn_disallowlist(requested: &[String], automation_id: Option<&str>) -> Vec<String> {
     let mut tools: Vec<String> = Vec::new();
     for tool in requested {
         if !tools.contains(tool) {
             tools.push(tool.clone());
         }
     }
-    let extra = automation_id
-        .map(|_| &MUTATION_TOOLS[..])
-        .into_iter()
-        .chain(off_peak_task_id.map(|_| &crate::off_peak::MUTATION_TOOLS[..]));
-    for tool in extra.flatten() {
-        if !tools.iter().any(|t| t == tool) {
-            tools.push((*tool).to_owned());
+    if automation_id.is_some() {
+        for tool in MUTATION_TOOLS {
+            if !tools.iter().any(|t| *t == tool) {
+                tools.push(tool.to_owned());
+            }
         }
     }
     tools

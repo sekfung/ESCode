@@ -90,7 +90,6 @@ const STATIC_HTTP_PATH_SEGMENTS = new Set([
   "mobile-view-state",
   "models",
   "oauth",
-  "off-peak",
   "order",
   "orders",
   "organization",

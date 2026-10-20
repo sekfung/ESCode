@@ -110,7 +110,7 @@ describe.each(API_TYPES)("%s 请求期账号鉴权", (apiType) => {
 });
 
 describe("账号 owner 的动态身份头", () => {
-  it.each(["start-plan", "off-peak", "highspeed"] as const)(
+  it.each(["start-plan", "highspeed"] as const)(
     "%s 保留独立 JWT 和票据头",
     async (mode) => {
       const { requests, bound } = fixture(
@@ -126,7 +126,7 @@ describe("账号 owner 的动态身份头", () => {
             headers: {
               Authorization: "Bearer owner-jwt",
               "X-API-KEY": "owner-key",
-              "X-Off-Peak-Ticket-ID": "ticket",
+              "X-Highspeed-Card-ID": "card",
             },
           },
         }).model,
@@ -134,7 +134,7 @@ describe("账号 owner 的动态身份头", () => {
       expect(requests).toHaveLength(1);
       expect(requests[0]!.headers.get("authorization")).toBe("Bearer owner-jwt");
       expect(requests[0]!.headers.get("x-api-key")).toBe("owner-key");
-      expect(requests[0]!.headers.get("x-off-peak-ticket-id")).toBe("ticket");
+      expect(requests[0]!.headers.get("x-highspeed-card-id")).toBe("card");
     },
   );
 });

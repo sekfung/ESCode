@@ -44,7 +44,6 @@ import {
   type ResolvedAiSdkModel,
 } from "./runner-runtime.js";
 import { createModel, type ModelExecutionRequest } from "./model.js";
-import { refreshOffPeakRequestAuth } from "./off-peak-request-auth.js";
 
 export type { AiSdkModelRetryOptions } from "./retry-policy.js";
 export type {
@@ -168,16 +167,16 @@ export class AiSdkModelAdapter {
       const shouldAttachReasoningTelemetry = request.options.reasoningLevel !== undefined;
       const selectedReasoningLevel = request.options.reasoningLevel;
       const requestAuthDependency = options.requestDependencies?.requestAuth;
-      // Bug 根因：Off-Peak 是 Coding Plan 派生模式，本轮动态鉴权（escode JWT + Coding Plan
-      // 双 JWT，见 off-peak 规格）经 modelExecution.requestAuth 下发到执行作用域 Source。
+      // 加速卡是 Coding Plan 派生模式，本轮动态鉴权（卡 JWT / 卡身份 header）经
+      // modelExecution.requestAuth 下发到执行作用域 Source。
       // 若门禁漏掉该模式会落到下面的账号 runtime-header 刷新分支，把整包 requestAuth 丢弃，
       // 请求因缺票据被网关判 401。派生免签模式必须同样消费执行作用域 Source。
       const requestAuthRequired =
         options.providerConfig.access.type === "zhipu-account" &&
-        options.providerConfig.access.mode === "off-peak";
+        options.providerConfig.access.mode === "highspeed";
       // 调用级 runtime header Port 只服务绑定完整 Account Access 的账号型 Model；
       // 普通 API-key Model 若也消费该 Port，会把静态鉴权误送到 Host 刷新并在请求前失败。
-      // 派生模式保留执行作用域票据/卡身份；Off-Peak 的 PAT 仍逐请求向原账号 owner 刷新。
+      // 派生模式保留执行作用域票据/卡身份。
       const refreshRuntimeHeadersBeforeAttempt = requestAuthRequired
         ? async (input: ModelRequestAuthSourceInput) => {
             const requestAuth = await requestAuthDependency?.source?.resolve(input);
@@ -187,17 +186,7 @@ export class AiSdkModelAdapter {
                 `Model request auth is unavailable: ${resolved.providerId}/${resolved.modelId}`,
               );
             }
-            const refreshedAuth =
-              options.providerConfig.access.type === "zhipu-account" &&
-              options.providerConfig.access.mode === "off-peak"
-                ? await refreshOffPeakRequestAuth({
-                    auth: requestAuth,
-                    input,
-                    accountAccess: options.providerConfig.access,
-                    refresh: contextRefreshRuntimeHeadersBeforeAttempt,
-                  })
-                : requestAuth;
-            return { headersApplied: true, requestAuth: refreshedAuth };
+            return { headersApplied: true, requestAuth };
           }
         : options.providerConfig.access.type === "zhipu-account"
           ? (contextRefreshRuntimeHeadersBeforeAttempt ??

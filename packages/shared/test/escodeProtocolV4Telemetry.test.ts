@@ -55,39 +55,6 @@ describe("ConversationTelemetryFact schema", () => {
     expect(() => conversationTelemetryFactSchema.parse({ ...tool, output: "private" })).toThrow();
   });
 
-  it("Off-Peak admission 只接收稳定 task ID，且与 automation 互斥", () => {
-    const started = conversationTelemetryFactSchema.parse({
-      ...base,
-      kind: "turn.started",
-      sourceCommandId: "message-run-1",
-      offPeakTaskId: "offpeak-1",
-      offPeakRunType: "init",
-    });
-    expect(started).toMatchObject({ offPeakTaskId: "offpeak-1", offPeakRunType: "init" });
-    expect(() =>
-      conversationTelemetryFactSchema.parse({
-        ...base,
-        kind: "turn.started",
-        sourceCommandId: "message-run-2",
-        offPeakRunType: "resume",
-      }),
-    ).toThrow();
-    expect(() =>
-      conversationTelemetryFactSchema.parse({
-        ...started,
-        automationId: "automation-1",
-      }),
-    ).toThrow();
-    for (const forbidden of [
-      { prompt: "private prompt" },
-      { workspacePath: "/private/workspace" },
-      { ticketId: "private-ticket" },
-      { responseBody: "private response" },
-    ]) {
-      expect(() => conversationTelemetryFactSchema.parse({ ...started, ...forbidden })).toThrow();
-    }
-  });
-
   it("只接受 provider hostname，不允许 URL、header、prompt 或工具正文穿透", () => {
     const valid = conversationTelemetryFactSchema.parse({
       ...base,

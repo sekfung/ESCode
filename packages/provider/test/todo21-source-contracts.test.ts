@@ -116,27 +116,27 @@ describe("Todo 21 source contracts", () => {
     expect(providers.get("overlay")?.access).toBeUndefined();
   });
 
-  it("智谱产品模式属于 Provider Access", () => {
+  it("智谱加速卡模式属于 Provider Access", () => {
     const providers = parseESCodeBuiltinProviderConfigMap([
       {
-        providerId: "offpeak",
+        providerId: "highspeed",
         config: {
           group: "zai-family",
           visibility: "hidden",
           access: {
             type: "zhipu-account",
             accountType: "zai",
-            mode: "off-peak",
+            mode: "highspeed",
           },
           api: { type: "anthropic-messages", baseUrl: "https://example.com" },
           builtinModelIds: ["model-a"],
         },
       },
     ]);
-    expect(providers.get("offpeak")?.access?.toJSON()).toEqual({
+    expect(providers.get("highspeed")?.access?.toJSON()).toEqual({
       type: "zhipu-account",
       accountType: "zai",
-      mode: "off-peak",
+      mode: "highspeed",
     });
   });
 

@@ -8,14 +8,12 @@ export function createModelExecutionContext(
 ): NonNullable<SendInputOptions["modelExecution"]> {
   const requestAuth = input.requestAuth ? freezeRequestAuth(input.requestAuth) : undefined;
   return {
-    ...(input.memoryExtraction ? { memoryExtraction: input.memoryExtraction } : {}),
     selectionScope: "execution",
     ...(requestAuth
       ? {
           requestDependencies: { requestAuth: { source: { resolve: async () => requestAuth } } },
         }
       : {}),
-    ...(input.subagents ? { subagents: input.subagents } : {}),
     ...(input.selectionFallback ? { selectionFallback: input.selectionFallback } : {}),
   };
 }

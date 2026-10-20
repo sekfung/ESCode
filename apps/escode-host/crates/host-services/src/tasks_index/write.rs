@@ -5,7 +5,7 @@
 //! - `updated_at` 取 `max(入库值, 已有值)`（快照可能落后于 `applyAgentPatch` 写入的时间戳）；
 //! - 终态（completed/error）不被更旧的 running 快照降级（`shouldPreserveNewerTerminalStatus`）；
 //! - 用户手动标题（`title_overridden`）不被 agent 标题覆盖；
-//! - `migrationSource` / `cronAutomationId` / `offPeakTaskId` / `unreadAt` 缺省保留既有值；
+//! - `migrationSource` / `cronAutomationId` / `unreadAt` 缺省保留既有值；
 //! - `pinned`/`archived`/`deleted` 缺省沿用既有行；
 //! - `searchable_text` 只在显式传入时更新（否则保留行内现值，避免清空已索引正文）；
 //! - `unread_at` 只在 `writeUnreadAt` 时覆盖；`last_unread_at` 取历史最大值（CAS 标记）。
@@ -122,12 +122,7 @@ pub fn sync_task_meta(
         }
     }
     // 快照不带目标/来源身份时保留既有值（否则 cron 图标、导入来源会丢）。
-    for key in [
-        "migrationSource",
-        "cronAutomationId",
-        "offPeakTaskId",
-        "unreadAt",
-    ] {
+    for key in ["migrationSource", "cronAutomationId", "unreadAt"] {
         if merged.get(key).is_none_or(Value::is_null)
             && let Some(existing) = existing_meta.as_ref().and_then(|meta| meta.get(key))
         {
@@ -182,11 +177,11 @@ pub(super) fn write_record(
             "INSERT INTO tasks (
               workspace_key, workspace_path, workspace_identity, task_id, title, task_status,
               provider, mode, model, migration_source, forked_from_task_id, cron_automation_id,
-              off_peak_task_id, created_at, updated_at, unread_at, last_unread_at, pinned,
+              created_at, updated_at, unread_at, last_unread_at, pinned,
               archived, deleted, title_overridden, searchable_text, meta_json
             ) VALUES (
               ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18,
-              ?19, ?20, ?21, ?22, ?23
+              ?19, ?20, ?21, ?22
             )
             ON CONFLICT(workspace_key, task_id) DO UPDATE SET
               workspace_path = excluded.workspace_path,
@@ -199,14 +194,13 @@ pub(super) fn write_record(
               migration_source = excluded.migration_source,
               forked_from_task_id = excluded.forked_from_task_id,
               cron_automation_id = excluded.cron_automation_id,
-              off_peak_task_id = excluded.off_peak_task_id,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
-              unread_at = CASE WHEN ?24 = 1 THEN excluded.unread_at ELSE tasks.unread_at END,
+              unread_at = CASE WHEN ?23 = 1 THEN excluded.unread_at ELSE tasks.unread_at END,
               last_unread_at = MAX(
                 tasks.last_unread_at,
                 COALESCE(tasks.unread_at, 0),
-                CASE WHEN ?24 = 1 THEN excluded.last_unread_at ELSE 0 END
+                CASE WHEN ?23 = 1 THEN excluded.last_unread_at ELSE 0 END
               ),
               pinned = excluded.pinned,
               archived = excluded.archived,
@@ -227,7 +221,6 @@ pub(super) fn write_record(
                 meta.get("migrationSource").and_then(Value::as_str),
                 meta.get("forkedFromTaskId").and_then(Value::as_str),
                 meta.get("cronAutomationId").and_then(Value::as_str),
-                meta.get("offPeakTaskId").and_then(Value::as_str),
                 meta.get("createdAt").and_then(Value::as_i64).unwrap_or(0),
                 meta.get("updatedAt").and_then(Value::as_i64).unwrap_or(0),
                 unread_at,

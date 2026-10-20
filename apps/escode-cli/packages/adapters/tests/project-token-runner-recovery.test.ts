@@ -30,7 +30,11 @@ function fixture({
   const adapter = new TestAiSdkModelAdapter({
     registry: new TestProviderConfigFixture({
       providers: {
-        idle: { kind: "anthropic", accountMode: "off-peak", baseURL: "https://model.test" },
+        plan: {
+          kind: "anthropic",
+          accountMode: "individual-coding-plan",
+          baseURL: "https://model.test",
+        },
       },
     }),
     retry: { maxAttempts: 1, baseDelayMs: 0, maxDelayMs: 0, jitter: false },
@@ -77,28 +81,20 @@ function fixture({
       },
     },
   });
-  const auth = {
-    apiKey: "jwt",
-    accountScope: scope,
-    headers: {
-      Authorization: "Bearer jwt",
-      "X-Coding-Plan-Api-Key": "initial",
-      "X-Off-Peak-Ticket-ID": "ticket",
-    },
-  };
   const model = adapter.createModel({
-    providerId: "idle",
+    providerId: "plan",
     modelId: "glm",
-    accountMode: "off-peak",
-    requestDependencies: { requestAuth: { source: { resolve: async () => auth } } },
+    accountMode: "individual-coding-plan",
   });
   const refresh = vi.fn(async (input) => {
     if (input.rejectedProjectTokenFingerprint && refreshFails) throw new Error("issue failed");
+    const token = input.rejectedProjectTokenFingerprint ? "pat-2" : "pat-1";
     return {
       headersApplied: true,
       requestAuth: {
-        apiKey: input.rejectedProjectTokenFingerprint ? "pat-2" : "pat-1",
+        apiKey: token,
         accountScope: scope,
+        headers: { "X-Coding-Plan-Api-Key": token },
       },
     };
   });

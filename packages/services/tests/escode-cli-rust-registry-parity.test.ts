@@ -175,7 +175,7 @@ test("Native Registry catalog matches TS builtin/template/overlay model ordering
       states[p.providerId] = {
         entitled: true,
         availability: "available",
-        ...(p.config.access.mode === "off-peak" ? {} : { current: true }),
+        current: true,
       };
     }
     const { providers, providerTemplates } = parseESCodeBuiltinProviderConfigRules(

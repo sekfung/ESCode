@@ -5,7 +5,7 @@ import {
   requiresRequestVerification,
 } from "@escode/shared";
 import type { AccountRequestAuthMaterial } from "../src/model-provider/accountRequestAuthService.js";
-import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
+import { accountSelectionView } from "./fixtures/accountSelectionView.js";
 
 // 账号套餐的 provider runtime headers 由 Host 自动应答，不依赖 Renderer。
 const target = {
@@ -60,7 +60,7 @@ async function setup(
   }));
   const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
   const service = createESCodeAgentService({
-    modelSelectionReadinessSource: { getView: async () => offPeakSelectionView() },
+    modelSelectionReadinessSource: { getView: async () => accountSelectionView() },
     accountRequestAuthService: {
       resolveCurrent,
       resolveAccessCurrent: async () => null,
@@ -70,7 +70,7 @@ async function setup(
   await service.initialize(target);
   const workspace = { workspacePath: target.workspacePath, workspaceKey: target.workspacePath };
   const fire = (
-    mode: "start-plan" | "individual-coding-plan" | "off-peak" = "start-plan",
+    mode: "start-plan" | "individual-coding-plan" | "highspeed" = "start-plan",
     expectedAccountScope?: string,
     rejectedProjectTokenFingerprint?: string,
   ) =>
@@ -112,12 +112,12 @@ describe("Host 自动应答账号请求鉴权", () => {
     }
   });
 
-  it("闲时 scope 在 Host 私有 owner 校验，无需 Renderer 应答", async () => {
+  it("加速卡 scope 在 Host 私有 owner 校验，无需 Renderer 应答", async () => {
     const accountScope = "a".repeat(64);
     const resolve = vi.fn(async () => ({ apiKey: "fresh-pat", accountScope }));
     const { service, fire, respond } = await setup(resolve);
     try {
-      fire("off-peak", accountScope, "b".repeat(64));
+      fire("highspeed", accountScope, "b".repeat(64));
       await vi.waitFor(() =>
         expect(respond).toHaveBeenCalledWith("protocol-1", {
           headersApplied: true,
@@ -128,7 +128,7 @@ describe("Host 自动应答账号请求鉴权", () => {
         expect.objectContaining({
           expectedAccountScope: accountScope,
           rejectedProjectTokenFingerprint: "b".repeat(64),
-          accountAccess: expect.objectContaining({ mode: "off-peak" }),
+          accountAccess: expect.objectContaining({ mode: "highspeed" }),
         }),
       );
     } finally {

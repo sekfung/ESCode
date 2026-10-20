@@ -7,13 +7,13 @@ import {
   type DynamicWorkflowMode,
 } from "@escode/shared";
 import { V4_METHODS } from "@escode/shared/escode-protocol-v4";
-import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
+import { accountSelectionView } from "./fixtures/accountSelectionView.js";
 
 // DWG-02（docs/dynamic-workflow/launch.md「Gray release」）：Host 是灰度的唯一裁决者。
 // 判定在 workspace client 就绪时做一次：开启才下发 workspace/updateDynamicWorkflowPolicy，
 // 并在 session create / resume / v4 createSession 上打 dynamicWorkflowEnabled:true；
 // 关闭时三处都不写字段（CLI 缺省 fail-closed）。旧 CLI 的 -32601 降级忽略。
-// 与 Off-Peak 不同：远程 workspace 同样可用，判据里不看 workspaceIdentity / remoteSessionId。
+// 远程 workspace 同样可用，判据里不看 workspaceIdentity / remoteSessionId。
 
 const WORKSPACE_PATH = "/workspace/app";
 
@@ -88,7 +88,7 @@ async function setup(params: {
   }));
   const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
   const service = createESCodeAgentService({
-    modelSelectionReadinessSource: { getView: async () => offPeakSelectionView() },
+    modelSelectionReadinessSource: { getView: async () => accountSelectionView() },
     ...(params.enabled === undefined && !params.configResolver
       ? {}
       : { resolveDynamicWorkflowClientConfig: resolveConfig }),

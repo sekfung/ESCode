@@ -25,7 +25,6 @@ import {
   IUsageStatsService,
   IClientConfigService,
   IClientScenesService,
-  IOffPeakTaskService,
   ISkillsService,
   ISkillSyncService,
   IMcpSyncService,
@@ -82,7 +81,6 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly usageStatsService: IUsageStatsService;
   readonly clientConfigService: IClientConfigService;
   readonly clientScenesService: IClientScenesService;
-  readonly offPeakTaskService: IOffPeakTaskService;
   readonly skillsService: ISkillsService;
   readonly skillSyncService: ISkillSyncService;
   readonly mcpSyncService: IMcpSyncService;
@@ -181,9 +179,6 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.clientScenesService = ProxyChannel.toService<IClientScenesService>(
       channelClient.getChannel(IClientScenesService.channelName),
-    );
-    this.offPeakTaskService = ProxyChannel.toService<IOffPeakTaskService>(
-      channelClient.getChannel(IOffPeakTaskService.channelName),
     );
     this.skillsService = ProxyChannel.toService<ISkillsService>(
       channelClient.getChannel(ISkillsService.channelName),

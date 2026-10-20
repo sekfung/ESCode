@@ -145,27 +145,12 @@ fn turn_facts_match_ts() {
     );
     assert_eq!(turn_automation_id(None, "automation-"), None);
     assert_eq!(turn_automation_id(None, "cmd-1"), None);
-    let tools = turn_disallowlist(&["Bash".into()], Some("a"), None);
+    let tools = turn_disallowlist(&["Bash".into()], Some("a"));
     assert_eq!(tools, ["Bash", "CronCreate", "CronUpdate", "CronDelete"]);
-    // 闲时派发轮：Host 下发的列表之后追加 OffPeak 受限工具，已存在的不重复。
-    let off_peak = turn_disallowlist(
-        &["CronCreate".into(), "OffPeakCreate".into()],
-        None,
-        Some("offpeak-1"),
-    );
     assert_eq!(
-        off_peak,
-        ["CronCreate", "OffPeakCreate", "SendMessage", "Workflow"]
+        turn_disallowlist(&["CronCreate".into()], Some("a")),
+        ["CronCreate", "CronUpdate", "CronDelete"]
     );
-    assert_eq!(
-        crate::off_peak::turn_task_id(None, "offpeak-9:resume:x").as_deref(),
-        Some("offpeak-9")
-    );
-    assert_eq!(
-        crate::off_peak::turn_task_id(Some(" offpeak-2 "), "cmd").as_deref(),
-        Some("offpeak-2")
-    );
-    assert_eq!(crate::off_peak::turn_task_id(None, "offpeak-"), None);
     assert!(is_automation_turn(None, &tools));
     assert!(!is_automation_turn(None, &["CronCreate".into()]));
 }

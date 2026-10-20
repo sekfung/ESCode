@@ -82,7 +82,7 @@ export class AccountRequestRetry {
       this.#used ||
       this.request.abortSignal?.aborted ||
       !this.request.refreshRuntimeHeadersBeforeAttempt ||
-      !["individual-coding-plan", "team-coding-plan", "off-peak"].includes(mode ?? "") ||
+      !["individual-coding-plan", "team-coding-plan"].includes(mode ?? "") ||
       !this.#auth?.accountScope ||
       !this.#token(this.#auth) ||
       !isProjectTokenRejection(error)
@@ -92,11 +92,7 @@ export class AccountRequestRetry {
   }
 
   #token(auth: ModelRequestAuth): string | undefined {
-    return this.model.accountAccess?.mode === "off-peak"
-      ? Object.entries(auth.headers ?? {}).find(
-          ([key]) => key.toLowerCase() === "x-coding-plan-api-key",
-        )?.[1]
-      : auth.apiKey;
+    return auth.apiKey;
   }
 }
 

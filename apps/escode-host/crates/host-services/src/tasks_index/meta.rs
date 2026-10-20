@@ -3,7 +3,7 @@
 //! TS 先按 `escodeTaskMetaSchema`（zod）校验 `meta_json`：
 //! - 通过 → 以解析结果为主（未声明的键被 zod 剥掉），再用标量列覆盖
 //!   `taskId`/`workspacePath`/`workspaceIdentity`/`unreadAt`，并按 `meta_json ?? 列` 兜底
-//!   `cronAutomationId`/`offPeakTaskId`；
+//!   `cronAutomationId`；
 //! - 不通过（JSON 解析失败、必填缺失、类型/枚举非法）→ 回退到纯列投影。
 //!
 //! Rust 侧实现「必填字段 + 已声明可选字段」的最小校验与白名单投影（见
@@ -90,10 +90,6 @@ pub(super) fn to_task_meta(row: &Value) -> Option<Value> {
             ),
         );
         projected.insert(
-            "offPeakTaskId".into(),
-            optional_string(projected.get("offPeakTaskId"), row.text("off_peak_task_id")),
-        );
-        projected.insert(
             "titleOverridden".into(),
             json!(row.number("title_overridden") == Some(1)),
         );
@@ -166,7 +162,6 @@ fn is_valid_meta(meta: &Value) -> bool {
         "thoughtLevel",
         "forkedFromTaskId",
         "cronAutomationId",
-        "offPeakTaskId",
     ];
     if optional_non_empty.iter().any(|key| {
         object
@@ -249,7 +244,6 @@ fn column_fallback_meta(row: &Row<'_>, workspace_identity: Option<String>) -> Va
         ("migrationSource", row.text("migration_source")),
         ("forkedFromTaskId", row.text("forked_from_task_id")),
         ("cronAutomationId", row.text("cron_automation_id")),
-        ("offPeakTaskId", row.text("off_peak_task_id")),
     ] {
         if let Some(value) = value {
             meta.insert(key.into(), json!(value));

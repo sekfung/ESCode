@@ -63,7 +63,6 @@ pub mod model;
 pub mod model_catalog;
 pub mod model_execution;
 pub mod net_proxy;
-pub mod off_peak;
 pub mod option_map;
 pub mod permission;
 pub mod permission_options;

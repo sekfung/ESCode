@@ -22,7 +22,6 @@ pub mod hooks;
 pub mod js_compat;
 pub mod mcp_sync;
 pub mod model_trajectory;
-pub mod off_peak;
 pub mod official_plugins;
 pub mod onboarding;
 pub(crate) mod ordered_json;

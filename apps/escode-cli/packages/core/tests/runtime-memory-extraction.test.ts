@@ -36,29 +36,6 @@ const EXTRACTION_PROMPT_MARKER = "memory extraction subagent";
 const TEST_MODEL_REF = createTestModelSelection("test/memory-extraction");
 
 describe("AgentRuntime background Memory extraction", () => {
-  it("skips only the turn carrying the per-turn Extraction policy", async () => {
-    let extractionRequestCount = 0;
-    const runtime = createExtractionRuntime({
-      async generateText(request) {
-        if (isExtractionRequest(request)) extractionRequestCount += 1;
-        return textResult(
-          request,
-          isExtractionRequest(request) ? "Nothing to save." : "main answer",
-        );
-      },
-    });
-
-    await runtime.executeTurn("do not remember this turn", undefined, {
-      modelExecution: { memoryExtraction: "skip", selectionScope: "execution" },
-    });
-    await runtime.drainMemoryExtractions();
-    expect(extractionRequestCount).toBe(0);
-
-    await runtime.executeTurn("remember this later durable preference");
-    await runtime.drainMemoryExtractions();
-    expect(extractionRequestCount).toBe(1);
-  });
-
   it("reuses the completed Turn Active Model instead of resolving Session Selection again", async () => {
     const createdSelections: string[] = [];
     const modelFactory = createTestModelFactory({
@@ -87,7 +64,7 @@ describe("AgentRuntime background Memory extraction", () => {
         clientId: "memory-test-client",
         kind: "sendText",
         modelSelection: {
-          providerId: "account:zai-offpeak-idle-plan",
+          providerId: "account:zai-highspeed-card",
           modelId: "GLM-5.3-Flash",
         },
         queueItemId: "memory-test-input",
@@ -98,7 +75,7 @@ describe("AgentRuntime background Memory extraction", () => {
     });
     await runtime.drainMemoryExtractions();
 
-    expect(createdSelections).toEqual(["account:zai-offpeak-idle-plan/GLM-5.3-Flash"]);
+    expect(createdSelections).toEqual(["account:zai-highspeed-card/GLM-5.3-Flash"]);
   });
 
   it("projects unsupported historical video before an Extraction request", async () => {

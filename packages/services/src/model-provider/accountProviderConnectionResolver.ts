@@ -79,12 +79,12 @@ export interface AccountProviderConfigSourceOptions extends AccountProviderConne
 }
 
 /**
- * off-peak 与 highspeed 都不是独立套餐，而是「已连接的个人/团队 Coding Plan」派生出的
- * 执行入口：请求期鉴权分别来自 ticket 与加速卡 JWT，本身没有可校验的套餐 Key。
- * 因此它们既不进入 Coding Plan availability 校验，也不按 selection.kind 直接比对模式。
+ * highspeed 不是独立套餐，而是「已连接的个人/团队 Coding Plan」派生出的执行入口：
+ * 请求期鉴权来自加速卡 JWT，本身没有可校验的套餐 Key。因此它不进入 Coding Plan
+ * availability 校验，也不按 selection.kind 直接比对模式。
  */
-function isCodingPlanDerivedMode(mode: string | undefined): mode is "off-peak" | "highspeed" {
-  return mode === "off-peak" || mode === "highspeed";
+function isCodingPlanDerivedMode(mode: string | undefined): mode is "highspeed" {
+  return mode === "highspeed";
 }
 
 /**

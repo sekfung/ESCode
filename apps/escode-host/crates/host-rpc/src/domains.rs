@@ -121,7 +121,6 @@ pub fn channels_with(
     client_services: Option<Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
-    let data_base_dir_for_off_peak = data_base_dir.clone();
     let data_base_dir_for_bots = data_base_dir.clone();
     let provider_service = provider_files.map(|files| {
         let service = Arc::new(files.into_service());
@@ -249,13 +248,12 @@ pub fn channels_with(
             Arc::clone(&options_for_simple),
         ),
         crate::domains_plugin_sync::plugin_sync_channel(&home_for_plugin_sync),
-        crate::domains_off_peak::off_peak_channel(data_base_dir_for_off_peak),
         crate::domains_bots::bots_channel(data_base_dir_for_bots, home_for_bots),
         task_channel,
         session_channel(instances, options, write, Some(provider_headers)),
     ];
     list.extend(crate::domains_provider::provider_channels(
-        provider_service.clone(),
+        provider_service,
         instances_for_simple.clone(),
         Arc::clone(&options_for_simple),
     ));
@@ -266,7 +264,6 @@ pub fn channels_with(
         options_for_simple,
         media_authorizer,
         client_services,
-        provider_service,
     ));
     let channels = Channels::new(list);
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。

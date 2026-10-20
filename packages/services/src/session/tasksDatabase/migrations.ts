@@ -64,6 +64,10 @@ const definitions = [
     id: "0003_official_glm_selection",
     checksumInput: [OFFICIAL_GLM_SELECTION_MIGRATION_SQL],
   },
+  {
+    id: "0004_drop_off_peak",
+    checksumInput: ["drop-off-peak-v1"],
+  },
 ] as const;
 
 export function runTasksDatabaseMigrations(
@@ -113,7 +117,9 @@ export function runTasksDatabaseMigrations(
       options.onProgress?.("migrating", { ...migrationFacts });
       if (migration.id === "0001_adopt_task_schema") adoptSchema(db);
       else if (migration.id === "0002_provider_selection") importLegacyAutomationSelections(db);
-      else db.exec(OFFICIAL_GLM_SELECTION_MIGRATION_SQL);
+      else if (migration.id === "0003_official_glm_selection")
+        db.exec(OFFICIAL_GLM_SELECTION_MIGRATION_SQL);
+      else dropOffPeakSchema(db);
       migrationFacts.executedCount++;
       db.prepare("INSERT INTO tasks_schema_migration VALUES(?,?,?)").run(
         migration.id,
@@ -135,6 +141,16 @@ export function runTasksDatabaseMigrations(
       Object.assign(error, { migrationId: currentMigrationId });
     throw error;
   }
+}
+
+/** 0004：产品下线闲时任务，清理历史表与 tasks 投影列；旧库升级时执行一次。 */
+function dropOffPeakSchema(db: DatabaseSync): void {
+  db.exec("DROP INDEX IF EXISTS idx_tasks_off_peak_task");
+  db.exec("DROP TABLE IF EXISTS off_peak_tasks");
+  const hasColumn = (db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>).some(
+    (entry) => entry.name === "off_peak_task_id",
+  );
+  if (hasColumn) db.exec("ALTER TABLE tasks DROP COLUMN off_peak_task_id");
 }
 
 function adoptSchema(db: DatabaseSync): void {

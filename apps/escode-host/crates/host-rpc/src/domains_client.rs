@@ -95,55 +95,14 @@ fn get_dynamic_workflow(services: Option<Arc<ClientServices>>) -> MethodHandler 
     })
 }
 
-fn get_off_peak_client_config(
-    services: Option<Arc<ClientServices>>,
-    provider: Option<Arc<escode_host_services::provider::ProviderService>>,
-) -> MethodHandler {
-    match (services, provider) {
-        (Some(services), Some(provider)) => handler_rpc(move |arg: Wire| {
-            let (services, provider) = (Arc::clone(&services), Arc::clone(&provider));
-            Box::pin(async move {
-                let options = options_of(arg);
-                let force_refresh =
-                    parse_read_options(options.as_ref()).map_err(|error| config_error(&error))?;
-                let model_view = provider
-                    .off_peak_model_selection_view()
-                    .await
-                    .map_err(|error| RpcError::new("Error", format!("{error:#}")))?;
-                services
-                    .config
-                    .get_off_peak_client_config(force_refresh, model_view)
-                    .await
-                    .map(Wire::Object)
-                    .map_err(|error| config_error(&error))
-            })
-        }),
-        _ => handler_rpc(|_arg: Wire| {
-            Box::pin(async move {
-                Err(RpcError::new(
-                    "NotImplemented",
-                    "client-config.getOffPeakClientConfig needs provider configuration",
-                ))
-            })
-        }),
-    }
-}
-
-pub(crate) fn client_config_channel(
-    services: Option<Arc<ClientServices>>,
-    provider: Option<Arc<escode_host_services::provider::ProviderService>>,
-) -> Channel {
+pub(crate) fn client_config_channel(services: Option<Arc<ClientServices>>) -> Channel {
     Channel::new(
         "client-config",
         vec![
             ("getSnapshot", get_snapshot(services.clone())),
             (
                 "getDynamicWorkflowClientConfig",
-                get_dynamic_workflow(services.clone()),
-            ),
-            (
-                "getOffPeakClientConfig",
-                get_off_peak_client_config(services, provider),
+                get_dynamic_workflow(services),
             ),
         ],
     )

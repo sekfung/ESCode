@@ -5,7 +5,6 @@ import {
   AutomationChevronDownIcon,
   AutomationClockIcon,
   AutomationExternalLinkIcon,
-  AutomationIdleTimeIcon,
   AutomationInfoIcon,
   AutomationMoreHorizontalIcon,
   AutomationRefreshIcon,
@@ -13,14 +12,6 @@ import {
 } from "@/settings/AutomationDesignPrimitives.js";
 
 describe("AutomationDesignPrimitives icons", () => {
-  it("uses the Lucide moon on a native 24px viewBox", () => {
-    const html = renderToStaticMarkup(createElement(AutomationIdleTimeIcon));
-
-    expect(html).toContain('viewBox="0 0 24 24"');
-    expect(html).toContain('stroke="currentColor"');
-    expect(html).toContain('stroke-width="2"');
-  });
-
   it("keeps the shared Lucide family displayed at 16px", () => {
     const icons = [
       AutomationInfoIcon,

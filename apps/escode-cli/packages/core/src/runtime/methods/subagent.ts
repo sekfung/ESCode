@@ -4,7 +4,6 @@ import {
   SESSION_ENTRY_MODEL_SELECTION,
   parseModelSelectionValue,
 } from "@escode/contracts";
-import type { SubagentRunOptions } from "@escode/contracts";
 import { inheritPermissionMode } from "@escode/contracts";
 import {
   defaultScheduler,
@@ -106,12 +105,9 @@ export function createDefaultSubagentPort(
       const { selection: profileChildSelection, hasConcreteModel } = resolveSubagentSelection({
         profileSelection: request.profile.modelSelection,
         parentSelection: this.getSessionModelSelection(),
-        overrideSelection: options?.modelOverride?.selection,
         resolveSelection: deps.resolveEffectiveModelSelection,
       });
-      const modelOverride = options?.modelOverride;
-      const inheritedModel = !modelOverride && !hasConcreteModel ? options?.model : undefined;
-      // Core Server override 优先于持久化 profile 与父模型继承，但仍只是标准 Selection。
+      const inheritedModel = !hasConcreteModel ? options?.model : undefined;
       const childSelection = inheritedModel
         ? modelSelectionFromActiveModel(inheritedModel)
         : profileChildSelection;
@@ -189,11 +185,9 @@ export function createDefaultSubagentPort(
         request.profile.skills,
         childCuaPolicy,
       );
-      const baseChildModelFactory = modelOverride
-        ? createSubagentOverrideModelFactory(modelOverride, this.modelFactory)
-        : inheritedModel
-          ? createInheritedSubagentModelFactory(childSelection, inheritedModel, this.modelFactory)
-          : this.modelFactory;
+      const baseChildModelFactory = inheritedModel
+        ? createInheritedSubagentModelFactory(childSelection, inheritedModel, this.modelFactory)
+        : this.modelFactory;
       if (!baseChildModelFactory) {
         throw createCoreError(
           CoreErrorType.ConfigurationError,
@@ -517,19 +511,6 @@ export function modelSelectionFromActiveModel(model: Model): ModelSelection {
     providerId: model.providerId,
     modelId: model.modelId,
     ...(reasoningLevel ? { options: { reasoningLevel } } : {}),
-  };
-}
-
-function createSubagentOverrideModelFactory(
-  override: NonNullable<SubagentRunOptions["modelOverride"]>,
-  fallbackFactory: AgentRuntimeDeps["modelFactory"],
-): AgentRuntimeDeps["modelFactory"] {
-  return (target) => {
-    return fallbackFactory({
-      ...target,
-      selection: override.selection,
-      requestDependencies: override.requestDependencies,
-    });
   };
 }
 

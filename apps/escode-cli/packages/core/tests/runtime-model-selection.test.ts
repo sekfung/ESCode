@@ -183,11 +183,11 @@ describe("AgentRuntime model selection event", () => {
       },
     );
 
-    await runtime.executeTurn("idle task", undefined, {
+    await runtime.executeTurn("execution-scoped task", undefined, {
       intent: {
         kind: "sendText",
         modelSelection: {
-          providerId: "account:zai-offpeak-idle-plan",
+          providerId: "account:zai-highspeed-card",
           modelId: "GLM-5.2",
           options: { reasoningLevel: "high" },
         },
@@ -199,10 +199,10 @@ describe("AgentRuntime model selection event", () => {
 
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
-      providerId: "account:zai-offpeak-idle-plan",
+      providerId: "account:zai-highspeed-card",
       modelId: "GLM-5.2",
     });
-    expect(requests[0]?.text).toContain("account:zai-offpeak-idle-plan/GLM-5.2");
+    expect(requests[0]?.text).toContain("account:zai-highspeed-card/GLM-5.2");
     expect(requests[0]?.text).not.toContain("provider-a/model-a");
     expect(runtime.getSessionModelSelection()).toEqual(sessionSelection);
   });
@@ -362,180 +362,6 @@ describe("AgentRuntime model selection event", () => {
     });
   });
 
-  it("uses the execution-scoped Selection for foreground children without applying profile reasoning", async () => {
-    const sessionId = createSessionId("runtime-turn-model-foreground-subagents");
-    const eventStore = createTestSessionEventStore();
-    const sessionModel = createTestModelSelection("user-provider/user-model");
-    const childExecutions: Array<Record<string, unknown>> = [];
-    const mainRequests: Array<Record<string, unknown>> = [];
-    const runtime = createTestAgentRuntime(
-      sessionId,
-      {
-        modelSelection: createTestModelSelection(sessionModel),
-        subagents: {
-          profiles: [
-            {
-              description: "Search source code",
-              modelSelection: {
-                providerId: "custom-provider",
-                modelId: "custom-code-model",
-                options: { reasoningLevel: "high" },
-              },
-              name: "Code Search",
-              source: "user",
-              systemPrompt: "Search code.",
-              tools: ["Read"],
-            },
-          ],
-        },
-        titleGeneration: { enabled: false },
-        workingDirectory: "/workspace/project",
-      },
-      {
-        eventStore,
-        modelFactory: createTestModelFactory({
-          maxOutputTokens: (input) =>
-            input.selection.providerId === "account:zai-offpeak-idle-plan" ? 16_000 : 32_000,
-          async generateText(request, observation) {
-            const metadata = observation.invocationContext?.metadata as
-              | { querySource?: string; turnNumber?: number }
-              | undefined;
-            const capturedRequest = {
-              maxOutputTokens: request.options?.maxOutputTokens,
-              model: observation.model,
-            };
-            if (metadata?.querySource === "subagent") {
-              childExecutions.push(capturedRequest);
-              return {
-                finishReason: "stop",
-                model: observation.model,
-                text: "child done",
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-              };
-            }
-
-            mainRequests.push(capturedRequest);
-            if (metadata?.turnNumber === 0 && mainRequests.length === 1) {
-              return {
-                finishReason: "tool-calls",
-                model: observation.model,
-                text: "",
-                toolCalls: [
-                  {
-                    id: "call_explore",
-                    name: "Agent",
-                    input: {
-                      description: "Explore source",
-                      prompt: "Explore the source.",
-                      subagent_type: "Explore",
-                    },
-                  },
-                  {
-                    id: "call_code_search",
-                    name: "Agent",
-                    input: {
-                      description: "Search source",
-                      prompt: "Search the source.",
-                      subagent_type: "Code Search",
-                    },
-                  },
-                ],
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-              };
-            }
-            if (metadata?.turnNumber === 1 && mainRequests.length === 3) {
-              return {
-                finishReason: "tool-calls",
-                model: observation.model,
-                text: "",
-                toolCalls: [
-                  {
-                    id: "call_code_search_ordinary",
-                    name: "Agent",
-                    input: {
-                      description: "Search source with profile settings",
-                      prompt: "Search the source with the configured profile.",
-                      subagent_type: "Code Search",
-                    },
-                  },
-                ],
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-              };
-            }
-
-            return {
-              finishReason: "stop",
-              model: observation.model,
-              text: "turn done",
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-            };
-          },
-        } as never),
-      },
-    );
-
-    await runtime.executeTurn("run foreground children", undefined, {
-      intent: {
-        sourceCommandId: "idle-command",
-        kind: "sendText",
-        requestedDelivery: "start-now",
-        modelSelection: {
-          providerId: "account:zai-offpeak-idle-plan",
-          modelId: "GLM-5.2",
-          options: { reasoningLevel: "high" },
-        },
-      },
-      modelExecution: {
-        selectionScope: "execution",
-        subagents: { foregroundModel: "submission", background: "deny" },
-      },
-    });
-    await runtime.executeTurn("ordinary prompt");
-
-    expect(childExecutions).toHaveLength(3);
-    expect(childExecutions.slice(0, 2).map((execution) => execution.model)).toEqual([
-      expect.objectContaining({
-        providerId: "account:zai-offpeak-idle-plan",
-        modelId: "GLM-5.2",
-      }),
-      expect.objectContaining({
-        providerId: "account:zai-offpeak-idle-plan",
-        modelId: "GLM-5.2",
-      }),
-    ]);
-    expect(
-      childExecutions
-        .slice(0, 2)
-        .map(
-          (execution) =>
-            (execution.model as { options?: { reasoningLevel?: string } }).options?.reasoningLevel,
-        ),
-    ).toEqual(["high", "high"]);
-    expect(childExecutions.slice(0, 2).map((execution) => execution.maxOutputTokens)).toEqual([
-      16_000, 16_000,
-    ]);
-    expect(childExecutions[2]?.model).toEqual(
-      expect.objectContaining({
-        providerId: "custom-provider",
-        modelId: "custom-code-model",
-      }),
-    );
-    expect(childExecutions[2]?.model).toEqual(
-      expect.objectContaining({ options: expect.objectContaining({ reasoningLevel: "high" }) }),
-    );
-    expect(mainRequests).toHaveLength(4);
-    expect(mainRequests.at(-1)?.model).toEqual(
-      expect.objectContaining({
-        providerId: "user-provider",
-        modelId: "user-model",
-      }),
-    );
-    expect(runtime.getSessionModelSelection()).toEqual({
-      providerId: String(sessionModel.providerId),
-      modelId: String(sessionModel.modelId),
-    });
-  });
-
   it.each(["failure", "cancel"] as const)(
     "does not retain an execution-scoped Selection after %s",
     async (outcome) => {
@@ -586,7 +412,7 @@ describe("AgentRuntime model selection event", () => {
             kind: "sendText",
             requestedDelivery: "start-now",
             modelSelection: {
-              providerId: "account:zai-offpeak-idle-plan",
+              providerId: "account:zai-highspeed-card",
               modelId: "GLM-5.2",
             },
           },
@@ -603,7 +429,7 @@ describe("AgentRuntime model selection event", () => {
       expect(requests).toHaveLength(2);
       expect(requests[0]?.model).toEqual(
         expect.objectContaining({
-          providerId: "account:zai-offpeak-idle-plan",
+          providerId: "account:zai-highspeed-card",
           modelId: "GLM-5.2",
         }),
       );

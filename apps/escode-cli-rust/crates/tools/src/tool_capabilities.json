@@ -202,26 +202,6 @@
     "needsApproval": false,
     "permissionName": "listWorkflowRuns"
   },
-  "OffPeakCreate": {
-    "allowedInPlanMode": false,
-    "readOnly": false,
-    "destructive": false,
-    "requiresUserInteraction": false,
-    "sideEffectScope": "workspace",
-    "riskLevel": "medium",
-    "needsApproval": true,
-    "permissionName": "offpeak.create"
-  },
-  "OffPeakList": {
-    "allowedInPlanMode": false,
-    "readOnly": true,
-    "destructive": false,
-    "requiresUserInteraction": false,
-    "sideEffectScope": "none",
-    "riskLevel": "low",
-    "needsApproval": false,
-    "permissionName": "offpeak.read"
-  },
   "Read": {
     "allowedInPlanMode": false,
     "readOnly": true,

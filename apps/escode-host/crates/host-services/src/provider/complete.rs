@@ -68,11 +68,7 @@ fn access_ok(access: &Value) -> bool {
                 && matches!(
                     map.get("mode").and_then(Value::as_str),
                     Some(
-                        "start-plan"
-                            | "individual-coding-plan"
-                            | "team-coding-plan"
-                            | "off-peak"
-                            | "highspeed"
+                        "start-plan" | "individual-coding-plan" | "team-coding-plan" | "highspeed"
                     )
                 )
                 && map.get("entitled").is_some_and(Value::is_boolean)

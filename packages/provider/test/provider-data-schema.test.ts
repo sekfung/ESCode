@@ -21,7 +21,7 @@ const cases = [
   { name: "key", access: access.toJSON(), paths: [["access", "apiKey"]] },
   {
     name: "account",
-    access: { type: "zhipu-account", accountType: "zai", mode: "off-peak", entitled: false },
+    access: { type: "zhipu-account", accountType: "zai", mode: "highspeed", entitled: false },
     paths: [
       ["access", "accountType"],
       ["access", "mode"],
@@ -143,7 +143,7 @@ describe("Provider 数据校验与完整性使用同一合同", () => {
       new ProviderConfig({
         access: new ZhipuAccountAccessConfig({
           accountType: "zai",
-          mode: "off-peak",
+          mode: "highspeed",
           entitled: false,
         }),
       }),
@@ -152,7 +152,7 @@ describe("Provider 数据校验与完整性使用同一合同", () => {
     expect(replaced.access?.toJSON()).toEqual({
       type: "zhipu-account",
       accountType: "zai",
-      mode: "off-peak",
+      mode: "highspeed",
       entitled: false,
     });
     const cleared = replaced.overlay(

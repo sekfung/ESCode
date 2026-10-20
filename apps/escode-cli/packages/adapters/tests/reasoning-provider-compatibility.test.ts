@@ -32,7 +32,7 @@ describe("reasoning replay provider identity", () => {
     ["account:zai-team-coding-plan-extra", "account:zai-team-coding-plan"],
     ["builtin:zai-unknown-plan", "account:zai-team-coding-plan"],
     ["account:zai-start-plan", "account:zai-team-coding-plan"],
-    ["account:zai-off-peak", "account:zai-team-coding-plan"],
+    ["account:zai-highspeed-card", "account:zai-team-coding-plan"],
     ["zai-api", "account:zai-team-coding-plan"],
   ])("keeps distinct providers isolated: %s -> %s", (source, target) => {
     expectStripped(history(source), identity(target));

@@ -31,7 +31,6 @@ mod domains_git_commit_message;
 mod domains_hooks;
 mod domains_mcp_sync;
 mod domains_memory;
-mod domains_off_peak;
 mod domains_onboarding;
 mod domains_output_style;
 mod domains_plugin;

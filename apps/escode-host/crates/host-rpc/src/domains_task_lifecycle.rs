@@ -182,7 +182,7 @@ fn resume_task(context: &StateContext) -> MethodHandler {
     })
 }
 
-/// TS `syncTaskIndexSnapshot` + automation/offPeak 归属回填。
+/// TS `syncTaskIndexSnapshot` + automation 归属回填。
 async fn finish_meta(
     context: &StateContext,
     params: &Value,
@@ -193,8 +193,7 @@ async fn finish_meta(
     let task_id = params["taskId"].as_str().unwrap_or_default();
     let workspace_identity = params["workspaceIdentity"].as_str();
     let automation = params["automationId"].as_str().map(str::to_owned);
-    let offpeak = params["offPeakTaskId"].as_str().map(str::to_owned);
-    if automation.is_none() && offpeak.is_none() {
+    if automation.is_none() {
         let (path, identity, id) = (
             workspace_path.to_owned(),
             workspace_identity.map(str::to_owned),
@@ -213,9 +212,6 @@ async fn finish_meta(
     let mut meta = index_meta_from_snapshot(snapshot, overrides);
     if let Some(automation) = automation {
         meta["cronAutomationId"] = Value::from(automation);
-    }
-    if let Some(offpeak) = offpeak {
-        meta["offPeakTaskId"] = Value::from(offpeak);
     }
     let object = meta.as_object().cloned().unwrap_or_default();
     context_ref(&context.read)

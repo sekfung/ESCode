@@ -28,7 +28,6 @@ fn row(meta: Value) -> Value {
         "migration_source": Value::Null,
         "forked_from_task_id": Value::Null,
         "cron_automation_id": Value::Null,
-        "off_peak_task_id": Value::Null,
         "created_at": 100,
         "updated_at": 200,
         "unread_at": Value::Null,
@@ -64,13 +63,11 @@ fn scalar_columns_override_meta_and_fill_cron_identity() {
 }
 
 #[test]
-fn cron_and_off_peak_fall_back_to_columns_when_meta_lacks_them() {
+fn cron_falls_back_to_the_column_when_meta_lacks_it() {
     let mut candidate = row(valid_meta());
     candidate["cron_automation_id"] = json!("cron_column");
-    candidate["off_peak_task_id"] = json!("off_peak_column");
     let projected = to_task_meta(&candidate).expect("meta");
     assert_eq!(projected["cronAutomationId"], "cron_column");
-    assert_eq!(projected["offPeakTaskId"], "off_peak_column");
 }
 
 #[test]

@@ -234,7 +234,6 @@ const INPUTS: Array<unknown> = [
     selection: { providerId: "p-hidden", modelId: "gpt-5.6", options: { reasoningLevel: "high" } },
   },
   { selection: { providerId: "account:zai-start-plan", modelId: "GLM-5.3-Flash" } },
-  { selection: { providerId: "account:zai-offpeak-idle-plan", modelId: "GLM-5.3" } },
   { selection: { providerId: "account:zai-individual-coding-plan", modelId: "GLM-5.3" } },
   { selection: { providerId: "account:bigmodel-team-coding-plan", modelId: "GLM-5.3-Flash" } },
   { selection: { providerId: "p-kimi", modelId: "kimi-k2.6", options: { reasoningLevel: "off" } } },

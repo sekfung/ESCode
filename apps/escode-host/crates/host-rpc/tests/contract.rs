@@ -116,9 +116,9 @@ fn registered_channels_are_exactly_those_with_implemented_members() {
         "注册了 TS 服务面不存在的 channel: {unknown:?}"
     );
     assert!(
-        // 套餐族删除（2026-10-15）移除了 oauth / coding-plan-subscription / highspeed-card
-        // 三个 channel：门槛随之下调，防止生成资产被误截断。
-        rpc_channels().len() >= 45,
+        // 套餐族删除（2026-10-15）移除了 oauth / coding-plan-subscription / highspeed-card，
+        // 之后又有 channel 下线：门槛随之下调，防止生成资产被误截断。
+        rpc_channels().len() >= 43,
         "TS 服务面全集应覆盖全部 ServiceChannels"
     );
 }

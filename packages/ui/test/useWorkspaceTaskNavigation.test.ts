@@ -95,7 +95,7 @@ describe("useWorkspaceTaskNavigation", () => {
     useESCodeSessionStore.setState({ taskNavHistory: createTaskNavigationHistory() });
   });
 
-  it("把 Idle-time intent 写入 Automations 导航目标和历史", () => {
+  it("把 Scheduled intent 写入 Automations 导航目标和历史", () => {
     const onNavigateToAutomations = vi.fn();
     const hook = renderNavigation({
       ambientServices: servicesWithSetTaskUnread(vi.fn()),
@@ -104,26 +104,26 @@ describe("useWorkspaceTaskNavigation", () => {
     });
 
     act(() => {
-      hook.result.current.handleOpenAutomations(undefined, "idle");
+      hook.result.current.handleOpenAutomations(undefined, "scheduled");
     });
 
     expect(onNavigateToAutomations).toHaveBeenCalledWith({
       workspacePath: "/home/dev",
       workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
-      automationTab: "idle",
+      automationTab: "scheduled",
     });
     expect(useESCodeSessionStore.getState().taskNavHistory.entries).toEqual([
       {
         kind: "automations",
         workspacePath: "/home/dev",
         workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
-        automationTab: "idle",
+        automationTab: "scheduled",
       },
     ]);
     hook.unmount();
   });
 
-  it("前进回放时恢复 Idle-time Automations intent", () => {
+  it("前进回放时恢复 Scheduled Automations intent", () => {
     const onNavigateToAutomations = vi.fn();
     const activateTabByPath = vi.fn(() => true);
     useESCodeSessionStore.setState({
@@ -139,7 +139,7 @@ describe("useWorkspaceTaskNavigation", () => {
             kind: "automations",
             workspacePath: "/home/dev",
             workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
-            automationTab: "idle",
+            automationTab: "scheduled",
           },
         ],
         cursor: 0,
@@ -161,7 +161,7 @@ describe("useWorkspaceTaskNavigation", () => {
     expect(onNavigateToAutomations).toHaveBeenCalledWith({
       workspacePath: "/home/dev",
       workspaceIdentity: "remote:ssh:dev:22:user:/home/dev",
-      automationTab: "idle",
+      automationTab: "scheduled",
     });
     hook.unmount();
   });

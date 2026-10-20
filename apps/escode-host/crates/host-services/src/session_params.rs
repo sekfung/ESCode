@@ -11,14 +11,13 @@
 
 use serde_json::{Map, Value};
 
-/// Host 侧判定的工具面灰度（TS `isOffPeakToolSupported` / `resolveDynamicWorkflowSessionFlags`）。
+/// Host 侧判定的工具面灰度（TS `resolveDynamicWorkflowSessionFlags`）。
 ///
-/// **不从 Renderer 入参读取**（评审 A12）：TS 用 `{...params, offPeakToolEnabled, ...flags}` 以 Host
-/// 判定值覆盖入参。判定依赖服务端 client-config（对应域未迁移），在那之前一律关闭（缺省即
-/// fail-closed，见 docs/specs/rust-u2-agent-v4.md §6-6）。
+/// **不从 Renderer 入参读取**（评审 A12）：TS 用 `{...params, ...flags}` 以 Host 判定值覆盖入参。
+/// 判定依赖服务端 client-config（对应域未迁移），在那之前一律关闭（缺省即 fail-closed，
+/// 见 docs/specs/rust-u2-agent-v4.md §6-6）。
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ToolGates {
-    pub off_peak: bool,
     /// `Some(mode)` = 动态工作流已开启且带 mode（TS `isDynamicWorkflowModeEnabled(mode)`）。
     pub dynamic_workflow_mode: Option<String>,
 }
@@ -27,7 +26,7 @@ pub struct ToolGates {
 ///
 /// 几条**不能简化**的规则（都来自 TS 注释）：
 /// - `importedHistory` 是完整性边界，**不参与**兼容重试省略；
-/// - `offPeakToolEnabled` / `dynamicWorkflowEnabled` 只在为 `true` 时下发（关闭时不写字段）；
+/// - `dynamicWorkflowEnabled` 只在为 `true` 时下发（关闭时不写字段）；
 /// - `dynamicWorkflowMode` 只在与布尔同行时才写（单独出现对 CLI 无意义）。
 pub fn session_create_params(params: &Value, gates: &ToolGates) -> Value {
     let mut request = Map::new();
@@ -301,9 +300,6 @@ fn normalize_path_for_compare(value: &str) -> String {
 /// 灰度字段：只在命中时下发 `true`（关闭时不写字段，CLI 缺省即不注册对应工具）；
 /// `dynamicWorkflowMode` 只与布尔同行。
 fn insert_gates(request: &mut Map<String, Value>, gates: &ToolGates) {
-    if gates.off_peak {
-        request.insert("offPeakToolEnabled".to_owned(), Value::Bool(true));
-    }
     if let Some(mode) = &gates.dynamic_workflow_mode {
         request.insert("dynamicWorkflowEnabled".to_owned(), Value::Bool(true));
         request.insert("dynamicWorkflowMode".to_owned(), Value::from(mode.clone()));

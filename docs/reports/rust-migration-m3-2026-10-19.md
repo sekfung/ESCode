@@ -154,21 +154,24 @@ $ git status --short | wc -l
 
 ## 9. 全仓状态
 
-| 指标            | 本轮后（hooks + plugin-sync + 零散成员）  |
-| --------------- | ----------------------------------------- |
-| channels        | 44                                        |
-| members         | 534                                       |
-| Implemented     | 378                                       |
-| Pending         | 156                                       |
-| `hooks`         | 0 Pending                                 |
-| `plugin-sync`   | 0 Pending                                 |
-| `off-peak-task` | 3 Pending（create/额度/支持快照）         |
-| automation      | 4 Pending（create/update/restart/runNow） |
-| `bots`          | 20 Pending（平台/入站/群投递/V4 流）      |
+| 指标          | 本轮后（hooks + plugin-sync + 零散成员）  |
+| ------------- | ----------------------------------------- |
+| channels      | 43                                        |
+| members       | 522                                       |
+| Implemented   | 369                                       |
+| Pending       | 153                                       |
+| `hooks`       | 0 Pending                                 |
+| `plugin-sync` | 0 Pending                                 |
+| automation    | 4 Pending（create/update/restart/runNow） |
+| `bots`        | 20 Pending（平台/入站/群投递/V4 流）      |
 
 > 2026-10-20 营销服务删除后重新生成 inventory：`cloud-content`（3）与 `marketing-touch`（2）退出
 > TS 服务面，channels 46 → 44、members 539 → 534。两者原本均 Pending，因此 Implemented 保持 378，
 > Pending 161 → 156。营销服务不作为 M3 迁移缺口。
+>
+> 同日产品决定删除 off-peak（闲时任务）：`off-peak-task` 通道 11 个成员（8 Implemented / 3 Pending）
+> 与 `client-config.getOffPeakClientConfig` 退出服务面，channels 44 → 43、members 534 → 522、
+> Implemented 378 → 369、Pending 156 → 153。off-peak 不再作为 M3 迁移缺口。
 
 ## 10. M3 全量状态（2026-10-19 续作）
 
@@ -180,12 +183,10 @@ $ git status --short | wc -l
 | ------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
 | `hooks` 3/3                                                         | Implemented | 本报告 §2–§5；真实客户端 + TS 差分 + 真实 authority                                |
 | `plugin-sync` 7/7                                                   | Implemented | `rust-u2-plugin-sync.md`；`rpc_plugin_sync.rs`；`rustHostPluginSyncParity.test.ts` |
-| `off-peak-task` 8/11                                                | Implemented | `rust-u2-off-peak.md`；`off_peak` 4 单测 + `rpc_off_peak.rs`                       |
 | automation 6/10                                                     | Implemented | `rust-u2-automation.md`；`rpc_automation.rs`                                       |
 | `bots` 12/32                                                        | Implemented | `rust-u2-bots.md`；`rpc_bots.rs`                                                   |
 | `escode-agent.listSessionSubagents` / `getWorkspaceRuntimeIdentity` | Implemented | `rpc_misc.rs`                                                                      |
 | provider runtime headers（请求事件 + 两通道 respond）               | Implemented | `provider_headers.rs` 2 单测 + `rpc_misc.rs` 未知请求错误                          |
-| `client-config.getOffPeakClientConfig`                              | Implemented | 2 个纯函数单测；原始信封缓存 + 隐藏 Off-Peak Provider 视图                         |
 | `media-preview.refreshPlaybackUrl` / `release`                      | Implemented | Host 不签发 host-range 租约：refresh 按过期、release no-op                         |
 | 边界项逐成员定性                                                    | 完成        | `rust-u2-host-scope-boundary.md` §7                                                |
 
@@ -193,7 +194,6 @@ $ git status --short | wc -l
 
 | 域                   | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
 | -------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `off-peak-task`      | `createTask`、`getCodingPlanSupport`、`getTakeNumberAvailability`                 | 需要 Off-Peak server client、账号凭证与 Registry                                                                                                          |
 | automation           | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
 | `bots`               | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
 | `conversation-share` | 9/9                                                                               | 有 Renderer 调用；需 share server 客户端、发布/导入进度与公共投影                                                                                         |
@@ -201,12 +201,14 @@ $ git status --short | wc -l
 
 ### 10.3 结论
 
-**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、off-peak 8、automation 6、bots 12、client-config 1、media-preview 2、零散与 provider headers 5，共 +44 成员（334 → 378 Implemented）；
-剩余 156 Pending 中，off-peak/automation/bots/conversation-share 是明确的 Renderer 可达缺口。
-营销服务（含 `cloud-content`）已按产品决定删除，不再计入剩余缺口。
+**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、automation 6、bots 12、media-preview 2、
+零散与 provider headers 5；原报告的 +44 成员（334 → 378）包含已删除的 `off-peak` 8 个成员与
+`client-config.getOffPeakClientConfig` 1 个成员，删除后当前为 369 Implemented。
+剩余 153 Pending 中，automation/bots/conversation-share 是明确的 Renderer 可达缺口。
+营销服务（含 `cloud-content`）与 off-peak 均已按产品决定删除，不再计入剩余缺口。
 
 建议下一轮顺序：
 
-1. `off-peak-task` + automation（含 `client-config.getOffPeakClientConfig` 与 Host 调度所有者、H5.3 无窗口调度）。
+1. automation（含 Host 调度所有者、H5.3 无窗口调度）。
 2. `bots` 拆两轮：配置/状态/绑定与注册，然后 V4 流/群任务/附件/平台 provider。
 3. `conversation-share`（阻塞上线）。

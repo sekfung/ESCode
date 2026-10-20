@@ -367,9 +367,6 @@ function modelRetryReasonCode(
   switch (reason) {
     case "rate_limited":
       return "fault.provider.rateLimited";
-    // off-peak 排队（429/3105）语义上就是"上游让我们等"，UI 归入限流可恢复形态。
-    case "offpeak_queued":
-      return "fault.provider.rateLimited";
     case "provider_overloaded":
     case "server_error":
       return "fault.provider.serverError";
@@ -383,6 +380,8 @@ function modelRetryReasonCode(
       return "fault.network.unreachable";
     case "auth_refresh":
     case "reasoning_signature_repair":
+      return "fault.provider.requestFailed";
+    default:
       return "fault.provider.requestFailed";
   }
 }

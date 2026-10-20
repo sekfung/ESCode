@@ -14,7 +14,7 @@ const REJECTED_REASONING_FALLBACK = "[Thinking removed]";
 
 // 旧历史保留 builtin 身份，当前选型已迁到 account 身份；Individual/Team
 // 也会使用不同 ID。只在 reasoning 回放时识别同服务的这些明确身份，不改变选型或鉴权。
-// 不能复用套餐展示分组：Start/Off-Peak/API 接入不在这份签名兼容范围内。
+// 不能复用套餐展示分组：Start/API 接入不在这份签名兼容范围内。
 const REASONING_PROVIDER_GROUPS: readonly (readonly string[])[] = [
   [
     "builtin:zai-coding-plan",

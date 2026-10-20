@@ -24,7 +24,7 @@ export interface AccountRequestAuthInput {
   accountAccess: ESCodeProviderAccountAccess | ESCodeAccountAccess;
   expectedAccountScope?: string;
   rejectedProjectTokenFingerprint?: string;
-  reason: RequestVerificationReason | "off-peak" | "usage";
+  reason: RequestVerificationReason | "usage";
 }
 
 export interface AccountAccessIdentityInput {

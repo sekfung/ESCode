@@ -249,7 +249,6 @@ export class ProviderConfigResolver {
       const accessEntitled =
         config.access?.type !== "zhipu-account" || config.access.entitled === true;
       // 账号权益与当前连接是两件事。非当前账号仍保留设置展示，不向普通 Registry 发布模型。
-      // Off-Peak 不定义 current，沿用其独立调度、隐藏和鉴权规则。
       const accountCurrent = input.accountStates?.[providerId]?.current !== false;
       const providerExecutable =
         enabled && accessEntitled && accountCurrent && providerIssues.length === 0;

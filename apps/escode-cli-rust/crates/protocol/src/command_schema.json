@@ -463,9 +463,6 @@
             ]
           }
         },
-        "offPeakToolEnabled": {
-          "type": "boolean"
-        },
         "dynamicWorkflowEnabled": {
           "type": "boolean"
         },
@@ -734,10 +731,6 @@
         "modelExecution": {
           "type": "object",
           "properties": {
-            "memoryExtraction": {
-              "type": "string",
-              "const": "skip"
-            },
             "selectionScope": {
               "type": "string",
               "const": "execution"
@@ -769,24 +762,6 @@
                   }
                 }
               },
-              "additionalProperties": false
-            },
-            "subagents": {
-              "type": "object",
-              "properties": {
-                "foregroundModel": {
-                  "type": "string",
-                  "const": "submission"
-                },
-                "background": {
-                  "type": "string",
-                  "const": "deny"
-                }
-              },
-              "required": [
-                "foregroundModel",
-                "background"
-              ],
               "additionalProperties": false
             },
             "selectionFallback": {
@@ -864,17 +839,6 @@
         "automationId": {
           "type": "string",
           "minLength": 1
-        },
-        "offPeakTaskId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "offPeakRunType": {
-          "type": "string",
-          "enum": [
-            "init",
-            "resume"
-          ]
         },
         "botDeliveryTarget": {
           "type": "object",
@@ -1702,10 +1666,6 @@
         "modelExecution": {
           "type": "object",
           "properties": {
-            "memoryExtraction": {
-              "type": "string",
-              "const": "skip"
-            },
             "selectionScope": {
               "type": "string",
               "const": "execution"
@@ -1737,24 +1697,6 @@
                   }
                 }
               },
-              "additionalProperties": false
-            },
-            "subagents": {
-              "type": "object",
-              "properties": {
-                "foregroundModel": {
-                  "type": "string",
-                  "const": "submission"
-                },
-                "background": {
-                  "type": "string",
-                  "const": "deny"
-                }
-              },
-              "required": [
-                "foregroundModel",
-                "background"
-              ],
               "additionalProperties": false
             },
             "selectionFallback": {
@@ -1951,10 +1893,6 @@
         "modelExecution": {
           "type": "object",
           "properties": {
-            "memoryExtraction": {
-              "type": "string",
-              "const": "skip"
-            },
             "selectionScope": {
               "type": "string",
               "const": "execution"
@@ -1986,24 +1924,6 @@
                   }
                 }
               },
-              "additionalProperties": false
-            },
-            "subagents": {
-              "type": "object",
-              "properties": {
-                "foregroundModel": {
-                  "type": "string",
-                  "const": "submission"
-                },
-                "background": {
-                  "type": "string",
-                  "const": "deny"
-                }
-              },
-              "required": [
-                "foregroundModel",
-                "background"
-              ],
               "additionalProperties": false
             },
             "selectionFallback": {

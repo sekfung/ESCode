@@ -12,7 +12,7 @@ export type { AccountProviderUnavailableReason } from "@escode/shared/account-pr
 
 /**
  * 账号实时事实，不是配置 Overlay，也不写入用户设置。
- * current 表示匹配当前账号访问上下文：Start 可与当前付费套餐同时为 true；Off-Peak 不定义。
+ * current 表示匹配当前账号访问上下文：Start 可与当前付费套餐同时为 true。
  */
 export interface AccountProviderState {
   readonly availability: "available" | "pending" | "unavailable" | "unknown";

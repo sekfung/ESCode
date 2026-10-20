@@ -26,7 +26,7 @@ rust-bash-model-content.md 第 12 条遗留项。
 7. 登记失败（后台任务达到 16 个上限、owner 未提交，或登记期间本轮取消）：
    - 终止进程，返回工具失败：`Command timed out after <时长> and could not move to the background: <原因>`；
    - TS 在该处不会失败，这是 Rust 的有意兜底，只影响上限等极端情况。
-8. 不移植：TS 闲时 turn（`offPeakTurn`）禁用后台。Rust 没有闲时 turn 概念。
+8. 不移植：TS 闲时 turn（`offPeakTurn`）禁用后台。闲时任务已于 2026-10-20 删除，Rust 没有闲时 turn 概念。
 
 ## 所有者与事件顺序
 

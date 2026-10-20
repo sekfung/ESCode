@@ -9,7 +9,6 @@ const settingsPagePartsSource = readSource("../src/settings/SettingsPageParts.ts
 const settingsPageSource = readSource("../src/SettingsPage.tsx");
 const automationsSectionSource = readSource("../src/settings/AutomationsSection.tsx");
 const automationEditViewSource = readSource("../src/settings/AutomationEditView.tsx");
-const offPeakEditViewSource = readSource("../src/settings/OffPeakEditView.tsx");
 const workspaceShellSource = readSource("../src/app-shell/WorkspaceShellLayout.tsx");
 const automationsBreadcrumbFrameSource = readSource(
   "../src/settings/AutomationsMainBreadcrumbFrame.tsx",
@@ -21,20 +20,11 @@ describe("settings frame content layout", () => {
       '"mx-auto w-full max-w-4xl px-4 pb-8 pt-0 lg:px-8 lg:pb-10"',
     );
 
-    for (const source of [
-      settingsPageSource,
-      automationsSectionSource,
-      automationEditViewSource,
-      offPeakEditViewSource,
-    ]) {
+    for (const source of [settingsPageSource, automationsSectionSource, automationEditViewSource]) {
       expect(source).toContain("SETTINGS_FRAME_CONTENT_CLASSNAME");
     }
 
-    for (const source of [
-      automationsSectionSource,
-      automationEditViewSource,
-      offPeakEditViewSource,
-    ]) {
+    for (const source of [automationsSectionSource, automationEditViewSource]) {
       expect(source).not.toContain("max-w-[866px]");
     }
   });

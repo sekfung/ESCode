@@ -180,7 +180,7 @@ it("无人应答在总时限后失败并取消，迟到响应失效且下一请�
   }
 });
 
-it("闲时 scope 经过执行投影和私有反向 RPC 保留，SSH workspace 身份不变", async () => {
+it("执行 scope 经过执行投影和私有反向 RPC 保留，SSH workspace 身份不变", async () => {
   const { createModelExecutionContext } = await import("../src/escode-protocol/model-execution.js");
   const {
     escodeSessionSendParamsSchema,
@@ -195,7 +195,7 @@ it("闲时 scope 经过执行投影和私有反向 RPC 保留，SSH workspace �
       modelSelection: { providerId: "idle", modelId: "glm" },
       modelExecution: {
         selectionScope: "execution",
-        requestAuth: { apiKey: "jwt", accountScope, headers: { "X-Off-Peak-Ticket-ID": "ticket" } },
+        requestAuth: { apiKey: "jwt", accountScope, headers: { "x-test-ticket": "ticket" } },
       },
     }).modelExecution!,
   );
@@ -223,7 +223,7 @@ it("闲时 scope 经过执行投影和私有反向 RPC 保留，SSH workspace �
   await expect(
     port.refreshBeforeModelRequest({
       sessionId: "session",
-      providerId: "account:bigmodel-off-peak",
+      providerId: "account:bigmodel-highspeed-card",
       modelId: "glm",
       reason: "model-request",
       traceContext: { traceId: "test-trace" },
@@ -232,7 +232,7 @@ it("闲时 scope 经过执行投影和私有反向 RPC 保留，SSH workspace �
       accountAccess: {
         type: "zhipu-account",
         accountType: "bigmodel",
-        mode: "off-peak",
+        mode: "highspeed",
         entitled: true,
       },
     }),

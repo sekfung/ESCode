@@ -37,7 +37,6 @@ mod dynamic_workflow;
 mod maintenance;
 mod model_catalog_tool;
 mod model_execution;
-mod off_peak;
 mod queue_control;
 mod wiki_context;
 mod wiki_requests;

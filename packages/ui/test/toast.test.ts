@@ -101,7 +101,7 @@ describe("toast", () => {
       createElement(ToastMessageView, {
         item: {
           id: 3,
-          message: "Idle-time tasks are available for Coding Plan subscribers only.",
+          message: "This feature is available for Coding Plan subscribers only.",
           durationMs: 8000,
           position: "top-right",
           variant: "info",
@@ -156,7 +156,7 @@ describe("toast", () => {
   it("moves top-right toasts from right to left with reduced-motion fallback", () => {
     const item = {
       id: 5,
-      message: "Idle-time tasks are available for Coding Plan subscribers only.",
+      message: "This feature is available for Coding Plan subscribers only.",
       durationMs: 8000,
       position: "top-right" as const,
       variant: "info" as const,

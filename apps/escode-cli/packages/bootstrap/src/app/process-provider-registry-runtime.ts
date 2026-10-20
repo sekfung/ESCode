@@ -152,7 +152,7 @@ export function parseProcessAccountProviderConfigSnapshot(input: {
   }
   const providers = parseAccountProviderConfigMap(input.providers);
   for (const [providerId, provider] of providers.entries()) {
-    // 仅约束托管 Worker 的普通账号信封；独立 CLI、API 和闲时不需要 current。
+    // 仅约束托管 Worker 的普通账号信封；独立 CLI 与 API 不需要 current。
     if (
       isBuiltinModelProviderId(providerId) &&
       provider.access?.type === "zhipu-account" &&

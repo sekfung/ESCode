@@ -397,32 +397,6 @@ describe("ESCode Protocol", () => {
     ).toThrow();
   });
 
-  it("session/send accepts Off-Peak turn attribution but rejects competing automation identity", () => {
-    expect(
-      escodeSessionSendParamsSchema.parse({
-        sessionId: "sess_1",
-        content: "continue",
-        offPeakTaskId: "offpeak-1",
-        offPeakRunType: "resume",
-      }),
-    ).toMatchObject({ offPeakTaskId: "offpeak-1", offPeakRunType: "resume" });
-    expect(() =>
-      escodeSessionSendParamsSchema.parse({
-        sessionId: "sess_1",
-        content: "invalid",
-        offPeakRunType: "init",
-      }),
-    ).toThrow();
-    expect(() =>
-      escodeSessionSendParamsSchema.parse({
-        sessionId: "sess_1",
-        content: "continue",
-        automationId: "automation-1",
-        offPeakTaskId: "offpeak-1",
-      }),
-    ).toThrow();
-  });
-
   it("session/send and automation/create validate the bot delivery target strictly", () => {
     const botDeliveryTarget = {
       provider: "weixin" as const,
@@ -1016,7 +990,7 @@ describe("ESCode Protocol", () => {
     ).toThrow();
   });
 
-  it.each(["start-plan", "individual-coding-plan", "team-coding-plan", "off-peak"] as const)(
+  it.each(["start-plan", "individual-coding-plan", "team-coding-plan", "highspeed"] as const)(
     "runtime headers 直接接受 Registry zhipu access mode: %s",
     (mode) => {
       const parsed = escodeProviderRuntimeHeadersRequestParamsSchema.parse({

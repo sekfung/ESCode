@@ -74,7 +74,6 @@ fn sync_task_meta_applies_the_merge_rules() {
     // 身份字段缺省保留既有值。
     let mut with_identity = write_meta("task_w2", 400);
     with_identity.insert("cronAutomationId".into(), json!("cron_1"));
-    with_identity.insert("offPeakTaskId".into(), json!("off_peak_1"));
     index
         .sync_task_meta(&with_identity, &write::SyncOptions::default())
         .unwrap();
@@ -82,7 +81,6 @@ fn sync_task_meta_applies_the_merge_rules() {
         .sync_task_meta(&write_meta("task_w2", 450), &write::SyncOptions::default())
         .unwrap();
     assert_eq!(after["cronAutomationId"], "cron_1");
-    assert_eq!(after["offPeakTaskId"], "off_peak_1");
 
     // searchable_text 只在显式传入时更新。
     let search_result = index

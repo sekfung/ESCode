@@ -1,7 +1,7 @@
 //! 动态工作流灰度门（docs/specs/rust-dynamic-workflow.md 第 1 期），对齐 TS
 //! `bootstrap/src/escode-protocol/dynamic-workflow-policy.ts` 与 `registerBuiltInTools` 的
 //! `includeDynamicWorkflow` 过滤。读法、固化时机与 fail-closed 缺省由 `domain::dynamic_workflow::Policy`
-//! 决定（同 OffPeak）；模块本身只做协议面与工具面接线。
+//! 决定；模块本身只做协议面与工具面接线。
 
 use super::Engine;
 use crate::domain::dynamic_workflow;

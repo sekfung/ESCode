@@ -35,7 +35,7 @@ function roundTrip(c: ConcurrencyController, n: number, now = T0) {
 }
 
 /** 一个当前 epoch 的 429（先准入再限流）。 */
-function throttleNow(c: ConcurrencyController, reason: "rate_limited" | "provider_overloaded" | "offpeak_queued" = "rate_limited", retryAfterMs?: number, now = T0) {
+function throttleNow(c: ConcurrencyController, reason: "rate_limited" | "provider_overloaded" = "rate_limited", retryAfterMs?: number, now = T0) {
   const epoch = c.admitted(now);
   return c.throttled(now, epoch, reason, retryAfterMs);
 }
@@ -107,8 +107,8 @@ describe("ConcurrencyController — 减（决策 4/6/11/35/40）", () => {
     throttleNow(c, "rate_limited", undefined, T0 + 20_000); // 3→2
     throttleNow(c, "rate_limited", undefined, T0 + 20_000); // 2→1
     expect(c.snapshot().cap).toBe(1);
-    expect(throttleNow(c, "offpeak_queued", 5_000, T0 + 20_001)).toEqual([
-      { key: KEY, previous: 1, next: 1, reason: "offpeak_queued", lastBad: 1, cooldownMs: 5_000 },
+    expect(throttleNow(c, "rate_limited", 5_000, T0 + 20_001)).toEqual([
+      { key: KEY, previous: 1, next: 1, reason: "rate_limited", lastBad: 1, cooldownMs: 5_000 },
     ]);
   });
 

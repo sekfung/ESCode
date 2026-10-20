@@ -47,7 +47,6 @@ pub struct Import<H = History> {
     pub tool_allowlist: Option<Vec<String>>,
     pub tool_denylist: Option<Vec<String>>,
     pub imported_history: H,
-    pub off_peak_tool_enabled: Option<bool>,
     pub dynamic_workflow_enabled: Option<bool>,
 }
 impl Import {
@@ -124,7 +123,6 @@ impl<H: serde::de::DeserializeOwned> Import<H> {
         ensure!(
             input.tool_allowlist.as_ref().is_none_or(Vec::is_empty)
                 && input.tool_denylist.as_ref().is_none_or(Vec::is_empty)
-                && input.off_peak_tool_enabled != Some(true)
                 && input.dynamic_workflow_enabled != Some(true),
             "Unsupported imported tool profile"
         );

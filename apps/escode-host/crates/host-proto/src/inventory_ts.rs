@@ -6,7 +6,7 @@
 pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("bots", &["beginFeishuRegistration", "beginWeixinRegistration", "createBindCode", "deleteBot", "getBotStates", "getConfig", "getGroupMemberNames", "getStatus", "getTopicDetails", "getUserConfigOptions", "handleInboundMessage", "handleProviderCallback", "handleProviderCallbackResponse", "listBots", "listWorkspaceRefs", "pollFeishuRegistration", "pollWeixinRegistration", "readTopicResource", "reconcileGroupResult", "removeBotSecret", "replyToChannel", "resendGroupResult", "resetBotState", "retryPrivateDelivery", "retryTopicPreparation", "saveBot", "saveConfig", "setGroupEnabled", "syncAppRuntimePreferences", "testBot", "validateTopicResource", "watchAutomationRun"]),
     ("broadcast", &["acquireClaim", "commitClaim", "onMessage", "releaseClaim", "send", "tryClaim"]),
-    ("client-config", &["getDynamicWorkflowClientConfig", "getOffPeakClientConfig", "getSnapshot"]),
+    ("client-config", &["getDynamicWorkflowClientConfig", "getSnapshot"]),
     ("client-scenes", &["list"]),
     ("commands", &["deleteCommandFile", "getPrimaryUserCommandsDirectory", "list", "setCommandEnabled", "updateCommandFile", "writeCommandFile"]),
     ("conversation-share", &["getCapabilities", "getContinuation", "getImportedConversation", "getPreview", "importShare", "onDynamicImportProgress", "onDynamicPublishProgress", "preflight", "publish"]),
@@ -26,7 +26,6 @@ pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("media-preview", &["prepare", "refreshPlaybackUrl", "release"]),
     ("memory", &["clearMemory", "getUserMemoryDirectory", "listProjectMemories", "loadMemory", "readProjectMemoryFile", "saveMemory"]),
     ("model-selection", &["getView", "onDidChange"]),
-    ("off-peak-task", &["cancelTask", "continueTask", "createTask", "deleteHistory", "deleteTask", "get", "getCodingPlanSupport", "getTakeNumberAvailability", "list", "pauseTask", "updateTask"]),
     ("onboarding-record", &["appendRecord", "claimAnonymousRecord", "clearRecords", "dismissOnboarding", "getLatestEntry", "getRecords", "shouldOnboard", "syncSettingsFromRecord", "updateRecordPreferences"]),
     ("output-style", &["addStyle", "deleteStyle", "getActiveStyle", "getUserStylesDirectory", "listStyles", "setActiveStyle", "updateStyle"]),
     ("plugin-management", &["addPluginMarketplace", "cancelPluginOperation", "configurePlugin", "describePlugin", "getPluginReferenceCatalog", "getPluginsOverview", "installPlugin", "listPlugins", "onDynamicPluginOperationProgress", "removePluginMarketplace", "resetPluginConfig", "resolveSuggestedPluginReference", "restoreBuiltinPlugin", "setPluginEnabled", "uninstallPlugin", "updatePlugin", "updatePluginMarketplace", "validatePlugin"]),

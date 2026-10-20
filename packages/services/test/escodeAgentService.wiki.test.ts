@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { V4_WIKI_METHODS } from "@escode/shared/escode-protocol-v4";
-import { offPeakSelectionView } from "./fixtures/offPeakSelection.js";
+import { accountSelectionView } from "./fixtures/accountSelectionView.js";
 
 // LLM Wiki 协议（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：只有 Rust runtime 实现；
 // TS runtime / 旧 CLI 的 -32601 在服务层折算为 supported=false，其他错误照常抛出。
@@ -33,7 +33,7 @@ async function setup(handler: (method: string, params: unknown) => unknown) {
   }));
   const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
   const service = createESCodeAgentService({
-    modelSelectionReadinessSource: { getView: async () => offPeakSelectionView() },
+    modelSelectionReadinessSource: { getView: async () => accountSelectionView() },
   });
   return { service, request };
 }

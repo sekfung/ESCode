@@ -193,7 +193,7 @@ Engineering Infrastructure
 | Host       | 浏览器与计算机操作平台（Browser & Computer Use Platform）           | BrowserView/WebContentsView、CDP backend、Computer Use Helper 生命周期、可信 broker、系统观察与输入执行 |
 | Host       | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、手机远控、continuous/replayable                                  |
 | Host       | 工作台服务（Workbench Services）                                    | File/Terminal/Git 服务                                                                                  |
-| Host       | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、off-peak、Bots、第三方渠道                                                |
+| Host       | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、Bots、第三方渠道                                                          |
 | Host       | 客户端平台（Client Platform）                                       | Electron 生命周期、客户端更新、Feedback ticket 与诊断包                                                 |
 | Host       | 数据与可观测性（Data & Observability）                              | App Usage bridge、产品埋点、Conversation telemetry、ARMS、性能可靠性、日志与进程监控                    |
 | ESCode CLI | 智能体核心（Agent Core）                                            | runtime 装配、turn 状态机、上下文、memory、compact、stream recovery、goal/target、故障收口              |
@@ -294,7 +294,7 @@ Conversation Runtime
         +--> 发送消息 / 当前会话（Composer / Conversation）
         +--> 子智能体配置（Subagent Profiles）
         +--> 定时自动化（Scheduled Automation）
-        +--> 闲时任务、机器人（Off-Peak / Bots）
+        +--> 机器人（Bots）
 
 上下文与输出预算 ──> 模型运行时（Model Runtime）
         |

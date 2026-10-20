@@ -244,7 +244,6 @@ describe("rust host rpc surface", () => {
             model: "glm-4",
             provider: "glm" as const,
             cronAutomationId: "cron_1",
-            offPeakTaskId: "off_peak_1",
             unreadAt: 450,
             status: "running" as const,
           },

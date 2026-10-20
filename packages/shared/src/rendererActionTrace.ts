@@ -74,7 +74,7 @@ export const rendererActionTraceAttributesSchema = z
     admission_result: z
       .enum(["accepted", "rejected", "stale", "duplicate", "noop", "not_applicable"])
       .optional(),
-    automation_kind: z.enum(["scheduled", "off_peak"]).optional(),
+    automation_kind: z.literal("scheduled").optional(),
     action_id: z.string().uuid(),
   })
   .strict();

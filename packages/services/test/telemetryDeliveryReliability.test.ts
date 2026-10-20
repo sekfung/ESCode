@@ -55,10 +55,10 @@ describe("telemetry delivery reliability", () => {
         clientLanguage: "zh-CN",
         screenResolution: "1920x1080",
       },
-      elementName: "off_peak_task_create_result",
+      elementName: "automation_create_result",
       eventRegion: "app.automations",
       eventType: "result",
-      eventExtraDetail: { off_peak_task_id: "OP-1" },
+      eventExtraDetail: { automation_id: "A-1" },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -183,7 +183,7 @@ describe("telemetry delivery reliability", () => {
           clientLanguage: "zh-CN",
           screenResolution: "1920x1080",
         },
-        elementName: "off_peak_task_create_result",
+        elementName: "automation_create_result",
         eventRegion: "app.automations",
         eventType: "result",
         eventExtraDetail: {},
@@ -193,7 +193,7 @@ describe("telemetry delivery reliability", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledTimes(1);
     const warning = String(warn.mock.calls[0]?.[0]);
-    expect(warning).toContain("event=off_peak_task_create_result");
+    expect(warning).toContain("event=automation_create_result");
     expect(warning).toContain("eventId=redacted-event-id");
     expect(warning).toContain("attempts=2");
     expect(warning).not.toContain("Users");

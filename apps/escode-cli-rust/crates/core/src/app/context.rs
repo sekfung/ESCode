@@ -17,8 +17,6 @@ pub(super) struct TurnFacts {
     pub model_selection: Option<Value>,
     /// MCP tools/call 的请求上下文（TS `mcpRequestMeta`，不含逐次调用的 span_id；docs/specs/rust-browser-use.md 第 1 期）。
     pub mcp_meta: Value,
-    /// 本会话是否注册 OffPeak 工具（docs/specs/rust-offpeak.md 第一期）。
-    pub off_peak_tools: bool,
     /// 本会话是否注册动态工作流工具（docs/specs/rust-dynamic-workflow.md 第 1 期）。
     pub dynamic_workflow: bool,
     /// 本轮的模型目录（`ListModels`，docs/specs/rust-dynamic-workflow.md 第 6 期）：TS 在工具调用
@@ -27,10 +25,6 @@ pub(super) struct TurnFacts {
     pub model_catalog: Option<Vec<Value>>,
     /// 本会话的工作目录（`ListWorkflowRuns` 的项目键；TS `context.workingDirectory`）。
     pub cwd: Option<String>,
-    /// 本轮闲时派发身份（第二期）。
-    pub off_peak_task_id: Option<String>,
-    /// 闲时受限轮（TS isOffPeakCreateRestrictedTurn，第二期）。
-    pub off_peak_restricted: bool,
     /// UserPromptSubmit 的提示正文（只有真实用户输入轮；后台结果 / 子代理消息轮跳过，TS skipUserPromptSubmitHooks）。
     pub prompt: Option<String>,
     /// 本进程内本会话首轮：SessionStart 的 source（startup / resume）。

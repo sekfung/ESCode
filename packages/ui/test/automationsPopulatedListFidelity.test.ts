@@ -17,9 +17,8 @@ const automationsSectionSource = readFileSync(
 ).replaceAll("\r\n", "\n");
 
 describe("Automations populated-list Figma contract", () => {
-  it("removes the All tab and its unified mixed grid", () => {
-    // 规范出处：docs/off-peak-task/decisions.md D47（2026-07-28）——主视图只保留
-    // Scheduled / Idle 两个 tab，All 混排总览及其统一 grid 删除；任务区锚点保留供布局断言使用。
+  it("removes the unified mixed task grid", () => {
+    // 主视图只保留单一任务列表；任务区锚点保留供布局断言使用。
     expect(automationsSectionSource).not.toContain('"all"');
     expect(automationsSectionSource).not.toContain("showUnifiedAllTaskGrid");
     expect(automationsSectionSource).toContain("data-automations-task-grid");
@@ -34,20 +33,19 @@ describe("Automations populated-list Figma contract", () => {
 
     expect(bannerStart).toBeGreaterThanOrEqual(0);
     expect(gridStart).toBeGreaterThan(bannerStart);
-    // D47：keep-awake 是全局开关，Scheduled / Idle 两个 tab 都展示；有任务时提示条与 action row 收紧到 20px。
+    // keep-awake 是全局开关；有任务时提示条与 action row 收紧到 20px。
     expect(automationsSectionSource).toMatch(/hasAnyTasks \? "mt-5" : "mt-8"/);
   });
 
-  it("keeps inactive tabs transparent and shows the scheduled create split action only on its tab", () => {
+  it("keeps inactive status filters transparent and renders the create split action", () => {
     expect(automationsSectionSource).toContain(
       '"text-foreground-subtle hover:bg-hover hover:text-foreground"',
     );
     expect(automationsSectionSource).not.toContain(
       '"bg-surface text-foreground-subtle hover:bg-hover hover:text-foreground"',
     );
-    expect(automationsSectionSource).toContain(
-      "<AutomationCreateDropdown\n                onViaChat={handleCreateViaChat}",
-    );
+    expect(automationsSectionSource).toContain("<AutomationCreateDropdown");
+    expect(automationsSectionSource).toContain("onViaChat={handleCreateViaChat}");
     expect(automationsSectionSource).not.toContain("appearance={");
   });
 
@@ -55,14 +53,11 @@ describe("Automations populated-list Figma contract", () => {
     const refreshAction = automationsSectionSource.indexOf(
       'aria-label={intl.formatMessage({ id: "automations.refresh" })}',
     );
-    const createAction = automationsSectionSource.indexOf(
-      "<AutomationCreateDropdown\n                onViaChat={handleCreateViaChat}",
-    );
+    const createAction = automationsSectionSource.indexOf("<AutomationCreateDropdown");
 
     expect(refreshAction).toBeGreaterThanOrEqual(0);
     expect(createAction).toBeGreaterThan(refreshAction);
     expect(automationsSectionSource).toContain("refresh(escodeAgentService)");
-    expect(automationsSectionSource).toContain("offPeakRefresh(offPeakTaskService)");
     expect(automationsSectionSource).toMatch(
       /variant="outline"\s+size="icon"\s+aria-label=\{intl\.formatMessage\(\{ id: "automations\.refresh" \}\)\}/,
     );
@@ -79,12 +74,6 @@ describe("Automations populated-list Figma contract", () => {
     expect(zhCN["automations.resume"]).toBe("继续");
     expect(enUS["automations.pause"]).toBe("Pause");
     expect(enUS["automations.resume"]).toBe("Continue");
-  });
-
-  it("uses the dedicated idle-time delete confirmation action label", () => {
-    expect(automationsSectionSource).toMatch(
-      /id: "offPeak\.delete\.title"[\s\S]*?id: "offPeak\.delete\.description"[\s\S]*?id: "offPeak\.delete\.confirm"/,
-    );
   });
 
   it("dims paused schedule time and run count to 40 percent opacity", () => {

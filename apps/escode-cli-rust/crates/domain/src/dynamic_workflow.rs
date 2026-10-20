@@ -28,9 +28,9 @@ pub const TOOLS: [&str; 11] = [
 /// 灰度门：进程级结论 + 各会话固化值（TS `appRuntimePreferences.dynamicWorkflowEnabled` 与每条
 /// record 的 `runtimeConfig.dynamicWorkflowEnabled`）。
 ///
-/// 读法与 OffPeak 同构：会话创建/恢复参数优先，缺席时读进程级结论；翻转只影响之后创建或恢复的
-/// 会话，已固化的会话不回收（TS「已活跃 record 的工具面不回收」）。缺省是 fail-closed：受信 Host
-/// 必须显式调用 `workspace/updateDynamicWorkflowPolicy` 才开启。
+/// 会话创建/恢复参数优先，缺席时读进程级结论；翻转只影响之后创建或恢复的会话，已固化的会话不回收
+/// （TS「已活跃 record 的工具面不回收」）。缺省是 fail-closed：受信 Host 必须显式调用
+/// `workspace/updateDynamicWorkflowPolicy` 才开启。
 #[derive(Default)]
 pub struct Policy {
     process: bool,

@@ -19,7 +19,7 @@ describe("DB109 App 库统一迁移", () => {
     for (const db of databases.splice(0)) db.close();
   });
 
-  it("DB109-02/03：任意 Repo 所需八张表一次创建，重开不改账本", () => {
+  it("DB109-02/03：任意 Repo 所需表一次创建，重开不改账本", () => {
     const db = open();
     runTasksDatabaseMigrations(db);
     const tables = db
@@ -28,7 +28,6 @@ describe("DB109 App 库统一迁移", () => {
     expect(tables.map((row) => row.name)).toEqual([
       "automation_runs",
       "automations",
-      "off_peak_tasks",
       "task_group_members",
       "task_group_view_node_orders",
       "task_group_workspace_bootstraps",
@@ -37,7 +36,7 @@ describe("DB109 App 库统一迁移", () => {
       "tasks_schema_migration",
     ]);
     const ledger = db.prepare("SELECT * FROM tasks_schema_migration").all();
-    expect(ledger).toHaveLength(3);
+    expect(ledger).toHaveLength(4);
     runTasksDatabaseMigrations(db);
     expect(db.prepare("SELECT * FROM tasks_schema_migration").all()).toEqual(ledger);
   });
@@ -98,10 +97,7 @@ describe("DB109 App 库统一迁移", () => {
         }),
       ],
       ["custom", JSON.stringify({ providerId: "personal-proxy", modelId: "glm-5.3-flash" })],
-      [
-        "offpeak",
-        JSON.stringify({ providerId: "account:zai-offpeak-idle-plan", modelId: "glm-5.3-flash" }),
-      ],
+      ["personal", JSON.stringify({ providerId: "personal-proxy-team", modelId: "glm-5.3-flash" })],
       ["unknown", JSON.stringify({ providerId: "account:zai-start-plan", modelId: "glm-unknown" })],
       ["broken", "{broken"],
       ["missing", null],
@@ -257,7 +253,7 @@ describe("DB109 App 库统一迁移", () => {
       Atomics.store(new Int32Array(gate), 0, 1);
       Atomics.notify(new Int32Array(gate), 0);
       expect(await Promise.all(exits)).toEqual([[0], [0]]);
-      expect(db.prepare("SELECT * FROM tasks_schema_migration").all()).toHaveLength(3);
+      expect(db.prepare("SELECT * FROM tasks_schema_migration").all()).toHaveLength(4);
       expect(db.prepare("SELECT * FROM migration_probe").all()).toHaveLength(1);
       expect(db.prepare("PRAGMA integrity_check").get()?.integrity_check).toBe("ok");
     } finally {

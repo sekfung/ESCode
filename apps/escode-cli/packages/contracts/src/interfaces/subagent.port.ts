@@ -3,8 +3,7 @@
 // ============================================================
 
 import type { AgentBackgroundedOutput, AgentOutput } from "../tools/agent.js";
-import type { Model, ModelSelection } from "../model/index.js";
-import type { ModelRequestDependencies } from "../model/invocation-context.js";
+import type { Model } from "../model/index.js";
 import type { SessionId, ToolCallId, TurnId } from "./shared.js";
 import type { TraceContext } from "../tracing/tracer.js";
 
@@ -25,12 +24,6 @@ export interface SubagentRunOptions {
   signal?: AbortSignal;
   /** 未显式选模的 child 从父 Agent Loop 继承的不可变 Model。 */
   model?: Model;
-  /** Core Server 对前台 child 的最高优先级 Selection；每个 child 仍自行创建 Model。 */
-  modelOverride?: {
-    selection: ModelSelection;
-    requestDependencies?: ModelRequestDependencies;
-    background: "deny";
-  };
 }
 
 export interface SubagentLaunchRequest extends SubagentRunRequest {
