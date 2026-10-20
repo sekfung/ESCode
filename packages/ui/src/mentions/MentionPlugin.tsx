@@ -127,7 +127,7 @@ export function coerceEnabledMentionIndex(
  * IME 组合期间（拼音未上屏）是否冻结 @ 面板重算：中间态字母会被当作 query 逐字过滤一轮，
  * 面板闪烁且中间态结果错误；composition 提交后 Lexical 会再派发一次 update 完成重算。
  * Android 例外：Chrome + Gboard 对拉丁词也走 composition（整词到空格才 compositionend），
- * 冻结会让手机 Web 的 @ 面板失去逐字过滤，因此 Android 保持实时重算。
+ * 冻结会让窄视口 的 @ 面板失去逐字过滤，因此 Android 保持实时重算。
  */
 export function shouldFreezeMentionRecalcWhileComposing(
   isComposing: boolean,

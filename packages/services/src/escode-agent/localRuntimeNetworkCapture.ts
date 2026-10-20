@@ -7,7 +7,7 @@ import {
 import type { IDisposable } from "@escode/rpc";
 import type { ESCodeProtocolClient } from "#src/escode-agent/escodeProtocolClient.js";
 
-/** 仅由本机子进程 spawn 点登记；remote RPC/手机 attachment 不登记也不透传启停。 */
+/** 仅由本机子进程 spawn 点登记；remote RPC/远程 workspace attachment 不登记也不透传启停。 */
 export class LocalRuntimeNetworkCapture {
   private readonly clients = new Map<
     ESCodeProtocolClient,

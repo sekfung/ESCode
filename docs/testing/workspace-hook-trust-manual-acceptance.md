@@ -110,7 +110,7 @@ test -f "<workspace>/.workspace-hook-trust-uat/executions.jsonl" \
 
 1. 使用一个新的 fixture 触发待审核状态。
 2. 打开设置后直接关闭设置页，不点击“信任”。
-3. 可选：等待审核绑定超时，或用手机 Web 断开再连接。
+3. 可选：等待审核绑定超时，或用窄视口 断开再连接。
 4. 重新进入 Hooks 设置。
 
 预期：

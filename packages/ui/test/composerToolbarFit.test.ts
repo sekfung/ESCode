@@ -78,7 +78,7 @@ describe("composer toolbar fit", () => {
     }
   });
 
-  it("手机缺少 Computer 时直接进入第二档，think 与模型最后分两档收起", () => {
+  it("窄视口缺少 Computer 时直接进入第二档，think 与模型最后分两档收起", () => {
     const f = fixture();
     f.controls[2].remove();
     f.fit(640);

@@ -5,7 +5,7 @@
 CUA 不再有独立 MCP launcher。桌面 Dev 只需播种 CUA SDK、Skill 和按需 docs，复用
 Browser Use 与 Computer Use 共用的 shared `node_repl` MCP（只有 `js` 一个工具）。
 原生 Helper、frame registry、kill switch、input hold 和 `possibly_sent` 仍由 shared-host
-`CuaControlPort` 持有；手机端只能 attachment 到已有 host。
+`CuaControlPort` 持有；远程 workspace只能 attachment 到已有 host。
 
 ```text
 pnpm dev:desktop
@@ -21,7 +21,7 @@ pnpm dev:desktop
                               -> CuaControlPort -> BrokerClient -> Helper
 ```
 
-没有 broker/权限时 SDK 返回明确 unavailable；不会在 relay、手机端或每个 session 另起
+没有 broker/权限时 SDK 返回明确 unavailable；不会在 relay、远程 workspace或每个 session 另起
 Helper/CUA runtime。桌面使用 `desktop-continuous`，手机使用 `web-remote-replayable`。
 
 ## 资产与状态边界

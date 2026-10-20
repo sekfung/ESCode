@@ -205,7 +205,7 @@ export function WorkflowCompletionCard({
     <section
       aria-label={format({ id: WORKFLOW_RUN_KIND_ID.completed })}
       // `@container/wf-card`：窄卡（<480px）上动词只剩图标——判据必须是**卡自己的宽度**，
-      // 视口断点在分栏、侧板与手机三种窄法之间对不上（docs/dynamic-workflow/transcript-and-notifications.md）。
+      // 视口断点在分栏、侧板与窄屏三种窄法之间对不上（docs/dynamic-workflow/transcript-and-notifications.md）。
       className="wf-motion wf-arrive @container/wf-card flex w-full min-w-0 flex-col gap-2.5 rounded-xl border border-border/70 bg-card/70 px-3.5 pb-3 pt-1.5"
       data-testid={`workflow-completion-card-${testIdKey}`}
       data-workflow-completion-card="true"

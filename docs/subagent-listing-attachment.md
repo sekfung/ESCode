@@ -157,7 +157,7 @@ provider-visible 合同的证明。当前合同必须重新运行 focused/wire �
 - `pnpm audit:conversation-session-coverage` 未通过；原始 HEAD 复现相同问题：
   D19/I74/I75 的自动化缩写引用、矩阵统计过期，以及三份 generated review 文档过期。
   I21 扩展未增加 case 数量，不刷新无关覆盖基线。
-- 实机验证环境为 macOS Electron；Windows、Linux 和手机远控未单独实机运行。
+- 实机验证环境为 macOS Electron；Windows、Linux 和远程 workspace未单独实机运行。
   手机 provider-context 分类由共享 projection 单测覆盖，交付路径未改动。
 
 同日 lean 文案增补复验：66 项相关 Core 测试通过，root/Core typecheck 与 lint、E2E

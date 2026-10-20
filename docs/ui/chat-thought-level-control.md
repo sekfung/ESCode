@@ -11,7 +11,7 @@
   - 旧版点击循环切换交互保留为 `interactionMode="cycle"` 参数，便于在需要更快切换的场景恢复。
   - 触发器显示脑图标、当前阶梯文案和竖向阶梯条；文案来自当前 `thought_level` option 的本地化展示名。
   - 当前阶梯文案切换时使用轻量纵向滚动动效；系统开启 reduced motion 时直接静态替换。
-  - 桌面宽度展示当前阶梯文案；窄屏沿用工具栏的 `labelVisibilityClassName` 收起文字，保证手机 Web 不挤压输入框。
+  - 桌面宽度展示当前阶梯文案；窄屏沿用工具栏的 `labelVisibilityClassName` 收起文字，保证窄视口 不挤压输入框。
   - 竖向阶梯进度条只在 composer 的 `sm` 到 `xl` 区间显示：小于 `sm` 的超窄宽度隐藏进度条，仅保留脑图标；达到 `xl` 后进度条随当前阶梯文案出现而隐藏。
   - V4 composer 在小于 `xl` 的窄宽度隐藏下拉箭头，但保留脑图标和上述阶梯条响应规则；继续缩到 `sm` 以下时，trigger 收敛为正方形图标按钮。达到 `xl` 后恢复箭头。
   - tooltip 会根据当前阶梯文案是否显示在按钮里切换：文案可见时显示功能名，英文为 `Thought Level`、中文为“思考级别”；文案因输入框变窄被收起时，tooltip 标题改为当前阶梯文案。
@@ -46,5 +46,5 @@ light、shallow、balanced、default、normal、standard、deep、maximum、very
 ## 兼容边界
 
 - Todo153 调整 UI 展示并移除前端名称排序，保留来源顺序；不改变 currentValue 写入、workspace 默认思考等级、请求参数映射或 task realtime 链路。
-- 桌面端和 Web 端共用同一 React 组件；手机端只受响应式文字显隐影响，不改变 remote replayable 语义。
+- 桌面端和 Web 端共用同一 React 组件；远程 workspace只受响应式文字显隐影响，不改变 remote replayable 语义。
 - `Ctrl+T` 不依赖触发器 click，避免默认 select 交互覆盖快捷键快速切换。

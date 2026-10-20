@@ -152,7 +152,7 @@ viewport scroll/resize ------------> shared fade mask (no change to following st
 producer 未启动，清理 hook 随之失败，BGV05/06 未执行。三条在独立回放
 `desktop-e2e-20260910-124514-441` 通过，合计 11 条相关 E2E 验证通过，不计作一次全绿运行。
 19 项 UI 单测、根与 E2E typecheck、architecture、fixture check 通过；
-lint 为 43 条既有 warnings、0 errors。本轮未执行 Windows/Linux Desktop 或真实手机远控 UI；
+lint 为 43 条既有 warnings、0 errors。本轮未执行 Windows/Linux Desktop 或真实远程 workspace UI；
 无可用 codegraph，影响面通过直接调用链及登记的源码 seed 核对。
 
 上下渐隐验证：`desktop-e2e-20260910-142038-231` 的 BDO07、BGV03 共 2/2 通过。

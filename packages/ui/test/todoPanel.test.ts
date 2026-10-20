@@ -46,7 +46,7 @@ describe("TodoPanel", () => {
     expect(html).toContain("还要处理的事项");
   });
 
-  it("keeps collapsed todo layout bounded on narrow remote-control viewports", () => {
+  it("keeps collapsed todo layout bounded on narrow viewports", () => {
     const html = renderWithTooltipProvider(
       createElement(TodoPanel, {
         isStreaming: true,
@@ -54,8 +54,7 @@ describe("TodoPanel", () => {
           {
             id: "step-1",
             status: "in_progress",
-            title:
-              "这是一个很长的待办标题，用来模拟手机远程控制窄屏里当前任务标题把右侧按钮挤出容器的问题",
+            title: "这是一个很长的待办标题，用来模拟窄屏里当前任务标题把右侧按钮挤出容器的问题",
           },
           {
             id: "step-2",

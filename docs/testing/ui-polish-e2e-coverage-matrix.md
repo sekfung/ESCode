@@ -9,7 +9,7 @@
 | TL-01 | 同一配置包含关闭、minimal／low、max／ultra、extra-high／extra_high、default；桌面 1200／触控手机 390，中英与深浅主题；打开菜单并选择 | 文案符合 spec；同名别名不去重；default 保留来源名称；菜单尊重配置顺序，提交原始 value；视口内无溢出 | accepted；浏览器八组通过，待人工转正 |
 | TL-02 | 上述尺寸与主题下依次操作选择菜单、点击循环、Ctrl+T 及 Subagent 字段                                                                  | 共用配置顺序并在末尾回首；快捷键不打开菜单；Subagent 显示相同文案并提交原始值                       | accepted；浏览器八组通过，待人工转正 |
 
-关闭项位于中间、未知值名为 off、空值／失效值与单档只读由定向组件单测覆盖。浏览器截图用于视觉检查；本组不代表完整 Electron、手机远控重连或供应商请求链路验证，不自动转正到正式桌面 E2E。
+关闭项位于中间、未知值名为 off、空值／失效值与单档只读由定向组件单测覆盖。浏览器截图用于视觉检查；本组不代表完整 Electron、远程 workspace重连或供应商请求链路验证，不自动转正到正式桌面 E2E。
 
 ## 2026-09-12 当前整页验证
 
@@ -21,7 +21,7 @@ Pro 最终 `provider-20260912-pro-settings-polish4`：WDIO 报9 passing／1 skip
 
 ## Todo98 源 Map 结构排版
 
-F98-03（accepted，pending 不晋级）：复用 `settings/manual-review/pending/provider-model-smart-config.test.ts`，添加/编辑读取真实 Built-in 多行 Map，桌面及 390px 截图；真实键入连续空格不触发背景排序，取消无写入，正常保存后原样读回。Pro `desktop-e2e-20260909-125010-082`：SC90-01 / F98-03 **2/2 通过**。F98-01 扫描真实 Built-in 所有 Map 的结构换行及简单三目；F98-02 全部 65 条 AST 与 505 组求值对照通过，无运行时 formatter。390px 仅布局模拟，不冒充真实手机远控验证。追加键盘隔离有 7 类控件/Portal 负例及模型行键盘启动正例。
+F98-03（accepted，pending 不晋级）：复用 `settings/manual-review/pending/provider-model-smart-config.test.ts`，添加/编辑读取真实 Built-in 多行 Map，桌面及 390px 截图；真实键入连续空格不触发背景排序，取消无写入，正常保存后原样读回。Pro `desktop-e2e-20260909-125010-082`：SC90-01 / F98-03 **2/2 通过**。F98-01 扫描真实 Built-in 所有 Map 的结构换行及简单三目；F98-02 全部 65 条 AST 与 505 组求值对照通过，无运行时 formatter。390px 仅布局模拟，不冒充真实远程 workspace验证。追加键盘隔离有 7 类控件/Portal 负例及模型行键盘启动正例。
 
 ## Feature Summary
 
@@ -126,7 +126,7 @@ feature graph; this test task does not change its state or persistence contract.
 
 Pro `desktop-e2e-20260908-110541-867`：3 specs / 9 cases 通过；SC90-01 新 pending 用例覆盖添加固定模式、空输入拒绝、取消不写、编辑重开及保留禁用状态，原 MP-UI-06 继续验证编辑、档位排序、Mapping、Model Selection 消费，扩展 390px 双主题/中英与 Hover/焦点、标题不裁切断言。其余 UP-01、MP-UI-01～05、Todo89 W89-05/08 修复入口回归通过。
 
-M90-01～08、F92-01～08 以 317 条相关单测和上述代表 Electron 联合覆盖；完整 case 剪枝与未验证端见 Todo90 §8 / Todo92 §7。源生命周期、身份、失败注入使用受控 Promise/真实 Runtime 写入测试，不复制所有账号品牌组合。新用例保留 `settings/manual-review/pending/provider-model-smart-config.test.ts`，未自动转正。Pro 截图 `packages/desktop/.e2e-artifacts/todo90-92/model-editor-{dark,light}-390.png` 已检查；不是 Air 历史预览，也不冒充真实手机远控验证。
+M90-01～08、F92-01～08 以 317 条相关单测和上述代表 Electron 联合覆盖；完整 case 剪枝与未验证端见 Todo90 §8 / Todo92 §7。源生命周期、身份、失败注入使用受控 Promise/真实 Runtime 写入测试，不复制所有账号品牌组合。新用例保留 `settings/manual-review/pending/provider-model-smart-config.test.ts`，未自动转正。Pro 截图 `packages/desktop/.e2e-artifacts/todo90-92/model-editor-{dark,light}-390.png` 已检查；不是 Air 历史预览，也不冒充真实远程 workspace验证。
 
 ## Menu radius migration (2026-09-04)
 

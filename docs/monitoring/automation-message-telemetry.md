@@ -262,7 +262,7 @@ scheduler / Run now
   -> agent_step* + message_completion
 ```
 
-该 MVP 只复用桌面 `desktop-continuous` 的 live telemetry attachment，不进入手机 Web 的
+该 MVP 只复用桌面 `desktop-continuous` 的 live telemetry attachment，不进入窄视口 的
 `web-remote-replayable` snapshot/gap 恢复链路。renderer 不存在或 attachment 未就绪时仍可能漏报；如需
 无人值守可靠投递，应实现 Host telemetry outbox，且不能把业务状态下沉到 main 或 relay。
 

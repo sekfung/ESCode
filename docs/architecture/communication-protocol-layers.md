@@ -28,7 +28,7 @@
 
 - `MessagePort`：Renderer 与 Window Host 之间的本地端口。
 - `stdio`：Host 与 `escode-cli`，以及 `escode-server` 与其 Agent 子进程之间的标准输入输出。
-- `WebSocket`：连接已存在的 `escode-server`，或连接手机远控 Relay。
+- `WebSocket`：连接已存在的 `escode-server`，或连接远程 workspace Relay。
 - Electron IPC：Renderer 与 Main 之间的平台调用。
 - UtilityProcess `postMessage`：Main 与 Window Host 之间的进程控制消息。
 
@@ -138,7 +138,7 @@ Main 与 Host 之间传递的是进程和连接控制，例如：
 | `escode-server` → 远端 CLI | V4、少量 legacy 操作            | ESCode Protocol JSON         | stdio NDJSON           |
 | 手机 → Relay → Main        | 远控 Service/V4 调用            | relay envelope + `rpc-frame` | WebSocket              |
 
-手机远控还会通过 shared-host attachment 进入已有 Window Host；Relay 和 Main 只负责鉴权、配对、心跳、frame 透传与 attachment 调度，不持有 conversation/task/stream 业务状态。
+远程 workspace还会通过 shared-host attachment 进入已有 Window Host；Relay 和 Main 只负责鉴权、配对、心跳、frame 透传与 attachment 调度，不持有 conversation/task/stream 业务状态。
 
 ## 一条远程 `sendText` 的完整路径
 

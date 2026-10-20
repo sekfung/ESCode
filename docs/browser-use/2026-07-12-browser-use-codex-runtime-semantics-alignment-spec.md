@@ -71,7 +71,7 @@ IAB 动态 API 不暴露 CUA/DOM CUA `downloadMedia`。这两个 helper 在静�
 | 插件文档             | `apps/escode-cli/packages/browser-use-plugin` | URL、正则、networkidle、expectNavigation 和有效 API 指引    |
 | shared-host 路由     | host/services/main 既有 context               | 不改变 `workspaceIdentity`、`remoteSessionId`、`clientMode` |
 
-不为手机端新增 runtime。`desktop-continuous` 与 `web-remote-replayable` 都通过同一 shared-host
+不为远程 workspace新增 runtime。`desktop-continuous` 与 `web-remote-replayable` 都通过同一 shared-host
 BrowserControl 链路执行相同 browser command；本轮命令不引入 task stream/snapshot/replay 语义。
 
 ## 4. 状态组合与剪枝

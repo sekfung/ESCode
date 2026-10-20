@@ -118,18 +118,6 @@ describe("TaskActionMenuContent", () => {
     expect(itemStates[PROVIDER_CONFIG_ITEM_INDEX]?.disabled).toBe(false);
   });
 
-  it("手机远控菜单隐藏本机文件和配置入口但保留复制路径", () => {
-    const { html } = renderMenu({
-      hideMobileUnsupportedActions: true,
-    });
-
-    expect(html).not.toContain("Open in Finder");
-    expect(html).not.toContain("appHeader.goToProviderConfig");
-    expect(html).toContain("appHeader.copyPath");
-    expect(html).toContain("appHeader.copyTaskPath");
-    expect(html).toContain("appHeader.copyLogPath");
-  });
-
   it("当前 session 的在分屏打开入口保持可见但置灰", () => {
     const { html, itemStates } = renderMenu({
       onOpenInSplitPane: vi.fn(),

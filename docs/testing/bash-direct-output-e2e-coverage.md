@@ -227,7 +227,7 @@ V4 background-work 的本次证据仅取 Bash cancel 单条；不把整个文件
 无缺失 fixture；BDO07 三段文件观察延迟为 85/92/107 ms，可见预览为 3098/866/478 ms。
 定向隔离及整组最终 run 均退出码 0、四域 coverage 完整。证据在各 run 的
 `test-results.ndjson`、`bash-realtime-refresh.json`；不重算或替换前述 production 改动行覆盖率。
-本次仍仅为 macOS Desktop 验证，未新增 Windows/Linux 或手机端验收声明。
+本次仍仅为 macOS Desktop 验证，未新增 Windows/Linux 或远程 workspace验收声明。
 
 仅复跑新用例（保留同一 wrapper 的 HOME/artifact 隔离；不增加额外 `--` 以免 grep 被忽略）：
 

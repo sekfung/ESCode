@@ -30,7 +30,7 @@ detachGuest cdp still attached on destroyed guest ...
 
 ### 2.2 非目标
 
-- 不把手机端 `web-remote-replayable` 的 snapshot/queue 恢复语义引入桌面 continuous 主链路。
+- 不把远程 workspace `web-remote-replayable` 的 snapshot/queue 恢复语义引入桌面 continuous 主链路。
 - 不通过降低 Playwright 频率、增加 timeout 或裁剪模型返回值来掩盖 native 生命周期问题。
 - 不在 `destroyed` 之后尝试“补救” native detach；该事件只用于收尾和异常打点。
 

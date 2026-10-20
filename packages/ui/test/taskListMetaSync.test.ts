@@ -95,7 +95,7 @@ describe("patchTaskMetaInTaskCaches", () => {
     });
     const targetTask = createTaskMeta({
       taskId: TASK_ID,
-      title: "手机端追问任务",
+      title: "远程 workspace追问任务",
       updatedAt: 5,
     });
     const descriptor = buildTaskListCacheDescriptor({
@@ -212,7 +212,7 @@ describe("patchTaskMetaInTaskCaches", () => {
     });
     const incomingTask = createTaskMeta({
       taskId: TASK_ID,
-      title: "手机端新任务",
+      title: "远程 workspace新任务",
       updatedAt: 30,
     });
     const descriptor = buildTaskListCacheDescriptor({

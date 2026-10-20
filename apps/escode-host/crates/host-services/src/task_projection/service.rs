@@ -74,7 +74,7 @@ pub fn resume_hints(
 ) -> Result<(Option<String>, Option<String>), crate::tasks_index::TasksIndexError> {
     let explicit_model = text(params, "model").filter(|value| !value.is_empty());
     let explicit_thought = text(params, "thoughtLevel").filter(|value| !value.is_empty());
-    // TS `shouldBackfillTaskIndexResumeHints`：只有手机 replayable 首屏、且未被 UI 显式解析时才回填。
+    // TS `shouldBackfillTaskIndexResumeHints`：只有远程 workspace replayable 首屏、且未被 UI 显式解析时才回填。
     let should_backfill = is_replayable(params)
         && text(params, "resumeModelPolicy").as_deref() != Some("ui-resolved-only")
         && (explicit_model.is_none() || explicit_thought.is_none());

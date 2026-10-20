@@ -145,7 +145,7 @@ export class LocalTtftObserver {
       this.receive(workspace, { ...frame, ttft: facts, ttftRelated: undefined }, delivery);
     if (delivery === "recovery" || frame.payload.kind === "snapshot") {
       // Bug 原因：桌面 continuous 在订阅缓冲溢出或投影重建后会用 online snapshot 代替 deltas，
-      // 之前一律记为 recovery，把手机恢复语义贴到桌面样本上。snapshot 内无法唯一归因首输出，
+      // 之前一律记为 recovery，把远程 workspace 恢复语义贴到桌面样本上。snapshot 内无法唯一归因首输出，
       // 仍需排除，但按 resync 单独标记；recovery 只保留给真正的 recovery 投递。
       const outcome = delivery === "recovery" ? "recovery" : "resync";
       for (const pending of this.pending.values()) {

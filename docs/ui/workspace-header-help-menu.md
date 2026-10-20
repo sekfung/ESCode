@@ -22,7 +22,7 @@ Workspace header action 区在终端按钮左侧提供轻量帮助菜单，作�
 
 第二组仅桌面端展示，从上到下：导出日志、资源管理器、检查更新、关于 ESCode。检查更新仅 production 显示，保留已有动态文案及禁用状态；Preview 隐藏。关于始终为最后一项。
 
-“导出日志”复用 `titleBar.menu.help.exportLogs` 文案和 `createHelpMenuActionHandlers().exportLogs`，经 `IPlatformService.exportLogs()` 调用系统菜单使用的同一个主进程导出函数。沿用正在导出的 toast、失败提示及完成后在系统文件浏览器中定位日志包的行为，不新增导出实现。Web（含手机远控）没有本地导出能力，只保留第一组，不渲染导出日志或多余分隔线。
+“导出日志”复用 `titleBar.menu.help.exportLogs` 文案和 `createHelpMenuActionHandlers().exportLogs`，经 `IPlatformService.exportLogs()` 调用系统菜单使用的同一个主进程导出函数。沿用正在导出的 toast、失败提示及完成后在系统文件浏览器中定位日志包的行为，不新增导出实现。Web（含远程 workspace）没有本地导出能力，只保留第一组，不渲染导出日志或多余分隔线。
 
 ```text
 问号菜单 → 共享导出动作 / toast → IPlatformService.exportLogs() → IPC ─┐

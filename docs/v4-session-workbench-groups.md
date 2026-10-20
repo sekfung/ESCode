@@ -13,7 +13,7 @@ workbench 整体退役。
 | User-visible surfaces | 左侧 session 列表、v4 中间聊天 workbench、workspace header、Git branch 入口、pane chrome、drag preview。                                                                                                 |
 | Existing docs         | `docs/v4-split-pane-workbench.md`、`docs/v4-refactor/06-ui.md`、`docs/testing/conversation-session-e2e-coverage-matrix.md`。                                                                             |
 | Existing code owners  | `packages/ui/src/v4/paneLayoutStore.ts`、`packages/ui/src/v4/paneLayoutTree.ts`、`packages/ui/src/v4/V4WorkspaceChatArea.tsx`、`packages/ui/src/v4/WorkbenchPane.tsx`、左侧 task/session item 相关组件。 |
-| Out of scope          | 手机 Web、`/remote` web-remote replayable（必须完全绕过 group 生命周期）、agent/protocol/schema 变更、main/relay 业务状态下沉、跨设备同步 group 状态。                                                   |
+| Out of scope          | 窄视口、`/remote` web-remote replayable（必须完全绕过 group 生命周期）、agent/protocol/schema 变更、main/relay 业务状态下沉、跨设备同步 group 状态。                                                     |
 
 ## 产品语义
 
@@ -354,7 +354,7 @@ focused pane binding
 | Conversation/session behavior     | yes      | session 点击、focus、pane command routing 影响当前 active session。               | `docs/conversation-protocol-declaration.md`、`packages/ui/src/v4/SessionPane.tsx`      |
 | Workspace identity/remote runtime | yes      | 跨 workspace group 必须保持 `workspaceIdentity` 隔离和 remote session scope。     | `docs/v4-split-pane-workbench.md`、`docs/remote-workspace-session-unified-settings.md` |
 | Persistence/index/snapshot        | yes      | group layout localStorage 恢复、删除/归档后清理。                                 | `packages/ui/src/v4/paneLayoutPersistence.ts`                                          |
-| Mobile remote/replayable realtime | limited  | 仅用于明确禁用 `/remote`，避免 replayable 语义扩散。                              | `docs/web-remote-control/web-remote-control-architecture.md`                           |
+| Mobile remote/replayable realtime | limited  | 仅用于明确禁用 `/remote`，避免 replayable 语义扩散。                              | `docs/remote/desktop-remote-session-renderer-reattach.md`                              |
 | Protocol/agent runtime            | no       | group 是 renderer-local UI 状态，不改 v4 protocol。                               | `docs/v4-split-pane-workbench.md`                                                      |
 
 ## High-Risk Cross-Products

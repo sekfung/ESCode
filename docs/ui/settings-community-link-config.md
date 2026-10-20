@@ -48,7 +48,6 @@
 
 - shared 解析：`packages/shared/src/remoteAppConfig.ts`
 - Desktop 平台解析与本地配置回退：`packages/desktop/src/main/desktopCommandHandlers.ts`
-- Web 平台解析：`packages/web/src/communityUrl.ts`
 - 帮助菜单显示：`packages/ui/src/WorkspaceHelpMenuButton.tsx`
 
 ## 2026-09：迁移到 client/configs

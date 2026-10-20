@@ -235,7 +235,7 @@ describe("Todo90/92 添加与编辑共享智能配置", () => {
       expect(await editor().getValue()).toBe("");
       expect(await editor().getAttribute("placeholder")).toBe(expected);
       for (const width of [1200, 390]) {
-        // 只模拟布局宽度，不冒充真实手机 shared-host 验证。
+        // 只模拟布局宽度，不冒充真实远程 workspace shared-host 验证。
         await browser.electron.execute(async (electron, width) => {
           const window = electron.BrowserWindow.getAllWindows().find(
             (w) => !w.isDestroyed() && w.isVisible(),

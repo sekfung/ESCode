@@ -223,5 +223,5 @@ fork 是 conversation lineage event，不属于 assistant worklog：
 本模型不改变 task realtime 所有权：
 
 - 桌面端仍走 `desktop-continuous` direct realtime。
-- 手机 Web 远控仍走 `web-remote-replayable` snapshot / gap 恢复。
+- 远程 workspace仍走 `web-remote-replayable` snapshot / gap 恢复。
 - relay 和 main process 不拥有 session、stream、queue、snapshot 或 timeline 业务状态。

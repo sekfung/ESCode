@@ -378,7 +378,7 @@ export interface IESCodeTaskService {
     expectedForegroundExecutionId?: string;
   }): Promise<void>;
 
-  /** 执行 agent 内建 /compact 命令；手机 replayable 仍经 shared host 路由。 */
+  /** 执行 agent 内建 /compact 命令；远程 workspace replayable 仍经 shared host 路由。 */
   compactSession(params: {
     taskId: string;
     workspacePath?: string;
@@ -573,7 +573,7 @@ export interface IESCodeTaskService {
     refId: string;
   }): Promise<ESCodeTaskSnapshotRefContent | null>;
 
-  /** 按 message + 下标范围补拉 tools 切片，用于远控首屏按条数裁剪后的增量加载。 */
+  /** 按 message + 下标范围补拉 tools 切片，用于远程 workspace首屏按条数裁剪后的增量加载。 */
   getTaskSnapshotToolCallsSlice(params: {
     taskId: string;
     workspacePath: string;

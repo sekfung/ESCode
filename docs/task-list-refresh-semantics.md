@@ -124,7 +124,7 @@ before = [A, B, C]             after = [B, C]
 
 关键不变量：从 `[A, B, C]` 变为 `[B, C]` 后，B/C 的 `SessionsIndexStore` 实例、subscription、
 watermark 与 session 集合必须保持原值；renderer 不得发布 B/C 的空中间态。桌面仍使用
-`desktop-continuous`，手机远控 scope 仍使用所属 endpoint 的 `web-remote-replayable`；本次改动只隔离
+`desktop-continuous`，远程 workspace scope 仍使用所属 endpoint 的 `web-remote-replayable`；本次改动只隔离
 订阅生命周期，不改变两种 delivery 语义。identity key 继续使用
 `workspaceIdentity?.trim() || workspacePath`，`workspacePath` 只用于传输参数和展示/执行。
 

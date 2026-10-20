@@ -79,5 +79,5 @@ update -> 原有写锁 -> 重读最新文件 -> transform/校验 -> 临时文件
   `config/provider/escode-builtin.json` 和 `packages/model-option-map` 与 hotfix 基线完全相同，本次未修改。
 - `pnpm typecheck`、`pnpm lint`（0 error）、`pnpm architecture:check --changed` 通过；修改文件格式检查通过。
 - 自审补齐 poll 在飞保护及成功写入代次校验（同时丢弃过期成功与失败），未增加第二份配置缓存。
-- Linux 文件 IO 和子进程验证通过；Windows/macOS 实机及桌面/手机端到端未执行，不宣称覆盖。
+- Linux 文件 IO 和子进程验证通过；Windows/macOS 实机及桌面/远程 workspace到端未执行，不宣称覆盖。
 - 本次不解决其他真实 IO 故障导致的空配置降级或同版本恢复漏通知。

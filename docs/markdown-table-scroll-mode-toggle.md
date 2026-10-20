@@ -37,7 +37,7 @@ Markdown 表格现在使用虚拟横向滚动条隐藏原生滚动条，并支�
 
 ## 计算
 
-V4 timeline 滚动视口必须标记 `data-markdown-table-layout-root="true"`。该标记只表达表格可扩展到的横向布局边界，不承担会话状态语义。根节点通过 `--markdown-table-layout-left-inset` / `--markdown-table-layout-right-inset` 提供响应式安全边距；存在 Conversation turn map 时左边距必须至少覆盖其 `48px` 占用宽度，右边距保持桌面 `16px`、手机 Web `8px`。表格不能把居中的消息内容列误当成扩展边界。
+V4 timeline 滚动视口必须标记 `data-markdown-table-layout-root="true"`。该标记只表达表格可扩展到的横向布局边界，不承担会话状态语义。根节点通过 `--markdown-table-layout-left-inset` / `--markdown-table-layout-right-inset` 提供响应式安全边距；存在 Conversation turn map 时左边距必须至少覆盖其 `48px` 占用宽度，右边距保持桌面 `16px`、窄视口 `8px`。表格不能把居中的消息内容列误当成扩展边界。
 
 普通模式：
 

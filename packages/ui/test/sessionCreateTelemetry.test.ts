@@ -38,7 +38,7 @@ describe("session_create", () => {
     },
   );
 
-  it("手机和 SSH 是两个独立维度，同路径不同远端分别计数，重复回调不重复", async () => {
+  it("远程 workspace 和 SSH 是两个独立维度，同路径不同远端分别计数，重复回调不重复", async () => {
     const report = createSessionCreateReporter();
     const platform = { reportTelemetryEvent: vi.fn(async () => {}) };
     const input = {

@@ -1,4 +1,4 @@
-//! `escode-task` 手机 replayable 命令队列（S8）：`enqueueTaskCommand` /
+//! `escode-task` 远程 workspace replayable 命令队列（S8）：`enqueueTaskCommand` /
 //! `promoteTaskCommand` / `cancelTaskCommand`。
 //!
 //! 状态机在 `task_commands.rs`；本文件只做参数解析、入队/提升后的 drain 调度与 Wire 收口。

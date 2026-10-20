@@ -166,7 +166,7 @@ UI 专属卡片使用独立的 completed tool metadata，不解析或改写上�
 - display 通过现有 completed metadata 和 V4 `ToolCallRow.display` 进入共享 UI；旧记录缺失 display
   时只展示 task id 和通用 tool lifecycle，不增加 XML/JSON fallback 或持久化迁移。
 
-该投影仅用于桌面、普通 Web 和手机远控共用的渲染组件，不改变 TaskOutput handler、状态机、
+该投影仅用于桌面、普通 非 Desktop共用的渲染组件，不改变 TaskOutput handler、状态机、
 provider adapters 或 desktop continuous / web remote replayable 的交付语义。
 
 ## 验收

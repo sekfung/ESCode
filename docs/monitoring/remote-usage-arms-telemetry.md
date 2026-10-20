@@ -13,7 +13,7 @@
 
 口径约定：
 
-- 范围：**由桌面 `ConnectRemote` 发起的远程工作区连接**（SSH/WSL/Docker/Server），不把手机 Web Remote Control 的 relay、bridge 或 replayable attachment 计为新的远程连接。
+- 范围：**由桌面 `ConnectRemote` 发起的远程工作区连接**（SSH/WSL/Docker/Server），不把窄视口 Remote Control 的 relay、bridge 或 replayable attachment 计为新的远程连接。
 - `ConnectRemote` handler 必须显式把本次 Main-local route 标记为 `remoteUsageTelemetryEligible=true`；其他内部调用默认 false。stats、gauge、disconnect 与 periodic sampling 只处理 eligible route，以机械保证范围不会随 manager 新增调用方而扩大。
 - “同时远程连接数”的主口径是**活跃逻辑 session 数**，即用户同时打开的远程 workspace 数；不是物理 TCP/SSH 连接池条目数，也不是远端物理设备数。
 - 用户口径：**仅 `device_mid`**（与现有 ARMS 事件一致；ARMS SDK 屏蔽 `user.id`，账号 uid 无法注入 user 字段。账号级分析继续使用 V1 数仓通道的 `user_id`）。

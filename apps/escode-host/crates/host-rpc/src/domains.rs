@@ -162,7 +162,7 @@ pub fn channels_with(
     let drafts = Arc::new(DeferredDrafts::new());
     // workspace 事件总线：任务域写面与 session 写面共用（Host 内唯一）。
     let events = Arc::new(crate::workspace_events::WorkspaceEvents::default());
-    // 手机 replayable 的命令队列：escode-task 与 syncer 终态回调共用（Host 内唯一）。
+    // 远程 workspace replayable 的命令队列：escode-task 与 syncer 终态回调共用（Host 内唯一）。
     let commands = Arc::new(crate::task_commands::TaskCommandQueue::new());
     // 任务事件总线：发送开始 / syncer 终态 / ready（Host 内唯一）。
     let task_events = Arc::new(crate::task_events::TaskEventHub::default());

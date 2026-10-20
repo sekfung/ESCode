@@ -191,7 +191,7 @@ Engineering Infrastructure
 | Host       | 账户与权益（Account & Entitlements）                                | OAuth/Credential、Plan Identity、Start/Coding/Team Plan、支付、远端 quota/monitor                       |
 | Host       | 扩展管理与同步（Extension Management & Sync）                       | Plugin 安装升级、资源贡献、跨本地/远程同步                                                              |
 | Host       | 浏览器与计算机操作平台（Browser & Computer Use Platform）           | BrowserView/WebContentsView、CDP backend、Computer Use Helper 生命周期、可信 broker、系统观察与输入执行 |
-| Host       | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、手机远控、continuous/replayable                                  |
+| Host       | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、远程 workspace、continuous/replayable                            |
 | Host       | 工作台服务（Workbench Services）                                    | File/Terminal/Git 服务                                                                                  |
 | Host       | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、Bots、第三方渠道                                                          |
 | Host       | 客户端平台（Client Platform）                                       | Electron 生命周期、客户端更新、Feedback ticket 与诊断包                                                 |
@@ -332,7 +332,7 @@ ESCode CLI
 - 当前 Office 产品基础是 PDF、DOCX/DOC、XLSX 的只读 Preview Pane 和官方 DOCX/PDF/PPTX/XLSX Document Skills；这不等于已经具备 Office 原生编辑器、批注/修订或 PPTX 原生预览。
 - 未来 Office 原生 UI 的解析、转换、保存和版本冲突处理先保留在 Host Workbench Services 边界，Renderer 不直接引用 Node、LibreOffice 或本地路径实现。
 - 当前 Computer Use 是 macOS/Windows desktop-local、显式 opt-in/kill switch 的内部 beta。签名 Helper、peer/token 校验、权限和输入执行失败时必须 fail closed。
-- 手机 Web 只能经 shared-host attachment 复用桌面已存在的 Local Host；SSH/WSL/Docker 或 mobile remote Host 不得另起本地 Computer Use Helper。
+- 窄视口 只能经 shared-host attachment 复用桌面已存在的 Local Host；SSH/WSL/Docker 或 mobile remote Host 不得另起本地 Computer Use Helper。
 - 能力图用节点 scope 区分“当前（Current）”“孵化（Incubating）”“规划（Planned）”；群级 LOC 和复杂度只反映当前代码与已确认语义边。
 
 ## 2026-08 当前能力事实补充

@@ -80,7 +80,7 @@
 | 领域                                | 是否包含   | 决策                                                                                                    |
 | ----------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
 | File/Git/Terminal UI                | 是         | 修改底部 Terminal tab 的 renderer 本地命名、关闭与编号分配                                              |
-| UI shell / responsive               | 是         | 桌面端与手机 Web 共用 `Terminal` 组件，行为保持一致，不增加单端分支                                     |
+| UI shell / responsive               | 是         | 桌面端与窄视口 共用 `Terminal` 组件，行为保持一致，不增加单端分支                                       |
 | Workspace identity / remote runtime | 代表性验证 | workspace identity 非空时优先用于隔离，否则回退 workspace path；`workspacePath` 仍只用于 cwd 和名称显示 |
 | Mobile replayable / conversation    | 剪枝       | 不修改 session/task stream、snapshot、queue、protocol 或 delivery kind                                  |
 | 右侧 side pane Terminal             | 剪枝       | 已有独立 tab 模型，本次不修改                                                                           |

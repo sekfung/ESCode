@@ -27,7 +27,7 @@ Automation Host 新建 + 首发 accepted -> 严格 telemetry 消息 -> Desktop M
 | event_extra_detail 字段 | 值                                                                           |
 | ----------------------- | ---------------------------------------------------------------------------- |
 | create_source           | `group` / `project` / `session` / `automation_idle` / `automation_scheduled` |
-| client_kind             | `desktop` / `mobile` / `web`；mobile 表示 Web 远控入口，不按 UA 猜设备       |
+| client_kind             | `desktop` / `mobile` / `web`；mobile 表示 远程 workspace入口，不按 UA 猜设备 |
 | workspace_kind          | `local` / `remote`                                                           |
 | remote_kind             | `ssh` / `wsl` / `docker` / `server` / 空字符串                               |
 

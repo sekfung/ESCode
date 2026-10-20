@@ -237,5 +237,5 @@ Remote Target RPC 不复用 Renderer 的 `IProviderSettingsService` 写接口，
   用例使用既有无账号启动 fixture，避免无关的假 OAuth 触发登录过期弹窗。
 - 2026-10-09：macOS Desktop → 隔离 Ubuntu 22.04 aarch64 SSH E2E 通过，artifact
   `desktop-e2e-20261009032604472-p1453-8bb89553244ba5cc`。用例保持 pending，未进行人工晋升。
-  Windows/WSL、其它远端系统与手机端 UI 未实测；未取得原反馈用户的现场输入，不据此宣称复现了
+  Windows/WSL、其它远端系统与远程 workspace UI 未实测；未取得原反馈用户的现场输入，不据此宣称复现了
   每位用户的历史事故。回滚可还原本次提交，无持久化格式迁移。

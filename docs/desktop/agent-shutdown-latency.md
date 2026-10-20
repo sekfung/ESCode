@@ -12,7 +12,7 @@
 - 进程已退出时立即结束等待，不再固定吃满 2.25s 兜底窗口。
 - agent 无响应时仍按进程树强制回收，防止 runtime/MCP 子进程残留。
 - Agent 正常运行期间的 stdio request / response / notification / stderr 热路径不得查询系统进程表；进程清理只能影响退出耗时，不能改变消息吞吐、顺序或 UI 实时性。
-- 保持桌面端 `desktop-continuous` 主链路语义；本变更只影响 app 退出后的 host 资源回收，不改变手机 Web 远控 `web-remote-replayable` 的 stream/snapshot/queue 边界。
+- 保持桌面端 `desktop-continuous` 主链路语义；本变更只影响 app 退出后的 host 资源回收，不改变远程 workspace `web-remote-replayable` 的 stream/snapshot/queue 边界。
 
 ## Windows 普通退出与更新安装预算
 
@@ -91,4 +91,4 @@ Windows 普通退出属于高频交互，更新安装属于低频且必须释放
 - 本轮不修改 Main / Host 的 Dispose 消息协议、app-server 信号处理或启动时孤儿进程扫描。
 - 本轮不增加常驻进程轮询，也不从运行期消息流推断进程所有权。当前 MCP adapter 不使用 detached spawn，并在 Agent EOF 收尾时显式回收已登记的 stdio MCP 进程树；若未来新增需要脱离 Agent 进程组的托管进程，必须在对应 spawn adapter 中增加显式 ownership/close 契约，不能恢复运行期进程表扫描。
 - 本轮不改变 workspace 与 active Agent 的复用关系，不改变 MCP 配置及 session 连接语义。
-- 本轮不改变桌面端 `desktop-continuous` 与手机远控 `web-remote-replayable` 的消息交付边界。
+- 本轮不改变桌面端 `desktop-continuous` 与远程 workspace `web-remote-replayable` 的消息交付边界。

@@ -7,7 +7,7 @@
 ## 背景
 
 桌面端普通 WSL remote workspace 应继续走 `desktop-continuous` 主链路。
-手机远控 replayable 附着链路，以及现有 SSH / Docker / Bot remote runtime 的 relay 行为，先保持不变，避免扩大回归面。
+远程 workspace replayable 附着链路，以及现有 SSH / Docker / Bot remote runtime 的 relay 行为，先保持不变，避免扩大回归面。
 
 ## 问题
 
@@ -34,5 +34,5 @@
 
 - 桌面端打开普通 WSL workspace 时，不再创建 `relay_bridge` host
 - SSH remote workspace 仍保留原有 `relay_bridge` 注册
-- Bot remote runtime 仍保留 `relay_bridge`，不影响手机远控和 bot 链路
+- Bot remote runtime 仍保留 `relay_bridge`，不影响远程 workspace和 bot 链路
 - host bridge 在超过去重窗口后允许旧 `eventId` 被重新接受，但常驻内存保持有界

@@ -79,7 +79,7 @@ pub fn is_compact_summary_message(message: &Value) -> bool {
 
 /// TS `getESCodeUserVisibleMessages`：过滤 runtime 注入的模型上下文，返回消息克隆。
 pub fn user_visible_messages(messages: &[Value]) -> Vec<Value> {
-    // 这些都是 runtime 注入给模型的上下文，不是用户真实 query；可见投影必须过滤，避免快照/远控恢复
+    // 这些都是 runtime 注入给模型的上下文，不是用户真实 query；可见投影必须过滤，避免快照/远程 workspace恢复
     // 时渲染成右侧用户气泡。
     messages
         .iter()

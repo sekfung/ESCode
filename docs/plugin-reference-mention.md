@@ -181,9 +181,9 @@ resume   [0] user U1 / [1] assistant A1            / [2] user U2                
 
 ## 8. 多端与 Remote 约束
 
-- Desktop continuous 与手机 Web remote replayable 的消息载体都只传 canonical text，无独立 Plugin selection 状态；reminder 在 Agent 侧 turn start 生成，天然两端一致。
-- 手机远控复用 shared-host attachment 中已有 Session runtime，不新建 Agent runtime；Picker 数据经 remote host services 获取，禁止读取本地 Plugin store。
-- 商店试用复用 Root 的标准 `onCreateTask({ initialPrompt })`：workspace 目标仍由当前可见 shell / focused pane 解析，远端身份仍使用 `workspaceIdentity?.trim() || workspacePath`，手机端不新增独立 runtime 或跨端全局 queue。
+- Desktop continuous 与窄视口 remote replayable 的消息载体都只传 canonical text，无独立 Plugin selection 状态；reminder 在 Agent 侧 turn start 生成，天然两端一致。
+- 远程 workspace复用 shared-host attachment 中已有 Session runtime，不新建 Agent runtime；Picker 数据经 remote host services 获取，禁止读取本地 Plugin store。
+- 商店试用复用 Root 的标准 `onCreateTask({ initialPrompt })`：workspace 目标仍由当前可见 shell / focused pane 解析，远端身份仍使用 `workspaceIdentity?.trim() || workspacePath`，远程 workspace不新增独立 runtime 或跨端全局 queue。
 - `sendConversationCommandV4` 的 RPC facade 必须删除调用方可伪造的顶层 `clientMode`，并以 host 绑定的 trusted connection carrier 注入 `connectionId/clientMode`；trusted relay 继续 namespace 下游 connectionId。base service 只优先信任该 carrier，host 内部 adapter 直调才兼容显式 `clientMode`。
 - 缓存、去重、请求关联使用 `workspaceIdentity?.trim() || workspacePath`；文件访问和命令 cwd 仍使用 `workspacePath`。
 

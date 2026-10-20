@@ -244,7 +244,6 @@ describe("WorkspaceHeaderTitleSection", () => {
         providerWorkspaceConfigLoading: false,
         workspaceHeaderState: { selectedProvider: "glm" },
         selectedEditor: null,
-        simplifyForNarrowRemote: true,
         onRefreshGit: vi.fn(),
       }),
     );

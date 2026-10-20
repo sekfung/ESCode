@@ -3,7 +3,7 @@
 /**
  * Host Process 入口 —— 每个窗口对应一个独立的 host process
  *
- * 同一窗口的 Renderer 和手机 都 attachment 到这个 Host：
+ * 同一窗口的 Renderer 和远程 workspace 都 attachment 到这个 Host：
  *   Renderer / Mobile ←MessagePort→ Window Host
  *                                      ├─ local services
  *                                      └─ remote connection registry
@@ -938,10 +938,10 @@ function createReportingRemoteESCodeTaskService<T extends object>(
     });
 
     // 写路径（send/stop/交互回执）已收敛 v4 命令面；本镜像属**读路径**——
-    // taskRealtimePort → 手机 relay → 手机端
+    // taskRealtimePort → 远程 workspace relay → 远程 workspace
     // escodeSessionStore 的整条消费链词表都是 ESCodeStreamEvent。两个方案的评估结论：
-    // a) relay 直接转发 v4 帧、手机端消费 v4 store（正解）：需要重做 relay stream-op
-    //    协议 + 手机端 store；
+    // a) relay 直接转发 v4 帧、远程 workspace消费 v4 store（正解）：需要重做 relay stream-op
+    //    协议 + 远程 workspace store；
     // b) 帧→ESCodeStreamEvent 薄映射：等价复刻 adapter mapSessionEvent，
     //    否决。
     // 结论：本镜像保持 legacy 源不动。
@@ -1721,7 +1721,7 @@ function exposeServicesOnMessagePort(
   const overrides = new Map<string, unknown>([
     [IWindowControllerService.channelName, controllerAttachment],
   ]);
-  // 远端媒体必须按 attachment 的 clientMode 选择数据面：桌面使用 Host loopback Range，手机保持 inline。
+  // 远端媒体必须按 attachment 的 clientMode 选择数据面：桌面使用 Host loopback Range，远程 workspace 保持 inline。
   const remoteMediaPreviewProxy =
     attachmentScope.kind === "remote" && clientMode === "desktop-continuous"
       ? capabilities?.remoteMediaPreviewFactory?.(attachmentScope)
@@ -2316,7 +2316,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
     }
     const current = windowRemoteConnectionRegistry.getSession(msg.remoteSessionId);
     if (current) {
-      // scope generation 换代后，旧 Renderer/手机 attachment 不得继续持有远端 IO facade。
+      // scope generation 换代后，旧 Renderer/远程 workspace attachment 不得继续持有远端 IO facade。
       windowHostAttachmentRegistry.detachStaleRemoteSessionAttachments(
         msg.remoteSessionId,
         current.generation,
@@ -2388,7 +2388,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
       return;
     }
     if (msg.scope.kind === "local" && databaseStartup?.coordinator.snapshot.phase !== "ready") {
-      // 刷新/手机 attachment 复用同一 Host，等待现有准备，不启动第二个执行者。
+      // 刷新/远程 workspace attachment 复用同一 Host，等待现有准备，不启动第二个执行者。
       pendingStartupAttachments.set(msg.attachmentId, () => {
         windowHostAttachmentRegistry.attach({ ...msg, port });
       });

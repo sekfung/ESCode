@@ -83,6 +83,6 @@ timeline scroll viewport
 该规则只修改 UI 对 V4 turn `isRunning` 的展示投影，不修改 ESCode Protocol、snapshot、stream mirror、queue、owner 或 runtime 状态：
 
 - 桌面端仍使用 `desktop-continuous` direct realtime。
-- 手机远控仍使用 `web-remote-replayable` snapshot / gap 恢复。
+- 远程 workspace仍使用 `web-remote-replayable` snapshot / gap 恢复。
 - 两端都消费同一份 turn running/terminal、`control.activeWorks` 与 `pendingInteractions` 投影，恢复后直接根据当前主轮状态和 blocker 决定是否显示 `ChatLoading`。
 - background tool/subagent 可以继续通过 background control UI、状态面板和独立结果轮更新；这些更新不得把已经 terminal 的主 turn 复活为 running，也不得因此恢复底部 `ChatLoading`。

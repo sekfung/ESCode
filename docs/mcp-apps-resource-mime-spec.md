@@ -39,4 +39,4 @@ MIME 忽略大小写、首尾空白和分号后的参数；除此之外精确匹
 - 共享契约：常见类别接纳；大小写与参数兼容；未知类型、伪造后缀和可执行类型拒绝。
 - Agent 处理器：PDF blob 与 SVG text 原样返回并去除 `_meta`；总大小、缺失 MIME 和服务器归属继续生效。
 - Electron 集成：真实插件 iframe 经 App SDK、宿主、Agent 和 MCP 进程读取 PDF/SVG，核对 MIME 与字节；未知类型失败后页面仍可继续读合法资源。
-- 使用已有 `mcp-apps-host-e2e.mjs --managed-only` 验证受控 Electron 链路，不将此结果表述为所有桌面平台或手机 Web 的完整回归。
+- 使用已有 `mcp-apps-host-e2e.mjs --managed-only` 验证受控 Electron 链路，不将此结果表述为所有桌面平台或窄视口 的完整回归。

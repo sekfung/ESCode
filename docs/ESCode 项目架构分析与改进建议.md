@@ -16,23 +16,23 @@ shared ← rpc ← services ← client ← server
                    ui    desktop / web
 ```
 
-| 包               | 职责                                                 | TS 源码行数 |
-| ---------------- | ---------------------------------------------------- | ----------- |
-| @escode/rpc      | VS Code 风格 7 层 IPC 框架，传输无关、类型安全       | 4,934       |
-| @escode/shared   | 共享类型 \+ zod schema \+ ESCode Protocol 契约       | 20,531      |
-| @escode/services | 35 个业务子域服务（agent/session/git/bots/oauth…）   | 96,506      |
-| @escode/client   | RPC 桥接（MessagePort / WebSocket → service 代理）   | 945         |
-| @escode/server   | 后端入口（Hono HTTP/WS、stdio、Remote SSH）          | 11,923      |
-| @escode/ui       | 平台无关 React 19 组件库（桌面/手机共用）            | 267,181     |
-| @escode/web      | Vite SPA（web 端 \+ 手机远控 /remote、/remote/v3）   | 6,917       |
-| @escode/desktop  | Electron 41 桌面端（main/host/preload/renderer）     | 39,161      |
-| apps/escode\-cli | 嵌套 monorepo，ESCode Agent / app\-server，14 个子包 | 181,683     |
+| 包               | 职责                                                     | TS 源码行数 |
+| ---------------- | -------------------------------------------------------- | ----------- |
+| @escode/rpc      | VS Code 风格 7 层 IPC 框架，传输无关、类型安全           | 4,934       |
+| @escode/shared   | 共享类型 \+ zod schema \+ ESCode Protocol 契约           | 20,531      |
+| @escode/services | 35 个业务子域服务（agent/session/git/bots/oauth…）       | 96,506      |
+| @escode/client   | RPC 桥接（MessagePort / WebSocket → service 代理）       | 945         |
+| @escode/server   | 后端入口（Hono HTTP/WS、stdio、Remote SSH）              | 11,923      |
+| @escode/ui       | 平台无关 React 19 组件库（桌面/手机共用）                | 267,181     |
+| @escode/web      | Vite SPA（web 端 \+ 远程 workspace /remote、/remote/v3） | 6,917       |
+| @escode/desktop  | Electron 41 桌面端（main/host/preload/renderer）         | 39,161      |
+| apps/escode\-cli | 嵌套 monorepo，ESCode Agent / app\-server，14 个子包     | 181,683     |
 
 全仓 TS 总量约 **63 万行**，其中 ui 占比约 57%。
 
 ### 1\.2 进程模型与通信
 
-- **Main 进程**只做调度：窗口生命周期、native dialog、进程 fork、广播中转、web 远控 relay 管理。
+- **Main 进程**只做调度：窗口生命周期、native dialog、进程 fork、广播中转、远程 workspace relay 管理。
 
 - **Host Process（历史口径）**：2026-06-10 的审计曾把桌面进程模型概括为“App 唯一 Host”。该判断已经
   过时：当前是每个 BrowserWindow 一个 Local Host，同一窗口的多个本地 workspace 按 workspaceKey 共用该
@@ -46,9 +46,9 @@ shared ← rpc ← services ← client ← server
 
 - **Server 为状态唯一真相源**：session/消息/模型目录全部归 agent server，UI 只持有纯视觉状态。
 
-- **事件序列恢复**：session 维护单调 `eventSeq`；桌面 continuous 直连实时流，手机远控 replayable 用 snapshot \+ afterSeq 回放补 gap，两条链路语义严格隔离。
+- **事件序列恢复**：session 维护单调 `eventSeq`；桌面 continuous 直连实时流，远程 workspace replayable 用 snapshot \+ afterSeq 回放补 gap，两条链路语义严格隔离。
 
-- **Web 远控 shared\-host attachment**：手机端不另起 host/Agent runtime，由 desktop main 为 bridge 新建 MessagePort attachment 挂到已有 host；外部 relay 纯透传不解析业务。
+- **远程 workspace shared\-host attachment**：远程 workspace不另起 host/Agent runtime，由 desktop main 为 bridge 新建 MessagePort attachment 挂到已有 host；外部 relay 纯透传不解析业务。
 
 - **Provider Registry Hot Sync**：host 侧为唯一配置源，revision \+ 整包快照热更新 agent，secret 转不可回显 apiKeyRef。
 
@@ -87,7 +87,7 @@ desktop main/host、services 大部分服务、ui hooks/lib/store 普遍 `disabl
 建议：拆出 `@escode/protocol`（协议契约）与 `@escode/shared-runtime`，恢复 shared 的纯类型定位；至少先更新架构文档与现实对齐。
 
 **5\. desktop/src/main 过重（约 18,000 行 / 70\+ 文件）**
-web 远控相关 7 个文件（manager、transport、relay auth、attachment、reconnect、feature gate、status events）混在 main 目录。
+远程 workspace相关 7 个文件（manager、transport、relay auth、attachment、reconnect、feature gate、status events）混在 main 目录。
 建议：抽成独立子模块或独立包，main 回归"纯调度"定位。
 
 **6\. task vs session 双轨命名**

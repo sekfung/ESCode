@@ -3,7 +3,7 @@
 // getESCodeAgentModeSelectOptions/getESCodeAgentAvailableModes/
 // escodeSessionSettingsToESCodeConfigOptions；B 类，死期=波次3）。
 // 消费者：services escodeConfigOptions/botsService、UI escodeSessionProjection 等旧栈。
-// 2026-09 Guarded 收尾后，ESCODE_AGENT_MODE_OPTIONS 成为 Desktop/手机 Composer、Automation
+// 2026-09 Guarded 收尾后，ESCODE_AGENT_MODE_OPTIONS 成为 Desktop/远程 workspace Composer、Automation
 // 表单共用的唯一模式目录（UI escodeSessionProjection / automationAgentConfigOptions 直接消费
 // getESCodeAgentAvailableModes / getESCodeAgentModeSelectOptions / normalizeAvailableESCodeMode）。
 // 波次3 删除这些导出前必须先把模式目录迁到非 legacy 位置，不能连带删掉目录本身。

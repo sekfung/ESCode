@@ -64,7 +64,7 @@ CDN 目录分片 ─────┘                    └─ 所有插件 id: <
 | `official-merge-conflict` | CDN 含与内置同名条目         | 刷新官方市场            | 保留 CDN 条目并忽略内置同名目录条目                  | manifest + adapter test |
 | `official-merge-reseed`   | 已缓存 CDN 分片              | 重启/重新 seed 内置插件 | CDN 条目仍存在；合并目录按新内置分片重建             | filesystem test         |
 
-桌面端、Web 端和手机端共用 `IPluginManagementService` 与同一 CLI storage 合同，本次不新增
+桌面端、Web 端和远程 workspace共用 `IPluginManagementService` 与同一 CLI storage 合同，本次不新增
 client mode、workspace identity 或 replayable 分支；代表性 UI 单测覆盖共享组件，运行时用
 桌面 CDP 验证刷新交互。conversation E2E 状态空间不受影响，因此不修改 conversation case catalog。
 
@@ -169,7 +169,7 @@ flowchart TD
 
 ### 4. 已安装条（Installed Strip）
 
-- 2026-09-15 裁切修复：横向滚动视口必须为右上角更新按钮、悬停缩放和键盘焦点环预留空间；首项左侧与末项右侧也不得裁切，名称提示框不得覆盖更新角标。保持图标的原始对齐、顶部间距及横向滚动能力，桌面与手机 Web 共用样式。布局由 `PluginStoreListView` 独占负责，不改变更新命令或安装状态。
+- 2026-09-15 裁切修复：横向滚动视口必须为右上角更新按钮、悬停缩放和键盘焦点环预留空间；首项左侧与末项右侧也不得裁切，名称提示框不得覆盖更新角标。保持图标的原始对齐、顶部间距及横向滚动能力，桌面与窄视口 共用样式。布局由 `PluginStoreListView` 独占负责，不改变更新命令或安装状态。
 
 - 一排已安装插件 icon（含内置），官方 PDF、PPT、Excel、Word 按此顺序优先，其余内置/inline 插件按展示名称稳定排序；
   其余市场安装插件按安装时间倒序，溢出横向滚动。
@@ -250,7 +250,7 @@ flowchart TD
    示例使用随 UI 打包的 `documents@2x.png`、`pdf@2x.png`、`spreadsheets@2x.png`：DOCX/Word
    映射 documents，PDF 映射 pdf，XLSX/Excel/CSV 映射 spreadsheets；无法识别时回退 documents，
    不重复展示插件头像。
-   桌面横幅采用约 `3:1` 的宽矮比例与大圆角，手机端保留最小高度；底层复用引导弹窗
+   桌面横幅采用约 `3:1` 的宽矮比例与大圆角，远程 workspace保留最小高度；底层复用引导弹窗
    `ThemeHeroVisual` 的主题感知彩色渐变与光斑，图片以半透明方式叠加并增加轻量暗色遮罩。
    无图片、图片透明或加载失败时仍保留彩色背景，不退化为普通按钮列表。
    提示词在视觉中心按内容自然宽度排列。胶囊使用深色半透明背景和大圆角，正文允许换行、
@@ -482,7 +482,7 @@ Agent 保留 `source: missing` / `packageStatus: missing` 的记录作为 User/W
 该配置记录自身不证明插件可以安装。商店仅从 availablePlugins、restorableBuiltins 或实际发现的插件包
 构造条目：缺包且没有目录/恢复来源的记录不生成商品卡片、搜索结果或安装入口。
 有目录来源的缺包插件仍可安装；可恢复内置条目和实际已安装的孤立插件保持原行为。
-这项投影不删除用户配置、缓存或安装记录，适用于桌面与手机 Web 的共同商店实现。
+这项投影不删除用户配置、缓存或安装记录，适用于桌面与窄视口 的共同商店实现。
 
 链路：用户配置 → Agent 缺包诊断 → 协议保留诊断数据；商店 join 先保留目录/恢复条目，再仅补入真实包。
 回归场景：`PLM-MISSING-CONFIG`，见生命周期 case catalog 与 coverage matrix。

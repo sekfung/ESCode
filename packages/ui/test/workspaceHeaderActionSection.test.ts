@@ -148,26 +148,6 @@ describe("WorkspaceHeaderActionSection", () => {
     expect(html.indexOf("workspaceHeader.help.menu")).toBeLessThan(html.indexOf("terminal.toggle"));
   });
 
-  it("hides the help menu and terminal toggle in narrow remote mode", async () => {
-    const { WorkspaceHeaderActionSection } =
-      await import("@/WorkspaceHeaderSections/WorkspaceHeaderActionSection.js");
-
-    const html = renderToStaticMarkup(
-      withSettingsServices(WorkspaceHeaderActionSection, {
-        workspaceAbsPath: "/workspace",
-        isTerminalOpen: false,
-        isSidePaneOpen: false,
-        onToggleTerminal: vi.fn(),
-        onToggleSidePane: vi.fn(),
-        simplifyForNarrowRemote: true,
-      }),
-    );
-
-    expect(html).not.toContain("workspaceHeader.help.menu");
-    expect(html).not.toContain("terminal.toggle");
-    expect(html).toContain("sidePane.expand");
-  });
-
   it("hides only the help menu when Windows caption menu owns help actions", async () => {
     const { WorkspaceHeaderActionSection } =
       await import("@/WorkspaceHeaderSections/WorkspaceHeaderActionSection.js");

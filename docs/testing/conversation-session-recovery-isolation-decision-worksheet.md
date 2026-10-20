@@ -7,8 +7,8 @@
 - 环境故障 catalog：[conversation-session-environment-fault-catalog.md](./conversation-session-environment-fault-catalog.md)
 - 决策 backlog：[conversation-session-decision-backlog.md](./conversation-session-decision-backlog.md)
 - FS 故障注入协议：[e2e-fs-fault-injection.md](./e2e-fs-fault-injection.md)
-- Workspace remote 架构：[web-remote-control/web-remote-control-architecture.md](../web-remote-control/web-remote-control-architecture.md)
-- Task realtime sync：[web-remote-control/task-realtime-sync.md](../web-remote-control/task-realtime-sync.md)
+- Workspace remote 架构：[remote/desktop-remote-session-renderer-reattach.md](../remote/desktop-remote-session-renderer-reattach.md)
+- Task realtime sync：[remote/wsl-remote-realtime-boundary.md](../remote/wsl-remote-realtime-boundary.md)
 
 ## 当前基础设施边界
 

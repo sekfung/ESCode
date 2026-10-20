@@ -105,7 +105,7 @@ key       := [a-z] | [0-9] | "[" | "]" | "=" | "-" | "," | "." | "/" | "\\"
 | resetZoom            | menu   | `CmdOrCtrl+0`                                                  |
 
 - `window` 通道：renderer 内 `useAppKeyboard` 分发，三端一致生效。
-- `menu` 通道：桌面应用菜单 accelerator（main 进程）；menu 通道命令在 Web/手机端设置页置灰并标注「仅桌面端生效」，window 通道命令三端全部可配置。
+- `menu` 通道：桌面应用菜单 accelerator（main 进程）；menu 通道命令在 Web/远程 workspace设置页置灰并标注「仅桌面端生效」，window 通道命令三端全部可配置。
 - 命令表条目字段：`id`、`channel`、`defaultBindings: string[]`、`configurable`（首期全部 true，保留字段）。命令显示名走 i18n key `settings.shortcuts.command.<id>`。
 - 历史注记：分支上的静态原型列了 12 条且漏了 findInTask/previousConversation/nextConversation，navigateBack/Forward 曾被误标为「上一个/下一个任务」——以本表为准修正。
 
@@ -137,7 +137,7 @@ useSettings.update({ shortcutBindings: {...} })
 ```
 
 - 桌面端多窗口：窗口 A 改键 → 窗口 B 经 SettingsChanged 刷新（先例：main/index.ts setAutoUpdatePreferences 的全窗口广播）。
-- Web/手机端：`platform.syncAppSettings` 为 no-op fallback，单窗口无跨窗口问题；菜单通道命令不适用。
+- Web/远程 workspace：`platform.syncAppSettings` 为 no-op fallback，单窗口无跨窗口问题；菜单通道命令不适用。
 - 启动时：各窗口 useSettings 首次拉取即得生效表；main 进程 rebuildMenu 时从 `mainSettingService.get()` 读 shortcutBindings。
 
 ## 7. 冲突策略（系统保留键拒绝；app 内占用二次确认抢绑）
@@ -170,7 +170,7 @@ useSettings.update({ shortcutBindings: {...} })
 - 浏览器/编辑原生行为（主修饰键组合）：`CmdOrCtrl+C/V/X/Z/A/Y/S/P/L`、`CmdOrCtrl+Shift+Z`。
 - 刷新与开发工具：`F5`、`CmdOrCtrl+R`、`CmdOrCtrl+Shift+R`、`F12`、`CmdOrCtrl+Shift+I/J/C`。
 - 功能键区：`F1`-`F12` 整段保留（浏览器帮助/开发者工具等语义）。
-- **Web 端动态保留**：Web/手机端 menu 通道命令不可配置，但其默认键（Cmd/Ctrl+N、O、W 等）仍被根级回退监听固定消费——冲突检测按保留键拒绝（无抢绑入口），不随桌面端开放抢绑。
+- **Web 端动态保留**：Web/远程 workspace menu 通道命令不可配置，但其默认键（Cmd/Ctrl+N、O、W 等）仍被根级回退监听固定消费——冲突检测按保留键拒绝（无抢绑入口），不随桌面端开放抢绑。
 
 黑名单在内核模块以 binding 规范化形式声明，比较在规范化之后进行。命令表默认绑定不得与黑名单相交（单测断言，仅限 global 作用域命令，见 §12）。允许用户把命令改到黑名单之外的任何组合，包括原来属于其他命令的键（由规则 2 提示并经二次确认抢绑，而非黑名单拦截）。
 
@@ -184,7 +184,7 @@ useSettings.update({ shortcutBindings: {...} })
   - 冲突标红：`text-destructive` + 占用者文案（语义色按 DESIGN.md 只用于真实校验问题）；hint 文案明示「冲突后直接重按新组合」。
   - 搜索框过滤（按命令名/ID 匹配命中命令的全部绑定行）、全部恢复默认（清空 shortcutBindings）保留。
   - **按组合键搜索（VSCode 键盘快捷键同款）**：搜索框右端键盘图标按钮，点击进入武装态（placeholder 变为「按下要搜索的组合键…」，输入框 readOnly）。武装态复用行内录制的键盘独占抑制（`setShortcutRecordingActive`，renderer/menu 双通道），window keydown capture：`Escape` 退出；`Backspace` 清除已捕获组合；其余事件经录制器捕获（`recordShortcutBinding`，含平台归一；裸字母等命令表不可能出现的键静默忽略）。捕获成功即退出武装态，组合作为独立过滤条件（与文本搜索 AND）：命中生效表里与之**物理等价**（`isSamePhysicalBinding`，与冲突检测同一 canonical 口径，win 的 Ctrl+m ≡ CmdOrCtrl+m）的命令。已捕获组合以输入框文本形式从左侧展示（VSCode 同款，品牌色 + 等宽字体，readOnly；此时文本过滤条件仍在内部生效），右端 × 清除后回到纯文本搜索。与行内录制互斥：武装时点击录制按钮先解除武装态，反之亦然。过滤无命中时表格尾部展示空态文案（按键搜索带组合 label，纯文本搜索不带）。
-  - Web/手机端 menu 通道命令置灰（弱化文字色，不隐藏），行尾标注 i18n 文案「仅桌面端生效」。
+  - Web/远程 workspace menu 通道命令置灰（弱化文字色，不隐藏），行尾标注 i18n 文案「仅桌面端生效」。
   - 界面模式切换快捷键继续注册和响应，但不在快捷键列表中展示；亮暗切换快捷键保留在列表中。侧边栏主题与界面模式子菜单只展示选项，不在底部重复展示快捷键提示。
   - 文案全部走 i18n（zh-CN/en-US 同步补 key），替换原型中的硬编码中文。
 - 展示 label：`useShortcutCommandLabel(commandId)` 从生效表取首个绑定格式化为平台 label（macOS `⌘K` 风格、Win/Linux `Ctrl+K` 风格，沿用 keyboardShortcuts.ts 现有格式化习惯）；命令未分配（生效绑定为空）时返回空串，tooltip 不展示键位段、**不回退默认展示**——提示必须与实际生效一致。替换以下调用点：App.tsx:143-149（7 处）、NewTaskButtonGroup.tsx:16、WindowsCaptionMenuButton.tsx:238/243/260、WorkspaceSidebar.tsx:414、WorkspaceSidebarFooter.tsx:294/302。GitActionMenu 的 ⏎ 与 TaskSearchDialog 的 G/数字为对话框内部键，不在命令表，保持现状。

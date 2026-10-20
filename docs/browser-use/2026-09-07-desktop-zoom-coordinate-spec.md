@@ -50,7 +50,7 @@ CDP idle detach -> 下一条截图 -> 恢复 Page / metrics / guest zoom
 
 manager 回归覆盖 fallback 安装后直接替换、destroyed 回调及再次 CDP 重连，修复前两条测试都将 (300,200) 错发为 (330,220)，修复后通过。真实 Electron 沿用缩放 E2E，增加普通模式 guest 崩溃重建、恢复前台并点击的回归。macOS 隐藏 guest 仍可能保留自然尺寸，已安装的 fallback 也可能被前台恢复清除，因此原生 E2E 仅证明真实重建和点击链路不回退，不声称完整复现旧倍率残留；后者由 manager 定向测试证明。固定 viewport、自然截图及 Windows fallback 原有回归继续保留。
 
-2026-09-08 验证：129 条 manager 单测通过；macOS arm64 / Electron 41.0.3 原生 E2E 4 case 通过（run `desktop-e2e-20260908-055435-369`，8 PNG / 20 次 trusted click）。新增场景 guest 2 → 3，viewport 保持 368×573 / DPR≈2.2，点击 (100,200) 实际落点也是 (100,200)。产物在该 run 的 `zoom-coordinates/guest-recovery.{json,png}`。typecheck、lint（43 个既有 warning）、E2E 类型与 fixture 检查通过；本次未重跑 Windows/Linux、手机远控，E2E 仍待人工 review。
+2026-09-08 验证：129 条 manager 单测通过；macOS arm64 / Electron 41.0.3 原生 E2E 4 case 通过（run `desktop-e2e-20260908-055435-369`，8 PNG / 20 次 trusted click）。新增场景 guest 2 → 3，viewport 保持 368×573 / DPR≈2.2，点击 (100,200) 实际落点也是 (100,200)。产物在该 run 的 `zoom-coordinates/guest-recovery.{json,png}`。typecheck、lint（43 个既有 warning）、E2E 类型与 fixture 检查通过；本次未重跑 Windows/Linux、远程 workspace，E2E 仍待人工 review。
 
 ### 普通前台自然 viewport 截图（2026-09-08 macOS 复现）
 
@@ -66,9 +66,9 @@ Main viewport 状态 -> prepare(request.viewport, viewportMode)
   emulated -> 临时 Fit frame -> guest 缩放补偿 + CDP metrics -> capture -> release
 ```
 
-回归必须经过真实 Browser Use 链路，记录截图前、resize 事件及释放后的 viewport / DPR / media query 目标位置，检查 PNG 中目标的实际位置和随后的 trusted click。自然模式保持原 guest、原 zoom 与用户偏好。已有自由尺寸五轮缩放、普通后台 fallback、录制 unscaled 回归继续执行。此改动只增加 Main/renderer 瞬时布局元数据，不改变 Agent 协议、Host 路由、手机远控 attachment 或 continuous/replayable 边界。
+回归必须经过真实 Browser Use 链路，记录截图前、resize 事件及释放后的 viewport / DPR / media query 目标位置，检查 PNG 中目标的实际位置和随后的 trusted click。自然模式保持原 guest、原 zoom 与用户偏好。已有自由尺寸五轮缩放、普通后台 fallback、录制 unscaled 回归继续执行。此改动只增加 Main/renderer 瞬时布局元数据，不改变 Agent 协议、Host 路由、远程 workspace attachment 或 continuous/replayable 边界。
 
-本次 macOS arm64 / Electron 41.0.3 验证通过（run `desktop-e2e-20260908-042444-192`）：新增自然模式场景 viewport 始终为 531×815，没有截图引起的 resize，按钮保持 (100,200)，PNG 色块与 trusted click 一致；既有自由尺寸五轮和普通后台 fallback 一并通过，共 3 个 case、7 次截图、19 次 trusted click。244 个相关单测、typecheck、E2E 类型检查、lint（43 个既有 warning）和 fixture check 通过。证据与平台边界见 [macOS 验证记录](../testing/browser-natural-viewport-macos-regression-2026-09-08.json)。Windows/Linux、手机远控和原生录制未重跑；E2E 继续保留 pending。
+本次 macOS arm64 / Electron 41.0.3 验证通过（run `desktop-e2e-20260908-042444-192`）：新增自然模式场景 viewport 始终为 531×815，没有截图引起的 resize，按钮保持 (100,200)，PNG 色块与 trusted click 一致；既有自由尺寸五轮和普通后台 fallback 一并通过，共 3 个 case、7 次截图、19 次 trusted click。244 个相关单测、typecheck、E2E 类型检查、lint（43 个既有 warning）和 fixture check 通过。证据与平台边界见 [macOS 验证记录](../testing/browser-natural-viewport-macos-regression-2026-09-08.json)。Windows/Linux、远程 workspace和原生录制未重跑；E2E 继续保留 pending。
 
 ### 普通模式后台 fallback 截图（2026-09-08 P2）
 
@@ -101,7 +101,7 @@ Main viewport 状态 -> prepare(request.viewport, viewportMode)
 
 200% DPI + Desktop 110% 另复现原生 PNG 为 2747×1584（完整尺寸应为 2816×1584），归一后按钮 x=1000 变为约 1025。Chromium 根据宿主 viewport 逆变换并扩展 30% 计算 guest compositing rect，超出范围的内容不会进入 raster。独立 Electron 实验只将窗口宽度 960 DIP 改为 1000 DIP，PNG 宽即由 2721 恢复至 2816，高度不变，确认是可见范围裁剪。准备层宽高以 `100vw` / `100vh` 为上限，使 Fit 使用可见窗口内的画布；不通过改用户窗口大小、延时重试或非等比拉伸补偿坐标。
 
-影响边界：Main 的普通 viewport 截图选择和 renderer 的临时截图准备层；没有新增协议、host、runtime 或持久化状态。手机 Web 在没有 native prepare 请求时沿用原预览；远控请求仍由已有 attachment 路由到同一桌面 guest，不改变 continuous / replayable 语义。本次没有补做手机远控或原生录制 E2E；录制 `unscaled` 保持原分支行为并有单测保护。
+影响边界：Main 的普通 viewport 截图选择和 renderer 的临时截图准备层；没有新增协议、host、runtime 或持久化状态。窄视口 在没有 native prepare 请求时沿用原预览；远控请求仍由已有 attachment 路由到同一桌面 guest，不改变 continuous / replayable 语义。本次没有补做远程 workspace或原生录制 E2E；录制 `unscaled` 保持原分支行为并有单测保护。
 
 ## Windows P2 修复验证（2026-09-08）
 
@@ -116,7 +116,7 @@ Main viewport 状态 -> prepare(request.viewport, viewportMode)
 
 新增原生场景直接使用生产 prepare/ready/release IPC，注入 fallback metrics，再执行真实 native capture 和 CDP 输入；没有模拟 DOM 尺寸或 ready，但不代表 manager fallback 缓存建立的全链路 E2E。manager 单测另外验证初次 fallback、热态放大、idle 重连、reset/缩小、native 路径选择及输入补偿。机器可读证据见 [本次验证记录](../testing/browser-normal-fallback-windows-regression-2026-09-08.json)。
 
-340 个相关单测、`pnpm typecheck`、`pnpm lint`（43 个既有 warning、0 error）、E2E 类型与 fixture 检查通过。100%/150% 显示缩放仅有下述前一提交记录；本次未重跑 macOS/Linux、手机远控或原生录制。Web 无 native prepare 时不改变布局；远控仍路由同一桌面 guest，continuous/replayable 边界不变。录制 unscaled 行为由既有单测保护。此 case 仍处于 manual-review/pending，合并/发布时须保留以上覆盖限制。
+340 个相关单测、`pnpm typecheck`、`pnpm lint`（43 个既有 warning、0 error）、E2E 类型与 fixture 检查通过。100%/150% 显示缩放仅有下述前一提交记录；本次未重跑 macOS/Linux、远程 workspace或原生录制。Web 无 native prepare 时不改变布局；远控仍路由同一桌面 guest，continuous/replayable 边界不变。录制 unscaled 行为由既有单测保护。此 case 仍处于 manual-review/pending，合并/发布时须保留以上覆盖限制。
 
 ## Windows 验证矩阵（2026-09-07，前一提交）
 

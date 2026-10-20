@@ -72,7 +72,7 @@ resolver 在远端**无需改动**：wrapper 名仍是 `escode-agent`，由 `fin
 - `tsc -b packages/rpc packages/shared packages/services packages/server` 通过；`oxlint` 改动文件 0/0。
 - cli 以 `target node22` 重新构建成功（dist/escode.cjs 15.7MB）。
 - 冒烟：`node dist/escode.cjs app-server --stdio` 在纯 Node 下正常启动并维持 stdio 服务（stdin EOF 时干净退出 0），证明编译产物脱离 SEA、脱离 Electron 也能跑——即远端 wrapper 的运行形态。
-- 待补：一次真实 SSH 远端部署 + 一次真实桌面打包的端到端会话验证（涉及 web-remote-control 部署链路，本地无法连真实远端/CDN 验证）。
+- 待补：一次真实 SSH 远端部署 + 一次真实桌面打包的端到端会话验证（涉及远程 workspace 部署链路，本地无法连真实远端/CDN 验证）。
 
 ## 备注
 

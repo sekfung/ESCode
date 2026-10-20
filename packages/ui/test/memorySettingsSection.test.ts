@@ -265,7 +265,7 @@ describe("MemorySettingsSection", () => {
     expect(await screen.findByText("settings.memory.viewer.empty")).toBeTruthy();
   });
 
-  it("Web Remote / Mobile 只展示开关和本地查看提示", () => {
+  it("非 Desktop 只展示开关和本地查看提示", () => {
     const memoryService = createService();
     render(
       createElement(MemorySettingsSection, {

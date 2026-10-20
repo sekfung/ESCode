@@ -13,7 +13,6 @@ import { useTabStore } from "@/store/TabStoreProvider.js";
 import { MemoTaskItem, TaskListItemContextMenuContent } from "@/TaskListItem.js";
 import { TaskListLoadingHint } from "@/TaskListLoadingHint.js";
 import { TaskRenameDialog } from "@/TaskRenameDialog.js";
-import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { compareESCodeTaskListItems } from "@/lib/taskListOrdering.js";
 import { logger } from "@/logger.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
@@ -46,7 +45,6 @@ export const TaskList = memo(function TaskList({
   onSetTaskPinned,
   onArchiveTask,
   onSetTaskUnread,
-  mobileActiveTaskKey,
   readOnlyReason,
 }: {
   workspacePath: string;
@@ -68,7 +66,6 @@ export const TaskList = memo(function TaskList({
   onSetTaskPinned: (taskId: string, pinned: boolean) => Promise<ESCodeTaskMeta | null>;
   onArchiveTask: (taskId: string) => Promise<ESCodeTaskMeta | null>;
   onSetTaskUnread: (taskId: string, unread: boolean) => Promise<ESCodeTaskMeta | null>;
-  mobileActiveTaskKey?: string | null;
   readOnlyReason?: string;
 }) {
   const { intl } = useESCodeIntl();
@@ -364,10 +361,6 @@ export const TaskList = memo(function TaskList({
         task={task}
         isPinned={isPinned}
         isActive={isWorkspaceActive && task.taskId === activeTaskId}
-        isMobileActive={
-          mobileActiveTaskKey ===
-          `${buildTaskWorkspaceKey(workspacePath, workspaceIdentity)}:${task.taskId}`
-        }
         onSelectTask={handleSelectTaskItem}
         onArchiveTaskInline={handleArchiveTaskFromInline}
         onCancelArchiveConfirm={handleCancelArchiveConfirm}

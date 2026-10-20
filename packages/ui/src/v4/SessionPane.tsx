@@ -246,7 +246,7 @@ export interface SessionPaneProps {
   workspacePath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string | null;
-  /** Prompt 模板埋点当前仅覆盖 Desktop；Web / 手机远控保留 UI 行为但不触发该事件。 */
+  /** Prompt 模板埋点当前仅覆盖 Desktop；非 Desktop保留 UI 行为但不触发该事件。 */
   isDesktop?: boolean;
   provider?: ESCodeProvider;
   onSessionCreated?: (sessionId: string) => void;
@@ -2592,7 +2592,7 @@ export function SessionPane({
         // 首发前 switchModelConfig 失败只会抛回 Composer；Composer 为了保留草稿
         // 仅写日志，不会生成 snapshot.control.lastError，用户看到的结果就是“点击没反应”。
         // 这里把 admission 前失败收口为 pane-local 错误横幅，不改变 desktop continuous 或
-        // Web remote replayable 的发送/恢复语义，草稿仍由 Composer 原路径保留。
+        // 远程 workspace replayable 的发送/恢复语义，草稿仍由 Composer 原路径保留。
         setSendSubmissionError({
           code: runtimeModelUnavailable ? "ESCODE_RUNTIME_MODEL_UNAVAILABLE" : "SEND_FAILED",
           message: runtimeModelUnavailable
@@ -3759,7 +3759,6 @@ export function SessionPane({
               endedSubagentCount={subagents.endedTotal}
               rootSessionId={rootSessionId ?? sessionId ?? undefined}
               parentSessionId={sessionId ?? undefined}
-              isMobileViewport={isMobileTextInputViewport}
               layoutMode={statusPanelLayout}
               summaryPanelVariantOverride={effectiveSummaryPanelVariantOverride}
               onVariantChange={handleSummaryPanelVariantChange}

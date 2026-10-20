@@ -62,5 +62,5 @@ Write/Edit ── Write/Edit ── Write/Edit ── 可见非 file-write row
 ## 多端边界
 
 分组只消费 desktop continuous 或 web-remote replayable 最终投影出的相同 rows，不改变 transport、
-snapshot、gap、queue 或 owner 语义。共享 renderer 同时用于桌面和手机 Web；窄屏通过 `min-w-0`、
+snapshot、gap、queue 或 owner 语义。共享 renderer 同时用于桌面和窄视口；窄屏通过 `min-w-0`、
 截断和固定 chip 上限保护布局。

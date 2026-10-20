@@ -24,7 +24,7 @@ Windows 3.12.1 日志中 Host 多次出现约 2.67 GiB 堆外内存峰值，伴�
 ## 所有权与顺序
 
 ```text
-桌面/手机 Web/远程 workspace 的现有 Git refresh
+桌面/窄视口/远程 workspace 的现有 Git refresh
   → workspace 所在服务的 GitCliRepo.getStatus
   → 未跟踪条目 → 四个 worker → 大小检查 → 分块统计 → 同一 status 快照
                                           └─ 大文件/二进制/失败 → 零行，条目保留
@@ -50,7 +50,7 @@ CommandInbox、owner、snapshot、desktop continuous 或 mobile replayable 链�
 - `pnpm typecheck`、desktop `typecheck:e2e`、`pnpm lint`、`pnpm architecture:check --changed` 通过；lint 保留原有 42 项 warning，无 error。
 - 原有 SP13 `Changes` 打开 Git pane 的 pending 场景本轮失败，未执行到大文件读取；附加资源回归独立运行，不宣称修复该导航问题或整个 pending 文件通过。
 - conversation 覆盖率审计仍报 I74/I75 未知缩写、计数与生成文档过期；用当前 HEAD 的临时干净目录运行得到同样错误，本次不修改审计基线。
-- Windows、Linux、手机远控与远端 workspace 未实机验证；共享 repo 实现未改协议/身份隔离，E2E 用 Git 元数据变化触发刷新以兼容 Linux 非递归监听。
+- Windows、Linux、远程 workspace与远端 workspace 未实机验证；共享 repo 实现未改协议/身份隔离，E2E 用 Git 元数据变化触发刷新以兼容 Linux 非递归监听。
 
 资源回归独立运行命令：
 

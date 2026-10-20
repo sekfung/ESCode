@@ -239,53 +239,49 @@ afterEach(() => {
 });
 
 describe("ConversationFileSummaryPanel", () => {
-  it.each([false, true])(
-    "visualize 混合摘要只统计普通文件，compact=%s",
-    async (compactForRemoteControl) => {
-      const container = installMinimalDom();
-      const root = createRoot(container);
-      const path = "/workspace/visualizations/calendar.html";
-      const fetchFileChanges = vi.fn(async () => ({
-        files: 2,
-        additions: 77,
-        deletions: 3,
-        items: [
-          { path, additions: 70, deletions: 1, patches: [] },
-          { path: "/workspace/app.ts", additions: 7, deletions: 2, patches: [] },
-        ],
-      }));
-      await act(async () => {
-        root.render(
-          createElement(
-            ESCodeIntlProvider,
-            { initialLocale: "zh-CN" },
-            createElement(ConversationFileSummaryPanel, {
-              header: header({
-                fileChanges: { files: 2, additions: 77, deletions: 3, state: "active" },
-              }),
-              assistantText: `::visualize${JSON.stringify({ path })}`,
-              context: {
-                workspacePath: "/workspace",
-                theme: "system",
-                codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
-                compactForRemoteControl,
-                fetchFileChanges,
-              },
+  it("visualize 混合摘要只统计普通文件", async () => {
+    const container = installMinimalDom();
+    const root = createRoot(container);
+    const path = "/workspace/visualizations/calendar.html";
+    const fetchFileChanges = vi.fn(async () => ({
+      files: 2,
+      additions: 77,
+      deletions: 3,
+      items: [
+        { path, additions: 70, deletions: 1, patches: [] },
+        { path: "/workspace/app.ts", additions: 7, deletions: 2, patches: [] },
+      ],
+    }));
+    await act(async () => {
+      root.render(
+        createElement(
+          ESCodeIntlProvider,
+          { initialLocale: "zh-CN" },
+          createElement(ConversationFileSummaryPanel, {
+            header: header({
+              fileChanges: { files: 2, additions: 77, deletions: 3, state: "active" },
             }),
-          ),
-        );
-      });
-      expect(fetchFileChanges).toHaveBeenCalledTimes(1);
-      expect(collectText(container)).toContain("1 个文件已更改");
-      expect(collectText(container)).toContain("+7");
-      expect(collectText(container)).toContain("-2");
-      expect(collectText(container)).not.toContain("+77");
-      await act(async () => collapsibleOpenChanges.at(-1)?.(true));
-      expect(collectText(container)).toContain("app.ts");
-      expect(collectText(container)).not.toContain("calendar.html");
-      await act(async () => root.unmount());
-    },
-  );
+            assistantText: `::visualize${JSON.stringify({ path })}`,
+            context: {
+              workspacePath: "/workspace",
+              theme: "system",
+              codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
+              fetchFileChanges,
+            },
+          }),
+        ),
+      );
+    });
+    expect(fetchFileChanges).toHaveBeenCalledTimes(1);
+    expect(collectText(container)).toContain("1 个文件已更改");
+    expect(collectText(container)).toContain("+7");
+    expect(collectText(container)).toContain("-2");
+    expect(collectText(container)).not.toContain("+77");
+    await act(async () => collapsibleOpenChanges.at(-1)?.(true));
+    expect(collectText(container)).toContain("app.ts");
+    expect(collectText(container)).not.toContain("calendar.html");
+    await act(async () => root.unmount());
+  });
 
   it("仅有 visualize 时，详情到达前后都不显示摘要", async () => {
     const container = installMinimalDom();

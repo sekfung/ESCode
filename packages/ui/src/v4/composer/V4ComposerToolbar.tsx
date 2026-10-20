@@ -84,9 +84,8 @@ export interface V4ComposerToolbarProps {
   sessionId: string | null;
   phase: SessionPhase | null;
   provider?: ESCodeProvider;
-  /** 当前工具条是否运行在 Web 远控壳中。 */
+  /** 当前工具条是否运行在 远程 workspace壳中。 */
   /** 当前视口是否为手机输入布局。 */
-  isMobileViewport?: boolean;
   /** 草稿态（sessionId=null），仅区分新任务呈现，不改变选择来源。 */
   draftMode?: boolean;
   /** 当前 scope 的 Composer 选择；新任务与已有会话都只显示这份状态。 */
@@ -125,7 +124,6 @@ function V4ComposerModelControlsImpl({
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
   provider,
-  isMobileViewport: _isMobileViewport = false,
   draftMode = false,
   draftConfig,
   usage,

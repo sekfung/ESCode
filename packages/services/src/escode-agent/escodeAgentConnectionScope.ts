@@ -892,7 +892,7 @@ export function createESCodeAgentConnectionScope(
     },
     onDynamicCuaPermissionObservation() {
       assertOpen();
-      // 权限弹窗是本地桌面副作用；手机 replay attachment 只能消费可恢复对话事实。
+      // 权限弹窗是本地桌面副作用；远程 workspace replay attachment 只能消费可恢复对话事实。
       if (role !== "terminal-client" || context.clientMode !== "desktop-continuous") {
         return RpcEvent.None;
       }
@@ -913,7 +913,7 @@ export function createESCodeAgentConnectionScope(
       return base.onDynamicToolExecResource();
     },
     onDynamicMcpResourceSamples() {
-      // 资源事实不属于会话流，桌面 continuous 与手机 replayable attachment 均不能订阅。
+      // 资源事实不属于会话流，桌面 continuous 与远程 workspace replayable attachment 均不能订阅。
       if (disposed || role !== "trusted-host-relay") return RpcEvent.None;
       return base.onDynamicMcpResourceSamples();
     },

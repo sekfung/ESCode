@@ -39,7 +39,7 @@ XLSX、DOCX 相同的通用“在外部编辑器打开”按钮；该操作离�
   原文件写回语义。
 - 不承诺 PowerPoint 完整保真。动画、切换、公式、OLE、完整 EMF/WMF、真实 3D 等内容按
   `pptx-renderer` 的当前能力降级。
-- UI 相关最终验收由人工在 Desktop 和手机 Web 上完成。
+- UI 相关最终验收由人工在 Desktop 和窄视口 上完成。
 
 ## 已打开文件的变化自动重载
 
@@ -187,7 +187,7 @@ viewer(document ready)
 - 外部打开按钮复用 Preview Pane 的通用顶栏行为；是否可用由当前平台、工作区类型和已发现的外部
   编辑器共同决定，PPTX 不增加独立的选择或 fallback 规则。
 - 引用列表项使用真实按钮语义，支持鼠标、Enter 与 Space；删除引用是独立兄弟按钮，不能因为事件冒泡
-  触发文件导航。Desktop、手机 Web、Zai Light 与 Zai Dark 保持相同语义。
+  触发文件导航。Desktop、窄视口、Zai Light 与 Zai Dark 保持相同语义。
 
 ## 抽象边界
 

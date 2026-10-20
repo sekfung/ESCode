@@ -413,7 +413,7 @@ UI scope/source state
 workspace identity 的配置、catalog 与 runtime 不串；`WPL-011` run
 `desktop-e2e-20260831-054511-469` 证明连接不复制本机 package，显式 Sync 后才在 remote Host
 物化并进入新 Session runtime。`WPL-012` 只有 shared-host focused integration test 和显式
-external bridge 字段投影的源码证据，不是手机端到端 E2E。所有 pending case 仍未完成人工审核、
+external bridge 字段投影的源码证据，不是远程 workspace到端 E2E。所有 pending case 仍未完成人工审核、
 promotion、Docker admission 和三平台 CI。`WPL-005` 当前只用 Skill+MCP 代表性 fixture 证明
 直达 runtime，Command、Agent 和 Hook 的逐组件闭环仍待补充。
 

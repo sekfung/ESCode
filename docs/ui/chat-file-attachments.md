@@ -111,7 +111,7 @@ cache/path；受支持 MIME 的真实 IO 或 durable artifact 故障仍在 provi
 - 状态不只依赖颜色，必须提供本地化的 `aria-label` / `role=status|alert`。
 - V4 的文件 drop 由整个对话 pane 根节点唯一接管：时间线、空态、状态区和 composer 都处于同一 drop surface；主输入框不再重复注册文件 drop。桌面新建任务的轻量标题栏在窗口级 drag 状态激活后显示临时 drop mask，并接到主草稿 composer。这一结构与旧版 `ChatView` 一致。
 - 工作区文件树的 `WORKSPACE_FILE_DRAG_MIME` 不作为上传附件，而是插入工作区文件 mention；操作系统文件才进入附件预传队列。该语义与旧版 `ChatView` 一致。
-- 手机 Web 没有系统文件拖拽/选择器入口；本次只复用 V4 composer 的 renderer 本地 drop 路由，不新增 runtime、host、relay 或 `web-remote-replayable` 传输语义。
+- 窄视口 没有系统文件拖拽/选择器入口；本次只复用 V4 composer 的 renderer 本地 drop 路由，不新增 runtime、host、relay 或 `web-remote-replayable` 传输语义。
 - 已发送 query 的行内编辑器只允许删除既有附件，不提供文件选择、拖入、粘贴转附件或重新上传。
   普通 composer 粘贴达到 5120 字符时仍按既有规则转成文本附件；行内 edit 中的同等长文本
   保持为 `editUserQuery.newText` 正文。

@@ -13,7 +13,7 @@
 | User-visible surfaces | Desktop 内置 Browser tab 与 Browser Use tab                                                                                                                                                                                                                                        |
 | Existing docs         | `docs/browser-use/2026-07-08-webview-cdp-on-guest-pivot-spec.md`、`docs/ui/web-element-context.md`                                                                                                                                                                                 |
 | Existing code owners  | `BrowserToolbar`、`UnifiedBrowserView`、renderer 内 `<webview>`、`BrowserGuestManager`、browser-client `Tab`                                                                                                                                                                       |
-| Out of scope          | UA、touch、方向传感器、网络限速、设备列表、网页自身 zoom、Browser Tab/URL/history 跨重启恢复、Web/手机端独立 Browser runtime                                                                                                                                                       |
+| Out of scope          | UA、touch、方向传感器、网络限速、设备列表、网页自身 zoom、Browser Tab/URL/history 跨重启恢复、Web/远程 workspace独立 Browser runtime                                                                                                                                               |
 
 ## Clarification Log
 
@@ -343,7 +343,7 @@ guest wheel（仅自由尺寸宿主消费）
   `pnpm lint` 通过（lint 仅 35 条既有 warning），6 个聚焦文件共 208 tests passed。
   dev desktop 已以 PID `46580` 重启；配置的模型 provider
   （示例地址：`192.0.2.20:8080`）连续 Connect Timeout，因此真实模型显式截图待 provider 恢复后补验。
-- Web/手机端保持现有 embedded-browser capability：不创建独立 Agent runtime、host 或 relay 业务状态。
+- Web/远程 workspace保持现有 embedded-browser capability：不创建独立 Agent runtime、host 或 relay 业务状态。
 - 2026-08-05 补充 RBV-045：开发环境 CDP 在隐藏目标 tab 上观测到 `canvas=0×0`、`data-responsive-scale=1`；点击后宿主已变为 `534.046875×614`，首个 animation frame 仍为 `1`，约 13ms 后才更新为 `0.39222412109375`。修复限定在 renderer-local Fit 测量：非正尺寸不覆盖最后有效样本，surface 重新 composed 时用 layout effect 在首绘前重测；不改变 tab 激活、guest identity、Browser Use viewport、desktop-continuous 或 web-remote-replayable。
 - 2026-08-30 补充 RBV-046..049：human 显示偏好属于 app-global `AppSettings`，只在新 human Browser tab 创建时读取一次；持久化字段仅包含模式、宽高和预览缩放。Agent 创建、claim、navigate、viewport set/reset 继续以 tab 运行态为权威，不读写该偏好；完整重启仍清空 Browser tab catalog、URL、history 与 pageState。
 - Browser Use 总矩阵新增 BCP-195..198；协议命令仍走一次性 browser RPC，不进入 conversation stream/snapshot，也不改变 desktop-continuous / web-remote-replayable 交付语义。

@@ -196,7 +196,7 @@ fn process_summary(
     let became_terminal = previous.is_some_and(|previous| !terminal(&previous["phase"]))
         && terminal(&summary["phase"]);
     if became_terminal {
-        // 手机 replayable 的 host command 以 phase 终态为“下一条可发送”的边界：
+        // 远程 workspace replayable 的 host command 以 phase 终态为“下一条可发送”的边界：
         // 先收口当前 input（按 active traceId 移除 running 命令），再放行队列。
         let input_id = ingest.commands.session_terminal(
             &ingest.workspace_path,

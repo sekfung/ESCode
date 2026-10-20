@@ -126,9 +126,8 @@ export interface ConversationStatusPanelProps {
   endedSubagentCount?: number;
   rootSessionId?: string;
   parentSessionId?: string;
-  /** 当前 pane 是否由手机 Web 远控壳承载。 */
+  /** 当前 pane 是否由远程 workspace壳承载。 */
   /** 当前是否为粗指针手机视口。 */
-  isMobileViewport?: boolean;
   layoutMode?: "none" | "auto" | "inline";
   summaryPanelVariantOverride?: ChatViewSummaryPanelVariant | null;
   onVariantChange?: (variant: ChatViewSummaryPanelVariant | null) => void;
@@ -1887,7 +1886,6 @@ function ConversationStatusPanelImpl({
   endedSubagentCount = 0,
   rootSessionId,
   parentSessionId,
-  isMobileViewport: _isMobileViewport = false,
   layoutMode = "none",
   summaryPanelVariantOverride,
   onVariantChange,

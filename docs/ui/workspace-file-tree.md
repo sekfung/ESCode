@@ -22,7 +22,7 @@ Workspace 文件树入口位于每个 workspace 行右侧操作区，放在更�
 - 右键文件会显示文件操作菜单：`Open` 复用行主动作，`Copy path` 复制文件绝对路径；目录暂不显示该菜单。
 - 栅格、行高、缩进、选中态和 hover 态全部使用 Tailwind class 与设计 token；文件行选中态边框使用 `--color-input-border-focused`，和输入聚焦边框保持一致。
 - 文件树行与虚拟槽高度均为 `28px`，不额外保留行间距；行使用 `0.5rem` 基础左边距，嵌套节点按每级 `0.75rem` 缩进。缩进区域按 `row.depth` 绘制连续的竖向层级引导线，根层级不显示。引导线整体从 `0.625rem` 开始，并按每级 `0.75rem` 重复，线宽 `1px`，使最后一条线的右边缘与当前层级图标左边缘精确保留 `4px`；引导线使用 `-inset-y-px`，相对行的上下边界各向外延伸 `1px`，使用 `--color-border` 语义色，并作为不接收指针事件的装饰层置于行内容下方，不能改变行高、点击、拖拽、选中或键盘焦点行为。
-- 层级引导线由普通虚拟行和 sticky folders 共用的 `WorkspaceFileTreeRowView` 统一渲染；在桌面、普通 Web 和手机 Web，以及 Zai Light / Zai Dark 下保持相同结构，不引入平台或主题分支。
+- 层级引导线由普通虚拟行和 sticky folders 共用的 `WorkspaceFileTreeRowView` 统一渲染；在桌面、普通 Web 和窄视口，以及 Zai Light / Zai Dark 下保持相同结构，不引入平台或主题分支。
 - 打开文件树时通过当前 workspace-scoped `gitService` 读取 staged / unstaged changes，并在文件名右侧显示 Git 状态：`M` modified、`A` added、`D` deleted、`R` renamed、`U` untracked。目录行使用 `●` descendant 聚合提示其后代包含 Git 改动；ignored 路径不显示字母，沿用 `--color-git-ignored` 弱化文本样式；deleted 文件行只允许选中和复制路径，不再打开预览、本地编辑器或文件管理器。
 - descendant 目录 `●` 的样式优先级参考 VS Code Git resource priority：`modified` 高于 `added` / `deleted` / `renamed` / `untracked`，同优先级保持 Git 状态收集顺序。
 - Git 状态颜色统一走设计 token：`--color-git-modified`、`--color-git-added`、`--color-git-deleted`、`--color-git-renamed`、`--color-git-untracked`、`--color-git-none`、`--color-git-ignored`、`--color-git-descendant`，避免文件树把状态色散落为 diff / warning 的临时借用。

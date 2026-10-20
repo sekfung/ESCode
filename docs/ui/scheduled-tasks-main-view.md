@@ -14,7 +14,7 @@
 ## 立即运行语义
 
 - 「立即运行」是独立的 manual run，不是把 cron 的 `next_run_at` 改成当前时间；不得修改原计划的 `next_run_at`、`run_count`、启停状态或生命周期。
-- 定时调度实际触发和用户点击「立即运行」产生的 prompt，都必须在用户消息气泡上方展示与左侧任务列表一致的时钟图标和「由定时任务发送」来源文案。消息级来源以持久化 `userInput.sourceCommandId` 对应的 automation runId 为准：`automationId:scheduledAt`（`trigger=schedule`）与 `automationId:manual:uuid`（`trigger=manual`）均展示；同一 cron 会话内的普通手动输入不展示。该标识由 row 自身推导，桌面 continuous 与手机 Web replayable 恢复保持一致，不读取 task 上粘性的 `cronAutomationId`。
+- 定时调度实际触发和用户点击「立即运行」产生的 prompt，都必须在用户消息气泡上方展示与左侧任务列表一致的时钟图标和「由定时任务发送」来源文案。消息级来源以持久化 `userInput.sourceCommandId` 对应的 automation runId 为准：`automationId:scheduledAt`（`trigger=schedule`）与 `automationId:manual:uuid`（`trigger=manual`）均展示；同一 cron 会话内的普通手动输入不展示。该标识由 row 自身推导，桌面 continuous 与窄视口 replayable 恢复保持一致，不读取 task 上粘性的 `cronAutomationId`。
 - 当前 desktop host 必须在 `runAutomationNow` RPC 内直接恢复或创建目标会话并提交 prompt。正常路径不经过 scheduler 的轮询、wake 或二次认领；RPC 成功只表示 prompt 已被 host 接受，可能仍处于 runtime queue。
 - `runAutomationNow` 必须在认领前确认当前 service 已注入 manual dispatcher；dispatcher 缺失时直接失败，
   不创建 `automation_runs` 台账、不设置 `running` claim。能力确认后 manual run 才写入台账；若 host 在
@@ -91,7 +91,7 @@ busy session
 - 主视图与编辑页内容容器统一复用 Settings 的共享框架内容令牌：`max-w-4xl`、响应式横向 padding、`pt-0` 和统一的底部留白；Automations 列表、定时任务编辑与 Settings 各功能必须保持相同的内容列宽、左右起点和顶部基线。外层 workspace shell 继续保留桌面拖拽区、稳定滚动槽以及现有 `max-w-5xl` 响应式 route frame；Settings 对齐由内层共享内容令牌负责，禁止各 Automations 子页面再分别定义内容列宽和 padding。
 - 空首页以 Figma `⚫️ Z.ai - Escode` 节点 `4798:2443` 为视觉事实源。桌面内容列的可见宽度为 802px；标题说明之后依次是 226px 空状态卡、44px 保持唤醒提示条和定时任务模板。空状态卡与提示条间距 16px，各主分区间距 32px，禁止把提示条移到空状态卡上方。
 - 空状态卡使用 16px 圆角和弱边框，文案与操作整体垂直居中。定时任务的 `Create via chat` 分体按钮使用主按钮层级，Zai Dark 下为白底黑字，Zai Light 下按主按钮语义反转；左侧点击直接进入会话创建，箭头仅打开创建方式菜单。定时任务主按钮的文案在默认、hover 与菜单展开态都使用完整不透明度的 `text-primary-foreground`，不得通过降低默认透明度削弱可读性；outline 创建按钮继续保留既有的默认弱化层级。
-- 定时任务模板按两列展示 Client Scenes 下发的当前目录。模板卡使用“标题行 / 可伸缩描述 / 底部时间信息”的三段纵向结构；定时模板的周期时间必须位于描述下方，不得拼接在标题行。模板卡统一使用 `114px` 最小高度、12px 圆角、12px 内边距和 16px 栅格间距；桌面双列布局中，同一行的卡片必须拉伸到该行内容最多卡片的高度，使两行与三行描述的卡片底边对齐，不得为此写死全局最大高度；手机端降为单列，文案可换行但不得挤出卡片。
+- 定时任务模板按两列展示 Client Scenes 下发的当前目录。模板卡使用“标题行 / 可伸缩描述 / 底部时间信息”的三段纵向结构；定时模板的周期时间必须位于描述下方，不得拼接在标题行。模板卡统一使用 `114px` 最小高度、12px 圆角、12px 内边距和 16px 栅格间距；桌面双列布局中，同一行的卡片必须拉伸到该行内容最多卡片的高度，使两行与三行描述的卡片底边对齐，不得为此写死全局最大高度；远程 workspace降为单列，文案可换行但不得挤出卡片。
 - Client Scenes 模板目录加载期间，当前可见的定时模板区保留分区标题，并显示默认 4 张模板卡骨架：桌面双列共两行，手机单列自然排为四行。骨架复用模板卡的 `114px` 最小高度、圆角、描边和栅格间距，不用整页 Spinner 替换已有任务与手动创建入口；请求成功、业务失败或网络失败后结束骨架态，再按真实目录或既有失败降级规则渲染。
 - Figma 的像素值必须映射到 `DESIGN.md` 的语义颜色、`text-ui-*` 字号和已有按钮/菜单基础组件；不得为了单一深色截图引入 raw hex、`text-[…]` 或只在 Zai Dark 下成立的透明白色样式。
 - 自动化主视图、定时任务创建/编辑、运行历史与相关菜单统一使用 UI 字号 token：既有 `text-ui-xs` 提升为 `text-ui-sm`；历史 `text-base` / `text-sm` / `text-xs` 分别迁移为 `text-ui-lg` / `text-ui-base` / `text-ui-sm`；`16px` / `14px` / `13px` / `12px` 分别迁移为 `text-ui-lg` / `text-ui-base` / `text-ui-base` / `text-ui-sm`，小于 `10px` 才使用 `text-ui-xs`。禁止继续新增 arbitrary UI font size。
@@ -104,7 +104,7 @@ busy session
 - 已完成任务卡片保持固定弱化透明度，鼠标悬停时不得恢复透明度或切换卡片背景；键盘焦点与进入详情能力保持不变。
 - 卡片 cron 摘要后可追加 `· 下次运行时间`：`nextRunAt` 必须严格晚于当前时间才展示，30 天内使用相对时间，超过 30 天使用绝对时间；已过期或缺失的时间不渲染分隔点及时间文案。
 - UI 创建的定时任务进入编辑页后继续使用原有可编辑调度控件。会话内创建且无法按 UI 规则回显的任务显示无图标、无 `nextRunAt` 的只读“自定义”行，并提供删除按钮；删除后进入 UI 的“添加调度”流程，重新设置并保存时以新 UI cron / scheduleRule 替换旧会话调度。
-- UI 创建任务的「自定义重复」支持分钟、小时、天、周、月、年。重复频率使用可直接编辑的整数输入，而非下拉选项；输入控件范围为 `0–200`，但只有 `1–200` 的正整数可以确认，避免把无执行语义的 `0` 保存为 cron / scheduleRule。输入框禁用浏览器原生 spinner，右侧使用垂直排列的上/下步进按钮并采用输入控件的边框与 hover 语义色，达到桌面与手机 Web 一致的视觉和点击反馈。桌面端与手机 Web 复用同一控件、范围及确认校验。所有自定义重复的真实间隔以 `scheduleRule` 为准；cron 只承担兼容展示与旧链路候选。分钟超过 `59`、小时超过 `24`、天超过 `31`、月超过 `12` 时，必须分别降级为合法的每分钟、每小时、每日、每月兼容 cron，绝不能因 cron 单字段范围缩小 `1–200` 的产品语义。
+- UI 创建任务的「自定义重复」支持分钟、小时、天、周、月、年。重复频率使用可直接编辑的整数输入，而非下拉选项；输入控件范围为 `0–200`，但只有 `1–200` 的正整数可以确认，避免把无执行语义的 `0` 保存为 cron / scheduleRule。输入框禁用浏览器原生 spinner，右侧使用垂直排列的上/下步进按钮并采用输入控件的边框与 hover 语义色，达到桌面与窄视口 一致的视觉和点击反馈。桌面端与窄视口 复用同一控件、范围及确认校验。所有自定义重复的真实间隔以 `scheduleRule` 为准；cron 只承担兼容展示与旧链路候选。分钟超过 `59`、小时超过 `24`、天超过 `31`、月超过 `12` 时，必须分别降级为合法的每分钟、每小时、每日、每月兼容 cron，绝不能因 cron 单字段范围缩小 `1–200` 的产品语义。
 - 可编辑调度栏的首个频率选择器在「每小时 / 每天 / 每工作日 / 每周 / 每月 / 自定义」任一已选状态下都必须使用完整不透明度的 `#363636` 背景，与时间、分钟等同层选择控件一致；不得再用透明度或主题浅色与输入区背景混色，也不得因频率值或分支不同退回透明背景。调度栏内所有 tag 统一为 `20px` 文本行高、上下各 `1px` padding（总高 `22px`）和 `8px` 圆角；频率 Select 不得保留透明 border 或 padding-box 背景裁切导致可见背景向内缩小。hover 与展开态使用 `#404040` 提升反馈。
 - 调度语句中位于 tag 之间的连接词（如「于」「第」「分钟」）使用与 tag 内文字一致的 `text-foreground`、`text-ui-base` 和 `20px` 行高，禁止单独降为二级文字色；「每周」后的星期多选 tag 也必须使用同一 `text-foreground`，不得以 raw 高亮色强化已选星期，选中状态只通过下拉勾选与菜单背景表达。星期下拉项统一采用左侧文案、末尾 `16px` 状态位的菜单布局，选中勾必须位于行末，未选中项保留同宽空状态位以避免布局跳动；时区与完整调度摘要仍保持 `text-foreground-subtle`，维持信息层级。
 - 「添加计划」展开的频率菜单项在鼠标 hover 与键盘高亮时统一使用 `bg-menu-hover` 和主前景色，Light / Dark 均须提供清晰反馈；禁止使用 `bg-white/5` 等只在深色背景可见的 raw 透明色覆盖共享菜单语义样式。
@@ -147,9 +147,9 @@ body portal 更新 fixed left
 - 定时任务运行历史直接展示加载态、错误态、空态或历史表格，不在内容顶部重复展示「仅在电脑唤醒时运行」的辅助说明；保持唤醒规则只在设置入口和对应控制项附近说明。
 - 定时任务没有运行历史时必须复用同一个空态容器，以 Figma `4617:1176` 与 `4866:3110` 为事实源：容器最小高 `226px`，使用页面背景、默认卡片边框和标准卡片圆角，提示文案水平与垂直居中，并使用 `text-ui-base text-foreground-subtle`。禁止定时任务退回透明的纯文本留白。
 - Automations 首页的定时任务分类筛选参考插件市场的公开/个人 tabs：使用独立 `rounded-full` pill、`px-3 py-1` 与 `text-ui-base font-medium`；选中态为 `bg-selected text-foreground`，未选中态为二级文字并在 hover 使用 `bg-hover`。定时任务详情页的「设置 / 历史」tabs 则参考 Hooks scope tabs：容器固定 `h-8 rounded-full bg-surface p-0.5`，选项固定 `h-7 rounded-full px-2.5`，选中态使用 `bg-background text-foreground`，未选中态保持透明。中文名称统一为「设置 / 历史」，英文统一为 `Settings / History`。
-- 定时任务的 Instructions 复合输入复用同一个结构组件，不得分别维护尺寸。父级容器不显示边框并使用 `bg-surface`；textarea 自身使用 `rounded-xl border border-input-border bg-input`，承担 hover、focus 与 invalid 描边状态。正文默认且最小为 `116px` 高并使用 `12px` 内边距，底部工具条固定 `40px` 高并使用 `6px` 内边距（`h-10 p-1.5`）。桌面端与手机 Web 均禁止手动 resize，内容仍自动增高到约 7 行，超过后在正文内部滚动；窄屏允许工具条换行并按内容增高。
+- 定时任务的 Instructions 复合输入复用同一个结构组件，不得分别维护尺寸。父级容器不显示边框并使用 `bg-surface`；textarea 自身使用 `rounded-xl border border-input-border bg-input`，承担 hover、focus 与 invalid 描边状态。正文默认且最小为 `116px` 高并使用 `12px` 内边距，底部工具条固定 `40px` 高并使用 `6px` 内边距（`h-10 p-1.5`）。桌面端与窄视口 均禁止手动 resize，内容仍自动增高到约 7 行，超过后在正文内部滚动；窄屏允许工具条换行并按内容增高。
 - 定时任务的 Instructions 底部工具栏必须使用同一套控件视觉和触发态：项目、权限、模型与推理控件统一为 `h-7`、`rounded-full`、`text-ui-base font-normal`，菜单项之间统一 `gap-0`；图标与文字内部仍保留 `4px` 间距。默认无背景，hover 与菜单展开期间统一使用 `bg-hover` 并提升为主文字色。权限 trigger 与项目、模型一致按内容自适应宽度；禁止用固定最小宽度或 `flex-1` 把箭头推离文案。下拉箭头统一使用 Lucide `ChevronDown` 的原生 `24 × 24` viewBox 与 `2px` 描边，在工具栏内渲染为 14px：项目、权限使用 20px 操作位，模型、推理使用 18px 操作位；禁止在操作位内再嵌套固定 20px 包装，避免紧凑项被裁切或视觉偏小。权限选择「完全访问」/ `yolo` 后，前置图标、文案和尾部箭头必须统一使用 `text-warning`，hover 与展开态也不得退回默认前景色。菜单统一向工具栏上方展开，和 trigger 保持 `4px` 间距。Draft New 的共享 Workspace 菜单 wrapper 必须使用 `contents`，只保留内部 trigger 作为唯一视觉与布局盒，避免双层控件；普通会话项目 chip 保持原样。
-- 定时任务的模型与 Think 选择必须直接复用会话 composer 的响应式触发器构成，不得在 Automations 内再维护一套常显文案或隐藏图标的变体：模型 trigger 在紧凑宽度下展示 `Package` 图标、达到 composer `sm` 宽度后展示模型身份文案与 chevron；该身份文案必须复用会话侧 `resolveV4ModelTriggerLabel` 规则，普通自定义供应商显示 `providerName/modelName`，Z.ai / BigModel 内置 family、失效值回落与窄屏裁剪继续以会话侧事实源为准，禁止 Automations 自行截掉 provider 只展示最后一级模型名。Think trigger 始终展示 `Brain` 图标，达到 composer `xl` 宽度后再展示档位文案与 chevron。Automations 的 Instructions 外框必须建立同名 `@container/composer` 查询上下文，使桌面端、普通 Web 与手机 Web 都按控件自身可用宽度切换；模型菜单、Think 档位排序、国际化文案、选中态及单档模型只读态继续由会话侧共享组件负责。Automations 仅允许保留“菜单向上展开、不恢复聊天输入焦点、模型元数据预览期间禁用”这三类页面语义差异。
+- 定时任务的模型与 Think 选择必须直接复用会话 composer 的响应式触发器构成，不得在 Automations 内再维护一套常显文案或隐藏图标的变体：模型 trigger 在紧凑宽度下展示 `Package` 图标、达到 composer `sm` 宽度后展示模型身份文案与 chevron；该身份文案必须复用会话侧 `resolveV4ModelTriggerLabel` 规则，普通自定义供应商显示 `providerName/modelName`，Z.ai / BigModel 内置 family、失效值回落与窄屏裁剪继续以会话侧事实源为准，禁止 Automations 自行截掉 provider 只展示最后一级模型名。Think trigger 始终展示 `Brain` 图标，达到 composer `xl` 宽度后再展示档位文案与 chevron。Automations 的 Instructions 外框必须建立同名 `@container/composer` 查询上下文，使桌面端、普通 Web 与窄视口 都按控件自身可用宽度切换；模型菜单、Think 档位排序、国际化文案、选中态及单档模型只读态继续由会话侧共享组件负责。Automations 仅允许保留“菜单向上展开、不恢复聊天输入焦点、模型元数据预览期间禁用”这三类页面语义差异。
 - 「添加计划」使用 Lucide `Plus` 的原生 `24 × 24` viewBox 与 `2px` 描边，在 20px 图标容器内渲染为 16px；图标颜色继承当前文本语义色。
 - 定时任务卡片菜单的更多、立即运行、暂停/恢复、编辑和删除统一使用 Lucide 图标的原生 `24 × 24` viewBox 与 `2px` 描边，渲染尺寸为 16px。模板卡片统一使用 12px 内边距、12px 内容与栅格间距，桌面双列、手机单列；描述和执行时间使用主题语义色 `text-foreground-subtle`。定时任务模板标题图标优先展示 Client Scenes prompt item 的可信 HTTPS `img`，以 `16px` 等比完整显示；`img` 缺失、不受信任或加载失败时，回退 Lucide `Target` / `Activity` / `FileText` / `List`，以 `16px` 尺寸和 `2px` 描边放入 20px 操作位并继承当前文字色。
 - Automations 通用图标统一在 `AutomationIcons.tsx` 维护，并由 `AutomationDesignPrimitives` 对外复用；不得由各页面重复定义几何或加载裁切后的 Figma SVG / mask 资产。除下拉箭头的显式紧凑尺寸外，图标统一使用 Lucide 原生 `24 × 24` viewBox、16px 渲染尺寸和 `2px` 描边，颜色继承 `currentColor`，保证 Light / Dark / Zai 主题一致。
@@ -228,5 +228,5 @@ assistant turn complete -> render [B]
 - Schedule 行内的频率、日期、时间、自定义周期等子菜单触发按钮统一使用 `rounded-full` pill；展开后的菜单容器与菜单选项继续遵循标准 menu 样式，不改为 pill。
 
 - 桌面端 `continuous` session 主链路不受影响；该改动只切换 UI 主视图，不修改 stream、snapshot、queue 或 owner command。
-- 手机 Web 远控不展示 Automations，不新增独立 runtime、host 或远控业务状态。
+- 远程 workspace不展示 Automations，不新增独立 runtime、host 或远控业务状态。
 - 远程 workspace 的存量任务继续按 `workspaceIdentity?.trim() || workspacePath` 隔离；本次不新增远程任务。

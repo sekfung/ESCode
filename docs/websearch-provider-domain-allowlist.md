@@ -13,4 +13,4 @@ WebSearch 通过 provider-native `web_search` 发起内部模型请求。不是�
 
 ## 影响面
 
-这只影响 agent 侧工具暴露和 provider-native WebSearch 投影，不改变桌面端 continuous 链路、手机端 replayable 恢复语义，也不改变普通模型请求的 endpoint 解析。
+这只影响 agent 侧工具暴露和 provider-native WebSearch 投影，不改变桌面端 continuous 链路、远程 workspace replayable 恢复语义，也不改变普通模型请求的 endpoint 解析。

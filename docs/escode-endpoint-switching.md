@@ -8,8 +8,6 @@ The shared resolver exposes these derived URLs:
 
 - API base: `/api/v1`
 - ESCode Plan OpenAI base: `/api/v1/zcode-plan`
-- mobile remote entry: `/remote`
-- web remote OAuth callback: `/web-remote/callback`
 - relay WebSocket: `/ws`, with `https -> wss` and `http -> ws`
 
 `ESCODE_BASE_URL` is the canonical env variable for the origin. Production builds still ignore
@@ -37,7 +35,7 @@ For Web dev server, desktop host services, scripts, and CLI testing, set `ESCODE
 example:
 
 ```bash
-ESCODE_BASE_URL=https://zcode.z.ai pnpm --filter @escode/web dev
+ESCODE_BASE_URL=https://zcode.z.ai pnpm dev:server
 ESCODE_BASE_URL=http://localhost:3030 escode auth login
 ```
 

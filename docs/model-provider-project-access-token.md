@@ -141,12 +141,12 @@ Standalone 的 PAT、Key ID 定位与 Z.AI 业务 JWT 单飞请求由 resolver/c
 | O05 | POST /api/v1/off-peak/anthropic/v1/messages                  | 沿用票据头及业务 Token                                                 | Project Token + 既有票据上下文          | 共用请求入口；真实推理未执行                               |
 | A01 | 加速 / Start Plan / 官方 MCP / reset                         | 保留既有登录 JWT 通道；消费套餐凭据的部分自动改用 Token                | 按既有通道解析                          | 加速/reset/鉴权服务回归通过；端到端未执行                  |
 | C01 | Standalone OAuth 登录/模型请求/退出                          | source=oauth 不读旧 Key；稳定身份；退出拒绝迟到 Token；manual 独立     | 登录 JWT → Project Token                | CLI adapters 19 + bootstrap 24 项通过                      |
-| R01 | 桌面/手机/远程 workspace 请求期鉴权                          | 同一 Host owner 和原 continuous/replayable 边界                        | 私有请求鉴权通道                        | 桌面创建/换证通过；手机端到端本轮未执行                    |
+| R01 | 桌面/手机/远程 workspace 请求期鉴权                          | 同一 Host owner 和原 continuous/replayable 边界                        | 私有请求鉴权通道                        | 桌面创建/换证通过；远程 workspace到端本轮未执行            |
 
 最终接口测试表必须记录方法/路径、改前/改后凭据来源、测试数据、预期、实际结果、证据与未验证原因。
 此前批次证据：21 个公共层/服务层文件共 304 测试通过；CLI adapters 19、bootstrap 24 共 43 测试通过；桌面 Token 创建/换证 E2E 2 项通过（首次 WebDriver 启动超时，90s 启动请求上限重跑通过）。
 E2E runId：desktop-e2e-20260923035859355-p42258-c98f5ad1034a9175。
-根 typecheck/lint/architecture 与 CLI typecheck 通过。CLI 全量 lint 仍有既有 max-lines 失败；auth-login.ts 基线已超 400 行，本轮亦未消除该问题。test:unit:affected 只读已提交差异，因 HEAD 未变化而跳过，不能算作本轮单测证据。接口语义和参数由 mock 回归验证；未宣称真实线上 Token 签发/模型调用/手机端到端联调通过。
+根 typecheck/lint/architecture 与 CLI typecheck 通过。CLI 全量 lint 仍有既有 max-lines 失败；auth-login.ts 基线已超 400 行，本轮亦未消除该问题。test:unit:affected 只读已提交差异，因 HEAD 未变化而跳过，不能算作本轮单测证据。接口语义和参数由 mock 回归验证；未宣称真实线上 Token 签发/模型调用/远程 workspace到端联调通过。
 必要验证按根与 CLI AGENTS.md 执行；当前仍有 CLI lint 基线问题，不自动提交失败的检查。
 
 ### 专用 Key 兼容修正复测（2026-09-23 12:34）

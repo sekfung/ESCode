@@ -90,7 +90,7 @@
 | must-inspect   | `capability.browser-use-agent-guidance` | guides tool planning in  | `capability.agent-core-runtime`             | Browser Use 被加载到模型上下文 | 保证 Skill、included docs、fallback 一致 | `documentation.ts`         |
 | evidence-only  | `capability.browser-use-agent-guidance` | covered by               | `evidence.browser-use-agent-guidance-tests` | 打包与 fallback 两条文档路径   | 防止 guidance 漂移                       | `browser-manifest.test.ts` |
 | invariant-only | `capability.browser-use-agent-guidance` | must not change delivery | `boundary.desktop-continuous`               | desktop 本地实时链路           | 不把 popup 观察变成 task 恢复状态        | 现有远控架构约束           |
-| invariant-only | `capability.browser-use-agent-guidance` | must not change delivery | `boundary.web-remote-replayable`            | 手机远控恢复链路               | 不绕过 shared-host/replayable 边界       | 现有远控架构约束           |
+| invariant-only | `capability.browser-use-agent-guidance` | must not change delivery | `boundary.web-remote-replayable`            | 远程 workspace恢复链路         | 不绕过 shared-host/replayable 边界       | 现有远控架构约束           |
 
 ### 4.5 State Owners And Commit Sinks
 

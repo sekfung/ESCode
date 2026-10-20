@@ -205,7 +205,7 @@ describe("useAppPanels 打开工作流产物", () => {
     unmount();
   });
 
-  it("手机远控（remoteSessionId）的 html 产物仍开产物 tab", async () => {
+  it("远程 workspace（remoteSessionId）的 html 产物仍开产物 tab", async () => {
     const { result, unmount } = renderPanels();
 
     act(() => {

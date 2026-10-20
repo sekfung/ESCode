@@ -147,7 +147,7 @@ Agent 单步执行事件。它的颗粒度比 `message_completion` 更细：一�
 
 ## 多端与 clientMode
 
-远程工作区和手机 Web Remote Control 的使用量口径见
+远程工作区和窄视口 Remote Control 的使用量口径见
 [远程场景使用量埋点 V1](./remote-usage-telemetry-v1.md)；远程工作区逻辑 session 并发数、断开原因与可观测连接时长见
 [远程工作区连接 ARMS 自定义事件](./remote-usage-arms-telemetry.md)。
 

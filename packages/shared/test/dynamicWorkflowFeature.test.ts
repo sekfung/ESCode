@@ -180,7 +180,7 @@ describe("applyDynamicWorkflowUserMode（DWG-18）", () => {
   });
 
   it("isDynamicWorkflowOffered：没有 offeredMode 的快照（旧 Host）或读不懂的值按未提供", () => {
-    // 新 UI（例如手机远控 bundle）连旧 Host 时，快照只有生效的 mode / enabled，没有 offeredMode；
+    // 新 UI（例如远程 workspace bundle）连旧 Host 时，快照只有生效的 mode / enabled，没有 offeredMode；
     // 旧 Host 不认用户选择，所以不能把设置行摆出来。
     const legacy = { mode: "alwaysOn", enabled: true, source: "remote" } as unknown as Parameters<
       typeof isDynamicWorkflowOffered

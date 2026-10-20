@@ -3325,7 +3325,7 @@ nodes:
 
   - id: "boundary.web-remote-replayable"
     kind: "delivery-boundary"
-    label: "Web remote replayable delivery"
+    label: "Replayable delivery (remote workspace)"
 
   - id: "boundary.workspace-key"
     kind: "delivery-boundary"
@@ -3988,14 +3988,12 @@ nodes:
       - "统一多端架构"
       - "多 Server 管理"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
       - "docs/architecture/escode-code-architecture-overview.md"
 
   - id: "surface.multi-server-controller-ui"
     kind: "ui-surface"
     label: "Desktop, Browser, and attached Mobile multi-server view"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
     codeSeeds:
       - symbol: "Root"
         file: "packages/ui/src/Root.tsx"
@@ -4005,19 +4003,16 @@ nodes:
     kind: "state-owner"
     label: "Controller-local server connections and aggregate projection"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
 
   - id: "service.escode-stable-launcher"
     kind: "service"
     label: "Planned stable launcher, bootstrap, and version runtime manager"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
 
   - id: "service.multi-server-controller"
     kind: "service"
     label: "Planned Desktop and Lite multi-server connection controller"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
     codeSeeds:
       - symbol: "connectRemote"
         file: "packages/server/src/remote/connect.ts"
@@ -4028,20 +4023,17 @@ nodes:
     kind: "persistence"
     label: "Planned persistent server identity and server-local workspace registry"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
 
   - id: "persistence.escode-resource-store"
     kind: "persistence"
     label: "Planned source-server prompt resource store"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
       - "docs/remote-prompt-attachment-materialization.md"
 
   - id: "boundary.unified-server-transport"
     kind: "delivery-boundary"
     label: "Transport-independent Server RPC over local, WebSocket, and SSH tunnel"
     docs:
-      - "docs/architecture/unified-escode-lite-server-multi-server-plan.md"
       - "docs/architecture/rpc.md"
 
   - id: "evidence.browser-screenshot-surface-tests"

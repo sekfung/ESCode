@@ -25,7 +25,7 @@
   上下文块从可见正文中被剥离就误渲染为 goal query。
 
 命令 token 省略 `/` 只改变 renderer 的只读正文，不改变消息文本、复制内容、编辑目标或
-desktop continuous / web remote replayable 的投影语义；桌面端和手机 Web 端共用同一
+desktop continuous / web remote replayable 的投影语义；桌面端和窄视口 端共用同一
 行渲染组件，并使用已有语义色以兼容亮色、暗色主题。
 
 ## 实现约束

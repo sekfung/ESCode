@@ -58,7 +58,7 @@ seeds：helpAppConfig、desktopHelpConfig、desktopCommandHandlers、communityUr
 维度为 zh-CN/en-US、远端全量/部分/失败、同一/不同 endpoint、首次/重复请求、Desktop/Web。
 工作区身份、模型、主题不影响纯配置结果，剪枝全量笛卡尔积；桌面以真实入口点击验证代表路径。
 TTL 精确到期、请求未完成时切换 endpoint 保留在可控时钟单测，不把 E2E 等待 1 小时作为验证。
-本轮仅进行本机验证；浏览器窄屏配置集成不是完整手机远控验收。
+本轮仅进行本机验证；浏览器窄屏配置集成不是完整远程 workspace验收。
 
 ## Accepted Cases / Coverage Matrix
 

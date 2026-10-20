@@ -747,7 +747,7 @@ describe("Composer 发送漏斗埋点（ARMS）", () => {
   });
 
   describe("reporter 未安装时静默", () => {
-    // Web / 手机远控不装 reporter（Root.tsx 按 isDesktop 门控），整组必须静默。
+    // 非 Desktop不装 reporter（Root.tsx 按 isDesktop 门控），整组必须静默。
     it("未安装 reporter 时不调用 platform", async () => {
       const clock = { value: 100 };
       const { supervisor, reportArmsCustomEvent } = createSupervisor(clock, {

@@ -54,7 +54,7 @@ V4 timeline 维护一个显式吸底状态机：
 
 ## 实现边界
 
-- 会话流滚动视口使用 `scrollbar-gutter: stable` 预留原生纵向滚动条空间，避免内容在滚动条出现或消失时发生横向位移；桌面端与手机 Web 复用同一规则。
+- 会话流滚动视口使用 `scrollbar-gutter: stable` 预留原生纵向滚动条空间，避免内容在滚动条出现或消失时发生横向位移；桌面端与窄视口 复用同一规则。
 - 自动吸底使用 `scrollRef.current.scrollTop = scrollHeight - clientHeight`，避免流式输出期间连续 smooth scroll 造成抖动。
 - 用户点击“回到底部”或提交需要定位到最新消息的 prompt 时，使用 instant `scrollTop` 写入并立即进入吸底状态；同一处理内必须同步提交当前 session 的吸底记忆，不能等待后续 `scroll` 或 scope cleanup，确保紧接着切换 session 仍按“吸底”恢复。
 - `scroll` 事件只有在关联到真实用户滚动输入时才允许改变吸底意图；组件自身贴底以及 virtualizer/折叠/测高造成的 `scrollTop` 变化只更新几何账目，不改变 `FOLLOWING / DETACHED`。用户向上滚动的输入在浏览器派发 `scroll` 之前先登记，因此与 terminal commit 同帧时也能优先解除跟随。
@@ -69,5 +69,5 @@ V4 timeline 维护一个显式吸底状态机：
 
 - 接受 `following=true` 的 running -> terminal 折叠/虚拟化路径，以及 `following=false` 和“用户上滚与 terminal 同帧”的竞争路径。
 - desktop `desktop-continuous` 用 controlled-stream E2E 代表真实流式和终态时序；最终正文使用足够长的自然文本，即使模型不遵守显式换行也能稳定产生可滚动高度。
-- 手机 Web 与桌面复用 renderer 滚动状态机，以 focused test 证明输入来源和状态优先级；本修复不新增 snapshot、queue、owner、relay 或 `web-remote-replayable` 状态，不把 desktop 的 renderer-local 滚动位置同步到手机。
+- 窄视口 与桌面复用 renderer 滚动状态机，以 focused test 证明输入来源和状态优先级；本修复不新增 snapshot、queue、owner、relay 或 `web-remote-replayable` 状态，不把 desktop 的 renderer-local 滚动位置同步到手机。
 - reasoning/tool/subagent 的具体内容形态、主题和 locale 不改变滚动权归属，不做笛卡尔积；E2E 选择一段可折叠 assistant history 作为代表。

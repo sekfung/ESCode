@@ -408,7 +408,7 @@ export interface ConversationComposerProps {
    * 竖切多 pane 时由宿主传入 SessionPane.focused，仅焦点 pane 聚焦、后台 pane 不抢焦点。
    */
   autoFocusEnabled?: boolean;
-  /** 当前 composer 是否运行在手机 Web 远控壳中。 */
+  /** 当前 composer 是否运行在远程 workspace壳中。 */
   workspacePath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string;
@@ -2088,7 +2088,6 @@ function ConversationComposerImpl({
             sessionId={sessionId ?? null}
             phase={composerPhase}
             provider={provider}
-            isMobileViewport={isMobileTextInputViewport}
             draftMode={draftMode}
             draftConfig={draftConfig}
             usage={composerUsage}
@@ -2238,7 +2237,7 @@ function ConversationComposerImpl({
     // 有 contextHeader（草稿态）时，内层输入 surface 套旧 ChatViewComposer 同款卡：
     // rounded-2xl bg-surface shadow-xl/5；会话态回落不透明页面底色。
     // 错误横幅虽然排在 contextHeader 前面，但不能与输入区共用同一个圆角 surface，
-    // 视觉上会被误认为输入卡标题栏；将 surface 边界收窄到工作区头和编辑器后，桌面与手机
+    // 视觉上会被误认为输入卡标题栏；将 surface 边界收窄到工作区头和编辑器后，桌面与窄视口
     // Web 仍共享同一 DOM 顺序，同时恢复错误提示与输入卡之间的独立层级。
     <div
       data-testid={TID_V4_COMPOSER}
@@ -2280,7 +2279,7 @@ function ConversationComposerImpl({
       {visibleError ? (
         // 仅展示附件错误会漏掉会话级 lastError，任务失败后也应在输入框上方显示原因。
         // 这里复用旧 ChatErrorBanner 壳，只接收 SessionPane 已归一化后的当前错误。
-        // 错误横幅独立于输入 surface，并先于桌面和手机共用的 contextHeader。
+        // 错误横幅独立于输入 surface，并先于桌面和窄视口共用的 contextHeader。
         <div className="mb-6 w-full shrink-0">
           <ChatErrorBanner
             error={visibleError}

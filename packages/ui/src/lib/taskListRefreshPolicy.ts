@@ -81,8 +81,8 @@ export function shouldRefreshTaskListForWorkspaceEvent(
 ): boolean {
   // Bugfix: 发送、停止、归档和元数据保存已经通过乐观 task cache / snapshot meta 增量写回。
   // 如果这里继续把 realtime invalidation 当成整表查询信号，左侧 task 会在这些操作时闪一下。
-  // 但消息保存和状态变更事件只携带 taskId/reason，不携带最新 meta；远控 observer 没有本地乐观状态，
-  // 必须保留静默刷新来同步 running/completed/error，否则手机端发送后桌面任务列表状态不会更新。
+  // 但消息保存和状态变更事件只携带 taskId/reason，不携带最新 meta；远程 workspace observer 没有本地乐观状态，
+  // 必须保留静默刷新来同步 running/completed/error，否则远程 workspace发送后桌面任务列表状态不会更新。
   if (getTaskMetaWorkspaceEventSyncMode(event)) {
     return false;
   }
@@ -107,7 +107,7 @@ export function getTaskMetaWorkspaceEventSyncMode(
     return null;
   }
   if (event.reason === "task_created") {
-    // Bugfix: 手机 shared-host 创建 task 时，桌面 renderer 没有本地乐观插入。
+    // Bugfix: 远程 workspace shared-host 创建 task 时，桌面 renderer 没有本地乐观插入。
     // task_created 必须作为 active 成员变更插入所有匹配 query cache，不能只重排已存在项。
     return "insert-active";
   }

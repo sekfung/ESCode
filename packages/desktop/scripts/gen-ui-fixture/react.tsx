@@ -124,7 +124,6 @@ void (async () => {
   // 回归真实模型输出：从正文解析进入卡片，直接挂 GenUiCard 无法发现 directive 未识别。
   let mode: "normal" | "wide" = "wide";
   let summaryMode: "only" | "mixed" | "ordinary" | null = null;
-  let compact = false;
   const renderReply = (phase: "streaming" | "complete" | "hidden") =>
     reactRoot.render(
       <ESCodeIntlProvider initialLocale="en-US">
@@ -152,7 +151,6 @@ void (async () => {
                       path={config.path}
                       root={config.root}
                       mode={summaryMode}
-                      compact={compact}
                     />
                   )}
                   <div style={{ height: 1000 }} />
@@ -165,9 +163,8 @@ void (async () => {
     );
   flushSync(() => renderReply("streaming"));
   Object.assign(window, {
-    showFileSummary: (value: typeof summaryMode, mobile = false) => {
+    showFileSummary: (value: typeof summaryMode) => {
       summaryMode = value;
-      compact = mobile;
       flushSync(() => renderReply("complete"));
     },
     holdGesture: () => {

@@ -14,8 +14,8 @@ The product path has moved from the retired multi-agent compatibility stack to a
 
 - [ESCode Protocol](./escode-protocol.md)
 - [ESCode Agent App Integration](./escode-agent-app-integration.md)
-- [Task Realtime Sync](./web-remote-control/task-realtime-sync.md)
-- [Web Remote Control Architecture](./web-remote-control/web-remote-control-architecture.md)
+- [Task Realtime Sync](./remote/wsl-remote-realtime-boundary.md)
+- [Remote Workspace Realtime](./remote/desktop-remote-session-renderer-reattach.md)
 - [SSH Remote App Global State Authority](./ssh-remote-app-global-state-authority.md)
 
 ## Boundaries To Preserve

@@ -1,4 +1,4 @@
-//! `escode-task` 手机 replayable 的 Host 命令队列（S8，TS `escodeTaskServiceAdapter` 的
+//! `escode-task` 远程 workspace replayable 的 Host 命令队列（S8，TS `escodeTaskServiceAdapter` 的
 //! `runtimeCommands` / `activePromptInputIds` / `scheduleRuntimeCommandDrain` 同构）。
 //!
 //! 状态所有者是 Host 进程内存（不落库、不跨重启）；键 = 身份键 + `\0` + taskId。

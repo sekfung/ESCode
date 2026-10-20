@@ -7,7 +7,7 @@
 本埋点用于回答以下产品问题：
 
 - 有多少用户成功使用 SSH、WSL、Docker、Server 远程工作区。
-- 有多少用户成功使用手机 Web Remote Control。
+- 有多少用户成功使用窄视口 Remote Control。
 - Web Remote Control 从入口曝光、启动、配对到工作区 bridge 的转化情况。
 - 上述场景涉及多少台桌面设备。
 
@@ -36,7 +36,7 @@ Mobile Web -- replayable RPC --> relay/main passthrough --> shared desktop host
 
 - 桌面 main 只在已有连接、配对和 host attachment 生命周期的终态上报，不承载 session/task
   业务状态。
-- 手机 Web 继续使用 `web-remote-replayable`；桌面继续使用 `desktop-continuous`，埋点不得改变
+- 窄视口 继续使用 `web-remote-replayable`；桌面继续使用 `desktop-continuous`，埋点不得改变
   两条消息链路的恢复语义。
 - 外部 relay 不解析 `rpc-frame`，Web bundle 不新增独立上报器。
 - 远程工作区远控继续使用 shared-host attachment，不新建 Agent runtime、local host 或远程

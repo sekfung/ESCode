@@ -494,7 +494,7 @@ function RootInner({
     platform,
     supportsSettings,
     allowRemoteWorkspace,
-    // conversation backing workspace 只属于本地桌面主恢复链路；远程窗口和手机
+    // conversation backing workspace 只属于本地桌面主恢复链路；远程 workspace
     // shared-host attachment 不能因此创建独立本地 runtime 或改变 replayable 边界。
     ensureConversationWorkspaceOnRestore: isDesktop && restoreSession && !initialWorkspaceIdentity,
     deferInactiveWorkspaceRestore: isDesktop && restoreSession && !initialWorkspaceIdentity,
@@ -543,15 +543,15 @@ function RootInner({
     );
   }, [hasCompletedFullRestore, isDesktop, windowWorkspaceTabs]);
 
-  // Bug 原因（2026-08-16 web 远控卡死）：Start Plan 请求校验应答方曾只随桌面正在展示的
-  // session pane 挂载，web 远控新建会话时桌面没有对应 pane、web 端无应答方，
+  // Bug 原因（2026-08-16 远程 workspace卡死）：Start Plan 请求校验应答方曾只随桌面正在展示的
+  // session pane 挂载，远程 workspace新建会话时桌面没有对应 pane、web 端无应答方，
   // headers 请求永远滞留 pending，任务永久「工作中」。应答方必须常驻桌面窗口、
   // 覆盖每个打开的 workspace tab，与展示状态解耦；Web 端保持零订阅，桌面仍是唯一权威。
   const requestSecurityBridgeNode = isDesktop ? (
     <RequestSecurityWorkspaceBridge workspaceTabs={windowWorkspaceTabs} />
   ) : null;
 
-  // 启动阻塞是桌面窗口保护期，手机 Web 远控在进入 Root 前已有配对/加载页。
+  // 启动阻塞是桌面窗口保护期，远程 workspace 在进入 Root 前已有配对/加载页。
   // Web 端继续使用该 gate 会在 workspace tab 注入前渲染空 RootShell，露出浏览器白底。
   const isStartupRenderBlocked = shouldShowRootStartupLoading({
     isDesktop,

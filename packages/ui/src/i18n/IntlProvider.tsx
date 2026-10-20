@@ -73,20 +73,11 @@ export function resolveLocalePreferenceFromSettings({
   storedPreference,
   settingsLocale,
   settingsLocalePreference,
-  preferSettingServiceLocale,
 }: {
   storedPreference: LocalePreference | null;
   settingsLocale: Locale | undefined;
   settingsLocalePreference: LocalePreference | undefined;
-  preferSettingServiceLocale: boolean;
 }): LocalePreference | null {
-  if (preferSettingServiceLocale && settingsLocale) {
-    if (settingsLocalePreference === "system") {
-      return settingsLocale;
-    }
-    return settingsLocale;
-  }
-
   return storedPreference ?? settingsLocalePreference ?? settingsLocale ?? null;
 }
 
@@ -145,14 +136,12 @@ export function ESCodeIntlProvider({
   settingService,
   broadcastService,
   initialLocale,
-  preferSettingServiceLocale = false,
   resolveSystemLocale: resolveHostSystemLocale,
 }: {
   children: ReactNode;
   settingService?: ISettingService;
   broadcastService?: Pick<IBroadcastService, "send" | "onMessage">;
   initialLocale?: Locale;
-  preferSettingServiceLocale?: boolean;
   resolveSystemLocale?: () => Locale | Promise<Locale>;
 }) {
   const applyingBroadcastRef = useRef(false);
@@ -224,18 +213,12 @@ export function ESCodeIntlProvider({
         storedPreference: readStoredPreference(),
         settingsLocale: settings.locale,
         settingsLocalePreference: settings.localePreference,
-        preferSettingServiceLocale,
       });
       if (disposed) {
         return;
       }
       if (nextPreference) {
-        // 手机远控和桌面连接到同一个 settingService，但手机浏览器本地可能残留
-        // en-US/system 偏好。远控入口必须以桌面 setting.json 为准，否则会出现桌面中文、手机英文。
         setLocalePreferenceState(nextPreference);
-        if (preferSettingServiceLocale) {
-          persistLocalePreference(nextPreference);
-        }
         if (nextPreference === "system") {
           const resolvedLocale = await resolveSystemLocale();
           if (disposed || localePreferenceOperationSeqRef.current !== initialOperationSeq) {
@@ -243,7 +226,7 @@ export function ESCodeIntlProvider({
           }
           setSystemLocale(resolvedLocale);
           if (settings.locale !== resolvedLocale) {
-            // setting.json 里的 locale 是 main 进程菜单、远控等非浏览器上下文的实际语言。
+            // setting.json 里的 locale 是 main 进程菜单、远程 workspace等非浏览器上下文的实际语言。
             // system 模式必须使用宿主系统语言；Electron renderer 的 navigator.language 可能和
             // macOS app.getLocale() 不一致，直接写回会把中文系统错误持久化成英文。
             enqueueLocalePreferenceUpdate(initialOperationSeq, resolvedLocale, "system");
@@ -256,7 +239,6 @@ export function ESCodeIntlProvider({
     };
   }, [
     persistLocalePreference,
-    preferSettingServiceLocale,
     readStoredPreference,
     enqueueLocalePreferenceUpdate,
     resolveSystemLocale,

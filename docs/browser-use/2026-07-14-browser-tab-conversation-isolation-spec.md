@@ -102,7 +102,7 @@ A active：resolve active tab from registry[A] + ensureResident[A] + side pane e
   `BrowserGuestManager`；renderer 不能伪造 windowId。
 - 本变更不修改 ESCode protocol 的 agent stdio BrowserCommand，不新增 main/relay 业务状态，也不改变
   desktop `continuous` 与手机 `replayable` 消息流。
-- 手机 Web 没有 Electron `<webview>` attach；保持现有 fallback，不另起 browser runtime。
+- 窄视口 没有 Electron `<webview>` attach；保持现有 fallback，不另起 browser runtime。
 
 ## 4. 验收案例
 
@@ -145,7 +145,7 @@ A active：resolve active tab from registry[A] + ensureResident[A] + side pane e
 
 - 重启 desktop 到本次 main/preload/renderer build 后，做两个真实对话的 tab 可见性与 claim smoke。
 - SSH/WSL/Docker 相同 path、不同 `workspaceIdentity` 的真实 shared-host attachment 回归。
-- 手机 Web 没有 Electron `<webview>` attach，本次未新增 runtime；仍需在远控回归中确认既有
+- 窄视口 没有 Electron `<webview>` attach，本次未新增 runtime；仍需在远控回归中确认既有
   `web-remote-replayable` 路径无回归。
 
 2026-07-23 guest 恢复补充的澄清记录：

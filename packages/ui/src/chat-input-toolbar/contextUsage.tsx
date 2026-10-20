@@ -271,7 +271,7 @@ export function ChatContextUsage({
         data-chat-toolbar-popover-trigger="true"
         data-testid={TID_CHAT_CONTEXT_USAGE_TRIGGER}
         onPointerDown={(event) => {
-          // Radix HoverCard 会在 touchstart 中阻止后续 click，手机端无法打开面板；
+          // Radix HoverCard 会在 touchstart 中阻止后续 click，远程 workspace无法打开面板；
           // 在触摸 pointerdown 阶段先打开，桌面端继续保持原有 hover/focus 语义。
           if (
             !event.defaultPrevented &&

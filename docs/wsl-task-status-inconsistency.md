@@ -129,7 +129,7 @@ CLI(WSL)              renderer sessionsIndexStore           任务列表      �
 - sqlite tasks-index 的 `status=running` 残留直接导致转圈 → 反证：UI 明确不采信持久化 status。
 - 两 surface 在 CLI 侧就是两个状态机 → 反证：sessions-index 是 conversation snapshot 的下游投影。
 - conversation 帧 30–150ms debounce 时差 → 亚秒级，解释不了可截图的持续不一致。
-- 手机远控链路干扰 → 截图为桌面端，web-remote bridge 日志全部指向本地 test-00x 工作区。
+- 远程 workspace链路干扰 → 截图为桌面端，web-remote bridge 日志全部指向本地 test-00x 工作区。
 - 远程 lifecycle 事件完全不转发 → 反证：per-remote-session attachment 通道 + ProxyChannel
   延迟发现分支可透传（`packages/rpc/src/proxy-channel.ts:64-80`），Local Host 自身消费到了
   remote lifecycle（`escodeAgentConnectionScope.ts:627-645`）。可靠性未被 e2e 覆盖，列为后续项。

@@ -383,7 +383,7 @@ describe("clampWorkflowRunsForLegacy：没有增量能力的消费者", () => {
     expect(legacyStateSchema.safeParse(clamped).success).toBe(true);
   });
 
-  // 裁剪保留的是**还在动的那些**：旧手机收到的是整键快照，而它要画的和新客户端一样是
+  // 裁剪保留的是**还在动的那些**：旧客户端收到的是整键快照，而它要画的和新客户端一样是
   // 「此刻谁在跑」。一刀切前 256 条会让一个宽 run 在旧客户端上永远停在最早那批已结束的身上。
   it("还在动的先留：未结算的 node 与状态不是 completed 的 actor 不会被裁掉", () => {
     const live = (ordinal: number, phase: WorkflowRunNode["phase"]) => ({

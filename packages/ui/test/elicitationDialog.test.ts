@@ -309,7 +309,7 @@ describe("ElicitationDialog", () => {
     );
   });
 
-  it("手机端长问题弹窗保留高度上限、内部滚动和折叠入口", () => {
+  it("远程 workspace长问题弹窗保留高度上限、内部滚动和折叠入口", () => {
     const Dialog = ElicitationDialog as ComponentType<Record<string, unknown>>;
     const longQuestion =
       "假设你正在设计一个面向全球用户的下一代分布式实时协作平台，该平台需要支持百万级并发用户同时在线编辑文档、画板、表格和低代码应用，并且要求在离线状态下仍然可以正常编辑并在恢复网络后自动合并冲突。请在数据同步协议层面说明选择。";
@@ -354,7 +354,7 @@ describe("ElicitationDialog", () => {
     expect(html).toContain("flex shrink-0 items-center justify-between");
   });
 
-  it("手机端阻塞弹窗提供整卡折叠入口并标记可隐藏内容", () => {
+  it("远程 workspace阻塞弹窗提供整卡折叠入口并标记可隐藏内容", () => {
     const Dialog = ElicitationDialog as ComponentType<Record<string, unknown>>;
     const html = renderToStaticMarkup(
       createElement(

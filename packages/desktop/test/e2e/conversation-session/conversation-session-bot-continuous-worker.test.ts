@@ -109,7 +109,7 @@ describe("BOT-E2E-GR-02/PS-01 actual worker lifecycle", () => {
       });
       expect(posts("E2E_PRIVATE_FIRST_DONE")).toHaveLength(1);
       expect(posts("E2E_PRIVATE_NEXT_DONE")[0]!.body).not.toContain("E2E_PRIVATE_FIRST_DONE");
-      // 实际调用桌面 task service；没有把 inputOrigin=mobile 当作手机远控证明。
+      // 实际调用桌面 task service；没有把 inputOrigin=mobile 当作远程 workspace证明。
     } finally {
       await cleanup?.dispose();
       platform.restore();

@@ -44,7 +44,7 @@ ACK 与 projection 是两条不同语义：ACK 回答“命令是否被接纳/�
 ## 多端交付
 
 - 桌面：`desktop-continuous`，直接订阅 live topic；断线后按 seq 恢复。
-- 手机远控：`web-remote-replayable`，经 shared-host attachment 订阅同一 Host/CLI，并保留 gap/snapshot 恢复。
+- 远程 workspace：`web-remote-replayable`，经 shared-host attachment 订阅同一 Host/CLI，并保留 gap/snapshot 恢复。
 - relay 与 Electron main 只做鉴权、配对、心跳、frame 透传和 attachment 调度，不拥有 conversation 状态。
 
 ```text

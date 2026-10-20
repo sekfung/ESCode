@@ -9,7 +9,7 @@ Computer Use 依赖桌面端本机 Helper 访问当前机器的屏幕与输入�
 - 在远端 workspace 或 Linux 桌面打开设置时，显示 Computer Use 设置入口与明确的“不支持当前环境”说明，不再出现空白页。
 - 在同样的目标环境打开插件列表时，展示 CUA 的只读占位项和不可用原因。
 - 不向 SSH、WSL、Docker、Server 或 Linux 目标发送 CUA 启用、禁用、安装、卸载、更新请求。
-- 保持 macOS/Windows 本地现有开关、macOS 权限流程和手机 Web 远控行为不变。
+- 保持 macOS/Windows 本地现有开关、macOS 权限流程和远程 workspace行为不变。
 
 ## 能力边界
 
@@ -19,7 +19,7 @@ Computer Use 依赖桌面端本机 Helper 访问当前机器的屏幕与输入�
 本地 Windows                     支持：开关
 本地 Linux                       不支持：提示，不提供操作控件
 远端 SSH / WSL / Docker / Server 不支持：提示，不提供操作控件
-手机 Web 远控                    沿用 Web 能力灰度，不启动本机 CUA Helper
+远程 workspace                    沿用 Web 能力灰度，不启动本机 CUA Helper
 ```
 
 ## UI 行为

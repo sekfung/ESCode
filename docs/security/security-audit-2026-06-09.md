@@ -1,3 +1,5 @@
+> 历史审计说明：手机远控与 `packages/web` 已于 2026-10-20 删除，文中相关路径仅作历史记录。
+
 # 安全审计报告（2026-06-09）
 
 ## 审计范围
@@ -149,7 +151,7 @@
 - 在 main 进程统一实现 `openExternalSafe(url)`，只允许 `http:`/`https:`，必要时允许项目明确需要的自定义 deep link。
 - 对拒绝项打 warn 日志，但不要记录完整敏感 URL query。
 
-### P2：Web 远控二维码 URL 携带 `passHash`
+### P2：远程 workspace二维码 URL 携带 `passHash`
 
 证据：
 
@@ -251,5 +253,5 @@
 3. 给 `packages/server` HTTP/WS 入口加本地绑定和鉴权。
 4. 改造 credential master key：从可推导 fallback 迁移到系统钥匙串或随机 master key。
 5. main 进程统一校验 `openExternal` URL 协议。
-6. Web 远控二维码改短期一次性 token，并清理 URL query。
+6. 远程 workspace二维码改短期一次性 token，并清理 URL query。
 7. CI 加 secret scanning，阻止 `.env*` 和高置信密钥进入仓库。

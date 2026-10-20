@@ -13,7 +13,7 @@
 - `.gitlab/ci/50-release.yml`：人工 approve、发布元数据生成、OSS 上传、CDN 预热、正式发布和发布成功通知。
 - `.gitlab/ci/preview-child.yml`：MR 中 `build:preview` 手动命令触发的内部测试包子流水线；只复用 workflow、scripts、build 和 notify，不加载 test/release。
 
-Desktop CI 不再定义 `build:web-remote-control:image` 和 `deploy:web-remote-control:intranet`。Web 远控静态站点的 Docker 构建与发布继续使用 `scripts/docker-build-and-push-web-remote-control*.sh` 独立入口，避免把已停用的内网容器部署留在常规或 Preview 流水线中。
+Desktop CI 不再定义手机远控静态站点的 Docker 构建与发布入口；相关脚本已随功能删除。
 
 ## 流水线阶段
 

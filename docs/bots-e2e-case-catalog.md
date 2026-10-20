@@ -97,7 +97,7 @@
 旧文件一次性导入、旧 strict Reader 和回滚字节保持由 `botsStorageV3.test.ts` 验证。
 
 - Setup：在隔离的 Desktop E2E 配置中准备一个已有 `providerUserId` 的 Feishu Bot，但不提供其 credential，使 provider runtime 可确定地进入 error；不访问真实飞书网络。
-- Action：从“移动端远程控制 → 机器人管理”进入真实 Desktop 弹窗，启用 Bot，等待 runtime 刷新后重新打开弹窗。
+- Action：从“远程 workspace → 机器人管理”进入真实 Desktop 弹窗，启用 Bot，等待 runtime 刷新后重新打开弹窗。
 - Assert：左侧摘要显示飞书连接失败；右侧状态显示“连接中断”而不是“已连通”；错误详情提示长连接上限或飞书服务繁忙，并建议持续失败时绑定新的机器人，同时保留“解绑”入口。
 - Evidence：隔离 HOME 下的 Bot 配置、真实 Host runtime status、Desktop renderer DOM 与失败截图。
 - Boundary：只验证 Desktop `desktop-continuous` 管理界面的 runtime 投影，不创建手机 `web-remote-replayable` session，不依赖真实 Feishu WebSocket。
@@ -116,7 +116,7 @@
   - Bot 删除、禁用、provider 不匹配或 provider 出站失败只记录 warning，不改变 automation run 的派发与结算；
   - `workspaceIdentity` 贯穿远程 workspace，不能只按 `workspacePath` 匹配。
 - Evidence：正式 Desktop E2E 证明 V4/legacy 协议 payload、sqlite 重开读取、task service 调用顺序、stream subscription 参数和 mock Feishu provider HTTP 请求；Weixin `/sendmessage` 由 `packages/services/test/botsService.messageFlow.test.ts` 的 provider service integration test 证明。
-- Boundary：Bot 回推不创建独立 runtime；desktop 仍是 `desktop-continuous`，手机远控仍是 `web-remote-replayable`。
+- Boundary：Bot 回推不创建独立 runtime；desktop 仍是 `desktop-continuous`，远程 workspace仍是 `web-remote-replayable`。
 - Status：`formal`。
 
 ### BOT-E2E-IL-01 Feishu/Lark 交互与流式卡分段生命周期

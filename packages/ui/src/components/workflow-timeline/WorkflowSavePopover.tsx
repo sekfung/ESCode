@@ -63,7 +63,7 @@ export function WorkflowSavePopover({
       <PopoverAnchor virtualRef={anchorRef as RefObject<HTMLElement>} />
       <PopoverContent
         align="end"
-        // 手机上卡片窄于弹层：离屏幕边留 8px，宽度不超出视口（320px 的屏也放得下）。
+        // 窄视口下卡片窄于弹层：离屏幕边留 8px，宽度不超出视口（320px 的屏也放得下）。
         className="w-80 max-w-[calc(100vw-16px)] gap-2.5"
         collisionPadding={8}
         data-testid="workflow-save-popover"

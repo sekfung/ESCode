@@ -212,7 +212,7 @@ describe("LocalGenerationSpeedTracker", () => {
     clock.now = 1_000;
     tracker.receive(deltasFrame([textDelta(2, "abc")]), "online");
 
-    // 手机远控重连：恢复投递重放的是错过的 deltas，不是"刚刚生成"的内容。
+    // 远程 workspace重连：恢复投递重放的是错过的 deltas，不是"刚刚生成"的内容。
     clock.now = 4_000;
     tracker.receive(deltasFrame([textDelta(2, "abcdefghi")]), "recovery");
     expect(tracker.read(SESSION_ID)).toEqual(NO_GENERATION_SPEED);

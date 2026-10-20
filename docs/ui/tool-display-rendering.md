@@ -37,8 +37,8 @@
 
 ## 专用 Tool Renderer
 
-- `Node REPL` / Browser Use 工具的展开布局保持透明，并与工具摘要正文保持同一水平基线；不得在 `ToolLayout` 的详情间距之外再次叠加整块横向 padding。文本结果内容块和“查看执行细节”展开后的代码/错误栈分别使用 `bg-card border border-border rounded-xl`；图片、“查看执行细节”按钮和折叠布局本身留在卡片外。单行、非 JSON、长度不超过 160 字符的短结果使用普通次级正文展示；JSON、多行或更长的日志继续使用带复制/换行操作的 CodeBlock。图片结果在消息流展开区始终使用单列，避免窄桌面栏和手机 Web 中被响应式断点切成过窄的双列缩略图；大图查看器行为保持不变。
-- `CUA` 工具的展开区只展示面向用户的动作、结果、失败原因、建议、截图、权限、环境、列表和应用状态，不提供完整 tool call JSON 的“查看原始数据”入口。原始 input、output、display 和生命周期元数据仍按既有协议与持久化链路保留，只是不进入桌面端与手机 Web 共用的 CUA 展开界面；其他工具 renderer 的原始数据能力不受影响。
+- `Node REPL` / Browser Use 工具的展开布局保持透明，并与工具摘要正文保持同一水平基线；不得在 `ToolLayout` 的详情间距之外再次叠加整块横向 padding。文本结果内容块和“查看执行细节”展开后的代码/错误栈分别使用 `bg-card border border-border rounded-xl`；图片、“查看执行细节”按钮和折叠布局本身留在卡片外。单行、非 JSON、长度不超过 160 字符的短结果使用普通次级正文展示；JSON、多行或更长的日志继续使用带复制/换行操作的 CodeBlock。图片结果在消息流展开区始终使用单列，避免窄桌面栏和窄视口 中被响应式断点切成过窄的双列缩略图；大图查看器行为保持不变。
+- `CUA` 工具的展开区只展示面向用户的动作、结果、失败原因、建议、截图、权限、环境、列表和应用状态，不提供完整 tool call JSON 的“查看原始数据”入口。原始 input、output、display 和生命周期元数据仍按既有协议与持久化链路保留，只是不进入桌面端与窄视口 共用的 CUA 展开界面；其他工具 renderer 的原始数据能力不受影响。
 - `ReadSessionContext` 通过 `ReadSessionContextToolCallBlock` 渲染，不走 fallback 的 `Parameters` / `Result` JSON 块。
 - 摘要行展示本次上下文读取的 `query`，并把 `sessionId` 作为次级标识。
 - 展开区只展示 `query` 和返回的上下文内容；若 output 是结构化对象，优先读取 `output.content`，再回退到文本型 output 或 `rawOutput`。
@@ -59,7 +59,7 @@
 - 新增 display 通过 completed tool metadata 和 V4 `ToolCallRow.display` 传输。旧记录没有对应 display 时，两个 renderer 只使用 input 与通用 tool lifecycle 展示最小摘要，不解析 provider-visible XML/JSON，也不新增持久化迁移。
 - 正式 desktop WDIO 复用 background Agent 生命周期验证两条投影链：成功 case 在父会话真实调用 `TaskOutput` 并展开 output，随后从 Agent 摘要进入 child 会话检查 `RespondToCoordinator` 的 summary/“回复已排队”以及父会话隔离；组合错误 case 让 TaskOutput 查询不存在的 task，并让 child 调用缺少必填 `message` 的 RespondToCoordinator，当前覆盖两个 tool row 的 error 终态、统一的“执行失败”文案、卡片正文不包含 provider error wrapper 或原始错误，以及 child-only 边界。两张错误卡 hover 通用失败状态后展示对应 `context.errorText` 的 WDIO 断言尚未补齐，因此 O19 保持 `partial`。E2E 不重复枚举 retrieval/task 状态、业务 queue failure、2,000 字符边界或 mobile replayable；这些组合由 Core display、V4 projection/wire 和共享 renderer 定向测试覆盖。
 - 这些 renderer 都复用 `ToolLayout`、`ToolSnapshotFieldNotice`、semantic color token、`text-ui-base` 正文排版和 lucide 图标。Execute/Shell 工具收起态 summary 中的 command 使用 UI sans 字体，与同一摘要行保持一致；展开后的命令正文继续使用等宽字体。传给 memoized `ToolLayout` 的 JSX props 必须通过 `useMemo` 保持稳定引用；详情布局必须在窄屏纵向自然换行，并兼容桌面/Web、Zai Light/Zai Dark 与中英文文案长度。
-- `Read` / `Edit` / `Write` 摘要在会话流变窄时优先保留文件名：窄于 `360px` 的 conversation container 先隐藏动作标签、来源徽标和父目录路径，文件 chip 使用剩余宽度并在自身内部截断；文件图标、diff 统计和展开入口继续保留。普通宽度仍显示完整动作标签与路径，桌面分栏与手机 Web 共用同一容器规则。
+- `Read` / `Edit` / `Write` 摘要在会话流变窄时优先保留文件名：窄于 `360px` 的 conversation container 先隐藏动作标签、来源徽标和父目录路径，文件 chip 使用剩余宽度并在自身内部截断；文件图标、diff 统计和展开入口继续保留。普通宽度仍显示完整动作标签与路径，桌面分栏与窄视口 共用同一容器规则。
 - 所有 ToolCall 运行中都保留静态 kind 图标，不再替换成旋转 loading 图标；运行态通过 kind 文案扫光、状态文案和摘要内容表达，避免大量 toolcall 同时 streaming 时持续触发动画渲染开销。
 - ToolCall 文案统一遵循“运行态动作名称、终态稳定类别名称”：中文 `pending` / `in_progress` 的 kind label 使用 `正在 + 动作`；英文沿用简洁自然的现有动作词（如 `Reading`、`Sending`、`Working`），不为句式对称机械扩写。进入 `completed` / `failed` / `denied` / `stopped` 后统一回到不带“已”的类别名称，目标、命令、文件和业务结果继续放在摘要正文中，失败、拒绝、停止等异常状态继续由 status label 表达。例如单个 Read 显示 `正在读取 · package.json`，完成后显示 `读取 · package.json`；单个 Execute 显示 `正在执行 · pnpm test`，完成后显示 `终端 · pnpm test`。禁止把“已读取”“已执行”等成功动作当作终态类别名称，也禁止在类别名称和摘要正文中重复同一个进行中动作。
 - 专属业务状态优先于通用生命周期文案：`RespondToCoordinator` 的成功结果仍是“回复已排队”，`TaskOutput` 仍区分任务运行中、等待超时、任务失败和任务已停止，`TaskStop` 仍区分成功停止任务与停止操作自身被拒绝/取消。类别名称只负责说明工具是什么，不能覆盖这些业务结果。
@@ -86,7 +86,7 @@
 
 - `Edit` / 写文件类工具的摘要行继续复用 `changeStat.added` / `changeStat.removed` 作为唯一统计来源，UI 不在渲染层重新推导 diff 行数。
 - 行数变化时，`+N` / `-N` 中的数字可使用一次短字符槽翻页动画；`+` / `-` 符号保持静态，颜色继续使用 `text-diff-added` / `text-diff-removed`。
-- 翻页动画必须使用固定字符宽度和 `tabular-nums`，避免桌面端连续流式更新或手机端 replayable 恢复补帧时造成摘要行抖动。
+- 翻页动画必须使用固定字符宽度和 `tabular-nums`，避免桌面端连续流式更新或远程 workspace replayable 恢复补帧时造成摘要行抖动。
 - 用户开启 `prefers-reduced-motion: reduce` 时，数字降级为静态字符槽，只保留完整读数的辅助技术标签。
 - 运行中的 `Write` / `Edit` 预览由 projection 最多每秒提供一次新的真实 `changeStat`；同一个采样点的路径、内容、diff 与 `+N/-N` 必须原子更新。
 - UI 禁止用 `requestAnimationFrame` 逐行追赶目标值。目标从 `12` 更新到 `45` 时直接把 `45` 交给一次短翻页，不补播 `13`、`14` 等中间值。

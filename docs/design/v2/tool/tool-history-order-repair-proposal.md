@@ -62,7 +62,7 @@ live         calls [Bash, Read] -> results [Bash, Read]
 - macOS Electron D19 回放通过（1/1），真实请求命中 `d19-tools`、`d19-followup`、
   `d19-title`、`d19-later`、`d19-edited`，没有 fixture miss。报告：
   `packages/desktop/.e2e-artifacts/desktop-e2e-20260910122250619-p1669-f4f6ced2e19e5429/summary.md`。
-  待审用例不计入正式 E2E 覆盖；Windows/Linux、手机远控未运行。
+  待审用例不计入正式 E2E 覆盖；Windows/Linux、远程 workspace未运行。
 - 待审 runner 默认 240-token 窗口会触发额外 compact。本例比较未压缩历史，必须使用
   128000-token 窗口。首次准备因相对 fixture 路径解析失败，第二次因默认小窗口触发
   未配置的 compact 而失败；下列命令修正准备条件后通过，不涉及产品代码调整。
@@ -89,7 +89,7 @@ pnpm --filter @escode/desktop test:e2e -- --spec ./test/e2e/conversation-session
   根 lint 有既有 warning；core 独立 lint 的报错位置/规则与修复前一致，包含原有超长文件。
   手动严格检查新增/修改测试时，剩余错误仅来自未改动的 `test-runtime-model.ts`、
   `test-agent-runtime.ts`、`runtime-output-token-continuation-test-helpers.ts`。
-- 未运行 Windows/Linux 和手机远控 E2E；D19 仍为待审用例，本轮不转正。
+- 未运行 Windows/Linux 和远程 workspace E2E；D19 仍为待审用例，本轮不转正。
 
 ## 范围限制
 

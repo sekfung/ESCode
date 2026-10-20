@@ -102,7 +102,7 @@ window.escodeBridge 提供 getTheme/onThemeChange、getLang/onLangChange、getAu
 | must-inspect   | 网页外壳、Rewards Provider                     | 复用展示控件，鉴权和回传分开                     |
 | must-inspect   | desktop will-attach-webview、preload、分区清理 | 可信页面限定桥权限，不扩散到普通浏览器           |
 | should-inspect | CodingPlanEmbeddedWebviewDialog                | 购买导航、关闭、刷新与回传保持原行为             |
-| invariant-only | 手机远控、任务流                               | 不改变 runtime、队列、workspace identity         |
+| invariant-only | 远程 workspace、任务流                         | 不改变 runtime、队列、workspace identity         |
 | evidence-only  | UI 单测、Electron WebView E2E、website 单测    | 断言设置、动作和结果，不以静态样例代表服务端联调 |
 
 codegraph 不可用，以上是源码静态核对而非完整调用图扫描；语义图已补 Rewards 节点及购买壳展示复用、远控边界关系。

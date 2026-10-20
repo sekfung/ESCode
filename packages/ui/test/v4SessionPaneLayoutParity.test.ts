@@ -177,11 +177,8 @@ vi.mock("@/request-security-edition/V4ProviderRuntimeHeadersController.js", asyn
 vi.mock("@/v4/ConversationDraftEmptyState.js", async () => {
   const React = await import("react");
   return {
-    ConversationDraftEmptyState: (props: { compactForRemoteControl?: boolean }) =>
-      React.createElement("div", {
-        "data-testid": "mock-draft-empty",
-        "data-compact-remote": props.compactForRemoteControl ? "true" : "false",
-      }),
+    ConversationDraftEmptyState: () =>
+      React.createElement("div", { "data-testid": "mock-draft-empty" }),
   };
 });
 
@@ -319,14 +316,12 @@ function makeSnapshot(overrides: Partial<ConversationSnapshot> = {}): Conversati
 }
 
 function renderPane({
-  compactForRemoteControl = false,
   onOpenSubagentSession,
   onOpenWorkflowRun,
   onSummaryPanelVariantOverrideChange,
   snapshot = makeSnapshot(),
   sessionId = "session-1",
 }: {
-  compactForRemoteControl?: boolean;
   onOpenSubagentSession?: (request: OpenScopedSubagentSideTabRequest) => void;
   onOpenWorkflowRun?: (request: OpenScopedWorkflowRunSideTabRequest) => void;
   onSummaryPanelVariantOverrideChange?: (variant: "panel" | "mini" | null) => void;
@@ -352,7 +347,6 @@ function renderPane({
         paneId: "workspace-main",
         sessionId,
         workspacePath: "/workspace",
-        compactForRemoteControl,
         ...(onOpenSubagentSession ? { onOpenSubagentSession } : {}),
         ...(onOpenWorkflowRun ? { onOpenWorkflowRun } : {}),
         ...(onSummaryPanelVariantOverrideChange ? { onSummaryPanelVariantOverrideChange } : {}),
@@ -390,7 +384,6 @@ describe("SessionPane v4 chat layout parity", () => {
     expect(emptyStateSource).toContain("resolveGreetingFontSizePx");
     expect(emptyStateSource).toContain("new ResizeObserver");
     expect(emptyStateSource).toContain("data-v4-draft-greeting");
-    expect(html).toContain('data-compact-remote="false"');
     expect(timelineSource).not.toContain("setDesktopWindowContentMinimumHeight");
     expect(timelineSource).not.toContain("draftWindowMinimumHeight");
     expect(timelineSource).not.toContain("useOptionalPlatform");
@@ -538,7 +531,7 @@ describe("SessionPane v4 chat layout parity", () => {
     expect(dockIndex).toBeLessThan(interactionIndex);
     expect(interactionIndex).toBeLessThan(composerIndex);
     // 2026-08-17：Start Plan runtime headers 应答方已迁出 SessionPane，改由 Root 的
-    // V4WorkspaceProviderRuntimeHeadersBridge 按 workspace 常驻挂载（web 远控新建会话
+    // V4WorkspaceProviderRuntimeHeadersBridge 按 workspace 常驻挂载（远程 workspace新建会话
     // 在桌面没有 pane 时也必须有应答方），pane 内不再渲染该控制器。
     expect(html).not.toContain('data-testid="mock-runtime-headers"');
     expect(html).toContain('data-blocking-request-id="perm-1"');
@@ -638,7 +631,7 @@ describe("SessionPane v4 chat layout parity", () => {
     expect(statusPanelCapture.props.at(-1)?.onResumeGoal).toEqual(expect.any(Function));
   });
 
-  it("keeps scoped Agent detail opening on remote compact while hiding the directory", () => {
+  it("keeps scoped Agent detail opening while hiding the directory", () => {
     const onOpenSubagentSession = vi.fn();
     const row = subagentRow();
     const snapshot = makeSnapshot({
@@ -688,11 +681,9 @@ describe("SessionPane v4 chat layout parity", () => {
     });
 
     renderPane({
-      compactForRemoteControl: true,
       snapshot,
       onOpenSubagentSession,
     });
-    expect(statusPanelCapture.props.at(-1)?.isMobileViewport).toBe(false);
     expect(statusPanelCapture.props.at(-1)?.onOpenSubagentSession).toEqual(expect.any(Function));
     expect(statusPanelCapture.props.at(-1)?.onOpenSubagentDirectory).toBeUndefined();
   });

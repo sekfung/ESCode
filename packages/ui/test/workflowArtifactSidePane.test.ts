@@ -592,7 +592,7 @@ describe("WorkflowArtifactSidePane 作为文件打开", () => {
     return new TextDecoder().decode(bytes as Uint8Array);
   }
 
-  it("宿主不能落副本时（手机远控 / web）不出入口", async () => {
+  it("宿主不能落副本时（远程 workspace / web）不出入口", async () => {
     workflowRunArtifacts.mockResolvedValue({ artifacts: [markdownRecord()] });
     workflowRunArtifactRead.mockResolvedValue(textChunk("# hi", "text/markdown"));
     const view = renderPane({

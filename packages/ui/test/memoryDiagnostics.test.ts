@@ -98,7 +98,7 @@ describe("startMemoryDiagnosticsLogger", () => {
     expect(write.mock.calls[0]?.[0]).toContain("heapUsedKb=51200");
     handle.stop();
 
-    // 无桥环境（Web 端与手机远控）：不注入 reportHeapSample 时只写日志，不抛错。
+    // 无桥环境（非 Desktop）：不注入 reportHeapSample 时只写日志，不抛错。
     const webWrite = vi.fn();
     const webHandle = startMemoryDiagnosticsLogger({
       registry,

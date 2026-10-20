@@ -297,7 +297,6 @@ function renderUnit(
     botContext?: ContextType<typeof DeliveryContext>;
     chatLoadingBlockedByActiveWork?: boolean;
     chatLoadingBlockedByInteraction?: boolean;
-    compactForRemoteControl?: boolean;
     messageStreamShowReasoning?: boolean;
     messageStreamShowTodos?: boolean;
     apiRetry?: ApiRetryState | null;
@@ -328,7 +327,6 @@ function renderUnit(
                 ...rowContext,
                 chatLoadingBlockedByActiveWork: options.chatLoadingBlockedByActiveWork,
                 chatLoadingBlockedByInteraction: options.chatLoadingBlockedByInteraction,
-                compactForRemoteControl: options.compactForRemoteControl,
                 messageStreamShowReasoning: options.messageStreamShowReasoning,
                 messageStreamShowTodos: options.messageStreamShowTodos,
                 ...options.context,
@@ -456,7 +454,7 @@ describe("ConversationTurnGroup Hook footer", () => {
       hookInvocationRow(5),
       forkNoticeTimelineRow(6),
     ]);
-    const html = renderUnit(unit!, { compactForRemoteControl: true });
+    const html = renderUnit(unit!);
     const assistantIndex = html.indexOf("完成回复");
     const hookIndex = html.indexOf('data-testid="v4-hook-details-trigger-turn-complete"');
     const boundaryIndex = html.indexOf("从对话中派生");
@@ -467,16 +465,9 @@ describe("ConversationTurnGroup Hook footer", () => {
     expect(html.match(/data-testid="v4-hook-details-trigger-turn-complete"/g)).toHaveLength(1);
   });
 
-  it.each(
-    [false, true].flatMap((compactForRemoteControl) =>
-      [false, true].map((hasAssistantText) => ({
-        compactForRemoteControl,
-        hasAssistantText,
-      })),
-    ),
-  )(
-    "HK08/HK11 每轮仅一个 Hook 入口：mobile=$compactForRemoteControl text=$hasAssistantText",
-    ({ compactForRemoteControl, hasAssistantText }) => {
+  it.each([false, true])(
+    "HK08/HK11 每轮仅一个 Hook 入口：text=$hasAssistantText",
+    (hasAssistantText) => {
       const [unit] = buildConversationTurnRenderUnits([
         turnHeader({ state: hasAssistantText ? "completedSuccess" : "completedInterrupted" }),
         userInputRow(2),
@@ -484,7 +475,7 @@ describe("ConversationTurnGroup Hook footer", () => {
         ...(hasAssistantText ? [assistantTextRow(4)] : []),
         forkNoticeTimelineRow(5),
       ]);
-      const html = renderUnit(unit!, { compactForRemoteControl });
+      const html = renderUnit(unit!);
 
       expect(html.match(/data-testid="v4-hook-details-trigger-turn-complete"/g) ?? []).toHaveLength(
         1,
@@ -502,7 +493,7 @@ describe("ConversationTurnGroup Hook footer", () => {
       userInputRow(2),
       hookInvocationRow(3),
     ]);
-    const html = renderUnit(unit!, { compactForRemoteControl: true });
+    const html = renderUnit(unit!);
 
     expect(html).toContain('data-testid="v4-hook-details-trigger-turn-complete"');
     expect(html.match(/data-testid="v4-copy-/g)).toHaveLength(1);
@@ -534,9 +525,7 @@ describe("ConversationTurnGroup Hook footer", () => {
       assistantTextRow(4),
     ]);
 
-    expect(renderUnit(unit!, { compactForRemoteControl: true })).not.toContain(
-      "v4-hook-details-trigger",
-    );
+    expect(renderUnit(unit!)).not.toContain("v4-hook-details-trigger");
   });
 
   it("HK17 does not render a Hook action on a timeline-only maintenance turn carrying legacy executed Hook rows", () => {
@@ -552,7 +541,7 @@ describe("ConversationTurnGroup Hook footer", () => {
     expect(unit?.timelineOnly).toBe(true);
     expect(unit?.hookInvocations.length).toBe(1);
 
-    const html = renderUnit(unit!, { compactForRemoteControl: true });
+    const html = renderUnit(unit!);
     expect(html).not.toContain("v4-hook-details-trigger");
     // 也不得留下只有 Hook 的空操作栏外壳。
     expect(html).not.toContain("v4-copy-");
@@ -1356,7 +1345,6 @@ describe("ConversationTurnGroup assistant history status", () => {
       forkNoticeTimelineRow(7),
     ]);
     const html = renderUnit(unit!, {
-      compactForRemoteControl: true,
       onFork: vi.fn(),
       onFeedbackChange: vi.fn(),
     });
@@ -2624,14 +2612,12 @@ describe("topic preparation flow membership", () => {
       busyId: null,
       retryPreparation: async () => {},
     } as NonNullable<ContextType<typeof DeliveryContext>>;
-    for (const compactForRemoteControl of [false, true]) {
-      const html = renderUnit(unit, { botContext, compactForRemoteControl });
-      expect(html).toContain('data-topic-preparation="pending-a"');
-      const preparation = html.indexOf('data-topic-preparation="pending-a"');
-      expect(html.indexOf("<section")).toBeLessThan(preparation);
-      expect(html.indexOf("</section>")).toBeGreaterThan(preparation);
-      expect(html).toContain('data-v4-user-input-collapsible-content="true"');
-      expect(html).toContain('aria-label="正在准备材料"');
-    }
+    const html = renderUnit(unit, { botContext });
+    expect(html).toContain('data-topic-preparation="pending-a"');
+    const preparation = html.indexOf('data-topic-preparation="pending-a"');
+    expect(html.indexOf("<section")).toBeLessThan(preparation);
+    expect(html.indexOf("</section>")).toBeGreaterThan(preparation);
+    expect(html).toContain('data-v4-user-input-collapsible-content="true"');
+    expect(html).toContain('aria-label="正在准备材料"');
   });
 });

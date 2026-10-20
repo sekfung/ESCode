@@ -75,7 +75,6 @@ export function ChatPromptEditor({
   promptHistory,
   className,
   shellClassName,
-  compactPlaceholder = false,
   onChange,
   onSubmit,
   onModifiedSubmit,
@@ -134,7 +133,6 @@ export function ChatPromptEditor({
   promptHistory?: readonly string[];
   className?: string;
   shellClassName?: string;
-  compactPlaceholder?: boolean;
   onChange?: (value: string) => void;
   // 适配：返回 false 表示业务层拒绝/延迟本次提交，Lexical 不自行 reset（草稿保留）。
   onSubmit: (value: string) => boolean | void;
@@ -353,7 +351,6 @@ export function ChatPromptEditor({
       inputTestId={inputTestId}
       editorApiRef={resolvedInputApiRef}
       promptHistory={promptHistory}
-      compactPlaceholder={compactPlaceholder}
       onWhiteboardMentionSelected={onWhiteboardMentionSelected}
       onPaste={onPaste}
       excludedSlashCommandNames={excludedSlashCommandNames}

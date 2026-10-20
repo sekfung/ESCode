@@ -11,7 +11,7 @@ import {
 
 // Rust Host 生命周期（dev 开关，docs/specs/rust-u2-host-skeleton.md §6；韧性见
 // docs/specs/rust-u2-host-resilience.md §3/§4）：
-// - `ESCODE_RUST_HOST=1` 时 Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/手机远控
+// - `ESCODE_RUST_HOST=1` 时 Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/远程 workspace
 //   经 attachment 接入同一个 Host，符合 AGENTS.md 的状态所有者约定）；
 // - `attachLocalPort`：给一个 attachment 生产 renderer/relay 侧的 MessagePort——Main 把另一端桥到
 //   Rust Host 的 RPC WebSocket，因此**消费方协议不变**（MessagePort 上的 `@escode/rpc`）；
@@ -95,7 +95,7 @@ export interface RustHostManager {
   ensureStarted(): Promise<RustHostHandle>;
   /**
    * 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。`clientMode` 与 Node 路径同一
-   * attachment 的交付模式一致（Web 远控共享 Host = `web-remote-replayable`）。
+   * attachment 的交付模式一致（远程 workspace共享 Host = `web-remote-replayable`）。
    */
   attachLocalPort(
     createChannel: () => { port1: unknown; port2: unknown },

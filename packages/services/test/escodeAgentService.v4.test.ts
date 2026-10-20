@@ -1482,7 +1482,7 @@ describe("escodeAgentService v4 conversation channel", () => {
         issuedAt: 1700000000000,
       });
       // 同一 workspaceIdentity 的 subscribe + command 复用同一 host child，
-      // 手机端不单独创建 Agent runtime，relay/main 也不持有 rewind 状态。
+      // 远程 workspace不单独创建 Agent runtime，relay/main 也不持有 rewind 状态。
       expect(commandResolver).toHaveBeenCalledTimes(1);
     } finally {
       await scope.dispose();

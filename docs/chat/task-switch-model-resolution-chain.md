@@ -21,7 +21,7 @@ workspace 默认值多级猜测；`ConversationSnapshot.config` 是已绑定 ses
   store 缓存拼出新 session 首帧。
 - snapshot 按 subscription/generation/seq 校验。gap 触发 recovery；恢复期间迟到 online 帧不能覆盖新
   snapshot。
-- desktop 使用 online continuous 帧，手机远控使用 replayable recovery；两者终态 snapshot 相同。
+- desktop 使用 online continuous 帧，远程 workspace使用 replayable recovery；两者终态 snapshot 相同。
 
 ## 模型显示与恢复
 

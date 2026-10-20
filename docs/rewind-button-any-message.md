@@ -27,4 +27,4 @@
 
 - 消息 actions 只保留当前 row projection 允许的 copy、edit、retry、fork 等动作。
 - 文件变更摘要面板仍可按原语义触发文件级撤销 / 重新应用。
-- 手机远控不新增任何 replayable rewind 入口。
+- 远程 workspace不新增任何 replayable rewind 入口。

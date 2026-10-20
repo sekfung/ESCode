@@ -335,7 +335,7 @@ Stop
   -> Q1 -> Q2 -> ... -> queue 为空
 ```
 
-确认框的 `queueItemId` 集合校验是跨端并发保护：确认打开后若桌面端或手机端增删了队列项，原确认失效并基于最新投影重新确认；不能把用户没有看到的新队列项一并清空。撤回编辑会移除旧 queueItemId，因此必须使旧确认失效；仅重排同一批 ID 不扩大清空集合，可继续执行。底层兼容调用若以 `editQueueItem` 原地保留同一批 ID，也不使确认失效。
+确认框的 `queueItemId` 集合校验是跨端并发保护：确认打开后若桌面端或远程 workspace增删了队列项，原确认失效并基于最新投影重新确认；不能把用户没有看到的新队列项一并清空。撤回编辑会移除旧 queueItemId，因此必须使旧确认失效；仅重排同一批 ID 不扩大清空集合，可继续执行。底层兼容调用若以 `editQueueItem` 原地保留同一批 ID，也不使确认失效。
 
 `compacting` 和 `goalVerifying` 不是与 `running` 平级的顶层 phase。它们是 `running` 内部的
 completion-blocking active work，分别表达为 `activeWork.kind=compact` 和 `activeWork.kind=goalVerifier`。
@@ -598,7 +598,7 @@ session 恢复事实：
 - 打开历史 session、在已有 session 中切换模式、session snapshot 恢复，都只影响该 session；
   不得改写草稿全局偏好。
 - localStorage 缺失、不可读或值非法时确定性回落 `build`；旧 workspace mode 不参与回落。
-- desktop renderer 与手机 Web renderer 的 localStorage 相互独立。本规则不声明跨设备同步；
+- desktop renderer 与窄视口 renderer 的 localStorage 相互独立。本规则不声明跨设备同步；
   手机新草稿只继承手机浏览器自己的偏好。
 
 ### 多 Session 并发

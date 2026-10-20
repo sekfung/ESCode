@@ -173,7 +173,7 @@ describe("mention panel recalc during IME composition", () => {
   });
 
   it("keeps live filtering on Android where Gboard composes every Latin word", () => {
-    // Android Chrome + Gboard 对英文单词也走 composition，冻结重算会让手机 Web 失去逐字过滤。
+    // Android Chrome + Gboard 对英文单词也走 composition，冻结重算会让窄视口 失去逐字过滤。
     expect(shouldFreezeMentionRecalcWhileComposing(true, ANDROID_UA)).toBe(false);
   });
 });

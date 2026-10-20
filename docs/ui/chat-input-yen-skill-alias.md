@@ -9,7 +9,7 @@
 - 用户在聊天输入框中输入 `¥` 或 `￥` 时，把它们作为 `$` 的触发别名唤起 skill mention 面板。
 - 别名只影响 trigger 识别语义，不在输入进入编辑器前把用户手输字符改写成 `$`。
 - 选择候选后继续复用现有 `$` skill mention token 插入和发送解析逻辑。
-- 行为在桌面端、本地 Web 和手机远控输入框中一致。
+- 行为在桌面端、本地 非 Desktop输入框中一致。
 
 ## 边界
 
@@ -19,7 +19,7 @@
 
 ## 兼容性
 
-- 逻辑位于 `packages/ui` 的 prompt trigger 解析层，桌面端、本地 Web 和手机远控复用同一输入组件与面板逻辑。
+- 逻辑位于 `packages/ui` 的 prompt trigger 解析层，桌面端、本地 非 Desktop复用同一输入组件与面板逻辑。
 - 不涉及 `@escode/protocol`，不影响 session、continuous/replayable 实时消息流、远控 snapshot 或 task command queue。
 - `$` 原有输入、匹配、筛选和 mention 插入行为保持不变。
 

@@ -45,7 +45,7 @@ EmbeddedBrowserPane
 ## Boundaries
 
 - 采集逻辑只运行在桌面端 `webview` 内，不经过 host process 或 service。
-- Web / 手机端不直接读取跨站 DOM，第一版不支持该能力。
+- Web / 远程 workspace不直接读取跨站 DOM，第一版不支持该能力。
 - 上下文按 `workspaceIdentity?.trim() || workspacePath` 归属当前 workspace。
 - V4 远程 workspace 必须继续传 `workspaceIdentity`；禁止只按 `workspacePath` 过滤 context。
 - 不读取 cookie、localStorage、sessionStorage，也不采集 input 当前 value；password input 会被 mask。

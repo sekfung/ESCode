@@ -25,4 +25,4 @@ settings read
 
 这两个开关只裁剪 UI 渲染，不修改 CLI projection、session snapshot、工具执行结果或持久化消息。`ConversationStatusPanel` 继续按 `plan` / `todoGroups` 展示会话进度摘要，不受 `messageStreamShowTodos` 影响。
 
-桌面端 `desktop-continuous` 与手机 Web 端 `web-remote-replayable` 复用同一渲染规则；开关不参与传输、恢复、队列或 workspace identity 判定。
+桌面端 `desktop-continuous` 与窄视口 端 `web-remote-replayable` 复用同一渲染规则；开关不参与传输、恢复、队列或 workspace identity 判定。

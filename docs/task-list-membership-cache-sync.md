@@ -7,7 +7,7 @@
 ## 目标
 
 - 桌面端 `desktop-continuous` 主链路中，归档 / 取消归档 / 置顶 / 取消置顶 / 删除 task 不触发整表刷新。
-- 手机远控 `web-remote-replayable` 收到 shared-host 推送时，继续根据广播事件同步列表成员关系，但不绕过 replayable 的 task snapshot 恢复边界。
+- 远程 workspace `web-remote-replayable` 收到 shared-host 推送时，继续根据广播事件同步列表成员关系，但不绕过 replayable 的 task snapshot 恢复边界。
 - 搜索结果等无法只靠 task meta 精确判断成员关系的缓存，可以标记 stale，但不清空可见列表。
 - sessions-index 不携带的 tasks-index 元数据（当前包括 `unreadAt`、历史终态、手动标题和 `cronAutomationId`）必须经统一 join 回填，避免切换列表数据源后丢失未读点、状态、标题或定时任务 clock icon。
 

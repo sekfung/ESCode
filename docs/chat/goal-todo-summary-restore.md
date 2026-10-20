@@ -39,4 +39,4 @@ snapshot metadata 回填要支持 UI-only timeline 消息造成的下标错位�
 - 不新增协议字段。
 - 不把 goal iteration 分组结果持久化。
 - 桌面端 `desktop-continuous` 继续保持 direct streaming 主链路。
-- 手机端 `web-remote-replayable` 仍由 snapshot/gap 语义恢复，不绕过 replayable 边界。
+- 远程 workspace `web-remote-replayable` 仍由 snapshot/gap 语义恢复，不绕过 replayable 边界。

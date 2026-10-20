@@ -23,7 +23,7 @@ WorkspaceHeader variant="draft"  ─────▶  WorkspaceHeader variant="ta
 ## 多端边界
 
 - 桌面端本地与远程 workspace 都使用上述 variant 模型，并继续适配 macOS、Windows、Linux 和两种主题。
-- 手机 Web 远控沿用现有 side pane overlay 与 replayable 恢复边界；没有 active task 时不额外渲染桌面标题栏，也不创建独立 Agent runtime。
+- 远程 workspace沿用现有 side pane overlay 与 replayable 恢复边界；没有 active task 时不额外渲染桌面标题栏，也不创建独立 Agent runtime。
 
 ## 验收
 

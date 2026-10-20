@@ -193,7 +193,7 @@ pub fn limit_task_snapshot_messages(mut snapshot: Value, message_limit: Option<f
     };
     if let Some(record) = snapshot.as_object_mut() {
         record.insert("messages".to_owned(), Value::Array(tail));
-        // 手机 replayable 首屏为了性能只拿尾部窗口；UI 不能再用「返回条数是否等于 limit」
+        // 远程 workspace replayable 首屏为了性能只拿尾部窗口；UI 不能再用「返回条数是否等于 limit」
         // 猜测更早历史，所以截断标记必须随快照下发。
         record.insert("history".to_owned(), history);
     }

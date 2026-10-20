@@ -316,7 +316,7 @@ function WorkflowRunSavedChip({
   entry: ESCodeSavedWorkflowEntry;
   hint?: string;
   label: string;
-  /** 缺席即中枢不可达（手机远控壳）：芯片画成纯文字。 */
+  /** 缺席即中枢不可达（远程 workspace壳）：芯片画成纯文字。 */
   onOpen?: () => void;
 }) {
   const content = (

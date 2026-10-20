@@ -1,7 +1,7 @@
 // AP02/AP06 manual-review pending：浏览器 File eager upload 的圆环进度与发送/队列门禁。
 // 证据层 L3：真实 paste File → renderer begin/chunk/commit → ready AttachmentRef → sendText。
 // 观察窗口内若附件仍为 queued/uploading/committing，发送按钮必须 disabled；正式提升前还需
-// 录制手机 Web attached-host 与真实 SSH 的网络/日志证据，确认没有提前 sendText/task command。
+// 录制窄视口 attached-host 与真实 SSH 的网络/日志证据，确认没有提前 sendText/task command。
 import {
   TID_V4_ATTACHMENT,
   TID_V4_ATTACHMENT_UPLOAD_PROGRESS,

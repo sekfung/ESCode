@@ -202,7 +202,7 @@ export function SettingsPage({
   const [pluginTab, setPluginTab] = useState(() => consumePendingSettingsPluginTab());
   // Linux 关闭驻留托盘能力查询（spec：docs/desktop/linux-close-to-tray.md）：打开设置页时
   // 经 platform IPC 触发 main 侧探测（带 stale 缓存），用户装完 AppIndicator 扩展重开
-  // 设置页即可解除置灰；Web/远控无桥不查询。
+  // 设置页即可解除置灰；非 Desktop无桥不查询。
   const [linuxCloseToTrayCapability, setLinuxCloseToTrayCapability] =
     useState<DesktopCloseToTrayCapability | null>(null);
   useEffect(() => {

@@ -278,7 +278,7 @@ async fn handle_connection(
         .await;
     }
     if head.is_websocket_upgrade() {
-        // 路径决定交付模式（TS server-core 同）：`/ws/host` = 桌面 continuous，`/ws` = 手机 replayable。
+        // 路径决定交付模式（TS server-core 同）：`/ws/host` = 桌面 continuous，`/ws` = 远程 workspace replayable。
         let client_mode = match head.path.as_str() {
             "/ws/host" => session::ClientMode::DesktopContinuous,
             "/ws" => session::ClientMode::WebRemoteReplayable,

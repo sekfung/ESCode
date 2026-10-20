@@ -1,6 +1,6 @@
 # ARMS Electron 监控
 
-当前只在 Electron 桌面端接入 `@arms/rum-electron`。Web/手机远控端暂不接入 ARMS Browser SDK。ARMS SDK 只接在 main 进程入口，不进入 `packages/ui`。
+当前只在 Electron 桌面端接入 `@arms/rum-electron`。非 Desktop端暂不接入 ARMS Browser SDK。ARMS SDK 只接在 main 进程入口，不进入 `packages/ui`。
 
 参考：[阿里云 ARMS Electron 接入文档](https://www.alibabacloud.com/help/zh/arms/user-experience-monitoring/integrating-with-an-electron-application)
 
@@ -14,7 +14,7 @@ ARMS 负责 Electron 运行时用户体验监控：
 - Electron main 进程异常、原生崩溃、应用启动相关事件（`application` collector）。
 - RPC 调用（`rpc` collector，需主进程 tRPC 使用 `instrumentTRPC`）。
 
-ARMS 不负责：Host/Agent 业务日志、质量统计数据库、`/report` 业务埋点、Web 远控端 RUM。Agent 非预期退出不依赖 SDK 自动采集，由 Host lifecycle bridge 主动发送脱敏的 `perf_agent_crash` / `perf_agent_spawn_error` 自定义事件。
+ARMS 不负责：Host/Agent 业务日志、质量统计数据库、`/report` 业务埋点、远程 workspace端 RUM。Agent 非预期退出不依赖 SDK 自动采集，由 Host lifecycle bridge 主动发送脱敏的 `perf_agent_crash` / `perf_agent_spawn_error` 自定义事件。
 
 ## Console Error 采集边界
 
@@ -154,4 +154,4 @@ ID、hash、邮箱形态归一为占位符。`message`（statusText 或错误摘
 
 ## Sentry 移除影响
 
-Desktop Sentry 已移除，Renderer/main 崩溃与 JS 错误由 ARMS 承接。Host utility 与 Web 远控 RUM 不在此链路内；CLI Agent 仅通过 desktop main 的自定义稳定性事件上报非预期退出和 spawn error，不由 Electron crash collector 自动采集。
+Desktop Sentry 已移除，Renderer/main 崩溃与 JS 错误由 ARMS 承接。Host utility 与 远程 workspace RUM 不在此链路内；CLI Agent 仅通过 desktop main 的自定义稳定性事件上报非预期退出和 spawn error，不由 Electron crash collector 自动采集。

@@ -71,7 +71,7 @@ describe("subagent side pane tabs", () => {
     ]);
 
     for (const allowedContext of [
-      { ...context, compactForRemoteControl: true },
+      context,
       { ...context, inSubagentDrilldown: true, sessionId: "nested-parent" },
     ]) {
       expect(

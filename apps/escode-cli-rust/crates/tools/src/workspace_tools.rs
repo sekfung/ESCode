@@ -32,7 +32,7 @@ pub struct WorkspaceTools {
     /// 会话是否配置了 hooks（hooks.rs）：首次调用时判定并缓存。
     pub(super) hook_presence: Mutex<HashMap<String, bool>>,
     /// 入口是否保留官方 visualize 插件的技能根（Node includeVisualize）：
-    /// 协议入口（桌面/远控客户端有内联视图宿主）为 true，`-p` 无头终端入口为 false。
+    /// 协议入口（桌面/远程 workspace客户端有内联视图宿主）为 true，`-p` 无头终端入口为 false。
     pub(super) include_visualize: bool,
     /// 实例任务作用域 Spawner（rust-u1：tokio::spawn 唯一入口，重放实例 env 快照）。
     pub(super) spawner: Arc<escode_cli_core_api::scope::Spawner>,

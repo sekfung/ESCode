@@ -18,18 +18,18 @@
 
 ## 1. 对 ZCode-rs D2 的取舍
 
-| D2 条款                                                                       | 结论       | 理由                                                                                                                                                                                                                                   |
-| ----------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1.1 意外退出 = Main 没有发起 dispose 时 Host 退出，退出码不参与判断         | 采纳       | 退出码与信号无法区分“崩溃”和“自行 exit 0”；以 Main 是否发起 `stop()` 为唯一判据，与 TS `terminationKind === "unexpected"` 同义                                                                                                         |
-| 2.1.3 有界重试：60 s 内最多 3 次，退避 500 ms / 2 s / 5 s，超出后不再自动重启 | 采纳       | 数值有对方 E2E 验证；App 级一个计数（我方同为一个 App 一个 Host）                                                                                                                                                                      |
-| 2.1.2 重启方式 = reload 窗口                                                  | 不采纳     | 我方窗口自身 host 仍是 Electron utility process（H2.3 未接线），Rust Host 当前服务本地/远程 workspace attachment（手机远控已于 2026-10-20 删除）。attachment 的重建走既有 `web-remote-replayable` 恢复链路（§3.4），不 reload 桌面窗口 |
-| 2.1.4 Renderer 的“正在重启 / 已放弃”页面                                      | 暂不采纳   | 依赖窗口自身 host 接线（H2.3）。本轮 Renderer 可见面只有手机端：沿用已有 `bridge-degraded` / `workspace-bridge-error` 的 reason 枚举（已本地化），不新增文案                                                                           |
-| 2.2 启动失败页的 Retry / Exit 与 `StartupCoordinator`                         | 不采纳     | 我方 Host 启动不做存储迁移（embedded 不导入 TS 会话库，存储就绪由各实例自报 `startup/storageState`），没有可重试的 Host 级迁移步骤。启动失败以分类错误码交给调用方（§4）；放弃后的恢复入口是 `resetRestartBudget()`                    |
-| 2.2.4 endpoint 在 ready 时签发                                                | 已等价满足 | capability 由 `issueRustHostCapability` 在每次 attach 时按需签发，不在拉起时预签                                                                                                                                                       |
-| 2.3 流控水位 1 MiB / 256 KiB                                                  | 不采纳     | 我方 `host-rpc` 已按 8 MiB / 2 MiB / 64 MiB 实现并有测试（M1 H1.5）。本轮只核对口径（§6），不改数值                                                                                                                                    |
-| 2.5 Host 主动关闭连接的 4001 重新接入                                         | 不采纳     | 我方 64 MiB 硬上限关闭是 fail-closed，当前消费者是远程 workspace attachment，已有恢复语义；桌面窗口不经 WebSocket                                                                                                                      |
-| 2.1.5 CLI 与会话：旧 Host 的 CLI 在 stdin EOF 后自行退出，正在进行的 run 中断 | 采纳       | Host 进程死亡时 embedded 实例随进程消失；child 实例 stdin EOF 后自行退出（`kill_on_drop` 兜底）。会话事实在 runtime 的持久化存储里，新 Host 懒启动实例后按已有恢复逻辑展示                                                             |
-| （ZCode-rs 无对应）runtime 实例崩溃隔离与懒重启                               | 我方补充   | D2 只覆盖 Host 进程级；我方把实例级故障隔离作为唯一 Host 下的主要手段（§2）                                                                                                                                                            |
+| D2 条款                                                                       | 结论       | 理由                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1.1 意外退出 = Main 没有发起 dispose 时 Host 退出，退出码不参与判断         | 采纳       | 退出码与信号无法区分“崩溃”和“自行 exit 0”；以 Main 是否发起 `stop()` 为唯一判据，与 TS `terminationKind === "unexpected"` 同义                                                                                                               |
+| 2.1.3 有界重试：60 s 内最多 3 次，退避 500 ms / 2 s / 5 s，超出后不再自动重启 | 采纳       | 数值有对方 E2E 验证；App 级一个计数（我方同为一个 App 一个 Host）                                                                                                                                                                            |
+| 2.1.2 重启方式 = reload 窗口                                                  | 不采纳     | 我方窗口自身 host 仍是 Electron utility process（H2.3 未接线），Rust Host 当前服务本地/远程 workspace attachment（远程 workspace已于 2026-10-20 删除）。attachment 的重建走既有 `web-remote-replayable` 恢复链路（§3.4），不 reload 桌面窗口 |
+| 2.1.4 Renderer 的“正在重启 / 已放弃”页面                                      | 暂不采纳   | 依赖窗口自身 host 接线（H2.3）。本轮 Renderer 可见面只有远程 workspace：沿用已有 `bridge-degraded` / `workspace-bridge-error` 的 reason 枚举（已本地化），不新增文案                                                                         |
+| 2.2 启动失败页的 Retry / Exit 与 `StartupCoordinator`                         | 不采纳     | 我方 Host 启动不做存储迁移（embedded 不导入 TS 会话库，存储就绪由各实例自报 `startup/storageState`），没有可重试的 Host 级迁移步骤。启动失败以分类错误码交给调用方（§4）；放弃后的恢复入口是 `resetRestartBudget()`                          |
+| 2.2.4 endpoint 在 ready 时签发                                                | 已等价满足 | capability 由 `issueRustHostCapability` 在每次 attach 时按需签发，不在拉起时预签                                                                                                                                                             |
+| 2.3 流控水位 1 MiB / 256 KiB                                                  | 不采纳     | 我方 `host-rpc` 已按 8 MiB / 2 MiB / 64 MiB 实现并有测试（M1 H1.5）。本轮只核对口径（§6），不改数值                                                                                                                                          |
+| 2.5 Host 主动关闭连接的 4001 重新接入                                         | 不采纳     | 我方 64 MiB 硬上限关闭是 fail-closed，当前消费者是远程 workspace attachment，已有恢复语义；桌面窗口不经 WebSocket                                                                                                                            |
+| 2.1.5 CLI 与会话：旧 Host 的 CLI 在 stdin EOF 后自行退出，正在进行的 run 中断 | 采纳       | Host 进程死亡时 embedded 实例随进程消失；child 实例 stdin EOF 后自行退出（`kill_on_drop` 兜底）。会话事实在 runtime 的持久化存储里，新 Host 懒启动实例后按已有恢复逻辑展示                                                                   |
+| （ZCode-rs 无对应）runtime 实例崩溃隔离与懒重启                               | 我方补充   | D2 只覆盖 Host 进程级；我方把实例级故障隔离作为唯一 Host 下的主要手段（§2）                                                                                                                                                                  |
 
 ## 2. runtime 实例崩溃（H2.7）
 
@@ -133,7 +133,7 @@ idle ──ensureStarted──► starting ──ok──► running ──意�
 
 本轮 Rust Host 服务本地/远程 workspace attachment（H2.3 未接线，桌面窗口 Renderer 仍连 Electron utility Host，不受影响）：
 
-- Host 意外退出时，Main 立即把该 Host 上的全部 attachment 标记为丢失（§3.4），手机端收到 `bridge-degraded{reason: "rpc-transport-fault"}`，走既有 `web-remote-replayable` 恢复。
+- Host 意外退出时，Main 立即把该 Host 上的全部 attachment 标记为丢失（§3.4），远程 workspace收到 `bridge-degraded{reason: "rpc-transport-fault"}`，走既有 `web-remote-replayable` 恢复。
 - 恢复期间重新打开 bridge 时，若 Host 仍在退避，`attachWorkspaceHost` 等待重启完成；若已放弃，`workspace-bridge-error{reason: "desktop-disconnected", error}`（已有本地化 reason，不新增文案）。
 - Main 日志：意外退出记 `error`（含 pid、code、signal、第 n 次）；放弃记 `error`；重启成功记 `info`。
 
@@ -144,7 +144,7 @@ idle ──ensureStarted──► starting ──ok──► running ──意�
 1. Host 意外退出 → `rustHostManager` 对它桥接过的每个 attachment：拆桥（关 WebSocket）、关闭 Main 侧端口、触发 `onLost({reason: "host-exited"})`，并从登记表移除。
 2. `webRemoteControlSharedHostAttachments` 收到 `onLost` → 释放该 attachment → 通知 `webRemoteControlManager.handleHostAttachmentLost(attachmentId)`。
 3. `webRemoteControlManager` 找到使用该 attachment 的当前 bridge，按既有 raw fault 路径降级：`bridge-degraded{reason: "rpc-transport-fault"}`。
-4. 手机端按 `web-remote-replayable` 语义发新的 `workspace-bridge-open`（新 `bridgeGeneration` / `recoveryId`）→ Main `attachWorkspaceHost` → `ensureStarted()`（等重启或立即拒绝）→ 新 attachment 桥到新 Host。会话事实在 runtime 存储中，按快照恢复。
+4. 远程 workspace按 `web-remote-replayable` 语义发新的 `workspace-bridge-open`（新 `bridgeGeneration` / `recoveryId`）→ Main `attachWorkspaceHost` → `ensureStarted()`（等重启或立即拒绝）→ 新 attachment 桥到新 Host。会话事实在 runtime 存储中，按快照恢复。
 
 `desktop-continuous` 链路本轮没有 Rust Host 消费者（H2.3），不受本节影响；切到唯一 Host 时按 D2 2.1.2 的 reload 方案另立 spec。
 
@@ -166,7 +166,7 @@ idle ──ensureStarted──► starting ──ok──► running ──意�
 ```text
 startRustHost ─throw RustHostStartError{code}─► rustHostManager.ensureStarted（log.error，code + message）
   ─reject─► attachRustHostLocal ─reject─► attachWorkspaceHost ─reject─► webRemoteControlManager.createWorkspaceBridge
-  ─catch─► workspace-bridge-error{reason: mapWorkspaceBridgeFailureReason(code) = "desktop-disconnected", error: message} ─► 手机端
+  ─catch─► workspace-bridge-error{reason: mapWorkspaceBridgeFailureReason(code) = "desktop-disconnected", error: message} ─► 远程 workspace
 ```
 
 `mapWorkspaceBridgeFailureReason` 把 `RUST_HOST_*` 映射到既有的 `desktop-disconnected`（已有本地化文案）。不再写 “falling back to Node Host”：当前代码里 `attachWorkspaceHost` 在 Rust attachment 失败时并不回退，错误直接上抛；开关关闭时的 Node 路径是 M5 的删除对象（见 M2 报告的删除清单）。

@@ -717,7 +717,7 @@ ESCode **不在**成功的导航/点击/输入等 side-effect cell 结束后自�
    user tabs，去重后只保留 tab 数量和当前 URL；不得读取 cookie、storage、页面正文或敏感表单值。
 2. 结果通过 strict `browserAmbientContext` 字段传递，字段有界且可选。v4 handler 必须把该字段继续传给
    `sendInput`，由 core 仅在本轮 provider input 中投影；不得因为主发送链路迁移到 v4 而静默丢失。desktop 使用
-   `desktop-continuous`，手机远控仍通过 shared-host attachment 使用 `web-remote-replayable`，并继续携带
+   `desktop-continuous`，远程 workspace仍通过 shared-host attachment 使用 `web-remote-replayable`，并继续携带
    `workspaceIdentity` / `remoteSessionId`；不得为手机另起 browser runtime。
 3. core 将它只投影到本轮 provider-visible user content：
 

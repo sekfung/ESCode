@@ -11,7 +11,7 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Change                | 桌面端 renderer reload / React ErrorBoundary 刷新后，main 需要把仍然存活、承载该 workspace scope 的 Remote Host 重新挂到新的 renderer service store。                                                               |
 | User-visible surfaces | 已打开的 SSH / WSL / Docker remote workspace tab、远程任务列表、首次发送和文件树等 workspace RPC。                                                                                                                  |
-| Existing docs         | `docs/remote-workspace-session-unified-settings.md`、`docs/architecture/escode-code-architecture-overview.md`、`docs/architecture/message-flow.md`、`docs/web-remote-control/web-remote-control-architecture.md`。  |
+| Existing docs         | `docs/remote-workspace-session-unified-settings.md`、`docs/architecture/escode-code-architecture-overview.md`、`docs/architecture/message-flow.md`、`docs/remote/desktop-remote-session-renderer-reattach.md`。     |
 | Existing code owners  | `packages/desktop/src/main/desktopRemoteSessions.ts`、`packages/desktop/src/main/desktopWindowLifecycle.ts`、`packages/desktop/src/renderer/src/main.tsx`、`packages/ui/src/store/remoteWorkspaceSessionStore.ts`。 |
 | Out of scope          | 不做 SSH 自动重连；不改变手机 `/remote` 的 `web-remote-replayable` 恢复语义；不把 disconnected history tab 启动时自动连回远端。                                                                                     |
 
@@ -33,12 +33,12 @@
 
 ## Domain Scope
 
-| Domain                            | Include? | Why it can change behavior                                                         | Primary sources                                              |
-| --------------------------------- | -------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Architecture/process boundary     | yes      | renderer、desktop main、remote host 三层重新建立 RPC transport。                   | `docs/architecture/escode-code-architecture-overview.md`     |
-| Workspace identity/remote runtime | yes      | 重挂必须保留 `remoteSessionId`、`target`、`workspaceIdentity/workspacePath` 隔离。 | `docs/remote-workspace-session-unified-settings.md`          |
-| Mobile remote/replayable realtime | limited  | 需要确认不影响手机 replayable 远控 attachment。                                    | `docs/web-remote-control/web-remote-control-architecture.md` |
-| Conversation/session behavior     | no       | 不修改 session 内容、queue、snapshot 或 replay 规则。                              | `docs/testing/conversation-session-e2e-coverage-matrix.md`   |
+| Domain                            | Include? | Why it can change behavior                                                         | Primary sources                                            |
+| --------------------------------- | -------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Architecture/process boundary     | yes      | renderer、desktop main、remote host 三层重新建立 RPC transport。                   | `docs/architecture/escode-code-architecture-overview.md`   |
+| Workspace identity/remote runtime | yes      | 重挂必须保留 `remoteSessionId`、`target`、`workspaceIdentity/workspacePath` 隔离。 | `docs/remote-workspace-session-unified-settings.md`        |
+| Mobile remote/replayable realtime | limited  | 需要确认不影响手机 replayable 远控 attachment。                                    | `docs/remote/desktop-remote-session-renderer-reattach.md`  |
+| Conversation/session behavior     | no       | 不修改 session 内容、queue、snapshot 或 replay 规则。                              | `docs/testing/conversation-session-e2e-coverage-matrix.md` |
 
 ## Concept Map
 
@@ -88,10 +88,10 @@
 
 ## Pruning Decisions
 
-| Decision ID | Pruned combinations                | Guard/invariant                             | Product reason                                          | Representative coverage    |
-| ----------- | ---------------------------------- | ------------------------------------------- | ------------------------------------------------------- | -------------------------- |
-| PD-01       | app 冷启动 remote history 自动重连 | settings 恢复只生成 disconnected tab        | 用户关闭远端后不能被后台偷偷拉回。                      | existing persistence tests |
-| PD-02       | mobile replayable snapshot 恢复    | relay/main 不拥有 task/session/stream state | 手机远控只能 attach existing host，不创建独立 runtime。 | existing web remote tests  |
+| Decision ID | Pruned combinations                | Guard/invariant                             | Product reason                                                | Representative coverage    |
+| ----------- | ---------------------------------- | ------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
+| PD-01       | app 冷启动 remote history 自动重连 | settings 恢复只生成 disconnected tab        | 用户关闭远端后不能被后台偷偷拉回。                            | existing persistence tests |
+| PD-02       | mobile replayable snapshot 恢复    | relay/main 不拥有 task/session/stream state | 远程 workspace只能 attach existing host，不创建独立 runtime。 | existing web remote tests  |
 
 ## E2E Handoff Notes
 

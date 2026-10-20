@@ -47,7 +47,6 @@ export function WorkspaceTimelineTasksSection({
   groupByDate = true,
   taskRowVariant = "timeline",
   emptyMessage,
-  mobileActiveTaskKey,
   onSelectTask,
 }: {
   workspaceTabs: WorkspaceTabState[];
@@ -58,7 +57,6 @@ export function WorkspaceTimelineTasksSection({
   groupByDate?: boolean;
   taskRowVariant?: "default" | "timeline";
   emptyMessage?: string;
-  mobileActiveTaskKey?: string | null;
   onSelectTask: (
     targetWorkspacePath: string,
     taskId: string,
@@ -710,7 +708,6 @@ export function WorkspaceTimelineTasksSection({
                             buildTaskWorkspaceKey(item.workspacePath, item.workspaceIdentity) ===
                               activeWorkspaceKey && item.taskId === activeTaskId
                           }
-                          isMobileActive={mobileActiveTaskKey === itemKey}
                           onSelectTask={handlers.onSelectTask}
                           onArchiveTaskInline={handlers.onArchiveTaskInline}
                           onCancelArchiveConfirm={handleCancelArchiveConfirm}

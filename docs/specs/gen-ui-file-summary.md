@@ -29,7 +29,7 @@ fileChanges 详情；读取完成前暂不显示摘要，避免先显示包含�
 CLI 原始变更轨迹、持久化数据、撤销预检和 apply 不修改。混合修改的撤销仍是整轮
 撤销，预检弹窗展示完整操作范围。不改变文件读取授权、Gen UI 挂载与沙箱生命周期。
 
-桌面和手机 Web 共用过滤规则；手机仍遵守既有 HTML 预览限制，不新增 Gen UI
+桌面和窄视口 共用过滤规则；手机仍遵守既有 HTML 预览限制，不新增 Gen UI
 运行环境。desktop-continuous 与 web-remote-replayable 的传输、恢复、owner 和队列
 均不改变。远程路径在原 workspaceIdentity / remoteSessionId 上下文中匹配与读取。
 

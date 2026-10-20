@@ -137,7 +137,7 @@ export function createWindow(options: {
     // 曾经无条件杀掉旧 host 进程再重建——host 连带 CLI agent 一起死，运行中的会话直接消失，
     // 这正是「会话身份易失」病根。host/CLI 的生命周期属于窗口而非
     // renderer 加载周期：reload 只需给存活的 host 补挂一条新 RPC MessagePort
-    // （复用 web 远控的 AttachServicePort 通道），renderer 重新订阅即可恢复投影。
+    // （复用 远程 workspace的 AttachServicePort 通道），renderer 重新订阅即可恢复投影。
     // 旧端口的 ChannelServer 会随 renderer 上下文销毁触发 close 自行回收。
     if (oldChild && oldChild.pid !== undefined) {
       try {

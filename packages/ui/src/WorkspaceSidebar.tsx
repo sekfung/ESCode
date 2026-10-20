@@ -79,6 +79,7 @@ import { useTabStore } from "@/store/TabStoreProvider.js";
 import { isWorkspaceReadOnly, isWorkspaceTab, type WorkspaceTabState } from "@/store/tabStore.js";
 import { useWorkspaceTaskLists } from "@/hooks/useWorkspaceTaskLists.js";
 import {
+  persistSidebarTaskPreferences,
   readSidebarTaskPreferences,
   type SidebarTaskOrganizeBy,
   type SidebarTaskSortBy,
@@ -220,7 +221,6 @@ function resolveSidebarTaskViewMode(params: {
 
 export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   workspacePath,
-  workspaceRemoteSessionId: _workspaceRemoteSessionId,
   activePreviewPath,
   onSelectTask,
   onStartDraftInWorkspace,
@@ -230,6 +230,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onCreateConversationTask,
   onOpenFolderFromWorkspaceMenu,
   onOpenRemoteWorkspace,
+  fileTreeOpenRequest,
   theme,
   onConnectRemote: _onConnectRemote,
   onSelectRemoteProject: _onSelectRemoteProject,
@@ -260,9 +261,9 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   automationsActive = false,
   pluginStoreActive = false,
   knowledgeActive = false,
+  onFileTreeOpenChange,
 }: {
   workspacePath: string;
-  workspaceRemoteSessionId?: string;
   activePreviewPath?: string | null;
   onSelectTask: (
     targetWorkspacePath: string,
@@ -278,6 +279,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onCreateConversationTask: () => void;
   onOpenFolderFromWorkspaceMenu: () => void;
   onOpenRemoteWorkspace?: () => void;
+  fileTreeOpenRequest?: SidebarFileTreeOpenRequest | null;
   theme: Theme;
   onConnectRemote: (options: RemoteTarget, requestId?: string) => Promise<string>;
   onSelectRemoteProject: (
@@ -312,6 +314,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   automationsActive?: boolean;
   pluginStoreActive?: boolean;
   knowledgeActive?: boolean;
+  onFileTreeOpenChange?: (open: boolean) => void;
 }) {
   const { intl, localePreference, setLocalePreference } = useESCodeIntl();
   const handleTaskRowSelect = useCallback(
@@ -623,6 +626,30 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     setFileTreeTarget(target);
     setIsFileTreeOpen(true);
   }, []);
+  useEffect(() => {
+    if (!fileTreeOpenRequest) {
+      return;
+    }
+    setFileTreeTarget(fileTreeOpenRequest.target);
+    setIsFileTreeOpen(true);
+  }, [fileTreeOpenRequest]);
+  useEffect(() => {
+    onFileTreeOpenChange?.(isFileTreeOpen);
+  }, [isFileTreeOpen, onFileTreeOpenChange]);
+  useEffect(() => {
+    return () => onFileTreeOpenChange?.(false);
+  }, [onFileTreeOpenChange]);
+  useEffect(() => {
+    persistSidebarTaskPreferences({
+      organizeBy: taskOrganizeBy,
+      sortBy: taskSortBy,
+    });
+  }, [taskOrganizeBy, taskSortBy]);
+  useEffect(() => {
+    if (taskOrganizeBy === "project" || taskOrganizeBy === "chronological") {
+      setWorkspaceTaskOrganizeBy(taskOrganizeBy);
+    }
+  }, [taskOrganizeBy]);
   const workspaceScrollMaskStyle = useMemo<CSSProperties>(() => {
     const baseStyle: CSSProperties = { overflowAnchor: "none" };
     if (!showWorkspaceTopMask && !showWorkspaceBottomMask) {
@@ -729,7 +756,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   }, [onOpenAutomations]);
   const activeTaskId = useESCodeSessionStore(
     (state) =>
-      // Web 远程控制从全局 task 入口进入远端 workspace 时，会先按
+      // 远程 workspace从全局 task 入口进入远端 workspace 时，会先按
       // workspaceIdentity 写入 activeTaskId；如果侧栏仍然只读 path-only 桶，
       // 当前任务高亮会丢失，也会把后续选择误判成未激活。
       selectWorkspaceESCodeState(state, workspacePath, workspaceIdentity).activeTaskId,
@@ -973,7 +1000,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
     // 图标语义与文案不一致。打开态统一改成 Close，同时同步 aria-label。
     id: showArchivedTasks ? "common.close" : "workspaceSidebar.toggleArchivedTasks",
   });
-  // 性能修复：workspaceTaskToolbar 会随 chat streaming 被重复创建并传给远控任务索引。
+  // 性能修复：workspaceTaskToolbar 会随 chat streaming 被重复创建并传给远程 workspace任务索引。
   // 这里把 render prop 稳定在真正影响工具栏展示的状态上，避免消息流更新污染侧栏任务区。
   const workspaceTaskToolbar = useCallback(
     () => (
@@ -1257,14 +1284,14 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
               <span className="min-w-0 flex-1 truncate text-left">
                 {intl.formatMessage({ id: "commandCenter.open" })}
               </span>
-              {/* Bugfix: 移动远控入口整理时误删了侧栏顶部的整行搜索入口。
+              {/* Bugfix: 远程 workspace入口整理时误删了侧栏顶部的整行搜索入口。
                   这里恢复入口但仍打开统一 Command Center，避免重新启用已下线的 TaskSearchDialog 查询链路。 */}
               <span className="ml-auto shrink-0 text-ui-xs font-normal text-foreground-subtlest">
                 {commandCenterShortcutLabel}
               </span>
             </Button>
             {/* 知识库（LLM Wiki 知识图谱，apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：
-                与「自动化」「插件市场」同级的主视图入口；手机远控不承载该主视图，不显示入口。 */}
+                与「自动化」「插件市场」同级的主视图入口；远程 workspace不承载该主视图，不显示入口。 */}
             <Button
               variant="ghost"
               onClick={handleOpenKnowledgeMain}
@@ -1298,7 +1325,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                 }
               />
             ) : null} */}
-            {/* Bugfix: Web 远程控制侧栏顶部之前额外挂了一份"全局 task 索引"，
+            {/* Bugfix: 远程 workspace侧栏顶部之前额外挂了一份"全局 task 索引"，
               再叠加下面 workspace 任务区后会出现两段任务列表，和桌面端结构不一致且容易混淆。
               这里移除顶部索引入口，统一复用 workspace 任务区作为唯一任务列表。 */}
             <Button

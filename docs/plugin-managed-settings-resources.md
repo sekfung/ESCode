@@ -24,7 +24,7 @@ Plugin item 的描述与辅助元数据统一使用 `text-ui-sm text-foreground-
 - Plugin MCP 列表需要按 runtime 注入名 `plugin:<pluginName>:<serverName>` 关联 `mcp/list` 返回的 live status snapshot。若 snapshot 带有 pending OAuth authorization URL，设置页在只读 plugin MCP 行展示“打开授权”按钮，点击后通过平台 `openExternal` 打开该 URL。
 - Plugin MCP OAuth 授权完成后，设置页不能只依赖 pending authorization URL 是否仍存在来决定停止刷新。授权回调完成到 MCP 重新连通之间可能出现短暂无 `authorizationUrl` 的中间态；设置页需要保留短 follow-up 刷新窗口，并在用户从浏览器回到 app 时立即刷新一次，避免行状态停留在授权前。
 - Plugin MCP 行需要显式展示 live snapshot 的 `connecting`、`connected`、`disconnected` 和 `error` 状态；“插件内置”只用于尚无 runtime snapshot 的已启用插件，不能覆盖真实运行态。
-- Plugin MCP 行在窄窗口和手机 Web 下必须保留授权按钮的可操作性；较长 marketplace 名称允许截断，不能挤压主信息列或造成横向溢出。
+- Plugin MCP 行在窄窗口和窄视口 下必须保留授权按钮的可操作性；较长 marketplace 名称允许截断，不能挤压主信息列或造成横向溢出。
 
 ## 维护边界
 

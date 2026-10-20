@@ -171,7 +171,7 @@ stream idle 计时器要等首个 SSE 事件才起跑，请求根本没发出去
 
 2. **反向请求的 response 不是无条件的**。桌面 `respondProviderRuntimeHeaders` 先做副作用
    （把 runtime model config 推给该 session），副作用抛错时 `pending.client.respond(...)` 根本没执行。
-   2026-08-16 的 web 远控卡死（headers 请求滞留 `pendingProviderRuntimeHeaders`）是同一类失败的另一个
+   2026-08-16 的 远程 workspace卡死（headers 请求滞留 `pendingProviderRuntimeHeaders`）是同一类失败的另一个
    触发点。
 
 ### 契约

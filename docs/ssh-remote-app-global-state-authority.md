@@ -148,4 +148,4 @@ Local → Remote；本地登出或删除不会撤销已经写入远端的凭据�
 - `docs/working-memory/provider-refactor/design/registry/runtime.md`
 - `docs/working-memory/provider-refactor/design/registry/configuration.md`
 - `docs/remote/escode-agent-remote-deployment.md`
-- `docs/web-remote-control/web-remote-control-architecture.md`
+- `docs/remote/desktop-remote-session-renderer-reattach.md`

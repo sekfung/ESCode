@@ -37,7 +37,7 @@
 - 不内置或下载 Git 可执行文件，不引入 libgit2/isomorphic-git。
 - 不为私有 GitHub token/SSH key 新建凭据协议。
 - 不改变插件启用、Hook 信任、MCP、Skill、Subagent 或会话注入语义。
-- 不把插件业务状态下沉到 Desktop main、remote relay 或手机端。
+- 不把插件业务状态下沉到 Desktop main、remote relay 或远程 workspace。
 - 不实现跨多个 JSON/目录的一体化分布式事务；每个被替换的 target 使用同目录恢复标记与
   确定性 backup，在下次状态加载或插件发现前恢复提交窗口。
 

@@ -93,7 +93,7 @@ export function DynamicWorkflowModeSetting() {
       label={label}
       description={intl.formatMessage({ id: "settings.dynamicWorkflowDescription" })}
       // Bugfix：默认控件列只有 192px，flex 会把 260px 的触发器压到 192px，跟随触发器宽度的列表也随之过窄；
-      // wide 布局给 280px 控件列（手机宽度下换到标签下方），触发器与列表都按设计稿的 260px 显示。
+      // wide 布局给 280px 控件列（窄视口下换到标签下方），触发器与列表都按设计稿的 260px 显示。
       controlLayout="wide"
       control={
         <Select value={value} onValueChange={(next) => void handleValueChange(next)}>

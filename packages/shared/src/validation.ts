@@ -273,7 +273,7 @@ export const hostAttachServicePortMessageSchema = z
   .object({
     type: z.literal("attach-service-port"),
     // main 只能声明 attachment 来源；connectionId 仍由 host process 分配。
-    // desktop reload/remote reattach 必须显式 continuous，手机 shared-host 必须 replayable。
+    // desktop reload/remote reattach 必须显式 continuous，远程 workspace shared-host 必须 replayable。
     requestId: nonEmptyStringSchema,
     attachmentId: nonEmptyStringSchema,
     clientMode: z.enum(["desktop-continuous", "web-remote-replayable"]),

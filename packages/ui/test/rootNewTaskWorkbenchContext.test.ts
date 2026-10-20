@@ -239,7 +239,7 @@ describe("root new task workbench context", () => {
     expect(countPanes(usePaneLayoutStore.getState())).toBe(1);
   });
 
-  it("ignores a hidden workbench group when remote control creates a new task", () => {
+  it("ignores a hidden workbench group when creates a new task", () => {
     useWorkbenchGroupStore.getState().splitSessionIntoGroup(
       V4_PRIMARY_PANE_ID,
       "right",

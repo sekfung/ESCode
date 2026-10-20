@@ -44,5 +44,5 @@
 ## 边界
 
 - `clientMode` / `deliveryKind` 边界不扩散：本策略只在 UI 后台 monitor 的 `desktop-continuous` 订阅参数上启用。
-- 手机远控 replayable 不使用该合并模式，仍由 `seq`、gap recovery 和 snapshot 保证恢复。
+- 远程 workspace replayable 不使用该合并模式，仍由 `seq`、gap recovery 和 snapshot 保证恢复。
 - app-agent 协议 `@escode/protocol` 不新增字段；合并参数是 services 内部订阅者策略，不传给 escode-cli runtime。

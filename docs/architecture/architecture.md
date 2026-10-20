@@ -10,7 +10,7 @@ remote topology、Root props 或 conversation 数据流；当前事实请读
 - UI 依赖 service/protocol interface，不直接调用 Repo、Node implementation 或 Electron main。
 - `packages/rpc` 只提供 channel、transport、proxy、事件和日志中间件，不拥有业务语义。
 - `packages/services` 定义 Host 业务接口和 Node 实现；`packages/client` 负责创建 service proxy。
-- `packages/desktop` / `packages/web` 负责平台装配，不能把平台对象泄漏回共享 UI。
+- `packages/desktop` 负责平台装配，不能把平台对象泄漏回共享 UI。
 - 新增 service 仍应注册 descriptor、实现、accessor 和 client proxy，并保持 browser-safe type import。
 
 ## 已失效的早期假设

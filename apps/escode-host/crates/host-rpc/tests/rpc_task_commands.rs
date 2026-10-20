@@ -165,7 +165,7 @@ async fn command_queue_owner_promote_cancel_and_legacy_stub() {
                 "type": "send_prompt",
                 "content": "second",
                 "clientId": "phone-1",
-                "clientLabel": "手机",
+                "clientLabel": "远程",
                 "ownerRunId": "input-hang",
             }),
         )
@@ -176,7 +176,7 @@ async fn command_queue_owner_promote_cancel_and_legacy_stub() {
     assert_eq!(first["command"]["workspaceKey"], fixture.workspace);
     assert_eq!(first["command"]["status"], "accepted");
     assert_eq!(first["command"]["clientId"], "phone-1");
-    assert_eq!(first["command"]["clientLabel"], "手机");
+    assert_eq!(first["command"]["clientLabel"], "远程");
     // active 轮次未终态：drain 不发送，命令保留在快照投影里。
     let pending = pending_commands(&mut fixture, 13).await;
     assert_eq!(pending.len(), 1, "{pending:?}");

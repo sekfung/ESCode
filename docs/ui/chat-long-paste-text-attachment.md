@@ -29,7 +29,7 @@
 
 Agent 接收该标记后必须把它当作用户上传的临时本地文件附件处理：模型请求里只出现文件路径附件引用，不自动读取文件正文，也不生成 `prompt_attachment` system reminder。只有模型后续显式调用文件读取工具时，临时文件内容才进入上下文。普通用户上传的小型文本文件保持既有行为，可以继续被投影为 Read-like 附件上下文。
 
-普通 Web 没有宿主文件系统时不支持该能力；手机 Web 远控必须通过 shared-host/platform proxy 写到已连接的桌面宿主临时目录，不在手机浏览器本地伪造路径。
+普通 Web 没有宿主文件系统时不支持该能力；远程 workspace必须通过 shared-host/platform proxy 写到已连接的桌面宿主临时目录，不在手机浏览器本地伪造路径。
 
 ## UI 展示
 
@@ -48,5 +48,5 @@ Composer 附件区保持一行 chip：
 
 ## 多端边界
 
-- 桌面端、Web 端、手机远控都走同一 UI paste 逻辑和同一 prompt attachment 协议，不新增 runtime、不改变 shared-host attachment 架构。
+- 桌面端、Web 端、远程 workspace都走同一 UI paste 逻辑和同一 prompt attachment 协议，不新增 runtime、不改变 shared-host attachment 架构。
 - 该功能只影响提交前的 composer 输入组织，不改变 desktop continuous 与 web remote replayable 的 task stream 语义。

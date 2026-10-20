@@ -24,7 +24,7 @@ const HEATMAP_VISIBLE_MONTH_LABEL_COUNT = 12;
 const TOKEN_ACTIVITY_MODES = ["daily", "weekly", "cumulative"] as const;
 const HEATMAP_GRID_STYLE = {
   // 固定 14px 最小列宽加 4px 间隔会让 52 周网格超过容器，违背一次性完整展示的产品语义。
-  // 列宽改回可收缩的 1fr，桌面、Web 和手机端都由同一容器宽度等分，不再产生第二个横向滚动区。
+  // 列宽改回可收缩的 1fr，桌面、Web 和远程 workspace都由同一容器宽度等分，不再产生第二个横向滚动区。
   gridTemplateColumns: `repeat(${HEATMAP_DISPLAY_WEEK_COUNT}, minmax(0, 1fr))`,
 };
 

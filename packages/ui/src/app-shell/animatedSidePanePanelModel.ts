@@ -51,26 +51,14 @@ export function resolveOpenTabLauncherItemIds({
 export function shouldOfferSelectionSideConversation({
   activeTaskId,
   isMobileTextInputViewport,
-  mobileOverlay,
 }: {
   activeTaskId: string | null;
   isMobileTextInputViewport: boolean;
-  mobileOverlay: boolean;
 }): boolean {
-  return Boolean(activeTaskId && !mobileOverlay && !isMobileTextInputViewport);
+  return Boolean(activeTaskId && !isMobileTextInputViewport);
 }
 
-export function resolveAnimatedSidePanePanelLayout({ mobileOverlay }: { mobileOverlay: boolean }) {
-  if (mobileOverlay) {
-    return {
-      collapsedSize: "0px",
-      defaultSize: "100%",
-      maxSize: "100%",
-      minSize: "0px",
-      useResizablePanel: false,
-    };
-  }
-
+export function resolveAnimatedSidePanePanelLayout() {
   return {
     collapsedSize: "0px",
     defaultSize: "0px",
@@ -83,7 +71,6 @@ export function resolveAnimatedSidePanePanelLayout({ mobileOverlay }: { mobileOv
 export function shouldRenderPreviewPaneHeavyContent({
   isActiveTab,
   isMediaPreview = false,
-  isMobileOverlay = false,
   isResizeSettling = false,
   isSidePaneVisible,
   minVisibleInlineSizePx = MIN_PREVIEW_PANE_HEAVY_CONTENT_VISIBLE_INLINE_SIZE_PX,
@@ -91,7 +78,6 @@ export function shouldRenderPreviewPaneHeavyContent({
 }: {
   isActiveTab: boolean;
   isMediaPreview?: boolean;
-  isMobileOverlay?: boolean;
   isResizeSettling?: boolean;
   isSidePaneVisible: boolean;
   minVisibleInlineSizePx?: number;
@@ -99,12 +85,6 @@ export function shouldRenderPreviewPaneHeavyContent({
 }) {
   if (!isSidePaneVisible || !isActiveTab) {
     return false;
-  }
-
-  if (isMobileOverlay) {
-    // Bugfix: 手机远控右侧栏用 transform 抽屉滑入，首次测量时可能还在视口外。
-    // transform 动画结束不会触发 ResizeObserver，不能用桌面窄条优化延迟真实预览。
-    return true;
   }
 
   if (isResizeSettling) {

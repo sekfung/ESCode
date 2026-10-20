@@ -1356,7 +1356,7 @@ describe("SessionPane remote provider admission", () => {
     }
   });
 
-  it("mobile web remote replayable pane 不复用 desktop provider preflight", async () => {
+  it("mobile 远程 workspace replayable pane 不复用 desktop provider preflight", async () => {
     projectionState.current = {
       status: "live",
       snapshot: makeSnapshot(),
@@ -1373,7 +1373,6 @@ describe("SessionPane remote provider admission", () => {
     const root = await renderPane({
       workspaceIdentity: "remote:ssh:dev:/workspace",
       remoteSessionId: "remote-session-mobile",
-      compactForRemoteControl: true,
     });
     try {
       await act(async () => {
@@ -1401,7 +1400,7 @@ describe("SessionPane mobile plan approval recovery", () => {
       loadingOlder: false,
     };
 
-    const root = await renderPane({ compactForRemoteControl: true });
+    const root = await renderPane({});
     try {
       act(() => {
         captured.interactionProps?.onPlanInteractionAccepted?.("plan-request-1");
@@ -1431,7 +1430,7 @@ describe("SessionPane mobile plan approval recovery", () => {
       loadingOlder: false,
     };
 
-    const root = await renderPane({ compactForRemoteControl: false });
+    const root = await renderPane({});
     try {
       expect(captured.interactionProps?.onPlanInteractionAccepted).toBeUndefined();
       expect(mocks.recoverFromStaleAuthority).not.toHaveBeenCalled();
@@ -2686,7 +2685,7 @@ describe("SessionPane Plan mode goal guard", () => {
   });
 });
 
-describe("副屏首条推荐的桌面与手机提交边界", () => {
+describe("副屏首条推荐的桌面与窄视口提交边界", () => {
   it("/side 的 child 首条继承父会话模型，且不改父草稿", async () => {
     projectionState.current = {
       status: "live",
@@ -2704,7 +2703,7 @@ describe("副屏首条推荐的桌面与手机提交边界", () => {
     const onOpenSelectionSideChat = vi.fn();
     // registry 是模块级单例；清掉前序用例遗留的全部 pending 线索，避免恢复重放混入计数。
     (pendingCommandRegistry as unknown as { entries: Map<string, unknown> }).entries.clear();
-    const root = await renderPane({ compactForRemoteControl: false, onOpenSelectionSideChat });
+    const root = await renderPane({ onOpenSelectionSideChat });
     try {
       const before = structuredClone(draftConfigMock.draftConfigRef.current);
       let result: unknown;

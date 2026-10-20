@@ -38,7 +38,7 @@
 | Conversation/session behavior     | yes      | `/init` enters through normal prompt send and queue behavior.                                                         | `docs/conversation-protocol-declaration.md`, `docs/conversation-product-state-space.md`       |
 | Permission/tool/MCP/subagents     | yes      | The generated turn may use `Read`, `Glob`, `Grep`, `Bash`, `Write`, and `Edit`, all through existing permission flow. | `docs/permission-project-approval.md`, protocol tool event code                               |
 | UI shell/theme/locale/responsive  | limited  | UI change is only slash suggestion visibility, no new component or layout.                                            | `DESIGN.md`, `packages/ui/src/slashCommandHelpers.ts`                                         |
-| Mobile remote/replayable realtime | pruned   | No new replayable command path; normal prompt delivery continues to use existing client mode boundaries.              | `docs/web-remote-control/task-realtime-sync.md`                                               |
+| Mobile remote/replayable realtime | pruned   | No new replayable command path; normal prompt delivery continues to use existing client mode boundaries.              | `docs/remote/wsl-remote-realtime-boundary.md`                                                 |
 
 ## Concept Map
 

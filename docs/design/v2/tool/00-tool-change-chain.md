@@ -107,7 +107,7 @@ desktop continuous 与 web remote replayable 的交付边界不变。
 导致工具 schema 仍公开 `pages`，但分页读取返回配置缺失，整份读取跳过页数检查。
 
 恢复接线必须同时保留分页成功结果与原生读取的页数保护；权限、超时、取消、工具 schema 和错误分类不变。
-主任务与子任务共用此执行器装配边界；桌面、Web/手机远控均使用宿主已有的 CLI Runtime，不改变
+主任务与子任务共用此执行器装配边界；桌面、非 Desktop均使用宿主已有的 CLI Runtime，不改变
 continuous/replayable 交付链路。跨平台路径与 PDF 外部命令仍由现有 adapter 负责。
 
 `runtime-read-pdf.test.ts` 通过完整 Runtime 工具循环验证主任务和子任务：分页调用注入的 adapter，

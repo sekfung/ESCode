@@ -35,8 +35,8 @@ Desktop main 启动前守卫读取当前 `ESCODE_ENV` / endpoint override 解析
   - 自动升级：触发现有自动更新检查/下载流程；如果更新已下载，则直接进入重启安装。
   - 手动升级：打开官网下载页，按应用语言分流到中文或英文页面。
 - 用户关闭或处理强制升级提示后，旧客户端不继续进入主界面。
-- Web / 手机远控不参与本次强制更新改动；手机端仍保持“项目打开之后才能用”的既有语义，不新增强制更新兜底页或手动升级入口。
+- 非 Desktop不参与本次强制更新改动；远程 workspace仍保持“项目打开之后才能用”的既有语义，不新增强制更新兜底页或手动升级入口。
 
 ## 多端边界
 
-该能力只在 Desktop main 创建主窗口前读取当前 active ESCode endpoint 的 `client/configs` 并阻断启动，不修改 session、task stream、snapshot、queue、owner command 或 replayable/continuous 消息链路。手机 Web 远控仍通过 shared-host attachment 进入既有 Root，本次 Desktop 强制更新逻辑不会把 replayable 恢复语义扩散到桌面 continuous 主链路，也不会改变手机端远控边界。
+该能力只在 Desktop main 创建主窗口前读取当前 active ESCode endpoint 的 `client/configs` 并阻断启动，不修改 session、task stream、snapshot、queue、owner command 或 replayable/continuous 消息链路。远程 workspace仍通过 shared-host attachment 进入既有 Root，本次 Desktop 强制更新逻辑不会把 replayable 恢复语义扩散到桌面 continuous 主链路，也不会改变远程 workspace远控边界。

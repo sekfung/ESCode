@@ -14,10 +14,10 @@
 
 ## 非目标
 
-- 不改变 Web / 手机端浏览器自身缩放能力。
-- 不改变 Web 远控 replayable 恢复链路，也不向远控链路增加 zoom 状态。
+- 不改变 Web / 远程 workspace浏览器自身缩放能力。
+- 不改变 远程 workspace replayable 恢复链路，也不向远控链路增加 zoom 状态。
 - 不恢复旧的设置页 Interface zoom 偏好或 `escode-zoom-level` localStorage 读写。
-- 不把手机 Web 远控的 replayable 恢复语义扩散到桌面端 continuous 主链路；缩放偏好只影响桌面端 BrowserWindow。
+- 不把远程 workspace的 replayable 恢复语义扩散到桌面端 continuous 主链路；缩放偏好只影响桌面端 BrowserWindow。
 
 ## 实现
 

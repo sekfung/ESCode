@@ -240,7 +240,7 @@ describe("registerHostServiceResourceTelemetry", () => {
     expect(() => telemetry.dispose()).not.toThrow();
   });
 
-  it("手机远控 attachment 建立后没有资源遥测订阅", () => {
+  it("远程 workspace attachment 建立后没有资源遥测订阅", () => {
     const remote = createRemoteWorkspaceServicesStub();
     const postMessage = vi.fn();
     const telemetry = registerHostServiceResourceTelemetry({
@@ -293,7 +293,7 @@ describe("registerHostServiceResourceTelemetry", () => {
     });
     remote.samples.fire(remoteSample);
 
-    // 手机远控只消费可恢复对话事实：attachment 侧拿不到资源样本，也没有新增底层订阅。
+    // 远程 workspace只消费可恢复对话事实：attachment 侧拿不到资源样本，也没有新增底层订阅。
     expect(attachmentSamples).toEqual([]);
     expect(remote.subscriptions).toEqual(subscriptionsAfterConnect);
     expect(postMessage).toHaveBeenCalledOnce();

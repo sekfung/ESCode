@@ -119,7 +119,7 @@ export class LocalGenerationSpeedTracker {
   constructor(private readonly now: () => number = localTtftNow) {}
 
   /**
-   * 消费一条 conversation topic 帧。Desktop `desktop-continuous` 与手机 `web-remote-replayable`
+   * 消费一条 conversation topic 帧。Desktop `desktop-continuous` 与远程 workspace `web-remote-replayable`
    * 共用本入口，差异只由 `delivery` 表达。
    */
   receive(frame: ConversationTopicFrame, delivery: TopicFrameDeliveryKind): void {

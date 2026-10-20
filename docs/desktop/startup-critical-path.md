@@ -14,7 +14,7 @@
   `24ms`，主要等待发生在 Host 初始化和启动 gate 之后的 workspace 恢复。
 
 本文定义两个 P0 改动，只缩短 Desktop 本地窗口的启动关键路径，不改变 task/session 的
-权威状态、remote workspace 连接语义或手机远控恢复协议。
+权威状态、remote workspace 连接语义或远程 workspace恢复协议。
 
 ## P0-1：提前异步采集一次 login shell 环境
 
@@ -153,7 +153,7 @@ pending
 
 补充约束：
 
-1. `syncWindowTabs`、`syncWebRemoteControlWorkspaces`、Web 远控 task 索引和依赖完整 workspace 集合的
+1. `syncWindowTabs`、`syncWebRemoteControlWorkspaces`、远程 workspace task 索引和依赖完整 workspace 集合的
    telemetry scope，只能在 `complete` 后消费 tabs。桌面仍是 `desktop-continuous`，手机仍是
    `web-remote-replayable`；这里不引入新的 replay/snapshot 状态。
 2. 用户若在 `active-ready` 到 `complete` 之间关闭启动 active tab，补齐必须把该关闭视为本窗口用户意图，
@@ -174,7 +174,7 @@ pending
 7. Windows `Path` 输入生成唯一且保留用户目录的 `PATH`；Host 进程环境也不存在大小写重复键。
 8. 永不 settle、reject 和迟到 resolve 的预热 Promise 都只能创建一个 Local Host，并在 deadline 后
    使用完整 fallback patch。
-9. active-only 阶段不向 Main/手机远控发布单 workspace 快照；用户关闭 active tab 后补齐不复活它。
+9. active-only 阶段不向 Main/远程 workspace发布单 workspace 快照；用户关闭 active tab 后补齐不复活它。
 
 机械验证：`pnpm typecheck`、`pnpm lint`、相关 Vitest；性能验证使用同一份隔离后的 production
 workspace/session 数据，至少各跑 3 次改前/改后冷启动，报告中位数及 Local Host ready、T6 两个

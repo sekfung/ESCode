@@ -1773,7 +1773,7 @@ function mapToolPart(
   const state = part.state;
   const taskNotification = backgroundTaskNotifications?.get(part.callId);
   // 修复原因：ESCode Protocol 的 part.callId 是实时流和终态 snapshot 共同的工具身份。
-  // 以前只保存 metadata 会丢掉 toolCallId，手机 replayable 里 result-only 临时工具就无法被终态快照覆盖。
+  // 以前只保存 metadata 会丢掉 toolCallId，远程 workspace replayable 里 result-only 临时工具就无法被终态快照覆盖。
   const raw = attachESCodeBackgroundTaskNotificationToRaw(
     attachToolCallIdToRaw("metadata" in state ? (state.metadata ?? state) : state, part.callId),
     taskNotification,

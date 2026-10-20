@@ -30,5 +30,5 @@
 本规范只调整消息投影、恢复去重和 ChatView 渲染，不改变任务实时链路：
 
 - 桌面端仍走 `desktop-continuous` direct realtime。
-- 手机远控仍走 `web-remote-replayable` snapshot / gap 恢复。
+- 远程 workspace仍走 `web-remote-replayable` snapshot / gap 恢复。
 - relay、main process 不新增 task/session 业务状态。

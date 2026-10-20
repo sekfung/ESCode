@@ -26,7 +26,7 @@ Edit 工具的 provider-visible `tool_result` 是模型判断编辑是否生效�
 
 ## 非目标
 
-- 不修改桌面端、Web 端或手机远控链路。
+- 不修改桌面端、Web 端或远程 workspace链路。
 - 不修改 Read/Bash/WebSearch 等其它 tool 的模型可见错误格式。
 
 ## 验证

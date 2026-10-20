@@ -526,7 +526,7 @@ function ConversationTimelineImpl({
     if (!element) return;
 
     // rail 改由 CSS container query 隐藏后，完整历史补拉失去了同一宽度
-    // 资格边界，手机远控与窄分屏也会请求全部 rows。这里仅同步只读分页资格；
+    // 资格边界，远程 workspace与窄分屏也会请求全部 rows。这里仅同步只读分页资格；
     // rail 的显隐、占位与过渡仍完全由 CSS 裁决，不恢复 composer 几何测量。
     const commitWidth = (width: number) => {
       const normalizedWidth = Math.max(0, Math.round(width));
@@ -1247,7 +1247,7 @@ function ConversationTimelineImpl({
       saveCurrentScrollMemory();
     }
     // 只在 64px 顶边才补页时，用户会先撞到窗口边界再看到内容跳入；提前两个
-    // 视口预取，让桌面和手机 Web 共用的 renderer 在用户抵达边界前完成补页。
+    // 视口预取，让桌面和窄视口 Web 共用的 renderer 在用户抵达边界前完成补页。
     const loadOlder = loadOlderRef.current;
     const triggerPx = historyPrefetchTriggerPx(element.clientHeight);
     if (
@@ -1762,7 +1762,7 @@ function ConversationTimelineImpl({
         onWheelCapture={handleWheelCapture}
         className={cn(
           // 原生滚动条按内容高度动态出现时会缩窄会话视口，导致消息与 composer
-          // 横向跳动；稳定预留 gutter，让桌面与手机 Web 共用的滚动区宽度保持不变。
+          // 横向跳动；稳定预留 gutter，让桌面与窄视口 Web 共用的滚动区宽度保持不变。
           // 只声明 overflow-y-auto 会让浏览器把横轴计算为 auto，宽内容会把
           // 整条 Conversation 撑出横向滚动；表格和代码块应由各自内部容器滚动。
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [--markdown-table-layout-left-inset:16px] [--markdown-table-layout-right-inset:16px] max-md:[--markdown-table-layout-left-inset:8px] max-md:[--markdown-table-layout-right-inset:8px]",

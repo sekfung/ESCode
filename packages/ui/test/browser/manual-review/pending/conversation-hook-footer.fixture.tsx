@@ -86,7 +86,7 @@ const rows: ConversationRow[] = [
 ];
 const [unit] = buildConversationTurnRenderUnits(rows);
 
-// 真实组件、主题与点击行为；只读投影输入固定，不建立 runtime 或远控连接。
+// 真实组件、主题与点击行为；只读投影输入固定，不建立 runtime 或远程 workspace连接。
 createRoot(document.getElementById("root")!).render(
   <TooltipProvider>
     <ESCodeIntlProvider initialLocale={mobile ? "en-US" : "zh-CN"}>
@@ -97,7 +97,6 @@ createRoot(document.getElementById("root")!).render(
             workspacePath: "/fixture",
             theme,
             codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
-            compactForRemoteControl: mobile,
           }}
           onFeedbackChange={() => undefined}
         />

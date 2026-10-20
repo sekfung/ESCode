@@ -20,8 +20,8 @@ WSL 远程工作区的 `workspacePath` 表示 WSL 内部 Linux 路径，例如 `
 
 ## 影响面
 
-- 平台路径转换只发生在桌面端：WSL 使用 Remote-WSL URI/UNC，SSH 使用 Remote-SSH URI；Web 和手机端仍不直接启动本机应用。
+- 平台路径转换只发生在桌面端：WSL 使用 Remote-WSL URI/UNC，SSH 使用 Remote-SSH URI；Web 和远程 workspace仍不直接启动本机应用。
 - UI 的能力过滤和 workspace scope 贯穿同时覆盖 WSL、SSH、Docker 与普通本地 workspace。Docker 因没有可靠的宿主路径映射而失败关闭。
 - 普通本地 workspace 继续按本机路径打开，不要求 `workspaceIdentity`。
 - 原生 Windows、macOS、Linux 的文件管理器动作继续走既有本机平台实现；WSL 分支只在远程身份精确解析为 WSL 时生效。
-- 不改变远程 host、agent、terminal、Web 远控、task realtime 或 workspace identity 语义。
+- 不改变远程 host、agent、terminal、远程 workspace、task realtime 或 workspace identity 语义。

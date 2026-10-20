@@ -19,6 +19,6 @@ Workspace task item 和 timeline task item 的任务标题超出可用宽度时�
 - 渐隐只作用在任务标题文本自身，不影响右侧时间、变更摘要、权限标签和 hover 操作按钮。
 - Workspace header task name 不使用此规则，保留原有 `truncate` / `...` 截断方案。
 
-这个约束同时适用于桌面侧栏和手机 Web 远控任务列表，因为两端复用同一个 `TaskListItem` UI。
+这个约束同时适用于桌面侧栏和远程 workspace任务列表，因为两端复用同一个 `TaskListItem` UI。
 
 Grouped task row 复用同一套溢出测量与渐隐组件，避免默认列表、timeline 和 grouped view 出现不同的标题截断语义。

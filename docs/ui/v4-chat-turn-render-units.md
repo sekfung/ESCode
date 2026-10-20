@@ -120,7 +120,7 @@ Explore 是 assistant work 的 UI 聚合视图，不改变 `ConversationRow[]` �
 - 开启“显示思考过程”时，每条 reasoning 都可见，也是 Explore 的硬边界；reasoning 两侧的只读工具分别聚合。
 - 关闭“显示思考过程”时，每轮第一条 reasoning 仍按既有规则显示并保留边界；其余被隐藏的 reasoning 对 Explore 聚合透明，前后连续的只读工具合并为同一个 Explore。
 - 透明规则只适用于被 reasoning 开关隐藏的 reasoning row。可见 assistant text、可见 reasoning、非探索工具、subagent、timeline marker 等仍然结束当前 Explore，不能为了扩大聚合而重排原始行序。
-- 这是共享 UI view-model 语义，Desktop、Web 与手机远控使用同一结果；不得修改 conversation snapshot、`desktop-continuous` 或 `web-remote-replayable` 的消息边界。
+- 这是共享 UI view-model 语义，Desktop、Web 与远程 workspace使用同一结果；不得修改 conversation snapshot、`desktop-continuous` 或 `web-remote-replayable` 的消息边界。
 
 ```text
 raw rows:       Explore(A) -> reasoning(2) -> Explore(B)

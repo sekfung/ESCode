@@ -720,11 +720,11 @@ ConcurrentBaselineCompiler／AssemblerBase::AddEmbeddedObject。这证明检查�
 BOT-E2E-GR-UI-01：机器人设置 → 当前飞书/Lark 机器人 → 工作区访问范围下方。
 用两个机器人、两个群、0/多个已记录话题验证：每群一行，只有群名、话题数和开关；
 无关联任务、展开或详情入口。切换机器人、长群名、深浅主题、中英文均检查。
-Desktop 与手机远控分别验证（窄 Desktop 不代替手机）；窄屏机器人列表在上、设置在下。
+Desktop 与远程 workspace分别验证（窄 Desktop 不代替手机）；窄屏机器人列表在上、设置在下。
 关闭群后保留任务/话题计数，另一群不变；重开不补发，飞书 /disable 后界面同步。
 保存中不可重复操作；断连失败保持原状态并显示刷新入口；机器人关闭时禁用群开关。
 单测覆盖聚合隔离、重复话题、开关等待/失败/no-op、加载失败；不代替真实端到端验收。
-当时按用户要求未启动 dev，本项保持 pending；2026-09-23 已补 Desktop 成功保存路径（见文末），手机远控仍未验证。
+当时按用户要求未启动 dev，本项保持 pending；2026-09-23 已补 Desktop 成功保存路径（见文末），远程 workspace仍未验证。
 2026-09-17 收尾提交：群列表/交互及群服务共 91 条单测通过；不将单测当作真实渠道验收。
 
 ## BOT-UI-TP-PREPARATION：准备态消息气泡
@@ -732,15 +732,15 @@ Desktop 与手机远控分别验证（窄 Desktop 不代替手机）；窄屏机
 - 候选：`packages/ui/test/browser/manual-review/pending/topic-preparation.test.mjs`，同目录 case-local fixture。
 - 单测：`packages/ui/test/v4BotTopicPreparation.test.ts`；覆盖原始消息 ID 去重、合批 ID、同正文不同 ID 保留、空白正文无气泡、来源行加载图标及 hover/focus tooltip。
 - 浏览器：桌面/手机宽度 × 中英文 × 深浅主题，真实组件和样式；准备、等待、失败移除及接收重叠；正文沿用正式消息折叠/展开，loading 位于渠道/姓名旁。
-- 真实 Desktop/手机远控/飞书 E2E 待验证，不将窄屏 Chrome 计为真实手机验收。
+- 真实 Desktop/远程 workspace/飞书 E2E 待验证，不将窄屏 Chrome 计为真实手机验收。
 
 本次组件验证：上述浏览器 8 组通过并人工查看深浅主题截图；准备态/原始消息展开/消息编辑 42 项单测及时间线/标记回归 33 项通过；根 typecheck、architecture:check --changed 通过，lint 0 error、48 warning。截图在系统临时目录 `escode-topic-preparation/`。
 
-2026-09-17 后续修正：准备消息进入 ConversationTurnGroup 消息流，共用完整正文组件，状态/失败/重试在同一气泡 DOM 内。新增 render-unit 与真实 turn-group 组件回归，覆盖未产生 CLI rows、running live tail 保留及正式输入接替；140 项相关单测通过。根 typecheck、lint（0 error，48 warning）、架构检查通过；浏览器 8 组通过。真实飞书与手机远控仍待验收。
+2026-09-17 后续修正：准备消息进入 ConversationTurnGroup 消息流，共用完整正文组件，状态/失败/重试在同一气泡 DOM 内。新增 render-unit 与真实 turn-group 组件回归，覆盖未产生 CLI rows、running live tail 保留及正式输入接替；140 项相关单测通过。根 typecheck、lint（0 error，48 warning）、架构检查通过；浏览器 8 组通过。真实飞书与远程 workspace仍待验收。
 
-2026-09-17 来源行状态调整：准备文字不再常驻显示，改为「飞书/Lark · 姓名 + loading」，hover/focus tooltip 显示状态；空正文不造气泡。119 项相关单测、8 组浏览器检查通过；覆盖首次配置解析 Lark、旧任务迟到配置隔离、长姓名、tooltip 和重试。typecheck、lint（0 error，48 warning）、架构检查通过。真实飞书/手机远控待验收。
+2026-09-17 来源行状态调整：准备文字不再常驻显示，改为「飞书/Lark · 姓名 + loading」，hover/focus tooltip 显示状态；空正文不造气泡。119 项相关单测、8 组浏览器检查通过；覆盖首次配置解析 Lark、旧任务迟到配置隔离、长姓名、tooltip 和重试。typecheck、lint（0 error，48 warning）、架构检查通过。真实飞书/远程 workspace待验收。
 
-2026-09-17 删除材料准备失败展示：失败不再投影为临时消息，移除红色错误、重试按钮及孤立来源，不产生空白 render unit；服务记录/执行/飞书回复未改动。75 项单测与浏览器 8 组覆盖初始失败、准备转失败、其他消息保留；真实飞书/手机远控待验收。
+2026-09-17 删除材料准备失败展示：失败不再投影为临时消息，移除红色错误、重试按钮及孤立来源，不产生空白 render unit；服务记录/执行/飞书回复未改动。75 项单测与浏览器 8 组覆盖初始失败、准备转失败、其他消息保留；真实飞书/远程 workspace待验收。
 
 ## 单聊持续回传
 
@@ -837,14 +837,14 @@ TP-03 最终四场景在 `desktop-e2e-20260923073023766-p58398-07c97a81dceae606`
 进入同一任务并成功回复，重复回调及自身消息不新增输入；历史资源工具回查继续通过。
 fixture 检查、根 typecheck、desktop typecheck:e2e、lint 和架构检查通过；lint 保留
 既有 warnings。平台 HTTP 与模型为隔离替身，不替代真实飞书/Lark 推送、租户权限、
-手机远控界面或其他操作系统验证。本次不修改桌面 continuous / 手机 replayable 链路。
+远程 workspace界面或其他操作系统验证。本次不修改桌面 continuous / 手机 replayable 链路。
 
 ## 2026-10-08 机器人自动互答上限
 
 - TP-04：真实 Host/CLI 话题任务连续接收 5 条机器人消息；第 5 条仍运行时，第 6 条不触发 stop 或 admission；真人新消息恢复后继续接收。
 - MN-01：Feishu/Lark 原生 bot 回调在主聊天执行 5 条上限、重复不计数、真人恢复。
 - 服务单测：并发上限、旧真人重投不恢复、主聊天/话题隔离、v3 schema 序列化后新建服务保留上限。
-- 限制：平台 HTTP 使用合成夹具；不证明真实租户机器人推送权限或手机远控真机行为。guard 只影响 Bot Host 入站，不改变 desktop continuous / mobile replayable 的运行态恢复协议。
+- 限制：平台 HTTP 使用合成夹具；不证明真实租户机器人推送权限或远程 workspace真机行为。guard 只影响 Bot Host 入站，不改变 desktop continuous / mobile replayable 的运行态恢复协议。
 
 验证：`desktop-e2e-20261008-113805-939` 两个正式 spec 共 6 passing；加强运行中断言后
 `desktop-e2e-20261008-114025-803` 真实 CLI 话题 2 passing；服务/Provider/存储/mention 共 216 条单测通过。
@@ -857,7 +857,7 @@ MN-01 正式用例覆盖 Feishu/Lark × 群/话题的活跃发送重放：平台
 同一构建重试成功；该启动失败不计入用例通过。
 服务/Provider/delivery 共 138 条单测通过，覆盖 bot/app 的文字/附件父引用、自身过滤、
 活跃发送及限流重试的重放等待、重启遗留 unknown 不重发。平台 HTTP 是合成替身，
-不替代真实租户通知、手机远控及跨操作系统验证。
+不替代真实租户通知、远程 workspace及跨操作系统验证。
 
 ## 2026-10-09 多机器人身份与指派边界
 
@@ -870,7 +870,7 @@ Provider 100、CLI 上下文 5 条测试通过。根 typecheck、CLI typecheck�
 typecheck:e2e、根 lint、改动 CLI 文件 lint、架构与 fixture 检查通过。
 CLI 全量 lint 被既有 debug/cli/telemetry 文件的 max-lines 错误阻塞，未改动这些文件。
 平台 HTTP 与模型使用合成夹具；不证明真实模型始终正确理解无 @ 分工，也不替代真实租户、
-手机远控和其他操作系统验证。本次只改变 Bot 入口与输入上下文，不修改 desktop continuous /
+远程 workspace和其他操作系统验证。本次只改变 Bot 入口与输入上下文，不修改 desktop continuous /
 mobile replayable 的流恢复协议；未新增 Docker/CI 准入。
 
 ### 群聊停止静默（2026-10-09）

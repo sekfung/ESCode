@@ -408,7 +408,7 @@ const zhCN: Record<string, string> = {
   "bots.setup.guide.telegram.bind.2":
     "如果还没开始过对话，先点 Start 或发任意一条消息，再发送 {command}。",
   "bots.setup.guide.telegram.bind.3": "收到绑定成功提示后回到这里继续下一步。",
-  "bots.setup.guide.weixin.create.1": "点击微信扫码登录，用微信扫描二维码并在手机端确认。",
+  "bots.setup.guide.weixin.create.1": "点击微信扫码登录，用微信扫描二维码并在远程 workspace确认。",
   "bots.setup.guide.weixin.create.2":
     "ESCode 会直接保存 iLink 返回的 bot_token；扫码后请在微信里向 Bot 发送任意消息完成会话激活。",
   "bots.setup.guide.weixin.create.3":
@@ -1831,7 +1831,6 @@ const zhCN: Record<string, string> = {
   "taskList.userInputTag": "等待确认",
   "taskList.stopCountdown": "停止计时",
   "taskList.attentionCount": "{label} · {count}",
-  "taskList.mobileActive": "手机正在操作此任务",
   "taskList.changeStats": "+{added} -{removed}",
   "taskGroup.newGroup": "新建分组",
   "taskGroup.cronGroupName": "定时任务",

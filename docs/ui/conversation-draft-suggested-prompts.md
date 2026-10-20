@@ -43,13 +43,13 @@
 - 每个推荐操作在任意时刻最多存在一个 Plugin action Popover。loading、安装/开启确认、安装/开启进度以及成功/失败都只更新同一个
   `PopoverContent` 的 phase/message/action；切换推荐项时先清理旧 operation 的同一实例，再由新 operation 复用这个唯一挂载点，禁止并行挂载、嵌套或叠加第二个 Popover。
 - `missing` / `disabled` 可信结果继续把纯 prompt 交给 Composer；只有 Composer 已消费对应插入请求、输入区与推荐项完成本轮布局后，
-  同一个 loading Popover 才原地切换为确认态。Popover 以当前推荐项按钮为锚点，在按钮正下方 `9px` 打开，不抢 Composer 焦点、不阻断页面其它交互，桌面与手机 Web 都必须限制在当前 viewport 内。确认态宽度为 `240px`，高度由本地化内容自然撑开；不设置自动关闭时限。用户以主指针点击 Popover 外部区域时，关闭 Popover、取消该 operation 并只保留纯 prompt；焦点移出、Popover 内部点击、前置 loading、安装/开启进度和结果态不得触发这条确认态关闭行为。
+  同一个 loading Popover 才原地切换为确认态。Popover 以当前推荐项按钮为锚点，在按钮正下方 `9px` 打开，不抢 Composer 焦点、不阻断页面其它交互，桌面与窄视口 都必须限制在当前 viewport 内。确认态宽度为 `240px`，高度由本地化内容自然撑开；不设置自动关闭时限。用户以主指针点击 Popover 外部区域时，关闭 Popover、取消该 operation 并只保留纯 prompt；焦点移出、Popover 内部点击、前置 loading、安装/开启进度和结果态不得触发这条确认态关闭行为。
 - 首次可信解析已经返回 `ready` 时一次性替换为 chip + prompt；当前没有 workspace 级 Plugin，不得再调用 `plugins/referenceCatalog`，也不得失效草稿 Runtime 或再次调用可信解析。只有安装或启用成功后，才失效延迟草稿 Runtime，并由目标 Host 再次可信解析状态。
 - 可信解析结果可以携带官方 Marketplace listing 的 display-only `icon`；该字段不参与身份、安装判断或权限，只随同一次解析返回。UI 将它写入 Plugin mention；缺失或无效时使用既有默认 Plugin 图标，不得只为图标恢复 catalog RPC。
 - 用户确认安装或启用后，同一个 PopoverContent 从确认态收敛为常驻进度；只有目标 Host 再次可信解析为 `ready`、Composer 已消费并清理对应前置 chip requestId 后才显示成功态。进度内容切换到成功内容时复用模型切换标签的纵向滚动结构：`AnimatePresence initial={false} mode="popLayout"` 保持挂载点，旧进度内容从 `y: 0` 向 `-0.75em` 淡出，16px Check 与成功文案从 `y: 0.75em + opacity: 0` 进入到 `y: 0 + opacity: 1`，时长 `200ms`、easing 为 `[0.4, 0, 0.2, 1]`；reduced-motion 下直接静态替换。确认、失败和重试阶段不触发该滚动。安装/启用失败按 Popover 失败语义收敛，并继续保留纯 prompt。
 - 一键安装的远端操作最多等待 10000 ms；超时即判定安装失败，取消旧 operation、阻断迟到结果，只保留纯 prompt，并让同一个 Popover 恢复安装确认态以便重试，同时按 UI logger `warn` 与 warning toast 记录失败。该超时只作用于安装阶段，不限制后续 Composer 收尾。
 - 每次可信解析请求必须携带唯一 `operationId`，并同时携带目标 attachment 的 `clientMode` 与 `deliveryKind`：桌面为
-  `desktop-continuous`，手机远控为 `web-remote-replayable`；两者只声明既有链路边界，不创建新的 stream 或恢复状态。
+  `desktop-continuous`，远程 workspace为 `web-remote-replayable`；两者只声明既有链路边界，不创建新的 stream 或恢复状态。
 - 安装或启用进行中点击另一推荐项时，中断旧 operation；旧 operation 的迟到结果不得写入草稿、Popover 或 chip，取消尚未完成时暂时禁用其他推荐项。
 - Plugin 不存在或未启用时，使用当前 locale 的 Plugin label 展示可恢复状态并保留纯 prompt；冲突、workspace RPC 未就绪或解析失败时
   降级为纯 prompt，不展示虚假的 Plugin chip。初次点击不自动安装或启用，只有用户明确点击 flow 中的安装/启用动作时才执行。
@@ -208,8 +208,8 @@ Service/cache authority 的多个推荐项或模板消费方不得重复请求�
 - Popover 与草稿写入共用 latest-wins 边界，迟到的旧 catalog 响应不得覆盖草稿或显示过期提示；手动切换推荐项导致的中断始终静默。
 - loading 与 confirmation 均不启动自动关闭计时；只有 confirmation 响应主指针的 Popover 外部点击并取消当前 operation。任意时刻全局最多挂载一个 Plugin action Popover。
 - desktop、mobile Web、local、remote 共用相同 workspace-scoped prefill 与 canonical text，不重复为每个 Plugin
-  状态叉乘；人工 UI 验收同时检查桌面和手机 Web。
-- conversation E2E 采用代表链路：桌面本地安装、桌面远程 User-scope Host 隔离、手机远控刷新失败恢复，另加安装中切换推荐项。
+  状态叉乘；人工 UI 验收同时检查桌面和窄视口。
+- conversation E2E 采用代表链路：桌面本地安装、桌面远程 User-scope Host 隔离、远程 workspace刷新失败恢复，另加安装中切换推荐项。
   主题、语言、Popover action/常驻/外部点击、键盘焦点、移动布局和 reduced-motion 由人工验收，不宣称自动化覆盖 UI。
 
 ## Impact Brief
@@ -232,7 +232,7 @@ Service/cache authority 的多个推荐项或模板消费方不得重复请求�
 ## Prompt 模板点击埋点
 
 Desktop 中每次点击推荐 Prompt 模板（包括普通 Prompt 预填、Automations 导航和 Off-Peak 导航）均通过现有
-`reportAppTelemetryEvent()` 上报一次产品埋点。Web 和手机远控本轮只保留既有 UI 行为，不调用该埋点；
+`reportAppTelemetryEvent()` 上报一次产品埋点。非 Desktop本轮只保留既有 UI 行为，不调用该埋点；
 两端真实上报链路后续单独补齐。事件固定为：
 
 | 字段                               | 值 / 口径                                                              |
@@ -247,4 +247,4 @@ Desktop 中每次点击推荐 Prompt 模板（包括普通 Prompt 预填、Autom
 `eventExtraDetail` 严格只包含 `template_id` 和 `template_prompt`，不上传 `template_name`、
 `template_action`、`talkId` 或 `messageId`。点击埋点在点击处理开始时触发，并与异步 Plugin 操作、导航
 或草稿预填解耦；埋点失败不得阻塞原有交互。Desktop 的 `userId`、客户端上下文和设备字段继续由既有
-`/event/report` 宿主链路补充。Web / 手机远控不在本轮 `/event/report` 统计范围内。
+`/event/report` 宿主链路补充。非 Desktop不在本轮 `/event/report` 统计范围内。

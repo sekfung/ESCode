@@ -8,18 +8,8 @@ import {
 } from "@/app-shell/animatedSidePanePanelModel.js";
 
 describe("AnimatedSidePanePanel layout", () => {
-  it("uses full panel size for mobile overlay instead of the collapsed desktop default", () => {
-    expect(resolveAnimatedSidePanePanelLayout({ mobileOverlay: true })).toMatchObject({
-      collapsedSize: "0px",
-      defaultSize: "100%",
-      maxSize: "100%",
-      minSize: "0px",
-      useResizablePanel: false,
-    });
-  });
-
   it("keeps the desktop side pane collapsed by default", () => {
-    expect(resolveAnimatedSidePanePanelLayout({ mobileOverlay: false })).toMatchObject({
+    expect(resolveAnimatedSidePanePanelLayout()).toMatchObject({
       collapsedSize: "0px",
       defaultSize: "0px",
       maxSize: "65%",
@@ -133,18 +123,6 @@ describe("AnimatedSidePanePanel layout", () => {
     ).toBe(false);
   });
 
-  it("keeps PreviewPane heavy content mounted inside the mobile overlay drawer", () => {
-    expect(
-      shouldRenderPreviewPaneHeavyContent({
-        isActiveTab: true,
-        isMobileOverlay: true,
-        isResizeSettling: true,
-        isSidePaneVisible: true,
-        visibleInlineSizePx: 0,
-      }),
-    ).toBe(true);
-  });
-
   it("omits the browser launcher item when embedded browser tabs are unsupported", () => {
     expect(
       resolveOpenTabLauncherItemIds({
@@ -185,21 +163,18 @@ describe("AnimatedSidePanePanel layout", () => {
       shouldOfferSelectionSideConversation({
         activeTaskId: "parent-running-or-blocked",
         isMobileTextInputViewport: false,
-        mobileOverlay: false,
       }),
     ).toBe(true);
     expect(
       shouldOfferSelectionSideConversation({
         activeTaskId: null,
         isMobileTextInputViewport: false,
-        mobileOverlay: false,
       }),
     ).toBe(false);
     expect(
       shouldOfferSelectionSideConversation({
         activeTaskId: "parent-mobile",
         isMobileTextInputViewport: true,
-        mobileOverlay: true,
       }),
     ).toBe(false);
   });

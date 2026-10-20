@@ -69,7 +69,7 @@ const intl = {
 };
 
 describe("buildAppUsageModelPieChartViewModel", () => {
-  it("桌面端扩大环形图并保留手机端紧凑尺寸", () => {
+  it("桌面端扩大环形图并保留远程 workspace紧凑尺寸", () => {
     const source = readFileSync(
       resolve(process.cwd(), "packages/ui/src/settings/usage-stats/AppUsageModelUsagePieChart.tsx"),
       "utf8",

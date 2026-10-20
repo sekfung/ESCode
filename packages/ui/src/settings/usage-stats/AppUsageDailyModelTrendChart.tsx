@@ -17,7 +17,7 @@ import {
 import { getAppUsageModelChartColor } from "@/settings/usage-stats/appUsageChartPalette.js";
 
 // XAxis 首尾刻度以绘图区边界为中心向两侧延伸，原 8px margin 小于日期文本半宽，
-// SVG 会裁掉首尾文字；左右保留 24px 安全区，让桌面端与手机 Web 端都能完整显示短日期。
+// SVG 会裁掉首尾文字；左右保留 24px 安全区，让桌面端与窄视口端都能完整显示短日期。
 export const APP_USAGE_TREND_CHART_MARGIN = {
   top: 8,
   right: 24,

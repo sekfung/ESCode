@@ -50,7 +50,7 @@ CLI ensure（异步） ─────────────┘               
 - model I/O debug 记录保留 metadata 结构，但将 `user_id` 整体替换为 `[REDACTED]`，不落盘设备身份。
 
 因此本地 Desktop 与其启动的 Agent 消费同一设备身份；远端 Agent 在远端数据目录拥有独立设备身份。
-手机 `/remote` 通过 shared-host attachment 使用已连接 Agent 的身份，不生成手机端身份。
+手机 `/remote` 通过 shared-host attachment 使用已连接 Agent 的身份，不生成远程 workspace身份。
 
 ## 请求路径与边界
 

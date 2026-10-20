@@ -8,7 +8,7 @@
 增加一个 `Anchor` 图标：
 
 - 悬浮或键盘聚焦只显示本地化短提示“钩子” / “Hooks”。
-- 点击或键盘激活后打开锚定图标的详情 Popover；手机 Web 通过点击打开。
+- 点击或键盘激活后打开锚定图标的详情 Popover；窄视口 通过点击打开。
 - 详情只回答“本轮按顺序实际运行了哪些 Hook、各自来自哪里、是否出现异常”。
 - 没有实际执行 Hook 时不显示图标，也不留下空 assistant work 容器或空虚拟行。
 
@@ -131,7 +131,7 @@ HookRunner
 ```
 
 - 图标复用 Hooks 设置入口的 `Anchor`，大小跟随既有 message action icon（`size-3.5`）。
-- Desktop action bar 延续既有整轮 hover/focus 显示；手机远控 action bar 常显。
+- Desktop action bar 延续既有整轮 hover/focus 显示；远程 workspace action bar 常显。
 - “不常驻”指数据门禁而不是新增隐藏状态：只有本轮至少一条 client-visible execution
   满足 `didExecute=true` 时才渲染 Hook 图标；本轮没有实际运行 Hook 时 DOM 中完全没有该入口。
 - Hook action 属于 turn-local artifact，位于正文、预览、定时任务卡片、文件 summary 和浏览器轮尾图之后，

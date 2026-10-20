@@ -12,7 +12,7 @@ MCP server 是外部输入源，工具结果不能默认信任其体积。之前
   200 KiB 时先压缩到预算内，成功后继续作为 image block 进入模型，而不是直接丢失视觉能力。
 - 无法压缩的超限 MCP 图片保存一份本地 artifact 副本，模型只收到 artifact path/URI 和尺寸说明。
 - 没有 artifact store 时也不能把超限图片继续 inline，必须降级为文本说明。
-- 桌面端 `desktop-continuous` 和手机端 `web-remote-replayable` 的 session/task 语义不变；这是 agent runtime 内的工具结果投影，不改变远控 owner、queue、snapshot 边界。
+- 桌面端 `desktop-continuous` 和远程 workspace `web-remote-replayable` 的 session/task 语义不变；这是 agent runtime 内的工具结果投影，不改变远控 owner、queue、snapshot 边界。
 
 ## 设计
 

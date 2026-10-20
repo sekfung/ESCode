@@ -5,7 +5,7 @@
 ## 交互范围
 
 - hover 行号栏时显示添加 comment 按钮。
-- 桌面端 hover / focus 添加 comment 按钮时在按钮右侧显示轻量 tooltip，提示支持点击或拖拽；手机端不依赖 hover，点击仍直接进入评论输入。
+- 桌面端 hover / focus 添加 comment 按钮时在按钮右侧显示轻量 tooltip，提示支持点击或拖拽；远程 workspace不依赖 hover，点击仍直接进入评论输入。
 - 点击按钮为单行添加 comment；按住并拖过其他行可选择连续行范围。
 - 松开拖拽后，在范围末行下方打开 comment 输入框；comment 文本可不填，直接提交时只把代码范围作为会话上下文。
 - 提交后，comment 预览显示在对应范围末行下方；删除预览不会修改源文件。

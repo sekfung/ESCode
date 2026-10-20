@@ -2,7 +2,7 @@
 
 ## 1. 背景与决策
 
-- Bots 是 `ESCodeStreamEvent` 唯一仍在使用的消费方（`botsService.handleStreamEvent`）。手机端走 V4
+- Bots 是 `ESCodeStreamEvent` 唯一仍在使用的消费方（`botsService.handleStreamEvent`）。远程 workspace走 V4
   `web-remote-replayable`，不消费 `stream_event` 镜像。
 - 旧来源是 `escodeTaskService.onDynamicTaskEvent` → `escodeAgentService.onDynamicSessionEvent` → legacy
   `session/subscribe`。Rust runtime 不提供 `session/subscribe`（`rust-parity-remaining.md` 记为无活跃调用点，

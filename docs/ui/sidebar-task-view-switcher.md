@@ -94,9 +94,9 @@ Tasks             [drag]     [chevron] [new task]
 - `Expand all` / `Collapse all` 继续按当前视图语义工作：Group 模式控制 group；Project 模式同时控制 `Projects` section 和全部项目任务组，不影响 `Tasks`；Timeline 没有可批量展开对象时不展示。
 - 窄宽度下允许工具栏换行：滑块优先占据可用宽度，动作按钮换到下一行也必须保持可见，避免长翻译文本挤压图标按钮。
 
-## Web 远控约束
+## 远程 workspace约束
 
-Web 远控侧栏仍只使用 `Project` 一级模式，不展示 `Group` 滑块项。原因是远控任务列表来自 `listWorkspaces()` / replayable 任务索引，当前没有用户自定义 group 的远控恢复语义。
+远程 workspace侧栏仍只使用 `Project` 一级模式，不展示 `Group` 滑块项。原因是远控任务列表来自 `listWorkspaces()` / replayable 任务索引，当前没有用户自定义 group 的远控恢复语义。
 
 移动端远控仍保持顶部导航区域的纵向滚动和高度拖拽逻辑；本变更不修改 `clientMode`、`deliveryKind`、task stream、snapshot 或 replayable 恢复边界。
 

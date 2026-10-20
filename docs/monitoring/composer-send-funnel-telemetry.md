@@ -4,7 +4,7 @@
 **待观察**：上线满两周后按 ARMS 分位数回看两件事。其一，校准 §5.4 的 30 s `render_timeout` 阈值——真机 p50 仅 230 ms，30 s 大概率过宽，但要有线上长尾佐证才好收窄。其二，看 `send_cost_ms − ack_cost_ms`（投影回流 + 渲染那一段）在低配设备上的占比是否与真机一致；若该段显著膨胀，优化重心在渲染而非网络。
 **已知缺口**：composer 的 slash 命令路径尚未接入 —— `dispatchSlashCommand()` 未接 `telemetrySeed`，已有会话里的 `/compact`、`/goal`，以及 `emptyGoal` / `unsupportedGoal` 的本地同步拒绝，都只会上报 `send_click` 而不落定 `send_result`。ARMS 侧按 `send_click_id` 算成功率时该子集会计入分母当作放弃，需另行剔除；修复另行跟进。
 **上报通道**：**只走阿里云 ARMS RUM 自定义事件**（`platform.reportArmsCustomEvent`）。不走自研 `/event/report`。
-**生效端**：**仅 Electron 桌面端**（`isDesktop`）。Web / 手机远控不装 reporter，不上报。
+**生效端**：**仅 Electron 桌面端**（`isDesktop`）。非 Desktop不装 reporter，不上报。
 **范围**：仅 UI 层（`packages/ui`）。不改 Host/Runtime，不改 `send_btn` 既有语义。
 
 ## 1. 目标
@@ -44,7 +44,7 @@
 | 决策点                   | 结论                                          | 理由                                                                                                                                                                                                                  |
 | ------------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 走哪条通道               | **只走 ARMS**，不双发 `/event/report`         | 本次三个指标里最核心的是**耗时分布**；ARMS 自定义事件的 `value` 是数值型，天然支持 avg/p50/p95/p99 与按 `app_version` / `platform` 下钻，`/event/report` 的 `event_extra_detail` 全是字符串，做分位数要数仓再解析一层 |
-| 生效端                   | 仅 Electron 桌面端                            | `packages/web/src/main.tsx` 的 `reportArmsCustomEvent` 是空实现，Web 本就收不到；沿用 `setUiPerfArmsReporter(isDesktop ? platform : null)` 的既有门控写法，语义显式                                                   |
+| 生效端                   | 仅 Electron 桌面端                            | 非 Desktop 平台没有 reporter；沿用 `setUiPerfArmsReporter(isDesktop ? platform : null)` 的既有门控写法，语义显式                                                                                                      |
 | 与既有 `send_btn` 的关系 | `send_btn` 语义、字段、时机、通道**一律不动** | 数仓已把 `send_btn` 当作 `message_completion` 的配对 seed；两条通道彼此独立，本次改动对 `/event/report` 零影响                                                                                                        |
 
 **双发被否的理由**：同一动作在两条通道各留一份，指标口径会随时间漂移（一条改了另一条忘了），且 `/event/report` 侧已有 `send_btn` 覆盖成功路径，重复计数反而污染既有看板。
@@ -221,7 +221,7 @@ ACK 为 `accepted` / `duplicate` 时，supervisor 以 `commandId` 为键登记�
 
 以下场景**不得**产生这三个事件，与既有「不伪造用户动作」原则一致：
 
-- 非桌面端（Web、手机远控）：reporter 不装，整组静默。
+- 非桌面端（Web、远程 workspace）：reporter 不装，整组静默。
 - 后台自动任务（Off-Peak、automation）：不经过 composer，seed 没有 `sendClickId`，落定时直接跳过。
 - 队列 promotion（排队消息被激活为当前轮）：不是新的用户点击。
 - 程序性自动聚焦：见 5.1。

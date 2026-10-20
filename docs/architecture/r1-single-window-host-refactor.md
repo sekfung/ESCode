@@ -8,7 +8,7 @@
 - 核心目标：每个 `BrowserWindow` 只有一个 window-scoped Local Host，由该 Host 统一承载本地服务、远程连接、窗口级任务投影和各类客户端 attachment
 - 明确排除：独立 Server CLI、`sourceServerId`、Connection Profile、Transport Adapter、新的远端 wire contract、跨远程 Grouped 能力，分别留待 R2/R3/R4
 
-本文是 R1 的实现规格。手机远控已随 2026-10-20 产品决定删除；远程 workspace 的实时投递事实以 `docs/remote/` 与 `docs/specs/rust-u2-window-controller.md` 为准。
+本文是 R1 的实现规格。远程 workspace已随 2026-10-20 产品决定删除；远程 workspace 的实时投递事实以 `docs/remote/` 与 `docs/specs/rust-u2-window-controller.md` 为准。
 
 ## 2. 决策
 
@@ -32,7 +32,7 @@
 - SSH online window cache、WSL TTL/task protection、Docker/Server dedicated session 的生命周期不变；
   只有 SSH 最后一个 pending waiter 主动取消时，允许退休尚未 ready 的 connecting entry 并中止其独占初始化。
 - 身份隔离统一使用 `workspaceKey = workspaceIdentity?.trim() || workspacePath`；路径 IO 继续使用 `workspacePath`。
-- Desktop `continuous` 与手机 Web `replayable` 的队列、seq、gap 和恢复边界相互隔离。
+- Desktop `continuous` 与窄视口 `replayable` 的队列、seq、gap 和恢复边界相互隔离。
 - Main 和 relay 不持有 session/task、stream、queue、snapshot 等业务状态。
 - passive task-list observer 不得启动或重连远程 runtime。
 - Grouped 只覆盖本地 workspace，R1 不把远程 task 加入本地 group。
@@ -341,7 +341,7 @@ Renderer（可能仍捕获旧 remote ambient facade）
 - 一个 WindowHostRuntime 只注册一个 realtime `hostId`。
 - owner/lease/stale-run/session route 继续按 `workspaceKey + taskId` 隔离；不能因为 shared-host 合并而删除 owner 判定。
 - Desktop 保持 direct continuous；不拼接 replayable 运行态恢复消息。
-- 手机 Web 必须经过 replayable gap/snapshot 恢复边界，不能绕过恢复直接消费 desktop continuous。
+- 窄视口 必须经过 replayable gap/snapshot 恢复边界，不能绕过恢复直接消费 desktop continuous。
 - 远程 workspace 的 bridge、snapshot、queue、owner command、缓存和去重 key 必须携带 `workspaceIdentity` 与 `remoteSessionId`。
 - 桌面与手机已提交的 busy/running 输入统一进入 CLI/runtime `CommandInbox`；FIFO 以 CLI 串行
   admission 顺序为准。Renderer 只保留未提交草稿和 pending optimistic overlay，Host 的

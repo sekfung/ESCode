@@ -82,7 +82,7 @@ async function observe(kind: Runtime) {
       },
       escodeSessionStateSnapshotSchema,
     );
-    // 恢复后必须能直接继续对话（这就是 App 任务切换/手机恢复的链路）。
+    // 恢复后必须能直接继续对话（这就是 App 任务切换/远程 workspace 恢复的链路）。
     await h2.subscribe(`conversation/${sid}`);
     await h2.command(h2.envelope("sendText", sid, { text: "again" }));
     await h2.completed(sid);

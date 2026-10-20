@@ -14,7 +14,7 @@
 | 桌面连接独立 Server       | connectServerRemote → Host connection handle | server-info 能力决定旁路订阅      | 无能力仍连接；不改变 workspace 草稿或任务 |
 | 桌面本地及 SSH/WSL/Docker | Host services → main 遥测出口                | 配套进程维持订阅                  | 不改对应 UI、运行态或 settings            |
 | 多窗口同 Server Bash      | CLI 单命令 owner → main                      | 完成标识校验、有界去重、ARMS 投影 | 不因连接数增加事件数                      |
-| 手机远控 attachment       | Agent connection scope                       | 遥测事件保持空                    | continuous/replayable 恢复语义不变        |
+| 远程 workspace attachment | Agent connection scope                       | 遥测事件保持空                    | continuous/replayable 恢复语义不变        |
 
 ## Shared And Divergent Behavior
 

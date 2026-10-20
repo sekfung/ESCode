@@ -98,14 +98,14 @@ Write/Edit 等文件工具
 - 展开后展示每个文件的相对路径和 `+/-` 行数，不展示写入/修改次数；点击文件行或 Review 打开 code viewer diff。
 - 写入/修改次数只在文件撤销预检弹窗中展示，用于解释撤销操作边界，不作为摘要行信息。
 - 撤销按钮先打开 preview dialog；dialog 区分 safe、unsafe、ignored 文件，unsafe 原因必须可见。
-- 手机远控继续隐藏“选择 App 打开”下拉，只保留应用内 diff review 和文件撤销能力。
+- 远程 workspace继续隐藏“选择 App 打开”下拉，只保留应用内 diff review 和文件撤销能力。
 
 ## 消息内变更摘要交互
 
 - 消息里的变更摘要默认只展开到文件列表，不再支持在单个文件行内继续展开 inline diff
 - 单个文件行点击、Enter、Space 的行为与该行的 `Review` 按钮一致：打开右侧 code viewer 的 diff 预览
 - `Review` 按钮保留文字入口，不展示图标，避免和整行点击入口形成重复视觉强调
-- 文件行仍保留普通文件打开入口；手机远控继续隐藏“选择 App 打开”下拉，只保留应用内预览能力
+- 文件行仍保留普通文件打开入口；远程 workspace继续隐藏“选择 App 打开”下拉，只保留应用内预览能力
 - diff 预览源继续优先使用 readonly patch，没有 patch 时使用本轮 checkpoint 的 before/after snapshot
 
 ## 额外修正

@@ -15,7 +15,7 @@ ESCode 的“打开方式”菜单不直接枚举 macOS 系统 Open With 列表�
 ## 非目标
 
 - 不改 macOS 系统默认文件管理器，也不替换“在 Finder 中打开”的现有文案和默认语义。
-- 不在 Web、手机远控或 remote workspace 中新增本机 App 打开能力；远程文件树仍不能把远端路径交给本机 QSpace。
+- 不在 Web、远程 workspace或 remote workspace 中新增本机 App 打开能力；远程文件树仍不能把远端路径交给本机 QSpace。
 - 不改变 `desktop-continuous` 与 `web-remote-replayable` 的 realtime/session 语义。
 
 ## 实现约束

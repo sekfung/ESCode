@@ -56,4 +56,4 @@
 | `WSDR-03` | workspace A 展开            | 拖拽 A 后 cancel           | 顺序不变；A 恢复展开                         | accepted |
 | `WSDR-04` | workspace A 原本收起        | 拖拽 A 后结束              | A 始终保持收起                               | accepted |
 
-时间线、置顶、归档、分组和 Web 远控独立任务索引不复用这套分页状态，属于本次变更的 pruned 范围；本变更不修改 conversation、desktop continuous 或 mobile replayable 数据流。
+时间线、置顶、归档、分组和 远程 workspace独立任务索引不复用这套分页状态，属于本次变更的 pruned 范围；本变更不修改 conversation、desktop continuous 或 mobile replayable 数据流。

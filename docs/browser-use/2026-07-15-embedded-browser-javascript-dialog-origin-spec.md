@@ -13,7 +13,7 @@ ESCode 桌面端内置 Browser 使用标准 Electron 41 `<webview>`。网页调�
 - `alert()` 保持返回 `undefined`；`confirm()` 保持返回布尔值。
 - 按当前应用语言展示按钮：中文为“取消 / 确定”，英文为 `Cancel / OK`。
 - 浏览器工具执行期间保留 Chromium 原生 JavaScript Dialog，使现有 CDP `getDialog` / `handleDialog` 能继续观察和处理对话框。
-- 不改变 Web 端、手机端和远控链路；这些端不承载 Electron `<webview>`。
+- 不改变 Web 端、远程 workspace和远控链路；这些端不承载 Electron `<webview>`。
 
 ## 非目标
 
@@ -90,6 +90,6 @@ Agent browser command（automation = active / grace）
 3. `confirm()` 的取消、确定分别返回 `false`、`true`。
 4. 网页无法伪造来源标题；修改 `document.title` 不影响标题。
 5. browser 工具触发对话框后，`getDialog()` 仍可读取，`handleDialog()` 仍可接受或拒绝。
-6. `prompt()`、Web/手机端、普通 ESCode 原生对话框行为不变。
+6. `prompt()`、Web/远程 workspace、普通 ESCode 原生对话框行为不变。
 7. 关闭定制系统框后，同一个 Dialog 不再出现第二个 Chromium 原生框。
 8. 无 `src`、由父页面 `document.write` 写入的同源结果 iframe 同样只出现一个带 host 的系统框。

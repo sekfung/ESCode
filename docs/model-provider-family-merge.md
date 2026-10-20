@@ -596,7 +596,7 @@ Recommended implementation pieces:
 
 - 默认最小宽度为 192px，宽度跟随最长模型名称、Vision 标签及选中标记所需空间增长，不使用固定宽度提前截断。
 - 最大宽度受 Radix 当前方向可用空间约束；空间不足时允许低于最小宽度，名称省略，标签与选中标记保留。
-- 手机远控已有的窄屏样式覆盖继续生效。验证桌面深浅主题、长短名称、窗口边缘，以及手机样式覆盖下的选择行为。
+- 远程 workspace已有的窄屏样式覆盖继续生效。验证桌面深浅主题、长短名称、窗口边缘，以及手机样式覆盖下的选择行为。
 - 浏览器回归：`node --test packages/ui/test/browser/manual-review/pending/model-submenu-width.test.mjs`（真实组件，非完整远控链路）。
 
 ### 窄屏连接方式布局
@@ -605,7 +605,7 @@ Recommended implementation pieces:
 - 连接方式操作区按控件实际宽度自然换行，不设置固定断点强制拆行，也不使用 `w-full` 拉满选择框；移除独立的「Switch to / 切换至」文字，Start Plan 快捷按钮使用 `ControlHintTooltip`，悬停或键盘聚焦时显示「切换至体验套餐」（英文 “Switch to Start Plan”），提示不带数量；按钮继续保留可访问名称与点击切换行为。
 - 能容纳快捷入口和选择框时保持同行；选择框优先完整展示名称，不设固定最大宽度；先保留快捷入口与箭头所需空间，名称使用当前行剩余空间，仅在全称确实放不下时省略。短名称不拉伸成空白长框；剩余空间连控件基本宽度都不足时才换行。
 - 展开菜单后团队全称允许换行（包括无空格英文），菜单不得超出视口；选择与 Start Plan 快捷入口行为不变。
-- 使用 Flex 自然换行，覆盖手机 Web、窄桌面面板、中英文及浅色/深色主题；不改变 provider、远控或消息流逻辑。
+- 使用 Flex 自然换行，覆盖窄视口、窄桌面面板、中英文及浅色/深色主题；不改变 provider、远控或消息流逻辑。
 - 浏览器回归：`node --test packages/ui/test/browser/manual-review/pending/provider-family-responsive.test.mjs`。
   直接挂载真实 Family 组件、Radix Select、国际化与产品 CSS，验证 320/390/430 手机视口、650px 视口（可同行但之前被固定断点拆行）、宽视口中的窄面板与桌面横排，检查几何边界并实际选择连接项。
   此用例为待审核的组件浏览器交互回归，不代表完整 `/remote` 连接链路验证。

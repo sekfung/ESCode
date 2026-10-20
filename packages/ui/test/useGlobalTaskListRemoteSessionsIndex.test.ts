@@ -1,4 +1,4 @@
-// remote shard（web/手机远控/SSH workspace）也以各 endpoint 的 tasks-index
+// remote shard（SSH workspace）也以各 endpoint 的 tasks-index
 // 持久行为列表左表，sessions-index 帧只补 activity/detail；旧 listTaskList 零调用。
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";

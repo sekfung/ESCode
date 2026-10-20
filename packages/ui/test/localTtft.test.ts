@@ -387,7 +387,7 @@ it("准备检查点早于 initial 订阅快照时不误判恢复", () => {
   expect(records.filter((record) => record.outcome === "recovery")).toHaveLength(1);
 });
 
-it("桌面 continuous 的 online snapshot 按 resync 排除，不借用手机 recovery 语义", () => {
+it("桌面 continuous 的 online snapshot 按 resync 排除，不借用远程 workspace recovery 语义", () => {
   const records: LocalTtftRecord[] = [];
   const observer = new LocalTtftObserver(
     (record) => records.push(record),

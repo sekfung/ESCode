@@ -38,7 +38,7 @@
 
 ## 分层与关键文件
 
-服务层（host 侧读盘，桌面读本机、手机远控读远端 host，UI 只消费结构化结果）：
+服务层（host 侧读盘，桌面读本机、远程 workspace读远端 host，UI 只消费结构化结果）：
 
 - `packages/services/src/session/escodeTaskService.ts`：新增 `ESCodeModelTrajectory*` 类型与
   `IESCodeTaskService.getModelTrajectory({ taskId, limit })`。
@@ -115,7 +115,7 @@ next header command(version+1) -> supersedes every older local override
 - 标题行操作列只保留 Chevron；任意行展开或收起时，其他行的 summary、标签与 Chevron 都不得横向跳动。
 - 模型输入中的 `tool` 角色显示为英文 `Tool result`、中文“工具结果”，与 assistant 输出中的 `Tool call` / “工具调用”明确区分。
 - 中文角色文案使用完整语义名称：system 为“系统提示词”、user 为“用户消息”、assistant 普通文本为“助手消息”；不使用容易与分组或产品身份混淆的“系统 / 用户 / 助手”短标签。
-- Tool name pill 不设置最大宽度且不截断，必须完整显示；Tool call ID 在界面展示时移除开头的 `call_` 前缀，底层消息数据保持原始 ID。空间不足时优先压缩 summary，Tool call ID pill 仍允许截断以保护窄侧栏和手机 Web 布局。
+- Tool name pill 不设置最大宽度且不截断，必须完整显示；Tool call ID 在界面展示时移除开头的 `call_` 前缀，底层消息数据保持原始 ID。空间不足时优先压缩 summary，Tool call ID pill 仍允许截断以保护窄侧栏和窄视口 布局。
 - Tool Result 与 Tool Call 的收起行在 summary 前显式显示内容自适应宽度的数据方向标签：Tool Result 使用 `OUTPUT`（中文“输出”），Tool Call 使用 `INPUT`（中文“输入”）。方向标签使用 `text-ui-sm` 与主要文字颜色并按实际文字宽度收缩，随后以标准紧凑间距显示第三等文字颜色的向右箭头图标，再进入次要层级的 summary；不得用固定宽度在短中文标签与箭头之间制造空槽。展开后 summary 与向右箭头同步隐藏，方向标签保留且不在展开正文中重复。
 - 内容区的分区标题、角色标签、消息预览、正文、思考与工具内容统一使用 `text-ui-sm`；调用摘要 Header 的序号、pill 与元数据继续使用 `text-ui-xs`。
 - Tool Result 的 output 若为 `{ type: "error-text", value: string }`，收起摘要和展开正文必须直接使用 `value`，不得把错误包装对象序列化成 JSON。收起摘要继续折叠连续空白，展开正文保留错误文本的原始换行。
@@ -133,7 +133,7 @@ next header command(version+1) -> supersedes every older local override
 - 角色主要依靠紧凑文字标签区分，不为 system / user / assistant / tool 铺设不同的大面积背景色。
 - 消息行不显示左侧竖线；SYSTEM 使用次要文字色 `text-foreground-subtle`，USER 使用 `--color-trajectory-user` 蓝色，ASSISTANT 使用 `--color-trajectory-assistant` 青绿色，思考过程使用 `--color-trajectory-reasoning` 紫色，TOOL CALL 使用 `--color-trajectory-tool-call` 琥珀色，TOOL RESULT 使用 `--color-trajectory-tool-result` 青蓝色。彩色角色标签统一使用专用 token 的 `/80`；五个专用 token 必须分别定义默认 Light、Dark、Zai Light、Zai Dark 值，不得借用 success、warning 或 destructive 状态色。思考过程继续复用 USER 的整行摘要、点击展开、正文限高、复制与“展开/收起”结构，不使用独立卡片。
 - 同一个 Call Card 内的全部输入与输出消息行使用连续序号绘制斑马纹，Input 与 Assistant 输出之间不得重新计数。首行保持透明，交替行使用 `bg-surface/30`；展开内容继承所属消息行背景，调用 Header 与分割线不参与交替，消息行不添加 hover 背景或颜色过渡。
-- 窄侧栏与手机 Web 保持单列结构；技术载荷必须换行且不得撑宽面板，悬浮胶囊操作允许在窄宽度下保持紧凑。
+- 窄侧栏与窄视口 保持单列结构；技术载荷必须换行且不得撑宽面板，悬浮胶囊操作允许在窄宽度下保持紧凑。
 
 ## 长列表虚拟化
 
@@ -164,5 +164,5 @@ bulk toggle ─> command(version + 1) ────> supersedes older keyed state
 
 ## 多端
 
-- 读盘收口在服务层，桌面端读本机 `~/.escode/cli`，手机远控经 RPC 读远端 host 的同名目录。
-- 入口在桌面与手机 Web 均可用（移动端不隐藏）；无记录时给出空态提示。
+- 读盘收口在服务层，桌面端读本机 `~/.escode/cli`，远程 workspace经 RPC 读远端 host 的同名目录。
+- 入口在桌面与窄视口 均可用（移动端不隐藏）；无记录时给出空态提示。

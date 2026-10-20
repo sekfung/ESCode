@@ -14,7 +14,7 @@
 - `perf_agent_crash.value=1`，用于统计 Agent 崩溃次数。
 - 原始事件保留脱敏、限长的错误信息，支持按错误码和稳定指纹聚合。
 - 主动关闭、workspace 重启、应用退出不计为崩溃。
-- 手机远控继续复用桌面 shared host，不在 relay 或 Web 端重复上报。
+- 远程 workspace继续复用桌面 shared host，不在 relay 或 Web 端重复上报。
 
 ## 状态与时序
 

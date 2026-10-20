@@ -285,7 +285,7 @@ export interface AppSettings {
    * 覆盖语义为整组替换（如 openCommandCenter 的双默认绑定被覆盖时同时失效）。
    */
   shortcutBindings?: Record<string, string[]>;
-  /** 界面语言偏好；locale 保存偏好解析后的实际语言，供 main/menu/远控等非浏览器上下文使用。 */
+  /** 界面语言偏好；locale 保存偏好解析后的实际语言，供 main/menu/远程 workspace等非浏览器上下文使用。 */
   localePreference?: LocalePreference;
   /** 是否尽量继承系统终端 profile、shell 环境和字体 */
   terminalInheritSystemProfile?: boolean;
@@ -332,15 +332,15 @@ export interface AppSettings {
    * main 进程 bootstrap 借此标记把首次启动的 Linux 用户一次性归位为默认关。
    */
   closeToTrayLinuxMigrationInitialized?: boolean;
-  /** 桌面端全局页面缩放档位；用于重启后恢复界面缩放，Web/手机端忽略。 */
+  /** 桌面端全局页面缩放档位；用于重启后恢复界面缩放，Web/远程 workspace忽略。 */
   desktopZoomLevel?: number;
-  /** 桌面主窗口最近一次非最大化宽高及最大化状态；Web/手机端忽略。 */
+  /** 桌面主窗口最近一次非最大化宽高及最大化状态；Web/远程 workspace忽略。 */
   desktopWindowSize?: {
     width: number;
     height: number;
     maximized: boolean;
   };
-  /** 桌面端 Chromium 硬件加速开关；只在下次启动 main 进程早期生效，Web/手机端忽略。 */
+  /** 桌面端 Chromium 硬件加速开关；只在下次启动 main 进程早期生效，Web/远程 workspace忽略。 */
   desktopChromiumHardwareAccelerationEnabled?: boolean;
   /** 是否在消息流中展示模型思考过程 */
   messageStreamShowReasoning?: boolean;

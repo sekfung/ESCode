@@ -56,7 +56,7 @@ restore request 必须幂等。目标已被消费或被另一端删除时，`del
 图片没有本地 object URL 时显示文件名和类型图标，不新增缩略图下载协议。
 
 发起端恢复的草稿保持 renderer-local，不写入 conversation snapshot、relay 或 main process；其他桌面
-或手机端只消费权威 queue removal。底层 `editQueueItem` 继续作为 V4 兼容能力保留，但第一方 UI 不再调用。
+或远程 workspace只消费权威 queue removal。底层 `editQueueItem` 继续作为 V4 兼容能力保留，但第一方 UI 不再调用。
 
 `compact` 队列项只显示 `/compact` 命令文本，不在文本前增加维护命令图标。它继续通过“立即执行”按钮和不可编辑行为与普通消息区分。
 

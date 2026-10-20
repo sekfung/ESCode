@@ -9,12 +9,10 @@ export function FileSummaryFixture({
   path,
   root,
   mode,
-  compact,
 }: {
   path: string;
   root: string;
   mode: "only" | "mixed" | "ordinary";
-  compact: boolean;
 }) {
   const row = useMemo<AssistantTextRow>(
     () => ({
@@ -40,7 +38,6 @@ export function FileSummaryFixture({
       workspaceRemoteSessionId: "remote-1",
       theme: "system" as const,
       codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
-      compactForRemoteControl: compact,
       fetchFileChanges: async () => ({
         items: [
           ...(mode !== "ordinary" ? [{ path, additions: 70, deletions: 1, patches: [] }] : []),
@@ -50,7 +47,7 @@ export function FileSummaryFixture({
         ],
       }),
     }),
-    [compact, mode, path, root],
+    [mode, path, root],
   );
   const header: TurnHeaderRow = {
     rowId: 1,

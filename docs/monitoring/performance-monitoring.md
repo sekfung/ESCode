@@ -11,7 +11,7 @@
 ## 范围
 
 - **P0（当前）**：Electron 桌面端**稳定性**、**资源占用**与**网络与通信**指标，数据进入 **ARMS `@arms/rum-electron`**（`sendCustom`，`group` 为 `stability` / `resource` / `network`）。
-- **不做**：Web/手机远控 RUM、Host/Agent 进程 ANR、`/report` 业务埋点（`app_launch` 不作崩溃率分母）。Agent 非预期退出由 desktop main 主动补 `perf_agent_crash`，手机远控复用 shared host，不重复上报。
+- **不做**：非 Desktop RUM、Host/Agent 进程 ANR、`/report` 业务埋点（`app_launch` 不作崩溃率分母）。Agent 非预期退出由 desktop main 主动补 `perf_agent_crash`，远程 workspace复用 shared host，不重复上报。
 
 ## 与业务监控的边界
 

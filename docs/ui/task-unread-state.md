@@ -43,7 +43,7 @@
   canonical conversation workspace 的「任务」分区。点击蓝点或任务行必须从被点击 query row 读取
   `unreadAt`，按精确 `workspaceKey + taskId` 清除，不得依赖当前 active session，也不得因 cron identity 跳过。
 - 该流程必须保留 sessions-index `lastActivityAt`，打开任务或清未读不得让历史任务跳到顶部
-- 手机 Web 远控入口：任务首页点击的 `WebRemoteControlTaskTarget.unreadAt` 是本次用户可见快照。若存在，
+- 远程 workspace入口：任务首页点击的 `WebRemoteControlTaskTarget.unreadAt` 是本次用户可见快照。若存在，
   同 workspace 通过当前 bridge、跨 workspace 在目标 bridge 建立后调用
   `escodeTaskService.setTaskUnread(..., false, expectedUnreadAt=task.unreadAt)`；不得依赖手机 Root 的
   query cache 水合状态。

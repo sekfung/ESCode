@@ -191,7 +191,7 @@ describe("WorkspaceHelpMenuButton", () => {
     );
   });
 
-  it("Web 和手机远控不显示桌面关于入口", async () => {
+  it("非桌面入口不显示桌面关于入口", async () => {
     for (const isDesktop of [undefined, false]) {
       expect(await render(isDesktop)).not.toContain("titleBar.menu.help.about");
     }
@@ -234,7 +234,7 @@ describe("WorkspaceHelpMenuButton", () => {
     expect(captured.dismissToast).toHaveBeenCalledWith(7);
   });
 
-  it("Web 和手机远控不显示本地导出日志入口", async () => {
+  it("非桌面入口不显示本地导出日志入口", async () => {
     for (const isDesktop of [undefined, false]) {
       expect(await render(isDesktop)).not.toContain("titleBar.menu.help.exportLogs");
       expect(captured.exportLogs).not.toHaveBeenCalled();

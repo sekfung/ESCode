@@ -14,7 +14,7 @@ import { logger } from "@/logger.js";
 //     renderer 单独 force 一次会让「界面有入口 / 模型没工具」这类分歧成为可能；
 //     要强制重取走 refresh()；
 //   - 请求失败按 disabled 处理（fail-closed，与 resolveDynamicWorkflowClientConfig 同一裁决），
-//     但**不记住失败**：换一份 service 实例会重试。手机 `/remote` 在工作区桥接前拿到的是
+//     但**不记住失败**：换一份 service 实例会重试。远程 workspace 在工作区桥接前拿到的是
 //     unsupported 代理，必然抛错，桥接完成后 accessor 会换一份，那一次必须能纠正回来。
 
 export type DynamicWorkflowAvailabilityStatus = "loading" | "ready";
@@ -80,7 +80,7 @@ export const useDynamicWorkflowAvailabilityStore = create<DynamicWorkflowAvailab
     ensureLoaded(service): Promise<void> {
       if (settledService === service) return Promise.resolve();
       if (inFlight) {
-        // 在途的可能是另一份 service（手机 `/remote` 桥接期间 accessor 会换）：排在它后面再判一次。
+        // 在途的可能是另一份 service（远程 workspace 桥接期间 accessor 会换）：排在它后面再判一次。
         // 若在途的就是这一份，那时 settledService 已等于它，递归会立即命中上面的 no-op。
         return inFlight.then(() => get().ensureLoaded(service));
       }

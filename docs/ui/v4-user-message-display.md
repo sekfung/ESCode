@@ -18,4 +18,4 @@ V4 conversation 的 `userInput` row 继续以权威 `text` 和 attachments 为�
 - 高度过渡为 `300ms`，同时遵守 `prefers-reduced-motion`。
 - 正文文本变化时重置为收起态并重新测量，避免虚拟时间线复用 row 后沿用上一条消息的展开状态。
 - 使用 `ResizeObserver` 覆盖窗口宽度、字体和 mention/file icon 布局变化；测量通过 `requestAnimationFrame` 合并，卸载时必须清理 observer 和 RAF。
-- 桌面端与手机 Web 远控使用同一折叠语义。触屏端按钮常规可点，不依赖 hover。
+- 桌面端与远程 workspace使用同一折叠语义。触屏端按钮常规可点，不依赖 hover。

@@ -51,5 +51,5 @@ Docker/Server dedicated connection 按 logical session 生命周期回收。Main
 - 同路径但不同 remote identity 必须隔离。
 - desktop continuous 与 mobile replayable 必须连接同一 workspace CLI。
 - 切换 workspace 后，文件/terminal cwd 使用新 `workspacePath`，缓存与 session 按 workspaceKey 隔离。
-- 手机端不得另起独立 Host 或 Agent runtime；它只能 attach 桌面窗口唯一 Window Host 的既有 scope。
+- 远程 workspace不得另起独立 Host 或 Agent runtime；它只能 attach 桌面窗口唯一 Window Host 的既有 scope。
 - Window Host registry 不跨 BrowserWindow 共享，避免身份、端口和故障域越过窗口边界。

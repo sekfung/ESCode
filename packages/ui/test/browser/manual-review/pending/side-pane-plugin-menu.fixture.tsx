@@ -62,7 +62,6 @@ function Fixture() {
       services={services}
       isVisible
       isDesktop={!params.has("mobile")}
-      mobileOverlay={params.has("mobile")}
       sidePaneState={hasTab ? existingTab : null}
       recentClosedSidePaneTabs={[]}
       isBrowserOpen={false}

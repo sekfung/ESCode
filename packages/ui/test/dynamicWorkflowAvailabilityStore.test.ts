@@ -110,7 +110,7 @@ describe("dynamicWorkflowAvailabilityStore", () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it("失败不粘住：换一份 service（手机 /remote 桥接后 accessor 会换）会重试并纠正", async () => {
+  it("失败不粘住：换一份 service（远程 workspace 桥接后 accessor 会换）会重试并纠正", async () => {
     const failing = serviceFailing();
     await useDynamicWorkflowAvailabilityStore.getState().ensureLoaded(failing);
     expect(useDynamicWorkflowAvailabilityStore.getState().enabled).toBe(false);

@@ -151,7 +151,6 @@ describe("SortableWorkspaceSidebarItem render stability", () => {
             closeTab: () => {},
             isActiveWorkspace: true,
             isExpanded: true,
-            mobileActiveTaskKey: null,
             onOpenFileTree: () => {},
             onReconnectRemoteWorkspace: async () => {},
             onSelectTask: () => {},

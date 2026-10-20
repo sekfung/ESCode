@@ -145,7 +145,7 @@ provider.options
 
 模型 ID 以 `[1m]` 结尾时，App 在存储归一化、设置页保存和 ESCode Protocol 投影阶段都会把
 `contextWindow` / `model.limit.context` 强制收敛为 `1000000`。这样可以让设置页、桌面
-continuous 链路、手机远控 replayable 恢复链路和 agent context meter 使用同一个 1M 分母，
+continuous 链路、远程 workspace replayable 恢复链路和 agent context meter 使用同一个 1M 分母，
 不会被旧配置里保存的 128k 或用户手动输入的较小值覆盖。
 
 旧 `model-providers.json` 的模型经常只有字符串 id，没有 `contextWindow`、

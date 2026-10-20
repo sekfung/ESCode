@@ -14,7 +14,7 @@
 - bash/shell 类工具产生的文件修改不参与 summary 文件撤销，也不出现在可撤销列表中。
 - 一个文件被多个非 bash tool 修改时，执行撤销必须按 checkpoint 倒序逐次回放。
 - 应用撤销前必须重新预检；只要存在 unsafe 文件，本次不写任何文件。
-- 桌面端和手机远控都复用当前 session host，不创建独立 runtime。
+- 桌面端和远程 workspace都复用当前 session host，不创建独立 runtime。
 
 ## 非目标
 
@@ -106,5 +106,5 @@ preview 返回文件级结果：
 ## 远控边界
 
 该能力是 session command，不改变 task realtime 传输语义。桌面端仍保持
-`desktop-continuous` 主链路；手机远控通过 shared-host attachment 调用同一 session host，
+`desktop-continuous` 主链路；远程 workspace通过 shared-host attachment 调用同一 session host，
 再按 replayable snapshot 恢复 UI，不把 replayable 运行态恢复逻辑扩散到桌面端。

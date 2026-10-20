@@ -21,7 +21,7 @@ ESCode 曾提供三档界面缩放：偏小、正常、偏大。入口包括桌�
 ## 影响面
 
 - Desktop 端：应用菜单不再注册界面缩放快捷键，主进程不再处理 `resetZoom` / `zoomIn` / `zoomOut` 桌面命令。
-- Web/手机端：原本只是 no-op fallback，删除后不改变远控链路。
+- Web/远程 workspace：原本只是 no-op fallback，删除后不改变远控链路。
 - UI 层：设置页和侧边栏账户菜单不再展示界面缩放。
 
 ## 后续补充

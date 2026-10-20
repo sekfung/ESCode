@@ -7,7 +7,7 @@ ESCode Protocol 是 App、Host Process 与 `escode-cli` 之间唯一的 Agent �
 - 协议实体统一叫 `session`；产品层历史 `taskId` 在聊天主链路中等同于 `sessionId`。
 - CLI 是 conversation 的事实源。消息行、运行阶段、队列、交互请求、模型配置、usage、goal 与控制能力都来自 `ConversationSnapshot`。
 - UI 只拥有草稿、滚动、焦点、面板展开等纯本地展示状态，不能在 renderer 中维护第二份权威消息或队列。
-- 桌面使用 `desktop-continuous`，手机远控使用 `web-remote-replayable`。两种 profile 共享同一 CLI 投影，但恢复语义不能互相扩散。
+- 桌面使用 `desktop-continuous`，远程 workspace使用 `web-remote-replayable`。两种 profile 共享同一 CLI 投影，但恢复语义不能互相扩散。
 - 手机 `/remote` 只 attach 已有 Host/CLI，不创建独立 Agent runtime。
 
 ## 传输拓扑

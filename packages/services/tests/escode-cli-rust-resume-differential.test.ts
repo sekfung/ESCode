@@ -7,7 +7,7 @@ import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 
-// WP6：手机远控断线重连时带 base 续订，应拿到 base 之后的增量（resume），而不是整份快照。
+// WP6：远程 workspace断线重连时带 base 续订，应拿到 base 之后的增量（resume），而不是整份快照。
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 type Runtime = "node" | "rust";
 

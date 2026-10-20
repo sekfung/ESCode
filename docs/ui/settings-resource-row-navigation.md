@@ -11,7 +11,7 @@ Settings 中 Commands、Subagents、MCP Servers、Hooks 四类资源列表统一
 - 可编辑行可聚焦，并支持 `Enter`、`Space` 打开编辑页。
 - 行内开关、删除、授权、模型选择等控件保持独立操作，点击或键盘操作不得触发行导航。
 - 可编辑行显式使用 `cursor-default` 保持普通箭头光标，并统一使用 `hover:bg-hover` 反馈；只读行不伪装成可点击入口。
-- 桌面端与手机 Web 端使用同一套行交互，不依赖 hover 才能发现入口。
+- 桌面端与窄视口 端使用同一套行交互，不依赖 hover 才能发现入口。
 - 所有可下钻的 Memory 项目行和文件行使用与其他资源行一致的普通箭头光标。
 - Memory 的项目主区域和文件行使用 `div[role="button"][tabindex="0"]`，并复用资源行的 Enter / Space 键盘激活逻辑；项目行右侧 File Tree 保持独立 Button。
 

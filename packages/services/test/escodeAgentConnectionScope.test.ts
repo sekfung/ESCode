@@ -1611,7 +1611,7 @@ describe("ESCodeAgent connection-scoped service facade", () => {
     });
   });
 
-  it("手机 replayable command 原样透传 canonical plugin link，不新增 selection state", async () => {
+  it("远程 workspace replayable command 原样透传 canonical plugin link，不新增 selection state", async () => {
     const { base } = setupBase();
     const scope = createESCodeAgentConnectionScope(base, {
       connectionId: "mobile-plugin-reference",

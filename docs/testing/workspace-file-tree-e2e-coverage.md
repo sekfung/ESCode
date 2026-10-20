@@ -16,7 +16,7 @@
 | 本地 desktop + 多段 compact folders + 展开 + 向下滚动 | accepted | 同时覆盖物理 depth、展示 offset、虚拟滚动和 sticky ancestor 选择，是本次回归的最小完整链路。                                                                         |
 | 普通目录（不发生 compact）                            | pruned   | 现有文件树展开路径和 helper/unit 覆盖普通 depth；不能证明本次 compact offset 回归。                                                                                  |
 | Zai Light / Zai Dark 分别执行                         | pruned   | 引导线与缩进共用同一 DOM 和设计 token，本 case 断言结构与几何，不做主题像素截图。                                                                                    |
-| Web / 手机 Web 重复执行                               | pruned   | `WorkspaceFileTreeRowView` 为共享渲染实现；本 case 不涉及平台服务、remote delivery 或触控专属行为。                                                                  |
+| Web / 窄视口 重复执行                                 | pruned   | `WorkspaceFileTreeRowView` 为共享渲染实现；本 case 不涉及平台服务、remote delivery 或触控专属行为。                                                                  |
 | SSH / WSL / Docker workspace                          | pruned   | 本次缺陷位于 renderer 展示 depth；远端文件读取和 `workspaceIdentity` 隔离不在该 case 的行为边界内。                                                                  |
 | 完整默认过滤器矩阵                                    | pruned   | `.git`、`node_modules`、`.env`、隐藏目录后代和编译产物过滤由 service 单测与文件搜索过滤 E2E 覆盖；文件树共享搜索 case 只证明它复用同一索引和排序，不复制黑名单断言。 |
 

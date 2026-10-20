@@ -16,7 +16,7 @@
   1. **A1** `ChannelClient.dispose(reason?)` reject 全部挂起的 Promise 请求（5 处生产 dispose 调用点已逐一审计，全部是连接终结路径）；
   2. **A2** renderer 侧补上传输终结出口：`messageport.ts` 新 helper 返回 `{services, dispose}`，`RemoteWorkspaceSession` 增可选 `dispose`，store 在 unregister/换代替换时调用，desktop 注册时注入并复用错误码 `ESCODE_REMOTE_WORKSPACE_DISCONNECTED`。
   - 已否决：加超时（掩盖症状、与慢链路冲突、违背"不堆兜底"准则）；仅清 in-flight map（当次流程仍挂死）；仅修 host 侧（回包路径与 attachment 同时断的竞态会漏掉 renderer 挂起）。
-- **为什么风险最低**：在不变量的所有权边界（RPC 客户端）修复，上层 sync/向导/重连的既有 catch 路径原样接管（它们本就为 rejection 设计）；`call()` 在 disposed 后本就 reject，A1 只是让 in-flight 与之一致，无 API 语义分叉；dispose 可选注入使 web/手机端零变化；无协议、无持久化、无 UI 变更；单 commit 可整体回滚。
+- **为什么风险最低**：在不变量的所有权边界（RPC 客户端）修复，上层 sync/向导/重连的既有 catch 路径原样接管（它们本就为 rejection 设计）；`call()` 在 disposed 后本就 reject，A1 只是让 in-flight 与之一致，无 API 语义分叉；dispose 可选注入使 web/远程 workspace零变化；无协议、无持久化、无 UI 变更；单 commit 可整体回滚。
 - **验证与剩余风险**：回归测试复刻 09:57→10:01 中毒场景（修复前必须失败），邻域单测 + 门禁 + E2E 候选见 §5；剩余风险（teardown 期 rejection 可见化、服务端早退未闭合）见 §6。
 
 ## 1. 症状

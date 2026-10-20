@@ -10,7 +10,7 @@ formal-proof、case catalog 和用户剪枝方法，但核心是先问清功能�
 ## 目标
 
 - 在 skill 内增加一份 ESCode 能力域和交叉轴参考，帮助使用者从自然语言需求定位相关文档、代码和状态所有者。
-- 让矩阵枚举覆盖桌面端、Web 端、手机远控、远程 workspace、model/provider、queue、persistence、telemetry、
+- 让矩阵枚举覆盖桌面端、Web 端、远程 workspace、远程 workspace、model/provider、queue、persistence、telemetry、
   rendering performance、permission/tool/MCP、theme/locale 等真实产品交叉点。
 - 保持 `SKILL.md` 精简，把详细 domain map 放入 `references/`，按需加载。
 - 保留用户剪枝机制：skill 只能提出候选语义和影响面，不能替用户静默决定产品行为。
@@ -22,13 +22,13 @@ formal-proof、case catalog 和用户剪枝方法，但核心是先问清功能�
 | 架构与消息流                   | `docs/architecture/escode-code-architecture-overview.md`, `docs/architecture/message-flow.md`                                                         | `packages/shared`, `packages/services`, `packages/desktop`, `packages/ui`, `apps/escode-cli`                                                                                      |
 | Conversation 状态空间          | `docs/escode-protocol.md`, `docs/conversation-product-state-space.md`, `docs/testing/conversation-session-*.md`                                       | `packages/formal-proof`, `packages/ui/src/v4/conversationProjectionStore.ts`, `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/`                                        |
 | 模型与 Provider                | `docs/working-memory/provider-refactor/design/`                                                                                                       | `packages/provider`, `packages/provider-node`, `packages/services/src/provider-runtime`, `packages/ui/src/settings`                                                               |
-| 手机远控与 replayable          | `docs/web-remote-control/*.md`, `docs/escode-protocol.md`                                                                                             | `packages/shared/src/escode-protocol-v4/`, `packages/ui/src/v4/agentConversationTransport.ts`, `packages/desktop/src/main/webRemoteControlManager.ts`                             |
+| 远程 workspace与 replayable    | `docs/remote/*.md`, `docs/escode-protocol.md`                                                                                                         | `packages/shared/src/escode-protocol-v4/`, `packages/ui/src/v4/agentConversationTransport.ts`, `packages/desktop/src/main/desktopRemoteSessions.ts`                               |
 | Queue / command                | `docs/ui/chat-message-queue.md`, `docs/escode-protocol.md`                                                                                            | `packages/shared/src/escode-protocol-v4/command.ts`, `packages/ui/src/v4/SessionPane.tsx`, `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/commands/handlers/queue.ts` |
 | Persistence / identity         | `docs/task/task-sqlite-index.md`, `docs/task/task-snapshot-on-demand.md`, `docs/remote-workspace-session-unified-settings.md`                         | `packages/services/src/session/taskIndexRepo.ts`, `packages/ui/src/store/tabWorkspaceIdentity.ts`, `packages/shared/src/workspaceSessionRestore.ts`                               |
 | Rendering performance          | `docs/chat/message-render-performance.md`, `docs/performance/streaming-tool-input-backpressure.md`, `docs/performance/renderer-production-logging.md` | `packages/ui/src/v4/ConversationTimeline.tsx`, `packages/ui/src/v4/ConversationRowView.tsx`, `packages/ui/src/v4/conversationProjectionStore.ts`                                  |
 | Monitoring / telemetry / usage | `docs/monitoring/performance-telemetry-catalog.md`, `docs/monitoring/business-monitoring.md`, `docs/usage-stats-app-coding-plan-split.md`             | `packages/ui/src/lib/appTelemetry.ts`, `packages/ui/src/lib/uiPerfArmsTelemetry.ts`, `packages/services/src/telemetry`, `packages/services/src/usage-stats`                       |
 | Permission / tool / MCP        | `docs/permission-project-approval.md`, `docs/mcp-platform-boundary.md`, `docs/agent-tool-call-renderer.md`                                            | `packages/shared/src/escode-protocol-v4/`, `packages/shared/src/mcp.ts`, `packages/ui/src/v4/V4InteractionDialogs.tsx`, `packages/ui/src/ToolCallBlocks*`                         |
-| Theme / locale / mobile shell  | `docs/ui/zai-themes.md`, `docs/ui/default-theme.md`, `docs/web-remote-control/mobile-theme-control.md`                                                | `packages/ui/src/i18n`, `packages/ui/src/useTheme.ts`, `packages/ui/src/WebRemoteControlMobileShell.tsx`, `packages/shared/src/protocol.ts`                                       |
+| Theme / locale / responsive    | `docs/ui/zai-themes.md`, `docs/ui/default-theme.md`                                                                                                   | `packages/ui/src/i18n`, `packages/ui/src/useTheme.ts`, `packages/shared/src/protocol.ts`                                                                                          |
 
 ## Skill 行为要求
 
@@ -47,12 +47,12 @@ formal-proof、case catalog 和用户剪枝方法，但核心是先问清功能�
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | 模型切换 x task 切换 / 新建 / 发送 / fork / edit / queue                | 模型事实源跨 toolbar、workspace default、task config、task meta、draft session、provider registry 和 runtime `defaultModelRef`。 |
 | 模型/provider x 远程 workspace                                          | 本地 app-global provider registry 与远端 runtime 执行事实源不同，重连和 runtime restart 会暴露旧状态。                           |
-| 手机远控 x queue / permission / elicitation / stop                      | 手机端依赖 replayable mirror、snapshot watermark、owner command 和 host command queue，不能按桌面本地 queue 推断。               |
+| 远程 workspace x queue / permission / elicitation / stop                | 远程 workspace依赖 replayable mirror、snapshot watermark、owner command 和 host command queue，不能按桌面本地 queue 推断。       |
 | replayable snapshot x 持久化数据                                        | `ESCodeTaskSnapshot.runtime` 是响应态运行时补充，不写回 session JSON；task index 只负责列表元数据。                              |
 | queue x stop / compact / goal / edit / fork                             | queue 是未来用户意图，不能被 compact、edit、fork 隐式改写；stop 后 autoDrain 语义需要明确。                                      |
 | rendering performance x streaming tool input / background task / replay | 大工具输入、Markdown、Mermaid、后台任务和 replayable gap 会放大 store 写入、解析和 React render 成本。                           |
 | telemetry x message stream / tool step / privacy / volume               | 高频 step/chunk 级事件会放大 ARMS 或日志量；用户内容、credential、hash 和原始 payload 不能进入不该进入的通道。                   |
-| theme / locale x desktop / mobile / persisted settings                  | 桌面和手机远控主题本地偏好互不耦合；locale 可能影响命令、菜单、toast、截图断言和测试文案。                                       |
+| theme / locale x desktop / mobile / persisted settings                  | 桌面和远程 workspace主题本地偏好互不耦合；locale 可能影响命令、菜单、toast、截图断言和测试文案。                                 |
 | workspace identity x cache / task list / skill/plugin/MCP load          | 远程 workspace 不能只按 path 做隔离；缓存、队列、配置、任务列表和远程历史都要用 identity fallback 规则。                         |
 | tool/MCP/permission x mobile remote                                     | MCP 平台能力通过 `IPlatformService` 和 shared-host attachment 走；permission options 必须透传 agent response，不能由 UI 猜。     |
 

@@ -103,7 +103,7 @@ receivePreviewUpdates?: boolean;
 skippedElectronUpdateVersions?: Partial<Record<"stable" | "preview", string>>;
 ```
 
-- `receivePreviewUpdates` 默认 `false`，仅影响桌面端自动更新检查；Web 和手机远控不读取该设置。
+- `receivePreviewUpdates` 默认 `false`，仅影响桌面端自动更新检查；非 Desktop不读取该设置。
 - 设置页切换 `receivePreviewUpdates` 后，renderer 通过 `syncAppSettings` 即时通知 main 进程。main 若当前处于 `update-available` / `idle` / `checking` 的可切换状态，会清理旧通道的可用版本并重新请求服务端 manifest；例如 preview `3.3.3` 已提示时关闭开关，应重新拉取 `channel=stable` 并展示 stable `3.3.2`。下载中或已下载待安装时不打断当前安装流程。
 - `skippedElectronUpdateVersions` 由 main 进程维护，renderer 只通过 IPC 请求跳过当前版本，避免 UI 直接拼写 channel 语义。
 

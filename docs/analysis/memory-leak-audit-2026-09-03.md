@@ -145,7 +145,7 @@
 - services：`escodeStdioTransport`/`escodeProtocolClient` pending 全路径 delete；`escodeAgentProcessManager` 主表清理完整；`escodeAgentConnectionScope` 1024 帧/32MiB 双限；coalescer 有界；git/process/repo-snapshot/repo-wiki/telemetryCore/settings-sync/plugin-sync/model-provider 全部 finally 清理；`node.ts` disposeAll 覆盖完整。
 - ui：`logger.ts` 不缓冲；流式文本为字符串拼接不留 chunk 数组；`removeTaskState` 完整删除 7 个子表；时间线虚拟化 + 4000 条 LRU 行高缓存；所有 Observer 均 disconnect；createObjectURL 除 PDF 预览外均配对 revoke；streamdown 缓存 100 条；`v4` 注册表 keep-warm 后 dispose；`pendingCommandRegistry` 24h TTL。
 - cli：`SessionResidentPool` 四条删除路径完整（但 eligible 条件被 legacy subscribe 钉死，见中危表）；provider 流式不留 SSE chunk，abort listener/linked controller finally 清理；http `maxResponseBytes` + `reader.cancel`；telemetry `maxActiveCalls=1000`、OTLP 队列 2000、trace writers 5000；MCP per-session lease 归零 30s 关闭；前台 Bash 输出有界、`activeExecutions` finally 清理；subagent runner abort/watchdog 全路径 dispose。
-- rpc/server/shared：`ChannelClient`/`ChannelServer` 主表四路径删除；Logging/NetworkTelemetry 中间件无状态；`PersistentProtocol` 重放 8MiB/45s 双限；server `hostCapability` TTL；`remote/connect.ts` dispose 完整；web 远控 6 个 timer 成对、`pairedWaiters` 全路径删；renderer bootstrap 全部返回 cleanup。
+- rpc/server/shared：`ChannelClient`/`ChannelServer` 主表四路径删除；Logging/NetworkTelemetry 中间件无状态；`PersistentProtocol` 重放 8MiB/45s 双限；server `hostCapability` TTL；`remote/connect.ts` dispose 完整；远程 workspace 6 个 timer 成对、`pairedWaiters` 全路径删；renderer bootstrap 全部返回 cleanup。
 
 ## 五、需要决策的设计问题（修复前先定）
 

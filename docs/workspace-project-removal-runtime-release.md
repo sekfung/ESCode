@@ -52,7 +52,7 @@ Windows 会把进程当前工作目录和打开的文件句柄视为目录占用
 - Windows 保留设备名检查异步执行，不阻塞项目从侧边栏移除。
 - 默认跳过 `.git`、`node_modules`、`dist`、`build`、`.next`、`out`、`coverage`、`.cache`、`.turbo`、`.vite` 等高成本低相关目录。
 - Windows 保留设备名检查需要限量，找到前若干个风险路径即可提示，扫描失败只记录日志。
-- 桌面端 `desktop-continuous` 与手机远控 `web-remote-replayable` 的 realtime 边界不变；本修复只调用已有 workspace-scoped release API，不新增 replay/snapshot 行为。
+- 桌面端 `desktop-continuous` 与远程 workspace `web-remote-replayable` 的 realtime 边界不变；本修复只调用已有 workspace-scoped release API，不新增 replay/snapshot 行为。
 
 ## Windows 保留设备名规则
 

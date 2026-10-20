@@ -4,7 +4,7 @@
 
 `ExitPlanMode` 的计划既可能一次性完成，也可能通过 tool input 流式增长。主时间线使用紧凑计划卡片展示摘要；点击卡片或右上角展开按钮后，在 Side Pane 打开完整计划。主时间线不再原地展开，也不保留底部“展开计划”按钮。
 
-计划详情只是同一父会话投影的只读视图，不创建 session、Agent runtime、owner、lease 或 command queue。桌面 Electron 与桌面 Web 读取既有 `desktop-continuous` 投影；手机 Web 仍只读取既有 `web-remote-replayable` snapshot/gap 恢复结果，不新增远控链路。
+计划详情只是同一父会话投影的只读视图，不创建 session、Agent runtime、owner、lease 或 command queue。桌面 Electron 与桌面 Web 读取既有 `desktop-continuous` 投影；窄视口 仍只读取既有 `web-remote-replayable` snapshot/gap 恢复结果，不新增远控链路。
 
 ## 已确认产品语义
 
@@ -22,8 +22,8 @@
 - assistant 轮尾动作栏的“复制”按本轮聚合：先复制全部 assistant 正文段，再追加同轮所有 `ExitPlanMode` 的完整 Markdown；不读取卡片裁切 DOM，也不包含其他工具结果。卡片自身的复制按钮仍只复制该计划。
 - 右上角摘要新增独立“计划”分区，只列出当前有效 conversation 分支中已经进入 `success`、`error` 或 `cancelled` 终态且含有正文的 `ExitPlanMode`；流式、运行中和等待审批状态不进入目录。
 - 计划目录按 `rowId` 从新到旧排序。点击目录项与点击时间线卡片一致，复用同一个 `(workspaceKey, parentSessionId, toolCallId)` Side Pane tab。
-- 手机端沿用既有 Side Pane 抽屉；核心入口不因窄屏消失。
-- 手机远控专用 `V4ChatPane` 必须与桌面 `V4WorkspaceChatArea` 一样接收
+- 远程 workspace沿用既有 Side Pane 抽屉；核心入口不因窄屏消失。
+- 远程 workspace专用 `V4ChatPane` 必须与桌面 `V4WorkspaceChatArea` 一样接收
   `onOpenPlanDetail`；点击卡片或“查看完整计划”后只更新 renderer Side Pane 状态，
   不发送 task command，也不改变 `web-remote-replayable` 恢复链路。
 
@@ -111,7 +111,7 @@ ExitPlanMode terminal / row.removed / snapshot
 | S06  | 完整 `ExitPlanMode` 计划                          | 卡片紧凑显示“计划”和复制，不显示行数；卡片/底部“查看完整计划”胶囊按钮打开同一详情 tab；无反馈按钮                           | accepted |
 | S07  | `plan` 参数流式增长                               | 首个可解析片段即显示卡片，不展示流式计数动画；已打开详情同步增长并在终态一致                                                | accepted |
 | S08  | 同一父任务有多个历史计划                          | 每个 `toolCallId` 独立 tab；重复点击同一计划复用；切任务隐藏/恢复且不串 workspace                                           | accepted |
-| S09  | Electron、桌面 Web、手机 Web、明暗主题与中英文    | 共享卡片和 Side Pane 语义；手机复用既有 replayable 投影与抽屉，不另起 runtime                                               | accepted |
+| S09  | Electron、桌面 Web、窄视口、明暗主题与中英文      | 共享卡片和 Side Pane 语义；手机复用既有 replayable 投影与抽屉，不另起 runtime                                               | accepted |
 | S10  | 普通助手回复与 `ExitPlanMode` 已持久化后重启      | canonical `assistant_response` 仍按 UI/transcript 可见语义恢复；计划 tool row 保留完整 `plan` 并以只读 interrupted 历史展示 | accepted |
 | S11  | 同一轮存在 assistant 正文与 `ExitPlanMode`        | 轮尾复制内容为全部 assistant 正文后追加完整计划 Markdown；不受卡片裁切影响，不混入其他工具结果                              | accepted |
 | S12  | 计划后仍有 assistant、tool 或 reasoning 输出      | 计划卡片保持在原 `ExitPlanMode` row；“已工作”展开顺序等于 CLI row 全序，不固定到当前轮底部                                  | accepted |

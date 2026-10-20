@@ -167,7 +167,7 @@ describe("RemoteSyncActions", () => {
     ).toBe(false);
   });
 
-  it("hides remote sync actions in Web remote replayable contexts", async () => {
+  it("hides remote sync actions in 远程 workspace replayable contexts", async () => {
     const { shouldShowRemoteSyncActions } = await import("@/settings/RemoteSyncActions.js");
 
     expect(

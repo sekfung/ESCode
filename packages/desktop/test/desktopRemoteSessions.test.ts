@@ -792,7 +792,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     }
   });
 
-  it("手机与 Bot runtime 都 attachment 到同一个窗口 Local Host", async () => {
+  it("远程 workspace 与 Bot runtime 都 attachment 到同一个窗口 Local Host", async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const manager = createManager(new Map([[101, child]]));
@@ -863,7 +863,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     confirmLatestScopedAttachment(manager, win);
   });
 
-  it("连接断开后保留离线路由供 tab dispose，但禁止 reload、手机和 Bot 重新 attachment", async () => {
+  it("连接断开后保留离线路由供 tab dispose，但禁止 reload、远程 workspace 和 Bot 重新 attachment", async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const manager = createManager(new Map([[101, child]]));
@@ -928,8 +928,8 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     );
   });
 
-  it("新建连接未带 context 时，手机桥接必须等 UI 绑定选中目录后才能通过 identity 校验", async () => {
-    // 回归锁定（3.12.0 手机远控连不上 WSL 项目）：新建连接不带 context，Host descriptor 停留在 "/"，
+  it("新建连接未带 context 时，远程 workspace 桥接必须等 UI 绑定选中目录后才能通过 identity 校验", async () => {
+    // 回归锁定（3.12.0 远程 workspace连不上 WSL 项目）：新建连接不带 context，Host descriptor 停留在 "/"，
     // identity 由解析后的 target 生成；UI tab 用未解析 target 生成的 identity 与之不同。
     // BindRemoteWorkspaceSessionContext 是唯一能让 descriptor 与 tab 对齐的入口，缺了它桥接必然被拒。
     const child = new MockUtilityProcess(1001);

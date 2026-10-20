@@ -166,7 +166,7 @@ Electron App（单实例）
 └─ macOS CUA Helper.app                    由 launchd 拉起，故意不是子进程
 ```
 
-remote 模式桌面端不新增进程，远端 escode-server 及其 CLI / MCP / pty 全部在远端机器。手机远控桌面端
+remote 模式桌面端不新增进程，远端 escode-server 及其 CLI / MCP / pty 全部在远端机器。远程 workspace桌面端
 不新增进程，也不参与本 spec。
 
 ### 角色定义（第一期 10 个）
@@ -193,7 +193,7 @@ lane 不是 CLI 协议字段）：`chat` 归 `cli_chat`，`plugin` / `mcp-status
 ### 不采的进程
 
 Bash 短命令（见慢命令方案）、git、node-pty shell、worker_threads（线程，计入宿主进程）、
-没有走 CLI tracker / Bash 执行器的远端子进程、手机远控。`cua_helper` 角色移到二期，原因见「Out of Scope」。
+没有走 CLI tracker / Bash 执行器的远端子进程、远程 workspace。`cua_helper` 角色移到二期，原因见「Out of Scope」。
 
 ## 采集架构
 
@@ -577,7 +577,7 @@ HAVING COUNT(DISTINCT device_mid) >= 100
   落地位置（06）：远端订阅走的是既有的 `escodeAgentConnectionScope` 边界，不新增 services 层代码——
   远端 escode-server 对桌面 Host 的连接是 `trusted-host-relay`（`packages/server` 的 stdio 与
   `escode-server-cli` 的 `/ws/host`），只有该角色能订阅 `onDynamicProcessResourceSample` /
-  `onDynamicMcpTelemetry` / `onDynamicMcpResourceSamples`；renderer 与手机远控 attachment 是 `terminal-client`，拿到 `RpcEvent.None`。
+  `onDynamicMcpTelemetry` / `onDynamicMcpResourceSamples`；renderer 与远程 workspace attachment 是 `terminal-client`，拿到 `RpcEvent.None`。
 - **Host**：资源遥测注册模块统一转发 CLI 样本、MCP 样本、Bash 事件；Host 自身样本复用内存诊断日志的
   60 秒定时器，增加 CPU 差分，一次读数同时写本地日志与发 parentPort 消息。
   落地位置（03）：`desktop/src/host/hostSelfResourceTelemetry.ts` 是 host/index.ts 的唯一入口，
@@ -602,7 +602,7 @@ HAVING COUNT(DISTINCT device_mid) >= 100
   - `packages/ui/src/lib/memoryDiagnostics.ts` 的 `startMemoryDiagnosticsLogger` 新增
     `reportHeapSample` 注入点，在写盘门控之前调用；桥抛错只丢这条遥测样本，本地日志照旧写出
   - `IPlatformService.reportRendererHeapSample`（`packages/shared/src/platform.ts`）是 UI 唯一的出口，
-    由 `App.tsx` 注入给采样器；desktop 在 `desktopPlatform.ts` 接 preload 桥，Web 与手机远控不实现
+    由 `App.tsx` 注入给采样器；desktop 在 `desktopPlatform.ts` 接 preload 桥，Web 与远程 workspace不实现
   - `PlatformChannels.ReportRendererHeapSample` + `rendererHeapSampleSchema`（`strict`，只有 `heapUsedKb`）；
     preload 只暴露 `ipcRenderer.send`，不提供 invoke
   - `desktop/src/main/processResourceRendererHeapSource.ts`：来源注册表第四行，同时是该通道的 main 侧
@@ -683,7 +683,7 @@ HAVING COUNT(DISTINCT device_mid) >= 100
    `hostAgentResourceTelemetry.test.ts`、`hostMemoryDiagnosticsLog.test.ts`。
    collection 级接线（06）用同一个缝再高一层：往真实 `ServiceCollection` 里注册一个只实现两个
    `onDynamic*` 的 Agent service 桩，断言订阅数、转发消息的 `runtimeSurface` 与 dispose 后不再转发；
-   手机远控用真实 `windowHostAttachmentRegistry` + 真实 `createESCodeAgentConnectionScope` 建 attachment，
+   远程 workspace用真实 `windowHostAttachmentRegistry` + 真实 `createESCodeAgentConnectionScope` 建 attachment，
    断言 attachment 侧拿不到样本、底层订阅数不变。先例：`hostServiceResourceTelemetry.test.ts`。
 4. **renderer 缝**：伪造 `performance.memory` 与 preload 桥。先例：UI 的 memoryDiagnostics 与 logger 单测。
 5. **E2E 缝**：开发态 1 分钟窗口，用现有 `ReadFinalArmsCustomEventsE2E` 通道读取 main 侧最终
@@ -726,9 +726,9 @@ HAVING COUNT(DISTINCT device_mid) >= 100
 | PRT-025 | 旧格式 CLI 样本（无新字段）                                                                                          | services 解析                    | 通过校验并分发                                                                                                                          | unit           | [x] 通过；[compat][prt-compat]                             |
 | PRT-026 | 三个事件的属性 key                                                                                                   | 白名单校验                       | 无隐私 key；spec / 事件字典属性表与代码白名单逐项一致                                                                                   | unit           | [x] 通过；[contract][prt-contract]                         |
 | PRT-027 | 远端 workspace 的 service collection（Agent service 为远端 escode-server 的 RPC 代理）                               | Host 建立远端连接                | 注册了资源遥测订阅，CLI 样本与 MCP 事件都以 `runtimeSurface=remote` 送 main                                                             | unit           | [x] 通过；[remote][prt-remote]                             |
-| PRT-028 | 同一份远端 collection 上再建立 `web-remote-replayable` attachment                                                    | attach 手机远控                  | attachment 侧订阅资源样本得到空事件，底层订阅数不变，转发给 main 的仍只有 Host 那一条                                                   | unit           | [x] 通过；[remote][prt-remote]                             |
+| PRT-028 | 同一份远端 collection 上再建立 `web-remote-replayable` attachment                                                    | attach 远程 workspace            | attachment 侧订阅资源样本得到空事件，底层订阅数不变，转发给 main 的仍只有 Host 那一条                                                   | unit           | [x] 通过；[remote][prt-remote]                             |
 | PRT-029 | 已订阅的远端连接                                                                                                     | 释放 connection handle           | 两条订阅随之释放（重复 dispose 幂等），后续样本不再转发；缺 Agent service 或单条订阅抛错时不订阅、不抛错                                | unit           | [x] 通过；[remote][prt-remote]                             |
-| PRT-030 | 真实远端 workspace（SSH / WSL / Docker / Server）+ 开发态 1 分钟窗口                                                 | 连接后停留 90 秒                 | E2E 通道读到 `runtime_surface=remote` 的 `cli_chat` 事件，`platform` / `arch` 为远端机器的值；手机远控接入时不出现重复事件              | 手工           | [ ] 真实远端手工待补；仅订阅 UT 通过；[remote][prt-remote] |
+| PRT-030 | 真实远端 workspace（SSH / WSL / Docker / Server）+ 开发态 1 分钟窗口                                                 | 连接后停留 90 秒                 | E2E 通道读到 `runtime_surface=remote` 的 `cli_chat` 事件，`platform` / `arch` 为远端机器的值；远程 workspace接入时不出现重复事件        | 手工           | [ ] 真实远端手工待补；仅订阅 UT 通过；[remote][prt-remote] |
 
 [prt-desktop]: ../../packages/desktop/test/desktopResourceTelemetry.test.ts
 [prt-system]: ../../packages/desktop/test/desktopResourceSystemWindow.test.ts
@@ -817,7 +817,7 @@ SSH/WSL/Docker 保留原订阅路径。旧 Server 的通用 RPC 未知事件行�
   建议单独评估替换为 tasklist。
 - 稳定性事件（perf_crash、perf_anr、perf_process_exit 等）、数据目录体积事件、网络事件不变。
 - 本地 `[memory]` 诊断日志的行格式与领域计数器不变。
-- 手机远控与 Web 端不参与。
+- 远程 workspace与 Web 端不参与。
 - ARMS 控制台自身的告警配置。
 
 ## Further Notes

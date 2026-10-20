@@ -418,7 +418,7 @@ export function V4InteractionDialogs({
             removeElicitationDraft(pending.interactionId);
             if (isExitPlanMode) {
               // Plan 回执 ACK 与 replayable pending 清场是两条异步路径。
-              // 这里只上报已接受的 Plan interaction，由手机 pane 在仍读到旧权威状态时触发恢复。
+              // 这里只上报已接受的 Plan interaction，由远程 workspace pane 在仍读到旧权威状态时触发恢复。
               onPlanInteractionAccepted?.(pending.interactionId);
             }
           });

@@ -170,7 +170,7 @@ stdin/stdout/stderr、exit/kill/chdir，以免破坏 MCP stdio 或关闭 child�
 
 ## 5. 多端与 workspace 边界
 
-- MCP child 是当前 Agent session 的执行 runtime，不是手机端独立 Agent runtime/local host。
+- MCP child 是当前 Agent session 的执行 runtime，不是远程 workspace独立 Agent runtime/local host。
 - desktop `desktop-continuous` 与手机 `web-remote-replayable` 继续共享既有 host attachment 和
   BrowserControlPort；本轮不新增 task event、snapshot、queue 或 replay 状态。
 - `workspaceIdentity` / `remoteSessionId` / `clientMode` 仍由 ProtocolBrowserControlBroker 根据 session
@@ -240,5 +240,5 @@ stdin/stdout/stderr、exit/kill/chdir，以免破坏 MCP stdio 或关闭 child�
 仍需实机补验：
 
 - ESCode Dev IAB 的真实 navigate + DOM snapshot（本轮完成 broker 集成测试，未用 mock 结果冒充真机）。
-- Windows named pipe、手机 Web remote、SSH/WSL/Docker remote workspace 回归。
+- Windows named pipe、窄视口 remote、SSH/WSL/Docker remote workspace 回归。
 - SEA 与 Electron 三平台安装包的启动级 smoke；当前只有资产收集与 bundle contract 自动化。

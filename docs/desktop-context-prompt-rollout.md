@@ -124,9 +124,9 @@ app.whenReady
 ## 5. 多端 / 边界兼容
 
 - **桌面端**：gate 仅在 desktop main 进程；Local 与 Remote(SSH/WSL/Docker) 共享同一 first-only latch。
-- **Web / 手机端**：无 host fork，不受影响。手机 `/remote` 通过 shared-host attachment 连接桌面已存在的
+- **Web / 远程 workspace**：无 host fork，不受影响。手机 `/remote` 通过 shared-host attachment 连接桌面已存在的
   Local/Remote Host，继承该 Host 创建时的裁决——这正是 gate 要保证"首 Host 裁决正确"的价值。
-- **Web 远控保护**：gate 不下沉任何 session/task/stream 状态到 relay/main；只是 main 进程内一次性 await。
+- **远程 workspace保护**：gate 不下沉任何 session/task/stream 状态到 relay/main；只是 main 进程内一次性 await。
   不影响 `continuous`（桌面）与 `replayable`（手机）链路边界。
 
 ## 6. 测试覆盖索引

@@ -239,7 +239,7 @@ export const concepts: Concept[] = [
     kind: "protocol",
     summary: "Session 事件日志的单调递增序号，是 replayable 恢复和 gap 检测的水位。",
     lifecycle:
-      "每个 session 独立递增；desktop continuous 可实时消费，web remote replayable 必须用 afterSeq 补齐。",
+      "每个 session 独立递增；desktop continuous 可实时消费，远程 workspace replayable 必须用 afterSeq 补齐。",
     owner: "agent server",
     source: "packages/shared/src/escode-protocol/index.ts#escodeEventEnvelopeSchema",
     aliases: ["seq"],
@@ -323,7 +323,7 @@ export const concepts: Concept[] = [
     kind: "runtime",
     summary:
       "手机远控 replayable 链路的 stream mirror 批次。字段名 runId 保留兼容，但语义上对应当前 input/mirror run。",
-    lifecycle: "host 记录运行中流式 op；web remote 用 batchSeq/fromSeq/toSeq 恢复缺口。",
+    lifecycle: "host 记录运行中流式 op；远程 workspace 用 batchSeq/fromSeq/toSeq 恢复缺口。",
     owner: "host runtime",
     source: "packages/shared/src/escode-task-types.ts#TaskStreamMirrorBatch",
     related: ["inputId", "activeInputId", "deliveryKind", "eventSeq"],
@@ -1044,7 +1044,7 @@ export const flows: FlowStep[] = [
   {
     id: "remote-replay",
     title: "远控恢复",
-    actor: "web remote",
+    actor: "remote workspace",
     detail:
       "web-remote-replayable 使用 snapshot + afterSeq + mirror batch 恢复。legacy runId 字段按 inputId 语义处理。",
     conceptIds: ["deliveryKind", "eventSeq", "taskStreamMirrorBatch"],

@@ -6,7 +6,7 @@ import {
   type RemoteTarget,
 } from "@escode/shared";
 
-describe("session_create 手机合同", () => {
+describe("session_create 远程 workspace 合同", () => {
   const event = {
     elementName: "session_create",
     eventRegion: "app",
@@ -25,7 +25,7 @@ describe("session_create 手机合同", () => {
       remote_kind: "",
     },
   };
-  it("只允许手机 session_create，保留手机 context", () => {
+  it("只允许远程 workspace session_create，保留其 context", () => {
     expect(
       sessionCreateTelemetrySchema.safeParse({ ...event, elementName: "send_btn" }).success,
     ).toBe(false);

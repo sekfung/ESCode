@@ -26,7 +26,7 @@
 | Change layer     | persistence / recovery                                                       |
 | Operating mode   | planning                                                                     |
 | Primary seeds    | `createWindow`、`createBrowserWindow`、`AppSettings`、`createSettingService` |
-| Out of scope     | 窗口位置、多窗口独立尺寸、辅助窗口、Web/手机端                               |
+| Out of scope     | 窗口位置、多窗口独立尺寸、辅助窗口、Web/远程 workspace                       |
 
 | User scenario  | UI entry                           | Display owner            | Commit action                         | Authority/persistence                          | Mode boundary                                |
 | -------------- | ---------------------------------- | ------------------------ | ------------------------------------- | ---------------------------------------------- | -------------------------------------------- |

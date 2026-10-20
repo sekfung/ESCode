@@ -358,7 +358,7 @@ describe("reconnectRemoteWorkspaceHistoryEntry", () => {
   });
 
   it("canonical path 与历史记录不一致时，先重新绑定 main context 再回填 tab", async () => {
-    // Bugfix 回归：手机桥接用 tab 上的 canonical path/identity 比对 main descriptor，
+    // Bugfix 回归：远程 workspace 桥接用 tab 上的 canonical path/identity 比对 main descriptor，
     // 重连时 descriptor 只有历史记录里的旧路径，realpath 归一化后不同就必须 bind，否则桥接被拒。
     const target = { kind: "docker" as const, container: "demo" };
     const sessionEntry = createRemoteWorkspaceSessionEntry({
@@ -1075,9 +1075,9 @@ describe("selectRemoteWorkspaceProjectFromDialog", () => {
   });
 
   it("提交 connected 历史与 addTab 之前，先把 canonical context 绑定到 main 的 logical session", async () => {
-    // Bugfix 回归（3.12.0 手机远控连不上 WSL 项目）：新建连接不带 context，main descriptor 停留在 "/"，
+    // Bugfix 回归（3.12.0 远程 workspace连不上 WSL 项目）：新建连接不带 context，main descriptor 停留在 "/"，
     // 且 UI 用未解析的 {kind:"wsl"} 算出的 identity 与 Host 用解析后 target 算出的不同。
-    // 选目录后必须把 tab 将要使用的 path/identity 绑定回 main，手机桥接的三元校验才能通过。
+    // 选目录后必须把 tab 将要使用的 path/identity 绑定回 main，远程 workspace 桥接的三元校验才能通过。
     const connectionTarget = { kind: "wsl" as const };
     const workspacePath = "/home/dev";
     const workspaceIdentity = buildRemoteWorkspaceIdentity(workspacePath, connectionTarget);
@@ -1134,7 +1134,7 @@ describe("selectRemoteWorkspaceProjectFromDialog", () => {
   });
 
   it("main 绑定 canonical context 失败时回收 session，不落库也不建 tab", async () => {
-    // descriptor 与 tab 不一致的 session 正是手机桥接被拒的根源，绑定失败必须 fail-closed。
+    // descriptor 与 tab 不一致的 session 正是远程 workspace 桥接被拒的根源，绑定失败必须 fail-closed。
     const target = { kind: "docker" as const, container: "demo" };
     const workspacePath = "/workspace/demo";
     const bindRemoteWorkspaceSessionContext = vi.fn(async () => {

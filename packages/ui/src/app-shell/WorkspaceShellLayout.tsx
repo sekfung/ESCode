@@ -5,7 +5,6 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
-import type { PanelImperativeHandle } from "react-resizable-panels";
 import { TID_APP_HEADER } from "@escode/shared";
 // 保活：workspace tab 真正关闭时，按 workspaceKey 回收 side pane terminal 的常驻 PTY/xterm。
 // 对称下侧 Terminal.tsx 的 openWorkspaceKeys 回收。
@@ -362,9 +361,10 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   const [draftHeaderDropTargetController, setDraftHeaderDropTargetController] =
     useState<ConversationDropTargetController | null>(null);
   const fileTreeOpenRequestIdRef = useRef(0);
-  const [_fileTreeOpenRequest, setFileTreeOpenRequest] =
-    useState<SidebarFileTreeOpenRequest | null>(null);
-  const [isSidebarFileTreeOpen, _setIsSidebarFileTreeOpen] = useState(false);
+  const [fileTreeOpenRequest, setFileTreeOpenRequest] = useState<SidebarFileTreeOpenRequest | null>(
+    null,
+  );
+  const [isSidebarFileTreeOpen, setIsSidebarFileTreeOpen] = useState(false);
   const workspaceKey = workspaceIdentity?.trim() || workspaceAbsPath;
   const screenshotSurfaceRequest = useBrowserScreenshotSurfaceRequest(sidePaneState?.tabs ?? []);
   const screenshotSurfaceTab = screenshotSurfaceRequest
@@ -431,8 +431,6 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     rememberExpandedSize: true,
     resizeOnInitialVisibleMount: false,
   });
-  const mobileSidePanePanelRef = useRef<PanelImperativeHandle | null>(null);
-  const mobileSidePanePanelElementRef = useRef<HTMLDivElement | null>(null);
   const workspaceSessionActionDisabled =
     Boolean(workspaceReadOnlyReason) || reloadSessionDisabled || reloadSessionPending;
   // 修复原因：文件树打开时任务列表整屏滑出，侧栏里的 New Task 入口也随之不可见。
@@ -1423,7 +1421,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       });
     }
   }, [activeTaskId, workspaceKey]);
-  const renderSidePanePanel = (options: { mobileOverlay?: boolean } = {}) => (
+  const renderSidePanePanel = () => (
     <AnimatedSidePanePanel
       services={services}
       isDesktop={isDesktop}
@@ -1437,8 +1435,8 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
         supportsNativeRoundedCorners:
           desktopWindowChromeState?.supportsNativeRoundedCorners ?? null,
       })}
-      showWindowControls={!options.mobileOverlay && usesInlineWindowControls}
-      isVisible={options.mobileOverlay ? isSidePaneOpen : isSidePaneVisible}
+      showWindowControls={usesInlineWindowControls}
+      isVisible={isSidePaneVisible}
       onCloseSidePane={handleToggleSidePane}
       toggleSidePaneShortcutLabel={toggleSidePaneShortcutLabel}
       sidePaneState={sidePaneState}
@@ -1453,14 +1451,12 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       sidePaneOwnerId={sidePaneOwnerId}
       gitState={gitState}
       activeGitSourceId={activeGitSourceId}
-      panelRef={options.mobileOverlay ? mobileSidePanePanelRef : sidePanePanelRef}
-      panelElementRef={
-        options.mobileOverlay ? mobileSidePanePanelElementRef : sidePanePanelElementRef
-      }
+      panelRef={sidePanePanelRef}
+      panelElementRef={sidePanePanelElementRef}
       browserNavigationRequest={browserNavigationRequest}
       browserRestoreUrls={browserRestoreUrls}
-      screenshotSurfaceRequest={options.mobileOverlay ? null : screenshotSurfaceRequest}
-      screenshotSurfaceTabId={options.mobileOverlay ? null : (screenshotSurfaceTab?.id ?? null)}
+      screenshotSurfaceRequest={screenshotSurfaceRequest}
+      screenshotSurfaceTabId={screenshotSurfaceTab?.id ?? null}
       fileChangeFindActiveIndex={fileChangeFindActiveIndex}
       fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
       fileChangeFindQuery={fileChangeFindQuery}
@@ -1498,7 +1494,6 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       onBrowserUrlChange={handleBrowserUrlChange}
       onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
       onSelectGitSource={setGitSelectedSourceId}
-      mobileOverlay={options.mobileOverlay}
     />
   );
   const sidePanePanel = renderSidePanePanel();
@@ -1509,7 +1504,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     updateState?.kind === "update-downloaded";
   // 修复原因：Draft 之前维护一套独立轻量 header，导致 side pane、caption 安全区和拖拽入口
   // 与 Task Header 分叉。桌面端统一复用 WorkspaceHeader，只由 variant 裁剪 task 专属内容；
-  // 手机远控无 active task 时仍不渲染桌面 chrome，继续遵守 replayable overlay 边界。
+  // 远程 workspace无 active task 时仍不渲染桌面 chrome，继续遵守 replayable overlay 边界。
   const shouldRenderMainViewHeader =
     workspaceMainView !== "automations" &&
     workspaceMainView !== "plugin-store" &&
@@ -1528,7 +1523,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     [workspaceKey, isSidebarVisible],
   );
   // 知识库主视图（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：与 automations/plugin-store
-  // 共用桌面拖拽条 + 面包屑骨架。手机远控不承载该视图，两个主区渲染分支复用同一份 JSX。
+  // 共用桌面拖拽条 + 面包屑骨架。远程 workspace不承载该视图，两个主区渲染分支复用同一份 JSX。
   const renderKnowledgeMainView = () => (
     <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
       <AutomationsMainBreadcrumbFrame
@@ -1560,7 +1555,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   return (
     // 完成卡上那两个壳级落点（docs/dynamic-workflow/transcript-and-notifications.md「Saving the
     // run, and running it again」）：芯片开到中枢那一页、「再次运行」启动后切到新会话。只包桌面
-    // 这一支——手机远控壳本来就不提供中枢，那边芯片是纯文字。
+    // 这一支——远程 workspace壳本来就不提供中枢，那边芯片是纯文字。
     <SavedWorkflowHubProvider
       openWorkflow={handleOpenSavedWorkflowInHub}
       navigateToRun={handleNavigateToLaunchedRun}
@@ -1615,7 +1610,6 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                   <WorkflowRunOpenProvider onOpenRun={handleOpenSidebarWorkflowRun}>
                     <WorkspaceSidebar
                       workspacePath={workspaceAbsPath}
-                      workspaceRemoteSessionId={workspaceRemoteSessionId}
                       activePreviewPath={activePreviewPath}
                       onSelectTask={handleSelectTaskInChat}
                       onStartDraftInWorkspace={handleCreateProjectDraft}
@@ -1623,6 +1617,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                       onOpenBrowserUrl={handleOpenBrowserUrl}
                       onCreateTask={handleCreateTaskInChat}
                       onCreateConversationTask={onCreateConversationTask ?? handleCreateTaskInChat}
+                      fileTreeOpenRequest={fileTreeOpenRequest}
                       onOpenFolderFromWorkspaceMenu={onOpenFolderFromWorkspaceMenu}
                       onOpenRemoteWorkspace={onOpenRemoteWorkspace}
                       theme={theme}
@@ -1652,6 +1647,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                       goForwardShortcutLabel={goForwardShortcutLabel}
                       onOpenCommandCenter={handleOpenCommandCenter}
                       onOpenAutomations={handleOpenAutomations}
+                      onFileTreeOpenChange={setIsSidebarFileTreeOpen}
                       automationsActive={workspaceMainView === "automations"}
                       onOpenPluginStore={handleOpenPluginStore}
                       pluginStoreActive={workspaceMainView === "plugin-store"}

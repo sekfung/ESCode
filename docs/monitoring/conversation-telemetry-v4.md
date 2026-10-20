@@ -16,7 +16,7 @@
 
 非目标：
 
-- Web/手机端实际网络上报。
+- Web/远程 workspace实际网络上报。
 - initial snapshot、cold hydration、gap recovery 或历史 transcript 的补报。
 - 修正旧版固定零值、空字符串、负值钳制和 stop-without-terminal 等历史口径。
 - 把 telemetry 状态写入 conversation rows、snapshot、relay 或 main 进程。
@@ -330,5 +330,5 @@ ACK 与 live telemetry fact 增加可选 boolean `memoryEnabled`；缺失保持 
   使用未修改的 staging gateway 复跑仍得到相同失败。
 - CLI lint 被未修改文件的既有 `max-lines` 错误阻塞。
 - Memory WDIO 的 `before all` 未能选择 Full access/yolo 模式，未到新增埋点断言；
-  不能把本次运行作为桌面开/关埋点的端到端通过证据。手机远控未进行新增实机验证，
+  不能把本次运行作为桌面开/关埋点的端到端通过证据。远程 workspace未进行新增实机验证，
   原有 reporter 的 desktop-continuous 边界保持不变。

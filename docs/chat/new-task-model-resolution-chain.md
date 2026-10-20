@@ -104,7 +104,7 @@ draft pane mount
 ## 多端边界
 
 桌面和手机附着到同一 shared-host/CLI session 事实。区别只在 topic delivery：桌面是 continuous，
-手机远控是 replayable recovery。relay/main 不创建另一份 draft runtime，也不保存草稿模型或 session
+远程 workspace是 replayable recovery。relay/main 不创建另一份 draft runtime，也不保存草稿模型或 session
 queue。远程链路必须贯穿 `workspaceIdentity` 和 `remoteSessionId`。
 
 ## 当前代码入口

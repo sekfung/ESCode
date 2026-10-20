@@ -100,7 +100,6 @@ export function WorkspaceHeader({
   reserveWindowControls?: boolean;
   windowsWindowControlsRightPaddingPx?: number;
   isDesktop?: boolean;
-  simplifyForNarrowRemote?: boolean;
   isSidebarVisible: boolean;
   isTerminalOpen: boolean;
   isSidePaneOpen: boolean;

@@ -347,7 +347,7 @@ export function KnowledgeSettingsSection(target: WikiKnowledgeTarget) {
               {t("settings.knowledge.truncated", { count: nodes.length })}
             </div>
           ) : null}
-          {/* 桌面：图谱与详情左右并排；手机宽度：上下布局（spec §11）。 */}
+          {/* 桌面：图谱与详情左右并排；窄视口：上下布局（spec §11）。 */}
           <div className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="h-[360px] overflow-hidden rounded-xl border border-border bg-background sm:h-[520px]">
               {nodes.length === 0 ? (

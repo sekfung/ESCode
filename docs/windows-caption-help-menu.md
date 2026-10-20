@@ -43,7 +43,7 @@ ESCODE_ENV=production ESCODE_PREVIEW_IDENTITY=0 ESCODE_E2E_HELP_MENU_FLAVOR=prod
 ESCODE_ENV=test ESCODE_PREVIEW_IDENTITY=1 ESCODE_E2E_HELP_MENU_FLAVOR=preview pnpm --filter @escode/desktop test:e2e -- --spec ./test/e2e/help-menu-about.test.ts
 ```
 
-两次身份切换必须重新构建；不设置 skip build。手机 Web 的入口隐藏仍由现有组件单测覆盖，本轮不声称新增手机浏览器 E2E。
+两次身份切换必须重新构建；不设置 skip build。窄视口 的入口隐藏仍由现有组件单测覆盖，本轮不声称新增手机浏览器 E2E。
 
 2026-09-16 macOS arm64 验证：production / Preview 各 4/4 通过。production 完整构建后因宿主中断及测试定位修正，最终使用同一产物重跑；Preview 切换身份后重新构建 App，复用未改动的 Agent 产物。
 

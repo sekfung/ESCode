@@ -52,20 +52,20 @@ warmup / createSession / sendText → workspace startup Promise → ready → �
 Renderer：未提交草稿 + pending optimistic overlay
 ```
 
-- 桌面默认 direct continuous；手机远控默认 replayable。桌面不拼接手机的运行态恢复消息，手机不绕过 replayable gap/snapshot 恢复。
+- 桌面默认 direct continuous；远程 workspace默认 replayable。桌面不拼接手机的运行态恢复消息，手机不绕过 replayable gap/snapshot 恢复。
 - 修改 `getTaskSnapshot`、dynamic task event、stream mirror、runtime snapshot、queued prompt、task command、permission/elicitation、stop generation 或重连恢复时，显式传递/核对 `clientMode`、`deliveryKind`。
 - 已提交的 busy/running 输入统一由 CLI/runtime `CommandInbox` 接收，FIFO 以 CLI 串行 admission 顺序为准。Host 的 owner/lease 仅路由，不重新保存第二份 accepted input queue；command 保留可信 attachment 注入的 clientMode。
 - owner/lease/owner command 仍负责运行中 task 单 owner、跨 host 路由、阻塞请求响应、stale run 防护。不能仅因 shared-host 主路径存在就删除判断；变更需证明 remote workspace、bot/proxy、跨 host fallback 的依赖均已处理。
 
-修改上述远控/实时行为前，按问题读取以下当前事实文档；历史 plan/spec 仅作背景：
+修改上述远程/实时行为前，按问题读取以下当前事实文档；历史 plan/spec 仅作背景：
 
-- [远控架构](../web-remote-control/web-remote-control-architecture.md)：attachment、进程职责与远程工作区。
-- [实时同步](../web-remote-control/task-realtime-sync.md)：continuous/replayable、snapshot、gap 和重连。
-- [输入队列](../web-remote-control-task-command-queue.md)：CommandInbox、admission 与跨端 command 路由。
+- [远程 workspace 实时边界](../remote/wsl-remote-realtime-boundary.md)：attachment、进程职责与远程工作区。
+- [Window Controller](../specs/rust-u2-window-controller.md)：continuous/replayable、snapshot、gap 和重连。
+- [会话协议](../specs/conversation-generation-speed.md)：CommandInbox、admission 与跨端 command 路由。
 
 ## 运行时证据
 
 - RPC 通道使用 [LoggingChannelServer / LoggingChannelClient](../../packages/rpc/src/logging-middleware.ts) 记录频道、命令和耗时；优先利用已有日志定位调用链。
 - Agent session 轨迹在 `~/.escode/cli/rollout` 或 `~/.escode/cli/debug`，CLI 日志在 `~/.escode/cli/log`。
 - 界面复现优先使用 agent-browser；失败时可直接 CDP 调试，开发默认端口为 9229，连接前核实实际监听端口。
-- 验证分别覆盖受影响的桌面本地和手机远控路径，记录 owner、事件顺序、identity 和 delivery 边界证据；必要环境缺失按根 AGENTS.md 的阻塞规则处理。
+- 验证分别覆盖受影响的桌面本地和远程 workspace路径，记录 owner、事件顺序、identity 和 delivery 边界证据；必要环境缺失按根 AGENTS.md 的阻塞规则处理。

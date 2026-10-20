@@ -115,4 +115,4 @@ MR 中存在一处与 hook trust 非同域但有逻辑耦合的 v4 改动，在�
 - 已有 escode.json/.escode/config.json 的用户升级后：项目 hook 从"被安全策略忽略"变为
   "待信任软门禁"，首次会在设置页看到逐条信任入口——行为变化符合预期且有 banner 引导。
 - 桌面 continuous 与手机 replayable 链路：trust 判定在共享 runtime/services 层完成，
-  未改动 stream/snapshot/队列/owner 语义；手机端走同一 review RPC 与同一 trust store。
+  未改动 stream/snapshot/队列/owner 语义；远程 workspace走同一 review RPC 与同一 trust store。

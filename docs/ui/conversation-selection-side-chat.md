@@ -21,7 +21,7 @@
 catalog 之外包装注入，不修改 CLI 命令目录；若 CLI 返回同名命令，以 CLI 为准隐藏并不消费 App
 命令。草稿态（尚未创建 session）、辅助对话自身 composer、只读与手机 viewport 均不提供这两个命令。
 
-手机端不注册框选入口；“更多详情”不属于本功能。副屏用于解释和轻量探索，允许正常工具、
+远程 workspace不注册框选入口；“更多详情”不属于本功能。副屏用于解释和轻量探索，允许正常工具、
 文件修改与权限交互，但不提供 goal、edit/retry 或 fork。
 
 ## Clarification log
@@ -38,7 +38,7 @@ catalog 之外包装注入，不修改 CLI 命令目录；若 CLI 返回同名�
 | 能力限制            | 副屏正常发送、compact、工具和权限交互；协议与 UI 同时禁止 goal、edit/retry、fork                                                                                                                                                                                                                                  |
 | assistant 选区      | completed 与 streaming assistant 正文、Markdown 和代码均允许框选；动作发生时冻结选中文字，后续 delta 不改写引用                                                                                                                                                                                                   |
 | 发送载荷            | 新发送使用 `# userselect:` / `userselect` 结构块，数组元素只保留 `{ text }`；来源字段仅用于发送前去重，旧完整结构块继续只读兼容                                                                                                                                                                                   |
-| 固定入口            | 空面板启动页与顶部 `+` 菜单均提供“辅助对话”；每次点击新建 tab；主任务 running/blocked 时仍可用，无 active task 与手机端隐藏                                                                                                                                                                                       |
+| 固定入口            | 空面板启动页与顶部 `+` 菜单均提供“辅助对话”；每次点击新建 tab；主任务 running/blocked 时仍可用，无 active task 与远程 workspace隐藏                                                                                                                                                                               |
 | `/side` `/btw` 命令 | App 层斜杠命令与等价别名，渲染层在 CLI catalog 之外注入，不改 CLI（CLI 同名时以 CLI 为准）；裸命令选中即新建空辅助 tab 并移除 token，带文字参数时提交 child 首条消息；附件/结构化上下文不消费；草稿态、辅助对话自身、只读、手机不提供；描述文案随 locale 中英文适配，搜索关键词同时匹配 `side`/`btw` 与“辅助对话” |
 | 多开路由            | 同一父任务可同时打开多个辅助对话；划词追加到当前激活的辅助 tab，当前激活项不是辅助对话时新建并激活                                                                                                                                                                                                                |
 | 历史可见性          | 父历史继续作为 provider context，但 child timeline、搜索、分页、轮次导航和可见 row count 均从空白开始                                                                                                                                                                                                             |
@@ -236,7 +236,7 @@ relay / desktop main 仅鉴权、attachment 调度与 rpc-frame 透传
 | SSC08 | 手动关闭/关闭其他/全部                                              | runtime 关闭、tab 移除、不进最近关闭                                                                            | accepted                                                                                          |
 | SSC09 | 应用重启                                                            | 不恢复 tab；再次框选创建新 child                                                                                | accepted                                                                                          |
 | SSC10 | 切换主任务再切回                                                    | 按父任务隐藏/恢复，不串 session、workspace 或草稿                                                               | accepted                                                                                          |
-| SSC11 | 跨行、超限、控件文字、手机端                                        | 不创建 session；超限给出本地化提示                                                                              | accepted                                                                                          |
+| SSC11 | 跨行、超限、控件文字、远程 workspace                                | 不创建 session；超限给出本地化提示                                                                              | accepted                                                                                          |
 | SSC12 | 远程同路径不同 identity                                             | 精确绑定 shared host，不串远端、不启动独立 runtime                                                              | accepted                                                                                          |
 | SSC13 | 副屏多轮工具与权限请求                                              | 正常执行并阻塞交互，但不进入任务列表                                                                            | accepted                                                                                          |
 | SSC14 | 添加到当前任务并连续框选                                            | 主 composer 保留草稿、累加 chips；新块只持久化 `{ text }`，旧块可读                                             | accepted                                                                                          |
@@ -245,7 +245,7 @@ relay / desktop main 仅鉴权、attachment 调度与 rpc-frame 透传
 | SSC17 | completed/streaming assistant 正文框选                              | 两个动作均出现；引用冻结为动作时文本，contentType=assistant                                                     | accepted                                                                                          |
 | SSC18 | 启动页或顶部 `+` 点击“辅助对话”                                     | 两处入口语义一致；每次创建并激活新的空 composer                                                                 | accepted                                                                                          |
 | SSC19 | child 继承父历史后首次打开或冷恢复                                  | provider 保留历史；所有 UI timeline/search/page/count 均为空                                                    | accepted                                                                                          |
-| SSC20 | 父任务 running/blocked 时点击固定入口                               | 入口仍可用；无 active task 与手机端不出现                                                                       | accepted                                                                                          |
+| SSC20 | 父任务 running/blocked 时点击固定入口                               | 入口仍可用；无 active task 与远程 workspace不出现                                                               | accepted                                                                                          |
 | SSC21 | 框选浮层显示中英文动作                                              | 约 32px 高、12px 字号；中文统一“辅助对话”术语                                                                   | accepted                                                                                          |
 | SSC22 | 父任务有辅助对话后 fork 到 child                                    | child 展开侧栏显示启动页；切回父任务恢复同一 tab/child/草稿                                                     | accepted                                                                                          |
 | SSC23 | Goal 父任务为 active、paused 或 complete                            | 三类状态均创建 child；保留 provider 正文，不继承 Goal 运行态或 identity                                         | accepted                                                                                          |

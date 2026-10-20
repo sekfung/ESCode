@@ -738,7 +738,7 @@ function CustomRepeatDialog({
                   }}
                 />
                 {/* 原生 number spinner 在系统浏览器与 WebView 的尺寸、主题反馈不一致；
-                    使用受控步进按钮，统一桌面与手机 Web 的点击样式。 */}
+                    使用受控步进按钮，统一桌面与窄视口 Web 的点击样式。 */}
                 <div className="absolute inset-y-px right-px flex w-8 flex-col overflow-hidden rounded-r-[7px] border-l border-input-border bg-input">
                   <button
                     type="button"

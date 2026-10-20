@@ -33,7 +33,7 @@ pub(crate) struct TaskIndexSyncer {
     ingests: Mutex<BTreeMap<String, Arc<Ingest>>>,
     /// 会话摘要基线变化（`window-controller` 的 overlay 刷新触发；消费方按身份键过滤）。
     overlay_changes: tokio::sync::broadcast::Sender<String>,
-    /// 手机 replayable 命令队列：phase 终态时收口当前 input 并放行下一条。
+    /// 远程 workspace replayable 命令队列：phase 终态时收口当前 input 并放行下一条。
     commands: Arc<crate::task_commands::TaskCommandQueue>,
     /// 任务事件总线：终态时投递 complete/error、快照通知与 ready。
     task_events: Arc<crate::task_events::TaskEventHub>,

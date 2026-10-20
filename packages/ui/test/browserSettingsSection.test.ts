@@ -318,7 +318,7 @@ describe("BrowserSettingsSection", () => {
     expect(screen.queryByText("settings.browser.import.successWithSkipped")).toBeNull();
   });
 
-  it("Web/手机端禁用本机浏览器数据操作并展示桌面端提示", () => {
+  it("Web/远程 workspace禁用本机浏览器数据操作并展示桌面端提示", () => {
     renderSection(false);
 
     expect(screen.getByText("settings.browser.desktopOnly")).toBeTruthy();

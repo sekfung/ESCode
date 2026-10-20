@@ -17,7 +17,7 @@
 
 `queue` 是默认行为。桌面和手机已提交的 busy/running 输入都由 CLI/runtime 的
 `CommandInbox` 串行 admission；renderer、host、relay 和 desktop main 都不维护第二份权威
-conversation queue。桌面通过 `desktop-continuous` 直接接收事实，手机 Web 远控通过
+conversation queue。桌面通过 `desktop-continuous` 直接接收事实，远程 workspace通过
 `web-remote-replayable` snapshot/gap 恢复同一组 CLI 事实，两种 delivery profile 不改变消费规则。
 
 队列消费的边界是 session ready，而不是任意单个 timeline 横条完成。`context_compaction`
@@ -67,7 +67,7 @@ guide 在等待合法 model-step 边界期间仍由 CLI `pendingInputs` / `TurnS
 renderer 只做 projection 分流，不维护第二份 accepted-input queue。
 
 待引导消息的气泡、等待提示和操作按钮必须与底部输入框共用内容列及每侧 16px 的水平留白，
-桌面和手机 Web 均保持右边缘对齐。该临时列表直接渲染消息行，不经过普通轮容器，
+桌面和窄视口 均保持右边缘对齐。该临时列表直接渲染消息行，不经过普通轮容器，
 因此列表自身承担水平留白，不能直接贴到内容列边缘。
 
 ```text
@@ -90,7 +90,7 @@ TurnSteerQueued(admitted=guide)
 组合键或修饰键点击只覆盖本次输入，不调用
 `setFollowupMode`，不改写持久设置。普通 `Enter`、`Shift+Enter` 和普通点击发送按钮继续沿用
 当前交互。空闲状态（包括新任务 draft）的 `Cmd/Ctrl+Enter` 与 Enter 一样正常发送；
-`Cmd/Ctrl+Shift+Enter` 保留换行。组合键能力只在手机 Web 远控的移动输入视口禁用；
+`Cmd/Ctrl+Shift+Enter` 保留换行。组合键能力只在远程 workspace的移动输入视口禁用；
 桌面 Electron 即使窗口窄于 768px，或 Windows 设备报告 `hover: none` / `pointer: coarse`，
 仍必须保留平台主修饰键提交，不能用通用媒体查询代替 desktop / Web remote 产品边界。
 
@@ -144,6 +144,6 @@ request，不能按模型名、provider 名或上游协议格式设置 guide 白
 该设置只改变 busy 时是否优先尝试 turn steering，不改变 task realtime 传输语义：
 
 - 桌面主链路仍是 `desktop-continuous`。
-- 手机远控仍是 `web-remote-replayable`。
+- 远程 workspace仍是 `web-remote-replayable`。
 - relay 和 desktop main 不拥有 session、stream、queue 或 snapshot 业务状态。
 - guide/queue 的 CLI 产品 guard 不因 delivery profile 分叉；replayable 只负责恢复，不拥有业务队列。

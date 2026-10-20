@@ -277,7 +277,7 @@ export function normalizeRestoredTaskFailureError(meta: ESCodeTaskMeta): ESCodeU
     return null;
   }
 
-  // Bugfix: 手机 Web 断连恢复时可能只拿到 error snapshot，看不到断连期间的 task_error。
+  // Bugfix: 远程 workspace 断连恢复时可能只拿到 error snapshot，看不到断连期间的 task_error。
   // 没有服务端持久化的 lastError 时不再编造兜底文案，避免展示没有实际根因的错误。
   return normalizeESCodeUiError(meta.lastError, {
     fallbackCode: meta.lastError.code,

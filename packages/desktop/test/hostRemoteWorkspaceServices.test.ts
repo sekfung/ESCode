@@ -165,7 +165,7 @@ describe("remote workspace host service wiring", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps workspace services remote and exposes local global services for Web remote control", () => {
+  it("keeps workspace services remote and exposes local global services for replayable attachment", () => {
     const remoteServices = makeRemoteServices();
     const services = createRemoteWorkspaceServiceCollection({
       clientConfigService,
@@ -249,7 +249,7 @@ describe("remote workspace host service wiring", () => {
         client.getChannel(IOnboardingRecordService.channelName),
       );
       try {
-        // 远程集合曾漏注册通道；即使 owner 已有记录，手机也只能收到 Unknown channel。
+        // 远程集合曾漏注册通道；即使 owner 已有记录，远程 workspace 也只能收到 Unknown channel。
         await record.claimAnonymousRecord();
         await expect(record.shouldOnboard("mobile-device")).resolves.toBe(false);
         await record.dismissOnboarding("mobile-device");
@@ -507,7 +507,7 @@ describe("remote workspace host service wiring", () => {
     expect(services.get(ISettingsSyncService)).toBe(remoteServices.settingsSyncService);
   });
 
-  it("materializes web remote task prompts before the reporting wrapper observes them", async () => {
+  it("materializes replayable task prompts before the reporting wrapper observes them", async () => {
     const hostAttachment = {
       kind: "file",
       filename: "pasted.txt",

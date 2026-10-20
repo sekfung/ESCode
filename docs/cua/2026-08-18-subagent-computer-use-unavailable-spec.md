@@ -6,7 +6,7 @@
 验证的官方 CUA server，不按工具名称或 display name 猜测，因此第三方 MCP 不受影响。
 
 主 Agent 继续使用 canonical `mcp__computer-use__*` 及兼容 alias；桌面
-`desktop-continuous`、Web 远控 `web-remote-replayable`、Host、UI 和协议 schema 均不变。
+`desktop-continuous`、远程 workspace `web-remote-replayable`、Host、UI 和协议 schema 均不变。
 
 ## 两层边界
 

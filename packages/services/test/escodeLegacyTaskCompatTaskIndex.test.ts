@@ -2935,7 +2935,7 @@ describe("ESCode legacy task compat task index", () => {
     });
   });
 
-  // M5 ③-3：模式切换（手机远控语义入口 setMode/setConfigOption）收敛 v4 switchCollaborationMode。
+  // M5 ③-3：模式切换（远程 workspace语义入口 setMode/setConfigOption）收敛 v4 switchCollaborationMode。
   it("routes setMode through the v4 switchCollaborationMode command", async () => {
     const { agent, service } = createService();
     const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
@@ -3018,7 +3018,7 @@ describe("ESCode legacy task compat task index", () => {
   });
 
   // M5 ③-3 评估标注保真：setModel 仍走旧 op（v4 switchModelConfig 无 runtimeModel 解析，
-  // 迁移会让手机远控的 custom provider 跨切失效）。
+  // 迁移会让远程 workspace的 custom provider 跨切失效）。
   it("keeps setModel on the legacy session/setModel op", async () => {
     const { agent, service } = createService();
     const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
@@ -4178,7 +4178,7 @@ describe("ESCode legacy task compat task index", () => {
     });
   });
 
-  it("backfills indexed model hint for web remote replayable snapshot resume", async () => {
+  it("backfills indexed model hint for 远程 workspace replayable snapshot resume", async () => {
     const { agent, service, taskIndexRepo } = createService();
     const taskId = "remote_deepseek_task";
     const workspacePath = "/repo";

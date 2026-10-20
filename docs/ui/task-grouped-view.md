@@ -490,6 +490,6 @@ async function applyGroupedViewChange(nextView) {
 `Grouped` 是跨 workspace 的 UI 组织视图，但 task 执行、归档、删除仍属于原 workspace/task 流程。
 
 - 不把 group 状态下沉到 relay 或 main process。
-- 不改变桌面端 `continuous` 与手机端 `replayable` 的 conversation/task 消息流语义。
+- 不改变桌面端 `continuous` 与远程 workspace `replayable` 的 conversation/task 消息流语义。
 - 远程 workspace 成员引用必须贯穿传递 `workspaceIdentity` 和 `remoteSessionId` 可用上下文，禁止只按 `workspacePath` 匹配。
 - 手机 `/remote` 仍通过 shared-host attachment 复用已有 host，不为 group 视图另起独立 ESCode Agent runtime。

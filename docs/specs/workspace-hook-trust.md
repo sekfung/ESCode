@@ -10,17 +10,17 @@
 > 设置后只能逐条建立持久 Trust；已跳过的 SessionStart 不补跑。详细时序见
 > [`workspace-hook-trust-soft-gate.md`](./workspace-hook-trust-soft-gate.md)。
 
-| 字段      | 值                                                                                                                                                                                                                  |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 状态      | 已实施；当前交互为 persistent-only + soft-gate，静态与自动化检查完成，最终真实 Desktop 人工验收由产品方执行                                                                                                         |
-| 日期      | 2026-08-07                                                                                                                                                                                                          |
-| 适用范围  | ESCode CLI Runtime、ESCode Protocol v4、Desktop/Web UI、Remote Workspace、Headless CLI                                                                                                                              |
-| 主要对象  | workspace/project 级 `escode.json` 与 `.escode/config.json` Hooks                                                                                                                                                   |
-| 安全基线  | 默认拒绝、显式授权、声明变化按条失效、策略拒绝优先                                                                                                                                                                  |
-| 关联文档  | `docs/security/deep-link-project-trust-boundary.md`；`docs/web-remote-control/web-remote-control-architecture.md`；`docs/web-remote-control/task-realtime-sync.md`；`docs/web-remote-control-task-command-queue.md` |
-| 交互方案  | `设置 → 钩子 → 工作区` 内完成审核；不使用任务页独立 Trust Dialog                                                                                                                                                    |
-| 交互 Demo | `docs/specs/workspace-hook-trust-demo.html`（历史原型，已由 persistent-only 规格取代）                                                                                                                              |
-| 人工验收  | `docs/testing/workspace-hook-trust-manual-acceptance.md`；fixture 由 `scripts/create-workspace-hook-trust-uat-fixture.mjs` 生成                                                                                     |
+| 字段      | 值                                                                                                                                            |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 状态      | 已实施；当前交互为 persistent-only + soft-gate，静态与自动化检查完成，最终真实 Desktop 人工验收由产品方执行                                   |
+| 日期      | 2026-08-07                                                                                                                                    |
+| 适用范围  | ESCode CLI Runtime、ESCode Protocol v4、Desktop/Web UI、Remote Workspace、Headless CLI                                                        |
+| 主要对象  | workspace/project 级 `escode.json` 与 `.escode/config.json` Hooks                                                                             |
+| 安全基线  | 默认拒绝、显式授权、声明变化按条失效、策略拒绝优先                                                                                            |
+| 关联文档  | `docs/security/deep-link-project-trust-boundary.md`；`docs/remote/wsl-remote-realtime-boundary.md`；`docs/specs/rust-u2-window-controller.md` |
+| 交互方案  | `设置 → 钩子 → 工作区` 内完成审核；不使用任务页独立 Trust Dialog                                                                              |
+| 交互 Demo | `docs/specs/workspace-hook-trust-demo.html`（历史原型，已由 persistent-only 规格取代）                                                        |
+| 人工验收  | `docs/testing/workspace-hook-trust-manual-acceptance.md`；fixture 由 `scripts/create-workspace-hook-trust-uat-fixture.mjs` 生成               |
 
 ## 1. 摘要
 
@@ -51,7 +51,7 @@ route、CLI/Headless、rollout 与 telemetry 已完成，并由 persistent-only 
 9. 无交互环境默认 fail closed，必须通过显式 CLI 命令预先建立精确 Trust；
 10. 企业/托管策略 deny 优先于任何用户授权；
 11. 未信任声明的有效运行开关保持关闭且不可操作，展示或信任动作不得改写原始 workspace 配置；信任成功后按真实 `configuredEnabled` 恢复开关；
-12. Desktop 使用 `desktop-continuous`，手机 Web 使用 `web-remote-replayable`；二者连接同一 Host/Runtime，审核命令通过可信 attachment 与 owner/stale-run 路由提交。
+12. Desktop 使用 `desktop-continuous`，窄视口 使用 `web-remote-replayable`；二者连接同一 Host/Runtime，审核命令通过可信 attachment 与 owner/stale-run 路由提交。
 
 此设计授权的是 **设置页中展示的当前 Hook 声明**，不是 Hook 命令引用脚本及其依赖的完整传递代码内容。
 
@@ -496,7 +496,7 @@ session/task 生命周期不会创建或继承授权。
 
 ### D13. Desktop / Mobile 多端交互边界
 
-**采纳：** Desktop 与手机 Web 连接同一个 Host/Runtime，均实现响应式 `设置 → 钩子 → 工作区` 审核 UI；delivery 与恢复语义按可信 attachment 区分。
+**采纳：** Desktop 与窄视口 连接同一个 Host/Runtime，均实现响应式 `设置 → 钩子 → 工作区` 审核 UI；delivery 与恢复语义按可信 attachment 区分。
 
 - Desktop：`clientMode=desktop-continuous`，通过 direct continuous projection 更新提示条与 Settings store；
 - Mobile Web：`clientMode=web-remote-replayable`，从 conversation snapshot/resume 恢复 pending review；
@@ -638,7 +638,7 @@ workspace 级“不要再提示”能力，应作为可见、可撤销的用户�
 | 交互基础设施      | 复用普通 tool permission 类型               | Trust 生命周期、持久化和摘要结构不同，容易混淆安全概念                                                               | 可复用 broker/queue，但不复用领域事件类型               |
 | 审核中 toggle     | 从 bundle digest 删除 configured gates      | bundle 无法表示真实可执行集合，削弱 review/execute identity                                                          | 只有 bundle 不再承担 snapshot identity 时               |
 | 审核中 toggle     | 整个 pending 期间冻结所有 toggle            | 实现简单但阻断用户在审核入口直接修正配置                                                                             | 若 supersede/rebuild 实现无法在 V1 安全落地             |
-| 多端交互          | 手机端永远只读、只能回桌面决定              | 与现有 blocking permission/elicitation 的多端 owner route 不一致，也不满足移动端 UI 约束                             | 产品明确禁止移动端做持久安全决定                        |
+| 多端交互          | 远程 workspace永远只读、只能回桌面决定      | 与现有 blocking permission/elicitation 的多端 owner route 不一致，也不满足移动端 UI 约束                             | 产品明确禁止移动端做持久安全决定                        |
 | 多端交互          | 为手机单独创建 Agent Runtime/Host           | 破坏 shared-host 与 workspace identity 边界                                                                          | 更新远控架构并完成独立安全评审                          |
 | Digest 版本       | 执行语义 minor 变化继续命中旧 Trust         | 旧 record 只有 digest，通常无法证明新字段默认值与旧授权等价                                                          | 有可验证 migration proof 和旧 canonical 数据            |
 | 策略优先级        | 用户 Trust 覆盖 managed deny                | 破坏组织策略权威                                                                                                     | 永远不建议                                              |
@@ -1468,7 +1468,7 @@ Runtime 不自动导航到设置页；聊天底部提示条只在用户主动点
 - mutation 进行中按钮禁用；成功后刷新列表并消失，失败时保留按钮并显示本地化错误；
 - 未信任行的有效运行开关显示关闭且不可操作，但不得改写原始 `configuredEnabled`；
 - 已信任行不显示 Trust badge 或撤销入口；
-- Desktop 与手机 Web 复用同一响应式信息架构和可信 Host/Runtime 边界。
+- Desktop 与窄视口 复用同一响应式信息架构和可信 Host/Runtime 边界。
 
 ### 16.3 视觉与信息层级
 
@@ -1953,7 +1953,7 @@ apps/escode-cli/packages/core/src/hooks/workspace-hook-admission.ts
 - 祖先 `escode.json`、上游 `.escode/config.json`、显式 projectConfigPath 等不可安全回写来源显示只读 toggle 与 `Open source config`；
 - `.agents/.claude` compatibility rows 保持 disabled/read-only，且不进入 Trust snapshot；
 - draft pending/invalidation、policy deny、execution status 和 provenance；
-- Desktop 与手机 Web 均实现响应式审核 UI，复用现有设置页 design tokens，避免独立视觉系统。
+- Desktop 与窄视口 均实现响应式审核 UI，复用现有设置页 design tokens，避免独立视觉系统。
 
 ### 21.8 CLI
 
@@ -1974,7 +1974,7 @@ apps/escode-cli/packages/core/src/hooks/workspace-hook-admission.ts
 
 改动：
 
-- 更新 `docs/security/deep-link-project-trust-boundary.md`、`docs/web-remote-control/web-remote-control-architecture.md`、`docs/web-remote-control/task-realtime-sync.md` 与 task command queue 文档；
+- 更新 `docs/security/deep-link-project-trust-boundary.md`、`docs/remote/wsl-remote-realtime-boundary.md` 与 `docs/specs/rust-u2-window-controller.md`；
 - 用户文档解释 configured、Trust、effective 的区别；
 - 说明唯一 UI 入口是 `设置 → 钩子 → 工作区`；
 - CLI automation 示例；
@@ -2610,7 +2610,7 @@ Phase 5 安全结论：
 - telemetry 只记录 reason/action/generation、workspace identity 的 SHA-256 短摘要，以及 bundle/declaration digest 短摘要；不记录 command、脚本内容、source path、Trust payload 或 response body。Runtime admission 对可重复的 policy/store/mismatch 事件做有界去重，避免按 Hook 高频刷生产日志。
 - Headless diagnostics 保留真实 Runtime block reason；rollout-off 输出 `workspace_hooks_feature_disabled`，而不是被 CLI 静态 status 覆盖成 pending。
 - 删除运行时代码中的旧 `config_project_hooks_ignored` code/i18n mapping；discovery 统一使用 `config_project_hooks_pending_trust`，Runtime lifecycle 再给出具体 blocked reason。
-- 更新 `docs/security/deep-link-project-trust-boundary.md`、`docs/web-remote-control/web-remote-control-architecture.md`、`docs/hooks-runtime-contract.md`，新增 `docs/workspace-hook-trust-user-guide.md`。
+- 更新 `docs/security/deep-link-project-trust-boundary.md`、`docs/hooks-runtime-contract.md`，新增 `docs/workspace-hook-trust-user-guide.md`。
 
 #### Phase 6 最终验收记录（2026-08-06）
 
@@ -2729,7 +2729,7 @@ Trust store schema 升级失败时：
 12. Mobile `web-remote-replayable` 从 snapshot/resume 恢复 pending review，不创建独立 Runtime/Host；
 13. mobile/remote response 经过 owner/lease/stale-run，并校验 workspaceIdentity、remoteSessionId、task/run/generation；
 14. transient attachment disconnect 不解析 request，不重置 deadline；Runtime restart 使旧 interaction 失效；
-15. Desktop 与手机 Web 都能在响应式 `设置 → 钩子 → 工作区` 完成逐条持久 Trust；旧客户端不能自动回答；
+15. Desktop 与窄视口 都能在响应式 `设置 → 钩子 → 工作区` 完成逐条持久 Trust；旧客户端不能自动回答；
 16. 多端并发只接受当前 generation 的首次有效 decision；
 17. persistent Trust 只命中 workspace identity + declaration digest；每次 UI 操作只信任当前行；
 18. `WorkspaceHookReviewDecision` 只接受非空、无重复的 `trust_selected.reviewItemIds`；
@@ -2751,6 +2751,6 @@ Trust store schema 升级失败时：
 
 本规格选择的是 **逐条声明绑定、workspace 绑定、默认拒绝、Settings-centered 持久信任、immutable review generation、Runtime 双层 admission，以及 Desktop continuous / Mobile replayable 共用同一 Runtime 权威状态** 的模型。软门禁下 turn 不等待审核，pending Hook 本轮跳过、提示条常驻、用户主动逐条信任，授权只影响未来自然事件。
 
-它在不撤销现有 deep-link 安全修复的前提下，让 Desktop 与手机 Web 用户在响应式 `设置 → 钩子 → 工作区` 中审核 workspace Hook。Runtime 冻结 snapshot、校验 generation/digests、持有 pending request 和 security revision；Host/relay 只负责 capability、projection、presentation 与 owner route。审核中的 toggle 通过原子写和 supersede/rebuild 保证用户 Disable 后不会继续执行旧 snapshot。
+它在不撤销现有 deep-link 安全修复的前提下，让 Desktop 与窄视口 用户在响应式 `设置 → 钩子 → 工作区` 中审核 workspace Hook。Runtime 冻结 snapshot、校验 generation/digests、持有 pending request 和 security revision；Host/relay 只负责 capability、projection、presentation 与 owner route。审核中的 toggle 通过原子写和 supersede/rebuild 保证用户 Disable 后不会继续执行旧 snapshot。
 
 V1 有意不提供信任未来变化的 workspace wildcard、不验证脚本依赖闭包、不允许 headless 静默放行，也不引入与现有设置风格割裂的独立安全页面。

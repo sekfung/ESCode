@@ -117,7 +117,7 @@ child query -> live child adapter -> unavailable -> existing ancestor adapter ->
 - 初期运行分别被 runner 的 120s 外层预算、未展开的历史入口及冷恢复不重建后台目录的前置条件阻断；
   修正测试操作后独立回放通过，不把这些失败尝试计入通过。首轮同文件另外 6 项 BGV 回归通过。
 - 根/CLI bootstrap/E2E typecheck、fixture check、architecture（0 violations）通过；lint 41 条既有 warnings、0 errors。
-  本轮未重复 Windows/Linux 或手机远控 UI 验证；未改协议、平台文件读写和 continuous/replayable 边界。
+  本轮未重复 Windows/Linux 或远程 workspace UI 验证；未改协议、平台文件读写和 continuous/replayable 边界。
 
 ## 本轮验证（2026-09-09）
 
@@ -138,7 +138,7 @@ Windows 使用测试目录内独立 Node 24.14.0，不切换默认 Node 25；原
 
 隔离 Node 的既有 shutdown timeout 用例在一次并行测试中出现 `Worker did not start`（2 秒执行 timeout）；未改生产逻辑或测试阈值，原样独立重跑 5/5 通过。记录该次失败，不把它算作一次通过运行。
 
-边界：未执行 Desktop 远程工作区/手机远控完整 UI E2E；scope 与 continuous/replayable 用 service 单测验证。Windows/Linux 验证的是实际执行/查询链路，非完整 Desktop UI。新增 E2E 已于 2026-09-10 经用户确认转正，尚未做 Docker admission。当前无 codegraph，影响面按实际调用链与功能图核对。
+边界：未执行 Desktop 远程工作区/远程 workspace完整 UI E2E；scope 与 continuous/replayable 用 service 单测验证。Windows/Linux 验证的是实际执行/查询链路，非完整 Desktop UI。新增 E2E 已于 2026-09-10 经用户确认转正，尚未做 Docker admission。当前无 codegraph，影响面按实际调用链与功能图核对。
 
 编码复用修复：新增 5 个回归用例先复现重复解析和取消前探测，修复后相关 CLI 回归
 155 passed / 3 platform skips；新 start 用例的异步文件 barrier 在并行运行时超过默认 1 秒，

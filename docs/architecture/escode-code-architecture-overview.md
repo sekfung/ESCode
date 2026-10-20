@@ -108,6 +108,6 @@ desktop 和 mobile 共享这条事实链。差别只在 delivery profile：桌�
 - [通信协议分层](./communication-protocol-layers.md)
 - [ESCode Protocol](../escode-protocol.md)
 - [Message Flow](./message-flow.md)
-- [Web Remote Control Architecture](../web-remote-control/web-remote-control-architecture.md)
-- [Task Realtime Sync](../web-remote-control/task-realtime-sync.md)
+- [Remote Workspace Realtime](../remote/wsl-remote-realtime-boundary.md)
+- [Window Controller](../specs/rust-u2-window-controller.md)
 - [Chat Message Queue](../ui/chat-message-queue.md)

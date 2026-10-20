@@ -43,12 +43,12 @@
 
 ### 2.2 Shared And Divergent Behavior
 
-| Concern    | Shared across surfaces                          | Deliberately different                           | Why it matters                                      |
-| ---------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
-| Tab 上限   | Browser 与 Browser Use 共用每窗口 32 个逻辑 Tab | 保护信号按各自运行态汇总                         | 禁止一类 Tab 绕过总量上限                           |
-| 进程内复用 | stable logical tabId 与 live guest 在进程内保留 | guest crash 可替换 webContentsId                 | 移除跨重启恢复不能破坏进程内连续性                  |
-| 完整重启   | 两类 Tab 都不恢复                               | conversation/task 数据仍按各自规则冷恢复         | Browser UI 状态不能混入任务恢复                     |
-| 手机远控   | 不创建独立 Browser runtime                      | 继续通过 shared-host attachment 使用当前桌面进程 | 不得把桌面 Tab 持久化语义扩散到 replayable snapshot |
+| Concern        | Shared across surfaces                          | Deliberately different                           | Why it matters                                      |
+| -------------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
+| Tab 上限       | Browser 与 Browser Use 共用每窗口 32 个逻辑 Tab | 保护信号按各自运行态汇总                         | 禁止一类 Tab 绕过总量上限                           |
+| 进程内复用     | stable logical tabId 与 live guest 在进程内保留 | guest crash 可替换 webContentsId                 | 移除跨重启恢复不能破坏进程内连续性                  |
+| 完整重启       | 两类 Tab 都不恢复                               | conversation/task 数据仍按各自规则冷恢复         | Browser UI 状态不能混入任务恢复                     |
+| 远程 workspace | 不创建独立 Browser runtime                      | 继续通过 shared-host attachment 使用当前桌面进程 | 不得把桌面 Tab 持久化语义扩散到 replayable snapshot |
 
 ### 2.3 Feature Relationships
 
@@ -201,13 +201,13 @@ Desktop bootstrap/main production wiring 不调用、不注入持久化 store。
 
 ### 9.1 Boundary Decisions
 
-| Boundary     | Decision             | Includes                              | Excludes / prunes                             | Source                 |
-| ------------ | -------------------- | ------------------------------------- | --------------------------------------------- | ---------------------- |
-| 第 33 个 Tab | 完整关闭最老安全候选 | Browser + Browser Use                 | suspend shell、30 分钟保护                    | 用户裁决 + 运行时反馈  |
-| 完整应用重启 | Browser Tab 全部消失 | dev + packaged、local + remote tab UI | shell/pageState/history 恢复                  | 用户生产实测与明确指令 |
-| 进程内切换   | 保留 live tab        | task/workspace/session 切换           | 跨进程 stable tabId                           | 既有 BTL01-03          |
-| guest crash  | 原位替换             | recoverable renderer exit             | 应用退出后替换                                | BCP-207                |
-| 手机远控     | 不新增状态           | shared-host attachment                | 独立 runtime、replayable Browser Tab snapshot | 架构约束               |
+| Boundary       | Decision             | Includes                              | Excludes / prunes                             | Source                 |
+| -------------- | -------------------- | ------------------------------------- | --------------------------------------------- | ---------------------- |
+| 第 33 个 Tab   | 完整关闭最老安全候选 | Browser + Browser Use                 | suspend shell、30 分钟保护                    | 用户裁决 + 运行时反馈  |
+| 完整应用重启   | Browser Tab 全部消失 | dev + packaged、local + remote tab UI | shell/pageState/history 恢复                  | 用户生产实测与明确指令 |
+| 进程内切换     | 保留 live tab        | task/workspace/session 切换           | 跨进程 stable tabId                           | 既有 BTL01-03          |
+| guest crash    | 原位替换             | recoverable renderer exit             | 应用退出后替换                                | BCP-207                |
+| 远程 workspace | 不新增状态           | shared-host attachment                | 独立 runtime、replayable Browser Tab snapshot | 架构约束               |
 
 ### 9.2 Accepted Cases
 

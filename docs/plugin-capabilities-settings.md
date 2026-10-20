@@ -100,7 +100,7 @@ save ────────────────────> await target 
 cancel/save ─────────────> restore unchanged parent scope
 ```
 
-桌面端保持 `desktop-continuous` 链路；手机远控保持 `web-remote-replayable` 链路。Plugin 只消费现有 shared-host 服务，不建立新的 local/remote host，不改变 snapshot、queue、owner 或重连恢复语义。
+桌面端保持 `desktop-continuous` 链路；远程 workspace保持 `web-remote-replayable` 链路。Plugin 只消费现有 shared-host 服务，不建立新的 local/remote host，不改变 snapshot、queue、owner 或重连恢复语义。
 
 ## 响应式与可访问性
 
@@ -116,7 +116,7 @@ cancel/save ─────────────> restore unchanged parent sc
 3. Scope 菜单列出 User 与所有已打开 workspace，并按 workspace identity 隔离。
 4. 三个 Tab 的选择在 Scope 切换后保持，列表只展示目标 Scope 数据；插件贡献 MCP/Skills 必须关联到当前 Scope 的 Plugin 安装记录。
 5. 顶部搜索框随 Tab 使用对应 placeholder 与过滤规则；三个 Tab 的搜索词彼此独立，Scope 切换后继续过滤当前 Scope。
-6. 桌面、手机 Web 均可操作；不新增 runtime，不破坏远程 replayable 边界。
+6. 桌面、窄视口 均可操作；不新增 runtime，不破坏远程 replayable 边界。
 7. 父级选择 User 或任一 Workspace 后打开 New，表单显示同一 Scope；新建表单可选择完整 Scope 列表，切换后父级选择不变，保存写入表单所选目标。编辑表单显示 MCP 实际归属且不可迁移。
 
 ## 独立设置页收敛

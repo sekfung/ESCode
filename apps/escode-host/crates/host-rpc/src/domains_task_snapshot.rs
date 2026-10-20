@@ -228,7 +228,7 @@ async fn resume_snapshot(context: &ReadContext, params: &SnapshotParams) -> Chan
     call_runtime(&runtime, request).await
 }
 
-/// TS `resolveTaskIndexResumeHints`：只有手机 replayable 首屏回填；读失败按「无 hint」继续。
+/// TS `resolveTaskIndexResumeHints`：只有远程 workspace replayable 首屏回填；读失败按「无 hint」继续。
 async fn resolve_thought_level_hint(
     context: &ReadContext,
     params: &SnapshotParams,

@@ -18,7 +18,7 @@ fn params(command_id: &str, trace_id: &str, content: &str) -> Value {
         "traceId": trace_id,
         "queryId": format!("query-{trace_id}"),
         "clientId": "phone-1",
-        "clientLabel": "手机",
+        "clientLabel": "远程",
         "content": content,
     })
 }
@@ -49,7 +49,7 @@ fn enqueue_records_the_ts_command_shape() {
     assert_eq!(command["content"], "second");
     assert_eq!(command["automationId"], "automation-1");
     assert_eq!(command["clientId"], "phone-1");
-    assert_eq!(command["clientLabel"], "手机");
+    assert_eq!(command["clientLabel"], "远程");
     assert_eq!(command["attachments"][0]["id"], "a1");
     assert_eq!(command["createdAt"], command["updatedAt"]);
     assert_eq!(queue.pending(&target), vec![command.clone()]);

@@ -53,7 +53,7 @@ delivery profile 边界：
 - `web-remote-replayable` 过滤 `row.delta(inputText)`，只通过最终 `row.upserted`
   或 snapshot 恢复完整 `input` / `inputText`。
 - 因为 replayable 会过滤输入流 delta，任何工具输入定稿事件都必须在不可过滤的
-  `row.upserted` 中携带完整 `inputText`，否则手机远控恢复会缺少工具输入终态。
+  `row.upserted` 中携带完整 `inputText`，否则远程 workspace恢复会缺少工具输入终态。
 
 ### Write/Edit 一秒采样
 

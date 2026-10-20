@@ -15,7 +15,7 @@
 
 - 不恢复旧的三档界面缩放偏好。
 - 不读写历史 `escode-zoom-level`。
-- 不改变 Web / 手机远控链路；手机端仍使用浏览器自身缩放能力和现有 replayable 恢复边界。
+- 不改变 非 Desktop链路；远程 workspace仍使用浏览器自身缩放能力和现有 replayable 恢复边界。
 
 ## 实现
 

@@ -59,7 +59,7 @@
 - accepted：用户确认当前可用，进入提交前补测试、文档阶段；不主动提交或推送。
 - ignored：统一文件名预览，当前仍沿用 patch/file 规则；不把讨论误当成本次新增实现。
 - pruned：不同模型/provider 的完整排列，模式不参与请求；以 UI 偏好与工具记录不变代表。
-- pruned：主题×语言×workspace 的全排列；本轮桌面覆盖中文默认主题，远程 identity 的 hook 用例覆盖共享状态保留，原生多平台和手机远控留待实际环境验证。
+- pruned：主题×语言×workspace 的全排列；本轮桌面覆盖中文默认主题，远程 identity 的 hook 用例覆盖共享状态保留，原生多平台和远程 workspace留待实际环境验证。
 
 ## Accepted Cases / Coverage Matrix
 
@@ -79,7 +79,7 @@
 - 既有对话数据渲染由组件单测覆盖；本次不伪造模型输出以冒充真实网络验证。
 - E2E 使用独立测试 home 和框架的 run-scoped 进程；不操作用户开发实例。
 - 新 E2E 保留 pending；是否转正与加入 Docker suite 单独依生命周期处理。
-- 无需重复询问已确认语义。待补范围：原生 Windows/Linux、实际手机远控及代码图扫描。
+- 无需重复询问已确认语义。待补范围：原生 Windows/Linux、实际远程 workspace及代码图扫描。
 
 ## Verification Results
 
@@ -139,7 +139,7 @@ Electron 通过报告：`packages/desktop/.e2e-artifacts/desktop-e2e-20260910161
 
 ### 尚未声明的覆盖
 
-Windows/Linux 原生运行、实际手机远控、其他语言/主题、Docker replay/CI admission 尚未验证。新 E2E 继续保留 pending，不能写成正式 CI 覆盖；文件链接统一文件预览仍不在本次实现范围。`mode-output-demo1/` 是手动测试产物，保留在本地并排除提交。
+Windows/Linux 原生运行、实际远程 workspace、其他语言/主题、Docker replay/CI admission 尚未验证。新 E2E 继续保留 pending，不能写成正式 CI 覆盖；文件链接统一文件预览仍不在本次实现范围。`mode-output-demo1/` 是手动测试产物，保留在本地并排除提交。
 
 ### MR 准备复验（2026-09-14）
 
@@ -148,7 +148,7 @@ Windows/Linux 原生运行、实际手机远控、其他语言/主题、Docker r
 - 首轮关联单测：418 个文件通过、4163 条通过、3 条跳过；两个远控测试文件因本机 Electron 可执行文件缺失而加载失败。E2E 启动流程完成 Electron 安装后，两个文件定向复跑 74/74 通过。
 - 当前 Electron 模式用例 2/2 通过。复验修复了测试自身的两处交互假设：xterm 隐藏 textarea 不可直接点击；Radix 菜单退出动画结束前点击会误触浏览器入口。改为等待菜单卸载、点击可见终端并校验焦点，不修改产品实现或增加固定 sleep。
 - 通过报告：`packages/desktop/.e2e-artifacts/desktop-e2e-20260914125059185-p5323-92d9bc8a33e5b101/summary.md`；截图：`packages/desktop/.e2e-artifacts/general-coding-mode/general-mode-pty.png`。均为本地验证产物，截图随 MR 附件交付。
-- 覆盖 macOS、中文、默认深色主题；手机远控、Windows/Linux、其他语言/主题的端到端组合仍未验证。推送时继续执行完整 pre-push hook，不跳过门禁。
+- 覆盖 macOS、中文、默认深色主题；远程 workspace、Windows/Linux、其他语言/主题的端到端组合仍未验证。推送时继续执行完整 pre-push hook，不跳过门禁。
 
 ### UI Shell 用例转正
 

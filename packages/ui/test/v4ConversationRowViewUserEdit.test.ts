@@ -479,66 +479,63 @@ describe("ConversationRowView reasoning summary", () => {
 });
 
 describe("ConversationRowView user query editing", () => {
-  it.each([false, true])(
-    "renders topic originals separately (mobile=%s)",
-    async (compactForRemoteControl) => {
-      const container = installMinimalDom();
-      const root = createRoot(container);
-      const row = userInputRow({
-        text: "combined execution payload",
-        botGroupSource: {
-          provider: "feishu",
-          botId: "bot",
-          chatId: "chat",
-          threadId: "topic",
-          senderId: "b",
-          senderName: "乙",
-          messageId: "b",
-          messages: [
-            {
-              messageId: "a",
-              senderId: "a",
-              senderName: "甲",
-              text: "第一条需求",
-              attachmentIndexes: [],
-              conversationQuotes: [{ text: "根原文" }],
-            },
-            {
-              messageId: "b",
-              senderId: "b",
-              senderName: "乙",
-              text: "第二条补充",
-              attachmentIndexes: [],
-            },
-          ],
-        },
-      });
-      await act(async () => {
-        root.render(
-          createElement(
-            ESCodeIntlProvider,
-            { initialLocale: "zh-CN" },
-            createElement(ConversationRowView, {
-              context: { ...rowContext, compactForRemoteControl },
-              row,
-            }),
-          ),
-        );
-      });
-      const first = findElementByAttribute(container, "data-topic-message-id", "a");
-      const second = findElementByAttribute(container, "data-topic-message-id", "b");
-      expect(first).not.toBeNull();
-      expect(second).not.toBeNull();
-      expect(collectText(first)).toContain("第一条需求");
-      expect(collectText(first)).toContain("甲");
-      expect(collectText(second)).toContain("第二条补充");
-      expect(collectText(second)).toContain("乙");
-      expect(findElementByAttribute(first, "data-v4-user-input-quotes", "true")).not.toBeNull();
-      expect(findElementByAttribute(second, "data-v4-user-input-quotes", "true")).toBeNull();
-      expect(collectText(container)).not.toContain("combined execution payload");
-      await act(async () => root.unmount());
-    },
-  );
+  it("renders topic originals separately", async () => {
+    const container = installMinimalDom();
+    const root = createRoot(container);
+    const row = userInputRow({
+      text: "combined execution payload",
+      botGroupSource: {
+        provider: "feishu",
+        botId: "bot",
+        chatId: "chat",
+        threadId: "topic",
+        senderId: "b",
+        senderName: "乙",
+        messageId: "b",
+        messages: [
+          {
+            messageId: "a",
+            senderId: "a",
+            senderName: "甲",
+            text: "第一条需求",
+            attachmentIndexes: [],
+            conversationQuotes: [{ text: "根原文" }],
+          },
+          {
+            messageId: "b",
+            senderId: "b",
+            senderName: "乙",
+            text: "第二条补充",
+            attachmentIndexes: [],
+          },
+        ],
+      },
+    });
+    await act(async () => {
+      root.render(
+        createElement(
+          ESCodeIntlProvider,
+          { initialLocale: "zh-CN" },
+          createElement(ConversationRowView, {
+            context: rowContext,
+            row,
+          }),
+        ),
+      );
+    });
+    const first = findElementByAttribute(container, "data-topic-message-id", "a");
+    const second = findElementByAttribute(container, "data-topic-message-id", "b");
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(collectText(first)).toContain("第一条需求");
+    expect(collectText(first)).toContain("甲");
+    expect(collectText(second)).toContain("第二条补充");
+    expect(collectText(second)).toContain("乙");
+    expect(findElementByAttribute(first, "data-v4-user-input-quotes", "true")).not.toBeNull();
+    expect(findElementByAttribute(second, "data-v4-user-input-quotes", "true")).toBeNull();
+    expect(collectText(container)).not.toContain("combined execution payload");
+    await act(async () => root.unmount());
+  });
 
   it("orders group sender, quote and attachments without an invented message bubble", async () => {
     const container = installMinimalDom();

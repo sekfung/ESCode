@@ -101,7 +101,7 @@ a6 的 workspace presentation 已预热，点击窗口没有目录请求。6951 
 - `check-workspace-freshness` 因落后旧实验 `origin/feat/session_opt` 1 个提交报错；本轮按用户指定的
   已拉取 `origin/staging` / HEAD `279907140bd7` 为基线，未混入旧实验提交。
 - 本轮 WDIO 是真实本地会话打开 benchmark，不是 CUA 权限/实际工具调用的完整 E2E。
-  Windows 实机、手机远控以及实际 CUA 调用未重跑，不宣称全平台端到端零风险。
+  Windows 实机、远程 workspace以及实际 CUA 调用未重跑，不宣称全平台端到端零风险。
 - 快路仅适用于已安全预留的 transport；首次 start 尚未发布预留、warm health 和 Windows
   transport_ready 仍可能有原来的有界等待，没有新增轮询、缓存或更宽的准入。
 - 本轮不自动提交或 push，旧 stash 保留。

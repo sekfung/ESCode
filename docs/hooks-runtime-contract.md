@@ -227,7 +227,7 @@ Hooks 设置页必须在 desktop 和 Web UI 使用同一组件，并满足：
   图标，兼容来源显示 Import。
 - 从当前 Scope 新建 Hook 时，表单默认选择相同 scope；表单复用 `PluginScopeMenu`。
   编辑已有 Hook 时 Scope 不可迁移。没有可用 workspace 时菜单只提供 User。
-- 新增/编辑页复用资源设置页的返回链接、标题和说明层级；desktop 与手机 Web 使用相同的
+- 新增/编辑页复用资源设置页的返回链接、标题和说明层级；desktop 与窄视口 使用相同的
   响应式布局。
 - HooksSection 必须接收并透传 `workspaceIdentity`，远程工作区的读取、写入和 session
   invalidation 以 `workspaceIdentity?.trim() || workspacePath` 隔离。

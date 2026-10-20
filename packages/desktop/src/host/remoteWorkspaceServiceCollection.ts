@@ -99,7 +99,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
   const reportingRemoteESCodeTaskService = params.createReportingRemoteESCodeTaskService(
     params.connectionServices.escodeTaskService,
   );
-  // 手机 remote 的 replayable mirror 在 reporting wrapper 中发布用户消息；
+  // 远程 workspace 的 replayable mirror 在 reporting wrapper 中发布用户消息；
   // 附件物化必须包在 reporting 外层，确保 mirror 和真正发给远端 agent 的 prompt 使用同一份远端路径。
   const remoteESCodeTaskService = params.createRemotePromptAttachmentTaskService(
     reportingRemoteESCodeTaskService,
@@ -161,7 +161,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
           | { status: "resolved"; preferences: ESCodeSessionRuntimePreferencesResult }
           | { status: "failed"; message: string };
         try {
-          // 与本地 Host 同源：固定预算不依赖配置网关，远程/手机偏好响应不再串行等待网络。
+          // 与本地 Host 同源：固定预算不依赖配置网关，远程/远程 workspace 偏好响应不再串行等待网络。
           const settings = await trackStage("settings", localSettingService.get());
           const modelContextBudgetStrategy = DEFAULT_ESCODE_MODEL_CONTEXT_BUDGET_STRATEGY;
           resolution = {
@@ -210,7 +210,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
     },
   );
 
-  // Web 手机远控进入 SSH task 时只连到 remote workspace host，
+  // Web 远程 workspace进入 SSH task 时只连到 remote workspace host，
   // 没有桌面 renderer 那层 `baseServices + remoteServices` 合并。
   // 因此这里为 remote workspace host 补齐本地全局 channel；文件、终端、ESCode Agent 仍来自远端，
   // 设置、凭据、OAuth、模型供应商和 settings-sync 继续读写本机配置。
@@ -221,7 +221,7 @@ export function createRemoteWorkspaceServiceCollection(params: {
     .register(ISystemService, params.connectionServices.systemService)
     .register(ITerminalService, params.connectionServices.terminalService)
     .register(ISettingService, localSettingService)
-    // 手机重建远程 Root 后曾因缺少此通道误弹引导；复用 Local Host owner，保持记录与登录态同源。
+    // 远程 workspace 重建远程 Root 后曾因缺少此通道误弹引导；复用 Local Host owner，保持记录与登录态同源。
     .register(IOnboardingRecordService, params.localOnboardingRecordService)
     .register(ICredentialService, localCredentialService)
     .register(IBroadcastService, localBroadcastService)

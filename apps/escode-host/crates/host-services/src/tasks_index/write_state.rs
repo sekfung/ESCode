@@ -5,7 +5,7 @@
 //! - unread 标记在 SQLite 写锁内按持久 watermark 分配**严格递增**值（毫秒时间戳会碰撞，清除后只看
 //!   当前值会复用旧版本）：`max(请求值, max(last_unread_at, unread_at, meta.unreadAt) + 1)`；
 //! - 删除标记与分组引用清理同一事务提交（否则 sessions-index、可见性与分组归属长期矛盾）；
-//! - 清未读的 CAS：比较与写入持有同一写事务（手机旧点击不能清掉随后产生的新未读）；
+//! - 清未读的 CAS：比较与写入持有同一写事务（远程 workspace 旧点击不能清掉随后产生的新未读）；
 //! - 删归档：归档检查与 tombstone 写入同事务（确认框停留期间被另一端恢复时跳过）。
 
 use rusqlite::{Connection, params};

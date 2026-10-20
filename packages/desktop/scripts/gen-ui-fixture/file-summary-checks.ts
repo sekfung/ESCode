@@ -68,16 +68,6 @@ export async function checkFileSummary(
       );
     }
   }
-  await win.webContents.executeJavaScript("window.showFileSummary('mixed', true)");
-  await waitHost(
-    `document.querySelector('#file-summary-panel')?.textContent.includes('1 file changed')`,
-  );
-  assert.equal(
-    await win.webContents.executeJavaScript(
-      "document.querySelector('#file-preview-cards').textContent",
-    ),
-    "",
-  );
   await win.webContents.executeJavaScript(
     "window.showFileSummary(null); document.documentElement.className=''; document.body.className=''; document.querySelector('#gen-ui-scroll').scrollTop=0",
   );

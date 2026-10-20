@@ -41,7 +41,7 @@ Node REPL 工具卡 leading icon -> IPlatformService.getApplicationIcon(locator)
   `list_apps` 声明 `items`，三者都不产生 `primary`，因此不会把前面的身份覆盖掉。
 - **图标解析**：`appKey` 按前缀派生 locator——`darwin:` → `darwin-bundle-id`，
   `windows-aumid:` → `windows-aumid`，`windows-exe:` → `windows-executable-path`。
-  `linux-exe:` 没有对应 locator，与 Web/手机远控一样回退通用 Node REPL 图标。
+  `linux-exe:` 没有对应 locator，与 非 Desktop一样回退通用 Node REPL 图标。
   producer `_meta` 里的内联 `icon` PNG **不投影**：会话协议不承载 data URL（见下节「协议与展示」），
   且同一个 app 的图标会在长会话里逐步重复几十次。
 - **不在本次范围**：`app` 名称不进摘要行（`js` 的 `title` 已由模型描述本次动作，再拼一次 App 名会

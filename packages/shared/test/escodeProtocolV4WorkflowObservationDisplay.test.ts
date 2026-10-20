@@ -2,7 +2,7 @@
 //
 // 这一侧与 CLI 的 getWorkflowRunToolResultDisplayPayloadSchema 是两份独立的 zod，却必须逐字段
 // 同步：两侧都是 strict，少一个字段整条 display 校验失败、工具卡退化成纯文本；枚举多一个值，
-// 手机远控的 bundle 会拒收整帧（2026-09-04 曾因此让一条订阅永久失效）。所以这里钉的是
+// 远程 workspace的 bundle 会拒收整帧（2026-09-04 曾因此让一条订阅永久失效）。所以这里钉的是
 // 「CLI 真的会发出来的那个形状，这一侧收得下」。
 
 import { describe, expect, it } from "vitest";

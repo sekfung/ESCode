@@ -95,6 +95,6 @@ React consumer mount / workspace attachment change
   -> Service authority 已切换：旧 key 的迟到结果不能进入新 key
 ```
 
-本次不改变 Desktop/Web/手机远控的 session、stream 或 workspace 状态链路。桌面本地
+本次不改变 Desktop/非 Desktop的 session、stream 或 workspace 状态链路。桌面本地
 workspace 与 desktop-attached remote workspace 都使用桌面 Host 的 app-global scenes
 服务；server remote 使用 server 权威服务。

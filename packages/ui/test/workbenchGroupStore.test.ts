@@ -159,7 +159,7 @@ describe("workbench group store and persistence", () => {
     expect(useWorkbenchGroupStore.getState().activeGroupId).toBeNull();
   });
 
-  it("does not restore, consume, create, or persist groups in web remote mode", () => {
+  it("does not restore, consume, create, or persist groups in replayable mode", () => {
     const store = useWorkbenchGroupStore.getState();
     const persistedGroup = createWorkbenchGroupFromSessions(
       binding(SCOPE_A, "sess-a"),

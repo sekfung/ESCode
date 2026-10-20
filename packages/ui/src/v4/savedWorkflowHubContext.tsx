@@ -6,8 +6,8 @@
 //
 // 与 WorkflowRunOpenProvider 同一条理由用 context 而不是逐层 props：这两件事只有壳知道怎么做，
 // 而卡片长在会话时间线与 run 侧板两处，中间隔着 pane / 行上下文好几层，没有一层需要知道
-// 「中枢在哪」。没有 provider（手机远控壳、单测、静态回放）时芯片只是文字、启动不切页——
-// 手机远控壳本来就不提供中枢。
+// 「中枢在哪」。没有 provider（远程 workspace壳、单测、静态回放）时芯片只是文字、启动不切页——
+// 远程 workspace壳本来就不提供中枢。
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
 import type { ESCodeSavedWorkflowScope } from "@escode/shared";
 import type { SavedWorkflowLaunchTarget } from "@/settings/saved-workflows/useSavedWorkflowLauncher.js";

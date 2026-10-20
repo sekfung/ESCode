@@ -28,8 +28,8 @@ plain paragraph
     const transformed = writerOpts.transform?.(
       {
         type: "fix",
-        scope: "web-remote",
-        subject: "harden mobile reconnect flow",
+        scope: "renderer",
+        subject: "harden reconnect flow",
         body:
           "- add safe home-only services\n\n" +
           "- extend workspace reconnect timeout\n\n" +
@@ -47,8 +47,8 @@ plain paragraph
 
     expect(transformed).toMatchObject({
       type: "Bug Fixes",
-      scope: "web-remote",
-      subject: "harden mobile reconnect flow",
+      scope: "renderer",
+      subject: "harden reconnect flow",
       bodyBullets: [
         "add safe home-only services",
         "extend workspace reconnect timeout",
@@ -75,8 +75,8 @@ plain paragraph
     for await (const chunk of changelog([
       {
         type: "fix",
-        scope: "web-remote",
-        subject: "harden mobile reconnect flow",
+        scope: "renderer",
+        subject: "harden reconnect flow",
         body:
           "- add safe home-only services\n\n" +
           "- extend workspace reconnect timeout\n\n" +
@@ -114,7 +114,7 @@ plain paragraph
         "([5e136a9](https://git.example.invalid/codegeex/escode/commit/5e136a9a0c9c5bb3db1d75972d956d6626a3fcef))",
     );
     expect(output).toContain(
-      "* **web-remote:** harden mobile reconnect flow " +
+      "* **renderer:** harden reconnect flow " +
         "([38dd68b](https://git.example.invalid/codegeex/escode/commit/38dd68bc37234cdecb2e11276b7f715a56bf3e06))\n" +
         "  * add safe home-only services\n" +
         "  * extend workspace reconnect timeout\n" +

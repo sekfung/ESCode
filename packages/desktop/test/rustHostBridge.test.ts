@@ -138,7 +138,7 @@ describe("rust host manager (dev switch)", () => {
         const services = connectViaProtocol(
           new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
         );
-        // Web 远控共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
+        // 远程 workspace共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
         const hello = await services.escodeAgentService.helloConversationV4();
         expect(hello.clientMode).toBe("web-remote-replayable");
         expect(hello.deliveryProfile).toBe("replayable");

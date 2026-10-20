@@ -210,7 +210,7 @@ workflow path selection
 
 - `pnpm typecheck`: passed.
 - `pnpm lint`: passed with 0 errors; 59 existing repository warnings remain outside this change.
-- `pnpm exec vitest run packages/desktop/test/ciNodeVersionConfig.test.ts`: 1 file passed, 20 tests passed；覆盖 Preview 手动 job、parent 默认变量继承隔离、child workflow 变量、签名变量、include 边界和禁用的 Web 远控 job。
+- `pnpm exec vitest run packages/desktop/test/ciNodeVersionConfig.test.ts`: 1 file passed, 20 tests passed；覆盖 Preview 手动 job、parent 默认变量继承隔离、child workflow 变量、签名变量、include 边界和禁用的 远程 workspace job。
 - YAML syntax parse: `.gitlab/ci/00-workflow.yml` 与 `.gitlab/ci/preview-child.yml` 均通过。
 - Preview packaging 基线的 `pnpm test:unit:affected`: expanded to the full unit suite by the repository pre-push rule; 841 files passed, 6478 tests passed, 1 skipped.
 - 本次手动触发改动的 `pnpm test:unit:affected`: passed；lint-staged 选中 CI 配置测试，1 file / 20 tests passed。

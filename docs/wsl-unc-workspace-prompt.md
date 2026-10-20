@@ -23,7 +23,7 @@ Windows 用户可以从系统目录选择器直接打开 `\\wsl.localhost\Ubuntu
 ## 影响面
 
 - 仅影响桌面端本地打开工作区入口。
-- 不改变已有 WSL remote workspace、SSH、Docker 或 Web 远控链路。
+- 不改变已有 WSL remote workspace、SSH、Docker 或 远程 workspace链路。
 - 不改变 `\\wsl.localhost` 路径的可打开性；用户仍可选择按路径继续打开。
 
 ## 验证点

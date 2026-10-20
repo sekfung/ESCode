@@ -122,7 +122,7 @@ Rust 回 `false`（登记差异 §6-2）。
 
 ## 6. 登记差异
 
-1. **replayable attachment 的调用面变更**：连接上下文保留 `web-remote-replayable`，当前用于远程 workspace attachment；手机远控已于 2026-10-20 删除，不再作为调用方。
+1. **replayable attachment 的调用面变更**：连接上下文保留 `web-remote-replayable`，当前用于远程 workspace attachment；远程 workspace已于 2026-10-20 删除，不再作为调用方。
    移除条件：remote 域（优先序 9）落地。
 2. **`subagentRuntimeConfigEnabled=false`**：自定义子代理运行时配置不下发。可见条件：dev 开关下用户自定义 subagent 不生效。
    移除条件：subagents 域实现 `subagents/readRuntimeConfig`。

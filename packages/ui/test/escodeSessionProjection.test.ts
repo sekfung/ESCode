@@ -5706,7 +5706,7 @@ describe("escodeSessionProjection", () => {
     );
   });
 
-  it("projects web remote user input response to elicitation response", () => {
+  it("projects replayable user input response to elicitation response", () => {
     expect(
       escodeUserInputResponseToESCodeStreamEvent("sess_1", {
         requestId: "input-1",

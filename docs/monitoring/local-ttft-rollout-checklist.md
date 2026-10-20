@@ -75,6 +75,6 @@ Status: in-progress
 
 ## 未纳入本清单
 
-- 桌面远程工作区、手机与 Web 远控的 TTFT 采集（父合同 Out of Scope）。
+- 桌面远程工作区、手机与 远程 workspace的 TTFT 采集（父合同 Out of Scope）。
 - Ticket 01 记录的 CLI 全量单测未通过项（442 文件通过 / 76 文件失败，失败未逐项归因，受影响 gateway 的 stale 场景在开工 HEAD 同样失败）。不阻塞平台验收，但主张整体完成前需单独交代。
-- Windows / Linux 实机与手机远控 E2E 运行证据。
+- Windows / Linux 实机与远程 workspace E2E 运行证据。

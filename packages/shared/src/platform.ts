@@ -648,7 +648,7 @@ export interface IPlatformService {
   supportsSerialPort?: boolean;
   /**
    * 插件 UI 沙箱平台端口。只有桌面端实现；
-   * web / 手机远控为 undefined，plugin-ui 据此回退到普通 MCP 工具卡片。
+   * web / 远程 workspace为 undefined，plugin-ui 据此回退到普通 MCP 工具卡片。
    */
   pluginSandbox?: PluginSandboxPlatformPort;
 
@@ -672,7 +672,7 @@ export interface IPlatformService {
 
   /**
    * 从浏览器 File 对象解析宿主本地路径；只有 Desktop preload 能安全实现。
-   * Web/手机端返回 null，避免 UI 层依赖 Electron 的非标准 File.path。
+   * Web/远程 workspace返回 null，避免 UI 层依赖 Electron 的非标准 File.path。
    */
   getPathForFile?(file: unknown): string | null;
 
@@ -681,7 +681,7 @@ export interface IPlatformService {
 
   /**
    * 在宿主 ~/.escode 临时目录创建文本附件文件。
-   * 手机远控必须通过 shared-host/platform proxy 写到桌面宿主，避免大文本进入 prompt payload。
+   * 远程 workspace必须通过 shared-host/platform proxy 写到桌面宿主，避免大文本进入 prompt payload。
    */
   createTempTextAttachment?(
     payload: CreateTempTextAttachmentRequest,
@@ -689,7 +689,7 @@ export interface IPlatformService {
 
   /**
    * 把 dwf 产物某一版的字节写成宿主本机上的一份副本（只在路径为空时写），返回其路径。
-   * 仅 Desktop 实现：手机远控与普通 Web 端没有「用本机 App 打开文件」的能力，缺席即不出入口。
+   * 仅 Desktop 实现：远程 workspace与普通 Web 端没有「用本机 App 打开文件」的能力，缺席即不出入口。
    */
   materializeWorkflowArtifactFile?(
     payload: MaterializeWorkflowArtifactFileRequest,
@@ -820,9 +820,9 @@ export interface IPlatformService {
   /** 通过宿主环境上报 ARMS 自定义事件；Web 端当前为空实现 */
   reportArmsCustomEvent(payload: ArmsCustomEventPayload): Promise<void>;
 
-  /** 读取 Desktop Renderer 用户操作 Trace 的当前灰度配置；Web/手机不实现。 */
+  /** 读取 Desktop Renderer 用户操作 Trace 的当前灰度配置；非 Desktop 不实现。 */
   getRendererActionTraceConfig?(): Promise<RendererActionTraceConfigV1>;
-  /** 订阅 Main 推送的 Renderer 用户操作 Trace 配置；Web/手机不实现。 */
+  /** 订阅 Main 推送的 Renderer 用户操作 Trace 配置；非 Desktop 不实现。 */
   onRendererActionTraceConfigChanged?(
     callback: (config: RendererActionTraceConfigV1) => void,
   ): () => void;
@@ -848,7 +848,7 @@ export interface IPlatformService {
   syncAppSettings?(patch: Partial<AppSettings>): void;
 
   /**
-   * 查询"关闭驻留托盘"能力；桌面端 main 进程探测后返回，Web/手机远控无桥不实现。
+   * 查询"关闭驻留托盘"能力；桌面端 main 进程探测后返回，非 Desktop无桥不实现。
    * 设置页据此决定 Linux 上的开关是否置灰。
    */
   getCloseToTrayCapability?(): Promise<DesktopCloseToTrayCapability>;
@@ -1117,8 +1117,8 @@ export interface IPlatformService {
   /** 获取当前设备的稳定标识符
    *
    * - 桌面端：基于 userData 路径的 SHA-256，始终稳定且唯一
-   * - 手机端（Web 远程控制）：物理属性指纹（browserPlatform | screen.width | screen.height | colorDepth），
-   *   抗浏览器/网络/语言/时区变化，换手机才会变
+   * - 远程 workspace（远程 workspace）：物理属性指纹（browserPlatform | screen.width | screen.height | colorDepth），
+   *   抗浏览器/网络/语言/时区变化，换浏览器环境才会变
    */
   getDeviceId(): string;
 }

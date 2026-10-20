@@ -874,8 +874,8 @@ export interface IESCodeAgentService {
   ): Event<ESCodeProviderRuntimeHeadersRequestParams>;
   /**
    * Start Plan runtime headers 的 workspace 级订阅入口（生产应答方使用）。
-   * Bug 原因（2026-08-16 web 远控卡死）：session 级入口只随桌面 pane 挂载订阅，
-   * web 远控新建会话在桌面没有 pane、web 端无应答方，请求校验请求滞留 pending，
+   * Bug 原因（2026-08-16 远程 workspace卡死）：session 级入口只随桌面 pane 挂载订阅，
+   * 远程 workspace新建会话在桌面没有 pane、web 端无应答方，请求校验请求滞留 pending，
    * 任务永久「工作中」。桌面窗口用本入口为每个打开的 workspace tab 维持常驻应答方；
    * 订阅时先注册 live listener 再按 workspaceKey 前缀补投 pending，与 session 级同语义。
    */

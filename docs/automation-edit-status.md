@@ -136,7 +136,7 @@ automation.lifecycleStatus / enabled
   `text-ui-base` 与次要文字色。固定文案必须国际化。
 - 仅编辑已有定时任务时展示；新建任务没有持久化状态，不展示该行。
 - 使用语义 token 表达状态点和文字：active 用 success，paused 用 warning，failed 用 destructive，completed 用弱文本。
-- 状态行采用紧凑表单字段布局，兼容桌面端和手机 Web 窄屏换行。
+- 状态行采用紧凑表单字段布局，兼容桌面端和窄视口 窄屏换行。
 - 状态文案走 i18n，不写死英文或中文。
 
 ## 未保存返回确认
@@ -315,7 +315,7 @@ automation dispatch
 ```
 
 - 只保证本次触发使用任务当前保存配置，不迁移或修复历史任务数据。
-- 桌面 `desktop-continuous` 继续消费 conversation projection；手机端仍保持
+- 桌面 `desktop-continuous` 继续消费 conversation projection；远程 workspace仍保持
   `web-remote-replayable` 的 command/snapshot 恢复边界。
 - 普通会话手动切模型的入口和既有 `setModel` 兼容路径不变。
 
@@ -435,7 +435,7 @@ AutomationService / Repo ---------------------------> internal database allowed
   不承诺阻止 Bash 访问 `tasks-index.sqlite`，也不能把命令字符串检查描述成文件访问安全边界。
 - `ExecutionSandboxPolicy` 只保留 Bash 原有的通用 sandbox 配置，不携带 automation 专用资源信息；
   `dangerouslyDisableSandbox` 的语义也不得被 automation 功能改写。
-- 若未来需要对 `~/.escode` 建立强安全边界，应先形成独立的跨平台执行隔离设计，明确桌面、Web 远控、
+- 若未来需要对 `~/.escode` 建立强安全边界，应先形成独立的跨平台执行隔离设计，明确桌面、远程 workspace、
   macOS、Windows、Linux、容器和 remote workspace 的兼容性，再由产品级能力统一接入，不能从
   automation 功能局部注入到所有 Bash 请求。
 

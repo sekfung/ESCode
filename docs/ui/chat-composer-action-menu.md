@@ -21,7 +21,7 @@
 - `/goal` 目前只在消息开头按命令解析；既有会话或非空草稿隐藏目标，避免中间插入无效命令。
 - `/workflow` 是 escode-guide 内置插件的自定义命令，同样只在消息开头展开（`custom-command-prompt.ts` 的 `^\/` 模式）；非空草稿隐藏工作流。它不绑定会话级状态，所以新草稿与既有会话都提供；catalog 缺少 `workflow`（插件被禁用）时隐藏，避免把 CLI 不会展开的裸文本发给模型。
 - 点击候选关闭菜单，在打开前的光标处插入标签；保留光标两侧草稿，选中文本时替换选区。随后回到编辑器。
-- 附件使用既有平台选择链路；手机远控未提供 attachmentAction 时隐藏附件项。
+- 附件使用既有平台选择链路；远程 workspace未提供 attachmentAction 时隐藏附件项。
 - 上下键循环并跳过禁选项，Enter/Tab/Space 选择，Escape/点击外部关闭。
 - 底部横排 `@ 添加上下文`、`/ 选择能力`、`$ 选择技能`、`输入内容以搜索插件、文件和对话`；窄屏换行，中英文国际化。
 - 提示属于说明文字，不是菜单候选。`+` 不新增搜索框，搜索仍通过编辑器触发符使用。
@@ -60,7 +60,7 @@ Electron 候选用例：`packages/desktop/test/e2e/conversation-session/manual-r
 - `pnpm typecheck`、`typecheck:e2e`、lint、fixture check、conversation coverage audit、改动 TS/JSON 格式检查通过；lint 为已有 43 warnings / 0 errors。
 - `verify:pre-push` 通过，但其 affected runner 只比较提交范围，未提交时会跳过；以上 3000 项另用同一 lint-staged related runner 显式传工作区改动执行。
 - 全仓 `pnpm fmt:check` 未通过：仓库既有大量格式差异，且 `docs/electron/docs/fiddles/` 下示例 HTML 存在解析错误；未批量修改无关文件。
-- 未验证真实手机远控、Windows/Linux；未执行人工 promotion 或 Docker suite。本用例保持 pending，供后续人工验收。
+- 未验证真实远程 workspace、Windows/Linux；未执行人工 promotion 或 Docker suite。本用例保持 pending，供后续人工验收。
 
 ## 会话列表读取范围
 
@@ -78,12 +78,12 @@ Goal 入口限制回归：先确认新增测试在旧实现失败，再验证 10
 
 interview 决策记录：
 
-| Question                      | Decision                                                                                                               | Boundary fixed                                                                                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 工作流项的存在来源            | **以 CLI slash catalog 为准**：workspace 的 `slashCommands` 含 `workflow` 才出现                                       | 沿用「命令目录以 CLI catalog 为权威」的既有裁定；UI 不硬编码第二个命令来源。目标仍按原样硬编码（它有 session 级语义门禁，与 catalog 无关）       |
-| 何时提供                      | **空草稿、任意会话**（新草稿与既有会话都可）                                                                           | `/workflow` 只在消息开头展开，故要求严格空字符串草稿（与目标同一判据）；不像目标那样限制新会话，因为在既有对话中途启动工作流是合法用法           |
-| `/` 面板顺序                  | **CLI catalog 装配侧**：`workflow` 是内置命令，`APP_PROTOCOL_VISIBLE_BUILTIN_SLASH_COMMAND_NAMES` 把它排在 `goal` 之后 | 单一数据源：桌面、Web、手机远控看到同一顺序；UI 不新增排序白名单（此前 bugfix 已删除 UI 侧命令白名单）。只调顺序，不改来源、去重与 reserved 规则 |
-| 编辑器内 `/workflow` 标签图标 | **lucide `Workflow`**（`WORKFLOW_COMMAND_MENTION_ICON_NODE`）                                                          | 与 `+` 菜单项、dwf 其余 UI 同一图标；`/goal`、`/compact` 的专属图标机制照抄                                                                      |
+| Question                      | Decision                                                                                                               | Boundary fixed                                                                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 工作流项的存在来源            | **以 CLI slash catalog 为准**：workspace 的 `slashCommands` 含 `workflow` 才出现                                       | 沿用「命令目录以 CLI catalog 为权威」的既有裁定；UI 不硬编码第二个命令来源。目标仍按原样硬编码（它有 session 级语义门禁，与 catalog 无关）             |
+| 何时提供                      | **空草稿、任意会话**（新草稿与既有会话都可）                                                                           | `/workflow` 只在消息开头展开，故要求严格空字符串草稿（与目标同一判据）；不像目标那样限制新会话，因为在既有对话中途启动工作流是合法用法                 |
+| `/` 面板顺序                  | **CLI catalog 装配侧**：`workflow` 是内置命令，`APP_PROTOCOL_VISIBLE_BUILTIN_SLASH_COMMAND_NAMES` 把它排在 `goal` 之后 | 单一数据源：桌面、Web、远程 workspace看到同一顺序；UI 不新增排序白名单（此前 bugfix 已删除 UI 侧命令白名单）。只调顺序，不改来源、去重与 reserved 规则 |
+| 编辑器内 `/workflow` 标签图标 | **lucide `Workflow`**（`WORKFLOW_COMMAND_MENTION_ICON_NODE`）                                                          | 与 `+` 菜单项、dwf 其余 UI 同一图标；`/goal`、`/compact` 的专属图标机制照抄                                                                            |
 
 数据流：
 

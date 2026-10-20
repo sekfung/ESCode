@@ -8,7 +8,7 @@
 | User-visible surfaces | Desktop browser-use side-pane tab                                                                                                                                                             |
 | Existing docs         | `2026-07-10-browser-use-codex-parity-spec.md`、`browser-use-codex-parity-coverage-matrix.md`                                                                                                  |
 | Existing code owners  | `browserUseOperationUntil`（side-pane tab）、`UnifiedBrowserView`（浏览器区域）                                                                                                               |
-| Out of scope          | 中断工具、自动重做 snapshot、CUA 坐标修正、main/host/agent 协议变化、手机端独立 browser runtime                                                                                               |
+| Out of scope          | 中断工具、自动重做 snapshot、CUA 坐标修正、main/host/agent 协议变化、远程 workspace独立 browser runtime                                                                                       |
 
 ## Clarification log
 

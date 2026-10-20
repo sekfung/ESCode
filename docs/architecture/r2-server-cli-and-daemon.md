@@ -13,7 +13,6 @@
 - [ESCode 统一多端远程连接架构与产品方案（评审稿）](https://internal-docs.example.invalid/redacted)
 - [R1 窗口级单 Host 进程重构规格](./r1-single-window-host-refactor.md)
 - [Agent Electron/Node runtime 事实](../runtime-tools/agent-electron-node-runtime.md)
-- [ESCode Lite / Server 统一多端架构实施计划](./unified-escode-lite-server-multi-server-plan.md)
 
 R2 交付：
 

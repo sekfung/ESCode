@@ -51,7 +51,7 @@ v4 prop 链路必须从 shell 传到每个 row renderer：`V4ChatPane` /
 `shell.showItemInFolder(path)`（打开所在目录并选中文件），不再执行
 `explorer.exe /select` 后按退出码二次打开。Explorer 可能已委托打开请求却以非零码退出，
 不能把该退出码当作需要再次打开的依据。返回成功只表示已发出定位请求，不保证系统窗口已显示。
-Windows 目录仍使用 `shell.openPath`；macOS Finder、WSL UNC 分支和手机远控保持原有行为。
+Windows 目录仍使用 `shell.openPath`；macOS Finder、WSL UNC 分支和远程 workspace保持原有行为。
 验收：中文及空格文件路径只发出一次定位请求，不启动 Explorer 子进程；Windows 实机右键后
 只出现目标目录窗口且选中文件，不额外出现桌面窗口。
 

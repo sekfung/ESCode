@@ -145,7 +145,7 @@ grep memory_sample ~/.escode/cli/log/escode-2026-09-03.jsonl | jq -c '[.time, .c
 - renderer：`packages/ui/src/lib/memoryDiagnostics.ts`、`packages/ui/src/logger.ts`；
   采样器的 `reportHeapSample` 注入点在写盘门控之前，把同一次 `performance.memory` 读数经
   `IPlatformService.reportRendererHeapSample` 交给资源遥测（本地行可能被门控跳过，遥测样本每 60 秒
-  都发；Web 端与手机远控没有桥即 no-op）
+  都发；Web 端与远程 workspace没有桥即 no-op）
 
 ## 验收 Case
 

@@ -139,24 +139,12 @@ afterEach(() => {
 });
 
 describe("IntlProvider locale preference sync", () => {
-  it("手机远控以桌面 settingService locale 覆盖手机本地偏好", () => {
+  it("非远程 workspace入口继续尊重本地语言偏好", () => {
     expect(
       resolveLocalePreferenceFromSettings({
         storedPreference: "en-US",
         settingsLocale: "zh-CN",
         settingsLocalePreference: "zh-CN",
-        preferSettingServiceLocale: true,
-      }),
-    ).toBe("zh-CN");
-  });
-
-  it("非远控入口继续尊重本地语言偏好", () => {
-    expect(
-      resolveLocalePreferenceFromSettings({
-        storedPreference: "en-US",
-        settingsLocale: "zh-CN",
-        settingsLocalePreference: "zh-CN",
-        preferSettingServiceLocale: false,
       }),
     ).toBe("en-US");
   });
@@ -167,20 +155,8 @@ describe("IntlProvider locale preference sync", () => {
         storedPreference: null,
         settingsLocale: "zh-CN",
         settingsLocalePreference: "system",
-        preferSettingServiceLocale: false,
       }),
     ).toBe("system");
-  });
-
-  it("远控入口遇到桌面 system 偏好时使用桌面已解析语言", () => {
-    expect(
-      resolveLocalePreferenceFromSettings({
-        storedPreference: "en-US",
-        settingsLocale: "zh-CN",
-        settingsLocalePreference: "system",
-        preferSettingServiceLocale: true,
-      }),
-    ).toBe("zh-CN");
   });
 
   it("只接收 state:locale 的合法语言广播", () => {

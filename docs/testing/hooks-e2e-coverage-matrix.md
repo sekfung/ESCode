@@ -56,7 +56,7 @@
   fire-and-forget 路径；不扩展为 7 事件 x 3 执行模式的重复组合。
 - `PreToolUse` 和 `PermissionRequest` 使用需要审批的成功工具；`PostToolUseFailure` 使用确定失败工具。
 - plugin 展示和 legacy 导入由设置页/service focused tests 证明；整体 lifecycle E2E 聚焦 runtime 闭环。
-- 手机 Web 复用同一 HooksSection 和 Agent runtime，不新增独立 runtime，也不改变
+- 窄视口 复用同一 HooksSection 和 Agent runtime，不新增独立 runtime，也不改变
   `desktop-continuous` / `web-remote-replayable` 边界。
 
 ## Accepted Cases

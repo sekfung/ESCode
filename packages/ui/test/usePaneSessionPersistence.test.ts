@@ -35,7 +35,7 @@ describe("pane last-session restore precedence", () => {
     ).toBe(false);
   });
 
-  it("does not consume desktop persistence in web remote replayable mode", () => {
+  it("does not consume desktop persistence in 远程 workspace replayable mode", () => {
     expect(
       shouldRestorePersistedPaneSession({
         activeSessionId: null,

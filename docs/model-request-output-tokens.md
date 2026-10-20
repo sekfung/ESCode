@@ -3,7 +3,7 @@
 更新日期：2026-08-13
 
 本文说明 escode-cli 如何把模型级 `maxOutputTokens` 转换为每次请求的输出预算。桌面本地、
-远程 workspace 和手机 Web 远控复用同一条 agent 请求链路，策略一致。
+远程 workspace 和远程 workspace复用同一条 agent 请求链路，策略一致。
 
 ## 模型级预算
 

@@ -5,7 +5,7 @@
 //! `normalizeAvailableESCodeMode` 与 `packages/shared/src/model-selection.ts` 的
 //! `formatModelPickerValue`。
 //!
-//! 模式目录是 Desktop/手机 Composer、Automation 表单共用的**唯一事实源**：
+//! 模式目录是 Desktop/远程 workspace Composer、Automation 表单共用的**唯一事实源**：
 //! 菜单隐藏 `edit` 不等于删除历史值，`normalize_available_mode` 必须保留 `edit`。
 
 use serde_json::{Map, Value};

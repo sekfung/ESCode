@@ -29,7 +29,7 @@ Host 已启用插件 → usePluginUiSurfaces → 空白页按钮 / + 菜单项
 - Browser tab 会跟随 webview 的 `page-title-updated` / `page-favicon-updated` 事件显示网页 title 和 favicon；事件未返回时回退到默认 Browser 标题和 Globe 图标
 - Header 上原来的 Browser / Diff 独立按钮已移除，统一收口到最右侧 side pane 按钮
 - side pane 按钮始终可点击；它只负责展开/收起右侧容器，不自动创建 Browser / Review / Terminal 等任何 tab
-- New Task 草稿态与已有 Task 复用同一个 `WorkspaceHeader` 骨架，通过 `variant="draft"` 隐藏 task 专属上下文和菜单，并保留 Help / Terminal / Side Pane 与平台 caption 操作区。进入新草稿时 side pane 继续默认收起，用户点击按钮后按草稿 owner 恢复已有 tab；没有可见 tab 时展示 `Open tab` 空态，不得隐式创建 tab。手机 Web 远控继续复用现有 side pane overlay，不新增独立 runtime 或恢复链路。完整约束见 `docs/ui/workspace-header-variants.md`。
+- New Task 草稿态与已有 Task 复用同一个 `WorkspaceHeader` 骨架，通过 `variant="draft"` 隐藏 task 专属上下文和菜单，并保留 Help / Terminal / Side Pane 与平台 caption 操作区。进入新草稿时 side pane 继续默认收起，用户点击按钮后按草稿 owner 恢复已有 tab；没有可见 tab 时展示 `Open tab` 空态，不得隐式创建 tab。远程 workspace继续复用现有 side pane overlay，不新增独立 runtime 或恢复链路。完整约束见 `docs/ui/workspace-header-variants.md`。
 - 当 side pane 展开但当前任务没有可见 tab 时显示 `Open tab` 空态页面；判定使用按 active task 过滤后的可见 tab 集，而不是 workspace registry 的全部 tab。即使 registry 仍保留其他 task 的 session-scoped 隐藏 tab，也必须显示空态，不显示空 tab strip 或 `+` 菜单。用户必须显式点击空态按钮才会创建 tab。入口按钮窄面板使用一列 `icon + name`，side pane 被拉宽到 480px 以上时按容器宽度横向排布，且单个按钮内部改为上方 icon、下方 name；按钮圆角为 `rounded-xl`，名称字号为 13px，图标尺寸为 16px，背景使用 `surface`，不显示边框。
 - 关闭最后一个 tab 或执行关闭全部 tab 后，side pane 立即进入收起态；用户再次打开 Browser / Diff / Code Viewer / Terminal 等 tab 时再自动展开
 - 当 Browser / Diff / Code Viewer 被重新激活时，会自动清掉收起态，避免右侧已有内容却继续隐藏

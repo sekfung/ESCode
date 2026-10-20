@@ -41,7 +41,7 @@ Window / Sidebar / transparent body layout
 - 底部终端 tab 没有前置图标，左内边距使用 `pl-2`（8px）。
 - 底部终端 tab 同样使用 ghost：选中背景 hover 不变，内容用 mask 淡出；关闭按钮参与普通 flex 布局，仅在选中、hover、focus-within 时显示，隐藏时保留占位，mask 不随显示状态左移。Tab 间距为 4px，宽度跟随内容，最大 144px，不设置固定宽度或最小宽度。「终端」标题保持原样，shell 名称使用普通辅助文字，不使用 pill 背景、圆角或内边距。
 - 新任务、普通会话、插件、Automations 都使用同一主面板边界，不创建第二份业务状态。
-- 手机远控保持单列/覆盖抽屉路径，无额外双面板间距；响应式收缩不能挤掉输入区或造成横向滚动。
+- 远程 workspace保持单列/覆盖抽屉路径，无额外双面板间距；响应式收缩不能挤掉输入区或造成横向滚动。
 
 ## 兼容边界
 
@@ -67,7 +67,7 @@ Windows/Linux 复用同一内联窗控组件，28px 按钮、16px 图标、2px �
 - 设置页主内容框在 macOS、Windows、Linux 桌面统一使用 4px 外层 padding：保留左侧导航相邻边的既有 0px 间距，并以 4px 顶部拖拽留白承接内容面板；Web 不增加桌面外框留白。此项只统一大结构边距，不改变设置内容区自身 padding。
 
 - Side Header 与 WorkspaceHeader 统一使用 8px 左右内边距：标签总览左侧、窗控操作组右侧及 launcher 空态一致，按钮尺寸与标签内部间距不变。
-- 职业引导页的 Windows/Linux 窗控与 Workspace、Settings 对齐：48px 标题区域计入 4px 外层留白和 1px 边框，控件距窗口顶部 15px、右侧 13px。深浅主题及窗口尺寸变化时保持同一 CSS 几何；macOS 和手机 Web 不显示该组自绘窗控。
+- 职业引导页的 Windows/Linux 窗控与 Workspace、Settings 对齐：48px 标题区域计入 4px 外层留白和 1px 边框，控件距窗口顶部 15px、右侧 13px。深浅主题及窗口尺寸变化时保持同一 CSS 几何；macOS 和窄视口 不显示该组自绘窗控。
 
 - Windows 自绘窗控采用普通 flex 布局，紧跟 Side Pane 开关，复用其 `icon-md` 尺寸、默认圆角和 2px 间距，关闭 hover 保持红色。Side Pane 收起时属于 WorkspaceHeader，展开时属于 Side Header（含 launcher 空态）；不使用绝对定位覆盖层，也不为它额外预留 native caption 空白。设置页窗控跟随其现有菜单操作组。
 
@@ -90,7 +90,7 @@ Windows/Linux 复用同一内联窗控组件，28px 按钮、16px 图标、2px �
 - 展开 Side Pane：Header 属于会话面板，两面板独立圆角与背景；顶部/底部差 <= 1px，面板间距 4px。
 - 关闭 Side Pane：左面板恢复原宽度；反复展开不丢失 tab、终端内容或会话。
 
-- 两种主题分别验证背景与边框；现有手机远控、Windows/Linux caption 单测通过。
+- 两种主题分别验证背景与边框；现有远程 workspace、Windows/Linux caption 单测通过。
 - 执行相关单测、Electron E2E、typecheck、lint，记录无法完成的独立平台视觉验证。
 
 ## 验证结果
@@ -145,7 +145,7 @@ Windows/Linux 复用同一内联窗控组件，28px 按钮、16px 图标、2px �
 - `pnpm typecheck`、`pnpm --filter @escode/desktop typecheck:e2e`、`pnpm lint` 通过；Lint 41 个已有警告、0 错误。
 - macOS Electron 最终 4px 版本：7/7 通过；运行 ID `desktop-e2e-20260904084050358-p6937-68e000533efda13e`。
 - 运行时验证包含：4px 间距、上下对齐、双 xl 外框、Header 归属、真实指针拖动改变宽度、底部终端独立外框、关闭后宽度恢复、标签栏开关与缩放交互，以及浅色/深色背景一致性。两种主题截图已检查。
-- Windows/Linux caption 和手机远控路径有单测覆盖，尚未执行这些平台的独立视觉 E2E；截图中的透明窗口底层不等同于操作系统最终合成的 vibrancy 材质。
+- Windows/Linux caption 和远程 workspace路径有单测覆盖，尚未执行这些平台的独立视觉 E2E；截图中的透明窗口底层不等同于操作系统最终合成的 vibrancy 材质。
 
 ## 当前会话最近活动
 

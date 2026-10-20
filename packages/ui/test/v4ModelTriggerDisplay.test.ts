@@ -91,7 +91,7 @@ describe("resolveV4ModelTriggerLabel", () => {
     ).toBe("deepseek/deepseek-v4-flash");
   });
 
-  it("手机 Web 与桌面共享完整身份文案，由 composer 容器断点负责视觉裁剪", () => {
+  it("窄视口 与桌面共享完整身份文案，由 composer 容器断点负责视觉裁剪", () => {
     const group = createGroup({
       key: "default-deepseek",
       label: "deepseek",
@@ -109,7 +109,7 @@ describe("resolveV4ModelTriggerLabel", () => {
     ).toBe("deepseek/deepseek-v4-flash");
   });
 
-  it("桌面宽视口打开 Web 远控时仍显示自定义供应商名", () => {
+  it("桌面宽视口打开 远程 workspace时仍显示自定义供应商名", () => {
     const group = createGroup({
       key: "default-deepseek",
       label: "deepseek",

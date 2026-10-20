@@ -46,7 +46,7 @@ Lexical state
 - 截图：`packages/desktop/.e2e-artifacts/mention-selection/native-select-all.png`，截图复核确认文件图标与全选高亮正常。
 - `pnpm typecheck`、`pnpm --filter @escode/desktop typecheck:e2e`、`pnpm lint`、conversation coverage audit 均通过；lint 为仓库现有 42 warnings / 0 errors，修改文件无新增告警。
 - 测试环境记录：typecheck 会 emit 到 out/host，不能与 Desktop bundle 构建并行，否则覆盖 Host bundle 导致启动失败。最终验证按顺序执行。首次纯文本 setup 使用异步 focus 导致全页选区，已改为真实点击并断言输入框焦点；没有放宽选区断言。
-- 待补平台证据：Windows/Linux Ctrl+A、手机 Web 触屏长按、WebKit、浅色主题及消息行内编辑的独立 E2E。共享实现和协议保持兼容，但不将本次 macOS 主输入框证据冒充这些场景已实测。
+- 待补平台证据：Windows/Linux Ctrl+A、窄视口 触屏长按、WebKit、浅色主题及消息行内编辑的独立 E2E。共享实现和协议保持兼容，但不将本次 macOS 主输入框证据冒充这些场景已实测。
 
 ## E2E lifecycle（本地，无 Docker）
 
