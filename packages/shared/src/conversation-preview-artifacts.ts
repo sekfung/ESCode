@@ -177,7 +177,7 @@ export function resolveConversationPreviewPath(
   const cleaned = cleanPath(rawPath);
   if (!cleaned) return null;
   // Shell 展示用的 Home-relative 路径不是稳定的预览卡片引用；只有明确 citation 或
-  // Markdown/file URL 才能成为候选，避免把正文里的 `~/...` 当成 workspace 文件分享。
+  // Markdown/file URL 才能成为候选，避免把正文里的 `~/...` 当成 workspace 文件引用。
   if (/^~[\\/]/u.test(cleaned)) return null;
   const filePath = /^file:\/\//iu.test(cleaned) ? parseFileUrlPath(cleaned) : cleaned;
   if (!filePath) return null;
