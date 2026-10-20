@@ -93,7 +93,7 @@ Renderer                     V4 Server(bootstrap)                Core Runtime
   1. `activate()`(startup / resume)完成评估后;
   2. exact persistent trust 后,由 controller 重新评估并发布;
   3. toggle 重建 bundle、revoke 之后同理。
-- **不用** `pendingInteractions` 承载 admission(它是"阻塞性"的 load-bearing 语义:隐藏 composer、压 spinner、通知、侧栏);`hooksService.loadHooks` 仅用于 Settings 静态持久 Trust 视图。snapshot 走 V4 协议,桌面/Web 远控天然同源,满足多端约束。
+- **不用** `pendingInteractions` 承载 admission(它是"阻塞性"的 load-bearing 语义:隐藏 composer、压 spinner、通知、侧栏);`hooksService.loadHooks` 仅用于 Settings 静态持久 Trust 视图。snapshot 走 V4 协议,桌面/远程 workspace 天然同源,满足多端约束。
 
 ### D3. 按需开审核 flow:新命令 `requestWorkspaceHookReview`(shared + bootstrap)
 

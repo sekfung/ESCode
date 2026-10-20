@@ -358,36 +358,6 @@ describe("V4WorkspaceChatArea split draft session creation", () => {
     expect(useWorkbenchGroupStore.getState().groups).toEqual({});
   });
 
-  it("does not expose split controls in compact remote control mode", () => {
-    usePaneLayoutStore.getState().splitPaneWithBinding(V4_PRIMARY_PANE_ID, "right", {
-      workspaceScope: { workspacePath: "/workspace" },
-      sessionId: "main-session",
-    });
-    useWorkbenchGroupStore.getState().splitSessionIntoGroup(
-      V4_PRIMARY_PANE_ID,
-      "right",
-      {
-        workspaceScope: {
-          workspacePath: "/remote/workspace",
-          workspaceIdentity: "remote:ssh:host:/remote/workspace",
-          remoteSessionId: "remote-1",
-        },
-        sessionId: "remote-right-session",
-      },
-      {
-        workspaceScope: { workspacePath: "/workspace" },
-        sessionId: "main-session",
-      },
-    );
-    renderWorkspace("main-session", vi.fn(), { compactForRemoteControl: true });
-
-    const primary = sessionPaneProps(V4_PRIMARY_PANE_ID);
-    expect(primary.sessionId).toBe("main-session");
-    expect(primary.onSplitRight).toBeUndefined();
-    expect(primary.onSplitDown).toBeUndefined();
-    expect(capturedPaneIds()).toEqual([V4_PRIMARY_PANE_ID]);
-  });
-
   it("keeps the primary pane as draft when a sidebar session is dropped beside a draft", () => {
     usePaneLayoutStore.getState().splitPaneWithBinding(V4_PRIMARY_PANE_ID, "right", {
       workspaceScope: { workspacePath: "/workspace" },

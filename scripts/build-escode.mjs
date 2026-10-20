@@ -151,7 +151,6 @@ async function buildOutputs(skipBuild) {
     recursive: true,
   });
   run("pnpm", ["--filter", "@escode/server", "build"]);
-  run("pnpm", ["--filter", "@escode/web", "build"]);
 }
 
 async function stageESCodePackage({ packageRoot, version }) {

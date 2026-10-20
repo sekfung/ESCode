@@ -35,13 +35,6 @@ export function createDesktopPlatform(options: {
       window.escode.cancelPendingRemoteConnection?.(requestId) ?? Promise.resolve(),
     bindRemoteWorkspaceSessionContext: (context) =>
       window.escode.bindRemoteWorkspaceSessionContext?.(context) ?? Promise.resolve(),
-    startWebRemoteControl: (context) => window.escode.startWebRemoteControl(context),
-    refreshWebRemoteControlPairing: (context) =>
-      window.escode.refreshWebRemoteControlPairing(context),
-    stopWebRemoteControl: () => window.escode.stopWebRemoteControl(),
-    getWebRemoteControlStatus: () => window.escode.getWebRemoteControlStatus(),
-    onWebRemoteControlStatusChanged: (handler) =>
-      window.escode.onWebRemoteControlStatusChanged?.(handler) ?? (() => {}),
     disposeRemoteSession: (sessionId) => window.escode.disposeRemoteSession(sessionId),
     isDockerAvailable: () => window.escode.isDockerAvailable(),
     listWSLDistros: () => window.escode.listWSLDistros(),
@@ -92,11 +85,6 @@ export function createDesktopPlatform(options: {
       : undefined,
     showTaskNotification: (payload) => window.escode.showTaskNotification(payload),
     syncWindowTabs: (paths) => window.escode.syncWindowTabs(paths),
-    syncWebRemoteControlWorkspaces: (workspaces) =>
-      window.escode.syncWebRemoteControlWorkspaces?.(workspaces),
-    syncWebRemoteControlTasks: (tasks) => window.escode.syncWebRemoteControlTasks?.(tasks),
-    onWebRemoteControlReconnectWorkspace: (handler) =>
-      window.escode.onWebRemoteControlReconnectWorkspace?.(handler) ?? (() => {}),
     syncWindowUnreadCount: (count) => window.escode.syncWindowUnreadCount(count),
     syncActiveTaskSession: (sessionId) => window.escode.syncActiveTaskSession(sessionId),
     syncAppSettings: (patch) => window.escode.syncAppSettings?.(patch),

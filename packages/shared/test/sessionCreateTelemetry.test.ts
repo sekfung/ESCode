@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   sessionCreateTelemetrySchema,
   resolveWorkspaceTelemetryDetail,
-  parseWebRemoteControlAppPayload,
   buildRemoteWorkspaceIdentity,
   type RemoteTarget,
 } from "@escode/shared";
@@ -27,10 +26,6 @@ describe("session_create 手机合同", () => {
     },
   };
   it("只允许手机 session_create，保留手机 context", () => {
-    expect(parseWebRemoteControlAppPayload({ escode_type: "telemetry-report", event })).toEqual({
-      escode_type: "telemetry-report",
-      event,
-    });
     expect(
       sessionCreateTelemetrySchema.safeParse({ ...event, elementName: "send_btn" }).success,
     ).toBe(false);

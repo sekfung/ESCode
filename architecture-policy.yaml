@@ -43,9 +43,6 @@ modules:
   - id: ui
     roots: [packages/ui/src]
     managed: false
-  - id: web
-    roots: [packages/web/src]
-    managed: false
   - id: desktop
     roots: [packages/desktop/src]
     managed: false

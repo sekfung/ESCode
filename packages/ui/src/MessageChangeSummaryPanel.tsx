@@ -38,7 +38,6 @@ interface MessageChangeSummaryPanelProps {
   readonlyDiffPatchesByPath?: ReadonlyMap<string, string>;
   fileState?: ESCodeTurnFileState;
   messageId?: string;
-  compactForRemoteControl?: boolean;
   animationDelayMs?: number;
   // M5 ③-4：onPreviewFilesRewind/onApplyFilesRewind 已随 session/previewFileRewind、
   // session/applyFileRewind 旧协议词删除（全仓无 caller 传入）；文件撤销回退只剩
@@ -56,7 +55,6 @@ export function MessageChangeSummaryPanel({
   readonlyDiffPatchesByPath,
   fileState = "applied",
   messageId,
-  compactForRemoteControl = false,
   animationDelayMs = 0,
   onToggleFiles,
   onOpenCodeViewer,
@@ -258,9 +256,6 @@ export function MessageChangeSummaryPanel({
                         previewSource: filePreviewSource,
                       }}
                       onOpenCodeViewer={onOpenCodeViewer}
-                      // Bugfix: 手机远控只需要在应用内预览 diff 文件，不需要桌面端的“选择 App 打开”菜单。
-                      // 隐藏下拉区可以减少窄屏误触，同时保留主“打开”按钮的预览能力。
-                      hideOpenWithMenu={compactForRemoteControl}
                       stopPropagation
                     />
                   </div>

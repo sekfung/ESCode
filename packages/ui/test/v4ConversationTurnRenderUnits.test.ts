@@ -874,9 +874,9 @@ describe("buildConversationTurnRenderUnits", () => {
   });
 
   it("轮尾的 artifact 行不占用折叠锚点", () => {
-    // Bug 根因：artifact 行是分享投影追加到轮尾的产出物，却同属 AssistantWorkRow，
-    // 会成为 flow 最后一行。公开投影禁止 actions，分享页只剩「最后一行是 assistantText」
-    // 这条兜底，于是最终答复被卷进「已工作」并整轮默认展开——任何带结果物的分享都中招。
+    // Bug 根因：artifact 行是投影追加到轮尾的产出物，却同属 AssistantWorkRow，
+    // 会成为 flow 最后一行。投影禁止 actions，只读时间线只剩「最后一行是 assistantText」
+    // 这条兜底，于是最终答复被卷进「已工作」并整轮默认展开。
     const artifactRow = {
       rowId: 6,
       turnId: "turn-1",
@@ -891,7 +891,7 @@ describe("buildConversationTurnRenderUnits", () => {
       mimeType: "application/pdf",
       sizeBytes: 10,
       sha256: "a".repeat(64),
-      ref: "escode-artifact://share/artifact-1",
+      ref: "escode-artifact://session/artifact-1",
       state: "current" as const,
     };
     const [unit] = buildConversationTurnRenderUnits([

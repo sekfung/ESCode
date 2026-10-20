@@ -57,14 +57,4 @@ describe("chat empty time greeting i18n", () => {
       }),
     ).toBe(30);
   });
-
-  it("手机远控保持原有 20px 紧凑标题，不启用桌面自适应测量", () => {
-    expect(
-      resolveGreetingFontSizePx({
-        availableWidthPx: 406,
-        naturalTextWidthPx: 360,
-        compactForRemoteControl: true,
-      }),
-    ).toBe(20);
-  });
 });

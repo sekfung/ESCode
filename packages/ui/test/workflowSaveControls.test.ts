@@ -414,7 +414,7 @@ describe("WorkflowRunSaveSlotsBoundary", () => {
   beforeEach(() => setController({ entry: ENTRY }));
   const host: WorkflowRunSaveSlotsHost = { workspacePath: "/repo", runId: "run-1", canSave: true };
 
-  it("没有服务上下文（静态渲染、回放、分享只读）：不挂控制器，卡就是原来那张卡", () => {
+  it("没有服务上下文（静态渲染、回放、只读）：不挂控制器，卡就是原来那张卡", () => {
     const seen: unknown[] = [];
     render(
       withIntl(

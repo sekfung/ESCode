@@ -17,7 +17,7 @@ import type {
 } from "@/v4/conversationTurnWorkSegments.js";
 
 export interface ConversationTurnRenderUnit {
-  /** 未接受的 Bot 消息展示投影，不写入 CLI rows 或导航/分享索引。 */
+  /** 未接受的 Bot 消息展示投影，不写入 CLI rows 或导航索引。 */
   topicPreparations?: readonly BotTopicPreparation[];
   key: string;
   turnId: string;

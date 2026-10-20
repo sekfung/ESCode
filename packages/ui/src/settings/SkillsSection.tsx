@@ -147,7 +147,6 @@ interface SkillsSectionProps {
   workspaceIdentity?: string;
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
-  isWebRemoteControl?: boolean;
   scopeFilter: "user" | "workspace";
   searchQuery: string;
   onVisibleCountChange?: (count: number) => void;
@@ -163,7 +162,6 @@ export function SkillsSection({
   workspaceIdentity,
   remoteSessionId,
   remoteTarget,
-  isWebRemoteControl = false,
   scopeFilter,
   searchQuery,
   onVisibleCountChange,
@@ -249,7 +247,7 @@ export function SkillsSection({
     shouldShowRemoteSyncActions({
       remoteSessionId,
       remoteTarget,
-      clientMode: isWebRemoteControl ? "web-remote-replayable" : "desktop-continuous",
+      clientMode: "desktop-continuous",
       hasLocalSourceService: Boolean(baseServices.skillSyncService),
     }) &&
     activeWorkspacePath

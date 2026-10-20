@@ -25,11 +25,11 @@ describe("Workspace Sidebar terminology", () => {
     );
   });
 
-  it("uses the plugin marketplace terminology for desktop and mobile detail breadcrumbs", () => {
+  it("uses the plugin marketplace terminology for the desktop detail breadcrumb", () => {
     expect(
       workspaceShellSource.match(
         /sectionLabel=\{intl\.formatMessage\(\{\s*id: "workspace\.openPluginsSettings",\s*\}\)\}/g,
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 });

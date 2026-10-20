@@ -10,61 +10,10 @@ export const DEFAULT_ZAI_BUSINESS_BASE_URL = "https://api.z.ai";
 export const TEST_ZAI_BUSINESS_BASE_URL = "https://api.z.ai";
 export const DEFAULT_ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg";
 export const TEST_ZAI_OAUTH_CLIENT_ID = "client_P8X5CMWmlaRO9gyO-KSqtg";
-export const DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL = "wss://zcode.z.ai/ws";
-export const WEB_REMOTE_CONTROL_V4_MIN_APP_VERSION = "3.4.0";
-
-export interface BuildESCodeEndpointUrlsOptions {
-  appVersion?: string;
-}
-
-function isWebRemoteControlV4AppVersion(appVersion: string | undefined): boolean {
-  if (!appVersion) {
-    return false;
-  }
-
-  // escodeEndpoint 会被 Vite 配置在 Node 加载期直接导入，不能依赖源码态 `.js` runtime import。
-  // 这里只比较固定的稳定版门槛；高于 3.4.0 的预发布版本仍满足门槛，3.4.0 自身的预发布版本不满足。
-  const normalizedVersion = appVersion.trim().replace(/^v/i, "");
-  const match = normalizedVersion.match(
-    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([^+]+))?(?:\+(.+))?$/,
-  );
-  if (!match) {
-    return false;
-  }
-
-  const prereleaseIdentifiers = match[4]?.split(".");
-  const hasValidPrerelease =
-    prereleaseIdentifiers === undefined ||
-    prereleaseIdentifiers.every(
-      (identifier) =>
-        /^[0-9A-Za-z-]+$/.test(identifier) &&
-        (!/^\d+$/.test(identifier) || /^(0|[1-9]\d*)$/.test(identifier)),
-    );
-  const buildIdentifiers = match[5]?.split(".");
-  const hasValidBuild =
-    buildIdentifiers === undefined ||
-    buildIdentifiers.every((identifier) => /^[0-9A-Za-z-]+$/.test(identifier));
-  if (!hasValidPrerelease || !hasValidBuild) {
-    return false;
-  }
-
-  const versionParts = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const floorParts = WEB_REMOTE_CONTROL_V4_MIN_APP_VERSION.split(".").map(Number);
-  for (let index = 0; index < floorParts.length; index += 1) {
-    if (versionParts[index]! !== floorParts[index]!) {
-      return versionParts[index]! > floorParts[index]!;
-    }
-  }
-
-  return prereleaseIdentifiers === undefined;
-}
 
 export interface ESCodeEndpointUrls {
   origin: string;
   apiBaseUrl: string;
-  remoteUrl: string;
-  webRemoteCallbackUrl: string;
-  relayWsUrl: string;
   escodePlanOpenAiBaseUrl: string;
   escodePlanAnthropicBaseUrl: string;
   escodePlanBillingCurrentUrl: string;
@@ -146,10 +95,6 @@ export function normalizeESCodeEndpointOrigin(value: string): string {
   return parsed.origin;
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
-}
-
 export function resolveESCodeEndpointOrigin(options?: {
   env?: ESCodeEnv;
   envBaseOrigin?: string | null;
@@ -205,24 +150,6 @@ export function buildRuntimeESCodeEndpointUrls(
 export function buildRuntimeESCodeApiUrl(env: RuntimeESCodeEndpointEnv = {}, path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${resolveRuntimeESCodeEndpointOrigin(env)}${normalizedPath}`;
-}
-
-export function resolveWebRemoteControlRelayWsUrl(options?: {
-  endpointOrigin?: string | null | undefined;
-  overrideUrl?: string | null | undefined;
-}): string {
-  const overrideUrl = options?.overrideUrl?.trim();
-  if (overrideUrl) {
-    return overrideUrl;
-  }
-
-  // Bugfix：标准 test endpoint 已部署独立 relay；继续固定到生产 relay 会让测试环境跨环境配对。
-  // 仅识别规范 test origin，避免改变 production、localhost 和其他自定义 endpoint 的既有行为。
-  if (options?.endpointOrigin?.trim() === TEST_ESCODE_ENDPOINT_ORIGIN) {
-    return "wss://zcode.z.ai/ws";
-  }
-
-  return DEFAULT_WEB_REMOTE_CONTROL_RELAY_WS_URL;
 }
 
 export function resolveBigModelApiOrigin(env: RuntimeBigModelApiEnv = {}): string {
@@ -326,23 +253,12 @@ export function resolveRuntimeProductEndpointConfig(
   };
 }
 
-export function buildESCodeEndpointUrls(
-  origin: string,
-  options: BuildESCodeEndpointUrlsOptions = {},
-): ESCodeEndpointUrls {
+export function buildESCodeEndpointUrls(origin: string): ESCodeEndpointUrls {
   const normalizedOrigin = normalizeESCodeEndpointOrigin(origin);
-  const parsed = new URL(normalizedOrigin);
-  const wsProtocol = parsed.protocol === "https:" ? "wss:" : "ws:";
-  const wsOrigin = `${wsProtocol}//${parsed.host}`;
-  // 无法解析或低于分界版本时保守使用 v3，避免开发版本和旧客户端进入未兼容的 v4 页面。
-  const remoteVersion = isWebRemoteControlV4AppVersion(options.appVersion) ? "v4" : "v3";
 
   return {
     origin: normalizedOrigin,
     apiBaseUrl: `${normalizedOrigin}/api/v1`,
-    remoteUrl: `${normalizedOrigin}/remote/${remoteVersion}`,
-    webRemoteCallbackUrl: `${normalizedOrigin}/web-remote/callback`,
-    relayWsUrl: `${wsOrigin}/ws`,
     escodePlanOpenAiBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan`,
     escodePlanAnthropicBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan/anthropic`,
     escodePlanBillingCurrentUrl: `${normalizedOrigin}/api/v1/zcode-plan/billing/current`,

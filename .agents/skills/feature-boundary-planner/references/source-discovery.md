@@ -10,15 +10,15 @@ rg -n '模型选择|消息队列|工作区隔离|输入框触发器' .agents/ski
 
 Read the matching node and relationships referencing its ID, then inspect the declared source. Missing graph coverage is a reason to use the source entrypoints below, not evidence that a feature is absent. File and symbol presence validates a retrieval seed, not its behavior or test coverage.
 
-| Concern               | Starting points                           | Evidence to trace                                                    |
-| --------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| UI and state          | `packages/ui/src`, `DESIGN.md`            | entrypoint, draft owner, shared callers, validation, commit action   |
-| Business services     | `packages/services/src`                   | authoritative owner, command admission, public contract, persistence |
-| Shared contracts      | `packages/shared/src`, `packages/rpc/src` | runtime schema, request/event shape, routing boundary                |
-| Desktop lifecycle     | `packages/desktop/src`                    | renderer/host/main responsibilities, process ownership               |
-| Web client and server | `packages/web/src`, `packages/server/src` | transport, authentication, attachment, client mode                   |
-| Agent runtime         | `apps/escode-cli/packages`                | command handler, runtime state, emitted events                       |
-| Module boundaries     | `architecture-policy.yaml`                | declared roots, layers, public entrypoints, dependencies             |
+| Concern           | Starting points                           | Evidence to trace                                                    |
+| ----------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| UI and state      | `packages/ui/src`, `DESIGN.md`            | entrypoint, draft owner, shared callers, validation, commit action   |
+| Business services | `packages/services/src`                   | authoritative owner, command admission, public contract, persistence |
+| Shared contracts  | `packages/shared/src`, `packages/rpc/src` | runtime schema, request/event shape, routing boundary                |
+| Desktop lifecycle | `packages/desktop/src`                    | renderer/host/main responsibilities, process ownership               |
+| Server            | `packages/server/src`                     | transport, authentication, attachment, client mode                   |
+| Agent runtime     | `apps/escode-cli/packages`                | command handler, runtime state, emitted events                       |
+| Module boundaries | `architecture-policy.yaml`                | declared roots, layers, public entrypoints, dependencies             |
 
 Start with bounded searches in the relevant area:
 

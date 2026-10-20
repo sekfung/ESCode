@@ -41,7 +41,6 @@ export function createWindow(options: {
   syncAutoUpdaterStateToWindow: (win: BrowserWindow) => void;
   syncReadyUpdateToWindow: (win: BrowserWindow) => void;
   syncPostUpdateReleaseNotesToWindow: (win: BrowserWindow) => void;
-  webRemoteControlManager: { disposeWindow(windowId: number): Promise<void> };
   disposeRemoteWorkspaceSessionsForWindow: (windowId: number, reason: string) => void;
   reattachRemoteWorkspaceSessionsForWindow: (win: BrowserWindow, reason: string) => void;
   bootstrap?: WindowBootstrapOptions;
@@ -117,7 +116,6 @@ export function createWindow(options: {
   }
 
   const wcId = win.webContents.id;
-  const browserWindowId = win.id;
   // 资源遥测据此把主窗口 renderer 归 renderer_main；辅助窗口与 DevTools 归 chromium_other。
   registerMainApplicationWindow(wcId);
   let domReadyGeneration = 0;
@@ -270,8 +268,7 @@ export function createWindow(options: {
       options.disposeHostProcess(child, `${label}:window-closed`);
       options.windowHostProcessMap.delete(wcId);
     }
-    void options.webRemoteControlManager.disposeWindow(browserWindowId);
-    options.disposeRemoteWorkspaceSessionsForWindow(wcId, `${label}:window-closed`);
+    void options.disposeRemoteWorkspaceSessionsForWindow(wcId, `${label}:window-closed`);
   });
 
   return win;

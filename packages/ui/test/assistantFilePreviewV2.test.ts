@@ -335,29 +335,6 @@ describe("assistant file extraction", () => {
     ]);
   });
 
-  it("Web 远控不展示本地 URL 和 HTML 卡片，但保留 Markdown、Office 与 PDF", () => {
-    const cards = buildAssistantPreviewCards(
-      [
-        "预览 http://localhost:5173 和 http://127.0.0.1:4173。",
-        "生成 README.md、index.html、report.docx、data.xlsx、deck.pptx 和 paper.pdf。",
-      ].join(" "),
-      "/workspace",
-      {
-        changedFilePaths: ["/workspace/README.md", "/workspace/index.html"],
-        suppressWebRemoteCards: true,
-      },
-    );
-
-    expect(cards.map(({ title }) => title)).toEqual([
-      "paper.pdf",
-      "deck.pptx",
-      "data.xlsx",
-      "report.docx",
-      "README.md",
-    ]);
-    expect(cards.every((card) => card.type !== "website")).toBe(true);
-  });
-
   it("预抽取引用可直接复用于构卡，不再重新扫描正文", () => {
     const cards = buildAssistantPreviewCardsFromReferences("文件已经生成。", "/workspace", [
       {
@@ -421,19 +398,13 @@ describe("assistant preview validation", () => {
 });
 
 describe("assistant HTML open target", () => {
-  it("本地桌面使用 Browser，远程 workspace 和手机远控降级为 Preview Pane", () => {
+  it("本地桌面使用 Browser，远程 workspace 降级为 Preview Pane", () => {
     expect(shouldOpenAssistantHtmlInBrowser({ path: "/workspace/page.html" })).toBe(true);
     expect(
       shouldOpenAssistantHtmlInBrowser({
         path: "/workspace/page.html",
         workspaceIdentity: "remote:ssh:host:/workspace",
         workspaceRemoteSessionId: "remote-1",
-      }),
-    ).toBe(false);
-    expect(
-      shouldOpenAssistantHtmlInBrowser({
-        path: "/workspace/page.html",
-        compactForRemoteControl: true,
       }),
     ).toBe(false);
   });

@@ -127,7 +127,6 @@ export interface ConversationStatusPanelProps {
   rootSessionId?: string;
   parentSessionId?: string;
   /** 当前 pane 是否由手机 Web 远控壳承载。 */
-  isWebRemoteControl?: boolean;
   /** 当前是否为粗指针手机视口。 */
   isMobileViewport?: boolean;
   layoutMode?: "none" | "auto" | "inline";
@@ -1888,8 +1887,7 @@ function ConversationStatusPanelImpl({
   endedSubagentCount = 0,
   rootSessionId,
   parentSessionId,
-  isWebRemoteControl = false,
-  isMobileViewport = false,
+  isMobileViewport: _isMobileViewport = false,
   layoutMode = "none",
   summaryPanelVariantOverride,
   onVariantChange,
@@ -1946,10 +1944,7 @@ function ConversationStatusPanelImpl({
     variantOverride: summaryPanelVariantOverride ?? null,
   });
   const isVariantAutomatic = summaryPanelVariantOverride == null;
-  // Bug 根因：状态面板在手机远控中仍把分支/Todo 浮层固定到左侧，
-  // 而面板本身已占据大部分视口，左右均无法容纳固定宽度。手机远控改用纵向定位，
-  // 让 Radix 在上/下之间翻转；桌面和宽屏 Web 保持原左侧交互。
-  const useVerticalFloatingPanels = isWebRemoteControl && isMobileViewport;
+  const useVerticalFloatingPanels = false;
   const panelModeValue = isVariantAutomatic ? "auto" : variant;
   const { intl } = useESCodeIntl();
   const panelMenuLabel = intl.formatMessage({

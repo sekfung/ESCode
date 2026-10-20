@@ -400,28 +400,6 @@ describe("SessionPane v4 chat layout parity", () => {
     expect(html).not.toContain("发送第一条消息开始对话");
   });
 
-  it("keeps the mobile remote draft on the original compact centered layout", () => {
-    const html = renderPane({ sessionId: null, compactForRemoteControl: true });
-
-    expect(html).toContain('data-compact-remote="true"');
-    expect(html).toMatch(/class="[^"]*justify-center[^"]*gap-4/u);
-    expect(html).not.toContain("before:min-h-[52px]");
-  });
-
-  it("scopes narrow-width shrinking to mobile remote conversations", () => {
-    const desktopHtml = renderPane({ compactForRemoteControl: false });
-    const mobileHtml = renderPane({ compactForRemoteControl: true });
-    const readSessionPaneClassName = (html: string) =>
-      html.match(/data-v4-conversation-drop-target="true"[^>]*class="([^"]*)"/u)?.[1] ?? "";
-    const readTimelineClassName = (html: string) =>
-      html.match(/data-v4-timeline-scroll="true"[^>]*class="([^"]*)"/u)?.[1] ?? "";
-
-    expect(readSessionPaneClassName(mobileHtml)).toContain("min-w-0");
-    expect(readTimelineClassName(mobileHtml)).toContain("min-w-0");
-    expect(readSessionPaneClassName(desktopHtml)).not.toContain("min-w-0");
-    expect(readTimelineClassName(desktopHtml)).not.toContain("min-w-0");
-  });
-
   it("keeps constrained desktop draft content reachable through the timeline scroll viewport", () => {
     const timelineSource = readFileSync(
       resolve(process.cwd(), "packages/ui/src/v4/ConversationTimeline.tsx"),
@@ -714,7 +692,6 @@ describe("SessionPane v4 chat layout parity", () => {
       snapshot,
       onOpenSubagentSession,
     });
-    expect(statusPanelCapture.props.at(-1)?.isWebRemoteControl).toBe(true);
     expect(statusPanelCapture.props.at(-1)?.isMobileViewport).toBe(false);
     expect(statusPanelCapture.props.at(-1)?.onOpenSubagentSession).toEqual(expect.any(Function));
     expect(statusPanelCapture.props.at(-1)?.onOpenSubagentDirectory).toBeUndefined();

@@ -1,6 +1,5 @@
 /* oxlint-disable eslint(max-lines) -- AppSettings schema 聚合历史迁移、默认值和 patch 校验，拆分会削弱设置迁移的单一入口。 */
 import { z } from "zod";
-import type { AppSettings } from "./protocol.js";
 import { serialChecksumConfigSchema } from "./serial/serialChecksum.js";
 import { REMOTE_ASSET_INSTALL_MODES } from "./remoteAssetInstallMode.js";
 import { isKnownRemoteResourcePackageId } from "./remoteResourcePackages.js";
@@ -137,15 +136,6 @@ const appWorkspaceSessionEntrySchema = z.discriminatedUnion("kind", [
     lastConnectionError: z.string().optional(),
   }),
 ]);
-
-const webRemoteControlExternalRelayDeviceSchema = z.object({
-  deviceSid: nonEmptyStringSchema,
-});
-const webRemoteControlLastEnabledContextSchema = z.object({
-  workspacePath: nonEmptyStringSchema,
-  workspaceIdentity: nonEmptyStringSchema.optional(),
-  initialTaskId: nonEmptyStringSchema.optional(),
-});
 const escodeEndpointOriginSchema = z.preprocess((value) => {
   if (typeof value !== "string") {
     return undefined;
@@ -552,8 +542,6 @@ const appSettingsObjectSchema = z.object({
   autoDownloadAndInstallUpdates: z.boolean().default(false),
   skippedElectronUpdateVersions: skippedElectronUpdateVersionsSchema,
   settingsSyncFirstRunPromptHandled: z.boolean().optional(),
-  webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
-  webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   escodeEndpointOrigin: escodeEndpointOriginSchema.optional(),
 });
 
@@ -648,7 +636,5 @@ export const appSettingsPatchSchema = z.object({
     .partialRecord(electronReleaseChannelSchema, nonEmptyStringSchema)
     .optional(),
   settingsSyncFirstRunPromptHandled: z.boolean().optional(),
-  webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
-  webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   escodeEndpointOrigin: escodeEndpointOriginSchema.optional(),
 });

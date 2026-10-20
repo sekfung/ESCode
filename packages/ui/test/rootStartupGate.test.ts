@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   isProviderStartupSyncPending,
   resolveAutomaticLoginEntryReason,
-  shouldEnableProviderAvailabilityLoginEntryGuard,
   shouldResolveProviderStartupState,
   shouldBlockRootRender,
   shouldShowRootStartupLoading,
@@ -81,28 +80,9 @@ describe("Root startup gate", () => {
     ).toBe(true);
   });
 
-  it("Web 远控 Root 不运行 provider 登录入口守卫", () => {
-    expect(
-      shouldEnableProviderAvailabilityLoginEntryGuard({
-        isWebRemoteControlRoot: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("Web 远控 Root 不把 provider 启动态作为 workspace 注入门禁", () => {
-    expect(
-      shouldResolveProviderStartupState({
-        isWebRemoteControlRoot: true,
-        providerStartupSyncPending: true,
-        providerAvailabilityStartupCheckCompleted: false,
-      }),
-    ).toBe(false);
-  });
-
   it("桌面 Root 继续等待 provider 启动检查落定", () => {
     expect(
       shouldResolveProviderStartupState({
-        isWebRemoteControlRoot: false,
         providerStartupSyncPending: false,
         providerAvailabilityStartupCheckCompleted: false,
       }),

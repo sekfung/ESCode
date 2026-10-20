@@ -19,7 +19,7 @@ describe("WorkspaceSidebar task view switcher", () => {
     expect(workspaceTriggerIndex).toBeGreaterThan(-1);
     expect(groupedTriggerIndex).toBeLessThan(workspaceTriggerIndex);
     expect(source).toMatch(
-      /const activePrimaryTaskMode: PrimaryTaskMode =\s*!isWebRemoteControlSidebar && taskOrganizeBy === "grouped"\s*\? "grouped"\s*: "workspace";/,
+      /const activePrimaryTaskMode: PrimaryTaskMode =\s*taskOrganizeBy === "grouped"\s*\? "grouped"\s*: "workspace";/,
     );
   });
 

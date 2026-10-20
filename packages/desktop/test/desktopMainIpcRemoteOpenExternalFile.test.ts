@@ -10,7 +10,6 @@ const h = vi.hoisted(() => ({
   handlers: new Map<string, IpcHandler>(),
   listeners: new Map<string, IpcHandler>(),
   fromWebContents: vi.fn(),
-  registerWebRemoteControlIpcHandlers: vi.fn(),
   shellOpenExternal: vi.fn(),
   shellOpenPath: vi.fn(),
   configureRemoteUsageArmsTelemetry: vi.fn(),
@@ -50,10 +49,6 @@ vi.mock("../src/main/desktopArmsCustomEvent.js", () => ({
   dispatchFinalArmsCustomEvent: vi.fn(),
 }));
 
-vi.mock("../src/main/desktopWebRemoteControlIpc.js", () => ({
-  registerWebRemoteControlIpcHandlers: h.registerWebRemoteControlIpcHandlers,
-}));
-
 vi.mock("../src/main/desktopRemoteUsageArmsTelemetry.js", () => ({
   configureRemoteUsageArmsTelemetry: h.configureRemoteUsageArmsTelemetry,
   reportRemoteConnectResultToArms: h.reportRemoteConnectResultToArms,
@@ -80,13 +75,6 @@ function createOptions(): RemoteIpcOptions {
       platform: "darwin",
       appVersion: "1.0.0",
       armsEnv: "local",
-    },
-    webRemoteControlManager: {
-      authorizeStart: vi.fn(),
-      startAuthorized: vi.fn(),
-      resetPairingAuthorized: vi.fn(),
-      stop: vi.fn(),
-      getStatus: vi.fn(),
     },
     createRemoteWorkspaceSession: vi.fn(async () => "remote-session-1"),
     disposeRemoteWorkspaceSession: vi.fn(),

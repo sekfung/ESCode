@@ -50,7 +50,7 @@ describe("settings frame content layout", () => {
       workspaceShellSource.match(
         /className="mx-auto flex w-full max-w-4xl flex-col px-4 py-4 md:px-6 md:py-6"[\s\S]{0,120}<PluginStorePage/g,
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 
   it("returns to chat before creating a task from plugin detail prompts", () => {
@@ -58,8 +58,8 @@ describe("settings frame content layout", () => {
       /<PluginStorePage[\s\S]{0,500}?onCreateTask=\{handleCreateTaskInChat\}/g,
     );
 
-    // Desktop 与窄屏 Shell 都必须使用包含 showChatMainView 的包装回调。
-    expect(pluginStoreUsages).toHaveLength(2);
+    // 桌面 Shell 必须使用包含 showChatMainView 的包装回调。
+    expect(pluginStoreUsages).toHaveLength(1);
     expect(workspaceShellSource).not.toMatch(
       /<PluginStorePage[\s\S]{0,500}?onCreateTask=\{onCreateTask\}/,
     );
@@ -89,7 +89,6 @@ describe("settings frame content layout", () => {
 
   it("only exposes the Project Memory viewer from the desktop host", () => {
     expect(settingsPageSource).toContain("projectMemoryViewerAvailable={Boolean(isDesktop)}");
-    expect(settingsPageSource).not.toContain("projectMemoryViewerAvailable={!isWebRemoteControl}");
   });
 
   it("pins the Project Memory viewer subtree to the local base host", () => {

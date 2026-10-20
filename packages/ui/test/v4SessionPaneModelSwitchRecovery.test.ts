@@ -1390,35 +1390,6 @@ describe("SessionPane remote provider admission", () => {
 });
 
 describe("SessionPane mobile plan approval recovery", () => {
-  it("recovers authoritative state when an accepted mobile plan interaction stays pending", async () => {
-    vi.useFakeTimers();
-    projectionState.current = {
-      status: "live",
-      snapshot: makePlanPendingSnapshot(),
-      subscriptionId: "mobile-plan-subscription",
-      lastError: null,
-      optimisticCommands: [],
-      loadingOlder: false,
-    };
-
-    const root = await renderPane({ compactForRemoteControl: true });
-    try {
-      expect(captured.interactionProps?.onPlanInteractionAccepted).toBeTypeOf("function");
-
-      act(() => {
-        captured.interactionProps?.onPlanInteractionAccepted?.("plan-request-1");
-        captured.interactionProps?.onPlanInteractionAccepted?.("plan-request-1");
-      });
-      await vi.advanceTimersByTimeAsync(499);
-      expect(mocks.recoverFromStaleAuthority).not.toHaveBeenCalled();
-
-      await vi.advanceTimersByTimeAsync(1);
-      expect(mocks.recoverFromStaleAuthority).toHaveBeenCalledTimes(1);
-    } finally {
-      await act(async () => root.unmount());
-    }
-  });
-
   it("skips recovery when the mobile plan interaction clears during the grace window", async () => {
     vi.useFakeTimers();
     projectionState.current = {

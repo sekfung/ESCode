@@ -15,8 +15,6 @@ import type {
 import type { IServiceAccessor } from "@escode/services";
 import type { SavedWorkflowsOpenTarget } from "@/settings/saved-workflows/SavedWorkflowsSection.js";
 import type { SavedWorkflowHubTarget } from "@/v4/savedWorkflowHubContext.js";
-import type { WebRemoteControlWorkspaceSwitcherApi } from "@/root/types.js";
-import type { WebRemoteControlTerminalTransportState } from "@/root/types.js";
 import type { BrowserNavigationRequest, RecentClosedSidePaneTab } from "@/hooks/useAppPanels.js";
 import type { CodeViewerSource } from "@/lib/codeViewer.js";
 import type { AssistantPreviewCardsAutoOpenRequest } from "@/lib/assistantPreviewCards.js";
@@ -32,7 +30,6 @@ import type {
   OpenScopedWorkflowWorkspaceSideTabRequest,
   WorkspaceSidePaneState,
 } from "@/lib/workspaceSidePane.js";
-import type { TreemappingSidePaneTab } from "@/lib/workspaceSidePane.js";
 import type { WorkspaceESCodeUIState } from "@/store/escodeSessionStore.js";
 import type { RemoteConnectionLogEntry } from "@/hooks/useRemoteConnectionLogs.js";
 import type { Theme } from "@/useTheme.js";
@@ -99,14 +96,9 @@ export interface AppProps {
   onOpenWorkspace: () => void;
   onOpenFolderFromWorkspaceMenu: () => void;
   onOpenRemoteWorkspace?: () => void;
-  onCreateScratchWorkspace: (name: string) => Promise<string | null>;
   remoteConnectionInProgress?: boolean;
   onReturnToWorkspace?: () => void;
   allowOpenWorkspace?: boolean;
-  webRemoteControlWorkspaceSwitcher?: WebRemoteControlWorkspaceSwitcherApi;
-  initialWebRemoteControlMobileNavigationIntent?: import("@escode/shared").WebRemoteControlMobileNavigationIntent;
-  initialWebRemoteControlWorkspaceList?: import("@escode/shared").WebRemoteControlWorkspaceListResult;
-  webRemoteControlTerminalTransportState?: WebRemoteControlTerminalTransportState;
   allowRemoteWorkspace?: boolean;
   remoteWorkspaceSessions?: RemoteWorkspaceSessionEntry[];
   workspaceAbsPath: string;
@@ -213,7 +205,6 @@ export interface WorkspaceShellLayoutProps extends AppProps {
   taskSessionFile: ReturnType<
     typeof import("@/hooks/useTaskSessionFilePath.js").useTaskSessionFilePath
   >;
-  testMessages: import("@/lib/taskChatMessageTypes.js").TaskChatMessage[] | null;
   conversationFindActiveIndex: number;
   conversationFindNavigationRequestId: number;
   conversationFindQuery: string;
@@ -255,7 +246,6 @@ export interface WorkspaceShellLayoutProps extends AppProps {
   handleToggleBrowser: () => void;
   handleOpenBrowserTab: () => void;
   handleOpenBrowserPermissionSettings: (origin: string) => void;
-  handleOpenTreemapping: (source?: TreemappingSidePaneTab["source"]) => void;
   handleOpenWhiteboard: () => void;
   handleOpenDeveloperTools: () => void;
   handleOpenSerialTab: () => void;

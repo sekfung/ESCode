@@ -197,7 +197,7 @@ function runBootstrapDesktopBuild() {
 }
 
 function runBootstrapWithRemoteBuild() {
-  for (const filter of ["@escode/rpc", "@escode/web", "@escode/formal-proof"]) {
+  for (const filter of ["@escode/rpc", "@escode/formal-proof"]) {
     // pnpm -r 会在 bootstrap:with-remote 的最终构建阶段并发启动多个 Vite/esbuild/tsup。
     // remote assets 已经占过一轮内存峰值，这里显式串行包构建，且不改变 build:bootstrap/CI 命令。
     runPnpm(["--filter", filter, "build"]);

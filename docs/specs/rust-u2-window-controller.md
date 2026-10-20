@@ -20,9 +20,9 @@
 | `deleteArchivedTask` / `deleteArchivedTasks`                               | 归档删除（单个/批量，批量返回逐项目标结果）                                                        |
 
 为什么做它：这是当前唯一「已被 Rust Host 服务、但整条 channel 缺失」的活链路。dev 开关（`ESCODE_RUST_HOST=1`）下
-Web 远控的共享 Host attachment 已连 Rust Host（`packages/desktop/src/main/index.ts:849` →
-`webRemoteControlSharedHostAttachments.ts:136-153`），而桌面/手机的时间线、置顶、归档、全局搜索、命令中心全部走本 channel
+本地/远程 workspace 的 Host attachment 已连 Rust Host，而桌面的时间线、置顶、归档、全局搜索、命令中心全部走本 channel
 （`packages/ui/src/hooks/useGlobalTaskList.ts`，10 处调用点 / 8 个源文件，另有 3 个测试文件）；现在返回 `NotImplemented` → 列表恒空。
+原手机远控的共享 Host attachment 已随 2026-10-20 产品决定删除，不再作为本域的验收驱动。
 
 不做（本片登记为缺口）：
 
@@ -107,7 +107,7 @@ Renderer listTaskList(query)
 ## 5. 登记差异
 
 1. **远程 source 不支持**：TS 把 `remoteSessionId` 的 scope 路由到远程 attachment；Rust Host 无远程注册表，携带远程
-   identity 的 scope 不贡献行、`remoteSessionId` 字段不下发。可见条件：接入过远程 workspace 的窗口（含手机远控窗口）。
+   identity 的 scope 不贡献行、`remoteSessionId` 字段不下发。可见条件：接入过远程 workspace 的窗口。
    移除条件：remote 域（优先序 9）迁移时接远程 source。
 2. **作用域粒度**：TS 的 controller 是窗口 Host 内、每 attachment 一个（各自事件发射器与订阅表）；Rust 按 RPC 连接作用域。
    可见条件：同一 Host 被多窗口/多 attachment 同时连接时的订阅隔离语义（列表内容一致）。

@@ -20,11 +20,7 @@ import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { Textarea } from "@/components/ui/textarea.js";
 import { isImeComposingKeyEvent } from "@/lib/imeComposition.js";
-import {
-  resolveMobileInputTextSizeClassName,
-  shouldAvoidIosInputFocusZoom,
-  useIsMobileTextInputViewport,
-} from "@/lib/mobileTextInput.js";
+import {} from "@/lib/mobileTextInput.js";
 import {
   getPermissionOptionDisplayKind,
   getPermissionRequestPreview,
@@ -455,7 +451,6 @@ export function PermissionDialog({
   remoteSessionId,
   workflowSessionModel,
   provider,
-  isWebRemoteControl = false,
   responding = false,
   responseError,
 }: {
@@ -478,16 +473,8 @@ export function PermissionDialog({
   remoteSessionId?: string;
   workflowSessionModel?: { providerId: string; modelId: string };
   provider?: ESCodeProvider;
-  isWebRemoteControl?: boolean;
 }) {
   const { intl } = useESCodeIntl();
-  const isMobileTextInputViewport = useIsMobileTextInputViewport();
-  // Bug 根因：反馈输入也会渲染在手机 Web 远控的 PermissionDialog 中，14px 输入框聚焦时会触发 iOS 页面放大。
-  // 与 composer 复用同一套视口判断和 16px 兼容 token，桌面和非远控 Web 保持原有字号。
-  const avoidIosInputFocusZoom = shouldAvoidIosInputFocusZoom({
-    isMobileTextInputViewport,
-    isWebRemoteControl,
-  });
   // M5②.5 store 耦合剥离：主题/代码预览设置在宿主处取 store，向下走 props/render context。
   const theme = useESCodeStoreWithDefault((state) => state.theme, "system");
   const codePreviewSettings = useESCodeStoreWithDefault(
@@ -957,7 +944,7 @@ export function PermissionDialog({
                   className={cn(
                     // 匹配 textarea 的首行行高和 1px 边框；手机输入行高不同，但序号字号不变。
                     "mt-px w-5 shrink-0 self-start text-ui-base font-medium md:leading-relaxed",
-                    avoidIosInputFocusZoom ? "leading-6" : "leading-5",
+                    "leading-5",
                     isFeedbackSelected ? "text-foreground" : "text-foreground-subtlest",
                   )}
                 >
@@ -1001,7 +988,6 @@ export function PermissionDialog({
                   className={cn(
                     // Bugfix: 拒绝反馈自动换行，但限制为 5 行并在输入框内滚动，避免窄屏遮住权限选项和确认按钮。
                     "h-auto !min-h-5 max-h-[5lh] min-w-0 max-w-full overflow-y-auto rounded-none border-transparent bg-transparent !px-0 !py-0 font-medium shadow-none hover:border-transparent focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0",
-                    resolveMobileInputTextSizeClassName({ avoidIosInputFocusZoom }),
                   )}
                 />
               </div>

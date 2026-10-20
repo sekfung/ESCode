@@ -178,6 +178,16 @@ $ git status --short | wc -l
 > `shared_context` 导入协议与 TS/Rust CLI 持久化。channels 43 → 42、members 522 → 513、
 > Implemented 369 不变、Pending 153 → 144。conversation-share 不再作为 M3 迁移缺口。
 
+> 2026-10-20 内网产品决定删除手机远控（Web remote control）：`packages/web`（手机 Web 客户端）、
+> `packages/android`、Desktop relay/配对/IPC、`packages/shared` 远控协议与校验、UI 入口与窄屏分支、
+> 相关 E2E 与当前规格一并移除；端点的 `/remote/*`、`/web-remote/callback` 派生字段与远控设置项同步删除。
+> 该能力不属于 Rust Host service channel，inventory 维持 channels 42 / members 513 /
+> Implemented 369 / Pending 144；`window-controller` 仍服务桌面与远程 workspace，但不再以手机
+> attachment 作为 M3 验收驱动。手机远控不再作为 M3 迁移缺口。
+>
+> 原 `BotsDialog` 仅由手机远控弹窗提供入口；入口删除后 UI 暂不可达，Bots 服务与协议保留，
+> 后续如需使用需重新设计桌面入口（不改变本报告的 M3 迁移计数）。
+
 ## 10. M3 全量状态（2026-10-19 续作）
 
 本轮在原 hooks 基础上继续推进，但**整个 M3 仍未达到可验收状态**。已完成与未完成如下。
@@ -209,7 +219,7 @@ $ git status --short | wc -l
 零散与 provider headers 5；原报告的 +44 成员（334 → 378）包含已删除的 `off-peak` 8 个成员与
 `client-config.getOffPeakClientConfig` 1 个成员，删除后当前为 369 Implemented。
 剩余 144 Pending 中，automation/bots 是明确的 Renderer 可达缺口。
-营销服务（含 `cloud-content`）、off-peak 与 conversation-share 均已按产品决定删除，不再计入剩余缺口。
+营销服务（含 `cloud-content`）、off-peak、conversation-share 与手机远控均已按产品决定删除，不再计入剩余缺口。
 
 建议下一轮顺序：
 

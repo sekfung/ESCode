@@ -28,7 +28,6 @@ interface RootWorkspaceContentProps {
   handleOpenWorkspace: AppProps["onOpenWorkspace"];
   handleOpenFolderFromWorkspaceMenu: AppProps["onOpenFolderFromWorkspaceMenu"];
   handleOpenRemoteWorkspace?: AppProps["onOpenRemoteWorkspace"];
-  handleCreateScratchWorkspace: AppProps["onCreateScratchWorkspace"];
   remoteConnectionInProgress?: AppProps["remoteConnectionInProgress"];
   remoteWorkspaceSessions: NonNullable<AppProps["remoteWorkspaceSessions"]>;
   allowRemoteWorkspace: NonNullable<RootProps["allowRemoteWorkspace"]>;
@@ -41,10 +40,6 @@ interface RootWorkspaceContentProps {
   reconnectingRemoteWorkspaceLogsByWorkspaceKey: AppProps["reconnectingRemoteWorkspaceLogsByWorkspaceKey"];
   remoteConnectionLogs?: AppProps["remoteConnectionLogs"];
   allowOpenWorkspace: NonNullable<RootProps["allowOpenWorkspace"]>;
-  webRemoteControlWorkspaceSwitcher?: RootProps["webRemoteControlWorkspaceSwitcher"];
-  initialWebRemoteControlMobileNavigationIntent?: RootProps["initialWebRemoteControlMobileNavigationIntent"];
-  initialWebRemoteControlWorkspaceList?: RootProps["initialWebRemoteControlWorkspaceList"];
-  webRemoteControlTerminalTransportState?: RootProps["webRemoteControlTerminalTransportState"];
   isDesktop?: RootProps["isDesktop"];
   isMacDesktop?: RootProps["isMacDesktop"];
   isWindowsDesktop?: RootProps["isWindowsDesktop"];
@@ -69,7 +64,6 @@ export function RootWorkspaceContent({
   handleOpenWorkspace,
   handleOpenFolderFromWorkspaceMenu,
   handleOpenRemoteWorkspace,
-  handleCreateScratchWorkspace,
   remoteConnectionInProgress,
   remoteWorkspaceSessions,
   allowRemoteWorkspace,
@@ -82,10 +76,6 @@ export function RootWorkspaceContent({
   reconnectingRemoteWorkspaceLogsByWorkspaceKey,
   remoteConnectionLogs,
   allowOpenWorkspace,
-  webRemoteControlWorkspaceSwitcher,
-  initialWebRemoteControlMobileNavigationIntent,
-  initialWebRemoteControlWorkspaceList,
-  webRemoteControlTerminalTransportState,
   isDesktop,
   isMacDesktop,
   isWindowsDesktop,
@@ -166,16 +156,9 @@ export function RootWorkspaceContent({
                 onOpenWorkspace={handleOpenWorkspace}
                 onOpenFolderFromWorkspaceMenu={handleOpenFolderFromWorkspaceMenu}
                 onOpenRemoteWorkspace={handleOpenRemoteWorkspace}
-                onCreateScratchWorkspace={handleCreateScratchWorkspace}
                 remoteConnectionInProgress={remoteConnectionInProgress}
                 onReturnToWorkspace={handleBackFromSettings}
                 allowOpenWorkspace={allowOpenWorkspace}
-                webRemoteControlWorkspaceSwitcher={webRemoteControlWorkspaceSwitcher}
-                initialWebRemoteControlMobileNavigationIntent={
-                  initialWebRemoteControlMobileNavigationIntent
-                }
-                initialWebRemoteControlWorkspaceList={initialWebRemoteControlWorkspaceList}
-                webRemoteControlTerminalTransportState={webRemoteControlTerminalTransportState}
                 allowRemoteWorkspace={allowRemoteWorkspace}
                 remoteWorkspaceSessions={remoteWorkspaceSessions}
                 isWorkspaceVisible={!isSettingsTabActive}

@@ -155,60 +155,6 @@ describe("useAssistantPreviewCardsForAssistantTextRow", () => {
     });
   });
 
-  it("Web 远控隐藏本地 URL 和 HTML，同时保留本轮 Markdown 与 Office/PDF", async () => {
-    const row = assistantText("http://localhost:5173 README.md index.html report.docx paper.pdf");
-    const fileChangesTarget = { rowId: 1, entityId: "turn-header-1" };
-    const fetchFileChanges = vi.fn(async () => ({
-      state: "active" as const,
-      items: [
-        { path: "/workspace/README.md", patches: [] },
-        { path: "/workspace/index.html", patches: [] },
-      ],
-    }));
-
-    const { result } = renderHook(() =>
-      useAssistantPreviewCardsForAssistantTextRow({
-        row,
-        assistantTextRows: [row],
-        latestAssistantTextRow: row,
-        workspacePath: "/workspace",
-        fileChangesTarget,
-        fileChangesState: "active",
-        fetchFileChanges,
-        compactForRemoteControl: true,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(result.current.map((card) => card.title)).toEqual([
-        "paper.pdf",
-        "report.docx",
-        "README.md",
-      ]);
-    });
-  });
-
-  it("Web 远控只有本地 URL 和 HTML 候选时不读取 fileChanges", () => {
-    const row = assistantText("http://127.0.0.1:4173 index.html report.pdf");
-    const fetchFileChanges = vi.fn();
-
-    const { result } = renderHook(() =>
-      useAssistantPreviewCardsForAssistantTextRow({
-        row,
-        assistantTextRows: [row],
-        latestAssistantTextRow: row,
-        workspacePath: "/workspace",
-        fileChangesTarget: { rowId: 1, entityId: "turn-header-1" },
-        fileChangesState: "active",
-        fetchFileChanges,
-        compactForRemoteControl: true,
-      }),
-    );
-
-    expect(result.current.map((card) => card.title)).toEqual(["report.pdf"]);
-    expect(fetchFileChanges).not.toHaveBeenCalled();
-  });
-
   it("流式行不提前查询 fileChanges", () => {
     const row = { ...assistantText("README.md"), state: "streaming" as const };
     const fetchFileChanges = vi.fn();

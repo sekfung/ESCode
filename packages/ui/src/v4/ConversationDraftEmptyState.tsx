@@ -54,15 +54,10 @@ export function getNextChatEmptyGreetingDelayMs(date: Date = new Date()) {
 export function resolveGreetingFontSizePx({
   availableWidthPx,
   naturalTextWidthPx,
-  compactForRemoteControl = false,
 }: {
   availableWidthPx: number;
   naturalTextWidthPx: number;
-  compactForRemoteControl?: boolean;
 }) {
-  if (compactForRemoteControl) {
-    return GREETING_MIN_FONT_SIZE_PX;
-  }
   if (
     !Number.isFinite(availableWidthPx) ||
     !Number.isFinite(naturalTextWidthPx) ||
@@ -82,13 +77,7 @@ export function resolveGreetingFontSizePx({
   );
 }
 
-export function ConversationDraftEmptyState({
-  className,
-  compactForRemoteControl = false,
-}: {
-  className?: string;
-  compactForRemoteControl?: boolean;
-}) {
+export function ConversationDraftEmptyState({ className }: { className?: string }) {
   const { intl } = useESCodeIntl();
   const isOfficeMode = useIsOfficeMode();
   const [greetingDate, setGreetingDate] = useState(() => new Date());
@@ -110,10 +99,6 @@ export function ConversationDraftEmptyState({
   }, [greetingDate]);
 
   useLayoutEffect(() => {
-    if (compactForRemoteControl) {
-      setGreetingFontSizePx(GREETING_MIN_FONT_SIZE_PX);
-      return;
-    }
     const container = greetingContainerRef.current;
     const measurement = greetingMeasurementRef.current;
     if (!container || !measurement) {
@@ -180,7 +165,7 @@ export function ConversationDraftEmptyState({
       }
       observer.disconnect();
     };
-  }, [compactForRemoteControl, greeting]);
+  }, [greeting]);
 
   return (
     <div
@@ -208,9 +193,7 @@ export function ConversationDraftEmptyState({
         }
         className={cn(
           "relative z-10 w-full px-4 text-center font-medium text-foreground",
-          compactForRemoteControl
-            ? "text-xl/[1.2]"
-            : "text-[length:var(--v4-draft-greeting-font-size)]/[1.2]",
+          "text-[length:var(--v4-draft-greeting-font-size)]/[1.2]",
         )}
       >
         <span

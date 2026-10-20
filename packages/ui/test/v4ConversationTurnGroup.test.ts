@@ -1742,51 +1742,6 @@ describe("ConversationTurnGroup assistant history status", () => {
     expect(realUserHtml).not.toContain("v4-retry-31");
   });
 
-  it("按复制、赞、踩、分叉顺序渲染反馈工具栏，手机远控常显", () => {
-    const createdAt = new Date();
-    createdAt.setHours(7, 15, 0, 0);
-    const timeLabel = new Intl.DateTimeFormat("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(createdAt);
-    const row = assistantTextRow(22, {
-      actions: { canFork: true },
-      createdAt: createdAt.getTime(),
-    });
-    const html = renderUnit(
-      baseUnit({
-        key: "turn-complete:feedback",
-        turnId: "turn-complete",
-        isLastTurn: true,
-        header: turnHeader(),
-        assistantWorkRows: [row],
-        assistantTextRows: [row],
-        latestAssistantTextRow: row,
-        renderRows: [row],
-      }),
-      {
-        compactForRemoteControl: true,
-        onFork: vi.fn(),
-        onFeedbackChange: vi.fn(),
-      },
-    );
-
-    const copyIndex = html.indexOf('data-testid="v4-copy-22"');
-    const likeIndex = html.indexOf('data-testid="v4-feedback-like-22"');
-    const dislikeIndex = html.indexOf('data-testid="v4-feedback-dislike-22"');
-    const forkIndex = html.indexOf('data-testid="v4-fork-22"');
-    const timeIndex = html.indexOf(`>${timeLabel}</span>`);
-    expect(copyIndex).toBeGreaterThanOrEqual(0);
-    expect(copyIndex).toBeLessThan(likeIndex);
-    expect(likeIndex).toBeLessThan(dislikeIndex);
-    expect(dislikeIndex).toBeLessThan(forkIndex);
-    expect(forkIndex).toBeLessThan(timeIndex);
-    expect(html).toContain("select-none text-ui-sm text-foreground-subtlest");
-    expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain("opacity-100");
-    expect(html).not.toContain("group-hover/assistant-turn:opacity-100");
-  });
-
   it("带 CLI action 的 assistant 后面仍有 work row 时也渲染 action", () => {
     const onFork = vi.fn();
     const actionRow = assistantTextRow(4, { actions: { canFork: true } });

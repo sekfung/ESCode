@@ -259,8 +259,6 @@ function getUnitHeightCacheKey(unit: ConversationTurnRenderUnit | undefined): st
 
 export interface ConversationTimelineProps {
   rows: readonly ConversationRow[];
-  /** 手机远控窄屏允许整条会话 flex 链按抽屉宽度收缩；桌面布局保持原样。 */
-  compactForRemoteControl?: boolean;
   /** CLI 权威 queue 中等待 model-step 注入的 guide；只改变 renderer 落位。 */
   pendingGuides?: readonly QueueItem[];
   /** runtime memory 状态，只交给当前 live turn，不进入历史虚拟列表。 */
@@ -340,7 +338,6 @@ export interface ConversationTimelineProps {
  */
 function ConversationTimelineImpl({
   rows,
-  compactForRemoteControl = false,
   pendingGuides = EMPTY_PENDING_GUIDES,
   apiRetry = null,
   totalCount,
@@ -1716,10 +1713,7 @@ function ConversationTimelineImpl({
   // raw projection row 与按 turn 合并后的 render unit 不是同一计量单位；
   // 分开暴露才能让恢复/分页验证不再把可见 unit 误当成持久 row。
   return (
-    <div
-      ref={timelineRootRef}
-      className={cn("relative flex min-h-0 flex-1 flex-col", compactForRemoteControl && "min-w-0")}
-    >
+    <div ref={timelineRootRef} className="relative flex min-h-0 flex-1 flex-col">
       {selectionActions ? (
         <ConversationSelectionTooltip
           rootRef={scrollRef}
@@ -1772,7 +1766,6 @@ function ConversationTimelineImpl({
           // 只声明 overflow-y-auto 会让浏览器把横轴计算为 auto，宽内容会把
           // 整条 Conversation 撑出横向滚动；表格和代码块应由各自内部容器滚动。
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [--markdown-table-layout-left-inset:16px] [--markdown-table-layout-right-inset:16px] max-md:[--markdown-table-layout-left-inset:8px] max-md:[--markdown-table-layout-right-inset:8px]",
-          compactForRemoteControl && "min-w-0",
           // 修复原因：Conversation turn map 覆盖 timeline 左侧 48px；表格增强滚动如果仍按
           // 普通 16px 边距借位，会有 32px 落到 turn map 下方，必须把完整占用计入左边界。
           turnNavigatorQueryRowIds.size >= 2 &&

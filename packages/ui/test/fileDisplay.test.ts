@@ -30,27 +30,18 @@ describe("resolveFileDisplayDescriptor", () => {
     { extension: "opus", iconName: "audio" },
     { extension: "flac", iconName: "audio" },
     { extension: "weba", iconName: "audio" },
-  ])(
-    "maps .$extension to the $iconName icon for desktop and web",
-    async ({ extension, iconName }) => {
-      const repoRoot = new URL("../../..", import.meta.url);
-      const desktopIcon = await readFile(
-        new URL(`packages/desktop/src/renderer/public/material-icons/${iconName}.svg`, repoRoot),
-        "utf8",
-      );
-      const webIcon = await readFile(
-        new URL(`packages/web/public/material-icons/${iconName}.svg`, repoRoot),
-        "utf8",
-      );
-
-      expect(resolveFileDisplayDescriptor(`/workspace/report.${extension}`)).toMatchObject({
-        fileIcon: iconName,
-        fileIconSrc: buildMaterialFileIconSrc(iconName),
-      });
-      expect(desktopIcon).toMatch(/^<svg\b/);
-      expect(webIcon).toBe(desktopIcon);
-    },
-  );
+  ])("maps .$extension to the $iconName icon for desktop", async ({ extension, iconName }) => {
+    const repoRoot = new URL("../../..", import.meta.url);
+    const desktopIcon = await readFile(
+      new URL(`packages/desktop/src/renderer/public/material-icons/${iconName}.svg`, repoRoot),
+      "utf8",
+    );
+    expect(resolveFileDisplayDescriptor(`/workspace/report.${extension}`)).toMatchObject({
+      fileIcon: iconName,
+      fileIconSrc: buildMaterialFileIconSrc(iconName),
+    });
+    expect(desktopIcon).toMatch(/^<svg\b/);
+  });
 
   it("infers icon, file name, and parent path from an absolute file path", () => {
     expect(

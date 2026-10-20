@@ -470,7 +470,6 @@ describe("ConversationFileSummaryPanel", () => {
     expect(collectClassNames(container)).toContain("w-full bg-background/50 overflow-hidden");
     expect(text).not.toContain("暂时无法预览这份 Diff。");
     expect(openSplitButtonProps.at(-1)).toMatchObject({
-      hideOpenWithMenu: false,
       target: {
         previewSource: {
           workspacePath: "/workspace",

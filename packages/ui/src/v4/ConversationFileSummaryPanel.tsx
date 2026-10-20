@@ -385,7 +385,6 @@ export function ConversationFileSummaryPanel({
                             previewSource: filePreviewSource,
                           }}
                           onOpenCodeViewer={context.onOpenCodeViewer}
-                          hideOpenWithMenu={context.compactForRemoteControl === true}
                           stopPropagation
                         />
                       </div>

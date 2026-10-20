@@ -149,7 +149,6 @@ function createManager(
     reportRemoteConnectionStateChanged: options?.reportRemoteConnectionStateChanged,
     reportRemoteDisconnect: options?.reportRemoteDisconnect,
     monotonicNowMs: options?.monotonicNowMs,
-    webRemoteControlManagerRef: { current: null },
   });
 }
 

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRemoteWorkspaceConnectResultTelemetry,
-  buildWebRemoteControlBridgeResultTelemetry,
-  buildWebRemoteControlEntryViewTelemetry,
-  buildWebRemoteControlPairResultTelemetry,
-  buildWebRemoteControlStartResultTelemetry,
   classifyRemoteUsageError,
 } from "../src/remoteUsageTelemetry.js";
 
@@ -30,87 +26,6 @@ describe("remote usage telemetry", () => {
     expect(event.eventExtraDetail).not.toHaveProperty("workspacePath");
     expect(event.eventExtraDetail).not.toHaveProperty("workspaceIdentity");
     expect(event.eventExtraDetail).not.toHaveProperty("remoteSessionId");
-  });
-
-  it("构造 Web Remote Control 生命周期事件", () => {
-    expect(
-      buildWebRemoteControlEntryViewTelemetry({
-        workspaceKind: "remote",
-        remoteKind: "ssh",
-      }),
-    ).toEqual({
-      elementName: "web_remote_control_entry_view",
-      eventRegion: "web_remote_control",
-      eventType: "view",
-      eventExtraDetail: {
-        workspace_kind: "remote",
-        remote_kind: "ssh",
-      },
-    });
-    expect(
-      buildWebRemoteControlStartResultTelemetry({
-        result: "failure",
-        workspaceKind: "local",
-        errorCategory: "relay",
-      }),
-    ).toMatchObject({
-      elementName: "web_remote_control_start_result",
-      eventExtraDetail: {
-        result: "failure",
-        workspace_kind: "local",
-        remote_kind: "",
-        error_category: "relay",
-      },
-    });
-    expect(
-      buildWebRemoteControlStartResultTelemetry({
-        result: "cancelled",
-        workspaceKind: "remote",
-        remoteKind: "ssh",
-      }),
-    ).toMatchObject({
-      elementName: "web_remote_control_start_result",
-      eventExtraDetail: {
-        result: "cancelled",
-        workspace_kind: "remote",
-        remote_kind: "ssh",
-        error_category: "",
-      },
-    });
-    expect(
-      buildWebRemoteControlPairResultTelemetry({
-        result: "success",
-        pairKind: "reconnect",
-        workspaceKind: "remote",
-        remoteKind: "wsl",
-      }),
-    ).toMatchObject({
-      elementName: "web_remote_control_pair_result",
-      eventExtraDetail: {
-        result: "success",
-        pair_kind: "reconnect",
-        workspace_kind: "remote",
-        remote_kind: "wsl",
-        error_category: "",
-      },
-    });
-    expect(
-      buildWebRemoteControlBridgeResultTelemetry({
-        result: "success",
-        workspaceKind: "remote",
-        remoteKind: "docker",
-        entryKind: "task",
-      }),
-    ).toMatchObject({
-      elementName: "web_remote_control_bridge_result",
-      eventExtraDetail: {
-        result: "success",
-        workspace_kind: "remote",
-        remote_kind: "docker",
-        entry_kind: "task",
-        error_category: "",
-      },
-    });
   });
 
   it.each([

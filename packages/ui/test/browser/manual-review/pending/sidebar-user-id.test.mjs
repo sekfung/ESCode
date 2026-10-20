@@ -28,8 +28,6 @@ before(async () => {
             return 'export const useShortcutCommandLabel=()=>"";';
           if (id.endsWith("/store/StoreProvider.tsx"))
             return 'export const useESCodeStore=(select)=>select({interfaceMode:"coding",setInterfaceMode:()=>{},isRestoringOAuthSession:false});';
-          if (id.endsWith("/WorkspaceWebRemoteControlTrigger.tsx"))
-            return "export const WorkspaceWebRemoteControlTrigger=()=>null;";
         },
       },
       react(),

@@ -233,31 +233,6 @@ describe("app settings", () => {
         .pendingPostUpdateReleaseNotes,
     ).toEqual(payload);
   });
-
-  it("persists only stable Web remote control startup context fields", () => {
-    const context = {
-      workspacePath: "/workspace/demo",
-      workspaceIdentity: "remote:ssh:host:/workspace/demo",
-      initialTaskId: "task-1",
-    };
-
-    expect(
-      appSettingsSchema.parse({ webRemoteControlLastEnabledContext: context })
-        .webRemoteControlLastEnabledContext,
-    ).toEqual(context);
-    expect(
-      appSettingsPatchSchema.parse({ webRemoteControlLastEnabledContext: context })
-        .webRemoteControlLastEnabledContext,
-    ).toEqual(context);
-    expect(
-      appSettingsPatchSchema.parse({
-        webRemoteControlLastEnabledContext: {
-          ...context,
-          remoteSessionId: "ephemeral-session",
-        },
-      }).webRemoteControlLastEnabledContext,
-    ).toEqual(context);
-  });
 });
 
 // DWG-19（docs/dynamic-workflow/launch.md「The user's choice」）：空串是删除选择的哨兵，

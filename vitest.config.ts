@@ -26,8 +26,6 @@ const forkIsolatedTests = [
   "packages/desktop/test/migrateStableFeedScript.test.ts",
   "packages/desktop/test/pluginE2EAdmissionScripts.test.ts",
   "packages/desktop/test/uploadOssScript.test.ts",
-  // 全量并发时真实心跳与嵌套构建会被调度延迟打穿；单独运行均通过，沿用串行组保留原时限。
-  "packages/desktop/test/webRemoteControlTransport.test.ts",
   "packages/provider-node/test/builtin-provider-build.test.ts",
   "packages/provider-node/test/builtin-provider-test-config-sync.test.ts",
   "packages/server/test/remoteDeploy.test.ts",
@@ -59,7 +57,6 @@ export default defineConfig({
     alias: {
       "@": resolve(__dirname, "packages/ui/src"),
       "@desktop": resolve(__dirname, "packages/desktop/src"),
-      "@web": resolve(__dirname, "packages/web/src"),
       // 间接 import desktopNetworkTelemetry 等的单测无需真实 ARMS；需 vi.fn 的用例在文件内 vi.mock 覆盖
       // Bugfix: 具体的 /browser 子路径必须排在包根别名前，否则会被根别名拼成不存在的 stub.ts/browser。
       "@arms/rum-electron/browser": resolve(

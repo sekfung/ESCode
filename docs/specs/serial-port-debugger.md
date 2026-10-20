@@ -5,7 +5,7 @@ Agent 工具为第二期，但第一期接口按第二期需求设计，第二�
 
 ## 范围
 
-平台：仅 Desktop（Windows、macOS、Linux）。Web 客户端与手机远控不显示入口，`packages/server` 不注册串口服务。
+平台：仅 Desktop（Windows、macOS、Linux）。非 Desktop 客户端不显示入口，`packages/server` 不注册串口服务。
 
 第一期功能：
 
@@ -167,7 +167,7 @@ interface ISerialService {
   在 `useAppPanels.ts` 里接线，由 `AnimatedSidePanePanel.tsx` 渲染。
 - 入口放在侧边面板的"新建标签"菜单和命令面板，只在平台提供串口能力（Desktop）时显示，
   判定依据是 `IPlatformService.supportsSerialPort`（只有 Desktop 平台实现为 `true`）。
-  Web 端和手机远控端都不显示入口。`IServiceAccessor.serialService` 为可选字段；
+  非 Desktop 端不显示入口。`IServiceAccessor.serialService` 为可选字段；
   远程 workspace 的服务组合沿用本地 base 服务，所以串口始终走本窗口的 Local Host。
 - 组件通过 `packages/ui/src/hooks/` 里新增的 hook 访问 `ISerialService`，不直接调用 `window.escode`。
 - 导出功能使用 `IPlatformService.saveFile`，导出内容在 Renderer 里由快照生成。

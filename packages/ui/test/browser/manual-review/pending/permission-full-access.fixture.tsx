@@ -50,7 +50,6 @@ function Fixture() {
     <main className="min-h-screen bg-background text-foreground p-3">
       <PermissionDialog
         request={request}
-        isWebRemoteControl={innerWidth < 600}
         onRespond={(_id, option) => setResponse(option.optionId)}
       />
       <output data-testid="response">{response}</output>

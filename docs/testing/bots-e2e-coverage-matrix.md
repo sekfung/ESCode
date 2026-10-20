@@ -198,7 +198,6 @@ cross-platform cases are still pending; the broader TP-02 case is not promoted.
 | BOT-E2E-PV-01 | P1       | formal | `packages/desktop/test/e2e/bots/feishu-provider-interactions.test.ts`    | fast-text          | Feishu/Lark 相同 callback；断言各自 OpenAPI origin                                                                                        |
 | BOT-E2E-RW-01 | P0       | formal | `packages/desktop/test/e2e/bots/bot-remote-disconnected.test.ts`         | controlled-stream  | remote workspace disconnected；普通消息被拒绝；不 reconnect、不解析远端 service、不本地执行                                               |
 | BOT-E2E-CR-01 | P0       | formal | `packages/desktop/test/e2e/bots/bot-automation-result-delivery.test.ts`  | controlled-stream  | Feishu 创建 automation；重开 repo；先订阅后派发；complete/error 回推；失效 Bot 降级；Weixin provider 出站由 service integration test 覆盖 |
-| BOT-E2E-CF-01 | P0       | formal | `packages/desktop/test/e2e/bots/feishu-runtime-error-ui.test.ts`         | controlled-process | 已绑定 Feishu 缺少 credential；启用 runtime；重开机器人弹窗并断言绑定保留、连接中断与错误详情                                             |
 
 ## Fixture 合同
 
@@ -775,7 +774,6 @@ CLI 工具契约、当前执行输入绑定、来源持久化、反向协议，�
 | MN-02 / FN-01               | `conversation-session-bot-channel-worker.test.ts`：真实 CLI 工具、反向 RPC、两次原生提及、无来源桌面续聊；真实 text delta 丢帧，终态仍完整回传一次    | passed，formal           |
 | TP-04 / TP-05               | `conversation-session-bot-topic-worker.test.ts`：收到真实流后自动停止，完成停止后才提交下一条；真实 ReadSessionContext 结果、落盘文件字节及跨任务拒绝 | passed，formal           |
 | GR-02 正常晋升 / PS-01      | `conversation-session-bot-continuous-worker.test.ts`：群排队自然晋升并引用正确消息；真实 IM 首轮及 desktop service 续聊各回传一次                     | passed，formal           |
-| GR-UI-01                    | `feishu-bound-groups-ui.test.ts`：Desktop 实际点击、RPC 保存、话题计数和其他群/机器人不变                                                             | passed，formal           |
 | TP-03                       | 飞书/Lark × 是否明确提及共四场景：可信消息边界、真实 run 来源、引用当前提问、审批 @ 管理员、问答按提及决定 @                                          | passed，pending          |
 | GR-02/04 旧 Desktop runtime | v3 状态文件、职业引导和新 Provider 分组夹具已更新；队列展示、取消、来源详情与已收到操作执行至通过；群草稿 `/mode yolo` 失败                           | failed，不算全 case 通过 |
 
@@ -814,7 +812,6 @@ TP-03 最终四场景在 `desktop-e2e-20260923073023766-p58398-07c97a81dceae606`
 - `conversation-session/conversation-session-bot-channel-worker.test.ts`
 - `conversation-session/conversation-session-bot-topic-worker.test.ts`
 - `conversation-session/conversation-session-bot-continuous-worker.test.ts`
-- `bots/feishu-bound-groups-ui.test.ts`
 
 前三份采用独立 common + case-local 回放夹具；UI 用例使用隔离配置，无模型请求。已有 `/mode yolo` 失败用例仍保持 pending。此次没有 Docker 验证或 CI 准入，不代表真实飞书租户、手机或其他桌面系统验收。
 

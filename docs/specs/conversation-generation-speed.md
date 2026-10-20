@@ -4,7 +4,7 @@
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 状态     | Draft（规格先行，实现与验证随本规格同步落地）                                                                                                                 |
 | 日期     | 2026-10-13                                                                                                                                                    |
-| 适用范围 | ESCode Desktop Renderer、手机/Web 远控 Renderer、`packages/ui`、`packages/shared`、CLI core 与 bootstrap 投影、CLI 上下文预算                                 |
+| 适用范围 | ESCode Desktop Renderer、`packages/ui`、`packages/shared`、CLI core 与 bootstrap 投影、CLI 上下文预算                                                         |
 | 主要对象 | 实时接收速率（v4 帧流上的在线 delta）；轮末解码速度（`turnHeader.decodeMs` / `decodeTokens`）；Composer 工具条读数                                            |
 | 关联 ADR | [0007 生成速度拆分为两个量、两个所有者](../adr/0007-generation-speed-split-ownership.md)（取代 [0006](../adr/0006-generation-speed-observed-in-renderer.md)） |
 | 关联文档 | `DESIGN.md`；`docs/specs/rust-request-context.md`（估算器来源）；E2E：`docs/test-cases/e2e/conversation-generation-speed.feature`                             |
@@ -21,7 +21,7 @@
 
 - 生成中显示 3 秒滑动窗口的实时值（`42 tok/s`），窗口排空时显示占位符 `—`；
 - 一轮结束后在同一位置保留本轮解码速度并弱化显示，直到下一次发送被新读数替换；
-- 手机远控重连、桌面投影 resync 造成的投递缺口只影响实时值的累积，**不影响轮末解码速度**——后者由
+- 远程 workspace 重连、桌面投影 resync 造成的投递缺口只影响实时值的累积，**不影响轮末解码速度**——后者由
   CLI 投影从权威事件累计而来，与客户端是否漏帧无关。
 
 **为什么拆开。** 轮末值要回答"这一轮的模型解码有多快"，这是**会话事实**：权威输入是 provider 的

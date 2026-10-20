@@ -248,7 +248,6 @@ export interface SessionPaneProps {
   remoteSessionId?: string | null;
   /** Prompt 模板埋点当前仅覆盖 Desktop；Web / 手机远控保留 UI 行为但不触发该事件。 */
   isDesktop?: boolean;
-  compactForRemoteControl?: boolean;
   provider?: ESCodeProvider;
   onSessionCreated?: (sessionId: string) => void;
   /** deleteSession：删除当前会话后回到 draft（shell 起新草稿）。 */
@@ -317,7 +316,6 @@ export interface SessionPaneProps {
   onSearchResultHighlightDone?: (requestId: number) => void;
 }
 
-const MOBILE_PLAN_INTERACTION_RECONCILE_DELAY_MS = 500;
 function createSessionErrorKey(
   sessionId: string | null | undefined,
   error: SessionErrorInfo,
@@ -448,7 +446,6 @@ export function SessionPane({
   workspaceIdentity,
   remoteSessionId,
   isDesktop = false,
-  compactForRemoteControl = false,
   provider,
   onSessionCreated,
   onSelectionSideChatUnavailable,
@@ -567,42 +564,6 @@ export function SessionPane({
       newlyCreatedSessionIdRef.current = null;
     }
   }, [sessionId]);
-  const mobilePlanInteractionReconcileTimersRef = useRef(
-    new Map<string, ReturnType<typeof setTimeout>>(),
-  );
-  useEffect(() => {
-    const timers = mobilePlanInteractionReconcileTimersRef.current;
-    return () => {
-      for (const timer of timers.values()) clearTimeout(timer);
-      timers.clear();
-    };
-  }, [lease, sessionId]);
-  const handleMobilePlanInteractionAccepted = useCallback(
-    (interactionId: string) => {
-      if (!compactForRemoteControl || !lease) return;
-      const timers = mobilePlanInteractionReconcileTimersRef.current;
-      if (timers.has(interactionId)) return;
-      const timer = setTimeout(() => {
-        timers.delete(interactionId);
-        const authoritativeSnapshot = lease.store.getState().snapshot;
-        const stillPending = authoritativeSnapshot?.pendingInteractions.some(
-          (interaction) => interaction.interactionId === interactionId,
-        );
-        if (!stillPending) return;
-        // Bug 根因：手机 Plan 回执 ACK 与 replayable 清场分属两条异步路径；清场帧
-        // 丢失时旧 interaction 会永久驻留。只在 grace 后仍读到权威 pending 时复用
-        // 既有 same-sub recovery，不本地隐藏弹窗，也不影响 desktop continuous。
-        logger.warn("[v4-pane] 手机 Plan ACK 后 pending 未收口，触发权威恢复", {
-          interactionId,
-          sessionId,
-          workspaceKey: workspaceIdentity?.trim() || workspacePath,
-        });
-        lease.store.recoverFromStaleAuthority();
-      }, MOBILE_PLAN_INTERACTION_RECONCILE_DELAY_MS);
-      timers.set(interactionId, timer);
-    },
-    [compactForRemoteControl, lease, sessionId, workspaceIdentity, workspacePath],
-  );
   const pluginReferenceIconsEnabled =
     isSessionPluginCatalogReady(state.status, sessionId, snapshot?.sessionId) &&
     hasPluginReferenceUserRows(snapshot?.rows.window ?? []);
@@ -925,17 +886,10 @@ export function SessionPane({
         workspaceIdentity,
         remoteSessionId,
         source,
-        clientKind: isDesktop ? "desktop" : compactForRemoteControl ? "mobile" : "web",
+        clientKind: isDesktop ? "desktop" : "web",
       });
     },
-    [
-      platform,
-      workspacePath,
-      workspaceIdentity,
-      remoteSessionId,
-      isDesktop,
-      compactForRemoteControl,
-    ],
+    [platform, workspacePath, workspaceIdentity, remoteSessionId, isDesktop],
   );
   const handleDraftSessionCreated = useCallback(
     (
@@ -1342,7 +1296,6 @@ export function SessionPane({
   );
   const handleOpenSubagentDirectory = useCallback(
     (request: import("@/lib/workspaceSidePane.js").OpenSubagentDirectorySideTabRequest) => {
-      if (compactForRemoteControl) return;
       onOpenSubagentDirectory?.({
         ...request,
         rootSessionId: request.rootSessionId ?? rootSessionId ?? request.parentSessionId,
@@ -1351,14 +1304,7 @@ export function SessionPane({
         ...(remoteSessionId ? { remoteSessionId } : {}),
       });
     },
-    [
-      compactForRemoteControl,
-      onOpenSubagentDirectory,
-      remoteSessionId,
-      rootSessionId,
-      workspaceIdentity,
-      workspacePath,
-    ],
+    [onOpenSubagentDirectory, remoteSessionId, rootSessionId, workspaceIdentity, workspacePath],
   );
   const handleOpenPlanDetail = useCallback(
     (request: OpenPlanDetailSideTabRequest) => {
@@ -1831,7 +1777,6 @@ export function SessionPane({
       codePreviewSettings,
       sessionId,
       rootSessionId: rootSessionId ?? sessionId,
-      compactForRemoteControl,
       chatLoadingBlockedByActiveWork,
       chatLoadingBlockedByInteraction,
       messageStreamShowReasoning,
@@ -1901,7 +1846,6 @@ export function SessionPane({
       codePreviewSettings,
       sessionId,
       rootSessionId,
-      compactForRemoteControl,
       chatLoadingBlockedByActiveWork,
       chatLoadingBlockedByInteraction,
       messageStreamShowReasoning,
@@ -3617,7 +3561,6 @@ export function SessionPane({
       onExternalTextInsertApplied={handleExternalTextInsertApplied}
       autoFocusEnabled={focused}
       disabled={connecting || draftRuntimeRebuilding || queueEditActiveForCurrentComposer}
-      isWebRemoteControl={compactForRemoteControl}
       workspacePath={workspacePath}
       workspaceIdentity={workspaceIdentity}
       remoteSessionId={remoteSessionId ?? undefined}
@@ -3700,12 +3643,8 @@ export function SessionPane({
           workspacePath={workspacePath}
           workspaceIdentity={workspaceIdentity}
           remoteSessionId={remoteSessionId ?? undefined}
-          isWebRemoteControl={compactForRemoteControl}
           provider={provider}
           snapshot={snapshot}
-          onPlanInteractionAccepted={
-            compactForRemoteControl ? handleMobilePlanInteractionAccepted : undefined
-          }
         />
       ) : null}
       {composerNode}
@@ -3715,14 +3654,13 @@ export function SessionPane({
           className={isOfficeMode ? "mt-4" : "mt-6"}
           proactive={isOfficeMode}
           onOpenAutomations={
-            onOpenAutomationsMain && !compactForRemoteControl
+            onOpenAutomationsMain
               ? (automationTab) => onOpenAutomationsMain(undefined, automationTab)
               : undefined
           }
           workspacePath={workspacePath}
           workspaceIdentity={workspaceIdentity}
           remoteSessionId={remoteSessionId ?? undefined}
-          isWebRemoteControl={compactForRemoteControl}
           isDesktop={isDesktop}
         />
       ) : null}
@@ -3743,7 +3681,7 @@ export function SessionPane({
     },
     [attachmentPut, sessionId],
   );
-  // 进入/退出分享时 chat dock 与分享 dock 高度不同；共享同一个 grid 单元做上下位移淡入淡出，
+  // bottom dock 挂载/卸载时高度变化；共享同一个 grid 单元做上下位移淡入淡出，
   // 避免父高度突变导致的硬跳。prefers-reduced-motion 由 transition 组件内部降级为立即切换。
   const conversationBottomDock = conversationBottomDockContent ? (
     <ConversationBottomDockTransition mode="chat">
@@ -3777,10 +3715,7 @@ export function SessionPane({
         onDragOver={effectiveDropTargetController?.onDragOver}
         onDragLeave={effectiveDropTargetController?.onDragLeave}
         onDrop={effectiveDropTargetController?.onDrop}
-        className={cn(
-          "relative flex h-full min-h-0 flex-col",
-          compactForRemoteControl && "min-w-0",
-        )}
+        className="relative flex h-full min-h-0 flex-col"
       >
         {effectiveDropTargetController?.active ? (
           <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-accent/55 backdrop-blur-sm">
@@ -3805,12 +3740,7 @@ export function SessionPane({
           workspaceBadge={workspaceBadge}
         />
 
-        <div
-          className={cn(
-            "@container/conversation relative flex min-h-0 flex-1 flex-col",
-            compactForRemoteControl && "min-w-0",
-          )}
-        >
+        <div className="@container/conversation relative flex min-h-0 flex-1 flex-col">
           {!isDraft ? (
             <ConversationStatusPanel
               workspacePath={workspacePath}
@@ -3829,7 +3759,6 @@ export function SessionPane({
               endedSubagentCount={subagents.endedTotal}
               rootSessionId={rootSessionId ?? sessionId ?? undefined}
               parentSessionId={sessionId ?? undefined}
-              isWebRemoteControl={compactForRemoteControl}
               isMobileViewport={isMobileTextInputViewport}
               layoutMode={statusPanelLayout}
               summaryPanelVariantOverride={effectiveSummaryPanelVariantOverride}
@@ -3870,18 +3799,14 @@ export function SessionPane({
               onCancelBackgroundWork={readOnly ? undefined : handleCancelBackgroundWork}
               onOpenSubagentSession={onOpenSubagentSession ? handleOpenSubagentSession : undefined}
               onOpenSubagentDirectory={
-                onOpenSubagentDirectory && !compactForRemoteControl
-                  ? handleOpenSubagentDirectory
-                  : undefined
+                onOpenSubagentDirectory ? handleOpenSubagentDirectory : undefined
               }
               onOpenWorkflowRun={
                 onOpenWorkflowRun && sessionId ? handleOpenWorkflowRunFromPanel : undefined
               }
               endedWorkflowRunCount={endedWorkflowRunCount}
               onOpenWorkflowRunDirectory={
-                onOpenWorkflowRunDirectory && !compactForRemoteControl
-                  ? handleOpenWorkflowRunDirectoryFromPanel
-                  : undefined
+                onOpenWorkflowRunDirectory ? handleOpenWorkflowRunDirectoryFromPanel : undefined
               }
             />
           ) : null}
@@ -3915,7 +3840,6 @@ export function SessionPane({
                 workspaceIdentity={workspaceIdentity}
               >
                 <ConversationTimeline
-                  compactForRemoteControl={compactForRemoteControl}
                   scrollToBottomActionRef={timelineScrollToBottomRef}
                   scrollToQueryActionRef={timelineScrollToQueryRef}
                   rows={timelineSnapshot?.rows.window ?? []}
@@ -3942,14 +3866,11 @@ export function SessionPane({
                   emptyState={
                     isDraft ? (
                       <div data-testid={TID_CHAT_EMPTY} className="w-full">
-                        <ConversationDraftEmptyState
-                          compactForRemoteControl={compactForRemoteControl}
-                        />
+                        <ConversationDraftEmptyState />
                       </div>
                     ) : null
                   }
                   centerEmptyStateWithDock={isDraft}
-                  compactEmptyStateWithDock={compactForRemoteControl}
                   summaryPanelLayout={statusPanelLayout}
                   conversationFindQuery={!isDraft && focused ? conversationFindQuery : ""}
                   conversationFindActiveIndex={

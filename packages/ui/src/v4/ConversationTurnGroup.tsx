@@ -737,7 +737,6 @@ function ConversationTurnFlow({
     latestAssistantTextRow: unit.latestAssistantTextRow,
     workspacePath: context.workspacePath,
     workspaceHomePath: context.workspaceHomePath,
-    compactForRemoteControl: context.compactForRemoteControl,
     fileChangesTarget: unit.header?.entityId
       ? { rowId: unit.header.rowId, entityId: unit.header.entityId }
       : null,
@@ -915,7 +914,6 @@ function ConversationBackgroundResultWork({
     latestAssistantTextRow,
     workspacePath: context.workspacePath,
     workspaceHomePath: context.workspaceHomePath,
-    compactForRemoteControl: context.compactForRemoteControl,
     fileChangesTarget: unit.header?.entityId
       ? { rowId: unit.header.rowId, entityId: unit.header.entityId }
       : null,
@@ -1308,7 +1306,6 @@ function ConversationTurnGroupImpl({
               entityId={latestAssistantTextRow.entityId}
               text={assistantCopyText}
               createdAt={latestAssistantTextRow.createdAt}
-              compactForRemoteControl={context.compactForRemoteControl}
               feedback={readAssistantFeedback(latestAssistantTextRow)}
               sessionId={context.sessionId}
               onFork={canForkLatestAssistant ? onFork : undefined}
@@ -1319,18 +1316,14 @@ function ConversationTurnGroupImpl({
               sourceCommandIds={deliverySourceCommandIds}
               className={cn(
                 "flex items-center gap-1",
-                context.compactForRemoteControl
-                  ? "opacity-100"
-                  : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
+                "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
               )}
             />
           ) : (hasHookActions || !unit.isRunning) && !canRenderAssistantActions ? (
             // 兜底操作栏只与普通操作栏互斥；无正文轮也由它提供入口。
             <MessageActions
               className={cn(
-                context.compactForRemoteControl
-                  ? "opacity-100"
-                  : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
+                "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
               )}
             >
               {hasHookActions ? (

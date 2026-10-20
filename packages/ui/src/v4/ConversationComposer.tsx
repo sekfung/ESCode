@@ -108,7 +108,6 @@ import { resolveChatPlaceholderKey } from "@/lib/chatPlaceholder.js";
 import {
   resolveChatEnterShortcut,
   resolveChatEnterSubmits,
-  shouldAvoidIosInputFocusZoom,
   useIsMobileTextInputViewport,
 } from "@/lib/mobileTextInput.js";
 import { appendPromptHistoryEntry } from "@/lib/promptHistory.js";
@@ -410,7 +409,6 @@ export interface ConversationComposerProps {
    */
   autoFocusEnabled?: boolean;
   /** 当前 composer 是否运行在手机 Web 远控壳中。 */
-  isWebRemoteControl?: boolean;
   workspacePath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string;
@@ -517,7 +515,6 @@ function ConversationComposerImpl({
   blockingRequestId = null,
   disabled = false,
   autoFocusEnabled = true,
-  isWebRemoteControl = false,
   workspacePath,
   workspaceIdentity,
   remoteSessionId,
@@ -619,22 +616,10 @@ function ConversationComposerImpl({
   const isMobileTextInputViewport = useIsMobileTextInputViewport();
   const primaryModifierPressed = usePrimaryFollowupModifier();
   const appleKeyboardPlatform = isAppleKeyboardPlatform();
-  // Bugfix：M3 删除旧 ChatView 后，M5 只恢复了桌面端的 false 硬编码，已登记的手机远控
-  // 接线没有补回，导致 Enter 误发送。恢复旧语义：手机视口下 Enter 换行并用按钮发送；
-  // 桌面端仍由 resolveChatEnterSubmits 的视口门禁保持 Enter 发送。
   const enterSubmits = resolveChatEnterSubmits({
     isMobileTextInputViewport,
-    preferEnterNewline: isWebRemoteControl,
+    preferEnterNewline: false,
   });
-  // 修复原因：旧 ChatView 删除后，iOS 防聚焦放大的接线没有迁到 v4 composer，
-  // 手机 Web 远控输入框会重新触发 Safari 的页面缩放。
-  const avoidIosInputFocusZoom = shouldAvoidIosInputFocusZoom({
-    isMobileTextInputViewport,
-    isWebRemoteControl,
-  });
-  // Bugfix：手机远控把完整能力说明放进绝对定位 placeholder 后，三行英文会越过
-  // 40px 编辑区并覆盖工具栏。手机端改用短文案并限制两行；桌面端继续保留完整提示。
-  const compactMobilePlaceholder = isWebRemoteControl && isMobileTextInputViewport;
   const sendShortcut = resolveChatEnterShortcut({ enterSubmits });
   const updateText = useCallback(
     (next: string) => {
@@ -1134,8 +1119,6 @@ function ConversationComposerImpl({
   const mode = snapshot?.inputRouting.mode ?? "startNow";
   const modifiedEnterSubmits = shouldEnableModifiedEnterSubmit({
     inputRoutingMode: mode,
-    isMobileTextInputViewport,
-    isWebRemoteControl,
   });
   const canStop = Boolean(snapshot?.control.canStop);
   const modifiedEnterReversesDelivery = modifiedEnterSubmits && canStop;
@@ -1644,7 +1627,7 @@ function ConversationComposerImpl({
     id: resolveChatPlaceholderKey({
       hasHistoryMessages: (snapshot?.rows.totalCount ?? 0) > 0,
       isTaskProcessing: canStop,
-      compactNewTask: compactMobilePlaceholder,
+      compactNewTask: false,
     }),
   });
   const sendTooltipTitle = intl.formatMessage({
@@ -2105,7 +2088,6 @@ function ConversationComposerImpl({
             sessionId={sessionId ?? null}
             phase={composerPhase}
             provider={provider}
-            isWebRemoteControl={isWebRemoteControl}
             isMobileViewport={isMobileTextInputViewport}
             draftMode={draftMode}
             draftConfig={draftConfig}
@@ -2168,7 +2150,6 @@ function ConversationComposerImpl({
       handleStopClick,
       handleSendButtonClick,
       handleConfigPickerOpenChange,
-      isWebRemoteControl,
       mode,
       handleSelectModelTrace,
       modelSelectionReload,
@@ -2217,7 +2198,6 @@ function ConversationComposerImpl({
           workspacePath={workspacePath}
           workspaceIdentity={workspaceIdentity}
           remoteSessionId={remoteSessionId}
-          isWebRemoteControl={isWebRemoteControl}
           currentSessionBusy={canStop}
         />
         <ConversationBackgroundWorkTrigger
@@ -2236,7 +2216,6 @@ function ConversationComposerImpl({
       executionCapabilities,
       executionReady,
       handleConfigPickerOpenChange,
-      isWebRemoteControl,
       backgroundWorkOpenTarget,
       onOpenRunningBackgroundWorks,
       onSwitchMode,
@@ -2363,8 +2342,6 @@ function ConversationComposerImpl({
           inputTestId={TID_V4_COMPOSER_INPUT}
           inputApiRef={inputApiRef}
           promptHistory={promptHistory}
-          avoidIosInputFocusZoom={avoidIosInputFocusZoom}
-          compactPlaceholder={compactMobilePlaceholder}
           // Bugfix 原因：命令目录必须完整来自 CLI workspace slash catalog；UI 只在
           // secondary pane 按产品能力隐藏 goal，不再追加任何内建命令或别名。
           excludedSlashCommandNames={suppressGoalCommands ? ["goal"] : undefined}

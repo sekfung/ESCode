@@ -221,7 +221,6 @@ BOT-UI-MN：真实正式气泡、准备气泡与队列组件在 390/1200px、深
 - `conversation-session/conversation-session-bot-channel-worker.test.ts`：MN-02 + FN-01，真实 CLI 原生提及、无来源的客户端续聊、丢失 text delta 的终态补齐。
 - `conversation-session/conversation-session-bot-topic-worker.test.ts`：TP-04 + TP-05，真实运行中自动停止续接、工具结果及受管理附件字节校验。
 - `conversation-session/conversation-session-bot-continuous-worker.test.ts`：GR-02 正常晋升 + PS-01 IM/desktop 持续订阅。
-- `bots/feishu-bound-groups-ui.test.ts`：GR-UI-01 实际 Desktop RPC/持久化与群/机器人隔离。
 
 上述路径均相对 `packages/desktop/test/e2e/`。新 worker 正式用例使用真实 CLI/生产 Host 服务，Bot repo 与平台 HTTP 为隔离夹具，不能称为 Electron UI 或真实租户验证。
 PS-01 的重启、失败重试及换绑继续由 `botsService.privateSync.test.ts` 覆盖；mobile 来源模拟不升级为实际手机证明。

@@ -13,7 +13,6 @@ import { V4PaneConversationProvider } from "@/v4/V4ConversationContext.js";
 export const SubagentSessionSidePane = memo(function SubagentSessionSidePane({
   tab,
   focused,
-  compactForRemoteControl = false,
   onOpenBrowserUrl,
   onOpenCodeViewer,
   onOpenFileLink,
@@ -22,7 +21,6 @@ export const SubagentSessionSidePane = memo(function SubagentSessionSidePane({
 }: {
   tab: SubagentSessionSidePaneTab;
   focused: boolean;
-  compactForRemoteControl?: boolean;
   onOpenBrowserUrl?: (url: string) => void;
   onOpenCodeViewer?: (source: CodeViewerSource) => void;
   onOpenFileLink?: (target: MessageFileLinkTarget) => void;
@@ -47,7 +45,6 @@ export const SubagentSessionSidePane = memo(function SubagentSessionSidePane({
         rootSessionId={tab.rootSessionId}
         readOnly
         allowWorkspaceFileRewind
-        compactForRemoteControl={compactForRemoteControl}
         focused={focused}
         telemetryVisible={focused}
         workspacePath={tab.workspacePath}

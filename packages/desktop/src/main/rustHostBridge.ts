@@ -291,10 +291,10 @@ export type RustHostClientMode = "desktop-continuous" | "web-remote-replayable";
  * 路径决定交付模式：`web-remote-replayable` → `/ws`，`desktop-continuous` → `/ws/host`；
  * 两者都要一次性 capability（docs/specs/rust-u2-agent-v4.md §3.2）。两个方向都做字节透传。
  *
- * 修复（评审）：A9 访问控制改动曾把桥接写死为 `/ws/host`（desktop-continuous）；而当前唯一
- * 调用方是 Web 远控的共享 Host attachment，Node 路径对它用的是 `web-remote-replayable`
- * （`webRemoteControlSharedHostAttachments.ts` 的 `AttachServicePort`）。写死 continuous 会让
- * 手机拿到桌面投递语义（不可回放、desktop-only rows）。现在由调用方显式声明模式。
+ * 修复（评审）：A9 访问控制改动曾把桥接写死为 `/ws/host`（desktop-continuous）；而远程 workspace
+ * attachment（`desktopRemoteSessions.ts` 的 `attachRemoteWorkspaceSessionHost`）使用的是
+ * `web-remote-replayable`。写死 continuous 会让远程 workspace 拿到桌面投递语义（不可回放、
+ * desktop-only rows）。现在由调用方显式声明模式。
  * capability 申请期间到达的端口消息按序排队，连上后原样补发。
  */
 export function bridgeRustHostPort(

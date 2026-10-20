@@ -14,15 +14,6 @@ import type {
   SaveCliMcpToUserDirectoryRequest,
 } from "./mcp.js";
 import type { OAuthStateRegistration } from "./oauth.js";
-import type {
-  WebRemoteControlContext,
-  WebRemoteControlReconnectWorkspaceResult,
-  WebRemoteControlStartOperationResult,
-  WebRemoteControlStatus,
-  WebRemoteControlTaskTarget,
-  WebRemoteControlReconnectWorkspaceRequest,
-  WebRemoteControlWorkspaceTarget,
-} from "./web-remote-control.js";
 import type { AppSettings, Locale } from "./protocol.js";
 import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./telemetry.js";
 import type {
@@ -737,25 +728,6 @@ export interface IPlatformService {
     context: BindRemoteWorkspaceSessionContextRequest,
   ): Promise<void>;
 
-  /** 为当前 workspace 开启 Web 远程控制能力 */
-  startWebRemoteControl(
-    context: WebRemoteControlContext,
-  ): Promise<WebRemoteControlStartOperationResult>;
-
-  /** 清除旧配对材料并重新生成 Web 远程控制二维码 */
-  refreshWebRemoteControlPairing(
-    context: WebRemoteControlContext,
-  ): Promise<WebRemoteControlStartOperationResult>;
-
-  /** 关闭当前窗口已开启的 Web 远程控制能力 */
-  stopWebRemoteControl(): Promise<void>;
-
-  /** 查询当前窗口 Web 远程控制状态 */
-  getWebRemoteControlStatus(): Promise<WebRemoteControlStatus>;
-
-  /** 订阅当前窗口 Web 远程控制状态变化；旧平台可不实现，UI 会保留轮询兜底 */
-  onWebRemoteControlStatusChanged?(handler: (status: WebRemoteControlStatus) => void): () => void;
-
   /** 释放当前窗口里已创建的远程 session */
   disposeRemoteSession(sessionId: string): Promise<void>;
 
@@ -771,7 +743,7 @@ export interface IPlatformService {
   /** 列出当前机器 SSH config 中可用于快速填表的 alias */
   listSSHConfigAliases(): Promise<SSHConfigAliasOption[]>;
 
-  /** 读取宿主环境中的原生 MCP 用户目录配置；手机远控通过已连接桌面 host 转发。 */
+  /** 读取宿主环境中的原生 MCP 用户目录配置；远程 workspace 通过已连接桌面 host 转发。 */
   loadMcpFromUserDirectory?(
     payload?: LoadCliMcpFromUserDirectoryRequest,
   ): Promise<LoadCliMcpFromUserDirectoryResult>;
@@ -781,7 +753,7 @@ export interface IPlatformService {
     payload: SaveCliMcpToUserDirectoryRequest,
   ): Promise<{ success: boolean; error?: string }>;
 
-  /** 迁移旧版 Common MCP 配置；仅宿主环境可执行，手机远控通过 desktop attachment 转发。 */
+  /** 迁移旧版 Common MCP 配置；仅宿主环境可执行，远程 workspace 通过 desktop attachment 转发。 */
   migrateLegacyCommonMcp?(
     payload?: MigrateLegacyCommonMcpRequest,
   ): Promise<MigrateLegacyCommonMcpResult>;
@@ -860,25 +832,12 @@ export interface IPlatformService {
 
   /**
    * Renderer → Main：主窗口 renderer 每 60 秒的 heap 读数，进 `renderer_main` 角色事件。单向 send、fire-and-forget；
-   * Web 端与手机远控没有桥，不实现即 no-op。
+   * 非 Desktop 平台没有桥，不实现即 no-op。
    */
   reportRendererHeapSample?(sample: RendererHeapSample): void;
 
   /** 同步当前窗口所有 tab 的 workspace 路径到 main 进程（用于跨窗口去重） */
   syncWindowTabs(paths: string[]): void;
-
-  /** 同步当前窗口里 Web 远程控制允许切换的 workspace；Web fallback 可忽略 */
-  syncWebRemoteControlWorkspaces?(workspaces: WebRemoteControlWorkspaceTarget[]): void;
-
-  /** 同步当前窗口里 Web 远程控制可展示的 task 快照；Web fallback 可忽略 */
-  syncWebRemoteControlTasks?(tasks: WebRemoteControlTaskTarget[]): void;
-
-  /** 注册 Web 远程控制手机端请求重连 workspace 的回调，返回 disposer */
-  onWebRemoteControlReconnectWorkspace?(
-    handler: (
-      request: WebRemoteControlReconnectWorkspaceRequest,
-    ) => Promise<WebRemoteControlReconnectWorkspaceResult>,
-  ): () => void;
 
   /** 同步当前窗口的未读 task 数给宿主环境，用于 Dock / 任务栏徽标聚合 */
   syncWindowUnreadCount(count: number): void;

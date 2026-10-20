@@ -28,7 +28,6 @@ import {
   effectiveFocusedPaneId,
   MAX_WORKBENCH_PANES,
   paneWorkspaceKey,
-  PRIMARY_LEAF,
   usePaneLayoutStore,
   V4_PRIMARY_PANE_ID,
   type PaneSplitSide,
@@ -75,7 +74,6 @@ export interface V4WorkspaceChatAreaProps {
   /** Settings 等覆盖层打开时为 false，隐藏 Pane 不得消费一次性 Composer 请求。 */
   foregroundEnabled?: boolean;
   remoteSessionId?: string;
-  compactForRemoteControl?: boolean;
   /** primary pane 绑定的 CLI session（既有选择态 activeTaskId）；null = draft。 */
   sessionId: string | null;
   activeSelectionSideChatSessionId?: string | null;
@@ -147,7 +145,6 @@ export function V4WorkspaceChatArea({
   readOnly = false,
   foregroundEnabled = true,
   remoteSessionId,
-  compactForRemoteControl = false,
   sessionId,
   activeSelectionSideChatSessionId = null,
   provider,
@@ -204,9 +201,7 @@ export function V4WorkspaceChatArea({
   const setSplitRatioAction = usePaneLayoutStore((state) => state.setSplitRatio);
   const resetPaneLayoutAction = usePaneLayoutStore((state) => state.resetToPrimaryPane);
   const activeGroup = useWorkbenchGroupStore((state) =>
-    compactForRemoteControl || !state.activeGroupId
-      ? null
-      : (state.groups[state.activeGroupId] ?? null),
+    !state.activeGroupId ? null : (state.groups[state.activeGroupId] ?? null),
   );
   const focusGroupPaneAction = useWorkbenchGroupStore((state) => state.focusPane);
   const closeGroupPaneAction = useWorkbenchGroupStore((state) => state.closePane);
@@ -221,14 +216,12 @@ export function V4WorkspaceChatArea({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const root = compactForRemoteControl ? PRIMARY_LEAF : (activeGroup?.root ?? paneRoot);
-  const panes = compactForRemoteControl ? {} : (activeGroup?.panes ?? paneBindings);
-  const focusedPaneId = compactForRemoteControl
-    ? V4_PRIMARY_PANE_ID
-    : (activeGroup?.focusedPaneId ?? paneFocusedPaneId);
+  const root = activeGroup?.root ?? paneRoot;
+  const panes = activeGroup?.panes ?? paneBindings;
+  const focusedPaneId = activeGroup?.focusedPaneId ?? paneFocusedPaneId;
   const layout = useMemo(() => collectWorkbenchLayout(root), [root]);
   const shellSessionOwnedBySplitPane = useMemo(() => {
-    if (compactForRemoteControl || activeGroup || !sessionId) {
+    if (activeGroup || !sessionId) {
       return false;
     }
     return Object.values(paneBindings).some(
@@ -236,7 +229,7 @@ export function V4WorkspaceChatArea({
         binding.sessionId === sessionId &&
         paneWorkspaceKey(binding.workspaceScope) === shellWorkspaceKey,
     );
-  }, [activeGroup, compactForRemoteControl, paneBindings, sessionId, shellWorkspaceKey]);
+  }, [activeGroup, paneBindings, sessionId, shellWorkspaceKey]);
   // 修复原因：primary draft 没有自己的 sessionId；拖入 session 时 shell active
   // 可能已经切到右侧 pane 的 session，不能再把这个 sessionId 下发给 primary。
   const primaryPaneSessionId = shellSessionOwnedBySplitPane ? null : sessionId;
@@ -274,7 +267,6 @@ export function V4WorkspaceChatArea({
       ...(workspaceIdentity ? { workspaceIdentity } : {}),
       ...(remoteSessionId ? { remoteSessionId } : {}),
       isDesktop,
-      compactForRemoteControl,
       readOnly,
       sessionId: primaryPaneSessionId,
       // primaryPaneSessionId 在 active task 被 split pane 接管时会刻意置空，
@@ -323,7 +315,6 @@ export function V4WorkspaceChatArea({
       workspaceIdentity,
       remoteSessionId,
       isDesktop,
-      compactForRemoteControl,
       readOnly,
       primaryPaneSessionId,
       activeSelectionSideChatSessionId,
@@ -576,13 +567,13 @@ export function V4WorkspaceChatArea({
           }
           shell={shell}
           onFocusRequest={handleFocusRequest}
-          onSplit={compactForRemoteControl || activeGroup ? undefined : splitPaneAction}
+          onSplit={activeGroup ? undefined : splitPaneAction}
           onClosePane={handleClosePane}
           onConfirmRestoredSession={handleConfirmRestoredSession}
           onBindSession={handleBindSession}
           onPaneActiveSessionChange={onPaneActiveSessionChange}
-          canDropSession={compactForRemoteControl ? undefined : canDropSession}
-          onDropSession={compactForRemoteControl ? undefined : handleDropSession}
+          canDropSession={canDropSession}
+          onDropSession={handleDropSession}
         />
       ))}
       {layout.dividers.map((divider) => (

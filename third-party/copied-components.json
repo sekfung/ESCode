@@ -5,7 +5,6 @@
     "source": "https://raw.githubusercontent.com/shadcn-ui/ui/a87a63b2ca25143d26c8bd0903e4e9bc77b3f824/LICENSE.md",
     "file": "third-party/upstream/1564074e13439397221ffd522e2e504d56561994a23d371aa5e3ad43e4f5423f.txt",
     "sha256": "1564074e13439397221ffd522e2e504d56561994a23d371aa5e3ad43e4f5423f",
-    "importRevision": null,
     "provenance": "The original copy revision is not recorded in the current checkout; this pinned license reference is not asserted to be the original import version.",
     "roots": ["packages/ui/src/components/ui", "packages/ui/src/styles.css"],
     "scope": "Upstream-derived portions only; ESCode-specific files in the same directory are not attributed to the upstream project.",
@@ -17,7 +16,6 @@
     "source": "https://raw.githubusercontent.com/vercel/ai-elements/6a9d5b1822ffb10bba4bd97175f01edd7d8651cd/LICENSE",
     "file": "third-party/upstream/b4f9adb7c568904834d0dd6cc98d16c390d21ca32fc17ae7a267715269bd5529.txt",
     "sha256": "b4f9adb7c568904834d0dd6cc98d16c390d21ca32fc17ae7a267715269bd5529",
-    "importRevision": null,
     "provenance": "The original copy revision is not recorded in the current checkout; this pinned license reference is not asserted to be the original import version.",
     "roots": ["packages/ui/src/components/ai-elements", ".agents/skills/ai-elements"],
     "scope": "Upstream-derived UI components, skill instructions, reference documentation and example scripts only; locally adapted for ESCode imports, styling and agent workflow. Original import revision not recorded.",
@@ -171,21 +169,16 @@
     "source": "https://raw.githubusercontent.com/withfig/autocomplete/aef52acff84c45edde61ae610cc2c964802b9a38/LICENSE",
     "file": "third-party/upstream/5129f8779dca579cfcb235570688a2f15822b270575e04f27ef906aabbcc0355.txt",
     "sha256": "5129f8779dca579cfcb235570688a2f15822b270575e04f27ef906aabbcc0355",
-    "referenceRevision": "aef52acff84c45edde61ae610cc2c964802b9a38",
-    "importRevision": null
+    "referenceRevision": "aef52acff84c45edde61ae610cc2c964802b9a38"
   },
   {
     "id": "Material Icon Theme",
-    "roots": [
-      "packages/desktop/src/renderer/public/material-icons",
-      "packages/web/public/material-icons"
-    ],
+    "roots": ["packages/desktop/src/renderer/public/material-icons"],
     "license": "MIT",
     "source": "https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/cb1dfb6d9cb73b15681a93939983d75dbba7bf5b/LICENSE",
     "file": "third-party/upstream/cdab3014d4f69b49dde2b85e81792208c72de613aa6aed7f7a9b5c6609b89670.txt",
     "sha256": "cdab3014d4f69b49dde2b85e81792208c72de613aa6aed7f7a9b5c6609b89670",
-    "referenceRevision": "cb1dfb6d9cb73b15681a93939983d75dbba7bf5b",
-    "importRevision": null
+    "referenceRevision": "cb1dfb6d9cb73b15681a93939983d75dbba7bf5b"
   },
   {
     "id": "agent-browser skills (including dogfood and electron)",
@@ -193,7 +186,6 @@
     "source": "https://raw.githubusercontent.com/vercel-labs/agent-browser/99c732c18810494593ead9dd96ab6f5f0c78b729/LICENSE",
     "file": "third-party/upstream/014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff.txt",
     "sha256": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff",
-    "importRevision": null,
     "provenance": "Original import revision is not recorded. This pinned upstream license/source reference is not asserted to be the original import version.",
     "roots": [".agents/skills/agent-browser", ".agents/skills/dogfood", ".agents/skills/electron"],
     "scope": "Upstream-derived instructions, reference documents and shell templates; locally adapted for the ESCode workspace. Reference release v0.20.0 contains all three skills.",
@@ -216,7 +208,6 @@
     "source": "https://raw.githubusercontent.com/microsoft/vscode/44825207bf4389c3bd17c92d3ec28cf784c324cc/LICENSE.txt",
     "file": "third-party/upstream/9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9.txt",
     "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
-    "importRevision": null,
     "provenance": "Original import revision is not recorded. This pinned upstream license/source reference is not asserted to be the original import version.",
     "roots": [
       "packages/rpc/src",
@@ -232,7 +223,6 @@
     "source": "https://raw.githubusercontent.com/obra/superpowers/f2cbfbefebbfef77321e4c9abc9e949826bea9d7/LICENSE",
     "file": "third-party/upstream/a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400.txt",
     "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
-    "importRevision": null,
     "provenance": "Original import revision is not recorded. This pinned upstream license/source reference is not asserted to be the original import version.",
     "roots": [
       "packages/ui/src/lib/builtinSkillI18n.ts",
@@ -245,7 +235,6 @@
     "id": "React Best Practices skill",
     "referenceRevision": "063bee94c3f4df8453406c830b0a7df0f2860278",
     "source": "https://github.com/vercel-labs/agent-skills/tree/063bee94c3f4df8453406c830b0a7df0f2860278",
-    "importRevision": null,
     "roots": [".agents/skills/react-best-practices"],
     "license": "MIT",
     "scope": "Vendored React/Next.js guidance and local adaptations; local README preserves Shu Ding / Vercel attribution.",
@@ -260,7 +249,6 @@
     "license": "ISC",
     "provenance": "All 169 files in the original local import have identical Git blob SHA-1 hashes to packages/docs at this reference revision (Knip 6.0.6). The original import did not record a revision; this establishes a matching snapshot, not a unique original import commit.",
     "scope": "Knip-authored source and documentation. Bundled Source Sans Pro and Hack fonts retain their separately registered licenses; local mirror notes and added license materials are not attributed to Knip.",
-    "importRevision": null,
     "sha256": "ef3e637bb6cc9fa34bacda2f2d31a794ca65abfe3109c150e00bb10dca25e431"
   },
   {
@@ -271,7 +259,6 @@
     "roots": ["docs/knip/docs/public/fonts/SourceSansPro-Regular.otf"],
     "license": "OFL-1.1",
     "provenance": "Bundled font name table identifies Source Sans Pro version 2.020, Adobe copyright 2010, 2012, 2014, and SIL OFL 1.1. License reference is the upstream 2.020R-ro/1.075R-it release.",
-    "importRevision": null,
     "sha256": "653aaf9819e33cf1e2b3523c5d4d6c3dae925d770cb4563030f96655321ca2e9"
   },
   {
@@ -287,7 +274,6 @@
     ],
     "license": "OFL-1.1",
     "provenance": "Bundled WOFF2 name tables identify Source Sans Pro 2.045 (roman) and 1.095 (italic), Adobe copyright 2010-2018, and SIL OFL. License reference is the matching upstream 2.045R-ro/1.095R-it release.",
-    "importRevision": null,
     "sha256": "e1d1fdcefb57985226c06fa9500d29caacfa2b1f8b8c74db911f13c6cad186a1"
   },
   {
@@ -298,7 +284,6 @@
     "roots": ["docs/knip/docs/src/fonts/hack-regular-subset.woff2"],
     "license": "MIT AND Bitstream-Vera",
     "provenance": "Bundled font name table identifies Hack 3.003 and retains Source Foundry, Bitstream Vera, and DejaVu license statements. The upstream v3.003 license is retained verbatim, including the DejaVu public-domain statement.",
-    "importRevision": null,
     "sha256": "1f61bb7c790c59b4b0ecdf304628b94e42ae4c8020094a8c3da73381ab212623"
   },
   {
@@ -307,7 +292,6 @@
     "source": "https://raw.githubusercontent.com/morluto/rea/rea-agents-6.4.0/.agents/skills/reverse-engineer-anything/SKILL.md",
     "file": "third-party/upstream/c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864.txt",
     "sha256": "c1e889027b0d1d14f6b2c7fd3d2d7fecc22854a1c3e22c8772ec4a6d73121864",
-    "importRevision": null,
     "provenance": "Copied byte-for-byte from the pinned npm package rea-agents@6.4.0 (skills/reverse-engineer-anything), which carries the same MIT LICENSE as the repository root; apps/escode-cli/packages/rea-plugin/skills/** is pinned to LF in .gitattributes so the recorded hash stays stable across platforms.",
     "roots": ["apps/escode-cli/packages/rea-plugin/skills/reverse-engineer-anything"],
     "scope": "Vendored upstream investigation skill (SKILL.md plus its six references), copied whole and unmodified; the plugin launcher, manifest and store listing are ESCode's own.",

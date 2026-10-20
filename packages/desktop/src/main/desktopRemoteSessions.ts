@@ -15,7 +15,6 @@ import {
   type RemoteTarget,
   type ProviderProvisioningTrigger,
   type WindowHostRemoteWorkspaceDescriptor,
-  type WebRemoteControlFailure,
 } from "@escode/shared";
 import type {
   RemoteConnectionStats,
@@ -159,11 +158,6 @@ export function createRemoteWorkspaceSessionManager(options: {
     durationMs: number;
   }) => void;
   monotonicNowMs?: () => number;
-  webRemoteControlManagerRef: {
-    current: {
-      failRemoteSession(sessionId: string, reason: string, failure: WebRemoteControlFailure): void;
-    } | null;
-  };
   providerProvisioningCoordinator?: ProviderProvisioningEnvironmentCoordinator;
 }) {
   const pendingByRequestKey = new Map<string, PendingConnect>();
@@ -569,14 +563,6 @@ export function createRemoteWorkspaceSessionManager(options: {
     );
     const win = BrowserWindow.getAllWindows().find(
       (candidate) => candidate.webContents.id === webContentsId,
-    );
-    options.webRemoteControlManagerRef.current?.failRemoteSession(
-      event.remoteSessionId,
-      "window-host:connection-closed",
-      {
-        reason: "workspace-closed",
-        message: "远程工作区连接已结束，请在桌面端重新连接。",
-      },
     );
     if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(PlatformChannels.RemoteSessionClosed, {

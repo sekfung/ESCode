@@ -154,7 +154,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - `escode-session` 读/写/预热/展示面；
   - `system.info` 与 `file` 精确子集（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法）；
   - tasks-index 只读切片（生成器提取 TS 迁移账本与物理 DDL + 账本三分类对账 + `escode-task.getTaskMeta` + 真实 TS Repo 逐字段差分，含 `listTaskList` 全文搜索与分组结构读），见 `rust-u2-tasks-index.md`；
-  - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——手机远控的时间线/置顶/归档/全局搜索不再空列表。
+  - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——桌面的时间线/置顶/归档/全局搜索不再空列表。
 - [ ] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：需广播/实时总线等子系统接受非 utility-process 的 window host。
 - [ ] **优先序 4–9 其余服务域**：各域进度见对应子 spec 的进度表（`git` 17/18、`terminal` T1、`file-watcher`、`providers` P1 已交付；extensions / automation / remote 未开始）。
 
@@ -310,7 +310,7 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 
 - **L1 契约层**：协议 codec 字节级（fixtures 由 TS 生成）；工具 schema/描述字节级（已有）；contract inventory——Host 服务 channel/method 清单与源码一致性 `--check`，未实现成员立即回 `NotImplemented`（Renderer 不挂起，缺口显式可见）。
 - **L2 行为层**：Node Host vs Rust Host 场景双跑差分（事件因果序不允许重排）；持久化跨读（Rust 读 Node 写的库、反向亦然）；双传输一致性子测试（全 scenario 在 stdio / 内存两链路双跑）；双运行时差分（Rust CLI 子进程 vs 嵌入实例）。
-- **L3 端到端**：桌面 E2E 双 Host 跑同一场景集（embedded + child 双链路）；同时验证 `desktop-continuous` 与 `web-remote-replayable` 两种链路语义（AGENTS.md 约束）及手机远控 attachment 复用场景；进程表断言（无 Node 残留）；崩溃注入。
+- **L3 端到端**：桌面 E2E 双 Host 跑同一场景集（embedded + child 双链路）；同时验证 `desktop-continuous` 与 `web-remote-replayable` 两种链路语义（AGENTS.md 约束）及远程 workspace attachment 复用场景；进程表断言（无 Node 残留）；崩溃注入。
 
 ### 4.4 差分器纪律与闭环
 

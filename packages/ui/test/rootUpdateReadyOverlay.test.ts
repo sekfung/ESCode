@@ -55,9 +55,7 @@ vi.mock("@/ConfirmDialog.js", () => ({
 
 vi.mock("@/hooks/usePlatform.js", () => ({
   PlatformProvider: ({ children }: { children: unknown }) => children,
-  useOptionalPlatform: () => ({
-    getWebRemoteControlStatus: vi.fn(async () => ({ status: "idle" })),
-  }),
+  useOptionalPlatform: () => ({}),
   usePlatform: () => ({
     cancelPendingRemoteConnection: vi.fn(async () => {}),
   }),
@@ -151,22 +149,14 @@ vi.mock("@/lib/fileDisplay.js", () => ({
 
 vi.mock("@/lib/rootStartupGate.js", () => ({
   isProviderStartupSyncPending: () => false,
-  shouldEnableProviderAvailabilityLoginEntryGuard: ({
-    isWebRemoteControlRoot,
-  }: {
-    isWebRemoteControlRoot: boolean;
-  }) => !isWebRemoteControlRoot,
+  shouldEnableProviderAvailabilityLoginEntryGuard: () => true,
   shouldResolveProviderStartupState: ({
-    isWebRemoteControlRoot,
     providerStartupSyncPending,
     providerAvailabilityStartupCheckCompleted,
   }: {
-    isWebRemoteControlRoot: boolean;
     providerStartupSyncPending: boolean;
     providerAvailabilityStartupCheckCompleted: boolean;
-  }) =>
-    !isWebRemoteControlRoot &&
-    (providerStartupSyncPending || !providerAvailabilityStartupCheckCompleted),
+  }) => providerStartupSyncPending || !providerAvailabilityStartupCheckCompleted,
   shouldBlockRootRender: () => mockShouldBlockRootRender(),
   shouldShowRootStartupLoading: ({
     isDesktop,
@@ -233,10 +223,8 @@ vi.mock("@/UpdateStatusButton.js", () => ({
 }));
 
 async function renderRoot(options?: {
-  webRemoteControlFeatureEnabled?: boolean;
   isDesktop?: boolean;
   initialWorkspaceAbsPath?: string;
-  initialWorkspaceLoadingFallback?: ReturnType<typeof createElement>;
   platformOverrides?: Record<string, unknown>;
 }) {
   const { Root } = await import("@/Root.js");
@@ -297,10 +285,8 @@ async function renderRoot(options?: {
         setTitleBarTheme: vi.fn(async () => {}),
         ...options?.platformOverrides,
       },
-      webRemoteControlFeatureEnabled: options?.webRemoteControlFeatureEnabled,
       isDesktop: options?.isDesktop,
       initialWorkspaceAbsPath: options?.initialWorkspaceAbsPath,
-      initialWorkspaceLoadingFallback: options?.initialWorkspaceLoadingFallback,
     }),
   );
 
@@ -350,33 +336,6 @@ describe("Root update ready overlay", () => {
     expect(html).toContain('data-testid="settings-page"');
     expect(html).not.toContain('data-testid="update-ready-button"');
   }, 15_000);
-
-  it("Web 远控 feature 关闭时不挂载全局 task 列表同步", async () => {
-    tabStoreState.tabs = [
-      {
-        id: "workspace-1",
-        type: "workspace",
-        workspacePath: "/repo/demo",
-        label: "demo",
-      },
-    ];
-    tabStoreState.activeTabId = "workspace-1";
-    tabStoreState.activeWorkspacePath = "/repo/demo";
-
-    const syncWebRemoteControlTasks = vi.fn();
-    await renderRoot({
-      webRemoteControlFeatureEnabled: false,
-      isDesktop: true,
-      platformOverrides: {
-        syncWebRemoteControlTasks,
-      },
-    });
-
-    // Bugfix: 渲染性能优化后，feature 关闭时 Root 不再挂载 WebRemoteControlTaskSync。
-    // 这里断言不会触发 useGlobalTaskList，避免桌面 continuous 主链路被无用列表订阅唤醒。
-    expect(mockUseGlobalTaskList).not.toHaveBeenCalled();
-    expect(syncWebRemoteControlTasks).not.toHaveBeenCalled();
-  }, 15_000);
 });
 
 describe("Root startup render block desktop gate", () => {
@@ -405,19 +364,5 @@ describe("Root startup render block desktop gate", () => {
     await expect(renderRoot({ isDesktop: false })).resolves.not.toContain(
       'data-testid="root-startup-loading"',
     );
-  }, 15_000);
-
-  it("Web 初始 workspace 注入前会渲染入口传入的 loading fallback", async () => {
-    const html = await renderRoot({
-      isDesktop: false,
-      initialWorkspaceAbsPath: "/repo/demo",
-      initialWorkspaceLoadingFallback: createElement(
-        "div",
-        { "data-testid": "web-remote-initial-loading-fallback" },
-        "已配对，正在加载工作区...",
-      ),
-    });
-
-    expect(html).toContain('data-testid="web-remote-initial-loading-fallback"');
   }, 15_000);
 });

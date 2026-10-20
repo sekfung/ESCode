@@ -31,10 +31,6 @@ import {
   reportRemoteConnectResultToArms,
   type RemoteConnectionStats,
 } from "./desktopRemoteUsageArmsTelemetry.js";
-import {
-  registerWebRemoteControlIpcHandlers,
-  type WebRemoteControlIpcManager,
-} from "./desktopWebRemoteControlIpc.js";
 import { openFileUrlInDefaultApp, openPathInDefaultApp } from "./desktopMainIpcHelpers.js";
 
 export function isAllowedExternalOpenUrl(value: string): boolean {
@@ -68,10 +64,6 @@ function parseOpenExternalRequest(payload: unknown): OpenExternalRequest | null 
   };
 }
 
-function isPaypalHostname(hostname: string): boolean {
-  return hostname === "paypal.com" || hostname.endsWith(".paypal.com");
-}
-
 export function registerRemoteIpcHandlers(options: {
   logger: {
     info: (...args: unknown[]) => void;
@@ -97,7 +89,6 @@ export function registerRemoteIpcHandlers(options: {
   };
   /** 仅由 VITE_ESCODE_E2E_STORE_BRIDGE + test runner 双门禁打开。 */
   finalArmsCustomEventE2EEnabled?: boolean;
-  webRemoteControlManager: WebRemoteControlIpcManager;
   createRemoteWorkspaceSession: (
     win: BrowserWindow,
     target: RemoteTarget,
@@ -190,11 +181,6 @@ export function registerRemoteIpcHandlers(options: {
       },
     );
   }
-
-  registerWebRemoteControlIpcHandlers({
-    reportRemoteUsageEvent,
-    webRemoteControlManager: options.webRemoteControlManager,
-  });
 
   ipcMain.on(PlatformChannels.OAuthRegisterState, (event, payload: unknown) => {
     const registration = parseOAuthStateRegistration(payload);

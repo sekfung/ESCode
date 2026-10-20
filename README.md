@@ -212,7 +212,6 @@ node dist/escode/debug/escode/bin/escode.mjs --web \
 | 目录                                                 | 职责                                       |
 | ---------------------------------------------------- | ------------------------------------------ |
 | `packages/desktop`                                   | Electron Main、Host、Renderer 与桌面打包   |
-| `packages/web`                                       | Web 客户端                                 |
 | `packages/server`                                    | HTTP / WebSocket 服务与远程连接            |
 | `packages/escode-server-cli`                         | 独立 Server 启动与进程管理                 |
 | `packages/ui`                                        | 共享 React 组件、hooks 与 Zustand 状态     |

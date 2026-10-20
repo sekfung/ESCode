@@ -2,11 +2,7 @@ import { readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { readSettings, seedSettings, waitForDefaultWorkspaceReady } from "./helpers/desktop-app.js";
 import { writeE2EJsonFileAtomically } from "./helpers/e2e-atomic-json-file.js";
-import {
-  buildHelpBrowserFixture,
-  readHelpFixture,
-  startHelpConfigFixture,
-} from "./helpers/help-client-config-fixture.js";
+import { readHelpFixture, startHelpConfigFixture } from "./helpers/help-client-config-fixture.js";
 
 type DesktopBridge = {
   executeDesktopCommand(command: string): Promise<void>;
@@ -135,67 +131,5 @@ describe("帮助配置 client/configs", () => {
     server.setConfig({});
     expect(await available("en-US")).toBe(false);
     expect(await available("zh-CN")).toBe(false);
-  });
-
-  it("HC-05: 窄屏 Chromium Web 解析、并发缓存与页面重载重新请求", async () => {
-    const webServer = await startHelpConfigFixture(fixture.remote, await buildHelpBrowserFixture());
-    const mainHandle = await browser.getWindowHandle();
-    const existing = await browser.getWindowHandles();
-    const id = await browser.electron.execute(async (electron, url) => {
-      const win = new electron.BrowserWindow({
-        width: 390,
-        height: 844,
-        show: false,
-        webPreferences: { sandbox: true, nodeIntegration: false },
-      });
-      await win.loadURL(url);
-      return win.id;
-    }, webServer.origin);
-    try {
-      await browser.waitUntil(
-        async () => (await browser.getWindowHandles()).length > existing.length,
-        { timeout: 10000 },
-      );
-      const handle = (await browser.getWindowHandles()).find((item) => !existing.includes(item))!;
-      await browser.switchToWindow(handle);
-      const read = async () =>
-        browser.execute(async () => {
-          const help = (
-            window as unknown as {
-              helpFixture: {
-                resolveWebCommunityUrl(
-                  locale: string,
-                  options: { endpointOrigin: string },
-                ): Promise<string>;
-              };
-            }
-          ).helpFixture;
-          return Promise.all(
-            ["zh-CN", "en-US"].map((locale) =>
-              help.resolveWebCommunityUrl(locale, { endpointOrigin: location.origin }),
-            ),
-          );
-        });
-      expect(await read()).toEqual([
-        fixture.remote.community_urls!["zh-CN"],
-        fixture.remote.community_urls!["en-US"],
-      ]);
-      expect(webServer.requests).toHaveLength(1);
-      expect(
-        new URL(webServer.requests[0]!.url, webServer.origin).searchParams.has("platform"),
-      ).toBe(false);
-      webServer.setConfig({ community_urls: { "en-US": "https://example.com/E2E_WEB_CHANGED" } });
-      expect((await read())[1]).toBe(fixture.remote.community_urls!["en-US"]);
-      await browser.refresh();
-      expect((await read())[1]).toBe("https://example.com/E2E_WEB_CHANGED");
-      expect(webServer.requests).toHaveLength(2);
-    } finally {
-      await browser.electron.execute(
-        (electron, windowId) => electron.BrowserWindow.fromId(windowId)?.destroy(),
-        id,
-      );
-      await browser.switchToWindow(mainHandle);
-      await webServer.close();
-    }
   });
 });

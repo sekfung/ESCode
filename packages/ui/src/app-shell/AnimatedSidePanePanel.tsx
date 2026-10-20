@@ -1188,7 +1188,6 @@ export function AnimatedSidePanePanel({
                           <SubagentSessionSidePane
                             tab={tab}
                             focused={isVisible && tab.id === visibleActiveTabId}
-                            compactForRemoteControl={mobileOverlay}
                             onOpenBrowserUrl={onOpenBrowserUrl}
                             onOpenCodeViewer={onOpenCodeViewer}
                             onOpenFileLink={onOpenFileLink}

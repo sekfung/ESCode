@@ -82,7 +82,7 @@ const categoryRules = [
       /^packages\/shared\/src\/acp-types\.ts$/u,
       /^packages\/shared\/src\/task-realtime\.ts$/u,
       /^packages\/shared\/src\/tool-plan-adapter\.ts$/u,
-      /^packages\/shared\/src\/(?:assistant-message-parts|assistant-presentation|channels|errors|index|mcp|model-selection-key|model-selection-types|permission-request-preview|protocol|subagents-types|test-ids|web-remote-control|escode-agent-model-state|escode-agent-policy)\.ts$/u,
+      /^packages\/shared\/src\/(?:assistant-message-parts|assistant-presentation|channels|errors|index|mcp|model-selection-key|model-selection-types|permission-request-preview|protocol|subagents-types|test-ids|escode-agent-model-state|escode-agent-policy)\.ts$/u,
       /^packages\/services\/src\/session\//u,
       /^packages\/services\/src\/usage-stats\//u,
       /^packages\/services\/src\/git\/repo\/gitCheckpointRepo\.ts$/u,

@@ -2425,7 +2425,7 @@ describe("ConversationRowView 把稿号交给编译反馈行", () => {
     expect(view.getByTestId("workflow-draft-lamp").getAttribute("data-draft-lamp")).toBe("settled");
   });
 
-  it("联接表缺席（只读分享等宿主）：不编号，灯保持警示色", () => {
+  it("联接表缺席（只读会话等宿主）：不编号，灯保持警示色", () => {
     const view = renderFeedbackRow({});
     expect(view.queryByTestId("workflow-draft-ordinal")).toBeNull();
     expect(view.getByTestId("workflow-draft-lamp").getAttribute("data-draft-lamp")).toBe("open");

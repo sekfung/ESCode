@@ -24,9 +24,8 @@ describe("workspace main view drag region", () => {
     expect(frameSource).toContain("isDesktop ? (");
     expect(layoutSource).toContain("min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]");
 
-    // 三个整页主视图（automations / plugin-store / knowledge）× 两个主区渲染分支，
-    // 再加知识库共用的 renderKnowledgeMainView：4 + 1。
-    expect(layoutSource.match(/<AutomationsMainBreadcrumbFrame/gu)?.length).toBe(5);
+    // automations 与 plugin-store 各一处，知识库复用 renderKnowledgeMainView：2 + 1。
+    expect(layoutSource.match(/<AutomationsMainBreadcrumbFrame/gu)?.length).toBe(3);
     expect(frameSource.match(/data-testid="automations-main-drag-region"/gu)?.length).toBe(1);
   });
 
@@ -37,6 +36,6 @@ describe("workspace main view drag region", () => {
       layoutSource.match(/min-h-0 flex-1 overflow-y-auto \[scrollbar-gutter:stable\]/gu)?.length ??
       0;
 
-    expect(stableScrollerCount).toBe(5);
+    expect(stableScrollerCount).toBe(3);
   });
 });

@@ -1222,7 +1222,6 @@ describe("ConversationDraftSuggestedPromptsContainer", () => {
     render(
       createElement(ConversationDraftSuggestedPromptsContainer, {
         workspacePath,
-        isWebRemoteControl: true,
       }),
     );
 
@@ -1235,8 +1234,8 @@ describe("ConversationDraftSuggestedPromptsContainer", () => {
     expect(toast).not.toHaveBeenCalled();
     expect(resolveSuggestedPluginReference).toHaveBeenCalledWith(
       expect.objectContaining({
-        clientMode: "web-remote-replayable",
-        deliveryKind: "web-remote-replayable",
+        clientMode: "desktop-continuous",
+        deliveryKind: "desktop-continuous",
       }),
     );
   });

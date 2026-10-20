@@ -1436,36 +1436,6 @@ describe("ConversationRowView user query editing", () => {
     },
   );
 
-  it("keeps user message actions visible in compact remote control mode", async () => {
-    const row = userInputRow();
-    const container = installMinimalDom();
-    const root: Root = createRoot(container);
-
-    await act(async () => {
-      root.render(
-        createElement(
-          ESCodeIntlProvider,
-          { initialLocale: "zh-CN" },
-          createElement(ConversationRowView, {
-            context: { ...rowContext, compactForRemoteControl: true },
-            row,
-            onEdit: vi.fn(),
-          }),
-        ),
-      );
-    });
-
-    const actionsClassName = collectAttributeValues(container, "class").find((value) =>
-      value.includes("mt-1 opacity"),
-    );
-    expect(actionsClassName).toContain("opacity-100");
-    expect(actionsClassName).not.toContain("opacity-0");
-
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
   it("keeps assistant feedback local to the mounted action toolbar", async () => {
     const row = assistantTextRow({
       entityId: "message-assistant-43",
@@ -1479,7 +1449,7 @@ describe("ConversationRowView user query editing", () => {
           ESCodeIntlProvider,
           { initialLocale: "zh-CN" },
           createElement(ConversationRowView, {
-            context: { ...rowContext, compactForRemoteControl: true },
+            context: rowContext,
             row,
             onFeedbackChange: vi.fn(async () => true),
           }),
@@ -1491,7 +1461,6 @@ describe("ConversationRowView user query editing", () => {
     const dislikeTestId = testId(TID_V4_FEEDBACK_DISLIKE, String(row.rowId));
     expect(messageActionPropsByTestId.get(likeTestId)?.["aria-pressed"]).toBe(false);
     expect(messageActionPropsByTestId.get(dislikeTestId)?.["aria-pressed"]).toBe(false);
-    expect(messageActionPropsByTestId.get(likeTestId)?.tooltip).toBeUndefined();
 
     const handleLike = messageActionPropsByTestId.get(likeTestId)?.onClick;
     expect(handleLike).toBeTypeOf("function");

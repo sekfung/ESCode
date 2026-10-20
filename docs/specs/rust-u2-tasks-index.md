@@ -10,7 +10,7 @@
 
 ## 1. 范围
 
-**做**（Renderer/手机远控经 `escode-session`、`escode-task` 两个 channel 可见的全部行为）：
+**做**（Renderer/远程 workspace 经 `escode-session`、`escode-task` 两个 channel 可见的全部行为）：
 
 - `escode-session` 写面补全：`createSession`、`resumeSession`、`closeDeferredDraftSession`、`promoteDeferredDraftSession`；
 - `escode-task` 全量方法（S1–S12 已 76/76 收口）；
@@ -28,7 +28,7 @@
 
 ```mermaid
 flowchart LR
-  R[Renderer / 手机远控] -- "escode-session / escode-task<br/>(@escode/rpc)" --> H[Rust Host 域服务]
+  R[Renderer / 远程 workspace] -- "escode-session / escode-task<br/>(@escode/rpc)" --> H[Rust Host 域服务]
   H -- "命令/查询（v4 command、session/*）" --> RT[workspace 运行时实例<br/>（Engine 唯一事实源）]
   RT -- "V4 topic 帧<br/>sessionsIndexTopic / workspaceConfigTopic" --> SY[syncer]
   SY -- upsert/归档/删除 --> DB[(tasks-index.sqlite<br/>~/.escode/v2/tasks-index.sqlite)]

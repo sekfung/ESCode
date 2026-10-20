@@ -2406,7 +2406,7 @@ The original import revisions of copied components are not recorded in the curre
 
 - Fig autocomplete registry (MIT): apps/escode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts. License reference: https://raw.githubusercontent.com/withfig/autocomplete/aef52acff84c45edde61ae610cc2c964802b9a38/LICENSE. Original import revision: not recorded.
 
-- Material Icon Theme (MIT): packages/desktop/src/renderer/public/material-icons, packages/web/public/material-icons. License reference: https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/cb1dfb6d9cb73b15681a93939983d75dbba7bf5b/LICENSE. Original import revision: not recorded.
+- Material Icon Theme (MIT): packages/desktop/src/renderer/public/material-icons. License reference: https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/cb1dfb6d9cb73b15681a93939983d75dbba7bf5b/LICENSE. Original import revision: not recorded.
 
 - agent-browser skills (including dogfood and electron) (Apache-2.0): .agents/skills/agent-browser, .agents/skills/dogfood, .agents/skills/electron. License reference: https://raw.githubusercontent.com/vercel-labs/agent-browser/99c732c18810494593ead9dd96ab6f5f0c78b729/LICENSE. Original import revision: not recorded.
 

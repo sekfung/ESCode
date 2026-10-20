@@ -201,7 +201,6 @@ Open `http://127.0.0.1:3030` to validate the complete flow, with one backend ser
 | Directory                                            | Responsibility                                                                          |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `packages/desktop`                                   | Electron Main, Host, Renderer, and desktop packaging                                    |
-| `packages/web`                                       | Web client                                                                              |
 | `packages/server`                                    | HTTP / WebSocket services and remote connections                                        |
 | `packages/escode-server-cli`                         | Standalone server startup and process management                                        |
 | `packages/ui`                                        | Shared React components, hooks, and Zustand state                                       |

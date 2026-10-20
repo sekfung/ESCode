@@ -105,29 +105,6 @@ describe("GitBranchSwitcher", () => {
     expect(html).toContain("main");
   });
 
-  it("keeps the primary branch icon in compact remote mode", async () => {
-    const { GitBranchSwitcher } = await import("@/GitBranchSwitcher.js");
-
-    const html = renderToStaticMarkup(
-      createElement(GitBranchSwitcher, {
-        compactForRemoteControl: true,
-        dirtyFileCount: 0,
-        gitSummary: {
-          branchName: "main",
-          headRefType: "branch",
-          isGitAvailable: true,
-          isRepository: true,
-        },
-        onRefreshGit: vi.fn(),
-        workspacePath: "/workspace/escode-cli",
-      }),
-    );
-
-    expect(html).toContain('data-branch-switcher-primary-icon="true"');
-    expect(html).not.toContain('data-branch-switcher-trailing-icon="true"');
-    expect(html).not.toContain("main");
-  });
-
   it("can hide branch creation and graph footer actions", async () => {
     const { GitBranchSwitcher } = await import("@/GitBranchSwitcher.js");
 

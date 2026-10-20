@@ -108,14 +108,9 @@ export function App({
   onOpenWorkspace,
   onOpenFolderFromWorkspaceMenu,
   onOpenRemoteWorkspace,
-  onCreateScratchWorkspace,
   remoteConnectionInProgress = false,
   onReturnToWorkspace,
   allowOpenWorkspace = true,
-  webRemoteControlWorkspaceSwitcher,
-  initialWebRemoteControlMobileNavigationIntent,
-  initialWebRemoteControlWorkspaceList,
-  webRemoteControlTerminalTransportState,
   allowRemoteWorkspace = true,
   remoteWorkspaceSessions = EMPTY_REMOTE_WORKSPACE_SESSIONS,
   workspaceAbsPath,
@@ -233,7 +228,6 @@ export function App({
     handleOpenBrowserPermissionSettings,
     handleToggleGit,
     handleOpenGit,
-    handleOpenTreemapping,
     handleOpenWhiteboard,
     handleOpenDeveloperTools,
     handleOpenSerialTab,
@@ -590,20 +584,12 @@ export function App({
   );
   const handleAutoOpenAssistantPptx = useCallback(
     (request: AssistantPreviewCardsAutoOpenRequest) => {
-      if (!isDesktop || webRemoteControlWorkspaceSwitcher || workspaceReadOnlyReason) {
+      if (!isDesktop || workspaceReadOnlyReason) {
         return;
       }
       handleOpenCodeViewers(request.sources);
     },
-    [handleOpenCodeViewers, isDesktop, webRemoteControlWorkspaceSwitcher, workspaceReadOnlyReason],
-  );
-  const handleOpenTreemappingIfWritable = useCallback(
-    (...args: Parameters<typeof handleOpenTreemapping>) => {
-      if (!workspaceReadOnlyReason) {
-        handleOpenTreemapping(...args);
-      }
-    },
-    [handleOpenTreemapping, workspaceReadOnlyReason],
+    [handleOpenCodeViewers, isDesktop, workspaceReadOnlyReason],
   );
   const projectName = getPathLeaf(workspaceAbsPath);
   const handleOpenTaskFind = useCallback(() => {
@@ -744,13 +730,11 @@ export function App({
       ) {
         addTab(targetWorkspacePath, targetTabOptions);
       }
-      if (!webRemoteControlWorkspaceSwitcher) {
-        // 修复原因：workspace 行“新建对话”以前由叶子组件直接 activateTab + startDraft，
-        // 没有退出重启恢复的 workbench group/pane。group primary binding 因而仍可覆盖草稿。
-        // desktop 所有显式新建入口统一先回到单 primary pane；手机 /remote 不消费这份本地布局。
-        useWorkbenchGroupStore.getState().deactivateActiveGroup();
-        usePaneLayoutStore.getState().resetToPrimaryPane();
-      }
+      // 修复原因：workspace 行“新建对话”以前由叶子组件直接 activateTab + startDraft，
+      // 没有退出重启恢复的 workbench group/pane。group primary binding 因而仍可覆盖草稿。
+      // desktop 所有显式新建入口统一先回到单 primary pane。
+      useWorkbenchGroupStore.getState().deactivateActiveGroup();
+      usePaneLayoutStore.getState().resetToPrimaryPane();
       store.startDraft(
         targetWorkspacePath,
         targetSelectedProvider,
@@ -777,7 +761,6 @@ export function App({
       workspaceAbsPath,
       workspaceIdentity,
       workspaceShellESCodeState.selectedProvider,
-      webRemoteControlWorkspaceSwitcher,
     ],
   );
 
@@ -1194,15 +1177,8 @@ export function App({
           onOpenWorkspace={onOpenWorkspace}
           onOpenFolderFromWorkspaceMenu={onOpenFolderFromWorkspaceMenu}
           onOpenRemoteWorkspace={onOpenRemoteWorkspace}
-          onCreateScratchWorkspace={onCreateScratchWorkspace}
           remoteConnectionInProgress={remoteConnectionInProgress}
           allowOpenWorkspace={allowOpenWorkspace}
-          webRemoteControlWorkspaceSwitcher={webRemoteControlWorkspaceSwitcher}
-          initialWebRemoteControlMobileNavigationIntent={
-            initialWebRemoteControlMobileNavigationIntent
-          }
-          initialWebRemoteControlWorkspaceList={initialWebRemoteControlWorkspaceList}
-          webRemoteControlTerminalTransportState={webRemoteControlTerminalTransportState}
           allowRemoteWorkspace={allowRemoteWorkspace}
           remoteWorkspaceSessions={remoteWorkspaceSessions}
           workspaceAbsPath={workspaceAbsPath}
@@ -1260,7 +1236,6 @@ export function App({
           providerConfigFile={providerConfigFile}
           taskNativeSessionLogFile={taskNativeSessionLogFile}
           taskSessionFile={taskSessionFile}
-          testMessages={testMessages}
           conversationFindActiveIndex={conversationFindState.activeIndex}
           conversationFindNavigationRequestId={conversationFindState.navigationRequestId}
           conversationFindQuery={conversationFindState.query}
@@ -1290,7 +1265,6 @@ export function App({
           handleToggleBrowser={handleToggleBrowser}
           handleOpenBrowserTab={handleOpenBrowserTab}
           handleOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
-          handleOpenTreemapping={handleOpenTreemappingIfWritable}
           handleOpenWhiteboard={handleOpenWhiteboard}
           handleOpenDeveloperTools={handleOpenDeveloperTools}
           handleOpenSerialTab={handleOpenSerialTab}

@@ -101,15 +101,15 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 
 ## 5. 分域迁移（u2b 优先序与每域验收模板）
 
-| 顺序 | 域                                                     | 交付判定（每域统一）                                                                      |
-| ---- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| 3    | settings                                               | 唯一写者；Node/Rust 双 Host 交替写读演练通过（同文件同格式）                              |
-| 4    | workspace（git/terminal/watcher/媒体预览）             | 桌面 E2E 交互热路径场景通过；无 Node 残留子进程                                           |
-| 5    | sessions + tasks + tasks_index                         | Node Host vs Rust Host 场景双跑差分全绿；tasks-index DDL 字节冻结 + checksum              |
-| 6    | providers                                              | 模型请求差分（含 Registry 快照）全绿                                                      |
-| 7    | extensions（skills/plugins/hooks/mcp/commands/memory） | 文件系统视图与 TS 逐字段对照（含 hooks 信任锁）                                           |
-| 8    | automation（cron/bots）                                | 无窗口调度场景：窗口全关仍在跑；调度事件顺序与 TS 一致                                    |
-| 9    | remote + runtime-link 选择器                           | `desktop-continuous` 与 `web-remote-replayable` 双链路语义 + 手机远控 attachment 复用场景 |
+| 顺序 | 域                                                     | 交付判定（每域统一）                                                                                                                 |
+| ---- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 3    | settings                                               | 唯一写者；Node/Rust 双 Host 交替写读演练通过（同文件同格式）                                                                         |
+| 4    | workspace（git/terminal/watcher/媒体预览）             | 桌面 E2E 交互热路径场景通过；无 Node 残留子进程                                                                                      |
+| 5    | sessions + tasks + tasks_index                         | Node Host vs Rust Host 场景双跑差分全绿；tasks-index DDL 字节冻结 + checksum                                                         |
+| 6    | providers                                              | 模型请求差分（含 Registry 快照）全绿                                                                                                 |
+| 7    | extensions（skills/plugins/hooks/mcp/commands/memory） | 文件系统视图与 TS 逐字段对照（含 hooks 信任锁）                                                                                      |
+| 8    | automation（cron/bots）                                | 无窗口调度场景：窗口全关仍在跑；调度事件顺序与 TS 一致                                                                               |
+| 9    | remote + runtime-link 选择器                           | `desktop-continuous` 与 `web-remote-replayable` 双链路语义 + 本地/远程 workspace attachment 复用场景（手机远控已于 2026-10-20 删除） |
 
 每域开工前按父计划子 spec 约定写 `docs/specs/rust-u2<序号>-<域>.md`。
 

@@ -1,11 +1,7 @@
 import type { ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { decodeCustomModelValue } from "@/lib/escodeCustomModelValue.js";
 
-export function shouldShowManageModelsAction(
-  onManageModels?: () => void,
-  options: { isWebRemoteControl?: boolean } = {},
-): boolean {
-  if (options.isWebRemoteControl) return false;
+export function shouldShowManageModelsAction(onManageModels?: () => void): boolean {
   return typeof onManageModels === "function";
 }
 
