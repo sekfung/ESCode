@@ -125,6 +125,11 @@ pub enum Event {
     AuxiliaryDone {
         result: std::result::Result<Value, ModelFailure>,
     },
+    /// MCP Apps 采样作业结束（docs/specs/rust-mcp-ui.md §4 P4）：错误带 JSON-RPC code，
+    /// 因此不复用 `AuxiliaryDone` 的 model failure 形状。
+    McpSamplingDone {
+        result: std::result::Result<Value, (i64, String)>,
+    },
     /// 中枢直接启动已保存工作流的启动轮（docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」）：
     /// 工作流宿主已 `port.submit`（零会话副作用），会话 owner 落启动轮（标题 / userInput /
     /// controlOnly turnHeader / runtime history）并以本次 `v4/command` 的 ACK 经 `reply` 应答。

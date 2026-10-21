@@ -42,7 +42,7 @@ impl ToolPort for WorkspaceTools {
     ) -> Result<Vec<(String, Value)>> {
         Ok(self.mcp.ui_notifications(event))
     }
-    fn mcp_ui_begin(&self, params: &Value) -> Result<()> {
+    fn mcp_ui_begin(&self, params: &Value) -> Result<CancellationToken> {
         self.mcp.ui_begin(params)
     }
     fn mcp_ui_end(&self, params: &Value) {

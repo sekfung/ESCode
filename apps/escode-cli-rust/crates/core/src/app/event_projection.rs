@@ -58,6 +58,7 @@ impl Engine {
             | Event::Background { .. }
             | Event::PromptInitialized { .. }
             | Event::AuxiliaryDone { .. }
+            | Event::McpSamplingDone { .. }
             | Event::AuxiliaryReply { .. }
             | Event::AuxiliaryNotify { .. }
             | Event::RequestAuth { .. }

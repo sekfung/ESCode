@@ -25,6 +25,18 @@ impl Engine {
             }
             return Ok(());
         }
+        // 采样是后台作业：actor 立即返回，结果经 `McpSamplingDone` 回包，期间仍可接收取消。
+        if request.method == "mcp/uiSampling" {
+            let started = self
+                .validate_workspace(&request.params)
+                .and_then(|()| self.start_mcp_sampling(&request));
+            if let Err(error) = started {
+                output
+                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                    .await?;
+            }
+            return Ok(());
+        }
         if matches!(
             request.method.as_str(),
             "workspace/generateText" | "provider/testModelConnectivity"
@@ -256,11 +268,7 @@ impl Engine {
             "workspace/hooks/trustGrant" => self.workspace_hook_trust_grant(&request.params).await,
             // MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。workspace 校验与其它
             // workspace 级方法一致；失败作为本请求的 RPC 错误返回，不结束 serve 循环。
-            // MCP Apps 采样走 Engine（需要任务模型）；其余 mcp/ui* 走工具层。
-            "mcp/uiSampling" => match self.validate_workspace(&request.params) {
-                Ok(()) => self.sample_mcp_ui(&request.params).await,
-                Err(error) => Err(error),
-            },
+            // MCP Apps 取消采样走 Engine；其余 mcp/ui* 走工具层。
             "mcp/uiCancelSampling" => match self.validate_workspace(&request.params) {
                 Ok(()) => self.cancel_mcp_sampling(&request.params),
                 Err(error) => Err(error),

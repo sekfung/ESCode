@@ -89,6 +89,8 @@ pub struct Engine {
     pub(super) spawner: Arc<crate::contract::Spawner>,
     /// MCP Apps 采样账本（docs/specs/rust-mcp-ui.md §4 P4）。
     pub(super) sampling: super::mcp_sampling::Calls,
+    /// 在飞的采样作业（auxiliary id → 收口所需状态）。
+    pub(super) sampling_jobs: BTreeMap<String, super::mcp_sampling::SamplingJob>,
 }
 impl Engine {
     pub async fn new(
@@ -190,6 +192,7 @@ impl Engine {
             session_debug: BTreeMap::new(),
             spawner,
             sampling: Default::default(),
+            sampling_jobs: BTreeMap::new(),
         })
     }
     pub async fn serve(

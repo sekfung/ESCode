@@ -6,13 +6,14 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::Engine;
-use crate::contract::{EventSink, ModelIdentity, ModelPort};
+use crate::contract::{Event, EventSink, ModelIdentity, ModelPort};
+use crate::domain::protocol::{Request, rpc_error};
 
 pub(super) const TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_PER_SESSION: usize = 4;
@@ -86,15 +87,32 @@ impl Calls {
     }
 }
 
+/// 一次在飞的页面采样：完成后由 `McpSamplingDone` 收口 pin、账本与 RPC 应答。
+pub(super) struct SamplingJob {
+    params: Value,
+    scope: Scope,
+    operation: String,
+}
+
 impl Engine {
-    pub(super) async fn sample_mcp_ui(&mut self, params: &Value) -> Result<Value> {
+    /// 采样改由后台作业执行，actor 保持可接收 `mcp/uiCancelSampling`。
+    pub(super) fn start_mcp_sampling(&mut self, request: &Request) -> Result<()> {
+        let params = &request.params;
         let scope = sampling_scope(params)?;
         let operation = params["operationId"]
             .as_str()
             .filter(|value| !value.is_empty())
             .context("operationId is required")?
             .to_owned();
-        self.tools.mcp_ui_begin(params)?;
+        ensure!(
+            !self
+                .auxiliary
+                .values()
+                .any(|job| job.operation.as_deref() == Some(operation.as_str())),
+            "Duplicate operation id"
+        );
+        ensure!(self.auxiliary.len() < 16, "Too many workspace requests");
+        let instance = self.tools.mcp_ui_begin(params)?;
         let cancel = match self.sampling.begin(&scope, &operation) {
             Ok(cancel) => cancel,
             Err(error) => {
@@ -102,22 +120,63 @@ impl Engine {
                 return Err(error);
             }
         };
-        let request = params["request"].clone();
-        let result = tokio::time::timeout(
-            TIMEOUT,
-            run_sampling(&self.model, &self.config, &request, &cancel),
-        )
-        .await;
-        self.tools.mcp_ui_end(params);
-        self.sampling.finish(&scope, &operation);
-        match result {
-            Ok(result) => {
-                // 迟到结果不投递给已失效实例。
-                self.tools.mcp_ui_validate_scope(params)?;
-                result
-            }
-            Err(_) => bail!("Sampling timed out"),
+        let id = format!("mcp-sampling:{}", self.clock.id());
+        self.auxiliary.insert(
+            id.clone(),
+            super::auxiliary::Auxiliary {
+                request: request.id.clone(),
+                cancel: cancel.clone(),
+                operation: Some(operation.clone()),
+                session: None,
+            },
+        );
+        self.sampling_jobs.insert(
+            id.clone(),
+            SamplingJob {
+                params: params.clone(),
+                scope,
+                operation,
+            },
+        );
+        let sink = EventSink {
+            session_id: id.clone(),
+            run_id: id,
+            tx: self.events.clone(),
+        };
+        let (model, config) = (self.model.clone(), self.config.clone());
+        let sampling_request = params["request"].clone();
+        self.spawner.spawn("mcp-sampling", async move {
+            let result = tokio::select! {biased;
+                _=instance.cancelled()=>Err((-32000, "MCP App instance is no longer authorized".to_owned())),
+                result=tokio::time::timeout(TIMEOUT, run_sampling(&model, &config, &sampling_request, &cancel))=>match result {
+                    Ok(Ok(value))=>Ok(value),
+                    Ok(Err(error))=>Err((-32000, error.to_string())),
+                    Err(_)=>Err((-32000, "Sampling timed out".to_owned())),
+                },
+            };
+            let _ = sink.send(Event::McpSamplingDone { result }).await;
+        });
+        Ok(())
+    }
+
+    /// 收口一次采样作业：释放 pin、结束账本并返回 RPC 应答。
+    pub(super) fn finish_sampling(
+        &mut self,
+        id: &str,
+        result: std::result::Result<Value, (i64, String)>,
+    ) -> Option<Value> {
+        let job = self.sampling_jobs.remove(id);
+        let request = self.auxiliary.remove(id).and_then(|job| job.request);
+        self.cancel_auth(id);
+        if let Some(job) = job {
+            self.tools.mcp_ui_end(&job.params);
+            self.sampling.finish(&job.scope, &job.operation);
         }
+        let request = request?;
+        Some(match result {
+            Ok(value) => json!({ "id": request, "result": value }),
+            Err((code, message)) => rpc_error(&Some(request), code as i32, &message),
+        })
     }
 
     pub(super) fn cancel_mcp_sampling(&mut self, params: &Value) -> Result<Value> {
@@ -126,7 +185,18 @@ impl Engine {
             .as_str()
             .filter(|value| !value.is_empty())
             .context("operationId is required")?;
-        Ok(json!({ "cancelled": self.sampling.cancel(&scope, operation) }))
+        let ledger = self.sampling.cancel(&scope, operation);
+        let job = self.sampling_jobs.iter().find(|(_, job)| {
+            job.scope.token == scope.token
+                && job.scope.session == scope.session
+                && job.operation == operation
+        });
+        if let Some((id, _)) = job
+            && let Some(job) = self.auxiliary.get(id)
+        {
+            job.cancel.cancel();
+        }
+        Ok(json!({ "cancelled": ledger }))
     }
 
     /// server → client sampling（`sampling/createMessage`）：无页面实例，直接借任务模型应答。

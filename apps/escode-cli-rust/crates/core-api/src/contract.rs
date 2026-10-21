@@ -48,8 +48,8 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<Vec<(String, Value)>> {
         Ok(Vec::new())
     }
-    /// 采样等跨步骤操作：校验实例并 pin（`onlyIfIdle` 能看到忙碌态）。
-    fn mcp_ui_begin(&self, _params: &Value) -> Result<()> {
+    /// 采样等跨步骤操作：校验实例并 pin（`onlyIfIdle` 能看到忙碌态）；返回实例取消令牌。
+    fn mcp_ui_begin(&self, _params: &Value) -> Result<CancellationToken> {
         anyhow::bail!("MCP Apps unavailable")
     }
     fn mcp_ui_end(&self, _params: &Value) {}

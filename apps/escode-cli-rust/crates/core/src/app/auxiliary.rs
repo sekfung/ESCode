@@ -221,6 +221,11 @@ impl Engine {
                     });
                 }
             }
+            Event::McpSamplingDone { result } => {
+                if let Some(answer) = self.finish_sampling(&id, result) {
+                    self.outbox.push(answer);
+                }
+            }
             Event::AuxiliaryDone { result } => {
                 self.cancel_auth(&id);
                 let job = self.auxiliary.remove(&id).unwrap();

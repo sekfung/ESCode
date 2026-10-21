@@ -58,7 +58,7 @@ impl Hub {
     }
 
     /// 跨步骤操作（采样）开始：校验实例并登记 pin。
-    pub fn ui_begin(&self, params: &Value) -> Result<()> {
+    pub fn ui_begin(&self, params: &Value) -> Result<CancellationToken> {
         let scope = parse_scope(params)?;
         let lease = parse_lease(params)?;
         let operation = params["operationId"]
@@ -67,12 +67,13 @@ impl Hub {
             .context("operationId is required")?;
         let source = self.ui_source(&scope.session_id, &scope.server_name);
         let mut ui = self.ui();
-        ui.instances
+        let instance = ui
+            .instances
             .validate(&lease, &scope.as_scope(), source.as_ref())?;
         let pin = ui.instances.retain(&lease, operation)?;
         ui.ops
             .insert((scope.session_id, lease.token, operation.to_owned()), pin);
-        Ok(())
+        Ok(instance)
     }
 
     /// 跨步骤操作结束：释放 pin（幂等）。
