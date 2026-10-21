@@ -415,10 +415,16 @@ pub(crate) async fn await_result(
     }
 }
 
-/// 页面结果 → 工具输出（保留原始 MCP 形状，不生成对话行）。
+/// 页面结果 → 工具输出（与 MCP 工具同一套结果格式化，不生成对话行）。
 pub(crate) fn to_output(result: Value) -> ToolOutput {
     let failed = result["isError"] == true;
-    let mut output = ToolOutput::text(serde_json::to_string(&result).unwrap_or_default());
+    let formatted = crate::domain::mcp_result::format(
+        &result,
+        None,
+        &crate::domain::mcp_result::SavedImages::new(),
+    );
+    let mut output = ToolOutput::text(formatted.text);
+    output.media = formatted.media;
     output.failed = failed;
     output.data = result;
     output
