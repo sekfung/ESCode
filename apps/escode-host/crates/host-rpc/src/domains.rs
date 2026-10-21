@@ -290,6 +290,10 @@ pub fn channels_with(
             Arc::clone(&options_for_simple),
         ),
         crate::domains_plugin_sync::plugin_sync_channel(&home_for_plugin_sync),
+        crate::domains_plugin_ui::plugin_ui_bridge_channel(
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
         task_channel,
         session_channel(instances, options, write, Some(provider_headers)),
     ];

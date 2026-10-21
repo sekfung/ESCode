@@ -1,5 +1,6 @@
 //! Renderer RPC 面已实现的 `(channel, member)`（与 `host-rpc` 方法表双向对账）。
 
+#[rustfmt::skip]
 pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("window-controller", "subscribeControllerV4"),
     ("window-controller", "resyncControllerV4"),
@@ -320,6 +321,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-agent", "updatePluginMarketplace"),
     ("escode-agent", "validatePlugin"),
     ("gen-ui", "prepareSandbox"),
+    ("plugin-ui-bridge", "validateInstance"), ("plugin-ui-bridge", "recycleInstance"), ("plugin-ui-bridge", "closeInstance"), ("plugin-ui-bridge", "readResource"),
+    ("plugin-ui-bridge", "callTool"), ("plugin-ui-bridge", "cancelToolCall"), ("plugin-ui-bridge", "listResources"), ("plugin-ui-bridge", "listResourceTemplates"),
     ("usage-stats", "getAppUsageSnapshot"),
     ("plugins", "getOverview"),
     ("plugin-sync", "listLocalUserPluginCandidates"),
