@@ -35,7 +35,6 @@
     "@escode/provider": "workspace:*",
     "@escode/provider-node": "workspace:*",
     "@escode/shared": "workspace:*",
-    "@escode/telemetry": "workspace:*",
     "diff": "^9.0.0",
     "zod": "4.6.5"
   },

@@ -22,6 +22,12 @@ impl Engine {
         self.forward_actor_event(&id, &event.event).await;
         self.record_usage_facts(&id, &turn, &event.event);
         self.telemetry_event(&id, &turn, &event.event);
+        if let Event::ModelStatus(status) = &event.event {
+            self.session_debug
+                .entry(id.clone())
+                .or_default()
+                .observe(status);
+        }
         if matches!(event.event, Event::ModelStatus(_)) {
             return Ok(());
         }

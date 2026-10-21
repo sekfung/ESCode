@@ -1,17 +1,14 @@
 import { installRequestSecurityDiagnostics } from "./request-security-edition/index.js";
-import { createLocalTtftExporter } from "./localTtftExporter.js";
 /* eslint-disable max-lines */
 import "./desktopEarlyDataBaseDirBootstrap.js";
 import "./desktopEarlyChromiumHardwareAccelerationBootstrap.js";
 import { powerMonitor, powerSaveBlocker } from "electron";
 import { crashCapturePaths } from "./appCrashCaptureBootstrap.js";
-import { armsInitPromise } from "./appARMSBootstrap.js";
+import { registerCrashEventMonitor } from "./desktopCrashCapture.js";
 import {
   onLocalDatabaseStartupReady,
   configureDatabaseStartupQuit,
 } from "./databaseStartupRelay.js";
-import armsRum from "@arms/rum-electron";
-import { createArmsUserIdentitySync } from "./armsUserIdentity.js";
 import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
 import {
   createDesktopContextPromptRollout,
@@ -49,12 +46,7 @@ import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import {
-  createCredentialService,
   createSettingService,
-  createTelemetryCore,
-  createTelemetryMarketingParamsLoader,
-  createTelemetryUserIdLoader,
-  createTelemetryAuthorizationLoader,
   buildRuntimeProcessEnvPatch,
   captureLoginShellEnvSnapshot,
   getAppConfigDir,
@@ -79,13 +71,11 @@ import {
   resolveESCodeEndpointOrigin,
   shouldEnableE2ETestBridge,
   type UpdateStatePayload,
-  type TelemetryEventPayload,
   HostMessageTypes,
 } from "@escode/shared";
 import { logger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
 import { createCuaPipFocusRouter, resolveCuaPipWindowKey } from "./cuaPipFocusRouter.js";
-import { createDesktopTelemetryFetch } from "./desktopTelemetryFetch.js";
 import {
   acknowledgePostUpdateReleaseNotes,
   getAutoUpdaterState,
@@ -102,11 +92,6 @@ import { BroadcastHub } from "./broadcastHub.js";
 import { TaskRealtimeBus } from "./taskRealtimeBus.js";
 import { createAppLaunchGate } from "./appLaunchGate.js";
 import { createAppLaunchCoordinator } from "./appLaunchCoordinator.js";
-import { createAppTelemetryRuntime } from "./appTelemetryRuntime.js";
-import { createRendererActionTraceBroker } from "./rendererActionTraceBroker.js";
-import { createRendererActionTraceExporter } from "./rendererActionTraceExporter.js";
-import { registerRendererActionTraceIpc } from "./rendererActionTraceIpc.js";
-import { createRendererActionTraceRollout } from "./rendererActionTraceRollout.js";
 import {
   resolveAppShutdownPolicy,
   selectAppShutdownPolicy,
@@ -196,11 +181,6 @@ import {
   isWorkspaceOpenUrl,
 } from "./desktopDeepLinkUrl.js";
 import { createRemoteWorkspaceSessionManager } from "./desktopRemoteSessions.js";
-import {
-  reportRemoteConnectionStateChangedToArms,
-  reportRemoteDisconnectToArms,
-  stopRemoteUsageArmsPeriodicSampling,
-} from "./desktopRemoteUsageArmsTelemetry.js";
 import { resolveCanonicalWslTarget } from "./desktopWslTargetResolver.js";
 import {
   listRegisteredHostAgentProcessIds,
@@ -211,36 +191,9 @@ import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
 import {
-  configureDesktopStabilityTelemetry,
-  getStabilityLifecycleScene,
-  notifyStabilityAppExit,
-  notifyStabilityLifecycle,
-  reportAgentProcessExitToArms,
-  reportAgentProcessReadyToArms,
-  reportAgentProcessStartToArms,
-  reportAgentProcessSpawnErrorToArms,
-  reportAgentProcessExceptionToArms,
-  registerDesktopStabilityMonitors,
-  registerStabilityMainWindow,
-  scheduleReportPerfAppStartAfterMainViewReady,
-} from "./desktopStabilityTelemetry.js";
-import {
-  configureDesktopResourceTelemetry,
-  registerDesktopResourceTelemetry,
-  resolveResourceUsageScene,
-  stopDesktopResourceTelemetry,
-} from "./desktopResourceTelemetry.js";
-import { registerRendererHeapSampleIpc } from "./processResourceRendererHeapSource.js";
-import {
-  registerDesktopESCodeDataSizeTelemetry,
-  stopDesktopESCodeDataSizeTelemetry,
-} from "./desktopESCodeDataSizeTelemetry.js";
-import { configureDesktopMcpTelemetry, reportMcpTelemetryToArms } from "./desktopMcpTelemetry.js";
-import {
-  configureDesktopNetworkTelemetry,
-  registerDesktopNetworkTelemetry,
-  stopDesktopNetworkTelemetry,
-} from "./desktopNetworkTelemetry.js";
+  startDesktopMemoryDiagnosticsLog,
+  stopDesktopMemoryDiagnosticsLog,
+} from "./desktopMemoryDiagnosticsLog.js";
 import { applyDesktopChromiumNetworkPolicies } from "./desktopNetworkPolicy.js";
 import { applyEmbeddedBrowserPermissionPolicy } from "./embeddedBrowserPermissionPolicy.js";
 import { createEmbeddedBrowserSitePermissionStore } from "./embeddedBrowserSitePermissionStore.js";
@@ -248,7 +201,6 @@ import {
   createEmbeddedBrowserPermissionUiBridge,
   setActiveEmbeddedBrowserPermissionUiBridge,
 } from "./embeddedBrowserPermissionUiBridge.js";
-import { mapESCodeEnvToArmsRumEnv } from "@escode/shared";
 import {
   findWindowsProcessesReferencingResourceMarkers,
   probeWindowsPackagedResourceWritable,
@@ -266,6 +218,28 @@ import {
 
 registerLocalMediaPreviewScheme(protocol, [PLUGIN_SANDBOX_PRIVILEGED_SCHEME]);
 const localMediaPreviewPathRegistry = createLocalMediaPreviewPathRegistry();
+/** Host 只负责组装 register 输入；真实 webview 沙箱注册始终在 Main。 */
+function registerSandboxFromHost(input: unknown) {
+  const host = getPluginSandboxHost();
+  if (!host) throw new Error("Plugin UI sandbox host is not installed.");
+  const { requestId: _requestId, ...registerInput } = input as {
+    requestId?: string;
+  };
+  return host.registerFromHost(registerInput as Parameters<typeof host.registerFromHost>[0]);
+}
+
+async function handleRustHostMainRequest(request: {
+  method: string;
+  params: unknown;
+}): Promise<unknown> {
+  switch (request.method) {
+    case "gen-ui.prepareSandbox":
+    case "plugin-ui-bridge.prepareSandbox":
+      return registerSandboxFromHost(request.params);
+    default:
+      throw new Error(`Unsupported Rust Host main service method: ${request.method}`);
+  }
+}
 
 // e2e 由 Chromedriver 管理远程调试端口；如果这里继续固定到 9229，
 // 会和开发态已打开的 ESCode Dev 抢端口，导致 WebDriver session 创建前白屏超时。
@@ -685,7 +659,6 @@ const UPDATE_STATUS_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 10, y: 10 } as const;
 const mainSettingService = createSettingService();
 const appLaunchGate = createAppLaunchGate();
 const appLaunchCoordinator = createAppLaunchCoordinator(appLaunchGate);
-const appTelemetryCredentialService = createCredentialService();
 async function resolveCurrentESCodeEndpointOrigin() {
   return resolveESCodeEndpointOrigin({
     env: ESCODE_ENV,
@@ -739,52 +712,13 @@ function awaitFirstHostSpawnDecision(): Promise<void> {
   })();
   return firstHostSpawnDecisionPromise;
 }
-const appTelemetryCore = createTelemetryCore({
-  loadUserId: createTelemetryUserIdLoader(appTelemetryCredentialService),
-  loadAuthorization: createTelemetryAuthorizationLoader(appTelemetryCredentialService),
-  loadMarketingParams: createTelemetryMarketingParamsLoader(appTelemetryCredentialService),
-  resolveESCodeEndpointOrigin: resolveCurrentESCodeEndpointOrigin,
-  fetchImpl: createDesktopTelemetryFetch(net),
-});
-const appTelemetryRuntime = createAppTelemetryRuntime({
-  telemetryCore: appTelemetryCore,
-  appLaunchCoordinator,
-});
-
-function reportRemoteUsageEventForRenderer(rendererId: number, event: TelemetryEventPayload): void {
-  const context =
-    appTelemetryRuntime.getRendererContext(rendererId) ??
-    appTelemetryRuntime.getLatestRendererContext();
-  if (!context) {
-    logger.warn("[remote-usage-telemetry] renderer context unavailable", {
-      elementName: event.elementName,
-      rendererId,
-    });
-    return;
-  }
-  // 最终失败由 TelemetryCore 统一记录一条脱敏告警；这里仅隔离远程连接主链路。
-  void appTelemetryCore.reportEvent({ context, ...event }).catch(() => {});
-}
-
-function syncAppTelemetryInteractiveState(): void {
-  appTelemetryRuntime.setInteractive(
-    getApplicationWindowsExcludingCuaIndicator().some(
-      (win) => !win.isDestroyed() && win.isVisible() && win.isFocused(),
-    ),
-  );
-  // 登出/切号发生在 host 子进程，主进程无即时信号；窗口聚焦时兜底刷新 ARMS user.name
-  void armsUserIdentitySync.refresh();
-}
-
 app.on("browser-window-focus", (_event, win) => {
-  syncAppTelemetryInteractiveState();
   rebuildMenu();
   // 设置/更新等无 Host 的 ESCode 窗口也算前台：router 会先把旧 workspace Host 清成 null，
   // 再把无 Host 的新窗口事实静默丢弃，避免旧会话 PiP 继续显示。
   cuaPipFocusRouter.focusWindow(resolveCuaPipWindowKey(win));
 });
 app.on("browser-window-blur", (_event, win) => {
-  syncAppTelemetryInteractiveState();
   cuaPipFocusRouter.blurWindow(resolveCuaPipWindowKey(win));
 });
 app.on("browser-window-created", (_event, win) => {
@@ -798,8 +732,6 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   resolveRemoteAssetDirs: () =>
     resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
   resolveWslTarget: resolveCanonicalWslTarget,
-  reportRemoteConnectionStateChanged: reportRemoteConnectionStateChangedToArms,
-  reportRemoteDisconnect: reportRemoteDisconnectToArms,
 });
 
 // dev 开关（docs/specs/rust-u2-host-skeleton.md §6）：`ESCODE_RUST_HOST=1` 时本地 workspace 的
@@ -827,6 +759,8 @@ const rustHostManager = createRustHostManager({
   }),
   // 本地媒体预览：授权注册表属于 Main，Rust Host 经控制通道请求（rust-u2-attachments.md §5）。
   authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
+  // CUA Helper 与 sandbox 注册属于 Main；Host 经控制通道转发。
+  onMainRequest: handleRustHostMainRequest,
   log: logger,
 });
 const deviceMid = ensureDesktopDeviceMidSync();
@@ -846,30 +780,6 @@ const electronClientConfigsFetcher = createElectronDesktopContextPromptConfigFet
 desktopContextPromptRollout = createDesktopContextPromptRollout({
   fetchConfig: electronClientConfigsFetcher,
   logger,
-});
-const rendererActionTraceRollout = createRendererActionTraceRollout({
-  fetchConfig: electronClientConfigsFetcher,
-  logger,
-});
-const localTtftExporter = createLocalTtftExporter({
-  env: { ...hostProcessLocalEnv, ...process.env },
-  version: ESCODE_VERSION || app.getVersion(),
-  logger,
-});
-ipcMain.on(PlatformChannels.ReportLocalTtftBatch, (_event, batch: unknown) =>
-  localTtftExporter.enqueue(batch),
-);
-const rendererActionTraceBroker = createRendererActionTraceBroker({
-  exporter: createRendererActionTraceExporter({
-    ...hostProcessLocalEnv,
-    ...process.env,
-  }),
-  logger,
-});
-let disposeRendererActionTraceIpc: (() => void) | undefined;
-const armsUserIdentitySync = createArmsUserIdentitySync({
-  deviceMid,
-  setUser: (user) => armsRum.setConfig("user", user),
 });
 
 function extractOpenWorkspacePathFromDeepLinkUrl(url: string): string | null {
@@ -1055,19 +965,7 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   markForceQuit(reason);
   windowsCuaOperationIndicator.dispose();
   browserScreenshotSurfaceCoordinator.dispose();
-  // Bug 根因：资源样本改为 5 分钟窗口后，退出仍直接 stop 会清空未满窗口的数据。
-  // 退出时只排空已存在的角色 / Agent 内存窗口，不启动新采样、目录扫描或外部探针。
-  stopDesktopResourceTelemetry({ flushPendingWindows: true });
-  stopDesktopESCodeDataSizeTelemetry();
-  stopDesktopNetworkTelemetry();
-  stopRemoteUsageArmsPeriodicSampling();
-  disposeRendererActionTraceIpc?.();
-  disposeRendererActionTraceIpc = undefined;
-  notifyStabilityAppExit(
-    getStabilityLifecycleScene() === "update_install" ? "update_install" : "app_quit",
-    logger,
-    { exitCode: 0, exitKind: "normal" },
-  );
+  stopDesktopMemoryDiagnosticsLog();
 
   const cronSchedulerToDispose = cronScheduler;
   cronScheduler = null;
@@ -1080,15 +978,6 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   );
 
   appQuitPreparationInFlight = Promise.all([
-    // 退出屏障结束后再启动窗口尺寸写入，可能在 app.exit 前留下 setting.json.lock。
-    // 尺寸已在 resize 防抖或最大化状态变化时保存，退出屏障不再创建新的尺寸写入。
-    // 修复原因：Main 过去不会等待仍在发送的 /event/report，正常退出也会直接丢事件。
-    // 与其它 owner 并行进入既有屏障，最多等待 2 秒，避免 telemetry 串行放大退出预算。
-    appTelemetryCore.flushPendingReports({ timeoutMs: 2_000 }),
-    localTtftExporter.shutdown(),
-    rendererActionTraceBroker.shutdown().catch((error) => {
-      logger.warn(`[app-quit] renderer action trace shutdown failed (${reason}):`, error);
-    }),
     // 旧流程先等待 Cron 的 1.5s deadline，再启动 Host timer，导致声明的
     // 4.5s/9s 退出总预算被串行放大。两类 owner 无关闭依赖，统一并行进入同一屏障。
     (async () => {
@@ -1769,16 +1658,6 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
             windowsCuaOperationIndicator.handleState(source, event),
           onCuaOperationStateSourceExited: (source) =>
             windowsCuaOperationIndicator.clearSource(source),
-          onAgentProcessExited: (event) => reportAgentProcessExitToArms(event, logger),
-          onAgentProcessError: (event) => reportAgentProcessSpawnErrorToArms(event, logger),
-          onAgentProcessException: (event) => reportAgentProcessExceptionToArms(event, logger),
-          onAgentProcessReady: (event) => reportAgentProcessReadyToArms(event, logger),
-          onAgentProcessSpawned: (event) => reportAgentProcessStartToArms(event, logger),
-          onMcpTelemetry: (message) =>
-            reportMcpTelemetryToArms(message.event, message.runtimeSurface),
-          onSessionCreateTelemetry: (message) => {
-            void appTelemetryCore.reportEvent(message.event).catch(() => {});
-          },
           onCronRunResult: forwardCronRunResult,
           onCronSchedulerWakeRequested: wakeCronScheduler,
           authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
@@ -1841,7 +1720,6 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
       await mainSettingService.update({ desktopWindowSize: state });
     },
   });
-  registerStabilityMainWindow(win);
   return win;
 }
 
@@ -1928,7 +1806,9 @@ app.whenReady().then(async () => {
     ...(process.env.ESCODE_E2E_RUN_ID?.trim() &&
     Number.isInteger(Number(process.env.ESCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES)) &&
     Number(process.env.ESCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES) > 0
-      ? { registryMaxEntries: Number(process.env.ESCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES) }
+      ? {
+          registryMaxEntries: Number(process.env.ESCODE_E2E_PLUGIN_SANDBOX_MAX_ENTRIES),
+        }
       : {}),
   });
   // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
@@ -2008,7 +1888,9 @@ app.whenReady().then(async () => {
     // 打包态必须与 NSIS 快捷方式使用同一 AUMID，否则 Shell 把它们当成不同应用。
     // 使用构建期产品身份，不依赖用户机器环境；开发态继续保持独立身份。
     app.setAppUserModelId(
-      resolveWindowsAppUserModelIdForFlavor(ESCODE_PRODUCT_FLAVOR, { isPackaged: app.isPackaged }),
+      resolveWindowsAppUserModelIdForFlavor(ESCODE_PRODUCT_FLAVOR, {
+        isPackaged: app.isPackaged,
+      }),
     );
   }
 
@@ -2065,7 +1947,6 @@ app.whenReady().then(async () => {
   void initAutoUpdater({
     enabled: ESCODE_PRODUCT_FLAVOR === "production" && ESCODE_AUTO_UPDATE_ENABLED,
     onBeforeQuitAndInstall: async () => {
-      notifyStabilityLifecycle("update_install");
       await prepareAppQuit("auto-update quitAndInstall", "update-install");
       if (process.platform === "win32") {
         await prepareWindowsProcessesForUpdateInstall();
@@ -2247,30 +2128,9 @@ app.whenReady().then(async () => {
     deviceMid,
   });
 
-  disposeRendererActionTraceIpc = registerRendererActionTraceIpc({
-    rollout: rendererActionTraceRollout,
-    broker: rendererActionTraceBroker,
-    env: process.env,
-    logger,
-  });
-
   registerRemoteIpcHandlers({
     logger,
-    appTelemetryRuntime,
-    onOAuthCallbackHandledSideEffect: () => {
-      void armsUserIdentitySync.refresh();
-    },
-    appTelemetryCore,
-    reportRemoteUsageEvent: reportRemoteUsageEventForRenderer,
-    armsCustomContext: {
-      deviceMid,
-      platform: process.platform,
-      appVersion: ESCODE_VERSION,
-      armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-    },
-    finalArmsCustomEventE2EEnabled: shouldEnableE2ETestBridge(process.env),
     createRemoteWorkspaceSession: remoteSessionManager.createRemoteWorkspaceSession,
-    getRemoteConnectionStats: remoteSessionManager.getRemoteConnectionStats,
     disposeRemoteWorkspaceSession: remoteSessionManager.disposeRemoteWorkspaceSession,
     cancelPendingRemoteWorkspaceSessionsForWindow:
       remoteSessionManager.cancelPendingRemoteWorkspaceSessionsForWindow,
@@ -2282,57 +2142,8 @@ app.whenReady().then(async () => {
     listSSHConfigAliases,
   });
 
-  // 等待 ARMS 完成 init（含渲染进程注入监听），避免首窗 dom-ready 早于 SDK 注册导致无上报
-  await armsInitPromise;
-
-  // ARMS init 完成后首次写入 user.name（落 device_mid）
-  void armsUserIdentitySync.refresh();
-
-  configureDesktopStabilityTelemetry({
-    deviceMid,
-    platform: process.platform,
-    appVersion: ESCODE_VERSION,
-    armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-  });
-  configureDesktopResourceTelemetry({
-    deviceMid,
-    platform: process.platform,
-    appVersion: ESCODE_VERSION,
-    armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-  });
-  configureDesktopMcpTelemetry({
-    deviceMid,
-    appVersion: ESCODE_VERSION,
-    armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-  });
-  configureDesktopNetworkTelemetry({
-    deviceMid,
-    platform: process.platform,
-    appVersion: ESCODE_VERSION,
-    armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-  });
-  registerDesktopStabilityMonitors(logger, crashCapturePaths);
-  registerDesktopResourceTelemetry(logger);
-  // 主窗口 renderer 的 60 秒 heap 样本入口；随 App 生命周期常驻，只注册一次。
-  registerRendererHeapSampleIpc();
-  const defaultDataBaseDir = process.env.HOME?.trim() || homedir();
-  registerDesktopESCodeDataSizeTelemetry({
-    context: {
-      appVersion: ESCODE_VERSION,
-      armsEnv: mapESCodeEnvToArmsRumEnv(desktopRuntimeEnv),
-      dataRootKind:
-        resolve(getDataBaseDir()) === resolve(defaultDataBaseDir) ? "default" : "custom",
-      deviceMid,
-      platform: process.platform,
-    },
-    getSystemIdleTimeSeconds: () => powerMonitor.getSystemIdleTime(),
-    isAppBackground: () => resolveResourceUsageScene() === "background",
-    isESCodeBusy: () => getRunningAgentSessionCount() > 0,
-    logger,
-    rootPath: getESCodeDataRootDir(),
-    stateFile: join(app.getPath("userData"), "escode-data-size-telemetry.json"),
-  });
-  registerDesktopNetworkTelemetry(logger);
+  registerCrashEventMonitor(logger, crashCapturePaths);
+  startDesktopMemoryDiagnosticsLog(logger);
 
   // 本地未打包 dev 构建（app.isPackaged === false）必须跳过远端强制升级 gate。
   // 原因：force-update gate 只看 ESCODE_ENV === "production"，但 dev 构建（如 dev:desktop:cua
@@ -2363,11 +2174,6 @@ app.whenReady().then(async () => {
 
   logger.info("[startup] 创建主窗口");
   await primaryWindowCoordinator.ensurePrimaryWindow("app-ready");
-
-  const primaryWindow = getApplicationWindowsExcludingCuaIndicator()[0];
-  if (primaryWindow) {
-    scheduleReportPerfAppStartAfterMainViewReady(primaryWindow.webContents, logger);
-  }
 
   // 启动后检测 CPU 架构是否匹配（如 Apple 芯片误装 x64 版本经 Rosetta 转译运行），
   // 命中后异步弹框提示安装原生架构版本，不阻塞主界面。

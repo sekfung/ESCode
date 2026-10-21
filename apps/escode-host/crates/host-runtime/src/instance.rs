@@ -266,6 +266,16 @@ impl Instance {
         }
     }
 
+    /// 该实例的 workspace 路径（与启动时的 `LifecycleEvent` 同源；不 realpath）。
+    pub fn workspace_path(&self) -> &str {
+        &self.state.event.workspace_path
+    }
+
+    /// 该实例的显式 workspace 身份（缺省时调用方按路径回退）。
+    pub fn workspace_identity(&self) -> Option<&str> {
+        self.state.event.workspace_identity.as_deref()
+    }
+
     /// child 链路的子进程 pid（embedded 为 None）。
     pub fn process_id(&self) -> Option<u32> {
         self.state.event.process_id

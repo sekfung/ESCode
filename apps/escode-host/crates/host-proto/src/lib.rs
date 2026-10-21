@@ -200,6 +200,17 @@ mod contract_drift {
                 path: None,
                 error: None,
             },
+            ControlMessage::MainRequest {
+                request_id: String::new(),
+                method: String::new(),
+                params: serde_json::Value::Null,
+            },
+            ControlMessage::MainResponse {
+                request_id: String::new(),
+                ok: false,
+                result: None,
+                error: None,
+            },
             ControlMessage::HostReady {
                 protocol_version: 0,
                 workspaces: 0,

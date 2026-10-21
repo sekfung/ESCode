@@ -1,6 +1,7 @@
-//! 实时会话遥测事实（TS bootstrap/escode-protocol-v4/conversation-telemetry-facts.ts →
-//! `v4/telemetry/event` 通知）：桌面埋点与运行中统计消费。只带 id、计数与状态，不带 prompt、
-//! 工具入参或 provider URL；每条事实按 shared `conversationTelemetryFactSchema` 的 strict 形状给出。
+//! 实时会话活动事实（TS bootstrap/escode-protocol-v4/conversation-telemetry-facts.ts →
+//! `v4/telemetry/event` 通知）：只服务本地任务活动计数、CUA 提示与 headless usage 汇总。
+//! 只带 id、计数与状态，不带 prompt、工具入参或 provider URL；每条事实按 shared
+//! `conversationTelemetryFactSchema` 的 strict 形状给出。
 use super::{Engine, Event};
 use serde_json::{Map, Value, json};
 use std::collections::{HashMap, HashSet};
@@ -23,8 +24,6 @@ impl Engine {
         let mut fact = Map::new();
         // 会话创建期采用的 App Memory 开关（TS ConversationTelemetryFactNormalizer 的
         // runtimeMetadata.memoryEnabled，shared schema factBaseFields；只表示开关，不表示读写结果）。
-        // TS 侧该值来自会话物化时解析的偏好回包，而 shared schema 对 memoryEnabled 有 default(false)
-        // （旧 Host 缺字段同样归一为 false），所以物化完成后两侧都带该字段、取值等于 memory 行为缺省。
         if let Some(prefs) = self.shell.cached(id, "runtime-materialization") {
             fact.insert(
                 "memoryEnabled".into(),
@@ -53,7 +52,6 @@ impl Engine {
             );
         }
         let fact = Value::Object(fact);
-        self.local_ttft_fact(&fact);
         self.cua_from_fact(&fact);
         self.outbox
             .push(json!({ "method": "v4/telemetry/event", "params": fact }));
@@ -98,7 +96,7 @@ impl Engine {
         );
     }
 
-    /// 运行事件 → 遥测事实（模型请求状态、流式块、工具生命周期、用量增量、回合终态）。
+    /// 运行事件 → 本地活动事实（模型请求状态、流式块、工具生命周期、用量增量、回合终态）。
     pub(super) fn telemetry_event(&mut self, id: &str, turn: &str, event: &Event) {
         let now = self.clock.now();
         match event {
@@ -122,7 +120,6 @@ impl Engine {
             Event::Text {
                 text, reasoning, ..
             } => {
-                // TS 的流键在一个回合内按通道复用（各步的同通道 part 共享键），首块每回合每通道一次。
                 let channel = if *reasoning { "thought" } else { "text" };
                 let first = self
                     .telemetry

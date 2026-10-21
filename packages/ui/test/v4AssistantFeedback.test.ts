@@ -9,7 +9,6 @@ import { ConversationAssistantTextActions } from "@/v4/ConversationRowView.js";
 const actionCapture = vi.hoisted(() => ({
   props: [] as Array<Record<string, unknown>>,
 }));
-const reportAppTelemetryEvent = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/ai-elements/message.js", async () => {
   const React = await import("react");
@@ -25,11 +24,7 @@ vi.mock("@/components/ai-elements/message.js", async () => {
   };
 });
 
-vi.mock("@/lib/appTelemetry.js", () => ({ reportAppTelemetryEvent }));
-
-const platform = {
-  reportTelemetryEvent: vi.fn(async () => undefined),
-} as unknown as IPlatformService;
+const platform = {} as unknown as IPlatformService;
 
 function renderActions(params: {
   feedback?: "like" | "dislike" | null;
@@ -67,10 +62,9 @@ function feedbackAction(testId: string): Record<string, unknown> {
 describe("V4 assistant feedback", () => {
   beforeEach(() => {
     actionCapture.props = [];
-    reportAppTelemetryEvent.mockClear();
   });
 
-  it("点赞立即提交 CAS 回调并上报旧版 reaction/talk/message payload", async () => {
+  it("点赞立即提交 CAS 回调", async () => {
     const onFeedbackChange = vi.fn(async () => true);
     renderActions({ onFeedbackChange });
 
@@ -81,21 +75,9 @@ describe("V4 assistant feedback", () => {
       { rowId: 9, entityId: "assistant-entity-9" },
       "like",
     );
-    expect(reportAppTelemetryEvent).toHaveBeenCalledWith(
-      platform,
-      {
-        elementName: "assistant_message_feedback",
-        eventRegion: "chat",
-        eventType: "ck",
-        eventExtraDetail: { reaction: "like" },
-        talkId: "session-1",
-        messageId: "assistant-entity-9",
-      },
-      "ConversationRowView",
-    );
   });
 
-  it("再次点击已选 reaction 写 null 并上报 none", async () => {
+  it("再次点击已选 reaction 写 null", async () => {
     const onFeedbackChange = vi.fn(async () => true);
     renderActions({ feedback: "like", onFeedbackChange });
 
@@ -106,11 +88,6 @@ describe("V4 assistant feedback", () => {
       { rowId: 9, entityId: "assistant-entity-9" },
       null,
     );
-    expect(reportAppTelemetryEvent.mock.calls[0]?.[1]).toMatchObject({
-      eventExtraDetail: { reaction: "none" },
-      talkId: "session-1",
-      messageId: "assistant-entity-9",
-    });
   });
 
   it("旧 row 缺少 entityId 时不展示反馈按钮，禁止用 rowId 代替 messageId", () => {
@@ -135,7 +112,6 @@ describe("V4 assistant feedback", () => {
         String(props["data-testid"] ?? "").startsWith("v4-feedback-"),
       ),
     ).toBe(false);
-    expect(reportAppTelemetryEvent).not.toHaveBeenCalled();
   });
 
   it("只读视图未提供 command handler 时不展示伪反馈入口", () => {
@@ -145,6 +121,5 @@ describe("V4 assistant feedback", () => {
         String(props["data-testid"] ?? "").startsWith("v4-feedback-"),
       ),
     ).toBe(false);
-    expect(reportAppTelemetryEvent).not.toHaveBeenCalled();
   });
 });

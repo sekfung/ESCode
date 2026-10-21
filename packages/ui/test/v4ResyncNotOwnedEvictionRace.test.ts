@@ -26,7 +26,6 @@
 //   2. 若 notOwned 命中的是"仍属当前订阅"的 recovery（如错位 unsubscribe 造成的
 //      ownership 分歧），store 携当前水位 fresh subscribe 自愈，不落 error。
 import { Emitter } from "@escode/rpc";
-import type { LocalTtftFacts } from "@escode/shared";
 import type {
   ConversationTopicFrame,
   ConversationTopicWireFrame,
@@ -48,7 +47,6 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 // ── CLI base mock：只提供 conversation 面所需的最小行为 ──
 function setupBase() {
   const conversationFrames = new Emitter<ConversationTopicWireFrame>();
-  const localTtftFacts = new Emitter<LocalTtftFacts>();
   const runtimeRestarts = new Emitter<{ workspaceKey: string }>();
   const nextSerialByConnection = new Map<string, number>();
   const nextId = (params: unknown) => {
@@ -82,9 +80,6 @@ function setupBase() {
       revisionAtDecision: 1,
     })),
     onDynamicConversationFrame: vi.fn(() => conversationFrames.event),
-    // transport.onFrame 会顺带挂载本地 TTFT 检查点 emitter（desktop-continuous 本地
-    // workspace 才有），base 必须提供该动态 Event，否则 connectionScope 转发时直接抛错。
-    onDynamicLocalTtftFacts: vi.fn(() => localTtftFacts.event),
     onAgentRuntimeRestarted: vi.fn((listener: (event: { workspaceKey: string }) => void) =>
       runtimeRestarts.event(listener),
     ),

@@ -1,6 +1,6 @@
 use super::Engine;
 use crate::domain::session_listing::{ListParams, MAX_LIST_BYTES};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use std::collections::HashSet;
 
@@ -8,6 +8,24 @@ use std::collections::HashSet;
 const LIST_TYPES: [&str; 3] = ["interactive", "fork", "workflow_parent"];
 
 impl Engine {
+    /// `session/debug`：只读观察快照；未知会话按 TS `requireSession` 拒绝。
+    pub(super) async fn read_session_debug(&mut self, p: &Value) -> Result<Value> {
+        let id = p["sessionId"].as_str().context("Session required")?;
+        self.ensure_session(id).await?;
+        Ok(self
+            .session_debug
+            .get(id)
+            .map(|snapshot| snapshot.value(id))
+            .unwrap_or_else(|| {
+                json!({
+                    "sessionId": id,
+                    "rounds": [],
+                    "networkEntries": [],
+                    "cache": Value::Null,
+                })
+            }))
+    }
+
     pub(super) async fn list_sessions(&self, p: &Value) -> Result<Value> {
         let params = ListParams::parse(p)?;
         let records = self

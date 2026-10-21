@@ -31,11 +31,6 @@ vi.mock("@/v4/PendingCommandRecoveryBanner.js", () => ({
   },
 }));
 
-const sessionCreateCapture = vi.hoisted(() => ({ report: vi.fn(async () => {}) }));
-vi.mock("@/lib/sessionCreateTelemetry.js", () => ({
-  reportSessionCreate: sessionCreateCapture.report,
-}));
-
 const projectionState = vi.hoisted(() => ({
   current: null as ProjectionState | null,
 }));
@@ -521,7 +516,6 @@ function renderPane(root: Root, sessionId: string | null): void {
 }
 
 beforeEach(() => {
-  sessionCreateCapture.report.mockClear();
   recoveryCapture.entries = [];
   recoveryCapture.onResend = null;
   prewarmHookInputs.binding = null;
@@ -569,7 +563,6 @@ describe("SessionPane composer continuity", () => {
       const root = createRoot(installMinimalDom());
       mountedRoots.push(root);
       renderPane(root, null);
-      expect(sessionCreateCapture.report).not.toHaveBeenCalled();
       conversationMock.sendCommand.mockImplementationOnce(async (envelope) => ({
         commandId: envelope.commandId,
         revisionAtDecision: 1,
@@ -584,19 +577,10 @@ describe("SessionPane composer continuity", () => {
       // （calls[1]），不是空创建的 commandId（calls[0]）。埋点不变量仍成立：accepted 后只报一次。
       const firstSendCalls = conversationMock.sendCommand.mock.calls;
       expect(firstSendCalls).toHaveLength(2);
-      expect(sessionCreateCapture.report).toHaveBeenCalledExactlyOnceWith(
-        null,
-        expect.objectContaining({
-          sessionId: `created-${source}`,
-          messageId: firstSendCalls[1]![0].commandId,
-          source,
-        }),
-      );
       renderPane(root, `created-${source}`);
       await act(async () => {
         await scrollFocus.composerProps?.onSendText("follow up");
       });
-      expect(sessionCreateCapture.report).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -618,12 +602,6 @@ describe("SessionPane composer continuity", () => {
     await act(async () => {
       await scrollFocus.composerProps?.onSendText("/goal explain the test");
     });
-    expect(sessionCreateCapture.report).toHaveBeenCalledTimes(status === "accepted" ? 1 : 0);
-    if (status === "accepted")
-      expect(sessionCreateCapture.report).toHaveBeenCalledWith(
-        null,
-        expect.objectContaining({ messageId: "goal-command" }),
-      );
   });
 
   it.each(["hello", "/goal explain"])("预热首发 %s 携带实际输入 commandId", async (text) => {
@@ -638,11 +616,7 @@ describe("SessionPane composer continuity", () => {
     await act(async () => {
       await scrollFocus.composerProps?.onSendText(text);
     });
-    const commandId = conversationMock.sendCommand.mock.calls[0]![0].commandId;
-    expect(sessionCreateCapture.report).toHaveBeenCalledExactlyOnceWith(
-      null,
-      expect.objectContaining({ sessionId: "prewarmed", messageId: commandId }),
-    );
+    expect(conversationMock.sendCommand).toHaveBeenCalled();
   });
 
   it("先空创建再首发使用 sendText ID，不用空创建 ID", async () => {
@@ -661,10 +635,6 @@ describe("SessionPane composer continuity", () => {
     const calls = conversationMock.sendCommand.mock.calls;
     expect(calls).toHaveLength(2);
     expect(calls[0]![0].commandId).not.toBe(calls[1]![0].commandId);
-    expect(sessionCreateCapture.report).toHaveBeenCalledWith(
-      null,
-      expect.objectContaining({ messageId: calls[1]![0].commandId }),
-    );
   });
 
   it("用户确认恢复重发使用新 accepted ID，不用旧命令 ID", async () => {
@@ -696,10 +666,6 @@ describe("SessionPane composer continuity", () => {
       });
       const newId = conversationMock.sendCommand.mock.calls[0]![0].commandId;
       expect(newId).not.toBe("old-command");
-      expect(sessionCreateCapture.report).toHaveBeenCalledWith(
-        null,
-        expect.objectContaining({ sessionId: "recovered", messageId: newId }),
-      );
     } finally {
       replay.mockRestore();
     }
@@ -715,7 +681,6 @@ describe("SessionPane composer continuity", () => {
         "transport offline",
       );
     });
-    expect(sessionCreateCapture.report).not.toHaveBeenCalled();
   });
 
   it("/goal 沿用点击发送时冻结的 Submission，不在异步准备后回读草稿", async () => {

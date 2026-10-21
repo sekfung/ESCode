@@ -245,36 +245,6 @@ describe("R1 window Host control protocol", () => {
     ).toBe(false);
   });
 
-  it("严格校验 host 自采资源样本（cpu / rss / heap 三项齐全且为数值）", () => {
-    expect(
-      hostResponseMessageSchema.safeParse({
-        type: HostResponseTypes.HostResourceSample,
-        sample: { cpuPercent: 3.5, rssKb: 380_000, heapUsedKb: 91_234 },
-      }).success,
-    ).toBe(true);
-    // 字段缺失：main 入口直接丢弃该样本。
-    expect(
-      hostResponseMessageSchema.safeParse({
-        type: HostResponseTypes.HostResourceSample,
-        sample: { cpuPercent: 3.5, rssKb: 380_000 },
-      }).success,
-    ).toBe(false);
-    // 类型错误。
-    expect(
-      hostResponseMessageSchema.safeParse({
-        type: HostResponseTypes.HostResourceSample,
-        sample: { cpuPercent: "3.5", rssKb: 380_000, heapUsedKb: 91_234 },
-      }).success,
-    ).toBe(false);
-    // 多余字段：Host 自采样本只带这三项，隐私红线不允许夹带 pid 之类的维度。
-    expect(
-      hostResponseMessageSchema.safeParse({
-        type: HostResponseTypes.HostResourceSample,
-        sample: { cpuPercent: 3.5, rssKb: 380_000, heapUsedKb: 91_234, pid: 4_321 },
-      }).success,
-    ).toBe(false);
-  });
-
   it("拒绝包含未知字段的 R1 控制消息和事件", () => {
     expect(
       hostIncomingMessageSchema.safeParse({

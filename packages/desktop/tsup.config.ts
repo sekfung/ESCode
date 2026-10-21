@@ -22,10 +22,6 @@ const buildTimeConfigDefines = createBuildTimeConfigDefines(
 
 const buildMetadata = getBuildMetadata();
 
-function resolveESCodeEnv(value: string | undefined): "test" | "production" {
-  return value?.trim().toLowerCase() === "production" ? "production" : "test";
-}
-
 // 手动加载 .env 文件，tsup 不像 Vite 会自动读取 .env.*；这些文件只提供链接常量。
 function loadEnvFiles(): Record<string, string> {
   const vars: Record<string, string> = {};
@@ -101,68 +97,6 @@ export function resolveBuildRemoteCdnReleaseRoots(runtimeEnv: Record<string, str
   });
 }
 
-export function resolveBuildPackagedAgentTelemetryEnv(
-  runtimeEnv: Record<string, string | undefined>,
-): Record<string, string> {
-  const endpoint = runtimeEnv.ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT?.trim();
-  const headers = runtimeEnv.ESCODE_PACKAGED_AGENT_OTEL_HEADERS?.trim();
-  const serviceName =
-    runtimeEnv.ESCODE_PACKAGED_AGENT_OTEL_SERVICE_NAME?.trim() || "escode-cli-agent";
-
-  if (!endpoint && !headers) {
-    if (
-      runtimeEnv.CI &&
-      (runtimeEnv.CI_COMMIT_TAG || runtimeEnv.CI_COMMIT_BRANCH === "release/current")
-    ) {
-      throw new Error("Packaged Agent OTLP configuration is required for release builds");
-    }
-    return {};
-  }
-  if (!endpoint || !headers) {
-    throw new Error(
-      "ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT and ESCODE_PACKAGED_AGENT_OTEL_HEADERS must be configured together",
-    );
-  }
-  if (endpoint.length > 2_048) {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT exceeds 2048 characters");
-  }
-  if (headers.length > 8_192 || /[\r\n]/u.test(headers)) {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_HEADERS is invalid");
-  }
-  if (!/^[A-Za-z0-9._:-]{1,128}$/u.test(serviceName)) {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_SERVICE_NAME is invalid");
-  }
-
-  let parsedEndpoint: URL;
-  try {
-    parsedEndpoint = new URL(endpoint);
-  } catch {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
-  }
-  if (
-    !["http:", "https:"].includes(parsedEndpoint.protocol) ||
-    parsedEndpoint.username ||
-    parsedEndpoint.password
-  ) {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT must be a valid HTTP(S) URL");
-  }
-  if (
-    resolveESCodeEnv(runtimeEnv.ESCODE_ENV) === "production" &&
-    parsedEndpoint.protocol !== "https:"
-  ) {
-    throw new Error("ESCODE_PACKAGED_AGENT_OTEL_ENDPOINT must use HTTPS in production");
-  }
-
-  return {
-    OTEL_EXPORTER_OTLP_ENDPOINT: parsedEndpoint.toString(),
-    OTEL_EXPORTER_OTLP_HEADERS: headers,
-    OTEL_SERVICE_NAME: serviceName,
-    // 只有打进正式 Desktop 安装包的 Agent 才能由构建链可信判定为 packaged；
-    // source/development_bundle 不在运行时猜测，未显式注入时保持 unknown。
-    ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
-  };
-}
-
 export function resolveDesktopTsupBundleSecurityOptions(
   runtimeEnv: Record<string, string | undefined> = process.env,
 ) {
@@ -210,17 +144,6 @@ function createSharedDefines() {
     // Bugfix: remote runtime CDN 根之前硬编码在 main bundle 里，OSS/CDN 切换必须改代码。
     // 这里改成构建期从 CI 的 CDN_DOMAIN/OSS_PATH_PREFIX 注入；没有配置时保留旧默认。
     __ESCODE_REMOTE_CDN_RELEASE_ROOTS__: JSON.stringify(resolveBuildRemoteCdnReleaseRoots(env)),
-  };
-}
-
-function createMainDefines() {
-  return {
-    ...createSharedDefines(),
-    // 正式安装包无法继承 GitLab Runner 或开发终端环境。这里只把 CI 提供的低权限写入配置
-    // 编译进 Desktop Main，再由既有 Main -> Host -> Agent 安全边界定向传递。
-    __ESCODE_PACKAGED_AGENT_TELEMETRY_ENV__: JSON.stringify(
-      resolveBuildPackagedAgentTelemetryEnv(process.env),
-    ),
   };
 }
 
@@ -282,7 +205,7 @@ export default defineConfig([
       // producer 的 JS broker 必须跟随 services 一起内联，原生 addon 仍只存在于独立 Helper。
       "@escode/escode-cua",
     ],
-    define: createMainDefines(),
+    define: createSharedDefines(),
     // 修复原因：main/host 同时 watch 且共享 out 根目录时，默认 chunk 命名会互相覆盖，
     // 可能让 main 的 import 指向被 host 刚重写的 chunk，触发“缺少命名导出”的偶发启动报错。
     // 这里按目标分目录输出 chunk，确保并发构建下产物隔离。

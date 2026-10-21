@@ -107,10 +107,20 @@ pub fn channels(
     instances: escode_host_runtime::Instances,
     options: escode_host_surface::OptionsFactory,
 ) -> Channels {
-    channels_with(home, data_base_dir, instances, options, None, None, None)
+    channels_with(
+        home,
+        data_base_dir,
+        instances,
+        options,
+        None,
+        None,
+        None,
+        None,
+    )
 }
 
 /// 同 [`channels`]，并带 provider 配置文件路径（Built-in, Personal；由 Main 经 `rpcListen.runtimeEnv` 提供）。
+#[allow(clippy::too_many_arguments)]
 pub fn channels_with(
     home: std::path::PathBuf,
     data_base_dir: Option<std::path::PathBuf>,
@@ -118,6 +128,7 @@ pub fn channels_with(
     options: escode_host_surface::OptionsFactory,
     provider_files: Option<escode_host_services::provider::ProviderFiles>,
     media_authorizer: Option<Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
+    main_broker: Option<Arc<escode_host_control::main_broker::MainBroker>>,
     client_services: Option<Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
@@ -144,6 +155,12 @@ pub fn channels_with(
     let data_base_dir_for_file = data_base_dir.clone();
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     let provider_headers = crate::provider_headers::ProviderHeaders::new();
+    // 插件管理面：`plugin-management` 与 `escode-agent` 旧插件面共用（同一实例/进度 Hub）。
+    let plugin_management = crate::domains_plugin::PluginManagement::new(
+        instances.clone(),
+        options.clone(),
+        data_base_dir.clone(),
+    );
     instances.set_responder(crate::runtime_requests::responder(
         home.clone(),
         Arc::clone(&provider_headers),
@@ -164,6 +181,31 @@ pub fn channels_with(
     let commands = Arc::new(crate::task_commands::TaskCommandQueue::new());
     // 任务事件总线：发送开始 / syncer 终态 / ready（Host 内唯一）。
     let task_events = Arc::new(crate::task_events::TaskEventHub::default());
+    // automation 派发复用同一份 runtime/索引/队列/事件句柄（不是第二套任务状态）。
+    let automation =
+        data_base_dir
+            .as_ref()
+            .map(|data_base_dir| crate::domains_task_state::StateContext {
+                read: ReadContext {
+                    path: crate::domains_task_support::tasks_index_path(data_base_dir),
+                    index: Arc::clone(&index),
+                    targets: Arc::clone(&targets),
+                    runtime: Some(runtime.clone()),
+                },
+                events: Arc::clone(&events),
+                commands: Arc::clone(&commands),
+                task_events: Arc::clone(&task_events),
+                home: home.clone(),
+            });
+    // 无窗口调度：Host 常驻 tick 认领到期 automation；与任务域共用同一队列/索引。
+    if let (Some(state), Some(data_base_dir)) = (automation.clone(), data_base_dir.as_ref()) {
+        let service = Arc::new(
+            escode_host_services::automation::AutomationService::from_db_path(
+                crate::domains_task_support::tasks_index_path(data_base_dir),
+            ),
+        );
+        crate::automation_scheduler::spawn(service, state);
+    }
     let task_channel = crate::domains_task::task_channel(
         data_base_dir.clone(),
         Some(runtime.clone()),
@@ -194,6 +236,8 @@ pub fn channels_with(
         options.clone(),
         write.read.clone(),
         Some(Arc::clone(&provider_headers)),
+        plugin_management.clone(),
+        automation,
     );
     let agent = crate::agent_v4::agent_channel_from_base(Arc::clone(&base));
     // syncer 只在能写索引时启动（缺 dataBaseDir 没有 V4 摄入的可落面）。
@@ -258,8 +302,9 @@ pub fn channels_with(
         &home_for_simple,
         data_base_dir_for_simple.as_deref(),
         instances_for_simple,
-        options_for_simple,
+        plugin_management,
         media_authorizer,
+        main_broker,
         client_services,
     ));
     let channels = Channels::new(list);

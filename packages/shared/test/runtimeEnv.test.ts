@@ -8,12 +8,9 @@ import {
   getCapturedESCodeCuaBrokerCredentials,
   isCuaDevModeRequested,
   isESCodeCuaInternalFeatureEnabled,
-  readESCodeAgentTelemetryEnv,
   readESCodeToolEnvPassthroughEnv,
   resetCapturedESCodeCuaBrokerCredentialsForTest,
   sanitizeESCodeRuntimeEnv,
-  getCapturedESCodeAgentTelemetryEnv,
-  resetCapturedESCodeAgentTelemetryEnvForTest,
 } from "../src/runtimeEnv.js";
 
 describe("runtimeEnv", () => {
@@ -146,45 +143,5 @@ describe("runtimeEnv", () => {
     } finally {
       resetCapturedESCodeCuaBrokerCredentialsForTest();
     }
-  });
-
-  it("captures Agent OTLP config privately and never passes auth or identity through to tools", () => {
-    resetCapturedESCodeAgentTelemetryEnvForTest();
-    const sourceEnv = {
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=secret",
-      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://arms.example.com/v1/metrics",
-      OTEL_EXPORTER_OTLP_METRICS_HEADERS: "Authorization=metric-secret",
-      PATH: "/usr/bin:/bin",
-      ESCODE_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
-    };
-    expect(sanitizeESCodeRuntimeEnv(sourceEnv)).toEqual({ PATH: "/usr/bin:/bin" });
-    expect(getCapturedESCodeAgentTelemetryEnv()).toMatchObject({
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=secret",
-      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://arms.example.com/v1/metrics",
-      OTEL_EXPORTER_OTLP_METRICS_HEADERS: "Authorization=metric-secret",
-      ESCODE_TELEMETRY_USER_SUBJECT_ID: "opaque-user",
-    });
-    const toolEnv = readESCodeToolEnvPassthroughEnv(buildESCodeToolEnvPassthroughEnv(sourceEnv));
-    expect(toolEnv).not.toHaveProperty("OTEL_EXPORTER_OTLP_TRACES_HEADERS");
-    expect(toolEnv).not.toHaveProperty("OTEL_EXPORTER_OTLP_METRICS_HEADERS");
-    expect(toolEnv).not.toHaveProperty("ESCODE_TELEMETRY_USER_SUBJECT_ID");
-  });
-
-  it("extracts only the allowlisted Agent telemetry env", () => {
-    expect(
-      readESCodeAgentTelemetryEnv({
-        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: " https://arms.example.com/v1/traces ",
-        OTEL_UNKNOWN_SECRET: "must-not-pass",
-        PATH: "/bin",
-        ESCODE_MODEL_TELEMETRY_ENABLED: "1",
-        ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: " packaged ",
-      }),
-    ).toEqual({
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      ESCODE_MODEL_TELEMETRY_ENABLED: "1",
-      ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
-    });
   });
 });

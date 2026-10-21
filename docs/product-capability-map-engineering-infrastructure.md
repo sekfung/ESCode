@@ -33,7 +33,7 @@
 | must-inspect   | 构建与发布工程 | produces update artifacts for | Host 客户端更新生命周期 | 仅通过安装包和 update feed 交付         | 现有 Host “更新与发布”混合了研发发布与客户端 updater | `.gitlab/ci/30-build.yml`、`.gitlab/ci/50-release.yml`、`packages/desktop/src/main/autoUpdater.ts` |
 | must-inspect   | 测试自动化平台 | publishes results to          | 质量数据与工程治理      | E2E 结束后生成 summary、coverage、video | 报告和执行平台是两个维护边界                         | `packages/desktop/test/e2e/reporting`、`packages/e2e-report`                                       |
 | should-inspect | CI 流水线      | schedules                     | 构建、测试和静态门禁    | GitLab pipeline                         | 确认 CI 是编排者而不是所有能力的 owner               | `.gitlab/ci/20-test.yml`、`.gitlab/ci/30-build.yml`                                                |
-| invariant-only | 工程质量数据   | must remain isolated from     | 产品可观测性            | 所有环境                                | 测试通过率、覆盖率和时长不是用户行为数据             | `docs/testing/desktop-e2e-reporting.md`、`docs/monitoring/performance-telemetry-catalog.md`        |
+| invariant-only | 工程质量数据   | must remain isolated from     | 本地诊断数据            | 所有环境                                | 测试通过率、覆盖率和时长不是用户行为数据             | `docs/testing/desktop-e2e-reporting.md`、`docs/monitoring/memory-diagnostics-log.md`               |
 | evidence-only  | E2E case       | verifies                      | 对应产品能力            | 仅作为验证证据                          | 测试可达性不构成产品运行时依赖                       | `docs/feature-impact-discovery.md`                                                                 |
 
 ## State Owners And Commit Sinks

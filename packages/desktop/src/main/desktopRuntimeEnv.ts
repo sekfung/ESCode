@@ -21,7 +21,6 @@ import {
   resolveZaiOAuthClientId,
   resolveZaiOAuthOrigin,
   normalizeDynamicWorkflowMode,
-  readESCodeAgentTelemetryEnv,
   sanitizeESCodeRuntimeEnv,
   type ESCodeRuntimeEnv,
 } from "@escode/shared";
@@ -37,8 +36,6 @@ import {
   type ResolveRemoteCdnOptions,
 } from "./remoteCdn.js";
 import { getElectronAppPath, isElectronAppPackaged } from "./desktopElectronApp.js";
-
-declare const __ESCODE_PACKAGED_AGENT_TELEMETRY_ENV__: Readonly<Record<string, string>> | undefined;
 
 const isLocalDevelopmentRuntime = !isElectronAppPackaged();
 export const desktopRuntimeEnv: ESCodeRuntimeEnv = isLocalDevelopmentRuntime
@@ -160,7 +157,7 @@ function resolveWorkspaceRootForEnvFiles(): string | null {
 
 export function loadHostProcessEnvFromLocalFiles(): Record<string, string> {
   if (isElectronAppPackaged()) {
-    return resolvePackagedAgentTelemetryEnv();
+    return {};
   }
 
   const desktopRoot = resolve(import.meta.dirname, "../..");
@@ -203,28 +200,6 @@ export function loadHostProcessEnvFromLocalFiles(): Record<string, string> {
   }
 
   return applySelectedESCodeEnvLinks(merged);
-}
-
-export function resolvePackagedAgentTelemetryEnv(
-  compiledEnv:
-    | Readonly<Record<string, string>>
-    | undefined = typeof __ESCODE_PACKAGED_AGENT_TELEMETRY_ENV__ === "undefined"
-    ? undefined
-    : __ESCODE_PACKAGED_AGENT_TELEMETRY_ENV__,
-): Record<string, string> {
-  if (!compiledEnv) {
-    return {};
-  }
-
-  // 修复原因：开发版通过启动进程继承 OTLP 配置，正式安装包从 Finder/开始菜单启动时没有
-  // 这组运行时环境，Agent 因而静默落入 Noop。构建默认值只允许连接字段进入 Main；
-  // UID、Device MID 和 runtime surface 仍由 Host 的可信运行时上下文生成。
-  return readESCodeAgentTelemetryEnv({
-    OTEL_EXPORTER_OTLP_ENDPOINT: compiledEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
-    OTEL_EXPORTER_OTLP_HEADERS: compiledEnv.OTEL_EXPORTER_OTLP_HEADERS,
-    OTEL_SERVICE_NAME: compiledEnv.OTEL_SERVICE_NAME,
-    ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: compiledEnv.ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION,
-  });
 }
 
 function resolveDevelopmentMockCdnDir(): string {
@@ -580,19 +555,6 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
             )
           : undefined;
   const windowsAppInstallDir = resolveWindowsAppInstallDirForDataBaseDirGuard();
-  const agentTelemetryEnv = readESCodeAgentTelemetryEnv(rawInheritedEnv);
-  // Desktop 身份由 host 从凭据仓库和本机状态读取后可信注入；外部环境只能配置 OTLP 连接，
-  // 不能伪造 uid/device/runtime surface 或绕过本地 identity state 的隔离边界。
-  for (const key of [
-    "ESCODE_TELEMETRY_USER_ID",
-    "ESCODE_TELEMETRY_USER_ID_HASH",
-    "ESCODE_TELEMETRY_USER_SUBJECT_ID",
-    "ESCODE_TELEMETRY_IDENTITY_STATE",
-    "ESCODE_TELEMETRY_DEVICE_MID",
-    "ESCODE_TELEMETRY_RUNTIME_SURFACE",
-  ]) {
-    delete agentTelemetryEnv[key];
-  }
   const inheritedEnv = applySelectedESCodeEnvLinks({
     ...sanitizeESCodeRuntimeEnv(rawInheritedEnv),
     ...buildESCodeToolEnvPassthroughEnv(rawInheritedEnv),
@@ -614,9 +576,6 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
 
   return {
     ...inheritedEnv,
-    // OTLP 凭据只定向传到 host；host 初始化 services 时会立即捕获并从 process.env 清除，
-    // 后续只在启动 Agent 时短暂注入，不会进入 Bash/MCP/tool env。
-    ...agentTelemetryEnv,
     // ESCode 运行时不再使用 NODE_ENV；它会被用户 shell、包管理器和测试框架复用。
     // 这里显式下发 ESCODE_RUNTIME_ENV，并在继承环境里清掉 NODE_ENV，避免 host/agent/Bash 被污染。
     [ESCODE_RUNTIME_ENV_KEY]: resolveHostProcessNodeEnv(),
@@ -631,8 +590,6 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     // 模型请求默认 header 由 agent 进程构造，过去只继承 shell env 导致桌面启动时拿不到 app 版本。
     // 这里从 main 进程显式下发，agent 子进程继承 host env 后即可稳定写入请求 header。
     [ESCODE_APP_VERSION_ENV]: ESCODE_VERSION,
-    // Telemetry 的构建身份必须来自 Desktop 编译期元数据，不能让 Agent 在运行时读取
-    // 工作树或根据安装路径猜测；否则同一产品版本的不同修复包无法在 ARMS 中区分。
     [ESCODE_BUILD_COMMIT_ID_ENV]: ESCODE_COMMIT,
     ...(dataBaseDir !== homedir() ? { ESCODE_DATA_BASE_DIR: dataBaseDir } : {}),
     ...(windowsAppInstallDir ? { [ESCODE_WINDOWS_APP_INSTALL_DIR_ENV]: windowsAppInstallDir } : {}),
@@ -646,8 +603,7 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
 
 /**
  * Rust Host 嵌入运行时的环境（rust-u2-host-skeleton.md §6，审计 A16）：与 Node Host 进程同一份基础 env
- * （数据根、运行环境标识、版本/提交、内置二进制路径、工具透传……），但去掉 OTLP 连接配置——
- * 它只允许在启动 Agent 时短暂注入，不能进入实例 env 快照（快照会被工具/MCP 子进程继承）。
+ * （数据根、运行环境标识、版本/提交、内置二进制路径、工具透传……）。
  */
 export function buildRustHostRuntimeEnv(
   hostProcessLocalEnv: Record<string, string>,
@@ -656,10 +612,6 @@ export function buildRustHostRuntimeEnv(
   for (const [key, value] of Object.entries(buildHostProcessEnv(hostProcessLocalEnv))) {
     if (typeof value === "string") env[key] = value;
   }
-  const telemetryKeys = Object.keys(
-    readESCodeAgentTelemetryEnv({ ...hostProcessLocalEnv, ...readDefinedProcessEnv() }),
-  );
-  for (const key of telemetryKeys) delete env[key];
   return env;
 }
 

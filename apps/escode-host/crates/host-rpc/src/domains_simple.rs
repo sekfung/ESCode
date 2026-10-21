@@ -11,11 +11,12 @@ pub(crate) fn simple_channels(
     home: &Path,
     data_base_dir: Option<&Path>,
     instances: Instances,
-    options: escode_host_surface::OptionsFactory,
+    plugin_management: crate::domains_plugin::PluginManagement,
     media_authorizer: Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
+    main_broker: Option<std::sync::Arc<escode_host_control::main_broker::MainBroker>>,
     client_services: Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
 ) -> Vec<Channel> {
-    let usage_stats_instances = instances.clone();
+    let usage_stats_instances = instances;
     let mut channels = vec![
         crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
             escode_host_services::broadcast::Broadcast::default(),
@@ -30,11 +31,7 @@ pub(crate) fn simple_channels(
         crate::domains_client::client_scenes_channel(client_services.clone()),
         crate::domains_client::client_config_channel(client_services),
         crate::domains_credential::credential_channel(data_base_dir.map(Path::to_path_buf)),
-        crate::domains_plugin::plugin_management_channel(
-            instances,
-            options,
-            data_base_dir.map(Path::to_path_buf),
-        ),
+        plugin_management.channel(),
         // 旧 `plugins` 通道：整套退役，纯常量应答（无依赖）。
         crate::domains_plugins_legacy::plugins_channel(),
     ];
@@ -42,6 +39,7 @@ pub(crate) fn simple_channels(
     // `gen-ui`：模型写可视化文件、Host 受限读取；widget 状态与通知同源。
     channels.push(crate::domains_gen_ui::gen_ui_channel(
         data_base_dir.map(std::path::Path::to_path_buf),
+        main_broker,
     ));
     // `usage-stats` 只读实例表（不按 workspace 路由、不启动运行时），与其余域无共享状态。
     channels.push(crate::domains_usage_stats::usage_stats_channel(

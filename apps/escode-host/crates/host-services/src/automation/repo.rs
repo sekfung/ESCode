@@ -29,7 +29,7 @@ impl AutomationRepo {
         Self { path }
     }
 
-    fn open(&self) -> Result<Connection, String> {
+    pub(super) fn open(&self) -> Result<Connection, String> {
         let connection = Connection::open(&self.path).map_err(|error| error.to_string())?;
         connection
             .busy_timeout(Duration::from_millis(5000))
@@ -62,6 +62,19 @@ impl AutomationRepo {
             )
             .map_err(|error| error.to_string())?;
         Ok(changed > 0)
+    }
+
+    pub fn get(&self, id: &str, workspace_key: Option<&str>) -> Result<Option<Value>, String> {
+        let connection = self.open()?;
+        connection
+            .query_row(
+                "SELECT * FROM automations WHERE automation_id = ?1 \
+                 AND (?2 IS NULL OR workspace_key = ?2)",
+                rusqlite::params![id, workspace_key],
+                row_to_automation,
+            )
+            .optional()
+            .map_err(|error| error.to_string())
     }
 
     pub fn set_enabled(
@@ -120,7 +133,7 @@ impl AutomationRepo {
     }
 }
 
-fn row_to_automation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+pub(super) fn row_to_automation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
     let mut task = Map::new();
     task.insert(
         "automationId".to_owned(),
@@ -212,7 +225,7 @@ fn row_to_automation(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
     Ok(Value::Object(task))
 }
 
-fn row_to_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+pub(super) fn row_to_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
     let mut run = Map::new();
     run.insert("runId".to_owned(), Value::String(row.get("run_id")?));
     run.insert(

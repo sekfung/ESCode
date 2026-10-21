@@ -116,18 +116,6 @@ vi.mock("@escode/shared", () => ({
     }
     return sanitized;
   },
-  readESCodeAgentTelemetryEnv: (env: Record<string, string | undefined>) =>
-    Object.fromEntries(
-      Object.entries(env).filter(([key, value]) => {
-        const upperKey = key.toUpperCase();
-        return (
-          value != null &&
-          (upperKey.startsWith("OTEL_") ||
-            upperKey.startsWith("ESCODE_TELEMETRY_") ||
-            upperKey === "ESCODE_MODEL_TELEMETRY_ENABLED")
-        );
-      }),
-    ),
   buildESCodeToolEnvPassthroughEnv: (env: Record<string, string | undefined>) => {
     const captured: Record<string, string> = {};
     for (const [key, value] of Object.entries(env)) {
@@ -570,7 +558,7 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
     expect(Object.values(env).every((value) => typeof value === "string")).toBe(true);
   });
 
-  it("只把 Agent OTLP 配置定向注入 host，并剔除外部身份字段", async () => {
+  it("host 进程不再接收 OTLP 配置或外部身份字段", async () => {
     const { buildHostProcessEnv } = await import("../src/main/desktopRuntimeEnv.js");
 
     const env = buildHostProcessEnv({
@@ -583,36 +571,13 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
       ESCODE_TELEMETRY_RUNTIME_SURFACE: "standalone-cli",
     });
 
-    expect(env).toMatchObject({
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://arms.example.com/v1/traces",
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=secret",
-    });
+    expect(Object.keys(env).filter((key) => key.startsWith("OTEL_"))).toEqual([]);
     expect(env.ESCODE_TELEMETRY_USER_ID).toBeUndefined();
     expect(env.ESCODE_TELEMETRY_USER_SUBJECT_ID).toBeUndefined();
     expect(env.ESCODE_TELEMETRY_IDENTITY_STATE).toBeUndefined();
     expect(env.ESCODE_TELEMETRY_DEVICE_MID).toBeUndefined();
     expect(env.ESCODE_TELEMETRY_RUNTIME_SURFACE).toBeUndefined();
     expect(env.ESCODE_TOOL_ENV_PASSTHROUGH_JSON).toBeUndefined();
-  });
-
-  it("正式安装包默认配置只接收 OTLP 连接字段，不接受构建期身份字段", async () => {
-    const { resolvePackagedAgentTelemetryEnv } = await import("../src/main/desktopRuntimeEnv.js");
-
-    expect(
-      resolvePackagedAgentTelemetryEnv({
-        OTEL_EXPORTER_OTLP_ENDPOINT: "https://arms.example.com/otlp",
-        OTEL_EXPORTER_OTLP_HEADERS: "x-arms-license-key=write-only",
-        OTEL_SERVICE_NAME: "escode-cli-agent",
-        ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
-        ESCODE_TELEMETRY_USER_SUBJECT_ID: "spoofed-user",
-        ESCODE_TELEMETRY_DEVICE_MID: "spoofed-device",
-      }),
-    ).toEqual({
-      OTEL_EXPORTER_OTLP_ENDPOINT: "https://arms.example.com/otlp",
-      OTEL_EXPORTER_OTLP_HEADERS: "x-arms-license-key=write-only",
-      OTEL_SERVICE_NAME: "escode-cli-agent",
-      ESCODE_TELEMETRY_RUNTIME_DISTRIBUTION: "packaged",
-    });
   });
 
   it("Windows 打包态会从 resourcesPath 推导安装目录供数据目录保护使用", async () => {

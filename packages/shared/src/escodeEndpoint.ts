@@ -16,8 +16,6 @@ export interface ESCodeEndpointUrls {
   apiBaseUrl: string;
   escodePlanOpenAiBaseUrl: string;
   escodePlanAnthropicBaseUrl: string;
-  escodePlanBillingCurrentUrl: string;
-  escodePlanBillingBalanceUrl: string;
 }
 
 export interface RuntimeESCodeEndpointEnv {
@@ -261,8 +259,6 @@ export function buildESCodeEndpointUrls(origin: string): ESCodeEndpointUrls {
     apiBaseUrl: `${normalizedOrigin}/api/v1`,
     escodePlanOpenAiBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan`,
     escodePlanAnthropicBaseUrl: `${normalizedOrigin}/api/v1/zcode-plan/anthropic`,
-    escodePlanBillingCurrentUrl: `${normalizedOrigin}/api/v1/zcode-plan/billing/current`,
-    escodePlanBillingBalanceUrl: `${normalizedOrigin}/api/v1/zcode-plan/billing/balance`,
   };
 }
 

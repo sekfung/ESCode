@@ -23,6 +23,15 @@ use crate::workspace_events::Target;
 
 pub(super) fn create_task(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
+        create_task_impl(&context, params).await
+    })
+}
+
+pub(crate) async fn create_task_impl(
+    context: &StateContext,
+    params: Value,
+) -> crate::session::RpcResult {
+    {
         let workspace_path = params["workspacePath"]
             .as_str()
             .filter(|path| !path.is_empty())
@@ -135,7 +144,7 @@ pub(super) fn create_task(context: &StateContext) -> MethodHandler {
             }
         };
 
-        let (session_id, meta) = index_snapshot(&context, &snapshot).await?;
+        let (session_id, meta) = index_snapshot(context, &snapshot).await?;
         let meta = match automation.clone() {
             None => meta,
             Some(automation) => {
@@ -174,7 +183,7 @@ pub(super) fn create_task(context: &StateContext) -> MethodHandler {
             .cloned()
             .unwrap_or_else(|| json!([]));
         Ok(Wire::Object(result))
-    })
+    }
 }
 
 async fn index_snapshot(

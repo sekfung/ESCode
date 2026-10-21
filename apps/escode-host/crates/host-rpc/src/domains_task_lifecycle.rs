@@ -102,6 +102,15 @@ fn close_task(context: &StateContext) -> MethodHandler {
 /// TS `resumeTask`：索引 hint（thoughtLevel）→ `session/resume`（复用 session 通道）→ 索引收敛。
 fn resume_task(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
+        resume_task_impl(context, params).await
+    })
+}
+
+pub(crate) async fn resume_task_impl(
+    context: StateContext,
+    params: Value,
+) -> crate::session::RpcResult {
+    {
         let workspace_path = params["workspacePath"]
             .as_str()
             .filter(|path| !path.is_empty())
@@ -179,7 +188,7 @@ fn resume_task(context: &StateContext) -> MethodHandler {
             remote_session_id: None,
         });
         Ok(Wire::Object(meta))
-    })
+    }
 }
 
 /// TS `syncTaskIndexSnapshot` + automation 归属回填。

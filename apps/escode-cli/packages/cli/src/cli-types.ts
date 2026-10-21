@@ -26,9 +26,7 @@ import type {
   resolveLatestSession,
   ResolveLatestSessionOptions,
   RunESCodeProtocolAgentOptions,
-  prepareESCodeTelemetryEnv,
   startProcessProviderRegistryRuntime,
-  shutdownESCodeTelemetry,
   ESCodeAppOptions,
 } from "@escode/bootstrap";
 import type { CliEnv, DotenvLoadResult, LoadCliDotenvOptions } from "./env.js";
@@ -67,7 +65,6 @@ export interface RunDependencies extends PluginsCommandOverrides {
     options: InspectESCodeCustomCommandOptions,
   ) => ReturnType<typeof inspectESCodeCustomCommand>;
   loadDotenv?: (options?: LoadCliDotenvOptions) => DotenvLoadResult;
-  prepareESCodeTelemetryEnv?: typeof prepareESCodeTelemetryEnv;
   projectConfigPath?: string;
   listSessions?: (options: ListESCodeSessionsOptions) => ReturnType<typeof listESCodeSessions>;
   listCustomCommands?: (
@@ -95,7 +92,6 @@ export interface RunDependencies extends PluginsCommandOverrides {
   shutdownCleanupTimeoutMs?: number;
   shutdownProcess?: CliShutdownProcess;
   startProcessProviderRegistryRuntime?: typeof startProcessProviderRegistryRuntime;
-  shutdownESCodeTelemetry?: typeof shutdownESCodeTelemetry;
 }
 
 export type CliPermissionMode = "build" | "plan" | "edit" | "yolo" | "guarded";

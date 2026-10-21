@@ -30,6 +30,9 @@ export type RustHostStartErrorCode =
   | "RUST_HOST_CRASH_LOOP";
 
 /** 握手阶段：超时与提前退出时指明卡在哪一步。 */
+import { answerAuthorize, answerMainRequest } from "./rustHostControlReplies.js";
+
+import { createControlChannel } from "./rustHostControlChannel.js";
 export type RustHostStartStage = "hostReady" | "rpcListening";
 
 /** 带分类的 Rust Host 启动错误（调用方按 `code` 决定呈现，不解析文案）。 */
@@ -119,6 +122,11 @@ export interface StartRustHostOptions {
    * 缺省 = 旧行为（Host 只走内联分支）。抛错即回 `ok:false`，错误文案原样交给 Host。
    */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
+  /**
+   * Main 专属服务（cua-permission / sandbox 注册）。提供后 `rpcListen` 声明 `mainServices`，
+   * Host 经控制通道发 `mainRequest`；缺省 = 旧 Main，相关 channel 回显式缺口。
+   */
+  onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
 }
 
 /** Host 侧一条日志批次（`ControlMessage::LogBatch`）。 */
@@ -136,7 +144,12 @@ export interface RustHostLogBatch {
 export async function startRustHost(options: StartRustHostOptions): Promise<RustHostHandle> {
   const child = spawn(options.binary, options.args ?? [], {
     stdio: ["pipe", "pipe", "inherit"],
-    env: { ...process.env, ...options.env, HOME: options.home, USERPROFILE: options.home },
+    env: {
+      ...process.env,
+      ...options.env,
+      HOME: options.home,
+      USERPROFILE: options.home,
+    },
   });
   // 修复：过去没有监听子进程 `error`：二进制缺失时 Node 把未处理的 `error` 事件当异常抛出
   // （Main 进程崩溃），而握手只能等满超时。现在 `error` 与 `exit` 都转成分类失败，事件到达即结束等待。
@@ -181,6 +194,9 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
     onAuthorizeRequest: options.authorizeLocalMediaPreviewPath
       ? (request) => answerAuthorize(child, request, options.authorizeLocalMediaPreviewPath!)
       : undefined,
+    onMainRequest: options.onMainRequest
+      ? (request) => answerMainRequest(child, request, options.onMainRequest!)
+      : undefined,
   });
   const timeoutMs = options.timeoutMs ?? 10_000;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -209,6 +225,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
         ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
         ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv } : {}),
         ...(options.authorizeLocalMediaPreviewPath ? { localMediaPreview: true } : {}),
+        ...(options.onMainRequest ? { mainServices: true } : {}),
       })}\n`,
     );
     const listening = await step(
@@ -363,100 +380,6 @@ function toBuffer(value: unknown): Buffer {
   }
   if (Array.isArray(value)) return Buffer.concat(value.map(toBuffer));
   throw new Error("Rust Host bridge received a non-binary port message");
-}
-
-/**
- * 控制通道读取（Host→Main 的 NDJSON 帧）。`logBatch` 不是握手消息：交给 `onLogBatch`
- * 消费（缺省丢弃），**不进** `next()` 的队列，否则它们会把握手帧挤到后面
- * （`nextMatching` 有 50 帧上限）、并在测试里被反复跳过。
- */
-function createControlChannel(
-  child: ChildProcessWithoutNullStreams,
-  handlers: {
-    onLogBatch?: (batch: RustHostLogBatch) => void;
-    onAuthorizeRequest?: (request: { requestId: string; path: string }) => void;
-  },
-) {
-  let buffer = "";
-  const pending: Array<(message: Record<string, unknown>) => void> = [];
-  const queue: Array<Record<string, unknown>> = [];
-  child.stdout.setEncoding("utf8");
-  child.stdout.on("data", (chunk: string) => {
-    buffer += chunk;
-    let newline: number;
-    while ((newline = buffer.indexOf("\n")) >= 0) {
-      const line = buffer.slice(0, newline);
-      buffer = buffer.slice(newline + 1);
-      if (!line.trim()) continue;
-      const message = JSON.parse(line) as Record<string, unknown>;
-      if (message.kind === "logBatch") {
-        const batch = toLogBatch(message);
-        if (batch) handlers.onLogBatch?.(batch);
-        continue;
-      }
-      // 授权请求同样不进握手队列：它随时可能到达，由 Main 的注册表应答。
-      if (message.kind === "localMediaPreviewAuthorize") {
-        const { requestId, path } = message;
-        if (typeof requestId === "string" && typeof path === "string") {
-          handlers.onAuthorizeRequest?.({ requestId, path });
-        }
-        continue;
-      }
-      const resolveNext = pending.shift();
-      if (resolveNext) resolveNext(message);
-      else queue.push(message);
-    }
-  });
-  const next = () =>
-    new Promise<Record<string, unknown>>((resolveNext) => {
-      const queued = queue.shift();
-      if (queued) resolveNext(queued);
-      else pending.push(resolveNext);
-    });
-  return {
-    next,
-    async nextMatching(predicate: (message: Record<string, unknown>) => boolean) {
-      for (let i = 0; i < 50; i += 1) {
-        const message = await next();
-        if (predicate(message)) return message;
-      }
-      throw new Error("Rust Host control stream did not yield the expected frame");
-    },
-  };
-}
-
-/** 应答 Host 的本地媒体路径授权请求；任何失败都必须回 `ok:false`，否则 Host 侧请求永远挂起。 */
-function answerAuthorize(
-  child: ChildProcessWithoutNullStreams,
-  request: { requestId: string; path: string },
-  authorize: (path: string) => Promise<string>,
-): void {
-  const reply = (body: { ok: true; path: string } | { ok: false; error: string }) => {
-    if (child.stdin.destroyed || !child.stdin.writable) return;
-    child.stdin.write(
-      `${JSON.stringify({ kind: "localMediaPreviewAuthorized", requestId: request.requestId, ...body })}\n`,
-    );
-  };
-  void Promise.resolve()
-    .then(() => authorize(request.path))
-    .then(
-      (path) => reply({ ok: true, path }),
-      (error: unknown) =>
-        reply({ ok: false, error: error instanceof Error ? error.message : String(error) }),
-    );
-}
-
-/** `logBatch` 帧的字段校验（协议漂移时退回丢弃，不打断控制通道）。 */
-function toLogBatch(message: Record<string, unknown>): RustHostLogBatch | undefined {
-  const scope = message.scope;
-  const level = message.level;
-  const lines = message.lines;
-  if (typeof scope !== "string") return undefined;
-  if (level !== "debug" && level !== "info" && level !== "warn" && level !== "error") {
-    return undefined;
-  }
-  if (!Array.isArray(lines) || lines.some((line) => typeof line !== "string")) return undefined;
-  return { scope, level, lines: lines as string[] };
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {

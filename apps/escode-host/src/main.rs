@@ -86,6 +86,9 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
     let mut path_authorizer: Option<
         std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>,
     > = None;
+    // Main 专属服务 broker（cua-permission / sandbox 注册）。
+    let mut main_broker: Option<std::sync::Arc<escode_host_control::main_broker::MainBroker>> =
+        None;
     while let Some(message) = control.recv().await {
         match message {
             ControlMessage::WindowAttach {
@@ -183,6 +186,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 data_base_dir,
                 runtime_env,
                 local_media_preview,
+                main_services,
             } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
@@ -202,6 +206,13 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     )
                 });
                 path_authorizer.clone_from(&authorizer);
+                if main_services && let Some(previous) = main_broker.take() {
+                    previous.close();
+                }
+                let broker = main_services.then(|| {
+                    escode_host_control::main_broker::MainBroker::new(control.writer_handle())
+                });
+                main_broker.clone_from(&broker);
                 let client_services = Some(std::sync::Arc::new(
                     escode_host_services::client_services::ClientServices::production(
                         |name| runtime_env.get(name).map(String::as_str),
@@ -219,6 +230,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     options,
                     provider_files,
                     authorizer,
+                    broker,
                     client_services,
                 );
                 match escode_host_rpc::serve(addr, channels, Some(instances.clone())).await {
@@ -323,8 +335,27 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     );
                 }
             }
+            ControlMessage::MainResponse {
+                request_id,
+                ok,
+                result,
+                error,
+            } => {
+                let paired = main_broker
+                    .as_ref()
+                    .is_some_and(|broker| broker.resolve(&request_id, ok, result, error));
+                if !paired {
+                    escode_host_control::logging::warn(
+                        "main-services",
+                        format!("dropped unpaired main service reply {request_id}"),
+                    );
+                }
+            }
             ControlMessage::Shutdown { reason } => {
                 if let Some(broker) = path_authorizer.take() {
+                    broker.close();
+                }
+                if let Some(broker) = main_broker.take() {
                     broker.close();
                 }
                 for surface in surfaces.drain(..) {
@@ -361,7 +392,8 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::SettingsValue { .. }
             | ControlMessage::SurfaceListening { .. }
             | ControlMessage::RpcListening { .. }
-            | ControlMessage::LocalMediaPreviewAuthorize { .. } => {}
+            | ControlMessage::LocalMediaPreviewAuthorize { .. }
+            | ControlMessage::MainRequest { .. } => {}
         }
     }
     // 输入关闭（Main 退出）= 收口全部实例与传输面。

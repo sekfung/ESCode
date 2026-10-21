@@ -77,10 +77,10 @@ pub struct Engine {
     pub(super) title_jobs: BTreeMap<String, String>,
     /// 工作流 actor 在飞的一轮（应答句柄与用量，workflow_actors.rs）。
     pub(super) actor_turns: BTreeMap<String, super::workflow_actors::ActorTurn>,
-    /// 实时遥测事实的会话序号与流式首块记录（telemetry.rs）。
+    /// 实时会话活动事实的会话序号与流式首块记录（telemetry.rs）。
     pub(super) telemetry: super::telemetry::State,
-    /// 本地首 token 时延观测（local_ttft.rs）。
-    pub(super) local_ttft: super::local_ttft::Recorder,
+    /// 会话调试快照（`session/debug`；只观察 ModelStatus，不落盘）。
+    pub(super) session_debug: BTreeMap<String, super::session_debug::Snapshot>,
     /// 实例任务作用域：所有派生任务的唯一入口（rust-u1-runtime-lib.md §3.1）。
     pub(super) spawner: Arc<crate::contract::Spawner>,
 }
@@ -175,7 +175,7 @@ impl Engine {
             title_jobs: BTreeMap::new(),
             actor_turns: BTreeMap::new(),
             telemetry: Default::default(),
-            local_ttft: super::local_ttft::Recorder::new(clock.id()),
+            session_debug: BTreeMap::new(),
             spawner,
         })
     }

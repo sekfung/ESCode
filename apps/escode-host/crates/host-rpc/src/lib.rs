@@ -6,9 +6,12 @@
 //! 未迁移的 channel 回 `NotImplemented`（Renderer 见显式缺口，不挂起）。
 
 mod agent_v4;
+mod automation_dispatch;
+mod automation_scheduler;
 mod channel;
 mod collation;
 mod connection;
+mod cua_observations;
 mod deferred_drafts;
 pub mod domains;
 mod domains_attachments;
@@ -335,7 +338,6 @@ async fn handle_connection(
                 "capabilities": {
                     "desktopContinuous": true,
                     "websocketRpc": true,
-                    "processResourceTelemetry": false,
                 },
                 "channels": channels.names(),
             });

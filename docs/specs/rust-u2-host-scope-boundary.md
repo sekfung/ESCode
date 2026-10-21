@@ -199,3 +199,10 @@ Rust 侧用 presence 一致表达即可。
 结论：`cua-*`、`plugin-ui-*`、`gen-ui.prepareSandbox`、`provider-provisioning-target` 的定性维持；
 `marketing-touch`/`cloud-content`、`off-peak-task`、`conversation-share`、手机远控与 Bots 已随产品决定删除退出服务面，
 不再作为迁移缺口。M3 全量验收前不再有 Bots 阻塞项。
+
+2026-10-21 补齐后，`escode-agent` 旧面的已保存工作流、Wiki、Skill catalog、Session debug、
+运行时偏好、CUA 观察与插件旧面已进入 Host 方法表（见 `rust-u2-misc-channels.md` §2–§5）；
+`gen-ui.prepareSandbox` 已按 §3.2 的拆分落地：Host 组装壳 HTML/初始状态，Main 经
+`mainRequest` 调 `registerFromHost` 注册真实沙箱。剩余 `cua-permission`（2）仍需要 Main
+直接提供 CUA Helper 生命周期；`plugin-ui-bridge.prepareSandbox` 仍同时受 Main 注册与
+Rust runtime `mcp/ui*` 上游阻塞；`plugin-ui-*` 的其余 16 个成员同样等 `mcp/ui*`。

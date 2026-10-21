@@ -6,7 +6,6 @@ import {
   testId,
 } from "@escode/shared";
 import type { BackgroundWorkSummary } from "@escode/shared/escode-protocol-v4";
-import { runUserAction } from "@/lib/userActionTelemetry.js";
 
 export interface ConversationBackgroundWorksProps {
   works: readonly BackgroundWorkSummary[];
@@ -69,16 +68,7 @@ const CancelButton = memo(function CancelButton({
   workId: string;
   onCancel: (workId: string) => void;
 }) {
-  const handleClick = useCallback(
-    () =>
-      runUserAction({
-        input: { featureId: "conversation.background_work", action: "cancel", trigger: "button" },
-        operation: () => onCancel(workId),
-        completed: { resultSource: "optimistic_projection" },
-        failureStage: "background_work_cancel",
-      }),
-    [onCancel, workId],
-  );
+  const handleClick = useCallback(() => (() => onCancel(workId))(), [onCancel, workId]);
   return (
     <button
       type="button"

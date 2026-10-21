@@ -857,17 +857,6 @@ export function createESCodeAgentConnectionScope(
         base.onDynamicConversationFrame(params),
       );
     },
-    onDynamicLocalTtftFacts(params) {
-      assertOpen();
-      if (
-        role !== "terminal-client" ||
-        context.clientMode !== "desktop-continuous" ||
-        params.workspaceIdentity?.trim() ||
-        params.remoteSessionId
-      )
-        return RpcEvent.None;
-      return base.onDynamicLocalTtftFacts(workspaceTarget(params));
-    },
     onDynamicConversationTelemetryFact(params) {
       assertOpen();
       // 可信 clientMode 来自 host attachment；Web/mobile/relay 即使能读权威对话态，
@@ -897,33 +886,6 @@ export function createESCodeAgentConnectionScope(
         return RpcEvent.None;
       }
       return base.onDynamicCuaPermissionObservation();
-    },
-    onDynamicProcessResourceSample() {
-      assertOpen();
-      // CLI 资源样本只供远端 Desktop Host relay 回传 main；renderer/mobile attachment
-      // 不消费该事件，也不能把它引入 continuous/replayable 消息面。
-      if (role !== "trusted-host-relay") {
-        return RpcEvent.None;
-      }
-      return base.onDynamicProcessResourceSample();
-    },
-    onDynamicToolExecResource() {
-      // 完成事实与会话交付无关，禁止进入 continuous/replayable attachment。
-      if (disposed || role !== "trusted-host-relay") return RpcEvent.None;
-      return base.onDynamicToolExecResource();
-    },
-    onDynamicMcpResourceSamples() {
-      // 资源事实不属于会话流，桌面 continuous 与远程 workspace replayable attachment 均不能订阅。
-      if (disposed || role !== "trusted-host-relay") return RpcEvent.None;
-      return base.onDynamicMcpResourceSamples();
-    },
-    onDynamicMcpTelemetry() {
-      assertOpen();
-      // MCP 遥测与 CLI 资源样本共用可信 Host relay 边界，不进入 renderer/mobile 会话链路。
-      if (role !== "trusted-host-relay") {
-        return RpcEvent.None;
-      }
-      return base.onDynamicMcpTelemetry();
     },
     async subscribeSessionsIndexV4(params) {
       assertReady();

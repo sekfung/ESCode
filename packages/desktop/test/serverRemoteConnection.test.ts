@@ -9,7 +9,6 @@ import {
   connectServerRemote,
   resolveServerRemoteEndpoints,
 } from "../src/host/serverRemoteConnection.js";
-import { registerHostServiceResourceTelemetry } from "../src/host/hostServiceResourceTelemetry.js";
 import { serverRemoteInfoSchema, type AgentLaneResourceSample } from "@escode/shared";
 
 function wrapNodeWebSocket(socket: WebSocket): ISocket {
@@ -248,77 +247,6 @@ describe("server remote connection", () => {
       true,
     );
   });
-
-  it.each([false, true])(
-    "真实 WebSocket 按 Server 资源能力 %s 订阅，旧端业务 RPC 保持可用",
-    async (supported) => {
-      const samples = new Emitter<AgentLaneResourceSample>();
-      const onResourceSample = vi.fn(() => samples.event);
-      const service = {
-        onDynamicProcessResourceSample: onResourceSample,
-        onDynamicMcpTelemetry: () => Event.None,
-        // 模拟旧服务只有旧两项事件；误订阅新事件会沿真实 WebSocket/RPC 路径抛错。
-        ...(supported
-          ? {
-              onDynamicMcpResourceSamples: () => Event.None,
-              onDynamicToolExecResource: () => Event.None,
-            }
-          : {}),
-      };
-      const server = createHttpServer(
-        new ServiceCollection().register(IESCodeAgentService, service as never),
-        0,
-      );
-      servers.push(server);
-      const address = server.address() as AddressInfo;
-      const connection = await connectServerRemote(
-        { kind: "server", url: `http://127.0.0.1:${address.port}` },
-        {
-          fetchImpl: async (input, init) => {
-            const response = await fetch(input, init);
-            if (supported || !String(input).endsWith("/api/server-info")) return response;
-            const info = serverRemoteInfoSchema.parse(await response.json());
-            delete info.capabilities.processResourceTelemetry;
-            return Response.json(info);
-          },
-        },
-      );
-      disposables.push(connection);
-      const postMessage = vi.fn();
-      const telemetry = registerHostServiceResourceTelemetry({
-        services: new ServiceCollection().register(
-          IESCodeAgentService,
-          connection.services.escodeAgentService,
-        ),
-        runtimeSurface: "remote",
-        telemetrySupported: connection.serverInfo.capabilities.processResourceTelemetry === true,
-        postMessage,
-      });
-      disposables.push(telemetry);
-
-      // 同一连接的 RPC 应答是前面 EventListen 已处理的屏障，无需 sleep 猜测订阅时序。
-      await expect(
-        connection.services.escodeAgentService.helloConversationV4(),
-      ).resolves.toMatchObject({
-        deliveryProfile: "continuous",
-      });
-      expect(onResourceSample).toHaveBeenCalledTimes(supported ? 1 : 0);
-      samples.fire({
-        platform: "linux",
-        arch: "x64",
-        logicalCpuCount: 8,
-        intervalMs: 60_000,
-        cpuCores: 1,
-        cpuPercent: 12.5,
-        rssKb: 128_000,
-      });
-      if (supported) {
-        await expect.poll(() => postMessage.mock.calls.length).toBe(1);
-      } else {
-        expect(postMessage).not.toHaveBeenCalled();
-      }
-    },
-  );
 
   it("/ws/host 只接受已申请的一次性 capability，重放被拒绝", async () => {
     const services = new ServiceCollection().register(IESCodeAgentService, {

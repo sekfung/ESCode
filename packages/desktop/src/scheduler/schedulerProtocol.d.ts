@@ -1,4 +1,4 @@
-import type { ModelSelection, NodeSelfResourceSample } from "@escode/shared";
+import type { ModelSelection } from "@escode/shared";
 /** scheduler → main */
 export type SchedulerToMainMessage =
   | {
@@ -16,10 +16,6 @@ export type SchedulerToMainMessage =
       type: "scheduler-log";
       level: "info" | "warn" | "error";
       message: string;
-    }
-  | {
-      type: "scheduler-resource-sample";
-      sample: NodeSelfResourceSample;
     };
 /** main → scheduler */
 export type MainToSchedulerMessage =

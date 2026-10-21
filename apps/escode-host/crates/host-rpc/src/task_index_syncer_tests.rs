@@ -60,7 +60,16 @@ pub(super) fn ingest_with_state(
     };
     let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
     let options: escode_host_surface::OptionsFactory = Arc::new(|_| unreachable!("no runtime"));
-    let base = Arc::new(Base::new(instances, options, None, None));
+    let plugin_management =
+        crate::domains_plugin::PluginManagement::new(instances.clone(), options.clone(), None);
+    let base = Arc::new(Base::new(
+        instances,
+        options,
+        None,
+        None,
+        plugin_management,
+        None,
+    ));
     let events = Arc::new(WorkspaceEvents::default());
     let event_stream = events.listen(&json!("/w"));
     let (overlay_changes, _) = tokio::sync::broadcast::channel(8);

@@ -1,6 +1,5 @@
 import { getTurnTools } from "./turn-tool-visibility.js";
 import { appendRuntimeAgentListing } from "../helpers/agent-listing.js";
-import { beginLocalTurnPreparation } from "@escode/contracts";
 import {
   CompactPhase,
   CompactReason,
@@ -113,15 +112,11 @@ export async function runRegularTurnLoop(
     }
     throwIfTurnAborted(state.turnAbortSignal);
 
-    const finishMcp = beginLocalTurnPreparation(state.turnTraceContext, "mcp");
     await this.initializeMcp(state.turnTraceContext);
     // tools/list_changed 只在回合开始前生效。
     await this.refreshMcpToolsIfChanged(state.turnTraceContext);
-    finishMcp();
     throwIfTurnAborted(state.turnAbortSignal);
-    const finishTools = beginLocalTurnPreparation(state.turnTraceContext, "tools");
     const tools = getTurnTools(this, state);
-    finishTools();
     if (!outputTokenRecoveryActive) {
       await appendRuntimeAgentListing(this, state.turnRequestState, tools, state.turnTraceContext);
     }

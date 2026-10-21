@@ -2,6 +2,7 @@
 //! **一条**有序队列，避免两条写者交错破坏 stdio 协议；消息 typed，错误带结构化 code。
 
 pub mod logging;
+pub mod main_broker;
 pub mod path_authorizer;
 
 use std::sync::Arc;
@@ -98,6 +99,9 @@ pub enum ControlMessage {
         /// 旧 Main，`media-preview.prepare` 只走内联分支。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         local_media_preview: bool,
+        /// Main 声明会应答 `mainRequest`（cua-permission / sandbox 注册）；缺省 false = 旧 Main。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        main_services: bool,
     },
     /// Host→Main：RPC 面已监听。`secret` 是本次监听的进程密钥（只走控制通道）：Main 带它向
     /// `POST /api/rpc-host-capability` 申请一次性 capability，再连 `ws://addr/ws/host`。
@@ -110,6 +114,21 @@ pub enum ControlMessage {
         ok: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
+    /// Host→Main：调用 Main 专属服务（cua-permission / sandbox 注册）。
+    MainRequest {
+        request_id: String,
+        method: String,
+        params: serde_json::Value,
+    },
+    /// Main→Host：Main 服务结果。
+    MainResponse {
+        request_id: String,
+        ok: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result: Option<serde_json::Value>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
@@ -139,6 +158,8 @@ impl ControlMessage {
             Self::RpcListening { .. } => "rpcListening",
             Self::LocalMediaPreviewAuthorize { .. } => "localMediaPreviewAuthorize",
             Self::LocalMediaPreviewAuthorized { .. } => "localMediaPreviewAuthorized",
+            Self::MainRequest { .. } => "mainRequest",
+            Self::MainResponse { .. } => "mainResponse",
         }
     }
 }

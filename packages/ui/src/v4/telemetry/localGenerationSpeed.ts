@@ -1,4 +1,4 @@
-import { estimateTokens, localTtftNow } from "@escode/shared";
+import { estimateTokens, localMonotonicNow } from "@escode/shared";
 import {
   parseConversationTopic,
   type ConversationRow,
@@ -116,7 +116,7 @@ function createRecord(sessionId: string): SpeedRecord {
 export class LocalGenerationSpeedTracker {
   private readonly records = new Map<string, SpeedRecord>();
 
-  constructor(private readonly now: () => number = localTtftNow) {}
+  constructor(private readonly now: () => number = localMonotonicNow) {}
 
   /**
    * 消费一条 conversation topic 帧。Desktop `desktop-continuous` 与远程 workspace `web-remote-replayable`

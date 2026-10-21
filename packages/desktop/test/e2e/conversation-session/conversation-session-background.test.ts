@@ -62,14 +62,6 @@ import {
   ensureToolCrossProductFullAccessMode,
   respondToToolCrossProductBlockers,
 } from "../helpers/conversation-session-tool-cross-product.js";
-import {
-  beginConversationTelemetryCapture,
-  checkpointConversationTelemetryCase,
-  waitForConversationReportDelta,
-  type ConversationTelemetryCaptureHandle,
-  type ConversationTelemetryReport,
-} from "../helpers/conversation-telemetry-parity-capture.js";
-
 const BACKGROUND_E2E_TIMEOUT_MS = 240000;
 const BACKGROUND_RUNTIME_ROOT = resolveE2ERuntimePath("conversation-session-background");
 const BG14_PREVIEW_RELEASE_FILE = resolveE2ERuntimePath(
@@ -200,8 +192,6 @@ async function waitForBackgroundResultPresentation(options: {
 }
 
 describe("会话区 Background Runtime Task E2E", () => {
-  let telemetryCapture: ConversationTelemetryCaptureHandle | null = null;
-
   before(async function () {
     this.timeout(BACKGROUND_E2E_TIMEOUT_MS);
     await mkdir(BACKGROUND_RUNTIME_ROOT, { recursive: true });
@@ -297,7 +287,6 @@ describe("会话区 Background Runtime Task E2E", () => {
     this.timeout(BACKGROUND_E2E_TIMEOUT_MS);
 
     await startNewBackgroundDraft();
-    const capture = (telemetryCapture ??= await beginConversationTelemetryCapture());
     const prompt =
       "E2E_BACKGROUND_BASH: Run a background Bash command and report after notification.";
     const requestCountBefore = await getUpstreamRequestRecordCount();
@@ -338,11 +327,6 @@ describe("会话区 Background Runtime Task E2E", () => {
       failureLabel: "background Bash 独立结果轮",
     });
     await assertNoVisibleTaskNotification();
-    const reports = await waitForConversationReportDelta(capture, {
-      message_completion: 2,
-    });
-    assertMainCompletionAgentCompositions(reports, ["main_only", "main_only"]);
-    assertMainCompletionMessageSources(reports, ["chat", "background_task"]);
   });
 
   it("background task running 时用户普通消息应直接发送而不是进入 queue", async function () {
@@ -1217,7 +1201,6 @@ describe("会话区 Background Runtime Task E2E", () => {
     this.timeout(BACKGROUND_E2E_TIMEOUT_MS);
 
     await startNewBackgroundDraft();
-    const capture = (telemetryCapture ??= await beginConversationTelemetryCapture());
     const prompt =
       "E2E_FOREGROUND_AGENT_CHILD_TOOL_STREAMING_STATUS: Launch a foreground agent that runs a visible child Bash tool while the parent conversation is still running.";
     const requestCountBefore = await getUpstreamRequestRecordCount();
@@ -1249,15 +1232,6 @@ describe("会话区 Background Runtime Task E2E", () => {
     expect(completionIndex).toBeGreaterThan(requestCountBefore);
     await waitForV4AssistantMessageContaining("foreground-agent-child-tool-streaming-completed-ok");
     await waitForIdle("foreground child tool Agent completion 后会话没有回到 idle");
-    const reports = await waitForConversationReportDelta(capture, {
-      agent_step: 1,
-      message_completion: 1,
-    });
-    // 前面的非 telemetry case 也写入同一 capture；只验本 session，避免把旧 completion 当成本轮重复上报。
-    const sessionId = (await getV4PaneSnapshot()).sessionId;
-    const sessionReports = reports.filter((report) => report.talk_id === sessionId);
-    assertMainCompletionAgentCompositions(sessionReports, ["main_plus_fg"]);
-    assertMainCompletionMessageSources(sessionReports, ["chat"]);
   });
 
   it("同一 main turn 同时消费 foreground 和 background subagent 结果", async function () {
@@ -1265,7 +1239,6 @@ describe("会话区 Background Runtime Task E2E", () => {
 
     await startNewBackgroundDraft();
     await rm(BACKGROUND_MIXED_FOREGROUND_RELEASE_FILE, { force: true });
-    const capture = (telemetryCapture ??= await beginConversationTelemetryCapture());
     const prompt =
       "E2E_AGENT_COMPOSITION_MIXED: Launch one foreground Agent and one background Agent, then summarize both results.";
     const requestCountBefore = await getUpstreamRequestRecordCount();
@@ -1337,12 +1310,6 @@ describe("会话区 Background Runtime Task E2E", () => {
 
       await waitForV4AssistantMessageContaining("agent-composition-mixed-completed-ok");
       await waitForIdle("mixed agent composition 收口后会话没有回到 idle");
-      const reports = await waitForConversationReportDelta(capture, {
-        agent_step: 1,
-        message_completion: 1,
-      });
-      assertMainCompletionAgentCompositions(reports, ["main_plus_fg_bg"]);
-      assertMainCompletionMessageSources(reports, ["chat"]);
     } finally {
       await writeFile(BACKGROUND_MIXED_FOREGROUND_RELEASE_FILE, "release\n", "utf-8").catch(
         () => undefined,
@@ -1354,7 +1321,6 @@ describe("会话区 Background Runtime Task E2E", () => {
     this.timeout(BACKGROUND_E2E_TIMEOUT_MS);
 
     await startNewBackgroundDraft();
-    const capture = (telemetryCapture ??= await beginConversationTelemetryCapture());
     await rm(BACKGROUND_CHILD_TOOL_IDLE_RELEASE_FILE, { force: true });
     const prompt =
       "E2E_BACKGROUND_AGENT_CHILD_TOOL_IDLE_STATUS: Launch a background agent that runs a visible child Bash tool while the parent conversation is idle.";
@@ -1405,15 +1371,6 @@ describe("会话区 Background Runtime Task E2E", () => {
       "background-agent-child-tool-idle-notification-consumed-ok",
     );
     await waitForIdle("background child tool idle notification 后会话没有回到 idle");
-    const { eventReport: reports } = await checkpointConversationTelemetryCase(capture, {
-      caseId: "BG13-token-identity",
-      minimumReportInventory: { agent_step: 1, message_completion: 2 },
-      minimumArmsInventory: {},
-      proof: ["child Bash + Agent usage owner", "new UUID v7 wake message"],
-    });
-    assertBackgroundToolStepTelemetry(reports, "toolu_e2e_background_idle_child_tool_bash");
-    assertMainCompletionAgentCompositions(reports, ["main_only", "main_plus_bg"]);
-    assertMainCompletionMessageSources(reports, ["chat", "background_subagent"]);
     await assertNoVisibleTaskNotification();
   });
 
@@ -1421,7 +1378,6 @@ describe("会话区 Background Runtime Task E2E", () => {
     this.timeout(BACKGROUND_E2E_TIMEOUT_MS);
 
     await startNewBackgroundDraft();
-    const capture = (telemetryCapture ??= await beginConversationTelemetryCapture());
     const prompt =
       "E2E_BACKGROUND_CHILD_TOOL_PARENT_ANCHOR: Launch a background agent whose child tool update arrives after my next main prompt has completed.";
     const followUpPrompt =
@@ -1492,18 +1448,6 @@ describe("会话区 Background Runtime Task E2E", () => {
       "background-child-tool-parent-anchor-notification-consumed-ok",
     );
     await waitForIdle("background parent anchor notification 后会话没有回到 idle");
-    const { eventReport: reports } = await checkpointConversationTelemetryCase(capture, {
-      caseId: "BG18-token-identity",
-      minimumReportInventory: { agent_step: 1, message_completion: 3 },
-      minimumArmsInventory: {},
-      proof: [
-        "child usage retains original launch identity after follow-up",
-        "new UUID v7 wake message",
-      ],
-    });
-    assertBackgroundToolStepTelemetry(reports, "toolu_e2e_background_parent_anchor_child_bash");
-    assertMainCompletionAgentCompositions(reports, ["main_only", "main_only", "main_plus_bg"]);
-    assertMainCompletionMessageSources(reports, ["chat", "chat", "background_subagent"]);
     await assertNoVisibleTaskNotification();
   });
 
@@ -3016,127 +2960,4 @@ async function stopIfBusy() {
     "background E2E 收尾时没有停止当前运行",
     30000,
   ).catch(() => undefined);
-}
-
-function assertBackgroundToolStepTelemetry(
-  reports: ConversationTelemetryReport[],
-  childToolCallId: string,
-): void {
-  const backgroundSteps = reports.filter(
-    (report) =>
-      report.element_name === "agent_step" &&
-      (report.event_extra_detail as Record<string, unknown> | undefined)?.agent_role ===
-        "background subagent",
-  );
-  expect(backgroundSteps).toHaveLength(2);
-
-  const detail = backgroundSteps[0]?.event_extra_detail as Record<string, unknown> | undefined;
-  expect(detail).toMatchObject({
-    agent_role: "background subagent",
-    step_type: "tool_call",
-    status: "success",
-    tool_name: "Bash",
-    loop_index: "1",
-    token_usage_scope: "",
-    total_tokens: "0",
-  });
-  expect(typeof detail?.agent_id).toBe("string");
-  expect(String(detail?.agent_id)).not.toHaveLength(0);
-  expect(typeof detail?.model_name).toBe("string");
-  expect(detail?.model_name).not.toBe("");
-  expect(typeof detail?.model_provider).toBe("string");
-  expect(detail?.model_provider).not.toBe("");
-  expect(typeof detail?.provider_name).toBe("string");
-  expect(detail?.provider_name).not.toBe("");
-  expect(typeof backgroundSteps[0]?.message_id).toBe("string");
-  expect(backgroundSteps[0]?.message_id).not.toBe("");
-  expect(typeof backgroundSteps[0]?.talk_id).toBe("string");
-  expect(backgroundSteps[0]?.talk_id).not.toBe("");
-  expect(String(detail?.tool_call_id)).toBe(
-    `tool_subagent_${String(detail?.agent_id)}_${childToolCallId}`,
-  );
-  // 两个 fixture child 请求各 input=128，tool_use output=16、最终 text output=12。
-  // usage 只出现在收口 Agent step，不能复制到 child Bash，也不能串到后续 main turn。
-  const aggregate = backgroundSteps[1]!;
-  const aggregateDetail = aggregate.event_extra_detail as Record<string, unknown>;
-  expect(aggregateDetail).toMatchObject({
-    agent_role: "background subagent",
-    agent_id: detail?.agent_id,
-    step_type: "tool_call",
-    tool_name: "Agent",
-    status: "success",
-    loop_index: "2",
-    token_usage_scope: "subagent_requests",
-    model_request_count: "2",
-    input_tokens: "256",
-    output_tokens: "28",
-    total_tokens: "284",
-    model_name: detail?.model_name,
-    model_provider: detail?.model_provider,
-    provider_name: detail?.provider_name,
-  });
-  expect(aggregateDetail.tool_call_id).toBe(
-    `tool_subagent_${String(detail?.agent_id)}_${String(aggregateDetail.parent_tool_call_id)}`,
-  );
-  const completions = reports.filter((report) => report.element_name === "message_completion");
-  expect(aggregate.message_id).toBe(completions[0]?.message_id);
-  expect(aggregate.message_id).toBe(backgroundSteps[0]?.message_id);
-  expect(reports.indexOf(aggregate)).toBeGreaterThan(reports.indexOf(completions[0]!));
-  for (const completion of completions) {
-    expect(completion.message_id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-    expect(
-      reports.filter(
-        (report) =>
-          report.element_name === "agent_step" &&
-          report.message_id === completion.message_id &&
-          !(report.event_extra_detail as Record<string, unknown>)?.agent_role,
-      ).length,
-    ).toBeGreaterThan(0);
-  }
-  expect(
-    reports.filter(
-      (report) =>
-        report.element_name === "message_completion" &&
-        ["child_session_id", "parent_tool_call_id"].some((key) =>
-          Object.hasOwn(
-            (report.event_extra_detail as Record<string, unknown> | undefined) ?? {},
-            key,
-          ),
-        ),
-    ),
-  ).toHaveLength(0);
-}
-
-function assertMainCompletionAgentCompositions(
-  reports: ConversationTelemetryReport[],
-  expectedCompositions: string[],
-): void {
-  const completions = reports.filter((report) => report.element_name === "message_completion");
-  expect(completions).toHaveLength(expectedCompositions.length);
-  expect(
-    completions.map(
-      (report) =>
-        (report.event_extra_detail as Record<string, unknown> | undefined)?.agent_composition,
-    ),
-  ).toEqual(expectedCompositions);
-
-  const messageIds = completions.map((report) => String(report.message_id ?? ""));
-  expect(messageIds.every((messageId) => messageId.length > 0)).toBe(true);
-  expect(new Set(messageIds).size).toBe(messageIds.length);
-}
-
-function assertMainCompletionMessageSources(
-  reports: ConversationTelemetryReport[],
-  expectedSources: string[],
-): void {
-  const completions = reports.filter((report) => report.element_name === "message_completion");
-  expect(completions).toHaveLength(expectedSources.length);
-  expect(
-    completions.map(
-      (report) =>
-        (report.event_extra_detail as Record<string, unknown> | undefined)?.message_source,
-    ),
-  ).toEqual(expectedSources);
 }

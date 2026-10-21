@@ -77,8 +77,7 @@ const SANITIZED_RUNTIME_ENV_KEYS = [
   "ESCODE_CUA_PERMISSION_BROKER_TOKEN",
   "ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER",
   "ESCODE_CUA_PLUGIN_AUTHORITY",
-  // Agent OTLP Endpoint/Auth/Identity 只属于 CLI telemetry bootstrap，不能继续泄漏给
-  // Bash、MCP 或模型工具子进程。sanitize 前会捕获到本进程私有 Map，供 Agent 启动边界读取。
+  // 旧版 OTLP/telemetry 配置不再使用，但仍从所有子进程环境剔除，避免残留配置泄漏。
   "OTEL_EXPORTER_OTLP_ENDPOINT",
   "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
   "OTEL_EXPORTER_OTLP_HEADERS",
@@ -142,7 +141,6 @@ interface CapturedCuaBrokerCredentials {
 }
 
 let capturedCuaBrokerCredentials: Readonly<CapturedCuaBrokerCredentials> | undefined;
-const capturedESCodeAgentTelemetryEnv: Record<string, string> = {};
 
 // CUA broker socket 会被上面的 sanitize 从子进程 env 中剔除（confused-deputy 防护 —— 不能让
 // 其它 MCP server / Bash / tool 子进程直接驱动已授权 Helper）。但 CLI 入口在 bootstrap
@@ -171,30 +169,6 @@ function captureESCodeCuaBrokerCredentials(env: Record<string, string | undefine
   }
 }
 
-function captureESCodeAgentTelemetryEnv(env: Record<string, string | undefined>): void {
-  Object.assign(capturedESCodeAgentTelemetryEnv, readESCodeAgentTelemetryEnv(env));
-}
-
-/**
- * 只提取供 Agent telemetry bootstrap 使用的配置。宿主可在经过通用 env 清洗后，
- * 将这组值定向传给 host/Agent；不得把它并入 Bash/MCP 的 tool env。
- */
-export function readESCodeAgentTelemetryEnv(
-  env: Record<string, string | undefined>,
-): Record<string, string> {
-  const telemetryEnv: Record<string, string> = {};
-  for (const key of SANITIZED_RUNTIME_ENV_KEYS) {
-    if (!isESCodeAgentTelemetryEnvKey(key)) continue;
-    const value = env[key]?.trim();
-    if (value) telemetryEnv[key] = value;
-  }
-  return telemetryEnv;
-}
-
-export function getCapturedESCodeAgentTelemetryEnv(): Record<string, string> {
-  return { ...capturedESCodeAgentTelemetryEnv };
-}
-
 export function getCapturedESCodeCuaBrokerCredentials(): {
   socket: string | undefined;
   pluginAuthority: string | undefined;
@@ -210,17 +184,10 @@ export function resetCapturedESCodeCuaBrokerCredentialsForTest(): void {
   capturedCuaBrokerCredentials = undefined;
 }
 
-export function resetCapturedESCodeAgentTelemetryEnvForTest(): void {
-  for (const key of Object.keys(capturedESCodeAgentTelemetryEnv)) {
-    delete capturedESCodeAgentTelemetryEnv[key];
-  }
-}
-
 export function sanitizeESCodeRuntimeEnv<T extends Record<string, string | undefined>>(
   env: T,
 ): Record<string, string> {
   captureESCodeCuaBrokerCredentials(env);
-  captureESCodeAgentTelemetryEnv(env);
   const sanitized: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
     if (value === undefined || shouldSanitizeESCodeRuntimeEnvKey(key)) {
@@ -274,20 +241,11 @@ export function readESCodeToolEnvPassthroughEnv(env: EnvRecord): Record<string, 
 
 export function sanitizeESCodeRuntimeEnvInPlace(env: Record<string, string | undefined>): void {
   captureESCodeCuaBrokerCredentials(env);
-  captureESCodeAgentTelemetryEnv(env);
   for (const key of Object.keys(env)) {
     if (shouldSanitizeESCodeRuntimeEnvKey(key)) {
       delete env[key];
     }
   }
-}
-
-function isESCodeAgentTelemetryEnvKey(key: string): boolean {
-  return (
-    key.startsWith("OTEL_") ||
-    key.startsWith("ESCODE_TELEMETRY_") ||
-    key === "ESCODE_MODEL_TELEMETRY_ENABLED"
-  );
 }
 
 export function shouldSanitizeESCodeRuntimeEnvKey(key: string): boolean {
@@ -300,9 +258,6 @@ export function shouldSanitizeESCodeRuntimeEnvKey(key: string): boolean {
 
 export function shouldCaptureESCodeToolEnvPassthroughKey(key: string): boolean {
   const upperKey = key.toUpperCase();
-  if (isESCodeAgentTelemetryEnvKey(upperKey)) {
-    return false;
-  }
   if (NON_TOOL_PASSTHROUGH_RUNTIME_ENV_KEYS.some((candidate) => candidate === upperKey)) {
     return false;
   }

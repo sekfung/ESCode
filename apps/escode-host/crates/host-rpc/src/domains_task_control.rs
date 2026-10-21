@@ -190,6 +190,15 @@ fn set_model(context: &StateContext) -> MethodHandler {
 
 fn set_config_option(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
+        set_config_option_impl(context, params).await
+    })
+}
+
+pub(crate) async fn set_config_option_impl(
+    context: StateContext,
+    params: Value,
+) -> crate::session::RpcResult {
+    {
         let target = task_target(&context, &params)?;
         let config_id = params["configId"].as_str().unwrap_or_default();
         match config_id {
@@ -238,11 +247,20 @@ fn set_config_option(context: &StateContext) -> MethodHandler {
         }
         let snapshot = resume_and_index(&context, &target).await?;
         Ok(options(&snapshot))
-    })
+    }
 }
 
 fn set_automation_session_config(context: &StateContext) -> MethodHandler {
     method(context, |context, params| async move {
+        set_automation_session_config_impl(context, params).await
+    })
+}
+
+pub(crate) async fn set_automation_session_config_impl(
+    context: StateContext,
+    params: Value,
+) -> crate::session::RpcResult {
+    {
         let target = task_target(&context, &params)?;
         let model = params["modelSelection"].clone();
         let provider = model["providerId"].as_str().unwrap_or_default();
@@ -256,7 +274,7 @@ fn set_automation_session_config(context: &StateContext) -> MethodHandler {
         }
         let snapshot = resume_and_index(&context, &target).await?;
         Ok(options(&snapshot))
-    })
+    }
 }
 
 fn set_assistant_message_feedback(context: &StateContext) -> MethodHandler {

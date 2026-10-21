@@ -46,7 +46,6 @@ export const SubagentSessionSidePane = memo(function SubagentSessionSidePane({
         readOnly
         allowWorkspaceFileRewind
         focused={focused}
-        telemetryVisible={focused}
         workspacePath={tab.workspacePath}
         workspaceIdentity={tab.workspaceIdentity}
         remoteSessionId={tab.remoteSessionId}

@@ -132,7 +132,7 @@ Rust 回 `false`（登记差异 §6-2）。
    `openTiming`，Host 计时字段登记为后续项。
 5. **冷订阅的 `resumeThoughtLevel` hint**：TS 从 tasks-index 读 `thoughtLevel` 注入；Rust 同样读（索引可用时），索引不可用时省略（TS 同为失败即省略）。
 6. **工具面灰度（动态工作流）fail-closed**：TS 由服务端 client-config 判定后注入 `createSession` 信封；对应域未迁移前 Rust 一律不注入（缺省即关闭），**不**信任 Renderer 入参。
-7. **浏览器环境上下文**（`collectBrowserAmbientContext`）与 TTFT 本地观测（`onDynamicLocalTtftFacts`）：浏览器控制域未迁移，`sendText` 不附 `browserAmbientContext`；`ttft` 字段对非桌面本地连接剥除（与 TS 同）。
+7. **浏览器环境上下文**（`collectBrowserAmbientContext`）：浏览器控制域未迁移，`sendText` 不附 `browserAmbientContext`。
 8. **帧形状校验**：TS 用 zod wire candidate 校验并丢弃非法帧；Rust 只做路由所需的最小校验（`topic`/`subscriptionId` 为字符串），形状由 Renderer 解码器把关。可见条件：runtime 发出形状非法的帧时，TS 丢弃、Rust 透传给 Renderer 由其拒绝。
 9. **静态事件不做 `bufferEvent`**：TS `ProxyChannel.fromService` 把 `onX` 事件缓冲到首个监听者；Rust 只投递监听之后的事件。可见条件：Renderer 在实例启动之后才监听 `onAgentRuntimeLifecycle` 时收不到更早的 `available`（Renderer 现有用法在连接建立后立即监听）。
 10. **水位只转发给已存在的实例**：TS 可能为 flow 拉起 runtime；Rust 用 existing-only（实例已退出时其订阅随之消失，无需通知）。

@@ -21,9 +21,3 @@ export {
   withFileLock,
   type SharedFileLockOptions,
 } from "./node/privateFilePersistence.js";
-export {
-  createNodeSelfResourceSampler,
-  NODE_SELF_RESOURCE_SAMPLE_INTERVAL_MS,
-  type NodeSelfResourceSampler,
-  type NodeSelfResourceSamplerOptions,
-} from "./node/nodeSelfResourceTelemetry.js";

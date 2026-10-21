@@ -1,4 +1,3 @@
-import { LocalTtftObserver, setLocalTtftObserver } from "../src/v4/telemetry/localTtftObserver.js";
 import { Emitter } from "@escode/rpc";
 import type {
   ConversationTopicFrame,
@@ -1153,81 +1152,4 @@ describe("agent V4 connection transports", () => {
       sessionId: "session-1",
     });
   });
-});
-
-it("runtime unavailable 结束对应 workspace 的 TTFT，保留其他 workspace", () => {
-  const agent = setupAgent();
-  const lifecycle = new Emitter<{ workspaceKey: string; state: "available" | "unavailable" }>();
-  const service = {
-    ...agent,
-    onDynamicLocalTtftFacts: () => new Emitter<import("@escode/shared").LocalTtftFacts>().event,
-    onAgentRuntimeLifecycle: (
-      listener: (event: { workspaceKey: string; state: "available" | "unavailable" }) => void,
-    ) => lifecycle.event(listener),
-  };
-  const records: import("@escode/shared").LocalTtftRecord[] = [];
-  const observer = new LocalTtftObserver((record) => records.push(record));
-  observer.enabled = true;
-  setLocalTtftObserver(observer);
-  const a = observer.start("/a", false)!;
-  observer.start("/b", false);
-  const transport = createAgentConversationTransport(service, { workspacePath: "/a" });
-  const off = transport.onRuntimeLifecycle!(() => {});
-  try {
-    lifecycle.fire({ workspaceKey: "/b", state: "unavailable" });
-    expect(records.filter((record) => record.kind === "excluded")).toHaveLength(0);
-    lifecycle.fire({ workspaceKey: "/a", state: "unavailable" });
-    expect(records.filter((record) => record.kind === "excluded")).toMatchObject([
-      { observationId: a.observationId, outcome: "interrupted" },
-    ]);
-  } finally {
-    off();
-    setLocalTtftObserver(undefined);
-  }
-});
-
-it("校准过期后收到 CLI 检查点或内容帧会重新探测时钟，有效期内不重复", async () => {
-  const agent = setupAgent();
-  const facts = new Emitter<import("@escode/shared").LocalTtftFacts>();
-  const service = { ...agent, onDynamicLocalTtftFacts: () => facts.event };
-  let now = 100_000;
-  const observer = new LocalTtftObserver(
-    () => {},
-    () => now,
-    () => now,
-  );
-  observer.enabled = true;
-  setLocalTtftObserver(observer);
-  const context = observer.start("/a", true)!;
-  observer.dispatch(context, "/a", "c", "s");
-  // 发送时已校准；排队等待期间没有任何传输调用，旧逻辑不会再刷新校准。
-  observer.calibrate("/a", { instanceId: "cli", offsetMs: 0, errorMs: 1, measuredAt: now });
-  const transport = createAgentConversationTransport(service, { workspacePath: "/a" });
-  const off = transport.onFrame(() => {});
-  const clockProbes = () =>
-    agent.queryConversationCommandsV4.mock.calls.filter(
-      ([params]) => (params as { clock?: true }).clock === true,
-    ).length;
-  try {
-    const checkpoint = {
-      ...context,
-      instanceId: "cli",
-      commandId: "c",
-      sessionId: "s",
-      receivedAt: 100_000,
-      admittedAt: 100_010,
-    };
-    facts.fire(checkpoint);
-    expect(clockProbes()).toBe(0);
-    now += 61_000;
-    facts.fire({ ...checkpoint, executionAt: now });
-    await Promise.resolve();
-    expect(clockProbes()).toBe(1);
-    // 同一在途探测未返回前，再多检查点也只保留一次探测。
-    facts.fire({ ...checkpoint, executionAt: now, requestAt: now + 1 });
-    expect(clockProbes()).toBe(1);
-  } finally {
-    off();
-    setLocalTtftObserver(undefined);
-  }
 });

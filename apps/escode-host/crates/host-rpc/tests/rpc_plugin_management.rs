@@ -128,6 +128,7 @@ async fn without_a_data_base_dir_the_channel_reports_an_explicit_gap() {
         None,
         None,
         None,
+        None,
     );
     let surface = escode_host_rpc::serve("127.0.0.1:0".parse().unwrap(), channels, None)
         .await

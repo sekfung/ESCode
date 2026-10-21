@@ -1,6 +1,4 @@
-import type { ESCodeMcpResourceSample } from "@escode/shared";
 import { Emitter } from "@escode/rpc";
-import type { ESCodeMcpTelemetryEvent, ESCodeProcessResourceSample } from "@escode/shared";
 import type {
   ConversationTopicFrame,
   ConversationTopicWireFrame,
@@ -56,9 +54,6 @@ function setupBase() {
   const conversationFrames = new Emitter<ConversationTopicWireFrame>();
   const telemetryFacts = new Emitter<ConversationTelemetryFact>();
   const cuaPermissionObservations = new Emitter<ESCodeAgentCuaPermissionObservation>();
-  const processResourceSamples = new Emitter<ESCodeProcessResourceSample>();
-  const mcpResourceSamples = new Emitter<ESCodeMcpResourceSample[]>();
-  const mcpTelemetryEvents = new Emitter<ESCodeMcpTelemetryEvent>();
   const sessionsIndexFrames = new Emitter<SessionsIndexTopicWireFrame>();
   const workspaceConfigFrames = new Emitter<WorkspaceConfigTopicWireFrame>();
   const runtimeRestarts = new Emitter<{ workspaceKey: string }>();
@@ -91,9 +86,6 @@ function setupBase() {
     onDynamicConversationFrame: vi.fn(() => conversationFrames.event),
     onDynamicConversationTelemetryFact: vi.fn(() => telemetryFacts.event),
     onDynamicCuaPermissionObservation: vi.fn(() => cuaPermissionObservations.event),
-    onDynamicProcessResourceSample: vi.fn(() => processResourceSamples.event),
-    onDynamicMcpResourceSamples: vi.fn(() => mcpResourceSamples.event),
-    onDynamicMcpTelemetry: vi.fn(() => mcpTelemetryEvents.event),
     subscribeSessionsIndexV4: vi.fn(async (params: unknown) => ({
       ack: {
         subscriptionId: nextId(params),
@@ -156,9 +148,6 @@ function setupBase() {
     conversationFrames,
     telemetryFacts,
     cuaPermissionObservations,
-    processResourceSamples,
-    mcpResourceSamples,
-    mcpTelemetryEvents,
     sessionsIndexFrames,
     workspaceConfigFrames,
     runtimeRestarts,
@@ -345,132 +334,6 @@ describe("ESCodeAgent connection-scoped service facade", () => {
       connectionId: "mobile-rows",
       clientMode: "web-remote-replayable",
     });
-  });
-
-  it("只有 trusted Host relay 能跨连接订阅 CLI 进程资源样本", () => {
-    const { base, processResourceSamples } = setupBase();
-    const relay = createESCodeAgentConnectionScope(base, {
-      connectionId: "server-upstream",
-      clientMode: "desktop-continuous",
-      role: "trusted-host-relay",
-    });
-    const desktop = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "desktop-downstream",
-      clientMode: "desktop-continuous",
-    });
-    const mobile = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "mobile-downstream",
-      clientMode: "web-remote-replayable",
-    });
-    const relaySeen: ESCodeProcessResourceSample[] = [];
-    const desktopSeen: ESCodeProcessResourceSample[] = [];
-    const mobileSeen: ESCodeProcessResourceSample[] = [];
-
-    relay.service.onDynamicProcessResourceSample()((sample) => relaySeen.push(sample));
-    desktop.service.onDynamicProcessResourceSample()((sample) => desktopSeen.push(sample));
-    mobile.service.onDynamicProcessResourceSample()((sample) => mobileSeen.push(sample));
-    const sample: ESCodeProcessResourceSample = {
-      arch: "x64",
-      cpuCores: 1,
-      cpuPercent: 12.5,
-      intervalMs: 60_000,
-      logicalCpuCount: 8,
-      platform: "linux",
-      rssKb: 64_000,
-    };
-    processResourceSamples.fire(sample);
-
-    expect(relaySeen).toEqual([sample]);
-    expect(desktopSeen).toEqual([]);
-    expect(mobileSeen).toEqual([]);
-    expect(base.onDynamicProcessResourceSample).toHaveBeenCalledTimes(1);
-  });
-
-  it("只有 trusted Host relay 能订阅 MCP 遥测", () => {
-    const { base, mcpTelemetryEvents } = setupBase();
-    const relay = createESCodeAgentConnectionScope(base, {
-      connectionId: "server-upstream",
-      clientMode: "desktop-continuous",
-      role: "trusted-host-relay",
-    });
-    const desktop = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "desktop-downstream",
-      clientMode: "desktop-continuous",
-    });
-    const mobile = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "mobile-downstream",
-      clientMode: "web-remote-replayable",
-    });
-    const sample: ESCodeMcpTelemetryEvent = {
-      arch: "x64",
-      kind: "process_start",
-      mcpId: "builtin:node_repl",
-      mcpInstanceId: "mcp-instance-1",
-      mcpIsolation: "workspace",
-      mcpSource: "builtin",
-      occurredAt: 1,
-      platform: "linux",
-    };
-    const relaySeen: ESCodeMcpTelemetryEvent[] = [];
-    const desktopSeen: ESCodeMcpTelemetryEvent[] = [];
-    const mobileSeen: ESCodeMcpTelemetryEvent[] = [];
-
-    relay.service.onDynamicMcpTelemetry()((event) => relaySeen.push(event));
-    desktop.service.onDynamicMcpTelemetry()((event) => desktopSeen.push(event));
-    mobile.service.onDynamicMcpTelemetry()((event) => mobileSeen.push(event));
-    mcpTelemetryEvents.fire(sample);
-
-    expect(relaySeen).toEqual([sample]);
-    expect(desktopSeen).toEqual([]);
-    expect(mobileSeen).toEqual([]);
-    expect(base.onDynamicMcpTelemetry).toHaveBeenCalledTimes(1);
-  });
-
-  it("只有 trusted Host relay 能订阅 MCP 资源数组", () => {
-    const { base, mcpResourceSamples } = setupBase();
-    const relay = createESCodeAgentConnectionScope(base, {
-      connectionId: "server-upstream",
-      clientMode: "desktop-continuous",
-      role: "trusted-host-relay",
-    });
-    const desktop = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "desktop-downstream",
-      clientMode: "desktop-continuous",
-    });
-    const mobile = createESCodeAgentConnectionScope(relay.service, {
-      connectionId: "mobile-downstream",
-      clientMode: "web-remote-replayable",
-    });
-    const sample: ESCodeMcpResourceSample[] = [
-      {
-        mcpId: "builtin:node_repl",
-        instanceToken: "cli-instance-01",
-        sampledAt: 300000,
-        intervalMs: 300000,
-        processCount: 1,
-        rssKbTotal: 100,
-        rssKbMaxProcess: 100,
-        cpuTimeMsDelta: 0,
-        uptimeMinutes: 5,
-        platform: "linux",
-        arch: "x64",
-        logicalCpuCount: 8,
-        totalMemoryGb: 32,
-      },
-    ];
-    const relaySeen: ESCodeMcpResourceSample[][] = [];
-    const desktopSeen: ESCodeMcpResourceSample[][] = [];
-    const mobileSeen: ESCodeMcpResourceSample[][] = [];
-
-    relay.service.onDynamicMcpResourceSamples()((event) => relaySeen.push(event));
-    desktop.service.onDynamicMcpResourceSamples()((event) => desktopSeen.push(event));
-    mobile.service.onDynamicMcpResourceSamples()((event) => mobileSeen.push(event));
-    mcpResourceSamples.fire(sample);
-
-    expect(relaySeen).toEqual([sample]);
-    expect(desktopSeen).toEqual([]);
-    expect(mobileSeen).toEqual([]);
-    expect(base.onDynamicMcpResourceSamples).toHaveBeenCalledTimes(1);
   });
 
   it("只有可信 desktop-continuous attachment 能订阅 workspace telemetry fact", async () => {
@@ -1984,41 +1847,4 @@ describe("ESCodeAgent connection-scoped service facade", () => {
     await scope.dispose();
     runtimeLifecycle.dispose();
   });
-});
-
-it("本地 TTFT 检查点只向本地 desktop continuous attachment 暴露", () => {
-  const { base } = setupBase();
-  const facts = new Emitter<import("@escode/shared").LocalTtftFacts>();
-  base.onDynamicLocalTtftFacts = vi.fn(() => facts.event);
-  const desktop = createESCodeAgentConnectionScope(base, {
-    connectionId: "desktop",
-    clientMode: "desktop-continuous",
-  });
-  const mobile = createESCodeAgentConnectionScope(base, {
-    connectionId: "mobile",
-    clientMode: "web-remote-replayable",
-  });
-  const localSeen = vi.fn();
-  const remoteSeen = vi.fn();
-  const mobileSeen = vi.fn();
-  desktop.service.onDynamicLocalTtftFacts({ workspacePath: "/same" })(localSeen);
-  desktop.service.onDynamicLocalTtftFacts({
-    workspacePath: "/same",
-    workspaceIdentity: "ssh:remote",
-    remoteSessionId: "remote",
-  })(remoteSeen);
-  mobile.service.onDynamicLocalTtftFacts({ workspacePath: "/same" })(mobileSeen);
-  facts.fire({
-    version: 1,
-    observationId: "e0b15fc2-3a50-4d73-854d-61fa148cbfd0",
-    commandId: "input",
-    instanceId: "cli",
-    receivedAt: 100,
-  });
-  expect(localSeen).toHaveBeenCalledOnce();
-  expect(remoteSeen).not.toHaveBeenCalled();
-  expect(mobileSeen).not.toHaveBeenCalled();
-  expect(base.onDynamicLocalTtftFacts).toHaveBeenCalledOnce();
-  desktop.dispose();
-  mobile.dispose();
 });

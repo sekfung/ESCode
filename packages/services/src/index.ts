@@ -25,11 +25,6 @@ export {
 
 // Accessor
 export type { IServiceAccessor } from "./accessor.js";
-export {
-  createConversationTelemetryService,
-  type ConversationTelemetryWorkspaceTarget,
-  type IConversationTelemetryService,
-} from "./conversation-telemetry/conversationTelemetry.js";
 
 // File service — IFileService is both a type (interface) and value (descriptor)
 export { IFileService } from "./file/file.js";

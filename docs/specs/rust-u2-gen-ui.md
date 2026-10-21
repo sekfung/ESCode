@@ -139,3 +139,13 @@
   2. `gen-ui` 的 `size > 5 MB` 检查在**读取之前**（TS 同序），所以静态超限文件拿到的是
      `Gen UI requires a regular file under 5 MB`，而 `Gen UI file exceeds 5 MB` 只属于
      「打开后文件又长大」的竞态路径。首版测试的预期写反了。
+
+## 8. `prepareSandbox`（2026-10-21）
+
+- **分工**：Host 负责壳 HTML、初始状态与 CSP 组装（与 TS `createGenUiService.prepareSandbox` 同序）；
+  Electron Main 通过 `registerFromHost` 注册真实 webview 沙箱，Host 不自建 Electron 资源。
+- **协议**：Host→Main 控制通道 `mainRequest { method: "gen-ui.prepareSandbox", params }`，
+  Main 回 `mainResponse { ok, result }`；Main 未声明 `mainServices` 时方法回显式 `NotImplemented`。
+- **参数整形**：`appIdentity = sha256(JSON.stringify(["gen-ui", JSON.stringify([identity||path, sessionId]), path]))`；
+  初始状态先于运行时脚本注入；完整文档（`<html>/<head>/<body>`）在 Host 侧拒绝。
+- **登记差异**：`runtimeId` 按 Host 进程生成一次（TS 按服务实例生成），对注册结果不可见。

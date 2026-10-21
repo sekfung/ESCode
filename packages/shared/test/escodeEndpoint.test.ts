@@ -82,8 +82,6 @@ describe("escodeEndpoint", () => {
       apiBaseUrl: "http://localhost:3030/api/v1",
       escodePlanOpenAiBaseUrl: "http://localhost:3030/api/v1/zcode-plan",
       escodePlanAnthropicBaseUrl: "http://localhost:3030/api/v1/zcode-plan/anthropic",
-      escodePlanBillingCurrentUrl: "http://localhost:3030/api/v1/zcode-plan/billing/current",
-      escodePlanBillingBalanceUrl: "http://localhost:3030/api/v1/zcode-plan/billing/balance",
     });
   });
 

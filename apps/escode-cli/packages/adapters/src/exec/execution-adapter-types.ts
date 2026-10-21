@@ -1,5 +1,4 @@
 import type { SpawnOptions } from "node:child_process";
-import type { ESCodeToolExecResource } from "@escode/shared";
 import type { NetworkEgressEnvPolicy } from "../network/subprocess-env.js";
 import type { ResolvedSpawnCommand } from "./execution-command.js";
 import type {
@@ -72,7 +71,6 @@ export interface ActiveExecutionRecord {
 }
 
 export interface NodeExecutionAdapterOptions {
-  onToolExecResource?: (sample: ESCodeToolExecResource) => void;
   outputRootDir?: string;
   maxPersistedOutputBytes?: number;
   network?: NetworkEgressEnvPolicy;

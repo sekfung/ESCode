@@ -23,12 +23,8 @@ import {
   type IDisposable,
   type IChannelServer,
   LoggingChannelServer,
-  NetworkTelemetryChannelServer,
 } from "@escode/rpc";
-import { registerHostNetworkTelemetry, stopHostNetworkTelemetry } from "./hostNetworkTelemetry.js";
-import { registerHostServiceResourceTelemetry } from "./hostServiceResourceTelemetry.js";
-import { resolveResourceTelemetryEnvironmentKey } from "./hostResourceTelemetryEnvironment.js";
-import { reportHostSessionCreate } from "./hostSessionCreateTelemetry.js";
+import { startHostMemoryDiagnosticsLog } from "./hostMemoryDiagnosticsLog.js";
 import { createBrowserControlMainBridge } from "./browserControlMainBridge.js";
 import { materializeBrowserRecordingArtifact } from "./browserRecordingArtifactMaterializer.js";
 import {
@@ -141,7 +137,6 @@ import { pushDynamicWorkflowUserModeToRemoteHosts } from "./remoteDynamicWorkflo
 import { createWindowHostControllerRuntime } from "./windowHostControllerService.js";
 import { resolveAutomationSubmissionModelSelection } from "./automationModelSelection.js";
 import { createRemoteConnectionProgressContext } from "@escode/server/remote/remoteConnectionProgressContext.js";
-import { startHostSelfResourceTelemetry } from "./hostSelfResourceTelemetry.js";
 type RemoteBackendHostConnection = RemoteConnection & {
   backend: IRemoteBackend;
 };
@@ -564,15 +559,6 @@ async function dispatchCronRun(request: CronRunDispatchRequest): Promise<{
       clientMode: "desktop-continuous",
       automationId: request.automationId,
     });
-    // prompt 创建的定时任务带 targetTaskId，追加原会话不能计成 session_create。
-    if (!request.targetTaskId) {
-      reportHostSessionCreate(parentPort, {
-        sessionId: task.taskId,
-        messageId: promptTraceId,
-        source: "automation_scheduled",
-        workspaceIdentity: request.workspaceIdentity,
-      });
-    }
     return { taskId: task.taskId, sessionId: task.taskId };
   } catch (error) {
     if (trackedKey) disposeCronRunSubscription(trackedKey);
@@ -649,14 +635,11 @@ async function dispatchManualAutomationRun(params: {
 // Node warning 不是远端连接失败，改成结构化 warn，避免默认 stderr 被误染成 error。
 process.on("warning", (warning) => logger.warn(`${warning.name}: ${warning.message}`));
 
-registerHostNetworkTelemetry(parentPort);
-// Host 进程自身的 60 秒采样：一次读数两个出口——门控后写本地
-// `[memory]` 行，同一次读数换算成 HostResourceSample 经 parentPort 送 main 作 heap 来源。
+// Host 进程自身的 60 秒本地内存诊断：门控后写 `[memory]` 行。
 // services 计数器由各 service 工厂自注册。
-const hostSelfResourceTelemetry = startHostSelfResourceTelemetry({
+const hostMemoryDiagnostics = startHostMemoryDiagnosticsLog({
   logger,
   collectCounters: collectServiceMemoryDiagnostics,
-  postMessage: parentPort ? (message) => parentPort.postMessage(message) : undefined,
 });
 
 const runtimeProcessLifecycleReporter = {
@@ -1196,7 +1179,6 @@ const pendingStartupAttachments = new Map<string, () => void>();
 let activeServices: ServiceCollection | null = null;
 let activeHostApiNetworkTransport: HostApiNetworkTransport | null = null;
 /** 本地 host services 的资源遥测订阅；远端连接的订阅由各自的 connection handle 持有。 */
-let activeLocalResourceTelemetry: IDisposable | null = null;
 // 资源管理器采样只在 main 请求时执行一次，Host 不维护任何周期定时器。
 const hostResourceUsageResponder = createHostResourceUsageResponder({
   getAgentService: () => activeServices?.getOptional(IESCodeAgentService),
@@ -1359,24 +1341,6 @@ async function createWindowRemoteConnectionHandle(params: {
 
   peerServices = services;
   let disposed = false;
-  // 远端 workspace 的 CLI 与 MCP 样本走与本地同一条路径：远端 escode-server → 本地 Host → main。
-  // 订阅寿命等于这份远端 services 的寿命：由 connection handle 持有，registry 释放 entry
-  // （WSL idle 回收、最后一个 logical session 关闭、掉线后的 session 清理）时随 dispose 一起收口。
-  const resourceTelemetry = registerHostServiceResourceTelemetry({
-    services,
-    postMessage: (message) => parentPort?.postMessage(message),
-    runtimeSurface: "remote",
-    // 独立旧 Server 不认识新增事件时会在对端抛错，必须在发送订阅前按能力门控。
-    telemetrySupported:
-      params.target.kind !== "server" ||
-      ("serverInfo" in connection &&
-        connection.serverInfo.capabilities.processResourceTelemetry === true),
-    environmentKey: resolveResourceTelemetryEnvironmentKey(
-      params.target,
-      "serverInfo" in connection ? connection.serverInfo.serverId : undefined,
-    ),
-    onError: (error) => logger.warn("remote resource telemetry subscription failed", error),
-  });
   const remoteMediaPreviewFactory =
     params.target.kind === "server" || !remoteMediaRangePreviewEnabled
       ? undefined
@@ -1411,7 +1375,6 @@ async function createWindowRemoteConnectionHandle(params: {
       }
       disposed = true;
       closeListeners.clear();
-      resourceTelemetry.dispose();
       await disposeServiceResourcesAndWait(services);
       await disposeHostRemoteConnection(connection);
     },
@@ -1513,26 +1476,6 @@ const windowHostControllerRuntime = createWindowHostControllerRuntime({
     };
   },
 });
-
-function wireLocalResourceTelemetry(services: ServiceCollection): void {
-  activeLocalResourceTelemetry?.dispose();
-  activeLocalResourceTelemetry = registerHostServiceResourceTelemetry({
-    services,
-    postMessage: (message) => parentPort?.postMessage(message),
-    runtimeSurface: "local",
-    onError: (error) => logger.warn("local resource telemetry subscription failed", error),
-  });
-}
-
-function disposeLocalResourceTelemetry(): void {
-  try {
-    activeLocalResourceTelemetry?.dispose();
-  } catch {
-    // 资源遥测释放失败不能阻塞 Host 的既有 shutdown barrier。
-  } finally {
-    activeLocalResourceTelemetry = null;
-  }
-}
 
 type ExposedServicePortHandle = {
   server: IChannelServer & { ready(): void };
@@ -1659,8 +1602,7 @@ function exposeServicesOnMessagePort(
   // attach 模式复用已就绪服务，必须立即初始化新的 RPC MessagePort。
   logger.info(`creating ChannelServer (deferInit=${deferInit})`);
   const rawServer = new ChannelServer(protocol, "host", 1000, deferInit);
-  const loggedServer = new LoggingChannelServer(rawServer, logRpc);
-  const server = new NetworkTelemetryChannelServer(loggedServer);
+  const server = new LoggingChannelServer(rawServer, logRpc);
   const agentService = services.getOptional(IESCodeAgentService);
   const connectionScope = agentService
     ? createESCodeAgentConnectionScope(agentService, {
@@ -1790,10 +1732,8 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
     logger.info(`disposing host resources, reason=${reason}`);
 
     pluginSandboxRegistrationBridge.dispose();
-    stopHostNetworkTelemetry();
     hostNetworkCapture.setCaptureId(null);
-    hostSelfResourceTelemetry.stop();
-    disposeLocalResourceTelemetry();
+    hostMemoryDiagnostics.stop();
     disposeAttachedServicePorts();
     windowHostControllerRuntime.dispose();
     for (const key of Array.from(cronRunSubscriptions.keys())) {
@@ -1857,9 +1797,7 @@ function disposeHostResourcesBestEffort(reason: string): void {
 
   logger.info(`disposing host resources, reason=${reason}`);
   pluginSandboxRegistrationBridge.dispose();
-  stopHostNetworkTelemetry();
   hostNetworkCapture.setCaptureId(null);
-  disposeLocalResourceTelemetry();
   disposeAttachedServicePorts();
   windowHostControllerRuntime.dispose();
   for (const key of Array.from(cronRunSubscriptions.keys())) {
@@ -2454,10 +2392,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               },
               registerPluginSandbox: pluginSandboxRegistrationBridge.register,
               runtimeProcessEnvPatch: msg.runtimeProcessEnvPatch,
-              agentTelemetry: {
-                getDeviceMid: () => msg.deviceMid,
-                runtimeSurface: "desktop_local_host",
-              },
+              agentRuntimeSurface: "desktop_local_host",
               serviceAuthorityMode: "desktop-local",
               escodeAgentSpawnFallbackCwd: msg.agentSpawnFallbackCwd,
               escodeBuiltinProviderConfigFilePath: msg.escodeBuiltinProviderConfigFilePath,
@@ -2498,7 +2433,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           );
           services.register(IESCodeTaskService, reportingESCodeTaskService);
         }
-        wireLocalResourceTelemetry(services);
         hasDisposedHostResources = false;
         disposeHostResourcesInFlight = null;
         const agentWarmupTargets =

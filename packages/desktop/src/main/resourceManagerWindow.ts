@@ -1,5 +1,6 @@
 import { app, BrowserWindow, webContents as electronWebContents } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
+import type { ChromiumProcessRolePids } from "./resourceManagerProcessRoles.js";
 import os from "node:os";
 import { join } from "node:path";
 import {
@@ -17,7 +18,6 @@ import {
 import { logger } from "./logger.js";
 import { configureNetworkCaptureHost, observeNetworkWindow } from "./resourceManagerNetwork.js";
 import { normalizeElectronCpuToMachinePercent } from "./electronCpuNormalization.js";
-import type { ChromiumProcessRolePids } from "./processResourceRoleClassifier.js";
 import { buildAuxiliaryRendererName } from "./resourceManagerProcessNames.js";
 import {
   forgetHostResourceUsage,
@@ -170,7 +170,7 @@ function collectUtilityProcessPids(children: Iterable<ElectronUtilityProcess>): 
 }
 
 /**
- * 当前各进程角色的 pid 快照，供资源遥测按 process_role 拆分使用
+ * 当前各进程角色的 pid 快照，供资源管理器按进程角色拆分使用
  *
  * getAppMetrics 不直接给 renderer / host / scheduler 的角色，需结合
  * BrowserWindow / webContents / utilityProcess 注册表才能可靠归类。

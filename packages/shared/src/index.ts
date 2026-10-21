@@ -34,7 +34,7 @@ export type { WorkspacePurpose } from "./workspacePurpose.js";
 export { DEFAULT_LOCALE } from "./protocol.js";
 export { ESCODE_VERSION, ESCODE_COMMIT, ESCODE_BUILD_TIME } from "./version.js";
 export type { HelloMessage, HelloAckMessage } from "./handshake.js";
-export type { ArmsRumEnv, ESCodeEnv, ESCodeProductFlavor } from "./env.js";
+export type { ESCodeEnv, ESCodeProductFlavor } from "./env.js";
 export type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
 export type {
   RemoteResourcePackageId,
@@ -70,15 +70,11 @@ export {
   ESCODE_APP_VERSION_ENV,
   ESCODE_BUILD_COMMIT_ID_ENV,
   RUNTIME_ESCODE_DEBUG,
-  ESCODE_ARMS_RUM_ENDPOINT,
-  ESCODE_TELEMETRY_REPORT_ENDPOINT,
   ESCODE_AUTO_UPDATE_ENABLED,
-  mapESCodeEnvToArmsRumEnv,
   normalizeESCodeEnv,
   normalizeESCodeProductFlavor,
 } from "./env.js";
 export * from "./errors.js";
-export * from "./rendererActionTrace.js";
 export * from "./validation.js";
 export * from "./api.js";
 export * from "./escode-protocol/index.js";
@@ -138,37 +134,8 @@ export {
   buildLocalMediaPreviewUrl,
   createOpenInEditorRemoteTarget,
 } from "./platform.js";
-export type {
-  ArmsCustomEventPayload,
-  ConfigureFinalArmsCustomEventE2ERequest,
-  FinalArmsCustomEventE2EEntry,
-  FinalArmsCustomEventPayload,
-  RendererTelemetryEventPayload,
-  TelemetryEventPayload,
-  TelemetryRendererContext,
-} from "./telemetry.js";
-export {
-  collectTelemetryRendererContext,
-  resolveSafeTelemetryHostname,
-  sanitizeTelemetryErrorMessage,
-  sanitizeTelemetryEventDetail,
-} from "./telemetry.js";
-export type {
-  RedactTelemetryTextOptions,
-  TelemetryProviderIdentity,
-  TelemetryProviderScope,
-} from "./telemetryRedaction.js";
-export {
-  TELEMETRY_SAFE_BUILTIN_MODEL_IDS,
-  TELEMETRY_TEXT_MAX_LENGTH,
-  redactTelemetryText,
-  redactTelemetryUrl,
-  resolveTelemetryModelId,
-  resolveTelemetryProviderScope,
-  sanitizeTelemetryModelValue,
-} from "./telemetryRedaction.js";
-export * from "./remoteUsageTelemetry.js";
-export * from "./sessionCreateTelemetry.js";
+export * from "./remoteUsage.js";
+export * from "./sessionCreate.js";
 export type { LaunchMarks } from "./launchMarks.js";
 export { LAUNCH_MARKS_QUERY_KEY, parseLaunchMarks, serializeLaunchMarks } from "./launchMarks.js";
 export type {
@@ -305,7 +272,6 @@ export {
 } from "./subagent-markdown-selection.js";
 export * from "./memoryDiagnostics.js";
 export * from "./database-startup.js";
-export * from "./processResourceTelemetry.js";
 export * from "./execution-state.js";
 
 export { bashOutputDisplaySchema } from "./bash-output-display.js";
@@ -315,7 +281,7 @@ export * from "./subagent-runtime-config.js";
 export * from "./subagent-profile.js";
 export { parseAgentProfileFromMarkdown } from "./subagent-profile-parser.js";
 
-export * from "./localTtft.js";
+export * from "./localMonotonicClock.js";
 export * from "./pluginStoreOrder.js";
 export * from "./clientConfig.js";
 export * from "./pluginStoreOrdering.js";

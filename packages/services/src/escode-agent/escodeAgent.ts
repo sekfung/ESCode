@@ -22,10 +22,6 @@ import type {
   ModelSelection,
   ESCodeSessionImportHistory,
   ESCodePermissionRequestParams,
-  AgentLaneResourceSample,
-  ESCodeMcpTelemetryEvent,
-  ESCodeMcpResourceSample,
-  ESCodeToolExecResource,
   ESCodeProcessChildProcess,
   ESCodeMcpListResult,
   ESCodePluginsListResult,
@@ -885,18 +881,6 @@ export interface IESCodeAgentService {
   ): Event<ESCodeProviderRuntimeHeadersCancelled>;
   onDynamicSessionRuntimePreferencesRequest(): Event<ESCodeAgentSessionRuntimePreferencesRequest>;
   /**
-   * CLI 进程级资源样本，带 services 打的 lane 标签（CLI 自己不知道 lane）。
-   * 使用 dynamic event 避免 RPC 服务在无人订阅时缓冲周期事件；
-   * 该事件不属于 session/conversation continuous 或 replayable 状态。
-   */
-  onDynamicProcessResourceSample(): Event<AgentLaneResourceSample>;
-  /** MCP 进程生命周期与低频内存事件，仅供可信 Host relay 上报 ARMS。 */
-  onDynamicMcpTelemetry(): Event<ESCodeMcpTelemetryEvent>;
-  /** MCP 进程树资源事实，只供可信 Host 汇总上报。 */
-  onDynamicMcpResourceSamples(): Event<ESCodeMcpResourceSample[]>;
-  /** Bash 完成事实，仅可信 Host 资源旁路订阅。 */
-  onDynamicToolExecResource(): Event<ESCodeToolExecResource>;
-  /**
    * @deprecated 旧协议订阅面（session/subscribe + session/event + state.updated）。
    * task-index syncer 已迁 v4 sessions-index/workspace-config 帧；
    * 仅剩 escodeTaskServiceAdapter.onDynamicTaskEvent（replayable 读路径）消费。
@@ -987,10 +971,7 @@ export interface IESCodeAgentService {
   onDynamicConversationFrame(
     params: ESCodeAgentWorkspaceTarget,
   ): Event<ConversationTopicWireCandidate>;
-  /** workspace 级 live telemetry 事实；connection facade 仅向可信 desktop-continuous 下游暴露。 */
-  onDynamicLocalTtftFacts(
-    params: ESCodeAgentWorkspaceTarget,
-  ): Event<import("@escode/shared").LocalTtftFacts>;
+  /** workspace 级 live activity 事实；connection facade 仅向可信 desktop-continuous 下游暴露。 */
   onDynamicConversationTelemetryFact(
     params: ESCodeAgentWorkspaceTarget,
   ): Event<ConversationTelemetryFact>;

@@ -1559,50 +1559,12 @@ commands/query { commands: CommandKey[] }      // 1..64 个
 
 无聚合中间层（05）：连接建立后客户端**并行**发起 `subscribe(sessions-index/<ws>)` + `subscribe(conversation/<活跃 sessionId>)` + settings 类 query，ws 多路复用一个 RTT 内完成。无专门 bootstrap 方法。
 
-### 7.5 Live conversation telemetry feed
+### 7.5 内部会话活动事实
 
-对话埋点使用独立的 ephemeral live feed，不属于 conversation topic，也不参与 snapshot、fragment、
-recovery 或 `rows/range`。事实只从当前 CLI 进程的 runtime live ingest 分流：
-
-```ts
-interface ConversationTelemetryFactBase {
-  version: 1;
-  eventId: string;
-  eventSeq: number;
-  occurredAt: Timestamp;
-  sessionId: string;
-  sourceCommandId?: string;
-  turnId?: string;
-}
-
-type ConversationTelemetryFact = ConversationTelemetryFactBase &
-  (
-    | { kind: "turn.started" /* metadata only */ }
-    | { kind: "model.request.status" /* allowlisted request fields + hostname */ }
-    | { kind: "stream.chunk"; streamKind: "thought" | "text"; chunkLength: number }
-    | { kind: "tool.lifecycle" /* ids/status/allowlisted perf; no input/output */ }
-    | { kind: "permission.lifecycle" /* request/response timing */ }
-    | { kind: "usage.delta" /* token counters only */ }
-    | { kind: "turn.terminal" /* success/fail/interrupted */ }
-    | { kind: "compaction.terminal" /* old /report compaction fields */ }
-  );
-```
-
-强制边界：
-
-- persisted hydration、subscribe initial、cold snapshot 和 gap recovery 不产生 fact；hydration 期间新到达
-  的 live runtime event 仍产生一次。
-- fact 不进入 transcript、ConversationRow、事件日志、relay 或 main 业务状态。
-- prompt/text chunk 不携正文；tool 不携 input/output；模型 URL 只保留解析后的 hostname。
-- Host 根据 attachment 的可信 `clientMode` 开放订阅，只有 `desktop-continuous` renderer 安装实际
-  reporter；`web-remote-replayable` 不得通过伪造字段扩大旧桌面采集口径。
-- workspace supervisor key 使用
-  `endpoint + remoteSessionId + (workspaceIdentity?.trim() || workspacePath) + serviceGeneration`；
-  pane/SessionDataLayer 生命周期不得拥有该状态。
-- eventId 使用约 2000 条有界 LRU；terminal 与 compact 另按业务 key exactly-once。
-
-完整事件名、字段兼容和前后台矩阵见
-[`docs/monitoring/conversation-telemetry-v4.md`](../monitoring/conversation-telemetry-v4.md)。
+`v4/telemetry/event` 只保留内部会话活动事实，用于任务活动计数、CUA 提示与 headless usage 汇总。
+产品埋点、ARMS、CLI Agent OTLP 与 Renderer user action trace 已于 2026-10-21 删除；事实不再进入
+`/event/report` 或任何远端上报通道。事实不属于 conversation topic，不参与 snapshot、fragment、
+recovery 或 `rows/range`。
 
 ---
 

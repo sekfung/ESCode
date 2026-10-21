@@ -31,7 +31,7 @@ pub(crate) use controller::normalize_scope;
 /// TS `isRemoteWorkspaceIdentity`（`packages/shared/src/remote-workspace-identity.ts`）：
 /// `remote:<kind>:<authority…>:<posixPath>`，kind ∈ ssh/wsl/docker/server；远端路径必须以 `/` 开头。
 /// 远程 source 本片不支持：这类 scope 不回落本地（与 TS 的 `resolveSource` 一致）。
-pub(super) fn is_remote_workspace_identity(identity: &str) -> bool {
+pub(crate) fn is_remote_workspace_identity(identity: &str) -> bool {
     let Some(rest) = identity.strip_prefix("remote:") else {
         return false;
     };

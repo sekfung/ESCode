@@ -37,6 +37,18 @@ pub(crate) struct Base {
     plan_support: Mutex<BTreeMap<(String, u64), bool>>,
     /// provider runtime headers 反向请求注册表（与 runtime responder 共用）。
     pub provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
+    /// `plugin-management` 面（`escode-agent` 旧插件方法与全局工作流载体共用）。
+    pub plugin_management: crate::domains_plugin::PluginManagement,
+    /// automation 派发复用的任务写上下文（与 `escode-task` 同一份队列/事件/索引句柄）。
+    pub automation: Option<crate::domains_task_state::StateContext>,
+    /// `syncAppRuntimePreferences` 的最新快照；新实例就绪时追平。
+    pub preferences: Mutex<Option<Value>>,
+    /// `syncDynamicWorkflowUserMode` 的最新选择；新实例就绪时追平。
+    pub dynamic_workflow_mode: Mutex<Option<Value>>,
+    /// 已追平的 (身份键, 代次)，避免每条请求重复同步。
+    runtime_state_applied: Mutex<std::collections::BTreeSet<(String, u64)>>,
+    /// CUA 权限观察事件扇出（runtime 通知 → Renderer 事件）。
+    pub cua_observations: Arc<crate::cua_observations::CuaObservations>,
 }
 
 /// 一次 runtime 调用的结果。
@@ -50,6 +62,8 @@ impl Base {
         options: escode_host_surface::OptionsFactory,
         index: Option<ReadContext>,
         provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
+        plugin_management: crate::domains_plugin::PluginManagement,
+        automation: Option<crate::domains_task_state::StateContext>,
     ) -> Self {
         Self {
             instances,
@@ -58,7 +72,112 @@ impl Base {
             index,
             plan_support: Mutex::default(),
             provider_headers,
+            plugin_management,
+            automation,
+            preferences: Mutex::default(),
+            dynamic_workflow_mode: Mutex::default(),
+            runtime_state_applied: Mutex::default(),
+            cua_observations: Arc::new(crate::cua_observations::CuaObservations::default()),
         }
+    }
+
+    fn workspace_ref(instance: &escode_host_runtime::Instance) -> Value {
+        let path = instance.workspace_path();
+        forward::workspace_ref_json(
+            path,
+            instance.workspace_identity(),
+            None,
+            &instance.identity,
+        )
+    }
+
+    /// 记录新的 App 运行时偏好，并让所有活实例在下一请求前追平。
+    pub(crate) fn set_preferences(&self, preferences: Value) {
+        *lock(&self.preferences) = Some(preferences);
+        lock(&self.runtime_state_applied).clear();
+    }
+
+    /// 记录新的动态工作流用户选择，并让所有活实例在下一请求前追平。
+    pub(crate) fn set_dynamic_workflow_mode(&self, mode: Option<Value>) {
+        *lock(&self.dynamic_workflow_mode) = mode;
+        lock(&self.runtime_state_applied).clear();
+    }
+
+    /// 立即把当前偏好/选择推给所有活实例（`syncAppRuntimePreferences` 的同步语义）。
+    pub(crate) async fn sync_runtime_state(&self) -> Result<(), RpcError> {
+        for identity in self.instances.identities() {
+            if let Some(instance) = self.instances.live(&identity) {
+                self.ensure_runtime_state(&instance).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 新实例就绪时追平最新偏好与动态工作流选择（每代次一次）。
+    pub(crate) async fn ensure_runtime_state(
+        &self,
+        instance: &Arc<escode_host_runtime::Instance>,
+    ) -> Result<(), RpcError> {
+        let key = (instance.identity.clone(), instance.generation);
+        if lock(&self.runtime_state_applied).contains(&key) {
+            return Ok(());
+        }
+        self.cua_observations.attach(instance).await;
+        let preferences = lock(&self.preferences).clone();
+        if let Some(preferences) = preferences {
+            let workspace = Self::workspace_ref(instance);
+            let body = json!({
+                "workspace": workspace,
+                "preferences": {
+                    "askUserQuestionAutoResolutionEnabled":
+                        preferences["askUserQuestionAutoResolutionEnabled"].clone(),
+                },
+            });
+            if let Err(error) = forward::request(
+                instance,
+                "workspace/updateInteractionPreferences",
+                body,
+                None,
+            )
+            .await
+                && error.extra.get("code") != Some(&Value::from(-32601))
+            {
+                return Err(error);
+            }
+            let body = json!({
+                "workspace": Self::workspace_ref(instance),
+                "preferences": {
+                    "fullRetentionEnabled":
+                        preferences["modelIoFullRetentionEnabled"].as_bool() == Some(true),
+                },
+            });
+            if let Err(error) =
+                forward::request(instance, "workspace/updateModelIoPreferences", body, None).await
+                && error.extra.get("code") != Some(&Value::from(-32601))
+            {
+                return Err(error);
+            }
+        }
+        let mode = lock(&self.dynamic_workflow_mode).clone();
+        if let Some(mode) = mode {
+            let enabled = mode.as_str().is_some_and(|mode| mode != "disabled");
+            let mut body = json!({
+                "workspace": Self::workspace_ref(instance),
+                "enabled": enabled,
+            });
+            if enabled && let Some(mode) = mode.as_str() {
+                body["mode"] = Value::from(mode);
+            }
+            let _ = forward::request(
+                instance,
+                "workspace/updateDynamicWorkflowPolicy",
+                body,
+                None,
+            )
+            .await;
+        }
+        lock(&self.runtime_state_applied).insert(key);
+        Ok(())
     }
 
     /// 按策略取实例并发一条请求。
@@ -72,6 +191,7 @@ impl Base {
         let routing = forward::runtime_target(target.clone())?;
         let instance =
             forward::runtime_instance(&self.instances, &self.options, &routing, policy).await?;
+        self.ensure_runtime_state(&instance).await?;
         let result = forward::request(&instance, method, body, None).await?;
         Ok(Called { result })
     }
@@ -89,6 +209,7 @@ impl Base {
         let bootstrap = Instant::now();
         let instance =
             forward::runtime_instance(&self.instances, &self.options, &routing, policy).await?;
+        self.ensure_runtime_state(&instance).await?;
         let bootstrap_ms = millis(bootstrap);
         self.hub.ensure_pump(&instance).await;
         let request_started = Instant::now();

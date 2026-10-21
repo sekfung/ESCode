@@ -8,11 +8,7 @@ import {
   type McpConnectionPool,
   type McpTelemetryTracker,
 } from "@escode/adapters/mcp";
-import {
-  escodeProtocolNotifications,
-  type ESCodeMcpResourceSample,
-  type ESCodeMcpTelemetryEvent,
-} from "@escode/shared";
+import { escodeProtocolNotifications } from "@escode/shared";
 import type { SqliteSessionStore } from "@escode/adapters/storage";
 import { traceContextToLogContext, createRootTraceContext } from "@escode/contracts";
 import type { McpPort, ModelSelection } from "@escode/contracts";
@@ -45,12 +41,9 @@ import {
 import { ESCodeProtocolAgentServer } from "./escode-protocol/server.js";
 import { ESCodeProtocolNdjsonConnection } from "./escode-protocol/transport.js";
 import { cleanupProtocolRuntime } from "./escode-protocol/runtime-cleanup.js";
-import { startProtocolResourceSampler } from "./escode-protocol/resource-sampler.js";
 import { acquireProtocolStartupResource } from "./escode-protocol/startup-resource.js";
-import { prepareESCodeTelemetryEnv, shutdownESCodeTelemetry } from "./telemetry-bootstrap.js";
 import { createSerialBroker, type SerialBroker } from "./app/serial-broker.js";
 import { isHostSerialAvailable } from "./app/built-in-serial.js";
-import type { ESCodeProcessResourceSampler } from "./process-resource-sampler.js";
 
 export function applyProtocolPresentationSurface(
   options: Omit<ESCodeAppOptions, "providerRegistry">,
@@ -131,9 +124,6 @@ export async function runESCodeProtocolAgent(
   let mcpConnectionPool: McpConnectionPool | undefined;
   let mcpPort: McpPort | undefined;
   let mcpTelemetryTracker: McpTelemetryTracker | undefined;
-  let mcpResourceSink: ((samples: ESCodeMcpResourceSample[]) => void) | undefined;
-  let mcpTelemetrySink: ((event: ESCodeMcpTelemetryEvent) => void) | undefined;
-  let processResourceSampler: ESCodeProcessResourceSampler | undefined;
   let providerRegistryRuntime:
     | Awaited<ReturnType<typeof startProcessProviderRegistryRuntime>>
     | undefined;
@@ -171,26 +161,11 @@ export async function runESCodeProtocolAgent(
       module: "bootstrap.escode_protocol",
       providerCount: providerRegistryRuntime.snapshot.registry.providers.length,
     });
-    const runtimeSurface = resolveProtocolRuntimeSurface(runtimeEnv);
-    const telemetryEnv = await acquireProtocolStartupResource({
-      signal: options.lifecycle?.signal,
-      logger,
-      disposeLate: () => shutdownESCodeTelemetry(),
-      create: () =>
-        prepareESCodeTelemetryEnv(runtimeEnv, {
-          cliVersion: options.version,
-          productVersion: options.env?.ESCODE_APP_VERSION,
-          runtimeSurface,
-        }),
-    });
-    const telemetryDeviceMid = telemetryEnv.ESCODE_TELEMETRY_DEVICE_MID;
     mcpTelemetryTracker =
       configResult.config.features.mcp === false
         ? undefined
         : createMcpTelemetryTracker({
-            idSalt: telemetryDeviceMid ?? traceContext.traceId,
-            onEvent: (event) => mcpTelemetrySink?.(event),
-            onResourceSamples: (samples) => mcpResourceSink?.(samples),
+            idSalt: traceContext.traceId,
           });
     // 官方 MCP 身份头端口（spec §7.1/§7.2）：连接池构造早于 server，故用惰性 holder 回填。
     // server 就绪前该端口返回 official_auth_unavailable；HTTP tools/call 会匿名交给服务端
@@ -283,9 +258,7 @@ export async function runESCodeProtocolAgent(
             };
           },
           env: {
-            ...telemetryEnv,
             ...appOptions.env,
-            ...(telemetryDeviceMid ? { ESCODE_TELEMETRY_DEVICE_MID: telemetryDeviceMid } : {}),
           },
           ...(nodeReplBrowserBroker ? { nodeReplBrowserBroker } : {}),
           ...(serialBroker ? { serialBroker } : {}),
@@ -298,8 +271,6 @@ export async function runESCodeProtocolAgent(
                   }),
               }
             : {}),
-          onToolExecResource: (params) =>
-            connection.send({ method: escodeProtocolNotifications.toolExecResource, params }),
         }),
       cwd: options.cwd,
       env: options.env,
@@ -353,26 +324,7 @@ export async function runESCodeProtocolAgent(
       takePostResponseBatch: (requestId) => server.takePostResponseBatch(requestId),
     });
     server.setNotificationSink((notification) => connection.send(notification));
-    mcpResourceSink = (samples) =>
-      connection.send({
-        method: escodeProtocolNotifications.mcpResourceSamples,
-        params: samples,
-      });
-    mcpTelemetrySink = (event) => {
-      // 五分钟资源通知取代旧内存通知；tracker 内部孤儿事实仍保留原判据。
-      if (event.kind === "memory") return;
-      connection.send({
-        method: escodeProtocolNotifications.mcpTelemetry,
-        params: event,
-      });
-    };
     connection.start();
-    mcpTelemetryTracker?.start();
-    processResourceSampler = startProtocolResourceSampler(
-      server,
-      (message) => connection.send(message),
-      logger,
-    );
     startupTimer.complete("ESCode Protocol agent startup completed", {
       event: "escode_protocol.startup.completed",
       stage: "total",
@@ -394,7 +346,6 @@ export async function runESCodeProtocolAgent(
       logger,
       deadlineAt: options.lifecycle?.deadlineAt,
       server: serverForCleanup,
-      processResourceSampler,
       mcpTelemetryTracker,
       nodeReplBrowserBroker,
       serialBroker,
@@ -410,13 +361,4 @@ export async function runESCodeProtocolAgent(
       status: "completed",
     });
   }
-}
-
-function resolveProtocolRuntimeSurface(
-  env: NodeJS.ProcessEnv,
-): "desktop_local_host" | "remote_workspace_host" {
-  // Bug 根因：入口曾无条件覆盖 Host 注入值，远程 SSH/WSL/容器 Trace 被归入本地 Desktop。
-  return env.ESCODE_TELEMETRY_RUNTIME_SURFACE?.trim() === "remote_workspace_host"
-    ? "remote_workspace_host"
-    : "desktop_local_host";
 }

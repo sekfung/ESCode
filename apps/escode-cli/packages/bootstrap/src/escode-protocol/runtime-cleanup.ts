@@ -1,10 +1,8 @@
 import type { Logger, McpPort } from "@escode/contracts";
 import type { McpConnectionPool, McpTelemetryTracker } from "@escode/adapters/mcp";
 import type { SqliteSessionStore } from "@escode/adapters/storage";
-import { shutdownPreparedModelTelemetry } from "@escode/telemetry";
 import { closeSessionStore } from "../app/session-store.js";
 import type { NodeReplBrowserBroker } from "../app/node-repl-browser-broker.js";
-import type { ESCodeProcessResourceSampler } from "../process-resource-sampler.js";
 import type { ESCodeProtocolAgentServer } from "./server.js";
 import type { SerialBroker } from "../app/serial-broker.js";
 
@@ -15,7 +13,6 @@ export async function cleanupProtocolRuntime(options: {
   logger: Logger;
   deadlineAt?: number;
   server?: Pick<ESCodeProtocolAgentServer, "shutdown" | "disposeProjections">;
-  processResourceSampler?: Pick<ESCodeProcessResourceSampler, "stop">;
   mcpTelemetryTracker?: Pick<McpTelemetryTracker, "stop">;
   nodeReplBrowserBroker?: Pick<NodeReplBrowserBroker, "close">;
   serialBroker?: Pick<SerialBroker, "close">;
@@ -48,10 +45,7 @@ export async function cleanupProtocolRuntime(options: {
       if (timeout) clearTimeout(timeout);
     }
   };
-  await Promise.all([
-    step("sampler", () => options.processResourceSampler?.stop()),
-    step("mcp_telemetry", () => options.mcpTelemetryTracker?.stop()),
-  ]);
+  await step("mcp_telemetry", () => options.mcpTelemetryTracker?.stop());
   await step("sessions", () => options.server?.shutdown());
   await step("projections", () => options.server?.disposeProjections());
   await Promise.all([
@@ -66,6 +60,5 @@ export async function cleanupProtocolRuntime(options: {
       if (options.sessionStore) closeSessionStore(options.sessionStore);
     }),
     step("provider_registry", () => options.providerRegistryRuntime?.dispose()),
-    step("telemetry", () => shutdownPreparedModelTelemetry()),
   ]);
 }

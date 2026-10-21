@@ -1,27 +1,9 @@
 # Desktop 本地 Crash 留档
 
-Desktop 主进程在启动早期配置 crash dump 路径，并同时保留两条链路：
+Desktop 主进程在启动早期配置 crash dump 路径，并在本地归档原始 minidump，方便用户或开发排查
+（`desktopCrashCapture.ts`）。远端 crash 上报通道已随遥测功能删除，不再初始化 ARMS crash collector。
 
-- ARMS 接收 native crash 与 Electron main 异常，用于线上监控（`appARMSBootstrap.ts`）
-- 本地额外归档一份原始 minidump，方便用户或开发排查（`desktopCrashCapture.ts`）
-
-ARMS crash collector 会扫描 `live` 目录中的全部 dump。为避免后代或外部程序继承
-Crashpad 后把 `hdc`、`plugin-container`、`chrome-headless-shell` 等 dump 混入 ESCode
-健康度，`beforeReport` 先保留 `binary_images` 中含当前 ESCode 产品可执行文件的事件；但仅有
-二进制命中不能证明是主进程崩溃。没有明确 `native_dump_process_role=main` 的 dump 会标记为
-`native_dump_unattributed`，继续保留原始诊断事件但不进入 App Crash / Crash-Free，避免
-Linux/Windows 共用 executable 的 helper/utility crash loop 污染产品稳定性指标。
-角色来源必须是 Crashpad dump 的结构化注解：`@arms/rum-electron` 的 crash collector
-必须从 minidump stream directory 定位 Crashpad info，并沿 annotation 的 RVA 引用读取
-`process_type` / `ptype` 后透传为事件 `meta.process_type`，应用侧再把 `browser` 归一化为
-`main`。不得扫描整个 dump 猜测相邻的 key/value 字节；未被 Crashpad annotation 结构引用的
-同名字节一律忽略。
-事件里的 `meta.process` 仅是应用名，不能作为进程角色回退；缺失或无法解析角色时必须保持
-`native_dump_unattributed`。
-可信可执行文件名同时取产品应用名与 `basename(process.execPath)`：生产包通常两者相同；
-本地开发运行实际使用 `Electron`，Linux Preview 则使用 `escode-preview`，不能只拿
-`app.getName()` 与 dump 模块名比较。
-本地 `archive` 仍保留原始文件，过滤线上指标不会改变本地诊断链路。
+本地 `archive` 保留原始文件；`render-process-gone` / `child-process-gone` 仍写入本地日志并触发归档。
 
 ## 目录结构
 

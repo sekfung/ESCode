@@ -36,23 +36,10 @@ const statusPanelCapture = vi.hoisted(() => ({
   props: [] as Array<Record<string, unknown>>,
 }));
 
-const conversationTelemetryState = vi.hoisted(() => ({
-  current: null as null | {
-    acceptPromptSeed: ReturnType<typeof vi.fn>;
-    attachForeground: ReturnType<typeof vi.fn>;
-  },
-}));
-
 // 本文件只验证 SessionPane 布局骨架，隔离推荐提示词容器：它通过 useWorkspaceServicesResolution 依赖 TabStoreProvider，
 // 而本文件只挂 SessionPane 验证布局，不提供 Tab store。
 vi.mock("@/v4/ConversationDraftSuggestedPromptsContainer.js", () => ({
   ConversationDraftSuggestedPromptsContainer: () => null,
-}));
-
-vi.mock("@/v4/telemetry/ConversationTelemetryAttachment.js", () => ({
-  useScopedConversationTelemetrySupervisor: () => conversationTelemetryState.current,
-  useScopedConversationTelemetryForegroundEnabled: () =>
-    conversationTelemetryState.current !== null,
 }));
 
 vi.mock("@/v4/useConversationProjection.js", () => ({
@@ -510,16 +497,11 @@ describe("SessionPane v4 chat layout parity", () => {
   });
 
   it("renders pending permission before the composer inside the composer dock", () => {
-    conversationTelemetryState.current = {
-      acceptPromptSeed: vi.fn(),
-      attachForeground: vi.fn(() => () => {}),
-    };
     const html = renderPane({
       snapshot: makeSnapshot({
         pendingInteractions: [pendingPermissionInteraction()],
       }),
     });
-    conversationTelemetryState.current = null;
 
     const dockIndex = html.indexOf('data-v4-composer-dock="true"');
     const interactionIndex = html.indexOf('data-testid="mock-interactions"');
@@ -538,7 +520,6 @@ describe("SessionPane v4 chat layout parity", () => {
   });
 
   it("普通 Web 没有 desktop-continuous attachment 时不挂一次性 runtime header controller", () => {
-    conversationTelemetryState.current = null;
     const html = renderPane();
 
     expect(html).not.toContain('data-testid="mock-runtime-headers"');

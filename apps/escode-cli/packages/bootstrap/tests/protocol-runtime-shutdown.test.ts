@@ -7,12 +7,6 @@ import type { Logger } from "@escode/contracts";
 import { createInMemorySessionEventStore } from "@escode/adapters/storage";
 import { ESCodeProtocolAgentServer } from "../src/escode-protocol/server.js";
 
-const telemetry = vi.hoisted(() => ({ shutdown: vi.fn(async () => {}) }));
-vi.mock("@escode/telemetry", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@escode/telemetry")>()),
-  shutdownPreparedModelTelemetry: telemetry.shutdown,
-}));
-
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
@@ -182,7 +176,6 @@ describe("protocol runtime resource ownership", () => {
     await vi.advanceTimersByTimeAsync(451);
     expect(completed).toBe(true);
     expect(order).toEqual(["apps", "projections", "mcp", "pool", "registry"]);
-    expect(telemetry.shutdown).toHaveBeenCalledOnce();
     await cleanup;
   });
 });

@@ -100,7 +100,4 @@ export {
   VIDEO_INPUT_MAX_BYTES,
 } from "@escode/shared";
 
-export * from "./tracing/local-turn-preparation.js";
-export type { LocalTtftDetail } from "@escode/shared";
-
 export * from "./interfaces/permission-full-access.js";

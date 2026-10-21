@@ -101,11 +101,14 @@ impl Status<'_> {
     ) {
         let duration = super::now().saturating_sub(started_ms);
         match result {
-            Ok(_) => {
+            Ok(output) => {
                 self.emit(
                     "model_request_completed",
                     attempt,
-                    json!({ "durationMs": duration }),
+                    json!({
+                        "durationMs": duration,
+                        "usage": super::model_io_project::usage(&output.usage),
+                    }),
                 )
                 .await
             }

@@ -191,6 +191,14 @@ $ git status --short | wc -l
 > channels 42 → 41、members 513 → 473、Implemented 369 → 349、Pending 144 → 124。
 > Bots 不再作为 M3 迁移缺口；历史 `bot_topic_context` 只读投影与 `bot_delivery_target` 冻结列
 > 保留兼容，不再写入。
+>
+> 2026-10-21 内网产品决定删除遥测上报：产品埋点 `/event/report`、ARMS RUM/自定义事件、
+> CLI Agent OTLP、Renderer user action trace、本地 TTFT 导出，以及资源/网络/MCP/数据目录/
+> 远程使用/稳定性等 ARMS 上报链路全部退出；对应的构建期端点、依赖、协议成员、测试与文档一并移除。
+> 保留非遥测用途的 `deviceMid` / `X-Device-Mid`（ESCode endpoint 计费与身份）、本地 Resource Manager、
+> 本地内存与崩溃诊断日志、usage 统计和 Renderer 生成速度显示。`escode-agent` 移除
+> `onDynamicLocalTtftFacts` 等 5 个遥测订阅成员后，channels 维持 41、members 473 → 468，
+> Implemented 389 不变、Pending 84 → 79；遥测不再作为 M3 迁移缺口。
 
 ## 10. M3 全量状态（2026-10-19 续作）
 
@@ -224,7 +232,39 @@ $ git status --short | wc -l
 营销服务（含 `cloud-content`）、off-peak、conversation-share、手机远控与 Bots 均已按产品决定删除，
 不再计入剩余缺口。
 
+## 11. 2026-10-21 缺口补齐
+
+本轮按 §10.2 与 §11 的清单补齐了 Host 侧可自足的成员，契约清单更新为
+**41 channels / 468 members / 389 Implemented / 79 Pending**（`--check` exit 0）。
+
+### 11.1 已完成
+
+| 域                           | 成员 | 证据                                                                                                                                            |
+| ---------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `escode-agent` 已保存工作流  | 8    | `agent_v4/legacy_methods.rs`；`workflows/*` 转发，无 workspace 时打插件管理实例                                                                 |
+| `escode-agent` LLM Wiki      | 4    | `v4/wiki/*` 转发；`getWikiStatus` 的 `-32601` 折算 `supported:false`                                                                            |
+| `escode-agent` 其余直接调用  | 6    | `getSkillReferenceCatalog`、`readSessionDebug`、`syncAppRuntimePreferences`、`syncDynamicWorkflowUserMode`、`onDynamicCuaPermissionObservation` |
+| `escode-agent` 插件旧面      | 18   | 复用 `PluginManagement` 的方法表/事件表（同一管理面实例与进度 Hub）                                                                             |
+| automation                   | 4    | `create/update/restart/runNow` + cron/scheduleRule 计算 + manual dispatcher + 常驻 scheduler（H5.3）                                            |
+| Rust runtime `session/debug` | 1    | `core/src/app/session_debug.rs` 观察 `ModelStatus`；Host existing-only 转发                                                                     |
+| `gen-ui.prepareSandbox`      | 1    | Host 组装壳 HTML/初始状态；`mainRequest` → Main `registerFromHost`                                                                              |
+
+### 11.2 仍未完成
+
+| 缺口                                                                     | 原因                                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `cua-permission` 2                                                       | Host→Main 通道已就绪；仍需把 CUA Helper 生命周期块（签名/ABI/闭源 producer）提到 Main |
+| `plugin-ui-bridge.prepareSandbox`                                        | 最终跳依赖 Main 的 `registerFromHost`，且需要 Rust runtime `mcp/ui*`（上游未实现）    |
+| `plugin-ui-bridge` 11 / `plugin-ui-app-tools` 4 / `plugin-ui-sampling` 2 | 仍被 Rust runtime 的 `mcp/ui*` 上游阻塞                                               |
+
+### 11.3 结论
+
+**M3 仍不可验收**，但 Renderer 可达的 `escode-agent` 旧面与 automation 域已无 `NotImplemented`
+缺口；automation 的常驻调度、`targetTaskId` 恢复与 run 终态回写均已落地。剩余项集中在
+CUA Helper 生命周期与上游 `mcp/ui*`。`provider-provisioning-target.apply` 仍为零 Renderer 调用，非缺口。
+
 建议下一轮顺序：
 
-1. automation（含 Host 调度所有者、H5.3 无窗口调度）。
-2. 收口零散剩余与验收证据（Windows/macOS、Renderer E2E、`web-remote-replayable`）。
+1. 把 CUA Helper 生命周期块提到 Main，接通 `cua-permission` 两个方法（Host→Main 通道已就绪）。
+2. Rust runtime `mcp/ui*` 前置，再迁 `plugin-ui-bridge.prepareSandbox` 与其余 `plugin-ui-*` 16 个成员。
+3. 收口验收证据（Windows/macOS、Renderer E2E、`web-remote-replayable`）。

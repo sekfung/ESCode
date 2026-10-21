@@ -16,12 +16,10 @@ type ProviderRegistryRuntime = Awaited<
 // 只在终态 close 时对称 shutdown。之前是 createTuiSubmitPrompt 里的三个 let 闭包变量。
 interface TuiProcessRuntimeState {
   providerRegistryRuntimePromise: Promise<ProviderRegistryRuntime> | undefined;
-  shutdownTelemetry: (() => Promise<void>) | undefined;
 }
 
 export const createTuiProcessRuntimeState = (): TuiProcessRuntimeState => ({
   providerRegistryRuntimePromise: undefined,
-  shutdownTelemetry: undefined,
 });
 
 // 返回值类型交给推断：原地 createApp 里这几个都是推断出来的局部变量，手写接口反而会把
@@ -49,18 +47,7 @@ export async function prepareTuiAppRuntime(
   const bootstrapModule = deps.createESCodeApp ? undefined : await loadBootstrapModule();
   const createAppFactory = deps.createESCodeApp ?? bootstrapModule?.createESCodeApp;
   if (!createAppFactory) throw new Error("ESCode app factory is unavailable.");
-  const prepareTelemetry =
-    deps.prepareESCodeTelemetryEnv ?? bootstrapModule?.prepareESCodeTelemetryEnv;
-  if (prepareTelemetry) {
-    state.shutdownTelemetry =
-      deps.shutdownESCodeTelemetry ?? bootstrapModule?.shutdownESCodeTelemetry;
-  }
-  const appEnv = prepareTelemetry
-    ? await prepareTelemetry(env, {
-        cliVersion: version,
-        productVersion: env.ESCODE_APP_VERSION,
-      })
-    : env;
+  const appEnv = env;
   const startProviderRegistryRuntime =
     deps.startProcessProviderRegistryRuntime ??
     bootstrapModule?.startProcessProviderRegistryRuntime;

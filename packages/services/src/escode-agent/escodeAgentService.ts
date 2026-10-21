@@ -6,11 +6,7 @@ import {
 import { escodeMcpUiSamplingResultSchema } from "@escode/shared";
 import { MCP_APPS_SAMPLING_TRANSPORT_TIMEOUT_MS } from "@escode/shared/mcp-apps";
 import { requestPluginReferenceCatalog } from "#src/escode-agent/pluginReferenceCatalogRequest.js";
-import {
-  localTtftFactsSchema,
-  sessionDebugSnapshotSchema,
-  type LocalTtftFacts,
-} from "@escode/shared";
+import { sessionDebugSnapshotSchema } from "@escode/shared";
 /* oxlint-disable eslint(max-lines) -- ESCode Protocol transport、通知 wiring 和 app-facing session 方法必须共享同一个 client/emitter 上下文。 */
 import { ensureIndependentPlanSupport, readRuntimeCapabilities } from "./independentPlanSupport.js";
 import { randomUUID } from "node:crypto";
@@ -91,10 +87,6 @@ import {
   escodeProtocolEmptyResultSchema,
   escodeProtocolMethods,
   escodeProtocolNotifications,
-  escodeMcpTelemetryEventSchema,
-  escodeMcpResourceSamplesSchema,
-  escodeToolExecResourceSchema,
-  escodeProcessResourceSampleSchema,
   escodeSessionCloseResultSchema,
   escodeSessionCompactResultSchema,
   escodeSessionEventsResultSchema,
@@ -126,11 +118,6 @@ import {
   applyDynamicWorkflowUserMode,
   isDynamicWorkflowModeEnabled,
   normalizeDynamicWorkflowMode,
-  type AgentLaneResourceSample,
-  type ProcessResourceCliLane,
-  type ESCodeMcpTelemetryEvent,
-  type ESCodeMcpResourceSample,
-  type ESCodeToolExecResource,
   type ESCodePluginOperationProgressNotification,
   type ESCodeTaskMode,
 } from "@escode/shared";
@@ -1097,17 +1084,12 @@ export function createESCodeAgentService(
   }
   const sessionRuntimePreferencesRequestEmitter =
     new Emitter<ESCodeAgentSessionRuntimePreferencesRequest>();
-  const processResourceSampleEmitter = new Emitter<AgentLaneResourceSample>();
-  const toolExecResourceEmitter = new Emitter<ESCodeToolExecResource>();
-  const mcpResourceSamplesEmitter = new Emitter<ESCodeMcpResourceSample[]>();
-  const mcpTelemetryEmitter = new Emitter<ESCodeMcpTelemetryEvent>();
   const pluginOperationProgressEmitters = new Map<
     string,
     Emitter<ESCodePluginOperationProgressNotification>
   >();
   // v4 conversation 帧 fan-out：workspace 级 emitter，renderer 侧按 topic 自行路由。
   const conversationFrameEmitters = new Map<string, Emitter<ConversationTopicWireCandidate>>();
-  const localTtftFactsEmitter = new Emitter<{ workspaceKey: string; facts: LocalTtftFacts }>();
   const conversationTelemetryFactEmitters = new Map<string, Emitter<ConversationTelemetryFact>>();
   const cuaPermissionObservationEmitter = new Emitter<ESCodeAgentCuaPermissionObservation>();
   // sessions-index 帧 fan-out：与 conversation 同一 conversationFrame 通知，按 topic 前缀分流到此 emitter。
@@ -1861,15 +1843,7 @@ export function createESCodeAgentService(
     emitWorkspaceEvent(workspace, { type: "state.updated", notification });
   }
 
-  function wireClient(
-    client: ESCodeProtocolClient,
-    workspace: ESCodeAgentWorkspaceTarget,
-    /**
-     * 该 client 所属的进程泳道。CLI 进程不知道自己被哪个进程管理器拉起，
-     * 因此资源样本的 lane 只能在这里按调用方补齐。
-     */
-    lane: ProcessResourceCliLane,
-  ): void {
+  function wireClient(client: ESCodeProtocolClient, workspace: ESCodeAgentWorkspaceTarget): void {
     if (wiredClients.has(client)) {
       return;
     }
@@ -1893,48 +1867,6 @@ export function createESCodeAgentService(
           if (pending?.client === client) cancelProviderRuntimeHeaders(key, pending);
           return;
         }
-        if (message.method === escodeProtocolNotifications.processResourceSample) {
-          const parsed = escodeProcessResourceSampleSchema.safeParse(message.params);
-          if (parsed.success) {
-            processResourceSampleEmitter.fire({ ...parsed.data, lane });
-          } else {
-            logger.debug(undefined, "丢弃无效 ESCode CLI 资源样本", {
-              issues: parsed.error.issues.map((issue) => ({
-                code: issue.code,
-                path: issue.path.join("."),
-              })),
-            });
-          }
-          return;
-        }
-
-        if (message.method === escodeProtocolNotifications.toolExecResource) {
-          const parsed = escodeToolExecResourceSchema.safeParse(message.params);
-          if (parsed.success) toolExecResourceEmitter.fire(parsed.data);
-          return;
-        }
-        if (message.method === escodeProtocolNotifications.mcpResourceSamples) {
-          const parsed = escodeMcpResourceSamplesSchema.safeParse(message.params);
-          if (parsed.success) mcpResourceSamplesEmitter.fire(parsed.data);
-          else logger.debug(undefined, "丢弃无效 MCP 资源样本");
-          return;
-        }
-
-        if (message.method === escodeProtocolNotifications.mcpTelemetry) {
-          const parsed = escodeMcpTelemetryEventSchema.safeParse(message.params);
-          if (parsed.success) {
-            mcpTelemetryEmitter.fire(parsed.data);
-          } else {
-            logger.debug(undefined, "丢弃无效 ESCode CLI MCP 遥测事件", {
-              issues: parsed.error.issues.map((issue) => ({
-                code: issue.code,
-                path: issue.path.join("."),
-              })),
-            });
-          }
-          return;
-        }
-
         if (message.method === escodeProtocolNotifications.pluginOperationProgress) {
           const parsed = escodePluginOperationProgressNotificationSchema.safeParse(message.params);
           if (parsed.success) {
@@ -2005,15 +1937,6 @@ export function createESCodeAgentService(
           return;
         }
 
-        if (message.method === V4_NOTIFICATIONS.localTtftFacts) {
-          const parsed = localTtftFactsSchema.safeParse(message.params);
-          if (parsed.success && !workspace.remoteSessionId && !workspace.workspaceIdentity?.trim())
-            localTtftFactsEmitter.fire({
-              workspaceKey: resolveWorkspaceKey(workspace),
-              facts: parsed.data,
-            });
-          return;
-        }
         if (message.method === V4_NOTIFICATIONS.conversationTelemetryFact) {
           const parsed = conversationTelemetryFactSchema.safeParse(message.params);
           if (parsed.success) {
@@ -2851,7 +2774,7 @@ export function createESCodeAgentService(
     }
 
     const client = await processManager.getClient(params);
-    wireClient(client, params, "chat");
+    wireClient(client, params);
 
     // processManager 会按 workspaceKey 对并发启动 single-flight。await 期间若另一条
     // read/write 路径已登记同一 client，必须复用现有 entry，不能把已提升的写能力降回 false。
@@ -3005,7 +2928,7 @@ export function createESCodeAgentService(
       if (!existingClient) {
         throw createRuntimeUnavailableError(params);
       }
-      wireClient(existingClient, params, "chat");
+      wireClient(existingClient, params);
       activeClientsByWorkspaceKey.set(workspaceKey, {
         client: existingClient,
         modelExecutionEnabled: false,
@@ -3021,7 +2944,7 @@ export function createESCodeAgentService(
   async function getPluginManagementClient(): Promise<ESCodeProtocolClient> {
     const workspace = { workspacePath: ensurePluginManagementWorkspacePath() };
     const client = await pluginProcessManager.getClient(workspace);
-    wireClient(client, workspace, "plugin");
+    wireClient(client, workspace);
     return client;
   }
 
@@ -3077,7 +3000,7 @@ export function createESCodeAgentService(
   async function getMcpStatusClient(): Promise<ESCodeProtocolClient> {
     const workspace = { workspacePath: ensurePluginManagementWorkspacePath() };
     const client = await mcpStatusProcessManager.getClient(workspace);
-    wireClient(client, workspace, "mcp-status");
+    wireClient(client, workspace);
     return client;
   }
 
@@ -3098,10 +3021,6 @@ export function createESCodeAgentService(
     for (const emitter of providerRuntimeHeadersCancelledEmitters.values()) emitter.dispose();
     providerRuntimeHeadersCancelledEmitters.clear();
     sessionRuntimePreferencesRequestEmitter.dispose();
-    processResourceSampleEmitter.dispose();
-    mcpTelemetryEmitter.dispose();
-    toolExecResourceEmitter.dispose();
-    mcpResourceSamplesEmitter.dispose();
     for (const emitter of pluginOperationProgressEmitters.values()) {
       emitter.dispose();
     }
@@ -3114,7 +3033,6 @@ export function createESCodeAgentService(
       emitter.dispose();
     }
     conversationTelemetryFactEmitters.clear();
-    localTtftFactsEmitter.dispose();
     cuaPermissionObservationEmitter.dispose();
     for (const emitter of workspaceConfigFrameEmitters.values()) {
       emitter.dispose();
@@ -3285,7 +3203,7 @@ export function createESCodeAgentService(
   return {
     async prepareStorage(params) {
       const client = await processManager.getClient(params);
-      wireClient(client, params, "chat");
+      wireClient(client, params);
       await client.storageStartup.wait();
     },
     async getStorageStartupState(params) {
@@ -5568,15 +5486,6 @@ export function createESCodeAgentService(
         });
       }
       let envelope = await buildConversationCommandEnvelope(params);
-      // TTFT 首版只允许可信桌面本地 continuous，远程 workspace/远端透传不能开启本地观测。
-      if (
-        commandClientMode !== "desktop-continuous" ||
-        params.workspaceIdentity?.trim() ||
-        params.remoteSessionId
-      ) {
-        const { ttft: _ttft, ...withoutTtft } = envelope;
-        envelope = withoutTtft;
-      }
       if (envelope.type === "sendText" && envelope.sessionId) {
         const sessionId = envelope.sessionId;
         const payload = {
@@ -5979,12 +5888,6 @@ export function createESCodeAgentService(
       return getConversationFrameEmitter(params).event;
     },
 
-    onDynamicLocalTtftFacts(params: ESCodeAgentWorkspaceTarget) {
-      return (listener: (facts: LocalTtftFacts) => void) =>
-        localTtftFactsEmitter.event((event) => {
-          if (event.workspaceKey === resolveWorkspaceKey(params)) listener(event.facts);
-        });
-    },
     onDynamicConversationTelemetryFact(params: ESCodeAgentWorkspaceTarget) {
       return getConversationTelemetryFactEmitter(params).event;
     },
@@ -6098,21 +6001,6 @@ export function createESCodeAgentService(
 
     onDynamicWorkspaceConfigFrame(params: ESCodeAgentWorkspaceTarget) {
       return getWorkspaceConfigFrameEmitter(params).event;
-    },
-
-    onDynamicProcessResourceSample() {
-      return processResourceSampleEmitter.event;
-    },
-
-    onDynamicToolExecResource() {
-      return toolExecResourceEmitter.event;
-    },
-    onDynamicMcpResourceSamples() {
-      return mcpResourceSamplesEmitter.event;
-    },
-
-    onDynamicMcpTelemetry() {
-      return mcpTelemetryEmitter.event;
     },
 
     // （CLI 重连重订）：进程换代直通 process manager；v4 订阅方（task-index

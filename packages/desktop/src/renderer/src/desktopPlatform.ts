@@ -1,4 +1,3 @@
-import { recordArmsCustomEventForE2E } from "@escode/ui";
 import {
   DesktopCommandIds,
   buildLocalMediaPreviewUrl,
@@ -63,24 +62,6 @@ export function createDesktopPlatform(options: {
     onOAuthCallback: (callback) => window.escode.onOAuthCallback(callback),
     onPaymentCallback: (callback) => window.escode.onPaymentCallback(callback),
     notifyRendererReady: () => window.escode.notifyRendererReady(),
-    reportTelemetryEvent: (payload) => window.escode.reportTelemetryEvent(payload),
-    reportArmsCustomEvent: (payload) => {
-      recordArmsCustomEventForE2E(payload);
-      return window.escode.reportArmsCustomEvent(payload);
-    },
-    getRendererActionTraceConfig: window.escode.getRendererActionTraceConfig
-      ? () => window.escode.getRendererActionTraceConfig!()
-      : undefined,
-    onRendererActionTraceConfigChanged: window.escode.onRendererActionTraceConfigChanged
-      ? (callback) => window.escode.onRendererActionTraceConfigChanged!(callback)
-      : undefined,
-    reportLocalTtftBatch: (batch) => window.escode.reportLocalTtftBatch(batch),
-    reportRendererActionTraceBatch: window.escode.reportRendererActionTraceBatch
-      ? (batch) => window.escode.reportRendererActionTraceBatch!(batch)
-      : undefined,
-    reportRendererHeapSample: window.escode.reportRendererHeapSample
-      ? (sample) => window.escode.reportRendererHeapSample!(sample)
-      : undefined,
     showTaskNotification: (payload) => window.escode.showTaskNotification(payload),
     syncWindowTabs: (paths) => window.escode.syncWindowTabs(paths),
     syncWindowUnreadCount: (count) => window.escode.syncWindowUnreadCount(count),

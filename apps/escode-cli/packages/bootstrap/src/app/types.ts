@@ -1,6 +1,5 @@
 import type { AiSdkModelAdapter } from "@escode/adapters/model";
 import type {
-  AgentTelemetryRuntimeOwner,
   AutomationPort,
   BackgroundTaskCancelResult,
   BrowserControlPort,
@@ -92,7 +91,6 @@ import type {
   BackgroundBashOutputResult,
   SubagentRuntimeConfig,
   ESCodeModelOption,
-  ESCodeToolExecResource,
 } from "@escode/shared";
 import type { McpAppsToolVisibility } from "@escode/shared/mcp-apps";
 import type { EffectiveModelSelectionResult } from "@escode/shared/model-selection";
@@ -159,8 +157,6 @@ export interface ESCodeAppOptions {
   /** 新 Session 使用的 Environment 默认选择；仅在没有显式 runtime modelSelection 时参与初始化。 */
   configuredDefaultModelSelection?: ModelSelection;
   modelIoFullRetentionEnabled?: boolean;
-  /** 同进程嵌入宿主可注入完整的 borrowed 进程级 Owner；Endpoint 配置不得覆盖它。 */
-  telemetryOwner?: AgentTelemetryRuntimeOwner;
   /**
    * provider runtime headers 端口：主 runtime 每次调用报自己的会话；child runtime 一律向父
    * runtime 取派生实例。
@@ -170,8 +166,6 @@ export interface ESCodeAppOptions {
   officialPluginRoots?: string[];
   pluginStorageRoot?: string;
   executionPort?: ExecutionPort;
-  /** 资源遥测旁路；由协议宿主注入，主任务和 workflow 的执行适配器共用。 */
-  onToolExecResource?: (sample: ESCodeToolExecResource) => void;
   /** browser-use 控制端口；注入后 node_repl 的 agent.browsers.* 可用。缺省则不可用。 */
   browserControlPort?: BrowserControlPort;
   /** 可由协议宿主注入的进程级 node_repl Browser broker；缺省时 app 自建并拥有。 */

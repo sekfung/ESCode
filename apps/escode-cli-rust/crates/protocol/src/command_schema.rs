@@ -209,8 +209,7 @@ mod tests {
         }
     }
 
-    /// 漂移：信封语料的键与 Rust `Command` 结构字段必须一一对应（`ttft` 为 TS 新增的
-    /// 可选字段，Rust 结构不保留但解析忽略——显式登记，新增字段必须在此处表态）。
+    /// 漂移：信封语料的键与 Rust `Command` 结构字段必须一一对应。
     #[test]
     fn envelope_properties_match_the_rust_command_struct() {
         const RUST_FIELDS: [&str; 8] = [
@@ -223,7 +222,6 @@ mod tests {
             "sessionId",
             "type",
         ];
-        const IGNORED: [&str; 1] = ["ttft"];
         let properties = corpus()
             .envelope
             .get("properties")
@@ -231,7 +229,7 @@ mod tests {
             .expect("envelope properties");
         for key in properties.keys() {
             assert!(
-                RUST_FIELDS.contains(&key.as_str()) || IGNORED.contains(&key.as_str()),
+                RUST_FIELDS.contains(&key.as_str()),
                 "信封新字段 `{key}` 必须进入 Command 结构或显式登记为忽略"
             );
         }

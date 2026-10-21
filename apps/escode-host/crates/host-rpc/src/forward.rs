@@ -274,7 +274,16 @@ pub async fn runtime_call_with(
     if let (Some((key, value)), Value::Object(request)) = (extra, &mut target.request) {
         request.insert(key.to_owned(), value);
     }
-    forward_target(instances, options, method, target, None, extract).await
+    forward_target(
+        instances,
+        options,
+        method,
+        target,
+        None,
+        extract,
+        RuntimePolicy::StartIfNeeded,
+    )
+    .await
 }
 
 /// 把一次服务调用转发给该 workspace 的 runtime 实例。
@@ -285,8 +294,28 @@ pub async fn runtime_call(
     params: Value,
     extract: Extract,
 ) -> RpcResult {
+    runtime_call_with_policy(
+        instances,
+        options,
+        method,
+        params,
+        extract,
+        RuntimePolicy::StartIfNeeded,
+    )
+    .await
+}
+
+/// 同 [`runtime_call`]，但允许指定 existing-only（观察类调用不得拉起运行时）。
+pub async fn runtime_call_with_policy(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    method: &str,
+    params: Value,
+    extract: Extract,
+    policy: RuntimePolicy,
+) -> RpcResult {
     let target = runtime_target(params)?;
-    forward_target(instances, options, method, target, None, extract).await
+    forward_target(instances, options, method, target, None, extract, policy).await
 }
 
 /// 已整形的运行时调用：路由取自服务级参数，请求体由调用方按 TS 字面量整形后**逐字**发出。
@@ -307,6 +336,26 @@ pub async fn runtime_call_shaped(
     shaped: Shaped,
     extract: Extract,
 ) -> RpcResult {
+    runtime_call_shaped_with_policy(
+        instances,
+        options,
+        routing,
+        shaped,
+        extract,
+        RuntimePolicy::StartIfNeeded,
+    )
+    .await
+}
+
+/// 同 [`runtime_call_shaped`]，但允许指定运行时策略（如 `session/debug` 只观察）。
+pub async fn runtime_call_shaped_with_policy(
+    instances: &escode_host_runtime::Instances,
+    options: &escode_host_surface::OptionsFactory,
+    routing: Value,
+    shaped: Shaped,
+    extract: Extract,
+    policy: RuntimePolicy,
+) -> RpcResult {
     let mut target = runtime_target(routing)?;
     let workspace = target.request.get("workspace").cloned();
     let mut body = shaped.body;
@@ -323,6 +372,7 @@ pub async fn runtime_call_shaped(
         target,
         shaped.trace,
         extract,
+        policy,
     )
     .await
 }
@@ -334,9 +384,9 @@ async fn forward_target(
     target: RuntimeTarget,
     trace: Option<Value>,
     extract: Extract,
+    policy: RuntimePolicy,
 ) -> RpcResult {
-    let instance =
-        runtime_instance(instances, options, &target, RuntimePolicy::StartIfNeeded).await?;
+    let instance = runtime_instance(instances, options, &target, policy).await?;
     let result = request(&instance, method, target.request, trace).await?;
     match extract {
         Extract::Result => Ok(Wire::Object(result)),

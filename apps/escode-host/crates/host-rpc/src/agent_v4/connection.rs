@@ -14,6 +14,7 @@ use crate::wire::Wire;
 use super::automation_methods::automation_methods;
 use super::base;
 use super::frames::TopicKind;
+use super::legacy_methods::{legacy_events, legacy_methods};
 use super::scope::Scope;
 use super::{lifecycle_event, lifecycle_payload, restarted_payload, spawn_background};
 
@@ -276,12 +277,14 @@ pub(super) fn connection_channel(base: &Arc<base::Base>, context: &ConnectionCon
     ];
     methods.extend(automation_methods(
         base.index.as_ref().map(|read| read.path.clone()),
+        base.automation.clone(),
     ));
+    methods.extend(legacy_methods(base));
     let routed = |kind: TopicKind| -> EventHandler {
         let scope = Arc::clone(&scope);
         Arc::new(move |arg: Wire| Ok(scope.routed_event(kind, &first_object(arg))))
     };
-    let events: Vec<(&'static str, EventHandler)> = vec![
+    let mut events: Vec<(&'static str, EventHandler)> = vec![
         (
             "onDynamicConversationFrame",
             routed(TopicKind::Conversation),
@@ -307,6 +310,7 @@ pub(super) fn connection_channel(base: &Arc<base::Base>, context: &ConnectionCon
             provider_headers_event(base),
         ),
     ];
+    events.extend(legacy_events(base));
     let closing = Arc::clone(&scope);
     // 后台任务（换代失效、水位转发）只在真实连接上启动：探测方法表（契约对账/server-info）不能有副作用。
     let opening = (Arc::clone(&scope), Arc::clone(base), context.clone());

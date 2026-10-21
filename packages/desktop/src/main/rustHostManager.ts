@@ -37,6 +37,8 @@ export interface RustHostManagerOptions {
   runtimeEnv?: () => Record<string, string> | Promise<Record<string, string>>;
   /** 本地媒体路径授权（Main 的注册表）；提供后 Host 的 media-preview 回 `local-url`（见 rustHostBridge）。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
+  /** Main 专属服务（cua-permission / sandbox 注册）；提供后 Host 经控制通道转发。 */
+  onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
   /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
   enabled?: boolean;
   /** 启动握手截止时间（默认 10s，spec §4）。 */
@@ -73,7 +75,12 @@ export type RustHostManagerState =
   | { state: "idle" }
   | { state: "starting" }
   | { state: "running"; pid: number | undefined }
-  | { state: "restarting"; attempt: number; delayMs: number; exit: RustHostExit }
+  | {
+      state: "restarting";
+      attempt: number;
+      delayMs: number;
+      exit: RustHostExit;
+    }
   | { state: "failed"; error: RustHostStartError };
 
 export interface RustHostAttachment {
@@ -162,8 +169,11 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       ...(options.runtimeEnv ? { runtimeEnv: await options.runtimeEnv() } : {}),
       ...(options.startTimeoutMs ? { timeoutMs: options.startTimeoutMs } : {}),
       ...(options.authorizeLocalMediaPreviewPath
-        ? { authorizeLocalMediaPreviewPath: options.authorizeLocalMediaPreviewPath }
+        ? {
+            authorizeLocalMediaPreviewPath: options.authorizeLocalMediaPreviewPath,
+          }
         : {}),
+      ...(options.onMainRequest ? { onMainRequest: options.onMainRequest } : {}),
       // Host 的结构化日志（`logBatch` 控制帧）进同一条 Main 日志出口；scope 作为来源标签。
       onLogBatch: (batch) => {
         for (const line of batch.lines) {

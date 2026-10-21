@@ -105,7 +105,16 @@ mod tests {
     fn scope() -> Arc<Scope> {
         let instances = escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded);
         let options: escode_host_surface::OptionsFactory = Arc::new(|_| unreachable!("no runtime"));
-        let base = Arc::new(Base::new(instances, options, None, None));
+        let plugin_management =
+            crate::domains_plugin::PluginManagement::new(instances.clone(), options.clone(), None);
+        let base = Arc::new(Base::new(
+            instances,
+            options,
+            None,
+            None,
+            plugin_management,
+            None,
+        ));
         Scope::new(
             base,
             "host-rpc-test".to_owned(),

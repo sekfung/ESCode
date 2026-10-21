@@ -59,6 +59,5 @@ export {
 export { bashOutputDisplaySchema } from "../bash-output-display.js";
 export { modelSelectionSchema, type ModelSelection } from "../model-selection.js";
 
-export * from "../localTtft.js";
 // LLM Wiki 知识图谱协议（只由 Rust runtime 实现）。
 export * from "./wiki.js";

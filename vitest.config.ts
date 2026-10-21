@@ -49,24 +49,10 @@ const forkIsolatedTests = [
 ];
 
 export default defineConfig({
-  // 测试固定注入事件上报端点，使遥测上报链路在单测中可验证；真实构建由 scripts/build-time-config.mjs 决定。
-  define: {
-    __ESCODE_TELEMETRY_REPORT_ENDPOINT__: JSON.stringify("https://zcode.z.ai/api/v1/event/report"),
-  },
   resolve: {
     alias: {
       "@": resolve(__dirname, "packages/ui/src"),
       "@desktop": resolve(__dirname, "packages/desktop/src"),
-      // 间接 import desktopNetworkTelemetry 等的单测无需真实 ARMS；需 vi.fn 的用例在文件内 vi.mock 覆盖
-      // Bugfix: 具体的 /browser 子路径必须排在包根别名前，否则会被根别名拼成不存在的 stub.ts/browser。
-      "@arms/rum-electron/browser": resolve(
-        __dirname,
-        "packages/desktop/test/mocks/armsRumElectronStub.ts",
-      ),
-      "@arms/rum-electron": resolve(
-        __dirname,
-        "packages/desktop/test/mocks/armsRumElectronStub.ts",
-      ),
     },
   },
   test: {
@@ -101,7 +87,6 @@ export default defineConfig({
             "packages/shared/src/node/genUiPaths.test.ts",
             "packages/services/src/gen-ui/**/*.test.ts",
             "scripts/assert-safe-cua-helper-zip.test.mjs",
-            "scripts/ci/ci-telemetry-keyword-guard.test.mjs",
           ],
           exclude: ["packages/desktop/test/e2e/**", ...forkIsolatedTests],
           // Node 24/macOS 的 threads 全量运行可触发 V8 SIGSEGV；诊断时切换进程隔离，测试范围不变。

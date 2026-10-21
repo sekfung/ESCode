@@ -8,11 +8,9 @@ import {
   escodeProviderRuntimeHeadersResponseSchema,
   escodeProtocolMethods,
   escodeProtocolMessageSchema,
-  escodeProcessResourceSampleSchema,
   escodeProtocolNotifications,
   escodeMcpListParamsSchema,
   escodeModelFormatPropertiesSchema,
-  escodeMcpTelemetryEventSchema,
   escodeSessionCreateParamsSchema,
   escodeSessionCompactParamsSchema,
   escodeSessionEventSchema,
@@ -140,140 +138,6 @@ describe("ESCode Protocol", () => {
     for (const [schema, payload] of payloads) {
       expect(() => schema.parse(payload)).toThrow();
     }
-  });
-
-  it("accepts only bounded process resource samples without workspace or session identity", () => {
-    const sample = {
-      arch: "arm64",
-      cpuCores: 2.5,
-      cpuPercent: 31.25,
-      intervalMs: 60_000,
-      logicalCpuCount: 8,
-      platform: "darwin",
-      rssKb: 65_536,
-    };
-
-    expect(escodeProtocolNotifications.processResourceSample).toBe("process/resourceSample");
-    // PRT-025：旧 CLI 发来的样本没有新字段，仍必须通过校验（新增字段全部可选，握手版本不递增）。
-    expect(escodeProcessResourceSampleSchema.parse(sample)).toEqual(sample);
-    const sampleWithTelemetryFields = {
-      ...sample,
-      heapUsedKb: 20_480,
-      uptimeMinutes: 12,
-      totalMemoryGb: 16,
-      instanceToken: "9f2c4a1b7d0e5638",
-    };
-    expect(escodeProcessResourceSampleSchema.parse(sampleWithTelemetryFields)).toEqual(
-      sampleWithTelemetryFields,
-    );
-    // lane 由 app 侧 services 按所属进程管理器打标，CLI 不知道自己的 lane，也不允许自报。
-    expect(() => escodeProcessResourceSampleSchema.parse({ ...sample, lane: "chat" })).toThrow();
-    // instanceToken 只用于 main 统计进程数，绝不能被拿来夹带 pid、路径或 workspace 标识。
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({ ...sample, instanceToken: "/private/repo" }),
-    ).toThrow();
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({ ...sample, instanceToken: "" }),
-    ).toThrow();
-    expect(() => escodeProcessResourceSampleSchema.parse({ ...sample, heapUsedKb: -1 })).toThrow();
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({ ...sample, uptimeMinutes: 1.5 }),
-    ).toThrow();
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({
-        ...sample,
-        workspacePath: "/private/repo",
-      }),
-    ).toThrow();
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({
-        ...sample,
-        cpuCores: Number.NaN,
-      }),
-    ).toThrow();
-    expect(() =>
-      escodeProcessResourceSampleSchema.parse({
-        ...sample,
-        logicalCpuCount: 0,
-      }),
-    ).toThrow();
-  });
-
-  it("accepts only the four privacy-bounded MCP telemetry events", () => {
-    const base = {
-      arch: "arm64",
-      occurredAt: 1_000,
-      platform: "darwin",
-    } as const;
-    const events = [
-      {
-        ...base,
-        kind: "process_start",
-        mcpId: "builtin:node_repl",
-        mcpInstanceId: "mcp-instance-1",
-        mcpIsolation: "workspace",
-        mcpSource: "builtin",
-      },
-      {
-        ...base,
-        kind: "process_start",
-        mcpId: "builtin:escode-cua:computer-use",
-        mcpInstanceId: "mcp-instance-2",
-        mcpIsolation: "session",
-        mcpSource: "builtin",
-      },
-      {
-        ...base,
-        kind: "process_start",
-        mcpId: "builtin:document-skills:image%20search%2F%E9%AB%98%E6%B8%85",
-        mcpInstanceId: "mcp-instance-3",
-        mcpIsolation: "session",
-        mcpSource: "builtin",
-      },
-      {
-        ...base,
-        affectedSessionCount: 2,
-        exitCode: 1,
-        kind: "process_crash",
-        mcpId: "builtin:node_repl",
-        mcpInstanceId: "mcp-instance-1",
-        mcpIsolation: "workspace",
-        mcpSource: "builtin",
-        signal: null,
-        uptimeMs: 10_000,
-      },
-      {
-        ...base,
-        configuredCount: 3,
-        connectedCount: 2,
-        failedCount: 1,
-        kind: "session_startup",
-        processCount: 1,
-        sessionId: "session-1",
-      },
-      {
-        ...base,
-        kind: "memory",
-        mcpId: "custom:123456789abc",
-        mcpInstanceId: "mcp-instance-2",
-        mcpIsolation: "session",
-        mcpSource: "custom",
-        memoryKb: 65_536,
-        memoryScope: "process_tree",
-        orphanSuspected: true,
-        ownerSessionCount: 0,
-        unownedSeconds: 60.001,
-      },
-    ];
-
-    expect(escodeProtocolNotifications.mcpTelemetry).toBe("process/mcpTelemetry");
-    expect(events.map((event) => escodeMcpTelemetryEventSchema.parse(event))).toEqual(events);
-    expect(() =>
-      escodeMcpTelemetryEventSchema.parse({
-        ...events[0],
-        mcpServerName: "private-company-server",
-      }),
-    ).toThrow();
   });
 
   it("accepts a default thought level in session settings", () => {

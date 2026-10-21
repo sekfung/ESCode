@@ -9,6 +9,7 @@ mod automation_methods;
 pub(crate) mod base;
 mod connection;
 pub(crate) mod frames;
+mod legacy_methods;
 mod scope;
 mod scope_handshake;
 mod scope_methods;
@@ -33,8 +34,17 @@ pub(crate) fn shared_base(
     options: escode_host_surface::OptionsFactory,
     index: Option<ReadContext>,
     provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
+    plugin_management: crate::domains_plugin::PluginManagement,
+    automation: Option<crate::domains_task_state::StateContext>,
 ) -> Arc<base::Base> {
-    Arc::new(base::Base::new(instances, options, index, provider_headers))
+    Arc::new(base::Base::new(
+        instances,
+        options,
+        index,
+        provider_headers,
+        plugin_management,
+        automation,
+    ))
 }
 
 /// 组合根：共享句柄 → 连接级 channel 工厂。

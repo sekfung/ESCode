@@ -15,9 +15,8 @@
 
 考虑过两种所有权方案：
 
-- **Renderer 本地观测**：复用 v4 conversation topic 帧流，按本地单调时钟做滑动窗口。观测器的先例是
-  `packages/ui/src/v4/telemetry/localTtftObserver.ts`：Renderer 独占本地时钟，只采信 `online` 投递，
-  `recovery` 与 snapshot resync 一律排除。
+- **Renderer 本地观测**：复用 v4 conversation topic 帧流，按本地单调时钟做滑动窗口。Renderer 独占本地时钟，
+  只采信 `online` 投递，`recovery` 与 snapshot resync 一律排除。
 - **Runtime 计算后经协议下发**：新增 v4 state 字段与 delta，由 CLI runtime 计算速度。跨设备读数一致、
   重连后由服务端续算，但 runtime 同样拿不到逐 chunk token 数（要么自己分词，要么仍然估算），且需要新增
   schema、投影、双链路验证与 spec 预算，成本高一个量级。

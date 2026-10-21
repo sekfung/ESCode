@@ -196,48 +196,6 @@ describe("hostResponseMessageSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("accepts network telemetry batch payload", () => {
-    const parsed = hostResponseMessageSchema.safeParse({
-      type: HostResponseTypes.NetworkTelemetryBatch,
-      observations: [
-        {
-          transport: "rpc",
-          interface: "file.read",
-          durationMs: 12,
-          ok: true,
-        },
-      ],
-    });
-    expect(parsed.success).toBe(true);
-  });
-
-  it("accepts a strict Agent resource sample and rejects identity fields", () => {
-    const payload = {
-      type: HostResponseTypes.AgentResourceSample,
-      runtimeSurface: "remote",
-      sample: {
-        arch: "x64",
-        cpuCores: 1.5,
-        cpuPercent: 18.75,
-        intervalMs: 60_000,
-        logicalCpuCount: 8,
-        platform: "linux",
-        rssKb: 131_072,
-      },
-    };
-
-    expect(hostResponseMessageSchema.safeParse(payload).success).toBe(true);
-    expect(
-      hostResponseMessageSchema.safeParse({
-        ...payload,
-        sample: {
-          ...payload.sample,
-          workspaceIdentity: "remote:ssh:secret",
-        },
-      }).success,
-    ).toBe(false);
-  });
-
   it("accepts cron scheduler wake request with a non-empty automation id", () => {
     expect(
       hostResponseMessageSchema.safeParse({

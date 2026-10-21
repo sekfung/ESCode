@@ -2,16 +2,13 @@
 
 ## 目标
 
-三项能力由构建期配置决定是否启用，未配置时一律关闭：
+构建期可选能力由配置决定是否启用，未配置时关闭。当前只剩自动更新：
 
-| 能力             | 配置项                                            | 关闭时的行为                                                      |
-| ---------------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| ARMS RUM 上报    | `ESCODE_ARMS_RUM_ENDPOINT`                        | 主进程与渲染进程的 ARMS SDK 以 `enable: false` 初始化，不产生上报 |
-| 事件上报（数仓） | `ESCODE_TELEMETRY_REPORT_ENDPOINT`                | 遥测事件在发送前直接返回                                          |
-| 自动更新         | `ESCODE_AUTO_UPDATE`（`1`、`true`、`yes` 为启用） | 与 Preview 形态相同，不检查、不下载更新                           |
+| 能力     | 配置项                                   | 关闭时的行为                            |
+| -------- | ---------------------------------------- | --------------------------------------- |
+| 自动更新 | `ESCODE_AUTO_UPDATE`（`1`/`true`/`yes`） | 与 Preview 形态相同，不检查、不下载更新 |
 
-这样同一份源码可以产出“默认不上报、不自动更新”的构建，也可以产出启用这些能力的正式构建，
-不需要在源码里写死上报地址。
+产品埋点、ARMS RUM 与 CLI Agent OTLP 已在 2026-10-21 删除，不再解析端点或注入遥测配置。
 
 ## 配置来源与优先级
 
@@ -26,18 +23,16 @@
         │ scripts/build-time-config.mjs（唯一解析入口）
         ▼
 desktop tsup（main、host、preload）与 desktop vite（renderer）的 define
-        │ __ESCODE_ARMS_RUM_ENDPOINT__ / __ESCODE_TELEMETRY_REPORT_ENDPOINT__ / __ESCODE_AUTO_UPDATE_ENABLED__
+        │ __ESCODE_AUTO_UPDATE_ENABLED__
         ▼
 @escode/shared env 常量 ── 运行时代码只读这些常量
 ```
 
-- 未注入 define 的环境（测试、其他 bundle）得到关闭值；vitest 为测试注入固定的事件上报端点，以便验证上报链路。
+- 未注入 define 的环境（测试、其他 bundle）得到关闭值。
 - 自动更新在 Desktop Main 启动时判定：`ESCODE_PRODUCT_FLAVOR === "production" && ESCODE_AUTO_UPDATE_ENABLED`。
-- Agent 的 OTLP 遥测沿用既有机制，由打包环境的 `ESCODE_PACKAGED_AGENT_OTEL_*` 注入，不在本文件范围内。
 
 ## 验收
 
-1. 内部仓库存在私有默认配置时，构建结果与改造前一致：ARMS、事件上报、自动更新均启用，地址不变。
-2. 没有私有默认配置、也没有环境变量时，三项均关闭。
-3. 环境变量优先于私有默认配置，显式空字符串可以关闭单项能力。
-4. 类型检查、Lint 与相关单测通过。
+1. 没有私有默认配置、也没有环境变量时，自动更新关闭。
+2. 环境变量优先于私有默认配置，显式空字符串可以关闭。
+3. 类型检查、Lint 与相关单测通过。

@@ -59,6 +59,16 @@ pub const CONTROL_METHODS: &[Method] = &[
     },
     Method {
         channel: "control",
+        method: "mainRequest",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "mainResponse",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
         method: "logBatch",
         state: State::Implemented,
     },

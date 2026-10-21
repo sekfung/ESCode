@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, Menu, MessageChannelMain } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { HostMessageTypes, InternalChannels, PlatformChannels, type Locale } from "@escode/shared";
-import { scheduleArmsBrowserPerfLoadNudge } from "./armsBrowserPerfLoadNudge.js";
 import { createBrowserWindow } from "./desktopWindowChrome.js";
 import type { HostInitMessage, WindowBootstrapOptions } from "./desktopHostProcess.js";
 import type { StartupWorkspaceWarmupTarget } from "./startupWorkspace.js";
@@ -116,11 +115,10 @@ export function createWindow(options: {
   }
 
   const wcId = win.webContents.id;
-  // 资源遥测据此把主窗口 renderer 归 renderer_main；辅助窗口与 DevTools 归 chromium_other。
+  // 资源管理器据此把主窗口 renderer 与辅助窗口区分开。
   registerMainApplicationWindow(wcId);
   let domReadyGeneration = 0;
   let cancelRuntimeProcessEnvWait: (() => void) | null = null;
-  scheduleArmsBrowserPerfLoadNudge(win.webContents);
   win.webContents.on("dom-ready", async () => {
     cancelRuntimeProcessEnvWait?.();
     cancelRuntimeProcessEnvWait = null;

@@ -58,6 +58,7 @@ saphyr = { version = "0.1", default-features = false }
 flate2 = "1"
 # automation cron：与 TS croner 对齐的下一次触发时间计算（差分见 rust-u2-automation.md）。
 cron = "0.15"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 # settings-sync：Codex MCP 配置是 TOML（TS 用 `smol-toml`）。
 toml = "0.8"
 base64 = "0.22"

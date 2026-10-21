@@ -152,15 +152,41 @@ async fn automation_management_round_trip() {
         .expect("all after");
     assert_eq!(all.as_array().unwrap().len(), 0);
 
-    // create/update/restart/runNow 仍是显式缺口。
-    let gap = call_json(
+    // create：相对延迟由服务端真实时钟锚定，固定只运行一次。
+    let created = call_json(
         &mut socket,
         10,
         "createAutomation",
-        json!({"title": "x", "cronExpr": "0 9 * * *", "prompt": "y", "recurring": true, "workspacePath": "/w"}),
+        json!({
+            "title": "x", "cronExpr": "0 9 * * *", "prompt": "y",
+            "relativeDelayMinutes": 5, "recurring": false,
+            "workspacePath": "/w", "workspaceIdentity": "/w"
+        }),
     )
     .await
     .into_object()
-    .expect("gap");
-    assert_eq!(gap["name"], json!("NotImplemented"));
+    .expect("created");
+    let created_id = created["automationId"]
+        .as_str()
+        .expect("automationId")
+        .to_owned();
+    assert_eq!(created["recurring"], json!(false));
+    assert!(created["nextRunAt"].as_i64().is_some());
+
+    // update：只改标题不重算 nextRunAt。
+    let updated = call_json(
+        &mut socket,
+        11,
+        "updateAutomation",
+        json!({
+            "automationId": created_id,
+            "title": "renamed",
+            "workspacePath": "/w", "workspaceIdentity": "/w"
+        }),
+    )
+    .await
+    .into_object()
+    .expect("updated");
+    assert_eq!(updated["title"], json!("renamed"));
+    assert_eq!(updated["nextRunAt"], created["nextRunAt"]);
 }

@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, Weak};
 use escode_host_control::logging;
 use escode_host_runtime::{Instance, Instances};
 use futures_util::stream;
-use serde_json::Value;
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use crate::channel::{Channel, EventHandler, EventStream};
@@ -91,12 +91,57 @@ impl Hub {
     }
 }
 
+pub(crate) type PluginAliases = (
+    Vec<(&'static str, MethodHandler)>,
+    Vec<(&'static str, EventHandler)>,
+);
+
+/// 插件管理面：`plugin-management` channel 与 `escode-agent` 旧插件面共用同一实例与进度 Hub。
 #[derive(Clone)]
-struct Context {
+pub(crate) struct PluginManagement {
     instances: Instances,
     options: escode_host_surface::OptionsFactory,
     data_base_dir: Option<PathBuf>,
     hub: Arc<Hub>,
+}
+
+impl PluginManagement {
+    pub(crate) fn new(
+        instances: Instances,
+        options: escode_host_surface::OptionsFactory,
+        data_base_dir: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            instances,
+            options,
+            data_base_dir,
+            hub: Arc::new(Hub::default()),
+        }
+    }
+
+    /// 插件管理面实例（两个 channel 共用；懒启动并订阅进度）。
+    pub(crate) async fn management_instance(&self) -> Result<Arc<Instance>, RpcError> {
+        self.management().await
+    }
+
+    /// 管理面 workspace 引用（全局档已保存工作流的兜底载体）。
+    pub(crate) fn management_workspace(&self) -> Result<(String, Value), RpcError> {
+        let base = self.data_base_dir.as_ref().ok_or_else(|| {
+            RpcError::new(
+                "NotImplemented",
+                "plugin-management needs dataBaseDir: Main must pass dataBaseDir in rpcListen.",
+            )
+        })?;
+        let path = base
+            .join(".escode")
+            .join(MANAGEMENT_DIR)
+            .to_string_lossy()
+            .into_owned();
+        Ok((
+            path.clone(),
+            json!({"workspacePath": path, "workspaceKey": path}),
+        ))
+    }
 }
 
 fn params_of(arg: Wire) -> Value {
@@ -107,9 +152,9 @@ fn params_of(arg: Wire) -> Value {
         .unwrap_or(Value::Null)
 }
 
-impl Context {
+impl PluginManagement {
     /// TS `getPluginManagementClient`：固定内部 cwd 的管理面实例（控制面能力不寄居真实 workspace）。
-    async fn management(&self) -> Result<Arc<Instance>, RpcError> {
+    pub(crate) async fn management(&self) -> Result<Arc<Instance>, RpcError> {
         let base = self.data_base_dir.as_ref().ok_or_else(|| {
             RpcError::new(
                 "NotImplemented",
@@ -188,7 +233,7 @@ fn workspace_of(params: &Value) -> Result<Value, RpcError> {
     Ok(target.request["workspace"].clone())
 }
 
-fn method_handler(context: &Context, index: usize) -> MethodHandler {
+fn method_handler(context: &PluginManagement, index: usize) -> MethodHandler {
     let context = context.clone();
     handler_rpc(move |arg: Wire| {
         let context = context.clone();
@@ -285,7 +330,7 @@ where
 }
 
 /// `getPluginReferenceCatalog`：打到持有 session 记录的 workspace 实例；新名先试，仅 `-32601` 回退旧名。
-fn catalog_handler(context: &Context) -> MethodHandler {
+fn catalog_handler(context: &PluginManagement) -> MethodHandler {
     let context = context.clone();
     handler_rpc(move |arg: Wire| {
         let context = context.clone();
@@ -325,7 +370,7 @@ fn catalog_handler(context: &Context) -> MethodHandler {
     })
 }
 
-fn progress_event(context: &Context) -> EventHandler {
+fn progress_event(context: &PluginManagement) -> EventHandler {
     let hub = Arc::clone(&context.hub);
     Arc::new(move |arg: Wire| {
         let operation_id = match arg.into_args().into_iter().next() {
@@ -343,28 +388,27 @@ fn progress_event(context: &Context) -> EventHandler {
     })
 }
 
-/// 组合根构造 `plugin-management` channel。
-pub(crate) fn plugin_management_channel(
-    instances: Instances,
-    options: escode_host_surface::OptionsFactory,
-    data_base_dir: Option<PathBuf>,
-) -> Channel {
-    let context = Context {
-        instances,
-        options,
-        data_base_dir,
-        hub: Arc::new(Hub::default()),
-    };
-    let mut methods: Vec<(&'static str, MethodHandler)> = SPECS
-        .iter()
-        .enumerate()
-        .map(|(index, spec)| (spec.service, method_handler(&context, index)))
-        .collect();
-    methods.push(("getPluginReferenceCatalog", catalog_handler(&context)));
-    Channel::new("plugin-management", methods).with_events(vec![(
-        "onDynamicPluginOperationProgress",
-        progress_event(&context),
-    )])
+impl PluginManagement {
+    /// `plugin-management` channel（方法表 + 进度事件）。
+    pub(crate) fn channel(&self) -> Channel {
+        let (methods, events) = self.aliases();
+        Channel::new("plugin-management", methods).with_events(events)
+    }
+
+    /// `escode-agent` 旧插件面的别名方法/事件。TS 这两个面共用同一个
+    /// `getPluginManagementClient()`，因此直接复用同一套处理函数与进度 Hub。
+    pub(crate) fn aliases(&self) -> PluginAliases {
+        let mut methods: Vec<(&'static str, MethodHandler)> = SPECS
+            .iter()
+            .enumerate()
+            .map(|(index, spec)| (spec.service, method_handler(self, index)))
+            .collect();
+        methods.push(("getPluginReferenceCatalog", catalog_handler(self)));
+        (
+            methods,
+            vec![("onDynamicPluginOperationProgress", progress_event(self))],
+        )
+    }
 }
 
 #[cfg(test)]

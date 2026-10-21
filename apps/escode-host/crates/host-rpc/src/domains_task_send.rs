@@ -23,7 +23,7 @@ pub(super) fn send_prompt(context: &StateContext) -> MethodHandler {
 }
 
 /// TS `sendPromptToAgent`：发送前登记活跃 inputId，失败时清掉（成功保持到 phase 终态）。
-pub(super) async fn send_prompt_params(
+pub(crate) async fn send_prompt_params(
     context: &StateContext,
     target: &TaskTarget,
     params: &Value,

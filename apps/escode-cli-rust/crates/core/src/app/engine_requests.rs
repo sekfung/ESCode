@@ -75,22 +75,13 @@ impl Engine {
                 request.params.clone(),
             ) {
                 Ok(command) => {
-                    // 本地 TTFT 观测（TS LocalTtftRecorder.receive / admitted）：只观察，不改变命令结果。
-                    let ttft_admitted = self.local_ttft_receive(&request.params);
-                    let command_id = request.params["commandId"]
-                        .as_str()
-                        .unwrap_or_default()
-                        .to_owned();
                     // accepted 结算需要命令的会话身份：createSession 用结果里的新会话、其余用信封 sessionId
                     // （TS v4-gateway accepted 结算同口径，差分账本 C-2）。
                     let envelope_session = command.session_id.clone();
                     let envelope_kind = command.kind.clone();
                     let ack = self.command(command).await;
                     ack.map(|mut ack| {
-                        if !ttft_admitted {
-                            ack["ttftExcluded"] = "capacity".into();
-                        } else if ack["status"] == "accepted" {
-                            self.local_ttft_admitted(&command_id);
+                        if ack["status"] == "accepted" {
                             // 物化期（C-1）已解析偏好时带上 memoryEnabled；未解析（旧 Host/超时）不带。
                             let target = if envelope_kind == "createSession" {
                                 ack["result"]["sessionId"].as_str().map(str::to_owned)
@@ -223,12 +214,9 @@ impl Engine {
                 self.plugin_reference_catalog(&request.method, &request.params)
                     .await
             }
-            // 时钟探测不触达命令账本（TS queryCommands 的 clock 分支）。
-            "v4/commands/query" if request.params["clock"] == true => {
-                self.local_ttft_clock(&request.params, super::local_ttft::now())
-            }
             "v4/commands/query" => self.query_acks(&request.params).await,
             "session/list" => self.list_sessions(&request.params).await,
+            "session/debug" => self.read_session_debug(&request.params).await,
             "session/subagents" => self.subagents_query(&request.params).await,
             "skills/referenceCatalog" => self.skill_catalog(&request.params).await,
             // 已保存工作流的 GUI 中枢（docs/specs/rust-dynamic-workflow.md 第 2 期）：
