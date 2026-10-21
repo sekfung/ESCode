@@ -295,6 +295,10 @@ pub fn channels_with(
             Arc::clone(&options_for_simple),
             main_broker.clone(),
         ),
+        crate::domains_plugin_ui_sampling::plugin_ui_sampling_channel(
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
         task_channel,
         session_channel(instances, options, write, Some(provider_headers)),
     ];

@@ -39,6 +39,15 @@ impl ToolPort for WorkspaceTools {
     ) -> Result<Vec<(String, Value)>> {
         Ok(self.mcp.ui_notifications(event))
     }
+    fn mcp_ui_begin(&self, params: &Value) -> Result<()> {
+        self.mcp.ui_begin(params)
+    }
+    fn mcp_ui_end(&self, params: &Value) {
+        self.mcp.ui_end(params);
+    }
+    fn mcp_ui_validate_scope(&self, params: &Value) -> Result<()> {
+        self.mcp.ui_validate_scope(params)
+    }
     /// MCP Apps：实例/资源/页面调用的运行时入口（docs/specs/rust-mcp-ui.md）。
     async fn mcp_ui(&self, method: &str, params: &Value) -> Result<Value> {
         self.mcp_ui_dispatch(method, params).await

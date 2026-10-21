@@ -38,6 +38,7 @@ mod domains_output_style;
 mod domains_plugin;
 mod domains_plugin_sync;
 mod domains_plugin_ui;
+mod domains_plugin_ui_sampling;
 mod domains_plugins_legacy;
 mod domains_provider;
 mod domains_provider_connectivity;

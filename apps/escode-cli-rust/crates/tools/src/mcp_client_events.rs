@@ -2,12 +2,17 @@
 //!
 //! 连接层只做协议 → 纯数据的转换，不持有订阅或页面状态；订阅归属、实例凭证校验与 live-only
 //! 投影由 Engine 的 `McpClientEvents` owner 处理。
+// rmcp 3.5 按 SEP-2577 把 sampling 标为 deprecated；MCP Apps 仍依赖该回调，升级 SDK 前保留。
+#![allow(deprecated)]
 use std::future::Future;
 
 use rmcp::{
-    ClientHandler,
-    model::{ClientConfig, ResourceUpdatedNotificationParam},
-    service::{MaybeSendFuture, NotificationContext, RoleClient},
+    ClientHandler, ErrorData as McpError,
+    model::{
+        ClientConfig, CreateMessageRequestParams, CreateMessageResult,
+        ResourceUpdatedNotificationParam,
+    },
+    service::{MaybeSendFuture, NotificationContext, RequestContext, RoleClient},
 };
 
 use crate::contract::{McpClientEvent, McpClientEventSink};
@@ -58,6 +63,43 @@ impl ClientHandler for HubClient {
         self.info.clone()
     }
 
+    /// server → client sampling：交给 Engine 用任务模型应答；未登记出口时显式失败。
+    fn create_message(
+        &self,
+        params: CreateMessageRequestParams,
+        _context: RequestContext<RoleClient>,
+    ) -> impl Future<Output = Result<CreateMessageResult, McpError>> + MaybeSendFuture + '_ {
+        let events = self.events.clone();
+        let server = self.server.clone();
+        async move {
+            let Some(events) = events else {
+                return Err(McpError::internal_error(
+                    "MCP sampling is unavailable in this runtime",
+                    None,
+                ));
+            };
+            let params = serde_json::to_value(params)
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+            let (reply, response) = tokio::sync::oneshot::channel();
+            events
+                .send(McpClientEvent::Sampling {
+                    server,
+                    params,
+                    reply,
+                })
+                .map_err(|_| McpError::internal_error("MCP client event channel closed", None))?;
+            match response.await {
+                Ok(Ok(value)) => serde_json::from_value(value)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None)),
+                Ok(Err(message)) => Err(McpError::internal_error(message, None)),
+                Err(_) => Err(McpError::internal_error(
+                    "MCP sampling request was dropped",
+                    None,
+                )),
+            }
+        }
+    }
+
     fn on_resource_updated(
         &self,
         params: ResourceUpdatedNotificationParam,
@@ -90,19 +132,15 @@ mod tests {
         let client = client(Some(tx));
         client.resource_updated("ui://app/index.html");
         client.resource_list_changed();
-        assert_eq!(
+        assert!(matches!(
             rx.try_recv().expect("update"),
-            McpClientEvent::ResourceUpdated {
-                server: "server-a".into(),
-                uri: "ui://app/index.html".into()
-            }
-        );
-        assert_eq!(
+            McpClientEvent::ResourceUpdated { server, uri }
+                if server == "server-a" && uri == "ui://app/index.html"
+        ));
+        assert!(matches!(
             rx.try_recv().expect("list"),
-            McpClientEvent::ResourceListChanged {
-                server: "server-a".into()
-            }
-        );
+            McpClientEvent::ResourceListChanged { server } if server == "server-a"
+        ));
     }
 
     #[test]

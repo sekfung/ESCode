@@ -85,6 +85,8 @@ pub struct Engine {
     pub(super) session_debug: BTreeMap<String, super::session_debug::Snapshot>,
     /// 实例任务作用域：所有派生任务的唯一入口（rust-u1-runtime-lib.md §3.1）。
     pub(super) spawner: Arc<crate::contract::Spawner>,
+    /// MCP Apps 采样账本（docs/specs/rust-mcp-ui.md §4 P4）。
+    pub(super) sampling: super::mcp_sampling::Calls,
 }
 impl Engine {
     pub async fn new(
@@ -182,6 +184,7 @@ impl Engine {
             telemetry: Default::default(),
             session_debug: BTreeMap::new(),
             spawner,
+            sampling: Default::default(),
         })
     }
     pub async fn serve(

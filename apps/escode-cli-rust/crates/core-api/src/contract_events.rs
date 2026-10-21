@@ -337,12 +337,18 @@ pub enum Input {
 ///
 /// 连接层只负责把官方 MCP 通知转成这里的纯数据；订阅归属、实例凭证与 live-only 投影由
 /// Engine 的 `McpClientEvents` owner 处理，连接层不持有页面状态。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum McpClientEvent {
     /// `notifications/resources/updated`：`uri` 是 server 原样上报的资源地址。
     ResourceUpdated { server: String, uri: String },
     /// `notifications/resources/list_changed`。
     ResourceListChanged { server: String },
+    /// server → client sampling（`sampling/createMessage`）；由 Engine 用任务模型应答。
+    Sampling {
+        server: String,
+        params: Value,
+        reply: oneshot::Sender<std::result::Result<Value, String>>,
+    },
 }
 
 /// 连接层 → Engine 的通知出口。

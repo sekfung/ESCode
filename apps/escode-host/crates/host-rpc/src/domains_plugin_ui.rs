@@ -24,7 +24,7 @@ pub(crate) fn required(params: &Value, key: &'static str) -> Result<String, RpcE
 }
 
 /// 所有成员共用 `escodeMcpUiPluginScopeShape`：实例凭证 + 会话 + 插件 + namespaced server。
-fn scope(params: &Value) -> Result<Map<String, Value>, RpcError> {
+pub(crate) fn scope(params: &Value) -> Result<Map<String, Value>, RpcError> {
     let instance = params
         .get("instance")
         .cloned()

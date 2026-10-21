@@ -9,6 +9,11 @@ use serde_json::json;
 
 impl Engine {
     pub(super) async fn mcp_client_event(&mut self, event: McpClientEvent) -> Result<()> {
+        if let McpClientEvent::Sampling { params, reply, .. } = event {
+            let result = self.sample_from_server(&params).await;
+            let _ = reply.send(result.map_err(|error| error.to_string()));
+            return Ok(());
+        }
         let deltas = self.tools.mcp_ui_notifications(&event).await?;
         for (session, delta) in deltas {
             self.publish_live(&session, delta)?;

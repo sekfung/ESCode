@@ -375,6 +375,7 @@ impl Hub {
             ui.instances.close_session(session);
             ui.calls.abort_session(session);
             ui.subs.remove_session(session);
+            ui.ops.retain(|(owner, _, _), _| owner != session);
         }
         self.prune().await
     }

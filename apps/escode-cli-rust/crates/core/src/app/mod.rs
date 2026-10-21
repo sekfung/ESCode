@@ -80,6 +80,7 @@ mod goal_loop;
 mod hook_rows;
 mod mcp;
 mod mcp_client_events;
+mod mcp_sampling;
 mod permission_hooks;
 mod session_debug;
 mod session_list;

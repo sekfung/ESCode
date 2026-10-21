@@ -57,6 +57,56 @@ impl Hub {
         Ok(json!({}))
     }
 
+    /// 跨步骤操作（采样）开始：校验实例并登记 pin。
+    pub fn ui_begin(&self, params: &Value) -> Result<()> {
+        let scope = parse_scope(params)?;
+        let lease = parse_lease(params)?;
+        let operation = params["operationId"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .context("operationId is required")?;
+        let source = self.ui_source(&scope.session_id, &scope.server_name);
+        let mut ui = self.ui();
+        ui.instances
+            .validate(&lease, &scope.as_scope(), source.as_ref())?;
+        let pin = ui.instances.retain(&lease, operation)?;
+        ui.ops
+            .insert((scope.session_id, lease.token, operation.to_owned()), pin);
+        Ok(())
+    }
+
+    /// 跨步骤操作结束：释放 pin（幂等）。
+    pub fn ui_end(&self, params: &Value) {
+        let (Some(token), Some(operation)) = (
+            params
+                .get("instance")
+                .and_then(|instance| instance["token"].as_str()),
+            params["operationId"].as_str(),
+        ) else {
+            return;
+        };
+        let mut ui = self.ui();
+        let key = (
+            params["sessionId"].as_str().unwrap_or_default().to_owned(),
+            token.to_owned(),
+            operation.to_owned(),
+        );
+        if let Some(pin) = ui.ops.remove(&key) {
+            ui.instances.release(&pin);
+        }
+    }
+
+    /// 采样前后复用的实例校验（不改变状态）。
+    pub fn ui_validate_scope(&self, params: &Value) -> Result<()> {
+        let scope = parse_scope(params)?;
+        let lease = parse_lease(params)?;
+        let source = self.ui_source(&scope.session_id, &scope.server_name);
+        self.ui()
+            .instances
+            .validate(&lease, &scope.as_scope(), source.as_ref())?;
+        Ok(())
+    }
+
     /// `mcp/uiCloseInstance`；`onlyIfIdle` 与调用 pin 原子裁决。
     pub async fn ui_close(&self, params: &Value) -> Result<Value> {
         let scope = parse_scope(params)?;
@@ -70,6 +120,9 @@ impl Hub {
             ui.calls.abort_instance(&scope.session_id, &lease.token);
             ui.subs
                 .remove_instance(&scope.session_id, &lease.token, lease.generation);
+            ui.ops.retain(|(session, token, _), _| {
+                !(session == &scope.session_id && token == &lease.token)
+            });
         }
         drop(ui);
         Ok(json!({"closed": true}))
@@ -233,101 +286,6 @@ impl Hub {
         Ok(json!({}))
     }
 
-    /// MCP server 通知 → 每会话一条 live-only delta（`pluginUi.resourceUpdated` 等）。
-    ///
-    /// 凭证失效的订阅者就地移除并丢弃；没有有效订阅者时返回空。
-    pub(crate) fn ui_notifications(
-        &self,
-        event: &crate::contract::McpClientEvent,
-    ) -> Vec<(String, Value)> {
-        let (server, updated_uri) = match event {
-            crate::contract::McpClientEvent::ResourceUpdated { server, uri } => {
-                (server.as_str(), Some(uri.as_str()))
-            }
-            crate::contract::McpClientEvent::ResourceListChanged { server } => {
-                (server.as_str(), None)
-            }
-        };
-        let entries: Vec<(Option<String>, Subscriber)> = match updated_uri {
-            Some(uri) => self
-                .ui()
-                .subs
-                .for_resource(server, uri)
-                .into_iter()
-                .map(|subscriber| (Some(uri.to_owned()), subscriber))
-                .collect(),
-            None => self
-                .ui()
-                .subs
-                .for_server(server)
-                .into_iter()
-                .map(|(uri, subscriber)| (Some(uri), subscriber))
-                .collect(),
-        };
-        let mut groups: std::collections::BTreeMap<(String, String), Vec<Value>> =
-            std::collections::BTreeMap::new();
-        for (uri, subscriber) in entries {
-            let source = self.ui_source(&subscriber.session_id, server);
-            let scope = crate::mcp_ui::Scope {
-                workspace: None,
-                session_id: &subscriber.session_id,
-                plugin_id: &subscriber.plugin_id,
-                server_name: server,
-            };
-            let mut ui = self.ui();
-            if ui
-                .instances
-                .validate(&subscriber.lease, &scope, source.as_ref())
-                .is_err()
-            {
-                if let Some(uri) = &uri {
-                    ui.subs.remove(
-                        server,
-                        uri,
-                        &subscriber.session_id,
-                        &subscriber.lease.token,
-                        subscriber.lease.generation,
-                    );
-                }
-                continue;
-            }
-            let item = json!({
-                "scopeId": subscriber.lease.token,
-                "generation": subscriber.lease.generation,
-                "instance": subscriber.lease.to_value(),
-            });
-            let group = groups
-                .entry((subscriber.session_id, subscriber.plugin_id))
-                .or_default();
-            // `list_changed` 会把同一实例在同一 server 的多个资源都列出来，按 scopeId 去重。
-            if !group
-                .iter()
-                .any(|existing| existing["scopeId"] == item["scopeId"])
-            {
-                group.push(item);
-            }
-        }
-        groups
-            .into_iter()
-            .map(|((session_id, plugin_id), subscribers)| {
-                let mut delta = json!({
-                    "op": if updated_uri.is_some() {
-                        "pluginUi.resourceUpdated"
-                    } else {
-                        "pluginUi.resourceListChanged"
-                    },
-                    "pluginId": plugin_id,
-                    "serverName": server,
-                    "subscribers": subscribers,
-                });
-                if let Some(uri) = updated_uri {
-                    delta["uri"] = json!(uri);
-                }
-                (session_id, delta)
-            })
-            .collect()
-    }
-
     /// `mcp/uiCallTool`：归属 + visibility 校验后复用 MCP 连接，不产生 transcript row。
     pub async fn ui_call_tool(&self, params: &Value, cancel: &CancellationToken) -> Result<Value> {
         let scope = parse_scope(params)?;
@@ -401,3 +359,6 @@ fn visibility(tool: &Value) -> Vec<&str> {
         .map(|items| items.iter().filter_map(Value::as_str).collect())
         .unwrap_or_else(|| vec!["model", "app"])
 }
+
+#[path = "mcp_hub_ui_notifications.rs"]
+mod notifications;

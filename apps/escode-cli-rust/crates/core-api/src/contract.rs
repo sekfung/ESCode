@@ -46,6 +46,14 @@ pub trait ToolPort: Send + Sync {
     ) -> Result<Vec<(String, Value)>> {
         Ok(Vec::new())
     }
+    /// 采样等跨步骤操作：校验实例并 pin（`onlyIfIdle` 能看到忙碌态）。
+    fn mcp_ui_begin(&self, _params: &Value) -> Result<()> {
+        anyhow::bail!("MCP Apps unavailable")
+    }
+    fn mcp_ui_end(&self, _params: &Value) {}
+    fn mcp_ui_validate_scope(&self, _params: &Value) -> Result<()> {
+        anyhow::bail!("MCP Apps unavailable")
+    }
     async fn file_changes(
         &self,
         _changes: &[escode_cli_domain::file_checkpoint::FileCheckpoint],

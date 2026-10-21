@@ -1,6 +1,6 @@
 # Rust runtime：MCP 客户端事件总线
 
-> 状态：S1、S2 已实现；S3–S4 待接线（2026-10-21）
+> 状态：S1–S3 已实现；S4 待接线（2026-10-21）
 > 起因：`mcp/ui*` 的资源订阅、App-Provided Tools 与 sampling 都需要 MCP server 主动通知/请求
 > 进入 runtime；此前 `Connection` 用 `ClientConfig` 作为 handler，通知全部丢弃
 > （[rust-mcp-ui.md](./rust-mcp-ui.md) §4 P0）。
@@ -65,7 +65,7 @@ live-only 会话事件（不进 snapshot/replayable/持久化）
   （`sequenceNumber: 0` 语义由 Host 现有的 live 通道分配）。
 - Host 注册 `subscribeResource` / `unsubscribeResource`。
 
-### S3：Sampling
+### S3：Sampling（已完成）
 
 - `HubClient::create_message`：把 `CreateMessageRequestParams` 序列化为 Value，经事件总线发
   `Sampling { server, params, reply }`；Engine 用任务模型执行后回包；超时/无 Engine 一律

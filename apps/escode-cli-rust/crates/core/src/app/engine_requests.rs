@@ -256,6 +256,15 @@ impl Engine {
             "workspace/hooks/trustGrant" => self.workspace_hook_trust_grant(&request.params).await,
             // MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。workspace 校验与其它
             // workspace 级方法一致；失败作为本请求的 RPC 错误返回，不结束 serve 循环。
+            // MCP Apps 采样走 Engine（需要任务模型）；其余 mcp/ui* 走工具层。
+            "mcp/uiSampling" => match self.validate_workspace(&request.params) {
+                Ok(()) => self.sample_mcp_ui(&request.params).await,
+                Err(error) => Err(error),
+            },
+            "mcp/uiCancelSampling" => match self.validate_workspace(&request.params) {
+                Ok(()) => self.cancel_mcp_sampling(&request.params),
+                Err(error) => Err(error),
+            },
             "mcp/readResource"
             | "mcp/uiOpenInstance"
             | "mcp/uiValidateInstance"

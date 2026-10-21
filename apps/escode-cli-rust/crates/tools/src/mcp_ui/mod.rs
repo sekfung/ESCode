@@ -5,7 +5,7 @@
 mod instances;
 mod resources;
 
-pub(crate) use instances::{Binding, Instances, Lease, Scope, Source};
+pub(crate) use instances::{Binding, Instances, Lease, Pin, Scope, Source};
 pub(crate) use resources::{bound_for_ui, project_resources, project_templates};
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -192,6 +192,8 @@ pub(crate) struct McpUi {
     pub(crate) instances: Instances,
     pub(crate) calls: Calls,
     pub(crate) subs: Subscriptions,
+    /// 采样等跨步骤操作的实例 pin：`(session, token, operationId)` → pin，保证 `onlyIfIdle` 能看到忙碌态。
+    pub(crate) ops: BTreeMap<(String, String, String), Pin>,
 }
 
 /// 协议 `escodeMcpUiPluginScopeShape` 的解析结果（owned，便于跨 await）。
