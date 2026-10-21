@@ -369,6 +369,16 @@ mod tests {
     }
 
     #[test]
+    fn cancel_an_active_operation_cancels_its_token() {
+        let mut calls = Calls::default();
+        let scope = scope("token", "session");
+        let token = calls.begin(&scope, "op").expect("begin");
+        assert!(calls.cancel(&scope, "op"));
+        assert!(token.is_cancelled(), "在飞采样必须收到取消");
+        calls.finish(&scope, "op");
+    }
+
+    #[test]
     fn session_limit_is_enforced() {
         let mut calls = Calls::default();
         for index in 0..MAX_PER_SESSION {

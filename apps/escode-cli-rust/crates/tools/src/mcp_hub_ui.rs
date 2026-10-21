@@ -368,3 +368,7 @@ mod notifications;
 
 #[path = "mcp_hub_ui_app_tools.rs"]
 mod app_tools;
+
+#[cfg(test)]
+#[path = "mcp_hub_ui_tests.rs"]
+mod tests;

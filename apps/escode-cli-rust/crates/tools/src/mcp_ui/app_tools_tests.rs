@@ -105,3 +105,53 @@ fn resolve_requires_a_matching_claimed_call() {
         "跨实例认领必须拒绝"
     );
 }
+
+#[tokio::test]
+async fn await_result_reports_page_not_running_and_cancellation() {
+    let (claim_tx, claim_rx) = oneshot::channel();
+    drop(claim_tx);
+    let (_settle_tx, settle_rx) = oneshot::channel();
+    let error = await_result(claim_rx, settle_rx, "srv", &CancellationToken::new())
+        .await
+        .expect_err("dropped claim");
+    assert!(error.to_string().contains("app page is not running"));
+
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    let (_claim_tx, claim_rx) = oneshot::channel();
+    let (_settle_tx, settle_rx) = oneshot::channel();
+    let error = await_result(claim_rx, settle_rx, "srv", &cancel)
+        .await
+        .expect_err("cancelled");
+    assert!(error.to_string().contains("cancelled"));
+}
+
+#[tokio::test]
+async fn await_result_forwards_page_errors() {
+    let (claim_tx, claim_rx) = oneshot::channel();
+    let (settle_tx, settle_rx) = oneshot::channel();
+    claim_tx.send(()).expect("claim");
+    settle_tx
+        .send(Err("page failed".to_owned()))
+        .expect("settle");
+    let error = await_result(claim_rx, settle_rx, "srv", &CancellationToken::new())
+        .await
+        .expect_err("page error");
+    assert_eq!(error.to_string(), "page failed");
+}
+
+#[test]
+fn duplicate_resolve_is_idempotent() {
+    let mut tools = AppTools::default();
+    tools
+        .register("session", &params("scope", 1, "srv", vec![tool("run")]))
+        .expect("register");
+    let (call_id, _, _claim, _settle) = tools
+        .prepare_call("session", "app__srv__run", &json!({}))
+        .expect("prepare");
+    let claim = json!({"sessionId":"session","scopeId":"scope","generation":1,"callId":call_id});
+    assert!(tools.claim("session", &claim));
+    let resolve = json!({"sessionId":"session","scopeId":"scope","generation":1,"callId":call_id,"result":{"content":[]}});
+    assert!(tools.resolve("session", &resolve));
+    assert!(tools.resolve("session", &resolve), "重复回传保持幂等 true");
+}
