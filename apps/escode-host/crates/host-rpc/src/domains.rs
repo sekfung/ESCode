@@ -299,6 +299,10 @@ pub fn channels_with(
             instances_for_simple.clone(),
             Arc::clone(&options_for_simple),
         ),
+        crate::domains_plugin_ui_app_tools::plugin_ui_app_tools_channel(
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
         task_channel,
         session_channel(instances, options, write, Some(provider_headers)),
     ];

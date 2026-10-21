@@ -70,6 +70,8 @@ pub struct Engine {
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
     /// MCP server 主动通知（docs/specs/rust-mcp-client-events.md）；连接层登记后由此进入 live 投影。
     pub(super) mcp_events: mpsc::UnboundedReceiver<crate::contract::McpClientEvent>,
+    /// 工具层 → Engine 的 live-only delta（App 工具信箱）。
+    pub(super) live_deltas: mpsc::UnboundedReceiver<(String, serde_json::Value)>,
     /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
     pub(super) slash_commands: Vec<Value>,
     /// 项目记忆：每会话的提取调度与会话内固定的记忆根/索引（docs/specs/rust-project-memory.md）。
@@ -123,6 +125,8 @@ impl Engine {
         let (events, event_rx) = mpsc::channel(128);
         let (mcp_event_tx, mcp_events) = mpsc::unbounded_channel();
         tools.attach_client_events(mcp_event_tx);
+        let (live_tx, live_deltas) = mpsc::unbounded_channel();
+        tools.attach_live_deltas(live_tx);
         tools.attach_host(crate::contract::EventSink {
             session_id: crate::contract::HOST_CHANNEL.into(),
             run_id: crate::contract::HOST_CHANNEL.into(),
@@ -176,6 +180,7 @@ impl Engine {
             events,
             event_rx,
             mcp_events,
+            live_deltas,
             slash_commands: crate::domain::custom_command::builtin_catalog(),
             memory_schedulers: BTreeMap::new(),
             memory_prompts: BTreeMap::new(),
@@ -215,6 +220,10 @@ impl Engine {
                     },
                     Some(event)=self.mcp_events.recv()=>{
                         self.mcp_client_event(event).await?;
+                        self.flush(&output).await?;
+                    },
+                    Some((session, delta))=self.live_deltas.recv()=>{
+                        self.publish_live(&session, delta)?;
                         self.flush(&output).await?;
                     },
                     _=refresh.tick()=>{

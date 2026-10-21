@@ -1,6 +1,6 @@
 # Rust runtime：MCP 客户端事件总线
 
-> 状态：S1–S3 已实现；S4 待接线（2026-10-21）
+> 状态：S1–S4 已实现（2026-10-21）
 > 起因：`mcp/ui*` 的资源订阅、App-Provided Tools 与 sampling 都需要 MCP server 主动通知/请求
 > 进入 runtime；此前 `Connection` 用 `ClientConfig` 作为 handler，通知全部丢弃
 > （[rust-mcp-ui.md](./rust-mcp-ui.md) §4 P0）。
@@ -72,7 +72,7 @@ live-only 会话事件（不进 snapshot/replayable/持久化）
   `McpError`（explicit failure，不返回空结果）。
 - 采样账本（操作去重、并发上限、60s 期限）在 Engine 侧，按 `mcp/uiSampling` 的实例凭证绑定。
 
-### S4：App-Provided Tools
+### S4：App-Provided Tools（已完成）
 
 - 复用同一事件总线投递页面调用请求（live-only）；登记表与认领/回传状态机独立于订阅。
 - 模型工具面注入在 Engine 的请求组装处完成，不经过连接层。

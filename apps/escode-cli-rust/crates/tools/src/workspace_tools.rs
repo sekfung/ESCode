@@ -103,6 +103,9 @@ impl WorkspaceTools {
             <sha2::Sha256 as sha2::Digest>::digest(session.as_bytes())
         ));
         match name {
+            name if name.starts_with("app__") => {
+                self.mcp.app_tool_call(session, name, args, cancel).await
+            }
             name if name.starts_with("mcp__") => {
                 self.mcp
                     .call(session, name, args, &Value::Null, None, cancel)

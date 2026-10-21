@@ -3,8 +3,7 @@
 > 状态：P1/P2 已落地（2026-10-21）
 > 已实现 runtime：实例 open/validate/close、`mcp/readResource`、`mcp/uiReadResource`、
 > `mcp/uiListResources`、`mcp/uiListResourceTemplates`、`mcp/uiCallTool`、`mcp/uiCancelCall`（9 个方法）。
-> 已注册 Host `plugin-ui-bridge` 12/12（含 prepareSandbox、listSurfaces、订阅）。
-> 仍 Pending：App 工具 4。
+> 18/18 已交付：`plugin-ui-bridge` 12、`plugin-ui-app-tools` 4、`plugin-ui-sampling` 2。
 > 起因：Host 契约清单里 `plugin-ui-bridge`（12）、`plugin-ui-app-tools`（4）、`plugin-ui-sampling`（2）
 > 共 18 个成员仍为 Pending。它们的共同前置是 Rust runtime 没有实现任何 `mcp/ui*`；
 > 只迁 Host 会把显式 `NotImplemented` 换成运行时的 `Unsupported method`，不能算完成

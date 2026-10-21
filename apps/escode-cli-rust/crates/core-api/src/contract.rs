@@ -35,6 +35,8 @@ pub trait ToolPort: Send + Sync {
     fn attach_host(&self, _host: EventSink) {}
     /// Engine 启动时登记 MCP client 通知出口（资源更新等）；默认丢弃。
     fn attach_client_events(&self, _events: crate::McpClientEventSink) {}
+    /// Engine 启动时登记 live-only delta 出口（App 工具信箱）；默认不投递。
+    fn attach_live_deltas(&self, _live: tokio::sync::mpsc::UnboundedSender<(String, Value)>) {}
     /// MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。默认不可用。
     async fn mcp_ui(&self, _method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("MCP Apps unavailable")

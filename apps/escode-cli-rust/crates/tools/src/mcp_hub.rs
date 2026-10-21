@@ -37,6 +37,8 @@ pub(super) struct Hub {
     host: Arc<std::sync::OnceLock<crate::contract::EventSink>>,
     /// Engine 的 MCP 客户端事件出口（资源更新通知；docs/specs/rust-mcp-client-events.md）。
     client_events: std::sync::OnceLock<crate::contract::McpClientEventSink>,
+    /// 工具层 → Engine 的 live-only delta 出口（App 工具信箱等）。
+    live: std::sync::OnceLock<tokio::sync::mpsc::UnboundedSender<(String, Value)>>,
     /// node_repl 浏览器 broker（首次出现 node_repl 配置时启动，docs/specs/rust-browser-use.md 第 2 期）。
     broker: std::sync::OnceLock<Option<Arc<super::browser_broker::Broker>>>,
     /// 串口 broker（首次出现 serial 配置时启动，docs/specs/serial-agent-tools.md）。
@@ -55,6 +57,10 @@ impl Hub {
     pub fn attach_client_events(&self, events: crate::contract::McpClientEventSink) {
         let _ = self.client_events.set(events);
     }
+    /// Engine 启动时登记的 live delta 出口；未登记时 App 工具信箱按“页面未运行”失败。
+    pub fn attach_live_deltas(&self, live: tokio::sync::mpsc::UnboundedSender<(String, Value)>) {
+        let _ = self.live.set(live);
+    }
     pub fn inherit(&self, parent: &str, child: &str) {
         let mut state = self.state_mut();
         let bindings = state.bindings.get(parent).cloned().unwrap_or_default();
@@ -70,6 +76,7 @@ impl Hub {
             credentials: Default::default(),
             host: Default::default(),
             client_events: Default::default(),
+            live: Default::default(),
             broker: Default::default(),
             serial: Default::default(),
             state: Default::default(),
@@ -376,6 +383,7 @@ impl Hub {
             ui.calls.abort_session(session);
             ui.subs.remove_session(session);
             ui.ops.retain(|(owner, _, _), _| owner != session);
+            ui.app_tools.clear_session(session);
         }
         self.prune().await
     }

@@ -33,6 +33,9 @@ impl ToolPort for WorkspaceTools {
     fn attach_client_events(&self, events: crate::contract::McpClientEventSink) {
         self.mcp.attach_client_events(events);
     }
+    fn attach_live_deltas(&self, live: tokio::sync::mpsc::UnboundedSender<(String, Value)>) {
+        self.mcp.attach_live_deltas(live);
+    }
     async fn mcp_ui_notifications(
         &self,
         event: &crate::contract::McpClientEvent,
@@ -183,6 +186,8 @@ impl ToolPort for WorkspaceTools {
     ) -> Result<Vec<Value>> {
         let mut definitions = self.definitions();
         definitions.extend(self.mcp.definitions(session, cancel).await?);
+        // App-Provided Tools：会话内页面登记的模型工具面（docs/specs/rust-mcp-ui.md §4 P3）。
+        definitions.extend(self.mcp.app_tool_definitions(session));
         Ok(definitions)
     }
     fn concurrent_safe_scoped(&self, session: &str, name: &str) -> bool {

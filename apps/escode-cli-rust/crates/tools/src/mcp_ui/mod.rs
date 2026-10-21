@@ -2,9 +2,11 @@
 //!
 //! 这里只保存**页面方向的 live-only 状态**：实例凭证、页面工具调用登记、App 工具登记与采样账本。
 //! 不落库、不进 snapshot/replayable；MCP 资源与工具调用由 `Hub` 注入，模型调用由 Engine 注入。
+mod app_tools;
 mod instances;
 mod resources;
 
+pub(crate) use app_tools::{AppTools, await_result, to_output};
 pub(crate) use instances::{Binding, Instances, Lease, Pin, Scope, Source};
 pub(crate) use resources::{bound_for_ui, project_resources, project_templates};
 
@@ -194,6 +196,8 @@ pub(crate) struct McpUi {
     pub(crate) subs: Subscriptions,
     /// 采样等跨步骤操作的实例 pin：`(session, token, operationId)` → pin，保证 `onlyIfIdle` 能看到忙碌态。
     pub(crate) ops: BTreeMap<(String, String, String), Pin>,
+    /// App-Provided Tools 登记表与待执行调用（按会话）。
+    pub(crate) app_tools: AppTools,
 }
 
 /// 协议 `escodeMcpUiPluginScopeShape` 的解析结果（owned，便于跨 await）。

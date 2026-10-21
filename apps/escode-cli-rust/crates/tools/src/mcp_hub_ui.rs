@@ -123,6 +123,8 @@ impl Hub {
             ui.ops.retain(|(session, token, _), _| {
                 !(session == &scope.session_id && token == &lease.token)
             });
+            ui.app_tools
+                .remove_instance(&scope.session_id, &lease.token, lease.generation);
         }
         drop(ui);
         Ok(json!({"closed": true}))
@@ -362,3 +364,6 @@ fn visibility(tool: &Value) -> Vec<&str> {
 
 #[path = "mcp_hub_ui_notifications.rs"]
 mod notifications;
+
+#[path = "mcp_hub_ui_app_tools.rs"]
+mod app_tools;

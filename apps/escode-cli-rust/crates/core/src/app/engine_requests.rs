@@ -274,6 +274,10 @@ impl Engine {
             | "mcp/uiListResourceTemplates"
             | "mcp/uiSubscribeResource"
             | "mcp/uiUnsubscribeResource"
+            | "mcp/uiRegisterAppTools"
+            | "mcp/uiUnregisterAppTools"
+            | "mcp/uiClaimAppToolCall"
+            | "mcp/uiResolveAppToolCall"
             | "mcp/uiCallTool"
             | "mcp/uiCancelCall" => match self.validate_workspace(&request.params) {
                 Ok(()) => self.tools.mcp_ui(&request.method, &request.params).await,

@@ -21,6 +21,10 @@ impl WorkspaceTools {
             }
             "mcp/uiSubscribeResource" => self.mcp.ui_subscribe(params, true, &cancel).await,
             "mcp/uiUnsubscribeResource" => self.mcp.ui_subscribe(params, false, &cancel).await,
+            "mcp/uiRegisterAppTools" => self.mcp.app_tool_register(params),
+            "mcp/uiUnregisterAppTools" => Ok(self.mcp.app_tool_unregister(params)),
+            "mcp/uiClaimAppToolCall" => self.mcp.app_tool_claim(params),
+            "mcp/uiResolveAppToolCall" => self.mcp.app_tool_resolve(params),
             "mcp/uiCallTool" => self.mcp.ui_call_tool(params, &cancel).await,
             "mcp/uiCancelCall" => self.mcp.ui_cancel_call(params).await,
             other => anyhow::bail!("Unsupported method: {other}"),
