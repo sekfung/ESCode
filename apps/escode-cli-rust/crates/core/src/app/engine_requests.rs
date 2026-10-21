@@ -263,6 +263,8 @@ impl Engine {
             | "mcp/uiReadResource"
             | "mcp/uiListResources"
             | "mcp/uiListResourceTemplates"
+            | "mcp/uiSubscribeResource"
+            | "mcp/uiUnsubscribeResource"
             | "mcp/uiCallTool"
             | "mcp/uiCancelCall" => match self.validate_workspace(&request.params) {
                 Ok(()) => self.tools.mcp_ui(&request.method, &request.params).await,

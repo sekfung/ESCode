@@ -68,6 +68,8 @@ pub struct Engine {
     pub(super) headless_permissions: bool,
     pub(super) events: mpsc::Sender<RunEvent>,
     pub(super) event_rx: mpsc::Receiver<RunEvent>,
+    /// MCP server 主动通知（docs/specs/rust-mcp-client-events.md）；连接层登记后由此进入 live 投影。
+    pub(super) mcp_events: mpsc::UnboundedReceiver<crate::contract::McpClientEvent>,
     /// 协议 `slashCommands` 目录缓存（docs/specs/rust-custom-commands.md）。
     pub(super) slash_commands: Vec<Value>,
     /// 项目记忆：每会话的提取调度与会话内固定的记忆根/索引（docs/specs/rust-project-memory.md）。
@@ -117,6 +119,8 @@ impl Engine {
         let permission_config = tools.permission_config().await;
         let subagents_enabled = tools.subagents_enabled().await;
         let (events, event_rx) = mpsc::channel(128);
+        let (mcp_event_tx, mcp_events) = mpsc::unbounded_channel();
+        tools.attach_client_events(mcp_event_tx);
         tools.attach_host(crate::contract::EventSink {
             session_id: crate::contract::HOST_CHANNEL.into(),
             run_id: crate::contract::HOST_CHANNEL.into(),
@@ -169,6 +173,7 @@ impl Engine {
             headless_permissions: false,
             events,
             event_rx,
+            mcp_events,
             slash_commands: crate::domain::custom_command::builtin_catalog(),
             memory_schedulers: BTreeMap::new(),
             memory_prompts: BTreeMap::new(),
@@ -204,6 +209,10 @@ impl Engine {
                         let terminal=matches!(&event.event,Event::Finished {..}) || matches!(&event.event,Event::Background {task,..} if task.status!="running");
                         self.apply_event(event).await?;self.flush(&output).await?;
                         if terminal {self.trim_resident().await?;}
+                    },
+                    Some(event)=self.mcp_events.recv()=>{
+                        self.mcp_client_event(event).await?;
+                        self.flush(&output).await?;
                     },
                     _=refresh.tick()=>{
                         self.uploads.prune(self.clock.now());

@@ -211,7 +211,7 @@ impl Engine {
             json!({"kind":"snapshot","snapshot":snapshot}),
         )
     }
-    fn push_frame(
+    pub(super) fn push_frame(
         &mut self,
         id: &str,
         delivery: &str,

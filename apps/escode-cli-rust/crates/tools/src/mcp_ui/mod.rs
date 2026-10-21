@@ -88,10 +88,110 @@ impl Calls {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct Subscriber {
+    pub(crate) session_id: String,
+    pub(crate) plugin_id: String,
+    pub(crate) lease: Lease,
+}
+
+/// 资源订阅登记表：`(server, uri)` → 订阅者；引用计数决定何时向 MCP server 真正订阅。
+#[derive(Default)]
+pub(crate) struct Subscriptions {
+    by_resource: BTreeMap<(String, String), Vec<Subscriber>>,
+}
+
+impl Subscriptions {
+    /// 登记订阅；返回是否是该资源的第一位订阅者。
+    pub(crate) fn add(&mut self, server: &str, uri: &str, subscriber: Subscriber) -> bool {
+        let subscribers = self
+            .by_resource
+            .entry((server.to_owned(), uri.to_owned()))
+            .or_default();
+        let first = subscribers.is_empty();
+        let duplicate = subscribers.iter().any(|current| {
+            current.session_id == subscriber.session_id
+                && current.lease.token == subscriber.lease.token
+                && current.lease.generation == subscriber.lease.generation
+        });
+        if !duplicate {
+            subscribers.push(subscriber);
+        }
+        first
+    }
+
+    /// 移除订阅；返回是否是该资源的最后一位订阅者（决定是否向 MCP server 退订）。
+    pub(crate) fn remove(
+        &mut self,
+        server: &str,
+        uri: &str,
+        session_id: &str,
+        token: &str,
+        generation: u64,
+    ) -> bool {
+        let key = (server.to_owned(), uri.to_owned());
+        let Some(subscribers) = self.by_resource.get_mut(&key) else {
+            return false;
+        };
+        subscribers.retain(|current| {
+            !(current.session_id == session_id
+                && current.lease.token == token
+                && current.lease.generation == generation)
+        });
+        let empty = subscribers.is_empty();
+        if empty {
+            self.by_resource.remove(&key);
+        }
+        empty
+    }
+
+    pub(crate) fn for_resource(&self, server: &str, uri: &str) -> Vec<Subscriber> {
+        self.by_resource
+            .get(&(server.to_owned(), uri.to_owned()))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// 该 server 下所有资源与订阅者（`list_changed` 通知用）。
+    pub(crate) fn for_server(&self, server: &str) -> Vec<(String, Subscriber)> {
+        self.by_resource
+            .iter()
+            .filter(|((candidate, _), _)| candidate == server)
+            .flat_map(|((_, uri), subscribers)| {
+                subscribers
+                    .iter()
+                    .cloned()
+                    .map(move |subscriber| (uri.clone(), subscriber))
+            })
+            .collect()
+    }
+
+    pub(crate) fn remove_instance(&mut self, session_id: &str, token: &str, generation: u64) {
+        for subscribers in self.by_resource.values_mut() {
+            subscribers.retain(|current| {
+                !(current.session_id == session_id
+                    && current.lease.token == token
+                    && current.lease.generation == generation)
+            });
+        }
+        self.by_resource
+            .retain(|_, subscribers| !subscribers.is_empty());
+    }
+
+    pub(crate) fn remove_session(&mut self, session_id: &str) {
+        for subscribers in self.by_resource.values_mut() {
+            subscribers.retain(|current| current.session_id != session_id);
+        }
+        self.by_resource
+            .retain(|_, subscribers| !subscribers.is_empty());
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct McpUi {
     pub(crate) instances: Instances,
     pub(crate) calls: Calls,
+    pub(crate) subs: Subscriptions,
 }
 
 /// 协议 `escodeMcpUiPluginScopeShape` 的解析结果（owned，便于跨 await）。

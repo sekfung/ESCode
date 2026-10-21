@@ -39,6 +39,13 @@ pub trait ToolPort: Send + Sync {
     async fn mcp_ui(&self, _method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("MCP Apps unavailable")
     }
+    /// MCP 客户端通知 → `(sessionId, live-only delta)`；订阅登记与凭证校验在实现侧。
+    async fn mcp_ui_notifications(
+        &self,
+        _event: &crate::McpClientEvent,
+    ) -> Result<Vec<(String, Value)>> {
+        Ok(Vec::new())
+    }
     async fn file_changes(
         &self,
         _changes: &[escode_cli_domain::file_checkpoint::FileCheckpoint],

@@ -1,6 +1,6 @@
 # Rust runtime：MCP 客户端事件总线
 
-> 状态：S1 已实现（handler + 出口），S2–S4 待接线（2026-10-21）
+> 状态：S1、S2 已实现；S3–S4 待接线（2026-10-21）
 > 起因：`mcp/ui*` 的资源订阅、App-Provided Tools 与 sampling 都需要 MCP server 主动通知/请求
 > 进入 runtime；此前 `Connection` 用 `ClientConfig` 作为 handler，通知全部丢弃
 > （[rust-mcp-ui.md](./rust-mcp-ui.md) §4 P0）。
@@ -54,7 +54,7 @@ live-only 会话事件（不进 snapshot/replayable/持久化）
 - `Hub` 持 `OnceLock<McpClientEventSink>`，`ToolPort::attach_client_events` 供 Engine 登记。
 - 尚未登记出口时通知直接丢弃（不伪造订阅状态）。
 
-### S2：资源订阅
+### S2：资源订阅（已完成）
 
 - Engine 新增 `McpClientEvents` owner：`HashMap<(server, uri), BTreeSet<Subscriber>>`，
   `Subscriber = { sessionId, scopeId, generation, leaseToken }`。

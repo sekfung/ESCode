@@ -43,6 +43,21 @@ pub(crate) fn optional(params: &Value, body: &mut Map<String, Value>, key: &str)
     }
 }
 
+/// 订阅/退订：实例作用域 + 沙箱作用域 id + 代际 + 资源地址。
+fn subscription_body(params: &Value) -> Result<Map<String, Value>, RpcError> {
+    let mut body = scope(params)?;
+    body.insert("scopeId".into(), json!(required(params, "scopeId")?));
+    body.insert(
+        "generation".into(),
+        params
+            .get("generation")
+            .cloned()
+            .ok_or_else(|| RpcError::new("InvalidRequest", "generation is required"))?,
+    );
+    body.insert("uri".into(), json!(required(params, "uri")?));
+    Ok(body)
+}
+
 pub(crate) async fn forward(
     instances: &escode_host_runtime::Instances,
     options: &escode_host_surface::OptionsFactory,
@@ -176,9 +191,29 @@ pub(crate) fn plugin_ui_bridge_channel(
         })
     };
 
+    let subscription = |method: &'static str| {
+        let instances = instances.clone();
+        let options = Arc::clone(&options);
+        handler_rpc(move |arg: Wire| {
+            let instances = instances.clone();
+            let options = Arc::clone(&options);
+            Box::pin(async move {
+                let params = first_object(arg);
+                let body = subscription_body(&params)?;
+                forward(&instances, &options, params, method, body, Extract::Result).await?;
+                Ok(Wire::Undefined)
+            })
+        })
+    };
+
     let methods: Vec<(&'static str, MethodHandler)> = vec![
         ("prepareSandbox", prepare),
         ("listSurfaces", list_surfaces),
+        ("subscribeResource", subscription("mcp/uiSubscribeResource")),
+        (
+            "unsubscribeResource",
+            subscription("mcp/uiUnsubscribeResource"),
+        ),
         ("validateInstance", validate),
         ("closeInstance", close),
         (

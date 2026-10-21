@@ -79,6 +79,7 @@ mod goal_events;
 mod goal_loop;
 mod hook_rows;
 mod mcp;
+mod mcp_client_events;
 mod permission_hooks;
 mod session_debug;
 mod session_list;

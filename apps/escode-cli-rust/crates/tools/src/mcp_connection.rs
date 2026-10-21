@@ -333,28 +333,6 @@ impl Connection {
         }
         Ok(serde_json::to_string(&result?)?)
     }
-    /// MCP Apps 只读资源面（docs/specs/rust-mcp-ui.md §4 P0）：分页游标透传，结果原样交给调用方投影。
-    pub async fn read_resource(&self, uri: &str, cancel: &CancellationToken) -> Result<Value> {
-        self.request("resources/read", json!({"uri":uri}), cancel)
-            .await
-    }
-    pub async fn list_resources(
-        &self,
-        cursor: Option<&str>,
-        cancel: &CancellationToken,
-    ) -> Result<Value> {
-        let params = cursor.map_or_else(|| json!({}), |cursor| json!({"cursor":cursor}));
-        self.request("resources/list", params, cancel).await
-    }
-    pub async fn list_resource_templates(
-        &self,
-        cursor: Option<&str>,
-        cancel: &CancellationToken,
-    ) -> Result<Value> {
-        let params = cursor.map_or_else(|| json!({}), |cursor| json!({"cursor":cursor}));
-        self.request("resources/templates/list", params, cancel)
-            .await
-    }
     pub async fn call(
         &self,
         name: &str,
@@ -419,3 +397,6 @@ async fn cleanup_child(child: &mut Option<(Child, u32)>) -> Result<()> {
     }
     Ok(())
 }
+
+#[path = "mcp_connection_resources.rs"]
+mod resources;

@@ -374,6 +374,7 @@ impl Hub {
             let mut ui = self.ui();
             ui.instances.close_session(session);
             ui.calls.abort_session(session);
+            ui.subs.remove_session(session);
         }
         self.prune().await
     }

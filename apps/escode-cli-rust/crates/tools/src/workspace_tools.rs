@@ -212,3 +212,6 @@ pub(super) fn concurrent_safe(name: &str) -> bool {
             | "Task"
     )
 }
+
+#[path = "workspace_tools_mcp_ui.rs"]
+mod mcp_ui;

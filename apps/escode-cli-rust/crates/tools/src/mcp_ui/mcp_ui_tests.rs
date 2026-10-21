@@ -207,3 +207,57 @@ fn parse_scope_rejects_missing_server_name() {
     let params = json!({"sessionId":"s","pluginId":"p"});
     assert!(parse_scope(&params).is_err());
 }
+
+fn subscriber(session: &str, token: &str, generation: u64) -> Subscriber {
+    Subscriber {
+        session_id: session.into(),
+        plugin_id: "plugin".into(),
+        lease: Lease {
+            runtime_id: "runtime".into(),
+            generation,
+            token: token.into(),
+            app_identity: "app".into(),
+        },
+    }
+}
+
+#[test]
+fn subscription_refcount_only_first_and_last_touch_the_mcp_server() {
+    let mut subs = Subscriptions::default();
+    assert!(subs.add("server", "ui://a", subscriber("s1", "t1", 1)));
+    assert!(
+        !subs.add("server", "ui://a", subscriber("s1", "t1", 1)),
+        "重复订阅不应重复计数"
+    );
+    assert!(!subs.add("server", "ui://a", subscriber("s2", "t2", 1)));
+    assert!(!subs.remove("server", "ui://a", "s1", "t1", 1));
+    assert!(
+        subs.remove("server", "ui://a", "s2", "t2", 1),
+        "最后一位退订才发 unsubscribe"
+    );
+    assert!(subs.for_resource("server", "ui://a").is_empty());
+}
+
+#[test]
+fn instance_and_session_cleanup_remove_only_their_subscribers() {
+    let mut subs = Subscriptions::default();
+    subs.add("server", "ui://a", subscriber("s1", "t1", 1));
+    subs.add("server", "ui://a", subscriber("s2", "t2", 1));
+    subs.add("server", "ui://b", subscriber("s2", "t2", 1));
+    subs.remove_instance("s1", "t1", 1);
+    assert_eq!(subs.for_resource("server", "ui://a").len(), 1);
+    subs.remove_session("s2");
+    assert!(subs.for_resource("server", "ui://a").is_empty());
+    assert!(subs.for_server("server").is_empty());
+}
+
+#[test]
+fn for_server_lists_every_resource_of_that_server() {
+    let mut subs = Subscriptions::default();
+    subs.add("server", "ui://a", subscriber("s1", "t1", 1));
+    subs.add("server", "ui://b", subscriber("s1", "t1", 1));
+    subs.add("other", "ui://c", subscriber("s1", "t1", 1));
+    let listed = subs.for_server("server");
+    assert_eq!(listed.len(), 2);
+    assert!(listed.iter().all(|(uri, _)| uri.starts_with("ui://")));
+}

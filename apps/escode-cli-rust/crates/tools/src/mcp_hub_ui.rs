@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use super::Hub;
 use crate::mcp_connection::Connection;
 use crate::mcp_ui::{
-    Source, bound_for_ui, parse_binding, parse_lease, parse_scope, project_resources,
+    Source, Subscriber, bound_for_ui, parse_binding, parse_lease, parse_scope, project_resources,
     project_templates,
 };
 
@@ -68,6 +68,8 @@ impl Hub {
         let closed = ui.instances.close_in_scope(&lease, &scope.as_scope());
         if closed {
             ui.calls.abort_instance(&scope.session_id, &lease.token);
+            ui.subs
+                .remove_instance(&scope.session_id, &lease.token, lease.generation);
         }
         drop(ui);
         Ok(json!({"closed": true}))
@@ -164,6 +166,166 @@ impl Hub {
         } else {
             project_resources(&raw)
         })
+    }
+
+    /// `mcp/uiSubscribeResource` / `mcp/uiUnsubscribeResource`。
+    ///
+    /// 订阅者 = 会话 + 实例凭证 + 沙箱代际；同一 `(server, uri)` 只在第一位订阅时真正向
+    /// MCP server 订阅，最后一位退订时才退订。
+    pub async fn ui_subscribe(
+        &self,
+        params: &Value,
+        subscribe: bool,
+        cancel: &CancellationToken,
+    ) -> Result<Value> {
+        let scope = parse_scope(params)?;
+        let lease = parse_lease(params)?;
+        let uri = params["uri"].as_str().context("uri is required")?;
+        let scope_id = params["scopeId"].as_str().context("scopeId is required")?;
+        let generation = params["generation"]
+            .as_u64()
+            .context("generation is required")?;
+        if scope_id != lease.token || generation != lease.generation {
+            bail!("Invalid MCP App subscription binding");
+        }
+        let source = self.ui_source(&scope.session_id, &scope.server_name);
+        let instance = self
+            .ui()
+            .instances
+            .validate(&lease, &scope.as_scope(), source.as_ref())?;
+        let connection = self
+            .ui_connection(&scope.session_id, &scope.server_name)
+            .context("MCP App connection is unavailable")?;
+        let server = scope.server_name.clone();
+        if subscribe {
+            let first = self.ui().subs.for_resource(&server, uri).is_empty();
+            if first {
+                tokio::select! {biased;
+                    _ = cancel.cancelled() => bail!("Cancelled"),
+                    _ = instance.cancelled() => bail!("MCP App instance is no longer authorized"),
+                    result = connection.subscribe_resource(uri, cancel) => result?,
+                };
+            }
+            self.ui().subs.add(
+                &server,
+                uri,
+                Subscriber {
+                    session_id: scope.session_id.clone(),
+                    plugin_id: scope.plugin_id.clone(),
+                    lease,
+                },
+            );
+        } else {
+            let last = self.ui().subs.remove(
+                &server,
+                uri,
+                &scope.session_id,
+                &lease.token,
+                lease.generation,
+            );
+            if last {
+                tokio::select! {biased;
+                    _ = cancel.cancelled() => bail!("Cancelled"),
+                    result = connection.unsubscribe_resource(uri, cancel) => result?,
+                };
+            }
+        }
+        Ok(json!({}))
+    }
+
+    /// MCP server 通知 → 每会话一条 live-only delta（`pluginUi.resourceUpdated` 等）。
+    ///
+    /// 凭证失效的订阅者就地移除并丢弃；没有有效订阅者时返回空。
+    pub(crate) fn ui_notifications(
+        &self,
+        event: &crate::contract::McpClientEvent,
+    ) -> Vec<(String, Value)> {
+        let (server, updated_uri) = match event {
+            crate::contract::McpClientEvent::ResourceUpdated { server, uri } => {
+                (server.as_str(), Some(uri.as_str()))
+            }
+            crate::contract::McpClientEvent::ResourceListChanged { server } => {
+                (server.as_str(), None)
+            }
+        };
+        let entries: Vec<(Option<String>, Subscriber)> = match updated_uri {
+            Some(uri) => self
+                .ui()
+                .subs
+                .for_resource(server, uri)
+                .into_iter()
+                .map(|subscriber| (Some(uri.to_owned()), subscriber))
+                .collect(),
+            None => self
+                .ui()
+                .subs
+                .for_server(server)
+                .into_iter()
+                .map(|(uri, subscriber)| (Some(uri), subscriber))
+                .collect(),
+        };
+        let mut groups: std::collections::BTreeMap<(String, String), Vec<Value>> =
+            std::collections::BTreeMap::new();
+        for (uri, subscriber) in entries {
+            let source = self.ui_source(&subscriber.session_id, server);
+            let scope = crate::mcp_ui::Scope {
+                workspace: None,
+                session_id: &subscriber.session_id,
+                plugin_id: &subscriber.plugin_id,
+                server_name: server,
+            };
+            let mut ui = self.ui();
+            if ui
+                .instances
+                .validate(&subscriber.lease, &scope, source.as_ref())
+                .is_err()
+            {
+                if let Some(uri) = &uri {
+                    ui.subs.remove(
+                        server,
+                        uri,
+                        &subscriber.session_id,
+                        &subscriber.lease.token,
+                        subscriber.lease.generation,
+                    );
+                }
+                continue;
+            }
+            let item = json!({
+                "scopeId": subscriber.lease.token,
+                "generation": subscriber.lease.generation,
+                "instance": subscriber.lease.to_value(),
+            });
+            let group = groups
+                .entry((subscriber.session_id, subscriber.plugin_id))
+                .or_default();
+            // `list_changed` 会把同一实例在同一 server 的多个资源都列出来，按 scopeId 去重。
+            if !group
+                .iter()
+                .any(|existing| existing["scopeId"] == item["scopeId"])
+            {
+                group.push(item);
+            }
+        }
+        groups
+            .into_iter()
+            .map(|((session_id, plugin_id), subscribers)| {
+                let mut delta = json!({
+                    "op": if updated_uri.is_some() {
+                        "pluginUi.resourceUpdated"
+                    } else {
+                        "pluginUi.resourceListChanged"
+                    },
+                    "pluginId": plugin_id,
+                    "serverName": server,
+                    "subscribers": subscribers,
+                });
+                if let Some(uri) = updated_uri {
+                    delta["uri"] = json!(uri);
+                }
+                (session_id, delta)
+            })
+            .collect()
     }
 
     /// `mcp/uiCallTool`：归属 + visibility 校验后复用 MCP 连接，不产生 transcript row。
