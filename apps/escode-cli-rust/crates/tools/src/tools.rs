@@ -30,6 +30,9 @@ impl ToolPort for WorkspaceTools {
         self.workflow_host.attach_host(host.clone());
         self.mcp.attach_host(host);
     }
+    fn attach_client_events(&self, events: crate::contract::McpClientEventSink) {
+        self.mcp.attach_client_events(events);
+    }
     /// MCP Apps：实例/资源/页面调用的运行时入口（docs/specs/rust-mcp-ui.md）。
     async fn mcp_ui(&self, method: &str, params: &Value) -> Result<Value> {
         let cancel = CancellationToken::new();

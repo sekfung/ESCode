@@ -15,7 +15,8 @@ pub use super::contract_types::{ChildHandle, ModelIdentity, Output};
 pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure, ToolHandlerFailure};
 
 pub use crate::contract_events::{
-    Event, EventSink, HOST_CHANNEL, HostReply, Input, ModelOutput, PermissionOutcome, RunEvent,
+    Event, EventSink, HOST_CHANNEL, HostReply, Input, McpClientEvent, McpClientEventSink,
+    ModelOutput, PermissionOutcome, RunEvent,
 };
 
 #[async_trait]
@@ -32,6 +33,8 @@ pub trait ToolPort: Send + Sync {
     }
     /// Engine 启动时交给工具层的 Host 通道（`HOST_CHANNEL`）；默认不使用。
     fn attach_host(&self, _host: EventSink) {}
+    /// Engine 启动时登记 MCP client 通知出口（资源更新等）；默认丢弃。
+    fn attach_client_events(&self, _events: crate::McpClientEventSink) {}
     /// MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。默认不可用。
     async fn mcp_ui(&self, _method: &str, _params: &Value) -> Result<Value> {
         anyhow::bail!("MCP Apps unavailable")

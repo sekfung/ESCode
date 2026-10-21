@@ -32,6 +32,7 @@ mod file_state;
 mod hooks;
 mod host_broker;
 mod lexical_path;
+mod mcp_client_events;
 mod mcp_config;
 mod mcp_config_order;
 mod mcp_connection;

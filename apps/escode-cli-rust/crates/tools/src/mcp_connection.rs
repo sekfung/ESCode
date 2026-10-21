@@ -1,6 +1,7 @@
+use super::mcp_client_events::HubClient;
 use super::mcp_config::Server;
 use super::mcp_image_artifacts::ImageArtifacts;
-use crate::contract::{ProcessCleanupFailure, ToolOutput};
+use crate::contract::{McpClientEventSink, ProcessCleanupFailure, ToolOutput};
 use anyhow::{Context, Result, bail, ensure};
 use futures_util::StreamExt;
 use rmcp::{
@@ -22,7 +23,7 @@ use tokio_util::{
     sync::CancellationToken,
 };
 
-type Service = RunningService<RoleClient, ClientConfig>;
+type Service = RunningService<RoleClient, HubClient>;
 
 /// 单条 stdio 帧（JSON-RPC 消息）的上限。SDK 默认读行无界，这里必须给界，否则坏帧会无限缓存。
 ///
@@ -51,6 +52,7 @@ impl Connection {
         config: &Server,
         http: Option<reqwest_mcp::Client>,
         oauth: Option<super::mcp_oauth_credentials::Auth>,
+        events: Option<McpClientEventSink>,
         cancel: &CancellationToken,
     ) -> Result<Self> {
         use super::mcp_oauth_credentials::Auth;
@@ -81,6 +83,7 @@ impl Connection {
         let mut client = ClientConfig::default();
         client.client_info.name = "escode-cli-rust".into();
         client.client_info.version = env!("CARGO_PKG_VERSION").into();
+        let handler = HubClient::new(client, &config.name, events);
         let lifecycle = CancellationToken::new();
         let mut owned = None;
         let raw = super::mcp_raw_capture::Responses::default();
@@ -132,7 +135,7 @@ impl Connection {
                 );
                 Ok::<Service, anyhow::Error>(
                     serve_client_with_lifecycle_and_ct(
-                        client,
+                        handler.clone(),
                         (writer, reader),
                         mode,
                         lifecycle.clone(),
@@ -149,11 +152,14 @@ impl Connection {
                     raw.clone(),
                 )
                 .await?;
-                Ok(
-                    serve_client_with_lifecycle_and_ct(client, transport, mode, lifecycle.clone())
-                        .await
-                        .context("protocol_negotiation_failed")?,
+                Ok(serve_client_with_lifecycle_and_ct(
+                    handler.clone(),
+                    transport,
+                    mode,
+                    lifecycle.clone(),
                 )
+                .await
+                .context("protocol_negotiation_failed")?)
             } else {
                 use rmcp::transport::{
                     StreamableHttpClientTransport,
@@ -186,7 +192,7 @@ impl Connection {
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(
-                            client,
+                            handler.clone(),
                             transport,
                             mode,
                             lifecycle.clone(),
@@ -199,7 +205,7 @@ impl Connection {
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(
-                            client,
+                            handler.clone(),
                             transport,
                             mode,
                             lifecycle.clone(),
@@ -212,7 +218,7 @@ impl Connection {
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(
-                            client,
+                            handler.clone(),
                             transport,
                             mode,
                             lifecycle.clone(),

@@ -86,6 +86,7 @@ pub(super) fn start(
     http: Option<reqwest_mcp::Client>,
     oauth: Arc<OAuth>,
     trigger: AuthorizationRequired,
+    events: Option<crate::contract::McpClientEventSink>,
     stop: CancellationToken,
 ) -> Arc<Task> {
     let (tx, rx) = watch::channel(Phase::Starting);
@@ -119,7 +120,7 @@ pub(super) fn start(
         let result = match oauth.authorize(&trigger, on_url, &stop).await {
             // 授权后只重连一次（TS oauthAuthorizationAttempted）；仍失败按普通连接失败分类。
             Outcome::Authorized | Outcome::AlreadyAuthorized => {
-                Connection::open(&server, http, Some(Auth::Code(oauth)), &stop)
+                Connection::open(&server, http, Some(Auth::Code(oauth)), events, &stop)
                     .await
                     .map(Arc::new)
                     .map_err(|error| failure_kind(&error).into())
@@ -242,7 +243,15 @@ impl Hub {
                     )
                 };
                 let oauth = oauth_for(server, credentials, official)?;
-                match Connection::open(server, http.clone(), oauth.clone(), cancel).await {
+                match Connection::open(
+                    server,
+                    http.clone(),
+                    oauth.clone(),
+                    self.client_events.get().cloned(),
+                    cancel,
+                )
+                .await
+                {
                     Ok(connection) => return Ok(Some(Arc::new(connection))),
                     Err(error) => match (error.downcast::<AuthorizationRequired>(), oauth) {
                         (Ok(trigger), Some(Auth::Code(oauth))) => start(
@@ -252,6 +261,7 @@ impl Hub {
                             http,
                             oauth,
                             trigger,
+                            self.client_events.get().cloned(),
                             self.stop.child_token(),
                         ),
                         (Ok(_), _) => anyhow::bail!("not_authenticated"),

@@ -35,6 +35,8 @@ pub(super) struct Hub {
     credentials: std::sync::OnceLock<Arc<escode_cli_host::credential_store::CredentialStore>>,
     /// Engine 交给工具层的 Host 通道（官方 MCP 身份头）。
     host: Arc<std::sync::OnceLock<crate::contract::EventSink>>,
+    /// Engine 的 MCP 客户端事件出口（资源更新通知；docs/specs/rust-mcp-client-events.md）。
+    client_events: std::sync::OnceLock<crate::contract::McpClientEventSink>,
     /// node_repl 浏览器 broker（首次出现 node_repl 配置时启动，docs/specs/rust-browser-use.md 第 2 期）。
     broker: std::sync::OnceLock<Option<Arc<super::browser_broker::Broker>>>,
     /// 串口 broker（首次出现 serial 配置时启动，docs/specs/serial-agent-tools.md）。
@@ -48,6 +50,10 @@ pub(super) struct Hub {
 impl Hub {
     pub fn attach_host(&self, host: crate::contract::EventSink) {
         let _ = self.host.set(host);
+    }
+    /// Engine 启动时登记的 MCP client 通知出口；未登记时通知直接丢弃（不伪造订阅状态）。
+    pub fn attach_client_events(&self, events: crate::contract::McpClientEventSink) {
+        let _ = self.client_events.set(events);
     }
     pub fn inherit(&self, parent: &str, child: &str) {
         let mut state = self.state_mut();
@@ -63,6 +69,7 @@ impl Hub {
             http: Default::default(),
             credentials: Default::default(),
             host: Default::default(),
+            client_events: Default::default(),
             broker: Default::default(),
             serial: Default::default(),
             state: Default::default(),
@@ -370,49 +377,6 @@ impl Hub {
         }
         self.prune().await
     }
-    async fn prune(&self) -> Result<()> {
-        let removed = {
-            let mut state = self.state_mut();
-            let used = state
-                .bindings
-                .values()
-                .flatten()
-                .map(|b| b.key.clone())
-                .collect::<BTreeSet<_>>();
-            // 借用检查：keys() 迭代器借住 connections，remove 需要独占借用，必须先收集 key 再删除
-            // （clippy::needless_collect 的"直接用迭代器"建议在此无法通过编译）。
-            #[allow(clippy::needless_collect)]
-            let keys = state
-                .connections
-                .keys()
-                .filter(|k| !used.contains(*k))
-                .cloned()
-                .collect::<Vec<_>>();
-            // 连接被回收后同一 server 的旧来源不再可信（MCP App 凭证据此换代）。
-            for sources in state.sources.values_mut() {
-                sources.retain(|_, source| !keys.contains(&source.identity));
-            }
-            keys.into_iter()
-                .filter_map(|k| state.connections.remove(&k))
-                .collect::<Vec<_>>()
-        };
-        for connection in removed {
-            connection.close().await?;
-        }
-        Ok(())
-    }
-    pub async fn shutdown(&self) -> Result<()> {
-        self.stop.cancel();
-        let _gate = self.gate.lock().await;
-        {
-            let mut state = self.state_mut();
-            state.bindings.clear();
-            state.overrides.clear();
-            state.sources.clear();
-        }
-        *self.ui() = Default::default();
-        self.prune().await
-    }
 }
 #[path = "mcp_hub_binding.rs"]
 mod binding;
@@ -420,6 +384,8 @@ mod binding;
 mod browser;
 #[path = "mcp_hub_host_tools.rs"]
 mod host_tools;
+#[path = "mcp_hub_lifecycle.rs"]
+mod lifecycle;
 #[path = "mcp_hub_oauth.rs"]
 mod oauth;
 #[path = "mcp_hub_ui.rs"]
