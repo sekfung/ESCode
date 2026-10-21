@@ -186,6 +186,10 @@ pub trait ToolPort: Send + Sync {
     async fn plugin_list(&self, _params: &Value) -> Result<Value> {
         anyhow::bail!("Plugins unavailable")
     }
+    /// `plugins/listUiSurfaces`：已启用插件清单 `ui.surfaces[]` 的只读投影。
+    async fn plugin_ui_surfaces(&self, _params: &Value) -> Result<Value> {
+        anyhow::bail!("Plugins unavailable")
+    }
     /// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）：写 user/workspace 配置的
     /// `plugins.enabledPlugins[id]`，参数为协议原样（`workspace` / `pluginId` / `enabled` / `scope`）。
     async fn plugin_set_enabled(&self, _params: &Value) -> Result<Value> {

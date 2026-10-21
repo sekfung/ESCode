@@ -323,6 +323,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("gen-ui", "prepareSandbox"),
     ("plugin-ui-bridge", "prepareSandbox"), ("plugin-ui-bridge", "validateInstance"), ("plugin-ui-bridge", "recycleInstance"), ("plugin-ui-bridge", "closeInstance"), ("plugin-ui-bridge", "readResource"),
     ("plugin-ui-bridge", "callTool"), ("plugin-ui-bridge", "cancelToolCall"), ("plugin-ui-bridge", "listResources"), ("plugin-ui-bridge", "listResourceTemplates"),
+    ("plugin-ui-bridge", "listSurfaces"),
     ("usage-stats", "getAppUsageSnapshot"),
     ("plugins", "getOverview"),
     ("plugin-sync", "listLocalUserPluginCandidates"),

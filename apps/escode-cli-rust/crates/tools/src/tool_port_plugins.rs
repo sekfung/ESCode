@@ -10,6 +10,11 @@ pub(super) async fn list(params: &Value) -> Result<Value> {
     super::plugin_list::list(&cwd, &layers, &CancellationToken::new()).await
 }
 
+/// `plugins/listUiSurfaces`：已启用插件的 `ui.surfaces[]` 只读投影。
+pub(super) async fn ui_surfaces(params: &Value) -> Result<Value> {
+    super::plugin_ui_surfaces::list(params).await
+}
+
 /// `plugins/setEnabled`（docs/specs/rust-plugins.md 第 2 期）。
 pub(super) async fn set_enabled(params: &Value) -> Result<Value> {
     super::plugin_list::set_enabled(params, &CancellationToken::new()).await

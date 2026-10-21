@@ -216,6 +216,9 @@ impl ToolPort for WorkspaceTools {
     async fn plugin_list(&self, params: &Value) -> Result<Value> {
         super::tool_port_plugins::list(params).await
     }
+    async fn plugin_ui_surfaces(&self, params: &Value) -> Result<Value> {
+        super::tool_port_plugins::ui_surfaces(params).await
+    }
     async fn plugin_set_enabled(&self, params: &Value) -> Result<Value> {
         super::tool_port_plugins::set_enabled(params).await
     }

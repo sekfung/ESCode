@@ -188,6 +188,8 @@ impl Engine {
             // Rust 判为「就绪前失败」（docs/specs/rust-plugins.md「插件控制面的 workspace 语义」）。
             // App 插件页读面（docs/specs/rust-plugins.md 第 1 期）：workspace 级、无会话。
             "plugins/list" => self.tools.plugin_list(&request.params).await,
+            // 已启用插件的 MCP App 面板入口（docs/specs/rust-mcp-ui.md）。
+            "plugins/listUiSurfaces" => self.tools.plugin_ui_surfaces(&request.params).await,
             // 插件页开关（第 2 期）：落盘 enabledPlugins，新会话按新配置装载插件。
             "plugins/setEnabled" => self.tools.plugin_set_enabled(&request.params).await,
             // 插件选项面（第 4 期）：写 options / 恢复继承。
