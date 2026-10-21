@@ -9,7 +9,7 @@
     {
       "kind": "app-config-seed",
       "path": "~/.escode/v2/credentials.json",
-      "purpose": "隔离的 BigModel 旧资料、不同值的业务 token/JWT 与独立 Bot 凭据；本地 HTTP fixture 控制 userinfo HTTP 401 或 HTTP 200 + 业务 401。"
+      "purpose": "隔离的 BigModel 旧资料与不同值的业务 token/JWT；本地 HTTP fixture 控制 userinfo HTTP 401 或 HTTP 200 + 业务 401。"
     }
   ],
   "requests": []

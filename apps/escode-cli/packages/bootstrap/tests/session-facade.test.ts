@@ -288,7 +288,7 @@ describe("session facade model selection", () => {
     });
     expect(modelSelection.options?.reasoningLevel).toBe("low");
 
-    // Bot /model 的结构化命令必须完整应用，不能先转成字符串而丢掉档位。
+    // /model 的结构化命令必须完整应用，不能先转成字符串而丢掉档位。
     saveSessionEntry.mockClear();
     const submitted: ModelSelection = {
       providerId: "temporary-provider",

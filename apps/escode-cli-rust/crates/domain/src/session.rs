@@ -37,7 +37,7 @@ pub struct Session {
     #[serde(default)]
     pub skills: Option<super::skills::SkillCatalog>,
     /// TS 旧 `bot_topic_context` 记录（docs/specs/rust-app-p0.md）：不进模型历史、不成行，
-    /// 只供 legacy 消息投影在 `rowAnchor` 处还原，Host `readBotTopicSummaries` 读取。
+    /// 只供 legacy 消息投影在 `rowAnchor` 处还原。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub legacy_topic_records: Vec<Value>,
     #[serde(default)]

@@ -897,7 +897,7 @@ function createReportingRemoteESCodeTaskService<T extends object>(
     const leaseResult = await taskRealtimePort
       .acquireTaskRunLease(mirrorTarget)
       .catch((error: unknown) => {
-        logger.warn("Bot remote runtime realtime lease failed:", error);
+        logger.warn("Remote runtime realtime lease failed:", error);
         return null;
       });
     if (!leaseResult?.acquired) {

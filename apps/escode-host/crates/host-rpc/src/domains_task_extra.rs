@@ -1,4 +1,4 @@
-//! `escode-task` 其余方法注册（S9–S12）：initialize / goalSession / Claude 导入 / Bot group。
+//! `escode-task` 其余方法注册（S9–S12）：initialize / goalSession / Claude 导入。
 //! 从 `domains_task.rs` 拆出以守住单文件行数上限。
 
 use crate::domains_task_state::StateContext;

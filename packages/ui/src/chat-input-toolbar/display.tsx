@@ -440,7 +440,7 @@ export function ConfigSelect({
           ) {
             return;
           }
-          // Bugfix: ConfigSelect 被 Bot 弹窗复用时，关闭菜单不能强制抢焦点到聊天输入框。
+          // Bugfix: ConfigSelect 被其他弹窗复用时，关闭菜单不能强制抢焦点到聊天输入框。
           const input = document.querySelector<HTMLElement>(restoreFocusSelector);
           logger.debug("[ConfigSelect] picker focus handoff", {
             category: option.category,

@@ -2,7 +2,7 @@
 //!
 //! 本片覆盖 UI 主路径：新建 session、复用 draft（必要时同步模型/思考强度）、自动化标记
 //! （`persistence: deferred` + 索引归属字段）、`task_created` 事件与 `initialSlashCommands`。
-//! 登记差异：`v4Create`（Bot/host 路径，尚未迁移）显式拒绝；新建任务的 grouped-view 置顶
+//! 登记差异：`v4Create`（host 路径，尚未迁移）显式拒绝；新建任务的 grouped-view 置顶
 //! 与 syncer 显式通知未实现（V4 sessions-index 帧到达后自然收敛）。
 
 use serde_json::{Value, json};

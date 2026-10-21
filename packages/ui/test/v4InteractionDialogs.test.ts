@@ -29,34 +29,21 @@ describe("V4InteractionDialogs", () => {
     expect(getCurrentSessionInteractionSnapshot("task-b", staleSnapshot)).toBe(staleSnapshot);
   });
 
-  it("uses Bot question progress for the same v4 elicitation request", () => {
+  it("keeps the projected elicitation request and derives its progress key", () => {
     const projected = {
       type: "elicitation_request" as const,
       taskId: "sess-1",
       traceId: "trace-1",
       requestId: "ask-1",
-      message: "第一题",
-      options: [],
-      currentQuestionIndex: 0,
-      questions: [],
-    };
-    const botProgress = {
-      ...projected,
       message: "第二题",
+      options: [],
       currentQuestionIndex: 1,
       answerDrafts: { answer_0: ["first-answer"] },
+      questions: [],
     };
 
-    expect(resolveV4ElicitationRequest(projected, botProgress)).toBe(botProgress);
-    expect(buildV4ElicitationProgressKey(botProgress)).toBe(
-      'ask-1:1:{"answer_0":["first-answer"]}',
-    );
-    expect(
-      resolveV4ElicitationRequest(projected, {
-        ...botProgress,
-        requestId: "ask-other",
-      }),
-    ).toBe(projected);
+    expect(resolveV4ElicitationRequest(projected)).toBe(projected);
+    expect(buildV4ElicitationProgressKey(projected)).toBe('ask-1:1:{"answer_0":["first-answer"]}');
   });
 
   it("remembers early user input and consumes the snooze intent exactly once", () => {

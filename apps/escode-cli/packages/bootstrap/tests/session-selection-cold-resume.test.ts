@@ -50,7 +50,7 @@ describe("Session 完整选择的实际保存与冷恢复", () => {
       let app = await createRegistryBackedTestApp({ ...common, sessionStore: store });
       try {
         const sessionId = app.sessionId;
-        // Bot /model 操作的是已创建的 Session，不是尚未 materialize 的草稿 App。
+        // /model 操作的是已创建的 Session，不是尚未 materialize 的草稿 App。
         await app.runtime.executeTurn("Create the bound Session.");
         executions.length = 0;
         await app.setModel(selected);

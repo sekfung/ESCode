@@ -1753,7 +1753,7 @@ function StatusSummaryRow({
   const hasGitMiniSummary = Boolean(model.git && added + removed > 0);
 
   // 胶囊摘要过去把所有后台任务都写死成 Activity，纯 Subagent 因而没有复用
-  // Running 明细的 Bot 语义。**恰好一类**沿用该类图标，混合才是 Activity。在跑的工作流不进这条
+  // Running 明细的 Subagent 语义。**恰好一类**沿用该类图标，混合才是 Activity。在跑的工作流不进这条
   // 兜底：它排在胶囊最前，自己一个分支（名字 · 灯 · phase），不再是一个计数。
   const hasRunningBash = model.runningBashWorks.length > 0;
   const hasRunningSubagent = model.runningSubagentWorks.length > 0;

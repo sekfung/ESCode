@@ -4,7 +4,6 @@ import { WebSocket, type RawData } from "ws";
 import { Emitter, Event, SocketProtocol, VSBuffer, type ISocket } from "@escode/rpc";
 import { ServiceCollection, ISystemService, IESCodeAgentService } from "@escode/services";
 import { createHttpServer } from "@escode/server";
-import { createTopicResourcePeers, createTopicResourceRelayChannel } from "@escode/services/node";
 import { connectViaProtocol, connectViaWebSocket } from "@escode/client";
 import {
   connectServerRemote,

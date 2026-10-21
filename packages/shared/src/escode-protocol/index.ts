@@ -1428,7 +1428,7 @@ export const escodeSessionTitleUpdatedEventPayloadSchema = z
   .strict();
 export const escodeTurnStartedEventPayloadSchema = z
   .object({
-    // CLI 的高精度执行时间可含小数；漏声明会使 strict 校验丢弃整条开始事件，Bot 因此无法清空上一轮回复。
+    // CLI 的高精度执行时间可含小数；漏声明会使 strict 校验丢弃整条开始事件。
     executionStartedAt: z.number().nonnegative().optional(),
     turnNumber: z.number().int().nonnegative(),
     input: z.string(),

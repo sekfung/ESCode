@@ -1,4 +1,4 @@
-//! S9–S12 端到端：initialize / goalSession / Claude 导入 / Bot group 7 方法。
+//! S9–S12 端到端：initialize / goalSession / Claude 导入。
 mod support;
 use support::*;
 

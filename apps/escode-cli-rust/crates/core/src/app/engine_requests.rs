@@ -256,7 +256,7 @@ impl Engine {
                 self.import_claude_history(&request.params).await
             }
             "session/create" => self.legacy_create(&request.params).await,
-            // legacy 会话操作：翻译为 V4 命令走同一写路径（Bots、task facade、desktop session service 仍在用）。
+            // legacy 会话操作：翻译为 V4 命令走同一写路径（task facade、desktop session service 仍在用）。
             "session/send" => self.legacy_send(&request.params).await,
             "session/setModel" => self.legacy_set_model(&request.params).await,
             "session/setThoughtLevel" => self.legacy_set_thought_level(&request.params).await,

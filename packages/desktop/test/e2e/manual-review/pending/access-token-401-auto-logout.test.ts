@@ -39,7 +39,7 @@ describe("用户资料 access token 登录过期", () => {
     expect(fixtureStatus.rejectionStatus).toBe(responseStatus);
     expect(fixtureStatus.rejected).toBe(true);
 
-    // Host 侧失效清理与“是否强制重新登录”无关，必须继续执行；Bot 凭据保持独立。
+    // Host 侧失效清理与“是否强制重新登录”无关，必须继续执行。
     await browser.waitUntil(
       async () => {
         const credentials = await readCredentials();
@@ -53,8 +53,6 @@ describe("用户资料 access token 登录过期", () => {
       },
       { timeout: 10_000, timeoutMsg: "业务 401 后没有完成原 OAuth 清理" },
     );
-    expect((await readCredentials())["bot:e2e:credential"]).toBe("e2e-independent-bot-token");
-
     // 自动登录入口关闭：不弹“登录已过期”，也不发出 RelaunchApp。
     // 测试原因：仅 mock app.relaunch/quit 仍会先执行真实 Host 关闭屏障，导致
     // ChromeDriver 收尾超时，因此在 IPC 边界记录命令而不实际重启。

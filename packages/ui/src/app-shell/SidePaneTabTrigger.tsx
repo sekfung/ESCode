@@ -286,7 +286,7 @@ export function SidePaneTabIcon({ tab }: { tab: WorkspaceSidePaneTab }) {
     return <ListTreeIcon className="size-3.5" />;
   }
   // actor transcript 是「一个 actor 的对话记录」：既不是整次运行（Workflow），也不是子智能体
-  // 会话（Bot）。三者在 tab 条上必须能一眼分开——它们的可见性与回收语义都不同。
+  // 会话（Subagent）。三者在 tab 条上必须能一眼分开——它们的可见性与回收语义都不同。
   if (tab.type === "workflow-actor-session") {
     return <BotMessageSquareIcon className="size-3.5" />;
   }

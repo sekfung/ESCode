@@ -1,4 +1,3 @@
-import { channelReplyHostRequestSchema, type ChannelReplyHostRequest } from "@escode/shared";
 // v4 conversation 通道 host 转发面测试（M3 竖切，docs/v4-refactor/01-topology §host 通道层）。
 // 验证 host 只做透传：subscribe/unsubscribe/command 转发给 CLI v4 方法，
 // v4/conversation/frame 通知按 workspace fan-out 给 onDynamicConversationFrame 订阅者。
@@ -50,12 +49,6 @@ process.stdin.on("data", (chunk) => {
       if (msg.params.workId === "unsupported") send({ id: msg.id, error: { code: -32601, message: "Method not found" } });
       else send({ id: msg.id, result: { kind: "unavailable", workId: msg.params.workId } });
       continue;
-    }
-    if (msg.method === "v4/conversation/subscribe" && msg.params.topic.endsWith("/channel-reply-source")) {
-      send({ id: "reverse-reply", method: "bot/channel/reply", trace: { traceId: "trace-native" }, params: { taskId: "channel-reply-source", inputId: "input-a", toolCallId: "call-a", parts: [{type:"mention",refId:"m1"}] } });
-    }
-    if (msg.method === "v4/conversation/subscribe" && msg.params.topic.endsWith("/topic-resource-source")) {
-      send({ id: "reverse-resource", method: "topic/resource/read", params: { requestId: "resource-a", taskId: "topic-resource-source", inputId: "input-a", authorizationId: "auth-a", messageId: "message-a", resourceIndex: 0 } });
     }
     if (msg.method === "v4/conversation/subscribe" && msg.id !== undefined) {
       const response = {
@@ -356,12 +349,6 @@ describe("escodeAgentService v4 conversation channel", () => {
     options: {
       providerReady?: boolean;
       authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
-      channelReplyExecutor?: NonNullable<
-        Parameters<typeof createESCodeAgentService>[0]
-      >["channelReplyExecutor"];
-      topicResourceExecutor?: NonNullable<
-        Parameters<typeof createESCodeAgentService>[0]
-      >["topicResourceExecutor"];
     } = {},
   ) {
     const workspacePath = mkdtempSync(join(tmpdir(), "escode-agent-v4-"));
@@ -376,8 +363,6 @@ describe("escodeAgentService v4 conversation channel", () => {
     }));
     const service = createESCodeAgentService({
       commandResolver,
-      topicResourceExecutor: options.topicResourceExecutor,
-      channelReplyExecutor: options.channelReplyExecutor,
       authorizeLocalMediaPreviewPath: options.authorizeLocalMediaPreviewPath,
       modelSelectionReadinessSource: {
         async getView() {
@@ -406,78 +391,6 @@ describe("escodeAgentService v4 conversation channel", () => {
     });
     return { service, workspacePath, logPath, commandResolver };
   }
-
-  it.each([false, true])(
-    "projects only channel reply scope from a live V4 connection (remote=%s)",
-    async (remote) => {
-      const reply = vi.fn(async (value: ChannelReplyHostRequest) => {
-        // 与实际 Host executor 一样执行严格校验，不能用宽松 spy 掩盖额外连接字段。
-        channelReplyHostRequestSchema.parse(value);
-        return { status: "sent" as const, deliveryId: "delivery", providerMessageId: "om_sent" };
-      });
-      const { service, workspacePath } = setupService({ channelReplyExecutor: reply });
-      const scope = remote
-        ? { workspaceIdentity: "ssh://host/work", remoteSessionId: "logical-session" }
-        : {};
-      const target = {
-        workspacePath,
-        ...scope,
-        sessionId: "channel-reply-source",
-        envelope: { requestId: "transport-request" },
-        __escodeTrustedV4Connection: { connectionId: "test-connection" },
-      };
-      try {
-        await service.subscribeConversationV4(target);
-        await vi.waitFor(() => expect(reply).toHaveBeenCalled());
-        const received = reply.mock.calls[0]![0];
-        expect(() => channelReplyHostRequestSchema.parse(received)).not.toThrow();
-        expect(received).toEqual({
-          workspacePath,
-          workspaceIdentity: scope.workspaceIdentity,
-          remoteSessionId: scope.remoteSessionId,
-          taskId: "channel-reply-source",
-          inputId: "input-a",
-          toolCallId: "call-a",
-          trace: { traceId: "trace-native" },
-          parts: [{ type: "mention", refId: "m1" }],
-        });
-      } finally {
-        await service.disposeAllAndWait();
-      }
-    },
-  );
-
-  it("carries the active remote session on reverse resource requests after cold warmup", async () => {
-    const read = vi.fn(async () => {
-      throw new Error("download intentionally stopped after route capture");
-    });
-    const { service, workspacePath } = setupService({ topicResourceExecutor: read });
-    try {
-      await service.subscribeConversationV4({
-        workspacePath,
-        workspaceIdentity: "ssh://host/work",
-        sessionId: "warmup",
-      });
-      await service.subscribeConversationV4({
-        workspacePath,
-        workspaceIdentity: "ssh://host/work",
-        remoteSessionId: "logical-session",
-        sessionId: "topic-resource-source",
-      });
-      await vi.waitFor(() =>
-        expect(read).toHaveBeenCalledWith(
-          expect.objectContaining({
-            workspaceIdentity: "ssh://host/work",
-            remoteSessionId: "logical-session",
-            taskId: "topic-resource-source",
-          }),
-          expect.any(AbortSignal),
-        ),
-      );
-    } finally {
-      await service.disposeAllAndWait();
-    }
-  });
 
   it.each(["desktop-continuous", "web-remote-replayable"] as const)(
     "session debug remains read-only and workspace-scoped on %s",
