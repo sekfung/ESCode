@@ -160,7 +160,13 @@ fn ui_read_strips_meta_and_rejects_bad_mime_and_missing_blob_mime() {
 fn ui_read_rejects_oversize_instead_of_truncating() {
     let text = "a".repeat(resources::UI_READ_MAX_BYTES + 1);
     let raw = json!({"contents":[{"uri":"ui://s/big","mimeType":"text/plain","text":text}]});
-    assert!(bound_for_ui("ui://s/big", &raw).is_err());
+    let error = bound_for_ui("ui://s/big", &raw).expect_err("oversize");
+    assert_eq!(
+        error
+            .downcast_ref::<crate::contract::RpcFailure>()
+            .map(|failure| failure.code),
+        Some(-32001)
+    );
 }
 
 #[test]

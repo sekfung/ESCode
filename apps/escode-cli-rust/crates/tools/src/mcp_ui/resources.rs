@@ -2,9 +2,11 @@
 //!
 //! 总大小按 text 的 UTF-8 字节 + blob 的 base64 解码字节累计，超过 8 MiB 直接拒绝（不截断）；
 //! mimeType 必须在白名单，blob 缺 mimeType 视为不可判定。面向页面的结果去掉 `_meta`。
-use anyhow::{Result, bail};
+use anyhow::Result;
 use base64::Engine as _;
 use serde_json::{Map, Value, json};
+
+use crate::contract::RpcFailure;
 
 pub(crate) const UI_READ_MAX_BYTES: usize = 8 * 1024 * 1024;
 
@@ -99,17 +101,25 @@ pub(crate) fn bound_for_ui(uri: &str, raw: &Value) -> Result<Value> {
         if let Some(mime) = mime
             && !mime_allowed(mime)
         {
-            bail!(
-                "MCP resource \"{}\" has mimeType \"{mime}\" which is not allowed for plugin UI reads",
-                item.get("uri").and_then(Value::as_str).unwrap_or(uri)
-            );
+            return Err(RpcFailure::new(
+                -32001,
+                format!(
+                    "MCP resource \"{}\" has mimeType \"{mime}\" which is not allowed for plugin UI reads",
+                    item.get("uri").and_then(Value::as_str).unwrap_or(uri)
+                ),
+            )
+            .into());
         }
         let blob = item.get("blob").and_then(Value::as_str);
         if blob.is_some() && mime.is_none() {
-            bail!(
-                "MCP resource \"{}\" has mimeType \"(missing)\" which is not allowed for plugin UI reads",
-                item.get("uri").and_then(Value::as_str).unwrap_or(uri)
-            );
+            return Err(RpcFailure::new(
+                -32001,
+                format!(
+                    "MCP resource \"{}\" has mimeType \"(missing)\" which is not allowed for plugin UI reads",
+                    item.get("uri").and_then(Value::as_str).unwrap_or(uri)
+                ),
+            )
+            .into());
         }
         if let Some(text) = item.get("text").and_then(Value::as_str) {
             bytes += text.len();
@@ -121,9 +131,13 @@ pub(crate) fn bound_for_ui(uri: &str, raw: &Value) -> Result<Value> {
                 .unwrap_or_else(|_| blob.len() / 4 * 3);
         }
         if bytes > UI_READ_MAX_BYTES {
-            bail!(
-                "MCP resource \"{uri}\" is {bytes} bytes, exceeding the {UI_READ_MAX_BYTES} byte limit for plugin UI reads"
-            );
+            return Err(RpcFailure::new(
+                -32001,
+                format!(
+                    "MCP resource \"{uri}\" is {bytes} bytes, exceeding the {UI_READ_MAX_BYTES} byte limit for plugin UI reads"
+                ),
+            )
+            .into());
         }
         let mut out = Map::new();
         out.insert(

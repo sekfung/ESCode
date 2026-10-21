@@ -305,16 +305,20 @@ impl Engine {
             Ok(value) => json!({"id":request.id,"result":value}),
             Err(error) => {
                 self.outbox.clear();
-                let message = error.to_string();
-                rpc_error(
-                    &request.id,
-                    if message.starts_with("Unsupported method:") {
-                        -32601
-                    } else {
-                        -32602
-                    },
-                    &message,
-                )
+                if let Some(failure) = error.downcast_ref::<RpcFailure>() {
+                    rpc_error(&request.id, failure.code, &failure.message)
+                } else {
+                    let message = error.to_string();
+                    rpc_error(
+                        &request.id,
+                        if message.starts_with("Unsupported method:") {
+                            -32601
+                        } else {
+                            -32602
+                        },
+                        &message,
+                    )
+                }
             }
         };
         let mut batch = vec![];

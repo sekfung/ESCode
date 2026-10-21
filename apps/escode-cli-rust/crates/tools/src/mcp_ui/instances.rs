@@ -4,10 +4,15 @@
 //! 连接代际变化即撤销旧凭证；撤销先从登记表移除再 abort，迟到结果无法重新获得执行权。
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tokio_util::sync::CancellationToken;
+
+/// 凭证失效统一映射为 JSON-RPC -32000（docs/specs/rust-mcp-ui.md §3）。
+fn unauthorized() -> anyhow::Error {
+    crate::contract::RpcFailure::new(-32000, "MCP App instance is no longer authorized").into()
+}
 
 /// MCP 连接来源：规范化身份 + 单调代际。身份相同但代际不同视为换了连接。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -159,7 +164,7 @@ impl Instances {
         source: Option<&Source>,
     ) -> Result<CancellationToken> {
         let Some(record) = self.records.get(&lease.token) else {
-            bail!("MCP App instance is no longer authorized");
+            return Err(unauthorized());
         };
         if record.lease.runtime_id != lease.runtime_id
             || record.lease.generation != lease.generation
@@ -171,7 +176,7 @@ impl Instances {
             || record.binding.plugin_id != scope.plugin_id
             || record.binding.server_name != scope.server_name
         {
-            bail!("MCP App instance is no longer authorized");
+            return Err(unauthorized());
         }
         let current = source.is_some_and(|source| {
             source.identity == record.source.identity
@@ -180,7 +185,7 @@ impl Instances {
         if !current {
             let invalid = lease.clone();
             self.close(&invalid);
-            bail!("MCP App instance is no longer authorized");
+            return Err(unauthorized());
         }
         Ok(self
             .records
@@ -191,10 +196,10 @@ impl Instances {
 
     pub(crate) fn retain(&mut self, lease: &Lease, call_id: &str) -> Result<Pin> {
         let Some(record) = self.records.get_mut(&lease.token) else {
-            bail!("MCP App instance is no longer authorized");
+            return Err(unauthorized());
         };
         if record.lease.generation != lease.generation {
-            bail!("MCP App instance is no longer authorized");
+            return Err(unauthorized());
         }
         let pin = format!("{call_id}:{}", uuid::Uuid::new_v4());
         record.pins.insert(pin.clone());
