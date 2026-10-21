@@ -46,6 +46,8 @@ apps/escode-host/
 
 ## 3. 基础设施（u2a 交付物与验收）
 
+边界门禁（`scripts/check-escode-host-boundaries.mjs`）按**有效代码行**统计单文件规模：排除空行与整行注释，行尾注释仍计入所在代码行；上限 400，与 `apps/escode-cli-rust` 同规。注释不产生运行时行为，不用于迎合物理行数而机械拆分模块。
+
 ### 3.1 TaskScope
 
 复用 `core_api::scope::Spawner`：唯一 spawn 入口、panic sink 上报、`running()` 残余清单、`drain(grace)` 宽限、实例 env 传播。Host 侧每个服务域各持一个 Spawner（父子 scope 语义：域结束时中止本域任务）。验收：Host 收口后各域 `running()` 为空。

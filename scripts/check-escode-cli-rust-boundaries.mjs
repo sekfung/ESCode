@@ -1,6 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 
+import { countRustCodeLines } from "./rust-source-metrics.mjs";
+
 const root = resolve(import.meta.dirname, "../apps/escode-cli-rust/crates");
 const failures = [];
 // spawn 纪律（docs/specs/rust-u1-runtime-lib.md §3.1/§3.5）：非测试代码只能经 Spawner。
@@ -25,7 +27,8 @@ async function walk(directory) {
     const file = relative(root, path).replaceAll("\\", "/");
     const crate = file.split("/", 1)[0];
     const code = source.replace(/\/\/[^\n]*/g, "");
-    if (source.split("\n").length > 400) failures.push(`${file}: exceeds 400 lines`);
+    const codeLines = countRustCodeLines(source);
+    if (codeLines > 400) failures.push(`${file}: ${codeLines} effective code lines exceeds 400`);
     if (
       crate === "domain" &&
       /\b(?:tokio|reqwest|rusqlite|escode_cli_(?:state|model|tools|host|wiki))\s*::|\bstd\s*::\s*(?:fs|process|net)\b/.test(
