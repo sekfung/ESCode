@@ -30,10 +30,6 @@ pub(crate) struct StateContext {
     pub commands: Arc<crate::task_commands::TaskCommandQueue>,
     /// 任务事件总线（发送开始 / 终态 / ready；事件面 5 个方法共用）。
     pub task_events: Arc<crate::task_events::TaskEventHub>,
-    /// Bot group 的 V4 观察器（独立帧泵；无 runtime 时为 None）。
-    pub observer: Option<Arc<crate::agent_v4::base::Base>>,
-    /// Bot topic admission（版本 + 在途发送串行）。
-    pub bot_group: Arc<crate::task_bot::BotGroupState>,
     /// 设置域根（TS `homedir`；Claude 历史扫描使用）。
     pub home: std::path::PathBuf,
 }

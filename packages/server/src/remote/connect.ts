@@ -1,9 +1,8 @@
-import { SocketProtocol, ChannelClient, ChannelServer, type IServerChannel } from "@escode/rpc";
+import { SocketProtocol, ChannelClient } from "@escode/rpc";
 import type { IServiceAccessor } from "@escode/services";
 import { RemoteServiceAccess } from "@escode/client";
 import {
   SERVICE_AUTHORITY_MODE_ENV,
-  TOPIC_RESOURCE_RELAY_CHANNEL,
   ESCODE_APP_VERSION_ENV,
   ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
   ESCODE_DESKTOP_PACKAGED_ENV,
@@ -26,8 +25,6 @@ import { formatWslProxyForLog } from "./wslProxy.js";
 const BACKEND_DISCONNECT_EXIT_CODE = -1;
 
 export interface ConnectOptions extends DeployOptions {
-  /** 仅 Desktop Host 注入，复用当前 stdio 的私有反向资源频道。 */
-  topicResourceChannel?: IServerChannel;
   /** Client identifier for handshake */
   clientId?: string;
   /** Handshake timeout in ms (default: 10000) */
@@ -230,11 +227,6 @@ async function connectRemoteUnchecked(
   const socket = wrapStdioStream(stream);
   const protocol = new SocketProtocol(socket);
   const client = new ChannelClient(protocol);
-  const reverseServer = options?.topicResourceChannel
-    ? new ChannelServer(protocol, "desktop-resource")
-    : undefined;
-  if (reverseServer && options?.topicResourceChannel)
-    reverseServer.registerChannel(TOPIC_RESOURCE_RELAY_CHANNEL, options.topicResourceChannel);
   const services = new RemoteServiceAccess(client);
   let hasReportedRemoteClose = false;
   let hasStreamClosed = false;
@@ -276,7 +268,6 @@ async function connectRemoteUnchecked(
     }
     disposalStarted = true;
     backendDisconnectDisposable?.dispose();
-    reverseServer?.dispose();
     client.dispose();
     protocol.dispose();
     // stdin.end 必须在任何 await 之前同步触发，让远端 stdio server 立即收到 EOF。

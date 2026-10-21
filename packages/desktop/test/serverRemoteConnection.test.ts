@@ -124,48 +124,6 @@ describe("server remote connection", () => {
     });
   });
 
-  it("routes reverse resource RPC to the exact authenticated Desktop peer and removes it on close", async () => {
-    const peers = createTopicResourcePeers();
-    const services = new ServiceCollection().register(IESCodeAgentService, {
-      queryConversationCommandsV4: async () => ({ results: [] }),
-    } as never);
-    const server = createHttpServer(services, 0, { topicResourcePeers: peers });
-    servers.push(server);
-    const address = server.address() as AddressInfo;
-    const validate = vi.fn(async () => undefined);
-    const relay = createTopicResourceRelayChannel({
-      validate,
-      read: async () => {
-        throw new Error("Not requested");
-      },
-    });
-    const connection = await connectServerRemote(
-      { kind: "server", url: `http://127.0.0.1:${address.port}` },
-      { topicResourceChannel: relay.channel },
-    );
-    disposables.push(connection, relay);
-    const request = {
-      requestId: "r",
-      taskId: "t",
-      inputId: "i",
-      authorizationId: "a",
-      messageId: "m",
-      resourceIndex: 0,
-      workspacePath: "/work",
-      workspaceIdentity: "server://host/work",
-      remoteSessionId: "remote-a",
-    };
-    await connection.services.escodeAgentService.queryConversationCommandsV4({
-      ...request,
-      commands: [],
-    });
-    expect(await peers.getChannel(request).call("validate", request)).toEqual({ valid: true });
-    expect(validate).toHaveBeenCalledOnce();
-    expect(() => peers.getChannel({ ...request, remoteSessionId: "other" })).toThrow();
-    connection.dispose();
-    await vi.waitFor(() => expect(() => peers.getChannel(request)).toThrow());
-  });
-
   it("connects to a running escode server over websocket RPC", async () => {
     const info = vi.fn(async () => ({
       homedir: "/home/dev",

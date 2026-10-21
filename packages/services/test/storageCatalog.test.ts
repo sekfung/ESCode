@@ -54,7 +54,6 @@ describe("classifyStoragePath", () => {
     ["cli/plugins/cache/m/x", "runtimes", "cli/plugins/cache"],
     ["cli/plugins/data/x", "runtimes", "cli/plugins/data"],
     ["v2/coding-plan-cache.json", "toolOutputs", "v2/coding-plan-cache.json"],
-    ["v2/bots-model-cache.v2.json", "toolOutputs", "v2/bots-model-cache.v2.json"],
     ["tmp/paste-attachments/2026/a.txt", "toolOutputs", "tmp/paste-attachments"],
     ["agents/claude-code/bin/x", "runtimes", "agents/claude-code"],
     ["agents/code-reviewer.md", "config", "agents/code-reviewer.md"],

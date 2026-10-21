@@ -10,7 +10,7 @@
 - guide 附件回退普通 queue，标记 `guide.attachmentsUnsupported`；中断、失败或无法继续时，未消费 guide 原地回退，保留顺序与来源，分别标记 `guide.turnInterrupted` / `guide.noToolBoundary`。正常 queue 不在 loop 内消费。guide admission ACK 保持 TS 的 queued admission (`delivery: queue`)。
 - busy startNow 复用当前队列的唯一 queued-now reservation。先原子提交输入 ACK/预留，再取消旧 foreground；旧 run 的 Finished 提交后才提升新输入。ACK delivery 为 startNow。预留阶段不作为普通队列输入展示；拒绝第二个前台抢占，保留其他队列原顺序及 autoDrain。新 run 不能在旧工具退出前执行；旧 generation 的任何迟到事件均无效。
 - stop 撤销尚未提升的 reservation，并让其成为可见 held queue；EOF/close 不能在收口时启动已预留输入。held queue 仍使用既有确认与 CAS，不因 startNow 绕过。
-- 输入来源随排队项贯穿到执行（TS `input-intent.ts` / `steering.ts`）：`botGroupSource`、`conversationQuotes` 写入队列项（V4 `queueItemSchema` 公开字段，Host 据此做取消授权）；`botDeliveryTarget` 不在公开 schema 里，存为队列项私有字段 `_botDeliveryTarget`，快照投影剥离 `_` 前缀键。queue 提升与 guide 消费都恢复这三项：模型正文套用同一 `with_conversation_material`，userInput 行带 `botGroupSource`/`conversationQuotes`，输入边界 payload 带 `botDeliveryTarget`（Cron/ReplyToChannel 回推地址）。空闲直发的 userInput 行同样带 `botGroupSource`。
+- 输入来源随排队项贯穿到执行（TS `input-intent.ts` / `steering.ts`）：`conversationQuotes` 写入队列项（V4 `queueItemSchema` 公开字段）。queue 提升与 guide 消费都恢复它：模型正文套用同一 `with_conversation_material`，userInput 行带 `conversationQuotes`。聊天平台 Bot 集成与 `botGroupSource`/`botDeliveryTarget` 已于 2026-10-21 删除。
 
 ## 事件与失败顺序
 
@@ -48,7 +48,7 @@ Desktop continuous 与 Web replayable 复用同一 owner/deltas；本包通过�
 
 1. guide 在 text-only 和多工具完整批次后，同轮续跑；普通队列不挡 guide，连续 guide 一步一条，失败工具结果仍完整匹配。
 2. guide 冻结选型、模式持久化、附件回退、stop 后 held queue、重复 commandId、冷恢复原始来源。
-   带 `botGroupSource`/`conversationQuotes`/`botDeliveryTarget` 的 busy 输入：快照队列项保留前两项、不暴露私有字段；提升后的 userInput 行与模型正文含引用材料，输入边界保留回推地址。
+   带 `conversationQuotes` 的 busy 输入：快照队列项保留引用字段；提升后的 userInput 行与模型正文含引用材料。
 3. startNow 在流式正文及 Shell 期间抢占，旧内容保留、新旧工具不重叠，原 FIFO 随后继续；重复/竞争抢占、stop/EOF 与迟到事件不重复执行。
 4. 可控制 Store fixture 验证 admission、guide 消费、旧轮终态和提升提交失败时无越界执行。
 5. 真实 Rust 子进程经过现有 App client/schema；Rust tests/fmt/Clippy、App tests、typecheck、lint、fmt 和架构检查。保持 `CARGO_INCREMENTAL=0`，清理仅本次可再生缓存，保留导入备份与用户历史。

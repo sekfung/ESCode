@@ -109,7 +109,7 @@ async function refreshSettingsStore(settingService: ISettingService | undefined)
 
 /** 获取和更新应用设置 */
 export function useSettings() {
-  const { botsService, broadcastService, settingService, escodeAgentService } = useServices();
+  const { broadcastService, settingService, escodeAgentService } = useServices();
   const platform = usePlatform();
   const settingsStore = getSettingsStore(settingService);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot>(settingsStore.snapshot);
@@ -157,13 +157,12 @@ export function useSettings() {
             patch.modelIoFullRetentionEnabled ??
             settingsStore.snapshot.settings?.modelIoFullRetentionEnabled === true,
         };
-        const syncResults = await Promise.allSettled([
-          escodeAgentService.syncAppRuntimePreferences(preferences),
-          botsService.syncAppRuntimePreferences(preferences),
-        ]);
-        const syncError = syncResults.find(
-          (result): result is PromiseRejectedResult => result.status === "rejected",
-        )?.reason;
+        let syncError: unknown;
+        try {
+          await escodeAgentService.syncAppRuntimePreferences(preferences);
+        } catch (error) {
+          syncError = error;
+        }
         await broadcastService.send({
           channel: APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
           payload: preferences,
@@ -173,15 +172,7 @@ export function useSettings() {
         }
       }
     },
-    [
-      botsService,
-      broadcastService,
-      settingService,
-      settingsStore,
-      escodeAgentService,
-      platform,
-      refresh,
-    ],
+    [broadcastService, settingService, settingsStore, escodeAgentService, platform, refresh],
   );
 
   return {

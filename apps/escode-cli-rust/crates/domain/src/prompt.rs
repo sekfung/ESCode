@@ -65,9 +65,9 @@ pub fn date_change_reminder(previous: Option<&str>, current: &str) -> Option<Val
         "_escode_source": "date_change",
     }))
 }
-/// TS `withConversationQuotes` 的引用段（无机器人来源时）；完整实现见 [`crate::conversation_input`]。
+/// TS `withConversationQuotes` 的引用段；完整实现见 [`crate::conversation_input`]。
 pub fn with_conversation_quotes(text: &str, quotes: &Value) -> String {
-    crate::conversation_input::with_conversation_material(text, quotes, &Value::Null)
+    crate::conversation_input::with_conversation_material(text, quotes)
 }
 
 #[allow(clippy::too_many_arguments)]

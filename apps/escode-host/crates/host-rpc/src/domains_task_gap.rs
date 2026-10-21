@@ -56,13 +56,6 @@ pub(super) fn gap_channel(
             ("goalSession", missing()),
             ("scanImportableClaudeSessions", missing()),
             ("importClaudeSessions", missing()),
-            ("readBotTopicSummaries", missing()),
-            ("invalidateBotTopicInputs", missing()),
-            ("readBotTopicExecution", missing()),
-            ("stopBotTopicExecution", missing()),
-            ("getBotGroupTaskBlockReason", missing()),
-            ("cancelBotGroupInput", missing()),
-            ("submitBotGroupInput", missing()),
             ("syncTaskSessionBinding", missing()),
             ("enqueueTaskCommand", missing()),
             ("promoteTaskCommand", missing()),
@@ -99,13 +92,6 @@ pub(super) fn gap_channel(
             super::domains_task_state::workspace_event(events),
         )];
         handlers.extend(task_events.handlers());
-        // 降级面没有 runtime 观察器：监听失败只记日志，不回响应（channel 约定）。
-        handlers.push((
-            "onDynamicConversationFrames",
-            std::sync::Arc::new(|_arg: crate::wire::Wire| {
-                Err("Host has no runtime access.".to_owned())
-            }) as crate::session::EventHandler,
-        ));
         handlers
     })
 }

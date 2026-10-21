@@ -174,7 +174,6 @@ export { LAUNCH_MARKS_QUERY_KEY, parseLaunchMarks, serializeLaunchMarks } from "
 export type {
   CancelPendingRemoteConnectionRequest,
   BindRemoteWorkspaceSessionContextRequest,
-  BotRemoteWorkspaceReconnectedEvent,
   BrowserTabResidencyState,
   BrowserViewCloseTabNotification,
   BrowserViewCloseTabRequest,
@@ -277,7 +276,6 @@ export * from "./process-names.js";
 export * from "./mcp.js";
 export * from "./runtime-tool-runtime.js";
 export * from "./git.js";
-export * from "./bots.js";
 export * from "./assistant-message-parts.js";
 export * from "./escodePersistedMessageMerge.js";
 export * from "./assistant-presentation.js";
@@ -337,8 +335,6 @@ export {
 
 export * from "./conversationSelection.js";
 export * from "./attachment-source.js";
-
-export * from "./channel-mention.js";
 
 export {
   requestSecuritySensitiveHeaders,

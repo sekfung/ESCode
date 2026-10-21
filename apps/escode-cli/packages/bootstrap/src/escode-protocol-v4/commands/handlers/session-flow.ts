@@ -107,7 +107,6 @@ async function sendText(
     const intent = submissionIntent({
       text: payload.text,
       inputOrigin: payload.inputOrigin,
-      botGroupSource: payload.botGroupSource,
       conversationQuotes: payload.conversationQuotes,
       requestedDelivery:
         payload.requestedDelivery ??
@@ -129,7 +128,6 @@ async function sendText(
       ...(preempted && !attachments?.length ? { inputPresentation: "user_steer" as const } : {}),
       intent,
       ...turnBackgroundAttributionOf(payload),
-      ...(payload.botDeliveryTarget ? { botDeliveryTarget: payload.botDeliveryTarget } : {}),
       toolDisallowlist: payload.toolDisallowlist,
       ...(payload.modelExecution
         ? { modelExecution: createModelExecutionContext(payload.modelExecution) }

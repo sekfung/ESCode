@@ -63,7 +63,6 @@
     "@escode/shared": "workspace:*",
     "@escode/ui": "workspace:*",
     "@fiahfy/icns": "^0.0.7",
-    "@larksuiteoapi/node-sdk": "1.61.1",
     "@lydell/node-pty-linux-arm64": "1.2.0-beta.10",
     "@lydell/node-pty-linux-x64": "1.2.0-beta.10",
     "@modelcontextprotocol/client": "2.0.0",

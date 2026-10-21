@@ -20,7 +20,6 @@ pub(super) fn extra_methods(
         ),
     ];
     methods.extend(super::domains_task_import::import_methods(context));
-    methods.extend(super::domains_task_bot::bot_methods(context));
     methods.extend(super::domains_task_runtime::usage_and_log_methods(
         runtime.clone(),
     ));

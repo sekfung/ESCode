@@ -328,7 +328,7 @@ fn deny_reasons_match_ts() {
     }
 }
 
-/// guarded 段（v3.15.1）：YOLO 基础 + userApprovalRule 单次确认、ReplyToChannel 预批；
+/// guarded 段（v3.15.1）：YOLO 基础 + userApprovalRule 单次确认；
 /// 结果编码 `decision:ruleId:approvalMode`。
 #[test]
 fn rust_matches_ts_guarded_permissions() {

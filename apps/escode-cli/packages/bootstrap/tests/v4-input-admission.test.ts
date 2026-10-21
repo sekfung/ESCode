@@ -53,14 +53,6 @@ describe("v4 input admission canonical intent", () => {
           kind: "sendGoalCommand",
           text: "original objective",
           inputOrigin: "mobile",
-          botGroupSource: {
-            provider: "feishu",
-            botId: "bot",
-            chatId: "group",
-            senderId: "member",
-            senderName: "Member",
-            messageId: "message",
-          },
           sourceCommandId: "cmd-original",
           clientId: "client-original",
           queueItemId: "queue-original",
@@ -94,14 +86,6 @@ describe("v4 input admission canonical intent", () => {
       kind: "sendGoalCommand",
       text: "original objective",
       inputOrigin: "mobile",
-      botGroupSource: {
-        provider: "feishu",
-        botId: "bot",
-        chatId: "group",
-        senderId: "member",
-        senderName: "Member",
-        messageId: "message",
-      },
       attachments: [
         {
           ref: "attachment://a",

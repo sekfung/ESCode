@@ -22,7 +22,6 @@ import type {
   ModelContentProtection,
   ModelMessageContent,
   ModelToolSideEffectScope,
-  TopicResourcePort,
   PdfDocumentPort,
   PermissionBrokerReasonSource,
   PermissionCapabilityGroup,
@@ -165,7 +164,6 @@ export interface ToolExecutionContext {
   workflowEscalatePort?: WorkflowEscalatePort;
   artifactStore?: ToolArtifactStorePort;
   automationPort?: AutomationPort;
-  topicResourcePort?: TopicResourcePort;
   sessionStore?: SessionStorePort;
   sessionModePort?: SessionModePort;
   workflowPort?: WorkflowPort;

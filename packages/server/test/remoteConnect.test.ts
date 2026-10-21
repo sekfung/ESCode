@@ -1,7 +1,7 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import { Emitter, ChannelClient, SocketProtocol, type IDisposable, type Event } from "@escode/rpc";
-import { ESCODE_VERSION, TOPIC_RESOURCE_RELAY_CHANNEL } from "@escode/shared";
+import { ESCODE_VERSION } from "@escode/shared";
 import { wrapStdioStream } from "../src/remote/stdio-socket.js";
 import {
   buildRemoteServerCommand,
@@ -101,43 +101,6 @@ class FakeConnectBackend implements IRemoteBackend {
 }
 
 describe("connectRemote", () => {
-  it("serves a private reverse channel on the existing stdio connection", async () => {
-    const backend = new FakeConnectBackend();
-    const call = vi.fn(async () => ({ valid: true }));
-    const connection = await connectRemote(backend, {
-      clientId: "test-client",
-      skipDeploy: true,
-      topicResourceChannel: {
-        call,
-        listen() {
-          throw new Error("No events");
-        },
-      },
-    });
-    const stream = backend.stream!;
-    // hello-ack 是文本握手；反向 RPC 复用它之后的原始字节流。
-    const stdin = stream.stdin as PassThrough;
-    const buffered = stdin.read() as Buffer;
-    const boundary = buffered.indexOf(10) + 1;
-    const remaining = buffered.subarray(boundary);
-    const inverse = wrapStdioStream({
-      ...stream,
-      stdin: stream.stdout as PassThrough,
-      stdout: stdin,
-    });
-    const protocol = new SocketProtocol(inverse);
-    const remote = new ChannelClient(protocol);
-    if (remaining.length) stdin.unshift(remaining);
-    try {
-      expect(
-        await remote.getChannel(TOPIC_RESOURCE_RELAY_CHANNEL).call("validate", { taskId: "task" }),
-      ).toEqual({ valid: true });
-      expect(call).toHaveBeenCalledOnce();
-    } finally {
-      remote.dispose();
-      connection.dispose();
-    }
-  });
   it("透传 Desktop SP 灰度结果到远端 server，但不透传未列入白名单的变量", () => {
     expect(
       pickRemoteRuntimeEnv({

@@ -78,47 +78,6 @@ describe("escode-protocol-v4 command", () => {
     ).toEqual({ text: "opposite follow-up", requestedDelivery: "queue" });
   });
 
-  it("validates bot delivery target on sendText", () => {
-    const payload = commandPayloadSchemas.sendText.parse({
-      text: "创建一个定时任务",
-      botDeliveryTarget: {
-        provider: "feishu",
-        botId: "bot-feishu",
-        providerUserId: "chat-1",
-        chatType: "group",
-      },
-    });
-    expect(payload.botDeliveryTarget).toEqual({
-      provider: "feishu",
-      botId: "bot-feishu",
-      providerUserId: "chat-1",
-      chatType: "group",
-    });
-    expect(
-      commandPayloadSchemas.sendText.safeParse({
-        text: "invalid",
-        botDeliveryTarget: {
-          provider: "telegram",
-          botId: "bot-telegram",
-          providerUserId: "chat-1",
-          chatType: "private",
-        },
-      }).success,
-    ).toBe(false);
-    expect(
-      commandPayloadSchemas.sendText.safeParse({
-        text: "invalid",
-        botDeliveryTarget: {
-          provider: "weixin",
-          botId: "bot-weixin",
-          providerUserId: "chat-1",
-          chatType: "private",
-          providerMessageId: "must-not-persist",
-        },
-      }).success,
-    ).toBe(false);
-  });
-
   it("keeps execution-scoped model context narrow and drops the legacy runtime snapshot", () => {
     const payload = commandPayloadSchemas.sendText.parse({
       text: "run with an execution-scoped model",

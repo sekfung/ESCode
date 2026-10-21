@@ -1,6 +1,5 @@
 import { IGenUiService } from "./gen-ui/contract.js";
 import { createGenUiService } from "./gen-ui/node.js";
-import { channelReplyHostRequestSchema, channelReplyResultSchema } from "@escode/shared";
 /* eslint-disable max-lines -- host process 服务注册和启动装配需要集中维护，拆散后会更难追踪依赖注入顺序 */
 // Node.js service implementations — NOT safe to import in browser code
 import { randomBytes } from "node:crypto";
@@ -24,17 +23,6 @@ export {
   ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
 } from "@escode/provider-node";
 import { randomUUID } from "node:crypto";
-import type { IChannel } from "@escode/rpc";
-import {
-  readTopicResourceFromRelay,
-  validateTopicResourceFromRelay,
-} from "./escode-agent/topicResourceRelayClient.js";
-export {
-  createTopicResourcePeers,
-  type TopicResourcePeers,
-} from "./escode-agent/topicResourcePeers.js";
-export { createTopicResourceRelayChannel } from "./escode-agent/topicResourceRelayChannel.js";
-
 export { createFileService } from "./file/fileService.js";
 export {
   attributeHostProcessTree,
@@ -134,7 +122,6 @@ export type {
   CuaHelperInstaller,
   CuaHelperInstallerOptions,
 } from "./cua-permission-broker/index.js";
-export { createBotsService } from "./bots/botsService.js";
 export { createFileWatcherService } from "./fileWatcher/fileWatcherService.js";
 export { createTelemetryCore, ensureTelemetryDeviceMid } from "./telemetry/telemetryCore.js";
 export type { EnsureTelemetryDeviceMidOptions } from "./telemetry/telemetryCore.js";
@@ -290,7 +277,6 @@ import { IESCodeTaskService } from "./session/escodeTaskService.js";
 import { IESCodeAgentService } from "./escode-agent/escodeAgent.js";
 import type { CuaOperationStateReporter } from "./escode-agent/cuaOperationTurnTracker.js";
 import { IESCodeSessionService } from "./escode-session/escodeSession.js";
-import { IBotsService } from "./bots/bots.js";
 import { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 import { IUsageStatsService } from "./usage-stats/usageStats.js";
 import { IClientScenesService } from "./client-scenes/clientScenes.js";
@@ -329,8 +315,6 @@ import { createESCodeTaskServiceAdapter } from "./escode-agent/escodeTaskService
 import { createESCodeSessionService } from "./escode-session/escodeSessionService.js";
 import { createESCodeTaskIndexSyncer } from "./escode-agent/escodeTaskIndexSyncer.js";
 import { TaskIndexRepo } from "./session/taskIndexRepo.js";
-import { createBotsService } from "./bots/botsService.js";
-import { createBotRemoteWorkspaceService } from "./bots/botRemoteWorkspaceBridge.js";
 import type { SessionMessageSendRequested } from "#src/session/sessionMailbox.js";
 import { createFileWatcherService } from "./fileWatcher/fileWatcherService.js";
 import { readLegacyESCodeConfigProviders } from "./model-provider/legacyESCodeConfigProviderReader.js";
@@ -1001,8 +985,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *        用于 BroadcastService 跨窗口中转。传 null 则广播为空操作。
  */
 export function createLocalServices(options: {
-  /** 已鉴权 Desktop stdio 连接提供的私有回查频道；不作为公共 service 暴露。 */
-  topicResourceRelayChannel?: (request: unknown) => IChannel;
   parentPort?: Parameters<typeof createBroadcastService>[0];
   /** Host 装配层注入的设置权威；与网络 transport 必须来自同一 Window Host 生命周期。 */
   settingService?: ISettingService;
@@ -1798,52 +1780,6 @@ export function createLocalServices(options: {
     // browser-use：host→main 执行桥透传给 agent service 的 onRequest browserExecute 路由。
     browserControlExecutor: options?.browserControlExecutor,
     serialAgentBridge,
-    // 机器人凭据只归属于授权 Host；远端独立服务不能借用本机配置扩大读取范围。
-    channelReplyExecutor: async (value) => {
-      const request = channelReplyHostRequestSchema.parse(value);
-      if (
-        options?.topicResourceRelayChannel &&
-        (isDesktopAttachedRemote || request.remoteSessionId)
-      )
-        return channelReplyResultSchema.parse(
-          await options.topicResourceRelayChannel(request).call("reply", request),
-        );
-      if (isDesktopAttachedRemote) throw new Error("Desktop channel reply peer unavailable");
-      const bots = services.getOptional(IBotsService);
-      if (!bots?.replyToChannel) throw new Error("Bot channel reply unavailable");
-      return bots.replyToChannel(request);
-    },
-    topicResourceExecutor: async (request, signal) => {
-      if (
-        options?.topicResourceRelayChannel &&
-        (isDesktopAttachedRemote || request.remoteSessionId)
-      )
-        return readTopicResourceFromRelay(
-          options.topicResourceRelayChannel(request),
-          request,
-          signal,
-        );
-      if (isDesktopAttachedRemote) throw new Error("Desktop topic resource peer unavailable");
-      const bots = services.getOptional(IBotsService);
-      if (!bots?.readTopicResource) throw new Error("Topic resource service is unavailable");
-      return bots.readTopicResource({ ...request, signal });
-    },
-    topicResourceValidator: async (request, signal) => {
-      if (
-        options?.topicResourceRelayChannel &&
-        (isDesktopAttachedRemote || request.remoteSessionId)
-      )
-        return validateTopicResourceFromRelay(
-          options.topicResourceRelayChannel(request),
-          request,
-          signal,
-        );
-      if (isDesktopAttachedRemote) throw new Error("Desktop topic resource peer unavailable");
-      const bots = services.getOptional(IBotsService);
-      if (!bots?.validateTopicResource)
-        throw new Error("Topic resource authorization is unavailable");
-      return bots.validateTopicResource({ ...request, signal });
-    },
     // 官方 Server MCP 身份头：host 是唯一身份权威，Agent 经反向请求索取。
     // Provider 存在性读取正式 Model Selection View；不恢复旧 Provider Snapshot。
     officialMcpAuthHeadersResolver: createOfficialMcpAuthHeadersResolver({
@@ -2043,11 +1979,6 @@ export function createLocalServices(options: {
     settingService,
     cuaProductMcpServerResolver,
   });
-  const botRemoteWorkspaceService = createBotRemoteWorkspaceService({
-    parentPort: options?.parentPort,
-    settingService,
-    credentialService,
-  });
   const fileService = createFileService({
     workspaceFileSearchFilter: options?.workspaceFileSearchFilter,
   });
@@ -2073,20 +2004,6 @@ export function createLocalServices(options: {
     .register(IESCodeSessionService, escodeSessionService)
     .register(ICuaPermissionService, cuaPermissionService)
     .register(ICuaPipSessionService, cuaPipSessionService)
-    .register(
-      IBotsService,
-      createBotsService({
-        credentialService,
-        escodeTaskService,
-        broadcastService,
-        settingService,
-        modelSelectionService: providerRuntime.modelSelection,
-        remoteWorkspaceService: botRemoteWorkspaceService,
-        // 远端与本地 Bot 都读取所属 Environment 的 Model Selection View。
-        // 远端启动期不再轮询旧 Preset，避免重新制造一套模型候选事实。
-        runStartupBackgroundTasks: !isDesktopAttachedRemote,
-      }),
-    )
     .register(IFileWatcherService, createFileWatcherService())
     .register(IUsageStatsService, createUsageStatsService({ escodeAgentService }))
     .register(
@@ -2277,7 +2194,6 @@ export function disposeServiceResources(services: ServiceCollection): void {
     services.getOptional(IESCodeTaskService),
     services.getOptional(IESCodeAgentService),
     services.getOptional(IESCodeSessionService),
-    services.getOptional(IBotsService),
     services.getOptional(IFileWatcherService),
     services.getOptional(ISubagentsService),
   ].filter((service) => service !== undefined);
@@ -2315,7 +2231,6 @@ export async function disposeServiceResourcesAndWait(services: ServiceCollection
     services.getOptional(IESCodeTaskService),
     services.getOptional(IESCodeAgentService),
     services.getOptional(IESCodeSessionService),
-    services.getOptional(IBotsService),
     services.getOptional(IFileWatcherService),
     services.getOptional(ISubagentsService),
   ].filter((service) => service !== undefined);

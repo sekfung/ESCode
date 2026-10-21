@@ -1,7 +1,5 @@
-import { BotChannelMessageContent } from "@/v4/ChannelMentionContent.js";
 import { parsePromptConversationSelections } from "@/lib/conversationSelectionReference.js";
 import { ConversationSelectionReferenceChip } from "@/v4/composer/ConversationSelectionReferenceChip.js";
-import { BotGroupSourceLabel } from "@/v4/BotGroupSourceLabel.js";
 import {
   closestCenter,
   DndContext,
@@ -221,13 +219,7 @@ const QueueRow = memo(function QueueRow({
         title={parsedInput.visibleContent}
       >
         <span className="flex min-w-0 flex-col">
-          <BotGroupSourceLabel source={item.botGroupSource} />
-          <span className="truncate">
-            <BotChannelMessageContent
-              source={isCompact ? undefined : item.botGroupSource}
-              text={isCompact ? "/compact" : parsedInput.visibleContent}
-            />
-          </span>
+          <span className="truncate">{isCompact ? "/compact" : parsedInput.visibleContent}</span>
           {parsedInput.references.length ? (
             <ConversationSelectionReferenceChip references={parsedInput.references} />
           ) : null}

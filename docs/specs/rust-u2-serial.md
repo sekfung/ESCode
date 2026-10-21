@@ -85,8 +85,7 @@ Rust Host 是 App 级单进程，实现口径为**连接级 channel**（`Channel
   ②把首次轮询挪到 sleep 之后 → 「立即轮询」用例超时失败。
   **第二项第一版测不出来**：单元测试的轮询间隔是 10ms，「立即」与「等一个间隔」在 2s 超时下无差别；
   已补一个「间隔 5s + 超时 500ms」的用例专门钉住这条语义。
-- **顺带修正**：`rpc_session.rs` 原先拿 `serial.list` 当「未迁移缺口」的样例，改为完全未迁的
-  `bots.listBots`，并新增一条 `serial.list` 回数组的断言。
+- **顺带修正**：`rpc_session.rs` 新增一条 `serial.list` 回数组的断言。
 - **已知抖动**：`host-runtime/tests/instances.rs` 的 `an_unanswered_request_fails_with_a_classifiable_timeout`
   （零超时用例）在全量并行跑时偶发失败一次，单独与重跑全量均通过；与本片改动无关，未改它。
 

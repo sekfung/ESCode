@@ -156,14 +156,13 @@ $ git status --short | wc -l
 
 | 指标          | 本轮后（hooks + plugin-sync + 零散成员）  |
 | ------------- | ----------------------------------------- |
-| channels      | 42                                        |
-| members       | 513                                       |
-| Implemented   | 369                                       |
-| Pending       | 144                                       |
+| channels      | 41                                        |
+| members       | 473                                       |
+| Implemented   | 349                                       |
+| Pending       | 124                                       |
 | `hooks`       | 0 Pending                                 |
 | `plugin-sync` | 0 Pending                                 |
 | automation    | 4 Pending（create/update/restart/runNow） |
-| `bots`        | 20 Pending（平台/入站/群投递/V4 流）      |
 
 > 2026-10-20 营销服务删除后重新生成 inventory：`cloud-content`（3）与 `marketing-touch`（2）退出
 > TS 服务面，channels 46 → 44、members 539 → 534。两者原本均 Pending，因此 Implemented 保持 378，
@@ -185,8 +184,13 @@ $ git status --short | wc -l
 > Implemented 369 / Pending 144；`window-controller` 仍服务桌面与远程 workspace，但不再以手机
 > attachment 作为 M3 验收驱动。手机远控不再作为 M3 迁移缺口。
 >
-> 原 `BotsDialog` 仅由手机远控弹窗提供入口；入口删除后 UI 暂不可达，Bots 服务与协议保留，
-> 后续如需使用需重新设计桌面入口（不改变本报告的 M3 迁移计数）。
+> 2026-10-21 内网产品决定删除 Bots（聊天平台集成：Telegram/Webhook/Feishu/Lark/Weixin）：
+> `bots` 通道 32 个成员（12 Implemented / 20 Pending）与 `escode-task` 的 8 个 Bot group/topic
+> 成员退出服务面；Bot 配置/状态、绑定码、群协作、topic resource、automation bot delivery、
+> `ReplyToChannel`/`ReadSessionContext.topic` 工具、UI/E2E/规格与共享协议一并移除。
+> channels 42 → 41、members 513 → 473、Implemented 369 → 349、Pending 144 → 124。
+> Bots 不再作为 M3 迁移缺口；历史 `bot_topic_context` 只读投影与 `bot_delivery_target` 冻结列
+> 保留兼容，不再写入。
 
 ## 10. M3 全量状态（2026-10-19 续作）
 
@@ -199,7 +203,6 @@ $ git status --short | wc -l
 | `hooks` 3/3                                                         | Implemented | 本报告 §2–§5；真实客户端 + TS 差分 + 真实 authority                                |
 | `plugin-sync` 7/7                                                   | Implemented | `rust-u2-plugin-sync.md`；`rpc_plugin_sync.rs`；`rustHostPluginSyncParity.test.ts` |
 | automation 6/10                                                     | Implemented | `rust-u2-automation.md`；`rpc_automation.rs`                                       |
-| `bots` 12/32                                                        | Implemented | `rust-u2-bots.md`；`rpc_bots.rs`                                                   |
 | `escode-agent.listSessionSubagents` / `getWorkspaceRuntimeIdentity` | Implemented | `rpc_misc.rs`                                                                      |
 | provider runtime headers（请求事件 + 两通道 respond）               | Implemented | `provider_headers.rs` 2 单测 + `rpc_misc.rs` 未知请求错误                          |
 | `media-preview.refreshPlaybackUrl` / `release`                      | Implemented | Host 不签发 host-range 租约：refresh 按过期、release no-op                         |
@@ -207,21 +210,21 @@ $ git status --short | wc -l
 
 ### 10.2 未完成（M3 阻塞）
 
-| 域         | 剩余成员                                                                          | 为什么不能算完成                                                                                                                                          |
-| ---------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| automation | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                                                                                             |
-| `bots`     | 20/32                                                                             | 飞书/微信注册轮询、Telegram/Webhook/飞书 provider、入站消息、群成员/群任务、投递重试、topic resource/details、testBot、watchAutomationRun、replyToChannel |
-| 零散剩余   | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用                                                                       |
+| 域         | 剩余成员                                                                          | 为什么不能算完成                                                                    |
+| ---------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| automation | `createAutomation`/`updateAutomation`/`restartAutomation`/`runAutomationNow`      | 需要 cron 计算、生命周期重算与 run dispatcher                                       |
+| 零散剩余   | `readSessionDebug`、`gen-ui.prepareSandbox`、`provider-provisioning-target.apply` | 运行时无 `session/debug`；`prepareSandbox` 属 Main；provider apply 零 Renderer 调用 |
 
 ### 10.3 结论
 
-**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、automation 6、bots 12、media-preview 2、
+**M3 不可验收。** 已完成面：hooks 3、plugin-sync 7、automation 6、media-preview 2、
 零散与 provider headers 5；原报告的 +44 成员（334 → 378）包含已删除的 `off-peak` 8 个成员与
-`client-config.getOffPeakClientConfig` 1 个成员，删除后当前为 369 Implemented。
-剩余 144 Pending 中，automation/bots 是明确的 Renderer 可达缺口。
-营销服务（含 `cloud-content`）、off-peak、conversation-share 与手机远控均已按产品决定删除，不再计入剩余缺口。
+`client-config.getOffPeakClientConfig` 1 个成员，删除后当前为 349 Implemented。
+剩余 124 Pending 中，automation 是明确的 Renderer 可达缺口。
+营销服务（含 `cloud-content`）、off-peak、conversation-share、手机远控与 Bots 均已按产品决定删除，
+不再计入剩余缺口。
 
 建议下一轮顺序：
 
 1. automation（含 Host 调度所有者、H5.3 无窗口调度）。
-2. `bots` 拆两轮：配置/状态/绑定与注册，然后 V4 流/群任务/附件/平台 provider。
+2. 收口零散剩余与验收证据（Windows/macOS、Renderer E2E、`web-remote-replayable`）。

@@ -5,7 +5,6 @@
 //! 见同 spec §5）。
 pub mod api_client;
 pub mod automation;
-pub mod bots;
 pub mod broadcast;
 pub mod claude_import;
 pub mod client_config;

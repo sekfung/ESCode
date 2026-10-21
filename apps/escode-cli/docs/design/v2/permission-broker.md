@@ -130,4 +130,4 @@ TUI 作为第一版交互客户端时，只实现 `ask` 请求的最小可用 UI
 
 ## Group session isolation (2026-09)
 
-The project-only restriction above has one scoped extension: a trusted group input initializes `SessionInfo.permission.scope = "session"` before tools execute. Executor rule loading and remembered updates use that session's permission object, never `ProjectPermission`. Initialization drops inherited rules once; subsequent turns and cold resumes keep the task's own grants. Normal tasks without this marker retain project behavior. The marker is protocol metadata, not interpreted prompt text. See the root `docs/permission-project-approval.md` and `docs/bots-feishu-group-collaboration.md` for group authorization and client boundaries.
+The project-only restriction above applies to normal tasks. Executor rule loading and remembered updates use the session's permission object, never `ProjectPermission`; cold resumes keep the task's own grants. See the root `docs/permission-project-approval.md` for project approval and client boundaries.

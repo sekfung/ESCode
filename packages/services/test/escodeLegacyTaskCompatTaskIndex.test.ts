@@ -1,8 +1,3 @@
-import { readTrustedESCodeAgentV4Connection } from "#src/escode-agent/escodeAgentConnectionScope.js";
-import {
-  readBotGroupRuntimeSnapshot,
-  waitBotGroupExecutionEnd,
-} from "#src/escode-agent/groupRuntimeSnapshot.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -43,11 +38,6 @@ import {
   ESCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY,
   ESCODE_PLUGIN_ID_ENV_KEY,
 } from "@escode/shared";
-
-vi.mock("#src/escode-agent/groupRuntimeSnapshot.js", () => ({
-  readBotGroupRuntimeSnapshot: vi.fn(async () => ({})),
-  waitBotGroupExecutionEnd: vi.fn(async () => ({})),
-}));
 
 const tempDirs: string[] = [];
 const disposables: Array<{ disposeAll(): void }> = [];
@@ -625,271 +615,6 @@ async function seedLegacyAcpSessionId(
 }
 
 describe("ESCode legacy task compat task index", () => {
-  it.each([undefined, "ssh://host/repo"])(
-    "waits for an in-flight topic admission before confirming cancellation (%s)",
-    async (workspaceIdentity) => {
-      const { service, agent } = createService();
-      const task = await service.createTask({
-        workspacePath: "/repo",
-        workspaceIdentity,
-        provider: "glm",
-      });
-      const target = { taskId: task.taskId, workspacePath: "/repo", workspaceIdentity };
-      let release!: () => void;
-      agent.sendConversationCommandV4 = vi.fn(async () => {
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        return { commandId: "topic-inflight", status: "accepted", revisionAtDecision: 1 };
-      });
-      const sending = service.submitBotGroupInput!({
-        ...target,
-        commandId: "topic-inflight",
-        content: "read",
-        source: {
-          provider: "feishu",
-          botId: "bot",
-          chatId: "chat",
-          threadId: "topic",
-          messageId: "message",
-          senderId: "owner",
-          senderName: "Owner",
-        },
-      });
-      await vi.waitFor(() => expect(release).toBeTypeOf("function"));
-      let cancelled = false;
-      const cancellation = service.invalidateBotTopicInputs!(target).then(() => {
-        cancelled = true;
-      });
-      await flushMicrotasks();
-      const completedBeforeAdmission = cancelled;
-      // 总是释放挂起请求，失败断言也不能遗留正在写入临时任务的异步工作。
-      release();
-      await Promise.all([sending, cancellation]);
-      expect(completedBeforeAdmission).toBe(false);
-      expect(cancelled).toBe(true);
-    },
-  );
-
-  it("does not admit an uploaded topic input after cancellation", async () => {
-    const { service, agent } = createService();
-    const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
-    let finish!: () => void;
-    agent.attachmentBeginV4 = vi.fn(async (p) => ({
-      uploadId: p.uploadId,
-      state: "staging" as const,
-      nextChunkIndex: 0,
-    }));
-    agent.attachmentChunkV4 = vi.fn(async (p) => ({ uploadId: p.uploadId, nextChunkIndex: 1 }));
-    agent.attachmentCommitV4 = vi.fn(async (p) => {
-      await new Promise<void>((resolve) => {
-        finish = resolve;
-      });
-      return { uploadId: p.uploadId, ref: "artifact://prepared" };
-    });
-    const sending = service.submitBotGroupInput!({
-      taskId: task.taskId,
-      workspacePath: "/repo",
-      commandId: "topic-upload",
-      content: "read",
-      attachments: [
-        { kind: "file", filename: "input.txt", textContent: "material", mimeType: "text/plain" },
-      ],
-      source: {
-        provider: "feishu",
-        botId: "bot",
-        chatId: "chat",
-        threadId: "topic",
-        messageId: "message",
-        senderId: "owner",
-        senderName: "Owner",
-      },
-    });
-    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
-    await service.invalidateBotTopicInputs!({ taskId: task.taskId, workspacePath: "/repo" });
-    finish();
-    await expect(sending).rejects.toThrow(/cancelled/);
-    expect(agent.sendConversationCommandV4).not.toHaveBeenCalled();
-  });
-
-  it("uploads Bot attachments and admits input on the same trusted connection", async () => {
-    const { service, agent } = createService();
-    const task = await service.createTask({
-      workspacePath: "/repo",
-      workspaceIdentity: "ssh://host/repo",
-      provider: "glm",
-    });
-    const connections: string[] = [];
-    const check = (params: unknown) => {
-      const connection = readTrustedESCodeAgentV4Connection(params);
-      if (!connection) throw new Error("fault.attachment.connectionUntrusted");
-      expect(connection.clientMode).toBe("desktop-continuous");
-      expect(params).toEqual(
-        expect.objectContaining({
-          workspaceIdentity: "ssh://host/repo",
-          remoteSessionId: "current-remote",
-        }),
-      );
-      connections.push(connection.connectionId);
-    };
-    agent.attachmentBeginV4 = vi.fn(async (params) => {
-      check(params);
-      return { uploadId: params.uploadId, state: "staging" as const, nextChunkIndex: 0 };
-    });
-    agent.attachmentChunkV4 = vi.fn(async (params) => {
-      check(params);
-      return { uploadId: params.uploadId, nextChunkIndex: 1 };
-    });
-    agent.attachmentCommitV4 = vi.fn(async (params) => {
-      check(params);
-      return { uploadId: params.uploadId, ref: "artifact://bot-file" };
-    });
-    agent.attachmentAbortV4 = vi.fn(async () => undefined);
-    agent.sendConversationCommandV4 = vi.fn(async (params) => {
-      check(params);
-      expect(params.envelope.payload).toEqual(
-        expect.objectContaining({
-          attachments: [expect.objectContaining({ ref: "artifact://bot-file" })],
-        }),
-      );
-      return {
-        commandId: params.envelope.commandId,
-        status: "accepted" as const,
-        revisionAtDecision: 1,
-        result: {
-          type: "inputAccepted" as const,
-          inputId: params.envelope.commandId,
-          delivery: "queue" as const,
-        },
-      };
-    });
-    await service.submitBotGroupInput!({
-      taskId: task.taskId,
-      workspacePath: "/repo",
-      workspaceIdentity: "ssh://host/repo",
-      remoteSessionId: "current-remote",
-      commandId: "group-with-file",
-      content: "Read this file",
-      attachments: [
-        { kind: "file", filename: "example.txt", mimeType: "text/plain", textContent: "hello" },
-      ],
-      source: {
-        provider: "feishu",
-        botId: "bot",
-        chatId: "chat",
-        senderId: "member",
-        messageId: "message",
-      },
-    });
-    expect(connections).toHaveLength(4);
-    expect(new Set(connections).size).toBe(1);
-  });
-
-  it("keeps trusted remote session routing on group admission and rejects a foreign workspace before IO", async () => {
-    const { service, agent } = createService();
-    const task = await service.createTask({
-      workspacePath: "/repo",
-      workspaceIdentity: "ssh://host/repo",
-      provider: "glm",
-    });
-    agent.sendConversationCommandV4 = vi.fn(async (params) => ({
-      commandId: params.envelope.commandId,
-      status: "accepted" as const,
-      revisionAtDecision: 1,
-      result: {
-        type: "inputAccepted" as const,
-        inputId: params.envelope.commandId,
-        delivery: "queue" as const,
-      },
-    }));
-    const input = {
-      taskId: task.taskId,
-      workspacePath: "/repo",
-      workspaceIdentity: "ssh://host/repo",
-      remoteSessionId: "current-remote",
-      commandId: "group-command",
-      content: "hello",
-      source: {
-        provider: "feishu" as const,
-        botId: "bot",
-        chatId: "group",
-        senderId: "member",
-        senderName: "Member",
-        messageId: "message",
-        threadId: "omt_source",
-        rootMessageId: "om_root",
-      },
-    };
-    vi.mocked(readBotGroupRuntimeSnapshot).mockClear();
-    vi.mocked(agent.sendConversationCommandV4).mockImplementation(async (params) => {
-      // 冷启动时先恢复同一任务，不能依赖 Desktop 曾经打开过它。
-      expect(readBotGroupRuntimeSnapshot).toHaveBeenCalledWith(expect.any(Object), {
-        workspacePath: "/repo",
-        workspaceIdentity: "ssh://host/repo",
-        remoteSessionId: "current-remote",
-        sessionId: task.taskId,
-      });
-      return {
-        commandId: params.envelope.commandId,
-        status: "accepted",
-        revisionAtDecision: 1,
-        result: { type: "inputAccepted", inputId: params.envelope.commandId, delivery: "queue" },
-      };
-    });
-    await service.submitBotGroupInput!(input);
-    expect(agent.sendConversationCommandV4).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceIdentity: "ssh://host/repo",
-        remoteSessionId: "current-remote",
-        envelope: expect.objectContaining({
-          payload: expect.objectContaining({
-            requestedDelivery: "startNow",
-            botDeliveryTarget: expect.objectContaining({
-              threadId: "omt_source",
-              rootMessageId: "om_root",
-            }),
-          }),
-        }),
-      }),
-    );
-    await expect(
-      service.submitBotGroupInput!({ ...input, workspaceIdentity: "ssh://other/repo" }),
-    ).rejects.toThrow("workspace mismatch");
-    await expect(
-      service.getBotGroupTaskBlockReason!({
-        taskId: task.taskId,
-        workspacePath: "/repo",
-        workspaceIdentity: "ssh://other/repo",
-      }),
-    ).rejects.toThrow("workspace mismatch");
-    expect(agent.sendConversationCommandV4).toHaveBeenCalledOnce();
-    vi.mocked(readBotGroupRuntimeSnapshot).mockRejectedValueOnce(new Error("restore failed"));
-    await expect(
-      service.submitBotGroupInput!({ ...input, commandId: "cold-failure" }),
-    ).rejects.toThrow("restore failed");
-    expect(agent.sendConversationCommandV4).toHaveBeenCalledOnce();
-    await service.readBotTopicSummaries!({
-      taskId: task.taskId,
-      workspacePath: "/repo",
-      workspaceIdentity: "ssh://host/repo",
-      remoteSessionId: "current-remote",
-    });
-    expect(agent.readSessionMessages).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: task.taskId,
-        workspaceIdentity: "ssh://host/repo",
-        remoteSessionId: "current-remote",
-      }),
-    );
-    await expect(
-      service.readBotTopicSummaries!({
-        taskId: task.taskId,
-        workspacePath: "/repo",
-        workspaceIdentity: "ssh://other/repo",
-      }),
-    ).rejects.toThrow("workspace mismatch");
-  });
-
   it("exposes task ready only after the indexed session returns to an input-ready phase", async () => {
     const { indexFrameEmitter, service } = createService();
     const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
@@ -2110,7 +1835,7 @@ describe("ESCode legacy task compat task index", () => {
     expect(agent.setModel).not.toHaveBeenCalled();
   });
 
-  it("creates a Bot draft with the native v4 createSession command", async () => {
+  it("creates a draft with the native v4 createSession command", async () => {
     const { agent, service } = createService();
     const mcpServers = [{ name: "docs", command: "node", args: ["server.js"], env: [] }];
 
@@ -2142,7 +1867,7 @@ describe("ESCode legacy task compat task index", () => {
     expect(task.taskId).toBe("sess_v4_created");
   });
 
-  it("desktop-attached remote Bot draft 只发送 ModelSelection", async () => {
+  it("desktop-attached remote draft 只发送 ModelSelection", async () => {
     const { agent, service } = createService();
 
     await service.createTask({
@@ -2833,71 +2558,6 @@ describe("ESCode legacy task compat task index", () => {
         attachments: [expect.objectContaining({ filename: "a.png" })],
       }),
     );
-  });
-
-  it("requires authoritative identity before stopping a running topic", async () => {
-    const { service } = createService();
-    const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
-    const target = { taskId: task.taskId, workspacePath: "/repo" };
-    vi.mocked(readBotGroupRuntimeSnapshot).mockResolvedValueOnce({
-      control: { stopState: "idle", activeWorks: [] },
-    } as never);
-    await expect(service.readBotTopicExecution!(target)).resolves.toBeUndefined();
-    vi.mocked(readBotGroupRuntimeSnapshot).mockResolvedValueOnce({
-      control: {
-        stopState: "stoppable",
-        activeWorks: [
-          {
-            kind: "primaryTurn",
-            foregroundExecutionId: "execution",
-            sourceCommandId: "input-current",
-          },
-        ],
-      },
-    } as never);
-    await expect(service.readBotTopicExecution!(target)).resolves.toEqual({
-      executionId: "execution",
-      sourceCommandId: "input-current",
-    });
-    vi.mocked(readBotGroupRuntimeSnapshot).mockResolvedValueOnce({
-      control: { stopState: "stoppable", activeWorks: [] },
-    } as never);
-    await expect(service.readBotTopicExecution!(target)).rejects.toThrow("identity is unavailable");
-  });
-
-  it("routes topic stop through the same workspace and waits for its execution to end", async () => {
-    const { agent, service } = createService();
-    const task = await service.createTask({ workspacePath: "/repo", provider: "glm" });
-    let finish!: () => void;
-    vi.mocked(waitBotGroupExecutionEnd).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finish = () => resolve({} as never);
-        }),
-    );
-    let completed = false;
-    const stopping = service.stopBotTopicExecution!({
-      taskId: task.taskId,
-      workspacePath: "/repo",
-      remoteSessionId: "remote-a",
-      executionId: "old",
-    }).then(() => {
-      completed = true;
-    });
-    for (let i = 0; i < 8; i++) await Promise.resolve();
-    expect(agent.sendConversationCommandV4).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        remoteSessionId: "remote-a",
-        envelope: expect.objectContaining({
-          type: "stop",
-          payload: { expectedForegroundExecutionId: "old" },
-        }),
-      }),
-    );
-    expect(completed).toBe(false);
-    finish();
-    await stopping;
-    expect(completed).toBe(true);
   });
 
   it("preserves the observed execution identity in a topic stop", async () => {
@@ -4814,7 +4474,7 @@ describe("ESCode legacy task compat task index", () => {
       const subscription = service.onDynamicTaskEvent({
         workspacePath: "/repo",
         taskId: task.taskId,
-        deliveryKind: "bot-channel-continuous",
+        deliveryKind: "continuous",
       })((event) => {
         received.push(event);
       });
@@ -4895,7 +4555,7 @@ describe("ESCode legacy task compat task index", () => {
     const subscription = service.onDynamicTaskEvent({
       workspacePath: "/repo",
       taskId: task.taskId,
-      deliveryKind: "bot-channel-continuous",
+      deliveryKind: "continuous",
     })((event) => {
       received.push(event);
     });

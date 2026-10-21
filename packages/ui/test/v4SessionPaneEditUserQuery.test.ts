@@ -97,10 +97,6 @@ const servicesMock = vi.hoisted(() => ({
 }));
 
 // 本组隔离编辑/设置行为，群投递服务由独立单测及 Host/CLI E2E 覆盖。
-vi.mock("@/v4/BotGroupDeliveryAction.js", () => ({
-  BotGroupDeliveryProvider: ({ children }: { children: unknown }) => children,
-  ConnectedBotGroupDeliveryAction: () => null,
-}));
 
 vi.mock("@/hooks/useSettingService.js", () => ({
   useSettings: () => ({

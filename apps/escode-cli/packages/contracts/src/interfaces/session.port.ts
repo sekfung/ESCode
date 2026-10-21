@@ -322,46 +322,6 @@ export interface TurnInputIntentMetadata {
     sentAt?: string;
   }>;
   inputOrigin?: "desktop" | "mobile";
-  botGroupSource?: {
-    botIdentity?: { name: string; openId?: string };
-    mentionedBot?: boolean;
-    appId?: string;
-    contentParts?: import("@escode/shared").ChannelContentPart[];
-    messages?: Array<{
-      mentionedBot?: boolean;
-      messageId: string;
-      senderId: string;
-      senderName: string;
-      text: string;
-      attachmentIndexes: number[];
-      contentParts?: import("@escode/shared").ChannelContentPart[];
-    }>;
-    /** 入队时由 Host 注入，历史资源请求不能借用后续重新授权的版本。 */
-    authorizationId?: string;
-    botId: string;
-    provider: "feishu" | "lark";
-    chatId: string;
-    threadId?: string;
-    rootMessageId?: string;
-    topicContext?: {
-      checkpoint: string;
-      hasGap: boolean;
-      messages: Array<{
-        id: string;
-        chatId: string;
-        threadId: string;
-        senderId: string;
-        senderType: "user" | "app";
-        text: string;
-        createdAt: number;
-        kind: string;
-        deleted?: boolean;
-      }>;
-    };
-    senderId: string;
-    senderName: string;
-    messageId: string;
-  };
   sourceCommandId: string;
   queueItemId: string;
   clientId: string;

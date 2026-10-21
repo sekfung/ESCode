@@ -128,7 +128,6 @@ for (const flow of flows) {
   const script = structuredClone(flow.host);
   const record = {
     activeAutomationId: flow.activeAutomationId,
-    activeBotDeliveryTarget: flow.bot,
     traceContext: {},
     app: {
       sessionId: "sess_current",

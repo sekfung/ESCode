@@ -235,15 +235,8 @@ for (const config of configs) {
   }
 }
 
-// ── guarded 段（v3.15.1）：YOLO 基础策略 + userApprovalRule 的单次确认，以及 ReplyToChannel 预批 ──
+// ── guarded 段（v3.15.1）：YOLO 基础策略 + userApprovalRule 的单次确认 ──
 // 结果额外记录 approvalMode（user-once 不提供会话/项目授权），编码为 `decision:ruleId:approvalMode`。
-const replyToChannel = {
-  sideEffectScope: "network",
-  riskLevel: "medium",
-  destructive: false,
-  needsApproval: false,
-  permission: { permission: "channel.reply" },
-};
 const guardedTools = [
   { toolName: "Bash", capability: { userApprovalRule: "safety.bash.remove-critical-path" } },
   { toolName: "Bash", capability: undefined },
@@ -253,9 +246,6 @@ const guardedTools = [
     toolName: "AlwaysAskTool",
     capability: { alwaysAsk: true, userApprovalRule: "safety.bash.git-reset-hard" },
   },
-  { toolName: "ReplyToChannel", capability: replyToChannel },
-  { toolName: "ReplyToChannel", capability: { ...replyToChannel, needsApproval: true } },
-  { toolName: "OtherNetworkTool", capability: replyToChannel },
 ];
 const guardedModes = [
   ["guarded", null],

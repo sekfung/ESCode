@@ -1457,22 +1457,9 @@ TUI 与 headless（`--prompt`、`--target`）没有 Host 下发灰度 mode，改
   中英文 help），以及 `cli/tests/headless-workflow.test.ts` 中需要工作流的用例改为显式 `--workflow-mode alwaysOn`。
 - 取代 staging 同期的布尔 `--enable-workflow`（仅 headless、TUI 缺省开启）：该参数已移除，传入即未知参数。
 
-## ReplyToChannel（2026-09-23）
+## ReplyToChannel（已删除，2026-10-21）
 
-工具用当前任务绑定会话已确认的 mention refId 发送原生提及，包括客户端续聊引用历史目标；不接收群 ID、应用 ID 或裸用户 ID。
-2026-10-08：新增 mentionName（name、可选 candidateRef），由 Host 在当前授权会话查询真实身份。
-输入 schema/模型工具 schema/描述 → 当前执行输入 → 现有 reply port/协议 → Host 查询与复核
-→ delivery 幂等 → 严格 sent/failed/unknown/invalidated 或 needs_clarification 结果。
-名字按包含查询：唯一候选或唯一完整名字匹配直接发送，其余重名、无结果、权限不足均不发送。
-保留多词名字，顿号/逗号/换行明确分隔多人；不得仅凭空格拆名。Host 查询全部名字，
-needs_clarification.unresolved 返回全部未解决项（最多 50）；模型只询问这些项，不得声称已发送。
-正常最终答复不自动识别 @ 文本；模型仅在用户明确请求时使用名字查询。保持已有权限、取消、
-trace、tool result 持久化与跨端投影；候选输出有界，具体合同见根 Bot spec 的按名字提及章节。
-input schema → executing canonical input identity → explicit reply port → authenticated Host → task channel binding / trusted mention resolution → Bot delivery owner → typed result。
-botGroupSource 仅表达单条输入来源，不是调用前提；Host 唯一绑定决定群/话题，CLI 不选择历史消息充当当前授权。
-保留 tool trace、取消、既有权限策略与结果预算；属于 network 副作用，非只读，非破坏性。
-普通最终回复仍由 Bot 自动发送；仅用户明确要求发送/提及时使用，不能借普通文本恢复 mention 身份。
-工作区与本地/远端身份验证在 Host，群授权及投递幂等在 Bot；不新增 accepted queue。
+聊天平台 Bot 集成随产品决定删除；该工具、`botGroupSource` 与相关协议一并移除。
 
 ## 脚本为每个子代理点名模型（2026-09-26）
 
@@ -1608,15 +1595,9 @@ interrupted result。修复不改变工具 schema、权限、执行时机、协�
 在决定是否继续模型请求之前完成持久化收口。回归测试覆盖 completed/running 两种工具状态、无目标时仅一次模型
 请求、原错误传播、live/cold history 一致，以及三次输出续写后经工具 fallback 建立新 anchor 的预算重置。
 
-### 2026-10-09 Bot 协作上下文
+### 2026-10-09 Bot 协作上下文（已删除，2026-10-21）
 
-可信 Host 的 botGroupSource.botIdentity 与逐条 mentionedBot 贯穿持久化输入和模型上下文。
-模型仅处理自身分工，无 @ 且无关时允许无工具、无可见回复；原生指向别人由 Host 阻止触发，
-后续历史只作背景。共享协议沿用严格 botGroupInputSourceSchema，不新增工具或执行队列。
-
-2026-10-09 机器人身份回归：Host 原生来源 → botGroupSource 持久化 → conversation-quotes
-模型投影 → ReplyToChannel。可信 mention 增加由 botIdentity.openId 比对派生的 isCurrentBot，
-区分同名机器人分工；不暴露其他目标 ID，不修改工具 schema、发送授权或 CLI admission。
+聊天平台 Bot 集成随产品决定删除；`botGroupSource`/`botIdentity` 协议与模型材料一并移除。
 
 身份定位补充：conversation-quotes 将原始有序 text/mention 节点逐条映射到模型专用
 材料，保留同名手打文字与原生提及的区别，不改持久化正文或发送 ref 的授权边界。

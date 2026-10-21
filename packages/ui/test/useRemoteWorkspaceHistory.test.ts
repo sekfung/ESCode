@@ -10,7 +10,6 @@ import {
   reconnectRemoteWorkspaceByKey,
   reconnectRemoteWorkspaceHistoryEntry,
   reconnectRemoteWorkspaceGroup,
-  resolveBotRemoteWorkspaceReconnectedIdentity,
   shouldPersistRemoteWorkspaceFailure,
   selectRemoteWorkspaceProjectFromDialog,
 } from "@/root/useRemoteWorkspaceHistory.js";
@@ -180,48 +179,6 @@ describe("shouldPersistRemoteWorkspaceFailure", () => {
 });
 
 describe("reconnectRemoteWorkspaceHistoryEntry", () => {
-  describe("resolveBotRemoteWorkspaceReconnectedIdentity", () => {
-    it("keeps the bot event workspace identity when canonical path differs", () => {
-      const eventWorkspaceIdentity = "remote:docker:demo:/workspace/link";
-      const canonicalIdentity = buildRemoteWorkspaceIdentity("/workspace/real", {
-        kind: "docker",
-        container: "demo",
-      });
-
-      const resolvedIdentity = resolveBotRemoteWorkspaceReconnectedIdentity({
-        event: {
-          workspaceIdentity: eventWorkspaceIdentity,
-        },
-        resolvedWorkspacePath: "/workspace/real",
-        target: {
-          kind: "docker",
-          container: "demo",
-        },
-      });
-
-      expect(resolvedIdentity).toBe(eventWorkspaceIdentity);
-      expect(resolvedIdentity).not.toBe(canonicalIdentity);
-    });
-
-    it("falls back to canonical identity when the bot event identity is blank", () => {
-      const target = {
-        kind: "docker" as const,
-        container: "demo",
-      };
-      const expectedIdentity = buildRemoteWorkspaceIdentity("/workspace/real", target);
-
-      const resolvedIdentity = resolveBotRemoteWorkspaceReconnectedIdentity({
-        event: {
-          workspaceIdentity: "  ",
-        },
-        resolvedWorkspacePath: "/workspace/real",
-        target,
-      });
-
-      expect(resolvedIdentity).toBe(expectedIdentity);
-    });
-  });
-
   it("keeps the current conversation mounted until reconnect is ready, then activates the remote draft", async () => {
     const activateTabByPath = vi.fn(() => true);
     const setReconnectingRemoteWorkspaceKeys = vi.fn((updater) => {

@@ -117,8 +117,8 @@ fn registered_channels_are_exactly_those_with_implemented_members() {
     );
     assert!(
         // 套餐族删除（2026-10-15）移除了 oauth / coding-plan-subscription / highspeed-card，
-        // 之后又有 channel 下线：门槛随之下调，防止生成资产被误截断。
-        rpc_channels().len() >= 43,
+        // 之后又有 channel 下线（2026-10-21 删除 bots）：门槛随之下调，防止生成资产被误截断。
+        rpc_channels().len() >= 41,
         "TS 服务面全集应覆盖全部 ServiceChannels"
     );
 }

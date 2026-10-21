@@ -23,7 +23,6 @@
     "@escode/provider-node": "workspace:*",
     "@escode/rpc": "workspace:*",
     "@escode/shared": "workspace:*",
-    "@larksuiteoapi/node-sdk": "1.64.0",
     "@serialport/bindings-cpp": "13.0.1",
     "@serialport/stream": "13.0.0",
     "chokidar": "4.0.3",

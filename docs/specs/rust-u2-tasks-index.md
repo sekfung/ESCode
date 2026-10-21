@@ -622,10 +622,10 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
   `ESCODE_SESSION_TARGET_NOT_FOUND`）。
 - **无附件（主路径）**：V4 `sendText` 命令，`commandId = traceId`（幂等键与 CLI inputId 对齐），
   payload：`text`、`heldQueueDisposition: keepQueueAndSend`、可选 `modelSelection`/`modelExecution`/
-  `botDeliveryTarget`、`toolDisallowlist`、`turnAttribution`。ACK 用 `assertV4CommandAckOk`。
+  `toolDisallowlist`、`turnAttribution`。ACK 用 `assertV4CommandAckOk`。
 - **带附件**：legacy `session/send`（V4 sendText 的附件命令面未建模，TS 同），body 带 `sessionId`/
   `inputId`/`content`/`attachments`/可选 `queryId`/`messageId`/`modelSelection`/`modelExecution`/
-  `toolDenylist`/`botDeliveryTarget`/归属字段。
+  `toolDenylist`/归属字段。
 - **工具面隔离**（TS `resolvePromptToolDenylist`）：基础 `toolDenylist` + 本轮 `automationId` 时追加
   `CronCreate/CronUpdate/CronDelete`；`offPeakTaskId` 时追加 `OffPeakCreate`；两者同时存在时**都加**。
   `cronAutomationId`（持久归属）不参与本轮隔离。
@@ -908,45 +908,6 @@ createdAt?, previewTitle?}`。
   额外登记任务目标（TS 同）。
 - `onError`：与 TS 对等——TS adapter 的 `errorEmitter` 从不 `fire`，全仓无消费方；Host 同样只登记监听。
   （早先把它列为缺口是误判。）
-- V4 帧 → 流事件：不在 Host 做通用映射（与既有架构决策一致）。Bots 改为直接消费 V4 帧：新增
-  `onDynamicConversationFrames`（Host 内持续 background 订阅，gap 重订阅），Bot 本地投影见
-  `bots-v4-stream.md`。`onDynamicStreamEvent`/`onDynamicTaskEvent` 继续只承载生命周期与快照通知。
-
-## 17. Bot group（S12，2026-10-17）
-
-本片交付 7 个成员（7 → 0）：`readBotTopicSummaries`、`invalidateBotTopicInputs`、
-`readBotTopicExecution`、`stopBotTopicExecution`、`getBotGroupTaskBlockReason`、
-`cancelBotGroupInput`、`submitBotGroupInput`。
-
-- Host 侧新增 **V4 conversation 观察器**：`subscribeConversationV4(visibility:"background")`
-  → 帧泵 + `TopicWireFrameAssembler` → 首帧 snapshot；用后 `unsubscribe`。快照读取超时 15s。
-- `readBotTopicSummaries`：`session/messages(limit:200)`，只保留 `role=user` 且
-  `source="bot_topic_context"`，映射 `{checkpoint, text}`（`metadata.displayText` 优先），取最后 20。
-  TS 已停止生成该来源，新会话为空数组（与 TS 一致）；从 TS 导入的旧会话由 runtime 保留来源记录并在
-  `session/messages` 原位投影（`rust-app-p0.md`），同时不再把旧话题背景注入模型历史。
-- `readBotTopicExecution`：快照 `control.stopState === "idle"` → undefined；否则取
-  `control.activeWorks` 中带 `foregroundExecutionId` 的项，缺失报
-  `Topic execution identity is unavailable`。
-- `stopBotTopicExecution`：先登记终态观察，再发 V4 `stop`（带
-  `expectedForegroundExecutionId`），等待该 execution 从 `activeWorks` 消失。
-- `getBotGroupTaskBlockReason`：pendingInteractions → `"interaction"`；phase
-  running/prewarming → `"running"`；queue 非空 → `"queued"`；否则 null。
-- `cancelBotGroupInput`：按 `sourceCommandId` 找队列项，校验 `botGroupSource`
-  （botId/chatId/actorId=ownerId 或 senderId），发 CAS `deleteQueueItem`
-  （`queueItemId`，`baseRevision=snapshot.revision`）。
-- `submitBotGroupInput`：Host 内 topic admission（版本 + tail，`invalidate` 先失效再等待），
-  先读快照预热，再按 TS 分块上传附件（begin/chunk/commit/abort，384KiB/块），
-  发 V4 `sendText`（`requestedDelivery=startNow|queue`、`botGroupSource`、
-  `botDeliveryTarget`、`conversationQuotes`，clientId=`bot:<botId>:<chatId>:<senderId>`）。
-  线程输入在附件上传后再次校验 admission 版本；ACK 丢失时用同 commandId 查询幂等结果。
-  runtime 排队项保留 `botGroupSource`/`conversationQuotes`（公开）与 `botDeliveryTarget`（私有），提升/引导时恢复
-  （`rust-busy-input.md`），`cancelBotGroupInput` 的授权校验因此能读到排队项来源。
-- **登记差异**：附件 `localPath` 读取遵守 Host 文件访问边界；远端路径由 Main 授权/上传事务承载。
-  错误文案与 TS 保持同义（workspace mismatch / not queued / not authorized）。
-
-### 17.1 验收
-
-- 单元：snapshot 观察器帧装配、admission 失效、block reason/queue 选择、botGroupSource 授权。
-- 端到端：真实例 + fixture 模型：读 summaries（bot_topic_context 过滤）、block reason、
-  提交无附件 group 输入（进入 queue/startNow）、取消未运行输入、停止执行。
-- 负向验证：去掉 admission 版本校验 → 取消后提交用例失败；去掉授权校验 → 越权取消用例失败。
+- V4 帧 → 流事件：不在 Host 做通用映射（与既有架构决策一致）；`onDynamicStreamEvent`/
+  `onDynamicTaskEvent` 只承载生命周期与快照通知。聊天平台 Bot 集成已于 2026-10-21 删除，
+  `onDynamicConversationFrames` 与 Bot group/topic 成员退出服务面。

@@ -5,11 +5,6 @@ import {
 } from "@escode/shared";
 import { escodeMcpUiSamplingResultSchema } from "@escode/shared";
 import { MCP_APPS_SAMPLING_TRANSPORT_TIMEOUT_MS } from "@escode/shared/mcp-apps";
-import {
-  channelReplyRequestSchema,
-  type ChannelReplyHostRequest,
-  type ChannelReplyResult,
-} from "@escode/shared";
 import { requestPluginReferenceCatalog } from "#src/escode-agent/pluginReferenceCatalogRequest.js";
 import {
   localTtftFactsSchema,
@@ -18,15 +13,7 @@ import {
 } from "@escode/shared";
 /* oxlint-disable eslint(max-lines) -- ESCode Protocol transport、通知 wiring 和 app-facing session 方法必须共享同一个 client/emitter 上下文。 */
 import { ensureIndependentPlanSupport, readRuntimeCapabilities } from "./independentPlanSupport.js";
-import { createHash, randomUUID } from "node:crypto";
-import { createTopicResourceBridge } from "./topicResourceBridge.js";
-import { uploadTopicResourceToClient } from "./topicResourceUpload.js";
-import {
-  escodeTopicResourceCancelParamsSchema,
-  type ESCodeTopicResourceReadParams,
-  type ESCodeProtocolTrace,
-  type ESCodePromptAttachment,
-} from "@escode/shared";
+import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Emitter } from "@escode/rpc";
@@ -36,7 +23,6 @@ import type {
   ModelSelectionView,
   ProviderSource,
 } from "@escode/provider";
-import { completeNewModelSelection } from "@escode/provider";
 import {
   subagentRuntimeConfigSchema,
   escodeSubagentsReadRuntimeConfigParamsSchema,
@@ -423,11 +409,7 @@ type SessionResumeCompatField =
   | "toolDenylist"
   | "dynamicWorkflowEnabled"
   | "dynamicWorkflowMode";
-type SessionSendCompatField =
-  | "browserAmbientContext"
-  | "automationId"
-  | "botDeliveryTarget"
-  | "toolDenylist";
+type SessionSendCompatField = "browserAmbientContext" | "automationId" | "toolDenylist";
 
 const SESSION_CREATE_OPTIONAL_COMPAT_FIELDS = new Set<SessionCreateCompatField>([
   "persistence",
@@ -455,7 +437,6 @@ const SESSION_RESUME_OPTIONAL_COMPAT_FIELDS = new Set<SessionResumeCompatField>(
 const SESSION_SEND_OPTIONAL_COMPAT_FIELDS = new Set<SessionSendCompatField>([
   "browserAmbientContext",
   "automationId",
-  "botDeliveryTarget",
   "toolDenylist",
 ]);
 // onDynamicSessionEvent 建立上游订阅时若 getClient / sessionSubscribe 瞬时失败
@@ -785,9 +766,6 @@ function buildSessionSendParams(
     ...(params.automationId !== undefined && !omittedFields.has("automationId")
       ? { automationId: params.automationId }
       : {}),
-    ...(params.botDeliveryTarget !== undefined && !omittedFields.has("botDeliveryTarget")
-      ? { botDeliveryTarget: params.botDeliveryTarget }
-      : {}),
     ...(params.toolDenylist !== undefined && !omittedFields.has("toolDenylist")
       ? { toolDenylist: params.toolDenylist }
       : {}),
@@ -969,17 +947,6 @@ interface CreateESCodeAgentServiceOptions extends Omit<
    * browser 命令返回 backend_unavailable，不影响其它功能。
    */
   browserControlExecutor?: BrowserAmbientContextExecutor;
-  channelReplyExecutor?: (request: ChannelReplyHostRequest) => Promise<ChannelReplyResult>;
-  topicResourceExecutor?: (
-    request: ESCodeTopicResourceReadParams &
-      ESCodeAgentWorkspaceTarget & { trace?: ESCodeProtocolTrace },
-    signal: AbortSignal,
-  ) => Promise<ESCodePromptAttachment>;
-  topicResourceValidator?: (
-    request: ESCodeTopicResourceReadParams &
-      ESCodeAgentWorkspaceTarget & { trace?: ESCodeProtocolTrace },
-    signal: AbortSignal,
-  ) => Promise<void>;
   /**
    * Agent 串口工具：interaction/serial* 反向请求交给它处理。仅 Desktop Local Host 装配；
    * 缺省时这些请求一律返回 unavailable 工具错误。
@@ -1907,39 +1874,7 @@ export function createESCodeAgentService(
       return;
     }
     wiredClients.add(client);
-    const topicResources = createTopicResourceBridge(() => {
-      // 预热可能没有 remoteSessionId；不能永久捕获 wireClient 首次参数。
-      // 从同一个实际 CLI 的当前可信入口取路由，并在一次资源操作内保持不变。
-      const active = activeClientsByWorkspaceKey.get(resolveWorkspaceKey(workspace));
-      const resourceWorkspace =
-        active?.client === client ? { ...active.workspace } : { ...workspace };
-      return {
-        validate: (request, signal, trace) => {
-          if (!options?.topicResourceValidator)
-            throw new Error("Topic resource authorization is unavailable");
-          return options.topicResourceValidator(
-            { ...request, ...resourceWorkspace, trace },
-            signal,
-          );
-        },
-        read: (request, signal, trace) => {
-          if (!options?.topicResourceExecutor)
-            throw new Error("Topic attachment retrieval is unavailable on this host");
-          return options.topicResourceExecutor({ ...request, ...resourceWorkspace, trace }, signal);
-        },
-        upload: (request, attachment, signal, trace) =>
-          uploadTopicResourceToClient(
-            client,
-            v4ConnectionId,
-            { ...resourceWorkspace, sessionId: request.taskId },
-            attachment,
-            signal,
-            trace,
-          ),
-      };
-    });
     const disposables = [
-      topicResources,
       client.onNotification((message) => {
         if (message.method === escodeProtocolNotifications.providerRuntimeHeadersCancelled) {
           const parsed = escodeProviderRuntimeHeadersCancelledSchema.safeParse(message.params);
@@ -2215,50 +2150,6 @@ export function createESCodeAgentService(
           })().catch((error) =>
             logger.debug(undefined, "Subagent 配置响应发送失败", { error: String(error) }),
           );
-          return;
-        }
-        if (request.method === escodeProtocolMethods.channelReply) {
-          void (async () => {
-            const params = channelReplyRequestSchema.parse(request.params);
-            if (!options?.channelReplyExecutor) throw new Error("Channel reply unavailable");
-            const active = activeClientsByWorkspaceKey.get(resolveWorkspaceKey(workspace));
-            if (active?.client !== client)
-              throw new Error("Channel reply client is no longer active");
-            const currentWorkspace = active.workspace;
-            const result = await options.channelReplyExecutor({
-              ...params,
-              // 活跃连接还携带 V4 envelope 等内部字段；跨回复契约只能投影工作区身份，不能展开整个对象。
-              workspacePath: currentWorkspace.workspacePath,
-              workspaceIdentity: currentWorkspace.workspaceIdentity,
-              remoteSessionId: currentWorkspace.remoteSessionId,
-              trace: request.trace,
-            });
-            await client.respond(request.id, result);
-          })().catch((error: unknown) =>
-            client.respondError(request.id, {
-              code: -32603,
-              message: error instanceof Error ? error.message : "Channel reply failed",
-            }),
-          );
-          return;
-        }
-        if (request.method === escodeProtocolMethods.topicResourceRead) {
-          void topicResources
-            .read(request.params, request.trace)
-            .then((result) => client.respond(request.id, result))
-            .catch((error: unknown) =>
-              client.respondError(request.id, {
-                code: -32603,
-                message: error instanceof Error ? error.message : "Topic resource read failed",
-              }),
-            );
-          return;
-        }
-        if (request.method === escodeProtocolMethods.topicResourceCancel) {
-          const parsed = escodeTopicResourceCancelParamsSchema.safeParse(request.params);
-          void client.respond(request.id, {
-            cancelled: parsed.success && topicResources.cancel(parsed.data),
-          });
           return;
         }
         if (request.method === escodeProtocolMethods.sessionRequestRuntimePreferences) {
@@ -2683,7 +2574,6 @@ export function createESCodeAgentService(
                 modelSelection: parsed.data.modelSelection,
                 mode: parsed.data.mode,
                 targetTaskId: parsed.data.targetTaskId,
-                botDeliveryTarget: parsed.data.botDeliveryTarget,
                 workspacePath: workspace.workspacePath,
                 workspaceIdentity: workspace.workspaceIdentity,
                 recurring: parsed.data.recurring ?? true,

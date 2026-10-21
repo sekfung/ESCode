@@ -185,7 +185,7 @@ Engineering Infrastructure
 | Renderer   | 扩展体验（Extension Experience）                                    | Plugin/Skill/MCP 等扩展设置、市场与导入入口                                                             |
 | Renderer   | 浏览器与开发工作台体验（Browser & Workbench Experience）            | Browser、File、Terminal、Git/Diff 产品界面                                                              |
 | Renderer   | 办公套件与计算机操作孵化（Office Suite & Computer Use Incubation）  | PDF/Office 预览与编辑路线图、Computer Use 任务体验、人工接管与安全确认                                  |
-| Renderer   | 自动化体验（Automation Experience）                                 | 定时自动化、闲时任务与 Bot 配置/历史界面                                                                |
+| Renderer   | 自动化体验（Automation Experience）                                 | 定时自动化与闲时任务界面                                                                                |
 | Renderer   | UI 平台（UI Platform）                                              | 设计系统、主题、国际化、响应式、Settings/Onboarding                                                     |
 | Renderer   | 数据洞察与反馈体验（Insights & Feedback Experience）                | App Usage 图表、Feedback 入口、Resource Manager（资源管理器）展示                                       |
 | Host       | 账户与权益（Account & Entitlements）                                | OAuth/Credential、Plan Identity、Start/Coding/Team Plan、支付、远端 quota/monitor                       |
@@ -193,7 +193,7 @@ Engineering Infrastructure
 | Host       | 浏览器与计算机操作平台（Browser & Computer Use Platform）           | BrowserView/WebContentsView、CDP backend、Computer Use Helper 生命周期、可信 broker、系统观察与输入执行 |
 | Host       | 工作区与交付（Workspace & Delivery）                                | workspace identity、Local/Remote Host、远程 workspace、continuous/replayable                            |
 | Host       | 工作台服务（Workbench Services）                                    | File/Terminal/Git 服务                                                                                  |
-| Host       | 自动化与渠道运行时（Automation & Channel Runtime）                  | scheduler、automation record、Bots、第三方渠道                                                          |
+| Host       | 自动化运行时（Automation Runtime）                                  | scheduler、automation record、run 派发与结算                                                            |
 | Host       | 客户端平台（Client Platform）                                       | Electron 生命周期、客户端更新、Feedback ticket 与诊断包                                                 |
 | Host       | 数据与可观测性（Data & Observability）                              | App Usage bridge、产品埋点、Conversation telemetry、ARMS、性能可靠性、日志与进程监控                    |
 | ESCode CLI | 智能体核心（Agent Core）                                            | runtime 装配、turn 状态机、上下文、memory、compact、stream recovery、goal/target、故障收口              |
@@ -294,7 +294,6 @@ Conversation Runtime
         +--> 发送消息 / 当前会话（Composer / Conversation）
         +--> 子智能体配置（Subagent Profiles）
         +--> 定时自动化（Scheduled Automation）
-        +--> 机器人（Bots）
 
 上下文与输出预算 ──> 模型运行时（Model Runtime）
         |

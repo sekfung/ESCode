@@ -33,13 +33,11 @@ function setup() {
   };
   const report = vi.fn();
   const taskKey = Symbol(),
-    modelKey = Symbol(),
-    botsKey = Symbol();
+    modelKey = Symbol();
   const selection = { providerId: "test", modelId: "test" };
   const dispatch = createDispatch({
     IESCodeTaskService: taskKey,
     IModelSelectionService: modelKey,
-    IBotsService: botsKey,
     resolveAutomationTargetServices: () => ({
       getOptional: (key: symbol) => (key === taskKey ? service : key === modelKey ? {} : undefined),
     }),

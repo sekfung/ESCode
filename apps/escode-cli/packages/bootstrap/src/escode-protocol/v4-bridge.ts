@@ -245,7 +245,6 @@ async function previewConversationFileRewind(
 interface InputCommandForAdmission {
   inputOrigin?: "desktop" | "mobile";
   conversationQuotes?: import("@escode/contracts").TurnInputIntentMetadata["conversationQuotes"];
-  botGroupSource?: ConversationInputIntent["botGroupSource"];
   kind: ConversationInputIntent["kind"];
   text: string;
   attachments: readonly AttachmentRef[];
@@ -324,7 +323,6 @@ export function resolveInputCommandForAdmission(
       attachments?: AttachmentRef[];
       inputOrigin?: "desktop" | "mobile";
       conversationQuotes?: import("@escode/contracts").TurnInputIntentMetadata["conversationQuotes"];
-      botGroupSource?: ConversationInputIntent["botGroupSource"];
     };
     return {
       kind: envelope.type,
@@ -333,7 +331,6 @@ export function resolveInputCommandForAdmission(
 
       ...(payload.inputOrigin ? { inputOrigin: payload.inputOrigin } : {}),
       ...(payload.conversationQuotes ? { conversationQuotes: payload.conversationQuotes } : {}),
-      ...(payload.botGroupSource ? { botGroupSource: payload.botGroupSource } : {}),
     };
   }
   if (envelope.type === "compact") {
@@ -360,7 +357,6 @@ export function resolveInputCommandForAdmission(
     ...((payload.conversationQuotes ?? canonical.intent.conversationQuotes)
       ? { conversationQuotes: payload.conversationQuotes ?? canonical.intent.conversationQuotes }
       : {}),
-    ...(canonical.intent.botGroupSource ? { botGroupSource: canonical.intent.botGroupSource } : {}),
     text:
       envelope.type === "editUserQuery"
         ? (payload.newText ?? canonical.intent.text)
@@ -418,7 +414,6 @@ function buildForkInitialInput(
     kind: input.kind,
     ...(input.inputOrigin ? { inputOrigin: input.inputOrigin } : {}),
     ...(input.conversationQuotes ? { conversationQuotes: input.conversationQuotes } : {}),
-    ...(input.botGroupSource ? { botGroupSource: input.botGroupSource } : {}),
     text: input.text,
     attachments: input.attachments,
     delivery: {
@@ -757,7 +752,6 @@ export function createConversationV4Gateway(
       const conversationInputIntent = conversationInputIntentSchema.parse({
         ...(input.inputOrigin ? { inputOrigin: input.inputOrigin } : {}),
         ...(input.conversationQuotes ? { conversationQuotes: input.conversationQuotes } : {}),
-        ...(input.botGroupSource ? { botGroupSource: input.botGroupSource } : {}),
         sourceCommandId: envelope.commandId,
         queueItemId: admission.queueItemId,
         clientId: envelope.clientId || "cli",

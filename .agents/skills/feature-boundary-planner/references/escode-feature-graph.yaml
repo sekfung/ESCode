@@ -452,7 +452,7 @@ nodes:
       - "User-visible model candidates, option specs, and preferredSelection come atomically from the target Workspace Host: local workspaces use Local Host and remote workspaces use Remote Host, with no Base/Local fallback while a remote target is waiting or disconnected. App Recent is isolated by workspaceKey = workspaceIdentity?.trim() || workspacePath; the Renderer may prefer a still-selectable Recent over Host preferredSelection, while final execution validation remains in the target Worker Registry and ModelFactory."
       - "ModelSelection stores provider/model identity and selected options. ModelFactory validates and freezes complete execution selections; it never fills missing reasoning. New default completion and an explicit user model-menu choice use the highest public level (Todo 88). Auxiliary low-cost calls explicitly use values[0], while invalid saved Session/Composer effective selections remain empty without fallback or empty-selection notifications."
       - "ModelSelection is future Model-creation intent, not a current execution fact. Each model step creates one immutable Active Model and uses that same object for Context current-model identity, model-aware tool projection, request options, and the Adapter request. Guide creates a new model step; inherited Subagents must not mix their Active Model with Session Selection."
-      - "Implemented (Todo 87/99): A target-host selection read accepts original intent and returns a caller-specific effectiveSelection. Account and Personal/Built-in updates recompute temporary results without overwriting intent; UI reads share subscriptions and bounded cancellable read recovery. Composer, Automation, and Bot consume this result at their own commit boundaries. Bound Bot reads the Session original selection, never a second Bot preference; explicit /model commits the complete Session selection immediately. Managed Worker explicit Subagents use the same local facade through dependency injection, including Workflow children; implicit Subagents inherit Parent and execution overrides take priority. Ordinary providers keep identity and account plans follow the current plan. Frozen runs and history do not remap. No new send-time synchronization barrier or storage migration is introduced. Worker account receivedRevision acknowledges receipt, not Registry application."
+      - "Implemented (Todo 87/99): A target-host selection read accepts original intent and returns a caller-specific effectiveSelection. Account and Personal/Built-in updates recompute temporary results without overwriting intent; UI reads share subscriptions and bounded cancellable read recovery. Composer and Automation consume this result at their own commit boundaries; explicit /model commits the complete Session selection immediately. Managed Worker explicit Subagents use the same local facade through dependency injection, including Workflow children; implicit Subagents inherit Parent and execution overrides take priority. Ordinary providers keep identity and account plans follow the current plan. Frozen runs and history do not remap. No new send-time synchronization barrier or storage migration is introduced. Worker account receivedRevision acknowledges receipt, not Registry application."
 
   - id: "capability.provider-templates"
     kind: "capability"
@@ -1150,7 +1150,7 @@ nodes:
       - "AppSettings is the only Host app-managed proxy, No Proxy, and custom CA authority; ambient shell proxy and CA variables remain sanitized."
       - "The first phase injects a request-scoped transport into NodeApiClient and never installs a process-global dispatcher."
       - "Desktop-attached remote app-global services use the desktop Host policy; server remote services retain server authority."
-      - "Conversation delivery, workspace identity, Agent/CLI, Electron Session, Bot, telemetry, object-upload, WebSocket, SSH, and RPC behavior remain unchanged."
+      - "Conversation delivery, workspace identity, Agent/CLI, Electron Session, telemetry, object-upload, WebSocket, SSH, and RPC behavior remain unchanged."
 
   - id: "capability.embedded-browser-responsive-viewport"
     kind: "capability"
@@ -2821,10 +2821,6 @@ nodes:
         file: "packages/services/src/escode-agent/escodeAgentService.ts"
       - symbol: "createESCodeAgentService"
         file: "packages/services/src/escode-agent/escodeAgentService.ts"
-      - symbol: "createBotRemoteWorkspaceService"
-        file: "packages/services/src/bots/botRemoteWorkspaceBridge.ts"
-      - symbol: "syncAppRuntimePreferences"
-        file: "packages/services/src/bots/botsService.ts"
 
   - id: "service.conversation-rows-range"
     kind: "service"
@@ -4532,38 +4528,6 @@ nodes:
       - "Localization joins by complete pluginId; identity and runtime payloads do not change."
       - "Market groups show all cards by default; manual collapse stays local to the current page."
 
-  - id: "capability.bot-group-collaboration"
-    kind: "capability"
-    label: "Bot group and topic collaboration"
-    aliases: ["群聊机器人", "话题续接", "ReplyToChannel", "渠道提及", "Bot 历史附件"]
-    docs:
-      [
-        "docs/bots-feishu-group-collaboration.md",
-        "docs/bots-topic-input-materials.md",
-        "docs/testing/bots-e2e-coverage-matrix.md",
-      ]
-    codeSeeds:
-      - file: "packages/services/src/bots/botsService.ts"
-        symbol: "createBotsService"
-      - file: "packages/services/src/bots/channelReply.ts"
-        symbol: "replyToBotChannel"
-      - file: "packages/services/src/bots/topicContinuation.ts"
-        symbol: "createTopicContinuation"
-  - id: "surface.bot-bound-groups"
-    kind: "ui-surface"
-    label: "Bot settings bound group controls"
-    codeSeeds:
-      - file: "packages/ui/src/BotsDialog/BoundGroupsCard.tsx"
-        symbol: "BoundGroupsCard"
-  - id: "surface.bot-channel-messages"
-    kind: "ui-surface"
-    label: "Canonical group input and native mentions"
-    codeSeeds:
-      - file: "packages/ui/src/v4/ChannelMentionContent.tsx"
-        symbol: "ChannelMentionContent"
-      - file: "packages/ui/src/v4/BotTopicPreparation.tsx"
-        symbol: "BotTopicPreparationList"
-
   - id: capability.escode-cli-rust
     kind: capability
     label: Opt-in escode-cli-rust core over App stdio
@@ -6248,7 +6212,7 @@ edges:
     to: "service.interaction-auto-resolution-runtime"
     type: "syncs-runtime-preference-to"
     rank: "must-inspect"
-    condition: "Each renderer syncs the app-global preference to its connected local or remote host and cached remote Bot runtimes; inactive workspaces and uncached Bot targets do not spawn a Host or CLI only for preference delivery."
+    condition: "Each renderer syncs the app-global preference to its connected local or remote host; inactive workspaces do not spawn a Host or CLI only for preference delivery."
   - from: "service.interaction-auto-resolution-runtime"
     to: "surface.parent-task-blocking-interaction"
     type: "projects-authoritative-state-to"
@@ -7267,7 +7231,7 @@ edges:
     to: "service.window-host-remote-connection-registry"
     type: "owns"
     rank: "must-inspect"
-    condition: "Each BrowserWindow owns one Host process; local, SSH, WSL, Docker, Server, Mobile, and Bot routes share its in-process registry."
+    condition: "Each BrowserWindow owns one Host process; local, SSH, WSL, Docker, Server, and Mobile routes share its in-process registry."
   - from: "capability.window-single-host-controller-r1"
     to: "state.window-host-controller-projection"
     type: "projects-through"
@@ -7613,22 +7577,3 @@ edges:
     to: "service.composer-host-file-search"
     type: "options-from"
     condition: "Only file mentions use bounded Host search; other file pickers retain the packed listing API and canonical mention insertion remains unchanged."
-
-  - from: "capability.bot-group-collaboration"
-    to: "surface.bot-bound-groups"
-    type: "renders-in"
-    rank: "must-inspect"
-  - from: "capability.bot-group-collaboration"
-    to: "surface.bot-channel-messages"
-    type: "projects-to"
-    rank: "must-inspect"
-  - from: "capability.bot-group-collaboration"
-    to: "service.escode-agent-connection-scope"
-    type: "commits-through"
-    rank: "must-inspect"
-    condition: "CLI owns admission and execution; Bot Host owns conversation binding and durable delivery."
-  - from: "capability.bot-group-collaboration"
-    to: "boundary.web-remote-replayable"
-    type: "must-remain-isolated-from"
-    rank: "invariant-only"
-    condition: "Bot output stays bot-channel-continuous; mobile input and recovery retain replayable semantics."

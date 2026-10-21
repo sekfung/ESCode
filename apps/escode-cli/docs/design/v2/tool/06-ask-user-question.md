@@ -141,7 +141,6 @@ HTML / doctype / comment 形态时，runtime schema 要求它必须是 HTML frag
 `AskUserQuestion` 本质上是用户交互 tool，不是传统权限申请：
 
 - 每一道题都允许不回答。桌面端的选项焦点只用于键盘导航，只有明确点击、空格或 Enter 选中才写入答案；直接点击“继续”或“提交”表示跳过当前题。
-- Bot 单选菜单必须提供独立“跳过”操作；跳过中间题后继续下一题，跳过最后一题则提交当前部分答案，全部跳过时提交 `{ answers: {} }`。
 
 - `checkPermissions` 返回 `ask` 是为了复用 permission request UI。
 - 用户拒绝时需要产生明确的 rejected projection。

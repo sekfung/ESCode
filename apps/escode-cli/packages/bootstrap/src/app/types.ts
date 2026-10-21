@@ -36,7 +36,6 @@ import type {
   ModelSelection,
   ModelToolCall,
   ModelUsage,
-  TopicResourcePort,
   PdfDocumentPort,
   PermissionBrokerPort,
   PluginLoadOutcome,
@@ -205,7 +204,6 @@ export interface ESCodeAppOptions {
   uiLocale?: UiLocale;
   onWorkflowEvent?: (event: WorkflowEvent) => void | Promise<void>;
   automationPort?: AutomationPort;
-  topicResourcePort?: TopicResourcePort;
   /** 首次真实用户执行或 cold-resume fallback 时解析一次，之后由 app 生命周期缓存。 */
   resolveInitialBashShellSelection?: () => Promise<ExecutionShellSelection | undefined>;
   /** Trusted embedder policy; workspace/project files cannot populate this field. */

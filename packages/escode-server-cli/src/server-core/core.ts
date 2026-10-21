@@ -4,7 +4,6 @@ import {
   materializeESCodeBuiltinProviderConfig,
   getAppConfigDir,
   ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV,
-  createTopicResourcePeers,
 } from "@escode/services/node";
 import { IESCodeAgentService } from "@escode/services";
 import { ESCODE_VERSION } from "@escode/shared";
@@ -23,7 +22,6 @@ export async function runServerCore(generation: number): Promise<void> {
     if (shutdown) void shutdown("parent-disconnected");
     else parentDisconnected = true;
   });
-  const topicResourcePeers = createTopicResourcePeers();
   const explicitESCodeBuiltinProviderConfigFilePath =
     process.env[ESCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]?.trim();
   const escodeBuiltinProviderConfigFilePath = explicitESCodeBuiltinProviderConfigFilePath
@@ -42,12 +40,10 @@ export async function runServerCore(generation: number): Promise<void> {
   const services = createLocalServices({
     escodeBuiltinProviderConfigFilePath,
     serviceAuthorityMode: "standalone-server",
-    topicResourceRelayChannel: (request) => topicResourcePeers.getChannel(request),
   });
   const taskActivityTracker = createTaskActivityTracker(services.getOptional(IESCodeAgentService));
   const http = await createCoreHttpServer(services, {
     serverId: await resolveCoreServerId(),
-    topicResourcePeers,
   });
   const send = (message: unknown): Promise<void> => {
     if (typeof process.send !== "function" || process.connected === false) return Promise.resolve();

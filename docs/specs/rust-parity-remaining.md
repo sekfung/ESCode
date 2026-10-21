@@ -43,7 +43,7 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
   [rust-session-loading.md](rust-session-loading.md)）。
 - **已修（2026-10-03 复查）**：上次 diff 按 V4 主路径判断漏掉了 legacy facade——普通 `session/create`（Rust 误当共享
   导入拒绝）、`session/send`（带附件）、`session/setModel`、`session/setThoughtLevel`、`session/setMode`、`session/close`
-  在 Rust 上全部失败，触达定时/闲时任务首跑、Bots 附件与 `/model`、恢复历史任务的档位重放、框选副屏关闭等。已翻译为
+  在 Rust 上全部失败，触达定时/闲时任务首跑、恢复历史任务的档位重放、框选副屏关闭等。已翻译为
   V4 命令实现并与 Node 差分一致（[rust-legacy-session-methods.md](rust-legacy-session-methods.md)）。`session/compact`、
   `session/goal` 无 App 调用点，不实现。
 - **仍缺**：`session/create` 的 `importedHistory.source = "claudeCode"`（Claude Code 历史导入与
@@ -70,6 +70,6 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
     工具）的 `request_access` 结果发出，而 TS 与 Rust 都把除 `node_repl` 外的 CUA 形 MCP 服务器退役（`isRetiredCuaMcpServer`），
     `node_repl` 的 CUA 走 `node_repl_images` 展示（Rust 已对齐）。Rust 不实现，若 TS 恢复 computer-use MCP 再补。
   - 已核对为**无活跃 UI 调用点**（Rust 不实现，作为 legacy 面保留在 TS 侧）：
-    `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代；Bots 原先仍经它取回复流，2026-10-18 已改为 V4 帧，见 [bots-v4-stream.md](bots-v4-stream.md)）、
+    `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
     `workspace/hooks/trustGrant` 已随 hooks H2 实现（见 [rust-hooks.md](rust-hooks.md)）。`plugins/referenceCatalog*` 同样没有活跃 UI
     调用点，但 TS 仍提供，Rust 已一并实现（见上）。

@@ -11,7 +11,7 @@ sequenceDiagram
   participant H as Host（automation service）
   participant E as Session owner（Engine）
   participant L as agent_loop（cron_tool）
-  H->>E: v4 sendText（automationId / toolDisallowlist / botDeliveryTarget）
+  H->>E: v4 sendText（automationId / toolDisallowlist）
   E->>E: admission 记录本轮事实（automationId 缺省时取 automation- 前缀的 commandId）
   E->>L: 运行；本轮禁用工具从模型可见工具面剔除
   L->>L: 自动化轮拒绝写工具；入参按 TS schema 校验（trim）
@@ -23,7 +23,7 @@ sequenceDiagram
 ```
 
 - 本轮事实：`automationId`（显式或 commandId 以 `automation-` 开头时取 `:` 之前部分）、`toolDisallowlist`
-  （自动化轮额外加入 CronCreate/CronUpdate/CronDelete）、`botDeliveryTarget`；admission 时写入该输入的 payload，
+  （自动化轮额外加入 CronCreate/CronUpdate/CronDelete）；admission 时写入该输入的 payload，
   运行开始时读出。自动化轮（有 automationId 或禁用列表包含全部三个写工具）调用写工具时拒绝。
 - 反向请求：Engine 通用 `HostRequest`，以请求 id 路由应答；错误保留 `code` 与 `message`。
 - CronCreate：本轮已由 automation 派发时拒绝；先查当前会话是否已绑定定时任务（查询失败即拒绝，`-32601` 回落列表判定）；

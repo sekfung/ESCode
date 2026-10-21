@@ -425,7 +425,6 @@ function inputIntentOfMessage(message: MessageWithParts): TurnInputIntentMetadat
       ...(value.attachments.length > 0 ? { attachmentRefs: value.attachments } : {}),
       ...(value.inputOrigin ? { inputOrigin: value.inputOrigin } : {}),
       ...(value.conversationQuotes ? { conversationQuotes: value.conversationQuotes } : {}),
-      ...(value.botGroupSource ? { botGroupSource: value.botGroupSource } : {}),
       ...(value.provenance ? { provenance: value.provenance } : {}),
       ...(value.source ? { source: value.source } : {}),
     };

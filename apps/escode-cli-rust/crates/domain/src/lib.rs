@@ -82,7 +82,6 @@ mod session_context_lite;
 mod session_context_parts;
 mod session_context_rust;
 mod session_context_text;
-mod session_context_topic;
 pub mod session_listing;
 mod session_memory;
 mod session_new;

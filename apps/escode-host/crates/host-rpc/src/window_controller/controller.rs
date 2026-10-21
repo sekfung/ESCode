@@ -142,8 +142,6 @@ impl WindowController {
             events: Arc::clone(&self.events),
             commands: Arc::clone(&self.commands),
             task_events: Arc::clone(&self.task_events),
-            observer: None,
-            bot_group: Arc::new(crate::task_bot::BotGroupState::default()),
             home: self.home.clone(),
         }
     }

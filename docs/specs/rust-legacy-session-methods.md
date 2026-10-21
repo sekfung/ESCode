@@ -7,14 +7,14 @@
 
 同一组请求分别打到 Node 与 Rust（`escode-cli-rust-legacy-session.test.ts`），Node 全部受理，Rust 结果如下：
 
-| 方法                      | Rust 原行为                         | App 触达路径                                                                                                 |
-| ------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `session/create`（普通）  | `Null shared import field` / 缺字段 | 定时任务首跑（`host/index.ts` cron createTask）、闲时任务首跑、task facade 默认建会话                        |
-| `session/send`            | `Unsupported method`                | task facade 带附件输入：Bots 收到图片/文件、手机 replayable 附件首发                                         |
-| `session/setModel`        | `Unsupported method`                | Bots `/model`、facade `setConfigOption(model)`、desktop `escodeSessionService.setModel`、replayable 草稿复用 |
-| `session/setThoughtLevel` | `Unsupported method`                | 打开历史任务时重放 task 思考档位（`escodeSessionService.resumeSession`）、replayable 草稿复用                |
-| `session/setMode`         | `Unsupported method`                | facade 切到 `auto`（Rust 不声明 auto，见下）、`escodeSessionService.setMode`                                 |
-| `session/close`           | `Unsupported method`                | 关闭框选副屏 runtime（`useAppPanels`）、草稿 Skill 失效、条件关闭 deferred 草稿、facade `closeTask`          |
+| 方法                      | Rust 原行为                         | App 触达路径                                                                                        |
+| ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `session/create`（普通）  | `Null shared import field` / 缺字段 | 定时任务首跑（`host/index.ts` cron createTask）、闲时任务首跑、task facade 默认建会话               |
+| `session/send`            | `Unsupported method`                | task facade 带附件输入、手机 replayable 附件首发                                                    |
+| `session/setModel`        | `Unsupported method`                | facade `setConfigOption(model)`、desktop `escodeSessionService.setModel`、replayable 草稿复用       |
+| `session/setThoughtLevel` | `Unsupported method`                | 打开历史任务时重放 task 思考档位（`escodeSessionService.resumeSession`）、replayable 草稿复用       |
+| `session/setMode`         | `Unsupported method`                | facade 切到 `auto`（Rust 不声明 auto，见下）、`escodeSessionService.setMode`                        |
+| `session/close`           | `Unsupported method`                | 关闭框选副屏 runtime（`useAppPanels`）、草稿 Skill 失效、条件关闭 deferred 草稿、facade `closeTask` |
 
 `session/compact` 与 `session/goal` 只在 task facade 中声明，App 内没有调用点，本期不实现（与
 rust-parity-remaining.md 中「无活跃 UI 调用点」同口径）。`importedHistory.source = "claudeCode"`（Claude Code
@@ -58,14 +58,14 @@ sequenceDiagram
 
 ### 各方法映射
 
-| legacy                                   | V4 / Engine                                                                                                                                                          | 结果                                         |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `session/create`（无 `importedHistory`） | `createSession {workspaceId, config{provider,model,thought,mode}, mcpServers, dynamicWorkflowEnabled}`；`mode=plan` 再发 `switchCollaborationMode{planEnabled}`      | 新会话快照                                   |
-| `session/setModel`                       | `switchModelConfig {modelSelection}`                                                                                                                                 | 快照                                         |
-| `session/setThoughtLevel`                | `switchModelConfig {provider,model 取当前, thought}`                                                                                                                 | 快照                                         |
-| `session/setMode`                        | `yolo/build/edit` → `switchCollaborationMode{mode, planEnabled:false}`；`plan` → `{planEnabled:true}`                                                                | 快照                                         |
-| `session/close`                          | `deleteSession`（关闭 runtime、保留历史，见 rust-session-close.md）                                                                                                  | `{closed:true}`；持久性不符 `{closed:false}` |
-| `session/send`                           | `sendText {text, modelSelection, modelExecution, automationId, botDeliveryTarget, browserAmbientContext, toolDisallowlist, attachments, requestedDelivery:startNow}` | `{sessionId, accepted:true, stateRevision}`  |
+| legacy                                   | V4 / Engine                                                                                                                                                     | 结果                                         |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `session/create`（无 `importedHistory`） | `createSession {workspaceId, config{provider,model,thought,mode}, mcpServers, dynamicWorkflowEnabled}`；`mode=plan` 再发 `switchCollaborationMode{planEnabled}` | 新会话快照                                   |
+| `session/setModel`                       | `switchModelConfig {modelSelection}`                                                                                                                            | 快照                                         |
+| `session/setThoughtLevel`                | `switchModelConfig {provider,model 取当前, thought}`                                                                                                            | 快照                                         |
+| `session/setMode`                        | `yolo/build/edit` → `switchCollaborationMode{mode, planEnabled:false}`；`plan` → `{planEnabled:true}`                                                           | 快照                                         |
+| `session/close`                          | `deleteSession`（关闭 runtime、保留历史，见 rust-session-close.md）                                                                                             | `{closed:true}`；持久性不符 `{closed:false}` |
+| `session/send`                           | `sendText {text, modelSelection, modelExecution, automationId, browserAmbientContext, toolDisallowlist, attachments, requestedDelivery:startNow}`               | `{sessionId, accepted:true, stateRevision}`  |
 
 规则：
 

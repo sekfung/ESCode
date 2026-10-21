@@ -119,11 +119,7 @@ export async function persistUserPrompt(
       sessionID: this.sessionId,
       messageID,
       type: "text",
-      text: withConversationQuotes(
-        input,
-        options?.intent?.conversationQuotes,
-        options?.intent?.botGroupSource,
-      ),
+      text: withConversationQuotes(input, options?.intent?.conversationQuotes),
       time: {
         start: created,
         end: created,

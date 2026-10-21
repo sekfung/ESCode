@@ -28,7 +28,6 @@ mod memory_run;
 mod tool_dispatch;
 mod tool_input_checks;
 
-mod channel_reply_tool;
 mod context;
 mod context_projection;
 mod create_session;

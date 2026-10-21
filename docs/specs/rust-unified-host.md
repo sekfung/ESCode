@@ -173,7 +173,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 | 5    | sessions + tasks + tasks_index                                   | 业务核心，最大块        |
 | 6    | providers                                                        | 配置与鉴权              |
 | 7    | extensions（skills / plugins / hooks / mcp / commands / memory） | 文件系统视图，可后置    |
-| 8    | automation（cron / bots）                                        | 调度移入 Host           |
+| 8    | automation（cron）                                               | 调度移入 Host           |
 | 9    | remote + runtime-link 选择器                                     | SSH/WSL/Docker 与回退链 |
 
 > **范围边界（2026-10-17）**：上表的域并未覆盖全部 46 个 channel；哪些 channel 属于 Host、哪些因依赖

@@ -17,7 +17,6 @@ import { createHostDatabaseStartup } from "./hostDatabaseStartup.js";
 import { createHostNetworkCapture } from "./hostNetworkCapture.js";
 import { randomUUID } from "node:crypto";
 import { createPluginSandboxRegistrationBridge } from "./pluginSandbox/index.js";
-import { createWindowTopicResourceRelay } from "./windowTopicResourceRelay.js";
 import {
   MessagePortProtocol,
   ChannelServer,
@@ -34,7 +33,6 @@ import { createBrowserControlMainBridge } from "./browserControlMainBridge.js";
 import { materializeBrowserRecordingArtifact } from "./browserRecordingArtifactMaterializer.js";
 import {
   ServiceCollection,
-  IBotsService,
   IFileService,
   IClientConfigService,
   IMediaPreviewService,
@@ -109,7 +107,6 @@ import {
   createRemoteMediaPreviewProxy,
   type RemoteMediaPreviewProxy,
 } from "./remoteMediaPreviewProxy.js";
-import { watchCronRunBotDelivery } from "./cronBotDelivery.js";
 import { createHostRemoteWorkspaceProxyState } from "./hostRemoteWorkspaceProxyState.js";
 import {
   createRemoteWorkspaceServiceCollection,
@@ -134,7 +131,6 @@ import {
   materializeRemotePromptAttachments,
 } from "./remotePromptAttachments.js";
 import { connectServerRemote, type ServerRemoteConnection } from "./serverRemoteConnection.js";
-import { bindBotGroupTaskScope } from "./botGroupTaskScope.js";
 import { createWindowHostAttachmentRegistry } from "./windowHostAttachmentRegistry.js";
 import {
   createWindowRemoteConnectionRegistry,
@@ -547,27 +543,6 @@ async function dispatchCronRun(request: CronRunDispatchRequest): Promise<{
         modelSelection: submissionModelSelection,
         mode: request.mode,
       });
-    }
-    const botsService = targetServices.getOptional(IBotsService);
-    if (botsService) {
-      try {
-        await watchCronRunBotDelivery({
-          automationId: request.automationId,
-          runId: promptTraceId,
-          workspaceKey,
-          workspacePath: request.workspacePath,
-          ...(request.workspaceIdentity ? { workspaceIdentity: request.workspaceIdentity } : {}),
-          taskId: task.taskId,
-          repo: cronAutomationRepo,
-          botsService,
-        });
-      } catch (error) {
-        // Bot 回推是 best-effort 辅助通道；配置/凭据/订阅失败不能阻断 automation 派发与结算。
-        logger.warn(
-          `automation Bot delivery subscription failed automation=${request.automationId} provider=unknown`,
-          error,
-        );
-      }
     }
     trackedKey = cronRunSubscriptionKey(task.taskId, promptTraceId);
     trackCronRunOutcome({
@@ -1284,13 +1259,7 @@ async function createWindowRemoteConnectionHandle(params: {
   }
   const closeListeners = new Set<(event: WindowRemoteConnectionCloseEvent) => void>();
   let peerServices: ServiceCollection | undefined;
-  const topicResourceRelay = createWindowTopicResourceRelay({
-    getPeerServices: () => peerServices,
-    resolveServices: (scope) => windowRemoteConnectionRegistry.resolveScopedServices(scope),
-    getBots: () => activeServices?.getOptional(IBotsService),
-  });
   const notifyClose = (event: WindowRemoteConnectionCloseEvent) => {
-    topicResourceRelay?.dispose();
     for (const listener of closeListeners) {
       listener(event);
     }
@@ -1300,7 +1269,6 @@ async function createWindowRemoteConnectionHandle(params: {
     connection =
       params.target.kind === "server"
         ? await connectServerRemote(params.target, {
-            topicResourceChannel: topicResourceRelay.channel,
             onClose: ({ code, reason }) =>
               notifyClose({ exitCode: code, signal: null, ...(reason ? { error: reason } : {}) }),
           })
@@ -1312,15 +1280,12 @@ async function createWindowRemoteConnectionHandle(params: {
             (exitCode) => notifyClose({ exitCode, signal: null }),
             params.target.kind === "ssh" ? "caller-serialized" : "remote",
             params.target.kind === "ssh" ? params.signal : undefined,
-            topicResourceRelay?.channel,
           );
   } catch (error) {
-    topicResourceRelay?.dispose();
     throw error;
   }
 
   if (params.signal.aborted) {
-    topicResourceRelay?.dispose();
     await disposeHostRemoteConnection(connection);
     throw new Error("远程连接已取消");
   }
@@ -1445,7 +1410,6 @@ async function createWindowRemoteConnectionHandle(params: {
         return;
       }
       disposed = true;
-      topicResourceRelay?.dispose();
       closeListeners.clear();
       resourceTelemetry.dispose();
       await disposeServiceResourcesAndWait(services);
@@ -1675,18 +1639,6 @@ function createControllerRoutedTaskService(
         };
       }
       const value = Reflect.get(target, property, receiver) as unknown;
-      if (
-        typeof value === "function" &&
-        [
-          "getBotGroupTaskBlockReason",
-          "cancelBotGroupInput",
-          "submitBotGroupInput",
-          "readBotTopicSummaries",
-        ].includes(String(property))
-      ) {
-        return (params: Record<string, unknown>) =>
-          value.call(target, bindBotGroupTaskScope(params, attachmentScope));
-      }
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
@@ -2372,16 +2324,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
     return;
   }
 
-  if (
-    msg.type === HostMessageTypes.BotRemoteWorkspaceReconnectResult ||
-    msg.type === HostMessageTypes.BotRemoteWorkspaceConnectionStatusResult ||
-    msg.type === HostMessageTypes.BotRemoteWorkspaceRuntimePort
-  ) {
-    // Bugfix: Bot bridge 也监听 parentPort，main 回传的 runtime MessagePort 是给 Bot 作为
-    // 远端 RPC client 使用的。host 入口必须跳过这些控制消息，避免误把同一个端口注册成 ChannelServer。
-    return;
-  }
-
   if (msg.type === HostMessageTypes.AttachServicePort) {
     if (!port) {
       logger.error("attach-service-port message missing MessagePort");
@@ -2604,7 +2546,6 @@ async function setupRemoteConnection(
   onDidRemoteClose: (exitCode: number) => void,
   deployLockMode: DeployLockMode = "remote",
   signal?: AbortSignal,
-  topicResourceChannel?: ReturnType<typeof createWindowTopicResourceRelay>["channel"],
 ): Promise<HostRemoteConnection> {
   if (target.kind === "server") {
     throw new Error("server remote target must use the server remote connector");
@@ -2614,7 +2555,6 @@ async function setupRemoteConnection(
     await import("@escode/server/remote");
   const backend = await createRemoteBackend(target);
   const connection = await connectRemote(backend, {
-    topicResourceChannel,
     ...remoteAssets,
     remoteAssetNetwork,
     remoteRuntimeNetwork,

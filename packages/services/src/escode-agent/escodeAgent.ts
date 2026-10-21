@@ -82,7 +82,6 @@ import type {
   ESCodeWorkspaceGenerateTextResult,
   ESCodeWorkspaceGenerateTextParams,
   ESCodeWorkspaceHookTrustGrantResult,
-  ESCodeAutomationBotDeliveryTarget,
 } from "@escode/shared";
 import type {
   ClientHello,
@@ -321,8 +320,6 @@ export interface ESCodeAgentSendPromptParamsBase extends ESCodeAgentSessionTarge
   expectedProviderRevision?: string;
   runtimeProviderHeaders?: Record<string, string>;
   toolDenylist?: string[];
-  /** Bot 来源 turn 的稳定回推地址；只在当前 turn 内供 CronCreate 读取。 */
-  botDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
 }
 
 export type ESCodeAgentSendPromptParams = ESCodeAgentSendPromptParamsBase &

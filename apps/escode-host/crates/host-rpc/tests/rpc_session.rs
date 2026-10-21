@@ -298,21 +298,6 @@ async fn system_info_reports_home_and_node_platform() {
     };
     assert_eq!(info["platform"], expected_platform, "{info}");
 
-    // `bots` 配置/状态子集已迁移：listBots 返回数组。
-    call(
-        &mut socket,
-        62,
-        "bots",
-        "listBots",
-        &Wire::Array(Vec::new()),
-    )
-    .await;
-    let bots = read_response(&mut socket, 62)
-        .await
-        .into_object()
-        .expect("bots list");
-    assert!(bots.as_array().is_some(), "{bots}");
-
     // `serial.list` 已实现：返回端口数组（本机无串口时为空数组）。
     call(&mut socket, 63, "serial", "list", &Wire::Array(Vec::new())).await;
     let ports = read_response(&mut socket, 63).await;

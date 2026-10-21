@@ -1,5 +1,3 @@
-import type { ChannelContentPart } from "@escode/shared";
-import { ChannelMentionContent } from "@/v4/ChannelMentionContent.js";
 import { ConversationUserInputEpilogue } from "@/v4/ConversationUserInputEpilogue.js";
 import { ConversationUserInputBody } from "@/v4/ConversationUserInputBody.js";
 import { ConversationUserInputContent } from "@/v4/ConversationUserInputContent.js";
@@ -7,14 +5,12 @@ import { ConversationUserInputContent } from "@/v4/ConversationUserInputContent.
 /** 正式消息和准备态共用完整正文渲染；状态由消息来源行展示。 */
 export function ConversationUserInputBubble({
   text,
-  contentParts,
   rowId,
   attachments,
   contextAttachmentCount,
   epilogue,
 }: {
   text: string;
-  contentParts?: readonly ChannelContentPart[];
   rowId: string | number;
   attachments?: readonly unknown[];
   contextAttachmentCount?: number;
@@ -28,15 +24,11 @@ export function ConversationUserInputBubble({
     >
       {text.trim() ? (
         <ConversationUserInputBody contentText={text} rowId={rowId}>
-          {contentParts?.some((part) => part.type === "channelMention") ? (
-            <ChannelMentionContent parts={contentParts} text={text} />
-          ) : (
-            <ConversationUserInputContent
-              text={text}
-              attachments={attachments}
-              contextAttachmentCount={contextAttachmentCount}
-            />
-          )}
+          <ConversationUserInputContent
+            text={text}
+            attachments={attachments}
+            contextAttachmentCount={contextAttachmentCount}
+          />
         </ConversationUserInputBody>
       ) : null}
       {epilogue === undefined ? null : <ConversationUserInputEpilogue text={epilogue} />}

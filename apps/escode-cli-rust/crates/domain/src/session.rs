@@ -359,7 +359,7 @@ impl Session {
     }
 }
 
-/// 队列项的 V4 投影：`_` 前缀是 runtime 私有字段（如 `_botDeliveryTarget`），不进 strict schema。
+/// 队列项的 V4 投影：`_` 前缀是 runtime 私有字段，不进 strict schema。
 fn public_queue_item(item: &Value) -> Value {
     match item.as_object() {
         Some(map) if map.keys().any(|k| k.starts_with('_')) => Value::Object(

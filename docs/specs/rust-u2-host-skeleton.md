@@ -108,7 +108,7 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 | 5    | sessions + tasks + tasks_index                         | Node Host vs Rust Host 场景双跑差分全绿；tasks-index DDL 字节冻结 + checksum                                                               |
 | 6    | providers                                              | 模型请求差分（含 Registry 快照）全绿                                                                                                       |
 | 7    | extensions（skills/plugins/hooks/mcp/commands/memory） | 文件系统视图与 TS 逐字段对照（含 hooks 信任锁）                                                                                            |
-| 8    | automation（cron/bots）                                | 无窗口调度场景：窗口全关仍在跑；调度事件顺序与 TS 一致                                                                                     |
+| 8    | automation（cron）                                     | 无窗口调度场景：窗口全关仍在跑；调度事件顺序与 TS 一致                                                                                     |
 | 9    | remote + runtime-link 选择器                           | `desktop-continuous` 与 `web-remote-replayable` 双链路语义 + 本地/远程 workspace attachment 复用场景（远程 workspace已于 2026-10-20 删除） |
 
 每域开工前按父计划子 spec 约定写 `docs/specs/rust-u2<序号>-<域>.md`。

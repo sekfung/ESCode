@@ -16,8 +16,6 @@ import {
   LoggingChannelServer,
   type ISocket,
 } from "@escode/rpc";
-import type { TopicResourcePeers } from "@escode/services/node";
-import { TOPIC_RESOURCE_RELAY_CHANNEL } from "@escode/shared";
 import {
   ServiceCollection,
   IESCodeAgentService,
@@ -26,18 +24,15 @@ import {
   IGitService,
   ISystemService,
   ITerminalService,
-  IBotsService,
   IProviderProvisioningTargetService,
 } from "@escode/services";
 import {
-  botProviders,
   formatLogPrefix,
   formatZodError,
   remoteTargetSchema,
   SERVER_REMOTE_PROTOCOL_VERSION,
   ESCODE_RPC_HOST_CAPABILITY_HEADER,
   ESCODE_VERSION,
-  type BotProvider,
   type ServerRemoteInfo,
   type ServerRemoteWorkspaceInfo,
 } from "@escode/shared";
@@ -90,7 +85,6 @@ function setupChannelServer(
   ws: WebSocket,
   services: ServiceCollection,
   clientMode: "desktop-continuous" | "web-remote-replayable",
-  resourcePeers?: TopicResourcePeers,
 ) {
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
@@ -98,13 +92,8 @@ function setupChannelServer(
   // 用日志中间件包装，统一记录所有 RPC 调用
   const server = new LoggingChannelServer(rawServer, log);
   const agentService = services.getOptional(IESCodeAgentService);
-  const reverseClient =
-    clientMode === "desktop-continuous" && resourcePeers ? new ChannelClient(protocol) : undefined;
-  const peer = reverseClient
-    ? resourcePeers?.attach(reverseClient.getChannel(TOPIC_RESOURCE_RELAY_CHANNEL))
-    : undefined;
   const connectionScope = agentService
-    ? createESCodeAgentConnectionScope(peer ? peer.wrapAgent(agentService) : agentService, {
+    ? createESCodeAgentConnectionScope(agentService, {
         connectionId: `server-ws-${randomUUID()}`,
         clientMode,
         role: clientMode === "desktop-continuous" ? "trusted-host-relay" : "terminal-client",
@@ -128,8 +117,6 @@ function setupChannelServer(
   }
   services.exposeOnChannelServer(server, overrides);
   socket.onClose(() => {
-    peer?.dispose();
-    reverseClient?.dispose();
     void connectionScope?.dispose();
     rawServer.dispose();
   });
@@ -143,7 +130,6 @@ function generateId(): string {
 }
 
 export interface HttpServerOptions {
-  topicResourcePeers?: TopicResourcePeers;
   serverId?: string;
   name?: string;
   host?: string;
@@ -345,12 +331,7 @@ export function createHttpServer(
 
   const upgradeTrustedHostWebSocket = upgradeWebSocket(() => ({
     onOpen(_event, ws) {
-      setupChannelServer(
-        ws.raw as WebSocket,
-        services,
-        "desktop-continuous",
-        options.topicResourcePeers,
-      );
+      setupChannelServer(ws.raw as WebSocket, services, "desktop-continuous");
     },
   }));
   app.use("/ws/host", async (c, next) => {
@@ -383,53 +364,6 @@ export function createHttpServer(
       return c.json({ error: message }, 500);
     }
   });
-
-  const handleBotCallback = async (c: Context) => {
-    const provider = c.req.param("provider") as BotProvider;
-    if (!botProviders.includes(provider)) {
-      return c.json({ error: `Unsupported provider: ${provider}` }, 400);
-    }
-    if (provider !== "webhook") {
-      return c.json({ error: `Provider ${provider} does not support HTTP callbacks.` }, 400);
-    }
-    const botsService = services.getOptional(IBotsService);
-    if (!botsService) {
-      return c.json({ error: "Bots service is not available." }, 503);
-    }
-    const rawBodyText = await c.req.text().catch(() => "");
-    let rawBody: unknown = {};
-    if (rawBodyText) {
-      try {
-        rawBody = JSON.parse(rawBodyText) as unknown;
-      } catch {
-        rawBody = { payload: rawBodyText };
-      }
-    }
-    const webhookSecret = c.req.header("x-zcode-bot-secret");
-    const botId = c.req.param("botId");
-    const result = await botsService.handleProviderCallbackResponse(provider, {
-      ...(typeof rawBody === "object" && rawBody !== null ? rawBody : { payload: rawBody }),
-      rawBody: rawBodyText,
-      ...(botId ? { botId } : {}),
-      ...(webhookSecret ? { webhookSecret } : {}),
-    });
-    const responseBody = result.responseBody ?? { ok: result.ok, replies: result.replies };
-    if (result.status === 400) {
-      return c.json(responseBody, 400);
-    }
-    if (result.status === 401) {
-      return c.json(responseBody, 401);
-    }
-    if (result.status === 503) {
-      // Bugfix：Bot 业务失败必须把可重试状态透传给 HTTP provider；返回 200 会让
-      // webhook/网关误以为消息已消费，效果与提前提交 Telegram offset 相同。
-      return c.json(responseBody, 503);
-    }
-    return c.json(responseBody, 200);
-  };
-
-  app.post("/api/bots/:provider", handleBotCallback);
-  app.post("/api/bots/:provider/:botId", handleBotCallback);
 
   // 远程连接的 WebSocket 端点，将远程 services 桥接给浏览器
   app.get(

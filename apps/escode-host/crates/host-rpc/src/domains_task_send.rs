@@ -96,12 +96,6 @@ async fn send_prompt_payload(
         if !denylist.is_empty() {
             body["toolDenylist"] = json!(denylist);
         }
-        if let Some(delivery) = params
-            .get("botDeliveryTarget")
-            .filter(|value| !value.is_null())
-        {
-            body["botDeliveryTarget"] = delivery.clone();
-        }
         for (key, value) in turn_attribution(params)
             .as_object()
             .cloned()
@@ -141,12 +135,6 @@ async fn send_prompt_payload(
         .filter(|value| !value.is_null())
     {
         payload["modelExecution"] = execution.clone();
-    }
-    if let Some(delivery) = params
-        .get("botDeliveryTarget")
-        .filter(|value| !value.is_null())
-    {
-        payload["botDeliveryTarget"] = delivery.clone();
     }
     if !denylist.is_empty() {
         payload["toolDisallowlist"] = json!(denylist);

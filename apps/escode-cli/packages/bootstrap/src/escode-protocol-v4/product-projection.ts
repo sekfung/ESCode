@@ -315,7 +315,6 @@ export interface ConversationEditTarget {
   intent: {
     inputOrigin?: "desktop" | "mobile";
     conversationQuotes?: import("@escode/contracts").TurnInputIntentMetadata["conversationQuotes"];
-    botGroupSource?: CanonicalUserIntentFact["botGroupSource"];
     kind: "sendText" | "sendGoalCommand";
     text: string;
     sourceCommandId?: string;
@@ -2067,16 +2066,12 @@ export class ProductProjection {
       const row: UserInputRow = {
         ...rowBase,
         kind: "userInput",
-        text:
-          fact.conversationQuotes || fact.botGroupSource
-            ? (fact.intentText ?? fact.input)
-            : fact.input,
+        text: fact.conversationQuotes ? (fact.intentText ?? fact.input) : fact.input,
         origin: fact.origin,
         ...(fact.sourceCommandId ? { sourceCommandId: fact.sourceCommandId } : {}),
         ...(rootSourceCommandId ? { rootSourceCommandId } : {}),
         ...(fact.inputOrigin ? { inputOrigin: fact.inputOrigin } : {}),
         ...(fact.conversationQuotes ? { conversationQuotes: fact.conversationQuotes } : {}),
-        ...(fact.botGroupSource ? { botGroupSource: fact.botGroupSource } : {}),
         ...(fact.clientId ? { clientId: fact.clientId } : {}),
         ...(fact.workflowLaunch ? { workflowLaunch: fact.workflowLaunch } : {}),
         ...(fact.epilogueStart === undefined ? {} : { epilogueStart: fact.epilogueStart }),
@@ -2101,7 +2096,6 @@ export class ProductProjection {
                 ...(fact.sourceCommandId ? { sourceCommandId: fact.sourceCommandId } : {}),
                 ...(fact.inputOrigin ? { inputOrigin: fact.inputOrigin } : {}),
                 ...(fact.conversationQuotes ? { conversationQuotes: fact.conversationQuotes } : {}),
-                ...(fact.botGroupSource ? { botGroupSource: fact.botGroupSource } : {}),
                 ...(fact.clientId ? { clientId: fact.clientId } : {}),
                 ...(fact.attachments ? { attachments: fact.attachments } : {}),
                 ...(fact.queueItemId ? { queueItemId: fact.queueItemId } : {}),
@@ -3518,9 +3512,6 @@ export class ProductProjection {
       ...((payload.intent?.conversationQuotes ?? existing?.conversationQuotes)
         ? { conversationQuotes: payload.intent?.conversationQuotes ?? existing?.conversationQuotes }
         : {}),
-      ...((payload.intent?.botGroupSource ?? existing?.botGroupSource)
-        ? { botGroupSource: payload.intent?.botGroupSource ?? existing?.botGroupSource }
-        : {}),
       delivery: {
         requested: requestedDelivery,
         admitted: admittedDelivery,
@@ -3696,10 +3687,7 @@ export class ProductProjection {
       const row = {
         ...this.rowBase(event, productTurnId, entityId),
         kind: "userInput" as const,
-        text:
-          item.intent?.conversationQuotes || item.intent?.botGroupSource
-            ? (item.intent.text ?? item.text)
-            : item.text,
+        text: item.intent?.conversationQuotes ? (item.intent.text ?? item.text) : item.text,
         origin: "realUser" as const,
         ...(delivery === "guide" ? { guided: true as const } : {}),
         ...(item.intent?.sourceCommandId ? { sourceCommandId: item.intent.sourceCommandId } : {}),
@@ -3708,7 +3696,6 @@ export class ProductProjection {
         ...(item.intent?.conversationQuotes
           ? { conversationQuotes: item.intent.conversationQuotes }
           : {}),
-        ...(item.intent?.botGroupSource ? { botGroupSource: item.intent.botGroupSource } : {}),
         ...(item.intent?.clientId ? { clientId: item.intent.clientId } : {}),
         ...(item.intent?.attachmentRefs?.length ? { attachments: item.intent.attachmentRefs } : {}),
         ...(item.intent?.source ? { source: item.intent.source } : {}),
@@ -3733,9 +3720,6 @@ export class ProductProjection {
                 ...(item.intent?.inputOrigin ? { inputOrigin: item.intent.inputOrigin } : {}),
                 ...(item.intent?.conversationQuotes
                   ? { conversationQuotes: item.intent.conversationQuotes }
-                  : {}),
-                ...(item.intent?.botGroupSource
-                  ? { botGroupSource: item.intent.botGroupSource }
                   : {}),
                 ...(item.intent?.clientId ? { clientId: item.intent.clientId } : {}),
                 ...(item.intent?.attachmentRefs ? { attachments: item.intent.attachmentRefs } : {}),

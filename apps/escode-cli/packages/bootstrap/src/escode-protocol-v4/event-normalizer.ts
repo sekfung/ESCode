@@ -49,7 +49,6 @@ interface CanonicalConversationFactBase {
 export interface CanonicalUserIntentFact extends CanonicalConversationFactBase {
   inputOrigin?: "desktop" | "mobile";
   conversationQuotes?: import("@escode/contracts").TurnInputIntentMetadata["conversationQuotes"];
-  botGroupSource?: import("@escode/shared").BotGroupInputSource;
   semanticKind: "userIntent";
   visibility: "visible" | "modelOnly";
   origin:
@@ -286,7 +285,6 @@ function normalizeTurnStarted(
     ...(payload.intent?.conversationQuotes
       ? { conversationQuotes: payload.intent.conversationQuotes }
       : {}),
-    ...(payload.intent?.botGroupSource ? { botGroupSource: payload.intent.botGroupSource } : {}),
     ...(payload.intent?.provenance ? { provenance: payload.intent.provenance } : {}),
     ...(payload.intent?.source ? { source: payload.intent.source } : {}),
     ...normalizeAttachments(payload),

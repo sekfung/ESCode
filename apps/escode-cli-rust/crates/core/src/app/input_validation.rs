@@ -64,9 +64,6 @@ impl Engine {
         {
             bail!("Invalid automationId");
         }
-        if p.get("botDeliveryTarget").is_some_and(|v| !v.is_object()) {
-            bail!("Invalid botDeliveryTarget");
-        }
         // 单次执行约束：strict 形态，且需要同时给出 modelSelection（highspeed 等执行作用域）。
         if let Some(execution) = p.get("modelExecution") {
             crate::domain::model_execution::parse(execution).map_err(anyhow::Error::msg)?;

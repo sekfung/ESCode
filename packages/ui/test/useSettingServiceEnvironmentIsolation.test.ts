@@ -20,9 +20,6 @@ function createServices(settings: AppSettings) {
       get: vi.fn(async () => settings),
       update: vi.fn(async () => {}),
     },
-    botsService: {
-      syncAppRuntimePreferences: vi.fn(async () => {}),
-    },
     broadcastService: {
       send: vi.fn(async () => {}),
     },

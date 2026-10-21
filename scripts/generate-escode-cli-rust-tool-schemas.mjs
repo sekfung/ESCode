@@ -5,7 +5,6 @@ import { format } from "oxfmt";
 import { askUserQuestionToolEntry } from "../apps/escode-cli/packages/core/src/tool/handlers/ask-user-question.ts";
 import { skillToolEntry } from "../apps/escode-cli/packages/core/src/tool/handlers/skill.ts";
 import { createAgentToolEntry } from "../apps/escode-cli/packages/core/src/tool/handlers/agent.ts";
-import { replyToChannelToolEntry } from "../apps/escode-cli/packages/core/src/tool/handlers/reply-to-channel.ts";
 import { sendMessageToolEntry } from "../apps/escode-cli/packages/core/src/tool/handlers/send-message.ts";
 import { builtInTools } from "../apps/escode-cli/packages/core/src/tool/handlers/index.ts";
 import { createToolRegistry } from "../apps/escode-cli/packages/core/src/tool/registry.ts";
@@ -96,8 +95,6 @@ const schemas = {};
 for (const [name, file, key] of tools) {
   schemas[name] = (await import(`../apps/escode-cli/packages/contracts/src/tools/${file}.ts`))[key];
 }
-// ReplyToChannel 的 provider schema 定义在 core handler 上（contracts 中没有），直接取 entry 的 inputSchema。
-schemas.ReplyToChannel = replyToChannelToolEntry.inputSchema;
 // 权限判定所需的工具能力表：逐项来自 TS 工具元数据，避免 Rust 侧硬编码再次漂移。
 const capabilities = Object.fromEntries(
   builtInTools
@@ -142,7 +139,6 @@ const staticDescriptions = Object.fromEntries(
     "TaskStop",
     "WebFetch",
     "ReadSessionContext",
-    "ReplyToChannel",
     "CronCreate",
     "CronList",
     "CronUpdate",

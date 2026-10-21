@@ -9,7 +9,6 @@ mod automation_methods;
 pub(crate) mod base;
 mod connection;
 pub(crate) mod frames;
-pub(crate) mod observe;
 mod scope;
 mod scope_handshake;
 mod scope_methods;
@@ -36,14 +35,6 @@ pub(crate) fn shared_base(
     provider_headers: Option<Arc<crate::provider_headers::ProviderHeaders>>,
 ) -> Arc<base::Base> {
     Arc::new(base::Base::new(instances, options, index, provider_headers))
-}
-
-/// 任务域 Bot group 的 Host 内部观察器（独立帧泵；不建立 Renderer 连接）。
-pub(crate) fn observer_base(
-    instances: escode_host_runtime::Instances,
-    options: escode_host_surface::OptionsFactory,
-) -> Arc<base::Base> {
-    Arc::new(base::Base::new(instances, options, None, None))
 }
 
 /// 组合根：共享句柄 → 连接级 channel 工厂。

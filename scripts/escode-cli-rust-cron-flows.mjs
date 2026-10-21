@@ -73,7 +73,6 @@ export const flows = [
       intervalUnit: "hourly",
       interval: 31,
     },
-    bot: { platform: "feishu", chatId: "c1" },
     host: {
       "automation/checkTaskBinding": [{ result: { bound: false } }],
       "automation/create": [{ result: { automation: automation() } }],

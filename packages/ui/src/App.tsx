@@ -777,12 +777,6 @@ export function App({
   const testActions = useMemo<TestActions>(
     () => ({
       ...taskListE2EActions,
-      sendBotMessage: (message) => services.botsService.handleInboundMessage(message),
-      submitBotGroupInput: (params) => {
-        const submit = services.escodeTaskService.submitBotGroupInput;
-        if (!submit) throw new Error("Task material admission unavailable");
-        return submit.call(services.escodeTaskService, params);
-      },
       getTheme: () => theme,
       setTheme,
       getLocale: () => locale,
@@ -800,16 +794,7 @@ export function App({
       getPluginReferenceCatalog: (params) =>
         services.escodeAgentService.getPluginReferenceCatalog(params),
     }),
-    [
-      locale,
-      services.botsService,
-      services.escodeTaskService,
-      services.escodeAgentService,
-      setLocale,
-      theme,
-      setTheme,
-      testMessages,
-    ],
+    [locale, services.escodeAgentService, setLocale, theme, setTheme, testMessages],
   );
   useTestActions(testActions);
   const [workspaceMainView, setWorkspaceMainView] = useState<WorkspaceMainView>("chat");

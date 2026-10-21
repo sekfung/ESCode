@@ -313,28 +313,16 @@ pub(super) fn queue_item(c: &Command, s: &Session, now: u64) -> Value {
         "modelSelection":c.payload.get("modelSelection").cloned().unwrap_or_else(||json!({"providerId":s.provider,"modelId":s.model,"options":{"reasoningLevel":s.reasoning_level}})),"mode":s.mode,"planEnabled":false,
         "delivery":{"requested":c.payload["requestedDelivery"].as_str().unwrap_or("auto"),"admitted":"queue"},"order":{"admissionSeq":s.revision+1,"queuePosition":s.queue.len()},
         "steer":{"state":"notRequested"},"dispatch":{"state":"queued"},"admittedAt":now});
-    // 修复：排队项此前只存正文与选型，提升/引导时丢掉群来源、引用与回推地址——模型收不到引用材料，
-    // Host 取消授权读不到 botGroupSource，回复回推不到原话题（TS input-intent.ts 随队列保留）。
-    for key in ["botGroupSource", "conversationQuotes"] {
-        if let Some(value) = c.payload.get(key).filter(|v| !v.is_null()) {
-            item[key] = value.clone();
-        }
-    }
-    // 回推地址不在 V4 queueItemSchema 里：私有字段，快照投影（Session::patch）剥离 `_` 前缀键。
-    if let Some(target) = c.payload.get("botDeliveryTarget").filter(|v| v.is_object()) {
-        item["_botDeliveryTarget"] = target.clone();
+    // 排队项必须保留引用材料，提升/引导时模型才能继续收到同一份上下文。
+    if let Some(value) = c.payload.get("conversationQuotes").filter(|v| !v.is_null()) {
+        item["conversationQuotes"] = value.clone();
     }
     item
 }
 
 /// 排队项恢复成输入 payload 时带回来源字段（queue 提升与 guide 消费共用）。
 pub(super) fn restore_queued_source(item: &Value, payload: &mut Value) {
-    for key in ["botGroupSource", "conversationQuotes"] {
-        if let Some(value) = item.get(key) {
-            payload[key] = value.clone();
-        }
-    }
-    if let Some(target) = item.get("_botDeliveryTarget") {
-        payload["botDeliveryTarget"] = target.clone();
+    if let Some(value) = item.get("conversationQuotes") {
+        payload["conversationQuotes"] = value.clone();
     }
 }

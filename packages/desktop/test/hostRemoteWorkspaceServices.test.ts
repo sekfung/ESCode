@@ -17,7 +17,6 @@ import {
   IESCodeAgentService,
   IESCodeSessionService,
   IESCodeTaskService,
-  IBotsService,
   IFileWatcherService,
   IModelSelectionService,
   IProviderSettingsService,
@@ -193,7 +192,6 @@ describe("remote workspace host service wiring", () => {
     expect(services.get(ISettingService)).toBeTruthy();
     expect(services.get(ICredentialService)).toBeTruthy();
     expect(services.get(IBroadcastService)).toBeTruthy();
-    expect(services.get(IBotsService)).toBeTruthy();
     expect(services.get(IModelSelectionService)).toBe(remoteServices.modelSelectionService);
     expect(services.get(IProviderSettingsService)).toBe(remoteServices.providerSettingsService);
     expect(services.get(IUsageStatsService)).toBeTruthy();
@@ -477,7 +475,6 @@ describe("remote workspace host service wiring", () => {
       onboardingRecordService: createOnboardingRecordStub(),
       credentialService: { remote: "credential" },
       broadcastService: { remote: "broadcast" },
-      botsService: { remote: "bots" },
       oauthService: { remote: "oauth" },
       usageStatsService: { remote: "usage-stats" },
       codingPlanSubscriptionService: { remote: "coding-plan" },
@@ -499,7 +496,6 @@ describe("remote workspace host service wiring", () => {
     expect(services.get(IOnboardingRecordService)).toBe(remoteServices.onboardingRecordService);
     expect(services.get(ICredentialService)).toBe(remoteServices.credentialService);
     expect(services.get(IBroadcastService)).toBe(remoteServices.broadcastService);
-    expect(services.get(IBotsService)).toBe(remoteServices.botsService);
     expect(services.get(IModelSelectionService)).toBe(remoteServices.modelSelectionService);
     expect(services.get(IProviderSettingsService)).toBe(remoteServices.providerSettingsService);
     expect(services.get(IUsageStatsService)).toBe(remoteServices.usageStatsService);

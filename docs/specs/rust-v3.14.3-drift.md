@@ -19,7 +19,6 @@
 | `display` 字段 `.catch(undefined)`                                     | 仅消费端宽松解析；Rust 为生产者                         | 无需跟进                                          |
 | subscribe/hello 新增 `workflowRunDeltas`                               | Rust `subscriptions.rs` 按 `Value` 取字段，不拒绝未知键 | 兼容；Rust 不产 workflowRuns，能力位无意义        |
 | delta 新增 `workflowRun.updated/removed`、wire-fault、workflow-runs-\* | 全部为工作流                                            | 随 WP5 工作流方案处理；当前 Rust 保持 unsupported |
-| 命令载荷 `botDeliveryTarget`                                           | Rust `input_validation.rs` 不拒绝未知键，静默忽略       | 仅 CronCreate 使用，Rust 无 Cron；随 WP5          |
 
 ## CLI 行为（bootstrap/core/adapters，非工作流部分）
 

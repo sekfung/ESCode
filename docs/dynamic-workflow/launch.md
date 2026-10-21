@@ -1023,7 +1023,6 @@ These places do not show the window, on purpose:
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | desktop, web, phone remote (v4) | the window as described                                                                                                                                                                                 |
 | legacy v3 desktop               | a plain ask with only Allow once and Deny; the `display` and options policy are stripped because the old schemas are strict and would drop the whole event otherwise. The script is still in the input. |
-| bots / IM                       | a text summary; the session option is classified as a generic "always allow"                                                                                                                            |
 | terminal UI                     | no window: auto-allow (below)                                                                                                                                                                           |
 | headless                        | no window: auto-allow (below)                                                                                                                                                                           |
 

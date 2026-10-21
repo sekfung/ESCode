@@ -8,11 +8,7 @@ fn rust_conversation_material_matches_ts() {
     let fixture: Value =
         serde_json::from_str(include_str!("fixtures/conversation_input_corpus.json")).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
-        let got = with_conversation_material(
-            case["text"].as_str().unwrap(),
-            &case["quotes"],
-            &case["botSource"],
-        );
+        let got = with_conversation_material(case["text"].as_str().unwrap(), &case["quotes"]);
         assert_eq!(got, case["expected"].as_str().unwrap(), "{}", case["name"]);
     }
 }

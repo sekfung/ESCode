@@ -7,7 +7,7 @@ import type { SessionId, ProjectId, WorkspaceId, MessageId, PartId } from "@esco
 import { fixture } from "./escode-cli-rust-fixture.js";
 
 // docs/specs/rust-app-p0.md：旧 bot_topic_context 记录不重新注入模型历史（TS session-history-hydrator），
-// 但 session/messages 仍按原位置投影出带 source/metadata 的 model-only 消息，供 Host readBotTopicSummaries 读取。
+// 但 session/messages 仍按原位置投影出带 source/metadata 的 model-only 消息，保留历史只读兼容。
 const SECRET = "OLD_TOPIC_SECRET";
 
 async function seedTopicSession(f: Awaited<ReturnType<typeof fixture>>) {

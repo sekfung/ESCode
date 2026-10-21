@@ -3508,36 +3508,6 @@
       ]
     },
     {
-      "name": "@larksuiteoapi/node-sdk",
-      "version": "1.61.1",
-      "license": "MIT",
-      "notices": [
-        {
-          "member": "LICENSE",
-          "sha256": "f9bfd5e309b1523a2dd3937b44f516e6018605eb05b35336485b0a34cbd9f373"
-        },
-        {
-          "member": "README.md (license section)",
-          "sha256": "d0de7064760700e47a0fdedd12ae4e027146e16e9cec0233505fe7c4ed5b3344"
-        }
-      ]
-    },
-    {
-      "name": "@larksuiteoapi/node-sdk",
-      "version": "1.64.0",
-      "license": "MIT",
-      "notices": [
-        {
-          "member": "LICENSE",
-          "sha256": "f9bfd5e309b1523a2dd3937b44f516e6018605eb05b35336485b0a34cbd9f373"
-        },
-        {
-          "member": "README.md (license section)",
-          "sha256": "d0de7064760700e47a0fdedd12ae4e027146e16e9cec0233505fe7c4ed5b3344"
-        }
-      ]
-    },
-    {
       "name": "@lexical/clipboard",
       "version": "0.42.0",
       "license": "MIT",

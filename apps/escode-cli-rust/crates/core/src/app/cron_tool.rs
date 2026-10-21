@@ -21,7 +21,6 @@ pub(super) async fn execute(
             &facts.disallowed,
         ),
         active_automation_id: facts.automation_id.clone(),
-        bot_delivery_target: facts.bot_delivery_target.clone(),
         session_id: sink.session_id.clone(),
         mode: facts.mode.clone(),
         model_selection: facts.model_selection.clone(),

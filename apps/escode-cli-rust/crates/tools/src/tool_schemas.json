@@ -237,7 +237,7 @@
         "type": "string",
         "pattern": "^(?:current|sess_[A-Za-z0-9._-]+)$",
         "default": "current",
-        "description": "For topic strategy omit this field to use the current task. Other strategies require an explicit sess_* target."
+        "description": "Requires an explicit sess_* target session."
       },
       "query": {
         "type": "string",
@@ -247,37 +247,9 @@
       },
       "strategy": {
         "type": "string",
-        "enum": ["relevant", "handoff", "topic"],
+        "enum": ["relevant", "handoff"],
         "default": "relevant",
-        "description": "Use relevant for focused session retrieval, handoff for a continuation summary, or topic for original archived discussion in the current session."
-      },
-      "cursor": {
-        "type": "integer",
-        "minimum": 0,
-        "description": "Topic archive page offset returned by the previous call."
-      },
-      "attachment": {
-        "type": "object",
-        "properties": {
-          "inputId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256,
-            "description": "Snapshot inputId from the topic history file; selects only an admitted input in this task."
-          },
-          "messageId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256
-          },
-          "index": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": ["messageId"],
-        "additionalProperties": false,
-        "description": "With topic strategy, download an archived message attachment to a managed local file. Index selects a resource in rich text, starting at zero."
+        "description": "Use relevant for focused session retrieval or handoff for a continuation summary."
       },
       "maxTokens": {
         "type": "integer",
@@ -1031,51 +1003,5 @@
     "required": ["plan"],
     "additionalProperties": {},
     "$schema": "https://json-schema.org/draft/2020-12/schema"
-  },
-  "ReplyToChannel": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": ["parts"],
-    "properties": {
-      "parts": {
-        "type": "array",
-        "minItems": 1,
-        "maxItems": 50,
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["type"],
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["text", "mention", "mentionName"]
-            },
-            "text": {
-              "type": "string",
-              "maxLength": 2000,
-              "description": "Required only for type=text; omit refId."
-            },
-            "refId": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200,
-              "description": "Required only for type=mention; use the current trusted reference and omit text."
-            },
-            "name": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200,
-              "description": "Required only for mentionName: recipient name or partial name supplied by the user; preserve internal spaces, one explicit list item per part; omit text/refId."
-            },
-            "candidateRef": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200,
-              "description": "Only for mentionName after the user explicitly selects a returned candidate; never invent or auto-select."
-            }
-          }
-        }
-      }
-    }
   }
 }

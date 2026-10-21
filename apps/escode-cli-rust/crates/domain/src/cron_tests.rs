@@ -68,7 +68,6 @@ fn flows_match_ts() {
         let turn = Turn {
             automation_turn: case["automationTurn"] == true,
             active_automation_id: case["activeAutomationId"].as_str().map(str::to_owned),
-            bot_delivery_target: Some(case["bot"].clone()).filter(|b| !b.is_null()),
             session_id: "sess_current".into(),
             mode: case["mode"].as_str().unwrap().into(),
             model_selection: Some(case["selection"].clone()),

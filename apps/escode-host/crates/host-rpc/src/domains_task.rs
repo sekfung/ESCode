@@ -59,10 +59,6 @@ pub(crate) fn task_channel(
         events: Arc::clone(&events),
         commands: Arc::clone(&commands),
         task_events: Arc::clone(&task_events),
-        observer: runtime.as_ref().map(|runtime| {
-            crate::agent_v4::observer_base(runtime.instances.clone(), Arc::clone(&runtime.options))
-        }),
-        bot_group: Arc::new(crate::task_bot::BotGroupState::default()),
         home,
     };
     // syncer 的终态回调要用同一份队列调度 drain（单写者：队列状态只有这一份）。
@@ -339,10 +335,6 @@ pub(crate) fn task_channel(
         super::domains_task_state::workspace_event(&events),
     )];
     event_handlers.extend(task_events.handlers());
-    event_handlers.push((
-        "onDynamicConversationFrames",
-        super::domains_task_bot::conversation_frames(&state),
-    ));
     Channel::new("escode-task", methods).with_events(event_handlers)
 }
 

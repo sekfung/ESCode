@@ -423,33 +423,6 @@ describe("ProductProjection 黄金测试（L1）", () => {
     expect(rows.find((row) => row.kind === "toolCall")?.assistantResponseId).toBe("assistant-cua");
   });
 
-  it("preserves topic originals and attachment ownership when replaying accepted turn events", () => {
-    const source = {
-      provider: "feishu", botId: "bot", chatId: "group", threadId: "topic",
-      senderId: "b", senderName: "Bob", messageId: "second",
-      messages: [
-        { messageId: "first", senderId: "a", senderName: "Alice", text: "First", attachmentIndexes: [0], conversationQuotes: [{ text: "Root", senderName: "Root author" }] },
-        { messageId: "second", senderId: "b", senderName: "Bob", text: "Second", attachmentIndexes: [1] },
-      ],
-    };
-    const log = new EventLog();
-    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
-    log.push(SessionEventType.TurnStarted, {
-      turnNumber: 1, input: "combined", messageId: "accepted", inputId: "command",
-      intent: {
-        sourceCommandId: "command", kind: "sendText", text: "combined", admissionSeq: 1, admittedAt: 10,
-        requestedDelivery: "startNow", admittedDelivery: "startNow", botGroupSource: source,
-        attachmentRefs: [{ ref: "artifact://first", fileName: "first.txt", mime: "text/plain", bytes: 1 },
-          { ref: "artifact://second", fileName: "second.txt", mime: "text/plain", bytes: 1 }],
-      },
-    }, { turnId: "topic-turn" });
-    const restored = log.events.map((event) => ({ ...event, payload: JSON.parse(JSON.stringify(event.payload)) }));
-    const snapshot = conversationSnapshotSchema.parse(runAll(restored).projection.getSnapshot());
-    expect(snapshot.rows.window.find((row) => row.kind === "userInput")).toMatchObject({
-      botGroupSource: source, attachments: [{ ref: "artifact://first" }, { ref: "artifact://second" }],
-    });
-  });
-
   it("TEL06：edit/rerun user row 保留 canonical root sourceCommandId", () => {
     const log = new EventLog();
     log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
@@ -6179,14 +6152,6 @@ describe("fork / modelChange marker", () => {
         queueLength: 1,
         targetTurnId: "t1",
         intent: {
-          botGroupSource: {
-            provider: "feishu",
-            botId: "bot",
-            chatId: "group",
-            senderId: "member",
-            senderName: "Member",
-            messageId: "message",
-          },
           sourceCommandId: "command-q1",
           queueItemId: "q1",
           clientId: "mobile-client",
@@ -6234,7 +6199,6 @@ describe("fork / modelChange marker", () => {
     expect(items.map((i) => i.queueItemId)).toEqual(["q1", "q2"]);
     expect(items[0]).toMatchObject({
       text: "第一条改",
-      botGroupSource: { senderId: "member", chatId: "group" },
       sourceCommandId: "command-q1",
       clientId: "mobile-client",
       attachments: [{ ref: "artifact://q1" }],
@@ -9262,7 +9226,7 @@ describe("workflow 运行确认的 ask 预览", () => {
       payload?.kind === "permission"
         ? payload.options.find((option) => option.optionId === "workflowRefine")
         : undefined;
-    // 静态 response 是普通 deny：不认识该选项的消费面（bot 直出、无 freeText 应答）
+    // 静态 response 是普通 deny：不认识该选项的消费面无 freeText 应答
     // 退化为拒绝；反馈升级只发生在 interaction-broker 的 freeText 特判。
     expect(refineOption).toMatchObject({
       kind: "custom",

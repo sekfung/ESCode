@@ -792,7 +792,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     }
   });
 
-  it("远程 workspace 与 Bot runtime 都 attachment 到同一个窗口 Local Host", async () => {
+  it("远程 workspace attachment 到同一个窗口 Local Host", async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const manager = createManager(new Map([[101, child]]));
@@ -820,15 +820,8 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
       workspaceKey: workspaceIdentity,
       clientMode: "web-remote-replayable",
     });
-    const botPort = await manager.createBotRemoteWorkspaceRuntimePort(win as never, {
-      target: sshTarget,
-      workspacePath: "/work/demo",
-      workspaceIdentity,
-    });
-
     expect(mobile.process).toBe(child);
-    expect(botPort).toBeDefined();
-    expect(child.postMessage).toHaveBeenCalledTimes(2);
+    expect(child.postMessage).toHaveBeenCalledTimes(1);
     for (const [message] of child.postMessage.mock.calls) {
       expect(message).toMatchObject({
         type: HostMessageTypes.AttachServicePort,
@@ -863,7 +856,7 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
     confirmLatestScopedAttachment(manager, win);
   });
 
-  it("连接断开后保留离线路由供 tab dispose，但禁止 reload、远程 workspace 和 Bot 重新 attachment", async () => {
+  it("连接断开后保留离线路由供 tab dispose，但禁止 reload 和远程 workspace 重新 attachment", async () => {
     const child = new MockUtilityProcess(1001);
     const win = createWindow(1, 101);
     const manager = createManager(new Map([[101, child]]));
@@ -911,13 +904,6 @@ describe("desktopRemoteSessions R1 window Host forwarding", () => {
         clientMode: "web-remote-replayable",
       }),
     ).toThrow("远程 workspace source 当前离线");
-    await expect(
-      manager.createBotRemoteWorkspaceRuntimePort(win as never, {
-        target: sshTarget,
-        workspacePath,
-        workspaceIdentity,
-      }),
-    ).rejects.toThrow("未找到可供 Bot attachment 的远程 logical session");
 
     manager.disposeRemoteWorkspaceSession("remote-session-1", "tab-closed");
     expect(child.postMessage).toHaveBeenCalledWith(

@@ -1,5 +1,3 @@
-import { useBotTopicPreparations } from "@/v4/BotTopicPreparation.js";
-import { withTopicPreparationMessages } from "@/v4/topicPreparationRenderUnits.js";
 /* oxlint-disable eslint(max-lines) -- ConversationTimeline 集中承载虚拟滚动、滚动锚定、loadOlder 与 find 高亮协调；拆散会让同一滚动状态跨文件传递。 */
 import {
   Component,
@@ -390,19 +388,14 @@ function ConversationTimelineImpl({
       manualPinned: getPluginUiManualPin(sessionKey, toolCallId),
     });
   }, [pluginUiDerivation, sessionKey, pluginUiDisclosureVersion]);
-  const topicPreparations = useBotTopicPreparations();
   const renderUnits = useMemo(
     () =>
-      withTopicPreparationMessages(
-        buildConversationTurnRenderUnits(rows, {
-          nowMs: liveNowMs,
-          sessionPhase,
-          pluginUiPinResolver,
-        }),
-        rows,
-        topicPreparations,
-      ),
-    [liveNowMs, pluginUiPinResolver, rows, sessionPhase, topicPreparations],
+      buildConversationTurnRenderUnits(rows, {
+        nowMs: liveNowMs,
+        sessionPhase,
+        pluginUiPinResolver,
+      }),
+    [liveNowMs, pluginUiPinResolver, rows, sessionPhase],
   );
   const { virtualizedUnits, liveUnit, liveUnitIndex } = useMemo(
     () => splitConversationTimelineLiveTail(renderUnits),

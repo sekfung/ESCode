@@ -168,10 +168,6 @@ const servicesMock = vi.hoisted(() => ({
 vi.mock("@/components/ui/toast.js", () => ({ toast: vi.fn() }));
 
 // 本组只验证输入框连续性；群同步服务由独立组件测试和真实 Host/CLI E2E 覆盖。
-vi.mock("@/v4/BotGroupDeliveryAction.js", () => ({
-  BotGroupDeliveryProvider: ({ children }: { children: unknown }) => children,
-  ConnectedBotGroupDeliveryAction: () => null,
-}));
 
 // 本文件只验证 SessionPane 的 composer 连续性，隔离推荐提示词占位：本文件用的是只实现 createElement 的极简 DOM，
 // 渲染 lucide 图标会走 createElementNS 而直接崩掉，与 composer 连续性无关。

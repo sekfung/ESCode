@@ -195,16 +195,6 @@ export type {
   ESCodeSessionWorkspaceTarget,
 } from "./escode-session/escodeSession.js";
 
-// Bots service — IBotsService is both a type (interface) and value (descriptor).
-export { IBotsService } from "./bots/bots.js";
-export type {
-  BotBindCodeResult,
-  BotCreateBindCodeParams,
-  BotListWorkspaceRefsParams,
-  BotSaveBotParams,
-  BotTestResult,
-} from "./bots/bots.js";
-
 // Hooks service — IHooksService is both a type (interface) and value (descriptor).
 export { IHooksService } from "./hooks/hooks.js";
 

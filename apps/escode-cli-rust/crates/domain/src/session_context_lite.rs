@@ -22,38 +22,30 @@ pub struct Input {
     pub query: String,
     pub strategy: String,
     pub max_tokens: Option<u64>,
-    /// topic 策略的分页偏移（v3.15.1）。
-    pub cursor: Option<u64>,
-    /// topic 策略的归档附件定位（`{inputId?, messageId, index?}`）。
-    pub attachment: Option<Value>,
 }
 
 impl Input {
     /// TS `ReadSessionContextInputSchema`（strict）。
     pub fn parse(args: &Value) -> Result<Self, String> {
         let record = args.as_object().ok_or("Invalid ReadSessionContext input")?;
-        if let Some(key) = record.keys().find(|k| {
-            !matches!(
-                k.as_str(),
-                "sessionId" | "query" | "strategy" | "maxTokens" | "cursor" | "attachment"
-            )
-        }) {
+        if let Some(key) = record
+            .keys()
+            .find(|k| !matches!(k.as_str(), "sessionId" | "query" | "strategy" | "maxTokens"))
+        {
             return Err(format!("Unrecognized key: {key}"));
         }
-        // v3.15.1：sessionId 缺省为 current（只服务 topic 策略）。
-        let session_id = match record.get("sessionId") {
-            None => "current",
-            Some(value) => value.as_str().ok_or("sessionId must be a string")?,
-        };
-        let valid_id = session_id == "current"
-            || session_id.strip_prefix("sess_").is_some_and(|rest| {
-                !rest.is_empty()
-                    && rest
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
-            });
+        let session_id = record
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .ok_or("sessionId is required")?;
+        let valid_id = session_id.strip_prefix("sess_").is_some_and(|rest| {
+            !rest.is_empty()
+                && rest
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        });
         if !valid_id {
-            return Err("Session id must be current or use the sess_* format.".into());
+            return Err("Session id must use the sess_* format.".into());
         }
         let query = record
             .get("query")
@@ -64,27 +56,9 @@ impl Input {
         }
         let strategy = match record.get("strategy") {
             None | Some(Value::Null) => "relevant",
-            Some(Value::String(s)) if matches!(s.as_str(), "relevant" | "handoff" | "topic") => s,
-            Some(_) => return Err("strategy must be relevant, handoff or topic".into()),
+            Some(Value::String(s)) if matches!(s.as_str(), "relevant" | "handoff") => s,
+            Some(_) => return Err("strategy must be relevant or handoff".into()),
         };
-        let cursor = match record.get("cursor") {
-            None => None,
-            Some(value) => Some(
-                value
-                    .as_u64()
-                    .ok_or("cursor must be a non-negative integer")?,
-            ),
-        };
-        let attachment = match record.get("attachment") {
-            None => None,
-            Some(value) => Some(crate::session_context_topic::parse_attachment(value)?),
-        };
-        if session_id == "current" && strategy != "topic" {
-            return Err("Non-topic strategies require an explicit session id".into());
-        }
-        if attachment.is_some() && strategy != "topic" {
-            return Err("Attachments require topic strategy".into());
-        }
         let max_tokens = match record.get("maxTokens") {
             None | Some(Value::Null) => None,
             Some(value) => Some(
@@ -99,8 +73,6 @@ impl Input {
             query: query.to_owned(),
             strategy: strategy.to_owned(),
             max_tokens,
-            cursor,
-            attachment,
         })
     }
 }

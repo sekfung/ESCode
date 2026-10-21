@@ -397,36 +397,6 @@ describe("ESCode Protocol", () => {
     ).toThrow();
   });
 
-  it("session/send and automation/create validate the bot delivery target strictly", () => {
-    const botDeliveryTarget = {
-      provider: "weixin" as const,
-      botId: "bot-weixin",
-      providerUserId: "chat-1",
-      chatType: "private" as const,
-    };
-    expect(
-      escodeSessionSendParamsSchema.parse({
-        sessionId: "sess_1",
-        content: "创建定时任务",
-        botDeliveryTarget,
-      }).botDeliveryTarget,
-    ).toEqual(botDeliveryTarget);
-    expect(
-      escodeAutomationCreateParamsSchema.parse({
-        cronExpr: "0 9 * * *",
-        prompt: "日报",
-        botDeliveryTarget,
-      }).botDeliveryTarget,
-    ).toEqual(botDeliveryTarget);
-    expect(() =>
-      escodeAutomationCreateParamsSchema.parse({
-        cronExpr: "0 9 * * *",
-        prompt: "日报",
-        botDeliveryTarget: { ...botDeliveryTarget, provider: "discord" },
-      }),
-    ).toThrow();
-  });
-
   it("keeps protocol methods session-first and private", () => {
     const methods = Object.values(escodeProtocolMethods);
 

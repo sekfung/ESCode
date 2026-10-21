@@ -83,11 +83,6 @@ impl Engine {
             .rev()
             .find(|i| i.turn == turn_id_for_facts);
         let input = boundary.map(|i| i.payload.clone()).unwrap_or_default();
-        let source_command_id = boundary
-            .and_then(|i| session.rows.get(i.user_row))
-            .and_then(|row| row["sourceCommandId"].as_str())
-            .filter(|id| !id.is_empty())
-            .map(str::to_owned);
         history.turn = super::context::TurnFacts {
             automation_id: input["automationId"].as_str().map(str::to_owned),
             disallowed: input["toolDisallowlist"]
@@ -98,8 +93,6 @@ impl Engine {
                         .collect()
                 })
                 .unwrap_or_default(),
-            bot_delivery_target: Some(input["botDeliveryTarget"].clone())
-                .filter(serde_json::Value::is_object),
             mode: session.mode.clone(),
             mcp_meta: {
                 let client = self
@@ -130,7 +123,6 @@ impl Engine {
             } else {
                 serde_json::json!({"providerId": session.provider, "modelId": session.model, "options": {"reasoningLevel": session.reasoning_level}})
             }),
-            source_command_id,
             ..Default::default()
         };
         // 动态工作流灰度门按会话固化值读（docs/specs/rust-dynamic-workflow.md 第 1 期）；

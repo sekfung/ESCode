@@ -16,7 +16,7 @@
 | `createAutomation`                           | **Pending**           | 需要 cron 解析、`next_run_at` 计算、创建上限与 scheduleRule 归一化 |
 | `updateAutomation`                           | **Pending**           | 需要 cron 重算、生命周期重算与 scheduleRule 校验                   |
 | `restartAutomation`                          | **Pending**           | 需要 cron 重算 `next_run_at`                                       |
-| `runAutomationNow`                           | **Pending**           | 需要 run claim、dispatcher 与目标 task/bot 投递                    |
+| `runAutomationNow`                           | **Pending**           | 需要 run claim、dispatcher 与目标 task 投递                        |
 
 ## 2. 状态所有者与持久化
 
@@ -47,7 +47,7 @@ deleteAutomationRun({runId, workspacePath, workspaceIdentity?}): void
 | 1   | `setAutomationEnabled` 不重算 `next_run_at`  | Host 未接 cron 计算；调度器未迁移      | 迁移 cron 计算后补齐       |
 | 2   | 读取时 `mode` 只保留合法枚举，非法值字段缺省 | 与 TS `normalizeAutomationMode` 同判   | 不需要移除                 |
 | 3   | `create/update/restart/runNow` 未实现        | cron/生命周期/派发器依赖大，需单独切片 | 实施 §5 后补齐             |
-| 4   | 列表不派生 bot delivery 目标与模型可用性诊断 | 属派发/Registry 域                     | 迁移调度与 Registry 后补齐 |
+| 4   | 列表不派生模型可用性诊断                     | 属派发/Registry 域                     | 迁移调度与 Registry 后补齐 |
 
 ## 5. 调度所有者（H5.3）
 

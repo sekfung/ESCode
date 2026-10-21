@@ -22,22 +22,11 @@ const escodeAgentService = {
       }) => Promise<void>
     >(),
 };
-const botsService = {
-  syncAppRuntimePreferences:
-    vi.fn<
-      (preferences: {
-        askUserQuestionAutoResolutionEnabled: boolean;
-        modelIoFullRetentionEnabled: boolean;
-      }) => Promise<void>
-    >(),
-};
-
 vi.mock("@/hooks/useServices.js", () => ({
   useServices: () => ({
     broadcastService,
     settingService,
     escodeAgentService,
-    botsService,
   }),
 }));
 
@@ -55,17 +44,16 @@ describe("useSettings AskUserQuestion runtime preference", () => {
     settingService.update.mockResolvedValue(undefined);
     broadcastService.send.mockResolvedValue(undefined);
     escodeAgentService.syncAppRuntimePreferences.mockResolvedValue(undefined);
-    botsService.syncAppRuntimePreferences.mockResolvedValue(undefined);
   });
 
   it("persists, waits for the current Host ACK, then broadcasts the strict preference", async () => {
     const { useSettings } = await import("@/hooks/useSettingService.js");
     const hook = renderHook(() => useSettings());
     await waitFor(() => expect(hook.result.current.loading).toBe(false));
-    let releaseBotSync: (() => void) | undefined;
-    botsService.syncAppRuntimePreferences.mockReturnValueOnce(
+    let releaseAgentSync: (() => void) | undefined;
+    escodeAgentService.syncAppRuntimePreferences.mockReturnValueOnce(
       new Promise<void>((resolve) => {
-        releaseBotSync = resolve;
+        releaseAgentSync = resolve;
       }),
     );
 
@@ -75,9 +63,11 @@ describe("useSettings AskUserQuestion runtime preference", () => {
         askUserQuestionAutoResolutionEnabled: false,
       });
     });
-    await waitFor(() => expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(escodeAgentService.syncAppRuntimePreferences).toHaveBeenCalledOnce(),
+    );
     expect(broadcastService.send).not.toHaveBeenCalled();
-    releaseBotSync?.();
+    releaseAgentSync?.();
     await act(async () => {
       await updatePromise;
     });
@@ -89,10 +79,6 @@ describe("useSettings AskUserQuestion runtime preference", () => {
       askUserQuestionAutoResolutionEnabled: false,
       modelIoFullRetentionEnabled: false,
     });
-    expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledWith({
-      askUserQuestionAutoResolutionEnabled: false,
-      modelIoFullRetentionEnabled: false,
-    });
     expect(broadcastService.send).toHaveBeenCalledWith({
       channel: APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
       payload: {
@@ -101,9 +87,6 @@ describe("useSettings AskUserQuestion runtime preference", () => {
       },
     });
     expect(escodeAgentService.syncAppRuntimePreferences.mock.invocationCallOrder[0]).toBeLessThan(
-      broadcastService.send.mock.invocationCallOrder[0] ?? 0,
-    );
-    expect(botsService.syncAppRuntimePreferences.mock.invocationCallOrder[0]).toBeLessThan(
       broadcastService.send.mock.invocationCallOrder[0] ?? 0,
     );
 
@@ -127,7 +110,6 @@ describe("useSettings AskUserQuestion runtime preference", () => {
       modelIoFullRetentionEnabled: true,
     };
     expect(escodeAgentService.syncAppRuntimePreferences).toHaveBeenCalledWith(preferences);
-    expect(botsService.syncAppRuntimePreferences).toHaveBeenCalledWith(preferences);
     expect(broadcastService.send).toHaveBeenCalledWith({
       channel: APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
       payload: preferences,

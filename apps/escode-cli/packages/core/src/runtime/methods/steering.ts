@@ -1222,11 +1222,7 @@ async function drainPendingInputUnlocked(
         : undefined;
     const runtimeEntry = createRuntimeUserEntry(
       buildUserContentFromTurn(
-        withConversationQuotes(
-          pendingInput.input,
-          pendingInput.intent?.conversationQuotes,
-          pendingInput.intent?.botGroupSource,
-        ),
+        withConversationQuotes(pendingInput.input, pendingInput.intent?.conversationQuotes),
         resolvedAttachments,
       ),
       runtimeInputMetadata(inputPresentation) ?? realUserRuntimeMetadata(),

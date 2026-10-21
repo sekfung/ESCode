@@ -21,7 +21,6 @@ const BOUND_CHECK_FAILED: &str =
 pub struct Turn {
     pub automation_turn: bool,
     pub active_automation_id: Option<String>,
-    pub bot_delivery_target: Option<Value>,
     pub session_id: String,
     pub mode: String,
     pub model_selection: Option<Value>,
@@ -240,9 +239,6 @@ fn create_params(p: &Map<String, Value>, turn: &Turn) -> Value {
         params.insert("mode".into(), mode.into());
     }
     params.insert("targetTaskId".into(), turn.session_id.clone().into());
-    if let Some(target) = &turn.bot_delivery_target {
-        params.insert("botDeliveryTarget".into(), target.clone());
-    }
     if carrier {
         params.insert("intervalUnit".into(), p["intervalUnit"].clone());
         params.insert("interval".into(), p["interval"].clone());

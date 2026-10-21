@@ -222,16 +222,6 @@
     "needsApproval": false,
     "permissionName": "session.context.read"
   },
-  "ReplyToChannel": {
-    "allowedInPlanMode": false,
-    "readOnly": false,
-    "destructive": false,
-    "requiresUserInteraction": false,
-    "sideEffectScope": "network",
-    "riskLevel": "medium",
-    "needsApproval": false,
-    "permissionName": "channel.reply"
-  },
   "ResolveWorkflowQuestion": {
     "allowedInPlanMode": false,
     "readOnly": false,

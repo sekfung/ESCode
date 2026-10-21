@@ -25,8 +25,6 @@ export function createDesktopPlatform(options: {
       window.escode.materializeWorkflowArtifactFile(payload),
     onRemoteConnectionLog: (handler) => window.escode.onRemoteConnectionLog(handler),
     onRemoteSessionClosed: (handler) => window.escode.onRemoteSessionClosed(handler),
-    onBotRemoteWorkspaceReconnected: (handler) =>
-      window.escode.onBotRemoteWorkspaceReconnected(handler),
     activateOrSetWorkspace: (path) =>
       window.escode.activateOrSetWorkspace?.(path) ?? Promise.resolve({ activated: false }),
     connectRemote: (remoteOptions, requestId, context) =>

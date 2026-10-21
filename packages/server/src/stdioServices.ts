@@ -1,5 +1,4 @@
 import { createLocalServices, type ESCodeAgentCommandResolver } from "@escode/services/node";
-import type { IChannel } from "@escode/rpc";
 import {
   parseServiceAuthorityMode,
   ESCODE_REMOTE_HTTP_PROXY_ENV_KEY,
@@ -8,7 +7,6 @@ import {
 } from "@escode/shared";
 
 export interface CreateStdioServicesOptions {
-  topicResourceRelayChannel?: () => IChannel;
   env?: Record<string, string | undefined>;
   escodeBuiltinProviderConfigFilePath: string;
   escodeAgentCommandResolver?: ESCodeAgentCommandResolver;
@@ -39,7 +37,6 @@ export function createStdioServices(options: CreateStdioServicesOptions) {
   // 测试注入 resolver 只用于在 spawn 前观察最终命令，不改变生产默认 resolver。
   const services = createLocalServices({
     escodeBuiltinProviderConfigFilePath: options.escodeBuiltinProviderConfigFilePath,
-    topicResourceRelayChannel: options.topicResourceRelayChannel,
     serviceAuthorityMode: authorityModeParseResult.mode,
     escodeAgentCommandResolver: options.escodeAgentCommandResolver,
     remoteAgentNetwork,

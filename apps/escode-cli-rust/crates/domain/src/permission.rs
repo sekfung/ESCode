@@ -256,16 +256,6 @@ pub fn check(ctx: &Context, cap: Option<&Capability>) -> Decision {
     if rule(ctx.project, B::Ask) {
         return d(Ask, "rule.project.ask");
     }
-    // 原会话回复的接收范围由 Host 再次校验；放在显式 deny/ask 之后，且同时匹配内置工具名和能力。
-    if ctx.tool_name == "ReplyToChannel"
-        && c.permission_name.as_deref() == Some("channel.reply")
-        && c.side_effect_scope == "network"
-        && c.risk == Risk::Medium
-        && !c.destructive
-        && !c.needs_approval
-    {
-        return d(Allow, "tool.channelReply.preapproved");
-    }
     if plan_enabled {
         return check_plan(&c);
     }

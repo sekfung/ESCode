@@ -62,8 +62,6 @@ const FILE_RULES: FileRule[] = [
   { categoryId: "backups", pattern: /^v2\/setting\.json\.(?:corrupt-|[^/]*backup)[^/]*$/ },
   { categoryId: "backups", pattern: /^v2\/config\.json\.pre-[^/]+$/ },
   { categoryId: "toolOutputs", pattern: /^v2\/coding-plan-cache\.json$/ },
-  // Bot 历史缓存仅供资源管理器识别展示，不加载配置或启动渠道。
-  { categoryId: "toolOutputs", pattern: /^v2\/bots-model-cache[^/]*\.json$/ },
   { categoryId: "logs", pattern: /^computer-use\/run\/[^/]+\.log$/ },
   { categoryId: "config", pattern: /^v2\/[^/]+\.json$/ },
   { categoryId: "config", pattern: /^cli\/config\.json$/ },
@@ -98,8 +96,6 @@ const PREFIX_RULES: Record<Exclude<StorageCategoryId, "other">, string[]> = {
   // cli/plugins 整体（含 cache）不可清理，插件缓存归运行时。
   config: [
     "v2/agent-config",
-    "v2/bots-runtime-locks",
-    "v2/bot-attachments",
     "v2/certs",
     "v2/acp-auth",
     "v2/acp-config",

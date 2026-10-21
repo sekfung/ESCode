@@ -1,8 +1,6 @@
 import { runtimeExecutionCapabilitiesSchema } from "../execution-state.js";
 import { requestVerificationReasons } from "../request-security-edition/verification-policy.js";
 import { escodeProtocolTraceSchema } from "./trace.js";
-// Bot 反向回复的名字解析/待澄清结果与 App、CLI 使用同一严格 schema。
-export { channelReplyRequestSchema, channelReplyResultSchema } from "../channel-mention.js";
 export { escodeProtocolTraceSchema, type ESCodeProtocolTrace } from "./trace.js";
 import {
   databaseMigrationFactsSchema,
@@ -35,7 +33,6 @@ export { conversationQuoteSchema, conversationQuotesSchema } from "../conversati
 import { z } from "zod";
 import { accountProviderUnavailableReasonSchema } from "../account-provider-state.js";
 import { bashOutputDisplaySchema } from "../bash-output-display.js";
-import { escodeAutomationBotDeliveryTargetSchema } from "../bots.js";
 import { executionOutputPreviewSchema } from "../execution-output-preview.js";
 import { completeModelPropertiesDataSchema } from "../model-config.js";
 import { modelExecutionSchema } from "../model-execution.js";
@@ -49,30 +46,6 @@ export * from "../process-diagnostic.js";
 export { attachmentSourceKindSchema, type AttachmentSourceKind } from "../attachment-source.js";
 import { PROTOCOL_V4_LIMITS } from "../escode-protocol-v4/core.js";
 
-export const escodeTopicResourceReadParamsSchema = z
-  .object({
-    requestId: z.string().min(1).max(256),
-    taskId: z.string().min(1).max(256),
-    inputId: z.string().min(1).max(256),
-    authorizationId: z.string().min(1).max(256),
-    messageId: z.string().min(1).max(256),
-    resourceIndex: z.number().int().nonnegative(),
-  })
-  .strict();
-export const escodeTopicResourceReadResultSchema = z
-  .object({
-    ref: z.string().min(1),
-    fileName: z.string().min(1).max(1024),
-    mime: z.string().min(1).max(256),
-    bytes: z.number().int().min(0).max(PROTOCOL_V4_LIMITS.attachmentMaxBytes),
-  })
-  .strict();
-export const escodeTopicResourceCancelParamsSchema = z
-  .object({ requestId: z.string().min(1).max(256), taskId: z.string().min(1).max(256) })
-  .strict();
-export const escodeTopicResourceCancelResultSchema = z.object({ cancelled: z.boolean() }).strict();
-export type ESCodeTopicResourceReadParams = z.infer<typeof escodeTopicResourceReadParamsSchema>;
-export type ESCodeTopicResourceReadResult = z.infer<typeof escodeTopicResourceReadResultSchema>;
 export { activeWorkSummarySchema, type ActiveWorkSummary } from "../escode-protocol-v4/snapshot.js";
 // browser-use 命令/结果契约单一来源：agent 构造、协议校验和 main executor 共用同一 schema。
 import {
@@ -366,43 +339,6 @@ const escodeToolResultObjectSchema = jsonObjectSchema.superRefine((result, conte
 
 export const escodeProtocolRequestIdSchema = z.union([z.string(), z.number().int()]);
 export type ESCodeProtocolRequestId = z.infer<typeof escodeProtocolRequestIdSchema>;
-
-// 远程历史附件仅通过现有连接的私有反向频道传输，单块保持在 RPC 帧预算内。
-export const TOPIC_RESOURCE_RELAY_CHUNK_BYTES = 384 * 1024;
-export const TOPIC_RESOURCE_RELAY_CHANNEL = "host-topic-resource";
-export const escodeTopicResourceRelayRequestSchema = escodeTopicResourceReadParamsSchema
-  .extend({
-    workspacePath: z.string().min(1).max(4096),
-    workspaceIdentity: z.string().min(1).max(4096),
-    remoteSessionId: z.string().min(1).max(256),
-    trace: escodeProtocolTraceSchema.optional(),
-  })
-  .strict();
-export type ESCodeTopicResourceRelayRequest = z.infer<typeof escodeTopicResourceRelayRequestSchema>;
-export const escodeTopicResourceRelayKeySchema = escodeTopicResourceCancelParamsSchema;
-export const escodeTopicResourceRelayChunkRequestSchema = escodeTopicResourceRelayKeySchema
-  .extend({
-    index: z.number().int().nonnegative(),
-  })
-  .strict();
-export const escodeTopicResourceRelayMetadataSchema = z
-  .object({
-    fileName: z.string().min(1).max(1024),
-    mime: z.string().min(1).max(256),
-    bytes: z.number().int().min(0).max(PROTOCOL_V4_LIMITS.attachmentMaxBytes),
-    totalChunks: z
-      .number()
-      .int()
-      .min(0)
-      .max(Math.ceil(PROTOCOL_V4_LIMITS.attachmentMaxBytes / TOPIC_RESOURCE_RELAY_CHUNK_BYTES)),
-    checksum: z.string().regex(/^sha256:[a-f0-9]{64}$/),
-  })
-  .strict();
-export const escodeTopicResourceRelayChunkSchema = z
-  .object({
-    dataBase64: z.string().max((TOPIC_RESOURCE_RELAY_CHUNK_BYTES / 3) * 4),
-  })
-  .strict();
 
 export const escodeProtocolRequestSchema = z
   .object({
@@ -2090,7 +2026,6 @@ export const escodeSessionSendParamsSchema = z
     expectedRevision: z.number().int().nonnegative().optional(),
     expectedProviderRevision: nonEmptyString.optional(),
     automationId: nonEmptyString.optional(),
-    botDeliveryTarget: escodeAutomationBotDeliveryTargetSchema.optional(),
     toolDenylist: z.array(nonEmptyString).optional(),
   })
   .strict()
@@ -3838,7 +3773,6 @@ export const escodeAutomationCreateParamsSchema = z
     modelSelection: modelSelectionSchema.optional(),
     mode: escodeTaskModeSchema.optional(),
     targetTaskId: nonEmptyString.optional(),
-    botDeliveryTarget: escodeAutomationBotDeliveryTargetSchema.optional(),
     recurring: z.boolean().optional(),
     maxRuns: z.number().int().positive().optional(),
     // 会话侧自定义重复 carrier：每 N 分钟/小时/天/周/月/年均通过此字段归一化为权威 scheduleRule，
@@ -4071,9 +4005,6 @@ export const escodeProtocolMethods = {
   pluginsValidate: "plugins/validate",
   pluginsDescribe: "plugins/describe",
   automationCreate: "automation/create",
-  topicResourceRead: "topic/resource/read",
-  channelReply: "bot/channel/reply",
-  topicResourceCancel: "topic/resource/cancel",
   automationUpdate: "automation/update",
   automationCheckTaskBinding: "automation/checkTaskBinding",
   automationList: "automation/list",
@@ -4257,16 +4188,3 @@ export const escodeStoragePathReadySchema = z
 
 // 桌面本地 TTFT 的严格事实合同；检查点不能替代实际内容帧。
 export { localTtftFactsSchema } from "../localTtft.js";
-// 群来源由可信 Host 注入，V4 命令与持久化输入使用相同运行时校验。
-export {
-  botIdentitySchema,
-  botTopicInputMessageSchema,
-  botGroupInputSourceSchema,
-  type BotGroupInputSource,
-} from "../bots.js";
-export {
-  botTopicContextSchema,
-  botTopicMessageSchema,
-  type BotTopicHistoryBatch,
-  type BotTopicMessage,
-} from "../bots.js";

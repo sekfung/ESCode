@@ -1,13 +1,5 @@
-import { createBotTopicAdmission } from "#src/escode-agent/botTopicAdmission.js";
-import {
-  readBotGroupRuntimeSnapshot,
-  waitBotGroupExecutionEnd,
-} from "#src/escode-agent/groupRuntimeSnapshot.js";
-import { uploadBotGroupAttachments } from "./groupAttachmentUpload.js";
-import { observeConversationFrames } from "./conversationFrameFeed.js";
 /* oxlint-disable eslint(max-lines) -- 迁移期需要在一个门面里集中维护旧 task projection 到 ESCode session 的协议适配。 */
-import { createHash, randomUUID } from "node:crypto";
-import { createESCodeAgentConnectionScope } from "#src/escode-agent/escodeAgentConnectionScope.js";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -58,7 +50,6 @@ import {
   type ESCodeBackgroundTaskNotificationInfo,
   type ESCodeBackgroundTaskControlItem,
   type ESCodeBackgroundTurnAttribution,
-  type ESCodeAutomationBotDeliveryTarget,
   type ESCodeCancelTaskCommandResult,
   type ESCodeCodexConnectivityCheckResult,
   type ESCodeConfigOption,
@@ -149,11 +140,7 @@ import type {
   ESCodeTaskIndexTerminalEvent,
 } from "./escodeTaskIndexSyncer.js";
 import { readModelTrajectory } from "./modelTrajectory.js";
-import {
-  errorAttributionSchema,
-  type CommandPayloadMap,
-  type ConversationTopicFrame,
-} from "@escode/shared/escode-protocol-v4";
+import { errorAttributionSchema, type CommandPayloadMap } from "@escode/shared/escode-protocol-v4";
 import {
   assertV4CommandAckOk,
   createHostCommandEnvelope,
@@ -265,31 +252,11 @@ function resolveESCodeAgentCurrentLogFilePath(now = new Date()): string {
 export function createESCodeTaskServiceAdapter(
   options: CreateESCodeTaskServiceAdapterOptions,
 ): IESCodeTaskService {
-  // Bot 原来绕过连接 facade，导致真实附件 admission 缺少可信身份；复用既有 scope，
-  // 同一 Bot 接入的附件、命令及对账共用连接，不改变桌面与窄视口各自的传输模式。
-  const botConnectionScopes = new Map<
-    string,
-    ReturnType<typeof createESCodeAgentConnectionScope>
-  >();
-  function botAgent(workspace: ESCodeAgentWorkspaceTarget) {
-    const key = JSON.stringify([resolveWorkspaceKey(workspace), workspace.remoteSessionId ?? ""]);
-    let scope = botConnectionScopes.get(key);
-    if (!scope) {
-      scope = createESCodeAgentConnectionScope(options.escodeAgentService, {
-        connectionId: `bot-${randomUUID()}`,
-        clientMode: "desktop-continuous",
-        role: "trusted-host-relay",
-      });
-      botConnectionScopes.set(key, scope);
-    }
-    return scope.service;
-  }
   const errorEmitter = new Emitter<ESCodeError>();
   const taskEmitters = new Map<string, Emitter<ESCodeStreamEvent>>();
   const globalTaskEmitters = new Map<string, Emitter<ESCodeStreamEvent>>();
   const overlays = new Map<string, TaskOverlay>();
   const taskTargets = new Map<string, TaskTarget>();
-  const topicAdmission = createBotTopicAdmission();
   const runtimeCommands = new Map<string, ESCodeTaskRuntimeCommand[]>();
   const runtimeCommandDrains = new Map<string, Promise<void>>();
   const apiRetryByTaskKey = new Map<string, ESCodeApiRetryStatus | null>();
@@ -404,7 +371,6 @@ export function createESCodeTaskServiceAdapter(
       content: string;
       attachments?: ESCodePromptAttachment[];
       toolDenylist?: string[];
-      botDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
       clientId?: string;
       clientMode?: ESCodeTaskClientMode;
       logReason?: string;
@@ -455,7 +421,6 @@ export function createESCodeTaskServiceAdapter(
           modelExecution: params.modelExecution,
           ...turnAttributionOf(params),
           toolDenylist: promptToolDenylist,
-          botDeliveryTarget: params.botDeliveryTarget,
           ...(params.clientMode ? { clientMode: params.clientMode } : {}),
         });
       } else {
@@ -477,7 +442,6 @@ export function createESCodeTaskServiceAdapter(
               ...(params.modelSelection ? { modelSelection: params.modelSelection } : {}),
               ...(params.modelExecution ? { modelExecution: params.modelExecution } : {}),
               ...turnAttributionOf(params),
-              ...(params.botDeliveryTarget ? { botDeliveryTarget: params.botDeliveryTarget } : {}),
               ...(promptToolDenylist ? { toolDisallowlist: promptToolDenylist } : {}),
             },
             sessionId: target.taskId,
@@ -2047,233 +2011,6 @@ export function createESCodeTaskServiceAdapter(
       };
     },
 
-    async readBotTopicSummaries(params) {
-      const target = taskTargets.get(params.taskId);
-      if (target && taskKey(target) !== taskKey(params))
-        throw new Error("Topic task workspace mismatch");
-      const messages = await options.escodeAgentService.readSessionMessages({
-        workspacePath: params.workspacePath,
-        workspaceIdentity: params.workspaceIdentity,
-        remoteSessionId: params.remoteSessionId ?? target?.remoteSessionId,
-        sessionId: params.taskId,
-        limit: 200,
-      });
-      return messages
-        .flatMap(({ info, parts }) => {
-          if (info.role !== "user" || info.source !== "bot_topic_context") return [];
-          return [
-            {
-              checkpoint: String(info.metadata?.checkpoint ?? ""),
-              text:
-                typeof info.metadata?.displayText === "string"
-                  ? info.metadata.displayText
-                  : textFromParts(parts),
-            },
-          ];
-        })
-        .slice(-20);
-    },
-
-    async invalidateBotTopicInputs(params) {
-      const target = getTaskTarget(params.taskId);
-      if (taskKey(target) !== taskKey(params)) throw new Error("Group task workspace mismatch");
-      const key = JSON.stringify([
-        taskKey(params),
-        params.remoteSessionId ?? target.remoteSessionId ?? null,
-      ]);
-      await topicAdmission.invalidate(key);
-    },
-    async readBotTopicExecution(params) {
-      const target = getTaskTarget(params.taskId);
-      if (taskKey(target) !== taskKey(params)) throw new Error("Group task workspace mismatch");
-      const workspace = {
-        ...params,
-        remoteSessionId: params.remoteSessionId ?? target.remoteSessionId,
-      };
-      const snapshot = await readBotGroupRuntimeSnapshot(botAgent(workspace), {
-        ...workspace,
-        sessionId: params.taskId,
-      });
-      if (snapshot.control.stopState === "idle") return undefined;
-      const execution = snapshot.control.activeWorks.find((work) => work.foregroundExecutionId);
-      if (!execution?.foregroundExecutionId)
-        throw new Error("Topic execution identity is unavailable");
-      return {
-        executionId: execution.foregroundExecutionId,
-        sourceCommandId: execution.sourceCommandId,
-      };
-    },
-    async stopBotTopicExecution(params) {
-      const target = getTaskTarget(params.taskId);
-      if (taskKey(target) !== taskKey(params)) throw new Error("Group task workspace mismatch");
-      const workspace = {
-        workspacePath: params.workspacePath,
-        workspaceIdentity: params.workspaceIdentity,
-        remoteSessionId: params.remoteSessionId ?? target.remoteSessionId,
-      };
-      const agent = botAgent(workspace);
-      // 先注册终态监听再停止，避免快速结束发生在 ACK 与订阅之间。
-      const observation = new AbortController();
-      const ended = waitBotGroupExecutionEnd(
-        agent,
-        { ...workspace, sessionId: params.taskId },
-        params.executionId,
-        observation.signal,
-      );
-      void ended.catch(() => undefined);
-      try {
-        const ack = await agent.sendConversationCommandV4({
-          ...workspace,
-          envelope: createHostCommandEnvelope({
-            type: "stop",
-            sessionId: params.taskId,
-            payload: { expectedForegroundExecutionId: params.executionId },
-          }),
-        });
-        assertV4CommandAckOk("stop", ack, `session=${params.taskId}`);
-        await ended;
-      } finally {
-        observation.abort();
-      }
-    },
-
-    async getBotGroupTaskBlockReason(params) {
-      const target = taskTargets.get(params.taskId);
-      if (target && taskKey(target) !== taskKey({ ...params, taskId: params.taskId }))
-        throw new Error("Group task workspace mismatch");
-      const snapshot = await readBotGroupRuntimeSnapshot(botAgent(params), {
-        ...params,
-        ...((params.remoteSessionId ?? target?.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target?.remoteSessionId }
-          : {}),
-        sessionId: params.taskId,
-      });
-      if (snapshot.pendingInteractions.length > 0) return "interaction";
-      if (snapshot.control.phase === "running" || snapshot.control.phase === "prewarming")
-        return "running";
-      if (snapshot.queue.items.length > 0) return "queued";
-      return null;
-    },
-    async cancelBotGroupInput(params) {
-      const target = getTaskTarget(params.taskId);
-      if (
-        params.workspacePath &&
-        taskKey(target) !== taskKey({ ...params, workspacePath: params.workspacePath })
-      )
-        throw new Error("Group task workspace mismatch");
-      const workspace = {
-        workspacePath: params.workspacePath ?? target.workspacePath,
-        workspaceIdentity: params.workspaceIdentity ?? target.workspaceIdentity,
-        ...((params.remoteSessionId ?? target.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target.remoteSessionId }
-          : {}),
-      };
-      const snapshot = await readBotGroupRuntimeSnapshot(botAgent(workspace), {
-        ...workspace,
-        sessionId: target.taskId,
-      });
-      const item = snapshot.queue.items.find(
-        (entry) => entry.sourceCommandId === params.sourceCommandId,
-      );
-      if (!item || item.dispatch.state !== "queued") throw new Error("Input is no longer queued");
-      const source = item.botGroupSource;
-      if (
-        !source ||
-        source.botId !== params.botId ||
-        source.chatId !== params.chatId ||
-        (params.actorId !== params.ownerId && source.senderId !== params.actorId)
-      )
-        throw new Error("Queue cancellation is not authorized");
-      return botAgent(workspace).sendConversationCommandV4({
-        ...workspace,
-        envelope: createHostCommandEnvelope({
-          type: "deleteQueueItem",
-          sessionId: target.taskId,
-          commandId: params.commandId,
-          baseRevision: snapshot.revision,
-          payload: { queueItemId: item.queueItemId },
-        }),
-      });
-    },
-
-    async submitBotGroupInput(params) {
-      const target = getTaskTarget(params.taskId);
-      if (
-        params.workspacePath &&
-        taskKey(target) !== taskKey({ ...params, workspacePath: params.workspacePath })
-      )
-        throw new Error("Group task workspace mismatch");
-      const workspace = {
-        workspacePath: params.workspacePath ?? target.workspacePath,
-        workspaceIdentity: params.workspaceIdentity ?? target.workspaceIdentity,
-        ...((params.remoteSessionId ?? target.remoteSessionId)
-          ? { remoteSessionId: params.remoteSessionId ?? target.remoteSessionId }
-          : {}),
-      };
-      const admissionKey = JSON.stringify([
-        taskKey({ ...workspace, taskId: target.taskId }),
-        workspace.remoteSessionId ?? null,
-      ]);
-      const version = topicAdmission.capture(admissionKey);
-      // Bug 原因：Host 重启后任务索引仍在，但 CLI 尚未加载原会话；直接 admission
-      // 会返回 sessionNotFound。复用后台订阅的冷恢复屏障，不依赖 Desktop 打开任务。
-      await readBotGroupRuntimeSnapshot(botAgent(workspace), {
-        ...workspace,
-        sessionId: target.taskId,
-      });
-      const attachments = await uploadBotGroupAttachments(
-        botAgent(workspace),
-        { ...workspace, sessionId: target.taskId },
-        params.attachments ?? [],
-      );
-      // 停止可以发生在附件上传期间；完成上传不代表旧输入仍允许被接受。
-      if (params.source.threadId && version !== topicAdmission.capture(admissionKey)) {
-        throw new Error("Topic input was cancelled during preparation");
-      }
-      const envelope = createHostCommandEnvelope({
-        type: "sendText",
-        sessionId: target.taskId,
-        commandId: params.commandId,
-        clientId: `bot:${params.source.botId}:${params.source.chatId}:${params.source.senderId}`,
-        payload: {
-          text: params.content,
-          attachments,
-          requestedDelivery: params.source.threadId ? "startNow" : "queue",
-          botGroupSource: params.source,
-          conversationQuotes: params.conversationQuotes,
-          botDeliveryTarget: {
-            provider: params.source.provider,
-            botId: params.source.botId,
-            providerUserId: params.source.chatId,
-            chatType: "group",
-            ...(params.source.threadId
-              ? { threadId: params.source.threadId, rootMessageId: params.source.rootMessageId }
-              : {}),
-          },
-        },
-      });
-      const send = async () => {
-        try {
-          return await botAgent(workspace).sendConversationCommandV4({
-            ...workspace,
-            envelope,
-          });
-        } catch (error) {
-          // ACK 丢失时查询同一个命令，不能生成新 ID 重发输入。
-          const query = await botAgent(workspace)
-            .queryConversationCommandsV4({
-              ...workspace,
-              commands: [{ sessionId: target.taskId, commandId: params.commandId }],
-            })
-            .catch(() => null);
-          const result = query?.results[0]?.result;
-          if (result && result !== "unknown") return result;
-          throw error;
-        }
-      };
-      return params.source.threadId ? topicAdmission.run(admissionKey, version, send) : send();
-    },
-
     async sendPrompt(params): Promise<void> {
       const storedTarget = getTaskTarget(params.taskId);
       const target = {
@@ -2288,7 +2025,6 @@ export function createESCodeTaskServiceAdapter(
         attachments: params.attachments,
         ...turnAttributionOf(params),
         toolDenylist: params.toolDenylist,
-        botDeliveryTarget: params.botDeliveryTarget,
         clientId: params.clientId,
         clientMode: params.clientMode,
         modelSelection: params.modelSelection,
@@ -3526,15 +3262,6 @@ export function createESCodeTaskServiceAdapter(
       };
     },
 
-    onDynamicConversationFrames(params): Event<ConversationTopicFrame> {
-      return observeConversationFrames(options.escodeAgentService, {
-        workspacePath: params.workspacePath,
-        workspaceIdentity: params.workspaceIdentity,
-        remoteSessionId: params.remoteSessionId ?? taskTargets.get(params.taskId)?.remoteSessionId,
-        sessionId: params.taskId,
-      });
-    },
-
     onDynamicWorkspaceEvent(workspace): Event<ESCodeWorkspaceEvent> {
       return taskIndexSyncer.onDynamicWorkspaceEvent(workspace);
     },
@@ -3551,8 +3278,6 @@ export function createESCodeTaskServiceAdapter(
       // 必须在 agentService.disposeAll 前释放，否则 emitter dispose 时仍会回调到已失效的 syncer。
       // workspaceEmitters 已下沉到 syncer，由 syncer.disposeAll 统一回收。
       taskIndexSyncer.disposeAll();
-      for (const scope of botConnectionScopes.values()) void scope.dispose();
-      botConnectionScopes.clear();
       options.escodeAgentService.disposeAll();
       disposeLocalTaskState();
     },
@@ -3565,8 +3290,6 @@ export function createESCodeTaskServiceAdapter(
       // app 退出必须先断开 task index syncer 的订阅，再等待 agent 进程树完成清理；
       // 否则 host 退出时会把 escode-cli 的 SIGKILL 兜底 timer 一起带走。
       taskIndexSyncer.disposeAll();
-      await Promise.all([...botConnectionScopes.values()].map((scope) => scope.dispose()));
-      botConnectionScopes.clear();
       await disposeESCodeAgentServiceAndWait();
       disposeLocalTaskState();
     },
@@ -3888,7 +3611,7 @@ function getSnapshotGoalActiveIterationCount(snapshot: ESCodeSessionStateSnapsho
 }
 
 function toESCodeDeliveryKind(
-  deliveryKind: "continuous" | "bot-channel-continuous" | "replayable" | "mixed" | undefined,
+  deliveryKind: "continuous" | "replayable" | "mixed" | undefined,
 ): ESCodeDeliveryKind {
   return deliveryKind === "replayable" ? "web-remote-replayable" : "desktop-continuous";
 }

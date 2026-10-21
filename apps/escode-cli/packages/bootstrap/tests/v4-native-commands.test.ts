@@ -584,36 +584,6 @@ describe("v4 原生 sendText", () => {
 
 
 
-  it("Bot delivery target 仅在当前 turn 可见，并在 turn 结束后恢复", async () => {
-    let releaseTurn!: () => void;
-    const turnGate = new Promise<void>((resolve) => {
-      releaseTurn = resolve;
-    });
-    const app = makeApp({
-      sendInput: vi.fn().mockResolvedValue({
-        completion: turnGate,
-        kind: "started_turn",
-        turnId: "turn-bot",
-      }),
-    });
-    const record = makeRecord({ app });
-    const host = makeHost(record);
-    const botDeliveryTarget = {
-      provider: "weixin" as const,
-      botId: "bot-weixin",
-      providerUserId: "chat-1",
-      chatType: "private" as const,
-    };
-
-    await new V4CommandExecutor(host).execute(
-      envelope("sendText", { text: "创建提醒", botDeliveryTarget }),
-    );
-    expect(record.activeBotDeliveryTarget).toEqual(botDeliveryTarget);
-    releaseTurn();
-    await settle();
-    expect(record.activeBotDeliveryTarget).toBeUndefined();
-  });
-
   it("automation runId inputId 漏传 automationId 时也隐藏全部写工具", async () => {
     const app = makeApp();
     const record = makeRecord({ app });

@@ -96,7 +96,6 @@ impl Engine {
         let quoted = crate::domain::conversation_input::with_conversation_material(
             text,
             &p["conversationQuotes"],
-            &p["botGroupSource"],
         );
         let text = quoted.as_str();
         let refs = p["attachments"].as_array().filter(|a| !a.is_empty());

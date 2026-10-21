@@ -15,7 +15,6 @@ import type { WorkspaceHookPolicyProvider } from "@escode/core";
 import type { AccountProviderConfigSnapshot } from "@escode/provider";
 import {
   escodeProtocolErrorCodes,
-  type ESCodeAutomationBotDeliveryTarget,
   type ESCodeDeliveryKind,
   type ModelSelection,
   type ESCodeModelContextBudgetStrategy,
@@ -110,8 +109,6 @@ export interface ESCodeProtocolSessionRecord {
   residencyFinalizationCount?: number;
   /** 当前正在执行的 automation 派发 turn；只在 turn 运行期间存在，禁止递归 CronCreate。 */
   activeAutomationId?: string;
-  /** 当前 Bot 入站 turn 的稳定回推地址；只允许 CronCreate 在本轮读取。 */
-  activeBotDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
   restoreWarning?: { message: string; type: string };
   /** 冷恢复候选只供初始投影；新的选模事件立即清除，不能替代 Runtime 执行绑定。 */
   restoredModelSelection?: ModelSelection;

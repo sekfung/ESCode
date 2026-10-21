@@ -155,10 +155,8 @@ impl Engine {
         let mut payload =
             json!({"text":item["text"],"modelSelection":item["modelSelection"],"_userSteer":true});
         super::commands::restore_queued_source(&item, &mut payload);
-        for key in ["botGroupSource", "conversationQuotes"] {
-            if let Some(value) = item.get(key) {
-                row[key] = value.clone();
-            }
+        if let Some(value) = item.get("conversationQuotes") {
+            row["conversationQuotes"] = value.clone();
         }
         s.rows.push(row.clone());
         let text = item["text"].as_str().context("Guide text missing")?;
@@ -166,7 +164,6 @@ impl Engine {
         let material = crate::domain::conversation_input::with_conversation_material(
             text,
             &payload["conversationQuotes"],
-            &payload["botGroupSource"],
         );
         // `_escode_input`：真实用户输入及其是否满足记忆提取的散文门槛（docs/specs/rust-project-memory.md）。
         // mailbox 消息（H3，TS steerTurn）按原文进历史，不套用户中途消息的包装。

@@ -2,7 +2,7 @@
 // 剩余 5 个导出：旧 configOptions 投影函数（formatModelPickerValue/normalizeAvailableESCodeMode/
 // getESCodeAgentModeSelectOptions/getESCodeAgentAvailableModes/
 // escodeSessionSettingsToESCodeConfigOptions；B 类，死期=波次3）。
-// 消费者：services escodeConfigOptions/botsService、UI escodeSessionProjection 等旧栈。
+// 消费者：services escodeConfigOptions、UI escodeSessionProjection 等旧栈。
 // 2026-09 Guarded 收尾后，ESCODE_AGENT_MODE_OPTIONS 成为 Desktop/远程 workspace Composer、Automation
 // 表单共用的唯一模式目录（UI escodeSessionProjection / automationAgentConfigOptions 直接消费
 // getESCodeAgentAvailableModes / getESCodeAgentModeSelectOptions / normalizeAvailableESCodeMode）。

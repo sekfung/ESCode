@@ -12,7 +12,6 @@ use tokio_util::sync::CancellationToken;
 pub(super) struct TurnFacts {
     pub automation_id: Option<String>,
     pub disallowed: Vec<String>,
-    pub bot_delivery_target: Option<Value>,
     pub mode: String,
     pub model_selection: Option<Value>,
     /// MCP tools/call 的请求上下文（TS `mcpRequestMeta`，不含逐次调用的 span_id；docs/specs/rust-browser-use.md 第 1 期）。
@@ -31,8 +30,6 @@ pub(super) struct TurnFacts {
     pub session_start: Option<&'static str>,
     /// LLM Wiki 端口（docs/llm-wiki）：Engine 组合时注入，缺席即本 runtime 不提供 Wiki。
     pub wiki: Option<std::sync::Arc<dyn crate::contract::WikiPort>>,
-    /// 本轮用户输入的 sourceCommandId（ReplyToChannel 的 inputId；TS 取 assistant 父 user 消息的输入身份）。
-    pub source_command_id: Option<String>,
 }
 
 pub(super) struct RunContext {

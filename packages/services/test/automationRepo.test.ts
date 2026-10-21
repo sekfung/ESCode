@@ -237,46 +237,6 @@ describe("AutomationRepo 调度状态机", () => {
     await expect(repo.get(created.automationId)).resolves.toBeDefined();
   });
 
-  it("Bot 创建来源只在内部读取接口持久化，不泄露到 automation 展示模型", async () => {
-    const botDeliveryTarget = {
-      provider: "feishu" as const,
-      botId: "bot-feishu",
-      providerUserId: "chat-1",
-      chatType: "group" as const,
-    };
-    const created = await repo.create(makeParams({ botDeliveryTarget }), {
-      nextRunAt: NOW + MINUTE,
-    });
-
-    await expect(
-      repo.getBotDeliveryTarget(created.automationId, created.workspaceKey),
-    ).resolves.toEqual(botDeliveryTarget);
-    expect(await repo.get(created.automationId)).not.toHaveProperty("botDeliveryTarget");
-    repo.close();
-    repo = new AutomationRepo(dbPath);
-    await expect(
-      repo.getBotDeliveryTarget(created.automationId, created.workspaceKey),
-    ).resolves.toEqual(botDeliveryTarget);
-    await expect(
-      repo.getBotDeliveryTarget(created.automationId, "other-workspace"),
-    ).resolves.toBeUndefined();
-  });
-
-  it("Bot 回推目标脏数据按未配置处理，不能拖垮定时任务列表", async () => {
-    const created = await repo.create(makeParams(), { nextRunAt: NOW + MINUTE });
-    repo.close();
-    const db = new DatabaseSync(dbPath);
-    db.prepare("UPDATE automations SET bot_delivery_target = ? WHERE automation_id = ?").run(
-      '{"provider":"telegram"}',
-      created.automationId,
-    );
-    db.close();
-    repo = new AutomationRepo(dbPath);
-
-    await expect(repo.getBotDeliveryTarget(created.automationId)).resolves.toBeUndefined();
-    await expect(repo.list()).resolves.toHaveLength(1);
-  });
-
   it("读取历史空白或未知 mode 时按未设置归一化，避免单条脏数据拖垮整批协议校验", async () => {
     const blankMode = await repo.create(makeParams({ title: "blank mode" }), {
       nextRunAt: NOW + MINUTE,

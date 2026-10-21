@@ -10,7 +10,6 @@ import {
   VSBuffer,
   SocketProtocol,
   ChannelServer,
-  ChannelClient,
   LoggingChannelServer,
   type ISocket,
 } from "@escode/rpc";
@@ -19,10 +18,9 @@ import {
   IESCodeAgentService,
   ServiceCollection,
 } from "@escode/services";
-import { createServiceLogger, type TopicResourcePeers } from "@escode/services/node";
+import { createServiceLogger } from "@escode/services/node";
 import {
   SERVER_REMOTE_PROTOCOL_VERSION,
-  TOPIC_RESOURCE_RELAY_CHANNEL,
   ESCODE_RPC_HOST_CAPABILITY_HEADER,
   ESCODE_VERSION,
   type ServerRemoteInfo,
@@ -91,20 +89,14 @@ function exposeWebSocket(
   ws: WebSocket,
   services: ServiceCollection,
   clientMode: "desktop-continuous" | "web-remote-replayable",
-  resourcePeers?: TopicResourcePeers,
 ): void {
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
   const rawServer = new ChannelServer(protocol, "server");
   const server = new LoggingChannelServer(rawServer, (...args) => log.debug(undefined, ...args));
   const agentService = services.getOptional(IESCodeAgentService);
-  const reverseClient =
-    clientMode === "desktop-continuous" && resourcePeers ? new ChannelClient(protocol) : undefined;
-  const peer = reverseClient
-    ? resourcePeers?.attach(reverseClient.getChannel(TOPIC_RESOURCE_RELAY_CHANNEL))
-    : undefined;
   const scope = agentService
-    ? createESCodeAgentConnectionScope(peer ? peer.wrapAgent(agentService) : agentService, {
+    ? createESCodeAgentConnectionScope(agentService, {
         connectionId: `server-core-ws-${randomUUID()}`,
         clientMode,
         role: clientMode === "desktop-continuous" ? "trusted-host-relay" : "terminal-client",
@@ -115,8 +107,6 @@ function exposeWebSocket(
     scope ? new Map([[IESCodeAgentService.channelName, scope.service]]) : new Map(),
   );
   socket.onClose(() => {
-    peer?.dispose();
-    reverseClient?.dispose();
     void scope?.dispose();
     rawServer.dispose();
   });
@@ -129,7 +119,6 @@ export async function createCoreHttpServer(
     port?: number;
     serverId?: string;
     hostCapabilityStore?: HostCapabilityStore;
-    topicResourcePeers?: TopicResourcePeers;
   } = {},
 ): Promise<CoreHttpServer> {
   const app = new Hono();
@@ -176,12 +165,7 @@ export async function createCoreHttpServer(
     "/ws/host",
     upgradeWebSocket(() => ({
       onOpen(_event, socket) {
-        exposeWebSocket(
-          socket.raw as WebSocket,
-          services,
-          "desktop-continuous",
-          options.topicResourcePeers,
-        );
+        exposeWebSocket(socket.raw as WebSocket, services, "desktop-continuous");
       },
     })),
   );

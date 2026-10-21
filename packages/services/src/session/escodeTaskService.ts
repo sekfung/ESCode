@@ -36,7 +36,6 @@ import type {
   ESCodePermissionResponse,
   ModelSelection,
   ESCodeBackgroundTurnAttribution,
-  ESCodeAutomationBotDeliveryTarget,
 } from "@escode/shared";
 import type {
   SessionMessageDeliveryResult,
@@ -239,68 +238,10 @@ export interface IESCodeTaskService {
      * 让输入 admission 在写 session_input 外键账本前先统一持久化 session 主记录。
      */
     deferPersistenceUntilFirstPrompt?: boolean;
-    /** Bot/host 使用 v4 原生 createSession 建立 draft，再配置并发送。 */
+    /** host 使用 v4 原生 createSession 建立 draft，再配置并发送。 */
     v4Create?: boolean;
     permissionScope?: "session";
   }): Promise<ESCodeTaskCreateResult>;
-
-  readBotTopicSummaries?(params: {
-    taskId: string;
-    workspacePath: string;
-    workspaceIdentity?: string;
-    remoteSessionId?: string;
-  }): Promise<Array<{ checkpoint: string; text: string }>>;
-
-  invalidateBotTopicInputs?(params: {
-    taskId: string;
-    workspacePath: string;
-    workspaceIdentity?: string;
-    remoteSessionId?: string;
-  }): Promise<void>;
-  readBotTopicExecution?(params: {
-    taskId: string;
-    workspacePath: string;
-    workspaceIdentity?: string;
-    remoteSessionId?: string;
-  }): Promise<{ executionId: string; sourceCommandId?: string } | undefined>;
-  stopBotTopicExecution?(params: {
-    taskId: string;
-    workspacePath: string;
-    workspaceIdentity?: string;
-    remoteSessionId?: string;
-    executionId: string;
-  }): Promise<void>;
-
-  /** 从 CLI 权威快照读取群任务切换的阻塞原因；空闲时返回 null。 */
-  getBotGroupTaskBlockReason?(params: {
-    taskId: string;
-    remoteSessionId?: string;
-    workspacePath: string;
-    workspaceIdentity?: string;
-  }): Promise<"running" | "queued" | "interaction" | null>;
-  cancelBotGroupInput?(params: {
-    workspacePath?: string;
-    workspaceIdentity?: string;
-    taskId: string;
-    remoteSessionId?: string;
-    commandId: string;
-    sourceCommandId: string;
-    actorId: string;
-    ownerId: string;
-    botId: string;
-    chatId: string;
-  }): Promise<import("@escode/shared/escode-protocol-v4").CommandAck>;
-  submitBotGroupInput?(params: {
-    workspacePath?: string;
-    workspaceIdentity?: string;
-    taskId: string;
-    remoteSessionId?: string;
-    commandId: string;
-    content: string;
-    conversationQuotes?: import("@escode/shared").ConversationSelectionText[];
-    attachments?: ESCodePromptAttachment[];
-    source: import("@escode/shared").BotGroupInputSource;
-  }): Promise<import("@escode/shared/escode-protocol-v4").CommandAck>;
 
   /** 发送 prompt 到指定 task */
   sendPrompt(
@@ -317,8 +258,6 @@ export interface IESCodeTaskService {
       clientMode?: ESCodeTaskClientMode;
       /** 当前 turn 额外隐藏的工具；与 session/automation 自带的工具隔离规则合并。 */
       toolDenylist?: string[];
-      /** Bot 来源 turn 的稳定回推地址；由 BotsService 注入，模型不可控。 */
-      botDeliveryTarget?: ESCodeAutomationBotDeliveryTarget;
       /** 标准模型选择；闲时任务同样经 Registry / ModelFactory 创建 Model。 */
       modelSelection?: CommandPayloadMap["sendText"]["modelSelection"];
       /** 单次执行约束与动态鉴权；仅 idle start-now 接受，不进入普通队列。 */
@@ -824,20 +763,8 @@ export interface IESCodeTaskService {
     workspaceIdentity?: string;
     taskId: string;
     clientId?: string;
-    deliveryKind?: "continuous" | "bot-channel-continuous" | "replayable" | "mixed";
+    deliveryKind?: "continuous" | "replayable" | "mixed";
   }): Event<ESCodeStreamEvent>;
-
-  /**
-   * 订阅指定 task 的 V4 conversation 帧（docs/specs/bots-v4-stream.md）：独立的 desktop-continuous、
-   * background 订阅，首帧 snapshot、之后 deltas；gap 时实现方重订阅并以新 snapshot 续上。
-   * Bots 回复流的唯一数据源，不替代 Renderer 自己的 V4 订阅。
-   */
-  onDynamicConversationFrames(params: {
-    workspacePath: string;
-    workspaceIdentity?: string;
-    remoteSessionId?: string;
-    taskId: string;
-  }): Event<ConversationTopicFrame>;
 
   /**
    * 订阅 workspace 级别的异步通知（如预热阶段 Agent 推送的 slash commands、configOptions）。

@@ -1,17 +1,9 @@
 import { WebSocket, type RawData } from "ws";
 import { connectViaProtocol } from "@escode/client";
-import {
-  Emitter,
-  SocketProtocol,
-  VSBuffer,
-  ChannelServer,
-  type IServerChannel,
-  type ISocket,
-} from "@escode/rpc";
+import { Emitter, SocketProtocol, VSBuffer, type ISocket } from "@escode/rpc";
 import type { IServiceAccessor } from "@escode/services";
 import {
   ESCODE_RPC_HOST_CAPABILITY_HEADER,
-  TOPIC_RESOURCE_RELAY_CHANNEL,
   serverRemoteHostCapabilitySchema,
   serverRemoteInfoSchema,
   type ServerConnectOptions,
@@ -32,7 +24,6 @@ export interface ServerRemoteConnection {
 }
 
 export interface ServerRemoteConnectionOptions {
-  topicResourceChannel?: IServerChannel;
   fetchImpl?: typeof fetch;
   onClose?: (event: { code: number; reason: string }) => void;
 }
@@ -238,12 +229,6 @@ function connectNodeWebSocket(
       settled = true;
       const rpcSocket = wrapNodeWebSocket(socket, options.onClose);
       const protocol = new SocketProtocol(rpcSocket);
-      const reverseServer = options.topicResourceChannel
-        ? new ChannelServer(protocol, "desktop-resource")
-        : undefined;
-      if (reverseServer && options.topicResourceChannel)
-        reverseServer.registerChannel(TOPIC_RESOURCE_RELAY_CHANNEL, options.topicResourceChannel);
-      rpcSocket.onClose(() => reverseServer?.dispose());
       resolve({
         socket,
         services: connectViaProtocol(protocol),
