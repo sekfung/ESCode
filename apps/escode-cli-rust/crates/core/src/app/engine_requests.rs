@@ -252,6 +252,20 @@ impl Engine {
             "session/close" => self.legacy_close(&request.params).await,
             "provider/updateAccountConfig" => self.update_account(&request.params).await,
             "workspace/hooks/trustGrant" => self.workspace_hook_trust_grant(&request.params).await,
+            // MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。workspace 校验与其它
+            // workspace 级方法一致；失败作为本请求的 RPC 错误返回，不结束 serve 循环。
+            "mcp/readResource"
+            | "mcp/uiOpenInstance"
+            | "mcp/uiValidateInstance"
+            | "mcp/uiCloseInstance"
+            | "mcp/uiReadResource"
+            | "mcp/uiListResources"
+            | "mcp/uiListResourceTemplates"
+            | "mcp/uiCallTool"
+            | "mcp/uiCancelCall" => match self.validate_workspace(&request.params) {
+                Ok(()) => self.tools.mcp_ui(&request.method, &request.params).await,
+                Err(error) => Err(error),
+            },
             _ => self.query(&request.method, &request.params),
         };
         let storage_failed = result

@@ -30,6 +30,24 @@ impl ToolPort for WorkspaceTools {
         self.workflow_host.attach_host(host.clone());
         self.mcp.attach_host(host);
     }
+    /// MCP Apps：实例/资源/页面调用的运行时入口（docs/specs/rust-mcp-ui.md）。
+    async fn mcp_ui(&self, method: &str, params: &Value) -> Result<Value> {
+        let cancel = CancellationToken::new();
+        match method {
+            "mcp/uiOpenInstance" => self.mcp.ui_open(params).await,
+            "mcp/uiValidateInstance" => self.mcp.ui_validate(params).await,
+            "mcp/uiCloseInstance" => self.mcp.ui_close(params).await,
+            "mcp/readResource" => self.mcp.ui_read_host_resource(params, &cancel).await,
+            "mcp/uiReadResource" => self.mcp.ui_read_page_resource(params, &cancel).await,
+            "mcp/uiListResources" => self.mcp.ui_list_resources(params, false, &cancel).await,
+            "mcp/uiListResourceTemplates" => {
+                self.mcp.ui_list_resources(params, true, &cancel).await
+            }
+            "mcp/uiCallTool" => self.mcp.ui_call_tool(params, &cancel).await,
+            "mcp/uiCancelCall" => self.mcp.ui_cancel_call(params).await,
+            other => anyhow::bail!("Unsupported method: {other}"),
+        }
+    }
     async fn run_hook(&self, session: &str, input: Value, call_id: Option<&str>) -> Option<Value> {
         self.run_hook_inner(session, input, call_id).await
     }

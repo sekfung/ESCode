@@ -37,11 +37,15 @@ pub(super) struct Connection {
     pub peer: Peer<RoleClient>,
     pub tools: Vec<Value>,
     pub modern: bool,
+    /// 进程内单调代际：MCP App 实例凭证绑定它，重连即换代（docs/specs/rust-mcp-ui.md §2）。
+    pub generation: u64,
     timeout: Duration,
     service: Mutex<Option<Service>>,
     child: Mutex<Option<(Child, u32)>>,
     raw: super::mcp_raw_capture::Responses,
 }
+
+static NEXT_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 impl Connection {
     pub async fn open(
         config: &Server,
@@ -242,6 +246,7 @@ impl Connection {
             peer: service.peer().clone(),
             tools: vec![],
             modern,
+            generation: NEXT_GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             timeout: config.timeout,
             service: Mutex::new(Some(service)),
             child: Mutex::new(owned),
@@ -321,6 +326,28 @@ impl Connection {
             self.close().await?;
         }
         Ok(serde_json::to_string(&result?)?)
+    }
+    /// MCP Apps 只读资源面（docs/specs/rust-mcp-ui.md §4 P0）：分页游标透传，结果原样交给调用方投影。
+    pub async fn read_resource(&self, uri: &str, cancel: &CancellationToken) -> Result<Value> {
+        self.request("resources/read", json!({"uri":uri}), cancel)
+            .await
+    }
+    pub async fn list_resources(
+        &self,
+        cursor: Option<&str>,
+        cancel: &CancellationToken,
+    ) -> Result<Value> {
+        let params = cursor.map_or_else(|| json!({}), |cursor| json!({"cursor":cursor}));
+        self.request("resources/list", params, cancel).await
+    }
+    pub async fn list_resource_templates(
+        &self,
+        cursor: Option<&str>,
+        cancel: &CancellationToken,
+    ) -> Result<Value> {
+        let params = cursor.map_or_else(|| json!({}), |cursor| json!({"cursor":cursor}));
+        self.request("resources/templates/list", params, cancel)
+            .await
     }
     pub async fn call(
         &self,

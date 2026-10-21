@@ -24,6 +24,8 @@ struct State {
     bindings: BTreeMap<String, Vec<Binding>>,
     statuses: BTreeMap<String, Value>,
     auth: BTreeMap<String, Arc<oauth::Task>>,
+    /// 会话 → server → 连接来源，MCP App 实例凭证按它换代（docs/specs/rust-mcp-ui.md §2）。
+    sources: BTreeMap<String, BTreeMap<String, crate::mcp_ui::Source>>,
 }
 pub(super) struct Hub {
     cwd: PathBuf,
@@ -38,6 +40,8 @@ pub(super) struct Hub {
     /// 串口 broker（首次出现 serial 配置时启动，docs/specs/serial-agent-tools.md）。
     serial: std::sync::OnceLock<Option<Arc<super::host_broker::HostBroker>>>,
     state: Arc<RwLock<State>>,
+    /// MCP Apps 的实例凭证与页面调用登记（live-only）。
+    ui: std::sync::Mutex<crate::mcp_ui::McpUi>,
     gate: tokio::sync::Mutex<()>,
     stop: CancellationToken,
 }
@@ -62,6 +66,7 @@ impl Hub {
             broker: Default::default(),
             serial: Default::default(),
             state: Default::default(),
+            ui: Default::default(),
             gate: Default::default(),
             stop: CancellationToken::new(),
         }
@@ -76,6 +81,12 @@ impl Hub {
         self.state
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+    /// 连接消失/禁用后同一 server 的旧来源不再可信。
+    fn remove_source(&self, session: &str, server: &str) {
+        if let Some(sources) = self.state_mut().sources.get_mut(session) {
+            sources.remove(server);
+        }
     }
     pub fn configure(&self, session: &str, servers: &Value) -> Result<()> {
         mcp_config::explicit(servers, &self.cwd)?;
@@ -206,6 +217,7 @@ impl Hub {
         while let Some((server, key, result)) = futures.next().await {
             match result {
                 Ok(None) => {
+                    self.remove_source(session, &server.name);
                     statuses.insert(
                         server.name.clone(),
                         mcp_config::status(&server, "disabled", 0, None),
@@ -216,8 +228,17 @@ impl Hub {
                     match discovered {
                         Ok(entries) => {
                             let status = oauth::connected(&server, &connection, entries.len());
-                            statuses.insert(server.name, status);
+                            statuses.insert(server.name.clone(), status);
+                            let source = crate::mcp_ui::Source {
+                                identity: key.clone(),
+                                generation: connection.generation,
+                            };
                             let old = self.state_mut().connections.insert(key, connection.clone());
+                            self.state_mut()
+                                .sources
+                                .entry(session.to_owned())
+                                .or_default()
+                                .insert(server.name.clone(), source);
                             if let Some(old) = old
                                 && !Arc::ptr_eq(&old, &connection)
                                 && let Err(error) = old.close().await
@@ -230,6 +251,7 @@ impl Hub {
                             if let Err(error) = connection.close().await {
                                 cleanup_failure = Some(error);
                             }
+                            self.remove_source(session, &server.name);
                             statuses.insert(
                                 server.name.clone(),
                                 mcp_config::status(&server, "failed", 0, Some("tool_list_failed")),
@@ -238,6 +260,7 @@ impl Hub {
                     }
                 }
                 Err(error) => {
+                    self.remove_source(session, &server.name);
                     if error.is::<ProcessCleanupFailure>() {
                         cleanup_failure = Some(error);
                         continue;
@@ -335,9 +358,15 @@ impl Hub {
             let mut state = self.state_mut();
             state.bindings.remove(session);
             state.borrowed.remove(session);
+            state.sources.remove(session);
             if forget {
                 state.overrides.remove(session);
             }
+        }
+        {
+            let mut ui = self.ui();
+            ui.instances.close_session(session);
+            ui.calls.abort_session(session);
         }
         self.prune().await
     }
@@ -359,6 +388,10 @@ impl Hub {
                 .filter(|k| !used.contains(*k))
                 .cloned()
                 .collect::<Vec<_>>();
+            // 连接被回收后同一 server 的旧来源不再可信（MCP App 凭证据此换代）。
+            for sources in state.sources.values_mut() {
+                sources.retain(|_, source| !keys.contains(&source.identity));
+            }
             keys.into_iter()
                 .filter_map(|k| state.connections.remove(&k))
                 .collect::<Vec<_>>()
@@ -375,7 +408,9 @@ impl Hub {
             let mut state = self.state_mut();
             state.bindings.clear();
             state.overrides.clear();
+            state.sources.clear();
         }
+        *self.ui() = Default::default();
         self.prune().await
     }
 }
@@ -387,3 +422,5 @@ mod browser;
 mod host_tools;
 #[path = "mcp_hub_oauth.rs"]
 mod oauth;
+#[path = "mcp_hub_ui.rs"]
+mod ui;

@@ -32,6 +32,10 @@ pub trait ToolPort: Send + Sync {
     }
     /// Engine 启动时交给工具层的 Host 通道（`HOST_CHANNEL`）；默认不使用。
     fn attach_host(&self, _host: EventSink) {}
+    /// MCP Apps（docs/specs/rust-mcp-ui.md）：实例、资源与页面调用。默认不可用。
+    async fn mcp_ui(&self, _method: &str, _params: &Value) -> Result<Value> {
+        anyhow::bail!("MCP Apps unavailable")
+    }
     async fn file_changes(
         &self,
         _changes: &[escode_cli_domain::file_checkpoint::FileCheckpoint],

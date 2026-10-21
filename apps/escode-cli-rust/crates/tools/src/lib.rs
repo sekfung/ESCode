@@ -53,6 +53,7 @@ mod mcp_rea;
 mod mcp_request_meta;
 mod mcp_serial;
 mod mcp_sse;
+mod mcp_ui;
 mod model_admission;
 mod official_plugins;
 mod official_plugins_cache;
