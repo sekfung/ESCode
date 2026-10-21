@@ -321,7 +321,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-agent", "updatePluginMarketplace"),
     ("escode-agent", "validatePlugin"),
     ("gen-ui", "prepareSandbox"),
-    ("plugin-ui-bridge", "validateInstance"), ("plugin-ui-bridge", "recycleInstance"), ("plugin-ui-bridge", "closeInstance"), ("plugin-ui-bridge", "readResource"),
+    ("plugin-ui-bridge", "prepareSandbox"), ("plugin-ui-bridge", "validateInstance"), ("plugin-ui-bridge", "recycleInstance"), ("plugin-ui-bridge", "closeInstance"), ("plugin-ui-bridge", "readResource"),
     ("plugin-ui-bridge", "callTool"), ("plugin-ui-bridge", "cancelToolCall"), ("plugin-ui-bridge", "listResources"), ("plugin-ui-bridge", "listResourceTemplates"),
     ("usage-stats", "getAppUsageSnapshot"),
     ("plugins", "getOverview"),
