@@ -1,7 +1,7 @@
 //! Engine 的协议请求分派（一个方法名对应一个处理函数；状态在 engine.rs）。
 use super::engine::Engine;
 use crate::{
-    contract::{Output, StorageCommitFailure},
+    contract::{Output, RpcFailure, StorageCommitFailure},
     domain::protocol::{Request, rpc_error},
 };
 use anyhow::Result;
@@ -31,8 +31,12 @@ impl Engine {
                 .validate_workspace(&request.params)
                 .and_then(|()| self.start_mcp_sampling(&request));
             if let Err(error) = started {
+                let (code, message) = match error.downcast_ref::<RpcFailure>() {
+                    Some(failure) => (failure.code, failure.message.clone()),
+                    None => (-32602, error.to_string()),
+                };
                 output
-                    .send(vec![rpc_error(&request.id, -32602, &error.to_string())])
+                    .send(vec![rpc_error(&request.id, code, &message)])
                     .await?;
             }
             return Ok(());

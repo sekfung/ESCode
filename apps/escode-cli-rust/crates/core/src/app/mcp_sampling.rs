@@ -6,13 +6,13 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::Engine;
-use crate::contract::{Event, EventSink, ModelIdentity, ModelPort};
+use crate::contract::{Event, EventSink, ModelIdentity, ModelPort, RpcFailure};
 use crate::domain::protocol::{Request, rpc_error};
 
 pub(super) const TIMEOUT: Duration = Duration::from_secs(60);
@@ -37,16 +37,20 @@ impl Calls {
     pub(super) fn begin(&mut self, scope: &Scope, operation: &str) -> Result<CancellationToken> {
         let ledger = self.ledgers.entry(scope.token.clone()).or_default();
         if ledger.len() >= MAX_OPERATIONS {
-            bail!("Sampling operation limit reached; reopen the App");
+            return Err(RpcFailure::new(
+                -32000,
+                "Sampling operation limit reached; reopen the App",
+            )
+            .into());
         }
         if ledger.contains_key(operation) {
-            bail!("Duplicate sampling operationId");
+            return Err(RpcFailure::new(-32602, "Duplicate sampling operationId").into());
         }
         if self.active >= MAX_PER_AGENT
             || self.sessions.get(&scope.session).copied().unwrap_or(0) >= MAX_PER_SESSION
             || ledger.values().any(Option::is_some)
         {
-            bail!("Sampling busy");
+            return Err(RpcFailure::new(-32000, "Sampling busy").into());
         }
         let cancel = CancellationToken::new();
         ledger.insert(operation.to_owned(), Some(cancel.clone()));
@@ -104,15 +108,22 @@ impl Engine {
             .filter(|value| !value.is_empty())
             .context("operationId is required")?
             .to_owned();
-        ensure!(
-            !self
-                .auxiliary
-                .values()
-                .any(|job| job.operation.as_deref() == Some(operation.as_str())),
-            "Duplicate operation id"
-        );
-        ensure!(self.auxiliary.len() < 16, "Too many workspace requests");
-        let instance = self.tools.mcp_ui_begin(params)?;
+        if self
+            .auxiliary
+            .values()
+            .any(|job| job.operation.as_deref() == Some(operation.as_str()))
+        {
+            return Err(RpcFailure::new(-32602, "Duplicate operation id").into());
+        }
+        if self.auxiliary.len() >= 16 {
+            return Err(RpcFailure::new(-32000, "Too many workspace requests").into());
+        }
+        let instance = self.tools.mcp_ui_begin(params).map_err(|error| {
+            RpcFailure::new(
+                -32000,
+                format!("MCP App instance is no longer authorized: {error}"),
+            )
+        })?;
         let cancel = match self.sampling.begin(&scope, &operation) {
             Ok(cancel) => cancel,
             Err(error) => {
@@ -145,15 +156,14 @@ impl Engine {
         };
         let (model, config) = (self.model.clone(), self.config.clone());
         let sampling_request = params["request"].clone();
+        let work_cancel = cancel;
         self.spawner.spawn("mcp-sampling", async move {
-            let result = tokio::select! {biased;
-                _=instance.cancelled()=>Err((-32000, "MCP App instance is no longer authorized".to_owned())),
-                result=tokio::time::timeout(TIMEOUT, run_sampling(&model, &config, &sampling_request, &cancel))=>match result {
-                    Ok(Ok(value))=>Ok(value),
-                    Ok(Err(error))=>Err((-32000, error.to_string())),
-                    Err(_)=>Err((-32000, "Sampling timed out".to_owned())),
-                },
-            };
+            let result = sampling_outcome(instance, TIMEOUT, async move {
+                run_sampling(&model, &config, &sampling_request, &work_cancel)
+                    .await
+                    .map_err(|error| error.to_string())
+            })
+            .await;
             let _ = sink.send(Event::McpSamplingDone { result }).await;
         });
         Ok(())
@@ -220,6 +230,25 @@ fn sampling_scope(params: &Value) -> Result<Scope> {
         token: token.to_owned(),
         session: session.to_owned(),
     })
+}
+
+/// 采样作业的终态：实例关闭优先于超时，超时优先于模型错误。
+pub(super) async fn sampling_outcome<F>(
+    instance: CancellationToken,
+    timeout: Duration,
+    work: F,
+) -> std::result::Result<Value, (i64, String)>
+where
+    F: std::future::Future<Output = std::result::Result<Value, String>>,
+{
+    tokio::select! {biased;
+        _=instance.cancelled()=>Err((-32000, "MCP App instance is no longer authorized".to_owned())),
+        result=tokio::time::timeout(timeout, work)=>match result {
+            Ok(Ok(value))=>Ok(value),
+            Ok(Err(message))=>Err((-32000, message)),
+            Err(_)=>Err((-32000, "Sampling timed out".to_owned())),
+        },
+    }
 }
 
 async fn run_sampling(
@@ -322,74 +351,5 @@ fn assistant_text(message: &Value) -> Result<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn scope(token: &str, session: &str) -> Scope {
-        Scope {
-            token: token.into(),
-            session: session.into(),
-        }
-    }
-
-    #[test]
-    fn sampling_ledger_rejects_duplicates_and_busy_instances() {
-        let mut calls = Calls::default();
-        let scope = scope("token", "session");
-        let cancel = calls.begin(&scope, "op-1").expect("first");
-        assert!(
-            calls.begin(&scope, "op-1").is_err(),
-            "重复 operationId 必须拒绝"
-        );
-        assert!(
-            calls.begin(&scope, "op-2").is_err(),
-            "同实例同时只允许 1 个操作"
-        );
-        calls.finish(&scope, "op-1");
-        assert!(!cancel.is_cancelled());
-        assert!(
-            calls.begin(&scope, "op-1").is_err(),
-            "终态 operationId 不可重放"
-        );
-        assert!(calls.begin(&scope, "op-2").is_ok());
-    }
-
-    #[test]
-    fn cancel_before_sample_leaves_a_terminal_entry() {
-        let mut calls = Calls::default();
-        let scope = scope("token", "session");
-        assert!(!calls.cancel(&scope, "op-1"));
-        assert!(
-            calls.begin(&scope, "op-1").is_err(),
-            "取消先到时旧 operationId 不执行"
-        );
-        assert!(calls.begin(&scope, "op-2").is_ok());
-        assert!(calls.cancel(&scope, "op-2"));
-        assert!(!calls.cancel(&scope, "op-2"), "取消幂等");
-    }
-
-    #[test]
-    fn cancel_an_active_operation_cancels_its_token() {
-        let mut calls = Calls::default();
-        let scope = scope("token", "session");
-        let token = calls.begin(&scope, "op").expect("begin");
-        assert!(calls.cancel(&scope, "op"));
-        assert!(token.is_cancelled(), "在飞采样必须收到取消");
-        calls.finish(&scope, "op");
-    }
-
-    #[test]
-    fn session_limit_is_enforced() {
-        let mut calls = Calls::default();
-        for index in 0..MAX_PER_SESSION {
-            let scoped = scope(&format!("token-{index}"), "session");
-            calls.begin(&scoped, "op").expect("within limit");
-        }
-        assert!(
-            calls.begin(&scope("token-extra", "session"), "op").is_err(),
-            "同一会话超过并发上限必须拒绝"
-        );
-        let other = scope("token-other", "other-session");
-        assert!(calls.begin(&other, "op").is_ok());
-    }
-}
+#[path = "mcp_sampling_tests.rs"]
+mod tests;

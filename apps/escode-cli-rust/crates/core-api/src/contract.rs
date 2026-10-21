@@ -12,7 +12,9 @@ pub use super::contract_model::{ModelPort, ModelRegistry, RewindTransaction};
 pub use super::contract_store::{DurableCommitReceipt, SessionStore};
 
 pub use super::contract_types::{ChildHandle, ModelIdentity, Output};
-pub use crate::failures::{ProcessCleanupFailure, StorageCommitFailure, ToolHandlerFailure};
+pub use crate::failures::{
+    ProcessCleanupFailure, RpcFailure, StorageCommitFailure, ToolHandlerFailure,
+};
 
 pub use crate::contract_events::{
     Event, EventSink, HOST_CHANNEL, HostReply, Input, McpClientEvent, McpClientEventSink,
