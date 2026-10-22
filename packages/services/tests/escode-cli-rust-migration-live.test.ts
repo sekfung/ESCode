@@ -9,6 +9,8 @@ import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { DatabaseSync } from "node:sqlite";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+// 该用例串行启动真实 Node runtime 再导入，Windows runner 冷启动可能超过默认 8s。
+process.env.ESCODE_TEST_WAIT_MS ??= "30000";
 
 // docs/specs/rust-release-rollback.md「数据迁移」：用真实 Node runtime 写出的 TS 数据做导入验收，
 // 而不是手写 fixture——这是「真实用户数据」之外能拿到的最接近的口径。
