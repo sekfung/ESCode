@@ -162,9 +162,20 @@ test("Bash and MCP stdio children see the same sanitized environment as Node", a
     token(rust).map((t) => t.value),
     [null, null],
   );
+  // 已知差异：Node app-server 的 tool 子进程仍能看到入口清洗前快照里的 OTEL/device
+  // （入口随后才 sanitize process.env）；Rust 按 shared 清洗清单直接剔除。
   assert.deepEqual(
-    token(rust).map((t) => t.rest),
-    token(node).map((t) => t.rest),
+    rust.map((entry) => [entry.OTEL_SERVICE_NAME, entry.ESCODE_TELEMETRY_DEVICE_MID]),
+    [
+      [null, null],
+      [null, null],
+    ],
+  );
+  const withoutTelemetryEnv = (seen: any[]) =>
+    seen.map(({ OTEL_SERVICE_NAME: _otel, ESCODE_TELEMETRY_DEVICE_MID: _device, ...rest }) => rest);
+  assert.deepEqual(
+    token(rust).map((t) => withoutTelemetryEnv([t.rest])[0]),
+    token(node).map((t) => withoutTelemetryEnv([t.rest])[0]),
   );
 });
 
